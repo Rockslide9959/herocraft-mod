@@ -14,7 +14,6 @@ import net.minecraft.world.item.ItemStack;
  *
  * @param id                 stable id, also the lang key suffix
  * @param inputs             required input stacks (item + count); matched against the 9 input slots
- * @param energyCost         Stark-energy consumed on completion
  * @param timeTicks          fabrication time (spec section 11: higher tier = longer)
  * @param result             the produced stack
  * @param requiredTechLevel  minimum {@link com.projecthero.mod.ironman.TonyStark} tech level; also the
@@ -25,7 +24,6 @@ import net.minecraft.world.item.ItemStack;
 public record FabricationRecipe(
 		String id,
 		List<Input> inputs,
-		int energyCost,
 		int timeTicks,
 		ItemStack result,
 		int requiredTechLevel,
@@ -34,13 +32,13 @@ public record FabricationRecipe(
 	public record Input(Item item, int count) {
 	}
 
-	public static FabricationRecipe of(String id, ItemStack result, int energyCost, int timeTicks,
+	public static FabricationRecipe of(String id, ItemStack result, int timeTicks,
 			int requiredTechLevel, Input... inputs) {
-		return new FabricationRecipe(id, List.of(inputs), energyCost, timeTicks, result, requiredTechLevel, null);
+		return new FabricationRecipe(id, List.of(inputs), timeTicks, result, requiredTechLevel, null);
 	}
 
 	public FabricationRecipe developing(String suitId) {
-		return new FabricationRecipe(id, inputs, energyCost, timeTicks, result, requiredTechLevel, suitId);
+		return new FabricationRecipe(id, inputs, timeTicks, result, requiredTechLevel, suitId);
 	}
 
 	public static Input in(Item item, int count) {

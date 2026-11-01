@@ -2,7 +2,6 @@ package com.projecthero.mod.ironman.fabricator;
 
 import com.projecthero.mod.ironman.IronManBlocks;
 import com.projecthero.mod.ironman.TonyStark;
-import com.projecthero.mod.ironman.item.IronManItems;
 
 import com.mojang.serialization.MapCodec;
 
@@ -19,7 +18,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -51,9 +49,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * The Stark Workbench (v0.16.7 (user): the Stark Fabricator rebuilt as a two-block holographic desk; the block id stays
  * {@code stark_fabricator} so worlds convert by themselves). Right-click:
  * <ul>
- *   <li>with a {@code reactor_core} or {@code arc_reactor} in hand and the Tony Stark power: inject Stark energy into the
- *       buffer, consume the item, play a charge cue -- explicit, never a surprise consumption;</li>
- *   <li>empty-handed with the Tony Stark power: open the Workbench screen;</li>
+ *   <li>with the Tony Stark power (whatever is in hand -- v0.17.2: the Workbench has no charge to top up): open the
+ *       Workbench screen;</li>
  *   <li>without the Tony Stark power: "You don't understand Stark technology." -- the interface never opens, and
  *       {@link StarkFabricatorMenu#stillValid} would refuse it even if it did.</li>
  * </ul>
@@ -94,8 +91,6 @@ public class StarkFabricatorBlock extends BaseEntityBlock {
 			new double[] {4.5, 8, 1.5, 11.5, 11, 14.5},
 			new double[] {4.5, 14, 4.5, 11.5, 15.5, 11.5});
 
-	private static final int ARC_REACTOR_ENERGY = 25_000;
-	private static final int REACTOR_CORE_ENERGY = 8_000;
 
 	public StarkFabricatorBlock(Properties properties) {
 		super(properties);
@@ -292,36 +287,6 @@ public class StarkFabricatorBlock extends BaseEntityBlock {
 	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
 		return level.isClientSide() || state.getValue(PART) == WorkbenchPart.SIDE ? null
 				: createTickerHelper(type, IronManBlocks.STARK_FABRICATOR_BE, StarkFabricatorBlockEntity::serverTick);
-	}
-
-	@Override
-	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-			Player player, InteractionHand hand, BlockHitResult hit) {
-		int energy = stack.is(IronManItems.ARC_REACTOR) ? ARC_REACTOR_ENERGY
-				: stack.is(IronManItems.REACTOR_CORE) ? REACTOR_CORE_ENERGY : -1;
-		if (energy < 0) {
-			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-		}
-		if (!TonyStark.hasPower(player)) {
-			deny(player);
-			return ItemInteractionResult.SUCCESS;
-		}
-		if (level.isClientSide()) {
-			return ItemInteractionResult.SUCCESS;
-		}
-		StarkFabricatorBlockEntity be = blockEntity(level, pos); // either half: the side half forwards to the main half
-		if (be == null || be.isFull()) {
-			player.displayClientMessage(Component.translatable("message.projecthero.stark_fabricator.energy_full"), true);
-			return ItemInteractionResult.SUCCESS;
-		}
-		be.addEnergy(energy);
-		if (!player.getAbilities().instabuild) {
-			stack.shrink(1);
-		}
-		((ServerLevel) level).playSound(null, be.getBlockPos(), SoundEvents.CONDUIT_ACTIVATE, SoundSource.BLOCKS, 0.8f, 1.4f);
-		player.displayClientMessage(Component.translatable("message.projecthero.stark_fabricator.energy_added",
-				be.energy(), FabricatorRecipes.MAX_ENERGY).withStyle(ChatFormatting.AQUA), true);
-		return ItemInteractionResult.sidedSuccess(false);
 	}
 
 	@Override

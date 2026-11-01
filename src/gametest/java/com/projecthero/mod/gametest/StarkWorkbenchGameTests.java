@@ -40,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.16.7 (user): the Stark Workbench -- the two-block desk (placement claims the block to the placer's right and is
  * refused when that is blocked; breaking either half removes both and drops ONE item plus the contents; the side half
- * forwards the menu and the energy items to the main half), old one-block Fabricators (load as SINGLE, still work, claim
+ * forwards the menu to the main half), old one-block Fabricators (load as SINGLE, still work, claim
  * the side half once it is air, never replace anything), and crafting through the new menu (the Build button loads the
  * blueprint + components from the inventory, the unchanged machine logic fabricates the piece).
  */
@@ -162,7 +162,7 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void theSideHalfForwardsTheMenuAndEnergy(GameTestHelper helper) {
+	public void theSideHalfForwardsTheMenu(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = player(helper, 180f);
 		BlockPos rel = new BlockPos(2, 1, 2);
@@ -178,12 +178,13 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		helper.assertTrue(p.containerMenu.getSlot(0).container == be, "the menu drives the main half's block entity");
 		helper.assertTrue(p.containerMenu.stillValid(p), "the menu stays valid (the main half is the menu's block)");
 		p.closeContainer();
-		int before = be.energy();
+		// v0.17.2 (user): no charge to top up -- a Reactor Core in hand is not used up, the click just opens the screen
 		ItemStack core = new ItemStack(IronManItems.REACTOR_CORE);
 		p.setItemInHand(InteractionHand.MAIN_HAND, core);
-		side.useItemOn(core, helper.getLevel(), p, InteractionHand.MAIN_HAND,
+		var result = side.useItemOn(core, helper.getLevel(), p, InteractionHand.MAIN_HAND,
 				new BlockHitResult(Vec3.atCenterOf(sideAbs), Direction.UP, sideAbs, false));
-		helper.assertTrue(be.energy() > before, "a Reactor Core used on the side half charges the main half");
+		helper.assertTrue(result == net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION && core.getCount() == 1,
+				"a Reactor Core is no longer inserted as energy, got " + result);
 		helper.succeed();
 	}
 
@@ -200,7 +201,7 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		BlockState side = helper.getBlockState(rel.west()); // north-facing: the right-hand side is west
 		helper.assertTrue(side.is(IronManBlocks.STARK_FABRICATOR) && side.getValue(StarkFabricatorBlock.PART) == WorkbenchPart.SIDE,
 				"and grows its side half to the west, got " + side);
-		helper.assertTrue(helper.getBlockEntity(rel) == be, "the same block entity (inventory, energy) is kept");
+		helper.assertTrue(helper.getBlockEntity(rel) == be, "the same block entity (inventory, job) is kept");
 		helper.succeed();
 	}
 
@@ -214,11 +215,11 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		tony.moveTo(abs.getX() + 0.5, abs.getY(), abs.getZ() - 1.5);
 		TonyStark.grant(tony);
 		var be = (StarkFabricatorBlockEntity) helper.getBlockEntity(rel);
-		be.addEnergy(FabricatorRecipes.MAX_ENERGY);
 		be.setItem(0, new ItemStack(Items.GOLD_INGOT, 3));
 		be.setItem(1, new ItemStack(Items.IRON_INGOT, 3));
 		be.setItem(2, new ItemStack(IronManItems.METAL_PLATING, 1));
 		FabricationRecipe alloy = FabricatorRecipes.byId("titanium_gold_alloy");
+		helper.assertTrue(be.tryStart(tony) == null, "Fabricate starts the alloy");
 		for (int t = 0; t < alloy.timeTicks() + 2; t++) {
 			StarkFabricatorBlockEntity.serverTick(helper.getLevel(), abs, helper.getLevel().getBlockState(abs), be);
 		}
@@ -247,7 +248,7 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void theBuildButtonLoadsThePieceAndTheMachineFabricatesIt(GameTestHelper helper) {
+	public void theFabricateButtonLoadsThePieceAndFabricatesIt(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer tony = player(helper, 180f);
 		BlockPos rel = new BlockPos(2, 1, 2);
@@ -269,7 +270,6 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 			TonyStark.markBuilt(tony, IronManSuits.byId(prereq));
 		}
 		var be = (StarkFabricatorBlockEntity) helper.getBlockEntity(rel);
-		be.addEnergy(FabricatorRecipes.MAX_ENERGY);
 		FabricationRecipe recipe = StarkWorkbench.recipe(suitId, 1);
 		tony.getInventory().clearContent();
 		tony.getInventory().add(new ItemStack(IronManItems.BLANK_BLUEPRINT)); // Build stamps it (the suit is unlocked)
@@ -279,7 +279,8 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		StarkFabricatorMenu menu = (StarkFabricatorMenu) be.createMenu(7, tony.getInventory(), tony);
 		tony.containerMenu = menu;
 		int index = IronManItems.MARK_ORDER.indexOf(suitId);
-		helper.assertTrue(menu.clickMenuButton(tony, StarkWorkbench.buildButtonId(index, 1)), "the Build button is handled");
+		helper.assertTrue(menu.clickMenuButton(tony, StarkWorkbench.buildButtonId(index, 1)), "the Fabricate button is handled");
+		helper.assertTrue(be.running(), "and it started the job");
 		helper.assertTrue(be.getItem(StarkFabricatorBlockEntity.BLUEPRINT_SLOT).is(IronManItems.blueprintFor(suitId)),
 				"Build stamped the Blank Blueprint and loaded it");
 		helper.assertTrue(be.selectedPiece() == 1, "the helmet is the job");
@@ -361,7 +362,6 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		TonyStark.markBuilt(tony, IronManSuits.byId(IronManItems.prerequisiteSuit(suitId)));
 		helper.assertTrue(StarkWorkbench.status(StarkWorkbench.state(tony), suitId) == StarkWorkbench.Status.BUILDABLE, "now buildable");
 		var be = (StarkFabricatorBlockEntity) helper.getBlockEntity(rel);
-		be.addEnergy(FabricatorRecipes.MAX_ENERGY);
 		FabricationRecipe recipe = StarkWorkbench.recipe(suitId, 1);
 		tony.getInventory().clearContent();
 		tony.getInventory().add(new ItemStack(IronManItems.BLANK_BLUEPRINT));

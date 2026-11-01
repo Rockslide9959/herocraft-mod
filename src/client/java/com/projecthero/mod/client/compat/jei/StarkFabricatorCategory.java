@@ -79,10 +79,8 @@ final class StarkFabricatorCategory implements IRecipeCategory<FabricationRecipe
 	public void draw(FabricationRecipe recipe, IRecipeSlotsView slots, GuiGraphics g, double mouseX, double mouseY) {
 		arrow.draw(g, 63, 19);
 		var font = Minecraft.getInstance().font;
-		String energy = String.format(Locale.ROOT, "%,d", recipe.energyCost());
-		g.drawString(font, Component.translatable("jei.projecthero.stark_fabricator.energy", energy), 0, 58, 0xFF404040, false);
 		g.drawString(font, Component.translatable("jei.projecthero.stark_fabricator.time",
-				String.format(Locale.ROOT, "%.1f", recipe.timeTicks() / 20f)), 76, 58, 0xFF404040, false);
+				String.format(Locale.ROOT, "%.1f", recipe.timeTicks() / 20f)), 0, 58, 0xFF404040, false);
 		if (recipe.requiredTechLevel() > 0) {
 			g.drawString(font, Component.translatable("jei.projecthero.stark_fabricator.tech", recipe.requiredTechLevel()), 0, 68, 0xFF8A2020, false);
 		}

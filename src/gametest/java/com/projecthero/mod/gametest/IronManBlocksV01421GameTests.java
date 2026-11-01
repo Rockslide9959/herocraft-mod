@@ -115,10 +115,10 @@ public class IronManBlocksV01421GameTests implements FabricGameTest {
 		tony.moveTo(abs.getX() + 0.5, abs.getY(), abs.getZ() - 1.5);
 		TonyStark.grant(tony);
 		var be = (StarkFabricatorBlockEntity) helper.getBlockEntity(rel);
-		be.addEnergy(FabricatorRecipes.MAX_ENERGY);
 		be.setItem(0, new ItemStack(Items.GOLD_INGOT, 3));
 		be.setItem(1, new ItemStack(Items.IRON_INGOT, 3));
 		be.setItem(2, new ItemStack(IronManItems.METAL_PLATING, 1));
+		helper.assertTrue(be.tryStart(tony) == null, "v0.17.2: Fabricate starts the alloy");
 		StarkFabricatorBlockEntity.serverTick(helper.getLevel(), abs, be.getBlockState(), be);
 		helper.assertTrue(helper.getLevel().getBlockState(abs).getValue(StarkFabricatorBlock.WORKING),
 				"fabricating (alloy recipe in the tray, Tony Stark at the bench) must set working=true");

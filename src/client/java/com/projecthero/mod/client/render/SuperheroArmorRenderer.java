@@ -97,6 +97,15 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			return;
 		}
+		// v0.17.2 (user): a piece on the Stark Workbench being fabricated -- its faces fly in plate by plate (per quad, in
+		// createVerticesOfQuad); only the bone name is noted here
+		if (com.projecthero.mod.client.render.workbench.WorkbenchBuildFx.active()
+				&& animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem && !(getCurrentEntity() instanceof Player)) {
+			com.projecthero.mod.client.render.workbench.WorkbenchBuildFx.bone = name;
+			super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
+					packedLight, packedOverlay, colour);
+			return;
+		}
 		// v0.15.9 Sentry Mode: the standing suit opens up at the back. v0.15.15 (user): only the BACK opens -- every bone
 		// with geometry (bar the faceplate) keeps its front half whole and its back half swings open as two panels hinged
 		// at the sides, like doors (IronManSentryClient#openDeg / #doorClip)
@@ -365,6 +374,16 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	public void createVerticesOfQuad(software.bernie.geckolib.cache.object.GeoQuad quad, org.joml.Matrix4f poseState,
 			org.joml.Vector3f normal, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
 		if (skipNorthFaces && quad.direction() == net.minecraft.core.Direction.NORTH) {
+			return;
+		}
+		if (com.projecthero.mod.client.render.workbench.WorkbenchBuildFx.active() && !(getCurrentEntity() instanceof Player)
+				&& getAnimatable() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
+			org.joml.Matrix4f m = com.projecthero.mod.client.render.workbench.WorkbenchBuildFx.quad(quad, poseState, colour,
+					com.projecthero.mod.client.ironman.IronManAssemblyClient.glowPass);
+			if (m != null) {
+				super.createVerticesOfQuad(quad, m, normal, buffer, packedLight, packedOverlay,
+						com.projecthero.mod.client.render.workbench.WorkbenchBuildFx.colour);
+			}
 			return;
 		}
 		super.createVerticesOfQuad(quad, poseState, normal, buffer, packedLight, packedOverlay, colour);

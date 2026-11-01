@@ -1,0 +1,269 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.ironman.IronManBlocks;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.fabricator.FabricationRecipe;
+import com.projecthero.mod.ironman.fabricator.StarkFabricatorBlock;
+import com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity;
+import com.projecthero.mod.ironman.fabricator.StarkWorkbench;
+import com.projecthero.mod.ironman.fabricator.WorkbenchPart;
+import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.ironman.suit.IronManSuits;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.2 Stark Workbench fabricate screenshots. Enabled by run/workbench.flag. */
+// TEMP-HARNESS
+public final class WorkbenchHarness {
+	private static final String SUIT = "mark_iii";
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static BlockPos desk;
+
+	private WorkbenchHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("workbench.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WorkbenchHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "workbench-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "v0172_workbench_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(1280, 720);
+				mc.execute(WorkbenchHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(14000L); // dusk-dark, so the hologram reads
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("WB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static StarkFabricatorBlockEntity be(ServerPlayer p) {
+		return (StarkFabricatorBlockEntity) p.serverLevel().getBlockEntity(desk);
+	}
+
+	private static void giveInputs(ServerPlayer p, int piece) {
+		for (FabricationRecipe.Input in : StarkWorkbench.recipe(SUIT, piece).inputs()) {
+			p.getInventory().add(new ItemStack(in.item(), in.count()));
+		}
+	}
+
+	private static Vec3 centre(ServerPlayer p) {
+		return StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(desk), desk);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			BlockPos o = BlockPos.containing(origin);
+			for (int x = -6; x <= 6; x++) {
+				for (int z = -8; z <= 6; z++) {
+					l.setBlock(o.offset(x, -1, z), Blocks.POLISHED_DEEPSLATE.defaultBlockState(), 3);
+				}
+			}
+			for (int x = -6; x <= 6; x++) {
+				for (int y = 0; y <= 4; y++) {
+					l.setBlock(o.offset(x, y, -6), Blocks.GRAY_CONCRETE.defaultBlockState(), 3);
+				}
+			}
+			desk = o.offset(0, 0, -4);
+			BlockState main = IronManBlocks.STARK_FABRICATOR.defaultBlockState().setValue(StarkFabricatorBlock.FACING, Direction.SOUTH)
+					.setValue(StarkFabricatorBlock.PART, WorkbenchPart.MAIN);
+			l.setBlock(desk, main, 3);
+			l.setBlock(desk.relative(StarkFabricatorBlock.sideDirection(Direction.SOUTH)),
+					main.setValue(StarkFabricatorBlock.PART, WorkbenchPart.SIDE), 3);
+			TonyStark.grant(p);
+			String pre = IronManItems.prerequisiteSuit(SUIT);
+			if (pre != null) {
+				TonyStark.markBuilt(p, IronManSuits.byId(pre));
+			}
+			p.getInventory().clearContent();
+			p.getInventory().add(new ItemStack(IronManItems.BLANK_BLUEPRINT));
+			Vec3 c = centre(p);
+			camera(p, c.add(0.35, 0.95, 1.75), c.add(0, 0.5, 0));
+		}));
+		t += 40;
+		// ---- the screen first: the greyed button (nothing loaded yet: the browsed piece is missing its parts)
+		at(t, () -> {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				StarkWorkbench.build(p, be(p), SUIT, 1); // loads the blueprint; no parts yet -> nothing moves
+				p.openMenu(be(p));
+			});
+		});
+		shot(t + 25, "screen_greyed_missing");
+		at(t + 30, () -> server(mc, p -> {
+			p.closeContainer();
+			giveInputs(p, 1);
+			StarkWorkbench.build(p, be(p), SUIT, 1); // loads the parts, does not start
+			p.openMenu(be(p));
+		}));
+		shot(t + 55, "screen_ready");
+		at(t + 60, () -> server(mc, p -> StarkWorkbench.start(p, be(p))));
+		shot(t + 60 + 60, "screen_fabricating_helmet_40");
+		shot(t + 60 + 115, "screen_fabricating_helmet_75");
+		at(t + 60 + 160, () -> server(mc, p -> {
+			p.closeContainer();
+			be(p).setItem(StarkFabricatorBlockEntity.OUTPUT_SLOT, ItemStack.EMPTY);
+		}));
+		t += 60 + 175;
+		at(t, () -> mc.options.hideGui = true);
+		// ---- the in-world builds, one piece at a time
+		for (int piece = 1; piece <= 4; piece++) {
+			final int pc = piece;
+			String name = new String[] { "helmet", "chestplate", "leggings", "boots" }[piece - 1];
+			int max = StarkWorkbench.recipe(SUIT, piece).timeTicks();
+			at(t, () -> server(mc, p -> {
+				giveInputs(p, pc);
+				StarkWorkbench.fabricate(p, be(p), SUIT, pc);
+				Vec3 c = centre(p);
+				camera(p, c.add(0.45, 0.85, 1.55), c.add(0, 0.47, 0));
+			}));
+			shot(t + Math.round(max * 0.12f), "world_" + name + "_12");
+			shot(t + Math.round(max * 0.35f), "world_" + name + "_35");
+			shot(t + Math.round(max * 0.6f), "world_" + name + "_60");
+			shot(t + Math.round(max * 0.8f), "world_" + name + "_80");
+			shot(t + Math.round(max * 0.9f), "world_" + name + "_90");
+			shot(t + max + 5, "world_" + name + "_finish");
+			at(t + max + 25, () -> server(mc, p -> be(p).setItem(StarkFabricatorBlockEntity.OUTPUT_SLOT, ItemStack.EMPTY)));
+			t += max + 30;
+		}
+		// the idle blueprint view of a piece not built yet (the next suit's helmet is locked, so show the chestplate ghost of
+		// a fresh selection: pick the leggings of the loaded suit -- built, so it shows solid)
+		at(t, () -> server(mc, p -> be(p).setSelectedPiece(3)));
+		shot(t + 20, "world_idle_built_piece");
+		at(t + 30, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
