@@ -1135,6 +1135,27 @@ public final class ModAttachments {
 			ProjectHeroMod.id("hulkbuster_inner_suit"),
 			builder -> builder.persistent(net.minecraft.nbt.CompoundTag.CODEC).copyOnDeath());
 
+	/**
+	 * v0.17.2 Stands: a player's Stand (Star Platinum first). Persistent, kept through death, and synced ONLY to the
+	 * player and to other Stand users ({@code Stands.SYNC_PREDICATE}) -- the user's rule: non-Stand users must not see,
+	 * hear or perceive a Stand, so their clients never receive it. {@code Stands.resyncAll} re-sends every Stand user's
+	 * copy when someone new awakens a Stand.
+	 */
+	public static final AttachmentType<com.projecthero.mod.stand.data.StandState> STAND_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("stand_state"),
+					builder -> builder.persistent(com.projecthero.mod.stand.data.StandState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.stand.data.StandState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.stand.data.StandState.CODEC),
+									com.projecthero.mod.stand.Stands.SYNC_PREDICATE));
+
+	/** v0.17.2 Stands: the pose a Stand user's own body strikes (N) -- visible to everyone. Not persistent. */
+	public static final AttachmentType<com.projecthero.mod.stand.data.StandPoseState> STAND_POSE =
+			AttachmentRegistry.create(ProjectHeroMod.id("stand_pose"),
+					builder -> builder.initializer(() -> com.projecthero.mod.stand.data.StandPoseState.NONE)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.stand.data.StandPoseState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

@@ -366,6 +366,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.17.2: a Stand user's N pose (pointing, yare yare, hands in pockets, the JoJo pose) -- the user's body, seen by all. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$standUserPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.stand.StarPlatinumPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.5: Cyborg's poses (the cannon arm, burst, punch, grapple, dash, hover, override, scan, Boom Tube). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$cyborgPose(LivingEntity entity, float limbSwing, float limbSwingAmount,

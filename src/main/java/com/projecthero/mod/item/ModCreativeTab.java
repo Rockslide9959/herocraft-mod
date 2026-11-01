@@ -109,6 +109,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.nova.item.NovaItems.addToCreativeTab(output);
 				// v0.16.5 Ghost Rider: Mephisto's Contract
 				com.projecthero.mod.ghostrider.item.GhostRiderItems.addToCreativeTab(output);
+				// v0.17.2 Stands: the Stand Arrow
+				com.projecthero.mod.stand.item.StandItems.addToCreativeTab(output);
 				// v0.16.5 Blue Beetle: the Scarab
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
 				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit

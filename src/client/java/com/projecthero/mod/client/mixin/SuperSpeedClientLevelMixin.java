@@ -26,6 +26,17 @@ import net.minecraft.world.phys.Vec3;
 public abstract class SuperSpeedClientLevelMixin {
 	@Inject(method = "tickNonPassenger", at = @At("HEAD"), cancellable = true)
 	private void projecthero$timeSlow(Entity entity, CallbackInfo ci) {
+		// v0.17.2 Star Platinum: The World -- frozen entities skip the client tick and hold their last pose exactly
+		if (com.projecthero.mod.client.stand.TimeStopClient.frozen(entity)) {
+			entity.setOldPosAndRot();
+			if (entity instanceof LivingEntity living) {
+				living.yBodyRotO = living.yBodyRot;
+				living.yHeadRotO = living.yHeadRot;
+				((SuperSpeedWalkAnimationAccessor) living.walkAnimation).projecthero$setSpeedOld(living.walkAnimation.speed());
+			}
+			ci.cancel();
+			return;
+		}
 		if (SuperSpeedClientV0145.glideClientTick(entity)) {
 			ci.cancel();
 			return;

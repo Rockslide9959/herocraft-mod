@@ -4,6 +4,11 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"BossHealthOverlayAccessor",
+		"StandTimeStopRenderMixin",
+		"StandTimeStopParticleMixin",
+		"StandTimeStopInputMixin",
+		"StandMinecraftMixin",
+		"StandSightFovMixin",
 		"OmnitrixInputMixin",
 		"OmnitrixRenderDispatcherAccessor",
 		"OmnitrixScrollMixin",

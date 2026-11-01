@@ -409,6 +409,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.ghostrider.GhostRider.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.ghostRiderChapter();
 		}
+		if (com.projecthero.mod.stand.Stands.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.standChapter(); // v0.17.2
+		}
 		if (com.projecthero.mod.silversurfer.SilverSurfer.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.silverSurferChapter(); // v0.17.1
 		}
