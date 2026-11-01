@@ -570,37 +570,234 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 revamp: R is the Four-Fist Flurry -- four punches (2 each) and an uppercut (4): 12 in all. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void fourArmsMovesHitAndCoolDown(GameTestHelper helper) {
+	public void fourArmsFlurryLandsFourPunchesAndAnUppercut(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 4.0, 60f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 25f); // facing +Z, looking down at it
 		helper.assertTrue(AlienKit.lookTarget(p, FourArmsKit.REACH) == z, "the zombie is in reach");
-		helper.assertTrue(kit.haymaker(p), "Haymaker");
-		helper.assertTrue(Math.abs(z.getHealth() - (60f - FourArmsKit.HAYMAKER_DAMAGE)) < 0.05f, "12 damage");
-		helper.assertFalse(kit.haymaker(p), "then cools down");
-		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.5, 180f, 0f);
-		z.invulnerableTime = 0;
-		p.setOnGround(true);
-		float before = z.getHealth();
-		helper.assertTrue(kit.groundPound(p), "Ground Pound");
-		helper.assertTrue(z.getHealth() < before, "the ring of force hit");
-		helper.assertFalse(kit.groundPound(p), "it cools down");
-		// grab and throw
-		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
+		helper.assertTrue(kit.flurry(p), "Four-Fist Flurry");
+		helper.assertTrue(Math.abs(z.getHealth() - (60f - FourArmsKit.FLURRY_PUNCH_DAMAGE)) < 0.05f, "the first fist lands at once: " + z.getHealth());
+		helper.assertFalse(kit.flurry(p), "then it cools down");
+		pump(helper, p);
+		helper.runAfterDelay(18, () -> {
+			float total = 4 * FourArmsKit.FLURRY_PUNCH_DAMAGE + FourArmsKit.UPPERCUT_DAMAGE;
+			helper.assertTrue(Math.abs(z.getHealth() - (60f - total)) < 0.05f, "four punches and the uppercut: 12 in all, " + z.getHealth());
+			helper.assertTrue(kit.timer(p, "flurry_start") == 0, "the flurry is over");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 revamp: Shift+R Hammer Smash -- the crack runs along the ground and launches a zombie 5 blocks ahead (14). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fourArmsHammerSmashCracksALine(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 6.5, 60f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(kit.hammerSmash(p), "Hammer Smash");
+		helper.assertFalse(kit.hammerSmash(p), "it cools down");
+		pump(helper, p);
+		helper.runAfterDelay(18, () -> {
+			helper.assertTrue(Math.abs(z.getHealth() - (60f - FourArmsKit.HAMMER_DAMAGE)) < 0.05f, "the crack reached it once: " + z.getHealth());
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 revamp: G grabs, G again throws; Shift+G while holding is the Giant Swing, which batters a bystander then flings. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void fourArmsGrabThrowAndGiantSwing(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 60f);
 		helper.assertTrue(kit.grab(p, z) && Omnitrix.state(p).heldEntity == z.getId(), "grabbed");
 		helper.assertTrue(kit.throwHeld(p) && Omnitrix.state(p).heldEntity == 0, "thrown");
 		helper.assertTrue(kit.cooldownLeft(p, FourArmsKit.THROW) > 0, "the throw cools down");
-		// Iron Stance: 70% less
-		helper.assertTrue(kit.ironStance(p), "Iron Stance");
+		helper.assertFalse(kit.giantSwing(p), "no swing with empty hands");
+		Zombie bystander = zombie(helper, 3.5, 2, 4.1, 60f);
+		pump(helper, p);
+		helper.runAfterDelay(25, () -> {
+			z.moveTo(p.getX() + 1, p.getY(), p.getZ(), 0f, 0f);
+			helper.assertTrue(kit.grab(p, z), "grabbed again");
+			helper.assertTrue(kit.giantSwing(p) && kit.flag(p, FourArmsKit.F_SWINGING), "Giant Swing");
+			helper.assertFalse(kit.throwHeld(p), "no plain throw mid-swing");
+			helper.runAfterDelay(FourArmsKit.SWING_TICKS + 3, () -> {
+				helper.assertTrue(bystander.getHealth() <= 60f - FourArmsKit.SWING_HIT_DAMAGE + 0.05f, "the swung zombie battered the bystander: " + bystander.getHealth());
+				helper.assertFalse(kit.flag(p, FourArmsKit.F_SWINGING), "the swing ended");
+				helper.assertTrue(Omnitrix.state(p).heldEntity == 0, "in a fling");
+				helper.assertTrue(kit.cooldownLeft(p, FourArmsKit.SWING) > 0, "the swing cools down");
+				z.discard();
+				bystander.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.17.2 revamp: Shift+C Bear Hug -- six squeezes (2 each) over 3 s, then the slam (8): 20; the hugged cannot hurt him. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void fourArmsBearHugCrushesThenSlams(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 60f);
+		helper.assertTrue(kit.bearHug(p, z) && kit.flag(p, FourArmsKit.F_HUGGING) && kit.hugged(p) == z, "Bear Hug");
+		helper.assertFalse(kit.bearHug(p, z), "one hug at a time");
 		float hp = p.getHealth();
 		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().magic(), 10f);
-		helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * FourArmsKit.STANCE_FACTOR) < 0.05f, "the stance takes 70% off");
-		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1.0e-6, "and no knockback");
+		p.hurt(helper.getLevel().damageSources().mobAttack(z), 5f);
+		helper.assertTrue(Math.abs(p.getHealth() - hp) < 0.01f, "the hugged cannot hurt him");
+		pump(helper, p);
+		helper.runAfterDelay(FourArmsKit.HUG_TICKS + 3, () -> {
+			float total = 6 * FourArmsKit.HUG_SQUEEZE_DAMAGE + FourArmsKit.HUG_SLAM_DAMAGE;
+			helper.assertTrue(Math.abs(z.getHealth() - (60f - total)) < 0.05f, "crushed and slammed: 20, " + z.getHealth());
+			helper.assertFalse(kit.flag(p, FourArmsKit.F_HUGGING), "let go after the slam");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 revamp: Shift+V Four-Arm Guard -- a blow from in front is blocked, one from behind is not; an arrow is swatted back. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fourArmsGuardBlocksTheFrontAndSwatsArrows(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie front = zombie(helper, 3.5, 2, 4.0, 20f);
+		Zombie back = zombie(helper, 3.5, 2, 0.2, 20f);
+		helper.assertTrue(kit.guard(p) && kit.flag(p, FourArmsKit.F_GUARD), "Four-Arm Guard");
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(front), 5f);
+		helper.assertTrue(Math.abs(p.getHealth() - hp) < 0.01f, "a blow from in front is blocked");
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(back), 5f);
+		helper.assertTrue(p.getHealth() < hp - 0.01f, "one from behind lands");
+		net.minecraft.world.entity.projectile.Arrow arrow = EntityType.ARROW.create(helper.getLevel());
+		arrow.setPos(p.getX(), p.getY() + 1.6, p.getZ() + 2.6);
+		arrow.setOwner(front);
+		arrow.setDeltaMovement(0, 0, -0.4);
+		helper.getLevel().addFreshEntity(arrow);
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1.0e-6, "no knockback while guarding");
+			helper.assertTrue(arrow.getOwner() == p && arrow.getDeltaMovement().z > 0, "the arrow is swatted back: " + arrow.getDeltaMovement());
+			arrow.discard();
+			front.discard();
+			back.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 revamp: C Rampage -- +4 punch, no knockback, quakes; turning back clears it all. Small mobs never knock him back. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fourArmsRampageAndSmallMobsCannotShiftHim(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 60f);
+		helper.assertTrue(FourArmsKit.smallMob(z), "a zombie is a small mob");
+		helper.assertFalse(FourArmsKit.smallMob(EntityType.IRON_GOLEM.create(helper.getLevel())), "an iron golem is not");
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(z), 2f);
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1.0e-6, "the zombie's blow cannot shift him");
+		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(kit.rampage(p) && kit.flag(p, FourArmsKit.F_RAMPAGE), "Rampage");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + FourArmsKit.RAMPAGE_BONUS)) < 1.0e-4, "punches hit 4 harder");
+		helper.assertFalse(kit.onAttack(p, z), "the punch goes through (and quakes)");
+		helper.assertTrue(kit.punchIndex(p) == 1, "the next punch is the next fist");
+		kit.onAttack(p, z);
+		kit.onAttack(p, z);
+		helper.assertTrue(kit.punchIndex(p) == 3, "the 4th punch is the hammer");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertFalse(kit.flag(p, FourArmsKit.F_RAMPAGE), "turning back ends the Rampage");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1.0e-4, "and its punch bonus");
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) < 1.0 - 1.0e-6, "and the no-knockback");
 		z.discard();
 		helper.succeed();
+	}
+
+	/** v0.17.2 revamp: Z Thunder Clap -- 17, stunned and dizzy, glass in the cone shatters and fire in it goes out. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fourArmsThunderClapStunsShattersAndDouses(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie z = zombie(helper, 3.5, 2, 4.0, 60f);
+		BlockPos glass = helper.absolutePos(new BlockPos(3, 3, 6));
+		BlockPos fire = helper.absolutePos(new BlockPos(2, 2, 7));
+		helper.getLevel().setBlock(glass, Blocks.GLASS.defaultBlockState(), 3);
+		helper.getLevel().setBlock(fire, Blocks.FIRE.defaultBlockState(), 3);
+		helper.assertTrue(helper.getLevel().getBlockState(fire).is(Blocks.FIRE), "a fire is lit");
+		helper.assertTrue(kit.clap(p), "Thunder Clap");
+		helper.assertTrue(Math.abs(z.getHealth() - (60f - FourArmsKit.CLAP_DAMAGE)) < 0.05f, "17 damage: " + z.getHealth());
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN) && z.hasEffect(net.minecraft.world.effect.MobEffects.CONFUSION),
+				"stunned and dizzy");
+		helper.assertTrue(helper.getLevel().getBlockState(glass).isAir(), "the glass shattered");
+		helper.assertFalse(helper.getLevel().getBlockState(fire).is(Blocks.FIRE), "the fire went out");
+		helper.assertFalse(kit.clap(p), "it cools down");
+		z.discard();
+		helper.succeed();
+	}
+
+	/** v0.17.2 revamp: Shift+Z Meteor Slam -- up into the sky first, and the quake scales with the fall (18 + 0.4 a block, 30 at most). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fourArmsMeteorSlamRisesAndScalesWithTheFall(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(0) - 18f) < 1e-4 && Math.abs(FourArmsKit.meteorDamage(10) - 22f) < 1e-4, "18 + 0.4 a block");
+		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(80) - FourArmsKit.METEOR_MAX_DAMAGE) < 1e-4, "30 at most");
+		p.setOnGround(true);
+		helper.assertTrue(kit.meteorSlam(p), "Meteor Slam");
+		helper.assertTrue(kit.flag(p, FourArmsKit.F_LEAPING) && kit.timer(p, "meteor_rise") > 0, "he rises first");
+		helper.assertTrue(p.getDeltaMovement().y >= FourArmsKit.METEOR_RISE - 1e-3, "sky-high");
+		helper.assertFalse(kit.meteorSlam(p), "the ultimate cools down");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertFalse(kit.flag(p, FourArmsKit.F_LEAPING) || kit.timer(p, "meteor_rise") > 0, "turning back clears it");
+		helper.succeed();
+	}
+
+	/** v0.17.2 revamp: Shift+X Tetramand Charge bursts glass but not stone; Shift+G Boulder Rip tears the ground up and hurls it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fourArmsChargeBurstsGlassAndBoulderRip(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		var l = helper.getLevel();
+		helper.assertTrue(FourArmsKit.weakBlock(l, BlockPos.ZERO, Blocks.OAK_LEAVES.defaultBlockState()) && FourArmsKit.weakBlock(l, BlockPos.ZERO, Blocks.GLASS_PANE.defaultBlockState()),
+				"leaves and panes are weak");
+		helper.assertFalse(FourArmsKit.weakBlock(l, BlockPos.ZERO, Blocks.STONE.defaultBlockState()), "stone is not");
+		BlockPos glassLow = helper.absolutePos(new BlockPos(3, 2, 3));
+		BlockPos glassHigh = helper.absolutePos(new BlockPos(3, 3, 3));
+		BlockPos stone = helper.absolutePos(new BlockPos(4, 2, 3));
+		l.setBlock(glassLow, Blocks.GLASS.defaultBlockState(), 3);
+		l.setBlock(glassHigh, Blocks.GLASS.defaultBlockState(), 3);
+		l.setBlock(stone, Blocks.STONE.defaultBlockState(), 3);
+		helper.assertTrue(kit.charge(p) && kit.flag(p, FourArmsKit.F_CHARGING), "Tetramand Charge");
+		pump(helper, p);
+		helper.runAfterDelay(FourArmsKit.CHARGE_TICKS + 3, () -> {
+			helper.assertTrue(l.getBlockState(glassLow).isAir() && l.getBlockState(glassHigh).isAir(), "the glass burst");
+			helper.assertTrue(l.getBlockState(stone).is(Blocks.STONE), "the stone held");
+			helper.assertFalse(kit.flag(p, FourArmsKit.F_CHARGING), "the charge ended");
+			l.setBlock(stone, Blocks.AIR.defaultBlockState(), 3);
+			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+			BlockPos front = BlockPos.containing(p.getX(), p.getY() - 0.5, p.getZ() + 1.2);
+			helper.assertTrue(l.getBlockState(front).is(Blocks.STONE), "stone floor in front");
+			helper.assertTrue(kit.boulderRip(p), "Boulder Rip");
+			helper.assertTrue(l.getBlockState(front).isAir(), "the ground in front was torn up");
+			helper.assertFalse(l.getEntitiesOfClass(com.projecthero.mod.spider.entity.ThrownBlockEntity.class, p.getBoundingBox().inflate(5)).isEmpty(), "and hurled");
+			helper.assertFalse(kit.boulderRip(p), "it cools down");
+			helper.succeed();
+		});
 	}
 }
