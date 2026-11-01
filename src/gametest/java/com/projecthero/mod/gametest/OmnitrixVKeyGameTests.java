@@ -320,25 +320,38 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void diamondheadCRegrowthHealsAndHalvesDamage(GameTestHelper helper) {
-		// v0.17.2: Regrowth is on C now (V raises the Crystal Wall / Shift+V the Dome)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void diamondheadCPrisonAndShiftCPrismBeam(GameTestHelper helper) {
+		// v0.17.2 (user: "Remove crystal regrowth ... and crystal armour ... and replace it with 2 other moves")
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) >= 20.0, "diamond-level armour");
+		p.setYRot(0f);
+		p.setXRot(0f);
+		helper.assertFalse(kit.crystalPrison(p), "nothing to seal: refused");
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PRISON) == 0, "and no cooldown");
+		Zombie z = zombie(helper, 3.5, 2, 5.5);
+		z.setHealth(z.getMaxHealth());
 		kit.press(p, AbilitySlot.SLOT_6, false);
-		helper.assertFalse(kit.flag(p, DiamondheadKit.F_REGROW), "refused at full health");
-		p.setHealth(p.getMaxHealth() - 12f);
-		float before = p.getHealth();
-		kit.press(p, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(kit.flag(p, DiamondheadKit.F_REGROW), "C: Crystal Regrowth");
-		helper.assertTrue(Math.abs(kit.incomingDamage(p, p.damageSources().generic(), 10f) - 10f * DiamondheadKit.REGROW_FACTOR) < 0.01f,
-				"half damage while he regrows");
+		helper.assertTrue(DiamondheadKit.imprisoned(z), "C: the Crystal Prison holds it");
+		helper.assertTrue(helper.getLevel().getBlockState(z.blockPosition().above(2)).is(com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks.CRYSTAL), "sealed in a crystal shell");
+		float hp = z.getHealth();
 		pump(helper, p);
-		helper.runAfterDelay(DiamondheadKit.REGROW_TICKS + 4, () -> {
-			helper.assertTrue(p.getHealth() >= before + 8.9f, "about 9 health back: " + (p.getHealth() - before));
-			helper.assertFalse(kit.flag(p, DiamondheadKit.F_REGROW), "and it ends");
-			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.REGROW) > 0, "it cools down");
+		helper.runAfterDelay(DiamondheadKit.PRISON_TICKS + 4, () -> {
+			helper.assertFalse(DiamondheadKit.imprisoned(z), "the prison ends");
+			helper.assertTrue(z.getHealth() <= hp - DiamondheadKit.PRISON_DAMAGE + 0.5f || !z.isAlive(), "and shatters for 14: " + (hp - z.getHealth()));
+			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PRISON) > 0, "it cools down");
+			// Shift+C: the beam straight through it
+			z.setHealth(z.getMaxHealth());
+			z.invulnerableTime = 0;
+			p.setYRot(0f);
+			p.setXRot(0f);
+			float before = z.getHealth();
+			helper.assertTrue(kit.prismBeam(p) >= 1, "Shift+C: the Prism Beam hits it");
+			helper.assertTrue(z.getHealth() <= before - DiamondheadKit.BEAM_DAMAGE + 0.5f || !z.isAlive(), "for 12 or more: " + (before - z.getHealth()));
+			helper.assertTrue(kit.prismBeam(p) == -1, "and cools down");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			z.discard();
 			helper.succeed();
 		});
 	}

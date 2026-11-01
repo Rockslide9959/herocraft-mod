@@ -368,10 +368,10 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_WALL -> WALL;
 			case DiamondheadKit.ANIM_DOME -> DOME;
 			case DiamondheadKit.ANIM_BARRAGE -> BARRAGE;
-			case DiamondheadKit.ANIM_ARMOUR -> ARMOUR;
+			case DiamondheadKit.ANIM_PRISON -> ARMOUR;
 			case DiamondheadKit.ANIM_SLASH -> SLASH;
 			case DiamondheadKit.ANIM_PLACE -> PLACE;
-			case DiamondheadKit.ANIM_REGROW -> REGROW;
+			case DiamondheadKit.ANIM_BEAM -> SPEAR;
 			case DiamondheadKit.ANIM_ERUPT -> ERUPT;
 			default -> null;
 		};
@@ -401,8 +401,8 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_SLIDE -> FP_SURF;
 			case DiamondheadKit.ANIM_SLASH -> FP_SLASH;
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
-			case DiamondheadKit.ANIM_ARMOUR -> FP_FLEX;
-			case DiamondheadKit.ANIM_REGROW -> FP_REGROW;
+			case DiamondheadKit.ANIM_PRISON -> FP_FLEX;
+			case DiamondheadKit.ANIM_BEAM -> FP_SPEAR;
 			case DiamondheadKit.ANIM_ERUPT -> FP_ERUPT;
 			default -> null;
 		};
@@ -426,10 +426,6 @@ public final class DiamondheadClient implements AlienClientKit {
 		if ((flags & DiamondheadKit.F_SLIDING) != 0 && p.onGround()) {
 			p.level().addParticle(new BlockParticleOption(ParticleTypes.BLOCK, DiamondheadBlocks.CRYSTAL.defaultBlockState()), p.getX(), p.getY() + 0.1,
 					p.getZ(), 0, 0.1, 0);
-		}
-		if ((flags & DiamondheadKit.F_ARMOUR) != 0 && r.nextInt(2) == 0) {
-			p.level().addParticle(ParticleTypes.END_ROD, p.getX() + (r.nextDouble() - 0.5) * 1.2, p.getY() + r.nextDouble() * p.getBbHeight(),
-					p.getZ() + (r.nextDouble() - 0.5) * 1.2, 0, 0, 0);
 		}
 	}
 

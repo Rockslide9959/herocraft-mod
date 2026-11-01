@@ -235,12 +235,6 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		b.setDeltaMovement(0, 0, -1.5);
 		helper.assertFalse(kit.tryReflect(p, b, 0.99f), "an unlucky roll does not");
 		helper.assertTrue(DiamondheadKit.REFLECT_CHANCE > 0.2f && DiamondheadKit.REFLECT_CHANCE < 0.6f, "a share, not all");
-		helper.assertTrue(kit.crystalArmour(p), "Crystal Armour");
-		helper.assertTrue(kit.tryReflect(p, b, 0.99f), "under Crystal Armour every projectile glances back");
-		float hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().magic(), 10f);
-		helper.assertTrue(near(hp - p.getHealth(), 10f * DiamondheadKit.ARMOUR_FACTOR), "and half damage");
 		a.discard();
 		archer.discard();
 		helper.succeed();

@@ -63,8 +63,9 @@ import net.minecraft.world.phys.Vec3;
  *   Z        Crystal Eruption  rings of crystal spikes burst out of the ground all round you (radius 6; 12, launch, slow)
  *            Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look (5 each)
  *   V        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+V  Crystal Dome     a dome over you (7 s)
- *   C        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
- *            Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
+ *   C        Crystal Prison    the creature you look at is sealed in crystal for 3 s (a boss 1 s), then it shatters (14)
+ *            Shift+C  Prism Beam       a piercing beam of refracted light down your look (12; +50% in open daylight)
+ *   (v0.17.2, user: "Remove crystal regrowth ... and crystal armour ... and replace it with 2 other moves")
  *   (v0.17.2, user: "put diamondheads crystal wall and dome abilities on V and put the stronger move on Z and the ultimate
  *   on Shift+Z": Spike Line from Shift+G, Diamond Barrage from C, Wall / Dome from Z, Regrowth from V)
  *   (v0.17.2, user: "Make Shift+G the spike Line ability / Make Z an aoe spike ability": Spike Line back on Shift+G, the new
@@ -86,12 +87,11 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int ANIM_WALL = 7;
 	public static final int ANIM_DOME = 8;
 	public static final int ANIM_BARRAGE = 9;
-	public static final int ANIM_ARMOUR = 10;
+	public static final int ANIM_PRISON = 10;
 	public static final int ANIM_SLASH = 11;
 	public static final int ANIM_PLACE = 12;
 
 	public static final int F_BLADE = 1;
-	public static final int F_ARMOUR = 2;
 	public static final int F_SLIDING = 4;
 
 	public static final String VOLLEY = "shard_volley";
@@ -103,7 +103,7 @@ public final class DiamondheadKit extends AlienKit {
 	public static final String WALL = "crystal_wall";
 	public static final String DOME = "crystal_dome";
 	public static final String BARRAGE = "diamond_barrage";
-	public static final String ARMOUR = "crystal_armour";
+	public static final String PRISON = "crystal_prison";
 	public static final String EDGE = "crystal_edge";
 	public static final String PLACE = "crystal_block";
 	/** v0.17.2: Z -- the Crystal Eruption. */
@@ -133,8 +133,16 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int SLIDE_TICKS = 40;
 	public static final int PLACE_TICKS = 600;
 	public static final int BARRAGE_TICKS = 40;
-	public static final int ARMOUR_TICKS = 120;
-	public static final float ARMOUR_FACTOR = 0.5f;
+	/** v0.17.2: C -- the Crystal Prison: reach, how long it holds (a boss a third of it), the shatter's damage and the cooldown. */
+	public static final double PRISON_RANGE = 16.0;
+	public static final int PRISON_TICKS = 60;
+	public static final float PRISON_DAMAGE = 14f;
+	public static final int PRISON_COOLDOWN = 240;
+	/** v0.17.2: Shift+C -- the Prism Beam: reach, damage, the open-daylight bonus and the cooldown. */
+	public static final double BEAM_RANGE = 24.0;
+	public static final float BEAM_DAMAGE = 12f;
+	public static final float BEAM_SUN_BONUS = 1.5f;
+	public static final int BEAM_COOLDOWN = 160;
 	/** The passive: the share of incoming projectiles that glance back. */
 	public static final float REFLECT_CHANCE = 0.4f;
 
@@ -171,6 +179,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final Map<UUID, SpikeLine> LINES = new ConcurrentHashMap<>();
 	/** player -> where the Diamond Barrage rains. */
 	private static final Map<UUID, Storm> STORMS = new ConcurrentHashMap<>();
+	/** player -> the creature his Crystal Prison holds. */
+	private static final Map<UUID, Prison> PRISONS = new ConcurrentHashMap<>();
 	/** player -> the Crystal Eruption spreading out from him. */
 	private static final Map<UUID, Eruption> ERUPTIONS = new ConcurrentHashMap<>();
 
@@ -178,6 +188,9 @@ public final class DiamondheadKit extends AlienKit {
 	}
 
 	private record Storm(ResourceKey<Level> dim, Vec3 at) {
+	}
+
+	private record Prison(ResourceKey<Level> dim, int target, Vec3 at, long end, List<BlockPos> shell) {
 	}
 
 	private record Eruption(ResourceKey<Level> dim, Vec3 at, long start, Set<Integer> hit) {
@@ -214,6 +227,7 @@ public final class DiamondheadKit extends AlienKit {
 		LINES.clear();
 		STORMS.clear();
 		ERUPTIONS.clear();
+		PRISONS.clear();
 	}
 
 	static BlockState crystal() {
@@ -227,7 +241,8 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(34f).speed(0.88f).scale(1.1f).armor(12f, 4f).knockbackResist(0.5f).attack(4f).step(0.6f).safeFall(3f).build();
+		// v0.17.2 (user: "diamondheads armour diamond level"): a full diamond set, 20 armour and 8 toughness (was 12 / 4)
+		return AlienStats.builder().health(34f).speed(0.88f).scale(1.1f).armor(20f, 8f).knockbackResist(0.5f).attack(4f).step(0.6f).safeFall(3f).build();
 	}
 
 	@Override
@@ -241,7 +256,8 @@ public final class DiamondheadKit extends AlienKit {
 				// Barrage's cooldown 500 -> 600, the ultimate's 30 s
 				AlienMove.tap(ERUPT, AbilitySlot.SLOT_4, ERUPT_COOLDOWN), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(WALL, AbilitySlot.SLOT_5, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_5, 500),
-				AlienMove.tap(REGROW, AbilitySlot.SLOT_6, 400), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
+				// v0.17.2 (user: "Remove crystal regrowth ... and crystal armour"): the Crystal Prison and the Prism Beam
+				AlienMove.tap(PRISON, AbilitySlot.SLOT_6, PRISON_COOLDOWN), AlienMove.shift(BEAM, AbilitySlot.SLOT_6, BEAM_COOLDOWN),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
 	}
 
@@ -256,10 +272,9 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
-		revertV(p);
 		setBlade(p, false);
 		endSlide(p);
-		setFlag(p, F_ARMOUR, false);
+		PRISONS.remove(p.getUUID());
 		LINES.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
 		ERUPTIONS.remove(p.getUUID());
@@ -268,7 +283,6 @@ public final class DiamondheadKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
-		tickV(p, l, now);
 		// the passive: projectiles reaching him may glance back
 		for (Projectile pr : l.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(2.2),
 				pr -> pr.getOwner() != p && !pr.getTags().contains(SEEN_TAG))) {
@@ -285,26 +299,16 @@ public final class DiamondheadKit extends AlienKit {
 				applyBladeModifiers(p);
 			}
 		}
-		long armour = timer(p, "armour_end");
-		if (armour > 0) {
-			if (now >= armour) {
-				setTimer(p, "armour_end", 0);
-				setFlag(p, F_ARMOUR, false);
-				OmnitrixSounds.play(l, p.position(), SND_SHATTER, 0.7f, 1.2f);
-			} else if (now % 5 == 0) {
-				l.sendParticles(SPARKLE, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.5, 0.8, 0.5, 0.0);
-			}
-		}
+		tickPrison(p, l, now);
 		slideTick(p, l, now);
 		tickSpikes(p, l, now);
 		tickStorm(p, l, now);
 		tickEruption(p, l, now);
 	}
 
-	/** The reflection passive on one projectile: {@code roll} under the chance (all of them under Crystal Armour) sends it back. */
+	/** The reflection passive on one projectile: {@code roll} under {@link #REFLECT_CHANCE} sends it back. */
 	public boolean tryReflect(ServerPlayer p, Projectile pr, float roll) {
-		float chance = flag(p, F_ARMOUR) ? 1.0f : REFLECT_CHANCE;
-		if (roll >= chance) {
+		if (roll >= REFLECT_CHANCE) {
 			return false;
 		}
 		Vec3 v = pr.getDeltaMovement();
@@ -431,9 +435,9 @@ public final class DiamondheadKit extends AlienKit {
 			}
 			case SLOT_6 -> {
 				if (shift) {
-					crystalArmour(p);
+					prismBeam(p);
 				} else {
-					regrow(p);
+					crystalPrison(p);
 				}
 			}
 			default -> {
@@ -760,19 +764,6 @@ public final class DiamondheadKit extends AlienKit {
 		return true;
 	}
 
-	public boolean crystalArmour(ServerPlayer p) {
-		if (!use(p, ARMOUR)) {
-			return false;
-		}
-		anim(p, ANIM_ARMOUR);
-		setFlag(p, F_ARMOUR, true);
-		setTimer(p, "armour_end", p.level().getGameTime() + ARMOUR_TICKS);
-		ServerLevel l = level(p);
-		QuirkFx.shards(l, p.position().add(0, 1, 0)).block(crystal()).size(1.8f).count(20).life(18).reassemble().spawn();
-		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.0f, 1.1f);
-		return true;
-	}
-
 	// ---------------------------------------------------------------- vanilla keys
 
 	@Override
@@ -823,72 +814,152 @@ public final class DiamondheadKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- damage
+	// ---------------------------------------------------------------- v0.17.2 C / Shift+C (replacing Regrowth and Crystal Armour)
 
-	@Override
-	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
-		float a = flag(p, F_ARMOUR) ? amount * ARMOUR_FACTOR : amount;
-		return flag(p, F_REGROW) ? a * REGROW_FACTOR : a; // v0.17.1: half damage while he regrows
-	}
-
-	// ---------------------------------------------------------------- v0.17.1 Crystal Regrowth (V until v0.17.2, C now)
-
-	public static final String REGROW = "crystal_regrowth";
-	public static final int ANIM_REGROW = 13;
-	public static final int F_REGROW = 8;
-	public static final int REGROW_TICKS = 60;
-	public static final float REGROW_HEAL = 1.5f;
-	public static final float REGROW_FACTOR = 0.5f;
+	public static final String BEAM = "prism_beam";
+	public static final int ANIM_BEAM = 13;
+	/** The beam: a bright crystal chime over a beacon's hum. */
+	public static final OmnitrixSfx.Cue SND_BEAM = OmnitrixSfx.cue("diamondhead_beam")
+			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.6f, 1.4f)
+			.layer(SoundEvents.BEACON_POWER_SELECT, 0.35f, 1.8f)
+			.layer(SoundEvents.AMETHYST_CLUSTER_BREAK, 0.4f, 1.2f, 2);
 
 	/**
-	 * C: Crystal Regrowth -- a Petrosapien grows back. 3 s rooted to the spot while green crystal knits over every crack: 1.5
-	 * health every half second (9 in all) and half damage meanwhile. Refused at full health.
+	 * C: the Crystal Prison -- the creature he looks at (within {@link #PRISON_RANGE}) is sealed in a shell of crystal for
+	 * {@link #PRISON_TICKS} (a boss a third of it) and can't move; then the shell shatters for {@link #PRISON_DAMAGE}. A creature too big
+	 * for a shell is held by crystal spikes instead. False (no cooldown) with nothing to aim at.
 	 */
-	public boolean regrow(ServerPlayer p) {
-		if (flag(p, F_REGROW)) {
+	public boolean crystalPrison(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, PRISON_RANGE);
+		if (t == null || !use(p, PRISON)) {
 			return false;
 		}
-		if (p.getHealth() >= p.getMaxHealth()) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.diamondhead.whole").withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
-		if (!use(p, REGROW)) {
-			return false;
-		}
-		setFlag(p, F_REGROW, true);
-		setTimer(p, "regrow_end", p.level().getGameTime() + REGROW_TICKS);
-		anim(p, ANIM_REGROW);
+		anim(p, ANIM_PRISON);
 		ServerLevel l = level(p);
-		QuirkFx.shards(l, p.position().add(0, 1, 0)).block(crystal()).size(1.4f).count(14).life(16).reassemble().spawn();
-		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.0f, 0.6f);
+		boolean boss = com.projecthero.mod.omnitrix.alien.AlienStatus.isBoss(t);
+		int ticks = boss ? PRISON_TICKS / 3 : PRISON_TICKS;
+		List<BlockPos> cells = new java.util.ArrayList<>();
+		var box = t.getBoundingBox();
+		if (box.getXsize() <= 3.0 && box.getYsize() <= 4.0) {
+			// a shell one block out from every block the creature fills; it melts away with the prison
+			int x0 = net.minecraft.util.Mth.floor(box.minX) - 1, x1 = net.minecraft.util.Mth.floor(box.maxX - 1.0e-3) + 1;
+			int y0 = net.minecraft.util.Mth.floor(box.minY) - 1, y1 = net.minecraft.util.Mth.floor(box.maxY - 1.0e-3) + 1;
+			int z0 = net.minecraft.util.Mth.floor(box.minZ) - 1, z1 = net.minecraft.util.Mth.floor(box.maxZ - 1.0e-3) + 1;
+			for (int x = x0; x <= x1; x++) {
+				for (int y = y0; y <= y1; y++) {
+					for (int z = z0; z <= z1; z++) {
+						boolean shell = x == x0 || x == x1 || y == y0 || y == y1 || z == z0 || z == z1;
+						BlockPos at = new BlockPos(x, y, z);
+						if (shell && l.getBlockState(at).canBeReplaced() && TempBlocks.place(l, at, crystal(), ticks + 20)) {
+							cells.add(at);
+						}
+					}
+				}
+			}
+		} else {
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI / 3;
+				Vec3 base = t.position().add(Math.cos(a) * box.getXsize() * 0.55, 0, Math.sin(a) * box.getXsize() * 0.55);
+				QuirkFx.spike(l, base, new Vec3(-Math.cos(a) * 0.4, 1, -Math.sin(a) * 0.4).normalize()).block(crystal()).colours(0xC8FFF0, COLOUR)
+						.size(2.6f).size2(0.5f).life(ticks).spawn();
+			}
+		}
+		PRISONS.put(p.getUUID(), new Prison(l.dimension(), t.getId(), t.position(), l.getGameTime() + ticks, cells));
+		QuirkFx.ribbon(l, p.position().add(0, 1.3, 0), t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(0xE0FFF6, COLOUR).size(0.25f).life(8)
+				.style(QuirkFx.RIBBON_LIGHT).spawn();
+		OmnitrixSounds.play(l, t.position(), SND_GROW, 1.2f, 0.6f);
 		return true;
 	}
 
-	private void revertV(ServerPlayer p) {
-		setFlag(p, F_REGROW, false);
-		setTimer(p, "regrow_end", 0);
+	/** Whether {@code e} is sealed in someone's Crystal Prison right now (server side). */
+	public static boolean imprisoned(Entity e) {
+		for (Prison pr : PRISONS.values()) {
+			if (pr.target() == e.getId() && pr.dim() == e.level().dimension()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-	private void tickV(ServerPlayer p, ServerLevel l, long now) {
-		if (!flag(p, F_REGROW)) {
+	private void tickPrison(ServerPlayer p, ServerLevel l, long now) {
+		Prison pr = PRISONS.get(p.getUUID());
+		if (pr == null) {
 			return;
 		}
-		long end = timer(p, "regrow_end");
-		if (now >= end || !p.isAlive()) {
-			revertV(p);
-			OmnitrixSounds.play(l, p.position(), SND_GROW, 0.8f, 1.5f);
+		Entity e = l.getEntity(pr.target());
+		if (pr.dim() != l.dimension() || !(e instanceof LivingEntity t) || !t.isAlive()) {
+			PRISONS.remove(p.getUUID());
 			return;
 		}
-		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 5, false, false, false));
-		if ((end - now) % 10 == 0) {
-			p.heal(REGROW_HEAL);
-			QuirkFx.shards(l, p.position().add(0, 0.4 + l.random.nextDouble() * 1.4, 0)).block(crystal()).size(0.7f).count(4).life(10).reassemble().spawn();
-			OmnitrixSounds.play(l, p.position(), SND_GROW, 0.4f, 1.3f + l.random.nextFloat() * 0.3f);
+		if (now < pr.end()) {
+			// held: no walking out
+			t.setDeltaMovement(0, Math.min(0, t.getDeltaMovement().y), 0);
+			t.teleportTo(pr.at().x, t.getY(), pr.at().z);
+			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 5, 9, false, false, false), p);
+			t.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 5, 4, false, false, false), p);
+			if (now % 4 == 0) {
+				l.sendParticles(SPARKLE, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 2, t.getBbWidth() * 0.6, t.getBbHeight() * 0.4,
+						t.getBbWidth() * 0.6, 0.0);
+			}
+			return;
 		}
-		if (now % 2 == 0) {
-			double a = now * 0.5;
-			l.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX() + Math.cos(a) * 0.7, p.getY() + 0.2 + ((end - now) % 20) * 0.09, p.getZ() + Math.sin(a) * 0.7,
-					1, 0, 0, 0, 0);
+		// the shell shatters, there and then
+		PRISONS.remove(p.getUUID());
+		for (BlockPos c : pr.shell()) {
+			if (l.getBlockState(c).is(DiamondheadBlocks.CRYSTAL)) {
+				l.setBlock(c, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+			}
 		}
+		t.invulnerableTime = 0;
+		hurt(p, t, PRISON_DAMAGE, false);
+		QuirkFx.shards(l, t.position().add(0, t.getBbHeight() * 0.5, 0)).block(crystal()).size(1.8f).count(22).life(22).spawn();
+		OmnitrixSounds.play(l, t.position(), SND_SHATTER, 1.2f, 0.8f);
+	}
+
+	/**
+	 * Shift+C: the Prism Beam -- his crystal body refracts light into a beam straight down his look, through every creature in the
+	 * way (stopped by blocks), {@link #BEAM_DAMAGE} each and a short burn; standing in open daylight it is {@link #BEAM_SUN_BONUS} times
+	 * as strong. Returns how many it hit (-1 if refused).
+	 */
+	public int prismBeam(ServerPlayer p) {
+		if (!use(p, BEAM)) {
+			return -1;
+		}
+		anim(p, ANIM_BEAM);
+		ServerLevel l = level(p);
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(BEAM_RANGE)),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		Vec3 end = hit.getLocation();
+		boolean sun = l.isDay() && l.canSeeSky(p.blockPosition().above());
+		float dmg = BEAM_DAMAGE * (sun ? BEAM_SUN_BONUS : 1f);
+		double len = end.distanceTo(eye);
+		int n = 0;
+		for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(eye, end).inflate(1.0),
+				e -> e != p && e.isAlive() && !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e))) {
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
+			double along = c.subtract(eye).dot(look);
+			if (along < 0 || along > len + 0.5) {
+				continue;
+			}
+			if (eye.add(look.scale(along)).distanceTo(c) > e.getBbWidth() * 0.5 + e.getBbHeight() * 0.5) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, dmg, false);
+			e.igniteForSeconds(sun ? 3 : 1);
+			n++;
+		}
+		Vec3 from = eye.add(look.scale(0.6)).add(0, -0.25, 0);
+		QuirkFx.ribbon(l, from, end).colours(0xFFFFFF, COLOUR).size(sun ? 0.5f : 0.38f).life(10).style(QuirkFx.RIBBON_LIGHT).spawn();
+		QuirkFx.ribbon(l, from, end).colours(0xFFF6C8, 0xB8FFF0).size(0.16f).life(7).style(QuirkFx.RIBBON_LIGHT).spawn();
+		for (double d = 1; d < len; d += 1.5) {
+			Vec3 q = eye.add(look.scale(d));
+			l.sendParticles(SPARKLE, q.x, q.y - 0.25, q.z, 1, 0.08, 0.08, 0.08, 0.0);
+		}
+		QuirkFx.blast(l, end).colours(0xFFFFFF, COLOUR).size(1.4f).life(8).spawn();
+		OmnitrixSounds.play(l, p.position(), SND_BEAM, 1.0f, sun ? 1.2f : 1.0f);
+		return n;
 	}
 }

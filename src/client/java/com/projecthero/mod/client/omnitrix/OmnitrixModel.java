@@ -151,11 +151,12 @@ public final class OmnitrixModel {
 		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, BLACK, light, 28);
 		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
 		// out on the rim just past the core's edge
-		float lr = 1.8f, ls = 0.17f;
+		// v0.17.2 (user: "can we make the green dots on the dial circles please"): round studs (were square boxes)
+		float lr = 1.8f, ls = 0.2f;
 		for (int k = 0; k < 4; k++) {
 			double a = k * Math.PI / 2;
 			float ly = cy + (float) Math.cos(a) * lr, lz = (float) Math.sin(a) * lr;
-			box(pose, vc, bezelTop - 0.06f, ly - ls, lz - ls, bezelTop + 0.1f, ly + ls, lz + ls, GREEN, lit);
+			cylinder(pose, vc, bezelTop - 0.06f, bezelTop + 0.1f, ly, lz, ls, GREEN, lit, 14);
 		}
 		pose.popPose();
 		// ---- the core: pops up out of the bezel, twists a notch per dial turn
