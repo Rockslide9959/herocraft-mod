@@ -198,4 +198,17 @@ public class V0171GreenLanternGameTests implements FabricGameTest {
 				e -> e.shape() == HardLightConstructEntity.Shape.MACE && !e.isRemoved()).isEmpty(), "no mace model left");
 		helper.succeed();
 	}
+
+	/** v0.17.2 (user: "the greenlantern rank command doesnt work ... it doesnt even seem like its added"): it is registered now. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void rankCommandIsRegisteredAndSetsTheRank(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		var server = helper.getLevel().getServer();
+		for (int r : new int[] { 3, 5, 1 }) {
+			server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withEntity(p).withSuppressedOutput(),
+					"projecthero power tune greenlantern rank " + r);
+			helper.assertTrue(GreenLanternRanks.rank(p) == r, "/projecthero power tune greenlantern rank " + r + " -> " + GreenLanternRanks.rank(p));
+		}
+		helper.succeed();
+	}
 }

@@ -53,7 +53,9 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.cyborg.CyborgCommand.build())
 				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())
 				.then(com.projecthero.mod.miraculous.MiraculousCommand.build())
-				.then(com.projecthero.mod.quirk.QuirkCommand.build())));
+				.then(com.projecthero.mod.quirk.QuirkCommand.build())
+				// v0.17.2 (user: "the greenlantern rank command doesnt work"): it was never registered -- rank 1-5, energy, status, dismiss
+				.then(com.projecthero.mod.command.GreenLanternCommand.build())));
 		// v0.16.7: /projecthero quirk costume | meter <0-100> | erase <seconds> | info (also under power tune quirk)
 		root.then(com.projecthero.mod.quirk.QuirkCommand.build());
 		root.then(LocateCommand.build());
