@@ -324,8 +324,9 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		ServerPlayer p = as(helper, GoopKit.ID);
 		GoopKit kit = (GoopKit) Aliens.kit(GoopKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 3.0, 140f);
-		helper.assertTrue(kit.acidFlood(p), "Acid Flood");
-		helper.assertTrue(kit.pulsePuddlesNow(p) >= 1, "the flood burns the zombie standing in it");
+		helper.assertTrue(kit.acidTide(p), "Acid Tide (v0.17.2 revamp: the ultimate)");
+		kit.breakTide(p); // the wave breaks: the acid lake
+		helper.assertTrue(kit.pulsePuddlesNow(p) >= 1, "the lake burns the zombie standing in it");
 		helper.assertTrue(z.getHealth() < 140f, "it took acid damage");
 		helper.assertTrue(kit.squeeze(p), "Squeeze");
 		p.hurt(helper.getLevel().damageSources().magic(), 10f);
