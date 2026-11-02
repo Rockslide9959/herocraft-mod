@@ -56,7 +56,8 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 			java.util.List<ItemStack> hidden = new java.util.ArrayList<>();
 			for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.omnitrix.item.OmnitrixItems.OMNITRIX,
 					com.projecthero.mod.omnitrix.item.OmnitrixItems.METEOR_SCANNER, com.projecthero.mod.omnitrix.item.OmnitrixItems.PLUMBER_ALLOY,
-					com.projecthero.mod.omnitrix.item.OmnitrixItems.CONTAINMENT_CORE, com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM }) {
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.CONTAINMENT_CORE, com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM,
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATION_CHIP, com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATED_OMNITRIX }) {
 				hidden.add(new ItemStack(i));
 			}
 			jeiRuntime.getIngredientManager().removeIngredientsAtRuntime(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, hidden);

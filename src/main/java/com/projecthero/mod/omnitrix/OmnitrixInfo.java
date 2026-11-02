@@ -92,6 +92,15 @@ public final class OmnitrixInfo {
 				out.add(Component.translatable(I + "watch_up").withStyle(ChatFormatting.DARK_GREEN));
 			}
 		}
+		// v0.17.2: which watch -- the recalibrated one, or the prototype and how far it is from taking a Recalibration Chip
+		if (Omnitrix.recalibrated(live)) {
+			out.add(Component.translatable(I + "recalibrated").withStyle(ChatFormatting.GREEN));
+		} else {
+			int done = Omnitrix.prototypeTransforms(live);
+			boolean ready = done >= OmnitrixConfig.RECAL_MIN_TRANSFORMS;
+			out.add(Component.translatable(ready ? I + "recal_ready" : I + "recal_progress", Math.min(done, OmnitrixConfig.RECAL_MIN_TRANSFORMS),
+					OmnitrixConfig.RECAL_MIN_TRANSFORMS).withStyle(ready ? ChatFormatting.DARK_GREEN : ChatFormatting.DARK_GRAY));
+		}
 	}
 
 	// ---------------------------------------------------------------- the watch
@@ -130,9 +139,14 @@ public final class OmnitrixInfo {
 	 * ("R Fire Blast  G Pyro Bomb ..."); "coming soon" for an alien without a kit. {@code selected} (may be null) is marked.
 	 */
 	public static void roster(List<Component> out, Function<AbilitySlot, Component> keys, @Nullable String selected) {
+		roster(out, keys, selected, Aliens.all());
+	}
+
+	/** v0.17.2: the roster of one dial -- {@code Aliens.all()} (the prototype) or {@code Aliens.recalibrated()}. */
+	public static void roster(List<Component> out, Function<AbilitySlot, Component> keys, @Nullable String selected, List<Aliens.Alien> dial) {
 		out.add(head("roster"));
 		out.add(Component.translatable(I + "roster.how").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-		for (Aliens.Alien a : Aliens.all()) {
+		for (Aliens.Alien a : dial) {
 			AlienKit kit = Aliens.kit(a.id());
 			MutableComponent title = Component.literal(" ").append(icon(a)).append(Component.literal(" "))
 					.append(alienName(a).withStyle(ChatFormatting.BOLD));
@@ -307,7 +321,9 @@ public final class OmnitrixInfo {
 	/** v0.17.1: the alien's dial icon as one inline text glyph (font {@code projecthero:omnitrix_dial}, the user's dial art). */
 	public static final net.minecraft.resources.ResourceLocation DIAL_FONT = com.projecthero.mod.ProjectHeroMod.id("omnitrix_dial");
 	private static final List<String> DIAL_ORDER = List.of("heatblast", "four_arms", "xlr8", "diamondhead", "upgrade", "ghostfreak", "stinkfly",
-			"wildmutt", "ripjaws", "grey_matter");
+			"wildmutt", "ripjaws", "grey_matter",
+			// v0.17.2: the Recalibrated Omnitrix's ten (glyphs U+E00A..U+E013)
+			"swampfire", "echo_echo", "humungousaur", "jetray", "big_chill", "chromastone", "brainstorm", "spidermonkey", "goop", "alien_x");
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());

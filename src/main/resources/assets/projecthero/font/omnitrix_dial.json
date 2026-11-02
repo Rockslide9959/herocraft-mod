@@ -9,6 +9,16 @@
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/stinkfly.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/wildmutt.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/ripjaws.png", "height": 9, "ascent": 8, "chars": [""] },
-    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/grey_matter.png", "height": 9, "ascent": 8, "chars": [""] }
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/grey_matter.png", "height": 9, "ascent": 8, "chars": [""] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/swampfire.png", "height": 9, "ascent": 8, "chars": ["\uE00A"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/echo_echo.png", "height": 9, "ascent": 8, "chars": ["\uE00B"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/humungousaur.png", "height": 9, "ascent": 8, "chars": ["\uE00C"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/jetray.png", "height": 9, "ascent": 8, "chars": ["\uE00D"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/big_chill.png", "height": 9, "ascent": 8, "chars": ["\uE00E"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/chromastone.png", "height": 9, "ascent": 8, "chars": ["\uE00F"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/brainstorm.png", "height": 9, "ascent": 8, "chars": ["\uE010"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/spidermonkey.png", "height": 9, "ascent": 8, "chars": ["\uE011"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/goop.png", "height": 9, "ascent": 8, "chars": ["\uE012"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/alien_x.png", "height": 9, "ascent": 8, "chars": ["\uE013"] }
   ]
 }

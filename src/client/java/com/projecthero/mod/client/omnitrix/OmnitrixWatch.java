@@ -41,6 +41,11 @@ public final class OmnitrixWatch {
 	public static final ResourceLocation TEX_RED = ProjectHeroMod.id("textures/entity/omnitrix/watch_red.png");
 	public static final ResourceLocation MORPH = ProjectHeroMod.id("textures/entity/omnitrix/face_morph.png");
 	public static final ResourceLocation MORPH_RED = ProjectHeroMod.id("textures/entity/omnitrix/face_morph_red.png");
+	/** v0.17.2: the Recalibrated Omnitrix's sheets (same layout: green band, black stripes, grey bezel, green-and-black face). */
+	public static final ResourceLocation TEX_RECAL = ProjectHeroMod.id("textures/entity/omnitrix/watch_recal.png");
+	public static final ResourceLocation TEX_RECAL_RED = ProjectHeroMod.id("textures/entity/omnitrix/watch_recal_red.png");
+	public static final ResourceLocation MORPH_RECAL = ProjectHeroMod.id("textures/entity/omnitrix/face_morph_recal.png");
+	public static final ResourceLocation MORPH_RECAL_RED = ProjectHeroMod.id("textures/entity/omnitrix/face_morph_recal_red.png");
 	public static final ResourceLocation CIRCUIT = ProjectHeroMod.id("textures/entity/omnitrix/circuit.png");
 	public static final ResourceLocation CIRCUIT_RED = ProjectHeroMod.id("textures/entity/omnitrix/circuit_red.png");
 	/** How far the whole dial (bezel, lights, core) rises on its circuit riser, px. */
@@ -246,7 +251,9 @@ public final class OmnitrixWatch {
 			morph = 0f;
 			iconIn = 0f;
 		}
-		ResourceLocation tex = red ? TEX_RED : TEX;
+		boolean recal = Omnitrix.recalibrated(p); // v0.17.2
+		ResourceLocation tex = recal ? (red ? TEX_RECAL_RED : TEX_RECAL) : red ? TEX_RED : TEX;
+		ResourceLocation morphTex = recal ? (red ? MORPH_RECAL_RED : MORPH_RECAL) : red ? MORPH_RED : MORPH;
 		// the core: pops up for the selection screen, slammed down by the slap
 		float slap = OmnitrixHands.slapClock(p, s, partial);
 		float lift = LIFT * ph[1];
@@ -255,7 +262,7 @@ public final class OmnitrixWatch {
 		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
 		float auto = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, p.level().getGameTime(), partial);
 		float twist = sp[0] + (auto > 0f ? auto * auto * 720f : 0f);
-		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false);
+		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false, 0f, recal);
 		// the circuit riser the whole dial stands on while it is up
 		if (lift > 0.02f) {
 			OmnitrixModel.riser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(red ? CIRCUIT_RED : CIRCUIT)), L, lift);
@@ -284,14 +291,14 @@ public final class OmnitrixWatch {
 		if (!showIcon || iconIn < 0.999f) {
 			int f = Math.round(Mth.clamp(morph, 0f, 1f) * (MORPH_FRAMES - 1));
 			float u0 = (f % 4) * 0.25f, v0 = (f / 4) * 0.25f;
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(red ? MORPH_RED : MORPH));
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(morphTex));
 			faceQuad(vc, last, 0xFFFFFFFF, fx, y0, y1, up, u0, v0, u0 + 0.25f, v0 + 0.25f, lit);
 			// v0.17.1: timed in while raised -- the red face fades into the green one before the core pops
 			float sinceIn = p.level().getGameTime() + partial - s.rechargeUntil;
 			if (!red && s.selecting && !s.transformed() && s.rechargeUntil > s.selectStart && sinceIn >= 0f && sinceIn < Omnitrix.TIME_IN_TICKS) {
 				int a = Math.round(255 * (1f - smooth(sinceIn / (Omnitrix.TIME_IN_TICKS * 0.8f))));
 				if (a > 0) {
-					VertexConsumer fade = buffers.getBuffer(RenderType.entityTranslucent(MORPH_RED));
+					VertexConsumer fade = buffers.getBuffer(RenderType.entityTranslucent(recal ? MORPH_RECAL_RED : MORPH_RED));
 					faceQuad(fade, last, (a << 24) | 0xFFFFFF, fx + 0.002f / 16f, y0, y1, up, 0f, 0f, 0.25f, 0.25f, lit);
 				}
 			}

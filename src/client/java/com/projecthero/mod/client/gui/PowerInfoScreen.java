@@ -233,7 +233,7 @@ public final class PowerInfoScreen extends Screen {
 			lines.add(Component.empty());
 			com.projecthero.mod.omnitrix.OmnitrixInfo.containment(lines);
 			lines.add(Component.empty());
-			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, keys, s.selected);
+			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, keys, s.selected, com.projecthero.mod.omnitrix.alien.Aliens.roster(p)); // v0.17.2: the dial of the watch worn
 			lines.add(Component.empty());
 			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.human_hint").withStyle(ChatFormatting.DARK_GRAY));
 		}

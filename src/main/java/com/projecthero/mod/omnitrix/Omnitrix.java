@@ -336,7 +336,12 @@ public final class Omnitrix {
 		}
 		save(p, n);
 		deactivate(p);
-		OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
+		if (on && recalibrated(p)) {
+			// v0.17.2 (user): the recalibrated watch announces it -- "Master Control unlocked"
+			OmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_MASTER);
+		} else {
+			OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
+		}
 		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.master_on" : "message.projecthero.omnitrix.master_off")
 				.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY, ChatFormatting.BOLD), true);
 	}

@@ -91,6 +91,16 @@ public final class OmnitrixModel {
 	 * like jaws, by up to {@link #JAW_DEG} -- the pod's watch springing open to leap, and clamping shut as it lands.
 	 */
 	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face, float open) {
+		draw(pose, vc, light, L, lift, twist, screen, face, open, false);
+	}
+
+	/**
+	 * v0.17.2: {@code recal} -- the Recalibrated Omnitrix (user's reference: "a chunky grey bezel round a green-and-black hourglass
+	 * face, two side buttons, a green band with black stripes"): the bezel is a wider, taller grey ring and a second button sits on
+	 * the back (+z) side. Its colours come from {@code watch_recal.png} (same layout), which the caller binds.
+	 */
+	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face, float open,
+			boolean recal) {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		// v0.17.1 (user: "i dont want any gaps between the players arm and the omnitrix"): sized to the ARM itself, not its
@@ -130,29 +140,36 @@ public final class OmnitrixModel {
 			}
 			pose.popPose();
 		}
-		// ---- the button on the front (-z) side: a grey ring and a green lens
+		// ---- the button on the front (-z) side: a grey ring and a green lens (v0.17.2: the recalibrated watch has one each side)
 		float bx = (-1f + L) * 0.5f;
-		pose.pushPose();
-		pose.translate(bx * S, cy * S, -(2f + GAP + WALL) * S);
-		pose.mulPose(Axis.YP.rotationDegrees(90f));
-		cylinder(pose, vc, -0.05f, 0.2f, 0f, 0f, 0.62f, RING, light, 16);
-		cylinder(pose, vc, 0.15f, 0.3f, 0f, 0f, 0.4f, GREEN, lit, 12);
-		pose.popPose();
+		for (int side = recal ? -1 : 1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.translate(bx * S, cy * S, -side * (2f + GAP + WALL) * S);
+			pose.mulPose(Axis.YP.rotationDegrees(side * 90f));
+			cylinder(pose, vc, -0.05f, recal ? 0.32f : 0.2f, 0f, 0f, recal ? 0.7f : 0.62f, RING, light, 16);
+			cylinder(pose, vc, recal ? 0.27f : 0.15f, recal ? 0.4f : 0.3f, 0f, 0f, recal ? 0.36f : 0.4f, recal ? GREY : GREEN, recal ? light : lit, 12);
+			pose.popPose();
+		}
 		// ---- the bezel: a low black cylinder, four lime lights round its rim. v0.17.1 (user: "when the omnitrix pops up the dial
 		// with the green dots must also pop up"): the bezel, its lights and the core rise together by {@code lift}; the circuit
 		// riser it stands on ({@link #riser}) is drawn by the wrist
-		float bezelR = 2.0f, bezelTop = xo + 0.4f + lift;
+		// v0.17.2: the recalibrated watch's chunky grey bezel -- wider and taller
+		float bezelR = recal ? 2.35f : 2.0f, bezelTop = xo + (recal ? 0.5f : 0.4f) + lift;
 		// v0.17.1 (user: "this dial with the 4 dots needs to rotate when the player switches aliens"): the bezel and its four
 		// lights turn with the dial spin, not just the core
 		pose.pushPose();
 		pose.translate(0f, cy * S, 0f);
 		pose.mulPose(Axis.XP.rotationDegrees(twist));
 		pose.translate(0f, -cy * S, 0f);
-		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, BLACK, light, 28);
+		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, recal ? GREY : BLACK, light, 28);
+		if (recal) {
+			// a black inner ring round the face, so the grey reads as a separate bezel
+			cylinder(pose, vc, bezelTop - 0.1f, bezelTop + 0.04f, cy, 0f, 1.75f, BLACK, light, 24);
+		}
 		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
 		// out on the rim just past the core's edge
 		// v0.17.2 (user: "can we make the green dots on the dial circles please"): round studs (were square boxes)
-		float lr = 1.8f, ls = 0.2f;
+		float lr = recal ? 2.05f : 1.8f, ls = 0.2f;
 		for (int k = 0; k < 4; k++) {
 			double a = k * Math.PI / 2;
 			float ly = cy + (float) Math.cos(a) * lr, lz = (float) Math.sin(a) * lr;

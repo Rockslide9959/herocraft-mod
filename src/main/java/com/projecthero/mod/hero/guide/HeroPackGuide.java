@@ -2334,6 +2334,19 @@ public final class HeroPackGuide {
 				blank(lines);
 				com.projecthero.mod.omnitrix.OmnitrixInfo.alienPage(lines, a, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS, null);
 			}
+			// v0.17.2: the Recalibrated Omnitrix -- how to recalibrate, its dial and its ten aliens
+			blank(lines);
+			head(lines, "projecthero.guide.omnitrix.recal");
+			para(lines, "projecthero.guide.omnitrix.recal.body");
+			para(lines, "projecthero.guide.omnitrix.recal.how");
+			para(lines, "projecthero.guide.omnitrix.recal.recipe");
+			blank(lines);
+			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS, null,
+					com.projecthero.mod.omnitrix.alien.Aliens.recalibrated());
+			for (com.projecthero.mod.omnitrix.alien.Aliens.Alien a : com.projecthero.mod.omnitrix.alien.Aliens.recalibrated()) {
+				blank(lines);
+				com.projecthero.mod.omnitrix.OmnitrixInfo.alienPage(lines, a, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS, null);
+			}
 			blank(lines);
 			lines.add(Component.translatable("projecthero.guide.omnitrix.pod").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
 			lines.add(Component.translatable("projecthero.guide.omnitrix.pod.warning").withStyle(ChatFormatting.RED));

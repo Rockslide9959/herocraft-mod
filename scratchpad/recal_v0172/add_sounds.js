@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = 'src/main/resources/assets/projecthero/sounds.json';
 let txt = fs.readFileSync(path, 'utf8');
 const json = JSON.parse(txt);
-const add = ['recal_prime', 'recal_transform', 'recal_detransform', 'recal_dial_turn'].filter(k => !json['omnitrix_' + k]);
+const add = ['recal_prime', 'recal_transform', 'recal_detransform', 'recal_dial_turn', 'recal_master_control'].filter(k => !json['omnitrix_' + k]);
 if (!add.length) { console.log('nothing to add'); process.exit(0); }
 const block = add.map(k => `  "omnitrix_${k}": {\n    "subtitle": "subtitles.projecthero.omnitrix_${k}",\n    "sounds": [\n      {\n        "name": "projecthero:omnitrix/${k}"\n      }\n    ]\n  }`).join(',\n');
 const end = txt.lastIndexOf('}');

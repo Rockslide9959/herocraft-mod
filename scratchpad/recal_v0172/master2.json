@@ -1,0 +1,1 @@
+[["\t\tdeactivate(p);\n\t\tOmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);","\t\tdeactivate(p);\n\t\tif (on && recalibrated(p)) {\n\t\t\t// v0.17.2 (user): the recalibrated watch announces it -- \"Master Control unlocked\"\n\t\t\tOmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_MASTER);\n\t\t} else {\n\t\t\tOmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);\n\t\t}"]]

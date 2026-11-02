@@ -70,6 +70,8 @@ public final class OmnitrixSounds {
 	public static final SoundEvent RECAL_DETRANSFORM_SOUND = register("omnitrix_recal_detransform");
 	public static final SoundEvent RECAL_DIAL_SOUND = register("omnitrix_recal_dial_turn");
 	public static final SoundEvent[] RECAL = { RECAL_PRIME_SOUND, RECAL_TRANSFORM_SOUND, RECAL_DETRANSFORM_SOUND, RECAL_DIAL_SOUND };
+	/** v0.17.2 (user: "have the 'Master Control unlocked' voiceline play from this sound effect when it activates"): 7.4 s, mono. */
+	public static final SoundEvent RECAL_MASTER_SOUND = register("omnitrix_recal_master_control");
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -171,6 +173,10 @@ public final class OmnitrixSounds {
 	public static final Cue RECAL_REVERT = OmnitrixSfx.cue("omnitrix_recal_revert")
 			.layer(RECAL_DETRANSFORM_SOUND, 0.7f, 1.0f)
 			.jitter(0.0f).gap(4);
+	/** Master Control unlocked on the recalibrated watch (the user's voice line). */
+	public static final Cue RECAL_MASTER = OmnitrixSfx.cue("omnitrix_recal_master")
+			.layer(RECAL_MASTER_SOUND, 0.8f, 1.0f)
+			.jitter(0.0f).gap(20);
 	/** The pod's recalibration: a soft hum swell under the dial turns. */
 	public static final Cue RECAL_HUM = OmnitrixSfx.cue("omnitrix_recal_hum")
 			.layer(WHIRR, 0.25f, 0.7f)

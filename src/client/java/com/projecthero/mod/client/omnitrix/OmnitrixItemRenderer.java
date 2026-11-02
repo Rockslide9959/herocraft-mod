@@ -22,17 +22,24 @@ public final class OmnitrixItemRenderer implements BuiltinItemRendererRegistry.D
 	public void render(ItemStack stack, ItemDisplayContext mode, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
 		pose.pushPose();
 		pose.translate(0.5f, 0.5f, 0.5f);
-		VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffers, RenderType.entityCutoutNoCull(OmnitrixWatch.TEX), false, stack.hasFoil());
-		drawCentred(pose, vc, light);
+		// v0.17.2: the Recalibrated Omnitrix item draws the recalibrated watch
+		boolean recal = stack.getItem() instanceof com.projecthero.mod.omnitrix.item.OmnitrixItems.OmnitrixItem oi && oi.recalibrated;
+		VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffers, RenderType.entityCutoutNoCull(recal ? OmnitrixWatch.TEX_RECAL : OmnitrixWatch.TEX), false,
+				stack.hasFoil());
+		drawCentred(pose, vc, light, recal);
 		pose.popPose();
 	}
 
 	/** The watch, face up (+y), centred on the origin (the open cuff runs along x). */
 	public static void drawCentred(PoseStack pose, VertexConsumer vc, int light) {
+		drawCentred(pose, vc, light, false);
+	}
+
+	public static void drawCentred(PoseStack pose, VertexConsumer vc, int light, boolean recal) {
 		pose.pushPose();
 		pose.mulPose(Axis.ZP.rotationDegrees(90f));
 		pose.translate(-1.5f / 16f, -OmnitrixModel.CY / 16f, 0f);
-		OmnitrixModel.draw(pose, vc, light, 3f, 0f, 0f, false);
+		OmnitrixModel.draw(pose, vc, light, 3f, 0f, 0f, false, true, 0f, recal);
 		pose.popPose();
 	}
 }

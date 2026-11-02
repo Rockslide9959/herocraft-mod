@@ -3272,5 +3272,13 @@
         "name": "projecthero:omnitrix/recal_dial_turn"
       }
     ]
+  },
+  "omnitrix_recal_master_control": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_master_control",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_master_control"
+      }
+    ]
   }
 }
