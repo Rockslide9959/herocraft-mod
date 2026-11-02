@@ -34,15 +34,19 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2: Humungousaur's client kit (basic version) -- the player body in his tan hide (cream belly plates, black shorts) with a
- * thick tail and back plates; at the biggest size step the plates become bone spikes and the tail grows a club. Rendered effects
- * (world pass): the shockwave rings of the Ground Pound / Dino Leap landing / Titanic Slam, the Tail Sweep's arc, the Primal Roar's
- * rings, the Grow / Shrink burst; the Boulder Toss flies as a real chunk of ground. Dust particles are accents only.
+ * v0.17.2: Humungousaur's client kit -- the player body in the user's Planet Minecraft skin (5136728, "Humungousaur | Ben 10 |
+ * Alien Force"; aliens always draw on the wide arm model, so it fits classic and slim players alike) with a thick tail, back
+ * plates and a brow in the skin's own browns; at the biggest size step the plates become bone spikes and the tail grows a club.
+ * v0.17.2 revamp: the Spike Burst's bone spikes grow out of back, shoulders and tail (and sink back), the held Brace pose, the
+ * Earthshaker's rear-up-and-three-stomps clip, the Heavy Hurl's slab of real ground blocks. Rendered effects (world pass): dust
+ * walls behind the Ground Pound / landings / Earthshaker stomps (their shock rings and cracks are QuirkFx from the server), the
+ * Tail Club's arc, the Primal Roar's rings, the Grow / Shrink burst. Dust particles are accents only.
  */
 public final class HumungousaurClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/humungousaur.png");
@@ -83,8 +87,22 @@ public final class HumungousaurClient implements AlienClientKit {
 			QuirkKeyframes.rest(12) };
 	private static final float[][] ROAR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.4f, 0, 0.9f, 0.4f, 0, -0.9f, -0.3f, 0, -0.2f, 0, 0.15f, 0.2f, 0, -0.15f, -0.6f),
 			QuirkKeyframes.f(18, 0.4f, 0, 1.0f, 0.4f, 0, -1.0f, -0.3f, 0, -0.2f, 0, 0.15f, 0.2f, 0, -0.15f, -0.6f), QuirkKeyframes.rest(24) };
-	private static final float[][] SLAM_UP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.2f, 0, -0.5f, 0, 0, -0.5f, 0, 0, -0.3f),
-			QuirkKeyframes.f(60, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.2f, 0, -0.5f, 0, 0, -0.5f, 0, 0, -0.3f) };
+	// v0.17.2 revamp (user: Earthshaker -- "he rears up and stomps three times"): rear up on one leg, stomp, the other leg, stomp,
+	// rear right up, and the big two-footed stomp with the arms flung down
+	private static final float[] REAR = QuirkKeyframes.f(0, -2.6f, 0, 0.4f, -2.6f, 0, -0.4f, -0.35f, 0, -1.2f, 0, 0.15f, 0, 0, -0.15f, -0.5f);
+	private static final float[] STOMP_R = QuirkKeyframes.f(0, -0.6f, 0, 0.5f, -0.6f, 0, -0.5f, 0.4f, 0, 0.2f, 0, 0.25f, -0.3f, 0, -0.25f, 0.25f);
+	private static final float[] RAISE_L = QuirkKeyframes.f(0, -2.0f, 0, 0.4f, -2.0f, 0, -0.4f, -0.25f, 0, 0, 0, 0.15f, -1.2f, 0, -0.15f, -0.4f);
+	private static final float[] STOMP_L = QuirkKeyframes.f(0, -0.6f, 0, 0.5f, -0.6f, 0, -0.5f, 0.4f, 0, -0.3f, 0, 0.25f, 0.2f, 0, -0.25f, 0.25f);
+	private static final float[] BIG = QuirkKeyframes.f(0, -0.3f, 0, 0.7f, -0.3f, 0, -0.7f, 0.6f, 0, 0.3f, 0, 0.3f, -0.4f, 0, -0.3f, 0.4f);
+	private static final float[][] QUAKE = { QuirkKeyframes.rest(0), at(8, REAR), at(12, STOMP_R), at(18, RAISE_L), at(24, STOMP_L), at(31, REAR),
+			at(36, BIG), at(44, BIG), QuirkKeyframes.rest(50) };
+	private static final float[][] CRASH = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(2, -1.0f, 0, 0.6f, -1.0f, 0, -0.6f, -0.3f, 0, -0.3f, 0, 0.2f, 0.3f, 0, -0.2f, -0.4f), QuirkKeyframes.rest(14) };
+	private static final float[][] CLEAVE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.8f, 0.9f, 0.4f, 0, 0, 0, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(5, -1.3f, -0.8f, 0, 0, 0, 0, 0.15f, -0.5f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(10) };
+	/** The Brace: forearms crossed in front, feet planted wide. */
+	private static final float[][] BRACE = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(4, -1.5f, 0.6f, 0.1f, -1.5f, -0.6f, -0.1f, 0.15f, 0, 0, 0, 0.3f, 0, 0, -0.3f, 0.1f) };
 	private static final float[][] SLAM = { QuirkKeyframes.f(0, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.2f, 0, -0.5f, 0, 0, -0.5f, 0, 0, -0.3f),
 			QuirkKeyframes.f(3, -0.8f, 0, 0, -0.8f, 0, 0, 0.8f, 0, -0.7f, 0, 0.25f, -0.7f, 0, -0.25f, 0.3f),
 			QuirkKeyframes.f(14, -0.8f, 0, 0, -0.8f, 0, 0, 0.8f, 0, -0.7f, 0, 0.25f, -0.7f, 0, -0.25f, 0.3f), QuirkKeyframes.rest(22) };
@@ -105,10 +123,19 @@ public final class HumungousaurClient implements AlienClientKit {
 			.both();
 	private static final FirstPersonClip FP_FLEX = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -50, -20, -30, -0.1f, 0.3f, 0f),
 			FirstPersonClip.f(14, -50, -20, -30, -0.1f, 0.3f, 0f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_RAISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -70, 10, 10, 0.1f, 0.55f, 0f),
-			FirstPersonClip.f(60, -70, 10, 10, 0.1f, 0.55f, 0f)).both();
+	private static final FirstPersonClip FP_QUAKE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(8, -60, 10, 10, 0.1f, 0.45f, 0f),
+			FirstPersonClip.f(12, 25, 10, 0, 0.05f, -0.35f, -0.1f), FirstPersonClip.f(18, -45, 10, 10, 0.1f, 0.35f, 0f),
+			FirstPersonClip.f(24, 25, 10, 0, 0.05f, -0.35f, -0.1f), FirstPersonClip.f(31, -70, 10, 10, 0.1f, 0.55f, 0f),
+			FirstPersonClip.f(36, 35, 10, 0, 0.05f, -0.45f, -0.15f), FirstPersonClip.f(44, 35, 10, 0, 0.05f, -0.45f, -0.15f),
+			FirstPersonClip.f(50, 0, 0, 0, 0, 0, 0)).both();
 
 	private static boolean registered;
+
+	private static float[] at(float tick, float[] frame) {
+		float[] f = frame.clone();
+		f[0] = tick;
+		return f;
+	}
 
 	private HumungousaurClient() {
 	}
@@ -118,7 +145,7 @@ public final class HumungousaurClient implements AlienClientKit {
 		AlienClients.register(Aliens.HUMUNGOUSAUR.id(), new HumungousaurClient());
 		if (!registered) {
 			registered = true;
-			OmnitrixRenderers.projectileLook("humungousaur_boulder", HumungousaurClient::boulder);
+			OmnitrixRenderers.projectileLook("humungousaur_slab", HumungousaurClient::slab);
 			WorldRenderEvents.AFTER_ENTITIES.register(HumungousaurClient::renderWorld);
 		}
 	}
@@ -134,7 +161,10 @@ public final class HumungousaurClient implements AlienClientKit {
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		int stage = HumungousaurKit.stage(p);
+		float burst = spikeOut(p, partial);
 		float sway = Mth.sin(age * 0.1f) * 6f + Mth.cos(p.walkAnimation.position(partial) * 0.6f) * 8f * p.walkAnimation.speed(partial);
+		// v0.17.2 (the user's PMC skin): extras sheet in the skin's own browns -- tail hide (0..8), plates (8..12), brow (12..16),
+		// bone (16..20), the club (20..24)
 		AlienParts.on(pose, model.body, () -> {
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
 			// the tail: three tapering segments off the base of his back, swaying
@@ -146,37 +176,74 @@ public final class HumungousaurClient implements AlienClientKit {
 			float[] len = { 5.5f, 5.0f, 4.5f };
 			for (int i = 0; i < 3; i++) {
 				AlienParts.box(pose, vc, -w[i], -w[i] * 0.9f, 0f, w[i], w[i] * 0.9f, len[i] + 0.3f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
+				if (burst > 0f) {
+					// Spike Burst: a bone spike up out of each tail segment
+					float h = 2.6f * burst;
+					AlienParts.box(pose, vc, -0.5f, -w[i] * 0.9f - h, len[i] * 0.3f, 0.5f, -w[i] * 0.9f, len[i] * 0.3f + 1.0f, 16 * S, 0f, 20 * S, 4 * S,
+							0xFFFFFFFF, light);
+				}
 				pose.translate(0, 0, len[i] / 16f);
 				pose.mulPose(Axis.XP.rotationDegrees(-10f));
 				pose.mulPose(Axis.YP.rotationDegrees(sway * 0.6f));
 			}
 			if (stage >= 2) {
-				// the tail club
-				AlienParts.box(pose, vc, -2.4f, -2.2f, -0.5f, 2.4f, 2.2f, 3.2f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
+				// the tail club, studded with bone
+				AlienParts.box(pose, vc, -2.4f, -2.2f, -0.5f, 2.4f, 2.2f, 3.2f, 20 * S, 0f, 24 * S, 4 * S, 0xFFFFFFFF, light);
+				for (int k = 0; k < 4; k++) {
+					float x = k % 2 == 0 ? -2.4f : 2.4f, y = k < 2 ? -2.2f : 2.2f;
+					AlienParts.box(pose, vc, x - 0.6f, y - 0.6f, 0.6f, x + 0.6f, y + 0.6f, 2.0f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
+				}
 			}
 			pose.popPose();
-			// back plates down his spine; bone spikes once he has grown
+			// back plates down his spine; bone spikes once he has grown (or while the Spike Burst is out)
 			for (int i = 0; i < 4; i++) {
 				float y = 1.0f + i * 2.6f;
 				float h = stage >= 2 ? 3.2f - i * 0.3f : stage == 1 ? 2.0f : 1.2f;
-				float u0 = stage >= 2 ? 16 * S : 8 * S;
+				h += 2.4f * burst;
+				boolean bone = stage >= 2 || burst > 0.5f;
+				float u0 = bone ? 16 * S : 8 * S;
 				AlienParts.box(pose, vc, -0.8f, y, 2.0f, 0.8f, y + 1.8f, 2.0f + h, u0, 0f, u0 + 4 * S, 4 * S, 0xFFFFFFFF, light);
+				if (burst > 0f) {
+					// a second row, splayed out to either side
+					float s = 1.8f * burst;
+					AlienParts.box(pose, vc, -3.2f, y + 0.4f, 2.0f, -2.4f, y + 1.4f, 2.0f + s, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
+					AlienParts.box(pose, vc, 2.4f, y + 0.4f, 2.0f, 3.2f, y + 1.4f, 2.0f + s, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
+				}
 			}
 		});
-		if (stage >= 2) {
-			// spikes on his forearms too
-			for (var arm : new net.minecraft.client.model.geom.ModelPart[] { model.rightArm, model.leftArm }) {
-				AlienParts.on(pose, arm, () -> {
-					VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
+		for (var arm : new net.minecraft.client.model.geom.ModelPart[] { model.rightArm, model.leftArm }) {
+			boolean right = arm == model.rightArm;
+			AlienParts.on(pose, arm, () -> {
+				VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
+				if (stage >= 2) {
+					// spikes on his forearms
 					AlienParts.box(pose, vc, -0.6f, 4.0f, 2.0f, 0.6f, 5.4f, 4.2f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-				});
-			}
+				}
+				if (burst > 0f) {
+					// Spike Burst: shoulder spikes standing up off the top of each arm
+					float h = 3.0f * burst;
+					float x = right ? -1.5f : 1.5f;
+					AlienParts.box(pose, vc, x - 0.6f, -2.0f - h, -0.6f, x + 0.6f, -2.0f, 0.6f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
+				}
+			});
 		}
 		// a heavy brow ridge
 		AlienParts.on(pose, model.head, () -> {
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -4.3f, -6.6f, -4.6f, 4.3f, -5.4f, -3.8f, 8 * S, 0f, 12 * S, 4 * S, 0xFFFFFFFF, light);
+			AlienParts.box(pose, vc, -4.3f, -6.6f, -4.6f, 4.3f, -5.4f, -3.8f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, light);
 		});
+	}
+
+	/** v0.17.2: how far the Spike Burst's spikes are out, 0..1 -- up over 4 ticks, back down over the last 4. */
+	private static float spikeOut(Player p, float partial) {
+		OmnitrixState s = Omnitrix.state(p);
+		if ((s.kitFlags & HumungousaurKit.F_SPIKES) == 0) {
+			return 0f;
+		}
+		float now = p.level().getGameTime() + partial;
+		float in = (now - s.readyAt(HumungousaurKit.ID + "." + HumungousaurKit.SPIKES_START)) / 4f;
+		float out = (s.readyAt(HumungousaurKit.ID + "." + HumungousaurKit.SPIKES_END) - now) / 4f;
+		return Mth.clamp(Math.min(in, out), 0f, 1f);
 	}
 
 	// ---------------------------------------------------------------- poses
@@ -184,6 +251,11 @@ public final class HumungousaurClient implements AlienClientKit {
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		OmnitrixState s = Omnitrix.state(p);
+		if ((s.kitFlags & HumungousaurKit.F_BRACE) != 0) {
+			// v0.17.2 Brace: held while the flag is up (forearms crossed, feet wide)
+			float since = p.level().getGameTime() - s.readyAt(HumungousaurKit.ID + "." + HumungousaurKit.BRACE_START);
+			return QuirkKeyframes.play(m, BRACE, Mth.clamp(since, 0f, 4f), 1f);
+		}
 		float[][] clip = switch (animId) {
 			case HumungousaurKit.ANIM_PUNCH -> PUNCH;
 			case HumungousaurKit.ANIM_UPPER -> UPPER;
@@ -192,17 +264,18 @@ public final class HumungousaurClient implements AlienClientKit {
 			case HumungousaurKit.ANIM_CHARGE -> CHARGE;
 			case HumungousaurKit.ANIM_LEAP -> (s.kitFlags & HumungousaurKit.F_LEAP) != 0 || ticks < 20 ? LEAP : null;
 			case HumungousaurKit.ANIM_LAND -> LAND;
-			case HumungousaurKit.ANIM_TOSS -> TOSS;
-			case HumungousaurKit.ANIM_GRAB -> GRAB;
-			case HumungousaurKit.ANIM_GROW -> GROW;
+			case HumungousaurKit.ANIM_HURL -> GRAB;
+			case HumungousaurKit.ANIM_CRASH -> CRASH;
+			case HumungousaurKit.ANIM_GROW, HumungousaurKit.ANIM_SPIKES -> GROW;
 			case HumungousaurKit.ANIM_SHRINK -> SHRINK;
 			case HumungousaurKit.ANIM_ROAR -> ROAR;
-			case HumungousaurKit.ANIM_SLAM_UP -> (s.kitFlags & HumungousaurKit.F_SLAM) != 0 ? SLAM_UP : null;
-			case HumungousaurKit.ANIM_SLAM -> SLAM;
+			case HumungousaurKit.ANIM_QUAKE -> QUAKE;
+			case HumungousaurKit.ANIM_TITAN_LAND -> SLAM;
+			case HumungousaurKit.ANIM_CLEAVE -> CLEAVE;
 			default -> null;
 		};
-		// the slam's rise holds its last frame until the dive
-		float at = clip == SLAM_UP ? Math.min(ticks, 59f) : ticks;
+		// a held Stampede keeps the gallop going (the clip's middle beats loop)
+		float at = clip == CHARGE && (s.kitFlags & HumungousaurKit.F_CHARGE) != 0 && ticks > 15 ? 3f + (ticks - 3f) % 12f : ticks;
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, at, 1f);
 		if (!played) {
 			// a heavy, hunched stance: arms a little out
@@ -217,12 +290,12 @@ public final class HumungousaurClient implements AlienClientKit {
 		return switch (animId) {
 			case HumungousaurKit.ANIM_PUNCH -> FP_PUNCH;
 			case HumungousaurKit.ANIM_UPPER -> FP_UPPER;
-			case HumungousaurKit.ANIM_POUND, HumungousaurKit.ANIM_SLAM, HumungousaurKit.ANIM_LAND -> FP_SLAM;
-			case HumungousaurKit.ANIM_TAIL -> FP_SWEEP;
-			case HumungousaurKit.ANIM_CHARGE, HumungousaurKit.ANIM_LEAP -> FP_RUN;
-			case HumungousaurKit.ANIM_TOSS, HumungousaurKit.ANIM_GRAB -> FP_THROW;
-			case HumungousaurKit.ANIM_GROW, HumungousaurKit.ANIM_SHRINK, HumungousaurKit.ANIM_ROAR -> FP_FLEX;
-			case HumungousaurKit.ANIM_SLAM_UP -> FP_RAISE;
+			case HumungousaurKit.ANIM_POUND, HumungousaurKit.ANIM_TITAN_LAND, HumungousaurKit.ANIM_LAND -> FP_SLAM;
+			case HumungousaurKit.ANIM_TAIL, HumungousaurKit.ANIM_CLEAVE -> FP_SWEEP;
+			case HumungousaurKit.ANIM_CHARGE, HumungousaurKit.ANIM_LEAP, HumungousaurKit.ANIM_CRASH -> FP_RUN;
+			case HumungousaurKit.ANIM_HURL -> FP_THROW;
+			case HumungousaurKit.ANIM_GROW, HumungousaurKit.ANIM_SHRINK, HumungousaurKit.ANIM_ROAR, HumungousaurKit.ANIM_SPIKES -> FP_FLEX;
+			case HumungousaurKit.ANIM_QUAKE -> FP_QUAKE;
 			default -> null;
 		};
 	}
@@ -280,9 +353,21 @@ public final class HumungousaurClient implements AlienClientKit {
 						shockwave(feet, (float) (HumungousaurKit.LAND_RADIUS + stage), t, 14f, cam, pose, buffers);
 					}
 				}
-				case HumungousaurKit.ANIM_SLAM -> {
-					if ((st.kitFlags & HumungousaurKit.F_SLAM) == 0 && pl.onGround() && t < 24) {
-						shockwave(feet, (float) (HumungousaurKit.SLAM_RADIUS + 2 * stage), t, 24f, cam, pose, buffers);
+				case HumungousaurKit.ANIM_TITAN_LAND -> {
+					if (t < 22) {
+						shockwave(feet, (float) HumungousaurKit.TITAN_LAND_RADIUS, t, 22f, cam, pose, buffers);
+					}
+				}
+				case HumungousaurKit.ANIM_QUAKE -> {
+					// the Earthshaker: a dust wall racing out behind each stomp's QuirkFx ring
+					for (int i = 0; i < HumungousaurKit.QUAKE_STOMPS.length; i++) {
+						boolean last = i == HumungousaurKit.QUAKE_STOMPS.length - 1;
+						float k = t - HumungousaurKit.QUAKE_STOMPS[i];
+						float life = last ? 22f : 16f;
+						if (k >= 0 && k < life) {
+							float r = (float) ((last ? HumungousaurKit.QUAKE_BIG_RADIUS : HumungousaurKit.QUAKE_SMALL_RADIUS) + stage);
+							shockwave(feet, r, k, life, cam, pose, buffers);
+						}
 					}
 				}
 				case HumungousaurKit.ANIM_TAIL -> {
@@ -362,22 +447,41 @@ public final class HumungousaurClient implements AlienClientKit {
 		pose.popPose();
 	}
 
-	/** The Boulder Toss in flight: a tumbling chunk of the ground. */
-	private static void boulder(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers) {
+	/**
+	 * v0.17.2 Heavy Hurl in flight: the slab of ground he tore up -- a real 3x1x2 chunk of the block he stood on (its id rides in the
+	 * projectile's colour), spinning slowly, with a few clods of dirt clinging underneath.
+	 */
+	private static void slab(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers) {
 		var blocks = Minecraft.getInstance().getBlockRenderer();
 		int light = LevelRenderer.getLightColor(e.level(), e.blockPosition());
 		float age = e.tickCount + partial;
-		float s = e.size() * 1.4f;
+		BlockState top = Block.stateById(e.colour());
+		if (top.isAir()) {
+			top = Blocks.DIRT.defaultBlockState();
+		}
+		float s = e.size() * 0.75f;
 		pose.pushPose();
 		pose.translate(0, e.getBbHeight() * 0.5, 0);
-		pose.mulPose(Axis.XP.rotationDegrees(age * 18f));
-		pose.mulPose(Axis.ZP.rotationDegrees(age * 11f));
+		pose.mulPose(Axis.YP.rotationDegrees(age * 4f));
+		pose.mulPose(Axis.XP.rotationDegrees(age * 6f));
 		pose.scale(s, s, s);
-		pose.translate(-0.5, -0.5, -0.5);
-		blocks.renderSingleBlock(Blocks.COARSE_DIRT.defaultBlockState(), pose, buffers, light, OverlayTexture.NO_OVERLAY);
-		pose.translate(0.2, 0.55, 0.15);
-		pose.scale(0.6f, 0.6f, 0.6f);
-		blocks.renderSingleBlock(Blocks.COBBLESTONE.defaultBlockState(), pose, buffers, light, OverlayTexture.NO_OVERLAY);
+		pose.translate(-1.5, -0.5, -1.0);
+		for (int x = 0; x < 3; x++) {
+			for (int z = 0; z < 2; z++) {
+				pose.pushPose();
+				pose.translate(x, 0, z);
+				blocks.renderSingleBlock(top, pose, buffers, light, OverlayTexture.NO_OVERLAY);
+				pose.popPose();
+			}
+		}
+		// clods torn up with it
+		for (int i = 0; i < 3; i++) {
+			pose.pushPose();
+			pose.translate(0.4 + i * 0.9, -0.45, 0.3 + (i % 2) * 0.7);
+			pose.scale(0.55f, 0.5f, 0.55f);
+			blocks.renderSingleBlock(Blocks.DIRT.defaultBlockState(), pose, buffers, light, OverlayTexture.NO_OVERLAY);
+			pose.popPose();
+		}
 		pose.popPose();
 	}
 }
