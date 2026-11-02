@@ -6,10 +6,18 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
+import org.joml.Quaternionf;
+
 import com.projecthero.mod.client.omnitrix.OmnitrixRenderers;
+import com.projecthero.mod.client.quirk.fx.QuirkFxDraw;
+import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
 import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
+import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.core.Direction;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
@@ -45,6 +53,7 @@ public final class StinkflyGooFx {
 	private static final int DROP = 0xB8C0E650;
 	private static final int STRAND = 0xE8D8F070;
 	private static final int KNOT = 0xF0B0DA48;
+	private static final java.util.Set<String> FLYING = java.util.Set.of("stinkfly_slime", "stinkfly_spit", "stinkfly_net");
 
 	private StinkflyGooFx() {
 	}
@@ -53,7 +62,267 @@ public final class StinkflyGooFx {
 		OmnitrixRenderers.projectileLook("stinkfly_slime", (e, partial, pose, buffers) -> slime(e, partial, pose, buffers, 3));
 		OmnitrixRenderers.projectileLook("stinkfly_spit", (e, partial, pose, buffers) -> slime(e, partial, pose, buffers, 2));
 		OmnitrixRenderers.projectileLook("stinkfly_net", StinkflyGooFx::net);
+		// v0.17.2 (the Stinkfly revamp): the goo that stays -- patches / pools on any face, the stench cloud and the goo rain as
+		// rendered volumes (not particle spam), the cocoon shell, the goo wall; and the cocoon stream drawn in the world
+		for (Direction face : Direction.values()) {
+			OmnitrixRenderers.projectileLook("stinkfly_goo_" + face.getName(), (e, partial, pose, buffers) -> patch(e, partial, pose, buffers, face));
+		}
+		OmnitrixRenderers.projectileLook("stinkfly_cloud", (e, partial, pose, buffers) -> cloud(e, partial, pose, buffers, false));
+		OmnitrixRenderers.projectileLook("stinkfly_rain", (e, partial, pose, buffers) -> cloud(e, partial, pose, buffers, true));
+		OmnitrixRenderers.projectileLook("stinkfly_cocoon", (e, partial, pose, buffers) -> cocoon(e, partial, pose, buffers, StinkflyKit.COCOON_TICKS));
+		OmnitrixRenderers.projectileLook("stinkfly_cocoon_boss", (e, partial, pose, buffers) -> cocoon(e, partial, pose, buffers, StinkflyKit.COCOON_BOSS_TICKS));
+		OmnitrixRenderers.projectileLook("stinkfly_wall_x", (e, partial, pose, buffers) -> wall(e, partial, pose, buffers, true));
+		OmnitrixRenderers.projectileLook("stinkfly_wall_z", (e, partial, pose, buffers) -> wall(e, partial, pose, buffers, false));
 		ClientTickEvents.END_CLIENT_TICK.register(StinkflyGooFx::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(StinkflyGooFx::streams);
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 the goo that stays
+
+	private static final ResourceLocation POOL = QuirkFxDraw.DECALS[QuirkFx.DECAL_POOL];
+
+	/** 0..1 in over the first {@code in} ticks, out over the last {@code out} of {@code life}. */
+	private static float fade(float t, float life, float in, float out) {
+		return Mth.clamp(t / in, 0f, 1f) * Mth.clamp((life - t) / out, 0f, 1f);
+	}
+
+	/**
+	 * A goo patch / pool: a flat glossy decal on its block face (floor, wall or ceiling), wobbling a little, a darker heart and a
+	 * wet highlight, fading at the end; on a floor, stretched goo strings up to the feet of whatever stands in it.
+	 */
+	private static void patch(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, Direction face) {
+		float t = e.tickCount + partial;
+		float life = Math.max(20, e.colour());
+		float a = fade(t, life, 3f, 20f);
+		if (a <= 0.01f) {
+			return;
+		}
+		float grow = 0.55f + 0.45f * Mth.clamp(t / 5f, 0f, 1f);
+		float half = e.size() * 0.5f * grow;
+		int light = light(e);
+		float spin = (e.getId() * 37 % 360) * Mth.DEG_TO_RAD;
+		pose.pushPose();
+		Vector3f n = face.step();
+		pose.mulPose(new Quaternionf().rotationTo(0f, 1f, 0f, n.x, n.y, n.z));
+		pose.mulPose(Axis.YP.rotation(spin));
+		VertexConsumer vc = QuirkFxDraw.matter(buffers, POOL);
+		PoseStack.Pose last = pose.last();
+		float wx = 1f + 0.05f * Mth.sin(t * 0.15f), wz = 1f - 0.05f * Mth.sin(t * 0.15f + 1f);
+		flat(vc, last, half * wx, half * wz, 0.012f, 0xA8D848, 0.82f * a, light);
+		flat(vc, last, half * 0.62f * wz, half * 0.58f * wx, 0.018f, 0x5E8A1C, 0.7f * a, light);
+		pose.pushPose();
+		pose.translate(-half * 0.25f, 0f, -half * 0.2f);
+		flat(vc, pose.last(), half * 0.22f, half * 0.14f, 0.024f, 0xF4FFE0, 0.55f * a, LightTexture.FULL_BRIGHT);
+		pose.popPose();
+		pose.popPose();
+		if (face == Direction.UP && e.level() != null) {
+			// the strings: two stretched strands from the goo up to the feet of each creature stuck in it
+			VertexConsumer goo = buffers.getBuffer(RenderType.entityTranslucent(GOO));
+			PoseStack.Pose p0 = pose.last();
+			Vec3 at = e.getPosition(partial);
+			for (Entity o : e.level().getEntities(e, new net.minecraft.world.phys.AABB(at, at).inflate(half, 0.6, half),
+					o -> o instanceof net.minecraft.world.entity.LivingEntity && o.isAlive())) {
+				Vec3 f = o.getPosition(partial).subtract(at);
+				float w = o.getBbWidth() * 0.3f;
+				for (int s = -1; s <= 1; s += 2) {
+					float sway = Mth.sin(t * 0.2f + s) * 0.05f;
+					Vector3f base = new Vector3f((float) f.x + s * w * 1.4f, 0.02f, (float) f.z + sway);
+					Vector3f top = new Vector3f((float) f.x + s * w, (float) f.y + 0.25f, (float) f.z);
+					ribbon(p0, goo, base, top, 0.06f, STRAND, light);
+				}
+			}
+		}
+	}
+
+	/** A flat quad in the XZ plane at height {@code y}, half-sizes {@code hx} / {@code hz}, both faces. */
+	private static void flat(VertexConsumer vc, PoseStack.Pose last, float hx, float hz, float y, int rgb, float alpha, int light) {
+		QuirkFxDraw.mv(vc, last, -hx, y, -hz, 0f, 0f, rgb, alpha, light, 0, 1, 0);
+		QuirkFxDraw.mv(vc, last, -hx, y, hz, 0f, 1f, rgb, alpha, light, 0, 1, 0);
+		QuirkFxDraw.mv(vc, last, hx, y, hz, 1f, 1f, rgb, alpha, light, 0, 1, 0);
+		QuirkFxDraw.mv(vc, last, hx, y, -hz, 1f, 0f, rgb, alpha, light, 0, 1, 0);
+	}
+
+	/**
+	 * The Stench Cloud (low, round where it sits) and the Goo Rain (a cloud 5.5 up raining globs): 8-9 big soft green puffs that
+	 * slowly roll round and swell, a darker core inside; the rain's globs falling out of it. A few rendered shapes instead of the
+	 * old particle spray (the user dislikes lots of particles).
+	 */
+	private static void cloud(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, boolean rain) {
+		float t = e.tickCount + partial;
+		float life = Math.max(20, e.colour());
+		float a = fade(t, life, 8f, 20f);
+		if (a <= 0.01f) {
+			return;
+		}
+		float r = e.size();
+		int light = light(e);
+		float base = rain ? 5.5f : 0.7f;
+		Quaternionf cam = Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation();
+		int puffs = rain ? 9 : 8;
+		VertexConsumer smoke = QuirkFxDraw.matter(buffers, QuirkFxDraw.SMOKE);
+		PoseStack.Pose last = pose.last();
+		for (int i = 0; i < puffs; i++) {
+			float h1 = QuirkFxDraw.hash(e.getId(), i, 1), h2 = QuirkFxDraw.hash(e.getId(), i, 2);
+			float ang = i * Mth.TWO_PI / puffs + h1 + t * (rain ? 0.006f : 0.012f);
+			float rr = r * (i == 0 ? 0f : 0.35f + 0.35f * h2);
+			float y = base + (rain ? (h1 - 0.5f) * 0.6f : 0.15f + h2 * 0.9f) + 0.12f * Mth.sin(t * 0.05f + i);
+			float swell = 0.85f + 0.25f * Mth.clamp(t / 30f, 0f, 1f) + 0.08f * Mth.sin(t * 0.07f + i * 1.3f);
+			float size = r * (rain ? 0.42f : 0.5f) * (0.75f + 0.4f * h1) * swell;
+			int rgb = (i % 3 == 0) ? 0x5A7A20 : (i % 3 == 1) ? 0x9CC048 : 0xC8E070;
+			QuirkFxDraw.billboard(smoke, last, cam, new Vector3f(Mth.cos(ang) * rr, y, Mth.sin(ang) * rr), size, t * 0.01f + h2 * 6f, 0f, 1f, rgb,
+					(rain ? 0.75f : 0.6f) * a, false, light);
+		}
+		// the darker core
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(GOO));
+		int core = ((int) (0x70 * a) << 24) | 0x3E5A12;
+		blob(pose.last(), vc, 0f, base + (rain ? 0f : 0.45f), 0f, r * 0.45f, r * (rain ? 0.18f : 0.32f), r * 0.45f, core, light, t, 0.12f);
+		if (rain) {
+			// the globs: a dozen falling out of the cloud at random spots, stretched by their fall
+			for (int k = 0; k < 12; k++) {
+				float ph = t * 0.07f + QuirkFxDraw.hash(e.getId(), k, 3) * 7f;
+				int cycle = Mth.floor(ph);
+				float f = ph - cycle;
+				float h = QuirkFxDraw.hash(e.getId() + cycle * 31L, k, 4), h2 = QuirkFxDraw.hash(e.getId() + cycle * 31L, k, 5);
+				float ang = h * Mth.TWO_PI, rr = Mth.sqrt(h2) * r * 0.85f;
+				float y = base - 0.3f - f * f * (base - 0.2f);
+				float s = 0.09f + 0.05f * h;
+				blob(pose.last(), vc, Mth.cos(ang) * rr, y, Mth.sin(ang) * rr, s, s * (1.3f + f), s, ((int) (0xC0 * a) << 24) | 0xB8E04A, light, t, 0.1f);
+			}
+		}
+	}
+
+	/**
+	 * The Goo Cocoon: a lumpy translucent shell round the hitbox (width from the "colour" field, height from the size), the
+	 * darker core texture showing the creature inside; it bulges in its last second.
+	 */
+	private static void cocoon(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, int life) {
+		float t = e.tickCount + partial;
+		float h = Math.max(0.4f, e.size()), w = Math.max(0.3f, e.colour() / 1000f);
+		float wrap = Mth.clamp(t / 6f, 0f, 1f);
+		float bulge = t > life - 20 ? 1f + 0.12f * ((t - (life - 20)) / 20f) + 0.04f * Mth.sin(t * 1.6f) : 1f;
+		int light = light(e);
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(GOO));
+		PoseStack.Pose last = pose.last();
+		float rx = (w * 0.5f + 0.18f) * bulge, ry = (h * 0.5f + 0.15f) * bulge * (0.4f + 0.6f * wrap);
+		float cy = ry;
+		blob(last, vc, 0f, cy, 0f, rx * 0.85f, ry * 0.88f, rx * 0.85f, 0x903E5A12, light, t, 0.06f);
+		blob(last, vc, 0f, cy, 0f, rx, ry, rx, 0xB0B8E04A, light, t, 0.14f);
+		// the lumps
+		for (int i = 0; i < 7; i++) {
+			float h1 = QuirkFxDraw.hash(e.getId(), i, 7), h2 = QuirkFxDraw.hash(e.getId(), i, 8);
+			float ang = h1 * Mth.TWO_PI, yy = (h2 - 0.5f) * 1.5f * ry;
+			float k = Mth.sqrt(Math.max(0f, 1f - (yy / ry) * (yy / ry)));
+			float lr = rx * (0.28f + 0.15f * h2);
+			blob(last, vc, Mth.cos(ang) * rx * k * 0.9f, cy + yy, Mth.sin(ang) * rx * k * 0.9f, lr, lr * 0.8f, lr, 0xC0A8D848, light, t + i * 3f, 0.15f);
+		}
+		blob(last, vc, -rx * 0.35f, cy + ry * 0.45f, -rx * 0.3f, rx * 0.22f, ry * 0.1f, rx * 0.18f, 0xD8FFFFF0, LightTexture.FULL_BRIGHT, t, 0f);
+	}
+
+	/**
+	 * The Goo Wall: one translucent goo sheet across the gap (3 x 3), sagging in the middle and breathing a little, with goo
+	 * strands along it and knots where they cross (the Slime Net's strands); {@code alongX}: its face points along x.
+	 */
+	private static void wall(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, boolean alongX) {
+		float t = e.tickCount + partial;
+		float life = Math.max(20, e.colour());
+		float a = fade(t, life, 4f, 20f);
+		if (a <= 0.01f) {
+			return;
+		}
+		float open = Mth.clamp(t / 5f, 0f, 1f);
+		int light = light(e);
+		pose.pushPose();
+		if (alongX) {
+			pose.mulPose(Axis.YP.rotation(Mth.HALF_PI));
+		}
+		final int n = 5;
+		Vector3f[][] g = new Vector3f[n][n];
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				float u = i / (n - 1f) * 2f - 1f, v = j / (n - 1f) * 2f - 1f;
+				float sag = -0.22f * (1f - u * u) * (v + 1f) * 0.5f;
+				float breathe = 0.1f * (1f - u * u) * (1f - v * v) * Mth.sin(t * 0.09f + u);
+				g[i][j] = new Vector3f(u * 1.5f * open, v * 1.5f * open + sag, breathe);
+			}
+		}
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(GOO));
+		PoseStack.Pose last = pose.last();
+		int sheet = ((int) (0x78 * a) << 24) | 0xB8E04A;
+		for (int i = 0; i < n - 1; i++) {
+			for (int j = 0; j < n - 1; j++) {
+				Vector3f p00 = g[i][j], p10 = g[i + 1][j], p11 = g[i + 1][j + 1], p01 = g[i][j + 1];
+				quadV(last, vc, p00.x, p00.y, p00.z, p10.x, p10.y, p10.z, p11.x, p11.y, p11.z, p01.x, p01.y, p01.z, new Vector3f(0, 0, 1), sheet, light);
+			}
+		}
+		int strand = ((int) (0xE8 * a) << 24) | (STRAND & 0xFFFFFF);
+		int knot = ((int) (0xF0 * a) << 24) | (KNOT & 0xFFFFFF);
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				if (i + 1 < n) {
+					ribbon(last, vc, g[i][j], g[i + 1][j], 0.07f, strand, light);
+				}
+				if (j + 1 < n) {
+					ribbon(last, vc, g[i][j], g[i][j + 1], 0.07f, strand, light);
+				}
+				blob(last, vc, g[i][j].x, g[i][j].y, g[i][j].z, 0.09f, 0.09f, 0.09f, knot, light, t + i * 3 + j, 0.15f);
+			}
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * The Goo Cocoon's stream: a wobbling tube of goo from Stinkfly's eyes to the target, thick and pumping at his face and
+	 * tapering where it splashes on (drawn for every Stinkfly pumping one, {@code StinkflyKit.cocoonTarget}).
+	 */
+	private static void streams(WorldRenderContext context) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || context.consumers() == null || context.matrixStack() == null) {
+			return;
+		}
+		if (!(com.projecthero.mod.omnitrix.alien.Aliens.kit(StinkflyKit.ID) instanceof StinkflyKit kit)) {
+			return;
+		}
+		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
+		Vec3 cam = context.camera().getPosition();
+		PoseStack pose = context.matrixStack();
+		for (net.minecraft.world.entity.player.Player p : mc.level.players()) {
+			if (!StinkflyKit.ID.equals(com.projecthero.mod.omnitrix.Omnitrix.active(p))) {
+				continue;
+			}
+			int id = kit.cocoonTarget(p);
+			Entity target = id < 0 ? null : mc.level.getEntity(id);
+			if (target == null) {
+				continue;
+			}
+			boolean fp = p == mc.player && mc.options.getCameraType().isFirstPerson();
+			Vec3 look = p.getViewVector(partial);
+			Vec3 from = p.getEyePosition(partial).add(look.scale(fp ? 0.6 : 0.35)).add(0, fp ? -0.25 : -0.02, 0);
+			Vec3 to = target.getPosition(partial).add(0, target.getBbHeight() * 0.5, 0);
+			float t = mc.level.getGameTime() + partial;
+			int light = LightTexture.pack(12, 15);
+			pose.pushPose();
+			pose.translate(from.x - cam.x, from.y - cam.y, from.z - cam.z);
+			PoseStack.Pose last = pose.last();
+			VertexConsumer vc = context.consumers().getBuffer(RenderType.entityTranslucent(GOO));
+			Vec3 span = to.subtract(from);
+			Vec3 side = span.cross(new Vec3(0, 1, 0));
+			side = side.lengthSqr() < 1e-6 ? new Vec3(1, 0, 0) : side.normalize();
+			Vec3 up = side.cross(span).normalize();
+			final int segs = 12;
+			Vector3f prev = new Vector3f();
+			for (int i = 1; i <= segs; i++) {
+				float f = i / (float) segs;
+				float wob = Mth.sin(t * 0.9f - f * 9f) * 0.08f * Mth.sin(f * Mth.PI);
+				Vec3 q = span.scale(f).add(side.scale(wob)).add(up.scale(wob * 0.6));
+				Vector3f cur = new Vector3f((float) q.x, (float) q.y, (float) q.z);
+				float pump = 1f + 0.25f * Mth.sin(t * 1.2f - f * 12f);
+				float w = (0.26f - 0.12f * f) * pump;
+				ribbon(last, vc, prev, cur, w, 0xC8C8EC5A, light);
+				ribbon(last, vc, prev, cur, w * 0.45f, 0xE04A7212, light);
+				prev = cur;
+			}
+			pose.popPose();
+		}
 	}
 
 	// ---------------------------------------------------------------- the looks
@@ -164,7 +433,8 @@ public final class StinkflyGooFx {
 		}
 		RandomSource r = mc.level.random;
 		for (Entity en : mc.level.entitiesForRendering()) {
-			if (!(en instanceof AlienProjectileEntity e) || !e.kind().startsWith("stinkfly_")) {
+			// (only the flying goo: the patches, clouds, cocoons and walls are held in place -- "held" is not synced, so by kind)
+			if (!(en instanceof AlienProjectileEntity e) || !FLYING.contains(e.kind())) {
 				continue;
 			}
 			boolean net = e.kind().equals("stinkfly_net");

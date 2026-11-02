@@ -178,8 +178,10 @@ public final class DirectionalFlight {
 							DirectionalFlightModel.HEATBLAST_SPRINT_BPS);
 				}
 				case "stinkfly" -> {
-					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.STINKFLY_CRUISE_BPS,
-							DirectionalFlightModel.STINKFLY_SPRINT_BPS);
+					// v0.17.2 (Stinkfly revamp, Wet Wings): 30% slower in the rain
+					float wet = com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.flightFactor(player);
+					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.STINKFLY_CRUISE_BPS * wet,
+							DirectionalFlightModel.STINKFLY_SPRINT_BPS * wet);
 				}
 				case "ghostfreak" -> {
 					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.GHOSTFREAK_CRUISE_BPS,

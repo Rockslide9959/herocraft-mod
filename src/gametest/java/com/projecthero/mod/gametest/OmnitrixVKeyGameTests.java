@@ -395,6 +395,24 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.2 (the Stinkfly revamp): Shift+V is the Goo Wall; Lift never picks up an enemy player. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void stinkflyShiftVGooWallAndNoEnemyPlayers(GameTestHelper helper) {
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		tapV(p, true);
+		helper.assertTrue(StinkflyKit.wallHp(p) == StinkflyKit.WALL_HP, "Shift+V: a Goo Wall in front");
+		ServerPlayer other = helper.makeMockServerPlayerInLevel();
+		Vec3 at = p.position().add(0, 0, 1.5);
+		other.moveTo(at.x, at.y, at.z, 180f, 0f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 20f);
+		tapV(p, false);
+		helper.assertTrue(StinkflyKit.lifted(p) == null, "V: an enemy (non-squad) player is not lifted");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(StinkflyKit.wallHp(p) == 0, "the wall is gone after turning back");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
 	public void ripjawsVWaterBubbleStopsTheDrying(GameTestHelper helper) {
 		ServerPlayer p = as(helper, RipjawsKit.ID);
