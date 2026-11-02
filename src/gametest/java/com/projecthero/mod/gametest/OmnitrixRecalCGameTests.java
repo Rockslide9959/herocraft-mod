@@ -156,7 +156,8 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		float before = z.getHealth();
 		z.invulnerableTime = 0;
 		BrainstormKit.zap(p, z, 8f);
-		near(helper, z.getHealth(), before - 8f * BrainstormKit.MARK_FACTOR, "+25% on an analysed creature");
+		// v0.17.2 revamp: the bolt left one Static charge; an analysed creature Overloads at 2 (+6 on that hit)
+		near(helper, z.getHealth(), before - (8f + BrainstormKit.OVERLOAD_DAMAGE) * BrainstormKit.MARK_FACTOR, "+25% on an analysed creature (and an Overload)");
 		helper.succeed();
 	}
 
@@ -220,7 +221,8 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
 			z.invulnerableTime = 0;
 			helper.assertTrue(kit.flurryHit(p, 2) == 1, "a Quad Flurry fist lands");
-			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE - SpidermonkeyKit.FLURRY_HIT, "3.5 a fist");
+			// v0.17.2 revamp: Sticky -- the zombie is still webbed, so the fist hits it for 1 more
+			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE - SpidermonkeyKit.FLURRY_HIT - SpidermonkeyKit.STICKY_BONUS, "3.5 a fist (+1 Sticky)");
 			helper.succeed();
 		});
 	}

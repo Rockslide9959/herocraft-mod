@@ -20,10 +20,12 @@ import com.projecthero.mod.omnitrix.alien.AlienStatus;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
+import com.projecthero.mod.quirk.fx.QuirkCamera;
+import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.particles.BlockParticleOption;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -35,12 +37,12 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -48,24 +50,35 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (the Recalibrated Omnitrix, basic version -- user: "Just make them basic versions of the aliens for now please that we
- * can revamp later"): Spidermonkey, the Arachnichimp -- a small, agile, four-armed ape with four eyes and a tail that shoots webs.
+ * v0.17.2: Spidermonkey, the Arachnichimp (Recalibrated Omnitrix). v0.17.2 revamp (docs/OMNITRIX_REVAMP_SPIDERMONKEY.md; user: "can
+ * you work on revamps for the rest of the alien force aliens please, look at their powers and abilities in the show and do research
+ * and make them good please"): a four-armed monkey acrobat who spins web from his tail. Where Spider-Man is a city swinger, he is a
+ * jungle gym: chained swings (Monkey Bars), ceiling hangs, a swing kick off a web line, and four fists. No Ultimate Spidermonkey.
  *
  * <pre>
- *   R        Web Shot        a glob of web: 6, roots 2 s                        Shift+R  Web Net         a net (r 2.5): 12, roots 3 s
- *   G        Quad Flurry     four fists in front: 4 x 3.5                       Shift+G  Web Yank        a strand at a creature (16): 12, reeled in
- *   X        Web Zip         a strand to a block (28): zipped to it             Shift+X  Web Swing       a strand to a point ahead and above: swing
- *   Z        Tail Whip       a spin round (r 3.2): 13 + thrown                  Shift+Z  Web Trap        a web on the ground (r 2.5, 15 s): roots, 5
- *   V        Wall Crawl      toggle (on when he transforms): climbs walls       Shift+V  Web Shield      a web wall in front, 8 s: stops shots
- *   C        Cocoon Crush    ULTIMATE: wraps a creature (16): rooted 5 s,       Shift+C  Web Barrage     6 webs in a fan: 5 each, roots 1.5 s
- *                            5 every 0.5 s (50)
+ *   R          Web Shot        a glob of web from his tail: 6, rooted 2 s, 1 s
+ *   Shift+R    Web Net         a spinning net (r 2.5): 12, rooted 3 s, 8 s
+ *   G          Quad Flurry     four fists in front: 4 x 3.5 (+1 each on a webbed foe), 5 s
+ *   Shift+G    Web Yank        a line at a creature (16): 12, reeled in -- in the air or on a wall he instead swings in on it for a
+ *                              Swing Kick (15 + knocked flying), 8 s
+ *   X          Web Zip         a line to a block (28): zipped to it, 1.5 s
+ *   Shift+X    Web Swing       HOLD: swing on a line ahead and above, let go to fling; re-catch in the air within 2 s = no cooldown
+ *                              (Monkey Bars), 3 s
+ *   Z          Tail Whip       a spin (r 3.2): 13 + thrown (webbed foes torn loose and thrown twice as far), 6 s
+ *   Shift+Z    Cocoon Crush    ULTIMATE: wraps a creature (16): rooted 5 s, squeezed 5 every 0.5 s (50), then slammed: 14 + launched
+ *                              (64), 45 s
+ *   C          Web Trap        a web on the ground (r 2.5, 15 s, two at a time): 5 + rooted 3 s, 15 s
+ *   Shift+C    Web Barrage     six webs in a fan: 5 each, rooted 1.5 s, 10 s
+ *   V          Wall Crawl      toggle (on when he transforms): climbs walls; Sneak under a ceiling = Ceiling Hang
+ *   Shift+V    Web Shield      a web wall in front, 8 s: shots stop dead, creatures wade through, 20 s
+ *   Attack     Four Fists      every 4th punch within 2 s lands all four: +4 and a shove
+ *   Passives   Wall Crawl + Ceiling Hang; nimble (x1.25 speed, a better jump, safe fall +4, no fall damage after his lines);
+ *              Sticky (webbed foes take +1 from his fists)
+ *   Weak       fire (x1.5; a burning creature can't be webbed); Tangled (his own ground web slows him); light frame (22 HP, armour 2)
  * </pre>
  *
- * Passives: Wall Crawl ({@code climbs}), nimble (x1.25 speed, a better jump, no fall damage after his own zips and swings, safe
- * fall +4). Weaknesses: fire (x1.5: fur and webbing burn), a light frame (22 HP, armour 2).
- *
  * <p>Webs are drawn by the client from held {@link AlienProjectileEntity} carriers: {@code spidermonkey_strand} sits at a strand's
- * far end (the anchor) and draws a line to its owner's hand (colour 0) or to creature colour - 1 ({@code spidermonkey_wrap} wraps
+ * far end (the anchor) and draws a line to its owner's tail (colour 0) or to creature colour - 1 ({@code spidermonkey_wrap} wraps
  * creature colour - 1), {@code spidermonkey_trap} a ground web of radius size, {@code spidermonkey_shield} the web wall (its yaw).
  */
 public final class SpidermonkeyKit extends AlienKit {
@@ -101,10 +114,19 @@ public final class SpidermonkeyKit extends AlienKit {
 			.layer(SoundEvents.WOOL_BREAK, 0.4f, 0.8f)
 			.layer(SoundEvents.SLIME_SQUISH, 0.25f, 0.8f)
 			.gap(6);
+	// v0.17.2 revamp
+	public static final OmnitrixSfx.Cue KICK = OmnitrixSfx.cue("spidermonkey_kick")
+			.layer(SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.45f, 1.1f)
+			.layer(SoundEvents.PLAYER_ATTACK_STRONG, 0.3f, 1.3f)
+			.layer(SoundEvents.FOX_SCREECH, 0.12f, 1.8f, 2);
+	public static final OmnitrixSfx.Cue SLAM = OmnitrixSfx.cue("spidermonkey_slam")
+			.layer(SoundEvents.WOOL_BREAK, 0.5f, 0.6f)
+			.layer(SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.4f, 0.7f)
+			.layer(SoundEvents.GENERIC_SMALL_FALL, 0.4f, 0.6f, 2);
 
 	// ---------------------------------------------------------------- poses, flags, moves
 	public static final int ANIM_SHOT = 1, ANIM_NET = 2, ANIM_FLURRY = 3, ANIM_YANK = 4, ANIM_ZIP = 5, ANIM_SWING = 6, ANIM_WHIP = 7, ANIM_TRAP = 8,
-			ANIM_CRAWL = 9, ANIM_SHIELD = 10, ANIM_COCOON = 11, ANIM_BARRAGE = 12;
+			ANIM_CRAWL = 9, ANIM_SHIELD = 10, ANIM_COCOON = 11, ANIM_BARRAGE = 12, ANIM_KICK = 13, ANIM_FISTS = 14, ANIM_SLAM = 15;
 
 	/** Wall Crawl is on ({@link #climbs}). */
 	public static final int F_CRAWL = 1;
@@ -112,28 +134,37 @@ public final class SpidermonkeyKit extends AlienKit {
 	public static final int F_SWING = 2;
 	/** Airborne after a zip or swing: no fall damage until he lands. */
 	public static final int F_AIR = 4;
+	/** v0.17.2 revamp: flying in on a line for a Swing Kick. */
+	public static final int F_KICK = 8;
 
 	public static final String WEB_SHOT = "web_shot", WEB_NET = "web_net", QUAD_FLURRY = "quad_flurry", WEB_YANK = "web_yank", WEB_ZIP = "web_zip",
 			WEB_SWING = "web_swing", TAIL_WHIP = "tail_whip", WEB_TRAP = "web_trap", WALL_CRAWL = "wall_crawl", WEB_SHIELD = "web_shield",
-			COCOON_CRUSH = "cocoon_crush", WEB_BARRAGE = "web_barrage";
+			COCOON_CRUSH = "cocoon_crush", WEB_BARRAGE = "web_barrage", FOUR_FISTS = "four_fists", CEILING_HANG = "ceiling_hang";
 
-	public static final String AIR_AT = "air_at";
+	public static final String AIR_AT = "air_at", SWING_FREE_UNTIL = "swing_free_until";
 
-	public static final float SHOT_DAMAGE = 6f, NET_DAMAGE = 12f, FLURRY_HIT = 3.5f, YANK_DAMAGE = 12f, WHIP_DAMAGE = 13f, TRAP_DAMAGE = 5f,
-			COCOON_PULSE_DAMAGE = 5f, BARRAGE_DAMAGE = 5f;
+	public static final float SHOT_DAMAGE = 6f, NET_DAMAGE = 12f, FLURRY_HIT = 3.5f, YANK_DAMAGE = 12f, KICK_DAMAGE = 15f, WHIP_DAMAGE = 13f,
+			TRAP_DAMAGE = 5f, COCOON_PULSE_DAMAGE = 5f, COCOON_SLAM = 14f, BARRAGE_DAMAGE = 5f, FISTS_BONUS = 4f, STICKY_BONUS = 1f;
 	public static final int SHOT_ROOT = 40, NET_ROOT = 60, FLURRY_HITS = 4, FLURRY_GAP = 2, TRAP_TICKS = 300, TRAP_ROOT = 60, SHIELD_TICKS = 160,
-			COCOON_TICKS = 100, COCOON_PULSE = 10, BARRAGE_ROOT = 30, SWING_MAX = 60;
+			COCOON_TICKS = 100, COCOON_PULSE = 10, BARRAGE_ROOT = 30, SWING_MAX = 80, SWING_FREE = 40, KICK_MAX = 24, FISTS_WINDOW = 40,
+			TANGLE_TICKS = 30;
 	public static final double FLURRY_RANGE = 3.2, YANK_RANGE = 16, ZIP_RANGE = 28, SWING_RANGE = 24, WHIP_RADIUS = 3.2, TRAP_RADIUS = 2.5,
 			TRAP_RANGE = 12, COCOON_RANGE = 16, NET_RADIUS = 2.5;
 	public static final float FIRE_TAKEN = 1.5f;
 
-	// ---------------------------------------------------------------- per-player state
+	// ---------------------------------------------------------------- per-player state (cleared in onRevert / clearSessionState)
 	private static final Map<UUID, Flurry> FLURRIES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Swing> SWINGS = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Trap>> TRAPS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Shield> SHIELDS = new ConcurrentHashMap<>();
 	/** creature -> its cocoon. */
 	private static final Map<UUID, Cocoon> COCOONS = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: player -> the Swing Kick in flight. */
+	private static final Map<UUID, Kick> KICKS = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: player -> his punch count (Four Fists). */
+	private static final Map<UUID, long[]> PUNCHES = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: once per game tick (flurry, cocoon pulses -- RipjawsKit.tick). */
+	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 
 	private static final class Flurry {
 		int left = FLURRY_HITS;
@@ -144,11 +175,13 @@ public final class SpidermonkeyKit extends AlienKit {
 		final Vec3 anchor;
 		final double length;
 		final long until;
+		final long start;
 		final AlienProjectileEntity strand;
 
-		Swing(Vec3 anchor, double length, long until, AlienProjectileEntity strand) {
+		Swing(Vec3 anchor, double length, long start, long until, AlienProjectileEntity strand) {
 			this.anchor = anchor;
 			this.length = length;
+			this.start = start;
 			this.until = until;
 			this.strand = strand;
 		}
@@ -158,6 +191,9 @@ public final class SpidermonkeyKit extends AlienKit {
 	}
 
 	private record Shield(ResourceKey<Level> dim, Vec3 centre, Vec3 normal, long until, AlienProjectileEntity web) {
+	}
+
+	private record Kick(LivingEntity target, long until, AlienProjectileEntity strand) {
 	}
 
 	private static final class Cocoon {
@@ -190,8 +226,7 @@ public final class SpidermonkeyKit extends AlienKit {
 				}
 				if (proj.level() instanceof ServerLevel level) {
 					Vec3 at = hit.getLocation();
-					level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.COBWEB.defaultBlockState()), at.x, at.y, at.z, 20, 1.0, 0.4, 1.0,
-							0.05);
+					QuirkFx.ring(level, at).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, 0xE8ECF4).size((float) NET_RADIUS).thickness(0.3f).life(8).spawn();
 					OmnitrixSfx.play(level, at, STICK, 0.9f, 0.9f);
 				}
 			}
@@ -216,6 +251,12 @@ public final class SpidermonkeyKit extends AlienKit {
 			c.wrap.discard();
 		}
 		COCOONS.clear();
+		for (Kick k : KICKS.values()) {
+			k.strand().discard();
+		}
+		KICKS.clear();
+		PUNCHES.clear();
+		LAST_TICK.clear();
 	}
 
 	@Override
@@ -233,9 +274,10 @@ public final class SpidermonkeyKit extends AlienKit {
 		return List.of(AlienMove.tap(WEB_SHOT, AbilitySlot.SLOT_1, 20), AlienMove.shift(WEB_NET, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(QUAD_FLURRY, AbilitySlot.SLOT_2, 100), AlienMove.shift(WEB_YANK, AbilitySlot.SLOT_2, 160),
 				AlienMove.tap(WEB_ZIP, AbilitySlot.SLOT_3, 30), AlienMove.shift(WEB_SWING, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(TAIL_WHIP, AbilitySlot.SLOT_4, 120), AlienMove.shift(WEB_TRAP, AbilitySlot.SLOT_4, 300),
+				AlienMove.tap(TAIL_WHIP, AbilitySlot.SLOT_4, 120), AlienMove.shift(COCOON_CRUSH, AbilitySlot.SLOT_4, 900),
 				AlienMove.tap(WALL_CRAWL, AbilitySlot.SLOT_5, 10), AlienMove.shift(WEB_SHIELD, AbilitySlot.SLOT_5, 400),
-				AlienMove.tap(COCOON_CRUSH, AbilitySlot.SLOT_6, 900), AlienMove.shift(WEB_BARRAGE, AbilitySlot.SLOT_6, 200));
+				AlienMove.tap(WEB_TRAP, AbilitySlot.SLOT_6, 300), AlienMove.shift(WEB_BARRAGE, AbilitySlot.SLOT_6, 200),
+				AlienMove.vanilla(FOUR_FISTS, "Attack", 0), AlienMove.vanilla(CEILING_HANG, "Sneak (under a ceiling)", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -250,6 +292,7 @@ public final class SpidermonkeyKit extends AlienKit {
 		UUID id = p.getUUID();
 		FLURRIES.remove(id);
 		endSwing(p, false);
+		endKick(p);
 		List<Trap> traps = TRAPS.remove(id);
 		if (traps != null) {
 			traps.forEach(t -> t.web().discard());
@@ -265,18 +308,20 @@ public final class SpidermonkeyKit extends AlienKit {
 			}
 			return false;
 		});
-		OmnitrixState s = Omnitrix.state(p);
-		if (s.kitFlags != 0) {
-			OmnitrixState n = s.copy();
-			n.kitFlags = 0;
-			Omnitrix.save(p, n);
-		}
+		PUNCHES.remove(id);
+		LAST_TICK.remove(id);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags = 0;
+		n.timers.remove(key(AIR_AT));
+		n.timers.remove(key(SWING_FREE_UNTIL));
+		Omnitrix.save(p, n);
 	}
 
 	/** Anything of {@code p}'s left in the kit's maps (gametests: turning back leaves nothing). */
 	public static int leftovers(ServerPlayer p) {
 		UUID id = p.getUUID();
-		int n = (FLURRIES.containsKey(id) ? 1 : 0) + (SWINGS.containsKey(id) ? 1 : 0) + (TRAPS.containsKey(id) ? 1 : 0) + (SHIELDS.containsKey(id) ? 1 : 0);
+		int n = (FLURRIES.containsKey(id) ? 1 : 0) + (SWINGS.containsKey(id) ? 1 : 0) + (TRAPS.containsKey(id) ? 1 : 0) + (SHIELDS.containsKey(id) ? 1 : 0)
+				+ (KICKS.containsKey(id) ? 1 : 0) + (PUNCHES.containsKey(id) ? 1 : 0) + (LAST_TICK.containsKey(id) ? 1 : 0);
 		for (Cocoon c : COCOONS.values()) {
 			if (c.owner.equals(id)) {
 				n++;
@@ -288,8 +333,18 @@ public final class SpidermonkeyKit extends AlienKit {
 	@Override
 	public boolean climbs(Player p) {
 		// only while pressed into a wall (last tick's collision, as vanilla's ladders read it): on open ground he falls and
-		// sneaks normally instead of hanging in the air like on a ladder
-		return flag(p, F_CRAWL) && p.horizontalCollision;
+		// sneaks normally instead of hanging in the air like on a ladder. v0.17.2 revamp: Ceiling Hang -- sneaking with a
+		// ceiling right over his head counts as climbing, and a sneaking climber doesn't slide down (vanilla ladder rules)
+		return flag(p, F_CRAWL) && (p.horizontalCollision || hangs(p));
+	}
+
+	/** v0.17.2 revamp: Ceiling Hang -- Wall Crawl on, sneaking, off the ground, a sturdy ceiling within a few pixels of his head. */
+	public boolean hangs(Player p) {
+		if (!flag(p, F_CRAWL) || !p.isShiftKeyDown() || p.onGround() || p.isInWater()) {
+			return false;
+		}
+		BlockPos up = BlockPos.containing(p.getX(), p.getY() + p.getBbHeight() + 0.25, p.getZ());
+		return p.level().getBlockState(up).isFaceSturdy(p.level(), up, Direction.DOWN);
 	}
 
 	/** Wall Crawl is switched on (gametests; {@link #climbs} also needs a wall). */
@@ -304,10 +359,7 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
-		if (source.is(DamageTypeTags.IS_FALL) && (flag(p, F_AIR) || flag(p, F_SWING))) {
-			return false;
-		}
-		return true;
+		return !(source.is(DamageTypeTags.IS_FALL) && (flag(p, F_AIR) || flag(p, F_SWING) || flag(p, F_KICK)));
 	}
 
 	@Override
@@ -317,10 +369,24 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
+		// v0.17.2 revamp: once per game tick (RipjawsKit.tick)
+		Long last = LAST_TICK.put(p.getUUID(), now);
+		if (last != null && last == now) {
+			return;
+		}
 		ServerLevel level = level(p);
 		UUID id = p.getUUID();
 		if (flag(p, F_AIR) && p.onGround() && now - timer(p, AIR_AT) > 4 && !flag(p, F_SWING)) {
 			setFlag(p, F_AIR, false);
+		}
+		// Ceiling Hang: no sliding off (the ladder rule stops the fall; this keeps him from drifting)
+		if (hangs(p)) {
+			Vec3 v = p.getDeltaMovement();
+			if (v.y < 0) {
+				p.setDeltaMovement(v.x * 0.6, 0, v.z * 0.6);
+				p.hurtMarked = true;
+			}
+			p.fallDistance = 0f;
 		}
 		// the flurry: a fist every 2 ticks
 		Flurry f = FLURRIES.get(id);
@@ -334,12 +400,13 @@ public final class SpidermonkeyKit extends AlienKit {
 		// the swing: a pendulum on the strand
 		Swing sw = SWINGS.get(id);
 		if (sw != null) {
-			if (now >= sw.until || (p.onGround() && now - (sw.until - SWING_MAX) > 6) || !sw.strand.isAlive()) {
+			if (now >= sw.until || (p.onGround() && now - sw.start > 6) || !sw.strand.isAlive()) {
 				endSwing(p, true);
 			} else {
 				swingTick(p, sw);
 			}
 		}
+		tickKick(p, now);
 		// the web traps
 		List<Trap> traps = TRAPS.get(id);
 		if (traps != null) {
@@ -354,6 +421,10 @@ public final class SpidermonkeyKit extends AlienKit {
 						hurt(p, e, TRAP_DAMAGE, false);
 						OmnitrixSfx.play(level, e.position(), STICK, 0.8f, 1f);
 					}
+				}
+				// v0.17.2 revamp, Tangled (the show: he gets caught in his own webs): walking through his own web slows him
+				if (p.onGround() && p.position().distanceToSqr(t.at()) < TRAP_RADIUS * TRAP_RADIUS * 0.6 && Math.abs(p.getY() - t.at().y) < 1.0) {
+					p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, TANGLE_TICKS, 1, false, false, true));
 				}
 				return false;
 			});
@@ -381,14 +452,19 @@ public final class SpidermonkeyKit extends AlienKit {
 				}
 			}
 		}
-		// the cocoons squeeze
+		// the cocoons squeeze, then slam
 		if (!COCOONS.isEmpty()) {
 			COCOONS.values().removeIf(c -> {
 				if (!c.owner.equals(id)) {
 					return false;
 				}
-				if (now >= c.until || !c.target.isAlive()) {
+				if (!c.target.isAlive()) {
 					c.wrap.discard();
+					return true;
+				}
+				if (now >= c.until) {
+					c.wrap.discard();
+					cocoonSlam(p, c.target);
 					return true;
 				}
 				if (now >= c.next) {
@@ -399,6 +475,12 @@ public final class SpidermonkeyKit extends AlienKit {
 				}
 				return false;
 			});
+		}
+		if (now % 20 == 0) {
+			long[] pc = PUNCHES.get(id);
+			if (pc != null && now - pc[1] > FISTS_WINDOW) {
+				PUNCHES.remove(id);
+			}
 		}
 	}
 
@@ -423,7 +505,7 @@ public final class SpidermonkeyKit extends AlienKit {
 			}
 			case SLOT_3 -> {
 				if (SWINGS.containsKey(p.getUUID())) {
-					endSwing(p, true); // X / Shift+X again lets go of the strand
+					endSwing(p, true); // X again lets go of the strand
 				} else if (shift) {
 					webSwing(p);
 				} else {
@@ -432,7 +514,7 @@ public final class SpidermonkeyKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					webTrap(p);
+					cocoonCrush(p);
 				} else {
 					tailWhip(p);
 				}
@@ -448,7 +530,7 @@ public final class SpidermonkeyKit extends AlienKit {
 				if (shift) {
 					webBarrage(p);
 				} else {
-					cocoonCrush(p);
+					webTrap(p);
 				}
 			}
 			default -> {
@@ -456,10 +538,24 @@ public final class SpidermonkeyKit extends AlienKit {
 		}
 	}
 
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		// v0.17.2 revamp: Web Swing runs while Shift+X is held; letting go flings him off the end of the line
+		if (slot == AbilitySlot.SLOT_3 && shift && SWINGS.containsKey(p.getUUID())) {
+			endSwing(p, true);
+		}
+	}
+
 	// ---------------------------------------------------------------- helpers
 
-	/** {@code e} is stuck in his web: rooted {@code ticks} (a boss a quarter), with the white wrap drawn round it. */
+	/**
+	 * {@code e} is stuck in his web: rooted {@code ticks} (a boss a quarter), with the white wrap drawn round it. v0.17.2 revamp:
+	 * a burning creature burns straight through it (fire weakness).
+	 */
 	public static void webbed(ServerPlayer p, LivingEntity e, int ticks) {
+		if (e.isOnFire()) {
+			return;
+		}
 		AlienStatus.root(p, e, ticks, 20);
 		int t = AlienStatus.isBoss(e) ? Math.max(5, ticks / 4) : ticks;
 		AlienProjectileEntity w = AlienProjectileEntity.of(p, "spidermonkey_wrap");
@@ -467,7 +563,13 @@ public final class SpidermonkeyKit extends AlienKit {
 		w.colour(e.getId() + 1).size(Math.max(0.6f, e.getBbHeight() * 0.6f)).held(true).speed(0).life(t).damage(0f).spawn();
 	}
 
-	/** A strand drawn from the far end {@code at} to his hand (or, {@code to} given, to that creature) for {@code life} ticks. */
+	/** Stuck in a web right now (rooted: Slowness 10). */
+	public static boolean stuck(LivingEntity e) {
+		MobEffectInstance s = e.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		return s != null && s.getAmplifier() >= 9;
+	}
+
+	/** A strand drawn from the far end {@code at} to his tail (or, {@code to} given, to that creature) for {@code life} ticks. */
 	private static AlienProjectileEntity strand(ServerPlayer p, Vec3 at, @Nullable LivingEntity to, int life) {
 		AlienProjectileEntity s = AlienProjectileEntity.of(p, "spidermonkey_strand");
 		s.moveTo(at.x, at.y, at.z, 0f, 0f);
@@ -483,7 +585,11 @@ public final class SpidermonkeyKit extends AlienKit {
 		return hit.getType() == HitResult.Type.BLOCK ? (BlockHitResult) hit : null;
 	}
 
-	// ---------------------------------------------------------------- moves (public for the gametests)
+	private static void say(ServerPlayer p, String key) {
+		p.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GRAY), true);
+	}
+
+	// ---------------------------------------------------------------- R / Shift+R
 
 	/** R: a glob of web -- 6 and rooted 2 s. */
 	public boolean webShot(ServerPlayer p) {
@@ -508,6 +614,8 @@ public final class SpidermonkeyKit extends AlienKit {
 		return true;
 	}
 
+	// ---------------------------------------------------------------- G / Shift+G
+
 	/** G: four fists in front, one every 2 ticks. */
 	public boolean quadFlurry(ServerPlayer p) {
 		if (!use(p, QUAD_FLURRY)) {
@@ -520,7 +628,7 @@ public final class SpidermonkeyKit extends AlienKit {
 		return true;
 	}
 
-	/** One of the flurry's fists (public: the gametests throw them without ticking). Returns how many it hit. */
+	/** One of the flurry's fists (public: the gametests throw them without ticking). +1 on a webbed foe. Returns how many it hit. */
 	public int flurryHit(ServerPlayer p, int n) {
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
@@ -529,7 +637,7 @@ public final class SpidermonkeyKit extends AlienKit {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
 			if (to.length() <= FLURRY_RANGE + e.getBbWidth() * 0.5 && to.normalize().dot(look) > 0.4) {
 				e.invulnerableTime = 0;
-				if (hurt(p, e, FLURRY_HIT, false)) {
+				if (hurt(p, e, FLURRY_HIT + (stuck(e) ? STICKY_BONUS : 0f), false)) {
 					hits++;
 				}
 				if (n == 1) {
@@ -541,15 +649,21 @@ public final class SpidermonkeyKit extends AlienKit {
 		return hits;
 	}
 
-	/** Shift+G: a strand at a creature -- 12, and it is reeled in to him (a boss is not). */
+	/**
+	 * Shift+G: a line at a creature. On the ground: 12, and it is reeled in to him (a boss is not). v0.17.2 revamp: in the air or on a
+	 * wall, the line pulls HIM in instead for a Swing Kick (15, knocked flying).
+	 */
 	public boolean webYank(ServerPlayer p) {
 		LivingEntity t = lookTarget(p, YANK_RANGE);
 		if (t == null) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.spidermonkey.no_target").withStyle(ChatFormatting.GRAY), true);
+			say(p, "message.projecthero.omnitrix.spidermonkey.no_target");
 			return false;
 		}
 		if (!use(p, WEB_YANK)) {
 			return false;
+		}
+		if (!p.onGround()) {
+			return swingKick(p, t);
 		}
 		anim(p, ANIM_YANK);
 		hurt(p, t, YANK_DAMAGE, false);
@@ -565,11 +679,81 @@ public final class SpidermonkeyKit extends AlienKit {
 		return true;
 	}
 
+	/** v0.17.2 revamp: the Swing Kick -- he flies in on a line at {@code t} (tests call it straight). */
+	public boolean swingKick(ServerPlayer p, LivingEntity t) {
+		endSwing(p, false);
+		anim(p, ANIM_KICK);
+		endKick(p);
+		AlienProjectileEntity s = strand(p, t.position().add(0, t.getBbHeight() * 0.6, 0), null, KICK_MAX + 4);
+		KICKS.put(p.getUUID(), new Kick(t, p.level().getGameTime() + KICK_MAX, s));
+		setFlag(p, F_KICK, true);
+		setFlag(p, F_AIR, true);
+		setTimer(p, AIR_AT, p.level().getGameTime());
+		OmnitrixSfx.playOn(p, ZIP, 1f, 1.2f, SoundSource.PLAYERS);
+		OmnitrixSfx.playOn(p, CHATTER, 0.6f, 1.1f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	/** Whether a Swing Kick is in flight (tests). */
+	public static boolean kicking(ServerPlayer p) {
+		return KICKS.containsKey(p.getUUID());
+	}
+
+	private void tickKick(ServerPlayer p, long now) {
+		Kick k = KICKS.get(p.getUUID());
+		if (k == null) {
+			return;
+		}
+		LivingEntity t = k.target();
+		if (!t.isAlive() || now >= k.until() || t.level() != p.level()) {
+			endKick(p);
+			return;
+		}
+		Vec3 to = t.position().add(0, t.getBbHeight() * 0.5, 0).subtract(p.position().add(0, p.getBbHeight() * 0.5, 0));
+		if (to.length() <= 1.4 + t.getBbWidth() * 0.5) {
+			kickLands(p, t);
+			return;
+		}
+		p.setDeltaMovement(to.normalize().scale(Math.min(1.6, 0.6 + to.length() * 0.2)));
+		p.hurtMarked = true;
+		p.fallDistance = 0f;
+	}
+
+	/** The Swing Kick lands: 15, and the creature is knocked flying (tests call it straight). */
+	public void kickLands(ServerPlayer p, LivingEntity t) {
+		endKick(p);
+		Vec3 dir = t.position().subtract(p.position());
+		hurt(p, t, KICK_DAMAGE, false);
+		shove(t, p.position(), 1.4, 0.45);
+		Vec3 back = new Vec3(-dir.x, 0, -dir.z);
+		back = back.lengthSqr() < 1.0e-4 ? Vec3.ZERO : back.normalize();
+		p.setDeltaMovement(back.scale(0.4).add(0, 0.45, 0)); // he flips off it
+		p.hurtMarked = true;
+		setTimer(p, AIR_AT, p.level().getGameTime());
+		anim(p, ANIM_KICK);
+		QuirkFx.ring(level(p), t.position().add(0, t.getBbHeight() * 0.5, 0)).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFFFFF, 0xC8D4F0).size(1.6f)
+				.thickness(0.3f).life(8).spawn();
+		QuirkCamera.hitStop(p, 2);
+		OmnitrixSfx.play(level(p), t.position(), KICK, 1f, 1f);
+	}
+
+	private void endKick(ServerPlayer p) {
+		Kick k = KICKS.remove(p.getUUID());
+		if (k != null) {
+			k.strand().discard();
+		}
+		if (flag(p, F_KICK)) {
+			setFlag(p, F_KICK, false);
+		}
+	}
+
+	// ---------------------------------------------------------------- X / Shift+X
+
 	/** X: a strand to the block under the crosshair -- zipped toward it. False (no cooldown) with nothing to stick to. */
 	public boolean webZip(ServerPlayer p) {
 		BlockHitResult hit = blockAlong(p, p.getLookAngle(), ZIP_RANGE);
 		if (hit == null) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.spidermonkey.no_anchor").withStyle(ChatFormatting.GRAY), true);
+			say(p, "message.projecthero.omnitrix.spidermonkey.no_anchor");
 			return false;
 		}
 		if (!use(p, WEB_ZIP)) {
@@ -589,7 +773,10 @@ public final class SpidermonkeyKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+X: a strand to a point ahead and above, then a pendulum swing on it (X again lets go). */
+	/**
+	 * Shift+X (held): a strand to a point ahead and above, then a pendulum swing on it until the keys come up. v0.17.2 revamp, Monkey
+	 * Bars: a re-catch while still airborne within 2 s of letting go costs no cooldown, so swings chain.
+	 */
 	public boolean webSwing(ServerPlayer p) {
 		Vec3 look = p.getLookAngle();
 		Vec3 flat = look.multiply(1, 0, 1);
@@ -601,24 +788,26 @@ public final class SpidermonkeyKit extends AlienKit {
 			hit = blockAlong(p, look, SWING_RANGE);
 		}
 		if (hit == null || hit.getLocation().y < p.getY() + 1.5) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.spidermonkey.no_anchor").withStyle(ChatFormatting.GRAY), true);
+			say(p, "message.projecthero.omnitrix.spidermonkey.no_anchor");
 			return false;
 		}
-		if (!use(p, WEB_SWING)) {
+		long now = p.level().getGameTime();
+		boolean chain = !p.onGround() && now <= timer(p, SWING_FREE_UNTIL);
+		if (!chain && !use(p, WEB_SWING)) {
 			return false;
 		}
 		anim(p, ANIM_SWING);
 		Vec3 at = hit.getLocation();
-		long now = p.level().getGameTime();
 		AlienProjectileEntity s = strand(p, at, null, SWING_MAX + 10);
-		SWINGS.put(p.getUUID(), new Swing(at, at.distanceTo(p.position().add(0, 1.0, 0)) * 0.9, now + SWING_MAX, s));
+		SWINGS.put(p.getUUID(), new Swing(at, at.distanceTo(p.position().add(0, 1.0, 0)) * 0.9, now, now + SWING_MAX, s));
+		setTimer(p, SWING_FREE_UNTIL, 0);
 		setFlag(p, F_SWING, true);
 		setFlag(p, F_AIR, true);
 		setTimer(p, AIR_AT, now);
 		// a push off the ground into the arc
-		p.setDeltaMovement(p.getDeltaMovement().add(flat.scale(0.6)).add(0, 0.35, 0));
+		p.setDeltaMovement(p.getDeltaMovement().add(flat.scale(0.6)).add(0, chain ? 0.15 : 0.35, 0));
 		p.hurtMarked = true;
-		OmnitrixSfx.playOn(p, THWIP, 1f, 0.9f, SoundSource.PLAYERS);
+		OmnitrixSfx.playOn(p, THWIP, 1f, chain ? 1.1f : 0.9f, SoundSource.PLAYERS);
 		return true;
 	}
 
@@ -652,7 +841,8 @@ public final class SpidermonkeyKit extends AlienKit {
 		p.fallDistance = 0f;
 	}
 
-	private void endSwing(ServerPlayer p, boolean fling) {
+	/** Lets go of the swing line (a fling with {@code fling}); opens the Monkey Bars window for a free re-catch. */
+	public void endSwing(ServerPlayer p, boolean fling) {
 		Swing sw = SWINGS.remove(p.getUUID());
 		if (sw == null) {
 			return;
@@ -662,29 +852,93 @@ public final class SpidermonkeyKit extends AlienKit {
 		if (fling && !p.onGround()) {
 			p.setDeltaMovement(p.getDeltaMovement().scale(1.15).add(0, 0.25, 0));
 			p.hurtMarked = true;
-			setTimer(p, AIR_AT, p.level().getGameTime());
+			long now = p.level().getGameTime();
+			setTimer(p, AIR_AT, now);
+			setTimer(p, SWING_FREE_UNTIL, now + SWING_FREE);
 		}
 	}
 
-	/** Z: a spin with the tail -- everything within 3.2: 13 and thrown. */
+	// ---------------------------------------------------------------- Z / Shift+Z
+
+	/** Z: a spin with the tail -- everything within 3.2: 13 and thrown (webbed foes torn loose and thrown twice as far). */
 	public boolean tailWhip(ServerPlayer p) {
 		if (!use(p, TAIL_WHIP)) {
 			return false;
 		}
 		anim(p, ANIM_WHIP);
 		for (LivingEntity e : around(p, p.position().add(0, 0.6, 0), WHIP_RADIUS)) {
+			boolean webbed = stuck(e);
+			if (webbed) {
+				e.removeEffect(MobEffects.MOVEMENT_SLOWDOWN); // torn out of the web
+			}
 			hurt(p, e, WHIP_DAMAGE, false);
-			shove(e, p.position(), 0.9, 0.35);
+			shove(e, p.position(), webbed ? 1.8 : 0.9, webbed ? 0.55 : 0.35);
 		}
-		level(p).sendParticles(ParticleTypes.SWEEP_ATTACK, p.getX(), p.getY() + 0.6, p.getZ(), 3, 1.2, 0.1, 1.2, 0);
+		QuirkFx.ring(level(p), p.position().add(0, 0.5, 0)).colours(0xFFFFFF, 0x9AB0E8).size((float) WHIP_RADIUS).thickness(0.4f).life(7).spawn();
 		OmnitrixSfx.playOn(p, WHIP, 1f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
 
-	/** Shift+Z: a web on the ground ahead (within 12): the first time anything walks in, 5 and rooted 3 s. Lasts 15 s. */
+	/**
+	 * Shift+Z (ULTIMATE): wraps the creature under the crosshair (16) in a cocoon: rooted 5 s, squeezed for 5 every half second, then
+	 * he slams it (14, launched).
+	 */
+	public boolean cocoonCrush(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, COCOON_RANGE);
+		if (t == null) {
+			say(p, "message.projecthero.omnitrix.spidermonkey.no_target");
+			return false;
+		}
+		if (!use(p, COCOON_CRUSH)) {
+			return false;
+		}
+		anim(p, ANIM_COCOON);
+		long now = p.level().getGameTime();
+		t.clearFire(); // the cocoon smothers it
+		AlienStatus.root(p, t, COCOON_TICKS, 20);
+		AlienProjectileEntity w = AlienProjectileEntity.of(p, "spidermonkey_wrap");
+		w.moveTo(t.getX(), t.getY(), t.getZ(), 0f, 0f);
+		// colour = id + 1, negative: a full cocoon rather than a few strands
+		w.colour(-(t.getId() + 1)).size(Math.max(0.6f, t.getBbHeight() * 0.6f)).held(true).speed(0).life(COCOON_TICKS).damage(0f).spawn();
+		Cocoon old = COCOONS.put(t.getUUID(), new Cocoon(p.getUUID(), t, now + COCOON_TICKS, now + 4, w));
+		if (old != null) {
+			old.wrap.discard();
+		}
+		strand(p, p.getEyePosition(), t, 12);
+		OmnitrixSfx.playOn(p, NET, 1.2f, 0.8f, SoundSource.PLAYERS);
+		OmnitrixSfx.playOn(p, CHATTER, 0.8f, 1f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	/** v0.17.2 revamp: the cocoon's finish -- he swings it down: 14 and launched (tests call it straight). */
+	public void cocoonSlam(ServerPlayer p, LivingEntity t) {
+		anim(p, ANIM_SLAM);
+		t.invulnerableTime = 0;
+		hurt(p, t, COCOON_SLAM, false);
+		t.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		if (!AlienStatus.isBoss(t)) {
+			t.setDeltaMovement(t.getDeltaMovement().add(0, 0.9, 0));
+			t.hurtMarked = true;
+		}
+		ServerLevel l = level(p);
+		QuirkFx.ring(l, t.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xC8D4F0).size(2.6f).thickness(0.5f).life(10).ground().spawn();
+		QuirkCamera.shakeAround(l, t.position(), 10, 0.25f, 5);
+		OmnitrixSfx.play(l, t.position(), SLAM, 1f, 1f);
+	}
+
+	/** Whether {@code e} is wrapped in a cocoon. */
+	public static boolean cocooned(LivingEntity e) {
+		return COCOONS.containsKey(e.getUUID());
+	}
+
+	// ---------------------------------------------------------------- C / Shift+C
+
+	/** C: a web on the ground ahead (within 12): the first time anything walks in, 5 and rooted 3 s. Lasts 15 s, two at a time. */
 	public boolean webTrap(ServerPlayer p) {
 		BlockHitResult hit = blockAlong(p, p.getLookAngle(), TRAP_RANGE);
-		Vec3 at = hit != null ? hit.getLocation() : p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(3));
+		Vec3 flat = p.getLookAngle().multiply(1, 0, 1);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		Vec3 at = hit != null ? hit.getLocation() : p.position().add(flat.scale(3));
 		if (!use(p, WEB_TRAP)) {
 			return false;
 		}
@@ -706,6 +960,25 @@ public final class SpidermonkeyKit extends AlienKit {
 		OmnitrixSfx.playOn(p, NET, 0.9f, 1.1f, SoundSource.PLAYERS);
 		return true;
 	}
+
+	/** Shift+C: six webs in a fan -- 5 each, rooted 1.5 s. */
+	public boolean webBarrage(ServerPlayer p) {
+		if (!use(p, WEB_BARRAGE)) {
+			return false;
+		}
+		anim(p, ANIM_BARRAGE);
+		Vec3 look = p.getLookAngle();
+		for (int i = 0; i < 6; i++) {
+			float yaw = (i - 2.5f) * 8f * Mth.DEG_TO_RAD;
+			Vec3 d = look.yRot(yaw).add(0, (i % 2) * 0.05, 0);
+			AlienProjectileEntity.of(p, "spidermonkey_web").colour(BARRAGE_ROOT).size(0.25f).damage(BARRAGE_DAMAGE).speed(2.0).life(30).direction(d).spawn();
+		}
+		OmnitrixSfx.playOn(p, THWIP, 1.1f, 0.9f, SoundSource.PLAYERS);
+		OmnitrixSfx.playOn(p, NET, 0.6f, 1.3f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- V / Shift+V
 
 	/** V: Wall Crawl on / off. */
 	public boolean wallCrawl(ServerPlayer p) {
@@ -741,52 +1014,33 @@ public final class SpidermonkeyKit extends AlienKit {
 		return true;
 	}
 
-	/** C (ULTIMATE): wraps the creature under the crosshair (16) in a cocoon: rooted 5 s, squeezed for 5 every half second. */
-	public boolean cocoonCrush(ServerPlayer p) {
-		LivingEntity t = lookTarget(p, COCOON_RANGE);
-		if (t == null) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.spidermonkey.no_target").withStyle(ChatFormatting.GRAY), true);
+	// ---------------------------------------------------------------- Attack
+
+	@Override
+	public boolean onAttack(ServerPlayer p, Entity target) {
+		if (!(target instanceof LivingEntity le) || !le.isAlive()) {
 			return false;
 		}
-		if (!use(p, COCOON_CRUSH)) {
-			return false;
-		}
-		anim(p, ANIM_COCOON);
 		long now = p.level().getGameTime();
-		AlienStatus.root(p, t, COCOON_TICKS, 20);
-		AlienProjectileEntity w = AlienProjectileEntity.of(p, "spidermonkey_wrap");
-		w.moveTo(t.getX(), t.getY(), t.getZ(), 0f, 0f);
-		// colour = id + 1, negative: a full cocoon rather than a few strands
-		w.colour(-(t.getId() + 1)).size(Math.max(0.6f, t.getBbHeight() * 0.6f)).held(true).speed(0).life(COCOON_TICKS).damage(0f).spawn();
-		Cocoon old = COCOONS.put(t.getUUID(), new Cocoon(p.getUUID(), t, now + COCOON_TICKS, now + 4, w));
-		if (old != null) {
-			old.wrap.discard();
+		long[] pc = PUNCHES.computeIfAbsent(p.getUUID(), k -> new long[] { 0, now });
+		if (now - pc[1] > FISTS_WINDOW) {
+			pc[0] = 0;
 		}
-		strand(p, p.getEyePosition(), t, 12);
-		OmnitrixSfx.playOn(p, NET, 1.2f, 0.8f, SoundSource.PLAYERS);
-		OmnitrixSfx.playOn(p, CHATTER, 0.8f, 1f, SoundSource.PLAYERS);
-		return true;
-	}
-
-	/** Whether {@code e} is wrapped in a cocoon. */
-	public static boolean cocooned(LivingEntity e) {
-		return COCOONS.containsKey(e.getUUID());
-	}
-
-	/** Shift+C: six webs in a fan -- 5 each, rooted 1.5 s. */
-	public boolean webBarrage(ServerPlayer p) {
-		if (!use(p, WEB_BARRAGE)) {
-			return false;
+		pc[0]++;
+		pc[1] = now;
+		float extra = stuck(le) ? STICKY_BONUS : 0f;
+		if (pc[0] >= 4) {
+			// v0.17.2 revamp: Four Fists -- every 4th punch, all four arms land at once
+			pc[0] = 0;
+			extra += FISTS_BONUS;
+			shove(le, p.position(), 0.7, 0.25);
+			anim(p, ANIM_FISTS);
+			OmnitrixSfx.playOn(p, PUNCH, 1f, 0.8f, SoundSource.PLAYERS);
 		}
-		anim(p, ANIM_BARRAGE);
-		Vec3 look = p.getLookAngle();
-		for (int i = 0; i < 6; i++) {
-			float yaw = (i - 2.5f) * 8f * Mth.DEG_TO_RAD;
-			Vec3 d = look.yRot(yaw).add(0, (i % 2) * 0.05, 0);
-			AlienProjectileEntity.of(p, "spidermonkey_web").colour(BARRAGE_ROOT).size(0.25f).damage(BARRAGE_DAMAGE).speed(2.0).life(30).direction(d).spawn();
+		if (extra > 0f) {
+			hurt(p, le, extra, false); // its own hit; vanilla's punch still lands after it
+			le.invulnerableTime = 0;
 		}
-		OmnitrixSfx.playOn(p, THWIP, 1.1f, 0.9f, SoundSource.PLAYERS);
-		OmnitrixSfx.playOn(p, NET, 0.6f, 1.3f, SoundSource.PLAYERS);
-		return true;
+		return false;
 	}
 }
