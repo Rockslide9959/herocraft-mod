@@ -50,7 +50,6 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.AbstractGolem;
-import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -91,6 +90,29 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the rebalance
  * above -- Charged Beam to Z, Overload to Shift+R, EMP Burst his ultimate.
+ *
+ * <p>v0.17.2 revamp (user: "Yes, build them" -- docs/OMNITRIX_REVAMP_UPGRADE_GREYMATTER_XLR8.md, Upgrade). The kit now:
+ * <pre>
+ *   R        Optic Beam       12, 24 blocks, cd 1 s                           Shift+R  Stretch Fist    a liquid-metal fist out to 8 blocks (10,
+ *                                                                                                       knockback 1.5), cd 5 s
+ *   G        Liquid Engulf    6, stun 3 s; a machine is MERGED instead, cd 6 s Shift+G  Circuit Lash    8, yanks to you, cd 5 s
+ *   X        Liquid Form      toggle; also through iron bars, fences, doors;    Shift+X  Stretch Grapple 22 blocks, cd 3 s
+ *                             any attack key in it: Geyser (8 + launch, cd 4 s)
+ *   Z        Charged Beam     18 + burst 6, cd 11 s                            Shift+Z  EMP Burst       ultimate (26 -> 16, machines x2); machines
+ *                                                                                                       within 8 taken over 10 s; cd 30 s
+ *   V        Overclock        15 s: +100% mining, +4 damage, mends; bows: arrows pierce 1 and fly 50% faster; the mod's guns: +50%
+ *                             fire rate, no reload; shields: no cooldown after a disabling hit; cd 30 s
+ *   Shift+V  Upgrade Tool     (was Shift+C) repair half / +1 Unbreaking; also the offhand item or, looking down, worn armour; cd 30 s
+ *   C        Merge            as before, plus Ally Upgrade: onto a squad mate / teammate as living armour (+8 armour, +2 toughness,
+ *                             their hits fire your Optic Beam (6) every 2 s, you take no damage), 20 s, cd 15 s
+ *   Shift+C  Tech Takeover    a nanite bolt (16): a machine fights for you 15 s (max 2; bosses only stunned 2 s); a living target
+ *                             is shorted out instead (the old Overload: 8, slowed and weakened 5 s); cd 20 s
+ *   Passives Liquid Metal Body (25% of arrows / thrown things pass through), Tech Sense (machines and powered redstone within 16
+ *            outlined green, client), Merged Shell. Weaknesses: Electric Shock (+50%, and a hit while merged throws him out,
+ *            stunned 1 s), Water (the Liquid Form 40% slower, the Charged Beam's burst shorts out).
+ * </pre>
+ * Open questions, the parent's defaults: Ally Upgrade only on squad mates / teammates; Tech Takeover never hijacks another
+ * player's Iron Man suit (machines only -- a player is shorted out); EMP Burst stays his ultimate; Overload folds into Takeover.
  */
 public final class UpgradeKit extends AlienKit {
 	public static final String ID = "upgrade";
@@ -109,6 +131,11 @@ public final class UpgradeKit extends AlienKit {
 	public static final int ANIM_MERGE = 10;
 	public static final int ANIM_REPAIR = 11;
 	public static final int ANIM_JOLT = 12;
+	// v0.17.2 revamp: Stretch Fist, Tech Takeover (a machine; a living target plays ANIM_OVERLOAD), Geyser, Ally Upgrade's beam
+	public static final int ANIM_FIST = 14;
+	public static final int ANIM_TAKEOVER = 15;
+	public static final int ANIM_GEYSER = 16;
+	public static final int ANIM_ALLY_BEAM = 17;
 
 	public static final int F_SLIDE = 1;
 	public static final int F_MERGED = 2;
@@ -116,16 +143,47 @@ public final class UpgradeKit extends AlienKit {
 
 	public static final String BEAM = "optic_beam";
 	public static final String CHARGED = "charged_beam";
-	public static final String GRAB = "tech_grab";
+	/** v0.17.2 revamp: Tech Grab is now Liquid Engulf (was "tech_grab"). */
+	public static final String GRAB = "liquid_engulf";
 	public static final String LASH = "circuit_lash";
 	public static final String SLIDE = "liquid_slide";
 	public static final String GRAPPLE = "stretch_grapple";
+	/** v0.17.2 revamp: no longer a move of its own -- Tech Takeover's living-target branch (and its cue / pose). */
 	public static final String OVERLOAD = "overload";
 	public static final String EMP = "emp_burst";
 	public static final String MERGE = "merge";
 	public static final String REPAIR = "upgrade_tool";
 	public static final String JOLT = "circuit_jolt";
 	public static final String INTERFACE = "interface";
+	/** v0.17.2 revamp: Shift+R, Shift+C, and the Liquid Form's attack. */
+	public static final String FIST = "stretch_fist";
+	public static final String TAKEOVER = "tech_takeover";
+	public static final String GEYSER = "geyser";
+
+	// v0.17.2 revamp (user: "Yes, build them"): the new moves' numbers
+	public static final float FIST_DAMAGE = 10f;
+	public static final double FIST_RANGE = 8, FIST_KNOCKBACK = 1.5;
+	public static final int FIST_COOLDOWN = 100;
+	public static final float GEYSER_DAMAGE = 8f;
+	public static final double GEYSER_REACH = 2.5;
+	public static final int GEYSER_COOLDOWN = 80;
+	public static final double TAKEOVER_RANGE = 16;
+	public static final int TAKEOVER_COOLDOWN = 400, BOSS_STUN = 40;
+	/** The living-target branch of Tech Takeover: the old Overload -- 8, slowed and weakened for 5 s. */
+	public static final int OVERLOAD_SLOW_TICKS = 100;
+	/** Ally Upgrade: +8 armour, +2 toughness for the one he merges onto; their hits fire his Optic Beam (6) every 2 s. */
+	public static final double ALLY_ARMOR = 8, ALLY_TOUGHNESS = 2;
+	public static final float ALLY_BEAM_DAMAGE = 6f;
+	public static final int ALLY_BEAM_EVERY = 40;
+	/** Electric Shock: lightning / electric damage x1.5; a hit while merged throws him out, stunned this long. */
+	public static final float SHOCK_MULT = 1.5f;
+	public static final int SHOCK_STUN = 20;
+	/** Water: the Liquid Form is 40% slower in it. */
+	public static final double SLIDE_WATER = -0.4;
+	/** Liquid Metal Body: one in four arrows / thrown things passes through him. */
+	public static final int PASS_ONE_IN = 4;
+	/** Overclock's weapon boost: arrows fly this much faster and pierce one. */
+	public static final double ARROW_SPEED = 1.5;
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
 	public static final float BEAM_DAMAGE = 12f;
@@ -135,6 +193,8 @@ public final class UpgradeKit extends AlienKit {
 	public static final float CHARGED_BURST = 6f;
 	public static final int CHARGE_TICKS = 20;
 	public static final int STUN_TICKS = 60;
+	/** v0.17.2 revamp: Liquid Engulf reaches 8 blocks (Tech Grab reached 5). */
+	public static final double ENGULF_RANGE = 8;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	public static final float GRAB_DAMAGE = 6f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
@@ -187,9 +247,28 @@ public final class UpgradeKit extends AlienKit {
 			.layer(SoundEvents.HONEY_BLOCK_SLIDE, 0.4f, 0.9f)
 			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.25f, 1.2f)
 			.layer(OmnitrixSounds.WHIRR, 0.15f, 0.5f);
+	/** v0.17.2 revamp: the Stretch Fist -- a gooey stretch, then a heavy metal punch landing. */
+	public static final OmnitrixSfx.Cue SND_FIST = OmnitrixSfx.cue("upgrade_fist")
+			.layer(SoundEvents.HONEY_BLOCK_PLACE, 0.35f, 1.3f)
+			.layer(SoundEvents.IRON_GOLEM_ATTACK, 0.5f, 1.2f, 2)
+			.layer(SoundEvents.SLIME_SQUISH, 0.25f, 0.8f, 2);
+	/** v0.17.2 revamp: Tech Takeover -- a digital chirp, the nanites' whirr, a relay locking in. */
+	public static final OmnitrixSfx.Cue SND_TAKEOVER = OmnitrixSfx.cue("upgrade_takeover")
+			.layer(SoundEvents.BEACON_POWER_SELECT, 0.3f, 1.8f)
+			.layer(OmnitrixSounds.WHIRR, 0.3f, 1.4f, 2)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.45f, 0.6f, 6);
+	/** v0.17.2 revamp: the Geyser -- liquid metal bursting up out of the puddle. */
+	public static final OmnitrixSfx.Cue SND_GEYSER = OmnitrixSfx.cue("upgrade_geyser")
+			.layer(SoundEvents.SLIME_JUMP, 0.45f, 0.7f)
+			.layer(SoundEvents.HONEY_BLOCK_SLIDE, 0.35f, 1.4f)
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.3f, 1.5f, 2);
 
 	private static final ResourceLocation SLIDE_SCALE_ID = PowerToggles.id("omnitrix_upgrade_slide_scale");
 	private static final ResourceLocation SLIDE_SPEED_ID = PowerToggles.id("omnitrix_upgrade_slide_speed");
+	// v0.17.2 revamp: the Liquid Form in water, and Ally Upgrade's armour on the one he merges onto
+	private static final ResourceLocation SLIDE_WATER_ID = PowerToggles.id("omnitrix_upgrade_slide_water");
+	private static final ResourceLocation ALLY_ARMOR_ID = PowerToggles.id("omnitrix_upgrade_ally_armor");
+	private static final ResourceLocation ALLY_TOUGH_ID = PowerToggles.id("omnitrix_upgrade_ally_toughness");
 	// v0.17.2 (user: "please upgrade upgrades vfx aswell please"): Mechamorph green #39FF6A, and drops of his black liquid metal
 	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 0.8f);
 	static final DustParticleOptions SPARK_BIG = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 1.4f);
@@ -238,26 +317,54 @@ public final class UpgradeKit extends AlienKit {
 
 	/** What Upgrade has merged into. */
 	public enum MergeKind {
-		FURNACE, DISPENSER, PISTON, GOLEM, MINECART, BOAT
+		// v0.17.2 revamp: GOLEM is any machine he can pilot (golems, Sentinels, Ultron's robots...); ALLY is Ally Upgrade
+		FURNACE, DISPENSER, PISTON, GOLEM, MINECART, BOAT, ALLY
 	}
 
 	/** player -> the merge in progress. */
 	private static final Map<UUID, Merge> MERGES = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: Ally Upgrade -- the one he is merged onto -> him. */
+	private static final Map<UUID, UUID> ALLY_HOSTS = new ConcurrentHashMap<>();
+	/** v0.17.2: player -> the game tick his kit last ran (the once-a-tick guard in {@link #tick}). */
+	private static final Map<Integer, Long> LAST_TICK = new ConcurrentHashMap<>();
 
-	public record Merge(MergeKind kind, ResourceKey<Level> dim, int entityId, BlockPos pos) {
+	/** {@code ally}: Ally Upgrade's host (null for anything else). */
+	public record Merge(MergeKind kind, ResourceKey<Level> dim, int entityId, BlockPos pos, @Nullable UUID ally) {
+		public Merge(MergeKind kind, ResourceKey<Level> dim, int entityId, BlockPos pos) {
+			this(kind, dim, entityId, pos, null);
+		}
 	}
 
 	private UpgradeKit() {
 	}
 
 	public static void register() {
-		Aliens.register(new UpgradeKit());
+		UpgradeKit kit = new UpgradeKit();
+		Aliens.register(kit);
 		ServerTickEvents.END_SERVER_TICK.register(UpgradeEmp::tick);
+		// v0.17.2 revamp: Tech Takeover's holds, their payload, the guns' fire rate, Ally Upgrade's beam, the boosted arrows
+		UpgradeTakeover.register();
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(UpgradeTakeoverPayload.TYPE, UpgradeTakeoverPayload.CODEC);
+		UpgradeOverclockHooks.register();
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (!world.isClientSide() && player instanceof ServerPlayer host && entity instanceof LivingEntity le) {
+				kit.allyAttack(host, le);
+			}
+			return InteractionResult.PASS;
+		});
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			if (entity instanceof net.minecraft.world.entity.projectile.AbstractArrow arrow) {
+				boostArrow(arrow);
+			}
+		});
 	}
 
 	public static void clearSessionState() {
 		MERGES.clear();
+		ALLY_HOSTS.clear();
+		LAST_TICK.clear();
 		UpgradeEmp.clearSessionState();
+		UpgradeTakeover.clearSessionState();
 	}
 
 	@Override
@@ -275,13 +382,16 @@ public final class UpgradeKit extends AlienKit {
 		return List.of(
 				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was
 				// Shift+R Charged Beam, Z Overload, Shift+Z EMP Burst (400)
-				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(OVERLOAD, AbilitySlot.SLOT_1, 160),
+				// v0.17.2 revamp (user: "Yes, build them"): Shift+R Overload -> Stretch Fist (Overload folds into Shift+C Tech
+				// Takeover), Tech Grab -> Liquid Engulf, Upgrade Tool C -> Shift+V, the Liquid Form's Geyser
+				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(FIST, AbilitySlot.SLOT_1, FIST_COOLDOWN),
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 120), AlienMove.shift(LASH, AbilitySlot.SLOT_2, 100),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 10), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(CHARGED, AbilitySlot.SLOT_4, 220), AlienMove.shift(EMP, AbilitySlot.SLOT_4, EMP_COOLDOWN),
-				AlienMove.tap(OVERCLOCK, AbilitySlot.SLOT_5, 600),
-				AlienMove.tap(MERGE, AbilitySlot.SLOT_6, MERGE_COOLDOWN), AlienMove.shift(REPAIR, AbilitySlot.SLOT_6, 600),
-				AlienMove.vanilla(JOLT, "Attack", 0), AlienMove.vanilla(INTERFACE, "Use on an iron door / trapdoor (empty hand)", 10));
+				AlienMove.tap(OVERCLOCK, AbilitySlot.SLOT_5, 600), AlienMove.shift(REPAIR, AbilitySlot.SLOT_5, 600),
+				AlienMove.tap(MERGE, AbilitySlot.SLOT_6, MERGE_COOLDOWN), AlienMove.shift(TAKEOVER, AbilitySlot.SLOT_6, TAKEOVER_COOLDOWN),
+				AlienMove.vanilla(JOLT, "Attack", 0), AlienMove.vanilla(INTERFACE, "Use on an iron door / trapdoor (empty hand)", 10),
+				AlienMove.vanilla(GEYSER, "Any attack key in the Liquid Form", GEYSER_COOLDOWN));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -300,6 +410,20 @@ public final class UpgradeKit extends AlienKit {
 		endSlide(p, true);
 		setFlag(p, F_CHARGING, false);
 		setTimer(p, "charge_at", 0);
+		// v0.17.2 revamp: every machine he holds is let go; the once-a-tick guard forgets him
+		UpgradeTakeover.releaseAll(p);
+		LAST_TICK.remove(p.getId());
+	}
+
+	/** v0.17.2 revamp: the HUD lights X in the Liquid Form, V while overclocked and C while merged. */
+	@Override
+	public boolean keyActive(Player p, AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_3 -> flag(p, F_SLIDE);
+			case SLOT_5 -> flag(p, F_OVERCLOCK);
+			case SLOT_6 -> flag(p, F_MERGED);
+			default -> false;
+		};
 	}
 
 	public static boolean sliding(Player p) {
@@ -313,16 +437,20 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
+		// v0.17.2: once per game tick -- the timed pulses (the merge's dispenser / piston, the ally beam) must not double up if
+		// he is ticked twice in a tick (a gametest's mock player is ticked by the server and by the test's own pump)
+		Long last = LAST_TICK.put(p.getId(), now);
+		if (last != null && last == now) {
+			return;
+		}
 		ServerLevel l = level(p);
 		tickV(p, l, now);
-		if (now % 8 == 0) {
-			l.sendParticles(SPARK, p.getX(), p.getY() + p.getBbHeight() * 0.6, p.getZ(), 1, 0.25, 0.4, 0.25, 0.0);
-		}
-		// Liquid Form: a slick of liquid metal under him, circuit sparks running through it
-		if (flag(p, F_SLIDE)) {
-			if (now % 2 == 0) {
-				l.sendParticles(SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.2, 0.02, 0.2, 0.0);
-			}
+		// v0.17.2 revamp (rendered effects over particles): the idle spark and the puddle's sparks are gone -- the glowing
+		// circuits and UpgradeFx's puddle say it. Water: the Liquid Form disperses (40% slower)
+		if (flag(p, F_SLIDE) && p.isInWater()) {
+			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SLIDE_WATER_ID, SLIDE_WATER, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SLIDE_WATER_ID);
 		}
 		// Charged Beam
 		long charge = timer(p, "charge_at");
@@ -332,13 +460,8 @@ public final class UpgradeKit extends AlienKit {
 				setFlag(p, F_CHARGING, false);
 				fireChargedBeam(p);
 			} else {
+				// (the charge's orb and rings are UpgradeFx's; v0.17.2 revamp: no particle spiral on top)
 				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 3, false, false, false));
-				Vec3 eye = p.getEyePosition().add(p.getLookAngle().scale(0.4));
-				double r = 1.4 * (charge - now) / (double) CHARGE_TICKS;
-				for (int k = 0; k < 4; k++) {
-					double a = k * Math.PI / 2 + now * 0.5;
-					l.sendParticles(SPARK, eye.x + Math.cos(a) * r, eye.y + Math.sin(a) * r, eye.z, 1, 0, 0, 0, 0);
-				}
 			}
 		}
 		tickMerge(p, l, now);
@@ -348,10 +471,15 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
+		// v0.17.2 revamp: in the Liquid Form any attack key (R, G, Z and their Shift versions) is the Geyser when a foe is over
+		// the puddle; otherwise the move rises him and runs as usual
+		if ((slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_4) && geyser(p)) {
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
-					overload(p); // v0.17.2: was Z
+					stretchFist(p); // v0.17.2 revamp: was Overload (now Tech Takeover's living-target branch)
 				} else {
 					opticBeam(p);
 				}
@@ -360,7 +488,7 @@ public final class UpgradeKit extends AlienKit {
 				if (shift) {
 					lash(p, lookTarget(p, 12));
 				} else {
-					techGrab(p, lookTarget(p, 5));
+					engulf(p, lookTarget(p, ENGULF_RANGE));
 				}
 			}
 			case SLOT_3 -> {
@@ -380,7 +508,7 @@ public final class UpgradeKit extends AlienKit {
 			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
-					upgradeTool(p);
+					techTakeover(p); // v0.17.2 revamp: Upgrade Tool moved to Shift+V
 				} else if (MERGES.containsKey(p.getUUID())) {
 					endMerge(p, true);
 				} else {
@@ -397,7 +525,7 @@ public final class UpgradeKit extends AlienKit {
 		return p.level().clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(range)), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, p));
 	}
 
-	private static boolean boss(ServerPlayer p, LivingEntity e, float threat) {
+	static boolean boss(ServerPlayer p, LivingEntity e, float threat) {
 		return QuirkThreat.add(e, p, threat) || e.getMaxHealth() >= 150f;
 	}
 
@@ -463,24 +591,40 @@ public final class UpgradeKit extends AlienKit {
 				hits++;
 			}
 		}
-		for (LivingEntity e : around(p, end, 2.5)) {
-			e.invulnerableTime = 0;
-			hurt(p, e, CHARGED_BURST, false);
+		// v0.17.2 revamp (Water weakness): fired from in the water, the burst shorts out -- no splash damage, no blast
+		boolean shorted = p.isInWater();
+		if (!shorted) {
+			for (LivingEntity e : around(p, end, 2.5)) {
+				e.invulnerableTime = 0;
+				hurt(p, e, CHARGED_BURST, false);
+			}
 		}
 		// v0.17.2 VFX: the beam is UpgradeFx's, a thick tube with circuit rings racing down it
 		fxTarget(p, end, null);
-		impact(l, end, blockLook(p, 32), 1.4f);
-		QuirkFx.blast(l, end).colours(0xFFFFFF, COLOUR).size(2.2f).life(14).flags(QuirkFx.F_NO_SMOKE).spawn();
+		impact(l, end, blockLook(p, 32), shorted ? 0.5f : 1.4f);
+		if (!shorted) {
+			QuirkFx.blast(l, end).colours(0xFFFFFF, COLOUR).size(2.2f).life(14).flags(QuirkFx.F_NO_SMOKE).spawn();
+		}
 		QuirkCamera.shake(p, 0.3f, 6);
 		OmnitrixSounds.play(l, p.position(), SND_BEAM, 1.3f, 0.6f);
 		OmnitrixSounds.play(l, end, SND_EMP, 0.9f, 1.3f);
 		return hits;
 	}
 
-	public boolean techGrab(ServerPlayer p, LivingEntity t) {
+	/**
+	 * G: Liquid Engulf (v0.17.2 revamp, was Tech Grab, 5 blocks): liquid metal pours over the creature you aim at (8 blocks) and
+	 * sets hard -- 6, stunned 3 s (bosses only slowed). A machine he can pilot is MERGED instead, from range (as C).
+	 */
+	public boolean engulf(ServerPlayer p, LivingEntity t) {
 		if (t == null) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_target").withStyle(ChatFormatting.GRAY), true);
 			return false;
+		}
+		if (pilotable(p, t) && !MERGES.containsKey(p.getUUID()) && ready(p, GRAB) && ready(p, MERGE)) {
+			if (mergeWith(p, t)) { // starts the merge's own cooldown too
+				cooldown(p, GRAB, -1);
+				return true;
+			}
 		}
 		if (!use(p, GRAB)) {
 			return false;
@@ -582,6 +726,7 @@ public final class UpgradeKit extends AlienKit {
 		boolean was = flag(p, F_SLIDE);
 		PowerToggles.clearModifier(p, Attributes.SCALE, SLIDE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPEED_ID);
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SLIDE_WATER_ID); // v0.17.2 revamp
 		setFlag(p, F_SLIDE, false);
 		p.refreshDimensions();
 		if (was) {
@@ -609,9 +754,13 @@ public final class UpgradeKit extends AlienKit {
 				&& p.getXRot() <= com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.WALL_RUN_PITCH;
 	}
 
-	/** Blocks the Liquid Form seeps through: soft ones and half blocks. */
+	/**
+	 * Blocks the Liquid Form seeps through: soft ones and half blocks; v0.17.2 revamp: also iron bars, fences, fence gates and
+	 * doors (he runs through the gaps and under the door).
+	 */
 	public static boolean soft(net.minecraft.world.level.block.state.BlockState state) {
-		return state.is(net.minecraft.tags.BlockTags.LEAVES) || state.is(net.minecraft.tags.BlockTags.WOOL)
+		return state.is(Blocks.IRON_BARS) || state.is(net.minecraft.tags.BlockTags.FENCES) || state.is(net.minecraft.tags.BlockTags.FENCE_GATES)
+				|| state.is(net.minecraft.tags.BlockTags.DOORS) || state.is(net.minecraft.tags.BlockTags.LEAVES) || state.is(net.minecraft.tags.BlockTags.WOOL)
 				|| state.is(net.minecraft.tags.BlockTags.WOOL_CARPETS) || state.is(net.minecraft.tags.BlockTags.SLABS)
 				|| state.is(net.minecraft.tags.BlockTags.STAIRS) || state.is(net.minecraft.tags.BlockTags.BEDS)
 				|| state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK) || state.is(Blocks.HAY_BLOCK) || state.is(Blocks.MOSS_BLOCK)
@@ -655,44 +804,157 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Overload / EMP
+	// ---------------------------------------------------------------- v0.17.2 revamp: Stretch Fist, Geyser, Tech Takeover
 
 	/**
-	 * Shift+R (v0.17.2, was Z): shorts out what you look at -- a golem or construct is knocked out (16), anything else stunned
-	 * (8); a block jams the redstone round it.
+	 * Shift+R: Stretch Fist (v0.17.2 revamp, replaces Overload) -- an arm shoots out up to {@link #FIST_RANGE} blocks as a
+	 * liquid-metal fist and slams what it hits back ({@link #FIST_DAMAGE}, knockback {@link #FIST_KNOCKBACK}). It punches out even
+	 * with nothing there.
 	 */
-	public boolean overload(ServerPlayer p) {
+	public boolean stretchFist(ServerPlayer p) {
+		if (!use(p, FIST)) {
+			return false;
+		}
+		anim(p, ANIM_FIST);
 		ServerLevel l = level(p);
-		LivingEntity t = lookTarget(p, 10);
-		BlockHitResult hit = t == null ? blockLook(p, 10) : null;
+		LivingEntity t = lookTarget(p, FIST_RANGE);
+		Vec3 end;
+		if (t != null) {
+			end = t.position().add(0, t.getBbHeight() * 0.55, 0);
+			t.invulnerableTime = 0;
+			hurt(p, t, FIST_DAMAGE, false);
+			if (!boss(p, t, 5f)) {
+				shove(t, p.position(), FIST_KNOCKBACK, 0.35);
+			}
+			QuirkCamera.shake(p, 0.15f, 4);
+		} else {
+			BlockHitResult hit = blockLook(p, FIST_RANGE);
+			end = hit.getLocation();
+		}
+		// UpgradeFx draws the arm (a stretched liquid-metal strand) and the fist ballooning as it lands
+		fxTarget(p, end, t);
+		OmnitrixSounds.play(l, p.position(), SND_FIST, 1.0f, 1.0f);
+		return true;
+	}
+
+	/**
+	 * v0.17.2 revamp: the Geyser -- any attack key while in the Liquid Form with a foe over the puddle (within
+	 * {@link #GEYSER_REACH}): he rises up through it as a column of liquid metal ({@link #GEYSER_DAMAGE} and a launch) and
+	 * reforms. False (the key does its own move) when he isn't a puddle, nothing is there, or it cools down.
+	 */
+	public boolean geyser(ServerPlayer p) {
+		if (!flag(p, F_SLIDE) || cooldownLeft(p, GEYSER) > 0 || !roomToStand(p)) {
+			return false;
+		}
+		LivingEntity foe = null;
+		double best = Double.MAX_VALUE;
+		for (LivingEntity e : around(p, p.position().add(0, 0.5, 0), GEYSER_REACH)) {
+			double dx = e.getX() - p.getX(), dz = e.getZ() - p.getZ();
+			double d = dx * dx + dz * dz;
+			if (d <= GEYSER_REACH * GEYSER_REACH && e.getY() >= p.getY() - 1.0 && e.getY() <= p.getY() + 2.0 && d < best) {
+				best = d;
+				foe = e;
+			}
+		}
+		if (foe == null || !use(p, GEYSER)) { // use() rises him out of the puddle (onUse)
+			return false;
+		}
+		anim(p, ANIM_GEYSER);
+		ServerLevel l = level(p);
+		foe.invulnerableTime = 0;
+		hurt(p, foe, GEYSER_DAMAGE, false);
+		if (!boss(p, foe, 5f)) {
+			double res = 1.0 - Math.min(1.0, foe.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+			foe.setDeltaMovement(foe.getDeltaMovement().multiply(0.3, 0, 0.3).add(0, 1.05 * Math.max(0.35, res), 0));
+			foe.hurtMarked = true;
+		}
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.2, 0, 0.2).add(0, 0.55, 0));
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		fxTarget(p, foe.position().add(0, foe.getBbHeight() * 0.5, 0), foe);
+		OmnitrixSounds.play(l, p.position(), SND_GEYSER, 1.0f, 1.0f);
+		return true;
+	}
+
+	/** A machine he can merge with and pilot (C, or Liquid Engulf from range): not a boss. */
+	public static boolean pilotable(ServerPlayer p, Entity e) {
+		return e instanceof Mob m && m.isAlive() && UpgradeTakeover.mechanical(e) && !boss(p, m, 0f);
+	}
+
+	/**
+	 * Shift+C: Tech Takeover (v0.17.2 revamp, user: "Yes, build them") -- a nanite bolt out to {@link #TAKEOVER_RANGE} blocks. A
+	 * machine turns green-lined and fights for him for {@link UpgradeTakeover#TICKS} (max {@link UpgradeTakeover#MAX}); a boss is
+	 * only stunned {@link #BOSS_STUN} ticks. Anything living is shorted out instead -- the old Overload (8, slowed and weakened
+	 * 5 s; another player's Iron Man suit counts as living: no hijacking players). A block jams the redstone round it.
+	 */
+	public boolean techTakeover(ServerPlayer p) {
+		ServerLevel l = level(p);
+		LivingEntity t = lookTarget(p, TAKEOVER_RANGE);
+		BlockHitResult hit = t == null ? blockLook(p, TAKEOVER_RANGE) : null;
 		if (t == null && (hit == null || hit.getType() != HitResult.Type.BLOCK)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_target").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
-		if (!use(p, OVERLOAD)) {
+		if (!use(p, TAKEOVER)) {
 			return false;
 		}
-		anim(p, ANIM_OVERLOAD);
 		Vec3 at;
-		if (t != null) {
+		if (t != null && UpgradeTakeover.mechanical(t) && t instanceof Mob mob) {
+			anim(p, ANIM_TAKEOVER);
 			at = t.position().add(0, t.getBbHeight() * 0.5, 0);
-			shortOut(p, t, OVERLOAD_TICKS);
-		} else {
-			BlockPos pos = hit.getBlockPos();
-			at = Vec3.atCenterOf(pos);
-			UpgradeEmp.jam(l, pos, 3, OVERLOAD_TICKS);
-			for (LivingEntity e : around(p, at, 3.5)) {
-				if (e instanceof AbstractGolem) {
-					shortOut(p, e, OVERLOAD_TICKS);
-				}
+			if (boss(p, t, 6f)) {
+				stunMachine(t, BOSS_STUN);
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.too_big").withStyle(ChatFormatting.GRAY), true);
+			} else {
+				UpgradeTakeover.take(p, mob, UpgradeTakeover.TICKS, true);
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.taken_over", t.getDisplayName())
+						.withStyle(ChatFormatting.GREEN), true);
 			}
+			OmnitrixSounds.play(l, at, SND_TAKEOVER, 1.0f, 1.0f);
+		} else {
+			anim(p, ANIM_OVERLOAD);
+			if (t != null) {
+				at = t.position().add(0, t.getBbHeight() * 0.5, 0);
+				overloadLiving(p, t);
+			} else {
+				BlockPos pos = hit.getBlockPos();
+				at = Vec3.atCenterOf(pos);
+				UpgradeEmp.jam(l, pos, 3, OVERLOAD_TICKS);
+			}
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 10, 0.4, 0.4, 0.4, 0.25);
+			OmnitrixSounds.play(l, at, SND_EMP, 1.0f, 1.2f);
 		}
-		// v0.17.2 VFX: UpgradeFx draws the crackling arc into it and the short-circuit cage round it
+		// UpgradeFx draws the nanite bolt and the tether (a machine) or the crackling arc and cage (anything else)
 		fxTarget(p, at, t);
-		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 30, 0.5, 0.5, 0.5, 0.3);
-		l.sendParticles(SPARK_BIG, at.x, at.y, at.z, 12, 0.4, 0.4, 0.4, 0.0);
-		OmnitrixSounds.play(l, at, SND_EMP, 1.0f, 1.2f);
 		return true;
+	}
+
+	/** Tech Takeover's living branch, the old Overload: {@link #OVERLOAD_DAMAGE}, slowed and weakened 5 s (a boss 2 s). */
+	public void overloadLiving(ServerPlayer p, LivingEntity e) {
+		boolean boss = boss(p, e, 6f);
+		int ticks = boss ? BOSS_STUN : OVERLOAD_SLOW_TICKS;
+		e.invulnerableTime = 0;
+		hurt(p, e, OVERLOAD_DAMAGE, false);
+		e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, ticks, boss ? 0 : 2));
+		e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, ticks, boss ? 0 : 1));
+		if (e instanceof Mob m && m.getTarget() == p && !boss) {
+			m.setTarget(null);
+		}
+	}
+
+	/** A boss machine shrugs the takeover off, stunned briefly (Ultron's robots freeze outright). */
+	private static void stunMachine(LivingEntity t, int ticks) {
+		if (t instanceof com.projecthero.mod.ultron.entity.UltronRobot robot) {
+			robot.stun(ticks);
+		}
+		stun(t, ticks, true);
+	}
+
+	// ---------------------------------------------------------------- Overload / EMP
+
+	/** Golems and the mod's robots: they short out twice as hard. */
+	private static boolean machine(LivingEntity e) {
+		return e instanceof AbstractGolem || UpgradeTakeover.mechanical(e);
 	}
 
 	/** Shorts one creature out for Overload's {@link #OVERLOAD_DAMAGE} (golems twice that). */
@@ -707,7 +969,7 @@ public final class UpgradeKit extends AlienKit {
 	public void shortOut(ServerPlayer p, LivingEntity e, int ticks, float damage) {
 		boolean boss = boss(p, e, 6f);
 		e.invulnerableTime = 0;
-		if (e instanceof AbstractGolem) {
+		if (machine(e)) {
 			hurt(p, e, damage * 2f, false);
 			stun(e, boss ? ticks / 3 : ticks, boss);
 		} else {
@@ -735,7 +997,14 @@ public final class UpgradeKit extends AlienKit {
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 1, 0);
 		for (LivingEntity e : around(p, c, EMP_RADIUS)) {
-			shortOut(p, e, e instanceof AbstractGolem ? 120 : 60, empDamage(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(c)));
+			if (UpgradeTakeover.controlledBy(e, p)) {
+				continue; // his own machines ride it out
+			}
+			shortOut(p, e, machine(e) ? 120 : 60, empDamage(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(c)));
+			// v0.17.2 revamp: a machine left standing is his for 10 s (no cap; a boss is only shorted out)
+			if (e.isAlive() && e instanceof Mob mob && UpgradeTakeover.mechanical(e) && !boss(p, e, 0f)) {
+				UpgradeTakeover.take(p, mob, UpgradeTakeover.EMP_TICKS, false);
+			}
 		}
 		for (AbstractMinecart cart : l.getEntitiesOfClass(AbstractMinecart.class, p.getBoundingBox().inflate(8))) {
 			cart.setDeltaMovement(Vec3.ZERO);
@@ -744,8 +1013,7 @@ public final class UpgradeKit extends AlienKit {
 		// v0.17.2 VFX: UpgradeFx draws the shockwave (a wall of green racing out to the edge, a dome, circuit lines cracking
 		// across the ground); the server adds the sparks and a scorch
 		QuirkFx.decal(l, p.position()).style(QuirkFx.DECAL_SCORCH).colour(0x08140C).size(3.2f).life(120).ground().spawn();
-		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 60, 2.5, 1.2, 2.5, 0.4);
-		l.sendParticles(SPARK_BIG, c.x, c.y - 0.8, c.z, 40, 3.5, 0.1, 3.5, 0.0);
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 16, 2.5, 1.2, 2.5, 0.4); // v0.17.2 revamp: was 60 + 40 dust
 		QuirkCamera.shakeAround(l, c, 12, 0.25f, 8);
 		OmnitrixSounds.play(l, c, SND_EMP, 1.4f, 0.9f);
 		return true;
@@ -758,7 +1026,18 @@ public final class UpgradeKit extends AlienKit {
 		ServerLevel l = level(p);
 		LivingEntity living = lookTarget(p, 6);
 		Entity vehicle = null;
-		if (!(living instanceof IronGolem || living instanceof SnowGolem)) {
+		// v0.17.2 revamp: Ally Upgrade -- onto a squad mate / teammate as living armour (anyone else: refused, the parent's U1
+		// default)
+		if (living instanceof ServerPlayer other) {
+			if (allyOf(p, other)) {
+				return mergeWithAlly(p, other);
+			}
+			if (announce) {
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.not_ally").withStyle(ChatFormatting.GRAY), true);
+			}
+			return false;
+		}
+		if (!pilotable(p, living)) { // v0.17.2 revamp: any machine he can pilot (was iron / snow golems only)
 			living = null;
 			Vec3 eye = p.getEyePosition();
 			AABB box = p.getBoundingBox().expandTowards(p.getLookAngle().scale(6)).inflate(1.0);
@@ -796,10 +1075,10 @@ public final class UpgradeKit extends AlienKit {
 		return null;
 	}
 
-	/** Merges into a golem, a minecart or a boat (you pilot it). */
+	/** Merges into a machine (a golem; v0.17.2 revamp: or a Sentinel, an Ultron robot...), a minecart or a boat (you pilot it). */
 	public boolean mergeWith(ServerPlayer p, Entity e) {
 		MergeKind kind = e instanceof AbstractMinecart ? MergeKind.MINECART : e instanceof Boat ? MergeKind.BOAT
-				: e instanceof IronGolem || e instanceof SnowGolem ? MergeKind.GOLEM : null;
+				: pilotable(p, e) ? MergeKind.GOLEM : null;
 		if (kind == null || MERGES.containsKey(p.getUUID()) || !use(p, MERGE)) {
 			return false;
 		}
@@ -808,11 +1087,71 @@ public final class UpgradeKit extends AlienKit {
 			return false;
 		}
 		if (kind == MergeKind.GOLEM && e instanceof Mob m) {
+			UpgradeTakeover.release(m); // he pilots it himself now
 			m.setTarget(null);
 			m.getNavigation().stop();
 			p.teleportTo(e.getX(), e.getY(), e.getZ());
 		}
 		begin(p, new Merge(kind, p.level().dimension(), e.getId(), null), e.position().add(0, e.getBbHeight() * 0.5, 0));
+		return true;
+	}
+
+	/** v0.17.2 revamp: Ally Upgrade works on squad mates and (scoreboard) teammates only. */
+	public static boolean allyOf(ServerPlayer p, Entity other) {
+		return other instanceof ServerPlayer o && o != p && (com.projecthero.mod.squad.Squads.areAllies(p, o) || p.isAlliedTo(o));
+	}
+
+	/**
+	 * C on a squad mate (v0.17.2 revamp: Ally Upgrade, "merging to make things better"): he pours over them as living armour for
+	 * {@link #MERGE_TICKS} -- +{@link #ALLY_ARMOR} armour, +{@link #ALLY_TOUGHNESS} toughness, and every
+	 * {@link #ALLY_BEAM_EVERY} ticks their hits fire his Optic Beam ({@link #ALLY_BEAM_DAMAGE}). He rides on their upper back,
+	 * unseen and untouchable, and can still use R. C again (or Sneak) leaves.
+	 */
+	public boolean mergeWithAlly(ServerPlayer p, ServerPlayer ally) {
+		if (!allyOf(p, ally) || MERGES.containsKey(p.getUUID()) || !ally.isAlive() || ally.isSpectator() || ALLY_HOSTS.containsKey(ally.getUUID())
+				|| !ally.getPassengers().isEmpty() || ally.getVehicle() == p) {
+			return false;
+		}
+		if (!use(p, MERGE)) {
+			return false;
+		}
+		if (p.isPassenger()) {
+			p.stopRiding();
+		}
+		if (!p.startRiding(ally, true)) {
+			cooldown(p, MERGE, 20);
+			return false;
+		}
+		ALLY_HOSTS.put(ally.getUUID(), p.getUUID());
+		PowerToggles.modifier(ally, Attributes.ARMOR, ALLY_ARMOR_ID, ALLY_ARMOR, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(ally, Attributes.ARMOR_TOUGHNESS, ALLY_TOUGH_ID, ALLY_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
+		begin(p, new Merge(MergeKind.ALLY, p.level().dimension(), ally.getId(), null, ally.getUUID()), ally.position().add(0, ally.getBbHeight() * 0.5, 0));
+		ally.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.ally_on", p.getDisplayName()).withStyle(ChatFormatting.GREEN), true);
+		return true;
+	}
+
+	/**
+	 * Ally Upgrade: {@code host} (someone he is merged onto) hit {@code target} -- his Optic Beam fires from their chest, once
+	 * every {@link #ALLY_BEAM_EVERY} ticks. From the attack callback; true if it fired.
+	 */
+	public boolean allyAttack(ServerPlayer host, LivingEntity target) {
+		UUID up = ALLY_HOSTS.isEmpty() ? null : ALLY_HOSTS.get(host.getUUID());
+		ServerPlayer p = up == null || host.getServer() == null ? null : host.getServer().getPlayerList().getPlayer(up);
+		Merge m = p == null ? null : MERGES.get(p.getUUID());
+		if (m == null || m.kind() != MergeKind.ALLY || !target.isAlive() || target == p || com.projecthero.mod.squad.Squads.areAllies(p, target)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		if (timer(p, "ally_beam") > now) {
+			return false;
+		}
+		setTimer(p, "ally_beam", now + ALLY_BEAM_EVERY);
+		anim(p, ANIM_ALLY_BEAM);
+		target.invulnerableTime = 0;
+		hurt(p, target, ALLY_BEAM_DAMAGE, false);
+		target.invulnerableTime = 0; // the host's own swing still lands
+		fxTarget(p, target.position().add(0, target.getBbHeight() * 0.6, 0), target);
+		OmnitrixSounds.play(level(p), host.position(), SND_BEAM, 0.8f, 1.3f);
 		return true;
 	}
 
@@ -870,6 +1209,21 @@ public final class UpgradeKit extends AlienKit {
 		if (m != null && (m.kind() == MergeKind.MINECART || m.kind() == MergeKind.BOAT) && p.isPassenger()) {
 			p.stopRiding();
 		}
+		if (m != null && m.kind() == MergeKind.ALLY) {
+			// v0.17.2 revamp: Ally Upgrade -- off their back, their armour back to their own
+			ServerPlayer ally = m.ally() == null || p.getServer() == null ? null : p.getServer().getPlayerList().getPlayer(m.ally());
+			if (m.ally() != null) {
+				ALLY_HOSTS.remove(m.ally(), p.getUUID());
+			}
+			if (ally != null) {
+				PowerToggles.clearModifier(ally, Attributes.ARMOR, ALLY_ARMOR_ID);
+				PowerToggles.clearModifier(ally, Attributes.ARMOR_TOUGHNESS, ALLY_TOUGH_ID);
+			}
+			if (p.isPassenger() && (ally == null || p.getVehicle() == ally)) {
+				p.stopRiding();
+			}
+			p.resetFallDistance();
+		}
 		if (m != null && m.kind() == MergeKind.GOLEM && level(p).getEntity(m.entityId()) instanceof Mob golem) {
 			golem.setTarget(null);
 			// step out beside it
@@ -896,6 +1250,17 @@ public final class UpgradeKit extends AlienKit {
 			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 		}
 		switch (m.kind()) {
+			case ALLY -> {
+				// v0.17.2 revamp: Ally Upgrade holds while they live, stay in reach and he stays on (Sneak gets him off)
+				ServerPlayer ally = m.ally() == null || p.getServer() == null ? null : p.getServer().getPlayerList().getPlayer(m.ally());
+				if (ally == null || !ally.isAlive() || ally.level() != l || p.getVehicle() != ally) {
+					endMerge(p, true);
+					return;
+				}
+				p.resetFallDistance();
+				PowerToggles.modifier(ally, Attributes.ARMOR, ALLY_ARMOR_ID, ALLY_ARMOR, AttributeModifier.Operation.ADD_VALUE);
+				PowerToggles.modifier(ally, Attributes.ARMOR_TOUGHNESS, ALLY_TOUGH_ID, ALLY_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
+			}
 			case FURNACE, DISPENSER, PISTON -> {
 				BlockState s = l.getBlockState(m.pos());
 				if (mergeKindOf(s, l, m.pos()) != m.kind() || p.distanceToSqr(Vec3.atCenterOf(m.pos())) > 25) {
@@ -980,10 +1345,53 @@ public final class UpgradeKit extends AlienKit {
 
 	// ---------------------------------------------------------------- Shift+C: upgrade the held tool
 
-	/** Repairs half the held tool's wear; an unworn one gains a level of Unbreaking (up to III). True if anything changed. */
+	/** Can the Upgrade Tool do anything for {@code s} (worn, or short of Unbreaking III)? */
+	private static boolean upgradable(ServerPlayer p, ItemStack s) {
+		if (s.isEmpty() || !s.isDamageableItem()) {
+			return false;
+		}
+		var unbreaking = p.level().registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.UNBREAKING);
+		return s.isDamaged() || EnchantmentHelper.getItemEnchantmentLevel(unbreaking, s) < 3;
+	}
+
+	/**
+	 * v0.17.2 revamp: what the Upgrade Tool works on -- the main-hand item; failing that the offhand one; failing that, while he
+	 * looks down (pitch 45+), the most worn armour piece he wears (or the first short of Unbreaking III). Null if none.
+	 */
+	@Nullable
+	public static ItemStack toolTarget(ServerPlayer p) {
+		ItemStack main = p.getMainHandItem();
+		if (!main.isEmpty() && main.isDamageableItem()) {
+			return main;
+		}
+		ItemStack off = p.getOffhandItem();
+		if (!off.isEmpty() && off.isDamageableItem()) {
+			return off;
+		}
+		if (p.getXRot() >= 45f) {
+			ItemStack best = null;
+			for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] { net.minecraft.world.entity.EquipmentSlot.CHEST,
+					net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.HEAD }) {
+				ItemStack s = p.getItemBySlot(slot);
+				if (!upgradable(p, s)) {
+					continue;
+				}
+				if (best == null || s.getDamageValue() > best.getDamageValue()) {
+					best = s;
+				}
+			}
+			return best;
+		}
+		return null;
+	}
+
+	/**
+	 * Shift+V (v0.17.2 revamp, was Shift+C): repairs half the wear of {@link #toolTarget}; an unworn one gains a level of
+	 * Unbreaking (up to III). True if anything changed.
+	 */
 	public boolean upgradeTool(ServerPlayer p) {
-		ItemStack held = p.getMainHandItem();
-		if (held.isEmpty() || !held.isDamageableItem()) {
+		ItemStack held = toolTarget(p);
+		if (held == null) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_tool").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
@@ -1015,6 +1423,10 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public boolean onAttack(ServerPlayer p, Entity target) {
+		// v0.17.2 revamp: a punch from the puddle is the Geyser
+		if (flag(p, F_SLIDE) && geyser(p)) {
+			return true;
+		}
 		Merge m = MERGES.get(p.getUUID());
 		if (m != null && m.kind() == MergeKind.GOLEM && level(p).getEntity(m.entityId()) instanceof Mob golem && target instanceof LivingEntity le) {
 			// piloting a golem: the golem swings, not you
@@ -1032,7 +1444,7 @@ public final class UpgradeKit extends AlienKit {
 			le.invulnerableTime = 0;
 			hurt(p, le, JOLT_DAMAGE, false);
 			le.invulnerableTime = 0;
-			if (le instanceof AbstractGolem) {
+			if (machine(le)) {
 				le.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 2));
 			}
 			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 6, 0.2, 0.3, 0.2, 0.15);
@@ -1076,12 +1488,28 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
+		// v0.17.2 revamp: his own held machines never hurt him (UpgradeTakeover's damage rule covers it too)
+		if (source.getEntity() != null && UpgradeTakeover.controlledBy(source.getEntity(), p)) {
+			return false;
+		}
 		Merge m = MERGES.get(p.getUUID());
+		// v0.17.2 revamp (Electric Shock): a lightning / electric hit while merged throws him out, stunned 1 s; then it lands
+		// as usual (x1.5, incomingDamage)
+		if (m != null && com.projecthero.mod.ultron.UltronCombat.isElectric(source)) {
+			endMerge(p, true);
+			stun(p, SHOCK_STUN, false);
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 10, 0.3, 0.5, 0.3, 0.2);
+			m = null;
+		}
 		if (m == null) {
 			return !(flag(p, F_SLIDE) && source.is(DamageTypes.IN_WALL));
 		}
 		if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.FALL)) {
 			return false;
+		}
+		if (m.kind() == MergeKind.ALLY) {
+			// Ally Upgrade: he is their armour -- nothing reaches him (the void and /kill still do)
+			return source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
 		}
 		if (m.kind() == MergeKind.GOLEM && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
 				&& level(p).getEntity(m.entityId()) instanceof LivingEntity golem && golem.isAlive()) {
@@ -1094,7 +1522,75 @@ public final class UpgradeKit extends AlienKit {
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
 		Merge m = MERGES.get(p.getUUID());
-		return m != null && m.kind() != MergeKind.GOLEM ? amount * 0.5f : amount;
+		float a = m != null && m.kind() != MergeKind.GOLEM ? amount * 0.5f : amount;
+		// v0.17.2 revamp (Electric Shock): lightning and electric attacks hit living circuitry half as hard again
+		return com.projecthero.mod.ultron.UltronCombat.isElectric(source) ? a * SHOCK_MULT : a;
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 revamp: passives the mixins ask (both sides)
+
+	/** Liquid Metal Body: a projectile that passed through him leaves a green ripple where it went in, and flies on. */
+	public static final net.minecraft.world.entity.projectile.ProjectileDeflection PASS_THROUGH = (proj, entity, random) -> {
+		if (proj.level() instanceof ServerLevel l) {
+			QuirkFx.ring(l, proj.position()).style(QuirkFx.RING_SOFT).colours(0xB8FFB0, COLOUR).size(0.9f).thickness(0.12f).life(8).spawn();
+		}
+	};
+
+	/**
+	 * Liquid Metal Body: does {@code proj} pass straight through {@code self}? An Upgrade (synced state), an arrow or a thrown
+	 * thing, and one in {@link #PASS_ONE_IN} of them -- picked from the projectile's own id, so both sides agree. Beams, fireballs
+	 * and the like always hit.
+	 */
+	public static boolean passesThrough(Entity self, net.minecraft.world.entity.projectile.Projectile proj) {
+		if (!(self instanceof Player pl) || !(AlienKit.activeKit(pl) instanceof UpgradeKit)) {
+			return false;
+		}
+		if (!(proj instanceof net.minecraft.world.entity.projectile.AbstractArrow || proj instanceof net.minecraft.world.entity.projectile.ThrowableProjectile)) {
+			return false;
+		}
+		return Math.floorMod(proj.getUUID().getLeastSignificantBits(), PASS_ONE_IN) == 0;
+	}
+
+	/**
+	 * Ally Upgrade's seat: on {@code vehicle}'s upper back, his eyes a little over their head (clear of their aim), turned with
+	 * their body. Null unless {@code passenger} is a merged Upgrade riding a player. Synced state only.
+	 */
+	@Nullable
+	public static Vec3 allySeat(Entity vehicle, Entity passenger) {
+		if (!(passenger instanceof Player up) || !(vehicle instanceof Player host) || !(AlienKit.activeKit(up) instanceof UpgradeKit)
+				|| (com.projecthero.mod.omnitrix.Omnitrix.state(up).kitFlags & F_MERGED) == 0) {
+			return null;
+		}
+		double y = Math.max(0.0, host.getEyeHeight() - up.getEyeHeight() + 0.35);
+		return new Vec3(0.0, y, -0.5).yRot(-host.yBodyRot * net.minecraft.util.Mth.DEG_TO_RAD);
+	}
+
+	/** Is {@code p} an Upgrade with Overclock running (the gun hooks ask)? */
+	public static boolean overclocked(Player p) {
+		AlienKit k = AlienKit.activeKit(p);
+		return k instanceof UpgradeKit u && u.flag(p, F_OVERCLOCK);
+	}
+
+	/**
+	 * Overclock's weapon boost: an arrow just loosed by an overclocked Upgrade (a bow or crossbow in hand, the arrow still at his
+	 * side and flying) pierces one target and flies {@link #ARROW_SPEED}x as fast. True if it was boosted.
+	 */
+	public static boolean boostArrow(net.minecraft.world.entity.projectile.AbstractArrow arrow) {
+		if (!(arrow.getOwner() instanceof ServerPlayer p) || !overclocked(p) || arrow.tickCount > 1 || arrow.distanceToSqr(p) > 16
+				|| arrow.getDeltaMovement().lengthSqr() < 0.25) {
+			return false;
+		}
+		boolean bow = p.getMainHandItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem
+				|| p.getOffhandItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem;
+		if (!bow) {
+			return false;
+		}
+		if (arrow.getPierceLevel() < 1) {
+			((com.projecthero.mod.mixin.OmnitrixUpgradeArrowAccessor) arrow).projecthero$setPierceLevel((byte) 1);
+		}
+		arrow.setDeltaMovement(arrow.getDeltaMovement().scale(ARROW_SPEED));
+		arrow.hasImpulse = true;
+		return true;
 	}
 
 	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Overclock
@@ -1109,12 +1605,18 @@ public final class UpgradeKit extends AlienKit {
 	private static final net.minecraft.resources.ResourceLocation OC_HIT = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_hit");
 
 	private void vKey(ServerPlayer p, boolean shift) {
-		overclock(p);
+		if (shift) {
+			upgradeTool(p); // v0.17.2 revamp: was Shift+C
+		} else {
+			overclock(p);
+		}
 	}
 
 	/**
 	 * V: Overclock -- Upgrade flows into the tool or weapon in his hand and runs it past its limits for 15 s: +100% mining speed,
-	 * +4 damage, and its wear knits back a point a second. Needs something in the main hand.
+	 * +4 damage, and its wear knits back a point a second. Needs something in the main hand. v0.17.2 revamp (Ultimate Upgrade's
+	 * weapon boost): a bow / crossbow's arrows pierce one and fly 50% faster ({@link #boostArrow}); the mod's guns fire 50%
+	 * faster ({@code UpgradeOverclockHooks}) and never need reloading; a shield shrugs off a disabling hit (no cooldown).
 	 */
 	public boolean overclock(ServerPlayer p) {
 		if (p.getMainHandItem().isEmpty()) {
@@ -1166,9 +1668,28 @@ public final class UpgradeKit extends AlienKit {
 		if (now % 20 == 0 && held.isDamaged()) {
 			held.setDamageValue(held.getDamageValue() - 1);
 		}
-		if (now % 3 == 0) {
-			Vec3 hand = p.getEyePosition().add(p.getLookAngle().scale(0.6)).add(0, -0.5, 0);
-			l.sendParticles(SPARK, hand.x, hand.y, hand.z, 2, 0.15, 0.15, 0.15, 0.0);
+		// v0.17.2 revamp (weapon boost; the hand's rings are UpgradeClient's, so the spark stream is gone): a gun from the mod's
+		// firearm engine never runs dry or reloads; a shield is never disabled
+		boostGear(p, held);
+		boostGear(p, p.getOffhandItem());
+	}
+
+	/** Overclock's weapon boost on one held stack: a firearm stays loaded, a shield's cooldown is wiped. */
+	static void boostGear(ServerPlayer p, ItemStack s) {
+		if (s.isEmpty()) {
+			return;
+		}
+		com.projecthero.mod.firearm.FirearmData gun = com.projecthero.mod.firearm.Firearms.of(s);
+		if (gun != null) {
+			if (com.projecthero.mod.firearm.FirearmStack.isReloading(s)) {
+				com.projecthero.mod.firearm.FirearmReload.cancel(s);
+			}
+			if (com.projecthero.mod.firearm.FirearmStack.magazine(s, gun) < gun.magazineSize) {
+				com.projecthero.mod.firearm.FirearmStack.setMagazine(s, gun.magazineSize);
+			}
+		}
+		if (s.getItem() instanceof net.minecraft.world.item.ShieldItem && p.getCooldowns().isOnCooldown(s.getItem())) {
+			p.getCooldowns().removeCooldown(s.getItem());
 		}
 	}
 }

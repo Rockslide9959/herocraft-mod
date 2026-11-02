@@ -18,6 +18,7 @@
 		"RipjawsScentColorMixin",
 		"GreyMatterInsideRenderMixin",
 		"GreyMatterInsideShrinkMixin",
+		"UpgradeTechSenseColorMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",

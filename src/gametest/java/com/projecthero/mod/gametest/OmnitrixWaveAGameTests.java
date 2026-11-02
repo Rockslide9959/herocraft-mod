@@ -9,6 +9,7 @@ import com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit;
 import com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit;
 import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeEmp;
 import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit;
+import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeTakeover;
 import com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit;
 import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
 
@@ -914,7 +915,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.opticBeam(p), "Optic Beam");
 		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "12 damage");
 		helper.assertFalse(kit.opticBeam(p), "then cools down");
-		helper.assertTrue(kit.techGrab(p, z), "Tech Grab");
+		helper.assertTrue(kit.engulf(p, z) && near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE - UpgradeKit.GRAB_DAMAGE), "v0.17.2 revamp: Liquid Engulf (6)");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		helper.assertTrue(slow != null && slow.getAmplifier() >= 9, "stunned");
 		float before = z.getHealth();
@@ -951,6 +952,270 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 				helper.succeed();
 			});
 		});
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 Upgrade revamp (user: "Yes, build them")
+
+	private static IronGolem golem(GameTestHelper helper, double x, double y, double z) {
+		IronGolem g = EntityType.IRON_GOLEM.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
+		g.moveTo(at.x, at.y, at.z, 180f, 0f);
+		g.setPersistenceRequired();
+		helper.getLevel().addFreshEntity(g);
+		return g;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeStretchFistPunchesOutEightBlocks(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_1, true, false).id().equals(UpgradeKit.FIST), "Shift+R is the Stretch Fist");
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_6, true, false).id().equals(UpgradeKit.TAKEOVER), "Shift+C is Tech Takeover");
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_5, true, false).id().equals(UpgradeKit.REPAIR), "Shift+V is the Upgrade Tool");
+		Zombie far = zombie(helper, 3.5, 2, 7.0, 100f); // 5.5 blocks ahead
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 8f);
+		helper.assertTrue(kit.stretchFist(p), "Shift+R: the fist shoots out");
+		helper.assertTrue(near(far.getHealth(), 100f - UpgradeKit.FIST_DAMAGE), "10 damage at 5.5 blocks: " + far.getHealth());
+		helper.assertTrue(far.getDeltaMovement().z > 0.3, "slammed back: " + far.getDeltaMovement());
+		helper.assertFalse(kit.stretchFist(p), "then it cools down");
+		far.discard();
+		Zombie tooFar = zombie(helper, 3.5, 2, 11.5, 100f); // 10 blocks: out of reach
+		kit.cooldown(p, UpgradeKit.FIST, 0);
+		helper.assertTrue(kit.stretchFist(p) && near(tooFar.getHealth(), 100f), "past 8 blocks it punches air");
+		tooFar.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void upgradeTechTakeoverTurnsMachinesAndShortsTheLiving(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		IronGolem g1 = golem(helper, 3.5, 2, 5.5);
+		Zombie foe = zombie(helper, 6.5, 2, 6.5, 100f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(UpgradeTakeover.mechanical(g1) && !UpgradeTakeover.mechanical(foe), "a golem is a machine, a zombie is not");
+		helper.assertTrue(kit.techTakeover(p), "Shift+C: the nanite bolt");
+		helper.assertTrue(UpgradeTakeover.controlledBy(g1, p), "the golem is his");
+		helper.assertTrue(UpgradeTakeover.until(g1) - helper.getLevel().getGameTime() == UpgradeTakeover.TICKS, "for 15 s");
+		helper.assertFalse(kit.techTakeover(p), "it cools down");
+		// it never hurts him
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		g1.doHurtTarget(p);
+		helper.assertTrue(p.getHealth() == hp, "his machine can't hurt him");
+		// max 2 (Shift+C): a third lets the oldest go
+		IronGolem g2 = golem(helper, 1.5, 2, 5.5);
+		IronGolem g3 = golem(helper, 5.5, 2, 3.5);
+		helper.assertTrue(UpgradeTakeover.take(p, g2, UpgradeTakeover.TICKS, true) && UpgradeTakeover.count(p, true) == 2, "two held");
+		helper.assertTrue(UpgradeTakeover.take(p, g3, UpgradeTakeover.TICKS, true), "a third");
+		helper.assertTrue(UpgradeTakeover.count(p, true) == 2 && !UpgradeTakeover.controlledBy(g1, p) && UpgradeTakeover.controlledBy(g3, p),
+				"the oldest lets go");
+		UpgradeTakeover.release(g2);
+		UpgradeTakeover.release(g3);
+		g2.discard();
+		g3.discard();
+		UpgradeTakeover.take(p, g1, UpgradeTakeover.TICKS, true);
+		// a living target is shorted out instead (the old Overload)
+		Zombie z = zombie(helper, 3.5, 2, 4.0, 100f);
+		kit.cooldown(p, UpgradeKit.TAKEOVER, 0);
+		helper.assertTrue(kit.techTakeover(p), "Shift+C on a zombie");
+		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.OVERLOAD_DAMAGE) && z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && z.hasEffect(MobEffects.WEAKNESS),
+				"shorted out: 8, slowed and weakened");
+		helper.assertFalse(UpgradeTakeover.controlledBy(z, p), "never taken over");
+		z.discard();
+		// the held golem turns on his foe: a bolt a second in his name
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(UpgradeTakeover.controlledBy(g1, p), "still his (mock player in the player list: " + (helper.getLevel().getServer().getPlayerList().getPlayer(p.getUUID()) != null) + ")");
+			helper.assertTrue(foe.getHealth() < 100f, "the golem fights his foe: " + foe.getHealth());
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertTrue(UpgradeTakeover.controller(g1) == null && UpgradeTakeover.count(p, false) == 0, "turning back lets every machine go");
+			g1.discard();
+			foe.discard();
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeEmpBurstTakesOverMachinesInRange(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		IronGolem g = golem(helper, 3.5, 2, 5.5);
+		Zombie z = zombie(helper, 1.5, 2, 3.5, 100f);
+		float ghp = g.getHealth();
+		helper.assertTrue(kit.empBurst(p), "Shift+Z: EMP Burst");
+		helper.assertTrue(g.isAlive() && g.getHealth() < ghp - UpgradeKit.EMP_EDGE * 2f + 0.1f, "machines short out twice as hard: " + (ghp - g.getHealth()));
+		helper.assertTrue(UpgradeTakeover.controlledBy(g, p) && UpgradeTakeover.until(g) - helper.getLevel().getGameTime() == UpgradeTakeover.EMP_TICKS,
+				"and are his for 10 s");
+		helper.assertTrue(UpgradeTakeover.count(p, true) == 0, "EMP holds don't count towards Tech Takeover's 2");
+		helper.assertFalse(UpgradeTakeover.controlledBy(z, p), "a zombie only shorts out");
+		helper.assertFalse(g.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "his machine shakes the short-out off");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(UpgradeTakeover.controller(g) == null, "released on turning back");
+		g.discard();
+		z.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeLiquidFormSeepsThroughBarsAndGeysersUp(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		helper.assertTrue(kit.liquidSlide(p), "X: the Liquid Form");
+		p.setDeltaMovement(Vec3.ZERO);
+		net.minecraft.world.phys.shapes.CollisionContext ctx = net.minecraft.world.phys.shapes.CollisionContext.of(p);
+		BlockPos side = p.blockPosition().west();
+		for (net.minecraft.world.level.block.state.BlockState s : new net.minecraft.world.level.block.state.BlockState[] { Blocks.IRON_BARS.defaultBlockState(),
+				Blocks.OAK_FENCE.defaultBlockState(), Blocks.IRON_DOOR.defaultBlockState() }) {
+			helper.getLevel().setBlock(side, s, 3);
+			helper.assertTrue(helper.getLevel().getBlockState(side).getCollisionShape(helper.getLevel(), side, ctx).isEmpty(), "seeps through " + s);
+		}
+		helper.getLevel().setBlock(side, Blocks.AIR.defaultBlockState(), 3);
+		// no foe over the puddle: R is just the Optic Beam (it rises him)
+		helper.assertFalse(kit.geyser(p), "nothing to geyser through");
+		// a foe over the puddle: any attack key is the Geyser
+		Zombie z = zombie(helper, 4.5, 2, 1.5, 100f);
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		helper.assertFalse(kit.flag(p, UpgradeKit.F_SLIDE), "he rises out of the puddle");
+		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.GEYSER_DAMAGE), "Geyser: 8 -- " + z.getHealth());
+		helper.assertTrue(z.getDeltaMovement().y > 0.5, "launched: " + z.getDeltaMovement());
+		helper.assertTrue(kit.cooldownLeft(p, UpgradeKit.GEYSER) > 0 && kit.cooldownLeft(p, UpgradeKit.BEAM) == 0, "the Geyser cools down, not the beam");
+		z.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeAllyUpgradeArmoursASquadMateOnly(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		ServerPlayer mate = mock(helper, 3.5, 2, 3.5);
+		ServerPlayer stranger = mock(helper, 5.5, 2, 1.5);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("UpgradeAlly" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		try {
+			helper.assertFalse(kit.mergeWithAlly(p, stranger), "not a squad mate: refused");
+			double armor = mate.getAttributeValue(Attributes.ARMOR);
+			double tough = mate.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
+			helper.assertTrue(kit.mergeWithAlly(p, mate), "C on a squad mate: Ally Upgrade");
+			helper.assertTrue(UpgradeKit.merge(p).kind() == UpgradeKit.MergeKind.ALLY && p.getVehicle() == mate, "riding them as their armour");
+			helper.assertTrue(Math.abs(mate.getAttributeValue(Attributes.ARMOR) - armor - UpgradeKit.ALLY_ARMOR) < 1.0e-4
+					&& Math.abs(mate.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - tough - UpgradeKit.ALLY_TOUGHNESS) < 1.0e-4, "+8 armour, +2 toughness");
+			helper.assertTrue(UpgradeKit.allySeat(mate, p) != null, "seated on their back");
+			float hp = p.getHealth();
+			p.invulnerableTime = 0;
+			p.hurt(helper.getLevel().damageSources().magic(), 6f);
+			helper.assertTrue(p.getHealth() == hp, "he takes no damage");
+			Zombie z = zombie(helper, 3.5, 2, 5.5, 100f);
+			helper.assertTrue(kit.allyAttack(mate, z) && near(z.getHealth(), 100f - UpgradeKit.ALLY_BEAM_DAMAGE), "their hit fires his beam (6)");
+			helper.assertFalse(kit.allyAttack(mate, z), "once every 2 s");
+			helper.assertFalse(kit.allyAttack(stranger, z), "not for anyone else");
+			z.discard();
+			kit.endMerge(p, false);
+			helper.assertTrue(Math.abs(mate.getAttributeValue(Attributes.ARMOR) - armor) < 1.0e-4 && p.getVehicle() == null, "C again: off, their armour back");
+			// turning back mid-merge lets go too
+			kit.cooldown(p, UpgradeKit.MERGE, 0);
+			helper.assertTrue(kit.mergeWithAlly(p, mate), "again");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertTrue(Math.abs(mate.getAttributeValue(Attributes.ARMOR) - armor) < 1.0e-4 && p.getVehicle() == null && UpgradeKit.merge(p) == null,
+					"turning back ends it cleanly");
+		} finally {
+			squads.disband(squad);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void upgradeOverclockBoostsArrowsGunsAndShields(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		ItemStack bow = new ItemStack(Items.BOW);
+		p.setItemInHand(InteractionHand.MAIN_HAND, bow);
+		p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
+		helper.assertTrue(kit.overclock(p) && UpgradeKit.overclocked(p), "V: Overclock the bow");
+		Arrow arrow = new Arrow(helper.getLevel(), p, new ItemStack(Items.ARROW), bow);
+		arrow.setDeltaMovement(0, 0, 2.0);
+		helper.getLevel().addFreshEntity(arrow);
+		helper.assertTrue(arrow.getPierceLevel() >= 1, "the arrow pierces one");
+		helper.assertTrue(Math.abs(arrow.getDeltaMovement().length() - 2.0 * UpgradeKit.ARROW_SPEED) < 1.0e-3, "and flies 50% faster: " + arrow.getDeltaMovement());
+		arrow.discard();
+		// a disabled shield is ready again at once
+		p.getCooldowns().addCooldown(Items.SHIELD, 100);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
+		helper.assertFalse(p.getCooldowns().isOnCooldown(Items.SHIELD), "the shield shrugs off the disabling hit");
+		// the mod's guns: 50% faster and never reload
+		ItemStack gun = new ItemStack(com.projecthero.mod.firearm.item.FirearmItems.PUNISHER_PISTOL);
+		p.setItemInHand(InteractionHand.MAIN_HAND, gun);
+		com.projecthero.mod.firearm.FirearmStack.setMagazine(gun, 0);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
+		var data = com.projecthero.mod.firearm.Firearms.of(gun);
+		helper.assertTrue(com.projecthero.mod.firearm.FirearmStack.magazine(gun, data) == data.magazineSize, "the magazine stays full");
+		helper.assertTrue(com.projecthero.mod.firearm.FirearmHooks.get().fireIntervalFactor(p) < 0.7f, "fires 50% faster: "
+				+ com.projecthero.mod.firearm.FirearmHooks.get().fireIntervalFactor(p));
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(com.projecthero.mod.firearm.FirearmHooks.get().fireIntervalFactor(p) > 0.99f, "back to normal after");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void upgradeToolTakesTheOffhandAndWornArmour(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		ItemStack sword = new ItemStack(Items.IRON_SWORD);
+		sword.setDamageValue(200);
+		p.setItemInHand(InteractionHand.OFF_HAND, sword);
+		helper.assertTrue(kit.upgradeTool(p) && sword.getDamageValue() == 200 - sword.getMaxDamage() / 2, "empty main hand: the offhand item is repaired");
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		ItemStack chest = new ItemStack(Items.IRON_CHESTPLATE);
+		chest.setDamageValue(150);
+		p.setItemSlot(EquipmentSlot.CHEST, chest);
+		kit.cooldown(p, UpgradeKit.REPAIR, 0);
+		p.setXRot(0f);
+		helper.assertFalse(kit.upgradeTool(p), "looking ahead with empty hands: nothing");
+		p.setXRot(70f);
+		helper.assertTrue(kit.upgradeTool(p) && p.getItemBySlot(EquipmentSlot.CHEST).getDamageValue() < 150, "looking down: the worn chestplate");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void upgradeElectricShockWaterAndLiquidMetalBody(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		var bolt = helper.getLevel().damageSources().lightningBolt();
+		helper.assertTrue(near(kit.incomingDamage(p, bolt, 4f), 6f), "Electric Shock: lightning x1.5");
+		helper.assertTrue(near(kit.incomingDamage(p, helper.getLevel().damageSources().magic(), 4f), 4f), "magic as usual");
+		BlockPos furnace = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(furnace, Blocks.FURNACE.defaultBlockState(), 3);
+		helper.assertTrue(kit.mergeWith(p, furnace), "merged with a furnace");
+		kit.allowDamage(p, bolt, 4f);
+		helper.assertTrue(UpgradeKit.merge(p) == null && p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "a shock throws him out, stunned");
+		// Liquid Metal Body: one in four arrows / thrown things passes through (picked by the projectile's id, both sides agree)
+		Arrow through = new Arrow(EntityType.ARROW, helper.getLevel());
+		through.setUUID(new java.util.UUID(7L, 8L));
+		Arrow hits = new Arrow(EntityType.ARROW, helper.getLevel());
+		hits.setUUID(new java.util.UUID(7L, 9L));
+		helper.assertTrue(p.deflection(through) == UpgradeKit.PASS_THROUGH, "this arrow passes through");
+		helper.assertTrue(p.deflection(hits) == net.minecraft.world.entity.projectile.ProjectileDeflection.NONE, "this one hits");
+		var fireball = new net.minecraft.world.entity.projectile.SmallFireball(EntityType.SMALL_FIREBALL, helper.getLevel());
+		fireball.setUUID(new java.util.UUID(7L, 8L));
+		helper.assertTrue(p.deflection(fireball) == net.minecraft.world.entity.projectile.ProjectileDeflection.NONE, "a fireball always hits");
+		// Water: the Liquid Form is 40% slower in it
+		p.removeAllEffects();
+		kit.cooldown(p, UpgradeKit.SLIDE, 0);
+		helper.assertTrue(kit.liquidSlide(p), "the Liquid Form");
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 5);
+		double dry = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		try {
+			java.lang.reflect.Field f = net.minecraft.world.entity.Entity.class.getDeclaredField("wasTouchingWater");
+			f.setAccessible(true);
+			f.setBoolean(p, true);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 6);
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < dry * 0.65, "in water: 40% slower (" + dry + " -> " + p.getAttributeValue(Attributes.MOVEMENT_SPEED) + ")");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - 0.1) < 1.0e-4, "and it all comes off");
+		helper.succeed();
 	}
 
 	// ================================================================ Ghostfreak

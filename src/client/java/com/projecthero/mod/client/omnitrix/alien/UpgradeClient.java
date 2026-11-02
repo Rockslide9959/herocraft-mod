@@ -4,6 +4,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
+import com.projecthero.mod.client.omnitrix.AlienClients;
+import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeTakeover;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
@@ -84,6 +88,20 @@ public final class UpgradeClient implements AlienClientKit {
 			QuirkKeyframes.f(14, -1.05f, -0.45f, 0, -1.15f, 0.65f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0.5f), QuirkKeyframes.rest(18) };
 	private static final float[][] JOLT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.7f, 0.25f, 0, 0.4f, 0, 0, 0.15f, -0.4f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.rest(8) };
+	// v0.17.2 revamp: Stretch Fist (the right arm thrown down the look, the body twisting into it), Tech Takeover (two fingers'
+	// worth of pointing, the left hand braced), the Geyser (rising out of the puddle, arms flung up, then settling)
+	private static final float[][] FIST = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, A, A, 0, 0.5f, 0, 0, 0.2f, -0.45f, -0.25f, 0, 0, 0.35f, 0, 0, -0.2f),
+			QuirkKeyframes.f(8, A, A, 0, 0.5f, 0, 0, 0.2f, -0.45f, -0.25f, 0, 0, 0.35f, 0, 0, -0.2f), QuirkKeyframes.rest(14) };
+	private static final float[][] TAKEOVER = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, A, A, 0, -0.9f, 0.5f, 0, 0.1f, -0.2f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(12, A, A, 0, -0.9f, 0.5f, 0, 0.1f, -0.2f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(16) };
+	private static final float[][] GEYSER = { QuirkKeyframes.f(0, -2.9f, 0, 0.3f, -2.9f, 0, -0.3f, -0.2f, 0, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(5, -2.7f, 0, 0.5f, -2.7f, 0, -0.5f, -0.15f, 0, -0.3f, 0, 0, 0.2f, 0, 0, 0.2f), QuirkKeyframes.rest(12) };
+	private static final FirstPersonClip FP_FIST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -20, 15, 0, 0.12f, 0.1f, -0.5f),
+			FirstPersonClip.f(8, -20, 15, 0, 0.12f, 0.1f, -0.5f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_GEYSER = FirstPersonClip.of(FirstPersonClip.f(0, -70, 10, 0, 0.1f, 0.35f, -0.2f), FirstPersonClip.f(5, -40, 10, 0, 0.1f, 0.2f, -0.2f),
+			FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
+	/** v0.17.2 revamp (Tech Sense): a machine's outline -- faint green; one an Upgrade holds, bright. */
+	public static final int SENSE_FAINT = 0x2E8A48, SENSE_HELD = 0x39FF6A;
 
 	private static final FirstPersonClip FP_BEAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 20, -10, 0, -0.05f, -0.15f, 0.05f),
 			FirstPersonClip.f(7, 20, -10, 0, -0.05f, -0.15f, 0.05f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0)).both();
@@ -177,6 +195,16 @@ public final class UpgradeClient implements AlienClientKit {
 						PyroDraw.dim(UpgradeFx.PALE, 0.8f * k), 0xFF000000);
 				pose.popPose();
 			}
+			// v0.17.2 revamp (weapon boost): a bow, crossbow or gun gets a green muzzle ring out past the hand, pulsing outward
+			if (overclock && (p.getMainHandItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem
+					|| com.projecthero.mod.firearm.Firearms.of(p.getMainHandItem()) != null)) {
+				float pulse = (age * 0.08f) % 1f;
+				pose.pushPose();
+				pose.translate(0f, 0.5f, 0f);
+				PyroDraw.band(pose, PyroDraw.additive(buffers), 0.14f + 0.08f * pulse, 0.02f, PyroDraw.dim(UpgradeFx.GREEN, 0.9f * (1f - pulse)), 0xFF000000);
+				PyroDraw.band(pose, PyroDraw.additive(buffers), 0.12f, 0.015f, PyroDraw.dim(UpgradeFx.PALE, 0.7f), 0xFF000000);
+				pose.popPose();
+			}
 			pose.popPose();
 		}
 		// v0.17.2 VFX: the Circuit Jolt -- a crackle of green round the fist as it lands
@@ -218,6 +246,9 @@ public final class UpgradeClient implements AlienClientKit {
 			case UpgradeKit.ANIM_REPAIR -> REPAIR;
 			case UpgradeKit.ANIM_JOLT -> JOLT;
 			case UpgradeKit.ANIM_OVERCLOCK -> OVERCLOCK;
+			case UpgradeKit.ANIM_FIST -> FIST;
+			case UpgradeKit.ANIM_TAKEOVER -> TAKEOVER;
+			case UpgradeKit.ANIM_GEYSER -> GEYSER;
 			default -> null;
 		};
 		if ((Omnitrix.state(p).kitFlags & UpgradeKit.F_SLIDE) != 0) {
@@ -258,14 +289,60 @@ public final class UpgradeClient implements AlienClientKit {
 			case UpgradeKit.ANIM_REPAIR -> FP_CUP;
 			case UpgradeKit.ANIM_JOLT -> FP_JOLT;
 			case UpgradeKit.ANIM_OVERCLOCK -> FP_OVERCLOCK;
+			case UpgradeKit.ANIM_FIST -> FP_FIST;
+			case UpgradeKit.ANIM_TAKEOVER -> FP_POINT;
+			case UpgradeKit.ANIM_GEYSER -> FP_GEYSER;
 			default -> null;
 		};
 	}
 
-	/** v0.17.2: in the Liquid Form he is only the puddle UpgradeFx draws. */
+	/**
+	 * v0.17.2: in the Liquid Form he is only the puddle UpgradeFx draws. v0.17.2 revamp: after the Geyser he reforms out of the
+	 * column over 6 ticks (fading in).
+	 */
 	@Override
 	public int bodyAlpha(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & UpgradeKit.F_SLIDE) != 0 ? 0 : 255;
+		OmnitrixState st = Omnitrix.state(p);
+		if ((st.kitFlags & UpgradeKit.F_SLIDE) != 0) {
+			return 0;
+		}
+		if (st.animId == UpgradeKit.ANIM_GEYSER) {
+			float t = p.level().getGameTime() + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false) - st.animStart;
+			if (t >= 0f && t < 6f) {
+				return (int) Mth.clamp(40 + 215 * t / 6f, 40, 255);
+			}
+		}
+		return 255;
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 revamp: Tech Sense
+
+	/**
+	 * The outline colour {@code viewer} (a transformed Upgrade) sees on {@code e}, or -1 for none: a machine within
+	 * {@link UpgradeFx#SENSE_RANGE} faint green, one an Upgrade holds bright green.
+	 */
+	public static int senseColour(LocalPlayer viewer, Entity e) {
+		if (e == viewer || !e.isAlive() || e.distanceToSqr(viewer) > UpgradeFx.SENSE_RANGE * UpgradeFx.SENSE_RANGE) {
+			return -1;
+		}
+		OmnitrixState s = Omnitrix.state(viewer);
+		if (!UpgradeKit.ID.equals(s.active) || !s.transformed()) {
+			return -1;
+		}
+		if (UpgradeFx.heldBy(e) >= 0) {
+			return SENSE_HELD;
+		}
+		return UpgradeTakeover.mechanical(e) ? SENSE_FAINT : -1;
+	}
+
+	@Override
+	public boolean glows(LocalPlayer viewer, Entity e) {
+		return senseColour(viewer, e) >= 0;
+	}
+
+	/** For the outline colour mixin: whether {@code viewer} is shown as Upgrade. */
+	public static boolean shown(LocalPlayer viewer) {
+		return AlienClients.shownKit(viewer) instanceof UpgradeClient;
 	}
 
 	@Override

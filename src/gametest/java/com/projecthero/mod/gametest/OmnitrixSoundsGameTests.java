@@ -83,6 +83,7 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				DiamondheadKit.SND_SHIELD_BREAK, DiamondheadKit.SND_BASH, DiamondheadKit.SND_SLASH, DiamondheadKit.SND_STAB, DiamondheadKit.SND_CYCLONE, DiamondheadKit.SND_BEAM,
 				com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadRise.SND_RISE, com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadRise.SND_SINK,
 				UpgradeKit.SND_BEAM, UpgradeKit.SND_CHARGE, UpgradeKit.SND_MERGE, UpgradeKit.SND_EMP, UpgradeKit.SND_SLIDE,
+				UpgradeKit.SND_FIST, UpgradeKit.SND_TAKEOVER, UpgradeKit.SND_GEYSER,
 				GhostfreakKit.SND_CLAW, GhostfreakKit.SND_SCREAM, GhostfreakKit.SND_PHASE, GhostfreakKit.SND_LAUGH, GhostfreakKit.SND_TENDRIL,
 				StinkflyKit.BUZZ, StinkflyKit.SPIT, StinkflyKit.SPLAT, StinkflyKit.GAS, StinkflyKit.STING, StinkflyKit.DIVE,
 				WildmuttKit.GROWL, WildmuttKit.BITE, WildmuttKit.CLAW, WildmuttKit.ROAR, WildmuttKit.BRISTLE, WildmuttKit.QUILLS, WildmuttKit.SLAM,

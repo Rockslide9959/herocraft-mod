@@ -17,6 +17,7 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit;
+import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeTakeoverPayload;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -67,6 +68,14 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * grapple anchored where it struck -- EMP Burst a shockwave wall racing out to its 8-block edge with circuit lines cracking
  * across the ground, the Charged Beam's charge a swelling orb at the eye, and the Liquid Form a puddle of liquid metal with
  * green circuit glints, his eye and drips.
+ *
+ * <p>v0.17.2 revamp (user: "Yes, build them" -- docs/OMNITRIX_REVAMP_UPGRADE_GREYMATTER_XLR8.md): the Stretch Fist (his arm a
+ * stretched liquid-metal strand, a fist of his techno skin on the end that balloons as it lands), Tech Takeover (a nanite
+ * bolt streaking out, then a thin green tether for half a second; the machine wears his circuit lines -- only the glowing
+ * lines, crawling up over it and pulsing -- for as long as he holds it, from {@link UpgradeTakeoverPayload}), the Geyser (a
+ * column of liquid metal shooting up out of the puddle), Ally Upgrade (the squad mate wears his coat; their hits fire his beam
+ * from their chest), and Tech Sense (the powered redstone near a local Upgrade outlined faint green; the machines' outlines
+ * are UpgradeClient's).
  */
 public final class UpgradeFx {
 	public static final ResourceLocation TECHNO = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno.png");
@@ -135,17 +144,55 @@ public final class UpgradeFx {
 	private static final List<Peel> PEELS = new ArrayList<>();
 	private static Level lastLevel;
 
+	/** v0.17.2 revamp: a machine some Upgrade holds (Tech Takeover), as the client was told. */
+	private record Held(int owner, long start, long until) {
+	}
+
+	/** machine entity id -> its hold; machines let go fade their lines out over {@link #PEEL}. */
+	private static final Map<Integer, Held> HELD = new HashMap<>();
+	private static final Map<Integer, Long> LET_GO = new HashMap<>();
+	/** v0.17.2 revamp (Tech Sense): powered redstone near the local Upgrade, rescanned twice a second. */
+	private static final List<BlockPos> POWERED = new ArrayList<>();
+	public static final int SENSE_RANGE = 16;
+
 	/** From {@code UpgradeClient}'s registration. */
 	public static void init() {
 		ClientTickEvents.END_CLIENT_TICK.register(UpgradeFx::tick);
 		WorldRenderEvents.AFTER_ENTITIES.register(UpgradeFx::render);
 		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> clear());
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(UpgradeTakeoverPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> receive(payload)));
 	}
 
 	private static void clear() {
 		TRACKS.clear();
 		FX.clear();
 		PEELS.clear();
+		HELD.clear();
+		LET_GO.clear();
+		POWERED.clear();
+	}
+
+	/** v0.17.2 revamp: a machine was taken over (ticks > 0) or let go. */
+	static void receive(UpgradeTakeoverPayload p) {
+		Level level = Minecraft.getInstance().level;
+		if (level == null) {
+			return;
+		}
+		long now = level.getGameTime();
+		if (p.ticks() > 0) {
+			Held old = HELD.get(p.entityId());
+			HELD.put(p.entityId(), new Held(p.ownerId(), old != null && old.owner() == p.ownerId() ? old.start() : now, now + p.ticks()));
+			LET_GO.remove(p.entityId());
+		} else if (HELD.remove(p.entityId()) != null) {
+			LET_GO.put(p.entityId(), now);
+		}
+	}
+
+	/** The entity id of the Upgrade holding {@code e} (Tech Takeover), or -1. */
+	public static int heldBy(Entity e) {
+		Held h = HELD.get(e.getId());
+		return h == null ? -1 : h.owner();
 	}
 
 	private static long timer(OmnitrixState st, String name) {
@@ -245,6 +292,13 @@ public final class UpgradeFx {
 		}
 		FX.removeIf(f -> now - f.start > f.life + 1);
 		PEELS.removeIf(p -> now - p.start > PEEL + 1);
+		// v0.17.2 revamp: holds that ran out (a lost release packet); let-go lines that have faded
+		HELD.entrySet().removeIf(en -> en.getValue().until() + 20 < now);
+		LET_GO.entrySet().removeIf(en -> now - en.getValue() > PEEL + 1);
+		// v0.17.2 revamp (Tech Sense): the powered redstone round the local Upgrade
+		if (now % 10 == 0) {
+			scanPowered(mc);
+		}
 		for (Peel p : PEELS) {
 			if (r.nextInt(2) == 0) {
 				AABB box = box(level, p.merge, 1f);
@@ -259,9 +313,44 @@ public final class UpgradeFx {
 		}
 	}
 
+	/** v0.17.2 revamp (Tech Sense): every powered redstone block within {@link #SENSE_RANGE} of the local Upgrade (up to 64). */
+	private static void scanPowered(Minecraft mc) {
+		POWERED.clear();
+		Player me = mc.player;
+		if (me == null || !Omnitrix.hasPower(me) || !UpgradeKit.ID.equals(Omnitrix.state(me).active) || !Omnitrix.state(me).transformed()) {
+			return;
+		}
+		Level level = me.level();
+		BlockPos c = me.blockPosition();
+		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+		int r = SENSE_RANGE;
+		for (int y = -8; y <= 8 && POWERED.size() < 64; y++) {
+			for (int x = -r; x <= r && POWERED.size() < 64; x++) {
+				for (int z = -r; z <= r && POWERED.size() < 64; z++) {
+					m.set(c.getX() + x, c.getY() + y, c.getZ() + z);
+					net.minecraft.world.level.block.state.BlockState s = level.getBlockState(m);
+					if (s.isAir()) {
+						continue;
+					}
+					if ((s.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED)
+							&& s.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED))
+							|| (s.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.POWER)
+									&& s.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.POWER) > 0)
+							|| s.is(net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK)) {
+						POWERED.add(m.immutable());
+					}
+				}
+			}
+		}
+	}
+
 	private static void spawn(Player pl, OmnitrixState st, long now) {
 		int anim = st.animId;
 		int life = switch (anim) {
+			case UpgradeKit.ANIM_FIST -> 14;
+			case UpgradeKit.ANIM_TAKEOVER -> 14;
+			case UpgradeKit.ANIM_GEYSER -> 12;
+			case UpgradeKit.ANIM_ALLY_BEAM -> 9;
 			case UpgradeKit.ANIM_BEAM -> 9;
 			case UpgradeKit.ANIM_CHARGED -> 16;
 			case UpgradeKit.ANIM_GRAB -> UpgradeKit.STUN_TICKS;
@@ -530,7 +619,7 @@ public final class UpgradeFx {
 		if (level == null || context.consumers() == null || context.matrixStack() == null) {
 			return;
 		}
-		if (TRACKS.isEmpty() && PEELS.isEmpty() && FX.isEmpty()) {
+		if (TRACKS.isEmpty() && PEELS.isEmpty() && FX.isEmpty() && HELD.isEmpty() && LET_GO.isEmpty() && POWERED.isEmpty()) {
 			return;
 		}
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
@@ -555,6 +644,26 @@ public final class UpgradeFx {
 			k = k * k * (3f - 2f * k);
 			coat(level, p.merge, pose, buffers, inv, cam, partial, time, 1.4f - 1.75f * k, 1f - Mth.clamp(t / 5f, 0f, 1f), 1f - k * 0.3f);
 		}
+		// v0.17.2 revamp: Tech Takeover -- the held machines wear his circuit lines (only the lines: no black coat), crawling up
+		// over them in the first half second; let go, they fade back down
+		for (Map.Entry<Integer, Held> en : HELD.entrySet()) {
+			float t = time - en.getValue().start();
+			takeoverLines(level, en.getKey(), pose, buffers, inv, cam, partial, time, front(t * 1.3f + POUR * 0.4f), 1f);
+		}
+		for (Map.Entry<Integer, Long> en : LET_GO.entrySet()) {
+			float k = Mth.clamp((time - en.getValue()) / PEEL, 0f, 1f);
+			takeoverLines(level, en.getKey(), pose, buffers, inv, cam, partial, time, 1.4f - 1.75f * k, 1f - k);
+		}
+		// v0.17.2 revamp (Tech Sense): powered redstone outlined faint green
+		if (!POWERED.isEmpty()) {
+			VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+			float pulse = 0.35f + 0.1f * Mth.sin(time * 0.15f);
+			for (BlockPos bp : POWERED) {
+				VoxelShape s = level.getBlockState(bp).getShape(level, bp);
+				AABB b = (s.isEmpty() ? new AABB(0, 0, 0, 1, 1, 1) : s.bounds()).move(bp).inflate(0.01).move(-cam.x, -cam.y, -cam.z);
+				LevelRenderer.renderLineBox(pose, lines, b, 0.22f, 1.0f, 0.42f, pulse);
+			}
+		}
 		// the moves
 		for (Fx f : FX) {
 			Entity owner = level.getEntity(f.owner);
@@ -574,6 +683,11 @@ public final class UpgradeFx {
 				case UpgradeKit.ANIM_OVERLOAD -> zap(level, pose, buffers, cam, hand(owner, partial), f, t, time, true);
 				case UpgradeKit.ANIM_JOLT -> zap(level, pose, buffers, cam, hand(owner, partial), f, t, time, false);
 				case UpgradeKit.ANIM_EMP -> emp(pose, buffers, cam, f, t, time);
+				// v0.17.2 revamp
+				case UpgradeKit.ANIM_FIST -> fist(level, pose, buffers, cam, owner, f, t, partial, time);
+				case UpgradeKit.ANIM_TAKEOVER -> takeoverBolt(level, pose, buffers, cam, owner, f, t, partial, time);
+				case UpgradeKit.ANIM_GEYSER -> geyser(level, pose, buffers, cam, f, t, time);
+				case UpgradeKit.ANIM_ALLY_BEAM -> beam(pose, buffers, cam, allyChest(owner, partial), f.end, t, f.life, 0.06f, false, time);
 				default -> {
 				}
 			}
@@ -748,18 +862,29 @@ public final class UpgradeFx {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static void entityCoat(Level level, MergeView m, PoseStack pose, MultiBufferSource buffers, Matrix4f inv, Vec3 cam, float partial, float time, float front,
 			float lines, float alpha, AABB box) {
+		entityCoat(level, m, pose, buffers, inv, cam, partial, time, front, lines, alpha, box, false);
+	}
+
+	/** v0.17.2 revamp: {@code linesOnly} -- just the glowing circuit lines, no black coat (Tech Takeover). */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void entityCoat(Level level, MergeView m, PoseStack pose, MultiBufferSource buffers, Matrix4f inv, Vec3 cam, float partial, float time, float front,
+			float lines, float alpha, AABB box, boolean linesOnly) {
 		Entity e = level.getEntity(m.entityId);
 		if (e == null || (e instanceof Mob mob && mob.isLeashed())) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
+		// v0.17.2 revamp (Ally Upgrade): never coat the camera's own body in first person (it would wrap the view)
+		if ((e == mc.getCameraEntity() || e == mc.player) && mc.options.getCameraType().isFirstPerson()) {
+			return;
+		}
 		EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(e);
 		float yaw = Mth.lerp(partial, e.yRotO, e.getYRot());
 		int light = mc.getEntityRenderDispatcher().getPackedLightCoords(e, partial);
 		Vec3 at = e.getPosition(partial).subtract(cam);
 		float h = e.getBbHeight();
 		float uvScale = e instanceof net.minecraft.world.entity.animal.IronGolem ? 4f : e instanceof net.minecraft.world.entity.vehicle.Boat ? 4f : 2f;
-		for (int pass = 0; pass < 2; pass++) {
+		for (int pass = linesOnly ? 1 : 0; pass < 2; pass++) {
 			pose.pushPose();
 			pose.translate(at.x, at.y + h * 0.5, at.z);
 			float s = pass == 0 ? 1.045f : 1.05f;
@@ -777,6 +902,39 @@ public final class UpgradeFx {
 		}
 	}
 
+	/** Swallows whatever is written to it. */
+	private static final VertexConsumer NO_VERTS = new VertexConsumer() {
+		@Override
+		public VertexConsumer addVertex(float x, float y, float z) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setColor(int r, int g, int b, int a) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv(float u, float v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv1(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv2(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setNormal(float x, float y, float z) {
+			return this;
+		}
+	};
+
 	/** Every buffer the entity asks for is his coat: per vertex the coat's cover (bottom up) and the circuits' sweep. */
 	private static final class CoatSource implements MultiBufferSource {
 		private final CoatConsumer consumer;
@@ -788,7 +946,8 @@ public final class UpgradeFx {
 
 		@Override
 		public VertexConsumer getBuffer(RenderType type) {
-			return consumer;
+			// v0.17.2 revamp (Ally Upgrade coats a player): a name tag's text is not part of the body
+			return type.toString().contains("text") ? NO_VERTS : consumer;
 		}
 
 		void flush() {
@@ -991,6 +1150,128 @@ public final class UpgradeFx {
 				vert(vc, last, at.x + x0, at.y - half, at.z + z0, c, u0, 0.25f, light, -x0, 0, -z0);
 			}
 		}
+	}
+
+	/** v0.17.2 revamp (Ally Upgrade): his eye on the chest plate of the one he is merged onto (or his own chest, off them). */
+	static Vec3 allyChest(Entity owner, float partial) {
+		Entity host = owner.getVehicle() instanceof Player v ? v : owner;
+		float yaw = host instanceof LivingEntity le ? Mth.lerp(partial, le.yBodyRotO, le.yBodyRot) : host.getViewYRot(partial);
+		float rad = yaw * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(rad), 0, Mth.cos(rad));
+		return host.getPosition(partial).add(0, host.getBbHeight() * 0.68, 0).add(fwd.scale(host.getBbWidth() * 0.55));
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 revamp: Stretch Fist, Tech Takeover, Geyser
+
+	/** A box of his techno skin (lit by the world) with the circuit glow over it, centred on {@code c} (camera-relative). */
+	private static void techCube(PoseStack pose, MultiBufferSource buffers, Vec3 c, float half, Vec3 dir, int light, float glow) {
+		pose.pushPose();
+		pose.translate(c.x, c.y, c.z);
+		PyroDraw.alignY(pose, dir);
+		PoseStack.Pose last = pose.last();
+		for (int pass = 0; pass < 2; pass++) {
+			VertexConsumer vc = buffers.getBuffer(pass == 0 ? RenderType.entityTranslucent(TECHNO) : RenderType.eyes(TECHNO_GLOW));
+			float h = half + pass * 0.004f;
+			int col = pass == 0 ? 0xF5FFFFFF : grey(glow, 1f);
+			for (Direction d : Direction.values()) {
+				Vec3 n = Vec3.atLowerCornerOf(d.getNormal());
+				Vec3 u = Math.abs(n.y) > 0.5 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+				Vec3 v = n.cross(u);
+				Vec3 o = n.scale(h);
+				Vec3[] q = { o.add(u.scale(-h)).add(v.scale(-h)), o.add(u.scale(h)).add(v.scale(-h)), o.add(u.scale(h)).add(v.scale(h)), o.add(u.scale(-h)).add(v.scale(h)) };
+				float[][] uv = { { 0f, 0f }, { 0.5f, 0f }, { 0.5f, 0.5f }, { 0f, 0.5f } };
+				for (int i = 0; i < 4; i++) {
+					vert(vc, last, q[i].x, q[i].y, q[i].z, col, uv[i][0], uv[i][1], light, (float) n.x, (float) n.y, (float) n.z);
+				}
+			}
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * Stretch Fist: the arm shoots out to the target in 3 ticks (a liquid-metal strand), the fist on its end balloons on impact
+	 * (to 1.8x) and settles, then the arm snaps back.
+	 */
+	private static void fist(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Entity owner, Fx f, float t, float partial, float time) {
+		Vec3 a = hand(owner, partial);
+		Vec3 tp = targetPoint(level, f, partial);
+		Vec3 b = tp != null && t < 8f ? tp : f.end;
+		float reach = t < 3f ? t / 3f : t < 7f ? 1f : 1f - (t - 7f) / 7f;
+		if (reach <= 0.02f) {
+			return;
+		}
+		Vec3 end = a.lerp(b, reach);
+		tendril(level, pose, buffers, cam, a, end, 0.2f, 0.15f, 0.04, time, 1f, 0.5f);
+		float swell = t < 3f ? 1f : t < 6f ? 1f + 0.8f * Mth.sin((t - 3f) / 3f * Mth.PI) : 1f;
+		int light = LevelRenderer.getLightColor(level, BlockPos.containing(end));
+		Vec3 dir = b.subtract(a);
+		techCube(pose, buffers, end.subtract(cam), 0.2f * swell, dir.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : dir, light, 0.9f);
+		if (t >= 2.5f && t < 6f) {
+			PyroDraw.glow(pose, PyroDraw.additive(buffers), end.subtract(cam), 0.45f * (1f - (t - 2.5f) / 3.5f), PyroDraw.dim(GREEN, 0.8f));
+		}
+	}
+
+	/**
+	 * Tech Takeover: a nanite bolt (a bright green dart with a fading tail) streaks from his eye to the machine in 4 ticks, a
+	 * flash where it gets in, then a thin green tether holds between his hand and it for half a second.
+	 */
+	private static void takeoverBolt(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Entity owner, Fx f, float t, float partial,
+			float time) {
+		Vec3 a = eye(owner, partial);
+		Vec3 tp = targetPoint(level, f, partial);
+		Vec3 b = tp != null ? tp : f.end;
+		VertexConsumer add = PyroDraw.additive(buffers);
+		if (t < 4f) {
+			float s = t / 4f;
+			Vec3 head = a.lerp(b, s);
+			Vec3 tail = a.lerp(b, Math.max(0f, s - 0.35f));
+			List<Vec3> pts = List.of(tail.subtract(cam), tail.lerp(head, 0.5).subtract(cam), head.subtract(cam));
+			PyroDraw.ribbon(pose, add, pts, x -> 0.02 + 0.08 * x, x -> PyroDraw.dim(GREEN, (float) (0.3 + 0.7 * x)));
+			PyroDraw.ribbon(pose, add, pts, x -> 0.01 + 0.03 * x, x -> PyroDraw.dim(CORE, (float) x));
+			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), head.subtract(cam), 0.25f, PyroDraw.dim(GREEN, 0.9f));
+			return;
+		}
+		float k = 1f - Mth.clamp((t - 4f) / 10f, 0f, 1f);
+		if (t < 7f) {
+			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), b.subtract(cam), 0.8f * (1f - (t - 4f) / 3f), PyroDraw.dim(GREEN, 0.9f));
+		}
+		// the tether: a thin taut line, a pulse running down it into the machine
+		Vec3 h = hand(owner, partial);
+		List<Vec3> line = List.of(h.subtract(cam), h.lerp(b, 0.5).subtract(cam), b.subtract(cam));
+		PyroDraw.ribbon(pose, add, line, x -> 0.025, x -> PyroDraw.dim(GREEN, 0.6f * k));
+		float pulse = ((time * 0.25f) % 1f);
+		PyroDraw.glow(pose, add, h.lerp(b, pulse).subtract(cam), 0.12f * k, PyroDraw.dim(PALE, 0.9f * k));
+	}
+
+	/** The Geyser: a column of liquid metal shoots up out of the puddle through the foe, then drains back as he reforms. */
+	private static void geyser(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Fx f, float t, float time) {
+		float up = t < 3f ? t / 3f : 1f;
+		float fade = t < 5f ? 1f : 1f - Mth.clamp((t - 5f) / (f.life - 5f), 0f, 1f);
+		if (fade <= 0.02f) {
+			return;
+		}
+		Vec3 base = f.origin;
+		Vec3 top = base.add(0, 2.6 * up, 0);
+		float w = 0.9f * fade + 0.05f;
+		tendril(level, pose, buffers, cam, base, top, w, w * 0.45f, 0.0, time, 1.2f, 1.6f);
+		// a splash ring round the base
+		pose.pushPose();
+		Vec3 rb = base.subtract(cam);
+		pose.translate(rb.x, rb.y + 0.05, rb.z);
+		PyroDraw.band(pose, PyroDraw.additive(buffers), 0.4f + 0.9f * up, 0.03f * fade, PyroDraw.dim(GREEN, 0.7f * fade), 0xFF000000);
+		pose.popPose();
+	}
+
+	/** The circuit lines (only) over a held machine; {@code front} how far up they have crawled, {@code alpha} their strength. */
+	private static void takeoverLines(Level level, int id, PoseStack pose, MultiBufferSource buffers, Matrix4f inv, Vec3 cam, float partial, float time,
+			float front, float alpha) {
+		Entity e = level.getEntity(id);
+		if (e == null || !e.isAlive() || alpha <= 0.02f || e.position().distanceToSqr(cam) > 64 * 64) {
+			return;
+		}
+		AABB box = e.getBoundingBox().move(e.getPosition(partial).subtract(e.position()));
+		entityCoat(level, new MergeView(UpgradeKit.MergeKind.GOLEM.ordinal(), null, id, 0L, e.position()), pose, buffers, inv, cam, partial, time, front, 1f,
+				alpha, box, true);
 	}
 
 	@Nullable
