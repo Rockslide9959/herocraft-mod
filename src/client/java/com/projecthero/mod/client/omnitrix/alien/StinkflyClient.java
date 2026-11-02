@@ -336,13 +336,17 @@ public final class StinkflyClient implements AlienClientKit {
 		o[1] += (target - o[1]) * (target > o[1] ? 0.35f : 0.2f);
 		float[] f = FLIGHT.computeIfAbsent(p, k -> new float[6]);
 		double dx = p.getX() - p.xo, dy = p.getY() - p.yo, dz = p.getZ() - p.zo;
-		float h = (float) Math.sqrt(dx * dx + dz * dz);
-		float sp = Mth.clamp(h / 0.75f, 0f, 1f);
-		// lean: up to 55 degrees into full speed, less while climbing, a little more diving down
-		float lean = flying(p) ? Mth.clamp(sp * 55f - (float) dy * 40f, -10f, 65f) : 0f;
-		// bank into the turn (how fast the body is swinging round), only once he is moving
+		// v0.17.2 (user: "when stinkfly flies backwards he still leans forwards"): the motion split along where he faces --
+		// forward leans him forward, backward tips him back, sideways tilts him toward the side he drifts to
+		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
+		float fwd = (float) (-Mth.sin(yaw) * dx + Mth.cos(yaw) * dz);
+		float side = (float) (-Mth.cos(yaw) * dx - Mth.sin(yaw) * dz);
+		float sp = Mth.clamp(Math.max(0f, fwd) / 0.75f, 0f, 1f);
+		// lean: up to 55 degrees into full forward speed, up to 25 back flying backwards; less while climbing, more diving down
+		float lean = flying(p) ? Mth.clamp(fwd / 0.75f * (fwd >= 0f ? 55f : 25f) - (float) dy * 40f, -25f, 65f) : 0f;
+		// bank into the turn (how fast the body is swinging round) and into a sideways drift
 		float turn = Mth.wrapDegrees(p.yBodyRot - p.yBodyRotO);
-		float bank = flying(p) ? Mth.clamp(-turn * 2.2f * (0.3f + sp), -25f, 25f) : 0f;
+		float bank = flying(p) ? Mth.clamp(-turn * 2.2f * (0.3f + sp) - side / 0.75f * 20f, -25f, 25f) : 0f;
 		for (int i = 0; i < 6; i += 2) {
 			f[i] = f[i + 1];
 		}
