@@ -180,11 +180,20 @@ public final class AlienWheelScreen extends Screen {
 		PowerWheelScreen.sector(vc, m, cx, cy, disc - 2f, disc, 0, Math.PI * 2, fade(GREEN, open));
 		g.flush();
 
-		// each alien's dial face on its segment
+		// each alien's dial face on its segment -- v0.17.2 (user: "for the recalibrated master control H alien selector wheel dont show
+		// the alien icons show the holograms instead"): the recalibrated watch shows each alien's green hologram instead
+		boolean recal = mc.player != null && Omnitrix.recalibrated(mc.player);
+		float time = mc.level == null ? 0f : mc.level.getGameTime() + partialTick;
 		for (int j = 0; j < n; j++) {
 			float he = smooth(hoverAnim[j]);
 			double mid = -Math.PI / 2 + j * seg;
 			float r = (inner + outer) / 2f + lift * he;
+			if (recal) {
+				float h = Math.min(40f, (outer - inner) * 0.78f) * (1f + 0.15f * he);
+				float fx = cx + (float) Math.cos(mid) * r, fy = cy + (float) Math.sin(mid) * r;
+				RecalHologram.renderGui(g, aliens.get(j).id(), fx, fy + h * 0.5f, h, open * (0.6f + 0.4f * he), time + j * 3.1f);
+				continue;
+			}
 			int size = Math.round(Math.min(32f, (outer - inner) * 0.62f) * (1f + 0.15f * he));
 			int ix = Math.round(cx + (float) Math.cos(mid) * r) - size / 2;
 			int iy = Math.round(cy + (float) Math.sin(mid) * r) - size / 2;

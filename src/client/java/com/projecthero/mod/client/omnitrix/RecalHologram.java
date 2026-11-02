@@ -130,6 +130,56 @@ public final class RecalHologram {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.17.2 (user: "for the recalibrated master control H alien selector wheel dont show the alien icons show the holograms instead"):
+	 * {@code alienId}'s hologram flat on a screen -- the same see-through green figure, {@code height} GUI px tall, its feet at
+	 * ({@code x}, {@code feetY}), front on, over a short beam of green light; {@code alpha} 0..1.
+	 */
+	public static void renderGui(net.minecraft.client.gui.GuiGraphics g, String alienId, float x, float feetY, float height, float alpha, float time) {
+		AlienClientKit kit = AlienClients.of(alienId);
+		ResourceLocation skin = kit == null || kit.customBody() ? null : kit.skin();
+		if (alpha <= 0.01f) {
+			return;
+		}
+		// the light it stands in: a beam rising from a bright base line, fading out by the head
+		int beamA = Math.round(90 * alpha), baseA = Math.round(200 * alpha);
+		int hw = Math.round(height * 0.32f);
+		g.fillGradient(Math.round(x - hw), Math.round(feetY - height * 1.05f), Math.round(x + hw), Math.round(feetY), 0x005AFF6E, (beamA << 24) | 0x5AFF6E);
+		g.fill(Math.round(x - hw - 1), Math.round(feetY), Math.round(x + hw + 1), Math.round(feetY) + 1, (baseA << 24) | 0x9CFF9A);
+		if (skin == null) {
+			return;
+		}
+		PlayerModel<LivingEntity> m = model();
+		for (ModelPart part : new ModelPart[] { m.head, m.hat, m.body, m.jacket, m.rightArm, m.leftArm, m.rightSleeve, m.leftSleeve, m.rightLeg, m.leftLeg,
+				m.rightPants, m.leftPants }) {
+			part.resetPose();
+			part.visible = true;
+		}
+		m.crouching = false;
+		m.young = false;
+		m.riding = false;
+		m.attackTime = 0f;
+		m.rightArm.zRot = 0.12f;
+		m.leftArm.zRot = -0.12f;
+		m.rightSleeve.copyFrom(m.rightArm);
+		m.leftSleeve.copyFrom(m.leftArm);
+		float shimmer = 0.85f + 0.15f * Mth.sin(time * 0.9f);
+		float a = alpha * shimmer;
+		PoseStack pose = g.pose();
+		pose.pushPose();
+		// model space is y-down like the screen: the head's top is y -0.5, the feet y 1.5 (blocks); z flipped so the face looks out
+		float s = height / 2f;
+		pose.translate(x, feetY - 1.5f * s, 150f);
+		pose.scale(s, s, -s);
+		int a1 = Math.round(70 * a), a2 = Math.round(175 * a);
+		var buffers = g.bufferSource();
+		int lit = LightTexture.FULL_BRIGHT;
+		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE)), lit, OverlayTexture.NO_OVERLAY, (a1 << 24) | 0x6CFF7A);
+		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(skin)), lit, OverlayTexture.NO_OVERLAY, (a2 << 24) | 0xC8FFC0);
+		g.flush();
+		pose.popPose();
+	}
+
 	/** A cone of light from the face (radius 0.8 px) widening to 2.2 px at the figure's head, fading out as it rises. */
 	private static void cone(PoseStack pose, VertexConsumer vc, float x0, float cy, float alpha) {
 		PoseStack.Pose p = pose.last();
