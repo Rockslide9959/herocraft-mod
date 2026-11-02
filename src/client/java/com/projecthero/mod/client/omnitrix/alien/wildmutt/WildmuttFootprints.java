@@ -114,7 +114,25 @@ public final class WildmuttFootprints {
 	}
 
 	/** Not Wildmutt any more / left the world: forget everything. */
+	/**
+	 * v0.17.2 (the roar's sound ring was swallowed by his blind pass): where and when his own Savage Roar's ping went out, so the
+	 * ring is drawn again over the blind pass with the prints. {@code Double.NaN} = none.
+	 */
+	private static double pingX = Double.NaN, pingY, pingZ;
+	private static long pingStart;
+	/** The ring's reach (the ping's) and how long it takes to get there (ticks). */
+	private static final float PING_RADIUS = 24f, PING_TICKS = 14f;
+
+	/** His roar's ping just reached him (WildmuttSense's receiver): the ring starts at his feet. */
+	public static void ping(LocalPlayer me) {
+		pingX = me.getX();
+		pingY = me.getY() + 0.1;
+		pingZ = me.getZ();
+		pingStart = me.level().getGameTime();
+	}
+
 	public static void clear() {
+		pingX = Double.NaN;
 		PRINTS.clear();
 		LAST.clear();
 	}
@@ -123,11 +141,16 @@ public final class WildmuttFootprints {
 	public static void draw(WorldRenderContext ctx) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer me = mc.player;
-		if (me == null || PRINTS.isEmpty() || !(AlienKit.activeKit(me) instanceof WildmuttKit k) || !k.flag(me, WildmuttKit.F_SNIFF)) {
+		if (me == null || !(AlienKit.activeKit(me) instanceof WildmuttKit k)) {
 			return;
 		}
 		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
 		double now = me.level().getGameTime() + pt;
+		boolean prints = !PRINTS.isEmpty() && k.flag(me, WildmuttKit.F_SNIFF);
+		float ringAge = Double.isNaN(pingX) ? 2f : (float) ((now - pingStart) / PING_TICKS);
+		if (!prints && ringAge >= 1.4f) {
+			return;
+		}
 		Vec3 cam = ctx.camera().getPosition();
 		RenderSystem.setProjectionMatrix(ctx.projectionMatrix(), VertexSorting.DISTANCE_TO_ORIGIN);
 		Matrix4fStack mv = RenderSystem.getModelViewStack();
@@ -138,6 +161,14 @@ public final class WildmuttFootprints {
 		pose.last().pose().mul(ctx.positionMatrix());
 		pose.translate(-cam.x, -cam.y, -cam.z);
 		MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+		if (ringAge < 1.4f) {
+			drawRing(pose, buffers, ringAge);
+		}
+		if (!prints) {
+			mv.popMatrix();
+			RenderSystem.applyModelViewMatrix();
+			return;
+		}
 		VertexConsumer vc = QuirkFxDraw.glow(buffers, QuirkFxDraw.DECALS[QuirkFx.DECAL_PRINT]);
 		double show = SHOW_RADIUS * SHOW_RADIUS;
 		Iterator<Print> it = PRINTS.iterator();
@@ -163,5 +194,41 @@ public final class WildmuttFootprints {
 		buffers.endBatch(RenderType.eyes(QuirkFxDraw.DECALS[QuirkFx.DECAL_PRINT]));
 		mv.popMatrix();
 		RenderSystem.applyModelViewMatrix();
+	}
+
+	/** The roar's ping ring: a pale amber band racing out flat along the ground to {@link #PING_RADIUS}, fading as it goes. */
+	private static void drawRing(PoseStack pose, MultiBufferSource.BufferSource buffers, float age) {
+		float k = Math.min(1f, age);
+		float r = PING_RADIUS * (1f - (1f - k) * (1f - k));
+		float w = 0.6f + 1.6f * k;
+		float a = 0.85f * (1f - Math.max(0f, (age - 0.6f) / 0.8f));
+		if (a <= 0.02f) {
+			return;
+		}
+		com.mojang.blaze3d.vertex.VertexConsumer vc = buffers.getBuffer(com.projecthero.mod.client.omnitrix.OmnitrixFxRenderType.STAGE);
+		org.joml.Matrix4f m = pose.last().pose();
+		int seg = 72;
+		for (int i = 0; i < seg; i++) {
+			double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
+			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
+			float x = (float) pingX, y = (float) pingY, z = (float) pingZ;
+			// inner edge clear, the middle bright, the outer edge clear
+			ring(vc, m, x, y, z, c0, s0, c1, s1, r - w, r, 0f, a);
+			ring(vc, m, x, y, z, c0, s0, c1, s1, r, r + w * 0.5f, a, 0f);
+		}
+		buffers.endBatch(com.projecthero.mod.client.omnitrix.OmnitrixFxRenderType.STAGE);
+	}
+
+	private static void ring(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x, float y, float z, float c0, float s0, float c1,
+			float s1, float rIn, float rOut, float aIn, float aOut) {
+		rIn = Math.max(0f, rIn);
+		vert(vc, m, x + c0 * rIn, y, z + s0 * rIn, aIn);
+		vert(vc, m, x + c1 * rIn, y, z + s1 * rIn, aIn);
+		vert(vc, m, x + c1 * rOut, y, z + s1 * rOut, aOut);
+		vert(vc, m, x + c0 * rOut, y, z + s0 * rOut, aOut);
+	}
+
+	private static void vert(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x, float y, float z, float a) {
+		vc.addVertex(m, x, y, z).setColor(0xFF, 0xC0, 0x5A, Math.max(0, Math.min(255, (int) (a * 255f))));
 	}
 }

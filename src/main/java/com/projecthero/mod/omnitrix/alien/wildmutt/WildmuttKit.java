@@ -695,13 +695,12 @@ public final class WildmuttKit extends AlienKit {
 						&& e.distanceToSqr(p) <= PING_RANGE * PING_RANGE)) {
 			found.add(e);
 		}
-		if (!found.isEmpty()) {
-			int[] ids = found.stream().limit(256).mapToInt(Entity::getId).toArray();
-			var payload = new com.projecthero.mod.network.WildmuttPingPayload(ids, PING_TICKS);
-			for (ServerPlayer to : pingListeners(p)) {
-				if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(to, com.projecthero.mod.network.WildmuttPingPayload.TYPE)) {
-					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(to, payload);
-				}
+		// sent even when it found nothing: his own client draws the ring over his blind pass from it
+		int[] ids = found.stream().limit(256).mapToInt(Entity::getId).toArray();
+		var payload = new com.projecthero.mod.network.WildmuttPingPayload(ids, PING_TICKS);
+		for (ServerPlayer to : pingListeners(p)) {
+			if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(to, com.projecthero.mod.network.WildmuttPingPayload.TYPE)) {
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(to, payload);
 			}
 		}
 		return found;

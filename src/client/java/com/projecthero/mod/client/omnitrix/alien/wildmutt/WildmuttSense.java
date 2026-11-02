@@ -137,6 +137,9 @@ public final class WildmuttSense {
 		ClientPlayNetworking.registerGlobalReceiver(WildmuttPingPayload.TYPE, (payload, context) -> context.client().execute(() -> {
 			if (context.client().level != null) {
 				long until = context.client().level.getGameTime() + payload.ticks();
+				if (context.client().player != null && WildmuttVision.active(context.client())) {
+					WildmuttFootprints.ping(context.client().player); // his own roar: the ring over his blind pass
+				}
 				for (int id : payload.ids()) {
 					PINGED.merge(id, until, Math::max);
 				}
