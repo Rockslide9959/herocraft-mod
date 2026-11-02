@@ -182,6 +182,14 @@ public abstract class AlienKit {
 		return false;
 	}
 
+	/**
+	 * v0.17.2 (Ghostfreak): while {@link #phasing}, this vertical move of {@code dy} ignores blocks too (up through a ceiling,
+	 * down through a floor). Default never: phasing is through walls only.
+	 */
+	public boolean phasesVertically(Player p, double dy) {
+		return false;
+	}
+
 	/** {@code fluid} holds the wearer up like ground (water running). */
 	public boolean standsOnFluid(Player p, net.minecraft.world.level.material.FluidState fluid) {
 		return false;

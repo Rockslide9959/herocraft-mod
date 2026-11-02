@@ -19,7 +19,8 @@ public abstract class SuperSpeedPhasePoseMixin {
 	@Inject(method = "updatePlayerPose", at = @At("HEAD"), cancellable = true)
 	private void projecthero$speedPhaseStands(CallbackInfo ci) {
 		Player self = (Player) (Object) this;
-		if (SuperSpeedHandlers.phasing(self) || com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing(self)) { // v0.17.1: the Speed Force Speedster too
+		if (SuperSpeedHandlers.phasing(self) || com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing(self) // v0.17.1: the Speed Force Speedster too
+				|| com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.phasedGhost(self)) { // v0.17.2: and a phased Ghostfreak (no crawl inside walls)
 			if (self.getPose() != Pose.STANDING) {
 				self.setPose(Pose.STANDING);
 			}

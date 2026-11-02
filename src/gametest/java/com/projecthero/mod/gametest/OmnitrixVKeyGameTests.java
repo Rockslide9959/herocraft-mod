@@ -365,8 +365,13 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		AlienKit kit = Aliens.kit(GhostfreakKit.ID);
 		tapV(p, false);
 		helper.assertTrue(kit.flag(p, GhostfreakKit.F_SIGHT) && p.hasEffect(MobEffects.NIGHT_VISION), "V: Spirit Sight, night vision");
+		// v0.17.2 revamp: Shift+V is Lights Out
+		kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		helper.assertTrue(kit.flag(p, GhostfreakKit.F_DARK) && kit.flag(p, GhostfreakKit.F_NIGHT), "Shift+V: Lights Out (and it counts as dark)");
+		helper.assertTrue(kit.flag(p, GhostfreakKit.F_SIGHT), "Lights Out leaves Spirit Sight on");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertFalse(kit.flag(p, GhostfreakKit.F_SIGHT) || p.hasEffect(MobEffects.NIGHT_VISION), "both gone after turning back");
+		helper.assertFalse(kit.flag(p, GhostfreakKit.F_DARK), "and the dark lifts");
 		helper.succeed();
 	}
 

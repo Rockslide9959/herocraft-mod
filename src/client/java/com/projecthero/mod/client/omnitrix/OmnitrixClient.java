@@ -56,6 +56,7 @@ public final class OmnitrixClient {
 		EntityRendererRegistry.register(OmnitrixEntities.ALIEN_PROJECTILE, OmnitrixRenderers.Projectile::new);
 		HeatblastClient.init(); // v0.17.2: his shots in Pyrokinesis' fireball look, the Fire Stream as its Flamethrower
 		com.projecthero.mod.client.omnitrix.alien.StinkflyClient.init(); // v0.17.2: goo blobs, the spinning slime net, their drips
+		com.projecthero.mod.client.omnitrix.alien.GhostfreakClient.init(); // v0.17.2: a possessed player's client takes Ghostfreak's keys
 		com.projecthero.mod.client.omnitrix.alien.UpgradeFx.init(); // v0.17.2: Upgrade's merge coat + takeover, beams, tendrils, EMP, puddle
 		com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttVision.init(); // v0.17.2: his blind sense -- echolocation in the dark
 		com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttSense.init(); // v0.17.2 revamp: the roar's ping outlines

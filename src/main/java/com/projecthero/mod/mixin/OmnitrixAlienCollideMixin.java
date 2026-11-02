@@ -26,9 +26,18 @@ public abstract class OmnitrixAlienCollideMixin {
 
 	@Inject(method = "collide", at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienPhase(Vec3 movement, CallbackInfoReturnable<Vec3> cir) {
-		if ((movement.x != 0.0 || movement.z != 0.0) && (Object) this instanceof Player player) {
+		if ((Object) this instanceof Player player) {
 			AlienKit kit = AlienKit.activeKit(player);
-			if (kit != null && kit.phasing(player)) {
+			if (kit == null || !kit.phasing(player)) {
+				return;
+			}
+			// v0.17.2 (user: "make sure ghost freaks ... phasing works"): Ghostfreak also rises through ceilings and sinks
+			// through floors (while sneaking) -- the whole move ignores blocks
+			if (movement.y != 0.0 && kit.phasesVertically(player, movement.y)) {
+				cir.setReturnValue(movement);
+				return;
+			}
+			if (movement.x != 0.0 || movement.z != 0.0) {
 				Vec3 vertical = this.collide(new Vec3(0.0, movement.y, 0.0));
 				cir.setReturnValue(new Vec3(movement.x, vertical.y, movement.z));
 			}
