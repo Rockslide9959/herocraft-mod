@@ -60,9 +60,31 @@ public final class DiamondheadClient implements AlienClientKit {
 			QuirkKeyframes.f(14, -2.8f, 0, 0.3f, -2.8f, 0, -0.3f, -0.15f, 0, 0.3f, 0, 0.1f, 0.3f, 0, -0.1f, -0.4f), QuirkKeyframes.rest(20) };
 	private static final float[][] WALL = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.3f, 0, -1.5f, 0.3f, 0, 0.3f, 0, -0.5f, 0, 0, 0.5f, 0, 0, 0),
 			QuirkKeyframes.f(10, -1.55f, -0.35f, 0, -1.55f, 0.35f, 0, 0.3f, 0, -0.5f, 0, 0, 0.5f, 0, 0, 0), QuirkKeyframes.rest(15) };
-	private static final float[][] BARRAGE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -3.1f, 0, 0.1f, -0.3f, 0, -0.4f, -0.2f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.6f),
-			QuirkKeyframes.f(12, -3.1f, 0, 0.1f, -0.3f, 0, -0.4f, -0.2f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.6f),
-			QuirkKeyframes.f(16, -1.4f, 0, 0, -0.3f, 0, -0.3f, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(24) };
+	/**
+	 * v0.17.2 (user: "lift up 3 giant diamond shards from the ground and then throw them at his target ... good animations"): the
+	 * Titan Shards -- he crouches, palms to the ground (the shards crack up at 4 / 10 / 16), heaves his arms up as they climb,
+	 * holds them high, then hurls: the right arm at 42, the left at 50, and both arms down and forward for the big one at 58.
+	 * {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX}
+	 */
+	private static final float[][] BARRAGE = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(5, -0.45f, 0, 0.55f, -0.45f, 0, -0.55f, 0.35f, 0, -0.35f, 0, 0.12f, 0.25f, 0, -0.12f, 0.45f),
+			QuirkKeyframes.f(12, -0.6f, 0, 0.6f, -0.6f, 0, -0.6f, 0.3f, 0, -0.3f, 0, 0.12f, 0.2f, 0, -0.12f, 0.35f),
+			QuirkKeyframes.f(28, -2.5f, 0, -0.45f, -2.5f, 0, 0.45f, -0.12f, 0, 0, 0, 0.15f, 0, 0, -0.15f, -0.35f),
+			QuirkKeyframes.f(38, -2.95f, 0, -0.38f, -2.95f, 0, 0.38f, -0.2f, 0, 0.05f, 0, 0.15f, 0.05f, 0, -0.15f, -0.3f),
+			QuirkKeyframes.f(41, -3.05f, 0.2f, -0.3f, -2.95f, 0, 0.38f, -0.22f, -0.35f, 0.1f, 0, 0.15f, 0, 0, -0.15f, -0.2f),
+			QuirkKeyframes.f(44, -1.35f, -0.25f, 0.05f, -2.85f, 0, 0.38f, 0.25f, 0.4f, -0.2f, 0, 0.15f, 0.25f, 0, -0.15f, 0),
+			QuirkKeyframes.f(48, -1.0f, 0, 0.3f, -3.05f, -0.2f, 0.3f, -0.2f, 0.35f, 0.1f, 0, 0.15f, 0, 0, -0.15f, -0.2f),
+			QuirkKeyframes.f(52, -1.0f, 0, 0.3f, -1.35f, 0.25f, -0.05f, 0.25f, -0.4f, 0.25f, 0, 0.15f, -0.2f, 0, -0.15f, 0),
+			QuirkKeyframes.f(56, -3.05f, 0, -0.2f, -3.05f, 0, 0.2f, -0.3f, 0, 0.1f, 0, 0.15f, 0.1f, 0, -0.15f, -0.35f),
+			QuirkKeyframes.f(60, -1.2f, 0, 0.1f, -1.2f, 0, -0.1f, 0.4f, 0, -0.45f, 0, 0.15f, 0.35f, 0, -0.15f, 0.15f),
+			QuirkKeyframes.f(66, -1.1f, 0, 0.1f, -1.1f, 0, -0.1f, 0.3f, 0, -0.35f, 0, 0.12f, 0.25f, 0, -0.12f, 0.1f), QuirkKeyframes.rest(76) };
+	/** The Titan Shards in first person: hands low, then heaved up out of sight as the shards climb, thrown right, left, both. */
+	private static final FirstPersonClip FP_TITAN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
+			FirstPersonClip.f(6, 25, 0, 0, 0.05f, -0.25f, 0), FirstPersonClip.f(28, -55, 0, 10, -0.05f, 0.5f, 0.1f),
+			FirstPersonClip.f(40, -62, 0, 10, -0.05f, 0.55f, 0.12f), FirstPersonClip.f(44, 15, 0, 0, 0, 0.05f, -0.35f),
+			FirstPersonClip.f(48, -55, 0, 10, -0.05f, 0.5f, 0.1f), FirstPersonClip.f(52, 15, 0, 0, 0, 0.05f, -0.35f),
+			FirstPersonClip.f(56, -65, 0, 10, -0.05f, 0.6f, 0.12f), FirstPersonClip.f(60, 25, 0, 0, 0, -0.05f, -0.4f),
+			FirstPersonClip.f(72, 0, 0, 0, 0, 0, 0)).both();
 	private static final float[][] PRISON = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.0f, 0.9f, -0.4f, -1.0f, -0.9f, 0.4f, 0.35f, 0, -0.2f, 0, 0.2f, -0.2f, 0, -0.2f, 0.4f),
 			QuirkKeyframes.f(8, -0.4f, 0, 0.6f, -0.4f, 0, -0.6f, -0.1f, 0, 0, 0, 0.25f, 0, 0, -0.25f, -0.3f), QuirkKeyframes.rest(16) };
 	private static final float[][] SLASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.9f, 0.9f, 0.4f, 0.2f, 0, 0, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0),
@@ -152,6 +174,8 @@ public final class DiamondheadClient implements AlienClientKit {
 		// v0.17.2 (user: "for diamondhead make spike projectiles for his spike projectile abilities instead of just glowing orbs")
 		OmnitrixRenderers.projectileLook("diamondhead_shard", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, false));
 		OmnitrixRenderers.projectileLook("diamondhead_spear", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, true));
+		// v0.17.2: the Titan Shards -- the same cut crystal, giant
+		OmnitrixRenderers.projectileLook("diamondhead_titan", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, false));
 	}
 
 	// ---------------------------------------------------------------- v0.17.2: the shard and spear projectiles
@@ -716,7 +740,8 @@ public final class DiamondheadClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case DiamondheadKit.ANIM_VOLLEY, DiamondheadKit.ANIM_BARRAGE -> FP_VOLLEY;
+			case DiamondheadKit.ANIM_VOLLEY -> FP_VOLLEY;
+			case DiamondheadKit.ANIM_BARRAGE -> FP_TITAN;
 			case DiamondheadKit.ANIM_SPEAR, DiamondheadKit.ANIM_BEAM -> FP_SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> FP_COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> FP_COMBAT_OFF;

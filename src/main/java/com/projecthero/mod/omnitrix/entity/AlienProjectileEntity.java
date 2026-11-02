@@ -52,6 +52,8 @@ public class AlienProjectileEntity extends Projectile {
 	private float blastDamage;
 	private double gravity;
 	private int life = 60;
+	/** v0.17.2: held in place by its kit (Diamondhead's Titan Shards before the throw) -- it neither moves nor hits anything. */
+	private boolean held;
 	private double speed = 1.5;
 
 	public AlienProjectileEntity(EntityType<? extends AlienProjectileEntity> type, Level level) {
@@ -114,6 +116,16 @@ public class AlienProjectileEntity extends Projectile {
 		return this;
 	}
 
+	/** Held: the kit places it each tick; it moves and hits nothing until released. */
+	public AlienProjectileEntity held(boolean on) {
+		held = on;
+		return this;
+	}
+
+	public boolean held() {
+		return held;
+	}
+
 	public AlienProjectileEntity life(int ticks) {
 		life = ticks;
 		return this;
@@ -161,6 +173,9 @@ public class AlienProjectileEntity extends Projectile {
 		if (!level().isClientSide()) {
 			if (tickCount > life) {
 				discard();
+				return;
+			}
+			if (held) {
 				return;
 			}
 			HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
@@ -232,6 +247,12 @@ public class AlienProjectileEntity extends Projectile {
 			extra.accept(this, hit);
 		}
 		discard();
+	}
+
+	/** v0.17.2: a big projectile (the Titan Shards are 5 blocks long) is not culled while its tiny box is off screen. */
+	@Override
+	public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+		return super.getBoundingBoxForCulling().inflate(size() * 3.4);
 	}
 
 	@Override

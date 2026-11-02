@@ -383,6 +383,40 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * v0.17.2 (user: "i want him to lift up 3 giant diamond shards from the ground and then throw them at his target, this has to
+	 * have a big of a chargeup"): Shift+Z raises three held Titan Shards round him over the charge (none flying yet, he is slowed),
+	 * then throws them at the zombie he looks at -- it takes the strikes and the move ends with nothing left behind.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160, batch = "diamondhead_titan") // alone: the shards fly 8+ blocks
+	public void diamondheadTitanShardsRiseThenStrike(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0f, 4f); // looking at the zombie
+		Zombie z = zombie(helper, 3.5, 2, 9.5, 200f);
+		double speed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is the Titan Shards");
+		helper.assertTrue(kit.barrage(p), "Shift+Z starts the Titan Shards");
+		helper.assertFalse(kit.barrage(p), "not twice at once");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < speed * 0.5, "he plants himself for the charge");
+		pump(helper, p);
+		helper.runAfterDelay(DiamondheadKit.TITAN_RISE_AT[2] + 6, () -> {
+			var shards = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(8), e -> e.kind().equals("diamondhead_titan"));
+			helper.assertTrue(shards.size() == 3 && shards.stream().allMatch(AlienProjectileEntity::held), "three shards rising, held: " + shards.size());
+			helper.assertTrue(Math.abs(z.getHealth() - 200f) < 0.01f, "nothing thrown during the charge");
+		});
+		helper.runAfterDelay(DiamondheadKit.TITAN_THROW_AT[2] + 30, () -> {
+			helper.assertTrue(z.getHealth() <= 200f - DiamondheadKit.TITAN_DAMAGE * 2, "the shards struck the zombie: " + z.getHealth());
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speed) < 1.0e-4, "free to move again");
+			z.discard();
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(40),
+					e -> e.kind().equals("diamondhead_titan")).isEmpty(), "no shard left behind");
+			helper.succeed();
+		});
+	}
+
+	/**
 	 * v0.17.2 (user: "replace his g and Shift+G with other moves that he does in the show"): G's Crystal Tether cuts a foe it strikes
 	 * and hauls it toward him; Shift+G's Crystal Bridge grows a 3-wide span ahead; breaking one block of it brings the whole bridge
 	 * down (user: "the entire thing falls down and disappears"); and Diamondhead breaks his crystal as fast as dirt.

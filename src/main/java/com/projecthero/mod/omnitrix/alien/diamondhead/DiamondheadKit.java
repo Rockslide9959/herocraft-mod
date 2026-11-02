@@ -52,6 +52,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
 
 /**
  * v0.17.1: Diamondhead, the Petrosapien -- a body of living green crystal with a pointed crystal head and shard ridges down
@@ -70,7 +71,7 @@ import net.minecraft.world.phys.Vec3;
  *   G (hold) Crystal Shield    a tower shield on the left arm: frontal hits blocked, frontal projectiles reflected; 40 HP,
  *                              shatters (8 s), regrows while lowered        Shift+G  Shield Bash      charge behind it (10, staggered)
  *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
- *   Z        Crystal Eruption  rings of spikes all round you (r 6; 12)       Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards (5 each)
+ *   Z        Crystal Eruption  rings of spikes all round you (r 6; 12)       Shift+Z  Titan Shards     ultimate: lifts 3 giant shards, hurls them
  *   V        Combat Mode       toggle: both forearms are blades -- +6 melee, +1 reach, faster swings, every swing sweeps
  *                                                                            Shift+V  Crystal Wall     a 5x3 wall in front (8 s)
  *   C        Crystal Prison    seal the creature you look at for 3 s (a boss 1 s), then it shatters (14)
@@ -307,6 +308,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final Map<UUID, SpikeLine> LINES = new ConcurrentHashMap<>();
 	/** player -> where the Diamond Barrage rains. */
 	private static final Map<UUID, Storm> STORMS = new ConcurrentHashMap<>();
+	/** player -> the Titan Shards being raised and thrown. */
+	private static final Map<UUID, Titan> TITANS = new ConcurrentHashMap<>();
 	/** player -> the creature his Crystal Prison holds. */
 	private static final Map<UUID, Prison> PRISONS = new ConcurrentHashMap<>();
 	/** player -> the Crystal Eruption spreading out from him. */
@@ -322,6 +325,42 @@ public final class DiamondheadKit extends AlienKit {
 	private record Storm(ResourceKey<Level> dim, Vec3 at) {
 	}
 
+	/** The Titan Shards: when it began, the shards' entity ids (-1 before each rises), which are thrown, the target (or -1). */
+	private static final class Titan {
+		final ResourceKey<Level> dim;
+		final long start;
+		final int[] ids = { -1, -1, -1 };
+		final boolean[] thrown = new boolean[3];
+		int target;
+		Vec3 point;
+
+		Titan(ResourceKey<Level> dim, long start, int target, Vec3 point) {
+			this.dim = dim;
+			this.start = start;
+			this.target = target;
+			this.point = point;
+		}
+	}
+
+	/**
+	 * v0.17.2 (user: "i want him to lift up 3 giant diamond shards from the ground and then throw them at his target, this has to
+	 * have a big of a chargeup to it and have good animations"): the Titan Shards' timeline (ticks from the press) -- each shard
+	 * cracks up out of the ground at {@link #TITAN_RISE_AT} and climbs for {@link #TITAN_RISE_TICKS} to hang round him, turning
+	 * to point at the target, and he hurls them at {@link #TITAN_THROW_AT}: right, left, then the biggest over his head.
+	 */
+	public static final int[] TITAN_RISE_AT = { 4, 10, 16 };
+	public static final int TITAN_RISE_TICKS = 18;
+	public static final int[] TITAN_THROW_AT = { 42, 50, 58 };
+	/** How long a thrown shard flies before it shatters on its own; and the whole move's end. */
+	public static final int TITAN_FLIGHT = 50, TITAN_END = 58 + 50;
+	/** Each shard's size (the crystal is 3.4x this long) and its place round him: right, up, forward (blocks). */
+	private static final float[] TITAN_SIZE = { 1.05f, 1.05f, 1.45f };
+	private static final double[][] TITAN_HOVER = { { 2.0, 2.3, 0.2 }, { -2.0, 2.3, 0.2 }, { 0.0, 3.9, -0.7 } };
+	public static final float TITAN_DAMAGE = 18f, TITAN_SPLASH = 8f, TITAN_SPLASH_RADIUS = 3.5f;
+	public static final double TITAN_SPEED = 1.9, TITAN_RANGE = 40;
+	private static final ResourceLocation TITAN_SLOW_ID = PowerToggles.id("omnitrix_diamondhead_titan_slow");
+
+
 	private record Prison(ResourceKey<Level> dim, int target, Vec3 at, long end, List<BlockPos> shell) {
 	}
 
@@ -334,6 +373,11 @@ public final class DiamondheadKit extends AlienKit {
 	public static void register() {
 		DiamondheadBlocks.initialize();
 		Aliens.register(new DiamondheadKit());
+		AlienProjectileEntity.onHit("diamondhead_titan", (proj, hit) -> {
+			if (proj.getOwner() instanceof ServerPlayer owner) {
+				titanImpact(owner, (ServerLevel) proj.level(), hit.getLocation(), null, proj.size());
+			}
+		});
 		AlienProjectileEntity.trail("diamondhead_shard", SPARKLE);
 		AlienProjectileEntity.trail("diamondhead_spear", SPARKLE);
 		AlienProjectileEntity.onHit("diamondhead_shard", (proj, hit) -> {
@@ -446,6 +490,7 @@ public final class DiamondheadKit extends AlienKit {
 		PRISONS.remove(p.getUUID());
 		LINES.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
+		endTitan(p, true);
 		ERUPTIONS.remove(p.getUUID());
 		BASH_HITS.remove(p.getUUID());
 	}
@@ -490,6 +535,7 @@ public final class DiamondheadKit extends AlienKit {
 		slideTick(p, l, now);
 		tickSpikes(p, l, now);
 		tickStorm(p, l, now);
+		tickTitan(p, l, now);
 		tickEruption(p, l, now);
 	}
 
@@ -1380,23 +1426,192 @@ public final class DiamondheadKit extends AlienKit {
 		return placed;
 	}
 
-	/** Shift+Z: a storm of shards on where you look (up to 24 blocks away) for 2 s. */
+	/**
+	 * Shift+Z: the Titan Shards. He plants himself (slowed to a crawl) and heaves three giant crystal shards up out of the ground
+	 * round him, then hurls them one after another at what he is looking at (up to {@link #TITAN_RANGE} blocks; re-aimed at each
+	 * throw, homing a little): {@link #TITAN_DAMAGE} to what a shard strikes and {@link #TITAN_SPLASH} round where it shatters.
+	 */
 	public boolean barrage(ServerPlayer p) {
-		if (!use(p, BARRAGE)) {
+		if (TITANS.containsKey(p.getUUID()) || !use(p, BARRAGE)) {
 			return false;
 		}
 		anim(p, ANIM_BARRAGE);
 		ServerLevel l = level(p);
-		Vec3 eye = p.getEyePosition();
-		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(p.getLookAngle().scale(24)),
-				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
-		LivingEntity t = lookTarget(p, 24);
-		Vec3 at = t != null ? t.position() : hit.getLocation();
-		STORMS.put(p.getUUID(), new Storm(p.level().dimension(), at));
-		setTimer(p, "storm_end", p.level().getGameTime() + BARRAGE_TICKS);
-		QuirkFx.ring(l, at.add(0, 0.1, 0)).colours(0xE0FFF6, COLOUR).size(4.5f).thickness(0.4f).life(BARRAGE_TICKS).ground().spawn();
-		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.0f, 1.5f);
+		LivingEntity t = lookTarget(p, TITAN_RANGE);
+		TITANS.put(p.getUUID(), new Titan(l.dimension(), l.getGameTime(), t == null ? -1 : t.getId(), lookPoint(p, l)));
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, TITAN_SLOW_ID, -0.75, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		// he braces: a crack spreads under him and the ground groans
+		QuirkFx.decal(l, p.position().add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xE0FFF6, COLOUR).size(4.5f).life(TITAN_THROW_AT[2] + 10).spawn();
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).style(QuirkFx.RING_SOFT).size(3.5f).thickness(0.4f).life(14).ground().spawn();
+		OmnitrixSounds.play(l, p.position(), DiamondheadRise.SND_RISE, 1.1f, 0.6f);
+		QuirkCamera.shakeAround(l, p.position(), 12, 0.2f, 12);
 		return true;
+	}
+
+	private static Vec3 lookPoint(ServerPlayer p, ServerLevel l) {
+		Vec3 eye = p.getEyePosition();
+		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(p.getLookAngle().scale(TITAN_RANGE)),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		return hit.getLocation();
+	}
+
+	/** Where shard {@code i} hangs round him (his look's yaw, so they swing round as he aims). */
+	private static Vec3 titanHover(ServerPlayer p, int i, float age) {
+		Vec3 fwd = flatLook(p);
+		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
+		double[] h = TITAN_HOVER[i];
+		double bob = Math.sin(age * 0.15 + i * 2.1) * 0.12;
+		return p.position().add(right.scale(h[0])).add(fwd.scale(h[2])).add(0, h[1] + bob, 0);
+	}
+
+	/** What the shards fly at: what he looks at now, else the last target, else the point he looks at. */
+	private static Vec3 titanAim(ServerPlayer p, ServerLevel l, Titan tt) {
+		LivingEntity t = lookTarget(p, TITAN_RANGE);
+		if (t != null) {
+			tt.target = t.getId();
+		}
+		Entity e = tt.target == -1 ? null : l.getEntity(tt.target);
+		if (e instanceof LivingEntity le && le.isAlive() && le.distanceToSqr(p) < TITAN_RANGE * TITAN_RANGE) {
+			return le.getBoundingBox().getCenter();
+		}
+		tt.target = -1;
+		tt.point = lookPoint(p, l);
+		return tt.point;
+	}
+
+	private void tickTitan(ServerPlayer p, ServerLevel l, long now) {
+		Titan tt = TITANS.get(p.getUUID());
+		if (tt == null) {
+			return;
+		}
+		if (tt.dim != l.dimension()) {
+			endTitan(p, true);
+			return;
+		}
+		long age = now - tt.start;
+		Vec3 aim = titanAim(p, l, tt);
+		for (int i = 0; i < 3; i++) {
+			if (age >= TITAN_RISE_AT[i] && tt.ids[i] == -1) {
+				// it breaks the ground: a crack, chips, and the crystal starts up from below
+				Vec3 h = titanHover(p, i, age);
+				Vec3 ground = new Vec3(h.x, p.getY(), h.z);
+				float len = TITAN_SIZE[i] * 3.4f;
+				AlienProjectileEntity s = AlienProjectileEntity.of(p, "diamondhead_titan").colour(COLOUR).size(TITAN_SIZE[i]).damage(TITAN_DAMAGE)
+						.life(TITAN_END + 20).held(true);
+				s.setDeltaMovement(Vec3.ZERO);
+				s.moveTo(ground.x, ground.y - len, ground.z, 0f, -90f);
+				s.spawn();
+				tt.ids[i] = s.getId();
+				QuirkFx.decal(l, ground.add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xE0FFF6, COLOUR).size(2.2f).life(60).spawn();
+				QuirkFx.shards(l, ground.add(0, 0.3, 0)).block(crystal()).size(0.9f).count(10).life(22).spawn();
+				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, l.getBlockState(BlockPos.containing(ground).below())), ground.x, ground.y + 0.1,
+						ground.z, 14, 0.5, 0.1, 0.5, 0.15);
+				OmnitrixSounds.play(l, ground, DiamondheadRise.SND_RISE, 1.2f, 0.7f + i * 0.08f);
+				OmnitrixSounds.play(l, ground, SND_GROW, 0.9f, 0.6f);
+				QuirkCamera.shakeAround(l, ground, 10, 0.25f, 8);
+			}
+			Entity e = tt.ids[i] == -1 ? null : l.getEntity(tt.ids[i]);
+			if (!(e instanceof AlienProjectileEntity s) || !s.isAlive()) {
+				continue;
+			}
+			if (!tt.thrown[i]) {
+				Vec3 h = titanHover(p, i, age);
+				float len = TITAN_SIZE[i] * 3.4f;
+				long up = age - TITAN_RISE_AT[i];
+				float k = Mth.clamp(up / (float) TITAN_RISE_TICKS, 0f, 1f);
+				float ease = 1f - (1f - k) * (1f - k) * (1f - k);
+				double y = Mth.lerp(ease, p.getY() - len, h.y);
+				// upright as it climbs, then it swings round to point at the target
+				float turn = Mth.clamp((up - TITAN_RISE_TICKS * 0.7f) / 10f, 0f, 1f);
+				Vec3 pt = new Vec3(h.x, y, h.z);
+				Vec3 to = aim.subtract(pt);
+				Vec3 dir = new Vec3(0, 1, 0).lerp(to.lengthSqr() > 1.0e-4 ? to.normalize() : new Vec3(0, 1, 0), turn);
+				s.moveTo(pt.x, pt.y, pt.z, yawOf(dir), pitchOf(dir));
+				s.setDeltaMovement(Vec3.ZERO);
+				if (age >= TITAN_THROW_AT[i]) {
+					tt.thrown[i] = true;
+					Vec3 d = to.normalize();
+					s.held(false);
+					s.setDeltaMovement(d.scale(TITAN_SPEED));
+					s.hurtMarked = true;
+					OmnitrixSounds.play(l, pt, SND_SHARD, 1.3f, 0.55f);
+					l.playSound(null, pt.x, pt.y, pt.z, SoundEvents.PLAYER_ATTACK_SWEEP, net.minecraft.sounds.SoundSource.PLAYERS, 1.2f, 0.5f);
+					QuirkFx.ring(l, pt).colours(0xE0FFF6, COLOUR).style(QuirkFx.RING_SHOCK).size(2.0f).thickness(0.3f).life(8).vec(d).spawn();
+				}
+				continue;
+			}
+			// in flight: homing a little on the target, and a giant shard strikes whatever it brushes, not only what its tip meets
+			Vec3 v = s.getDeltaMovement();
+			Vec3 want = aim.subtract(s.position());
+			if (want.lengthSqr() > 1.0e-4 && v.lengthSqr() > 1.0e-4) {
+				Vec3 nd = v.normalize().lerp(want.normalize(), 0.3).normalize();
+				s.setDeltaMovement(nd.scale(TITAN_SPEED));
+				s.setYRot(yawOf(nd));
+				s.setXRot(pitchOf(nd));
+				s.hurtMarked = true;
+			}
+			LivingEntity struck = null;
+			for (LivingEntity c : around(p, s.position(), 1.5 + TITAN_SIZE[i] * 0.9)) {
+				struck = c;
+				break;
+			}
+			if (struck != null) {
+				struck.invulnerableTime = 0; // each giant shard lands in full, however close behind the last
+				hurt(p, struck, TITAN_DAMAGE, false);
+				titanImpact(p, l, s.position(), struck, s.size());
+				s.discard();
+			} else if (age >= TITAN_THROW_AT[i] + TITAN_FLIGHT) {
+				titanImpact(p, l, s.position(), null, s.size());
+				s.discard();
+			}
+		}
+		if (age >= TITAN_THROW_AT[2] + 2) {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, TITAN_SLOW_ID);
+		}
+		if (age >= TITAN_END) {
+			endTitan(p, false);
+		}
+	}
+
+	/** A Titan Shard shattering at {@code at}: {@link #TITAN_SPLASH} round it (not again on {@code skip}), thrown back, and a crash. */
+	static void titanImpact(ServerPlayer p, ServerLevel l, Vec3 at, LivingEntity skip, float size) {
+		for (LivingEntity e : around(p, at, TITAN_SPLASH_RADIUS)) {
+			if (e != skip) {
+				e.invulnerableTime = 0;
+				hurt(p, e, TITAN_SPLASH, false);
+			}
+			shove(e, at, 1.1, 0.45);
+		}
+		QuirkFx.shards(l, at).block(crystal()).size(1.4f + size).count(22).life(34).spawn();
+		QuirkFx.ring(l, at).colours(0xE0FFF6, COLOUR).style(QuirkFx.RING_SHOCK).size(3.5f + size * 2f).thickness(0.5f).life(12).spawn();
+		QuirkFx.decal(l, at).style(QuirkFx.DECAL_CRACK).colours(0xE0FFF6, COLOUR).size(3f).life(80).spawn();
+		OmnitrixSounds.play(l, at, SND_SHATTER, 1.4f, 0.6f);
+		l.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.PLAYERS, 0.7f, 1.3f);
+		QuirkCamera.shakeAround(l, at, 16, 0.45f, 12);
+	}
+
+	/** The move is over (or cut short: the shards still held crumble away). */
+	private static void endTitan(ServerPlayer p, boolean cut) {
+		Titan tt = TITANS.remove(p.getUUID());
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, TITAN_SLOW_ID);
+		if (tt == null || !(p.level() instanceof ServerLevel l)) {
+			return;
+		}
+		for (int i = 0; i < 3; i++) {
+			Entity e = tt.ids[i] == -1 ? null : l.getEntity(tt.ids[i]);
+			if (e instanceof AlienProjectileEntity s && s.isAlive() && (cut || !tt.thrown[i])) {
+				QuirkFx.shards(l, s.position()).block(crystal()).size(1.2f).count(10).life(20).spawn();
+				s.discard();
+			}
+		}
+	}
+
+	private static float yawOf(Vec3 d) {
+		return (float) (Mth.atan2(-d.x, d.z) * Mth.RAD_TO_DEG);
+	}
+
+	private static float pitchOf(Vec3 d) {
+		return (float) (-Mth.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * Mth.RAD_TO_DEG);
 	}
 
 	// ---------------------------------------------------------------- vanilla keys
