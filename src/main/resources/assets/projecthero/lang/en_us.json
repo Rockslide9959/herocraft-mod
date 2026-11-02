@@ -444,7 +444,7 @@
   "projecthero.omnitrix.info.upgrade.weakness.1": "Merge needs a machine or vehicle within reach.",
   "projecthero.omnitrix.info.ghostfreak.role": "Phantom: phasing, possession, invisibility and fear.",
   "projecthero.omnitrix.info.ghostfreak.passive.1": "Ghost Flight: double-tap jump to float freely (no key).",
-  "projecthero.omnitrix.info.ghostfreak.passive.2": "Ectonurite Body: half damage from physical blows (his protective skin), never drowns, drifts down slowly.",
+  "projecthero.omnitrix.info.ghostfreak.passive.2": "Ectonurite Body: half damage from physical blows (his protective skin), never drowns, never takes fall damage.",
   "projecthero.omnitrix.info.ghostfreak.passive.3": "Creature of the Dark: where the light is 4 or less (night, caves, Lights Out) +20% damage and cooldowns run 25% faster; his eye gets a purple rim.",
   "projecthero.omnitrix.info.ghostfreak.weakness.1": "Sunlight burns him: 1 every 2 s -- 3 a second in True Form (being inside a host shields him).",
   "projecthero.omnitrix.info.ghostfreak.weakness.2": "Open daylight dulls him: cooldowns run 15% slower.",

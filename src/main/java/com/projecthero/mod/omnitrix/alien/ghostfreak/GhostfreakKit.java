@@ -78,7 +78,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1: Ghostfreak, the Ectonurite -- a pale grey-white phantom striped with black, one purple eye, floating on a wispy tail
- * instead of legs. He drifts down slowly (low gravity), physical blows do half, he never drowns, and the sun burns him a little.
+ * instead of legs. v0.17.2 (user: "remove the slow fall from ghostfreak but dont make him take fall damage"): he falls at normal speed but never takes fall damage; physical blows do half, he never drowns, and the sun burns him a little.
  *
  * <p>v0.17.2 revamp 2 (docs/OMNITRIX_REVAMP_WILDMUTT_GHOSTFREAK.md, approved; user: "Ghostfreak can posses players for like 10
  * seconds", "Yes replace the soul siphon ability", "make sure he also has an invisibility move", "remove the flight moves from his
@@ -362,7 +362,7 @@ public final class GhostfreakKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: was 24 health, +2 fist
-		return AlienStats.builder().health(26f).speed(1.0f).armor(2f, 0f).attack(3f).gravity(0.25f).safeFall(30f).build();
+		return AlienStats.builder().health(26f).speed(1.0f).armor(2f, 0f).attack(3f).safeFall(30f).build();
 	}
 
 	@Override
@@ -1722,6 +1722,9 @@ public final class GhostfreakKit extends AlienKit {
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		if (source.is(DamageTypes.DROWN) || source.is(DamageTypes.IN_WALL)) {
 			return false; // nothing to breathe; a ghost in a wall does not suffocate
+		}
+		if (source.is(DamageTypeTags.IS_FALL)) {
+			return false; // v0.17.2: normal gravity now, but a landing never hurts him
 		}
 		if (flag(p, F_POSSESS) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return false; // v0.17.2: hidden inside his host, nothing reaches him

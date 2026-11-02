@@ -786,7 +786,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(near(p.getMaxHealth(), 26f), "26 health");
 		helper.assertTrue(p.getAbilities().mayfly, "v0.17.2: always ready to fly (a double-tap of jump; no key)");
 		helper.assertTrue(kitHasNoFlightKey(), "no flight key: Ghost Flight is the double-tap");
-		helper.assertTrue(p.getAttributeValue(Attributes.GRAVITY) < 0.08 * 0.3, "he floats down slowly");
+		// v0.17.2 (user: "remove the slow fall from ghostfreak but dont make him take fall damage"): normal gravity, no fall damage
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.GRAVITY) - 0.08) < 1.0e-4, "he falls at normal speed");
+		float before = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().fall(), 40f);
+		helper.assertTrue(near(p.getHealth(), before), "and never takes fall damage: " + p.getHealth());
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 20f);
 		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true); // no difficulty scaling on the blow
 		float hp = p.getHealth();
