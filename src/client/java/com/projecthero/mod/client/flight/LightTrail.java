@@ -175,6 +175,16 @@ public final class LightTrail {
 			LightTrail.drawBanded(pose, buffers, cam, pts, ages(head, partial, now), style, width, strength);
 		}
 
+		/** v0.17.2 (XLR8's sheet trail): the points newest first (the live head in front), or null if there are fewer than two. */
+		public Vec3[] pointsNewestFirst(Vec3 head) {
+			return points(head);
+		}
+
+		/** v0.17.2 (XLR8's sheet trail): each point's age 0..1, matching {@link #pointsNewestFirst}. */
+		public float[] agesNewestFirst(Vec3 head, float partial, long now) {
+			return ages(head, partial, now);
+		}
+
 		/** The points newest first (the live head in front), or null if there are fewer than two. */
 		private Vec3[] points(Vec3 head) {
 			// with a live head, the newest sample (this tick's end) lies AHEAD of the interpolated head -- skip it, or the

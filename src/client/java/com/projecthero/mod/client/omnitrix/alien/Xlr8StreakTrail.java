@@ -26,25 +26,27 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (XLR8 revamp, user: "add xlr8s speed trail to his speed mode please, the blue and black lines"): XLR8's streak lines.
- * While he runs in Speed Mode (or dashes, spins the Tornado Run or skates Friction Zero), three lines stream back from him -- one
- * from each foot at ankle height and one from the tail tip -- each a blue band ({@code 0x3A7BD5}, a {@code 0x9FD8FF} core) with
- * thin black ({@code 0x0A0E14}) edges ({@link LightTrail#drawBanded}); 0.8 s long, 1.4 s with a white-hot core in Overdrive.
- * They run alongside the after-image copies ({@code SuperSpeedClientV0145}). His zips (Raptor Strike, Blur Dash, Raptor Rush,
- * the Tornado Run's rings) lay the same lines along the zip, fading over 0.5 s ({@link #zip}, from the streak packet). In first
- * person only the two foot lines draw, so nothing crosses the camera. Also: Time Burst's blue visor-glass tint on his own
- * screen. Client-only; every viewer records every XLR8 in view.
+ * v0.17.2 (XLR8 revamp, user: "add xlr8s speed trail to his speed mode please, the blue and black lines"; then "make xlr8s trail
+ * not appear from his legs, make it like a 2d trail that spawns from the top of his head to the bottom of his feet down his
+ * middle"): XLR8's streak trail. While he runs in Speed Mode (or dashes, spins the Tornado Run or skates Friction Zero), one flat
+ * vertical sheet streams back from the middle of his body, as tall as he is -- black ({@code 0x0A0E14}) edges along the top and
+ * bottom, blue ({@code 0x3A7BD5}) bands and a pale ({@code 0x9FD8FF}) core band through the middle -- fading as it trails; 0.8 s
+ * long, 1.4 s with a white-hot core in Overdrive. It runs alongside the after-image copies ({@code SuperSpeedClientV0145}). His
+ * zips (Raptor Strike, Blur Dash, Raptor Rush, the Tornado Run's rings) lay the same sheet along the zip, fading over 0.5 s
+ * ({@link #zip}, from the streak packet). In first person the sheet starts a little behind him, so it never crosses the camera.
+ * Also: Time Burst's blue visor-glass tint on his own screen. Client-only; every viewer records every XLR8 in view.
  */
 public final class Xlr8StreakTrail {
 	/** Line life (ticks): 0.8 s, 1.4 s in Overdrive; a zip's line fades over 0.5 s. */
 	public static final int LIFE = 16, LIFE_OVERDRIVE = 28, ZIP_LIFE = 10;
-	/** Half-width of a line at its head (blocks). */
-	private static final float WIDTH = 0.11f;
+	/** The sheet's horizontal bands, bottom (0) to top (1): {from, to, colour slot} -- 0 edge, 1 band, 2 core. */
+	private static final float[][] BANDS = { { 0f, 0.07f, 0 }, { 0.07f, 0.4f, 1 }, { 0.4f, 0.6f, 2 }, { 0.6f, 0.93f, 1 }, { 0.93f, 1f, 0 } };
 	/** Faster than this (blocks a tick) and the lines draw. */
 	private static final double MIN_SPEED = 0.18;
 
 	private static final class Trail {
-		final LightTrail.History[] lines = { new LightTrail.History(LIFE), new LightTrail.History(LIFE), new LightTrail.History(LIFE) };
+		/** The middle of his feet, sampled each tick (the sheet stands on it, as tall as he is). */
+		final LightTrail.History[] lines = { new LightTrail.History(LIFE) };
 		boolean overdrive;
 		boolean live;
 	}
@@ -79,26 +81,14 @@ public final class Xlr8StreakTrail {
 		return (f & (Xlr8Kit.F_SPEED | Xlr8Kit.F_DASH | Xlr8Kit.F_TORNADO | Xlr8Kit.F_SKATE)) != 0;
 	}
 
-	/** The three emitters at {@code partial}: [0] right foot, [1] left foot (ankle height), [2] the tail tip. */
-	static Vec3[] emitters(Player p, float partial) {
-		Vec3 feet = p.getPosition(partial);
-		float s = p.getScale();
-		float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
-		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
-		Vec3 left = new Vec3(Mth.cos(yaw), 0, Mth.sin(yaw));
-		float pos = p.walkAnimation.position(partial);
-		float spd = Math.min(1f, p.walkAnimation.speed(partial));
-		float swing = Mth.cos(pos * 0.6662f) * 1.4f * spd; // vanilla's leg swing (right leg; the left is opposite)
-		boolean skate = (Omnitrix.state(p).kitFlags & Xlr8Kit.F_SKATE) != 0;
-		double ankle = skate ? 0.06 : 0.12;
-		Vec3 r = feet.add(left.scale(-0.12 * s)).add(fwd.scale(-Mth.sin(swing) * 0.62 * s)).add(0, ankle * s, 0);
-		Vec3 l = feet.add(left.scale(0.12 * s)).add(fwd.scale(Mth.sin(swing) * 0.62 * s)).add(0, ankle * s, 0);
-		// the tail streams out flat behind at speed; on a hard turn it swings wide (Xlr8Client.tailSwing)
-		float swingTail = Xlr8Client.tailSwing(p, partial);
-		Vec3 back = fwd.scale(-1).yRot(-swingTail);
-		double tailY = skate ? 0.35 : 0.72;
-		Vec3 tail = feet.add(back.scale(1.15 * s)).add(fwd.scale(-0.1 * s)).add(0, tailY * s, 0);
-		return new Vec3[] { r, l, tail };
+	/** The sheet's foot at {@code partial}: the middle of his feet. */
+	static Vec3 base(Player p, float partial) {
+		return p.getPosition(partial);
+	}
+
+	/** How tall the sheet stands: his height (a crouch-low skate, lower). */
+	static float height(Player p) {
+		return p.getBbHeight();
 	}
 
 	private static void tick(Minecraft mc) {
@@ -129,19 +119,16 @@ public final class Xlr8StreakTrail {
 				}
 			}
 			t.live = on;
-			Vec3[] at = emitters(p, 1f);
-			for (int i = 0; i < 3; i++) {
-				if (on) {
-					t.lines[i].sample(at[i], now);
-				} else {
-					t.lines[i].prune(now);
-				}
+			if (on) {
+				t.lines[0].sample(base(p, 1f), now);
+			} else {
+				t.lines[0].prune(now);
 			}
 		}
 		for (Iterator<Map.Entry<UUID, Trail>> it = TRAILS.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<UUID, Trail> e = it.next();
 			Trail t = e.getValue();
-			if (mc.level.getPlayerByUUID(e.getKey()) == null || !t.live && t.lines[0].isEmpty() && t.lines[1].isEmpty() && t.lines[2].isEmpty()) {
+			if (mc.level.getPlayerByUUID(e.getKey()) == null || !t.live && t.lines[0].isEmpty()) {
 				it.remove();
 			}
 		}
@@ -179,13 +166,11 @@ public final class Xlr8StreakTrail {
 			}
 			Trail t = e.getValue();
 			boolean firstPerson = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
-			Vec3[] head = t.live ? emitters(p, partial) : null;
-			LightTrail.Banded style = t.overdrive ? LightTrail.XLR8_OVERDRIVE : LightTrail.XLR8;
-			for (int i = 0; i < 3; i++) {
-				if (i == 2 && firstPerson) {
-					continue; // the tail line would cross the camera
-				}
-				t.lines[i].drawBanded(pose, buffers, cam, head == null ? null : head[i], partial, now, style, i == 2 ? WIDTH * 0.85f : WIDTH, 1f);
+			// in first person the live head is left off (the sheet starts at last tick's spot, just behind him)
+			Vec3 head = t.live && !firstPerson ? base(p, partial) : null;
+			Vec3[] pts = t.lines[0].pointsNewestFirst(head);
+			if (pts != null) {
+				sheet(pose, buffers, cam, pts, t.lines[0].agesNewestFirst(head, partial, now), height(p), t.overdrive ? LightTrail.XLR8_OVERDRIVE : LightTrail.XLR8);
 			}
 		}
 		for (Zip z : ZIPS) {
@@ -197,18 +182,52 @@ public final class Xlr8StreakTrail {
 			boolean od = p != null && (Omnitrix.state(p).kitFlags & Xlr8Kit.F_OVERDRIVE) != 0;
 			double len = z.from().distanceTo(z.to());
 			int n = (int) Mth.clamp(len / 0.6, 2, 48);
-			for (int line = -1; line <= 1; line += 2) {
-				Vec3 off = z.side().scale(0.13 * line).add(0, 0.12, 0);
-				Vec3[] pts = new Vec3[n + 1];
-				float[] age = new float[n + 1];
-				for (int i = 0; i <= n; i++) {
-					double f = 1.0 - i / (double) n; // newest (the end of the zip) first
-					pts[i] = z.from().lerp(z.to(), f).add(off);
-					// the start of the zip fades first, so it reads as a blur racing to its end
-					age[i] = Mth.clamp(k + (1f - (float) f) * 0.35f * (1f - k), 0f, 1f);
-				}
-				LightTrail.drawBanded(pose, buffers, cam, pts, age, od ? LightTrail.XLR8_OVERDRIVE : LightTrail.XLR8, WIDTH, 1f);
+			Vec3[] pts = new Vec3[n + 1];
+			float[] age = new float[n + 1];
+			for (int i = 0; i <= n; i++) {
+				double f = 1.0 - i / (double) n; // newest (the end of the zip) first
+				pts[i] = z.from().lerp(z.to(), f);
+				// the start of the zip fades first, so it reads as a blur racing to its end
+				age[i] = Mth.clamp(k + (1f - (float) f) * 0.35f * (1f - k), 0f, 1f);
 			}
+			sheet(pose, buffers, cam, pts, age, p != null ? height(p) : 1.8f, od ? LightTrail.XLR8_OVERDRIVE : LightTrail.XLR8);
+		}
+	}
+
+	/**
+	 * The trail sheet: a vertical strip standing on {@code pts} (newest first), {@code height} tall, cut into the {@link #BANDS}
+	 * (dark edges top and bottom, blue bands, the core through the middle), fading with each point's age. Double-sided,
+	 * translucent (never additive, so the black stays black); Overdrive's white core also glows a little.
+	 */
+	private static void sheet(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3[] pts, float[] age, float height, LightTrail.Banded s) {
+		if (pts.length < 2) {
+			return;
+		}
+		pose.pushPose();
+		pose.translate(-cam.x, -cam.y, -cam.z);
+		PoseStack.Pose last = pose.last();
+		com.mojang.blaze3d.vertex.VertexConsumer vc = com.projecthero.mod.client.greenlantern.HardLightRibbon.translucent(buffers);
+		for (float[] b : BANDS) {
+			int rgb = b[2] == 0 ? s.edge() : b[2] == 1 ? s.band() : s.core();
+			float alpha = b[2] == 0 ? 0.9f : b[2] == 1 ? 0.8f : 0.9f;
+			strip(vc, last, pts, age, height * b[0], height * b[1], rgb, alpha);
+		}
+		if (s.glow() > 0f) {
+			strip(com.projecthero.mod.client.greenlantern.HardLightRibbon.additive(buffers), last, pts, age, height * 0.38f, height * 0.62f, s.core(),
+					s.glow());
+		}
+		pose.popPose();
+	}
+
+	/** One horizontal band of the sheet, from {@code y0} to {@code y1} above each point, its alpha fading with age. */
+	private static void strip(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack.Pose pose, Vec3[] pts, float[] age, float y0, float y1, int rgb,
+			float alpha) {
+		for (int i = 0; i + 1 < pts.length; i++) {
+			Vec3 a = pts[i], b = pts[i + 1];
+			float al0 = alpha * (1f - age[i]) * (1f - age[i]), al1 = alpha * (1f - age[i + 1]) * (1f - age[i + 1]);
+			com.projecthero.mod.client.greenlantern.HardLightRibbon.quad(vc, pose, (float) a.x, (float) a.y + y0, (float) a.z, (float) b.x,
+					(float) b.y + y0, (float) b.z, (float) b.x, (float) b.y + y1, (float) b.z, (float) a.x, (float) a.y + y1, (float) a.z, rgb, al0,
+					al1, al1, al0);
 		}
 	}
 
