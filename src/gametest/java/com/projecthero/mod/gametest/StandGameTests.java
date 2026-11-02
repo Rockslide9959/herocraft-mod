@@ -294,6 +294,10 @@ public class StandGameTests implements FabricGameTest {
 		Zombie z = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 3.5, 60);
 		helper.assertTrue(TimeStop.begin(p), "Shift+Z stops time");
 		TimeStop.testRadius = 0.0;
+		// v0.17.2: the voice line plays first; time stops on its burst
+		helper.assertTrue(TimeStop.windingUp() && !TimeStop.active() && !TimeStop.frozen(z), "the voice line first, nothing frozen yet");
+		helper.assertFalse(TimeStop.begin(p), "no second stop while the line plays");
+		TimeStop.skipWindup(helper.getLevel().getServer());
 		helper.assertTrue(TimeStop.active() && TimeStop.isCaster(p), "the stop is running, cast by the user");
 		helper.assertTrue(TimeStop.frozen(z) && !TimeStop.frozen(p), "the zombie is frozen, the caster is not");
 		helper.assertTrue(onCooldown(p, StandMove.THE_WORLD), "90 s cooldown");

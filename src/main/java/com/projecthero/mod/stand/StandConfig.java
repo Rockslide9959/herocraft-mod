@@ -42,6 +42,12 @@ public final class StandConfig {
 	public static final float RUSH_START_COST = 5f;
 	/** Rush is cut off after this long (the finisher fires). */
 	public static final int RUSH_MAX_TICKS = 100;
+	/**
+	 * v0.17.2 (user: "make the time stop voice line play first and only have time stop ability activate when the time stop part of
+	 * the sound effect happens"): ticks from Shift+Z to the stop -- "Star Platinum: The World!" runs 1.9 s and the stop's burst
+	 * lands at 1.93 s of time_stop.ogg.
+	 */
+	public static final int TIME_STOP_WINDUP_TICKS = 39;
 
 	// ---------------------------------------------------------------- Shift+R: Star Finger
 	public static final double FINGER_RANGE = 8.0;

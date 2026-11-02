@@ -83,6 +83,12 @@ public final class TimeStop {
 	}
 
 	private static volatile Stop active;
+
+	/** Shift+Z pressed, the voice line playing: the stop starts at {@code at}. */
+	private record Windup(UUID caster, long at, int ticks, double radius) {
+	}
+
+	private static volatile Windup windup;
 	/** Test hook: a radius for the next stop (0 = whole dimension). */
 	public static double testRadius = 0.0;
 
@@ -91,6 +97,22 @@ public final class TimeStop {
 
 	public static void clear() {
 		active = null;
+		windup = null;
+	}
+
+	/** The voice line is playing and the stop is about to start. */
+	public static boolean windingUp() {
+		return windup != null;
+	}
+
+	/** Test hook: start a winding-up stop now instead of at the end of the voice line. */
+	public static void skipWindup(MinecraftServer server) {
+		Windup w = windup;
+		ServerPlayer caster = w == null ? null : server.getPlayerList().getPlayer(w.caster);
+		windup = null;
+		if (caster != null) {
+			stopTime(caster, w);
+		}
 	}
 
 	public static boolean active() {
@@ -142,7 +164,7 @@ public final class TimeStop {
 	/** Shift+Z. True if time stopped. */
 	public static boolean begin(ServerPlayer caster) {
 		StandState s = Stands.state(caster);
-		if (active != null) {
+		if (active != null || windup != null) {
 			Stands.say(caster, "message.projecthero.stand.time_stop_busy", ChatFormatting.GRAY);
 			return false;
 		}
@@ -164,13 +186,19 @@ public final class TimeStop {
 		n.animId = StandState.ANIM_THE_WORLD;
 		n.animStart = now;
 		Stands.save(caster, n);
-		active = new Stop(caster.getUUID(), caster.getId(), level.dimension(), now + ticks, testRadius, caster.position());
-		broadcast(level.getServer());
-		Vec3 c = caster.position().add(0, 1.2, 0);
-		Stands.sound(level, c, StandSounds.TIME_STOP, 1.2f, 1.0f);
-		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.WORLD, caster.position(), new Vec3(0, 1, 0), 1.0f);
-		caster.displayClientMessage(stopMessage("message.projecthero.stand.time_stop", ticks / 20f), true);
+		// the voice line first; time stops on its burst (tick())
+		Stands.sound(level, caster.position().add(0, 1.2, 0), StandSounds.TIME_STOP, 1.2f, 1.0f);
+		windup = new Windup(caster.getUUID(), now + StandConfig.TIME_STOP_WINDUP_TICKS, ticks, testRadius);
 		return true;
+	}
+
+	private static void stopTime(ServerPlayer caster, Windup w) {
+		ServerLevel level = (ServerLevel) caster.level();
+		long now = level.getGameTime();
+		active = new Stop(caster.getUUID(), caster.getId(), level.dimension(), now + w.ticks, w.radius, caster.position());
+		broadcast(level.getServer());
+		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.WORLD, caster.position(), new Vec3(0, 1, 0), 1.0f);
+		caster.displayClientMessage(stopMessage("message.projecthero.stand.time_stop", w.ticks / 20f), true);
 	}
 
 	private static net.minecraft.network.chat.Component stopMessage(String key, float seconds) {
@@ -180,6 +208,16 @@ public final class TimeStop {
 
 	/** Server tick: the clock tick sound, and the end. */
 	public static void tick(MinecraftServer server) {
+		Windup w = windup;
+		if (w != null) {
+			ServerPlayer caster = server.getPlayerList().getPlayer(w.caster);
+			if (caster == null || !caster.isAlive() || caster.isRemoved() || !Stands.isStandUser(caster)) {
+				windup = null; // the caster went down (or away) mid-line: no stop
+			} else if (caster.level().getGameTime() >= w.at) {
+				windup = null;
+				stopTime(caster, w);
+			}
+		}
 		Stop s = active;
 		if (s == null) {
 			return;
@@ -207,6 +245,10 @@ public final class TimeStop {
 
 	/** Death / logout / dimension change / revoke of the caster: time resumes now. */
 	public static void onCasterGone(ServerPlayer player) {
+		Windup w = windup;
+		if (w != null && w.caster.equals(player.getUUID())) {
+			windup = null;
+		}
 		Stop s = active;
 		if (s != null && s.caster.equals(player.getUUID()) && player.getServer() != null) {
 			resume(player.getServer(), null);
