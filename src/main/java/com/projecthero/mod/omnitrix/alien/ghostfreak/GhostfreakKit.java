@@ -168,8 +168,9 @@ public final class GhostfreakKit extends AlienKit {
 	public static final String SNATCH = "tendril_snatch";
 
 	/** The claw combo: two swipes of {@link #CLAW_DAMAGE}, then the Reaping Rake. A press within {@link #COMBO_WINDOW} carries it on. */
-	public static final float CLAW_DAMAGE = 10f;
-	public static final float RAKE_DAMAGE = 18f;
+	// v0.17.2 (user: "why is ghost freaks damage so high? lower the damage of his R move"): 10 / 18 -> 5 / 9
+	public static final float CLAW_DAMAGE = 5f;
+	public static final float RAKE_DAMAGE = 9f;
 	public static final int CLAW_GAP = 8;
 	public static final int RAKE_COOLDOWN = 40;
 	public static final int COMBO_WINDOW = 30;

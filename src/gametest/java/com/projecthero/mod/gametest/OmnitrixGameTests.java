@@ -828,26 +828,35 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.2 revamp: R is the Four-Fist Flurry -- four punches (2 each) and an uppercut (4): 12 in all. */
+	/**
+	 * v0.17.2 (user: "Make fourarms R ability a 4 stage R combo where player has to press R 4 times"): R is the Four-Fist Combo --
+	 * jab 8, cross 8, the lower pair 2 x 5, then the four-fist hammer 16 (46 in all); a short gap between presses, a longer one after.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void fourArmsFlurryLandsFourPunchesAndAnUppercut(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.0, 60f);
+		Zombie z = zombie(helper, 3.5, 2, 4.0, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 25f); // facing +Z, looking down at it
 		helper.assertTrue(AlienKit.lookTarget(p, FourArmsKit.REACH) == z, "the zombie is in reach");
-		helper.assertTrue(kit.flurry(p), "Four-Fist Flurry");
-		helper.assertTrue(Math.abs(z.getHealth() - (60f - FourArmsKit.FLURRY_PUNCH_DAMAGE)) < 0.05f, "the first fist lands at once: " + z.getHealth());
-		helper.assertFalse(kit.flurry(p), "then it cools down");
-		pump(helper, p);
-		helper.runAfterDelay(18, () -> {
-			float total = 4 * FourArmsKit.FLURRY_PUNCH_DAMAGE + FourArmsKit.UPPERCUT_DAMAGE;
-			helper.assertTrue(Math.abs(z.getHealth() - (60f - total)) < 0.05f, "four punches and the uppercut: 12 in all, " + z.getHealth());
-			helper.assertTrue(kit.timer(p, "flurry_start") == 0, "the flurry is over");
-			z.discard();
-			helper.succeed();
-		});
+		float[] expect = { FourArmsKit.COMBO_JAB_DAMAGE, FourArmsKit.COMBO_JAB_DAMAGE, 2 * FourArmsKit.COMBO_BODY_DAMAGE, FourArmsKit.COMBO_HAMMER_DAMAGE };
+		float hp = z.getHealth();
+		for (int i = 0; i < 4; i++) {
+			helper.assertTrue(kit.comboStep(p) == i, "blow " + (i + 1) + " is next");
+			helper.assertTrue(kit.flurry(p) == 1, "R: blow " + (i + 1));
+			helper.assertTrue(Math.abs(hp - z.getHealth() - expect[i]) < 0.05f, "blow " + (i + 1) + " does " + expect[i] + ": " + (hp - z.getHealth()));
+			hp = z.getHealth();
+			if (i < 3) {
+				helper.assertTrue(kit.flurry(p) == -1, "a short gap between presses");
+				var n = Omnitrix.state(p).copy();
+				n.timers.remove(kit.key(FourArmsKit.FLURRY));
+				Omnitrix.save(p, n);
+			}
+		}
+		helper.assertTrue(kit.comboStep(p) == 0 && kit.cooldownLeft(p, FourArmsKit.FLURRY) > FourArmsKit.COMBO_GAP, "the hammer ends it, with a longer wait");
+		z.discard();
+		helper.succeed();
 	}
 
 	/** v0.17.2 revamp: Shift+R Hammer Smash -- the crack runs along the ground and launches a zombie 5 blocks ahead (14). */
@@ -1006,14 +1015,15 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.2 revamp: Shift+Z Meteor Slam -- up into the sky first, and the quake scales with the fall (18 + 0.4 a block, 30 at most). */
+	/** v0.17.2 revamp: Shift+Z Meteor Slam -- up into the sky first, and the quake scales with the fall (22 + 0.5 a block, 36 at most). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fourArmsMeteorSlamRisesAndScalesWithTheFall(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
-		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(0) - 18f) < 1e-4 && Math.abs(FourArmsKit.meteorDamage(10) - 22f) < 1e-4, "18 + 0.4 a block");
-		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(80) - FourArmsKit.METEOR_MAX_DAMAGE) < 1e-4, "30 at most");
+		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(0) - FourArmsKit.METEOR_DAMAGE) < 1e-4
+				&& Math.abs(FourArmsKit.meteorDamage(10) - (FourArmsKit.METEOR_DAMAGE + 10 * FourArmsKit.METEOR_PER_BLOCK)) < 1e-4, "22 + 0.5 a block");
+		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(80) - FourArmsKit.METEOR_MAX_DAMAGE) < 1e-4, "36 at most");
 		p.setOnGround(true);
 		helper.assertTrue(kit.meteorSlam(p), "Meteor Slam");
 		helper.assertTrue(kit.flag(p, FourArmsKit.F_LEAPING) && kit.timer(p, "meteor_rise") > 0, "he rises first");
