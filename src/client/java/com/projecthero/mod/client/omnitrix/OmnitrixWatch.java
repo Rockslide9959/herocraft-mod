@@ -288,8 +288,10 @@ public final class OmnitrixWatch {
 		Dial d = s.transformed() ? null : DIALS.get(p);
 		String shown = d == null || d.shown.isEmpty() ? s.selected : d.shown;
 		boolean showIcon = !s.transformed() && iconIn > 0.001f && !shown.isEmpty();
-		if (!showIcon || iconIn < 0.999f) {
-			int f = Math.round(Mth.clamp(morph, 0f, 1f) * (MORPH_FRAMES - 1));
+		if (recal || !showIcon || iconIn < 0.999f) { // v0.17.2: the recalibrated face stays under its hologram
+			// v0.17.2 (user: "the omnitrix badge logo must stay on the watch face while selecting an alien"): the recalibrated face keeps
+			// its hourglass (frame 0) under the hologram instead of morphing into the dark selection screen
+			int f = recal ? 0 : Math.round(Mth.clamp(morph, 0f, 1f) * (MORPH_FRAMES - 1));
 			float u0 = (f % 4) * 0.25f, v0 = (f / 4) * 0.25f;
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(morphTex));
 			faceQuad(vc, last, 0xFFFFFFFF, fx, y0, y1, up, u0, v0, u0 + 0.25f, v0 + 0.25f, lit);

@@ -47,8 +47,8 @@ public final class OmnitrixHud {
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
 	private static final int BAR_H = 4;
-	/** The HUD's width: the six key boxes. */
-	public static final int WIDTH = BOX * 6 + GAP * 5;
+	/** The HUD's width: the six key slots (v0.17.2: a short hotbar, {@link com.projecthero.mod.client.gui.VanillaHud}). */
+	public static final int WIDTH = com.projecthero.mod.client.gui.VanillaHud.width(6);
 
 	private static final int BOX_BG = 0xD0080808;
 	private static final int BOX_BG_DIM = 0x80080808;
@@ -119,7 +119,7 @@ public final class OmnitrixHud {
 		if (a == null || kit == null) {
 			return bottom;
 		}
-		int y0 = bottom - BOX;
+		int y0 = bottom - com.projecthero.mod.client.gui.VanillaHud.HEIGHT;
 		keys(g, mc, p, kit, a, x0, y0);
 		// v0.17.2 (user: "remove the transformation timers on the HUD"): no time bar (nor its power-down pips) -- the beeps and the
 		// red flash still warn of a timeout; the kit's own rows sit right over the keys
@@ -147,19 +147,8 @@ public final class OmnitrixHud {
 	 * value right-aligned; {@code by} is the bar's top. Shared with the alien kits' own rows.
 	 */
 	public static void meter(GuiGraphics g, Minecraft mc, int x0, int by, Component label, float frac, int colour, String value, int valueColour) {
-		int labelW = mc.font.width(label);
-		int valueW = Math.max(mc.font.width("0:00"), mc.font.width(value));
-		int barX = x0 + labelW + 4;
-		int barW = Math.max(20, WIDTH - labelW - 4 - valueW - 3);
-		g.drawString(mc.font, label, x0, by - 2, NAME, false);
-		g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, BORDER);
-		g.fill(barX, by, barX + barW, by + BAR_H, BAR_BG);
-		int fill = Math.round(barW * Mth.clamp(frac, 0f, 1f));
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + BAR_H, colour);
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
-		g.drawString(mc.font, value, x0 + WIDTH - mc.font.width(value), by - 2, valueColour, false);
+		// v0.17.2 (user: "a new HUD design that feels like minecraft built it"): a boss bar and shadowed text
+		com.projecthero.mod.client.gui.VanillaHud.meter(g, x0, by, WIDTH, label, frac, colour, value, valueColour);
 	}
 
 	/** A 12x12 dial icon (the 64-px texture, linear-filtered) with its top-left at (x, y); {@code red} the red-diamond variant. */
@@ -192,54 +181,32 @@ public final class OmnitrixHud {
 		return 0xFF000000 | (r << 16) | (gg << 8) | bb;
 	}
 
-	/** The six kit keys. */
+	/**
+	 * The six kit keys -- v0.17.2 (user: "come up with a new HUD design that feels like minecraft built it"): a short hotbar, each
+	 * key's letter where an item would sit (yellow in the Shift view), the item-cooldown sweep and the seconds as a stack count for
+	 * the shown move, a durability bar for the other move's cooldown, the selection frame on a toggle that is on.
+	 */
 	private static void keys(GuiGraphics g, Minecraft mc, LocalPlayer p, AlienKit kit, Aliens.Alien a, int x0, int y0) {
 		boolean shift = forceShift || p.isShiftKeyDown();
+		com.projecthero.mod.client.gui.VanillaHud.strip(g, x0, y0, SLOTS.length);
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
 			AlienMove tap = kit.liveMoveOn(p, slot, false, false);
 			AlienMove sh = kit.liveMoveOn(p, slot, true, false);
 			AlienMove hold = kit.liveMoveOn(p, slot, false, true);
 			AlienMove shown = shift && sh != null ? sh : tap != null ? tap : hold;
-			boolean usable = shown != null;
 			int cd = shown == null ? 0 : kit.cooldownLeft(p, shown.id());
-			int max = shown == null ? 1 : Math.max(1, shown.cooldown());
-			g.fill(x, y0, x + BOX, y0 + BOX, usable ? BOX_BG : BOX_BG_DIM);
-			if (kit.keyActive(p, slot)) {
-				// v0.17.1: a toggle that is on (Heatblast's flight...): the box lit in the alien's colour, a bright rim
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x66000000 | (a.colour() & 0xFFFFFF));
-				g.renderOutline(x, y0, BOX, BOX, 0xFF000000 | a.colour());
-			} else {
-				g.renderOutline(x, y0, BOX, BOX, BORDER);
-			}
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, usable ? KEY : KEY_DIM, false);
-			if (shift && sh != null) {
-				// the Shift view: a small bar along the bottom of the box
-				g.fill(x + 3, y0 + BOX - 3, x + BOX - 3, y0 + BOX - 2, 0xFF000000 | a.colour());
-			}
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			// v0.17.2 (user: "add a little bar at the bottom of the ability keys to show cooldowns instead of only showing cooldowns when
-			// shifting for shifted abilities"): the key's other move (the Shift one, or the plain one while Shift is held) cooling
-			// down -- a thin amber bar along the bottom that drains as it comes back, gone when it is ready
+			float frac = shown == null ? 0f : Math.min(1f, cd / (float) Math.max(1, shown.cooldown()));
 			AlienMove other = shift ? (tap != null ? tap : hold) : sh;
+			float otherFrac = 0f;
 			if (other != null && other != shown) {
 				int ocd = kit.cooldownLeft(p, other.id());
-				if (ocd > 0) {
-					int w = Math.max(1, (int) ((BOX - 4) * Math.min(1f, ocd / (float) Math.max(1, other.cooldown()))));
-					g.fill(x + 2, y0 + BOX - 5, x + BOX - 2, y0 + BOX - 3, 0xAA000000);
-					g.fill(x + 2, y0 + BOX - 5, x + 2 + w, y0 + BOX - 3, OTHER_COOLDOWN);
-				}
+				otherFrac = ocd <= 0 ? 0f : Math.min(1f, ocd / (float) Math.max(1, other.cooldown()));
 			}
+			com.projecthero.mod.client.gui.VanillaHud.slot(g, x0, y0, i, keyLabel(slot), shown != null, shift && sh != null, frac,
+					cd > 0 ? (cd + 19) / 20 : 0, otherFrac, kit.keyActive(p, slot));
 		}
 	}
-
-	/** The other move's cooldown bar (v0.17.2). */
-	private static final int OTHER_COOLDOWN = 0xFFFFB040;
 
 	private static String keyLabel(AbilitySlot slot) {
 		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();

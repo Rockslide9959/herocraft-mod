@@ -24,6 +24,9 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 	/** v0.17.1: the red flash -- the same badge (rim, grey ring) in the red face's colours, so the flashes swap colour, not shape. */
 	public static final net.minecraft.resources.ResourceLocation BADGE_RED = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge_red.png");
 
+	/** v0.17.2 (user: "the omnitrix badges when having the recalibrated omnitrix must be green"): the Alien Force symbol. */
+	public static final net.minecraft.resources.ResourceLocation BADGE_RECAL = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge_recal.png");
+
 	public OmnitrixLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
 	}
@@ -44,13 +47,14 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 			}
 			float[] b = kit.badge();
 			boolean red = OmnitrixWatch.red(p, partial);
+			boolean recal = Omnitrix.recalibrated(p);
 			int boneId = kit.badgeBone();
 			net.minecraft.client.model.geom.ModelPart bone = boneId == AlienClientKit.BADGE_LEFT_ARM ? model.leftArm
 					: boneId == AlienClientKit.BADGE_HEAD ? model.head : model.body;
 			AlienParts.on(pose, bone, () -> {
 				// v0.17.1 (user: "make all the omnitrix badges white ... thats how it is in the show"): the white symbol
 				// (badge.png); the red flash is badge_red.png, the same badge in red
-				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? BADGE_RED : BADGE));
+				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? BADGE_RED : recal ? BADGE_RECAL : BADGE));
 				// v0.17.2 (user: "make the omnitrix badge a bit smaller ... maybe make it 2x2 pixels", then "make the omnitrix badge 3x3 pixels"): every badge is 3 px across
 				// (Grey Matter's 8 px -- 2.6 at his 0.33 body scale -- is his whole chest; 9 would hang off it)
 				float s = b[3] / 2f / 16f;

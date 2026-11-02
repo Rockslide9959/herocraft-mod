@@ -73,6 +73,7 @@ public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPl
 			boolean red = OmnitrixWatch.red(p, partial);
 			// the framework's badge: the show's symbol (OmnitrixLayer.BADGE, the whole texture), BADGE_RED while the watch beeps
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE_RED
+					: com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p) ? com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE_RECAL // v0.17.2: green on the recalibrated watch
 					: com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE));
 			// GeckoLib mirrors json X: the plate's outer face is at render x = -10.8 px, facing -X (v0.17.1 rework 3)
 			float s = 1f / 16f;

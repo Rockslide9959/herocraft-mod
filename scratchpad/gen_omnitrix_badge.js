@@ -22,6 +22,10 @@ const RING = hex('#7d8287'), RING_DARK = hex('#4d5155');
 // the red variant: the red watch face's hourglass and grey sides
 const RED = hex('#ff3a2c'), RED_DARK = hex('#c81e16'), RED_HI = hex('#ff8a7a'), SIDE = hex('#b4b8bd'), SIDE_DARK = hex('#83878c');
 let red = false;
+// v0.17.2 (user: "the omnitrix badges when having the recalibrated omnitrix must be green"): badge_recal.png -- the Alien Force
+// symbol, a lime hourglass on the black field inside the same rim and ring
+const LIME = hex("#8cff2e"), LIME_DARK = hex("#3fb81a"), LIME_HI = hex("#e2ffc0");
+let green = false;
 
 /** The colour (rgba) at a sub-pixel point (dx, dy from the centre, 32 = the edge). */
 function sample(dx, dy) {
@@ -40,8 +44,8 @@ function sample(dx, dy) {
 	const w = 3.0, k = 1.12, edge = w + ay / k;
 	if (ax <= edge && r < (red ? 21.6 : 23.0)) {
 		// the hourglass (white, or the red face's red), a soft gloss on its upper-left
-		let c = mixc(red ? RED : WHITE, red ? RED_DARK : GREY, Math.max(0, r / 23 - 0.6) * 1.4);
-		if (dx + dy * 0.6 < -8 && ay > 7 && ax < edge - 2 && r < 20) c = mixc(c, red ? RED_HI : HI, 0.7);
+		let c = mixc(red ? RED : green ? LIME : WHITE, red ? RED_DARK : green ? LIME_DARK : GREY, Math.max(0, r / 23 - 0.6) * 1.4);
+		if (dx + dy * 0.6 < -8 && ay > 7 && ax < edge - 2 && r < 20) c = mixc(c, red ? RED_HI : green ? LIME_HI : HI, 0.7);
 		return c;
 	}
 	if (red) {
@@ -54,8 +58,9 @@ function sample(dx, dy) {
 	return mixc(FIELD, FIELD_EDGE, r / 25);
 }
 
-for (const variant of ['badge', 'badge_red']) {
+for (const variant of ['badge', 'badge_red', 'badge_recal']) {
 red = variant === 'badge_red';
+green = variant === 'badge_recal';
 px.fill(0);
 for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
 	let rr = 0, gg = 0, bb = 0, n = 0;
@@ -82,4 +87,4 @@ if (process.argv[2]) {
 	PNG.write(path.join(process.argv[2], variant + '_preview.png'), W * s, W * s, P);
 }
 }
-console.log('badge.png + badge_red.png written');
+console.log('badge.png + badge_red.png + badge_recal.png written');
