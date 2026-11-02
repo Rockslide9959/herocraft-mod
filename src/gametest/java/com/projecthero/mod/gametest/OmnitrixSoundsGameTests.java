@@ -86,7 +86,7 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				GhostfreakKit.SND_CLAW, GhostfreakKit.SND_SCREAM, GhostfreakKit.SND_PHASE, GhostfreakKit.SND_LAUGH, GhostfreakKit.SND_TENDRIL,
 				StinkflyKit.BUZZ, StinkflyKit.SPIT, StinkflyKit.SPLAT, StinkflyKit.GAS, StinkflyKit.STING, StinkflyKit.DIVE,
 				WildmuttKit.GROWL, WildmuttKit.BITE, WildmuttKit.CLAW, WildmuttKit.ROAR, WildmuttKit.BRISTLE, WildmuttKit.QUILLS, WildmuttKit.SLAM,
-				WildmuttKit.LEAP, WildmuttKit.LAND, WildmuttKit.SNIFF, WildmuttKit.FRENZY_CUE, WildmuttKit.ROLL_CUE,
+				WildmuttKit.LEAP, WildmuttKit.LAND, WildmuttKit.SNIFF, WildmuttKit.FRENZY_CUE, WildmuttKit.ROLL_CUE, WildmuttKit.SNEEZE, WildmuttKit.PING,
 				RipjawsKit.BITE_SOUND, RipjawsKit.ROAR, RipjawsKit.SPLASH, RipjawsKit.SLAM, RipjawsKit.GASP, RipjawsKit.WHIRL,
 				GreyMatterKit.PINCH, GreyMatterKit.SCAN, GreyMatterKit.GADGET, GreyMatterKit.LEAP, GreyMatterKit.REPAIR, GreyMatterKit.THINK,
 				GreyMatterKit.DECOY_SOUND);

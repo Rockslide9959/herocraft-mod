@@ -60,17 +60,27 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R        Pounce        lunge onto the creature ahead (12 r): 12, pins it   Shift+R  Maul          rear up: 3 rakes (3.8) + a double slam (6.6) = 18
- *   G        Quill Volley  7 quills from the back in a cone (3 each)            Shift+G  Savage Roar   cone 9: 6, slowed, weakened, staggered
- *   X        Leap          a huge bound (no fall damage, landing shock)         Hold X   Coiled Leap   up to 1.5 s of coil: up to 1.8x as far
- *                                                                               Shift+X  Wall Climb    toggle: press into a wall to scale it
- *   Z        Ground Slam   both fists down: r 4.5, 16 near / 10 at the edge     Shift+Z  Quill Roll    ULTIMATE: 1.5 s spiked roll (12 a hit, -40% taken),
- *                                                                                                      then a quill burst (14, r 4)
+ *   G        Quill Volley  7 quills from the back in a cone (3 each)            Shift+G  Savage Roar   cone 9: 6, slowed, weakened, staggered; a sound
+ *                                                                                                      ping (r 24) outlines everything for him + squad 6 s
+ *   X        Leap          a huge bound (no fall damage, landing shock)         Hold X   Coiled Leap   up to 1.5 s of coil: up to 1.8x as far, and the
+ *                                                                                                      landing SLAMS (r 3-6, 10-22 by coil + fall)
+ *                                                                               Shift+X  Wall Climb    toggle: press into a wall to scale it; Jump while
+ *                                                                                                      climbing = a wall-kick (a ~6-block bound)
+ *   Z        Ricochet Hunt pounce from prey to prey: up to 4 hits of 8        Shift+Z  Quill Roll    ULTIMATE: 1.5 s spiked roll (12 a hit, -40% taken),
+ *                          (one lone target is hit twice)                                              then a quill burst (14, r 4)
  *   C        Feral Frenzy  8 s: +25% speed, +4 claws, +1 attack speed, heals    Shift+C  Scent Track   marks a creature (48 r) for 30 s: a trail to it
- *   Attack   claw swipe (cleaves the creatures beside the target)              Use      eats and drinks as usual (v0.17.2: Sniff moved to Shift+V)
- *   Passive  Scent Sense: creatures within 24 are outlined for him (invisible ones too); gallops (+20% while sprinting); no eyes:
- *            immune to Blindness and Darkness. Weakness: underwater his senses shrink to 6 and his air runs out twice as fast;
- *            an explosion close by deafens his senses for 3 s.
+ *   V        Dig           a 3x3 tunnel along the look                          Shift+V  Deep Sniff    6 s: senses 64, ores / chests, 20 s of footprints
+ *   Attack   claw swipe (cleaves the creatures beside the target); every 3rd hit is a Bite (+3, short slow)
+ *   Use      eats and drinks as usual (v0.17.2: Sniff moved to Shift+V)
+ *   Passive  Scent Sense: creatures within 24 are outlined for him (invisible ones too) -- bright while they move, faint while
+ *            they stand still or sneak, and those only within 8; gallops (+20% while sprinting); no eyes: immune to Blindness and
+ *            Darkness; Predator's Appetite: a kill gives back 2 hunger and a heart (5 s apart).
+ *   Weakness underwater his senses shrink to 6 and his air runs out twice as fast; an explosion close by deafens his senses for
+ *            3 s; Choked Nose: smoke and stench (campfire smoke, Stinkfly's gas, lingering potion clouds, powder snow) shrink his
+ *            senses to 4 for 5 s, the screen edge going dark, and he sneezes it out.
  * </pre>
+ * <p>v0.17.2 revamp (docs/OMNITRIX_REVAMP_WILDMUTT_GHOSTFREAK.md, approved): the blind hunter -- what he senses depends on
+ * movement and smell, he chains attacks between targets, and Ground Slam left Z to become the landing of the Coiled Leap.
  */
 public final class WildmuttKit extends AlienKit {
 	public static final String ID = "wildmutt";
@@ -128,6 +138,14 @@ public final class WildmuttKit extends AlienKit {
 	public static final OmnitrixSfx.Cue ROLL_CUE = OmnitrixSfx.cue("wildmutt_roll")
 			.layer(SoundEvents.ARMADILLO_ROLL, 0.5f, 0.7f)
 			.layer(SoundEvents.RAVAGER_STEP, 0.3f, 1.1f);
+	/** v0.17.2: Choked Nose clearing -- a big beast's sneeze (a panda's, pitched down) and a snort. */
+	public static final OmnitrixSfx.Cue SNEEZE = OmnitrixSfx.cue("wildmutt_sneeze")
+			.layer(SoundEvents.PANDA_SNEEZE, 0.7f, 0.6f)
+			.layer(SoundEvents.SNIFFER_SNIFFING, 0.35f, 0.8f, 3);
+	/** v0.17.2: the Savage Roar's ping coming back -- a low rolling echo under the roar. */
+	public static final OmnitrixSfx.Cue PING = OmnitrixSfx.cue("wildmutt_ping")
+			.layer(SoundEvents.WARDEN_SONIC_CHARGE, 0.25f, 1.6f, 4)
+			.layer(SoundEvents.RAVAGER_ROAR, 0.2f, 0.5f, 10);
 
 	// ---------------------------------------------------------------- anims (the client kit maps them to GeckoLib clips)
 	public static final int ANIM_POUNCE = 1;
@@ -141,6 +159,12 @@ public final class WildmuttKit extends AlienKit {
 	public static final int ANIM_FRENZY = 9;
 	public static final int ANIM_TRACK = 10;
 	public static final int ANIM_SNIFF = 11;
+	/** v0.17.2: one hop of the Ricochet Hunt (the pounce with a twist in the air). */
+	public static final int ANIM_HUNT = 12;
+	/** v0.17.2: the sneeze that clears a Choked Nose. */
+	public static final int ANIM_SNEEZE = 13;
+	/** v0.17.2: the push-off of a wall-kick. */
+	public static final int ANIM_WALL_KICK = 14;
 
 	// ---------------------------------------------------------------- synced bits
 	public static final int F_CLIMB = 1;
@@ -150,6 +174,8 @@ public final class WildmuttKit extends AlienKit {
 	public static final int F_FRENZY = 16;
 	public static final int F_SNIFF = 32;
 	public static final int F_COIL = 64;
+	/** v0.17.2: a Ricochet Hunt is running. */
+	public static final int F_HUNT = 128;
 
 	// ---------------------------------------------------------------- moves
 	public static final String POUNCE = "pounce";
@@ -159,7 +185,8 @@ public final class WildmuttKit extends AlienKit {
 	public static final String LEAP_MOVE = "leap";
 	public static final String COILED_LEAP = "coiled_leap";
 	public static final String CLIMB = "wall_climb";
-	public static final String SLAM_MOVE = "ground_slam";
+	/** v0.17.2 revamp: Z (was Ground Slam, now the Coiled Leap's landing). */
+	public static final String HUNT = "ricochet_hunt";
 	public static final String ROLL = "quill_roll";
 	public static final String FRENZY = "feral_frenzy";
 	public static final String TRACK = "scent_track";
@@ -195,9 +222,36 @@ public final class WildmuttKit extends AlienKit {
 	public static final int ROAR_DELAY = 6;
 	public static final int ROAR_EFFECT_TICKS = 70;
 	public static final int COIL_MAX = 30;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 8 near / 5 far
-	public static final float SLAM_RADIUS = 4.5f, SLAM_NEAR = 16f, SLAM_FAR = 10f;
-	public static final int SLAM_DELAY = 9;
+	/**
+	 * v0.17.2 revamp (user: Ground Slam "becomes the landing hit of Coiled Leap"): a coiled leap lands in a slam -- radius
+	 * {@code 3 + 1.5 x coil + 0.2 x fall} (up to 6), {@code 10 + 6 x coil + 0.75 x fall} at the centre (up to 22), 60% of that at the
+	 * edge, a shove and Slowness II for 2 s. A full coil on the flat is the old Ground Slam (r 4.5, 16 / ~10).
+	 */
+	public static final float SLAM_RADIUS = 3f, SLAM_RADIUS_COIL = 1.5f, SLAM_RADIUS_FALL = 1.5f;
+	public static final float SLAM_NEAR = 10f, SLAM_NEAR_COIL = 6f, SLAM_NEAR_FALL = 6f, SLAM_EDGE = 0.6f;
+	public static final int SLAM_SLOW_TICKS = 40;
+	/** v0.17.2 revamp, Z: Ricochet Hunt -- first prey within 10, each next within 8 of the last, up to 4 hits of 8, a hop every 6 ticks. */
+	public static final double HUNT_RANGE = 10.0, HUNT_HOP = 8.0;
+	public static final int HUNT_HITS_MAX = 4, HUNT_HOP_TICKS = 6;
+	public static final float HUNT_DAMAGE = 8f;
+	/** v0.17.2 revamp, Shift+G: the roar's sound ping -- everything within 24 is outlined for him and his squad for 6 s. */
+	public static final double PING_RANGE = 24.0;
+	public static final int PING_TICKS = 120;
+	/** v0.17.2 revamp: a wall-kick off a climbed wall -- a ~6-block bound the way he looks (no cooldown). */
+	public static final double WALL_KICK_SPEED = 0.8, WALL_KICK_UP = 0.5;
+	/** v0.17.2 revamp: every 3rd claw hit is a Bite: +3 and Slowness I for 1.5 s. */
+	public static final int BITE_EVERY = 3, BITE_SLOW_TICKS = 30;
+	public static final float BITE_BONUS = 3f;
+	/** v0.17.2 revamp: Predator's Appetite -- a kill gives back 2 hunger and a heart, at most once every 5 s. */
+	public static final int APPETITE_FOOD = 2, APPETITE_COOLDOWN = 100;
+	public static final float APPETITE_HEAL = 2f;
+	/** v0.17.2 revamp: Choked Nose -- 5 s with his senses down to 4 blocks. */
+	public static final int CHOKE_TICKS = 100;
+	public static final double CHOKE_RANGE = 4.0;
+	/** v0.17.2 revamp: Scent Sense -- a creature standing still or sneaking is only sensed (faintly) within this. */
+	public static final double STILL_RANGE = 8.0;
+	/** v0.17.2 revamp: Deep Sniff shows the footprints left this long ago or less. */
+	public static final int FOOTPRINT_TICKS = 400;
 	public static final int ROLL_TICKS = 30;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Quill Roll is his
 	// ultimate -- was 5 a creature, no burst
@@ -223,12 +277,20 @@ public final class WildmuttKit extends AlienKit {
 
 	/** Per player: the creatures the running Quill Roll already hit (each once). */
 	private static final Map<UUID, Set<Integer>> ROLL_HITS = new ConcurrentHashMap<>();
+	/** v0.17.2: per player, the creatures the running Ricochet Hunt already struck (each once, a lone one twice). */
+	private static final Map<UUID, Set<Integer>> HUNT_HITS = new ConcurrentHashMap<>();
 
 	private WildmuttKit() {
 	}
 
 	public static void register() {
 		Aliens.register(new WildmuttKit());
+		// v0.17.2 revamp: Predator's Appetite -- his kills feed him
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (source.getEntity() instanceof ServerPlayer p && p != entity && AlienKit.activeKit(p) instanceof WildmuttKit k) {
+				k.appetite(p);
+			}
+		});
 		AlienProjectileEntity.trail("wildmutt_quill", ParticleTypes.CRIT);
 		AlienProjectileEntity.onHit("wildmutt_quill", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
@@ -241,6 +303,7 @@ public final class WildmuttKit extends AlienKit {
 
 	public static void clearSessionState() {
 		ROLL_HITS.clear();
+		HUNT_HITS.clear();
 	}
 
 	@Override
@@ -280,7 +343,8 @@ public final class WildmuttKit extends AlienKit {
 				AlienMove.shift(CLIMB, AbilitySlot.SLOT_3, 10),
 				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Quill Roll is his
 				// ultimate now -- was a 200-tick cooldown
-				AlienMove.tap(SLAM_MOVE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 500),
+				// v0.17.2 revamp: Ricochet Hunt took Z (Ground Slam is the Coiled Leap's landing now)
+				AlienMove.tap(HUNT, AbilitySlot.SLOT_4, 200), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 500),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(TRACK, AbilitySlot.SLOT_6, 300),
 				// v0.17.2 (user: "take sniff off wildmutts right click ... he cant eat food right now"): Sniff on Shift+V
 				AlienMove.tap(DIG, AbilitySlot.SLOT_5, 16), AlienMove.shift(SNIFF_MOVE, AbilitySlot.SLOT_5, SNIFF_TICKS),
@@ -299,10 +363,12 @@ public final class WildmuttKit extends AlienKit {
 	@Override
 	public void onRevert(ServerPlayer p) {
 		ROLL_HITS.remove(p.getUUID());
+		HUNT_HITS.remove(p.getUUID());
 		com.projecthero.mod.omnitrix.OmnitrixRiding.endRides(p); // v0.17.2: whoever rode his back gets off
-		setFlag(p, F_CLIMB | F_LEAPING | F_POUNCE | F_ROLL | F_FRENZY | F_SNIFF | F_COIL, false);
-		for (String t : new String[] { "pounce_end", "maul_start", "quills_at", "roar_at", "slam_at", "roll_end", "frenzy_end", "track_id",
-				"track_end", "sniff_end", "deaf_until", "coil_start", "leap_start" }) {
+		setFlag(p, F_CLIMB | F_LEAPING | F_POUNCE | F_ROLL | F_FRENZY | F_SNIFF | F_COIL | F_HUNT, false);
+		for (String t : new String[] { "pounce_end", "maul_start", "quills_at", "roar_at", "roll_end", "frenzy_end", "track_id",
+				"track_end", "sniff_end", "deaf_until", "coil_start", "leap_start", "coil_power", "leap_peak", "hunt_target", "hunt_strike",
+				"hunt_count", "swipes", "appetite_at", "choked_until" }) {
 			if (timer(p, t) > 0) {
 				setTimer(p, t, 0);
 			}
@@ -347,7 +413,7 @@ public final class WildmuttKit extends AlienKit {
 				if (shift) {
 					roll(p);
 				} else {
-					slam(p);
+					hunt(p);
 				}
 			}
 			case SLOT_6 -> {
@@ -395,7 +461,13 @@ public final class WildmuttKit extends AlienKit {
 		setTimer(p, "coil_start", 0);
 		cooldown(p, COILED_LEAP, -1);
 		launch(p, 1f + 0.8f * coiled / (float) COIL_MAX);
+		// v0.17.2 revamp: this leap lands in a slam -- remember the coil (1..31) and where the arc started
+		setTimer(p, "coil_power", coiled + 1L);
+		setTimer(p, "leap_peak", Math.round(p.getY() * 100.0) + PEAK_BIAS);
 	}
+
+	/** Timers are "unset" at 0, so the leap's peak height (centi-blocks) is stored with this bias (copes with negative Y). */
+	private static final long PEAK_BIAS = 1_000_000L;
 
 	// ---------------------------------------------------------------- R: Pounce / Maul
 
@@ -603,6 +675,48 @@ public final class WildmuttKit extends AlienKit {
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, ROAR_EFFECT_TICKS, 0));
 			AlienStatus.stun(p, e, 16);
 		}
+		ping(p);
+	}
+
+	/**
+	 * v0.17.2 revamp, Savage Roar (his roar is his only voice; the ping uses his hearing): the roar rolls out as a sound ping --
+	 * one flat translucent ring spreading to {@link #PING_RANGE} -- and every creature it reaches is outlined in amber for
+	 * {@link #PING_TICKS} for him AND his squad (a {@code WildmuttPingPayload} to each of them; nothing is set on the creatures,
+	 * so nobody else sees it). Returns the creatures pinged.
+	 */
+	public List<LivingEntity> ping(ServerPlayer p) {
+		ServerLevel l = level(p);
+		QuirkFx.ring(l, p.position().add(0, 0.1, 0)).colours(0xFFD8A0, 0xF08A24).size((float) PING_RANGE).thickness(0.35f).style(QuirkFx.RING_SOFT)
+				.ease(QuirkFx.Ease.OUT_QUAD).life(26).ground().spawn();
+		OmnitrixSounds.play(l, p.position(), PING, 1.0f, 1.0f);
+		List<LivingEntity> found = new java.util.ArrayList<>();
+		for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(PING_RANGE),
+				e -> e != p && e.isAlive() && !e.isSpectator() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand)
+						&& e.distanceToSqr(p) <= PING_RANGE * PING_RANGE)) {
+			found.add(e);
+		}
+		if (!found.isEmpty()) {
+			int[] ids = found.stream().limit(256).mapToInt(Entity::getId).toArray();
+			var payload = new com.projecthero.mod.network.WildmuttPingPayload(ids, PING_TICKS);
+			for (ServerPlayer to : pingListeners(p)) {
+				if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(to, com.projecthero.mod.network.WildmuttPingPayload.TYPE)) {
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(to, payload);
+				}
+			}
+		}
+		return found;
+	}
+
+	/** Who sees the ping's outlines: him and every squad mate in the same level. */
+	public static List<ServerPlayer> pingListeners(ServerPlayer p) {
+		List<ServerPlayer> out = new java.util.ArrayList<>();
+		out.add(p);
+		for (ServerPlayer o : level(p).players()) {
+			if (o != p && com.projecthero.mod.squad.Squads.areAllies(p, o)) {
+				out.add(o);
+			}
+		}
+		return out;
 	}
 
 	// ---------------------------------------------------------------- X: Leap / Coiled Leap / Wall Climb
@@ -611,6 +725,7 @@ public final class WildmuttKit extends AlienKit {
 		if (!use(p, LEAP_MOVE)) {
 			return false;
 		}
+		setTimer(p, "coil_power", 0); // a plain leap lands with the plain shock
 		launch(p, 1f);
 		return true;
 	}
@@ -647,35 +762,213 @@ public final class WildmuttKit extends AlienKit {
 		return flag(p, F_CLIMB) && p.horizontalCollision && !p.isShiftKeyDown() && !flag(p, F_ROLL);
 	}
 
-	// ---------------------------------------------------------------- Z: Ground Slam / Quill Roll
-
-	public boolean slam(ServerPlayer p) {
-		if (!use(p, SLAM_MOVE)) {
+	/**
+	 * v0.17.2 revamp (Wall Climb, "bouncing off walls and trees in his fights"): Jump while clinging to a wall kicks him off it --
+	 * a ~6-block bound the way he looks (turned away from the wall if he looks into it), no cooldown, no fall damage. His client
+	 * asks for it ({@code OmnitrixActionPayload.Action.WALL_KICK}) on the Jump press; refused unless Wall Climb is on and a
+	 * wall is right beside him.
+	 */
+	public boolean wallKick(ServerPlayer p) {
+		if (!flag(p, F_CLIMB) || flag(p, F_ROLL) || p.onGround() && !p.horizontalCollision) {
 			return false;
 		}
-		anim(p, ANIM_SLAM);
-		setTimer(p, "slam_at", p.level().getGameTime() + SLAM_DELAY);
-		OmnitrixSounds.play(level(p), p.position(), GROWL, 0.9f, 0.85f);
+		Vec3 wall = wallNormal(p);
+		if (wall == null) {
+			return false;
+		}
+		Vec3 h = horizontal(p.getLookAngle());
+		if (h.dot(wall) < 0.2) {
+			// looking into (or along) the wall: kick out off it, bent toward the look
+			h = wall.add(h.scale(0.6)).normalize();
+			if (h.dot(wall) < 0.2) {
+				h = wall;
+			}
+		}
+		p.setDeltaMovement(h.x * WALL_KICK_SPEED, WALL_KICK_UP, h.z * WALL_KICK_SPEED);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		setTimer(p, "coil_power", 0);
+		setFlag(p, F_LEAPING, true);
+		setTimer(p, "leap_start", p.level().getGameTime());
+		anim(p, ANIM_WALL_KICK);
+		ServerLevel l = level(p);
+		Vec3 at = p.position().add(0, 0.7, 0).subtract(wall.scale(p.getBbWidth() * 0.5));
+		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(wall).colours(0xFFFFFF, 0xB09070).size(1.3f).thickness(0.35f).life(8).spawn();
+		OmnitrixSounds.play(l, p.position(), LEAP, 0.9f, 1.15f);
 		return true;
 	}
 
-	private void slamHit(ServerPlayer p) {
+	/** The outward normal of the wall right beside him (the nearest of the four sides with a solid block at body height), or null. */
+	@Nullable
+	private static Vec3 wallNormal(ServerPlayer p) {
+		double reach = p.getBbWidth() * 0.5 + 0.35;
+		Vec3 best = null;
+		double bestD = Double.MAX_VALUE;
+		Vec3 look = horizontal(p.getLookAngle());
+		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			for (double y : new double[] { 0.3, 1.0 }) {
+				BlockPos q = BlockPos.containing(p.getX() + d.getStepX() * reach, p.getY() + y, p.getZ() + d.getStepZ() * reach);
+				if (!p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty()) {
+					double score = -look.dot(new Vec3(d.getStepX(), 0, d.getStepZ())); // prefer the wall he faces
+					if (score < bestD) {
+						bestD = score;
+						best = new Vec3(-d.getStepX(), 0, -d.getStepZ());
+					}
+					break;
+				}
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * v0.17.2 revamp (user: Ground Slam "becomes the landing hit of Coiled Leap"): a coiled leap comes down in a slam --
+	 * {@code charge} 0..1 (how long the coil was held), {@code fall} the blocks dropped from the arc's top. Everything within the
+	 * radius takes the centre damage falling to {@link #SLAM_EDGE} of it at the edge, is shoved out and slowed. Returns the hits.
+	 */
+	public int leapSlam(ServerPlayer p, float charge, double fall) {
 		ServerLevel l = level(p);
-		Vec3 c = p.position().add(horizontal(p.getLookAngle()).scale(1.3));
-		for (LivingEntity e : around(p, c.add(0, 0.5, 0), SLAM_RADIUS)) {
-			double d = Math.sqrt(e.distanceToSqr(c));
-			float dmg = (float) Mth.lerp(Mth.clamp(d / SLAM_RADIUS, 0, 1), SLAM_NEAR, SLAM_FAR);
+		float c = Mth.clamp(charge, 0f, 1f);
+		float f = (float) Math.max(0, fall);
+		float radius = SLAM_RADIUS + SLAM_RADIUS_COIL * c + Math.min(SLAM_RADIUS_FALL, f * 0.2f);
+		float near = SLAM_NEAR + SLAM_NEAR_COIL * c + Math.min(SLAM_NEAR_FALL, f * 0.75f);
+		Vec3 at = p.position();
+		int hits = 0;
+		for (LivingEntity e : around(p, at.add(0, 0.5, 0), radius)) {
+			double d = Math.sqrt(e.distanceToSqr(at));
+			float dmg = (float) Mth.lerp(Mth.clamp(d / radius, 0, 1), near, near * SLAM_EDGE);
 			e.invulnerableTime = 0;
-			hurt(p, e, dmg, false);
-			shove(e, c, 0.8, 0.55);
+			if (hurt(p, e, dmg, false)) {
+				hits++;
+			}
+			shove(e, at, 0.8, 0.45);
+			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SLAM_SLOW_TICKS, 1));
 			frenzyHeal(p);
 		}
-		QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xFFFFFF, 0xB09070).size(SLAM_RADIUS).thickness(0.9f).life(16).ground().spawn();
-		QuirkFx.decal(l, c.add(0, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colour(0x2A2018).size(3.2f).life(160).spawn();
-		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, groundUnder(p)), c.x, c.y + 0.2, c.z, 40, 1.6, 0.2, 1.6, 0.25);
-		l.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.2, c.z, 10, 1.2, 0.1, 1.2, 0.04);
-		OmnitrixSounds.play(l, c, SLAM, 1.2f, 1.0f);
-		QuirkCamera.shakeAround(l, c, 14, 0.6f, 10);
+		// the shockwave: a fast wide ring, a slower inner one, a crack web -- and only a little dust
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, 0xB09070).size(radius).thickness(0.9f).life(14).ease(QuirkFx.Ease.OUT_EXPO).ground().spawn();
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFF0D8, 0xF08A24).size(radius * 0.55f).thickness(0.6f).life(18).ground().spawn();
+		QuirkFx.decal(l, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colour(0x2A2018).size(2.2f + radius * 0.4f).life(160).spawn();
+		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, groundUnder(p)), at.x, at.y + 0.2, at.z, 18, radius * 0.35, 0.15, radius * 0.35, 0.2);
+		OmnitrixSounds.play(l, at, SLAM, 1.2f, 1.05f - 0.1f * c);
+		QuirkCamera.shakeAround(l, at, 14, 0.4f + 0.3f * c, 10);
+		anim(p, ANIM_SLAM);
+		return hits;
+	}
+
+	// ---------------------------------------------------------------- Z: Ricochet Hunt / Quill Roll
+
+	/**
+	 * v0.17.2 revamp, Z (his ricochet fighting against groups -- Vilgax's drones, Khyber's hunt): he pounces on the nearest prey
+	 * within {@link #HUNT_RANGE}, then bounces on to the nearest one within {@link #HUNT_HOP} of it, up to {@link #HUNT_HITS_MAX}
+	 * hits of {@link #HUNT_DAMAGE} -- each creature once, a lone one twice. A hop lands every {@link #HUNT_HOP_TICKS} ticks
+	 * ({@link #tick} runs it). Nothing in reach: no cooldown.
+	 */
+	public boolean hunt(ServerPlayer p) {
+		LivingEntity first = lookTarget(p, HUNT_RANGE);
+		if (first == null) {
+			first = nearestPrey(p, p.position(), HUNT_RANGE, Set.of());
+		}
+		if (first == null) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.wildmutt.no_prey").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (!use(p, HUNT)) {
+			return false;
+		}
+		HUNT_HITS.put(p.getUUID(), new HashSet<>());
+		setFlag(p, F_HUNT, true);
+		setTimer(p, "hunt_count", 0);
+		OmnitrixSounds.play(level(p), p.position(), GROWL, 1.0f, 1.3f);
+		huntHop(p, first);
+		return true;
+	}
+
+	/** The nearest creature within {@code range} of {@code from} that is not in {@code skip} (monsters before the rest). */
+	@Nullable
+	private static LivingEntity nearestPrey(ServerPlayer p, Vec3 from, double range, Set<Integer> skip) {
+		LivingEntity best = null;
+		double bestD = Double.MAX_VALUE;
+		for (LivingEntity e : around(p, from, range)) {
+			if (skip.contains(e.getId()) || e.distanceToSqr(from) > range * range) {
+				continue;
+			}
+			double d = e.distanceToSqr(from) * (e instanceof net.minecraft.world.entity.monster.Enemy || e instanceof Player ? 1.0 : 2.0);
+			if (d < bestD) {
+				bestD = d;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	/** One hop: spring at {@code t}; the strike lands {@link #HUNT_HOP_TICKS} later. */
+	private void huntHop(ServerPlayer p, LivingEntity t) {
+		Vec3 to = t.position().subtract(p.position());
+		Vec3 h = horizontal(to);
+		double d = Math.sqrt(to.x * to.x + to.z * to.z);
+		double f = Mth.clamp(d / 6.0, 0.35, 1.5);
+		p.setDeltaMovement(h.x * f, 0.32 + Math.max(0, to.y) * 0.1, h.z * f);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		setTimer(p, "hunt_target", t.getId() + 1L);
+		setTimer(p, "hunt_strike", p.level().getGameTime() + HUNT_HOP_TICKS);
+		anim(p, ANIM_HUNT);
+	}
+
+	/** The hop lands: the claws rake {@code t}, he rebounds off it and springs on to the next prey (or the hunt ends). */
+	private void huntStrike(ServerPlayer p) {
+		ServerLevel l = level(p);
+		Entity e = l.getEntity((int) (timer(p, "hunt_target") - 1));
+		Set<Integer> hit = HUNT_HITS.computeIfAbsent(p.getUUID(), k -> new HashSet<>());
+		int count = (int) timer(p, "hunt_count");
+		if (e instanceof LivingEntity t && t.isAlive() && t.distanceToSqr(p) < (HUNT_RANGE + 4) * (HUNT_RANGE + 4)) {
+			// he lands on it: snapped beside it, on the side he came from
+			Vec3 from = horizontal(p.position().subtract(t.position()));
+			double off = t.getBbWidth() * 0.5 + p.getBbWidth() * 0.5 + 0.1;
+			if (p.distanceToSqr(t) > off * off * 2.5) {
+				p.teleportTo(t.getX() + from.x * off, t.getY(), t.getZ() + from.z * off);
+			}
+			t.invulnerableTime = 0;
+			hurt(p, t, HUNT_DAMAGE, false);
+			shove(t, p.position(), 0.35, 0.15);
+			frenzyHeal(p);
+			hit.add(t.getId());
+			count++;
+			setTimer(p, "hunt_count", count);
+			Vec3 at = t.position().add(0, t.getBbHeight() * 0.6, 0);
+			Vec3 side = new Vec3(-from.z, 0, from.x).scale(count % 2 == 0 ? 1 : -1);
+			QuirkFx.ribbon(l, at.add(side.scale(0.8)).add(0, 0.5, 0), at.subtract(side.scale(0.8)).add(0, -0.4, 0)).colours(0xFFF4E0, 0xF0A050)
+					.size(0.32f).life(6).style(QuirkFx.RIBBON_LIGHT).spawn();
+			QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(from.scale(-1)).colours(0xFFFFFF, 0xF0B070).size(1.2f).thickness(0.3f).life(6).spawn();
+			OmnitrixSounds.play(l, at, count % 2 == 0 ? CLAW : BITE, 0.9f, 1.0f + count * 0.06f);
+			QuirkCamera.fovPunch(p, 0.06f, 5);
+			if (count < HUNT_HITS_MAX) {
+				LivingEntity next = nearestPrey(p, t.position(), HUNT_HOP, hit);
+				if (next == null && hit.size() == 1 && count == 1) {
+					next = t; // a lone creature takes the second hit
+				}
+				if (next != null) {
+					huntHop(p, next);
+					return;
+				}
+			}
+		}
+		endHunt(p, true);
+	}
+
+	private void endHunt(ServerPlayer p, boolean bounce) {
+		setFlag(p, F_HUNT, false);
+		setTimer(p, "hunt_target", 0);
+		setTimer(p, "hunt_strike", 0);
+		setTimer(p, "hunt_count", 0);
+		HUNT_HITS.remove(p.getUUID());
+		if (bounce) {
+			// the last rebound: a short hop back off the prey
+			Vec3 back = horizontal(p.getLookAngle()).scale(-0.35);
+			p.setDeltaMovement(back.x, 0.35, back.z);
+			p.hurtMarked = true;
+		}
 	}
 
 	public boolean roll(ServerPlayer p) {
@@ -794,10 +1087,22 @@ public final class WildmuttKit extends AlienKit {
 
 	// ---------------------------------------------------------------- the vanilla keys
 
-	/** The claw swipe: vanilla's hit (his fist is +4) and a cleave through whatever stands beside the target. */
+	/**
+	 * The claw swipe: vanilla's hit (his fist is +4) and a cleave through whatever stands beside the target. v0.17.2 revamp (he
+	 * bites constantly in the show): every {@link #BITE_EVERY}rd hit on a creature is a Bite instead -- the kit makes that hit
+	 * itself, {@link #BITE_BONUS} on top of the claw and a short slow.
+	 */
 	@Override
 	public boolean onAttack(ServerPlayer p, Entity target) {
 		ServerLevel l = level(p);
+		if (target instanceof LivingEntity bitten) {
+			long n = timer(p, "swipes") + 1;
+			setTimer(p, "swipes", n >= BITE_EVERY ? 0 : n);
+			if (n >= BITE_EVERY) {
+				bite(p, bitten);
+				return true;
+			}
+		}
 		if (target instanceof LivingEntity main) {
 			float cleave = (p.getMainHandItem().isEmpty() ? (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) : 1f + ATTACK) * 0.5f;
 			Vec3 look = horizontal(p.getLookAngle());
@@ -827,6 +1132,46 @@ public final class WildmuttKit extends AlienKit {
 		return false;
 	}
 
+	/** The Bite (every 3rd claw hit): his claw damage scaled by the swing's charge, + {@link #BITE_BONUS}, slowed 1.5 s. */
+	public float bite(ServerPlayer p, LivingEntity t) {
+		ServerLevel l = level(p);
+		float claws = p.getMainHandItem().isEmpty() ? (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) : 1f + ATTACK;
+		float charge = p.getAttackStrengthScale(0.5f);
+		float dmg = claws * (0.2f + charge * charge * 0.8f) + BITE_BONUS;
+		t.invulnerableTime = 0;
+		if (hurt(p, t, dmg, false)) {
+			shove(t, p.position(), 0.3 * charge, 0.05);
+			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, BITE_SLOW_TICKS, 0));
+			frenzyHeal(p);
+		}
+		p.resetAttackStrengthTicker();
+		Vec3 at = t.position().add(0, t.getBbHeight() * 0.65, 0);
+		Vec3 look = horizontal(p.getLookAngle());
+		// the jaws: two short white ribbons closing on each other
+		QuirkFx.ribbon(l, at.add(look.scale(-0.4)).add(0, 0.35, 0), at.add(look.scale(0.3)).add(0, 0.05, 0)).colours(0xFFFFFF, 0xF0C090).size(0.22f)
+				.life(5).style(QuirkFx.RIBBON_LIGHT).spawn();
+		QuirkFx.ribbon(l, at.add(look.scale(-0.4)).add(0, -0.35, 0), at.add(look.scale(0.3)).add(0, -0.05, 0)).colours(0xFFFFFF, 0xF0C090).size(0.22f)
+				.life(5).style(QuirkFx.RIBBON_LIGHT).spawn();
+		OmnitrixSounds.play(l, at, BITE, 0.9f, 1.05f);
+		return dmg;
+	}
+
+	/**
+	 * v0.17.2 revamp, Predator's Appetite: a kill gives back {@link #APPETITE_FOOD} hunger and a heart, at most once every
+	 * {@link #APPETITE_COOLDOWN} ticks (he can't hold food well). Returns whether it fed him.
+	 */
+	public boolean appetite(ServerPlayer p) {
+		long now = p.level().getGameTime();
+		if (timer(p, "appetite_at") > now) {
+			return false;
+		}
+		setTimer(p, "appetite_at", now + APPETITE_COOLDOWN);
+		p.getFoodData().eat(APPETITE_FOOD, 0.3f);
+		p.heal(APPETITE_HEAL);
+		OmnitrixSounds.play(level(p), p.position(), GROWL, 0.6f, 1.3f);
+		return true;
+	}
+
 	/** Shift+V: Sniff -- 6 s of wider senses that also pick out dropped items (v0.17.2: was right-click, which kept him from eating). */
 	public boolean sniff(ServerPlayer p) {
 		if (!use(p, SNIFF_MOVE)) {
@@ -846,11 +1191,17 @@ public final class WildmuttKit extends AlienKit {
 
 	// ---------------------------------------------------------------- passives, senses, damage
 
-	/** How far his senses reach now (client-safe): 24, 64 while sniffing, 6 underwater, 0 while an explosion deafens him. */
+	/**
+	 * How far his senses reach now (client-safe): 24, 64 while sniffing, 6 underwater, 4 with a Choked Nose (v0.17.2), 0 while an
+	 * explosion deafens him.
+	 */
 	public double senseRange(Player p) {
 		long now = p.level().getGameTime();
 		if (timer(p, "deaf_until") > now) {
 			return 0;
+		}
+		if (choked(p)) {
+			return CHOKE_RANGE;
 		}
 		if (p.isUnderWater()) {
 			return WATER_RANGE;
@@ -858,9 +1209,75 @@ public final class WildmuttKit extends AlienKit {
 		return flag(p, F_SNIFF) ? SNIFF_RANGE : SENSE_RANGE;
 	}
 
+	/** v0.17.2 revamp: Choked Nose is on (client-safe: the synced timer). */
+	public boolean choked(Player p) {
+		return timer(p, "choked_until") > p.level().getGameTime();
+	}
+
+	/**
+	 * v0.17.2 revamp, Scent Sense by movement (W4: sneaking hides beyond 8): how strongly he senses a creature {@code dist}
+	 * blocks away -- 2 bright (it moves), 1 faint (it stands still or sneaks, within {@link #STILL_RANGE}), 0 not at all.
+	 * {@code range} is his {@link #senseRange} now.
+	 */
+	public static int senseStrength(double dist, double range, boolean moving, boolean sneaking) {
+		if (range <= 0 || dist > range) {
+			return 0;
+		}
+		if (moving && !sneaking) {
+			return 2;
+		}
+		return dist <= STILL_RANGE ? 1 : 0;
+	}
+
+	/**
+	 * v0.17.2 revamp, Choked Nose (from <i>Lucky Girl</i>): smoke or stench in his nose -- campfire smoke rising round him, a
+	 * Stinkfly gas cloud, a lingering potion cloud, or freezing in powder snow.
+	 */
+	public static boolean smellsSmoke(ServerPlayer p) {
+		ServerLevel l = level(p);
+		if (p.isInPowderSnow || p.getTicksFrozen() > 0) {
+			return true;
+		}
+		if (!l.getEntitiesOfClass(net.minecraft.world.entity.AreaEffectCloud.class, p.getBoundingBox().inflate(0.5)).isEmpty()) {
+			return true;
+		}
+		if (com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.inGas(l, p.position().add(0, 0.8, 0))) {
+			return true;
+		}
+		// a lit campfire's smoke column: up to 6 blocks under his nose, within a block sideways
+		BlockPos head = BlockPos.containing(p.getEyePosition());
+		for (int dy = 0; dy <= 6; dy++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					BlockState st = l.getBlockState(head.offset(dx, -dy, dz));
+					if (st.getBlock() instanceof net.minecraft.world.level.block.CampfireBlock && net.minecraft.world.level.block.CampfireBlock.isLitCampfire(st)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/** Chokes his nose for {@link #CHOKE_TICKS} (his client closes a dark vignette in on the screen while it lasts). */
+	public void choke(ServerPlayer p) {
+		long now = p.level().getGameTime();
+		if (!choked(p)) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.wildmutt.choked").withStyle(ChatFormatting.GRAY), true);
+		}
+		setTimer(p, "choked_until", now + CHOKE_TICKS);
+	}
+
+	/** The nose clears: a sneeze (a head-jerk clip and a snort). */
+	private void sneeze(ServerPlayer p) {
+		setTimer(p, "choked_until", 0);
+		anim(p, ANIM_SNEEZE);
+		OmnitrixSounds.play(level(p), p.getEyePosition(), SNEEZE, 1.0f, 1.0f);
+	}
+
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
-		return !(source.is(DamageTypeTags.IS_FALL) && (flag(p, F_LEAPING) || flag(p, F_CLIMB)));
+		return !(source.is(DamageTypeTags.IS_FALL) && (flag(p, F_LEAPING) || flag(p, F_CLIMB) || flag(p, F_HUNT)));
 	}
 
 	@Override
@@ -901,14 +1318,42 @@ public final class WildmuttKit extends AlienKit {
 				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, wallAhead(p)), p.getX(), p.getY() + 0.5, p.getZ(), 2, 0.3, 0.3, 0.3, 0);
 			}
 		}
-		// a leap ends on landing (the shock)
+		// v0.17.2 revamp: a coiled leap remembers the top of its arc (for the landing slam's fall bonus)
+		long coil = timer(p, "coil_power");
+		if (coil > 0 && flag(p, F_LEAPING)) {
+			long y = Math.round(p.getY() * 100.0) + PEAK_BIAS;
+			if (y > timer(p, "leap_peak")) {
+				setTimer(p, "leap_peak", y);
+			}
+		}
+		// a leap ends on landing (the shock -- a coiled leap's is the slam)
 		if (flag(p, F_LEAPING) && now - timer(p, "leap_start") > 3 && !flag(p, F_POUNCE) && (p.onGround() || p.isInWater())) {
 			setFlag(p, F_LEAPING, false);
 			setTimer(p, "leap_start", 0);
 			p.resetFallDistance();
-			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, groundUnder(p)), p.getX(), p.getY() + 0.1, p.getZ(), 16, 0.6, 0.05, 0.6, 0.12);
-			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB09070).size(2.0f).thickness(0.45f).life(10).ground().spawn();
-			OmnitrixSounds.play(l, p.position(), LAND, 0.9f, 1.0f);
+			if (coil > 0 && !p.isInWater()) {
+				double fall = (timer(p, "leap_peak") - PEAK_BIAS) / 100.0 - p.getY();
+				setTimer(p, "coil_power", 0);
+				setTimer(p, "leap_peak", 0);
+				leapSlam(p, (coil - 1) / (float) COIL_MAX, fall);
+			} else {
+				setTimer(p, "coil_power", 0);
+				setTimer(p, "leap_peak", 0);
+				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, groundUnder(p)), p.getX(), p.getY() + 0.1, p.getZ(), 16, 0.6, 0.05, 0.6, 0.12);
+				QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB09070).size(2.0f).thickness(0.45f).life(10).ground().spawn();
+				OmnitrixSounds.play(l, p.position(), LAND, 0.9f, 1.0f);
+			}
+		}
+		// v0.17.2 revamp: the Ricochet Hunt's hops
+		long hs = timer(p, "hunt_strike");
+		if (hs > 0 && now >= hs) {
+			huntStrike(p);
+		}
+		// v0.17.2 revamp: Choked Nose -- smoke keeps it shut; once clear of it the nose runs out and he sneezes
+		if (now % 5 == 0 && smellsSmoke(p)) {
+			choke(p);
+		} else if (timer(p, "choked_until") > 0 && !choked(p)) {
+			sneeze(p);
 		}
 		// the pounce in flight
 		if (flag(p, F_POUNCE)) {
@@ -942,7 +1387,6 @@ public final class WildmuttKit extends AlienKit {
 		}
 		fireAt(p, now, "quills_at", () -> fireQuills(p));
 		fireAt(p, now, "roar_at", () -> roarBlast(p));
-		fireAt(p, now, "slam_at", () -> slamHit(p));
 		// the roll
 		if (flag(p, F_ROLL)) {
 			if (now >= timer(p, "roll_end") || p.isInWater()) {

@@ -177,6 +177,10 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 			}
 		}
 		helper.assertTrue(kit().moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_3, false, true) != null, "a hold move on X");
+		// v0.17.2 revamp: Ricochet Hunt took Z; Ground Slam is the Coiled Leap's landing now
+		AlienMove z = kit().moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, false, false);
+		helper.assertTrue(z != null && WildmuttKit.HUNT.equals(z.id()), "Ricochet Hunt on Z (" + (z == null ? null : z.id()) + ")");
+		helper.assertTrue(kit().move("ground_slam") == null, "no Ground Slam key any more");
 		helper.succeed();
 	}
 
@@ -199,24 +203,22 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		near(helper, z.getHealth(), 200f - WildmuttKit.POUNCE_DAMAGE, "the bite does 12");
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
 		helper.assertFalse(k.flag(p, WildmuttKit.F_POUNCE), "the pounce is over");
-		// the timed moves: Maul, Quill Volley, Savage Roar, Ground Slam
+		// the timed moves: Maul, Quill Volley, Savage Roar (v0.17.2: Ground Slam left Z -- see aCoiledLeapLandsInAGroundSlam)
 		ahead(z, p, 2.0);
 		helper.assertTrue(k.maul(p) && !k.maul(p), "Maul, then it cools down");
 		helper.assertTrue(k.quills(p) && !k.quills(p), "Quill Volley, then it cools down");
 		helper.assertTrue(k.roar(p) && !k.roar(p), "Savage Roar, then it cools down");
-		helper.assertTrue(k.slam(p) && !k.slam(p), "Ground Slam, then it cools down");
 		float before = z.getHealth();
 		pump(helper, p);
 		helper.runAfterDelay(WildmuttKit.MAUL_HITS[WildmuttKit.MAUL_HITS.length - 1] + 3, () -> {
 			float lost = before - z.getHealth();
 			float maul = 3 * WildmuttKit.MAUL_RAKE + WildmuttKit.MAUL_SLAM;
-			// everything lands on the one zombie: the maul (18), the roar (6) and the slam (10..16); quills may add
-			helper.assertTrue(lost >= maul + WildmuttKit.ROAR_DAMAGE + WildmuttKit.SLAM_FAR - 0.1f,
-					"the maul, the roar and the slam all hit (" + lost + ")");
+			// everything lands on the one zombie: the maul (18) and the roar (6); quills may add
+			helper.assertTrue(lost >= maul + WildmuttKit.ROAR_DAMAGE - 0.1f, "the maul and the roar both hit (" + lost + ")");
 			helper.assertTrue(z.hasEffect(MobEffects.WEAKNESS), "the roar weakens");
 			AABB box = p.getBoundingBox().inflate(20);
 			int quills = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, box, e -> "wildmutt_quill".equals(e.kind())).size();
-			helper.assertTrue(quills > 0 || z.getHealth() < before - maul - WildmuttKit.ROAR_DAMAGE - WildmuttKit.SLAM_FAR, "the quills flew (" + quills + " still out)");
+			helper.assertTrue(quills > 0 || z.getHealth() < before - maul - WildmuttKit.ROAR_DAMAGE, "the quills flew (" + quills + " still out)");
 			// Quill Roll: rolls through it once
 			z.setHealth(200f);
 			ahead(z, p, 0.9);
@@ -265,6 +267,181 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 			helper.assertTrue(k.cooldownLeft(p, WildmuttKit.COILED_LEAP) > 0, "the coiled leap cools down");
 			helper.succeed();
 		});
+	}
+
+	// ================================================================ v0.17.2 revamp
+
+	/** Ground Slam is the Coiled Leap's landing now: a plain leap lands softly, a coiled one slams (coil and fall scale it). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aCoiledLeapLandsInAGroundSlam(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 200f);
+		ahead(z, p, 2.0);
+		// the slam's numbers: no coil on the flat = r 3, 10 at the centre; a full coil after an 8-block fall = r 6, 22
+		near(helper, 200f - z.getHealth(), 0, "untouched yet");
+		k.leapSlam(p, 0f, 0);
+		near(helper, 200f - z.getHealth(), 10f - 4f * (2f / 3f), "a bare slam: 10 falling to 6 at r 3 (2 blocks out)");
+		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slows");
+		z.setHealth(200f);
+		ahead(z, p, 2.0);
+		k.leapSlam(p, 1f, 8);
+		near(helper, 200f - z.getHealth(), 22f - 8.8f * (2f / 6f), "a full coil and a long fall: 22 falling to 13.2 at r 6");
+		z.setHealth(200f);
+		ahead(z, p, 5.0);
+		k.leapSlam(p, 0f, 0);
+		near(helper, 200f - z.getHealth(), 0, "5 blocks out is beyond a bare slam's 3");
+		// a plain leap lands with the plain shock -- no slam
+		ahead(z, p, 2.0);
+		helper.assertTrue(k.leap(p), "Leap");
+		pump(helper, p);
+		helper.runAfterDelay(6, () -> {
+			helper.assertFalse(k.flag(p, WildmuttKit.F_LEAPING), "landed");
+			near(helper, 200f - z.getHealth(), 0, "a plain leap does not slam");
+			// a coiled leap does
+			k.holdStart(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3);
+			helper.runAfterDelay(WildmuttKit.COIL_MAX, () -> {
+				ahead(z, p, 2.0);
+				k.holdEnd(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3, WildmuttKit.COIL_MAX);
+				helper.assertTrue(k.flag(p, WildmuttKit.F_LEAPING), "springing");
+				helper.runAfterDelay(6, () -> {
+					helper.assertFalse(k.flag(p, WildmuttKit.F_LEAPING), "landed");
+					float lost = 200f - z.getHealth();
+					helper.assertTrue(lost > 9.5f && lost < 16.1f, "the landing slammed it (" + lost + ")");
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	/** Z: Ricochet Hunt -- one pounce after another through the pack, each once; a lone creature is hit twice. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void ricochetHuntBouncesThroughThePack(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie a = zombie(helper, 3.5, 2, 4.5, 200f);
+		Zombie b = zombie(helper, 3.5, 2, 7.5, 200f);
+		Zombie c = zombie(helper, 7.0, 2, 7.0, 200f);
+		helper.assertTrue(k.hunt(p) && k.flag(p, WildmuttKit.F_HUNT), "the hunt is on");
+		helper.assertFalse(k.hunt(p), "and cools down");
+		pump(helper, p);
+		helper.runAfterDelay(WildmuttKit.HUNT_HOP_TICKS * 4 + 4, () -> {
+			for (Zombie m : new Zombie[] { a, b, c }) {
+				near(helper, 200f - m.getHealth(), WildmuttKit.HUNT_DAMAGE, "each of the pack is hit once for 8");
+			}
+			helper.assertFalse(k.flag(p, WildmuttKit.F_HUNT), "the hunt is over");
+			a.discard();
+			b.discard();
+			c.discard();
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ricochetHuntHitsALoneCreatureTwice(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie a = zombie(helper, 3.5, 2, 5.5, 200f);
+		helper.assertTrue(k.hunt(p), "the hunt is on");
+		pump(helper, p);
+		helper.runAfterDelay(WildmuttKit.HUNT_HOP_TICKS * 3 + 4, () -> {
+			near(helper, 200f - a.getHealth(), 2 * WildmuttKit.HUNT_DAMAGE, "a lone zombie is hit twice (16)");
+			helper.assertFalse(k.flag(p, WildmuttKit.F_HUNT), "the hunt is over");
+			a.discard();
+			helper.succeed();
+		});
+	}
+
+	/** Shift+G's ping, Jump on a wall, the Bite, Predator's Appetite, the motion-based sense and the Choked Nose. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theRoarPingsTheWallKicksTheBiteAndTheAppetite(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		// the ping reaches 24 blocks, round him, not just the roar's cone
+		Zombie front = zombie(helper, 3.5, 2, 3.0, 200f);
+		Zombie behind = zombie(helper, 3.5, 2, 1.5, 200f);
+		behind.moveTo(p.getX(), p.getY(), p.getZ() - 20, 0f, 0f);
+		List<net.minecraft.world.entity.LivingEntity> pinged = k.ping(p);
+		helper.assertTrue(pinged.contains(front) && pinged.contains(behind), "the ping finds both, 20 blocks behind too (" + pinged.size() + ")");
+		helper.assertTrue(WildmuttKit.pingListeners(p).contains(p), "he hears his own ping");
+		behind.discard();
+		// the bite: every 3rd claw hit
+		ahead(front, p, 1.5);
+		helper.assertFalse(kit().onAttack(p, front), "1st swipe: a claw");
+		helper.assertFalse(kit().onAttack(p, front), "2nd swipe: a claw");
+		float hp = front.getHealth();
+		helper.assertTrue(kit().onAttack(p, front), "3rd swipe: the Bite (the kit makes the hit)");
+		helper.assertTrue(hp - front.getHealth() >= WildmuttKit.BITE_BONUS + (1f + WildmuttKit.ATTACK) * 0.2f - 0.01f, "the bite adds 3 (" + (hp - front.getHealth()) + ")");
+		helper.assertTrue(front.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slows");
+		helper.assertFalse(kit().onAttack(p, front), "then it counts again from 1");
+		// Predator's Appetite: a kill feeds him, 5 s apart
+		p.getFoodData().setFoodLevel(10);
+		p.setHealth(20f);
+		front.setHealth(1f);
+		front.invulnerableTime = 0;
+		com.projecthero.mod.omnitrix.alien.AlienKit.hurt(p, front, 5f, false);
+		helper.assertTrue(front.isDeadOrDying(), "the kill");
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 10 + WildmuttKit.APPETITE_FOOD, "+2 hunger (" + p.getFoodData().getFoodLevel() + ")");
+		near(helper, p.getHealth(), 20f + WildmuttKit.APPETITE_HEAL, "+1 heart");
+		helper.assertFalse(k.appetite(p), "5 s before it feeds him again");
+		// the wall-kick: off with Wall Climb off, a bound away from the wall with it on (no cooldown)
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 2, 2)), Blocks.STONE.defaultBlockState(), 3);
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 3, 2)), Blocks.STONE.defaultBlockState(), 3);
+		p.setOnGround(false);
+		helper.assertFalse(k.wallKick(p), "no wall-kick without Wall Climb");
+		k.toggleClimb(p);
+		helper.assertTrue(k.wallKick(p), "a wall-kick");
+		helper.assertTrue(p.getDeltaMovement().z < -0.7 && p.getDeltaMovement().y > 0.4, "off the wall he faced, backwards and up (" + p.getDeltaMovement() + ")");
+		helper.assertTrue(k.flag(p, WildmuttKit.F_LEAPING), "a leap: no fall damage");
+		helper.assertTrue(k.wallKick(p), "no cooldown");
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 2, 2)), Blocks.AIR.defaultBlockState(), 3);
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 3, 2)), Blocks.AIR.defaultBlockState(), 3);
+		helper.assertFalse(k.wallKick(p), "no wall, no kick");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void heSensesMovementAndSmokeChokesHisNose(GameTestHelper helper) {
+		floor(helper);
+		// motion: bright while it moves, faint while it stands still or sneaks -- and those only within 8
+		helper.assertTrue(WildmuttKit.senseStrength(12, 24, true, false) == 2, "a mover at 12: bright");
+		helper.assertTrue(WildmuttKit.senseStrength(5, 24, false, false) == 1, "standing still at 5: faint");
+		helper.assertTrue(WildmuttKit.senseStrength(5, 24, true, true) == 1, "sneaking at 5: faint");
+		helper.assertTrue(WildmuttKit.senseStrength(12, 24, false, false) == 0, "standing still at 12: gone");
+		helper.assertTrue(WildmuttKit.senseStrength(12, 24, true, true) == 0, "sneaking at 12: gone");
+		helper.assertTrue(WildmuttKit.senseStrength(30, 24, true, false) == 0, "out of range");
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		helper.assertFalse(WildmuttKit.smellsSmoke(p), "clean air");
+		// a lit campfire beside him: its smoke chokes his nose -- senses down to 4
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 2, 2)), Blocks.CAMPFIRE.defaultBlockState(), 3);
+		helper.assertTrue(WildmuttKit.smellsSmoke(p), "campfire smoke");
+		long now = helper.getLevel().getGameTime();
+		p.tickCount++;
+		k.setTimer(p, "choked_until", 0);
+		k.choke(p);
+		helper.assertTrue(k.choked(p), "choked");
+		near(helper, k.senseRange(p), WildmuttKit.CHOKE_RANGE, "senses 4");
+		// out of the smoke, once it wears off he sneezes it out
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 2, 2)), Blocks.AIR.defaultBlockState(), 3);
+		k.setTimer(p, "choked_until", now - 1);
+		Omnitrix.tick(p);
+		helper.assertFalse(k.choked(p), "the nose cleared");
+		helper.assertTrue(Omnitrix.state(p).animId == WildmuttKit.ANIM_SNEEZE, "with a sneeze");
+		near(helper, k.senseRange(p), WildmuttKit.SENSE_RANGE, "senses 24 again");
+		// freezing in powder snow chokes it too
+		p.setTicksFrozen(20);
+		helper.assertTrue(WildmuttKit.smellsSmoke(p), "frozen nose");
+		p.setTicksFrozen(0);
+		helper.succeed();
 	}
 
 	// ================================================================ the senses

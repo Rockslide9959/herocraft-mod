@@ -1,8 +1,15 @@
 package com.projecthero.mod.client.omnitrix.alien.wildmutt;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.projecthero.mod.ironman.IronManHighlight;
+import com.projecthero.mod.network.WildmuttPingPayload;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -18,6 +25,9 @@ import net.minecraft.world.entity.item.ItemEntity;
  * while he sniffs, and the creature he tracks in red at any distance.
  * <p>v0.17.1 (user: "make his smelling power better"): he tells scents apart -- monsters smell red-orange, animals green, players
  * pale gold, anything badly hurt of blood (deep red), the rest the old amber.
+ * <p>v0.17.2 revamp: motion matters -- a moving creature is outlined bright, one standing still or sneaking faintly and only
+ * within {@link WildmuttKit#STILL_RANGE}. And a Savage Roar's ping outlines what it reached in amber for him and his squad
+ * ({@code WildmuttPingPayload}; on any viewer's client it was sent to, still never set on the creature).
  */
 public final class WildmuttSense {
 	public static final int COLOUR = 0xFFB060;
@@ -48,6 +58,9 @@ public final class WildmuttSense {
 			return 0;
 		}
 		LocalPlayer me = Minecraft.getInstance().player;
+		if (me != null && entity != me && pinged(entity)) {
+			return COLOUR; // v0.17.2: a Savage Roar's ping (his or a squad mate's) -- for any viewer it was sent to
+		}
 		WildmuttKit k = me(me);
 		if (k == null || entity == me) {
 			return 0;
@@ -66,18 +79,88 @@ public final class WildmuttSense {
 		if (!(entity instanceof LivingEntity living) || entity instanceof ArmorStand || !living.isAlive()) {
 			return 0;
 		}
+		// v0.17.2 revamp (W4): he senses movement -- bright while it moves, faint while it stands still or sneaks (only within 8)
+		int strength = WildmuttKit.senseStrength(Math.sqrt(entity.distanceToSqr(me)), r, moving(living), living.isCrouching());
+		if (strength == 0) {
+			return 0;
+		}
+		int c;
 		if (living.getHealth() < living.getMaxHealth() * BLOOD_BELOW) {
-			return BLOOD_COLOUR;
+			c = BLOOD_COLOUR;
+		} else if (entity instanceof net.minecraft.world.entity.monster.Enemy) {
+			c = MONSTER_COLOUR;
+		} else if (entity instanceof net.minecraft.world.entity.player.Player) {
+			c = PLAYER_COLOUR;
+		} else if (entity instanceof net.minecraft.world.entity.animal.Animal || entity instanceof net.minecraft.world.entity.animal.WaterAnimal) {
+			c = ANIMAL_COLOUR;
+		} else {
+			c = COLOUR;
 		}
-		if (entity instanceof net.minecraft.world.entity.monster.Enemy) {
-			return MONSTER_COLOUR;
+		return strength == 2 ? c : faint(c);
+	}
+
+	/** A faint outline: the scent colour at {@link #FAINT} brightness (vanilla outlines have no alpha). */
+	static int faint(int rgb) {
+		int r = (int) (((rgb >> 16) & 255) * FAINT), g = (int) (((rgb >> 8) & 255) * FAINT), b = (int) ((rgb & 255) * FAINT);
+		return Math.max(1, (r << 16) | (g << 8) | b);
+	}
+
+	public static final float FAINT = 0.38f;
+
+	// ---------------------------------------------------------------- movement (v0.17.2 revamp)
+
+	/** Client: per entity id, the tick it last moved -- a walker's interpolated steps can stand still for a tick. */
+	private static final Map<Integer, Integer> MOVED_AT = new HashMap<>();
+	private static final int MOVE_GRACE = 10;
+
+	/** Moving now (or within the last {@link #MOVE_GRACE} ticks), or swinging / hurt -- what his hearing and smell pick up. */
+	static boolean moving(LivingEntity e) {
+		double dx = e.getX() - e.xo, dy = e.getY() - e.yo, dz = e.getZ() - e.zo;
+		boolean now = dx * dx + dy * dy + dz * dz > 4.0e-4 || e.swinging || e.hurtTime > 0;
+		if (now) {
+			if (MOVED_AT.size() > 2048) {
+				MOVED_AT.clear();
+			}
+			MOVED_AT.put(e.getId(), e.tickCount);
+			return true;
 		}
-		if (entity instanceof net.minecraft.world.entity.player.Player) {
-			return PLAYER_COLOUR;
+		Integer at = MOVED_AT.get(e.getId());
+		return at != null && e.tickCount - at <= MOVE_GRACE && e.tickCount >= at;
+	}
+
+	// ---------------------------------------------------------------- the roar's ping (v0.17.2 revamp)
+
+	/** Client: entity id -> the game time its ping outline ends (fed by {@code WildmuttPingPayload}). */
+	private static final Map<Integer, Long> PINGED = new HashMap<>();
+
+	public static void init() {
+		ClientPlayNetworking.registerGlobalReceiver(WildmuttPingPayload.TYPE, (payload, context) -> context.client().execute(() -> {
+			if (context.client().level != null) {
+				long until = context.client().level.getGameTime() + payload.ticks();
+				for (int id : payload.ids()) {
+					PINGED.merge(id, until, Math::max);
+				}
+			}
+		}));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			PINGED.clear();
+			MOVED_AT.clear();
+			WildmuttFootprints.clear();
+		});
+	}
+
+	static boolean pinged(Entity e) {
+		if (PINGED.isEmpty()) {
+			return false;
 		}
-		if (entity instanceof net.minecraft.world.entity.animal.Animal || entity instanceof net.minecraft.world.entity.animal.WaterAnimal) {
-			return ANIMAL_COLOUR;
+		Long until = PINGED.get(e.getId());
+		if (until == null) {
+			return false;
 		}
-		return COLOUR;
+		if (until < e.level().getGameTime() || !e.isAlive()) {
+			PINGED.remove(e.getId());
+			return false;
+		}
+		return true;
 	}
 }

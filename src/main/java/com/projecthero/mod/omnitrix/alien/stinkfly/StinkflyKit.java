@@ -177,6 +177,17 @@ public final class StinkflyKit extends AlienKit {
 	private record Area(ResourceKey<Level> dim, Vec3 at, long until) {
 	}
 
+	/** v0.17.2 (Wildmutt's Choked Nose): is {@code at} inside any Stinkfly's gas cloud right now? */
+	public static boolean inGas(Level level, Vec3 at) {
+		long now = level.getGameTime();
+		for (Area a : GAS_CLOUDS.values()) {
+			if (a.dim() == level.dimension() && now < a.until() && a.at().add(0, 0.8, 0).distanceToSqr(at) <= (GAS_RADIUS + 0.5) * (GAS_RADIUS + 0.5)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private StinkflyKit() {
 	}
 

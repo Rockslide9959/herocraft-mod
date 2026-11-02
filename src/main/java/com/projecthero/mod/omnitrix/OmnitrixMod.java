@@ -73,6 +73,12 @@ public final class OmnitrixMod {
 						kit.onUse(p, net.minecraft.world.InteractionHand.MAIN_HAND);
 					}
 				}
+				case WALL_KICK -> { // v0.17.2: Wildmutt's wall-kick
+					if (Aliens.kit(Omnitrix.state(p).active) instanceof com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit k
+							&& !com.projecthero.mod.hero.PowerSuppression.isSuppressed(p)) {
+						k.wallKick(p);
+					}
+				}
 			}
 		});
 
