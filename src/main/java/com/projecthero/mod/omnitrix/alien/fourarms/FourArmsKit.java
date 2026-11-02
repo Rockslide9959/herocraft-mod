@@ -280,7 +280,8 @@ public final class FourArmsKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "make fourarms armour rating iron level"): a full iron set, 15 armour (was 8)
-		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(15f, 2f).knockbackResist(0.6f).attack(6f).step(0.6f).jump(0.12f)
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): the tank, 20 + 4
+		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(20f, 4f).knockbackResist(0.6f).attack(6f).step(0.6f).jump(0.12f)
 				.safeFall(6f).reach(0.5f).build();
 	}
 

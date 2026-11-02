@@ -645,7 +645,8 @@ public final class StinkflyKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "i dont want any of the aliens to have less than 20 hp"): was 14 health, +1 fist
-		return AlienStats.builder().health(20f).speed(1.1f).scale(0.9f).armor(1f, 0f).attack(2f).jump(0.08f).build();
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): a chitin shell, 6
+		return AlienStats.builder().health(20f).speed(1.1f).scale(0.9f).armor(6f, 0f).attack(2f).jump(0.08f).build();
 	}
 
 	// v0.17.2 (user: "make stinky able to use items and tools"): no pawsOnly -- his claws hold and use items again. Hitbox and eyes

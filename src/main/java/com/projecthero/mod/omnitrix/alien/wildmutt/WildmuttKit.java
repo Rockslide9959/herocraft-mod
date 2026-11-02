@@ -314,7 +314,8 @@ public final class WildmuttKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(HEALTH).speed(SPEED).armor(4f, 1f).knockbackResist(0.3f).attack(ATTACK).step(0.4f).jump(0.12f)
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): a tough hide, 10
+		return AlienStats.builder().health(HEALTH).speed(SPEED).armor(10f, 1f).knockbackResist(0.3f).attack(ATTACK).step(0.4f).jump(0.12f)
 				.safeFall(4f).build();
 	}
 

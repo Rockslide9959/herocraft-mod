@@ -467,7 +467,8 @@ public final class GreyMatterKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "i dont want any of the aliens to have less than 20 hp" / "basically all of them should have" melee bonuses): was 8 health, +0 fist
-		return AlienStats.builder().health(20f).speed(1.35f).scale(SCALE).attack(2f).jump(0.05f).safeFall(1f).build();
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): 4, he is tiny
+		return AlienStats.builder().health(20f).speed(1.35f).scale(SCALE).armor(4f, 0f).attack(2f).jump(0.05f).safeFall(1f).build();
 	}
 
 	@Override

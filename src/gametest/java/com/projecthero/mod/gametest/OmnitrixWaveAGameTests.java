@@ -115,7 +115,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(near(p.getMaxHealth(), 22f), "22 health");
 		double walk = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
 		helper.assertTrue(walk > 0.1 * 1.8, "very fast: " + walk);
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) <= 2.0 + 1.0e-6, "light armour");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - 15.0) < 1.0e-6, "v0.17.2: iron-level armour (15)");
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_SPEED) > 4.0 + 1.5, "fast hands");
 		p.setSprinting(true);
 		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
@@ -1216,6 +1216,23 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - 0.1) < 1.0e-4, "and it all comes off");
 		helper.succeed();
+	}
+
+	/**
+	 * v0.17.2 (user: "give every alien resistance level 1"): a transformed alien carries a hidden Resistance I (no icon, no
+	 * particles), Ghostfreak loses it in True Form, and turning back takes it off.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void everyAlienHasHiddenResistanceOne(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		pump(helper, p);
+		helper.runAfterDelay(3, () -> {
+			var res = p.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+			helper.assertTrue(res != null && res.getAmplifier() == 0 && !res.showIcon() && !res.isVisible(), "Resistance I, hidden");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertFalse(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE), "gone on turning back");
+			helper.succeed();
+		});
 	}
 
 	// ================================================================ Ghostfreak

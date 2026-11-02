@@ -295,7 +295,8 @@ public final class RipjawsKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(30f).speed(0.9f).scale(1.05f).armor(4f, 1f).attack(3f).knockbackResist(0.2f).build();
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): scales, 10
+		return AlienStats.builder().health(30f).speed(0.9f).scale(1.05f).armor(10f, 1f).attack(3f).knockbackResist(0.2f).build();
 	}
 
 	@Override

@@ -366,7 +366,8 @@ public final class HeatblastKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(26f).speed(1.05f).armor(4f, 0f).attack(2f).knockbackResist(0.1f).safeFall(4f).build();
+		// v0.17.2 (user: "give heatblast iron level armour aswell as xlr8"): 15 armour, an iron set
+		return AlienStats.builder().health(26f).speed(1.05f).armor(15f, 0f).attack(2f).knockbackResist(0.1f).safeFall(4f).build();
 	}
 
 	@Override

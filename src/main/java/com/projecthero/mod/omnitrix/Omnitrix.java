@@ -663,6 +663,14 @@ public final class Omnitrix {
 	 * through {@link #beginPowerDown} (the five beeps) and land here on {@link #POWER_DOWN_REVERT_TICK}; anything else (death,
 	 * logout, a dimension change, suppression, the pod, a revoke) mid-sequence cuts it short here and silences the sound.
 	 */
+	/** Takes off the framework's hidden Resistance I (a potion's or a beacon's -- visible, or stronger -- is left alone). */
+	static void dropAlienResistance(ServerPlayer p) {
+		var res = p.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+		if (res != null && res.getAmplifier() == 0 && res.isAmbient() && !res.showIcon() && res.getDuration() <= 100) {
+			p.removeEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+		}
+	}
+
 	public static void revert(ServerPlayer p, Reason reason) {
 		revert(p, reason, false);
 	}
@@ -681,6 +689,7 @@ public final class Omnitrix {
 		if (kit != null) {
 			try {
 				kit.onRevert(p);
+				dropAlienResistance(p);
 			} catch (RuntimeException e) {
 				com.projecthero.mod.ProjectHeroMod.LOGGER.error("[Omnitrix] {} onRevert failed", s.active, e);
 			}
@@ -1061,6 +1070,16 @@ public final class Omnitrix {
 			// is an alien (refreshed before it runs out, no particles, so it never flickers off between refreshes)
 			if (now % 40 == 0 || !p.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)) {
 				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION, 80, 0, true, false, true));
+			}
+			// v0.17.2 (user: "give every alien resistance level 1"): Resistance I the same way -- hidden (no particles, no icon), never
+			// over a stronger Resistance he already has, and not while his kit says his body is bare (Ghostfreak's True Form)
+			if (kit.toughBody(p)) {
+				var res = p.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+				if (res == null || (res.getAmplifier() == 0 && res.getDuration() < 60)) {
+					p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 0, true, false, false));
+				}
+			} else {
+				dropAlienResistance(p);
 			}
 			if (poweringDown(s)) {
 				// the five beeps: still the alien (the kit keeps ticking), the time limit stopped, no warning blips

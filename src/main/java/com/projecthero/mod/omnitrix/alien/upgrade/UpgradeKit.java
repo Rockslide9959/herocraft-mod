@@ -375,7 +375,8 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(28f).speed(1.05f).armor(6f, 0f).knockbackResist(0.2f).attack(3f).step(0.6f).safeFall(8f).build();
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): living metal, 10
+		return AlienStats.builder().health(28f).speed(1.05f).armor(10f, 0f).knockbackResist(0.2f).attack(3f).step(0.6f).safeFall(8f).build();
 	}
 
 	@Override

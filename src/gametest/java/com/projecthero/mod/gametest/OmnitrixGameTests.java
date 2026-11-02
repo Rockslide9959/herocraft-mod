@@ -546,7 +546,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 			helper.getLevel().addFreshEntity(ball);
 			helper.runAfterDelay(15, () -> {
 				helper.assertTrue(ball.isRemoved(), "the snowball hit him");
-				helper.assertTrue(p.getHealth() < before - HeatblastKit.SNOWBALL_DAMAGE * 0.8f, "a snowball hurts a Pyronite (3, less his armour): " + before + " -> " + p.getHealth());
+				helper.assertTrue(p.getHealth() < before - 0.5f, "a snowball hurts a Pyronite (3, less his iron-level armour and Resistance): " + before + " -> " + p.getHealth());
 				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 				helper.succeed();
 			});
@@ -779,7 +779,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 			float hp = p.getHealth();
 			p.invulnerableTime = 0;
 			p.hurt(helper.getLevel().damageSources().magic(), 10f);
-			helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * HeatblastKit.SHIELD_FACTOR) < 0.05f, "the dome takes 60% off");
+			helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * HeatblastKit.SHIELD_FACTOR * 0.8f) < 0.05f, "the dome takes 60% off (and Resistance I a fifth of the rest)");
 			helper.assertTrue(kit.blazeDash(p) && kit.flag(p, HeatblastKit.F_DASH), "Shift+X: Blaze Dash");
 			z.teleportTo(p.getX(), p.getY(), p.getZ() + 2.0);
 			z.invulnerableTime = 0;

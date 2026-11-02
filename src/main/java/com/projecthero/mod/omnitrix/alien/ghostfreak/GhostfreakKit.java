@@ -363,7 +363,8 @@ public final class GhostfreakKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: was 24 health, +2 fist
-		return AlienStats.builder().health(26f).speed(1.0f).armor(2f, 0f).attack(3f).safeFall(30f).build();
+		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): 4 (blows already do half)
+		return AlienStats.builder().health(26f).speed(1.0f).armor(4f, 0f).attack(3f).safeFall(30f).build();
 	}
 
 	@Override
@@ -673,6 +674,12 @@ public final class GhostfreakKit extends AlienKit {
 	/** The step the next R press will be (0, 1, or 2 = the Reaping Rake). */
 	public static int comboStep(ServerPlayer p) {
 		return COMBO.getOrDefault(p.getUUID(), 0);
+	}
+
+	/** v0.17.2: True Form has peeled off his protective skin -- no framework Resistance while it lasts. */
+	@Override
+	public boolean toughBody(ServerPlayer p) {
+		return !flag(p, F_TRUE);
 	}
 
 	/** One claw swipe's damage now: in the dark +20%, in True Form +30%. */

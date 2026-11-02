@@ -412,7 +412,7 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 				p.invulnerableTime = 0;
 				helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 				p.hurt(p.damageSources().mobAttack(z), 4f);
-				helper.assertTrue(Math.abs((hp2 - p.getHealth()) * 2f - bare) < 0.3f, "the skin halves blows again: " + (hp2 - p.getHealth()) + " vs " + bare);
+				helper.assertTrue(Math.abs((hp2 - p.getHealth()) * 2f / 0.8f - bare) < 0.3f, "the skin halves blows again (and Resistance I is back): " + (hp2 - p.getHealth()) + " vs " + bare);
 				z.discard();
 				helper.succeed();
 			});

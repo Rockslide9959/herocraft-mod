@@ -108,6 +108,14 @@ public abstract class AlienKit {
 	public void onTransform(ServerPlayer p) {
 	}
 
+	/**
+	 * v0.17.2 (user: "give every alien resistance level 1"): whether this alien's body takes the framework's hidden Resistance I
+	 * right now -- every alien does, unless its kit says its body is bare (Ghostfreak's True Form).
+	 */
+	public boolean toughBody(ServerPlayer p) {
+		return true;
+	}
+
 	/** The wearer is turning back (timeout, N, death, logout, the pod). Stop every running move, give back flight, etc. */
 	public void onRevert(ServerPlayer p) {
 	}
