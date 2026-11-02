@@ -148,9 +148,6 @@ public final class StandRender {
 		Minecraft mc = Minecraft.getInstance();
 		boolean firstPerson = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
 		boolean fight = fighting(s, age);
-		if (firstPerson && !fight) {
-			return; // at rest it is behind you, out of your own view
-		}
 		long now = p.level().getGameTime();
 		float t = now + partial;
 		Vec3 at = p.getPosition(partial);
@@ -184,8 +181,9 @@ public final class StandRender {
 		if (sm.pos == null || sm.pos.distanceToSqr(want) > 10 * 10) {
 			sm.pos = want;
 		} else {
-			// quick: it snaps out in front to fight, and drifts back to the shoulder
-			float k = Mth.clamp((fight ? 0.6f : 0.25f) * dt, 0f, 1f);
+			// quick: it snaps out in front to fight, and drifts back to the shoulder -- in first person a little slower both ways
+			// (user: "make him float in front of the user and then float back behind the user like how it happens in third person")
+			float k = Mth.clamp((fight ? (firstPerson ? 0.32f : 0.6f) : (firstPerson ? 0.1f : 0.25f)) * dt, 0f, 1f);
 			sm.pos = sm.pos.lerp(want, k);
 		}
 		if (Float.isNaN(sm.yaw)) {
@@ -203,6 +201,9 @@ public final class StandRender {
 		}
 		if (firstPerson) {
 			alpha *= 0.92f; // all but solid (user: "dont make star platinum look so see through")
+			// gliding past your shoulder it fades in/out rather than filling the screen; at rest behind you it is gone
+			double near = pos.add(0, 1.2, 0).distanceTo(cam);
+			alpha *= Mth.clamp((float) (near - 1.25) / 0.7f, 0f, 1f);
 		}
 		if (alpha <= 0.02f) {
 			return;

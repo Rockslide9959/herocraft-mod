@@ -3060,19 +3060,7 @@
     "subtitle": "subtitles.projecthero.stand.ora",
     "sounds": [
       {
-        "name": "projecthero:stand/star_platinum/ora_1"
-      },
-      {
-        "name": "projecthero:stand/star_platinum/ora_2"
-      },
-      {
-        "name": "projecthero:stand/star_platinum/ora_3"
-      },
-      {
-        "name": "projecthero:stand/star_platinum/ora_4"
-      },
-      {
-        "name": "projecthero:stand/star_platinum/ora_5"
+        "name": "projecthero:stand/star_platinum/ora"
       }
     ]
   },

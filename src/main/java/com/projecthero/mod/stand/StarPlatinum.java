@@ -231,8 +231,6 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		Stands.breakPose(p);
 		fx(p, heavy ? StandSounds.ORA_FINISHER : StandSounds.PUNCH, heavy ? 0.9f : 0.7f, 0.9f + p.getRandom().nextFloat() * 0.2f);
-		// v0.17.2 (user: "play random oras during all his punches"): a random ORA take, the heavy third a little deeper
-		fx(p, StandSounds.ORA, 1.0f, heavy ? 0.9f : 0.96f + p.getRandom().nextFloat() * 0.1f);
 		return InteractionResult.SUCCESS;
 	}
 
@@ -284,7 +282,7 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		stopBarrageSound(p);
 		fx(p, StandSounds.ORA_FINISHER, 1.1f, 1.0f);
-		fx(p, StandSounds.ORA, 1.2f, 0.88f); // the last, drawn-out ORA
+		fx(p, StandSounds.ORA, 1.2f, 1.0f); // the user's single ORA closes the barrage
 		Vec3 c = p.position().add(dir.scale(1.8)).add(0, 1.2, 0);
 		Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.BURST, c, dir, 1.2f);
 	}
