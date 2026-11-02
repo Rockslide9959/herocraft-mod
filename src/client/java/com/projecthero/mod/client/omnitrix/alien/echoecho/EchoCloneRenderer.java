@@ -23,7 +23,7 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.2: an Echo Echo duplicate -- the wide player model in Echo Echo's skin at his size, walking when it moves and copying its
- * owner's move poses (so the clones scream, ring and brace with him), with his ear discs.
+ * owner's move poses (so the clones scream, ring and brace with him). v0.17.2 revamp: no ear discs -- only the skin (user: "no extra things untill i say").
  */
 public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 	private final PlayerModel<AbstractClientPlayer> model;
@@ -84,7 +84,6 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 		pose.scale(-s, -s, s);
 		pose.translate(0.0, -1.501, 0.0);
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EchoEchoClient.SKIN)), light, OverlayTexture.NO_OVERLAY, -1);
-		EchoEchoClient.earDiscs(pose, buffers, light, model.head);
 		pose.popPose();
 		super.render(e, entityYaw, partial, pose, buffers, light);
 	}
