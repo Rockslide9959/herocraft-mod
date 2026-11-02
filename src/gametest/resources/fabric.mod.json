@@ -255,6 +255,7 @@
       "com.projecthero.mod.gametest.ChlorokinesisGameTests",
       "com.projecthero.mod.gametest.OmnitrixAliens2GameTests",
       "com.projecthero.mod.gametest.OmnitrixWildmuttGameTests",
+      "com.projecthero.mod.gametest.OmnitrixHumungousaurGameTests",
       "com.projecthero.mod.gametest.OmnitrixRidingGameTests",
       "com.projecthero.mod.gametest.OmnitrixAcquireGameTests",
       "com.projecthero.mod.gametest.HeroLandingGameTests",

@@ -1,6 +1,10 @@
 # Omnitrix revamp proposal: Humungousaur
 
-Status: **PROPOSAL, awaiting approval.** No code written. Same format as the Wildmutt / Ghostfreak revamp:
+Status: **BUILT (v0.17.2)** with the user's decisions ("Yes do all this stuff but dont add ultimate aliens yet please"): no
+Ultimate Humungousaur (no Bone Missile Barrage, shell or missile fingers) -- Shift+Z is the **Earthshaker** instead (rear up, three
+stomps 0.6 s apart: 10 and 10 in 6, then 55 in 8, +1 block a step, damage x the size bonus, rooted, cd 30 s); Titanic Slam lives on
+as the landing of a full-size Dino Leap (16 in 7); size bonus +10% a step; three sizes, no Colossal step. Skin: the user's Planet
+Minecraft skin 5136728. Screenshots: docs/screenshots/v0172/humungousaur/. The original proposal follows. Same format as the Wildmutt / Ghostfreak revamp:
 R G Z X C V, each with a tap and a Shift variant (hold moves allowed); X = movement, V = utility/mode, the rest attacks;
 Z / Shift+Z the big moves. No H or N moves. Effects are posed models and rendered shapes (rings, arcs, model parts), few particles.
 

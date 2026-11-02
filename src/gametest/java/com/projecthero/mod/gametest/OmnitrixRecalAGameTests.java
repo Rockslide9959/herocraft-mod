@@ -181,7 +181,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		near(helper, p.getArmorValue(), 13f, "armour 13");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < speed0, "a little slower");
 		helper.assertTrue(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) > reach0, "a longer reach");
-		near(helper, HumungousaurKit.mult(p), 1.2f, "+20% damage");
+		near(helper, HumungousaurKit.mult(p), 1.1f, "+10% damage (v0.17.2 revamp, was +20%)");
 		helper.assertFalse(kit.grow(p), "Grow cools down");
 		clearCooldown(p, HumungousaurKit.ID, HumungousaurKit.GROW);
 		helper.assertTrue(kit.grow(p) && HumungousaurKit.stage(p) == 2, "size step 2");
