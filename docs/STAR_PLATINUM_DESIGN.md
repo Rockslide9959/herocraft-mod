@@ -87,8 +87,8 @@ now `sounds.json` points each one at a vanilla placeholder (an `"type": "event"`
 | `leap` / `dash` | Stand Leap (and rebounds) / Stand Dash | goat long jump / sweep |
 | `breaker_charge` / `star_breaker` | Star Breaker wind-up / the punch | beacon ambient / mace heavy smash |
 | `time_stop` | "Star Platinum: The World!" -- time stops | the user's "Za Warudo" clip (v0.17.2) |
-| `clock_tick` | each second of stopped time | note block hat |
-| `time_resume` | "...and time resumes" | bell resonate |
+| `clock_tick` | each second of stopped time | synthesised ringing clock tick, tick/tock pitches (v0.17.2) |
+| `time_resume` | "...and time resumes" | the user's time-resume clip (v0.17.2) |
 | `guard` / `catch` | Stand Guard up (and blocking) / a caught projectile or hit | shield block / item pickup |
 | `precision_sight` | Precision Sight on | spyglass |
 | `inhale` | Super Inhale | breeze inhale |

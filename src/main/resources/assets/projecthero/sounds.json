@@ -3178,8 +3178,7 @@
     "subtitle": "subtitles.projecthero.stand.time_resume",
     "sounds": [
       {
-        "name": "minecraft:block.bell.resonate",
-        "type": "event"
+        "name": "projecthero:stand/star_platinum/time_resume"
       }
     ]
   },
@@ -3187,8 +3186,7 @@
     "subtitle": "subtitles.projecthero.stand.clock_tick",
     "sounds": [
       {
-        "name": "minecraft:block.note_block.hat",
-        "type": "event"
+        "name": "projecthero:stand/star_platinum/clock_tick"
       }
     ]
   },

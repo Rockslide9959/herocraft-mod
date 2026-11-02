@@ -198,7 +198,10 @@ public final class TimeStop {
 			return;
 		}
 		if (caster != null && (s.end - now) % 20 == 0) {
-			Stands.sound(level, caster.position(), StandSounds.CLOCK_TICK, 0.6f, 1.0f);
+			// v0.17.2 (user: "make it sound like a clock is ticking during time stop like how it is in the anime"): a ringing
+			// clock tick each second, alternating tick (higher) and tock (lower)
+			boolean tock = ((s.end - now) / 20) % 2 == 0;
+			Stands.sound(level, caster.position(), StandSounds.CLOCK_TICK, 0.9f, tock ? 0.8f : 1.0f);
 		}
 	}
 
