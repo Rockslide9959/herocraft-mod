@@ -49,7 +49,22 @@ import org.joml.Vector3f;
  * What a Stand DOES to a victim (the damage, the knockback) shows for everyone, as it should.
  */
 public final class Stands {
-	public static final String KEY = "stand";
+	/**
+	 * v0.17.2 (user: "i dont want the only stand to be star platinum so in the command dont make it power grant stand make it power
+	 * grant stand_star_platinum"): each Stand is its own Hero-Tier key, {@code stand_<type id>}; Star Platinum is the only one yet.
+	 */
+	public static final String KEY = "stand_star_platinum";
+
+	/** The Hero-Tier key of {@code type}: {@code stand_<id>}. */
+	public static String keyFor(StandType type) {
+		return "stand_" + type.id();
+	}
+
+	/** Holds this particular Stand. */
+	public static boolean holds(Player player, StandType type) {
+		StandState s = peek(player);
+		return s != null && s.isUser() && type.id().equals(s.standId);
+	}
 
 	/** Who receives a player's {@link StandState}: the player, and other Stand users. */
 	public static final AttachmentSyncPredicate SYNC_PREDICATE = (target, viewer) -> target == viewer || isStandUser(viewer);
@@ -256,10 +271,10 @@ public final class Stands {
 		if (state(player).isUser()) {
 			return false;
 		}
-		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, keyFor(type))) {
 			return false;
 		}
-		HeroTiers.claimPrimary(player, KEY);
+		HeroTiers.claimPrimary(player, keyFor(type));
 		StandState s = new StandState();
 		s.standId = type.id();
 		s.stamina = StandConfig.STAMINA_MAX;
@@ -447,6 +462,12 @@ public final class Stands {
 			tickStamina(player, s);
 		}
 		tickPose(player, now);
+		// v0.17.2 (user: "give stand users regen 1"): a constant Regeneration I, topped up before it runs out (it heals on
+		// every 50th tick of its countdown, so it is kept above that)
+		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
+		if (regen == null || (regen.getAmplifier() == 0 && regen.getDuration() < 60)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 0, true, false, true));
+		}
 		StarPlatinum.tick(player);
 	}
 

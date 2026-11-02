@@ -428,7 +428,7 @@ public final class HeroCommand {
 			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.revoke(target);
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
-			case "stand" -> com.projecthero.mod.stand.Stands.revoke(target); // v0.17.2
+			case "stand_star_platinum" -> com.projecthero.mod.stand.Stands.revoke(target); // v0.17.2
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.revoke(target);
 			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);

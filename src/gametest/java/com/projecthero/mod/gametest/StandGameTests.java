@@ -87,13 +87,13 @@ public class StandGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void standReplacesThePrimaryAndSummons(GameTestHelper helper) {
 		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
-		helper.assertTrue(HeroTiers.HERO_KEYS.contains("stand") && PowerGrants.HERO_TIER_KEYS.contains("stand"), "stand is a Hero-Tier key");
-		helper.assertTrue(PowerGrants.NOT_FROM_SERUMS.contains("stand"), "random serums never give a Stand");
+		helper.assertTrue(HeroTiers.HERO_KEYS.contains("stand_star_platinum") && PowerGrants.HERO_TIER_KEYS.contains("stand_star_platinum"), "stand is a Hero-Tier key");
+		helper.assertTrue(PowerGrants.NOT_FROM_SERUMS.contains("stand_star_platinum"), "random serums never give a Stand");
 		Kryptonian.grant(p);
 		helper.assertTrue(Stands.grant(p, StandType.STAR_PLATINUM), "the Stand awakens");
 		double baseReach = p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 		helper.assertTrue(Stands.hasPower(p) && !Kryptonian.hasPower(p), "the Stand replaced the Kryptonian (one Primary)");
-		helper.assertTrue(HeroTiers.heroCount(p) == 1 && HeroTiers.holdsHero(p, "stand"), "exactly one hero held");
+		helper.assertTrue(HeroTiers.heroCount(p) == 1 && HeroTiers.holdsHero(p, "stand_star_platinum"), "exactly one hero held");
 		helper.assertFalse(Stands.grant(p, StandType.STAR_PLATINUM), "a second grant does nothing");
 		helper.assertTrue(Stands.stamina(p) >= StandConfig.STAMINA_MAX - 0.01f, "full Stamina to start");
 		helper.assertFalse(Stands.summoned(p), "the Stand starts away");
