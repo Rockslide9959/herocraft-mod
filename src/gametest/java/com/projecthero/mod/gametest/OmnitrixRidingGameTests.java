@@ -166,6 +166,17 @@ public class OmnitrixRidingGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(gm.yBodyRot - human.yBodyRot) < 0.01f, "Grey Matter faces the way he does");
 		human.yBodyRot = 0f;
 
+		// v0.17.2 Backseat Genius: what the carrier hits is analysed for Grey Matter (5 s, free)
+		net.minecraft.world.entity.monster.Zombie z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+		Vec3 zat = helper.absoluteVec(new Vec3(5.5, 2, 5.5));
+		z.moveTo(zat.x, zat.y, zat.z, 0f, 0f);
+		z.setNoAi(true);
+		helper.getLevel().addFreshEntity(z);
+		helper.assertFalse(GreyMatterKit.marked(z), "not marked yet");
+		z.hurt(helper.getLevel().damageSources().playerAttack(human), 1f);
+		helper.assertTrue(GreyMatterKit.marked(z), "the carrier's hit marks it for the Grey Matter on his shoulder");
+		z.discard();
+
 		helper.assertTrue(click(gm2, human, human.position().add(0.3, 1.4, 0)).consumesAction() && gm2.getVehicle() == human,
 				"a second Grey Matter fits");
 		helper.assertFalse(OmnitrixRiding.leftShoulder(gm2), "on the other (right) shoulder");

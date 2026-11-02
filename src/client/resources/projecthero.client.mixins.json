@@ -16,6 +16,8 @@
 		"OmnitrixPoseMixin",
 		"OmnitrixGlowMixin",
 		"RipjawsScentColorMixin",
+		"GreyMatterInsideRenderMixin",
+		"GreyMatterInsideShrinkMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",

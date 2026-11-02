@@ -788,13 +788,13 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		near(helper, z.getHealth(), b - 10f * GreyMatterKit.MARK_FACTOR, "a marked creature takes 35% more from anyone");
 		// v0.17.2: on a marked creature the Weak-Spot Strike comes to 24 once the mark's x1.35 is on it
 		near(helper, GreyMatterKit.strikeDamage(z) * GreyMatterKit.MARK_FACTOR, GreyMatterKit.STRIKE_MARKED_DAMAGE, "a marked weak spot takes 24");
-		helper.assertTrue(kit.decoy(p) && !kit.decoy(p), "Decoy, then cools down");
+		// v0.17.2 revamp: Shift+G is the Gizmo Turret (was Decoy)
+		helper.assertTrue(kit.gizmoTurret(p) && GreyMatterKit.turretHp(p) == GreyMatterKit.TURRET_HP && !kit.gizmoTurret(p), "Gizmo Turret, then cools down");
+		// v0.17.2: Scurry opens with the smoke puff (what is left of Smoke Charge): blinds within 3, no damage
 		float bs = z.getHealth();
-		z.invulnerableTime = 0;
-		helper.assertTrue(kit.smokeBomb(p) && z.hasEffect(MobEffects.BLINDNESS) && !kit.smokeBomb(p), "Smoke Charge blinds, then cools down");
-		// v0.17.2: Smoke Charge blasts for 22 (x1.35 on the marked zombie)
-		near(helper, z.getHealth(), bs - GreyMatterKit.SMOKE_DAMAGE * GreyMatterKit.MARK_FACTOR, "the smoke charge blasts it for 22 (+35% marked)");
 		helper.assertTrue(kit.scurry(p) && kit.flag(p, GreyMatterKit.F_SCURRY) && !kit.scurry(p), "Scurry, then cools down");
+		helper.assertTrue(z.hasEffect(MobEffects.BLINDNESS), "Scurry's smoke puff blinds what is close");
+		near(helper, z.getHealth(), bs, "the puff does no damage");
 		helper.assertTrue(kit.bigLeap(p) && kit.flag(p, GreyMatterKit.F_LEAP) && !kit.bigLeap(p), "Big Leap, then cools down");
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().fall(), 5f);
@@ -823,11 +823,209 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 			helper.assertTrue(GreyMatterKit.traps(p) == 0 && rooted(z), "the snare caught it");
 			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 			helper.assertFalse(GreyMatterKit.marked(z), "turning back clears his marks");
+			helper.assertTrue(GreyMatterKit.turretHp(p) == 0f, "and takes his turret down");
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED)) < 1.0e-6,
 					"no scurry speed left behind");
 			z.discard();
 			helper.succeed();
 		});
+	}
+
+	// ================================================================ v0.17.2 Grey Matter revamp
+
+	/** Shift+Z Inside Job: in, untouchable, six pulses of 6 through its armour, out the far side, it is stunned. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
+	public void greyMatterInsideJobThrashesAndPopsOutSafely(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		// never a player
+		ServerPlayer other = mock(helper, 3.5, 2, 3.0);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertFalse(kit.insideJob(p), "Inside Job refuses a player");
+		helper.assertTrue(kit.cooldownLeft(p, GreyMatterKit.INSIDE_JOB) == 0, "no cooldown spent on a refusal");
+		other.discard();
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
+		z.getAttribute(Attributes.ARMOR).setBaseValue(12); // the thrashing ignores this
+		Vec3 start = p.position();
+		helper.assertTrue(kit.insideJob(p), "Inside Job");
+		helper.assertTrue(p.getVehicle() == z && GreyMatterKit.inside(p) && kit.flag(p, GreyMatterKit.F_INSIDE) && p.isInvisible(), "he is inside it");
+		helper.assertFalse(kit.insideJob(p), "cooling down");
+		float hp = p.getHealth();
+		p.hurt(helper.getLevel().damageSources().generic(), 6f);
+		near(helper, p.getHealth(), hp, "nothing reaches him in there");
+		pump(helper, p);
+		helper.runAfterDelay(GreyMatterKit.INSIDE_TICKS + 8, () -> {
+			helper.assertFalse(GreyMatterKit.inside(p) || kit.flag(p, GreyMatterKit.F_INSIDE), "out again");
+			helper.assertTrue(p.getVehicle() == null && !p.isInvisible(), "off it and visible");
+			helper.assertTrue(Math.abs(z.getHealth() - (100f - 6 * GreyMatterKit.INSIDE_DAMAGE)) < 1.5f, "six pulses of 6 through 12 armour: " + z.getHealth());
+			helper.assertTrue(rooted(z) && z.hasEffect(MobEffects.WEAKNESS), "it is stunned");
+			double side = new Vec3(p.getX() - z.getX(), 0, p.getZ() - z.getZ()).dot(new Vec3(z.getX() - start.x, 0, z.getZ() - start.z));
+			helper.assertTrue(side > 0, "he popped out of the FAR side");
+			helper.assertTrue(helper.getLevel().noCollision(p, p.getBoundingBox()), "somewhere he fits");
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** Inside Job on a machine (an iron golem): rewired -- x1.5 damage and shut down; and he always gets out (death, revert). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void greyMatterInsideJobRewiresMachinesAndAlwaysGetsOut(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		net.minecraft.world.entity.animal.IronGolem g = EntityType.IRON_GOLEM.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 4.0));
+		g.moveTo(at.x, at.y, at.z, 180f, 0f);
+		g.setNoAi(true);
+		g.setPersistenceRequired();
+		helper.getLevel().addFreshEntity(g);
+		helper.assertTrue(GreyMatterKit.machine(g) && GreyMatterKit.insidePulse(g) == GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR, "a golem is a machine: 9 a pulse");
+		float g0 = g.getHealth();
+		helper.assertTrue(kit.insideJob(p) && p.getVehicle() == g, "inside the golem");
+		pump(helper, p);
+		helper.runAfterDelay(GreyMatterKit.INSIDE_TICKS + 8, () -> {
+			helper.assertTrue(p.getVehicle() == null && !GreyMatterKit.inside(p), "out of the golem");
+			helper.assertTrue(Math.abs(g.getHealth() - (g0 - 6 * GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR)) < 1.5f, "rewired for 54: " + g.getHealth());
+			helper.assertTrue(rooted(g), "shut down");
+			g.discard();
+			// a creature that dies while he is in it: out where it fell
+			kit.cooldown(p, GreyMatterKit.INSIDE_JOB, 0);
+			Zombie weak = zombie(helper, 3.5, 2, 3.5, 8f);
+			p.moveTo(helper.absoluteVec(new Vec3(3.5, 2, 1.5)).x, helper.absoluteVec(new Vec3(3.5, 2, 1.5)).y, helper.absoluteVec(new Vec3(3.5, 2, 1.5)).z, 0f, 0f);
+			helper.assertTrue(kit.insideJob(p) && p.getVehicle() == weak, "inside a weak zombie");
+			helper.runAfterDelay(25, () -> {
+				helper.assertFalse(weak.isAlive(), "it died of it");
+				helper.assertTrue(p.getVehicle() == null && !GreyMatterKit.inside(p) && !p.isInvisible(), "he came out when it died");
+				// turning back mid-job: out at once
+				kit.cooldown(p, GreyMatterKit.INSIDE_JOB, 0);
+				Zombie z2 = zombie(helper, 3.5, 2, 3.5, 100f);
+				p.moveTo(helper.absoluteVec(new Vec3(3.5, 2, 1.5)).x, helper.absoluteVec(new Vec3(3.5, 2, 1.5)).y, helper.absoluteVec(new Vec3(3.5, 2, 1.5)).z, 0f, 0f);
+				helper.assertTrue(kit.insideJob(p) && p.getVehicle() == z2, "inside another");
+				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+				helper.assertTrue(p.getVehicle() == null && !GreyMatterKit.inside(p) && !p.isInvisible() && z2.isAlive(), "turning back puts him outside");
+				z2.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	/** Shift+G Gizmo Turret: darts the analysed creature first, 2 a shot, twice a second; gone when he turns back. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void greyMatterGizmoTurretDartsTheAnalysedFoeFirst(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		Zombie near = zombie(helper, 2.5, 2, 6.0, 100f);
+		Zombie far = zombie(helper, 5.5, 2, 2.5, 100f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(kit.gizmoTurret(p) && GreyMatterKit.turretModel(p) != null, "a turret goes up");
+		GreyMatterKit.mark(p, far, 200);
+		pump(helper, p);
+		helper.runAfterDelay(25, () -> {
+			helper.assertTrue(near.getHealth() == 100f, "the nearer zombie is left alone: " + near.getHealth());
+			float lost = 100f - far.getHealth();
+			helper.assertTrue(lost >= 2f * GreyMatterKit.TURRET_DAMAGE * GreyMatterKit.MARK_FACTOR - 0.05f, "the analysed one is darted (x1.35 marked): " + lost);
+			var model = GreyMatterKit.turretModel(p);
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			helper.assertTrue(GreyMatterKit.turretHp(p) == 0f && model.isRemoved(), "the turret goes with him");
+			near.discard();
+			far.discard();
+			helper.succeed();
+		});
+	}
+
+	/** Rewire's blocks, the passives and the weaknesses. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void greyMatterRewirePassivesAndWeaknesses(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		var l = helper.getLevel();
+		refreshAttributes(p); // his small box and eyes now, not on the next tick
+		// Rewire
+		BlockPos lever = helper.absolutePos(new BlockPos(1, 2, 1));
+		l.setBlock(lever, Blocks.LEVER.defaultBlockState(), 2);
+		helper.assertTrue(kit.rewireBlock(p, l, lever) == 0 && l.getBlockState(lever).getValue(net.minecraft.world.level.block.LeverBlock.POWERED), "a lever flipped");
+		BlockPos lamp = helper.absolutePos(new BlockPos(0, 2, 6)); // away from the lever (it would keep it lit)
+		l.setBlock(lamp, Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
+		helper.assertTrue(kit.rewireBlock(p, l, lamp) == 0 && l.getBlockState(lamp).getValue(net.minecraft.world.level.block.RedstoneLampBlock.LIT), "a lamp lit");
+		BlockPos wire = helper.absolutePos(new BlockPos(1, 2, 3));
+		l.setBlock(wire, Blocks.TRIPWIRE.defaultBlockState(), 2);
+		helper.assertTrue(kit.rewireBlock(p, l, wire) == 0 && l.getBlockState(wire).isAir(), "a tripwire disarmed");
+		BlockPos spawner = helper.absolutePos(new BlockPos(1, 2, 5));
+		l.setBlock(spawner, Blocks.SPAWNER.defaultBlockState(), 2);
+		var be = (net.minecraft.world.level.block.entity.SpawnerBlockEntity) l.getBlockEntity(spawner);
+		helper.assertTrue(kit.rewireBlock(p, l, spawner) == GreyMatterKit.REWIRE_SPAWNER_COOLDOWN, "a spawner: the long cooldown");
+		helper.assertTrue(GreyMatterKit.spawnerDelay(be) >= GreyMatterKit.SPAWNER_OFF_TICKS, "switched off for 60 s");
+		helper.assertTrue(kit.rewireBlock(p, l, helper.absolutePos(new BlockPos(1, 1, 1))) < 0, "plain stone: nothing to rewire");
+		// primed TNT straight ahead is defused
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		net.minecraft.world.entity.item.PrimedTnt tnt = EntityType.TNT.create(l);
+		Vec3 tat = p.getEyePosition().add(0, -0.45, 2.0); // level with his eyes (a mock player's box is refreshed on its next tick only)
+		tnt.moveTo(tat.x, tat.y, tat.z);
+		tnt.setFuse(200);
+		l.addFreshEntity(tnt);
+		helper.assertTrue(kit.rewire(p) && tnt.isRemoved(), "Rewire defuses primed TNT");
+		helper.assertTrue(!l.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, tnt.getBoundingBox().inflate(1.5),
+				i -> i.getItem().is(Items.TNT)).isEmpty(), "it drops back as an item");
+		// Galvan Intellect / the machine check
+		helper.assertTrue(GreyMatterKit.anvilCost(10) == 7 && GreyMatterKit.anvilCost(1) == 1, "anvil repairs 30% cheaper");
+		helper.assertTrue(GreyMatterKit.galvan(p), "he is a Galvan");
+		// Amphibian, Too Small for Big Weapons
+		double speed0 = p.getAttributeValue(Attributes.ATTACK_SPEED);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+		kit.tick(p, Omnitrix.state(p), 4000L);
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_SPEED) < speed0 * 0.6, "a sword swings at half speed");
+		helper.assertTrue(p.getAttributeValue(Attributes.WATER_MOVEMENT_EFFICIENCY) >= GreyMatterKit.SWIM_BONUS - 1.0e-4, "he swims 50% faster");
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		kit.tick(p, Omnitrix.state(p), 4001L);
+		near(helper, (float) p.getAttributeValue(Attributes.ATTACK_SPEED), (float) speed0, "empty-handed: full speed again");
+		// Sticky Climber
+		p.horizontalCollision = true;
+		helper.assertTrue(kit.climbs(p), "pressed into a wall, he climbs");
+		p.horizontalCollision = false;
+		l.setBlock(helper.absolutePos(new BlockPos(4, 2, 1)), Blocks.STONE.defaultBlockState(), 2);
+		l.setBlock(helper.absolutePos(new BlockPos(4, 3, 1)), Blocks.STONE.defaultBlockState(), 2);
+		Vec3 wall = helper.absoluteVec(new Vec3(3.9, 2.4, 1.5));
+		p.moveTo(wall.x, wall.y, wall.z, 0f, 0f);
+		p.setOnGround(false);
+		p.setShiftKeyDown(true);
+		helper.assertTrue(kit.climbs(p), "Sneak holds him on the wall");
+		p.setShiftKeyDown(false);
+		p.setOnGround(true);
+		helper.assertFalse(kit.climbs(p), "standing on the ground by a wall is not climbing");
+		Vec3 open = helper.absoluteVec(new Vec3(2.5, 2.4, 5.5));
+		p.moveTo(open.x, open.y, open.z, 0f, 0f);
+		p.setOnGround(false);
+		helper.assertFalse(kit.climbs(p), "in the open air: nothing to cling to");
+		p.setOnGround(true);
+		// Swatted: x1.5 knockback; a big creature's hit stuns him
+		helper.assertTrue(GreyMatterKit.knockbackScale(p) == GreyMatterKit.SWAT_KNOCKBACK, "x1.5 knockback");
+		ServerPlayer human = mock(helper, 6.5, 2, 6.5);
+		helper.assertTrue(GreyMatterKit.knockbackScale(human) == 1.0, "a human: normal knockback");
+		p.setDeltaMovement(Vec3.ZERO);
+		p.knockback(0.4, 1, 0);
+		human.setDeltaMovement(Vec3.ZERO);
+		human.knockback(0.4, 1, 0);
+		near(helper, (float) Math.abs(p.getDeltaMovement().x), (float) Math.abs(human.getDeltaMovement().x) * GreyMatterKit.SWAT_KNOCKBACK, "knocked half again as far");
+		net.minecraft.world.entity.animal.IronGolem g = EntityType.IRON_GOLEM.create(l);
+		g.moveTo(p.getX() + 1, p.getY(), p.getZ());
+		helper.assertTrue(GreyMatterKit.bigger(g), "a golem is bigger than a player");
+		p.invulnerableTime = 0;
+		kit.incomingDamage(p, l.damageSources().mobAttack(g), 4f);
+		helper.assertTrue(kit.timer(p, GreyMatterKit.SWAT_END) > l.getGameTime() && rooted(p), "swatted: stunned 0.5 s");
+		// Fragile
+		Zombie z = zombie(helper, 6.5, 2, 1.5, 20f);
+		near(helper, kit.incomingDamage(p, l.damageSources().anvil(z), 4f), 8f, "a falling anvil hits twice as hard");
+		z.discard();
+		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+		helper.assertFalse(l.getBlockState(lamp).getValue(net.minecraft.world.level.block.RedstoneLampBlock.LIT), "the lamp he lit goes dark when he turns back");
+		near(helper, (float) p.getAttributeValue(Attributes.WATER_MOVEMENT_EFFICIENCY), 0f, "no swim bonus left");
+		helper.assertTrue(GreyMatterKit.knockbackScale(p) == 1.0, "normal knockback again");
+		helper.succeed();
 	}
 
 	// ================================================================ the timeout cleans up too

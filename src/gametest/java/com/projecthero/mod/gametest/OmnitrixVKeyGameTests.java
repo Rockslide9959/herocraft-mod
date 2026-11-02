@@ -479,6 +479,25 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 Grey Matter revamp: Shift+V Rewire -- an iron door down the hall swings open from 2.5 blocks off, then cools down. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void greyMatterShiftVRewiresAnIronDoor(GameTestHelper helper) {
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		BlockPos low = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(low, Blocks.IRON_DOOR.defaultBlockState(), 2);
+		helper.getLevel().setBlock(low.above(), Blocks.IRON_DOOR.defaultBlockState().setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+				net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), 2);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		tapV(p, true);
+		helper.assertTrue(helper.getLevel().getBlockState(low).getValue(net.minecraft.world.level.block.DoorBlock.OPEN), "Shift+V: the iron door opens");
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		helper.assertTrue(kit.cooldownLeft(p, GreyMatterKit.REWIRE) > 0, "Rewire cools down");
+		tapV(p, true);
+		helper.assertTrue(helper.getLevel().getBlockState(low).getValue(net.minecraft.world.level.block.DoorBlock.OPEN), "still cooling: the door stays open");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void upgradeVOverclocksTheHeldTool(GameTestHelper helper) {
 		ServerPlayer p = as(helper, UpgradeKit.ID);
