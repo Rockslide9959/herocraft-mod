@@ -1,0 +1,6 @@
+[["\t\tfloat lift = LIFT * ph[1];","\t\tfloat lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated face rises inside its ring"],
+["\t\tif (lift > 0.02f) {\n\t\t\tOmnitrixModel.riser(","\t\tif (lift > 0.02f && !recal) {\n\t\t\tOmnitrixModel.riser("],
+["\t\tfloat top = OmnitrixModel.coreTop(L, lift);","\t\tfloat top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);"],
+["\t\tfloat fr = OmnitrixModel.FACE_R;","\t\tfloat fr = recal ? OmnitrixModel.RECAL_FACE_R : OmnitrixModel.FACE_R;"],
+["\t\tif (showIcon) {","\t\tif (showIcon && recal) {\n\t\t\t// v0.17.2 (user): the recalibrated watch projects the alien as a green hologram instead of a dial icon\n\t\t\tfloat swap = d == null ? 1f : sp[1];\n\t\t\tString holo = swap < 0.5f && d != null && !d.prev.isEmpty() ? d.prev : shown;\n\t\t\tfloat fade = iconIn * (swap < 0.5f ? 1f - swap * 2f : swap * 2f - 1f);\n\t\t\tRecalHologram.render(pose, buffers, holo, top, cy, Mth.clamp(fade, 0f, 1f), p.level().getGameTime() + partial);\n\t\t} else if (showIcon) {"],
+["\t\t\tfloat bezelTop = OmnitrixModel.cuffTop(L) + 0.4f + lift;\n\t\t\tfor (int k = 0; k < 4; k++) {","\t\t\tfloat bezelTop = OmnitrixModel.cuffTop(L) + 0.4f + lift;\n\t\t\tfor (int k = 0; k < (recal ? 0 : 4); k++) {"]]

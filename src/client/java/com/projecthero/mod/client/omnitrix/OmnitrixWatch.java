@@ -256,7 +256,7 @@ public final class OmnitrixWatch {
 		ResourceLocation morphTex = recal ? (red ? MORPH_RECAL_RED : MORPH_RECAL) : red ? MORPH_RED : MORPH;
 		// the core: pops up for the selection screen, slammed down by the slap
 		float slap = OmnitrixHands.slapClock(p, s, partial);
-		float lift = LIFT * ph[1];
+		float lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated face rises inside its ring
 		lift = OmnitrixHands.slapLift(lift, slap); // slammed in as the right palm lands
 		float[] sp = s.transformed() ? new float[] { 0f, 1f } : spin(p, s, partial);
 		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
@@ -264,13 +264,13 @@ public final class OmnitrixWatch {
 		float twist = sp[0] + (auto > 0f ? auto * auto * 720f : 0f);
 		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false, 0f, recal);
 		// the circuit riser the whole dial stands on while it is up
-		if (lift > 0.02f) {
+		if (lift > 0.02f && !recal) {
 			OmnitrixModel.riser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(red ? CIRCUIT_RED : CIRCUIT)), L, lift);
 		}
 		// ---- the face, upright (the ring turns round it): a morph frame, the icon fading in on the last one, the swap crossfade
-		float top = OmnitrixModel.coreTop(L, lift);
+		float top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);
 		float fx = (top + 0.012f) / 16f;
-		float fr = OmnitrixModel.FACE_R;
+		float fr = recal ? OmnitrixModel.RECAL_FACE_R : OmnitrixModel.FACE_R;
 		float cy = OmnitrixModel.CY;
 		// the icon stands upright for the WEARER, first and third person alike (+z, the edge away from the chest, is up) --
 		// v0.17.1 (user: "the alien icon should be facing the player who is using the omnitrix, dont turn it the other way")
@@ -303,7 +303,12 @@ public final class OmnitrixWatch {
 				}
 			}
 		}
-		if (showIcon) {
+		if (showIcon && recal) {
+			// v0.17.2 (user): the recalibrated watch projects the alien as a green hologram instead of a dial icon
+			float swap = d == null ? 1f : sp[1];
+			float fade = iconIn * Math.min(1f, 0.25f + swap); // each turn flickers the new alien in
+			RecalHologram.render(pose, buffers, shown, top, cy, Mth.clamp(fade, 0f, 1f), p.level().getGameTime() + partial);
+		} else if (showIcon) {
 			float swap = d == null ? 1f : sp[1];
 			if (iconIn >= 0.999f && swap >= 0.999f) {
 				VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(icon(shown, red)));
@@ -329,7 +334,7 @@ public final class OmnitrixWatch {
 			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.2f) / 16f, scale(g, 0.28f * glowK + 0.55f * flash));
 			glowQuad(glow, last, (top - 0.1f) / 16f, cy / 16f, 0f, 3.3f / 16f, scale(g, 0.42f * glowK + 0.3f * flash));
 			float bezelTop = OmnitrixModel.cuffTop(L) + 0.4f + lift;
-			for (int k = 0; k < 4; k++) {
+			for (int k = 0; k < (recal ? 0 : 4); k++) {
 				double ang = k * Math.PI / 2;
 				glowQuad(glow, last, (bezelTop + 0.12f) / 16f, (cy + (float) Math.cos(ang) * 1.8f) / 16f, (float) Math.sin(ang) * 1.8f / 16f, 0.55f / 16f,
 						scale(g, 0.7f * glowK));

@@ -94,13 +94,13 @@ public final class OmnitrixModel {
 		draw(pose, vc, light, L, lift, twist, screen, face, open, false);
 	}
 
-	/**
-	 * v0.17.2: {@code recal} -- the Recalibrated Omnitrix (user's reference: "a chunky grey bezel round a green-and-black hourglass
-	 * face, two side buttons, a green band with black stripes"): the bezel is a wider, taller grey ring and a second button sits on
-	 * the back (+z) side. Its colours come from {@code watch_recal.png} (same layout), which the caller binds.
-	 */
+	/** v0.17.2: {@code recal} -- the Recalibrated Omnitrix's own slim model ({@link #drawRecal}); its colours are {@code watch_recal.png}. */
 	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face, float open,
 			boolean recal) {
+		if (recal) {
+			drawRecal(pose, vc, light, L, lift, twist, screen, face);
+			return;
+		}
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		// v0.17.1 (user: "i dont want any gaps between the players arm and the omnitrix"): sized to the ARM itself, not its
@@ -140,36 +140,29 @@ public final class OmnitrixModel {
 			}
 			pose.popPose();
 		}
-		// ---- the button on the front (-z) side: a grey ring and a green lens (v0.17.2: the recalibrated watch has one each side)
+		// ---- the button on the front (-z) side: a grey ring and a green lens
 		float bx = (-1f + L) * 0.5f;
-		for (int side = recal ? -1 : 1; side <= 1; side += 2) {
-			pose.pushPose();
-			pose.translate(bx * S, cy * S, -side * (2f + GAP + WALL) * S);
-			pose.mulPose(Axis.YP.rotationDegrees(side * 90f));
-			cylinder(pose, vc, -0.05f, recal ? 0.32f : 0.2f, 0f, 0f, recal ? 0.7f : 0.62f, RING, light, 16);
-			cylinder(pose, vc, recal ? 0.27f : 0.15f, recal ? 0.4f : 0.3f, 0f, 0f, recal ? 0.36f : 0.4f, recal ? GREY : GREEN, recal ? light : lit, 12);
-			pose.popPose();
-		}
+		pose.pushPose();
+		pose.translate(bx * S, cy * S, -(2f + GAP + WALL) * S);
+		pose.mulPose(Axis.YP.rotationDegrees(90f));
+		cylinder(pose, vc, -0.05f, 0.2f, 0f, 0f, 0.62f, RING, light, 16);
+		cylinder(pose, vc, 0.15f, 0.3f, 0f, 0f, 0.4f, GREEN, lit, 12);
+		pose.popPose();
 		// ---- the bezel: a low black cylinder, four lime lights round its rim. v0.17.1 (user: "when the omnitrix pops up the dial
 		// with the green dots must also pop up"): the bezel, its lights and the core rise together by {@code lift}; the circuit
 		// riser it stands on ({@link #riser}) is drawn by the wrist
-		// v0.17.2: the recalibrated watch's chunky grey bezel -- wider and taller
-		float bezelR = recal ? 2.35f : 2.0f, bezelTop = xo + (recal ? 0.5f : 0.4f) + lift;
+		float bezelR = 2.0f, bezelTop = xo + 0.4f + lift;
 		// v0.17.1 (user: "this dial with the 4 dots needs to rotate when the player switches aliens"): the bezel and its four
 		// lights turn with the dial spin, not just the core
 		pose.pushPose();
 		pose.translate(0f, cy * S, 0f);
 		pose.mulPose(Axis.XP.rotationDegrees(twist));
 		pose.translate(0f, -cy * S, 0f);
-		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, recal ? GREY : BLACK, light, 28);
-		if (recal) {
-			// a black inner ring round the face, so the grey reads as a separate bezel
-			cylinder(pose, vc, bezelTop - 0.1f, bezelTop + 0.04f, cy, 0f, 1.75f, BLACK, light, 24);
-		}
+		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, BLACK, light, 28);
 		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
 		// out on the rim just past the core's edge
 		// v0.17.2 (user: "can we make the green dots on the dial circles please"): round studs (were square boxes)
-		float lr = recal ? 2.05f : 1.8f, ls = 0.2f;
+		float lr = 1.8f, ls = 0.2f;
 		for (int k = 0; k < 4; k++) {
 			double a = k * Math.PI / 2;
 			float ly = cy + (float) Math.cos(a) * lr, lz = (float) Math.sin(a) * lr;
@@ -198,6 +191,105 @@ public final class OmnitrixModel {
 		float a = (cy - fr) * S, b = (cy + fr) * S, zp = fr * S;
 		quad(vc, pose.last(), lit, fx, a, zp, fx, b, zp, fx, b, -zp, fx, a, -zp, 1, 0, 0, u0, v0, u1, v1);
 		pose.popPose();
+	}
+
+	// ================================================================ v0.17.2: the Recalibrated Omnitrix
+
+	/** The recalibrated watch's bezel: an eight-sided grey ring, angled -- outer radius at its foot / top, inner radius, height. */
+	private static final float RB = 2.0f, RT = 1.72f, RI = 1.4f, BEZEL_H = 0.5f;
+	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
+	private static final float RECAL_FACE_X = 0.36f;
+	public static final float RECAL_FACE_R = RI - 0.06f;
+	/** The recalibrated face pops up less than the prototype's core (it rises inside the ring). */
+	public static final float RECAL_LIFT_SCALE = 0.35f;
+
+	/** x of the recalibrated face for a lift (the hologram and the caller's face quad stand on it). */
+	public static float recalFaceTop(float L, float lift) {
+		return cuffTop(L) + RECAL_FACE_X + lift;
+	}
+
+	/**
+	 * v0.17.2 (user, with the show's line art and the toy: "you made the recalibrated omnitrix too thick ... try to make the recalibrated
+	 * omnitrix how it look in the show"): low and slim on the wrist --
+	 * <ul>
+	 *   <li>the <b>band</b>: green, a black stripe running round its middle;</li>
+	 *   <li><b>fins</b>: green plates hugging the face along the arm, each ending in a grey tab;</li>
+	 *   <li>the <b>bezel</b>: a thin eight-sided grey ring, its outer wall angled in, every segment outlined (the notches);</li>
+	 *   <li>the <b>face</b>: the green-and-black hourglass, recessed in the ring, on a black collar it rises out of when primed;</li>
+	 *   <li>two small grey <b>knobs</b> out of the bezel's sides, across the arm.</li>
+	 * </ul>
+	 */
+	private static void drawRecal(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face) {
+		int lit = LightTexture.FULL_BRIGHT;
+		float cy = CY;
+		Section cuff = new Section(-1f - GAP, L + GAP, 2f + GAP, CORNER);
+		float xo = cuffTop(L);
+		Section outer = cuff.grow(WALL);
+		// ---- the band and its black stripe
+		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
+		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.06f, cy - 0.6f, cy + 0.6f, WHITE, light);
+		// ---- the fins along the arm: a wide root under the bezel, a narrower blade, a grey tab at the tip
+		for (int end = -1; end <= 1; end += 2) {
+			float a = cy + end * 1.2f, b = cy + end * 2.45f, c = cy + end * 3.05f, d = cy + end * 3.4f;
+			box(pose, vc, xo - 0.05f, Math.min(a, b), -1.55f, xo + 0.24f, Math.max(a, b), 1.55f, CUFF, light);
+			box(pose, vc, xo - 0.05f, Math.min(b, c), -1.05f, xo + 0.2f, Math.max(b, c), 1.05f, CUFF, light);
+			box(pose, vc, xo - 0.05f, Math.min(c, d), -0.8f, xo + 0.28f, Math.max(c, d), 0.8f, PLATE, light);
+			// the black stripe carried up the fin
+			box(pose, vc, xo + 0.2f, Math.min(b, c), -0.4f, xo + 0.24f, Math.max(b, c), 0.4f, WHITE, light, false);
+		}
+		// ---- the knobs: out of the bezel's sides, across the arm
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.translate((xo + 0.27f) * S, cy * S, side * (RB - 0.15f) * S);
+			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
+			cylinder(pose, vc, 0f, 0.62f, 0f, 0f, 0.3f, PLATE, light, 12);
+			cylinder(pose, vc, 0.62f, 0.72f, 0f, 0f, 0.22f, RING, light, 12);
+			pose.popPose();
+		}
+		// ---- the bezel, the collar and the face turn with the dial
+		pose.pushPose();
+		pose.translate(0f, cy * S, 0f);
+		pose.mulPose(Axis.XP.rotationDegrees(twist));
+		pose.translate(0f, -cy * S, 0f);
+		PoseStack.Pose p = pose.last();
+		int[] g = SW[GREY], k = SW[BLACK];
+		float x0 = xo - 0.04f, x1 = xo + BEZEL_H;
+		int seg = 8;
+		for (int i = 0; i < seg; i++) {
+			// flats facing along / across the arm (rotated half a segment), like the show's
+			double a0 = (i + 0.5) * Math.PI * 2 / seg, a1 = (i + 1.5) * Math.PI * 2 / seg, am = (a0 + a1) / 2;
+			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
+			float cm = (float) Math.cos(am), sm = (float) Math.sin(am);
+			// the angled outer wall: from the foot (RB) in to the top (RT); its normal leans outward and up
+			float nx = (RB - RT) / BEZEL_H, nl = (float) Math.sqrt(1 + nx * nx);
+			segQuad(vc, p, light, g, x0, cy + c0 * RB, s0 * RB, x0, cy + c1 * RB, s1 * RB, x1, cy + c1 * RT, s1 * RT, x1, cy + c0 * RT, s0 * RT,
+					nx / nl, cm / nl, sm / nl);
+			// the flat top ring
+			segQuad(vc, p, light, g, x1, cy + c0 * RT, s0 * RT, x1, cy + c1 * RT, s1 * RT, x1, cy + c1 * RI, s1 * RI, x1, cy + c0 * RI, s0 * RI, 1, 0, 0);
+			// the inner wall down to the face
+			float xf = xo + RECAL_FACE_X;
+			segQuad(vc, p, light, k, x1, cy + c0 * RI, s0 * RI, x1, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c0 * RI, s0 * RI,
+					0, -cm, -sm);
+		}
+		// the black collar the face rises on (fills the ring under a primed face)
+		float top = recalFaceTop(L, lift);
+		cylinder(pose, vc, xo, top, cy, 0f, RI - 0.02f, BLACK, light, 24);
+		if (face) {
+			float fx = (top + 0.01f) * S;
+			float u0 = 64 * T, v0 = screen ? 0 : 64 * T, u1 = 1f, v1 = screen ? 64 * T : 1f;
+			float fr = RECAL_FACE_R;
+			float a = (cy - fr) * S, b = (cy + fr) * S, zp = fr * S;
+			quad(vc, pose.last(), lit, fx, a, zp, fx, b, zp, fx, b, -zp, fx, a, -zp, 1, 0, 0, u0, v0, u1, v1);
+		}
+		pose.popPose();
+	}
+
+	/** A four-cornered panel (px) mapped to the whole of swatch {@code sw}, so its outline frames it (the bezel's notches). */
+	private static void segQuad(VertexConsumer vc, PoseStack.Pose p, int light, int[] sw, float ax, float ay, float az, float bx, float by, float bz, float cx,
+			float cy, float cz, float dx, float dy, float dz, float nx, float ny, float nz) {
+		float e = 0.02f * T;
+		quad(vc, p, light, ax * S, ay * S, az * S, bx * S, by * S, bz * S, cx * S, cy * S, cz * S, dx * S, dy * S, dz * S, nx, ny, nz, sw[0] * T + e,
+				sw[1] * T + e, (sw[0] + 16) * T - e, (sw[1] + 16) * T - e);
 	}
 
 	/** The circuit riser's radius (just inside the bezel). */
