@@ -113,9 +113,12 @@ public final class RecalHologram {
 		// stand on the face: the figure's up (+y) is the face's normal (+x); a slight bob
 		pose.translate(faceX / 16f + FLOAT + 0.006f * Mth.sin(time * 0.12f), cy / 16f, 0f);
 		pose.mulPose(Axis.ZP.rotationDegrees(-90f));
-		// the front (-z after the model's flip) toward the camera: the camera is the origin of the pose's space
+		// the front (-z after the model's flip) toward the WEARER's eyes -- v0.17.2 (user: "the hologram should be facing the player
+		// instead of outwards in 3rd person"): the pose's space has the camera at its origin, so his eyes are at (eye - camera)
 		Matrix4f inv = new Matrix4f(pose.last().pose()).invert();
-		Vector4f cam = inv.transform(new Vector4f(0f, 0f, 0f, 1f));
+		net.minecraft.world.phys.Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+		net.minecraft.world.phys.Vec3 eye = p.getEyePosition(Mth.frac(time));
+		Vector4f cam = inv.transform(new Vector4f((float) (eye.x - camPos.x), (float) (eye.y - camPos.y), (float) (eye.z - camPos.z), 1f));
 		if (cam.x * cam.x + cam.z * cam.z > 1.0e-8f) {
 			pose.mulPose(Axis.YP.rotation((float) Math.atan2(-cam.x, -cam.z)));
 		}

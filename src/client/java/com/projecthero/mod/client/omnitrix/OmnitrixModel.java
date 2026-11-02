@@ -201,9 +201,12 @@ public final class OmnitrixModel {
 	private static final float RECAL_WALL = 0.16f, RECAL_HALF_LEN = 1.0f;
 	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
 	private static final float RECAL_FACE_X = 0.16f;
-	public static final float RECAL_FACE_R = RI - 0.06f;
-	/** The recalibrated face pops up less than the prototype's core (it rises inside the ring). */
-	public static final float RECAL_LIFT_SCALE = 0.35f;
+	public static final float RECAL_FACE_R = RI - 0.18f; // v0.17.2: a black ring round the hourglass
+	/**
+	 * v0.17.2 (user: "the dial also has to pop up when the omnitrix is activated"): the whole dial -- bezel, face and all -- pops up
+	 * out of the band on a black stem, nearly as far as the prototype's core.
+	 */
+	public static final float RECAL_LIFT_SCALE = 0.8f;
 
 	/** x of the recalibrated face for a lift (the hologram and the caller's face quad stand on it). */
 	public static float recalFaceTop(float L, float lift) {
@@ -238,6 +241,11 @@ public final class OmnitrixModel {
 			cylinder(pose, vc, 0.36f, 0.42f, 0f, 0f, 0.12f, RING, light, 12);
 			pose.popPose();
 		}
+		// ---- the two grey tabs along the arm, tucked under the bezel's ends (the show's watch: a grey bar above and below the dial)
+		for (int end = -1; end <= 1; end += 2) {
+			float y0 = cy + end * (RB - 0.32f), y1 = cy + end * (RB + 0.14f);
+			box(pose, vc, xo - 0.02f, Math.min(y0, y1), -0.42f, xo + 0.16f, Math.max(y0, y1), 0.42f, PLATE, light);
+		}
 		// ---- the bezel, the collar and the face turn with the dial
 		pose.pushPose();
 		pose.translate(0f, cy * S, 0f);
@@ -245,7 +253,7 @@ public final class OmnitrixModel {
 		pose.translate(0f, -cy * S, 0f);
 		PoseStack.Pose p = pose.last();
 		int[] g = SW[GREY], k = SW[BLACK];
-		float x0 = xo - 0.04f, x1 = xo + BEZEL_H;
+		float x0 = xo - 0.04f + lift, x1 = xo + BEZEL_H + lift;
 		int seg = 8;
 		for (int i = 0; i < seg; i++) {
 			// flats facing along / across the arm (rotated half a segment), like the show's
@@ -260,16 +268,30 @@ public final class OmnitrixModel {
 			segQuad(vc, p, light, g, x0, cy + c0 * RI, s0 * RI, x0, cy + c1 * RI, s1 * RI, x0, cy + c1 * RB, s1 * RB, x0, cy + c0 * RB, s0 * RB, -1, 0, 0);
 			segQuad(vc, p, light, g, x1, cy + c0 * RT, s0 * RT, x1, cy + c1 * RT, s1 * RT, x1, cy + c1 * RI, s1 * RI, x1, cy + c0 * RI, s0 * RI, 1, 0, 0);
 			// the inner wall down to the face
-			float xf = xo + RECAL_FACE_X;
+			float xf = xo + RECAL_FACE_X + lift;
 			segQuad(vc, p, light, k, x1, cy + c0 * RI, s0 * RI, x1, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c0 * RI, s0 * RI,
 					0, -cm, -sm);
 		}
-		// the black collar the face rises on (fills the ring under a primed face)
+		// v0.17.2 (user, with the show's line art: "add in the missing parts of the watch face and dial"): the four notches cut
+		// across the bezel's top ring on the diagonals, as the show's bezel is four grey panels
+		for (int i = 0; i < 4; i++) {
+			double an = Math.PI / 4 + i * Math.PI / 2;
+			float c = (float) Math.cos(an), sn = (float) Math.sin(an), w = 0.07f;
+			float px = -sn * w, pz = c * w;
+			segQuad(vc, p, lit, k, x1 + 0.006f, cy + c * RI + px, sn * RI + pz, x1 + 0.006f, cy + c * RI - px, sn * RI - pz, x1 + 0.006f,
+					cy + c * (RT + 0.02f) - px, sn * (RT + 0.02f) - pz, x1 + 0.006f, cy + c * (RT + 0.02f) + px, sn * (RT + 0.02f) + pz, 1, 0, 0);
+		}
+		// the black stem the dial stands on while it is popped up
+		if (lift > 0.02f) {
+			cylinder(pose, vc, xo - 0.02f, x0 + 0.02f, cy, 0f, RB - 0.18f, BLACK, light, 24);
+		}
+		// the black collar the face sits in
 		float top = recalFaceTop(L, lift);
 		cylinder(pose, vc, xo, top, cy, 0f, RI - 0.02f, BLACK, light, 24);
 		if (face) {
 			float fx = (top + 0.01f) * S;
 			float u0 = 64 * T, v0 = screen ? 0 : 64 * T, u1 = 1f, v1 = screen ? 64 * T : 1f;
+			// a black ring left round the hourglass, inside the grey bezel (the show's face)
 			float fr = RECAL_FACE_R;
 			float a = (cy - fr) * S, b = (cy + fr) * S, zp = fr * S;
 			quad(vc, pose.last(), lit, fx, a, zp, fx, b, zp, fx, b, -zp, fx, a, -zp, 1, 0, 0, u0, v0, u1, v1);

@@ -256,7 +256,7 @@ public final class OmnitrixWatch {
 		ResourceLocation morphTex = recal ? (red ? MORPH_RECAL_RED : MORPH_RECAL) : red ? MORPH_RED : MORPH;
 		// the core: pops up for the selection screen, slammed down by the slap
 		float slap = OmnitrixHands.slapClock(p, s, partial);
-		float lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated face rises inside its ring
+		float lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated dial pops up a little less
 		lift = OmnitrixHands.slapLift(lift, slap); // slammed in as the right palm lands
 		float[] sp = s.transformed() ? new float[] { 0f, 1f } : spin(p, s, partial);
 		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
