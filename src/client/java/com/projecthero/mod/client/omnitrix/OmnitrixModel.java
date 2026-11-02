@@ -316,12 +316,25 @@ public final class OmnitrixModel {
 	 * buffer on the circuit strip ({@code circuit.png}: u round the side, v from the bezel down to the cuff), drawn full-bright.
 	 */
 	public static void riser(PoseStack pose, VertexConsumer vc, float L, float lift) {
+		riser(pose, vc, cuffTop(L) - 0.04f, cuffTop(L) - 0.04f + lift + 0.02f, RISER_R, lift);
+	}
+
+	/**
+	 * v0.17.2 (user: "Add the Omnitrix details to the cylinder part of the raised watch aswell please same as how it is for the
+	 * prototype"): the Recalibrated Omnitrix's popped-up dial stands on the same circuit riser -- from the band up to the bezel's
+	 * foot, just inside it.
+	 */
+	public static void recalRiser(PoseStack pose, VertexConsumer vc, float L, float lift) {
+		float xo = L + GAP + RECAL_WALL;
+		riser(pose, vc, xo - 0.02f, xo - 0.04f + lift + 0.02f, RB - 0.16f, lift);
+	}
+
+	private static void riser(PoseStack pose, VertexConsumer vc, float x0, float x1, float r, float lift) {
 		if (lift <= 0.02f) {
 			return;
 		}
 		PoseStack.Pose p = pose.last();
-		float x0 = cuffTop(L) - 0.04f, x1 = cuffTop(L) - 0.04f + lift + 0.02f;
-		float cy = CY, r = RISER_R;
+		float cy = CY;
 		int seg = 32;
 		// the strip (128 x 16) covers a quarter of the round (four repeats); v spans the revealed height, rising with it
 		float vTop = 0f, vBot = 1f;

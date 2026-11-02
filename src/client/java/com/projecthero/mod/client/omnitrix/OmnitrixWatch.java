@@ -266,6 +266,9 @@ public final class OmnitrixWatch {
 		// the circuit riser the whole dial stands on while it is up
 		if (lift > 0.02f && !recal) {
 			OmnitrixModel.riser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(red ? CIRCUIT_RED : CIRCUIT)), L, lift);
+		} else if (lift > 0.02f) {
+			// v0.17.2 (user): the recalibrated dial's stem carries the same circuit traces as the prototype's
+			OmnitrixModel.recalRiser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(red ? CIRCUIT_RED : CIRCUIT)), L, lift);
 		}
 		// ---- the face, upright (the ring turns round it): a morph frame, the icon fading in on the last one, the swap crossfade
 		float top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);
