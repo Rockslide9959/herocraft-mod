@@ -23,6 +23,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -90,6 +91,23 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		m.setHealth(health);
 		m.getAttribute(Attributes.ARMOR).setBaseValue(0);
 		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		helper.getLevel().addFreshEntity(m);
+		return m;
+	}
+
+	/**
+	 * v0.17.2 (Ripjaws revamp): a no-AI villager to bite -- not a hostile, so a neighbouring test's 50-block auto-sweep (XLR8's
+	 * Speed Sweep hits every hostile in range for 26) never lands on it and spoils an exact damage count.
+	 */
+	private static net.minecraft.world.entity.npc.Villager prey(GameTestHelper helper, double x, double y, double z, float health) {
+		net.minecraft.world.entity.npc.Villager m = EntityType.VILLAGER.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
+		m.moveTo(at.x, at.y, at.z, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(health);
+		m.setHealth(health);
+		m.getAttribute(Attributes.ARMOR).setBaseValue(0);
 		helper.getLevel().addFreshEntity(m);
 		return m;
 	}
@@ -291,30 +309,24 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, RipjawsKit.ID);
 		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.0, 100f);
+		Villager z = prey(helper, 3.5, 2, 4.0, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		p.setHealth(20f);
 		helper.assertTrue(kit.bite(p), "Bite");
 		near(helper, z.getHealth(), 100f - RipjawsKit.BITE_DAMAGE, "12 damage on land");
 		near(helper, p.getHealth(), 21f, "a bite heals 1");
 		helper.assertFalse(kit.bite(p), "the bite cools down");
+		// v0.17.2 revamp: Shift+G Tail Sweep -- 270 degrees round him, the quarter in front spared
+		Villager behind = prey(helper, 3.5, 2, 0.6, 100f);
 		float b = z.getHealth();
-		helper.assertTrue(kit.tailSlam(p), "Tail Slam");
-		near(helper, z.getHealth(), b - RipjawsKit.SLAM_DAMAGE, "12 damage");
-		helper.assertFalse(kit.tailSlam(p), "the slam cools down");
-		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
-		b = z.getHealth();
-		helper.assertTrue(kit.finSlash(p), "Fin Slash");
-		near(helper, z.getHealth(), b - RipjawsKit.SLASH_DAMAGE, "10 damage");
-		helper.assertFalse(kit.finSlash(p), "the slash cools down");
-		b = z.getHealth();
-		helper.assertTrue(kit.whirlpool(p), "Z on land: Mud Splash");
-		near(helper, z.getHealth(), b - RipjawsKit.MUD_DAMAGE, "3 damage");
-		helper.assertTrue(z.hasEffect(MobEffects.BLINDNESS), "and blinds");
-		helper.assertFalse(kit.whirlpool(p), "it cools down");
-		helper.assertTrue(kit.tidalRoar(p) && z.hasEffect(MobEffects.WEAKNESS) && !kit.tidalRoar(p), "Tidal Roar weakens, then cools down");
+		helper.assertTrue(kit.tailSweep(p), "Tail Sweep");
+		near(helper, z.getHealth(), b, "the zombie straight ahead is spared");
+		near(helper, behind.getHealth(), 100f - RipjawsKit.SWEEP_LAND_DAMAGE, "the one behind takes 10 on land");
+		helper.assertTrue(behind.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and is slowed");
+		helper.assertFalse(kit.tailSweep(p), "the sweep cools down");
+		behind.discard();
 		helper.assertTrue(kit.waterDash(p) && !kit.waterDash(p), "Water Dash, then cools down");
-		helper.assertTrue(kit.breach(p) && !kit.breach(p), "Breach, then cools down");
+		helper.assertTrue(kit.breach(p) && kit.flag(p, RipjawsKit.F_BREACH) && !kit.breach(p), "Breach (X can dive after it), then cools down");
 		helper.assertTrue(kit.feedingFrenzy(p) && kit.flag(p, RipjawsKit.F_FRENZY), "Feeding Frenzy");
 		near(helper, kit.damage(p, 10f), 10f * RipjawsKit.FRENZY_BONUS, "+30% in a frenzy");
 		helper.assertFalse(kit.feedingFrenzy(p), "the frenzy cools down");
@@ -331,6 +343,14 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		n.timers.remove(kit.key(RipjawsKit.DIG));
 		Omnitrix.save(p, n);
 		helper.assertFalse(kit.dig(p, sand), "not through stone");
+		// v0.17.2 Steel Jaws: the jaws bite through iron bars and chains
+		for (var metal : new net.minecraft.world.level.block.Block[] { Blocks.IRON_BARS, Blocks.CHAIN }) {
+			helper.getLevel().setBlock(sand, metal.defaultBlockState(), 3);
+			n = Omnitrix.state(p).copy();
+			n.timers.remove(kit.key(RipjawsKit.DIG));
+			Omnitrix.save(p, n);
+			helper.assertTrue(kit.dig(p, sand) && helper.getLevel().getBlockState(sand).isAir(), "bit through " + metal);
+		}
 		// the lunge: the first creature in the way
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 1.4, 180f, 0f);
 		z.invulnerableTime = 0;
@@ -343,6 +363,218 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED)) < 1.0e-6,
 					"the frenzy's speed is gone");
 			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 Ripjaws revamp: Z on land is Gnash -- five bites in a second at the cone ahead (5 x 4 = 20). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void ripjawsGnashBitesFiveTimesOnLand(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		Villager z = prey(helper, 3.5, 2, 4.0, 100f);
+		Villager side = prey(helper, 0.5, 2, 1.5, 100f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		helper.assertTrue(kit.whirlpool(p), "Z on land: Gnash");
+		near(helper, z.getHealth(), 100f - RipjawsKit.GNASH_DAMAGE, "the first bite lands at once");
+		helper.assertFalse(kit.whirlpool(p), "it cools down");
+		pump(helper, p);
+		helper.runAfterDelay(RipjawsKit.GNASH_EVERY * RipjawsKit.GNASH_BITES + 2, () -> {
+			near(helper, z.getHealth(), 100f - RipjawsKit.GNASH_DAMAGE * RipjawsKit.GNASH_BITES, "five bites, 20 in all");
+			near(helper, side.getHealth(), 100f, "nothing outside the cone");
+			z.discard();
+			side.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 Ripjaws revamp (user: "keep drag under the same"): G on land -- clamped 3 s, thrashed 3 x 4, then flung. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void ripjawsDragUnderThrashesAndFlingsOnLand(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		helper.assertFalse(kit.dragUnder(p), "nothing to bite: no Drag Under (and no cooldown)");
+		Villager z = prey(helper, 3.5, 2, 4.5, 100f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		helper.assertTrue(kit.dragUnder(p), "Drag Under clamps on");
+		helper.assertTrue(RipjawsKit.dragTarget(p) == z.getId() && kit.flag(p, RipjawsKit.F_DRAG), "the zombie is in his jaws");
+		helper.assertTrue(Omnitrix.state(p).animId == RipjawsKit.ANIM_THRASH, "on land he thrashes it");
+		helper.assertFalse(kit.dragUnder(p), "it cools down");
+		z.setNoAi(false); // (a no-AI mob ignores velocity: let the throw move it)
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(z.distanceTo(p) < 2.5, "held in front of his face (" + z.distanceTo(p) + ")");
+			helper.runAfterDelay(RipjawsKit.DRAG_TICKS - 30 + 1, () -> {
+				near(helper, z.getHealth(), 100f - RipjawsKit.DRAG_THRASH_DAMAGE * 3, "three thrashes of 4");
+				helper.assertTrue(RipjawsKit.dragTarget(p) == -1 && !kit.flag(p, RipjawsKit.F_DRAG), "let go after 3 s");
+				helper.assertTrue(Omnitrix.state(p).animId == RipjawsKit.ANIM_FLING, "and flung it");
+				Vec3 from = z.position();
+				helper.runAfterDelay(6, () -> {
+					helper.assertTrue(z.position().distanceTo(from) > 1.5, "the zombie flies off (" + z.position().distanceTo(from) + ")");
+					z.discard();
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	/** v0.17.2: Drag Under lets go cleanly when the catch dies or he turns back; a boss is only held 1 s and never moved. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ripjawsDragUnderReleasesCleanly(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		Villager z = prey(helper, 3.5, 2, 4.5, 100f);
+		helper.assertTrue(kit.dragUnder(p), "Drag Under");
+		z.kill();
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			helper.assertTrue(RipjawsKit.dragTarget(p) == -1 && !kit.flag(p, RipjawsKit.F_DRAG), "the catch died: let go");
+			// a boss: held a second where it stands
+			Villager boss = prey(helper, 3.5, 2, 4.5, 200f);
+			var n = Omnitrix.state(p).copy();
+			n.timers.remove(kit.key(RipjawsKit.DRAG));
+			Omnitrix.save(p, n);
+			Vec3 at = boss.position();
+			helper.assertTrue(kit.dragUnder(p), "Drag Under on a boss");
+			helper.runAfterDelay(RipjawsKit.DRAG_BOSS_TICKS + 2, () -> {
+				helper.assertTrue(RipjawsKit.dragTarget(p) == -1, "a boss slips free after 1 s");
+				helper.assertTrue(boss.position().distanceTo(at) < 0.5, "and was never towed");
+				// turning back mid-drag lets go
+				var n2 = Omnitrix.state(p).copy();
+				n2.timers.remove(kit.key(RipjawsKit.DRAG));
+				Omnitrix.save(p, n2);
+				helper.assertTrue(kit.dragUnder(p), "Drag Under again");
+				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+				helper.assertTrue(RipjawsKit.dragTarget(p) == -1, "turning back lets go");
+				boss.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	/**
+	 * v0.17.2 Ripjaws revamp (user: "Drop tidal roar"): Shift+Z Megamouth -- 0.75 s of gaping, then a 4-block chomp that ignores
+	 * all armour (30), heals a quarter of the damage dealt (max 8), and every kill gives back 30 s of hydration.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void ripjawsMegamouthChompsThroughArmour(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		Villager z = prey(helper, 3.5, 2, 4.0, 100f);
+		z.getAttribute(Attributes.ARMOR).setBaseValue(10);
+		Villager weak = prey(helper, 4.2, 2, 3.6, 20f);
+		Villager behind = prey(helper, 3.5, 2, 0.6, 100f);
+		p.setHealth(10f);
+		kit.setDryness(p, 1200, false, false);
+		helper.assertTrue(kit.megamouth(p), "Megamouth");
+		near(helper, z.getHealth(), 100f, "nothing yet: the jaw is still unhinging");
+		helper.assertFalse(kit.megamouth(p), "it cools down");
+		pump(helper, p);
+		// (the health just before the chomp: the gametests run side by side, and a neighbour's area move now and then reaches in)
+		float[] before = new float[3];
+		boolean[] weakAlive = new boolean[1];
+		helper.runAfterDelay(RipjawsKit.MEGA_WINDUP - 3, () -> {
+			before[0] = z.getHealth();
+			before[1] = behind.getHealth();
+			before[2] = p.getHealth();
+			weakAlive[0] = weak.isAlive();
+		});
+		helper.runAfterDelay(RipjawsKit.MEGA_WINDUP + 2, () -> {
+			near(helper, z.getHealth(), before[0] - RipjawsKit.MEGA_DAMAGE, "30 through 10 armour");
+			helper.assertFalse(weak.isAlive(), "the weak one is swallowed");
+			near(helper, behind.getHealth(), before[1], "nothing behind him");
+			float dealt = RipjawsKit.MEGA_DAMAGE + (weakAlive[0] ? 20f : 0f);
+			near(helper, p.getHealth(), before[2] + Math.min(RipjawsKit.MEGA_HEAL_MAX, dealt * RipjawsKit.MEGA_HEAL_SHARE),
+					"healed a quarter of the damage dealt, capped at 8");
+			if (weakAlive[0]) {
+				helper.assertTrue(RipjawsKit.dryness(p, helper.getLevel().getGameTime()) < 1200 - RipjawsKit.MEGA_KILL_REFILL + 60,
+						"the kill gave back 30 s of hydration (" + RipjawsKit.dryness(p, helper.getLevel().getGameTime()) + ")");
+			}
+			z.discard();
+			behind.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 Steel Jaws: R ignores half the armour and wears what the target has on. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 30)
+	public void ripjawsSteelJawsBiteThroughArmour(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		Villager z = prey(helper, 3.5, 2, 4.0, 100f);
+		ItemStack plate = new ItemStack(Items.IRON_CHESTPLATE);
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, plate);
+		// (the chestplate's armour reaches the attribute on the zombie's next tick)
+		helper.runAfterDelay(2, () -> {
+			float armour = z.getArmorValue();
+			helper.assertTrue(armour >= 6f, "an iron chestplate on (" + armour + ")");
+			float full = net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(z, RipjawsKit.BITE_DAMAGE,
+					helper.getLevel().damageSources().generic(), armour, 0f);
+			helper.assertTrue(kit.bite(p), "Bite");
+			float lost = 100f - z.getHealth();
+			helper.assertTrue(lost > full + 0.1f && lost <= RipjawsKit.BITE_DAMAGE + 0.01f, "half the armour ignored (" + lost + " vs " + full + " through all of it)");
+			helper.assertTrue(z.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getDamageValue() >= RipjawsKit.STEEL_JAWS_WEAR,
+					"the chestplate lost 8 durability");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 Ripjaws revamp: Shift+X Breach, then X looking down in the air = the Dive Strike (14 where he lands). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void ripjawsBreachThenDiveStrike(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		Villager z = prey(helper, 3.5, 2, 4.0, 100f);
+		p.setOnGround(false);
+		p.moveTo(p.getX(), p.getY() + 3, p.getZ(), 0f, 60f);
+		helper.assertFalse(kit.canDive(p), "no dive without a Breach first");
+		helper.assertTrue(kit.breach(p), "Breach");
+		p.setOnGround(false);
+		p.moveTo(z.getX(), z.getY() + 3, z.getZ() - 1.2, 0f, 60f);
+		helper.assertTrue(kit.canDive(p), "airborne after a Breach, looking down: X dives");
+		kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3, false);
+		helper.assertTrue(kit.flag(p, RipjawsKit.F_DIVING) && !kit.flag(p, RipjawsKit.F_BREACH), "the Dive Strike plunges (once per Breach)");
+		helper.assertTrue(kit.cooldownLeft(p, RipjawsKit.DASH) == 0, "X dived instead of dashing");
+		p.moveTo(z.getX(), z.getY(), z.getZ() - 1.2, 0f, 60f);
+		p.setOnGround(true);
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			helper.assertFalse(kit.flag(p, RipjawsKit.F_DIVING), "landed");
+			near(helper, z.getHealth(), 100f - RipjawsKit.DIVE_DAMAGE, "the jaws-first impact bites for 14");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 Ripjaws revamp: heat dries him faster -- the rates, and burning adds 10 s of dryness a second. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void ripjawsHeatAndFireDryHimFaster(GameTestHelper helper) {
+		floor(helper);
+		near(helper, RipjawsKit.dryRate(0), 1f, "dry land: 1");
+		near(helper, RipjawsKit.dryRate(RipjawsKit.F_HOT), 1.5f, "a hot biome: x1.5");
+		near(helper, RipjawsKit.dryRate(RipjawsKit.F_NETHER | RipjawsKit.F_HOT), 3f, "the Nether: x3");
+		near(helper, RipjawsKit.dryRate(RipjawsKit.F_HOT | RipjawsKit.F_LURE), 1.875f, "the lure: another x1.25");
+		near(helper, RipjawsKit.dryRate(RipjawsKit.F_WET | RipjawsKit.F_NETHER), -RipjawsKit.REFILL_WATER, "water always refills");
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		kit.setDryness(p, 100, false, false);
+		p.setRemainingFireTicks(200);
+		pump(helper, p);
+		helper.runAfterDelay(22, () -> {
+			int d = RipjawsKit.dryness(p, helper.getLevel().getGameTime());
+			helper.assertTrue(d >= 100 + RipjawsKit.FIRE_DRY, "burning dried him 10 s at once (" + d + ")");
+			p.clearFire();
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 			helper.succeed();
 		});
 	}

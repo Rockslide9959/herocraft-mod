@@ -15,6 +15,7 @@
 		"OmnitrixPlayerRendererMixin",
 		"OmnitrixPoseMixin",
 		"OmnitrixGlowMixin",
+		"RipjawsScentColorMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",
