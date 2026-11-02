@@ -297,6 +297,65 @@ public final class HeatblastClient implements AlienClientKit {
 		return 0xFF000000 | c << 16 | c << 8 | c;
 	}
 
+	/**
+	 * His head fire -- v0.17.2 (user: "make the flames on heatblats head look slightly better please, they dont properly match up on
+	 * his head 100%"): his own blaze instead of Ghost Rider's skull fire (whose tongues hung down the sides of the face and stood out
+	 * past it). Four sheets of flame rise flush off the four top edges of his head (the hat layer's), leaning in as they climb, and
+	 * a taller crossed pair blazes up out of the middle; each flickers on its own beat. Head space: the cube spans x / z -0.25..0.25,
+	 * y -0.5 (top) .. 0; -y is up.
+	 */
+	private static void headFire(PoseStack pose, MultiBufferSource buffers, ModelPart head, float strength, float age) {
+		net.minecraft.client.renderer.texture.TextureAtlasSprite fire0 = net.minecraft.client.resources.model.ModelBakery.FIRE_0.sprite();
+		net.minecraft.client.renderer.texture.TextureAtlasSprite fire1 = net.minecraft.client.resources.model.ModelBakery.FIRE_1.sprite();
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS));
+		pose.pushPose();
+		head.translateAndRotate(pose);
+		PoseStack.Pose last = pose.last();
+		float s = Mth.clamp(strength, 0f, 1.8f);
+		float e = 0.27f; // the hat layer's edge
+		float base = -0.5f - 0.02f; // just above the top of the head
+		// the four edge sheets: flush along an edge at the base, drawn in and up toward the middle at the top
+		for (int side = 0; side < 4; side++) {
+			float flick = 0.85f + 0.15f * Mth.sin(age * 0.6f + side * 1.9f);
+			float h = (0.42f + 0.06f * (side % 2)) * flick * s;
+			float in = 0.09f + 0.02f * Mth.sin(age * 0.4f + side);
+			float top = base - h;
+			float tw = e * 0.7f;
+			// corners in head space, rotated per side: the edge at z = -e (front), its top drawn in toward the middle
+			float[][] q = { { -e, base, -e }, { e, base, -e }, { tw, top, -e + in }, { -tw, top, -e + in } };
+			float[][] r = new float[4][3];
+			for (int k = 0; k < 4; k++) {
+				float x = q[k][0], z = q[k][2];
+				switch (side) {
+					case 0 -> { r[k][0] = x; r[k][2] = z; }
+					case 1 -> { r[k][0] = -z; r[k][2] = x; }
+					case 2 -> { r[k][0] = -x; r[k][2] = -z; }
+					default -> { r[k][0] = z; r[k][2] = -x; }
+				}
+				r[k][1] = q[k][1];
+			}
+			fireQuad(vc, last, (side & 1) == 0 ? fire0 : fire1, r);
+		}
+		// the core: a taller crossed pair straight up out of the middle, swaying
+		float sway = 0.04f * Mth.sin(age * 0.25f);
+		float core = (0.7f + 0.1f * Mth.sin(age * 0.7f)) * s;
+		float w = e * 0.85f;
+		float top = base - core;
+		fireQuad(vc, last, fire0, new float[][] { { -w, base, 0 }, { w, base, 0 }, { w * 0.6f + sway, top, sway }, { -w * 0.6f + sway, top, sway } });
+		fireQuad(vc, last, fire1, new float[][] { { 0, base, -w }, { 0, base, w }, { sway, top, w * 0.6f + sway }, { sway, top, -w * 0.6f + sway } });
+		pose.popPose();
+	}
+
+	/** One fire quad: corners 0-1 the base (the sprite's bottom edge), 2-3 the top. Full bright, double-sided. */
+	private static void fireQuad(VertexConsumer vc, PoseStack.Pose last, net.minecraft.client.renderer.texture.TextureAtlasSprite sp, float[][] c) {
+		float u0 = sp.getU0(), u1 = sp.getU1(), v0 = sp.getV0(), v1 = sp.getV1();
+		float[][] uv = { { u0, v1 }, { u1, v1 }, { u1, v0 }, { u0, v0 } };
+		for (int k = 0; k < 4; k++) {
+			vc.addVertex(last.pose(), c[k][0], c[k][1], c[k][2]).setColor(255, 255, 255, 255).setUv(uv[k][0], uv[k][1]).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight(LightTexture.FULL_BRIGHT).setNormal(last, 0f, -1f, 0f);
+		}
+	}
+
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
@@ -318,7 +377,7 @@ public final class HeatblastClient implements AlienClientKit {
 		boolean big = anim == HeatblastKit.ANIM_SUPERNOVA || anim == HeatblastKit.ANIM_CHARGE || anim == HeatblastKit.ANIM_TORNADO
 				|| anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f || (st.kitFlags & HeatblastKit.F_RIDE_CHARGE) != 0;
 		float relit = anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f ? 1f + 0.8f * (1f - ticks / 14f) : 1f;
-		GhostRiderRender.renderSkullFire(pose, buffers, model.head, big ? 1.4f * relit : 1f, age);
+		headFire(pose, buffers, model.head, big ? 1.4f * relit : 1f, age);
 		if (anim == HeatblastKit.ANIM_REIGNITE && ticks < 10f) {
 			// the flames burst back over his whole body
 			PyrokinesisClient.bodyFire(pose, buffers, age, 1.2f * (1f - ticks / 10f) + 0.2f);
@@ -950,8 +1009,9 @@ public final class HeatblastClient implements AlienClientKit {
 			return;
 		}
 		// flames off the head, embers drifting from the body
-		if (r.nextInt(2) == 0) {
-			level.addParticle(ParticleTypes.FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.35, top - 0.05, p.getZ() + (r.nextDouble() - 0.5) * 0.35, 0, 0.04, 0);
+		if (r.nextInt(5) == 0) {
+			// (the odd spark above the head fire; the blaze itself is the model's)
+			level.addParticle(ParticleTypes.FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.15, top + 0.4, p.getZ() + (r.nextDouble() - 0.5) * 0.15, 0, 0.04, 0);
 		}
 		if (r.nextInt(5) == 0) {
 			level.addParticle(ParticleTypes.SMALL_FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.6, p.getY() + r.nextDouble() * p.getBbHeight(),
