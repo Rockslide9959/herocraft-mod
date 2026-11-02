@@ -1,6 +1,8 @@
 # Omnitrix revamp proposal: Ripjaws
 
-Status: **PROPOSAL, awaiting approval.** No code written. Same format as the Heatblast / Diamondhead / Four Arms / Wildmutt /
+Status: **APPROVED and BUILT (v0.17.2).** User's answers: R1 "Drop tidal roar" (Megamouth replaces it), R2 "Do lure light i
+suppose" (Shift+V Lure Light), R3 "Draw jaws as an effect" (rendered toothed jaw arcs; a 4-block version for Megamouth), R4
+"keep drag under the same" (3 s, players too). Same format as the Heatblast / Diamondhead / Four Arms / Wildmutt /
 Ghostfreak revamps: R G Z X C V, each with a tap and a Shift variant; X = movement, V = utility/mode, the rest attacks; Z / Shift+Z
 the big moves. No H or N moves. Effects are posed models and rendered shapes (jaw arcs, rings, model parts), with few particles.
 

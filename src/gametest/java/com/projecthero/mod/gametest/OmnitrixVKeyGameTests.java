@@ -431,6 +431,43 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * v0.17.2 Ripjaws revamp (user: "Do lure light i suppose"): Shift+V Lure Light -- a toggle: night vision, hostiles that see it
+	 * come for him, a quarter faster drying on land; off again it starts a 3 s cooldown and leaves no night vision behind.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ripjawsShiftVLureLightTogglesAndTaunts(GameTestHelper helper) {
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 6.0);
+		// (sturdy enough to outlive a neighbouring test's XLR8 Speed Sweep, which hits every hostile within 50 blocks for 26)
+		z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100);
+		z.setHealth(100f);
+		kit.setDryness(p, 600, false, false);
+		tapV(p, true);
+		helper.assertTrue(kit.flag(p, RipjawsKit.F_LURE), "Shift+V: the Lure Light is on");
+		helper.assertTrue(kit.keyActive(p, AbilitySlot.SLOT_5), "and the V box lights");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION), "he sees in the dark");
+		helper.assertFalse(kit.flag(p, RipjawsKit.F_BUBBLE), "Shift+V is not the bubble");
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			int d0 = RipjawsKit.dryness(p, helper.getLevel().getGameTime());
+			helper.runAfterDelay(40, () -> {
+				int d1 = RipjawsKit.dryness(p, helper.getLevel().getGameTime());
+				helper.assertTrue(d1 - d0 >= 48, "he dries a quarter faster under the lure (" + (d1 - d0) + " in 40 ticks)");
+				helper.assertTrue(z.getTarget() == p, "the zombie that sees the light comes for him");
+				tapV(p, true);
+				helper.assertFalse(kit.flag(p, RipjawsKit.F_LURE), "Shift+V again: off");
+				helper.assertFalse(p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION), "no night vision left behind");
+				tapV(p, true);
+				helper.assertFalse(kit.flag(p, RipjawsKit.F_LURE), "3 s cooldown after switching off");
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				z.discard();
+				helper.succeed();
+			});
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void greyMatterVPocketWorkshop(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GreyMatterKit.ID);

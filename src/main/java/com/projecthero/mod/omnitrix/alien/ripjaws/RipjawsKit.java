@@ -8,19 +8,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixDamage;
 import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
 import com.projecthero.mod.omnitrix.alien.AlienStats;
+import com.projecthero.mod.omnitrix.alien.AlienStatus;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
+import com.projecthero.mod.quirk.QuirkThreat;
 import com.projecthero.mod.quirk.fx.QuirkCamera;
 import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -33,17 +35,26 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.entity.animal.axolotl.Axolotl;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -54,18 +65,28 @@ import net.minecraft.world.phys.Vec3;
  * then he chokes for 1 health every 2 s (slowed, weakened) until he gets wet again. Water refills the meter in 15 s; rain stops
  * the drying and refills it slowly; Drench (Shift+C) splashes half of it back.
  *
+ * <p>v0.17.2 revamp (docs/OMNITRIX_REVAMP_RIPJAWS.md; user: "Drop tidal roar", "Do lure light i suppose", "Draw jaws as an
+ * effect", "keep drag under the same"): the JAWS are the centre of the kit -- Steel Jaws bites through armour, Drag Under clamps
+ * and drowns, Gnash chews on land and Megamouth is one colossal chomp. The jaws are a rendered effect (toothed arcs that snap shut,
+ * {@code RipjawsClient}), not a model part.
+ *
  * <pre>
- *   R        Bite           a huge chomp (12; heals 1)                        Shift+R  Jaw Lunge       lunge jaws-first: the first creature in the way (16)
- *   G        Tail Slam      a ring of force around you (12, knockback)        Shift+G  Fin Slash       a spin of razor fins (10, slows)
- *   X        Water Dash     a burst through the water / on land a hop         Shift+X  Breach          leap out of the water / on land a back-flip
- *   Z        Whirlpool      in water: a 5 s vortex that drags and drowns      Shift+Z  Tidal Roar      ULTIMATE: 24 around you; weakens, slows, shoves
- *                           (2 a pulse, 20 in all)
- *            Mud Splash     on land: a blinding spray of mud ahead
- *   V        Water Bubble   30 s of a water bubble round his head: no drying out on land (it slowly refills)
- *   C        Feeding Frenzy 10 s: +30% damage, faster, bites heal 3          Shift+C  Drench          splash yourself: half the hydration back
- *   Attack   jaw punch (+3 in water)        Use on a block   dig straight through sand, gravel, dirt, clay, mud and snow
+ *   R        Bite           a huge chomp (12; heals 1; Steel Jaws:          Shift+R  Jaw Lunge       lunge jaws-first: the first creature in the way (16)
+ *                           half its armour ignored, 8 off its armour)
+ *   G        Drag Under     clamp on for 3 s: in water towed and drowned    Shift+G  Tail Sweep      a 270-degree tail sweep (12 shove wave in water /
+ *                           (3 a second), on land thrashed (3 x 4) and                               10, knockback and slow on land)
+ *                           flung; a boss 1 s, not towed
+ *   X        Water Dash     a burst through the water / on land a hop       Shift+X  Breach          leap out of the water / on land a back-flip; looking
+ *                                                                                                     down in the air, X again = Dive Strike (14)
+ *   Z        Whirlpool      in water: a 5 s vortex that drags and drowns    Shift+Z  Megamouth       ULTIMATE: a 0.75 s gape, then a 4-block chomp (30,
+ *            Gnash          on land: 5 bites in 1 s in a cone (5 x 4)                                no armour; heals a quarter, max 8; kills refill 30 s)
+ *   V        Water Bubble   30 s: dry land counts as rain                   Shift+V  Lure Light      toggle: night vision, fish come, hostiles target you
+ *   C        Feeding Frenzy 10 s: +30% damage, faster, bites heal 3,        Shift+C  Drench          splash yourself: half the hydration back
+ *                           the wounded outlined red (Blood Scent)
+ *   Attack   jaw punch (+3 in water)        Use on a block   dig through sand, gravel, dirt...; bite through iron bars, chains, iron doors
  * </pre>
- * Every move does x1.25 in water (v0.17.2: was x1.5).
+ * Every move does x1.25 in water (v0.17.2: was x1.5). Hot biomes dry him 1.5x as fast, the Nether 3x, the Lure Light another
+ * quarter; burning adds 10 s of dryness a second.
  */
 public final class RipjawsKit extends AlienKit {
 	public static final String ID = "ripjaws";
@@ -104,33 +125,60 @@ public final class RipjawsKit extends AlienKit {
 
 	public static final int ANIM_BITE = 1;
 	public static final int ANIM_LUNGE = 2;
-	public static final int ANIM_SLAM = 3;
-	public static final int ANIM_SLASH = 4;
+	/** v0.17.2: G in water -- clamped on, towing it (was Tail Slam's id). */
+	public static final int ANIM_DRAG = 3;
+	/** v0.17.2: Shift+G Tail Sweep (was Fin Slash's id). */
+	public static final int ANIM_SWEEP = 4;
 	public static final int ANIM_DASH = 5;
 	public static final int ANIM_BREACH = 6;
 	public static final int ANIM_WHIRL = 7;
-	public static final int ANIM_MUD = 8;
-	public static final int ANIM_ROAR = 9;
+	/** v0.17.2: Z on land -- Gnash (was Mud Splash's id). */
+	public static final int ANIM_GNASH = 8;
+	/** v0.17.2: Shift+Z Megamouth -- the gape then the chomp (was Tidal Roar's id). */
+	public static final int ANIM_MEGA = 9;
 	public static final int ANIM_FRENZY = 10;
 	public static final int ANIM_DRENCH = 11;
 	public static final int ANIM_PUNCH = 12;
 	public static final int ANIM_DIG = 13;
 	public static final int ANIM_GASP = 14;
+	/** v0.17.2: G on land -- clamped on, thrashing it side to side. */
+	public static final int ANIM_THRASH = 16;
+	/** v0.17.2: the end of a land Drag Under -- the throw. */
+	public static final int ANIM_FLING = 17;
+	/** v0.17.2: the Dive Strike's plunge, jaws open. */
+	public static final int ANIM_DIVE = 18;
+	/** v0.17.2: the Dive Strike's impact, jaws snapping shut. */
+	public static final int ANIM_DIVE_HIT = 19;
+	/** v0.17.2: Shift+V -- the lure sprouts. */
+	public static final int ANIM_LURE = 20;
 
 	public static final int F_WET = 1;
 	public static final int F_RAIN = 2;
 	public static final int F_FRENZY = 4;
 	public static final int F_WARNED = 8;
 	public static final int F_CHOKING = 16;
+	// (F_BUBBLE = 32 below, with the V move)
+	/** v0.17.2: a hot biome (desert, badlands, savanna): he dries 1.5x as fast. */
+	public static final int F_HOT = 64;
+	/** v0.17.2: the Nether: he dries 3x as fast. */
+	public static final int F_NETHER = 128;
+	/** v0.17.2: Shift+V Lure Light is on. */
+	public static final int F_LURE = 256;
+	/** v0.17.2: G Drag Under has a creature clamped in his jaws. */
+	public static final int F_DRAG = 512;
+	/** v0.17.2: airborne after a Breach -- X (looking down) is the Dive Strike. */
+	public static final int F_BREACH = 1024;
+	/** v0.17.2: the Dive Strike is plunging. */
+	public static final int F_DIVING = 2048;
 
 	public static final String BITE = "bite";
 	public static final String LUNGE = "jaw_lunge";
-	public static final String TAIL_SLAM = "tail_slam";
-	public static final String FIN_SLASH = "fin_slash";
+	public static final String DRAG = "drag_under";
+	public static final String SWEEP = "tail_sweep";
 	public static final String DASH = "water_dash";
 	public static final String BREACH = "breach";
 	public static final String WHIRLPOOL = "whirlpool";
-	public static final String ROAR_MOVE = "tidal_roar";
+	public static final String MEGAMOUTH = "megamouth";
 	public static final String FRENZY = "feeding_frenzy";
 	public static final String DRENCH = "drench";
 	public static final String PUNCH = "jaw_punch";
@@ -146,20 +194,65 @@ public final class RipjawsKit extends AlienKit {
 	public static final float WATER_BONUS = 1.25f;
 	public static final float FRENZY_BONUS = 1.3f;
 	public static final int FRENZY_TICKS = 200;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7 / 10 / 8 / 6
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7 / 10
 	public static final float BITE_DAMAGE = 12f;
+	public static final float BITE_REACH = 3.5f;
 	public static final float LUNGE_DAMAGE = 16f;
-	public static final float SLAM_DAMAGE = 12f;
-	public static final float SLASH_DAMAGE = 10f;
+	/** v0.17.2 Steel Jaws: the share of a target's armour every bite ignores (Megamouth ignores all of it). */
+	public static final float STEEL_JAWS = 0.5f;
+	/** v0.17.2 Steel Jaws: what R's bite takes off each armour piece the target wears. */
+	public static final int STEEL_JAWS_WEAR = 8;
 	public static final float WHIRL_RADIUS = 6f;
 	public static final int WHIRL_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
 	public static final float WHIRL_DAMAGE = 2f;
-	public static final float MUD_DAMAGE = 3f;
-	/** Shift+Z Tidal Roar, his ultimate. */
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 0 (no damage)
-	public static final float ROAR_DAMAGE = 24f;
 	public static final float WET_FIST = 3f;
+
+	// v0.17.2 revamp (user: "keep drag under the same"): G Drag Under -- reach 4, a 3 s hold (players too), a boss 1 s
+	public static final float DRAG_REACH = 4f;
+	public static final int DRAG_TICKS = 60;
+	public static final int DRAG_BOSS_TICKS = 20;
+	/** In water: a bite every second while towed (3 x 3 = 9), its air drained as it goes. */
+	public static final float DRAG_WATER_DAMAGE = 3f;
+	public static final int DRAG_WATER_EVERY = 20;
+	public static final int DRAG_AIR_DRAIN = 5;
+	/** On land: thrashed side to side three times (3 x 4 = 12), then flung about 6 blocks. */
+	public static final float DRAG_THRASH_DAMAGE = 4f;
+	public static final int DRAG_THRASH_EVERY = 15;
+	public static final double DRAG_FLING = 1.6;
+	// v0.17.2 revamp: Shift+G Tail Sweep (Tail Slam and Fin Slash merged) -- 270 degrees round him, the front quarter spared
+	public static final float SWEEP_RADIUS = 3.5f;
+	public static final float SWEEP_WATER_DAMAGE = 12f;
+	public static final float SWEEP_LAND_DAMAGE = 10f;
+	public static final int SWEEP_SLOW_TICKS = 40;
+	// v0.17.2 revamp: Shift+X's follow-up, the Dive Strike
+	public static final float DIVE_DAMAGE = 14f;
+	public static final float DIVE_RADIUS = 2.5f;
+	/** How far down he must look (degrees of pitch) for X to dive. */
+	public static final float DIVE_PITCH = 35f;
+	public static final int BREACH_WINDOW = 80;
+	// v0.17.2 revamp: Z on land -- Gnash (replaces Mud Splash): 5 bites in 1 s in a short cone
+	public static final float GNASH_DAMAGE = 4f;
+	public static final int GNASH_BITES = 5;
+	public static final int GNASH_EVERY = 4;
+	public static final float GNASH_RANGE = 3.5f;
+	// v0.17.2 revamp (user: "Drop tidal roar"): Shift+Z Megamouth, his ultimate
+	public static final int MEGA_WINDUP = 15;
+	public static final float MEGA_DAMAGE = 30f;
+	public static final float MEGA_RANGE = 4f;
+	public static final float MEGA_PULL = 6f;
+	public static final float MEGA_HEAL_SHARE = 0.25f;
+	public static final float MEGA_HEAL_MAX = 8f;
+	/** Each Megamouth kill: 30 s of hydration back. */
+	public static final int MEGA_KILL_REFILL = 600;
+	// v0.17.2 revamp: Blood Scent / Blood in the Water (client outlines)
+	public static final float SCENT_RANGE = 24f;
+	// v0.17.2 revamp: heat dries him faster
+	public static final float HOT_RATE = 1.5f;
+	public static final float NETHER_RATE = 3f;
+	public static final float LURE_RATE = 1.25f;
+	/** Burning: 10 s of dryness a second. */
+	public static final int FIRE_DRY = 200;
 
 	private static final ResourceLocation SWIM = PowerToggles.id("omnitrix_ripjaws_swim");
 	private static final ResourceLocation DIG_WET = PowerToggles.id("omnitrix_ripjaws_dig");
@@ -169,8 +262,16 @@ public final class RipjawsKit extends AlienKit {
 
 	/** player -> the whirlpool they spun up. */
 	private static final Map<UUID, Whirl> WHIRLS = new ConcurrentHashMap<>();
+	/** v0.17.2: player -> the creature clamped in his jaws (G Drag Under). */
+	private static final Map<UUID, Drag> DRAGS = new ConcurrentHashMap<>();
+	/** v0.17.2: player -> the game tick his kit last ran (the once-a-tick guard in {@link #tick}). */
+	private static final Map<Integer, Long> LAST_TICK = new ConcurrentHashMap<>();
 
 	private record Whirl(ResourceKey<Level> dim, Vec3 at, long until) {
+	}
+
+	/** v0.17.2: a Drag Under -- who, since when, towed in water or thrashed on land, a boss (1 s, never moved). */
+	private record Drag(ResourceKey<Level> dim, int target, long start, boolean water, boolean boss) {
 	}
 
 	private RipjawsKit() {
@@ -182,6 +283,8 @@ public final class RipjawsKit extends AlienKit {
 
 	public static void clearSessionState() {
 		WHIRLS.clear();
+		DRAGS.clear();
+		LAST_TICK.clear();
 	}
 
 	@Override
@@ -198,14 +301,14 @@ public final class RipjawsKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(BITE, AbilitySlot.SLOT_1, 14), AlienMove.shift(LUNGE, AbilitySlot.SLOT_1, 70),
-				AlienMove.tap(TAIL_SLAM, AbilitySlot.SLOT_2, 90), AlienMove.shift(FIN_SLASH, AbilitySlot.SLOT_2, 120),
+				// v0.17.2 revamp: G Drag Under (was Tail Slam), Shift+G Tail Sweep (Tail Slam + Fin Slash)
+				AlienMove.tap(DRAG, AbilitySlot.SLOT_2, 200), AlienMove.shift(SWEEP, AbilitySlot.SLOT_2, 120),
 				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 30), AlienMove.shift(BREACH, AbilitySlot.SLOT_3, 100),
-				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Tidal Roar is his
-				// ultimate now -- was a 300-tick cooldown
-				AlienMove.tap(WHIRLPOOL, AbilitySlot.SLOT_4, 320), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_4, 600),
-				AlienMove.tap(BUBBLE, AbilitySlot.SLOT_5, 1200),
+				// v0.17.2 (user: "Drop tidal roar"): Megamouth is the ultimate now
+				AlienMove.tap(WHIRLPOOL, AbilitySlot.SLOT_4, 320), AlienMove.shift(MEGAMOUTH, AbilitySlot.SLOT_4, 600),
+				AlienMove.tap(BUBBLE, AbilitySlot.SLOT_5, 1200), AlienMove.shift(LURE, AbilitySlot.SLOT_5, LURE_COOLDOWN),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(DRENCH, AbilitySlot.SLOT_6, 900),
-				AlienMove.vanilla(PUNCH, "Attack", 0), AlienMove.vanilla(DIG, "Use on sand / gravel / dirt", 3));
+				AlienMove.vanilla(PUNCH, "Attack", 0), AlienMove.vanilla(DIG, "Use on sand / gravel / dirt / iron bars", 3));
 	}
 
 	// ---------------------------------------------------------------- wet and dry
@@ -224,9 +327,37 @@ public final class RipjawsKit extends AlienKit {
 		return l.isRainingAt(p.blockPosition()) || l.isRainingAt(BlockPos.containing(p.getEyePosition()).above());
 	}
 
+	/** v0.17.2: a hot biome (desert, badlands, savanna...: base temperature 1.5+), outside the Nether. */
+	public static boolean inHeat(Player p) {
+		return p.level().getBiome(p.blockPosition()).value().getBaseTemperature() >= 1.5f;
+	}
+
+	/**
+	 * v0.17.2: how fast the meter moves per tick for these synced flags -- water refills it (-8), rain slowly (-2); dry land
+	 * drains it at 1, x1.5 in a hot biome or x3 in the Nether, and another x1.25 under the Lure Light.
+	 */
+	public static float dryRate(int flags) {
+		if ((flags & F_WET) != 0) {
+			return -REFILL_WATER;
+		}
+		if ((flags & F_RAIN) != 0) {
+			return -REFILL_RAIN;
+		}
+		float r = 1f;
+		if ((flags & F_NETHER) != 0) {
+			r *= NETHER_RATE;
+		} else if ((flags & F_HOT) != 0) {
+			r *= HOT_RATE;
+		}
+		if ((flags & F_LURE) != 0) {
+			r *= LURE_RATE;
+		}
+		return r;
+	}
+
 	/**
 	 * How long he has been dry, in ticks (0 = soaked, {@link #MAX_DRY} = choking). Lives in the synced state as the value at the
-	 * last wet / dry change plus the rate since, so the HUD reads it without a packet every tick.
+	 * last rate change plus the rate since, so the HUD reads it without a packet every tick.
 	 */
 	public static int dryness(Player p, long now) {
 		OmnitrixState s = Omnitrix.state(p);
@@ -235,8 +366,7 @@ public final class RipjawsKit extends AlienKit {
 		if (base <= 0 || since <= 0) {
 			return 0;
 		}
-		int rate = (s.kitFlags & F_WET) != 0 ? -REFILL_WATER : (s.kitFlags & F_RAIN) != 0 ? -REFILL_RAIN : 1;
-		long v = (base - 1) + rate * Math.max(0, now - since);
+		double v = (base - 1) + Math.floor(dryRate(s.kitFlags) * Math.max(0, now - since));
 		return (int) Math.max(0, Math.min(MAX_DRY, v));
 	}
 
@@ -245,7 +375,7 @@ public final class RipjawsKit extends AlienKit {
 		return 1f - dryness(p, now) / (float) MAX_DRY;
 	}
 
-	/** Sets the dryness (tests, Drench) and the wet / rain flags as they are now. */
+	/** Sets the dryness (tests, Drench) and the wet / rain flags as they are now (the heat / lure flags are kept). */
 	public void setDryness(ServerPlayer p, int ticks, boolean wet, boolean rain) {
 		long now = p.level().getGameTime();
 		OmnitrixState n = Omnitrix.state(p).copy();
@@ -258,6 +388,20 @@ public final class RipjawsKit extends AlienKit {
 		if (ticks < MAX_DRY) {
 			n.kitFlags &= ~F_CHOKING;
 		}
+		Omnitrix.save(p, n);
+	}
+
+	/** v0.17.2: flips a flag that changes the drying rate (heat, the lure), folding the time so far into the stored value first. */
+	private void setRateFlag(ServerPlayer p, int bit, boolean on) {
+		if (flag(p, bit) == on) {
+			return;
+		}
+		long now = p.level().getGameTime();
+		int d = dryness(p, now);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.timers.put(key("dry_base"), d + 1L);
+		n.timers.put(key("dry_since"), Math.max(1L, now));
+		n.kitFlags = on ? n.kitFlags | bit : n.kitFlags & ~bit;
 		Omnitrix.save(p, n);
 	}
 
@@ -281,6 +425,27 @@ public final class RipjawsKit extends AlienKit {
 		return d;
 	}
 
+	/**
+	 * v0.17.2 Steel Jaws: {@code amount} raised so that, after {@code t}'s armour, it lands as if {@code share} of that armour
+	 * (and toughness) were not there -- 0.5 for every bite, 1 for Megamouth. Unarmoured targets take {@code amount} as is.
+	 */
+	public static float pierce(ServerPlayer p, LivingEntity t, float amount, float share) {
+		float armour = t.getArmorValue();
+		if (armour <= 0f || share <= 0f) {
+			return amount;
+		}
+		float tough = (float) t.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
+		DamageSource src = OmnitrixDamage.alienStrike(p);
+		float full = CombatRules.getDamageAfterAbsorb(t, amount, src, armour, tough);
+		float part = share >= 1f ? amount : CombatRules.getDamageAfterAbsorb(t, amount, src, armour * (1f - share), tough * (1f - share));
+		return full <= 0.01f ? amount : amount * part / full;
+	}
+
+	/** v0.17.2: a bite -- the move's damage now (water, frenzy) through Steel Jaws. */
+	private boolean chomp(ServerPlayer p, LivingEntity t, float base, float share) {
+		return hurt(p, t, pierce(p, t, damage(p, base), share), false);
+	}
+
 	// ---------------------------------------------------------------- lifecycle
 
 	@Override
@@ -299,6 +464,8 @@ public final class RipjawsKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
 		WHIRLS.remove(p.getUUID());
+		LAST_TICK.remove(p.getId());
+		releaseDrag(p); // v0.17.2: Drag Under lets go cleanly (revert, death, logout)
 		endFrenzy(p);
 		PowerToggles.clearModifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM);
 		PowerToggles.clearModifier(p, Attributes.SUBMERGED_MINING_SPEED, DIG_WET);
@@ -313,7 +480,7 @@ public final class RipjawsKit extends AlienKit {
 		}
 		clearChoke(p);
 		OmnitrixState n = Omnitrix.state(p).copy();
-		for (String t : new String[] { "dry_base", "dry_since", "lunge_end", "frenzy_end" }) {
+		for (String t : new String[] { "dry_base", "dry_since", "lunge_end", "frenzy_end", "gnash_start", "mega_at", "breach_start", "dive_start" }) {
 			n.timers.remove(key(t));
 		}
 		n.kitFlags = 0;
@@ -322,6 +489,12 @@ public final class RipjawsKit extends AlienKit {
 
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
+		// v0.17.2: once per game tick -- the timed pulses (Drag Under, Gnash) must not double up if he is ticked twice in a tick
+		// (a gametest's mock player is ticked by the server and by the test's own pump)
+		Long last = LAST_TICK.put(p.getId(), now);
+		if (last != null && last == now) {
+			return;
+		}
 		ServerLevel l = level(p);
 		tickV(p, l, now);
 		boolean wet = inWater(p);
@@ -341,6 +514,13 @@ public final class RipjawsKit extends AlienKit {
 				}
 			}
 		}
+		// v0.17.2 revamp: heat dries him faster -- a hot biome x1.5, the Nether x3; burning adds 10 s of dryness a second
+		boolean nether = l.dimensionType().ultraWarm();
+		setRateFlag(p, F_NETHER, nether);
+		setRateFlag(p, F_HOT, !nether && inHeat(p));
+		if (!wet && p.isOnFire() && now % 20 == 0) {
+			setDryness(p, dryness(p, now) + FIRE_DRY, false, rain);
+		}
 		int dry = dryness(p, now);
 		if (wet) {
 			p.setAirSupply(p.getMaxAirSupply());
@@ -348,11 +528,9 @@ public final class RipjawsKit extends AlienKit {
 				refresh(p, MobEffects.DOLPHINS_GRACE, 0);
 				refresh(p, MobEffects.CONDUIT_POWER, 0);
 			}
-			if (p.tickCount % 5 == 0) {
-				l.sendParticles(ParticleTypes.BUBBLE, p.getX(), p.getY() + p.getBbHeight() * 0.8, p.getZ(), 2, 0.2, 0.1, 0.2, 0.02);
+			if (p.tickCount % 10 == 0) {
+				l.sendParticles(ParticleTypes.BUBBLE, p.getX(), p.getY() + p.getBbHeight() * 0.8, p.getZ(), 1, 0.2, 0.1, 0.2, 0.02);
 			}
-		} else if (p.tickCount % 50 == 0 && dry < MAX_DRY / 3) {
-			l.sendParticles(ParticleTypes.DRIPPING_WATER, p.getX(), p.getY() + p.getBbHeight() * 0.7, p.getZ(), 2, 0.25, 0.3, 0.25, 0);
 		}
 		// the warnings and the choking
 		if (dry >= MAX_DRY * 3 / 4 && !flag(p, F_WARNED)) {
@@ -372,7 +550,6 @@ public final class RipjawsKit extends AlienKit {
 				p.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, CHOKE_EVERY + 4, 0, false, false, true));
 				anim(p, ANIM_GASP);
 				OmnitrixSounds.play(l, p.position(), GASP, 0.9f, 0.9f + p.getRandom().nextFloat() * 0.2f);
-				l.sendParticles(ParticleTypes.WHITE_ASH, p.getX(), p.getY() + 1.0, p.getZ(), 10, 0.3, 0.5, 0.3, 0);
 			}
 		} else if (flag(p, F_CHOKING)) {
 			setFlag(p, F_CHOKING, false);
@@ -384,10 +561,10 @@ public final class RipjawsKit extends AlienKit {
 				setTimer(p, "lunge_end", 0);
 			} else {
 				for (LivingEntity e : around(p, p.position().add(0, p.getBbHeight() * 0.5, 0).add(p.getLookAngle().scale(0.8)), 1.8)) {
-					hurt(p, e, damage(p, LUNGE_DAMAGE), false);
+					chomp(p, e, LUNGE_DAMAGE, STEEL_JAWS);
 					shove(e, p.position(), 0.7, 0.3);
-					l.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 12, 0.3, 0.3, 0.3, 0.3);
 					OmnitrixSounds.play(l, e.position(), BITE_SOUND, 1.2f, 0.8f);
+					anim(p, ANIM_BITE); // the jaws snap shut on it
 					setTimer(p, "lunge_end", 0);
 					p.setDeltaMovement(p.getDeltaMovement().scale(0.2));
 					p.hurtMarked = true;
@@ -397,45 +574,47 @@ public final class RipjawsKit extends AlienKit {
 		}
 		// the feeding frenzy
 		long frenzy = timer(p, "frenzy_end");
-		if (frenzy > 0) {
-			if (now >= frenzy) {
-				endFrenzy(p);
-			} else if (now % 6 == 0) {
-				l.sendParticles(net.minecraft.core.particles.DustParticleOptions.REDSTONE, p.getX(), p.getEyeY(), p.getZ(), 2, 0.3, 0.2, 0.3, 0);
+		if (frenzy > 0 && now >= frenzy) {
+			endFrenzy(p);
+		}
+		tickWhirl(p, l, now);
+		tickDrag(p, l, now);
+		tickGnash(p, l, now);
+		tickMegamouth(p, l, now);
+		tickBreachAndDive(p, l, now, wet);
+	}
+
+	private void tickWhirl(ServerPlayer p, ServerLevel l, long now) {
+		Whirl w = WHIRLS.get(p.getUUID());
+		if (w == null) {
+			return;
+		}
+		if (now >= w.until() || w.dim() != l.dimension()) {
+			WHIRLS.remove(p.getUUID());
+			return;
+		}
+		if (now % 4 == 0) {
+			for (int k = 0; k < 3; k++) {
+				double a = now * 0.35 + k * Math.PI * 2 / 3;
+				double r = 1.0 + ((now + k * 7) % 20) / 20.0 * (WHIRL_RADIUS - 1);
+				l.sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, w.at().x + Math.cos(a) * r, w.at().y + (k % 3) * 0.8, w.at().z + Math.sin(a) * r, 1, 0, 0, 0, 0);
 			}
 		}
-		// the whirlpool
-		Whirl w = WHIRLS.get(p.getUUID());
-		if (w != null) {
-			if (now >= w.until() || w.dim() != l.dimension()) {
-				WHIRLS.remove(p.getUUID());
-			} else {
-				if (now % 2 == 0) {
-					for (int k = 0; k < 6; k++) {
-						double a = now * 0.35 + k * Math.PI / 3;
-						double r = 1.0 + ((now + k * 7) % 20) / 20.0 * (WHIRL_RADIUS - 1);
-						l.sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, w.at().x + Math.cos(a) * r, w.at().y + (k % 3) * 0.8, w.at().z + Math.sin(a) * r, 1,
-								0, 0, 0, 0);
-					}
-					l.sendParticles(ParticleTypes.BUBBLE, w.at().x, w.at().y + 1, w.at().z, 6, 0.5, 1.0, 0.5, 0.1);
-				}
-				for (LivingEntity e : around(p, w.at(), WHIRL_RADIUS)) {
-					Vec3 to = w.at().subtract(e.position());
-					Vec3 h = new Vec3(to.x, 0, to.z);
-					Vec3 swirl = new Vec3(-h.z, 0, h.x).normalize().scale(0.12);
-					Vec3 pull = h.lengthSqr() > 0.25 ? h.normalize().scale(0.1) : Vec3.ZERO;
-					double res = 1.0 - Math.min(1.0, e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
-					e.setDeltaMovement(e.getDeltaMovement().scale(0.8).add(pull.add(swirl).scale(res)).add(0, -0.04 * res, 0));
-					e.hurtMarked = true;
-					if (now % 10 == 0) {
-						hurt(p, e, damage(p, WHIRL_DAMAGE), false);
-						e.setAirSupply(Math.max(-19, e.getAirSupply() - 40));
-					}
-				}
-				if (now % 20 == 0) {
-					OmnitrixSounds.play(l, w.at(), WHIRL, 0.8f, 1.0f);
-				}
+		for (LivingEntity e : around(p, w.at(), WHIRL_RADIUS)) {
+			Vec3 to = w.at().subtract(e.position());
+			Vec3 h = new Vec3(to.x, 0, to.z);
+			Vec3 swirl = new Vec3(-h.z, 0, h.x).normalize().scale(0.12);
+			Vec3 pull = h.lengthSqr() > 0.25 ? h.normalize().scale(0.1) : Vec3.ZERO;
+			double res = 1.0 - Math.min(1.0, e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+			e.setDeltaMovement(e.getDeltaMovement().scale(0.8).add(pull.add(swirl).scale(res)).add(0, -0.04 * res, 0));
+			e.hurtMarked = true;
+			if (now % 10 == 0) {
+				hurt(p, e, damage(p, WHIRL_DAMAGE), false);
+				e.setAirSupply(Math.max(-19, e.getAirSupply() - 40));
 			}
+		}
+		if (now % 20 == 0) {
+			OmnitrixSounds.play(l, w.at(), WHIRL, 0.8f, 1.0f);
 		}
 	}
 
@@ -470,21 +649,23 @@ public final class RipjawsKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					finSlash(p);
+					tailSweep(p);
 				} else {
-					tailSlam(p);
+					dragUnder(p);
 				}
 			}
 			case SLOT_3 -> {
 				if (shift) {
 					breach(p);
+				} else if (canDive(p)) {
+					diveStrike(p); // v0.17.2: X again in the air after a Breach, looking down
 				} else {
 					waterDash(p);
 				}
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					tidalRoar(p);
+					megamouth(p);
 				} else {
 					whirlpool(p);
 				}
@@ -502,6 +683,10 @@ public final class RipjawsKit extends AlienKit {
 		}
 	}
 
+	/**
+	 * R: Bite -- a huge chomp on the creature ahead (reach 3.5): 12, heals 1 (3 in a frenzy). v0.17.2 Steel Jaws: half its armour
+	 * ignored, and 8 durability off every armour piece it wears.
+	 */
 	public boolean bite(ServerPlayer p) {
 		if (!use(p, BITE)) {
 			return false;
@@ -509,16 +694,27 @@ public final class RipjawsKit extends AlienKit {
 		anim(p, ANIM_BITE);
 		ServerLevel l = level(p);
 		OmnitrixSounds.play(l, p.position(), BITE_SOUND, 1.0f, 0.95f + p.getRandom().nextFloat() * 0.15f);
-		LivingEntity t = lookTarget(p, 3.75);
+		LivingEntity t = lookTarget(p, BITE_REACH);
 		if (t != null) {
-			hurt(p, t, damage(p, BITE_DAMAGE), false);
+			chomp(p, t, BITE_DAMAGE, STEEL_JAWS);
+			wearArmour(t, STEEL_JAWS_WEAR);
 			p.heal(flag(p, F_FRENZY) ? 3f : 1f);
-			l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.7, t.getZ(), 10, 0.25, 0.25, 0.25, 0.25);
-			l.sendParticles(ParticleTypes.DAMAGE_INDICATOR, t.getX(), t.getY() + t.getBbHeight() * 0.7, t.getZ(), 3, 0.2, 0.2, 0.2, 0.1);
+			l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.7, t.getZ(), 6, 0.25, 0.25, 0.25, 0.25);
 		}
 		return true;
 	}
 
+	/** v0.17.2 Steel Jaws: {@code amount} durability off every armour piece {@code t} wears. */
+	public static void wearArmour(LivingEntity t, int amount) {
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.BODY }) {
+			ItemStack s = t.getItemBySlot(slot);
+			if (!s.isEmpty() && s.isDamageableItem()) {
+				s.hurtAndBreak(amount, t, slot);
+			}
+		}
+	}
+
+	/** Shift+R: Jaw Lunge -- jaws-first along the look (about 6 blocks, twice that in water); the first creature in the way: 16. */
 	public boolean jawLunge(ServerPlayer p) {
 		if (!use(p, LUNGE)) {
 			return false;
@@ -527,58 +723,165 @@ public final class RipjawsKit extends AlienKit {
 		ServerLevel l = level(p);
 		boolean wet = inWater(p);
 		Vec3 look = p.getLookAngle();
-		p.setDeltaMovement(look.scale(wet ? 2.0 : 1.3).add(0, wet ? 0 : 0.2, 0));
+		p.setDeltaMovement(look.scale(wet ? 2.4 : 1.3).add(0, wet ? 0 : 0.2, 0));
 		p.hurtMarked = true;
 		p.resetFallDistance();
-		setTimer(p, "lunge_end", l.getGameTime() + 10);
+		setTimer(p, "lunge_end", l.getGameTime() + (wet ? 14 : 10));
 		QuirkFx.trail(l, p).colours(0xE0F4FF, COLOUR).size(0.4f).size2(8f).life(14).vec(new Vec3(0, 1.0, 0)).spawn();
 		OmnitrixSounds.play(l, p.position(), ROAR, 0.7f, 1.4f);
 		return true;
 	}
 
-	public boolean tailSlam(ServerPlayer p) {
-		if (!use(p, TAIL_SLAM)) {
+	// ---------------------------------------------------------------- v0.17.2 G: Drag Under
+
+	/**
+	 * G: Drag Under -- v0.17.2 revamp (user: "keep drag under the same"). He clamps onto the creature he looks at (reach 4) and
+	 * holds it 3 s, players too. In water it is towed in front of his face as he swims, bitten every second (3 x 3) with its air
+	 * draining; on land he thrashes it side to side (3 x 4) and then flings it about 6 blocks. A boss is held 1 s and never moved.
+	 * False (no cooldown) with nothing to bite.
+	 */
+	public boolean dragUnder(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, DRAG_REACH);
+		if (t == null || DRAGS.containsKey(p.getUUID()) || !use(p, DRAG)) {
 			return false;
 		}
-		anim(p, ANIM_SLAM);
+		ServerLevel l = level(p);
+		boolean water = inWater(p);
+		boolean boss = AlienStatus.isBoss(t);
+		DRAGS.put(p.getUUID(), new Drag(l.dimension(), t.getId(), l.getGameTime(), water, boss));
+		setFlag(p, F_DRAG, true);
+		anim(p, water ? ANIM_DRAG : ANIM_THRASH);
+		OmnitrixSounds.play(l, t.position(), BITE_SOUND, 1.2f, 0.7f);
+		QuirkThreat.add(t, p, 3f);
+		return true;
+	}
+
+	/** The id of the creature in {@code p}'s jaws (Drag Under), or -1. Server side. */
+	public static int dragTarget(Player p) {
+		Drag d = DRAGS.get(p.getUUID());
+		return d == null ? -1 : d.target();
+	}
+
+	/** Lets go of whatever is in his jaws (revert, death, logout, the target gone). */
+	private void releaseDrag(ServerPlayer p) {
+		Drag d = DRAGS.remove(p.getUUID());
+		if (d != null && p.level().getEntity(d.target()) instanceof LivingEntity t) {
+			t.resetFallDistance();
+		}
+		setFlag(p, F_DRAG, false);
+	}
+
+	private void tickDrag(ServerPlayer p, ServerLevel l, long now) {
+		Drag d = DRAGS.get(p.getUUID());
+		if (d == null) {
+			if (flag(p, F_DRAG)) {
+				setFlag(p, F_DRAG, false);
+			}
+			return;
+		}
+		Entity e = l.getEntity(d.target());
+		if (d.dim() != l.dimension() || !(e instanceof LivingEntity t) || !t.isAlive() || t.isRemoved() || t.distanceToSqr(p) > 12 * 12) {
+			releaseDrag(p);
+			return;
+		}
+		long age = now - d.start();
+		int hold = d.boss() ? DRAG_BOSS_TICKS : DRAG_TICKS;
+		Vec3 look = p.getLookAngle();
+		if (d.boss()) {
+			// a boss is only held a moment, never towed
+			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 5, 9, false, false, false), p);
+		} else {
+			// pinned in front of his face: towed in water, shaken side to side on land
+			Vec3 at = p.getEyePosition().add(look.scale(0.9 + t.getBbWidth() * 0.5)).subtract(0, t.getBbHeight() * 0.5, 0);
+			if (!d.water()) {
+				Vec3 side = look.cross(new Vec3(0, 1, 0));
+				side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
+				at = at.add(side.scale(Math.sin(age * 0.45) * 0.7));
+			}
+			t.teleportTo(at.x, at.y, at.z);
+			t.setDeltaMovement(Vec3.ZERO);
+			t.resetFallDistance();
+			t.hurtMarked = true;
+		}
+		if (d.water()) {
+			if (!t.canBreatheUnderwater()) {
+				t.setAirSupply(Math.max(-20, t.getAirSupply() - DRAG_AIR_DRAIN));
+			}
+			if (age > 0 && age % DRAG_WATER_EVERY == 0) {
+				chomp(p, t, DRAG_WATER_DAMAGE, STEEL_JAWS);
+				if (now % 2 == 0) {
+					l.sendParticles(ParticleTypes.BUBBLE, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 6, 0.3, 0.3, 0.3, 0.05);
+				}
+			}
+		} else if (age > 0 && age % DRAG_THRASH_EVERY == 0 && age < DRAG_TICKS) {
+			chomp(p, t, DRAG_THRASH_DAMAGE, STEEL_JAWS);
+			OmnitrixSounds.play(l, t.position(), BITE_SOUND, 0.8f, 1.2f);
+		}
+		if (!t.isAlive()) {
+			releaseDrag(p);
+			return;
+		}
+		if (age >= hold) {
+			releaseDrag(p);
+			if (!d.water() && !d.boss()) {
+				// the throw
+				Vec3 f = new Vec3(look.x, 0, look.z);
+				f = f.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : f.normalize();
+				double res = 1.0 - Math.min(1.0, t.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+				t.setDeltaMovement(f.x * DRAG_FLING * res, 0.55 * Math.max(0.3, res), f.z * DRAG_FLING * res);
+				t.hurtMarked = true;
+				anim(p, ANIM_FLING);
+				OmnitrixSounds.play(l, t.position(), SLAM, 0.9f, 1.2f);
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 Shift+G: Tail Sweep
+
+	/** Whether {@code e} is in the sweep's 270 degrees: everything round him but the quarter straight ahead. */
+	private static boolean inSweep(ServerPlayer p, LivingEntity e) {
+		Vec3 look = p.getLookAngle();
+		Vec3 f = new Vec3(look.x, 0, look.z);
+		Vec3 to = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
+		if (f.lengthSqr() < 1.0e-6 || to.lengthSqr() < 0.36) {
+			return true;
+		}
+		return f.normalize().dot(to.normalize()) < Math.cos(Math.toRadians(45));
+	}
+
+	/**
+	 * Shift+G: Tail Sweep -- v0.17.2 revamp (Tail Slam and Fin Slash merged; the tail is the one fin his model still has): his tail
+	 * (his legs on land) sweeps 270 degrees round him, r 3.5, sparing the quarter in front. In water: 12 and a wave that shoves 5
+	 * blocks; on land: 10, knockback and Slowness II for 2 s.
+	 */
+	public boolean tailSweep(ServerPlayer p) {
+		if (!use(p, SWEEP)) {
+			return false;
+		}
+		anim(p, ANIM_SWEEP);
 		ServerLevel l = level(p);
 		boolean wet = inWater(p);
-		float r = wet ? 5f : 3.5f;
 		Vec3 c = p.position().add(0, 0.6, 0);
-		QuirkFx.ring(l, p.position().add(0, 0.1, 0)).colours(0xFFFFFF, wet ? 0x3A9AE0 : 0xA08A6A).size(r + 0.5f).thickness(0.7f).life(14).ground().spawn();
-		if (wet) {
-			l.sendParticles(ParticleTypes.BUBBLE, c.x, c.y, c.z, 40, r * 0.4, 0.4, r * 0.4, 0.3);
-		} else {
-			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, l.getBlockState(p.blockPosition().below())), c.x, c.y - 0.5, c.z, 30, r * 0.4, 0.1,
-					r * 0.4, 0.2);
-			QuirkFx.decal(l, p.position().add(0, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colour(0x2A2420).size(r * 1.2f).life(160).spawn();
-		}
-		OmnitrixSounds.play(l, c, SLAM, 1.2f, 1.0f);
-		QuirkCamera.shakeAround(l, c, 10, 0.4f, 8);
-		for (LivingEntity e : around(p, c, r)) {
-			hurt(p, e, damage(p, SLAM_DAMAGE), false);
-			shove(e, c, 1.2, 0.4);
+		QuirkFx.ring(l, p.position().add(0, 0.15, 0)).colours(0xF0FAFF, wet ? 0x3A9AE0 : 0x8AB0C0).style(QuirkFx.RING_SOFT).size(SWEEP_RADIUS + 0.4f)
+				.thickness(0.4f).life(10).ground().spawn();
+		OmnitrixSounds.play(l, c, SLAM, 1.0f, wet ? 0.9f : 1.2f);
+		for (LivingEntity e : around(p, c, SWEEP_RADIUS)) {
+			if (!inSweep(p, e)) {
+				continue;
+			}
+			if (wet) {
+				hurt(p, e, damage(p, SWEEP_WATER_DAMAGE), false);
+				shove(e, c, 1.4, 0.2);
+			} else {
+				hurt(p, e, damage(p, SWEEP_LAND_DAMAGE), false);
+				shove(e, c, 0.9, 0.35);
+				e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SWEEP_SLOW_TICKS, 1), p);
+			}
 		}
 		return true;
 	}
 
-	public boolean finSlash(ServerPlayer p) {
-		if (!use(p, FIN_SLASH)) {
-			return false;
-		}
-		anim(p, ANIM_SLASH);
-		ServerLevel l = level(p);
-		Vec3 c = p.position().add(0, 1.0, 0);
-		QuirkFx.ring(l, c).colours(0xF0FAFF, 0x8AB0C0).style(QuirkFx.RING_SOFT).size(3.2f).thickness(0.25f).life(8).spawn();
-		QuirkFx.ring(l, c.add(0, 0.3, 0)).colours(0xFFFFFF, 0x6A90A0).size(2.6f).thickness(0.15f).life(6).spawn();
-		l.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 6, 1.2, 0.2, 1.2, 0);
-		OmnitrixSounds.play(l, c, BITE_SOUND, 0.8f, 1.6f);
-		for (LivingEntity e : around(p, c, 3.25)) {
-			hurt(p, e, damage(p, SLASH_DAMAGE), false);
-			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1), p);
-		}
-		return true;
-	}
+	// ---------------------------------------------------------------- X / Shift+X
 
 	public boolean waterDash(ServerPlayer p) {
 		if (!use(p, DASH)) {
@@ -589,13 +892,11 @@ public final class RipjawsKit extends AlienKit {
 		Vec3 look = p.getLookAngle();
 		if (inWater(p)) {
 			p.setDeltaMovement(look.scale(2.2));
-			l.sendParticles(ParticleTypes.BUBBLE, p.getX(), p.getY() + 0.8, p.getZ(), 30, 0.4, 0.4, 0.4, 0.2);
 			QuirkFx.trail(l, p).colours(0xE0F4FF, 0x3A8AE0).size(0.45f).size2(10f).life(18).vec(new Vec3(0, 0.6, 0)).spawn();
 			OmnitrixSounds.play(l, p.position(), SPLASH, 0.8f, 1.4f);
 		} else {
 			Vec3 f = new Vec3(look.x, 0, look.z).normalize();
 			p.setDeltaMovement(f.x * 0.75, 0.55, f.z * 0.75);
-			l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.2, p.getZ(), 10, 0.3, 0.1, 0.3, 0.1);
 			OmnitrixSounds.play(l, p.position(), SPLASH, 0.5f, 1.6f);
 		}
 		p.hurtMarked = true;
@@ -603,6 +904,7 @@ public final class RipjawsKit extends AlienKit {
 		return true;
 	}
 
+	/** Shift+X: Breach -- out of the water in a leap (on land a back-flip); while airborne, looking down, X dives (v0.17.2). */
 	public boolean breach(ServerPlayer p) {
 		if (!use(p, BREACH)) {
 			return false;
@@ -613,7 +915,7 @@ public final class RipjawsKit extends AlienKit {
 		Vec3 f = new Vec3(look.x, 0, look.z).normalize();
 		if (inWater(p)) {
 			p.setDeltaMovement(f.x * 0.8, 1.6, f.z * 0.8);
-			l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 1, p.getZ(), 40, 0.6, 0.4, 0.6, 0.3);
+			l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 1, p.getZ(), 16, 0.6, 0.4, 0.6, 0.3);
 			QuirkFx.ring(l, p.position().add(0, 0.5, 0)).colours(0xFFFFFF, 0x3A9AE0).size(2.5f).thickness(0.5f).life(12).ground().spawn();
 			OmnitrixSounds.play(l, p.position(), SPLASH, 1.2f, 0.8f);
 		} else {
@@ -622,10 +924,76 @@ public final class RipjawsKit extends AlienKit {
 		}
 		p.hurtMarked = true;
 		p.resetFallDistance();
+		setFlag(p, F_BREACH, true);
+		setTimer(p, "breach_start", l.getGameTime());
 		return true;
 	}
 
-	/** Z: in water a whirlpool; on land a spray of mud. */
+	/** v0.17.2: X is the Dive Strike right now -- airborne after a Breach, looking down. */
+	public boolean canDive(ServerPlayer p) {
+		return flag(p, F_BREACH) && !flag(p, F_DIVING) && !p.onGround() && !inWater(p) && p.getXRot() >= DIVE_PITCH;
+	}
+
+	/**
+	 * X after a Breach, airborne and looking down: the Dive Strike -- v0.17.2 revamp (a shark's attack from above). He plunges
+	 * jaws-first onto the spot below; where he lands (ground or water) everything within 2.5 is bitten for 14. Once per Breach.
+	 */
+	public boolean diveStrike(ServerPlayer p) {
+		if (!canDive(p)) {
+			return false;
+		}
+		ServerLevel l = level(p);
+		setFlag(p, F_BREACH, false);
+		setFlag(p, F_DIVING, true);
+		setTimer(p, "dive_start", l.getGameTime());
+		anim(p, ANIM_DIVE);
+		Vec3 look = p.getLookAngle();
+		p.setDeltaMovement(look.x * 0.4, -2.2, look.z * 0.4);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		OmnitrixSounds.play(l, p.position(), ROAR, 0.8f, 1.5f);
+		return true;
+	}
+
+	private void tickBreachAndDive(ServerPlayer p, ServerLevel l, long now, boolean wet) {
+		if (flag(p, F_BREACH)) {
+			long since = now - timer(p, "breach_start");
+			if (since > BREACH_WINDOW || since > 5 && (p.onGround() || wet)) {
+				setFlag(p, F_BREACH, false);
+				setTimer(p, "breach_start", 0);
+			}
+		}
+		if (!flag(p, F_DIVING)) {
+			return;
+		}
+		p.resetFallDistance();
+		long since = now - timer(p, "dive_start");
+		if (!(p.onGround() || wet || since > BREACH_WINDOW)) {
+			if (p.getDeltaMovement().y > -1.2) {
+				p.setDeltaMovement(p.getDeltaMovement().x, -1.6, p.getDeltaMovement().z);
+				p.hurtMarked = true;
+			}
+			return;
+		}
+		// the impact: jaws first into the ground / the water
+		setFlag(p, F_DIVING, false);
+		setTimer(p, "dive_start", 0);
+		anim(p, ANIM_DIVE_HIT);
+		Vec3 c = p.position();
+		QuirkFx.ring(l, c.add(0, 0.1, 0)).colours(0xFFFFFF, wet ? 0x3A9AE0 : 0x8AB0C0).size(DIVE_RADIUS + 0.6f).thickness(0.5f).life(12).ground().spawn();
+		l.sendParticles(ParticleTypes.SPLASH, c.x, c.y + 0.3, c.z, 12, 0.8, 0.1, 0.8, 0.2);
+		OmnitrixSounds.play(l, c, SLAM, 1.2f, 0.9f);
+		OmnitrixSounds.play(l, c, BITE_SOUND, 1.0f, 0.8f);
+		QuirkCamera.shakeAround(l, c, 8, 0.35f, 6);
+		for (LivingEntity e : around(p, c.add(0, 0.5, 0), DIVE_RADIUS)) {
+			chomp(p, e, DIVE_DAMAGE, STEEL_JAWS);
+			shove(e, c, 0.5, 0.3);
+		}
+	}
+
+	// ---------------------------------------------------------------- Z / Shift+Z
+
+	/** Z: in water a whirlpool; on land (v0.17.2, replacing Mud Splash) Gnash -- 5 bites in 1 s in a short cone (5 x 4). */
 	public boolean whirlpool(ServerPlayer p) {
 		if (!use(p, WHIRLPOOL)) {
 			return false;
@@ -639,46 +1007,108 @@ public final class RipjawsKit extends AlienKit {
 			OmnitrixSounds.play(l, at, WHIRL, 1.2f, 0.8f);
 			return true;
 		}
-		anim(p, ANIM_MUD);
+		anim(p, ANIM_GNASH);
+		setTimer(p, "gnash_start", l.getGameTime());
+		gnashBite(p, l);
+		return true;
+	}
+
+	/** One of Gnash's bites: everything in the cone ahead (3.5 blocks, 45 degrees either side). */
+	private void gnashBite(ServerPlayer p, ServerLevel l) {
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		BlockState mud = Blocks.MUD.defaultBlockState();
-		QuirkFx.cone(l, eye.add(look.scale(0.7)).add(0, -0.4, 0), look).colours(0x8A6A4A, 0x3A2A1A).style(QuirkFx.CONE_DEBRIS).size(2.2f).length(6f).life(12)
-				.spawn();
-		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, mud), eye.x + look.x * 2, eye.y - 0.4, eye.z + look.z * 2, 40, 1.0, 0.5, 1.0, 0.3);
-		OmnitrixSounds.play(l, p.position(), SPLASH, 1.0f, 0.6f);
-		for (LivingEntity e : around(p, eye.add(look.scale(3)), 4.0)) {
+		OmnitrixSounds.play(l, p.position(), BITE_SOUND, 0.7f, 1.1f + p.getRandom().nextFloat() * 0.2f);
+		for (LivingEntity e : around(p, eye.add(look.scale(GNASH_RANGE * 0.5)), GNASH_RANGE)) {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-			if (to.length() <= 6.5 && to.normalize().dot(look) > Math.cos(Math.toRadians(40))) {
-				hurt(p, e, damage(p, MUD_DAMAGE), false);
-				e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0), p);
-				e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 1), p);
+			if (to.length() <= GNASH_RANGE + e.getBbWidth() * 0.5 && (to.lengthSqr() < 0.5 || to.normalize().dot(look) > Math.cos(Math.toRadians(45)))) {
+				chomp(p, e, GNASH_DAMAGE, STEEL_JAWS);
 			}
 		}
-		return true;
 	}
 
-	public boolean tidalRoar(ServerPlayer p) {
-		if (!use(p, ROAR_MOVE)) {
+	private void tickGnash(ServerPlayer p, ServerLevel l, long now) {
+		long start = timer(p, "gnash_start");
+		if (start <= 0) {
+			return;
+		}
+		long age = now - start;
+		if (age > 0 && age % GNASH_EVERY == 0 && age <= (long) GNASH_EVERY * (GNASH_BITES - 1)) {
+			gnashBite(p, l);
+		}
+		if (age >= (long) GNASH_EVERY * (GNASH_BITES - 1)) {
+			setTimer(p, "gnash_start", 0);
+		}
+	}
+
+	/**
+	 * Shift+Z: Megamouth, his ultimate -- v0.17.2 revamp (user: "Drop tidal roar"). His jaw unhinges over 0.75 s (in water the bite
+	 * swallows the current: everything within 6 is pulled toward his mouth), then one colossal chomp in a 4-block cone ahead: 30
+	 * (x1.25 in water), all armour ignored; he heals a quarter of the damage dealt (up to 8) and each kill refills 30 s of
+	 * hydration.
+	 */
+	public boolean megamouth(ServerPlayer p) {
+		if (timer(p, "mega_at") > 0 || !use(p, MEGAMOUTH)) {
 			return false;
 		}
-		anim(p, ANIM_ROAR);
+		anim(p, ANIM_MEGA);
 		ServerLevel l = level(p);
-		Vec3 c = p.position().add(0, 1.2, 0);
-		QuirkFx.ring(l, c).colours(0xE0F4FF, COLOUR).style(QuirkFx.RING_SOFT).size(8f).thickness(0.5f).life(16).spawn();
-		OmnitrixSounds.play(l, c, ROAR, 1.4f, 0.9f);
-		QuirkCamera.shakeAround(l, c, 12, 0.3f, 10);
-		for (LivingEntity e : around(p, c, 8f)) {
-			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was no damage
-			hurt(p, e, damage(p, ROAR_DAMAGE), false);
-			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), p);
-			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 0), p);
-			shove(e, c, 0.7, 0.2);
-			com.projecthero.mod.quirk.QuirkThreat.add(e, p, 3f);
-		}
+		setTimer(p, "mega_at", l.getGameTime() + MEGA_WINDUP);
+		OmnitrixSounds.play(l, p.position(), ROAR, 1.3f, 0.6f);
 		return true;
 	}
 
+	private void tickMegamouth(ServerPlayer p, ServerLevel l, long now) {
+		long at = timer(p, "mega_at");
+		if (at <= 0) {
+			return;
+		}
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		Vec3 mouth = eye.add(look.scale(1.0));
+		if (now < at) {
+			if (inWater(p)) {
+				// the current pours into his mouth
+				for (LivingEntity e : around(p, mouth, MEGA_PULL)) {
+					Vec3 to = mouth.subtract(e.position().add(0, e.getBbHeight() * 0.5, 0));
+					if (to.lengthSqr() > 1.0) {
+						double res = 1.0 - Math.min(1.0, e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+						e.setDeltaMovement(e.getDeltaMovement().scale(0.6).add(to.normalize().scale(0.35 * res)));
+						e.hurtMarked = true;
+					}
+				}
+			}
+			return;
+		}
+		setTimer(p, "mega_at", 0);
+		OmnitrixSounds.play(l, p.position(), BITE_SOUND, 1.6f, 0.5f);
+		OmnitrixSounds.play(l, p.position(), SLAM, 1.0f, 0.7f);
+		QuirkCamera.shakeAround(l, mouth, 12, 0.5f, 8);
+		float dealt = 0f;
+		int kills = 0;
+		for (LivingEntity e : around(p, eye.add(look.scale(MEGA_RANGE * 0.5)), MEGA_RANGE)) {
+			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			if (to.length() > MEGA_RANGE + e.getBbWidth() * 0.5 || to.lengthSqr() > 0.5 && to.normalize().dot(look) < Math.cos(Math.toRadians(55))) {
+				continue;
+			}
+			float before = e.getHealth();
+			chomp(p, e, MEGA_DAMAGE, 1f);
+			dealt += Math.max(0f, before - Math.max(0f, e.getHealth()));
+			if (!e.isAlive() || e.getHealth() <= 0f) {
+				kills++;
+			}
+			QuirkThreat.add(e, p, 3f);
+		}
+		if (dealt > 0f) {
+			p.heal(Math.min(MEGA_HEAL_MAX, dealt * MEGA_HEAL_SHARE));
+		}
+		if (kills > 0) {
+			setDryness(p, dryness(p, now) - kills * MEGA_KILL_REFILL, inWater(p), inRain(p) || flag(p, F_BUBBLE));
+		}
+	}
+
+	// ---------------------------------------------------------------- C / Shift+C
+
+	/** C: Feeding Frenzy -- 10 s: x1.3 damage, faster, bites heal 3; v0.17.2 Blood Scent: the wounded (under half) outlined red. */
 	public boolean feedingFrenzy(ServerPlayer p) {
 		if (!use(p, FRENZY)) {
 			return false;
@@ -712,8 +1142,7 @@ public final class RipjawsKit extends AlienKit {
 		long now = l.getGameTime();
 		setDryness(p, dryness(p, now) - MAX_DRY / 2, inWater(p), inRain(p));
 		p.clearFire();
-		l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + p.getBbHeight(), p.getZ(), 60, 0.5, 0.3, 0.5, 0.3);
-		l.sendParticles(ParticleTypes.FALLING_WATER, p.getX(), p.getY() + p.getBbHeight() + 0.5, p.getZ(), 30, 0.6, 0.2, 0.6, 0);
+		l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + p.getBbHeight(), p.getZ(), 24, 0.5, 0.3, 0.5, 0.3);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0x3A9AE0).style(QuirkFx.RING_STEAM).size(2.5f).thickness(0.5f).life(12).ground().spawn();
 		OmnitrixSounds.play(l, p.position(), SPLASH, 1.2f, 1.0f);
 		return true;
@@ -736,6 +1165,11 @@ public final class RipjawsKit extends AlienKit {
 				|| s.is(Blocks.MUDDY_MANGROVE_ROOTS) || s.is(BlockTags.CONCRETE_POWDER);
 	}
 
+	/** v0.17.2 Steel Jaws: the metal his jaws bite straight through -- iron bars, chains, iron doors and trapdoors. */
+	public static boolean biteable(BlockState s) {
+		return s.is(Blocks.IRON_BARS) || s.is(Blocks.CHAIN) || s.is(Blocks.IRON_DOOR) || s.is(Blocks.IRON_TRAPDOOR);
+	}
+
 	@Override
 	public InteractionResult onUseBlock(ServerPlayer p, InteractionHand hand, BlockHitResult hit) {
 		if (hand != InteractionHand.MAIN_HAND) {
@@ -744,17 +1178,24 @@ public final class RipjawsKit extends AlienKit {
 		return dig(p, hit.getBlockPos()) ? InteractionResult.SUCCESS : InteractionResult.PASS;
 	}
 
-	/** Use on sand, gravel, dirt...: it is gone (and drops), one block per use. True if it dug. */
+	/** Use on sand, gravel, dirt... or iron bars, chains, iron doors (v0.17.2): it is gone (and drops), one block per use. */
 	public boolean dig(ServerPlayer p, BlockPos pos) {
 		ServerLevel l = level(p);
 		BlockState s = l.getBlockState(pos);
-		if (!diggable(s) || !p.mayInteract(l, pos) || !p.mayBuild() || cooldownLeft(p, DIG) > 0) {
+		boolean metal = biteable(s);
+		if (!diggable(s) && !metal || !p.mayInteract(l, pos) || !p.mayBuild() || cooldownLeft(p, DIG) > 0) {
 			return false;
 		}
+		if (s.getBlock() instanceof DoorBlock && s.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER) {
+			pos = pos.below(); // the lower half drops the door
+			s = l.getBlockState(pos);
+		}
 		cooldown(p, DIG, -1);
-		anim(p, ANIM_DIG);
+		anim(p, metal ? ANIM_BITE : ANIM_DIG);
 		l.destroyBlock(pos, !p.isCreative(), p);
-		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, s), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 12, 0.3, 0.3, 0.3, 0.1);
+		if (metal) {
+			OmnitrixSounds.play(l, Vec3.atCenterOf(pos), BITE_SOUND, 0.9f, 0.7f);
+		}
 		p.swing(InteractionHand.MAIN_HAND, true);
 		return true;
 	}
@@ -773,9 +1214,19 @@ public final class RipjawsKit extends AlienKit {
 	public static final int ANIM_BUBBLE = 15;
 	public static final int F_BUBBLE = 32;
 	public static final int BUBBLE_TICKS = 600;
+	// v0.17.2 revamp (user: "Do lure light i suppose"): Shift+V Lure Light
+	public static final String LURE = "lure_light";
+	public static final float LURE_RANGE = 12f;
+	/** The 3 s cooldown once it is switched off. */
+	public static final int LURE_COOLDOWN = 60;
+	private static final int LURE_VISION_TICKS = 260;
 
 	private void vKey(ServerPlayer p, boolean shift) {
-		waterBubble(p);
+		if (shift) {
+			lureLight(p);
+		} else {
+			waterBubble(p);
+		}
 	}
 
 	/**
@@ -790,32 +1241,100 @@ public final class RipjawsKit extends AlienKit {
 		setTimer(p, "bubble_end", p.level().getGameTime() + BUBBLE_TICKS);
 		anim(p, ANIM_BUBBLE);
 		ServerLevel l = level(p);
-		l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getEyeY(), p.getZ(), 30, 0.3, 0.3, 0.3, 0.1);
+		l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getEyeY(), p.getZ(), 16, 0.3, 0.3, 0.3, 0.1);
 		OmnitrixSounds.play(l, p.position(), SPLASH, 1.0f, 1.4f);
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.bubble_on").withStyle(ChatFormatting.AQUA), true);
 		return true;
 	}
 
+	/**
+	 * Shift+V: Lure Light -- v0.17.2 revamp (user: "Do lure light i suppose"; the Piscciss Volann's luminescent lure). A toggle:
+	 * a glowing lure sprouts from his head. He sees in the dark; fish, squid and axolotls within 12 swim to him; hostile mobs that
+	 * see the light come for him (a taunt). While it is on he dries out a quarter faster on land. 3 s cooldown after switching off.
+	 */
+	public boolean lureLight(ServerPlayer p) {
+		ServerLevel l = level(p);
+		if (flag(p, F_LURE)) {
+			lureOff(p);
+			cooldown(p, LURE, -1);
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.lure_off").withStyle(ChatFormatting.GRAY), true);
+			return true;
+		}
+		int left = cooldownLeft(p, LURE);
+		if (left > 0) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.cooldown", Component.translatable("projecthero.omnitrix." + ID + "." + LURE),
+					String.format(java.util.Locale.ROOT, "%.1f", left / 20f)).withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		setRateFlag(p, F_LURE, true);
+		anim(p, ANIM_LURE);
+		p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, LURE_VISION_TICKS, 0, true, false, true));
+		OmnitrixSounds.play(l, p.position(), SPLASH, 0.6f, 1.8f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.lure_on").withStyle(ChatFormatting.AQUA), true);
+		return true;
+	}
+
+	private void lureOff(ServerPlayer p) {
+		setRateFlag(p, F_LURE, false);
+		MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+		if (nv != null && nv.isAmbient() && !nv.isVisible() && nv.getDuration() <= LURE_VISION_TICKS) {
+			p.removeEffect(MobEffects.NIGHT_VISION); // only the lure's own, never a real potion
+		}
+	}
+
 	private void revertV(ServerPlayer p) {
 		setFlag(p, F_BUBBLE, false);
 		setTimer(p, "bubble_end", 0);
+		if (flag(p, F_LURE)) {
+			lureOff(p);
+		}
 	}
 
 	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (flag(p, F_LURE)) {
+			tickLure(p, l, now);
+		}
 		if (!flag(p, F_BUBBLE)) {
 			return;
 		}
 		if (now >= timer(p, "bubble_end")) {
-			revertV(p);
-			l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getEyeY(), p.getZ(), 20, 0.3, 0.3, 0.3, 0.1);
+			setFlag(p, F_BUBBLE, false);
+			setTimer(p, "bubble_end", 0);
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.bubble_off").withStyle(ChatFormatting.GRAY), true);
+		}
+	}
+
+	private void tickLure(ServerPlayer p, ServerLevel l, long now) {
+		MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+		if (nv == null || nv.isAmbient() && nv.getDuration() < LURE_VISION_TICKS - 20) {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, LURE_VISION_TICKS, 0, true, false, true));
+		}
+		if (now % 10 != 0) {
 			return;
 		}
-		if (now % 3 == 0) {
-			double a = now * 0.4;
-			l.sendParticles(ParticleTypes.BUBBLE_POP, p.getX() + Math.cos(a) * 0.45, p.getEyeY() + Math.sin(a * 0.7) * 0.3, p.getZ() + Math.sin(a) * 0.45,
-					1, 0, 0, 0, 0);
-			l.sendParticles(ParticleTypes.DRIPPING_WATER, p.getX(), p.getEyeY() - 0.3, p.getZ(), 1, 0.3, 0.05, 0.3, 0);
+		for (Mob m : l.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(LURE_RANGE))) {
+			if (!m.isAlive() || m.distanceToSqr(p) > LURE_RANGE * LURE_RANGE) {
+				continue;
+			}
+			if (m instanceof WaterAnimal || m instanceof Axolotl) {
+				// drawn to the light
+				if (m.distanceToSqr(p) > 4.0) {
+					m.getNavigation().moveTo(p, 1.2);
+				}
+			} else if (m instanceof Enemy && m.hasLineOfSight(p) && !com.projecthero.mod.squad.Squads.areAllies(p, m)) {
+				// the taunt: whatever sees the light comes for him (a boss through its threat table)
+				if (AlienStatus.isBoss(m)) {
+					QuirkThreat.add(m, p, 2f);
+				} else if (m.getTarget() != p && !p.getAbilities().invulnerable) {
+					m.setTarget(p); // (never a creative player: nothing can hurt him anyway)
+				}
+			}
 		}
+	}
+
+	/** v0.17.2: the HUD's V box lights while the Lure Light is on. */
+	@Override
+	public boolean keyActive(Player p, AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_5 && flag(p, F_LURE);
 	}
 }
