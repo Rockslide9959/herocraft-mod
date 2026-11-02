@@ -16,6 +16,9 @@ public abstract class MiraculousTabListMixin {
 	@Inject(method = "getTabListDisplayName", at = @At("RETURN"), cancellable = true)
 	private void projecthero$secretIdentityTab(CallbackInfoReturnable<Component> cir) {
 		Component hero = MiraculousShowExtras.heroName((ServerPlayer) (Object) this);
+		if (hero == null) {
+			hero = com.projecthero.mod.omnitrix.Omnitrix.alienName((ServerPlayer) (Object) this); // v0.17.2: and a Ben 10 alien
+		}
 		if (hero != null) {
 			cir.setReturnValue(hero);
 		}

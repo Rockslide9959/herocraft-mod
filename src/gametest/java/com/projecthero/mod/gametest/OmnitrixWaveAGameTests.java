@@ -1235,6 +1235,19 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.2 (user: "when the player transforms into a ben 10 alien make their name change to the alien's name"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aTransformedPlayerGoesByTheAliensName(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		var name = p.getDisplayName().getContents();
+		helper.assertTrue(name instanceof net.minecraft.network.chat.contents.TranslatableContents tc && tc.getKey().equals("projecthero.omnitrix.alien.diamondhead"),
+				"the name is Diamondhead: " + p.getDisplayName());
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertFalse(p.getDisplayName().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+				&& tc.getKey().startsWith("projecthero.omnitrix.alien."), "his own name again after turning back");
+		helper.succeed();
+	}
+
 	// ================================================================ Ghostfreak
 
 	@GameTest(template = EMPTY_STRUCTURE)

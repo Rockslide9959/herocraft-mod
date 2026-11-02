@@ -20,6 +20,9 @@ public abstract class MiraculousIdentityMixin {
 	@Inject(method = "getDisplayName", at = @At("RETURN"), cancellable = true)
 	private void projecthero$secretIdentity(CallbackInfoReturnable<Component> cir) {
 		Component hero = MiraculousShowExtras.heroName((Player) (Object) this);
+		if (hero == null) {
+			hero = com.projecthero.mod.omnitrix.Omnitrix.alienName((Player) (Object) this); // v0.17.2: a Ben 10 alien goes by its name
+		}
 		if (hero != null) {
 			cir.setReturnValue(hero);
 		}

@@ -653,6 +653,7 @@ public final class Omnitrix {
 			OmnitrixSounds.playOn(p, OmnitrixSounds.TRANSFORM_USER);
 		}
 		kit.onTransform(p);
+		refreshName(p);
 		Aliens.Alien a = Aliens.byId(kit.id());
 		p.displayClientMessage(Component.translatable(a.nameKey()).withStyle(st -> st.withColor(a.colour()).withBold(true)), true);
 		return true;
@@ -663,6 +664,32 @@ public final class Omnitrix {
 	 * through {@link #beginPowerDown} (the five beeps) and land here on {@link #POWER_DOWN_REVERT_TICK}; anything else (death,
 	 * logout, a dimension change, suppression, the pod, a revoke) mid-sequence cuts it short here and silences the sound.
 	 */
+	/**
+	 * v0.17.2 (user: "when the player transforms into a ben 10 alien make their name change to the alien's name"): a transformed
+	 * player is known by the alien's name, in its colour -- name tag, chat, death messages, the tab list (the identity mixins ask
+	 * this after the Miraculous). Reads only the synced state, so every client and the server agree. Null when not an alien.
+	 */
+	public static net.minecraft.network.chat.MutableComponent alienName(net.minecraft.world.entity.player.Player p) {
+		OmnitrixState s = state(p);
+		if (!s.transformed()) {
+			return null;
+		}
+		com.projecthero.mod.omnitrix.alien.Aliens.Alien a = com.projecthero.mod.omnitrix.alien.Aliens.byId(s.active);
+		if (a == null) {
+			return null;
+		}
+		return net.minecraft.network.chat.Component.translatable(a.nameKey())
+				.withStyle(st -> st.withColor(net.minecraft.network.chat.TextColor.fromRgb(a.colour() & 0xFFFFFF)));
+	}
+
+	/** The tab list's names are cached on every client: re-send this player's after a transform or a revert. */
+	static void refreshName(ServerPlayer p) {
+		if (p.getServer() != null) {
+			p.getServer().getPlayerList().broadcastAll(new net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket(
+					java.util.EnumSet.of(net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME), java.util.List.of(p)));
+		}
+	}
+
 	/** Takes off the framework's hidden Resistance I (a potion's or a beacon's -- visible, or stronger -- is left alone). */
 	static void dropAlienResistance(ServerPlayer p) {
 		var res = p.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
@@ -690,6 +717,7 @@ public final class Omnitrix {
 			try {
 				kit.onRevert(p);
 				dropAlienResistance(p);
+				refreshName(p);
 			} catch (RuntimeException e) {
 				com.projecthero.mod.ProjectHeroMod.LOGGER.error("[Omnitrix] {} onRevert failed", s.active, e);
 			}
