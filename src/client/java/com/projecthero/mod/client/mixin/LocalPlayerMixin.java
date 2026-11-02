@@ -155,6 +155,7 @@ public abstract class LocalPlayerMixin {
 		if (projecthero$xlr8WallRun(self)) {
 			return;
 		}
+		projecthero$xlr8WaterSurface(self);
 		if (!projecthero$speedModeActive(self)) {
 			projecthero$groundSpeed = 0.0;
 			projecthero$wallRunning = false;
@@ -232,6 +233,37 @@ public abstract class LocalPlayerMixin {
 			if (self.getY() < surfaceY) {
 				self.setPos(self.getX(), surfaceY, self.getZ());
 			}
+			self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
+			self.setOnGround(true);
+			self.resetFallDistance();
+		}
+	}
+
+	/**
+	 * v0.17.2 (user: "xlr8 also runs on a water a little bit in the water and not on top of the water"): his Speed Mode stands on
+	 * water the way a strider stands on lava, and vanilla only gives that a half-block-high floor -- so he ran half sunk. Held at
+	 * the real surface here instead (as the speedsters' water run is), while he is moving or steering and not sneaking.
+	 */
+	@Unique
+	private void projecthero$xlr8WaterSurface(LocalPlayer self) {
+		if (!com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(self)
+				|| (com.projecthero.mod.omnitrix.Omnitrix.state(self).kitFlags & com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.F_SPEED) == 0
+				|| self.isShiftKeyDown() || self.getAbilities().flying || self.isPassenger() || self.isUnderWater()) {
+			return;
+		}
+		Vec3 v = self.getDeltaMovement();
+		BlockPos feet = self.blockPosition();
+		FluidState fluid = self.level().getFluidState(feet);
+		if (!fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.below()).is(FluidTags.WATER)) {
+			feet = feet.below();
+			fluid = self.level().getFluidState(feet);
+		}
+		if (!fluid.is(FluidTags.WATER) || !self.level().getFluidState(feet.above()).isEmpty()) {
+			return;
+		}
+		double surface = feet.getY() + fluid.getHeight(self.level(), feet);
+		if (self.getY() < surface && self.getY() > surface - 1.2) {
+			self.setPos(self.getX(), surface, self.getZ());
 			self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
 			self.setOnGround(true);
 			self.resetFallDistance();
