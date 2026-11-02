@@ -187,8 +187,17 @@ public final class OmnitrixRenderers {
 		}
 	}
 
-	/** The Containment Pod's energy field: a faint green tube, roaring bright (and red toward the end) while extracting. */
+	/**
+	 * The Containment Pod's lights -- v0.17.2 (user: "make the omnitrix containment pod look better"): a green emitter ring round
+	 * the floor and another under the cap, the Omnitrix hourglass lit on the floor plate, and between them the energy field -- a
+	 * smooth 24-sided tube that fades out toward both ends, a faint shimmer at rest, roaring bright (red pulses, rings racing up)
+	 * while extracting.
+	 */
 	static final class PodField implements BlockEntityRenderer<OmnitrixPodBlockEntity> {
+		private static final int SEG = 24;
+		private static final float C = 0.5f, R = 0.38f;
+		private static final float Y0 = 2.25f / 16f, Y1 = 1f + 11f / 16f;
+
 		PodField(BlockEntityRendererProvider.Context ctx) {
 		}
 
@@ -200,40 +209,76 @@ public final class OmnitrixRenderers {
 			boolean running = be.ticks() > 0;
 			float t = be.getLevel().getGameTime() + partial;
 			VertexConsumer vc = buffers.getBuffer(RenderType.eyes(FIELD_TEX));
-			float r = 0.43f;
-			float y0 = 2f / 16f, y1 = 1.88f;
-			float scroll = (t * (running ? 0.08f : 0.015f)) % 1f;
-			int a = running ? 130 : 60;
+			PoseStack.Pose p = pose.last();
 			// from inside the tube (the wearer) the field is only a faint shimmer, or it would fill the screen
 			var cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
 			double dx = cam.x - (be.getBlockPos().getX() + 0.5), dz = cam.z - (be.getBlockPos().getZ() + 0.5);
-			if (dx * dx + dz * dz < 0.36 && cam.y > be.getBlockPos().getY() && cam.y < be.getBlockPos().getY() + 2.2) {
-				a = 22;
-			}
-			int col = running && (int) (t / 4) % 2 == 0 ? 0xFFFF6050 : 0xFF7CFF6A;
-			int argb = (a << 24) | (((col >> 16) & 0xFF) * a / 255 << 16) | (((col >> 8) & 0xFF) * a / 255 << 8) | ((col & 0xFF) * a / 255);
-			PoseStack.Pose p = pose.last();
-			float c = 0.5f;
-			for (int k = 0; k < 8; k++) {
-				double a0 = k * Math.PI / 4, a1 = (k + 1) * Math.PI / 4;
-				float x0 = c + (float) Math.cos(a0) * r, z0 = c + (float) Math.sin(a0) * r;
-				float x1 = c + (float) Math.cos(a1) * r, z1 = c + (float) Math.sin(a1) * r;
-				AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, x0, y0, z0, x1, y0, z1, x1, y1, z1, x0, y1, z0, 0, 0, 1, k / 8f, scroll + 2f,
-						(k + 1) / 8f, scroll);
+			boolean inside = dx * dx + dz * dz < 0.36 && cam.y > be.getBlockPos().getY() && cam.y < be.getBlockPos().getY() + 2.2;
+			int col = running && (int) (t / 4) % 2 == 0 ? 0xFF6050 : 0x7CFF6A;
+			float pulse = 0.8f + 0.2f * Mth.sin(t * 0.15f);
+			// the two emitter rings: one round the floor, one under the cap
+			ring(vc, p, Y0 + 0.005f, R + 0.05f, 0.035f, col, (int) ((running ? 230 : 170) * pulse));
+			ring(vc, p, Y1 - 0.01f, R + 0.05f, 0.035f, col, (int) ((running ? 230 : 170) * pulse));
+			// the hourglass on the floor plate
+			hourglass(vc, p, Y0 + 0.01f, 0.2f, col, (int) ((running ? 220 : 150) * pulse));
+			// the field: bands up the tube, fading in from the floor and out under the cap
+			int peak = inside ? 22 : running ? 130 : 55;
+			float scroll = (t * (running ? 0.08f : 0.015f)) % 1f;
+			int bands = 8;
+			for (int bnd = 0; bnd < bands; bnd++) {
+				float f0 = bnd / (float) bands, f1 = (bnd + 1) / (float) bands;
+				float ya = Mth.lerp(f0, Y0, Y1), yb = Mth.lerp(f1, Y0, Y1);
+				float fade = Math.min(1f, Math.min((f0 + f1) * 0.5f, 1f - (f0 + f1) * 0.5f) * 4f);
+				int a = (int) (peak * fade);
+				if (a < 3) {
+					continue;
+				}
+				int argb = argb(col, a);
+				for (int k = 0; k < SEG; k++) {
+					double a0 = k * Math.PI * 2 / SEG, a1 = (k + 1) * Math.PI * 2 / SEG;
+					float x0 = C + (float) Math.cos(a0) * R, z0 = C + (float) Math.sin(a0) * R;
+					float x1 = C + (float) Math.cos(a1) * R, z1 = C + (float) Math.sin(a1) * R;
+					AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, x0, ya, z0, x1, ya, z1, x1, yb, z1, x0, yb, z0, 0, 0, 1, k / (float) SEG,
+							scroll + f1 * 2f, (k + 1) / (float) SEG, scroll + f0 * 2f);
+				}
 			}
 			if (running) {
 				// the pulse rings racing up the tube
-				for (int ring = 0; ring < 3; ring++) {
-					float ry = y0 + ((t * 0.05f + ring / 3f) % 1f) * (y1 - y0);
-					for (int k = 0; k < 8; k++) {
-						double a0 = k * Math.PI / 4, a1 = (k + 1) * Math.PI / 4;
-						float rr = r + 0.04f;
-						AlienParts.quad(vc, p, 0xFFFFFFFF, LightTexture.FULL_BRIGHT, c + (float) Math.cos(a0) * rr, ry, c + (float) Math.sin(a0) * rr,
-								c + (float) Math.cos(a1) * rr, ry, c + (float) Math.sin(a1) * rr, c + (float) Math.cos(a1) * rr, ry + 0.06f,
-								c + (float) Math.sin(a1) * rr, c + (float) Math.cos(a0) * rr, ry + 0.06f, c + (float) Math.sin(a0) * rr, 0, 0, 1, 0, 0, 1, 0.2f);
-					}
+				for (int r = 0; r < 3; r++) {
+					float ry = Y0 + ((t * 0.05f + r / 3f) % 1f) * (Y1 - Y0);
+					ring(vc, p, ry, R + 0.03f, 0.04f, 0xFFFFFF, 220);
 				}
 			}
+		}
+
+		private static int argb(int rgb, int a) {
+			a = Mth.clamp(a, 0, 255);
+			return (a << 24) | (((rgb >> 16) & 0xFF) * a / 255 << 16) | (((rgb >> 8) & 0xFF) * a / 255 << 8) | ((rgb & 0xFF) * a / 255);
+		}
+
+		/** A flat glowing ring at height {@code y}, {@code w} wide, round the pod's middle. */
+		private static void ring(VertexConsumer vc, PoseStack.Pose p, float y, float r, float w, int rgb, int a) {
+			int argb = argb(rgb, a);
+			for (int k = 0; k < SEG; k++) {
+				double a0 = k * Math.PI * 2 / SEG, a1 = (k + 1) * Math.PI * 2 / SEG;
+				float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
+				float ri = r - w, ro = r + w;
+				AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, C + c0 * ri, y, C + s0 * ri, C + c1 * ri, y, C + s1 * ri, C + c1 * ro, y, C + s1 * ro,
+						C + c0 * ro, y, C + s0 * ro, 0, 1, 0, 0.45f, 0.45f, 0.55f, 0.55f);
+			}
+		}
+
+		/** The Omnitrix hourglass lying on the floor: two triangles tip to tip, in a thin ring. */
+		private static void hourglass(VertexConsumer vc, PoseStack.Pose p, float y, float r, int rgb, int a) {
+			int argb = argb(rgb, a);
+			float w = r * 0.85f;
+			// upper triangle (toward -z) and lower (toward +z), drawn as degenerate quads
+			// both windings, so it shows from above whatever way the quad helper culls
+			AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, C - w, y, C - r, C + w, y, C - r, C, y, C, C, y, C, 0, 1, 0, 0.45f, 0.45f, 0.55f, 0.55f);
+			AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, C, y, C, C, y, C, C + w, y, C - r, C - w, y, C - r, 0, 1, 0, 0.45f, 0.45f, 0.55f, 0.55f);
+			AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, C, y, C, C, y, C, C + w, y, C + r, C - w, y, C + r, 0, 1, 0, 0.45f, 0.45f, 0.55f, 0.55f);
+			AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, C - w, y, C + r, C + w, y, C + r, C, y, C, C, y, C, 0, 1, 0, 0.45f, 0.45f, 0.55f, 0.55f);
+			ring(vc, p, y, r + 0.03f, 0.015f, rgb, a);
 		}
 
 		@Override
