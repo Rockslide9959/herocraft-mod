@@ -72,6 +72,7 @@ public final class MiraculousSequence {
 			case KAALKI -> com.projecthero.mod.miraculous.pegasus.PegasusSequence.TIMELINE;
 			case SASS -> com.projecthero.mod.miraculous.viperion.ViperionSequence.TIMELINE;
 			case MULLO -> com.projecthero.mod.miraculous.multimouse.MultimouseSequence.TIMELINE;
+			case POLLEN -> null; // v0.17.2: Queen Bee has the short transformation only
 		};
 	}
 

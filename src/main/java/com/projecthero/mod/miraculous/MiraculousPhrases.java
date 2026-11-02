@@ -36,6 +36,7 @@ public final class MiraculousPhrases {
 			case KAALKI -> "Pegasus";
 			case SASS -> "Viperion";
 			case MULLO -> "Multimouse"; // v0.17.1
+			case POLLEN -> "Queen Bee"; // v0.17.2
 		};
 	}
 
@@ -50,6 +51,7 @@ public final class MiraculousPhrases {
 			case KAALKI -> "Kaalki, full gallop!";
 			case SASS -> "Sass, scales slither!";
 			case MULLO -> "Mullo, multiply!";
+			case POLLEN -> "Pollen, buzz on!";
 		};
 	}
 
@@ -64,6 +66,7 @@ public final class MiraculousPhrases {
 			case KAALKI -> "Dismount!";
 			case SASS -> "Scales rest!";
 			case MULLO -> "Divide!";
+			case POLLEN -> "Buzz off!";
 		};
 	}
 

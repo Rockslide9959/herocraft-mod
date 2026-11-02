@@ -137,6 +137,7 @@
       "com.projecthero.mod.gametest.PegasusGameTests",
       "com.projecthero.mod.gametest.ViperionGameTests",
       "com.projecthero.mod.gametest.MultimouseGameTests",
+      "com.projecthero.mod.gametest.QueenBeeGameTests",
       "com.projecthero.mod.gametest.QuirkCoreGameTests",
       "com.projecthero.mod.gametest.QuirkHellflameGameTests",
       "com.projecthero.mod.gametest.QuirkFrameworkGameTests",

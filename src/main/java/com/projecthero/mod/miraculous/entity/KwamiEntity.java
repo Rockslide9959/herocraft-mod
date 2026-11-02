@@ -344,6 +344,8 @@ public class KwamiEntity extends Entity implements GeoEntity {
 				case SASS -> base.add(0, owner.getBbHeight() * 0.44, 0).add(right.scale(0.38)).add(fwd.scale(0.05));
 				// v0.17.1: the Mouse Pendant at the collar
 				case MULLO -> base.add(0, owner.getBbHeight() * 0.76, 0).add(fwd.scale(0.25));
+				// v0.17.2: the Bee Comb in the hair at the back of the head
+				case POLLEN -> base.add(0, owner.getEyeHeight() + 0.2, 0).add(fwd.scale(-0.3));
 			};
 		}
 		boolean tired = mode == MODE_TIRED || mode == MODE_POP_TIRED;

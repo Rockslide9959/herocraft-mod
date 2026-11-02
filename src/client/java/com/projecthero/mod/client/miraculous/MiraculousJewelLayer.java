@@ -71,6 +71,8 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionRender.renderBracelet(pose, buffers, light, m.rightArm,
 					com.projecthero.mod.client.miraculous.viperion.ViperionRender.slim(player), on);
 			// v0.17.1: the Mouse Pendant at the collar -- transformed, the suit's own painted pendant takes its place
+			// v0.17.2: the Bee Comb in her hair at the back of the head
+			case POLLEN -> com.projecthero.mod.client.miraculous.queenbee.QueenBeeRender.renderComb(pose, buffers, light, m.head, on);
 			case MULLO -> {
 				if (com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.cover(player, partialTick) < 0.5f) {
 					com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.renderPendant(pose, buffers, light, m.body);

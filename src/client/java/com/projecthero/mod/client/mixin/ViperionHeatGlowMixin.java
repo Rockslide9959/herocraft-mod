@@ -18,7 +18,7 @@ import net.minecraft.world.entity.Entity;
 public abstract class ViperionHeatGlowMixin {
 	@Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
 	private void projecthero$viperionHeatSense(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-		if (ViperionHeatSense.outlined(entity)) {
+		if (ViperionHeatSense.outlined(entity) || com.projecthero.mod.client.miraculous.queenbee.QueenBeeHiveSense.outlined(entity)) { // v0.17.2: + Queen Bee's Hive Sense
 			cir.setReturnValue(true);
 		}
 	}

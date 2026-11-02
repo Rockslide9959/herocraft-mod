@@ -26,7 +26,7 @@ public final class PowerGrants {
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
 			"stand_star_platinum", // v0.17.2: a JoJo Stand
-			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse",
+			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee",
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
 			"symbiote");
@@ -251,7 +251,7 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.ghostrider.GhostRider.grant(target);
 				return new Result(ok, Component.literal(ok ? "Bound " + name + " to the Spirit of Vengeance (Ghost Rider)" : name + " already carries the Spirit of Vengeance"));
 			}
-			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse" -> {
+			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee" -> {
 				// v0.16.6: the Miraculous -- the jewel's Kwami pops out and introduces itself
 				com.projecthero.mod.miraculous.Kwami k = com.projecthero.mod.miraculous.Kwami.byHeroKey(hero);
 				boolean ok = com.projecthero.mod.miraculous.Miraculous.grant(target, k);
@@ -310,7 +310,7 @@ public final class PowerGrants {
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.revoke(target); // v0.17.1
-			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse" -> {
+			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee" -> {
 				if (HeroTiers.holdsHero(target, hero)) {
 					com.projecthero.mod.miraculous.Miraculous.revoke(target);
 				}

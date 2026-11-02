@@ -112,6 +112,8 @@
 		"ViperionHeatColorMixin",
 		"MultimouseFirstPersonArmMixin",
 		"MultimouseArmorMixin",
+		"QueenBeeFirstPersonArmMixin",
+		"QueenBeeArmorMixin",
 		"CyborgFirstPersonArmMixin",
 		"FalconFirstPersonArmMixin",
 		"FalconFovMixin",

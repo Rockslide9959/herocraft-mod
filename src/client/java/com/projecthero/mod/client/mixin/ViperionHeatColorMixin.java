@@ -22,6 +22,10 @@ public abstract class ViperionHeatColorMixin {
 		if (self instanceof LocalPlayer || !com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
 			return;
 		}
+		if (com.projecthero.mod.client.miraculous.queenbee.QueenBeeHiveSense.outlined(self)) { // v0.17.2: Queen Bee's Hive Sense, gold
+			cir.setReturnValue(com.projecthero.mod.client.miraculous.queenbee.QueenBeeHiveSense.COLOR);
+			return;
+		}
 		if (ViperionHeatSense.outlined(self)) {
 			cir.setReturnValue(ViperionHeatSense.color(self));
 		}

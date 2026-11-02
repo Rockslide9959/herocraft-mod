@@ -192,6 +192,7 @@ public final class HeroPackGuide {
 			case KAALKI -> CH_PEGASUS;
 			case SASS -> CH_VIPERION;
 			case MULLO -> CH_MULTIMOUSE;
+			case POLLEN -> CH_QUEEN_BEE;
 		});
 	}
 
@@ -215,6 +216,8 @@ public final class HeroPackGuide {
 					? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "second_chance"}
 					: kwami == com.projecthero.mod.miraculous.Kwami.MULLO // v0.17.1: Multimouse adds her own passives + Multitude
 							? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "mouse", "multitude"}
+					: kwami == com.projecthero.mod.miraculous.Kwami.POLLEN // v0.17.2: Queen Bee adds her glide + Venom
+							? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "glide", "venom"}
 					: new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"};
 			// v0.16.7: Rena Rouge adds the Mirage wheel and one section per illusion
 			if (kwami == com.projecthero.mod.miraculous.Kwami.TRIXX) {
@@ -553,7 +556,9 @@ public final class HeroPackGuide {
 	private static final int CH_OMNITRIX = CH_MULTIMOUSE + 1; // 61
 	/** v0.17.2: Stands -- Star Platinum (after the Omnitrix, so every earlier index stays put). */
 	private static final int CH_STANDS = CH_OMNITRIX + 1; // 62
-	private static final int CHAPTER_POWER_BASE = CH_STANDS + 1; // 63
+	/** v0.17.2: Queen Bee (after the Stands, so every earlier index stays put). */
+	private static final int CH_QUEEN_BEE = CH_STANDS + 1; // 63
+	private static final int CHAPTER_POWER_BASE = CH_QUEEN_BEE + 1; // 64
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1654,6 +1659,7 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.stand.commands");
 			para(lines, "projecthero.guide.stand.commands.body");
 		}));
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.POLLEN)); // CH_QUEEN_BEE (v0.17.2)
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -1804,6 +1810,7 @@ public final class HeroPackGuide {
 		icon(CH_PEGASUS, "horseshoe_glasses");
 		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
+		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
@@ -1891,6 +1898,7 @@ public final class HeroPackGuide {
 		link(miraculous, "projecthero.guide.pegasus", CH_PEGASUS);
 		link(miraculous, "projecthero.guide.viperion", CH_VIPERION);
 		link(miraculous, "projecthero.guide.multimouse", CH_MULTIMOUSE); // v0.17.1
+		link(miraculous, "projecthero.guide.queen_bee", CH_QUEEN_BEE); // v0.17.2
 
 		List<IndexEntry> other = map.get(Category.OTHER);
 		sub(other, "projecthero.guide.sub.other_heroes");
