@@ -1,12 +1,10 @@
 package com.projecthero.mod.client.omnitrix.alien;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
-import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
@@ -20,33 +18,20 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (Recalibrated Omnitrix, basic version): Jetray's client kit -- the player body in his crimson / black skin, manta
- * wings off the shoulders (spread and flapping in flight, folded down his back on the ground), a long whip tail with a lit
- * stinger, a head crest and glowing eyes. The neuroshock beams, the tail bolt, the pulse ring, the dive streak and the
+ * v0.17.2 (Recalibrated Omnitrix): Jetray's client kit -- the player body in the user's Jetray skin and nothing else (v0.17.2
+ * revamp: the wing, tail, crest and eye cubes are gone, user: "only use the skins i provided"). The neuroshock beams, the tail bolt, the pulse ring, the dive streak and the
  * overload's charge and beam are rendered in the world pass ({@link RecalFx}).
  */
 public final class JetrayClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/jetray.png");
-	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/jetray_extras.png");
-	// extras sheet rectangles (pixels on the 64x64 sheet; scratchpad/recal_v0172/jetray/gen_jetray.js)
-	private static final float[] WING = { 0, 0, 32, 16 };
-	private static final float[] TAIL = { 32, 0, 36, 16 };
-	private static final float[] STINGER = { 36, 0, 40, 4 };
-	private static final float[] FIN = { 40, 0, 48, 8 };
-	private static final float[] EYE = { 48, 0, 52, 4 };
-	private static final float[] UNDER = { 0, 16, 16, 24 };
 
 	public static final int CORE = 0xFFF4FFC8;
 	public static final int GLOW = 0xFFA8F030;
@@ -72,8 +57,14 @@ public final class JetrayClient implements AlienClientKit {
 			QuirkKeyframes.f(4, 0, 0, 1.6f, 0, 0, -1.6f, -0.2f, 0, 0, 0, 0.25f, 0, 0, -0.25f, -0.2f), QuirkKeyframes.rest(12) };
 	private static final float[][] STREAM = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.5f, 0, 0.15f, 0.5f, 0, -0.15f, 0.2f, 0, 0, 0, 0, 0, 0, 0, -0.1f),
 			QuirkKeyframes.rest(10) };
-	private static final float[][] SCAN = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.4f, -0.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.15f),
-			QuirkKeyframes.f(14, -2.4f, -0.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.15f), QuirkKeyframes.rest(18) };
+	// v0.17.2 revamp: the Barrel Roll (arms tucked, body twisting round), the Tail Grab (arms reaching down) and the Wing Ram
+	private static final float[][] ROLL = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.2f, 0, 0.2f, 0.2f, 0, -0.2f, 0.2f, 2.1f, 0.3f, 0, 0, 0.3f, 0, 0, 0),
+			QuirkKeyframes.f(8, 0.2f, 0, 0.2f, 0.2f, 0, -0.2f, 0.2f, 4.2f, 0.3f, 0, 0, 0.3f, 0, 0, 0),
+			QuirkKeyframes.f(14, 0.2f, 0, 0.2f, 0.2f, 0, -0.2f, 0.2f, 6.283f, 0.3f, 0, 0, 0.3f, 0, 0, 0), QuirkKeyframes.rest(14.1f) };
+	private static final float[][] GRAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.9f, 0, 0.4f, 0.9f, 0, -0.4f, 0.5f, 0, -0.4f, 0, 0, -0.4f, 0, 0, 0.4f),
+			QuirkKeyframes.f(9, 0.5f, 0, 0.3f, 0.5f, 0, -0.3f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.rest(14) };
+	private static final float[][] RAM = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.6f, 0, 0.9f, 0.6f, 0, -0.9f, 0.7f, 0, 0.4f, 0, 0, 0.4f, 0, 0, -0.6f),
+			QuirkKeyframes.rest(9) };
 	private static final float[][] THUNDER = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.8f, 0, 0.3f, -2.8f, 0, -0.3f, -0.2f, 0, 0.4f, 0, 0, 0.4f, 0, 0, -0.3f),
 			QuirkKeyframes.f(10, 0.7f, 0, 0.3f, 0.7f, 0, -0.3f, 0.9f, 0, 0.5f, 0, 0, 0.5f, 0, 0, -0.7f),
 			QuirkKeyframes.f(40, 0.7f, 0, 0.3f, 0.7f, 0, -0.3f, 0.9f, 0, 0.5f, 0, 0, 0.5f, 0, 0, -0.7f), QuirkKeyframes.rest(44) };
@@ -119,59 +110,9 @@ public final class JetrayClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	private static float u(float[] r, int i) {
-		return r[i] / 64f;
-	}
-
-	private static void ex(PoseStack pose, MultiBufferSource buffers, float[] r, float x0, float y0, float z0, float x1, float y1, float z1, int light) {
-		AlienParts.box(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), x0, y0, z0, x1, y1, z1, u(r, 0), u(r, 1), u(r, 2), u(r, 3), 0xFFFFFFFF, light);
-	}
-
-	@Override
-	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
-			float age) {
-		OmnitrixState s = Omnitrix.state(p);
-		boolean flying = (s.kitFlags & JetrayKit.F_FLYING) != 0 || (s.kitFlags & (JetrayKit.F_DIVING | JetrayKit.F_THUNDER)) != 0;
-		boolean fast = (s.kitFlags & JetrayKit.F_STREAM) != 0;
-		// the wings: spread wide and beating in flight, folded down his back on the ground
-		AlienParts.on(pose, model.body, () -> {
-			for (int side = -1; side <= 1; side += 2) {
-				pose.pushPose();
-				pose.translate(side * 3.5f / 16f, 2.5f / 16f, 1.5f / 16f);
-				float flap = flying ? Mth.sin(age * (fast ? 0.55f : 0.35f)) * 0.35f : Mth.sin(age * 0.08f) * 0.04f;
-				float spread = flying ? 0.12f + flap : 1.25f;
-				pose.mulPose(Axis.ZP.rotation(side * spread));
-				pose.mulPose(Axis.YP.rotation(side * (flying ? 0.1f : 0.35f)));
-				float x0 = side < 0 ? -15f : 0f, x1 = side < 0 ? 0f : 15f;
-				ex(pose, buffers, WING, x0, -0.4f, -3f, x1, 0.4f, 6f, light);
-				// the tapered tip
-				float t0 = side < 0 ? -19f : 15f, t1 = side < 0 ? -15f : 19f;
-				ex(pose, buffers, UNDER, t0, -0.3f, -1f, t1, 0.3f, 3.5f, light);
-				pose.popPose();
-			}
-			// the tail: from the small of the back, trailing behind (straight back in flight)
-			pose.pushPose();
-			pose.translate(0, 11f / 16f, 1.5f / 16f);
-			pose.mulPose(Axis.XP.rotation(flying ? 1.35f : 0.55f + Mth.sin(age * 0.1f) * 0.06f));
-			pose.mulPose(Axis.ZP.rotation(Mth.sin(age * 0.15f) * 0.12f));
-			ex(pose, buffers, TAIL, -0.8f, 0f, -0.8f, 0.8f, 9f, 0.8f, light);
-			pose.translate(0, 9f / 16f, 0);
-			pose.mulPose(Axis.XP.rotation(0.25f + Mth.sin(age * 0.15f - 0.8f) * 0.15f));
-			ex(pose, buffers, TAIL, -0.5f, 0f, -0.5f, 0.5f, 8f, 0.5f, light);
-			pose.translate(0, 8f / 16f, 0);
-			AlienParts.box(pose, buffers.getBuffer(RenderType.eyes(EXTRAS)), -0.9f, 0f, -0.9f, 0.9f, 2.4f, 0.9f, u(STINGER, 0), u(STINGER, 1), u(STINGER, 2),
-					u(STINGER, 3), 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-			pose.popPose();
-		});
-		// the head crest and the glowing eyes
-		AlienParts.on(pose, model.head, () -> {
-			ex(pose, buffers, FIN, -0.8f, -10.5f, -3.5f, 0.8f, -8f, 3.5f, light);
-			ex(pose, buffers, FIN, -0.6f, -9.5f, 3.5f, 0.6f, -8f, 5.5f, light);
-			var eyes = buffers.getBuffer(RenderType.eyes(EXTRAS));
-			AlienParts.box(pose, eyes, -3.1f, -6.1f, -4.1f, -0.9f, -4.9f, -4.02f, u(EYE, 0), u(EYE, 1), u(EYE, 2), u(EYE, 3), 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-			AlienParts.box(pose, eyes, 0.9f, -6.1f, -4.1f, 3.1f, -4.9f, -4.02f, u(EYE, 0), u(EYE, 1), u(EYE, 2), u(EYE, 3), 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-		});
-	}
+	// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"): the
+	// wings, tail, stinger, head crest and glowing eye cubes are gone -- Jetray is the player model in the user's Planet Minecraft
+	// skin, nothing else (renderExtras is the default). The move effects below stay.
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
@@ -185,7 +126,9 @@ public final class JetrayClient implements AlienClientKit {
 			case JetrayKit.ANIM_SPREAD -> SPREAD;
 			case JetrayKit.ANIM_PULSE -> PULSE;
 			case JetrayKit.ANIM_STREAM -> STREAM;
-			case JetrayKit.ANIM_SCAN -> SCAN;
+			case JetrayKit.ANIM_ROLL -> ROLL;
+			case JetrayKit.ANIM_GRAB -> GRAB;
+			case JetrayKit.ANIM_RAM -> RAM;
 			case JetrayKit.ANIM_THUNDER -> THUNDER;
 			case JetrayKit.ANIM_OVERLOAD -> OVERLOAD;
 			default -> null;
@@ -213,12 +156,12 @@ public final class JetrayClient implements AlienClientKit {
 		return switch (animId) {
 			case JetrayKit.ANIM_EYES -> FP_EYES;
 			case JetrayKit.ANIM_TAIL -> FP_TAIL;
-			case JetrayKit.ANIM_DIVE, JetrayKit.ANIM_BOOST, JetrayKit.ANIM_STREAM -> FP_DIVE;
-			case JetrayKit.ANIM_SLASH -> FP_SWEEP;
+			case JetrayKit.ANIM_DIVE, JetrayKit.ANIM_BOOST, JetrayKit.ANIM_STREAM, JetrayKit.ANIM_RAM -> FP_DIVE;
+			case JetrayKit.ANIM_SLASH, JetrayKit.ANIM_ROLL -> FP_SWEEP;
 			case JetrayKit.ANIM_TAKEOFF, JetrayKit.ANIM_THUNDER -> FP_UP;
 			case JetrayKit.ANIM_SPREAD -> FP_SPREAD;
 			case JetrayKit.ANIM_PULSE -> FP_OUT;
-			case JetrayKit.ANIM_SCAN -> FP_TEMPLE;
+			case JetrayKit.ANIM_GRAB -> FP_TEMPLE;
 			case JetrayKit.ANIM_OVERLOAD -> FP_CHARGE;
 			default -> null;
 		};
@@ -320,6 +263,17 @@ public final class JetrayClient implements AlienClientKit {
 				Vec3 c = pl.getPosition(partial).add(0, 0.9 * sc, 0);
 				Vec3 dir = pl.getDeltaMovement().lengthSqr() > 0.05 ? pl.getDeltaMovement().normalize() : f;
 				RecalFx.cone(pose, buffers, c.add(dir.scale(0.5)).subtract(cam), dir.scale(-1), 0.75f * sc, 2.8f * sc, CORE, GLOW, 0.55f);
+			}
+			// v0.17.2 revamp, Tail Grab: a crackling neuroshock tether from the small of his back to what he carries (no tail model:
+			// the user wants the skin only)
+			if ((st.kitFlags & JetrayKit.F_CARRY) != 0) {
+				long id = st.readyAt(JetrayKit.ID + "." + JetrayKit.CARRY_TARGET);
+				var held = id > 0 ? mc.level.getEntity((int) (id - 1)) : null;
+				if (held != null) {
+					Vec3 from = pl.getPosition(partial).add(0, 0.75 * sc, 0).subtract(f.scale(0.2));
+					Vec3 to = held.getPosition(partial).add(0, held.getBbHeight() * 0.8, 0);
+					RecalFx.bolt(pose, buffers, from.subtract(cam), to.subtract(cam), 0.12f, CORE, GLOW, 0.8f, pl.tickCount / 2);
+				}
 			}
 		}
 	}

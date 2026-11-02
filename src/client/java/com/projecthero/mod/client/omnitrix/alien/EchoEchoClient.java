@@ -11,7 +11,6 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
-import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.alien.echoecho.EchoCloneRenderer;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
@@ -27,11 +26,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -41,18 +37,16 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2: Echo Echo's client kit (basic version) -- the player body in his white shell skin with the black face plate, plus ear
- * discs; his clones ({@link EchoCloneRenderer}) wear the same body and copy his poses. Rendered effects (world pass): sound waves as
+ * v0.17.2: Echo Echo's client kit -- the player body in his white shell skin with the black face plate and nothing else (v0.17.2
+ * revamp: the ear discs and back speaker are gone, user: "only use the skins i provided"); his clones ({@link EchoCloneRenderer}) wear the same body and copy his poses. Rendered effects (world pass): sound waves as
  * rings travelling out along the scream (from him and every clone), the blast's widening cone of rings, the cannon's tight rings and
  * beam, the Echo Ring and the Disorient hum's ground rings, the Sound Barrier's spinning shell, the Ultimate Chorus' build-up and its
  * dome of sound.
  */
 public final class EchoEchoClient implements AlienClientKit {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/echo_echo.png");
-	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/echo_echo_extras.png");
 	/** His body size (the kit's scale stat); the clones are drawn at it too. */
 	public static final float SIZE = 0.6f;
-	private static final float S = 1f / 64f;
 	private static final int WAVE = 0xFFCFF4FF;
 
 	// f(tick, rArm xyz, lArm xyz, body x y, rLeg xyz, lLeg xyz, head x)
@@ -119,27 +113,8 @@ public final class EchoEchoClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	/** His ear discs (on the head bone's space): a speaker on each side of the head. Shared with the clones. */
-	public static void earDiscs(PoseStack pose, MultiBufferSource buffers, int light, ModelPart head) {
-		AlienParts.on(pose, head, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -5.2f, -6.2f, -2.2f, -4.0f, -1.8f, 2.2f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
-			AlienParts.box(pose, vc, 4.0f, -6.2f, -2.2f, 5.2f, -1.8f, 2.2f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
-			// the crest along the top of his head
-			AlienParts.box(pose, vc, -0.8f, -9.0f, -3.0f, 0.8f, -8.0f, 3.0f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-		});
-	}
-
-	@Override
-	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
-			float age) {
-		earDiscs(pose, buffers, light, model.head);
-		// the speaker disc on his back
-		AlienParts.on(pose, model.body, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -2.8f, 2.0f, 2.0f, 2.8f, 7.6f, 3.0f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
-		});
-	}
+	// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"): no ear
+	// discs, crest or back speaker any more -- Echo Echo (and every clone) is the player model in his skin, nothing else.
 
 	/** The move pose for {@code animId} -- on him and on each clone. */
 	public static boolean posed(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks) {
@@ -153,7 +128,7 @@ public final class EchoEchoClient implements AlienClientKit {
 			case EchoEchoKit.ANIM_BARRIER -> BARRIER;
 			case EchoEchoKit.ANIM_SPLIT -> SPLIT;
 			case EchoEchoKit.ANIM_MERGE -> MERGE;
-			case EchoEchoKit.ANIM_CANNON -> CANNON;
+			case EchoEchoKit.ANIM_CANNON, EchoEchoKit.ANIM_NOTE -> CANNON;
 			case EchoEchoKit.ANIM_CHARGE -> CHARGE;
 			case EchoEchoKit.ANIM_CHORUS -> CHORUS;
 			default -> null;
@@ -173,7 +148,7 @@ public final class EchoEchoClient implements AlienClientKit {
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case EchoEchoKit.ANIM_SCREAM, EchoEchoKit.ANIM_BLAST, EchoEchoKit.ANIM_RING, EchoEchoKit.ANIM_CHORUS -> FP_SCREAM;
-			case EchoEchoKit.ANIM_CANNON -> FP_PUSH;
+			case EchoEchoKit.ANIM_CANNON, EchoEchoKit.ANIM_NOTE -> FP_PUSH;
 			case EchoEchoKit.ANIM_HUM -> FP_RAISE;
 			case EchoEchoKit.ANIM_LEAP, EchoEchoKit.ANIM_CHARGE -> FP_DOWN;
 			case EchoEchoKit.ANIM_ASSAULT -> FP_POINT;
@@ -245,10 +220,14 @@ public final class EchoEchoClient implements AlienClientKit {
 					}
 				}
 				case EchoEchoKit.ANIM_BLAST -> {
+					// v0.17.2 revamp: the Wall of Sound is held -- the waves keep rolling while its flag is up
+					if ((st.kitFlags & EchoEchoKit.F_WALL) != 0) {
+						t = t % 10f;
+					}
 					if (t < 16) {
 						Vec3 m = mouth(pl, partial);
-						Vec3 end = m.add(pl.getViewVector(partial).scale(EchoEchoKit.BLAST_RANGE));
-						waves(m, end, t, 16f, 0.4f, 4.2f, 1.0f, cam, pose, buffers);
+						Vec3 end = m.add(pl.getViewVector(partial).scale(EchoEchoKit.WALL_RANGE));
+						waves(m, end, t, 16f, 0.4f, 4.6f, 1.0f, cam, pose, buffers);
 						for (EchoCloneEntity c : mine) {
 							waves(cloneMouth(c, partial), end, t, 16f, 0.3f, 2.2f, 1.4f, cam, pose, buffers);
 						}
@@ -393,7 +372,7 @@ public final class EchoEchoClient implements AlienClientKit {
 			PyroDraw.band(pose, add, 0.3f + 1.2f * k, 0.04f, PyroDraw.dim(0xFFB8E0FF, fade * (1f - k)), 0xFF000000);
 			pose.popPose();
 		}
-		groundRings(pl.getPosition(partial), (float) EchoEchoKit.HUM_RADIUS, t % 12f, 12f, cam, pose, buffers);
+		groundRings(pl.getPosition(partial), 12f, t % 12f, 12f, cam, pose, buffers);
 	}
 
 	/** A small burst of rings (a clone splitting off / merging back / a swap). */
