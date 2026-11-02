@@ -129,5 +129,8 @@ public final class OmnitrixPose {
 		}
 		// v0.17.2: the long (right-click) transformation's beats win over everything
 		OmnitrixSequenceClient.pose(p, m, partial);
+		// v0.17.2 (user: "stinkflies hat layer doesnt matchup with the rest of his head"): the hat was copied off the head before
+		// these poses turned it, so it follows the head again here
+		m.hat.copyFrom(m.head);
 	}
 }
