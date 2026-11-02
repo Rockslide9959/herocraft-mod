@@ -143,8 +143,8 @@ public final class OmnitrixRiding {
 	 */
 	@Nullable
 	public static Vec3 seat(Entity vehicle, Entity passenger, EntityDimensions dims) {
-		if (!(vehicle instanceof Player) && com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.insideHost(passenger)) {
-			// v0.17.2: Ghostfreak's possession -- inside the host's body, his eyes at its eyes
+		if (com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.insideHost(passenger)) {
+			// v0.17.2: Ghostfreak's possession -- inside the host's body (a mob's, or a player's), his eyes at its eyes
 			return new Vec3(0.0, Math.max(0.0, vehicle.getEyeHeight() - passenger.getEyeHeight()), 0.0);
 		}
 		if (!(vehicle instanceof Player host)) {
@@ -181,8 +181,8 @@ public final class OmnitrixRiding {
 	 * carrier's does, and the rider's own camera turns with the carrier's body (they can still look round).
 	 */
 	public static void carryRider(Player host, Entity passenger) {
-		if (!(passenger instanceof LivingEntity rider)) {
-			return;
+		if (!(passenger instanceof LivingEntity rider) || com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.insideHost(passenger)) {
+			return; // v0.17.2: a possessing Ghostfreak steers the body he is in; it never turns him
 		}
 		boolean wild = isWildmutt(host);
 		if (!wild && !(passenger instanceof Player p0 && isGreyMatter(p0) && shoulderHost(host))) {
@@ -205,7 +205,7 @@ public final class OmnitrixRiding {
 
 	/** The Wildmutt rider's view stays within {@value #LOOK_LIMIT} degrees of his facing. */
 	public static void clampLook(LivingEntity host, Entity rider) {
-		if (!isWildmutt(host)) {
+		if (!isWildmutt(host) || com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.insideHost(rider)) {
 			return;
 		}
 		float rel = Mth.wrapDegrees(rider.getYRot() - host.yBodyRot);

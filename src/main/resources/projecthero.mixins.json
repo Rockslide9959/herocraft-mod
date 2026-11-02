@@ -78,6 +78,7 @@
 		"SilverSurferPhaseCollideMixin",
 		"OmnitrixAlienCollideMixin",
 		"OmnitrixPhaseMoveCheckMixin",
+		"OmnitrixGhostfreakFadeMixin",
 		"OmnitrixAlienLivingMixin",
 		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",
