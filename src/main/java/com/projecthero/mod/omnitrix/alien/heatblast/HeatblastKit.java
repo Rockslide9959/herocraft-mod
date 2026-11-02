@@ -193,7 +193,7 @@ public final class HeatblastKit extends AlienKit {
 	public static final float TORNADO_DAMAGE = 2f;
 	public static final int TORNADO_TICKS = 80;
 	public static final double TORNADO_RANGE = 24.0, TORNADO_PULL = 6.0;
-	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 34f, SUPERNOVA_EDGE_DAMAGE = 20f;
+	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 60f, SUPERNOVA_EDGE_DAMAGE = 40f; // v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage")
 	public static final int SUPERNOVA_CHARGE = 25;
 	public static final float FIRE_RING_RADIUS = 7.5f, FIRE_RING_DAMAGE = 3f;
 	public static final int FIRE_RING_TICKS = 80;

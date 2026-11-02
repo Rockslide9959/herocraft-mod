@@ -217,7 +217,8 @@ public final class StinkflyKit extends AlienKit {
 	public static final int COCOON_TICKS = 100;
 	public static final int COCOON_BOSS_TICKS = 30;
 	public static final float COCOON_TAKEN = 1.25f;
-	public static final float COCOON_BURST = 12f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the cocoon bursts for 45
+	public static final float COCOON_BURST = 45f;
 	public static final double COCOON_BURST_RADIUS = 3.0;
 	public static final double COCOON_SPRAY = 4.0;
 	/** The timer (synced, so the client can draw the stream) holding the cocoon target's entity id. */

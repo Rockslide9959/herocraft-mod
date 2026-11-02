@@ -169,7 +169,8 @@ public final class FourArmsKit extends AlienKit {
 	public static final int CHARGE_TICKS = 18;
 	public static final float CLAP_DAMAGE = 20f;
 	public static final float CLAP_RANGE = 10f;
-	public static final float METEOR_DAMAGE = 22f, METEOR_PER_BLOCK = 0.5f, METEOR_MAX_DAMAGE = 36f, METEOR_RADIUS = 10f;
+	// v0.17.2 (user: "Make the meteor slam deal 50 damage"): 50 however far he fell
+	public static final float METEOR_DAMAGE = 50f, METEOR_PER_BLOCK = 0f, METEOR_MAX_DAMAGE = 50f, METEOR_RADIUS = 10f;
 	/** The Meteor Slam's take-off speed (about 25 blocks up). */
 	public static final double METEOR_RISE = 2.4;
 	public static final int GUARD_TICKS = 60;

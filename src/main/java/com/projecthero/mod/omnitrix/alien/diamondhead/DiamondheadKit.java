@@ -361,7 +361,8 @@ public final class DiamondheadKit extends AlienKit {
 	/** Each shard's size (the crystal is 3.4x this long) and its place round him: right, up, forward (blocks). */
 	private static final float[] TITAN_SIZE = { 1.05f, 1.05f, 1.45f };
 	private static final double[][] TITAN_HOVER = { { 2.0, 2.3, 0.2 }, { -2.0, 2.3, 0.2 }, { 0.0, 3.9, -0.7 } };
-	public static final float TITAN_DAMAGE = 21f, TITAN_SPLASH = 10f, TITAN_SPLASH_RADIUS = 3.5f;
+	// v0.17.2 (user: "Make each titan crystal deal 40 damage"): 40 to what each shard strikes
+	public static final float TITAN_DAMAGE = 40f, TITAN_SPLASH = 10f, TITAN_SPLASH_RADIUS = 3.5f;
 	public static final double TITAN_SPEED = 1.9, TITAN_RANGE = 40;
 	private static final ResourceLocation TITAN_SLOW_ID = PowerToggles.id("omnitrix_diamondhead_titan_slow");
 

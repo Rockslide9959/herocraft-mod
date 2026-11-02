@@ -266,7 +266,8 @@ public final class GreyMatterKit extends AlienKit {
 	/** Inside Job. */
 	public static final double INSIDE_RANGE = 6.0;
 	public static final int INSIDE_TICKS = 60, INSIDE_PULSE = 10;
-	public static final float INSIDE_DAMAGE = 6f, MACHINE_FACTOR = 1.5f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 6 pulses of 8 = 48 (machines x1.4, ~67)
+	public static final float INSIDE_DAMAGE = 8f, MACHINE_FACTOR = 1.4f;
 	public static final int INSIDE_STUN = 40, SHUTDOWN_TICKS = 100;
 	/** A boss machine is shut down this long (the stun helper gives a boss a quarter: 160 / 4 = 2 s). */
 	public static final int SHUTDOWN_BOSS_TICKS = 160;

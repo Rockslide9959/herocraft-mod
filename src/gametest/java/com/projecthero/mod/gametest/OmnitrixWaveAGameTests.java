@@ -923,7 +923,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.fireChargedBeam(p) >= 1 && near(before - z.getHealth(), UpgradeKit.CHARGED_DAMAGE), "the charged beam pierces for 18");
 		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the EMP falls off
 		helper.assertTrue(near(UpgradeKit.empDamage(0), UpgradeKit.EMP_CENTER) && near(UpgradeKit.empDamage(UpgradeKit.EMP_RADIUS), UpgradeKit.EMP_EDGE)
-				&& near(UpgradeKit.empDamage(UpgradeKit.EMP_RADIUS / 2), 21f), "EMP: 26 at the centre, 21 halfway, 16 at the edge");
+				&& near(UpgradeKit.empDamage(UpgradeKit.EMP_RADIUS / 2), (UpgradeKit.EMP_CENTER + UpgradeKit.EMP_EDGE) / 2f), "EMP: 60 at the centre, 50 halfway, 40 at the edge");
 		// Upgrade Tool
 		ItemStack pick = new ItemStack(Items.IRON_PICKAXE);
 		pick.setDamageValue(200);

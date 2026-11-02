@@ -215,7 +215,8 @@ public final class UpgradeKit extends AlienKit {
 	 * ultimate -- was a flat 3 (6 to golems); now {@link #EMP_CENTER} at the centre falling to {@link #EMP_EDGE} at
 	 * {@link #EMP_RADIUS} (golems twice that), cooldown 30 s.
 	 */
-	public static final float EMP_CENTER = 26f, EMP_EDGE = 16f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 60 falling to 40
+	public static final float EMP_CENTER = 60f, EMP_EDGE = 40f;
 	public static final double EMP_RADIUS = 8;
 	public static final int EMP_COOLDOWN = 600;
 	public static final int MERGE_TICKS = 400;

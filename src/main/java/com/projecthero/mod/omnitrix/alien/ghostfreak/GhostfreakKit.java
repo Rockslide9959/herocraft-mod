@@ -223,7 +223,8 @@ public final class GhostfreakKit extends AlienKit {
 	public static final int PEEL_TICKS = 20;
 	public static final int TRUE_TICKS = 400;
 	public static final int TRUE_COOLDOWN = 900;
-	public static final float TRUE_BURST = 10f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the terror burst 45
+	public static final float TRUE_BURST = 45f;
 	public static final double TRUE_RADIUS = 10;
 	public static final int TRUE_FEAR = 80;
 	public static final float LASH_DAMAGE = 4f;

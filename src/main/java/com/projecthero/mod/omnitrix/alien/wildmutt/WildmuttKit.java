@@ -258,7 +258,8 @@ public final class WildmuttKit extends AlienKit {
 	// ultimate -- was 5 a creature, no burst
 	public static final float ROLL_DAMAGE = 12f, ROLL_FACTOR = 0.6f;
 	/** v0.17.2: the quill burst when the roll ends -- this much to everything within {@link #ROLL_BURST_RADIUS}. */
-	public static final float ROLL_BURST_DAMAGE = 18f, ROLL_BURST_RADIUS = 4f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the closing burst 45
+	public static final float ROLL_BURST_DAMAGE = 45f, ROLL_BURST_RADIUS = 4f;
 	public static final int FRENZY_TICKS = 160;
 	public static final float FRENZY_SPEED = 0.25f, FRENZY_CLAWS = 4f, FRENZY_HEAL = 1.5f;
 	public static final double TRACK_RANGE = 48.0;

@@ -239,7 +239,8 @@ public final class RipjawsKit extends AlienKit {
 	public static final float GNASH_RANGE = 3.5f;
 	// v0.17.2 revamp (user: "Drop tidal roar"): Shift+Z Megamouth, his ultimate
 	public static final int MEGA_WINDUP = 15;
-	public static final float MEGA_DAMAGE = 30f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 55 (x1.25 in water, ~69)
+	public static final float MEGA_DAMAGE = 55f;
 	public static final float MEGA_RANGE = 4f;
 	public static final float MEGA_PULL = 6f;
 	public static final float MEGA_HEAL_SHARE = 0.25f;

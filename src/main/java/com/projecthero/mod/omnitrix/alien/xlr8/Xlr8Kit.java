@@ -214,7 +214,8 @@ public final class Xlr8Kit extends AlienKit {
 	public static final float SONIC_HIT = 20f, SONIC_HIT_FULL = 35f, SONIC_SHOCK_FULL = 12f;
 	public static final double SONIC_RADIUS = 4, SONIC_RADIUS_FULL = 6;
 	/** v0.17.2: Raptor Rush (Speed Sweep), was 15 a foe. */
-	public static final float SWEEP_HIT = 26f;
+	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 45 a foe
+	public static final float SWEEP_HIT = 45f;
 	/** v0.17.2 revamp: Raptor Rush reaches 24 blocks (the old 50 emptied the whole area). */
 	public static final double RUSH_RANGE = 24.0;
 	/** v0.17.2: the ultimate's cooldown (Raptor Rush, Shift+Z), 30 s. */

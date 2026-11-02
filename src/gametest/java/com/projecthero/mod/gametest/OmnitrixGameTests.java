@@ -1044,15 +1044,15 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.2 revamp: Shift+Z Meteor Slam -- up into the sky first, and the quake scales with the fall (22 + 0.5 a block, 36 at most). */
+	/** v0.17.2 revamp: Shift+Z Meteor Slam -- up into the sky first, and the quake does 50 however far he fell. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fourArmsMeteorSlamRisesAndScalesWithTheFall(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
 		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(0) - FourArmsKit.METEOR_DAMAGE) < 1e-4
-				&& Math.abs(FourArmsKit.meteorDamage(10) - (FourArmsKit.METEOR_DAMAGE + 10 * FourArmsKit.METEOR_PER_BLOCK)) < 1e-4, "22 + 0.5 a block");
-		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(80) - FourArmsKit.METEOR_MAX_DAMAGE) < 1e-4, "36 at most");
+				&& Math.abs(FourArmsKit.meteorDamage(10) - (FourArmsKit.METEOR_DAMAGE + 10 * FourArmsKit.METEOR_PER_BLOCK)) < 1e-4, "50 at any height");
+		helper.assertTrue(Math.abs(FourArmsKit.meteorDamage(80) - FourArmsKit.METEOR_MAX_DAMAGE) < 1e-4, "50 from a long fall too");
 		p.setOnGround(true);
 		helper.assertTrue(kit.meteorSlam(p), "Meteor Slam");
 		helper.assertTrue(kit.flag(p, FourArmsKit.F_LEAPING) && kit.timer(p, "meteor_rise") > 0, "he rises first");
