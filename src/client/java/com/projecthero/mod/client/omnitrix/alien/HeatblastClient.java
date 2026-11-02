@@ -317,10 +317,10 @@ public final class HeatblastClient implements AlienClientKit {
 		// the four edge sheets: flush along an edge at the base, drawn in and up toward the middle at the top
 		for (int side = 0; side < 4; side++) {
 			float flick = 0.85f + 0.15f * Mth.sin(age * 0.6f + side * 1.9f);
-			float h = (0.42f + 0.06f * (side % 2)) * flick * s;
-			float in = 0.09f + 0.02f * Mth.sin(age * 0.4f + side);
+			float h = (0.62f + 0.1f * (side % 2)) * flick * s;
+			float in = 0.05f + 0.02f * Mth.sin(age * 0.4f + side);
 			float top = base - h;
-			float tw = e * 0.7f;
+			float tw = e * 0.85f;
 			// corners in head space, rotated per side: the edge at z = -e (front), its top drawn in toward the middle
 			float[][] q = { { -e, base, -e }, { e, base, -e }, { tw, top, -e + in }, { -tw, top, -e + in } };
 			float[][] r = new float[4][3];
@@ -338,7 +338,7 @@ public final class HeatblastClient implements AlienClientKit {
 		}
 		// the core: a taller crossed pair straight up out of the middle, swaying
 		float sway = 0.04f * Mth.sin(age * 0.25f);
-		float core = (0.7f + 0.1f * Mth.sin(age * 0.7f)) * s;
+		float core = (0.95f + 0.12f * Mth.sin(age * 0.7f)) * s;
 		float w = e * 0.85f;
 		float top = base - core;
 		fireQuad(vc, last, fire0, new float[][] { { -w, base, 0 }, { w, base, 0 }, { w * 0.6f + sway, top, sway }, { -w * 0.6f + sway, top, sway } });
