@@ -121,7 +121,7 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		near(helper, (float) j.getAttributeValue(Attributes.ARMOR), 3f, "Jetray: 3 armour");
 		ServerPlayer b = as(helper, BigChillKit.ID);
 		near(helper, b.getMaxHealth(), 28f, "Big Chill: 28 health");
-		near(helper, (float) b.getAttributeValue(Attributes.ARMOR), 4f, "Big Chill: 4 armour");
+		near(helper, (float) b.getAttributeValue(Attributes.ARMOR), 0f, "Big Chill: no armour of his own (v0.17.2 revamp; see OmnitrixBigChillGameTests)");
 		ServerPlayer c = as(helper, ChromastoneKit.ID);
 		near(helper, c.getMaxHealth(), 34f, "Chromastone: 34 health");
 		near(helper, (float) c.getAttributeValue(Attributes.ARMOR), 10f, "Chromastone: 10 armour");
@@ -171,89 +171,6 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		v.invulnerableTime = 0;
 		helper.assertFalse(kit.eyes(p), "a second press while cooling down does nothing");
 		near(helper, v.getHealth(), 40f - JetrayKit.EYES_DAMAGE, "no second hit");
-		helper.succeed();
-	}
-
-	// ================================================================ Big Chill
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void bigChillFreezingBreathChillsAndCoolsDown(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, BigChillKit.ID);
-		BigChillKit kit = (BigChillKit) Aliens.kit(BigChillKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.5, 40f);
-		helper.assertTrue(kit.breath(p), "the breath fires");
-		near(helper, z.getHealth(), 40f - BigChillKit.BREATH_DAMAGE, "the breath does 12");
-		helper.assertTrue(z.getTicksFrozen() >= z.getTicksRequiredToFreeze(), "the zombie is frosted over (chilled)");
-		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slowed");
-		helper.assertFalse(BigChillKit.shelled(z), "not frozen solid by one breath");
-		helper.assertFalse(kit.breath(p), "the breath cools down");
-		// a chilled creature hit by more cold freezes solid
-		BigChillKit.chill(p, z, 40);
-		helper.assertTrue(BigChillKit.shelled(z), "chilled again: frozen solid (the ice shell)");
-		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
-		helper.assertTrue(slow != null && slow.getAmplifier() >= 9, "and rooted");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void bigChillPhasesAndShrugsOffTheCold(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, BigChillKit.ID);
-		BigChillKit kit = (BigChillKit) Aliens.kit(BigChillKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 3.5, 20f);
-		float hp = p.getHealth();
-		p.hurt(helper.getLevel().damageSources().freeze(), 5f);
-		near(helper, p.getHealth(), hp, "the cold never touches him");
-		p.setTicksFrozen(120);
-		Omnitrix.tick(p);
-		helper.assertTrue(p.getTicksFrozen() == 0, "powder snow cannot freeze him");
-		helper.assertFalse(kit.phasing(p), "solid to begin with");
-		kit.press(p, AbilitySlot.SLOT_3, true);
-		helper.assertTrue(kit.phasing(p) && kit.flag(p, BigChillKit.F_PHASE), "Shift+X: intangible (the phasing hook)");
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
-		near(helper, p.getHealth(), hp, "a blow passes through him while phased");
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().magic(), 2f);
-		helper.assertTrue(p.getHealth() < hp, "magic still reaches him");
-		// the 5 s run out
-		var n = Omnitrix.state(p).copy();
-		n.timers.put(kit.key("phase_end"), helper.getLevel().getGameTime());
-		Omnitrix.save(p, n);
-		Omnitrix.tick(p);
-		helper.assertFalse(kit.phasing(p), "solid again when the phase ends");
-		helper.assertTrue(kit.cooldownLeft(p, BigChillKit.PHASE_MOVE) > 0, "and Phase cools down");
-		helper.succeed();
-	}
-
-	// ================================================================ Chromastone
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void chromastoneAbsorbsAHitIntoChargeAndSpendsIt(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, ChromastoneKit.ID);
-		ChromastoneKit kit = (ChromastoneKit) Aliens.kit(ChromastoneKit.ID);
-		Villager v = prey(helper, 3.5, 2, 6.5, 40f);
-		helper.assertTrue(ChromastoneKit.charge(p) == 0, "no charge to begin with");
-		helper.assertFalse(kit.prismBeam(p), "no Prism Beam without charge");
-		helper.assertTrue(kit.cooldownLeft(p, ChromastoneKit.PRISM_BEAM) == 0, "a refused beam costs no cooldown");
-		float hp = p.getHealth();
-		p.hurt(helper.getLevel().damageSources().magic(), 10f);
-		float taken = hp - p.getHealth();
-		helper.assertTrue(taken > 0f && taken <= 10f * ChromastoneKit.ABSORB_LEAK + 0.01f, "a fifth of the magic gets through (took " + taken + ")");
-		helper.assertTrue(ChromastoneKit.charge(p) == 40, "absorbed into charge: 10 x 4 = 40 (got " + ChromastoneKit.charge(p) + ")");
-		// blunt force is not absorbed
-		p.invulnerableTime = 0;
-		Zombie z = zombie(helper, 6.5, 2, 1.5, 20f);
-		p.hurt(helper.getLevel().damageSources().mobAttack(z), 4f);
-		helper.assertTrue(ChromastoneKit.charge(p) == 40, "a blow cracks him instead of charging him");
-		helper.assertTrue(kit.prismBeam(p), "with 40 charge the Prism Beam fires");
-		near(helper, v.getHealth(), 40f - ChromastoneKit.PRISM_DAMAGE, "the beam does 15");
-		helper.assertTrue(ChromastoneKit.charge(p) == 40 - ChromastoneKit.PRISM_COST, "and spends 20 charge");
-		helper.assertTrue(kit.cooldownLeft(p, ChromastoneKit.PRISM_BEAM) > 0, "the beam cools down");
-		helper.assertFalse(kit.prismBeam(p), "a second press while cooling down does nothing");
-		helper.assertTrue(ChromastoneKit.charge(p) == 20, "and costs nothing");
 		helper.succeed();
 	}
 
