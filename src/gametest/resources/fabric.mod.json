@@ -267,6 +267,7 @@
       "com.projecthero.mod.gametest.OmnitrixRecalAGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalBGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalCGameTests",
+      "com.projecthero.mod.gametest.OmnitrixSwampfireGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalAlienXGameTests",
       "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests"
     ]

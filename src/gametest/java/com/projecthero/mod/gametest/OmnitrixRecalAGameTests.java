@@ -7,7 +7,6 @@ import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.echoecho.EchoCloneEntity;
 import com.projecthero.mod.omnitrix.alien.echoecho.EchoEchoKit;
 import com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit;
-import com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -25,7 +24,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 the Recalibrated Omnitrix, group A -- Swampfire, Echo Echo and Humungousaur (basic kits): their bodies on a recalibrated
+ * v0.17.2 the Recalibrated Omnitrix, group A -- Swampfire (his tests moved to OmnitrixSwampfireGameTests with the revamp), Echo Echo and Humungousaur (basic kits): their bodies on a recalibrated
  * watch, each one's signature (Swampfire's fire immunity, cold weakness and regrowth; Echo Echo's clones, which are cleaned up when
  * he turns back; Humungousaur's size-shift, which comes off on revert), one move's damage + cooldown each, and that turning back
  * leaves no state behind. Mock players are not ticked: tests over time drive {@link Omnitrix#tick} themselves.
@@ -96,65 +95,6 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		OmnitrixState n = Omnitrix.state(p).copy();
 		n.timers.remove(alien + "." + move);
 		Omnitrix.save(p, n);
-	}
-
-	// ================================================================ Swampfire
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void swampfireIsFireImmuneHatesColdAndRegrows(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, SwampfireKit.ID, 0f);
-		near(helper, p.getMaxHealth(), 32f, "32 health");
-		near(helper, p.getScale(), 1.0f, "player-sized");
-		near(helper, p.getArmorValue(), 6f, "armour 6");
-		float hp = p.getHealth();
-		p.hurt(helper.getLevel().damageSources().inFire(), 6f);
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().lava(), 6f);
-		p.invulnerableTime = 0;
-		near(helper, p.getHealth(), hp, "fire and lava never hurt him");
-		p.hurt(helper.getLevel().damageSources().freeze(), 2f);
-		p.invulnerableTime = 0;
-		helper.assertTrue(hp - p.getHealth() > 2.0f,"cold hurts him double (lost " + (hp - p.getHealth()) + " to a 2-damage freeze)");
-		p.setHealth(20f);
-		pump(helper, p);
-		helper.runAfterDelay(45, () -> {
-			helper.assertTrue(p.getHealth() >= 21.9f, "he regrew about a health a second (now " + p.getHealth() + ")");
-			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
-			helper.assertFalse(Omnitrix.state(p).transformed(), "turned back");
-			near(helper, p.getMaxHealth(), 20f, "a player's health again");
-			p.invulnerableTime = 0;
-			float h = p.getHealth();
-			p.hurt(helper.getLevel().damageSources().inFire(), 2f);
-			helper.assertTrue(p.getHealth() < h, "fire hurts the human again");
-			helper.assertFalse(SwampfireKit.holds(p), "no Swampfire state left");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void swampfireTorchBurnsOnceThenCoolsDownAndIgniteNeedsACloud(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, SwampfireKit.ID, 0f);
-		SwampfireKit kit = (SwampfireKit) Aliens.kit(SwampfireKit.ID);
-		Villager v = prey(helper, 3.5, 2, 4.5, 100f);
-		helper.assertTrue(kit.torch(p), "the Methane Torch fires");
-		near(helper, v.getHealth(), 100f - SwampfireKit.TORCH_DAMAGE, "the torch's damage");
-		helper.assertTrue(v.isOnFire(), "and sets it alight");
-		v.invulnerableTime = 0;
-		helper.assertFalse(kit.torch(p), "the torch cools down");
-		helper.assertTrue(kit.cooldownLeft(p, SwampfireKit.TORCH) > 0, "a cooldown is running");
-		near(helper, v.getHealth(), 100f - SwampfireKit.TORCH_DAMAGE, "no second burst while it cools down");
-		// Ignite: nothing to light = refused with no cooldown; after a cloud it goes off and the cloud is spent
-		helper.assertFalse(kit.ignite(p), "no cloud, no ignite");
-		helper.assertTrue(kit.cooldownLeft(p, SwampfireKit.IGNITE) == 0, "a refused ignite costs no cooldown");
-		helper.assertTrue(kit.cloud(p) && SwampfireKit.hasCloud(p) && kit.flag(p, SwampfireKit.F_CLOUD), "a methane cloud hangs");
-		helper.assertTrue(kit.ignite(p), "the cloud is lit");
-		helper.assertFalse(SwampfireKit.hasCloud(p) || kit.flag(p, SwampfireKit.F_CLOUD), "and burnt away");
-		kit.roots(p);
-		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
-		helper.assertFalse(SwampfireKit.holds(p), "turning back leaves no cloud or root line");
-		helper.succeed();
 	}
 
 	// ================================================================ Echo Echo

@@ -27,6 +27,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.particles.ParticleTypes;
@@ -80,6 +81,16 @@ public final class SwampfireClient implements AlienClientKit {
 			QuirkKeyframes.f(14, -2.8f, 0, 1.0f, -2.8f, 0, -1.0f, -0.25f, 0, 0, 0, 0.25f, 0, 0, -0.25f, -0.5f), QuirkKeyframes.rest(20) };
 	private static final float[][] PUNCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, 0.2f, 0, 0, 0, 0, 0.1f, -0.4f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.rest(7) };
+	// v0.17.2 revamp: the vine lash (a whip of the right arm), the seed fan (a sidearm fling), the yank (both arms hauling back),
+	// the reform (rising out of a crouch, arms spreading)
+	private static final float[][] LASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -2.4f, 0.4f, 0.3f, 0.2f, 0, 0, 0, -0.3f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(5, -1.2f, -0.5f, 0, 0.2f, 0, 0, 0.1f, 0.3f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(10) };
+	private static final float[][] FAN = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, 1.0f, 0.6f, 0.3f, 0, 0, 0, 0.4f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(6, -1.4f, -0.9f, 0, 0.3f, 0, 0, 0.1f, -0.4f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(12) };
+	private static final float[][] YANK = { QuirkKeyframes.f(0, -1.6f, 0, 0, -1.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(4, -0.4f, 0, 0.4f, -0.4f, 0, -0.4f, -0.25f, 0, 0.3f, 0, 0, -0.3f, 0, 0, -0.1f), QuirkKeyframes.rest(12) };
+	private static final float[][] REFORM = { QuirkKeyframes.f(0, -0.2f, 0, 0.4f, -0.2f, 0, -0.4f, 0.6f, 0, -0.6f, 0, 0.2f, -0.6f, 0, -0.2f, 0.5f),
+			QuirkKeyframes.f(8, -0.6f, 0, 1.1f, -0.6f, 0, -1.1f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.3f), QuirkKeyframes.rest(16) };
 
 	// ---------------------------------------------------------------- first-person clips
 	private static final FirstPersonClip FP_PALM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -20, 15, 0, 0.12f, 0.15f, -0.3f),
@@ -103,6 +114,9 @@ public final class SwampfireClient implements AlienClientKit {
 			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
 
 	private static boolean registered;
+	/** v0.17.2 revamp: per player, how long the torch had been held (for its fade after the release) and when it was let go. */
+	private static final java.util.Map<Integer, Float> TORCH_HELD = new java.util.HashMap<>();
+	private static final java.util.Map<Integer, Long> TORCH_END = new java.util.HashMap<>();
 
 	private SwampfireClient() {
 	}
@@ -119,7 +133,9 @@ public final class SwampfireClient implements AlienClientKit {
 				pose.popPose();
 			});
 			OmnitrixRenderers.projectileLook("swampfire_seed", SwampfireClient::seed);
+			OmnitrixRenderers.projectileLook("swampfire_scatter", SwampfireClient::seed);
 			WorldRenderEvents.AFTER_ENTITIES.register(SwampfireClient::renderWorld);
+			net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(SwampfireClient::stenchHaze); // v0.17.2 revamp
 		}
 	}
 
@@ -133,25 +149,37 @@ public final class SwampfireClient implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
+		if ((Omnitrix.state(p).kitFlags & SwampfireKit.F_MULCH) != 0) {
+			return; // a heap of mulch (drawn in the world pass)
+		}
 		float sway = Mth.sin(age * 0.08f) * 4f;
+		// v0.17.2 revamp (user's skin, planetminecraft "Swampfire - Ben 10 Alien Force"): the head is a red flower bud with an
+		// orange flame on its brow; the extras follow it -- five short red petals opening round the crown (the skin's own reds),
+		// and a flickering flame at the top of the bud
 		AlienParts.on(pose, model.head, () -> {
-			// the bloom: five petals fanned up and out round the crown, a yellow seed head in the middle
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
 			for (int i = 0; i < 5; i++) {
 				pose.pushPose();
-				pose.translate(0, -8f / 16f, 0);
-				pose.mulPose(Axis.YP.rotationDegrees(i * 72f + 18f));
-				pose.mulPose(Axis.XP.rotationDegrees(-35f - sway));
-				AlienParts.box(pose, vc, -1.6f, -4.2f, -0.4f, 1.6f, 0f, 0.4f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
+				pose.translate(0, -7.6f / 16f, 0);
+				pose.mulPose(Axis.YP.rotationDegrees(i * 72f + 36f));
+				pose.translate(0, 0, 3.2f / 16f);
+				pose.mulPose(Axis.XP.rotationDegrees(-30f - sway));
+				AlienParts.box(pose, vc, -1.4f, -3.2f, -0.35f, 1.4f, 0f, 0.35f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
 				pose.popPose();
 			}
-			AlienParts.box(pose, vc, -1.2f, -9.0f, -1.2f, 1.2f, -7.8f, 1.2f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, light);
+			float flick = 1f + Mth.sin(age * 0.9f) * 0.15f + Mth.sin(age * 2.3f) * 0.08f;
+			pose.pushPose();
+			pose.translate(0, -8f / 16f, -1.2f / 16f);
+			pose.scale(1f, flick, 1f);
+			AlienParts.box(pose, vc, -1.0f, -2.6f, -0.6f, 1.0f, 0f, 0.6f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
+			AlienParts.box(pose, vc, -0.45f, -3.6f, -0.3f, 0.45f, -2.4f, 0.3f, 13 * S, S, 15 * S, 3 * S, 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
+			pose.popPose();
 		});
-		// seed pods on the shoulders
+		// seed pods on the shoulders (olive with the skin's red spots)
 		AlienParts.on(pose, model.body, () -> {
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -5.2f, -0.6f, -1.0f, -3.4f, 1.0f, 0.8f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, light);
-			AlienParts.box(pose, vc, 3.4f, -0.6f, -1.0f, 5.2f, 1.0f, 0.8f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, light);
+			AlienParts.box(pose, vc, -5.4f, -0.8f, -1.2f, -3.2f, 1.2f, 1.0f, 16 * S, 0f, 24 * S, 8 * S, 0xFFFFFFFF, light);
+			AlienParts.box(pose, vc, 3.2f, -0.8f, -1.2f, 5.4f, 1.2f, 1.0f, 16 * S, 0f, 24 * S, 8 * S, 0xFFFFFFFF, light);
 			// a vine strand hanging down the back
 			AlienParts.box(pose, vc, -0.6f, 0.5f, 2.0f, 0.6f, 9.0f, 2.8f, 8 * S, 0f, 12 * S, 8 * S, 0xFFFFFFFF, light);
 		});
@@ -161,7 +189,18 @@ public final class SwampfireClient implements AlienClientKit {
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
+		int flags = Omnitrix.state(p).kitFlags;
+		if ((flags & SwampfireKit.F_TORCH) != 0) {
+			return QuirkKeyframes.play(m, TORCH, Math.min(ticks, 10f), 1f); // both palms held out while Shift+R is down
+		}
+		if ((flags & SwampfireKit.F_SWING) != 0) {
+			return QuirkKeyframes.play(m, SWING, Math.min(ticks, 10f), 1f); // hanging on the vine
+		}
 		float[][] clip = switch (animId) {
+			case SwampfireKit.ANIM_LASH -> LASH;
+			case SwampfireKit.ANIM_SCATTER -> FAN;
+			case SwampfireKit.ANIM_YANK -> YANK;
+			case SwampfireKit.ANIM_REFORM -> REFORM;
 			case SwampfireKit.ANIM_BLAST -> BLAST;
 			case SwampfireKit.ANIM_TORCH -> TORCH;
 			case SwampfireKit.ANIM_SEED -> LOB;
@@ -193,8 +232,86 @@ public final class SwampfireClient implements AlienClientKit {
 			case SwampfireKit.ANIM_IGNITE -> FP_SNAP;
 			case SwampfireKit.ANIM_ROOTS, SwampfireKit.ANIM_INFERNO -> FP_SLAM;
 			case SwampfireKit.ANIM_PUNCH -> FP_PUNCH;
+			case SwampfireKit.ANIM_LASH -> FP_SNAP;
+			case SwampfireKit.ANIM_SCATTER -> FP_LOB;
+			case SwampfireKit.ANIM_YANK -> FP_RAISE;
+			case SwampfireKit.ANIM_REFORM -> FP_SPREAD;
 			default -> null;
 		};
+	}
+
+	/** v0.17.2 revamp, Reassembly: no body while he is a heap of mulch; it fades back in over the 0.6 s reform. */
+	@Override
+	public int bodyAlpha(AbstractClientPlayer p) {
+		OmnitrixState st = Omnitrix.state(p);
+		if ((st.kitFlags & SwampfireKit.F_MULCH) != 0) {
+			return 0;
+		}
+		if (st.animId == SwampfireKit.ANIM_REFORM) {
+			float t = animTicks(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+			if (t >= 0f && t < 12f) {
+				return (int) Mth.clamp(30 + 225 * t / 12f, 30, 255);
+			}
+		}
+		return 255;
+	}
+
+	/** v0.17.2 revamp: the Reassembly row -- ready, or the time until it is. */
+	@Override
+	public void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, int w, float partial) {
+		if (!(com.projecthero.mod.omnitrix.alien.Aliens.kit(SwampfireKit.ID) instanceof SwampfireKit k)) {
+			return;
+		}
+		int left = k.cooldownLeft(p, SwampfireKit.REASSEMBLY);
+		OmnitrixState st = Omnitrix.state(p);
+		boolean mulch = (st.kitFlags & SwampfireKit.F_MULCH) != 0;
+		float frac = left <= 0 ? 1f : 1f - left / (float) SwampfireKit.REASSEMBLY_COOLDOWN;
+		String value = mulch ? "..." : left <= 0 ? "Ready" : String.format(java.util.Locale.ROOT, "%.0fs", Math.ceil(left / 20f));
+		int colour = left <= 0 ? 0xFF5AC05A : 0xFF6A7A40;
+		if ((st.kitFlags & SwampfireKit.F_SURGE) != 0) {
+			long until = st.readyAt(SwampfireKit.ID + "." + SwampfireKit.SURGE_UNTIL);
+			float sl = Math.max(0f, until - (p.level().getGameTime() + partial));
+			com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 16,
+					net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.swampfire.surge"), sl / SwampfireKit.SURGE_TICKS, 0xFFFF8A2A,
+					String.format(java.util.Locale.ROOT, "%.0fs", Math.ceil(sl / 20f)), 0xFFFFFFFF);
+		}
+		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 6,
+				net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.swampfire.reassembly"), frac, colour, value, 0xFFFFFFFF);
+	}
+
+	@Override
+	public int hudHeight() {
+		return Minecraft.getInstance().player != null && (Omnitrix.state(Minecraft.getInstance().player).kitFlags & SwampfireKit.F_SURGE) != 0 ? 20 : 10;
+	}
+
+	/**
+	 * v0.17.2 revamp, Swamp Stench: no particles -- a faint green haze over the screen of a player standing in his smell (nauseous,
+	 * within a few blocks of a Swampfire who is not himself).
+	 */
+	private static void stenchHaze(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.DeltaTracker delta) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null || mc.options.hideGui || !mc.player.hasEffect(net.minecraft.world.effect.MobEffects.CONFUSION)) {
+			return;
+		}
+		double best = Double.MAX_VALUE;
+		for (Player pl : mc.level.players()) {
+			if (pl == mc.player || !Omnitrix.hasPower(pl)) {
+				continue;
+			}
+			OmnitrixState st = Omnitrix.state(pl);
+			if (SwampfireKit.ID.equals(st.active) && st.transformed()) {
+				best = Math.min(best, pl.distanceTo(mc.player));
+			}
+		}
+		if (best > 5.0) {
+			return;
+		}
+		float k = (float) Mth.clamp(1.0 - (best - 2.0) / 3.0, 0.0, 1.0);
+		float pulse = 0.8f + 0.2f * Mth.sin((mc.player.tickCount + delta.getGameTimeDeltaPartialTick(false)) * 0.15f);
+		int a = (int) (60 * k * pulse);
+		if (a > 0) {
+			g.fill(0, 0, g.guiWidth(), g.guiHeight(), (a << 24) | 0x5A7A1C);
+		}
 	}
 
 	@Override
@@ -248,10 +365,71 @@ public final class SwampfireClient implements AlienClientKit {
 			}
 			float t = animTicks(pl, partial);
 			float time = pl.tickCount + partial;
+			long now = pl.level().getGameTime();
+			int flags = st.kitFlags;
+			// v0.17.2 revamp: the held torch -- the cone grows with the hold, and fades out over a few ticks after the release
+			if ((flags & SwampfireKit.F_TORCH) != 0) {
+				float held = now - st.readyAt(SwampfireKit.ID + "." + SwampfireKit.TORCH_START) + partial;
+				torch(pl, partial, held, time, cam, pose, buffers, 1f);
+				TORCH_HELD.put(pl.getId(), held);
+				TORCH_END.remove(pl.getId());
+			} else if (TORCH_HELD.containsKey(pl.getId())) {
+				long end = TORCH_END.computeIfAbsent(pl.getId(), k -> now);
+				float f = 1f - (now + partial - end) / 4f;
+				if (f <= 0f || now < end) {
+					TORCH_HELD.remove(pl.getId());
+					TORCH_END.remove(pl.getId());
+				} else {
+					torch(pl, partial, TORCH_HELD.get(pl.getId()), time, cam, pose, buffers, f);
+				}
+			}
+			// the swing tether while Shift+X is held
+			if ((flags & SwampfireKit.F_SWING) != 0) {
+				Vec3 a = SwampfireKit.pos(pl, SwampfireKit.P_ANCHOR);
+				if (a != null) {
+					vine(hand(pl, partial, false), a, Math.min(1f, t / 3f), 1f, time, cam, pose, buffers);
+				}
+			}
+			if ((flags & SwampfireKit.F_TANGLE) != 0) {
+				Vec3 c = SwampfireKit.pos(pl, SwampfireKit.P_TANGLE);
+				if (c != null) {
+					float left = st.readyAt(SwampfireKit.ID + "." + SwampfireKit.TANGLE_UNTIL) - (now + partial);
+					tangle(c, Math.min(1f, (SwampfireKit.TANGLE_TICKS - left) / 5f), Math.min(1f, left / 6f), time, cam, pose, buffers);
+				}
+			}
+			for (int i = 0; i < SwampfireKit.MAX_MINES; i++) {
+				long until = st.readyAt(SwampfireKit.ID + "." + SwampfireKit.MINE_UNTIL + i);
+				Vec3 m = until > now ? SwampfireKit.pos(pl, SwampfireKit.P_MINE + i) : null;
+				if (m != null) {
+					mine(m, until - (now + partial), time + i * 7, cam, pose, buffers);
+				}
+			}
+			float snapT = now - st.readyAt(SwampfireKit.ID + ".snap_at") + partial;
+			if (snapT >= 0f && snapT < 12f) {
+				Vec3 c = SwampfireKit.pos(pl, SwampfireKit.P_SNAP);
+				if (c != null) {
+					tangle(c, Math.min(1f, snapT / 2f), Math.min(1f, (12f - snapT) / 4f), time, cam, pose, buffers);
+				}
+			}
+			if ((flags & SwampfireKit.F_MULCH) != 0) {
+				mulch(pl.getPosition(partial), 1f, time, cam, pose, buffers);
+			}
+			if ((flags & SwampfireKit.F_SURGE) != 0 && (flags & SwampfireKit.F_MULCH) == 0) {
+				surge(pl, partial, time, cam, pose, buffers);
+			}
 			switch (st.animId) {
-				case SwampfireKit.ANIM_TORCH -> {
-					if (t < 16) {
-						torch(pl, partial, t, time, cam, pose, buffers);
+				case SwampfireKit.ANIM_LASH, SwampfireKit.ANIM_YANK -> {
+					Vec3 e = SwampfireKit.pos(pl, SwampfireKit.P_LASH);
+					if (e != null && t < 8) {
+						float out = st.animId == SwampfireKit.ANIM_YANK ? 1f : Math.min(1f, t / 2f);
+						float f = t > 5 ? Math.max(0f, 1f - (t - 5) / 3f) : 1f;
+						vine(hand(pl, partial, false), e, out, f, time, cam, pose, buffers);
+					}
+				}
+				case SwampfireKit.ANIM_REFORM -> {
+					if (t < 14) {
+						mulch(pl.getPosition(partial), Math.max(0f, 1f - t / 10f), time, cam, pose, buffers);
+						reformRing(pl.getPosition(partial), t / 14f, cam, pose, buffers);
 					}
 				}
 				case SwampfireKit.ANIM_JET -> {
@@ -261,7 +439,7 @@ public final class SwampfireClient implements AlienClientKit {
 				}
 				case SwampfireKit.ANIM_SWING -> {
 					Vec3 a = SwampfireKit.pos(pl, SwampfireKit.P_ANCHOR);
-					if (a != null && t < 14) {
+					if (a != null && t < 14 && (flags & SwampfireKit.F_SWING) == 0) {
 						vine(hand(pl, partial, false), a, Math.min(1f, t / 3f), t > 10 ? 1f - (t - 10) / 4f : 1f, time, cam, pose, buffers);
 					}
 				}
@@ -311,13 +489,15 @@ public final class SwampfireClient implements AlienClientKit {
 		}
 	}
 
-	/** The Methane Torch: a widening cone of burning gas from his palms, white-yellow at the hands, orange and red out at the end. */
-	private static void torch(Player pl, float partial, float t, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
-		float grow = Mth.clamp(t / 3f, 0f, 1f);
-		float fade = t > 12 ? Math.max(0f, 1f - (t - 12) / 4f) : 1f;
+	/**
+	 * The Methane Torch: a widening cone of burning gas from his palms, white-yellow at the hands, orange and red out at the end.
+	 * v0.17.2 revamp: held -- its length follows the server's reach ({@link SwampfireKit#torchReach}), {@code fade} after the release.
+	 */
+	private static void torch(Player pl, float partial, float held, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers, float fade) {
+		float grow = Mth.clamp(held / 3f, 0f, 1f);
 		Vec3 look = pl.getViewVector(partial);
 		Vec3 h = hand(pl, partial, true);
-		float len = (float) SwampfireKit.TORCH_RANGE * grow;
+		float len = (float) SwampfireKit.torchReach(held) * grow;
 		Vec3 end = h.add(look.scale(len)).subtract(cam);
 		VertexConsumer add = PyroDraw.additive(buffers);
 		pose.pushPose();
@@ -471,6 +651,102 @@ public final class SwampfireClient implements AlienClientKit {
 			pose.popPose();
 		}
 		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at.add(0, pl.getBbHeight() * 0.5, 0), 1.2f + k, PyroDraw.dim(0xFFFF7A2A, 0.6f * k));
+	}
+
+	/** v0.17.2 revamp: the Seed Bomb's tangle (and a burst seed's snapping vines) -- five vines curling up out of the ground in a ring. */
+	private static void tangle(Vec3 c, float grow, float fade, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		Vec3 base = c.subtract(cam);
+		VertexConsumer solid = PyroDraw.solidBuffer(buffers);
+		float k = Math.max(0f, Math.min(grow, fade));
+		for (int v = 0; v < 5; v++) {
+			double a0 = v * Mth.TWO_PI / 5 + 0.3;
+			double r0 = SwampfireKit.TANGLE_RADIUS * 0.6;
+			List<Vec3> pts = new ArrayList<>();
+			int n = 12;
+			for (int i = 0; i <= n; i++) {
+				double u = i / (double) n;
+				double a = a0 + u * 2.2 + Math.sin(time * 0.15 + v) * 0.1;
+				double r = r0 * (1.0 - 0.6 * u);
+				pts.add(base.add(Math.cos(a) * r, -0.1 + u * 1.5 * k, Math.sin(a) * r));
+			}
+			PyroDraw.ribbon(pose, solid, pts, u -> 0.15 * k * (1.0 - 0.6 * u), u -> PyroDraw.lerpRgb(0xFF1E3410, 0xFF5C8A2A, (float) u));
+		}
+	}
+
+	/** v0.17.2 revamp: a planted Seed Scatter seed -- a knobbly pod sunk in the ground, pulsing slowly. */
+	private static void mine(Vec3 at, float left, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		float fade = Mth.clamp(left / 10f, 0f, 1f);
+		Vec3 c = at.subtract(cam);
+		float pulse = 0.85f + 0.15f * Mth.sin(time * 0.12f);
+		pose.pushPose();
+		pose.translate(c.x, c.y + 0.08, c.z);
+		pose.scale(1f, 0.7f, 1f);
+		PyroDraw.sphere(pose, PyroDraw.solidBuffer(buffers), 0.2f * pulse * fade, 0xFF6A8A2A, 0xFF2A3A10, 0.25f, time * 0.3f, LightTexture.FULL_BRIGHT);
+		pose.popPose();
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), c.add(0, 0.15, 0), 0.35f * pulse, PyroDraw.dim(0xFF7A1010, 0.5f * fade));
+	}
+
+	/** v0.17.2 revamp, Reassembly: a mound of swamp mulch with vine tendrils, {@code k} of its full size. */
+	private static void mulch(Vec3 at, float k, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		if (k <= 0.02f) {
+			return;
+		}
+		Vec3 c = at.subtract(cam);
+		VertexConsumer solid = PyroDraw.solidBuffer(buffers);
+		pose.pushPose();
+		pose.translate(c.x, c.y + 0.05, c.z);
+		pose.scale(1f, 0.45f, 1f);
+		PyroDraw.sphere(pose, solid, 0.75f * k, 0xFF4C5C1F, 0xFF2A2412, 0.35f, time * 0.05f, LightTexture.FULL_BRIGHT);
+		pose.popPose();
+		// a red bloom on top (his head, folded shut) and two lumps (his hands)
+		pose.pushPose();
+		pose.translate(c.x + 0.15, c.y + 0.3 * k, c.z - 0.1);
+		PyroDraw.sphere(pose, solid, 0.22f * k, 0xFFC11320, 0xFF780810, 0.25f, time * 0.04f, LightTexture.FULL_BRIGHT);
+		pose.popPose();
+		for (int i = 0; i < 2; i++) {
+			pose.pushPose();
+			pose.translate(c.x + (i == 0 ? -0.5 : 0.45) * k, c.y + 0.08, c.z + (i == 0 ? 0.3 : -0.35) * k);
+			PyroDraw.sphere(pose, solid, 0.15f * k, 0xFF556723, 0xFF2F3914, 0.3f, time * 0.06f + i, LightTexture.FULL_BRIGHT);
+			pose.popPose();
+		}
+		for (int v = 0; v < 4; v++) {
+			double a0 = v * Mth.TWO_PI / 4;
+			List<Vec3> pts = new ArrayList<>();
+			for (int i = 0; i <= 8; i++) {
+				double u = i / 8.0;
+				double r = 0.5 + 0.5 * u;
+				pts.add(c.add(Math.cos(a0 + u * 0.8) * r * k, 0.05 + Math.sin(u * Math.PI) * 0.15 * k, Math.sin(a0 + u * 0.8) * r * k));
+			}
+			final float kk = k;
+			PyroDraw.ribbon(pose, solid, pts, u -> 0.07 * kk, u -> PyroDraw.lerpRgb(0xFF2F3914, 0xFF556723, (float) u));
+		}
+	}
+
+	/** v0.17.2 revamp: the reform's single green ring. */
+	private static void reformRing(Vec3 at, float k, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		Vec3 c = at.subtract(cam);
+		float r = 0.4f + 1.8f * k;
+		pose.pushPose();
+		pose.translate(c.x, c.y + 0.05, c.z);
+		PyroDraw.annulus(pose, PyroDraw.additive(buffers), Math.max(0f, r - 0.35f), r, 0xFF000000, PyroDraw.dim(0xFF5AE06A, 1f - k), 0f);
+		pose.popPose();
+	}
+
+	/** v0.17.2 revamp, Methane Surge: his palms burn (fire licking off both hands) while it lasts. */
+	private static void surge(Player pl, float partial, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		float bodyYaw = Mth.rotLerp(partial, pl.yBodyRotO, pl.yBodyRot) * Mth.DEG_TO_RAD;
+		Vec3 right = new Vec3(-Math.cos(bodyYaw), 0, -Math.sin(bodyYaw));
+		Vec3 base = pl.getPosition(partial);
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		Minecraft mc = Minecraft.getInstance();
+		boolean fp = pl == mc.player && mc.options.getCameraType().isFirstPerson();
+		for (int s = -1; s <= 1; s += 2) {
+			Vec3 at = fp ? hand(pl, partial, false).add(right.scale(s < 0 ? -0.55 : 0)) : base.add(right.scale(0.38 * s)).add(0, 0.75, 0);
+			Vec3 c = at.subtract(cam);
+			PyroDraw.fireBillboard(pose, fire, c, Vec3.ZERO, fp ? 0.25f : 0.35f, fp ? 0.35f : 0.5f, (int) (time / 2) + s);
+			PyroDraw.glow(pose, glow, c, 0.4f, PyroDraw.dim(0xFFFF8A2A, 0.6f));
+		}
 	}
 
 	/** The Seed Bomb in flight: a knobbly green pod with a faint glow. */

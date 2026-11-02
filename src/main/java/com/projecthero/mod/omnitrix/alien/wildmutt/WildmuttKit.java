@@ -1246,6 +1246,10 @@ public final class WildmuttKit extends AlienKit {
 		if (com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.inGas(l, p.position().add(0, 0.8, 0))) {
 			return true;
 		}
+		// v0.17.2 (Swampfire revamp): his methane cloud and his Swamp Stench count too
+		if (com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit.inGas(l, p.position().add(0, 0.8, 0))) {
+			return true;
+		}
 		// a lit campfire's smoke column: up to 6 blocks under his nose, within a block sideways
 		BlockPos head = BlockPos.containing(p.getEyePosition());
 		for (int dy = 0; dy <= 6; dy++) {
