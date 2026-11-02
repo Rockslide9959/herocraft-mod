@@ -251,7 +251,7 @@
   "message.projecthero.omnitrix.diamondhead.no_room": "No room above you.",
   "block.projecthero.diamondhead_crystal": "Petrosapien Crystal",
   "projecthero.omnitrix.upgrade.optic_beam": "Optic Beam",
-  "projecthero.omnitrix.upgrade.optic_beam.desc": "A green beam from your eye: 12 damage up to 24 blocks.",
+  "projecthero.omnitrix.upgrade.optic_beam.desc": "A green beam from your eye: 8 damage up to 24 blocks.",
   "projecthero.omnitrix.upgrade.charged_beam": "Charged Beam",
   "projecthero.omnitrix.upgrade.charged_beam.desc": "Charge for 1 s (rooted), then a beam that pierces everything along 32 blocks (18) and bursts where it ends (6). Fired from in water, the burst shorts out.",
   "projecthero.omnitrix.upgrade.circuit_lash": "Circuit Lash",

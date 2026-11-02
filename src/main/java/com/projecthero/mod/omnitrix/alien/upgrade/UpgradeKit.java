@@ -186,7 +186,8 @@ public final class UpgradeKit extends AlienKit {
 	public static final double ARROW_SPEED = 1.5;
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
-	public static final float BEAM_DAMAGE = 12f;
+	// v0.17.2 (user: "adjust the other combat aliens damage ... to try and match this"): a 1 s move does 8, like the other quick moves
+	public static final float BEAM_DAMAGE = 8f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 14
 	public static final float CHARGED_DAMAGE = 18f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 5

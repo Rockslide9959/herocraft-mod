@@ -913,7 +913,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 4.5, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(kit.opticBeam(p), "Optic Beam");
-		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "12 damage");
+		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "8 damage");
 		helper.assertFalse(kit.opticBeam(p), "then cools down");
 		helper.assertTrue(kit.engulf(p, z) && near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE - UpgradeKit.GRAB_DAMAGE), "v0.17.2 revamp: Liquid Engulf (6)");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
