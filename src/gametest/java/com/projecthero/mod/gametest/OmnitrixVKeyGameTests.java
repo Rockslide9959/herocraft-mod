@@ -351,15 +351,8 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 			helper.assertFalse(DiamondheadKit.imprisoned(z), "the prison ends");
 			helper.assertTrue(z.getHealth() <= hp - DiamondheadKit.PRISON_DAMAGE + 0.5f || !z.isAlive(), "and shatters for 14: " + (hp - z.getHealth()));
 			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PRISON) > 0, "it cools down");
-			// Shift+C: the beam straight through it
-			z.setHealth(z.getMaxHealth());
-			z.invulnerableTime = 0;
-			p.setYRot(0f);
-			p.setXRot(0f);
-			float before = z.getHealth();
-			helper.assertTrue(kit.prismBeam(p) >= 1, "Shift+C: the Prism Beam hits it");
-			helper.assertTrue(z.getHealth() <= before - DiamondheadKit.BEAM_DAMAGE + 0.5f || !z.isAlive(), "for 12 or more: " + (before - z.getHealth()));
-			helper.assertTrue(kit.prismBeam(p) == -1, "and cools down");
+			// v0.17.2: Shift+C is the Crystal Tether now (the Prism Beam is gone)
+			helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_6, true, false).id()), "Shift+C: the Crystal Tether");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 			z.discard();
 			helper.succeed();

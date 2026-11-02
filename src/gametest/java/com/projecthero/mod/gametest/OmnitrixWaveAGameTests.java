@@ -271,10 +271,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	public void diamondheadsKeysAndCrystalEruptionHitsAllAround(GameTestHelper helper) {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
-		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is the Crystal Tether");
-		helper.assertTrue(DiamondheadKit.BRIDGE.equals(kit.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Crystal Bridge");
+		helper.assertTrue(DiamondheadKit.SHATTER.equals(kit.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is the Spike Line");
+		helper.assertTrue(DiamondheadKit.PILLAR.equals(kit.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Crystal Pillar");
+		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C the Crystal Tether");
+		helper.assertTrue(kit.move("prism_beam") == null && kit.move(DiamondheadKit.BRIDGE) == null, "the Prism Beam is gone; the bridge is the Construct's");
 		helper.assertTrue(DiamondheadKit.COMBAT.equals(kit.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V Combat Mode");
-		helper.assertTrue(DiamondheadKit.WALL.equals(kit.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V the Crystal Wall");
+		helper.assertTrue(DiamondheadKit.WALL.equals(kit.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V the Crystal Construct");
 		helper.assertTrue(DiamondheadKit.ERUPT.equals(kit.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z is the Crystal Eruption");
 		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is still the Barrage");
 		helper.assertTrue(kit.move("crystal_dome") == null && kit.move("blade_arm") == null, "the dome and the old Blade Arm are gone");
@@ -323,7 +325,6 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		float chipped = DiamondheadKit.SHIELD_HP - kit.shieldHp(p);
 		helper.assertTrue(chipped >= 10f - 0.05f && chipped <= 15f + 0.05f, "it chips the shield: " + kit.shieldHp(p));
 		helper.assertTrue(near(front.getHealth(), 40f - DiamondheadKit.CUT_DAMAGE), "and the attacker is cut on the crystal: " + front.getHealth());
-		helper.assertTrue(kit.refraction(p) >= 10f - 0.05f, "the shield stored the light it caught");
 		Arrow a = new Arrow(EntityType.ARROW, helper.getLevel());
 		a.setOwner(archer);
 		a.moveTo(p.getX(), p.getY() + 1.2, p.getZ() + 2.0);
@@ -428,13 +429,15 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing +z, level
 		Zombie z = zombie(helper, 3.5, 2, 5.5, 60f);
-		kit.press(p, AbilitySlot.SLOT_2, false);
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.TETHER) > 0, "G: the Crystal Tether");
+		kit.press(p, AbilitySlot.SLOT_6, true);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.TETHER) > 0, "Shift+C: the Crystal Tether");
 		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.TETHER_DAMAGE), "it cuts the zombie: " + z.getHealth());
 		helper.assertTrue(z.getDeltaMovement().z < -0.2, "and hauls it in: " + z.getDeltaMovement());
 		z.discard();
-		kit.press(p, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.BRIDGE) > 0, "Shift+G: the Crystal Bridge");
+		// v0.17.2 (user: "looking down builds the bridge"): Shift+V looking down; a level 3-wide span at his feet
+		p.setXRot(DiamondheadKit.CONSTRUCT_PITCH + 5f);
+		kit.press(p, AbilitySlot.SLOT_5, true);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.WALL) > 0, "Shift+V looking down: the Crystal Bridge");
 		int span = 0;
 		for (int dz = 7; dz <= 12; dz++) {
 			for (int dx = -1; dx <= 1; dx++) {
@@ -466,6 +469,40 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * v0.17.2 (user: "shift+G a different attack move"; "looking up builds the dome"; "make them shoot from his hands"): Shift+G's
+	 * Crystal Pillar bursts up under the zombie he looks at (14, thrown up); Shift+V looking up raises a crystal dome round him;
+	 * his shards leave from beside him at chest height, not his eyes.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "diamondhead_dome")
+	public void diamondheadPillarDomeAndHandShots(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0f, 8f);
+		Zombie z = zombie(helper, 3.5, 2, 7.5, 60f);
+		kit.press(p, AbilitySlot.SLOT_2, true);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PILLAR) > 0, "Shift+G: the Crystal Pillar");
+		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.PILLAR_DAMAGE), "it strikes the zombie: " + z.getHealth());
+		helper.assertTrue(z.getDeltaMovement().y > 0.8, "and throws it up: " + z.getDeltaMovement());
+		z.discard();
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		var shards = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4), e -> e.kind().equals("diamondhead_shard"));
+		helper.assertTrue(shards.size() == 5, "five shards: " + shards.size());
+		for (AlienProjectileEntity s : shards) {
+			helper.assertTrue(s.getY() < p.getEyeY() - 0.25, "from his hands, below his eyes: " + (p.getEyeY() - s.getY()));
+		}
+		shards.forEach(AlienProjectileEntity::discard);
+		p.setXRot(-60f);
+		int placed = kit.wall(p);
+		helper.assertTrue(placed > 40, "Shift+V looking up: a dome: " + placed);
+		helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().above(3)).is(DiamondheadBlocks.CRYSTAL)
+				|| helper.getLevel().getBlockState(p.blockPosition().above(4)).is(DiamondheadBlocks.CRYSTAL), "capped over his head");
+		helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().east(3)).is(DiamondheadBlocks.CRYSTAL), "and walled round him");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	/**
 	 * v0.17.2 revamp: V is Combat Mode -- +6 melee, +1 reach, faster swings; R / Shift+R / Z become the Blade Flurry, the Crystal
 	 * Cyclone and the Shatter Line (the HUD's live keys say so) and Z runs the Shatter Line (16 down a 12-block line); V again
 	 * puts the blades away.
@@ -486,12 +523,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_SPEED) > swing + 0.5, "faster swings");
 		helper.assertTrue(DiamondheadKit.FLURRY.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id()), "R: the Blade Flurry");
 		helper.assertTrue(DiamondheadKit.CYCLONE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, true, false).id()), "Shift+R: the Crystal Cyclone");
-		helper.assertTrue(DiamondheadKit.SHATTER.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, false, false).id()), "Z: the Shatter Line");
+		helper.assertTrue(DiamondheadKit.ERUPT.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, false, false).id()), "Z stays the Crystal Eruption");
 		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, true, false).id()), "Shift+Z stays the Barrage");
-		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id()), "G stays the Crystal Tether");
+		helper.assertTrue(DiamondheadKit.SHATTER.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id()), "G stays the Spike Line");
 		Zombie z = zombie(helper, 3.5, 2, 6.5, 60f);
-		kit.press(p, AbilitySlot.SLOT_4, false);
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.SHATTER) > 0 && kit.cooldownLeft(p, DiamondheadKit.ERUPT) == 0, "Z ran the Shatter Line, not the Eruption");
+		kit.press(p, AbilitySlot.SLOT_2, false);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.SHATTER) > 0 && kit.cooldownLeft(p, DiamondheadKit.ERUPT) == 0, "G ran the Spike Line");
 		pump(helper, p);
 		helper.runAfterDelay(24, () -> {
 			helper.assertTrue(z.getHealth() <= 60f - DiamondheadKit.SPIKE_DAMAGE + 0.05f, "the spikes reached the zombie: " + z.getHealth());

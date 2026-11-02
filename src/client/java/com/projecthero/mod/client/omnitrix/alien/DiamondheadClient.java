@@ -691,7 +691,7 @@ public final class DiamondheadClient implements AlienClientKit {
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		float[][] clip = switch (animId) {
 			case DiamondheadKit.ANIM_VOLLEY -> VOLLEY;
-			case DiamondheadKit.ANIM_SPEAR, DiamondheadKit.ANIM_BEAM -> SPEAR;
+			case DiamondheadKit.ANIM_SPEAR -> SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> COMBAT_OFF;
 			case DiamondheadKit.ANIM_SHATTER -> SHATTER;
@@ -702,7 +702,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_PRISON -> PRISON;
 			case DiamondheadKit.ANIM_SLASH -> SLASH;
 			case DiamondheadKit.ANIM_PLACE -> PLACE;
-			case DiamondheadKit.ANIM_ERUPT -> ERUPT;
+			case DiamondheadKit.ANIM_ERUPT, DiamondheadKit.ANIM_PILLAR -> ERUPT;
 			case DiamondheadKit.ANIM_SHIELD -> SHIELD;
 			case DiamondheadKit.ANIM_BASH -> BASH;
 			case DiamondheadKit.ANIM_FLURRY_1 -> FLURRY_1;
@@ -742,7 +742,7 @@ public final class DiamondheadClient implements AlienClientKit {
 		return switch (animId) {
 			case DiamondheadKit.ANIM_VOLLEY -> FP_VOLLEY;
 			case DiamondheadKit.ANIM_BARRAGE -> FP_TITAN;
-			case DiamondheadKit.ANIM_SPEAR, DiamondheadKit.ANIM_BEAM -> FP_SPEAR;
+			case DiamondheadKit.ANIM_SPEAR -> FP_SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> FP_COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> FP_COMBAT_OFF;
 			case DiamondheadKit.ANIM_SHATTER -> FP_SLAM;
@@ -752,7 +752,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_SLASH -> FP_SLASH;
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
 			case DiamondheadKit.ANIM_PRISON -> FP_FLEX;
-			case DiamondheadKit.ANIM_ERUPT -> FP_ERUPT;
+			case DiamondheadKit.ANIM_ERUPT, DiamondheadKit.ANIM_PILLAR -> FP_ERUPT;
 			case DiamondheadKit.ANIM_BASH -> FP_BASH;
 			case DiamondheadKit.ANIM_FLURRY_1 -> FP_FLURRY_1;
 			case DiamondheadKit.ANIM_FLURRY_2 -> FP_FLURRY_2;
