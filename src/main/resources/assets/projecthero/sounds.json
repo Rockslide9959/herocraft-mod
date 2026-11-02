@@ -3017,8 +3017,7 @@
     "subtitle": "subtitles.projecthero.stand.summon",
     "sounds": [
       {
-        "name": "minecraft:block.beacon.activate",
-        "type": "event"
+        "name": "projecthero:stand/star_platinum/summon"
       }
     ]
   },
@@ -3026,8 +3025,7 @@
     "subtitle": "subtitles.projecthero.stand.dismiss",
     "sounds": [
       {
-        "name": "minecraft:block.beacon.deactivate",
-        "type": "event"
+        "name": "projecthero:stand/star_platinum/dismiss"
       }
     ]
   },

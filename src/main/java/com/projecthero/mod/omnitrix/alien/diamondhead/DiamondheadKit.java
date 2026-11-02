@@ -190,11 +190,25 @@ public final class DiamondheadKit extends AlienKit {
 	/** Light the shield catches (blocked damage, up to {@link #REFRACT_MAX}) -- half of it rides on the next Prism Beam. */
 	public static final float REFRACT_MAX = 20f;
 	public static final float REFRACT_SHARE = 0.5f;
-	/** Shift+G: the Shield Bash. */
+	/**
+	 * v0.17.2 (user): the Shield Bash -- running into a foe behind the raised shield: the damage, how fast he must be going (blocks a
+	 * tick, toward where he faces), and how soon the same foe can be bashed again.
+	 */
 	public static final float BASH_DAMAGE = 10f;
-	public static final int BASH_TICKS = 10;
-	public static final int BASH_COOLDOWN = 140;
-	public static final double BASH_SPEED = 0.85;
+	public static final double BASH_MIN_SPEED = 0.12;
+	public static final int BASH_REHIT_TICKS = 20;
+	/** The shield stays up this long after the last right-click use arrives (vanilla repeats uses while the button is held). */
+	public static final int SHIELD_HOLD_GRACE = 6;
+	/** v0.17.2 (user): G -- the Crystal Tether. */
+	public static final String TETHER = "crystal_tether";
+	public static final double TETHER_RANGE = 22.0;
+	public static final float TETHER_DAMAGE = 6f;
+	public static final int TETHER_COOLDOWN = 80;
+	/** v0.17.2 (user): Shift+G -- the Crystal Bridge. */
+	public static final String BRIDGE = "crystal_bridge";
+	public static final int BRIDGE_LENGTH = 20;
+	public static final int BRIDGE_TICKS = 400;
+	public static final int BRIDGE_COOLDOWN = 300;
 	/** Combat Mode R: the Blade Flurry -- two slashes then the stab, each within {@link #FLURRY_WINDOW} of the last. */
 	public static final float FLURRY_SLASH_DAMAGE = 8f;
 	public static final float FLURRY_STAB_DAMAGE = 14f;
@@ -298,7 +312,7 @@ public final class DiamondheadKit extends AlienKit {
 	/** player -> the Crystal Eruption spreading out from him. */
 	private static final Map<UUID, Eruption> ERUPTIONS = new ConcurrentHashMap<>();
 	/** player -> creatures this Shield Bash already struck. */
-	private static final Map<UUID, Set<Integer>> BASH_HITS = new ConcurrentHashMap<>();
+	private static final Map<UUID, Map<Integer, Long>> BASH_HITS = new ConcurrentHashMap<>();
 	/** Set while the passive's cut lands (a cut never answers a cut: two Diamondheads would trade them forever). */
 	private static boolean cutting;
 
@@ -370,8 +384,14 @@ public final class DiamondheadKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 24), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
-				// v0.17.2 revamp: G held raises the Crystal Shield (its cooldown is the regrowth after it shatters)
-				AlienMove.hold(SHIELD, AbilitySlot.SLOT_2, SHIELD_BROKEN_TICKS), AlienMove.shift(BASH, AbilitySlot.SLOT_2, BASH_COOLDOWN),
+				// v0.17.2 (user: "i wanted diamondheads shield to be the right click for his combat mode, shield bash can happen when he
+				// holds out the shield and runs into enemies ... replace his g and Shift+G with other moves that he does in the show"): G is
+				// the Crystal Tether (his crystal reaching out to grab -- a foe hauled in, or him zipped to a wall), Shift+G the Crystal
+				// Bridge (the crystal span he grows over a gap); the shield is held right-click in Combat Mode (its cooldown is the
+				// regrowth after it shatters) and the bash is running into foes behind it
+				AlienMove.tap(TETHER, AbilitySlot.SLOT_2, TETHER_COOLDOWN), AlienMove.shift(BRIDGE, AbilitySlot.SLOT_2, BRIDGE_COOLDOWN),
+				AlienMove.vanilla(SHIELD, "Combat Mode: hold Use", SHIELD_BROKEN_TICKS),
+				AlienMove.vanilla(BASH, "Combat Mode: run into foes behind the shield", 0),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 80), AlienMove.shift(VAULT, AbilitySlot.SLOT_3, 140),
 				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the
 				// Barrage's cooldown 500 -> 600, the ultimate's 30 s
@@ -402,8 +422,7 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_2 ? flag(p, F_SHIELD) || flag(p, F_BASH)
-				: slot == AbilitySlot.SLOT_5 ? flag(p, F_COMBAT) : slot == AbilitySlot.SLOT_3 && flag(p, F_SLIDING);
+		return slot == AbilitySlot.SLOT_5 ? flag(p, F_COMBAT) : slot == AbilitySlot.SLOT_3 && flag(p, F_SLIDING);
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -421,7 +440,7 @@ public final class DiamondheadKit extends AlienKit {
 		setShield(p, false);
 		setFlag(p, F_BASH, false);
 		endSlide(p);
-		for (String t : new String[] { "shield_hp", "refract", "bash_end", "flurry_at", "flurry_step", "storm_end" }) {
+		for (String t : new String[] { "shield_hp", "refract", "bash_end", "flurry_at", "flurry_step", "storm_end", "shield_use", "tether_safe" }) {
 			setTimer(p, t, 0);
 		}
 		PRISONS.remove(p.getUUID());
@@ -529,9 +548,9 @@ public final class DiamondheadKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					shieldBash(p);
+					crystalBridge(p);
 				} else {
-					raiseShield(p);
+					crystalTether(p);
 				}
 			}
 			case SLOT_3 -> {
@@ -569,11 +588,120 @@ public final class DiamondheadKit extends AlienKit {
 		}
 	}
 
-	@Override
-	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
-		if (slot == AbilitySlot.SLOT_2 && flag(p, F_SHIELD)) {
-			lowerShield(p);
+	// ---------------------------------------------------------------- Combat Mode's held right-click: the shield
+
+	/**
+	 * A right-click in Combat Mode (on air, a block or a creature): the shield comes up, or stays up. Vanilla repeats the use while
+	 * the button is held (every tick on air, every 4 on a block), so the shield is "held" while uses keep coming:
+	 * {@link #SHIELD_HOLD_GRACE} ticks after the last one it lowers ({@link #tickShield}).
+	 */
+	private InteractionResult shieldUse(ServerPlayer p) {
+		if (!flag(p, F_COMBAT)) {
+			return InteractionResult.PASS;
 		}
+		setTimer(p, "shield_use", p.level().getGameTime());
+		if (!flag(p, F_SHIELD)) {
+			raiseShield(p);
+		}
+		return InteractionResult.SUCCESS;
+	}
+
+	@Override
+	public InteractionResult onUse(ServerPlayer p, InteractionHand hand) {
+		return hand == InteractionHand.MAIN_HAND && p.getMainHandItem().isEmpty() ? shieldUse(p) : InteractionResult.PASS;
+	}
+
+	@Override
+	public InteractionResult onUseEntity(ServerPlayer p, InteractionHand hand, Entity target) {
+		return hand == InteractionHand.MAIN_HAND && p.getMainHandItem().isEmpty() ? shieldUse(p) : InteractionResult.PASS;
+	}
+
+	// ---------------------------------------------------------------- G: the Crystal Tether, Shift+G: the Crystal Bridge
+
+	/**
+	 * G: crystal shoots from his palm along his aim -- a creature it strikes is cut and hauled to him (a boss only cut and slowed); a
+	 * wall or the ground it strikes anchors it and yanks him there. Up to {@link #TETHER_RANGE} blocks.
+	 */
+	public boolean crystalTether(ServerPlayer p) {
+		if (!use(p, TETHER)) {
+			return false;
+		}
+		ServerLevel l = level(p);
+		Vec3 eye = p.getEyePosition(), look = p.getLookAngle(), far = eye.add(look.scale(TETHER_RANGE));
+		BlockHitResult bh = l.clip(new net.minecraft.world.level.ClipContext(eye, far, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+				net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		Vec3 stop = bh.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? far : bh.getLocation();
+		net.minecraft.world.phys.EntityHitResult eh = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(l, p, eye, stop,
+				p.getBoundingBox().expandTowards(look.scale(TETHER_RANGE)).inflate(1.0),
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e), 0.3f);
+		anim(p, ANIM_SPEAR);
+		Vec3 hitAt;
+		if (eh != null && eh.getEntity() instanceof LivingEntity le) {
+			hitAt = le.position().add(0, le.getBbHeight() * 0.5, 0);
+			le.invulnerableTime = 0;
+			hurt(p, le, TETHER_DAMAGE, false);
+			if (AlienStatus.isBoss(le)) {
+				le.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 2), p);
+			} else {
+				Vec3 pull = p.position().subtract(le.position());
+				double d = pull.length();
+				le.setDeltaMovement(pull.normalize().scale(Math.min(1.7, 0.4 + d * 0.13)).add(0, 0.38, 0));
+				le.hurtMarked = true;
+				le.hasImpulse = true;
+			}
+		} else if (bh.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
+			hitAt = bh.getLocation();
+			Vec3 pull = hitAt.subtract(p.position());
+			double d = pull.length();
+			p.setDeltaMovement(pull.normalize().scale(Math.min(2.1, 0.5 + d * 0.12)).add(0, 0.3, 0));
+			p.hurtMarked = true;
+			p.fallDistance = 0f;
+			// no fall damage from the landing a tether flings him into
+			setTimer(p, "tether_safe", p.level().getGameTime() + 60);
+			QuirkFx.shards(l, hitAt).block(crystal()).size(0.9f).count(8).life(30).spawn();
+		} else {
+			hitAt = far;
+		}
+		Vec3 from = eye.add(look.scale(0.6)).add(0, -0.3, 0);
+		QuirkFx.ribbon(l, from, hitAt).colours(0xE0FFF6, COLOUR).size(0.3f).life(9).style(QuirkFx.RIBBON_LIGHT).spawn();
+		QuirkFx.ribbon(l, from, hitAt).colours(0xFFFFFF, 0xB8FFF0).size(0.12f).life(7).style(QuirkFx.RIBBON_LIGHT).spawn();
+		OmnitrixSounds.play(l, p.position(), SND_SHARD, 1.0f, 0.8f);
+		OmnitrixSounds.play(l, hitAt, SND_GROW, 0.8f, 1.4f);
+		return true;
+	}
+
+	/**
+	 * Shift+G: a 3-wide crystal span grows out ahead of him for {@link #BRIDGE_LENGTH} blocks at his feet's level -- level, or a
+	 * staircase climbing (looking up) or descending (looking down) a block every two -- rising into place block by block, and gone
+	 * after {@link #BRIDGE_TICKS}. Break any block of it and the whole thing falls.
+	 */
+	public boolean crystalBridge(ServerPlayer p) {
+		ServerLevel l = level(p);
+		if (!p.mayBuild() || !use(p, BRIDGE)) {
+			return false;
+		}
+		Vec3 f = flatLook(p);
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		float pitch = p.getXRot();
+		int climb = pitch < -15f ? 1 : pitch > 20f ? -1 : 0;
+		DiamondheadRise.Batch b = DiamondheadRise.batch(l, DiamondheadRise.RISE_TICKS);
+		int y = p.blockPosition().getY() - 1;
+		for (int i = 1; i <= BRIDGE_LENGTH; i++) {
+			if (climb != 0 && i > 1 && i % 2 == 0) {
+				y += climb;
+			}
+			Vec3 c = p.position().add(f.scale(i));
+			for (int w = -1; w <= 1; w++) {
+				BlockPos q = BlockPos.containing(c.x + side.x * w, y, c.z + side.z * w);
+				if (l.getBlockState(q).canBeReplaced() && l.mayInteract(p, q)) {
+					b.place(q, BRIDGE_TICKS);
+				}
+			}
+		}
+		b.start();
+		anim(p, ANIM_WALL);
+		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.0f, 0.8f);
+		return true;
 	}
 
 	private static Vec3 flatLook(ServerPlayer p) {
@@ -725,6 +853,10 @@ public final class DiamondheadKit extends AlienKit {
 	}
 
 	private void tickShield(ServerPlayer p, ServerLevel l, long now) {
+		// v0.17.2: held right-click -- down once the uses stop coming (the button let go) or Combat Mode is off
+		if (flag(p, F_SHIELD) && (!flag(p, F_COMBAT) || now - timer(p, "shield_use") > SHIELD_HOLD_GRACE || now < timer(p, "shield_use"))) {
+			lowerShield(p);
+		}
 		if (flag(p, F_SHIELD) || flag(p, F_BASH)) {
 			if (now % 5 == 0) {
 				Vec3 at = shieldCentre(p);
@@ -739,47 +871,27 @@ public final class DiamondheadKit extends AlienKit {
 		}
 	}
 
-	/** Shift+G: a charge forward behind the shield -- everything in the way is battered aside and staggered. */
-	public boolean shieldBash(ServerPlayer p) {
-		if (shieldBroken(p)) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.diamondhead.shield_broken",
-					String.format(java.util.Locale.ROOT, "%.1f", cooldownLeft(p, SHIELD) / 20f)).withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
-		if (!use(p, BASH)) {
-			return false;
-		}
-		anim(p, ANIM_BASH);
-		setFlag(p, F_BASH, true);
-		setTimer(p, "bash_end", p.level().getGameTime() + BASH_TICKS);
-		BASH_HITS.put(p.getUUID(), new HashSet<>());
-		ServerLevel l = level(p);
-		OmnitrixSounds.play(l, p.position(), SND_SHIELD_UP, 0.8f, 1.2f);
-		QuirkFx.trail(l, p).colours(0xE0FFF6, COLOUR).size(0.5f).size2(6f).life(BASH_TICKS + 4).vec(new Vec3(0, 1.0, 0)).style(QuirkFx.RIBBON_LIGHT).spawn();
-		return true;
-	}
-
+	/**
+	 * v0.17.2 (user: "shield bash can happen when he holds out the shield and runs into enemies"): with the shield up and moving at
+	 * {@link #BASH_MIN_SPEED} or more toward where he faces, every foe he runs into just ahead is battered aside and staggered (the
+	 * same foe again only after {@link #BASH_REHIT_TICKS}).
+	 */
 	private void tickBash(ServerPlayer p, ServerLevel l, long now) {
-		long end = timer(p, "bash_end");
-		if (end <= 0) {
+		if (!flag(p, F_SHIELD)) {
 			return;
 		}
 		Vec3 dir = Vec3.directionFromRotation(0, p.getYRot());
-		if (now >= end || p.horizontalCollision) {
-			setTimer(p, "bash_end", 0);
-			setFlag(p, F_BASH, false);
-			BASH_HITS.remove(p.getUUID());
-			p.setDeltaMovement(p.getDeltaMovement().multiply(0.3, 1, 0.3));
-			p.hurtMarked = true;
+		Vec3 moved = new Vec3(p.getX() - p.xo, 0, p.getZ() - p.zo);
+		if (moved.length() < BASH_MIN_SPEED || moved.normalize().dot(dir) < 0.5) {
 			return;
 		}
-		p.setDeltaMovement(dir.x * BASH_SPEED, Math.min(0, p.getDeltaMovement().y), dir.z * BASH_SPEED);
-		p.hurtMarked = true;
-		Set<Integer> hits = BASH_HITS.computeIfAbsent(p.getUUID(), k -> new HashSet<>());
-		for (LivingEntity e : around(p, p.position().add(dir.scale(1.3)).add(0, 1, 0), 1.8)) {
-			if (!hits.add(e.getId())) {
+		Map<Integer, Long> hits = BASH_HITS.computeIfAbsent(p.getUUID(), k -> new ConcurrentHashMap<>());
+		hits.values().removeIf(at -> now - at > BASH_REHIT_TICKS || now < at);
+		for (LivingEntity e : around(p, p.position().add(dir.scale(1.1)).add(0, 1, 0), 1.3)) {
+			if (hits.putIfAbsent(e.getId(), now) != null) {
 				continue;
 			}
+			anim(p, ANIM_BASH);
 			e.invulnerableTime = 0;
 			hurt(p, e, BASH_DAMAGE, false);
 			shove(e, p.position(), 1.6, 0.35);
@@ -1317,6 +1429,9 @@ public final class DiamondheadKit extends AlienKit {
 		if (hand != InteractionHand.MAIN_HAND || !p.getMainHandItem().isEmpty()) {
 			return InteractionResult.PASS;
 		}
+		if (flag(p, F_COMBAT)) {
+			return shieldUse(p); // v0.17.2: in Combat Mode the right-click is the shield, not a crystal block
+		}
 		return placeCrystal(p, hit.getBlockPos().relative(hit.getDirection())) ? InteractionResult.SUCCESS : InteractionResult.PASS;
 	}
 
@@ -1343,6 +1458,10 @@ public final class DiamondheadKit extends AlienKit {
 	/** The Crystal Shield (and the Bash behind it): anything from in front is blocked and chips the shield instead. */
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
+		// v0.17.2: the landing a Crystal Tether flings him into never hurts
+		if (source.is(DamageTypeTags.IS_FALL) && p.level().getGameTime() < timer(p, "tether_safe")) {
+			return false;
+		}
 		if ((flag(p, F_SHIELD) || flag(p, F_BASH)) && source.getSourcePosition() != null && !source.is(DamageTypeTags.BYPASSES_ARMOR)
 				&& !source.is(DamageTypeTags.BYPASSES_SHIELD) && inFront(p, source.getSourcePosition())) {
 			damageShield(p, amount);

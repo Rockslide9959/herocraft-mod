@@ -611,16 +611,26 @@ public final class OmnitrixSequenceClient {
 					radial(vc, pose.last(), sc, 0xE0743A, 0xB8823E, OLIVE_MID, 0.85f * w, 0f);
 				}
 				drawDots(bs, pose, sc, seed, t - HAND_AT, 0x050505, 64);
+				// v0.17.2 (user: "add more kirby dots to the center background of some of the shots"): the swelling, the shot from behind and
+				// the stance get clumps scattered across the middle too, behind the body
+				if ((t >= HAND_AT && t < FACE_AT) || (t >= BACK_AT && t < WHIP_AT) || t >= POSE_AT) {
+					drawInnerDots(bs, pose, sc, seed + 11, t - HAND_AT, 0x050505, 22);
+				}
 			} else {
 				drawGradient(bs, pose, sc, BURST_IN, BURST_MID, BURST_OUT);
 				drawRays(bs, pose, sc, seed, t - BURST_STAGE_AT);
 				drawDots(bs, pose, sc, seed + 5, t - BURST_STAGE_AT + 6f, BURST_DOT, 52);
+				drawInnerDots(bs, pose, sc, seed + 17, t - BURST_STAGE_AT + 6f, BURST_DOT, 16);
 			}
 			bs.endBatch();
 			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 			// the body again, over the stage, lit flat like a cel
 			Vec3 at = me.getPosition(partial).subtract(cam.getPosition());
-			mc.getEntityRenderDispatcher().render(me, at.x, at.y, at.z, Mth.lerp(partial, me.yRotO, me.getYRot()), partial, pose, bs, LightTexture.FULL_BRIGHT);
+			// no shadow: the stage has no ground (the user: the floor must not show)
+			var erd = mc.getEntityRenderDispatcher();
+			erd.setRenderShadow(false);
+			erd.render(me, at.x, at.y, at.z, Mth.lerp(partial, me.yRotO, me.getYRot()), partial, pose, bs, LightTexture.FULL_BRIGHT);
+			erd.setRenderShadow(mc.options.entityShadows().get());
 			bs.endBatch();
 		}
 		if (camera(me, partial) != null) {
@@ -632,13 +642,15 @@ public final class OmnitrixSequenceClient {
 		bs.endBatch();
 	}
 
-	/** The holder's view plane: a quad 4 blocks in front of the camera covering the whole screen. */
+	/** The holder's view plane: a quad just past the near plane covering the whole screen. */
 	private static final class Screen {
 		final Vector3f c, r, u;
 		final float hw, hh;
 
 		Screen(Camera cam, Minecraft mc) {
-			float d = 4f;
+			// v0.17.2: right past the near plane -- with Sodium / ImmediatelyFast the depth test can stay on, and ground closer than the stage
+			// showed through it
+			float d = 0.08f;
 			Vector3f look = new Vector3f(cam.getLookVector());
 			c = look.mul(d);
 			r = new Vector3f(cam.getLeftVector()).negate();
@@ -743,6 +755,45 @@ public final class OmnitrixSequenceClient {
 				// the boil: a tiny re-jitter every other tick
 				float jx = (hash(seed + frame, c * 13 + b) - 0.5f) * 0.012f, jy = (hash(seed + frame, c * 17 + b) - 0.5f) * 0.012f;
 				float sz = r * pop(tc - b * 0.7f, 3f) * (1f + 0.06f * (hash(seed + frame, c * 19 + b) - 0.5f));
+				if (sz <= 0.004f) {
+					continue;
+				}
+				dot(vc, p, sc, cx + (ox + jx) * k, cy + oy + jy, sz, rgb);
+			}
+		}
+	}
+
+	/**
+	 * v0.17.2 (user: "add more kirby dots to the center background"): smaller clumps scattered through the middle of the stage (behind the
+	 * body), drifting outward and boiling like the frame's.
+	 */
+	private static void drawInnerDots(MultiBufferSource bs, PoseStack pose, Screen sc, long seed, float t, int rgb, int clumps) {
+		VertexConsumer vc = bs.getBuffer(RenderType.textSeeThrough(OmnitrixTransformFx.DOT));
+		PoseStack.Pose p = pose.last();
+		float k = sc.hh / sc.hw;
+		int frame = (int) (t / 2f);
+		for (int c = 0; c < clumps; c++) {
+			float ang = hash(seed, c * 5 + 1) * Mth.TWO_PI;
+			float rr = 0.18f + 0.55f * hash(seed, c * 5 + 2);
+			float tc = t - hash(seed, c * 5 + 3) * 8f;
+			if (tc <= 0f) {
+				continue;
+			}
+			float drift = 1f + 0.006f * tc;
+			float cx = Mth.cos(ang) * rr * drift, cy = Mth.sin(ang) * rr * drift * 0.9f;
+			float big = 0.035f + 0.06f * hash(seed, c * 5 + 4);
+			int blobs = 2 + (int) (hash(seed, c * 5 + 5) * 2.99f);
+			for (int b = 0; b <= blobs; b++) {
+				float r = b == 0 ? big : big * (0.35f + 0.4f * hash(seed, c * 23 + b * 3));
+				float ox = 0f, oy = 0f;
+				if (b > 0) {
+					float a2 = hash(seed, c * 23 + b * 3 + 1) * Mth.TWO_PI;
+					float dist = big + r * (0.1f + 0.5f * hash(seed, c * 23 + b * 3 + 2));
+					ox = Mth.cos(a2) * dist;
+					oy = Mth.sin(a2) * dist;
+				}
+				float jx = (hash(seed + frame, c * 13 + b) - 0.5f) * 0.01f, jy = (hash(seed + frame, c * 17 + b) - 0.5f) * 0.01f;
+				float sz = r * pop(tc - b * 0.7f, 3f);
 				if (sz <= 0.004f) {
 					continue;
 				}

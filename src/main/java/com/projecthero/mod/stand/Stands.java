@@ -318,8 +318,14 @@ public final class Stands {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = StarPlatinum.restPoint(player);
-		particles(level, AURA_BIG, c.x, c.y + 1.0, c.z, 30, 0.4, 0.8, 0.4, 0.02);
-		particles(level, ParticleTypes.WITCH, c.x, c.y + 1.0, c.z, 12, 0.4, 0.8, 0.4, 0.05);
+		// v0.17.2: the summoner gets no copy of the burst -- right at their shoulder it filled a first-person screen with huge
+		// squares (they still have the sound, the ゴゴゴ and the Stand fading in); every other Stand user sees it
+		for (ServerPlayer viewer : level.players()) {
+			if (viewer != player && isStandUser(viewer)) {
+				level.sendParticles(viewer, AURA_BIG, false, c.x, c.y + 1.0, c.z, 30, 0.4, 0.8, 0.4, 0.02);
+				level.sendParticles(viewer, ParticleTypes.WITCH, false, c.x, c.y + 1.0, c.z, 12, 0.4, 0.8, 0.4, 0.05);
+			}
+		}
 		sound(level, c, StandSounds.SUMMON, 1.0f, 1.0f);
 		sound(level, c, StandSounds.MENACING, 0.7f, 1.0f);
 	}

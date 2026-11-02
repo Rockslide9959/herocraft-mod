@@ -271,8 +271,8 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	public void diamondheadsKeysAndCrystalEruptionHitsAllAround(GameTestHelper helper) {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
-		helper.assertTrue(DiamondheadKit.SHIELD.equals(kit.moveOn(AbilitySlot.SLOT_2, false, true).id()), "G held is the Crystal Shield");
-		helper.assertTrue(DiamondheadKit.BASH.equals(kit.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Shield Bash");
+		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is the Crystal Tether");
+		helper.assertTrue(DiamondheadKit.BRIDGE.equals(kit.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Crystal Bridge");
 		helper.assertTrue(DiamondheadKit.COMBAT.equals(kit.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V Combat Mode");
 		helper.assertTrue(DiamondheadKit.WALL.equals(kit.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V the Crystal Wall");
 		helper.assertTrue(DiamondheadKit.ERUPT.equals(kit.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z is the Crystal Eruption");
@@ -305,9 +305,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); // facing +z
+		kit.onUse(p, InteractionHand.MAIN_HAND);
+		helper.assertFalse(kit.flag(p, DiamondheadKit.F_SHIELD), "out of Combat Mode a right-click raises no shield");
+		kit.press(p, AbilitySlot.SLOT_5, false);
 		double speed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
-		kit.press(p, AbilitySlot.SLOT_2, false);
-		helper.assertTrue(kit.flag(p, DiamondheadKit.F_SHIELD) && kit.keyActive(p, AbilitySlot.SLOT_2), "G: the shield is up");
+		kit.onUse(p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(kit.flag(p, DiamondheadKit.F_SHIELD), "in Combat Mode the right-click raises the shield");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < speed - 1.0e-4, "and slows him");
 		Zombie front = zombie(helper, 3.5, 2, 3.5, 40f);
 		Zombie behind = zombie(helper, 3.5, 2, 0.4, 40f);
@@ -331,8 +334,8 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().mobAttack(behind), 6f);
 		helper.assertTrue(p.getHealth() < hp - 0.1f, "a blow from behind still lands: " + p.getHealth());
-		kit.release(p, AbilitySlot.SLOT_2, false, 10);
-		helper.assertFalse(kit.flag(p, DiamondheadKit.F_SHIELD), "G up lowers it");
+		kit.lowerShield(p);
+		helper.assertFalse(kit.flag(p, DiamondheadKit.F_SHIELD), "letting go lowers it");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speed) < 1.0e-4, "and the slow goes with it");
 		helper.assertTrue(kit.raiseShield(p), "up again");
 		float before = p.getHealth();
@@ -341,29 +344,91 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(near(p.getHealth(), before), "the breaking blow is still blocked");
 		helper.assertTrue(kit.shieldBroken(p) && !kit.flag(p, DiamondheadKit.F_SHIELD), "past 40 it shatters");
 		helper.assertFalse(kit.raiseShield(p), "and can not go up while it regrows");
-		helper.assertFalse(kit.shieldBash(p), "nor bash");
 		a.discard();
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.succeed();
 	}
 
-	/** v0.17.2 revamp: Shift+G charges behind the shield -- what it meets takes 10, is knocked aside and staggered. */
+	/**
+	 * v0.17.2 (user: "shield bash can happen when he holds out the shield and runs into enemies"): behind the raised shield, running
+	 * into a foe batters it (10) and staggers it -- once, not again inside the re-hit window; standing still bashes nothing.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void diamondheadShieldBashStaggers(GameTestHelper helper) {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
-		Zombie z = zombie(helper, 3.5, 2, 3.0, 60f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); // facing +z
+		Zombie z = zombie(helper, 3.5, 2, 2.6, 60f);
+		kit.press(p, AbilitySlot.SLOT_5, false);
+		kit.onUse(p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(kit.flag(p, DiamondheadKit.F_SHIELD), "the shield is up");
+		long now = helper.getLevel().getGameTime();
+		p.xo = p.getX();
+		p.zo = p.getZ();
+		kit.tick(p, Omnitrix.state(p), now);
+		helper.assertTrue(near(z.getHealth(), 60f), "standing still bashes nothing: " + z.getHealth());
+		// running forward into it
+		p.xo = p.getX();
+		p.zo = p.getZ() - 0.25;
+		kit.onUse(p, InteractionHand.MAIN_HAND);
+		kit.tick(p, Omnitrix.state(p), now);
+		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.BASH_DAMAGE), "running into it: 10: " + z.getHealth());
+		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && z.hasEffect(MobEffects.WEAKNESS), "staggered");
+		z.moveTo(p.getX(), p.getY(), p.getZ() + 1.1, 180f, 0f);
+		kit.tick(p, Omnitrix.state(p), now + 1);
+		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.BASH_DAMAGE), "not again straight away: " + z.getHealth());
+		z.discard();
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	/**
+	 * v0.17.2 (user: "replace his g and Shift+G with other moves that he does in the show"): G's Crystal Tether cuts a foe it strikes
+	 * and hauls it toward him; Shift+G's Crystal Bridge grows a 3-wide span ahead; breaking one block of it brings the whole bridge
+	 * down (user: "the entire thing falls down and disappears"); and Diamondhead breaks his crystal as fast as dirt.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "diamondhead_bridge") // alone: the bridge and the tether reach 20+ blocks
+	public void diamondheadTetherBridgeAndCollapse(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing +z, level
+		Zombie z = zombie(helper, 3.5, 2, 5.5, 60f);
+		kit.press(p, AbilitySlot.SLOT_2, false);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.TETHER) > 0, "G: the Crystal Tether");
+		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.TETHER_DAMAGE), "it cuts the zombie: " + z.getHealth());
+		helper.assertTrue(z.getDeltaMovement().z < -0.2, "and hauls it in: " + z.getDeltaMovement());
+		z.discard();
 		kit.press(p, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(kit.flag(p, DiamondheadKit.F_BASH) && kit.cooldownLeft(p, DiamondheadKit.BASH) > 0, "Shift+G: the Shield Bash");
-		pump(helper, p);
-		helper.runAfterDelay(DiamondheadKit.BASH_TICKS + 3, () -> {
-			helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.BASH_DAMAGE), "10, once: " + z.getHealth());
-			helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && z.hasEffect(MobEffects.WEAKNESS), "staggered");
-			helper.assertFalse(kit.flag(p, DiamondheadKit.F_BASH), "the bash ended");
-			z.discard();
-			helper.succeed();
-		});
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.BRIDGE) > 0, "Shift+G: the Crystal Bridge");
+		int span = 0;
+		for (int dz = 7; dz <= 12; dz++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				if (helper.getLevel().getBlockState(BlockPos.containing(at.x + dx, at.y - 1, at.z + dz)).is(DiamondheadBlocks.CRYSTAL)) {
+					span++;
+				}
+			}
+		}
+		helper.assertTrue(span >= 9, "a 3-wide span at his level (the floor is in the way of its first row): " + span);
+		BlockPos one = BlockPos.containing(at.x, at.y - 1, at.z + 10);
+		helper.assertTrue(helper.getLevel().getBlockState(one).is(DiamondheadBlocks.CRYSTAL), "crystal ahead");
+		var crystal = helper.getLevel().getBlockState(one);
+		float fast = crystal.getDestroyProgress(p, helper.getLevel(), one);
+		helper.assertTrue(Math.abs(fast - p.getDestroySpeed(crystal) / 0.5f / 30f) < 1.0e-4, "Diamondhead breaks it as fast as dirt: " + fast);
+		int fell = com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadRise.collapse(helper.getLevel(), one);
+		helper.getLevel().setBlock(one, Blocks.AIR.defaultBlockState(), 3);
+		helper.assertTrue(fell >= span, "breaking one brings the rest down: " + fell);
+		int left = 0;
+		for (int dz = 1; dz <= DiamondheadKit.BRIDGE_LENGTH + 1; dz++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				if (helper.getLevel().getBlockState(BlockPos.containing(at.x + dx, at.y - 1, at.z + dz)).is(DiamondheadBlocks.CRYSTAL)) {
+					left++;
+				}
+			}
+		}
+		helper.assertTrue(left == 0, "the whole bridge is gone: " + left);
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
 	}
 
 	/**
@@ -389,7 +454,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(DiamondheadKit.CYCLONE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, true, false).id()), "Shift+R: the Crystal Cyclone");
 		helper.assertTrue(DiamondheadKit.SHATTER.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, false, false).id()), "Z: the Shatter Line");
 		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, true, false).id()), "Shift+Z stays the Barrage");
-		helper.assertTrue(DiamondheadKit.SHIELD.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, true).id()), "and the shield still works");
+		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id()), "G stays the Crystal Tether");
 		Zombie z = zombie(helper, 3.5, 2, 6.5, 60f);
 		kit.press(p, AbilitySlot.SLOT_4, false);
 		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.SHATTER) > 0 && kit.cooldownLeft(p, DiamondheadKit.ERUPT) == 0, "Z ran the Shatter Line, not the Eruption");

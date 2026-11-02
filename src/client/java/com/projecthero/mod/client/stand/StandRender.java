@@ -164,10 +164,11 @@ public final class StandRender {
 		Vec3 want;
 		float wantYaw;
 		if (fight) {
-			double out = firstPerson ? 1.5 : 1.05;
-			// in first person a little low and to the right, so its head never covers the crosshair
-			want = at.add(fwdHead.scale(out)).add(firstPerson ? StarPlatinum.rightOf(fwdHead).scale(0.65) : Vec3.ZERO)
-					.add(0, firstPerson ? -0.95 : 0.05, 0);
+			// v0.17.2 (user: "in the bottom corner of the players screen, i want him to be in front of the player like he is in third
+			// person"): in first person too it stands square in front of you, its back to you -- just far enough out and low enough
+			// that its head sits under the crosshair
+			double out = firstPerson ? 1.7 : 1.05;
+			want = at.add(fwdHead.scale(out)).add(0, firstPerson ? -0.72 : 0.05, 0);
 			wantYaw = headYaw;
 		} else {
 			want = at.subtract(fwdBody.scale(0.5)).add(StarPlatinum.rightOf(fwdBody).scale(0.75)).add(0, 0.35 + 0.06 * Mth.sin(t * 0.1f), 0);

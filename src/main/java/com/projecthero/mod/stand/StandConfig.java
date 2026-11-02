@@ -26,8 +26,9 @@ public final class StandConfig {
 	public static final int SUMMON_ANIM_TICKS = 16;
 
 	// ---------------------------------------------------------------- Stand punches (empty hand, Stand out)
-	public static final float PUNCH_DAMAGE = 5f;
-	public static final float PUNCH_FINISHER_DAMAGE = 8f;
+	/** v0.17.2 (user): "increase his melee damage to 8" (was 5; the third hit of the combo keeps its lead, 8 -> 12). */
+	public static final float PUNCH_DAMAGE = 8f;
+	public static final float PUNCH_FINISHER_DAMAGE = 12f;
 	public static final double PUNCH_FINISHER_KNOCKBACK = 1.3;
 	public static final int PUNCH_COMBO_WINDOW = 25;
 

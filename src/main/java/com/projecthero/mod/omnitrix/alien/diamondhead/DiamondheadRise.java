@@ -56,7 +56,7 @@ public final class DiamondheadRise {
 			.gap(3);
 
 	/** One display on its way: up (or down), and what happens when it gets there. */
-	private record Move(ServerLevel level, BlockPos pos, UUID display, long go, long arrive, float depth, boolean up) {
+	private record Move(ServerLevel level, BlockPos pos, UUID display, long go, long arrive, float depth, boolean up, float endScale, float spin) {
 	}
 
 	private static final List<Move> MOVES = new ArrayList<>();
@@ -72,6 +72,7 @@ public final class DiamondheadRise {
 	/** Forgets every move (ServerStateReset: the server has stopped already, see {@link #stopping}). */
 	public static void clearSessionState() {
 		MOVES.clear();
+		COLLAPSED.clear();
 	}
 
 	/** The server is stopping: every move ends at once -- the blocks shown, the displays removed (none is saved with the world). */
@@ -141,7 +142,7 @@ public final class DiamondheadRise {
 				for (BlockPos c : col) {
 					Display.BlockDisplay disp = display(level, c, depth);
 					if (disp != null) {
-						MOVES.add(new Move(level, c, disp.getUUID(), go, go + rise, depth, true));
+						MOVES.add(new Move(level, c, disp.getUUID(), go, go + rise, depth, true, 1f, 0f));
 					}
 				}
 				if (sounds++ < 4) {
@@ -166,6 +167,78 @@ public final class DiamondheadRise {
 		return d;
 	}
 
+	/** The crumble as a construct collapses. */
+	public static final OmnitrixSfx.Cue SND_COLLAPSE = OmnitrixSfx.cue("diamondhead_collapse")
+			.layer(SoundEvents.AMETHYST_CLUSTER_BREAK, 0.6f, 0.7f)
+			.layer(SoundEvents.CALCITE_BREAK, 0.5f, 0.6f)
+			.layer(SoundEvents.AMETHYST_BLOCK_BREAK, 0.45f, 0.9f, 4)
+			.gap(4);
+	/** The most blocks one collapse brings down (a flood over touching crystal). */
+	public static final int COLLAPSE_MAX = 600;
+	/** Positions coming down in a collapse: their removal does not also sink. */
+	private static final java.util.Set<BlockPos> COLLAPSED = new java.util.HashSet<>();
+
+	/**
+	 * v0.17.2 (user: "if he breaks one block in the wall or whatever then the entire thing falls down and disappears"): {@code start} is
+	 * being broken -- every crystal touching it (and touching those) comes down with it: each block's display drops, tumbling and
+	 * shrinking away (the higher, the further and the later), and the real blocks go at once (what was there before comes back when
+	 * their time would have run out). Returns how many fell.
+	 */
+	public static int collapse(ServerLevel level, BlockPos start) {
+		java.util.ArrayDeque<BlockPos> open = new java.util.ArrayDeque<>();
+		java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+		open.add(start.immutable());
+		seen.add(start.immutable());
+		List<BlockPos> all = new ArrayList<>();
+		while (!open.isEmpty() && all.size() < COLLAPSE_MAX) {
+			BlockPos p = open.poll();
+			all.add(p);
+			for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.values()) {
+				BlockPos q = p.relative(dir);
+				if (seen.add(q) && level.getBlockState(q).is(DiamondheadBlocks.CRYSTAL)) {
+					open.add(q);
+				}
+			}
+		}
+		int bottom = Integer.MAX_VALUE;
+		double cx = 0, cy = 0, cz = 0;
+		for (BlockPos p : all) {
+			bottom = Math.min(bottom, p.getY());
+			cx += p.getX() + 0.5;
+			cy += p.getY() + 0.5;
+			cz += p.getZ() + 0.5;
+		}
+		long now = level.getGameTime();
+		for (BlockPos p : all) {
+			int h = p.getY() - bottom;
+			Display.BlockDisplay d = display(level, p, 0f);
+			if (d != null) {
+				long go = now + 1 + Math.min(6, h / 2) + level.random.nextInt(2);
+				float drop = 1.6f + h * 0.55f + level.random.nextFloat() * 0.8f;
+				float spin = (level.random.nextFloat() - 0.5f) * 2.4f;
+				MOVES.add(new Move(level, p, d.getUUID(), go, go + 10 + Math.min(6, h), drop, false, 0.15f, spin));
+			}
+			if (level.random.nextInt(3) == 0) {
+				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, DiamondheadKit.crystal()), p.getX() + 0.5, p.getY() + 0.5,
+						p.getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.05);
+			}
+			COLLAPSED.add(p);
+			if (!p.equals(start)) {
+				level.setBlock(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+			}
+		}
+		int n = all.size();
+		if (n > 0) {
+			OmnitrixSounds.play(level, new Vec3(cx / n, cy / n, cz / n), SND_COLLAPSE, Math.min(1.2f, 0.7f + n * 0.01f), 0.9f);
+		}
+		return n;
+	}
+
+	/** Whether {@code pos}'s removal is part of a collapse (no sinking then); forgets it. */
+	static boolean collapsing(BlockPos pos) {
+		return COLLAPSED.remove(pos);
+	}
+
 	/** A crystal going away sinks back into the ground ({@code from} the block it was). */
 	static void sink(ServerLevel level, BlockPos pos) {
 		Display.BlockDisplay d = display(level, pos, 0f);
@@ -173,7 +246,7 @@ public final class DiamondheadRise {
 			return;
 		}
 		long now = level.getGameTime();
-		MOVES.add(new Move(level, pos.immutable(), d.getUUID(), now + 1, now + 1 + RISE_TICKS, 1.05f, false));
+		MOVES.add(new Move(level, pos.immutable(), d.getUUID(), now + 1, now + 1 + RISE_TICKS, 1.05f, false, 0.85f, 0f));
 		if (level.random.nextInt(3) == 0) {
 			OmnitrixSounds.play(level, Vec3.atBottomCenterOf(pos), SND_SINK, 0.7f, 0.9f + level.random.nextFloat() * 0.2f);
 		}
@@ -195,8 +268,10 @@ public final class DiamondheadRise {
 				d.setTransformationInterpolationDelay(0);
 				d.setTransformationInterpolationDuration((int) (m.arrive() - m.go()));
 				float y = m.up() ? 0f : -m.depth();
-				float s = m.up() ? 1f : 0.85f;
-				d.setTransformation(new Transformation(new Vector3f((1f - s) / 2f, y, (1f - s) / 2f), null, new Vector3f(s, s, s), null));
+				float s = m.endScale();
+				// a collapsing block tumbles as it drops (a turn about a tilted axis)
+				org.joml.Quaternionf turn = m.spin() == 0f ? null : new org.joml.Quaternionf().rotateAxis(m.spin(), 0.6f, 0.3f, 0.75f);
+				d.setTransformation(new Transformation(new Vector3f((1f - s) / 2f, y, (1f - s) / 2f), turn, new Vector3f(s, s, s), null));
 				dust(m, 6);
 			} else if (now > m.go() && now < m.arrive() && (now - m.go()) % 3 == 0) {
 				dust(m, 3);

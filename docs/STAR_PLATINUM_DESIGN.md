@@ -74,9 +74,9 @@ now `sounds.json` points each one at a vanilla placeholder (an `"type": "event"`
 
 | `<name>` | When it plays | Placeholder now |
 |---|---|---|
-| `summon` | H: Star Platinum appears | beacon activate |
+| `summon` | H: Star Platinum appears | **the user's clip** (`stand/star_platinum/summon.ogg`) |
 | `menacing` | with the summon (the ゴゴゴ) | warden heartbeat |
-| `dismiss` | H: it fades away | beacon deactivate |
+| `dismiss` | H: it fades away | **the summon clip reversed**, lower and quicker (`stand/star_platinum/dismiss.ogg`) |
 | `awaken` | the Stand Arrow awakens your Stand | beacon power select |
 | `punch` | each Stand punch / rush hits (every few ticks) | strong attack |
 | `ora_rush` | the ORA ORA ORA rush voice (start, then every 0.6 s) | sweep attack |
