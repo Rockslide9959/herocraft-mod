@@ -46,6 +46,23 @@ public final class SpidermonkeyFx {
 		OmnitrixRenderers.projectileLook("spidermonkey_shield", SpidermonkeyFx::shield);
 	}
 
+	/**
+	 * v0.17.2 revamp: where his webs leave from -- his tail, low on his back (the model is only the skin now, so the point sits where
+	 * the show's tail is). In his own first person that is behind the view, so it leaves from low in front instead.
+	 */
+	public static Vec3 tail(Player p, float partial) {
+		Minecraft mc = Minecraft.getInstance();
+		Vec3 look = p.getViewVector(partial);
+		if (p == mc.player && mc.options.getCameraType().isFirstPerson()) {
+			return p.getEyePosition(partial).add(look.scale(0.7)).add(0, -0.45, 0);
+		}
+		float yaw = Mth.lerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		float s = p.getScale();
+		// the tail curls up over his shoulder in the show: the web leaves just above and behind the shoulders
+		return p.getPosition(partial).add(0, 1.55 * s, 0).subtract(fwd.scale(0.3 * s));
+	}
+
 	private static int light(Entity e) {
 		return LevelRenderer.getLightColor(e.level(), BlockPos.containing(e.position().add(0, 0.5, 0)));
 	}
@@ -73,7 +90,7 @@ public final class SpidermonkeyFx {
 				start = t.getPosition(partial).add(0, t.getBbHeight() * 0.55, 0);
 			}
 		} else if (e.getOwner() instanceof Player owner) {
-			start = BrainstormFx.hand(owner, partial);
+			start = tail(owner, partial);
 		}
 		if (start == null) {
 			return;
@@ -101,7 +118,7 @@ public final class SpidermonkeyFx {
 		if (t < 6f && e.getOwner() instanceof Player owner) {
 			pose.pushPose();
 			toCamera(pose, e, partial);
-			line(pose, vc, BrainstormFx.hand(owner, partial), e.getPosition(partial).add(0, e.getBbHeight() * 0.5, 0), 0.03f, 0f, WEB);
+			line(pose, vc, tail(owner, partial), e.getPosition(partial).add(0, e.getBbHeight() * 0.5, 0), 0.03f, 0f, WEB);
 			pose.popPose();
 		}
 	}

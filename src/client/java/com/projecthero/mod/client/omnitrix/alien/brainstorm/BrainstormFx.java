@@ -79,6 +79,18 @@ public final class BrainstormFx {
 		return p.getPosition(partial).add(0, 1.2 * s, 0).add(fwd.scale(0.45 * s)).add(right.scale(0.36 * s));
 	}
 
+	/**
+	 * v0.17.2 revamp: where Brainstorm's bolts leave from -- the top of his head (the show's opened skull). In his own first person
+	 * that point is behind the screen, so the bolt leaves from just above the view's centre instead.
+	 */
+	public static Vec3 brain(Player p, float partial) {
+		Minecraft mc = Minecraft.getInstance();
+		if (p == mc.player && mc.options.getCameraType().isFirstPerson()) {
+			return p.getEyePosition(partial).add(p.getViewVector(partial).scale(0.8)).add(0, 0.12, 0);
+		}
+		return p.getPosition(partial).add(0, p.getBbHeight() + 0.05, 0);
+	}
+
 	/** A jagged path from {@code a} to {@code b}: {@code amp} the sideways jitter, fixed for one {@code seed}. */
 	public static List<Vec3> jag(Vec3 a, Vec3 b, long seed, double amp) {
 		Random r = new Random(seed);
@@ -151,7 +163,7 @@ public final class BrainstormFx {
 				start = from.getPosition(partial).add(0, from.getBbHeight() * 0.55, 0);
 			}
 		} else if (e.getOwner() instanceof Player owner) {
-			start = hand(owner, partial);
+			start = brain(owner, partial);
 		}
 		if (start == null) {
 			return;
@@ -260,6 +272,31 @@ public final class BrainstormFx {
 		pose.popPose();
 	}
 
+	// ---------------------------------------------------------------- v0.17.2 revamp: the Field Lift disc
+
+	/** A glowing disc of force field under his feet, a brighter rim turning round it and a few arcs licking down off the edge. */
+	private static void lift(PoseStack pose, MultiBufferSource buffers, Player p, Vec3 cam, float t, float partial) {
+		Vec3 c = p.getPosition(partial).add(0, -0.05, 0);
+		float r = 0.85f;
+		VertexConsumer vc = PyroDraw.additive(buffers);
+		pose.pushPose();
+		pose.translate(c.x - cam.x, c.y - cam.y, c.z - cam.z);
+		float k = 0.8f + 0.2f * Mth.sin(t * 0.9f);
+		PyroDraw.annulus(pose, vc, 0f, r, PyroDraw.dim(0x8A7A3A, k), PyroDraw.dim(0xFFE68A, k), 0f);
+		PyroDraw.annulus(pose, vc, r * 0.85f, r * 1.05f, PyroDraw.dim(0xFFF4C0, k), PyroDraw.dim(0x806020, k * 0.5f), 0.01f);
+		pose.popPose();
+		pose.pushPose(); // bolt() draws world points minus the camera: the world pass's pose is already camera-relative
+		long seed = p.getId() * 131L + (long) (t / 2);
+		java.util.Random rnd = new java.util.Random(seed);
+		for (int i = 0; i < 2; i++) {
+			double a = rnd.nextDouble() * Math.PI * 2;
+			Vec3 edge = c.add(Math.cos(a) * r, 0, Math.sin(a) * r);
+			bolt(pose, buffers, edge, edge.add((rnd.nextDouble() - 0.5) * 0.6, -0.7 - rnd.nextDouble() * 0.6, (rnd.nextDouble() - 0.5) * 0.6), rnd.nextLong(),
+					0.03f, 0.7f, 0xFFE060);
+		}
+		pose.popPose();
+	}
+
 	// ---------------------------------------------------------------- the Force Field
 
 	private static void fields(WorldRenderContext context) {
@@ -275,6 +312,9 @@ public final class BrainstormFx {
 				continue;
 			}
 			OmnitrixState s = Omnitrix.state(p);
+			if ((s.kitFlags & BrainstormKit.F_LIFT) != 0) {
+				lift(pose, context.consumers(), p, cam, mc.level.getGameTime() + partial, partial);
+			}
 			if ((s.kitFlags & BrainstormKit.F_FIELD) == 0) {
 				continue;
 			}
