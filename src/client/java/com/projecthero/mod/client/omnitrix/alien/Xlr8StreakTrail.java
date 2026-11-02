@@ -33,7 +33,7 @@ import net.minecraft.world.phys.Vec3;
  * bottom, blue ({@code 0x3A7BD5}) bands and a pale ({@code 0x9FD8FF}) core band through the middle -- fading as it trails; 0.8 s
  * long, 1.4 s with a white-hot core in Overdrive. It runs alongside the after-image copies ({@code SuperSpeedClientV0145}). His
  * zips (Raptor Strike, Blur Dash, Raptor Rush, the Tornado Run's rings) lay the same sheet along the zip, fading over 0.5 s
- * ({@link #zip}, from the streak packet). In first person the sheet starts a little behind him, so it never crosses the camera.
+ * ({@link #zip}, from the streak packet). In first person his own sheet is not drawn (it would cut across the view).
  * Also: Time Burst's blue visor-glass tint on his own screen. Client-only; every viewer records every XLR8 in view.
  */
 public final class Xlr8StreakTrail {
@@ -166,8 +166,10 @@ public final class Xlr8StreakTrail {
 			}
 			Trail t = e.getValue();
 			boolean firstPerson = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
-			// in first person the live head is left off (the sheet starts at last tick's spot, just behind him)
-			Vec3 head = t.live && !firstPerson ? base(p, partial) : null;
+			if (firstPerson) {
+				continue; // v0.17.2 (user: "i can see xlr8s trail in first person"): your own sheet would cut across the view
+			}
+			Vec3 head = t.live ? base(p, partial) : null;
 			Vec3[] pts = t.lines[0].pointsNewestFirst(head);
 			if (pts != null) {
 				sheet(pose, buffers, cam, pts, t.lines[0].agesNewestFirst(head, partial, now), height(p), t.overdrive ? LightTrail.XLR8_OVERDRIVE : LightTrail.XLR8);
@@ -179,6 +181,9 @@ public final class Xlr8StreakTrail {
 				continue;
 			}
 			Player p = mc.level.getPlayerByUUID(z.who());
+			if (p != null && p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson()) {
+				continue; // his own zip ends where he stands: in first person it would cut across the view
+			}
 			boolean od = p != null && (Omnitrix.state(p).kitFlags & Xlr8Kit.F_OVERDRIVE) != 0;
 			double len = z.from().distanceTo(z.to());
 			int n = (int) Mth.clamp(len / 0.6, 2, 48);
