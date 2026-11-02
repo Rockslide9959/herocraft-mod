@@ -40,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
  * <p>v0.17.2 revamp (user: "add xlr8s speed trail to his speed mode please, the blue and black lines"): his streak lines
  * ({@link Xlr8StreakTrail}) beside the plain Speedster's after-images ({@link #trails}), the particle spam gone; the tail swings
  * wide on hard turns and goes flat out for Tail Spin and the kick finisher; Blur Punches' arms blur into three ghost copies; the
- * ball feet (spinning discs, Speed Mode only) and a crouched skate for Friction Zero; the visor's rim glows white at a full
+ * a crouched skate for Friction Zero; the visor's rim glows white at a full
  * Kinetic Charge, whose bar sits over his keys; on ice, slime and honey his own client lets him skid.
  */
 public final class Xlr8Client implements AlienClientKit {
@@ -277,20 +277,7 @@ public final class Xlr8Client implements AlienClientKit {
 			box(pose, vc, -0.4f, -0.4f, 0, 0.4f, 0.4f, 1.5f, PALE, light);
 			pose.popPose();
 		});
-		// v0.17.2 revamp (the approved doc's ball feet): a spinning disc under each foot, only while the speed is on
-		if ((f & (Xlr8Kit.F_SPEED | Xlr8Kit.F_SKATE)) != 0) {
-			float roll = (p.walkAnimation.position(partial) * 1.6f) % Mth.TWO_PI;
-			for (ModelPart leg : new ModelPart[] { model.rightLeg, model.leftLeg }) {
-				AlienParts.on(pose, leg, () -> {
-					pose.pushPose();
-					pose.translate(0, 11.6f / 16f, 0);
-					pose.mulPose(Axis.XP.rotation(roll));
-					box(pose, vc, -1.6f, -1.6f, -1.6f, 1.6f, 1.6f, 1.6f, WHEEL, light);
-					box(pose, vc, -1.75f, -0.5f, -0.5f, 1.75f, 0.5f, 0.5f, BLACK, light); // the hub
-					pose.popPose();
-				});
-			}
-		}
+		// (no ball-foot discs: the user removed his ball feet in v0.17.1)
 		float vis = visor(p, partial);
 		if (vis > 0.001f && vis < 1f) {
 			// the visor half-way: the helmet's front slides down from the brow (its lower edge leading) -- base and hat layers
