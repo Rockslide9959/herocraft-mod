@@ -669,8 +669,9 @@ public final class EchoEchoKit extends AlienKit {
 				hurt(p, e, dealt(p, e, WALL_CLONE_DAMAGE), false);
 			}
 		}
-		QuirkFx.cone(l, eye.add(look.scale(0.4)), look).style(QuirkFx.CONE_BEAM).colours(0xFFFFFF, WAVE).size((float) (Math.tan(Math.toRadians(WALL_DEG / 2)) * WALL_RANGE))
-				.length((float) WALL_RANGE).life(10).spawn();
+		// the sound rings themselves are drawn by the client (EchoEchoClient's waves while F_WALL is up); a muzzle ring per pulse
+		QuirkFx.ring(l, eye.add(look.scale(0.6))).flags(QuirkFx.F_VERTICAL).vec(look).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, WAVE).size(1.4f).thickness(0.15f)
+				.life(8).spawn();
 		OmnitrixSfx.play(l, p.position(), SND_SCREAM, 0.7f, 0.85f);
 	}
 
