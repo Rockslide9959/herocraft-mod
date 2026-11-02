@@ -3170,8 +3170,7 @@
     "subtitle": "subtitles.projecthero.stand.time_stop",
     "sounds": [
       {
-        "name": "minecraft:block.bell.use",
-        "type": "event"
+        "name": "projecthero:stand/star_platinum/time_stop"
       }
     ]
   },
