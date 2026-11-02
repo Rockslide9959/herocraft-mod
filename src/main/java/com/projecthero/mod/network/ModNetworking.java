@@ -64,6 +64,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(WolverineSensePayload.TYPE, WolverineSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WolverineExecutionTargetPayload.TYPE, WolverineExecutionTargetPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanRoarSensePayload.TYPE, TitanRoarSensePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(WildmuttPingPayload.TYPE, WildmuttPingPayload.CODEC); // v0.17.2 Wildmutt's roar ping
 		PayloadTypeRegistry.playS2C().register(TitanPickerPayload.TYPE, TitanPickerPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);

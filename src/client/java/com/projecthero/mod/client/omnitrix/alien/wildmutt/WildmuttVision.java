@@ -48,7 +48,11 @@ public final class WildmuttVision {
 
 	static void render(WorldRenderContext context) {
 		Minecraft mc = Minecraft.getInstance();
-		if (failed || !active(mc)) {
+		if (!active(mc)) {
+			return;
+		}
+		if (failed) {
+			WildmuttFootprints.draw(context); // v0.17.2 revamp: no blind pass -- the prints still show
 			return;
 		}
 		WildmuttKit kit = (WildmuttKit) AlienKit.activeKit(mc.player);
@@ -80,8 +84,13 @@ public final class WildmuttVision {
 		RenderSystem.disableBlend();
 		RenderSystem.disableDepthTest();
 		RenderSystem.resetTextureMatrix();
+		org.joml.Matrix4f savedProj = new org.joml.Matrix4f(RenderSystem.getProjectionMatrix());
+		com.mojang.blaze3d.vertex.VertexSorting savedSort = RenderSystem.getVertexSorting();
 		chain.process(context.tickCounter().getGameTimeDeltaTicks());
 		mc.getMainRenderTarget().bindWrite(true);
+		RenderSystem.setProjectionMatrix(savedProj, savedSort); // (the post passes leave an orthographic projection behind)
+		// v0.17.2 revamp: Deep Sniff's footprints are drawn over the blind pass, or it would swallow them
+		WildmuttFootprints.draw(context);
 		RenderSystem.enableDepthTest();
 	}
 

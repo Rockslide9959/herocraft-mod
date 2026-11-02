@@ -7,6 +7,10 @@ import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttAnimatable;
 import com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttFirstPerson;
+import com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttFootprints;
+import com.projecthero.mod.omnitrix.network.OmnitrixActionPayload;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttModel;
 import com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttRenderer;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -57,6 +61,14 @@ public final class WildmuttClient implements AlienClientKit {
 	private static final FirstPersonClip FP_LEAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
 			FirstPersonClip.f(3, -40, 0, 0, 0, 0.25f, -0.1f), FirstPersonClip.f(14, -30, 4, 0, 0, 0.2f, -0.1f),
 			FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	/** v0.17.2 revamp: one Ricochet Hunt hop -- a quick rake down and back (a hop every 6 ticks). */
+	private static final FirstPersonClip FP_HUNT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
+			FirstPersonClip.f(2, -60, 8, 0, 0.06f, 0.38f, -0.15f), FirstPersonClip.f(5, 28, 14, 0, 0.1f, -0.12f, -0.3f),
+			FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0)).both();
+	/** v0.17.2 revamp: the sneeze -- the paws jerk with the head. */
+	private static final FirstPersonClip FP_SNEEZE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
+			FirstPersonClip.f(5, -12, 0, 0, 0, 0.08f, 0.05f), FirstPersonClip.f(8, 18, 0, 0, 0, -0.14f, -0.05f),
+			FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 
 	@Override
 	public ResourceLocation skin() {
@@ -98,6 +110,9 @@ public final class WildmuttClient implements AlienClientKit {
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case WildmuttKit.ANIM_POUNCE -> FP_POUNCE;
+			case WildmuttKit.ANIM_HUNT -> FP_HUNT; // v0.17.2 revamp
+			case WildmuttKit.ANIM_WALL_KICK -> FP_LEAP;
+			case WildmuttKit.ANIM_SNEEZE -> FP_SNEEZE;
 			case WildmuttKit.ANIM_MAUL -> FP_MAUL;
 			case WildmuttKit.ANIM_SLAM -> FP_SLAM;
 			case WildmuttKit.ANIM_ROAR -> FP_ROAR;
@@ -214,12 +229,26 @@ public final class WildmuttClient implements AlienClientKit {
 		return 0;
 	}
 
+	private static boolean wasJumping;
+
 	@Override
 	public void tick(AbstractClientPlayer p) {
 		Minecraft mc = Minecraft.getInstance();
 		if (p != mc.player || !(Aliens.kit(WildmuttKit.ID) instanceof WildmuttKit k)) {
 			return;
 		}
+		// v0.17.2 revamp: Deep Sniff's footprints -- every step around him is remembered for 20 s (shown while he sniffs)
+		WildmuttFootprints.record(mc.player);
+		// v0.17.2 revamp: Choked Nose -- the screen edge closes in, dark, until he sneezes it out
+		if (k.choked(p) && p.tickCount % 10 == 0) {
+			com.projecthero.mod.client.quirk.QuirkCameraFx.vignette(0x0A0806, 0.85f, 16);
+		}
+		// v0.17.2 revamp: Jump while clinging to a wall -- the server kicks him off it (WildmuttKit#wallKick)
+		boolean jumping = mc.player.input.jumping;
+		if (jumping && !wasJumping && k.flag(p, WildmuttKit.F_CLIMB) && !p.onGround() && (p.horizontalCollision || p.onClimbable())) {
+			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.WALL_KICK, ""));
+		}
+		wasJumping = jumping;
 		boolean sniffing = k.flag(p, WildmuttKit.F_SNIFF);
 		if (sniffing && !wasSniffing) {
 			sniffStart = p.tickCount;
