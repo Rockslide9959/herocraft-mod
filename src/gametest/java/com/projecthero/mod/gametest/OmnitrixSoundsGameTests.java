@@ -89,7 +89,8 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				WildmuttKit.LEAP, WildmuttKit.LAND, WildmuttKit.SNIFF, WildmuttKit.FRENZY_CUE, WildmuttKit.ROLL_CUE, WildmuttKit.SNEEZE, WildmuttKit.PING,
 				RipjawsKit.BITE_SOUND, RipjawsKit.ROAR, RipjawsKit.SPLASH, RipjawsKit.SLAM, RipjawsKit.GASP, RipjawsKit.WHIRL,
 				GreyMatterKit.PINCH, GreyMatterKit.SCAN, GreyMatterKit.GADGET, GreyMatterKit.LEAP, GreyMatterKit.REPAIR, GreyMatterKit.THINK,
-				GreyMatterKit.DECOY_SOUND);
+				GreyMatterKit.DECOY_SOUND,
+				GreyMatterKit.DART, GreyMatterKit.SQUEEZE, GreyMatterKit.REWIRE_SOUND);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
