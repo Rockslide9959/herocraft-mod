@@ -149,40 +149,8 @@ public final class SwampfireClient implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		if ((Omnitrix.state(p).kitFlags & SwampfireKit.F_MULCH) != 0) {
-			return; // a heap of mulch (drawn in the world pass)
-		}
-		float sway = Mth.sin(age * 0.08f) * 4f;
-		// v0.17.2 revamp (user's skin, planetminecraft "Swampfire - Ben 10 Alien Force"): the head is a red flower bud with an
-		// orange flame on its brow; the extras follow it -- five short red petals opening round the crown (the skin's own reds),
-		// and a flickering flame at the top of the bud
-		AlienParts.on(pose, model.head, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			for (int i = 0; i < 5; i++) {
-				pose.pushPose();
-				pose.translate(0, -7.6f / 16f, 0);
-				pose.mulPose(Axis.YP.rotationDegrees(i * 72f + 36f));
-				pose.translate(0, 0, 3.2f / 16f);
-				pose.mulPose(Axis.XP.rotationDegrees(-30f - sway));
-				AlienParts.box(pose, vc, -1.4f, -3.2f, -0.35f, 1.4f, 0f, 0.35f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
-				pose.popPose();
-			}
-			float flick = 1f + Mth.sin(age * 0.9f) * 0.15f + Mth.sin(age * 2.3f) * 0.08f;
-			pose.pushPose();
-			pose.translate(0, -8f / 16f, -1.2f / 16f);
-			pose.scale(1f, flick, 1f);
-			AlienParts.box(pose, vc, -1.0f, -2.6f, -0.6f, 1.0f, 0f, 0.6f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-			AlienParts.box(pose, vc, -0.45f, -3.6f, -0.3f, 0.45f, -2.4f, 0.3f, 13 * S, S, 15 * S, 3 * S, 0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-			pose.popPose();
-		});
-		// seed pods on the shoulders (olive with the skin's red spots)
-		AlienParts.on(pose, model.body, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -5.4f, -0.8f, -1.2f, -3.2f, 1.2f, 1.0f, 16 * S, 0f, 24 * S, 8 * S, 0xFFFFFFFF, light);
-			AlienParts.box(pose, vc, 3.2f, -0.8f, -1.2f, 5.4f, 1.2f, 1.0f, 16 * S, 0f, 24 * S, 8 * S, 0xFFFFFFFF, light);
-			// a vine strand hanging down the back
-			AlienParts.box(pose, vc, -0.6f, 0.5f, 2.0f, 0.6f, 9.0f, 2.8f, 8 * S, 0f, 12 * S, 8 * S, 0xFFFFFFFF, light);
-		});
+		// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"):
+		// only the skin -- no extra parts
 	}
 
 	// ---------------------------------------------------------------- poses

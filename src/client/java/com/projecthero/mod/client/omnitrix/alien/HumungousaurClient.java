@@ -160,78 +160,8 @@ public final class HumungousaurClient implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		int stage = HumungousaurKit.stage(p);
-		float burst = spikeOut(p, partial);
-		float sway = Mth.sin(age * 0.1f) * 6f + Mth.cos(p.walkAnimation.position(partial) * 0.6f) * 8f * p.walkAnimation.speed(partial);
-		// v0.17.2 (the user's PMC skin): extras sheet in the skin's own browns -- tail hide (0..8), plates (8..12), brow (12..16),
-		// bone (16..20), the club (20..24)
-		AlienParts.on(pose, model.body, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			// the tail: three tapering segments off the base of his back, swaying
-			pose.pushPose();
-			pose.translate(0, 10.5f / 16f, 1.6f / 16f);
-			pose.mulPose(Axis.XP.rotationDegrees(-62f));
-			pose.mulPose(Axis.YP.rotationDegrees(sway));
-			float[] w = { 3.2f, 2.5f, 1.8f };
-			float[] len = { 5.5f, 5.0f, 4.5f };
-			for (int i = 0; i < 3; i++) {
-				AlienParts.box(pose, vc, -w[i], -w[i] * 0.9f, 0f, w[i], w[i] * 0.9f, len[i] + 0.3f, 0f, 0f, 8 * S, 8 * S, 0xFFFFFFFF, light);
-				if (burst > 0f) {
-					// Spike Burst: a bone spike up out of each tail segment
-					float h = 2.6f * burst;
-					AlienParts.box(pose, vc, -0.5f, -w[i] * 0.9f - h, len[i] * 0.3f, 0.5f, -w[i] * 0.9f, len[i] * 0.3f + 1.0f, 16 * S, 0f, 20 * S, 4 * S,
-							0xFFFFFFFF, light);
-				}
-				pose.translate(0, 0, len[i] / 16f);
-				pose.mulPose(Axis.XP.rotationDegrees(-10f));
-				pose.mulPose(Axis.YP.rotationDegrees(sway * 0.6f));
-			}
-			if (stage >= 2) {
-				// the tail club, studded with bone
-				AlienParts.box(pose, vc, -2.4f, -2.2f, -0.5f, 2.4f, 2.2f, 3.2f, 20 * S, 0f, 24 * S, 4 * S, 0xFFFFFFFF, light);
-				for (int k = 0; k < 4; k++) {
-					float x = k % 2 == 0 ? -2.4f : 2.4f, y = k < 2 ? -2.2f : 2.2f;
-					AlienParts.box(pose, vc, x - 0.6f, y - 0.6f, 0.6f, x + 0.6f, y + 0.6f, 2.0f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-				}
-			}
-			pose.popPose();
-			// back plates down his spine; bone spikes once he has grown (or while the Spike Burst is out)
-			for (int i = 0; i < 4; i++) {
-				float y = 1.0f + i * 2.6f;
-				float h = stage >= 2 ? 3.2f - i * 0.3f : stage == 1 ? 2.0f : 1.2f;
-				h += 2.4f * burst;
-				boolean bone = stage >= 2 || burst > 0.5f;
-				float u0 = bone ? 16 * S : 8 * S;
-				AlienParts.box(pose, vc, -0.8f, y, 2.0f, 0.8f, y + 1.8f, 2.0f + h, u0, 0f, u0 + 4 * S, 4 * S, 0xFFFFFFFF, light);
-				if (burst > 0f) {
-					// a second row, splayed out to either side
-					float s = 1.8f * burst;
-					AlienParts.box(pose, vc, -3.2f, y + 0.4f, 2.0f, -2.4f, y + 1.4f, 2.0f + s, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-					AlienParts.box(pose, vc, 2.4f, y + 0.4f, 2.0f, 3.2f, y + 1.4f, 2.0f + s, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-				}
-			}
-		});
-		for (var arm : new net.minecraft.client.model.geom.ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> {
-				VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-				if (stage >= 2) {
-					// spikes on his forearms
-					AlienParts.box(pose, vc, -0.6f, 4.0f, 2.0f, 0.6f, 5.4f, 4.2f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-				}
-				if (burst > 0f) {
-					// Spike Burst: shoulder spikes standing up off the top of each arm
-					float h = 3.0f * burst;
-					float x = right ? -1.5f : 1.5f;
-					AlienParts.box(pose, vc, x - 0.6f, -2.0f - h, -0.6f, x + 0.6f, -2.0f, 0.6f, 16 * S, 0f, 20 * S, 4 * S, 0xFFFFFFFF, light);
-				}
-			});
-		}
-		// a heavy brow ridge
-		AlienParts.on(pose, model.head, () -> {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			AlienParts.box(pose, vc, -4.3f, -6.6f, -4.6f, 4.3f, -5.4f, -3.8f, 12 * S, 0f, 16 * S, 4 * S, 0xFFFFFFFF, light);
-		});
+		// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"):
+		// only the skin -- no extra parts
 	}
 
 	/** v0.17.2: how far the Spike Burst's spikes are out, 0..1 -- up over 4 ticks, back down over the last 4. */
