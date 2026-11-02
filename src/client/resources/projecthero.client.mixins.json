@@ -16,6 +16,7 @@
 		"OmnitrixPoseMixin",
 		"OmnitrixGlowMixin",
 		"RipjawsScentColorMixin",
+		"UpgradeTechSenseColorMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",

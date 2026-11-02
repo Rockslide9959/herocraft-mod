@@ -82,6 +82,8 @@
 		"OmnitrixAlienLivingMixin",
 		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",
+		"OmnitrixUpgradeArrowAccessor",
+		"OmnitrixUpgradeEntityMixin",
 		"OmnitrixPawsMixin",
 		"SpeedForcePhaseCollideMixin",
 		"SpeedForceMoveCheckMixin",

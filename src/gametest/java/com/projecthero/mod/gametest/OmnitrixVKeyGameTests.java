@@ -497,6 +497,19 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 Upgrade revamp: the Upgrade Tool moved from Shift+C to Shift+V. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void upgradeShiftVIsTheUpgradeTool(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		ItemStack pick = new ItemStack(Items.IRON_PICKAXE);
+		pick.setDamageValue(200);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, pick);
+		tapV(p, true);
+		helper.assertTrue(p.getMainHandItem().getDamageValue() == 200 - pick.getMaxDamage() / 2, "Shift+V: half the wear repaired");
+		helper.assertFalse(Aliens.kit(UpgradeKit.ID).flag(p, UpgradeKit.F_OVERCLOCK), "and no Overclock");
+		helper.succeed();
+	}
+
 	// ================================================================ XLR8's revamp
 
 	@GameTest(template = EMPTY_STRUCTURE)
