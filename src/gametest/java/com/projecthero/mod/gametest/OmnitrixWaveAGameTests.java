@@ -108,6 +108,19 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 
 	// ================================================================ XLR8
 
+	/** v0.17.2 (user: "make xlr8 run through leaves like the other speedsters"): in Speed Mode leaves let him through. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8RunsThroughLeavesInSpeedMode(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		helper.assertFalse(com.projecthero.mod.hero.power.p04.SpeedLeaves.active(p), "not before Speed Mode");
+		helper.assertTrue(kit.toggleSpeedMode(p) && kit.flag(p, Xlr8Kit.F_SPEED), "V: Speed Mode");
+		helper.assertTrue(com.projecthero.mod.hero.power.p04.SpeedLeaves.active(p), "leaves let him through");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertFalse(com.projecthero.mod.hero.power.p04.SpeedLeaves.active(p), "not after turning back");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void xlr8IsFastLightAndSprintsFaster(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);

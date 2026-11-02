@@ -38,6 +38,11 @@ public final class SpeedLeaves {
 		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.speedActive(player)) {
 			return true;
 		}
+		// v0.17.2 (user: "make xlr8 run through leaves like the other speedsters"): XLR8 in Speed Mode (the synced Omnitrix state)
+		if (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(player)
+				&& (com.projecthero.mod.omnitrix.Omnitrix.state(player).kitFlags & com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.F_SPEED) != 0) {
+			return true;
+		}
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null || !st.ownedPowers.contains(SuperSpeedHandlers.KEY)) {
 			return false;
