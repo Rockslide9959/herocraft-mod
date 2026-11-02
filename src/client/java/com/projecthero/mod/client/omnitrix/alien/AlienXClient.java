@@ -1,11 +1,8 @@
 package com.projecthero.mod.client.omnitrix.alien;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
-import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.OmnitrixHud;
 import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXFx;
@@ -18,34 +15,25 @@ import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.2: Alien X's client kit -- the basic body (user: "Just make them basic versions"): the player model, a little taller
- * (the kit's 1.15 scale), with the generated starfield skin, two white horns on the head ({@link AlienParts#box} from the extras
- * sheet), the stars pulsing and the green eyes glowing (additive {@code RenderType.eyes} passes of {@code alien_x_stars.png} /
- * {@code alien_x_eyes.png}). A still "debating" pose (head bowed, arms out, trembling a little) while Serena and Bellicus argue,
- * a pose and a first-person clip per move, the debate row on the HUD; the rendered effects are {@link AlienXFx}.
+ * v0.17.2: Alien X's client kit. v0.17.2 revamp (user: "delete all the alien models and only use the skins i provided please no
+ * extra things untill i say"): the body is ONLY the player model, a little taller (the kit's 1.15 scale), in the user's Alien X
+ * skin -- no horns, no star shimmer pass, no glowing-eye pass. A still "debating" pose (head bowed, arms out, trembling a little)
+ * while Serena and Bellicus argue, a pleading pose when Ben argues, a pose and a first-person clip per move, and the HUD: the
+ * debate row (who speaks, and how each voted once they have) and the two voices' Council Favour. The move effects are
+ * {@link AlienXFx} (the extras sheet is only its starfield texture for the rifts now).
  */
 public final class AlienXClient implements AlienClientKit {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/alien_x.png");
-	public static final ResourceLocation STARS = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_stars.png");
-	public static final ResourceLocation EYES = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_eyes.png");
+	/** The rifts' starfield texture (AlienXFx) -- not drawn on the body. */
 	public static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_extras.png");
-	/** Extras-sheet UV rectangles (0..1): the horns, their white tips, the starfield patch, the star-black backing. */
-	public static final float[] HORN = { 0f, 0f, 16 / 64f, 16 / 64f };
-	public static final float[] TIP = { 16 / 64f, 0f, 24 / 64f, 8 / 64f };
+	/** Extras-sheet UV rectangles (0..1): the starfield patch, the star-black backing. */
 	public static final float[] STARFIELD = { 32 / 64f, 0f, 1f, 0.5f };
 	public static final float[] VOID = { 0f, 32 / 64f, 16 / 64f, 48 / 64f };
 
@@ -99,6 +87,8 @@ public final class AlienXClient implements AlienClientKit {
 	/** The opening debate is over: he straightens up, arms out. */
 	private static final float[][] SEATED = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -0.2f, 0, 0.7f, -0.2f, 0, -0.7f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
 			QuirkKeyframes.rest(14) };
+	/** v0.17.2 revamp, Argue: hands open and out, head up -- Ben pleading his case. */
+	private static final float[] ARGUE_POSE = QuirkKeyframes.f(0, -1.0f, -0.4f, 0.35f, -1.0f, 0.4f, -0.35f, -0.05f, 0, 0, 0, 0.06f, 0, 0, -0.06f, -0.25f);
 
 	// ---------------------------------------------------------------- first-person clips
 	private static final FirstPersonClip FP_DEBATE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, 25, 0, 10, 0, -0.25f, 0.1f),
@@ -142,61 +132,16 @@ public final class AlienXClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	/** How bright the stars are right now (a slow shimmer, brighter while he debates or acts). */
-	private static float starGlow(AbstractClientPlayer p, float age) {
-		OmnitrixState s = Omnitrix.state(p);
-		float base = 0.55f + 0.2f * Mth.sin(age * 0.09f) + 0.08f * Mth.sin(age * 0.37f);
-		if ((s.kitFlags & AlienXKit.F_DEBATE) != 0) {
-			base += 0.2f + 0.15f * Mth.sin(age * 0.6f);
-		}
-		float since = p.level().getGameTime() - s.animStart;
-		if (s.animId > 1 && s.animId < 1000 && since < 12) {
-			base += 0.4f * (1f - since / 12f);
-		}
-		return Mth.clamp(base, 0f, 1f);
-	}
-
-	@Override
-	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
-			float age) {
-		// the horns: three tapering segments a side, sweeping up and out, the tips curling in
-		VertexConsumer horn = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-		AlienParts.on(pose, model.head, () -> {
-			for (int side = -1; side <= 1; side += 2) {
-				pose.pushPose();
-				pose.translate(side * 3.2f / 16f, -7.6f / 16f, 0.3f / 16f);
-				pose.mulPose(com.mojang.math.Axis.ZP.rotation(side * 0.45f));
-				pose.mulPose(com.mojang.math.Axis.XP.rotation(-0.15f));
-				AlienParts.box(pose, horn, -1.1f, -3.2f, -1.1f, 1.1f, 0.2f, 1.1f, HORN[0], HORN[1], HORN[2], HORN[3], 0xFFFFFFFF, light);
-				pose.translate(0, -3.0f / 16f, 0);
-				pose.mulPose(com.mojang.math.Axis.ZP.rotation(-side * 0.3f));
-				AlienParts.box(pose, horn, -0.8f, -3.2f, -0.8f, 0.8f, 0.2f, 0.8f, HORN[0], HORN[1], HORN[2], HORN[3], 0xFFFFFFFF, light);
-				pose.translate(0, -3.0f / 16f, 0);
-				pose.mulPose(com.mojang.math.Axis.ZP.rotation(-side * 0.55f));
-				AlienParts.box(pose, horn, -0.55f, -2.8f, -0.55f, 0.55f, 0.2f, 0.55f, TIP[0], TIP[1], TIP[2], TIP[3], 0xFFFFFFFF, light);
-				pose.popPose();
-			}
-		});
-		// the stars shimmer and the eyes glow (additive: black adds nothing)
-		int g = (int) (255 * starGlow(p, age));
-		int col = 0xFF000000 | g << 16 | g << 8 | g;
-		VertexConsumer stars = buffers.getBuffer(RenderType.eyes(STARS));
-		for (ModelPart part : new ModelPart[] { model.head, model.body, model.rightArm, model.leftArm, model.rightLeg, model.leftLeg }) {
-			part.render(pose, stars, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
-		}
-		VertexConsumer eyes = buffers.getBuffer(RenderType.eyes(EYES));
-		model.head.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
-	}
-
-	@Override
-	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		int g = (int) (255 * starGlow(p, p.tickCount));
-		arm.render(pose, buffers.getBuffer(RenderType.eyes(STARS)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFF000000 | g << 16 | g << 8 | g);
-	}
-
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		OmnitrixState s = Omnitrix.state(p);
+		if ((s.kitFlags & AlienXKit.F_DEBATE) != 0 && animId == AlienXKit.ANIM_ARGUE && ticks < 14) {
+			QuirkKeyframes.apply(m, ARGUE_POSE, 1f);
+			float sh = 0.12f * Mth.sin(age * 0.9f);
+			m.rightArm.xRot += sh;
+			m.leftArm.xRot -= sh;
+			return true;
+		}
 		if ((s.kitFlags & AlienXKit.F_DEBATE) != 0) {
 			// still as a statue but for a faint tremble -- the argument going on inside
 			QuirkKeyframes.apply(m, DEBATE_POSE, 1f);
@@ -238,7 +183,7 @@ public final class AlienXClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case AlienXKit.ANIM_DEBATE -> FP_DEBATE;
+			case AlienXKit.ANIM_DEBATE, AlienXKit.ANIM_ARGUE -> FP_DEBATE;
 			case AlienXKit.ANIM_BOLT, AlienXKit.ANIM_HURL -> animId == AlienXKit.ANIM_HURL ? FP_THROW : FP_POINT;
 			case AlienXKit.ANIM_RAY -> FP_PALMS;
 			case AlienXKit.ANIM_CRUSH -> FP_PRESS;
@@ -254,32 +199,28 @@ public final class AlienXClient implements AlienClientKit {
 		};
 	}
 
-	@Override
-	public void tick(AbstractClientPlayer p) {
-		// a rare drifting star off his body -- an accent, not a cloud
-		var r = p.getRandom();
-		if (r.nextInt(12) == 0) {
-			p.level().addParticle(ParticleTypes.END_ROD, p.getX() + (r.nextDouble() - 0.5) * 0.7, p.getY() + r.nextDouble() * p.getBbHeight(),
-					p.getZ() + (r.nextDouble() - 0.5) * 0.7, 0, 0.01, 0);
-		}
-	}
-
-	// ---------------------------------------------------------------- the HUD: the debate row
+	// ---------------------------------------------------------------- the HUD: the voices' favour, the debate row
 
 	@Override
 	public int hudHeight() {
-		return 10;
+		return 30;
 	}
 
 	/**
-	 * One meter row over the name: "Debate" with the debate's progress and who is speaking (Ben's motion in green, Serena in pale
-	 * blue, Bellicus in red), or "Council" with an empty bar and "seated" when nobody argues.
+	 * Three meter rows over the name: Serena's and Bellicus's Council Favour (v0.17.2 revamp), then "Debate" with the debate's
+	 * progress and who is speaking (Ben's motion in green, Serena in pale blue, Bellicus in red) -- and once a voice has spoken,
+	 * how it voted -- or "Council" with an empty bar and "seated" when nobody argues.
 	 */
 	@Override
 	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, int w, float partial) {
 		Minecraft mc = Minecraft.getInstance();
 		OmnitrixState s = Omnitrix.state(p);
 		long now = p.level().getGameTime();
+		int fs = AlienXKit.favour(p, true), fb = AlienXKit.favour(p, false);
+		OmnitrixHud.meter(g, mc, x, y - 26, Component.translatable("projecthero.omnitrix.alien_x.voice.serena"), fs / 100f, 0xFF6FC8F0,
+				String.valueOf(fs), 0xFF9FE8FF);
+		OmnitrixHud.meter(g, mc, x, y - 16, Component.translatable("projecthero.omnitrix.alien_x.voice.bellicus"), fb / 100f, 0xFFE04030,
+				String.valueOf(fb), 0xFFFF7060);
 		boolean debating = (s.kitFlags & AlienXKit.F_DEBATE) != 0;
 		if (!debating) {
 			OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.alien_x.council"), 0f, 0xFF7CFF6A,
@@ -297,6 +238,12 @@ public final class AlienXClient implements AlienClientKit {
 		int col = who == 0 ? BEN_COLOUR : who == 1 ? SERENA_COLOUR : BELLICUS_COLOUR;
 		// the bar blends between the two voices as the argument swings
 		int bar = who == 1 ? 0xFF6FC8F0 : who == 2 ? 0xFFE04030 : 0xFF5CD04A;
+		// v0.17.2 revamp: once a voice has spoken, its vote shows next to its name
+		int votes = AlienXKit.votes(p);
+		if (!opening && votes >= 0 && who != 0) {
+			boolean yes = (votes & (who == 1 ? 1 : 2)) != 0;
+			name = name + " " + Component.translatable(yes ? "hud.projecthero.omnitrix.alien_x.aye" : "hud.projecthero.omnitrix.alien_x.nay").getString();
+		}
 		OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.alien_x.debate"), frac, bar, name, col);
 	}
 }

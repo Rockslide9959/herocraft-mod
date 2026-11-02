@@ -274,6 +274,8 @@
       "com.projecthero.mod.gametest.OmnitrixRecalAlienXGameTests",
       "com.projecthero.mod.gametest.OmnitrixBrainstormGameTests",
       "com.projecthero.mod.gametest.OmnitrixSpidermonkeyGameTests",
+      "com.projecthero.mod.gametest.OmnitrixGoopGameTests",
+      "com.projecthero.mod.gametest.OmnitrixAlienXGameTests",
       "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests"
     ]
   },

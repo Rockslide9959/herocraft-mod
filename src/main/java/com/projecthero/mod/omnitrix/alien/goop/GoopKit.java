@@ -1,15 +1,19 @@
 package com.projecthero.mod.omnitrix.alien.goop;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.revamp.BatchBScheduler;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
@@ -20,10 +24,11 @@ import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
+import com.projecthero.mod.quirk.fx.QuirkCamera;
+import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.particles.ItemParticleOption;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -32,8 +37,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -41,36 +49,54 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (the Recalibrated Omnitrix, basic version -- user: "Just make them basic versions of the aliens for now please that we
- * can revamp later"): Goop, the Polymorph -- a shapeshifting blob of acidic green slime held together by the anti-gravity
- * projector that floats over him.
+ * v0.17.2: Goop, the Polymorph (Recalibrated Omnitrix) -- a shapeshifting body of acidic green slime held together by the
+ * anti-gravity projector. v0.17.2 revamp (docs/OMNITRIX_REVAMP_GOOP.md; user: "can you work on revamps for the rest of the alien
+ * force aliens please, look at their powers and abilities in the show and do research and make them good please"): what he does
+ * in Alien Force -- stretches, engulfs, sprays and dissolves with acid, squeezes through gaps, flows after his own projector, and
+ * goes to a helpless puddle when it is knocked away. Upgrade is the other liquid alien (he merges with machines); Goop is acid and
+ * shape. No Ultimate form (user: "dont add ultimate aliens yet"); the body is only the user's skin (user: "delete all the alien
+ * models and only use the skins i provided please no extra things untill i say").
  *
  * <pre>
- *   R        Acid Spit        a glob of acid: 7                                  Shift+R  Acid Glob      a lobbed glob: 12 splash (r 2.5) + an acid
- *                                                                                                         puddle 8 s (2 every 0.5 s, slowed)
- *   G        Slime Whip       a stretched arm lash (5, cone): 13, pulled in      Shift+G  Engulf         swallows a creature (4.5) for 3 s: 4 x 4
- *   X        Slime Bounce     a springy leap                                     Shift+X  Squeeze        5 s squeezed small (x0.4: through 1-block
- *                                                                                                         gaps), +20% speed; Shift+X again ends it
- *   Z        Slime Slam       a splash round him (r 4): 17 + slowed              Shift+Z  Acid Spray     a cone (6): 12 + weakened, slowed
- *   V        Reform           pulls himself together: +6 HP, clears poisons      Shift+V  Glide          flattens into a parachute (6 s)
- *   C        Acid Flood       ULTIMATE: a lake of acid round him (r 6, 6 s):      Shift+C  Goo Cannon     a huge glob: blast r 3, 18
- *                             5 every 0.5 s (60), slowed
+ *   R          Acid Spit        a glob of acid: 7 (1 s)
+ *   Shift+R    Acid Glob        a lobbed glob: 12 within 2.5 where it lands + an acid puddle 8 s (2 every 0.5 s, slowed)
+ *   G          Slime Whip       his arm stretches 8 blocks: 13 to what is in front, small creatures dragged 3 blocks in
+ *   Shift+G    Engulf           swallows a creature (4.5): held inside 3 s, 4 every 0.75 s (16), then spat out; Shift+G again
+ *                               spits it early: thrown 6 blocks, +6
+ *   X          Slime Bounce     a springy leap; he rebounds off the ground twice more on his own (each lower); sneak stops it
+ *   Shift+X    Squeeze (HOLD)   while held (6 s at most): 0.35x, through one-block gaps, +20% speed, climbs walls; 3 s cooldown
+ *                               from the release
+ *   Z          Acid Spray       1.5 s of acid out of both hands, steered by the look: 3.5 every 0.5 s (14) in a 6-block cone,
+ *                               weakened 5 s
+ *   Shift+Z    Acid Tide        ULTIMATE: he becomes a wave and surges 10 blocks forward (untouchable): 45 to everything it
+ *                               rolls over, carried along; then an acid lake round him (6 blocks, 6 s: 5 every 0.5 s, slowed)
+ *   C          Slime Slam       he splashes down round himself: 17 within 4, pushed back, slowed 3 s
+ *   Shift+C    Goo Cannon       a huge glob: up to 18 within 3 where it bursts
+ *   V          Reform           pulls himself back together: +8 health, every harmful effect gone
+ *   Shift+V    Projector Fling  throws his projector up to 16 blocks; his body pours after it as a puddle (untouchable) and
+ *                               reforms where it lands
+ *   Attack     Corrosive Touch  +2 acid on every punch
+ *   Use        Dissolve         (empty hand, on a block) acid eats the block for 10 s (nothing harder than iron bars, no block
+ *                               entities; the abilityTerrainDamage rule and build rights apply)
+ *   Sneak      Slime Chute      (in the air) flattens out: a slow fall while held
+ *   Passives   Polymorph body: physical blows half, no fall damage, never suffocates; Acid Skin: whatever strikes him in melee
+ *              takes 2
+ *   Weak       the projector: a hit of 10+ (or any lightning) knocks it off -- a puddle (0.45x, -70% speed, no moves) until he
+ *              flows back over it (it floats back by itself after 10 s); heat (fire x1.5); squeezed thin, blows land in full
  * </pre>
  *
- * Passives: Polymorph body -- half damage from physical blows ({@code GhostfreakKit.physical}), no fall damage, never suffocates
- * in walls. Weaknesses: the anti-gravity projector -- a hit of 8 or more knocks it off: he slumps into a puddle (x0.45 size,
- * -70% speed, no moves) until he flows back over it (it floats back by itself after 20 s); heat dries him out (fire x1.5).
- *
  * <p>Carriers ({@link AlienProjectileEntity}, held): {@code goop_puddle} (radius = size) and {@code goop_projector} (the knocked-off
- * disc, owner = Goop).
+ * / thrown projector on the ground).
  */
 public final class GoopKit extends AlienKit {
 	public static final String ID = Aliens.GOOP.id();
@@ -115,45 +141,88 @@ public final class GoopKit extends AlienKit {
 			.layer(SoundEvents.SLIME_BLOCK_BREAK, 0.5f, 0.6f)
 			.layer(SoundEvents.LLAMA_SPIT, 0.4f, 0.6f)
 			.layer(SoundEvents.BUCKET_EMPTY, 0.3f, 0.8f, 1);
+	// v0.17.2 revamp
+	public static final OmnitrixSfx.Cue SPRAY = OmnitrixSfx.cue("goop_spray")
+			.layer(SoundEvents.BUCKET_EMPTY, 0.3f, 1.6f)
+			.layer(SoundEvents.FIRE_EXTINGUISH, 0.15f, 1.3f, 2)
+			.gap(4);
+	public static final OmnitrixSfx.Cue TIDE = OmnitrixSfx.cue("goop_tide")
+			.layer(SoundEvents.GENERIC_SPLASH, 0.6f, 0.6f)
+			.layer(SoundEvents.SLIME_BLOCK_BREAK, 0.6f, 0.5f)
+			.layer(SoundEvents.BUCKET_EMPTY, 0.5f, 0.5f, 3)
+			.layer(SoundEvents.FIRE_EXTINGUISH, 0.3f, 0.9f, 6);
+	public static final OmnitrixSfx.Cue FLING_SOUND = OmnitrixSfx.cue("goop_fling")
+			.layer(SoundEvents.BEACON_POWER_SELECT, 0.25f, 1.9f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.25f, 1.5f)
+			.layer(SoundEvents.HONEY_BLOCK_SLIDE, 0.4f, 0.9f, 3);
+	public static final OmnitrixSfx.Cue MELT = OmnitrixSfx.cue("goop_melt")
+			.layer(SoundEvents.FIRE_EXTINGUISH, 0.3f, 0.8f)
+			.layer(SoundEvents.LAVA_EXTINGUISH, 0.15f, 1.6f)
+			.layer(SoundEvents.SLIME_SQUISH, 0.3f, 0.6f, 2)
+			.gap(3);
 
 	// ---------------------------------------------------------------- poses, flags, moves
 	public static final int ANIM_SPIT = 1, ANIM_GLOB = 2, ANIM_WHIP = 3, ANIM_ENGULF = 4, ANIM_BOUNCE = 5, ANIM_SQUEEZE = 6, ANIM_SLAM = 7,
-			ANIM_SPRAY = 8, ANIM_REFORM = 9, ANIM_GLIDE = 10, ANIM_FLOOD = 11, ANIM_CANNON = 12, ANIM_KNOCKED = 13;
+			ANIM_SPRAY = 8, ANIM_REFORM = 9, ANIM_GLIDE = 10, ANIM_FLOOD = 11, ANIM_CANNON = 12, ANIM_KNOCKED = 13, ANIM_FLING = 14,
+			ANIM_SPIT_OUT = 15, ANIM_MELT = 16, ANIM_PUNCH = 17;
 
 	public static final int F_SQUEEZE = 1;
 	/** The projector is knocked off: he is a puddle. */
 	public static final int F_OFF = 2;
+	/** Slime Chute (sneaking in the air). */
 	public static final int F_GLIDE = 4;
 	public static final int F_ENGULF = 8;
+	/** v0.17.2 revamp: Acid Spray is running. */
+	public static final int F_SPRAY = 16;
+	/** v0.17.2 revamp: Acid Tide's surge (he is a wave). */
+	public static final int F_TIDE = 32;
+	/** v0.17.2 revamp: pouring after the flung projector (a puddle on the move). */
+	public static final int F_POUR = 64;
 
 	public static final String ACID_SPIT = "acid_spit", ACID_GLOB = "acid_glob", SLIME_WHIP = "slime_whip", ENGULF = "engulf", BOUNCE = "slime_bounce",
-			SQUEEZE = "squeeze", SLIME_SLAM = "slime_slam", ACID_SPRAY = "acid_spray", REFORM_MOVE = "reform", GLIDE = "glide",
-			ACID_FLOOD = "acid_flood", GOO_CANNON = "goo_cannon";
+			SQUEEZE = "squeeze", SLIME_SLAM = "slime_slam", ACID_SPRAY = "acid_spray", REFORM_MOVE = "reform", FLING = "projector_fling",
+			ACID_TIDE = "acid_tide", GOO_CANNON = "goo_cannon", TOUCH = "corrosive_touch", DISSOLVE = "dissolve", CHUTE = "slime_chute";
 
-	public static final String SQUEEZE_END = "squeeze_end", GLIDE_END = "glide_end";
+	/** Synced kit timers. */
+	public static final String SQUEEZE_START = "squeeze_start", SPRAY_START = "spray_start", TIDE_START = "tide_start", POUR_END = "pour_end",
+			OFF_SINCE = "off_since";
 
-	public static final float SPIT_DAMAGE = 7f, GLOB_DAMAGE = 12f, PUDDLE_DAMAGE = 2f, WHIP_DAMAGE = 13f, ENGULF_DAMAGE = 4f, SLAM_DAMAGE = 17f,
-			SPRAY_DAMAGE = 12f, FLOOD_DAMAGE = 5f, CANNON_DAMAGE = 18f, REFORM_HEAL = 6f;
-	public static final double WHIP_RANGE = 5, ENGULF_RANGE = 4.5, SLAM_RADIUS = 4, SPRAY_RANGE = 6, FLOOD_RADIUS = 6, GLOB_RADIUS = 2.5;
-	public static final int PUDDLE_TICKS = 160, FLOOD_TICKS = 120, PULSE = 10, ENGULF_TICKS = 60, ENGULF_PULSE = 15, SQUEEZE_TICKS = 100,
-			GLIDE_TICKS = 120, PROJECTOR_RETURN = 400;
-	/** Physical blows are halved (a polymorph's body). */
+	public static final float SPIT_DAMAGE = 7f, GLOB_DAMAGE = 12f, PUDDLE_DAMAGE = 2f, WHIP_DAMAGE = 13f, ENGULF_DAMAGE = 4f, SPIT_OUT_DAMAGE = 6f,
+			SLAM_DAMAGE = 17f, SPRAY_DAMAGE = 3.5f, TIDE_DAMAGE = 45f, LAKE_DAMAGE = 5f, CANNON_DAMAGE = 18f, REFORM_HEAL = 8f, TOUCH_DAMAGE = 2f,
+			ACID_SKIN = 2f;
+	public static final double WHIP_RANGE = 8, WHIP_PULL = 3, ENGULF_RANGE = 4.5, SLAM_RADIUS = 4, SPRAY_RANGE = 6, SPRAY_DEG = 50, LAKE_RADIUS = 6,
+			GLOB_RADIUS = 2.5, TIDE_LENGTH = 10, TIDE_WIDTH = 2.2, FLING_RANGE = 16, DISSOLVE_REACH = 4.5;
+	public static final int PUDDLE_TICKS = 160, LAKE_TICKS = 120, PULSE = 10, ENGULF_TICKS = 60, ENGULF_PULSE = 15, SQUEEZE_MAX = 120,
+			SQUEEZE_COOLDOWN = 60, SPRAY_TICKS = 30, SPRAY_PULSE = 10, TIDE_TICKS = 10, PROJECTOR_RETURN = 200, DISSOLVE_TICKS = 200,
+			BOUNCES = 2;
+	/** Dissolve eats nothing harder than this (iron bars / an iron door are 5; obsidian 50). */
+	public static final float DISSOLVE_HARDNESS = 5f;
+	/** Physical blows are halved (a polymorph's body) -- unless he is squeezed thin. */
 	public static final float PHYSICAL_TAKEN = 0.5f;
 	public static final float FIRE_TAKEN = 1.5f;
 	/** A hit this big (before his resistances) knocks the projector off. */
-	public static final float KNOCK_OFF = 8f;
-	public static final double SQUEEZE_SCALE = 0.4, PUDDLE_SCALE = 0.45, SQUEEZE_SPEED = 0.2, PUDDLE_SPEED = -0.7;
+	public static final float KNOCK_OFF = 10f;
+	public static final double SQUEEZE_SCALE = 0.35, PUDDLE_SCALE = 0.45, SQUEEZE_SPEED = 0.2, PUDDLE_SPEED = -0.7;
+	public static final double CHUTE_FALL = -0.14;
 
 	private static final ResourceLocation SQUEEZE_SCALE_ID = PowerToggles.id("omnitrix_goop_squeeze_scale");
 	private static final ResourceLocation SQUEEZE_SPEED_ID = PowerToggles.id("omnitrix_goop_squeeze_speed");
 	private static final ResourceLocation PUDDLE_SCALE_ID = PowerToggles.id("omnitrix_goop_puddle_scale");
 	private static final ResourceLocation PUDDLE_SPEED_ID = PowerToggles.id("omnitrix_goop_puddle_speed");
-	private static final ItemParticleOption SLIME = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.SLIME_BALL));
+	public static final int ACID = 0x7CE03A, ACID_DARK = 0x2E7A14, ACID_PALE = 0xC8FF9A;
 
 	// ---------------------------------------------------------------- per-player state
 	private static final Map<UUID, List<Puddle>> PUDDLES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Engulfed> ENGULFED = new ConcurrentHashMap<>();
 	private static final Map<UUID, Projector> PROJECTORS = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: player -> Acid Tide's surge. */
+	private static final Map<UUID, Tide> TIDES = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: player -> the pour after his flung projector. */
+	private static final Map<UUID, Pour> POURS = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: player -> Slime Bounce's rebounds left. */
+	private static final Map<UUID, Bounce> BOUNCING = new ConcurrentHashMap<>();
+	/** v0.17.2 revamp: once per game tick (the spray / tide / puddle pulses must not double up: RipjawsKit.tick). */
+	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 
 	private static final class Puddle {
 		final ResourceKey<Level> dim;
@@ -190,6 +259,27 @@ public final class GoopKit extends AlienKit {
 	private record Projector(ResourceKey<Level> dim, Vec3 at, long since, AlienProjectileEntity look) {
 	}
 
+	private record Tide(ResourceKey<Level> dim, Vec3 dir, long start, Set<Integer> hits) {
+	}
+
+	private record Pour(ResourceKey<Level> dim, Vec3 from, Vec3 to, long start, long end, AlienProjectileEntity look) {
+	}
+
+	private static final class Bounce {
+		int left;
+		double power;
+		long since;
+
+		Bounce(int left, double power, long since) {
+			this.left = left;
+			this.power = power;
+			this.since = since;
+		}
+	}
+
+	private GoopKit() {
+	}
+
 	public static void register() {
 		Aliens.register(new GoopKit());
 		AlienProjectileEntity.onHit("goop_glob", (proj, hit) -> {
@@ -197,19 +287,23 @@ public final class GoopKit extends AlienKit {
 				Vec3 at = ground(owner, hit.getLocation());
 				kit.puddle(owner, at, GLOB_RADIUS, PUDDLE_DAMAGE, PUDDLE_TICKS);
 				OmnitrixSfx.play(level(owner), at, SPLAT, 1f, 1f);
+				QuirkFx.ring(level(owner), at.add(0, 0.05, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size((float) GLOB_RADIUS + 0.5f)
+						.thickness(0.4f).life(10).ground().spawn();
 			}
 		});
 		AlienProjectileEntity.onHit("goop_spit", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel level) {
 				Vec3 at = hit.getLocation();
-				level.sendParticles(SLIME, at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.08);
+				QuirkFx.ring(level, at).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(0.9f).thickness(0.25f).life(6).spawn();
 				OmnitrixSfx.play(level, at, SIZZLE, 0.8f, 1f);
 			}
 		});
 		AlienProjectileEntity.onHit("goop_cannon", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel level) {
 				Vec3 at = hit.getLocation();
-				level.sendParticles(SLIME, at.x, at.y, at.z, 30, 1.2, 0.5, 1.2, 0.12);
+				QuirkFx.blast(level, at).colours(ACID_PALE, ACID_DARK).size(3f).life(14).flags(QuirkFx.F_NO_SMOKE).spawn();
+				QuirkFx.decal(level, at.add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(ACID_DARK).size(2.6f).life(160).spawn();
+				QuirkCamera.shakeAround(level, at, 8, 0.2f, 5);
 				OmnitrixSfx.play(level, at, SPLAT, 1.3f, 0.8f);
 			}
 		});
@@ -225,11 +319,23 @@ public final class GoopKit extends AlienKit {
 			pr.look().discard();
 		}
 		PROJECTORS.clear();
+		for (Pour po : POURS.values()) {
+			po.look().discard();
+		}
+		POURS.clear();
+		TIDES.clear();
+		BOUNCING.clear();
+		LAST_TICK.clear();
 	}
 
 	@Override
 	public String id() {
 		return ID;
+	}
+
+	/** {@code p} is Goop right now. */
+	public boolean isGoop(Player p) {
+		return Omnitrix.hasPower(p) && Omnitrix.state(p).transformed() && ID.equals(Omnitrix.state(p).active);
 	}
 
 	@Override
@@ -241,10 +347,12 @@ public final class GoopKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(AlienMove.tap(ACID_SPIT, AbilitySlot.SLOT_1, 20), AlienMove.shift(ACID_GLOB, AbilitySlot.SLOT_1, 200),
 				AlienMove.tap(SLIME_WHIP, AbilitySlot.SLOT_2, 80), AlienMove.shift(ENGULF, AbilitySlot.SLOT_2, 300),
-				AlienMove.tap(BOUNCE, AbilitySlot.SLOT_3, 30), AlienMove.shift(SQUEEZE, AbilitySlot.SLOT_3, 160),
-				AlienMove.tap(SLIME_SLAM, AbilitySlot.SLOT_4, 200), AlienMove.shift(ACID_SPRAY, AbilitySlot.SLOT_4, 140),
-				AlienMove.tap(REFORM_MOVE, AbilitySlot.SLOT_5, 400), AlienMove.shift(GLIDE, AbilitySlot.SLOT_5, 200),
-				AlienMove.tap(ACID_FLOOD, AbilitySlot.SLOT_6, 900), AlienMove.shift(GOO_CANNON, AbilitySlot.SLOT_6, 260));
+				AlienMove.tap(BOUNCE, AbilitySlot.SLOT_3, 30), AlienMove.shift(SQUEEZE, AbilitySlot.SLOT_3, SQUEEZE_COOLDOWN),
+				AlienMove.tap(ACID_SPRAY, AbilitySlot.SLOT_4, 140), AlienMove.shift(ACID_TIDE, AbilitySlot.SLOT_4, 1200),
+				AlienMove.tap(REFORM_MOVE, AbilitySlot.SLOT_5, 400), AlienMove.shift(FLING, AbilitySlot.SLOT_5, 160),
+				AlienMove.tap(SLIME_SLAM, AbilitySlot.SLOT_6, 200), AlienMove.shift(GOO_CANNON, AbilitySlot.SLOT_6, 260),
+				AlienMove.vanilla(TOUCH, "Attack", 0), AlienMove.vanilla(DISSOLVE, "Use (on a block)", 20),
+				AlienMove.vanilla(CHUTE, "Sneak (in the air)", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -258,31 +366,41 @@ public final class GoopKit extends AlienKit {
 		}
 		Engulfed en = ENGULFED.remove(id);
 		if (en != null) {
-			release(p, en);
+			release(p, en, false);
 		}
 		Projector pr = PROJECTORS.remove(id);
 		if (pr != null) {
 			pr.look().discard();
 		}
+		Pour po = POURS.remove(id);
+		if (po != null) {
+			po.look().discard();
+		}
+		TIDES.remove(id);
+		BOUNCING.remove(id);
+		LAST_TICK.remove(id);
 		PowerToggles.clearModifier(p, Attributes.SCALE, SQUEEZE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SQUEEZE_SPEED_ID);
 		PowerToggles.clearModifier(p, Attributes.SCALE, PUDDLE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, PUDDLE_SPEED_ID);
-		if (flag(p, F_GLIDE)) {
-			p.removeEffect(MobEffects.SLOW_FALLING);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		for (String k : new String[] { SQUEEZE_START, SPRAY_START, TIDE_START, POUR_END, OFF_SINCE }) {
+			n.timers.remove(key(k));
 		}
-		OmnitrixState s = Omnitrix.state(p);
-		if (s.kitFlags != 0) {
-			OmnitrixState n = s.copy();
-			n.kitFlags = 0;
-			Omnitrix.save(p, n);
-		}
+		n.kitFlags = 0;
+		Omnitrix.save(p, n);
 	}
 
 	/** Anything of {@code p}'s left behind (gametests). */
 	public static int leftovers(ServerPlayer p) {
 		UUID id = p.getUUID();
-		return (PUDDLES.containsKey(id) ? 1 : 0) + (ENGULFED.containsKey(id) ? 1 : 0) + (PROJECTORS.containsKey(id) ? 1 : 0);
+		return (PUDDLES.containsKey(id) ? 1 : 0) + (ENGULFED.containsKey(id) ? 1 : 0) + (PROJECTORS.containsKey(id) ? 1 : 0)
+				+ (TIDES.containsKey(id) ? 1 : 0) + (POURS.containsKey(id) ? 1 : 0) + (BOUNCING.containsKey(id) ? 1 : 0);
+	}
+
+	/** Whether any per-player state of {@code p} is held, the tick guard included (tests: nothing after turning back). */
+	public static boolean holds(ServerPlayer p) {
+		return leftovers(p) > 0 || LAST_TICK.containsKey(p.getUUID());
 	}
 
 	@Override
@@ -294,6 +412,11 @@ public final class GoopKit extends AlienKit {
 
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
+		// once per game tick: the pulses below must not double up (a mock player can be ticked twice)
+		Long last = LAST_TICK.put(p.getUUID(), now);
+		if (last != null && last == now) {
+			return;
+		}
 		ServerLevel level = level(p);
 		UUID id = p.getUUID();
 		// the projector on the ground: flow back over it (or it floats home by itself)
@@ -305,19 +428,20 @@ public final class GoopKit extends AlienKit {
 				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.projector_off").withStyle(ChatFormatting.RED), true);
 			}
 		}
-		if (flag(p, F_SQUEEZE) && now >= timer(p, SQUEEZE_END)) {
+		if (flag(p, F_SQUEEZE) && now - timer(p, SQUEEZE_START) >= SQUEEZE_MAX) {
 			endSqueeze(p);
 		}
-		if (flag(p, F_GLIDE) && (now >= timer(p, GLIDE_END) || (p.onGround() && now - (timer(p, GLIDE_END) - GLIDE_TICKS) > 6))) {
-			setFlag(p, F_GLIDE, false);
-			p.removeEffect(MobEffects.SLOW_FALLING);
-		}
+		tickChute(p);
+		tickBounce(p, now);
+		tickSpray(p, level, now);
+		tickTide(p, level, now);
+		tickPour(p, level, now);
 		// the engulfed creature, held inside him
 		Engulfed en = ENGULFED.get(id);
 		if (en != null) {
 			if (now >= en.until || !en.target.isAlive()) {
 				ENGULFED.remove(id);
-				release(p, en);
+				release(p, en, false);
 			} else {
 				Vec3 c = p.position().add(p.getLookAngle().multiply(1, 0, 1).scale(0.2));
 				en.target.teleportTo(c.x, p.getY() + 0.1, c.z);
@@ -347,9 +471,6 @@ public final class GoopKit extends AlienKit {
 			if (puddles.isEmpty()) {
 				PUDDLES.remove(id);
 			}
-		}
-		if (now % 4 == 0) {
-			level.sendParticles(SLIME, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0.25, 0.05, 0.25, 0.0);
 		}
 	}
 
@@ -396,10 +517,12 @@ public final class GoopKit extends AlienKit {
 
 	/** A big hit knocks the projector off: it lands a few blocks away and he slumps into a puddle until he gets back to it. */
 	public void knockOff(ServerPlayer p, @Nullable Entity from) {
-		if (flag(p, F_OFF)) {
+		if (flag(p, F_OFF) || flag(p, F_POUR) || flag(p, F_TIDE)) {
 			return;
 		}
 		endSqueeze(p);
+		stopSpray(p);
+		BOUNCING.remove(p.getUUID());
 		Vec3 away;
 		if (from != null && from != p) {
 			away = p.position().subtract(from.position()).multiply(1, 0, 1);
@@ -411,7 +534,7 @@ public final class GoopKit extends AlienKit {
 		Vec3 spot = p.position();
 		for (double d = 0.5; d <= 3.0; d += 0.5) {
 			Vec3 at = p.position().add(away.scale(d)).add(0, 0.5, 0);
-			if (!p.level().getBlockState(net.minecraft.core.BlockPos.containing(at)).isAir()) {
+			if (!p.level().getBlockState(BlockPos.containing(at)).isAir()) {
 				break;
 			}
 			spot = at;
@@ -420,16 +543,20 @@ public final class GoopKit extends AlienKit {
 		AlienProjectileEntity look = AlienProjectileEntity.of(p, "goop_projector");
 		look.moveTo(spot.x, spot.y, spot.z, p.getYRot(), 0f);
 		look.colour(0).size(0.6f).held(true).speed(0).life(PROJECTOR_RETURN + 40).damage(0f).spawn();
-		PROJECTORS.put(p.getUUID(), new Projector(p.level().dimension(), spot, p.level().getGameTime(), look));
-		setFlag(p, F_OFF, true);
+		long now = p.level().getGameTime();
+		PROJECTORS.put(p.getUUID(), new Projector(p.level().dimension(), spot, now, look));
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags |= F_OFF;
+		n.timers.put(key(OFF_SINCE), now);
+		Omnitrix.save(p, n);
 		anim(p, ANIM_KNOCKED);
 		PowerToggles.modifier(p, Attributes.SCALE, PUDDLE_SCALE_ID, PUDDLE_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, PUDDLE_SPEED_ID, PUDDLE_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		Engulfed en = ENGULFED.remove(p.getUUID());
 		if (en != null) {
-			release(p, en);
+			release(p, en, false);
 		}
-		level(p).sendParticles(SLIME, p.getX(), p.getY() + 0.5, p.getZ(), 20, 0.5, 0.4, 0.5, 0.1);
+		QuirkFx.decal(level(p), p.position().add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(ACID_DARK).size(1.6f).life(PROJECTOR_RETURN).spawn();
 		OmnitrixSfx.playOn(p, KNOCKED, 1f, 1f, SoundSource.PLAYERS);
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.projector_off").withStyle(ChatFormatting.RED), true);
 	}
@@ -440,10 +567,14 @@ public final class GoopKit extends AlienKit {
 		if (pr != null) {
 			pr.look().discard();
 		}
-		setFlag(p, F_OFF, false);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags &= ~F_OFF;
+		n.timers.remove(key(OFF_SINCE));
+		Omnitrix.save(p, n);
 		PowerToggles.clearModifier(p, Attributes.SCALE, PUDDLE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, PUDDLE_SPEED_ID);
 		anim(p, ANIM_REFORM);
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(1.6f).thickness(0.3f).life(10).spawn();
 		OmnitrixSfx.playOn(p, PICKUP, 1f, 1f, SoundSource.PLAYERS);
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.projector_back").withStyle(ChatFormatting.GREEN), true);
 	}
@@ -460,18 +591,27 @@ public final class GoopKit extends AlienKit {
 		if (source.is(DamageTypeTags.IS_FALL) || source.is(DamageTypes.IN_WALL)) {
 			return false; // a blob lands soft and fits anywhere
 		}
+		if ((flag(p, F_POUR) || flag(p, F_TIDE)) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return false; // a puddle on the move / a wave: nothing to hit
+		}
 		return true;
 	}
 
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
-		if (amount >= KNOCK_OFF && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) && !source.is(DamageTypes.STARVE)
-				&& !source.is(DamageTypes.DROWN)) {
+		boolean physical = GhostfreakKit.physical(source);
+		if ((amount >= KNOCK_OFF || source.is(DamageTypes.LIGHTNING_BOLT)) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
+				&& !source.is(DamageTypes.STARVE) && !source.is(DamageTypes.DROWN)) {
 			knockOff(p, source.getEntity());
 		}
+		// v0.17.2 revamp, Acid Skin: whatever strikes him in melee gets a hand full of acid
+		if (physical && source.getDirectEntity() instanceof LivingEntity attacker && attacker == source.getEntity() && attacker != p
+				&& attacker.distanceToSqr(p) < 16) {
+			hurt(p, attacker, ACID_SKIN, false);
+		}
 		float a = amount;
-		if (GhostfreakKit.physical(source)) {
-			a *= PHYSICAL_TAKEN;
+		if (physical && !flag(p, F_SQUEEZE)) {
+			a *= PHYSICAL_TAKEN; // v0.17.2 revamp: squeezed thin, the blow lands in full
 		}
 		if (source.is(DamageTypeTags.IS_FIRE)) {
 			a *= FIRE_TAKEN;
@@ -487,6 +627,9 @@ public final class GoopKit extends AlienKit {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.projector_off").withStyle(ChatFormatting.RED), true);
 			return;
 		}
+		if (flag(p, F_POUR) || flag(p, F_TIDE)) {
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
@@ -497,7 +640,11 @@ public final class GoopKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					engulf(p);
+					if (ENGULFED.containsKey(p.getUUID())) {
+						spitOut(p);
+					} else {
+						engulf(p);
+					}
 				} else {
 					slimeWhip(p);
 				}
@@ -511,14 +658,14 @@ public final class GoopKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					acidSpray(p);
+					acidTide(p);
 				} else {
-					slimeSlam(p);
+					acidSpray(p);
 				}
 			}
 			case SLOT_5 -> {
 				if (shift) {
-					glide(p);
+					projectorFling(p);
 				} else {
 					reform(p);
 				}
@@ -527,7 +674,7 @@ public final class GoopKit extends AlienKit {
 				if (shift) {
 					gooCannon(p);
 				} else {
-					acidFlood(p);
+					slimeSlam(p);
 				}
 			}
 			default -> {
@@ -536,8 +683,28 @@ public final class GoopKit extends AlienKit {
 	}
 
 	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		// v0.17.2 revamp: Squeeze lasts while Shift+X is held
+		if (slot == AbilitySlot.SLOT_3 && shift && flag(p, F_SQUEEZE)) {
+			endSqueeze(p);
+		}
+	}
+
+	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_3 && flag(p, F_SQUEEZE);
+		return switch (slot) {
+			case SLOT_2 -> flag(p, F_ENGULF);
+			case SLOT_3 -> flag(p, F_SQUEEZE);
+			case SLOT_4 -> flag(p, F_SPRAY) || flag(p, F_TIDE);
+			case SLOT_5 -> flag(p, F_POUR);
+			default -> false;
+		};
+	}
+
+	/** v0.17.2 revamp: squeezed, he slides up walls (synced flag: asked on both sides). */
+	@Override
+	public boolean climbs(Player p) {
+		return flag(p, F_SQUEEZE);
 	}
 
 	/** Refuses a move while the projector is off (the moves are public for the gametests). */
@@ -546,17 +713,29 @@ public final class GoopKit extends AlienKit {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.projector_off").withStyle(ChatFormatting.RED), true);
 			return false;
 		}
-		return true;
+		return !flag(p, F_POUR) && !flag(p, F_TIDE);
 	}
 
-	// ---------------------------------------------------------------- moves
+	private static void say(ServerPlayer p, String key) {
+		p.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GRAY), true);
+	}
+
+	/** Where his hands are, for the effects (in front of the chest, a little to the right). */
+	private static Vec3 hand(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		return p.getEyePosition().add(look.scale(0.5)).add(right.scale(0.3)).add(0, -0.35 * p.getScale(), 0);
+	}
+
+	// ---------------------------------------------------------------- R / Shift+R: acid
 
 	public boolean acidSpit(ServerPlayer p) {
 		if (!ok(p) || !use(p, ACID_SPIT)) {
 			return false;
 		}
 		anim(p, ANIM_SPIT);
-		AlienProjectileEntity.of(p, "goop_spit").colour(0x7CE03A).size(0.3f).damage(SPIT_DAMAGE).speed(1.9).gravity(0.01).life(40).spawn();
+		AlienProjectileEntity.of(p, "goop_spit").colour(ACID).size(0.3f).damage(SPIT_DAMAGE).speed(1.9).gravity(0.01).life(40).spawn();
 		OmnitrixSfx.playOn(p, SPIT, 0.9f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
@@ -566,7 +745,7 @@ public final class GoopKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_GLOB);
-		AlienProjectileEntity.of(p, "goop_glob").colour(0x7CE03A).size(0.55f).damage(0f).blast((float) GLOB_RADIUS, GLOB_DAMAGE).speed(1.1).gravity(0.05)
+		AlienProjectileEntity.of(p, "goop_glob").colour(ACID).size(0.55f).damage(0f).blast((float) GLOB_RADIUS, GLOB_DAMAGE).speed(1.1).gravity(0.05)
 				.life(80).spawn();
 		OmnitrixSfx.playOn(p, SPIT, 1f, 0.8f, SoundSource.PLAYERS);
 		return true;
@@ -585,6 +764,9 @@ public final class GoopKit extends AlienKit {
 		l.add(new Puddle(p.level().dimension(), at, radius, damage, now + ticks, now + PULSE, look));
 	}
 
+	// ---------------------------------------------------------------- G / Shift+G: whip, engulf
+
+	/** G: his arm stretches 8 blocks and lashes -- 13 to what is in front; small creatures are dragged 3 blocks in. */
 	public boolean slimeWhip(ServerPlayer p) {
 		if (!ok(p) || !use(p, SLIME_WHIP)) {
 			return false;
@@ -592,17 +774,25 @@ public final class GoopKit extends AlienKit {
 		anim(p, ANIM_WHIP);
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
+		LivingEntity first = lookTarget(p, WHIP_RANGE);
+		Vec3 end = first != null ? first.position().add(0, first.getBbHeight() * 0.5, 0) : eye.add(look.scale(WHIP_RANGE));
 		for (LivingEntity e : around(p, eye.add(look.scale(WHIP_RANGE * 0.5)), WHIP_RANGE)) {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-			if (to.length() <= WHIP_RANGE + e.getBbWidth() * 0.5 && to.normalize().dot(look) > 0.75) {
+			if (e == first || (to.length() <= WHIP_RANGE + e.getBbWidth() * 0.5 && to.normalize().dot(look) > 0.85)) {
 				hurt(p, e, WHIP_DAMAGE, false);
-				if (!AlienStatus.isBoss(e)) {
-					Vec3 pull = p.position().subtract(e.position()).normalize().scale(0.6);
-					e.push(pull.x, 0.2, pull.z);
-					e.hurtMarked = true;
+				if (!AlienStatus.isBoss(e) && e.getBbWidth() <= 1.4f) {
+					Vec3 h = p.position().subtract(e.position()).multiply(1, 0, 1);
+					double d = h.length();
+					if (d > 1.5) {
+						Vec3 dir = h.normalize();
+						double move = Math.min(WHIP_PULL, d - 1.5);
+						e.push(dir.x * move * 0.33, 0.25, dir.z * move * 0.33);
+						e.hurtMarked = true;
+					}
 				}
 			}
 		}
+		QuirkFx.ribbon(level(p), hand(p), end).style(QuirkFx.RIBBON_CLOTH).colours(ACID_PALE, ACID).size(0.35f).life(8).spawn();
 		OmnitrixSfx.playOn(p, WHIP, 1f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
@@ -613,7 +803,7 @@ public final class GoopKit extends AlienKit {
 		}
 		LivingEntity t = lookTarget(p, ENGULF_RANGE);
 		if (t == null || AlienStatus.isBoss(t) || t.getBbHeight() > 2.3f || t.getBbWidth() > 1.5f) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.no_engulf").withStyle(ChatFormatting.GRAY), true);
+			say(p, "message.projecthero.omnitrix.goop.no_engulf");
 			return false;
 		}
 		if (!use(p, ENGULF)) {
@@ -632,35 +822,92 @@ public final class GoopKit extends AlienKit {
 		return ENGULFED.containsKey(p.getUUID());
 	}
 
-	private void release(ServerPlayer p, Engulfed en) {
+	/** v0.17.2 revamp: Shift+G while a creature is inside -- spits it out early: thrown 6 blocks, +6. True if one was spat. */
+	public boolean spitOut(ServerPlayer p) {
+		Engulfed en = ENGULFED.remove(p.getUUID());
+		if (en == null) {
+			return false;
+		}
+		anim(p, ANIM_SPIT_OUT);
+		release(p, en, true);
+		return true;
+	}
+
+	private void release(ServerPlayer p, Engulfed en, boolean hard) {
 		setFlag(p, F_ENGULF, false);
 		if (en.target.isAlive()) {
 			Vec3 f = p.getLookAngle().multiply(1, 0, 1);
 			f = f.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : f.normalize();
 			en.target.teleportTo(p.getX() + f.x * 1.2, p.getY() + 0.2, p.getZ() + f.z * 1.2);
-			shove(en.target, p.position(), 0.8, 0.3);
+			if (hard) {
+				en.target.invulnerableTime = 0;
+				hurt(p, en.target, SPIT_OUT_DAMAGE, false);
+				en.target.setDeltaMovement(f.x * 1.6, 0.45, f.z * 1.6); // about 6 blocks
+				en.target.hurtMarked = true;
+			} else {
+				shove(en.target, p.position(), 0.8, 0.3);
+			}
 		}
 		if (p.level() instanceof ServerLevel level) {
-			level.sendParticles(SLIME, p.getX(), p.getY() + 1, p.getZ(), 14, 0.4, 0.4, 0.4, 0.1);
-			OmnitrixSfx.play(level, p.position(), SPLAT, 0.8f, 1.2f);
+			QuirkFx.ring(level, p.position().add(0, 1.0, 0)).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).style(QuirkFx.RING_SOFT)
+					.colours(ACID_PALE, ACID).size(1.4f).thickness(0.3f).life(8).spawn();
+			OmnitrixSfx.play(level, p.position(), SPLAT, 0.8f, hard ? 0.9f : 1.2f);
 		}
 	}
+
+	// ---------------------------------------------------------------- X / Shift+X: movement
 
 	public boolean slimeBounce(ServerPlayer p) {
 		if (!ok(p) || !use(p, BOUNCE)) {
 			return false;
 		}
 		anim(p, ANIM_BOUNCE);
-		Vec3 f = p.getLookAngle().multiply(1, 0, 1);
-		f = f.lengthSqr() < 1.0e-4 ? Vec3.ZERO : f.normalize();
-		p.setDeltaMovement(f.scale(1.0).add(0, 0.85, 0));
-		p.hurtMarked = true;
-		p.fallDistance = 0f;
-		OmnitrixSfx.playOn(p, BOING, 1f, 1f, SoundSource.PLAYERS);
+		launch(p, 1.0);
+		BOUNCING.put(p.getUUID(), new Bounce(BOUNCES, 1.0, p.level().getGameTime()));
 		return true;
 	}
 
-	/** Shift+X: squeezed small (x0.4 -- 0.72 tall, through any 1-block gap) for 5 s; Shift+X again pops back. */
+	private void launch(ServerPlayer p, double power) {
+		Vec3 f = p.getLookAngle().multiply(1, 0, 1);
+		f = f.lengthSqr() < 1.0e-4 ? Vec3.ZERO : f.normalize();
+		p.setDeltaMovement(f.scale(1.0 * power).add(0, 0.85 * power, 0));
+		p.hurtMarked = true;
+		p.fallDistance = 0f;
+		QuirkFx.ring(level(p), p.position().add(0, 0.05, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(1.3f * (float) power).thickness(0.3f)
+				.life(8).ground().spawn();
+		OmnitrixSfx.playOn(p, BOING, 1f, (float) (0.8 + 0.2 / power), SoundSource.PLAYERS);
+	}
+
+	/** Slime Bounce's rebounds: each landing springs him up again, lower each time; sneaking soaks it up. */
+	private void tickBounce(ServerPlayer p, long now) {
+		Bounce b = BOUNCING.get(p.getUUID());
+		if (b == null) {
+			return;
+		}
+		if (p.isShiftKeyDown() || p.isInWater() || now - b.since > 80) {
+			BOUNCING.remove(p.getUUID());
+			return;
+		}
+		if (p.onGround() && now - b.since >= 4) {
+			if (b.left <= 0) {
+				BOUNCING.remove(p.getUUID());
+				return;
+			}
+			b.left--;
+			b.power *= 0.72;
+			b.since = now;
+			anim(p, ANIM_BOUNCE);
+			launch(p, b.power);
+		}
+	}
+
+	/** How many rebounds of the current Slime Bounce are left, or -1 (tests). */
+	public static int bouncesLeft(ServerPlayer p) {
+		Bounce b = BOUNCING.get(p.getUUID());
+		return b == null ? -1 : b.left;
+	}
+
+	/** Shift+X (held): squeezed small (0.35x) while held, up to 6 s; letting go (or Shift+X again) pops him back. */
 	public boolean squeeze(ServerPlayer p) {
 		if (!ok(p)) {
 			return false;
@@ -669,14 +916,18 @@ public final class GoopKit extends AlienKit {
 			endSqueeze(p);
 			return true;
 		}
-		if (!use(p, SQUEEZE)) {
+		int left = cooldownLeft(p, SQUEEZE);
+		if (left > 0) {
+			use(p, SQUEEZE); // the "not ready" line
 			return false;
 		}
 		anim(p, ANIM_SQUEEZE);
 		PowerToggles.modifier(p, Attributes.SCALE, SQUEEZE_SCALE_ID, SQUEEZE_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SQUEEZE_SPEED_ID, SQUEEZE_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		setFlag(p, F_SQUEEZE, true);
-		setTimer(p, SQUEEZE_END, p.level().getGameTime() + SQUEEZE_TICKS);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags |= F_SQUEEZE;
+		n.timers.put(key(SQUEEZE_START), p.level().getGameTime());
+		Omnitrix.save(p, n);
 		OmnitrixSfx.playOn(p, SQUISH, 1f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
@@ -685,11 +936,187 @@ public final class GoopKit extends AlienKit {
 		PowerToggles.clearModifier(p, Attributes.SCALE, SQUEEZE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SQUEEZE_SPEED_ID);
 		if (flag(p, F_SQUEEZE)) {
-			setFlag(p, F_SQUEEZE, false);
-			setTimer(p, SQUEEZE_END, 0);
+			OmnitrixState n = Omnitrix.state(p).copy();
+			n.kitFlags &= ~F_SQUEEZE;
+			n.timers.remove(key(SQUEEZE_START));
+			Omnitrix.save(p, n);
+			cooldown(p, SQUEEZE, SQUEEZE_COOLDOWN); // the cooldown runs from the release
 			OmnitrixSfx.playOn(p, SQUISH, 0.8f, 0.8f, SoundSource.PLAYERS);
 		}
 	}
+
+	/** Slime Chute: sneaking in the air, he flattens into a sheet and floats down. */
+	private void tickChute(ServerPlayer p) {
+		boolean on = !p.onGround() && p.isShiftKeyDown() && !p.isInWater() && !p.getAbilities().flying && !flag(p, F_OFF) && !flag(p, F_POUR)
+				&& !flag(p, F_TIDE);
+		if (on) {
+			Vec3 v = p.getDeltaMovement();
+			if (v.y < CHUTE_FALL) {
+				p.setDeltaMovement(v.x * 0.98, CHUTE_FALL, v.z * 0.98);
+				p.hurtMarked = true;
+			}
+			p.fallDistance = 0f;
+		}
+		if (on != flag(p, F_GLIDE)) {
+			setFlag(p, F_GLIDE, on);
+		}
+	}
+
+	// ---------------------------------------------------------------- Z / Shift+Z: spray, the tide
+
+	/** Z: 1.5 s of acid from both hands, steered by the look -- 3.5 every half second in a 6-block cone, weakened 5 s. */
+	public boolean acidSpray(ServerPlayer p) {
+		if (!ok(p) || flag(p, F_SPRAY) || !use(p, ACID_SPRAY)) {
+			return false;
+		}
+		anim(p, ANIM_SPRAY);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags |= F_SPRAY;
+		n.timers.put(key(SPRAY_START), p.level().getGameTime());
+		Omnitrix.save(p, n);
+		sprayPulse(p, level(p));
+		return true;
+	}
+
+	private void stopSpray(ServerPlayer p) {
+		if (flag(p, F_SPRAY)) {
+			OmnitrixState n = Omnitrix.state(p).copy();
+			n.kitFlags &= ~F_SPRAY;
+			n.timers.remove(key(SPRAY_START));
+			Omnitrix.save(p, n);
+		}
+	}
+
+	private void tickSpray(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_SPRAY)) {
+			return;
+		}
+		long t = now - timer(p, SPRAY_START);
+		if (t > SPRAY_TICKS) {
+			stopSpray(p);
+			return;
+		}
+		if (t > 0 && t % SPRAY_PULSE == 0) {
+			sprayPulse(p, l);
+		}
+	}
+
+	/** One lick of the spray (tests call it through {@link #acidSpray} and the tick). Returns how many it hit. */
+	private int sprayPulse(ServerPlayer p, ServerLevel l) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double cos = Math.cos(Math.toRadians(SPRAY_DEG / 2));
+		int n = 0;
+		for (LivingEntity e : around(p, eye, SPRAY_RANGE + 1)) {
+			Vec3 to = e.getBoundingBox().getCenter().subtract(eye);
+			double d = to.length();
+			if (d > SPRAY_RANGE + e.getBbWidth() * 0.5 || (d >= 1.0 && to.normalize().dot(look) < cos)) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			if (hurt(p, e, SPRAY_DAMAGE, false)) {
+				n++;
+			}
+			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), p);
+		}
+		QuirkFx.cone(l, hand(p), look).style(QuirkFx.CONE_DEBRIS).colours(ACID, ACID_DARK).size((float) (SPRAY_RANGE * Math.tan(Math.toRadians(SPRAY_DEG / 2))))
+				.length((float) SPRAY_RANGE).life(12).flags(QuirkFx.F_NO_SMOKE).spawn();
+		// the stream itself: a fat ribbon of acid from his hands out along the look
+		QuirkFx.ribbon(l, hand(p), hand(p).add(look.scale(SPRAY_RANGE))).style(QuirkFx.RIBBON_CLOTH).colours(ACID_PALE, ACID).size(0.55f).life(11)
+				.spawn();
+		OmnitrixSfx.play(l, p.position(), SPRAY, 0.9f, 1f);
+		return n;
+	}
+
+	/**
+	 * Shift+Z (ULTIMATE): Acid Tide -- he collapses into a wave and surges 10 blocks the way he looks over half a second,
+	 * untouchable; everything it rolls over takes 45 and is carried along. Where it breaks, an acid lake (6 blocks, 6 s).
+	 */
+	public boolean acidTide(ServerPlayer p) {
+		if (!ok(p) || !use(p, ACID_TIDE)) {
+			return false;
+		}
+		endSqueeze(p);
+		stopSpray(p);
+		BOUNCING.remove(p.getUUID());
+		anim(p, ANIM_FLOOD);
+		Vec3 look = p.getLookAngle();
+		Vec3 dir = new Vec3(look.x, 0, look.z);
+		dir = dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : dir.normalize();
+		long now = p.level().getGameTime();
+		TIDES.put(p.getUUID(), new Tide(p.level().dimension(), dir, now, new HashSet<>()));
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags |= F_TIDE;
+		n.timers.put(key(TIDE_START), now);
+		Omnitrix.save(p, n);
+		PowerToggles.modifier(p, Attributes.SCALE, PUDDLE_SCALE_ID, PUDDLE_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		ServerLevel l = level(p);
+		QuirkCamera.shake(p, 0.3f, 8);
+		OmnitrixSfx.play(l, p.position(), TIDE, 1.3f, 1f);
+		tideStep(p, l, TIDES.get(p.getUUID()));
+		return true;
+	}
+
+	private void tickTide(ServerPlayer p, ServerLevel l, long now) {
+		Tide t = TIDES.get(p.getUUID());
+		if (t == null) {
+			return;
+		}
+		if (t.dim() != l.dimension() || now - t.start() >= TIDE_TICKS) {
+			breakTide(p);
+			return;
+		}
+		tideStep(p, l, t);
+	}
+
+	private void tideStep(ServerPlayer p, ServerLevel l, Tide t) {
+		double speed = TIDE_LENGTH / TIDE_TICKS;
+		p.setDeltaMovement(t.dir().x * speed, Math.min(p.getDeltaMovement().y, 0.1), t.dir().z * speed);
+		p.hurtMarked = true;
+		p.fallDistance = 0f;
+		// the wave's wake: a splash ring at his feet every other tick, and the crest standing up ahead of him
+		if ((l.getGameTime() - t.start()) % 2 == 0) {
+			QuirkFx.ring(l, p.position().add(0, 0.06, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(2.2f).thickness(0.5f).life(12).ground()
+					.spawn();
+			QuirkFx.ring(l, p.position().add(t.dir().scale(0.8)).add(0, 0.7, 0)).flags(QuirkFx.F_VERTICAL).vec(t.dir()).style(QuirkFx.RING_SOFT)
+					.colours(ACID_PALE, ACID).size(1.5f).thickness(0.6f).life(6).spawn();
+		}
+		for (LivingEntity e : around(p, p.position().add(0, 0.5, 0), TIDE_WIDTH)) {
+			if (t.hits().add(e.getId())) {
+				hurt(p, e, TIDE_DAMAGE, false);
+				e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 2), p);
+			}
+			if (!AlienStatus.isBoss(e)) {
+				e.setDeltaMovement(t.dir().x * speed * 1.05, 0.15, t.dir().z * speed * 1.05); // carried on the wave
+				e.hurtMarked = true;
+			}
+		}
+	}
+
+	/** The wave breaks: the acid lake where he stands, and he pulls himself back up. */
+	public void breakTide(ServerPlayer p) {
+		TIDES.remove(p.getUUID());
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags &= ~F_TIDE;
+		n.timers.remove(key(TIDE_START));
+		Omnitrix.save(p, n);
+		if (!flag(p, F_OFF)) {
+			PowerToggles.clearModifier(p, Attributes.SCALE, PUDDLE_SCALE_ID);
+		}
+		Vec3 v = p.getDeltaMovement();
+		p.setDeltaMovement(v.x * 0.2, v.y, v.z * 0.2);
+		p.hurtMarked = true;
+		ServerLevel l = level(p);
+		Vec3 at = ground(p, p.position());
+		puddle(p, at, LAKE_RADIUS, LAKE_DAMAGE, LAKE_TICKS);
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).style(QuirkFx.RING_SHOCK).colours(ACID_PALE, ACID).size((float) LAKE_RADIUS + 1f).thickness(0.9f).life(14)
+				.ground().spawn();
+		QuirkCamera.shakeAround(l, at, 14, 0.35f, 8);
+		anim(p, ANIM_REFORM);
+		OmnitrixSfx.play(l, at, SPLAT, 1.5f, 0.7f);
+	}
+
+	// ---------------------------------------------------------------- C / Shift+C: slam, cannon
 
 	public boolean slimeSlam(ServerPlayer p) {
 		if (!ok(p) || !use(p, SLIME_SLAM)) {
@@ -701,83 +1128,12 @@ public final class GoopKit extends AlienKit {
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1), p);
 			shove(e, p.position(), 0.7, 0.3);
 		}
-		level(p).sendParticles(SLIME, p.getX(), p.getY() + 0.3, p.getZ(), 40, 2.0, 0.3, 2.0, 0.15);
+		ServerLevel l = level(p);
+		QuirkFx.ring(l, p.position().add(0, 0.08, 0)).style(QuirkFx.RING_SHOCK).colours(ACID_PALE, ACID).size((float) SLAM_RADIUS + 0.5f).thickness(0.6f)
+				.life(12).ground().spawn();
+		QuirkFx.decal(l, p.position().add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(ACID_DARK).size((float) SLAM_RADIUS * 0.7f).life(120).spawn();
+		QuirkCamera.shakeAround(l, p.position(), 8, 0.2f, 6);
 		OmnitrixSfx.playOn(p, SPLAT, 1.2f, 0.9f, SoundSource.PLAYERS);
-		return true;
-	}
-
-	public boolean acidSpray(ServerPlayer p) {
-		if (!ok(p) || !use(p, ACID_SPRAY)) {
-			return false;
-		}
-		anim(p, ANIM_SPRAY);
-		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		for (LivingEntity e : around(p, eye.add(look.scale(SPRAY_RANGE * 0.5)), SPRAY_RANGE)) {
-			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-			if (to.length() <= SPRAY_RANGE + e.getBbWidth() * 0.5 && to.normalize().dot(look) > 0.7) {
-				hurt(p, e, SPRAY_DAMAGE, false);
-				e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), p);
-				e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1), p);
-			}
-		}
-		for (int i = 0; i < 12; i++) {
-			Vec3 d = look.scale(0.6 + i * 0.4);
-			level(p).sendParticles(SLIME, eye.x + d.x, eye.y + d.y - 0.2, eye.z + d.z, 2, i * 0.05, i * 0.05, i * 0.05, 0.02);
-		}
-		OmnitrixSfx.playOn(p, SPIT, 1.2f, 0.7f, SoundSource.PLAYERS);
-		return true;
-	}
-
-	/** V: pulls himself back together -- +6 health and the poisons out. Nothing to mend: no cooldown. */
-	public boolean reform(ServerPlayer p) {
-		if (!ok(p)) {
-			return false;
-		}
-		boolean hurtNow = p.getHealth() < p.getMaxHealth();
-		boolean bad = p.getActiveEffects().stream().anyMatch(e -> !e.getEffect().value().isBeneficial());
-		if (!hurtNow && !bad) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.goop.whole").withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
-		if (!use(p, REFORM_MOVE)) {
-			return false;
-		}
-		anim(p, ANIM_REFORM);
-		p.heal(REFORM_HEAL);
-		List<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> drop = new ArrayList<>();
-		for (MobEffectInstance e : p.getActiveEffects()) {
-			if (!e.getEffect().value().isBeneficial()) {
-				drop.add(e.getEffect());
-			}
-		}
-		drop.forEach(p::removeEffect);
-		OmnitrixSfx.playOn(p, REFORM, 1f, 1f, SoundSource.PLAYERS);
-		return true;
-	}
-
-	/** Shift+V: flattened into a parachute -- 6 s of slow falling. */
-	public boolean glide(ServerPlayer p) {
-		if (!ok(p) || !use(p, GLIDE)) {
-			return false;
-		}
-		anim(p, ANIM_GLIDE);
-		p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, GLIDE_TICKS, 0, false, false, true));
-		setFlag(p, F_GLIDE, true);
-		setTimer(p, GLIDE_END, p.level().getGameTime() + GLIDE_TICKS);
-		OmnitrixSfx.playOn(p, SQUISH, 1f, 0.7f, SoundSource.PLAYERS);
-		return true;
-	}
-
-	/** C (ULTIMATE): a lake of acid round him -- 5 every half second to everything in it for 6 s. */
-	public boolean acidFlood(ServerPlayer p) {
-		if (!ok(p) || !use(p, ACID_FLOOD)) {
-			return false;
-		}
-		anim(p, ANIM_FLOOD);
-		puddle(p, ground(p, p.position()), FLOOD_RADIUS, FLOOD_DAMAGE, FLOOD_TICKS);
-		level(p).sendParticles(SLIME, p.getX(), p.getY() + 0.3, p.getZ(), 60, 3.0, 0.3, 3.0, 0.2);
-		OmnitrixSfx.playOn(p, SPLAT, 1.5f, 0.7f, SoundSource.PLAYERS);
 		return true;
 	}
 
@@ -786,8 +1142,202 @@ public final class GoopKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_CANNON);
-		AlienProjectileEntity.of(p, "goop_cannon").colour(0x7CE03A).size(0.9f).damage(0f).blast(3f, CANNON_DAMAGE).speed(1.4).gravity(0.02).life(60).spawn();
+		AlienProjectileEntity.of(p, "goop_cannon").colour(ACID).size(0.9f).damage(0f).blast(3f, CANNON_DAMAGE).speed(1.4).gravity(0.02).life(60).spawn();
+		QuirkCamera.shake(p, 0.15f, 4);
 		OmnitrixSfx.playOn(p, CANNON, 1f, 1f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- V / Shift+V: reform, the projector fling
+
+	/** V: pulls himself back together -- +8 health and the poisons out. Nothing to mend: refused, no cooldown. */
+	public boolean reform(ServerPlayer p) {
+		if (!ok(p)) {
+			return false;
+		}
+		boolean hurtNow = p.getHealth() < p.getMaxHealth();
+		boolean bad = p.getActiveEffects().stream().anyMatch(e -> e.getEffect().value().getCategory() == MobEffectCategory.HARMFUL);
+		if (!hurtNow && !bad) {
+			say(p, "message.projecthero.omnitrix.goop.whole");
+			return false;
+		}
+		if (!use(p, REFORM_MOVE)) {
+			return false;
+		}
+		anim(p, ANIM_REFORM);
+		p.heal(REFORM_HEAL);
+		p.getActiveEffects().stream().filter(e -> e.getEffect().value().getCategory() == MobEffectCategory.HARMFUL).map(MobEffectInstance::getEffect)
+				.toList().forEach(p::removeEffect);
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(1.4f).thickness(0.3f).life(12).spawn();
+		OmnitrixSfx.playOn(p, REFORM, 1f, 1f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	/**
+	 * Shift+V: Projector Fling -- the projector is thrown up to 16 blocks where he looks; his body drops to a puddle and pours
+	 * after it (untouchable), reforming where it lands. Refused with nowhere to land (no cooldown).
+	 */
+	public boolean projectorFling(ServerPlayer p) {
+		if (!ok(p)) {
+			return false;
+		}
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		BlockHitResult hit = p.level().clip(new ClipContext(eye, eye.add(look.scale(FLING_RANGE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		Vec3 end = hit.getType() == HitResult.Type.MISS ? eye.add(look.scale(FLING_RANGE)) : hit.getLocation().subtract(look.scale(0.6));
+		Vec3 spot = landing(p, end);
+		if (spot == null || spot.distanceToSqr(p.position()) < 4.0) {
+			say(p, "message.projecthero.omnitrix.goop.no_fling");
+			return false;
+		}
+		if (!use(p, FLING)) {
+			return false;
+		}
+		endSqueeze(p);
+		stopSpray(p);
+		BOUNCING.remove(p.getUUID());
+		anim(p, ANIM_FLING);
+		long now = p.level().getGameTime();
+		int ticks = (int) Math.max(6, Math.ceil(spot.distanceTo(p.position()) / 1.4));
+		AlienProjectileEntity look2 = AlienProjectileEntity.of(p, "goop_projector");
+		look2.moveTo(spot.x, spot.y, spot.z, p.getYRot(), 0f);
+		look2.colour(1).size(0.6f).held(true).speed(0).life(ticks + 4).damage(0f).spawn();
+		POURS.put(p.getUUID(), new Pour(p.level().dimension(), p.position(), spot, now, now + ticks, look2));
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags |= F_POUR;
+		n.timers.put(key(POUR_END), now + ticks);
+		Omnitrix.save(p, n);
+		PowerToggles.modifier(p, Attributes.SCALE, PUDDLE_SCALE_ID, PUDDLE_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		ServerLevel l = level(p);
+		QuirkFx.ribbon(l, hand(p), spot.add(0, 0.3, 0)).style(QuirkFx.RIBBON_LIGHT).colours(0xFFFFFF, ACID).size(0.2f).life(ticks + 4).spawn();
+		OmnitrixSfx.play(l, p.position(), FLING_SOUND, 1f, 1f);
+		return true;
+	}
+
+	/** Where his body can reform near {@code at}: on the ground under it, with room for his full-size box; null if none. */
+	@Nullable
+	private static Vec3 landing(ServerPlayer p, Vec3 at) {
+		Vec3 g = ground(p, at);
+		for (double up = 0; up <= 2.0; up += 0.5) {
+			Vec3 feet = g.add(0, up, 0);
+			AABB box = p.getDimensions(p.getPose()).makeBoundingBox(feet).deflate(0.05);
+			// his full size (he may be squeezed or a puddle right now)
+			double s = Math.max(1.0, 1.0 / Math.max(0.1, p.getScale()));
+			AABB full = new AABB(box.minX, box.minY, box.minZ, box.maxX, box.minY + (box.maxY - box.minY) * s, box.maxZ);
+			if (p.level().noCollision(p, full)) {
+				return feet;
+			}
+		}
+		return null;
+	}
+
+	private void tickPour(ServerPlayer p, ServerLevel l, long now) {
+		Pour po = POURS.get(p.getUUID());
+		if (po == null) {
+			return;
+		}
+		if (po.dim() != l.dimension()) {
+			endPour(p, null);
+			return;
+		}
+		double u = Math.min(1.0, (now - po.start()) / (double) Math.max(1, po.end() - po.start()));
+		Vec3 at = po.from().lerp(po.to(), u);
+		p.teleportTo(at.x, at.y, at.z);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.fallDistance = 0f;
+		if (now >= po.end()) {
+			endPour(p, po.to());
+		}
+	}
+
+	/** The pour is over: he reforms at {@code at} (or where he is). */
+	public void endPour(ServerPlayer p, @Nullable Vec3 at) {
+		Pour po = POURS.remove(p.getUUID());
+		if (po != null) {
+			po.look().discard();
+		}
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.kitFlags &= ~F_POUR;
+		n.timers.remove(key(POUR_END));
+		Omnitrix.save(p, n);
+		if (!flag(p, F_OFF)) {
+			PowerToggles.clearModifier(p, Attributes.SCALE, PUDDLE_SCALE_ID);
+		}
+		if (at != null) {
+			p.teleportTo(at.x, at.y, at.z);
+		}
+		p.fallDistance = 0f;
+		anim(p, ANIM_REFORM);
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(ACID_PALE, ACID).size(1.6f).thickness(0.3f).life(10).spawn();
+		OmnitrixSfx.playOn(p, PICKUP, 0.8f, 1.1f, SoundSource.PLAYERS);
+	}
+
+	/** Whether {@code p} is pouring after his projector (tests). */
+	public static boolean pouring(ServerPlayer p) {
+		return POURS.containsKey(p.getUUID());
+	}
+
+	// ---------------------------------------------------------------- vanilla keys
+
+	/** Attack: Corrosive Touch -- +2 acid on every punch (its own hit; vanilla's punch still lands). */
+	@Override
+	public boolean onAttack(ServerPlayer p, Entity target) {
+		if (flag(p, F_OFF) || flag(p, F_POUR) || flag(p, F_TIDE)) {
+			return true;
+		}
+		if (target instanceof LivingEntity le) {
+			hurt(p, le, TOUCH_DAMAGE, false);
+			le.invulnerableTime = 0;
+			anim(p, ANIM_PUNCH);
+		}
+		return false;
+	}
+
+	@Override
+	public InteractionResult onUseBlock(ServerPlayer p, InteractionHand hand, BlockHitResult hit) {
+		if (hand != InteractionHand.MAIN_HAND || !p.getMainHandItem().isEmpty()) {
+			return InteractionResult.PASS;
+		}
+		if (flag(p, F_OFF) || flag(p, F_POUR) || flag(p, F_TIDE)) {
+			return InteractionResult.FAIL;
+		}
+		return dissolve(p, hit.getBlockPos()) ? InteractionResult.SUCCESS : InteractionResult.PASS;
+	}
+
+	/** Whether Dissolve can eat {@code st} at {@code pos} (soft enough, one block, no block entity, no fluid). */
+	public static boolean dissolvable(ServerLevel l, BlockPos pos, BlockState st) {
+		float hard = st.getDestroySpeed(l, pos);
+		return !st.isAir() && hard >= 0 && hard <= DISSOLVE_HARDNESS && !st.hasBlockEntity() && st.getFluidState().isEmpty()
+				&& !st.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) && !st.hasProperty(BlockStateProperties.BED_PART);
+	}
+
+	/**
+	 * Use on a block (empty hand): Dissolve -- his acid eats the block for 10 s (it comes back). Nothing harder than iron bars,
+	 * no block entities; the abilityTerrainDamage rule and build rights apply. True if it ate one.
+	 */
+	public boolean dissolve(ServerPlayer p, BlockPos pos) {
+		if (cooldownLeft(p, DISSOLVE) > 0 || p.distanceToSqr(Vec3.atCenterOf(pos)) > (DISSOLVE_REACH + 1) * (DISSOLVE_REACH + 1)) {
+			return false; // quiet: right-click spam
+		}
+		ServerLevel l = level(p);
+		BlockState st = l.getBlockState(pos);
+		if (!HeroConfig.get().abilityTerrainDamage || !p.mayBuild() || !l.mayInteract(p, pos)) {
+			say(p, "message.projecthero.omnitrix.goop.no_dissolve");
+			return false;
+		}
+		if (!dissolvable(l, pos, st)) {
+			say(p, "message.projecthero.omnitrix.goop.too_hard");
+			return false;
+		}
+		if (!BatchBScheduler.removeTemporarily(l, pos, DISSOLVE_TICKS)) {
+			return false;
+		}
+		cooldown(p, DISSOLVE, -1);
+		anim(p, ANIM_MELT);
+		Vec3 c = Vec3.atCenterOf(pos);
+		QuirkFx.shards(l, c).block(st).size(0.8f).count(8).life(20).spawn();
+		QuirkFx.decal(l, Vec3.atBottomCenterOf(pos).add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(ACID_DARK).size(0.9f).life(DISSOLVE_TICKS).spawn();
+		OmnitrixSfx.play(l, c, MELT, 1f, 1f);
 		return true;
 	}
 }
