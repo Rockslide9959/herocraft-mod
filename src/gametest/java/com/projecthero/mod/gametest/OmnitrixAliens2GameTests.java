@@ -1,6 +1,7 @@
 package com.projecthero.mod.gametest;
 
 
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -213,8 +214,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.assertTrue(kit.wingGust(p) && !kit.wingGust(p), "Wing Gust, then cools down");
 		helper.assertTrue(kit.toxicGas(p) && !kit.toxicGas(p), "Toxic Gas, then cools down");
 		helper.assertTrue(kit.slimeNet(p) && !kit.slimeNet(p), "Slime Net, then cools down");
-		helper.assertTrue(kit.slimeBarrage(p) && !kit.slimeBarrage(p), "Slime Barrage, then cools down");
-		helper.assertTrue(kit.gooStorm(p) && !kit.gooStorm(p), "Goo Storm, then cools down");
+		helper.assertTrue(kit.gooRain(p) && !kit.gooRain(p), "Goo Rain, then cools down"); // v0.17.2: was Slime Barrage / Goo Storm
 		helper.assertTrue(kit.wingDash(p) && !kit.wingDash(p), "Wing Dash, then cools down");
 		float afterInstant = z.getHealth();
 		helper.assertTrue(afterInstant <= 140f - StinkflyKit.STAB_DAMAGE - StinkflyKit.GUST_DAMAGE + 0.05f, "the gust hit too");
@@ -236,6 +236,165 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				z.discard();
 				helper.succeed();
 			});
+		});
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 the Stinkfly revamp (docs/OMNITRIX_REVAMP_STINKFLY.md)
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void stinkflyRevampKeys(GameTestHelper helper) {
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_4, true, false).id().equals(StinkflyKit.GOO_COCOON), "Shift+Z is the Goo Cocoon ultimate");
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_6, true, false).id().equals(StinkflyKit.GOO_RAIN), "Shift+C is Goo Rain");
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_5, true, false).id().equals(StinkflyKit.GOO_WALL), "Shift+V is the Goo Wall");
+		helper.assertTrue(kit.moveOn(AbilitySlot.SLOT_5, false, false).id().equals(StinkflyKit.LIFT), "V is still Lift");
+		helper.assertTrue(kit.move("goo_storm") == null && kit.move("slime_barrage") == null, "Goo Storm and Slime Barrage are gone");
+		helper.assertTrue(kit.moves().stream().noneMatch(m -> m.slot() == AbilitySlot.SLOT_7 || m.slot() == AbilitySlot.SLOT_8), "nothing on H / N");
+		helper.succeed();
+	}
+
+	/** A missed Slime Shot leaves a goo patch: a creature in it is Gooed, and fire burns the patch away. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void stinkflyMissedShotLeavesAPatchThatBurns(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 60f);
+		helper.assertTrue(kit.slimeShot(p), "Slime Shot at the floor ahead");
+		pump(helper, p);
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(StinkflyKit.patches(p) == 1, "a goo patch where it hit: " + StinkflyKit.patches(p));
+			Vec3 ahead = p.position().add(0, 0, 1.0);
+			Zombie z = zombie(helper, 3.5, 2, 1.5, 60f);
+			// find the patch: walk the zombie forward until it stands in it
+			for (double d = 0.3; d < 4 && !StinkflyKit.inGoo(p, z); d += 0.25) {
+				z.moveTo(p.getX(), p.getY(), p.getZ() + d, 0f, 0f);
+			}
+			helper.assertTrue(StinkflyKit.inGoo(p, z), "the zombie stands in the goo (" + ahead + ")");
+			helper.runAfterDelay(4, () -> {
+				helper.assertTrue(z.hasEffect(com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyGooEffect.HOLDER), "it is Gooed");
+				helper.assertTrue(z.getAttributeValue(Attributes.JUMP_STRENGTH) < 0.01, "Gooed: no jumping");
+				z.igniteForSeconds(5);
+				helper.runAfterDelay(4, () -> {
+					helper.assertTrue(StinkflyKit.patches(p) == 0, "fire burnt the patch away");
+					z.discard();
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 220)
+	public void stinkflyGooCocoonWrapsAndBursts(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 6.5, 140f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 8f);
+		helper.assertTrue(kit.gooCocoon(p) && kit.flag(p, StinkflyKit.F_COCOON), "Goo Cocoon: the stream starts");
+		helper.assertTrue(kit.cocoonTarget(p) == z.getId(), "pumped at the zombie (the client draws the stream to it)");
+		helper.assertFalse(kit.gooCocoon(p), "it cools down");
+		pump(helper, p);
+		helper.runAfterDelay(StinkflyKit.COCOON_STREAM + 3, () -> {
+			helper.assertTrue(StinkflyKit.cocooned(z) && rooted(z), "the zombie is cocooned and can't move");
+			helper.assertFalse(kit.flag(p, StinkflyKit.F_COCOON), "the stream ended");
+			float before = z.getHealth();
+			z.invulnerableTime = 0;
+			z.hurt(helper.getLevel().damageSources().magic(), 8f);
+			near(helper, z.getHealth(), before - 8f * StinkflyKit.COCOON_TAKEN, "a cocooned creature takes 25% more");
+			float afterHit = z.getHealth();
+			helper.runAfterDelay(StinkflyKit.COCOON_TICKS + 4, () -> {
+				helper.assertFalse(StinkflyKit.cocooned(z), "the cocoon burst");
+				helper.assertTrue(z.getHealth() <= afterHit - StinkflyKit.COCOON_BURST + 0.05f, "the burst's gas puff hurt it: " + z.getHealth());
+				z.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void stinkflyGooWallCatchesArrows(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(kit.gooWall(p), "Goo Wall");
+		Vec3 w = StinkflyKit.wallAt(p);
+		helper.assertTrue(w != null && StinkflyKit.wallHp(p) == StinkflyKit.WALL_HP, "a 30 HP wall");
+		helper.assertTrue(w.z > p.getZ() + 1.5 && Math.abs(w.y - (p.getY() + 1.5)) < 0.2, "standing on the ground in front: " + w.subtract(p.position()));
+		net.minecraft.world.entity.projectile.Arrow arrow = new net.minecraft.world.entity.projectile.Arrow(EntityType.ARROW, helper.getLevel());
+		arrow.moveTo(w.x, w.y, w.z + 3.0, 180f, 0f);
+		arrow.setDeltaMovement(0, 0, -1.0);
+		helper.getLevel().addFreshEntity(arrow);
+		pump(helper, p);
+		helper.runAfterDelay(8, () -> {
+			helper.assertTrue(StinkflyKit.wallHp(p) == StinkflyKit.WALL_HP - 5, "the arrow stuck in it (-5): " + StinkflyKit.wallHp(p));
+			helper.assertTrue(arrow.isAlive() && arrow.getDeltaMovement().lengthSqr() < 1e-4 && Math.abs(arrow.getZ() - w.z) < 1.0,
+					"and stays there, visible: " + arrow.position().subtract(w));
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertTrue(StinkflyKit.wallHp(p) == 0, "turning back takes the wall down");
+			arrow.discard();
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void stinkflyWingWeaknesses(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		// Fire: +25%
+		near(helper, kit.incomingDamage(p, helper.getLevel().damageSources().inFire(), 4f), 5f, "fire hurts 25% more");
+		// Fragile Wings: a hit of 8+ in flight clips them (the mock spawns mid-air, so the transformation already took off)
+		if (!p.getAbilities().flying) {
+			kit.wingFlight(p);
+		}
+		helper.assertTrue(p.getAbilities().flying, "flying");
+		kit.incomingDamage(p, helper.getLevel().damageSources().magic(), 9f);
+		helper.assertTrue(!p.getAbilities().flying && !p.getAbilities().mayfly && kit.flag(p, StinkflyKit.F_CLIPPED),
+				"a big hit clips his wings (flying " + p.getAbilities().flying + ", mayfly " + p.getAbilities().mayfly + ", clipped "
+						+ kit.flag(p, StinkflyKit.F_CLIPPED) + ", creative " + p.isCreative() + ")");
+		var n = Omnitrix.state(p).copy();
+		n.timers.remove(kit.key(StinkflyKit.FLIGHT));
+		Omnitrix.save(p, n);
+		helper.assertFalse(kit.wingFlight(p), "clipped wings can't take off");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		// Wet Wings: soaked, no take-off
+		ServerPlayer q = as(helper, StinkflyKit.ID);
+		StinkflyKit.soak(q);
+		q.tickCount++;
+		Omnitrix.tick(q);
+		helper.assertTrue(kit.flag(q, StinkflyKit.F_WET) && !q.getAbilities().mayfly, "wet wings: no flight");
+		helper.assertFalse(kit.wingFlight(q), "and no take-off");
+		Omnitrix.revert(q, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	/** Use: a tap spits one glob (5); held, the rapid spit (4 a second). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void stinkflyHeldUseIsARapidSpit(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, -30f);
+		// every glob ever seen (they splat on the test's barrier ceiling within a few ticks, so count ids, not the living)
+		java.util.Set<Integer> seen = new java.util.HashSet<>();
+		Runnable look = () -> helper.getLevel().getEntitiesOfClass(com.projecthero.mod.omnitrix.entity.AlienProjectileEntity.class,
+				p.getBoundingBox().inflate(64), e -> e.kind().equals("stinkfly_spit")).forEach(e -> seen.add(e.getId()));
+		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND).consumesAction(), "a tap spits");
+		look.run();
+		helper.assertTrue(seen.size() == 1, "a tap: one glob");
+		int[] ticks = { 0 };
+		helper.onEachTick(() -> {
+			if (ticks[0]++ < 26) {
+				kit.onUse(p, InteractionHand.MAIN_HAND); // the client re-sends Use every tick it is held
+				look.run();
+			}
+		});
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(seen.size() >= 4, "held: a rapid stream of globs (" + seen.size() + ")");
+			helper.succeed();
 		});
 	}
 

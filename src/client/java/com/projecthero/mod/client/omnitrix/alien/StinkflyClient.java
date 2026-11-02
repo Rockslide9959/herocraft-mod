@@ -70,6 +70,16 @@ public final class StinkflyClient implements AlienClientKit {
 	private static final float[][] SPLASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.5f, 0, 0.9f, 0.5f, 0, -0.9f, 0.5f, 0, -0.8f, 0, 0.1f, -0.8f, 0, -0.1f, 0.3f),
 			QuirkKeyframes.rest(14) };
 
+	// v0.17.2 (the Stinkfly revamp): the Goo Cocoon cast -- hovering upright, forearms up and out, head pushed forward into the
+	// stream; the Goo Wall -- arms flung wide as the sheet is spat across
+	private static final float[][] COCOON = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(4, -1.15f, 0f, 0.45f, -1.15f, 0f, -0.45f, 0.18f, 0f, 0.25f, 0f, 0.08f, 0.15f, 0f, -0.08f, -0.35f),
+			QuirkKeyframes.f(30, -1.25f, 0f, 0.5f, -1.25f, 0f, -0.5f, 0.22f, 0f, 0.25f, 0f, 0.08f, 0.15f, 0f, -0.08f, -0.4f), QuirkKeyframes.rest(36) };
+	private static final float[][] WALL = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, 0f, 1.15f, -1.0f, 0f, -1.15f, 0.2f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.4f),
+			QuirkKeyframes.f(8, -0.8f, 0f, 1.3f, -0.8f, 0f, -1.3f, 0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.2f), QuirkKeyframes.rest(16) };
+	private static final FirstPersonClip FP_COCOON = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -40, -20, 20, -0.05f, 0.3f, 0f),
+			FirstPersonClip.f(30, -42, -20, 20, -0.05f, 0.32f, 0f), FirstPersonClip.f(36, 0, 0, 0, 0, 0, 0)).both();
+
 	private static final FirstPersonClip FP_SPIT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -8, 6, 0, 0.03f, 0.06f, 0.05f),
 			FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_JAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -20, 24, 0, 0.15f, 0.08f, -0.22f),
@@ -200,10 +210,18 @@ public final class StinkflyClient implements AlienClientKit {
 	private void renderWings(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
 			float partial, float age) {
 		float open = openAmount(p, partial);
-		boolean diving = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0;
+		OmnitrixState st = Omnitrix.state(p);
+		boolean diving = (st.kitFlags & StinkflyKit.F_DIVING) != 0;
+		// v0.17.2 Wet Wings / Fragile Wings: soaked wings drawn darker and drooping (a slow twitch); clipped ones an uneven flutter
+		boolean wet = (st.kitFlags & StinkflyKit.F_WET) != 0;
+		boolean clipped = (st.kitFlags & StinkflyKit.F_CLIPPED) != 0 && !wet;
+		boolean casting = st.animId == StinkflyKit.ANIM_COCOON && p.level().getGameTime() + partial - st.animStart < 34;
 		// the flying beat: fast (about 6 strokes a second shows as a blur of positions), the lower pair a quarter-stroke behind
 		float speed = flight(p, SPEED, partial);
-		float beatSpeed = diving ? 3.1f : 2.4f + 0.6f * speed;
+		float beatSpeed = diving ? 3.1f : wet ? 0.22f : clipped ? 3.3f : casting ? 3.0f : 2.4f + 0.6f * speed;
+		float amp = casting ? 1.3f : wet ? 0.35f : 1f;
+		float droop = wet ? 0.65f : 0f;
+		int tint = wet ? 0xFF8C9A7C : 0xFFFFFFFF;
 		AlienParts.on(pose, model.body, () -> {
 			// the mount: a small knot of chitin between the shoulder blades
 			box(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, TAIL, light);
@@ -211,12 +229,13 @@ public final class StinkflyClient implements AlienClientKit {
 			for (int side = -1; side <= 1; side += 2) {
 				for (int pair = 0; pair < 2; pair++) {
 					boolean upper = pair == 0;
-					float phase = age * beatSpeed - (upper ? 0f : 1.3f) + (side < 0 ? 0.08f : 0f);
+					float phase = age * beatSpeed - (upper ? 0f : 1.3f) + (side < 0 ? 0.08f : 0f)
+							+ (clipped ? Mth.sin(age * 1.7f + side) * 0.9f : 0f);
 					float beat = Mth.sin(phase);
 					float stroke = Mth.cos(phase);
 					// spread (flying): the upper blade raised out behind him, beating through a wide arc; the lower pair lower
 					// and shorter-stroked
-					float flyRoll = upper ? -0.45f + beat * 0.42f : 0.1f + beat * 0.32f;
+					float flyRoll = (upper ? -0.45f + beat * 0.42f * amp : 0.1f + beat * 0.32f * amp) + droop;
 						// v0.17.2: at speed the stroke narrows and the wings sweep back
 					float flyYaw = (upper ? 0.35f : 0.45f) + 0.35f * speed + stroke * (upper ? 0.28f : 0.2f) * (1f - 0.35f * speed);
 					float flyTilt = -0.25f + stroke * 0.12f;
@@ -238,7 +257,7 @@ public final class StinkflyClient implements AlienClientKit {
 					pose.mulPose(Axis.YP.rotation(-side * yaw));
 					pose.mulPose(Axis.XP.rotation(tilt));
 					pose.mulPose(Axis.ZP.rotation(side * roll));
-					wingQuad(glass, pose.last(), light, side, upper);
+					wingQuad(glass, pose.last(), light, side, upper, tint);
 					pose.popPose();
 				}
 			}
@@ -246,7 +265,7 @@ public final class StinkflyClient implements AlienClientKit {
 	}
 
 	/** One wing: the root texel at the hinge, the wing out along +x (side +1) / -x, up = -y; its cell of the sheet. */
-	private static void wingQuad(VertexConsumer vc, PoseStack.Pose last, int light, int side, boolean upper) {
+	private static void wingQuad(VertexConsumer vc, PoseStack.Pose last, int light, int side, boolean upper, int tint) {
 		float size = upper ? UPPER_SIZE : LOWER_SIZE;
 		float ru = upper ? UPPER_ROOT_U : LOWER_ROOT_U, rv = upper ? UPPER_ROOT_V : LOWER_ROOT_V;
 		float k = size / 128f / 16f; // texel -> blocks
@@ -254,7 +273,7 @@ public final class StinkflyClient implements AlienClientKit {
 		float y0 = (0f - rv) * k, y1 = (128f - rv) * k;
 		float u0 = upper ? 0f : 0.5f, u1 = u0 + 0.5f;
 		// the normal points up: both faces lit like a pale membrane, never shaded dark from behind
-		AlienParts.quad(vc, last, 0xFFFFFFFF, light, x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0, 0, -1, 0, u0, 0f, u1, 1f);
+		AlienParts.quad(vc, last, tint, light, x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0, 0, -1, 0, u0, 0f, u1, 1f);
 	}
 
 	@Override
@@ -272,6 +291,8 @@ public final class StinkflyClient implements AlienClientKit {
 			case StinkflyKit.ANIM_TAKEOFF -> TAKEOFF;
 			case StinkflyKit.ANIM_SPLASH -> SPLASH;
 			case StinkflyKit.ANIM_LIFT -> LIFT;
+			case StinkflyKit.ANIM_COCOON -> COCOON;
+			case StinkflyKit.ANIM_WALL -> WALL;
 			default -> null;
 		};
 		if (animId == StinkflyKit.ANIM_DIVE && (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) == 0 && ticks > 4) {
@@ -316,8 +337,26 @@ public final class StinkflyClient implements AlienClientKit {
 			case StinkflyKit.ANIM_DIVE, StinkflyKit.ANIM_DASH -> FP_DIVE;
 			case StinkflyKit.ANIM_GAS, StinkflyKit.ANIM_SPLASH -> FP_LOW;
 			case StinkflyKit.ANIM_LIFT -> FP_LIFT;
+			case StinkflyKit.ANIM_COCOON -> FP_COCOON;
+			case StinkflyKit.ANIM_WALL -> FP_WIDE;
 			default -> null;
 		};
+	}
+
+	/**
+	 * v0.17.2 Compound Eyes (the revamp): four eyes mean nothing sneaks up on him -- hostile mobs BEHIND him within 10 blocks are
+	 * outlined for him (OmnitrixGlowMixin; his own client only).
+	 */
+	@Override
+	public boolean glows(net.minecraft.client.player.LocalPlayer viewer, net.minecraft.world.entity.Entity e) {
+		if (!(e instanceof net.minecraft.world.entity.monster.Enemy) || !(e instanceof net.minecraft.world.entity.LivingEntity le) || !le.isAlive()
+				|| e.distanceToSqr(viewer) > StinkflyKit.EYES_RANGE * StinkflyKit.EYES_RANGE) {
+			return false;
+		}
+		net.minecraft.world.phys.Vec3 look = viewer.getViewVector(1f);
+		double tx = e.getX() - viewer.getX(), tz = e.getZ() - viewer.getZ();
+		double lt = Math.sqrt(tx * tx + tz * tz), ll = Math.sqrt(look.x * look.x + look.z * look.z);
+		return lt > 1e-3 && ll > 1e-3 && (tx * look.x + tz * look.z) / (lt * ll) < -0.2;
 	}
 
 	@Override
@@ -331,7 +370,9 @@ public final class StinkflyClient implements AlienClientKit {
 		var r = p.getRandom();
 		// v0.17.2: the wings ease open on take-off and fold away on landing (half-tucked in a dive)
 		float[] o = OPEN.computeIfAbsent(p, k -> new float[] { flying(p) ? 1f : 0f, flying(p) ? 1f : 0f });
-		float target = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0 ? 0.8f : flying(p) ? 1f : 0f;
+		int kf = Omnitrix.state(p).kitFlags;
+		// v0.17.2: wet or clipped wings hang half-spread (drooping / fluttering) instead of folding away
+		float target = (kf & StinkflyKit.F_DIVING) != 0 ? 0.8f : flying(p) ? 1f : (kf & (StinkflyKit.F_WET | StinkflyKit.F_CLIPPED)) != 0 ? 0.5f : 0f;
 		o[0] = o[1];
 		o[1] += (target - o[1]) * (target > o[1] ? 0.35f : 0.2f);
 		float[] f = FLIGHT.computeIfAbsent(p, k -> new float[6]);
