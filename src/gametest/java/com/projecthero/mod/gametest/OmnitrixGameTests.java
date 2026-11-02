@@ -596,16 +596,17 @@ public class OmnitrixGameTests implements FabricGameTest {
 			helper.assertTrue(z.getHealth() <= 60f - HeatblastKit.VOLLEY_SHOTS * HeatblastKit.VOLLEY_DAMAGE + 0.01f && z.isOnFire(),
 					"all three fireballs burned the zombie: " + z.getHealth());
 			float before = z.getHealth();
-			helper.assertTrue(kit.lasso(p, z) && kit.flag(p, HeatblastKit.F_LASSO), "G: the Fire Lasso catches it");
-			helper.assertTrue(z.getHealth() <= before - HeatblastKit.LASSO_DAMAGE + 0.01f, "the whip burns (6)");
-			helper.assertFalse(kit.lasso(p, z), "the lasso cools down");
-			helper.runAfterDelay(5, () -> {
-				// (a no-AI test zombie keeps the velocity the haul gives it without moving)
-				helper.assertTrue(z.getDeltaMovement().z < -0.3, "yanked in toward him: " + z.getDeltaMovement());
-				z.discard();
-				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-				helper.succeed();
-			});
+			// v0.17.2 (user: "put heatblast magma bomb move onto G and make Shift+G a 12 block cone move"): G the Magma Bomb, Shift+G the
+			// Blaze Cone -- the zombie 6 blocks ahead is caught in it
+			helper.assertTrue(HeatblastKit.MAGMA.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, false, false).id()), "G is the Magma Bomb");
+			helper.assertTrue(HeatblastKit.CONE.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Blaze Cone");
+			z.invulnerableTime = 0;
+			helper.assertTrue(kit.blazeCone(p) >= 1, "Shift+G: the Blaze Cone catches it");
+			helper.assertTrue(z.getHealth() <= before - HeatblastKit.CONE_DAMAGE + 0.01f, "for 16: " + (before - z.getHealth()));
+			helper.assertTrue(kit.blazeCone(p) == -1, "then it cools down");
+			z.discard();
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.succeed();
 		});
 	}
 

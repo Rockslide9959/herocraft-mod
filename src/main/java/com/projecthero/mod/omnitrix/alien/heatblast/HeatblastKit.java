@@ -139,6 +139,8 @@ public final class HeatblastKit extends AlienKit {
 	public static final int ANIM_YANK = 22;
 	/** The volley's second fireball, from the left hand. */
 	public static final int ANIM_VOLLEY_L = 23;
+	/** v0.17.2: Shift+G's Blaze Cone (both palms thrust out). */
+	public static final int ANIM_CONE = 24;
 
 	public static final int F_RIDING = 1;
 	public static final int F_SHIELD = 2;
@@ -158,6 +160,14 @@ public final class HeatblastKit extends AlienKit {
 	public static final String THROWER = "flamethrower";
 	public static final String LASSO = "fire_lasso";
 	public static final String MAGMA = "magma_bomb";
+	/**
+	 * v0.17.2 (user: "put heatblast magma bomb move onto G and make Shift+G a 12 block cone move in front of the player"): the
+	 * Blaze Cone -- {@link #CONE_DAMAGE} to everything in a {@link #CONE_RANGE}-block, {@link #CONE_DEG}-degree cone ahead.
+	 */
+	public static final String CONE = "blaze_cone";
+	public static final double CONE_RANGE = 12.0, CONE_DEG = 70.0;
+	public static final float CONE_DAMAGE = 16f;
+	public static final int CONE_COOLDOWN = 140;
 	public static final String JUMP = "flame_jump";
 	public static final String RIDE = "rock_ride";
 	public static final String DASH = "blaze_dash";
@@ -391,7 +401,8 @@ public final class HeatblastKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 40), AlienMove.shift(THROWER, AbilitySlot.SLOT_1, 140),
-				AlienMove.tap(LASSO, AbilitySlot.SLOT_2, 100), AlienMove.shift(MAGMA, AbilitySlot.SLOT_2, 160),
+				// v0.17.2 (user: "put heatblast magma bomb move onto G and make Shift+G a 12 block cone move"): the Fire Lasso is off the keys
+				AlienMove.tap(MAGMA, AbilitySlot.SLOT_2, 160), AlienMove.shift(CONE, AbilitySlot.SLOT_2, CONE_COOLDOWN),
 				AlienMove.tap(JUMP, AbilitySlot.SLOT_3, 30), AlienMove.hold(RIDE, AbilitySlot.SLOT_3, 200),
 				AlienMove.shift(DASH, AbilitySlot.SLOT_3, 80),
 				AlienMove.tap(TORNADO, AbilitySlot.SLOT_4, 260), AlienMove.shift(SUPERNOVA, AbilitySlot.SLOT_4, 600),
@@ -749,9 +760,9 @@ public final class HeatblastKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					magmaBomb(p);
+					blazeCone(p);
 				} else {
-					lasso(p, lookTarget(p, LASSO_RANGE));
+					magmaBomb(p);
 				}
 			}
 			case SLOT_3 -> {
@@ -957,9 +968,56 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+G: Magma Bomb
+	// ---------------------------------------------------------------- Shift+G: Blaze Cone
 
-	/** Shift+G: a lobbed ball of molten rock -- a fiery burst, then a pool of burning magma for 4 s. */
+	/**
+	 * Shift+G: the Blaze Cone. Both palms thrust out and a cone of fire roars {@link #CONE_RANGE} blocks ahead: everything in it
+	 * takes {@link #CONE_DAMAGE}, is set alight for 5 s and driven back, and the ground it sweeps catches fire. Returns how many
+	 * it hit (-1 if refused).
+	 */
+	public int blazeCone(ServerPlayer p) {
+		if (flag(p, F_DOUSED) || !use(p, CONE)) {
+			return -1;
+		}
+		anim(p, ANIM_CONE);
+		ServerLevel l = level(p);
+		Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
+		double cos = Math.cos(Math.toRadians(CONE_DEG / 2));
+		int n = 0;
+		for (LivingEntity e : around(p, eye.add(look.scale(CONE_RANGE / 2)), CONE_RANGE / 2 + 1.5)) {
+			Vec3 to = e.getBoundingBox().getCenter().subtract(eye);
+			double d = to.length();
+			if (d > CONE_RANGE + e.getBbWidth() || d < 1.0e-3 || to.scale(1 / d).dot(look) < cos) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, CONE_DAMAGE, true);
+			e.igniteForSeconds(5);
+			shove(e, p.position(), 0.7, 0.2);
+			n++;
+		}
+		// the flames: a long cone of fire, the ground under it lit
+		Vec3 from = eye.add(look.scale(0.8)).add(0, -0.3, 0);
+		QuirkFx.cone(l, from, look).style(QuirkFx.CONE_FLAME).colours(0xFFE0A0, 0xFF4A10).size(4.5f).length((float) CONE_RANGE).life(14).spawn();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		if (flat.lengthSqr() > 1.0e-4) {
+			flat = flat.normalize();
+			Vec3 side = new Vec3(-flat.z, 0, flat.x);
+			for (int i = 0; i < 7; i++) {
+				double along = 3 + l.random.nextDouble() * (CONE_RANGE - 3);
+				double spread = Math.tan(Math.toRadians(CONE_DEG / 2)) * along * (l.random.nextDouble() * 2 - 1) * 0.8;
+				PyrokinesisHandlers.groundFire(p, l, p.position().add(flat.scale(along)).add(side.scale(spread)), 80);
+			}
+		}
+		OmnitrixSounds.play(l, p.position(), SND_TORNADO, 1.3f, 1.3f);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BLAZE_SHOOT, net.minecraft.sounds.SoundSource.PLAYERS, 1.2f, 0.6f);
+		QuirkCamera.shake(p, 0.2f, 6);
+		return n;
+	}
+
+	// ---------------------------------------------------------------- G: Magma Bomb
+
+	/** G: a lobbed ball of molten rock -- a fiery burst, then a pool of burning magma for 4 s. */
 	public boolean magmaBomb(ServerPlayer p) {
 		if (out(p) || !use(p, MAGMA)) {
 			return false;

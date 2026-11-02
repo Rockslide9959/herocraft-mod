@@ -792,7 +792,7 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_VOLLEY -> VOLLEY_R;
 			case HeatblastKit.ANIM_VOLLEY_L -> VOLLEY_L;
 			case HeatblastKit.ANIM_BOLT -> BOLT;
-			case HeatblastKit.ANIM_THROWER -> THROWER;
+			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> THROWER;
 			case HeatblastKit.ANIM_LASSO -> LASSO;
 			case HeatblastKit.ANIM_YANK -> YANK;
 			case HeatblastKit.ANIM_MAGMA -> MAGMA;
@@ -869,7 +869,7 @@ public final class HeatblastClient implements AlienClientKit {
 		return switch (animId) {
 			case HeatblastKit.ANIM_VOLLEY, HeatblastKit.ANIM_VOLLEY_L -> FP_BLAST;
 			case HeatblastKit.ANIM_BOLT -> FP_BOLT;
-			case HeatblastKit.ANIM_THROWER -> FP_THROWER;
+			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> FP_THROWER;
 			case HeatblastKit.ANIM_LASSO -> FP_LASSO;
 			case HeatblastKit.ANIM_YANK -> FP_YANK;
 			case HeatblastKit.ANIM_MAGMA -> FP_MAGMA;

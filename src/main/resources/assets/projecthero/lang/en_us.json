@@ -97,6 +97,8 @@
   "projecthero.omnitrix.heatblast.flamethrower.desc": "Hold Shift+R: a stream of fire from both hands for up to 3 s -- a 7-block cone (2 every 4 ticks), setting the ground alight. Let go to stop.",
   "projecthero.omnitrix.heatblast.fire_lasso": "Fire Lasso",
   "projecthero.omnitrix.heatblast.fire_lasso.desc": "A whip of flame lashes the creature you look at (up to 16 blocks): 9 damage, 5 s alight, and it is yanked in to you.",
+  "projecthero.omnitrix.heatblast.blaze_cone": "Blaze Cone",
+  "projecthero.omnitrix.heatblast.blaze_cone.desc": "Both palms thrust out and a cone of fire roars 12 blocks ahead: 16 damage to everything in it, set alight for 5 s and driven back, and the ground it sweeps catches fire.",
   "projecthero.omnitrix.heatblast.magma_bomb": "Magma Bomb",
   "projecthero.omnitrix.heatblast.magma_bomb.desc": "Lob a ball of molten rock: 6 on a direct hit, a 3.5-block blast (15), and a pool of burning magma for 4 s (2 every half second). Fire is only left where you may build, with terrain damage on.",
   "projecthero.omnitrix.heatblast.flame_jump": "Flame Jump",
