@@ -318,10 +318,15 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	public void fourArmsVWallClimb(GameTestHelper helper) {
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		AlienKit kit = Aliens.kit(FourArmsKit.ID);
+		// v0.17.2 (user: "make the player climb up walls by walking up against them and looking up"): no key -- pressed into a wall
+		// and looking up he climbs; looking level he does not; Sneak lets go. V is the Grab now.
+		helper.assertTrue(FourArmsKit.GRAB.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_5, false, false).id()), "V is the Grab");
+		helper.assertTrue(FourArmsKit.HAYMAKER.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, false, false).id()), "G is the Haymaker");
 		p.horizontalCollision = true;
-		helper.assertFalse(kit.climbs(p), "no climbing before V");
-		tapV(p, false);
-		helper.assertTrue(kit.flag(p, FourArmsKit.F_CLIMB) && kit.climbs(p), "V: pressed into a wall he climbs it");
+		p.setXRot(0f);
+		helper.assertFalse(kit.climbs(p), "pressed into a wall looking level: no climbing");
+		p.setXRot(-45f);
+		helper.assertTrue(kit.climbs(p), "looking up: he climbs it");
 		p.setShiftKeyDown(true);
 		helper.assertFalse(kit.climbs(p), "Shift lets go");
 		p.setShiftKeyDown(false);

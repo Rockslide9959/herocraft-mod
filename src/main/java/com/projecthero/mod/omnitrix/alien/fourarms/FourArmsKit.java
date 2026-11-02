@@ -70,13 +70,15 @@ import net.minecraft.world.phys.Vec3;
  *   R        Four-Fist Combo  a 4-press combo (like Ghostfreak's claws): upper right 8, upper left 8, both lower fists 2 x 5,
  *                             then all four fists hammer down (16, knocked down and back, a shockwave)
  *   Shift+R  Hammer Smash     both pairs overhead: a crack runs 9 blocks ahead, launching what stands on it (14)
- *   G        Grab / Throw     grab what you look at; G again hurls it (12)
- *   Shift+G  Boulder Rip      tear up the ground in front of you and hurl it (12)  -- holding: Giant Swing (5 a body, flung 14)
+ *   G        Haymaker         lunge up to 8 blocks at what you look at and slam it with both upper fists (15, sent flying)
+ *   Shift+G  Boulder Rip      tear up the ground in front of you and hurl it (15)
  *   X        Super Leap       tap 14 blocks / hold up to 200; landing shockwave (8, long 14)
  *   Shift+X  Tetramand Charge a bull rush carrying enemies along (6), smashing weak blocks, ending in a shove (6)
  *   Z        Thunder Clap     a 10-block sonic cone: 17, blasted back, stunned and dizzy; shatters glass, puts fire out
  *   Shift+Z  Meteor Slam      ULTIMATE: up into the sky and down -- a radius-10 quake (18 + 0.4 a block fallen, 30 at most)
- *   V        Wall Climb       toggle                                   Shift+V  Four-Arm Guard  3 s: frontal hits blocked, projectiles swatted back
+ *   V        Grab / Throw     grab what you look at; V again hurls it (15) -- holding, Shift+V is the Giant Swing (6 a body, flung 17)
+ *            Shift+V  Four-Arm Guard  3 s: frontal hits blocked, projectiles swatted back
+ *   Passive  Wall Climb       walk into a wall looking up and his four hands climb it (Sneak to let go)
  *   C        Rampage          8 s: every punch quakes (4), +4 punch, faster, no knockback; winded after
  *   Shift+C  Bear Hug         crush the creature in front for 3 s (6 x 2) and slam it down (8)
  * </pre>
@@ -144,6 +146,13 @@ public final class FourArmsKit extends AlienKit {
 	public static final String METEOR = "meteor_slam";
 	public static final String CLIMB = "wall_climb";
 	public static final String GUARD = "four_arm_guard";
+	/** v0.17.2 (user: "put another attack move on G"): the lunging two-fisted haymaker. */
+	public static final String HAYMAKER = "haymaker";
+	public static final float HAYMAKER_DAMAGE = 15f;
+	public static final double HAYMAKER_RANGE = 8.0;
+	public static final int HAYMAKER_COOLDOWN = 100, HAYMAKER_TICKS = 8;
+	/** How far up he must look for a wall to take his weight (degrees of pitch). */
+	public static final float CLIMB_PITCH = -20f;
 	public static final String RAMPAGE = "rampage";
 	public static final String HUG = "bear_hug";
 	public static final String MIGHT = "tetramand_might";
@@ -290,14 +299,16 @@ public final class FourArmsKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(FLURRY, AbilitySlot.SLOT_1, COMBO_GAP), AlienMove.shift(HAMMER, AbilitySlot.SLOT_1, 140),
-				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 20), AlienMove.shift(BOULDER, AbilitySlot.SLOT_2, 120),
+				// v0.17.2 (user: "put the grab move on V and make the player climb up walls by walking up against them and looking up
+				// please, put another attack move on G"): G the Haymaker, V the Grab (its throw and swing with it), the climb a passive
+				AlienMove.tap(HAYMAKER, AbilitySlot.SLOT_2, HAYMAKER_COOLDOWN), AlienMove.shift(BOULDER, AbilitySlot.SLOT_2, 120),
 				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 60), AlienMove.hold(LEAP_FAR, AbilitySlot.SLOT_3, 100),
 				AlienMove.shift(CHARGE, AbilitySlot.SLOT_3, 120),
 				AlienMove.tap(CLAP, AbilitySlot.SLOT_4, 200), AlienMove.shift(METEOR, AbilitySlot.SLOT_4, 500),
-				AlienMove.tap(CLIMB, AbilitySlot.SLOT_5, 20), AlienMove.shift(GUARD, AbilitySlot.SLOT_5, 240),
+				AlienMove.tap(GRAB, AbilitySlot.SLOT_5, 20), AlienMove.shift(GUARD, AbilitySlot.SLOT_5, 240),
 				AlienMove.tap(RAMPAGE, AbilitySlot.SLOT_6, 600), AlienMove.shift(HUG, AbilitySlot.SLOT_6, 300),
-				AlienMove.vanilla(MIGHT, "Attack", 0), AlienMove.vanilla(THROW, "Use (holding) / G (holding)", 200),
-				AlienMove.vanilla(SWING, "Shift+G (holding)", 160));
+				AlienMove.vanilla(MIGHT, "Attack", 0), AlienMove.vanilla(THROW, "Use (holding) / V (holding)", 200),
+				AlienMove.vanilla(SWING, "Shift+V (holding)", 160), AlienMove.vanilla(CLIMB, "Walk into a wall, looking up", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -332,7 +343,8 @@ public final class FourArmsKit extends AlienKit {
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_5 ? flag(p, F_CLIMB) || flag(p, F_GUARD) : slot == AbilitySlot.SLOT_6 && (flag(p, F_RAMPAGE) || flag(p, F_HUGGING));
+		return slot == AbilitySlot.SLOT_5 ? Omnitrix.state(p).heldEntity != 0 || flag(p, F_GUARD)
+				: slot == AbilitySlot.SLOT_6 && (flag(p, F_RAMPAGE) || flag(p, F_HUGGING));
 	}
 
 	@Override
@@ -343,6 +355,7 @@ public final class FourArmsKit extends AlienKit {
 		}
 		ServerLevel l = level(p);
 		tickClimb(p, l, now);
+		tickHaymaker(p, l, now);
 		tickHeld(p, l, s, now);
 		tickSmash(p, l, now);
 		tickLanding(p, l, now);
@@ -376,15 +389,10 @@ public final class FourArmsKit extends AlienKit {
 				}
 			}
 			case SLOT_2 -> {
-				boolean holding = Omnitrix.state(p).heldEntity != 0;
-				if (holding && shift) {
-					giantSwing(p);
-				} else if (holding) {
-					throwHeld(p);
-				} else if (shift) {
+				if (shift) {
 					boulderRip(p);
 				} else {
-					grab(p, lookTarget(p, REACH));
+					haymaker(p);
 				}
 			}
 			case SLOT_3 -> {
@@ -402,10 +410,15 @@ public final class FourArmsKit extends AlienKit {
 				}
 			}
 			case SLOT_5 -> {
-				if (shift) {
+				boolean holding = Omnitrix.state(p).heldEntity != 0;
+				if (holding && shift) {
+					giantSwing(p);
+				} else if (holding) {
+					throwHeld(p);
+				} else if (shift) {
 					guard(p);
 				} else {
-					toggleClimb(p);
+					grab(p, lookTarget(p, REACH));
 				}
 			}
 			case SLOT_6 -> {
@@ -1177,30 +1190,36 @@ public final class FourArmsKit extends AlienKit {
 
 	// ---------------------------------------------------------------- V: Wall Climb, Shift+V: Four-Arm Guard
 
-	/** V: Wall Climb on / off -- four hands dig into any wall: pressed into one (not sneaking) he climbs it like a ladder. */
-	public boolean toggleClimb(ServerPlayer p) {
-		if (!use(p, CLIMB)) {
-			return false;
-		}
-		boolean on = !flag(p, F_CLIMB);
-		setFlag(p, F_CLIMB, on);
-		anim(p, ANIM_CLIMB);
-		ServerLevel l = level(p);
-		l.playSound(null, p.getX(), p.getY(), p.getZ(), on ? SoundEvents.ARMOR_EQUIP_TURTLE.value() : SoundEvents.ARMOR_EQUIP_LEATHER.value(),
-				SoundSource.PLAYERS, 0.9f, on ? 0.7f : 1.0f);
-		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.four_arms.climb_on" : "message.projecthero.omnitrix.four_arms.climb_off")
-				.withStyle(on ? ChatFormatting.RED : ChatFormatting.GRAY), true);
-		return true;
-	}
-
-	/** Wall Climb on: pressed into a wall (and not sneaking) he climbs it. Asked on both sides (synced flag). */
+	/**
+	 * The Wall Climb -- v0.17.2 (user: "make the player climb up walls by walking up against them and looking up"): no key; pressed
+	 * into a wall while looking up (and not sneaking) his four hands dig in and he climbs it like a ladder. Asked on both sides:
+	 * his own client has the collision, the server checks for a wall in front of him.
+	 */
 	@Override
 	public boolean climbs(Player p) {
-		return flag(p, F_CLIMB) && p.horizontalCollision && !p.isShiftKeyDown();
+		return !p.isShiftKeyDown() && p.getXRot() < CLIMB_PITCH && (p.horizontalCollision || wallAhead(p));
+	}
+
+	/** A solid block right in front of his body (the server never sees his collisions). */
+	private static boolean wallAhead(Player p) {
+		Vec3 f = Vec3.directionFromRotation(0, p.getYRot());
+		double reach = p.getBbWidth() * 0.5 + 0.25;
+		for (double y : new double[] { 0.4, 1.4 }) {
+			BlockPos q = BlockPos.containing(p.getX() + f.x * reach, p.getY() + y, p.getZ() + f.z * reach);
+			if (!p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void tickClimb(ServerPlayer p, ServerLevel l, long now) {
-		if (!flag(p, F_CLIMB)) {
+		// the synced flag only draws the climbing pose for everyone else; climbing itself is climbs()
+		boolean on = !p.onGround() && climbs(p);
+		if (on != flag(p, F_CLIMB)) {
+			setFlag(p, F_CLIMB, on);
+		}
+		if (!on) {
 			return;
 		}
 		p.resetFallDistance();
@@ -1214,6 +1233,74 @@ public final class FourArmsKit extends AlienKit {
 			if (now % 12 == 0) {
 				l.playSound(null, p.getX(), p.getY(), p.getZ(), st.getSoundType().getHitSound(), SoundSource.PLAYERS, 0.5f, 0.7f);
 			}
+		}
+	}
+
+	// ---------------------------------------------------------------- G: Haymaker
+
+	/**
+	 * G: the Haymaker -- v0.17.2 (user: "put another attack move on G"). He throws himself at what he is looking at (up to
+	 * {@link #HAYMAKER_RANGE} blocks; else a lunge straight ahead) and, arriving, slams both upper fists into it:
+	 * {@link #HAYMAKER_DAMAGE} and sent flying (a boss is staggered). Also hits whatever else is right there.
+	 */
+	public boolean haymaker(ServerPlayer p) {
+		if (!use(p, HAYMAKER)) {
+			return false;
+		}
+		ServerLevel l = level(p);
+		LivingEntity t = lookTarget(p, HAYMAKER_RANGE);
+		Vec3 to = t != null ? t.position().subtract(p.position()) : Vec3.directionFromRotation(0, p.getYRot()).scale(5);
+		Vec3 flat = new Vec3(to.x, 0, to.z);
+		double d = flat.length();
+		Vec3 dir = d < 1.0e-3 ? Vec3.directionFromRotation(0, p.getYRot()) : flat.scale(1 / d);
+		double speed = Math.min(2.2, 0.6 + d * 0.22);
+		p.setDeltaMovement(dir.x * speed, Math.max(p.getDeltaMovement().y, 0.25), dir.z * speed);
+		p.hurtMarked = true;
+		setTimer(p, "hay_until", l.getGameTime() + HAYMAKER_TICKS);
+		setTimer(p, "hay_target", t == null ? 0 : t.getId() + 1L);
+		anim(p, ANIM_CHARGE);
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_THROW, 1.0f, 0.7f);
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFC0A0).size(1.8f).thickness(0.35f).life(8).ground().spawn();
+		return true;
+	}
+
+	/** The lunge in flight: the blow lands the moment he reaches the target (or when the lunge runs out). */
+	private void tickHaymaker(ServerPlayer p, ServerLevel l, long now) {
+		long until = timer(p, "hay_until");
+		if (until <= 0) {
+			return;
+		}
+		long id = timer(p, "hay_target");
+		Entity e = id > 0 ? l.getEntity((int) (id - 1)) : null;
+		LivingEntity t = e instanceof LivingEntity le && le.isAlive() ? le : null;
+		boolean there = t != null && t.distanceToSqr(p) < 2.8 * 2.8;
+		if (!there && now < until) {
+			p.resetFallDistance();
+			return;
+		}
+		setTimer(p, "hay_until", 0);
+		setTimer(p, "hay_target", 0);
+		anim(p, ANIM_HAMMER_PUNCH);
+		Vec3 fwd = Vec3.directionFromRotation(0, p.getYRot());
+		Vec3 at = p.position().add(fwd.scale(1.6)).add(0, 1.0, 0);
+		int n = 0;
+		for (LivingEntity v : around(p, at, 2.2)) {
+			v.invulnerableTime = 0;
+			hurt(p, v, HAYMAKER_DAMAGE, false);
+			if (com.projecthero.mod.omnitrix.alien.AlienStatus.isBoss(v)) {
+				v.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 2), p);
+			} else {
+				shove(v, p.position(), 2.0, 0.6);
+			}
+			n++;
+		}
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.2, 1, 0.2));
+		p.hurtMarked = true;
+		OmnitrixSounds.play(l, at, SND_UPPERCUT, 1.3f, 0.75f);
+		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(fwd).colours(0xFFFFFF, 0xFFC0A0).size(2.6f).thickness(0.45f).life(10).spawn();
+		if (n > 0) {
+			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+			QuirkCamera.shakeAround(l, at, 8, 0.3f, 6);
 		}
 	}
 
