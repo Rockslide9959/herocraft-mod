@@ -165,10 +165,10 @@ public final class StandRender {
 		float wantYaw;
 		if (fight) {
 			// v0.17.2 (user: "in the bottom corner of the players screen, i want him to be in front of the player like he is in third
-			// person"): in first person too it stands square in front of you, its back to you -- just far enough out and low enough
-			// that its head sits under the crosshair
-			double out = firstPerson ? 1.7 : 1.05;
-			want = at.add(fwdHead.scale(out)).add(0, firstPerson ? -0.72 : 0.05, 0);
+			// person"): in first person too it stands square in front of you, its back to you, at its full height (user: "star platinum
+			// is still low down") -- far enough out that you see it from the head down, as you do in third person
+			double out = firstPerson ? 2.1 : 1.05;
+			want = at.add(fwdHead.scale(out)).add(0, 0.05, 0);
 			wantYaw = headYaw;
 		} else {
 			want = at.subtract(fwdBody.scale(0.5)).add(StarPlatinum.rightOf(fwdBody).scale(0.75)).add(0, 0.35 + 0.06 * Mth.sin(t * 0.1f), 0);
@@ -203,7 +203,7 @@ public final class StandRender {
 			alpha = 1f - Mth.clamp(age / animLength(StandState.ANIM_DISMISS), 0f, 1f);
 		}
 		if (firstPerson) {
-			alpha *= 0.8f; // see-through enough to fight past
+			alpha *= 0.6f; // see-through enough to fight past (it stands across the crosshair now)
 		}
 		if (alpha <= 0.02f) {
 			return;
