@@ -486,6 +486,35 @@ public class OmnitrixGameTests implements FabricGameTest {
 		return p;
 	}
 
+	/**
+	 * v0.17.2 (user: "make heatblasts and pyrokinesis abilities actually spawn fire"): the Volcanic Eruption's vents keep burning
+	 * (real fire blocks), and the shared ring helper lays a ring of fire.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void heatblastMovesLeaveRealFire(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = (HeatblastKit) Aliens.kit(HeatblastKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(kit.eruption(p), "C: Volcanic Eruption");
+		pump(helper, p);
+		helper.runAfterDelay(14, () -> {
+			int fires = 0;
+			for (int x = 0; x <= 7; x++) {
+				for (int z = 0; z <= 7; z++) {
+					if (helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(x, 2, z))).is(Blocks.FIRE)) {
+						fires++;
+					}
+				}
+			}
+			helper.assertTrue(fires >= 2, "the vents leave fire burning: " + fires);
+			int ring = com.projecthero.mod.hero.power.p08.PyrokinesisHandlers.fireRing(p, helper.getLevel(), helper.absoluteVec(new Vec3(4, 2, 4)), 2.5, 40);
+			helper.assertTrue(ring >= 6, "a ring of fire: " + ring);
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void heatblastIsFireproofAndHasHisBody(GameTestHelper helper) {
 		floor(helper);

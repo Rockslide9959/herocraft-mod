@@ -402,6 +402,63 @@ public final class PyrokinesisHandlers {
 		return TempBlocks.place(level, pos, BaseFireBlock.getState(level, pos), ttl);
 	}
 
+	// ---------------------------------------------------------------- v0.17.2 (user: "make heatblasts and pyrokinesis abilities
+	// actually spawn fire"): real (temporary) fire where the moves land -- on the ground near a point, along a line, round a ring,
+	// scattered over an area. All through placeFire, so build rights and the terrain-damage setting still apply.
+
+	/** Fire on the ground at or just under/over {@code at} (looks 2 up and 3 down for a floor). */
+	public static boolean groundFire(ServerPlayer p, ServerLevel level, Vec3 at, int ttl) {
+		BlockPos b = BlockPos.containing(at);
+		for (int dy = 2; dy >= -3; dy--) {
+			BlockPos q = b.offset(0, dy, 0);
+			if (level.getBlockState(q).isAir() && !level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty()) {
+				return placeFire(p, level, q, ttl);
+			}
+		}
+		return false;
+	}
+
+	/** Fires every block along {@code dir} (flat) from {@code from}, {@code length} blocks. Returns how many were lit. */
+	public static int fireLine(ServerPlayer p, ServerLevel level, Vec3 from, Vec3 dir, double length, int ttl) {
+		Vec3 d = new Vec3(dir.x, 0, dir.z);
+		if (d.lengthSqr() < 1.0e-6) {
+			return 0;
+		}
+		d = d.normalize();
+		int n = 0;
+		for (double t = 0; t <= length; t += 0.9) {
+			if (groundFire(p, level, from.add(d.scale(t)), ttl + level.random.nextInt(20))) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** A ring of fire round {@code c}. Returns how many were lit. */
+	public static int fireRing(ServerPlayer p, ServerLevel level, Vec3 c, double radius, int ttl) {
+		int count = Math.max(6, (int) Math.round(radius * Math.PI * 2 / 1.1));
+		int n = 0;
+		for (int i = 0; i < count; i++) {
+			double a = i * Math.PI * 2 / count;
+			if (groundFire(p, level, c.add(Math.cos(a) * radius, 0, Math.sin(a) * radius), ttl + level.random.nextInt(20))) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** {@code count} fires scattered over a disc of {@code radius} round {@code c}. Returns how many were lit. */
+	public static int fireScatter(ServerPlayer p, ServerLevel level, Vec3 c, double radius, int count, int ttl) {
+		int n = 0;
+		for (int i = 0; i < count; i++) {
+			double a = level.random.nextDouble() * Math.PI * 2, r = Math.sqrt(level.random.nextDouble()) * radius;
+			if (groundFire(p, level, c.add(Math.cos(a) * r, 0, Math.sin(a) * r), ttl + level.random.nextInt(30))) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	/** Player-relative pose start for the client models (game time mod 8192, +1 so it is never 0). */
 	private static float stamp(ServerPlayer p) {
 		return (float) (p.level().getGameTime() % 8192L) + 1.0f;
@@ -793,6 +850,7 @@ public final class PyrokinesisHandlers {
 			AbilityHelpers.knockbackFrom(e, c, 1.2);
 		}
 		PyroFxEntity.spawn(level, p, PyroFxEntity.NOVA, c.add(0, 0.1, 0), p.getYRot(), (float) OVERHEAT_RADIUS, 16);
+		fireScatter(p, level, c, OVERHEAT_RADIUS * 0.8, 8, 100);
 		level.sendParticles(ParticleTypes.FLAME, c.x, c.y + 1, c.z, 80, 1.2, 0.8, 1.2, 0.2);
 		level.sendParticles(ParticleTypes.LAVA, c.x, c.y + 1, c.z, 16, 0.8, 0.5, 0.8, 0.0);
 		p.displayClientMessage(Component.translatable("message.projecthero.pyro.overheat"), true);
@@ -824,6 +882,8 @@ public final class PyrokinesisHandlers {
 		}
 		if (block != null) {
 			placeFire(p, level, block.getBlockPos().relative(block.getDirection()), 100);
+		} else {
+			groundFire(p, level, direct != null ? direct.position() : at, 100); // v0.17.2: a creature hit sets the ground alight too
 		}
 		fireballImpactFx(level, at, 1.0f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
@@ -972,6 +1032,7 @@ public final class PyrokinesisHandlers {
 		if (t != null) {
 			AbilityHelpers.hurt(p, t, AbilityHelpers.fire(p), dmg(p, WHIP_DAMAGE));
 			ignite(t, 4 * 20);
+			groundFire(p, level, t.position(), 60); // v0.17.2: the lash sets the ground under it alight
 			if (noBoss(t)) {
 				Vec3 pull = p.position().subtract(t.position());
 				double d = pull.length();
@@ -1048,6 +1109,7 @@ public final class PyrokinesisHandlers {
 		float d = res(p, "lasso_dmg");
 		AbilityHelpers.hurtBurst(p, t, AbilityHelpers.fire(p), d > 0 ? d : LASSO_DAMAGE_PER_SECOND);
 		ignite(t, 40);
+		groundFire(p, AbilityHelpers.level(p), t.position(), 40); // v0.17.2: it burns where it is dragged
 		AbilityHelpers.level(p).sendParticles(ParticleTypes.FLAME, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 10, 0.4, 0.3, 0.4, 0.02);
 	}
 
@@ -1346,6 +1408,7 @@ public final class PyrokinesisHandlers {
 		}
 		BatchA.set(p, KEY, "heat", 0, MAX_HEAT);
 		infernoFx(level, p, c, INFERNO_RADIUS);
+		fireScatter(p, level, c, INFERNO_RADIUS * 0.85, 12 + (int) (heat / 10), 140);
 		MutationVisuals.play(p, "p08.nova");
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.6f, 0.4f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.7f, 1.4f);
@@ -1373,6 +1436,9 @@ public final class PyrokinesisHandlers {
 		float yaw = (float) (Math.atan2(flat.z, flat.x) * 180.0 / Math.PI) - 90.0f;
 		PyroFxEntity wall = PyroFxEntity.spawn(level, p, PyroFxEntity.WALL, new Vec3(at.x, y, at.z), yaw, (float) WALL_WIDTH, WALL_TICKS);
 		wall.setWallDamage(dmg(p, WALL_DAMAGE));
+		// v0.17.2: real fire along the wall's foot for as long as it stands
+		Vec3 across = new Vec3(-flat.z, 0, flat.x);
+		fireLine(p, level, new Vec3(at.x, y, at.z).subtract(across.scale(WALL_WIDTH / 2.0)), across, WALL_WIDTH, WALL_TICKS);
 		set(p, "wall_cd", WALL_CD);
 		MutationVisuals.play(p, "p08.wall");
 		level.sendParticles(ParticleTypes.FLAME, at.x, y + 0.5, at.z, 40, 2.5, 0.4, 2.5, 0.05);
@@ -1858,6 +1924,7 @@ public final class PyrokinesisHandlers {
 		Vec3 at = p.position();
 		PyroFxEntity ring = PyroFxEntity.spawn(level, p, PyroFxEntity.RING, at, p.getYRot(), (float) RING_RADIUS, RING_TICKS);
 		ring.setWallDamage(dmg(p, RING_DAMAGE));
+		fireRing(p, level, at, RING_RADIUS, RING_TICKS); // v0.17.2: the ring is real fire
 		set(p, "ring_cd", RING_CD);
 		MutationVisuals.play(p, "p08.ring");
 		ringCastFx(level, at, RING_RADIUS);

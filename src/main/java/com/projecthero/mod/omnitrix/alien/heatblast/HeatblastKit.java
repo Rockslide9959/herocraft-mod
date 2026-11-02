@@ -325,14 +325,31 @@ public final class HeatblastKit extends AlienKit {
 		AlienProjectileEntity.onHit("heatblast_blast", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
 				PyrokinesisHandlers.fireballImpactFx(l, hit.getLocation(), 0.8f);
+				impactFire(proj, l, hit, 100);
 			}
 		});
 		AlienProjectileEntity.onHit("heatblast_bolt", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
 				PyrokinesisHandlers.fireballImpactFx(l, hit.getLocation(), 0.5f);
+				impactFire(proj, l, hit, 60);
 			}
 		});
 		AlienProjectileEntity.trail("heatblast_bomb", ParticleTypes.LAVA);
+	}
+
+	/**
+	 * v0.17.2 (user: "make heatblasts and pyrokinesis abilities actually spawn fire"): where a fireball lands, real (temporary)
+	 * fire -- on the face of the block it struck, or on the ground under the creature it hit.
+	 */
+	private static void impactFire(AlienProjectileEntity proj, ServerLevel l, net.minecraft.world.phys.HitResult hit, int ttl) {
+		if (!(proj.getOwner() instanceof ServerPlayer sp)) {
+			return;
+		}
+		if (hit instanceof net.minecraft.world.phys.BlockHitResult bh) {
+			PyrokinesisHandlers.placeFire(sp, l, bh.getBlockPos().relative(bh.getDirection()), ttl);
+		} else {
+			PyrokinesisHandlers.groundFire(sp, l, hit instanceof net.minecraft.world.phys.EntityHitResult eh ? eh.getEntity().position() : hit.getLocation(), ttl);
+		}
 	}
 
 	/** The superhero landing ({@code HeroLandingFx}, which draws the shared shockwave): his sound and embers. */
@@ -903,6 +920,7 @@ public final class HeatblastKit extends AlienKit {
 		OmnitrixSounds.play(l, p.position(), SND_LASSO, 1.0f, 1.0f);
 		target.invulnerableTime = 0;
 		hurt(p, target, LASSO_DAMAGE, true);
+		PyrokinesisHandlers.groundFire(p, level(p), target.position(), 60); // v0.17.2: the lash sets the ground under it alight
 		target.igniteForSeconds(5);
 		l.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY() + target.getBbHeight() * 0.6, target.getZ(), 16, 0.3, 0.4, 0.3, 0.04);
 		return true;
@@ -1325,6 +1343,9 @@ public final class HeatblastKit extends AlienKit {
 		if (age % 20 == 0) {
 			OmnitrixSounds.play(l, c, SND_TORNADO, 1.2f, 1.0f);
 		}
+		if (age % 6 == 0) {
+			PyrokinesisHandlers.fireScatter(p, l, c, 2.0, 1, 60); // v0.17.2: the twister leaves fire behind it
+		}
 		for (LivingEntity e : around(p, c.add(0, 2, 0), TORNADO_PULL)) {
 			Vec3 to = c.subtract(e.position()).multiply(1, 0, 1);
 			double d = to.length();
@@ -1613,6 +1634,7 @@ public final class HeatblastKit extends AlienKit {
 		l.sendParticles(ParticleTypes.LARGE_SMOKE, top.x, top.y + 3.5, top.z, 4, 0.3, 0.5, 0.3, 0.02);
 		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, under), top.x, top.y + 0.2, top.z, 14, 0.4, 0.2, 0.4, 0.15);
 		OmnitrixSounds.play(l, top, SND_GEYSER, 0.9f, 0.9f + step * 0.04f);
+		PyrokinesisHandlers.placeFire(p, l, ground.above(), 100); // v0.17.2: each vent keeps burning
 		for (LivingEntity e : around(p, top.add(0, 1.0, 0), 1.9)) {
 			if (er.hits().add(e.getId())) {
 				e.invulnerableTime = 0;
@@ -1702,6 +1724,9 @@ public final class HeatblastKit extends AlienKit {
 			e.igniteForSeconds(5);
 			shove(e, c, 1.4, 0.55);
 		}
+		// v0.17.2: the crater burns -- a ring of fire round the impact and fires scattered inside it
+		PyrokinesisHandlers.fireRing(p, l, c, METEOR_RADIUS * 0.8, 120);
+		PyrokinesisHandlers.fireScatter(p, l, c, METEOR_RADIUS * 0.6, 6, 100);
 	}
 
 	// ---------------------------------------------------------------- vanilla keys
