@@ -20,6 +20,9 @@ public final class StandSounds {
 	public static final SoundEvent MENACING = register("menacing");
 	public static final SoundEvent PUNCH = register("punch");
 	public static final SoundEvent ORA_RUSH = register("ora_rush");
+	/** v0.17.2: the user's ORA ORA ORA clip -- one ORA per punch (five takes, picked at random) and the whole barrage. */
+	public static final SoundEvent ORA = register("ora");
+	public static final SoundEvent ORA_BARRAGE = register("ora_barrage");
 	public static final SoundEvent ORA_FINISHER = register("ora_finisher");
 	public static final SoundEvent STAR_FINGER = register("star_finger");
 	public static final SoundEvent GRAB = register("grab");

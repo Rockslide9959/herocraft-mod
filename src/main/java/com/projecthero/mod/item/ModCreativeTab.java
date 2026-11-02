@@ -63,6 +63,7 @@ public final class ModCreativeTab {
 				output.accept(ModItems.STORMBREAKER);
 				output.accept(ModItems.UNFORGED_STORMBREAKER);
 				output.accept(ModItems.POWER_SUPPRESSOR);
+				output.accept(ModItems.HUSK_HORDE_EGG);
 				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL);
 				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL_FILLED);
 				// v0.13.19: the Symbiote Meteorite (break it and a free Symbiote crawls out) -- for admins.

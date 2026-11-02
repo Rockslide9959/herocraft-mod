@@ -102,11 +102,11 @@ public final class StandCombat {
 		return d.add(0, lift, 0);
 	}
 
-	/** The fist hitting: purple dust and a crit spark (Stand users see the dust; the crit is the victim's). */
+	/** The fist hitting: a flash and shockwave ring (Stand users see it) and a crit spark (the victim's). */
 	private static void impactFx(ServerPlayer owner, LivingEntity target, boolean landed) {
 		ServerLevel level = (ServerLevel) owner.level();
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.6, 0);
-		Stands.particles(level, Stands.AURA, c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0.02);
+		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.IMPACT, c, c.subtract(owner.position().add(0, 1.2, 0)), landed ? 0.8f : 0.5f);
 		if (landed) {
 			Stands.particles(level, ParticleTypes.CRIT, c.x, c.y, c.z, 4, 0.2, 0.2, 0.2, 0.25);
 		}

@@ -56,7 +56,6 @@ public final class StandRender {
 		Vec3 pos;
 		float yaw = Float.NaN;
 		long lastNanos;
-		long lastMote;
 	}
 
 	private static final Map<Integer, Smooth> SMOOTH = new ConcurrentHashMap<>();
@@ -203,7 +202,7 @@ public final class StandRender {
 			alpha = 1f - Mth.clamp(age / animLength(StandState.ANIM_DISMISS), 0f, 1f);
 		}
 		if (firstPerson) {
-			alpha *= 0.6f; // see-through enough to fight past (it stands across the crosshair now)
+			alpha *= 0.92f; // all but solid (user: "dont make star platinum look so see through")
 		}
 		if (alpha <= 0.02f) {
 			return;
@@ -244,7 +243,13 @@ public final class StandRender {
 			renderHeldBlock(pose, buffers, p, partial, cam, s.grabbedBlock, light);
 		}
 		renderText(pose, buffers, p, s, pos, age, t, cam);
-		motes(p, s, pos, now, firstPerson, cam);
+	}
+
+	/** A steady pseudo-random 0..1 from an int (the same arm keeps its spot all through one punch). */
+	private static float hash(int n) {
+		n = (n << 13) ^ n;
+		n = n * (n * n * 15731 + 789221) + 1376312589;
+		return (n & 0x7fffffff) / (float) 0x7fffffff;
 	}
 
 	private static Vec3 dir(float yawDeg) {
@@ -272,24 +277,50 @@ public final class StandRender {
 		m.rightPants.copyFrom(m.rightLeg);
 	}
 
-	/** Six ghostly fists blurring round the real two. */
+	/** How many barrage arms are out at once, and how long each one lives (ticks). */
+	private static final int BARRAGE_ARMS = 28;
+	private static final float BARRAGE_LIFE = 4.5f;
+
+	/**
+	 * v0.17.2 (user: "for his barrage i want it to look like how it looks in the anime, tons of arms spawned in at once and throwing
+	 * punches forward and then disappearing"): a crowd of extra arms, each popping in somewhere round the chest and shoulders, driving
+	 * a straight punch forward and fading out at full reach, then reappearing somewhere else -- staggered so there are always a
+	 * dozen-plus mid-punch. Each draws a fainter after-image a little behind it for the speed blur.
+	 */
 	private static void renderRushArms(PoseStack pose, VertexConsumer vc, PlayerModel<Player> m, float t, int light, int a) {
 		var saveR = m.rightArm.storePose();
 		var saveL = m.leftArm.storePose();
-		int ga = (int) (a * 0.38f);
-		for (int i = 0; i < 6; i++) {
-			boolean right = i % 2 == 0;
+		for (int i = 0; i < BARRAGE_ARMS; i++) {
+			float phase = t / BARRAGE_LIFE + i * 0.618f;
+			int cycle = Mth.floor(phase);
+			float u = phase - cycle; // 0 = popping in, 1 = gone at full reach
+			int seed = i * 7919 + cycle * 104729;
+			boolean right = (seed & 1) == 0;
 			ModelPart arm = right ? m.rightArm : m.leftArm;
 			ModelPart sleeve = right ? m.rightSleeve : m.leftSleeve;
-			arm.loadPose(right ? saveR : saveL);
-			float ph = t * 2.6f + i * 1.7f;
-			arm.xRot = -Mth.HALF_PI + 0.35f * Mth.sin(ph) - 0.15f * (i / 2);
-			arm.yRot = (right ? -1f : 1f) * (0.25f + 0.18f * (i / 2)) + 0.12f * Mth.cos(ph);
-			arm.x += (right ? 1.5f : -1.5f) * (i / 2);
-			arm.y += -1.5f + 1.5f * (i / 2) + Mth.sin(ph * 0.7f);
-			sleeve.copyFrom(arm);
-			arm.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);
-			sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);
+			float ox = (hash(seed) - 0.5f) * 24f; // across the chest and past both shoulders
+			float oy = (hash(seed + 1) - 0.6f) * 16f; // head height down to the belt
+			float aimYaw = -ox * 0.022f + (hash(seed + 2) - 0.5f) * 0.12f; // fists converge a little toward the middle
+			float aimPitch = (hash(seed + 3) - 0.5f) * 0.25f;
+			float reach = 4f + 20f * ease(Math.min(1f, u * 1.6f)); // a quick snap out, then hangs at full reach
+			float fade = u < 0.15f ? u / 0.15f : 1f - Mth.clamp((u - 0.55f) / 0.45f, 0f, 1f);
+			for (int ghost = 0; ghost < 2; ghost++) {
+				float back = ghost * 3.5f;
+				int ga = (int) (a * fade * (ghost == 0 ? 0.85f : 0.3f));
+				if (ga < 4) {
+					continue;
+				}
+				arm.loadPose(right ? saveR : saveL);
+				arm.xRot = -Mth.HALF_PI + aimPitch;
+				arm.yRot = aimYaw;
+				arm.zRot = 0f;
+				arm.x = (right ? -5f : 5f) + ox * 0.6f;
+				arm.y = 2f + oy;
+				arm.z = -(reach - back) + 2f;
+				sleeve.copyFrom(arm);
+				arm.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);
+				sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);
+			}
 		}
 		m.rightArm.loadPose(saveR);
 		m.leftArm.loadPose(saveL);
@@ -348,22 +379,6 @@ public final class StandRender {
 		float w = font.width(text) / 2f;
 		font.drawInBatch(text, -w, 0f, colour, true, pose.last().pose(), buffers, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
 		pose.popPose();
-	}
-
-	/** Faint violet motes off its outline (client particles: only this Stand user's client spawns them). */
-	private static void motes(Player p, StandState s, Vec3 pos, long now, boolean firstPerson, Vec3 cam) {
-		Minecraft mc = Minecraft.getInstance();
-		Smooth sm = SMOOTH.get(p.getId());
-		if (sm == null || sm.lastMote == now || mc.isPaused() || now % 3 != 0 || TimeStopClient.frozen(p)) {
-			return;
-		}
-		sm.lastMote = now;
-		var rnd = p.getRandom();
-		Vec3 m = pos.add((rnd.nextDouble() - 0.5) * 0.9, rnd.nextDouble() * 2.1, (rnd.nextDouble() - 0.5) * 0.9);
-		if (firstPerson && m.distanceToSqr(cam) < 1.5 * 1.5) {
-			return;
-		}
-		p.level().addParticle(Stands.AURA, m.x, m.y, m.z, 0, 0.01, 0);
 	}
 
 	private static int light(Player p, Vec3 at) {

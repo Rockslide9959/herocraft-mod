@@ -220,6 +220,20 @@ public final class Stands {
 	}
 
 	/**
+	 * v0.17.2: a rendered Stand effect ({@link com.projecthero.mod.stand.network.StandFxPayload}), sent to the Stand users in range
+	 * (nobody else sees it) -- the flashes, rings and beams that replaced the violet dust.
+	 */
+	public static void vfx(ServerLevel level, int kind, Vec3 at, Vec3 dir, float size) {
+		var payload = new com.projecthero.mod.stand.network.StandFxPayload(kind, at.x, at.y, at.z, dir.x, dir.y, dir.z, size);
+		double r2 = StandConfig.FX_RANGE * StandConfig.FX_RANGE;
+		for (ServerPlayer viewer : level.players()) {
+			if (isStandUser(viewer) && viewer.distanceToSqr(at) < r2) {
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(viewer, payload);
+			}
+		}
+	}
+
+	/**
 	 * Re-sends every online Stand user's state (a fresh copy, so Fabric syncs it again): called when someone becomes a Stand
 	 * user, whose client then receives the others' Stands it was not allowed to see before.
 	 */
@@ -254,8 +268,7 @@ public final class Stands {
 		TimeStop.sendStateTo(player); // a Stand user sees a running stop's colour drain
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
-		particles(level, AURA_BIG, c.x, c.y, c.z, 60, 0.6, 1.0, 0.6, 0.02);
-		particles(level, ParticleTypes.END_ROD, c.x, c.y, c.z, 20, 0.5, 0.9, 0.5, 0.04);
+		vfx(level, com.projecthero.mod.stand.network.StandFxPayload.AURA, player.position(), new Vec3(0, 1, 0), 1.4f);
 		sound(level, c, StandSounds.AWAKEN, 1.0f, 1.0f);
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
 				Component.translatable(type.nameKey()).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)));
@@ -318,14 +331,8 @@ public final class Stands {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = StarPlatinum.restPoint(player);
-		// v0.17.2: the summoner gets no copy of the burst -- right at their shoulder it filled a first-person screen with huge
-		// squares (they still have the sound, the ゴゴゴ and the Stand fading in); every other Stand user sees it
-		for (ServerPlayer viewer : level.players()) {
-			if (viewer != player && isStandUser(viewer)) {
-				level.sendParticles(viewer, AURA_BIG, false, c.x, c.y + 1.0, c.z, 30, 0.4, 0.8, 0.4, 0.02);
-				level.sendParticles(viewer, ParticleTypes.WITCH, false, c.x, c.y + 1.0, c.z, 12, 0.4, 0.8, 0.4, 0.05);
-			}
-		}
+		// v0.17.2: a soft glow rising round the Stand (no dust; the summoner's own client skips it in first person)
+		vfx(level, com.projecthero.mod.stand.network.StandFxPayload.AURA, c, new Vec3(0, 1, 0), 1.0f);
 		sound(level, c, StandSounds.SUMMON, 1.0f, 1.0f);
 		sound(level, c, StandSounds.MENACING, 0.7f, 1.0f);
 	}
@@ -344,7 +351,7 @@ public final class Stands {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = StarPlatinum.restPoint(player);
-		particles(level, AURA, c.x, c.y + 1.0, c.z, 16, 0.3, 0.7, 0.3, 0.01);
+		vfx(level, com.projecthero.mod.stand.network.StandFxPayload.AURA, c, new Vec3(0, -1, 0), 0.8f);
 		sound(level, c, StandSounds.DISMISS, 0.8f, 1.0f);
 	}
 
@@ -411,10 +418,6 @@ public final class Stands {
 		if (now - pose.start() >= StandConfig.POSE_RESIST_AFTER && now % 10 == 0) {
 			// holding the pose: a nod to "menacing"
 			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30, 0, true, false, true));
-			if (now % 20 == 0) {
-				Vec3 c = player.position();
-				particles((ServerLevel) player.level(), AURA, c.x, c.y + 1.2, c.z, 3, 0.6, 0.6, 0.6, 0.0);
-			}
 		}
 	}
 

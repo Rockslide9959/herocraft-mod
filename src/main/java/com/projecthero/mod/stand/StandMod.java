@@ -42,6 +42,8 @@ public final class StandMod {
 
 		PayloadTypeRegistry.playC2S().register(StandActionPayload.TYPE, StandActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TimeStopPayload.TYPE, TimeStopPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
+				com.projecthero.mod.stand.network.StandFxPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(StandActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
 			if (!Stands.hasPower(p)) {

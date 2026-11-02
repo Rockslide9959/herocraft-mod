@@ -168,8 +168,7 @@ public final class TimeStop {
 		broadcast(level.getServer());
 		Vec3 c = caster.position().add(0, 1.2, 0);
 		Stands.sound(level, c, StandSounds.TIME_STOP, 1.2f, 1.0f);
-		Stands.particles(level, Stands.AURA_BIG, c.x, c.y, c.z, 50, 1.2, 1.0, 1.2, 0.05);
-		Stands.particles(level, ParticleTypes.END_ROD, c.x, c.y, c.z, 30, 1.5, 1.0, 1.5, 0.15);
+		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.WORLD, caster.position(), new Vec3(0, 1, 0), 1.0f);
 		caster.displayClientMessage(stopMessage("message.projecthero.stand.time_stop", ticks / 20f), true);
 		return true;
 	}

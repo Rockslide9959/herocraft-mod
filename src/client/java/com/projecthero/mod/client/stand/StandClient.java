@@ -28,11 +28,15 @@ public final class StandClient {
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(StandHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(StandRender::render);
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(StandFx::render);
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
+				(payload, context) -> StandFx.receive(payload));
 		WorldRenderEvents.END.register(TimeStopClient::render);
 		ClientPlayNetworking.registerGlobalReceiver(TimeStopPayload.TYPE, (payload, context) -> TimeStopClient.receive(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			TimeStopClient.reset();
 			StandRender.reset();
+			StandFx.reset();
 		});
 	}
 

@@ -231,6 +231,8 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		Stands.breakPose(p);
 		fx(p, heavy ? StandSounds.ORA_FINISHER : StandSounds.PUNCH, heavy ? 0.9f : 0.7f, 0.9f + p.getRandom().nextFloat() * 0.2f);
+		// v0.17.2 (user: "play random oras during all his punches"): a random ORA take, the heavy third a little deeper
+		fx(p, StandSounds.ORA, 1.0f, heavy ? 0.9f : 0.96f + p.getRandom().nextFloat() * 0.1f);
 		return InteractionResult.SUCCESS;
 	}
 
@@ -246,7 +248,21 @@ public final class StarPlatinum {
 		n.rushStart = p.level().getGameTime();
 		n.guarding = false;
 		Stands.save(p, n);
-		fx(p, StandSounds.ORA_RUSH, 1.0f, 1.0f);
+		fx(p, StandSounds.ORA_RUSH, 0.6f, 1.0f);
+		// v0.17.2 (user's clip: "play this during the barrage"): the ORA ORA ORA runs as long as the rush, cut when it ends
+		fx(p, StandSounds.ORA_BARRAGE, 1.0f, 1.0f);
+	}
+
+	/** Cuts the ORA ORA ORA short for the Stand users who hear it (the rush ended before the clip did). */
+	private static void stopBarrageSound(ServerPlayer p) {
+		var packet = new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(StandSounds.ORA_BARRAGE.getLocation(),
+				net.minecraft.sounds.SoundSource.PLAYERS);
+		double r2 = StandConfig.FX_RANGE * StandConfig.FX_RANGE;
+		for (ServerPlayer viewer : level(p).players()) {
+			if (Stands.isStandUser(viewer) && viewer.distanceToSqr(p) < r2) {
+				viewer.connection.send(packet);
+			}
+		}
 	}
 
 	/** Letting go of R (or running dry): one ORAAA knockback punch. */
@@ -266,10 +282,11 @@ public final class StarPlatinum {
 		n.animStart = now;
 		n.abilityReadyAt.put(StandMove.ORA_RUSH, now + StandConfig.RUSH_COOLDOWN);
 		Stands.save(p, n);
+		stopBarrageSound(p);
 		fx(p, StandSounds.ORA_FINISHER, 1.1f, 1.0f);
+		fx(p, StandSounds.ORA, 1.2f, 0.88f); // the last, drawn-out ORA
 		Vec3 c = p.position().add(dir.scale(1.8)).add(0, 1.2, 0);
-		Stands.particles(level(p), ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		Stands.particles(level(p), Stands.AURA_BIG, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.05);
+		Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.BURST, c, dir, 1.2f);
 	}
 
 	private static void tickRush(ServerPlayer p, StandState s, long now) {
@@ -304,12 +321,11 @@ public final class StarPlatinum {
 			}
 		}
 		if (t % 4 == 0) {
-			fx(p, StandSounds.PUNCH, 0.6f, 0.9f + p.getRandom().nextFloat() * 0.4f);
+			fx(p, StandSounds.PUNCH, 0.35f, 0.9f + p.getRandom().nextFloat() * 0.4f); // under the clip's voice
 			Vec3 c = p.position().add(dir.scale(1.6)).add(0, 1.2, 0);
-			Stands.particles(level(p), Stands.AURA, c.x, c.y, c.z, 4, 0.4, 0.4, 0.4, 0.05);
-		}
-		if (t % 12 == 0 && t > 0) {
-			fx(p, StandSounds.ORA_RUSH, 0.8f, 1.0f);
+			var rnd = p.getRandom();
+			Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.IMPACT, c.add((rnd.nextDouble() - 0.5) * 0.7, (rnd.nextDouble() - 0.5) * 0.6, (rnd.nextDouble() - 0.5) * 0.7), dir,
+					0.55f);
 		}
 	}
 
@@ -346,9 +362,8 @@ public final class StarPlatinum {
 		st.abilityReadyAt.put(StandMove.STAR_FINGER, now + StandConfig.FINGER_COOLDOWN);
 		Stands.save(p, st);
 		double len = end.distanceTo(eye);
-		for (double d = 1.0; d < len; d += 0.35) {
-			Vec3 at = eye.add(look.scale(d)).subtract(0, 0.25, 0);
-			Stands.particles(level(p), Stands.AURA, at.x, at.y, at.z, 1, 0.02, 0.02, 0.02, 0.0);
+		if (len > 1.0) {
+			Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.BEAM, eye.add(look).subtract(0, 0.25, 0), end.subtract(0, 0.25, 0), 1.0f);
 		}
 		fx(p, StandSounds.STAR_FINGER, 1.0f, 1.0f);
 	}
@@ -691,7 +706,7 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		fx(p, StandSounds.CATCH, 1.0f, 1.0f);
 		Vec3 c = p.position().add(forward(p).scale(0.8)).add(0, 1.2, 0);
-		Stands.particles(level(p), Stands.AURA_BIG, c.x, c.y, c.z, 8, 0.2, 0.2, 0.2, 0.02);
+		Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.IMPACT, c, forward(p), 0.9f);
 		if (source.getDirectEntity() instanceof Projectile proj) {
 			proj.discard();
 		}
@@ -766,8 +781,7 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		fx(p, StandSounds.STAR_BREAKER, 1.2f, 1.0f - 0.2f * charge);
 		Vec3 c = p.getEyePosition().add(look.scale(2.0));
-		Stands.particles(level, ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		Stands.particles(level, Stands.AURA_BIG, c.x, c.y, c.z, (int) (10 + 20 * charge), 0.5, 0.5, 0.5, 0.1);
+		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.BURST, c, look, 1.2f + 0.8f * charge);
 	}
 
 	// ---------------------------------------------------------------- Shift+Z: The World
@@ -838,7 +852,7 @@ public final class StarPlatinum {
 			if (minDot > -1.0 && (flat.lengthSqr() < 1.0e-4 || flat.normalize().dot(dir) < minDot)) {
 				continue;
 			}
-			Stands.particles(level(p), Stands.AURA, proj.getX(), proj.getY(), proj.getZ(), 5, 0.1, 0.1, 0.1, 0.02);
+			Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.IMPACT, proj.position(), proj.position().subtract(p.position()), 0.5f);
 			fx(p, StandSounds.CATCH, 0.7f, 1.2f);
 			proj.discard();
 			StandState n = Stands.state(p).copy();
@@ -964,7 +978,7 @@ public final class StarPlatinum {
 		Stands.save(p, n);
 		fx(p, StandSounds.UPPERCUT, 1.0f, 1.0f);
 		Vec3 c = p.position().add(forward(p).scale(1.4)).add(0, 1.0, 0);
-		Stands.particles(level(p), Stands.AURA_BIG, c.x, c.y, c.z, 12, 0.2, 0.8, 0.2, 0.05);
+		Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.RISE, c, new Vec3(0, 1, 0), 1.0f);
 	}
 
 	// ---------------------------------------------------------------- tick / clear
@@ -1035,6 +1049,9 @@ public final class StarPlatinum {
 		if (s.sightUntil != 0L) {
 			endSight(p);
 			s = Stands.state(p);
+		}
+		if (s.rushing) {
+			stopBarrageSound(p);
 		}
 		if (s.rushing || s.guarding || s.chargeStart != 0L || s.inhaleUntil != 0L) {
 			StandState n = s.copy();

@@ -3056,6 +3056,35 @@
       }
     ]
   },
+  "stand.star_platinum.ora": {
+    "subtitle": "subtitles.projecthero.stand.ora",
+    "sounds": [
+      {
+        "name": "projecthero:stand/star_platinum/ora_1"
+      },
+      {
+        "name": "projecthero:stand/star_platinum/ora_2"
+      },
+      {
+        "name": "projecthero:stand/star_platinum/ora_3"
+      },
+      {
+        "name": "projecthero:stand/star_platinum/ora_4"
+      },
+      {
+        "name": "projecthero:stand/star_platinum/ora_5"
+      }
+    ]
+  },
+  "stand.star_platinum.ora_barrage": {
+    "subtitle": "subtitles.projecthero.stand.ora_barrage",
+    "sounds": [
+      {
+        "name": "projecthero:stand/star_platinum/ora_barrage",
+        "stream": true
+      }
+    ]
+  },
   "stand.star_platinum.ora_finisher": {
     "subtitle": "subtitles.projecthero.stand.ora_finisher",
     "sounds": [

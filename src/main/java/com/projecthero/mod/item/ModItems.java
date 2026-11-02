@@ -59,6 +59,9 @@ public final class ModItems {
 	public static final Item POWER_SUPPRESSOR = register("power_suppressor", PowerSuppressorItem::new,
 			new Item.Properties().rarity(Rarity.UNCOMMON));
 
+	/** v0.17.2 testing aid: spawns 10 husks at once. See {@link HuskHordeEggItem}. */
+	public static final Item HUSK_HORDE_EGG = register("husk_horde_egg", HuskHordeEggItem::new, new Item.Properties());
+
 	/** v0.16.7: texture-only icon items for the creative tabs (not listed in any tab). */
 	public static final Item TAB_ICON_IRON_MAN = register("tab_icon_iron_man", Item::new, new Item.Properties());
 	public static final Item TAB_ICON_SUPERHEROES = register("tab_icon_superheroes", Item::new, new Item.Properties());
