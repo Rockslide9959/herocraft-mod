@@ -62,13 +62,25 @@ public final class OmnitrixFirstPerson {
 		float dip = slap < Omnitrix.SLAP_TICKS + 2
 				? Mth.sin(Mth.clamp((slap - OmnitrixHands.SLAP_HIT + 1f) / (Omnitrix.SLAP_TICKS + 1f), 0f, 1f) * Mth.PI) * 0.05f : 0f;
 		PoseStack rel = new PoseStack();
-		// where the shoulder sits in camera space (x right, y up, -z ahead), sliding up from below the screen
-		rel.translate(-0.5f, -0.24f - (1f - raise) * 0.9f - dip, -0.95f);
-		rel.mulPose(Axis.ZP.rotationDegrees(14f));   // the wrist a little higher than the elbow
-		rel.mulPose(Axis.YP.rotationDegrees(18f));   // the face turned round toward the eye
-		rel.mulPose(Axis.XP.rotationDegrees(-18f));  // and tipped up a little
-		// arm space -> camera space: down the arm (+y) = right, the arm's outer side (+x, the dial) = toward the eye
-		rel.mulPose(new Matrix4f(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
+		if (Omnitrix.recalibrated(p)) {
+			// v0.17.2 (user: "he looks at the hologram directly like front facing"): the recalibrated wrist held out low in the middle of
+			// the view, the forearm running in from the lower left, the face up (tipped a little toward the eye) so the hologram
+			// stands upright in front of the eyes
+			Vector3f n = new Vector3f(0f, Mth.cos(25f * Mth.DEG_TO_RAD), Mth.sin(25f * Mth.DEG_TO_RAD));
+			Vector3f d = new Vector3f(0.55f, 0f, -0.84f);
+			d.sub(new Vector3f(n).mul(d.dot(n))).normalize();
+			Vector3f z = new Vector3f(n).cross(d);
+			rel.translate(-0.26f, -0.6f - (1f - raise) * 0.9f - dip, -0.6f);
+			rel.mulPose(new Matrix4f(n.x, n.y, n.z, 0f, d.x, d.y, d.z, 0f, z.x, z.y, z.z, 0f, 0f, 0f, 0f, 1f));
+		} else {
+			// where the shoulder sits in camera space (x right, y up, -z ahead), sliding up from below the screen
+			rel.translate(-0.5f, -0.24f - (1f - raise) * 0.9f - dip, -0.95f);
+			rel.mulPose(Axis.ZP.rotationDegrees(14f));   // the wrist a little higher than the elbow
+			rel.mulPose(Axis.YP.rotationDegrees(18f));   // the face turned round toward the eye
+			rel.mulPose(Axis.XP.rotationDegrees(-18f));  // and tipped up a little
+			// arm space -> camera space: down the arm (+y) = right, the arm's outer side (+x, the dial) = toward the eye
+			rel.mulPose(new Matrix4f(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
+		}
 		rel.translate(-5f / 16f, -2f / 16f, 0f); // undo the arm's own shoulder pivot
 		Matrix4f leftBase = new Matrix4f(rel.last().pose());
 		PlayerRenderer renderer = (PlayerRenderer) Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(p);

@@ -41,6 +41,21 @@ public final class OmnitrixPose {
 	private static final float[] HAND_BUTTON = { -0.666f, 0.764f, -1.019f };
 	private static final float[] HAND_BUTTON_PRESS = { -0.718f, 0.721f, -1.169f };
 	private static final float SHOULDER_DROP = 6f, HAND_DROP = 2.5f;
+	/*
+	 * v0.17.2 (user: "change the position in which he holds his wrist out so that he looks at the hologram directly like front facing"):
+	 * the Recalibrated Omnitrix's raised wrist -- the left forearm straight out in front at chest height, swung in to the middle, the
+	 * face up so the hologram stands upright in front of the head; the right hand's stops (resting by the face, wound up over it,
+	 * pressing it) solved for that face with scratchpad/recal_v0172/recal_pose_solver.js.
+	 */
+	private static final float[] RECAL_WATCH_ARM = { -1.990f, 0.000f, -1.571f };
+	// round 2: the hand rests BESIDE the watch (by the knob, below the face) so it never covers his face; it winds up above and in
+	// front of the face and comes straight down on it
+	private static final float[] RECAL_HAND_ON = { -1.643f, -0.610f, 0.041f };
+	private static final float[] RECAL_HAND_UP = { -2.304f, 0.281f, 1.329f };
+	private static final float[] RECAL_HAND_PRESS = { -2.408f, 0.098f, 1.461f };
+	private static final float RECAL_SHOULDER_DROP = 5f, RECAL_HEAD_DOWN = 0.22f;
+	/** Round 2: both arms 3 px lower than solved, so the watch sits at chest height and the right arm passes under the chin. */
+	private static final float RECAL_HAND_LOWER = 3f;
 	private static final float HEAD_DOWN = 0.42f;
 
 	private OmnitrixPose() {
@@ -70,20 +85,22 @@ public final class OmnitrixPose {
 		// head bowed to look at it, the right hand over the dial -- twisting it on each scroll, slapping the core on the click
 		OmnitrixHands.Rig rig = OmnitrixWatch.rig(p, partial);
 		float raise = rig.raise;
+		boolean recal = Omnitrix.recalibrated(p);
+		float[] handOn = recal ? RECAL_HAND_ON : HAND_ON, handUp = recal ? RECAL_HAND_UP : HAND_UP, handPress = recal ? RECAL_HAND_PRESS : HAND_PRESS;
 		if (raise > 0f) {
-			set(m.leftArm, raise, WATCH_ARM);
-			m.leftArm.y += SHOULDER_DROP * raise;
-			m.head.xRot = Mth.lerp(raise, m.head.xRot, HEAD_DOWN);
+			set(m.leftArm, raise, recal ? RECAL_WATCH_ARM : WATCH_ARM);
+			m.leftArm.y += (recal ? RECAL_SHOULDER_DROP : SHOULDER_DROP) * raise;
+			m.head.xRot = Mth.lerp(raise, m.head.xRot, recal ? RECAL_HEAD_DOWN : HEAD_DOWN);
 			m.head.yRot = Mth.lerp(raise, m.head.yRot, 0f);
 			m.hat.copyFrom(m.head);
 			// the right hand arrives a beat after the wrist
 			float hand = Mth.clamp((raise - 0.25f) / 0.75f, 0f, 1f);
 			hand = hand * hand * (3f - 2f * hand);
-			float[] target = HAND_ON.clone();
+			float[] target = handOn.clone();
 			// v0.17.1: R's button press (and the one that lowers it): the fingertips go to the cuff's side button, push it, and
 			// come back onto the dial
 			float w = Mth.clamp(rig.press3p, 0f, 1f), push = Mth.clamp((rig.press3p - 1f) / 0.6f, 0f, 1f);
-			if (w > 0f) {
+			if (w > 0f && !recal) { // v0.17.2: the recalibrated watch is primed by pressing its face (the hand stays on it)
 				for (int i = 0; i < 3; i++) {
 					float b = HAND_BUTTON[i] + (HAND_BUTTON_PRESS[i] - HAND_BUTTON[i]) * push;
 					target[i] = HAND_ON[i] + (b - HAND_ON[i]) * w;
@@ -96,12 +113,15 @@ public final class OmnitrixPose {
 				float up = slap < 1.5f ? Mth.sin(slap / 1.5f * Mth.HALF_PI) : 0f;
 				float press = slap >= 1.5f ? 1f - Mth.clamp((slap - 2.5f) / (Omnitrix.SLAP_TICKS + 1.5f), 0f, 1f) : 0f;
 				for (int i = 0; i < 3; i++) {
-					target[i] = HAND_ON[i] + (HAND_UP[i] - HAND_ON[i]) * up + (HAND_PRESS[i] - HAND_ON[i]) * press;
+					target[i] = handOn[i] + (handUp[i] - handOn[i]) * up + (handPress[i] - handOn[i]) * press;
 					dropW = Math.max(up, press);
 				}
 			}
 			float turn = s.animId == Omnitrix.ANIM_TURN ? t : 99f;
-			if (turn < OmnitrixWatch.SPIN_TICKS) {
+			if (turn < OmnitrixWatch.SPIN_TICKS && recal) {
+				// v0.17.2 round 2: the recalibrated dial turns under the fingers at its side -- a small roll of the wrist only
+				target[2] -= 0.12f * Mth.sin(turn / OmnitrixWatch.SPIN_TICKS * Mth.PI);
+			} else if (turn < OmnitrixWatch.SPIN_TICKS) {
 				// the fingers grip the dial and turn it with the ring's spin: a roll of the hand and back
 				float k = Mth.sin(turn / OmnitrixWatch.SPIN_TICKS * Mth.PI);
 				target[1] += 0.32f * k;
@@ -109,7 +129,7 @@ public final class OmnitrixPose {
 				target[0] -= 0.06f * k;
 			}
 			set(m.rightArm, hand, target);
-			m.rightArm.y += HAND_DROP * hand * dropW;
+			m.rightArm.y += HAND_DROP * hand * dropW + (recal ? RECAL_HAND_LOWER * hand : 0f);
 		}
 		// the alien kit
 		AlienClientKit kit = AlienClients.shownKit(p);

@@ -196,16 +196,18 @@ public final class OmnitrixModel {
 	// ================================================================ v0.17.2: the Recalibrated Omnitrix
 
 	/** The recalibrated watch's bezel: an eight-sided grey ring, angled -- outer radius at its foot / top, inner radius, height. */
-	private static final float RB = 2.0f, RT = 1.72f, RI = 1.4f, BEZEL_H = 0.5f;
+	private static final float RB = 1.6f, RT = 1.38f, RI = 1.12f, BEZEL_H = 0.4f;
+	/** v0.17.2 round 2 (user: "make the wrist band thinner"): the recalibrated band's wall and its half-width along the arm. */
+	private static final float RECAL_WALL = 0.18f, RECAL_HALF_LEN = 1.45f;
 	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
-	private static final float RECAL_FACE_X = 0.36f;
+	private static final float RECAL_FACE_X = 0.28f;
 	public static final float RECAL_FACE_R = RI - 0.06f;
 	/** The recalibrated face pops up less than the prototype's core (it rises inside the ring). */
 	public static final float RECAL_LIFT_SCALE = 0.35f;
 
 	/** x of the recalibrated face for a lift (the hologram and the caller's face quad stand on it). */
 	public static float recalFaceTop(float L, float lift) {
-		return cuffTop(L) + RECAL_FACE_X + lift;
+		return L + GAP + RECAL_WALL + RECAL_FACE_X + lift;
 	}
 
 	/**
@@ -223,27 +225,27 @@ public final class OmnitrixModel {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		Section cuff = new Section(-1f - GAP, L + GAP, 2f + GAP, CORNER);
-		float xo = cuffTop(L);
-		Section outer = cuff.grow(WALL);
+		float xo = L + GAP + RECAL_WALL;
+		Section outer = cuff.grow(RECAL_WALL);
 		// ---- the band and its black stripe
-		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
-		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.06f, cy - 0.6f, cy + 0.6f, WHITE, light);
+		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, RECAL_WALL, cy - RECAL_HALF_LEN, cy + RECAL_HALF_LEN, CUFF, light);
+		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.05f, cy - 0.42f, cy + 0.42f, WHITE, light);
 		// ---- the fins along the arm: a wide root under the bezel, a narrower blade, a grey tab at the tip
 		for (int end = -1; end <= 1; end += 2) {
-			float a = cy + end * 1.2f, b = cy + end * 2.45f, c = cy + end * 3.05f, d = cy + end * 3.4f;
-			box(pose, vc, xo - 0.05f, Math.min(a, b), -1.55f, xo + 0.24f, Math.max(a, b), 1.55f, CUFF, light);
-			box(pose, vc, xo - 0.05f, Math.min(b, c), -1.05f, xo + 0.2f, Math.max(b, c), 1.05f, CUFF, light);
-			box(pose, vc, xo - 0.05f, Math.min(c, d), -0.8f, xo + 0.28f, Math.max(c, d), 0.8f, PLATE, light);
+			float a = cy + end * 1.0f, b = cy + end * 1.85f, c = cy + end * 2.3f, d = cy + end * 2.6f;
+			box(pose, vc, xo - 0.05f, Math.min(a, b), -1.2f, xo + 0.2f, Math.max(a, b), 1.2f, CUFF, light);
+			box(pose, vc, xo - 0.05f, Math.min(b, c), -0.82f, xo + 0.17f, Math.max(b, c), 0.82f, CUFF, light);
+			box(pose, vc, xo - 0.05f, Math.min(c, d), -0.62f, xo + 0.23f, Math.max(c, d), 0.62f, PLATE, light);
 			// the black stripe carried up the fin
-			box(pose, vc, xo + 0.2f, Math.min(b, c), -0.4f, xo + 0.24f, Math.max(b, c), 0.4f, WHITE, light, false);
+			box(pose, vc, xo + 0.17f, Math.min(b, c), -0.3f, xo + 0.2f, Math.max(b, c), 0.3f, WHITE, light, false);
 		}
 		// ---- the knobs: out of the bezel's sides, across the arm
 		for (int side = -1; side <= 1; side += 2) {
 			pose.pushPose();
-			pose.translate((xo + 0.27f) * S, cy * S, side * (RB - 0.15f) * S);
+			pose.translate((xo + 0.21f) * S, cy * S, side * (RB - 0.12f) * S);
 			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
-			cylinder(pose, vc, 0f, 0.62f, 0f, 0f, 0.3f, PLATE, light, 12);
-			cylinder(pose, vc, 0.62f, 0.72f, 0f, 0f, 0.22f, RING, light, 12);
+			cylinder(pose, vc, 0f, 0.5f, 0f, 0f, 0.24f, PLATE, light, 12);
+			cylinder(pose, vc, 0.5f, 0.58f, 0f, 0f, 0.17f, RING, light, 12);
 			pose.popPose();
 		}
 		// ---- the bezel, the collar and the face turn with the dial

@@ -305,9 +305,8 @@ public final class OmnitrixWatch {
 		}
 		if (showIcon && recal) {
 			// v0.17.2 (user): the recalibrated watch projects the alien as a green hologram instead of a dial icon
-			float swap = d == null ? 1f : sp[1];
-			float fade = iconIn * Math.min(1f, 0.25f + swap); // each turn flickers the new alien in
-			RecalHologram.render(pose, buffers, shown, top, cy, Mth.clamp(fade, 0f, 1f), p.level().getGameTime() + partial);
+			// v0.17.2 round 2: the hologram strobes the old alien out and the new one in by itself (RecalHologram)
+			RecalHologram.render(pose, buffers, p, shown, top, cy, Mth.clamp(iconIn, 0f, 1f), p.level().getGameTime() + partial);
 		} else if (showIcon) {
 			float swap = d == null ? 1f : sp[1];
 			if (iconIn >= 0.999f && swap >= 0.999f) {

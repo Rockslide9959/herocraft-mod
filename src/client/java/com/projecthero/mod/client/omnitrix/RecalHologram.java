@@ -1,5 +1,11 @@
 package com.projecthero.mod.client.omnitrix;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -16,19 +22,32 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.2 (user: "this watch doesnt use dial icons it displays holograms of the aliens which can just be see through green models that
- * show up as the models"): the Recalibrated Omnitrix's dial. While it is primed, the selected alien stands over the face as a hologram --
- * its own body (the wide player model in its skin), tinted green, see-through and glowing, slowly turning -- on a cone of green light
- * rising from the face. Drawn by {@link OmnitrixWatch} in the arm's space (x out of the face), first and third person alike.
+ * show up as the models"): the Recalibrated Omnitrix's dial. While it is primed, the selected alien stands over the face as a small
+ * hologram -- its own body (the wide player model in its skin), tinted green, see-through and glowing -- on a cone of green light rising
+ * from the face. Round 2 (user: "Shrink the holograms ... dont make the holograms slowly turn when showing just make the front of the
+ * hologram face the player ... when turning the Dial make the alien hologram flicker out and then the next one flicker in"): it always
+ * turns its front to whoever is looking, and a dial turn strobes the old figure out, then the new one in. Drawn by {@link OmnitrixWatch}
+ * in the arm's space (x out of the face), first and third person alike.
  */
 public final class RecalHologram {
 	/** A plain white 64x64 sheet: the hologram's solid "volume" pass is the model's shape in flat green. */
 	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/omnitrix/holo_white.png");
 	/** How tall the figure stands (blocks) and how high over the face its feet float. */
-	private static final float HEIGHT = 0.34f, FLOAT = 0.04f;
+	private static final float HEIGHT = 0.2f, FLOAT = 0.025f;
+	/** A dial turn: the old figure strobes out over OUT ticks, then the new one strobes in over IN ticks. */
+	private static final float OUT = 4f, IN = 5f;
 	private static PlayerModel<LivingEntity> model;
+	/** Per wearer: the figure shown, the one before it and when it changed (client game time). Weak: gone with the player entity. */
+	private static final Map<Player, Shown> SHOWN = new WeakHashMap<>();
+
+	private static final class Shown {
+		String id = "", prev = "";
+		float changedAt = -99f;
+	}
 
 	private RecalHologram() {
 	}
@@ -41,21 +60,39 @@ public final class RecalHologram {
 	}
 
 	/**
-	 * Draws {@code alienId}'s hologram standing on the face centred at ({@code faceX}, {@code cy}, 0) px, faded by {@code alpha} (0..1).
-	 * {@code age} drives the turn, the bob and the shimmer.
+	 * Draws {@code alienId}'s hologram for {@code p}, standing on the face centred at ({@code faceX}, {@code cy}, 0) px, faded by
+	 * {@code alpha} (0..1, the watch's priming). {@code time} is the client game time (with the partial tick).
 	 */
-	public static void render(PoseStack pose, MultiBufferSource buffers, String alienId, float faceX, float cy, float alpha, float age) {
+	public static void render(PoseStack pose, MultiBufferSource buffers, Player p, String alienId, float faceX, float cy, float alpha, float time) {
 		if (alpha <= 0.01f) {
 			return;
 		}
-		AlienClientKit kit = AlienClients.of(alienId);
-		ResourceLocation skin = kit == null || kit.customBody() ? null : kit.skin();
+		Shown sh = SHOWN.computeIfAbsent(p, k -> new Shown());
+		if (!alienId.equals(sh.id)) {
+			sh.prev = sh.id;
+			sh.id = alienId;
+			sh.changedAt = sh.prev.isEmpty() ? -99f : time;
+		}
+		float dt = time - sh.changedAt;
+		String draw = sh.id;
+		float k = 1f;
+		if (dt >= 0f && dt < OUT + IN && !sh.prev.isEmpty()) {
+			// the strobe: on / off every ~1.5 ticks, dimming out, then brightening in
+			boolean on = ((int) (dt * 1.4f)) % 2 == 0;
+			if (dt < OUT) {
+				draw = sh.prev;
+				k = (1f - dt / OUT) * (on ? 1f : 0.15f);
+			} else {
+				k = ((dt - OUT) / IN) * (on ? 1f : 0.25f);
+			}
+		}
 		int lit = LightTexture.FULL_BRIGHT;
-		float shimmer = 0.85f + 0.15f * Mth.sin(age * 0.9f);
-		float bob = 0.012f * Mth.sin(age * 0.12f);
-		// ---- the cone of light from the face up round the figure
-		cone(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE)), faceX / 16f, cy / 16f, alpha);
-		if (skin == null) {
+		float shimmer = 0.85f + 0.15f * Mth.sin(time * 0.9f);
+		cone(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE)), faceX / 16f, cy / 16f, alpha * (0.6f + 0.4f * k));
+		AlienClientKit kit = AlienClients.of(draw);
+		ResourceLocation skin = kit == null || kit.customBody() ? null : kit.skin();
+		float a = alpha * k * shimmer;
+		if (skin == null || a <= 0.01f) {
 			return;
 		}
 		PlayerModel<LivingEntity> m = model();
@@ -68,32 +105,36 @@ public final class RecalHologram {
 		m.young = false;
 		m.riding = false;
 		m.attackTime = 0f;
-		// a calm hologram pose: arms a little out
 		m.rightArm.zRot = 0.12f;
 		m.leftArm.zRot = -0.12f;
 		m.rightSleeve.copyFrom(m.rightArm);
 		m.leftSleeve.copyFrom(m.leftArm);
 		pose.pushPose();
-		// stand on the face: the figure's up (+y) is the face's normal (+x)
-		pose.translate(faceX / 16f + FLOAT + bob, cy / 16f, 0f);
+		// stand on the face: the figure's up (+y) is the face's normal (+x); a slight bob
+		pose.translate(faceX / 16f + FLOAT + 0.006f * Mth.sin(time * 0.12f), cy / 16f, 0f);
 		pose.mulPose(Axis.ZP.rotationDegrees(-90f));
-		pose.mulPose(Axis.YP.rotationDegrees((age * 2.2f) % 360f));
+		// the front (-z after the model's flip) toward the camera: the camera is the origin of the pose's space
+		Matrix4f inv = new Matrix4f(pose.last().pose()).invert();
+		Vector4f cam = inv.transform(new Vector4f(0f, 0f, 0f, 1f));
+		if (cam.x * cam.x + cam.z * cam.z > 1.0e-8f) {
+			pose.mulPose(Axis.YP.rotation((float) Math.atan2(-cam.x, -cam.z)));
+		}
 		float s = HEIGHT / 1.875f;
 		pose.scale(s, s, s);
 		pose.scale(-1f, -1f, 1f);
 		pose.translate(0f, -1.501f, 0f);
-		int a1 = Math.round(70 * alpha * shimmer), a2 = Math.round(175 * alpha * shimmer);
+		int a1 = Math.round(70 * a), a2 = Math.round(175 * a);
 		// the solid green volume, then the skin's detail in green over it
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE)), lit, OverlayTexture.NO_OVERLAY, (a1 << 24) | 0x6CFF7A);
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(skin)), lit, OverlayTexture.NO_OVERLAY, (a2 << 24) | 0xC8FFC0);
 		pose.popPose();
 	}
 
-	/** A cone of light from the face (radius 1.1 px) widening to 3.4 px at the figure's head, fading out as it rises. */
+	/** A cone of light from the face (radius 0.8 px) widening to 2.2 px at the figure's head, fading out as it rises. */
 	private static void cone(PoseStack pose, VertexConsumer vc, float x0, float cy, float alpha) {
 		PoseStack.Pose p = pose.last();
 		int seg = 20;
-		float r0 = 1.1f / 16f, r1 = 3.4f / 16f, x1 = x0 + HEIGHT + 0.05f;
+		float r0 = 0.8f / 16f, r1 = 2.2f / 16f, x1 = x0 + HEIGHT + 0.04f;
 		int lit = LightTexture.FULL_BRIGHT;
 		int aBot = Math.round(110 * alpha), aTop = 0;
 		for (int i = 0; i < seg; i++) {
