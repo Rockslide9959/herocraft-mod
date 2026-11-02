@@ -214,7 +214,8 @@ public final class OmnitrixRenderers {
 			var cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
 			double dx = cam.x - (be.getBlockPos().getX() + 0.5), dz = cam.z - (be.getBlockPos().getZ() + 0.5);
 			boolean inside = dx * dx + dz * dz < 0.36 && cam.y > be.getBlockPos().getY() && cam.y < be.getBlockPos().getY() + 2.2;
-			int col = running && (int) (t / 4) % 2 == 0 ? 0xFF6050 : 0x7CFF6A;
+			// v0.17.2: a recalibration keeps the field green (it pulses brighter instead of flashing red)
+			int col = running && !be.clientRecalibrating() && (int) (t / 4) % 2 == 0 ? 0xFF6050 : running && (int) (t / 4) % 2 == 0 ? 0xB8FF9A : 0x7CFF6A;
 			float pulse = 0.8f + 0.2f * Mth.sin(t * 0.15f);
 			// the two emitter rings: one round the floor, one under the cap
 			ring(vc, p, Y0 + 0.005f, R + 0.05f, 0.035f, col, (int) ((running ? 230 : 170) * pulse));

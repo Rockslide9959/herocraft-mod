@@ -326,11 +326,18 @@ public final class OmnitrixHud {
 		if (t == null) {
 			return;
 		}
+		// v0.17.2: a negative count is the pod's recalibration (-1 - ticks): the same box in green, no self-destruct
+		boolean recal = t < 0;
+		if (recal) {
+			t = -1 - t;
+		}
+		int total = recal ? OmnitrixConfig.RECAL_TICKS : OmnitrixConfig.EXTRACTION_TICKS;
+		int hot = recal ? 0xFF6CFF4A : RED;
 		int w = g.guiWidth();
 		int h = g.guiHeight();
 		boolean on = (now / 6) % 2 == 0;
-		// the red edges
-		int edge = on ? 0x70FF1A10 : 0x40FF1A10;
+		// the red edges (green while recalibrating)
+		int edge = recal ? (on ? 0x4040FF30 : 0x2840FF30) : on ? 0x70FF1A10 : 0x40FF1A10;
 		g.fill(0, 0, w, 6, edge);
 		g.fill(0, h - 6, w, h, edge);
 		g.fill(0, 0, 6, h, edge);
@@ -338,24 +345,25 @@ public final class OmnitrixHud {
 		int bw = Math.min(236, w - 16);
 		int x = w / 2 - bw / 2;
 		int y = 22;
-		Component title = Component.translatable("hud.projecthero.omnitrix.self_destruct");
-		Component sub = Component.translatable("hud.projecthero.omnitrix.extracting", (Math.max(0, OmnitrixConfig.EXTRACTION_TICKS - t) + 19) / 20);
+		Component title = Component.translatable(recal ? "hud.projecthero.omnitrix.recalibrating" : "hud.projecthero.omnitrix.self_destruct");
+		Component sub = Component.translatable(recal ? "hud.projecthero.omnitrix.recal_left" : "hud.projecthero.omnitrix.extracting",
+				(Math.max(0, total - t) + 19) / 20);
 		List<FormattedCharSequence> titleLines = mc.font.split(title, bw - 8);
 		List<FormattedCharSequence> subLines = mc.font.split(sub, bw - 8);
 		int bh = 4 + titleLines.size() * 10 + subLines.size() * 10 + 8;
-		g.fill(x, y, x + bw, y + bh, 0xE0180404);
-		g.renderOutline(x, y, bw, bh, on ? RED : 0xFF801010);
+		g.fill(x, y, x + bw, y + bh, recal ? 0xE0041804 : 0xE0180404);
+		g.renderOutline(x, y, bw, bh, on ? hot : recal ? 0xFF2A8020 : 0xFF801010);
 		int ly = y + 4;
 		for (FormattedCharSequence line : titleLines) {
-			g.drawCenteredString(mc.font, line, w / 2, ly, on ? RED : 0xFFFFB0A0);
+			g.drawCenteredString(mc.font, line, w / 2, ly, on ? hot : recal ? 0xFFC0FFB0 : 0xFFFFB0A0);
 			ly += 10;
 		}
 		for (FormattedCharSequence line : subLines) {
 			g.drawCenteredString(mc.font, line, w / 2, ly, 0xFFFFFFFF);
 			ly += 10;
 		}
-		float frac = Mth.clamp(t / (float) OmnitrixConfig.EXTRACTION_TICKS, 0f, 1f);
-		g.fill(x + 6, y + bh - 8, x + bw - 6, y + bh - 4, 0xFF300808);
-		g.fill(x + 6, y + bh - 8, x + 6 + (int) ((bw - 12) * frac), y + bh - 4, on ? RED : 0xFFC02018);
+		float frac = Mth.clamp(t / (float) total, 0f, 1f);
+		g.fill(x + 6, y + bh - 8, x + bw - 6, y + bh - 4, recal ? 0xFF083008 : 0xFF300808);
+		g.fill(x + 6, y + bh - 8, x + 6 + (int) ((bw - 12) * frac), y + bh - 4, on ? hot : recal ? 0xFF30C020 : 0xFFC02018);
 	}
 }

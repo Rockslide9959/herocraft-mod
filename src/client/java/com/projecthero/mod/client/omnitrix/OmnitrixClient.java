@@ -50,6 +50,17 @@ public final class OmnitrixClient {
 		AlienClients.register(Aliens.DIAMONDHEAD.id(), new com.projecthero.mod.client.omnitrix.alien.DiamondheadClient());
 		AlienClients.register(Aliens.UPGRADE.id(), new com.projecthero.mod.client.omnitrix.alien.UpgradeClient());
 		AlienClients.register(Aliens.GHOSTFREAK.id(), new com.projecthero.mod.client.omnitrix.alien.GhostfreakClient());
+		// v0.17.2: the Recalibrated Omnitrix's ten
+		com.projecthero.mod.client.omnitrix.alien.SwampfireClient.register();
+		com.projecthero.mod.client.omnitrix.alien.EchoEchoClient.register();
+		com.projecthero.mod.client.omnitrix.alien.HumungousaurClient.register();
+		com.projecthero.mod.client.omnitrix.alien.JetrayClient.register();
+		com.projecthero.mod.client.omnitrix.alien.BigChillClient.register();
+		com.projecthero.mod.client.omnitrix.alien.ChromastoneClient.register();
+		com.projecthero.mod.client.omnitrix.alien.BrainstormClient.register();
+		com.projecthero.mod.client.omnitrix.alien.SpidermonkeyClient.register();
+		com.projecthero.mod.client.omnitrix.alien.GoopClient.register();
+		com.projecthero.mod.client.omnitrix.alien.AlienXClient.register();
 
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_METEOR, OmnitrixRenderers.Meteor::new);
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_POD, OmnitrixRenderers.Pod::new);

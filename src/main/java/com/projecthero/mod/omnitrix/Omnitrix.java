@@ -163,6 +163,56 @@ public final class Omnitrix {
 	/** Gametests: this wearer's slaps never glitch. */
 	private static final String NO_GLITCH = "omnitrix.no_glitch";
 
+	/**
+	 * v0.17.2: the Recalibrated Omnitrix (Ben 10: Alien Force; user: "come up with a way for the player to recalibrate the omnitrix").
+	 * A flag in the persisted timers (1 = recalibrated), so it needs no codec change, survives death and syncs like the rest. Its
+	 * dial is {@code Aliens.recalibrated()}; the watch, the sounds and the face change with it. Made by the Containment Pod with a
+	 * Recalibration Chip ({@code OmnitrixPodBlockEntity}).
+	 */
+	public static final String RECAL = "omnitrix.recal";
+	/** v0.17.2: transformations made with the prototype (the Recalibration Chip asks for {@code OmnitrixConfig.RECAL_MIN_TRANSFORMS}). */
+	public static final String TRANSFORMS = "omnitrix.transforms";
+
+	/** v0.17.2: {@code p} wears the Recalibrated Omnitrix (client-safe: the synced state). */
+	public static boolean recalibrated(Player p) {
+		return p != null && hasPower(p) && state(p).readyAt(RECAL) == 1L;
+	}
+
+	/** v0.17.2: how many times {@code p} has transformed with the prototype. */
+	public static int prototypeTransforms(Player p) {
+		return hasPower(p) ? (int) state(p).readyAt(TRANSFORMS) : 0;
+	}
+
+	/**
+	 * v0.17.2: the pod's recalibration lands -- the watch becomes the Recalibrated Omnitrix, its dial the Alien Force ten (the first
+	 * one selected), with the user's transform sound. False if not worn, already recalibrated or transformed.
+	 */
+	public static boolean recalibrate(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (!s.hasPower || s.transformed() || s.readyAt(RECAL) == 1L) {
+			return false;
+		}
+		OmnitrixState n = s.copy();
+		n.timers.put(RECAL, 1L);
+		n.selecting = false;
+		n.rechargeUntil = 0L;
+		clearSlap(n);
+		n.animId = ANIM_SLAP;
+		n.animStart = p.level().getGameTime();
+		save(p, n);
+		java.util.List<Aliens.Alien> pool = Aliens.playable(p);
+		OmnitrixState m = state(p).copy();
+		m.selected = pool.isEmpty() ? Aliens.SWAMPFIRE.id() : pool.get(0).id();
+		save(p, m);
+		OmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_TRANSFORM);
+		return true;
+	}
+
+	/** v0.17.2: the prototype's cue, or the Recalibrated Omnitrix's own when {@code p} wears it. */
+	public static OmnitrixSfx.Cue cue(Player p, OmnitrixSfx.Cue prototype, OmnitrixSfx.Cue recal) {
+		return recalibrated(p) ? recal : prototype;
+	}
+
 	public static boolean masterControl(Player p) {
 		return hasPower(p) && state(p).readyAt(MASTER) == 1L;
 	}
@@ -173,7 +223,7 @@ public final class Omnitrix {
 	 * Control, for an alien he cannot be, or when the transform is refused (the pod, suppression).
 	 */
 	public static boolean masterSwitch(ServerPlayer p, String alienId) {
-		if (!masterControl(p) || alienId == null || !Aliens.playable(alienId)) {
+		if (!masterControl(p) || alienId == null || !Aliens.available(p, alienId)) {
 			return false;
 		}
 		OmnitrixState s = state(p);
@@ -191,6 +241,11 @@ public final class Omnitrix {
 	 * punctuation ignored ("Four Arms", "fourarms!", "XLR8", "Gray Matter").
 	 */
 	public static String alienNamed(String message) {
+		return alienNamed(null, message);
+	}
+
+	/** v0.17.2: the alien a chat message names on the dial of the watch {@code p} wears ({@code null} = the prototype's). */
+	public static String alienNamed(Player p, String message) {
 		String said = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
 		if (said.isEmpty()) {
 			return null;
@@ -198,7 +253,7 @@ public final class Omnitrix {
 		if (said.equals("graymatter")) {
 			said = "greymatter";
 		}
-		for (Aliens.Alien a : Aliens.playable()) {
+		for (Aliens.Alien a : p == null ? Aliens.playable() : Aliens.playable(p)) {
 			if (a.id().replace("_", "").equals(said)) {
 				return a.id();
 			}
@@ -234,7 +289,7 @@ public final class Omnitrix {
 		n.timers.put(MC_SEQ, now);
 		n.timers.put(MC_STEP, 0L);
 		save(p, n);
-		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.2f);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), cue(p, OmnitrixSounds.CORE_UP, OmnitrixSounds.RECAL_CORE_UP), 1.0f, 1.2f);
 		return true;
 	}
 
@@ -242,7 +297,7 @@ public final class Omnitrix {
 	private static void tickMasterSequence(ServerPlayer p, OmnitrixState s, long now) {
 		long start = s.readyAt(MC_SEQ);
 		long steps = s.readyAt(MC_STEP);
-		java.util.List<Aliens.Alien> pool = Aliens.playable();
+		java.util.List<Aliens.Alien> pool = Aliens.playable(p);
 		if (!s.selecting) {
 			OmnitrixState n = s.copy();
 			n.timers.remove(MC_SEQ);
@@ -266,7 +321,7 @@ public final class Omnitrix {
 			n.animStart = now;
 			n.timers.put(MC_STEP, steps + 1);
 			save(p, n);
-			OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, 1.0f);
+			OmnitrixSounds.notify(p, cue(p, OmnitrixSounds.DIAL, OmnitrixSounds.RECAL_DIAL), 1.0f);
 			return;
 		}
 		// every alien shown: the flip, the watch down, the HUD told
@@ -511,6 +566,11 @@ public final class Omnitrix {
 	 * held goes). False if already worn or the power is taken (unique powers).
 	 */
 	public static boolean grant(ServerPlayer p) {
+		return grant(p, false);
+	}
+
+	/** v0.17.2: {@code recal} -- the watch put on is the Recalibrated Omnitrix (its popped-off item). */
+	public static boolean grant(ServerPlayer p, boolean recal) {
 		if (hasPower(p)) {
 			return false;
 		}
@@ -520,7 +580,16 @@ public final class Omnitrix {
 		HeroTiers.claimPrimary(p, KEY);
 		OmnitrixState s = new OmnitrixState();
 		s.hasPower = true;
-		s.selected = Aliens.playable().isEmpty() ? Aliens.HEATBLAST.id() : Aliens.playable().get(0).id();
+		if (recal) {
+			s.timers.put(RECAL, 1L);
+		}
+		java.util.List<Aliens.Alien> first = new java.util.ArrayList<>();
+		for (Aliens.Alien a : recal ? Aliens.recalibrated() : Aliens.all()) {
+			if (Aliens.playable(a.id())) {
+				first.add(a);
+			}
+		}
+		s.selected = first.isEmpty() ? (recal ? Aliens.SWAMPFIRE.id() : Aliens.HEATBLAST.id()) : first.get(0).id();
 		s.animId = ANIM_SLAP;
 		s.animStart = p.level().getGameTime();
 		save(p, s);
@@ -546,7 +615,11 @@ public final class Omnitrix {
 	 * grant was refused.
 	 */
 	public static boolean latch(ServerPlayer p) {
-		if (!grant(p)) {
+		return latch(p, false);
+	}
+
+	public static boolean latch(ServerPlayer p, boolean recal) {
+		if (!grant(p, recal)) {
 			return false;
 		}
 		OmnitrixState n = state(p).copy();
@@ -643,6 +716,9 @@ public final class Omnitrix {
 		n.animId = ANIM_TRANSFORM;
 		n.animStart = now;
 		n.humanHealth = frac;
+		if (n.readyAt(RECAL) != 1L) {
+			n.timers.put(TRANSFORMS, n.readyAt(TRANSFORMS) + 1); // v0.17.2: the Recalibration Chip counts these
+		}
 		n.kitFlags = 0;
 		n.heldEntity = 0;
 		n.selecting = false;
@@ -650,7 +726,7 @@ public final class Omnitrix {
 		save(p, n);
 		OmnitrixBody.apply(p, kit.stats(), frac);
 		if (!slapped) {
-			OmnitrixSounds.playOn(p, OmnitrixSounds.TRANSFORM_USER);
+			OmnitrixSounds.playOn(p, cue(p, OmnitrixSounds.TRANSFORM_USER, OmnitrixSounds.RECAL_TRANSFORM));
 		}
 		kit.onTransform(p);
 		refreshName(p);
@@ -748,8 +824,13 @@ public final class Omnitrix {
 		// the sequence's sound is already playing (this is its power-down); an immediate revert keeps the short whir
 		if (!sequenced) {
 			// v0.17.2 (user): Master Control's N turn-back plays the power-down recording without its beeps
+			// v0.17.2: the Recalibrated Omnitrix's N turn-back is the user's detransform recording
 			helixFx(p, reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT
+					: reason == Reason.SHIFT_V && recalibrated(p) ? OmnitrixSounds.RECAL_REVERT
 					: reason == Reason.SHIFT_V && masterRevert ? OmnitrixSounds.POWER_DOWN_MASTER : OmnitrixSounds.REVERT);
+		} else if (recalibrated(p)) {
+			// v0.17.2: the timeout's beeps end on the recalibrated watch's detransform
+			OmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_REVERT);
 		}
 		if (reason == Reason.TIMEOUT && !sequenced) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
@@ -785,8 +866,8 @@ public final class Omnitrix {
 			return false;
 		}
 		OmnitrixState n = s.copy();
-		if (!Aliens.playable(n.selected) && !Aliens.playable().isEmpty()) {
-			n.selected = Aliens.playable().get(0).id();
+		if (!Aliens.available(p, n.selected) && !Aliens.playable(p).isEmpty()) {
+			n.selected = Aliens.playable(p).get(0).id();
 		}
 		n.selecting = true;
 		n.selectStart = now;
@@ -828,7 +909,7 @@ public final class Omnitrix {
 	/** The scroll wheel while the watch is up: turns the dial {@code dir} (+1 / -1) to the next alien that has a kit. */
 	public static boolean cycle(ServerPlayer p, int dir) {
 		OmnitrixState s = state(p);
-		java.util.List<Aliens.Alien> pool = Aliens.playable();
+		java.util.List<Aliens.Alien> pool = Aliens.playable(p);
 		if (!s.selecting || pool.isEmpty() || dir == 0 || s.timers.containsKey(MC_SEQ) || s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			return false;
 		}
@@ -857,7 +938,7 @@ public final class Omnitrix {
 		n.animId = ANIM_TURN;
 		n.animStart = p.level().getGameTime();
 		save(p, n);
-		OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, 1.0f);
+		OmnitrixSounds.notify(p, cue(p, OmnitrixSounds.DIAL, OmnitrixSounds.RECAL_DIAL), 1.0f);
 		showSelected(p, next);
 		return true;
 	}
@@ -877,7 +958,7 @@ public final class Omnitrix {
 				|| s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			return false;
 		}
-		if (!Aliens.playable(s.selected)) {
+		if (!Aliens.available(p, s.selected)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.coming_soon",
 					Component.translatable(Aliens.byId(s.selected) == null ? "projecthero.omnitrix.alien.unknown" : Aliens.byId(s.selected).nameKey()))
 					.withStyle(ChatFormatting.GRAY), true);
@@ -920,7 +1001,7 @@ public final class Omnitrix {
 		save(p, n);
 		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SLAP, 1.0f, 1.0f);
 		// v0.17.1: the user's transform sound starts with the slap -- its swell peaks ~0.28 s in, as the body changes (SLAP_TICKS)
-		OmnitrixSounds.playOn(p, OmnitrixSounds.TRANSFORM_USER);
+		OmnitrixSounds.playOn(p, cue(p, OmnitrixSounds.TRANSFORM_USER, OmnitrixSounds.RECAL_TRANSFORM));
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		return true;
 	}
@@ -933,7 +1014,7 @@ public final class Omnitrix {
 	public static boolean revertEarly(ServerPlayer p) {
 		// v0.17.1 (user: "for master control remove the initial beeps when player wants to detransform just make it happen
 		// instantly"): under Master Control N turns him back at once -- no five beeps first
-		if (state(p).transformed() && state(p).readyAt(MASTER) == 1L) {
+		if (state(p).transformed() && (state(p).readyAt(MASTER) == 1L || recalibrated(p))) { // v0.17.2: the recalibrated watch too (its own detransform sound)
 			revert(p, Reason.SHIFT_V);
 			return true;
 		}
@@ -965,7 +1046,7 @@ public final class Omnitrix {
 	/** Picks {@code alienId} on the dial (the dial screen's payload). False for an unknown or "coming soon" alien. */
 	public static boolean select(ServerPlayer p, String alienId) {
 		OmnitrixState s = state(p);
-		if (!s.hasPower || Aliens.byId(alienId) == null) {
+		if (!s.hasPower || Aliens.byId(alienId) == null || Aliens.byId(alienId).recalibrated() != recalibrated(p)) {
 			return false;
 		}
 		if (!Aliens.playable(alienId)) {
@@ -1023,7 +1104,7 @@ public final class Omnitrix {
 			OmnitrixState n = s.copy();
 			n.timers.remove(PRESS_TIMER);
 			save(p, n);
-			OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.0f);
+			OmnitrixSounds.play(p.serverLevel(), p.position(), cue(p, OmnitrixSounds.CORE_UP, OmnitrixSounds.RECAL_CORE_UP), 1.0f, 1.0f);
 			s = n;
 		}
 		if (s.selecting && s.timers.containsKey(SLAP_QUEUE) && coreUp(s, now)) {
@@ -1052,7 +1133,7 @@ public final class Omnitrix {
 			// v0.17.1 (user: the failsafe "glitch"): now and then the Omnitrix lands on another alien than the one dialled -- never
 			// under Master Control
 			String dialled = s.selected;
-			java.util.List<Aliens.Alien> pool = Aliens.playable();
+			java.util.List<Aliens.Alien> pool = Aliens.playable(p);
 			if (s.readyAt(MASTER) != 1L && s.readyAt(NO_GLITCH) != 1L && pool.size() > 1 && p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
 				String other = dialled;
 				while (other.equals(dialled)) {

@@ -22,14 +22,19 @@ import org.jetbrains.annotations.Nullable;
  * See {@code docs/OMNITRIX_FRAMEWORK_0171.md}.
  */
 public final class Aliens {
-	/** One alien on the dial: its id (lang {@code projecthero.omnitrix.alien.<id>}), its colour and its dial slot. */
-	public record Alien(String id, int colour, int order) {
+	/**
+	 * One alien on the dial: its id (lang {@code projecthero.omnitrix.alien.<id>}), its colour, its dial slot and which watch
+	 * carries it (v0.17.2: {@code recalibrated} = the Alien Force roster on the Recalibrated Omnitrix).
+	 */
+	public record Alien(String id, int colour, int order, boolean recalibrated) {
 		public String nameKey() {
 			return "projecthero.omnitrix.alien." + id;
 		}
 	}
 
 	private static final Map<String, Alien> ALL = new LinkedHashMap<>();
+	/** v0.17.2: the Recalibrated Omnitrix's dial (user: "Alien Force ten only" -- the original ten are not on it). */
+	private static final Map<String, Alien> RECAL = new LinkedHashMap<>();
 	private static final Map<String, AlienKit> KITS = new LinkedHashMap<>();
 
 	// the original ten (user: "only the original 10 for now"), in the show's dial order
@@ -44,31 +49,85 @@ public final class Aliens {
 	public static final Alien RIPJAWS = declare("ripjaws", 0x7A98A4);
 	public static final Alien GREY_MATTER = declare("grey_matter", 0xA6ACB4);
 
+	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
+	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
+	public static final Alien ECHO_ECHO = declareRecal("echo_echo", 0xE8EEF2);
+	public static final Alien HUMUNGOUSAUR = declareRecal("humungousaur", 0xB58A5A);
+	public static final Alien JETRAY = declareRecal("jetray", 0xD8304A);
+	public static final Alien BIG_CHILL = declareRecal("big_chill", 0x5AA8E8);
+	public static final Alien CHROMASTONE = declareRecal("chromastone", 0xB05AE0);
+	public static final Alien BRAINSTORM = declareRecal("brainstorm", 0xE0A040);
+	public static final Alien SPIDERMONKEY = declareRecal("spidermonkey", 0x3A5AC8);
+	public static final Alien GOOP = declareRecal("goop", 0x7CE03A);
+	public static final Alien ALIEN_X = declareRecal("alien_x", 0xF4F4FF);
+
 	private Aliens() {
 	}
 
 	private static Alien declare(String id, int colour) {
-		Alien a = new Alien(id, colour, ALL.size());
+		Alien a = new Alien(id, colour, ALL.size(), false);
 		ALL.put(id, a);
+		return a;
+	}
+
+	private static Alien declareRecal(String id, int colour) {
+		Alien a = new Alien(id, colour, RECAL.size(), true);
+		RECAL.put(id, a);
 		return a;
 	}
 
 	/** Registers {@code kit} for its alien ({@link AlienKit#id()} must be one of the declared ids). Replaces any earlier kit. */
 	public static void register(AlienKit kit) {
-		if (!ALL.containsKey(kit.id())) {
+		if (byId(kit.id()) == null) {
 			throw new IllegalArgumentException("Unknown Omnitrix alien '" + kit.id() + "' (declare it in Aliens first)");
 		}
 		KITS.put(kit.id(), kit);
 	}
 
-	/** Every alien on the dial, in order. */
+	/** Every alien on the prototype's dial, in order. */
 	public static List<Alien> all() {
 		return Collections.unmodifiableList(new ArrayList<>(ALL.values()));
 	}
 
+	/** v0.17.2: every alien on the Recalibrated Omnitrix's dial, in order. */
+	public static List<Alien> recalibrated() {
+		return Collections.unmodifiableList(new ArrayList<>(RECAL.values()));
+	}
+
+	/** v0.17.2: the dial of the watch {@code p} wears (the prototype's for a player without the recalibrated one). */
+	public static List<Alien> roster(net.minecraft.world.entity.player.Player p) {
+		return com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p) ? recalibrated() : all();
+	}
+
+	/** v0.17.2: the playable aliens on the dial of the watch {@code p} wears, in order. */
+	public static List<Alien> playable(net.minecraft.world.entity.player.Player p) {
+		return dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p));
+	}
+
+	/** v0.17.2: the playable aliens on the prototype's dial, or ({@code recal}) the Recalibrated Omnitrix's, in order. */
+	public static List<Alien> dial(boolean recal) {
+		List<Alien> out = new ArrayList<>();
+		for (Alien a : recal ? RECAL.values() : ALL.values()) {
+			if (KITS.containsKey(a.id())) {
+				out.add(a);
+			}
+		}
+		return out;
+	}
+
+	/** v0.17.2: {@code id} has a kit AND is on the dial of the watch {@code p} wears. */
+	public static boolean available(net.minecraft.world.entity.player.Player p, String id) {
+		Alien a = byId(id);
+		return a != null && KITS.containsKey(id) && a.recalibrated() == com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p);
+	}
+
 	@Nullable
 	public static Alien byId(String id) {
-		return id == null ? null : ALL.get(id);
+		if (id == null) {
+			return null;
+		}
+		Alien a = ALL.get(id);
+		return a != null ? a : RECAL.get(id);
 	}
 
 	/** The kit, or null while the alien is "coming soon". */

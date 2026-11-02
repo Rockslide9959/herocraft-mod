@@ -67,6 +67,10 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 	private int nextPulse;
 	private long nextSurge;
 	private long nextFlicker;
+	/** v0.17.2: the running job is a recalibration (no damage) rather than an extraction. */
+	private boolean recal;
+	/** v0.17.2: the Recalibration Chip a running recalibration holds (handed back if it fails). */
+	private ItemStack chip = ItemStack.EMPTY;
 
 	public OmnitrixPodBlockEntity(BlockPos pos, BlockState state) {
 		super(OmnitrixPodBlocks.POD_BE, pos, state);
@@ -135,12 +139,156 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		return start(p);
 	}
 
+	/** v0.17.2: the job running is a recalibration. */
+	public boolean recalibrating() {
+		return running() && recal;
+	}
+
+	/**
+	 * v0.17.2: right-click from inside holding a Recalibration Chip -- every check (the prototype worn, as a human, inside, broken in
+	 * with {@link OmnitrixConfig#RECAL_MIN_TRANSFORMS} transformations, {@link OmnitrixConfig#FUEL_PER_RECAL} fuel), then
+	 * {@link #startRecalibration}. The chip is taken.
+	 */
+	public boolean tryRecalibrate(ServerPlayer p, ItemStack held) {
+		if (running()) {
+			p.displayClientMessage(msg("running", ChatFormatting.RED), true);
+			return false;
+		}
+		if (!Omnitrix.hasPower(p)) {
+			p.displayClientMessage(msg("recal_no_watch", ChatFormatting.YELLOW), true);
+			return false;
+		}
+		if (Omnitrix.recalibrated(p)) {
+			p.displayClientMessage(msg("recal_already", ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (!inside(p)) {
+			p.displayClientMessage(msg("step_inside", ChatFormatting.YELLOW), true);
+			return false;
+		}
+		if (Omnitrix.transformed(p)) {
+			p.displayClientMessage(msg("turn_back", ChatFormatting.YELLOW), true);
+			return false;
+		}
+		int done = Omnitrix.prototypeTransforms(p);
+		if (done < OmnitrixConfig.RECAL_MIN_TRANSFORMS) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix_pod.recal_untrained", done, OmnitrixConfig.RECAL_MIN_TRANSFORMS)
+					.withStyle(ChatFormatting.YELLOW), true);
+			return false;
+		}
+		if (fuel < OmnitrixConfig.FUEL_PER_RECAL) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix_pod.needs_fuel", fuel, OmnitrixConfig.FUEL_PER_RECAL)
+					.withStyle(ChatFormatting.RED), true);
+			return false;
+		}
+		ItemStack taken = held.copyWithCount(1);
+		if (!startRecalibration(p, taken)) {
+			return false;
+		}
+		if (!p.getAbilities().instabuild) {
+			held.shrink(1);
+		}
+		return true;
+	}
+
+	/**
+	 * v0.17.2: starts the recalibration on {@code p} (no checks beyond "wears the prototype, idle": tests call this). 30 s, no
+	 * damage: the wearer is held in the field, the dial turns on its own through the new aliens (the user's dial-turn sound) and
+	 * they flicker on the wearer, the HUD shows the green RECALIBRATING box; at the end {@link Omnitrix#recalibrate}.
+	 */
+	public boolean startRecalibration(ServerPlayer p, ItemStack chipStack) {
+		if (running() || !Omnitrix.hasPower(p) || Omnitrix.recalibrated(p) || Omnitrix.transformed(p) || !(level instanceof ServerLevel server)) {
+			return false;
+		}
+		if (Omnitrix.selecting(p)) {
+			Omnitrix.deactivate(p);
+		}
+		fuel = Math.max(0, fuel - OmnitrixConfig.FUEL_PER_RECAL);
+		subject = p.getUUID();
+		subjectRef = new java.lang.ref.WeakReference<>(p);
+		recal = true;
+		chip = chipStack == null ? ItemStack.EMPTY : chipStack;
+		ticks = 0;
+		nextPulse = 0;
+		p.setAttached(OmnitrixAttachments.EXTRACTION, -1);
+		Vec3 c = centre();
+		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.6f, 1.2f);
+		OmnitrixSounds.play(server, c.add(0, 1, 0), OmnitrixSounds.RECAL_CORE_UP, 1.0f, 1.0f, SoundSource.BLOCKS);
+		p.displayClientMessage(msg("recal_start", ChatFormatting.GREEN).withStyle(ChatFormatting.BOLD), false);
+		setChanged();
+		sync();
+		return true;
+	}
+
+	/** One tick of a recalibration (the subject is alive, here and still wearing it). */
+	private void recalTick(ServerLevel server, ServerPlayer p) {
+		if (!inside(p)) {
+			fail(p, "recal_failed_step_out");
+			return;
+		}
+		if (Omnitrix.transformed(p)) {
+			fail(p, "recal_failed");
+			return;
+		}
+		ticks++;
+		p.setAttached(OmnitrixAttachments.EXTRACTION, -1 - ticks);
+		Vec3 c = centre();
+		if (ticks % OmnitrixConfig.RECAL_DIAL_TICKS == 0 && ticks < OmnitrixConfig.RECAL_TICKS - 20) {
+			OmnitrixSounds.play(server, p.position(), OmnitrixSounds.RECAL_DIAL, 1.0f, 1.0f, SoundSource.PLAYERS);
+			List<Aliens.Alien> pool = new java.util.ArrayList<>();
+			for (Aliens.Alien a : Aliens.recalibrated()) {
+				if (Aliens.playable(a.id())) {
+					pool.add(a);
+				}
+			}
+			if (!pool.isEmpty() && (ticks / OmnitrixConfig.RECAL_DIAL_TICKS) % 2 == 0) {
+				int step = ticks / (OmnitrixConfig.RECAL_DIAL_TICKS * 2);
+				Omnitrix.flicker(p, pool.get(step % pool.size()).id(), 16);
+			}
+		}
+		if (ticks % 40 == 1) {
+			OmnitrixSounds.play(server, c.add(0, 1, 0), OmnitrixSounds.RECAL_HUM, 1.0f, 0.9f + ticks / 1200f, SoundSource.BLOCKS);
+		}
+		// hold the wearer in the middle of the field
+		double dx = c.x - p.getX();
+		double dz = c.z - p.getZ();
+		if (dx * dx + dz * dz > 0.04) {
+			p.push(dx * 0.05, 0, dz * 0.05);
+			p.hurtMarked = true;
+		}
+		if (ticks % 3 == 0) {
+			double a = ticks * 0.3;
+			double y = c.y + ((ticks * 0.05) % 1.9);
+			server.sendParticles(GREEN, c.x + Math.cos(a) * 0.65, y, c.z + Math.sin(a) * 0.65, 1, 0, 0, 0, 0);
+			server.sendParticles(GREEN, c.x - Math.cos(a) * 0.65, y, c.z - Math.sin(a) * 0.65, 1, 0, 0, 0, 0);
+		}
+		if (ticks >= OmnitrixConfig.RECAL_TICKS) {
+			finishRecalibration(server, p);
+		}
+	}
+
+	private void finishRecalibration(ServerLevel server, ServerPlayer p) {
+		chip = ItemStack.EMPTY; // used up
+		Omnitrix.recalibrate(p);
+		Vec3 c = centre().add(0, 1.0, 0);
+		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.7f, 1.2f);
+		server.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(6, 60, 20));
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
+				Component.translatable("message.projecthero.omnitrix.recal_subtitle").withStyle(ChatFormatting.GRAY)));
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
+				Component.translatable("message.projecthero.omnitrix.recal_title").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+		p.displayClientMessage(msg("recal_success", ChatFormatting.GREEN).withStyle(ChatFormatting.BOLD), false);
+		reset(p);
+	}
+
 	/** Starts the extraction on {@code p} (no checks beyond "wears it, not already running": tests call this). */
 	public boolean start(ServerPlayer p) {
 		if (running() || !Omnitrix.hasPower(p) || !(level instanceof ServerLevel server)) {
 			return false;
 		}
 		fuel = Math.max(0, fuel - OmnitrixConfig.FUEL_PER_EXTRACTION);
+		recal = false;
 		subject = p.getUUID();
 		subjectRef = new java.lang.ref.WeakReference<>(p);
 		ticks = 0;
@@ -172,6 +320,10 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		}
 		if (!Omnitrix.hasPower(p)) {
 			reset(p);
+			return;
+		}
+		if (recal) {
+			recalTick(server, p);
 			return;
 		}
 		if (!inside(p)) {
@@ -209,7 +361,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		}
 		if (now >= nextFlicker) {
 			nextFlicker = now + 110 + server.random.nextInt(80);
-			List<Aliens.Alien> pool = Aliens.playable();
+			List<Aliens.Alien> pool = Aliens.playable(p);
 			if (!pool.isEmpty()) {
 				Omnitrix.flicker(p, pool.get(server.random.nextInt(pool.size())).id(), 24);
 			}
@@ -239,9 +391,10 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 
 	private void succeed(ServerPlayer p) {
 		ServerLevel server = (ServerLevel) level;
+		boolean wasRecal = Omnitrix.recalibrated(p); // v0.17.2: the recalibrated watch comes off as itself
 		Omnitrix.revoke(p);
 		Vec3 c = centre().add(0, 1.7, 0);
-		ItemEntity item = new ItemEntity(server, c.x, c.y, c.z, new ItemStack(OmnitrixItems.OMNITRIX));
+		ItemEntity item = new ItemEntity(server, c.x, c.y, c.z, new ItemStack(wasRecal ? OmnitrixItems.RECALIBRATED_OMNITRIX : OmnitrixItems.OMNITRIX));
 		item.setDeltaMovement(0, 0.25, 0);
 		item.setGlowingTag(true);
 		server.addFreshEntity(item);
@@ -255,6 +408,9 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 	}
 
 	private void fail(@Nullable ServerPlayer p, String why) {
+		if (recal && !why.startsWith("recal")) {
+			why = "recal_failed"; // v0.17.2: a recalibration never hurts -- it just stops
+		}
 		if (p != null) {
 			p.displayClientMessage(msg(why, ChatFormatting.RED).withStyle(ChatFormatting.BOLD), false);
 		}
@@ -270,6 +426,15 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		if (p != null) {
 			p.removeAttached(OmnitrixAttachments.EXTRACTION);
 		}
+		if (!chip.isEmpty() && level instanceof ServerLevel server) {
+			// v0.17.2: a recalibration that failed hands its chip back
+			Vec3 c = centre().add(0, 1.2, 0);
+			ItemEntity back = new ItemEntity(server, c.x, c.y, c.z, chip);
+			back.setDeltaMovement(0, 0.2, 0);
+			server.addFreshEntity(back);
+		}
+		chip = ItemStack.EMPTY;
+		recal = false;
 		subject = null;
 		subjectRef = new java.lang.ref.WeakReference<>(null);
 		ticks = 0;
@@ -288,11 +453,19 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		}
 	}
 
+	/** v0.17.2: client copy -- the pod's field runs a recalibration (stays green). */
+	private boolean clientRecal;
+
+	public boolean clientRecalibrating() {
+		return clientRecal;
+	}
+
 	@Override
 	protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
 		super.loadAdditional(tag, registries);
 		fuel = tag.getInt("fuel");
 		ticks = tag.getInt("client_ticks");
+		clientRecal = tag.getBoolean("recal");
 	}
 
 	@Override
@@ -306,6 +479,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		CompoundTag tag = new CompoundTag();
 		tag.putInt("fuel", fuel);
 		tag.putInt("client_ticks", running() ? Math.max(1, ticks) : 0);
+		tag.putBoolean("recal", recalibrating());
 		return tag;
 	}
 

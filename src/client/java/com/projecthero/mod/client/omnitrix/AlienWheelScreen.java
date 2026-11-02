@@ -45,7 +45,7 @@ public final class AlienWheelScreen extends Screen {
 	private static final int DEAD_ZONE = 24;
 	private static final float OPEN_TICKS = 3f;
 
-	private final List<Aliens.Alien> aliens = Aliens.playable();
+	private final List<Aliens.Alien> aliens = Aliens.playable(net.minecraft.client.Minecraft.getInstance().player); // v0.17.2: the watch he wears
 	private int hovered = -1;
 	private float[] hoverAnim = new float[0];
 	private long lastFrameNanos = 0L;
@@ -59,7 +59,7 @@ public final class AlienWheelScreen extends Screen {
 
 	/** H with Master Control, not sneaking: the wheel opens (instead of whatever else H does). Client-safe. */
 	public static boolean wants(net.minecraft.world.entity.player.Player p) {
-		return p != null && !Screen.hasShiftDown() && Omnitrix.masterControl(p) && !Aliens.playable().isEmpty();
+		return p != null && !Screen.hasShiftDown() && Omnitrix.masterControl(p) && !Aliens.playable(p).isEmpty();
 	}
 
 	@Override

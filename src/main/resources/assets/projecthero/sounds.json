@@ -3240,5 +3240,37 @@
         "type": "event"
       }
     ]
+  },
+  "omnitrix_recal_prime": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_prime",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_prime"
+      }
+    ]
+  },
+  "omnitrix_recal_transform": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_transform",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_transform"
+      }
+    ]
+  },
+  "omnitrix_recal_detransform": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_detransform",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_detransform"
+      }
+    ]
+  },
+  "omnitrix_recal_dial_turn": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_dial_turn",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_dial_turn"
+      }
+    ]
   }
 }

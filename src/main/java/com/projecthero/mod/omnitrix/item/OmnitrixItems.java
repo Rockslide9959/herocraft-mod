@@ -32,6 +32,9 @@ public final class OmnitrixItems {
 	public static Item METEOR_SCANNER;
 	public static Item PLUMBER_ALLOY;
 	public static Item CONTAINMENT_CORE;
+	/** v0.17.2: the Recalibrated Omnitrix (only ever popped off its wearer by the pod) and the chip that makes it. */
+	public static Item RECALIBRATED_OMNITRIX;
+	public static Item RECALIBRATION_CHIP;
 
 	private OmnitrixItems() {
 	}
@@ -43,6 +46,9 @@ public final class OmnitrixItems {
 				"item.projecthero.plumber_alloy.hint"));
 		CONTAINMENT_CORE = register("containment_core", new HintItem(new Item.Properties().stacksTo(16).rarity(Rarity.EPIC).fireResistant(),
 				"item.projecthero.containment_core.hint"));
+		RECALIBRATED_OMNITRIX = register("recalibrated_omnitrix", new OmnitrixItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant(), true));
+		RECALIBRATION_CHIP = register("recalibration_chip", new HintItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant(),
+				"item.projecthero.recalibration_chip.hint"));
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
@@ -50,6 +56,8 @@ public final class OmnitrixItems {
 		output.accept(METEOR_SCANNER);
 		output.accept(PLUMBER_ALLOY);
 		output.accept(CONTAINMENT_CORE);
+		output.accept(RECALIBRATION_CHIP);
+		output.accept(RECALIBRATED_OMNITRIX);
 		output.accept(com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM);
 	}
 
@@ -74,8 +82,16 @@ public final class OmnitrixItems {
 
 	/** The watch itself, once the Containment Pod has pulled it off someone. Right-click to put it on -- and be locked in. */
 	public static final class OmnitrixItem extends Item {
+		/** v0.17.2: the Recalibrated Omnitrix (puts on with its Alien Force dial). */
+		public final boolean recalibrated;
+
 		public OmnitrixItem(Properties p) {
+			this(p, false);
+		}
+
+		public OmnitrixItem(Properties p, boolean recalibrated) {
 			super(p);
+			this.recalibrated = recalibrated;
 		}
 
 		@Override
@@ -88,7 +104,7 @@ public final class OmnitrixItems {
 				sp.displayClientMessage(Component.translatable("message.projecthero.omnitrix.already_wearing").withStyle(ChatFormatting.GRAY), true);
 				return InteractionResultHolder.fail(stack);
 			}
-			if (!OmnitrixWorld.putOnLoose(sp)) {
+			if (!OmnitrixWorld.putOnLoose(sp, false, recalibrated)) {
 				return InteractionResultHolder.fail(stack);
 			}
 			stack.shrink(1);
@@ -102,6 +118,9 @@ public final class OmnitrixItems {
 
 		@Override
 		public void appendHoverText(ItemStack stack, TooltipContext ctx, List<Component> tooltip, TooltipFlag flag) {
+			if (recalibrated) {
+				tooltip.add(Component.translatable("item.projecthero.recalibrated_omnitrix.hint").withStyle(ChatFormatting.GREEN));
+			}
 			tooltip.add(Component.translatable("item.projecthero.omnitrix.hint").withStyle(ChatFormatting.GREEN));
 			tooltip.add(Component.translatable("item.projecthero.omnitrix.warning").withStyle(ChatFormatting.RED));
 		}

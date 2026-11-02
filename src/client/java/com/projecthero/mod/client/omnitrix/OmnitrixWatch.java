@@ -190,7 +190,8 @@ public final class OmnitrixWatch {
 
 	/** +1 if {@code to} is the next alien after {@code from} on the dial (wrapping), -1 if the previous one. */
 	private static int dialStep(String from, String to) {
-		java.util.List<com.projecthero.mod.omnitrix.alien.Aliens.Alien> pool = com.projecthero.mod.omnitrix.alien.Aliens.playable();
+		var fromAlien = com.projecthero.mod.omnitrix.alien.Aliens.byId(from); // v0.17.2: the dial that alien is on
+		java.util.List<com.projecthero.mod.omnitrix.alien.Aliens.Alien> pool = com.projecthero.mod.omnitrix.alien.Aliens.dial(fromAlien != null && fromAlien.recalibrated());
 		int n = pool.size(), a = -1, b = -1;
 		for (int k = 0; k < n; k++) {
 			if (pool.get(k).id().equals(from)) {

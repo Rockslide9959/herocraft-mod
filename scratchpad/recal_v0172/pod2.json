@@ -1,0 +1,2 @@
+[["\t\t\tList<Aliens.Alien> pool = Aliens.playable();\n\t\t\tif (!pool.isEmpty()) {","\t\t\tList<Aliens.Alien> pool = Aliens.playable(p);\n\t\t\tif (!pool.isEmpty()) {"],
+["\tprivate void fail(@Nullable ServerPlayer p, String why) {\n","\tprivate void fail(@Nullable ServerPlayer p, String why) {\n\t\tif (recal && !why.startsWith(\"recal\")) {\n\t\t\twhy = \"recal_failed\"; // v0.17.2: a recalibration never hurts -- it just stops\n\t\t}\n"]]

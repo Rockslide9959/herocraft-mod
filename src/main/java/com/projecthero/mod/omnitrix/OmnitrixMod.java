@@ -51,6 +51,17 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit.register();
 		com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.register();
 		com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.register();
+		// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force)
+		com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit.register();
+		com.projecthero.mod.omnitrix.alien.echoecho.EchoEchoKit.register();
+		com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.register();
+		com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.register();
+		com.projecthero.mod.omnitrix.alien.bigchill.BigChillKit.register();
+		com.projecthero.mod.omnitrix.alien.chromastone.ChromastoneKit.register();
+		com.projecthero.mod.omnitrix.alien.brainstorm.BrainstormKit.register();
+		com.projecthero.mod.omnitrix.alien.spidermonkey.SpidermonkeyKit.register();
+		com.projecthero.mod.omnitrix.alien.goop.GoopKit.register();
+		com.projecthero.mod.omnitrix.alien.alienx.AlienXKit.register();
 
 		PayloadTypeRegistry.playC2S().register(OmnitrixActionPayload.TYPE, OmnitrixActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(OmnitrixActionPayload.TYPE, (payload, context) -> {
@@ -85,7 +96,7 @@ public final class OmnitrixMod {
 		// v0.17.2 (user: "make it so that player can say the alien name in chat to switch to them"): under Master Control a chat
 		// message that is just an alien's name turns the wearer into it (the message still goes out -- he called it)
 		net.fabricmc.fabric.api.message.v1.ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
-			String id = Omnitrix.alienNamed(message.signedContent());
+			String id = Omnitrix.alienNamed(sender, message.signedContent());
 			if (id != null && Omnitrix.masterControl(sender)) {
 				sender.server.execute(() -> Omnitrix.masterSwitch(sender, id));
 			}
@@ -196,6 +207,16 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.echoecho.EchoEchoKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.bigchill.BigChillKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.chromastone.ChromastoneKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.brainstorm.BrainstormKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.spidermonkey.SpidermonkeyKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.goop.GoopKit.clearSessionState(); // v0.17.2
+		com.projecthero.mod.omnitrix.alien.alienx.AlienXKit.clearSessionState(); // v0.17.2
 		com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.clearSessionState();

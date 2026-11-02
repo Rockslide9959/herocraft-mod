@@ -148,7 +148,7 @@ public final class OmnitrixAuto {
 		Level l = p.level();
 		// 1 underwater
 		if (p.isEyeInFluid(FluidTags.WATER) || (p.isInWater() && p.getAirSupply() < p.getMaxAirSupply())) {
-			Pick r = first("underwater", RipjawsKit.ID);
+			Pick r = first(p, "underwater", RipjawsKit.ID, Aliens.JETRAY.id());
 			if (r != null) {
 				return r;
 			}
@@ -157,14 +157,14 @@ public final class OmnitrixAuto {
 		boolean falling = !p.onGround() && !p.isInWater() && !p.getAbilities().flying
 				&& (p.fallDistance >= FALL_BLOCKS || p.getY() < l.getMinBuildHeight() || p.getDeltaMovement().y < -0.8);
 		if (falling) {
-			Pick r = first("falling", StinkflyKit.ID, GhostfreakKit.ID);
+			Pick r = first(p, "falling", StinkflyKit.ID, GhostfreakKit.ID, Aliens.JETRAY.id(), Aliens.BIG_CHILL.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 3 fire
 		if (p.isOnFire() || p.isInLava() || (l.dimension() == Level.NETHER && lavaNear(p, 3))) {
-			Pick r = first("fire", HeatblastKit.ID);
+			Pick r = first(p, "fire", HeatblastKit.ID, Aliens.SWAMPFIRE.id());
 			if (r != null) {
 				return r;
 			}
@@ -180,14 +180,14 @@ public final class OmnitrixAuto {
 			List<Mob> engaged = hostiles.stream().filter(m -> m.getTarget() == p || m.distanceToSqr(p) <= CROWD_RANGE * CROWD_RANGE).toList();
 			// 4 hurting
 			if (p.getHealth() < p.getMaxHealth() * LOW_HEALTH) {
-				Pick r = first("low_health", DiamondheadKit.ID);
+				Pick r = first(p, "low_health", DiamondheadKit.ID, Aliens.SWAMPFIRE.id());
 				if (r != null) {
 					return r;
 				}
 			}
 			// 5 a boss / a brute
 			if (engaged.stream().anyMatch(OmnitrixAuto::brute)) {
-				Pick r = first("boss", FourArmsKit.ID);
+				Pick r = first(p, "boss", FourArmsKit.ID, Aliens.HUMUNGOUSAUR.id());
 				if (r != null) {
 					return r;
 				}
@@ -195,7 +195,7 @@ public final class OmnitrixAuto {
 			// 6 mostly ranged
 			long ranged = engaged.stream().filter(OmnitrixAuto::ranged).count();
 			if (ranged > 0 && ranged * 2 > engaged.size()) {
-				Pick r = first("ranged", DiamondheadKit.ID);
+				Pick r = first(p, "ranged", DiamondheadKit.ID, Aliens.CHROMASTONE.id());
 				if (r != null) {
 					return r;
 				}
@@ -203,34 +203,34 @@ public final class OmnitrixAuto {
 			// 7 a crowd
 			long close = engaged.stream().filter(m -> m.distanceToSqr(p) <= CROWD_RANGE * CROWD_RANGE).count();
 			if (close >= CROWD) {
-				Pick r = first("crowd", HeatblastKit.ID);
+				Pick r = first(p, "crowd", HeatblastKit.ID, Aliens.ECHO_ECHO.id());
 				if (r != null) {
 					return r;
 				}
 			}
 			// 8 one or two
-			Pick r = first("melee", WildmuttKit.ID, FourArmsKit.ID);
+			Pick r = first(p, "melee", WildmuttKit.ID, FourArmsKit.ID, Aliens.HUMUNGOUSAUR.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 9 sneaking up on them
 		if (p.isShiftKeyDown() && !hostiles.isEmpty() && !targeted) {
-			Pick r = first("stealth", GhostfreakKit.ID);
+			Pick r = first(p, "stealth", GhostfreakKit.ID, Aliens.BIG_CHILL.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 10 tech
 		if (techNear(p)) {
-			Pick r = first("tech", UpgradeKit.ID);
+			Pick r = first(p, "tech", UpgradeKit.ID, Aliens.BRAINSTORM.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 11 a tight gap
 		if (tightAhead(p)) {
-			Pick r = first("tight", GreyMatterKit.ID);
+			Pick r = first(p, "tight", GreyMatterKit.ID, Aliens.GOOP.id());
 			if (r != null) {
 				return r;
 			}
@@ -238,29 +238,30 @@ public final class OmnitrixAuto {
 		boolean threats = !hostiles.isEmpty();
 		// 12 travelling
 		if (p.isSprinting() && !threats) {
-			Pick r = first("travel", Xlr8Kit.ID);
+			Pick r = first(p, "travel", Xlr8Kit.ID, Aliens.JETRAY.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 13 the dark
 		if (!threats && l.getMaxLocalRawBrightness(BlockPos.containing(p.getEyePosition())) <= 4) {
-			Pick r = first("dark", WildmuttKit.ID);
+			Pick r = first(p, "dark", WildmuttKit.ID, Aliens.SPIDERMONKEY.id());
 			if (r != null) {
 				return r;
 			}
 		}
 		// 14 whatever is on the dial
 		String sel = Omnitrix.state(p).selected;
-		if (!Aliens.playable(sel) && !Aliens.playable().isEmpty()) {
-			sel = Aliens.playable().get(0).id();
+		if (!Aliens.available(p, sel) && !Aliens.playable(p).isEmpty()) {
+			sel = Aliens.playable(p).get(0).id();
 		}
 		return new Pick(sel, "dial");
 	}
 
-	private static Pick first(String reason, String... aliens) {
+	/** v0.17.2: {@code who}: only aliens on the dial of the watch he wears (prototype / recalibrated). */
+	private static Pick first(ServerPlayer who, String reason, String... aliens) {
 		for (String a : aliens) {
-			if (Aliens.playable(a)) {
+			if (Aliens.available(who, a)) {
 				return new Pick(a, reason);
 			}
 		}

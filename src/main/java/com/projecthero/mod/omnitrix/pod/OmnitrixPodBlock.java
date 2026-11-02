@@ -152,6 +152,13 @@ public class OmnitrixPodBlock extends BaseEntityBlock {
 	@Override
 	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
 			BlockHitResult hit) {
+		// v0.17.2: the Recalibration Chip, from inside, starts a recalibration
+		if (stack.is(com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATION_CHIP)) {
+			if (!level.isClientSide() && player instanceof ServerPlayer sp && level.getBlockEntity(base(state, pos)) instanceof OmnitrixPodBlockEntity be) {
+				be.tryRecalibrate(sp, stack);
+			}
+			return ItemInteractionResult.sidedSuccess(level.isClientSide());
+		}
 		int fuel = stack.is(Items.REDSTONE_BLOCK) ? OmnitrixConfig.FUEL_REDSTONE_BLOCK : stack.is(Items.ECHO_SHARD) ? OmnitrixConfig.FUEL_ECHO_SHARD : 0;
 		if (fuel == 0) {
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;

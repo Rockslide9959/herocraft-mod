@@ -60,6 +60,16 @@ public final class OmnitrixSounds {
 	 */
 	public static final SoundEvent FOUR_ARMS_SEQUENCE_SOUND = register("omnitrix_four_arms_sequence");
 	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_POWER_DOWN_MASTER, USER_CORE_READY, USER_RECHARGED, USER_DIAL_CLICK };
+	/**
+	 * v0.17.2 (user: "ill give you sound effects too so use them please"): the Recalibrated Omnitrix's own four recordings, mono
+	 * OGG trimmed to the sound, peaks about -1.5 dBFS ({@code scratchpad/recal_v0172/}): the prime (the core popping up), the
+	 * transform, the detransform and the dial turn.
+	 */
+	public static final SoundEvent RECAL_PRIME_SOUND = register("omnitrix_recal_prime");
+	public static final SoundEvent RECAL_TRANSFORM_SOUND = register("omnitrix_recal_transform");
+	public static final SoundEvent RECAL_DETRANSFORM_SOUND = register("omnitrix_recal_detransform");
+	public static final SoundEvent RECAL_DIAL_SOUND = register("omnitrix_recal_dial_turn");
+	public static final SoundEvent[] RECAL = { RECAL_PRIME_SOUND, RECAL_TRANSFORM_SOUND, RECAL_DETRANSFORM_SOUND, RECAL_DIAL_SOUND };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -143,6 +153,29 @@ public final class OmnitrixSounds {
 	public static final Cue RECHARGED = OmnitrixSfx.cue("omnitrix_recharged")
 			.layer(USER_RECHARGED, 0.45f, 1.0f) // v0.17.1: the user's "timed back in" recording
 			.jitter(0.0f);
+
+	// ---------------------------------------------------------------- v0.17.2: the Recalibrated Omnitrix (no jitter: the user's recordings)
+	/** The core popping up (the prime). */
+	public static final Cue RECAL_CORE_UP = OmnitrixSfx.cue("omnitrix_recal_core_up")
+			.layer(RECAL_PRIME_SOUND, 0.6f, 1.0f)
+			.jitter(0.0f);
+	/** One turn of the dial (it repeats, so it is quiet). */
+	public static final Cue RECAL_DIAL = OmnitrixSfx.cue("omnitrix_recal_dial")
+			.layer(RECAL_DIAL_SOUND, 0.3f, 1.0f)
+			.jitter(0.0f).gap(1);
+	/** The slap / the transformation. */
+	public static final Cue RECAL_TRANSFORM = OmnitrixSfx.cue("omnitrix_recal_transform")
+			.layer(RECAL_TRANSFORM_SOUND, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** Turning back (N, and the end of the timeout's beeps). */
+	public static final Cue RECAL_REVERT = OmnitrixSfx.cue("omnitrix_recal_revert")
+			.layer(RECAL_DETRANSFORM_SOUND, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** The pod's recalibration: a soft hum swell under the dial turns. */
+	public static final Cue RECAL_HUM = OmnitrixSfx.cue("omnitrix_recal_hum")
+			.layer(WHIRR, 0.25f, 0.7f)
+			.layer(SoundEvents.BEACON_AMBIENT, 0.35f, 1.4f)
+			.gap(10);
 
 	// ---------------------------------------------------------------- the pod, the scanner, the meteor
 	/** The pod's drain pulse (every few seconds of an extraction): a low energy sweep and a hum swell. */
