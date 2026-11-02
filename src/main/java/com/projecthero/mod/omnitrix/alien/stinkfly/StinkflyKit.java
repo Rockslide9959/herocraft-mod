@@ -181,14 +181,15 @@ public final class StinkflyKit extends AlienKit {
 	public static final String GOO_SPIT = "goo_spit";
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float SHOT_DAMAGE = 10f;
+	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36 (the shot is quick: 10 -> 6)
+	public static final float SHOT_DAMAGE = 6f;
 	public static final int SHOT_ROOT = 30;
 	public static final float NET_RADIUS = 2.75f;
 	public static final int NET_ROOT = 60;
 	/** v0.17.2: a boss under the net is rooted 1 s. */
 	public static final int NET_BOSS_ROOT = 20;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2 (inline)
-	public static final float NET_DAMAGE = 6f;
+	public static final float NET_DAMAGE = 8f;
 	public static final float GAS_RADIUS = 3.25f;
 	public static final int GAS_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
@@ -216,7 +217,7 @@ public final class StinkflyKit extends AlienKit {
 	public static final int COCOON_TICKS = 100;
 	public static final int COCOON_BOSS_TICKS = 30;
 	public static final float COCOON_TAKEN = 1.25f;
-	public static final float COCOON_BURST = 8f;
+	public static final float COCOON_BURST = 12f;
 	public static final double COCOON_BURST_RADIUS = 3.0;
 	public static final double COCOON_SPRAY = 4.0;
 	/** The timer (synced, so the client can draw the stream) holding the cocoon target's entity id. */

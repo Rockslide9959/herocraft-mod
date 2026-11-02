@@ -204,7 +204,8 @@ public final class WildmuttKit extends AlienKit {
 
 	public static final double POUNCE_RANGE = 12.0;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 9
-	public static final float POUNCE_DAMAGE = 12f;
+	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36
+	public static final float POUNCE_DAMAGE = 14f;
 	public static final int POUNCE_TICKS = 16;
 	public static final int PIN_TICKS = 25;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3.5 / 6 (16.5 in
@@ -218,7 +219,7 @@ public final class WildmuttKit extends AlienKit {
 	public static final int QUILL_DELAY = 9;
 	public static final double ROAR_RANGE = 9.0;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float ROAR_DAMAGE = 6f;
+	public static final float ROAR_DAMAGE = 8f;
 	public static final int ROAR_DELAY = 6;
 	public static final int ROAR_EFFECT_TICKS = 70;
 	public static final int COIL_MAX = 30;
@@ -233,7 +234,7 @@ public final class WildmuttKit extends AlienKit {
 	/** v0.17.2 revamp, Z: Ricochet Hunt -- first prey within 10, each next within 8 of the last, up to 4 hits of 8, a hop every 6 ticks. */
 	public static final double HUNT_RANGE = 10.0, HUNT_HOP = 8.0;
 	public static final int HUNT_HITS_MAX = 4, HUNT_HOP_TICKS = 6;
-	public static final float HUNT_DAMAGE = 8f;
+	public static final float HUNT_DAMAGE = 9f;
 	/** v0.17.2 revamp, Shift+G: the roar's sound ping -- everything within 24 is outlined for him and his squad for 6 s. */
 	public static final double PING_RANGE = 24.0;
 	public static final int PING_TICKS = 120;
@@ -257,7 +258,7 @@ public final class WildmuttKit extends AlienKit {
 	// ultimate -- was 5 a creature, no burst
 	public static final float ROLL_DAMAGE = 12f, ROLL_FACTOR = 0.6f;
 	/** v0.17.2: the quill burst when the roll ends -- this much to everything within {@link #ROLL_BURST_RADIUS}. */
-	public static final float ROLL_BURST_DAMAGE = 14f, ROLL_BURST_RADIUS = 4f;
+	public static final float ROLL_BURST_DAMAGE = 18f, ROLL_BURST_RADIUS = 4f;
 	public static final int FRENZY_TICKS = 160;
 	public static final float FRENZY_SPEED = 0.25f, FRENZY_CLAWS = 4f, FRENZY_HEAL = 1.5f;
 	public static final double TRACK_RANGE = 48.0;

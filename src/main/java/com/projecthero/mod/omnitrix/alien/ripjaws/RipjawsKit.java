@@ -195,7 +195,8 @@ public final class RipjawsKit extends AlienKit {
 	public static final float FRENZY_BONUS = 1.3f;
 	public static final int FRENZY_TICKS = 200;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7 / 10
-	public static final float BITE_DAMAGE = 12f;
+	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36 (the bite is quick: 12 -> 8)
+	public static final float BITE_DAMAGE = 8f;
 	public static final float BITE_REACH = 3.5f;
 	public static final float LUNGE_DAMAGE = 16f;
 	/** v0.17.2 Steel Jaws: the share of a target's armour every bite ignores (Megamouth ignores all of it). */

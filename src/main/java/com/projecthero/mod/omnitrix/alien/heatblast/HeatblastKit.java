@@ -171,38 +171,38 @@ public final class HeatblastKit extends AlienKit {
 	public static final String FIRE_BOLT = "fire_bolt";
 	public static final String SMELT = "smelt";
 
-	// v0.17.2 numbers, on par with the other aliens (R ~12, strong ~17, ultimate 30)
-	public static final float VOLLEY_DAMAGE = 4f;
+	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36
+	public static final float VOLLEY_DAMAGE = 5f;
 	public static final int VOLLEY_SHOTS = 3, VOLLEY_GAP = 3;
 	public static final float THROWER_DAMAGE = 2f;
 	public static final int THROWER_TICKS = 60, THROWER_PULSE = 4;
 	public static final double THROWER_RANGE = 7.0;
-	public static final float LASSO_DAMAGE = 6f;
+	public static final float LASSO_DAMAGE = 9f;
 	public static final double LASSO_RANGE = 16.0;
 	public static final int LASSO_TICKS = 10;
-	public static final float MAGMA_DAMAGE = 12f;
+	public static final float MAGMA_DAMAGE = 15f;
 	public static final int PATCH_TICKS = 80;
 	public static final float PATCH_RADIUS = 2.5f, PATCH_DAMAGE = 2f;
 	/** The Rock Ride: X held this long from the press (2 s), how long the ride lasts (1 minute), and its speeds (blocks a tick). */
 	public static final int RIDE_CHARGE_TICKS = 40, RIDE_TICKS = 1200;
 	// v0.17.2 (user: "speed up heatblasts rock ride ability to 25 blocks per second"): cruising 1.25 (was 0.8), forward 1.6 (was 1.3)
 	public static final double RIDE_SPEED = 1.25, RIDE_BOOST = 1.6, RIDE_BRAKE = 0.35;
-	public static final float DASH_DAMAGE = 8f;
+	public static final float DASH_DAMAGE = 10f;
 	public static final int DASH_TICKS = 10;
 	public static final double DASH_SPEED = 1.15;
 	public static final float TORNADO_DAMAGE = 2f;
 	public static final int TORNADO_TICKS = 80;
 	public static final double TORNADO_RANGE = 24.0, TORNADO_PULL = 6.0;
-	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 30f, SUPERNOVA_EDGE_DAMAGE = 18f;
+	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 34f, SUPERNOVA_EDGE_DAMAGE = 20f;
 	public static final int SUPERNOVA_CHARGE = 25;
 	public static final float FIRE_RING_RADIUS = 7.5f, FIRE_RING_DAMAGE = 3f;
 	public static final int FIRE_RING_TICKS = 80;
 	public static final int SHIELD_TICKS = 100;
 	public static final float SHIELD_FACTOR = 0.4f;
-	public static final float ERUPT_DAMAGE = 12f;
+	public static final float ERUPT_DAMAGE = 16f;
 	public static final int ERUPT_GEYSERS = 8;
 	public static final double ERUPT_SPACING = 1.6;
-	public static final float METEOR_DAMAGE = 16f, METEOR_RADIUS = 5f;
+	public static final float METEOR_DAMAGE = 20f, METEOR_RADIUS = 5f;
 	public static final double METEOR_RISE = 1.35;
 	public static final float BOLT_DAMAGE = 5f;
 	public static final float PUNCH_FIRE = 2f;

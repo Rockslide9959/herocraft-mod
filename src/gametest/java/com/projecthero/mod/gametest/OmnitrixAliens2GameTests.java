@@ -472,7 +472,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		p.setHealth(20f);
 		helper.assertTrue(kit.bite(p), "Bite");
-		near(helper, z.getHealth(), 100f - RipjawsKit.BITE_DAMAGE, "12 damage on land");
+		near(helper, z.getHealth(), 100f - RipjawsKit.BITE_DAMAGE, "8 damage on land");
 		near(helper, p.getHealth(), 21f, "a bite heals 1");
 		helper.assertFalse(kit.bite(p), "the bite cools down");
 		// v0.17.2 revamp: Shift+G Tail Sweep -- 270 degrees round him, the quarter in front spared

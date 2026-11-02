@@ -200,7 +200,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		helper.assertFalse(k.pounce(p), "Pounce cools down");
 		p.tickCount++;
 		Omnitrix.tick(p);
-		near(helper, z.getHealth(), 200f - WildmuttKit.POUNCE_DAMAGE, "the bite does 12");
+		near(helper, z.getHealth(), 200f - WildmuttKit.POUNCE_DAMAGE, "the bite does 14");
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
 		helper.assertFalse(k.flag(p, WildmuttKit.F_POUNCE), "the pounce is over");
 		// the timed moves: Maul, Quill Volley, Savage Roar (v0.17.2: Ground Slam left Z -- see aCoiledLeapLandsInAGroundSlam)
