@@ -278,6 +278,10 @@ public final class SuperSpeedClientV0145 {
 		float limb = p.walkAnimation.position(0f);
 		Vec3 from = new Vec3(msg.fx(), msg.fy(), msg.fz());
 		Vec3 to = new Vec3(msg.tx(), msg.ty(), msg.tz());
+		if (msg.kind() == SpeedStreakPayload.KIND_STREAK && com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p)) {
+			// v0.17.2 (XLR8 revamp): his zips also lay his blue-and-black streak lines along the zip
+			com.projecthero.mod.client.omnitrix.alien.Xlr8StreakTrail.zip(p, from, to);
+		}
 		double len = from.distanceTo(to);
 		int n = (int) Math.max(2, Math.min(40, Math.round(len / 0.8)));
 		for (int i = 0; i < n; i++) {

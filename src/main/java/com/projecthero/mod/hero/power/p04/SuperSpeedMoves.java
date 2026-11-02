@@ -328,6 +328,9 @@ public final class SuperSpeedMoves {
 	private static void zipTrail(ServerPlayer p, Vec3 from, Vec3 to) {
 		int rgb = color(p);
 		streak(p, SpeedStreakPayload.KIND_STREAK, from, to, rgb, 16);
+		if (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p)) {
+			return; // v0.17.2 (XLR8 revamp): his clients lay a blue-and-black streak line along the zip instead of the spark line
+		}
 		ServerLevel level = p.serverLevel();
 		DustParticleOptions dust = new DustParticleOptions(new org.joml.Vector3f(((rgb >> 16) & 0xFF) / 255f,
 				((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f), 1.3f);
@@ -644,6 +647,14 @@ public final class SuperSpeedMoves {
 		return SWEEPS.containsKey(p.getUUID());
 	}
 
+	/**
+	 * v0.17.2 (XLR8 revamp): XLR8's Raptor Rush reaches {@code Xlr8Kit.RUSH_RANGE} -- his old 50-block sweep emptied the whole
+	 * area (and made other aliens' damage tests flaky); Super Speed's own stays {@link #SWEEP_RANGE}.
+	 */
+	public static double sweepRange(Player p) {
+		return com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.RUSH_RANGE : SWEEP_RANGE;
+	}
+
 	/** What Speed Sweep goes for: hostiles, anything hunting you, and (PvP on, not squad) players. */
 	private static boolean sweepTarget(ServerPlayer p, LivingEntity e) {
 		// v0.14.20: a 50-block auto-sweep is rule 2 -- threats only, never the farm (HeroTargets#isHostile)
@@ -678,7 +689,7 @@ public final class SuperSpeedMoves {
 			return false;
 		}
 		List<Integer> found = new ArrayList<>();
-		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), p.position(), SWEEP_RANGE, e -> sweepTarget(p, e))) {
+		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), p.position(), sweepRange(p), e -> sweepTarget(p, e))) {
 			found.add(e.getId());
 		}
 		if (found.isEmpty()) {
@@ -760,7 +771,7 @@ public final class SuperSpeedMoves {
 		// despawns the speedster goes home (it used to wait out the hop timer, and then stand frozen at the last target
 		// for 5 s whenever a stray it could not land beside was still on the list)
 		ServerLevel level = p.serverLevel();
-		double leash = (SWEEP_RANGE + 10) * (SWEEP_RANGE + 10);
+		double leash = (sweepRange(p) + 10) * (sweepRange(p) + 10);
 		List<LivingEntity> left = new ArrayList<>();
 		for (int id : s.targets.pending()) {
 			Entity e = level.getEntity(id);

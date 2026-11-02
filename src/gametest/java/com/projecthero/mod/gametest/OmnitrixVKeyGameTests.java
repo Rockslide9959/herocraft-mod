@@ -556,35 +556,35 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was hold-X Phase. */
+	/** v0.17.2 revamp: Shift+X is Friction Zero (was Phase), hold X Tail Spin (was Whirlwind). */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void xlr8ShiftXTapPhasesAndHoldXWhirls(GameTestHelper helper) {
+	public void xlr8ShiftXTapSkatesAndHoldXTailSpins(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);
 		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
 		pump(helper, p);
-		// a Shift+X tap: Phase, and it stays on after the key is up
+		// a Shift+X tap: Friction Zero, and it stays on after the key is up
 		p.setShiftKeyDown(true);
 		AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 		AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
 		p.setShiftKeyDown(false);
 		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(kit.phasing(p), "a Shift+X tap: Phase, still on");
-			helper.assertFalse(kit.allowDamage(p, p.damageSources().generic(), 5f), "untouchable");
+			helper.assertTrue(kit.flag(p, Xlr8Kit.F_SKATE), "a Shift+X tap: Friction Zero, still on");
+			helper.assertTrue(kit.body(p, net.minecraft.world.entity.Pose.STANDING).height() < 1.0f, "low enough for a 1-block gap");
 			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.DASH) == 0, "the Shift+X tap is not a dash");
 			p.setShiftKeyDown(true);
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
 			p.setShiftKeyDown(false);
-			helper.assertFalse(kit.phasing(p), "tapping Shift+X again ends it");
-			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.PHASE) > 0, "then it cools down");
+			helper.assertFalse(kit.flag(p, Xlr8Kit.F_SKATE), "tapping Shift+X again ends it");
+			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.SKATE) > 0, "then it cools down");
 			// a tap is still the dash
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
 			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.DASH) > 0 && kit.flag(p, Xlr8Kit.F_DASH), "a tap of X: Blur Dash");
-			// and holding X spins the Whirlwind
+			// and holding X is Tail Spin
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 			helper.runAfterDelay(14, () -> {
-				helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.WHIRL) > 0, "hold X: Whirlwind");
+				helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.TAIL_SPIN) > 0, "hold X: Tail Spin");
 				AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
 				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 				helper.succeed();
@@ -593,7 +593,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void xlr8ShiftZSpeedSweepsAndComesHome(GameTestHelper helper) {
+	public void xlr8ShiftZRaptorRushesAndComesHome(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);
 		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
 		Vec3 home = p.position();
@@ -601,12 +601,13 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		Zombie b = zombie(helper, 6.5, 2, 6.5);
 		float ha = a.getHealth();
 		float hb = b.getHealth();
-		helper.assertTrue(kit.speedSweep(p), "Shift+Z: Speed Sweep");
+		helper.assertTrue(kit.raptorRush(p), "Shift+Z: Raptor Rush");
+		helper.assertFalse(kit.allowDamage(p, p.damageSources().generic(), 5f), "untouchable while it runs");
 		pump(helper, p);
 		helper.runAfterDelay(20, () -> {
 			helper.assertTrue(a.getHealth() < ha && b.getHealth() < hb, "both zombies were hit");
 			helper.assertTrue(p.position().distanceTo(home) < 0.5, "and he is back where he stood");
-			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.SPEED_SWEEP) > 0, "it cools down");
+			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.RUSH) > 0, "it cools down");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 			a.discard();
 			b.discard();
