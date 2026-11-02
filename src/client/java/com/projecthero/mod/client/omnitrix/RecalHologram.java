@@ -134,7 +134,7 @@ public final class RecalHologram {
 	private static void cone(PoseStack pose, VertexConsumer vc, float x0, float cy, float alpha) {
 		PoseStack.Pose p = pose.last();
 		int seg = 20;
-		float r0 = 0.8f / 16f, r1 = 2.2f / 16f, x1 = x0 + HEIGHT + 0.04f;
+		float r0 = 0.6f / 16f, r1 = 2.0f / 16f, x1 = x0 + HEIGHT + 0.04f;
 		int lit = LightTexture.FULL_BRIGHT;
 		int aBot = Math.round(110 * alpha), aTop = 0;
 		for (int i = 0; i < seg; i++) {

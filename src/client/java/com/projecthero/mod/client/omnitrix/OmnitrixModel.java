@@ -196,11 +196,11 @@ public final class OmnitrixModel {
 	// ================================================================ v0.17.2: the Recalibrated Omnitrix
 
 	/** The recalibrated watch's bezel: an eight-sided grey ring, angled -- outer radius at its foot / top, inner radius, height. */
-	private static final float RB = 3.0f, RT = 2.65f, RI = 2.15f, BEZEL_H = 0.3f;
+	private static final float RB = 1.5f, RT = 1.32f, RI = 1.08f, BEZEL_H = 0.24f;
 	/** v0.17.2 round 2 (user: "make the wrist band thinner"): the recalibrated band's wall and its half-width along the arm. */
-	private static final float RECAL_WALL = 0.18f, RECAL_HALF_LEN = 2.0f;
+	private static final float RECAL_WALL = 0.16f, RECAL_HALF_LEN = 1.0f;
 	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
-	private static final float RECAL_FACE_X = 0.2f;
+	private static final float RECAL_FACE_X = 0.16f;
 	public static final float RECAL_FACE_R = RI - 0.06f;
 	/** The recalibrated face pops up less than the prototype's core (it rises inside the ring). */
 	public static final float RECAL_LIFT_SCALE = 0.35f;
@@ -228,14 +228,14 @@ public final class OmnitrixModel {
 		Section outer = cuff.grow(RECAL_WALL);
 		// ---- the band and its black stripe
 		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, RECAL_WALL, cy - RECAL_HALF_LEN, cy + RECAL_HALF_LEN, CUFF, light);
-		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.05f, cy - 0.55f, cy + 0.55f, WHITE, light);
+		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.05f, cy - 0.3f, cy + 0.3f, WHITE, light);
 		// ---- the knobs: out of the bezel's sides, across the arm
 		for (int side = -1; side <= 1; side += 2) {
 			pose.pushPose();
-			pose.translate((xo + 0.15f) * S, cy * S, side * (RB - 0.1f) * S);
+			pose.translate((xo + 0.12f) * S, cy * S, side * (RB - 0.06f) * S);
 			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
-			cylinder(pose, vc, 0f, 0.55f, 0f, 0f, 0.28f, PLATE, light, 12);
-			cylinder(pose, vc, 0.55f, 0.65f, 0f, 0f, 0.2f, RING, light, 12);
+			cylinder(pose, vc, 0f, 0.36f, 0f, 0f, 0.17f, PLATE, light, 12);
+			cylinder(pose, vc, 0.36f, 0.42f, 0f, 0f, 0.12f, RING, light, 12);
 			pose.popPose();
 		}
 		// ---- the bezel, the collar and the face turn with the dial
