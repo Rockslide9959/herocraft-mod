@@ -110,8 +110,11 @@ public final class CryokinesisHandlers {
 	public static final float COST_SLIDE_PER_SECOND = 1.0f; // (user: drain a lot less, ride longer -- was 4)
 	/** Step up a block on the slide without stopping (the client drives the ride; this is the attribute it reads). */
 	private static final ResourceLocation SLIDE_STEP = com.projecthero.mod.ProjectHeroMod.id("cryo_slide_step");
-	/** The slide's speed in blocks a tick (the client drives it). */
-	public static final double SLIDE_SPEED = 0.72;
+	/**
+	 * The slide's speed in blocks a tick (the client drives it). v0.17.2 (user: "make ice slide and crystal slide both move at 20
+	 * blocks per second"): 1.0 (was 0.72, 14.4 a second); Diamondhead's Crystal Slide rides at this too.
+	 */
+	public static final double SLIDE_SPEED = 1.0;
 	private static final int SLIDE_ICE_TTL = 40;
 	public static final double PILLAR_HEIGHT = 10.0;
 	private static final int PILLAR_TTL = 8 * 20;

@@ -151,6 +151,7 @@
 		"LocalPlayerMixin",
 		"MinecraftHotbarKeysMixin",
 		"MoonKnightGlidePoseMixin",
+		"StinkflyFlightPoseMixin",
 		"CatNoirAllFoursMixin",
 		"MoonKnightInvisibleSuitMixin",
 		"MoonKnightPickerMouseMixin",

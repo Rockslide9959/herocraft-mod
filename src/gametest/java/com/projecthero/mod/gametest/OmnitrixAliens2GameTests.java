@@ -121,6 +121,19 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		near(helper, p.getMaxHealth(), 20f, "20 health");
 		near(helper, p.getScale(), 0.9f, "0.9x the size");
 		helper.assertTrue(p.getAbilities().mayfly, "the wings are ready (a double-tap of jump flies)");
+		// v0.17.2 (user: "if the player transforms into stinkfly midair i want the player to automatically start flying"): on the
+		// ground he stays down; in the air the transformation takes off by itself
+		p.getAbilities().flying = false;
+		kit.setFlag(p, StinkflyKit.F_FLYING, false);
+		p.setOnGround(true);
+		kit.onTransform(p);
+		helper.assertFalse(p.getAbilities().flying, "transforming on the ground: still on the ground");
+		p.setOnGround(false);
+		kit.onTransform(p);
+		helper.assertTrue(p.getAbilities().flying && kit.flag(p, StinkflyKit.F_FLYING), "transforming in mid-air: flying at once");
+		p.getAbilities().flying = false;
+		kit.setFlag(p, StinkflyKit.F_FLYING, false);
+		p.onUpdateAbilities();
 		helper.assertTrue(kit.wingFlight(p) && p.getAbilities().flying && kit.flag(p, StinkflyKit.F_FLYING), "X takes off");
 		helper.assertFalse(kit.wingFlight(p), "X has a short cooldown");
 		var n = Omnitrix.state(p).copy();

@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
+import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
@@ -159,6 +160,35 @@ public final class StinkflyClient implements AlienClientKit {
 	/** How spread the wings are (0 folded .. 1 flying), eased per player so take-off and landing open / close them smoothly. */
 	private static final java.util.Map<AbstractClientPlayer, float[]> OPEN = new java.util.WeakHashMap<>();
 
+	/**
+	 * v0.17.2 (user: "make stinkfly's flying animations look better"): per player {prev, now} of the forward lean (degrees, into
+	 * his speed), the bank (degrees, into his turns) and how fast he is going (0 hovering .. 1 full speed), eased each tick from
+	 * how far he actually moved (works for other players too, whose velocity is not synced).
+	 */
+	private static final java.util.Map<AbstractClientPlayer, float[]> FLIGHT = new java.util.WeakHashMap<>();
+	private static final int LEAN = 0, BANK = 2, SPEED = 4;
+
+	private static float flight(AbstractClientPlayer p, int what, float partial) {
+		float[] f = FLIGHT.get(p);
+		return f == null ? 0f : Mth.lerp(partial, f[what], f[what + 1]);
+	}
+
+	/** The whole-body tilt for {@code StinkflyFlightPoseMixin}: {pitch forward, roll} in degrees, plus the hover bob (blocks). */
+	public static float[] bodyTilt(AbstractClientPlayer p, float partial) {
+		if (!(AlienClients.shownKit(p) instanceof StinkflyClient) || (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0) {
+			return null;
+		}
+		float open = openAmount(p, partial);
+		if (open < 0.02f) {
+			return null;
+		}
+		float age = p.tickCount + partial;
+		float speed = flight(p, SPEED, partial);
+		// hovering, each downstroke lifts him a little; at speed the bob flattens out
+		float bob = Mth.sin(age * 2.4f * 0.5f) * 0.05f * (1f - speed) * open;
+		return new float[] { flight(p, LEAN, partial) * open, flight(p, BANK, partial) * open, bob };
+	}
+
 	private static float openAmount(AbstractClientPlayer p, float partial) {
 		float[] o = OPEN.get(p);
 		if (o == null) {
@@ -172,7 +202,8 @@ public final class StinkflyClient implements AlienClientKit {
 		float open = openAmount(p, partial);
 		boolean diving = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0;
 		// the flying beat: fast (about 6 strokes a second shows as a blur of positions), the lower pair a quarter-stroke behind
-		float beatSpeed = diving ? 3.1f : 2.4f;
+		float speed = flight(p, SPEED, partial);
+		float beatSpeed = diving ? 3.1f : 2.4f + 0.6f * speed;
 		AlienParts.on(pose, model.body, () -> {
 			// the mount: a small knot of chitin between the shoulder blades
 			box(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, TAIL, light);
@@ -186,7 +217,8 @@ public final class StinkflyClient implements AlienClientKit {
 					// spread (flying): the upper blade raised out behind him, beating through a wide arc; the lower pair lower
 					// and shorter-stroked
 					float flyRoll = upper ? -0.45f + beat * 0.42f : 0.1f + beat * 0.32f;
-					float flyYaw = (upper ? 0.35f : 0.45f) + stroke * (upper ? 0.28f : 0.2f);
+						// v0.17.2: at speed the stroke narrows and the wings sweep back
+					float flyYaw = (upper ? 0.35f : 0.45f) + 0.35f * speed + stroke * (upper ? 0.28f : 0.2f) * (1f - 0.35f * speed);
 					float flyTilt = -0.25f + stroke * 0.12f;
 					// folded (ground): swept back along his back, the blades pointing up and back, a faint idle quiver
 					float quiver = Mth.sin(age * 0.09f + pair) * 0.03f;
@@ -246,14 +278,29 @@ public final class StinkflyClient implements AlienClientKit {
 			clip = null; // the dive pose only while still diving
 		}
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		if (flying(p)) {
+			// v0.17.2: the head stays level against the body's forward lean, so he looks where he flies
+			float partial = age - Mth.floor(age);
+			m.head.xRot -= flight(p, LEAN, partial) * Mth.DEG_TO_RAD * 0.85f;
+		}
 		if (!played && flying(p)) {
-			// hovering: legs trailing, forearms held up like an insect's
-			m.rightArm.xRot = -0.6f + Mth.sin(age * 0.3f) * 0.05f;
-			m.leftArm.xRot = -0.6f - Mth.sin(age * 0.3f) * 0.05f;
-			m.rightArm.zRot = 0.2f;
-			m.leftArm.zRot = -0.2f;
-			m.rightLeg.xRot = 0.45f + Mth.sin(age * 0.25f) * 0.08f;
-			m.leftLeg.xRot = 0.35f - Mth.sin(age * 0.25f) * 0.08f;
+			float partial = age - Mth.floor(age);
+			float sp = flight(p, SPEED, partial);
+			float bank = flight(p, BANK, partial) * Mth.DEG_TO_RAD;
+			// hovering: forearms held up like an insect's, the legs dangling and paddling slowly; at speed the arms fold back
+			// along his sides and the legs stream out straight behind, the inside pair drawn in a little on a turn
+			float paddle = Mth.sin(age * 0.3f);
+			m.rightArm.xRot = Mth.lerp(sp, -0.7f + paddle * 0.08f, 0.35f);
+			m.leftArm.xRot = Mth.lerp(sp, -0.7f - paddle * 0.08f, 0.35f);
+			m.rightArm.yRot = Mth.lerp(sp, -0.15f, 0f);
+			m.leftArm.yRot = Mth.lerp(sp, 0.15f, 0f);
+			m.rightArm.zRot = Mth.lerp(sp, 0.35f, 0.12f);
+			m.leftArm.zRot = Mth.lerp(sp, -0.35f, -0.12f);
+			float kick = Mth.sin(age * 0.25f) * 0.12f * (1f - sp);
+			m.rightLeg.xRot = Mth.lerp(sp, 0.35f + kick, 0.12f) + Mth.sin(age * 0.6f) * 0.03f * sp;
+			m.leftLeg.xRot = Mth.lerp(sp, 0.2f - kick, 0.18f) - Mth.sin(age * 0.6f) * 0.03f * sp;
+			m.rightLeg.zRot = Mth.lerp(sp, 0.08f, 0.04f) + Math.max(0f, bank) * 0.3f;
+			m.leftLeg.zRot = Mth.lerp(sp, -0.08f, -0.04f) + Math.min(0f, bank) * 0.3f;
 			return true;
 		}
 		return played;
@@ -287,6 +334,21 @@ public final class StinkflyClient implements AlienClientKit {
 		float target = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0 ? 0.8f : flying(p) ? 1f : 0f;
 		o[0] = o[1];
 		o[1] += (target - o[1]) * (target > o[1] ? 0.35f : 0.2f);
+		float[] f = FLIGHT.computeIfAbsent(p, k -> new float[6]);
+		double dx = p.getX() - p.xo, dy = p.getY() - p.yo, dz = p.getZ() - p.zo;
+		float h = (float) Math.sqrt(dx * dx + dz * dz);
+		float sp = Mth.clamp(h / 0.75f, 0f, 1f);
+		// lean: up to 55 degrees into full speed, less while climbing, a little more diving down
+		float lean = flying(p) ? Mth.clamp(sp * 55f - (float) dy * 40f, -10f, 65f) : 0f;
+		// bank into the turn (how fast the body is swinging round), only once he is moving
+		float turn = Mth.wrapDegrees(p.yBodyRot - p.yBodyRotO);
+		float bank = flying(p) ? Mth.clamp(-turn * 2.2f * (0.3f + sp), -25f, 25f) : 0f;
+		for (int i = 0; i < 6; i += 2) {
+			f[i] = f[i + 1];
+		}
+		f[LEAN + 1] += (lean - f[LEAN + 1]) * 0.2f;
+		f[BANK + 1] += (bank - f[BANK + 1]) * 0.18f;
+		f[SPEED + 1] += ((flying(p) ? sp : 0f) - f[SPEED + 1]) * 0.2f;
 		if (r.nextInt(25) == 0) {
 			level.addParticle(ParticleTypes.ITEM_SLIME, p.getX() + (r.nextDouble() - 0.5) * 0.4, p.getY() + p.getBbHeight() * 0.4,
 					p.getZ() + (r.nextDouble() - 0.5) * 0.4, 0, -0.05, 0);

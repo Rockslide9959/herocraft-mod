@@ -281,6 +281,16 @@ public final class StinkflyKit extends AlienKit {
 		ServerLevel l = level(p);
 		p.getAbilities().mayfly = true;
 		p.getAbilities().setFlyingSpeed(FLY_SPEED);
+		// v0.17.2 (user: "if the player transforms into stinkfly midair i want the player to automatically start flying"): already
+		// airborne (not standing, swimming or riding), he opens his wings and flies rather than falling
+		if (!p.onGround() && !p.isInWater() && !p.isPassenger() && !p.onClimbable()) {
+			p.getAbilities().flying = true;
+			setFlag(p, F_FLYING, true);
+			anim(p, ANIM_TAKEOFF);
+			p.setDeltaMovement(p.getDeltaMovement().multiply(1, 0, 1));
+			p.hurtMarked = true;
+			p.resetFallDistance();
+		}
 		p.onUpdateAbilities();
 		OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.0f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		l.sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.4, 0.5, 0.4, 0.05);

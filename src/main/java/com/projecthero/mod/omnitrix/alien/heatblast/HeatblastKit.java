@@ -185,7 +185,8 @@ public final class HeatblastKit extends AlienKit {
 	public static final float PATCH_RADIUS = 2.5f, PATCH_DAMAGE = 2f;
 	/** The Rock Ride: X held this long from the press (2 s), how long the ride lasts (1 minute), and its speeds (blocks a tick). */
 	public static final int RIDE_CHARGE_TICKS = 40, RIDE_TICKS = 1200;
-	public static final double RIDE_SPEED = 0.8, RIDE_BOOST = 1.3, RIDE_BRAKE = 0.35;
+	// v0.17.2 (user: "speed up heatblasts rock ride ability to 25 blocks per second"): cruising 1.25 (was 0.8), forward 1.6 (was 1.3)
+	public static final double RIDE_SPEED = 1.25, RIDE_BOOST = 1.6, RIDE_BRAKE = 0.35;
 	public static final float DASH_DAMAGE = 8f;
 	public static final int DASH_TICKS = 10;
 	public static final double DASH_SPEED = 1.15;
