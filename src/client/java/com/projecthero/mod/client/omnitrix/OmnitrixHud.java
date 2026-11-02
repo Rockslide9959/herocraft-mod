@@ -31,7 +31,8 @@ import net.minecraft.util.Mth;
  *   Hydration [==========----] 12s        a kit's own rows ({@link AlienClientKit#hud}: Ripjaws' hydration)
  *   Heatblast                             the alien
  *   Time      [==============--] 2:41     the time left (green, red in the last 15 s)
- *   [R] [G] [Z] [X] [C] [V]               the kit keys: the plain move's cooldown, the Shift move's while sneaking
+ *   [R] [G] [Z] [X] [C] [V]               the kit keys: the plain move's cooldown, the Shift move's while sneaking;
+ *                                        a thin amber bar along the bottom: the other move's cooldown (v0.17.2)
  * </pre>
  * Human with the watch: a compact title row ({@code Omnitrix} and the selected alien), the red Recharge bar while it recharges,
  * and while the watch is up the scroll / click hint wrapped above it. No Omnitrix logo; v0.17.1 (user): V is a kit key with its
@@ -222,8 +223,23 @@ public final class OmnitrixHud {
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 			}
+			// v0.17.2 (user: "add a little bar at the bottom of the ability keys to show cooldowns instead of only showing cooldowns when
+			// shifting for shifted abilities"): the key's other move (the Shift one, or the plain one while Shift is held) cooling
+			// down -- a thin amber bar along the bottom that drains as it comes back, gone when it is ready
+			AlienMove other = shift ? (tap != null ? tap : hold) : sh;
+			if (other != null && other != shown) {
+				int ocd = kit.cooldownLeft(p, other.id());
+				if (ocd > 0) {
+					int w = Math.max(1, (int) ((BOX - 4) * Math.min(1f, ocd / (float) Math.max(1, other.cooldown()))));
+					g.fill(x + 2, y0 + BOX - 5, x + BOX - 2, y0 + BOX - 3, 0xAA000000);
+					g.fill(x + 2, y0 + BOX - 5, x + 2 + w, y0 + BOX - 3, OTHER_COOLDOWN);
+				}
+			}
 		}
 	}
+
+	/** The other move's cooldown bar (v0.17.2). */
+	private static final int OTHER_COOLDOWN = 0xFFFFB040;
 
 	private static String keyLabel(AbilitySlot slot) {
 		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
