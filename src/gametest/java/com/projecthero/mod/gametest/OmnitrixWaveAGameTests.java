@@ -142,18 +142,22 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 5.5, 120f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(AlienKit.lookTarget(p, 14) == z, "the zombie is in sight");
-		// v0.17.1 revamp: G is the plain Speedster's Blitz (borrowed from SuperSpeedMoves); v0.17.2: on his own 14
-		helper.assertTrue(kit.blitz(p), "Blitz");
+		// v0.17.2 revamp: G is Raptor Strike (the borrowed Blitz on his own 14) -- and it trips the target
+		helper.assertTrue(kit.raptorStrike(p), "Raptor Strike");
+		helper.assertTrue(Xlr8Kit.tripped(p, z), "the zombie is tripped");
+		var trip = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		helper.assertTrue(trip != null && trip.getAmplifier() >= 9, "rooted where it fell");
+		z.removeAllEffects(); // (so the Time Burst below is the slow that shows)
 		helper.assertTrue(near(z.getHealth(), 120f - Xlr8Kit.BLITZ_HIT), "14 damage: " + z.getHealth());
-		helper.assertFalse(kit.blitz(p), "then cools down");
+		helper.assertFalse(kit.raptorStrike(p), "then cools down");
 		helper.assertTrue(p.distanceTo(z) < 2.5, "he closed the gap");
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
 		z.setDeltaMovement(Vec3.ZERO);
 		float before = z.getHealth();
 		z.invulnerableTime = 0;
-		helper.assertTrue(kit.whirlwind(p), "Whirlwind");
-		helper.assertTrue(near(before - z.getHealth(), Xlr8Kit.WHIRL_DAMAGE), "8 damage");
-		helper.assertFalse(kit.whirlwind(p), "it cools down");
+		helper.assertTrue(kit.tailSpin(p), "Tail Spin");
+		helper.assertTrue(near(before - z.getHealth(), Xlr8Kit.TAIL_SPIN_DAMAGE), "8 damage");
+		helper.assertFalse(kit.tailSpin(p), "it cools down");
 		helper.assertTrue(kit.timeBurst(p), "Time Burst");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		helper.assertTrue(slow != null && slow.getAmplifier() >= 5 && slow.getDuration() > Xlr8Kit.BURST_TICKS - 5, "the zombie crawls");
@@ -178,15 +182,15 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		float hp = z.getHealth();
 		z.invulnerableTime = 0;
-		helper.assertTrue(kit.rapidAssault(p) == 1, "Rapid Assault hits the zombie");
-		helper.assertTrue(hp - z.getHealth() >= Xlr8Kit.ASSAULT_PUNCH * Xlr8Kit.ASSAULT_PUNCHES - 0.1f, "five punches of 2.5: " + (hp - z.getHealth()));
+		helper.assertTrue(kit.blurPunches(p) == 1, "Blur Punches hit the zombie");
+		helper.assertTrue(hp - z.getHealth() >= Xlr8Kit.ASSAULT_PUNCH * Xlr8Kit.ASSAULT_PUNCHES - 0.1f, "six punches of 2.5: " + (hp - z.getHealth()));
 		float afterAssault = z.getHealth();
 		helper.assertTrue(kit.kickBarrage(p), "Kick Barrage");
 		p.setDeltaMovement(Vec3.ZERO);
 		pump(helper, p);
 		helper.runAfterDelay(18, () -> {
 			helper.assertTrue(z.getHealth() < afterAssault - Xlr8Kit.KICK_HIT * 4, "the kicks landed many hits: " + (afterAssault - z.getHealth()));
-			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.ASSAULT) > 0 && kit.cooldownLeft(p, Xlr8Kit.KICKS) > 0, "both cool down");
+			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.PUNCHES) > 0 && kit.cooldownLeft(p, Xlr8Kit.KICKS) > 0, "both cool down");
 			helper.assertTrue(kit.tornadoRun(p) && kit.flag(p, Xlr8Kit.F_TORNADO), "Tornado Run");
 			helper.assertTrue(kit.blurDash(p) && kit.flag(p, Xlr8Kit.F_DASH), "Blur Dash");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
@@ -208,6 +212,177 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Vec3 v = p.getDeltaMovement();
 		helper.assertTrue(v.normalize().dot(aim) > 0.99, "it follows the aim: " + v + " vs " + aim);
 		helper.assertTrue(v.y > 1.5, "aimed up, he dashes up: " + v.y);
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 XLR8 revamp
+
+	/** Kinetic Charge fills while he runs flat out in Speed Mode, drains standing still, and the Sonic Punch spends it. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8KineticChargeFillsAndSonicPunchSpendsIt(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		long t0 = helper.getLevel().getGameTime();
+		Vec3 start = p.position();
+		// not in Speed Mode: running does not charge
+		for (int i = 1; i <= 10; i++) {
+			p.setPos(start.x, start.y, start.z + 0.5 * i);
+			kit.tick(p, Omnitrix.state(p), t0 + i);
+		}
+		helper.assertTrue(Xlr8Kit.kineticCharge(p) == 0f, "no charge outside Speed Mode");
+		helper.assertTrue(kit.toggleSpeedMode(p), "Speed Mode");
+		for (int i = 11; i <= 70; i++) {
+			p.setPos(start.x, start.y, start.z + 0.5 * i);
+			kit.tick(p, Omnitrix.state(p), t0 + i);
+		}
+		float c = Xlr8Kit.kineticCharge(p);
+		helper.assertTrue(Math.abs(c - 60 * Xlr8Kit.CHARGE_FILL) < 1.5f, "3 s flat out: half a bar: " + c);
+		helper.assertTrue(Math.abs(Xlr8Kit.charge(p) - c / 100f) < 0.045f, "synced for the HUD: " + Xlr8Kit.charge(p));
+		// a second standing still drains 10
+		for (int i = 71; i <= 90; i++) {
+			kit.tick(p, Omnitrix.state(p), t0 + i);
+		}
+		helper.assertTrue(Math.abs(Xlr8Kit.kineticCharge(p) - (c - 10f)) < 0.6f, "drains 10 a second still: " + Xlr8Kit.kineticCharge(p));
+		// the punch: a full bar = 35, and the bar empties
+		Zombie z = zombie(helper, 3.5, 2, 3.0, 200f);
+		p.moveTo(start.x, start.y, start.z, 0f, 10f); // back inside the test's own space (the run took him 35 blocks off)
+		z.moveTo(p.getX(), p.getY(), p.getZ() + 1.8, 180f, 0f);
+		kit.setCharge(p, Xlr8Kit.CHARGE_MAX);
+		float hp = z.getHealth();
+		helper.assertTrue(kit.sonicPunch(p) > 0.99f, "Sonic Punch spends a full bar");
+		helper.assertTrue(near(hp - z.getHealth(), Xlr8Kit.SONIC_HIT_FULL), "35 at a full bar: " + (hp - z.getHealth()));
+		helper.assertTrue(Xlr8Kit.kineticCharge(p) == 0f && Xlr8Kit.charge(p) == 0f, "the bar is empty");
+		helper.assertTrue(kit.sonicPunch(p) < 0f, "then it cools down");
+		kit.cooldown(p, Xlr8Kit.SONIC, 0);
+		z.moveTo(p.getX(), p.getY(), p.getZ() + 1.8, 180f, 0f);
+		z.setDeltaMovement(Vec3.ZERO);
+		z.invulnerableTime = 0;
+		hp = z.getHealth();
+		helper.assertTrue(kit.sonicPunch(p) == 0f, "no charge to spend");
+		helper.assertTrue(near(hp - z.getHealth(), Xlr8Kit.SONIC_HIT), "20 with an empty bar: " + (hp - z.getHealth()));
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(Xlr8Kit.kineticCharge(p) == 0f, "the charge goes with the body");
+		z.discard();
+		helper.succeed();
+	}
+
+	/** Tail Pin: a root drops him out of Speed Mode and locks it; Friction: ice makes him slick and stops the wall run. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8TailPinAndFriction(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		long t0 = helper.getLevel().getGameTime();
+		helper.assertTrue(kit.toggleSpeedMode(p), "Speed Mode");
+		// Friction: on ice he loses grip
+		helper.getLevel().setBlock(p.getOnPos(), Blocks.BLUE_ICE.defaultBlockState(), 3);
+		kit.tick(p, Omnitrix.state(p), t0 + 1);
+		helper.assertTrue(kit.flag(p, Xlr8Kit.F_SLICK), "slick on blue ice");
+		p.horizontalCollision = true;
+		p.setXRot(-70f);
+		helper.assertFalse(kit.climbs(p), "no wall run off the ice");
+		p.horizontalCollision = false;
+		p.setXRot(0f);
+		helper.getLevel().setBlock(p.getOnPos(), Blocks.STONE.defaultBlockState(), 3);
+		kit.tick(p, Omnitrix.state(p), t0 + 2);
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SLICK), "grip back on stone");
+		// Tail Pin
+		kit.setCharge(p, 80f);
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 2));
+		kit.tick(p, Omnitrix.state(p), t0 + 3);
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "pinned: out of Speed Mode");
+		helper.assertTrue(Xlr8Kit.kineticCharge(p) == 0f, "the charge is gone");
+		p.removeAllEffects();
+		kit.cooldown(p, Xlr8Kit.MODE, 0);
+		helper.assertFalse(kit.toggleSpeedMode(p), "and Speed Mode stays locked for 3 s");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	/** Reflexes, Tail Balance and Raptor Rush's untouchability. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8ReflexesAndBalance(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		Zombie archer = zombie(helper, 3.5, 2, 6.5, 40f);
+		Arrow a = new Arrow(EntityType.ARROW, helper.getLevel());
+		a.setOwner(archer);
+		var shot = p.damageSources().arrow(a, archer);
+		helper.assertFalse(kit.dodges(p, shot, 0.0f), "no Reflexes outside Speed Mode");
+		helper.assertTrue(kit.toggleSpeedMode(p), "Speed Mode");
+		helper.assertTrue(kit.dodges(p, shot, 0.1f), "a lucky roll side-steps the arrow");
+		helper.assertFalse(kit.dodges(p, shot, 0.5f), "an unlucky one does not");
+		helper.assertFalse(kit.dodges(p, p.damageSources().mobAttack(archer), 0.0f), "a blow is no projectile");
+		// Tail Balance: running in Speed Mode, no knockback
+		long t0 = helper.getLevel().getGameTime();
+		Vec3 start = p.position();
+		for (int i = 1; i <= 3; i++) {
+			p.setPos(start.x, start.y, start.z + 0.5 * i);
+			kit.tick(p, Omnitrix.state(p), t0 + i);
+		}
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "no knockback on the run");
+		for (int i = 4; i <= 5; i++) {
+			kit.tick(p, Omnitrix.state(p), t0 + i);
+		}
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) < 1.0, "standing still he can be pushed");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) < 1.0, "it comes off with the body");
+		archer.discard();
+		helper.succeed();
+	}
+
+	/** Friction Zero: low enough for a 1-block gap, it bowls over what it hits; Shift+G again lets the twister loose. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void xlr8FrictionZeroAndLooseTwister(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		float standing = p.getBbHeight();
+		helper.assertTrue(kit.frictionZero(p) && kit.flag(p, Xlr8Kit.F_SKATE), "Friction Zero");
+		p.refreshDimensions();
+		helper.assertTrue(p.getBbHeight() < 1.0f && standing > 1.5f, "low to the ground: " + p.getBbHeight());
+		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor is down");
+		Zombie z = zombie(helper, 3.5, 2, 2.5, 60f);
+		z.moveTo(p.getX(), p.getY(), p.getZ() + 0.8, 180f, 0f);
+		float hp = z.getHealth();
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
+		helper.assertTrue(near(hp - z.getHealth(), Xlr8Kit.SKATE_HIT), "6 to what he hits: " + (hp - z.getHealth()));
+		kit.press(p, AbilitySlot.SLOT_3, true);
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SKATE), "Shift+X again stands him up");
+		p.refreshDimensions();
+		helper.assertTrue(p.getBbHeight() > 1.5f, "full height again");
+		// the Tornado Run, then Shift+G again: the twister goes on without him
+		helper.assertTrue(kit.tornadoRun(p) && kit.flag(p, Xlr8Kit.F_TORNADO), "Tornado Run");
+		kit.press(p, AbilitySlot.SLOT_2, true);
+		helper.assertTrue(kit.flag(p, Xlr8Kit.F_LOOSE) && !kit.flag(p, Xlr8Kit.F_TORNADO), "Shift+G again lets it loose");
+		pump(helper, p);
+		helper.runAfterDelay(Xlr8Kit.LOOSE_TICKS / 2 + 2, () -> {
+			helper.assertTrue(kit.flag(p, Xlr8Kit.F_LOOSE), "still travelling");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertFalse(kit.flag(p, Xlr8Kit.F_LOOSE) || kit.flag(p, Xlr8Kit.F_SKATE), "turning back ends it all");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** Rescue Carry: Use on a player scoops them onto his back; Use again sets them down. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8RescueCarry(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		ServerPlayer ally = mock(helper, 4.5, 2, 1.5);
+		helper.assertTrue(kit.onUseEntity(p, InteractionHand.MAIN_HAND, ally) == net.minecraft.world.InteractionResult.SUCCESS, "Rescue Carry");
+		helper.assertTrue(ally.getVehicle() == p && Xlr8Kit.carried(p) == ally, "on his back");
+		helper.assertTrue(kit.flag(p, Xlr8Kit.F_CARRY), "the carry flag");
+		ally.fallDistance = 20f;
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
+		helper.assertTrue(ally.fallDistance == 0f, "no fall damage while carried");
+		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND) == net.minecraft.world.InteractionResult.SUCCESS, "Use again");
+		helper.assertTrue(ally.getVehicle() == null && Xlr8Kit.carried(p) == null, "set down");
+		// any attack sets them down too
+		kit.cooldown(p, Xlr8Kit.CARRY, 0);
+		helper.assertTrue(kit.rescueCarry(p, ally) && ally.getVehicle() == p, "carried again");
+		kit.press(p, AbilitySlot.SLOT_6, false);
+		helper.assertTrue(ally.getVehicle() == null, "an attack sets them down");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.succeed();
 	}

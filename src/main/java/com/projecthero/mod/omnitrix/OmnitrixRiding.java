@@ -173,7 +173,8 @@ public final class OmnitrixRiding {
 			}
 			return new Vec3(side * dims.width() * SHOULDER_OUT, y, fwd).yRot(-yaw);
 		}
-		return null;
+		// v0.17.2 (XLR8 revamp): Rescue Carry -- the player he scooped up rides on his back
+		return com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.carrySeat(host, passenger, dims);
 	}
 
 	/**
