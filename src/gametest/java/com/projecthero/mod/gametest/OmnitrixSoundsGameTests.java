@@ -46,7 +46,9 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 	private static final Set<String> SYNTH_FILES = Set.of("core_up", "transform", "revert", "timeout", "warning", "denied", "transform_user",
 			"power_down_user", "power_down_master", "core_ready_user", "recharged_user", "dial_click_user", "four_arms_sequence",
 			// v0.17.1: Stinkfly's synthesised wings (scratchpad/stinkfly_v0171/sfx/make_wings.sh)
-			"stinkfly_wings", "stinkfly_wings_up");
+			"stinkfly_wings", "stinkfly_wings_up",
+			// v0.17.2: the user's Recalibrated Omnitrix recordings
+			"recal_prime", "recal_transform", "recal_detransform", "recal_dial_turn", "recal_master_control");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {
@@ -151,6 +153,8 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 		h.assertTrue(referenced.equals(SYNTH_FILES), "the Omnitrix files are exactly the six synthesised ones and the user's two: " + referenced);
 		java.util.List<SoundEvent> owned = new java.util.ArrayList<>(List.of(OmnitrixSounds.SYNTH));
 		owned.addAll(List.of(OmnitrixSounds.USER));
+		owned.addAll(List.of(OmnitrixSounds.RECAL));
+		owned.add(OmnitrixSounds.RECAL_MASTER_SOUND);
 		for (SoundEvent e : owned) {
 			h.assertTrue(BuiltInRegistries.SOUND_EVENT.get(e.getLocation()) == e, "registered: " + e.getLocation());
 			h.assertTrue(sounds.has(e.getLocation().getPath()), "sounds.json defines " + e.getLocation());

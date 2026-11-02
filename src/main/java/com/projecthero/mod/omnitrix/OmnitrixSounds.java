@@ -175,7 +175,7 @@ public final class OmnitrixSounds {
 			.jitter(0.0f).gap(4);
 	/** Master Control unlocked on the recalibrated watch (the user's voice line). */
 	public static final Cue RECAL_MASTER = OmnitrixSfx.cue("omnitrix_recal_master")
-			.layer(RECAL_MASTER_SOUND, 0.8f, 1.0f)
+			.layer(RECAL_MASTER_SOUND, 0.75f, 1.0f)
 			.jitter(0.0f).gap(20);
 	/** The pod's recalibration: a soft hum swell under the dial turns. */
 	public static final Cue RECAL_HUM = OmnitrixSfx.cue("omnitrix_recal_hum")
