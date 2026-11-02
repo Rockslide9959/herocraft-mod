@@ -18,7 +18,7 @@ import net.minecraft.client.Minecraft;
 public abstract class OmnitrixInputMixin {
 	@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
 	private void projecthero$omnitrixSlapAttack(CallbackInfoReturnable<Boolean> cir) {
-		if (OmnitrixClient.onClick()) {
+		if (OmnitrixClient.onClick(false)) {
 			cir.setReturnValue(false);
 		}
 	}
@@ -32,7 +32,7 @@ public abstract class OmnitrixInputMixin {
 
 	@Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
 	private void projecthero$omnitrixSlapUse(CallbackInfo ci) {
-		if (OmnitrixClient.onClick() || OmnitrixClient.onUseAir()) {
+		if (OmnitrixClient.onClick(true) || OmnitrixClient.onUseAir()) {
 			ci.cancel();
 		}
 	}

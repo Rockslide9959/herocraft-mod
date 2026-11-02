@@ -127,5 +127,7 @@ public final class OmnitrixPose {
 			}
 			kit.pose(p, m, s.animId, t, p.tickCount + partial);
 		}
+		// v0.17.2: the long (right-click) transformation's beats win over everything
+		OmnitrixSequenceClient.pose(p, m, partial);
 	}
 }

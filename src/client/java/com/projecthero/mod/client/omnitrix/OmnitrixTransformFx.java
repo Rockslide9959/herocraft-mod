@@ -115,10 +115,17 @@ public final class OmnitrixTransformFx {
 			}
 			OmnitrixState s = Omnitrix.state(p);
 			int kind = kindOf(s.animId);
-			if (kind >= 0 && now - s.animStart < duration(kind)) {
+			long start = s.animStart;
+			// v0.17.2: the long transformation changes the body under its golden flash; the green burst comes at its end, under the
+			// second green flash
+			Long seq = OmnitrixSequenceClient.start(s);
+			if (seq != null && kind == TRANSFORM) {
+				start = seq + OmnitrixSequenceClient.BURST_AT;
+			}
+			if (kind >= 0 && now >= start && now - start < duration(kind)) {
 				Fx old = LIVE.get(p.getId());
-				if (old == null || old.start != s.animStart) {
-					LIVE.put(p.getId(), new Fx(kind, s.animStart));
+				if (old == null || old.start != start) {
+					LIVE.put(p.getId(), new Fx(kind, start));
 				}
 			}
 		}

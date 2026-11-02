@@ -207,6 +207,9 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			// v0.16.4: Banner swelling through the morph into the Hulk (and back)
 			com.projecthero.mod.client.hulk.HulkMorph.applyBulge(player, (HumanoidModel<?>) (Object) this,
 					com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand);
+			// v0.17.2: the long Omnitrix transformation's swell (Four Arms)
+			com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.applyBulge(player, (HumanoidModel<?>) (Object) this,
+					com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand);
 			// v0.13.19: Symbiote move animations + suit-up pose
 			com.projecthero.mod.client.symbiote.SymbiotePose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.19: Moon Knight moves, glide / shroud stances

@@ -15,6 +15,15 @@
       }
     ]
   },
+  "omnitrix_four_arms_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_four_arms_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_sequence",
+        "stream": true
+      }
+    ]
+  },
   "omnitrix_transform_user": {
     "subtitle": "subtitles.projecthero.omnitrix_transform_user",
     "sounds": [

@@ -93,6 +93,9 @@ public final class OmnitrixAbilityManager {
 	}
 
 	public static void handle(ServerPlayer p, AbilitySlot slot, boolean pressed) {
+		if (pressed && OmnitrixLongTransform.playing(p)) {
+			return; // v0.17.2: no keys mid long transformation (sneak skips it)
+		}
 		if (slot == AbilitySlot.SLOT_7) {
 			return; // H is the power selector
 		}

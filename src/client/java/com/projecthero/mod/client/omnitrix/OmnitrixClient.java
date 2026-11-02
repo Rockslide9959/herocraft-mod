@@ -71,6 +71,7 @@ public final class OmnitrixClient {
 		});
 		HudRenderCallback.EVENT.register(OmnitrixHud::render);
 		OmnitrixTransformFx.initialize();
+		OmnitrixSequenceClient.initialize(); // v0.17.2: the long (right-click) transformation
 		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixClient::tick);
 	}
 
@@ -95,7 +96,16 @@ public final class OmnitrixClient {
 
 	/** A left or right click while the watch is up: the slap. True = vanilla must not attack / use / mine. */
 	public static boolean onClick() {
+		return onClick(false);
+	}
+
+	/** v0.17.2: {@code right} = the right-click -- the long, show-accurate transformation (Four Arms), the left-click the quick slap. */
+	public static boolean onClick(boolean right) {
 		LocalPlayer p = Minecraft.getInstance().player;
+		// v0.17.2: the long transformation is a scene -- no clicks reach the world while it plays
+		if (p != null && com.projecthero.mod.omnitrix.OmnitrixLongTransform.playing(p)) {
+			return true;
+		}
 		// v0.17.1: both hands are busy fighting the watch during the shake-off
 		if (p != null && Omnitrix.latching(p)) {
 			return true;
@@ -109,7 +119,7 @@ public final class OmnitrixClient {
 		// negative, so every slap was swallowed here. A last slap in the future is from another world: ignore it.
 		if (now - lastSlap > 4 || now < lastSlap) {
 			lastSlap = now;
-			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.SLAP, ""));
+			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.SLAP, right ? "long" : ""));
 		}
 		return true;
 	}
@@ -117,7 +127,7 @@ public final class OmnitrixClient {
 	/** While the watch is up a held attack never mines. */
 	public static boolean blocksHeldAttack() {
 		LocalPlayer p = Minecraft.getInstance().player;
-		return watchUp(p) || (p != null && Omnitrix.latching(p));
+		return watchUp(p) || (p != null && Omnitrix.latching(p)) || (p != null && com.projecthero.mod.omnitrix.OmnitrixLongTransform.playing(p));
 	}
 
 	/** Right-click on air with an empty hand while transformed (vanilla sends nothing for it): the kit's "use". */

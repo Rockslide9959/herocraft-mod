@@ -157,6 +157,8 @@
 		"PunisherLockOnMouseMixin",
 		"PunisherKickCameraMixin",
 		"MiraculousSequenceCameraMixin",
+		"OmnitrixSequenceCameraMixin",
+		"OmnitrixSequenceFovMixin",
 		"MoonKnightTruncheonSpinMixin",
 		"AllMightSpinMixin",
 		"ErasureSpinMixin",

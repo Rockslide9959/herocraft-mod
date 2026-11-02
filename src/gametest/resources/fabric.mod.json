@@ -260,7 +260,8 @@
       "com.projecthero.mod.gametest.OmnitrixSoundsGameTests",
       "com.projecthero.mod.gametest.OmnitrixPowerDownGameTests",
       "com.projecthero.mod.gametest.OmnitrixVKeyGameTests",
-      "com.projecthero.mod.gametest.OmnitrixAutoGameTests"
+      "com.projecthero.mod.gametest.OmnitrixAutoGameTests",
+      "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

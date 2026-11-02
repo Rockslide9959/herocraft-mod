@@ -54,6 +54,11 @@ public final class OmnitrixSounds {
 	public static final SoundEvent USER_RECHARGED = register("omnitrix_recharged_user");
 	/** v0.17.1 (user): "add this omnitrix click sound effect when turning the dial". */
 	public static final SoundEvent USER_DIAL_CLICK = register("omnitrix_dial_click_user");
+	/**
+	 * v0.17.2 (user: "use the sound from the video as the sound effects for the transformation sequence"): the episode's Four Arms
+	 * transformation from the slap to the flash back into the world, mono, 13.05 s; {@code OmnitrixLongTransform} is timed to it.
+	 */
+	public static final SoundEvent FOUR_ARMS_SEQUENCE_SOUND = register("omnitrix_four_arms_sequence");
 	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_POWER_DOWN_MASTER, USER_CORE_READY, USER_RECHARGED, USER_DIAL_CLICK };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
@@ -90,6 +95,10 @@ public final class OmnitrixSounds {
 	/** The user's transform sound (no jitter: the slap / body change is timed to it). */
 	public static final Cue TRANSFORM_USER = OmnitrixSfx.cue("omnitrix_transform_user")
 			.layer(USER_TRANSFORM, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** v0.17.2: the long Four Arms transformation's soundtrack (no jitter: the whole sequence is cut to it). */
+	public static final Cue FOUR_ARMS_SEQUENCE = OmnitrixSfx.cue("omnitrix_four_arms_sequence")
+			.layer(FOUR_ARMS_SEQUENCE_SOUND, 0.75f, 1.0f)
 			.jitter(0.0f).gap(4);
 	/** The user's power-down: five beeps, then the power dying (no jitter: the beeps / revert are timed to it). */
 	public static final Cue POWER_DOWN_USER = OmnitrixSfx.cue("omnitrix_power_down_user")

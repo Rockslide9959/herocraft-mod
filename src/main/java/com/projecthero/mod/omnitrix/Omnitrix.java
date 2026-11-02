@@ -68,6 +68,8 @@ public final class Omnitrix {
 	private static final String SLAP_TIMER = "omnitrix.slap";
 	/** A click before the core is up: the slap waits for it ({@link #CORE_UP_TICKS}). */
 	private static final String SLAP_QUEUE = "omnitrix.slap_queued";
+	/** v0.17.2: the queued click was the right-click (the long transformation). */
+	private static final String SLAP_QUEUE_LONG = "omnitrix.slap_queued_long";
 	/** The activation's button press is due (its click sound plays then). */
 	private static final String PRESS_TIMER = "omnitrix.press";
 
@@ -82,6 +84,7 @@ public final class Omnitrix {
 	private static void clearSlap(OmnitrixState n) {
 		n.timers.remove(SLAP_TIMER);
 		n.timers.remove(SLAP_QUEUE);
+		n.timers.remove(SLAP_QUEUE_LONG);
 		n.timers.remove(PRESS_TIMER);
 	}
 
@@ -628,11 +631,15 @@ public final class Omnitrix {
 		}
 		float frac = p.getMaxHealth() > 0f ? p.getHealth() / p.getMaxHealth() : 1f;
 		// the slap already started the user's transform sound (its swell peaks as the body changes); a direct transform starts it now
-		boolean slapped = s.timers.containsKey(SLAP_TIMER);
+		boolean slapped = s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(OmnitrixLongTransform.TIMER);
 		OmnitrixState n = s.copy();
 		n.active = kit.id();
 		n.transformedAt = now;
 		n.endsAt = now + OmnitrixConfig.TRANSFORM_TICKS;
+		if (s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
+			// v0.17.2: mid long transformation -- the 3 minutes start when it has finished
+			n.endsAt += Math.max(0L, OmnitrixLongTransform.TOTAL - (now - s.readyAt(OmnitrixLongTransform.TIMER)));
+		}
 		n.animId = ANIM_TRANSFORM;
 		n.animStart = now;
 		n.humanHealth = frac;
@@ -665,6 +672,8 @@ public final class Omnitrix {
 		if (!s.transformed()) {
 			return;
 		}
+		OmnitrixLongTransform.finish(p, true); // v0.17.2: a revert mid long transformation cuts it off
+		s = state(p);
 		if (poweringDown(s) && !sequenced) {
 			OmnitrixSounds.stopPowerDown(p);
 		}
@@ -783,7 +792,7 @@ public final class Omnitrix {
 	public static boolean cycle(ServerPlayer p, int dir) {
 		OmnitrixState s = state(p);
 		java.util.List<Aliens.Alien> pool = Aliens.playable();
-		if (!s.selecting || pool.isEmpty() || dir == 0 || s.timers.containsKey(MC_SEQ)) {
+		if (!s.selecting || pool.isEmpty() || dir == 0 || s.timers.containsKey(MC_SEQ) || s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			return false;
 		}
 		// v0.17.1 (user): a 0.2 s cooldown on the dial so it cannot be spun too fast
@@ -818,8 +827,17 @@ public final class Omnitrix {
 
 	/** Left-click (or right-click) while the watch is up: the core is slapped down; {@link #SLAP_TICKS} later, the alien. */
 	public static boolean slap(ServerPlayer p) {
+		return slap(p, false);
+	}
+
+	/**
+	 * v0.17.2: {@code longForm} = the right-click -- the long, show-accurate transformation ({@link OmnitrixLongTransform}) for an
+	 * alien that has one (Four Arms); any other alien gets the quick slap.
+	 */
+	public static boolean slap(ServerPlayer p, boolean longForm) {
 		OmnitrixState s = state(p);
-		if (!s.selecting || s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(SLAP_QUEUE) || s.timers.containsKey(MC_SEQ)) {
+		if (!s.selecting || s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(SLAP_QUEUE) || s.timers.containsKey(MC_SEQ)
+				|| s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			return false;
 		}
 		if (!Aliens.playable(s.selected)) {
@@ -844,6 +862,9 @@ public final class Omnitrix {
 			// clicked while the dial is still coming up: the slap lands as soon as it is ({@link #tick})
 			OmnitrixState q = s.copy();
 			q.timers.put(SLAP_QUEUE, coreUpAt(s));
+			if (longForm) {
+				q.timers.put(SLAP_QUEUE_LONG, 1L);
+			}
 			save(p, q);
 			return true;
 		}
@@ -851,6 +872,13 @@ public final class Omnitrix {
 		n.timers.remove(SLAP_QUEUE);
 		n.animId = ANIM_SLAP;
 		n.animStart = now;
+		if (longForm && OmnitrixLongTransform.has(s.selected)) {
+			// the episode's soundtrack carries the slap, the swell and everything after it
+			OmnitrixLongTransform.start(p, n, now);
+			save(p, n);
+			p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+			return true;
+		}
 		n.timers.put(SLAP_TIMER, now + SLAP_TICKS);
 		save(p, n);
 		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SLAP, 1.0f, 1.0f);
@@ -964,9 +992,19 @@ public final class Omnitrix {
 		if (s.selecting && s.timers.containsKey(SLAP_QUEUE) && coreUp(s, now)) {
 			OmnitrixState n = s.copy();
 			n.timers.remove(SLAP_QUEUE);
+			boolean longForm = n.timers.remove(SLAP_QUEUE_LONG) != null;
 			save(p, n);
-			slap(p);
+			slap(p, longForm);
 			return;
+		}
+		if (s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
+			// v0.17.2: the long transformation runs its own clock (the body changes on its beat, not the slap's)
+			OmnitrixLongTransform.tick(p, s, now);
+			s = state(p);
+			if (!s.transformed()) {
+				OmnitrixAbilityManager.tick(p);
+				return;
+			}
 		}
 		if (s.timers.containsKey(MC_SEQ)) {
 			tickMasterSequence(p, s, now);
@@ -1082,6 +1120,7 @@ public final class Omnitrix {
 	// ---------------------------------------------------------------- lifecycle
 
 	public static void onDeath(ServerPlayer p) {
+		OmnitrixLongTransform.finish(p, true);
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.DEATH);
 		}
@@ -1101,6 +1140,7 @@ public final class Omnitrix {
 	}
 
 	public static void onLogout(ServerPlayer p) {
+		OmnitrixLongTransform.finish(p, true);
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.LOGOUT);
 		}
@@ -1115,6 +1155,7 @@ public final class Omnitrix {
 	}
 
 	public static void onDimensionChange(ServerPlayer p) {
+		OmnitrixLongTransform.finish(p, true);
 		// mid power-down: turn back now (with the recharge it was heading for) rather than carry the beeps into the new world
 		if (poweringDown(p)) {
 			revert(p, state(p).readyAt(POWER_DOWN_TIMEOUT) == 1L ? Reason.TIMEOUT : Reason.SHIFT_V);

@@ -79,6 +79,10 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 			return;
 		}
 		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
-		AlienParts.on(pose, model.leftArm, () -> OmnitrixWatch.render(pose, buffers, light, p, partial, slim, false));
+		AlienParts.on(pose, model.leftArm, () -> {
+			OmnitrixSequenceClient.noteWrist(p, pose); // v0.17.2: the long transformation's close-up and dial light
+			OmnitrixWatch.render(pose, buffers, light, p, partial, slim, false);
+		});
+		OmnitrixSequenceClient.renderSwell(pose, buffers, p, model, partial);
 	}
 }

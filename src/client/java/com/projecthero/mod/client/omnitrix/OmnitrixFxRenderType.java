@@ -28,6 +28,25 @@ public final class OmnitrixFxRenderType extends RenderType {
 				RENDERTYPE_LIGHTNING_SHADER.clearRenderState();
 			});
 
+	/**
+	 * v0.17.2: the long transformation's cartoon stage and full-screen flashes ({@code OmnitrixSequenceClient}) -- the same flat
+	 * quads with NO depth test, so they paint over the whole view in the order drawn.
+	 */
+	public static final RenderType STAGE = new OmnitrixFxRenderType("projecthero_omnitrix_stage", DefaultVertexFormat.POSITION_COLOR,
+			VertexFormat.Mode.QUADS, 65536, false, false, () -> {
+				RENDERTYPE_LIGHTNING_SHADER.setupRenderState();
+				TRANSLUCENT_TRANSPARENCY.setupRenderState();
+				COLOR_WRITE.setupRenderState();
+				NO_CULL.setupRenderState();
+				NO_DEPTH_TEST.setupRenderState();
+			}, () -> {
+				NO_DEPTH_TEST.clearRenderState();
+				NO_CULL.clearRenderState();
+				COLOR_WRITE.clearRenderState();
+				TRANSLUCENT_TRANSPARENCY.clearRenderState();
+				RENDERTYPE_LIGHTNING_SHADER.clearRenderState();
+			});
+
 	private OmnitrixFxRenderType(String name, VertexFormat format, VertexFormat.Mode mode, int bufferSize, boolean affectsCrumbling,
 			boolean sortOnUpload, Runnable setup, Runnable clear) {
 		super(name, format, mode, bufferSize, affectsCrumbling, sortOnUpload, setup, clear);

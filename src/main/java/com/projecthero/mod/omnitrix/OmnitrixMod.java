@@ -65,7 +65,7 @@ public final class OmnitrixMod {
 					}
 				}
 				case CYCLE -> Omnitrix.cycle(p, "-1".equals(payload.alien()) ? -1 : 1);
-				case SLAP -> Omnitrix.slap(p);
+				case SLAP -> Omnitrix.slap(p, "long".equals(payload.alien())); // v0.17.2: "long" = the right-click (the long transformation)
 				case MASTER_PICK -> Omnitrix.masterSwitch(p, payload.alien()); // v0.17.2: the Master Control alien wheel
 				case USE_AIR -> {
 					AlienKit kit = Aliens.kit(Omnitrix.state(p).active);

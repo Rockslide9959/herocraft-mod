@@ -226,10 +226,30 @@ public final class FourArmsClient implements AlienClientKit {
 		lowerLeft.xRot = busy ? model.leftArm.xRot * 0.6f + off[1] : -lag * 0.85f + model.leftArm.xRot * 0.15f;
 		lowerLeft.yRot = model.leftArm.yRot * 0.4f;
 		lowerLeft.zRot = -0.3f + model.leftArm.zRot * 0.35f + (busy ? off[3] : 0f);
+		// v0.17.2: the long transformation -- the second pair splits out of the first (from inside the upper arms, sliding down to the
+		// ribs) and takes the beats' poses
+		float[] seq = com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.lowerArms(p, model, partial);
+		if (seq != null) {
+			lowerRight.x = seq[0];
+			lowerRight.y = seq[1];
+			lowerRight.z = seq[2];
+			lowerRight.xRot = seq[3];
+			lowerRight.yRot = seq[4];
+			lowerRight.zRot = seq[5];
+			lowerLeft.x = -seq[0];
+			lowerLeft.y = Mth.lerp(seq[6], model.leftArm.y, 5.4f);
+			lowerLeft.z = Mth.lerp(seq[6], model.leftArm.z, 1.0f);
+			lowerLeft.xRot = Mth.lerp(seq[6], model.leftArm.xRot, seq[3]);
+			lowerLeft.yRot = -seq[4];
+			lowerLeft.zRot = Mth.lerp(seq[6], model.leftArm.zRot, -seq[5]);
+		}
 		AlienParts.on(pose, model.body, () -> {
 			// the body bone's pivot is the neck; the lower arms hang from the ribs
 			lowerRight.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 			lowerLeft.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+			if (seq != null) {
+				com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.renderSplitGlow(pose, buffers, p, new ModelPart[] { lowerRight, lowerLeft }, partial);
+			}
 		});
 	}
 
