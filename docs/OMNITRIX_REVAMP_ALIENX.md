@@ -1,71 +1,111 @@
-# Omnitrix revamp: Alien X (v0.17.2)
+# Omnitrix revamp: Alien X -- the Celestial Council (v0.17.2)
 
-Status: **BUILT** (v0.17.2). Code: `omnitrix/alien/alienx/AlienXKit.java`, `client/omnitrix/alien/AlienXClient.java`,
-`client/omnitrix/alien/alienx/AlienXFx.java`. Tests: `OmnitrixAlienXGameTests` (+ the basic ones in `OmnitrixRecalAlienXGameTests`).
+Status: **BUILT** (v0.17.2, second rework). Replaces the 1.5 s random-vote debate.
 
-User: "can you work on revamps for the rest of the alien force aliens please, look at their powers and abilities in the show and
-do research and make them good please" / "delete all the alien models and only use the skins i provided please no extra things
-untill i say". No Ultimate forms.
+User: "we need a new system for alien X by the way and he has to be a lot stronger and impervious to all forms of damage, it
+should be difficult to use him aswell, also if you transform into alien X you watch battery stops depleting and you can basically
+stay as him for as long as you like until you detransform"; "Alien X can one shot anything but the new system wont allow him to
+just go and hit things"; "when the player transforms into alien x i want his body to remain in place, make alien x 2.5 blocks
+tall by the way, but the player gets transported to that dimension where he talks to the two heads, make a good debating system
+where the player can do many many many things, make it work well and be intuitive please".
 
-## In the show
+Code: `omnitrix/alien/alienx/` -- `AlienXKit` (the kit), `AlienXCouncil` (sessions, the trip, the debate, validation, networking),
+`AlienXActions` (the 24 actions), `AlienXBodyEntity` (the body left in the world), `AlienXCouncilPayload` /
+`AlienXCouncilStatePayload`; client `AlienXClient`, `AlienXBodyRenderer`, `alienx/AlienXCouncilScreen`, `alienx/AlienXFx` (the
+heads). Data: `dimension/celestial_council.json`, `dimension_type/celestial_council.json`, `worldgen/biome/celestial_council.json`.
+Battery hook: `Omnitrix.HOLD_BATTERY`. Tests: `OmnitrixRecalAlienXGameTests`, `OmnitrixAlienXGameTests`.
+Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
 
-A Celestialsapien: reality warping on a cosmic scale (stopping and rewinding time, flight through space, creating and unmaking
-matter). Every Celestialsapien is a council of personalities. In Alien X, Ben is the third voice beside **Serena** (love,
-compassion) and **Bellicus** (rage, aggression). In his debut (*X = Ben + 2*) he stands frozen while they argue. The rule settled
-there: **every action is a motion, and a majority carries it**. Ben's yes plus one of theirs is enough, and Ben can plead his case
-to win one over. Sources disagree on whether the vote must be unanimous or a majority. The kit uses the majority rule and makes
-**unanimity** the bonus, and the gate for the ultimate. *(Fan wikis / VS Battles summaries; ben10.fandom was not reachable.)*
+## Transforming
 
-## The council (revamped)
+- His **body** (2.5 blocks tall, the user's Alien X skin and horns) stays standing where he transformed: frozen like the show,
+  impervious, no knockback, never saved, gone the moment the session ends. When a motion is carried it lifts a hand.
+- **Ben** is sent to **the Celestial Council** (`projecthero:celestial_council`): always night, a black sky full of stars, far
+  nebulae, an invisible barrier floor (walls too, so nobody walks off) under a faint ring of light. Two enormous floating heads in
+  his skin face him: **Serena** (soft blue, pale eyes, a halo) and **Bellicus** (red, burning eyes, hard angry brows). They drift,
+  turn to look at him, and the one speaking nods, its eyes flare and rings of its colour ripple out.
+- Nothing can be built, broken, used or hurt there. Each visit has its own slot (2000 blocks apart).
+- **Coming back**: N, V or "Leave the Council" turns him back at his body (wherever it is now; inventory never left him). A
+  switch to another alien also brings him back first. Where he came from is saved on him (`alien_x_council_return`), so a
+  **logout**, a crash or a **stopped server** leaves him in the council only until his next login: the half-second sweep sends
+  anyone found in the council without a session back to that spot (or to spawn if nothing was saved).
 
-- Every move is a motion: **1.5 s frozen debate**, then the vote. Ben always says yes.
-- **Real votes:** each voice votes when the debate opens, and its line on the action bar says which way (yes / no line sets).
-  The HUD debate row shows "aye" / "nay" next to each voice once it has spoken.
-- **Motion kinds:** [S] Serena's (Time Stop, Restore, Rewind), [B] Bellicus's (Reality Bolt, Cosmic Ray, Gravity Crush, Cosmic
-  Shockwave), [-] neither (Hurl, Blink, Flight, Rift). A voice says yes to its own kind **70%**, to neither **45%**, to the other's
-  **20%**.
-- **Council Favour** (0-100 per voice, HUD rows): a carried motion of a voice's kind gives it +12 and the other -8 (neither's kind:
-  +3 both). Favour moves the yes chance by up to +/-20%. It drifts back to 50 by 1 every 2 s and resets when he turns back.
-- **Argue** (right-click, empty hand, during a debate, once): every voice that said no votes again with +25%. A swayed voice says
-  so.
-- **Unanimous** (both yes): the move is empowered **+25%** (damage, Time Stop length, Restore healing, Rift damage).
-- **Denied** (both no): 3 s on that move.
-- The 5 s opening debate on transforming stays as before.
+## Passives
 
-## Kit
+- **Impervious**: no damage of any kind (mobs, players, fire, lava, falls, drowning, explosions, magic, wither, freezing...); /kill
+  and the void still work (OmnitrixDamage lets them past every kit). No knockback (explosions too), harmful effects fall off at
+  once, no fire, never out of breath.
+- **Battery held**: on the Recalibrated Omnitrix the battery stops where it was (`HOLD_BATTERY`), no timeout; turning back stores
+  exactly that.
+- **No key powers, no punches**: R opens the council screen, V leaves. A punch does nothing ("the council must agree").
 
-| Key | Move | Kind | What it does | Numbers |
-|---|---|---|---|---|
-| R | Reality Bolt | B | bolt of starlight down the look | 17, 32 blocks; cd 2.5 s |
-| Shift+R | Cosmic Ray | B | wide beam | 20 to all within 1.6 of a 40-block line; cd 10 s |
-| G | Telekinetic Hurl | - | lift the look target and fling it | 16, range 24; cd 6 s |
-| Shift+G | Gravity Crush | B | gravity multiplied round him | 18 in r 6, slammed, slowed 3 s; cd 12 s |
-| X | Blink | - | teleport where he looks | 48 blocks; cd 3 s |
-| Shift+X | Cosmic Flight | - | flight toggle (landing needs no vote) | cd 1 s |
-| Z | Time Stop | S | freezes the moment | r 12, 5 s (bosses 1.25 s), projectiles stop; cd 25 s |
-| Shift+Z | **Big Bang** (ULT) | unanimous only | a universe's birth in miniature | 70 centre to 50 rim, r 10, flung; cd 120 s; refused = 10 s |
-| C | Cosmic Shockwave | B | ring of starlight | 19 in r 8, thrown; cd 14 s |
-| Shift+C | Reality Rift | - | starfield tear 24 away that drags creatures in | r 6, 3 s, 3 / 0.5 s (18); cd 15 s |
-| V | Restore | S | rewrites his body; squad allies within 8 too | +24 (allies +12), harmful effects and fire gone; cd 30 s |
-| Shift+V | Rewind | S | back to where (and as healthy as) he was 5 s ago | cd 20 s |
-| Use (during a debate) | Argue | - | see above | once per debate |
+## The debate (the council screen, R)
 
-Big Bang's chances: Bellicus 80%, Serena 25% (both +/-20% favour, +25% after arguing). Please Serena first (Restore / Time Stop),
-then argue.
+1. **Propose**: a category (left), an action (middle; greyed + seconds while it rests), a target (right) from what is round his
+   body within 48 blocks: "All round my body", "Where my body looks", "My body", and every creature / player with health and
+   distance (only the kinds the action takes). The description says what it does and which argument tones backfire; the two
+   meters preview where each head starts (how the action leans them).
+2. **Debate**: both meters must reach **100** within **7 turns** (the patience pips). Each turn five of the eight tones are
+   offered (keys 1-5); each row shows how each head feels about the tone (▲▲ / ▲ / – / ▼ / ▼▼), and hovering shows Ben's actual
+   words.
 
-### Passives
-- He survives the heart of a star: no fire, freezing, drowning or fall damage.
-- 60 health, armour 14, scale 1.15 (unchanged). Hidden Resistance I.
+   | Tone | Bellicus | Serena |
+   |---|---|---|
+   | Force | +35 | -20 |
+   | Glory | +30 | -15 |
+   | Resolve | +25 | -5 |
+   | Protection | +15 | +25 |
+   | Mercy | -20 | +35 |
+   | Balance | -5 | +30 |
+   | Wisdom | +5 | +20 |
+   | Humility | -15 | +20 |
 
-### Weaknesses
-- Frozen during every debate (no walking, jumping or punching).
-- Denied motions; Big Bang needs both voices.
-- The 5 s opening debate.
+   - **Contradicting the motion** (a tone the action lists, e.g. mercy for Unmake): -15 to both, marked ✖.
+   - **Flip-flopping** (force after mercy, glory after humility, either way): -10 to both on top.
+   - **Repeating** a tone: half its gain each time (penalties stay whole).
+   - Each head has a hidden **concern** (one of the tones it likes, never one the motion contradicts) worth **double**.
+     **Listen** (L) spends a turn and both say what it is (★ on the rows after).
+   - Meters run -50..100. **Withdraw** (W) drops the motion at no cost.
+3. **Carried**: the action happens at his body, the result is read out ("Husk is unmade."); that action rests its cooldown.
+   **Refused** (out of patience): that whole category rests 20 s.
 
-## Look
+The server checks everything: the action exists, the target is the right kind, alive, in the same world and within 48 of the
+body, nothing is resting, the argument is on offer.
 
-Only the player model (1.15x) in the user's Alien X skin (`textures/entity/omnitrix/alien_x.png`, converted from the 8-bit
-palette PNG to RGBA). **Removed:** the two white horn models, the additive star-shimmer pass over the body
-(`alien_x_stars.png`, deleted), the glowing-eye pass (`alien_x_eyes.png`, deleted), the drifting END_ROD particles. Kept: every
-move effect in `AlienXFx` (beams, rings, the time-stop clock face, rifts, Big Bang sphere). The extras sheet is now only the
-rifts' starfield texture. QuirkCamera shakes on the Shockwave and Big Bang. New pose: Ben pleading (Argue).
+## The 24 actions
+
+| Category | Action | Targets | Leans (B / S) | Backfires | What it does | Rests |
+|---|---|---|---|---|---|---|
+| Strike | **Unmake** | creature, player | 50 / 0 | mercy, humility | kills outright, any health, armour or boss (hurt for max(1000, 10x max health), then `kill()`) | 30 s |
+| Strike | Starfall | point, creature, player | 45 / 10 | mercy | 60 to everything within 6 | 15 s |
+| Strike | Disarm | creature, player | 30 / 40 | | held weapons drop, Weakness III 30 s | 10 s |
+| Time | Stop Time | area | 40 / 40 | | everything within 16 stunned 10 s (bosses 2.5 s), projectiles hang | 30 s |
+| Time | Slow Time | area | 40 / 45 | | hostiles within 24: Slowness III + Mining Fatigue III 20 s | 20 s |
+| Protect | Shield | player, body | 25 / 55 | force | Resistance IV + 16 absorption 30 s | 20 s |
+| Protect | Barrier | area | 30 / 55 | | glass dome r 5 round the body, 20 s | 20 s |
+| Protect | Calm | area | 10 / 60 | force, glory | creatures within 24 (not bosses) drop their target, slowed + weakened 10 s | 20 s |
+| Heal | Restore | player | 20 / 65 | force | full health and hunger, effects and fire gone | 15 s |
+| Heal | Mend All | area | 15 / 60 | force | players within 16: +20, effects and fire gone | 30 s |
+| Reshape | Raise the Earth | point, creature, player | 40 / 35 | | stone wall 7 x 4 for 20 s | 15 s |
+| Reshape | Open the Ground | point, creature, player | 50 / 15 | mercy | 3 x 3 pit, 5 deep, for 10 s, then put back | 15 s |
+| Create | Cage | creature, player | 40 / 40 | | black-glass cage 15 s, held still | 15 s |
+| Banish | Banish | creature, player | 40 / 20 | mercy | sent 600-1000 blocks away onto solid ground | 30 s |
+| Banish | Exile | area | 35 / 30 | | hostiles within 16 (not bosses) thrown 48-80 blocks | 30 s |
+| Sky | Clear Skies / Summon Storm | area | 35/45, 55/20 | | weather (a world with a sky) | 30 s |
+| Sky | Bring the Day / Night | area | 35/45, 45/30 | | the time of day | 60 s |
+| Gravity | Lift | creature, player, area | 45 / 25 | | Levitation IV 3 s (area: hostiles within 12) | 15 s |
+| Gravity | Crush | area | 55 / 5 | mercy, humility | 50 to everything within 10, slammed down, Slowness IV 5 s | 20 s |
+| Travel | Move My Body | point, creature, player | 40 / 40 | | the body steps to where it looks / beside the target | 10 s |
+| Travel | Summon | player | 30 / 50 | | brings the player to the body | 20 s |
+| Summon | Guardian | area | 45 / 40 | | an iron golem beside the body for 60 s | 60 s |
+
+Terrain changes (Barrier, Raise the Earth, Cage blocks, Open the Ground) are temporary and need the abilityTerrainDamage rule;
+the opened ground is put back block for block (never over something placed since, never blocks with contents, bedrock or
+fluids), and all at once if the server stops. World effects are QuirkFx (rings, blasts, ribbons, shards) and the vanilla-sample
+sound cues; no particle spam.
+
+## Notes
+
+- The game-test server loads no datapack dimensions, so the trip tests use the Nether as a stand-in council
+  (`AlienXCouncil.useTestCouncil`); in a real world the council dimension loads (checked in the client harness).
+- Ultimate Alien forms stay out (user: "dont add ultimate aliens yet").
