@@ -232,10 +232,29 @@ public final class OmnitrixModel {
 		// ---- the band and its black stripe
 		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, RECAL_WALL, cy - RECAL_HALF_LEN, cy + RECAL_HALF_LEN, CUFF, light);
 		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.05f, cy - 0.3f, cy + 0.3f, WHITE, light);
-		// ---- the knobs: out of the bezel's sides, across the arm
+		// ---- v0.17.2 (user: "add that little green and silver part underneath the watch face and dial"): the housing the dial
+		// sits in -- a low green round base, wider than the bezel, with a dark green rim, four silver plates on its diagonals and a
+		// silver mount on each side the knobs come out of; the dial pops up out of it
+		float hr = RB + 0.24f;
+		cylinder(pose, vc, xo - 0.04f, xo + 0.05f, cy, 0f, hr + 0.08f, DIMGREEN, light, 16);
+		cylinder(pose, vc, xo - 0.03f, xo + 0.15f, cy, 0f, hr, CUFF, light, 16);
+		for (int i = 0; i < 4; i++) {
+			double an = Math.PI / 4 + i * Math.PI / 2;
+			float c = (float) Math.cos(an), sn = (float) Math.sin(an);
+			pose.pushPose();
+			pose.translate(0f, (cy + c * (hr - 0.12f)) * S, sn * (hr - 0.12f) * S);
+			pose.mulPose(Axis.XP.rotation((float) an));
+			box(pose, vc, xo - 0.02f, -0.1f, -0.26f, xo + 0.2f, 0.12f, 0.26f, PLATE, light);
+			pose.popPose();
+		}
+		for (int side = -1; side <= 1; side += 2) {
+			box(pose, vc, xo - 0.02f, cy - 0.34f, Math.min(side * (hr - 0.2f), side * (hr + 0.08f)), xo + 0.26f, cy + 0.34f,
+					Math.max(side * (hr - 0.2f), side * (hr + 0.08f)), PLATE, light);
+		}
+		// ---- the knobs: out of the housing's silver mounts, across the arm
 		for (int side = -1; side <= 1; side += 2) {
 			pose.pushPose();
-			pose.translate((xo + 0.12f) * S, cy * S, side * (RB - 0.06f) * S);
+			pose.translate((xo + 0.12f) * S, cy * S, side * (hr + 0.04f) * S);
 			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
 			cylinder(pose, vc, 0f, 0.36f, 0f, 0f, 0.17f, PLATE, light, 12);
 			cylinder(pose, vc, 0.36f, 0.42f, 0f, 0f, 0.12f, RING, light, 12);
