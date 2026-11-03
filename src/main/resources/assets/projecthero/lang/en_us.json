@@ -9995,6 +9995,7 @@
   "message.projecthero.omnitrix.xlr8.carried": "%s carries you.",
   "message.projecthero.omnitrix.xlr8.carrying": "Carrying %s.",
   "hud.projecthero.omnitrix.xlr8.charge": "Charge",
+  "hud.projecthero.omnitrix.xlr8.overdrive": "Overdrive",
   "hud.projecthero.omnitrix.blocks": "%s blocks",
   "subtitles.projecthero.omnitrix_stinkfly_wings": "Stinkfly's wings buzz",
   "subtitles.projecthero.omnitrix_stinkfly_wings_up": "Stinkfly takes off",

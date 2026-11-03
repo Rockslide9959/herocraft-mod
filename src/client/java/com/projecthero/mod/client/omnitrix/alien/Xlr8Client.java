@@ -466,11 +466,30 @@ public final class Xlr8Client implements AlienClientKit {
 		boolean full = c >= 1f;
 		OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 6, Component.translatable("hud.projecthero.omnitrix.xlr8.charge"), c,
 				full ? 0xFFEAF6FF : 0xFF3A7BD5, Math.round(c * 100f) + "%", full ? 0xFFFFFFFF : 0xFF9FD8FF);
+		// v0.17.2 (user: "when the player activates overdrive as xlr8 have a bar show up to show how much time the player has left, dont
+		// show the seconds just have an overdrive bar slowly deplete"): over the Charge row while Overdrive runs
+		float od = overdriveLeft(p, partial);
+		if (od >= 0f) {
+			OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 16, Component.translatable("hud.projecthero.omnitrix.xlr8.overdrive"), od,
+					0xFF6FD3FF, "", 0xFFFFFFFF);
+		}
+	}
+
+	/** v0.17.2: what is left of Overdrive, 1 -> 0 (smooth with the partial tick), or -1 when it is not running. */
+	private static float overdriveLeft(net.minecraft.world.entity.player.Player p, float partial) {
+		var s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
+		if ((s.kitFlags & Xlr8Kit.F_OVERDRIVE) == 0) {
+			return -1f;
+		}
+		long end = s.readyAt(Xlr8Kit.ID + ".od_end");
+		float left = end - (p.level().getGameTime() + partial);
+		return net.minecraft.util.Mth.clamp(left / Xlr8Kit.OVERDRIVE_TICKS, 0f, 1f);
 	}
 
 	@Override
 	public int hudHeight() {
-		return 10;
+		var p = Minecraft.getInstance().player;
+		return p != null && overdriveLeft(p, 0f) >= 0f ? 20 : 10; // v0.17.2: room for the Overdrive row
 	}
 
 	@Override
