@@ -42,7 +42,7 @@ public final class Aliens {
 	public static final Alien FOUR_ARMS = declare("four_arms", 0xD8323A);
 	public static final Alien XLR8 = declare("xlr8", 0x3A7BD5);
 	public static final Alien DIAMONDHEAD = declare("diamondhead", 0x4FE0C8);
-	public static final Alien UPGRADE = declare("upgrade", 0x38E05A);
+	public static final Alien UPGRADE = declare("upgrade", 0x72D12E);
 	public static final Alien GHOSTFREAK = declare("ghostfreak", 0xC8D2D2);
 	public static final Alien STINKFLY = declare("stinkfly", 0x9BCB3F);
 	public static final Alien WILDMUTT = declare("wildmutt", 0xF08A24);

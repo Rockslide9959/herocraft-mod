@@ -81,9 +81,9 @@ public final class UpgradeFx {
 	public static final ResourceLocation TECHNO = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno.png");
 	public static final ResourceLocation TECHNO_GLOW = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno_glow.png");
 	/** Mechamorph green, its pale core, white-green. */
-	public static final int GREEN = 0xFF39FF6A, PALE = 0xFFB8FFB0, CORE = 0xFFF0FFF0;
-	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 0.7f);
-	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.03f, 0.045f, 0.04f), 0.9f);
+	public static final int GREEN = 0xFF72D12E, PALE = 0xFFBCED9B, CORE = 0xFFF0FBE6; // v0.17.2: the skin's own circuit greens (upgrade.png)
+	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.447f, 0.82f, 0.18f), 0.7f);
+	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.055f, 0.059f, 0.063f), 0.9f);
 
 	/** The takeover: the strand pours for {@link #POUR} ticks, the coat covers the target by {@link #COVER}, the lines light by {@link #LIGHT}. */
 	public static final float POUR = 8f, COVER = 20f, LIGHT = 32f, PEEL = 14f;
@@ -661,7 +661,7 @@ public final class UpgradeFx {
 			for (BlockPos bp : POWERED) {
 				VoxelShape s = level.getBlockState(bp).getShape(level, bp);
 				AABB b = (s.isEmpty() ? new AABB(0, 0, 0, 1, 1, 1) : s.bounds()).move(bp).inflate(0.01).move(-cam.x, -cam.y, -cam.z);
-				LevelRenderer.renderLineBox(pose, lines, b, 0.22f, 1.0f, 0.42f, pulse);
+				LevelRenderer.renderLineBox(pose, lines, b, 0.447f, 0.82f, 0.18f, pulse);
 			}
 		}
 		// the moves
@@ -818,7 +818,7 @@ public final class UpgradeFx {
 								// the wet leading edge, lit green, and a glossy sheen sliding over the metal
 								float edge = (float) Math.exp(-Math.pow((front - d - 0.05f) / 0.07f, 2)) * (front < 1.3f ? 1f : 0f);
 								float sheen = (float) Math.pow(Math.max(0, Math.sin((p.x * 0.6 + p.y * 0.9 + p.z * 0.35) * 2.6 - time * 0.07)), 18) * 0.16f * a;
-								col[k] = add(PyroDraw.dim(GREEN, edge * 0.85f * alpha), PyroDraw.dim(0xFFD8FFE0, sheen * alpha));
+								col[k] = add(PyroDraw.dim(GREEN, edge * 0.85f * alpha), PyroDraw.dim(0xFFE4F6D6, sheen * alpha));
 								any |= edge > 0.02f || sheen > 0.01f;
 							}
 						}
@@ -1610,7 +1610,7 @@ public final class UpgradeFx {
 		}
 		// a glossy highlight riding on top, and his eye at the front
 		VertexConsumer add = PyroDraw.additive(buffers);
-		PyroDraw.glow(pose, add, c.add(fwd.scale(-0.12)).add(0.05, H + 0.03, 0.05), 0.16f, PyroDraw.dim(0xFFD0E8E0, 0.25f));
+		PyroDraw.glow(pose, add, c.add(fwd.scale(-0.12)).add(0.05, H + 0.03, 0.05), 0.16f, PyroDraw.dim(0xFFE0E4E8, 0.25f));
 		Vec3 eye = c.add(fwd.scale(R * 0.62)).add(0, H * 0.55 + 0.02, 0);
 		float blink = 0.85f + 0.15f * Mth.sin(time * 0.4f);
 		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), eye, 0.28f * blink, PyroDraw.dim(GREEN, 0.85f));

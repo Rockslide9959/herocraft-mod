@@ -116,8 +116,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class UpgradeKit extends AlienKit {
 	public static final String ID = "upgrade";
-	public static final int COLOUR = 0x38E05A;
-	public static final int GLOW = 0xB8FFB0;
+	public static final int COLOUR = 0x72D12E; // v0.17.2: his skin's circuit green (was a mint 0x38E05A)
+	public static final int GLOW = 0xBCED9B;
 
 	public static final int ANIM_BEAM = 1;
 	public static final int ANIM_CHARGE = 2;
@@ -276,9 +276,9 @@ public final class UpgradeKit extends AlienKit {
 	private static final ResourceLocation ALLY_ARMOR_ID = PowerToggles.id("omnitrix_upgrade_ally_armor");
 	private static final ResourceLocation ALLY_TOUGH_ID = PowerToggles.id("omnitrix_upgrade_ally_toughness");
 	// v0.17.2 (user: "please upgrade upgrades vfx aswell please"): Mechamorph green #39FF6A, and drops of his black liquid metal
-	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 0.8f);
-	static final DustParticleOptions SPARK_BIG = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 1.4f);
-	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.03f, 0.045f, 0.04f), 1.1f);
+	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.447f, 0.82f, 0.18f), 0.8f);
+	static final DustParticleOptions SPARK_BIG = new DustParticleOptions(new Vector3f(0.447f, 0.82f, 0.18f), 1.4f);
+	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.055f, 0.059f, 0.063f), 1.1f);
 
 	// ---------------------------------------------------------------- v0.17.2: what the client draws, in the synced kit timers
 	// (user: "when upgrade takes over a block put the upgrade techno texture on it ... make an animation for him taking over the
@@ -565,7 +565,7 @@ public final class UpgradeKit extends AlienKit {
 		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, (int) (14 * k) + 4, 0.15 * k, 0.15 * k, 0.15 * k, 0.25);
 		l.sendParticles(SPARK_BIG, at.x, at.y, at.z, (int) (8 * k) + 2, 0.2 * k, 0.2 * k, 0.2 * k, 0.0);
 		if (block != null && block.getType() == HitResult.Type.BLOCK && block.getDirection() == Direction.UP) {
-			QuirkFx.decal(l, at).style(QuirkFx.DECAL_SCORCH).colour(0x0B1A10).size(0.7f * k + 0.3f).life(80).spawn();
+			QuirkFx.decal(l, at).style(QuirkFx.DECAL_SCORCH).colour(0x10160C).size(0.7f * k + 0.3f).life(80).spawn();
 		}
 	}
 
@@ -1023,7 +1023,7 @@ public final class UpgradeKit extends AlienKit {
 		UpgradeEmp.jam(l, p.blockPosition(), 6, 120);
 		// v0.17.2 VFX: UpgradeFx draws the shockwave (a wall of green racing out to the edge, a dome, circuit lines cracking
 		// across the ground); the server adds the sparks and a scorch
-		QuirkFx.decal(l, p.position()).style(QuirkFx.DECAL_SCORCH).colour(0x08140C).size(3.2f).life(120).ground().spawn();
+		QuirkFx.decal(l, p.position()).style(QuirkFx.DECAL_SCORCH).colour(0x0C1009).size(3.2f).life(120).ground().spawn();
 		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 16, 2.5, 1.2, 2.5, 0.4); // v0.17.2 revamp: was 60 + 40 dust
 		QuirkCamera.shakeAround(l, c, 12, 0.25f, 8);
 		OmnitrixSounds.play(l, c, SND_EMP, 1.4f, 0.9f);
@@ -1543,7 +1543,7 @@ public final class UpgradeKit extends AlienKit {
 	/** Liquid Metal Body: a projectile that passed through him leaves a green ripple where it went in, and flies on. */
 	public static final net.minecraft.world.entity.projectile.ProjectileDeflection PASS_THROUGH = (proj, entity, random) -> {
 		if (proj.level() instanceof ServerLevel l) {
-			QuirkFx.ring(l, proj.position()).style(QuirkFx.RING_SOFT).colours(0xB8FFB0, COLOUR).size(0.9f).thickness(0.12f).life(8).spawn();
+			QuirkFx.ring(l, proj.position()).style(QuirkFx.RING_SOFT).colours(GLOW, COLOUR).size(0.9f).thickness(0.12f).life(8).spawn();
 		}
 	};
 

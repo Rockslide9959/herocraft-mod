@@ -199,7 +199,7 @@ public final class UpgradeTakeover {
 			broadcast(mob, -1, 0);
 			if (fx && mob.isAlive()) {
 				Vec3 c = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
-				QuirkFx.ring(level, c).style(QuirkFx.RING_SOFT).colours(0xB8FFB0, UpgradeKit.COLOUR).size(mob.getBbWidth() + 1.2f).thickness(0.15f).life(10).spawn();
+				QuirkFx.ring(level, c).style(QuirkFx.RING_SOFT).colours(UpgradeKit.GLOW, UpgradeKit.COLOUR).size(mob.getBbWidth() + 1.2f).thickness(0.15f).life(10).spawn();
 			}
 		}
 	}
@@ -284,7 +284,7 @@ public final class UpgradeTakeover {
 		AlienKit.hurt(owner, t, dmg, false);
 		Vec3 a = mob.position().add(0, mob.getBbHeight() * 0.7, 0);
 		Vec3 b = t.position().add(0, t.getBbHeight() * 0.5, 0);
-		QuirkFx.ribbon(level, a, b).style(QuirkFx.RIBBON_LIGHT).colours(0xEFFFF0, UpgradeKit.COLOUR).size(0.1f).life(6).spawn();
+		QuirkFx.ribbon(level, a, b).style(QuirkFx.RIBBON_LIGHT).colours(0xF0FBE6, UpgradeKit.COLOUR).size(0.1f).life(6).spawn();
 		OmnitrixSounds.play(level, a, UpgradeKit.SND_BEAM, 0.6f, 1.4f);
 		return dmg;
 	}

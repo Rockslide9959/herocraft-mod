@@ -54,7 +54,7 @@ public final class UpgradeClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/upgrade.png");
 	private static final ResourceLocation GLOW_SKIN = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_glow.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_extras.png");
-	private static final DustParticleOptions DRIP = new DustParticleOptions(new Vector3f(0.05f, 0.12f, 0.06f), 0.9f);
+	private static final DustParticleOptions DRIP = new DustParticleOptions(new Vector3f(0.06f, 0.065f, 0.07f), 0.9f);
 
 	private static final float[] BODY = { 0f, 0f, 0.5f, 0.5f };
 	private static final float[] EYE = { 0.5f, 0f, 1f, 0.5f };
@@ -101,7 +101,7 @@ public final class UpgradeClient implements AlienClientKit {
 	private static final FirstPersonClip FP_GEYSER = FirstPersonClip.of(FirstPersonClip.f(0, -70, 10, 0, 0.1f, 0.35f, -0.2f), FirstPersonClip.f(5, -40, 10, 0, 0.1f, 0.2f, -0.2f),
 			FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
 	/** v0.17.2 revamp (Tech Sense): a machine's outline -- faint green; one an Upgrade holds, bright. */
-	public static final int SENSE_FAINT = 0x2E8A48, SENSE_HELD = 0x39FF6A;
+	public static final int SENSE_FAINT = 0x58A127, SENSE_HELD = 0x90E255;
 
 	private static final FirstPersonClip FP_BEAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 20, -10, 0, -0.05f, -0.15f, 0.05f),
 			FirstPersonClip.f(7, 20, -10, 0, -0.05f, -0.15f, 0.05f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0)).both();
