@@ -147,6 +147,7 @@ public final class HumungousaurClient implements AlienClientKit {
 			registered = true;
 			OmnitrixRenderers.projectileLook("humungousaur_slab", HumungousaurClient::slab);
 			WorldRenderEvents.AFTER_ENTITIES.register(HumungousaurClient::renderWorld);
+			HumungousaurTail.init(); // v0.17.2: the tail chains, forgotten on revert / disconnect
 		}
 	}
 
@@ -161,7 +162,10 @@ public final class HumungousaurClient implements AlienClientKit {
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"):
-		// only the skin -- no extra parts
+		// only the skin -- and then (user: "give humungeosaur a tail, make it move in relation to how the player moves, dont let it
+		// go through blocks or inside humungosuars body, make sure the tail gets the spiked ball and spikes through his different size
+		// transformations please") the tail, its spikes and the club, nothing else
+		HumungousaurTail.render(pose, buffers, light, p, model, partial, HumungousaurKit.stage(p), spikeOut(p, partial));
 	}
 
 	/** v0.17.2: how far the Spike Burst's spikes are out, 0..1 -- up over 4 ticks, back down over the last 4. */
@@ -232,6 +236,7 @@ public final class HumungousaurClient implements AlienClientKit {
 
 	@Override
 	public void tick(AbstractClientPlayer p) {
+		HumungousaurTail.tick(p); // v0.17.2: the tail swings and settles out of blocks
 		OmnitrixState s = Omnitrix.state(p);
 		if ((s.kitFlags & HumungousaurKit.F_CHARGE) != 0 && p.onGround()) {
 			// dust kicked up behind the stampede
