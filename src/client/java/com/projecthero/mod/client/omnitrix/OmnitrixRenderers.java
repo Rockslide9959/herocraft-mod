@@ -119,7 +119,7 @@ public final class OmnitrixRenderers {
 
 	/**
 	 * v0.17.1 (user: "make the omnitrix capsule look like the omnitrix capsule from the show"): {@link OmnitrixPodModel} -- hot
-	 * seams fading after the fall, the lid swinging back on the right-click (eased, with a little overshoot), the cavity's
+	 * seams fading after the fall, the shell plates sliding apart round both sides on the right-click (v0.17.2), the cavity's
 	 * green light coming up, and the watch in its cradle until it leaps ({@link OmnitrixLatchClient#renderLeapInWorld}).
 	 */
 	static final class Pod extends EntityRenderer<OmnitrixPodEntity> {
@@ -133,8 +133,18 @@ public final class OmnitrixRenderers {
 			pose.pushPose();
 			pose.mulPose(Axis.YP.rotationDegrees(-e.getYRot()));
 			float o = e.openAmount(partial);
-			// a pneumatic pop: slow to unseal, swinging up and settling with a small bounce
-			float open = o < 0.18f ? 0.05f * (o / 0.18f) : 0.05f + 0.95f * backOut((o - 0.18f) / 0.82f);
+			// v0.17.2 (user: "its supposed to slide open in 2 ways"): a short unlatch click (the plates jog a few degrees and
+			// hold), then the two sides slide round the sphere, easing in and out and settling with a small overshoot
+			float open;
+			if (o < 0.12f) {
+				float k = Mth.clamp(o / 0.04f, 0f, 1f);
+				open = 0.025f * k * k * (3f - 2f * k);
+			} else {
+				float t = (o - 0.12f) / 0.88f;
+				float s = t < 0.5f ? 4f * t * t * t : 1f - (float) Math.pow(-2f * t + 2f, 3) / 2f;
+				float settle = Mth.clamp((t - 0.72f) / 0.28f, 0f, 1f);
+				open = 0.025f + 0.975f * s + 0.03f * Mth.sin(settle * Mth.PI);
+			}
 			float heat = Mth.clamp(1f - e.age(partial) / (com.projecthero.mod.omnitrix.OmnitrixConfig.POD_OPEN_DELAY + 80f), 0f, 1f);
 			heat = heat * heat;
 			float inner = e.empty() ? 0.25f : Mth.clamp(o * 1.4f - 0.2f, 0f, 1f) * (0.85f + Mth.sin(e.age(partial) * 0.15f) * 0.15f);
@@ -144,12 +154,6 @@ public final class OmnitrixRenderers {
 				OmnitrixLatchClient.renderLeapInWorld(e, partial, pose, buffers, light);
 			}
 			super.render(e, yaw, partial, pose, buffers, light);
-		}
-
-		private static float backOut(float x) {
-			x = Mth.clamp(x, 0f, 1f);
-			float c1 = 1.2f, c3 = c1 + 1f;
-			return 1f + c3 * (float) Math.pow(x - 1, 3) + c1 * (float) Math.pow(x - 1, 2);
 		}
 
 		@Override
