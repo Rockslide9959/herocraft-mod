@@ -6,6 +6,7 @@ import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
+import com.projecthero.mod.client.omnitrix.alien.jetray.JetrayBody;
 import com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -18,6 +19,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.particles.ParticleTypes;
@@ -26,8 +28,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (Recalibrated Omnitrix): Jetray's client kit -- the player body in the user's Jetray skin and nothing else (v0.17.2
- * revamp: the wing, tail, crest and eye cubes are gone, user: "only use the skins i provided"). The neuroshock beams, the tail bolt, the pulse ring, the dive streak and the
+ * v0.17.2 (Recalibrated Omnitrix): Jetray's client kit -- the player body in the user's Jetray skin (v0.17.2 revamp: the old
+ * wing, tail, crest and eye cubes are gone, user: "only use the skins i provided"), and since then, at the user's ask, his gold
+ * wing membranes in flight, his whip tail and a proper flight attitude ({@link JetrayBody}). The neuroshock beams, the tail bolt, the pulse ring, the dive streak and the
  * overload's charge and beam are rendered in the world pass ({@link RecalFx}).
  */
 public final class JetrayClient implements AlienClientKit {
@@ -98,6 +101,8 @@ public final class JetrayClient implements AlienClientKit {
 		if (!worldPass) {
 			worldPass = true;
 			WorldRenderEvents.AFTER_ENTITIES.register(JetrayClient::renderWorld);
+			// v0.17.2: the wings / tail / flight state is per player -- dropped when he is gone, turned back or off-world
+			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(JetrayBody::prune);
 		}
 	}
 
@@ -116,9 +121,15 @@ public final class JetrayClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"): the
-	// wings, tail, stinger, head crest and glowing eye cubes are gone -- Jetray is the player model in the user's Planet Minecraft
-	// skin, nothing else (renderExtras is the default). The move effects below stay.
+	// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"): the old
+	// stinger, head crest and glowing eye cubes stay gone. v0.17.2 (user: "give him his tail aswell ... when he flies he needs his
+	// wings so create the wing model and have it be in between his arms and his tail"): the wings and the tail are back as
+	// JetrayBody's membranes and spring chain.
+	@Override
+	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
+			float partial, float age) {
+		JetrayBody.render(pose, buffers, light, p, model, partial, age);
+	}
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
@@ -140,21 +151,16 @@ public final class JetrayClient implements AlienClientKit {
 			default -> null;
 		};
 		if (clip != null && QuirkKeyframes.play(m, clip, ticks, 1f)) {
+			// v0.17.2: in flight the whole body is already pitched along his travel -- the clip's own lean would double it
+			if ((Omnitrix.state(p).kitFlags & JetrayKit.F_FLYING) != 0) {
+				m.body.xRot = 0f;
+				JetrayBody.headLevel(p, m, age);
+			}
 			return true;
 		}
-		if ((Omnitrix.state(p).kitFlags & JetrayKit.F_FLYING) != 0 && !p.onGround()) {
-			// gliding: legs together and trailing, arms a little out from the body
-			m.rightLeg.xRot = 0.35f;
-			m.leftLeg.xRot = 0.35f;
-			m.rightLeg.zRot = 0.03f;
-			m.leftLeg.zRot = -0.03f;
-			m.rightArm.xRot = 0.3f;
-			m.leftArm.xRot = 0.3f;
-			m.rightArm.zRot = 0.35f;
-			m.leftArm.zRot = -0.35f;
-			return true;
-		}
-		return false;
+		// v0.17.2 (user: "give jetray better flight animations too please"): arms out stretching the wings, legs together trailing;
+		// flaps hovering, a ripple cruising, swept back sprinting
+		return JetrayBody.flightPose(p, m, age);
 	}
 
 	@Override
@@ -175,6 +181,7 @@ public final class JetrayClient implements AlienClientKit {
 
 	@Override
 	public void tick(AbstractClientPlayer p) {
+		JetrayBody.tick(p);
 		OmnitrixState s = Omnitrix.state(p);
 		var r = p.getRandom();
 		// accents only: a few sparks off the stinger, bubbles when he streaks through water
@@ -227,8 +234,10 @@ public final class JetrayClient implements AlienClientKit {
 				case JetrayKit.ANIM_TAIL -> {
 					// the tail arches up over his shoulder and fires
 					float k = RecalFx.fade(t - 2f, 7f);
+					// v0.17.2: from his real tail's tip
+					Vec3 tail = pl instanceof AbstractClientPlayer acp ? JetrayBody.tailTip(acp, partial) : null;
 					Vec3 tip = fp ? eye.add(up.scale(0.35)).add(right.scale(0.45)).add(f.scale(0.4))
-							: pl.getPosition(partial).add(0, 2.05 * sc, 0).subtract(f.scale(0.25 * sc));
+							: tail != null ? tail : pl.getPosition(partial).add(0, 2.05 * sc, 0).subtract(f.scale(0.25 * sc));
 					Vec3 end = RecalFx.traceEnd(pl, eye, f, 28.0);
 					RecalFx.bolt(pose, buffers, tip.subtract(cam), end.subtract(cam), 0.3f, CORE, GLOW, k, st.animStart * 31 + (long) (t / 2));
 				}
@@ -270,13 +279,13 @@ public final class JetrayClient implements AlienClientKit {
 				Vec3 dir = pl.getDeltaMovement().lengthSqr() > 0.05 ? pl.getDeltaMovement().normalize() : f;
 				RecalFx.cone(pose, buffers, c.add(dir.scale(0.5)).subtract(cam), dir.scale(-1), 0.75f * sc, 2.8f * sc, CORE, GLOW, 0.55f);
 			}
-			// v0.17.2 revamp, Tail Grab: a crackling neuroshock tether from the small of his back to what he carries (no tail model:
-			// the user wants the skin only)
+			// v0.17.2 revamp, Tail Grab: a crackling neuroshock tether from his tail's tip (else the small of his back) to what he carries
 			if ((st.kitFlags & JetrayKit.F_CARRY) != 0) {
 				long id = st.readyAt(JetrayKit.ID + "." + JetrayKit.CARRY_TARGET);
 				var held = id > 0 ? mc.level.getEntity((int) (id - 1)) : null;
 				if (held != null) {
-					Vec3 from = pl.getPosition(partial).add(0, 0.75 * sc, 0).subtract(f.scale(0.2));
+					Vec3 tail = pl instanceof AbstractClientPlayer acp && !fp ? JetrayBody.tailTip(acp, partial) : null;
+					Vec3 from = tail != null ? tail : pl.getPosition(partial).add(0, 0.75 * sc, 0).subtract(f.scale(0.2));
 					Vec3 to = held.getPosition(partial).add(0, held.getBbHeight() * 0.8, 0);
 					RecalFx.bolt(pose, buffers, from.subtract(cam), to.subtract(cam), 0.12f, CORE, GLOW, 0.8f, pl.tickCount / 2);
 				}

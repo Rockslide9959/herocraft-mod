@@ -8,6 +8,7 @@ import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.OmnitrixRenderers;
+import com.projecthero.mod.client.omnitrix.alien.bigchill.BigChillWings;
 import com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -35,7 +36,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2: Big Chill's client kit. v0.17.2 revamp (user: "delete all the alien models and only use the skins i provided please no
- * extra things untill i say"): no wings, antennae or eye cubes any more -- he is ONLY the player model in one of the user's two
+ * extra things untill i say"): no antennae or eye cubes; the wings came back at the user's ask as the cloak that unfurls
+ * ({@link BigChillWings}, while F_OPEN). He is the player model in one of the user's two
  * skins: {@code big_chill_cloaked} (wings wrapped round him, his normal look) or {@code big_chill} (wings open) while the kit's
  * synced {@link BigChillKit#F_OPEN} is set (flying, diving, breathing, storming, the ultimate, a moment after any attack). The
  * server holds the flag open for 1.5 s after a move, so the swap never flickers, and marks it with a soft frost ring. Phased or
@@ -114,6 +116,8 @@ public final class BigChillClient implements AlienClientKit {
 		if (!worldPass) {
 			worldPass = true;
 			WorldRenderEvents.AFTER_ENTITIES.register(BigChillClient::renderWorld);
+			// v0.17.2: the wings' unfurl state is per player -- dropped when he is gone, turned back or off-world
+			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(BigChillWings::prune);
 			// v0.17.2 revamp: the Ice Shard -- a spinning spike of ice along its flight
 			OmnitrixRenderers.projectileLook("big_chill_shard", (e, partial, pose, buffers) -> {
 				Vec3 v = e.getDeltaMovement();
@@ -137,13 +141,27 @@ public final class BigChillClient implements AlienClientKit {
 	/** v0.17.2 (user: "for big chill players shouldnt see the omnitrix when his cloak is on since the cloak covers it"). */
 	@Override
 	public boolean showBadge(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & BigChillKit.F_OPEN) != 0;
+		return BigChillWings.uncloaked(p);
 	}
 
-	/** v0.17.2 revamp: wings open -> the uncloaked skin; otherwise the cloaked one (his normal look). */
+	/**
+	 * v0.17.2 revamp: wings open -> the uncloaked skin; otherwise the cloaked one (his normal look). v0.17.2 (the unfurling wings):
+	 * the swap waits until the cloak has peeled off his body (and comes back as it wraps round him again), so the hood stays up
+	 * while the wings are still wrapped.
+	 */
 	@Override
 	public ResourceLocation skin(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & BigChillKit.F_OPEN) != 0 ? SKIN_OPEN : SKIN_CLOAKED;
+		return BigChillWings.uncloaked(p) ? SKIN_OPEN : SKIN_CLOAKED;
+	}
+
+	/**
+	 * v0.17.2 (user: "give him his wings please, make the cloak unfurl from around his body to make his wings since his wings are his
+	 * cloak"): the four wings, unfurling out of the cloak while {@link BigChillKit#F_OPEN} is on ({@link BigChillWings}).
+	 */
+	@Override
+	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p,
+			net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model, float partial, float age) {
+		BigChillWings.render(pose, buffers, light, p, model, partial, age, bodyAlpha(p));
 	}
 
 	@Override
@@ -218,6 +236,7 @@ public final class BigChillClient implements AlienClientKit {
 
 	@Override
 	public void tick(AbstractClientPlayer p) {
+		BigChillWings.tick(p);
 		OmnitrixState s = Omnitrix.state(p);
 		var r = p.getRandom();
 		// accents only: a snowflake in the breath, the blizzard's flurries
