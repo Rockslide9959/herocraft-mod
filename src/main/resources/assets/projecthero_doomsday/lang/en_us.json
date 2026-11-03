@@ -32,6 +32,8 @@
   "doomsday.projecthero.bucket.magic": "Magic",
   "doomsday.projecthero.bucket.power": "Hero Powers",
   "doomsday.projecthero.bucket.none": "Nothing",
+  "message.projecthero.doomsday.staggered": "DOOMSDAY IS STAGGERED! He takes 4x damage for 15 seconds",
+  "message.projecthero.doomsday.recovered": "Doomsday shakes it off.",
   "message.projecthero.doomsday.immune": "Doomsday has adapted: %s does nothing to him now",
   "message.projecthero.doomsday.adapts": "DOOMSDAY ADAPTS: %s (-%s%%)",
   "message.projecthero.doomsday.killed_by": "He will never die to %s again.",

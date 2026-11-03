@@ -85,7 +85,7 @@ public class DoomsdayEntity extends Monster {
 	public static final byte ACTION_NONE = 0, ACTION_HAMMER = 1, ACTION_GUARD = 2, ACTION_LEAP_CROUCH = 3, ACTION_LEAP_AIR = 4,
 			ACTION_LAND = 5, ACTION_SHATTER = 6, ACTION_ERUPT = 7, ACTION_VOLLEY = 8, ACTION_HEAT = 9, ACTION_GRAB = 10,
 			ACTION_BREATH = 11, ACTION_BLITZ = 12, ACTION_ROAR = 13, ACTION_BREAK_FREE = 14, ACTION_CORPSE = 15, ACTION_RISE = 16,
-			ACTION_BANISH = 17, ACTION_EMERGE = 18;
+			ACTION_BANISH = 17, ACTION_EMERGE = 18, ACTION_STAGGER = 19;
 	/** Move timings the renderer mirrors (ticks from the move starting). */
 	public static final int LEAP_CROUCH = 16, SHATTER_SLAM = 20, ERUPT_BURST = 16, VOLLEY_THROW = 14, HEAT_CHARGE = 20, HEAT_END = 60,
 			BREATH_INHALE = 20, BLITZ_GO = 10, ROAR_AT = 10, BREAK_AT = 20, RISE_TICKS = 40, BANISH_TICKS = 70, EMERGE_TICKS = 50;
@@ -102,6 +102,8 @@ public class DoomsdayEntity extends Monster {
 	private final DoomsdayAdaptation adaptation = new DoomsdayAdaptation();
 	private UUID eventId;
 	private int deaths;
+	/** v0.17.2 (user: "i want to nerf doomsday a bit, make him slightly more aggressive but also give him a staggered stance where he takes 300% more damage, make the staggered stance last 15 seconds please"): this life's stagger has happened. */
+	private boolean staggeredThisLife;
 	/** Corpse: revival progress (ticks of sunlight-equivalent) and what it needs. */
 	private double reviveProgress;
 	private double reviveNeeded;
@@ -297,6 +299,11 @@ public class DoomsdayEntity extends Monster {
 			return false;
 		}
 		amount *= mult;
+		// v0.17.2: staggered, everything lands at +300% -- and none of it teaches him anything
+		boolean staggered = action() == ACTION_STAGGER;
+		if (staggered) {
+			amount *= (float) DoomsdayConfig.boss().staggerDamageMultiplier;
+		}
 		if (bucket == null && DoomsdayAdaptation.isKryptonite(source)) {
 			amount *= (float) DoomsdayConfig.boss().kryptoniteMultiplier;
 			level.sendParticles(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER, getX(), getY() + getBbHeight() * 0.6, getZ(), 6,
@@ -310,7 +317,7 @@ public class DoomsdayEntity extends Monster {
 		boolean hurt = super.hurt(source, amount);
 		if (hurt) {
 			float dealt = pendingDeath ? before : Math.max(0f, before - getHealth());
-			if (adaptation.record(bucket, dealt, getMaxHealth())) {
+			if (!staggered && adaptation.record(bucket, dealt, getMaxHealth())) {
 				syncAdapt();
 				onLearned(level, bucket);
 			}
@@ -321,6 +328,10 @@ public class DoomsdayEntity extends Monster {
 			threat.record(source, threatAmount);
 			if (life() == 1 && bound() && !pendingDeath && getHealth() <= getMaxHealth() * 0.66f && brain != null) {
 				brain.force(Brain.Move.BREAK_FREE);
+			} else if (!staggeredThisLife && !pendingDeath && !bound() && brain != null
+					&& getHealth() <= getMaxHealth() * DoomsdayConfig.boss().staggerAt && brain.force(Brain.Move.STAGGER)) {
+				staggeredThisLife = true;
+				announce(level, Component.translatable("message.projecthero.doomsday.staggered").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
 			}
 		}
 		if (pendingDeath) {
@@ -339,6 +350,24 @@ public class DoomsdayEntity extends Monster {
 			p.displayClientMessage(Component.translatable("message.projecthero.doomsday.immune", bucketName(bucket))
 					.withStyle(ChatFormatting.GRAY), true);
 		}
+	}
+
+	/** An action-bar line for everyone near the fight. */
+	void announce(ServerLevel level, Component line) {
+		for (ServerPlayer p : level.players()) {
+			if (p.distanceToSqr(this) < 96 * 96) {
+				p.displayClientMessage(line, true);
+			}
+		}
+	}
+
+	/** Gametests: the burial cables gone, as after Break Free. */
+	public void debugUnbind() {
+		entityData.set(DATA_BOUND, false);
+	}
+
+	public boolean staggered() {
+		return action() == ACTION_STAGGER;
 	}
 
 	private void onLearned(ServerLevel level, Bucket bucket) {
@@ -485,6 +514,7 @@ public class DoomsdayEntity extends Monster {
 				p -> !p.isSpectator() && !p.isCreative()).size());
 		configure(fighters);
 		adaptation.newLife();
+		staggeredThisLife = false;
 		setAction(ACTION_RISE);
 		level.playSound(null, getX(), getY(), getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.5f);
 		level.playSound(null, getX(), getY(), getZ(), SoundEvents.WARDEN_EMERGE, SoundSource.HOSTILE, 3.0f, 0.6f);
@@ -594,7 +624,7 @@ public class DoomsdayEntity extends Monster {
 			}
 		}
 		threat.tick();
-		if (tickCount % 20 == 0 && getHealth() < getMaxHealth()) {
+		if (tickCount % 20 == 0 && getHealth() < getMaxHealth() && !staggered()) {
 			DoomsdayConfig.Boss b = DoomsdayConfig.boss();
 			heal((float) (inSunlight() ? b.regenSun : b.regenDark));
 		}
@@ -768,6 +798,7 @@ public class DoomsdayEntity extends Monster {
 		tag.putInt("Life", life());
 		tag.putBoolean("Bound", bound());
 		tag.putInt("Deaths", deaths);
+		tag.putBoolean("Staggered", staggeredThisLife);
 		tag.put("Adaptation", adaptation.save());
 		tag.putBoolean("Corpse", isCorpse() || action() == ACTION_BANISH);
 		tag.putBoolean("Final", finalDeath);
@@ -786,6 +817,7 @@ public class DoomsdayEntity extends Monster {
 		}
 		entityData.set(DATA_BOUND, !tag.contains("Bound") || tag.getBoolean("Bound"));
 		deaths = tag.getInt("Deaths");
+		staggeredThisLife = tag.getBoolean("Staggered");
 		adaptation.load(tag.getCompound("Adaptation"));
 		syncAdapt();
 		finalDeath = tag.getBoolean("Final");
@@ -834,7 +866,7 @@ public class DoomsdayEntity extends Monster {
 
 	/** Every move, as one state machine (one at a time, a breather between). */
 	static final class Brain extends Goal {
-		enum Move { NONE, HAMMER, GUARD, LEAP, SHATTER, ERUPT, VOLLEY, HEAT, GRAB, BREATH, BLITZ, ROAR, BREAK_FREE }
+		enum Move { NONE, HAMMER, GUARD, LEAP, SHATTER, ERUPT, VOLLEY, HEAT, GRAB, BREATH, BLITZ, ROAR, BREAK_FREE, STAGGER }
 
 		private final DoomsdayEntity d;
 		private Move move = Move.NONE;
@@ -914,7 +946,7 @@ public class DoomsdayEntity extends Monster {
 			if (target == null) {
 				target = d.getTarget();
 			}
-			if (m != Move.BREAK_FREE && m != Move.ROAR && m != Move.GUARD && m != Move.SHATTER && target == null) {
+			if (m != Move.BREAK_FREE && m != Move.ROAR && m != Move.GUARD && m != Move.SHATTER && m != Move.STAGGER && target == null) {
 				return false;
 			}
 			cancel();
@@ -1001,6 +1033,7 @@ public class DoomsdayEntity extends Monster {
 				case BLITZ -> tickBlitz(level);
 				case ROAR -> tickRoar(level);
 				case BREAK_FREE -> tickBreakFree(level);
+				case STAGGER -> tickStagger(level);
 				default -> finish(0);
 			}
 		}
@@ -1118,6 +1151,11 @@ public class DoomsdayEntity extends Monster {
 				}
 				case ROAR -> d.setAction(ACTION_ROAR);
 				case BREAK_FREE -> d.setAction(ACTION_BREAK_FREE);
+				case STAGGER -> {
+					d.setAction(ACTION_STAGGER);
+					d.level().playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_STUNNED, SoundSource.HOSTILE, 3.0f, 0.5f);
+					d.level().playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.5f, 0.5f);
+				}
 				default -> d.setAction(ACTION_NONE);
 			}
 		}
@@ -1522,6 +1560,23 @@ public class DoomsdayEntity extends Monster {
 				}
 			}
 			if (timer >= 30) {
+				finish(0);
+			}
+		}
+
+		/** v0.17.2 (user: "i want to nerf doomsday a bit, make him slightly more aggressive but also give him a staggered stance where he takes 300% more damage, make the staggered stance last 15 seconds please"): slumped on one knee, reeling -- he stands still and takes it, then roars back up. */
+		private void tickStagger(ServerLevel level) {
+			d.getNavigation().stop();
+			Vec3 v = d.getDeltaMovement();
+			d.setDeltaMovement(0, v.y, 0);
+			if (timer % 10 == 0) {
+				level.sendParticles(DoomsdayFx.STONE, d.getX(), d.getY() + d.getBbHeight() * 0.55, d.getZ(), 6, 0.6, 0.6, 0.6, 0.05);
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, d.getX(), d.getY() + d.getBbHeight() * 0.9, d.getZ(), 8, 0.6,
+						0.3, 0.6, 0.1);
+			}
+			if (timer >= DoomsdayConfig.boss().staggerSeconds * 20) {
+				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.6f);
+				d.announce(level, Component.translatable("message.projecthero.doomsday.recovered").withStyle(ChatFormatting.RED));
 				finish(0);
 			}
 		}

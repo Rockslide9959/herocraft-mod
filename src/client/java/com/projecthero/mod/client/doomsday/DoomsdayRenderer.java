@@ -158,7 +158,7 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 		public void setupAnim(DoomsdayEntity e, float limbSwing, float limbSwingAmount, float age, float headYaw, float headPitch) {
 			byte action = e.action();
 			float el = age - e.actionStartTick;
-			this.crouching = action == DoomsdayEntity.ACTION_LEAP_CROUCH || action == DoomsdayEntity.ACTION_LAND
+			this.crouching = action == DoomsdayEntity.ACTION_LEAP_CROUCH || action == DoomsdayEntity.ACTION_LAND || action == DoomsdayEntity.ACTION_STAGGER
 					|| action == DoomsdayEntity.ACTION_SHATTER && el >= DoomsdayEntity.SHATTER_SLAM;
 			body.z = 0f;
 			head.z = 0f;
@@ -314,6 +314,20 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 						leftArm.xRot = -0.4f;
 						head.xRot = -0.6f;
 					}
+				}
+				case DoomsdayEntity.ACTION_STAGGER -> {
+					// v0.17.2 stagger: slumped down on one knee, one fist on the ground, head hanging and swaying, breathing hard
+					float sway = Mth.sin(age * 0.18f);
+					body.xRot = 0.55f + breathe * 0.04f;
+					body.zRot = sway * 0.05f;
+					head.xRot = 0.6f + sway * 0.06f;
+					head.zRot = sway * 0.12f;
+					rightArm.xRot = -0.55f;
+					rightArm.zRot = 0.25f;
+					leftArm.xRot = 0.25f + breathe * 0.05f;
+					leftArm.zRot = -0.35f;
+					rightLeg.xRot = -1.35f;
+					leftLeg.xRot = 0.45f;
 				}
 				case DoomsdayEntity.ACTION_EMERGE -> {
 					rightArm.xRot = -2.8f + Mth.sin(age * 0.5f) * 0.25f;

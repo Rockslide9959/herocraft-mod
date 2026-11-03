@@ -12,6 +12,7 @@ public final class DoomsdayConfig {
 			DoomsdayConfig::new)
 			.balance("arena", "boss", "adaptation", "revival", "moves", "projector", "rewards", "trigger.chancePerDay")
 			.introduce(1, "v0.17.2 Doomsday")
+			.reset(2, "v0.17.2 stagger stance + more aggressive (breather 30 -> 20)", "moves.breather")
 			.build();
 
 	private static DoomsdayConfig instance = new DoomsdayConfig();
@@ -61,6 +62,13 @@ public final class DoomsdayConfig {
 		public double kryptonianThreat = 1.5;
 		/** Damage multiplier for kryptonite (a kryptonite shard in the attacker's hand). */
 		public double kryptoniteMultiplier = 1.5;
+		/**
+		 * v0.17.2 (user: "i want to nerf doomsday a bit, make him slightly more aggressive but also give him a staggered stance where he takes 300% more damage, make the staggered stance last 15 seconds please"): once per life, when he drops to this fraction of it, he staggers -- no moves, no regeneration, no
+		 * adapting -- and takes this many times the damage (4 = +300%) for this long.
+		 */
+		public double staggerAt = 0.5;
+		public int staggerSeconds = 15;
+		public double staggerDamageMultiplier = 4.0;
 	}
 
 	public static final class Adaptation {
@@ -99,7 +107,7 @@ public final class DoomsdayConfig {
 		public double blitzLength = 30.0;
 		public double roarRadius = 16.0;
 		/** Ticks of rest between moves (x0.75 in life 3, x0.6 enraged). */
-		public int breather = 30;
+		public int breather = 20; // v0.17.2: 30 -> 20, slightly more aggressive
 	}
 
 	public static final class Projector {

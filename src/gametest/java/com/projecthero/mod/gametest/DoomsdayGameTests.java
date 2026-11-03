@@ -249,6 +249,43 @@ public class DoomsdayGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the reward
 
+	/**
+	 * v0.17.2 (user: "give him a staggered stance where he takes 300% more damage, make the staggered stance last 15 seconds"): once
+	 * per life at half health -- 4x damage that teaches him nothing, no regeneration, over after 15 s.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void halfHealthStaggersHimForFifteenSecondsAtFourTimesTheDamage(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		DoomsdayEntity d = spawn(helper);
+		d.debugUnbind();
+		d.invulnerableTime = 0;
+		d.hurt(level.damageSources().magic(), 1400f);
+		helper.assertFalse(d.staggered(), "above half health: no stagger");
+		d.invulnerableTime = 0;
+		d.hurt(level.damageSources().magic(), 400f);
+		helper.assertTrue(d.staggered(), "below half health: staggered (" + d.getHealth() + ")");
+		float before = d.getHealth();
+		d.invulnerableTime = 0;
+		d.hurt(level.damageSources().onFire(), 10f);
+		helper.assertTrue(Math.abs(before - d.getHealth() - 40f) < 0.5f, "4x damage: took " + (before - d.getHealth()));
+		helper.assertTrue(d.adaptation().multiplier(Bucket.FIRE) >= 0.999f, "the staggered hits teach him nothing");
+		float held = d.getHealth();
+		d.setNoAi(false);
+		helper.runAfterDelay(100, () -> helper.assertTrue(d.staggered() && d.getHealth() <= held + 0.01f, "still reeling, no regeneration"));
+		helper.runAfterDelay(DoomsdayConfig.boss().staggerSeconds * 20 + 20, () -> {
+			try {
+				helper.assertFalse(d.staggered(), "back up after 15 s");
+				d.setNoAi(true);
+				d.invulnerableTime = 0;
+				d.hurt(level.damageSources().magic(), 300f);
+				helper.assertFalse(d.staggered(), "only once a life");
+			} finally {
+				d.discard();
+			}
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void boneGauntletRemembersWhatItKills(GameTestHelper helper) {
 		ItemStack g = new ItemStack(DoomsdayItems.BONE_GAUNTLET);
