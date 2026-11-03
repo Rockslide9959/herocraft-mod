@@ -58,7 +58,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class DoomsdayEvent extends EventInstance {
 	public static final String TYPE_ID = "doomsday";
-	public static final int SKY_COLOR = 0x3A1410;
+	public static final int SKY_COLOR = 0x4A1C14;
 
 	public enum Phase { IMPACT, FIGHT, GONE }
 

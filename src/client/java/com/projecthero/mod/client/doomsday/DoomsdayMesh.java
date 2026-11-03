@@ -73,6 +73,11 @@ final class DoomsdayMesh {
 		vc.addVertex(pose, b.x - side.x, b.y - side.y, b.z - side.z).setColor(r, g, bl, al);
 		vc.addVertex(pose, b.x + side.x, b.y + side.y, b.z + side.z).setColor(r, g, bl, al);
 		vc.addVertex(pose, a.x + side.x, a.y + side.y, a.z + side.z).setColor(r, g, bl, al);
+		// and the back face (lightning culls back faces; which side faces the camera depends on the beam)
+		vc.addVertex(pose, a.x + side.x, a.y + side.y, a.z + side.z).setColor(r, g, bl, al);
+		vc.addVertex(pose, b.x + side.x, b.y + side.y, b.z + side.z).setColor(r, g, bl, al);
+		vc.addVertex(pose, b.x - side.x, b.y - side.y, b.z - side.z).setColor(r, g, bl, al);
+		vc.addVertex(pose, a.x - side.x, a.y - side.y, a.z - side.z).setColor(r, g, bl, al);
 	}
 
 	/** A flat coloured quad (POSITION_COLOR). */
