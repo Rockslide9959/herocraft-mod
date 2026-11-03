@@ -171,7 +171,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		ServerPlayer p = as(helper, HumungousaurKit.ID, 0f);
 		HumungousaurKit kit = (HumungousaurKit) Aliens.kit(HumungousaurKit.ID);
 		near(helper, p.getMaxHealth(), 44f, "44 health");
-		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(0), "12 blocks tall");
+		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(0), "5 blocks tall");
 		near(helper, p.getArmorValue(), 10f, "armour 10");
 		double speed0 = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
 		double reach0 = p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
@@ -179,7 +179,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		p.teleportTo(p.getX(), 200, p.getZ());
 		helper.assertTrue(kit.grow(p), "V grows him");
 		helper.assertTrue(HumungousaurKit.stage(p) == 1, "size step 1");
-		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(1), "24 blocks tall");
+		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(1), "10 blocks tall");
 		near(helper, p.getArmorValue(), 13f, "armour 13");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > speed0, "bigger strides");
 		helper.assertTrue(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) > reach0, "a longer reach");
@@ -187,14 +187,14 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		helper.assertFalse(kit.grow(p), "Grow cools down");
 		clearCooldown(p, HumungousaurKit.ID, HumungousaurKit.GROW);
 		helper.assertTrue(kit.grow(p) && HumungousaurKit.stage(p) == 2, "size step 2");
-		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(2), "28.8 blocks tall");
+		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(2), "15 blocks tall");
 		near(helper, p.getArmorValue(), 16f, "armour 16");
 		p.refreshDimensions();
-		helper.assertTrue(p.getBbHeight() > 25.0f, "the hitbox grew with him (" + p.getBbHeight() + ")");
+		helper.assertTrue(p.getBbHeight() > 14.0f, "the hitbox grew with him (" + p.getBbHeight() + ")");
 		clearCooldown(p, HumungousaurKit.ID, HumungousaurKit.GROW);
 		helper.assertFalse(kit.grow(p), "no bigger than full size");
 		helper.assertTrue(kit.shrink(p) && HumungousaurKit.stage(p) == 1, "Shift+V shrinks one step");
-		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(1), "back to 24 blocks");
+		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(1), "back to 10 blocks");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 		helper.assertFalse(Omnitrix.state(p).transformed(), "turned back");
 		near(helper, p.getScale(), 1.0f, "a player's size again");

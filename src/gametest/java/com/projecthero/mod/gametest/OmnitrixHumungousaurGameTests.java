@@ -102,13 +102,13 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		helper.assertTrue(kit.growFull(p), "hold V: straight to full size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 2, "full size in one go");
 		near(helper, HumungousaurKit.mult(p), 1.5f, "+25% a step: x1.5 at full size"); // v0.17.2 damage pass (was +10%)
-		near(helper, (float) HumungousaurKit.sized(p, HumungousaurKit.POUND_RADIUS, HumungousaurKit.POUND_PER_HEIGHT), 14.4f, "Ground Pound reaches half his 28.8-block height");
+		near(helper, (float) HumungousaurKit.sized(p, HumungousaurKit.POUND_RADIUS, HumungousaurKit.POUND_PER_HEIGHT), 7.5f, "Ground Pound reaches half his 15-block height");
 		near(helper, p.getScale(), HumungousaurKit.scaleAt(2), "full size");
 		helper.assertTrue(kit.shrinkBase(p), "hold Shift+V: straight back to base size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 0, "base size again");
 		near(helper, p.getScale(), HumungousaurKit.scaleAt(0), "base size");
 		// a stone ceiling just over his head: no room to grow (he would bury himself in it)
-		helper.getLevel().setBlock(BlockPos.containing(p.getX(), p.getY() + 14, p.getZ()), Blocks.STONE.defaultBlockState(), 3);
+		helper.getLevel().setBlock(BlockPos.containing(p.getX(), p.getY() + 7, p.getZ()), Blocks.STONE.defaultBlockState(), 3);
 		clearCooldown(p, HumungousaurKit.GROW);
 		helper.assertFalse(kit.grow(p), "Grow is refused under a roof");
 		helper.assertTrue(HumungousaurKit.stage(p) == 0, "still base size");
