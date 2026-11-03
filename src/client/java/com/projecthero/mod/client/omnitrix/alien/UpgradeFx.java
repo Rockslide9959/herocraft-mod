@@ -80,10 +80,13 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class UpgradeFx {
 	public static final ResourceLocation TECHNO = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno.png");
 	public static final ResourceLocation TECHNO_GLOW = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno_glow.png");
+	/** v0.17.2: the upgraded-machine coat (white plating + black circuit panels) a piloted golem wears. */
+	public static final ResourceLocation MACHINE_COAT = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_machine_coat.png");
+	public static final ResourceLocation MACHINE_COAT_GLOW = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_machine_coat_glow.png");
 	/** Mechamorph green, its pale core, white-green. */
-	public static final int GREEN = 0xFF39FF6A, PALE = 0xFFB8FFB0, CORE = 0xFFF0FFF0;
-	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 0.7f);
-	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.03f, 0.045f, 0.04f), 0.9f);
+	public static final int GREEN = 0xFF72D12E, PALE = 0xFFBCED9B, CORE = 0xFFF0FBE6; // v0.17.2: the skin's own circuit greens (upgrade.png)
+	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.447f, 0.82f, 0.18f), 0.7f);
+	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.055f, 0.059f, 0.063f), 0.9f);
 
 	/** The takeover: the strand pours for {@link #POUR} ticks, the coat covers the target by {@link #COVER}, the lines light by {@link #LIGHT}. */
 	public static final float POUR = 8f, COVER = 20f, LIGHT = 32f, PEEL = 14f;
@@ -202,8 +205,8 @@ public final class UpgradeFx {
 	@Nullable
 	private static MergeView mergeOf(Player pl, OmnitrixState st, @Nullable Track tr) {
 		long kind = timer(st, UpgradeKit.T_MERGE_KIND);
-		if (kind <= 0) {
-			return null;
+		if (kind <= 0 || kind > UpgradeKit.MergeKind.values().length || UpgradeKit.MergeKind.values()[(int) kind - 1].stored()) {
+			return null; // v0.17.2: a machine he carries is his body now (UpgradeMachineBody), nothing in the world to coat
 		}
 		long ent = timer(st, UpgradeKit.T_MERGE_ENT);
 		BlockPos pos = ent > 0 ? null
@@ -661,7 +664,7 @@ public final class UpgradeFx {
 			for (BlockPos bp : POWERED) {
 				VoxelShape s = level.getBlockState(bp).getShape(level, bp);
 				AABB b = (s.isEmpty() ? new AABB(0, 0, 0, 1, 1, 1) : s.bounds()).move(bp).inflate(0.01).move(-cam.x, -cam.y, -cam.z);
-				LevelRenderer.renderLineBox(pose, lines, b, 0.22f, 1.0f, 0.42f, pulse);
+				LevelRenderer.renderLineBox(pose, lines, b, 0.447f, 0.82f, 0.18f, pulse);
 			}
 		}
 		// the moves
@@ -818,7 +821,7 @@ public final class UpgradeFx {
 								// the wet leading edge, lit green, and a glossy sheen sliding over the metal
 								float edge = (float) Math.exp(-Math.pow((front - d - 0.05f) / 0.07f, 2)) * (front < 1.3f ? 1f : 0f);
 								float sheen = (float) Math.pow(Math.max(0, Math.sin((p.x * 0.6 + p.y * 0.9 + p.z * 0.35) * 2.6 - time * 0.07)), 18) * 0.16f * a;
-								col[k] = add(PyroDraw.dim(GREEN, edge * 0.85f * alpha), PyroDraw.dim(0xFFD8FFE0, sheen * alpha));
+								col[k] = add(PyroDraw.dim(GREEN, edge * 0.85f * alpha), PyroDraw.dim(0xFFE4F6D6, sheen * alpha));
 								any |= edge > 0.02f || sheen > 0.01f;
 							}
 						}
@@ -890,7 +893,11 @@ public final class UpgradeFx {
 			float s = pass == 0 ? 1.045f : 1.05f;
 			pose.scale(s, s * 0.985f + 0.015f, s);
 			pose.translate(0, -h * 0.5, 0);
-			CoatSource src = new CoatSource(buffers, pass == 0 ? RenderType.entityTranslucent(TECHNO) : RenderType.eyes(TECHNO_GLOW), pass == 1, inv, cam, box, front,
+			// v0.17.2 (user: "give all the things that upgrade can upgrade upgraded models with the black and white colour scheme with
+			// the green wiring pattern on the black parts please"): a golem / robot he pilots wears the white-plate-and-circuit coat
+			boolean machine = m.kind == UpgradeKit.MergeKind.GOLEM.ordinal() && !linesOnly;
+			ResourceLocation tex = machine ? MACHINE_COAT : TECHNO, texGlow = machine ? MACHINE_COAT_GLOW : TECHNO_GLOW;
+			CoatSource src = new CoatSource(buffers, pass == 0 ? RenderType.entityTranslucent(tex) : RenderType.eyes(texGlow), pass == 1, inv, cam, box, front,
 					lines, alpha, time, uvScale);
 			try {
 				renderer.render(e, yaw, partial, pose, src, light);
@@ -1610,7 +1617,7 @@ public final class UpgradeFx {
 		}
 		// a glossy highlight riding on top, and his eye at the front
 		VertexConsumer add = PyroDraw.additive(buffers);
-		PyroDraw.glow(pose, add, c.add(fwd.scale(-0.12)).add(0.05, H + 0.03, 0.05), 0.16f, PyroDraw.dim(0xFFD0E8E0, 0.25f));
+		PyroDraw.glow(pose, add, c.add(fwd.scale(-0.12)).add(0.05, H + 0.03, 0.05), 0.16f, PyroDraw.dim(0xFFE0E4E8, 0.25f));
 		Vec3 eye = c.add(fwd.scale(R * 0.62)).add(0, H * 0.55 + 0.02, 0);
 		float blink = 0.85f + 0.15f * Mth.sin(time * 0.4f);
 		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), eye, 0.28f * blink, PyroDraw.dim(GREEN, 0.85f));
