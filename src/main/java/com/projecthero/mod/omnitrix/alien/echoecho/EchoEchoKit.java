@@ -281,7 +281,7 @@ public final class EchoEchoKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: fragile -- no armour of his own (only the hidden Resistance I every alien has)
-		return AlienStats.builder().health(16).speed(1.15f).scale(0.6f).armor(0, 0).attack(4).safeFall(3).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
+		return AlienStats.builder().health(16).speed(1.15f).scale(0.6f).armor(7, 0).attack(4).safeFall(3).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

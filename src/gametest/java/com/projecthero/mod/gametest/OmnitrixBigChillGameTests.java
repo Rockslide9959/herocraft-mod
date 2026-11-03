@@ -114,7 +114,7 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		ServerPlayer p = bigChill(helper);
 		BigChillKit k = kit();
 		near(helper, p.getMaxHealth(), 28f, "28 health");
-		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 0f, "no armour of his own");
+		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 10f, "gold-level armour (10)"); // v0.17.2 Alien Force armour ratings
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().freeze(), 5f);
 		near(helper, p.getHealth(), hp, "the cold never touches him");

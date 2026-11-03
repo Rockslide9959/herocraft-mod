@@ -106,7 +106,7 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		ChromastoneKit k = kit();
 		Villager v = prey(helper, 3.5, 2, 6.5, 40f);
 		near(helper, p.getMaxHealth(), 34f, "34 health");
-		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 10f, "10 armour");
+		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 15f, "iron-level armour 15");
 		helper.assertTrue(ChromastoneKit.charge(p) == 0, "no charge to begin with");
 		helper.assertFalse(k.prismBeam(p), "no Prism Beam without charge");
 		helper.assertTrue(k.cooldownLeft(p, ChromastoneKit.PRISM_BEAM) == 0, "a refused beam costs no cooldown");

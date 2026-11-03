@@ -115,7 +115,7 @@ public class OmnitrixEchoEchoGameTests implements FabricGameTest {
 		ServerPlayer p = echo(helper);
 		EchoEchoKit k = kit();
 		near(helper, p.getMaxHealth(), 16f, "16 health");
-		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 0f, "no armour of his own");
+		near(helper, (float) p.getAttributeValue(Attributes.ARMOR), 7f, "leather-level armour 7");
 		near(helper, p.getScale(), 0.6f, "small");
 		near(helper, k.incomingDamage(p, helper.getLevel().damageSources().explosion(null, null), 4f), 6f, "hollow shell: blasts +50%");
 		near(helper, k.incomingDamage(p, helper.getLevel().damageSources().generic(), 4f), 4f, "an ordinary hit is unchanged");

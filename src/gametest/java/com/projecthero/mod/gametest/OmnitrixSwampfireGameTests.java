@@ -104,7 +104,7 @@ public class OmnitrixSwampfireGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = swampfire(helper, 0f);
 		near(helper, p.getMaxHealth(), 32f, "32 health");
-		near(helper, p.getArmorValue(), 6f, "armour 6");
+		near(helper, p.getArmorValue(), 10f, "armour 10");
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().inFire(), 6f);
 		p.invulnerableTime = 0;

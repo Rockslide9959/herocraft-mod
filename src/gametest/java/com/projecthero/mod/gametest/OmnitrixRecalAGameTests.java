@@ -172,7 +172,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		HumungousaurKit kit = (HumungousaurKit) Aliens.kit(HumungousaurKit.ID);
 		near(helper, p.getMaxHealth(), 44f, "44 health");
 		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(0), "5 blocks tall");
-		near(helper, p.getArmorValue(), 10f, "armour 10");
+		near(helper, p.getArmorValue(), 20f, "diamond-level armour 20");
 		double speed0 = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
 		double reach0 = p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 		// v0.17.2: 24-29 blocks tall now -- up into open sky, clear of the neighbouring tests, to have room to grow
@@ -180,7 +180,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.grow(p), "V grows him");
 		helper.assertTrue(HumungousaurKit.stage(p) == 1, "size step 1");
 		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(1), "10 blocks tall");
-		near(helper, p.getArmorValue(), 13f, "armour 13");
+		near(helper, p.getArmorValue(), 23f, "armour 23 (20 + the growth stage)");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > speed0, "bigger strides");
 		helper.assertTrue(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) > reach0, "a longer reach");
 		near(helper, HumungousaurKit.mult(p), 1.25f, "+25% damage a step (v0.17.2 damage pass, was +10%)");
@@ -188,7 +188,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		clearCooldown(p, HumungousaurKit.ID, HumungousaurKit.GROW);
 		helper.assertTrue(kit.grow(p) && HumungousaurKit.stage(p) == 2, "size step 2");
 		near(helper, p.getScale(), com.projecthero.mod.omnitrix.alien.humungousaur.HumungousaurKit.scaleAt(2), "15 blocks tall");
-		near(helper, p.getArmorValue(), 16f, "armour 16");
+		near(helper, p.getArmorValue(), 26f, "armour 26 (20 + the growth stages)");
 		p.refreshDimensions();
 		helper.assertTrue(p.getBbHeight() > 14.0f, "the hitbox grew with him (" + p.getBbHeight() + ")");
 		clearCooldown(p, HumungousaurKit.ID, HumungousaurKit.GROW);

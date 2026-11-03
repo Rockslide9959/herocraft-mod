@@ -215,7 +215,7 @@ public final class JetrayKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(24).speed(1.2f).armor(3, 0).attack(5).knockbackResist(0.1f).safeFall(6).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
+		return AlienStats.builder().health(24).speed(1.2f).armor(7, 0).attack(5).knockbackResist(0.1f).safeFall(6).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

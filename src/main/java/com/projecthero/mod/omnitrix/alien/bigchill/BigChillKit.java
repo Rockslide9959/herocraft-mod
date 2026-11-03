@@ -232,7 +232,7 @@ public final class BigChillKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: a slight ghost of a thing -- no armour of his own (only every alien's hidden Resistance I)
-		return AlienStats.builder().health(28).attack(6).knockbackResist(0.15f).safeFall(8).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
+		return AlienStats.builder().health(28).armor(10, 0).attack(6).knockbackResist(0.15f).safeFall(8).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

@@ -291,7 +291,7 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(22).speed(1.25f).scale(0.85f).armor(2, 0).attack(5).jump(0.1f).safeFall(4).step(0.4f).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
+		return AlienStats.builder().health(22).speed(1.25f).scale(0.85f).armor(5, 0).attack(5).jump(0.1f).safeFall(4).step(0.4f).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

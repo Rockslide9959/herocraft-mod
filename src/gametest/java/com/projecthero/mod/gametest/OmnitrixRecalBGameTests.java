@@ -118,13 +118,13 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		}
 		ServerPlayer j = as(helper, JetrayKit.ID);
 		near(helper, j.getMaxHealth(), 24f, "Jetray: 24 health");
-		near(helper, (float) j.getAttributeValue(Attributes.ARMOR), 3f, "Jetray: 3 armour");
+		near(helper, (float) j.getAttributeValue(Attributes.ARMOR), 7f, "Jetray: 7 armour");
 		ServerPlayer b = as(helper, BigChillKit.ID);
 		near(helper, b.getMaxHealth(), 28f, "Big Chill: 28 health");
-		near(helper, (float) b.getAttributeValue(Attributes.ARMOR), 0f, "Big Chill: no armour of his own (v0.17.2 revamp; see OmnitrixBigChillGameTests)");
+		near(helper, (float) b.getAttributeValue(Attributes.ARMOR), 10f, "Big Chill: gold-level armour 10");
 		ServerPlayer c = as(helper, ChromastoneKit.ID);
 		near(helper, c.getMaxHealth(), 34f, "Chromastone: 34 health");
-		near(helper, (float) c.getAttributeValue(Attributes.ARMOR), 10f, "Chromastone: 10 armour");
+		near(helper, (float) c.getAttributeValue(Attributes.ARMOR), 15f, "Chromastone: 15 armour");
 		for (ServerPlayer p : new ServerPlayer[] { j, b, c }) {
 			AlienKit k = AlienKit.activeKit(p);
 			helper.assertTrue(k != null && k.moves().stream().noneMatch(m -> m.slot() == AbilitySlot.SLOT_7 || m.slot() == AbilitySlot.SLOT_8),

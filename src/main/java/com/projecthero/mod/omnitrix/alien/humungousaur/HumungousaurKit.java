@@ -303,7 +303,7 @@ public final class HumungousaurKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(44).speed(0.85f).scale(BASE_SCALE).armor(10, 3).knockbackResist(0.6f).attack(15).step(1.5f).reach(3f).safeFall(SAFE_FALL)
+		return AlienStats.builder().health(44).speed(0.85f).scale(BASE_SCALE).armor(20, 8).knockbackResist(0.6f).attack(15).step(1.5f).reach(3f).safeFall(SAFE_FALL)
 				.build();
 	}
 

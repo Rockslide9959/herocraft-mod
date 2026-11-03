@@ -299,7 +299,7 @@ public final class FourArmsKit extends AlienKit {
 		// v0.17.2 (user: "make fourarms armour rating iron level"): a full iron set, 15 armour (was 8)
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): the tank, 20 + 4
 		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
-		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(20f, 4f).knockbackResist(0.6f).attack(10f).step(0.6f).jump(0.12f)
+		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(18f, 4f).knockbackResist(0.6f).attack(10f).step(0.6f).jump(0.12f)
 				.safeFall(6f).reach(0.5f).build();
 	}
 
