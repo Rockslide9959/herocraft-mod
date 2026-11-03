@@ -56,6 +56,8 @@ public final class AlienClients {
 
 	@Nullable
 	public static AlienClientKit shownKit(Player p) {
-		return of(shown(p));
+		AlienClientKit k = of(shown(p));
+		// v0.17.2: Upgrade carrying a machine is drawn as that machine's upgraded body
+		return k instanceof com.projecthero.mod.client.omnitrix.alien.UpgradeClient u ? u.shownAs(p) : k;
 	}
 }

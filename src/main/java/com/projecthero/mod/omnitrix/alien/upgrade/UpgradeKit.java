@@ -288,6 +288,13 @@ public final class UpgradeKit extends AlienKit {
 	/** The merge: {@link MergeKind} ordinal + 1, entity id + 1 (golem / minecart / boat), block x / y / z, the game time it began. */
 	public static final String T_MERGE_KIND = "merge_kind", T_MERGE_ENT = "merge_ent", T_MERGE_X = "merge_x", T_MERGE_Y = "merge_y",
 			T_MERGE_Z = "merge_z", T_MERGE_AT = "merge_at";
+	/**
+	 * v0.17.2 (user: "they should become the machine"): what he became -- the carried block's state id + 1, or the vehicle's entity
+	 * type id + 1 (UpgradeMachines.variant); the client draws that machine's upgraded form in place of his body.
+	 */
+	public static final String T_MERGE_VARIANT = "merge_variant";
+	/** v0.17.2: R as a machine (its upgraded job). */
+	public static final int ANIM_MACHINE = 18;
 	/** The last move's end point (x / y / z) and target (entity id + 1). */
 	public static final String T_FX_X = "fx_x", T_FX_Y = "fx_y", T_FX_Z = "fx_z", T_FX_ENT = "fx_ent";
 	/** Keeps an encoded coordinate positive (a timer at 0 or below is removed). */
@@ -324,7 +331,22 @@ public final class UpgradeKit extends AlienKit {
 	/** What Upgrade has merged into. */
 	public enum MergeKind {
 		// v0.17.2 revamp: GOLEM is any machine he can pilot (golems, Sentinels, Ultron's robots...); ALLY is Ally Upgrade
-		FURNACE, DISPENSER, PISTON, GOLEM, MINECART, BOAT, ALLY
+		FURNACE, DISPENSER, PISTON, GOLEM, MINECART, BOAT, ALLY,
+		// v0.17.2 (user: "give all the things that upgrade can upgrade upgraded models"): more tech blocks he can become
+		NOTE_BLOCK, JUKEBOX, OBSERVER, HOPPER;
+
+		/** v0.17.2: a block he lifts into himself and walks around as (put back when he unmerges). */
+		public boolean block() {
+			return switch (this) {
+				case FURNACE, DISPENSER, PISTON, NOTE_BLOCK, JUKEBOX, OBSERVER, HOPPER -> true;
+				default -> false;
+			};
+		}
+
+		/** v0.17.2: carried inside him (a block, or a minecart / boat) -- he IS the machine; golems and allies stay in the world. */
+		public boolean stored() {
+			return block() || this == MINECART || this == BOAT;
+		}
 	}
 
 	/** player -> the merge in progress. */
@@ -363,9 +385,30 @@ public final class UpgradeKit extends AlienKit {
 				boostArrow(arrow);
 			}
 		});
+		// v0.17.2 (user: "merging should never destroy the tech"): whatever he carries is put back where he is when he dies, logs
+		// out or the server stops, as on any other way out of the merge
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof ServerPlayer p && MERGES.containsKey(p.getUUID())) {
+				kit.endMerge(p, false);
+			}
+		});
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (MERGES.containsKey(handler.player.getUUID())) {
+				kit.endMerge(handler.player, false);
+			}
+		});
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			for (UUID id : UpgradeMachines.carriers()) {
+				ServerPlayer p = server.getPlayerList().getPlayer(id);
+				if (p != null) {
+					kit.endMerge(p, false);
+				}
+			}
+		});
 	}
 
 	public static void clearSessionState() {
+		UpgradeMachines.clearSessionState();
 		MERGES.clear();
 		ALLY_HOSTS.clear();
 		LAST_TICK.clear();
@@ -482,6 +525,12 @@ public final class UpgradeKit extends AlienKit {
 		// v0.17.2 revamp: in the Liquid Form any attack key (R, G, Z and their Shift versions) is the Geyser when a foe is over
 		// the puddle; otherwise the move rises him and runs as usual
 		if ((slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_4) && geyser(p)) {
+			return;
+		}
+		// v0.17.2 (user: "the tech gets a visual upgrade ... aswell as the functions upgrade"): as a machine, R is its job, upgraded
+		Merge mm = MERGES.get(p.getUUID());
+		if (slot == AbilitySlot.SLOT_1 && !shift && mm != null && mm.kind().stored()) {
+			UpgradeMachines.fire(this, p, level(p), mm.kind(), UpgradeMachines.stored(p));
 			return;
 		}
 		switch (slot) {
@@ -1083,6 +1132,19 @@ public final class UpgradeKit extends AlienKit {
 		if (s.getBlock() instanceof PistonBaseBlock) {
 			return MergeKind.PISTON;
 		}
+		// v0.17.2: the other tech blocks he can become
+		if (s.getBlock() instanceof net.minecraft.world.level.block.NoteBlock) {
+			return MergeKind.NOTE_BLOCK;
+		}
+		if (s.getBlock() instanceof net.minecraft.world.level.block.JukeboxBlock) {
+			return MergeKind.JUKEBOX;
+		}
+		if (s.getBlock() instanceof net.minecraft.world.level.block.ObserverBlock) {
+			return MergeKind.OBSERVER;
+		}
+		if (s.getBlock() instanceof net.minecraft.world.level.block.HopperBlock) {
+			return MergeKind.HOPPER;
+		}
 		return null;
 	}
 
@@ -1090,12 +1152,19 @@ public final class UpgradeKit extends AlienKit {
 	public boolean mergeWith(ServerPlayer p, Entity e) {
 		MergeKind kind = e instanceof AbstractMinecart ? MergeKind.MINECART : e instanceof Boat ? MergeKind.BOAT
 				: pilotable(p, e) ? MergeKind.GOLEM : null;
-		if (kind == null || MERGES.containsKey(p.getUUID()) || !use(p, MERGE)) {
+		if (kind == null || MERGES.containsKey(p.getUUID()) || !e.isAlive() || (kind.stored() && (!e.getPassengers().isEmpty() || e.isPassenger()))
+				|| !use(p, MERGE)) {
 			return false;
 		}
-		if (kind != MergeKind.GOLEM && !p.startRiding(e, true)) {
-			cooldown(p, MERGE, 20);
-			return false;
+		if (kind.stored()) {
+			// v0.17.2 (user: "they should become the machine"): the minecart / boat goes INTO him (all of it, contents too); he
+			// is the hover-cart / hover-boat until he unmerges, and it comes back out where he is
+			if (p.isPassenger()) {
+				p.stopRiding();
+			}
+			UpgradeMachines.Stored st = UpgradeMachines.takeEntity(p, e);
+			begin(p, new Merge(kind, p.level().dimension(), -1, null), e.position().add(0, e.getBbHeight() * 0.5, 0), UpgradeMachines.variant(st, e));
+			return true;
 		}
 		if (kind == MergeKind.GOLEM && e instanceof Mob m) {
 			UpgradeTakeover.release(m); // he pilots it himself now
@@ -1103,7 +1172,7 @@ public final class UpgradeKit extends AlienKit {
 			m.getNavigation().stop();
 			p.teleportTo(e.getX(), e.getY(), e.getZ());
 		}
-		begin(p, new Merge(kind, p.level().dimension(), e.getId(), null), e.position().add(0, e.getBbHeight() * 0.5, 0));
+		begin(p, new Merge(kind, p.level().dimension(), e.getId(), null), e.position().add(0, e.getBbHeight() * 0.5, 0), 0L);
 		return true;
 	}
 
@@ -1136,7 +1205,7 @@ public final class UpgradeKit extends AlienKit {
 		ALLY_HOSTS.put(ally.getUUID(), p.getUUID());
 		PowerToggles.modifier(ally, Attributes.ARMOR, ALLY_ARMOR_ID, ALLY_ARMOR, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(ally, Attributes.ARMOR_TOUGHNESS, ALLY_TOUGH_ID, ALLY_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
-		begin(p, new Merge(MergeKind.ALLY, p.level().dimension(), ally.getId(), null, ally.getUUID()), ally.position().add(0, ally.getBbHeight() * 0.5, 0));
+		begin(p, new Merge(MergeKind.ALLY, p.level().dimension(), ally.getId(), null, ally.getUUID()), ally.position().add(0, ally.getBbHeight() * 0.5, 0), 0L);
 		ally.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.ally_on", p.getDisplayName()).withStyle(ChatFormatting.GREEN), true);
 		return true;
 	}
@@ -1166,30 +1235,45 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
-	/** Merges into a furnace, dispenser / dropper or piston and supercharges it. */
+	/**
+	 * Merges into a tech block. v0.17.2 (user: "they should become the machine ... merging should never destroy the tech"): the
+	 * block is lifted INTO him (its state + block-entity NBT kept) and he walks around as its upgraded form; refused on anything
+	 * he couldn't break (protected, spawn protection, adventure, unbreakable).
+	 */
 	public boolean mergeWith(ServerPlayer p, BlockPos pos) {
 		ServerLevel l = level(p);
 		MergeKind kind = mergeKindOf(l.getBlockState(pos), l, pos);
-		if (kind == null || MERGES.containsKey(p.getUUID()) || !l.mayInteract(p, pos) || !use(p, MERGE)) {
+		if (kind == null || MERGES.containsKey(p.getUUID()) || !UpgradeMachines.mayTake(p, l, pos) || !use(p, MERGE)) {
 			return false;
 		}
-		begin(p, new Merge(kind, l.dimension(), 0, pos.immutable()), Vec3.atCenterOf(pos));
+		if (p.isPassenger()) {
+			p.stopRiding();
+		}
+		UpgradeMachines.Stored st = UpgradeMachines.takeBlock(p, l, pos);
+		begin(p, new Merge(kind, l.dimension(), 0, pos.immutable()), Vec3.atCenterOf(pos), UpgradeMachines.variant(st, null));
 		return true;
 	}
 
-	private void begin(ServerPlayer p, Merge m, Vec3 at) {
+	private void begin(ServerPlayer p, Merge m, Vec3 at, long variant) {
 		MERGES.put(p.getUUID(), m);
 		anim(p, ANIM_MERGE);
 		setFlag(p, F_MERGED, true);
 		setTimer(p, "merge_end", p.level().getGameTime() + MERGE_TICKS);
-		p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
+		setTimer(p, "machine_cd", 0); // a new machine is ready to fire at once
+		if (!m.kind().stored()) {
+			// v0.17.2: a machine he became is seen (it is him); inside a golem / on an ally he is hidden
+			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
+		}
 		ServerLevel l = level(p);
 		// v0.17.2 (user: "when upgrade takes over a block put the upgrade techno texture on it ... make an animation for him taking
 		// over the block"): the target goes out in the synced timers; UpgradeFx pours him onto it, coats it in his techno skin
-		// and lights its circuits (the ribbon is gone -- the client's liquid strand replaces it)
-		BlockPos bp = m.pos();
-		putTimers(p, T_MERGE_KIND, m.kind().ordinal() + 1L, T_MERGE_ENT, bp == null ? m.entityId() + 1L : 0L, T_MERGE_X, bp == null ? 0L : encode(bp.getX()),
-				T_MERGE_Y, bp == null ? 0L : encode(bp.getY()), T_MERGE_Z, bp == null ? 0L : encode(bp.getZ()), T_MERGE_AT, p.level().getGameTime());
+		// and lights its circuits (the ribbon is gone -- the client's liquid strand replaces it). v0.17.2: a carried machine sends
+		// its variant instead (no target in the world to coat)
+		BlockPos bp = m.kind().stored() ? null : m.pos();
+		long ent = m.kind().stored() ? 0L : bp == null ? m.entityId() + 1L : 0L;
+		putTimers(p, T_MERGE_KIND, m.kind().ordinal() + 1L, T_MERGE_ENT, ent, T_MERGE_X, bp == null ? 0L : encode(bp.getX()),
+				T_MERGE_Y, bp == null ? 0L : encode(bp.getY()), T_MERGE_Z, bp == null ? 0L : encode(bp.getZ()), T_MERGE_AT, p.level().getGameTime(),
+				T_MERGE_VARIANT, variant);
 		l.sendParticles(SPARK, at.x, at.y, at.z, 24, 0.5, 0.5, 0.5, 0.0);
 		l.sendParticles(METAL, at.x, at.y, at.z, 16, 0.4, 0.4, 0.4, 0.0);
 		OmnitrixSounds.play(l, at, SND_MERGE, 1.1f, 1.0f);
@@ -1207,11 +1291,17 @@ public final class UpgradeKit extends AlienKit {
 			return;
 		}
 		// v0.17.2: the client sees the target go and peels the coat back off it
-		putTimers(p, T_MERGE_KIND, 0L, T_MERGE_ENT, 0L, T_MERGE_X, 0L, T_MERGE_Y, 0L, T_MERGE_Z, 0L, T_MERGE_AT, 0L);
-		if (m != null && m.pos() != null) {
+		putTimers(p, T_MERGE_KIND, 0L, T_MERGE_ENT, 0L, T_MERGE_X, 0L, T_MERGE_Y, 0L, T_MERGE_Z, 0L, T_MERGE_AT, 0L, T_MERGE_VARIANT, 0L);
+		// v0.17.2 (user: "if the player detransforms while merged the block places wherever the player is, same for if the player
+		// unmerges, merging should never destroy the tech"): what he carried comes back out where he stands, exactly as it was
+		UpgradeMachines.release(p, level(p));
+		if (m != null && m.pos() != null && !m.kind().stored()) {
 			Vec3 c = Vec3.atCenterOf(m.pos());
 			level(p).sendParticles(METAL, c.x, c.y, c.z, 18, 0.45, 0.45, 0.45, 0.0);
 			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.15);
+		} else if (m != null && m.kind().stored()) {
+			level(p).sendParticles(METAL, p.getX(), p.getY() + 0.6, p.getZ(), 18, 0.45, 0.45, 0.45, 0.0);
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.6, p.getZ(), 10, 0.4, 0.4, 0.4, 0.15);
 		}
 		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
 		if (inv != null && inv.getDuration() <= 40) {
@@ -1257,6 +1347,15 @@ public final class UpgradeKit extends AlienKit {
 			endMerge(p, true);
 			return;
 		}
+		if (m.kind().stored()) {
+			// v0.17.2: he IS the machine -- it walks where he walks; its passives (UpgradeMachines)
+			if (UpgradeMachines.stored(p) == null) {
+				endMerge(p, true);
+				return;
+			}
+			UpgradeMachines.tick(p, l, m.kind(), now);
+			return;
+		}
 		if (now % 20 == 0) {
 			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 		}
@@ -1271,27 +1370,6 @@ public final class UpgradeKit extends AlienKit {
 				p.resetFallDistance();
 				PowerToggles.modifier(ally, Attributes.ARMOR, ALLY_ARMOR_ID, ALLY_ARMOR, AttributeModifier.Operation.ADD_VALUE);
 				PowerToggles.modifier(ally, Attributes.ARMOR_TOUGHNESS, ALLY_TOUGH_ID, ALLY_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
-			}
-			case FURNACE, DISPENSER, PISTON -> {
-				BlockState s = l.getBlockState(m.pos());
-				if (mergeKindOf(s, l, m.pos()) != m.kind() || p.distanceToSqr(Vec3.atCenterOf(m.pos())) > 25) {
-					endMerge(p, true);
-					return;
-				}
-				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 5, 6, false, false, false));
-				if (m.kind() == MergeKind.FURNACE && l.getBlockEntity(m.pos()) instanceof AbstractFurnaceBlockEntity be) {
-					for (int k = 0; k < 3; k++) {
-						AbstractFurnaceBlockEntity.serverTick(l, m.pos(), l.getBlockState(m.pos()), be); // four times the speed
-					}
-				} else if (m.kind() == MergeKind.DISPENSER && now % 4 == 0) {
-					s.tick(l, m.pos(), l.random); // a shot every 4 ticks
-				} else if (m.kind() == MergeKind.PISTON && now % 10 == 0) {
-					pistonPunch(p, l, m.pos(), s);
-				}
-				if (now % 3 == 0) {
-					Vec3 c = Vec3.atCenterOf(m.pos());
-					l.sendParticles(SPARK, c.x, c.y, c.z, 3, 0.4, 0.4, 0.4, 0.0);
-				}
 			}
 			case GOLEM -> {
 				if (!(l.getEntity(m.entityId()) instanceof Mob golem) || !golem.isAlive()) {
@@ -1312,46 +1390,7 @@ public final class UpgradeKit extends AlienKit {
 					l.sendParticles(SPARK, golem.getX(), golem.getY() + golem.getBbHeight() * 0.6, golem.getZ(), 2, 0.4, 0.6, 0.4, 0.0);
 				}
 			}
-			case MINECART, BOAT -> {
-				Entity v = l.getEntity(m.entityId());
-				if (v == null || !v.isAlive() || p.getVehicle() != v) {
-					endMerge(p, true);
-					return;
-				}
-				if (v instanceof AbstractMinecart cart) {
-					// supercharged: always at full tilt, in whichever way it rolls (or where you look, from a standstill)
-					Vec3 vel = cart.getDeltaMovement();
-					Vec3 flat = new Vec3(vel.x, 0, vel.z);
-					if (flat.lengthSqr() < 1.0e-4) {
-						Vec3 look = p.getLookAngle();
-						flat = new Vec3(look.x, 0, look.z);
-					}
-					if (flat.lengthSqr() > 1.0e-4) {
-						cart.setDeltaMovement(flat.normalize().scale(0.6).add(0, vel.y, 0));
-					}
-				}
-				if (now % 4 == 0) {
-					l.sendParticles(SPARK, v.getX(), v.getY() + 0.4, v.getZ(), 3, 0.5, 0.2, 0.5, 0.0);
-				}
-			}
 		}
-	}
-
-	/** A supercharged piston: whatever stands in front of it (up to 6 blocks) is hurled away. */
-	private void pistonPunch(ServerPlayer p, ServerLevel l, BlockPos pos, BlockState s) {
-		Direction facing = s.getValue(PistonBaseBlock.FACING);
-		Vec3 dir = Vec3.atLowerCornerOf(facing.getNormal());
-		AABB box = new AABB(pos.relative(facing)).expandTowards(dir.scale(5)).inflate(0.4);
-		for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, box, e -> e != p && e.isAlive())) {
-			e.invulnerableTime = 0;
-			hurt(p, e, PISTON_DAMAGE, false);
-			double res = 1.0 - Math.min(1.0, e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
-			e.push(dir.x * 2.2 * res, 0.35 + dir.y * 2.2 * res, dir.z * 2.2 * res);
-			e.hurtMarked = true;
-		}
-		Vec3 face = Vec3.atCenterOf(pos).add(dir.scale(0.6));
-		QuirkFx.cone(l, face, dir).colours(0xFFFFFF, COLOUR).size(0.9f).length(5f).life(6).style(QuirkFx.CONE_DEBRIS).spawn();
-		l.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 0.8f, 1.4f);
 	}
 
 	// ---------------------------------------------------------------- Shift+C: upgrade the held tool

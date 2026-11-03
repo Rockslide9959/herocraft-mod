@@ -889,10 +889,14 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.mergeWith(p, furnace), "merged with the furnace");
 		helper.assertTrue(UpgradeKit.merge(p) != null && UpgradeKit.merge(p).kind() == UpgradeKit.MergeKind.FURNACE && kit.flag(p, UpgradeKit.F_MERGED),
 				"inside the furnace");
-		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "unseen");
+		// v0.17.2 (user: "they should become the machine"): the furnace is IN him -- he is the walker, seen as it
+		helper.assertTrue(helper.getLevel().getBlockState(furnace).isAir() && !p.hasEffect(MobEffects.INVISIBILITY), "the furnace is in him, he is it");
+		helper.getLevel().setBlock(furnace, Blocks.FURNACE.defaultBlockState(), 3);
 		helper.assertFalse(kit.mergeWith(p, furnace), "only one merge at a time");
+		helper.getLevel().setBlock(furnace, Blocks.AIR.defaultBlockState(), 3);
 		kit.endMerge(p, false);
 		helper.assertTrue(UpgradeKit.merge(p) == null && !p.hasEffect(MobEffects.INVISIBILITY) && !kit.flag(p, UpgradeKit.F_MERGED), "out again, seen");
+		helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().below()).is(Blocks.FURNACE), "the furnace is back, under him");
 		// the golem
 		IronGolem golem = EntityType.IRON_GOLEM.create(helper.getLevel());
 		Vec3 g = helper.absoluteVec(new Vec3(3.5, 2, 3.5));
@@ -917,6 +921,141 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 				helper.succeed();
 			});
 		});
+	}
+
+	// ---------------------------------------------------------------- v0.17.2: he becomes the machine; it is never destroyed
+
+	private static int looseItems(GameTestHelper helper) {
+		return helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(helper.absolutePos(BlockPos.ZERO)).inflate(16))
+				.size();
+	}
+
+	/** v0.17.2 (user: "merging should never destroy the tech"): a dispenser full of items goes into him and comes back out whole. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeMergeStoresADispenserAndUnmergeRestoresIt(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		BlockPos at = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(at, Blocks.DISPENSER.defaultBlockState().setValue(net.minecraft.world.level.block.DispenserBlock.FACING, net.minecraft.core.Direction.EAST), 3);
+		var be = (net.minecraft.world.level.block.entity.DispenserBlockEntity) helper.getLevel().getBlockEntity(at);
+		be.setItem(0, new ItemStack(Items.ARROW, 16));
+		be.setItem(4, new ItemStack(Items.DIAMOND, 3));
+		helper.assertTrue(kit.mergeWith(p, at), "C on the dispenser: merged");
+		helper.assertTrue(helper.getLevel().getBlockState(at).isAir() && helper.getLevel().getBlockEntity(at) == null, "the dispenser left the world -- it is him now");
+		helper.assertTrue(com.projecthero.mod.omnitrix.alien.upgrade.UpgradeMachines.stored(p) != null && UpgradeKit.merge(p).kind() == UpgradeKit.MergeKind.DISPENSER,
+				"carried: a dispenser");
+		helper.assertTrue(looseItems(helper) == 0, "nothing spilled");
+		// he walks off somewhere else and unmerges
+		Vec3 to = helper.absoluteVec(new Vec3(6.5, 2, 6.5));
+		p.teleportTo(to.x, to.y, to.z);
+		BlockPos feet = p.blockPosition();
+		kit.cooldown(p, UpgradeKit.MERGE, 0);
+		kit.press(p, AbilitySlot.SLOT_6, false);
+		helper.assertTrue(UpgradeKit.merge(p) == null && com.projecthero.mod.omnitrix.alien.upgrade.UpgradeMachines.stored(p) == null, "C again: unmerged");
+		helper.assertTrue(helper.getLevel().getBlockState(feet).is(Blocks.DISPENSER)
+				&& helper.getLevel().getBlockState(feet).getValue(net.minecraft.world.level.block.DispenserBlock.FACING) == net.minecraft.core.Direction.EAST,
+				"the dispenser is back where he stood, facing as it did");
+		var back = (net.minecraft.world.level.block.entity.DispenserBlockEntity) helper.getLevel().getBlockEntity(feet);
+		helper.assertTrue(back.getItem(0).is(Items.ARROW) && back.getItem(0).getCount() == 16 && back.getItem(4).is(Items.DIAMOND) && back.getItem(4).getCount() == 3,
+				"every item still in it");
+		helper.assertTrue(p.getY() >= feet.getY() + 1 - 1.0e-3, "he is lifted onto it, not stuck inside");
+		helper.assertTrue(looseItems(helper) == 0, "still nothing spilled");
+		helper.succeed();
+	}
+
+	/** v0.17.2 (user: "if the player detransforms while merged the block places wherever the player is"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeRevertWhileMergedPlacesTheMachineBack(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		BlockPos at = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(at, Blocks.FURNACE.defaultBlockState(), 3);
+		var f = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) helper.getLevel().getBlockEntity(at);
+		f.setItem(0, new ItemStack(Items.RAW_IRON, 5));
+		f.setItem(1, new ItemStack(Items.COAL, 7));
+		helper.assertTrue(kit.mergeWith(p, at), "merged with the furnace");
+		// the spot under him is taken: it goes to the nearest free one
+		BlockPos feet = p.blockPosition();
+		helper.getLevel().setBlock(feet, Blocks.STONE.defaultBlockState(), 3);
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(UpgradeKit.merge(p) == null && com.projecthero.mod.omnitrix.alien.upgrade.UpgradeMachines.stored(p) == null, "turning back ends the merge");
+		BlockPos found = null;
+		for (BlockPos c : BlockPos.betweenClosed(feet.offset(-3, -2, -3), feet.offset(3, 3, 3))) {
+			if (helper.getLevel().getBlockState(c).is(Blocks.FURNACE)) {
+				found = c.immutable();
+			}
+		}
+		helper.assertTrue(found != null && found.distSqr(feet) <= 3, "the furnace is back next to him");
+		var back = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) helper.getLevel().getBlockEntity(found);
+		helper.assertTrue(back.getItem(0).is(Items.RAW_IRON) && back.getItem(0).getCount() == 5 && back.getItem(1).getCount() == 7, "its contents intact");
+		helper.assertFalse(p.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(found)), "not placed inside him");
+		helper.assertTrue(looseItems(helper) == 0, "nothing spilled");
+		helper.succeed();
+	}
+
+	/** v0.17.2: a chest minecart goes in (he is the hover-cart) and comes back out with its cargo. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeHoverCartKeepsTheMinecartsCargo(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		var cart = EntityType.CHEST_MINECART.create(helper.getLevel());
+		Vec3 c = helper.absoluteVec(new Vec3(3.5, 2, 4.5));
+		cart.moveTo(c.x, c.y, c.z, 0f, 0f);
+		cart.setItem(3, new ItemStack(Items.GOLD_INGOT, 9));
+		helper.getLevel().addFreshEntity(cart);
+		helper.assertTrue(kit.mergeWith(p, cart), "merged with the chest minecart");
+		helper.assertTrue(cart.isRemoved() && looseItems(helper) == 0 && UpgradeKit.merge(p).kind() == UpgradeKit.MergeKind.MINECART, "it is in him; nothing spilled");
+		kit.endMerge(p, true);
+		var carts = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.vehicle.MinecartChest.class, p.getBoundingBox().inflate(3));
+		helper.assertTrue(carts.size() == 1 && carts.get(0).getItem(3).is(Items.GOLD_INGOT) && carts.get(0).getItem(3).getCount() == 9, "the cart is back with its gold");
+		carts.get(0).discard();
+		helper.succeed();
+	}
+
+	/** v0.17.2: no merging with what he couldn't break -- adventure mode, an unbreakable block. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void upgradeMergeRefusedOnProtectedOrUnbreakable(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		BlockPos at = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(at, Blocks.DISPENSER.defaultBlockState(), 3);
+		p.setGameMode(GameType.ADVENTURE);
+		helper.assertFalse(kit.mergeWith(p, at), "adventure mode: refused");
+		helper.assertTrue(helper.getLevel().getBlockState(at).is(Blocks.DISPENSER), "the dispenser untouched");
+		p.setGameMode(GameType.SURVIVAL);
+		BlockPos bedrock = helper.absolutePos(new BlockPos(5, 2, 4));
+		helper.getLevel().setBlock(bedrock, Blocks.BEDROCK.defaultBlockState(), 3);
+		helper.assertFalse(com.projecthero.mod.omnitrix.alien.upgrade.UpgradeMachines.mayTake(p, helper.getLevel(), bedrock), "unbreakable: never");
+		helper.assertTrue(com.projecthero.mod.omnitrix.alien.upgrade.UpgradeMachines.mayTake(p, helper.getLevel(), at), "survival: his to take");
+		helper.succeed();
+	}
+
+	/** v0.17.2 (user: "the functions upgrade"): R as the machine -- the turret's volley, the furnace cooks what he holds. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeMachineFormsFireOnR(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		BlockPos at = helper.absolutePos(new BlockPos(3, 2, 4));
+		helper.getLevel().setBlock(at, Blocks.DISPENSER.defaultBlockState(), 3);
+		helper.assertTrue(kit.mergeWith(p, at), "the dispenser turret");
+		int before = helper.getLevel().getEntitiesOfClass(Arrow.class, p.getBoundingBox().inflate(8)).size();
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		int after = helper.getLevel().getEntitiesOfClass(Arrow.class, p.getBoundingBox().inflate(8)).size();
+		helper.assertTrue(after - before == 3, "R: a three-arrow volley (" + (after - before) + ")");
+		kit.endMerge(p, false);
+		helper.getLevel().setBlock(p.blockPosition().below(), Blocks.AIR.defaultBlockState(), 3);
+		BlockPos fz = helper.absolutePos(new BlockPos(5, 2, 4));
+		helper.getLevel().setBlock(fz, Blocks.FURNACE.defaultBlockState(), 3);
+		kit.cooldown(p, UpgradeKit.MERGE, 0);
+		helper.assertTrue(kit.mergeWith(p, fz), "the furnace walker");
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.RAW_IRON, 5));
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(p.getMainHandItem().is(Items.IRON_INGOT) && p.getMainHandItem().getCount() == 5, "R: the raw iron is cooked at once");
+		kit.endMerge(p, false);
+		for (Arrow a : helper.getLevel().getEntitiesOfClass(Arrow.class, p.getBoundingBox().inflate(40))) {
+			a.discard();
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)

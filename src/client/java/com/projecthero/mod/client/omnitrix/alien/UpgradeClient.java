@@ -43,7 +43,7 @@ import net.minecraft.world.phys.Vec3;
  * brighter as he charges / fires, the Overclock and Upgrade Tool spin circuit rings round his hand, the Jolt flares at the fist,
  * and in the Liquid Form the body is hidden (he is the puddle).
  */
-public final class UpgradeClient implements AlienClientKit {
+public class UpgradeClient implements AlienClientKit {
 	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
 	private static final float[][] OVERCLOCK = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, 0.1f, 0f, 0.2f, 0f, 0f, 0.1f, -0.3f, 0f, 0f, 0f, 0f, 0f, 0f, 0.1f),
 			QuirkKeyframes.f(8, -1.6f, 0.1f, -0.2f, 0.2f, 0f, 0f, 0.1f, -0.3f, 0f, 0f, 0f, 0f, 0f, 0f, 0.15f), QuirkKeyframes.rest(14) };
@@ -127,6 +127,22 @@ public final class UpgradeClient implements AlienClientKit {
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;
+	}
+
+	private static UpgradeMachineBody machineBody;
+
+	/**
+	 * v0.17.2 (user: "When the player takes over a machine they should become the machine"): the kit {@code p} is drawn with -- the
+	 * upgraded machine's body while he carries one, else this. From {@code AlienClients.shownKit}.
+	 */
+	public AlienClientKit shownAs(net.minecraft.world.entity.player.Player p) {
+		if (this instanceof UpgradeMachineBody || UpgradeMachineBody.kindOf(p) == null) {
+			return this;
+		}
+		if (machineBody == null) {
+			machineBody = new UpgradeMachineBody();
+		}
+		return machineBody;
 	}
 
 	/** How far (pixels) the right arm stretches out right now (the grab, the lash, the grapple), 0 for not at all. */

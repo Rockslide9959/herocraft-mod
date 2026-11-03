@@ -80,6 +80,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class UpgradeFx {
 	public static final ResourceLocation TECHNO = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno.png");
 	public static final ResourceLocation TECHNO_GLOW = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno_glow.png");
+	/** v0.17.2: the upgraded-machine coat (white plating + black circuit panels) a piloted golem wears. */
+	public static final ResourceLocation MACHINE_COAT = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_machine_coat.png");
+	public static final ResourceLocation MACHINE_COAT_GLOW = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_machine_coat_glow.png");
 	/** Mechamorph green, its pale core, white-green. */
 	public static final int GREEN = 0xFF72D12E, PALE = 0xFFBCED9B, CORE = 0xFFF0FBE6; // v0.17.2: the skin's own circuit greens (upgrade.png)
 	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.447f, 0.82f, 0.18f), 0.7f);
@@ -202,8 +205,8 @@ public final class UpgradeFx {
 	@Nullable
 	private static MergeView mergeOf(Player pl, OmnitrixState st, @Nullable Track tr) {
 		long kind = timer(st, UpgradeKit.T_MERGE_KIND);
-		if (kind <= 0) {
-			return null;
+		if (kind <= 0 || kind > UpgradeKit.MergeKind.values().length || UpgradeKit.MergeKind.values()[(int) kind - 1].stored()) {
+			return null; // v0.17.2: a machine he carries is his body now (UpgradeMachineBody), nothing in the world to coat
 		}
 		long ent = timer(st, UpgradeKit.T_MERGE_ENT);
 		BlockPos pos = ent > 0 ? null
@@ -890,7 +893,11 @@ public final class UpgradeFx {
 			float s = pass == 0 ? 1.045f : 1.05f;
 			pose.scale(s, s * 0.985f + 0.015f, s);
 			pose.translate(0, -h * 0.5, 0);
-			CoatSource src = new CoatSource(buffers, pass == 0 ? RenderType.entityTranslucent(TECHNO) : RenderType.eyes(TECHNO_GLOW), pass == 1, inv, cam, box, front,
+			// v0.17.2 (user: "give all the things that upgrade can upgrade upgraded models with the black and white colour scheme with
+			// the green wiring pattern on the black parts please"): a golem / robot he pilots wears the white-plate-and-circuit coat
+			boolean machine = m.kind == UpgradeKit.MergeKind.GOLEM.ordinal() && !linesOnly;
+			ResourceLocation tex = machine ? MACHINE_COAT : TECHNO, texGlow = machine ? MACHINE_COAT_GLOW : TECHNO_GLOW;
+			CoatSource src = new CoatSource(buffers, pass == 0 ? RenderType.entityTranslucent(tex) : RenderType.eyes(texGlow), pass == 1, inv, cam, box, front,
 					lines, alpha, time, uvScale);
 			try {
 				renderer.render(e, yaw, partial, pose, src, light);
