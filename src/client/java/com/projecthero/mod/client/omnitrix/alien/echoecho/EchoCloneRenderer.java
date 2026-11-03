@@ -40,6 +40,10 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 	}
 
 	private void resetPose() {
+		// v0.17.2 (user: "echo echo clones are still small, please fix this and make the clones use the same model as the regular echo
+		// echo please"): a model's young flag starts TRUE and only the living renderer clears it -- left on, every clone was drawn as a
+		// baby (half-size body, oversized head, the badge floating over it)
+		model.young = false;
 		for (ModelPart part : new ModelPart[] { model.head, model.hat, model.body, model.rightArm, model.leftArm, model.rightLeg, model.leftLeg,
 				model.jacket, model.leftSleeve, model.rightSleeve, model.leftPants, model.rightPants }) {
 			part.resetPose();
