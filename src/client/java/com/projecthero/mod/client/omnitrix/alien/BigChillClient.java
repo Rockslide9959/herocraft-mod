@@ -37,7 +37,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.2: Big Chill's client kit. v0.17.2 revamp (user: "delete all the alien models and only use the skins i provided please no
  * extra things untill i say"): no eye cubes; the wings came back at the user's ask as the cloak that unfurls
- * ({@link BigChillWings}, while F_OPEN), and the antennae with the reference-matched flight (shown only uncloaked). He is the player model in one of the user's two
+ * ({@link BigChillWings}, while F_OPEN), the antennae now the wings' own root spines. He is the player model in one of the user's two
  * skins: {@code big_chill_cloaked} (wings wrapped round him, his normal look) or {@code big_chill} (wings open) while the kit's
  * synced {@link BigChillKit#F_OPEN} is set (flying, diving, breathing, storming, the ultimate, a moment after any attack). The
  * server holds the flag open for 1.5 s after a move, so the swap never flickers, and marks it with a soft frost ring. Phased or
@@ -162,50 +162,14 @@ public final class BigChillClient implements AlienClientKit {
 
 	/**
 	 * v0.17.2 (user: "give him his wings please, make the cloak unfurl from around his body to make his wings since his wings are his
-	 * cloak"): the four wings, unfurling out of the cloak while {@link BigChillKit#F_OPEN} is on ({@link BigChillWings}).
+	 * cloak"): the wings, unfurling out of the cloak while {@link BigChillKit#F_OPEN} is on ({@link BigChillWings}). v0.17.2 (user:
+	 * "the antenna should come from the back of his wings not his head"): no antennae on his head any more -- the references'
+	 * antennae are the wings' own spines, rising from their roots behind his shoulders (drawn with the wings).
 	 */
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p,
 			net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model, float partial, float age) {
-		int alpha = bodyAlpha(p);
-		BigChillWings.render(pose, buffers, light, p, model, partial, age, alpha);
-		if (BigChillWings.uncloaked(p)) {
-			renderAntennae(pose, buffers, light, model, alpha);
-		}
-	}
-
-	/** Antenna shades: pixels of big_chill_cloaked.png (0e101b at the root, the navy 152b5a, the steel blue 1b4375 at the tips). */
-	private static final float[] ANT_ROOT = AlienHorns.pixel(9, 16, 64), ANT_MID = AlienHorns.pixel(16, 7, 64), ANT_TIP = AlienHorns.pixel(19, 0, 64);
-	private static final int ANT_SEGS = 9;
-	private static final float ANT_SEG = 1.45f;
-
-	/**
-	 * v0.17.2 (user: "make them look exactly how they look like in the reference images I sent"): the two long thin antennae of the
-	 * references, curving up and out of the top of his head into a narrow V. Only uncloaked -- the hood would swallow them.
-	 */
-	private static void renderAntennae(PoseStack pose, MultiBufferSource buffers, int light, net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model,
-			int alpha) {
-		int tint = (Mth.clamp(alpha, 0, 255) << 24) | 0xFFFFFF;
-		var vc = buffers.getBuffer(alpha < 255 ? net.minecraft.client.renderer.RenderType.entityTranslucent(SKIN_CLOAKED)
-				: net.minecraft.client.renderer.RenderType.entityCutoutNoCull(SKIN_CLOAKED));
-		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.head, () -> {
-			for (int side = -1; side <= 1; side += 2) {
-				pose.pushPose();
-				pose.translate(side * 1.6f / 16f, -8f / 16f, -1.0f / 16f);
-				// leaning out a little and back a touch, bending further out along the length (the V of the references)
-				pose.mulPose(Axis.ZP.rotationDegrees(side * 4f));
-				pose.mulPose(Axis.XP.rotationDegrees(-8f));
-				for (int i = 0; i < ANT_SEGS; i++) {
-					float w = Mth.lerp(i / (float) (ANT_SEGS - 1), 1.0f, 0.45f) / 2f;
-					float[] uv = i < 3 ? ANT_ROOT : i < 6 ? ANT_MID : ANT_TIP;
-					com.projecthero.mod.client.omnitrix.AlienParts.box(pose, vc, -w, -ANT_SEG - 0.05f, -w, w, 0.05f, w, uv[0], uv[1], uv[2], uv[3], tint, light);
-					pose.translate(0f, -ANT_SEG / 16f, 0f);
-					pose.mulPose(Axis.ZP.rotationDegrees(side * 5f));
-					pose.mulPose(Axis.XP.rotationDegrees(-1.5f));
-				}
-				pose.popPose();
-			}
-		});
+		BigChillWings.render(pose, buffers, light, p, model, partial, age, bodyAlpha(p));
 	}
 
 	@Override
@@ -258,29 +222,29 @@ public final class BigChillClient implements AlienClientKit {
 	/**
 	 * v0.17.2 (user: "make big chills flying animations look better please, make them look exactly how they look like in the
 	 * reference images I sent"): the references' hover -- upright, legs hanging straight down a little apart, arms held out from
-	 * his sides and forward with the claws up, head up -- the limbs riding the wing beat (the legs a beat behind, swaying). Flying
-	 * fast the arms draw back along his sides and the legs trail. Smooth: everything eases from {@link BigChillWings}' per-tick
-	 * state with the partial tick.
+	 * his sides and forward with the claws up, head up. v0.17.2 (user: "big chills wings dont flap really so let him just stay in
+	 * the air please"): no wing beat to ride -- he just hangs there, the limbs drifting with a very slow breath. Flying fast the
+	 * arms draw back along his sides and the legs trail. Smooth: everything eases from {@link BigChillWings}' per-tick state with
+	 * the partial tick.
 	 */
 	private static void flightPose(AbstractClientPlayer p, HumanoidModel<?> m, float age) {
 		float partial = age - Mth.floor(age);
 		float sp = BigChillWings.speed(p, partial);
 		float fly = BigChillWings.flight(p, partial);
-		float ph = BigChillWings.phase(age);
-		float beat = Mth.sin(ph) * fly;
-		float lag = Mth.sin(ph - 1.6f) * fly;
+		float br = Mth.sin(BigChillWings.breath(age)) * fly;
+		float lag = Mth.sin(BigChillWings.breath(age) - 1.2f) * fly;
 		// arms: out from the sides and forward, the claws up (right arm out = +zRot); drawn back along him at speed
-		float armZ = Mth.lerp(sp, 0.55f + beat * 0.07f, 0.22f);
-		float armX = Mth.lerp(sp, -0.55f - lag * 0.08f, 0.35f);
+		float armZ = Mth.lerp(sp, 0.55f + br * 0.03f, 0.22f);
+		float armX = Mth.lerp(sp, -0.55f - lag * 0.03f, 0.35f);
 		m.rightArm.xRot = armX;
 		m.leftArm.xRot = armX + Mth.lerp(sp, 0.12f, 0f);
 		m.rightArm.yRot = Mth.lerp(sp, 0.3f, 0f);
 		m.leftArm.yRot = -Mth.lerp(sp, 0.3f, 0f);
 		m.rightArm.zRot = armZ;
 		m.leftArm.zRot = -armZ;
-		// legs: straight down and a little apart, a slow sway behind the beat; trailing back a touch at speed
-		m.rightLeg.xRot = Mth.lerp(sp, 0.06f + lag * 0.06f, 0.3f);
-		m.leftLeg.xRot = Mth.lerp(sp, 0.1f - lag * 0.05f, 0.34f);
+		// legs: hanging straight down a little apart, the faintest sway; trailing back a touch at speed
+		m.rightLeg.xRot = Mth.lerp(sp, 0.06f + lag * 0.025f, 0.3f);
+		m.leftLeg.xRot = Mth.lerp(sp, 0.1f - lag * 0.02f, 0.34f);
 		m.rightLeg.yRot = 0f;
 		m.leftLeg.yRot = 0f;
 		m.rightLeg.zRot = Mth.lerp(sp, 0.09f, 0.04f);
