@@ -134,12 +134,17 @@ public final class HumungousaurKit extends AlienKit {
 			SPIKES_START = "spikes_start", SPIKES_END = "spikes_end", BRACE_USE = "brace_use", BRACE_START = "brace_start", V_DOWN = "v_down";
 
 	public static final int MAX_STAGE = 2;
-	public static final float[] STAGE_SCALE = { 0f, 0.7f, 1.5f }; // added to the body's x1.5 (ADD_MULTIPLIED_BASE): 1.5 / 2.2 / 3.0
+	/**
+	 * v0.17.2 (user: "make humungosaur 12 blocks tall please, his bigger size 24 blocks and is biggest size 36 blocks"): 12 blocks tall at base (x6.67), 24 at the second size (x13.3); the game caps a body's scale at x16, so the
+	 * biggest size is 28.8 blocks, as close to 36 as Minecraft allows.
+	 */
+	public static final float BASE_SCALE = 12f / 1.8f;
+	public static final float[] STAGE_SCALE = { 0f, BASE_SCALE, 16f - BASE_SCALE }; // added onto the base scale (ADD_MULTIPLIED_BASE): 12 / 24 / 28.8 blocks
 	public static final float[] STAGE_ARMOR = { 0f, 3f, 6f };
 	public static final float[] STAGE_ATTACK = { 0f, 2f, 5f };
-	public static final float[] STAGE_REACH = { 0f, 0.75f, 1.5f };
+	public static final float[] STAGE_REACH = { 0f, 12f, 17f }; // v0.17.2: a giant's arm -- on top of the base 12 (24 / 29)
 	public static final float[] STAGE_KB = { 0f, 0.15f, 0.3f };
-	public static final float[] STAGE_SPEED = { 0f, -0.08f, -0.16f };
+	public static final float[] STAGE_SPEED = { 0f, 0.1f, 0.2f }; // v0.17.2: bigger strides as he grows
 	/** v0.17.2 (user: "+10% per size step (not 20%)"). */
 	public static final float STEP_BONUS = 0.1f;
 
@@ -291,7 +296,7 @@ public final class HumungousaurKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(44).speed(0.85f).scale(1.5f).armor(10, 3).knockbackResist(0.6f).attack(5).step(0.5f).safeFall(SAFE_FALL)
+		return AlienStats.builder().health(44).speed(0.85f).scale(BASE_SCALE).armor(10, 3).knockbackResist(0.6f).attack(5).step(3f).reach(9f).safeFall(SAFE_FALL)
 				.build();
 	}
 
@@ -345,9 +350,9 @@ public final class HumungousaurKit extends AlienKit {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, M_SPEED);
 	}
 
-	/** His body's scale at {@code stage} (1.5 / 2.2 / 3.0). */
+	/** His body's scale at {@code stage} (12 / 24 / 28.8 blocks tall). */
 	public static float scaleAt(int stage) {
-		return 1.5f * (1f + STAGE_SCALE[Math.max(0, Math.min(MAX_STAGE, stage))]);
+		return BASE_SCALE + STAGE_SCALE[Math.max(0, Math.min(MAX_STAGE, stage))];
 	}
 
 	/** v0.17.2 Huge Target: room above and around him for {@code stage}'s body (so Grow never buries him in a roof). */

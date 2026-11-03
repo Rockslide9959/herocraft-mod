@@ -97,15 +97,17 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		ServerPlayer p = as(helper, 0f);
 		HumungousaurKit kit = kit();
 		near(helper, HumungousaurKit.mult(p), 1.0f, "base size: x1.0");
+		// v0.17.2: 24-29 blocks tall now -- up into open sky, clear of the neighbouring tests, to have room to grow
+		p.teleportTo(p.getX(), 200, p.getZ());
 		helper.assertTrue(kit.growFull(p), "hold V: straight to full size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 2, "full size in one go");
 		near(helper, HumungousaurKit.mult(p), 1.2f, "+10% a step: x1.2 at full size");
-		near(helper, p.getScale(), 3.0f, "x3.0");
+		near(helper, p.getScale(), HumungousaurKit.scaleAt(2), "full size");
 		helper.assertTrue(kit.shrinkBase(p), "hold Shift+V: straight back to base size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 0, "base size again");
-		near(helper, p.getScale(), 1.5f, "x1.5");
+		near(helper, p.getScale(), HumungousaurKit.scaleAt(0), "base size");
 		// a stone ceiling just over his head: no room to grow (he would bury himself in it)
-		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 5, 1)), Blocks.STONE.defaultBlockState(), 3);
+		helper.getLevel().setBlock(BlockPos.containing(p.getX(), p.getY() + 14, p.getZ()), Blocks.STONE.defaultBlockState(), 3);
 		clearCooldown(p, HumungousaurKit.GROW);
 		helper.assertFalse(kit.grow(p), "Grow is refused under a roof");
 		helper.assertTrue(HumungousaurKit.stage(p) == 0, "still base size");
