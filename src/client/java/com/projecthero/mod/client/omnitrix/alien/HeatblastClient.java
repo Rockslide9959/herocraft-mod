@@ -172,7 +172,7 @@ public final class HeatblastClient implements AlienClientKit {
 	private static final float[][] AURA = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.7f, 0.4f, 0f, -0.7f, -0.4f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.3f),
 			QuirkKeyframes.f(5, -0.3f, 0f, 1.0f, -0.3f, 0f, -1.0f, -0.2f, 0f, 0f, 0f, 0.18f, 0f, 0f, -0.18f, -0.35f),
 			QuirkKeyframes.f(14, -0.3f, 0f, 0.9f, -0.3f, 0f, -0.9f, -0.12f, 0f, 0f, 0f, 0.15f, 0f, 0f, -0.15f, -0.25f), QuirkKeyframes.rest(20) };
-	// Shift+V Heat Shield -- arms crossed, hunched over, then flung wide with the head thrown back as the dome flares
+	// Shift+V Absorb Flames (v0.17.2, was the Heat Shield) -- arms crossed, hunched over, then flung wide with the head thrown back as the flames pour in
 	private static final float[][] SHIELD = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(3, -1.3f, -0.9f, 0.1f, -1.3f, 0.9f, -0.1f, 0.3f, 0f, 0.3f, 0f, 0.1f, -0.3f, 0f, -0.1f, 0.25f),
 			QuirkKeyframes.f(6, -0.4f, 0f, 1.4f, -0.4f, 0f, -1.4f, -0.15f, 0f, 0f, 0f, 0.25f, 0f, 0f, -0.25f, -0.3f),
@@ -430,14 +430,17 @@ public final class HeatblastClient implements AlienClientKit {
 		} else if (anim == HeatblastKit.ANIM_SMELT && ticks < 13f) {
 			chestBall(pose, buffers, model, 0.1f + 0.02f * Mth.sin(age * 0.9f), age, 0.5f);
 		}
-		// the Heat Shield: a dome of shimmering heat round him, fire licking up off every limb
-		if ((st.kitFlags & HeatblastKit.F_SHIELD) != 0) {
-			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 1.1f, 0f);
+		// v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): Absorb Flames -- a shell of fire collapsing in on him
+		// as the streams arrive (the streams themselves are rendered ribbons from the server), fire licking up off every limb
+		if ((st.kitFlags & HeatblastKit.F_ABSORB) != 0) {
+			float k = Mth.clamp(ticks / HeatblastKit.ABSORB_TICKS, 0f, 1f);
+			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 0.6f + 0.8f * k, 0f);
 			pose.pushPose();
 			pose.translate(0f, 0.75f, 0f);
-			float r = 1.45f + 0.04f * Mth.sin(age * 0.6f);
-			PyroDraw.sphere(pose, PyroDraw.additive(buffers), r, PyroDraw.dim(0xFFFF8A30, 0.32f), PyroDraw.dim(0xFF801800, 0.12f), 0.06f, age, PyroDraw.FULL);
-			PyroDraw.sphere(pose, PyroDraw.additive(buffers), r * 0.97f, PyroDraw.dim(0xFFFFD080, 0.12f), 0xFF000000, 0.1f, age * 1.3f, PyroDraw.FULL);
+			float r = Mth.lerp(k, 3.0f, 0.55f) + 0.04f * Mth.sin(age * 0.6f);
+			PyroDraw.sphere(pose, PyroDraw.additive(buffers), r, PyroDraw.dim(0xFFFF8A30, 0.18f + 0.25f * k), PyroDraw.dim(0xFF801800, 0.1f), 0.06f, -age,
+					PyroDraw.FULL);
+			PyroDraw.sphere(pose, PyroDraw.additive(buffers), r * 0.9f, PyroDraw.dim(0xFFFFD080, 0.1f + 0.15f * k), 0xFF000000, 0.1f, -age * 1.3f, PyroDraw.FULL);
 			pose.popPose();
 		}
 		// the Heat Aura: the ground glowing like a hotplate round him, his hands white-hot
@@ -865,7 +868,7 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_PUNCH -> PUNCH;
 			case HeatblastKit.ANIM_SMELT -> SMELT;
 			case HeatblastKit.ANIM_AURA -> AURA;
-			case HeatblastKit.ANIM_SHIELD -> SHIELD;
+			case HeatblastKit.ANIM_ABSORB -> SHIELD;
 			case HeatblastKit.ANIM_ERUPT -> ERUPT;
 			case HeatblastKit.ANIM_METEOR_RISE -> (flags & HeatblastKit.F_METEOR) != 0 ? METEOR_RISE : null;
 			case HeatblastKit.ANIM_METEOR_DIVE -> (flags & HeatblastKit.F_METEOR) != 0 ? METEOR_DIVE : null;
@@ -942,7 +945,7 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_PUNCH -> FP_PUNCH;
 			case HeatblastKit.ANIM_SMELT -> FP_CUP;
 			case HeatblastKit.ANIM_AURA -> FP_AURA;
-			case HeatblastKit.ANIM_SHIELD -> FP_SHIELD;
+			case HeatblastKit.ANIM_ABSORB -> FP_SHIELD;
 			case HeatblastKit.ANIM_ERUPT -> FP_ERUPT;
 			case HeatblastKit.ANIM_METEOR_RISE -> FP_RISE;
 			case HeatblastKit.ANIM_METEOR_DIVE -> FP_DIVE;

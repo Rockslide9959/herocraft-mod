@@ -544,10 +544,17 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertFalse(Xlr8Kit.visorDown(p), "the visor is up at rest");
 		tapV(p, false);
 		helper.assertTrue(kit.flag(p, Xlr8Kit.F_SPEED), "V: Speed Mode");
-		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 1.9, "twice as fast again: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		// v0.17.2 (user: "Speed mode: 20 blocks per second walking, 60 blocks per second running")
+		double bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 20.0) < 0.05, "Speed Mode walking: 20 blocks a second: " + bps);
 		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor slams down");
 		double mine = p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+		p.setSprinting(true);
 		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
+		bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 60.0) < 0.1, "Speed Mode sprinting: 60 blocks a second: " + bps);
+		p.setSprinting(false);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - mine * 1.5) < 1.0e-4,
 				"v0.17.2: Speed Mode mines 50% faster: " + p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED));
 		helper.assertTrue(kit.standsOnFluid(p, Fluids.WATER.getSource(false)), "he runs on water");
@@ -583,8 +590,20 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		double hit = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		kit.holdStart(p, AbilitySlot.SLOT_5);
 		helper.assertTrue(kit.flag(p, Xlr8Kit.F_OVERDRIVE) && kit.flag(p, Xlr8Kit.F_SPEED), "hold V: Overdrive (Speed Mode with it)");
-		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 5.0, "far faster than Speed Mode alone: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > hit * 1.9, "blows twice as hard");
+		// v0.17.2 (user: "Overdrive: Lasts 30 seconds now, 45 second cooldown upon activation, 50% increased damage, 25 blocks per
+		// second while walking, 170 blocks per second while running")
+		double bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 25.0) < 0.05, "Overdrive walking: 25 blocks a second: " + bps);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - hit * 1.5) < 1.0e-4, "fists +50%: " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(Xlr8Kit.damageScale(p) - 1.5f) < 1.0e-4, "every hit +50%");
+		helper.assertTrue(Math.abs(kit.timer(p, "od_end") - helper.getLevel().getGameTime() - 600) <= 1, "lasts 30 s");
+		helper.assertTrue(Math.abs(kit.cooldownLeft(p, Xlr8Kit.OVERDRIVE) - 900) <= 1, "a 45 s cooldown from the start");
+		p.setSprinting(true);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
+		bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 170.0) < 0.2, "Overdrive sprinting: 170 blocks a second: " + bps);
+		p.setSprinting(false);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 2);
 		kit.press(p, AbilitySlot.SLOT_5, false);
 		helper.assertFalse(kit.flag(p, Xlr8Kit.F_OVERDRIVE), "a tap of V ends it early");
 		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "and Speed Mode goes back off (it was off before)");
