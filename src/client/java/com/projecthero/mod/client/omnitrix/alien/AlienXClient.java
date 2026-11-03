@@ -141,15 +141,14 @@ public final class AlienXClient implements AlienClientKit {
 			float age) {
 		var vc = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(SKIN));
 		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.head, () -> {
-			pose.pushPose();
-			pose.translate(0f, -8f / 16f, 0.5f / 16f);
-			AlienHorns.horn(pose, vc, light, 7, 1.3f, 1.5f, -50f, 0f, 21f, BLACK);
-			pose.popPose();
+			// v0.17.2 (user: "make alien xs spikes come out from his forehead, his skin model has 3 pixel on the corner of the top of his
+			// head, make his spikes come out from there and make the spikes look smooth and not so blocky"): out of the three dark marks
+			// along the top front edge of his head (hat columns 1, 3-4 and 6) -- smooth round horns: the middle one rising and sweeping
+			// back over his head like a crescent, the side ones curving up and out
+			AlienHorns.tube(pose, vc, light, new float[] { 0f, -8.2f, -3.7f }, new float[] { 0f, -15f, -3.4f }, new float[] { 0f, -15.5f, 3.5f }, 0.85f, 14, BLACK);
 			for (int side = -1; side <= 1; side += 2) {
-				pose.pushPose();
-				pose.translate(side * 2.9f / 16f, -7.6f / 16f, -0.6f / 16f);
-				AlienHorns.horn(pose, vc, light, 4, 1.3f, 1.2f, -5f, side * 32f, -12f, BLACK);
-				pose.popPose();
+				AlienHorns.tube(pose, vc, light, new float[] { side * 2.5f, -8.2f, -3.7f }, new float[] { side * 4.6f, -11.8f, -3.4f },
+						new float[] { side * 3.9f, -13.6f, -0.6f }, 0.6f, 10, BLACK);
 			}
 		});
 	}
