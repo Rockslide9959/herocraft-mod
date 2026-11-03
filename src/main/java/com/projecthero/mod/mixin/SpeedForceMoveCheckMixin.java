@@ -24,6 +24,7 @@ public abstract class SpeedForceMoveCheckMixin {
 	@ModifyExpressionValue(method = "handleMovePlayer", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;isSingleplayerOwner()Z"))
 	private boolean projecthero$speedForceFastMove(boolean original) {
-		return original || SpeedForceSpeedster.hasPower(this.player);
+		// v0.17.2 (user: Overdrive "170 blocks per second while running"): XLR8 runs 8.5 blocks a tick, more with a Speed potion
+		return original || SpeedForceSpeedster.hasPower(this.player) || com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(this.player);
 	}
 }

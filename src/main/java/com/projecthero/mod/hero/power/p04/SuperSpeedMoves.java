@@ -460,7 +460,7 @@ public final class SuperSpeedMoves {
 		zipTrail(p, from, spot);
 		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 		// borrowed Blitz hits for his own 14 (and 8 round it); Super Speed's own stays BLITZ_DAMAGE / BLITZ_AOE_DAMAGE
-		punchThrough(p, target, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_HIT
+		punchThrough(p, target, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_HIT * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p) // v0.17.2: XLR8 Overdrive +50%
 				: BLITZ_DAMAGE) * mult(p));
 		AbilityHelpers.knockbackFrom(target, spot, BLITZ_KNOCKBACK);
 		AbilityHelpers.push(target, new Vec3(0, 0.35, 0));
@@ -479,7 +479,7 @@ public final class SuperSpeedMoves {
 	private static void blitzShockwave(ServerPlayer p, LivingEntity target, Vec3 c) {
 		ServerLevel level = p.serverLevel();
 		for (LivingEntity e : AbilityHelpers.living(level, c, BLITZ_AOE_RADIUS, e -> e != target && validFoe(p, e))) {
-			punchThrough(p, e, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_AOE
+			punchThrough(p, e, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_AOE * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p)
 					: BLITZ_AOE_DAMAGE) * mult(p));
 			AbilityHelpers.knockbackFrom(e, c, BLITZ_AOE_KNOCKBACK);
 			AbilityHelpers.push(e, new Vec3(0, 0.25, 0));
@@ -811,7 +811,7 @@ public final class SuperSpeedMoves {
 			zipTrail(p, from, spot);
 			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 			// sweep lands his own 26 a foe (Super Speed's own stays SWEEP_DAMAGE)
-			punchThrough(p, le, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.SWEEP_HIT
+			punchThrough(p, le, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.SWEEP_HIT * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p) // v0.17.2: XLR8 Overdrive +50%
 					: SWEEP_DAMAGE) * mult(p));
 			s.targets.hit(le.getId());
 			AbilityHelpers.knockbackFrom(le, spot, 0.35);
