@@ -231,7 +231,7 @@ public final class GreyMatterKit extends AlienKit {
 	/** v0.17.2 Swatted: his keys are dead until this game time (a big creature's hit). */
 	public static final String SWAT_END = "swat_end";
 
-	public static final float SCALE = 0.33f;
+	public static final float SCALE = 5f / 32f; // v0.17.2 (user: "make grey matter 5 pixels tall please") -- 5 of a player's 32
 	public static final int STUN_TICKS = 60;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1 / 12 / 2 / none
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): he stays small, but his clever moves hit hard enough to matter (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
