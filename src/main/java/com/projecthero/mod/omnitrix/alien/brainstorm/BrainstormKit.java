@@ -55,6 +55,9 @@ import net.minecraft.world.phys.Vec3;
  * research and make them good please"): a crab-shelled genius who opens his skull and thinks lightning. His combo engine is
  * <b>Static</b>: every electric hit charges the creature, and the third charge Overloads it. No Ultimate Brainstorm.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Lightning Bolt   a bolt from his brain at the crosshair (20): 7, 1 s
  *   Shift+R    Chain Lightning  14, then jumps to 4 more within 7: 12 each, 8 s
@@ -164,9 +167,10 @@ public final class BrainstormKit extends AlienKit {
 	/** Kit timers: the Force Field's end, the Mega Bolt's release, the hop's start, the lift's start. */
 	public static final String FIELD_END = "field_end", MEGA_AT = "mega_at", HOP_AT = "hop_at", LIFT_AT = "lift_at";
 
-	public static final float BOLT_DAMAGE = 7f, CHAIN_FIRST = 14f, CHAIN_DAMAGE = 12f, PINCER_DAMAGE = 13f, BALL_DAMAGE = 16f, BALL_ZAP = 4f,
-			DASH_DAMAGE = 6f, DISCHARGE_DAMAGE = 17f, MEGA_DAMAGE = 19f, STORM_DAMAGE = 4f, STORM_FINALE = 22f, CAGE_DAMAGE = 12f, PUNCH_BONUS = 2f,
-			OVERLOAD_DAMAGE = 6f, SHORT_SELF = 3f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float BOLT_DAMAGE = 11f, CHAIN_FIRST = 24f, CHAIN_DAMAGE = 20f, PINCER_DAMAGE = 22f, BALL_DAMAGE = 26f, BALL_ZAP = 7f,
+			DASH_DAMAGE = 10f, DISCHARGE_DAMAGE = 28f, MEGA_DAMAGE = 32f, STORM_DAMAGE = 7f, STORM_FINALE = 26f, CAGE_DAMAGE = 20f, PUNCH_BONUS = 4f,
+			OVERLOAD_DAMAGE = 10f, SHORT_SELF = 3f;
 	public static final double BOLT_RANGE = 20, CHAIN_RANGE = 7, PINCER_RANGE = 3.5, DISCHARGE_RADIUS = 5, DISCHARGE_WATER_RADIUS = 8,
 			MEGA_RANGE = 24, ANALYZE_RANGE = 24, STORM_RADIUS = 8, STORM_RANGE = 24, CAGE_RANGE = 16, DASH_DISTANCE = 8, FIELD_RADIUS = 2.2,
 			BALL_ZAP_RANGE = 3.0;
@@ -245,7 +249,7 @@ public final class BrainstormKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(22).speed(0.9f).scale(0.9f).armor(6, 1).knockbackResist(0.2f).attack(3).build();
+		return AlienStats.builder().health(22).speed(0.9f).scale(0.9f).armor(6, 1).knockbackResist(0.2f).attack(4).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

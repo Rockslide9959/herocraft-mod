@@ -43,6 +43,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
@@ -82,23 +83,24 @@ import net.minecraft.world.phys.Vec3;
  * <p>v0.17.2 (user-approved revamp, the show-accurate kit):
  *
  * <pre>
- *   Passive  Pyronite Body     immune to fire and lava; standing in fire or lava heals 1 heart a second; punches set enemies
- *                              alight (+2); snowballs hurt him (3)
- *   R        Fireball Volley   three quick fireballs (4 each, 3 s alight)
- *   Shift+R  Flamethrower      HOLD, up to 3 s: a stream from both hands (2 every 4 ticks, lights the ground)
- *   G        Fire Lasso        a whip of flame grabs the creature you look at (16 blocks) and yanks it to you (6, 5 s alight)
- *   Shift+G  Magma Bomb        lobbed molten rock: 6 direct, a 3.5-block blast (12), then a burning patch for 4 s (2 a half second)
+ *   Passive  Pyronite Body     immune to fire and lava; standing in fire or lava heals 1 heart a second; fists +5 and +3 fire
+ *                              (alight); snowballs hurt him (3)
+ *   R        Fireball Volley   three quick fireballs (8 each, 3 s alight)
+ *   Shift+R  Flamethrower      TAP: a 5 s stream from both hands following his aim (7 every half second, lights the ground)
+ *   G        Magma Bomb        lobbed molten rock: 8 direct, a 3.5-block blast (25), then a burning patch for 4 s (7 a half second)
+ *   Shift+G  Blaze Cone        a 12-block cone of fire ahead (25)
  *   X        Flame Jump        a jet of fire launches him up and forward
  *   Hold X   Rock Ride         2 s charge: punch out a chunk of the ground and surf it through the air where you look, up to
  *                              1 minute; X again or sneak drops off (no fall damage)
- *   Shift+X  Blaze Dash        a ground burst leaving a fire trail, scorching what it passes (8)
- *   Z        Fire Tornado      a spinning column of flame where you look: pulls creatures in, burns them for 4 s (up to 18)
- *   Shift+Z  Supernova         ULTIMATE: a 1.25 s charge, then a huge blast (30, 18 at the edge) that leaves a ring of fire
- *   V        Heat Aura         toggle: creatures near catch fire, snow and ice melt, dropped items smelt
- *   Shift+V  Heat Shield       5 s dome of heat: 60% less damage, melts arrows and fireballs, burns attackers
- *   C        Volcanic Eruption fist into the ground: fire geysers burst up in a line ahead, launching enemies (12)
- *   Shift+C  Meteor Crash      wrapped in fire he leaps up and crashes down: a 5-block fiery impact (16)
- *   Use      empty hand: a small fire bolt (5); on a block: melts it; Shift + an item: smelts up to 8 of it
+ *   Shift+X  Blaze Dash        a burst of fire along his aim (up and down too) leaving a fire trail, scorching what it passes (12)
+ *   Z        Fire Tornado      a spinning column of flame where you look: pulls creatures in, burns them for 4 s (10 a half second)
+ *   Shift+Z  Supernova         ULTIMATE: a 1.25 s charge, then a huge blast (100, 70 at the edge) that leaves a ring of fire (7)
+ *   V        Heat Aura         toggle: creatures near catch fire (7 a second), snow and ice melt, dropped items smelt
+ *   Shift+V  Absorb Flames     draws in every fire and burning creature within 8: heals him per flame and powers up his next
+ *                              fire move (+5% a flame, up to +50%)
+ *   C        Volcanic Eruption fist into the ground: fire geysers burst up in a line ahead, launching enemies (25)
+ *   Shift+C  Meteor Crash      wrapped in fire he leaps up and crashes down: a 5-block fiery impact (25)
+ *   Use      empty hand: a small fire bolt (9); on a block: melts it; Shift + an item: smelts up to 8 of it
  * </pre>
  *
  * <p>Doused (user: "when he comes into contact with water hes put out, after getting out of water it takes him 10 seconds to
@@ -128,7 +130,8 @@ public final class HeatblastKit extends AlienKit {
 	public static final int ANIM_AURA = 13;
 	public static final int ANIM_BOLT = 14;
 	public static final int ANIM_SMELT = 15;
-	public static final int ANIM_SHIELD = 16;
+	/** v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): Absorb Flames -- arms flung wide, then pulled in (was the Heat Shield's id). */
+	public static final int ANIM_ABSORB = 16;
 	public static final int ANIM_ERUPT = 17;
 	public static final int ANIM_METEOR_RISE = 18;
 	public static final int ANIM_METEOR_DIVE = 19;
@@ -143,7 +146,8 @@ public final class HeatblastKit extends AlienKit {
 	public static final int ANIM_CONE = 24;
 
 	public static final int F_RIDING = 1;
-	public static final int F_SHIELD = 2;
+	/** v0.17.2: Absorb Flames drawing the fire in (the bit was the Heat Shield's). */
+	public static final int F_ABSORB = 2;
 	public static final int F_STREAM = 4;
 	public static final int F_CHARGING = 8;
 	public static final int F_AURA = 16;
@@ -166,7 +170,7 @@ public final class HeatblastKit extends AlienKit {
 	 */
 	public static final String CONE = "blaze_cone";
 	public static final double CONE_RANGE = 12.0, CONE_DEG = 70.0;
-	public static final float CONE_DAMAGE = 16f;
+	public static final float CONE_DAMAGE = 25f; // v0.17.2 (user: "make blaze cone deal 25 damage"): was 16
 	public static final int CONE_COOLDOWN = 140;
 	public static final String JUMP = "flame_jump";
 	public static final String RIDE = "rock_ride";
@@ -174,7 +178,8 @@ public final class HeatblastKit extends AlienKit {
 	public static final String TORNADO = "fire_tornado";
 	public static final String SUPERNOVA = "supernova";
 	public static final String HEAT_AURA = "heat_aura";
-	public static final String HEAT_SHIELD = "heat_shield";
+	/** v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): replaces the Heat Shield. */
+	public static final String ABSORB = "absorb_flames";
 	public static final String ERUPTION = "volcanic_eruption";
 	public static final String METEOR = "meteor_crash";
 	public static final String BODY = "pyronite_body";
@@ -182,47 +187,64 @@ public final class HeatblastKit extends AlienKit {
 	public static final String SMELT = "smelt";
 
 	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36
-	public static final float VOLLEY_DAMAGE = 5f;
+	// v0.17.2 (user: "make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i
+	// want them to be strong"): the new scale -- quick 8-12, normal 20-28, big 28-35, damage over time 7-10 a tick, ultimates 70-110
+	public static final float VOLLEY_DAMAGE = 8f; // v0.17.2 (user: "increase the damage of the fireballs to 8 damage"): was 5
 	public static final int VOLLEY_SHOTS = 3, VOLLEY_GAP = 3;
-	public static final float THROWER_DAMAGE = 2f;
-	public static final int THROWER_TICKS = 60, THROWER_PULSE = 4;
+	// v0.17.2 (user: "Dont make it a hold down move, when player presses shift+r they should shoot the flamethrower for 5 seconds
+	// dealing 7 damage per damage tick"): a tap, 5 s, 7 every half second (was held, 3 s, 2 every 4 ticks)
+	public static final float THROWER_DAMAGE = 7f;
+	public static final int THROWER_TICKS = 100, THROWER_PULSE = 10;
 	public static final double THROWER_RANGE = 7.0;
-	public static final float LASSO_DAMAGE = 9f;
+	public static final float LASSO_DAMAGE = 12f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 9
 	public static final double LASSO_RANGE = 16.0;
 	public static final int LASSO_TICKS = 10;
-	public static final float MAGMA_DAMAGE = 15f;
+	public static final float MAGMA_DAMAGE = 25f; // v0.17.2 (user: "make magma bomb deal 25 damage"): the blast, was 15
+	/** v0.17.2: the Magma Bomb's direct hit (on top of the blast), was half the blast (7.5). */
+	public static final float MAGMA_DIRECT = 8f;
 	public static final int PATCH_TICKS = 80;
-	public static final float PATCH_RADIUS = 2.5f, PATCH_DAMAGE = 2f;
+	public static final float PATCH_RADIUS = 2.5f, PATCH_DAMAGE = 7f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 2
 	/** The Rock Ride: X held this long from the press (2 s), how long the ride lasts (1 minute), and its speeds (blocks a tick). */
 	public static final int RIDE_CHARGE_TICKS = 40, RIDE_TICKS = 1200;
 	// v0.17.2 (user: "speed up heatblasts rock ride ability to 25 blocks per second"): cruising 1.25 (was 0.8), forward 1.6 (was 1.3)
 	public static final double RIDE_SPEED = 1.25, RIDE_BOOST = 1.6, RIDE_BRAKE = 0.35;
-	public static final float DASH_DAMAGE = 10f;
+	public static final float DASH_DAMAGE = 12f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 10
 	public static final int DASH_TICKS = 10;
 	public static final double DASH_SPEED = 1.15;
-	public static final float TORNADO_DAMAGE = 2f;
+	public static final float TORNADO_DAMAGE = 10f; // v0.17.2 (user: "make this deal 10 damage per damage tick please"): was 2
 	public static final int TORNADO_TICKS = 80;
 	public static final double TORNADO_RANGE = 24.0, TORNADO_PULL = 6.0;
-	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 60f, SUPERNOVA_EDGE_DAMAGE = 40f; // v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage")
+	// v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): ultimates 70-110 -- 100 at the core, 70 at the edge (was 60 / 40)
+	public static final float SUPERNOVA_RADIUS = 9f, SUPERNOVA_DAMAGE = 100f, SUPERNOVA_EDGE_DAMAGE = 70f;
 	public static final int SUPERNOVA_CHARGE = 25;
-	public static final float FIRE_RING_RADIUS = 7.5f, FIRE_RING_DAMAGE = 3f;
+	public static final float FIRE_RING_RADIUS = 7.5f, FIRE_RING_DAMAGE = 7f; // v0.17.2: was 3
 	public static final int FIRE_RING_TICKS = 80;
-	public static final int SHIELD_TICKS = 100;
-	public static final float SHIELD_FACTOR = 0.4f;
-	public static final float ERUPT_DAMAGE = 16f;
+	/**
+	 * v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): Absorb Flames -- every fire block and burning creature
+	 * within {@link #ABSORB_RADIUS} streams into him over {@link #ABSORB_TICKS}: {@link #ABSORB_HEAL_FIRE} back a fire block,
+	 * {@link #ABSORB_HEAL_BURNING} a burning creature (at most {@link #ABSORB_HEAL_MAX}), and his next fire move hits
+	 * {@link #ABSORB_BOOST_PER} harder a flame (at most {@link #ABSORB_BOOST_MAX}), kept for {@link #ABSORB_KEEP_TICKS}.
+	 */
+	public static final double ABSORB_RADIUS = 8.0;
+	public static final int ABSORB_TICKS = 16, ABSORB_COOLDOWN = 0, ABSORB_KEEP_TICKS = 600; // v0.17.2 (user: "remove the cooldown on absorb fire")
+	public static final float ABSORB_HEAL_FIRE = 1f, ABSORB_HEAL_BURNING = 2f, ABSORB_HEAL_MAX = 20f;
+	public static final float ABSORB_BOOST_PER = 0.05f, ABSORB_BOOST_MAX = 0.5f;
+	public static final float ERUPT_DAMAGE = 25f; // v0.17.2 (user: "make this move deal 25 damage"): was 16
 	public static final int ERUPT_GEYSERS = 8;
 	public static final double ERUPT_SPACING = 1.6;
-	public static final float METEOR_DAMAGE = 20f, METEOR_RADIUS = 5f;
+	public static final float METEOR_DAMAGE = 25f, METEOR_RADIUS = 5f; // v0.17.2 (user: "make this move deal 25 damage"): was 20
 	public static final double METEOR_RISE = 1.35;
-	public static final float BOLT_DAMAGE = 5f;
-	public static final float PUNCH_FIRE = 2f;
+	public static final float BOLT_DAMAGE = 9f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 5
+	/** v0.17.2 (user: "make his melee bonus +3 damage +3 fire damage"; then the user set the bare-fist bonus to +5): the fist +5 (stats(), was +2) and +3 fire (was 2). */
+	public static final float PUNCH_FIRE = 3f;
+	public static final float PUNCH_BONUS = 5f;
 	public static final float SNOWBALL_DAMAGE = 3f;
 	/** Out of the water, this long (10 s) until his fire is back. */
 	public static final int REIGNITE_TICKS = 200;
 	/** Standing in fire or lava: this much back (a heart) every second. */
 	public static final float FIRE_HEAL = 2f;
 	public static final double AURA_RADIUS = 3.5;
-	public static final float AURA_DAMAGE = 1f;
+	public static final float AURA_DAMAGE = 7f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): 7 a second, was 1
 
 	/** An item the aura already smelted (so cobblestone stops at stone). */
 	private static final String AURA_TAG = "projecthero_heat_aura";
@@ -308,6 +330,10 @@ public final class HeatblastKit extends AlienKit {
 	private static final Map<UUID, Map<Projectile, Vec3[]>> WATCHED = new ConcurrentHashMap<>();
 	/** player -> the game tick his kit last ran (a second call in the same tick is skipped). */
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
+	/** v0.17.2 Absorb Flames: player -> move id -> the damage multiplier that move's current use took from the absorbed flames. */
+	private static final Map<UUID, Map<String, Float>> BOOST = new ConcurrentHashMap<>();
+	/** v0.17.2 Absorb Flames: player -> where the flames he is drawing in came from (the streams run for ABSORB_TICKS). */
+	private static final Map<UUID, List<Vec3>> ABSORBING = new ConcurrentHashMap<>();
 
 	private record Patch(ResourceKey<Level> dim, Vec3 at, long end) {
 	}
@@ -384,6 +410,8 @@ public final class HeatblastKit extends AlienKit {
 		ERUPTIONS.clear();
 		WATCHED.clear();
 		LAST_TICK.clear();
+		BOOST.clear();
+		ABSORBING.clear();
 	}
 
 	@Override
@@ -394,19 +422,21 @@ public final class HeatblastKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "give heatblast iron level armour aswell as xlr8"): 15 armour, an iron set
-		return AlienStats.builder().health(26f).speed(1.05f).armor(15f, 0f).attack(2f).knockbackResist(0.1f).safeFall(4f).build();
+		// v0.17.2 (user: "make his melee bonus +3 damage +3 fire damage", then the bare-fist bonus set to +5): the fist +5 (was +2), its fire PUNCH_FIRE (+3)
+		return AlienStats.builder().health(26f).speed(1.05f).armor(15f, 0f).attack(PUNCH_BONUS).knockbackResist(0.1f).safeFall(4f).build();
 	}
 
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 40), AlienMove.shift(THROWER, AbilitySlot.SLOT_1, 140),
+				// v0.17.2: the Flamethrower's 8 s cooldown runs from when its 5 s stream ends
+				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 40), AlienMove.shift(THROWER, AbilitySlot.SLOT_1, 160),
 				// v0.17.2 (user: "put heatblast magma bomb move onto G and make Shift+G a 12 block cone move"): the Fire Lasso is off the keys
 				AlienMove.tap(MAGMA, AbilitySlot.SLOT_2, 160), AlienMove.shift(CONE, AbilitySlot.SLOT_2, CONE_COOLDOWN),
 				AlienMove.tap(JUMP, AbilitySlot.SLOT_3, 30), AlienMove.hold(RIDE, AbilitySlot.SLOT_3, 200),
 				AlienMove.shift(DASH, AbilitySlot.SLOT_3, 80),
 				AlienMove.tap(TORNADO, AbilitySlot.SLOT_4, 260), AlienMove.shift(SUPERNOVA, AbilitySlot.SLOT_4, 600),
-				AlienMove.tap(HEAT_AURA, AbilitySlot.SLOT_5, 60), AlienMove.shift(HEAT_SHIELD, AbilitySlot.SLOT_5, 300),
+				AlienMove.tap(HEAT_AURA, AbilitySlot.SLOT_5, 60), AlienMove.shift(ABSORB, AbilitySlot.SLOT_5, ABSORB_COOLDOWN),
 				AlienMove.tap(ERUPTION, AbilitySlot.SLOT_6, 200), AlienMove.shift(METEOR, AbilitySlot.SLOT_6, 300),
 				// the vanilla keys' moves (no box on the HUD)
 				AlienMove.vanilla(BODY, "Passive / Attack", 10), AlienMove.vanilla(FIRE_BOLT, "Use", 10),
@@ -499,25 +529,27 @@ public final class HeatblastKit extends AlienKit {
 			setFlag(p, f, false);
 		}
 		for (String t : new String[] { "reignite_at", "tor_x", "tor_y", "tor_z", "tor_end", "nofall_until", "nofall_from", "volley_start", "ring_end", "ring_x", "ring_y",
-				"ring_z", "hiss_at" }) {
+				"ring_z", "hiss_at", "absorb_boost", "absorb_until" }) {
 			setTimer(p, t, 0);
 		}
+		BOOST.remove(p.getUUID());
 		PATCHES.remove(p.getUUID());
 		ERUPTIONS.remove(p.getUUID());
 		WATCHED.remove(p.getUUID());
 		LAST_TICK.remove(p.getUUID());
 	}
 
-	/** Ends every running move (the doused state and a revert): aura, stream, shield, charges, lasso, dash, meteor, the ride. */
+	/** Ends every running move (the doused state and a revert): aura, stream, absorbing, charges, lasso, dash, meteor, the ride. */
 	private void stopEverything(ServerPlayer p) {
-		for (int f : new int[] { F_AURA, F_STREAM, F_SHIELD, F_CHARGING, F_RIDE_CHARGE, F_LASSO, F_DASH, F_METEOR }) {
+		for (int f : new int[] { F_AURA, F_STREAM, F_ABSORB, F_CHARGING, F_RIDE_CHARGE, F_LASSO, F_DASH, F_METEOR }) {
 			setFlag(p, f, false);
 		}
-		for (String t : new String[] { "stream_end", "shield_end", "supernova_at", "ride_charge", "lasso_id", "lasso_at", "dash_end", "meteor_at",
-				"meteor_dive" }) {
+		for (String t : new String[] { "stream_end", "stream_hit", "absorb_end", "supernova_at", "ride_charge", "lasso_id", "lasso_at", "dash_end",
+				"meteor_at", "meteor_dive" }) {
 			setTimer(p, t, 0);
 		}
 		DASH_HITS.remove(p.getUUID());
+		ABSORBING.remove(p.getUUID());
 		endRide(p, true);
 	}
 
@@ -527,7 +559,7 @@ public final class HeatblastKit extends AlienKit {
 			case SLOT_1 -> flag(p, F_STREAM);
 			case SLOT_3 -> flag(p, F_RIDING) || flag(p, F_RIDE_CHARGE);
 			case SLOT_4 -> flag(p, F_TORNADO) || flag(p, F_CHARGING);
-			case SLOT_5 -> flag(p, F_AURA) || flag(p, F_SHIELD);
+			case SLOT_5 -> flag(p, F_AURA) || flag(p, F_ABSORB);
 			default -> false;
 		};
 	}
@@ -567,7 +599,7 @@ public final class HeatblastKit extends AlienKit {
 		tickTornado(p, l, now);
 		tickSupernova(p, l, now);
 		tickFireRing(p, l, now);
-		tickShield(p, l, now);
+		tickAbsorb(p, l, now);
 		tickEruption(p, l, now);
 		tickMeteor(p, l, now);
 		tickNoFall(p, now);
@@ -783,7 +815,7 @@ public final class HeatblastKit extends AlienKit {
 			}
 			case SLOT_5 -> {
 				if (shift) {
-					heatShield(p);
+					absorbFlames(p); // v0.17.2 (user: "Make shift+V absorb flames instead of heat shield")
 				} else {
 					heatAura(p);
 				}
@@ -800,11 +832,45 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
-	@Override
-	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
-		if (slot == AbilitySlot.SLOT_1 && flag(p, F_STREAM)) {
-			stopThrower(p); // the Flamethrower runs while Shift+R is held
+	// v0.17.2 (user: "Dont make it a hold down move"): letting go of Shift+R no longer stops the Flamethrower (no release override)
+
+	// ---------------------------------------------------------------- Absorb Flames' boost
+
+	/**
+	 * v0.17.2 Absorb Flames: a fire move starting -- it takes whatever boost the absorbed flames left him (and spends it) for this
+	 * use. Returns the multiplier (1 = none).
+	 */
+	private float takeBoost(ServerPlayer p, String move) {
+		float m = boostNow(p);
+		if (m > 1f) {
+			setTimer(p, "absorb_boost", 0);
+			setTimer(p, "absorb_until", 0);
+			ServerLevel l = level(p);
+			l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 24, 0.4, 0.6, 0.4, 0.08);
+			OmnitrixSounds.play(l, p.position(), SND_REIGNITE, 0.7f, 1.3f);
 		}
+		Map<String, Float> m2 = BOOST.computeIfAbsent(p.getUUID(), k -> new ConcurrentHashMap<>());
+		if (m > 1f) {
+			m2.put(move, m);
+		} else {
+			m2.remove(move);
+		}
+		return m;
+	}
+
+	/** The damage multiplier the absorbed flames give his next fire move right now (1 = none). Client-safe. */
+	public float boostNow(Player p) {
+		long n = timer(p, "absorb_boost");
+		if (n <= 0 || p.level().getGameTime() >= timer(p, "absorb_until")) {
+			return 1f;
+		}
+		return 1f + Math.min(ABSORB_BOOST_MAX, n * ABSORB_BOOST_PER);
+	}
+
+	/** {@code base} with the boost this use of {@code move} took (a move that runs over ticks keeps it to its end). */
+	private static float dmg(ServerPlayer p, String move, float base) {
+		Map<String, Float> m = BOOST.get(p.getUUID());
+		return m == null ? base : base * m.getOrDefault(move, 1f);
 	}
 
 	// ---------------------------------------------------------------- R: Fireball Volley
@@ -814,6 +880,7 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, VOLLEY)) {
 			return false;
 		}
+		takeBoost(p, VOLLEY);
 		setTimer(p, "volley_start", p.level().getGameTime());
 		fireball(p, 0);
 		return true;
@@ -833,6 +900,35 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
+	/**
+	 * v0.17.2 (user: "make heatblasts fireballs shoot from his hands instead of his head please, do this for all his projectiles"):
+	 * where his hand is -- out from the shoulder at chest height, half a block ahead (scaled with him).
+	 */
+	private Vec3 hand(ServerPlayer p, boolean right) {
+		Vec3 f = Vec3.directionFromRotation(0, p.getYRot());
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		double scale = p.getScale();
+		return p.position().add(f.scale(0.55 * scale)).add(side.scale((right ? 0.42 : -0.42) * scale)).add(0, 1.15 * scale, 0);
+	}
+
+	/** What his crosshair is on (a creature's middle, else the first block, 48 blocks out at most): where hand-thrown fire heads. */
+	private Vec3 aimPoint(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, 48);
+		if (t != null) {
+			return t.getBoundingBox().getCenter();
+		}
+		Vec3 eye = p.getEyePosition();
+		return level(p).clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(48)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p)).getLocation();
+	}
+
+	/** A projectile moved to {@code right} / left hand, heading for the crosshair (so it still lands where he aims). */
+	private AlienProjectileEntity fromHand(AlienProjectileEntity e, ServerPlayer p, boolean right) {
+		Vec3 h = hand(p, right);
+		e.moveTo(h.x, h.y, h.z, p.getYRot(), p.getXRot());
+		Vec3 dir = aimPoint(p).subtract(h);
+		return e.direction(dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize());
+	}
+
 	/** One fireball of the volley: alternating hands, a little spread. */
 	private void fireball(ServerPlayer p, int n) {
 		anim(p, n == 1 ? ANIM_VOLLEY_L : ANIM_VOLLEY);
@@ -840,28 +936,42 @@ public final class HeatblastKit extends AlienKit {
 		Vec3 right = look.cross(new Vec3(0, 1, 0));
 		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
 		double side = n == 1 ? -0.035 : n == 2 ? 0.035 : 0;
-		AlienProjectileEntity.of(p, "heatblast_blast").colour(COLOUR).size(0.4f).damage(VOLLEY_DAMAGE).fire(3).speed(1.9).life(45)
-				.direction(look.add(right.scale(side))).spawn();
+		AlienProjectileEntity ball = fromHand(AlienProjectileEntity.of(p, "heatblast_blast"), p, n != 1).colour(COLOUR).size(0.4f)
+				.damage(dmg(p, VOLLEY, VOLLEY_DAMAGE)).fire(3).speed(1.9).life(45);
+		ball.direction(ball.getDeltaMovement().normalize().add(right.scale(side))).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.8f, 0.95f + n * 0.1f);
 	}
 
-	// ---------------------------------------------------------------- Shift+R: Flamethrower (held)
+	// ---------------------------------------------------------------- Shift+R: Flamethrower (a tap: 5 s)
 
-	/** Shift+R: a stream of fire from both hands while the keys are held, 3 s at most. */
+	/**
+	 * Shift+R: v0.17.2 (user: "Dont make it a hold down move, when player presses shift+r they should shoot the flamethrower for 5
+	 * seconds dealing 7 damage per damage tick") -- a tap starts a {@link #THROWER_TICKS} stream of fire from both hands that
+	 * follows his aim, {@link #THROWER_DAMAGE} every {@link #THROWER_PULSE} ticks; the cooldown runs from when it ends.
+	 */
 	public boolean flamethrower(ServerPlayer p) {
 		if (out(p) || flag(p, F_STREAM) || !use(p, THROWER)) {
 			return false;
 		}
+		takeBoost(p, THROWER);
 		anim(p, ANIM_THROWER);
-		setTimer(p, "stream_end", p.level().getGameTime() + THROWER_TICKS);
+		long now = p.level().getGameTime();
+		setTimer(p, "stream_end", now + THROWER_TICKS);
+		setTimer(p, "stream_hit", now); // the first burst lands at once
 		setFlag(p, F_STREAM, true);
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_STREAM, 1.0f, 1.0f);
 		return true;
 	}
 
+	/** The stream ends (its time is up): the cooldown starts now. */
 	public void stopThrower(ServerPlayer p) {
+		boolean was = flag(p, F_STREAM);
 		setTimer(p, "stream_end", 0);
+		setTimer(p, "stream_hit", 0);
 		setFlag(p, F_STREAM, false);
+		if (was) {
+			cooldown(p, THROWER, -1); // v0.17.2: the cooldown runs from the end of the 5 s stream
+		}
 		if (Omnitrix.state(p).animId == ANIM_THROWER) {
 			anim(p, 0);
 		}
@@ -881,7 +991,7 @@ public final class HeatblastKit extends AlienKit {
 		}
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		Vec3 low = eye.add(0, -0.3, 0);
+		Vec3 low = hand(p, true).add(hand(p, false)).scale(0.5); // v0.17.2: from his hands
 		// the cone is drawn on every client (HeatblastClient: Pyrokinesis' Flamethrower); this is its spray
 		for (int i = 0; i < 2; i++) {
 			double d = 1.0 + l.random.nextDouble() * (THROWER_RANGE - 1.0);
@@ -891,11 +1001,15 @@ public final class HeatblastKit extends AlienKit {
 		if (now % 12 == 0) {
 			OmnitrixSounds.play(l, eye, OmnitrixSounds.HEATBLAST_STREAM, 0.6f, 1.1f);
 		}
-		if ((end - now) % THROWER_PULSE == 0) {
+		long next = timer(p, "stream_hit");
+		if (next > 0 && now >= next) {
+			// a damage tick: 7 to everything in the cone (every half second, each lands in full)
+			setTimer(p, "stream_hit", now + THROWER_PULSE);
 			for (LivingEntity e : around(p, eye.add(look.scale(THROWER_RANGE * 0.5)), THROWER_RANGE * 0.7)) {
 				Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
 				if (to.length() <= THROWER_RANGE + 0.5 && to.normalize().dot(look) > Math.cos(Math.toRadians(28))) {
-					hurt(p, e, THROWER_DAMAGE, true);
+					e.invulnerableTime = 0;
+					hurt(p, e, dmg(p, THROWER, THROWER_DAMAGE), true);
 					e.igniteForSeconds(3);
 				}
 			}
@@ -923,6 +1037,7 @@ public final class HeatblastKit extends AlienKit {
 		if (!use(p, LASSO)) {
 			return false;
 		}
+		takeBoost(p, LASSO);
 		anim(p, ANIM_LASSO);
 		setFlag(p, F_LASSO, true);
 		setTimer(p, "lasso_id", target.getId() + 1L);
@@ -930,7 +1045,7 @@ public final class HeatblastKit extends AlienKit {
 		ServerLevel l = level(p);
 		OmnitrixSounds.play(l, p.position(), SND_LASSO, 1.0f, 1.0f);
 		target.invulnerableTime = 0;
-		hurt(p, target, LASSO_DAMAGE, true);
+		hurt(p, target, dmg(p, LASSO, LASSO_DAMAGE), true);
 		PyrokinesisHandlers.groundFire(p, level(p), target.position(), 60); // v0.17.2: the lash sets the ground under it alight
 		target.igniteForSeconds(5);
 		l.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY() + target.getBbHeight() * 0.6, target.getZ(), 16, 0.3, 0.4, 0.3, 0.04);
@@ -979,6 +1094,7 @@ public final class HeatblastKit extends AlienKit {
 		if (flag(p, F_DOUSED) || !use(p, CONE)) {
 			return -1;
 		}
+		takeBoost(p, CONE);
 		anim(p, ANIM_CONE);
 		ServerLevel l = level(p);
 		Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
@@ -991,7 +1107,7 @@ public final class HeatblastKit extends AlienKit {
 				continue;
 			}
 			e.invulnerableTime = 0;
-			hurt(p, e, CONE_DAMAGE, true);
+			hurt(p, e, dmg(p, CONE, CONE_DAMAGE), true);
 			e.igniteForSeconds(5);
 			shove(e, p.position(), 0.7, 0.2);
 			n++;
@@ -1022,8 +1138,13 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, MAGMA)) {
 			return false;
 		}
+		takeBoost(p, MAGMA);
 		anim(p, ANIM_MAGMA);
-		AlienProjectileEntity.of(p, "heatblast_bomb").colour(0xFF5A10).size(0.75f).damage(MAGMA_DAMAGE * 0.5f).blast(3.5f, MAGMA_DAMAGE).fire(5)
+		// lobbed from the right hand along his look (it arcs, so it keeps the look's angle rather than a straight line to the aim)
+		AlienProjectileEntity bomb = AlienProjectileEntity.of(p, "heatblast_bomb");
+		Vec3 rh = hand(p, true);
+		bomb.moveTo(rh.x, rh.y, rh.z, p.getYRot(), p.getXRot());
+		bomb.direction(p.getLookAngle()).colour(0xFF5A10).size(0.75f).damage(dmg(p, MAGMA, MAGMA_DIRECT)).blast(3.5f, dmg(p, MAGMA, MAGMA_DAMAGE)).fire(5)
 				.gravity(0.045).speed(1.15).life(80).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 1.0f, 0.7f);
 		return true;
@@ -1064,7 +1185,8 @@ public final class HeatblastKit extends AlienKit {
 			if (now % 10 == 0) {
 				for (LivingEntity e : around(p, pt.at(), PATCH_RADIUS + 0.5)) {
 					if (Math.abs(e.getY() - pt.at().y) < 1.5) {
-						hurt(p, e, PATCH_DAMAGE, true);
+						e.invulnerableTime = 0;
+						hurt(p, e, dmg(p, MAGMA, PATCH_DAMAGE), true);
 						e.igniteForSeconds(3);
 					}
 				}
@@ -1293,12 +1415,20 @@ public final class HeatblastKit extends AlienKit {
 
 	// ---------------------------------------------------------------- Shift+X: Blaze Dash
 
-	/** Shift+X: a burst along the ground, leaving a trail of fire and scorching everything it passes. */
+	/**
+	 * Shift+X: a burst of fire that drives him the way he aims -- v0.17.2 (user: "make it dash the player in the direction that
+	 * they are aiming in instead of just doing it"): along the look, up and down too -- leaving a trail of fire and scorching
+	 * everything it passes.
+	 */
 	public boolean blazeDash(ServerPlayer p) {
 		if (out(p) || !use(p, DASH)) {
 			return false;
 		}
+		takeBoost(p, DASH);
 		anim(p, ANIM_DASH);
+		p.setDeltaMovement(p.getLookAngle().scale(DASH_SPEED));
+		p.hurtMarked = true;
+		noFall(p, 100);
 		setFlag(p, F_DASH, true);
 		setTimer(p, "dash_end", p.level().getGameTime() + DASH_TICKS);
 		DASH_HITS.put(p.getUUID(), new HashSet<>());
@@ -1320,14 +1450,16 @@ public final class HeatblastKit extends AlienKit {
 			DASH_HITS.remove(p.getUUID());
 			return;
 		}
-		Vec3 dir = Vec3.directionFromRotation(0, p.getYRot());
-		p.setDeltaMovement(dir.x * DASH_SPEED, Math.min(0, p.getDeltaMovement().y), dir.z * DASH_SPEED);
+		// v0.17.2 (user: "make it dash the player in the direction that they are aiming in"): along the look, steered as he aims
+		Vec3 dir = p.getLookAngle();
+		p.setDeltaMovement(dir.scale(DASH_SPEED));
 		p.hurtMarked = true;
 		p.resetFallDistance();
 		Set<Integer> hits = DASH_HITS.computeIfAbsent(p.getUUID(), k -> new HashSet<>());
 		for (LivingEntity e : around(p, p.position().add(dir.scale(0.8)).add(0, 0.9, 0), 1.8)) {
 			if (hits.add(e.getId())) {
-				hurt(p, e, DASH_DAMAGE, true);
+				e.invulnerableTime = 0;
+				hurt(p, e, dmg(p, DASH, DASH_DAMAGE), true);
 				e.igniteForSeconds(4);
 				l.sendParticles(ParticleTypes.FLAME, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 10, 0.3, 0.4, 0.3, 0.05);
 			}
@@ -1337,7 +1469,7 @@ public final class HeatblastKit extends AlienKit {
 		// the trail: fire left burning where he ran (temporary, terrain damage / build rights permitting) and a scorch line
 		BlockPos feet = p.blockPosition();
 		PyrokinesisHandlers.placeFire(p, l, feet, 60);
-		if (now % 2 == 0) {
+		if (now % 2 == 0 && p.onGround()) {
 			QuirkFx.decal(l, p.position().add(0, 0.02, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A1210).size(1.4f).yaw(p.getYRot()).life(120).spawn();
 		}
 	}
@@ -1349,6 +1481,7 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, TORNADO)) {
 			return false;
 		}
+		takeBoost(p, TORNADO);
 		ServerLevel l = level(p);
 		Vec3 eye = p.getEyePosition();
 		BlockHitResult hit = l.clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(TORNADO_RANGE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
@@ -1417,7 +1550,7 @@ public final class HeatblastKit extends AlienKit {
 			}
 			if (age % 10 == 0 && d < 2.2) {
 				e.invulnerableTime = 0;
-				hurt(p, e, TORNADO_DAMAGE, true);
+				hurt(p, e, dmg(p, TORNADO, TORNADO_DAMAGE), true);
 				e.igniteForSeconds(4);
 			}
 		}
@@ -1429,6 +1562,7 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, SUPERNOVA)) {
 			return false;
 		}
+		takeBoost(p, SUPERNOVA);
 		anim(p, ANIM_CHARGE);
 		setFlag(p, F_CHARGING, true);
 		setTimer(p, "supernova_at", p.level().getGameTime() + SUPERNOVA_CHARGE);
@@ -1466,7 +1600,7 @@ public final class HeatblastKit extends AlienKit {
 		PyrokinesisHandlers.phoenixImpactFx(l, p, p.position(), SUPERNOVA_RADIUS, PyrokinesisHandlers.METEOR_RADIUS);
 		for (LivingEntity e : around(p, c, SUPERNOVA_RADIUS)) {
 			double d = Math.sqrt(e.distanceToSqr(c));
-			hurt(p, e, (float) (SUPERNOVA_DAMAGE - (SUPERNOVA_DAMAGE - SUPERNOVA_EDGE_DAMAGE) * Math.min(1.0, d / SUPERNOVA_RADIUS)), true);
+			hurt(p, e, dmg(p, SUPERNOVA, (float) (SUPERNOVA_DAMAGE - (SUPERNOVA_DAMAGE - SUPERNOVA_EDGE_DAMAGE) * Math.min(1.0, d / SUPERNOVA_RADIUS))), true);
 			e.igniteForSeconds(8);
 			shove(e, c, 1.8, 0.45);
 		}
@@ -1504,16 +1638,17 @@ public final class HeatblastKit extends AlienKit {
 		for (LivingEntity e : around(p, c, FIRE_RING_RADIUS + 1.0)) {
 			double d = Math.sqrt(e.distanceToSqr(c.x, e.getY(), c.z));
 			if (Math.abs(d - FIRE_RING_RADIUS) < 1.4 && Math.abs(e.getY() - c.y) < 2.5) {
-				hurt(p, e, FIRE_RING_DAMAGE, true);
+				e.invulnerableTime = 0;
+				hurt(p, e, dmg(p, SUPERNOVA, FIRE_RING_DAMAGE), true);
 				e.igniteForSeconds(3);
 			}
 		}
 	}
 
-	// ---------------------------------------------------------------- V: Heat Aura / Shift+V: Heat Shield
+	// ---------------------------------------------------------------- V: Heat Aura / Shift+V: Absorb Flames
 
 	/**
-	 * V: Heat Aura on / off. On, he burns white-hot: every creature within 3.5 blocks catches fire (and takes 1 a second), snow
+	 * V: Heat Aura on / off. On, he burns white-hot: every creature within 3.5 blocks catches fire (and takes 7 a second), snow
 	 * and ice round him melt, and items dropped near him come out smelted, like a walking furnace. Water puts it out.
 	 */
 	public boolean heatAura(ServerPlayer p) {
@@ -1553,6 +1688,7 @@ public final class HeatblastKit extends AlienKit {
 			for (LivingEntity e : around(p, p.position().add(0, 1, 0), AURA_RADIUS)) {
 				e.igniteForSeconds(3);
 				if (now % 20 == 0) {
+					e.invulnerableTime = 0;
 					hurt(p, e, AURA_DAMAGE, true);
 				}
 			}
@@ -1598,44 +1734,105 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
-	/** Shift+V: a 5 s dome of heat -- 60% less damage, arrows and fireballs burn up in it, attackers are burned. */
-	public boolean heatShield(ServerPlayer p) {
-		if (out(p) || !use(p, HEAT_SHIELD)) {
-			return false;
+	/**
+	 * Shift+V: Absorb Flames -- v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"). Every fire block and every
+	 * burning creature within {@link #ABSORB_RADIUS} is drawn into him (the fire goes out, the creature stops burning) in
+	 * streams of flame: {@link #ABSORB_HEAL_FIRE} health back a fire block and {@link #ABSORB_HEAL_BURNING} a burning creature
+	 * (up to {@link #ABSORB_HEAL_MAX}), and his next fire move (the Supernova too) hits {@link #ABSORB_BOOST_PER} harder a
+	 * flame, up to {@link #ABSORB_BOOST_MAX} -- stacking with flames already held, kept for {@link #ABSORB_KEEP_TICKS}.
+	 * Nothing to absorb: no cooldown. Returns the flames absorbed (0 none, -1 refused).
+	 */
+	public int absorbFlames(ServerPlayer p) {
+		if (out(p)) {
+			return -1;
 		}
-		anim(p, ANIM_SHIELD);
-		setTimer(p, "shield_end", p.level().getGameTime() + SHIELD_TICKS);
-		setFlag(p, F_SHIELD, true);
+		if (cooldownLeft(p, ABSORB) > 0) {
+			use(p, ABSORB); // (the "not ready" line)
+			return -1;
+		}
 		ServerLevel l = level(p);
-		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_SHIELD, 1.0f, 1.0f);
-		l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 60, 0.9, 0.9, 0.9, 0.05);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFE0A0, COLOUR).size(3.2f).thickness(0.5f).life(12).ground().spawn();
-		return true;
+		Vec3 chest = p.position().add(0, 1.1, 0);
+		List<BlockPos> fires = new ArrayList<>();
+		int r = (int) Math.ceil(ABSORB_RADIUS);
+		BlockPos c = p.blockPosition();
+		for (BlockPos pos : BlockPos.betweenClosed(c.offset(-r, -r, -r), c.offset(r, r, r))) {
+			if (pos.distToCenterSqr(chest) <= ABSORB_RADIUS * ABSORB_RADIUS && l.getBlockState(pos).is(BlockTags.FIRE) && p.mayInteract(l, pos)) {
+				fires.add(pos.immutable());
+			}
+		}
+		List<LivingEntity> burning = l.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(ABSORB_RADIUS),
+				e -> e != p && e.isAlive() && e.isOnFire() && e.distanceToSqr(chest) <= ABSORB_RADIUS * ABSORB_RADIUS);
+		int n = fires.size() + burning.size();
+		if (n == 0) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.heatblast.nothing_to_absorb").withStyle(ChatFormatting.GRAY), true);
+			return 0;
+		}
+		use(p, ABSORB);
+		List<Vec3> from = new ArrayList<>();
+		for (BlockPos pos : fires) {
+			from.add(Vec3.atCenterOf(pos));
+			l.removeBlock(pos, false);
+		}
+		for (LivingEntity e : burning) {
+			from.add(e.position().add(0, e.getBbHeight() * 0.5, 0));
+			e.clearFire();
+		}
+		float heal = Math.min(ABSORB_HEAL_MAX, fires.size() * ABSORB_HEAL_FIRE + burning.size() * ABSORB_HEAL_BURNING);
+		p.heal(heal);
+		long now = l.getGameTime();
+		long held = boostNow(p) > 1f ? timer(p, "absorb_boost") : 0;
+		setTimer(p, "absorb_boost", held + n);
+		setTimer(p, "absorb_until", now + ABSORB_KEEP_TICKS);
+		// the streams: a rendered ribbon of flame from each source into his chest (the nearest 24), and flames flowing in after
+		from.sort((a, b) -> Double.compare(a.distanceToSqr(chest), b.distanceToSqr(chest)));
+		List<Vec3> streams = new ArrayList<>(from.subList(0, Math.min(24, from.size())));
+		for (Vec3 s : streams) {
+			QuirkFx.ribbon(l, s, chest).style(QuirkFx.RIBBON_FLAME).colours(0xFFE0A0, 0xFF5A10).size(0.35f).life(ABSORB_TICKS).spawn();
+			l.sendParticles(ParticleTypes.SMOKE, s.x, s.y, s.z, 4, 0.2, 0.2, 0.2, 0.01);
+		}
+		ABSORBING.put(p.getUUID(), streams);
+		setFlag(p, F_ABSORB, true);
+		setTimer(p, "absorb_end", now + ABSORB_TICKS);
+		anim(p, ANIM_ABSORB);
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_SHIELD, 1.0f, 0.8f);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.7f, 0.6f);
+		int pct = Math.round((boostNow(p) - 1f) * 100f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.heatblast.absorbed", n, Math.round(heal), pct).withStyle(ChatFormatting.GOLD), true);
+		return n;
 	}
 
-	private void tickShield(ServerPlayer p, ServerLevel l, long now) {
-		long end = timer(p, "shield_end");
+	/** Absorb Flames' streams: flames flow along each line into him until it ends, then a flare as they are swallowed. */
+	private void tickAbsorb(ServerPlayer p, ServerLevel l, long now) {
+		long end = timer(p, "absorb_end");
 		if (end <= 0) {
 			return;
 		}
+		Vec3 chest = p.position().add(0, 1.1, 0);
 		if (now >= end) {
-			setTimer(p, "shield_end", 0);
-			setFlag(p, F_SHIELD, false);
+			setTimer(p, "absorb_end", 0);
+			setFlag(p, F_ABSORB, false);
+			ABSORBING.remove(p.getUUID());
+			l.sendParticles(ParticleTypes.FLAME, chest.x, chest.y, chest.z, 30, 0.3, 0.5, 0.3, 0.1);
+			embers(l, chest, 10, 0.4, 0.08);
+			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFF0B0, COLOUR).size(2.4f).thickness(0.5f).life(10).ground().spawn();
 			return;
 		}
-		Map<Projectile, Vec3[]> seen = WATCHED.get(p.getUUID());
-		for (Projectile pr : l.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(2.5),
-				pr -> pr.getOwner() != p && !(pr instanceof AlienProjectileEntity))) {
-			l.sendParticles(ParticleTypes.LARGE_SMOKE, pr.getX(), pr.getY(), pr.getZ(), 6, 0.1, 0.1, 0.1, 0.02);
-			l.sendParticles(ParticleTypes.FLAME, pr.getX(), pr.getY(), pr.getZ(), 6, 0.1, 0.1, 0.1, 0.04);
-			l.playSound(null, pr.getX(), pr.getY(), pr.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.25f, 1.8f);
-			if (seen != null) {
-				seen.remove(pr); // burned up in the dome: a water potion never reaches him, a snowball never lands
+		List<Vec3> streams = ABSORBING.get(p.getUUID());
+		if (streams == null) {
+			return;
+		}
+		float k = 1f - (end - now) / (float) ABSORB_TICKS;
+		for (Vec3 s : streams) {
+			for (int i = 0; i < 2; i++) {
+				double t = Mth.clamp(k + l.random.nextDouble() * 0.35, 0.0, 1.0);
+				Vec3 at = s.lerp(chest, t);
+				Vec3 v = chest.subtract(at).scale(0.12);
+				// count 0: the "spread" is the flame's velocity -- each one drifts on in toward him
+				l.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 0, v.x, v.y, v.z, 1.0);
 			}
-			pr.discard();
 		}
 		if (now % 3 == 0) {
-			l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0.9, 0.8, 0.9, 0.02);
+			l.sendParticles(ParticleTypes.SMALL_FLAME, chest.x, chest.y, chest.z, 4, 0.25, 0.4, 0.25, 0.01);
 		}
 	}
 
@@ -1646,6 +1843,7 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, ERUPTION)) {
 			return false;
 		}
+		takeBoost(p, ERUPTION);
 		anim(p, ANIM_ERUPT);
 		ServerLevel l = level(p);
 		Vec3 dir = Vec3.directionFromRotation(0, p.getYRot());
@@ -1696,7 +1894,7 @@ public final class HeatblastKit extends AlienKit {
 		for (LivingEntity e : around(p, top.add(0, 1.0, 0), 1.9)) {
 			if (er.hits().add(e.getId())) {
 				e.invulnerableTime = 0;
-				hurt(p, e, ERUPT_DAMAGE, true);
+				hurt(p, e, dmg(p, ERUPTION, ERUPT_DAMAGE), true);
 				e.igniteForSeconds(4);
 				e.setDeltaMovement(e.getDeltaMovement().x * 0.3, 1.1 * (1.0 - Math.min(0.7, e.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE))),
 						e.getDeltaMovement().z * 0.3);
@@ -1712,6 +1910,7 @@ public final class HeatblastKit extends AlienKit {
 		if (out(p) || !use(p, METEOR)) {
 			return false;
 		}
+		takeBoost(p, METEOR);
 		ServerLevel l = level(p);
 		anim(p, ANIM_METEOR_RISE);
 		setFlag(p, F_METEOR, true);
@@ -1778,7 +1977,7 @@ public final class HeatblastKit extends AlienKit {
 		}
 		for (LivingEntity e : around(p, c.add(0, 0.5, 0), METEOR_RADIUS)) {
 			e.invulnerableTime = 0;
-			hurt(p, e, METEOR_DAMAGE, true);
+			hurt(p, e, dmg(p, METEOR, METEOR_DAMAGE), true);
 			e.igniteForSeconds(5);
 			shove(e, c, 1.4, 0.55);
 		}
@@ -1813,7 +2012,7 @@ public final class HeatblastKit extends AlienKit {
 				return InteractionResult.FAIL;
 			}
 			anim(p, ANIM_BOLT);
-			AlienProjectileEntity.of(p, "heatblast_bolt").colour(0xFFA040).size(0.28f).damage(BOLT_DAMAGE).fire(2).speed(1.6).life(30).spawn();
+			fromHand(AlienProjectileEntity.of(p, "heatblast_bolt"), p, true).colour(0xFFA040).size(0.28f).damage(BOLT_DAMAGE).fire(2).speed(1.6).life(30).spawn();
 			OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.5f, 1.4f);
 			p.swing(hand, true);
 			return InteractionResult.SUCCESS;
@@ -1956,19 +2155,7 @@ public final class HeatblastKit extends AlienKit {
 		return true;
 	}
 
-	@Override
-	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
-		if (flag(p, F_SHIELD)) {
-			if (source.getDirectEntity() instanceof LivingEntity attacker && attacker != p && source.getDirectEntity() == source.getEntity()) {
-				attacker.igniteForSeconds(3);
-				hurt(p, attacker, 2f, true);
-				level(p).sendParticles(ParticleTypes.FLAME, attacker.getX(), attacker.getY() + attacker.getBbHeight() * 0.6, attacker.getZ(), 6, 0.2, 0.3, 0.2,
-						0.02);
-			}
-			return amount * SHIELD_FACTOR;
-		}
-		return amount;
-	}
+	// v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): no more damage reduction (the Heat Shield is gone)
 
 	// ---------------------------------------------------------------- helpers
 

@@ -214,7 +214,7 @@ public class OmnitrixSpidermonkeyGameTests implements FabricGameTest {
 		helper.assertTrue(k.webYank(p) && SpidermonkeyKit.kicking(p), "in the air Web Yank becomes a Swing Kick");
 		near(helper, v.getHealth(), 140f, "nothing lands until he arrives");
 		k.kickLands(p, v);
-		near(helper, v.getHealth(), 140f - SpidermonkeyKit.KICK_DAMAGE, "the kick lands for 15");
+		near(helper, v.getHealth(), 140f - SpidermonkeyKit.KICK_DAMAGE, "the kick lands for 26");
 		helper.assertFalse(SpidermonkeyKit.kicking(p), "the kick is over");
 		// on the ground: the old reel-in
 		Villager w = prey(helper, 1.5, 2, 6.5, 140f);
@@ -222,7 +222,7 @@ public class OmnitrixSpidermonkeyGameTests implements FabricGameTest {
 		q.moveTo(helper.absoluteVec(new Vec3(1.5, 2, 1.5)).x, q.getY(), q.getZ(), 0f, 8f);
 		q.setOnGround(true);
 		helper.assertTrue(k.webYank(q) && !SpidermonkeyKit.kicking(q), "on the ground Web Yank reels it in");
-		near(helper, w.getHealth(), 140f - SpidermonkeyKit.YANK_DAMAGE, "12");
+		near(helper, w.getHealth(), 140f - SpidermonkeyKit.YANK_DAMAGE, "20");
 		helper.succeed();
 	}
 
@@ -236,7 +236,7 @@ public class OmnitrixSpidermonkeyGameTests implements FabricGameTest {
 		helper.assertTrue(k.cocoonCrush(p) && SpidermonkeyKit.cocooned(v), "Cocoon Crush wraps it");
 		k.tick(p, Omnitrix.state(p), now + SpidermonkeyKit.COCOON_TICKS);
 		helper.assertFalse(SpidermonkeyKit.cocooned(v), "the cocoon is done");
-		near(helper, v.getHealth(), 140f - SpidermonkeyKit.COCOON_SLAM, "and slammed for 14");
+		near(helper, v.getHealth(), 140f - SpidermonkeyKit.COCOON_SLAM, "and slammed for 25");
 		helper.succeed();
 	}
 
@@ -269,11 +269,11 @@ public class OmnitrixSpidermonkeyGameTests implements FabricGameTest {
 		}
 		near(helper, v.getHealth(), 140f, "three plain punches add nothing (vanilla's punch is not part of this)");
 		k.onAttack(p, v);
-		near(helper, v.getHealth(), 140f - SpidermonkeyKit.FISTS_BONUS, "the fourth: all four fists, +4");
+		near(helper, v.getHealth(), 140f - SpidermonkeyKit.FISTS_BONUS, "the fourth: all four fists, +6");
 		SpidermonkeyKit.webbed(p, v, 40);
 		v.invulnerableTime = 0;
 		k.onAttack(p, v);
-		near(helper, v.getHealth(), 140f - SpidermonkeyKit.FISTS_BONUS - SpidermonkeyKit.STICKY_BONUS, "Sticky: +1 on a webbed foe");
+		near(helper, v.getHealth(), 140f - SpidermonkeyKit.FISTS_BONUS - SpidermonkeyKit.STICKY_BONUS, "Sticky: +2 on a webbed foe");
 		helper.succeed();
 	}
 

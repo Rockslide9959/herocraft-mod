@@ -104,10 +104,11 @@ public class OmnitrixGoopGameTests implements FabricGameTest {
 		helper.assertTrue(k.moves().stream().noneMatch(m -> m.onSlot() && (m.slot() == AbilitySlot.SLOT_7 || m.slot() == AbilitySlot.SLOT_8)),
 				"no H or N moves");
 		helper.assertTrue(k.moves().stream().filter(AlienMove::onSlot).count() == 12, "12 key moves");
-		helper.assertTrue(GoopKit.SPIT_DAMAGE >= 5 && GoopKit.SPIT_DAMAGE <= 8, "the spit is a quick hit");
-		helper.assertTrue(GoopKit.WHIP_DAMAGE >= 12 && GoopKit.SLAM_DAMAGE <= 17, "normal moves 12-17");
-		helper.assertTrue(GoopKit.CANNON_DAMAGE >= 17 && GoopKit.CANNON_DAMAGE <= 20, "the cannon is a big hit");
-		helper.assertTrue(GoopKit.TIDE_DAMAGE >= 40 && GoopKit.TIDE_DAMAGE <= 70, "the ultimate sits in 40-70");
+		// v0.17.2 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): quick 8-12, normal 20-28, big 28-35, ultimates 70-110
+		helper.assertTrue(GoopKit.SPIT_DAMAGE >= 8 && GoopKit.SPIT_DAMAGE <= 12, "the spit is a quick hit");
+		helper.assertTrue(GoopKit.WHIP_DAMAGE >= 20 && GoopKit.SLAM_DAMAGE <= 28, "normal moves 20-28");
+		helper.assertTrue(GoopKit.CANNON_DAMAGE >= 28 && GoopKit.CANNON_DAMAGE <= 35, "the cannon is a big hit");
+		helper.assertTrue(GoopKit.TIDE_DAMAGE >= 70 && GoopKit.TIDE_DAMAGE <= 110, "the ultimate sits in 70-110");
 		near(helper, p.getMaxHealth(), 26f, "26 health");
 		helper.succeed();
 	}
@@ -145,7 +146,7 @@ public class OmnitrixGoopGameTests implements FabricGameTest {
 		});
 		helper.runAtTickTime(2 + GoopKit.SPRAY_TICKS + 4, () -> {
 			helper.assertFalse(kit().flag(p, GoopKit.F_SPRAY), "it stops after 1.5 s");
-			near(helper, v.getHealth(), 100f - 4 * GoopKit.SPRAY_DAMAGE, "four licks of 3.5 (14)");
+			near(helper, v.getHealth(), 100f - 4 * GoopKit.SPRAY_DAMAGE, "four licks of 8 (32)");
 			helper.assertTrue(v.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "weakened");
 			helper.succeed();
 		});
@@ -161,7 +162,7 @@ public class OmnitrixGoopGameTests implements FabricGameTest {
 		});
 		helper.runAtTickTime(2 + GoopKit.TIDE_TICKS + 3, () -> {
 			helper.assertFalse(kit().flag(p, GoopKit.F_TIDE), "the wave breaks after half a second");
-			helper.assertTrue(v.getHealth() <= 200f - GoopKit.TIDE_DAMAGE, "the wave hit for 45 (" + v.getHealth() + ")");
+			helper.assertTrue(v.getHealth() <= 200f - GoopKit.TIDE_DAMAGE, "the wave hit for 85 (" + v.getHealth() + ")");
 			helper.assertTrue(kit().pulsePuddlesNow(p) >= 0 && GoopKit.leftovers(p) >= 1, "an acid lake where it broke");
 			near(helper, p.getScale(), 1f, "he stands back up");
 			helper.assertTrue(kit().cooldownLeft(p, GoopKit.ACID_TIDE) > 1000, "the 60 s ultimate cooldown");
@@ -228,7 +229,7 @@ public class OmnitrixGoopGameTests implements FabricGameTest {
 		helper.assertTrue(GoopKit.engulfing(p), "the villager is inside him");
 		kit().press(p, AbilitySlot.SLOT_2, true);
 		helper.assertFalse(GoopKit.engulfing(p), "Shift+G again spits it out");
-		near(helper, v.getHealth(), 100f - GoopKit.SPIT_OUT_DAMAGE, "spat out for 6");
+		near(helper, v.getHealth(), 100f - GoopKit.SPIT_OUT_DAMAGE, "spat out for 10");
 		helper.assertTrue(v.getDeltaMovement().horizontalDistance() > 1.0, "thrown");
 		helper.assertFalse(kit().flag(p, GoopKit.F_ENGULF), "the engulf flag is off");
 		helper.succeed();
@@ -255,7 +256,7 @@ public class OmnitrixGoopGameTests implements FabricGameTest {
 		ServerPlayer p = goop(helper, 0f);
 		Villager z = prey(helper, 3.5, 2, 2.5, 40f);
 		kit().incomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 4f);
-		near(helper, z.getHealth(), 40f - GoopKit.ACID_SKIN, "the hand that hit him is burnt for 2");
+		near(helper, z.getHealth(), 40f - GoopKit.ACID_SKIN, "the hand that hit him is burnt for 4");
 		helper.succeed();
 	}
 

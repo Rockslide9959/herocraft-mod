@@ -163,22 +163,20 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().generic(), 999f);
 		helper.assertTrue(p.isAlive() && !Omnitrix.transformed(p), "a killing blow as an alien throws him back to human instead");
-		helper.assertTrue(Math.abs(p.getHealth() - OmnitrixConfig.FAILSAFE_HEALTH) < 1.0e-3f, "on 2 hearts: " + p.getHealth());
+		// v0.17.2 (user: "dont make that the omnitrix failsafe activating just make that a normal feature, have the player detransform
+		// back to a player at full hp"): full health, the normal recharge, and the failsafe untouched
+		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth()) < 1.0e-3f, "on full health: " + p.getHealth());
 		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "wrapped in Resistance for a moment");
-		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.RECHARGE_TICKS) <= 20, "the normal 90 s recharge: " + Omnitrix.rechargeLeft(p));
-		helper.assertFalse(Omnitrix.failsafeArmed(p), "the failsafe is offline for 20 s");
-		helper.assertFalse(Omnitrix.failsafe(p, helper.getLevel().damageSources().generic()), "so it would not save him now");
-		// 20 s on (still recharging): armed again -- a killing blow as a human transforms him
-		var n = Omnitrix.state(p).copy();
-		n.timers.put("omnitrix.failsafe", helper.getLevel().getGameTime());
-		Omnitrix.save(p, n);
-		helper.assertTrue(Omnitrix.failsafeArmed(p), "armed again after 20 s");
+		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.RECHARGE_TICKS) <= 20, "the normal recharge: " + Omnitrix.rechargeLeft(p));
+		helper.assertTrue(Omnitrix.failsafeArmed(p), "the failsafe is still armed");
+		// a killing blow as a human: the failsafe transforms him, then sits out 20 s (user: "give it a 20 seconds cooldown")
 		p.removeAllEffects();
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().generic(), 999f);
 		helper.assertTrue(p.isAlive() && Omnitrix.transformed(p), "a killing blow as a human: the watch transforms him");
-		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth() * OmnitrixConfig.FAILSAFE_ALIEN_HEALTH) < 0.5f, "on half the alien's health: " + p.getHealth());
+		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth() * OmnitrixConfig.FAILSAFE_ALIEN_HEALTH) < 0.5f, "on half the alien health: " + p.getHealth());
 		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "the recharge is over");
+		helper.assertFalse(Omnitrix.failsafeArmed(p), "the failsafe is offline for 20 s");
 		// /kill is never stopped
 		helper.assertFalse(Omnitrix.failsafe(p, helper.getLevel().damageSources().genericKill()), "/kill still kills");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
@@ -514,7 +512,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		double mine = p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
 		tapV(p, false);
 		helper.assertTrue(kit.flag(p, UpgradeKit.F_OVERCLOCK), "V: Overclock");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= dmg + UpgradeKit.OVERCLOCK_DAMAGE - 1.0e-4, "+4 damage");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= dmg + UpgradeKit.OVERCLOCK_DAMAGE - 1.0e-4, "+6 damage");
 		helper.assertTrue(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) > mine * 1.9, "twice the mining speed");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - 1.0) < 1.0e-4, "it comes off with the body");
@@ -544,10 +542,17 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertFalse(Xlr8Kit.visorDown(p), "the visor is up at rest");
 		tapV(p, false);
 		helper.assertTrue(kit.flag(p, Xlr8Kit.F_SPEED), "V: Speed Mode");
-		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 1.9, "twice as fast again: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		// v0.17.2 (user: "Speed mode: 20 blocks per second walking, 60 blocks per second running")
+		double bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 20.0) < 0.05, "Speed Mode walking: 20 blocks a second: " + bps);
 		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor slams down");
 		double mine = p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+		p.setSprinting(true);
 		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
+		bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 60.0) < 0.1, "Speed Mode sprinting: 60 blocks a second: " + bps);
+		p.setSprinting(false);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - mine * 1.5) < 1.0e-4,
 				"v0.17.2: Speed Mode mines 50% faster: " + p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED));
 		helper.assertTrue(kit.standsOnFluid(p, Fluids.WATER.getSource(false)), "he runs on water");
@@ -583,8 +588,20 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		double hit = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		kit.holdStart(p, AbilitySlot.SLOT_5);
 		helper.assertTrue(kit.flag(p, Xlr8Kit.F_OVERDRIVE) && kit.flag(p, Xlr8Kit.F_SPEED), "hold V: Overdrive (Speed Mode with it)");
-		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 5.0, "far faster than Speed Mode alone: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > hit * 1.9, "blows twice as hard");
+		// v0.17.2 (user: "Overdrive: Lasts 30 seconds now, 45 second cooldown upon activation, 50% increased damage, 25 blocks per
+		// second while walking, 170 blocks per second while running")
+		double bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 25.0) < 0.05, "Overdrive walking: 25 blocks a second: " + bps);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - hit * 1.5) < 1.0e-4, "fists +50%: " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(Xlr8Kit.damageScale(p) - 1.5f) < 1.0e-4, "every hit +50%");
+		helper.assertTrue(Math.abs(kit.timer(p, "od_end") - helper.getLevel().getGameTime() - 600) <= 1, "lasts 30 s");
+		helper.assertTrue(Math.abs(kit.cooldownLeft(p, Xlr8Kit.OVERDRIVE) - 900) <= 1, "a 45 s cooldown from the start");
+		p.setSprinting(true);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 1);
+		bps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * Xlr8Kit.BPS_PER_SPEED;
+		helper.assertTrue(Math.abs(bps - 170.0) < 0.2, "Overdrive sprinting: 170 blocks a second: " + bps);
+		p.setSprinting(false);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime() + 2);
 		kit.press(p, AbilitySlot.SLOT_5, false);
 		helper.assertFalse(kit.flag(p, Xlr8Kit.F_OVERDRIVE), "a tap of V ends it early");
 		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "and Speed Mode goes back off (it was off before)");

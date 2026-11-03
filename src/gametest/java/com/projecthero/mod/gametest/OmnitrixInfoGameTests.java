@@ -105,4 +105,30 @@ public class OmnitrixInfoGameTests implements FabricGameTest {
 		}
 		helper.succeed();
 	}
+
+	/**
+	 * v0.17.2 (user: "make it look more like minecraft"): the vanilla-styled I menu's tabs and hints have their lang, and each
+	 * dial's every alien has the dial art the menu's slots and tabs draw as icons.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void vanillaStyledMenuHasItsLangAndEveryAlienHasADialIcon(GameTestHelper helper) {
+		Language lang = Language.getInstance();
+		List<String> problems = new ArrayList<>();
+		for (String k : new String[] { "tab_hint.alien", "tab_hint.watch", "tab_hint.pick", "tab_hint.back", "heading_alien" }) {
+			if (!lang.has("screen.projecthero.power_info.omnitrix." + k)) {
+				problems.add("no lang " + k);
+			}
+		}
+		List<Aliens.Alien> every = new ArrayList<>(Aliens.all());
+		every.addAll(Aliens.recalibrated());
+		for (Aliens.Alien a : every) {
+			if (OmnitrixInfoGameTests.class.getResource("/assets/projecthero/textures/font/omnitrix_dial/" + a.id() + ".png") == null) {
+				problems.add(a.id() + " has no dial icon");
+			}
+		}
+		if (!problems.isEmpty()) {
+			helper.fail(String.join("; ", problems));
+		}
+		helper.succeed();
+	}
 }

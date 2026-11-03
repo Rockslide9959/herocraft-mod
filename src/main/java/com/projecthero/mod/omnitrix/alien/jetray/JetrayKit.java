@@ -46,6 +46,9 @@ import net.minecraft.world.phys.Vec3;
  * -- every neuroshock hit builds toward paralysis (the show's "shuts the nervous system down"), his tail carries a creature (or a
  * friend) through the sky, and strong winds and heavy hits knock him out of the air.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Neuroshock Eyes   twin eye beam (24): the first creature, 7 + a Neuroshock stack
  *   Shift+R    Tail Blast        tail bolt (28): 14, paralysed 1.5 s
@@ -80,9 +83,11 @@ public final class JetrayKit extends AlienKit {
 			.layer(SoundEvents.BEACON_POWER_SELECT, 0.3f, 1.6f)
 			.layer(SoundEvents.TRIDENT_THUNDER, 0.12f, 1.9f)
 			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.3f, 1.4f, 2);
+	// v0.17.2 (user: "whenever i transform into him his flight sound effect plays constantly even if he isnt flying"): no ELYTRA_FLYING layer -- that
+	// sample is a ~10 s drone, so every whoosh (the transform one too) left it droning on the ground; short wind sounds instead
 	public static final OmnitrixSfx.Cue WHOOSH = OmnitrixSfx.cue("jetray_whoosh")
 			.layer(SoundEvents.PHANTOM_FLAP, 0.35f, 0.9f)
-			.layer(SoundEvents.ELYTRA_FLYING, 0.2f, 1.5f)
+			.layer(SoundEvents.PHANTOM_SWOOP, 0.15f, 1.5f)
 			.gap(6);
 	public static final OmnitrixSfx.Cue DIVE = OmnitrixSfx.cue("jetray_dive")
 			.layer(SoundEvents.WIND_CHARGE_THROW, 0.4f, 0.8f)
@@ -98,7 +103,7 @@ public final class JetrayKit extends AlienKit {
 			.layer(SoundEvents.BEACON_DEACTIVATE, 0.3f, 1.8f)
 			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.35f, 1.0f);
 	public static final OmnitrixSfx.Cue STREAM = OmnitrixSfx.cue("jetray_stream")
-			.layer(SoundEvents.ELYTRA_FLYING, 0.2f, 1.8f)
+			.layer(SoundEvents.WIND_CHARGE_BURST.value(), 0.2f, 1.6f) // v0.17.2: not the ~10 s elytra drone
 			.layer(SoundEvents.DOLPHIN_PLAY, 0.25f, 0.8f);
 	public static final OmnitrixSfx.Cue SCAN = OmnitrixSfx.cue("jetray_scan")
 			.layer(SoundEvents.DOLPHIN_AMBIENT_WATER, 0.3f, 0.7f)
@@ -114,7 +119,7 @@ public final class JetrayKit extends AlienKit {
 	public static final OmnitrixSfx.Cue BOOM = OmnitrixSfx.cue("jetray_boom")
 			.layer(SoundEvents.WIND_CHARGE_BURST.value(), 0.45f, 0.7f)
 			.layer(SoundEvents.GENERIC_EXPLODE, 0.15f, 1.9f)
-			.layer(SoundEvents.ELYTRA_FLYING, 0.2f, 2.0f, 2);
+			.layer(SoundEvents.PHANTOM_SWOOP, 0.2f, 2.0f, 2); // v0.17.2: not the ~10 s elytra drone
 	public static final OmnitrixSfx.Cue PARALYSE = OmnitrixSfx.cue("jetray_paralyse")
 			.layer(SoundEvents.BEACON_DEACTIVATE, 0.3f, 2.0f)
 			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.35f, 1.8f, 1);
@@ -148,35 +153,36 @@ public final class JetrayKit extends AlienKit {
 	public static final String DIVE_END = "dive_end", THUNDER_AT = "thunder_at", THUNDER_END = "thunder_end", OVERLOAD_AT = "overload_at",
 			CARRY_TARGET = "carry_target", CARRY_UNTIL = "carry_until", ROLL_UNTIL = "roll_until", STALL_UNTIL = "stall_until";
 
-	public static final float EYES_DAMAGE = 7f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float EYES_DAMAGE = 11f;
 	public static final double EYES_RANGE = 24.0;
-	public static final float TAIL_DAMAGE = 14f;
+	public static final float TAIL_DAMAGE = 24f;
 	public static final double TAIL_RANGE = 28.0;
 	public static final int TAIL_STUN = 30;
-	public static final float DIVE_DAMAGE = 15f;
+	public static final float DIVE_DAMAGE = 26f;
 	public static final int DIVE_TICKS = 12;
-	public static final float GRAB_DAMAGE = 4f;
+	public static final float GRAB_DAMAGE = 9f;
 	public static final double GRAB_RANGE = 5.0;
 	public static final int CARRY_TICKS = 100, GRAB_COOLDOWN = 200;
-	public static final float BOOM_DAMAGE = 6f;
+	public static final float BOOM_DAMAGE = 12f;
 	public static final double BOOM_RADIUS = 3.0;
-	public static final float SPREAD_DAMAGE = 6f;
+	public static final float SPREAD_DAMAGE = 10f;
 	public static final double SPREAD_RANGE = 16.0;
-	public static final float PULSE_DAMAGE = 13f;
+	public static final float PULSE_DAMAGE = 22f;
 	public static final double PULSE_RADIUS = 5.0;
-	public static final float THUNDER_DAMAGE = 18f;
+	public static final float THUNDER_DAMAGE = 30f;
 	public static final double THUNDER_RADIUS = 4.0;
 	public static final int THUNDER_STUN = 20;
-	public static final float OVERLOAD_DAMAGE = 60f;
+	public static final float OVERLOAD_DAMAGE = 100f;
 	public static final double OVERLOAD_RANGE = 30.0;
 	public static final int OVERLOAD_CHARGE = 20, OVERLOAD_STUN = 60;
 	public static final float FLY_SPEED = 0.1f;
 	public static final float STREAM_FLY_SPEED = 0.16f;
 	public static final int ROLL_TICKS = 15;
 	public static final float ROLL_TAKEN = 0.5f;
-	public static final float RAM_PER = 1f, RAM_MAX = 5f;
+	public static final float RAM_PER = 1.6f, RAM_MAX = 8f;
 	public static final double RAM_STEP = 0.4;
-	public static final float SLASH_DAMAGE = 6f;
+	public static final float SLASH_DAMAGE = 10f;
 	public static final double SLASH_RANGE = 3.5;
 	public static final int STACKS_TO_PARALYSE = 3, STACK_WINDOW = 80, PARALYSE_TICKS = 20;
 	public static final float LIGHTNING_TAKEN = 0.5f, WIND_TAKEN = 1.5f, CLIP_THRESHOLD = 8f;
@@ -209,7 +215,7 @@ public final class JetrayKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(24).speed(1.2f).armor(3, 0).attack(3).knockbackResist(0.1f).safeFall(6).build();
+		return AlienStats.builder().health(24).speed(1.2f).armor(3, 0).attack(5).knockbackResist(0.1f).safeFall(6).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override
@@ -230,7 +236,9 @@ public final class JetrayKit extends AlienKit {
 		boolean air = !p.onGround() && !p.isInWater() && !p.isPassenger();
 		RecalKitMath.wings(p, air, FLY_SPEED);
 		setFlag(p, F_FLYING, air);
-		OmnitrixSfx.playOn(p, WHOOSH, 1.0f, 1.0f, SoundSource.PLAYERS);
+		if (air) { // v0.17.2: no flight whoosh when he transforms standing on the ground
+			OmnitrixSfx.playOn(p, WHOOSH, 1.0f, 1.0f, SoundSource.PLAYERS);
+		}
 	}
 
 	private static final String[] STATE_TIMERS = { DIVE_END, THUNDER_AT, THUNDER_END, OVERLOAD_AT, CARRY_TARGET, CARRY_UNTIL, ROLL_UNTIL, STALL_UNTIL };
@@ -288,7 +296,8 @@ public final class JetrayKit extends AlienKit {
 		if (flying != flag(p, F_FLYING)) {
 			setFlag(p, F_FLYING, flying);
 		}
-		if (flying && p.tickCount % 20 == 0 && p.getDeltaMovement().lengthSqr() > 0.2) {
+		// v0.17.2 (user: "his flight sound effect plays constantly even if he isnt flying"): only while actually airborne in flight
+		if (flying && !p.onGround() && !p.isInWater() && p.tickCount % 20 == 0 && p.getDeltaMovement().lengthSqr() > 0.2) {
 			OmnitrixSfx.playOn(p, WHOOSH, 0.6f, 1.0f, SoundSource.PLAYERS);
 		}
 		// Aerophibian: at home in water

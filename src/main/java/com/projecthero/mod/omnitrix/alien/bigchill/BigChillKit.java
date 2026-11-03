@@ -58,6 +58,9 @@ import net.minecraft.world.phys.Vec3;
  * ultimate aliens yet"). The body is only the player model in the user's two skins: wings wrapped round him (cloaked, his normal
  * look) or open (flying and attacking) -- {@link #F_OPEN} picks the skin.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Ice Shard        a shard of ice (7, chilled), 0.6 s
  *   Shift+R    Freezing Breath  HOLD up to 2.5 s: a cone of freezing breath, reach 4 growing to 8; 3 every 0.5 s (up to 15),
@@ -158,28 +161,29 @@ public final class BigChillKit extends AlienKit {
 	/** Synced kit timers. */
 	public static final String BREATH_START = "breath_start", OPEN_UNTIL = "open_until", FIELD_END = "field_end";
 
-	public static final float SHARD_DAMAGE = 7f;
-	public static final float BREATH_PULSE_DAMAGE = 3f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float SHARD_DAMAGE = 11f;
+	public static final float BREATH_PULSE_DAMAGE = 8f;
 	public static final int BREATH_MAX_TICKS = 50, BREATH_PULSE = 10, BREATH_COOLDOWN = 120;
 	public static final double BREATH_RANGE = 8.0, BREATH_HALF_ANGLE = 28.0;
-	public static final float GRIP_DAMAGE = 13f;
-	public static final float SHATTER_DAMAGE = 16f, SHATTER_SPLASH = 5f;
+	public static final float GRIP_DAMAGE = 22f;
+	public static final float SHATTER_DAMAGE = 28f, SHATTER_SPLASH = 10f;
 	public static final double SHATTER_RANGE = 8.0, SHATTER_SPLASH_RADIUS = 2.0;
-	public static final float PHANTOM_DAMAGE = 8f;
-	public static final float DIVE_DAMAGE = 17f;
-	public static final float BLIZZARD_DAMAGE = 2f;
+	public static final float PHANTOM_DAMAGE = 13f;
+	public static final float DIVE_DAMAGE = 28f;
+	public static final float BLIZZARD_DAMAGE = 7f;
 	public static final int BLIZZARD_TICKS = 80;
 	public static final double BLIZZARD_RADIUS = 6.0;
-	public static final float FIELD_BURST = 6f, FIELD_DAMAGE = 1f;
+	public static final float FIELD_BURST = 10f, FIELD_DAMAGE = 4f; // the field pulses 16 times, so its tick stays under the 7-10 of a short DoT
 	public static final int FIELD_TICKS = 160;
 	public static final double FIELD_RADIUS = 4.0, FIELD_REACH = 12.0;
-	public static final float ZERO_DAMAGE = 55f, ZERO_EDGE = 40f;
+	public static final float ZERO_DAMAGE = 95f, ZERO_EDGE = 70f;
 	public static final double ZERO_RADIUS = 8.0;
 	public static final int ZERO_WINDUP = 20;
 	public static final int PHASE_TICKS = 100;
 	public static final int PHASE_COOLDOWN = 200;
 	public static final int CLOAK_TICKS = 200;
-	public static final float AMBUSH_DAMAGE = 6f;
+	public static final float AMBUSH_DAMAGE = 10f;
 	public static final int ARMOUR_TICKS = 120;
 	public static final float FLY_SPEED = 0.07f;
 	public static final float HEAT_FACTOR = 0.75f;
@@ -228,7 +232,7 @@ public final class BigChillKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: a slight ghost of a thing -- no armour of his own (only every alien's hidden Resistance I)
-		return AlienStats.builder().health(28).attack(3).knockbackResist(0.15f).safeFall(8).build();
+		return AlienStats.builder().health(28).attack(6).knockbackResist(0.15f).safeFall(8).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

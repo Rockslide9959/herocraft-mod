@@ -119,7 +119,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		near(helper, p.getAttributeValue(Attributes.MOVEMENT_SPEED), p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED) * WildmuttKit.SPEED, "x1.35 speed");
 		near(helper, p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE), 0.3, "knockback resistance 0.3");
 		near(helper, p.getAttributeValue(Attributes.STEP_HEIGHT), 1.0, "steps up a full block");
-		near(helper, p.getAttributeValue(Attributes.ATTACK_DAMAGE), 1.0 + WildmuttKit.ATTACK, "claws +4");
+		near(helper, p.getAttributeValue(Attributes.ATTACK_DAMAGE), 1.0 + WildmuttKit.ATTACK, "claws +6");
 		near(helper, p.getBbWidth(), WildmuttKit.BODY_WIDTH, "a wide body");
 		near(helper, p.getBbHeight(), WildmuttKit.BODY_HEIGHT, "a low body");
 		near(helper, p.getEyeHeight(), WildmuttKit.EYE_HEIGHT, "the eyes (gills) low");
@@ -233,7 +233,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 				// Feral Frenzy
 				double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 				helper.assertTrue(k.frenzy(p) && k.flag(p, WildmuttKit.F_FRENZY), "Feral Frenzy");
-				near(helper, p.getAttributeValue(Attributes.ATTACK_DAMAGE), base + WildmuttKit.FRENZY_CLAWS, "+4 claws");
+				near(helper, p.getAttributeValue(Attributes.ATTACK_DAMAGE), base + WildmuttKit.FRENZY_CLAWS, "+6 claws");
 				helper.assertFalse(k.frenzy(p), "the frenzy cools down");
 				// Scent Track: the zombie in front
 				helper.assertTrue(k.track(p) && k.tracked(p) == z, "Scent Track locks onto the zombie");
@@ -280,15 +280,15 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 200f);
 		ahead(z, p, 2.0);
-		// the slam's numbers: no coil on the flat = r 3, 10 at the centre; a full coil after an 8-block fall = r 6, 22
+		// the slam's numbers (v0.17.2 damage pass): no coil on the flat = r 3, 16 at the centre; a full coil after an 8-block fall = r 6, 32
 		near(helper, 200f - z.getHealth(), 0, "untouched yet");
 		k.leapSlam(p, 0f, 0);
-		near(helper, 200f - z.getHealth(), 10f - 4f * (2f / 3f), "a bare slam: 10 falling to 6 at r 3 (2 blocks out)");
+		near(helper, 200f - z.getHealth(), 16f - 6.4f * (2f / 3f), "a bare slam: 16 falling to 9.6 at r 3 (2 blocks out)");
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slows");
 		z.setHealth(200f);
 		ahead(z, p, 2.0);
 		k.leapSlam(p, 1f, 8);
-		near(helper, 200f - z.getHealth(), 22f - 8.8f * (2f / 6f), "a full coil and a long fall: 22 falling to 13.2 at r 6");
+		near(helper, 200f - z.getHealth(), 32f - 12.8f * (2f / 6f), "a full coil and a long fall: 32 falling to 19.2 at r 6");
 		z.setHealth(200f);
 		ahead(z, p, 5.0);
 		k.leapSlam(p, 0f, 0);
@@ -309,7 +309,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 				helper.runAfterDelay(6, () -> {
 					helper.assertFalse(k.flag(p, WildmuttKit.F_LEAPING), "landed");
 					float lost = 200f - z.getHealth();
-					helper.assertTrue(lost > 9.5f && lost < 16.1f, "the landing slammed it (" + lost + ")");
+					helper.assertTrue(lost > 15.5f && lost < 27f, "the landing slammed it (" + lost + ")");
 					helper.succeed();
 				});
 			});

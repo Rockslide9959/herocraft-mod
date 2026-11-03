@@ -1,0 +1,13 @@
+{
+  "type": "projecthero:celestial_council",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "projecthero:celestial_council",
+      "layers": [],
+      "lakes": false,
+      "features": false,
+      "structure_overrides": []
+    }
+  }
+}

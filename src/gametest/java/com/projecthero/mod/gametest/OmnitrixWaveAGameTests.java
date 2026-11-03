@@ -707,7 +707,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(DiamondheadKit.VOLLEY.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id()), "R is the Shard Volley out of Combat Mode");
 		kit.press(p, AbilitySlot.SLOT_5, false);
 		helper.assertTrue(kit.flag(p, DiamondheadKit.F_COMBAT) && kit.keyActive(p, AbilitySlot.SLOT_5), "V: Combat Mode on");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - dmg - DiamondheadKit.BLADE_BONUS) < 1.0e-4, "+6 melee");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - dmg - DiamondheadKit.BLADE_BONUS) < 1.0e-4, "+4 more melee (+12 in all)");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) - reach - DiamondheadKit.BLADE_REACH) < 1.0e-4, "+1 reach");
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_SPEED) > swing + 0.5, "faster swings");
 		helper.assertTrue(DiamondheadKit.FLURRY.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id()), "R: the Blade Flurry");
@@ -1056,7 +1056,8 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 1.5, 2, 3.5, 100f);
 		float ghp = g.getHealth();
 		helper.assertTrue(kit.empBurst(p), "Shift+Z: EMP Burst");
-		helper.assertTrue(g.isAlive() && g.getHealth() < ghp - UpgradeKit.EMP_EDGE * 2f + 0.1f, "machines short out twice as hard: " + (ghp - g.getHealth()));
+		// v0.17.2 damage pass: 100 falling to 70, machines no longer doubled (that would wreck the golems it takes over)
+		helper.assertTrue(g.isAlive() && g.getHealth() < ghp - UpgradeKit.EMP_EDGE + 0.1f, "machines short out, left standing: " + (ghp - g.getHealth()));
 		helper.assertTrue(UpgradeTakeover.controlledBy(g, p) && UpgradeTakeover.until(g) - helper.getLevel().getGameTime() == UpgradeTakeover.EMP_TICKS,
 				"and are his for 10 s");
 		helper.assertTrue(UpgradeTakeover.count(p, true) == 0, "EMP holds don't count towards Tech Takeover's 2");
@@ -1297,7 +1298,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void ghostfreaksPhaseIsTimedAndLeavesNothingBehind(GameTestHelper helper) {
+	public void ghostfreaksPhaseIsAToggleAndLeavesNothingBehind(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GhostfreakKit.ID);
 		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 20f);
@@ -1309,9 +1310,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.hurt(helper.getLevel().damageSources().inWall(), 2f);
 		helper.assertTrue(p.getHealth() == hp, "nothing physical touches him (walls neither)");
 		pump(helper, p);
-		helper.runAfterDelay(GhostfreakKit.PHASE_TICKS + 3, () -> {
-			helper.assertFalse(kit.phasing(p), "the phase runs out after 5 s");
-			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.PHASE) > GhostfreakKit.PHASE_COOLDOWN - 10, "and then cools down");
+		// v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please")
+		helper.runAfterDelay(140, () -> {
+			helper.assertTrue(kit.phasing(p), "no time limit: still phased after 7 s");
+			kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3, false);
+			helper.assertFalse(kit.phasing(p), "X again turns it off");
+			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.PHASE) > GhostfreakKit.PHASE_COOLDOWN - 10, "and then a short cooldown");
 			// phased and faded, then turned back: nothing stuck
 			kit.cooldown(p, GhostfreakKit.PHASE, 0);
 			helper.assertTrue(kit.phase(p) && kit.fade(p) && p.hasEffect(MobEffects.INVISIBILITY), "phased and invisible");
@@ -1422,7 +1426,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 				float hp = z.getHealth();
 				z.invulnerableTime = 0;
 				kit.onAttack(p, z);
-				helper.assertTrue(ghostDmg(hp - z.getHealth(), GhostfreakKit.TOUCH_DAMAGE + GhostfreakKit.AMBUSH_DAMAGE), "Ambush: +12, got " + (hp - z.getHealth()));
+				helper.assertTrue(ghostDmg(hp - z.getHealth(), GhostfreakKit.TOUCH_DAMAGE + GhostfreakKit.AMBUSH_DAMAGE), "Ambush: +18, got " + (hp - z.getHealth()));
 				helper.assertTrue(z.hasEffect(MobEffects.BLINDNESS) && !kit.flag(p, GhostfreakKit.F_INVIS), "blinded, and the fade is over");
 				hp = z.getHealth();
 				z.invulnerableTime = 0;

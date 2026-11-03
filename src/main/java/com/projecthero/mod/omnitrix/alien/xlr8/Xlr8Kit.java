@@ -85,20 +85,20 @@ import net.minecraft.world.phys.Vec3;
  * from his feet and tail tip in Speed Mode (and along every zip; {@code Xlr8StreakTrail}), and the old particle spam gone.
  *
  * <pre>
- *   R        Blur Punches    6 x 2.5 in a 3.5-block cone (2 s)               Shift+R  Kick Barrage   8 kicks of 2, then a tail whip (5, r 3)
- *   G        Raptor Strike   zip to the foe you aim at (24): 14, tripped     Shift+G  Tornado Run    3 s of running rings; Shift+G again lets the
- *                            1 s; 8 to everything round it                                           twister loose -- 12 blocks along your aim
- *   X        Blur Dash       a 10-block dash where you aim (6)               Shift+X  Friction Zero  4 s of frictionless low skating: through
- *   hold X   Tail Spin       the tail out flat: everything within 6 (8,                              1-block gaps, bowling over what he hits (6)
+ *   R        Blur Punches    6 x 4 in a   3.5-block cone (2 s)               Shift+R  Kick Barrage   8 kicks of 2.5, then a tail whip (8, r 3)
+ *   G        Raptor Strike   zip to the foe you aim at (24): 24, tripped     Shift+G  Tornado Run    3 s of running rings; Shift+G again lets the
+ *                            1 s; 12 to everything round it                                           twister loose -- 12 blocks along your aim
+ *   X        Blur Dash       a 10-block dash where you aim (10)              Shift+X  Friction Zero  4 s of frictionless low skating: through
+ *   hold X   Tail Spin       the tail out flat: everything within 6 (22,                              1-block gaps, bowling over what he hits (10)
  *                            knockback 2)
- *   Z        Sonic Punch     20 + shock 8 r 4; spends Kinetic Charge: at     Shift+Z  Raptor Rush    ULT: blink through every foe within 24 (26
- *                            full charge 35 + shock 12 r 6                                           each), then home; untouchable while it runs
- *   V        Speed Mode      toggle: visor down, flat out, wall and water    Shift+V  Afterimage     three after-images draw foes off you (6 s)
+ *   Z        Sonic Punch     28 + shock 12 r 4; spends Kinetic Charge: at     Shift+Z  Raptor Rush    ULT: blink through every foe within 24 (80
+ *                            full charge 35 + shock 18 r 6                                           each), then home; untouchable while it runs
+ *   V        Speed Mode      toggle: visor down, 20 b/s, 60 sprinting, wall and water    Shift+V  Afterimage     three after-images draw foes off you (6 s)
  *                            running, the blue/black streak lines                      Decoys
- *   hold V   Overdrive       20 s faster still, blows x2, charge fills x2, the lines longer with a white-hot core
+ *   hold V   Overdrive       30 s: 25 b/s, 170 sprinting, all damage +50%, cd 45 s from the start, charge fills x2, the lines longer with a white-hot core
  *   C        Time Burst      everything within 12 slows for 5 s; a blue      Shift+C  Speed Mine     strip-mine a 1x2 tunnel 16 blocks ahead
  *                            visor-glass tint on your screen
- *   Attack   a double jab (+1.5)     Use (empty hand)  sweep up every dropped item within 14     Use on a mob  snatch what it holds
+ *   Attack   fist +4, a double jab (+1.5)     Use (empty hand)  sweep up every dropped item within 14     Use on a mob  snatch what it holds
  *   Use on a player  Rescue Carry: they ride on your back (no fall damage) until Use again, Sneak, or any attack
  * </pre>
  *
@@ -154,9 +154,30 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int F_LOOSE = 128;
 
 	public static final String OVERDRIVE = "overdrive";
-	/** Overdrive: {@link #OVERDRIVE_TICKS} of Speed Mode with {@link #OVERDRIVE_BONUS} more speed on top, blows twice as hard. */
-	public static final int OVERDRIVE_TICKS = 20 * 20, OVERDRIVE_COOLDOWN = 45 * 20;
-	public static final double OVERDRIVE_BONUS = 2.0, OVERDRIVE_DAMAGE = 1.0, OVERDRIVE_STEP = 1.0;
+	/**
+	 * Overdrive: {@link #OVERDRIVE_TICKS} of Speed Mode at {@link #OD_WALK_BPS} / {@link #OD_RUN_BPS}, everything he deals
+	 * {@link #OVERDRIVE_DAMAGE} harder. v0.17.2 (user: "Overdrive: Lasts 30 seconds now, 45 second cooldown upon activation, 50%
+	 * increased damage, 25 blocks per second while walking, 170 blocks per second while running"): was 20 s, x2 blows, x3 speed.
+	 */
+	public static final int OVERDRIVE_TICKS = 30 * 20, OVERDRIVE_COOLDOWN = 45 * 20;
+	public static final double OVERDRIVE_DAMAGE = 0.5, OVERDRIVE_STEP = 1.0;
+
+	/**
+	 * v0.17.2 (user: "Speed mode: 20 blocks per second walking, 60 blocks per second running"; Overdrive 25 / 170): the speeds,
+	 * blocks a second on ordinary ground. A player's flat-ground pace is {@link #BPS_PER_SPEED} blocks a second per point of
+	 * MOVEMENT_SPEED (20 ticks x vanilla's 0.98 input scale / (1 - 0.6 slipperiness x 0.91 drag)), so the modifiers below are
+	 * worked out from these four numbers and his body's {@link #BODY_SPEED}.
+	 */
+	public static final double MODE_WALK_BPS = 20, MODE_RUN_BPS = 60, OD_WALK_BPS = 25, OD_RUN_BPS = 170;
+	public static final double BPS_PER_SPEED = 20.0 * 0.98 / (1.0 - 0.6 * 0.91);
+	/** His body's walk speed (x a player's 0.1), and vanilla's own sprint boost (+30%, multiplied on). */
+	public static final float BODY_SPEED = 1.9f;
+	public static final double VANILLA_SPRINT = 1.3;
+	/** Overdrive's speed on top of Speed Mode (walking 20 -> 25). */
+	public static final double OVERDRIVE_BONUS = OD_WALK_BPS / MODE_WALK_BPS - 1.0;
+	/** The extra sprint boost in Speed Mode / Overdrive, on top of vanilla's, so running is exactly 60 / 170. */
+	public static final double MODE_SPRINT_BONUS = MODE_RUN_BPS / (MODE_WALK_BPS * VANILLA_SPRINT) - 1.0;
+	public static final double OD_SPRINT_BONUS = OD_RUN_BPS / (OD_WALK_BPS * VANILLA_SPRINT) - 1.0;
 
 	// v0.17.2 revamp: renamed moves -- Rapid Assault -> Blur Punches, Blitz -> Raptor Strike, Whirlwind -> Tail Spin, Mach Punch ->
 	// Sonic Punch, Speed Sweep -> Raptor Rush, Phase -> Friction Zero; Rescue Carry is new
@@ -178,44 +199,43 @@ public final class Xlr8Kit extends AlienKit {
 	public static final String SNATCH = "snatch";
 	public static final String CARRY = "rescue_carry";
 
-	public static final float TORNADO_HIT = 1.5f;
-	public static final float TORNADO_END = 4f;
+	// v0.17.2 (user: "make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i
+	// want them to be strong"): the new scale -- quick 8-12, normal 20-28, big 28-35, damage over time 7-10 a tick, ultimates 70-110
+	public static final float TORNADO_HIT = 7f; // was 1.5 every half second
+	public static final float TORNADO_END = 12f; // was 4
 	public static final int TORNADO_TICKS = 60;
 	public static final double TORNADO_RADIUS = 6;
-	/** v0.17.2 revamp: the loose twister -- {@link #LOOSE_BLOCKS} along the aim over {@link #LOOSE_TICKS}, 2 every 0.5 s within 3. */
+	/** v0.17.2 revamp: the loose twister -- {@link #LOOSE_BLOCKS} along the aim over {@link #LOOSE_TICKS}, 7 every 0.5 s within 3. */
 	public static final int LOOSE_TICKS = 80;
 	public static final double LOOSE_BLOCKS = 12, LOOSE_RADIUS = 3;
-	public static final float LOOSE_HIT = 2f;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float DASH_DAMAGE = 6f;
+	public static final float LOOSE_HIT = 7f; // was 2
+	public static final float DASH_DAMAGE = 10f; // was 6
 	/** Blur Dash: how long it drives him along his aim, and how fast (blocks a tick, easing to a third). */
 	public static final int DASH_TICKS = 6;
 	public static final double DASH_SPEED = 2.2;
 	/** v0.17.2 revamp: Tail Spin (was Whirlwind's 8 in 6), knockback 2. */
-	public static final float TAIL_SPIN_DAMAGE = 8f;
+	public static final float TAIL_SPIN_DAMAGE = 22f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 8
 	public static final double TAIL_SPIN_RADIUS = 6, TAIL_SPIN_KNOCKBACK = 2.0;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5
-	public static final float KICK_HIT = 2f;
-	/** v0.17.2 revamp: Kick Barrage's finisher -- the tail whips round 360 degrees, r 3, 5, knockback 1.2. */
-	public static final float TAIL_WHIP = 5f;
+	public static final float KICK_HIT = 2.5f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 2 (8 kicks: 20)
+	/** v0.17.2 revamp: Kick Barrage's finisher -- the tail whips round 360 degrees, r 3, 8 (was 5), knockback 1.2. */
+	public static final float TAIL_WHIP = 8f;
 	public static final double TAIL_WHIP_RADIUS = 3, TAIL_WHIP_KNOCKBACK = 1.2;
 	/**
 	 * Blur Punches (read by {@code SuperSpeedHandlers.rapidAssaultCore} when he is the one using it; the Super Speed mutation
-	 * keeps its own): v0.17.2 revamp, {@link #ASSAULT_PUNCHES} x 2.5 = 15 (was 5).
+	 * keeps its own): v0.17.2, {@link #ASSAULT_PUNCHES} x 4 = 24 (was 6 x 2.5; user: "make the damage of all of ben 10s alien stronger").
 	 */
-	public static final float ASSAULT_PUNCH = 2.5f;
+	public static final float ASSAULT_PUNCH = 4f;
 	public static final int ASSAULT_PUNCHES = 6;
-	/** v0.17.2: Raptor Strike (Blitz), was 20 + 10 round it. The target is tripped for {@link #TRIP_TICKS}. */
-	public static final float BLITZ_HIT = 14f, BLITZ_AOE = 8f;
+	/** v0.17.2: Raptor Strike (Blitz), 24 + 12 round it (was 14 + 8). The target is tripped for {@link #TRIP_TICKS}. */
+	public static final float BLITZ_HIT = 24f, BLITZ_AOE = 12f;
 	public static final int TRIP_TICKS = 20;
-	/** Sonic Punch's shockwave at no charge (the borrowed Mach Punch's shockwave reads it). */
-	public static final float MACH_SHOCK = 8f;
-	/** v0.17.2 revamp: Sonic Punch -- 20 + shock 8 r 4 with no charge, 35 + shock 12 r 6 at a full bar (linear between). */
-	public static final float SONIC_HIT = 20f, SONIC_HIT_FULL = 35f, SONIC_SHOCK_FULL = 12f;
+	/** Sonic Punch's shockwave at no charge (the borrowed Mach Punch's shockwave reads it): v0.17.2, 12 (was 8). */
+	public static final float MACH_SHOCK = 12f;
+	/** v0.17.2: Sonic Punch -- 28 + shock 12 r 4 with no charge, 35 + shock 18 r 6 at a full bar (was 20 / 35, shock 8 / 12). */
+	public static final float SONIC_HIT = 28f, SONIC_HIT_FULL = 35f, SONIC_SHOCK_FULL = 18f;
 	public static final double SONIC_RADIUS = 4, SONIC_RADIUS_FULL = 6;
-	/** v0.17.2: Raptor Rush (Speed Sweep), was 15 a foe. */
-	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 45 a foe
-	public static final float SWEEP_HIT = 45f;
+	/** v0.17.2: Raptor Rush (Speed Sweep), 80 a foe (was 45; user: "make the damage of all of ben 10s alien stronger" -- ultimates 70-110). */
+	public static final float SWEEP_HIT = 80f;
 	/** v0.17.2 revamp: Raptor Rush reaches 24 blocks (the old 50 emptied the whole area). */
 	public static final double RUSH_RANGE = 24.0;
 	/** v0.17.2: the ultimate's cooldown (Raptor Rush, Shift+Z), 30 s. */
@@ -225,9 +245,12 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int BURST_TICKS = 100;
 	public static final int MINE_LENGTH = 16;
 	public static final float JAB_EXTRA = 1.5f;
+	/** v0.17.2 (the user set the bare-fist bonus): +4 on every punch (stats().attack, was +2). */
+	public static final float FIST_BONUS = 4f;
+	/** Sprinting outside Speed Mode: +50% on top of vanilla's sprint. */
 	public static final double SPRINT_BONUS = 0.5;
-	/** v0.17.1 revamp: Speed Mode on top of his body's 1.9x -- about 16 blocks a second walking, 30+ sprinting. */
-	public static final double SPEED_MODE_BONUS = 1.0;
+	/** Speed Mode on top of his body's 1.9x: exactly {@link #MODE_WALK_BPS} walking (v0.17.2, was x2 -- about 16). */
+	public static final double SPEED_MODE_BONUS = MODE_WALK_BPS / (BPS_PER_SPEED * 0.1 * BODY_SPEED) - 1.0;
 	/**
 	 * v0.17.1 (user: "make xlr8s step assist better and dont make him lose momentum on going up blocks"): he always steps up
 	 * {@link #BASE_STEP} more than a player (1.1 blocks) and Speed Mode adds a full block more (1.6) -- at his speed a rise he
@@ -238,7 +261,7 @@ public final class Xlr8Kit extends AlienKit {
 	/** v0.17.2 revamp: Friction Zero -- {@link #SKATE_TICKS} of skating at {@link #SKATE_SPEED} blocks a tick, 6 to what he hits. */
 	public static final int SKATE_TICKS = 80, SKATE_COOLDOWN = 160;
 	public static final double SKATE_SPEED = 1.1;
-	public static final float SKATE_HIT = 6f;
+	public static final float SKATE_HIT = 10f; // v0.17.2 (user: "make the damage of all of ben 10s alien stronger"): was 6
 	/** The visor stays down this long after a speed move. */
 	public static final int VISOR_TICKS = 30;
 
@@ -350,7 +373,34 @@ public final class Xlr8Kit extends AlienKit {
 	public AlienStats stats() {
 		// v0.17.2 (user: every alien should have a melee bonus): was +1 fist
 		// v0.17.2 (user: "give heatblast iron level armour aswell as xlr8"): 15 armour, an iron set
-		return AlienStats.builder().health(22f).speed(1.9f).scale(0.95f).armor(15f, 0f).attack(2f).step(0.65f).jump(0.06f).safeFall(6f).build();
+		// v0.17.2 (the user set the bare-fist bonus): +4 (was +2)
+		return AlienStats.builder().health(22f).speed(BODY_SPEED).scale(0.95f).armor(15f, 0f).attack(FIST_BONUS).step(0.65f).jump(0.06f).safeFall(6f).build();
+	}
+
+	/**
+	 * v0.17.2 (user: "Overdrive: ... 50% increased damage"): what every XLR8 hit is multiplied by right now -- 1.5 in Overdrive, else
+	 * 1 (his kit's hits and the borrowed speedster moves read it; the fist gets it through ATTACK_DAMAGE).
+	 */
+	public static float damageScale(Player p) {
+		return is(p) && (Omnitrix.state(p).kitFlags & F_OVERDRIVE) != 0 ? 1f + (float) OVERDRIVE_DAMAGE : 1f;
+	}
+
+	/** One of his hits, Overdrive's boost on it. */
+	private static boolean hit(ServerPlayer p, LivingEntity e, float amount) {
+		return hurt(p, e, amount * damageScale(p), false);
+	}
+
+	/**
+	 * v0.17.2: the sprint boost for where he is -- plain +50%, Speed Mode / Overdrive exactly what makes running 60 / 170 blocks a
+	 * second -- kept in step every tick and the moment the mode changes.
+	 */
+	private void applySprint(ServerPlayer p) {
+		if (!p.isSprinting()) {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID);
+			return;
+		}
+		double bonus = flag(p, F_OVERDRIVE) ? OD_SPRINT_BONUS : flag(p, F_SPEED) ? MODE_SPRINT_BONUS : SPRINT_BONUS;
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
 
 	@Override
@@ -506,15 +556,8 @@ public final class Xlr8Kit extends AlienKit {
 			return;
 		}
 		ServerLevel l = level(p);
-		// sprinting: faster still
-		boolean sprint = p.isSprinting();
-		var speed = p.getAttribute(Attributes.MOVEMENT_SPEED);
-		boolean has = speed != null && speed.getModifier(SPRINT_ID) != null;
-		if (sprint && !has) {
-			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID, SPRINT_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		} else if (!sprint && has) {
-			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID);
-		}
+		// sprinting: faster still (v0.17.2: the boost follows Speed Mode / Overdrive -- 60 / 170 blocks a second running)
+		applySprint(p);
 		if (now % 20 == 0) {
 			PowerToggles.modifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 2.0, AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID, BASE_STEP, AttributeModifier.Operation.ADD_VALUE);
@@ -644,7 +687,7 @@ public final class Xlr8Kit extends AlienKit {
 		for (LivingEntity e : around(p, p.position().add(0, 0.4, 0), 1.4)) {
 			if (hits.add(e.getId())) {
 				e.invulnerableTime = 0;
-				hurt(p, e, SKATE_HIT, false);
+				hit(p, e, SKATE_HIT);
 				shove(e, p.position(), 0.6, 0.55); // bowled off its feet
 				OmnitrixSounds.play(l, e.position(), SND_HIT, 0.7f, 0.8f);
 			}
@@ -663,7 +706,7 @@ public final class Xlr8Kit extends AlienKit {
 			setFlag(p, F_TORNADO, false);
 			for (LivingEntity e : around(p, t.at(), TORNADO_RADIUS + 1)) {
 				e.invulnerableTime = 0;
-				hurt(p, e, TORNADO_END, false);
+				hit(p, e, TORNADO_END);
 				shove(e, t.at(), 1.1, 0.5);
 			}
 			QuirkFx.ring(l, t.at().add(0, 0.1, 0)).colours(0xFFFFFF, GLOW).size((float) TORNADO_RADIUS + 2).thickness(0.6f).life(14).ground().spawn();
@@ -708,7 +751,7 @@ public final class Xlr8Kit extends AlienKit {
 			e.resetFallDistance();
 			if (hit > 0f) {
 				e.invulnerableTime = 0;
-				hurt(p, e, hit, false);
+				hit(p, e, hit);
 			}
 		}
 	}
@@ -773,7 +816,7 @@ public final class Xlr8Kit extends AlienKit {
 		Set<Integer> hits = DASH_HITS.computeIfAbsent(p.getUUID(), x -> new HashSet<>());
 		for (LivingEntity e : around(p, p.position().add(0, 1, 0), 1.8)) {
 			if (hits.add(e.getId())) {
-				hurt(p, e, DASH_DAMAGE, false);
+				hit(p, e, DASH_DAMAGE);
 				shove(e, p.position(), 0.5, 0.2);
 			}
 		}
@@ -800,7 +843,7 @@ public final class Xlr8Kit extends AlienKit {
 			boolean any = false;
 			for (LivingEntity e : cone(p, 3.6, 55)) {
 				e.invulnerableTime = 0;
-				hurt(p, e, KICK_HIT, false);
+				hit(p, e, KICK_HIT);
 				shove(e, p.position(), 0.05, 0.02);
 				any = true;
 			}
@@ -817,7 +860,7 @@ public final class Xlr8Kit extends AlienKit {
 				continue;
 			}
 			e.invulnerableTime = 0;
-			hurt(p, e, TAIL_WHIP, false);
+			hit(p, e, TAIL_WHIP);
 			shove(e, c, TAIL_WHIP_KNOCKBACK, 0.4);
 		}
 		QuirkFx.ring(l, p.position().add(0, 0.7, 0)).colours(GLOW, COLOUR).size((float) TAIL_WHIP_RADIUS).thickness(0.35f).life(8).style(QuirkFx.RING_SOFT).spawn();
@@ -1004,7 +1047,7 @@ public final class Xlr8Kit extends AlienKit {
 		}
 		Vec3 impact = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : p.getEyePosition().add(look.scale(2.5));
 		if (target != null) {
-			SuperSpeedMoves.punchThrough(p, target, hit);
+			SuperSpeedMoves.punchThrough(p, target, hit * damageScale(p));
 			Vec3 shove = look.scale(2.2 + 2.0 * c);
 			target.push(shove.x, Math.max(0.45, shove.y + 0.45), shove.z);
 			target.hurtMarked = true;
@@ -1013,7 +1056,7 @@ public final class Xlr8Kit extends AlienKit {
 			if (e == target || e.getVehicle() == p) {
 				continue;
 			}
-			SuperSpeedMoves.punchThrough(p, e, shock);
+			SuperSpeedMoves.punchThrough(p, e, shock * damageScale(p));
 			shove(e, impact, 1.2 + c, 0.3);
 		}
 		// the sound barrier: a ring standing across the punch (and a ground ring as wide as the shockwave)
@@ -1111,7 +1154,7 @@ public final class Xlr8Kit extends AlienKit {
 			p.drop(item, false);
 		}
 		target.invulnerableTime = 0;
-		hurt(p, target, 2f, false);
+		hit(p, target, 2f);
 		ServerLevel l = level(p);
 		QuirkFx.ribbon(l, p.position().add(0, 1, 0), target.position().add(0, target.getBbHeight() * 0.6, 0)).colours(0xFFFFFF, GLOW).size(0.3f).life(8)
 				.style(QuirkFx.RIBBON_LIGHT).spawn();
@@ -1205,7 +1248,7 @@ public final class Xlr8Kit extends AlienKit {
 		p.clearFire();
 		for (LivingEntity e : around(p, c, TAIL_SPIN_RADIUS)) {
 			e.invulnerableTime = 0;
-			hurt(p, e, TAIL_SPIN_DAMAGE, false);
+			hit(p, e, TAIL_SPIN_DAMAGE);
 			shove(e, c, TAIL_SPIN_KNOCKBACK, 0.7);
 			e.clearFire();
 		}
@@ -1240,8 +1283,8 @@ public final class Xlr8Kit extends AlienKit {
 	}
 
 	/**
-	 * V (v0.17.1 revamp, user: V = utility / mode): Speed Mode on / off. On: the visor slams down, his speed doubles again (on
-	 * top of the body's 1.9x and the sprint bonus), the blue-and-black streak lines, he runs up walls and across water, steps
+	 * V (v0.17.1 revamp, user: V = utility / mode): Speed Mode on / off. On: the visor slams down, he runs 20 blocks a second (60
+	 * sprinting; v0.17.2 user), the blue-and-black streak lines, he runs up walls and across water, steps
 	 * over a block and a half, never takes fall damage and heals slowly. Off: the visor opens and he is the plain (still fast) XLR8.
 	 */
 	public boolean toggleSpeedMode(ServerPlayer p) {
@@ -1276,11 +1319,12 @@ public final class Xlr8Kit extends AlienKit {
 			PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, BALANCE_ID);
 			setFlag(p, F_SLICK, false);
 		}
+		applySprint(p);
 	}
 
 	/**
 	 * Hold V: Overdrive (as the plain Speedster's V) -- {@link #OVERDRIVE_TICKS} of Speed Mode (switched on if it was off) with
-	 * {@link #OVERDRIVE_BONUS} more speed on top, his blows twice as hard, Haste III, a block more step, Kinetic Charge filling
+	 * {@link #OD_WALK_BPS} blocks a second walking and {@link #OD_RUN_BPS} running (v0.17.2), everything he deals +50%, Haste III, a block more step, Kinetic Charge filling
 	 * twice as fast, and the streak lines longer with a white-hot core. A tap of V ends it early; Speed Mode goes back to how it was.
 	 */
 	public boolean overdrive(ServerPlayer p) {
@@ -1296,6 +1340,7 @@ public final class Xlr8Kit extends AlienKit {
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED_ID, OVERDRIVE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE_ID, OVERDRIVE_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP_ID, OVERDRIVE_STEP, AttributeModifier.Operation.ADD_VALUE);
+		applySprint(p);
 		p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, OVERDRIVE_TICKS, 2, false, false, true));
 		anim(p, ANIM_MODE);
 		ServerLevel l = level(p);
@@ -1320,6 +1365,7 @@ public final class Xlr8Kit extends AlienKit {
 		if (timer(p, "od_mode_was") == 0) {
 			setSpeedMode(p, false);
 		}
+		applySprint(p);
 		if (announce) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.xlr8.overdrive_off").withStyle(ChatFormatting.GRAY), true);
 			OmnitrixSounds.play(level(p), p.position(), SND_VISOR, 0.8f, 0.8f);
@@ -1536,7 +1582,7 @@ public final class Xlr8Kit extends AlienKit {
 		if (target instanceof LivingEntity le && ready(p, JAB)) {
 			anim(p, ANIM_JAB);
 			le.invulnerableTime = 0;
-			hurt(p, le, JAB_EXTRA, false);
+			hit(p, le, JAB_EXTRA);
 			le.invulnerableTime = 0; // the fist itself still lands this tick
 			level(p).sendParticles(ParticleTypes.CRIT, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 5, 0.2, 0.3, 0.2, 0.3);
 		}

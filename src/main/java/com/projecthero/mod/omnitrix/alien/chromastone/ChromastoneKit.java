@@ -46,6 +46,9 @@ import net.minecraft.world.phys.Vec3;
  * engine is the Charge meter (0-100). Light and energy only: the crystal-shard / spike moves were Diamondhead's and are gone.
  * No Ultimate forms (user: "dont add ultimate aliens yet"). The body is only the player model in the user's skin.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Prism Bolt       a bolt of UV light (6), 0.6 s, free
  *   Shift+R    Prism Beam       20 charge: a rainbow beam (28) piercing everything in line, 15 each
@@ -150,35 +153,36 @@ public final class ChromastoneKit extends AlienKit {
 	public static final String CHARGE = "charge";
 	public static final String REDIRECT_END = "redirect_end", SHIELD_END = "shield_end", OVER_AT = "over_at";
 
-	public static final float BOLT_DAMAGE = 6f;
-	public static final float PRISM_DAMAGE = 15f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float BOLT_DAMAGE = 10f;
+	public static final float PRISM_DAMAGE = 26f;
 	public static final int PRISM_COST = 20;
 	public static final int REDIRECT_TICKS = 30, REDIRECT_MAX = 3;
-	public static final float REDIRECT_MIN = 8f, REDIRECT_CAP = 17f, REDIRECT_FACTOR = 1.5f;
-	public static final float REFRACT_DAMAGE = 12f;
+	public static final float REDIRECT_MIN = 12f, REDIRECT_CAP = 28f, REDIRECT_FACTOR = 1.5f;
+	public static final float REFRACT_DAMAGE = 20f;
 	public static final int REFRACT_COST = 30;
 	public static final float FLY_SPEED = 0.05f;
 	public static final int DASH_COST = 10;
-	public static final float DASH_DAMAGE = 6f;
+	public static final float DASH_DAMAGE = 10f;
 	public static final double DASH_LENGTH = 8.0;
-	public static final float RADIANT_DAMAGE = 13f, RADIANT_CHARGED = 17f;
+	public static final float RADIANT_DAMAGE = 22f, RADIANT_CHARGED = 30f;
 	public static final int RADIANT_COST = 25, RADIANT_BEAMS = 8;
 	public static final double RADIANT_RANGE = 14.0;
-	public static final float RELEASE_BASE = 8f;
+	public static final float RELEASE_BASE = 14f, RELEASE_PER_CHARGE = 0.15f;
 	public static final int FLARE_COST = 15;
-	public static final float FLARE_UNDEAD = 6f;
+	public static final float FLARE_UNDEAD = 10f;
 	public static final double FLARE_RADIUS = 8.0;
 	public static final int STANCE_TICKS = 100;
 	public static final int SHIELD_COST = 20, SHIELD_TICKS = 120;
 	public static final float SHIELD_FACTOR = 0.3f;
 	public static final int FIST_MIN = 25, FIST_COST = 2;
-	public static final float FIST_BONUS = 3f;
+	public static final float FIST_BONUS = 5f;
 	public static final int SPECTRUM_MIN = 50;
-	public static final float SPECTRUM_BASE = 40f;
+	public static final float SPECTRUM_BASE = 70f, SPECTRUM_PER_CHARGE = 0.8f;
 	public static final int SPECTRUM_WINDUP = 15;
 	public static final double SPECTRUM_RANGE = 32.0;
 	public static final int OVERLOAD_TICKS = 200, OVERLOAD_LEFT = 40;
-	public static final float OVERLOAD_DAMAGE = 10f, OVERLOAD_SELF = 4f;
+	public static final float OVERLOAD_DAMAGE = 16f, OVERLOAD_SELF = 4f;
 	public static final double OVERLOAD_RADIUS = 4.0;
 
 	/** v0.17.2 revamp: player -> how many hits the current Redirect has fired back. */
@@ -202,7 +206,7 @@ public final class ChromastoneKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(34).speed(0.95f).armor(10, 2).attack(4).knockbackResist(0.4f).safeFall(3).build();
+		return AlienStats.builder().health(34).speed(0.95f).armor(10, 2).attack(7).knockbackResist(0.4f).safeFall(3).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override
@@ -639,7 +643,7 @@ public final class ChromastoneKit extends AlienKit {
 		setFlag(p, F_SPECTRUM, false);
 		setTimer(p, "spectrum_at", 0);
 		int c = charge(p);
-		float dmg = SPECTRUM_BASE + Math.max(0, c - SPECTRUM_MIN) * 0.6f;
+		float dmg = SPECTRUM_BASE + Math.max(0, c - SPECTRUM_MIN) * SPECTRUM_PER_CHARGE;
 		setCharge(p, 0);
 		for (LivingEntity e : RecalKitMath.line(p, p.getLookAngle(), SPECTRUM_RANGE, 1.3)) {
 			hurt(p, e, dmg, false);
@@ -715,7 +719,7 @@ public final class ChromastoneKit extends AlienKit {
 		}
 		anim(p, ANIM_RELEASE);
 		int c = charge(p);
-		float dmg = RELEASE_BASE + c * 0.1f;
+		float dmg = RELEASE_BASE + c * RELEASE_PER_CHARGE;
 		setCharge(p, 0);
 		for (LivingEntity e : around(p, p.position(), 6)) {
 			hurt(p, e, dmg, false);

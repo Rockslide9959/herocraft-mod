@@ -161,11 +161,22 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 		helper.assertTrue(kit.phase(p), "phased again");
 		p.move(MoverType.SELF, new Vec3(0, 3.4, 0));
 		helper.assertTrue(Math.abs(p.getY() - (under.y + 3.4)) < 1.0e-3, "phased: rises INTO the roof");
-		// the phase runs out while he is in the roof: settled outside, never stuck
+		// v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please"): it never runs out -- he stays
+		// in the roof well past the old 5 s, then X turns it off there: settled outside, never stuck
 		pump(helper, p);
-		helper.runAfterDelay(GhostfreakKit.PHASE_TICKS + 3, () -> {
-			helper.assertFalse(kit.phasing(p), "the phase ran out");
+		helper.runAfterDelay(140, () -> {
+			helper.assertTrue(kit.phasing(p) && kit.keyActive(p, AbilitySlot.SLOT_3), "still phased after 7 s (no time limit), X lit");
+			float hp2 = p.getHealth();
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().inWall(), 1f);
+			helper.assertTrue(p.getHealth() == hp2, "no suffocating in the roof");
+			kit.press(p, AbilitySlot.SLOT_3, false);
+			helper.assertFalse(kit.phasing(p) || kit.keyActive(p, AbilitySlot.SLOT_3), "X again: solid");
 			helper.assertTrue(helper.getLevel().noCollision(p, p.getBoundingBox()), "and he was put in open space: " + p.position());
+			int cd = kit.cooldownLeft(p, GhostfreakKit.PHASE);
+			helper.assertTrue(cd > 0 && cd <= GhostfreakKit.PHASE_COOLDOWN, "a short cooldown after turning it off: " + cd);
+			kit.press(p, AbilitySlot.SLOT_3, false);
+			helper.assertFalse(kit.phasing(p), "no spamming it straight back on");
 			// the Ecto Rush goes through floors too, and lands in the open
 			kit.cooldown(p, GhostfreakKit.RUSH, 0);
 			Vec3 at = helper.absoluteVec(new Vec3(8.5, 2, 4.5));
@@ -321,7 +332,11 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 
 	// ================================================================ Fade / Phantom Grasp / Tendril Snatch
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	/**
+	 * v0.17.2 (user: "make ghost freaks invisibility toggleable and remove the time limits on it"): C on, and it is still on
+	 * well past the old 10 s; C off; then a ~1 s cooldown so it cannot be spammed.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void ghostfreakFadeIsTrulyUnseenByMobs(GameTestHelper helper) {
 		ServerPlayer p = ghost(helper);
 		GhostfreakKit kit = kit();
@@ -331,18 +346,65 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 		helper.assertTrue(z.getTarget() == p, "seen: it targets him");
 		kit.press(p, AbilitySlot.SLOT_6, false);
 		helper.assertTrue(kit.flag(p, GhostfreakKit.F_INVIS) && p.hasEffect(MobEffects.INVISIBILITY) && GhostfreakKit.unseen(p), "C: Invisibility");
+		helper.assertTrue(kit.keyActive(p, AbilitySlot.SLOT_6) && kit.cooldownLeft(p, GhostfreakKit.FADE) == 0, "C lit, no cooldown running while on");
 		Omnitrix.tick(p);
 		z.setTarget(p);
 		helper.assertTrue(z.getTarget() == null, "faded: no mob can target him");
 		boss.setTarget(p);
 		helper.assertTrue(boss.getTarget() == p, "a boss still senses him");
-		kit.press(p, AbilitySlot.SLOT_6, false);
-		helper.assertFalse(kit.flag(p, GhostfreakKit.F_INVIS) || p.hasEffect(MobEffects.INVISIBILITY), "C again: seen again");
-		z.setTarget(p);
-		helper.assertTrue(z.getTarget() == p, "and targetable again");
-		z.discard();
-		boss.discard();
+		pump(helper, p);
+		helper.runAfterDelay(260, () -> {
+			helper.assertTrue(kit.flag(p, GhostfreakKit.F_INVIS) && p.hasEffect(MobEffects.INVISIBILITY), "still invisible after 13 s: no time limit");
+			kit.press(p, AbilitySlot.SLOT_6, false);
+			helper.assertFalse(kit.flag(p, GhostfreakKit.F_INVIS) || p.hasEffect(MobEffects.INVISIBILITY) || kit.keyActive(p, AbilitySlot.SLOT_6),
+					"C again: seen again");
+			int cd = kit.cooldownLeft(p, GhostfreakKit.FADE);
+			helper.assertTrue(cd > 0 && cd <= GhostfreakKit.FADE_COOLDOWN, "a ~1 s cooldown after: " + cd);
+			kit.press(p, AbilitySlot.SLOT_6, false);
+			helper.assertFalse(kit.flag(p, GhostfreakKit.F_INVIS), "no spamming it straight back on");
+			z.setTarget(p);
+			helper.assertTrue(z.getTarget() == p, "and targetable again");
+			z.discard();
+			boss.discard();
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * v0.17.2 (user: "make ghost freaks flight the directional flight where he flies in the direction he looks please"): the
+	 * client's directional flight settles at 0.75 blocks a tick cruising (15 b/s) and 1.5 sprinting (30 b/s), along the look.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ghostfreakDirectionalFlightCruises15AndSprints30(GameTestHelper helper) {
+		com.projecthero.mod.flight.DirectionalFlightModel.Tune cruise = com.projecthero.mod.flight.DirectionalFlightModel.ghostfreak(GhostfreakKit.FLY_SPEED, false);
+		com.projecthero.mod.flight.DirectionalFlightModel.Tune sprint = com.projecthero.mod.flight.DirectionalFlightModel.ghostfreak(GhostfreakKit.FLY_SPEED, true);
+		helper.assertTrue(Math.abs(settled(cruise, new Vec3(0, 0, 1)).length() - 0.75) < 0.02, "cruise 15 blocks a second");
+		helper.assertTrue(Math.abs(settled(sprint, new Vec3(0, 0, 1)).length() - 1.5) < 0.02, "sprint 30 blocks a second");
+		// looking up 45 degrees: W carries him up along the look, not level
+		Vec3 up = new Vec3(0, Math.sin(Math.toRadians(45)), Math.cos(Math.toRadians(45)));
+		Vec3 v = settled(cruise, up);
+		helper.assertTrue(v.y > 0.3 && Math.abs(v.y - v.z) < 0.05, "flies where he looks: " + v);
+		// and the kit keeps it a double-tap: mayfly on transform, the flag the client flight reads follows abilities.flying
+		ServerPlayer p = ghost(helper);
+		GhostfreakKit kit = kit();
+		helper.assertTrue(p.getAbilities().mayfly, "always ready to fly (double-tap jump)");
+		p.getAbilities().flying = true;
+		Omnitrix.tick(p);
+		helper.assertTrue(kit.flag(p, GhostfreakKit.F_FLY), "flying");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertFalse(p.getAbilities().flying || p.getAbilities().mayfly, "human again: no flight left over");
 		helper.succeed();
+	}
+
+	/** Flight along {@code look} with W held for 200 ticks of the shared directional model: the velocity it settles at. */
+	private static Vec3 settled(com.projecthero.mod.flight.DirectionalFlightModel.Tune tune, Vec3 look) {
+		Vec3 v = Vec3.ZERO;
+		float yaw = 0f;
+		for (int i = 0; i < 200; i++) {
+			Vec3 wanted = com.projecthero.mod.flight.DirectionalFlightModel.wantedVelocity(look, yaw, 1f, 0f, 0, tune);
+			v = com.projecthero.mod.flight.DirectionalFlightModel.step(v, wanted, true, tune, false);
+		}
+		return v;
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

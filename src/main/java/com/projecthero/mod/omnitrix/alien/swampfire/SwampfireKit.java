@@ -64,6 +64,9 @@ import net.minecraft.world.phys.Vec3;
  * all this stuff but dont add ultimate aliens yet please"): gas + fire is his combo engine, and being "killed" is a regrowth
  * moment. No Ultimate Swampfire, no blue fire: the Shift+Z ultimate is an ordinary orange methane explosion and a Methane Surge.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Fire Blast       a methane fireball (7, alight 4 s, 0.75 s); flying through his gas cloud sets the cloud off
  *   Shift+R    Methane Torch    HOLD up to 2 s: a cone of burning gas that grows while held (3.5 every 0.5 s, up to 14, alight 5 s),
@@ -145,14 +148,15 @@ public final class SwampfireKit extends AlienKit {
 	public static final String P_CLOUD = "cloud", P_BLAST = "blast", P_ROOTS = "roots", P_ANCHOR = "anchor", P_TANGLE = "tangle", P_LASH = "lash",
 			P_MINE = "mine", P_SNAP = "snap";
 
-	public static final float BLAST_DAMAGE = 7f;
-	public static final float TORCH_PULSE_DAMAGE = 3.5f;
+// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float BLAST_DAMAGE = 11f;
+	public static final float TORCH_PULSE_DAMAGE = 9f;
 	public static final int TORCH_MAX_TICKS = 40, TORCH_PULSE = 10, TORCH_COOLDOWN = 120;
 	public static final double TORCH_RANGE = 8.0, TORCH_DEG = 60.0;
-	public static final float SEED_DAMAGE = 15f, SEED_RADIUS = 3.5f;
+	public static final float SEED_DAMAGE = 25f, SEED_RADIUS = 3.5f, SEED_IMPACT = 8f;
 	public static final int SEED_ROOT = 40, TANGLE_TICKS = 40;
 	public static final double TANGLE_RADIUS = 2.5;
-	public static final float SNARE_DAMAGE = 6f;
+	public static final float SNARE_DAMAGE = 10f;
 	public static final double SNARE_RANGE = 20.0, YANK_DISTANCE = 4.0;
 	public static final int SNARE_TICKS = 60;
 	public static final int JET_TICKS = 30;
@@ -160,12 +164,12 @@ public final class SwampfireKit extends AlienKit {
 	public static final int SWING_HOLD = 6, SWING_MAX = 100;
 	public static final double CLOUD_RADIUS = 4.0;
 	public static final int CLOUD_TICKS = 120;
-	public static final float CLOUD_DAMAGE = 2f;
-	public static final float IGNITE_DAMAGE = 19f, IGNITE_RADIUS = 5f;
+	public static final float CLOUD_DAMAGE = 7f;
+	public static final float IGNITE_DAMAGE = 32f, IGNITE_RADIUS = 5f;
 	public static final double IGNITE_RING = 4.0;
 	public static final int IGNITE_FIRE_TICKS = 100;
 	public static final int CHARGE_TICKS = 20;
-	public static final float INFERNO_DAMAGE = 60f, INFERNO_EDGE = 40f, INFERNO_RADIUS = 8f;
+	public static final float INFERNO_DAMAGE = 100f, INFERNO_EDGE = 70f, INFERNO_RADIUS = 8f;
 	public static final int INFERNO_FIRE_TICKS = 120, SURGE_TICKS = 240;
 	public static final float SURGE_FACTOR = 1.25f;
 	public static final int REGROW_TICKS = 60;
@@ -173,14 +177,14 @@ public final class SwampfireKit extends AlienKit {
 	public static final double BLOOM_RADIUS = 4.0;
 	public static final int LADDER_MAX = 8, LADDER_TICKS = 600;
 	public static final double LADDER_REACH = 5.0;
-	public static final float ROOTS_DAMAGE = 16f;
+	public static final float ROOTS_DAMAGE = 26f;
 	public static final int ROOTS_SPIKES = 6;
 	public static final double ROOTS_SPACING = 1.7;
 	public static final int SCATTER_SEEDS = 5, MINE_TICKS = 400, MINE_ROOT = 30, MAX_MINES = 5;
-	public static final float MINE_DAMAGE = 8f;
+	public static final float MINE_DAMAGE = 14f;
 	public static final double MINE_TRIGGER = 2.0;
-	public static final float FIST_BONUS = 2f;
-	public static final float LASH_DAMAGE = 6f;
+	public static final float FIST_BONUS = 4f;
+	public static final float LASH_DAMAGE = 10f;
 	public static final double LASH_RANGE = 6.0;
 	public static final int MULCH_TICKS = 60, REASSEMBLY_COOLDOWN = 3000;
 	public static final float REFORM_HEALTH = 10f;
@@ -348,7 +352,7 @@ public final class SwampfireKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(32).speed(1.0f).scale(1.0f).armor(6, 1).knockbackResist(0.1f).attack(3).build();
+		return AlienStats.builder().health(32).speed(1.0f).scale(1.0f).armor(6, 1).knockbackResist(0.1f).attack(9).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override
@@ -750,7 +754,7 @@ public final class SwampfireKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_SEED);
-		AlienProjectileEntity.of(p, "swampfire_seed").colour(0x6A9A2A).size(0.45f).damage(4f).blast(SEED_RADIUS, SEED_DAMAGE).gravity(0.05).speed(1.15)
+		AlienProjectileEntity.of(p, "swampfire_seed").colour(0x6A9A2A).size(0.45f).damage(SEED_IMPACT).blast(SEED_RADIUS, SEED_DAMAGE).gravity(0.05).speed(1.15)
 				.life(80).spawn();
 		OmnitrixSfx.play(level(p), p.position(), SND_SEED, 1f, 1f);
 		return true;
@@ -1303,7 +1307,7 @@ public final class SwampfireKit extends AlienKit {
 		}
 		if (target instanceof LivingEntity le) {
 			if (le.isOnFire()) {
-				// v0.17.2 revamp: +2 against a creature already burning (its own hit; vanilla's punch still lands after it)
+				// v0.17.2 revamp: +4 (damage pass; was +2) against a creature already burning (its own hit; vanilla's punch still lands after it)
 				hurt(p, le, FIST_BONUS, true);
 				le.invulnerableTime = 0;
 			}

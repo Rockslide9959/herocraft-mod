@@ -120,7 +120,7 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		p.hurt(helper.getLevel().damageSources().mobAttack(z), 4f);
 		helper.assertTrue(ChromastoneKit.charge(p) == 40, "a blow cracks him instead of charging him");
 		helper.assertTrue(k.prismBeam(p), "with 40 charge the Prism Beam fires");
-		near(helper, v.getHealth(), 40f - ChromastoneKit.PRISM_DAMAGE, "the beam does 15");
+		near(helper, v.getHealth(), 40f - ChromastoneKit.PRISM_DAMAGE, "the beam does 26");
 		helper.assertTrue(ChromastoneKit.charge(p) == 40 - ChromastoneKit.PRISM_COST, "and spends 20 charge");
 		helper.assertFalse(k.prismBeam(p), "a second press while cooling down does nothing");
 		helper.assertTrue(ChromastoneKit.charge(p) == 20, "and costs nothing");
@@ -138,7 +138,8 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().indirectMagic(z, z), 6f);
 		near(helper, p.getHealth(), hp, "the energy hit is absorbed whole");
-		near(helper, z.getHealth(), 40f - 9f, "and fired back at the zombie at 1.5x (9)");
+		near(helper, z.getHealth(), 40f - Math.max(ChromastoneKit.REDIRECT_MIN, 6f * ChromastoneKit.REDIRECT_FACTOR),
+				"and fired back at the zombie: 1.5x (9), raised to the 12 floor");
 		helper.assertTrue(ChromastoneKit.charge(p) == 24, "with full charge for it (24, got " + ChromastoneKit.charge(p) + ")");
 		helper.assertTrue(k.cooldownLeft(p, ChromastoneKit.REDIRECT) > 0, "Redirect cools down");
 		helper.succeed();
@@ -162,7 +163,7 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		k.setCharge(p, 30);
 		front.invulnerableTime = 0;
 		helper.assertTrue(k.radiantBurst(p), "again, charged");
-		near(helper, front.getHealth(), 60f - ChromastoneKit.RADIANT_DAMAGE - ChromastoneKit.RADIANT_CHARGED, "with 25 charge spent: 17");
+		near(helper, front.getHealth(), 60f - ChromastoneKit.RADIANT_DAMAGE - ChromastoneKit.RADIANT_CHARGED, "with 25 charge spent: 30");
 		helper.assertTrue(ChromastoneKit.charge(p) == 5, "30 - 25 = 5 charge left");
 		helper.succeed();
 	}
@@ -186,13 +187,13 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		// UV Flare: blinds; the undead burn
 		helper.assertTrue(k.uvFlare(p), "Shift+C: the UV Flare");
 		helper.assertTrue(undead.hasEffect(MobEffects.BLINDNESS) && v.hasEffect(MobEffects.BLINDNESS), "everything near is blinded");
-		near(helper, undead.getHealth(), 40f - ChromastoneKit.FLARE_UNDEAD, "the zombie burns in the ultraviolet (6)");
+		near(helper, undead.getHealth(), 40f - ChromastoneKit.FLARE_UNDEAD, "the zombie burns in the ultraviolet (10)");
 		helper.assertTrue(undead.isOnFire(), "and is set alight");
 		near(helper, v.getHealth(), 40f, "the villager is unhurt");
 		helper.assertTrue(ChromastoneKit.charge(p) == 25, "15 charge spent");
 		// Charged Fists
 		k.onAttack(p, v);
-		near(helper, v.getHealth(), 40f - ChromastoneKit.FIST_BONUS, "a charged blow flares: +3");
+		near(helper, v.getHealth(), 40f - ChromastoneKit.FIST_BONUS, "a charged blow flares: +5");
 		helper.assertTrue(ChromastoneKit.charge(p) == 23, "for 2 charge");
 		helper.succeed();
 	}
@@ -213,7 +214,7 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		float hp = p.getHealth();
 		k.overload(p, helper.getLevel());
 		helper.assertTrue(ChromastoneKit.charge(p) == ChromastoneKit.OVERLOAD_LEFT, "the charge bursts down to 40");
-		near(helper, v.getHealth(), 40f - ChromastoneKit.OVERLOAD_DAMAGE, "10 to what stands near");
+		near(helper, v.getHealth(), 40f - ChromastoneKit.OVERLOAD_DAMAGE, "16 to what stands near");
 		helper.assertTrue(p.getHealth() < hp, "and it hurts him too");
 		helper.assertFalse(k.flag(p, ChromastoneKit.F_OVER), "the overload is over");
 		helper.succeed();

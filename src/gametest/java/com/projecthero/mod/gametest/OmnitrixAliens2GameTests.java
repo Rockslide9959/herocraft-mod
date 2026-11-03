@@ -430,8 +430,8 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		p.hurt(helper.getLevel().damageSources().drown(), 4f);
 		near(helper, p.getHealth(), hp, "he breathes water: no drowning");
 		near(helper, kit.damage(p, 10f), 10f, "on land a move does its base damage");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1 + 3 + RipjawsKit.WET_FIST - 0.5, "no wet-fist bonus on land");
-		// two minutes on land, then he chokes
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1 + 5 + RipjawsKit.WET_FIST - 0.5, "no wet-fist bonus on land");
+		// 60 s on land (v0.17.2: was two minutes), then he chokes
 		kit.setDryness(p, RipjawsKit.MAX_DRY - 1, false, false);
 		pump(helper, p);
 		helper.runAfterDelay(RipjawsKit.CHOKE_EVERY + 4, () -> {
@@ -450,7 +450,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				helper.assertFalse(kit.flag(p, RipjawsKit.F_CHOKING), "no longer choking");
 				near(helper, kit.damage(p, 10f), 10f * RipjawsKit.WATER_BONUS, "x1.25 damage in water");
 				helper.assertFalse(p.hasEffect(MobEffects.WEAKNESS), "getting wet clears the choking's weakness");
-				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1 + 3 + RipjawsKit.WET_FIST - 1.0e-6, "and a heavier fist");
+				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1 + 5 + RipjawsKit.WET_FIST - 1.0e-6, "and a heavier fist");
 				helper.assertTrue(p.hasEffect(MobEffects.DOLPHINS_GRACE) && p.hasEffect(MobEffects.CONDUIT_POWER), "fast and clear-eyed in water");
 				// turning back strips the water buffs
 				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
@@ -738,6 +738,67 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.2 (user: "lower his time out of water to 60 seconds please"): a full meter lasts exactly 60 s of dry land. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void ripjawsHydrationLastsSixtySeconds(GameTestHelper helper) {
+		floor(helper);
+		helper.assertTrue(RipjawsKit.MAX_DRY == 60 * 20, "60 s of dryness (" + RipjawsKit.MAX_DRY + ")");
+		ServerPlayer p = as(helper, RipjawsKit.ID);
+		RipjawsKit kit = (RipjawsKit) Aliens.kit(RipjawsKit.ID);
+		long now = helper.getLevel().getGameTime();
+		kit.setDryness(p, 0, false, false); // full, on plain dry land
+		near(helper, RipjawsKit.hydration(p, now), 1f, "full");
+		near(helper, RipjawsKit.hydration(p, now + 600), 0.5f, "half gone after 30 s");
+		helper.assertTrue(RipjawsKit.dryness(p, now + 60 * 20 - 1) < RipjawsKit.MAX_DRY, "still breathing at 59.95 s");
+		helper.assertTrue(RipjawsKit.dryness(p, now + 60 * 20) == RipjawsKit.MAX_DRY, "empty at 60 s");
+		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+		helper.succeed();
+	}
+
+	/**
+	 * v0.17.2 (user: "make ripjaws cruise swim at 10 blocks per second and his sprint swim be 30 blocks per second please"): the swim
+	 * velocity along his look, and the per-tick correction that takes vanilla's own additions back off -- run against a stand-in
+	 * for vanilla's water travel (a constant key push and pitch nudge added before the move), the distance moved each tick settles
+	 * on exactly 0.5 / 1.5 blocks (10 / 30 a second) from the second tick on.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 20)
+	public void ripjawsSwimsTenCruisingAndThirtySprinting(GameTestHelper helper) {
+		Vec3 look = new Vec3(0.3, -0.4, -0.8).normalize();
+		near(helper, (float) (RipjawsKit.swimVelocity(look, false, true).length() * 20), 10f, "cruise: 10 blocks a second");
+		near(helper, (float) (RipjawsKit.swimVelocity(look, true, true).length() * 20), 30f, "sprint swim: 30 blocks a second");
+		helper.assertTrue(RipjawsKit.swimVelocity(look, true, true).normalize().distanceTo(look) < 1.0e-6, "steered by his look");
+		Vec3 up = new Vec3(0, 0.6, -0.8);
+		Vec3 surface = RipjawsKit.swimVelocity(up, false, false);
+		helper.assertTrue(Math.abs(surface.y) < 1.0e-9 && Math.abs(surface.length() * 20 - 10) < 1.0e-6, "head above water: level, no climbing out");
+		for (boolean sprint : new boolean[] { false, true }) {
+			Vec3 desired = RipjawsKit.swimVelocity(look, sprint, true);
+			Vec3 extra = new Vec3(0.04, -0.03, -0.06); // what vanilla adds on top each tick
+			Vec3 set = null, moved = null;
+			for (int t = 0; t < 6; t++) {
+				set = RipjawsKit.swimPush(desired, set, moved, false);
+				moved = set.add(extra); // vanilla's travel: its additions, then the move
+				if (t >= 1) {
+					helper.assertTrue(moved.distanceTo(desired) < 1.0e-9, (sprint ? "sprint" : "cruise") + " tick " + t + ": moved " + moved.length() * 20 + " b/s");
+				}
+			}
+			near(helper, (float) (moved.length() * 20), sprint ? 30f : 10f, sprint ? "settles on 30 b/s" : "settles on 10 b/s");
+		}
+		// a bump resets the correction; a wild jump (a teleport) is capped
+		Vec3 d = RipjawsKit.swimVelocity(look, false, true);
+		helper.assertTrue(RipjawsKit.swimPush(d, d, Vec3.ZERO, true).equals(d), "after a bump: no correction");
+		helper.assertTrue(RipjawsKit.swimPush(d, d, d.add(50, 50, 50), false).distanceTo(d) <= RipjawsKit.SWIM_BIAS_CAP * Math.sqrt(3) + 1.0e-9,
+				"the correction is capped");
+		// the launch moves keep their own velocity for a moment
+		OmnitrixState s = new OmnitrixState();
+		s.animId = RipjawsKit.ANIM_DASH;
+		s.animStart = 100;
+		helper.assertTrue(RipjawsKit.swimHeld(s, 105), "the Water Dash keeps its burst");
+		helper.assertFalse(RipjawsKit.swimHeld(s, 130), "then he swims again");
+		s.animId = RipjawsKit.ANIM_BITE;
+		helper.assertFalse(RipjawsKit.swimHeld(s, 105), "a bite does not stop the swim");
+		helper.succeed();
+	}
+
 	// ================================================================ Grey Matter
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -881,14 +942,17 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		g.moveTo(at.x, at.y, at.z, 180f, 0f);
 		g.setNoAi(true);
 		g.setPersistenceRequired();
+		// v0.17.2 damage pass: six pulses of ~18 (109) would finish a plain 100-health golem -- a tougher one (still under a boss's 150) shows the full rewire
+		g.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(140.0);
+		g.setHealth(140f);
 		helper.getLevel().addFreshEntity(g);
-		helper.assertTrue(GreyMatterKit.machine(g) && GreyMatterKit.insidePulse(g) == GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR, "a golem is a machine: 9 a pulse");
+		helper.assertTrue(GreyMatterKit.machine(g) && GreyMatterKit.insidePulse(g) == GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR, "a golem is a machine: ~18 a pulse");
 		float g0 = g.getHealth();
 		helper.assertTrue(kit.insideJob(p) && p.getVehicle() == g, "inside the golem");
 		pump(helper, p);
 		helper.runAfterDelay(GreyMatterKit.INSIDE_TICKS + 8, () -> {
 			helper.assertTrue(p.getVehicle() == null && !GreyMatterKit.inside(p), "out of the golem");
-			helper.assertTrue(Math.abs(g.getHealth() - (g0 - 6 * GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR)) < 1.5f, "rewired for 54: " + g.getHealth());
+			helper.assertTrue(Math.abs(g.getHealth() - (g0 - 6 * GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR)) < 1.5f, "rewired for ~109: " + g.getHealth());
 			helper.assertTrue(rooted(g), "shut down");
 			g.discard();
 			// a creature that dies while he is in it: out where it fell

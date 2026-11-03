@@ -191,6 +191,12 @@ public final class Omnitrix {
 
 	/** v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery's charge in milli-ticks, and the tick it was stored at (no entry = full). */
 	public static final String BATTERY = "omnitrix.battery", BATTERY_AT = "omnitrix.battery_at";
+	/**
+	 * v0.17.2 (user: "if you transform into alien X you watch battery stops depleting and you can basically stay as him for as long
+	 * as you like until you detransform"): while this timer is set (by AlienXKit on transforming) the battery reads this many ticks,
+	 * the time limit is held off like Master Control's, and turning back stores exactly this. Cleared on revert.
+	 */
+	public static final String HOLD_BATTERY = "omnitrix.hold_battery";
 
 	/** v0.17.2: the Recalibrated Omnitrix's battery, in ticks of alien time left (client-safe: the synced state). */
 	public static int batteryTicks(Player p) {
@@ -202,6 +208,9 @@ public final class Omnitrix {
 		long max = OmnitrixConfig.BATTERY_TICKS;
 		if (s.readyAt(MASTER) == 1L) {
 			return (int) max;
+		}
+		if (s.transformed() && s.timers.containsKey(HOLD_BATTERY)) {
+			return (int) net.minecraft.util.Mth.clamp(s.readyAt(HOLD_BATTERY), 0L, max); // v0.17.2: Alien X -- held where it was
 		}
 		if (s.transformed()) {
 			long until = poweringDown(s) ? Math.min(now, s.readyAt(POWER_DOWN_TIMER)) : now;
@@ -486,21 +495,19 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
-		// v0.17.2: a recalibrating watch has no failsafe (user: "if the player dies it wont halt anything")
+		if (s.transformed()) {
+			// v0.17.2 (user: "when player is in alien form and dies they revert back to base form, dont make that the omnitrix failsafe
+			// activating just make that a normal feature, have the player detransform back to a player at full hp"): an alien that
+			// would die always turns back into a human on full health, with the normal recharge -- not the failsafe, which stays armed
+			revert(p, Reason.FAILSAFE);
+			p.setHealth(p.getMaxHealth());
+			shield(p);
+			return true;
+		}
+		// v0.17.2 (user: "Make the omnitrix failsafe activate when the player isnt transformed and give it a 20 seconds cooldown"):
+		// the failsafe saves a human; a recalibrating watch has none (user: "if the player dies it wont halt anything")
 		if (now < s.readyAt(FAILSAFE_READY) || extracting(p) || com.projecthero.mod.hero.PowerSuppression.isSuppressed(p) || OmnitrixRecal.busy(s)) {
 			return false;
-		}
-		if (s.transformed()) {
-			// an alien: thrown back to human, the normal recharge, and the failsafe offline for a while
-			revert(p, Reason.FAILSAFE);
-			OmnitrixState n = state(p).copy();
-			n.timers.put(FAILSAFE_READY, now + OmnitrixConfig.FAILSAFE_OFFLINE_TICKS);
-			save(p, n);
-			p.setHealth(Math.min(p.getMaxHealth(), OmnitrixConfig.FAILSAFE_HEALTH));
-			shield(p);
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.failsafe").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
-					true);
-			return true;
 		}
 		// human: straight into the alien that fits, no hold, no slap
 		OmnitrixAuto.Pick pick = OmnitrixAuto.pick(p);
@@ -513,6 +520,7 @@ public final class Omnitrix {
 		n.selecting = false;
 		n.rechargeUntil = 0L;
 		n.timers.remove(OmnitrixAuto.HOLD_TIMER);
+		n.timers.put(FAILSAFE_READY, now + OmnitrixConfig.FAILSAFE_OFFLINE_TICKS); // 20 s before it can save him again
 		clearSlap(n);
 		save(p, n);
 		if (!transform(p)) {
@@ -947,6 +955,7 @@ public final class Omnitrix {
 		n.timers.remove(POWER_DOWN_TIMEOUT);
 		n.timers.remove(PENDING_SWITCH);
 		n.timers.remove(BADGE_HIT);
+		n.timers.remove(HOLD_BATTERY); // v0.17.2: Alien X's held battery
 		boolean recal = n.readyAt(RECAL) == 1L;
 		if (recal) {
 			// v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery keeps what it had left (flat after a timeout), refilling from now
@@ -1318,7 +1327,7 @@ public final class Omnitrix {
 			}
 			boolean glitched = !state(p).selected.equals(dialled);
 			if (transform(p) && glitched) {
-				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.glitch").withStyle(ChatFormatting.YELLOW), true);
+				// v0.17.2 (user: "when the player mistransforms into the wrong alien dont make the text show up"): no message
 				OmnitrixState g = state(p).copy();
 				g.selected = dialled; // the dial stays where he put it
 				save(p, g);
@@ -1375,7 +1384,7 @@ public final class Omnitrix {
 				OmnitrixAbilityManager.tick(p);
 				return;
 			}
-			if (s.readyAt(MASTER) == 1L) {
+			if (s.readyAt(MASTER) == 1L || s.timers.containsKey(HOLD_BATTERY)) { // v0.17.2: Alien X holds the time limit off too
 				// v0.17.1 Master Control: no time limit -- the clock is held full
 				if (now % 20 == 0 && s.endsAt - now < OmnitrixConfig.TRANSFORM_TICKS - 10) {
 					OmnitrixState n = state(p).copy();

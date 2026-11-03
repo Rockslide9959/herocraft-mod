@@ -231,14 +231,17 @@ public final class GreyMatterKit extends AlienKit {
 	/** v0.17.2 Swatted: his keys are dead until this game time (a big creature's hit). */
 	public static final String SWAT_END = "swat_end";
 
-	public static final float SCALE = 0.33f;
+	public static final float SCALE = 5f / 32f; // v0.17.2 (user: "make grey matter 5 pixels tall please") -- 5 of a player's 32
 	public static final int STUN_TICKS = 60;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1 / 12 / 2 / none
-	public static final float PINCH_DAMAGE = 4f;
-	public static final float STRIKE_DAMAGE = 18f;
-	/** What Weak-Spot Strike lands on an Analyze-marked creature, after the mark's x1.35 (the strike is scaled down to land on 24). */
-	public static final float STRIKE_MARKED_DAMAGE = 24f;
-	public static final float SNARE_DAMAGE = 10f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): he stays small, but his clever moves hit hard enough to matter (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float PINCH_DAMAGE = 6f;
+	public static final float STRIKE_DAMAGE = 28f;
+	/** What Weak-Spot Strike lands on an Analyze-marked creature, after the mark's x1.35 (the strike is scaled down to land on 38). */
+	public static final float STRIKE_MARKED_DAMAGE = 38f;
+	public static final float SNARE_DAMAGE = 18f;
+	/** Precision Jab: what his punch adds on an analysed creature. */
+	public static final float JAB_DAMAGE = 2f;
 	public static final float MARK_FACTOR = 1.35f;
 	public static final int MARK_TICKS = 200;
 	public static final int SCURRY_TICKS = 100;
@@ -259,7 +262,7 @@ public final class GreyMatterKit extends AlienKit {
 	/** Gizmo Turret. */
 	public static final double TURRET_PLACE = 6.0, TURRET_RANGE = 10.0, TURRET_TAUNT = 10.0;
 	public static final int TURRET_TICKS = 200, TURRET_SHOT_GAP = 10;
-	public static final float TURRET_DAMAGE = 2f, TURRET_HP = 6f;
+	public static final float TURRET_DAMAGE = 4f, TURRET_HP = 6f;
 	/** Scurry's smoke puff (what is left of Smoke Charge). */
 	public static final float PUFF_RADIUS = 3f;
 	public static final int PUFF_BLIND = 40;
@@ -267,7 +270,8 @@ public final class GreyMatterKit extends AlienKit {
 	public static final double INSIDE_RANGE = 6.0;
 	public static final int INSIDE_TICKS = 60, INSIDE_PULSE = 10;
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 6 pulses of 8 = 48 (machines x1.4, ~67)
-	public static final float INSIDE_DAMAGE = 8f, MACHINE_FACTOR = 1.4f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 6 pulses of 13 = 78 (machines x1.4, ~109)
+	public static final float INSIDE_DAMAGE = 13f, MACHINE_FACTOR = 1.4f;
 	public static final int INSIDE_STUN = 40, SHUTDOWN_TICKS = 100;
 	/** A boss machine is shut down this long (the stun helper gives a boss a quarter: 160 / 4 = 2 s). */
 	public static final int SHUTDOWN_BOSS_TICKS = 160;
@@ -699,7 +703,7 @@ public final class GreyMatterKit extends AlienKit {
 		return true;
 	}
 
-	/** The damage Weak-Spot Strike sends: 18, or on a marked creature what comes to 24 once the mark's x1.35 is applied. */
+	/** The damage Weak-Spot Strike sends: 28, or on a marked creature what comes to 38 once the mark's x1.35 is applied. */
 	public static float strikeDamage(LivingEntity t) {
 		return marked(t) ? STRIKE_MARKED_DAMAGE / MARK_FACTOR : STRIKE_DAMAGE;
 	}
@@ -1417,7 +1421,7 @@ public final class GreyMatterKit extends AlienKit {
 			anim(p, ANIM_JAB);
 			if (marked(le)) {
 				le.invulnerableTime = 0;
-				hurt(p, le, 2f, false);
+				hurt(p, le, JAB_DAMAGE, false);
 				level(p).sendParticles(ParticleTypes.CRIT, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 6, 0.2, 0.2, 0.2, 0.2);
 				le.invulnerableTime = 0; // the fist itself still lands this tick
 			}

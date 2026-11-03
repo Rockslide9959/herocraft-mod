@@ -66,6 +66,9 @@ import net.minecraft.world.phys.Vec3;
  * and make them good please"): a small white sound-maker whose clones are his whole game -- they scream with every sound move,
  * surround a target and scream inward, take a lethal hit for him, and fill out a chorus for the ultimate. No Ultimate Echo Echo.
  *
+ * v0.17.2 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the damage numbers below are the pre-pass ones (~x1.6 now; at
+ * most 5 clones add to one creature per move) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Sonic Scream     a sound wave along the look, 14 blocks (7, knocked back); each clone adds 3 at the same spot
  *   Shift+R    Wall of Sound    HOLD up to 2 s: a cone of sound, 9 blocks (3 every 0.5 s, clones +1 each), pushing back and
@@ -139,25 +142,28 @@ public final class EchoEchoKit extends AlienKit {
 			AIM_TARGET = "aim_target", WALL_START = "wall_start", SURROUND_AT = "surround_at";
 
 	public static final int MAX_CLONES = 10; // v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell")
-	public static final float SCREAM_DAMAGE = 7f, CLONE_DAMAGE = 3f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md);
+	// per-clone hits stay modest and at most CLONE_HIT_CAP clones add to one creature per move, so 10 clones never one-shot a boss
+	public static final int CLONE_HIT_CAP = 5;
+	public static final float SCREAM_DAMAGE = 12f, CLONE_DAMAGE = 4f;
 	public static final double SCREAM_RANGE = 14.0;
-	public static final float WALL_PULSE_DAMAGE = 3f, WALL_CLONE_DAMAGE = 1f;
+	public static final float WALL_PULSE_DAMAGE = 7f, WALL_CLONE_DAMAGE = 2f;
 	public static final double WALL_RANGE = 9.0, WALL_DEG = 55.0;
 	public static final int WALL_MAX_TICKS = 40, WALL_PULSE = 10, WALL_COOLDOWN = 120;
-	public static final float RING_DAMAGE = 12f, RING_CLONE_DAMAGE = 4f;
+	public static final float RING_DAMAGE = 22f, RING_CLONE_DAMAGE = 6f;
 	public static final double RING_RADIUS = 5.0, RING_CLONE_RADIUS = 3.0;
-	public static final float SURROUND_DAMAGE = 5f;
+	public static final float SURROUND_DAMAGE = 7f;
 	public static final double SURROUND_RANGE = 16.0;
 	public static final int SURROUND_DELAY = 15, SURROUND_STUN = 20, SURROUND_STUN_EXTRA = 10;
-	public static final float LEAP_DAMAGE = 4f;
+	public static final float LEAP_DAMAGE = 10f;
 	public static final int LEAP_TICKS = 30;
-	public static final float CANNON_DAMAGE = 16f;
+	public static final float CANNON_DAMAGE = 26f;
 	public static final double CANNON_RANGE = 24.0;
 	public static final int CHARGE_TICKS = 20;
-	public static final float CHORUS_DAMAGE = 55f, CHORUS_EDGE = 40f, CHORUS_RADIUS = 10f, CHORUS_CLONE_DAMAGE = 8f;
+	public static final float CHORUS_DAMAGE = 85f, CHORUS_EDGE = 60f, CHORUS_RADIUS = 10f, CHORUS_CLONE_DAMAGE = 6f;
 	public static final double CHORUS_CLONE_RADIUS = 4.0;
 	public static final int CHORUS_STUN = 40;
-	public static final float NOTE_DAMAGE = 15f, NOTE_SHELL_FACTOR = 1.5f;
+	public static final float NOTE_DAMAGE = 24f, NOTE_SHELL_FACTOR = 1.5f;
 	public static final double NOTE_RANGE = 20.0;
 	public static final int RESONANT_TICKS = 120;
 	public static final float RESONANT_FACTOR = 1.25f;
@@ -165,7 +171,7 @@ public final class EchoEchoKit extends AlienKit {
 	public static final int ECHO_GLOW = 160;
 	public static final int BARRIER_MAX_TICKS = 60, BARRIER_COOLDOWN = 100, BARRIER_GRACE = 6;
 	public static final float BARRIER_FACTOR = 0.5f;
-	public static final float JAB_DAMAGE = 1.5f;
+	public static final float JAB_DAMAGE = 3f;
 	public static final double JAB_RANGE = 6.0;
 	public static final int DECOY_COOLDOWN = 1800;
 	public static final float DECOY_HEALTH = 6f;
@@ -275,7 +281,7 @@ public final class EchoEchoKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: fragile -- no armour of his own (only the hidden Resistance I every alien has)
-		return AlienStats.builder().health(16).speed(1.15f).scale(0.6f).armor(0, 0).attack(1).safeFall(3).build();
+		return AlienStats.builder().health(16).speed(1.15f).scale(0.6f).armor(0, 0).attack(4).safeFall(3).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override
@@ -499,6 +505,18 @@ public final class EchoEchoKit extends AlienKit {
 		return resonating(p, e) ? d * RESONANT_FACTOR : d;
 	}
 
+	/**
+	 * v0.17.2 damage pass: one clone's hit on {@code e} for this move ({@code counts} is per move) -- refused once
+	 * {@link #CLONE_HIT_CAP} clones have already hit it, so a full chorus of 10 stays fair.
+	 */
+	public boolean cloneHit(ServerPlayer p, LivingEntity e, float dmg, Map<Integer, Integer> counts) {
+		if (counts.merge(e.getId(), 1, Integer::sum) > CLONE_HIT_CAP) {
+			return false;
+		}
+		e.invulnerableTime = 0;
+		return hurt(p, e, dealt(p, e, dmg), false);
+	}
+
 	/** Whether {@code e} is Resonating with {@code p}'s sound right now. */
 	public static boolean resonating(ServerPlayer p, LivingEntity e) {
 		Map<Integer, Long> r = RESONANT.get(p.getUUID());
@@ -593,10 +611,10 @@ public final class EchoEchoKit extends AlienKit {
 				shove(e, eye, 0.6, 0.15);
 			}
 		}
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity c : clones(p)) {
 			for (LivingEntity e : line(p, c.mouth(), end, 0.9)) {
-				e.invulnerableTime = 0;
-				hurt(p, e, dealt(p, e, CLONE_DAMAGE), false);
+				cloneHit(p, e, CLONE_DAMAGE, counts);
 			}
 		}
 		OmnitrixSfx.play(level(p), p.position(), SND_SCREAM, 1f, 1f);
@@ -662,11 +680,11 @@ public final class EchoEchoKit extends AlienKit {
 			}
 		}
 		Vec3 aim = eye.add(look.scale(WALL_RANGE));
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity c : clones(p)) {
 			Vec3 m = c.mouth();
 			for (LivingEntity e : cone(p, m, aim.subtract(m).normalize(), WALL_RANGE, WALL_DEG * 0.6)) {
-				e.invulnerableTime = 0;
-				hurt(p, e, dealt(p, e, WALL_CLONE_DAMAGE), false);
+				cloneHit(p, e, WALL_CLONE_DAMAGE, counts);
 			}
 		}
 		// the sound rings themselves are drawn by the client (EchoEchoClient's waves while F_WALL is up); a muzzle ring per pulse
@@ -688,10 +706,10 @@ public final class EchoEchoKit extends AlienKit {
 				shove(e, c, 1.0, 0.3);
 			}
 		}
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity cl : clones(p)) {
 			for (LivingEntity e : around(p, cl.position(), RING_CLONE_RADIUS)) {
-				e.invulnerableTime = 0;
-				if (hurt(p, e, dealt(p, e, RING_CLONE_DAMAGE), false)) {
+				if (cloneHit(p, e, RING_CLONE_DAMAGE, counts)) {
 					shove(e, cl.position(), 0.6, 0.2);
 				}
 			}
@@ -754,9 +772,9 @@ public final class EchoEchoKit extends AlienKit {
 		List<EchoCloneEntity> cl = clones(p);
 		ServerLevel l = level(p);
 		Vec3 mid = t.position().add(0, t.getBbHeight() * 0.5, 0);
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity c : cl) {
-			t.invulnerableTime = 0;
-			hurt(p, t, dealt(p, t, SURROUND_DAMAGE), false);
+			cloneHit(p, t, SURROUND_DAMAGE, counts);
 			QuirkFx.ribbon(l, c.mouth(), mid).style(QuirkFx.RIBBON_LIGHT).colours(0xFFFFFF, WAVE).size(0.35f).life(8).spawn();
 		}
 		if (!cl.isEmpty()) {
@@ -854,10 +872,10 @@ public final class EchoEchoKit extends AlienKit {
 				shove(e, eye, 1.0, 0.2);
 			}
 		}
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity c : clones(p)) {
 			for (LivingEntity e : line(p, c.mouth(), stop, 0.7)) {
-				e.invulnerableTime = 0;
-				hurt(p, e, dealt(p, e, CLONE_DAMAGE), false);
+				cloneHit(p, e, CLONE_DAMAGE, counts);
 			}
 		}
 		QuirkCamera.shake(p, 0.15f, 4);
@@ -895,10 +913,10 @@ public final class EchoEchoKit extends AlienKit {
 				AlienStatus.stun(p, e, CHORUS_STUN);
 			}
 		}
+		Map<Integer, Integer> counts = new java.util.HashMap<>();
 		for (EchoCloneEntity cl : clones(p)) {
 			for (LivingEntity e : around(p, cl.position(), CHORUS_CLONE_RADIUS)) {
-				e.invulnerableTime = 0;
-				hurt(p, e, dealt(p, e, CHORUS_CLONE_DAMAGE), false);
+				cloneHit(p, e, CHORUS_CLONE_DAMAGE, counts);
 			}
 			QuirkFx.ring(l, cl.position().add(0, 0.1, 0)).style(QuirkFx.RING_SHOCK).colours(0xFFFFFF, WAVE).size((float) CHORUS_CLONE_RADIUS).thickness(0.4f)
 					.life(14).spawn();
@@ -1055,6 +1073,7 @@ public final class EchoEchoKit extends AlienKit {
 					n++;
 				}
 			}
+			n = Math.min(n, CLONE_HIT_CAP); // v0.17.2 damage pass: 10 clones echo no harder than 5
 			if (n > 0) {
 				le.invulnerableTime = 0;
 				hurt(p, le, dealt(p, le, JAB_DAMAGE * n), false);

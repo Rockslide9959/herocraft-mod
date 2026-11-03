@@ -390,7 +390,7 @@ public final class SuperSpeedHandlers {
 		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 		// borrowed flurry lands his own 5 punches of 2.5 (Super Speed's own stays PUNCHES x PUNCH_DAMAGE)
 		boolean xlr8 = com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p);
-		float punch = xlr8 ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.ASSAULT_PUNCH : PUNCH_DAMAGE;
+		float punch = xlr8 ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.ASSAULT_PUNCH * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p) : PUNCH_DAMAGE; // v0.17.2: XLR8 Overdrive +50%
 		int punches = xlr8 ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.ASSAULT_PUNCHES : PUNCHES;
 		int struck = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {

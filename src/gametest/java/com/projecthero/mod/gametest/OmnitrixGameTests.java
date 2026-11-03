@@ -521,6 +521,10 @@ public class OmnitrixGameTests implements FabricGameTest {
 		ServerPlayer p = as(helper, HeatblastKit.ID);
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 26f) < 0.01f, "26 health");
 		helper.assertTrue(Math.abs(p.getHealth() - 26f) < 0.01f, "full health converted to full");
+		// v0.17.2 (the user set the bare-fist bonus): +5 on the fist, +3 fire on top
+		helper.assertTrue(Math.abs(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) - 6.0) < 1.0e-4,
+				"fist 1 + 5: " + p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(HeatblastKit.PUNCH_FIRE == 3f, "+3 fire");
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().inFire(), 6f);
 		p.invulnerableTime = 0;
@@ -602,7 +606,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 			helper.assertTrue(HeatblastKit.CONE.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Blaze Cone");
 			z.invulnerableTime = 0;
 			helper.assertTrue(kit.blazeCone(p) >= 1, "Shift+G: the Blaze Cone catches it");
-			helper.assertTrue(z.getHealth() <= before - HeatblastKit.CONE_DAMAGE + 0.01f, "for 16: " + (before - z.getHealth()));
+			helper.assertTrue(z.getHealth() <= before - HeatblastKit.CONE_DAMAGE + 0.01f, "for 25: " + (before - z.getHealth()));
 			helper.assertTrue(kit.blazeCone(p) == -1, "then it cools down");
 			z.discard();
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
@@ -611,18 +615,28 @@ public class OmnitrixGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void heatblastFlamethrowerRunsWhileHeldAndMagmaPatchBurns(GameTestHelper helper) {
+	public void heatblastFlamethrowerTapRunsFiveSecondsAndMagmaPatchBurns(GameTestHelper helper) {
+		// v0.17.2 (user: "Dont make it a hold down move, when player presses shift+r they should shoot the flamethrower for 5 seconds
+		// dealing 7 damage per damage tick")
 		floor(helper);
 		ServerPlayer p = as(helper, HeatblastKit.ID);
 		HeatblastKit kit = heat();
-		Zombie z = zombie(helper, 3.5, 2, 4.5, 60f);
+		Zombie z = zombie(helper, 3.5, 2, 4.5, 200f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
+		helper.assertTrue(HeatblastKit.THROWER_TICKS == 100 && HeatblastKit.THROWER_DAMAGE == 7f, "5 s, 7 a damage tick");
 		helper.assertTrue(kit.flamethrower(p) && kit.flag(p, HeatblastKit.F_STREAM), "Shift+R: the Flamethrower");
 		pump(helper, p);
 		helper.runAfterDelay(12, () -> {
-			helper.assertTrue(z.getHealth() < 60f && z.isOnFire(), "the stream burns what is in front: " + z.getHealth());
+			float dealt = 200f - z.getHealth();
+			helper.assertTrue(dealt >= 2 * HeatblastKit.THROWER_DAMAGE - 0.01f && z.isOnFire(), "two damage ticks of 7 in 12 ticks: " + dealt);
 			kit.release(p, AbilitySlot.SLOT_1, true, 12);
-			helper.assertFalse(kit.flag(p, HeatblastKit.F_STREAM), "letting go of the keys stops it");
+			helper.assertTrue(kit.flag(p, HeatblastKit.F_STREAM), "letting go of the keys does NOT stop it (a tap move)");
+			helper.assertFalse(kit.flamethrower(p), "pressing again while it runs does nothing");
+			// jump to the end of the 5 s: it stops and its cooldown starts then
+			heatTimer(p, "stream_end", helper.getLevel().getGameTime() + 1);
+			helper.runAfterDelay(3, () -> {
+			helper.assertFalse(kit.flag(p, HeatblastKit.F_STREAM), "the stream ends after its 5 s");
+			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.THROWER) > 150, "the cooldown runs from the end: " + kit.cooldownLeft(p, HeatblastKit.THROWER));
 			helper.assertFalse(kit.flamethrower(p), "and it cools down");
 			helper.assertTrue(kit.magmaBomb(p), "Shift+G: a Magma Bomb");
 			z.clearFire();
@@ -633,6 +647,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 				z.discard();
 				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 				helper.succeed();
+			});
 			});
 		});
 	}
@@ -713,7 +728,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 			helper.assertTrue(HeatblastKit.doused(p) && kit.flag(p, HeatblastKit.F_WET), "water puts him out");
 			helper.assertFalse(kit.flag(p, HeatblastKit.F_AURA) || kit.flag(p, HeatblastKit.F_RIDE_CHARGE), "the aura and the charge go out");
 			helper.assertTrue(kit.reigniteLeft(p) == 0, "no countdown while still in the water");
-			helper.assertFalse(kit.volley(p) || kit.fireTornado(p) || kit.heatShield(p), "no powers while doused");
+			helper.assertFalse(kit.volley(p) || kit.fireTornado(p) || kit.absorbFlames(p) >= 0, "no powers while doused");
 			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.VOLLEY) == 0, "(a refused move costs no cooldown)");
 			p.invulnerableTime = 0;
 			float hp = p.getHealth();
@@ -773,13 +788,13 @@ public class OmnitrixGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, HeatblastKit.ID);
 		HeatblastKit kit = heat();
-		Zombie z = zombie(helper, 3.5, 2, 7.5, 80f);
+		Zombie z = zombie(helper, 3.5, 2, 7.5, 200f); // v0.17.2: the tornado (10 a damage tick) and the 70-100 Supernova would kill an 80-health one
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 6f);
 		helper.assertTrue(kit.fireTornado(p) && kit.tornadoAt(p) != null, "Z: a Fire Tornado where he looks");
 		helper.assertTrue(kit.tornadoAt(p).distanceTo(z.position()) < 1.5, "on the creature he aimed at: " + kit.tornadoAt(p));
 		pump(helper, p);
 		helper.runAfterDelay(25, () -> {
-			helper.assertTrue(z.getHealth() < 80f && z.isOnFire(), "the tornado burns: " + z.getHealth());
+			helper.assertTrue(z.getHealth() < 200f && z.isOnFire(), "the tornado burns: " + z.getHealth());
 			float before = z.getHealth();
 			z.invulnerableTime = 0;
 			helper.assertTrue(kit.supernova(p) && kit.flag(p, HeatblastKit.F_CHARGING), "Shift+Z: the Supernova charges");
@@ -796,21 +811,39 @@ public class OmnitrixGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void heatblastEruptionShieldDashAndMeteorCrash(GameTestHelper helper) {
+	public void heatblastEruptionAbsorbDashAndMeteorCrash(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, HeatblastKit.ID);
 		HeatblastKit kit = heat();
-		Zombie z = zombie(helper, 3.5, 2, 5.5, 80f);
+		Zombie z = zombie(helper, 3.5, 2, 5.5, 120f);
+		// v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): nothing burning -- nothing happens, no cooldown
+		helper.assertTrue(HeatblastKit.ABSORB.equals(kit.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V is Absorb Flames");
+		helper.assertTrue(kit.absorbFlames(p) == 0 && kit.cooldownLeft(p, HeatblastKit.ABSORB) == 0, "nothing to absorb: no cooldown");
 		helper.assertTrue(kit.eruption(p), "C: Volcanic Eruption");
 		pump(helper, p);
 		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(z.getHealth() <= 80f - HeatblastKit.ERUPT_DAMAGE + 0.01f && z.isOnFire(), "a geyser caught the zombie: " + z.getHealth());
-			helper.assertTrue(kit.heatShield(p) && kit.flag(p, HeatblastKit.F_SHIELD), "Shift+V: Heat Shield");
-			float hp = p.getHealth();
+			helper.assertTrue(z.getHealth() <= 120f - HeatblastKit.ERUPT_DAMAGE + 0.01f && z.isOnFire(), "a geyser caught the zombie for 25: " + z.getHealth());
+			// a fire beside him and the burning zombie: Absorb Flames draws them in
+			BlockPos fire = p.blockPosition().east(2);
+			helper.getLevel().setBlock(fire, Blocks.FIRE.defaultBlockState(), 3);
 			p.invulnerableTime = 0;
 			p.hurt(helper.getLevel().damageSources().magic(), 10f);
-			helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * HeatblastKit.SHIELD_FACTOR * 0.8f) < 0.05f, "the dome takes 60% off (and Resistance I a fifth of the rest)");
+			float hp = p.getHealth();
+			int n = kit.absorbFlames(p);
+			helper.assertTrue(n >= 2 && kit.flag(p, HeatblastKit.F_ABSORB), "Shift+V: Absorb Flames took the fire and the burning zombie: " + n);
+			helper.assertFalse(helper.getLevel().getBlockState(fire).is(Blocks.FIRE), "the fire is gone");
+			helper.assertFalse(z.isOnFire(), "the zombie stops burning");
+			helper.assertTrue(p.getHealth() >= hp + HeatblastKit.ABSORB_HEAL_FIRE + HeatblastKit.ABSORB_HEAL_BURNING - 0.01f, "it heals him: " + hp + " -> " + p.getHealth());
+			float boost = kit.boostNow(p);
+			helper.assertTrue(boost >= 1f + n * HeatblastKit.ABSORB_BOOST_PER - 0.001f || boost >= 1f + HeatblastKit.ABSORB_BOOST_MAX - 0.001f, "his next fire move is charged: x" + boost);
+			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.ABSORB) == 0, "no cooldown (v0.17.2, user: \"remove the cooldown on absorb fire\")");
+			// v0.17.2 (user: "make it dash the player in the direction that they are aiming in"): aimed up, the dash goes up
+			p.setXRot(-45f);
+			Vec3 aim = p.getLookAngle();
 			helper.assertTrue(kit.blazeDash(p) && kit.flag(p, HeatblastKit.F_DASH), "Shift+X: Blaze Dash");
+			helper.assertTrue(p.getDeltaMovement().normalize().dot(aim) > 0.99 && p.getDeltaMovement().y > 0.5, "along his aim, up too: " + p.getDeltaMovement());
+			helper.assertTrue(kit.boostNow(p) == 1f, "the dash spent the absorbed boost");
+			p.setXRot(0f);
 			z.teleportTo(p.getX(), p.getY(), p.getZ() + 2.0);
 			z.invulnerableTime = 0;
 			float before = z.getHealth();
@@ -852,7 +885,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 0.6 - 1.0e-6, "hard to knock back");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 8 - 1.0e-6, "heavy armour");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 0.1 * 0.9, "slower than a player");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 7 - 1.0e-6, "the fist hits for 7");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 11 - 1.0e-6, "the fist hits for 11 (+10)");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getScale() - 1f) < 0.01f && Math.abs(p.getMaxHealth() - 20f) < 0.01f, "the body comes off with the transformation");
 		helper.succeed();
@@ -1007,7 +1040,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1.0e-6, "the zombie's blow cannot shift him");
 		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		helper.assertTrue(kit.rampage(p) && kit.flag(p, FourArmsKit.F_RAMPAGE), "Rampage");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + FourArmsKit.RAMPAGE_BONUS)) < 1.0e-4, "punches hit 4 harder");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + FourArmsKit.RAMPAGE_BONUS)) < 1.0e-4, "punches hit 6 harder");
 		helper.assertFalse(kit.onAttack(p, z), "the punch goes through (and quakes)");
 		helper.assertTrue(kit.punchIndex(p) == 1, "the next punch is the next fist");
 		kit.onAttack(p, z);

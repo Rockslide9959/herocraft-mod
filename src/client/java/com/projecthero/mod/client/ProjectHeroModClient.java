@@ -1330,7 +1330,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			if (client.player != null && com.projecthero.mod.client.gui.IronManSuitInfoScreen.wornSuit(client.player) != null) {
 				client.setScreen(new com.projecthero.mod.client.gui.IronManSuitInfoScreen());
 			} else {
-				client.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen());
+				client.setScreen(com.projecthero.mod.client.gui.PowerInfoScreen.create()); // v0.17.2: the Omnitrix gets the vanilla-styled menu
 			}
 		}
 		powerInfoWasDown = down;
