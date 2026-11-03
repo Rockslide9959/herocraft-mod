@@ -114,10 +114,10 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 			clearCooldown(p, EchoEchoKit.ID, EchoEchoKit.SPLIT);
 			helper.assertTrue(kit.split(p), "clone " + (i + 1) + " splits off");
 		}
-		helper.assertTrue(EchoEchoKit.clones(p).size() == 3, "three clones (got " + EchoEchoKit.clones(p).size() + ")");
-		helper.assertTrue(clonesNear(helper, p).size() == 3, "three clones in the world");
+		helper.assertTrue(EchoEchoKit.clones(p).size() == EchoEchoKit.MAX_CLONES, "a full set of clones (got " + EchoEchoKit.clones(p).size() + ")");
+		helper.assertTrue(clonesNear(helper, p).size() == EchoEchoKit.MAX_CLONES, "all the clones in the world");
 		clearCooldown(p, EchoEchoKit.ID, EchoEchoKit.SPLIT);
-		helper.assertFalse(kit.split(p), "no fourth clone");
+		helper.assertFalse(kit.split(p), "no clone past the limit");
 		helper.assertTrue(kit.cooldownLeft(p, EchoEchoKit.SPLIT) == 0, "a refused split costs no cooldown");
 		List<EchoCloneEntity> all = EchoEchoKit.clones(p);
 		// a clone breaks after its health is gone; a hit from its owner does nothing
@@ -125,11 +125,11 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		first.hurt(helper.getLevel().damageSources().playerAttack(p), 50f);
 		helper.assertFalse(first.isRemoved(), "his own swing never breaks a clone");
 		first.hurt(helper.getLevel().damageSources().magic(), EchoCloneEntity.MAX_HP);
-		helper.assertTrue(first.isRemoved() && EchoEchoKit.clones(p).size() == 2, "a clone breaks after 6 damage");
+		helper.assertTrue(first.isRemoved() && EchoEchoKit.clones(p).size() == EchoEchoKit.MAX_CLONES - 1, "a clone breaks after 6 damage");
 		// Merge heals him for each clone
 		p.setHealth(8f);
 		helper.assertTrue(kit.merge(p), "the clones merge back");
-		near(helper, p.getHealth(), 8f + 2 * EchoEchoKit.MERGE_HEAL, "+2 health a clone");
+		near(helper, p.getHealth(), Math.min(p.getMaxHealth(), 8f + (EchoEchoKit.MAX_CLONES - 1) * EchoEchoKit.MERGE_HEAL), "+2 health a clone");
 		helper.assertTrue(clonesNear(helper, p).isEmpty(), "merged: no clones left");
 		clearCooldown(p, EchoEchoKit.ID, EchoEchoKit.SPLIT);
 		kit.split(p);

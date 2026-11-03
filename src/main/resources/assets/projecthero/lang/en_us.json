@@ -10286,7 +10286,7 @@
   "projecthero.omnitrix.echo_echo.echolocation": "Echolocation",
   "projecthero.omnitrix.echo_echo.echolocation.desc": "A ping: every creature within 32 blocks glows for 8 s.",
   "projecthero.omnitrix.echo_echo.duplicate": "Duplicate",
-  "projecthero.omnitrix.echo_echo.duplicate.desc": "Split off a clone (up to 3). Clones follow you, make sound with you and last until you turn back or they break (6 damage).",
+  "projecthero.omnitrix.echo_echo.duplicate.desc": "Split off a clone (up to 10, every 0.5 s). Clones follow you, make sound with you and last until you turn back or they break (6 damage).",
   "projecthero.omnitrix.echo_echo.merge": "Merge",
   "projecthero.omnitrix.echo_echo.merge.desc": "Call your clones back into you: +2 health for each.",
   "projecthero.omnitrix.echo_echo.sound_barrier": "Sound Barrier",

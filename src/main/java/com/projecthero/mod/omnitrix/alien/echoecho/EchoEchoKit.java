@@ -138,7 +138,7 @@ public final class EchoEchoKit extends AlienKit {
 	public static final String BARRIER_UNTIL = "barrier_until", BARRIER_USE = "barrier_use", LEAP_UNTIL = "leap_until", CHARGE_AT = "charge_at",
 			AIM_TARGET = "aim_target", WALL_START = "wall_start", SURROUND_AT = "surround_at";
 
-	public static final int MAX_CLONES = 3;
+	public static final int MAX_CLONES = 10; // v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell")
 	public static final float SCREAM_DAMAGE = 7f, CLONE_DAMAGE = 3f;
 	public static final double SCREAM_RANGE = 14.0;
 	public static final float WALL_PULSE_DAMAGE = 3f, WALL_CLONE_DAMAGE = 1f;
@@ -284,7 +284,7 @@ public final class EchoEchoKit extends AlienKit {
 				AlienMove.tap(RING, AbilitySlot.SLOT_2, 120), AlienMove.shift(SURROUND, AbilitySlot.SLOT_2, 200),
 				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 30), AlienMove.shift(SWAP, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(CANNON, AbilitySlot.SLOT_4, 160), AlienMove.shift(CHORUS, AbilitySlot.SLOT_4, 1200),
-				AlienMove.tap(SPLIT, AbilitySlot.SLOT_5, 40), AlienMove.shift(MERGE, AbilitySlot.SLOT_5, 40),
+				AlienMove.tap(SPLIT, AbilitySlot.SLOT_5, 10), AlienMove.shift(MERGE, AbilitySlot.SLOT_5, 40),
 				AlienMove.tap(NOTE, AbilitySlot.SLOT_6, 140), AlienMove.shift(ECHOLOCATION, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(BARRIER, "Hold Use (empty hand)", BARRIER_COOLDOWN), AlienMove.vanilla(JAB, "Attack", 0),
 				AlienMove.vanilla(DECOY, "Passive (lethal damage)", DECOY_COOLDOWN));

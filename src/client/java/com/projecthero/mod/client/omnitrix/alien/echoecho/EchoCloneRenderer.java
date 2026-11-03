@@ -80,10 +80,22 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 		pose.pushPose();
 		float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		pose.mulPose(Axis.YP.rotationDegrees(180f - yaw));
-		float s = EchoEchoClient.SIZE * 0.9375f;
+		// v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell"): drawn at exactly his size (his live scale, the player renderer's 0.9375 included)
+		float s = (owner != null ? owner.getScale() : EchoEchoClient.SIZE) * 0.9375f;
 		pose.scale(-s, -s, s);
 		pose.translate(0.0, -1.501, 0.0);
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EchoEchoClient.SKIN)), light, OverlayTexture.NO_OVERLAY, -1);
+		// ...and wearing the Omnitrix badge on the chest like him (green on the recalibrated watch)
+		boolean recal = owner != null && Omnitrix.recalibrated(owner);
+		var badge = com.projecthero.mod.client.omnitrix.AlienClients.of(EchoEchoKit.ID);
+		float[] b = badge != null ? badge.badge() : new float[] { 0f, 4.5f, -2.05f, 3.2f };
+		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.body, () -> {
+			var vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(recal ? com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE_RECAL
+					: com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE));
+			float h = b[3] / 2f / 16f, y = b[1] / 16f, x = b[0] / 16f, z = Math.min(b[2], -2.3f) / 16f;
+			com.projecthero.mod.client.omnitrix.AlienParts.quad(vc, pose.last(), 0xFFFFFFFF, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, x - h, y - h, z,
+					x + h, y - h, z, x + h, y + h, z, x - h, y + h, z, 0, 0, -1, 0f, 0f, 1f, 1f);
+		});
 		pose.popPose();
 		super.render(e, entityYaw, partial, pose, buffers, light);
 	}
