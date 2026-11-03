@@ -683,7 +683,8 @@ public final class StinkflyKit extends AlienKit {
 		if (!p.onGround() && !p.isInWater() && !p.isPassenger() && !p.onClimbable()) {
 			p.getAbilities().flying = true;
 			setFlag(p, F_FLYING, true);
-			anim(p, ANIM_TAKEOFF);
+			// v0.17.2 (user: "the transformation vfx and effects dont show up when the player transforms into stinkfly midair"): no take-off
+			// anim here -- it replaced the transformation's, which drives the flash, the helix and the sounds; the flying pose comes from F_FLYING
 			p.setDeltaMovement(p.getDeltaMovement().multiply(1, 0, 1));
 			p.hurtMarked = true;
 			p.resetFallDistance();
