@@ -69,7 +69,7 @@ public final class AlienXKit extends AlienKit {
 	public static final OmnitrixSfx.Cue ERASE_SOUND = OmnitrixSfx.cue("alien_x_erase")
 			.layer(SoundEvents.END_PORTAL_SPAWN, 0.14f, 1.8f)
 			.layer(SoundEvents.BEACON_DEACTIVATE, 0.3f, 0.5f)
-			.layer(SoundEvents.ENDERMAN_TELEPORT, 0.25f, 0.4f, 2);
+			.layer(SoundEvents.ENDERMAN_TELEPORT, 0.25f, 0.5f, 2);
 	public static final OmnitrixSfx.Cue CREATE_SOUND = OmnitrixSfx.cue("alien_x_create")
 			.layer(SoundEvents.AMETHYST_BLOCK_PLACE, 0.4f, 0.7f)
 			.layer(SoundEvents.BEACON_POWER_SELECT, 0.25f, 0.8f)

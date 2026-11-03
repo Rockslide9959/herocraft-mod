@@ -169,6 +169,8 @@ public final class FourArmsKit extends AlienKit {
 	// v0.17.2 (user: "make fourarms and diamondhead a bit stronger"): every number about a fifth up
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): the damage pass below (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
 	public static final float HAMMER_DAMAGE = 28f;
+	/** v0.17.2 (user: "make fourarms fourth double fist hammer hit deal 18 damage"): the passive cycle's 4th punch. */
+	public static final float PUNCH_HAMMER_DAMAGE = 18f;
 	public static final int HAMMER_LENGTH = 9;
 	public static final float THROW_DAMAGE = 24f;
 	public static final float BOULDER_DAMAGE = 24f;
@@ -1510,7 +1512,9 @@ public final class FourArmsKit extends AlienKit {
 		});
 		if (target instanceof LivingEntity le) {
 			if (hammer) {
-				// both upper fists together: knocked down and back
+				// both upper fists together: 18, knocked down and back (the punch's own swing then adds nothing over it)
+				le.invulnerableTime = 0;
+				hurt(p, le, PUNCH_HAMMER_DAMAGE, false);
 				shove(le, p.position(), 1.3, 0.3);
 				le.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 2));
 				OmnitrixSounds.play(l, le.position(), SND_HAMMER, 1.0f, 1.0f);
