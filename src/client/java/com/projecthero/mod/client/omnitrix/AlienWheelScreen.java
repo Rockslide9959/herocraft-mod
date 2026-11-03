@@ -59,7 +59,8 @@ public final class AlienWheelScreen extends Screen {
 
 	/** H with Master Control, not sneaking: the wheel opens (instead of whatever else H does). Client-safe. */
 	public static boolean wants(net.minecraft.world.entity.player.Player p) {
-		return p != null && !Screen.hasShiftDown() && Omnitrix.masterControl(p) && !Aliens.playable(p).isEmpty();
+		// v0.17.2 (user: "the H alien selector wheel should be default for the recalibrated")
+		return p != null && !Screen.hasShiftDown() && Omnitrix.canSwitch(p) && !Aliens.playable(p).isEmpty();
 	}
 
 	@Override
@@ -75,7 +76,7 @@ public final class AlienWheelScreen extends Screen {
 				onClose();
 			}
 		}
-		if (mc.player == null || !Omnitrix.masterControl(mc.player)) {
+		if (mc.player == null || !Omnitrix.canSwitch(mc.player)) {
 			onClose();
 		}
 	}

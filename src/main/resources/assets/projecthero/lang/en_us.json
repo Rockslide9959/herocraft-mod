@@ -25,6 +25,8 @@
   "message.projecthero.omnitrix.auto.dial": "Dialled: %s",
   "message.projecthero.omnitrix.coming_soon": "%s is not in the Omnitrix yet (coming soon).",
   "message.projecthero.omnitrix.timeout": "The Omnitrix timed out!",
+  "hud.projecthero.omnitrix.battery": "Battery",
+  "message.projecthero.omnitrix.battery_low": "Battery too low -- %s s more",
   "message.projecthero.omnitrix.recharged": "Omnitrix recharged.",
   "message.projecthero.omnitrix.cooldown": "%s: %s s",
   "message.projecthero.omnitrix.already_wearing": "You already wear an Omnitrix.",

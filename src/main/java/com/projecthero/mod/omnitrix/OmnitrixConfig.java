@@ -10,8 +10,18 @@ public final class OmnitrixConfig {
 	public static final int WARN_TICKS = 15 * 20;
 	/** v0.17.1 (user): the dial can turn at most once every 0.2 s. */
 	public static final int DIAL_COOLDOWN_TICKS = 4;
-	/** Then a 90 s recharge before the next transformation. */
-	public static final int RECHARGE_TICKS = 90 * 20;
+	/** Then a 60 s recharge before the next transformation (v0.17.2, user: "For prototype omnitrix the recharge time should be 60 seconds instead of 90"). */
+	public static final int RECHARGE_TICKS = 60 * 20;
+	/**
+	 * v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the Recalibrated Omnitrix runs on a battery instead -- 4 minutes of alien time in all, drained only while
+	 * transformed, refilled while human from empty to full in 90 s. Turning back at will costs nothing; running it flat times
+	 * the watch out until the battery is full again.
+	 */
+	public static final int BATTERY_TICKS = 4 * 60 * 20;
+	/** Empty to full. */
+	public static final int BATTERY_RECHARGE_TICKS = 90 * 20;
+	/** The least charge a transformation needs. */
+	public static final int BATTERY_MIN_TICKS = 5 * 20;
 	/** An early Shift+V revert still costs a (shorter) recharge: 10 s, so swapping can not be spammed. */
 	public static final int EARLY_RECHARGE_TICKS = 10 * 20;
 	/** A kit key held this long becomes a hold move (only for keys the kit declares holdable). */

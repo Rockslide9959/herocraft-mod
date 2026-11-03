@@ -147,7 +147,6 @@ public final class OmnitrixRecalChipGameTests implements FabricGameTest {
 		ServerPlayer q = mock(helper, 3.5);
 		q.setAttached(OmnitrixAttachments.STATE, Omnitrix.state(p).copy());
 		helper.assertTrue(OmnitrixRecal.busy(q), "still recalibrating after the respawn");
-		helper.assertFalse(Omnitrix.activate(q), "the watch still refuses");
 		Omnitrix.tick(q);
 		Omnitrix.tick(q);
 		helper.assertTrue(Omnitrix.state(q).timers.containsKey(OmnitrixRecal.FINISH), "alive and the time is up: the finish starts");
@@ -169,8 +168,11 @@ public final class OmnitrixRecalChipGameTests implements FabricGameTest {
 		Omnitrix.tick(p);
 		OmnitrixState s = Omnitrix.state(p);
 		helper.assertTrue(OmnitrixRecal.busy(s) && !s.timers.containsKey(OmnitrixRecal.INSERT), "in recalibration mode");
-		helper.assertFalse(Omnitrix.activate(p), "activate is refused");
-		helper.assertFalse(Omnitrix.selecting(p), "the watch stays down");
+		// v0.17.2 (user: "while the omnitrix is recalibrating make it so that the player can still lift the omnitrix by pressing R"):
+		// it comes up to be looked at, but its dial never pops
+		helper.assertTrue(Omnitrix.activate(p), "R raises it to look at");
+		helper.assertTrue(Omnitrix.popAt(Omnitrix.state(p)) > p.level().getGameTime() + 100000L, "the dial stays down");
+		Omnitrix.deactivate(p);
 		Omnitrix.select(p, Aliens.HEATBLAST.id());
 		helper.assertFalse(Omnitrix.transform(p), "no transforming either");
 		helper.assertFalse(Omnitrix.transformed(p), "still human");

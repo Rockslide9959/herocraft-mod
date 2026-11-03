@@ -131,7 +131,7 @@ public final class OmnitrixHud {
 			extra.hud(g, p, x0, ty - 2, WIDTH, partial);
 			top -= extra.hudHeight() + 2;
 		}
-		return top;
+		return battery(g, mc, p, s, now, x0, top);
 	}
 
 	/**
@@ -151,7 +151,29 @@ public final class OmnitrixHud {
 					String.format("%d:%02d", secs / 60, secs % 60), 0xFF8FB6FF);
 			return by - 10;
 		}
+		// v0.17.2: the recalibrated battery shows while it is refilling
+		if (Omnitrix.recalibrated(p) && Omnitrix.batteryTicks(p) < OmnitrixConfig.BATTERY_TICKS) {
+			return battery(g, mc, p, s, now, x0, bottom + 4);
+		}
 		return bottom;
+	}
+
+	/**
+	 * v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery row over {@code top} -- green, amber under a quarter, red while it recharges from
+	 * flat. Returns the new top.
+	 */
+	private static int battery(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int top) {
+		if (!Omnitrix.recalibrated(p)) {
+			return top;
+		}
+		int b = Omnitrix.batteryTicks(p);
+		float frac = b / (float) OmnitrixConfig.BATTERY_TICKS;
+		boolean flat = now < s.rechargeUntil;
+		int colour = flat ? RED : frac < 0.25f ? 0xFFFFB040 : GREEN;
+		int secs = (b + 19) / 20;
+		String value = secs / 60 + ":" + String.format("%02d", secs % 60);
+		meter(g, mc, x0, top - 8, Component.translatable("hud.projecthero.omnitrix.battery"), frac, colour, value, colour);
+		return top - 12;
 	}
 
 	/**
@@ -268,7 +290,7 @@ public final class OmnitrixHud {
 		vanillaRow(rows, kit, s.active, "Sneak", mc.options.keyShift);
 		// v0.17.2 (user: "remove the transformation timers ... and the ability to detransform by pressing N"): N turns back under
 		// Master Control only, and no time left is shown
-		if (Omnitrix.masterControl(p)) {
+		if (Omnitrix.masterControl(p) || Omnitrix.recalibrated(p)) { // v0.17.2: the recalibrated watch turns back at will
 			rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null));
 		}
 		return rows;

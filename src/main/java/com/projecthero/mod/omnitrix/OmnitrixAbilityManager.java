@@ -87,7 +87,8 @@ public final class OmnitrixAbilityManager {
 	 * out. Human: nothing.
 	 */
 	public static void pressN(ServerPlayer p) {
-		if (Omnitrix.state(p).transformed() && Omnitrix.masterControl(p)) {
+		// v0.17.2 (user: "detransform at will"): the Recalibrated Omnitrix turns back on N any time, free
+		if (Omnitrix.state(p).transformed() && (Omnitrix.masterControl(p) || Omnitrix.recalibrated(p))) {
 			Omnitrix.revertEarly(p);
 		}
 	}

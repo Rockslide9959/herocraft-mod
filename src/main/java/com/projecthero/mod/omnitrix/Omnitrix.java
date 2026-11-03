@@ -100,6 +100,9 @@ public final class Omnitrix {
 
 	/** The tick the core pops (the press beat of the raise, held back until the recharge is over and the face has gone green). */
 	public static long popAt(OmnitrixState s) {
+		if (OmnitrixRecal.busy(s)) {
+			return Long.MAX_VALUE / 4; // v0.17.2: recalibrating -- raised to look at, the dial never pops
+		}
 		long pop = s.selectStart + PRESS_TICKS;
 		if (s.rechargeUntil > s.selectStart) {
 			pop = Math.max(pop, s.rechargeUntil + TIME_IN_TICKS);
@@ -149,7 +152,9 @@ public final class Omnitrix {
 	public enum Reason {
 		SHIFT_V, TIMEOUT, DEATH, LOGOUT, EXTRACTION, REVOKE, SUPPRESSED,
 		/** v0.17.1: the failsafe threw him back to human instead of letting a hit kill the alien. */
-		FAILSAFE
+		FAILSAFE,
+		/** v0.17.2: alien straight to alien on the wheel -- a silent turn-back, no recharge. */
+		SWITCH
 	}
 
 	// ---------------------------------------------------------------- v0.17.1: Master Control, the failsafe, the glitch
@@ -178,6 +183,31 @@ public final class Omnitrix {
 		return p != null && hasPower(p) && state(p).readyAt(RECAL) == 1L;
 	}
 
+	/** v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery's charge in milli-ticks, and the tick it was stored at (no entry = full). */
+	public static final String BATTERY = "omnitrix.battery", BATTERY_AT = "omnitrix.battery_at";
+
+	/** v0.17.2: the Recalibrated Omnitrix's battery, in ticks of alien time left (client-safe: the synced state). */
+	public static int batteryTicks(Player p) {
+		return hasPower(p) ? batteryTicks(state(p), p.level().getGameTime()) : 0;
+	}
+
+	/** Transformed it drains with the time limit (endsAt); human it refills from what was stored; Master Control keeps it full. */
+	public static int batteryTicks(OmnitrixState s, long now) {
+		long max = OmnitrixConfig.BATTERY_TICKS;
+		if (s.readyAt(MASTER) == 1L) {
+			return (int) max;
+		}
+		if (s.transformed()) {
+			long until = poweringDown(s) ? Math.min(now, s.readyAt(POWER_DOWN_TIMER)) : now;
+			return (int) net.minecraft.util.Mth.clamp(s.endsAt - until, 0L, max);
+		}
+		if (!s.timers.containsKey(BATTERY)) {
+			return (int) max;
+		}
+		long milli = s.readyAt(BATTERY) + Math.max(0L, now - s.readyAt(BATTERY_AT)) * max * 1000L / OmnitrixConfig.BATTERY_RECHARGE_TICKS;
+		return (int) Math.min(max, milli / 1000L);
+	}
+
 	/** v0.17.2: how many times {@code p} has transformed with the prototype. */
 	public static int prototypeTransforms(Player p) {
 		return hasPower(p) ? (int) state(p).readyAt(TRANSFORMS) : 0;
@@ -202,6 +232,13 @@ public final class Omnitrix {
 		}
 		OmnitrixState n = s.copy();
 		n.timers.put(RECAL, 1L);
+		// v0.17.2 (user: "if player had master control with prototype and then recalibrated then master control shouldnt be activated
+		// automatically for the recalibrated, it should have to be reactivated manually"); the battery starts full
+		n.timers.remove(MASTER);
+		n.timers.remove(MC_SEQ);
+		n.timers.remove(MC_STEP);
+		n.timers.remove(BATTERY);
+		n.timers.remove(BATTERY_AT);
 		n.selecting = false;
 		n.rechargeUntil = 0L;
 		clearSlap(n);
@@ -235,7 +272,7 @@ public final class Omnitrix {
 	 * Control, for an alien he cannot be, or when the transform is refused (the pod, suppression).
 	 */
 	public static boolean masterSwitch(ServerPlayer p, String alienId) {
-		if (!masterControl(p) || alienId == null || !Aliens.available(p, alienId)) {
+		if (!canSwitch(p) || alienId == null || !Aliens.available(p, alienId)) {
 			return false;
 		}
 		OmnitrixState s = state(p);
@@ -243,9 +280,19 @@ public final class Omnitrix {
 			return true;
 		}
 		if (s.transformed()) {
-			revert(p, Reason.SHIFT_V);
+			// v0.17.2 (user: "player should be able to switch to alien form without reverting to human"): straight across -- no
+			// turn-back effects, no recharge
+			revert(p, Reason.SWITCH);
 		}
 		return select(p, alienId) && transform(p);
+	}
+
+	/**
+	 * v0.17.2 (user: "the H alien selector wheel should be default for the recalibrated"): the alien wheel and its alien-to-alien
+	 * switch -- Master Control, or the Recalibrated Omnitrix with or without it.
+	 */
+	public static boolean canSwitch(Player p) {
+		return masterControl(p) || recalibrated(p);
 	}
 
 	/**
@@ -717,6 +764,14 @@ public final class Omnitrix {
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
 		}
+		if (s.readyAt(RECAL) == 1L && batteryTicks(s, now) < OmnitrixConfig.BATTERY_MIN_TICKS) {
+			// v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds")
+			long need = (OmnitrixConfig.BATTERY_MIN_TICKS - batteryTicks(s, now)) * (long) OmnitrixConfig.BATTERY_RECHARGE_TICKS
+					/ OmnitrixConfig.BATTERY_TICKS;
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.battery_low", (need + 19) / 20).withStyle(ChatFormatting.RED), true);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+			return false;
+		}
 		AlienKit kit = Aliens.kit(s.selected);
 		if (kit == null) {
 			Aliens.Alien a = Aliens.byId(s.selected);
@@ -730,7 +785,8 @@ public final class Omnitrix {
 		OmnitrixState n = s.copy();
 		n.active = kit.id();
 		n.transformedAt = now;
-		n.endsAt = now + OmnitrixConfig.TRANSFORM_TICKS;
+		// v0.17.2: the recalibrated watch's time limit is what its battery has left
+		n.endsAt = now + (n.readyAt(RECAL) == 1L ? batteryTicks(s, now) : OmnitrixConfig.TRANSFORM_TICKS);
 		if (s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			// v0.17.2: mid long transformation -- the 3 minutes start when it has finished
 			n.endsAt += Math.max(0L, OmnitrixLongTransform.TOTAL - (now - s.readyAt(OmnitrixLongTransform.TIMER)));
@@ -821,6 +877,7 @@ public final class Omnitrix {
 			}
 		}
 		boolean masterRevert = s.readyAt(MASTER) == 1L;
+		int battery = batteryTicks(s, p.level().getGameTime()); // v0.17.2: what the recalibrated battery has left
 		OmnitrixBody.remove(p, reason != Reason.DEATH);
 		long now = p.level().getGameTime();
 		OmnitrixState n = state(p).copy();
@@ -833,14 +890,26 @@ public final class Omnitrix {
 		n.endsAt = 0L;
 		n.timers.remove(POWER_DOWN_TIMER);
 		n.timers.remove(POWER_DOWN_TIMEOUT);
-		n.rechargeUntil = n.readyAt(MASTER) == 1L ? 0L : switch (reason) {
+		boolean recal = n.readyAt(RECAL) == 1L;
+		if (recal) {
+			// v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery keeps what it had left (flat after a timeout), refilling from now
+			int left = reason == Reason.TIMEOUT ? 0 : battery;
+			n.timers.put(BATTERY, left * 1000L);
+			n.timers.put(BATTERY_AT, now);
+		}
+		n.rechargeUntil = n.readyAt(MASTER) == 1L ? 0L : recal ? switch (reason) {
+			// run flat (or thrown out by the failsafe): recharge mode until the battery is full again
+			case TIMEOUT, FAILSAFE -> now + (long) (OmnitrixConfig.BATTERY_TICKS - (reason == Reason.TIMEOUT ? 0 : battery))
+					* OmnitrixConfig.BATTERY_RECHARGE_TICKS / OmnitrixConfig.BATTERY_TICKS;
+			default -> 0L;
+		} : switch (reason) {
 			case TIMEOUT -> now + OmnitrixConfig.RECHARGE_TICKS;
 			case SHIFT_V -> now + OmnitrixConfig.EARLY_RECHARGE_TICKS;
-			case FAILSAFE -> now + OmnitrixConfig.RECHARGE_TICKS; // v0.17.2: the normal 90 s recharge
+			case FAILSAFE -> now + OmnitrixConfig.RECHARGE_TICKS; // v0.17.2: the normal recharge
 			default -> 0L;
 		};
 		save(p, n);
-		if (reason == Reason.DEATH || reason == Reason.LOGOUT) {
+		if (reason == Reason.DEATH || reason == Reason.LOGOUT || reason == Reason.SWITCH) {
 			return;
 		}
 		// the sequence's sound is already playing (this is its power-down); an immediate revert keeps the short whir
@@ -876,12 +945,16 @@ public final class Omnitrix {
 		if (latching(p)) {
 			return false;
 		}
-		// v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): the watch cannot be raised meanwhile
+		long now = p.level().getGameTime();
+		// v0.17.2 (user: "while the omnitrix is recalibrating make it so that the player can still lift the omnitrix by pressing R and
+		// look at the watch similar to how it is in when the omnitrix is timed out"): raised to look at the blue face -- the dial stays
+		// down (popAt) and nothing can be picked; only not mid insert / reform
 		if (OmnitrixRecal.busy(s)) {
 			OmnitrixRecal.tellBusy(p);
-			return false;
+			if (OmnitrixRecal.insertAge(s, now, 0f) >= 0f || OmnitrixRecal.finishAge(s, now, 0f) >= 0f) {
+				return false;
+			}
 		}
-		long now = p.level().getGameTime();
 		// v0.17.1 (user: "even if the omnitrix is timed out let the player press r to bring their arm up, they can turn the dial
 		// but the omnitrix wont let them transform"): the recharge no longer stops the raise -- it refuses the slap ({@link #slap})
 		if (extracting(p)) {
