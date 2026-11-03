@@ -280,6 +280,15 @@ public class DoomsdayEntity extends Monster {
 			}
 			return false;
 		}
+		// v0.17.2 (user: "make it deal 2 times damage to kryptonian beings(this includes doomsday please), should completely bypass their
+		// defences"): a kryptonite tool's hit comes back as a kryptonite strike at x2 -- armour off, no adaptation, no Cable Guard
+		if (com.projecthero.mod.kryptonian.KryptoniteStrikes.isToolHit(source)) {
+			boolean landed = hurt(com.projecthero.mod.kryptonian.KryptoniteStrikes.strike(level, source.getEntity()), amount * com.projecthero.mod.kryptonian.KryptoniteStrikes.MULT);
+			if (landed) {
+				com.projecthero.mod.kryptonian.KryptoniteStrikes.onStrike(this, source.getEntity());
+			}
+			return landed;
+		}
 		Bucket bucket = DoomsdayAdaptation.classify(source, this);
 		if (bucket == Bucket.PROJECTILE) {
 			lastProjectileHit = level.getGameTime();
@@ -304,7 +313,7 @@ public class DoomsdayEntity extends Monster {
 		if (staggered) {
 			amount *= (float) DoomsdayConfig.boss().staggerDamageMultiplier;
 		}
-		if (bucket == null && DoomsdayAdaptation.isKryptonite(source)) {
+		if (bucket == null && DoomsdayAdaptation.isKryptonite(source) && !source.is(com.projecthero.mod.kryptonian.KryptoniteStrikes.STRIKE)) {
 			amount *= (float) DoomsdayConfig.boss().kryptoniteMultiplier;
 			level.sendParticles(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER, getX(), getY() + getBbHeight() * 0.6, getZ(), 6,
 					0.5, 0.5, 0.5, 0.0);
@@ -317,7 +326,7 @@ public class DoomsdayEntity extends Monster {
 		boolean hurt = super.hurt(source, amount);
 		if (hurt) {
 			float dealt = pendingDeath ? before : Math.max(0f, before - getHealth());
-			if (!staggered && adaptation.record(bucket, dealt, getMaxHealth())) {
+			if (!staggered && !com.projecthero.mod.kryptonian.KryptoniteStrikes.suppressed(this) && adaptation.record(bucket, dealt, getMaxHealth())) {
 				syncAdapt();
 				onLearned(level, bucket);
 			}
@@ -624,7 +633,7 @@ public class DoomsdayEntity extends Monster {
 			}
 		}
 		threat.tick();
-		if (tickCount % 20 == 0 && getHealth() < getMaxHealth() && !staggered()) {
+		if (tickCount % 20 == 0 && getHealth() < getMaxHealth() && !staggered() && !com.projecthero.mod.kryptonian.KryptoniteStrikes.suppressed(this)) {
 			DoomsdayConfig.Boss b = DoomsdayConfig.boss();
 			heal((float) (inSunlight() ? b.regenSun : b.regenDark));
 		}
@@ -1067,6 +1076,14 @@ public class DoomsdayEntity extends Monster {
 			int life = d.life();
 			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
 			java.util.List<Move> c = new java.util.ArrayList<>();
+			// v0.17.2: poisoned by kryptonite -- only his fists (the hammer and the grab), no powers
+			boolean poisoned = com.projecthero.mod.kryptonian.KryptoniteStrikes.suppressed(d);
+			if (poisoned && dist <= reach + 0.5 && ready(Move.HAMMER)) {
+				return Move.HAMMER;
+			}
+			if (poisoned) {
+				return dist <= reach + 2.0 && ready(Move.GRAB) ? Move.GRAB : Move.NONE;
+			}
 			if (dist <= reach + 0.5 && ready(Move.HAMMER)) {
 				if (d.random.nextFloat() < 0.55f) {
 					return Move.HAMMER;

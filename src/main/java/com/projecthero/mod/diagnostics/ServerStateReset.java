@@ -70,6 +70,7 @@ public final class ServerStateReset {
 		ShadowManipulationHandlers.pruneExpired(now);
 		com.projecthero.mod.spider.SpiderWebs.pruneExpired(now);
 		com.projecthero.mod.combat.SonicVulnerability.pruneExpired(now);
+		com.projecthero.mod.kryptonian.KryptoniteStrikes.pruneExpired(now); // v0.17.2 kryptonite tools
 	}
 
 	/**
@@ -87,6 +88,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.HulkbusterLanding.clearSessionState(); // v0.16.7 (user): the Hulkbuster landing
 		com.projecthero.mod.ironman.IronManFallLanding.clearSessionState(); // v0.16.7 (user): the fall landing, every suit
 		CraterAmbience.clearSessionState();
+		com.projecthero.mod.kryptonian.KryptoniteStrikes.clearSessionState(); // v0.17.2 kryptonite tools
 		TempBlocks.clearSessionState();
 		com.projecthero.mod.hero.power.p09.CryoIce.clearSessionState(); // v0.16.5: Cryokinesis ice (melted on SERVER_STOPPING)
 		com.projecthero.mod.hero.power.p05.GeoTerrain.clearSessionState(); // v0.16.5: the wall / sinkhole ledger (restored on STOPPING)

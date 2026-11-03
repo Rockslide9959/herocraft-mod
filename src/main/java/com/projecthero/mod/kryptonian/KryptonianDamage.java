@@ -58,6 +58,21 @@ public final class KryptonianDamage {
 				|| source.is(DamageTypes.FLY_INTO_WALL) || source.is(DamageTypeTags.IS_FALL))) {
 			return false;
 		}
+		// v0.17.2 (user: "make it deal 2 times damage to kryptonian beings ... should completely bypass their defences"): a kryptonite
+		// tool's hit comes back as a kryptonite strike at x2 -- armour, Resistance, Protection and the 80% cut all skipped
+		if (entity instanceof ServerPlayer kp && Kryptonian.hasPower(kp) && KryptoniteStrikes.isToolHit(source)) {
+			boolean landed;
+			REENTRANT.set(true);
+			try {
+				landed = kp.hurt(KryptoniteStrikes.strike(kp.serverLevel(), source.getEntity()), amount * KryptoniteStrikes.MULT);
+			} finally {
+				REENTRANT.set(false);
+			}
+			if (landed) {
+				KryptoniteStrikes.onStrike(kp, source.getEntity());
+			}
+			return false;
+		}
 		if (source.is(DamageTypeTags.IS_FALL) && KryptonianAbilities.consumeSafeLanding(entity)) {
 			entity.resetFallDistance();
 			return false;

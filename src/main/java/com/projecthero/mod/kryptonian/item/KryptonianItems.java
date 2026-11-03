@@ -54,6 +54,7 @@ public final class KryptonianItems {
 		METEOR_CORE_ITEM = blockItem("meteor_core", METEOR_CORE, Rarity.EPIC);
 		KRYPTONITE_SHARD = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("kryptonite_shard"),
 				new KryptoniteShardItem(new Item.Properties().rarity(Rarity.UNCOMMON)));
+		KryptoniteTools.initialize(); // v0.17.2: the kryptonite tools
 		KRYPTONIAN_CRYSTAL = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("kryptonian_crystal"),
 				new KryptonianCrystalItem(new Item.Properties().rarity(Rarity.EPIC).stacksTo(1).fireResistant()));
 		METEOR = Registry.register(BuiltInRegistries.ENTITY_TYPE,
@@ -87,6 +88,7 @@ public final class KryptonianItems {
 		output.accept(KRYPTONITE_SHARD);
 		output.accept(KRYPTONITE_ORE_ITEM);
 		output.accept(KRYPTONITE_BLOCK_ITEM);
+		KryptoniteTools.addToCreativeTab(output);
 		output.accept(METEOR_CORE_ITEM);
 		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.CHESTPLATE);
 		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS);

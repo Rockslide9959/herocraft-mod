@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " K ",
+    " S ",
+    " S "
+  ],
+  "key": {
+    "K": {
+      "item": "projecthero:kryptonite_shard"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "projecthero:kryptonite_shovel"
+  }
+}

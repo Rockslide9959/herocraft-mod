@@ -579,6 +579,23 @@ public final class Kryptonian {
 	 * Regeneration, no damage reduction, no passives and no Solar Energy. v0.14.16: the first 6 s also bring Slowness IV,
 	 * Blindness and Weakness IV, and any running move (X-Ray included) is switched off.
 	 */
+	/**
+	 * v0.17.2: kryptonite poisoning from a third kryptonite-tool strike ({@link KryptoniteStrikes}) -- powerless for {@code ticks}
+	 * like after a Solar Flare (no moves, flight, regeneration or damage reduction), without the flare's Slowness / Blindness.
+	 */
+	public static void kryptoniteSicken(ServerPlayer player, int ticks) {
+		KryptonianState n = state(player).copy();
+		long now = player.level().getGameTime();
+		n.depoweredUntil = Math.max(n.depoweredUntil, now + ticks);
+		n.heatVision = false;
+		n.breathing = false;
+		save(player, n);
+		KryptonianFlight.stop(player, true);
+		KryptonianAbilities.clear(player);
+		KryptonianAbilities.setXray(player, false);
+		reconcile(player);
+	}
+
 	static void depower(ServerPlayer player, int ticks) {
 		KryptonianState n = state(player).copy();
 		long now = player.level().getGameTime();
