@@ -33,10 +33,17 @@ import net.minecraft.world.entity.player.Player;
 @Mixin(PlayerRenderer.class)
 public abstract class OmnitrixPlayerRendererMixin {
 	@Unique
-	private static PlayerRenderer projecthero$wide() {
+	private static PlayerRenderer projecthero$renderer(PlayerSkin.Model model) {
 		EntityRenderer<? extends Player> r = ((OmnitrixRenderDispatcherAccessor) Minecraft.getInstance().getEntityRenderDispatcher())
-				.projecthero$playerRenderers().get(PlayerSkin.Model.WIDE);
+				.projecthero$playerRenderers().get(model);
 		return r instanceof PlayerRenderer pr ? pr : null;
+	}
+
+	/** v0.17.2 (user: "make spidermonkeys arms slim"): the wide renderer, or the slim one for a kit with slim arms. */
+	@Unique
+	private static PlayerRenderer projecthero$wide(AbstractClientPlayer player) {
+		AlienClientKit kit = AlienClients.shownKit(player);
+		return projecthero$renderer(kit != null && kit.slimArms(player) ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE);
 	}
 
 	@Unique
@@ -44,8 +51,8 @@ public abstract class OmnitrixPlayerRendererMixin {
 		if (AlienClients.shown(player) == null) {
 			return false;
 		}
-		PlayerRenderer wide = projecthero$wide();
-		return wide != null && wide != (Object) this;
+		PlayerRenderer target = projecthero$wide(player);
+		return target != null && target != (Object) this;
 	}
 
 	/** v0.17.1 (Wildmutt): the custom-body aliens' renderers are built from the player renderers' context. */
@@ -70,7 +77,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
-			projecthero$wide().render(player, yaw, partial, pose, buffers, light);
+			projecthero$wide(player).render(player, yaw, partial, pose, buffers, light);
 		}
 	}
 
@@ -92,7 +99,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
-			projecthero$wide().renderRightHand(pose, buffers, light, player);
+			projecthero$wide(player).renderRightHand(pose, buffers, light, player);
 		}
 	}
 
@@ -105,7 +112,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
-			projecthero$wide().renderLeftHand(pose, buffers, light, player);
+			projecthero$wide(player).renderLeftHand(pose, buffers, light, player);
 		}
 	}
 

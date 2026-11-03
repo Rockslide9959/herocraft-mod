@@ -4,7 +4,10 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeyBody;
 import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeyFx;
+import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeySlimSkin;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
@@ -13,6 +16,8 @@ import com.projecthero.mod.omnitrix.alien.spidermonkey.SpidermonkeyKit;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,13 +29,43 @@ import net.minecraft.util.Mth;
  * extra things untill i say"): ONLY the player body at 0.85 in the user's skin (minecraftskins.com) -- no second pair of arms and
  * no tail any more. A pose and a first-person clip for every move, a wall-climbing pose and a ceiling-hang pose; his webs (leaving
  * from where the show's tail curls over his shoulder) are {@link SpidermonkeyFx}.
+ * <p>
+ * v0.17.2 (user: "give spider-monkey a tail aswell please, make spidermonkeys arms slim and add in his second pair of arms since he
+ * has 4 arms and 2 legs, dont make the bottom arms stand out like fourarms does"): drawn on the SLIM arm model (his wide skin
+ * re-laid in memory by {@link SpidermonkeySlimSkin}), with a sleek second pair of arms and a long tail ({@link SpidermonkeyBody}).
  */
 public final class SpidermonkeyClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/spidermonkey.png");
+	/** v0.17.2: the slim-arm copy of {@link #SKIN}, built in memory (no file). */
+	private static final ResourceLocation SLIM_SKIN = ProjectHeroMod.id("textures/entity/omnitrix/spidermonkey_slim_generated.png");
 
 	public static void register() {
 		AlienClients.register(Aliens.SPIDERMONKEY.id(), new SpidermonkeyClient());
 		SpidermonkeyFx.register();
+		SpidermonkeyBody.register();
+	}
+
+	// v0.17.2 (user: "make spidermonkeys arms slim"): the slim (3 px) arm model, third person and the first-person hand
+	@Override
+	public boolean slimArms(AbstractClientPlayer p) {
+		return true;
+	}
+
+	@Override
+	public ResourceLocation skin(AbstractClientPlayer p) {
+		return SpidermonkeySlimSkin.get(SKIN, SLIM_SKIN);
+	}
+
+	// v0.17.2 (user: "add in his second pair of arms ... give spider-monkey a tail aswell"): the lower arms and the tail
+	@Override
+	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
+			float partial, float age) {
+		SpidermonkeyBody.render(pose, buffers, light, p, model, partial, age, skin(p));
+	}
+
+	@Override
+	public void tick(AbstractClientPlayer p) {
+		SpidermonkeyBody.tick(p);
 	}
 
 	private static float[] f(float t, float rax, float ray, float raz, float lax, float lay, float laz, float bx, float hx) {
