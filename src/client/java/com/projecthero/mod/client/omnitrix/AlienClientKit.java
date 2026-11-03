@@ -125,6 +125,11 @@ public interface AlienClientKit {
 	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre);
 	 * 2 turns it round to face out of the back (+z).
 	 */
+	/** v0.17.2: whether the chest badge shows right now (Big Chill's cloak hides it). */
+	default boolean showBadge(AbstractClientPlayer p) {
+		return true;
+	}
+
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };
 	}

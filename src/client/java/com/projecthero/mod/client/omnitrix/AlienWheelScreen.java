@@ -204,8 +204,11 @@ public final class AlienWheelScreen extends Screen {
 			com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 		// the centre: the hovered alien's name in its colour, else the title
+		// v0.17.2 (user: "even though master control isnt activated with recalibrated when i press H to change aliens it says master
+		// control"): the plain Omnitrix's wheel says so
+		boolean master = mc.player != null && Omnitrix.masterControl(mc.player);
 		Component label = hovered >= 0 ? Component.translatable(aliens.get(hovered).nameKey())
-				: Component.translatable("screen.projecthero.omnitrix.alien_wheel");
+				: Component.translatable(master ? "screen.projecthero.omnitrix.alien_wheel" : "screen.projecthero.omnitrix.alien_wheel.recal");
 		int colour = hovered >= 0 ? 0xFF000000 | aliens.get(hovered).colour() : GREEN;
 		// shrunk to fit inside the disc (never past its green rim)
 		float fit = Math.min(1f, (disc * 2f - 14f) / Math.max(1, this.font.width(label)));
@@ -215,7 +218,7 @@ public final class AlienWheelScreen extends Screen {
 		g.drawString(this.font, label, Math.round(-this.font.width(label) / 2f), -4, fade(colour, open), true);
 		g.pose().popPose();
 		g.pose().popPose();
-		Component hint = Component.translatable("screen.projecthero.omnitrix.alien_wheel.hint");
+		Component hint = Component.translatable(master ? "screen.projecthero.omnitrix.alien_wheel.hint" : "screen.projecthero.omnitrix.alien_wheel.hint_recal");
 		int hy = Math.min(this.height - 12, Math.round(cy + outer + lift + 10));
 		g.drawString(this.font, hint, Math.round(cx - this.font.width(hint) / 2f), hy, fade(TEXT_DIM, open), false);
 	}

@@ -45,6 +45,9 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 					&& com.projecthero.mod.omnitrix.alien.AlienKit.activeKit(p) instanceof com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit) {
 				return; // v0.17.2: Upgrade's Liquid Form is only the puddle -- no badge floating on it
 			}
+			if (!kit.showBadge(p)) {
+				return;
+			}
 			float[] b = kit.badge();
 			boolean red = OmnitrixWatch.red(p, partial);
 			boolean recal = Omnitrix.recalibrated(p);

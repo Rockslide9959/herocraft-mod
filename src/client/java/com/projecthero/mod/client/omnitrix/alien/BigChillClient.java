@@ -134,6 +134,12 @@ public final class BigChillClient implements AlienClientKit {
 		return SKIN_CLOAKED;
 	}
 
+	/** v0.17.2 (user: "for big chill players shouldnt see the omnitrix when his cloak is on since the cloak covers it"). */
+	@Override
+	public boolean showBadge(AbstractClientPlayer p) {
+		return (Omnitrix.state(p).kitFlags & BigChillKit.F_OPEN) != 0;
+	}
+
 	/** v0.17.2 revamp: wings open -> the uncloaked skin; otherwise the cloaked one (his normal look). */
 	@Override
 	public ResourceLocation skin(AbstractClientPlayer p) {

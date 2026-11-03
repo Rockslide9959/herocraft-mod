@@ -139,6 +139,12 @@ public final class SwampfireClient implements AlienClientKit {
 		}
 	}
 
+	/** v0.17.2 (user: "raise our omnitrix badge up slightly please"): a pixel higher than the default, where the skin's own symbol was. */
+	@Override
+	public float[] badge() {
+		return new float[] { 0f, 3.5f, -2.05f, 3.2f };
+	}
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;

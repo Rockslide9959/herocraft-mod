@@ -187,6 +187,12 @@ public final class OmnitrixPose {
 				pm.rightPants.visible = true;
 			}
 			kit.pose(p, m, s.animId, t, p.tickCount + partial);
+			// v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): the right hand slaps the chest badge -- up and across, a smack, and back
+			if (s.animId == Omnitrix.ANIM_BADGE && t < Omnitrix.BADGE_HIT_TICKS + 6) {
+				float k = t < Omnitrix.BADGE_HIT_TICKS ? Mth.sin(t / Omnitrix.BADGE_HIT_TICKS * Mth.HALF_PI) : 1f - (t - Omnitrix.BADGE_HIT_TICKS) / 6f;
+				k = Mth.clamp(k, 0f, 1f);
+				set(m.rightArm, k, new float[] { -1.35f, 0.62f, 0.05f });
+			}
 		}
 		// v0.17.2: the long (right-click) transformation's beats win over everything
 		OmnitrixSequenceClient.pose(p, m, partial);

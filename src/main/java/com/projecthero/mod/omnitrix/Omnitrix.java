@@ -60,6 +60,12 @@ public final class Omnitrix {
 	 * {@link OmnitrixConfig#LATCH_TICKS}; meanwhile they are slowed, cannot jump and cannot raise the watch.
 	 */
 	public static final int ANIM_LATCH = 1006;
+	/** v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): the right hand slaps the chest badge to take the alien picked on the wheel. */
+	public static final int ANIM_BADGE = 1007;
+	/** How long after the slap starts the switch lands. */
+	public static final int BADGE_HIT_TICKS = 5;
+	/** A wheel pick waiting for the badge (1 = waiting; the alien is {@code selected}), and the slap's start tick. */
+	public static final String PENDING_SWITCH = "omnitrix.pending_switch", BADGE_HIT = "omnitrix.badge_hit";
 	/** v0.17.1: the shake-off's slow (transient modifiers, so a save or relog mid-way never keeps them). */
 	private static final net.minecraft.resources.ResourceLocation LATCH_SLOW_ID = com.projecthero.mod.ProjectHeroMod.id("omnitrix_latch_slow");
 	private static final net.minecraft.resources.ResourceLocation LATCH_JUMP_ID = com.projecthero.mod.ProjectHeroMod.id("omnitrix_latch_jump");
@@ -279,10 +285,58 @@ public final class Omnitrix {
 		if (alienId.equals(s.active)) {
 			return true;
 		}
+		if (!masterControl(p)) {
+			// v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): the pick waits for a hit on the badge (N)
+			OmnitrixState n = s.copy();
+			n.selected = alienId;
+			n.timers.put(PENDING_SWITCH, 1L);
+			save(p, n);
+			Aliens.Alien a = Aliens.byId(alienId);
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.hit_badge",
+					Component.translatable(a == null ? "projecthero.omnitrix.alien.unknown" : a.nameKey())).withStyle(ChatFormatting.GREEN), true);
+			OmnitrixSounds.notify(p, cue(p, OmnitrixSounds.DIAL, OmnitrixSounds.RECAL_DIAL), 1.0f);
+			return true;
+		}
+		return switchNow(p, alienId);
+	}
+
+	/** N with a wheel pick waiting: the slap on the badge starts; the switch lands {@link #BADGE_HIT_TICKS} later ({@link #tick}). */
+	public static boolean hitBadge(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (!s.transformed() || s.readyAt(PENDING_SWITCH) != 1L || s.timers.containsKey(BADGE_HIT)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		OmnitrixState n = s.copy();
+		n.timers.put(BADGE_HIT, now);
+		n.animId = ANIM_BADGE;
+		n.animStart = now;
+		save(p, n);
+		return true;
+	}
+
+	/** Alien straight to alien. The recalibrated watch without Master Control pays {@code OmnitrixConfig.SWITCH_COST_TICKS} for it. */
+	private static boolean switchNow(ServerPlayer p, String alienId) {
+		OmnitrixState s = state(p);
+		long now = p.level().getGameTime();
+		boolean pay = s.transformed() && s.readyAt(RECAL) == 1L && s.readyAt(MASTER) != 1L;
+		int battery = batteryTicks(s, now);
+		if (pay && battery < OmnitrixConfig.SWITCH_COST_TICKS + OmnitrixConfig.BATTERY_MIN_TICKS) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.switch_battery_low").withStyle(ChatFormatting.RED), true);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+			return false;
+		}
 		if (s.transformed()) {
 			// v0.17.2 (user: "player should be able to switch to alien form without reverting to human"): straight across -- no
 			// turn-back effects, no recharge
 			revert(p, Reason.SWITCH);
+		}
+		if (pay) {
+			// v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): the switch costs 30 s of battery
+			OmnitrixState n = state(p).copy();
+			n.timers.put(BATTERY, (battery - OmnitrixConfig.SWITCH_COST_TICKS) * 1000L);
+			n.timers.put(BATTERY_AT, now);
+			save(p, n);
 		}
 		return select(p, alienId) && transform(p);
 	}
@@ -292,7 +346,8 @@ public final class Omnitrix {
 	 * switch -- Master Control, or the Recalibrated Omnitrix with or without it.
 	 */
 	public static boolean canSwitch(Player p) {
-		return masterControl(p) || recalibrated(p);
+		// v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): without Master Control, only as an alien
+		return masterControl(p) || recalibrated(p) && state(p).transformed();
 	}
 
 	/**
@@ -890,6 +945,8 @@ public final class Omnitrix {
 		n.endsAt = 0L;
 		n.timers.remove(POWER_DOWN_TIMER);
 		n.timers.remove(POWER_DOWN_TIMEOUT);
+		n.timers.remove(PENDING_SWITCH);
+		n.timers.remove(BADGE_HIT);
 		boolean recal = n.readyAt(RECAL) == 1L;
 		if (recal) {
 			// v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery keeps what it had left (flat after a timeout), refilling from now
@@ -1203,6 +1260,15 @@ public final class Omnitrix {
 		// v0.17.2: the Recalibration Chip's insert, recalibration mode and the reform run before anything else of the watch's
 		if (OmnitrixRecal.busy(s)) {
 			OmnitrixRecal.tick(p, now);
+			s = state(p);
+		}
+		// v0.17.2 (user: "Switching alien forms without reverting to human first should drain some of the timer, for example switching alien forms should drain like 30 seconds from the timer, also the alien switcher for recalibrated should only work while in alien form unless the user has master control, if the player chooses another alien via the alien switcher with recalibrated they need to hit their omnitrix badge first and then transform"): the hand lands on the badge -- the switch
+		if (s.transformed() && s.timers.containsKey(BADGE_HIT) && now >= s.readyAt(BADGE_HIT) + BADGE_HIT_TICKS) {
+			OmnitrixState n = s.copy();
+			n.timers.remove(BADGE_HIT);
+			n.timers.remove(PENDING_SWITCH);
+			save(p, n);
+			switchNow(p, n.selected);
 			s = state(p);
 		}
 		if (s.selecting && s.timers.containsKey(PRESS_TIMER) && now >= s.readyAt(PRESS_TIMER)) {

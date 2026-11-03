@@ -22,6 +22,8 @@ public final class OmnitrixConfig {
 	public static final int BATTERY_RECHARGE_TICKS = 90 * 20;
 	/** The least charge a transformation needs. */
 	public static final int BATTERY_MIN_TICKS = 5 * 20;
+	/** v0.17.2 (user: "switching alien forms should drain like 30 seconds from the timer"): alien to alien on the wheel. */
+	public static final int SWITCH_COST_TICKS = 30 * 20;
 	/** An early Shift+V revert still costs a (shorter) recharge: 10 s, so swapping can not be spammed. */
 	public static final int EARLY_RECHARGE_TICKS = 10 * 20;
 	/** A kit key held this long becomes a hold move (only for keys the kit declares holdable). */
