@@ -373,7 +373,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		// v0.17.1 (user): a 0.2 s cooldown -- a second turn in the same tick is refused
 		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial can't be turned again within 0.2 s");
 		helper.assertTrue(Omnitrix.state(p).selected.equals(second), "the refused turn changed nothing");
-		for (int k = 1; k < Aliens.playable().size(); k++) { // v0.17.1 wave A: however many aliens have kits by now
+		for (int k = 1; k < Aliens.playable(p).size(); k++) { // v0.17.1 wave A: however many aliens have kits by now (v0.17.2: on his dial)
 			Omnitrix.clearDialCooldown(p);
 			Omnitrix.cycle(p, 1);
 		}

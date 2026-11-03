@@ -1318,7 +1318,7 @@ public final class Omnitrix {
 		if (!s.hasPower || Aliens.byId(alienId) == null || Aliens.byId(alienId).recalibrated() != recalibrated(p)) {
 			return false;
 		}
-		if (!Aliens.playable(alienId)) {
+		if (!Aliens.playable(alienId) || !Aliens.found(p, alienId)) { // v0.17.2: a hidden alien (Cannonbolt) only once a mistransform found it
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.coming_soon",
 					Component.translatable(Aliens.byId(alienId).nameKey())).withStyle(ChatFormatting.GRAY), true);
 			return false;
@@ -1418,22 +1418,46 @@ public final class Omnitrix {
 			String dialled = s.selected;
 			java.util.List<Aliens.Alien> pool = Aliens.playable(p);
 			// v0.17.2 (user: "the recalibrated omnitrix didnt mistransform so remove the 50% chance to get the wrong alien for the recalibrated")
-			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && pool.size() > 1 && p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
+			// v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"):
+			// a hidden alien (Cannonbolt) is never dialled -- the first glitch that fires always lands on the first one he has not
+			// found yet, and that puts it on his dial for good
+			Aliens.Alien hidden = Aliens.nextHidden(p);
+			String found = null;
+			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && (pool.size() > 1 || hidden != null)
+					&& p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
 				String other = dialled;
+				if (hidden != null) {
+					other = found = hidden.id();
+					Aliens.discover(p, found, true);
+				}
 				while (other.equals(dialled)) {
 					other = pool.get(p.getRandom().nextInt(pool.size())).id();
 				}
-				OmnitrixState g = s.copy();
+				OmnitrixState g = state(p).copy();
 				g.selected = other;
 				save(p, g);
 			}
 			boolean glitched = !state(p).selected.equals(dialled);
 			if (transform(p) && glitched) {
-				// v0.17.2 (user: "when the player mistransforms into the wrong alien dont make the text show up"): no message
+				// v0.17.2 (user: "when the player mistransforms into the wrong alien dont make the text show up"): no message --
+				// except the one time a mistransform finds a new alien, so he knows it is on his dial now
 				OmnitrixState g = state(p).copy();
 				g.selected = dialled; // the dial stays where he put it
 				save(p, g);
+				if (found != null) {
+					p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.found",
+							Component.translatable(hidden.nameKey())).withStyle(ChatFormatting.YELLOW), true);
+				}
 				return;
+			}
+			if (glitched && !state(p).transformed()) {
+				// the glitch's transform was refused: back to the dialled alien, and nothing found
+				OmnitrixState g = state(p).copy();
+				g.selected = dialled;
+				save(p, g);
+				if (found != null) {
+					Aliens.discover(p, found, false);
+				}
 			}
 			if (state(p).transformed()) {
 				return;

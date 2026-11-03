@@ -101,9 +101,59 @@ public final class Aliens {
 		return com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p) ? recalibrated() : all();
 	}
 
-	/** v0.17.2: the playable aliens on the dial of the watch {@code p} wears, in order. */
+	/**
+	 * v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"): aliens
+	 * the dial does not offer until a mistransform lands on one -- the prototype's glitch picks the first one still hidden, and from
+	 * then on it is on the dial for good ({@link #discover}).
+	 */
+	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt");
+
+	/** The persisted Omnitrix timer that marks {@code id} found (1 = found). */
+	public static String foundKey(String id) {
+		return "omnitrix.found." + id;
+	}
+
+	/** {@code id} is found by accident (a mistransform), not dialled. */
+	public static boolean hidden(String id) {
+		return HIDDEN.contains(id);
+	}
+
+	/** {@code p} may dial {@code id}: never hidden, or found already (client-safe: the synced state). */
+	public static boolean found(net.minecraft.world.entity.player.Player p, String id) {
+		return !HIDDEN.contains(id) || com.projecthero.mod.omnitrix.Omnitrix.state(p).readyAt(foundKey(id)) == 1L;
+	}
+
+	/** Puts a hidden alien on {@code p}'s dial for good ({@code on}), or takes it off again (tests, the tune command). */
+	public static void discover(net.minecraft.server.level.ServerPlayer p, String id, boolean on) {
+		var n = com.projecthero.mod.omnitrix.Omnitrix.state(p).copy();
+		if (on) {
+			n.timers.put(foundKey(id), 1L);
+		} else {
+			n.timers.remove(foundKey(id));
+		}
+		com.projecthero.mod.omnitrix.Omnitrix.save(p, n);
+	}
+
+	/** The first hidden alien (with a kit) on the dial of the watch {@code p} wears that {@code p} has not found yet, or null. */
+	@Nullable
+	public static Alien nextHidden(net.minecraft.world.entity.player.Player p) {
+		for (Alien a : dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p))) {
+			if (!found(p, a.id())) {
+				return a;
+			}
+		}
+		return null;
+	}
+
+	/** v0.17.2: the playable aliens on the dial of the watch {@code p} wears, in order (a hidden one only once found). */
 	public static List<Alien> playable(net.minecraft.world.entity.player.Player p) {
-		return dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p));
+		List<Alien> out = new ArrayList<>();
+		for (Alien a : dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p))) {
+			if (found(p, a.id())) {
+				out.add(a);
+			}
+		}
+		return out;
 	}
 
 	/** v0.17.2: the playable aliens on the prototype's dial, or ({@code recal}) the Recalibrated Omnitrix's, in order. */
@@ -120,7 +170,7 @@ public final class Aliens {
 	/** v0.17.2: {@code id} has a kit AND is on the dial of the watch {@code p} wears. */
 	public static boolean available(net.minecraft.world.entity.player.Player p, String id) {
 		Alien a = byId(id);
-		return a != null && KITS.containsKey(id) && a.recalibrated() == com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p);
+		return a != null && KITS.containsKey(id) && a.recalibrated() == com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p) && found(p, id);
 	}
 
 	@Nullable

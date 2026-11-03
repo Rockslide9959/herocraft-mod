@@ -53,7 +53,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		}
 		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
 		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
-		helper.assertTrue(Omnitrix.select(p, CannonboltKit.ID), "Cannonbolt is on the prototype's dial");
+		Aliens.discover(p, CannonboltKit.ID, true); // found by a mistransform (its own test below)
+		helper.assertTrue(Omnitrix.select(p, CannonboltKit.ID), "Cannonbolt is on the prototype's dial once found");
 		helper.assertTrue(Omnitrix.transform(p), "transformed into Cannonbolt");
 		return p;
 	}
@@ -86,6 +87,57 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		Omnitrix.grant(recal, true);
 		helper.assertFalse(Omnitrix.select(recal, CannonboltKit.ID), "the recalibrated watch cannot pick him");
 		helper.succeed();
+	}
+
+	/**
+	 * v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"): not on
+	 * the dial at first; the first mistransform lands on him and puts him on the dial for good, the dial staying where it was.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 1600)
+	public void aMistransformFindsCannonboltAndPutsHimOnTheDial(GameTestHelper helper) {
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 0; z <= 7; z++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		helper.assertFalse(Aliens.playable(p).contains(Aliens.CANNONBOLT), "not on the dial before he is found");
+		helper.assertFalse(Omnitrix.select(p, CannonboltKit.ID), "and cannot be dialled");
+		helper.assertTrue(Aliens.nextHidden(p) == Aliens.CANNONBOLT, "he is the next alien a glitch finds");
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			Omnitrix.tick(p);
+		});
+		attempt(helper, p, 0);
+	}
+
+	/** Slap Heatblast until a glitch fires (50% a slap) -- it must land on Cannonbolt. */
+	private static void attempt(GameTestHelper helper, ServerPlayer p, int n) {
+		if (n >= 40) {
+			helper.fail("no mistransform in 40 slaps");
+			return;
+		}
+		if (Omnitrix.transformed(p)) {
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		}
+		Omnitrix.setRecharge(p, 0);
+		Omnitrix.activate(p);
+		Omnitrix.finishRaise(p);
+		Omnitrix.select(p, Aliens.HEATBLAST.id());
+		Omnitrix.slap(p);
+		helper.runAfterDelay(Omnitrix.SLAP_TICKS + 4, () -> {
+			String active = Omnitrix.state(p).active;
+			if (!active.isEmpty() && !active.equals(Aliens.HEATBLAST.id())) {
+				helper.assertTrue(active.equals(CannonboltKit.ID), "the first mistransform is Cannonbolt, got " + active);
+				helper.assertTrue(Aliens.found(p, CannonboltKit.ID) && Aliens.playable(p).contains(Aliens.CANNONBOLT), "now on the dial");
+				helper.assertTrue(Omnitrix.state(p).selected.equals(Aliens.HEATBLAST.id()), "the dial stays on Heatblast");
+				helper.assertTrue(Aliens.nextHidden(p) == null, "nothing hidden left");
+				helper.succeed();
+				return;
+			}
+			attempt(helper, p, n + 1);
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

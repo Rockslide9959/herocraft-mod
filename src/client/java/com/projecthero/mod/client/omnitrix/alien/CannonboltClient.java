@@ -163,9 +163,12 @@ public final class CannonboltClient implements AlienClientKit {
 		pose.popPose();
 	}
 
-	private static final int SEGMENTS = 24, RINGS = 14;
+	private static final int SEGMENTS = 40, RINGS = 24; // v0.17.2 (user: the reference ball): smooth enough for the curved seams
 
-	/** A UV sphere of {@code radius} blocks, the 64x32 wrap texture: u round the equator, v pole to pole. */
+	/**
+	 * A UV sphere of {@code radius} blocks on the wrap texture (u round the equator, v pole to pole), every vertex lit by its own
+	 * normal so the shading is smooth (no rings).
+	 */
 	private static void sphere(PoseStack pose, VertexConsumer vc, float radius, int light) {
 		PoseStack.Pose last = pose.last();
 		for (int i = 0; i < RINGS; i++) {
@@ -174,13 +177,17 @@ public final class CannonboltClient implements AlienClientKit {
 			for (int j = 0; j < SEGMENTS; j++) {
 				float u0 = j / (float) SEGMENTS, u1 = (j + 1) / (float) SEGMENTS;
 				float p0 = (float) (2 * Math.PI) * u0, p1 = (float) (2 * Math.PI) * u1;
-				float[] a = point(t0, p0), b = point(t0, p1), c = point(t1, p1), d = point(t1, p0);
-				float[] n = point((t0 + t1) * 0.5f, (p0 + p1) * 0.5f);
-				// corners in the helper's UV order: (u0,v0) (u1,v0) (u1,v1) (u0,v1)
-				AlienParts.quad(vc, last, 0xFFFFFFFF, light, a[0] * radius, a[1] * radius, a[2] * radius, b[0] * radius, b[1] * radius, b[2] * radius,
-						c[0] * radius, c[1] * radius, c[2] * radius, d[0] * radius, d[1] * radius, d[2] * radius, n[0], n[1], n[2], u0, v0, u1, v1);
+				vertex(vc, last, point(t0, p0), radius, u0, v0, light);
+				vertex(vc, last, point(t0, p1), radius, u1, v0, light);
+				vertex(vc, last, point(t1, p1), radius, u1, v1, light);
+				vertex(vc, last, point(t1, p0), radius, u0, v1, light);
 			}
 		}
+	}
+
+	private static void vertex(VertexConsumer vc, PoseStack.Pose last, float[] n, float radius, float u, float v, int light) {
+		vc.addVertex(last, n[0] * radius, n[1] * radius, n[2] * radius).setColor(255, 255, 255, 255).setUv(u, v)
+				.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light).setNormal(last, n[0], n[1], n[2]);
 	}
 
 	/** The unit-sphere point at polar angle {@code theta} (0 = top) and azimuth {@code phi}. */

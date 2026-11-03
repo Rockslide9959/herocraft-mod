@@ -16,28 +16,49 @@ const write = (f, w, h, px) => fs.writeFileSync(path.join(RES, f), L.encodePng(w
 // --- the skin -----------------------------------------------------------------------------------------------------------------
 write('entity/omnitrix/cannonbolt.png', 64, 64, dec(path.join(__dirname, 'cannonbolt_src.png')).px);
 
-// --- the ball's shell: a 64x32 wrap (longitude across, latitude down) for the client's sphere -------------------------------
-// two bands of his gold plates in a brick pattern, black-edged, white seams between them and white caps at the poles (his white
-// body showing between the plates, as the show's ball)
+// --- the ball's shell: a 256x128 wrap (longitude across, latitude down) for the client's UV sphere ----------------------------
+// v0.17.2 (user: "this is what canonbolts ball form looks like, make it look like this please" -- cannonbolt_ball_ref.png): solid
+// amber plates, no white, thick black seams like a basketball's -- a big S-wave round the middle, a round plate edge on each side
+// (the circle-in-circle panel) and one seam over the top. The seams are traced on the real sphere, with the exact mapping
+// CannonboltClient.sphere uses (v down = theta from the BOTTOM pole, y = -cos(theta); u round = phi), so they stay round.
 {
-	const W = 64, H = 32;
+	const W = 256, H = 128;
 	const px = Buffer.alloc(W * H * 4);
-	const set = (x, y, c) => { const o = (y * W + x) * 4; px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = 255; };
-	const WHITE = [255, 255, 255], SHADE = [0xd8, 0xd8, 0xd8], BLACK = [0, 0, 0], GOLD = [0xda, 0xbe, 0x0b], DARK = [0xa8, 0x94, 0x11],
-		LIGHT = [0xf0, 0xd4, 0x3b];
-	const bands = [[3, 15, 0], [17, 29, 4]]; // rows y0..y1 inclusive, column offset (the brick shift)
+	const P = (theta, phi) => [Math.sin(theta) * Math.cos(phi), -Math.cos(theta), Math.sin(theta) * Math.sin(phi)];
+	const fromLatLon = (lat, phi) => P(Math.PI / 2 + lat, phi); // lat + = up
+	const norm = v => { const l = Math.hypot(v[0], v[1], v[2]); return v.map(c => c / l); };
+	const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+	const curves = [];
+	// 1. the S-wave round the middle (a tennis-ball seam)
+	{ const pts = []; for (let i = 0; i < 720; i++) { const f = i / 720 * 2 * Math.PI; pts.push(fromLatLon(0.62 * Math.sin(2 * f), f)); } curves.push(pts); }
+	// 2-3. a round plate edge in each big lobe the wave leaves
+	for (const [lat, lon] of [[0.32, 0.75 * Math.PI], [-0.32, 1.75 * Math.PI]]) {
+		const c = fromLatLon(lat, lon);
+		const a = norm(cross(c, [0, 1, 0])), b = cross(c, a), r = 0.5;
+		const pts = [];
+		for (let i = 0; i < 360; i++) {
+			const t = i / 360 * 2 * Math.PI;
+			pts.push(norm(c.map((v, k) => v * Math.cos(r) + (a[k] * Math.cos(t) + b[k] * Math.sin(t)) * Math.sin(r))));
+		}
+		curves.push(pts);
+	}
+	// 4. one seam over the top: a great circle through both poles, between the two plate circles
+	{ const pts = []; for (let i = 0; i < 720; i++) { const t = i / 720 * 2 * Math.PI; pts.push([Math.cos(t) * Math.cos(0.25 * Math.PI), Math.sin(t), Math.cos(t) * Math.sin(0.25 * Math.PI)]); } curves.push(pts); }
+	const AMBER = [0xF0, 0xB0, 0x30], DEEP = [0xC8, 0x86, 0x1C], BLACK = [0x12, 0x0C, 0x06];
+	const SEAM = 0.075, SOFT = 0.14; // radians: the black seam, then the plate's darker lip beside it
 	for (let y = 0; y < H; y++) {
 		for (let x = 0; x < W; x++) {
-			let c = (y < 2 || y > H - 3) ? SHADE : WHITE;
-			for (const [y0, y1, off] of bands) {
-				if (y < y0 || y > y1) continue;
-				const cx = ((x + off) % 8 + 8) % 8; // 8 plates round the ball
-				if (cx === 0) { c = WHITE; break; } // the white seam between two plates
-				const edge = y === y0 || y === y1 || cx === 1 || cx === 7;
-				if (edge) { c = BLACK; break; }
-				c = (y === y0 + 1 || cx === 2) ? LIGHT : (y >= y1 - 2 || cx === 6) ? DARK : GOLD;
+			const q = P(Math.PI * (y + 0.5) / H, 2 * Math.PI * (x + 0.5) / W);
+			let best = 9;
+			for (const pts of curves) for (const s of pts) {
+				const d = Math.acos(Math.max(-1, Math.min(1, q[0] * s[0] + q[1] * s[1] + q[2] * s[2])));
+				if (d < best) best = d;
 			}
-			set(x, y, c);
+			let c;
+			if (best < SEAM) c = BLACK;
+			else if (best < SOFT) { const k = (best - SEAM) / (SOFT - SEAM); c = DEEP.map((v, i) => Math.round(v + (AMBER[i] - v) * k)); }
+			else c = AMBER;
+			const o = (y * W + x) * 4; px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = 255;
 		}
 	}
 	write('entity/omnitrix/cannonbolt_ball.png', W, H, px);

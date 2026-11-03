@@ -44,6 +44,13 @@ public final class OmnitrixCommand {
 					}
 					return on ? "Now the Recalibrated Omnitrix" : "Now the prototype Omnitrix";
 				}))
+				// v0.17.2: the aliens found only by a mistransform (Cannonbolt) -- on the dial now, or hidden again
+				.then(onOff("found", (p, on) -> {
+					for (String id : new String[] { com.projecthero.mod.omnitrix.alien.Aliens.CANNONBOLT.id() }) {
+						com.projecthero.mod.omnitrix.alien.Aliens.discover(p, id, on);
+					}
+					return on ? "Cannonbolt is on your dial" : "Cannonbolt is hidden again (the next mistransform finds him)";
+				}))
 				.then(onOff("glitch", (p, on) -> {
 					Omnitrix.setGlitches(p, on);
 					return "Mistransforms " + (on ? "on" : "off");
