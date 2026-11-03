@@ -21,8 +21,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (Recalibrated Omnitrix, basic Spidermonkey): his rendered webs -- strands (thin white lines with a little sag) from his hand
- * to an anchor or a creature, the web glob in flight with its line back to him, the spinning net (spokes, rings and a scalloped
+ * v0.17.2 (Recalibrated Omnitrix, basic Spidermonkey): his rendered webs -- strands (thin white lines with a little sag) from his tail
+ * tip to an anchor or a creature, the web glob in flight with its line back to his tail, the spinning net (spokes, rings and a scalloped
  * rim), webbing wrapped round a stuck creature (a few loops) or a full cocoon, the ground trap and the web wall. Solid white,
  * lit by the world.
  */
@@ -47,20 +47,11 @@ public final class SpidermonkeyFx {
 	}
 
 	/**
-	 * v0.17.2 revamp: where his webs leave from -- his tail, low on his back (the model is only the skin now, so the point sits where
-	 * the show's tail is). In his own first person that is behind the view, so it leaves from low in front instead.
+	 * Where his webs leave from. v0.17.2 (user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show"): the
+	 * tip of his rendered tail ({@link SpidermonkeyBody#tailTip}) -- in first person too, so the line rises from below the view.
 	 */
 	public static Vec3 tail(Player p, float partial) {
-		Minecraft mc = Minecraft.getInstance();
-		Vec3 look = p.getViewVector(partial);
-		if (p == mc.player && mc.options.getCameraType().isFirstPerson()) {
-			return p.getEyePosition(partial).add(look.scale(0.7)).add(0, -0.45, 0);
-		}
-		float yaw = Mth.lerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
-		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
-		float s = p.getScale();
-		// the tail curls up over his shoulder in the show: the web leaves just above and behind the shoulders
-		return p.getPosition(partial).add(0, 1.55 * s, 0).subtract(fwd.scale(0.3 * s));
+		return SpidermonkeyBody.tailTip(p, partial);
 	}
 
 	private static int light(Entity e) {
@@ -79,21 +70,23 @@ public final class SpidermonkeyFx {
 		PyroDraw.ribbon(pose, vc, pts, s -> width, s -> colour);
 	}
 
-	/** A strand ending here: from the owner's hand (colour 0) or from creature colour - 1. */
+	/**
+	 * A strand from the owner's tail tip to here (colour 0: a swing / zip / kick line's hook) or, v0.17.2 (user: webs from his tail),
+	 * to creature colour - 1 wherever it is (Web Yank, Cocoon Crush) -- it used to run from the creature to his eyes.
+	 */
 	private static void strand(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers) {
 		Minecraft mc = Minecraft.getInstance();
+		if (!(e.getOwner() instanceof Player owner)) {
+			return;
+		}
+		Vec3 start = tail(owner, partial);
 		Vec3 end = e.getPosition(partial);
-		Vec3 start = null;
 		if (e.colour() > 0) {
 			Entity t = mc.level.getEntity(e.colour() - 1);
-			if (t != null) {
-				start = t.getPosition(partial).add(0, t.getBbHeight() * 0.55, 0);
+			if (t == null) {
+				return;
 			}
-		} else if (e.getOwner() instanceof Player owner) {
-			start = tail(owner, partial);
-		}
-		if (start == null) {
-			return;
+			end = t.getPosition(partial).add(0, t.getBbHeight() * 0.55, 0);
 		}
 		pose.pushPose();
 		toCamera(pose, e, partial);

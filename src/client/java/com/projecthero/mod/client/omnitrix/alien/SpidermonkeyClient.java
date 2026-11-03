@@ -7,6 +7,7 @@ import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeyBody;
 import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeyFx;
+import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeyLineClient;
 import com.projecthero.mod.client.omnitrix.alien.spidermonkey.SpidermonkeySlimSkin;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -43,6 +44,7 @@ public final class SpidermonkeyClient implements AlienClientKit {
 		AlienClients.register(Aliens.SPIDERMONKEY.id(), new SpidermonkeyClient());
 		SpidermonkeyFx.register();
 		SpidermonkeyBody.register();
+		SpidermonkeyLineClient.register(); // v0.17.2 (user: Ladybug's yo-yo swing / zip line)
 	}
 
 	// v0.17.2 (user: "make spidermonkeys arms slim"): the slim (3 px) arm model, third person and the first-person hand
@@ -156,7 +158,10 @@ public final class SpidermonkeyClient implements AlienClientKit {
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		OmnitrixState s = Omnitrix.state(p);
 		if ((s.kitFlags & SpidermonkeyKit.F_SWING) != 0) {
-			return QuirkKeyframes.play(m, SWING, Math.min(ticks, 10f), 1f); // hanging on the line while Shift+X is held
+			return QuirkKeyframes.play(m, SWING, Math.min(ticks, 10f), 1f); // hanging on the line while X is held
+		}
+		if ((s.kitFlags & SpidermonkeyKit.F_ZIP) != 0) {
+			return QuirkKeyframes.play(m, ZIP, Math.min(ticks, 8f), 1f); // v0.17.2: reaching for the hook the whole zip
 		}
 		if ((s.kitFlags & SpidermonkeyKit.F_KICK) != 0) {
 			return QuirkKeyframes.play(m, KICK, Math.min(ticks, 10f), 1f);

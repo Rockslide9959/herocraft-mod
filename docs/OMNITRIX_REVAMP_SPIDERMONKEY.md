@@ -26,8 +26,8 @@ web line, four-fist combos and a cocoon slam.
 | Shift+R | Web Net | spinning net | 12 r 2.5, rooted 3 s, cd 8 s |
 | G | Quad Flurry | four fists in front | 4 x 3.5 (+1 each on a webbed foe), cd 5 s |
 | Shift+G | Web Yank / Swing Kick | ground: reel the creature in; air or wall: he flies in on the line and kicks | yank 12 / kick 15 + knocked flying, range 16, cd 8 s |
-| X | Web Zip | line to a block, zipped there | range 28, cd 1.5 s |
-| Shift+X (hold) | Web Swing | pendulum while held, release flings; re-catch in the air within 2 s = no cooldown (Monkey Bars) | up to 4 s, cd 3 s |
+| X (hold) | Web Swing | Ladybug's Yo-yo Swing: line to the crosshair block (else ahead and above), Spider-Man rope physics on his client while held (W pumps, Jump reels in, Sneak pays out), release flings; re-catch in the air within 2 s = no cooldown (Monkey Bars) | range 50, snaps 14 past its rope, cd 1 s |
+| Shift+X | Web Zip | Ladybug's Zip Line: pulled straight to the block at a constant speed, a hop up at the end; X lets go | range 75, 2.2 blocks/tick (44 b/s), 2.5 s max, cd 2 s |
 | Z | Tail Whip | spin | 13 r 3.2; webbed foes torn loose and thrown twice as far, cd 6 s |
 | Shift+Z | **Cocoon Crush** (ULT) | cocoon a creature, squeeze, then slam it | 10 x 5 + 14 = 64, rooted 5 s, range 16, cd 45 s |
 | C | Web Trap | ground web, two at a time | 5 + rooted 3 s, r 2.5, 15 s, cd 15 s |
@@ -57,5 +57,11 @@ Removed the second pair of arms, the three-segment tail and spinneret, and `spid
 (minecraftskins.com), wide-arm model, Omnitrix badge kept. Web lines now leave from just above and behind his shoulders (where the
 show's tail curls), or low in front in his own first person.
 
+**Webs from the tail (v0.17.2, user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show"):** every line
+(swing, zip, yank / kick, cocoon, trap) is drawn from the tip of his simulated tail (`SpidermonkeyBody.tailTip`), and every web
+projectile (shot, net, barrage) spawns at the server's stand-in (`SpidermonkeyKit.tailTip`: behind and above his hips, scaled) aimed at
+the crosshair's creature or block.
+
 ## Screenshots
 `docs/screenshots/v0172/spidermonkey/`: skin_front, web_net, web_swing, cocoon_crush_ult.
+`docs/screenshots/v0172/spidermonkey_webs/`: the tail-tip swing, zip and web shot (+ an MP4 of a swing and a zip).

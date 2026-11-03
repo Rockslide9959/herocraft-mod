@@ -169,6 +169,30 @@ public final class SpidermonkeyBody {
 		return new Vec3(0, 3.2f + ROOT_Y * c - ROOT_Z * s, ROOT_Y * s + ROOT_Z * c);
 	}
 
+	/**
+	 * v0.17.2 (user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show"): where his rendered tail tip
+	 * is in the world this frame -- the last link of the simulated chain, interpolated like the render; before the tail has ticked,
+	 * the idle curl's tip (the server's {@link SpidermonkeyKit#tailTip} uses the same rest shape). Every web line starts here.
+	 */
+	public static Vec3 tailTip(Player p, float partial) {
+		State st = STATES.get(p.getUUID());
+		if (st != null && st.init) {
+			Vec3 tip = st.last[N].lerp(st.pos[N], partial);
+			// a stale chain (he teleported): fall back to the rest shape
+			if (tip.distanceToSqr(p.getPosition(partial)) < 9.0) {
+				return tip;
+			}
+		}
+		float yaw = Mth.lerp(partial, p.yBodyRotO, p.yBodyRot);
+		Vec3 base = base(p, partial);
+		Vec3 at = rootModel(p);
+		for (int i = 1; i <= N; i++) {
+			float[] d = REST_IDLE[i - 1];
+			at = at.add(new Vec3(d[0], d[1], d[2]).normalize().scale(LEN[i - 1]));
+		}
+		return toWorld(p, base, yaw, at.x, at.y, at.z);
+	}
+
 	// ---------------------------------------------------------------- the tail's tick
 
 	/** One client tick of {@code p}'s tail (from the kit's tick). */
@@ -183,7 +207,7 @@ public final class SpidermonkeyBody {
 		float walk = Mth.clamp(p.walkAnimation.speed() * 1.6f, 0f, 1f);
 		float phase = p.walkAnimation.position() * 0.6662f;
 		// web swing / zip / swing kick / falling: loose, streaming behind him
-		boolean loose = (os.kitFlags & (SpidermonkeyKit.F_SWING | SpidermonkeyKit.F_AIR | SpidermonkeyKit.F_KICK)) != 0
+		boolean loose = (os.kitFlags & (SpidermonkeyKit.F_SWING | SpidermonkeyKit.F_ZIP | SpidermonkeyKit.F_AIR | SpidermonkeyKit.F_KICK)) != 0
 				|| p.getDeltaMovement().y < -0.6 || p.isFallFlying();
 		// the tail whip: the body spins once (SpidermonkeyClient's WHIP clip), the tail sweeps round with it
 		float spin = 0f;
@@ -192,6 +216,12 @@ public final class SpidermonkeyBody {
 			spin = t < 2 ? t / 2f * 1.6f : t < 5 ? 1.6f + (t - 2) / 3f * 3.1f : t < 8 ? 4.7f + (t - 5) / 3f * 1.58f : 0f;
 		}
 		float age = p.tickCount;
+		// v0.17.2 (user: "make spidermonkeys webs shoot out from his tail"): on a swing / zip line the tail reaches up his back and
+		// toward the hook (the line runs on from its tip), instead of streaming behind him through the line
+		Vec3 hook = SpidermonkeyKit.lineMode(p) != 0 ? SpidermonkeyKit.hook(p) : null;
+		if (hook != null) {
+			loose = false;
+		}
 		if (!st.init || st.pos[0].distanceToSqr(root) > 9.0) {
 			// (re)start in the rest shape
 			Vec3 at = rm;
@@ -210,6 +240,14 @@ public final class SpidermonkeyBody {
 		}
 		for (int i = 0; i <= N; i++) {
 			st.last[i] = st.pos[i];
+		}
+		if (hook != null) {
+			// v0.17.2: on a line the tail rides along with him (a 44 b/s zip would otherwise leave it streaming behind)
+			Vec3 shift = root.subtract(st.pos[0]);
+			for (int i = 1; i <= N; i++) {
+				st.pos[i] = st.pos[i].add(shift);
+				st.prev[i] = st.prev[i].add(shift);
+			}
 		}
 		st.pos[0] = root;
 		st.prev[0] = root;
@@ -233,9 +271,17 @@ public final class SpidermonkeyBody {
 					if (spin != 0f) {
 						dir = dir.yRot(-spin);
 					}
+					float kk = k;
+					if (hook != null) {
+						// up his back first (model y is down), the last links turned toward the hook
+						Vec3 h = toModel(p, base, yaw, hook).subtract(parentModel);
+						h = h.lengthSqr() < 1.0e-6 ? new Vec3(0, -1, 0) : h.normalize();
+						dir = h.add(0, -2.2 * (1f - f), 0.35 * (1f - f)).normalize();
+						kk = 0.5f;
+					}
 					Vec3 targetModel = parentModel.add(dir.scale(LEN[i - 1]));
 					Vec3 target = toWorld(p, base, yaw, targetModel.x, targetModel.y, targetModel.z);
-					st.pos[i] = st.pos[i].add(target.subtract(st.pos[i]).scale(k));
+					st.pos[i] = st.pos[i].add(target.subtract(st.pos[i]).scale(kk));
 				}
 				// keep the link's length
 				Vec3 d = st.pos[i].subtract(st.pos[i - 1]);
@@ -246,6 +292,10 @@ public final class SpidermonkeyBody {
 				Vec3 m = toModel(p, base, yaw, st.pos[i]);
 				if (spin == 0f && m.z < BEHIND && m.y > -4 && m.y < 25 && Math.abs(m.x) < 6.5) {
 					m = new Vec3(m.x, m.y, BEHIND);
+					st.pos[i] = toWorld(p, base, yaw, m.x, m.y, m.z);
+				} else if (hook != null && m.z < 4.4 && m.y > -9 && m.y <= -4 && Math.abs(m.x) < 4.6) {
+					// v0.17.2: reaching up on a line -- behind his head, not through it
+					m = new Vec3(m.x, m.y, 4.4);
 					st.pos[i] = toWorld(p, base, yaw, m.x, m.y, m.z);
 				}
 				// never through a block
