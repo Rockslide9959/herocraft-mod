@@ -190,8 +190,9 @@ public final class DirectionalFlight {
 							com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.streamlined(player));
 				}
 				case "ghostfreak" -> {
-					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.GHOSTFREAK_CRUISE_BPS,
-							DirectionalFlightModel.GHOSTFREAK_SPRINT_BPS);
+					// v0.17.2 (user: "make ghost freaks flight the directional flight where he flies in the direction he looks
+					// please"): his double-tap Ghost Flight on the shared model -- 15 b/s, 30 sprinting
+					return DirectionalFlightModel.ghostfreak(flyingSpeed, sprint);
 				}
 				default -> {
 				}

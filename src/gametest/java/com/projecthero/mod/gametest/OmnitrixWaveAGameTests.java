@@ -1298,7 +1298,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void ghostfreaksPhaseIsTimedAndLeavesNothingBehind(GameTestHelper helper) {
+	public void ghostfreaksPhaseIsAToggleAndLeavesNothingBehind(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GhostfreakKit.ID);
 		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 20f);
@@ -1310,9 +1310,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.hurt(helper.getLevel().damageSources().inWall(), 2f);
 		helper.assertTrue(p.getHealth() == hp, "nothing physical touches him (walls neither)");
 		pump(helper, p);
-		helper.runAfterDelay(GhostfreakKit.PHASE_TICKS + 3, () -> {
-			helper.assertFalse(kit.phasing(p), "the phase runs out after 5 s");
-			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.PHASE) > GhostfreakKit.PHASE_COOLDOWN - 10, "and then cools down");
+		// v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please")
+		helper.runAfterDelay(140, () -> {
+			helper.assertTrue(kit.phasing(p), "no time limit: still phased after 7 s");
+			kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3, false);
+			helper.assertFalse(kit.phasing(p), "X again turns it off");
+			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.PHASE) > GhostfreakKit.PHASE_COOLDOWN - 10, "and then a short cooldown");
 			// phased and faded, then turned back: nothing stuck
 			kit.cooldown(p, GhostfreakKit.PHASE, 0);
 			helper.assertTrue(kit.phase(p) && kit.fade(p) && p.hasEffect(MobEffects.INVISIBILITY), "phased and invisible");

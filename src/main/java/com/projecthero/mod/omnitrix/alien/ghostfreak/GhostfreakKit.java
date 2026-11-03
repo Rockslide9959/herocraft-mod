@@ -89,7 +89,7 @@ import net.minecraft.world.phys.Vec3;
  *                             click attacks with it at +50%); 15 s, bosses                              ignoring armour, Slowness + Mining
  *                             throw him out after 3 s; a PLAYER for 10 s (they                          Fatigue 2 s
  *                             lose control to him); G / sneak / a move: burst 14
- *   X        Phase            intangible up to 5 s: through walls, up through  Shift+X  Ecto Rush       intangible dash ~11 blocks through
+ *   X        Phase            TOGGLE (no time limit): through walls, up through Shift+X  Ecto Rush       intangible dash ~11 blocks through
  *                             ceilings, down through floors while sneaking;                            walls, floors and bodies (10, weakens)
  *                             pushed out of blocks when it ends; chills 4
  *   Z        Chest Tentacles  up to 3 in front grabbed, constricted (6 + 3x4)  Shift+Z  True Form       ULT: the skin peels open (1 s), terror
@@ -99,11 +99,11 @@ import net.minecraft.world.phys.Vec3;
  *                                                                                                       resistance, sun burns 3/s
  *   V        Spirit Sight     toggle: night vision, the living outlined        Shift+V  Lights Out      darkness within 12 for 8 s: Darkness,
  *                                                                                                       no outlines / name tags
- *   C        Invisibility     (Fade) 10 s truly unseen: no armour, held items, Shift+C  Fright Aura     10 s: everything near panics, 2/s
+ *   C        Invisibility     (Fade) TOGGLE, truly unseen: no armour, items,   Shift+C  Fright Aura     10 s: everything near panics, 2/s
  *                             name tag or particles; mobs cannot target him;
  *                             the first blow out of it is an Ambush (+10, blinds)
  *   Attack   Chilling Touch (+2, slows)   Use (empty hand)  Spectral Bolt (5)   Shift+Use (empty hand)  Tendril Snatch (16 blocks: 6, yanked in)
- *   Passives Ghost Flight (double-tap jump, no key), Ectonurite Body, Protective Skin, Creature of the Dark (light 4 or less: +20%
+ *   Passives Ghost Flight (double-tap jump, no key; directional, 15 b/s / 30 sprinting), Ectonurite Body, Protective Skin, Creature of the Dark (light 4 or less: +20%
  *            damage, cooldowns 25% faster); weakness: sunlight (1 / 2 s; True Form 3 / s), daylight slows cooldowns 15%
  * </pre>
  */
@@ -192,17 +192,22 @@ public final class GhostfreakKit extends AlienKit {
 	public static final double GRASP_RANGE = 5;
 	public static final int GRASP_TICKS = 40;
 	public static final int GRASP_COOLDOWN = 200;
-	/** Phase: how long it can last, and the cooldown that starts when it ends. */
-	public static final int PHASE_TICKS = 100;
-	public static final int PHASE_COOLDOWN = 200;
+	/**
+	 * Phase: v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please") -- X on, X off, no time
+	 * limit; only a short cooldown after turning it off so it cannot be spammed (was 5 s, then a 10 s cooldown).
+	 */
+	public static final int PHASE_COOLDOWN = 20;
 	public static final float PHASE_CHILL = 6f;
 	/** Ecto Rush: {@link #RUSH_TICKS} of {@link #RUSH_SPEED} blocks a tick (about 11 blocks), through walls and bodies. */
 	public static final int RUSH_TICKS = 6;
 	public static final double RUSH_SPEED = 1.8;
 	public static final float RUSH_DAMAGE = 16f;
 	public static final int RUSH_COOLDOWN = 120;
-	public static final int FADE_TICKS = 200;
-	public static final int FADE_COOLDOWN = 400;
+	/**
+	 * Fade: v0.17.2 (user: "make ghost freaks invisibility toggleable and remove the time limits on it") -- C on, C off (or his
+	 * first blow out of it, the Ambush), no time limit; a short cooldown after it ends (was 10 s, then a 20 s cooldown).
+	 */
+	public static final int FADE_COOLDOWN = 20;
 	public static final float AMBUSH_DAMAGE = 16f;
 	/** Chest Tentacles: up to {@link #TENTACLE_MAX} grabbed within {@link #TENTACLE_RANGE}, held {@link #TENTACLE_TICKS}. */
 	public static final int TENTACLE_MAX = 3;
@@ -494,30 +499,22 @@ public final class GhostfreakKit extends AlienKit {
 			}
 			shiftCooldowns(p, now, night ? -5 : inSunlight(p) ? 3 : 0);
 		}
-		// Phase
+		// Phase -- v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please"): lasts until X again
 		if (flag(p, F_PHASE)) {
-			if (now >= timer(p, "phase_end")) {
-				endPhase(p, true);
-			} else {
-				p.resetFallDistance();
-				passThrough(p, l, PHASE_CHILL, false);
-				if (now % 3 == 0) {
-					l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 1, 0.3, 0.6, 0.3, 0.01);
-				}
+			p.resetFallDistance();
+			passThrough(p, l, PHASE_CHILL, false);
+			if (now % 3 == 0) {
+				l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 1, 0.3, 0.6, 0.3, 0.01);
 			}
 		}
 		tickRush(p, l, now);
-		// Fade
+		// Fade -- v0.17.2 (user: "make ghost freaks invisibility toggleable and remove the time limits on it"): lasts until C again
 		if (flag(p, F_INVIS)) {
-			if (now >= timer(p, "fade_end")) {
-				endFade(p);
-			} else {
-				if (now % 20 == 0) {
-					p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
-				}
-				if (now % 5 == 0) {
-					loseTrackOfMe(p, 32);
-				}
+			if (now % 20 == 0) {
+				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
+			}
+			if (now % 5 == 0) {
+				loseTrackOfMe(p, 32);
 			}
 		}
 		if (COMBO.containsKey(p.getUUID()) && now > timer(p, "combo_until")) {
@@ -549,6 +546,16 @@ public final class GhostfreakKit extends AlienKit {
 				}
 			}
 		}
+	}
+
+	/** v0.17.2: the toggles light their HUD boxes while on -- X while phased, C while invisible. */
+	@Override
+	public boolean keyActive(Player p, AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_3 -> flag(p, F_PHASE);
+			case SLOT_6 -> flag(p, F_INVIS);
+			default -> false;
+		};
 	}
 
 	/** Faded or inside a host: nothing about him shows (no wisps, no flight puffs). */
@@ -1183,8 +1190,7 @@ public final class GhostfreakKit extends AlienKit {
 		}
 		anim(p, ANIM_PHASE);
 		setFlag(p, F_PHASE, true);
-		setTimer(p, "phase_end", p.level().getGameTime() + PHASE_TICKS);
-		cooldown(p, PHASE, PHASE_TICKS); // the real cooldown starts when it ends
+		cooldown(p, PHASE, 0); // v0.17.2: a toggle with no time limit -- the cooldown starts when he turns it off
 		PASSED.put(p.getUUID(), new HashSet<>());
 		ServerLevel l = level(p);
 		l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 12, 0.4, 0.8, 0.4, 0.02);
@@ -1192,13 +1198,12 @@ public final class GhostfreakKit extends AlienKit {
 		return true;
 	}
 
-	/** Phase ends (X again, its 5 s, turning back): solid again -- and pushed out of any block he ended inside. */
+	/** Phase ends (X again, turning back, possessing): solid again -- and pushed out of any block he ended inside. */
 	public void endPhase(ServerPlayer p, boolean cooldown) {
 		if (!flag(p, F_PHASE)) {
 			return;
 		}
 		setFlag(p, F_PHASE, false);
-		setTimer(p, "phase_end", 0);
 		if (!flag(p, F_RUSH)) {
 			PASSED.remove(p.getUUID());
 		}
@@ -1338,7 +1343,8 @@ public final class GhostfreakKit extends AlienKit {
 	}
 
 	/**
-	 * C: Fade -- truly invisible for 10 s (user: "make sure he also has an invisibility move"): his body, his armour, what he
+	 * C: Fade -- truly invisible until C again (user: "make sure he also has an invisibility move"; v0.17.2 user: "make ghost
+	 * freaks invisibility toggleable and remove the time limits on it"): his body, his armour, what he
 	 * holds and his name tag are hidden from every player (GhostfreakClient / the layer mixins), he leaves no wisps, and no
 	 * mob can target him ({@code OmnitrixGhostfreakFadeMixin}; bosses still can). Not in True Form (the bare form cannot hide).
 	 */
@@ -1352,7 +1358,7 @@ public final class GhostfreakKit extends AlienKit {
 		}
 		anim(p, ANIM_FADE);
 		setFlag(p, F_INVIS, true);
-		setTimer(p, "fade_end", p.level().getGameTime() + FADE_TICKS);
+		cooldown(p, FADE, 0); // v0.17.2: a toggle with no time limit -- the cooldown starts when it ends
 		p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 		loseTrackOfMe(p, 32);
 		ServerLevel l = level(p);
@@ -1366,7 +1372,7 @@ public final class GhostfreakKit extends AlienKit {
 			return;
 		}
 		setFlag(p, F_INVIS, false);
-		setTimer(p, "fade_end", 0);
+		cooldown(p, FADE, FADE_COOLDOWN); // v0.17.2: ~1 s once it ends, so it cannot be spammed
 		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
 		if (inv != null && inv.getDuration() <= 40 && !flag(p, F_POSSESS)) {
 			p.removeEffect(MobEffects.INVISIBILITY);
