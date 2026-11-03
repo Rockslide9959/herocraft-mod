@@ -192,7 +192,27 @@ public class HellCycleEntity extends Mob {
 
 	@Override
 	public boolean canStandOnFluid(net.minecraft.world.level.material.FluidState fluid) {
-		return fluid.is(net.minecraft.tags.FluidTags.LAVA);
+		// v0.17.2 (user: "make ghost rider able to ride his bike across water"): water rides like lava -- a road under the wheels
+		return fluid.is(net.minecraft.tags.FluidTags.LAVA) || fluid.is(net.minecraft.tags.FluidTags.WATER);
+	}
+
+	/**
+	 * v0.17.2: dropped into water or lava (a jump, a waterfall, flowing water that is no road), the bike bobs back up to the
+	 * surface the way a strider does, then rides on it.
+	 */
+	private void floatUp() {
+		if (!isInWater() && !isInLava()) {
+			return;
+		}
+		net.minecraft.world.phys.shapes.CollisionContext ctx = net.minecraft.world.phys.shapes.CollisionContext.of(this);
+		net.minecraft.core.BlockPos at = blockPosition();
+		if (ctx.isAbove(net.minecraft.world.level.block.LiquidBlock.STABLE_SHAPE, at, true)
+				&& !level().getFluidState(at.above()).is(net.minecraft.tags.FluidTags.WATER)
+				&& !level().getFluidState(at.above()).is(net.minecraft.tags.FluidTags.LAVA)) {
+			setOnGround(true);
+		} else {
+			setDeltaMovement(getDeltaMovement().scale(0.5).add(0.0, 0.08, 0.0));
+		}
 	}
 
 	@Override
@@ -222,6 +242,7 @@ public class HellCycleEntity extends Mob {
 	@Override
 	public void tick() {
 		super.tick();
+		floatUp();
 		if (level().isClientSide()) {
 			// the wheels roll with the ground speed (radius 5 px)
 			wheelSpinO = wheelSpin;

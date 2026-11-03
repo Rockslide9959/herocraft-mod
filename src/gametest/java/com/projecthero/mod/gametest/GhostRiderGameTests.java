@@ -245,6 +245,42 @@ public class GhostRiderGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "make ghost rider able to ride his bike across water"): water holds the bike up, and a dunked one bobs back up. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void hellCycleRidesOnWater(GameTestHelper helper) {
+		floor(helper);
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				helper.setBlock(x, 1, z, net.minecraft.world.level.block.Blocks.WATER);
+				helper.setBlock(x, 2, z, net.minecraft.world.level.block.Blocks.WATER);
+			}
+		}
+		ServerPlayer p = rider(helper, 3.5, 3.0, 3.5);
+		GhostRiderAbilities.cycle(p);
+		helper.assertTrue(p.getVehicle() instanceof HellCycleEntity, "X summons the bike on the water");
+		HellCycleEntity bike = (HellCycleEntity) p.getVehicle();
+		HellCycleEntity dunked = EntityTypeHolder.dunk(helper, bike, 5.5, 1.1, 5.5);
+		double surface = helper.absolutePos(new net.minecraft.core.BlockPos(0, 2, 0)).getY() + 0.4;
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(bike.getY() >= surface, "the ridden bike sits on the water, y " + bike.getY() + " vs " + surface);
+			helper.assertTrue(dunked.getY() >= surface, "a dunked bike floats back up, y " + dunked.getY() + " vs " + surface);
+			GhostRiderAbilities.sendCycleBack(p);
+			dunked.discard();
+			helper.succeed();
+		});
+	}
+
+	/** A second, riderless bike under the water. */
+	private static final class EntityTypeHolder {
+		static HellCycleEntity dunk(GameTestHelper helper, HellCycleEntity like, double x, double y, double z) {
+			HellCycleEntity e = (HellCycleEntity) like.getType().create(helper.getLevel());
+			net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(x, y, z));
+			e.moveTo(at.x, at.y, at.z, 0f, 0f);
+			helper.getLevel().addFreshEntity(e);
+			return e;
+		}
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void judgementMarkFindsOnlyTheGuilty(GameTestHelper helper) {
 		floor(helper);
