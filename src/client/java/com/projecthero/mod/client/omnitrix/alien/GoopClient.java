@@ -97,6 +97,33 @@ public final class GoopClient implements AlienClientKit {
 	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -10, 5, 0, 0f, 0.05f, -0.35f),
 			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
 
+	/**
+	 * v0.17.2 (user: "add the projector above his head please"): his anti-gravity projector floating a little over his head, bobbing
+	 * and slowly turning, its green light shining down on him -- gone while it is knocked off (it lies on the ground then, GoopFx).
+	 */
+	@Override
+	public void renderExtras(com.mojang.blaze3d.vertex.PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+			net.minecraft.client.player.AbstractClientPlayer p, net.minecraft.client.model.PlayerModel<net.minecraft.client.player.AbstractClientPlayer> model, float partial,
+			float age) {
+		if ((com.projecthero.mod.omnitrix.Omnitrix.state(p).kitFlags & com.projecthero.mod.omnitrix.alien.goop.GoopKit.F_OFF) != 0) {
+			return;
+		}
+		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.head, () -> {
+			pose.pushPose();
+			pose.translate(0f, (-11.5f + 0.4f * net.minecraft.util.Mth.sin(age * 0.12f)) / 16f, 0f);
+			pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(age * 1.5f));
+			pose.scale(0.75f, 0.75f, 0.75f);
+			com.projecthero.mod.client.omnitrix.alien.goop.GoopFx.drawSaucer(pose, buffers, light, 0.7f + 0.3f * net.minecraft.util.Mth.sin(age * 0.25f));
+			pose.popPose();
+		});
+	}
+
+	/** v0.17.2 (user: "raise our omnitrix badge slightly"): a pixel higher than the default, where the skin's own symbol was. */
+	@Override
+	public float[] badge() {
+		return new float[] { 0f, 3.5f, -2.05f, 3.2f };
+	}
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;

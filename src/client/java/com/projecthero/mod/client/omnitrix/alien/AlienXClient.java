@@ -127,6 +127,39 @@ public final class AlienXClient implements AlienClientKit {
 		AlienXFx.init();
 	}
 
+	/** His skin's own black (the body). */
+	private static final float[] BLACK = AlienHorns.pixel(21, 22, 64);
+
+	/**
+	 * v0.17.2 (user: "add the head spikes for alien x please i think itll look good, make it the same black as his skin"): his three
+	 * horns in his skin's black -- a tall one out of the middle of the crown sweeping back then curling forward like a crescent, and
+	 * a short one either side angled up and out, curving in.
+	 */
+	@Override
+	public void renderExtras(com.mojang.blaze3d.vertex.PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+			net.minecraft.client.player.AbstractClientPlayer p, net.minecraft.client.model.PlayerModel<net.minecraft.client.player.AbstractClientPlayer> model, float partial,
+			float age) {
+		var vc = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(SKIN));
+		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.head, () -> {
+			pose.pushPose();
+			pose.translate(0f, -8f / 16f, 0.5f / 16f);
+			AlienHorns.horn(pose, vc, light, 7, 1.3f, 1.5f, -50f, 0f, 21f, BLACK);
+			pose.popPose();
+			for (int side = -1; side <= 1; side += 2) {
+				pose.pushPose();
+				pose.translate(side * 2.9f / 16f, -7.6f / 16f, -0.6f / 16f);
+				AlienHorns.horn(pose, vc, light, 4, 1.3f, 1.2f, -5f, side * 32f, -12f, BLACK);
+				pose.popPose();
+			}
+		});
+	}
+
+	/** v0.17.2 (user: "raise our omnitrix badge slightly"): a pixel higher than the default, where the skin's own symbol was. */
+	@Override
+	public float[] badge() {
+		return new float[] { 0f, 3.5f, -2.05f, 3.2f };
+	}
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;

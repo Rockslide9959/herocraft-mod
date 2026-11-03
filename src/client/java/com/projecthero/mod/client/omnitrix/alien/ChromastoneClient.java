@@ -122,6 +122,45 @@ public final class ChromastoneClient implements AlienClientKit {
 		AlienClients.register(Aliens.CHROMASTONE.id(), new ChromastoneClient());
 	}
 
+	/** Three pinks off his own skin (the hands): base, mid, tip. */
+	private static final float[] PINK_DARK = AlienHorns.pixel(20, 7, 64), PINK = AlienHorns.pixel(12, 7, 64), PINK_LIGHT = AlienHorns.pixel(12, 6, 64);
+
+	/**
+	 * v0.17.2 (user: "Give him a pink spike on his head, 2 on his chest where it shows in like the reference and also 2 coming out of
+	 * his back, make it the same colour of the pink on his skin model"): crystal spikes in his skin's own pinks -- one up off the
+	 * crown, two forward-and-out off the top of the chest by the shoulders, two back-and-out between the shoulder blades.
+	 */
+	@Override
+	public void renderExtras(com.mojang.blaze3d.vertex.PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+			net.minecraft.client.player.AbstractClientPlayer p, net.minecraft.client.model.PlayerModel<net.minecraft.client.player.AbstractClientPlayer> model, float partial,
+			float age) {
+		var vc = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(SKIN));
+		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.head, () -> {
+			pose.pushPose();
+			pose.translate(0f, -8f / 16f, -1f / 16f);
+			AlienHorns.spike(pose, vc, light, 4.2f, 1.8f, -12f, 0f, PINK_DARK, PINK, PINK_LIGHT);
+			pose.popPose();
+		});
+		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.body, () -> {
+			for (int side = -1; side <= 1; side += 2) {
+				pose.pushPose();
+				pose.translate(side * 2.6f / 16f, 1.0f / 16f, -2.3f / 16f);
+				AlienHorns.spike(pose, vc, light, 4.6f, 1.8f, 58f, side * 14f, PINK_DARK, PINK, PINK_LIGHT);
+				pose.popPose();
+				pose.pushPose();
+				pose.translate(side * 2.2f / 16f, 2.6f / 16f, 1.6f / 16f);
+				AlienHorns.spike(pose, vc, light, 3.8f, 1.6f, -50f, side * 26f, PINK_DARK, PINK, PINK_LIGHT);
+				pose.popPose();
+			}
+		});
+	}
+
+	/** v0.17.2 (user: "raise our omnitrix badge slightly"): a pixel higher than the default, where the skin's own symbol was. */
+	@Override
+	public float[] badge() {
+		return new float[] { 0f, 3.5f, -2.05f, 3.2f };
+	}
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;

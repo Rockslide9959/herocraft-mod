@@ -1305,7 +1305,8 @@ public final class Omnitrix {
 			// under Master Control
 			String dialled = s.selected;
 			java.util.List<Aliens.Alien> pool = Aliens.playable(p);
-			if (s.readyAt(MASTER) != 1L && s.readyAt(NO_GLITCH) != 1L && pool.size() > 1 && p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
+			// v0.17.2 (user: "the recalibrated omnitrix didnt mistransform so remove the 50% chance to get the wrong alien for the recalibrated")
+			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && pool.size() > 1 && p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
 				String other = dialled;
 				while (other.equals(dialled)) {
 					other = pool.get(p.getRandom().nextInt(pool.size())).id();

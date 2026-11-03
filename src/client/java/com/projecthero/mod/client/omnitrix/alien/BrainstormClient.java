@@ -143,6 +143,7 @@ public final class BrainstormClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 3.5f, -2.1f, 3.0f };
+		// v0.17.2 (user: "move our omnitrix badge to the same position where the pixel omnitrix was on his belt")
+		return new float[] { 0f, 10.0f, -2.1f, 3.0f };
 	}
 }
