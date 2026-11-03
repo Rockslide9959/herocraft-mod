@@ -201,6 +201,8 @@ public final class OmnitrixModel {
 	private static final float RECAL_WALL = 0.16f, RECAL_HALF_LEN = 1.0f;
 	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
 	private static final float RECAL_FACE_X = 0.16f;
+	/** v0.17.2 (user's reference: the dial sits on a round green pedestal): how high the pedestal lifts the bezel off the band. */
+	private static final float PED = 0.2f;
 	public static final float RECAL_FACE_R = RI - 0.18f; // v0.17.2: a black ring round the hourglass
 	/**
 	 * v0.17.2 (user: "the dial also has to pop up when the omnitrix is activated"): the whole dial -- bezel, face and all -- pops up
@@ -210,7 +212,7 @@ public final class OmnitrixModel {
 
 	/** x of the recalibrated face for a lift (the hologram and the caller's face quad stand on it). */
 	public static float recalFaceTop(float L, float lift) {
-		return L + GAP + RECAL_WALL + RECAL_FACE_X + lift;
+		return L + GAP + RECAL_WALL + PED + RECAL_FACE_X + lift;
 	}
 
 	/**
@@ -232,38 +234,35 @@ public final class OmnitrixModel {
 		// ---- the band and its black stripe
 		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, RECAL_WALL, cy - RECAL_HALF_LEN, cy + RECAL_HALF_LEN, CUFF, light);
 		ribbon(pose, vc, outer, 0f, outer.perimeter(), true, 0f, 0f, 0.05f, cy - 0.3f, cy + 0.3f, WHITE, light);
-		// ---- v0.17.2 (user: "add that little green and silver part underneath the watch face and dial"): the housing the dial
-		// sits in -- a low green round base, wider than the bezel, with a dark green rim, four silver plates on its diagonals and a
-		// silver mount on each side the knobs come out of; the dial pops up out of it
-		float hr = RB + 0.24f;
-		cylinder(pose, vc, xo - 0.04f, xo + 0.05f, cy, 0f, hr + 0.08f, DIMGREEN, light, 16);
-		cylinder(pose, vc, xo - 0.03f, xo + 0.15f, cy, 0f, hr, CUFF, light, 16);
-		for (int i = 0; i < 4; i++) {
-			double an = Math.PI / 4 + i * Math.PI / 2;
-			float c = (float) Math.cos(an), sn = (float) Math.sin(an);
-			pose.pushPose();
-			pose.translate(0f, (cy + c * (hr - 0.12f)) * S, sn * (hr - 0.12f) * S);
-			pose.mulPose(Axis.XP.rotation((float) an));
-			box(pose, vc, xo - 0.02f, -0.1f, -0.26f, xo + 0.2f, 0.12f, 0.26f, PLATE, light);
-			pose.popPose();
+		// ---- v0.17.2 (user: "add that little green and silver part underneath the watch face and dial", then "make it look 100% in
+		// the reference images"): the housing the dial sits in, as the show draws it -- a green base round the dial's foot (the
+		// stem rises out of it), and the band rising into two curved green brackets that hug the bezel along the arm, a dark green
+		// edge round their outside, a grey tab set in the middle of each; silver mounts on the sides carry the knobs
+		float hr = RB + 0.18f;
+		cylinder(pose, vc, xo - 0.04f, xo + 0.06f, cy, 0f, hr + 0.07f, DIMGREEN, light, 32);
+		cylinder(pose, vc, xo - 0.03f, xo + PED, cy, 0f, hr, CUFF, light, 32);
+		float bIn = RB - 0.06f, bOut = RB + 0.42f, bTop = xo + PED + 0.02f, span = (float) Math.toRadians(58);
+		for (int end = 0; end < 2; end++) {
+			float mid = end * (float) Math.PI;
+			arc(pose, vc, light, SW[DIMGREEN], xo - 0.03f, bTop - 0.06f, bOut - 0.02f, bOut + 0.08f, mid - span, mid + span, cy, 10);
+			arc(pose, vc, light, SW[CUFF], xo - 0.03f, bTop, bIn, bOut, mid - span, mid + span, cy, 10);
+		}
+		for (int end = -1; end <= 1; end += 2) {
+			float y0 = cy + end * (RB - 0.12f), y1 = cy + end * (RB + 0.3f);
+			box(pose, vc, xo - 0.02f, Math.min(y0, y1), -0.36f, bTop + 0.06f, Math.max(y0, y1), 0.36f, PLATE, light);
 		}
 		for (int side = -1; side <= 1; side += 2) {
-			box(pose, vc, xo - 0.02f, cy - 0.34f, Math.min(side * (hr - 0.2f), side * (hr + 0.08f)), xo + 0.26f, cy + 0.34f,
-					Math.max(side * (hr - 0.2f), side * (hr + 0.08f)), PLATE, light);
+			box(pose, vc, xo + PED - 0.02f, cy - 0.3f, Math.min(side * (RB - 0.1f), side * (RB + 0.16f)), xo + PED + 0.24f, cy + 0.3f,
+					Math.max(side * (RB - 0.1f), side * (RB + 0.16f)), PLATE, light);
 		}
-		// ---- the knobs: out of the housing's silver mounts, across the arm
+		// ---- the knobs: out of the silver mounts, across the arm
 		for (int side = -1; side <= 1; side += 2) {
 			pose.pushPose();
-			pose.translate((xo + 0.12f) * S, cy * S, side * (hr + 0.04f) * S);
+			pose.translate((xo + PED + 0.12f) * S, cy * S, side * (RB + 0.12f) * S);
 			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
 			cylinder(pose, vc, 0f, 0.36f, 0f, 0f, 0.17f, PLATE, light, 12);
-			cylinder(pose, vc, 0.36f, 0.42f, 0f, 0f, 0.12f, RING, light, 12);
+			cylinder(pose, vc, 0.36f, 0.44f, 0f, 0f, 0.12f, CUFF, light, 12); // the green tip
 			pose.popPose();
-		}
-		// ---- the two grey tabs along the arm, tucked under the bezel's ends (the show's watch: a grey bar above and below the dial)
-		for (int end = -1; end <= 1; end += 2) {
-			float y0 = cy + end * (RB - 0.32f), y1 = cy + end * (RB + 0.14f);
-			box(pose, vc, xo - 0.02f, Math.min(y0, y1), -0.42f, xo + 0.16f, Math.max(y0, y1), 0.42f, PLATE, light);
 		}
 		// ---- the bezel, the collar and the face turn with the dial
 		pose.pushPose();
@@ -272,23 +271,26 @@ public final class OmnitrixModel {
 		pose.translate(0f, -cy * S, 0f);
 		PoseStack.Pose p = pose.last();
 		int[] g = SW[GREY], k = SW[BLACK];
-		float x0 = xo - 0.04f + lift, x1 = xo + BEZEL_H + lift;
-		int seg = 8;
+		float x0 = xo - 0.04f + PED + lift, x1 = xo + BEZEL_H + PED + lift;
+		int seg = 32;
+		int[] topSw = SW[RING];
 		for (int i = 0; i < seg; i++) {
-			// flats facing along / across the arm (rotated half a segment), like the show's
-			double a0 = (i + 0.5) * Math.PI * 2 / seg, a1 = (i + 1.5) * Math.PI * 2 / seg, am = (a0 + a1) / 2;
+			double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg, am = (a0 + a1) / 2;
 			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
 			float cm = (float) Math.cos(am), sm = (float) Math.sin(am);
 			// the angled outer wall: from the foot (RB) in to the top (RT); its normal leans outward and up
 			float nx = (RB - RT) / BEZEL_H, nl = (float) Math.sqrt(1 + nx * nx);
-			segQuad(vc, p, light, g, x0, cy + c0 * RB, s0 * RB, x0, cy + c1 * RB, s1 * RB, x1, cy + c1 * RT, s1 * RT, x1, cy + c0 * RT, s0 * RT,
+			plain(vc, p, light, g, x0, cy + c0 * RB, s0 * RB, x0, cy + c1 * RB, s1 * RB, x1, cy + c1 * RT, s1 * RT, x1, cy + c0 * RT, s0 * RT,
 					nx / nl, cm / nl, sm / nl);
-			// the underside (the ring overhangs the band), then the flat top ring
-			segQuad(vc, p, light, g, x0, cy + c0 * RI, s0 * RI, x0, cy + c1 * RI, s1 * RI, x0, cy + c1 * RB, s1 * RB, x0, cy + c0 * RB, s0 * RB, -1, 0, 0);
-			segQuad(vc, p, light, g, x1, cy + c0 * RT, s0 * RT, x1, cy + c1 * RT, s1 * RT, x1, cy + c1 * RI, s1 * RI, x1, cy + c0 * RI, s0 * RI, 1, 0, 0);
+			// the underside (the ring overhangs the band), then the flat top ring with a dark line round each edge
+			plain(vc, p, light, g, x0, cy + c0 * RI, s0 * RI, x0, cy + c1 * RI, s1 * RI, x0, cy + c1 * RB, s1 * RB, x0, cy + c0 * RB, s0 * RB, -1, 0, 0);
+			plain(vc, p, light, topSw, x1, cy + c0 * RT, s0 * RT, x1, cy + c1 * RT, s1 * RT, x1, cy + c1 * RI, s1 * RI, x1, cy + c0 * RI, s0 * RI, 1, 0, 0);
+			float ro = RT - 0.05f, ri = RI + 0.05f, xe = x1 + 0.004f;
+			plain(vc, p, light, k, xe, cy + c0 * RT, s0 * RT, xe, cy + c1 * RT, s1 * RT, xe, cy + c1 * ro, s1 * ro, xe, cy + c0 * ro, s0 * ro, 1, 0, 0);
+			plain(vc, p, light, k, xe, cy + c0 * ri, s0 * ri, xe, cy + c1 * ri, s1 * ri, xe, cy + c1 * RI, s1 * RI, xe, cy + c0 * RI, s0 * RI, 1, 0, 0);
 			// the inner wall down to the face
-			float xf = xo + RECAL_FACE_X + lift;
-			segQuad(vc, p, light, k, x1, cy + c0 * RI, s0 * RI, x1, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c0 * RI, s0 * RI,
+			float xf = xo + PED + RECAL_FACE_X + lift;
+			plain(vc, p, light, k, x1, cy + c0 * RI, s0 * RI, x1, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c1 * RI, s1 * RI, xf - 0.02f, cy + c0 * RI, s0 * RI,
 					0, -cm, -sm);
 		}
 		// v0.17.2 (user, with the show's line art: "add in the missing parts of the watch face and dial"): the four notches cut
@@ -302,11 +304,11 @@ public final class OmnitrixModel {
 		}
 		// the black stem the dial stands on while it is popped up
 		if (lift > 0.02f) {
-			cylinder(pose, vc, xo - 0.02f, x0 + 0.02f, cy, 0f, RB - 0.18f, BLACK, light, 24);
+			cylinder(pose, vc, xo + PED - 0.02f, x0 + 0.02f, cy, 0f, RB - 0.18f, BLACK, light, 24);
 		}
 		// the black collar the face sits in
 		float top = recalFaceTop(L, lift);
-		cylinder(pose, vc, xo, top, cy, 0f, RI - 0.02f, BLACK, light, 24);
+		cylinder(pose, vc, xo + PED, top, cy, 0f, RI - 0.02f, BLACK, light, 24);
 		if (face) {
 			float fx = (top + 0.01f) * S;
 			float u0 = 64 * T, v0 = screen ? 0 : 64 * T, u1 = 1f, v1 = screen ? 64 * T : 1f;
@@ -316,6 +318,36 @@ public final class OmnitrixModel {
 			quad(vc, pose.last(), lit, fx, a, zp, fx, b, zp, fx, b, -zp, fx, a, -zp, 1, 0, 0, u0, v0, u1, v1);
 		}
 		pose.popPose();
+	}
+
+	/** A four-cornered panel (px) in the flat middle colour of swatch {@code sw} (no outline): the round bezel's smooth faces. */
+	private static void plain(VertexConsumer vc, PoseStack.Pose p, int light, int[] sw, float ax, float ay, float az, float bx, float by, float bz, float cx,
+			float cy, float cz, float dx, float dy, float dz, float nx, float ny, float nz) {
+		float u = (sw[0] + 8) * T, v = (sw[1] + 8) * T;
+		quad(vc, p, light, ax * S, ay * S, az * S, bx * S, by * S, bz * S, cx * S, cy * S, cz * S, dx * S, dy * S, dz * S, nx, ny, nz, u, v, u, v);
+	}
+
+	/**
+	 * A curved block round the dial's axis (px): from x0 up to x1, between radii rIn and rOut, from angle a0 to a1 (0 = along the
+	 * arm toward +y), in {@code seg} steps -- its top, both walls and the two ends, flat-coloured.
+	 */
+	private static void arc(PoseStack pose, VertexConsumer vc, int light, int[] sw, float x0, float x1, float rIn, float rOut, float a0, float a1, float cy,
+			int seg) {
+		PoseStack.Pose p = pose.last();
+		for (int i = 0; i < seg; i++) {
+			double b0 = a0 + (a1 - a0) * i / (double) seg, b1 = a0 + (a1 - a0) * (i + 1) / (double) seg;
+			float c0 = (float) Math.cos(b0), s0 = (float) Math.sin(b0), c1 = (float) Math.cos(b1), s1 = (float) Math.sin(b1);
+			plain(vc, p, light, sw, x1, cy + c0 * rOut, s0 * rOut, x1, cy + c1 * rOut, s1 * rOut, x1, cy + c1 * rIn, s1 * rIn, x1, cy + c0 * rIn, s0 * rIn, 1, 0, 0);
+			plain(vc, p, light, sw, x0, cy + c0 * rOut, s0 * rOut, x0, cy + c1 * rOut, s1 * rOut, x1, cy + c1 * rOut, s1 * rOut, x1, cy + c0 * rOut, s0 * rOut,
+					0, (c0 + c1) / 2, (s0 + s1) / 2);
+			plain(vc, p, light, sw, x1, cy + c0 * rIn, s0 * rIn, x1, cy + c1 * rIn, s1 * rIn, x0, cy + c1 * rIn, s1 * rIn, x0, cy + c0 * rIn, s0 * rIn,
+					0, -(c0 + c1) / 2, -(s0 + s1) / 2);
+		}
+		for (float a : new float[] { a0, a1 }) {
+			float c = (float) Math.cos(a), sn = (float) Math.sin(a);
+			plain(vc, p, light, sw, x0, cy + c * rIn, sn * rIn, x0, cy + c * rOut, sn * rOut, x1, cy + c * rOut, sn * rOut, x1, cy + c * rIn, sn * rIn,
+					0, -sn, c);
+		}
 	}
 
 	/** A four-cornered panel (px) mapped to the whole of swatch {@code sw}, so its outline frames it (the bezel's notches). */
@@ -345,7 +377,7 @@ public final class OmnitrixModel {
 	 */
 	public static void recalRiser(PoseStack pose, VertexConsumer vc, float L, float lift) {
 		float xo = L + GAP + RECAL_WALL;
-		riser(pose, vc, xo - 0.02f, xo - 0.04f + lift + 0.02f, RB - 0.16f, lift);
+		riser(pose, vc, xo + PED - 0.02f, xo + PED - 0.04f + lift + 0.02f, RB - 0.16f, lift);
 	}
 
 	private static void riser(PoseStack pose, VertexConsumer vc, float x0, float x1, float r, float lift) {
