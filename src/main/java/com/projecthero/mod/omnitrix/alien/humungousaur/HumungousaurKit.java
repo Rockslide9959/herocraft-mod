@@ -59,6 +59,9 @@ import net.minecraft.world.phys.Vec3;
  * heavier things and adds +10% to every move (not +20%, which broke the damage scale). Slow, huge, a tail club and bone spikes,
  * a Brace that takes blasts head-on; nothing like Four Arms' combos, claps and carries.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now; Humungousaur's moves ~x2-3, +25% a size step, areas sized to his height) -- the constants are the source of truth.
+ *
  * <pre>
  *   R        Haymaker       a straight punch (7, small mobs knocked flat)                             cd 0.7 s
  *   Shift+R  Uppercut       launched skyward (14)                                                     cd 4 s
@@ -141,12 +144,13 @@ public final class HumungousaurKit extends AlienKit {
 	public static final float BASE_SCALE = 12f / 1.8f;
 	public static final float[] STAGE_SCALE = { 0f, BASE_SCALE, 16f - BASE_SCALE }; // added onto the base scale (ADD_MULTIPLIED_BASE): 12 / 24 / 28.8 blocks
 	public static final float[] STAGE_ARMOR = { 0f, 3f, 6f };
-	public static final float[] STAGE_ATTACK = { 0f, 2f, 5f };
+	/** v0.17.2 (user set the unarmed melee bonuses: "Humungousaur +15" at base size, growing with size): his fists +15 / +20 / +25 by size (base 15 in his stats). */
+	public static final float[] STAGE_ATTACK = { 0f, 5f, 10f };
 	public static final float[] STAGE_REACH = { 0f, 12f, 17f }; // v0.17.2: a giant's arm -- on top of the base 12 (24 / 29)
 	public static final float[] STAGE_KB = { 0f, 0.15f, 0.3f };
 	public static final float[] STAGE_SPEED = { 0f, 0.1f, 0.2f }; // v0.17.2: bigger strides as he grows
-	/** v0.17.2 (user: "+10% per size step (not 20%)"). */
-	public static final float STEP_BONUS = 0.1f;
+	/** v0.17.2 (user: "make each alien stronger accordingly please? Especially humungosaur"): +25% a size step -- x1.0 / x1.25 / x1.5 (was +10%). */
+	public static final float STEP_BONUS = 0.25f;
 
 	private static final ResourceLocation M_SCALE = PowerToggles.id("humungousaur_grow_scale");
 	private static final ResourceLocation M_ARMOR = PowerToggles.id("humungousaur_grow_armor");
@@ -161,36 +165,39 @@ public final class HumungousaurKit extends AlienKit {
 	private static final ResourceLocation M_ROOT_SPEED = PowerToggles.id("humungousaur_root_speed");
 	private static final ResourceLocation M_ROOT_JUMP = PowerToggles.id("humungousaur_root_jump");
 
-	public static final float PUNCH_DAMAGE = 7f;
-	public static final float UPPER_DAMAGE = 14f;
-	public static final float POUND_DAMAGE = 15f;
-	public static final double POUND_RADIUS = 4.5, POUND_STEP = 1.5;
-	public static final float TAIL_DAMAGE = 13f, CLUB_DAMAGE = 16f;
-	public static final double TAIL_RADIUS = 3.5;
+	// v0.17.2 (user: "make the damage of all of ben 10s alien stronger ... Especially humungosaur"): a true giant's blows, x mult() by size.
+	public static final float PUNCH_DAMAGE = 24f;
+	public static final float UPPER_DAMAGE = 36f;
+	public static final float POUND_DAMAGE = 40f;
+	/** v0.17.2: areas grow with his height (12 / 24 / 28.8 blocks), centred on his feet so they reach the ground around him. */
+	public static final double POUND_RADIUS = 4.5, POUND_STEP = 1.5, POUND_PER_HEIGHT = 0.5;
+	public static final float TAIL_DAMAGE = 32f, CLUB_DAMAGE = 42f;
+	public static final double TAIL_RADIUS = 3.5, TAIL_PER_HEIGHT = 0.42;
 	public static final int CLUB_DOWN_TICKS = 20;
-	public static final float CHARGE_DAMAGE = 12f, CRASH_DAMAGE = 6f;
+	public static final float CHARGE_DAMAGE = 32f, CRASH_DAMAGE = 14f;
 	public static final int CHARGE_TICKS = 20, CHARGE_MAX_TICKS = 50, CRASH_STUN_TICKS = 20;
-	public static final float LAND_DAMAGE = 10f;
-	public static final double LAND_RADIUS = 4.0;
-	public static final float TITAN_LAND_DAMAGE = 16f;
-	public static final double TITAN_LAND_RADIUS = 7.0;
-	public static final float HURL_DAMAGE = 18f, HURL_SPLASH = 8f;
-	public static final double HURL_SPLASH_RADIUS = 2.5;
+	public static final float LAND_DAMAGE = 28f;
+	public static final double LAND_RADIUS = 4.0, LAND_PER_HEIGHT = 0.45;
+	public static final float TITAN_LAND_DAMAGE = 50f;
+	public static final double TITAN_LAND_RADIUS = 7.0, TITAN_LAND_PER_HEIGHT = 0.6;
+	public static final float HURL_DAMAGE = 45f, HURL_SPLASH = 20f;
+	public static final double HURL_SPLASH_RADIUS = 2.5, HURL_SPLASH_PER_HEIGHT = 0.2;
 	public static final int HURL_FLIGHT_TICKS = 60;
 	/** The widest / tallest creature Heavy Hurl lifts at each size: a player, an iron golem, a ravager. */
 	public static final float[] LIFT_WIDTH = { 1.0f, 1.5f, 2.0f };
 	public static final float[] LIFT_HEIGHT = { 2.0f, 3.0f, 3.2f };
-	public static final float QUAKE_SMALL = 10f, QUAKE_BIG = 55f;
-	public static final double QUAKE_SMALL_RADIUS = 6.0, QUAKE_BIG_RADIUS = 8.0;
+	/** v0.17.2: the final stomp 95 / ~119 / ~143 by size. */
+	public static final float QUAKE_SMALL = 24f, QUAKE_BIG = 95f;
+	public static final double QUAKE_SMALL_RADIUS = 6.0, QUAKE_BIG_RADIUS = 8.0, QUAKE_SMALL_PER_HEIGHT = 0.55, QUAKE_BIG_PER_HEIGHT = 0.75;
 	/** Earthshaker's three stomps, ticks after the press (0.6 s apart), and when he can move again. */
 	public static final int[] QUAKE_STOMPS = { 12, 24, 36 };
 	public static final int QUAKE_TICKS = 44;
-	public static final float ROAR_DAMAGE = 12f;
-	public static final double ROAR_RANGE = 10.0, ROAR_DEG = 70.0;
+	public static final float ROAR_DAMAGE = 28f;
+	public static final double ROAR_RANGE = 10.0, ROAR_DEG = 70.0, ROAR_PER_HEIGHT = 0.8;
 	public static final float ROAR_FLEE_HEALTH = 20f;
 	public static final int ROAR_FLEE_TICKS = 60;
-	public static final float SPIKE_DAMAGE = 14f, THORNS = 3f;
-	public static final double SPIKE_RADIUS = 3.0;
+	public static final float SPIKE_DAMAGE = 34f, THORNS = 6f;
+	public static final double SPIKE_RADIUS = 3.0, SPIKE_PER_HEIGHT = 0.4;
 	public static final int SPIKE_TICKS = 160;
 	public static final int BRACE_MAX_TICKS = 80, BRACE_COOLDOWN = 60, BRACE_GRACE = 6;
 	public static final float BRACE_TAKEN = 0.4f;
@@ -296,7 +303,7 @@ public final class HumungousaurKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(44).speed(0.85f).scale(BASE_SCALE).armor(10, 3).knockbackResist(0.6f).attack(5).step(3f).reach(9f).safeFall(SAFE_FALL)
+		return AlienStats.builder().health(44).speed(0.85f).scale(BASE_SCALE).armor(10, 3).knockbackResist(0.6f).attack(15).step(3f).reach(9f).safeFall(SAFE_FALL)
 				.build();
 	}
 
@@ -318,7 +325,7 @@ public final class HumungousaurKit extends AlienKit {
 		return (int) Math.max(0, Math.min(MAX_STAGE, Omnitrix.state(p).readyAt(ID + "." + STAGE)));
 	}
 
-	/** Damage multiplier for the current size: +10% a step. */
+	/** Damage multiplier for the current size: +25% a step. */
 	public static float mult(Player p) {
 		return 1f + STEP_BONUS * stage(p);
 	}
@@ -348,6 +355,16 @@ public final class HumungousaurKit extends AlienKit {
 		PowerToggles.clearModifier(p, Attributes.BLOCK_INTERACTION_RANGE, M_REACH_B);
 		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, M_KB);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, M_SPEED);
+	}
+
+	/** v0.17.2: his height in blocks at {@code stage} (12 / 24 / 28.8) -- every area move scales off it. */
+	public static double heightAt(int stage) {
+		return 1.8 * scaleAt(stage);
+	}
+
+	/** v0.17.2: an area's radius for his size -- the larger of {@code min} and {@code perHeight} x his height. */
+	public static double sized(Player p, double min, double perHeight) {
+		return Math.max(min, perHeight * heightAt(stage(p)));
 	}
 
 	/** His body's scale at {@code stage} (12 / 24 / 28.8 blocks tall). */
@@ -517,7 +534,7 @@ public final class HumungousaurKit extends AlienKit {
 	}
 
 	private static double reach(ServerPlayer p) {
-		return 2.5 + p.getScale() * 1.2;
+		return 2.5 + p.getScale() * 2.0; // v0.17.2: from eyes 11+ blocks up, far enough to reach a creature at his feet
 	}
 
 	/** Flat forward (yaw only). */
@@ -599,7 +616,7 @@ public final class HumungousaurKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_POUND);
-		quake(p, p.position(), POUND_RADIUS + POUND_STEP * stage(p), POUND_DAMAGE * mult(p), 0.7, 0.6, 0.35f, true);
+		quake(p, p.position(), sized(p, POUND_RADIUS + POUND_STEP * stage(p), POUND_PER_HEIGHT), POUND_DAMAGE * mult(p), 0.7, 0.6, 0.35f, true);
 		return true;
 	}
 
@@ -612,7 +629,7 @@ public final class HumungousaurKit extends AlienKit {
 		boolean club = stage(p) >= MAX_STAGE;
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 0.5, 0);
-		double r = TAIL_RADIUS + stage(p);
+		double r = sized(p, TAIL_RADIUS + stage(p), TAIL_PER_HEIGHT);
 		for (LivingEntity e : around(p, c, r)) {
 			if (hurt(p, e, (club ? CLUB_DAMAGE : TAIL_DAMAGE) * mult(p), false)) {
 				shove(e, c, 1.5, 0.3);
@@ -667,8 +684,8 @@ public final class HumungousaurKit extends AlienKit {
 			crash(p, h);
 			return;
 		}
-		Vec3 front = p.position().add(h.scale(0.6 * p.getScale())).add(0, p.getBbHeight() * 0.4, 0);
-		for (LivingEntity e : around(p, front, 1.0 + p.getBbWidth() * 0.6)) {
+		Vec3 front = p.position().add(h.scale(0.6 * p.getScale())).add(0, Math.min(1.0, p.getBbHeight() * 0.1), 0); // v0.17.2: at his feet, where a giant tramples
+		for (LivingEntity e : around(p, front, 1.0 + p.getBbWidth() * 0.8)) {
 			if (e.getId() == run.carried || !run.hits.add(e.getId())) {
 				continue;
 			}
@@ -788,13 +805,14 @@ public final class HumungousaurKit extends AlienKit {
 		if (stage(p) >= MAX_STAGE) {
 			anim(p, ANIM_TITAN_LAND);
 			ServerLevel l = level(p);
-			quake(p, p.position(), TITAN_LAND_RADIUS, TITAN_LAND_DAMAGE * mult(p), 1.1, 0.8, 0.6f, true);
-			QuirkFx.ring(l, p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, DUST).size((float) TITAN_LAND_RADIUS * 0.6f).life(14)
+			double tr = sized(p, TITAN_LAND_RADIUS, TITAN_LAND_PER_HEIGHT);
+			quake(p, p.position(), tr, TITAN_LAND_DAMAGE * mult(p), 1.1, 0.8, 0.6f, true);
+			QuirkFx.ring(l, p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, DUST).size((float) tr * 0.6f).life(14)
 					.ground().spawn();
 			OmnitrixSfx.play(l, p.position(), SND_QUAKE, 1.6f, 0.8f);
 		} else {
 			anim(p, ANIM_LAND);
-			quake(p, p.position(), LAND_RADIUS + stage(p), LAND_DAMAGE * mult(p), 0.7, 0.4, 0.3f, false);
+			quake(p, p.position(), sized(p, LAND_RADIUS + stage(p), LAND_PER_HEIGHT), LAND_DAMAGE * mult(p), 0.7, 0.4, 0.3f, false);
 		}
 	}
 
@@ -835,7 +853,7 @@ public final class HumungousaurKit extends AlienKit {
 				under = Blocks.DIRT.defaultBlockState();
 			}
 			AlienProjectileEntity.of(p, "humungousaur_slab").colour(Block.getId(under)).size(0.7f + 0.2f * stage(p)).damage(HURL_DAMAGE * m)
-					.blast((float) HURL_SPLASH_RADIUS, HURL_SPLASH * m).gravity(0.035).speed(1.35).life(80).spawn();
+					.blast((float) sized(p, HURL_SPLASH_RADIUS, HURL_SPLASH_PER_HEIGHT), HURL_SPLASH * m).gravity(0.035).speed(1.35).life(80).spawn();
 			Vec3 torn = p.position().add(forward(p).scale(p.getBbWidth() * 0.5 + 0.8));
 			QuirkFx.decal(l, torn.add(0, 0.03, 0)).style(QuirkFx.DECAL_CRACK).colour(0x2A2420).size(1.8f).yaw(p.getYRot()).life(200).spawn();
 			QuirkFx.shards(l, torn.add(0, 0.2, 0)).block(under).size(1.2f).count(10).spawn();
@@ -877,7 +895,7 @@ public final class HumungousaurKit extends AlienKit {
 		});
 	}
 
-	/** A hurled creature lands / hits something: 18 to it and to what it met, 8 to everything else within 2.5. */
+	/** A hurled creature lands / hits something: 45 to it and to what it met, 20 to everything else in a splash sized to him (x his size bonus). */
 	public void thrownImpact(ServerPlayer p, LivingEntity thrown, LivingEntity met, float m) {
 		ServerLevel l = level(p);
 		THROWN.remove(thrown.getId());
@@ -890,12 +908,13 @@ public final class HumungousaurKit extends AlienKit {
 				shove(met, at, 1.2, 0.4);
 			}
 		}
-		for (LivingEntity e : around(p, at, HURL_SPLASH_RADIUS)) {
+		double sr = sized(p, HURL_SPLASH_RADIUS, HURL_SPLASH_PER_HEIGHT);
+		for (LivingEntity e : around(p, at, sr)) {
 			if (e != thrown && e != met && hurt(p, e, HURL_SPLASH * m, false)) {
 				shove(e, at, 0.6, 0.35);
 			}
 		}
-		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, DUST).size((float) HURL_SPLASH_RADIUS + 0.5f).thickness(0.6f).life(12).ground().spawn();
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, DUST).size((float) sr + 0.5f).thickness(0.6f).life(12).ground().spawn();
 		QuirkCamera.shakeAround(l, at, 8, 0.25f, 6);
 		OmnitrixSfx.play(l, at, SND_QUAKE, 0.9f, 1.2f);
 	}
@@ -916,7 +935,7 @@ public final class HumungousaurKit extends AlienKit {
 	/** The Earthshaker's stomp {@code i} (0, 1, 2) at his feet (tests call it straight). */
 	public void stomp(ServerPlayer p, int i) {
 		boolean last = i >= QUAKE_STOMPS.length - 1;
-		double r = (last ? QUAKE_BIG_RADIUS : QUAKE_SMALL_RADIUS) + stage(p);
+		double r = last ? sized(p, QUAKE_BIG_RADIUS + stage(p), QUAKE_BIG_PER_HEIGHT) : sized(p, QUAKE_SMALL_RADIUS + stage(p), QUAKE_SMALL_PER_HEIGHT);
 		float dmg = (last ? QUAKE_BIG : QUAKE_SMALL) * mult(p);
 		quake(p, p.position(), r, dmg, last ? 1.0 : 0.4, last ? 1.2 : 0.8, last ? 0.8f : 0.45f, true);
 		if (last) {
@@ -1070,7 +1089,11 @@ public final class HumungousaurKit extends AlienKit {
 		}
 		anim(p, ANIM_ROAR);
 		long now = p.level().getGameTime();
-		for (LivingEntity e : cone(p, p.getEyePosition(), p.getLookAngle(), ROAR_RANGE + stage(p) * 2, ROAR_DEG)) {
+		// v0.17.2: from low on his chest, never aimed up, and as long as he is tall -- so a giant's roar reaches the ground in front of him
+		Vec3 roarDir = new Vec3(p.getLookAngle().x, Math.min(0.0, p.getLookAngle().y), p.getLookAngle().z);
+		roarDir = roarDir.lengthSqr() < 1.0e-4 ? forward(p) : roarDir.normalize();
+		Vec3 roarFrom = p.position().add(0, Math.min(2.0, p.getBbHeight() * 0.2), 0);
+		for (LivingEntity e : cone(p, roarFrom, roarDir, sized(p, ROAR_RANGE + stage(p) * 2, ROAR_PER_HEIGHT), ROAR_DEG)) {
 			hurt(p, e, ROAR_DAMAGE * mult(p), false);
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), p);
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1), p);
@@ -1123,8 +1146,8 @@ public final class HumungousaurKit extends AlienKit {
 		anim(p, ANIM_SPIKES);
 		long now = p.level().getGameTime();
 		ServerLevel l = level(p);
-		double r = SPIKE_RADIUS + stage(p);
-		Vec3 c = p.position().add(0, p.getBbHeight() * 0.4, 0);
+		double r = sized(p, SPIKE_RADIUS + stage(p), SPIKE_PER_HEIGHT);
+		Vec3 c = p.position().add(0, Math.min(1.0, p.getBbHeight() * 0.1), 0); // v0.17.2: around his feet, not his chest 5 blocks up
 		for (LivingEntity e : around(p, c, r)) {
 			if (hurt(p, e, SPIKE_DAMAGE * mult(p), false)) {
 				shove(e, c, 0.9, 0.3);

@@ -55,6 +55,9 @@ import net.minecraft.world.phys.Vec3;
  * and make them good please"): a four-armed monkey acrobat who spins web from his tail. Where Spider-Man is a city swinger, he is a
  * jungle gym: chained swings (Monkey Bars), ceiling hangs, a swing kick off a web line, and four fists. No Ultimate Spidermonkey.
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Web Shot        a glob of web from his tail: 6, rooted 2 s, 1 s
  *   Shift+R    Web Net         a spinning net (r 2.5): 12, rooted 3 s, 8 s
@@ -159,8 +162,9 @@ public final class SpidermonkeyKit extends AlienKit {
 	 */
 	public static final String LINE = "line", LINE_AT = "line_at", HOOK_X = "hook_x", HOOK_Y = "hook_y", HOOK_Z = "hook_z", ROPE = "rope";
 
-	public static final float SHOT_DAMAGE = 6f, NET_DAMAGE = 12f, FLURRY_HIT = 3.5f, YANK_DAMAGE = 12f, KICK_DAMAGE = 15f, WHIP_DAMAGE = 13f,
-			TRAP_DAMAGE = 5f, COCOON_PULSE_DAMAGE = 5f, COCOON_SLAM = 14f, BARRAGE_DAMAGE = 5f, FISTS_BONUS = 4f, STICKY_BONUS = 1f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
+	public static final float SHOT_DAMAGE = 10f, NET_DAMAGE = 20f, FLURRY_HIT = 6f, YANK_DAMAGE = 20f, KICK_DAMAGE = 26f, WHIP_DAMAGE = 22f,
+			TRAP_DAMAGE = 9f, COCOON_PULSE_DAMAGE = 8f, COCOON_SLAM = 25f, BARRAGE_DAMAGE = 8f, FISTS_BONUS = 6f, STICKY_BONUS = 2f;
 	public static final int SHOT_ROOT = 40, NET_ROOT = 60, FLURRY_HITS = 4, FLURRY_GAP = 2, TRAP_TICKS = 300, TRAP_ROOT = 60, SHIELD_TICKS = 160,
 			COCOON_TICKS = 100, COCOON_PULSE = 10, BARRAGE_ROOT = 30, SWING_MAX = 600, SWING_FREE = 40, KICK_MAX = 24, FISTS_WINDOW = 40,
 			TANGLE_TICKS = 30;
@@ -287,7 +291,7 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(22).speed(1.25f).scale(0.85f).armor(2, 0).attack(2).jump(0.1f).safeFall(4).step(0.4f).build();
+		return AlienStats.builder().health(22).speed(1.25f).scale(0.85f).armor(2, 0).attack(5).jump(0.1f).safeFall(4).step(0.4f).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

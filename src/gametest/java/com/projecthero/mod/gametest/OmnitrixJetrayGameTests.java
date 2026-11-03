@@ -120,7 +120,7 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		k.eyes(p);
 		helper.assertTrue(stunned(v), "the third paralyses");
 		helper.assertTrue(JetrayKit.stacks(p, v) == 0, "and clears the stacks");
-		near(helper, v.getHealth(), 100f - 3 * JetrayKit.EYES_DAMAGE, "three beams of 7");
+		near(helper, v.getHealth(), 100f - 3 * JetrayKit.EYES_DAMAGE, "three beams of 11");
 		helper.succeed();
 	}
 
@@ -136,7 +136,7 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		helper.assertTrue(JetrayKit.OVERLOAD_MOVE.equals(k.moveOn(AbilitySlot.SLOT_4, true, false).id()), "the ultimate is on Shift+Z");
 		v.invulnerableTime = 0;
 		k.fireOverload(p, helper.getLevel());
-		near(helper, v.getHealth(), 200f - JetrayKit.TAIL_DAMAGE - JetrayKit.OVERLOAD_DAMAGE, "the overload beam: 60");
+		near(helper, v.getHealth(), 200f - JetrayKit.TAIL_DAMAGE - JetrayKit.OVERLOAD_DAMAGE, "the overload beam: 100");
 		helper.succeed();
 	}
 
@@ -148,7 +148,7 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		Villager v = prey(helper, 3.5, 2, 4.5, 40f);
 		helper.assertTrue(k.tailGrab(p), "the tail grabs it");
 		helper.assertTrue(k.flag(p, JetrayKit.F_CARRY) && k.keyActive(p, AbilitySlot.SLOT_2), "carrying: the G box is lit");
-		near(helper, v.getHealth(), 40f - JetrayKit.GRAB_DAMAGE, "4 on the grab");
+		near(helper, v.getHealth(), 40f - JetrayKit.GRAB_DAMAGE, "9 on the grab");
 		helper.assertTrue(k.cooldownLeft(p, JetrayKit.TAIL_GRAB) == 0, "the cooldown waits for the drop");
 		// up he goes
 		Vec3 up = helper.absoluteVec(new Vec3(3.5, 7, 1.5));
@@ -205,8 +205,8 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		near(helper, k.incomingDamage(p, helper.getLevel().damageSources().generic(), 6f), 3f, "other hits do half");
 		helper.assertFalse(k.roll(p), "the roll cools down");
 		near(helper, JetrayKit.ramBonus(0.1), 0f, "no bonus standing still");
-		near(helper, JetrayKit.ramBonus(0.85), 2f, "+1 for every 0.4 blocks a tick");
-		near(helper, JetrayKit.ramBonus(5.0), JetrayKit.RAM_MAX, "capped at +5");
+		near(helper, JetrayKit.ramBonus(0.85), 2 * JetrayKit.RAM_PER, "+1.6 for every 0.4 blocks a tick");
+		near(helper, JetrayKit.ramBonus(5.0), JetrayKit.RAM_MAX, "capped at +8");
 		helper.succeed();
 	}
 

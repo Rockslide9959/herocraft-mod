@@ -132,9 +132,9 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(com.projecthero.mod.omnitrix.alien.AlienKit.lookTarget(p, BrainstormKit.BOLT_RANGE) == a, "the first zombie is under the crosshair");
 		helper.assertTrue(kit.chainLightning(p), "Chain Lightning");
-		near(helper, a.getHealth(), 140f - BrainstormKit.CHAIN_FIRST, "the first takes 14");
-		near(helper, b.getHealth(), 140f - BrainstormKit.CHAIN_DAMAGE, "it jumps to the second: 12");
-		near(helper, c.getHealth(), 140f - BrainstormKit.CHAIN_DAMAGE, "and on to the third: 12");
+		near(helper, a.getHealth(), 140f - BrainstormKit.CHAIN_FIRST, "the first takes 24");
+		near(helper, b.getHealth(), 140f - BrainstormKit.CHAIN_DAMAGE, "it jumps to the second: 20");
+		near(helper, c.getHealth(), 140f - BrainstormKit.CHAIN_DAMAGE, "and on to the third: 20");
 		helper.assertFalse(kit.chainLightning(p), "it cools down");
 		helper.assertTrue(kit.cooldownLeft(p, BrainstormKit.CHAIN_LIGHTNING) == 160, "an 8 s cooldown");
 		helper.succeed();
@@ -148,7 +148,7 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 5.0, 140f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(kit.lightningBolt(p), "Lightning Bolt");
-		near(helper, z.getHealth(), 140f - BrainstormKit.BOLT_DAMAGE, "the bolt hits for 7");
+		near(helper, z.getHealth(), 140f - BrainstormKit.BOLT_DAMAGE, "the bolt hits for 11");
 		helper.assertFalse(kit.lightningBolt(p), "it cools down");
 		helper.assertTrue(kit.cooldownLeft(p, BrainstormKit.BOLT) == 20, "a 1 s cooldown");
 		// analysed: his moves hit it 25% harder
@@ -215,14 +215,14 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		helper.assertTrue(kit.cooldownLeft(p, SpidermonkeyKit.WEB_SHOT) == 20, "a 1 s cooldown");
 		helper.runAfterDelay(12, () -> {
 			helper.assertTrue(rooted(z), "the web stuck the zombie in place: " + z.getActiveEffects());
-			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE, "the web shot hits for 6");
+			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE, "the web shot hits for 10");
 			// the flurry's fists, one at a time (up close)
 			z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
 			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
 			z.invulnerableTime = 0;
 			helper.assertTrue(kit.flurryHit(p, 2) == 1, "a Quad Flurry fist lands");
 			// v0.17.2 revamp: Sticky -- the zombie is still webbed, so the fist hits it for 1 more
-			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE - SpidermonkeyKit.FLURRY_HIT - SpidermonkeyKit.STICKY_BONUS, "3.5 a fist (+1 Sticky)");
+			near(helper, z.getHealth(), 140f - SpidermonkeyKit.SHOT_DAMAGE - SpidermonkeyKit.FLURRY_HIT - SpidermonkeyKit.STICKY_BONUS, "6 a fist (+2 Sticky)");
 			helper.succeed();
 		});
 	}
@@ -309,7 +309,7 @@ public final class OmnitrixRecalCGameTests implements FabricGameTest {
 		GoopKit kit = (GoopKit) Aliens.kit(GoopKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 140f);
 		helper.assertTrue(kit.slimeSlam(p), "Slime Slam");
-		near(helper, z.getHealth(), 140f - GoopKit.SLAM_DAMAGE, "the slam hits for 17");
+		near(helper, z.getHealth(), 140f - GoopKit.SLAM_DAMAGE, "the slam hits for 28");
 		helper.assertFalse(kit.slimeSlam(p), "it cools down");
 		helper.assertTrue(kit.cooldownLeft(p, GoopKit.SLIME_SLAM) == 200, "a 10 s cooldown");
 		helper.assertTrue(kit.squeeze(p) && kit.flag(p, GoopKit.F_SQUEEZE), "Squeeze");

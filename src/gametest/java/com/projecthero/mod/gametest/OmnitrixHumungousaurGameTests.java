@@ -92,7 +92,7 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void humungousaurSizeStepsAreTenPercentHoldsJumpAndARoofStopsGrowth(GameTestHelper helper) {
+	public void humungousaurSizeStepsAre25PercentHoldsJumpAndARoofStopsGrowth(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, 0f);
 		HumungousaurKit kit = kit();
@@ -101,7 +101,8 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		p.teleportTo(p.getX(), 200, p.getZ());
 		helper.assertTrue(kit.growFull(p), "hold V: straight to full size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 2, "full size in one go");
-		near(helper, HumungousaurKit.mult(p), 1.2f, "+10% a step: x1.2 at full size");
+		near(helper, HumungousaurKit.mult(p), 1.5f, "+25% a step: x1.5 at full size"); // v0.17.2 damage pass (was +10%)
+		near(helper, (float) HumungousaurKit.sized(p, HumungousaurKit.POUND_RADIUS, HumungousaurKit.POUND_PER_HEIGHT), 14.4f, "Ground Pound reaches half his 28.8-block height");
 		near(helper, p.getScale(), HumungousaurKit.scaleAt(2), "full size");
 		helper.assertTrue(kit.shrinkBase(p), "hold Shift+V: straight back to base size");
 		helper.assertTrue(HumungousaurKit.stage(p) == 0, "base size again");
@@ -149,14 +150,14 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		HumungousaurKit kit = kit();
 		Villager v = prey(helper, 3.5, 3.5, 100f);
 		helper.assertTrue(kit.tailClub(p), "Shift+G at base size");
-		near(helper, v.getHealth(), 100f - HumungousaurKit.TAIL_DAMAGE, "13 at base size");
+		near(helper, v.getHealth(), 100f - HumungousaurKit.TAIL_DAMAGE, "32 at base size");
 		v.setHealth(100f);
 		v.invulnerableTime = 0;
 		v.removeAllEffects();
 		kit.setStage(p, 2);
 		clearCooldown(p, HumungousaurKit.TAIL);
 		helper.assertTrue(kit.tailClub(p), "Shift+G at full size: the club");
-		near(helper, v.getHealth(), 100f - HumungousaurKit.CLUB_DAMAGE * 1.2f, "16 x1.2 with the club");
+		near(helper, v.getHealth(), 100f - HumungousaurKit.CLUB_DAMAGE * 1.5f, "42 x1.5 with the club");
 		helper.assertTrue(v.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "knocked down");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 		helper.succeed();
@@ -181,8 +182,8 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		helper.assertTrue(HumungousaurKit.thrown(v), "the villager is in flight");
 		helper.assertTrue(v.getDeltaMovement().y > 0.3, "thrown up and out");
 		kit.thrownImpact(p, v, other, 1f);
-		near(helper, v.getHealth(), 100f - HumungousaurKit.HURL_DAMAGE, "18 to the thrown");
-		near(helper, other.getHealth(), 100f - HumungousaurKit.HURL_DAMAGE, "18 to what it hit");
+		near(helper, v.getHealth(), 100f - HumungousaurKit.HURL_DAMAGE, "45 to the thrown");
+		near(helper, other.getHealth(), 100f - HumungousaurKit.HURL_DAMAGE, "45 to what it hit");
 		helper.assertFalse(HumungousaurKit.thrown(v), "landed");
 		helper.assertFalse(kit.hurl(p), "an 8 s cooldown");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
@@ -197,12 +198,12 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		Villager v = prey(helper, 3.5, 3.0, 100f);
 		float armour = p.getArmorValue();
 		helper.assertTrue(kit.spikeBurst(p), "Shift+C: Spike Burst");
-		near(helper, v.getHealth(), 100f - HumungousaurKit.SPIKE_DAMAGE, "14 around him");
+		near(helper, v.getHealth(), 100f - HumungousaurKit.SPIKE_DAMAGE, "34 around his feet");
 		near(helper, p.getArmorValue(), armour + 3f, "+3 armour while the spikes are out");
 		v.setHealth(100f);
 		v.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().mobAttack(v), 2f);
-		near(helper, v.getHealth(), 100f - HumungousaurKit.THORNS, "a melee attacker takes 3");
+		near(helper, v.getHealth(), 100f - HumungousaurKit.THORNS, "a melee attacker takes 6");
 		pump(helper, p);
 		helper.runAfterDelay(HumungousaurKit.SPIKE_TICKS + 4, () -> {
 			helper.assertFalse(kit.flag(p, HumungousaurKit.F_SPIKES), "the spikes sink back after 8 s");
@@ -239,10 +240,10 @@ public class OmnitrixHumungousaurGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, 0f);
 		HumungousaurKit kit = kit();
-		Villager weak = prey(helper, 3.0, 5.0, 25f);
+		Villager weak = prey(helper, 3.0, 5.0, HumungousaurKit.ROAR_DAMAGE + 15f); // v0.17.2: left on 15, under the 20 that makes it flee
 		Villager tough = prey(helper, 4.0, 5.0, 100f);
 		helper.assertTrue(kit.roar(p), "C: Primal Roar");
-		near(helper, tough.getHealth(), 100f - HumungousaurKit.ROAR_DAMAGE, "12 in the cone");
+		near(helper, tough.getHealth(), 100f - HumungousaurKit.ROAR_DAMAGE, "28 in the cone (it reaches the ground in front of a 12-block giant)");
 		helper.assertTrue(HumungousaurKit.fleeing(p, weak), "left under 20 health: it flees");
 		helper.assertFalse(HumungousaurKit.fleeing(p, tough), "a tough one stands");
 		helper.assertTrue(kit.charge(p), "X: Stampede");
