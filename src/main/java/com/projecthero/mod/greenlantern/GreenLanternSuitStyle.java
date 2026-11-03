@@ -22,7 +22,13 @@ public enum GreenLanternSuitStyle {
 	/** v0.15.16: the user's two new skins, stripped the same way (scratchpad/v01516_gl) -- Kyle Rayner (black suit, green mask)... */
 	MIDNIGHT("midnight", "textures/entity/green_lantern/suits/midnight.png"),
 	/** ...and Guy Gardner (green / black / white plated suit, no mask, gloved). */
-	ARMORED("armored", "textures/entity/green_lantern/suits/armored.png");
+	ARMORED("armored", "textures/entity/green_lantern/suits/armored.png"),
+	/**
+	 * v0.17.2 (user: "replace the hal jordan green lantern suit with this one ... Add another hal jordan suit ... Replace the john
+	 * stewart suit with this one"): CLASSIC and STEWART now wear the user's new skins, and this is the second Hal Jordan suit --
+	 * stripped the same way (scratchpad glstrip.js: the face, hair and bare skin cut out, Hal's mask kept).
+	 */
+	HAL_MODERN("hal_modern", "textures/entity/green_lantern/suits/hal_modern.png");
 
 	private final String id;
 	private final ResourceLocation texture;
