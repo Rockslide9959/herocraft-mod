@@ -191,6 +191,12 @@ public final class Omnitrix {
 
 	/** v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery's charge in milli-ticks, and the tick it was stored at (no entry = full). */
 	public static final String BATTERY = "omnitrix.battery", BATTERY_AT = "omnitrix.battery_at";
+	/**
+	 * v0.17.2 (user: "if you transform into alien X you watch battery stops depleting and you can basically stay as him for as long
+	 * as you like until you detransform"): while this timer is set (by AlienXKit on transforming) the battery reads this many ticks,
+	 * the time limit is held off like Master Control's, and turning back stores exactly this. Cleared on revert.
+	 */
+	public static final String HOLD_BATTERY = "omnitrix.hold_battery";
 
 	/** v0.17.2: the Recalibrated Omnitrix's battery, in ticks of alien time left (client-safe: the synced state). */
 	public static int batteryTicks(Player p) {
@@ -202,6 +208,9 @@ public final class Omnitrix {
 		long max = OmnitrixConfig.BATTERY_TICKS;
 		if (s.readyAt(MASTER) == 1L) {
 			return (int) max;
+		}
+		if (s.transformed() && s.timers.containsKey(HOLD_BATTERY)) {
+			return (int) net.minecraft.util.Mth.clamp(s.readyAt(HOLD_BATTERY), 0L, max); // v0.17.2: Alien X -- held where it was
 		}
 		if (s.transformed()) {
 			long until = poweringDown(s) ? Math.min(now, s.readyAt(POWER_DOWN_TIMER)) : now;
@@ -947,6 +956,7 @@ public final class Omnitrix {
 		n.timers.remove(POWER_DOWN_TIMEOUT);
 		n.timers.remove(PENDING_SWITCH);
 		n.timers.remove(BADGE_HIT);
+		n.timers.remove(HOLD_BATTERY); // v0.17.2: Alien X's held battery
 		boolean recal = n.readyAt(RECAL) == 1L;
 		if (recal) {
 			// v0.17.2 (user: "The recalibrated omnitrix should have a battery system instead of timer like the prototype, player should be able to stay an alien for about 4 minutes in total this time and detransform at will without the omnitrix going into recharge mode, full recharge of the battery should be 90 seconds"): the battery keeps what it had left (flat after a timeout), refilling from now
@@ -1375,7 +1385,7 @@ public final class Omnitrix {
 				OmnitrixAbilityManager.tick(p);
 				return;
 			}
-			if (s.readyAt(MASTER) == 1L) {
+			if (s.readyAt(MASTER) == 1L || s.timers.containsKey(HOLD_BATTERY)) { // v0.17.2: Alien X holds the time limit off too
 				// v0.17.1 Master Control: no time limit -- the clock is held full
 				if (now % 20 == 0 && s.endsAt - now < OmnitrixConfig.TRANSFORM_TICKS - 10) {
 					OmnitrixState n = state(p).copy();
