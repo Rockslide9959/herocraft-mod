@@ -159,6 +159,39 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "add the power tune command for the omnitrix power so that we can edit master control and recalibration and timers"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void powerTuneSetsMasterControlRecalibrationAndTimers(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		Omnitrix.setMasterControl(p, true);
+		helper.assertTrue(Omnitrix.masterControl(p), "master on");
+		Omnitrix.setMasterControl(p, false);
+		helper.assertFalse(Omnitrix.masterControl(p), "master off");
+		Omnitrix.setRecharge(p, 200);
+		helper.assertTrue(Omnitrix.rechargeLeft(p) == 200, "recharge 10 s");
+		Omnitrix.setRecharge(p, 0);
+		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "recharged");
+		Omnitrix.setFailsafeIn(p, 100);
+		helper.assertFalse(Omnitrix.failsafeArmed(p), "failsafe offline");
+		Omnitrix.setFailsafeIn(p, 0);
+		helper.assertTrue(Omnitrix.failsafeArmed(p), "failsafe armed");
+		Omnitrix.setPrototypeTransforms(p, 25);
+		helper.assertTrue(Omnitrix.prototypeTransforms(p) == 25, "25 transformations");
+		helper.assertTrue(Omnitrix.select(p, HeatblastKit.ID) && Omnitrix.transform(p), "Heatblast");
+		helper.assertTrue(Omnitrix.setTimeLeft(p, 600), "time set");
+		helper.assertTrue(Math.abs(Omnitrix.timeLeft(p) - 600) <= 1, "30 s left: " + Omnitrix.timeLeft(p));
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		Omnitrix.setRecharge(p, 0);
+		helper.assertTrue(Omnitrix.recalibrate(p) && Omnitrix.recalibrated(p), "recalibrated");
+		helper.assertTrue(Omnitrix.setTimeLeft(p, 1200), "battery set");
+		helper.assertTrue(Math.abs(Omnitrix.batteryTicks(p) - 1200) <= 2, "battery 1:00: " + Omnitrix.batteryTicks(p));
+		helper.assertTrue(Omnitrix.unrecalibrate(p) && !Omnitrix.recalibrated(p), "back to the prototype");
+		helper.assertTrue(Aliens.available(p, Omnitrix.state(p).selected), "a prototype alien selected: " + Omnitrix.state(p).selected);
+		helper.succeed();
+	}
+
 	// ================================================================ one V move per alien
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)

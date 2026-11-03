@@ -50,6 +50,7 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian())
 				.then(com.projecthero.mod.nova.NovaCommand.build())
 				.then(com.projecthero.mod.ghostrider.GhostRiderCommand.build())
+				.then(com.projecthero.mod.omnitrix.OmnitrixCommand.build()) // v0.17.2 (user): Master Control, recalibration, timers
 				.then(com.projecthero.mod.stand.StandCommand.build()) // v0.17.2
 				.then(com.projecthero.mod.cyborg.CyborgCommand.build())
 				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())

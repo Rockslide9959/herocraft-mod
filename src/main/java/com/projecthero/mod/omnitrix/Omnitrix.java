@@ -469,6 +469,108 @@ public final class Omnitrix {
 				.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY, ChatFormatting.BOLD), true);
 	}
 
+	// ---------------------------------------------------------------- v0.17.2: /projecthero power tune omnitrix (OmnitrixCommand)
+
+	/** Master Control on or off at once, without the 10 s hold and the dial sequence. */
+	public static void setMasterControl(ServerPlayer p, boolean on) {
+		OmnitrixState n = state(p).copy();
+		n.timers.remove(MC_SEQ);
+		n.timers.remove(MC_STEP);
+		if (on) {
+			n.timers.put(MASTER, 1L);
+			n.rechargeUntil = 0L;
+		} else {
+			n.timers.remove(MASTER);
+		}
+		save(p, n);
+	}
+
+	/** Back to the prototype: the original dial, no Master Control, the battery gone. False while transformed or not recalibrated. */
+	public static boolean unrecalibrate(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (!s.hasPower || s.transformed() || s.readyAt(RECAL) != 1L) {
+			return false;
+		}
+		OmnitrixState n = s.copy();
+		for (String k : new String[] { RECAL, MASTER, MC_SEQ, MC_STEP, BATTERY, BATTERY_AT, HOLD_BATTERY }) {
+			n.timers.remove(k);
+		}
+		n.selecting = false;
+		n.rechargeUntil = 0L;
+		save(p, n);
+		java.util.List<Aliens.Alien> pool = Aliens.playable(p);
+		OmnitrixState m = state(p).copy();
+		m.selected = pool.isEmpty() ? "heatblast" : pool.get(0).id();
+		save(p, m);
+		return true;
+	}
+
+	/** The failsafe armed again in {@code ticks} (0 = now). */
+	public static void setFailsafeIn(ServerPlayer p, int ticks) {
+		OmnitrixState n = state(p).copy();
+		n.timers.put(FAILSAFE_READY, p.level().getGameTime() + Math.max(0, ticks));
+		save(p, n);
+	}
+
+	/** The prototype's mistransform chance on (the normal watch) or off. */
+	public static void setGlitches(ServerPlayer p, boolean on) {
+		OmnitrixState n = state(p).copy();
+		if (on) {
+			n.timers.remove(NO_GLITCH);
+		} else {
+			n.timers.put(NO_GLITCH, 1L);
+		}
+		save(p, n);
+	}
+
+	public static boolean glitches(Player p) {
+		return state(p).readyAt(NO_GLITCH) != 1L;
+	}
+
+	/** Ticks until the failsafe is armed (0 = armed). */
+	public static int failsafeLeft(Player p) {
+		return (int) Math.max(0L, state(p).readyAt(FAILSAFE_READY) - p.level().getGameTime());
+	}
+
+	/**
+	 * Transformed: the alien time (the battery, on the Recalibrated Omnitrix) set to {@code ticks}, any power-down beeps stopped.
+	 * Human on the Recalibrated Omnitrix: the stored battery charge. False otherwise (a human prototype has no time to set).
+	 */
+	public static boolean setTimeLeft(ServerPlayer p, int ticks) {
+		OmnitrixState s = state(p);
+		long now = p.level().getGameTime();
+		OmnitrixState n = s.copy();
+		if (s.transformed()) {
+			n.endsAt = now + Math.max(1, ticks);
+			n.timers.remove(POWER_DOWN_TIMER);
+			n.timers.remove(POWER_DOWN_TIMEOUT);
+			if (n.timers.containsKey(HOLD_BATTERY)) {
+				n.timers.put(HOLD_BATTERY, (long) ticks);
+			}
+		} else if (s.readyAt(RECAL) == 1L) {
+			n.timers.put(BATTERY, (long) net.minecraft.util.Mth.clamp(ticks, 0, OmnitrixConfig.BATTERY_TICKS) * 1000L);
+			n.timers.put(BATTERY_AT, now);
+		} else {
+			return false;
+		}
+		save(p, n);
+		return true;
+	}
+
+	/** The recharge set to {@code ticks} from now (0 = ready). */
+	public static void setRecharge(ServerPlayer p, int ticks) {
+		OmnitrixState n = state(p).copy();
+		n.rechargeUntil = ticks <= 0 ? 0L : p.level().getGameTime() + ticks;
+		save(p, n);
+	}
+
+	/** How many prototype transformations he has made (the Recalibration Chip asks for {@link OmnitrixConfig#RECAL_MIN_TRANSFORMS}). */
+	public static void setPrototypeTransforms(ServerPlayer p, int count) {
+		OmnitrixState n = state(p).copy();
+		n.timers.put(TRANSFORMS, (long) Math.max(0, count));
+		save(p, n);
+	}
+
 	/** Gametests: keep this wearer's slaps on the selected alien. */
 	public static void noGlitch(ServerPlayer p) {
 		OmnitrixState n = state(p).copy();
