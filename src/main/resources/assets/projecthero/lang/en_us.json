@@ -88,7 +88,7 @@
   "projecthero.omnitrix.alien.grey_matter": "Grey Matter",
   "projecthero.omnitrix.alien.unknown": "That alien",
   "projecthero.omnitrix.heatblast.absorb_flames": "Absorb Flames",
-  "projecthero.omnitrix.heatblast.absorb_flames.desc": "Draw in every fire and every burning creature within 8 blocks -- the flames stream into you and go out. Each fire heals you 1 and each burning creature 2 (up to 20), and your next fire move (the Supernova too) hits 5% harder for every flame, up to +50%, for 30 s. Nothing burning nearby: no cooldown.",
+  "projecthero.omnitrix.heatblast.absorb_flames.desc": "Draw in every fire and every burning creature within 8 blocks -- the flames stream into you and go out. Each fire heals you 1 and each burning creature 2 (up to 20), and your next fire move (the Supernova too) hits 5% harder for every flame, up to +50%, for 30 s. No cooldown.",
   "projecthero.omnitrix.heatblast.supernova": "Supernova",
   "projecthero.omnitrix.heatblast.supernova.desc": "His ultimate: draw the heat in for 1.25 s (rooted), then explode -- up to 100 damage within 9 blocks (70 at the edge), and a ring of fire 7.5 blocks out burns for 4 s (7 every half second).",
   "projecthero.omnitrix.heatblast.fire_bolt": "Fire Bolt",

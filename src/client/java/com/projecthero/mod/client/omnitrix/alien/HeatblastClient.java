@@ -105,6 +105,12 @@ public final class HeatblastClient implements AlienClientKit {
 			QuirkKeyframes.f(5, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
 			QuirkKeyframes.f(HeatblastKit.THROWER_TICKS, A, A, 0f, A, A, 0f, 0.18f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
 			QuirkKeyframes.rest(HeatblastKit.THROWER_TICKS + 6) };
+	// Shift+G Blaze Cone -- the same thrust as the Flamethrower, but a burst: out and back in under a second. v0.17.2 (user: "after
+	// using blaze cone heatblast gets stuck in the blaze cone attack pose") -- it shared the Flamethrower's clip, held for its 5 s
+	private static final float[][] CONE = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(2, -1.0f, 0f, 0.4f, -1.0f, 0f, -0.4f, -0.1f, 0f, 0.35f, 0f, 0.08f, -0.35f, 0f, -0.08f, -0.1f),
+			QuirkKeyframes.f(5, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
+			QuirkKeyframes.f(9, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f), QuirkKeyframes.rest(15) };
 	// G Fire Lasso -- the whip wound up overhead, cracked out down the aim...
 	private static final float[][] LASSO = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(2, -2.9f, 0.2f, 0.45f, -0.3f, 0f, -0.2f, -0.12f, 0.35f, 0.15f, 0f, 0f, -0.15f, 0f, 0f, -0.1f),
@@ -854,7 +860,8 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_VOLLEY -> VOLLEY_R;
 			case HeatblastKit.ANIM_VOLLEY_L -> VOLLEY_L;
 			case HeatblastKit.ANIM_BOLT -> BOLT;
-			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> THROWER;
+			case HeatblastKit.ANIM_THROWER -> THROWER;
+			case HeatblastKit.ANIM_CONE -> CONE;
 			case HeatblastKit.ANIM_LASSO -> LASSO;
 			case HeatblastKit.ANIM_YANK -> YANK;
 			case HeatblastKit.ANIM_MAGMA -> MAGMA;
@@ -931,7 +938,7 @@ public final class HeatblastClient implements AlienClientKit {
 		return switch (animId) {
 			case HeatblastKit.ANIM_VOLLEY, HeatblastKit.ANIM_VOLLEY_L -> FP_BLAST;
 			case HeatblastKit.ANIM_BOLT -> FP_BOLT;
-			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> FP_THROWER;
+			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> FP_THROWER; // (the first-person clip ends with the anim)
 			case HeatblastKit.ANIM_LASSO -> FP_LASSO;
 			case HeatblastKit.ANIM_YANK -> FP_YANK;
 			case HeatblastKit.ANIM_MAGMA -> FP_MAGMA;

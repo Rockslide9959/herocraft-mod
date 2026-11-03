@@ -316,21 +316,8 @@ public final class Xlr8Client implements AlienClientKit {
 		VertexConsumer eyes = buffers.getBuffer(RenderType.eyes(down ? MASK_EYES : EYES));
 		model.head.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 		model.hat.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
-		// v0.17.2 revamp (Kinetic Charge): at a full bar the visor's rim glows white
-		if (down && vis >= 1f && Xlr8Kit.charge(p) >= 1f) {
-			VertexConsumer rim = buffers.getBuffer(RenderType.eyes(EXTRAS));
-			int a = 150 + (int) (90 * (0.5f + 0.5f * Mth.sin(age * 0.5f)));
-			int col = (a << 24) | 0xFFFFFF;
-			AlienParts.on(pose, model.head, () -> {
-				PoseStack.Pose m = pose.last();
-				float z = -4.6f / 16f, o = 4.55f / 16f, t = 0.45f / 16f;
-				float top = -8.55f / 16f, bot = 0.05f / 16f;
-				float u0 = WHITE[0], v0 = WHITE[1], u1 = WHITE[2], v1 = WHITE[3];
-				AlienParts.quad(rim, m, col, LightTexture.FULL_BRIGHT, o, top, z, -o, top, z, -o, top + t, z, o, top + t, z, 0, 0, -1, u0, v0, u1, v1); // brow
-				AlienParts.quad(rim, m, col, LightTexture.FULL_BRIGHT, o, top, z, o - t, top, z, o - t, bot, z, o, bot, z, 0, 0, -1, u0, v0, u1, v1);
-				AlienParts.quad(rim, m, col, LightTexture.FULL_BRIGHT, -o + t, top, z, -o, top, z, -o, bot, z, -o + t, bot, z, 0, 0, -1, u0, v0, u1, v1);
-			});
-		}
+		// v0.17.2 (user: "when xlr8s charge reaches 100% he gets this weird ring around his head"): no glowing visor rim at a full
+		// Kinetic Charge any more -- the HUD bar turning white says so
 	}
 
 	@Override

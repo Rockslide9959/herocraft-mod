@@ -836,7 +836,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 			helper.assertTrue(p.getHealth() >= hp + HeatblastKit.ABSORB_HEAL_FIRE + HeatblastKit.ABSORB_HEAL_BURNING - 0.01f, "it heals him: " + hp + " -> " + p.getHealth());
 			float boost = kit.boostNow(p);
 			helper.assertTrue(boost >= 1f + n * HeatblastKit.ABSORB_BOOST_PER - 0.001f || boost >= 1f + HeatblastKit.ABSORB_BOOST_MAX - 0.001f, "his next fire move is charged: x" + boost);
-			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.ABSORB) > 0, "then it cools down");
+			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.ABSORB) == 0, "no cooldown (v0.17.2, user: \"remove the cooldown on absorb fire\")");
 			// v0.17.2 (user: "make it dash the player in the direction that they are aiming in"): aimed up, the dash goes up
 			p.setXRot(-45f);
 			Vec3 aim = p.getLookAngle();

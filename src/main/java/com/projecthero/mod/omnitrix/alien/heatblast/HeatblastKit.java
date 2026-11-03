@@ -226,7 +226,7 @@ public final class HeatblastKit extends AlienKit {
 	 * {@link #ABSORB_BOOST_PER} harder a flame (at most {@link #ABSORB_BOOST_MAX}), kept for {@link #ABSORB_KEEP_TICKS}.
 	 */
 	public static final double ABSORB_RADIUS = 8.0;
-	public static final int ABSORB_TICKS = 16, ABSORB_COOLDOWN = 200, ABSORB_KEEP_TICKS = 600;
+	public static final int ABSORB_TICKS = 16, ABSORB_COOLDOWN = 0, ABSORB_KEEP_TICKS = 600; // v0.17.2 (user: "remove the cooldown on absorb fire")
 	public static final float ABSORB_HEAL_FIRE = 1f, ABSORB_HEAL_BURNING = 2f, ABSORB_HEAL_MAX = 20f;
 	public static final float ABSORB_BOOST_PER = 0.05f, ABSORB_BOOST_MAX = 0.5f;
 	public static final float ERUPT_DAMAGE = 25f; // v0.17.2 (user: "make this move deal 25 damage"): was 16
@@ -900,6 +900,35 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
+	/**
+	 * v0.17.2 (user: "make heatblasts fireballs shoot from his hands instead of his head please, do this for all his projectiles"):
+	 * where his hand is -- out from the shoulder at chest height, half a block ahead (scaled with him).
+	 */
+	private Vec3 hand(ServerPlayer p, boolean right) {
+		Vec3 f = Vec3.directionFromRotation(0, p.getYRot());
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		double scale = p.getScale();
+		return p.position().add(f.scale(0.55 * scale)).add(side.scale((right ? 0.42 : -0.42) * scale)).add(0, 1.15 * scale, 0);
+	}
+
+	/** What his crosshair is on (a creature's middle, else the first block, 48 blocks out at most): where hand-thrown fire heads. */
+	private Vec3 aimPoint(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, 48);
+		if (t != null) {
+			return t.getBoundingBox().getCenter();
+		}
+		Vec3 eye = p.getEyePosition();
+		return level(p).clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(48)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p)).getLocation();
+	}
+
+	/** A projectile moved to {@code right} / left hand, heading for the crosshair (so it still lands where he aims). */
+	private AlienProjectileEntity fromHand(AlienProjectileEntity e, ServerPlayer p, boolean right) {
+		Vec3 h = hand(p, right);
+		e.moveTo(h.x, h.y, h.z, p.getYRot(), p.getXRot());
+		Vec3 dir = aimPoint(p).subtract(h);
+		return e.direction(dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize());
+	}
+
 	/** One fireball of the volley: alternating hands, a little spread. */
 	private void fireball(ServerPlayer p, int n) {
 		anim(p, n == 1 ? ANIM_VOLLEY_L : ANIM_VOLLEY);
@@ -907,8 +936,9 @@ public final class HeatblastKit extends AlienKit {
 		Vec3 right = look.cross(new Vec3(0, 1, 0));
 		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
 		double side = n == 1 ? -0.035 : n == 2 ? 0.035 : 0;
-		AlienProjectileEntity.of(p, "heatblast_blast").colour(COLOUR).size(0.4f).damage(dmg(p, VOLLEY, VOLLEY_DAMAGE)).fire(3).speed(1.9).life(45)
-				.direction(look.add(right.scale(side))).spawn();
+		AlienProjectileEntity ball = fromHand(AlienProjectileEntity.of(p, "heatblast_blast"), p, n != 1).colour(COLOUR).size(0.4f)
+				.damage(dmg(p, VOLLEY, VOLLEY_DAMAGE)).fire(3).speed(1.9).life(45);
+		ball.direction(ball.getDeltaMovement().normalize().add(right.scale(side))).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.8f, 0.95f + n * 0.1f);
 	}
 
@@ -961,7 +991,7 @@ public final class HeatblastKit extends AlienKit {
 		}
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		Vec3 low = eye.add(0, -0.3, 0);
+		Vec3 low = hand(p, true).add(hand(p, false)).scale(0.5); // v0.17.2: from his hands
 		// the cone is drawn on every client (HeatblastClient: Pyrokinesis' Flamethrower); this is its spray
 		for (int i = 0; i < 2; i++) {
 			double d = 1.0 + l.random.nextDouble() * (THROWER_RANGE - 1.0);
@@ -1110,7 +1140,11 @@ public final class HeatblastKit extends AlienKit {
 		}
 		takeBoost(p, MAGMA);
 		anim(p, ANIM_MAGMA);
-		AlienProjectileEntity.of(p, "heatblast_bomb").colour(0xFF5A10).size(0.75f).damage(dmg(p, MAGMA, MAGMA_DIRECT)).blast(3.5f, dmg(p, MAGMA, MAGMA_DAMAGE)).fire(5)
+		// lobbed from the right hand along his look (it arcs, so it keeps the look's angle rather than a straight line to the aim)
+		AlienProjectileEntity bomb = AlienProjectileEntity.of(p, "heatblast_bomb");
+		Vec3 rh = hand(p, true);
+		bomb.moveTo(rh.x, rh.y, rh.z, p.getYRot(), p.getXRot());
+		bomb.direction(p.getLookAngle()).colour(0xFF5A10).size(0.75f).damage(dmg(p, MAGMA, MAGMA_DIRECT)).blast(3.5f, dmg(p, MAGMA, MAGMA_DAMAGE)).fire(5)
 				.gravity(0.045).speed(1.15).life(80).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 1.0f, 0.7f);
 		return true;
@@ -1978,7 +2012,7 @@ public final class HeatblastKit extends AlienKit {
 				return InteractionResult.FAIL;
 			}
 			anim(p, ANIM_BOLT);
-			AlienProjectileEntity.of(p, "heatblast_bolt").colour(0xFFA040).size(0.28f).damage(BOLT_DAMAGE).fire(2).speed(1.6).life(30).spawn();
+			fromHand(AlienProjectileEntity.of(p, "heatblast_bolt"), p, true).colour(0xFFA040).size(0.28f).damage(BOLT_DAMAGE).fire(2).speed(1.6).life(30).spawn();
 			OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.5f, 1.4f);
 			p.swing(hand, true);
 			return InteractionResult.SUCCESS;
