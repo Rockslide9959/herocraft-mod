@@ -139,6 +139,12 @@ public final class BigChillClient implements AlienClientKit {
 	}
 
 	/** v0.17.2 (user: "for big chill players shouldnt see the omnitrix when his cloak is on since the cloak covers it"). */
+	/** v0.17.2 (user: "big chills arms also have gaps, please make his model a slim model"): both his skins are laid out for slim arms. */
+	@Override
+	public boolean slimArms(AbstractClientPlayer p) {
+		return true;
+	}
+
 	@Override
 	public boolean showBadge(AbstractClientPlayer p) {
 		return BigChillWings.uncloaked(p);
