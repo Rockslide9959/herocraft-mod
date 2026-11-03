@@ -61,9 +61,10 @@ import net.minecraft.world.phys.Vec3;
  *   G          Quad Flurry     four fists in front: 4 x 3.5 (+1 each on a webbed foe), 5 s
  *   Shift+G    Web Yank        a line at a creature (16): 12, reeled in -- in the air or on a wall he instead swings in on it for a
  *                              Swing Kick (15 + knocked flying), 8 s
- *   X          Web Zip         a line to a block (28): zipped to it, 1.5 s
- *   Shift+X    Web Swing       HOLD: swing on a line ahead and above, let go to fling; re-catch in the air within 2 s = no cooldown
- *                              (Monkey Bars), 3 s
+ *   X          Web Swing       HOLD: a line from his tail to the block under the crosshair (50; nothing there: ahead and above), a
+ *                              pendulum while X is held (Jump reels in, Sneak pays out), let go to fling; re-catch in the air within 2 s
+ *                              = no cooldown (Monkey Bars), 1 s
+ *   Shift+X    Web Zip         a line to a block (75): pulled straight to it at 2.2 blocks a tick (44 b/s), a hop up at the end, 2 s
  *   Z          Tail Whip       a spin (r 3.2): 13 + thrown (webbed foes torn loose and thrown twice as far), 6 s
  *   Shift+Z    Cocoon Crush    ULTIMATE: wraps a creature (16): rooted 5 s, squeezed 5 every 0.5 s (50), then slammed: 14 + launched
  *                              (64), 45 s
@@ -76,6 +77,14 @@ import net.minecraft.world.phys.Vec3;
  *              Sticky (webbed foes take +1 from his fists)
  *   Weak       fire (x1.5; a burning creature can't be webbed); Tangled (his own ground web slows him); light frame (22 HP, armour 2)
  * </pre>
+ *
+ * <p>v0.17.2 (user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show, increase his web zip range to 75
+ * blocks please and make the pull stronger aswell, also make the web swings range further aswell, i think it would actually be better
+ * if it functioned the same as ladybugs yoyo swing and yoyo zip line thing, make the swing x and web zip shift+X please"): X / Shift+X
+ * are Ladybug's Yo-yo Swing / Zip Line ({@code LadybugMoves.lineDown}) -- the server picks the hook, writes it into the synced state
+ * ({@link #lineMode}, {@link #hook}, {@link #rope}) and ends the line; the owning client moves him ({@code SpidermonkeyLineClient}:
+ * Spider-Man's rope model for the swing, a straight pull at {@link #ZIP_SPEED} for the zip). Every web leaves from his tail tip
+ * ({@link #tailTip}).
  *
  * <p>Webs are drawn by the client from held {@link AlienProjectileEntity} carriers: {@code spidermonkey_strand} sits at a strand's
  * far end (the anchor) and draws a line to its owner's tail (colour 0) or to creature colour - 1 ({@code spidermonkey_wrap} wraps
@@ -136,25 +145,49 @@ public final class SpidermonkeyKit extends AlienKit {
 	public static final int F_AIR = 4;
 	/** v0.17.2 revamp: flying in on a line for a Swing Kick. */
 	public static final int F_KICK = 8;
+	/** v0.17.2 (user: Ladybug's zip line): being pulled along a Web Zip line. */
+	public static final int F_ZIP = 16;
 
 	public static final String WEB_SHOT = "web_shot", WEB_NET = "web_net", QUAD_FLURRY = "quad_flurry", WEB_YANK = "web_yank", WEB_ZIP = "web_zip",
 			WEB_SWING = "web_swing", TAIL_WHIP = "tail_whip", WEB_TRAP = "web_trap", WALL_CRAWL = "wall_crawl", WEB_SHIELD = "web_shield",
 			COCOON_CRUSH = "cocoon_crush", WEB_BARRAGE = "web_barrage", FOUR_FISTS = "four_fists", CEILING_HANG = "ceiling_hang";
 
 	public static final String AIR_AT = "air_at", SWING_FREE_UNTIL = "swing_free_until";
+	/**
+	 * v0.17.2 (user: Ladybug's yo-yo swing / zip line): the synced line the owning client moves him on -- {@code line} 1 = swing, 2 = zip;
+	 * {@code line_at} when it was cast; the hook and rope in thousandths of a block.
+	 */
+	public static final String LINE = "line", LINE_AT = "line_at", HOOK_X = "hook_x", HOOK_Y = "hook_y", HOOK_Z = "hook_z", ROPE = "rope";
 
 	public static final float SHOT_DAMAGE = 6f, NET_DAMAGE = 12f, FLURRY_HIT = 3.5f, YANK_DAMAGE = 12f, KICK_DAMAGE = 15f, WHIP_DAMAGE = 13f,
 			TRAP_DAMAGE = 5f, COCOON_PULSE_DAMAGE = 5f, COCOON_SLAM = 14f, BARRAGE_DAMAGE = 5f, FISTS_BONUS = 4f, STICKY_BONUS = 1f;
 	public static final int SHOT_ROOT = 40, NET_ROOT = 60, FLURRY_HITS = 4, FLURRY_GAP = 2, TRAP_TICKS = 300, TRAP_ROOT = 60, SHIELD_TICKS = 160,
-			COCOON_TICKS = 100, COCOON_PULSE = 10, BARRAGE_ROOT = 30, SWING_MAX = 80, SWING_FREE = 40, KICK_MAX = 24, FISTS_WINDOW = 40,
+			COCOON_TICKS = 100, COCOON_PULSE = 10, BARRAGE_ROOT = 30, SWING_MAX = 600, SWING_FREE = 40, KICK_MAX = 24, FISTS_WINDOW = 40,
 			TANGLE_TICKS = 30;
-	public static final double FLURRY_RANGE = 3.2, YANK_RANGE = 16, ZIP_RANGE = 28, SWING_RANGE = 24, WHIP_RADIUS = 3.2, TRAP_RADIUS = 2.5,
+	// v0.17.2 (user: "increase his web zip range to 75 blocks please and make the pull stronger aswell, also make the web swings range
+	// further aswell"): Zip 28 -> 75 (Ladybug's Zip Line), Swing 24 -> 50 (past Ladybug's 45); the zip pulls at 2.2 blocks a tick
+	// (Ladybug 1.6) the whole way instead of one 2.4 shove that died off
+	public static final double FLURRY_RANGE = 3.2, YANK_RANGE = 16, ZIP_RANGE = 75, SWING_RANGE = 50, WHIP_RADIUS = 3.2, TRAP_RADIUS = 2.5,
 			TRAP_RANGE = 12, COCOON_RANGE = 16, NET_RADIUS = 2.5;
+	/** v0.17.2: the zip line's pull (blocks a tick) and where it lets go (blocks from the hook); its longest pull (ticks). */
+	public static final double ZIP_SPEED = 2.2, ZIP_ARRIVE = 1.8;
+	public static final int ZIP_MAX = 50;
+	/** v0.17.2: a swing line snaps when he is this much further from the hook than its rope (Ladybug's SWING_SLACK_BREAK). */
+	public static final double SWING_SLACK_BREAK = 14.0;
+	public static final int SWING_COOLDOWN = 20, ZIP_COOLDOWN = 40;
+	/** v0.17.2: how far his webs aim (the crosshair's creature or block, else this far along the look). */
+	public static final double AIM_RANGE = 48.0;
+	/**
+	 * v0.17.2 (user: "make spidermonkeys webs shoot out from his tail"): his tail tip at rest per unit of scale -- up from his feet and
+	 * back from his middle (SpidermonkeyBody's idle curl: the tip 6.45 px down his back and 7.8 px behind it, at the renderer's 0.9375).
+	 */
+	public static final double TAIL_UP = 1.03, TAIL_BACK = 0.46;
 	public static final float FIRE_TAKEN = 1.5f;
 
 	// ---------------------------------------------------------------- per-player state (cleared in onRevert / clearSessionState)
 	private static final Map<UUID, Flurry> FLURRIES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Swing> SWINGS = new ConcurrentHashMap<>();
+	/** v0.17.2: player -> his swing / zip line (Ladybug's line). */
+	private static final Map<UUID, Line> LINES = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Trap>> TRAPS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Shield> SHIELDS = new ConcurrentHashMap<>();
 	/** creature -> its cocoon. */
@@ -171,20 +204,8 @@ public final class SpidermonkeyKit extends AlienKit {
 		long next;
 	}
 
-	private static final class Swing {
-		final Vec3 anchor;
-		final double length;
-		final long until;
-		final long start;
-		final AlienProjectileEntity strand;
-
-		Swing(Vec3 anchor, double length, long start, long until, AlienProjectileEntity strand) {
-			this.anchor = anchor;
-			this.length = length;
-			this.start = start;
-			this.until = until;
-			this.strand = strand;
-		}
+	/** v0.17.2: a swing (mode 1) or zip (mode 2) line: the hook, the block it is stuck to, the rope, when, its drawn strand. */
+	private record Line(int mode, Vec3 hook, BlockPos block, double rope, long start, AlienProjectileEntity strand) {
 	}
 
 	private record Trap(ResourceKey<Level> dim, Vec3 at, long until, AlienProjectileEntity web, Set<UUID> caught) {
@@ -235,10 +256,10 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	public static void clearSessionState() {
 		FLURRIES.clear();
-		for (Swing s : SWINGS.values()) {
-			s.strand.discard();
+		for (Line l : LINES.values()) {
+			l.strand().discard();
 		}
-		SWINGS.clear();
+		LINES.clear();
 		for (List<Trap> l : TRAPS.values()) {
 			l.forEach(t -> t.web().discard());
 		}
@@ -273,7 +294,8 @@ public final class SpidermonkeyKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(AlienMove.tap(WEB_SHOT, AbilitySlot.SLOT_1, 20), AlienMove.shift(WEB_NET, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(QUAD_FLURRY, AbilitySlot.SLOT_2, 100), AlienMove.shift(WEB_YANK, AbilitySlot.SLOT_2, 160),
-				AlienMove.tap(WEB_ZIP, AbilitySlot.SLOT_3, 30), AlienMove.shift(WEB_SWING, AbilitySlot.SLOT_3, 60),
+				// v0.17.2 (user: "make the swing x and web zip shift+X please")
+				AlienMove.tap(WEB_SWING, AbilitySlot.SLOT_3, SWING_COOLDOWN), AlienMove.shift(WEB_ZIP, AbilitySlot.SLOT_3, ZIP_COOLDOWN),
 				AlienMove.tap(TAIL_WHIP, AbilitySlot.SLOT_4, 120), AlienMove.shift(COCOON_CRUSH, AbilitySlot.SLOT_4, 900),
 				AlienMove.tap(WALL_CRAWL, AbilitySlot.SLOT_5, 10), AlienMove.shift(WEB_SHIELD, AbilitySlot.SLOT_5, 400),
 				AlienMove.tap(WEB_TRAP, AbilitySlot.SLOT_6, 300), AlienMove.shift(WEB_BARRAGE, AbilitySlot.SLOT_6, 200),
@@ -291,7 +313,7 @@ public final class SpidermonkeyKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		UUID id = p.getUUID();
 		FLURRIES.remove(id);
-		endSwing(p, false);
+		endLine(p, false);
 		endKick(p);
 		List<Trap> traps = TRAPS.remove(id);
 		if (traps != null) {
@@ -314,13 +336,16 @@ public final class SpidermonkeyKit extends AlienKit {
 		n.kitFlags = 0;
 		n.timers.remove(key(AIR_AT));
 		n.timers.remove(key(SWING_FREE_UNTIL));
+		for (String k : LINE_KEYS) {
+			n.timers.remove(key(k));
+		}
 		Omnitrix.save(p, n);
 	}
 
 	/** Anything of {@code p}'s left in the kit's maps (gametests: turning back leaves nothing). */
 	public static int leftovers(ServerPlayer p) {
 		UUID id = p.getUUID();
-		int n = (FLURRIES.containsKey(id) ? 1 : 0) + (SWINGS.containsKey(id) ? 1 : 0) + (TRAPS.containsKey(id) ? 1 : 0) + (SHIELDS.containsKey(id) ? 1 : 0)
+		int n = (FLURRIES.containsKey(id) ? 1 : 0) + (LINES.containsKey(id) ? 1 : 0) + (TRAPS.containsKey(id) ? 1 : 0) + (SHIELDS.containsKey(id) ? 1 : 0)
 				+ (KICKS.containsKey(id) ? 1 : 0) + (PUNCHES.containsKey(id) ? 1 : 0) + (LAST_TICK.containsKey(id) ? 1 : 0);
 		for (Cocoon c : COCOONS.values()) {
 			if (c.owner.equals(id)) {
@@ -354,12 +379,12 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
-		return (slot == AbilitySlot.SLOT_5 && flag(p, F_CRAWL)) || (slot == AbilitySlot.SLOT_3 && flag(p, F_SWING));
+		return (slot == AbilitySlot.SLOT_5 && flag(p, F_CRAWL)) || (slot == AbilitySlot.SLOT_3 && (flag(p, F_SWING) || flag(p, F_ZIP)));
 	}
 
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
-		return !(source.is(DamageTypeTags.IS_FALL) && (flag(p, F_AIR) || flag(p, F_SWING) || flag(p, F_KICK)));
+		return !(source.is(DamageTypeTags.IS_FALL) && (flag(p, F_AIR) || flag(p, F_SWING) || flag(p, F_ZIP) || flag(p, F_KICK)));
 	}
 
 	@Override
@@ -376,7 +401,7 @@ public final class SpidermonkeyKit extends AlienKit {
 		}
 		ServerLevel level = level(p);
 		UUID id = p.getUUID();
-		if (flag(p, F_AIR) && p.onGround() && now - timer(p, AIR_AT) > 4 && !flag(p, F_SWING)) {
+		if (flag(p, F_AIR) && p.onGround() && now - timer(p, AIR_AT) > 4 && !LINES.containsKey(id)) {
 			setFlag(p, F_AIR, false);
 		}
 		// Ceiling Hang: no sliding off (the ladder rule stops the fall; this keeps him from drifting)
@@ -397,15 +422,8 @@ public final class SpidermonkeyKit extends AlienKit {
 				FLURRIES.remove(id);
 			}
 		}
-		// the swing: a pendulum on the strand
-		Swing sw = SWINGS.get(id);
-		if (sw != null) {
-			if (now >= sw.until || (p.onGround() && now - sw.start > 6) || !sw.strand.isAlive()) {
-				endSwing(p, true);
-			} else {
-				swingTick(p, sw);
-			}
-		}
+		// v0.17.2: the swing / zip line (the owning client moves him; the server ends it)
+		tickLine(p, now);
 		tickKick(p, now);
 		// the web traps
 		List<Trap> traps = TRAPS.get(id);
@@ -504,12 +522,13 @@ public final class SpidermonkeyKit extends AlienKit {
 				}
 			}
 			case SLOT_3 -> {
-				if (SWINGS.containsKey(p.getUUID())) {
-					endSwing(p, true); // X again lets go of the strand
+				// v0.17.2 (user: "make the swing x and web zip shift+X please"): Ladybug's X -- either key again lets go of the line
+				if (LINES.containsKey(p.getUUID())) {
+					endLine(p, true);
 				} else if (shift) {
-					webSwing(p);
-				} else {
 					webZip(p);
+				} else {
+					webSwing(p);
 				}
 			}
 			case SLOT_4 -> {
@@ -540,9 +559,9 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	@Override
 	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
-		// v0.17.2 revamp: Web Swing runs while Shift+X is held; letting go flings him off the end of the line
-		if (slot == AbilitySlot.SLOT_3 && shift && SWINGS.containsKey(p.getUUID())) {
-			endSwing(p, true);
+		// v0.17.2: Web Swing runs while X is held; letting go flings him off the end of the line (a zip runs to the end)
+		if (slot == AbilitySlot.SLOT_3 && !shift && swinging(p)) {
+			endLine(p, true);
 		}
 	}
 
@@ -569,13 +588,49 @@ public final class SpidermonkeyKit extends AlienKit {
 		return s != null && s.getAmplifier() >= 9;
 	}
 
-	/** A strand drawn from the far end {@code at} to his tail (or, {@code to} given, to that creature) for {@code life} ticks. */
+	/**
+	 * A strand from his tail tip for {@code life} ticks: to the fixed point {@code at} (colour 0), or, {@code to} given, to that creature
+	 * wherever it goes (colour id + 1). v0.17.2 (user: "make spidermonkeys webs shoot out from his tail"): both ends are drawn from his
+	 * tail tip now (SpidermonkeyFx), never from a hand or his eyes.
+	 */
 	private static AlienProjectileEntity strand(ServerPlayer p, Vec3 at, @Nullable LivingEntity to, int life) {
 		AlienProjectileEntity s = AlienProjectileEntity.of(p, "spidermonkey_strand");
-		s.moveTo(at.x, at.y, at.z, 0f, 0f);
-		double len = (to == null ? p.position() : to.position()).distanceTo(at);
+		Vec3 end = to == null ? at : to.position().add(0, to.getBbHeight() * 0.55, 0);
+		s.moveTo(end.x, end.y, end.z, 0f, 0f);
+		double len = p.position().distanceTo(end);
 		s.colour(to == null ? 0 : to.getId() + 1).size((float) Math.max(0.6, len / 3.0)).held(true).speed(0).life(life).damage(0f).spawn();
 		return s;
+	}
+
+	/**
+	 * v0.17.2 (user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show"): where his tail tip is -- the
+	 * server's stand-in for the client's simulated tail (SpidermonkeyBody.tailTip): behind and above his hips, by his body's facing,
+	 * scaled with his size.
+	 */
+	public static Vec3 tailTip(Entity p) {
+		float yaw = (p instanceof LivingEntity le ? le.yBodyRot : p.getYRot()) * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		float s = p instanceof LivingEntity le ? le.getScale() : 1f;
+		double crouch = p.isCrouching() ? -0.12 * s : 0.0;
+		return p.position().add(0, TAIL_UP * s + crouch, 0).subtract(fwd.scale(TAIL_BACK * s));
+	}
+
+	/** v0.17.2: what his webs aim at -- the creature under the crosshair, else the block, else {@link #AIM_RANGE} along the look. */
+	public static Vec3 aimPoint(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, AIM_RANGE);
+		if (t != null) {
+			return t.position().add(0, t.getBbHeight() * 0.5, 0);
+		}
+		BlockHitResult b = blockAlong(p, p.getLookAngle(), AIM_RANGE);
+		return b != null ? b.getLocation() : p.getEyePosition().add(p.getLookAngle().scale(AIM_RANGE));
+	}
+
+	/** v0.17.2: a web projectile of {@code kind} leaving his tail tip toward {@code aim}. */
+	private static AlienProjectileEntity fromTail(ServerPlayer p, String kind, Vec3 dir) {
+		AlienProjectileEntity e = AlienProjectileEntity.of(p, kind);
+		Vec3 tip = tailTip(p);
+		e.moveTo(tip.x, tip.y, tip.z, p.getYRot(), p.getXRot());
+		return e.direction(dir.lengthSqr() < 1.0e-6 ? p.getLookAngle() : dir);
 	}
 
 	@Nullable
@@ -597,7 +652,8 @@ public final class SpidermonkeyKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_SHOT);
-		AlienProjectileEntity.of(p, "spidermonkey_web").colour(SHOT_ROOT).size(0.3f).damage(SHOT_DAMAGE).speed(2.2).life(40).spawn();
+		// v0.17.2 (user: "make spidermonkeys webs shoot out from his tail"): from the tail tip at what the crosshair is on
+		fromTail(p, "spidermonkey_web", aimPoint(p).subtract(tailTip(p))).colour(SHOT_ROOT).size(0.3f).damage(SHOT_DAMAGE).speed(2.2).life(40).spawn();
 		OmnitrixSfx.playOn(p, THWIP, 0.9f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
@@ -608,7 +664,7 @@ public final class SpidermonkeyKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_NET);
-		AlienProjectileEntity.of(p, "spidermonkey_net").colour(NET_ROOT).size(0.8f).damage(0f).blast((float) NET_RADIUS, NET_DAMAGE).gravity(0.02).speed(1.3)
+		fromTail(p, "spidermonkey_net", aimPoint(p).subtract(tailTip(p))).colour(NET_ROOT).size(0.8f).damage(0f).blast((float) NET_RADIUS, NET_DAMAGE).gravity(0.02).speed(1.3)
 				.life(60).spawn();
 		OmnitrixSfx.playOn(p, NET, 1f, 1f, SoundSource.PLAYERS);
 		return true;
@@ -674,14 +730,14 @@ public final class SpidermonkeyKit extends AlienKit {
 			t.setDeltaMovement(pull.normalize().scale(Math.min(2.0, 0.35 + d * 0.13) * Math.max(0.35, res)).add(0, 0.35, 0));
 			t.hurtMarked = true;
 		}
-		strand(p, p.getEyePosition(), t, 10);
+		strand(p, t.position(), t, 10);
 		OmnitrixSfx.playOn(p, ZIP, 1f, 1f, SoundSource.PLAYERS);
 		return true;
 	}
 
 	/** v0.17.2 revamp: the Swing Kick -- he flies in on a line at {@code t} (tests call it straight). */
 	public boolean swingKick(ServerPlayer p, LivingEntity t) {
-		endSwing(p, false);
+		endLine(p, false);
 		anim(p, ANIM_KICK);
 		endKick(p);
 		AlienProjectileEntity s = strand(p, t.position().add(0, t.getBbHeight() * 0.6, 0), null, KICK_MAX + 4);
@@ -749,45 +805,104 @@ public final class SpidermonkeyKit extends AlienKit {
 
 	// ---------------------------------------------------------------- X / Shift+X
 
-	/** X: a strand to the block under the crosshair -- zipped toward it. False (no cooldown) with nothing to stick to. */
+	/** The synced line keys (cleared on revert). */
+	private static final String[] LINE_KEYS = { LINE, LINE_AT, HOOK_X, HOOK_Y, HOOK_Z, ROPE };
+
+	private static long synced(Player p, String name) {
+		return Omnitrix.state(p).readyAt(ID + "." + name);
+	}
+
+	/** v0.17.2: the line he is on, client-safe: 0 none, 1 Web Swing, 2 Web Zip. */
+	public static int lineMode(Player p) {
+		return (int) synced(p, LINE);
+	}
+
+	/** v0.17.2: when the current line was cast (game time), client-safe -- a new value is a new line. */
+	public static long lineAt(Player p) {
+		return synced(p, LINE_AT);
+	}
+
+	/** v0.17.2: where the current line is stuck, client-safe; null without a line. */
+	@Nullable
+	public static Vec3 hook(Player p) {
+		OmnitrixState s = Omnitrix.state(p);
+		Long x = s.timers.get(ID + "." + HOOK_X), y = s.timers.get(ID + "." + HOOK_Y), z = s.timers.get(ID + "." + HOOK_Z);
+		return x == null || y == null || z == null ? null : new Vec3(x / 1000.0, y / 1000.0, z / 1000.0);
+	}
+
+	/** v0.17.2: the swing line's rope length when cast, client-safe. */
+	public static double rope(Player p) {
+		return synced(p, ROPE) / 1000.0;
+	}
+
+	/**
+	 * v0.17.2 (user: "make the pull stronger"): the zip line's pull this tick from {@code eye} toward {@code hook} -- straight at it at
+	 * {@link #ZIP_SPEED}, easing off only for the last stretch (Ladybug's zip; the client runs it, the gametests check it).
+	 */
+	public static Vec3 zipVelocity(Vec3 eye, Vec3 hook) {
+		Vec3 to = hook.subtract(eye);
+		double d = to.length();
+		return d <= ZIP_ARRIVE || d < 1.0e-6 ? Vec3.ZERO : to.scale(Math.min(ZIP_SPEED, d * 0.6) / d);
+	}
+
+	/** Writes the line the owning client moves him on (one sync), with its flag. */
+	private void writeLine(ServerPlayer p, int mode, Vec3 hook, double rope, long now) {
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.timers.put(key(LINE), (long) mode);
+		n.timers.put(key(LINE_AT), now);
+		n.timers.put(key(HOOK_X), Math.round(hook.x * 1000.0));
+		n.timers.put(key(HOOK_Y), Math.round(hook.y * 1000.0));
+		n.timers.put(key(HOOK_Z), Math.round(hook.z * 1000.0));
+		n.timers.put(key(ROPE), Math.round(rope * 1000.0));
+		n.timers.put(key(AIR_AT), now);
+		n.kitFlags = (n.kitFlags & ~(F_SWING | F_ZIP)) | (mode == 1 ? F_SWING : F_ZIP) | F_AIR;
+		Omnitrix.save(p, n);
+	}
+
+	/**
+	 * Shift+X: Web Zip -- v0.17.2 (user: "increase his web zip range to 75 blocks please and make the pull stronger aswell ... the same as
+	 * ladybugs ... yoyo zip line"): a line from his tail to the block under the crosshair (75) and he is pulled straight along it at
+	 * {@link #ZIP_SPEED} till he arrives (a hop up onto the ledge), {@link #ZIP_MAX} ticks at most. False (no cooldown) with nothing to
+	 * stick to.
+	 */
 	public boolean webZip(ServerPlayer p) {
+		if (!ready(p, WEB_ZIP)) {
+			use(p, WEB_ZIP); // the "not ready" line
+			return false;
+		}
 		BlockHitResult hit = blockAlong(p, p.getLookAngle(), ZIP_RANGE);
 		if (hit == null) {
 			say(p, "message.projecthero.omnitrix.spidermonkey.no_anchor");
 			return false;
 		}
-		if (!use(p, WEB_ZIP)) {
-			return false;
-		}
+		use(p, WEB_ZIP);
 		anim(p, ANIM_ZIP);
 		Vec3 at = hit.getLocation();
-		Vec3 to = at.subtract(p.position());
-		double d = to.length();
-		p.setDeltaMovement(to.normalize().scale(Math.min(2.4, 0.6 + d * 0.11)).add(0, 0.25, 0));
-		p.hurtMarked = true;
-		p.fallDistance = 0f;
-		setFlag(p, F_AIR, true);
-		setTimer(p, AIR_AT, p.level().getGameTime());
-		strand(p, at, null, 12);
+		startLine(p, 2, at, hit.getBlockPos(), at.distanceTo(p.getEyePosition()), ZIP_MAX + 10);
 		OmnitrixSfx.playOn(p, ZIP, 1f, 1.1f, SoundSource.PLAYERS);
 		return true;
 	}
 
 	/**
-	 * Shift+X (held): a strand to a point ahead and above, then a pendulum swing on it until the keys come up. v0.17.2 revamp, Monkey
-	 * Bars: a re-catch while still airborne within 2 s of letting go costs no cooldown, so swings chain.
+	 * X (held): Web Swing -- v0.17.2 (user: "make the web swings range further aswell ... functioned the same as ladybugs yoyo swing"):
+	 * a line from his tail to the block under the crosshair (50 blocks; with nothing there above him, a point ahead and above), and he
+	 * swings on it while X is held -- Spider-Man's rope (Jump reels in, Sneak pays out, W pumps), run on his own client. Letting go in
+	 * the air flings him on with the arc's speed. Monkey Bars: a re-catch while still airborne within 2 s of letting go costs no
+	 * cooldown, so swings chain.
 	 */
 	public boolean webSwing(ServerPlayer p) {
 		Vec3 look = p.getLookAngle();
-		Vec3 flat = look.multiply(1, 0, 1);
-		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
-		// aim up and ahead: at least 45 degrees up, whatever the crosshair says
-		Vec3 dir = flat.add(0, Math.max(1.0, look.y * 2), 0).normalize();
-		BlockHitResult hit = blockAlong(p, dir, SWING_RANGE);
-		if (hit == null) {
-			hit = blockAlong(p, look, SWING_RANGE);
+		BlockHitResult hit = blockAlong(p, look, SWING_RANGE);
+		if (hit == null || hit.getLocation().y < p.getY() + 1.0) {
+			// nothing to hook up there: aim up and ahead, at least 45 degrees up, whatever the crosshair says
+			Vec3 flat = look.multiply(1, 0, 1);
+			flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+			BlockHitResult up = blockAlong(p, flat.add(0, Math.max(1.0, look.y * 2), 0).normalize(), SWING_RANGE);
+			if (up != null && up.getLocation().y >= p.getY() + 1.5) {
+				hit = up;
+			}
 		}
-		if (hit == null || hit.getLocation().y < p.getY() + 1.5) {
+		if (hit == null || hit.getLocation().y < p.getY() + 1.0) {
 			say(p, "message.projecthero.omnitrix.spidermonkey.no_anchor");
 			return false;
 		}
@@ -798,63 +913,125 @@ public final class SpidermonkeyKit extends AlienKit {
 		}
 		anim(p, ANIM_SWING);
 		Vec3 at = hit.getLocation();
-		AlienProjectileEntity s = strand(p, at, null, SWING_MAX + 10);
-		SWINGS.put(p.getUUID(), new Swing(at, at.distanceTo(p.position().add(0, 1.0, 0)) * 0.9, now, now + SWING_MAX, s));
+		// Ladybug's rope: the distance from his eyes, never under 3 or past the range
+		double rope = Math.max(3.0, Math.min(SWING_RANGE + 2.0, at.distanceTo(p.getEyePosition())));
+		startLine(p, 1, at, hit.getBlockPos(), rope, SWING_MAX + 10);
 		setTimer(p, SWING_FREE_UNTIL, 0);
-		setFlag(p, F_SWING, true);
-		setFlag(p, F_AIR, true);
-		setTimer(p, AIR_AT, now);
-		// a push off the ground into the arc
-		p.setDeltaMovement(p.getDeltaMovement().add(flat.scale(0.6)).add(0, chain ? 0.15 : 0.35, 0));
-		p.hurtMarked = true;
 		OmnitrixSfx.playOn(p, THWIP, 1f, chain ? 1.1f : 0.9f, SoundSource.PLAYERS);
 		return true;
 	}
 
-	/** Whether {@code p} hangs on a swing strand (gametests). */
+	private void startLine(ServerPlayer p, int mode, Vec3 at, BlockPos block, double rope, int life) {
+		endLine(p, false);
+		long now = p.level().getGameTime();
+		AlienProjectileEntity s = strand(p, at, null, life);
+		LINES.put(p.getUUID(), new Line(mode, at, block.immutable(), rope, now, s));
+		writeLine(p, mode, at, rope, now);
+		floatTolerance(p, true);
+		p.resetFallDistance();
+	}
+
+	/** Whether {@code p} hangs on a swing line (gametests). */
 	public static boolean swinging(ServerPlayer p) {
-		return SWINGS.containsKey(p.getUUID());
+		Line l = LINES.get(p.getUUID());
+		return l != null && l.mode() == 1;
 	}
 
-	private void swingTick(ServerPlayer p, Swing sw) {
-		Vec3 body = p.position().add(0, 1.0, 0);
-		Vec3 out = body.subtract(sw.anchor);
-		double d = out.length();
-		Vec3 v = p.getDeltaMovement();
-		Vec3 flat = p.getLookAngle().multiply(1, 0, 1);
-		flat = flat.lengthSqr() < 1.0e-4 ? Vec3.ZERO : flat.normalize();
-		v = v.add(flat.scale(0.06)); // he pumps the swing toward where he looks
-		if (d > sw.length && d > 1.0e-3) {
-			Vec3 n = out.scale(1.0 / d);
-			double outward = v.dot(n);
-			if (outward > 0) {
-				v = v.subtract(n.scale(outward)); // the strand is taut: no moving away from the anchor
-			}
-			v = v.subtract(n.scale(Math.min(0.5, (d - sw.length) * 0.3)));
-		}
-		double sp = v.length();
-		if (sp > 1.8) {
-			v = v.scale(1.8 / sp);
-		}
-		p.setDeltaMovement(v);
-		p.hurtMarked = true;
-		p.fallDistance = 0f;
+	/** v0.17.2: whether {@code p} is being pulled along a zip line (gametests). */
+	public static boolean zipping(ServerPlayer p) {
+		Line l = LINES.get(p.getUUID());
+		return l != null && l.mode() == 2;
 	}
 
-	/** Lets go of the swing line (a fling with {@code fling}); opens the Monkey Bars window for a free re-catch. */
-	public void endSwing(ServerPlayer p, boolean fling) {
-		Swing sw = SWINGS.remove(p.getUUID());
-		if (sw == null) {
+	/**
+	 * The server half of the line (Ladybug's {@code tickLine}): it ends when the block it is stuck to goes, a zip arrives or runs out
+	 * of time, a swing is pulled {@link #SWING_SLACK_BREAK} past its rope or runs {@link #SWING_MAX}, or he changes world.
+	 */
+	private void tickLine(ServerPlayer p, long now) {
+		Line l = LINES.get(p.getUUID());
+		if (l == null) {
 			return;
 		}
-		sw.strand.discard();
-		setFlag(p, F_SWING, false);
-		if (fling && !p.onGround()) {
-			p.setDeltaMovement(p.getDeltaMovement().scale(1.15).add(0, 0.25, 0));
-			p.hurtMarked = true;
-			long now = p.level().getGameTime();
-			setTimer(p, AIR_AT, now);
-			setTimer(p, SWING_FREE_UNTIL, now + SWING_FREE);
+		if (!l.strand().isAlive() || l.strand().level() != p.level()) {
+			endLine(p, false);
+			return;
+		}
+		long age = now - l.start();
+		if (age % 5 == 0 && p.level().getBlockState(l.block()).getCollisionShape(p.level(), l.block()).isEmpty()) {
+			endLine(p, true);
+			return;
+		}
+		double dist = l.hook().distanceTo(p.getEyePosition());
+		if (l.mode() == 2) {
+			if (dist < ZIP_ARRIVE + 0.4 || age > ZIP_MAX) {
+				endLine(p, false);
+				return;
+			}
+		} else if (dist > l.rope() + SWING_SLACK_BREAK || age > SWING_MAX) {
+			endLine(p, true);
+			return;
+		}
+		p.resetFallDistance();
+		floatTolerance(p, true);
+	}
+
+	/**
+	 * Lets go of the line. The fling itself is his client's (it carries the arc's speed on, like Ladybug's release); here a swing let go
+	 * in the air opens the Monkey Bars window for a free re-catch.
+	 */
+	public void endLine(ServerPlayer p, boolean sound) {
+		Line l = LINES.remove(p.getUUID());
+		if (l == null) {
+			return;
+		}
+		l.strand().discard();
+		floatTolerance(p, false);
+		long now = p.level().getGameTime();
+		OmnitrixState n = Omnitrix.state(p).copy();
+		for (String k : LINE_KEYS) {
+			n.timers.remove(key(k));
+		}
+		n.kitFlags &= ~(F_SWING | F_ZIP);
+		n.kitFlags |= F_AIR; // no fall damage till he lands
+		n.timers.put(key(AIR_AT), now);
+		if (l.mode() == 1 && !p.onGround()) {
+			n.timers.put(key(SWING_FREE_UNTIL), now + SWING_FREE);
+		}
+		Omnitrix.save(p, n);
+		p.resetFallDistance();
+		if (sound) {
+			p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.LEASH_KNOT_BREAK, SoundSource.PLAYERS, 0.4f, 1.7f);
+		}
+	}
+
+	/** Kept for older callers: lets go of the swing line. */
+	public void endSwing(ServerPlayer p, boolean fling) {
+		endLine(p, fling);
+	}
+
+	/**
+	 * Vanilla kicks a player airborne for 4 s with no downward motion ("flying is not enabled") -- a good swing looks just like that.
+	 * Ladybug's / Spider-Man's fix: {@code mayfly} for the line's duration, {@code flying} forced off, handed back after unless another
+	 * power still flies him.
+	 */
+	private static void floatTolerance(ServerPlayer p, boolean on) {
+		if (p.getAbilities().instabuild || p.isSpectator()) {
+			return;
+		}
+		if (on) {
+			if (!p.getAbilities().mayfly || p.getAbilities().flying) {
+				p.getAbilities().mayfly = true;
+				p.getAbilities().flying = false;
+				p.onUpdateAbilities();
+			}
+			return;
+		}
+		if (p.getAbilities().mayfly && !com.projecthero.mod.hero.power.HeroFlight.isFlying(p) && !com.projecthero.mod.power.ThorPowers.isFlying(p)
+				&& !p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_FLYING, false)
+				&& !p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
+			p.getAbilities().mayfly = false;
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
 		}
 	}
 
@@ -904,7 +1081,7 @@ public final class SpidermonkeyKit extends AlienKit {
 		if (old != null) {
 			old.wrap.discard();
 		}
-		strand(p, p.getEyePosition(), t, 12);
+		strand(p, t.position(), t, 12);
 		OmnitrixSfx.playOn(p, NET, 1.2f, 0.8f, SoundSource.PLAYERS);
 		OmnitrixSfx.playOn(p, CHATTER, 0.8f, 1f, SoundSource.PLAYERS);
 		return true;
@@ -957,6 +1134,7 @@ public final class SpidermonkeyKit extends AlienKit {
 			traps.remove(0).web().discard();
 		}
 		traps.add(new Trap(p.level().dimension(), ground, p.level().getGameTime() + TRAP_TICKS, web, new HashSet<>()));
+		strand(p, ground, null, 6); // v0.17.2 (user: webs from his tail): shot down from the tail tip
 		OmnitrixSfx.playOn(p, NET, 0.9f, 1.1f, SoundSource.PLAYERS);
 		return true;
 	}
@@ -967,11 +1145,13 @@ public final class SpidermonkeyKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_BARRAGE);
-		Vec3 look = p.getLookAngle();
+		// v0.17.2 (user: webs from his tail): the fan leaves the tail tip, centred on what the crosshair is on
+		Vec3 tip = tailTip(p);
+		Vec3 look = aimPoint(p).subtract(tip).normalize();
 		for (int i = 0; i < 6; i++) {
 			float yaw = (i - 2.5f) * 8f * Mth.DEG_TO_RAD;
 			Vec3 d = look.yRot(yaw).add(0, (i % 2) * 0.05, 0);
-			AlienProjectileEntity.of(p, "spidermonkey_web").colour(BARRAGE_ROOT).size(0.25f).damage(BARRAGE_DAMAGE).speed(2.0).life(30).direction(d).spawn();
+			fromTail(p, "spidermonkey_web", d).colour(BARRAGE_ROOT).size(0.25f).damage(BARRAGE_DAMAGE).speed(2.0).life(30).spawn();
 		}
 		OmnitrixSfx.playOn(p, THWIP, 1.1f, 0.9f, SoundSource.PLAYERS);
 		OmnitrixSfx.playOn(p, NET, 0.6f, 1.3f, SoundSource.PLAYERS);

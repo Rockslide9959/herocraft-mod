@@ -169,6 +169,30 @@ public final class SpidermonkeyBody {
 		return new Vec3(0, 3.2f + ROOT_Y * c - ROOT_Z * s, ROOT_Y * s + ROOT_Z * c);
 	}
 
+	/**
+	 * v0.17.2 (user: "make spidermonkeys webs shoot out from his tail, thats how it works in the show"): where his rendered tail tip
+	 * is in the world this frame -- the last link of the simulated chain, interpolated like the render; before the tail has ticked,
+	 * the idle curl's tip (the server's {@link SpidermonkeyKit#tailTip} uses the same rest shape). Every web line starts here.
+	 */
+	public static Vec3 tailTip(Player p, float partial) {
+		State st = STATES.get(p.getUUID());
+		if (st != null && st.init) {
+			Vec3 tip = st.last[N].lerp(st.pos[N], partial);
+			// a stale chain (he teleported): fall back to the rest shape
+			if (tip.distanceToSqr(p.getPosition(partial)) < 9.0) {
+				return tip;
+			}
+		}
+		float yaw = Mth.lerp(partial, p.yBodyRotO, p.yBodyRot);
+		Vec3 base = base(p, partial);
+		Vec3 at = rootModel(p);
+		for (int i = 1; i <= N; i++) {
+			float[] d = REST_IDLE[i - 1];
+			at = at.add(new Vec3(d[0], d[1], d[2]).normalize().scale(LEN[i - 1]));
+		}
+		return toWorld(p, base, yaw, at.x, at.y, at.z);
+	}
+
 	// ---------------------------------------------------------------- the tail's tick
 
 	/** One client tick of {@code p}'s tail (from the kit's tick). */
@@ -183,7 +207,7 @@ public final class SpidermonkeyBody {
 		float walk = Mth.clamp(p.walkAnimation.speed() * 1.6f, 0f, 1f);
 		float phase = p.walkAnimation.position() * 0.6662f;
 		// web swing / zip / swing kick / falling: loose, streaming behind him
-		boolean loose = (os.kitFlags & (SpidermonkeyKit.F_SWING | SpidermonkeyKit.F_AIR | SpidermonkeyKit.F_KICK)) != 0
+		boolean loose = (os.kitFlags & (SpidermonkeyKit.F_SWING | SpidermonkeyKit.F_ZIP | SpidermonkeyKit.F_AIR | SpidermonkeyKit.F_KICK)) != 0
 				|| p.getDeltaMovement().y < -0.6 || p.isFallFlying();
 		// the tail whip: the body spins once (SpidermonkeyClient's WHIP clip), the tail sweeps round with it
 		float spin = 0f;
