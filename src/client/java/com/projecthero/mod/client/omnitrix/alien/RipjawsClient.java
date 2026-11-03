@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1: Ripjaws' client kit -- the grey-blue fish-man skin (pale belly, gills, dark trunks) (v0.17.1: the huge jaw is gone, user's skin face instead; it used to be an
  * upper snout and a hinged lower jaw, both lined with teeth, that gape and snap on every bite) (v0.17.2: no head or
- * forearm fins), and a FISH TAIL in his skin's striped leg: a short finned tail behind him on land; in water the legs vanish into a long undulating
+ * forearm fins), and a FISH TAIL (v0.17.2: its own ripjaws_tail.png sheet in his body's palette): a short finned tail behind him on land; in water the legs vanish into a long undulating
  * tail. The hydration meter over the keys turns orange, then red, as he dries out. A pose for every move.
  *
  * <p>v0.17.2 revamp (user: "Draw jaws as an effect"): every bite draws the JAWS in the world pass -- two toothed crescents (upper
@@ -154,41 +154,54 @@ public final class RipjawsClient implements AlienClientKit {
 	}
 
 	/**
-	 * v0.17.2 (user: "rip jaws tail mode texture doesnt look like the tail on his skin completely"): a tail segment wrapped exactly
-	 * like his skin's right leg -- the striped front on -z, the pale sides on -x / +x, the back on +z, the leg's top and sole on
-	 * the ends -- running {@code len} px down +y. {@code v0..v1} (0..1) is the stretch of the leg it shows, so consecutive
-	 * segments carry the stripes on down the tail instead of each squashing the whole leg. The buffer is fetched for every cube:
-	 * asking a buffer source for another render type ends the previous one.
+	 * v0.17.2 (user: "fix ripjaws tail please, the textures arent working properly"): the tail has its own 64x32 sheet
+	 * (ripjaws_tail.png) in his body's palette instead of borrowing the skin's striped leg (whose yellow bands and white blocks
+	 * never matched his body). Layout, u in px: 0-8 the dorsal face (pale grey-white, the dark green stripe down the middle,
+	 * continuing the one down his back), 8-16 a flank (col 0 = the dorsal edge, col 7 = the belly edge), 16-24 the darker
+	 * underside with its ventral plates, 24-32 x 0-8 an end cap (row 0 = dorsal); 32-64 x 0-16 the fluke's upper face, 32-64 x
+	 * 16-32 its underside.
 	 */
-	private static void legSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light) {
-		legSeg(pose, buffers, hx, hz, len, v0, v1, light, false);
-	}
+	private static final ResourceLocation TAIL = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws_tail.png");
 
-	/** {@code striped}: the striped front on all four sides (the land tail, seen from the side and above). */
-	private static void legSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light, boolean striped) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
+	/**
+	 * A tail segment running {@code len} px down +y, the dorsal side on +z (the side of his back) and the belly on -z.
+	 * {@code v0..v1} (0..1) is the stretch of the tail it shows, so the scale rows run on from segment to segment. Each flank is
+	 * mapped dorsal-edge to belly-edge (the +x one mirrored), the end caps dorsal row to the +z edge. The buffer is fetched for
+	 * every cube: asking a buffer source for another render type ends the previous one.
+	 */
+	private static void tailSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TAIL));
 		PoseStack.Pose last = pose.last();
 		float x0 = -hx / 16f, x1 = hx / 16f, z0 = -hz / 16f, z1 = hz / 16f, y0 = 0f, y1 = len / 16f;
-		float t = (20f + 12f * v0) / 64f, b = (20f + 12f * v1) / 64f;
+		float t = v0, b = v1; // the face regions run the sheet's full 32 rows
+		float px = 1f / 64f;
 		int c = 0xFFFFFFFF;
-		// front (the stripes), back, the two sides
-		AlienParts.quad(vc, last, c, light, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0, 0, -1, 4f / 64f, t, 8f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0, 0, 1, striped ? 4f / 64f : 12f / 64f, t, striped ? 8f / 64f : 16f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, -1, 0, 0, striped ? 4f / 64f : 0f, t, striped ? 8f / 64f : 4f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 1, 0, 0, striped ? 4f / 64f : 8f / 64f, t, striped ? 8f / 64f : 12f / 64f, b);
-		// the ends: the leg's top and its sole
-		AlienParts.quad(vc, last, c, light, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0, -1, 0, 4f / 64f, 16f / 64f, 8f / 64f, 20f / 64f);
-		AlienParts.quad(vc, last, c, light, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, 8f / 64f, 16f / 64f, 12f / 64f, 20f / 64f);
+		// belly (-z): u 16-24
+		AlienParts.quad(vc, last, c, light, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0, 0, -1, 16 * px, t, 24 * px, b);
+		// dorsal (+z): u 0-8, the green stripe in the middle
+		AlienParts.quad(vc, last, c, light, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0, 0, 1, 0f, t, 8 * px, b);
+		// -x flank: a runs at z1 (dorsal) -> b at z0 (belly), so u 8 -> 16
+		AlienParts.quad(vc, last, c, light, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, -1, 0, 0, 8 * px, t, 16 * px, b);
+		// +x flank: a runs at z0 (belly) -> b at z1 (dorsal), so u 16 -> 8 (mirrored)
+		AlienParts.quad(vc, last, c, light, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 1, 0, 0, 16 * px, t, 8 * px, b);
+		// the top end: a, b at z1 (dorsal) -> c, d at z0, so the cap's row 0 (the stripe) sits on the dorsal edge
+		AlienParts.quad(vc, last, c, light, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0, -1, 0, 24 * px, 0f, 32 * px, 8f / 32f);
+		// the bottom end: a, b at z0 (belly) -> c, d at z1, so the cap is flipped (row 0 to z1)
+		AlienParts.quad(vc, last, c, light, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, 24 * px, 8f / 32f, 32 * px, 0f);
 	}
 
-	/** The tail fluke: two flat lobes swept out from the tip, in the leg's striped front (dark with the yellow bands). */
-	private static void fluke(PoseStack pose, MultiBufferSource buffers, int light) {
-		for (int side = -1; side <= 1; side += 2) {
-			pose.pushPose();
-			pose.mulPose(Axis.ZP.rotation(side * 0.55f));
-			legSeg(pose, buffers, 0.5f, 1.6f, 6f, 0.3f, 1f, light);
-			pose.popPose();
-		}
+	/**
+	 * The tail fluke: a flat, swept crescent (a dolphin's, it beats up and down with the tail) {@code 2 x halfW} px wide and
+	 * {@code len} px long down +y, in the x-y plane: the upper face (dorsal, +z, with the green stripe running on into it) and the
+	 * underside (-z, darker) as two cut-out sheets half a pixel apart.
+	 */
+	private static void fluke(PoseStack pose, MultiBufferSource buffers, float halfW, float len, int light) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TAIL));
+		PoseStack.Pose last = pose.last();
+		float x0 = -halfW / 16f, x1 = halfW / 16f, y1 = len / 16f, h = 0.25f / 16f;
+		int c = 0xFFFFFFFF;
+		AlienParts.quad(vc, last, c, light, x1, 0f, h, x0, 0f, h, x0, y1, h, x1, y1, h, 0, 0, 1, 0.5f, 0f, 1f, 0.5f);
+		AlienParts.quad(vc, last, c, light, x0, 0f, -h, x1, 0f, -h, x1, y1, -h, x0, y1, -h, 0, 0, -1, 0.5f, 0.5f, 1f, 1f);
 	}
 
 	private static boolean wet(AbstractClientPlayer p) {
@@ -234,8 +247,9 @@ public final class RipjawsClient implements AlienClientKit {
 		// v0.17.1 (user: "remove the huge jaws from ripjaws"): no snout, lower jaw, teeth or snout eyes any more -- the user's skin
 		// has his face (v0.17.2: the jaws are a rendered effect now, renderWorld)
 		// v0.17.2 (user: "remove the fins on ripjaws arms and his head"): no dorsal fin, no forearm fins
-		// the tail: a short one on land; in water the legs become a long undulating one -- v0.17.2 (user: "make his tail look
-		// similar to the tail thats on his legs"): every segment and the fluke wear his skin's own striped leg
+		// the tail: a short one on land; in water the legs become a long undulating one -- v0.17.2 (user: "fix ripjaws tail please,
+		// the textures arent working properly"): every segment and the fluke wear the tail sheet (his body's pale grey-white, the
+		// green dorsal stripe running on down the tail, a darker underside), not the skin's striped leg
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
 			if (wet) {
@@ -245,26 +259,25 @@ public final class RipjawsClient implements AlienClientKit {
 				for (int i = 0; i < seg.length; i++) {
 					float[] g = seg[i];
 					pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - i * 0.9f) * 0.22f));
-					legSeg(pose, buffers, g[0], g[1], g[2], run / total, (run + g[2]) / total, light);
+					tailSeg(pose, buffers, g[0], g[1], g[2], run / total, (run + g[2]) / total, light);
 					run += g[2];
 					pose.translate(0, (g[2] - 0.4f) / 16f, 0);
 				}
 				pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - 4 * 0.9f) * 0.3f));
-				fluke(pose, buffers, light);
+				fluke(pose, buffers, 7f, 7f, light);
 			} else {
 				pose.translate(0, 10.5f / 16f, 1.8f / 16f);
 				pose.mulPose(Axis.XP.rotation(-0.9f));
 				pose.mulPose(Axis.YP.rotation(Mth.sin(age * 0.12f) * 0.15f));
-				// the segments run down +y, so turn +y onto +z (out behind him) -- v0.17.2 (user: "please fix his tail textures when not
-				// swimming too"): striped all round, as from the side and above you only saw the leg's pale sides and back
+				// the segments run down +y, so turn +y onto +z (out behind him); that turns the dorsal (+z) face up, so the green stripe
+				// runs along the top -- v0.17.2 (user: "fix ripjaws tail please, the textures arent working properly"): the tail sheet
 				pose.mulPose(Axis.XP.rotation(Mth.HALF_PI));
-				legSeg(pose, buffers, 1.8f, 1.6f, 4.5f, 0f, 0.56f, light, true);
+				tailSeg(pose, buffers, 1.8f, 1.6f, 4.5f, 0f, 0.56f, light);
 				pose.translate(0, 4.2f / 16f, 0);
 				pose.mulPose(Axis.XP.rotation(0.6f));
-				legSeg(pose, buffers, 1.2f, 1.1f, 3.5f, 0.56f, 1f, light, true);
+				tailSeg(pose, buffers, 1.2f, 1.1f, 3.5f, 0.56f, 1f, light);
 				pose.translate(0, 3.2f / 16f, 0);
-				pose.scale(0.65f, 0.65f, 0.65f);
-				fluke(pose, buffers, light);
+				fluke(pose, buffers, 4.5f, 4.5f, light);
 			}
 			pose.popPose();
 		});
@@ -549,8 +562,43 @@ public final class RipjawsClient implements AlienClientKit {
 		// v0.17.2: no forearm fins
 	}
 
+	/** v0.17.2 swim: the velocity handed to vanilla last tick and where he was then (null when not driving the swim). */
+	private static Vec3 swimSet, swimFrom;
+	private static int swimTick;
+
+	/**
+	 * v0.17.2 (user: "make ripjaws cruise swim at 10 blocks per second and his sprint swim be 30 blocks per second please"): his
+	 * own client drives the swim (a player's movement is his client's), steered by his look -- forward held under water: 10
+	 * blocks a second, sprint-swimming 30. Set at the end of each client tick, so the next tick's water travel moves him by it;
+	 * vanilla's own additions that tick (the keys' swim push, the pitch nudge) are measured and taken back off
+	 * ({@link RipjawsKit#swimPush}), so the speed is the number, not the number plus vanilla. Water Dash, Jaw Lunge, Breach and the
+	 * Dive Strike keep their own launch.
+	 */
+	private static void swim(LocalPlayer me) {
+		OmnitrixState s = Omnitrix.state(me);
+		boolean drive = RipjawsKit.ID.equals(s.active) && s.transformed() && me.isInWater() && me.isAlive() && !me.isPassenger() && !me.isSpectator()
+				&& !me.getAbilities().flying && me.input != null && me.input.forwardImpulse > 0.05f && !RipjawsKit.swimHeld(s, me.level().getGameTime());
+		if (!drive) {
+			swimSet = null;
+			swimFrom = null;
+			return;
+		}
+		Vec3 now = me.position();
+		// only last tick's numbers count (the kit is not ticked while he is someone else)
+		Vec3 moved = swimFrom == null || me.tickCount != swimTick + 1 ? null : now.subtract(swimFrom);
+		swimTick = me.tickCount;
+		Vec3 desired = RipjawsKit.swimVelocity(me.getLookAngle(), me.isSprinting(), me.isUnderWater());
+		Vec3 set = RipjawsKit.swimPush(desired, swimSet, moved, me.horizontalCollision);
+		me.setDeltaMovement(set);
+		swimSet = set;
+		swimFrom = now;
+	}
+
 	@Override
 	public void tick(AbstractClientPlayer p) {
+		if (p instanceof LocalPlayer me && p == Minecraft.getInstance().player) {
+			swim(me);
+		}
 		var r = p.getRandom();
 		var level = p.level();
 		if (p.isInWater()) {
@@ -574,7 +622,7 @@ public final class RipjawsClient implements AlienClientKit {
 
 	/**
 	 * The hydration meter, in the Omnitrix HUD's meter style: a blue bar (orange under 25%, flashing red when he is choking),
-	 * the seconds left (at the current rate: heat and the lure dry him faster), "+" while water or rain refills it.
+	 * "+" while water or rain refills it (v0.17.2: no seconds-left timer any more).
 	 */
 	@Override
 	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, int w, float partial) {
@@ -587,9 +635,8 @@ public final class RipjawsClient implements AlienClientKit {
 		boolean wet = (flags & (RipjawsKit.F_WET | RipjawsKit.F_RAIN)) != 0;
 		boolean flash = (now / 5) % 2 == 0;
 		int col = choking ? (flash ? 0xFFFF3A2E : 0xFF801810) : hyd < 0.25f ? 0xFFF0A020 : 0xFF3AA8F0;
-		float rate = Math.max(1f, RipjawsKit.dryRate(flags));
-		int secs = (int) Math.max(0, (RipjawsKit.MAX_DRY - dry) / 20f / rate);
-		String value = choking ? "!" : wet ? "+" : secs + "s";
+		// v0.17.2 (user: "remove the timer from the hydration bar for ripjaws please"): the bar alone, no seconds left
+		String value = choking ? "!" : wet ? "+" : "";
 		int valueCol = choking ? (flash ? 0xFFFF6A5A : 0xFFE2E2E2) : wet ? 0xFF8AD0FF : hyd < 0.25f ? 0xFFF0C060 : 0xFFE2E2E2;
 		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.ripjaws.meter"), hyd, col,
 				value, valueCol);
