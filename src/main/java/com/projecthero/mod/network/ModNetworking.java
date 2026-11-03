@@ -122,7 +122,7 @@ public final class ModNetworking {
 				case RING_REMOVE_START -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStart(context.player());
 				case RING_REMOVE_STOP -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStop(context.player());
 				// v0.15.15: the N suit screen
-				case SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC, SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED ->
+				case SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC, SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED, SUIT_STYLE_HAL_MODERN ->
 						com.projecthero.mod.greenlantern.GreenLanternSuit.selectStyle(context.player(), payload.action().suitStyle());
 				case SUIT_TOGGLE -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.suitToggle(context.player());
 				case REMOVE_RING -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.removeRingFromMenu(context.player());

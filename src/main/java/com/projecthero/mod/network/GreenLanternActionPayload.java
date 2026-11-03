@@ -58,7 +58,9 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		TOGGLE_AUTO_FALL_CUSHION,
 		TOGGLE_AUTO_AIR_BUBBLE,
 		TOGGLE_AUTO_HEAT_SHELL,
-		TOGGLE_AUTO_BLIND_SIDE;
+		TOGGLE_AUTO_BLIND_SIDE,
+		/** v0.17.2: the second Hal Jordan suit (appended). */
+		SUIT_STYLE_HAL_MODERN;
 
 		/** One action per {@code GreenLanternAutoProtect.SWITCHES} entry, in that order. */
 		private static final Action[] AUTO_ACTIONS = { TOGGLE_AUTO_PROTECT, TOGGLE_AUTO_DEATH_SAVE, TOGGLE_AUTO_FALL_CUSHION,
@@ -80,7 +82,7 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 
 		/** One action per {@code GreenLanternSuitStyle}, in the suits' order. */
 		private static final Action[] STYLE_ACTIONS = { SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC,
-				SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED };
+				SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED, SUIT_STYLE_HAL_MODERN };
 
 		/** The {@code GreenLanternSuitStyle} ordinal this action picks, or -1. */
 		public int suitStyle() {
