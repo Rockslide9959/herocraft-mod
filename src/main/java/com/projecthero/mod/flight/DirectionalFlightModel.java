@@ -150,6 +150,20 @@ public final class DirectionalFlightModel {
 	public static final double STINKFLY_CRUISE_BPS = 16.0, STINKFLY_SPRINT_BPS = 30.0;
 	public static final double GHOSTFREAK_CRUISE_BPS = 10.0, GHOSTFREAK_SPRINT_BPS = 18.0;
 
+	/**
+	 * v0.17.2 (user: "give jetray the directional flight and edit his flight speed, make it 25 blocks per second cruise and 45
+	 * blocks per second sprinting please"): the Recalibrated Omnitrix's Jetray on the shared model. Streamline (V) still flies
+	 * faster on top: x{@value #JETRAY_STREAMLINE_MULT}.
+	 */
+	public static final double JETRAY_CRUISE_BPS = 25.0, JETRAY_SPRINT_BPS = 45.0;
+	public static final double JETRAY_STREAMLINE_MULT = 1.2;
+
+	/** v0.17.2: Jetray's flight -- 25 b/s cruising, 45 sprinting, both x1.2 with Streamline on. */
+	public static Tune jetray(float flyingSpeed, boolean sprint, boolean streamline) {
+		double k = streamline ? JETRAY_STREAMLINE_MULT : 1.0;
+		return cruise(flyingSpeed, sprint, JETRAY_CRUISE_BPS * k, JETRAY_SPRINT_BPS * k);
+	}
+
 	/** v0.17.1: a fixed-speed directional flight (cruise / sprint in blocks a second) on top of the vanilla tune. */
 	public static Tune cruise(float flyingSpeed, boolean sprint, double cruiseBps, double sprintBps) {
 		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? sprintBps : cruiseBps) / 20.0);

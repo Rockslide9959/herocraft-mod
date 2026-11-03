@@ -183,6 +183,12 @@ public final class DirectionalFlight {
 					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.STINKFLY_CRUISE_BPS * wet,
 							DirectionalFlightModel.STINKFLY_SPRINT_BPS * wet);
 				}
+				case "jetray" -> {
+					// v0.17.2 (user: "give jetray the directional flight ... 25 blocks per second cruise and 45 blocks per second
+					// sprinting"): Streamline x1.2 on top
+					return DirectionalFlightModel.jetray(flyingSpeed, sprint,
+							com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.streamlined(player));
+				}
 				case "ghostfreak" -> {
 					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.GHOSTFREAK_CRUISE_BPS,
 							DirectionalFlightModel.GHOSTFREAK_SPRINT_BPS);

@@ -210,6 +210,42 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** Level flight along the look for {@code ticks} ticks of the shared directional model: the speed it settles at (blocks/tick). */
+	private static double settled(com.projecthero.mod.flight.DirectionalFlightModel.Tune tune) {
+		Vec3 look = new Vec3(0, 0, 1);
+		Vec3 v = Vec3.ZERO;
+		for (int i = 0; i < 200; i++) {
+			Vec3 wanted = com.projecthero.mod.flight.DirectionalFlightModel.wantedVelocity(look, 0f, 1f, 0f, 0, tune);
+			v = com.projecthero.mod.flight.DirectionalFlightModel.step(v, wanted, true, tune, false);
+		}
+		return v.length();
+	}
+
+	/**
+	 * v0.17.2 (user: "give jetray the directional flight and edit his flight speed, make it 25 blocks per second cruise and 45 blocks
+	 * per second sprinting"): the client's directional flight settles at 1.25 blocks a tick cruising and 2.25 sprinting.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void jetrayDirectionalFlightCruises25AndSprints45(GameTestHelper helper) {
+		double cruise = settled(com.projecthero.mod.flight.DirectionalFlightModel.jetray(JetrayKit.FLY_SPEED, false, false));
+		double sprint = settled(com.projecthero.mod.flight.DirectionalFlightModel.jetray(JetrayKit.FLY_SPEED, true, false));
+		double stream = settled(com.projecthero.mod.flight.DirectionalFlightModel.jetray(JetrayKit.STREAM_FLY_SPEED, false, true));
+		near(helper, (float) cruise, 1.25f, "cruise 25 blocks a second");
+		near(helper, (float) sprint, 2.25f, "sprint 45 blocks a second");
+		near(helper, (float) stream, 1.5f, "Streamline x1.2");
+		// and the kit feeds it: X takes off with the wings and the synced flag the client's flight reads
+		floor(helper);
+		ServerPlayer p = jetray(helper);
+		// the mock transformed mid-air (already on the wings): set him down first
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		helper.assertTrue(kit().flight(p), "X takes off");
+		helper.assertTrue(p.getAbilities().flying, "flying (abilities)");
+		helper.assertTrue((Omnitrix.state(p).kitFlags & JetrayKit.F_FLYING) != 0, "the synced flying flag the client's wings read");
+		helper.assertTrue("jetray".equals(Omnitrix.active(p)), "the directional flight's switch sees Jetray (got " + Omnitrix.active(p) + ")");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void jetrayTurningBackLeavesNothingBehind(GameTestHelper helper) {
 		floor(helper);

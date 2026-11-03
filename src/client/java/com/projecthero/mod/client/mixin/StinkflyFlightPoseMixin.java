@@ -25,6 +25,10 @@ public abstract class StinkflyFlightPoseMixin {
 			float partialTicks, float scale, CallbackInfo ci) {
 		float[] tilt = StinkflyClient.bodyTilt(player, partialTicks);
 		if (tilt == null) {
+			// v0.17.2 (user: "give jetray better flight animations too please"): Jetray's flight attitude, the same pivot
+			tilt = com.projecthero.mod.client.omnitrix.alien.jetray.JetrayBody.bodyTilt(player, partialTicks);
+		}
+		if (tilt == null) {
 			return;
 		}
 		float pivot = 0.9f * scale;

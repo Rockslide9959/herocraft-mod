@@ -896,6 +896,12 @@ public final class JetrayKit extends AlienKit {
 		return k instanceof JetrayKit j && j.flag(p, F_FLYING);
 	}
 
+	/** v0.17.2: whether {@code p} is Jetray with Streamline on (client-safe; the directional flight's speed). */
+	public static boolean streamlined(Player p) {
+		AlienKit k = activeKit(p);
+		return k instanceof JetrayKit j && j.flag(p, F_STREAM);
+	}
+
 	/** Static state held for {@code p} (tests: nothing is left after turning back). */
 	public static boolean holds(ServerPlayer p) {
 		UUID id = p.getUUID();
