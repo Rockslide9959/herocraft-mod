@@ -1,0 +1,196 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): Cannonbolt standing, the dial icon, curling up and rolling. Enabled by cannonbolt.flag in the run dir. */
+public final class CannonboltHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+
+	private CannonboltHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("cannonbolt.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(CannonboltHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "cb-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "cb_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static CannonboltKit kit() {
+		return (CannonboltKit) Aliens.kit(CannonboltKit.ID);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(CannonboltHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 180f, 30f);
+			});
+		}
+		if (t == 100) {
+			server(mc, Omnitrix::activate);
+		}
+		if (t == 120) {
+			server(mc, p -> Omnitrix.select(p, CannonboltKit.ID));
+		}
+		if (t == 150) {
+			shot(mc, "dial");
+		}
+		if (t == 160) {
+			server(mc, p -> {
+				Omnitrix.select(p, CannonboltKit.ID);
+				Omnitrix.transform(p);
+				// a husk for scale
+				var h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+				h.moveTo(p.getX() + 2.2, p.getY(), p.getZ() - 1.0, 180f, 0f);
+				h.setNoAi(true);
+				p.serverLevel().addFreshEntity(h);
+			});
+		}
+		if (t == 230) {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 15f));
+		}
+		if (t == 245) {
+			shot(mc, "stand_front");
+		}
+		if (t == 250) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 262) {
+			shot(mc, "stand_back");
+		}
+		if (t == 270) {
+			server(mc, p -> kit().setBall(p, true));
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 290) {
+			shot(mc, "ball_front");
+		}
+		if (t == 295) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = false;
+		}
+		if (t == 305) {
+			shot(mc, "ball_back_hud");
+			mc.options.hideGui = true;
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 90f, 15f));
+		}
+		if (t == 310) {
+			mc.options.keyUp.setDown(true);
+			mc.options.keySprint.setDown(true);
+		}
+		if (t == 330 || t == 345 || t == 360) {
+			shot(mc, "roll_" + t);
+			System.out.println("[HARNESS] speed=" + mc.player.getDeltaMovement().horizontalDistance() + " momentum");
+		}
+		if (t == 365) {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+			server(mc, p -> kit().bounce(p));
+		}
+		if (t == 372) {
+			shot(mc, "bounce");
+		}
+		if (t == 400) {
+			server(mc, p -> kit().setBall(p, false));
+		}
+		if (t == 405) {
+			server(mc, p -> kit().groundPound(p));
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 409) {
+			shot(mc, "pound");
+		}
+		if (t == 420) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("CB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

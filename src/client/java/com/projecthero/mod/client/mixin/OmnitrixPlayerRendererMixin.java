@@ -68,7 +68,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 			CallbackInfo ci) {
 		// v0.17.1 (Wildmutt): an alien with its own body is drawn by its renderer instead of the player model
 		AlienClientKit custom = AlienClients.shownKit(player);
-		if (custom != null && custom.customBody()) {
+		if (custom != null && custom.customBody(player)) {
 			ci.cancel();
 			if (!player.isInvisible()) {
 				custom.renderBody(player, yaw, partial, pose, buffers, light);
@@ -93,7 +93,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 	@Inject(method = "renderRightHand", at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienRightHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
 		AlienClientKit custom = AlienClients.shownKit(player);
-		if (custom != null && custom.customBody() && custom.renderFirstPersonHand(pose, buffers, light, player, true)) {
+		if (custom != null && custom.customBody(player) && custom.renderFirstPersonHand(pose, buffers, light, player, true)) {
 			ci.cancel();
 			return;
 		}
@@ -106,7 +106,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 	@Inject(method = "renderLeftHand", at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienLeftHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
 		AlienClientKit custom = AlienClients.shownKit(player);
-		if (custom != null && custom.customBody() && custom.renderFirstPersonHand(pose, buffers, light, player, false)) {
+		if (custom != null && custom.customBody(player) && custom.renderFirstPersonHand(pose, buffers, light, player, false)) {
 			ci.cancel();
 			return;
 		}

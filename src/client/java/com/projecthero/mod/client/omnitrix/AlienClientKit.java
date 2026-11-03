@@ -107,6 +107,14 @@ public interface AlienClientKit {
 		return false;
 	}
 
+	/**
+	 * v0.17.2 (Cannonbolt's ball): whether {@link #renderBody} draws {@code p} right now -- a player-model alien that becomes
+	 * something else in one mode answers from synced state. Default: {@link #customBody()}.
+	 */
+	default boolean customBody(AbstractClientPlayer p) {
+		return customBody();
+	}
+
 	/** (Re)builds the custom body's renderer from the player renderers' context (on every resource reload). */
 	default void buildBody(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context) {
 	}

@@ -48,6 +48,8 @@ public final class Aliens {
 	public static final Alien WILDMUTT = declare("wildmutt", 0xF08A24);
 	public static final Alien RIPJAWS = declare("ripjaws", 0x7A98A4);
 	public static final Alien GREY_MATTER = declare("grey_matter", 0xA6ACB4);
+	// v0.17.2 (user: "build canonbolt alien for the prototype omnitrix please")
+	public static final Alien CANNONBOLT = declare("cannonbolt", 0xDABE0B);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
