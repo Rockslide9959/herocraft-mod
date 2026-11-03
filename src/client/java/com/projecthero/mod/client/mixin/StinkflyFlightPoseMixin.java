@@ -29,6 +29,10 @@ public abstract class StinkflyFlightPoseMixin {
 			tilt = com.projecthero.mod.client.omnitrix.alien.jetray.JetrayBody.bodyTilt(player, partialTicks);
 		}
 		if (tilt == null) {
+			// v0.17.2 (user: "make big chills flying animations look better please"): Big Chill's upright hover and small lean
+			tilt = com.projecthero.mod.client.omnitrix.alien.bigchill.BigChillWings.bodyTilt(player, partialTicks);
+		}
+		if (tilt == null) {
 			return;
 		}
 		float pivot = 0.9f * scale;
