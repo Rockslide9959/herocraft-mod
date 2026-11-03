@@ -48,7 +48,9 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 			// v0.17.1: Stinkfly's synthesised wings (scratchpad/stinkfly_v0171/sfx/make_wings.sh)
 			"stinkfly_wings", "stinkfly_wings_up",
 			// v0.17.2: the user's Recalibrated Omnitrix recordings
-			"recal_prime", "recal_transform", "recal_detransform", "recal_dial_turn", "recal_master_control");
+			"recal_prime", "recal_transform", "recal_detransform", "recal_dial_turn", "recal_master_control",
+			// v0.17.2: the Recalibration Chip's four, cut from the user's video
+			"recal_chip_click", "recal_chip_press", "recal_chip_pulse", "recal_chip_reform");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {

@@ -75,9 +75,17 @@ public final class OmnitrixFirstPerson {
 		} else {
 			// where the shoulder sits in camera space (x right, y up, -z ahead), sliding up from below the screen
 			rel.translate(-0.5f, -0.24f - (1f - raise) * 0.9f - dip, -0.95f);
+			if (rig.recal) {
+				// v0.17.2 (user: "the player then looks at the watch from a few angles"): the Recalibration Chip's sequences bring the
+				// wrist in closer to the eye and toward the middle
+				rel.translate(0.13f * rig.near, 0.07f * rig.near, 0.22f * rig.near);
+			}
 			rel.mulPose(Axis.ZP.rotationDegrees(14f));   // the wrist a little higher than the elbow
 			rel.mulPose(Axis.YP.rotationDegrees(18f));   // the face turned round toward the eye
 			rel.mulPose(Axis.XP.rotationDegrees(-18f));  // and tipped up a little
+			if (rig.recal) {
+				OmnitrixRecalClient.wrist(rel, rig, p.getSkin().model() == PlayerSkin.Model.SLIM ? 2f : 3f);
+			}
 			// arm space -> camera space: down the arm (+y) = right, the arm's outer side (+x, the dial) = toward the eye
 			rel.mulPose(new Matrix4f(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
 		}
@@ -92,7 +100,11 @@ public final class OmnitrixFirstPerson {
 		if (h == null) {
 			return;
 		}
-		renderRightHandAt(pose, buffers, light, p, renderer, watchSpace(renderer, leftBase), h);
+		Matrix4f watch = watchSpace(renderer, leftBase);
+		renderRightHandAt(pose, buffers, light, p, renderer, watch, h);
+		if (rig.chip > 0f) {
+			OmnitrixRecalClient.renderChip(pose, buffers, light, p, watch, h); // v0.17.2: the Recalibration Chip between the fingers
+		}
 	}
 
 	/** v0.17.1: the watch's space (the left arm's, as the watch is drawn) for a first-person left arm placed at {@code leftBase}. */

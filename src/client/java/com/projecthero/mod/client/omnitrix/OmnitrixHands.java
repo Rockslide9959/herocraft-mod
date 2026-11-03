@@ -50,6 +50,13 @@ public final class OmnitrixHands {
 		/** Third person: how much the right hand is at the button (0..1, a little over 1 while pressing). */
 		public float press3p;
 		public float[] hand;
+		/**
+		 * v0.17.2: the Recalibration Chip's sequences ({@link OmnitrixRecalClient}) -- {@code recal} true while one plays; the chip
+		 * slot's door (-1 none, 0 shut .. 1 open); the wrist's roll / yaw / pitch and how far it is brought in toward the eye
+		 * (first person); the chip held at the fingertips (0..1 shown); the face's blue (0..1).
+		 */
+		public boolean recal;
+		public float slot = -1f, roll, yaw, pitch, near, chip, blue;
 
 		Rig copy() {
 			Rig r = new Rig();
@@ -106,6 +113,11 @@ public final class OmnitrixHands {
 
 	/** The rig of {@code p} now (zero when the watch is down or the wearer is an alien). */
 	public static Rig rig(Player p, OmnitrixState s, float partial, float L) {
+		// v0.17.2: the Recalibration Chip's insert and reform drive the watch and both hands while they play
+		Rig chip = OmnitrixRecalClient.rig(p, s, partial, L);
+		if (chip != null) {
+			return chip;
+		}
 		if (!s.hasPower || s.transformed()) {
 			Mem m = MEM.get(p);
 			if (m != null) {

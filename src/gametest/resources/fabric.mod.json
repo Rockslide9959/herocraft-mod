@@ -265,6 +265,7 @@
       "com.projecthero.mod.gametest.OmnitrixVKeyGameTests",
       "com.projecthero.mod.gametest.OmnitrixAutoGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalibrationGameTests",
+      "com.projecthero.mod.gametest.OmnitrixRecalChipGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalAGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalBGameTests",
       "com.projecthero.mod.gametest.OmnitrixBigChillGameTests",

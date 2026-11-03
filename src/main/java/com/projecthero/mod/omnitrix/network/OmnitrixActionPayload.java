@@ -21,7 +21,9 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record OmnitrixActionPayload(Action action, String alien) implements CustomPacketPayload {
 	public enum Action {
-		SELECT, USE_AIR, CYCLE, SLAP, MASTER_PICK, WALL_KICK
+		SELECT, USE_AIR, CYCLE, SLAP, MASTER_PICK, WALL_KICK,
+		/** v0.17.2: Yes on the Recalibration Chip's confirm screen (OmnitrixRecal.request). */
+		RECAL_CHIP
 	}
 
 	public static final CustomPacketPayload.Type<OmnitrixActionPayload> TYPE =

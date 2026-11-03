@@ -93,7 +93,11 @@ public final class OmnitrixInfo {
 			}
 		}
 		// v0.17.2: which watch -- the recalibrated one, or the prototype and how far it is from taking a Recalibration Chip
-		if (Omnitrix.recalibrated(live)) {
+		if (OmnitrixRecal.busy(live)) {
+			// v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): the chip is in -- how long is left
+			int left = (OmnitrixRecal.modeLeft(Omnitrix.state(live), live.level().getGameTime()) + 19) / 20;
+			out.add(Component.translatable(I + "recal_mode", String.format("%d:%02d", left / 60, left % 60)).withStyle(ChatFormatting.AQUA));
+		} else if (Omnitrix.recalibrated(live)) {
 			out.add(Component.translatable(I + "recalibrated").withStyle(ChatFormatting.GREEN));
 		} else {
 			int done = Omnitrix.prototypeTransforms(live);

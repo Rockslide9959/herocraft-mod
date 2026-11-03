@@ -47,8 +47,7 @@ public final class OmnitrixItems {
 		CONTAINMENT_CORE = register("containment_core", new HintItem(new Item.Properties().stacksTo(16).rarity(Rarity.EPIC).fireResistant(),
 				"item.projecthero.containment_core.hint"));
 		RECALIBRATED_OMNITRIX = register("recalibrated_omnitrix", new OmnitrixItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant(), true));
-		RECALIBRATION_CHIP = register("recalibration_chip", new HintItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant(),
-				"item.projecthero.recalibration_chip.hint"));
+		RECALIBRATION_CHIP = register("recalibration_chip", new RecalibrationChipItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {

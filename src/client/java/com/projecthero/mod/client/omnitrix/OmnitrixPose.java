@@ -61,6 +61,45 @@ public final class OmnitrixPose {
 	private OmnitrixPose() {
 	}
 
+	/**
+	 * v0.17.2 (user: "the player then slots the recalibration chip into the slots ... the player then looks at the watch from a few angles
+	 * turning their wrist a bit"): the Recalibration Chip's insert and reform in third person -- the prototype's raised wrist, turned by
+	 * the sequence's roll / pitch about the forearm itself (composed inside the arm's own rotation), the right hand (holding the chip,
+	 * drawn by vanilla) at the watch for the slot and up over it for the press on the face.
+	 */
+	private static void recalChipPose(AbstractClientPlayer p, HumanoidModel<?> m, OmnitrixState s, OmnitrixHands.Rig rig, float partial) {
+		float raise = rig.raise;
+		if (raise <= 0f) {
+			return;
+		}
+		set(m.leftArm, raise, WATCH_ARM);
+		org.joml.Quaternionf q = new org.joml.Quaternionf().rotationZYX(m.leftArm.zRot, m.leftArm.yRot, m.leftArm.xRot);
+		q.rotateY(rig.roll * 0.9f * Mth.DEG_TO_RAD).rotateZ(-rig.pitch * Mth.DEG_TO_RAD).rotateX(rig.yaw * 0.35f * Mth.DEG_TO_RAD);
+		// back to the part's Z-Y-X angles (R = Rz * Ry * Rx; JOML's mCR is column C, row R)
+		org.joml.Matrix3f r = q.get(new org.joml.Matrix3f());
+		m.leftArm.yRot = (float) Math.asin(Mth.clamp(-r.m02, -1f, 1f));
+		m.leftArm.xRot = (float) Math.atan2(r.m12, r.m22);
+		m.leftArm.zRot = (float) Math.atan2(r.m01, r.m00);
+		m.leftArm.y += SHOULDER_DROP * raise;
+		m.head.xRot = Mth.lerp(raise, m.head.xRot, HEAD_DOWN + 0.1f * rig.near);
+		m.head.yRot = Mth.lerp(raise, m.head.yRot, 0f);
+		m.hat.copyFrom(m.head);
+		float w = Mth.clamp(rig.press3p, 0f, 1f);
+		if (w > 0f) {
+			float t = com.projecthero.mod.omnitrix.OmnitrixRecal.insertAge(s, p.level().getGameTime(), partial);
+			float face = t < 0f ? 0f
+					: OmnitrixHands.smooth((t - 50f) / 10f) * (1f - OmnitrixHands.smooth((t - com.projecthero.mod.omnitrix.OmnitrixRecal.PRESS_AT - 4f) / 8f));
+			float push = t < 0f ? 0f : Mth.sin(Mth.clamp((t - 34f) / 10f, 0f, 1f) * Mth.PI);
+			float[] target = new float[3];
+			for (int i = 0; i < 3; i++) {
+				float slot = HAND_ON[i] + (HAND_BUTTON_PRESS[i] - HAND_ON[i]) * 0.5f * push;
+				target[i] = slot + (HAND_PRESS[i] - slot) * face;
+			}
+			set(m.rightArm, w, target);
+			m.rightArm.y += HAND_DROP * w * face;
+		}
+	}
+
 	private static void set(net.minecraft.client.model.geom.ModelPart part, float w, float[] r) {
 		part.xRot = Mth.lerp(w, part.xRot, r[0]);
 		part.yRot = Mth.lerp(w, part.yRot, r[1]);
@@ -87,7 +126,9 @@ public final class OmnitrixPose {
 		float raise = rig.raise;
 		boolean recal = Omnitrix.recalibrated(p);
 		float[] handOn = recal ? RECAL_HAND_ON : HAND_ON, handUp = recal ? RECAL_HAND_UP : HAND_UP, handPress = recal ? RECAL_HAND_PRESS : HAND_PRESS;
-		if (raise > 0f) {
+		if (rig.recal) {
+			recalChipPose(p, m, s, rig, partial);
+		} else if (raise > 0f) {
 			set(m.leftArm, raise, recal ? RECAL_WATCH_ARM : WATCH_ARM);
 			m.leftArm.y += (recal ? RECAL_SHOULDER_DROP : SHOULDER_DROP) * raise;
 			m.head.xRot = Mth.lerp(raise, m.head.xRot, recal ? RECAL_HEAD_DOWN : HEAD_DOWN);

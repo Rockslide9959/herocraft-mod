@@ -87,6 +87,8 @@ public final class OmnitrixClient {
 		HudRenderCallback.EVENT.register(OmnitrixHud::render);
 		OmnitrixTransformFx.initialize();
 		OmnitrixSequenceClient.initialize(); // v0.17.2: the long (right-click) transformation
+		// v0.17.2: the Recalibration Chip's Yes / No
+		com.projecthero.mod.omnitrix.OmnitrixRecal.openConfirm = p -> net.minecraft.client.Minecraft.getInstance().setScreen(new RecalChipConfirmScreen());
 		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixClient::tick);
 	}
 

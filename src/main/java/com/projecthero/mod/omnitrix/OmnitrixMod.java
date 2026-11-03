@@ -90,6 +90,7 @@ public final class OmnitrixMod {
 						k.wallKick(p);
 					}
 				}
+				case RECAL_CHIP -> OmnitrixRecal.request(p); // v0.17.2: Yes on the Recalibration Chip's screen
 			}
 		});
 

@@ -78,6 +78,7 @@ public final class OmnitrixHud {
 		OmnitrixState s = Omnitrix.state(p);
 		long now = p.level().getGameTime();
 		OmnitrixTransformFx.drawScreen(g, p, s, now, partial);
+		OmnitrixRecalClient.drawScreen(g, p, s, partial); // v0.17.2: the Recalibration Chip's reform flashes
 		extraction(g, mc, p, now);
 		autoRing(g, s, now, partial);
 		int x0 = g.guiWidth() - MARGIN - WIDTH;
@@ -139,6 +140,17 @@ public final class OmnitrixHud {
 	 * slap say it is recharging. Returns the HUD's top.
 	 */
 	private static int human(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom) {
+		// v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): one blue meter while it recalibrates --
+		// "Recalibrating... m:ss", filling as the three minutes run (the finish still to come reads 0:00)
+		if (com.projecthero.mod.omnitrix.OmnitrixRecal.busy(s)) {
+			int left = com.projecthero.mod.omnitrix.OmnitrixRecal.modeLeft(s, now);
+			float frac = 1f - left / (float) com.projecthero.mod.omnitrix.OmnitrixRecal.MODE_TICKS;
+			int secs = (left + 19) / 20;
+			int by = bottom - 6;
+			meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.recalibrating_short"), frac, 0x3C7CFF,
+					String.format("%d:%02d", secs / 60, secs % 60), 0xFF8FB6FF);
+			return by - 10;
+		}
 		return bottom;
 	}
 
@@ -293,12 +305,9 @@ public final class OmnitrixHud {
 		if (t == null) {
 			return;
 		}
-		// v0.17.2: a negative count is the pod's recalibration (-1 - ticks): the same box in green, no self-destruct
-		boolean recal = t < 0;
-		if (recal) {
-			t = -1 - t;
-		}
-		int total = recal ? OmnitrixConfig.RECAL_TICKS : OmnitrixConfig.EXTRACTION_TICKS;
+		// v0.17.2: the pod no longer recalibrates (the Recalibration Chip does it by itself), so the box is always the extraction's
+		boolean recal = false;
+		int total = OmnitrixConfig.EXTRACTION_TICKS;
 		int hot = recal ? 0xFF6CFF4A : RED;
 		int w = g.guiWidth();
 		int h = g.guiHeight();

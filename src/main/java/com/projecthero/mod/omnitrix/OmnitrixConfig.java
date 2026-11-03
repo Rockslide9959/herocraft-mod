@@ -32,15 +32,11 @@ public final class OmnitrixConfig {
 	/** How far (horizontally, from the pod's centre) the wearer may sway before they count as having stepped out. */
 	public static final double POD_RADIUS = 0.8;
 
-	// ---------------------------------------------------------------- v0.17.2: the recalibration (the pod + a Recalibration Chip)
+	// ---------------------------------------------------------------- v0.17.2: the recalibration (the Recalibration Chip, OmnitrixRecal)
 	/** Transformations with the prototype before the watch can take a recalibration (it has to have learnt its wearer). */
 	public static final int RECAL_MIN_TRANSFORMS = 25;
-	/** The recalibration lasts 30 s; no damage (it is the watch being rebuilt, not pulled off). */
-	public static final int RECAL_TICKS = 30 * 20;
-	/** Fuel a recalibration burns. */
-	public static final int FUEL_PER_RECAL = 4;
-	/** The dial turns on its own (through the new aliens) every this many ticks while it recalibrates. */
-	public static final int RECAL_DIAL_TICKS = 30;
+	/** v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): recalibration mode, after the chip goes in. */
+	public static final int RECAL_MODE_TICKS = 3 * 60 * 20;
 
 	/**
 	 * The extraction's damage pulses: {tick (since the start), damage}. Every pulse is {@code projecthero:omnitrix_extraction}

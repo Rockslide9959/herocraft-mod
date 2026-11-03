@@ -30,9 +30,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2: the Recalibrated Omnitrix (docs/OMNITRIX_RECALIBRATED_0172.md) -- the Recalibration Chip's gate (25 prototype
- * transformations, the pod, fuel), the 30-second recalibration (no damage, the green HUD count, the flag and the new dial at the end),
- * stepping out handing the chip back, the two dials kept apart (select / slap refuse the other watch's aliens), the recalibrated
+ * v0.17.2: the Recalibrated Omnitrix (docs/OMNITRIX_RECALIBRATED_0172.md) -- the pod no longer recalibrates (the chip does it by
+ * itself: OmnitrixRecalChipGameTests), the two dials kept apart (select / slap refuse the other watch's aliens), the recalibrated
  * item putting on the recalibrated watch, the user's four sounds registered and picked by {@link Omnitrix#cue}.
  */
 public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
@@ -51,7 +50,7 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 		return p;
 	}
 
-	/** A Containment Pod at (3, 2, 3) on a stone floor, fuelled for one recalibration. */
+	/** A Containment Pod at (3, 2, 3) on a stone floor, fuelled. */
 	private static OmnitrixPodBlockEntity pod(GameTestHelper helper) {
 		for (int x = 0; x <= 7; x++) {
 			for (int z = 0; z <= 7; z++) {
@@ -63,7 +62,7 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 		helper.getLevel().setBlock(lower, state.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.LOWER), 3);
 		helper.getLevel().setBlock(lower.above(), state.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.UPPER), 3);
 		OmnitrixPodBlockEntity be = (OmnitrixPodBlockEntity) helper.getLevel().getBlockEntity(lower);
-		be.addFuel(OmnitrixConfig.FUEL_PER_RECAL);
+		be.addFuel(OmnitrixConfig.FUEL_PER_EXTRACTION);
 		return be;
 	}
 
@@ -79,72 +78,23 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 		return p;
 	}
 
-	private static List<ItemEntity> chips(GameTestHelper helper, OmnitrixPodBlockEntity be) {
-		return helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(be.getBlockPos()).inflate(4),
-				e -> e.getItem().is(OmnitrixItems.RECALIBRATION_CHIP));
-	}
-
+	/**
+	 * v0.17.2 (user: "the player can right click the chip and then an option to choose to recalibrate or not will pop up"): the pod no
+	 * longer recalibrates -- the chip used on it only says to use the chip itself; nothing starts and the chip is kept.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void theChipNeedsAWatchThatHasLearntItsWearer(GameTestHelper helper) {
+	public void thePodPointsAtTheChipItself(GameTestHelper helper) {
 		OmnitrixPodBlockEntity be = pod(helper);
-		ServerPlayer p = wearer(helper, be, OmnitrixConfig.RECAL_MIN_TRANSFORMS - 1);
+		ServerPlayer p = wearer(helper, be, OmnitrixConfig.RECAL_MIN_TRANSFORMS);
 		ItemStack chip = new ItemStack(OmnitrixItems.RECALIBRATION_CHIP);
-		helper.assertFalse(be.tryRecalibrate(p, chip), "24 transformations: refused");
-		helper.assertTrue(chip.getCount() == 1 && !be.running(), "the chip is kept, nothing runs");
-		OmnitrixState n = Omnitrix.state(p).copy();
-		n.timers.put(Omnitrix.TRANSFORMS, (long) OmnitrixConfig.RECAL_MIN_TRANSFORMS);
-		Omnitrix.save(p, n);
-		helper.assertTrue(be.tryRecalibrate(p, chip), "25: it starts");
-		helper.assertTrue(chip.isEmpty(), "the chip is taken");
-		helper.assertTrue(be.recalibrating() && be.fuel() == 0, "a recalibration, its fuel burnt");
-		Integer t = p.getAttached(OmnitrixAttachments.EXTRACTION);
-		helper.assertTrue(t != null && t < 0, "the HUD's count is the recalibration's (negative), got " + t);
-		ServerPlayer other = mock(helper, 1.5, 2, 1.5);
-		helper.assertFalse(be.tryRecalibrate(other, new ItemStack(OmnitrixItems.RECALIBRATION_CHIP)), "one at a time");
+		p.setItemInHand(InteractionHand.MAIN_HAND, chip);
+		var hit = new net.minecraft.world.phys.BlockHitResult(be.centre(), Direction.UP, be.getBlockPos(), false);
+		var state = helper.getLevel().getBlockState(be.getBlockPos());
+		state.useItemOn(chip, helper.getLevel(), p, InteractionHand.MAIN_HAND, hit);
+		helper.assertFalse(be.running(), "the pod runs nothing");
+		helper.assertTrue(chip.getCount() == 1, "the chip is kept");
+		helper.assertFalse(com.projecthero.mod.omnitrix.OmnitrixRecal.busy(p) || Omnitrix.recalibrated(p), "no recalibration started");
 		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = OmnitrixConfig.RECAL_TICKS + 100)
-	public void aRecalibrationTakesThirtySecondsAndDoesNotHurt(GameTestHelper helper) {
-		OmnitrixPodBlockEntity be = pod(helper);
-		ServerPlayer p = wearer(helper, be, OmnitrixConfig.RECAL_MIN_TRANSFORMS);
-		float hp = p.getHealth();
-		helper.assertTrue(be.startRecalibration(p, new ItemStack(OmnitrixItems.RECALIBRATION_CHIP)), "it starts");
-		helper.runAfterDelay(OmnitrixConfig.RECAL_TICKS / 2, () -> {
-			helper.assertTrue(be.recalibrating() && !Omnitrix.recalibrated(p), "halfway: still running, still the prototype");
-			helper.assertTrue(p.getHealth() == hp, "no damage");
-		});
-		helper.runAfterDelay(OmnitrixConfig.RECAL_TICKS + 10, () -> {
-			helper.assertFalse(be.running(), "done");
-			helper.assertTrue(Omnitrix.recalibrated(p), "the watch is recalibrated");
-			helper.assertTrue(p.getHealth() == hp, "and never hurt, got " + p.getHealth());
-			helper.assertTrue(p.getAttached(OmnitrixAttachments.EXTRACTION) == null, "the HUD box is gone");
-			helper.assertTrue(Aliens.byId(Omnitrix.state(p).selected).recalibrated(), "the dial is on an Alien Force alien");
-			helper.assertTrue(Aliens.roster(p).equals(Aliens.recalibrated()), "the roster is the Alien Force ten");
-			helper.assertTrue(chips(helper, be).isEmpty(), "the chip was used up");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void steppingOutStopsItAndHandsTheChipBack(GameTestHelper helper) {
-		OmnitrixPodBlockEntity be = pod(helper);
-		ServerPlayer p = wearer(helper, be, OmnitrixConfig.RECAL_MIN_TRANSFORMS);
-		float hp = p.getHealth();
-		helper.assertTrue(be.startRecalibration(p, new ItemStack(OmnitrixItems.RECALIBRATION_CHIP)), "it starts");
-		helper.runAfterDelay(20, () -> {
-			Vec3 c = be.centre();
-			p.moveTo(c.x + 2.5, c.y, c.z, 0f, 0f);
-		});
-		helper.runAfterDelay(30, () -> {
-			helper.assertFalse(be.running(), "stopped");
-			helper.assertFalse(Omnitrix.recalibrated(p), "still the prototype");
-			helper.assertTrue(p.getHealth() == hp, "no lash: a recalibration never hurts");
-			helper.assertTrue(chips(helper, be).size() == 1, "the chip came back");
-			helper.assertTrue(p.getAttached(OmnitrixAttachments.EXTRACTION) == null, "no HUD box left");
-			chips(helper, be).forEach(ItemEntity::discard);
-			helper.succeed();
-		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

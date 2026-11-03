@@ -152,10 +152,11 @@ public class OmnitrixPodBlock extends BaseEntityBlock {
 	@Override
 	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
 			BlockHitResult hit) {
-		// v0.17.2: the Recalibration Chip, from inside, starts a recalibration
+		// v0.17.2 (user: "the player can right click the chip and then an option to choose to recalibrate or not will pop up"): the
+		// pod no longer recalibrates -- the chip is used by itself (OmnitrixRecal); here it only says so
 		if (stack.is(com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATION_CHIP)) {
-			if (!level.isClientSide() && player instanceof ServerPlayer sp && level.getBlockEntity(base(state, pos)) instanceof OmnitrixPodBlockEntity be) {
-				be.tryRecalibrate(sp, stack);
+			if (!level.isClientSide()) {
+				player.displayClientMessage(Component.translatable("message.projecthero.omnitrix_pod.recal_use_chip").withStyle(ChatFormatting.YELLOW), true);
 			}
 			return ItemInteractionResult.sidedSuccess(level.isClientSide());
 		}

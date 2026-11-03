@@ -72,6 +72,16 @@ public final class OmnitrixSounds {
 	public static final SoundEvent[] RECAL = { RECAL_PRIME_SOUND, RECAL_TRANSFORM_SOUND, RECAL_DETRANSFORM_SOUND, RECAL_DIAL_SOUND };
 	/** v0.17.2 (user: "have the 'Master Control unlocked' voiceline play from this sound effect when it activates"): 7.4 s, mono. */
 	public static final SoundEvent RECAL_MASTER_SOUND = register("omnitrix_recal_master_control");
+	/**
+	 * v0.17.2 (user: "Watch the video I sent and try to grab the sound effects please"): the Recalibration Chip's four, cut from the
+	 * user's clip (mono OGG, 44.1 kHz): two quick clicks (the slot opening / closing), a click and a long falling whine (the face
+	 * turning blue), a steady pulsing tone (the lift before the reform) and the burst and rising tone of the reform.
+	 */
+	public static final SoundEvent RECAL_CHIP_CLICK_SOUND = register("omnitrix_recal_chip_click");
+	public static final SoundEvent RECAL_CHIP_PRESS_SOUND = register("omnitrix_recal_chip_press");
+	public static final SoundEvent RECAL_CHIP_PULSE_SOUND = register("omnitrix_recal_chip_pulse");
+	public static final SoundEvent RECAL_CHIP_REFORM_SOUND = register("omnitrix_recal_chip_reform");
+	public static final SoundEvent[] RECAL_CHIP = { RECAL_CHIP_CLICK_SOUND, RECAL_CHIP_PRESS_SOUND, RECAL_CHIP_PULSE_SOUND, RECAL_CHIP_REFORM_SOUND };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -177,7 +187,23 @@ public final class OmnitrixSounds {
 	public static final Cue RECAL_MASTER = OmnitrixSfx.cue("omnitrix_recal_master")
 			.layer(RECAL_MASTER_SOUND, 0.75f, 1.0f)
 			.jitter(0.0f).gap(20);
-	/** The pod's recalibration: a soft hum swell under the dial turns. */
+	/** v0.17.2: the Recalibration Chip -- the slot's clicks (open, then shut). */
+	public static final Cue RECAL_CHIP_CLICK = OmnitrixSfx.cue("omnitrix_recal_chip_click")
+			.layer(RECAL_CHIP_CLICK_SOUND, 0.6f, 1.0f)
+			.jitter(0.0f).gap(2);
+	/** v0.17.2: the press on the face and the falling whine as it turns blue. */
+	public static final Cue RECAL_CHIP_PRESS = OmnitrixSfx.cue("omnitrix_recal_chip_press")
+			.layer(RECAL_CHIP_PRESS_SOUND, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** v0.17.2: the steady pulse as he lifts the watch when the three minutes are up. */
+	public static final Cue RECAL_CHIP_PULSE = OmnitrixSfx.cue("omnitrix_recal_chip_pulse")
+			.layer(RECAL_CHIP_PULSE_SOUND, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** v0.17.2: the reform's burst and rising tone. */
+	public static final Cue RECAL_CHIP_REFORM = OmnitrixSfx.cue("omnitrix_recal_chip_reform")
+			.layer(RECAL_CHIP_REFORM_SOUND, 0.75f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** The pod's recalibration (no longer used: the chip recalibrates by itself): a soft hum swell. */
 	public static final Cue RECAL_HUM = OmnitrixSfx.cue("omnitrix_recal_hum")
 			.layer(WHIRR, 0.25f, 0.7f)
 			.layer(SoundEvents.BEACON_AMBIENT, 0.35f, 1.4f)

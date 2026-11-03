@@ -166,8 +166,8 @@ public final class Omnitrix {
 	/**
 	 * v0.17.2: the Recalibrated Omnitrix (Ben 10: Alien Force; user: "come up with a way for the player to recalibrate the omnitrix").
 	 * A flag in the persisted timers (1 = recalibrated), so it needs no codec change, survives death and syncs like the rest. Its
-	 * dial is {@code Aliens.recalibrated()}; the watch, the sounds and the face change with it. Made by the Containment Pod with a
-	 * Recalibration Chip ({@code OmnitrixPodBlockEntity}).
+	 * dial is {@code Aliens.recalibrated()}; the watch, the sounds and the face change with it. Made by using a Recalibration Chip
+	 * ({@link OmnitrixRecal}: the insert, 3 minutes of recalibration mode, the reform).
 	 */
 	public static final String RECAL = "omnitrix.recal";
 	/** v0.17.2: transformations made with the prototype (the Recalibration Chip asks for {@code OmnitrixConfig.RECAL_MIN_TRANSFORMS}). */
@@ -184,10 +184,18 @@ public final class Omnitrix {
 	}
 
 	/**
-	 * v0.17.2: the pod's recalibration lands -- the watch becomes the Recalibrated Omnitrix, its dial the Alien Force ten (the first
+	 * v0.17.2: the recalibration lands -- the watch becomes the Recalibrated Omnitrix, its dial the Alien Force ten (the first
 	 * one selected), with the user's transform sound. False if not worn, already recalibrated or transformed.
 	 */
 	public static boolean recalibrate(ServerPlayer p) {
+		return recalibrate(p, false);
+	}
+
+	/**
+	 * v0.17.2: {@code reformed} -- the Recalibration Chip's finish ({@link OmnitrixRecal}) already played the reform on the wrist and its
+	 * sound: no slap pose, no transform sound on top.
+	 */
+	public static boolean recalibrate(ServerPlayer p, boolean reformed) {
 		OmnitrixState s = state(p);
 		if (!s.hasPower || s.transformed() || s.readyAt(RECAL) == 1L) {
 			return false;
@@ -197,14 +205,18 @@ public final class Omnitrix {
 		n.selecting = false;
 		n.rechargeUntil = 0L;
 		clearSlap(n);
-		n.animId = ANIM_SLAP;
-		n.animStart = p.level().getGameTime();
+		if (!reformed) {
+			n.animId = ANIM_SLAP;
+			n.animStart = p.level().getGameTime();
+		}
 		save(p, n);
 		java.util.List<Aliens.Alien> pool = Aliens.playable(p);
 		OmnitrixState m = state(p).copy();
 		m.selected = pool.isEmpty() ? Aliens.SWAMPFIRE.id() : pool.get(0).id();
 		save(p, m);
-		OmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_TRANSFORM);
+		if (!reformed) {
+			OmnitrixSounds.playOn(p, OmnitrixSounds.RECAL_TRANSFORM);
+		}
 		return true;
 	}
 
@@ -372,7 +384,8 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
-		if (now < s.readyAt(FAILSAFE_READY) || extracting(p) || com.projecthero.mod.hero.PowerSuppression.isSuppressed(p)) {
+		// v0.17.2: a recalibrating watch has no failsafe (user: "if the player dies it wont halt anything")
+		if (now < s.readyAt(FAILSAFE_READY) || extracting(p) || com.projecthero.mod.hero.PowerSuppression.isSuppressed(p) || OmnitrixRecal.busy(s)) {
 			return false;
 		}
 		if (s.transformed()) {
@@ -686,6 +699,10 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
+		if (OmnitrixRecal.busy(s)) {
+			OmnitrixRecal.tellBusy(p); // v0.17.2: recalibrating -- no aliens until it is done
+			return false;
+		}
 		if (extracting(p)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.held_by_pod").withStyle(ChatFormatting.RED), true);
 			return false;
@@ -857,6 +874,11 @@ public final class Omnitrix {
 		}
 		// v0.17.1: not while still trying to shake it off
 		if (latching(p)) {
+			return false;
+		}
+		// v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): the watch cannot be raised meanwhile
+		if (OmnitrixRecal.busy(s)) {
+			OmnitrixRecal.tellBusy(p);
 			return false;
 		}
 		long now = p.level().getGameTime();
@@ -1105,6 +1127,11 @@ public final class Omnitrix {
 		if (!latching(p) && latchSlowed(p)) {
 			latchLock(p, false);
 		}
+		// v0.17.2: the Recalibration Chip's insert, recalibration mode and the reform run before anything else of the watch's
+		if (OmnitrixRecal.busy(s)) {
+			OmnitrixRecal.tick(p, now);
+			s = state(p);
+		}
 		if (s.selecting && s.timers.containsKey(PRESS_TIMER) && now >= s.readyAt(PRESS_TIMER)) {
 			OmnitrixState n = s.copy();
 			n.timers.remove(PRESS_TIMER);
@@ -1254,6 +1281,7 @@ public final class Omnitrix {
 
 	public static void onDeath(ServerPlayer p) {
 		OmnitrixLongTransform.finish(p, true);
+		OmnitrixRecal.interrupt(p); // v0.17.2: the sequence on screen stops; recalibration mode carries on
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.DEATH);
 		}
@@ -1274,6 +1302,7 @@ public final class Omnitrix {
 
 	public static void onLogout(ServerPlayer p) {
 		OmnitrixLongTransform.finish(p, true);
+		OmnitrixRecal.interrupt(p); // v0.17.2
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.LOGOUT);
 		}

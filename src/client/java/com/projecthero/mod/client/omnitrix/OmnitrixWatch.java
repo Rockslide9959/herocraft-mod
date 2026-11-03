@@ -46,6 +46,8 @@ public final class OmnitrixWatch {
 	public static final ResourceLocation TEX_RECAL_RED = ProjectHeroMod.id("textures/entity/omnitrix/watch_recal_red.png");
 	public static final ResourceLocation MORPH_RECAL = ProjectHeroMod.id("textures/entity/omnitrix/face_morph_recal.png");
 	public static final ResourceLocation MORPH_RECAL_RED = ProjectHeroMod.id("textures/entity/omnitrix/face_morph_recal_red.png");
+	/** v0.17.2: the prototype's face recoloured blue (recalibrating; scratchpad/recalchip/gen_recal_chip_textures.js). */
+	public static final ResourceLocation MORPH_BLUE = OmnitrixRecalClient.MORPH_BLUE;
 	public static final ResourceLocation CIRCUIT = ProjectHeroMod.id("textures/entity/omnitrix/circuit.png");
 	public static final ResourceLocation CIRCUIT_RED = ProjectHeroMod.id("textures/entity/omnitrix/circuit_red.png");
 	/** How far the whole dial (bezel, lights, core) rises on its circuit riser, px. */
@@ -241,6 +243,12 @@ public final class OmnitrixWatch {
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, Player p, float partial, boolean slim, boolean firstPerson) {
 		OmnitrixState s = Omnitrix.state(p);
 		float L = slim ? 2f : 3f;
+		// v0.17.2 (user: "the omnitrix then flashes green and black before slowly reforming into the recalibrated omnitrix"): while the
+		// Recalibration Chip's reform flashes, it draws the watch itself
+		if (OmnitrixRecalClient.renderReform(pose, buffers, light, p, s, partial, L)) {
+			return;
+		}
+		OmnitrixHands.Rig chipRig = OmnitrixWatch.rig(p, partial);
 		float[] ph = phase(p, s, partial);
 		float morph = ph[2], iconIn = ph[3];
 		boolean red = red(p, partial);
@@ -251,9 +259,19 @@ public final class OmnitrixWatch {
 			morph = 0f;
 			iconIn = 0f;
 		}
-		boolean recal = Omnitrix.recalibrated(p); // v0.17.2
+		// v0.17.2: the end of the Recalibration Chip's reform shows the new watch before the server's flag lands
+		boolean recal = Omnitrix.recalibrated(p) || OmnitrixRecalClient.reformed(p, s, partial);
 		ResourceLocation tex = recal ? (red ? TEX_RECAL_RED : TEX_RECAL) : red ? TEX_RED : TEX;
 		ResourceLocation morphTex = recal ? (red ? MORPH_RECAL_RED : MORPH_RECAL) : red ? MORPH_RED : MORPH;
+		// v0.17.2 (user: "the player then looks at the omnitrix watch face as it turns blue"): blue while it recalibrates
+		float blue = recal ? 0f : OmnitrixRecalClient.blue(p, s, partial);
+		if (blue > 0f) {
+			red = false;
+			tex = TEX;
+			morphTex = MORPH_BLUE;
+			morph = 0f;
+			iconIn = 0f;
+		}
 		// the core: pops up for the selection screen, slammed down by the slap
 		float slap = OmnitrixHands.slapClock(p, s, partial);
 		float lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated dial pops up a little less
@@ -269,6 +287,10 @@ public final class OmnitrixWatch {
 		} else if (lift > 0.02f) {
 			// v0.17.2 (user): the recalibrated dial's stem carries the same circuit traces as the prototype's
 			OmnitrixModel.recalRiser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(red ? CIRCUIT_RED : CIRCUIT)), L, lift);
+		}
+		// v0.17.2 (user: "the dial of the omnitrix pops up and a little slot reveals open up too"): the chip's slot in the riser
+		if (chipRig.slot >= 0f && !recal) {
+			OmnitrixModel.chipSlot(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, chipRig.slot);
 		}
 		// ---- the face, upright (the ring turns round it): a morph frame, the icon fading in on the last one, the swap crossfade
 		float top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);
@@ -297,7 +319,9 @@ public final class OmnitrixWatch {
 			int f = recal ? 0 : Math.round(Mth.clamp(morph, 0f, 1f) * (MORPH_FRAMES - 1));
 			float u0 = (f % 4) * 0.25f, v0 = (f / 4) * 0.25f;
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(morphTex));
-			faceQuad(vc, last, 0xFFFFFFFF, fx, y0, y1, up, u0, v0, u0 + 0.25f, v0 + 0.25f, lit);
+			// v0.17.2: the blue face flickers dark as it changes (the show)
+			int shade = blue > 0f ? Math.round(255 * blue) : 255;
+			faceQuad(vc, last, 0xFF000000 | (shade << 16) | (shade << 8) | shade, fx, y0, y1, up, u0, v0, u0 + 0.25f, v0 + 0.25f, lit);
 			// v0.17.1: timed in while raised -- the red face fades into the green one before the core pops
 			float sinceIn = p.level().getGameTime() + partial - s.rechargeUntil;
 			if (!red && s.selecting && !s.transformed() && s.rechargeUntil > s.selectStart && sinceIn >= 0f && sinceIn < Omnitrix.TIME_IN_TICKS) {

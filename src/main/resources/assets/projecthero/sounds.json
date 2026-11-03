@@ -3280,5 +3280,37 @@
         "name": "projecthero:omnitrix/recal_master_control"
       }
     ]
+  },
+  "omnitrix_recal_chip_click": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_chip_click",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_chip_click"
+      }
+    ]
+  },
+  "omnitrix_recal_chip_press": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_chip_press",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_chip_press"
+      }
+    ]
+  },
+  "omnitrix_recal_chip_pulse": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_chip_pulse",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_chip_pulse"
+      }
+    ]
+  },
+  "omnitrix_recal_chip_reform": {
+    "subtitle": "subtitles.projecthero.omnitrix_recal_chip_reform",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recal_chip_reform"
+      }
+    ]
   }
 }

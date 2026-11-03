@@ -45,8 +45,66 @@ public final class OmnitrixModel {
 	private static final float GAP = 0.03f, CORNER = 0.1f, WALL = 0.3f, HALF_LEN = 2.1f;
 	private static final float PRONG_W = 0.4f, PRONG_T = 0.32f, PRONG_Y = 1.22f;
 
+	/**
+	 * v0.17.2 (user: "the omnitrix then flashes green and black before slowly reforming"): the colour every vertex is drawn in --
+	 * white (as textured) except while the Recalibration Chip's reform fades a silhouette in ({@link #tint}). Render thread only.
+	 */
+	private static int TR = 255, TG = 255, TB = 255, TA = 255;
+
+	/** Draws everything after this in {@code argb} (multiplied with the texture) until {@link #untint}. */
+	public static void tint(int argb) {
+		TA = (argb >>> 24) & 255;
+		TR = (argb >> 16) & 255;
+		TG = (argb >> 8) & 255;
+		TB = argb & 255;
+	}
+
+	public static void untint() {
+		TR = TG = TB = TA = 255;
+	}
+
 	private OmnitrixModel() {
 	}
+
+	/**
+	 * v0.17.2 (user: "the dial of the omnitrix pops up and a little slot reveals open up too, the player then slots the recalibration
+	 * chip into the slots and then the slot closes"): the chip's slot, in the side of the circuit riser the popped-up dial stands on,
+	 * on the button's side (-z, where the right hand reaches). A small grey door covers it; {@code open} 0..1 slides the door down into
+	 * the cuff, showing the dark slot with a lit green slit along it. Needs the dial up ({@code lift}, px); {@code vc} on the watch sheet.
+	 */
+	public static void chipSlot(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float open) {
+		if (lift < 0.5f) {
+			return;
+		}
+		int lit = LightTexture.FULL_BRIGHT;
+		float xo = cuffTop(L);
+		float zf = -RISER_R; // the riser's face on the button's side
+		float x0 = xo + 0.1f, x1 = xo + lift - 0.1f, yh = SLOT_HALF;
+		float cy = CY;
+		PoseStack.Pose p = pose.last();
+		if (open > 0.01f) {
+			// the dark slot, and the lit slit along its middle (the chip goes in here)
+			plain(vc, p, light, SW[BLACK], x0, cy - yh, zf - 0.012f, x1, cy - yh, zf - 0.012f, x1, cy + yh, zf - 0.012f, x0, cy + yh, zf - 0.012f, 0, 0, -1);
+			float xm = (x0 + x1) * 0.5f, sh = 0.06f + 0.06f * open;
+			plain(vc, p, lit, SW[GREEN], xm - sh, cy - yh + 0.1f, zf - 0.02f, xm + sh, cy - yh + 0.1f, zf - 0.02f, xm + sh, cy + yh - 0.1f, zf - 0.02f,
+					xm - sh, cy + yh - 0.1f, zf - 0.02f, 0, 0, -1);
+		}
+		// the door: slides down into the cuff as it opens
+		float drop = open * (lift + 0.2f);
+		float d0 = Math.max(xo + 0.02f, x0 - 0.06f - drop), d1 = x1 + 0.06f - drop;
+		if (d1 > d0 + 0.04f) {
+			box(pose, vc, d0, cy - yh - 0.06f, zf - 0.1f, d1, cy + yh + 0.06f, zf + 0.04f, GREY, light);
+			// a little green tell-tale on it
+			float dm = (d0 + d1) * 0.5f;
+			if (d1 - d0 > 0.3f) {
+				plain(vc, pose.last(), lit, SW[GREEN], dm - 0.08f, cy - 0.14f, zf - 0.105f, dm + 0.08f, cy - 0.14f, zf - 0.105f, dm + 0.08f, cy + 0.14f,
+						zf - 0.105f, dm - 0.08f, cy + 0.14f, zf - 0.105f, 0, 0, -1);
+			}
+		}
+	}
+
+	/** v0.17.2: the chip slot's half-length along the arm (px). */
+	public static final float SLOT_HALF = 0.8f;
 
 	/** x of the cuff's outer top surface (the bezel sits on it). */
 	public static float cuffTop(float L) {
@@ -581,7 +639,7 @@ public final class OmnitrixModel {
 
 	/** One vertex at (x, y, z) px. */
 	private static void vtx(VertexConsumer vc, PoseStack.Pose p, int light, float x, float y, float z, float nx, float ny, float nz, float u, float v) {
-		vc.addVertex(p, x * S, y * S, z * S).setColor(255, 255, 255, 255).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
+		vc.addVertex(p, x * S, y * S, z * S).setColor(TR, TG, TB, TA).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
 				.setNormal(p, nx, ny, nz);
 	}
 
@@ -639,9 +697,9 @@ public final class OmnitrixModel {
 
 	static void quad(VertexConsumer vc, PoseStack.Pose p, int light, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy,
 			float cz, float dx, float dy, float dz, float nx, float ny, float nz, float u0, float v0, float u1, float v1) {
-		vc.addVertex(p, ax, ay, az).setColor(255, 255, 255, 255).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
-		vc.addVertex(p, bx, by, bz).setColor(255, 255, 255, 255).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
-		vc.addVertex(p, cx, cy, cz).setColor(255, 255, 255, 255).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
-		vc.addVertex(p, dx, dy, dz).setColor(255, 255, 255, 255).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
+		vc.addVertex(p, ax, ay, az).setColor(TR, TG, TB, TA).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
+		vc.addVertex(p, bx, by, bz).setColor(TR, TG, TB, TA).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
+		vc.addVertex(p, cx, cy, cz).setColor(TR, TG, TB, TA).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
+		vc.addVertex(p, dx, dy, dz).setColor(TR, TG, TB, TA).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
 	}
 }
