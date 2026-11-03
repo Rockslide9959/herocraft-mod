@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/calatonian_casket"
+    },
+    "facing=east": {
+      "model": "projecthero:block/calatonian_casket",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/calatonian_casket",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/calatonian_casket",
+      "y": 270
+    }
+  }
+}

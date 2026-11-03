@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:phantom_zone_shard"
+    },
+    {
+      "item": "projecthero:phantom_zone_shard"
+    },
+    {
+      "item": "projecthero:phantom_zone_shard"
+    }
+  ],
+  "result": {
+    "id": "projecthero:phantom_zone_projector",
+    "count": 1
+  }
+}

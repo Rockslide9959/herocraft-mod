@@ -46,7 +46,8 @@ public final class RaidAdminCommand {
 			"sentinel_purge", // v0.15.1: the Sentinel Purge
 			"ultron", // v0.15.12: the Ultron Uprising
 			"frost_giants", // v0.16.1: the Frost Giant Assault
-			"galactus"); // v0.16.1: Galactus: The Devourer
+			"galactus", // v0.16.1: Galactus: The Devourer
+			"doomsday"); // v0.17.2: Doomsday
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -75,8 +76,11 @@ public final class RaidAdminCommand {
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants, galactus)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants, galactus, doomsday)"));
 								return 0;
+							}
+							if (raid.equals("doomsday")) {
+								return com.projecthero.mod.doomsday.Doomsday.command(c, name);
 							}
 							if (raid.equals("galactus")) {
 								return com.projecthero.mod.galactus.Galactus.command(c, name);

@@ -1418,6 +1418,7 @@ public class DarkseidRaid extends EventInstance {
 				DarkseidRaidRewards.grant(level, this);
 			}
 			EventSavedData.get(level).noteCompleted();
+			com.projecthero.mod.doomsday.DoomsdayWorldState.markDarkseidBeaten(level.getServer()); // v0.17.2: Doomsday can find this world now
 		} else {
 			DarkseidEntity d = darkseid(level);
 			if (d != null && d.isAlive()) {

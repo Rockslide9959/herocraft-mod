@@ -77,6 +77,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.frostgiant.FrostGiantConfig.load(); // v0.16.1: the Frost Giant Assault (read before its entity types)
 		com.projecthero.mod.ultron.contagion.ContagionConfig.load(); // v0.16.1: the Ultron Contagion (read before its entity types)
 		com.projecthero.mod.galactus.GalactusConfig.load(); // v0.16.1: Galactus: The Devourer (read before its entity types)
+		com.projecthero.mod.doomsday.DoomsdayConfig.load(); // v0.17.2: Doomsday (read before its entity types)
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		com.projecthero.mod.spider.SpiderManConfig.load(); // v0.16.1: the Spider-Man revamp (web structures, the 18 moves)
@@ -278,6 +279,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.frostgiant.FrostGiants.initialize();
 		// v0.16.1: Galactus: The Devourer (Herald's Beacon / cosmic signal -> the Silver Surfer -> the Worldship + Element Converters -> Galactus -> the Ultimate Nullifier)
 		com.projecthero.mod.galactus.Galactus.initialize();
+		com.projecthero.mod.doomsday.Doomsday.initialize(); // v0.17.2: Doomsday
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
 		com.projecthero.mod.grave.GraveboundEffect.initialize();
 		com.projecthero.mod.grave.GraveboundEvents.initialize();
@@ -335,6 +337,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.ultron.MindStoneCharm.tick(server); // v0.15.12
 			com.projecthero.mod.frostgiant.FrostGiants.serverTick(server); // v0.16.1: the cold, Ymir, the natural trigger, the orphan sweep
 			com.projecthero.mod.galactus.Galactus.serverTick(server); // v0.16.1: converters, zones, the terrain revert, the cosmic signal
+			com.projecthero.mod.doomsday.Doomsday.serverTick(server); // v0.17.2: the natural casket impact
 			com.projecthero.mod.oathbreaker.OathbreakerSummon.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.spider.SpiderCobwebs.tick(server); // v0.16.1: his temporary real cobwebs (orphan-safe ledger)
