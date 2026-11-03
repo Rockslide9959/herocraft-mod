@@ -868,6 +868,32 @@ public final class UpgradeFx {
 		entityCoat(level, m, pose, buffers, inv, cam, partial, time, front, lines, alpha, box, false);
 	}
 
+	/** v0.17.2 fix: the coat's own draw of the golem is running (never cancel it); the coat is drawn fully opaque. */
+	private static boolean drawingCoat, coatSolid;
+
+	/**
+	 * v0.17.2 fix (user: "when upgrade merges with an iron golem he doesnt get an upgraded look"): {@code e} is a golem Upgrade
+	 * pilots and his coat has finished flowing over it -- the plain golem is not drawn, only the upgraded one
+	 * (GreyMatterInsideRenderMixin cancels it). It shows again as the coat peels off.
+	 */
+	public static boolean hidesBody(Entity e) {
+		return !drawingCoat && hidesBody(e, true);
+	}
+
+	private static boolean hidesBody(Entity e, boolean any) {
+		if (e == null || TRACKS.isEmpty()) {
+			return false;
+		}
+		for (Track tr : TRACKS.values()) {
+			MergeView m = tr.merge;
+			if (m != null && m.entity() && m.entityId == e.getId() && m.kind == UpgradeKit.MergeKind.GOLEM.ordinal()
+					&& e.level().getGameTime() - m.start >= COVER + 6) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** v0.17.2 revamp: {@code linesOnly} -- just the glowing circuit lines, no black coat (Tech Takeover). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static void entityCoat(Level level, MergeView m, PoseStack pose, MultiBufferSource buffers, Matrix4f inv, Vec3 cam, float partial, float time, float front,
@@ -899,12 +925,19 @@ public final class UpgradeFx {
 			ResourceLocation tex = machine ? MACHINE_COAT : TECHNO, texGlow = machine ? MACHINE_COAT_GLOW : TECHNO_GLOW;
 			CoatSource src = new CoatSource(buffers, pass == 0 ? RenderType.entityTranslucent(tex) : RenderType.eyes(texGlow), pass == 1, inv, cam, box, front,
 					lines, alpha, time, uvScale);
+			// v0.17.2 fix: the golem under a finished coat is not drawn (hidesBody), so the coat is solid and the coat's own draw
+			// of it must not be cancelled
+			coatSolid = machine && hidesBody(e, true);
+			drawingCoat = true;
 			try {
 				renderer.render(e, yaw, partial, pose, src, light);
 			} catch (RuntimeException ex) {
 				// a renderer that draws something the coat can't take: skip it this frame
+			} finally {
+				drawingCoat = false;
 			}
 			src.flush();
+			coatSolid = false;
 			pose.popPose();
 		}
 	}
@@ -953,8 +986,11 @@ public final class UpgradeFx {
 
 		@Override
 		public VertexConsumer getBuffer(RenderType type) {
-			// v0.17.2 revamp (Ally Upgrade coats a player): a name tag's text is not part of the body
-			return type.toString().contains("text") ? NO_VERTS : consumer;
+			// v0.17.2 revamp (Ally Upgrade coats a player): a name tag's text is not part of the body. v0.17.2 fix (user: "when
+			// upgrade merges with an iron golem he doesnt get an upgraded look"): match the render type's NAME ("text",
+			// "text_see_through"...) -- every entity type's string holds its "textures/..." path, so contains("text") threw the
+			// whole golem / minecart / boat coat away
+			return type.toString().startsWith("RenderType[text") ? NO_VERTS : consumer;
 		}
 
 		void flush() {
@@ -1057,7 +1093,7 @@ public final class UpgradeFx {
 				float edge = (float) Math.exp(-Math.pow((front - d - 0.05f) / 0.08f, 2)) * (front < 1.3f ? 1f : 0f);
 				argb = grey(a * (sweep * pulse + 0.1f) + edge * 0.8f * alpha, 1f);
 			} else {
-				argb = grey(1f, a * 0.96f);
+				argb = grey(1f, a * (coatSolid ? 1f : 0.96f)); // v0.17.2 fix: solid once the golem under it is hidden
 			}
 			int ov = overlay;
 			VertexConsumer out = buffers.getBuffer(type);

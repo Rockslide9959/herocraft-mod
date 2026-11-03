@@ -3,6 +3,7 @@ package com.projecthero.mod.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit;
@@ -37,6 +38,18 @@ public abstract class OmnitrixUpgradeEntityMixin {
 		Vec3 seat = UpgradeKit.allySeat((Entity) (Object) this, passenger);
 		if (seat != null) {
 			cir.setReturnValue(seat);
+		}
+	}
+
+	/**
+	 * v0.17.2 fix (user: "he also starts slowly sliding across the floor for some reason"): Upgrade and the golem he pilots
+	 * share one spot, so the golem (a tick behind him on the client) kept shoving him -- and dragged after him, shoving again.
+	 * They never push each other.
+	 */
+	@Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V", at = @At("HEAD"), cancellable = true)
+	private void projecthero$upgradePilotNoPush(Entity other, CallbackInfo ci) {
+		if (UpgradeKit.pilotPair((Entity) (Object) this, other)) {
+			ci.cancel();
 		}
 	}
 }

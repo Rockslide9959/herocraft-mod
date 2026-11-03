@@ -910,6 +910,13 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().magic(), 6f);
 		helper.assertTrue(p.getHealth() == hp && golem.getHealth() < ghp, "inside the golem: it takes the hit");
+		// v0.17.2 fix (user: "he also starts slowly sliding across the floor"): he and his golem never push each other
+		helper.assertTrue(UpgradeKit.pilotPair(p, golem) && UpgradeKit.pilotPair(golem, p), "pilot and golem are a pair");
+		p.setDeltaMovement(Vec3.ZERO);
+		golem.moveTo(p.getX() + 0.3, p.getY(), p.getZ());
+		golem.push(p);
+		p.push(golem);
+		helper.assertTrue(p.getDeltaMovement().lengthSqr() < 1.0e-8, "the golem does not shove him: " + p.getDeltaMovement());
 		pump(helper, p);
 		helper.runAfterDelay(3, () -> {
 			p.teleportTo(p.getX() + 1.5, p.getY(), p.getZ());

@@ -1176,6 +1176,23 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
+	/**
+	 * v0.17.2 fix (the golem slide): {@code a} and {@code b} are an Upgrade and the golem he pilots, in either order. Both sides
+	 * (the synced merge timers), so the client and the server agree they never push each other.
+	 */
+	public static boolean pilotPair(Entity a, Entity b) {
+		return pilots(a, b) || pilots(b, a);
+	}
+
+	private static boolean pilots(Entity pilot, Entity golem) {
+		if (!(pilot instanceof Player p) || golem == null || !com.projecthero.mod.omnitrix.Omnitrix.hasPower(p)) {
+			return false;
+		}
+		OmnitrixState s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
+		return ID.equals(s.active) && s.readyAt(ID + "." + T_MERGE_KIND) == MergeKind.GOLEM.ordinal() + 1L
+				&& s.readyAt(ID + "." + T_MERGE_ENT) == golem.getId() + 1L;
+	}
+
 	/** v0.17.2 revamp: Ally Upgrade works on squad mates and (scoreboard) teammates only. */
 	public static boolean allyOf(ServerPlayer p, Entity other) {
 		return other instanceof ServerPlayer o && o != p && (com.projecthero.mod.squad.Squads.areAllies(p, o) || p.isAlliedTo(o));

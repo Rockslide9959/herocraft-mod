@@ -25,6 +25,11 @@ public abstract class GreyMatterInsideRenderMixin {
 		if (GreyMatterClient.hiddenInside(entity, partial)) {
 			ci.cancel();
 		}
+		// v0.17.2 fix (user: "when upgrade merges with an iron golem he doesnt get an upgraded look"): once his coat covers a
+		// piloted golem, only the upgraded golem is drawn -- the plain one never shows through it
+		if (com.projecthero.mod.client.omnitrix.alien.UpgradeFx.hidesBody(entity)) {
+			ci.cancel();
+		}
 	}
 
 	@Inject(method = "scale", at = @At("TAIL"))
