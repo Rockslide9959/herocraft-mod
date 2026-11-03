@@ -156,9 +156,9 @@ public final class DirectionalFlightModel {
 	 * faster on top: x{@value #JETRAY_STREAMLINE_MULT}.
 	 */
 	public static final double JETRAY_CRUISE_BPS = 25.0, JETRAY_SPRINT_BPS = 45.0;
-	public static final double JETRAY_STREAMLINE_MULT = 1.2;
+	public static final double JETRAY_STREAMLINE_MULT = 2.0; // v0.17.2 (user: "make streamline double the flight speed")
 
-	/** v0.17.2: Jetray's flight -- 25 b/s cruising, 45 sprinting, both x1.2 with Streamline on. */
+	/** v0.17.2: Jetray's flight -- 25 b/s cruising, 45 sprinting, both doubled with Streamline on (50 / 90). */
 	public static Tune jetray(float flyingSpeed, boolean sprint, boolean streamline) {
 		double k = streamline ? JETRAY_STREAMLINE_MULT : 1.0;
 		return cruise(flyingSpeed, sprint, JETRAY_CRUISE_BPS * k, JETRAY_SPRINT_BPS * k);

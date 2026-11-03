@@ -232,7 +232,7 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		double stream = settled(com.projecthero.mod.flight.DirectionalFlightModel.jetray(JetrayKit.STREAM_FLY_SPEED, false, true));
 		near(helper, (float) cruise, 1.25f, "cruise 25 blocks a second");
 		near(helper, (float) sprint, 2.25f, "sprint 45 blocks a second");
-		near(helper, (float) stream, 1.5f, "Streamline x1.2");
+		near(helper, (float) stream, 2.5f, "Streamline doubles it");
 		// and the kit feeds it: X takes off with the wings and the synced flag the client's flight reads
 		floor(helper);
 		ServerPlayer p = jetray(helper);

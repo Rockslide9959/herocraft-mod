@@ -185,7 +185,7 @@ public final class DirectionalFlight {
 				}
 				case "jetray" -> {
 					// v0.17.2 (user: "give jetray the directional flight ... 25 blocks per second cruise and 45 blocks per second
-					// sprinting"): Streamline x1.2 on top
+					// sprinting"): Streamline doubles it
 					return DirectionalFlightModel.jetray(flyingSpeed, sprint,
 							com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.streamlined(player));
 				}
