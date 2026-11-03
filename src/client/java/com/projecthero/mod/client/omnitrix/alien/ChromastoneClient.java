@@ -144,12 +144,14 @@ public final class ChromastoneClient implements AlienClientKit {
 		com.projecthero.mod.client.omnitrix.AlienParts.on(pose, model.body, () -> {
 			for (int side = -1; side <= 1; side += 2) {
 				pose.pushPose();
-				pose.translate(side * 2.6f / 16f, 1.0f / 16f, -2.3f / 16f);
-				AlienHorns.spike(pose, vc, light, 4.6f, 1.8f, 58f, side * 14f, PINK_DARK, PINK, PINK_LIGHT);
+				// the chest crystals: short (2 px), straight out the front, a touch out to the side
+				pose.translate(side * 2.4f / 16f, 1.6f / 16f, -2.2f / 16f);
+				AlienHorns.spikeAlong(pose, vc, light, 2.2f, 1.3f, side * 0.25f, 0f, -1f, PINK_DARK, PINK, PINK_LIGHT);
 				pose.popPose();
 				pose.pushPose();
-				pose.translate(side * 2.2f / 16f, 2.6f / 16f, 1.6f / 16f);
-				AlienHorns.spike(pose, vc, light, 3.8f, 1.6f, -50f, side * 26f, PINK_DARK, PINK, PINK_LIGHT);
+				// the back crystals: thin and long, straight out behind like Diamondhead's, angled a little up and out
+				pose.translate(side * 2.0f / 16f, 2.4f / 16f, 1.9f / 16f);
+				AlienHorns.spikeAlong(pose, vc, light, 5.5f, 1.1f, side * 0.35f, -0.3f, 1f, PINK_DARK, PINK, PINK_LIGHT);
 				pose.popPose();
 			}
 		});
