@@ -145,20 +145,21 @@ public final class DiamondheadKit extends AlienKit {
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	// v0.17.2 (user: "make fourarms and diamondhead a bit stronger"): about a fifth up across the kit
-	public static final float SHARD_DAMAGE = 5f;
-	public static final float SPEAR_DAMAGE = 21f; // v0.17.2: was 12, then 18
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every number below about x1.6 (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float SHARD_DAMAGE = 9f;
+	public static final float SPEAR_DAMAGE = 30f; // v0.17.2: was 12, then 18, then 21
 	/** v0.17.2: the Diamond Barrage's falling shards (was SHARD_DAMAGE, 3): about 26 a target over its 2 s. */
-	public static final float BARRAGE_SHARD_DAMAGE = 5f;
+	public static final float BARRAGE_SHARD_DAMAGE = 8f;
 	/** Combat Mode's melee bonus (the old Blade Arm's), reach and swing speed (+50% of the base). */
-	public static final double BLADE_BONUS = 6.0;
+	public static final double BLADE_BONUS = 4.0; // v0.17.2 (user: melee bonuses -- "+8 and +4 more when his crystal blades are out"): +12 in all with the blades
 	public static final double BLADE_REACH = 1.0;
 	public static final double BLADE_SPEED = 0.5;
 	/** The Shatter Line (the old Spike Line, now Combat Mode's Z). */
-	public static final float SPIKE_DAMAGE = 19f; // v0.17.2: was 6, then 16
+	public static final float SPIKE_DAMAGE = 30f; // v0.17.2: was 6, then 16, then 19
 	public static final int SPIKE_LENGTH = 12;
 	public static final int SHATTER_COOLDOWN = 160;
 	/** v0.17.2: the Crystal Eruption -- damage (a Z "stronger move", on par with the elemental powers'), reach and cooldown. */
-	public static final float ERUPT_DAMAGE = 14f;
+	public static final float ERUPT_DAMAGE = 24f;
 	public static final double ERUPT_RADIUS = 6.0;
 	/** The eruption's rings, one a tick, from {@link #ERUPT_INNER} out to {@link #ERUPT_RADIUS}. */
 	public static final int ERUPT_RINGS = 5;
@@ -174,11 +175,11 @@ public final class DiamondheadKit extends AlienKit {
 	/** v0.17.2: C -- the Crystal Prison: reach, how long it holds (a boss a third of it), the shatter's damage and the cooldown. */
 	public static final double PRISON_RANGE = 16.0;
 	public static final int PRISON_TICKS = 60;
-	public static final float PRISON_DAMAGE = 17f;
+	public static final float PRISON_DAMAGE = 27f;
 	public static final int PRISON_COOLDOWN = 240;
 	/** v0.17.2: Shift+C -- the Prism Beam: reach, damage, the open-daylight bonus and the cooldown. */
 	public static final double PILLAR_RANGE = 22.0;
-	public static final float PILLAR_DAMAGE = 17f;
+	public static final float PILLAR_DAMAGE = 28f;
 	public static final int PILLAR_COOLDOWN = 140;
 	/** Shift+V looking this far up builds the dome, this far down the bridge (degrees of pitch). */
 	public static final float CONSTRUCT_PITCH = 30f;
@@ -187,7 +188,9 @@ public final class DiamondheadKit extends AlienKit {
 	/** The passive: the share of incoming projectiles that glance back. */
 	public static final float REFLECT_CHANCE = 0.4f;
 	/** The passive: what a melee attacker takes from his sharp crystal. */
-	public static final float CUT_DAMAGE = 2f;
+	public static final float CUT_DAMAGE = 4f;
+	/** Combat Mode: what the blades' slash does to those beside the target. */
+	public static final float BLADE_SWEEP_DAMAGE = 7f;
 
 	/** The Crystal Shield: what it soaks before it shatters, how long it takes to regrow after, and its regrowth while lowered. */
 	public static final float SHIELD_HP = 40f;
@@ -200,7 +203,7 @@ public final class DiamondheadKit extends AlienKit {
 	 * v0.17.2 (user): the Shield Bash -- running into a foe behind the raised shield: the damage, how fast he must be going (blocks a
 	 * tick, toward where he faces), and how soon the same foe can be bashed again.
 	 */
-	public static final float BASH_DAMAGE = 12f;
+	public static final float BASH_DAMAGE = 20f;
 	public static final double BASH_MIN_SPEED = 0.12;
 	public static final int BASH_REHIT_TICKS = 20;
 	/** The shield stays up this long after the last right-click use arrives (vanilla repeats uses while the button is held). */
@@ -208,7 +211,7 @@ public final class DiamondheadKit extends AlienKit {
 	/** v0.17.2 (user): G -- the Crystal Tether. */
 	public static final String TETHER = "crystal_tether";
 	public static final double TETHER_RANGE = 22.0;
-	public static final float TETHER_DAMAGE = 7f;
+	public static final float TETHER_DAMAGE = 11f;
 	public static final int TETHER_COOLDOWN = 80;
 	/** v0.17.2 (user): Shift+G -- the Crystal Bridge. */
 	public static final String BRIDGE = "crystal_bridge";
@@ -216,8 +219,8 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int BRIDGE_TICKS = 400;
 	public static final int BRIDGE_COOLDOWN = 300;
 	/** Combat Mode R: the Blade Flurry -- two slashes then the stab, each within {@link #FLURRY_WINDOW} of the last. */
-	public static final float FLURRY_SLASH_DAMAGE = 10f;
-	public static final float FLURRY_STAB_DAMAGE = 17f;
+	public static final float FLURRY_SLASH_DAMAGE = 12f;
+	public static final float FLURRY_STAB_DAMAGE = 27f;
 	public static final int FLURRY_WINDOW = 30;
 	public static final int FLURRY_GAP = 5;
 	/** After the stab. */
@@ -225,7 +228,7 @@ public final class DiamondheadKit extends AlienKit {
 	public static final double FLURRY_REACH = 4.0;
 	public static final double STAB_REACH = 5.5;
 	/** Combat Mode Shift+R: the Crystal Cyclone. */
-	public static final float CYCLONE_DAMAGE = 14f;
+	public static final float CYCLONE_DAMAGE = 24f;
 	public static final double CYCLONE_RADIUS = 4.0;
 	public static final int CYCLONE_COOLDOWN = 140;
 	public static final int CYCLONE_SLOW_TICKS = 60;
@@ -362,7 +365,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final float[] TITAN_SIZE = { 1.05f, 1.05f, 1.45f };
 	private static final double[][] TITAN_HOVER = { { 2.0, 2.3, 0.2 }, { -2.0, 2.3, 0.2 }, { 0.0, 3.9, -0.7 } };
 	// v0.17.2 (user: "Make each titan crystal deal 40 damage"): 40 to what each shard strikes
-	public static final float TITAN_DAMAGE = 40f, TITAN_SPLASH = 10f, TITAN_SPLASH_RADIUS = 3.5f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 40 / 10 -> 70 / 16
+	public static final float TITAN_DAMAGE = 70f, TITAN_SPLASH = 16f, TITAN_SPLASH_RADIUS = 3.5f;
 	public static final double TITAN_SPEED = 1.9, TITAN_RANGE = 40;
 	private static final ResourceLocation TITAN_SLOW_ID = PowerToggles.id("omnitrix_diamondhead_titan_slow");
 
@@ -427,7 +431,8 @@ public final class DiamondheadKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "diamondheads armour diamond level"): a full diamond set, 20 armour and 8 toughness (was 12 / 4)
-		return AlienStats.builder().health(34f).speed(0.88f).scale(1.1f).armor(20f, 8f).knockbackResist(0.5f).attack(4f).step(0.6f).safeFall(3f).build();
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(34f).speed(0.88f).scale(1.1f).armor(20f, 8f).knockbackResist(0.5f).attack(8f).step(0.6f).safeFall(3f).build();
 	}
 
 	@Override
@@ -1757,7 +1762,7 @@ public final class DiamondheadKit extends AlienKit {
 			for (LivingEntity e : around(p, le.position(), 2.5)) {
 				if (e != le) {
 					e.invulnerableTime = 0;
-					hurt(p, e, 4f, false);
+					hurt(p, e, BLADE_SWEEP_DAMAGE, false);
 				}
 			}
 			l.sendParticles(ParticleTypes.SWEEP_ATTACK, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(), 1, 0, 0, 0, 0);

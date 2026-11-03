@@ -852,7 +852,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 0.6 - 1.0e-6, "hard to knock back");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 8 - 1.0e-6, "heavy armour");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 0.1 * 0.9, "slower than a player");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 7 - 1.0e-6, "the fist hits for 7");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 11 - 1.0e-6, "the fist hits for 11 (+10)");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getScale() - 1f) < 0.01f && Math.abs(p.getMaxHealth() - 20f) < 0.01f, "the body comes off with the transformation");
 		helper.succeed();
@@ -1007,7 +1007,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1.0e-6, "the zombie's blow cannot shift him");
 		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		helper.assertTrue(kit.rampage(p) && kit.flag(p, FourArmsKit.F_RAMPAGE), "Rampage");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + FourArmsKit.RAMPAGE_BONUS)) < 1.0e-4, "punches hit 4 harder");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + FourArmsKit.RAMPAGE_BONUS)) < 1.0e-4, "punches hit 6 harder");
 		helper.assertFalse(kit.onAttack(p, z), "the punch goes through (and quakes)");
 		helper.assertTrue(kit.punchIndex(p) == 1, "the next punch is the next fist");
 		kit.onAttack(p, z);

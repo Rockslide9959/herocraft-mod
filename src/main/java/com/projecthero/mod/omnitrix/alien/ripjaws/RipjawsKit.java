@@ -196,9 +196,10 @@ public final class RipjawsKit extends AlienKit {
 	public static final int FRENZY_TICKS = 200;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7 / 10
 	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36 (the bite is quick: 12 -> 8)
-	public static final float BITE_DAMAGE = 8f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every damage number in the kit about x1.6, the bites hardest (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float BITE_DAMAGE = 12f;
 	public static final float BITE_REACH = 3.5f;
-	public static final float LUNGE_DAMAGE = 16f;
+	public static final float LUNGE_DAMAGE = 26f;
 	/** v0.17.2 Steel Jaws: the share of a target's armour every bite ignores (Megamouth ignores all of it). */
 	public static final float STEEL_JAWS = 0.5f;
 	/** v0.17.2 Steel Jaws: what R's bite takes off each armour piece the target wears. */
@@ -206,41 +207,41 @@ public final class RipjawsKit extends AlienKit {
 	public static final float WHIRL_RADIUS = 6f;
 	public static final int WHIRL_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
-	public static final float WHIRL_DAMAGE = 2f;
-	public static final float WET_FIST = 3f;
+	public static final float WHIRL_DAMAGE = 7f;
+	public static final float WET_FIST = 5f;
 
 	// v0.17.2 revamp (user: "keep drag under the same"): G Drag Under -- reach 4, a 3 s hold (players too), a boss 1 s
 	public static final float DRAG_REACH = 4f;
 	public static final int DRAG_TICKS = 60;
 	public static final int DRAG_BOSS_TICKS = 20;
 	/** In water: a bite every second while towed (3 x 3 = 9), its air drained as it goes. */
-	public static final float DRAG_WATER_DAMAGE = 3f;
+	public static final float DRAG_WATER_DAMAGE = 7f;
 	public static final int DRAG_WATER_EVERY = 20;
 	public static final int DRAG_AIR_DRAIN = 5;
 	/** On land: thrashed side to side three times (3 x 4 = 12), then flung about 6 blocks. */
-	public static final float DRAG_THRASH_DAMAGE = 4f;
+	public static final float DRAG_THRASH_DAMAGE = 8f;
 	public static final int DRAG_THRASH_EVERY = 15;
 	public static final double DRAG_FLING = 1.6;
 	// v0.17.2 revamp: Shift+G Tail Sweep (Tail Slam and Fin Slash merged) -- 270 degrees round him, the front quarter spared
 	public static final float SWEEP_RADIUS = 3.5f;
-	public static final float SWEEP_WATER_DAMAGE = 12f;
-	public static final float SWEEP_LAND_DAMAGE = 10f;
+	public static final float SWEEP_WATER_DAMAGE = 24f;
+	public static final float SWEEP_LAND_DAMAGE = 20f;
 	public static final int SWEEP_SLOW_TICKS = 40;
 	// v0.17.2 revamp: Shift+X's follow-up, the Dive Strike
-	public static final float DIVE_DAMAGE = 14f;
+	public static final float DIVE_DAMAGE = 24f;
 	public static final float DIVE_RADIUS = 2.5f;
 	/** How far down he must look (degrees of pitch) for X to dive. */
 	public static final float DIVE_PITCH = 35f;
 	public static final int BREACH_WINDOW = 80;
 	// v0.17.2 revamp: Z on land -- Gnash (replaces Mud Splash): 5 bites in 1 s in a short cone
-	public static final float GNASH_DAMAGE = 4f;
+	public static final float GNASH_DAMAGE = 7f;
 	public static final int GNASH_BITES = 5;
 	public static final int GNASH_EVERY = 4;
 	public static final float GNASH_RANGE = 3.5f;
 	// v0.17.2 revamp (user: "Drop tidal roar"): Shift+Z Megamouth, his ultimate
 	public static final int MEGA_WINDUP = 15;
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 55 (x1.25 in water, ~69)
-	public static final float MEGA_DAMAGE = 55f;
+	public static final float MEGA_DAMAGE = 88f; // v0.17.2 damage pass: 55 -> 88 (x1.25 in water, 110)
 	public static final float MEGA_RANGE = 4f;
 	public static final float MEGA_PULL = 6f;
 	public static final float MEGA_HEAL_SHARE = 0.25f;
@@ -297,7 +298,8 @@ public final class RipjawsKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): scales, 10
-		return AlienStats.builder().health(30f).speed(0.9f).scale(1.05f).armor(10f, 1f).attack(3f).knockbackResist(0.2f).build();
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(30f).speed(0.9f).scale(1.05f).armor(10f, 1f).attack(5f).knockbackResist(0.2f).build();
 	}
 
 	@Override

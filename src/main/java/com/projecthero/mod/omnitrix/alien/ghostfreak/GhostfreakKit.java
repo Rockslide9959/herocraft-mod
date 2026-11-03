@@ -169,50 +169,51 @@ public final class GhostfreakKit extends AlienKit {
 
 	/** The claw combo: two swipes of {@link #CLAW_DAMAGE}, then the Reaping Rake. A press within {@link #COMBO_WINDOW} carries it on. */
 	// v0.17.2 (user: "why is ghost freaks damage so high? lower the damage of his R move"): 10 / 18 -> 5 / 9
-	public static final float CLAW_DAMAGE = 5f;
-	public static final float RAKE_DAMAGE = 9f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): about x1.6, kept at the low end of each band (he must not be overpowered); old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md
+	public static final float CLAW_DAMAGE = 8f;
+	public static final float RAKE_DAMAGE = 14f;
 	public static final int CLAW_GAP = 8;
 	public static final int RAKE_COOLDOWN = 40;
 	public static final int COMBO_WINDOW = 30;
-	public static final float SCREAM_DAMAGE = 8f;
+	public static final float SCREAM_DAMAGE = 13f;
 	public static final int FEAR_TICKS = 100;
 	/** Possess: up to 15 s inside a mob, 10 s inside a player, 3 s before a boss throws him out; the cooldown starts when he leaves. */
 	public static final int POSSESS_TICKS = 300;
 	public static final int POSSESS_PLAYER_TICKS = 200;
 	public static final int POSSESS_BOSS_TICKS = 60;
 	public static final int POSSESS_COOLDOWN = 300;
-	public static final float BURST_DAMAGE = 14f;
-	public static final float BURST_SPLASH = 6f;
+	public static final float BURST_DAMAGE = 22f;
+	public static final float BURST_SPLASH = 10f;
 	/** A possessed host's blows: +50% of its own damage, one every {@link #HOST_ATTACK_GAP} ticks. */
 	public static final float HOST_DAMAGE_FACTOR = 1.5f;
 	public static final int HOST_ATTACK_GAP = 10;
 	/** Phantom Grasp: {@link #GRASP_DAMAGE} straight through armour, then slowness and mining fatigue for {@link #GRASP_TICKS}. */
-	public static final float GRASP_DAMAGE = 12f;
+	public static final float GRASP_DAMAGE = 20f;
 	public static final double GRASP_RANGE = 5;
 	public static final int GRASP_TICKS = 40;
 	public static final int GRASP_COOLDOWN = 200;
 	/** Phase: how long it can last, and the cooldown that starts when it ends. */
 	public static final int PHASE_TICKS = 100;
 	public static final int PHASE_COOLDOWN = 200;
-	public static final float PHASE_CHILL = 4f;
+	public static final float PHASE_CHILL = 6f;
 	/** Ecto Rush: {@link #RUSH_TICKS} of {@link #RUSH_SPEED} blocks a tick (about 11 blocks), through walls and bodies. */
 	public static final int RUSH_TICKS = 6;
 	public static final double RUSH_SPEED = 1.8;
-	public static final float RUSH_DAMAGE = 10f;
+	public static final float RUSH_DAMAGE = 16f;
 	public static final int RUSH_COOLDOWN = 120;
 	public static final int FADE_TICKS = 200;
 	public static final int FADE_COOLDOWN = 400;
-	public static final float AMBUSH_DAMAGE = 10f;
+	public static final float AMBUSH_DAMAGE = 16f;
 	/** Chest Tentacles: up to {@link #TENTACLE_MAX} grabbed within {@link #TENTACLE_RANGE}, held {@link #TENTACLE_TICKS}. */
 	public static final int TENTACLE_MAX = 3;
 	public static final double TENTACLE_RANGE = 8;
 	public static final int TENTACLE_TICKS = 40;
-	public static final float TENTACLE_HIT = 6f;
-	public static final float TENTACLE_TICK = 3f;
+	public static final float TENTACLE_HIT = 10f;
+	public static final float TENTACLE_TICK = 7f;
 	public static final int TENTACLE_COOLDOWN = 220;
 	/** Tendril Snatch: one creature up to {@link #SNATCH_RANGE} away, {@link #SNATCH_DAMAGE}, yanked in and held {@link #SNATCH_TICKS}. */
 	public static final double SNATCH_RANGE = 16;
-	public static final float SNATCH_DAMAGE = 6f;
+	public static final float SNATCH_DAMAGE = 10f;
 	public static final int SNATCH_TICKS = 20;
 	public static final int SNATCH_COOLDOWN = 160;
 	/**
@@ -224,10 +225,11 @@ public final class GhostfreakKit extends AlienKit {
 	public static final int TRUE_TICKS = 400;
 	public static final int TRUE_COOLDOWN = 900;
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the terror burst 45
-	public static final float TRUE_BURST = 45f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 45 -> 72
+	public static final float TRUE_BURST = 72f;
 	public static final double TRUE_RADIUS = 10;
 	public static final int TRUE_FEAR = 80;
-	public static final float LASH_DAMAGE = 4f;
+	public static final float LASH_DAMAGE = 7f;
 	public static final double LASH_RANGE = 6;
 	public static final int LASH_MAX = 3;
 	public static final float TRUE_CLAW_FACTOR = 1.3f;
@@ -245,9 +247,9 @@ public final class GhostfreakKit extends AlienKit {
 	public static final int DARK_LIGHT = 4;
 	public static final float DARK_DAMAGE_FACTOR = 1.2f;
 	public static final int AURA_TICKS = 200;
-	public static final float AURA_DREAD = 2f;
+	public static final float AURA_DREAD = 3f;
 	public static final float TOUCH_DAMAGE = 2f;
-	public static final float BOLT_DAMAGE = 5f;
+	public static final float BOLT_DAMAGE = 8f;
 	public static final float PHYSICAL_FACTOR = 0.5f;
 	public static final float SUN_DAMAGE = 1f;
 	public static final float FLY_SPEED = 0.035f;
@@ -365,7 +367,8 @@ public final class GhostfreakKit extends AlienKit {
 	public AlienStats stats() {
 		// v0.17.2 revamp: was 24 health, +2 fist
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): 4 (blows already do half)
-		return AlienStats.builder().health(26f).speed(1.0f).armor(4f, 0f).attack(3f).safeFall(30f).build();
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(26f).speed(1.0f).armor(4f, 0f).attack(5f).safeFall(30f).build();
 	}
 
 	@Override

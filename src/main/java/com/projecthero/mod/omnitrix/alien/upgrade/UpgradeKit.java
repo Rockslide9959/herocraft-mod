@@ -161,10 +161,11 @@ public final class UpgradeKit extends AlienKit {
 	public static final String GEYSER = "geyser";
 
 	// v0.17.2 revamp (user: "Yes, build them"): the new moves' numbers
-	public static final float FIST_DAMAGE = 10f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every damage number in the kit about x1.6, his tech blasts the stars (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float FIST_DAMAGE = 20f;
 	public static final double FIST_RANGE = 8, FIST_KNOCKBACK = 1.5;
 	public static final int FIST_COOLDOWN = 100;
-	public static final float GEYSER_DAMAGE = 8f;
+	public static final float GEYSER_DAMAGE = 20f;
 	public static final double GEYSER_REACH = 2.5;
 	public static final int GEYSER_COOLDOWN = 80;
 	public static final double TAKEOVER_RANGE = 16;
@@ -173,7 +174,7 @@ public final class UpgradeKit extends AlienKit {
 	public static final int OVERLOAD_SLOW_TICKS = 100;
 	/** Ally Upgrade: +8 armour, +2 toughness for the one he merges onto; their hits fire his Optic Beam (6) every 2 s. */
 	public static final double ALLY_ARMOR = 8, ALLY_TOUGHNESS = 2;
-	public static final float ALLY_BEAM_DAMAGE = 6f;
+	public static final float ALLY_BEAM_DAMAGE = 10f;
 	public static final int ALLY_BEAM_EVERY = 40;
 	/** Electric Shock: lightning / electric damage x1.5; a hit while merged throws him out, stunned this long. */
 	public static final float SHOCK_MULT = 1.5f;
@@ -187,19 +188,19 @@ public final class UpgradeKit extends AlienKit {
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
 	// v0.17.2 (user: "adjust the other combat aliens damage ... to try and match this"): a 1 s move does 8, like the other quick moves
-	public static final float BEAM_DAMAGE = 8f;
+	public static final float BEAM_DAMAGE = 12f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 14
-	public static final float CHARGED_DAMAGE = 18f;
+	public static final float CHARGED_DAMAGE = 30f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 5
-	public static final float CHARGED_BURST = 6f;
+	public static final float CHARGED_BURST = 10f;
 	public static final int CHARGE_TICKS = 20;
 	public static final int STUN_TICKS = 60;
 	/** v0.17.2 revamp: Liquid Engulf reaches 8 blocks (Tech Grab reached 5). */
 	public static final double ENGULF_RANGE = 8;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float GRAB_DAMAGE = 6f;
+	public static final float GRAB_DAMAGE = 10f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
-	public static final float LASH_DAMAGE = 8f;
+	public static final float LASH_DAMAGE = 12f;
 	/**
 	 * v0.17.2 (user: "swap out upgrade liquid slide ability for him morphing into a liquid on the floor"): the Liquid Form,
 	 * a 0.25-of-a-player puddle (0.45 tall: under half-block gaps), with no time limit.
@@ -208,7 +209,7 @@ public final class UpgradeKit extends AlienKit {
 	public static final double SLIDE_SPEED = 0.8;
 	public static final int OVERLOAD_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3, golems 6
-	public static final float OVERLOAD_DAMAGE = 8f;
+	public static final float OVERLOAD_DAMAGE = 20f;
 	public static final float OVERLOAD_GOLEM_DAMAGE = OVERLOAD_DAMAGE * 2f;
 	/**
 	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): EMP Burst is his
@@ -216,12 +217,15 @@ public final class UpgradeKit extends AlienKit {
 	 * {@link #EMP_RADIUS} (golems twice that), cooldown 30 s.
 	 */
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): 60 falling to 40
-	public static final float EMP_CENTER = 60f, EMP_EDGE = 40f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 60 / 40 -> 100 / 70
+	public static final float EMP_CENTER = 100f, EMP_EDGE = 70f;
 	public static final double EMP_RADIUS = 8;
 	public static final int EMP_COOLDOWN = 600;
 	public static final int MERGE_TICKS = 400;
 	public static final int MERGE_COOLDOWN = 300;
 	public static final float JOLT_DAMAGE = 2f;
+	/** A supercharged piston's punch (merged into one). */
+	public static final float PISTON_DAMAGE = 8f;
 
 	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
 	/** The optic beam: a digital zap, electric crackle, a relay click. */
@@ -377,7 +381,8 @@ public final class UpgradeKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): living metal, 10
-		return AlienStats.builder().health(28f).speed(1.05f).armor(10f, 0f).knockbackResist(0.2f).attack(3f).step(0.6f).safeFall(8f).build();
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(28f).speed(1.05f).armor(10f, 0f).knockbackResist(0.2f).attack(5f).step(0.6f).safeFall(8f).build();
 	}
 
 	@Override
@@ -991,7 +996,7 @@ public final class UpgradeKit extends AlienKit {
 		return EMP_CENTER + (EMP_EDGE - EMP_CENTER) * f;
 	}
 
-	/** Shift+Z (v0.17.2: his ultimate): everything within 8 shorts out, 26 at the centre to 16 at the edge (golems twice that). */
+	/** Shift+Z (v0.17.2: his ultimate): everything within 8 shorts out, {@link #EMP_CENTER} at the centre to {@link #EMP_EDGE} at the edge (machines too). */
 	public boolean empBurst(ServerPlayer p) {
 		if (!use(p, EMP)) {
 			return false;
@@ -1003,7 +1008,10 @@ public final class UpgradeKit extends AlienKit {
 			if (UpgradeTakeover.controlledBy(e, p)) {
 				continue; // his own machines ride it out
 			}
-			shortOut(p, e, machine(e) ? 120 : 60, empDamage(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(c)));
+			// v0.17.2 damage pass (100 / 70): machines take the same as everything else here (shortOut doubles a machine's, so half
+			// goes in) -- doubled, 140-200 would wreck every iron golem it is meant to leave standing and take over
+			float emp = empDamage(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(c));
+			shortOut(p, e, machine(e) ? 120 : 60, machine(e) ? emp / 2f : emp);
 			// v0.17.2 revamp: a machine left standing is his for 10 s (no cap; a boss is only shorted out)
 			if (e.isAlive() && e instanceof Mob mob && UpgradeTakeover.mechanical(e) && !boss(p, e, 0f)) {
 				UpgradeTakeover.take(p, mob, UpgradeTakeover.EMP_TICKS, false);
@@ -1336,7 +1344,7 @@ public final class UpgradeKit extends AlienKit {
 		AABB box = new AABB(pos.relative(facing)).expandTowards(dir.scale(5)).inflate(0.4);
 		for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, box, e -> e != p && e.isAlive())) {
 			e.invulnerableTime = 0;
-			hurt(p, e, 4f, false);
+			hurt(p, e, PISTON_DAMAGE, false);
 			double res = 1.0 - Math.min(1.0, e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
 			e.push(dir.x * 2.2 * res, 0.35 + dir.y * 2.2 * res, dir.z * 2.2 * res);
 			e.hurtMarked = true;
@@ -1603,7 +1611,7 @@ public final class UpgradeKit extends AlienKit {
 	public static final int F_OVERCLOCK = 8;
 	public static final int OVERCLOCK_TICKS = 300;
 	public static final double OVERCLOCK_MINING = 1.0;
-	public static final double OVERCLOCK_DAMAGE = 4.0;
+	public static final double OVERCLOCK_DAMAGE = 6.0; // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): was 4
 	private static final net.minecraft.resources.ResourceLocation OC_MINE = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_mine");
 	private static final net.minecraft.resources.ResourceLocation OC_HIT = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_hit");
 

@@ -430,7 +430,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		p.hurt(helper.getLevel().damageSources().drown(), 4f);
 		near(helper, p.getHealth(), hp, "he breathes water: no drowning");
 		near(helper, kit.damage(p, 10f), 10f, "on land a move does its base damage");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1 + 3 + RipjawsKit.WET_FIST - 0.5, "no wet-fist bonus on land");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1 + 5 + RipjawsKit.WET_FIST - 0.5, "no wet-fist bonus on land");
 		// two minutes on land, then he chokes
 		kit.setDryness(p, RipjawsKit.MAX_DRY - 1, false, false);
 		pump(helper, p);
@@ -450,7 +450,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				helper.assertFalse(kit.flag(p, RipjawsKit.F_CHOKING), "no longer choking");
 				near(helper, kit.damage(p, 10f), 10f * RipjawsKit.WATER_BONUS, "x1.25 damage in water");
 				helper.assertFalse(p.hasEffect(MobEffects.WEAKNESS), "getting wet clears the choking's weakness");
-				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1 + 3 + RipjawsKit.WET_FIST - 1.0e-6, "and a heavier fist");
+				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1 + 5 + RipjawsKit.WET_FIST - 1.0e-6, "and a heavier fist");
 				helper.assertTrue(p.hasEffect(MobEffects.DOLPHINS_GRACE) && p.hasEffect(MobEffects.CONDUIT_POWER), "fast and clear-eyed in water");
 				// turning back strips the water buffs
 				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
@@ -881,14 +881,17 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		g.moveTo(at.x, at.y, at.z, 180f, 0f);
 		g.setNoAi(true);
 		g.setPersistenceRequired();
+		// v0.17.2 damage pass: six pulses of ~18 (109) would finish a plain 100-health golem -- a tougher one (still under a boss's 150) shows the full rewire
+		g.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(140.0);
+		g.setHealth(140f);
 		helper.getLevel().addFreshEntity(g);
-		helper.assertTrue(GreyMatterKit.machine(g) && GreyMatterKit.insidePulse(g) == GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR, "a golem is a machine: 9 a pulse");
+		helper.assertTrue(GreyMatterKit.machine(g) && GreyMatterKit.insidePulse(g) == GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR, "a golem is a machine: ~18 a pulse");
 		float g0 = g.getHealth();
 		helper.assertTrue(kit.insideJob(p) && p.getVehicle() == g, "inside the golem");
 		pump(helper, p);
 		helper.runAfterDelay(GreyMatterKit.INSIDE_TICKS + 8, () -> {
 			helper.assertTrue(p.getVehicle() == null && !GreyMatterKit.inside(p), "out of the golem");
-			helper.assertTrue(Math.abs(g.getHealth() - (g0 - 6 * GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR)) < 1.5f, "rewired for 54: " + g.getHealth());
+			helper.assertTrue(Math.abs(g.getHealth() - (g0 - 6 * GreyMatterKit.INSIDE_DAMAGE * GreyMatterKit.MACHINE_FACTOR)) < 1.5f, "rewired for ~109: " + g.getHealth());
 			helper.assertTrue(rooted(g), "shut down");
 			g.discard();
 			// a creature that dies while he is in it: out where it fell

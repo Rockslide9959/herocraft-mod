@@ -197,7 +197,8 @@ public final class WildmuttKit extends AlienKit {
 	// ---------------------------------------------------------------- numbers
 	public static final float HEALTH = 34f;
 	public static final float SPEED = 1.35f;
-	public static final float ATTACK = 4f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every damage number below about x1.6 (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md); his pounces hit hardest
+	public static final float ATTACK = 6f;
 	/** v0.17.1 rework 2: the slim, leggy body -- 1.48 blocks at the shoulders, the head's top level with them. */
 	public static final float BODY_WIDTH = 0.9f, BODY_HEIGHT = 1.55f, EYE_HEIGHT = 1.25f;
 	public static final float CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.05f;
@@ -205,21 +206,21 @@ public final class WildmuttKit extends AlienKit {
 	public static final double POUNCE_RANGE = 12.0;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 9
 	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36
-	public static final float POUNCE_DAMAGE = 14f;
+	public static final float POUNCE_DAMAGE = 26f;
 	public static final int POUNCE_TICKS = 16;
 	public static final int PIN_TICKS = 25;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3.5 / 6 (16.5 in
 	// all) -- scaled to 3 x 3.8 + 6.6 = 18
-	public static final float MAUL_RAKE = 3.8f, MAUL_SLAM = 6.6f;
+	public static final float MAUL_RAKE = 7f, MAUL_SLAM = 12f; // v0.17.2 damage pass: 3 x 7 + 12 = 33
 	public static final int[] MAUL_HITS = { 4, 7, 10, 16 };
 	public static final double MAUL_RANGE = 3.4;
 	public static final int QUILL_COUNT = 7;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3.5 (7 quills = 21)
-	public static final float QUILL_DAMAGE = 3f;
+	public static final float QUILL_DAMAGE = 6f;
 	public static final int QUILL_DELAY = 9;
 	public static final double ROAR_RANGE = 9.0;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float ROAR_DAMAGE = 8f;
+	public static final float ROAR_DAMAGE = 13f;
 	public static final int ROAR_DELAY = 6;
 	public static final int ROAR_EFFECT_TICKS = 70;
 	public static final int COIL_MAX = 30;
@@ -229,12 +230,12 @@ public final class WildmuttKit extends AlienKit {
 	 * edge, a shove and Slowness II for 2 s. A full coil on the flat is the old Ground Slam (r 4.5, 16 / ~10).
 	 */
 	public static final float SLAM_RADIUS = 3f, SLAM_RADIUS_COIL = 1.5f, SLAM_RADIUS_FALL = 1.5f;
-	public static final float SLAM_NEAR = 10f, SLAM_NEAR_COIL = 6f, SLAM_NEAR_FALL = 6f, SLAM_EDGE = 0.6f;
+	public static final float SLAM_NEAR = 16f, SLAM_NEAR_COIL = 10f, SLAM_NEAR_FALL = 10f, SLAM_EDGE = 0.6f; // v0.17.2 damage pass: 16-26 (+10 fall)
 	public static final int SLAM_SLOW_TICKS = 40;
 	/** v0.17.2 revamp, Z: Ricochet Hunt -- first prey within 10, each next within 8 of the last, up to 4 hits of 8, a hop every 6 ticks. */
 	public static final double HUNT_RANGE = 10.0, HUNT_HOP = 8.0;
 	public static final int HUNT_HITS_MAX = 4, HUNT_HOP_TICKS = 6;
-	public static final float HUNT_DAMAGE = 9f;
+	public static final float HUNT_DAMAGE = 14f;
 	/** v0.17.2 revamp, Shift+G: the roar's sound ping -- everything within 24 is outlined for him and his squad for 6 s. */
 	public static final double PING_RANGE = 24.0;
 	public static final int PING_TICKS = 120;
@@ -242,7 +243,7 @@ public final class WildmuttKit extends AlienKit {
 	public static final double WALL_KICK_SPEED = 0.8, WALL_KICK_UP = 0.5;
 	/** v0.17.2 revamp: every 3rd claw hit is a Bite: +3 and Slowness I for 1.5 s. */
 	public static final int BITE_EVERY = 3, BITE_SLOW_TICKS = 30;
-	public static final float BITE_BONUS = 3f;
+	public static final float BITE_BONUS = 5f;
 	/** v0.17.2 revamp: Predator's Appetite -- a kill gives back 2 hunger and a heart, at most once every 5 s. */
 	public static final int APPETITE_FOOD = 2, APPETITE_COOLDOWN = 100;
 	public static final float APPETITE_HEAL = 2f;
@@ -256,12 +257,12 @@ public final class WildmuttKit extends AlienKit {
 	public static final int ROLL_TICKS = 30;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Quill Roll is his
 	// ultimate -- was 5 a creature, no burst
-	public static final float ROLL_DAMAGE = 12f, ROLL_FACTOR = 0.6f;
+	public static final float ROLL_DAMAGE = 19f, ROLL_FACTOR = 0.6f;
 	/** v0.17.2: the quill burst when the roll ends -- this much to everything within {@link #ROLL_BURST_RADIUS}. */
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the closing burst 45
-	public static final float ROLL_BURST_DAMAGE = 45f, ROLL_BURST_RADIUS = 4f;
+	public static final float ROLL_BURST_DAMAGE = 78f, ROLL_BURST_RADIUS = 4f; // v0.17.2 damage pass: 45 -> 78
 	public static final int FRENZY_TICKS = 160;
-	public static final float FRENZY_SPEED = 0.25f, FRENZY_CLAWS = 4f, FRENZY_HEAL = 1.5f;
+	public static final float FRENZY_SPEED = 0.25f, FRENZY_CLAWS = 6f, FRENZY_HEAL = 1.5f;
 	public static final double TRACK_RANGE = 48.0;
 	public static final int TRACK_TICKS = 600;
 	public static final int SNIFF_TICKS = 120;
@@ -316,6 +317,7 @@ public final class WildmuttKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): a tough hide, 10
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
 		return AlienStats.builder().health(HEALTH).speed(SPEED).armor(10f, 1f).knockbackResist(0.3f).attack(ATTACK).step(0.4f).jump(0.12f)
 				.safeFall(4f).build();
 	}

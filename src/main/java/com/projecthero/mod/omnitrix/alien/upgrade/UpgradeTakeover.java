@@ -54,7 +54,7 @@ public final class UpgradeTakeover {
 	public static final int TICKS = 300, EMP_TICKS = 200, MAX = 2;
 	/** How far a held machine looks for a foe, how far its bolt reaches, and the bolt's damage range (its own attack, clamped). */
 	public static final double HUNT_RANGE = 16, FIGHT_RANGE = 12;
-	public static final float BOLT_MIN = 4f, BOLT_MAX = 10f;
+	public static final float BOLT_MIN = 7f, BOLT_MAX = 16f; // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): was 4 / 10
 	public static final int BOLT_EVERY = 20;
 
 	/** One held machine. {@code capped}: from Shift+C (counts towards {@link #MAX}); EMP holds don't. */
@@ -276,7 +276,7 @@ public final class UpgradeTakeover {
 		}
 	}
 
-	/** The machine's systems fire one green bolt into {@code t} in {@code owner}'s name (its own attack, 4 to 10). */
+	/** The machine's systems fire one green bolt into {@code t} in {@code owner}'s name (its own attack, 7 to 16). */
 	static float bolt(ServerPlayer owner, Mob mob, LivingEntity t, ServerLevel level) {
 		double atk = mob.getAttribute(Attributes.ATTACK_DAMAGE) == null ? 6.0 : mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		float dmg = (float) Math.max(BOLT_MIN, Math.min(BOLT_MAX, atk));

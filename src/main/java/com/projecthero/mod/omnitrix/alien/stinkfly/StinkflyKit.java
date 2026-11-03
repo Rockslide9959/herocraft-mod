@@ -167,7 +167,8 @@ public final class StinkflyKit extends AlienKit {
 	public static final String FLIGHT = "wing_flight";
 	public static final String WING_DASH = "wing_dash";
 	public static final String LUNGE = "stinger_lunge";
-	public static final float LUNGE_DAMAGE = 14f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every damage number in the kit about x1.6, its gas and goo rain 7-8 a pulse (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float LUNGE_DAMAGE = 22f;
 	public static final double LUNGE_RANGE = 8.0;
 	public static final String DIVE_BOMB = "dive_bomb";
 	public static final String WING_GUST = "wing_gust";
@@ -182,35 +183,35 @@ public final class StinkflyKit extends AlienKit {
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	// v0.17.2 (user: "adjust the other combat aliens damage aswell please to try and match this"): on Four Arms / Diamondhead's scale -- quick hits 5-8, moves 12-17, big ones 17-20, ultimates 21-36 (the shot is quick: 10 -> 6)
-	public static final float SHOT_DAMAGE = 6f;
+	public static final float SHOT_DAMAGE = 10f;
 	public static final int SHOT_ROOT = 30;
 	public static final float NET_RADIUS = 2.75f;
 	public static final int NET_ROOT = 60;
 	/** v0.17.2: a boss under the net is rooted 1 s. */
 	public static final int NET_BOSS_ROOT = 20;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2 (inline)
-	public static final float NET_DAMAGE = 8f;
+	public static final float NET_DAMAGE = 14f;
 	public static final float GAS_RADIUS = 3.25f;
 	public static final int GAS_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
-	public static final float GAS_DAMAGE = 2f;
+	public static final float GAS_DAMAGE = 7f;
 	/** v0.17.2 Stench Cloud: how long a mob keeps wandering (no target) after leaving the cloud. */
 	public static final int STENCH_LINGER = 40;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
-	public static final float STAB_DAMAGE = 12f;
+	public static final float STAB_DAMAGE = 20f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 8 falling to 4.8
 	// at the edge -- now 18 at the centre falling to 11
-	public static final float DIVE_DAMAGE = 18f;
-	public static final float DIVE_EDGE_DAMAGE = 11f;
+	public static final float DIVE_DAMAGE = 28f;
+	public static final float DIVE_EDGE_DAMAGE = 18f;
 	public static final float DIVE_RADIUS = 3.5f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2
-	public static final float GUST_DAMAGE = 6f;
+	public static final float GUST_DAMAGE = 10f;
 	/** v0.17.2: how far a Wing Gust carries his own Stench Cloud / Goo Rain. */
 	public static final double GUST_CARRY = 8.0;
 	// v0.17.2 Goo Rain (was Goo Storm: r 6, 6 s, 4 a second = 24, the ultimate)
 	public static final float RAIN_RADIUS = 5f;
 	public static final int RAIN_TICKS = 80;
-	public static final float RAIN_DAMAGE = 3f;
+	public static final float RAIN_DAMAGE = 8f;
 	// v0.17.2 Goo Cocoon
 	public static final double COCOON_RANGE = 20.0;
 	public static final int COCOON_STREAM = 30;
@@ -218,7 +219,7 @@ public final class StinkflyKit extends AlienKit {
 	public static final int COCOON_BOSS_TICKS = 30;
 	public static final float COCOON_TAKEN = 1.25f;
 	// v0.17.2 (user: "increase the damage of every alien ultimate that deals damage to be between 40-70 damage"): the cocoon bursts for 45
-	public static final float COCOON_BURST = 45f;
+	public static final float COCOON_BURST = 75f; // v0.17.2 damage pass: 45 -> 75
 	public static final double COCOON_BURST_RADIUS = 3.0;
 	public static final double COCOON_SPRAY = 4.0;
 	/** The timer (synced, so the client can draw the stream) holding the cocoon target's entity id. */
@@ -237,8 +238,8 @@ public final class StinkflyKit extends AlienKit {
 	/** A creature landing in a patch is stuck this long (once per patch). */
 	public static final int PATCH_STICK = 20;
 	// v0.17.2 Goo Spit: tap 5 (was 2); held, 4 globs a second (3 each) for up to 3 s, then a 6 s cooldown
-	public static final float SPIT_DAMAGE = 5f;
-	public static final float RAPID_DAMAGE = 3f;
+	public static final float SPIT_DAMAGE = 8f;
+	public static final float RAPID_DAMAGE = 5f;
 	public static final int RAPID_EVERY = 5;
 	public static final int RAPID_TICKS = 60;
 	public static final int RAPID_COOLDOWN = 120;
@@ -647,7 +648,8 @@ public final class StinkflyKit extends AlienKit {
 	public AlienStats stats() {
 		// v0.17.2 (user: "i dont want any of the aliens to have less than 20 hp"): was 14 health, +1 fist
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): a chitin shell, 6
-		return AlienStats.builder().health(20f).speed(1.1f).scale(0.9f).armor(6f, 0f).attack(2f).jump(0.08f).build();
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(20f).speed(1.1f).scale(0.9f).armor(6f, 0f).attack(4f).jump(0.08f).build();
 	}
 
 	// v0.17.2 (user: "make stinky able to use items and tools"): no pawsOnly -- his claws hold and use items again. Hitbox and eyes
@@ -1769,7 +1771,7 @@ public final class StinkflyKit extends AlienKit {
 	/** v0.17.2: a drop onto an enemy from this high (blocks) hits both of them... */
 	public static final double DROP_MIN = 6.0;
 	/** ...for 2 a block fallen, at most 16. */
-	public static final float DROP_PER_BLOCK = 2f, DROP_MAX = 16f;
+	public static final float DROP_PER_BLOCK = 3f, DROP_MAX = 26f; // v0.17.2 damage pass: was 2 / 16
 	/** player -> the entity id he carries. */
 	private static final Map<UUID, Integer> LIFTED = new ConcurrentHashMap<>();
 

@@ -514,7 +514,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		double mine = p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
 		tapV(p, false);
 		helper.assertTrue(kit.flag(p, UpgradeKit.F_OVERCLOCK), "V: Overclock");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= dmg + UpgradeKit.OVERCLOCK_DAMAGE - 1.0e-4, "+4 damage");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= dmg + UpgradeKit.OVERCLOCK_DAMAGE - 1.0e-4, "+6 damage");
 		helper.assertTrue(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) > mine * 1.9, "twice the mining speed");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - 1.0) < 1.0e-4, "it comes off with the body");

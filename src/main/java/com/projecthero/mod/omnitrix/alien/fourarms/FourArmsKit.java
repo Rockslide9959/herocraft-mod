@@ -148,7 +148,7 @@ public final class FourArmsKit extends AlienKit {
 	public static final String GUARD = "four_arm_guard";
 	/** v0.17.2 (user: "put another attack move on G"): the lunging two-fisted haymaker. */
 	public static final String HAYMAKER = "haymaker";
-	public static final float HAYMAKER_DAMAGE = 15f;
+	public static final float HAYMAKER_DAMAGE = 26f; // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): was 15
 	public static final double HAYMAKER_RANGE = 8.0;
 	public static final int HAYMAKER_COOLDOWN = 100, HAYMAKER_TICKS = 8;
 	/** How far up he must look for a wall to take his weight (degrees of pitch). */
@@ -163,30 +163,35 @@ public final class FourArmsKit extends AlienKit {
 	 * noirs R ability"): each press is the next blow if it comes within {@link #COMBO_WINDOW} of the last -- jab, cross, the lower
 	 * pair together, then the four-fist hammer -- with {@link #COMBO_GAP} between presses and {@link #COMBO_COOLDOWN} after it.
 	 */
-	public static final float COMBO_JAB_DAMAGE = 8f, COMBO_BODY_DAMAGE = 5f, COMBO_HAMMER_DAMAGE = 16f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 8 / 5 / 16 -> 12 / 9 / 28 -- his fists hit hardest of all the aliens
+	public static final float COMBO_JAB_DAMAGE = 12f, COMBO_BODY_DAMAGE = 9f, COMBO_HAMMER_DAMAGE = 28f;
 	public static final int COMBO_GAP = 6, COMBO_WINDOW = 30, COMBO_COOLDOWN = 40;
 	// v0.17.2 (user: "make fourarms and diamondhead a bit stronger"): every number about a fifth up
-	public static final float HAMMER_DAMAGE = 17f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): the damage pass below (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
+	public static final float HAMMER_DAMAGE = 28f;
 	public static final int HAMMER_LENGTH = 9;
-	public static final float THROW_DAMAGE = 15f;
-	public static final float BOULDER_DAMAGE = 15f;
-	public static final float SWING_HIT_DAMAGE = 6f, SWING_FLING_DAMAGE = 17f;
+	public static final float THROW_DAMAGE = 24f;
+	public static final float BOULDER_DAMAGE = 24f;
+	public static final float SWING_HIT_DAMAGE = 10f, SWING_FLING_DAMAGE = 27f;
 	public static final int SWING_TICKS = 30;
-	public static final float LEAP_LAND_DAMAGE = 10f;
-	public static final float LEAP_FAR_LAND_DAMAGE = 17f;
-	public static final float CHARGE_DAMAGE = 7f, CHARGE_END_DAMAGE = 7f;
+	public static final float LEAP_LAND_DAMAGE = 16f;
+	public static final float LEAP_FAR_LAND_DAMAGE = 28f;
+	/** What a thrown creature's landing does to those it lands among. */
+	public static final float THROW_SPLASH_DAMAGE = 7f;
+	public static final float CHARGE_DAMAGE = 11f, CHARGE_END_DAMAGE = 11f;
 	public static final int CHARGE_TICKS = 18;
-	public static final float CLAP_DAMAGE = 20f;
+	public static final float CLAP_DAMAGE = 32f;
 	public static final float CLAP_RANGE = 10f;
 	// v0.17.2 (user: "Make the meteor slam deal 50 damage"): 50 however far he fell
-	public static final float METEOR_DAMAGE = 50f, METEOR_PER_BLOCK = 0f, METEOR_MAX_DAMAGE = 50f, METEOR_RADIUS = 10f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 50 -> 90, the hardest-hitting prototype ultimate
+	public static final float METEOR_DAMAGE = 90f, METEOR_PER_BLOCK = 0f, METEOR_MAX_DAMAGE = 90f, METEOR_RADIUS = 10f;
 	/** The Meteor Slam's take-off speed (about 25 blocks up). */
 	public static final double METEOR_RISE = 2.4;
 	public static final int GUARD_TICKS = 60;
 	public static final int RAMPAGE_TICKS = 160, WINDED_TICKS = 100;
-	public static final float RAMPAGE_BONUS = 4f, RAMPAGE_QUAKE_DAMAGE = 4f;
+	public static final float RAMPAGE_BONUS = 6f, RAMPAGE_QUAKE_DAMAGE = 7f;
 	public static final int HUG_TICKS = 60;
-	public static final float HUG_SQUEEZE_DAMAGE = 3f, HUG_SLAM_DAMAGE = 10f;
+	public static final float HUG_SQUEEZE_DAMAGE = 7f, HUG_SLAM_DAMAGE = 16f;
 	public static final int HOLD_TICKS = 200;
 	public static final double REACH = 4.5;
 
@@ -291,7 +296,8 @@ public final class FourArmsKit extends AlienKit {
 	public AlienStats stats() {
 		// v0.17.2 (user: "make fourarms armour rating iron level"): a full iron set, 15 armour (was 8)
 		// v0.17.2 (user: "give armour ratings to the aliens you think deserve armour ratings please but dont make it terrible"): the tank, 20 + 4
-		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(20f, 4f).knockbackResist(0.6f).attack(6f).step(0.6f).jump(0.12f)
+		// v0.17.2 (user set the unarmed melee bonuses: Four Arms +10, Diamondhead +8 (+4 more with the blades), Upgrade +5, Ghostfreak +5, Stinkfly +4, Wildmutt +6, Ripjaws +5, Grey Matter unchanged)
+		return AlienStats.builder().health(40f).speed(0.85f).scale(1.4f).armor(20f, 4f).knockbackResist(0.6f).attack(10f).step(0.6f).jump(0.12f)
 				.safeFall(6f).reach(0.5f).build();
 	}
 
@@ -710,7 +716,7 @@ public final class FourArmsKit extends AlienKit {
 				hurt(thrower, le, e.getValue().damage(), false);
 				for (LivingEntity o : around(thrower, le.position(), 2.5)) {
 					if (o != le) {
-						hurt(thrower, o, 4f, false);
+						hurt(thrower, o, THROW_SPLASH_DAMAGE, false);
 						shove(o, le.position(), 0.6, 0.3);
 					}
 				}

@@ -31,7 +31,7 @@ public final class StinkflyGooEffect extends MobEffect {
 							AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 
 	/** The burst when the goo on a creature catches fire. */
-	public static final float BURN_DAMAGE = 6f;
+	public static final float BURN_DAMAGE = 10f; // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): was 6
 	public static final double BURN_RADIUS = 2.0;
 	public static final int BURN_SECONDS = 4;
 
