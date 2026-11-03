@@ -60,9 +60,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1: Ripjaws, the Piscciss Volann -- a grey-blue fish-man with a huge toothy jaw, gills and fins, whose legs become a fish
- * tail in the water. In water he is a predator: fast (Dolphin's Grace), never drowns, sees and digs freely (Conduit Power), and
- * hits a quarter again as hard. On land he slowly DRIES OUT (the hydration meter over his keys): two minutes of dry land are free,
- * then he chokes for 1 health every 2 s (slowed, weakened) until he gets wet again. Water refills the meter in 15 s; rain stops
+ * tail in the water. In water he is a predator: fast (v0.17.2: cruises at 10 blocks a second, sprint-swims at 30), never drowns, sees and digs freely (Conduit Power), and
+ * hits a quarter again as hard. On land he slowly DRIES OUT (the hydration meter over his keys): 60 s of dry land are free (v0.17.2: was two minutes),
+ * then he chokes for 1 health every 2 s (slowed, weakened) until he gets wet again. Water refills the meter in 7.5 s (15 s before the 60 s meter); rain stops
  * the drying and refills it slowly; Drench (Shift+C) splashes half of it back.
  *
  * <p>v0.17.2 revamp (docs/OMNITRIX_REVAMP_RIPJAWS.md; user: "Drop tidal roar", "Do lure light i suppose", "Draw jaws as an
@@ -184,8 +184,14 @@ public final class RipjawsKit extends AlienKit {
 	public static final String PUNCH = "jaw_punch";
 	public static final String DIG = "dig";
 
-	/** Ticks of dry land before he starts choking (2 minutes). */
-	public static final int MAX_DRY = 2400;
+	/** Ticks of dry land before he starts choking -- v0.17.2 (user: "lower his time out of water to 60 seconds please"): 60 s (was 2 minutes). */
+	public static final int MAX_DRY = 1200;
+	// v0.17.2 (user: "make ripjaws cruise swim at 10 blocks per second and his sprint swim be 30 blocks per second please"): his
+	// own swim, steered by where he looks (blocks a tick; x20 = blocks a second). Driven on his client, RipjawsClient.tick.
+	public static final double CRUISE_SWIM = 10.0 / 20.0;
+	public static final double SPRINT_SWIM = 30.0 / 20.0;
+	/** How far vanilla's own per-tick extras (the swim key's push, the swim pitch nudge) may be cancelled out, blocks a tick. */
+	public static final double SWIM_BIAS_CAP = 0.2;
 	public static final int REFILL_WATER = 8;
 	public static final int REFILL_RAIN = 2;
 	public static final int CHOKE_EVERY = 40;
@@ -373,6 +379,48 @@ public final class RipjawsKit extends AlienKit {
 		}
 		double v = (base - 1) + Math.floor(dryRate(s.kitFlags) * Math.max(0, now - since));
 		return (int) Math.max(0, Math.min(MAX_DRY, v));
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 swim speed
+
+	/**
+	 * v0.17.2 (user: "make ripjaws cruise swim at 10 blocks per second and his sprint swim be 30 blocks per second please"): the
+	 * velocity he swims at, along {@code look} -- 0.5 blocks a tick cruising, 1.5 sprint-swimming. With his head above the water
+	 * he does not climb out of it: an upward look only drives him level.
+	 */
+	public static Vec3 swimVelocity(Vec3 look, boolean sprinting, boolean underwater) {
+		double speed = sprinting ? SPRINT_SWIM : CRUISE_SWIM;
+		Vec3 dir = look;
+		if (!underwater && dir.y > 0) {
+			dir = new Vec3(dir.x, 0, dir.z);
+		}
+		if (dir.lengthSqr() < 1.0E-6) {
+			return Vec3.ZERO;
+		}
+		return dir.normalize().scale(speed);
+	}
+
+	/**
+	 * v0.17.2: the velocity to hand vanilla's water travel so that he actually moves {@code desired} next tick. Vanilla adds its
+	 * own bits each tick before it moves him (the movement keys' swim push, the swim-pitch nudge); those are measured from the
+	 * last tick -- {@code moved} (where he really went) minus {@code lastSet} (what he was given) -- and taken back off, capped at
+	 * {@link #SWIM_BIAS_CAP} a component. Not after a bump ({@code collided}) or on the first tick ({@code lastSet} null).
+	 */
+	public static Vec3 swimPush(Vec3 desired, Vec3 lastSet, Vec3 moved, boolean collided) {
+		if (lastSet == null || moved == null || collided) {
+			return desired;
+		}
+		Vec3 bias = moved.subtract(lastSet);
+		double c = SWIM_BIAS_CAP;
+		bias = new Vec3(Math.max(-c, Math.min(c, bias.x)), Math.max(-c, Math.min(c, bias.y)), Math.max(-c, Math.min(c, bias.z)));
+		return desired.subtract(bias);
+	}
+
+	/** v0.17.2: a move that throws him about (Jaw Lunge, Water Dash, Breach, Dive Strike) owns his velocity for its first ticks. */
+	public static boolean swimHeld(OmnitrixState s, long now) {
+		int a = s.animId;
+		long since = now - s.animStart;
+		return (a == ANIM_LUNGE || a == ANIM_DASH || a == ANIM_BREACH || a == ANIM_DIVE) && since >= 0 && since < 16;
 	}
 
 	/** 1 = fully wet, 0 = choking. */
