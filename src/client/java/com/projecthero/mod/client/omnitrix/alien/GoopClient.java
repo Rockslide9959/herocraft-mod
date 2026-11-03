@@ -118,6 +118,12 @@ public final class GoopClient implements AlienClientKit {
 		});
 	}
 
+	/** v0.17.2 (user: "make goops model slim aswell please instead of filling in the gaps"): his skin is laid out for slim (3 px) arms. */
+	@Override
+	public boolean slimArms(net.minecraft.client.player.AbstractClientPlayer p) {
+		return true;
+	}
+
 	/** v0.17.2 (user: "raise our omnitrix badge slightly"): a pixel higher than the default, where the skin's own symbol was. */
 	@Override
 	public float[] badge() {
