@@ -148,7 +148,16 @@ public final class DirectionalFlightModel {
 	public static final double HAWK_MOTH_CRUISE_BPS = 16.0, HAWK_MOTH_SPRINT_BPS = 30.0;
 	public static final double HEATBLAST_CRUISE_BPS = 18.0, HEATBLAST_SPRINT_BPS = 34.0;
 	public static final double STINKFLY_CRUISE_BPS = 16.0, STINKFLY_SPRINT_BPS = 30.0;
-	public static final double GHOSTFREAK_CRUISE_BPS = 10.0, GHOSTFREAK_SPRINT_BPS = 18.0;
+	/**
+	 * v0.17.2 (user: "make ghost freaks flight the directional flight where he flies in the direction he looks please"): a
+	 * ghostly float along the look -- 15 b/s cruising, 30 sprinting (was 10 / 18); the slow climb stays (his flying speed).
+	 */
+	public static final double GHOSTFREAK_CRUISE_BPS = 15.0, GHOSTFREAK_SPRINT_BPS = 30.0;
+
+	/** v0.17.2: Ghostfreak's Ghost Flight (double-tap jump) -- 15 b/s cruising, 30 sprinting, along where he looks. */
+	public static Tune ghostfreak(float flyingSpeed, boolean sprint) {
+		return cruise(flyingSpeed, sprint, GHOSTFREAK_CRUISE_BPS, GHOSTFREAK_SPRINT_BPS);
+	}
 
 	/**
 	 * v0.17.2 (user: "give jetray the directional flight and edit his flight speed, make it 25 blocks per second cruise and 45
