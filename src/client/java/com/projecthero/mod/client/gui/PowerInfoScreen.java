@@ -42,6 +42,22 @@ public final class PowerInfoScreen extends Screen {
 		super(Component.translatable("screen.projecthero.power_info"));
 	}
 
+	/**
+	 * v0.17.2 (user: "make it look more like minecraft ... only apply this new menu style to the aliens and omnitrixes for now"):
+	 * the I key's screen -- the Omnitrix wearer (human or alien) gets the vanilla-styled {@link OmnitrixInfoScreen}; everyone else
+	 * this one. Same precedence as {@link #buildBody}: Vigilante Training and a Quirk come before the Omnitrix.
+	 */
+	public static Screen create() {
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		if (p != null && trainingState() == null && OmnitrixInfoScreen.applies(p)) {
+			com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(p);
+			if (quirk == null || quirk.standalone) {
+				return new OmnitrixInfoScreen();
+			}
+		}
+		return new PowerInfoScreen();
+	}
+
 	@Override
 	protected void init() {
 		this.left = Math.max(20, this.width / 2 - 180);
@@ -340,8 +356,9 @@ public final class PowerInfoScreen extends Screen {
 		if (liveQuirk && ++liveTicks % 10 == 0) {
 			int keep = scroll;
 			buildBody();
-			int max = Math.max(0, body.size() * LINE_H - (bottom - top - 12));
-			scroll = Math.min(keep, max);
+			// v0.17.2: clamp with the same limit the wheel uses (this one was 4 px short, so a page scrolled to its end jumped
+			// back up every half second)
+			scroll = Math.min(keep, maxScroll());
 		}
 	}
 
