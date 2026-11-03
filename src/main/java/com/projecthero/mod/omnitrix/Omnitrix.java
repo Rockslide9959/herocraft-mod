@@ -973,7 +973,8 @@ public final class Omnitrix {
 		if (!sequenced) {
 			// v0.17.2 (user): Master Control's N turn-back plays the power-down recording without its beeps
 			// v0.17.2: the Recalibrated Omnitrix's N turn-back is the user's detransform recording
-			helixFx(p, reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT
+			helixFx(p, reason == Reason.TIMEOUT && recalibrated(p) ? OmnitrixSounds.RECAL_REVERT // v0.17.2: its own detransform, no beeps
+					: reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT
 					: reason == Reason.SHIFT_V && recalibrated(p) ? OmnitrixSounds.RECAL_REVERT
 					: reason == Reason.SHIFT_V && masterRevert ? OmnitrixSounds.POWER_DOWN_MASTER : OmnitrixSounds.REVERT);
 		} else if (recalibrated(p)) {
@@ -1381,6 +1382,12 @@ public final class Omnitrix {
 					n.endsAt = now + OmnitrixConfig.TRANSFORM_TICKS;
 					save(p, n);
 				}
+			} else if (now >= s.endsAt && s.readyAt(RECAL) == 1L) {
+				// v0.17.2 (user: "when the recalibrated omnitrix times out dont play the prototype sound effect with the beeps and stuff, just
+				// detransform with the regular recalibrated detransformation sound effect"): straight back, no power-down beeps
+				revert(p, Reason.TIMEOUT);
+				OmnitrixAbilityManager.tick(p);
+				return;
 			} else if (now >= s.endsAt) {
 				beginPowerDown(p, true);
 				kit.tick(p, state(p), now);
