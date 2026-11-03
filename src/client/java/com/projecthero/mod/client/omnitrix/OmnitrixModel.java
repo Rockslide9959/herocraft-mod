@@ -202,7 +202,7 @@ public final class OmnitrixModel {
 	/** How high the recalibrated face sits over the cuff (recessed below the bezel's top), and its radius. */
 	private static final float RECAL_FACE_X = 0.16f;
 	/** v0.17.2 (user's reference: the dial sits on a round green pedestal): how high the pedestal lifts the bezel off the band. */
-	private static final float PED = 0.2f;
+	private static final float PED = 0.32f; // v0.17.2 (user: "make the base slightly taller")
 	public static final float RECAL_FACE_R = RI - 0.18f; // v0.17.2: a black ring round the hourglass
 	/**
 	 * v0.17.2 (user: "the dial also has to pop up when the omnitrix is activated"): the whole dial -- bezel, face and all -- pops up
@@ -238,28 +238,32 @@ public final class OmnitrixModel {
 		// the reference images"): the housing the dial sits in, as the show draws it -- a green base round the dial's foot (the
 		// stem rises out of it), and the band rising into two curved green brackets that hug the bezel along the arm, a dark green
 		// edge round their outside, a grey tab set in the middle of each; silver mounts on the sides carry the knobs
-		float hr = RB + 0.18f;
-		cylinder(pose, vc, xo - 0.04f, xo + 0.06f, cy, 0f, hr + 0.07f, DIMGREEN, light, 32);
+		// v0.17.2 (user: "make the base slightly taller and then put a black band around it ... Rotate the base aswell please so that
+		// the little dips on the bottom and top are on the sides ... Make the base of the watch only extend like 1 pixel out"): a
+		// taller, slimmer pedestal with a black band round its middle; its two green brackets now hug the dial across the arm (the
+		// dips between them along it), only just past the bezel
+		float hr = RB + 0.08f;
+		cylinder(pose, vc, xo - 0.04f, xo + 0.05f, cy, 0f, hr + 0.04f, DIMGREEN, light, 32);
 		cylinder(pose, vc, xo - 0.03f, xo + PED, cy, 0f, hr, CUFF, light, 32);
-		float bIn = RB - 0.06f, bOut = RB + 0.42f, bTop = xo + PED + 0.02f, span = (float) Math.toRadians(58);
+		cylinder(pose, vc, xo + PED * 0.42f, xo + PED * 0.72f, cy, 0f, hr + 0.025f, WHITE, light, 32);
+		float bIn = RB - 0.06f, bOut = RB + 0.2f, bTop = xo + PED * 0.36f, span = (float) Math.toRadians(58);
 		for (int end = 0; end < 2; end++) {
-			float mid = end * (float) Math.PI;
-			arc(pose, vc, light, SW[DIMGREEN], xo - 0.03f, bTop - 0.06f, bOut - 0.02f, bOut + 0.08f, mid - span, mid + span, cy, 10);
+			float mid = (float) (Math.PI / 2 + end * Math.PI);
+			arc(pose, vc, light, SW[DIMGREEN], xo - 0.03f, bTop - 0.06f, bOut - 0.02f, bOut + 0.05f, mid - span, mid + span, cy, 10);
 			arc(pose, vc, light, SW[CUFF], xo - 0.03f, bTop, bIn, bOut, mid - span, mid + span, cy, 10);
 		}
+		// v0.17.2 (user: "Move the grey cylinders to the sides of the watch and move the side grey buttons to the bottom and top"):
+		// the grey tabs now sit in the brackets across the arm, and the knobs (on their silver mounts) stick out along it
+		for (int side = -1; side <= 1; side += 2) {
+			float z0 = side * (RB - 0.12f), z1 = side * (RB + 0.26f);
+			box(pose, vc, xo - 0.02f, cy - 0.36f, Math.min(z0, z1), bTop + 0.06f, cy + 0.36f, Math.max(z0, z1), PLATE, light);
+		}
 		for (int end = -1; end <= 1; end += 2) {
-			float y0 = cy + end * (RB - 0.12f), y1 = cy + end * (RB + 0.3f);
-			box(pose, vc, xo - 0.02f, Math.min(y0, y1), -0.36f, bTop + 0.06f, Math.max(y0, y1), 0.36f, PLATE, light);
-		}
-		for (int side = -1; side <= 1; side += 2) {
-			box(pose, vc, xo + PED - 0.02f, cy - 0.3f, Math.min(side * (RB - 0.1f), side * (RB + 0.16f)), xo + PED + 0.24f, cy + 0.3f,
-					Math.max(side * (RB - 0.1f), side * (RB + 0.16f)), PLATE, light);
-		}
-		// ---- the knobs: out of the silver mounts, across the arm
-		for (int side = -1; side <= 1; side += 2) {
+			float y0 = cy + end * (RB - 0.1f), y1 = cy + end * (RB + 0.16f);
+			box(pose, vc, xo + PED - 0.02f, Math.min(y0, y1), -0.3f, xo + PED + 0.24f, Math.max(y0, y1), 0.3f, PLATE, light);
 			pose.pushPose();
-			pose.translate((xo + PED + 0.12f) * S, cy * S, side * (RB + 0.12f) * S);
-			pose.mulPose(Axis.YP.rotationDegrees(-side * 90f));
+			pose.translate((xo + PED + 0.12f) * S, (cy + end * (RB + 0.12f)) * S, 0f);
+			pose.mulPose(Axis.ZP.rotationDegrees(end * 90f));
 			cylinder(pose, vc, 0f, 0.36f, 0f, 0f, 0.17f, PLATE, light, 12);
 			cylinder(pose, vc, 0.36f, 0.44f, 0f, 0f, 0.12f, CUFF, light, 12); // the green tip
 			pose.popPose();
