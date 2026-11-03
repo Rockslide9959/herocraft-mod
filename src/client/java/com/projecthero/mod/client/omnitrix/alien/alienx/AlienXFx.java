@@ -1,15 +1,12 @@
 package com.projecthero.mod.client.omnitrix.alien.alienx;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
-import com.projecthero.mod.client.omnitrix.alien.AlienXClient;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXCouncil;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXKit;
 
@@ -25,22 +22,33 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2 Celestial Council (user: "the player gets transported to that dimension where he talks to the two heads"): the council
- * drawn on the client, only while he is in {@code projecthero:celestial_council} -- two enormous floating heads in his Alien X skin
- * ({@link #HEAD_SCALE} times a player's head, horns and all), Serena tinted a soft blue with pale eyes and a halo, Bellicus tinted
- * red with burning eyes and hard, angry brows. They drift, turn to look at him, and the one speaking (synced:
- * {@code AlienXKit.speaker}) nods, its eyes flare and rings of its colour ripple out from it. Under him a faint ring of light marks
- * the invisible floor, and far nebulae glow in the dark among the vanilla night sky's stars. Additive glows, ribbons and bands
+ * drawn on the client, only while he is in {@code projecthero:celestial_council} -- two enormous floating heads
+ * ({@link #HEAD_SCALE} times a player's head, head and hat layer). v0.17.2 (user: "use this for bellicus and serenas faces: [the
+ * planetminecraft Bellicus and Serena skin] ... use the one side of the head for bellicus and other side for serena, split it into 2
+ * head models"): that skin carries Bellicus' face on one side of the head and Serena's on the other; each head here is its own skin
+ * with that face moved to the front ({@code scratchpad/gen_alienx_council_heads_v0172.js}). They drift, turn to look at him, blink
+ * now and then, and the one speaking (synced: {@code AlienXKit.speaker}) nods, its mouth moves, its eyes flare and green rings
+ * ripple out from it. Under him a faint ring of light marks the invisible floor, and far nebulae glow in the dark among the vanilla night sky's stars. Additive glows, ribbons and bands
  * ({@link PyroDraw}): no particles.
  */
 public final class AlienXFx {
 	public static final float HEAD_SCALE = 14f;
-	private static final int SERENA_TINT = 0xFFC4E2FF, BELLICUS_TINT = 0xFFFFB4A8;
-	private static final int SERENA_EYE = 0xFFBFF4FF, BELLICUS_EYE = 0xFFFF6A30, VIOLET = 0xFF8A4DFF, STAR_BLUE = 0xFF9FC4FF, NEBULA = 0xFF3A2A9A;
+	private static final int SERENA_EYE = 0xFFC8FFB0, BELLICUS_EYE = 0xFF8CFF30, VIOLET = 0xFF8A4DFF, STAR_BLUE = 0xFF9FC4FF, NEBULA = 0xFF3A2A9A;
+	/** [bellicus ? 1 : 0][blink + 2 * talk]: the four face variants of each head. */
+	private static final ResourceLocation[][] SKINS = new ResourceLocation[2][4];
+	static {
+		String[] suffix = { "", "_blink", "_talk", "_blink_talk" };
+		for (int k = 0; k < 4; k++) {
+			SKINS[0][k] = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_serena" + suffix[k] + ".png");
+			SKINS[1][k] = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_bellicus" + suffix[k] + ".png");
+		}
+	}
 	private static boolean registered;
 	private static PlayerModel<AbstractClientPlayer> model;
 
@@ -133,7 +141,7 @@ public final class AlienXFx {
 		head.zRot = (bellicus ? -0.06f : 0.06f) + 0.03f * Mth.sin(time * 0.02f + phase);
 		hat.copyFrom(head);
 		// the aura behind
-		PyroDraw.glow(pose, glow, c.subtract(cam), S * 0.75f, PyroDraw.dim(bellicus ? 0xFF8A1A10 : 0xFF1A3A8A, 0.5f + 0.3f * talk));
+		PyroDraw.glow(pose, glow, c.subtract(cam), S * 0.75f, PyroDraw.dim(bellicus ? 0xFF2A5A08 : 0xFF1A5A3A, 0.45f + 0.3f * talk));
 		pose.pushPose();
 		Vec3 r = c.subtract(cam);
 		pose.translate(r.x, r.y, r.z);
@@ -141,47 +149,31 @@ public final class AlienXFx {
 		pose.scale(-S, -S, S);
 		pose.translate(0, 0.25, 0);
 		Matrix m = new Matrix(pose, head);
-		int tint = bellicus ? BELLICUS_TINT : SERENA_TINT;
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(AlienXClient.SKIN));
-		head.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tint);
-		hat.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tint);
-		// the stars in his skin shine in the dark (an additive pass of the same texture, in the head's colour)
-		VertexConsumer stars = buffers.getBuffer(RenderType.eyes(AlienXClient.SKIN));
-		head.render(pose, stars, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, PyroDraw.dim(tint, 0.55f + 0.3f * talk));
-		AlienXClient.horns(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(AlienXClient.SKIN)), LightTexture.FULL_BRIGHT, head);
+		// blinks now and then (Serena more often); the mouth moves while it speaks
+		int blinkEvery = bellicus ? 157 : 113;
+		boolean blink = (time + (bellicus ? 40f : 0f)) % blinkEvery < 4f;
+		boolean mouth = talking >= 0 && talking < 40 && Mth.sin(talking * 0.9f) > -0.2f;
+		ResourceLocation skin = SKINS[bellicus ? 1 : 0][(blink ? 1 : 0) + (mouth ? 2 : 0)];
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(skin));
+		head.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+		hat.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		pose.popPose();
-		// the eyes (in the head's space, pixels: the front face is z = -4)
+		// the eyes flare when it speaks (in the head's space, pixels)
 		int eyeCol = bellicus ? BELLICUS_EYE : SERENA_EYE;
-		float eyeR = S * (bellicus ? 0.05f : 0.045f) * (1f + 0.6f * talk);
-		for (int side = -1; side <= 1; side += 2) {
-			Vec3 e = m.at(side * 2.0f, -3.5f, -4.3f);
-			PyroDraw.glow(pose, glow, e, eyeR, PyroDraw.dim(eyeCol, 0.85f + 0.15f * talk));
-			PyroDraw.glow(pose, glow, e, eyeR * 2.4f, PyroDraw.dim(eyeCol, 0.25f + 0.3f * talk));
-			if (bellicus) {
-				// hard brows, the inner ends low: anger
-				List<Vec3> brow = new ArrayList<>();
-				brow.add(m.at(side * 0.6f, -4.5f, -4.4f));
-				brow.add(m.at(side * 2.2f, -5.3f, -4.4f));
-				brow.add(m.at(side * 3.7f, -6.0f, -4.4f));
-				PyroDraw.ribbon(pose, add, brow, u -> S * 0.035, u -> PyroDraw.dim(0xFFFF3020, 0.9f));
+		if (talk > 0f && !blink) {
+			for (int side = -1; side <= 1; side += 2) {
+				Vec3 e = m.at(side * 2.0f, -3.5f, -4.3f);
+				PyroDraw.glow(pose, glow, e, S * 0.05f * talk, PyroDraw.dim(eyeCol, 0.8f * talk));
+				PyroDraw.glow(pose, glow, e, S * 0.12f * talk, PyroDraw.dim(eyeCol, 0.3f * talk));
 			}
-		}
-		if (!bellicus) {
-			// a soft halo
-			pose.pushPose();
-			Vec3 h = m.at(0f, -10.5f, 0f);
-			pose.translate(h.x, h.y, h.z);
-			pose.mulPose(Axis.YP.rotation(time * 0.02f));
-			PyroDraw.band(pose, add, S * 0.38f, 0.12f, PyroDraw.dim(SERENA_EYE, 0.55f + 0.3f * talk), 0xFF000000);
-			pose.popPose();
 		}
 		if (talking >= 0 && talking < 50) {
 			// rings ripple out from the one speaking
 			for (int k = 0; k < 3; k++) {
 				float u = ((talking + k * 12f) % 36f) / 36f;
 				pose.pushPose();
-				Vec3 mouth = m.at(0f, -2.0f, -4.5f);
-				pose.translate(mouth.x, mouth.y, mouth.z);
+				Vec3 mo = m.at(0f, -1.5f, -4.5f);
+				pose.translate(mo.x, mo.y, mo.z);
 				PyroDraw.faceCamera(pose);
 				pose.mulPose(Axis.XP.rotationDegrees(90));
 				PyroDraw.band(pose, add, S * (0.2f + 0.5f * u), 0.08f, PyroDraw.dim(eyeCol, (1f - u) * 0.6f * talk), 0xFF000000);
