@@ -165,7 +165,7 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		JetrayKit kit = (JetrayKit) Aliens.kit(JetrayKit.ID);
 		Villager v = prey(helper, 3.5, 2, 6.5, 40f);
 		helper.assertTrue(kit.eyes(p), "the eye beam fires");
-		near(helper, v.getHealth(), 40f - JetrayKit.EYES_DAMAGE, "the beam does 7");
+		near(helper, v.getHealth(), 40f - JetrayKit.EYES_DAMAGE, "the beam does 11");
 		helper.assertTrue(Omnitrix.state(p).animId == JetrayKit.ANIM_EYES, "and plays its pose");
 		helper.assertTrue(kit.cooldownLeft(p, JetrayKit.EYES) > 0, "the beam cools down");
 		v.invulnerableTime = 0;

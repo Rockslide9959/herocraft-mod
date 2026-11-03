@@ -162,7 +162,7 @@ public class OmnitrixEchoEchoGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.runAfterDelay(EchoEchoKit.SURROUND_DELAY + 2, () -> {
 			helper.assertFalse(k.flag(p, EchoEchoKit.F_SURROUND), "it went off");
-			near(helper, v.getHealth(), 100f - 2 * EchoEchoKit.SURROUND_DAMAGE, "5 a clone");
+			near(helper, v.getHealth(), 100f - 2 * EchoEchoKit.SURROUND_DAMAGE, "7 a clone");
 			helper.assertTrue(stunned(v), "stunned");
 			helper.assertTrue(EchoEchoKit.resonating(p, v), "Resonating");
 			near(helper, k.dealt(p, v, 10f), 10f * EchoEchoKit.RESONANT_FACTOR, "his sound hits it 25% harder");
@@ -238,6 +238,9 @@ public class OmnitrixEchoEchoGameTests implements FabricGameTest {
 		helper.runAfterDelay(EchoEchoKit.CHARGE_TICKS + 2, () -> {
 			helper.assertFalse(k.flag(p, EchoEchoKit.F_CHARGE), "it went off");
 			helper.assertTrue(close.getHealth() <= 200f - EchoEchoKit.CHORUS_EDGE, "the dome hit hard (" + close.getHealth() + ")");
+			// v0.17.2 damage pass: a full chorus of 10 -- at most CLONE_HIT_CAP clones add their ring to one creature
+			helper.assertTrue(close.getHealth() >= 200f - EchoEchoKit.CHORUS_DAMAGE - EchoEchoKit.CLONE_HIT_CAP * EchoEchoKit.CHORUS_CLONE_DAMAGE - 0.1f,
+					"10 clones never stack past the cap (" + close.getHealth() + ")");
 			helper.assertTrue(stunned(close), "and stunned");
 			helper.succeed();
 		});

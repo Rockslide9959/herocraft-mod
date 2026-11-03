@@ -111,7 +111,7 @@ public class OmnitrixBrainstormGameTests implements FabricGameTest {
 		near(helper, v.getHealth(), 130f, "5 + 5, no Overload yet");
 		helper.assertFalse(stunned(v), "not stunned yet");
 		BrainstormKit.zap(p, v, 5f);
-		near(helper, v.getHealth(), 130f - 5f - BrainstormKit.OVERLOAD_DAMAGE, "the third Overloads: +6");
+		near(helper, v.getHealth(), 130f - 5f - BrainstormKit.OVERLOAD_DAMAGE, "the third Overloads: +10");
 		helper.assertTrue(BrainstormKit.charges(p, v) == 0, "the charges are spent");
 		helper.assertTrue(stunned(v), "and it is stunned");
 		// storm pulses never charge
@@ -128,11 +128,11 @@ public class OmnitrixBrainstormGameTests implements FabricGameTest {
 		helper.assertTrue(kit().electricStorm(p) && BrainstormKit.storming(p), "the Electric Storm gathers");
 		helper.assertTrue(kit().keyActive(p, AbilitySlot.SLOT_4), "Z is lit while it rages");
 		helper.assertTrue(kit().stormPulseNow(p) >= 1, "a pulse strikes the villager");
-		near(helper, v.getHealth(), 140f - BrainstormKit.STORM_DAMAGE, "4 a strike");
+		near(helper, v.getHealth(), 140f - BrainstormKit.STORM_DAMAGE, "7 a strike");
 		helper.assertTrue(BrainstormKit.charges(p, v) == 0, "the storm adds no Static");
 		v.invulnerableTime = 0;
 		helper.assertTrue(kit().stormFinaleNow(p) >= 1, "the finale");
-		near(helper, v.getHealth(), 140f - BrainstormKit.STORM_DAMAGE - BrainstormKit.STORM_FINALE, "22 at the end");
+		near(helper, v.getHealth(), 140f - BrainstormKit.STORM_DAMAGE - BrainstormKit.STORM_FINALE, "26 at the end");
 		helper.assertFalse(BrainstormKit.storming(p), "the storm is spent");
 		helper.assertFalse(kit().keyActive(p, AbilitySlot.SLOT_4), "Z is dark again");
 		helper.succeed();
@@ -194,7 +194,7 @@ public class OmnitrixBrainstormGameTests implements FabricGameTest {
 		Villager v = prey(helper, 5.5, 2, 3.0, 140f);
 		helper.assertTrue(kit().ballLightning(p), "Ball Lightning");
 		helper.assertTrue(kit().ballPulse(p, helper.getLevel()) >= 1, "the orb arcs at the villager within 3 of it");
-		near(helper, v.getHealth(), 140f - BrainstormKit.BALL_ZAP, "4 an arc");
+		near(helper, v.getHealth(), 140f - BrainstormKit.BALL_ZAP, "7 an arc");
 		helper.succeed();
 	}
 

@@ -67,6 +67,9 @@ import net.minecraft.world.phys.Vec3;
  * shape. No Ultimate form (user: "dont add ultimate aliens yet"); the body is only the user's skin (user: "delete all the alien
  * models and only use the skins i provided please no extra things untill i say").
  *
+ * v0.17.2 damage pass (user: "make the damage of all of ben 10s alien stronger"; docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md): the
+ * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
+ *
  * <pre>
  *   R          Acid Spit        a glob of acid: 7 (1 s)
  *   Shift+R    Acid Glob        a lobbed glob: 12 within 2.5 where it lands + an acid puddle 8 s (2 every 0.5 s, slowed)
@@ -187,9 +190,11 @@ public final class GoopKit extends AlienKit {
 	public static final String SQUEEZE_START = "squeeze_start", SPRAY_START = "spray_start", TIDE_START = "tide_start", POUR_END = "pour_end",
 			OFF_SINCE = "off_since";
 
-	public static final float SPIT_DAMAGE = 7f, GLOB_DAMAGE = 12f, PUDDLE_DAMAGE = 2f, WHIP_DAMAGE = 13f, ENGULF_DAMAGE = 4f, SPIT_OUT_DAMAGE = 6f,
-			SLAM_DAMAGE = 17f, SPRAY_DAMAGE = 3.5f, TIDE_DAMAGE = 45f, LAKE_DAMAGE = 5f, CANNON_DAMAGE = 18f, REFORM_HEAL = 8f, TOUCH_DAMAGE = 2f,
-			ACID_SKIN = 2f;
+	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md);
+	// the puddle pulses 16 times, so its tick stays a little under the 7-10 of a short DoT
+	public static final float SPIT_DAMAGE = 11f, GLOB_DAMAGE = 20f, PUDDLE_DAMAGE = 5f, WHIP_DAMAGE = 22f, ENGULF_DAMAGE = 8f, SPIT_OUT_DAMAGE = 10f,
+			SLAM_DAMAGE = 28f, SPRAY_DAMAGE = 8f, TIDE_DAMAGE = 85f, LAKE_DAMAGE = 8f, CANNON_DAMAGE = 30f, REFORM_HEAL = 8f, TOUCH_DAMAGE = 4f,
+			ACID_SKIN = 4f;
 	public static final double WHIP_RANGE = 8, WHIP_PULL = 3, ENGULF_RANGE = 4.5, SLAM_RADIUS = 4, SPRAY_RANGE = 6, SPRAY_DEG = 50, LAKE_RADIUS = 6,
 			GLOB_RADIUS = 2.5, TIDE_LENGTH = 10, TIDE_WIDTH = 2.2, FLING_RANGE = 16, DISSOLVE_REACH = 4.5;
 	public static final int PUDDLE_TICKS = 160, LAKE_TICKS = 120, PULSE = 10, ENGULF_TICKS = 60, ENGULF_PULSE = 15, SQUEEZE_MAX = 120,
@@ -340,7 +345,7 @@ public final class GoopKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(26).armor(2, 0).knockbackResist(0.3f).attack(2).safeFall(6).build();
+		return AlienStats.builder().health(26).armor(2, 0).knockbackResist(0.3f).attack(5).safeFall(6).build(); // v0.17.2 (user set the unarmed melee bonuses: "Swampfire +9, Echo Echo +4, Humungousaur +15, Jetray +5, Big Chill +6, Chromastone +7, Brainstorm +4, Spidermonkey +5, Goop +5")
 	}
 
 	@Override

@@ -142,7 +142,7 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		BigChillKit k = kit();
 		Villager v = prey(helper, 3.5, 2, 4.5, 60f);
 		helper.assertTrue(k.breath(p), "the Freezing Breath starts");
-		near(helper, v.getHealth(), 60f - (BigChillKit.BREATH_PULSE_DAMAGE * BigChillKit.heat(p)), "the first pulse lands at once (3)");
+		near(helper, v.getHealth(), 60f - (BigChillKit.BREATH_PULSE_DAMAGE * BigChillKit.heat(p)), "the first pulse lands at once (8)");
 		helper.assertTrue(v.getTicksFrozen() >= v.getTicksRequiredToFreeze() && !BigChillKit.shelled(v), "chilled, not yet frozen solid");
 		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(3, 1, 3))).is(Blocks.FROSTED_ICE), "the water under it ices over");
 		pump(helper, p);
@@ -168,12 +168,12 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		helper.assertFalse(k.shatter(p), "nothing frozen: Shatter is refused");
 		helper.assertTrue(k.cooldownLeft(p, BigChillKit.SHATTER) == 0, "and costs no cooldown");
 		helper.assertTrue(k.frostGrip(p), "Frost Grip seizes the zombie");
-		near(helper, z.getHealth(), 60f - (BigChillKit.GRIP_DAMAGE * BigChillKit.heat(p)), "the grip does 13");
+		near(helper, z.getHealth(), 60f - (BigChillKit.GRIP_DAMAGE * BigChillKit.heat(p)), "the grip does 22");
 		helper.assertTrue(BigChillKit.shelled(z), "and freezes it solid");
 		helper.assertTrue(k.shatter(p), "Shatter");
-		near(helper, z.getHealth(), 60f - (BigChillKit.GRIP_DAMAGE * BigChillKit.heat(p)) - (BigChillKit.SHATTER_DAMAGE * BigChillKit.heat(p)), "the ice bursts: 16");
+		near(helper, z.getHealth(), 60f - (BigChillKit.GRIP_DAMAGE * BigChillKit.heat(p)) - (BigChillKit.SHATTER_DAMAGE * BigChillKit.heat(p)), "the ice bursts: 28");
 		helper.assertFalse(BigChillKit.shelled(z), "out of its shell");
-		near(helper, v.getHealth(), 60f - (BigChillKit.SHATTER_SPLASH * BigChillKit.heat(p)), "the flying ice cuts the villager beside it (5)");
+		near(helper, v.getHealth(), 60f - (BigChillKit.SHATTER_SPLASH * BigChillKit.heat(p)), "the flying ice cuts the villager beside it (10)");
 		helper.assertTrue(k.cooldownLeft(p, BigChillKit.SHATTER) > 0, "Shatter cools down");
 		helper.succeed();
 	}
@@ -209,7 +209,7 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY) && k.flag(p, BigChillKit.F_CLOAK), "invisible");
 		helper.assertFalse(k.flag(p, BigChillKit.F_OPEN), "the wings wrapped round him");
 		k.onAttack(p, v);
-		near(helper, v.getHealth(), 60f - (BigChillKit.AMBUSH_DAMAGE * BigChillKit.heat(p)), "the Ambush adds 6");
+		near(helper, v.getHealth(), 60f - (BigChillKit.AMBUSH_DAMAGE * BigChillKit.heat(p)), "the Ambush adds 10");
 		helper.assertTrue(BigChillKit.shelled(v), "and freezes solid");
 		helper.assertFalse(k.flag(p, BigChillKit.F_CLOAK), "striking opens the cloak");
 		helper.assertTrue(k.flag(p, BigChillKit.F_OPEN), "the wings flare open");
@@ -217,11 +217,11 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		Villager w = prey(helper, 5.5, 2, 1.5, 60f);
 		p.setXRot(85f);
 		helper.assertTrue(k.frostField(p), "Shift+C: the Frost Field");
-		near(helper, w.getHealth(), 60f - (BigChillKit.FIELD_BURST * BigChillKit.heat(p)), "6 as it forms");
+		near(helper, w.getHealth(), 60f - (BigChillKit.FIELD_BURST * BigChillKit.heat(p)), "10 as it forms");
 		helper.assertTrue(k.flag(p, BigChillKit.F_FIELD), "and it lies there");
 		pump(helper, p);
 		helper.runAfterDelay(12, () -> {
-			helper.assertTrue(w.getHealth() <= 60f - (BigChillKit.FIELD_BURST * BigChillKit.heat(p)) - (BigChillKit.FIELD_DAMAGE * BigChillKit.heat(p)) + 0.05f, "then 1 every half second (" + w.getHealth() + ")");
+			helper.assertTrue(w.getHealth() <= 60f - (BigChillKit.FIELD_BURST * BigChillKit.heat(p)) - (BigChillKit.FIELD_DAMAGE * BigChillKit.heat(p)) + 0.05f, "then 4 every half second (" + w.getHealth() + ")");
 			helper.succeed();
 		});
 	}
@@ -231,14 +231,14 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = bigChill(helper);
 		BigChillKit k = kit();
-		Villager close = prey(helper, 3.5, 2, 2.5, 100f);
-		Villager far = prey(helper, 3.5, 2, 8.5, 100f);
+		Villager close = prey(helper, 3.5, 2, 2.5, 200f);
+		Villager far = prey(helper, 3.5, 2, 8.5, 200f);
 		helper.assertTrue(k.absoluteZero(p), "Shift+Z: Absolute Zero winds up");
 		helper.assertTrue(k.flag(p, BigChillKit.F_ZERO), "drawing the cold in");
 		k.fireAbsoluteZero(p, helper.getLevel());
-		float hitClose = 100f - close.getHealth(), hitFar = 100f - far.getHealth();
-		helper.assertTrue(hitClose > 52f * BigChillKit.heat(p) && hitClose <= 55.01f, "close: about 55 (" + hitClose + ")");
-		helper.assertTrue(hitFar >= 39.9f * BigChillKit.heat(p) && hitFar < hitClose, "at 7 blocks: less, not under 40 (" + hitFar + ")");
+		float hitClose = 200f - close.getHealth(), hitFar = 200f - far.getHealth();
+		helper.assertTrue(hitClose > (BigChillKit.ZERO_DAMAGE - 5f) * BigChillKit.heat(p) && hitClose <= BigChillKit.ZERO_DAMAGE + 0.01f, "close: about 95 (" + hitClose + ")");
+		helper.assertTrue(hitFar >= (BigChillKit.ZERO_EDGE - 0.1f) * BigChillKit.heat(p) && hitFar < hitClose, "at 7 blocks: less, not under 70 (" + hitFar + ")");
 		helper.assertTrue(BigChillKit.shelled(close) && BigChillKit.shelled(far), "both frozen solid");
 		helper.assertTrue(k.cooldownLeft(p, BigChillKit.ABSOLUTE_ZERO) > 0, "the ultimate cools down");
 		helper.succeed();
