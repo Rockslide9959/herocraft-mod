@@ -1,0 +1,199 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Wildmutt's R Paw Swipe combo, back and front views. Enabled by run/wmswipe.flag. */
+public final class WildmuttSwipeHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+
+	private WildmuttSwipeHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("wmswipe.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WildmuttSwipeHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "wm-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "wm_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit kit() {
+		return (com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit) com.projecthero.mod.omnitrix.alien.Aliens
+				.kit(com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);
+	}
+
+	private static final int[][] CAMS = new int[2][3];
+
+	/** An invisible armour stand whose eyes sit at {@code eye}, looking at {@code look}: { id, yaw bits, pitch bits }. */
+	private static int[] cam(ServerPlayer p, Vec3 eye, Vec3 look) {
+		var s = net.minecraft.world.entity.EntityType.ARMOR_STAND.create(p.serverLevel());
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		// third-person back pulls the camera 4 blocks behind the stand's eyes: put them 4 blocks ahead of the wanted camera
+		Vec3 at = eye.add(d.normalize().scale(4.0));
+		s.moveTo(at.x, at.y - s.getEyeHeight(), at.z, yaw, pitch);
+		s.setInvisible(true);
+		s.setInvulnerable(true);
+		s.setNoGravity(true);
+		s.setYHeadRot(yaw);
+		p.serverLevel().addFreshEntity(s);
+		return new int[] { s.getId(), Float.floatToIntBits(yaw), Float.floatToIntBits(pitch) };
+	}
+
+	private static void husks(ServerPlayer p) {
+		for (int i = -1; i <= 1; i += 2) {
+			net.minecraft.world.entity.monster.Husk h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+			Vec3 f = Vec3.directionFromRotation(0f, 180f + i * 25f).scale(2.3);
+			h.moveTo(p.getX() + f.x, p.getY(), p.getZ() + f.z, 0f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(500);
+			h.setHealth(500);
+			h.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0);
+			p.serverLevel().addFreshEntity(h);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WildmuttSwipeHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.omnitrix.Omnitrix.grant(p);
+				com.projecthero.mod.omnitrix.Omnitrix.noGlitch(p);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.select(p, com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 180f, 15f);
+				com.projecthero.mod.omnitrix.Omnitrix.slap(p, false);
+			});
+		}
+		if (t == 170) {
+			server(mc, p -> {
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 15f);
+				husks(p);
+			});
+		}
+		// two runs of the combo: from the side, then from the front
+		for (int run = 0; run < 2; run++) {
+			int base = 200 + run * 90;
+			String v = run == 0 ? "back" : "front";
+			if (t == base - 10) {
+				// his blind pass off for the stills (the vanilla renderer skips the local player under another camera entity)
+				try {
+					java.lang.reflect.Field f = com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttVision.class.getDeclaredField("failed");
+					f.setAccessible(true);
+					f.setBoolean(null, true);
+				} catch (ReflectiveOperationException ex) {
+					System.out.println("[HARNESS] vision: " + ex);
+				}
+				mc.options.setCameraType(run == 0 ? CameraType.THIRD_PERSON_BACK : CameraType.THIRD_PERSON_FRONT);
+			}
+			for (int press = 0; press < 3; press++) {
+				int at = base + press * 9;
+				if (t == at) {
+					server(mc, p -> kit().press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false));
+				}
+				int[] offs = press == 2 ? new int[] { 3, 5, 6, 8 } : new int[] { 2, 3, 4 };
+				for (int o : offs) {
+					if (t == at + o) {
+						shot(mc, v + "_" + (press + 1) + "_" + o);
+						var st = com.projecthero.mod.omnitrix.Omnitrix.state(mc.player);
+						System.out.println("[HARNESS] anim=" + st.animId + " start=" + st.animStart + " now=" + mc.level.getGameTime());
+					}
+				}
+			}
+		}
+		if (t == 400) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -9877,6 +9877,8 @@
   "hud.projecthero.omnitrix.wildmutt.deaf": "deaf",
   "projecthero.omnitrix.wildmutt.pounce": "Pounce",
   "projecthero.omnitrix.wildmutt.pounce.desc": "Lunge onto the creature you look at (12 blocks), or a bound ahead: the bite does 26, pins it for a moment and heals you 1.",
+  "projecthero.omnitrix.wildmutt.paw_swipe": "Paw Swipe",
+  "projecthero.omnitrix.wildmutt.paw_swipe.desc": "A three-blow combo -- keep pressing R within 1.5 s: a right paw swipe (11), a left paw swipe (11), then both paws raked down together (24, knocked back and slowed for 2 s). Each blow hits everything in a short arc in front of you. A short wait after the rake.",
   "projecthero.omnitrix.wildmutt.maul": "Maul",
   "projecthero.omnitrix.wildmutt.maul.desc": "Rear up on your hind legs and rake three times (7 each), then bring both claws down (12, knockback) on everything in front -- 33 in all.",
   "projecthero.omnitrix.wildmutt.quill_volley": "Quill Volley",

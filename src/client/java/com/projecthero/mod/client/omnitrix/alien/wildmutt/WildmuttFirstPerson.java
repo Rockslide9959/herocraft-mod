@@ -97,7 +97,9 @@ public final class WildmuttFirstPerson {
 			pose.mulPose(Axis.XP.rotationDegrees(-amp * 14f * lift));
 		}
 		com.projecthero.mod.client.omnitrix.FirstPersonClip clip = com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clip(p);
-		if (clip != null && (main || clip.twoHanded())) {
+		// v0.17.2: the Paw Swipe's second blow is the off paw's (the one-handed clip plays on it instead of the main paw)
+		boolean offPaw = com.projecthero.mod.omnitrix.Omnitrix.state(p).animId == com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ANIM_PAW_L;
+		if (clip != null && ((main != offPaw) || clip.twoHanded())) {
 			clip.apply(pose, com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clipTicks(p, partial), side);
 		}
 		pose.translate(side * (EX + 0.06f * up - 0.34f * rake), EY + breathe + 0.32f * up - 0.1f * rake, EZ - 0.06f * up - 0.24f * rake);

@@ -59,7 +59,10 @@ import net.minecraft.world.phys.Vec3;
  * His body is a custom GeckoLib quadruped ({@code WildmuttRenderer}) with a low, wide hitbox ({@link #body}).
  *
  * <pre>
- *   R        Pounce        lunge onto the creature ahead (12 r): 12, pins it   Shift+R  Maul          rear up: 3 rakes (3.8) + a double slam (6.6) = 18
+ *   R        Paw Swipe     press up to 3 times within 1.5 s: right paw (11),   Shift+R  Maul          rear up: 3 rakes (7) + a double slam (12) = 33
+ *                          left paw (11), a two-paw rake (24, knockback,
+ *                          Slowness II 2 s); 3.2-block 130-degree frontal arc
+ *   Hold R   Pounce        lunge onto the creature ahead (12 r): 26, pins it
  *   G        Quill Volley  7 quills from the back in a cone (3 each)            Shift+G  Savage Roar   cone 9: 6, slowed, weakened, staggered; a sound
  *                                                                                                      ping (r 24) outlines everything for him + squad 6 s
  *   X        Leap          a huge bound (no fall damage, landing shock)         Hold X   Coiled Leap   up to 1.5 s of coil: up to 1.8x as far, and the
@@ -165,6 +168,10 @@ public final class WildmuttKit extends AlienKit {
 	public static final int ANIM_SNEEZE = 13;
 	/** v0.17.2: the push-off of a wall-kick. */
 	public static final int ANIM_WALL_KICK = 14;
+	/** v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R"): the R combo's right swipe, left swipe and two-paw rake. */
+	public static final int ANIM_PAW_R = 15;
+	public static final int ANIM_PAW_L = 16;
+	public static final int ANIM_RAKE = 17;
 
 	// ---------------------------------------------------------------- synced bits
 	public static final int F_CLIMB = 1;
@@ -179,6 +186,8 @@ public final class WildmuttKit extends AlienKit {
 
 	// ---------------------------------------------------------------- moves
 	public static final String POUNCE = "pounce";
+	/** v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R"): the R tap combo. */
+	public static final String PAW_SWIPE = "paw_swipe";
 	public static final String MAUL = "maul";
 	public static final String QUILL_VOLLEY = "quill_volley";
 	public static final String ROAR_MOVE = "savage_roar";
@@ -202,6 +211,17 @@ public final class WildmuttKit extends AlienKit {
 	/** v0.17.1 rework 2: the slim, leggy body -- 1.48 blocks at the shoulders, the head's top level with them. */
 	public static final float BODY_WIDTH = 0.9f, BODY_HEIGHT = 1.55f, EYE_HEIGHT = 1.25f;
 	public static final float CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.05f;
+
+	/**
+	 * v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R, make holding R be his pounce ability please"):
+	 * the Paw Swipe combo -- each R press within {@link #COMBO_WINDOW} of the last is the next blow: a right paw swipe, a left paw
+	 * swipe ({@link #SWIPE_DAMAGE} each), then a two-paw rake ({@link #RAKE_DAMAGE}, knockback, Slowness II) that lands
+	 * {@link #RAKE_DELAY} ticks after the press; {@link #COMBO_GAP} between presses, {@link #COMBO_COOLDOWN} after the rake. Every
+	 * blow hits all creatures in a short frontal arc ({@link #SWIPE_RANGE}, {@link #SWIPE_HALF_ANGLE} each side).
+	 */
+	public static final float SWIPE_DAMAGE = 11f, RAKE_DAMAGE = 24f;
+	public static final int COMBO_GAP = 5, COMBO_WINDOW = 30, COMBO_COOLDOWN = 30, RAKE_DELAY = 5, RAKE_SLOW_TICKS = 40;
+	public static final double SWIPE_RANGE = 3.2, SWIPE_HALF_ANGLE = 65;
 
 	public static final double POUNCE_RANGE = 12.0;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 9
@@ -342,7 +362,9 @@ public final class WildmuttKit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(POUNCE, AbilitySlot.SLOT_1, 60), AlienMove.shift(MAUL, AbilitySlot.SLOT_1, 140),
+				// v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R, make holding R be his pounce ability please")
+				AlienMove.tap(PAW_SWIPE, AbilitySlot.SLOT_1, COMBO_GAP), AlienMove.hold(POUNCE, AbilitySlot.SLOT_1, 60),
+				AlienMove.shift(MAUL, AbilitySlot.SLOT_1, 140),
 				AlienMove.tap(QUILL_VOLLEY, AbilitySlot.SLOT_2, 100), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(LEAP_MOVE, AbilitySlot.SLOT_3, 30), AlienMove.hold(COILED_LEAP, AbilitySlot.SLOT_3, 60),
 				AlienMove.shift(CLIMB, AbilitySlot.SLOT_3, 10),
@@ -373,7 +395,7 @@ public final class WildmuttKit extends AlienKit {
 		setFlag(p, F_CLIMB | F_LEAPING | F_POUNCE | F_ROLL | F_FRENZY | F_SNIFF | F_COIL | F_HUNT, false);
 		for (String t : new String[] { "pounce_end", "maul_start", "quills_at", "roar_at", "roll_end", "frenzy_end", "track_id",
 				"track_end", "sniff_end", "deaf_until", "coil_start", "leap_start", "coil_power", "leap_peak", "hunt_target", "hunt_strike",
-				"hunt_count", "swipes", "appetite_at", "choked_until" }) {
+				"hunt_count", "swipes", "appetite_at", "choked_until", "combo_step", "combo_until", "rake_at" }) {
 			if (timer(p, t) > 0) {
 				setTimer(p, t, 0);
 			}
@@ -387,7 +409,8 @@ public final class WildmuttKit extends AlienKit {
 
 	@Override
 	public boolean holdable(AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_3;
+		// v0.17.2 (user: "make holding R be his pounce ability please"): R is held for the Pounce, X for the Coiled Leap
+		return slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_3;
 	}
 
 	@Override
@@ -397,7 +420,7 @@ public final class WildmuttKit extends AlienKit {
 				if (shift) {
 					maul(p);
 				} else {
-					pounce(p);
+					pawSwipe(p); // v0.17.2: the tap is the Paw Swipe combo; the Pounce is on the hold
 				}
 			}
 			case SLOT_2 -> {
@@ -442,6 +465,10 @@ public final class WildmuttKit extends AlienKit {
 
 	@Override
 	public void holdStart(ServerPlayer p, AbilitySlot slot) {
+		if (slot == AbilitySlot.SLOT_1) {
+			pounce(p); // v0.17.2 (user: "make holding R be his pounce ability please"): springs as soon as the hold registers
+			return;
+		}
 		if (slot != AbilitySlot.SLOT_3) {
 			return;
 		}
@@ -474,7 +501,115 @@ public final class WildmuttKit extends AlienKit {
 	/** Timers are "unset" at 0, so the leap's peak height (centi-blocks) is stored with this bias (copes with negative Y). */
 	private static final long PEAK_BIAS = 1_000_000L;
 
-	// ---------------------------------------------------------------- R: Pounce / Maul
+	// ---------------------------------------------------------------- R: Paw Swipe / Hold R: Pounce / Shift+R: Maul
+
+	/** Where the R combo is: the next blow (0..2), or 0 once its window has run out. */
+	public int comboStep(Player p) {
+		long until = timer(p, "combo_until");
+		if (until <= 0 || p.level().getGameTime() > until) {
+			return 0;
+		}
+		return (int) Math.max(0, Math.min(2, timer(p, "combo_step")));
+	}
+
+	/**
+	 * R: one blow of the Paw Swipe combo -- the right paw, the left paw, then both paws raked down together (that one lands
+	 * {@link #RAKE_DELAY} ticks later, on the animation's strike). Returns the creatures hit now (the rake: 0, it hits later), or -1
+	 * if refused.
+	 */
+	public int pawSwipe(ServerPlayer p) {
+		if (!use(p, PAW_SWIPE)) {
+			return -1;
+		}
+		int step = comboStep(p);
+		long now = p.level().getGameTime();
+		ServerLevel l = level(p);
+		if (step == 2) {
+			setTimer(p, "combo_until", 0);
+			setTimer(p, "combo_step", 0);
+			cooldown(p, PAW_SWIPE, COMBO_COOLDOWN);
+			anim(p, ANIM_RAKE);
+			setTimer(p, "rake_at", now + RAKE_DELAY);
+			OmnitrixSounds.play(l, p.position(), GROWL, 0.9f, 1.15f);
+			return 0;
+		}
+		setTimer(p, "combo_step", step + 1);
+		setTimer(p, "combo_until", now + COMBO_WINDOW);
+		anim(p, step == 0 ? ANIM_PAW_R : ANIM_PAW_L);
+		return swipeHit(p, step == 0, false);
+	}
+
+	/**
+	 * One paw blow (or the two-paw rake): everything in the short frontal arc, a curved slash drawn across it. Returns the creatures
+	 * hit.
+	 */
+	public int swipeHit(ServerPlayer p, boolean right, boolean rake) {
+		ServerLevel l = level(p);
+		Vec3 look = horizontal(p.getLookAngle());
+		Vec3 side = new Vec3(-look.z, 0, look.x); // his left
+		Vec3 chest = p.position().add(0, p.getBbHeight() * 0.55, 0);
+		int hit = 0;
+		for (LivingEntity e : around(p, chest.add(look.scale(SWIPE_RANGE * 0.5)), SWIPE_RANGE)) {
+			if (!inCone(p, e, look, SWIPE_RANGE + 0.4, SWIPE_HALF_ANGLE)) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			if (hurt(p, e, rake ? RAKE_DAMAGE : SWIPE_DAMAGE, false)) {
+				hit++;
+				if (rake) {
+					shove(e, p.position(), 1.1, 0.35);
+					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, RAKE_SLOW_TICKS, 1), p);
+				} else {
+					shove(e, p.position(), 0.25, 0.04);
+				}
+				frenzyHeal(p);
+				Vec3 at = e.position().add(0, e.getBbHeight() * 0.6, 0);
+				l.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, rake ? 12 : 6, 0.25, 0.25, 0.25, 0.25);
+				l.sendParticles(new DustParticleOptions(new Vector3f(0.75f, 0.08f, 0.06f), 0.9f), at.x, at.y, at.z, rake ? 8 : 4, 0.2, 0.2, 0.2, 0);
+			}
+		}
+		// the slash: a curved claw arc across the front -- three parallel claw marks for a paw, two sets crossing for the rake
+		Vec3 front = chest.add(look.scale(1.5));
+		if (rake) {
+			for (int s = -1; s <= 1; s += 2) {
+				for (int c = -1; c <= 1; c++) {
+					Vec3 off = side.scale(s * (0.55 + 0.18 * c));
+					slashArc(l, front.add(off).add(0, 0.85, 0), front.add(off.scale(0.4)).add(look.scale(0.6)).add(0, -0.8, 0), look.scale(0.5),
+							0xFFFFFF, 0xF07030, 0.2f, 7);
+				}
+			}
+			QuirkFx.ring(l, front.add(0, -0.6, 0)).colours(0xFFFFFF, 0xB09070).size(2.6f).thickness(0.45f).life(10).ground().spawn();
+			QuirkCamera.shakeAround(l, front, 8, 0.3f, 6);
+			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+			OmnitrixSounds.play(l, front, SLAM, 0.8f, 1.1f);
+			OmnitrixSounds.play(l, front, CLAW, 1.0f, 0.8f);
+		} else {
+			Vec3 from = side.scale(right ? -1 : 1); // the right paw sweeps right-to-left, the left one left-to-right
+			for (int c = -1; c <= 1; c++) {
+				Vec3 lift = new Vec3(0, 0.16 * c, 0);
+				slashArc(l, front.add(from.scale(1.25)).add(0, 0.45, 0).add(lift), front.subtract(from.scale(1.25)).add(0, -0.35, 0).add(lift),
+						look.scale(0.7), 0xFFF4E0, 0xF0A050, 0.17f, 6);
+			}
+			if (hit > 0) {
+				QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+			}
+			OmnitrixSounds.play(l, front, CLAW, 0.95f, right ? 1.0f : 1.12f);
+		}
+		return hit;
+	}
+
+	/** A curved slash from {@code a} to {@code b} bowed out by {@code bow}: four short ribbons along a quadratic arc. */
+	private static void slashArc(ServerLevel l, Vec3 a, Vec3 b, Vec3 bow, int inner, int outer, float size, int life) {
+		Vec3 mid = a.add(b).scale(0.5).add(bow);
+		Vec3 prev = a;
+		for (int i = 1; i <= 4; i++) {
+			double t = i / 4.0, u = 1 - t;
+			Vec3 q = a.scale(u * u).add(mid.scale(2 * u * t)).add(b.scale(t * t));
+			float taper = (float) (size * (0.55 + 0.45 * Math.sin(Math.PI * (i - 0.5) / 4.0)));
+			QuirkFx.ribbon(l, prev, q).colours(inner, outer).size(taper).life(life).style(QuirkFx.RIBBON_LIGHT).spawn();
+			prev = q;
+		}
+	}
 
 	public boolean pounce(ServerPlayer p) {
 		if (!use(p, POUNCE)) {
@@ -1393,6 +1528,7 @@ public final class WildmuttKit extends AlienKit {
 				setTimer(p, "maul_start", 0);
 			}
 		}
+		fireAt(p, now, "rake_at", () -> swipeHit(p, true, true)); // v0.17.2: the Paw Swipe's two-paw rake lands
 		fireAt(p, now, "quills_at", () -> fireQuills(p));
 		fireAt(p, now, "roar_at", () -> roarBlast(p));
 		// the roll

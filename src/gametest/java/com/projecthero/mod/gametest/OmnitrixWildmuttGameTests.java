@@ -169,7 +169,8 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyMoveHasItsKeyAndNeverHOrN(GameTestHelper helper) {
 		List<AlienMove> moves = kit().moves();
-		helper.assertTrue(moves.size() == 14, "14 moves, Dig on V (" + moves.size() + ")");
+		// v0.17.2: 15 -- the Paw Swipe joined R (tap), the Pounce moved to Hold R
+		helper.assertTrue(moves.size() == 15, "15 moves, Dig on V, Paw Swipe on R (" + moves.size() + ")");
 		for (AlienMove m : moves) {
 			if (m.onSlot()) {
 				char k = m.slot().defaultKey();
@@ -181,6 +182,109 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		AlienMove z = kit().moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, false, false);
 		helper.assertTrue(z != null && WildmuttKit.HUNT.equals(z.id()), "Ricochet Hunt on Z (" + (z == null ? null : z.id()) + ")");
 		helper.assertTrue(kit().move("ground_slam") == null, "no Ground Slam key any more");
+		helper.succeed();
+	}
+
+	// ================================================================ v0.17.2: R = Paw Swipe combo, Hold R = Pounce
+
+	/**
+	 * v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R"): each R press hits everything in the short
+	 * frontal arc -- right paw (11), left paw (11), then the two-paw rake (24, knockback, slowed) a few ticks after the 3rd press;
+	 * the chain resets after the rake and when the 1.5 s window runs out.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void rTapIsAThreeHitPawSwipeCombo(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		p.moveTo(p.getX(), p.getY(), p.getZ() + 1.5, 0f, 0f); // room on the floor behind him (a creature off it takes fall damage)
+		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		Zombie a = zombie(helper, 3.5, 2, 3.0, 200f);
+		Zombie b = zombie(helper, 3.5, 2, 3.0, 200f);
+		Zombie behind = zombie(helper, 3.5, 2, 0.0, 200f);
+		ahead(a, p, 1.6);
+		b.moveTo(p.getX() + 1.0, p.getY(), p.getZ() + 1.8, 180f, 0f); // off to one side, still in the arc
+		behind.moveTo(p.getX(), p.getY(), p.getZ() - 2.0, 0f, 0f);
+		pump(helper, p);
+		// 1: the right paw
+		k.press(p, r, false);
+		helper.assertTrue(Omnitrix.state(p).animId == WildmuttKit.ANIM_PAW_R, "the 1st press is the right paw swipe");
+		near(helper, 200f - a.getHealth(), WildmuttKit.SWIPE_DAMAGE, "the right paw hits for 11");
+		near(helper, 200f - b.getHealth(), WildmuttKit.SWIPE_DAMAGE, "and the one beside it in the arc");
+		near(helper, behind.getHealth(), 200f, "nothing behind him");
+		helper.assertTrue(k.comboStep(p) == 1, "the combo is on blow 2");
+		helper.assertFalse(k.flag(p, WildmuttKit.F_POUNCE), "a tap never pounces");
+		helper.runAfterDelay(WildmuttKit.COMBO_GAP + 1, () -> {
+			// 2: the left paw
+			ahead(a, p, 1.6);
+			k.press(p, r, false);
+			helper.assertTrue(Omnitrix.state(p).animId == WildmuttKit.ANIM_PAW_L, "the 2nd press is the left paw swipe");
+			near(helper, 200f - a.getHealth(), 2 * WildmuttKit.SWIPE_DAMAGE, "the left paw hits for 11 more");
+			helper.assertTrue(k.comboStep(p) == 2, "the combo is on the finisher");
+			helper.runAfterDelay(WildmuttKit.COMBO_GAP + 1, () -> {
+				// 3: the two-paw rake -- it lands on the clip's strike, a few ticks later
+				ahead(a, p, 1.6);
+				k.press(p, r, false);
+				helper.assertTrue(Omnitrix.state(p).animId == WildmuttKit.ANIM_RAKE, "the 3rd press is the two-paw rake");
+				helper.assertTrue(k.comboStep(p) == 0, "the chain resets after the finisher");
+				helper.assertTrue(k.cooldownLeft(p, WildmuttKit.PAW_SWIPE) > WildmuttKit.COMBO_GAP, "a short wait after the rake");
+				helper.runAfterDelay(WildmuttKit.RAKE_DELAY + 2, () -> {
+					near(helper, 200f - a.getHealth(), 2 * WildmuttKit.SWIPE_DAMAGE + WildmuttKit.RAKE_DAMAGE, "the rake hits for 24");
+					helper.assertTrue(a.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slows it");
+					near(helper, behind.getHealth(), 200f, "still nothing behind him");
+					// the window: one swipe, then wait past 1.5 s -- the next press starts over with the right paw
+					helper.runAfterDelay(WildmuttKit.COMBO_COOLDOWN, () -> {
+						ahead(a, p, 1.6);
+						a.setHealth(200f);
+						k.press(p, r, false);
+						helper.assertTrue(k.comboStep(p) == 1, "a new chain");
+						helper.runAfterDelay(WildmuttKit.COMBO_WINDOW + 2, () -> {
+							helper.assertTrue(k.comboStep(p) == 0, "the chain lapses after 1.5 s");
+							ahead(a, p, 1.6);
+							k.press(p, r, false);
+							helper.assertTrue(Omnitrix.state(p).animId == WildmuttKit.ANIM_PAW_R, "and starts again with the right paw");
+							near(helper, 200f - a.getHealth(), 2 * WildmuttKit.SWIPE_DAMAGE, "a plain swipe again (11)");
+							a.discard();
+							b.discard();
+							behind.discard();
+							helper.succeed();
+						});
+					});
+				});
+			});
+		});
+	}
+
+	/** v0.17.2 (user: "make holding R be his pounce ability please"): Hold R springs the Pounce, with its old numbers. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void holdingRPounces(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		WildmuttKit k = kit();
+		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		AlienMove tap = k.moveOn(r, false, false), hold = k.moveOn(r, false, true), shift = k.moveOn(r, true, false);
+		helper.assertTrue(tap != null && WildmuttKit.PAW_SWIPE.equals(tap.id()), "R is the Paw Swipe");
+		helper.assertTrue(hold != null && WildmuttKit.POUNCE.equals(hold.id()), "Hold R is the Pounce");
+		helper.assertTrue(shift != null && WildmuttKit.MAUL.equals(shift.id()), "Shift+R is still the Maul");
+		helper.assertTrue(k.holdable(r) && k.holdable(com.projecthero.mod.hero.AbilitySlot.SLOT_3), "R and X both hold");
+		Zombie z = zombie(helper, 3.5, 2, 3.0, 200f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 5f);
+		ahead(z, p, 1.3);
+		k.holdStart(p, r);
+		helper.assertTrue(k.flag(p, WildmuttKit.F_POUNCE) && p.getDeltaMovement().z > 0.3, "holding R lunges");
+		helper.assertTrue(k.cooldownLeft(p, WildmuttKit.POUNCE) > 0, "the pounce cools down");
+		p.tickCount++;
+		Omnitrix.tick(p);
+		near(helper, 200f - z.getHealth(), WildmuttKit.POUNCE_DAMAGE, "the bite does 26");
+		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
+		k.holdEnd(p, r, 10);
+		helper.assertFalse(k.flag(p, WildmuttKit.F_COIL), "letting go of R does not coil a leap");
+		// a second hold while it cools down does nothing
+		z.setHealth(200f);
+		ahead(z, p, 1.3);
+		k.holdStart(p, r);
+		helper.assertFalse(k.flag(p, WildmuttKit.F_POUNCE), "no second pounce while it cools down");
+		z.discard();
 		helper.succeed();
 	}
 

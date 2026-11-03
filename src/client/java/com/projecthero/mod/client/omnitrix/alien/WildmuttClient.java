@@ -70,6 +70,17 @@ public final class WildmuttClient implements AlienClientKit {
 			FirstPersonClip.f(5, -12, 0, 0, 0, 0.08f, 0.05f), FirstPersonClip.f(8, 18, 0, 0, 0, -0.14f, -0.05f),
 			FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 
+	/**
+	 * v0.17.2 (user: "Wildmutt should have a 3 hit paw swipe attack by pressing R"): the R combo -- one paw cocked up and raked across
+	 * and down (the right paw; the left swipe plays the same clip on the off paw only), then both paws raised high and driven down.
+	 */
+	private static final FirstPersonClip FP_PAW_SWIPE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
+			FirstPersonClip.f(2, -70, -18, -20, -0.1f, 0.42f, 0.05f), FirstPersonClip.f(4, 28, 34, 25, 0.38f, -0.16f, -0.3f),
+			FirstPersonClip.f(6, 20, 26, 18, 0.3f, -0.12f, -0.22f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_RAKE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
+			FirstPersonClip.f(4, -100, 4, 6, 0.04f, 0.62f, 0.18f), FirstPersonClip.f(6, 34, 14, -8, 0.1f, -0.32f, -0.3f),
+			FirstPersonClip.f(9, 28, 12, -6, 0.08f, -0.28f, -0.24f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
+
 	@Override
 	public ResourceLocation skin() {
 		return WildmuttModel.TEXTURE;
@@ -119,6 +130,8 @@ public final class WildmuttClient implements AlienClientKit {
 			case WildmuttKit.ANIM_FRENZY -> FP_FRENZY;
 			case WildmuttKit.ANIM_QUILLS -> FP_QUILLS;
 			case WildmuttKit.ANIM_LEAP -> FP_LEAP;
+			case WildmuttKit.ANIM_PAW_R, WildmuttKit.ANIM_PAW_L -> FP_PAW_SWIPE; // v0.17.2: the Paw Swipe combo
+			case WildmuttKit.ANIM_RAKE -> FP_RAKE;
 			default -> null;
 		};
 	}
