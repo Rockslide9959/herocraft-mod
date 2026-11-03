@@ -1353,6 +1353,7 @@ public final class Omnitrix {
 			if (!OmnitrixBody.applied(p)) {
 				OmnitrixBody.apply(p, kit.stats(), p.getHealth() / Math.max(1f, p.getMaxHealth()));
 			}
+			OmnitrixBody.keepArmourOff(p); // v0.17.2 (user: "the aliens arent supposed to wear armour")
 			if (com.projecthero.mod.hero.PowerSuppression.isSuppressed(p)) {
 				revert(p, Reason.SUPPRESSED);
 				return;

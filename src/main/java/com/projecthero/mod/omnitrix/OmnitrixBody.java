@@ -53,6 +53,80 @@ public final class OmnitrixBody {
 		add(p, Attributes.ENTITY_INTERACTION_RANGE, REACH_ENTITY, s.reach(), AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.LUCK, MARK, 0.0, AttributeModifier.Operation.ADD_VALUE);
 		p.setHealth(Math.max(1f, clamp01(healthFraction) * p.getMaxHealth()));
+		stashArmour(p);
+	}
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOUR = { net.minecraft.world.entity.EquipmentSlot.HEAD,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET };
+
+	/**
+	 * v0.17.2 (user: "if the player wears armour while transformed make the armour disappear and come back once the player detransforms, the aliens arent supposed to wear armour since that would make them far too powerful"): what he wears goes into the stash (kept on death, saved with him). A slot already stashed (a re-apply after a relog)
+	 * is never overwritten -- anything new in it goes to his inventory instead (or drops at his feet when that is full).
+	 */
+	public static void stashArmour(ServerPlayer p) {
+		java.util.List<net.minecraft.world.item.ItemStack> stash = new java.util.ArrayList<>(p.getAttachedOrElse(OmnitrixAttachments.STASHED_ARMOUR, java.util.List.of()));
+		while (stash.size() < ARMOUR.length) {
+			stash.add(net.minecraft.world.item.ItemStack.EMPTY);
+		}
+		boolean any = false;
+		for (int i = 0; i < ARMOUR.length; i++) {
+			net.minecraft.world.item.ItemStack worn = p.getItemBySlot(ARMOUR[i]);
+			if (worn.isEmpty()) {
+				continue;
+			}
+			p.setItemSlot(ARMOUR[i], net.minecraft.world.item.ItemStack.EMPTY);
+			if (stash.get(i).isEmpty()) {
+				stash.set(i, worn.copy());
+				any = true;
+			} else {
+				give(p, worn.copy());
+			}
+		}
+		if (any || p.hasAttached(OmnitrixAttachments.STASHED_ARMOUR)) {
+			p.setAttached(OmnitrixAttachments.STASHED_ARMOUR, java.util.List.copyOf(stash));
+		}
+	}
+
+	/** Turned back: the stashed armour goes back on (into his inventory when he put something else on meanwhile). */
+	public static void restoreArmour(ServerPlayer p) {
+		java.util.List<net.minecraft.world.item.ItemStack> stash = p.getAttached(OmnitrixAttachments.STASHED_ARMOUR);
+		if (stash == null) {
+			return;
+		}
+		p.removeAttached(OmnitrixAttachments.STASHED_ARMOUR);
+		// killed as an alien (/kill -- everything else the watch survives): his loot already dropped, so it drops beside it, unless
+		// keepInventory carries his worn armour over to the respawned him
+		boolean dropAll = p.isDeadOrDying() && !p.serverLevel().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY);
+		for (int i = 0; i < Math.min(stash.size(), ARMOUR.length); i++) {
+			net.minecraft.world.item.ItemStack s = stash.get(i);
+			if (s.isEmpty()) {
+				continue;
+			}
+			if (dropAll) {
+				p.drop(s.copy(), true, false);
+			} else if (p.getItemBySlot(ARMOUR[i]).isEmpty()) {
+				p.setItemSlot(ARMOUR[i], s.copy());
+			} else {
+				give(p, s.copy());
+			}
+		}
+	}
+
+	/** While he is an alien: anything put on (by hand, a dispenser) comes straight back off into his inventory. */
+	public static void keepArmourOff(ServerPlayer p) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : ARMOUR) {
+			net.minecraft.world.item.ItemStack worn = p.getItemBySlot(slot);
+			if (!worn.isEmpty()) {
+				p.setItemSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+				give(p, worn.copy());
+			}
+		}
+	}
+
+	private static void give(ServerPlayer p, net.minecraft.world.item.ItemStack s) {
+		if (!p.getInventory().add(s) && !s.isEmpty()) {
+			p.drop(s, false);
+		}
 	}
 
 	/** Takes the alien's body off; health keeps its fraction ({@code keepHealth} false: leave it alone, e.g. on death). */
@@ -67,6 +141,7 @@ public final class OmnitrixBody {
 			Holder<Attribute> attr = (Holder<Attribute>) e[0];
 			PowerToggles.clearModifier(p, attr, (ResourceLocation) e[1]);
 		}
+		restoreArmour(p); // v0.17.2 (user: "if the player wears armour while transformed make the armour disappear and come back once the player detransforms, the aliens arent supposed to wear armour since that would make them far too powerful")
 		if (keepHealth && p.isAlive()) {
 			p.setHealth(Math.max(1f, clamp01(frac) * p.getMaxHealth()));
 		} else if (p.getHealth() > p.getMaxHealth()) {

@@ -25,6 +25,14 @@ public final class OmnitrixAttachments {
 	public static final AttachmentType<Integer> EXTRACTION = AttachmentRegistry.create(ProjectHeroMod.id("omnitrix_extraction"),
 			builder -> builder.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.17.2 (user: "if the player wears armour while transformed make the armour disappear and come back once the player detransforms, the aliens arent supposed to wear armour since that would make them far too powerful"): the armour taken off him while he is an alien -- head, chest, legs, feet. Persistent and KEPT ON DEATH, so nothing is
+	 * ever lost (a crash, a relog, a death mid-transformation); put back by {@link OmnitrixBody#restoreArmour}.
+	 */
+	public static final AttachmentType<java.util.List<net.minecraft.world.item.ItemStack>> STASHED_ARMOUR = AttachmentRegistry.create(
+			ProjectHeroMod.id("omnitrix_stashed_armour"),
+			builder -> builder.persistent(net.minecraft.world.item.ItemStack.OPTIONAL_CODEC.listOf()).copyOnDeath());
+
 	private OmnitrixAttachments() {
 	}
 

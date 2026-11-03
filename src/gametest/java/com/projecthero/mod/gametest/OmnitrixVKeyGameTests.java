@@ -129,6 +129,36 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.2 (user: "if the player wears armour while transformed make the armour disappear and come back once the player detransforms,
+	 * the aliens arent supposed to wear armour since that would make them far too powerful")
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void armourComesOffForTheAlienAndBackOnAfter(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.NETHERITE_CHESTPLATE));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+		helper.assertTrue(Omnitrix.select(p, FourArmsKit.ID) && Omnitrix.transform(p), "Four Arms");
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			helper.assertTrue(p.getItemBySlot(slot).isEmpty(), "no armour on the alien: " + slot);
+		}
+		helper.assertFalse(p.getInventory().contains(new ItemStack(Items.NETHERITE_CHESTPLATE)), "stashed, not dumped in his inventory");
+		// put on while an alien: straight back off into his inventory
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.GOLDEN_LEGGINGS));
+		Omnitrix.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "the alien can't put armour on");
+		helper.assertTrue(p.getInventory().contains(new ItemStack(Items.GOLDEN_LEGGINGS)), "the leggings went to his inventory");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.HEAD).is(Items.DIAMOND_HELMET), "helmet back on");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(Items.NETHERITE_CHESTPLATE), "chestplate back on");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).is(Items.IRON_BOOTS), "boots back on");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "nothing invented for the empty slot");
+		helper.succeed();
+	}
+
 	// ================================================================ one V move per alien
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
