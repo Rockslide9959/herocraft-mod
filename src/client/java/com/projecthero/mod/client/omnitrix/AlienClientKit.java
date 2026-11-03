@@ -32,6 +32,14 @@ public interface AlienClientKit {
 	}
 
 	/**
+	 * v0.17.2 (user: "make spidermonkeys arms slim"): true draws this alien on the SLIM (3 px) arm model instead of the wide one,
+	 * third person and the first-person hand alike; {@link #skin(AbstractClientPlayer)} must then answer a slim-laid skin.
+	 */
+	default boolean slimArms(AbstractClientPlayer p) {
+		return false;
+	}
+
+	/**
 	 * v0.17.1 (Ghostfreak's Spirit Sight): whether {@code e} is outlined for {@code viewer}, the local wearer, right now. Asked by
 	 * {@code OmnitrixGlowMixin} on this client only (nobody else sees it). Default never.
 	 */
