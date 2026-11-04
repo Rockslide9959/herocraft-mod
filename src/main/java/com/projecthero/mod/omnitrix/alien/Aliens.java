@@ -52,6 +52,8 @@ public final class Aliens {
 	public static final Alien CANNONBOLT = declare("cannonbolt", 0xDABE0B);
 	// v0.17.2 (user: "create a moveset for wildvine please ... Make this another alien you unlock on the 11th mistransformation")
 	public static final Alien WILDVINE = declare("wildvine", 0x5FB043);
+	// v0.17.2 (user: "also create a moveset for ditto please ... Make this another alien you unlock on the 11th mistransformation")
+	public static final Alien DITTO = declare("ditto", 0xE6EEF8);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
@@ -110,7 +112,7 @@ public final class Aliens {
 	 * it an even chance to unlock either cannonbolt or wildvine"): an even pick among the ones still hidden ({@link #pickHidden}) -- add
 	 * an id here and it joins the draw.
 	 */
-	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine");
+	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine", "ditto");
 
 	/** The persisted Omnitrix timer that marks {@code id} found (1 = found). */
 	public static String foundKey(String id) {
@@ -186,7 +188,7 @@ public final class Aliens {
 	/**
 	 * v0.17.2 (user: "make it an even chance to unlock either cannonbolt or wildvine if you dont unlock any of them ... im gonna add more
 	 * new laiens still"): the hidden alien an unlocking mistransform lands on -- an even pick among every one {@code p} has not found
-	 * yet (Cannonbolt or Wildvine 50/50 at first, the other one next time), or null when none is left.
+	 * yet (Cannonbolt, Wildvine and Ditto a third each at first), or null when none is left.
 	 */
 	@Nullable
 	public static Alien pickHidden(net.minecraft.world.entity.player.Player p, net.minecraft.util.RandomSource random) {

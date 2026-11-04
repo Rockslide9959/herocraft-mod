@@ -52,6 +52,7 @@ public final class OmnitrixClient {
 		AlienClients.register(Aliens.GHOSTFREAK.id(), new com.projecthero.mod.client.omnitrix.alien.GhostfreakClient());
 		com.projecthero.mod.client.omnitrix.alien.CannonboltClient.register(); // v0.17.2
 		com.projecthero.mod.client.omnitrix.alien.WildvineClient.register(); // v0.17.2
+		com.projecthero.mod.client.omnitrix.alien.DittoClient.register(); // v0.17.2
 		// v0.17.2: the Recalibrated Omnitrix's ten
 		com.projecthero.mod.client.omnitrix.alien.SwampfireClient.register();
 		com.projecthero.mod.client.omnitrix.alien.EchoEchoClient.register();

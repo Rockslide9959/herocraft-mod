@@ -102,16 +102,18 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.CANNONBOLT), "Cannonbolt is not on the dial before he is found");
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.WILDVINE), "nor Wildvine");
 		helper.assertFalse(Omnitrix.select(p, CannonboltKit.ID) || Omnitrix.select(p, WildvineKit.ID), "and neither can be dialled");
-		helper.assertTrue(Aliens.unfound(p).equals(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE)), "both are left for a glitch to find");
+		helper.assertTrue(Aliens.unfound(p).equals(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO)),
+				"all three are left for a glitch to find (v0.17.2: + Ditto)");
 		Omnitrix.setMistransforms(p, 8); // two ordinary mistransforms, then the 11th
 		helper.onEachTick(() -> {
 			p.tickCount++;
 			Omnitrix.tick(p);
 		});
 		attempt(helper, p, 0, 11, java.util.Set.of(), found -> {
-			Aliens.Alien other = found == Aliens.CANNONBOLT ? Aliens.WILDVINE : Aliens.CANNONBOLT;
-			helper.assertFalse(Aliens.found(p, other.id()), "the other hidden alien is still hidden");
-			helper.assertTrue(Aliens.unfound(p).equals(java.util.List.of(other)), "and it is the only one left");
+			java.util.List<Aliens.Alien> others = new java.util.ArrayList<>(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO));
+			others.remove(found);
+			helper.assertTrue(others.stream().noneMatch(o -> Aliens.found(p, o.id())), "the other hidden aliens are still hidden");
+			helper.assertTrue(Aliens.unfound(p).equals(others), "and they are the only ones left");
 			helper.succeed();
 		});
 	}
@@ -132,10 +134,16 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		attempt(helper, p, 0, 11, java.util.Set.of(), first -> {
 			Omnitrix.setMistransforms(p, 21); // skip ahead: the next one is the 22nd
 			attempt(helper, p, 0, 22, java.util.Set.of(first.id()), second -> {
-				helper.assertTrue(second != first, "the 22nd finds the other hidden alien, not " + first.id() + " again");
-				helper.assertTrue(Aliens.found(p, CannonboltKit.ID) && Aliens.found(p, WildvineKit.ID), "both are on the dial now");
-				helper.assertTrue(Aliens.unfound(p).isEmpty() && Aliens.nextHidden(p) == null, "nothing hidden left");
-				helper.succeed();
+				helper.assertTrue(second != first, "the 22nd finds another hidden alien, not " + first.id() + " again");
+				// v0.17.2 (Ditto): a third hidden alien -- the 33rd finds the last one
+				Omnitrix.setMistransforms(p, 32);
+				attempt(helper, p, 0, 33, java.util.Set.of(first.id(), second.id()), third -> {
+					helper.assertTrue(third != first && third != second, "the 33rd finds the last one, no repeat: " + third.id());
+					helper.assertTrue(Aliens.found(p, CannonboltKit.ID) && Aliens.found(p, WildvineKit.ID) && Aliens.found(p, Aliens.DITTO.id()),
+							"all three are on the dial now");
+					helper.assertTrue(Aliens.unfound(p).isEmpty() && Aliens.nextHidden(p) == null, "nothing hidden left");
+					helper.succeed();
+				});
 			});
 		});
 	}
@@ -145,18 +153,25 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	public void theHiddenAlienPickIsAnEvenChance(GameTestHelper helper) {
 		ServerPlayer p = proto(helper);
 		net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(1234L);
-		int cannonbolt = 0;
-		for (int i = 0; i < 400; i++) {
+		// v0.17.2 (Ditto): three unfound hidden aliens -- a third each (each between 25% and 42% of 600 picks)
+		java.util.Map<Aliens.Alien, Integer> n = new java.util.HashMap<>();
+		for (int i = 0; i < 600; i++) {
 			Aliens.Alien a = Aliens.pickHidden(p, r);
-			helper.assertTrue(a == Aliens.CANNONBOLT || a == Aliens.WILDVINE, "the pick is one of the hidden aliens");
-			if (a == Aliens.CANNONBOLT) {
-				cannonbolt++;
-			}
+			helper.assertTrue(a == Aliens.CANNONBOLT || a == Aliens.WILDVINE || a == Aliens.DITTO, "the pick is one of the hidden aliens");
+			n.merge(a, 1, Integer::sum);
 		}
-		helper.assertTrue(cannonbolt > 160 && cannonbolt < 240, "an even chance: Cannonbolt " + cannonbolt + "/400");
+		for (Aliens.Alien a : java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO)) {
+			int c = n.getOrDefault(a, 0);
+			helper.assertTrue(c > 150 && c < 250, "an even chance: " + a.id() + " " + c + "/600");
+		}
 		Aliens.discover(p, CannonboltKit.ID, true);
-		helper.assertTrue(Aliens.pickHidden(p, r) == Aliens.WILDVINE, "once Cannonbolt is found only Wildvine is left");
+		for (int i = 0; i < 50; i++) {
+			Aliens.Alien a = Aliens.pickHidden(p, r);
+			helper.assertTrue(a == Aliens.WILDVINE || a == Aliens.DITTO, "once Cannonbolt is found only Wildvine and Ditto are left");
+		}
 		Aliens.discover(p, WildvineKit.ID, true);
+		helper.assertTrue(Aliens.pickHidden(p, r) == Aliens.DITTO, "then only Ditto");
+		Aliens.discover(p, Aliens.DITTO.id(), true);
 		helper.assertTrue(Aliens.pickHidden(p, r) == null, "and then none");
 		helper.succeed();
 	}
