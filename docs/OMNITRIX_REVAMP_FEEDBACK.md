@@ -186,3 +186,16 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
 - **In game:** `docs/screenshots/v0172/feedback/`, from the harness `scratchpad/FeedbackHarness.v0172.java.txt`. It needs a
   `feedback.flag` file in its run dir, and a temporary camera mixin (`scratchpad/FeedbackHarnessCameraMixin.java.txt`) for the true
   front, side and back views.
+
+## Decisions made while building (no questions asked)
+
+User (via the release session): "do everything automatically and dont ask me any questions please and add this all to my test modpack once its done please".
+
+- **The core is a Charge meter (0-100)**, filled by absorbing and draining and spent on his blasts. The show's Feedback has nothing to fire without something to absorb.
+- **Energy colour: pale electric yellow (0xF2E25A)**, so it reads as his gold plugs lit up and doesn't clash with the green Omnitrix aliens.
+- **Energy Sponge is passive at half.** Full absorption needs the G brace, so he isn't immune to anything energy-based.
+- **Overcharge** (absorbing while full hurts him) is the show's Conductoid overload risk, turned into a weakness. **Grounded** (water drains Charge) is a light second one.
+- **Plug In drains rather than destroys.** Only a respawn anchor actually loses charges; redstone blocks, lit lamps and the like are left as they are, so builds aren't griefed.
+- **Cable lengths and arcs** were traced from the two reference pictures, then made a little wider so the ear plugs hang clear of his hands at Minecraft scale.
+- **Plug proportions** come from the clearer reference (the second picture): barrel about 2.6 : 1, prongs about 0.3 of the barrel, three thin brown groove lines toward the front.
+- **The dial icon is a placeholder** until the user sends one; the transplant script keeps the shared frame.
