@@ -107,5 +107,15 @@ fill(48, 0, 52, 8, (u, v) => { // CLAW: black, the skin's blue-black highlight o
 });
 fill(52, 0, 56, 4, () => P.coal); // CLAW_CAP
 fill(0, 16, 8, 24, (u, v) => mix(P.mid, P.slate, (Math.abs(u - 3.5) + Math.abs(v - 3.5)) / 7)); // MOUNT: the wing knot's chitin
+// v0.17.2 third pass (user: "make stinkflies tale look better please, keep looking at the reference till his tail looks exactly
+// the same as in the picture"): the show's tail is smooth white (no bands) and ends in a flat black crescent blade with a thin
+// white stripe along its inner edge
+fill(0, 24, 8, 32, (u, v, w) => mix(P.white, P.light, Math.pow(Math.abs(u - (w - 1) / 2) / ((w - 1) / 2), 2) * 0.8)); // SMOOTH_TOP
+fill(8, 24, 16, 32, (u, v, w) => mix(P.pale, P.mid, Math.pow(Math.abs(u - (w - 1) / 2) / ((w - 1) / 2), 2) * 0.6)); // SMOOTH_SIDE
+fill(16, 24, 24, 32, (u, v, w) => mix(P.light, P.mid, Math.abs(u - (w - 1) / 2) / ((w - 1) / 2) * 0.7)); // SMOOTH_BELLY
+fill(24, 24, 32, 32, () => P.pale); // SMOOTH_CAP
+fill(32, 24, 36, 32, (u) => u === 1 ? [30, 33, 42] : P.black); // BLADE: glossy black, a faint cold sheen down one side
+fill(36, 24, 40, 28, () => P.ink); // BLADE_CAP
+fill(40, 24, 44, 28, () => P.white); // STRIPE
 write('stinkfly_body.png', sh);
 console.log('stinkfly.png, stinkfly_body.png written');

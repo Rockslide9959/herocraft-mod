@@ -124,3 +124,28 @@ regenerates 4 HP/s in sunlight and 1 HP/s otherwise.
   - the Bone Gauntlet.
 - Debug: `/projecthero raid advance doomsday` steps through casket opens -> this life ends -> revival finishes -> ... ->
   banished.
+
+## 9. Round 2 (2026-11-04): more attacks and animations
+User: "add more attacks and animations to doomsday please". Every new move does +15% per life. Every block he breaks
+needs `abilityTerrainDamage` and mobGriefing on (`DoomsdayEntity.griefing` / `mayBreak`). He only breaks soft natural
+blocks: hardness 3 or less, nothing with a block entity, no fluids.
+
+| Move | Life | Telegraph (wind-up) | Strike | Recovery |
+|---|---|---|---|---|
+| Rampage | all | Paws the ground with his head down. A red line marks a 22-block path (18 ticks) | Charges 1 block a tick for 22 ticks, ploughing through soft blocks. 18 damage + a launch to anything in his way | Skids to a halt. If he hits something he can't break, he **crashes** and reels for 34 ticks |
+| Thunderclap | unbound | Flings his arms wide. A red arc marks a 16-block cone (16 ticks) | His palms meet: a sonic boom. 12 damage, knockback, Nausea and Slowness III. Two claps from life 3 | 14 ticks |
+| Skyfall | 2+ | Crouches (18 ticks), launches 30 blocks up and hangs there. A growing red ring marks his landing spot (22 ticks) | A meteor drop. 30 damage at the centre (radius 5 + life), a crater and a ground shockwave | Hauls himself out of the crater (26 ticks) |
+| Boulder Hurl | all | Fists dug into the ground (14 ticks), then he rips up the block he's standing on and heaves it overhead | Thrown in an arc at where the target is heading. Bursts for 16 damage in 3.5 blocks. Two boulders from life 3 | 10 ticks |
+| Adaptive Nova | 3+, once he has adapted to something | Kneels. His body glows the colour of the element and a ring shows the blast's reach (32 ticks) | Releases the element he's adapted to most: fire (burning), energy (lightning), projectile or melee (a 20-shard bone storm), explosion (blast ring), magic (Wither II) or power (a 3-block shove). 16 damage | 22 ticks |
+
+Animation polish:
+- A heavier walk: longer strides, his upper body dropping onto each footfall, and the server playing a thud, dust and a
+  small shake.
+- Idle breathing.
+- A hurt flinch (driven by `hurtTime`).
+- An adaptation shudder for 24 ticks after the synced mask changes (client fields `clientAdaptMask` / `clientAdaptAt`).
+- On death he topples over in 14 ticks instead of snapping flat.
+
+The Nova shell uses `textures/entity/doomsday/nova_swirl.png`, made by `scratchpad/gen_doomsday_nova_swirl.js` and tinted
+in code. The harness is at `scratchpad/DoomsdayHarness.round2.v0172.java.txt`. Gametests: 14, five of them new (every new
+move starts and finishes, the Nova element, and the Rampage terrain rule both on and off).

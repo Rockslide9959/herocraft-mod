@@ -7,6 +7,8 @@ import java.util.UUID;
 import com.projecthero.mod.doomsday.DoomsdayFx;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -21,6 +23,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -36,10 +40,13 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  */
 public class DoomsdayAttackEntity extends Entity {
-	public static final byte SPIKE = 0, SHARD = 1, RING = 2;
+	public static final byte SPIKE = 0, SHARD = 1, RING = 2, BOULDER = 3;
+	/** v0.17.2 round 2: a thrown boulder falls this much a tick. */
+	public static final double BOULDER_GRAVITY = 0.06;
 	private static final EntityDataAccessor<Byte> DATA_KIND = SynchedEntityData.defineId(DoomsdayAttackEntity.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Integer> DATA_WARN = SynchedEntityData.defineId(DoomsdayAttackEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Float> DATA_RADIUS = SynchedEntityData.defineId(DoomsdayAttackEntity.class, EntityDataSerializers.FLOAT);
+	private static final EntityDataAccessor<BlockState> DATA_BLOCK = SynchedEntityData.defineId(DoomsdayAttackEntity.class, EntityDataSerializers.BLOCK_STATE);
 
 	private UUID ownerId;
 	private float damage;
@@ -91,6 +98,7 @@ public class DoomsdayAttackEntity extends Entity {
 		builder.define(DATA_KIND, SPIKE);
 		builder.define(DATA_WARN, 10);
 		builder.define(DATA_RADIUS, 0f);
+		builder.define(DATA_BLOCK, Blocks.STONE.defaultBlockState());
 	}
 
 	public byte kind() {
@@ -113,7 +121,7 @@ public class DoomsdayAttackEntity extends Entity {
 	public void tick() {
 		super.tick();
 		if (!(level() instanceof ServerLevel level)) {
-			if (kind() == SHARD) {
+			if (kind() == SHARD || kind() == BOULDER) {
 				Vec3 v = getDeltaMovement();
 				setPos(getX() + v.x, getY() + v.y, getZ() + v.z);
 			}
@@ -122,8 +130,104 @@ public class DoomsdayAttackEntity extends Entity {
 		switch (kind()) {
 			case SPIKE -> tickSpike(level);
 			case SHARD -> tickShard(level);
+			case BOULDER -> tickBoulder(level);
 			default -> tickRing(level);
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 round 2: the boulder
+
+	/** A slab of ground Doomsday has torn up (Boulder Hurl): held over his head until he throws it. */
+	public static DoomsdayAttackEntity boulder(ServerLevel level, DoomsdayEntity owner, BlockState look, float damage, double radius) {
+		DoomsdayAttackEntity e = DoomsdayEntityTypes.ATTACK.create(level);
+		e.setPos(owner.getX(), owner.getY() + owner.getBbHeight() + 0.9, owner.getZ());
+		e.entityData.set(DATA_KIND, BOULDER);
+		e.entityData.set(DATA_BLOCK, look);
+		e.ownerId = owner.getUUID();
+		e.damage = damage;
+		e.maxRadius = radius;
+		e.entityData.set(DATA_WARN, 1); // a boulder uses the warn slot as "held" (synced: the client tumbles it only once thrown)
+		level.addFreshEntity(e);
+		return e;
+	}
+
+	public BlockState blockLook() {
+		return entityData.get(DATA_BLOCK);
+	}
+
+	/** While held: follows his hands. */
+	public void holdAt(Vec3 at) {
+		setPos(at.x, at.y, at.z);
+		setDeltaMovement(Vec3.ZERO);
+	}
+
+	public void launch(Vec3 velocity) {
+		entityData.set(DATA_WARN, 0);
+		setDeltaMovement(velocity);
+		tickCount = 0;
+	}
+
+	public boolean held() {
+		return kind() == BOULDER && entityData.get(DATA_WARN) == 1;
+	}
+
+	private void tickBoulder(ServerLevel level) {
+		if (held()) {
+			if (tickCount > 200 || ownerId == null || !(level.getEntity(ownerId) instanceof DoomsdayEntity)) {
+				discard();
+			}
+			return;
+		}
+		Vec3 from = position();
+		Vec3 v = getDeltaMovement();
+		Vec3 to = from.add(v);
+		HitResult block = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+		boolean hitSomething = block.getType() != HitResult.Type.MISS;
+		if (hitSomething) {
+			to = block.getLocation();
+		}
+		if (!hitSomething) {
+			for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, new AABB(from, to).inflate(1.1), DoomsdayEntity::canTarget)) {
+				AABB fat = t.getBoundingBox().inflate(1.0);
+				if (fat.contains(from) || fat.clip(from, to).isPresent()) {
+					hitSomething = true;
+					break;
+				}
+			}
+		}
+		if (tickCount % 2 == 0) {
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, blockLook()), getX(), getY(), getZ(), 3, 0.4, 0.4, 0.4, 0.05);
+		}
+		if (hitSomething || tickCount > 120) {
+			setPos(to.x, to.y, to.z);
+			burst(level);
+			return;
+		}
+		setPos(to.x, to.y, to.z);
+		setDeltaMovement(v.add(0, -BOULDER_GRAVITY, 0));
+	}
+
+	private void burst(ServerLevel level) {
+		LivingEntity owner = owner(level);
+		Vec3 c = position();
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.0f, 0.7f);
+		level.playSound(null, c.x, c.y, c.z, blockLook().getSoundType().getBreakSound(), SoundSource.HOSTILE, 3.0f, 0.5f);
+		DoomsdayFx.forced(level, new BlockParticleOption(ParticleTypes.BLOCK, blockLook()), c.x, c.y + 0.5, c.z, 80, 1.4, 0.8, 1.4, 0.3);
+		DoomsdayFx.impact(level, c, maxRadius * 0.6);
+		DoomsdayFx.shake(level, c, 0.9f, 12, 32);
+		for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(maxRadius), DoomsdayEntity::canTarget)) {
+			double d = Math.sqrt(t.distanceToSqr(c));
+			if (d > maxRadius) {
+				continue;
+			}
+			if (DoomsdayEntity.hit(level, owner, t, (float) (damage * (0.5 + 0.5 * (1.0 - d / maxRadius))))) {
+				Vec3 out = new Vec3(t.getX() - c.x, 0, t.getZ() - c.z);
+				out = out.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : out.normalize();
+				t.setDeltaMovement(out.x * 1.2, 0.6, out.z * 1.2);
+				t.hurtMarked = true;
+			}
+		}
+		discard();
 	}
 
 	private void tickSpike(ServerLevel level) {

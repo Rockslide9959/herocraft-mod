@@ -266,6 +266,11 @@ public final class OmnitrixInfoScreen extends Screen {
 		if (a == null) {
 			return;
 		}
+		// v0.17.2 (user: "for the recalibrate omnitrix menu dont use alien icons, use the alien models instead since we dont have alien
+		// icons for them"): the Recalibrated Omnitrix's aliens show their own bodies in full colour
+		if (a.recalibrated() && com.projecthero.mod.client.omnitrix.RecalHologram.renderGuiModel(g, a.id(), x, y, 16)) {
+			return;
+		}
 		ResourceLocation tex = com.projecthero.mod.ProjectHeroMod.id("textures/font/omnitrix_dial/" + a.id() + ".png");
 		g.blit(tex, x, y, 16, 16, 0f, 0f, 32, 32, 32, 32);
 	}

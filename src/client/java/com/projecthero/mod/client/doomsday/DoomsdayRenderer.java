@@ -43,6 +43,7 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 		addLayer(new Stone(this));
 		addLayer(new Glow(this));
 		addLayer(new Spikes(this));
+		addLayer(new NovaAura(this));
 	}
 
 	@Override
@@ -68,8 +69,12 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 		byte a = e.action();
 		float elapsed = e.tickCount - e.actionStartTick + partialTick;
 		float lie = 0f;
-		if (a == DoomsdayEntity.ACTION_CORPSE || a == DoomsdayEntity.ACTION_BANISH) {
+		if (a == DoomsdayEntity.ACTION_BANISH) {
 			lie = 1f;
+		} else if (a == DoomsdayEntity.ACTION_CORPSE) {
+			// v0.17.2 round 2: he topples over (knees first) instead of snapping flat
+			float t = Mth.clamp(elapsed / 14f, 0f, 1f);
+			lie = t * t;
 		} else if (a == DoomsdayEntity.ACTION_RISE) {
 			float t = Mth.clamp(elapsed / (DoomsdayEntity.RISE_TICKS * 0.75f), 0f, 1f);
 			lie = 1f - t * t * (3 - 2 * t);
@@ -159,7 +164,10 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 			byte action = e.action();
 			float el = age - e.actionStartTick;
 			this.crouching = action == DoomsdayEntity.ACTION_LEAP_CROUCH || action == DoomsdayEntity.ACTION_LAND || action == DoomsdayEntity.ACTION_STAGGER
-					|| action == DoomsdayEntity.ACTION_SHATTER && el >= DoomsdayEntity.SHATTER_SLAM;
+					|| action == DoomsdayEntity.ACTION_SHATTER && el >= DoomsdayEntity.SHATTER_SLAM
+					|| action == DoomsdayEntity.ACTION_SKYFALL && el < DoomsdayEntity.SKY_CROUCH
+					|| action == DoomsdayEntity.ACTION_SKYFALL_LAND && el < DoomsdayEntity.SKY_LAND_TICKS * 0.6f
+					|| action == DoomsdayEntity.ACTION_CORPSE && el < 8f;
 			body.z = 0f;
 			head.z = 0f;
 			super.setupAnim(e, limbSwing, limbSwingAmount, age, headYaw, headPitch);
@@ -174,6 +182,21 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 			leftArm.xRot += -0.15f;
 			head.zRot = 0f;
 			body.zRot = 0f;
+			// v0.17.2 round 2: a heavier walk -- longer strides, the whole upper body dropping onto each footfall and rolling
+			// side to side; standing still, the shoulders and chest heave with each breath
+			float stride = Math.min(1f, limbSwingAmount);
+			float phase = limbSwing * 0.6662f;
+			float bob = Math.abs(Mth.cos(phase)) * 1.4f * stride + breathe * 0.35f * (1f - stride);
+			body.y += bob;
+			head.y += bob;
+			rightArm.y += bob;
+			leftArm.y += bob;
+			body.zRot = Mth.sin(phase) * 0.07f * stride;
+			head.zRot = -body.zRot * 0.5f;
+			rightLeg.xRot *= 1.25f;
+			leftLeg.xRot *= 1.25f;
+			body.xRot += breathe * 0.03f * (1f - stride);
+			head.xRot += breathe * 0.04f * (1f - stride);
 			switch (action) {
 				case DoomsdayEntity.ACTION_HAMMER -> {
 					// alternating overhead hammer blows, every 8 ticks
@@ -315,6 +338,169 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 						head.xRot = -0.6f;
 					}
 				}
+				// ---- v0.17.2 round 2 (user: "add more attacks and animations to doomsday please")
+				case DoomsdayEntity.ACTION_RAMPAGE -> {
+					int w = DoomsdayEntity.RAMPAGE_WINDUP, r = DoomsdayEntity.RAMPAGE_RUN;
+					if (el < w) {
+						// head down, shoulders forward, arms swept back -- pawing the ground with one foot
+						float t = Math.min(1f, el / 8f);
+						body.xRot = Mth.lerp(t, 0.2f, 0.6f);
+						head.xRot = -0.35f;
+						rightArm.xRot = 0.7f * t;
+						leftArm.xRot = 0.7f * t;
+						rightArm.zRot = 0.35f;
+						leftArm.zRot = -0.35f;
+						if (el > 4 && el < 15) {
+							rightLeg.xRot = 0.5f + Mth.sin((el - 4) * 0.9f) * 0.55f;
+						}
+					} else if (el < w + r) {
+						// the charge: low shoulder first, legs pounding
+						body.xRot = 0.85f;
+						head.xRot = -0.55f;
+						rightArm.xRot = -0.5f;
+						rightArm.yRot = -0.55f;
+						rightArm.zRot = 0.2f;
+						leftArm.xRot = 0.9f + Mth.sin(age * 1.4f) * 0.4f;
+						rightLeg.xRot = Mth.sin(age * 1.4f) * 1.25f;
+						leftLeg.xRot = -Mth.sin(age * 1.4f) * 1.25f;
+					} else {
+						float t = Math.min(1f, (el - w - r) / 8f);
+						body.xRot = Mth.lerp(t, 0.85f, 0.2f);
+						rightLeg.xRot = Mth.lerp(t, -0.9f, 0f);
+						leftLeg.xRot = Mth.lerp(t, 0.6f, 0f);
+					}
+				}
+				case DoomsdayEntity.ACTION_RAMPAGE_CRASH -> {
+					// reeling from the wall: rocked back, arms hanging out, head lolling
+					float k = 1f - Math.min(1f, el / DoomsdayEntity.CRASH_TICKS);
+					body.xRot = -0.25f * k;
+					head.xRot = 0.25f;
+					head.zRot = Mth.sin(el * 0.8f) * 0.4f * k;
+					body.zRot = Mth.sin(el * 0.5f) * 0.08f * k;
+					rightArm.xRot = 0.25f;
+					leftArm.xRot = 0.25f;
+					rightArm.zRot = 0.75f * k + 0.15f;
+					leftArm.zRot = -0.75f * k - 0.15f;
+					rightLeg.zRot = 0.1f * k;
+					leftLeg.zRot = -0.1f * k;
+				}
+				case DoomsdayEntity.ACTION_CLAP -> {
+					float local = el < DoomsdayEntity.CLAP_AT + 6 || e.life() < 3 ? el : el - 18f;
+					if (local < DoomsdayEntity.CLAP_AT) {
+						float t = Math.min(1f, local / 10f);
+						rightArm.xRot = -1.45f;
+						leftArm.xRot = -1.45f;
+						rightArm.yRot = -1.15f * t;
+						leftArm.yRot = 1.15f * t;
+						body.xRot = Mth.lerp(t, 0.18f, -0.08f);
+						head.xRot = -0.3f * t;
+					} else {
+						float t = Math.min(1f, (local - DoomsdayEntity.CLAP_AT) / 2f);
+						rightArm.xRot = -1.5f;
+						leftArm.xRot = -1.5f;
+						rightArm.yRot = Mth.lerp(t, -1.15f, 0.42f);
+						leftArm.yRot = Mth.lerp(t, 1.15f, -0.42f);
+						body.xRot = 0.3f;
+					}
+				}
+				case DoomsdayEntity.ACTION_SKYFALL -> {
+					int c = DoomsdayEntity.SKY_CROUCH, rise = DoomsdayEntity.SKY_RISE, hang = DoomsdayEntity.SKY_HANG;
+					if (el < c) {
+						rightArm.xRot = 1.0f;
+						leftArm.xRot = 1.0f;
+						rightArm.zRot = 0.3f;
+						leftArm.zRot = -0.3f;
+						head.xRot = -0.5f;
+					} else if (el < c + rise) {
+						// launching: arms thrown up, legs straight
+						rightArm.xRot = -3.0f;
+						leftArm.xRot = -3.0f;
+						rightArm.zRot = -0.15f;
+						leftArm.zRot = 0.15f;
+						rightLeg.xRot = 0.15f;
+						leftLeg.xRot = 0.15f;
+						body.xRot = -0.05f;
+					} else if (el < c + rise + hang) {
+						// hanging at the top: curled, looking down at the mark
+						rightLeg.xRot = -1.1f;
+						leftLeg.xRot = -0.9f;
+						rightArm.xRot = -2.2f;
+						leftArm.xRot = -2.2f;
+						head.xRot = 0.7f;
+						body.xRot = 0.4f;
+					} else {
+						// the drop: fists raised to come down like hammers
+						rightArm.xRot = -2.95f;
+						leftArm.xRot = -2.95f;
+						rightArm.zRot = 0.2f;
+						leftArm.zRot = -0.2f;
+						rightLeg.xRot = -0.3f;
+						leftLeg.xRot = 0.2f;
+						head.xRot = 0.5f;
+					}
+				}
+				case DoomsdayEntity.ACTION_SKYFALL_LAND -> {
+					// fists buried in the crater, then hauling himself up out of it
+					float t = Math.min(1f, el / DoomsdayEntity.SKY_LAND_TICKS);
+					rightArm.xRot = Mth.lerp(t, -0.35f, -0.15f);
+					leftArm.xRot = Mth.lerp(t, -0.35f, -0.15f);
+					rightArm.zRot = Mth.lerp(t, 0.35f, 0.18f);
+					leftArm.zRot = -Mth.lerp(t, 0.35f, 0.18f);
+					head.xRot = Mth.lerp(t, 0.5f, 0.1f);
+					body.xRot = Mth.lerp(t, 0.6f, 0.18f);
+				}
+				case DoomsdayEntity.ACTION_HURL -> {
+					if (el < DoomsdayEntity.HURL_RIP) {
+						// bent double, fists driven into the ground, wrenching
+						float s = Mth.sin(age * 1.8f) * 0.06f;
+						body.xRot = 0.95f;
+						head.xRot = 0.2f;
+						rightArm.xRot = -0.85f + s;
+						leftArm.xRot = -0.85f - s;
+						rightArm.zRot = 0.25f;
+						leftArm.zRot = -0.25f;
+					} else if (el < DoomsdayEntity.HURL_THROW) {
+						// heaving it up over his head
+						float t = Math.min(1f, (el - DoomsdayEntity.HURL_RIP) / 8f);
+						body.xRot = Mth.lerp(t, 0.95f, -0.15f);
+						rightArm.xRot = Mth.lerp(t, -0.85f, -3.0f);
+						leftArm.xRot = Mth.lerp(t, -0.85f, -3.0f);
+						rightArm.zRot = 0.28f;
+						leftArm.zRot = -0.28f;
+						rightLeg.zRot = 0.12f;
+						leftLeg.zRot = -0.12f;
+						head.xRot = -0.3f;
+					} else {
+						// the throw follows through
+						float t = Math.min(1f, (el - DoomsdayEntity.HURL_THROW) / 3f);
+						body.xRot = Mth.lerp(t, -0.15f, 0.45f);
+						rightArm.xRot = Mth.lerp(t, -3.0f, -1.2f);
+						leftArm.xRot = Mth.lerp(t, -3.0f, -1.2f);
+					}
+				}
+				case DoomsdayEntity.ACTION_NOVA -> {
+					if (el < DoomsdayEntity.NOVA_AT) {
+						// down on one knee, fists clenched, trembling with what he is holding in
+						float s = Mth.sin(age * 2.4f) * 0.05f * (el / DoomsdayEntity.NOVA_AT);
+						rightLeg.xRot = -1.4f;
+						leftLeg.xRot = 0.45f;
+						body.xRot = 0.35f + s;
+						head.xRot = el < DoomsdayEntity.NOVA_AT - 8 ? 0.5f : -0.6f;
+						rightArm.xRot = 0.1f;
+						leftArm.xRot = 0.1f;
+						rightArm.zRot = 0.4f + s;
+						leftArm.zRot = -0.4f - s;
+					} else {
+						// unleashed: arms flung wide, head back
+						float t = Math.min(1f, (el - DoomsdayEntity.NOVA_AT) / 3f);
+						rightArm.zRot = Mth.lerp(t, 0.4f, 1.7f);
+						leftArm.zRot = -Mth.lerp(t, 0.4f, 1.7f);
+						rightArm.xRot = -0.3f;
+						leftArm.xRot = -0.3f;
+						head.xRot = -0.7f;
+						body.xRot = -0.2f;
+					}
+				}
 				case DoomsdayEntity.ACTION_STAGGER -> {
 					// v0.17.2 stagger: slumped down on one knee, one fist on the ground, head hanging and swaying, breathing hard
 					float sway = Mth.sin(age * 0.18f);
@@ -357,6 +543,32 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 				default -> {
 				}
 			}
+			boolean down = action == DoomsdayEntity.ACTION_CORPSE || action == DoomsdayEntity.ACTION_BANISH;
+			// v0.17.2 round 2: a hit makes him flinch -- torso and head snap back, arms jerk out
+			if (e.hurtTime > 0 && !down) {
+				float f = e.hurtTime / 10f;
+				body.xRot -= 0.22f * f;
+				head.xRot -= 0.35f * f;
+				rightArm.zRot += 0.25f * f;
+				leftArm.zRot -= 0.25f * f;
+			}
+			// v0.17.2 round 2: adapting -- a violent shudder as the stone spreads (24 ticks after the mask changes)
+			int mask = e.adaptMask();
+			if (mask != e.clientAdaptMask) {
+				e.clientAdaptMask = mask;
+				e.clientAdaptAt = mask == 0 ? -1000f : age;
+			}
+			float since = age - e.clientAdaptAt;
+			if (since >= 0f && since < 24f && !down) {
+				float k = 1f - since / 24f;
+				body.zRot += Mth.sin(age * 3.1f) * 0.09f * k;
+				head.zRot += Mth.sin(age * 3.7f) * 0.15f * k;
+				head.xRot -= 0.4f * k;
+				rightArm.zRot += 0.5f * k;
+				leftArm.zRot -= 0.5f * k;
+				rightArm.xRot -= 0.3f * k;
+				leftArm.xRot -= 0.3f * k;
+			}
 			// still bound: the left arm is strapped across his chest by the burial cables
 			if (e.bound() && action != DoomsdayEntity.ACTION_BREAK_FREE && action != DoomsdayEntity.ACTION_CORPSE) {
 				leftArm.xRot = -1.15f;
@@ -375,6 +587,46 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 	// ---------------------------------------------------------------- layers
 
 	/** His red eyes, always lit; brighter while heat vision charges. */
+	/**
+	 * v0.17.2 round 2: the Adaptive Nova -- a crawling energy shell in the colour of what he is channelling (fire orange,
+	 * lightning blue-white, bone ivory, blast red, magic soul-teal, raw power pale cyan), brighter as the burst nears.
+	 */
+	static final class NovaAura extends RenderLayer<DoomsdayEntity, Model> {
+		private static final ResourceLocation SWIRL = ProjectHeroMod.id("textures/entity/doomsday/nova_swirl.png");
+
+		NovaAura(RenderLayerParent<DoomsdayEntity, Model> parent) {
+			super(parent);
+		}
+
+		@Override
+		public void render(PoseStack pose, MultiBufferSource buffers, int light, DoomsdayEntity e, float limbSwing, float limbSwingAmount,
+				float partialTick, float age, float headYaw, float headPitch) {
+			if (e.action() != DoomsdayEntity.ACTION_NOVA) {
+				return;
+			}
+			float el = age - e.actionStartTick;
+			float k = el < DoomsdayEntity.NOVA_AT ? 0.35f + 0.65f * el / DoomsdayEntity.NOVA_AT : Math.max(0f, 1f - (el - DoomsdayEntity.NOVA_AT) / 12f);
+			if (k <= 0.01f) {
+				return;
+			}
+			int rgb = switch (e.novaElement() == null ? DoomsdayAdaptation.Bucket.POWER : e.novaElement()) {
+				case FIRE -> 0xFF7A1A;
+				case ENERGY -> 0x9AD8FF;
+				case PROJECTILE, MELEE -> 0xEDE2C4;
+				case EXPLOSION -> 0xFF2A1A;
+				case MAGIC -> 0x35E0D0;
+				default -> 0xC8F4FF;
+			};
+			float f = age * 0.02f;
+			VertexConsumer vc = buffers.getBuffer(RenderType.energySwirl(SWIRL, f % 1f, f * 0.6f % 1f));
+			pose.pushPose();
+			pose.scale(1.06f, 1.03f, 1.06f);
+			getParentModel().renderToBuffer(pose, vc, 0xF000F0, OverlayTexture.NO_OVERLAY, FastColor.ARGB32.color((int) (255 * k), rgb >> 16 & 255,
+					rgb >> 8 & 255, rgb & 255));
+			pose.popPose();
+		}
+	}
+
 	static final class Glow extends RenderLayer<DoomsdayEntity, Model> {
 		Glow(RenderLayerParent<DoomsdayEntity, Model> parent) {
 			super(parent);

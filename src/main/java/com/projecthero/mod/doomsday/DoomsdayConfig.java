@@ -108,6 +108,23 @@ public final class DoomsdayConfig {
 		public double roarRadius = 16.0;
 		/** Ticks of rest between moves (x0.75 in life 3, x0.6 enraged). */
 		public int breather = 20; // v0.17.2: 30 -> 20, slightly more aggressive
+		// v0.17.2 round 2 (user: "add more attacks and animations to doomsday please"); every one +15% a life
+		/** Rampage: how far he charges (blocks), blocks a tick, damage to everything he tramples. */
+		public double rampageLength = 22.0;
+		public double rampageSpeed = 1.0;
+		public float rampageDamage = 18f;
+		/** Thunderclap: the cone's reach and damage (life 3+: two claps). */
+		public double clapRange = 16.0;
+		public float clapDamage = 12f;
+		/** Skyfall: how high he goes and the impact's damage at the centre (radius 5 + life). */
+		public double skyHeight = 30.0;
+		public float skyDamage = 30f;
+		/** Boulder Hurl: damage and radius where it bursts (life 3+: two boulders). */
+		public float boulderDamage = 16f;
+		public double boulderRadius = 3.5;
+		/** Adaptive Nova (life 3+): its reach and damage. */
+		public double novaRadius = 14.0;
+		public float novaDamage = 16f;
 	}
 
 	public static final class Projector {

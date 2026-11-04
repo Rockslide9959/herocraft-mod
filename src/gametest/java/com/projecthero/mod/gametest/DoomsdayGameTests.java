@@ -300,4 +300,129 @@ public class DoomsdayGameTests implements FabricGameTest {
 		helper.assertTrue(new ItemStack(Items.STICK).getCount() == 1, "sanity");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.2 round 2: the new moves
+
+	private static net.minecraft.world.entity.monster.Zombie dummy(GameTestHelper helper, Vec3 rel) {
+		var z = EntityType.ZOMBIE.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(rel);
+		z.moveTo(at.x, at.y, at.z, 0f, 0f);
+		z.setNoAi(true);
+		z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0);
+		z.setHealth(1000f);
+		helper.getLevel().addFreshEntity(z);
+		return z;
+	}
+
+	/** Ticks a NoAI Doomsday's brain by hand until the move is over (or a cap). Returns the ticks it took. */
+	private static int runMove(DoomsdayEntity d, int cap) {
+		int n = 0;
+		do {
+			d.debugTickBrain();
+			n++;
+		} while (!d.debugMoveIdle() && n < cap);
+		return n;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void everyNewMoveStartsAndFinishes(GameTestHelper helper) {
+		DoomsdayEntity d = spawn(helper);
+		var z = dummy(helper, new Vec3(4.5, 2, 13.5));
+		try {
+			d.debugUnbind();
+			d.debugSetLife(3);
+			d.adaptation().onDeath(Bucket.FIRE);
+			d.setTarget(z);
+			for (String m : new String[] { "CLAP", "HURL", "NOVA", "RAMPAGE", "SKYFALL" }) {
+				helper.assertTrue(d.debugStartMove(m), m + " starts");
+				int took = runMove(d, 400);
+				helper.assertTrue(d.debugMoveIdle(), m + " finishes (" + took + " ticks)");
+				helper.assertTrue(!d.isNoGravity(), m + ": gravity is back afterwards");
+			}
+		} finally {
+			d.discard();
+			z.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void novaUnleashesWhatHeAdaptedToMost(GameTestHelper helper) {
+		DoomsdayEntity d = spawn(helper);
+		var z = dummy(helper, new Vec3(4.5, 2, 8.5));
+		try {
+			d.debugUnbind();
+			d.debugSetLife(3);
+			d.setTarget(z);
+			helper.assertTrue(d.strongestAdaptation() == null, "nothing learned yet");
+			d.adaptation().record(Bucket.PROJECTILE, 700f, 3000);
+			d.adaptation().onDeath(Bucket.ENERGY);
+			helper.assertTrue(d.strongestAdaptation() == Bucket.ENERGY, "an immunity outranks a resistance");
+			helper.assertTrue(d.debugStartMove("NOVA") && d.novaElement() == Bucket.ENERGY, "the Nova channels energy");
+			runMove(d, 200);
+			helper.assertTrue(d.novaElement() == null, "and lets go of it");
+		} finally {
+			d.discard();
+			z.discard();
+		}
+		helper.succeed();
+	}
+
+	/** Rampage obeys abilityTerrainDamage: off, a dirt wall stops him dead (he crashes); on, he ploughs through it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void rampageOnlyBreaksBlocksWhenTerrainDamageIsOn(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		var cfg = com.projecthero.mod.hero.HeroConfig.get();
+		boolean was = cfg.abilityTerrainDamage;
+		java.util.List<BlockPos> wall = new java.util.ArrayList<>();
+		for (int x = 1; x <= 7; x++) {
+			for (int y = 1; y <= 5; y++) {
+				wall.add(helper.absolutePos(new BlockPos(x, y, 5)));
+			}
+		}
+		DoomsdayEntity d = spawn(helper);
+		var z = dummy(helper, new Vec3(4.5, 1, 7.5));
+		// inside the test area (its edge is a barrier wall he can't break either)
+		Vec3 home = helper.absoluteVec(new Vec3(4.5, 1, 1.5));
+		d.teleportTo(home.x, home.y, home.z);
+		try {
+			d.debugUnbind();
+			d.setTarget(z);
+			for (BlockPos p : wall) {
+				level.setBlockAndUpdate(p, Blocks.DIRT.defaultBlockState());
+			}
+			cfg.abilityTerrainDamage = false;
+			helper.assertTrue(d.debugStartMove("RAMPAGE"), "rampage starts");
+			boolean crashed = false;
+			for (int i = 0; i < 200 && !d.debugMoveIdle(); i++) {
+				d.debugTickBrain();
+				crashed |= d.crashed();
+			}
+			helper.assertTrue(crashed, "terrain damage off: the wall stops him and he reels");
+			for (BlockPos p : wall) {
+				helper.assertTrue(level.getBlockState(p).is(Blocks.DIRT), "terrain damage off: the wall stands at " + p);
+			}
+			cfg.abilityTerrainDamage = true;
+			level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_MOBGRIEFING).set(true, level.getServer());
+			helper.assertTrue(DoomsdayEntity.griefing(level), "terrain damage + mob griefing on");
+			d.teleportTo(home.x, home.y, home.z);
+			helper.assertTrue(d.debugStartMove("RAMPAGE"), "rampage starts again");
+			runMove(d, 200);
+			int gone = 0;
+			for (BlockPos p : wall) {
+				if (level.getBlockState(p).isAir()) {
+					gone++;
+				}
+			}
+			helper.assertTrue(gone > 0, "terrain damage on: he ploughs a hole through the wall (he got to " + d.position() + ", crashed " + d.crashed() + ")");
+		} finally {
+			cfg.abilityTerrainDamage = was;
+			for (BlockPos p : wall) {
+				level.setBlockAndUpdate(p, Blocks.AIR.defaultBlockState());
+			}
+			d.discard();
+			z.discard();
+		}
+		helper.succeed();
+	}
 }
