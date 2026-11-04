@@ -183,6 +183,50 @@ public final class RecalHologram {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.17.2 (user: "for the recalibrate omnitrix menu dont use alien icons, use the alien models instead since we dont have alien
+	 * icons for them"): {@code alienId}'s body in full colour -- the wide player model in its skin, lit like a mob in an inventory, turned
+	 * a little to show its depth -- fitted head to feet in a {@code size}-px square at ({@code x}, {@code y}). False (nothing drawn) for an
+	 * alien without a player-model skin, so the caller can fall back to its icon.
+	 */
+	public static boolean renderGuiModel(net.minecraft.client.gui.GuiGraphics g, String alienId, int x, int y, int size) {
+		AlienClientKit kit = AlienClients.of(alienId);
+		ResourceLocation skin = kit == null || kit.customBody() ? null : kit.skin();
+		if (skin == null) {
+			return false;
+		}
+		PlayerModel<LivingEntity> m = model();
+		for (ModelPart part : new ModelPart[] { m.head, m.hat, m.body, m.jacket, m.rightArm, m.leftArm, m.rightSleeve, m.leftSleeve, m.rightLeg, m.leftLeg,
+				m.rightPants, m.leftPants }) {
+			part.resetPose();
+			part.visible = true;
+		}
+		m.crouching = false;
+		m.young = false;
+		m.riding = false;
+		m.attackTime = 0f;
+		m.rightArm.zRot = 0.1f;
+		m.leftArm.zRot = -0.1f;
+		m.rightSleeve.copyFrom(m.rightArm);
+		m.leftSleeve.copyFrom(m.leftArm);
+		PoseStack pose = g.pose();
+		pose.pushPose();
+		// model space: the head's top at y -0.5, the feet at 1.5 (blocks), y down like the screen -- 2 blocks fit the square's height
+		float s = size / 2.05f;
+		pose.translate(x + size / 2f, y + size / 2f, 150f);
+		pose.scale(s, s, -s);
+		pose.mulPose(Axis.XP.rotationDegrees(-8f));
+		pose.mulPose(Axis.YP.rotationDegrees(-25f));
+		pose.translate(0f, -0.5f, 0f);
+		com.mojang.blaze3d.platform.Lighting.setupForEntityInInventory();
+		var buffers = g.bufferSource();
+		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+		g.flush();
+		com.mojang.blaze3d.platform.Lighting.setupFor3DItems();
+		pose.popPose();
+		return true;
+	}
+
 	/** A cone of light from the face (radius 0.8 px) widening to 2.2 px at the figure's head, fading out as it rises. */
 	private static void cone(PoseStack pose, VertexConsumer vc, float x0, float cy, float alpha) {
 		PoseStack.Pose p = pose.last();

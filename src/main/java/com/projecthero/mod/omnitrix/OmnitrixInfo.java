@@ -338,7 +338,9 @@ public final class OmnitrixInfo {
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());
-		if (i < 0) {
+		// v0.17.2 (user: "for the recalibrate omnitrix menu dont use alien icons ... since we dont have alien icons for them"): the
+		// Recalibrated Omnitrix's aliens get no inline icon (the screen draws their models instead)
+		if (i < 0 || a.recalibrated()) {
 			return Component.empty();
 		}
 		// white (the glyph is tinted by the text colour), never bold / italic (a bold glyph is drawn twice, offset)
