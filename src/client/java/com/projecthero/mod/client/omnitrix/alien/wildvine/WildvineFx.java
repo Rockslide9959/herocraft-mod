@@ -271,16 +271,136 @@ public final class WildvineFx {
 		pose.popPose();
 	}
 
-	/** A pod of {@code size}: a long ribbed black egg with a short green stem and two leaves; {@code glow} warms its ribs to green. */
-	private static void pod(PoseStack pose, VertexConsumer vc, float size, float t, int light, float glow) {
+	/** The seed pods' colours (v0.17.2, user: "add little seed bomb models to wildvines back"): olive-brown skin, green belly, dark cap. */
+	private static final int POD_SKIN = 0xFF7A7036, POD_BELLY = 0xFF46592A, POD_CAP = 0xFF2B2216, POD_SHINE = 0xFFE4EEB8, POD_STEM = 0xFF5A6A2A;
+
+	/**
+	 * A seed pod of {@code size}, its stem toward +y: a round green-brown body (a little longer than wide), a darker cap where it
+	 * hangs, a short stem with a leaf and a glint of shine on its shoulder; {@code glow} warms the body toward leaf green (an armed
+	 * mine's pulse).
+	 */
+	static void pod(PoseStack pose, VertexConsumer vc, float size, float t, int light, float glow) {
 		pose.pushPose();
-		pose.scale(size * 0.8f, size * 1.1f, size * 0.8f);
-		PyroDraw.sphere(pose, vc, 0.5f, PyroDraw.lerpRgb(POD_HI, LEAF, glow) | 0xFF000000, POD, 0.08f, t * 0.2f, light);
+		pose.scale(size * 0.85f, size * 1.05f, size * 0.85f);
+		PyroDraw.sphere(pose, vc, 0.5f, PyroDraw.lerpRgb(POD_SKIN, LEAF, glow) | 0xFF000000, POD_BELLY, 0.06f, t * 0.15f, light);
 		pose.popPose();
-		List<Vec3> stem = List.of(new Vec3(0, size * 0.5, 0), new Vec3(0.02, size * 0.68, 0), new Vec3(0.05, size * 0.8, 0.02));
-		tube(pose, vc, stem, s -> 0.03, light);
-		leaves(pose, vc, List.of(new Vec3(0, size * 0.55, 0), new Vec3(0, size * 0.6, 0), new Vec3(0.02, size * 0.68, 0), new Vec3(0.05, size * 0.8, 0.02)),
-				1, light);
+		// the cap: a flattened dark dome over the top
+		pose.pushPose();
+		pose.translate(0, size * 0.4f, 0);
+		pose.scale(size * 0.62f, size * 0.26f, size * 0.62f);
+		PyroDraw.sphere(pose, vc, 0.5f, POD_CAP, 0xFF1A140C, 0.04f, 0f, light);
+		pose.popPose();
+		// the shine: a small bright fleck on the upper front shoulder (full bright, so it reads as a highlight)
+		pose.pushPose();
+		pose.translate(-size * 0.17f, size * 0.2f, size * 0.3f);
+		pose.scale(size * 0.13f, size * 0.17f, size * 0.07f);
+		PyroDraw.sphere(pose, vc, 0.5f, POD_SHINE, POD_SHINE, 0f, 0f, PyroDraw.FULL);
+		pose.popPose();
+		List<Vec3> stem = List.of(new Vec3(0, size * 0.48, 0), new Vec3(size * 0.04, size * 0.62, 0), new Vec3(size * 0.12, size * 0.72, size * 0.03));
+		tubeColour(pose, vc, stem, s -> size * 0.07, POD_STEM, light);
+		if (size > 0.1f) {
+			leaves(pose, vc, List.of(new Vec3(0, size * 0.5, 0), new Vec3(0, size * 0.55, 0), new Vec3(size * 0.04, size * 0.62, 0),
+					new Vec3(size * 0.12, size * 0.72, size * 0.03)), 1, light);
+		}
+	}
+
+	/** {@link #tube} in one colour (no ribs). */
+	static void tubeColour(PoseStack pose, VertexConsumer vc, List<Vec3> pts, java.util.function.DoubleUnaryOperator radius, int colour, int light) {
+		PoseStack.Pose last = pose.last();
+		int sides = 6;
+		Vec3[] prev = null, prevN = null;
+		for (int i = 0; i < pts.size(); i++) {
+			Vec3 p = pts.get(i);
+			Vec3 tan = (i < pts.size() - 1 ? pts.get(i + 1) : p).subtract(i > 0 ? pts.get(i - 1) : p);
+			tan = tan.lengthSqr() < 1.0e-10 ? new Vec3(0, 1, 0) : tan.normalize();
+			Vec3 n0 = Math.abs(tan.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+			Vec3 nx = tan.cross(n0).normalize(), ny = nx.cross(tan).normalize();
+			double r = radius.applyAsDouble(i / (double) Math.max(1, pts.size() - 1));
+			Vec3[] ring = new Vec3[sides], norm = new Vec3[sides];
+			for (int k = 0; k < sides; k++) {
+				double a = k * Math.PI * 2 / sides;
+				norm[k] = nx.scale(Math.cos(a)).add(ny.scale(Math.sin(a)));
+				ring[k] = p.add(norm[k].scale(r));
+			}
+			if (prev != null) {
+				for (int k = 0; k < sides; k++) {
+					int k1 = (k + 1) % sides;
+					v(vc, last, prev[k], prevN[k], colour, light);
+					v(vc, last, ring[k], norm[k], colour, light);
+					v(vc, last, ring[k1], norm[k1], colour, light);
+					v(vc, last, prev[k1], prevN[k1], colour, light);
+				}
+			}
+			prev = ring;
+			prevN = norm;
+		}
+	}
+
+	// ---------------------------------------------------------------- the pods on his back
+
+	/**
+	 * v0.17.2 (user: "can you add little seed bomb models to wildvines back please"): where the skin painted its flat pods (now painted
+	 * out) -- {x, y down, size in blocks} in body-bone pixels: the big upper pair (texels 33..34 / 37..38, rows 23..25), the slimmer
+	 * pair under them (34 / 37, rows 27..29) and two buds below (row 31). The first four are his seed bombs.
+	 */
+	private static final float[][] BACK_PODS = { { -2.0f, 4.4f, 0.20f }, { 2.0f, 4.4f, 0.20f }, { -1.5f, 8.5f, 0.15f }, { 1.5f, 8.5f, 0.15f },
+			{ -1.5f, 11.4f, 0.08f }, { 1.5f, 11.4f, 0.08f } };
+
+	/**
+	 * How grown back pod {@code i} is (0 gone .. 1 full): a Seed Bomb plucks one of the four big ones (which, by the throw's cooldown end:
+	 * the same for every viewer) and a Seed Mines plants three of them; each regrows over its move's cooldown.
+	 */
+	public static float podGrowth(Player p, int i, int bombLeft, long bombEnd, int mineLeft, long mineEnd) {
+		if (i >= 4) {
+			return 1f;
+		}
+		float g = 1f;
+		if (bombLeft > 0 && Math.floorMod(bombEnd, 4) == i) {
+			g = Math.min(g, 1f - bombLeft / (float) com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_BOMB_COOLDOWN);
+		}
+		if (mineLeft > 0 && Math.floorMod(mineEnd, 4) != i) {
+			g = Math.min(g, 1f - mineLeft / (float) com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_MINES_COOLDOWN);
+		}
+		// nothing for the first half of the wait, then it swells back
+		float k = Mth.clamp((g - 0.5f) * 2f, 0f, 1f);
+		return k * k * (3f - 2f * k);
+	}
+
+	/** The seed pods on his back, on the body bone, swaying a little as he moves. */
+	public static void backPods(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p,
+			net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model, float partial, float age) {
+		var kit = com.projecthero.mod.omnitrix.alien.Aliens.kit(com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.ID);
+		if (kit == null) {
+			return;
+		}
+		int bombLeft = kit.cooldownLeft(p, com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_BOMB);
+		int mineLeft = kit.cooldownLeft(p, com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_MINES);
+		long bombEnd = com.projecthero.mod.omnitrix.Omnitrix.state(p).readyAt(kit.key(com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_BOMB));
+		long mineEnd = com.projecthero.mod.omnitrix.Omnitrix.state(p).readyAt(kit.key(com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.SEED_MINES));
+		float walk = p.walkAnimation.speed(partial), step = p.walkAnimation.position(partial);
+		VertexConsumer vc = PyroDraw.solidBuffer(buffers);
+		pose.pushPose();
+		model.body.translateAndRotate(pose);
+		for (int i = 0; i < BACK_PODS.length; i++) {
+			float[] b = BACK_PODS[i];
+			float g = podGrowth(p, i, bombLeft, bombEnd, mineLeft, mineEnd);
+			if (g < 0.04f) {
+				continue;
+			}
+			float size = b[2] * (0.25f + 0.75f * g);
+			// hung from its cap, it sways: an idle bob, more with his stride, the two sides out of step
+			float sway = Mth.sin(age * 0.12f + i * 1.7f) * 0.06f + Mth.sin(step * 0.6662f + (i % 2) * Mth.PI) * walk * 0.22f;
+			pose.pushPose();
+			pose.translate(b[0] / 16f, (b[1] - b[2] * 16f * 0.45f) / 16f, 2.25f / 16f);
+			pose.mulPose(Axis.XP.rotation(-sway));
+			pose.mulPose(Axis.ZP.rotation(sway * 0.4f * (i % 2 == 0 ? 1 : -1)));
+			pose.translate(0, size * 0.48f, size * 0.36f);
+			pose.mulPose(Axis.ZP.rotationDegrees(180f)); // the body bone's y runs down: stem up
+			pose.mulPose(Axis.YP.rotationDegrees(180f)); // the shine faces out of his back
+			pod(pose, vc, size, age, light, 0f);
+			pose.popPose();
+		}
+		pose.popPose();
 	}
 
 	// ---------------------------------------------------------------- the Overgrowth

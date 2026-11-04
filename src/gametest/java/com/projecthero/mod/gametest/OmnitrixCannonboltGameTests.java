@@ -254,7 +254,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id().equals(CannonboltKit.BOUNCE), "ball G is the Big Bounce");
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_6, false, false).id().equals(CannonboltKit.UNSTOPPABLE), "ball C is Unstoppable");
 		helper.assertTrue(kit.pawsOnly(p), "rolled up: no items");
-		helper.assertFalse(kit.climbs(p), "not on a ladder in the open (only pressed into a wall)");
+		helper.assertFalse(kit.climbs(p), "the ball never climbs walls (v0.17.2 user)");
+		helper.assertTrue(p.maxUpStep() >= 3.99f, "the ball rolls up 4-block ledges: " + p.maxUpStep());
 		// uncurl after the V cooldown
 		helper.runAfterDelay(12, () -> {
 			tap(p, AbilitySlot.SLOT_5, false);
