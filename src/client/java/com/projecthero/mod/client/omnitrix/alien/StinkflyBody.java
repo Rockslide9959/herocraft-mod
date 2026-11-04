@@ -38,19 +38,19 @@ final class StinkflyBody {
 	static final ResourceLocation SHEET = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_body.png");
 
 	// the sheet's rectangles (px on 64x64): u0, v0, u1, v1
-	private static final float[] TAIL_TOP = { 0, 0, 8, 16 }, TAIL_SIDE = { 8, 0, 16, 16 }, TAIL_BELLY = { 16, 0, 24, 16 };
-	private static final float[] TAIL_CAP = { 24, 0, 32, 8 }, JOINT = { 24, 8, 32, 16 };
-	private static final float[] STING = { 32, 0, 36, 16 }, STING_CAP = { 36, 0, 40, 4 };
+	private static final float[] SMOOTH_TOP = { 0, 24, 8, 32 }, SMOOTH_SIDE = { 8, 24, 16, 32 }, SMOOTH_BELLY = { 16, 24, 24, 32 };
+	private static final float[] SMOOTH_CAP = { 24, 24, 32, 32 }, BLADE = { 32, 24, 36, 32 }, BLADE_CAP = { 36, 24, 40, 28 };
+	private static final float[] STRIPE = { 40, 24, 44, 28 };
 	static final float[] MOUNT = { 0, 16, 8, 24 };
 
 	// ---------------------------------------------------------------- the tail's shape (body-bone pixels)
 	static final int N = 7;
-	private static final float[] HALF = { 1.45f, 1.85f, 2.05f, 2.0f, 1.7f, 1.3f, 0.95f }; // v0.17.2 second pass: slimmer
-	private static final float[] LEN = { 2.6f, 2.9f, 2.9f, 2.8f, 2.6f, 2.3f, 2.0f };
-	private static final float HH = 0.82f;
-	/** The hook: its segments and how far each bends back up (degrees). */
-	private static final int HOOK_N = 6;
-	private static final float HOOK_BEND = 27f;
+	/** v0.17.2 third pass: the drawn tail -- its segments, their length (px), the first one's extra downward bend and every later
+	 * one's upward sweep (degrees, on top of the spring chain's share); the blade's segments and bend. */
+	private static final int SEGS = 13;
+	private static final float SEG_LEN = 1.35f, ROOT_BEND = -32f, ARC_BEND = 7f;
+	private static final int BLADE_N = 26;
+	private static final float BLADE_BEND = 4.45f;
 	/** Where it leaves his back: low on the body bone, just inside the back face. */
 	private static final float ROOT_Y = 10.4f, ROOT_Z = 1.2f;
 	/** How much of a body turn each segment keeps (the tip lags most). */
@@ -129,28 +129,38 @@ final class StinkflyBody {
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
 			pose.translate(0f, ROOT_Y / 16f, ROOT_Z / 16f);
+			// the spring chain's joints spread over the drawn segments (each segment takes its joint's share, so the whole bend is kept)
+			float[] sp = new float[N], sy = new float[N];
 			for (int i = 0; i < N; i++) {
-				float pitch = t != null && t.started ? Mth.lerp(partial, t.prevP[i], t.pitch[i]) : (i == 0 ? -9f : -6.2f);
-				float yaw = t != null && t.started ? Mth.lerp(partial, t.prevY[i], t.yaw[i]) : 0f;
-				pose.mulPose(Axis.YP.rotationDegrees(yaw));
-				pose.mulPose(Axis.XP.rotationDegrees(pitch));
-				float hw = HALF[i], hh = hw * HH, len = LEN[i];
-				// the soft ring between this plate and the last, then the plate itself (overlapping the next one's ring)
-				float rw = (i == 0 ? hw : Math.min(hw, HALF[i - 1])) * 0.82f;
-				segment(pose, vc, light, rw, rw * HH, -0.6f, 0.7f, JOINT, JOINT, JOINT, JOINT);
-				segment(pose, vc, light, hw, hh, 0.15f, len + 0.25f, TAIL_TOP, TAIL_SIDE, TAIL_BELLY, TAIL_CAP);
-				pose.translate(0f, 0f, len / 16f);
+				sp[i] = t != null && t.started ? Mth.lerp(partial, t.prevP[i], t.pitch[i]) : (i == 0 ? -9f : -6.2f);
+				sy[i] = t != null && t.started ? Mth.lerp(partial, t.prevY[i], t.yaw[i]) : 0f;
 			}
-			// v0.17.2 second pass (user: "his tail is slightly thinner with a hook thing at the end look at this reference image"):
-			// a thin neck, then the black hook -- a flat sickle blade curling back up behind him, broad at its root and drawn to a point
-			segment(pose, vc, light, 0.75f, 0.7f, -0.4f, 1.2f, JOINT, JOINT, JOINT, JOINT);
-			pose.translate(0f, 0f, 1.0f / 16f);
-			for (int k = 0; k < HOOK_N; k++) {
-				float f = k / (float) (HOOK_N - 1);
-				float hh = Mth.lerp(f, 1.55f, 0.25f), hw = Mth.lerp(f, 0.55f, 0.2f), len = Mth.lerp(f, 1.6f, 1.0f);
-				segment(pose, vc, light, hw, hh, -0.15f, len + 0.15f, STING, STING, STING, STING_CAP);
+			// v0.17.2 third pass (user: "keep looking at the reference till his tail looks exactly the same as in the picture"): one
+			// smooth white tail of many thin segments -- leaving his abdomen downward, arcing down and then sweeping back and up like a
+			// scorpion's held low, narrowing and going flat-sided toward the end -- then the big black crescent blade hooking up
+			for (int s = 0; s < SEGS; s++) {
+				int j = Math.min(N - 1, s * N / SEGS);
+				float share = N / (float) SEGS;
+				pose.mulPose(Axis.YP.rotationDegrees(sy[j] * share));
+				pose.mulPose(Axis.XP.rotationDegrees(sp[j] * share + (s == 0 ? ROOT_BEND : ARC_BEND)));
+				float f = s / (float) (SEGS - 1);
+				float hw = Mth.lerp(f, 1.75f, 0.62f), hh = hw * Mth.lerp(f, 0.95f, 1.6f);
+				segment(pose, vc, light, hw, -hh, hh, -0.25f, SEG_LEN + 0.25f, SMOOTH_TOP, SMOOTH_SIDE, SMOOTH_BELLY, SMOOTH_CAP);
+				pose.translate(0f, 0f, SEG_LEN / 16f);
+			}
+			// the blade: flat, broad on its outer (lower) edge and drawn to a point, curling up and back, the white stripe on its inner
+			// (upper) edge
+			for (int k = 0; k < BLADE_N; k++) {
+				float f = k / (float) (BLADE_N - 1);
+				float belly = Mth.sin(Mth.PI * (float) Math.pow(f, 0.7)) * (1f - 0.25f * f);
+				float top = -(0.9f - 0.55f * f), bottom = 0.5f + 5.0f * belly - 0.3f * f;
+				float len = Mth.lerp(f, 0.74f, 0.5f);
+				segment(pose, vc, light, 0.42f - 0.2f * f, top, bottom, -0.12f, len + 0.12f, BLADE, BLADE, BLADE, BLADE_CAP);
+				if (k < BLADE_N - 4) { // the white inner edge, broad where the blade leaves the tail and thinning toward the tip
+					segment(pose, vc, light, 0.5f - 0.2f * f, top - 0.04f, top + Mth.lerp(f, 2.2f, 0.7f), -0.12f, len + 0.12f, STRIPE, STRIPE, STRIPE, STRIPE);
+				}
 				pose.translate(0f, 0f, len / 16f);
-				pose.mulPose(Axis.XP.rotationDegrees(HOOK_BEND));
+				pose.mulPose(Axis.XP.rotationDegrees(BLADE_BEND));
 			}
 			pose.popPose();
 		});
@@ -162,8 +172,14 @@ final class StinkflyBody {
 	 */
 	private static void segment(PoseStack pose, VertexConsumer vc, int light, float hw, float hh, float z0, float z1, float[] top, float[] side,
 			float[] belly, float[] cap) {
+		segment(pose, vc, light, hw, -hh, hh, z0, z1, top, side, belly, cap);
+	}
+
+	/** As above, from y = {@code ya} (its top) to {@code yb}. */
+	private static void segment(PoseStack pose, VertexConsumer vc, int light, float hw, float ya, float yb, float z0, float z1, float[] top,
+			float[] side, float[] belly, float[] cap) {
 		float s = 1f / 16f;
-		float x0 = -hw * s, x1 = hw * s, y0 = -hh * s, y1 = hh * s, a = z0 * s, b = z1 * s;
+		float x0 = -hw * s, x1 = hw * s, y0 = ya * s, y1 = yb * s, a = z0 * s, b = z1 * s;
 		PoseStack.Pose last = pose.last();
 		int c = 0xFFFFFFFF;
 		AlienParts.quad(vc, last, c, light, x0, y0, a, x1, y0, a, x1, y0, b, x0, y0, b, 0, -1, 0, top[0] / 64f, top[1] / 64f, top[2] / 64f, top[3] / 64f);
