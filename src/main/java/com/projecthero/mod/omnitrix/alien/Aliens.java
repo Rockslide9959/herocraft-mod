@@ -50,6 +50,8 @@ public final class Aliens {
 	public static final Alien GREY_MATTER = declare("grey_matter", 0xA6ACB4);
 	// v0.17.2 (user: "build canonbolt alien for the prototype omnitrix please")
 	public static final Alien CANNONBOLT = declare("cannonbolt", 0xDABE0B);
+	// v0.17.2 (user: "add waybig too please ... create an item that lets the user unlock this alien"): unlocked by the To'kustar Shard
+	public static final Alien WAY_BIG = declare("way_big", 0xC23D36);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
@@ -106,7 +108,17 @@ public final class Aliens {
 	 * the dial does not offer until a mistransform lands on one -- the prototype's 11th mistransform (then 22nd...) picks the first one still hidden, and from
 	 * then on it is on the dial for good ({@link #discover}).
 	 */
-	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt");
+	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "way_big");
+	/**
+	 * v0.17.2: hidden aliens no mistransform finds -- only their unlock item (Way Big: the To'kustar Shard, the Abyssal Behemoth's
+	 * drop).
+	 */
+	private static final java.util.Set<String> ITEM_ONLY = java.util.Set.of("way_big");
+
+	/** {@code id} is found only by its unlock item, never by a mistransform. */
+	public static boolean itemOnly(String id) {
+		return ITEM_ONLY.contains(id);
+	}
 
 	/** The persisted Omnitrix timer that marks {@code id} found (1 = found). */
 	public static String foundKey(String id) {
@@ -138,7 +150,7 @@ public final class Aliens {
 	@Nullable
 	public static Alien nextHidden(net.minecraft.world.entity.player.Player p) {
 		for (Alien a : dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p))) {
-			if (!found(p, a.id())) {
+			if (!found(p, a.id()) && !ITEM_ONLY.contains(a.id())) {
 				return a;
 			}
 		}

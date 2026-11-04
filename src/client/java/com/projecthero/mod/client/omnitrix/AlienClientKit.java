@@ -141,6 +141,20 @@ public interface AlienClientKit {
 	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre);
 	 * 2 turns it round to face out of the back (+z).
 	 */
+	/**
+	 * v0.17.2 (Way Big, 100 blocks tall): the player model drawn this many times bigger than the hitbox and the {@code scale}
+	 * stat give it -- vanilla's scale attribute stops at 16, and a giant's hitbox stays small so he can walk the world
+	 * ({@code OmnitrixPlayerRendererMixin}). 1 = as the stats say.
+	 */
+	default float renderScale(AbstractClientPlayer p) {
+		return 1f;
+	}
+
+	/** v0.17.2 (Way Big): the third-person camera's distance from the eyes in blocks, or 0 for vanilla's (OmnitrixCameraMixin). */
+	default float cameraDistance(AbstractClientPlayer p) {
+		return 0f;
+	}
+
 	/** v0.17.2: whether the chest badge shows right now (Big Chill's cloak hides it). */
 	default boolean showBadge(AbstractClientPlayer p) {
 		return true;

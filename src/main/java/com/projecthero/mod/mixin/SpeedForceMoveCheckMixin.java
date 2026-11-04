@@ -25,6 +25,7 @@ public abstract class SpeedForceMoveCheckMixin {
 			target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;isSingleplayerOwner()Z"))
 	private boolean projecthero$speedForceFastMove(boolean original) {
 		// v0.17.2 (user: Overdrive "170 blocks per second while running"): XLR8 runs 8.5 blocks a tick, more with a Speed potion
-		return original || SpeedForceSpeedster.hasPower(this.player) || com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(this.player);
+		return original || SpeedForceSpeedster.hasPower(this.player) || com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(this.player)
+				|| com.projecthero.mod.omnitrix.alien.waybig.WayBigKit.is(this.player); // v0.17.2: Way Big strides 40-block steps
 	}
 }

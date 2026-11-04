@@ -84,6 +84,7 @@
 		"GreyMatterAnvilMixin",
 		"GreyMatterEnchantMixin",
 		"OmnitrixAlienLivingMixin",
+		"OmnitrixAlienFluidMixin",
 		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",
 		"OmnitrixUpgradeArrowAccessor",

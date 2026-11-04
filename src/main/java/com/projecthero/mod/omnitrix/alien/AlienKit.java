@@ -209,6 +209,32 @@ public abstract class AlienKit {
 	}
 
 	/**
+	 * v0.17.2 (Way Big; user: "Does not get slowed down by water or lava and can walk safely through both"): water and lava neither
+	 * slow him, push him nor make him swim -- he walks through them on the bottom like dry ground ({@code mixin/OmnitrixAlienFluidMixin}).
+	 * Burning and drowning are the kit's own {@link #allowDamage}.
+	 */
+	public boolean ignoresFluids(Player p) {
+		return false;
+	}
+
+	/**
+	 * v0.17.2 (Way Big): the step height in blocks, past the step-height attribute's cap of 10 ({@code OmnitrixAlienLivingMixin}), or a
+	 * negative number for the attribute's own. Both sides (answer from synced state).
+	 */
+	public float stepHeight(Player p) {
+		return -1f;
+	}
+
+	/**
+	 * v0.17.2 (Way Big): the body as DRAWN, when it is far bigger than the hitbox -- {height, width} in blocks, so the renderer does
+	 * not cull a giant whose small hitbox is off screen ({@code OmnitrixAlienLivingMixin}). Null = the hitbox is the body.
+	 */
+	@Nullable
+	public float[] drawnBody(Player p) {
+		return null;
+	}
+
+	/**
 	 * v0.17.1 (Wildmutt): the hitbox and eye height for {@code pose} while transformed, or null for the player's own (scaled
 	 * by the {@code scale} stat as usual). A quadruped answers STANDING / CROUCHING with a wide, low box. Asked on both sides
 	 * ({@code mixin/OmnitrixAlienBodyMixin} refreshes the dimensions whenever the answer changes, so reverting restores the

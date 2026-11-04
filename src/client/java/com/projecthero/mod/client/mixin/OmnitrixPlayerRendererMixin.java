@@ -55,6 +55,18 @@ public abstract class OmnitrixPlayerRendererMixin {
 		return target != null && target != (Object) this;
 	}
 
+	/** v0.17.2 (Way Big, 100 blocks tall): a kit's render scale on top of the hitbox's ({@link AlienClientKit#renderScale}). */
+	@Inject(method = "scale(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;F)V", at = @At("TAIL"))
+	private void projecthero$alienRenderScale(AbstractClientPlayer player, PoseStack pose, float partial, CallbackInfo ci) {
+		AlienClientKit kit = AlienClients.shownKit(player);
+		if (kit != null) {
+			float k = kit.renderScale(player);
+			if (k != 1f) {
+				pose.scale(k, k, k);
+			}
+		}
+	}
+
 	/** v0.17.1 (Wildmutt): the custom-body aliens' renderers are built from the player renderers' context. */
 	@Inject(method = "<init>", at = @At("TAIL"))
 	private void projecthero$buildAlienBodies(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context, boolean slim,

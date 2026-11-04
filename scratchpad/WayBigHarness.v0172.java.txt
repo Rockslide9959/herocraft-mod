@@ -1,0 +1,202 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): Way Big: 100 blocks tall, the camera, water/lava, the Cosmic Ray. Enabled by run/waybig.flag. */
+public final class WayBigHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+
+	private WayBigHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("waybig.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WayBigHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "waybig-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "waybig_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WayBigHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.omnitrix.Omnitrix.grant(p);
+				com.projecthero.mod.omnitrix.Omnitrix.noGlitch(p);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.activate(p));
+		}
+		if (t == 110) {
+			server(mc, p -> {
+				// a lava pool and a water pool ahead of him, 3 deep
+				var l = p.serverLevel();
+				net.minecraft.core.BlockPos c = p.blockPosition();
+				for (int x = -6; x <= 6; x++) for (int z = 4; z <= 16; z++) for (int y = -3; y <= -1; y++) {
+					l.setBlock(c.offset(x, y, z), (x < 0 ? net.minecraft.world.level.block.Blocks.LAVA : net.minecraft.world.level.block.Blocks.WATER).defaultBlockState(), 3);
+				}
+				for (int i = 0; i < 6; i++) {
+					var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(l);
+					z.moveTo(c.getX() + 30 + i * 2, c.getY(), c.getZ() - 10 + i * 3, 0, 0);
+					z.setNoAi(true);
+					l.addFreshEntity(z);
+				}
+				com.projecthero.mod.omnitrix.alien.Aliens.discover(p, "way_big", true);
+			});
+		}
+		if (t == 115) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.select(p, "way_big"));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 10f);
+				com.projecthero.mod.omnitrix.Omnitrix.select(p, "way_big");
+				System.out.println("[HARNESS] transform=" + com.projecthero.mod.omnitrix.Omnitrix.transform(p));
+			});
+		}
+		if (t == 170) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			System.out.println("[HARNESS] eye=" + mc.player.getEyeHeight() + " bb=" + mc.player.getBbHeight() + " step=" + mc.player.maxUpStep());
+		}
+		if (t == 185) {
+			shot(mc, "back");
+		}
+		if (t == 190) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 205) {
+			shot(mc, "front");
+		}
+		if (t == 210) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t >= 212 && t <= 260) {
+			mc.options.keyUp.setDown(t < 250);
+		}
+		if (t == 240) {
+			System.out.println("[HARNESS] in fluid: water=" + mc.player.isInWater() + " lava=" + mc.player.isInLava() + " pos=" + mc.player.position() + " dm=" + mc.player.getDeltaMovement() + " fire=" + mc.player.isOnFire());
+			shot(mc, "wading");
+		}
+		if (t == 262) {
+			server(mc, p -> {
+				System.out.println("[HARNESS] server hp=" + p.getHealth() + "/" + p.getMaxHealth() + " pos=" + p.position());
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 270f, 30f);
+				System.out.println("[HARNESS] ray aim");
+			});
+		}
+		if (t == 270) {
+			server(mc, p -> {
+				var kit = com.projecthero.mod.omnitrix.alien.Aliens.kit("way_big");
+				kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false);
+			});
+		}
+		if (t == 272) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 282) {
+			shot(mc, "ray");
+		}
+		if (t == 290) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		}
+		if (t == 300) {
+			shot(mc, "firstperson");
+		}
+		if (t == 305) {
+			server(mc, p -> {
+				var kit = com.projecthero.mod.omnitrix.alien.Aliens.kit("way_big");
+				kit.cooldown(p, "size_shift", 0);
+				kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+			});
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 325) {
+			shot(mc, "compact");
+		}
+		if (t == 340) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
