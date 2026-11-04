@@ -1,0 +1,340 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import com.projecthero.mod.galactus.Galactus;
+import com.projecthero.mod.galactus.GalactusEvent;
+import com.projecthero.mod.galactus.GalactusEvent.Phase;
+import com.projecthero.mod.galactus.entity.ElementConverterEntity;
+import com.projecthero.mod.galactus.entity.PunisherRobotEntity;
+import com.projecthero.mod.galactus.item.GalactusItems;
+import com.projecthero.mod.galactus.orbit.DevourerEntity;
+import com.projecthero.mod.galactus.orbit.DevourerPartEntity;
+import com.projecthero.mod.galactus.orbit.GalactusOrbit;
+import com.projecthero.mod.galactus.orbit.StageIslands;
+
+/**
+ * TEMP-HARNESS (not shipped): Galactus raid v2 end to end -- every cutscene and stage, recording frames for MP4s.
+ * Enabled by run/galraid.flag (its text is the frames folder).
+ */
+public final class GalactusRaidHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File frames;
+	private static String section = "";
+	private static int frame;
+	private static final int EVERY = 2;
+	private static Phase lastPhase;
+	private static int phaseTicks;
+	private static int stage2Step;
+	private static boolean done;
+	private static int homeTicks;
+
+	private GalactusRaidHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("galraid.flag"))) {
+			return;
+		}
+		try {
+			String dir = Files.readString(Path.of("galraid.flag")).trim();
+			frames = new File(dir.isEmpty() ? "galraid_frames" : dir);
+		} catch (Exception e) {
+			frames = new File("galraid_frames");
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GalactusRaidHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_500_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "galraid-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static GalactusEvent raid(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv == null) {
+			return null;
+		}
+		var all = GalactusEvent.all(srv);
+		return all.isEmpty() ? null : all.get(0);
+	}
+
+	private static void grab(Minecraft mc) {
+		if (section.isEmpty()) {
+			return;
+		}
+		File dir = new File(frames, section);
+		dir.mkdirs();
+		Screenshot.grab(dir, String.format("f%05d.png", frame++), mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void section(String name) {
+		section = name;
+		frame = 0;
+		System.out.println("[HARNESS] section " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GalactusRaidHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.options.fov().set(80);
+			mc.options.bobView().set(false);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel lvl = p.serverLevel();
+				lvl.getServer().setDifficulty(Difficulty.NORMAL, true);
+				lvl.setDayTime(18000L);
+				lvl.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100000, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 4, false, false));
+				// a clear stage for the cameras: no trees round the beacon
+				BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+				for (int dx = -45; dx <= 45; dx++) {
+					for (int dz = -45; dz <= 45; dz++) {
+						for (int dy = -6; dy <= 30; dy++) {
+							m.set(p.getBlockX() + dx, p.getBlockY() + dy, p.getBlockZ() + dz);
+							var st = lvl.getBlockState(m);
+							if (st.is(net.minecraft.tags.BlockTags.LEAVES) || st.is(net.minecraft.tags.BlockTags.LOGS)) {
+								lvl.setBlock(m, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16);
+							}
+						}
+					}
+				}
+				BlockPos at = p.blockPosition().offset(0, 0, 4);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ() - 4, 0f, 5f);
+				lvl.setBlockAndUpdate(at, com.projecthero.mod.galactus.block.GalactusBlocks.HERALDS_BEACON.defaultBlockState());
+				GalactusEvent e = Galactus.start(lvl, at, p, Galactus.Source.COMMAND);
+				System.out.println("[HARNESS] started " + (e != null));
+			});
+		}
+		GalactusEvent e = raid(mc);
+		if (t > 62 && e != null) {
+			if (e.phase() != lastPhase) {
+				lastPhase = e.phase();
+				phaseTicks = 0;
+				System.out.println("[HARNESS] phase " + lastPhase + " at " + t);
+				switch (lastPhase) {
+					case ARRIVAL -> section("c1_herald");
+					case HERALD -> {
+						section("duel");
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+					}
+					case KNEEL -> section("kneel");
+					case DEVOURER -> section("c2_devourer");
+					case ASCENT -> section("c2_arrival");
+					case STAGE1 -> {
+						section("stage1");
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+					}
+					case PULL -> section("c3_worldship");
+					case STAGE2 -> section("stage2");
+					case RISE -> section("c4_rise");
+					case STAGE3 -> section("stage3");
+					case ENDING -> section("c5_ending");
+					default -> section(lastPhase.name().toLowerCase());
+				}
+			}
+			phaseTicks++;
+			if (t % 40 == 0) {
+				int n = 0;
+				for (var ent : mc.level.entitiesForRendering()) {
+					if (ent instanceof DevourerEntity d) {
+						n++;
+						System.out.println("[HARNESS] client devourer " + d.getId() + " at " + d.position() + " h=" + d.height() + " removed=" + d.isRemoved());
+					}
+				}
+				final int cn = n;
+				server(mc, p -> {
+					DevourerEntity sd = e.devourer(GalactusOrbit.level(p.server));
+					System.out.println("[HARNESS] client sees " + cn + "; server devourer " + (sd == null ? "none" : sd.getId() + " at " + sd.position())
+							+ " player " + p.level().dimension().location() + " " + p.position());
+				});
+			}
+			if (frames.getPath().contains("fastgame") && phaseTicks == 60
+					&& (e.phase() == Phase.HERALD || e.phase() == Phase.STAGE1 || e.phase() == Phase.KNEEL)) {
+				server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+			} else if (frames.getPath().contains("fastgame") && e.phase() == Phase.STAGE2 && phaseTicks % 40 == 20) {
+				server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+			} else if (frames.getPath().contains("fastgame") && e.phase() == Phase.STAGE3 && (phaseTicks == 60 || phaseTicks == 130 || phaseTicks == 200)) {
+				server(mc, p -> {
+					e.debugAdvance(p.serverLevel(), p);
+				});
+			} else if (!frames.getPath().contains("fastgame") && frames.getPath().contains("fast") && phaseTicks == 30 && e.phase() != Phase.STAGE3) {
+				server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+			}
+			drive(mc, e, phaseTicks);
+		}
+		if (e == null && t > 400 && !done) {
+			done = true;
+			section("home");
+			System.out.println("[HARNESS] raid over at " + t);
+		}
+		if (done && ++homeTicks > 60) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+		if (!section.isEmpty() && t % EVERY == 0) {
+			grab(mc);
+		}
+	}
+
+	/** What the harness does in each phase, {@code n} ticks in. */
+	private static void drive(Minecraft mc, GalactusEvent e, int n) {
+		switch (e.phase()) {
+			case HERALD -> {
+				if (n == 80) {
+					server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+				}
+			}
+			case STAGE1 -> {
+				if (n == 2) {
+					server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, -12f));
+				}
+				// simulated hits on the stuck fist (as if the party were pounding it)
+				server(mc, p -> {
+					ServerLevel orbit = GalactusOrbit.level(p.server);
+					DevourerEntity d = e.devourer(orbit);
+					if (d != null && e.stage1.state == StageIslands.STUCK && n % 4 == 0) {
+						DevourerPartEntity hand = d.part(e.stage1.targetR >= 0 ? DevourerPartEntity.Kind.HAND_R : DevourerPartEntity.Kind.HAND_L);
+						if (hand != null) {
+							hand.hurt(orbit.damageSources().playerAttack(p), 45f);
+						}
+					}
+					if (d != null && !d.partsOn()) {
+						d.setPartsOn(true);
+					}
+				});
+				if (n == 1400) {
+					server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+				}
+			}
+			case STAGE2 -> server(mc, p -> {
+				ServerLevel orbit = GalactusOrbit.level(p.server);
+				var live = e.stage2.live(orbit);
+				if (live.isEmpty()) {
+					return;
+				}
+				ElementConverterEntity c = live.get(0);
+				int base = stage2Step * 220;
+				if (n == 60 + base) {
+					for (PunisherRobotEntity pr : e.orbitPunishers(orbit)) {
+						if (c.getUUID().equals(pr.guardOf())) {
+							pr.kill();
+						}
+					}
+				}
+				if (n == 80 + base) {
+					var o = GalactusOrbit.origin(e.orbitSlot());
+					Vec3 to = new Vec3(o.getX() + 0.5, c.getY(), o.getZ() + 0.5).subtract(c.position()).normalize();
+					Vec3 at = c.position().add(to.scale(7));
+					float yaw = (float) Math.toDegrees(Math.atan2(-(c.getX() - at.x), c.getZ() - at.z));
+					p.connection.teleport(at.x, at.y, at.z, yaw, 10f);
+					p.getInventory().add(new ItemStack(GalactusItems.COSMIC_CELL));
+				}
+				if (n == 100 + base) {
+					c.setShielded(false);
+					System.out.println("[HARNESS] socket " + e.stage2.socket(e, orbit, p, c));
+					stage2Step++;
+				}
+			});
+			case STAGE3 -> {
+				if (n == 2) {
+					server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, -20f));
+				}
+				server(mc, p -> {
+					ServerLevel orbit = GalactusOrbit.level(p.server);
+					DevourerEntity d = e.devourer(orbit);
+					if (d == null) {
+						return;
+					}
+					if (n % 10 == 0 && n < 900) {
+						DevourerPartEntity.Kind k = n % 30 == 0 ? DevourerPartEntity.Kind.HEAD : n % 20 == 0 ? DevourerPartEntity.Kind.UPPER_R : DevourerPartEntity.Kind.FORE_L;
+						DevourerPartEntity part = d.part(k);
+						if (part != null) {
+							part.hurt(orbit.damageSources().playerAttack(p), 40f);
+						}
+					}
+					if (n == 900 || n == 980 || n == 1060) {
+						e.debugAdvance(p.serverLevel(), p);
+					}
+				});
+			}
+			default -> {
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GR_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

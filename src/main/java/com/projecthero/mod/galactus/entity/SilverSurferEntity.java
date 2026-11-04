@@ -73,6 +73,8 @@ public class SilverSurferEntity extends GalactusMob {
 	private int allyBlastCooldown = 20;
 	private int allyShieldCooldown = 200;
 	private boolean bypassClamp;
+	/** v0.17.2 raid v2: kneeling at 10% (the turn waits). Not saved: the raid sets it. */
+	public boolean holdTurn;
 
 	public SilverSurferEntity(EntityType<? extends SilverSurferEntity> type, Level level) {
 		super(type, level);
@@ -306,7 +308,8 @@ public class SilverSurferEntity extends GalactusMob {
 			case HOSTILE -> tickHostile(level);
 			case TURNING -> {
 				setDeltaMovement(getDeltaMovement().scale(0.6));
-				if (++turnTicks >= GalactusConfig.herald().turnTicks) {
+				// v0.17.2 raid v2: he stays down on one knee (the raid turns him later, up in the orbit)
+				if (!holdTurn && ++turnTicks >= GalactusConfig.herald().turnTicks) {
 					becomeAlly(level);
 				}
 			}

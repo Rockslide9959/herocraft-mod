@@ -54,6 +54,15 @@ public final class GalactusEntityTypes {
 			EntityType.Builder.<SurferBoardEntity>of(SurferBoardEntity::new, MobCategory.MISC)
 					.sized(1.1f, 0.3f).eyeHeight(0.2f).fireImmune().clientTrackingRange(10).updateInterval(1).build("silver_surfer_board"));
 
+	/** v0.17.2 Galactus raid v2: the Devourer (render-scale colossus, no AI) and his separate hit-box parts. */
+	public static final EntityType<com.projecthero.mod.galactus.orbit.DevourerEntity> DEVOURER = register("devourer",
+			EntityType.Builder.<com.projecthero.mod.galactus.orbit.DevourerEntity>of(com.projecthero.mod.galactus.orbit.DevourerEntity::new, MobCategory.MISC)
+					.sized(2.0f, 2.0f).eyeHeight(1.0f).fireImmune().noSummon().clientTrackingRange(32).updateInterval(1).build("devourer"));
+
+	public static final EntityType<com.projecthero.mod.galactus.orbit.DevourerPartEntity> DEVOURER_PART = register("devourer_part",
+			EntityType.Builder.<com.projecthero.mod.galactus.orbit.DevourerPartEntity>of(com.projecthero.mod.galactus.orbit.DevourerPartEntity::new, MobCategory.MISC)
+					.sized(4.0f, 4.0f).eyeHeight(2.0f).fireImmune().noSummon().clientTrackingRange(32).updateInterval(1).build("devourer_part"));
+
 	private GalactusEntityTypes() {
 	}
 
@@ -65,6 +74,8 @@ public final class GalactusEntityTypes {
 		FabricDefaultAttributeRegistry.register(ELEMENT_CONVERTER, ElementConverterEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(PUNISHER, PunisherRobotEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(POWER_PYLON, PowerPylonEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(DEVOURER, com.projecthero.mod.galactus.orbit.DevourerEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(DEVOURER_PART, com.projecthero.mod.galactus.orbit.DevourerPartEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(SURFER_BOARD, SurferBoardEntity.createAttributes());
 	}
 

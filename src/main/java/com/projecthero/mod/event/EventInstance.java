@@ -135,7 +135,7 @@ public abstract class EventInstance {
 		participants.refresh(level, center, presenceRadius(), state == EventState.RUNNING);
 
 		long now = level.getGameTime();
-		if (participants.presentCount() > 0) {
+		if (participants.presentCount() > 0 || offsitePresent(level)) {
 			emptySinceTick = Long.MIN_VALUE;
 			if (state == EventState.PAUSED) {
 				setState(EventState.RUNNING);
@@ -164,6 +164,14 @@ public abstract class EventInstance {
 		warnStragglers(level, cfg);
 		onTick(level);
 		return !state.finished();
+	}
+
+	/**
+	 * v0.17.2: players taking part somewhere else (the Galactus raid's orbit) who should keep the event running even though
+	 * nobody stands near its centre. False by default.
+	 */
+	protected boolean offsitePresent(ServerLevel level) {
+		return false;
 	}
 
 	/** v0.16.2: how far a player may be from the centre and still count as present (crime events use a smaller area). */

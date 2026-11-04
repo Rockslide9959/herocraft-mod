@@ -169,6 +169,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.frostgiant.FrostGiantClient.initialize(); // v0.16.1: Frost Giants, braziers, the rift, the blizzard
 		com.projecthero.mod.client.ultron.contagion.ContagionClient.initialize(); // v0.16.1: the Ultron Contagion
 		com.projecthero.mod.client.galactus.GalactusClient.initialize(); // v0.16.1: Galactus: The Devourer
+		com.projecthero.mod.client.galactus.GalactusCinematicClient.initialize(); // v0.17.2 Galactus raid v2: cutscenes
 		com.projecthero.mod.client.doomsday.DoomsdayClient.initialize(); // v0.17.2: Doomsday
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);

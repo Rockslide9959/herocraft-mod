@@ -59,6 +59,12 @@ public class HeraldsBeaconBlock extends Block {
 			return InteractionResult.SUCCESS;
 		}
 		if (state.getValue(ACTIVE)) {
+			// v0.17.2 raid v2: while the fight is up in the orbit, the beacon is a Rift -- right-click to go up and join
+			for (com.projecthero.mod.galactus.GalactusEvent e : com.projecthero.mod.galactus.GalactusEvent.all(server.getServer())) {
+				if (e.isAt(server, pos, 2) && e.joinViaRift(server, sp)) {
+					return InteractionResult.CONSUME;
+				}
+			}
 			player.displayClientMessage(Component.translatable("message.projecthero.galactus.already").withStyle(ChatFormatting.LIGHT_PURPLE), true);
 			return InteractionResult.CONSUME;
 		}

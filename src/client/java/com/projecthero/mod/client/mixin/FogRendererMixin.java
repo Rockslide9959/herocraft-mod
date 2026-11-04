@@ -67,6 +67,14 @@ public class FogRendererMixin {
 	@Inject(method = "setupFog", at = @At("TAIL"))
 	private static void projecthero$raidFog(Camera camera, FogRenderer.FogMode fogMode, float farPlaneDistance,
 			boolean shouldCreateFog, float partialTick, CallbackInfo ci) {
+		// v0.17.2 Galactus raid v2: no haze in a cutscene or up in the orbit -- the 160-block head on the horizon and the
+		// Devourer leaning over the field have to read crisp against the sky
+		if (fogMode == FogRenderer.FogMode.FOG_TERRAIN && (com.projecthero.mod.client.galactus.GalactusCinematicClient.clearFog()
+				|| camera.getEntity() != null && camera.getEntity().level().dimension() == com.projecthero.mod.galactus.orbit.GalactusOrbit.DIMENSION)) {
+			RenderSystem.setShaderFogStart(farPlaneDistance * 4.0f);
+			RenderSystem.setShaderFogEnd(farPlaneDistance * 5.0f);
+			return;
+		}
 		// v0.16.5 (user): Water Manipulation sees clearly underwater -- the murky water fog (96 blocks at best, much less
 		// when you have just gone under) is pushed out to most of the render distance
 		if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER

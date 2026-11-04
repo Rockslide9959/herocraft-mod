@@ -1,8 +1,6 @@
 package com.projecthero.mod.gametest;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import com.projecthero.mod.ProjectHeroMod;
@@ -10,28 +8,34 @@ import com.projecthero.mod.event.EventSavedData;
 import com.projecthero.mod.event.EventState;
 import com.projecthero.mod.event.EventTypes;
 import com.projecthero.mod.galactus.Galactus;
-import com.projecthero.mod.galactus.GalactusAnims;
 import com.projecthero.mod.galactus.GalactusConfig;
 import com.projecthero.mod.galactus.GalactusEvent;
-import com.projecthero.mod.galactus.GalactusRewards;
-import com.projecthero.mod.galactus.GalactusTerrain;
 import com.projecthero.mod.galactus.block.GalactusBlocks;
 import com.projecthero.mod.galactus.block.HeraldsBeaconBlock;
-import com.projecthero.mod.galactus.entity.ElementConverterEntity;
-import com.projecthero.mod.galactus.entity.GalactusEntity;
-import com.projecthero.mod.galactus.entity.GalactusWeakPointEntity;
-import com.projecthero.mod.galactus.entity.PowerPylonEntity;
+import com.projecthero.mod.galactus.cinematic.GalactusScenes;
+import com.projecthero.mod.galactus.entity.GalactusEntityTypes;
 import com.projecthero.mod.galactus.entity.SilverSurferEntity;
 import com.projecthero.mod.galactus.item.GalactusItems;
+import com.projecthero.mod.galactus.orbit.DevourerEntity;
+import com.projecthero.mod.galactus.orbit.DevourerPartEntity;
+import com.projecthero.mod.galactus.orbit.GalactusOrbit;
+import com.projecthero.mod.galactus.orbit.GalactusRig;
+import com.projecthero.mod.galactus.orbit.OrbitArena;
+import com.projecthero.mod.galactus.orbit.OrbitIsland;
+import com.projecthero.mod.galactus.orbit.OrbitRules;
+import com.projecthero.mod.galactus.orbit.StageDevourer;
+import com.projecthero.mod.galactus.orbit.StageIslands;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -40,31 +44,27 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.1: Galactus: The Devourer. Like the Frost Giant tests, the timed event is never run end to end: each test drives
- * one piece directly ({@code instant}: no falls / arrivals; converters 3 blocks out, no guards; pylons 3 out; Galactus 6
- * blocks away) and every event is aborted / finished and removed before the test ends. One event per batch (only one may
- * run within 256 blocks). Monsters need a non-Peaceful world; mock players report creative, so they are switched to
- * Survival to count as fighters.
+ * v0.17.2: Galactus raid v2 (the Devourer Descends). Like the other raid tests, the timed raid is never run end to end:
+ * each test drives one piece directly -- the shared rig, the orbit's islands and hull (in a test instance slot of the
+ * orbit dimension), the orbit rules, each stage's damage rules, the grave -- and every event is aborted and removed before
+ * the test ends (one Galactus per 256 blocks). Mock players report creative, so they are switched to Survival to count as
+ * fighters; nothing here moves a mock player across dimensions.
  */
 public class GalactusGameTests implements FabricGameTest {
+	/** A test instance slot far from any real raid's. */
+	private static final int TEST_SLOT = 60;
 
 	private static GalactusEvent startPinned(GameTestHelper helper) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.HARD, true);
 		BlockPos at = helper.absolutePos(new BlockPos(4, 2, 4));
-		// v0.16.4: a test that failed mid-way leaves its event running, and only one Galactus may run within 256 blocks --
-		// clear any leftover so one failure can't cascade into every later Galactus test ("Galactus starts")
 		for (GalactusEvent old : new java.util.ArrayList<>(GalactusEvent.all(helper.getLevel().getServer()))) {
 			if (old.state().active()) {
 				old.abort(helper.getLevel());
 			}
-			GalactusTerrain.get(helper.getLevel()).revertAllNow(helper.getLevel(), old.id());
 			EventSavedData.get(helper.getLevel()).remove(old.id());
 		}
 		GalactusEvent e = Galactus.start(helper.getLevel(), at, null, Galactus.Source.COMMAND, x -> {
 			x.instant = true;
-			x.converterRingOverride = 3.0;
-			x.pylonRingOverride = 3.0;
-			x.galactusDistanceOverride = 6.0;
 			x.noGuards = true;
 		});
 		helper.assertTrue(e != null, "Galactus starts");
@@ -76,100 +76,315 @@ public class GalactusGameTests implements FabricGameTest {
 			e.abort(level);
 		}
 		if (e != null) {
-			GalactusTerrain.get(level).revertAllNow(level, e.id());
 			EventSavedData.get(level).remove(e.id());
 		}
 	}
 
-	private static ServerPlayer survivor(GameTestHelper helper) {
+	private static ServerPlayer survivor(GameTestHelper helper, boolean tough) {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
-		// Resistance V: nothing the Herald or Galactus throws can down the only fighter mid-test (that would end it)
-		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 2000, 4));
+		if (tough) {
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 2000, 4));
+		}
 		return p;
 	}
 
-	/** A 9 x 9 patch of grass (with tufts) round the structure's centre on y = 1, a chest in one corner. */
-	private static BlockPos buildMeadow(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		for (int x = 0; x < 9; x++) {
-			for (int z = 0; z < 9; z++) {
-				level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.DIRT.defaultBlockState());
-				level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState());
-				level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x, 2, z)),
-						(x + z) % 3 == 0 ? Blocks.SHORT_GRASS.defaultBlockState() : Blocks.AIR.defaultBlockState());
-			}
-		}
-		BlockPos chest = helper.absolutePos(new BlockPos(8, 2, 8));
-		level.setBlockAndUpdate(chest, Blocks.CHEST.defaultBlockState());
-		return chest;
-	}
-
-	private static Map<BlockPos, BlockState> snapshot(GameTestHelper helper) {
-		Map<BlockPos, BlockState> out = new HashMap<>();
-		for (int x = -14; x <= 22; x++) {
-			for (int y = -2; y <= 6; y++) {
-				for (int z = -14; z <= 22; z++) {
-					BlockPos p = helper.absolutePos(new BlockPos(x, y, z));
-					out.put(p, helper.getLevel().getBlockState(p));
-				}
-			}
-		}
-		return out;
-	}
-
-	private static void assertSame(GameTestHelper helper, Map<BlockPos, BlockState> before, String what) {
-		for (Map.Entry<BlockPos, BlockState> e : before.entrySet()) {
-			BlockState now = helper.getLevel().getBlockState(e.getKey());
-			if (!now.equals(e.getValue())) {
-				helper.fail(what + ": " + e.getKey() + " was " + e.getValue() + ", now " + now);
-			}
-		}
+	private static DevourerEntity devourer(GameTestHelper helper, float height) {
+		DevourerEntity d = GalactusEntityTypes.DEVOURER.create(helper.getLevel());
+		BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+		d.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 0f);
+		d.setHeight(height);
+		helper.getLevel().addFreshEntity(d);
+		return d;
 	}
 
 	// ---------------------------------------------------------------- the contract and the config
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void galactusIsRegisteredWithItsContractAndConfig(GameTestHelper helper) {
+	public void galactusRaidIsRegisteredWithItsContractAndConfig(GameTestHelper helper) {
 		helper.assertTrue(EventTypes.isRegistered(GalactusEvent.TYPE_ID), "galactus is a registered event type");
 		helper.assertTrue(EventTypes.create(GalactusEvent.TYPE_ID, UUID.randomUUID()) instanceof GalactusEvent, "loads back as a Galactus event");
-		var recipe = helper.getLevel().getRecipeManager().byKey(ProjectHeroMod.id("heralds_beacon"));
-		helper.assertTrue(recipe.isPresent(), "the Herald's Beacon recipe");
-		boolean star = false;
-		for (var ing : recipe.orElseThrow().value().getIngredients()) {
-			star |= ing.test(new ItemStack(Items.NETHER_STAR));
+		helper.assertTrue(helper.getLevel().getRecipeManager().byKey(ProjectHeroMod.id("heralds_beacon")).isPresent(), "the Herald's Beacon recipe");
+		var shards = helper.getLevel().getRecipeManager().byKey(ProjectHeroMod.id("heralds_beacon_from_shards"));
+		helper.assertTrue(shards.isPresent(), "the Cosmic Shard recipe");
+		boolean shard = false;
+		for (var ing : shards.orElseThrow().value().getIngredients()) {
+			shard |= ing.test(new ItemStack(GalactusItems.COSMIC_SHARD));
 		}
-		helper.assertTrue(star, "it costs a nether star");
-		for (GalactusAnims.Clip c : GalactusAnims.ALL) {
-			helper.assertTrue(c.hit() < c.length(), c.id() + ": the hit lands inside the clip");
-			helper.assertTrue(!c.loops() || c.hit() < 0, c.id() + ": loops never carry a hit");
+		helper.assertTrue(shard, "it takes Cosmic Shards");
+		helper.assertTrue(GalactusOrbit.level(helper.getLevel().getServer()) != null, "the orbit dimension is loaded");
+		helper.assertTrue(GalactusConfig.stage1().staggers == 3 && GalactusConfig.stage3().health == 8000.0 && GalactusConfig.nullifier().useTicks == 80,
+				"three staggers, 8000 health, a 4 s Nullifier");
+		helper.assertTrue(GalactusConfig.rewards().valuablesMultiplier == 1.5, "a bigger chest");
+		for (GalactusScenes.Scene s : GalactusScenes.Scene.values()) {
+			helper.assertTrue(GalactusScenes.Scene.byId(s.ordinal()) == s && s.length > 0, s + ": round-trips its id");
 		}
-		for (String model : GalactusAnims.MODELS) {
-			helper.assertFalse(GalactusAnims.of(model).isEmpty(), model + " has clips");
-		}
-		helper.assertTrue(GalactusConfig.converterCountFor(1) == 3 && GalactusConfig.converterCountFor(3) == 4
-				&& GalactusConfig.converterCountFor(5) == 5 && GalactusConfig.converterCountFor(12) == 5, "3 converters, +1 per two extra fighters, at most 5");
-		helper.assertTrue(GalactusConfig.arena().radius == 80.0 && GalactusConfig.trigger().enabled, "an 80-block arena, on by default");
+		helper.assertTrue(GalactusScenes.HERALD_BOOM < GalactusScenes.HERALD_LAND && GalactusScenes.HERALD_LAND < GalactusScenes.Scene.HERALD.length,
+				"C1 beats in order");
+		helper.assertTrue(GalactusScenes.DEVOURER_ROAR < GalactusScenes.DEVOURER_LIFT && GalactusScenes.DEVOURER_WHITE < GalactusScenes.Scene.DEVOURER.length,
+				"C2 beats in order");
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- start / end
+	// ---------------------------------------------------------------- the rig
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_start", timeoutTicks = 40)
-	public void galactusStartsAndEnds(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theRigPutsAFistExactlyWhereItReaches(GameTestHelper helper) {
+		GalactusRig.Input in = new GalactusRig.Input();
+		in.feet = new Vec3(100, 0, 100);
+		in.height = 180f;
+		in.yawDeg = 180f;
+		in.lean = 0.4f;
+		double reach = GalactusRig.reach(180f);
+		GalactusRig.Pose rest = GalactusRig.solve(in);
+		Vec3 target = rest.shoulderR.add(-10, -30, -25);
+		helper.assertTrue(target.distanceTo(rest.shoulderR) < reach, "the target is in reach");
+		in.targetR = target;
+		in.weightR = 1f;
+		GalactusRig.Pose p = GalactusRig.solve(in);
+		helper.assertTrue(p.fistR.distanceTo(target) < 0.6, "the fist lands on the target: " + p.fistR + " vs " + target);
+		helper.assertTrue(Math.abs(p.elbowR.distanceTo(p.shoulderR) - GalactusRig.UPPER * p.k) < 0.05, "the upper arm keeps its length");
+		helper.assertTrue(Math.abs(p.fistR.distanceTo(p.elbowR) - GalactusRig.LOWER * p.k) < 0.05, "the forearm keeps its length");
+		// out of reach: the arm points straight at it, fully out
+		in.targetR = p.shoulderR.add(0, -400, 0);
+		GalactusRig.Pose far = GalactusRig.solve(in);
+		helper.assertTrue(Math.abs(far.fistR.distanceTo(far.shoulderR) - reach) < 1.0, "out of reach: the arm is straight");
+		// a blended pose agrees with the drawn one (weight 0 = rest)
+		in.weightR = 0f;
+		GalactusRig.Pose z = GalactusRig.solve(in);
+		helper.assertTrue(z.fistR.distanceTo(rest.fistR) < 1.0e-3, "weight 0 is the rest pose");
+		// the parts sit on the skeleton
+		for (DevourerPartEntity.Kind k : DevourerPartEntity.Kind.values()) {
+			Vec3 c = k.centre(p);
+			helper.assertTrue(Double.isFinite(c.x) && Double.isFinite(c.y) && Double.isFinite(c.z), k + " has a place");
+		}
+		helper.assertTrue(DevourerPartEntity.Kind.HAND_R.centre(p).distanceTo(p.fistR) < 1.0e-6, "the hand hit-box is on the fist");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the orbit
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void islandsBuildShatterReformAndTheInstanceWipesClean(GameTestHelper helper) {
+		ServerLevel orbit = GalactusOrbit.level(helper.getLevel().getServer());
+		GalactusOrbit.hold(orbit, TEST_SLOT);
+		try {
+			GalactusOrbit.wipe(orbit, TEST_SLOT);
+			BlockPos o = GalactusOrbit.origin(TEST_SLOT);
+			List<OrbitIsland> field = OrbitIsland.field(o.getX(), o.getZ(), 4, 99L);
+			helper.assertTrue(field.size() == 11 && field.get(0).anchor() && field.get(0).radius == 7, "the Anchor, the inner six, four outer");
+			for (OrbitIsland i : field) {
+				i.build(orbit);
+			}
+			OrbitIsland one = field.get(1);
+			BlockPos top = BlockPos.containing(one.top()).below();
+			helper.assertFalse(orbit.getBlockState(top).isAir(), "island 1 stands");
+			one.shatter(orbit, one.top(), 30);
+			helper.assertTrue(orbit.getBlockState(top).isAir() && one.state == OrbitIsland.GONE, "smashed: gone");
+			one.beginReform(orbit, 20, 20);
+			one.finishReform(orbit);
+			helper.assertFalse(orbit.getBlockState(top).isAir(), "it re-forms");
+			helper.assertTrue(one.state == OrbitIsland.INTACT, "intact again");
+			// the same seed is the same island, block for block
+			java.util.List<BlockState> a = new java.util.ArrayList<>(), b = new java.util.ArrayList<>();
+			one.blocks((p, s) -> a.add(s));
+			new OrbitIsland(1, one.x, one.z, one.radius, one.seed).blocks((p, s) -> b.add(s));
+			helper.assertTrue(a.equals(b), "an island is a pure function of its seed");
+			GalactusOrbit.wipe(orbit, TEST_SLOT);
+			helper.assertTrue(orbit.getBlockState(top).isAir() && orbit.getBlockState(o).isAir(), "the wipe leaves nothing");
+			// the hull and its pillars
+			OrbitArena.buildHull(orbit, o);
+			helper.assertTrue(orbit.getBlockState(o).is(Blocks.LODESTONE), "the hull's centre");
+			BlockPos pillar = OrbitArena.pillar(o, 0);
+			OrbitArena.buildPillar(orbit, pillar);
+			helper.assertTrue(orbit.getBlockState(pillar).is(Blocks.POLISHED_BLACKSTONE_BRICKS), "a pillar");
+			OrbitArena.collapsePillar(orbit, pillar);
+			helper.assertTrue(orbit.getBlockState(pillar).isAir(), "a pillar collapses");
+			int cleared = GalactusOrbit.wipe(orbit, TEST_SLOT);
+			helper.assertTrue(cleared > 2000 && orbit.getBlockState(o).isAir(), "the hull is wiped: " + cleared);
+		} finally {
+			GalactusOrbit.wipe(orbit, TEST_SLOT);
+			GalactusOrbit.release(orbit, TEST_SLOT);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void padsLaunchOnAnArcThatLandsOnTarget(GameTestHelper helper) {
+		Vec3 from = new Vec3(0, 129, 0), to = new Vec3(26, 129, 4);
+		Vec3 v = OrbitArena.launch(from, to, 32);
+		// simulate a player's flight: horizontal drag 0.91, vertical (v - 0.08) * 0.98
+		double x = 0, y = 0, z = 0, vx = v.x, vy = v.y, vz = v.z;
+		for (int i = 0; i < 32; i++) {
+			x += vx;
+			y += vy;
+			z += vz;
+			vx *= 0.91;
+			vz *= 0.91;
+			vy = (vy - 0.08) * 0.98;
+		}
+		helper.assertTrue(Math.abs(x - 26) < 0.5 && Math.abs(z - 4) < 0.5 && Math.abs(y) < 0.5, "lands on the pad's target: " + x + ", " + y + ", " + z);
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the orbit rules
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void aFallerIsCaughtAndSetDownForALittleDamage(GameTestHelper helper) {
+		ServerPlayer p = survivor(helper, false);
+		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
+		Vec3 safe = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(3, 2, 3)));
+		float before = p.getHealth();
+		OrbitRules.rescue(ev, helper.getLevel(), p, safe);
+		helper.assertTrue(p.position().distanceTo(safe) < 0.5, "set down on safe ground");
+		helper.assertTrue(p.getHealth() < before && before - p.getHealth() <= GalactusConfig.orbit().fallDamage + 0.01, "a little damage");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void aFlyerIsWarnedThenBeamedDownAndGrounded(GameTestHelper helper) {
+		ServerPlayer p = survivor(helper, true);
+		DevourerEntity d = devourer(helper, 100f);
+		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
+		p.teleportTo(p.getX(), GalactusOrbit.PLANE_Y + 20, p.getZ());
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.setOnGround(false);
+		GalactusConfig.Orbit c = GalactusConfig.orbit();
+		for (int i = 0; i < c.flyBeamTicks - 1; i++) {
+			p.setOnGround(false);
+			OrbitRules.tickPlayer(ev, helper.getLevel(), p, v -> v, null, true, d);
+		}
+		helper.assertFalse(OrbitRules.grounded(p), "not before the beam");
+		p.setOnGround(false);
+		OrbitRules.tickPlayer(ev, helper.getLevel(), p, v -> v, null, true, d);
+		helper.assertTrue(OrbitRules.grounded(p), "beamed and grounded");
+		helper.assertFalse(p.getAbilities().flying, "flight is off");
+		helper.assertTrue(p.getDeltaMovement().y < -1.0, "slammed down");
+		d.discard();
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- Stage 1
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void onlyTheStuckFistFillsTheStaggerBar(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		DevourerEntity d = devourer(helper, 180f);
+		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
+		StageIslands s = new StageIslands();
+		BlockPos o = helper.absolutePos(new BlockPos(4, 2, 4));
+		s.islands.addAll(OrbitIsland.field(o.getX(), o.getZ(), 0, 7L));
+		s.targetR = 1;
+		s.state = StageIslands.IDLE;
+		helper.assertFalse(s.onHit(ev, level, d, DevourerPartEntity.Kind.HAND_R, 50f), "a fist that isn't stuck takes nothing");
+		s.state = StageIslands.STUCK;
+		helper.assertFalse(s.onHit(ev, level, d, DevourerPartEntity.Kind.HEAD, 50f), "his head is out of play in Stage 1");
+		helper.assertFalse(s.onHit(ev, level, d, DevourerPartEntity.Kind.HAND_L, 50f), "the other (free) hand takes nothing");
+		helper.assertTrue(s.onHit(ev, level, d, DevourerPartEntity.Kind.HAND_R, 50f) && s.stagger == 50, "the stuck fist fills the bar");
+		double need = s.staggerNeeded(1);
+		s.onHit(ev, level, d, DevourerPartEntity.Kind.FORE_R, (float) need);
+		helper.assertTrue(s.staggers == 1 && s.stagger == 0, "a full bar is a stagger");
+		helper.assertTrue(s.staggerNeeded(1) > need, "each stagger needs more");
+		helper.assertFalse(s.done(), "three are needed");
+		d.discard();
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- Stage 3
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void stageThreePartsTakeTheirOwnDamageAndTheCoreOpensLast(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		DevourerEntity d = devourer(helper, 100f);
+		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
+		StageDevourer s = new StageDevourer();
+		s.begin(ev, 1);
+		GalactusConfig.Stage3 c = GalactusConfig.stage3();
+		helper.assertTrue(s.health == c.health, "full health");
+		var src = level.damageSources().magic();
+		s.onHit(ev, level, d, DevourerPartEntity.Kind.HEAD, src, 10f);
+		helper.assertTrue(Math.abs(s.health - (c.health - 10 * c.headMultiplier)) < 1e-6, "the head takes double");
+		double h = s.health;
+		helper.assertFalse(s.onHit(ev, level, d, DevourerPartEntity.Kind.CHEST, src, 10f), "the core is sealed");
+		helper.assertTrue(s.health == h, "sealed: nothing through");
+		s.onHit(ev, level, d, DevourerPartEntity.Kind.UPPER_R, src, (float) c.gauntletBreak);
+		helper.assertTrue(s.armBroke[0] && !s.armBroke[1], "the right gauntlet breaks");
+		s.onHit(ev, level, d, DevourerPartEntity.Kind.FORE_L, src, (float) c.gauntletBreak);
+		helper.assertTrue(s.armBroke[1], "the left gauntlet breaks");
+		h = s.health;
+		helper.assertTrue(s.onHit(ev, level, d, DevourerPartEntity.Kind.CHEST, src, 10f), "the core is open");
+		helper.assertTrue(Math.abs(s.health - (h - 10 * c.coreMultiplier)) < 1e-6, "the core takes x1.5");
+		helper.assertTrue(s.cracked == s.fraction() <= 0.5, "the helmet cracks at half");
+		// down to 5%: he kneels for the Nullifier and takes nothing more
+		s.health = s.maxHealth * (c.finaleFraction + 0.001);
+		s.onHit(ev, level, d, DevourerPartEntity.Kind.HEAD, src, 50f);
+		helper.assertTrue(s.finale && s.cracked, "the finale (and the crack on the way)");
+		helper.assertTrue(Math.abs(s.health - s.maxHealth * c.finaleFraction) < 1e-6, "held at 5%");
+		helper.assertFalse(s.onHit(ev, level, d, DevourerPartEntity.Kind.HEAD, src, 50f), "nothing gets through in the finale");
+		d.discard();
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- Stage 2
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void aCarrierDropsTheCellOnlyToABigHit(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = survivor(helper, true);
+		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
+		p.getInventory().add(new ItemStack(GalactusItems.COSMIC_CELL));
+		ev.stage2.onCarrierHurt(ev, level, p, (float) GalactusConfig.stage2().carrierDropDamage - 1f);
+		helper.assertTrue(p.getInventory().countItem(GalactusItems.COSMIC_CELL) == 1, "a small hit: still carried");
+		ev.stage2.onCarrierHurt(ev, level, p, (float) GalactusConfig.stage2().carrierDropDamage);
+		helper.assertTrue(p.getInventory().countItem(GalactusItems.COSMIC_CELL) == 0, "a big hit: knocked loose");
+		List<ItemEntity> drops = level.getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(4), ie -> ie.getItem().is(GalactusItems.COSMIC_CELL));
+		helper.assertTrue(drops.size() == 1, "it lies on the deck");
+		drops.forEach(ItemEntity::discard);
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the grave
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void deathInOrbitKeepsYourItemsButNotTheRaidsOwn(GameTestHelper helper) {
+		ServerPlayer p = survivor(helper, false);
+		p.getInventory().add(new ItemStack(Items.DIAMOND, 5));
+		p.getInventory().add(new ItemStack(GalactusItems.COSMIC_CELL));
+		GalactusOrbit.stashOnDeath(p);
+		helper.assertTrue(p.getInventory().isEmpty(), "nothing drops (into the void)");
+		List<ItemStack> grave = GalactusOrbit.grave(p);
+		helper.assertTrue(grave.size() == 1 && grave.get(0).is(Items.DIAMOND) && grave.get(0).getCount() == 5, "the diamonds are kept, the cell is not");
+		GalactusOrbit.returnGrave(p);
+		helper.assertTrue(p.getInventory().countItem(Items.DIAMOND) == 5, "handed back on respawn");
+		helper.assertTrue(GalactusOrbit.grave(p).isEmpty(), "once");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the raid's life
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_v2_start", timeoutTicks = 40)
+	public void theRaidStartsTheHeraldKneelsAndAnAbortLeavesNothing(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		GalactusEvent e = startPinned(helper);
 		SilverSurferEntity s;
 		try {
-			helper.assertTrue(e.state() == EventState.RUNNING && e.phase() == GalactusEvent.Phase.ARRIVAL, "running, arriving");
+			helper.assertTrue(e.state() == EventState.RUNNING && e.phase() == GalactusEvent.Phase.HERALD, "instant: straight to the duel");
 			BlockState beacon = level.getBlockState(e.center());
 			helper.assertTrue(beacon.is(GalactusBlocks.HERALDS_BEACON) && beacon.getValue(HeraldsBeaconBlock.ACTIVE), "the Herald's Beacon is lit");
 			helper.assertTrue(Galactus.start(level, helper.absolutePos(new BlockPos(5, 2, 5)), null, Galactus.Source.COMMAND) == null,
 					"a second one nearby is refused");
-			s = e.startHerald(level);
-			helper.assertTrue(s != null && e.ownsEntity(s) && e.phase() == GalactusEvent.Phase.HERALD, "the Herald descends, owned by the event");
-			helper.assertTrue(s.getMaxHealth() == (float) GalactusConfig.heraldHealthFor(e.fighterCount()),
-					"Herald health for the fighters present (mock players from earlier batches may join the arena)");
+			s = e.surfer(level);
+			helper.assertTrue(s != null && e.ownsEntity(s), "the Herald, owned by the raid");
+			ServerPlayer p = survivor(helper, true);
+			e.addFighter(p.getUUID());
+			s.invulnerableTime = 0;
+			s.hurt(level.damageSources().playerAttack(p), 100000f);
+			helper.assertTrue(s.isAlive() && Math.abs(s.getHealth() - s.turnHealth()) < 0.01, "he can't be killed: he stops at 10%");
+			s.checkTurn(level);
+			e.serverTick(level);
+			helper.assertTrue(e.phase() == GalactusEvent.Phase.KNEEL && s.holdTurn && !s.isAlly(), "he kneels (no turn yet)");
+			helper.assertFalse(e.orbitActive(), "still on the ground");
 		} finally {
 			end(level, e);
 		}
@@ -181,250 +396,19 @@ public class GalactusGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- the Herald turns
-
-	// Every test here runs in ONE tick and ends its event before returning: batches can overlap, and a Galactus still
-	// running from an earlier batch would refuse the next one (one per 256 blocks).
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_surfer", timeoutTicks = 40)
-	public void surferTurnsAllyAtTenPercentAndCannotBeKilledAfter(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		GalactusEvent e = startPinned(helper);
-		try {
-			ServerPlayer p = survivor(helper);
-			e.addFighter(p.getUUID());
-			SilverSurferEntity s = e.startHerald(level);
-			helper.assertTrue(s != null && !s.isAlly(), "a hostile Herald");
-			s.invulnerableTime = 0;
-			s.hurt(level.damageSources().playerAttack(p), 100000f);
-			helper.assertTrue(s.isAlive(), "he can't be killed in the duel");
-			helper.assertTrue(Math.abs(s.getHealth() - s.turnHealth()) < 0.01, "he stops at 10%: " + s.getHealth() + " vs " + s.turnHealth());
-			helper.assertTrue(s.checkTurn(level), "at 10% his AI turns him (the first check of every hostile tick)");
-			helper.assertTrue(s.isTurning() && e.phase() == GalactusEvent.Phase.TURN, "turning, and the event follows: " + e.phase());
-			s.becomeAlly(level);
-			helper.assertTrue(s.isAlly() && e.phase() == GalactusEvent.Phase.WORLDSHIP, "an ally, and the Worldship comes");
-			s.invulnerableTime = 0;
-			helper.assertFalse(s.hurt(level.damageSources().playerAttack(p), 100000f), "protected: nothing hurts him now");
-			helper.assertTrue(s.isAlive() && s.getHealth() == s.getMaxHealth(), "full health, alive");
-			helper.assertTrue(s.isAlliedTo(p), "on the fighters' side");
-		} finally {
-			end(level, e);
-		}
-		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- terrain
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_terrain", timeoutTicks = 40)
-	public void convertersRecordAndRevertTerrainExactlyAndNeverTouchBlockEntities(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		BlockPos chest = buildMeadow(helper);
-		GalactusEvent e = startPinned(helper);
-		try {
-			Map<BlockPos, BlockState> before = snapshot(helper);
-			BlockPos c = helper.absolutePos(new BlockPos(2, 1, 2));
-			ElementConverterEntity conv = e.spawnConverter(level, 0, c.getX() + 0.5, c.getZ() + 0.5);
-			helper.assertTrue(conv != null && conv.landed() && !conv.isShielded(), "a converter, down, unguarded");
-			int changed = e.debugConsume(level, conv, 6, 40);
-			GalactusTerrain terrain = GalactusTerrain.get(level);
-			helper.assertTrue(changed > 10 && terrain.count(e.id(), 0) == changed, "it ate the meadow (" + changed + " blocks), all recorded");
-			BlockPos under = helper.absolutePos(new BlockPos(2, 1, 2));
-			helper.assertTrue(level.getBlockState(under).is(GalactusBlocks.CONSUMED_GROUND), "grass becomes Consumed Ground");
-			helper.assertTrue(terrain.originalAt(e.id(), under).is(Blocks.GRASS_BLOCK), "the original grass is recorded");
-			helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST) && level.getBlockEntity(chest) != null, "the chest is untouched");
-			for (int dx = -3; dx <= 3; dx++) {
-				for (int dz = -3; dz <= 3; dz++) {
-					if (dx * dx + dz * dz > 9) {
-						continue; // the clearance is a 3-block circle round the block entity, not a square
-					}
-					for (int dy = -2; dy <= 1; dy++) {
-						helper.assertFalse(terrain.tracks(e.id(), chest.offset(dx, dy, dz)), "nothing within 3 of the chest is consumed");
-					}
-				}
-			}
-			conv.kill();
-			helper.assertTrue(e.partsEarned() == 1, "the converter drops a Nullifier part");
-			terrain.tickRevert(level.getServer(), 100000);
-			helper.assertTrue(terrain.count(e.id(), 0) == 0, "every block of that converter is put back");
-			assertSame(helper, before, "after the converter fell");
-		} finally {
-			end(level, e);
-		}
-		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_loss", timeoutTicks = 40)
-	public void consumptionFillsAndTheLossRevertsEverything(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		buildMeadow(helper);
-		GalactusEvent e = startPinned(helper);
-		try {
-			level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState()); // a loss burns the beacon out
-			Map<BlockPos, BlockState> before = snapshot(helper);
-			// the hazard patch first, so the converter's bite can't take those cells
-			e.transmute(level, Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(6, 2, 6))), 1, 400);
-			e.startWorldship(level);
-			List<ElementConverterEntity> live = e.liveConverters(level);
-			helper.assertTrue(live.size() == GalactusConfig.converterCountFor(e.fighterCount()) && e.phase() == GalactusEvent.Phase.WORLDSHIP, "3 converters, +1 per two extra fighters, got " + live.size());
-			double rate = e.consumptionRate(level);
-			helper.assertTrue(Math.abs(rate - live.size() * GalactusConfig.consumption().perConverterPerMinute / 60.0) < 1e-6, "5%/min per converter, got " + rate);
-			e.addConsumption(level, rate * 60);
-			helper.assertTrue(Math.abs(e.consumption() - live.size() * 5.0) < 1e-6, "the bar fills (" + e.consumption() + ")");
-			int changed = e.debugConsume(level, live.get(0), 5, 30);
-			GalactusTerrain terrain = GalactusTerrain.get(level);
-			helper.assertTrue(changed > 0 && terrain.count(e.id(), GalactusTerrain.GROUP_HAZARD) > 0, "land eaten and a hazard patch down");
-			e.debugSetConsumption(level, 100.0);
-			helper.assertTrue(e.phase() == GalactusEvent.Phase.CONSUMED, "100%: the world is consumed");
-			e.debugFinishConsumed(level);
-			helper.assertTrue(e.state() == EventState.FAILED, "a loss");
-			terrain.tickRevert(level.getServer(), 100000);
-			helper.assertTrue(terrain.count(e.id()) == 0, "nothing left in the ledger");
-			for (ElementConverterEntity c : live) {
-				helper.assertTrue(c.isRemoved() || !c.isAlive(), "the converters are gone");
-			}
-			assertSame(helper, before, "after the loss");
-		} finally {
-			end(level, e);
-		}
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_abort", timeoutTicks = 40)
-	public void hazardBlocksAreCleanedOnAbort(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		buildMeadow(helper);
-		GalactusEvent e = startPinned(helper);
-		try {
-			level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-			Map<BlockPos, BlockState> before = snapshot(helper);
-			e.startGalactus(level);
-			e.transmute(level, Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(4, 2, 4))), 2, 400);
-			GalactusTerrain terrain = GalactusTerrain.get(level);
-			int hazard = terrain.count(e.id(), GalactusTerrain.GROUP_HAZARD);
-			helper.assertTrue(hazard >= 9, "a patch of cosmic hazard (" + hazard + ")");
-			helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(4, 1, 4))).is(GalactusBlocks.COSMIC_HAZARD), "under the centre");
-			helper.assertTrue(e.zones().size() == 1, "and its damage zone");
-			e.abort(level);
-			terrain.tickRevert(level.getServer(), 100000);
-			helper.assertTrue(terrain.count(e.id()) == 0 && e.zones().isEmpty(), "abort: all taken back");
-			level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-			assertSame(helper, before, "after the abort");
-		} finally {
-			end(level, e);
-		}
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- Galactus
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_hold", timeoutTicks = 40)
-	public void galactusHoldsAtOneHealthUntilTheNullifier(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		GalactusEvent e = startPinned(helper);
-		try {
-			ServerPlayer p = survivor(helper);
-			e.addFighter(p.getUUID());
-			GalactusEntity g = e.startGalactus(level);
-			helper.assertTrue(g != null && e.phase() == GalactusEvent.Phase.GALACTUS, "Galactus stands");
-			helper.assertTrue(g.getMaxHealth() == (float) GalactusConfig.galactusHealthFor(e.fighterCount()), "health for the fighters present");
-			helper.assertTrue(e.livePylons(level).size() == 4, "four Power Pylons");
-			g.noAutoMoves = true;
-			for (PowerPylonEntity pylon : e.livePylons(level)) {
-				pylon.kill(); // v0.16.4: while they stand he is shielded
-			}
-			for (int i = 0; i < 5; i++) {
-				g.invulnerableTime = 0;
-				g.hurt(level.damageSources().playerAttack(p), 1.0e6f);
-			}
-			helper.assertTrue(g.isAlive() && g.getHealth() == 1.0f, "he holds at 1, got " + g.getHealth());
-			g.kill();
-			helper.assertTrue(g.isAlive() && g.getHealth() == 1.0f, "even /kill can't finish him");
-			helper.assertTrue(e.nullifierMoment(), "at 1 health the Nullifier is called for");
-			helper.assertTrue(e.state() == EventState.RUNNING, "and the event goes on until it is used");
-		} finally {
-			end(level, e);
-		}
-		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_weak", timeoutTicks = 40)
-	public void weakPointsTakeFullDamageTheBodyReduced(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		GalactusEvent e = startPinned(helper);
-		try {
-			ServerPlayer p = survivor(helper);
-			e.addFighter(p.getUUID());
-			GalactusEntity g = e.startGalactus(level);
-			g.noAutoMoves = true;
-			g.keepWeakPoints(level); // what his every tick does
-			GalactusWeakPointEntity w = g.weakPoint(GalactusWeakPointEntity.KIND_EMBLEM);
-			helper.assertTrue(w != null, "the chest emblem is placed on him");
-			helper.assertTrue(w.sealed(), "sealed while the pylons stand");
-			float w0 = w.getHealth();
-			helper.assertFalse(w.hurt(level.damageSources().playerAttack(p), 50f), "a sealed weak point takes nothing");
-			helper.assertTrue(w.getHealth() == w0, "untouched");
-			for (PowerPylonEntity pylon : e.livePylons(level)) {
-				pylon.kill();
-			}
-			helper.assertTrue(e.pylonsStanding(level) == 0, "every pylon down");
-			g.keepWeakPoints(level);
-			helper.assertFalse(w.sealed(), "the weak points open with the last pylon");
-			g.setHealth(g.getMaxHealth());
-			float h0 = g.getHealth();
-			g.invulnerableTime = 0;
-			g.hurt(level.damageSources().playerAttack(p), 100f);
-			float body = h0 - g.getHealth();
-			helper.assertTrue(Math.abs(body - 100f * (float) GalactusConfig.galactus().bodyDamageMultiplier) < 0.01f, "the body takes its share: " + body);
-			float h1 = g.getHealth();
-			float wh = w.getHealth();
-			w.invulnerableTime = 0;
-			helper.assertTrue(w.hurt(level.damageSources().playerAttack(p), 100f), "an open weak point is hurt");
-			float wx = 100f * (float) GalactusConfig.weakPoints().damageMultiplier;
-			helper.assertTrue(Math.abs(wh - w.getHealth() - wx) < 0.01f, "it takes the hit, multiplied: " + (wh - w.getHealth()));
-			helper.assertTrue(Math.abs(h1 - g.getHealth() - wx * (float) GalactusConfig.weakPoints().passThrough) < 0.01f,
-					"and so does he (pass-through): " + (h1 - g.getHealth()));
-			helper.assertTrue(e.weakPointHealth(GalactusWeakPointEntity.KIND_EMBLEM) == w.getHealth(), "the event keeps its health (saved)");
-			float h2 = g.getHealth();
-			w.invulnerableTime = 0;
-			w.hurt(level.damageSources().playerAttack(p), 1.0e6f);
-			helper.assertTrue(e.weakPointBroken(GalactusWeakPointEntity.KIND_EMBLEM), "broken");
-			helper.assertTrue(h2 - g.getHealth() > g.getMaxHealth() * GalactusConfig.weakPoints().breakDamageFraction - 1, "breaking it costs him more");
-		} finally {
-			end(level, e);
-		}
-		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_win", timeoutTicks = 40)
-	public void theNullifierWinsAndPaysFirstClearItemsOnce(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		GalactusEvent e = startPinned(helper);
-		try {
-			ServerPlayer p = survivor(helper);
-			p.moveTo(Vec3.atBottomCenterOf(e.center()).add(2, 0, 2));
-			e.addFighter(p.getUUID());
-			int clears = GalactusRewards.clears(p);
-			GalactusEntity g = e.startGalactus(level);
-			g.noAutoMoves = true;
-			helper.assertTrue(e.useNullifier(level, p), "the Nullifier is used on him");
-			helper.assertTrue(e.phase() == GalactusEvent.Phase.RETREAT && g.move() == GalactusEntity.Move.RETREAT, "he retreats");
-			e.debugFinishRetreat(level);
-			helper.assertTrue(e.state() == EventState.COMPLETED, "a win, got " + e.state());
-			helper.assertTrue(level.getBlockState(e.center()).is(Blocks.CHEST), "the beacon becomes the reward chest");
-			helper.assertTrue(GalactusRewards.clears(p) == clears + 1, "the clear is recorded");
-			if (clears == 0) {
-				helper.assertTrue(p.getInventory().countItem(GalactusItems.SURFBOARD) == 1 && p.getInventory().countItem(GalactusItems.POWER_COSMIC) == 1,
-						"first clear: the Board and the Power Cosmic");
-			}
-			helper.assertTrue(GalactusRewards.recordClear(p).isEmpty(), "a second clear pays no first-clear items");
-			helper.assertTrue(p.getInventory().countItem(GalactusItems.ULTIMATE_NULLIFIER) == 0, "the event's items never outlive it");
-		} finally {
-			end(level, e);
-		}
-		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void anOldV016SaveLoadsIntoTheNewRaid(GameTestHelper helper) {
+		GalactusEvent e = new GalactusEvent(UUID.randomUUID());
+		CompoundTag tag = e.save();
+		tag.putString("GalPhase", "GALACTUS");
+		GalactusEvent back = new GalactusEvent(e.id());
+		back.load(tag);
+		helper.assertTrue(back.phase() == GalactusEvent.Phase.KNEEL, "a v0.16 Act 3 save restarts at the Devourer's reveal: " + back.phase());
+		tag.putString("GalPhase", "STAGE2");
+		tag.putInt("GalSlot", 3);
+		GalactusEvent mid = new GalactusEvent(e.id());
+		mid.load(tag);
+		helper.assertTrue(mid.phase() == GalactusEvent.Phase.STAGE2 && mid.orbitSlot() == 3, "a v2 save keeps its stage and instance");
 		helper.succeed();
 	}
 }

@@ -42,6 +42,9 @@ public final class GalactusItems {
 	public static Item POWER_COSMIC;
 	public static Item SURFER_SPAWN_EGG;
 	public static Item PUNISHER_SPAWN_EGG;
+	/** v0.17.2 raid v2: a Stage 2 Cosmic Cell (socket it into a converter), a Cosmic Shard (one per stagger you helped with). */
+	public static Item COSMIC_CELL;
+	public static Item COSMIC_SHARD;
 
 	private GalactusItems() {
 	}
@@ -78,6 +81,23 @@ public final class GalactusItems {
 		SURFER_SPAWN_EGG = register("silver_surfer_spawn_egg", new SpawnEggItem(GalactusEntityTypes.SILVER_SURFER, 0xD8DEE8, 0x7A5CFF,
 				new Item.Properties()));
 		PUNISHER_SPAWN_EGG = register("punisher_spawn_egg", new SpawnEggItem(GalactusEntityTypes.PUNISHER, 0x4A2E6A, 0x9A7FD0, new Item.Properties()));
+		COSMIC_CELL = register("cosmic_cell", new Item(new Item.Properties().stacksTo(4).rarity(Rarity.EPIC).fireResistant()) {
+			@Override
+			public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+				tooltip.add(Component.translatable("item.projecthero.cosmic_cell.hint").withStyle(ChatFormatting.LIGHT_PURPLE));
+			}
+
+			@Override
+			public boolean isFoil(ItemStack stack) {
+				return true;
+			}
+		});
+		COSMIC_SHARD = register("cosmic_shard", new Item(new Item.Properties().stacksTo(64).rarity(Rarity.RARE)) {
+			@Override
+			public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+				tooltip.add(Component.translatable("item.projecthero.cosmic_shard.hint").withStyle(ChatFormatting.GRAY));
+			}
+		});
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
@@ -87,6 +107,7 @@ public final class GalactusItems {
 		output.accept(SURFBOARD);
 		output.accept(POWER_COSMIC);
 		output.accept(HELMET_CREST);
+		output.accept(COSMIC_SHARD);
 		output.accept(SURFER_SPAWN_EGG);
 		output.accept(PUNISHER_SPAWN_EGG);
 	}

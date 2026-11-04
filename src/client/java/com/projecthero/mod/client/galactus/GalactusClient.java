@@ -49,8 +49,11 @@ public final class GalactusClient {
 		EntityRendererRegistry.register(GalactusEntityTypes.POWER_PYLON, GalactusRenderers.Pylon::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.WORLDSHIP, GalactusRenderers.Worldship::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.SURFER_BOARD, GalactusRenderers.Board::new);
+		EntityRendererRegistry.register(GalactusEntityTypes.DEVOURER, DevourerRenderer::new); // v0.17.2 raid v2
+		EntityRendererRegistry.register(GalactusEntityTypes.DEVOURER_PART, ctx -> new GalactusRenderers.Invisible<>(ctx));
 		ClientPlayNetworking.registerGlobalReceiver(GalactusSkyPayload.TYPE, (payload, ctx) -> ctx.client().execute(() -> GalactusSkyClient.accept(payload)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> GalactusSkyClient.reset());
+		GalactusOrbitSky.initialize(); // v0.17.2 raid v2: the orbit sky
 		SurferBoardEntity.clientBoost = () -> {
 			Minecraft mc = Minecraft.getInstance();
 			return mc.options != null && mc.options.keySprint.isDown();

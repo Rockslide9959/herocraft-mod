@@ -170,6 +170,8 @@
 		"PunisherLockOnMouseMixin",
 		"PunisherKickCameraMixin",
 		"MiraculousSequenceCameraMixin",
+		"GalactusCinematicCameraMixin",
+		"GalactusCinematicGuiMixin",
 		"OmnitrixSequenceCameraMixin",
 		"OmnitrixSequenceFovMixin",
 		"MoonKnightTruncheonSpinMixin",
