@@ -29,6 +29,7 @@ public final class BehemothConfig {
 			.balance("stats", "abilities", "phases")
 			.reset(1, "v0.13.7 balance migration: a file from before it is reset to today's defaults", "*")
 			.reset(2, "v0.13.10 health 1000 -> 3000", "stats.health")
+			.reset(3, "v0.17.2 sight-based aggro: detection range 90 -> 40", "stats.detectionRange")
 			.build();
 
 	private static BehemothConfig instance = new BehemothConfig();
@@ -48,8 +49,15 @@ public final class BehemothConfig {
 		/** Hover/chase speed, blocks/tick. */
 		public double flightSpeed = 11.0 / 20.0;
 		public double aggressiveFlightSpeed = 16.0 / 20.0;
-		public double detectionRange = 90.0;
+		/** v0.17.2: 90 -> 40, and it must SEE the player (a line of sight from its eye) to pick a fight -- it used to lock onto
+		 *  anyone within 90 blocks through solid netherrack, the "randomly attacks players" report. Being hurt or lured still
+		 *  starts a fight from further away. */
+		public double detectionRange = 40.0;
 		public double followRange = 110.0;
+		/** v0.17.2: a target it has not seen for this long (and who is not hurting it, and did not lure it) is dropped. */
+		public int loseSightTicks = 10 * 20;
+		/** v0.17.2: it only ever starts an attack on a target it can see, within this range. */
+		public double attackRange = 56.0;
 		/** How far above its target it prefers to hover while airborne and aggressive. */
 		public double preferredAerialAltitude = 12.0;
 	}
@@ -149,6 +157,13 @@ public final class BehemothConfig {
 		/** After a natural spawn, or a kill, no new one may appear in that Nether dimension for this long. */
 		public int postSpawnCooldownTicks = 40 * 60 * 20; // 40 minutes
 		public int postKillCooldownTicks = 90 * 60 * 20; // 90 minutes
+		/** v0.17.2 Abyssal Lure: it rises this far from the user (never on top of them). */
+		public double lureMinDistance = 24.0;
+		public double lureMaxDistance = 44.0;
+		/** v0.17.2: the lure refuses while a Behemoth is already alive within this many blocks. */
+		public double lureActiveRadius = 192.0;
+		/** v0.17.2: after a lure it keeps hunting its summoner this long even out of sight (it still only attacks what it sees). */
+		public int lureHuntTicks = 60 * 20;
 	}
 
 	private BehemothConfig() {
