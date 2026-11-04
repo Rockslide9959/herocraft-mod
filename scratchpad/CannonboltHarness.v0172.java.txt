@@ -141,43 +141,28 @@ public final class CannonboltHarness {
 			server(mc, p -> kit().setBall(p, true));
 			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
 		}
-		if (t == 290) {
-			shot(mc, "ball_front");
+		if (t == 300) {
+			shot(mc, "ball_still_front");
 		}
-		if (t == 295) {
+		if (t == 304) {
 			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-			mc.options.hideGui = false;
 		}
-		if (t == 305) {
-			shot(mc, "ball_back_hud");
-			mc.options.hideGui = true;
-			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 90f, 15f));
-		}
-		if (t == 310) {
-			mc.options.keyUp.setDown(true);
-			mc.options.keySprint.setDown(true);
-		}
-		if (t == 330 || t == 345 || t == 360) {
-			shot(mc, "roll_" + t);
-			System.out.println("[HARNESS] speed=" + mc.player.getDeltaMovement().horizontalDistance() + " momentum");
-		}
-		if (t == 365) {
-			mc.options.keyUp.setDown(false);
-			mc.options.keySprint.setDown(false);
-			server(mc, p -> kit().bounce(p));
-		}
-		if (t == 372) {
-			shot(mc, "bounce");
-		}
-		if (t == 400) {
-			server(mc, p -> kit().setBall(p, false));
-		}
-		if (t == 405) {
-			server(mc, p -> kit().groundPound(p));
+		if (t == 312) {
+			shot(mc, "ball_still_back");
 			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
 		}
-		if (t == 409) {
-			shot(mc, "pound");
+		// a sideways roll seen from the front, then the stop: the face turns over and settles back to the front
+		if (t == 318) {
+			mc.options.keyLeft.setDown(true);
+		}
+		if (t >= 318 && t < 400 && (t - 318) % 2 == 0) {
+			shot(mc, String.format("roll_%03d", (t - 318) / 2));
+		}
+		if (t == 356) {
+			mc.options.keyLeft.setDown(false);
+		}
+		if (t == 402) {
+			server(mc, p -> kit().setBall(p, false));
 		}
 		if (t == 420) {
 			System.out.println("[HARNESS] done");

@@ -122,15 +122,23 @@ public final class CannonboltClient implements AlienClientKit {
 		return round(p);
 	}
 
-	/** Per player: the roll so far (radians), the travel heading (degrees), and where the ball was last frame. */
+	/**
+	 * Per player: the roll so far (radians), the heading the face points (degrees, the yaw that turns local +Z to it), where the ball
+	 * was last frame and when.
+	 */
 	private static final class Roll {
 		double x, z;
-		float angle, yaw;
+		float angle, yaw, age;
 		boolean seen;
 	}
 
 	private static final Map<AbstractClientPlayer, Roll> ROLLS = new WeakHashMap<>();
 
+	/**
+	 * v0.17.2 (user: "the head should be used for the ball form, please make the ball form rotate and the front of the head (the face)
+	 * should be the front of the ball"): the skin's head, rounded into a ball. The head's front faces where he rolls -- or, standing
+	 * still, where he looks -- and the ball turns over forward with the distance it covers, settling face-up again when he stops.
+	 */
 	@Override
 	public void renderBody(AbstractClientPlayer p, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		boolean ball = (Omnitrix.state(p).kitFlags & CannonboltKit.F_BALL) != 0;
@@ -138,62 +146,86 @@ public final class CannonboltClient implements AlienClientKit {
 		float radius = ball ? p.getBbWidth() * 0.52f : Math.max(p.getBbWidth() * 0.85f, 0.62f);
 		Roll r = ROLLS.computeIfAbsent(p, k -> new Roll());
 		double x = Mth.lerp(partial, p.xo, p.getX()), z = Mth.lerp(partial, p.zo, p.getZ());
-		if (r.seen) {
+		float age = p.tickCount + partial;
+		float look = -Mth.lerp(partial, p.yRotO, p.getYRot());
+		if (!r.seen) {
+			r.yaw = look;
+		} else {
+			float dt = Mth.clamp(age - r.age, 0f, 5f);
 			double dx = x - r.x, dz = z - r.z, d = Math.sqrt(dx * dx + dz * dz);
-			if (d > 1.0e-3 && d < 4) {
-				r.yaw = (float) Math.toDegrees(Mth.atan2(dx, dz));
+			boolean rolling = d > 0.02 * Math.max(dt, 0.05f) && d < 4;
+			float target = rolling ? (float) Math.toDegrees(Mth.atan2(dx, dz)) : look;
+			// the face swings round to the way he rolls (quickly) or looks (gently)
+			r.yaw += Mth.wrapDegrees(target - r.yaw) * (1f - (float) Math.exp(-dt * (rolling ? 0.9f : 0.35f)));
+			if (d < 4) {
 				r.angle += (float) (d / radius);
 			}
-		} else {
-			r.yaw = -p.yBodyRot + 180f;
+			if (!rolling) {
+				// stopped: the ball rocks back so his face is at the front again
+				float upright = (float) (Math.round(r.angle / (2 * Math.PI)) * 2 * Math.PI);
+				r.angle += (upright - r.angle) * (1f - (float) Math.exp(-dt * 0.25f));
+			}
 		}
 		r.seen = true;
 		r.x = x;
 		r.z = z;
+		r.age = age;
 		boolean spinning = (Omnitrix.state(p).kitFlags & CannonboltKit.F_SPIN) != 0;
-		float age = p.tickCount + partial;
 
 		pose.pushPose();
 		pose.translate(0, radius, 0);
-		pose.mulPose(Axis.YP.rotationDegrees(spinning ? age * 50f : r.yaw));
+		pose.mulPose(Axis.YP.rotationDegrees(spinning ? r.yaw + age * 50f : r.yaw));
 		pose.mulPose(Axis.XP.rotation(spinning ? 0f : r.angle));
-		// the shell wraps round on its side (the plate bands circle the rolling direction, like the show's ball)
-		pose.mulPose(Axis.ZP.rotationDegrees(90f));
-		sphere(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(BALL)), radius, light);
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(BALL));
+		headBall(pose, vc, radius, 0, light); // the head
+		headBall(pose, vc, radius * 1.07f, 32, light); // its hat layer, just outside
 		pose.popPose();
 	}
 
-	private static final int SEGMENTS = 40, RINGS = 24; // v0.17.2 (user: the reference ball): smooth enough for the curved seams
+	/** Cube-sphere subdivisions per head face (each of the head's 8x8 faces spread over N x N quads). */
+	private static final int N = 12;
 
 	/**
-	 * A UV sphere of {@code radius} blocks on the wrap texture (u round the equator, v pole to pole), every vertex lit by its own
-	 * normal so the shading is smooth (no rings).
+	 * One head face: its outward normal, the way its texture's u runs and the way its v runs (down the texture), and the face's 8x8
+	 * texel corner on the 64x64 skin -- for a head facing +Z (the ball's front), its right hand at -X.
 	 */
-	private static void sphere(PoseStack pose, VertexConsumer vc, float radius, int light) {
+	private static final float[][] FACES = {
+			{ 0, 0, 1, 1, 0, 0, 0, -1, 0, 8, 8 }, // front (the face)
+			{ 0, 0, -1, -1, 0, 0, 0, -1, 0, 24, 8 }, // back
+			{ -1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 8 }, // his right side
+			{ 1, 0, 0, 0, 0, -1, 0, -1, 0, 16, 8 }, // his left side
+			{ 0, 1, 0, 1, 0, 0, 0, 0, 1, 8, 0 }, // top (its bottom edge meets the front)
+			{ 0, -1, 0, 1, 0, 0, 0, 0, -1, 16, 0 }, // bottom (its top edge meets the front)
+	};
+
+	/**
+	 * The head's six faces wrapped round a ball of {@code radius} blocks: each face's grid pushed out onto the sphere (a cube-sphere),
+	 * so every texel keeps its place and the faces meet seamlessly. {@code du} shifts the texture to the hat layer (+32).
+	 */
+	private static void headBall(PoseStack pose, VertexConsumer vc, float radius, int du, int light) {
 		PoseStack.Pose last = pose.last();
-		for (int i = 0; i < RINGS; i++) {
-			float v0 = i / (float) RINGS, v1 = (i + 1) / (float) RINGS;
-			float t0 = (float) Math.PI * v0, t1 = (float) Math.PI * v1;
-			for (int j = 0; j < SEGMENTS; j++) {
-				float u0 = j / (float) SEGMENTS, u1 = (j + 1) / (float) SEGMENTS;
-				float p0 = (float) (2 * Math.PI) * u0, p1 = (float) (2 * Math.PI) * u1;
-				vertex(vc, last, point(t0, p0), radius, u0, v0, light);
-				vertex(vc, last, point(t0, p1), radius, u1, v0, light);
-				vertex(vc, last, point(t1, p1), radius, u1, v1, light);
-				vertex(vc, last, point(t1, p0), radius, u0, v1, light);
+		for (float[] f : FACES) {
+			for (int i = 0; i < N; i++) {
+				for (int j = 0; j < N; j++) {
+					float s0 = -1f + 2f * j / N, s1 = -1f + 2f * (j + 1) / N, t0 = -1f + 2f * i / N, t1 = -1f + 2f * (i + 1) / N;
+					corner(vc, last, f, s0, t0, radius, du, light);
+					corner(vc, last, f, s1, t0, radius, du, light);
+					corner(vc, last, f, s1, t1, radius, du, light);
+					corner(vc, last, f, s0, t1, radius, du, light);
+				}
 			}
 		}
 	}
 
-	private static void vertex(VertexConsumer vc, PoseStack.Pose last, float[] n, float radius, float u, float v, int light) {
-		vc.addVertex(last, n[0] * radius, n[1] * radius, n[2] * radius).setColor(255, 255, 255, 255).setUv(u, v)
-				.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light).setNormal(last, n[0], n[1], n[2]);
-	}
-
-	/** The unit-sphere point at polar angle {@code theta} (0 = top) and azimuth {@code phi}. */
-	private static float[] point(float theta, float phi) {
-		float s = Mth.sin(theta);
-		return new float[] { s * Mth.cos(phi), -Mth.cos(theta), s * Mth.sin(phi) };
+	private static void corner(VertexConsumer vc, PoseStack.Pose last, float[] f, float s, float t, float radius, int du, int light) {
+		float px = f[0] + s * f[3] + t * f[6], py = f[1] + s * f[4] + t * f[7], pz = f[2] + s * f[5] + t * f[8];
+		float len = Mth.sqrt(px * px + py * py + pz * pz);
+		px /= len;
+		py /= len;
+		pz /= len;
+		float u = (f[9] + du + (s + 1f) * 4f) / 64f, v = (f[10] + (t + 1f) * 4f) / 64f;
+		vc.addVertex(last, px * radius, py * radius, pz * radius).setColor(255, 255, 255, 255).setUv(u, v)
+				.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light).setNormal(last, px, py, pz);
 	}
 
 	@Override
