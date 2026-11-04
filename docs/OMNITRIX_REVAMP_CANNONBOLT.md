@@ -12,13 +12,16 @@ User: "for the canonbolt alien i want ben to accidentally transform into the ali
 
 - At first he is **not on the dial**. The scroll wheel, the alien wheel and dialling all skip him.
 - The prototype's mistransform glitch fires on 50% of slaps (never under Master Control, never on the Recalibrated Omnitrix).
-  The **first time it fires, it always lands on Cannonbolt**. That turns Ben into him, and puts him on the dial for good (a
+  User (later): "make it so that on the 11th mistransformation the player unlocks a new alien which for now is just canonbolt".
+  Every mistransform is counted (persisted `omnitrix.mistransforms`). The **11th always lands on Cannonbolt** (the 22nd on the
+  next hidden alien, when there is one). That turns Ben into him, and puts him on the dial for good (a
   persisted Omnitrix flag `omnitrix.found.cannonbolt`). The dial itself stays on the alien Ben picked.
 - That one discovery shows a line on the action bar: "The Omnitrix glitched into a new alien: Cannonbolt! He is on your dial
   now." Ordinary mistransforms stay silent, as the user asked earlier.
-- From then on the glitch picks any alien on the dial at random, as before.
+- Every other mistransform picks any alien on the dial at random, as before.
 - The flag is lost only when the watch comes off (the Containment Pod).
-- Test tool: `/projecthero power tune omnitrix found on|off` puts him on the dial or hides him again.
+- Test tools: `/projecthero power tune omnitrix found on|off` puts him on the dial or hides him again;
+  `mistransforms <count>` sets the count (10 = the next mistransform finds him). `status` shows the count.
 - Code: `Aliens.HIDDEN`, `found`, `discover`, `nextHidden`. `playable(p)` and `available` skip unfound aliens. The glitch
   is in `Omnitrix.tick`.
 

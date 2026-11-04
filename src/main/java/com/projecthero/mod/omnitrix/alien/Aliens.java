@@ -103,7 +103,7 @@ public final class Aliens {
 
 	/**
 	 * v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"): aliens
-	 * the dial does not offer until a mistransform lands on one -- the prototype's glitch picks the first one still hidden, and from
+	 * the dial does not offer until a mistransform lands on one -- the prototype's 11th mistransform (then 22nd...) picks the first one still hidden, and from
 	 * then on it is on the dial for good ({@link #discover}).
 	 */
 	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt");

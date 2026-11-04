@@ -91,9 +91,10 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 
 	/**
 	 * v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"): not on
-	 * the dial at first; the first mistransform lands on him and puts him on the dial for good, the dial staying where it was.
+	 * the dial at first; v0.17.2 (user: "on the 11th mistransformation the player unlocks a new alien which for now is just canonbolt"):
+ * mistransforms 9 and 10 land elsewhere, the 11th on him -- on the dial for good, the dial staying where it was.
 	 */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 1600)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 3000)
 	public void aMistransformFindsCannonboltAndPutsHimOnTheDial(GameTestHelper helper) {
 		for (int x = 0; x <= 7; x++) {
 			for (int z = 0; z <= 7; z++) {
@@ -105,6 +106,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.CANNONBOLT), "not on the dial before he is found");
 		helper.assertFalse(Omnitrix.select(p, CannonboltKit.ID), "and cannot be dialled");
 		helper.assertTrue(Aliens.nextHidden(p) == Aliens.CANNONBOLT, "he is the next alien a glitch finds");
+		Omnitrix.setMistransforms(p, 8); // two ordinary mistransforms, then the 11th
 		helper.onEachTick(() -> {
 			p.tickCount++;
 			Omnitrix.tick(p);
@@ -112,10 +114,10 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		attempt(helper, p, 0);
 	}
 
-	/** Slap Heatblast until a glitch fires (50% a slap) -- it must land on Cannonbolt. */
+	/** Slap Heatblast until the 11th mistransform (50% a slap): 9 and 10 are any other alien, 11 is Cannonbolt. */
 	private static void attempt(GameTestHelper helper, ServerPlayer p, int n) {
-		if (n >= 40) {
-			helper.fail("no mistransform in 40 slaps");
+		if (n >= 90) {
+			helper.fail("only " + Omnitrix.mistransforms(p) + " mistransforms in 90 slaps");
 			return;
 		}
 		if (Omnitrix.transformed(p)) {
@@ -129,7 +131,14 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.runAfterDelay(Omnitrix.SLAP_TICKS + 4, () -> {
 			String active = Omnitrix.state(p).active;
 			if (!active.isEmpty() && !active.equals(Aliens.HEATBLAST.id())) {
-				helper.assertTrue(active.equals(CannonboltKit.ID), "the first mistransform is Cannonbolt, got " + active);
+				int count = Omnitrix.mistransforms(p);
+				if (count < 11) {
+					helper.assertFalse(active.equals(CannonboltKit.ID), "mistransform #" + count + " is not Cannonbolt yet");
+					helper.assertFalse(Aliens.found(p, CannonboltKit.ID), "not found before the 11th");
+					attempt(helper, p, n + 1);
+					return;
+				}
+				helper.assertTrue(count == 11 && active.equals(CannonboltKit.ID), "mistransform #11 is Cannonbolt, got #" + count + " " + active);
 				helper.assertTrue(Aliens.found(p, CannonboltKit.ID) && Aliens.playable(p).contains(Aliens.CANNONBOLT), "now on the dial");
 				helper.assertTrue(Omnitrix.state(p).selected.equals(Aliens.HEATBLAST.id()), "the dial stays on Heatblast");
 				helper.assertTrue(Aliens.nextHidden(p) == null, "nothing hidden left");

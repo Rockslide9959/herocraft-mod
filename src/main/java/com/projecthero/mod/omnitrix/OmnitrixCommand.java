@@ -49,8 +49,20 @@ public final class OmnitrixCommand {
 					for (String id : new String[] { com.projecthero.mod.omnitrix.alien.Aliens.CANNONBOLT.id() }) {
 						com.projecthero.mod.omnitrix.alien.Aliens.discover(p, id, on);
 					}
-					return on ? "Cannonbolt is on your dial" : "Cannonbolt is hidden again (the next mistransform finds him)";
+					return on ? "Cannonbolt is on your dial" : "Cannonbolt is hidden again (mistransform #" + OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS + " finds him)";
 				}))
+				// v0.17.2: how many mistransforms so far (the 11th finds Cannonbolt)
+				.then(Commands.literal("mistransforms")
+						.then(Commands.argument("count", IntegerArgumentType.integer(0, 10_000)).executes(c -> {
+							ServerPlayer p = wearer(c);
+							if (p == null) {
+								return 0;
+							}
+							int count = IntegerArgumentType.getInteger(c, "count");
+							Omnitrix.setMistransforms(p, count);
+							c.getSource().sendSuccess(() -> Component.literal("Mistransforms so far: " + count), false);
+							return 1;
+						})))
 				.then(onOff("glitch", (p, on) -> {
 					Omnitrix.setGlitches(p, on);
 					return "Mistransforms " + (on ? "on" : "off");
@@ -154,7 +166,12 @@ public final class OmnitrixCommand {
 			b.append("\n Battery: ").append(clock(Omnitrix.batteryTicks(p)));
 		} else {
 			b.append("\n Transformations: ").append(Omnitrix.prototypeTransforms(p)).append("/").append(OmnitrixConfig.RECAL_MIN_TRANSFORMS);
-			b.append("\n Mistransforms: ").append(Omnitrix.glitches(p) ? "on" : "off");
+			b.append("\n Mistransforms: ").append(Omnitrix.glitches(p) ? "on" : "off").append(", ").append(Omnitrix.mistransforms(p)).append(" so far");
+			com.projecthero.mod.omnitrix.alien.Aliens.Alien next = com.projecthero.mod.omnitrix.alien.Aliens.nextHidden(p);
+			if (next != null) {
+				int every = OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS;
+				b.append(" (").append(next.id()).append(" on #").append((Omnitrix.mistransforms(p) / every + 1) * every).append(")");
+			}
 		}
 		if (OmnitrixRecal.busy(s)) {
 			b.append("\n Recalibration mode: ").append(clock(OmnitrixRecal.modeLeft(s, now))).append(" left");

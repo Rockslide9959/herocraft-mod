@@ -183,6 +183,18 @@ public final class Omnitrix {
 	public static final String RECAL = "omnitrix.recal";
 	/** v0.17.2: transformations made with the prototype (the Recalibration Chip asks for {@code OmnitrixConfig.RECAL_MIN_TRANSFORMS}). */
 	public static final String TRANSFORMS = "omnitrix.transforms";
+	/** v0.17.2: mistransforms the prototype has made (every {@code OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS}th finds a hidden alien). */
+	public static final String MISTRANSFORMS = "omnitrix.mistransforms";
+
+	public static int mistransforms(Player p) {
+		return hasPower(p) ? (int) state(p).readyAt(MISTRANSFORMS) : 0;
+	}
+
+	public static void setMistransforms(ServerPlayer p, int count) {
+		OmnitrixState n = state(p).copy();
+		n.timers.put(MISTRANSFORMS, (long) Math.max(0, count));
+		save(p, n);
+	}
 
 	/** v0.17.2: {@code p} wears the Recalibrated Omnitrix (client-safe: the synced state). */
 	public static boolean recalibrated(Player p) {
@@ -1421,12 +1433,19 @@ public final class Omnitrix {
 			// v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"):
 			// a hidden alien (Cannonbolt) is never dialled -- the first glitch that fires always lands on the first one he has not
 			// found yet, and that puts it on his dial for good
+			// v0.17.2 (user: "make it so that on the 11th mistransformation the player unlocks a new alien which for now is just
+			// canonbolt"): every mistransform is counted; the 11th (then the 22nd... for later hidden aliens) lands on the next
+			// hidden alien and finds it -- the rest land on a random alien from the dial
 			Aliens.Alien hidden = Aliens.nextHidden(p);
 			String found = null;
 			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && (pool.size() > 1 || hidden != null)
 					&& p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
 				String other = dialled;
-				if (hidden != null) {
+				long count = s.readyAt(MISTRANSFORMS) + 1L;
+				OmnitrixState c = state(p).copy();
+				c.timers.put(MISTRANSFORMS, count);
+				save(p, c);
+				if (hidden != null && (count % OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS == 0 || pool.size() <= 1)) {
 					other = found = hidden.id();
 					Aliens.discover(p, found, true);
 				}
@@ -1451,9 +1470,10 @@ public final class Omnitrix {
 				return;
 			}
 			if (glitched && !state(p).transformed()) {
-				// the glitch's transform was refused: back to the dialled alien, and nothing found
+				// the glitch's transform was refused: back to the dialled alien, and nothing found (nor counted)
 				OmnitrixState g = state(p).copy();
 				g.selected = dialled;
+				g.timers.put(MISTRANSFORMS, Math.max(0L, g.readyAt(MISTRANSFORMS) - 1L));
 				save(p, g);
 				if (found != null) {
 					Aliens.discover(p, found, false);

@@ -10893,7 +10893,7 @@
   "_comment_recal_0172_end": "",
   "_comment_omnitrix_cannonbolt_start": "v0.17.2 Omnitrix: Cannonbolt",
   "projecthero.omnitrix.alien.cannonbolt": "Cannonbolt",
-  "projecthero.guide.omnitrix.alien.cannonbolt": "An Arburian Pelarota: a huge, slow, top-heavy brute with his face on his chest and a shell of gold plates on his back, shoulders and arms. Press V to curl into a near-indestructible ball and every key changes: he rolls faster the longer he keeps rolling, rams whatever he rolls into, ricochets off walls like a pinball, bounces, rolls straight up walls and lets arrows glance off -- but rolled up he cannot punch or use items, and he must uncurl to fight with his fists. He is not on the dial at first: the prototype finds him by accident, the first time it mistransforms, and from then on you can dial him.",
+  "projecthero.guide.omnitrix.alien.cannonbolt": "An Arburian Pelarota: a huge, slow, top-heavy brute with his face on his chest and a shell of gold plates on his back, shoulders and arms. Press V to curl into a near-indestructible ball and every key changes: he rolls faster the longer he keeps rolling, rams whatever he rolls into, ricochets off walls like a pinball, bounces, rolls straight up walls and lets arrows glance off -- but rolled up he cannot punch or use items, and he must uncurl to fight with his fists. He is not on the dial at first: the prototype finds him by accident, on its 11th mistransform, and from then on you can dial him.",
   "message.projecthero.omnitrix.cannonbolt.no_room": "No room to uncurl here.",
   "projecthero.omnitrix.cannonbolt.shoulder_bash": "Shoulder Bash",
   "projecthero.omnitrix.cannonbolt.shoulder_bash.desc": "Lunge behind your shoulder plate: 14 to everything just in front of you, knocked back.",
@@ -10944,6 +10944,6 @@
   "projecthero.omnitrix.info.cannonbolt.weakness.1": "Slow and clumsy standing up, and a big target (x1.3 size).",
   "projecthero.omnitrix.info.cannonbolt.weakness.2": "Rolled up he cannot punch or use items, and needs room to uncurl.",
   "message.projecthero.omnitrix.found": "The Omnitrix glitched into a new alien: %s! He is on your dial now.",
-  "projecthero.omnitrix.info.cannonbolt.weakness.3": "Not on the dial until the prototype mistransforms into him once.",
+  "projecthero.omnitrix.info.cannonbolt.weakness.3": "Not on the dial until the prototype's 11th mistransform lands on him.",
   "_comment_omnitrix_cannonbolt_end": ""
 }
