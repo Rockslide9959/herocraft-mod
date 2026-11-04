@@ -16,6 +16,8 @@ User: "for the canonbolt alien i want ben to accidentally transform into the ali
   Every mistransform is counted (persisted `omnitrix.mistransforms`). The **11th always lands on Cannonbolt** (the 22nd on the
   next hidden alien, when there is one). That turns Ben into him, and puts him on the dial for good (a
   persisted Omnitrix flag `omnitrix.found.cannonbolt`). The dial itself stays on the alien Ben picked.
+- **Since Wildvine** (user: "make it an even chance to unlock either cannonbolt or wildvine if you dont unlock any of them"): the
+  11th lands on Cannonbolt or Wildvine at random, 50/50, and the 22nd on the other. See `docs/OMNITRIX_REVAMP_WILDVINE.md`.
 - That one discovery shows a line on the action bar: "The Omnitrix glitched into a new alien: Cannonbolt! He is on your dial
   now." Ordinary mistransforms stay silent, as the user asked earlier.
 - Every other mistransform picks any alien on the dial at random, as before.

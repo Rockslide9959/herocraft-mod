@@ -329,7 +329,10 @@ public final class OmnitrixInfo {
 			// v0.17.2: the Recalibrated Omnitrix's ten (glyphs U+E00A..U+E013)
 			"swampfire", "echo_echo", "humungousaur", "jetray", "big_chill", "chromastone", "brainstorm", "spidermonkey", "goop", "alien_x",
 			// v0.17.2: Cannonbolt on the prototype (U+E014)
-			"cannonbolt");
+			"cannonbolt",
+			// v0.17.2: U+E015 is Way Big's (another session's build -- reserved here so the glyphs line up whichever lands first),
+			// Wildvine on the prototype is U+E016
+			"way_big", "wildvine");
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());

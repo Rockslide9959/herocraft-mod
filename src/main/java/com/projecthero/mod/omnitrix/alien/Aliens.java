@@ -50,6 +50,8 @@ public final class Aliens {
 	public static final Alien GREY_MATTER = declare("grey_matter", 0xA6ACB4);
 	// v0.17.2 (user: "build canonbolt alien for the prototype omnitrix please")
 	public static final Alien CANNONBOLT = declare("cannonbolt", 0xDABE0B);
+	// v0.17.2 (user: "create a moveset for wildvine please ... Make this another alien you unlock on the 11th mistransformation")
+	public static final Alien WILDVINE = declare("wildvine", 0x5FB043);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
@@ -103,10 +105,12 @@ public final class Aliens {
 
 	/**
 	 * v0.17.2 (user: "for the canonbolt alien i want ben to accidentally transform into the alien like a mistransformation"): aliens
-	 * the dial does not offer until a mistransform lands on one -- the prototype's 11th mistransform (then 22nd...) picks the first one still hidden, and from
-	 * then on it is on the dial for good ({@link #discover}).
+	 * the dial does not offer until a mistransform lands on one -- the prototype's 11th mistransform (then 22nd...) finds one still
+	 * hidden, and from then on it is on the dial for good ({@link #discover}). v0.17.2 (user: "When it comes to unlocking new aliens make
+	 * it an even chance to unlock either cannonbolt or wildvine"): an even pick among the ones still hidden ({@link #pickHidden}) -- add
+	 * an id here and it joins the draw.
 	 */
-	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt");
+	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine");
 
 	/** The persisted Omnitrix timer that marks {@code id} found (1 = found). */
 	public static String foundKey(String id) {
@@ -134,15 +138,60 @@ public final class Aliens {
 		com.projecthero.mod.omnitrix.Omnitrix.save(p, n);
 	}
 
-	/** The first hidden alien (with a kit) on the dial of the watch {@code p} wears that {@code p} has not found yet, or null. */
-	@Nullable
-	public static Alien nextHidden(net.minecraft.world.entity.player.Player p) {
+	/**
+	 * v0.17.2: whether a mistransform can find hidden alien {@code id}. Every hidden alien today; one unlocked some other way (an item)
+	 * is filtered out here -- one line.
+	 */
+	private static boolean byMistransform(String id) {
+		return HIDDEN.contains(id);
+	}
+
+	/**
+	 * v0.17.2: the hidden aliens (with a kit) on the dial of the watch {@code p} wears that a mistransform can still find for {@code p},
+	 * in dial order.
+	 */
+	public static List<Alien> unfound(net.minecraft.world.entity.player.Player p) {
+		List<Alien> out = new ArrayList<>();
 		for (Alien a : dial(com.projecthero.mod.omnitrix.Omnitrix.recalibrated(p))) {
-			if (!found(p, a.id())) {
-				return a;
+			if (byMistransform(a.id()) && !found(p, a.id())) {
+				out.add(a);
 			}
 		}
-		return null;
+		return out;
+	}
+
+	/** v0.17.2: every hidden alien (with a kit) a mistransform can find, on either watch, found or not (the tune command). */
+	public static List<Alien> mistransformFinds() {
+		List<Alien> out = new ArrayList<>();
+		for (Alien a : ALL.values()) {
+			if (byMistransform(a.id()) && KITS.containsKey(a.id())) {
+				out.add(a);
+			}
+		}
+		for (Alien a : RECAL.values()) {
+			if (byMistransform(a.id()) && KITS.containsKey(a.id())) {
+				out.add(a);
+			}
+		}
+		return out;
+	}
+
+	/** Whether a mistransform still has a hidden alien to find for {@code p}: the first unfound one in dial order, or null. */
+	@Nullable
+	public static Alien nextHidden(net.minecraft.world.entity.player.Player p) {
+		List<Alien> left = unfound(p);
+		return left.isEmpty() ? null : left.get(0);
+	}
+
+	/**
+	 * v0.17.2 (user: "make it an even chance to unlock either cannonbolt or wildvine if you dont unlock any of them ... im gonna add more
+	 * new laiens still"): the hidden alien an unlocking mistransform lands on -- an even pick among every one {@code p} has not found
+	 * yet (Cannonbolt or Wildvine 50/50 at first, the other one next time), or null when none is left.
+	 */
+	@Nullable
+	public static Alien pickHidden(net.minecraft.world.entity.player.Player p, net.minecraft.util.RandomSource random) {
+		List<Alien> left = unfound(p);
+		return left.isEmpty() ? null : left.get(random.nextInt(left.size()));
 	}
 
 	/** v0.17.2: the playable aliens on the dial of the watch {@code p} wears, in order (a hidden one only once found). */

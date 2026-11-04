@@ -83,8 +83,11 @@ public final class OmnitrixState {
 	 * v0.17.1: aliens taken off the dial, and who took their slot -- a saved {@code selected} / {@code active} / {@code flicker} of
 	 * one loads as its replacement (Wildvine was never one of the original ten; Wildmutt was). The removed alien's kit timers
 	 * are dropped.
+	 * v0.17.2: empty again -- Wildvine is a real alien of his own now (the prototype's hidden one, user: "create a moveset for
+	 * wildvine please"), so a saved "wildvine" must load as Wildvine, his timers and flags kept. A 0.17.1-era save that still says
+	 * "wildvine" meaning Wildmutt now points at a hidden alien it has not found: the dial skips it like any unfound one.
 	 */
-	public static final java.util.Map<String, String> RENAMED = java.util.Map.of("wildvine", "wildmutt");
+	public static final java.util.Map<String, String> RENAMED = java.util.Map.of();
 
 	public static String renamed(String id) {
 		return id == null ? "" : RENAMED.getOrDefault(id, id);
