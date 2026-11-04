@@ -126,7 +126,7 @@ public final class CannonboltKit extends AlienKit {
 	 * above the body instead of above the chest please"): standing, the box ends at his headless body's top (24 px), the eyes sit in
 	 * his chest and the nametag just over his shoulders -- before the body's scale (1.3).
 	 */
-	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = 0.4f;
+	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = -0.15f; // v0.17.2 (user: "make the nametag a bit higher since right now its inside his body"): was 0.4
 
 	private static final ResourceLocation ROLL_SPEED = PowerToggles.id("omnitrix_cannonbolt_roll");
 	private static final ResourceLocation ROLL_STEP = PowerToggles.id("omnitrix_cannonbolt_step");
