@@ -1,0 +1,281 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.buzzshock.BuzzshockKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Buzzshock -- body, badge, glow, copies, and a frame run of his lightning. Enabled by run/buzzshock.flag. */
+public final class BuzzshockHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static int frame;
+	private static Vec3 home;
+
+	private BuzzshockHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("buzzshock.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BuzzshockHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(360_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "buzzshock-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static BuzzshockKit kit() {
+		return (BuzzshockKit) Aliens.kit(BuzzshockKit.ID);
+	}
+
+	private static void mob(ServerPlayer p, EntityType<? extends Mob> type, double dx, double dz) {
+		Mob m = type.create(p.serverLevel());
+		m.moveTo(home.x + dx, home.y, home.z + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		p.serverLevel().addFreshEntity(m);
+	}
+
+	/** Faces {@code p} at the point (dx, dy, dz) off home. */
+	private static void face(ServerPlayer p, double dx, double dy, double dz) {
+		Vec3 d = home.add(dx, dy, dz).subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static void ready(ServerPlayer p, String... moves) {
+		for (String m : moves) {
+			kit().cooldown(p, m, 0);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BuzzshockHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(13500L); // dusk: the glow and bolts read better
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, BuzzshockKit.ID, true);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> Omnitrix.select(p, BuzzshockKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 180f, 10f);
+				Omnitrix.select(p, BuzzshockKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+			});
+		}
+		if (t == 170) {
+			shot(mc, "bz_front");
+		}
+		if (t == 175) {
+			server(mc, p -> {
+				for (int i = 0; i < 3; i++) {
+					ready(p, BuzzshockKit.SPLIT);
+					kit().split(p);
+				}
+			});
+		}
+		if (t == 205) {
+			shot(mc, "bz_copies_front");
+		}
+		if (t == 210) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+				mob(p, EntityType.IRON_GOLEM, 0, 7);
+				mob(p, EntityType.ZOMBIE, -2.5, 5.5);
+				mob(p, EntityType.ZOMBIE, 2.5, 5.5);
+			});
+		}
+		if (t == 225) {
+			shot(mc, "bz_back");
+		}
+		// ---- the frame run: every tick, 230..349
+		if (t >= 230 && t < 350) {
+			Screenshot.grab(mc.gameDirectory, String.format("bzf_%03d.png", frame++), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (t == 234) {
+			server(mc, p -> {
+				face(p, 0, 1.4, 7);
+				ready(p, BuzzshockKit.BOLT);
+				System.out.println("[HARNESS] bolt=" + kit().lightningBolt(p));
+			});
+		}
+		if (t == 246) {
+			server(mc, p -> {
+				ready(p, BuzzshockKit.BOLT);
+				kit().lightningBolt(p);
+			});
+		}
+		if (t == 258) {
+			server(mc, p -> {
+				face(p, -2.5, 1.0, 5.5);
+				ready(p, BuzzshockKit.CHAIN);
+				System.out.println("[HARNESS] chain=" + kit().chainLightning(p));
+			});
+		}
+		if (t == 276) {
+			server(mc, p -> {
+				face(p, 0, 1.0, 6);
+				ready(p, BuzzshockKit.BOMB);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), -12f);
+				p.setXRot(-12f);
+				System.out.println("[HARNESS] bomb=" + kit().sparkBomb(p));
+			});
+		}
+		if (t == 300) {
+			server(mc, p -> {
+				face(p, 0, 1.4, 7);
+				ready(p, BuzzshockKit.MEGAVOLT);
+				System.out.println("[HARNESS] megavolt=" + kit().megavolt(p));
+			});
+		}
+		if (t == 322) {
+			server(mc, p -> {
+				ready(p, BuzzshockKit.OVERLOAD);
+				System.out.println("[HARNESS] overload=" + kit().overload(p));
+			});
+		}
+		if (t == 352) {
+			server(mc, p -> {
+				for (var e : p.serverLevel().getEntities(p, p.getBoundingBox().inflate(12))) {
+					if (e instanceof net.minecraft.world.entity.LivingEntity le) {
+						System.out.println("[HARNESS] after " + e.getType().toShortString() + " hp=" + le.getHealth() + "/" + le.getMaxHealth());
+					}
+				}
+				ready(p, BuzzshockKit.SWARM);
+				System.out.println("[HARNESS] swarm=" + kit().swarm(p));
+			});
+		}
+		if (t == 372) {
+			shot(mc, "bz_swarm");
+		}
+		if (t == 380) {
+			server(mc, p -> {
+				ready(p, BuzzshockKit.FLIGHT);
+				kit().flight(p);
+			});
+		}
+		if (t >= 384 && t < 420) {
+			mc.options.keyJump.setDown(t < 392);
+			mc.options.keyUp.setDown(t >= 392);
+		}
+		if (t == 410) {
+			shot(mc, "bz_flight");
+		}
+		if (t == 420) {
+			mc.options.keyUp.setDown(false);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				p.connection.teleport(home.x, home.y, home.z - 3, 0f, 10f);
+				ready(p, BuzzshockKit.BOLT);
+				face(p, 0, 1.4, 7);
+			});
+		}
+		if (t == 430) {
+			server(mc, p -> kit().lightningBolt(p));
+		}
+		if (t == 432) {
+			shot(mc, "bz_firstperson");
+		}
+		if (t == 450) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

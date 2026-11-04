@@ -105,7 +105,7 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 		Omnitrix.grant(recal, true);
 		helper.assertFalse(Omnitrix.recalibrated(proto), "the prototype is not recalibrated");
 		helper.assertTrue(Omnitrix.recalibrated(recal), "the recalibrated grant is");
-		helper.assertTrue(Aliens.all().size() == 14 && Aliens.recalibrated().size() == 10, "fourteen on the prototype (v0.17.2: + Cannonbolt, Wildvine, Ditto, Way Big), ten on the recalibrated");
+		helper.assertTrue(Aliens.all().size() == 15 && Aliens.recalibrated().size() == 10, "fifteen on the prototype (v0.17.2: + Cannonbolt, Wildvine, Ditto, Way Big, Buzzshock), ten on the recalibrated");
 		helper.assertFalse(Omnitrix.select(recal, Aliens.HEATBLAST.id()), "Heatblast is not on the recalibrated dial");
 		helper.assertFalse(Omnitrix.select(proto, Aliens.SWAMPFIRE.id()), "Swampfire is not on the prototype's");
 		helper.assertTrue(Aliens.byId(Omnitrix.state(recal).selected).recalibrated(), "the recalibrated wearer starts on an Alien Force alien");

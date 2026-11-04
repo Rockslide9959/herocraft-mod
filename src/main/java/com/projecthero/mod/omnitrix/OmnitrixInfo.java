@@ -332,7 +332,9 @@ public final class OmnitrixInfo {
 			"cannonbolt",
 			// v0.17.2: U+E015 is Way Big's (another session's build -- reserved here so the glyphs line up whichever lands first),
 			// Wildvine on the prototype is U+E016, Ditto U+E017
-			"way_big", "wildvine", "ditto");
+			"way_big", "wildvine", "ditto",
+			// v0.17.2: U+E018 is Upchuck's (built in parallel -- reserved here so the glyphs line up whichever lands first), Buzzshock U+E019
+			"upchuck", "buzzshock");
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());

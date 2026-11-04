@@ -1010,7 +1010,8 @@ public final class UpgradeKit extends AlienKit {
 	// ---------------------------------------------------------------- Overload / EMP
 
 	/** Golems and the mod's robots: they short out twice as hard. */
-	private static boolean machine(LivingEntity e) {
+	/** v0.17.2: public -- Buzzshock's shocks hit machines harder too. */
+	public static boolean machine(LivingEntity e) {
 		return e instanceof AbstractGolem || UpgradeTakeover.mechanical(e);
 	}
 
