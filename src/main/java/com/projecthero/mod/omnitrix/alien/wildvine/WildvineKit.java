@@ -406,7 +406,7 @@ public final class WildvineKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_THROW);
-		AlienProjectileEntity.of(p, "wildvine_seed").colour(0x1A1A14).size(0.5f).damage(SEED_DIRECT).blast((float) SEED_RADIUS, SEED_DAMAGE)
+		AlienProjectileEntity.of(p, "wildvine_seed").colour(0x07030F).size(0.5f).damage(SEED_DIRECT).blast((float) SEED_RADIUS, SEED_DAMAGE)
 				.gravity(0.05).speed(1.35).life(80).spawn();
 		OmnitrixSounds.play(level(p), p.position(), SND_POD, 1.0f, 1.0f);
 		return true;
@@ -437,7 +437,7 @@ public final class WildvineKit extends AlienKit {
 			}
 			AlienProjectileEntity m = AlienProjectileEntity.of(p, "wildvine_mine");
 			m.moveTo(at.x, at.y, at.z, p.getYRot() + i * 47f, 0f);
-			m.colour(0x1A1A14).size(0.6f).held(true).speed(0).life(MINE_LIFE).damage(0f).spawn();
+			m.colour(0x07030F).size(0.6f).held(true).speed(0).life(MINE_LIFE).damage(0f).spawn();
 			mines.add(m);
 			BlockState under = l.getBlockState(BlockPos.containing(at).below());
 			if (!under.isAir()) {

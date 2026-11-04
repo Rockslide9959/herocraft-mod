@@ -34,8 +34,8 @@ public final class WildvineFx {
 	}
 
 	private static boolean registered;
-	/** Vine greens: the stem, its darker ribs, a leaf; the seed pods' near-black and their green tint. */
-	private static final int STEM = 0xFF4E9A3C, RIB = 0xFF2E6A2E, LEAF = 0xFF6CBF3C, POD = 0xFF1C1E16, POD_HI = 0xFF3A4A2A;
+	/** Vine greens: the stem, its darker ribs, a leaf. */
+	private static final int STEM = 0xFF4E9A3C, RIB = 0xFF2E6A2E, LEAF = 0xFF6CBF3C;
 
 	public static void register() {
 		if (registered) {
@@ -271,37 +271,43 @@ public final class WildvineFx {
 		pose.popPose();
 	}
 
-	/** The seed pods' colours (v0.17.2, user: "add little seed bomb models to wildvines back"): olive-brown skin, green belly, dark cap. */
-	private static final int POD_SKIN = 0xFF7A7036, POD_BELLY = 0xFF46592A, POD_CAP = 0xFF2B2216, POD_SHINE = 0xFFE4EEB8, POD_STEM = 0xFF5A6A2A;
+	/**
+	 * The seed pods' colours. v0.17.2 (user: "wildvines bombs are black, please make the wildvine bombs black or at least make it match
+	 * the colour of the bombs on the skin model please"): the skin's own pod colour, sampled from it (0x07030F, a violet-tinged
+	 * near-black), glossy -- a charcoal sheen where the light catches it, a soft grey highlight on the shoulder.
+	 */
+	private static final int POD_BLACK = 0xFF07030F, POD_SHEEN = 0xFF24202C, POD_CAP = 0xFF0E0A16, POD_GLOSS = 0xFF3C3A46, POD_SHINE = 0xFFB0AEBA,
+			POD_STEM = 0xFF151A12;
 
 	/**
-	 * A seed pod of {@code size}, its stem toward +y: a round green-brown body (a little longer than wide), a darker cap where it
-	 * hangs, a short stem with a leaf and a glint of shine on its shoulder; {@code glow} warms the body toward leaf green (an armed
-	 * mine's pulse).
+	 * A seed pod of {@code size}, its stem toward +y: a glossy black oval (the skin's pod colour) with a soft grey highlight on its
+	 * shoulder, a slightly darker cap where it hangs and a short dark stem; {@code glow} warms it toward leaf green (an armed mine's
+	 * pulse).
 	 */
 	static void pod(PoseStack pose, VertexConsumer vc, float size, float t, int light, float glow) {
 		pose.pushPose();
-		pose.scale(size * 0.85f, size * 1.05f, size * 0.85f);
-		PyroDraw.sphere(pose, vc, 0.5f, PyroDraw.lerpRgb(POD_SKIN, LEAF, glow) | 0xFF000000, POD_BELLY, 0.06f, t * 0.15f, light);
+		pose.scale(size * 0.82f, size * 1.08f, size * 0.82f);
+		PyroDraw.sphere(pose, vc, 0.5f, PyroDraw.lerpRgb(POD_SHEEN, LEAF, glow) | 0xFF000000, POD_BLACK, 0.04f, t * 0.15f, light);
 		pose.popPose();
-		// the cap: a flattened dark dome over the top
+		// the cap: a flattened, darker dome over the top
 		pose.pushPose();
-		pose.translate(0, size * 0.4f, 0);
-		pose.scale(size * 0.62f, size * 0.26f, size * 0.62f);
-		PyroDraw.sphere(pose, vc, 0.5f, POD_CAP, 0xFF1A140C, 0.04f, 0f, light);
+		pose.translate(0, size * 0.42f, 0);
+		pose.scale(size * 0.56f, size * 0.24f, size * 0.56f);
+		PyroDraw.sphere(pose, vc, 0.5f, POD_CAP, POD_BLACK, 0.02f, 0f, light);
 		pose.popPose();
-		// the shine: a small bright fleck on the upper front shoulder (full bright, so it reads as a highlight)
+		// the gloss: a soft grey glow on the upper front shoulder, a brighter fleck in its middle (full bright: a highlight)
 		pose.pushPose();
-		pose.translate(-size * 0.17f, size * 0.2f, size * 0.3f);
-		pose.scale(size * 0.13f, size * 0.17f, size * 0.07f);
+		pose.translate(-size * 0.15f, size * 0.18f, size * 0.33f);
+		pose.scale(size * 0.24f, size * 0.32f, size * 0.07f);
+		PyroDraw.sphere(pose, vc, 0.5f, POD_GLOSS, POD_GLOSS, 0f, 0f, PyroDraw.FULL);
+		pose.popPose();
+		pose.pushPose();
+		pose.translate(-size * 0.17f, size * 0.22f, size * 0.355f);
+		pose.scale(size * 0.1f, size * 0.15f, size * 0.05f);
 		PyroDraw.sphere(pose, vc, 0.5f, POD_SHINE, POD_SHINE, 0f, 0f, PyroDraw.FULL);
 		pose.popPose();
-		List<Vec3> stem = List.of(new Vec3(0, size * 0.48, 0), new Vec3(size * 0.04, size * 0.62, 0), new Vec3(size * 0.12, size * 0.72, size * 0.03));
-		tubeColour(pose, vc, stem, s -> size * 0.07, POD_STEM, light);
-		if (size > 0.1f) {
-			leaves(pose, vc, List.of(new Vec3(0, size * 0.5, 0), new Vec3(0, size * 0.55, 0), new Vec3(size * 0.04, size * 0.62, 0),
-					new Vec3(size * 0.12, size * 0.72, size * 0.03)), 1, light);
-		}
+		List<Vec3> stem = List.of(new Vec3(0, size * 0.5, 0), new Vec3(size * 0.03, size * 0.6, 0), new Vec3(size * 0.08, size * 0.66, size * 0.02));
+		tubeColour(pose, vc, stem, s -> size * 0.06, POD_STEM, light);
 	}
 
 	/** {@link #tube} in one colour (no ribs). */
