@@ -11,11 +11,13 @@ public final class GalactusConfig {
 	public static final VersionedConfig<GalactusConfig> SPEC = VersionedConfig.builder(GalactusConfig.class, "projecthero_galactus.json",
 			GalactusConfig::new)
 			.balance("arena", "herald", "ally", "converters", "punisher", "consumption", "galactus", "eyeBeam", "grab", "transmute", "wave",
-					"summons", "pylons", "weakPoints", "nullifier", "rewards", "board", "powerCosmic", "trigger.chancePerDay")
+					"summons", "pylons", "weakPoints", "nullifier", "rewards", "board", "powerCosmic", "trigger.chancePerDay", "orbit", "stage1", "stage2", "stage3")
 			.introduce(1, "v0.16.1 Galactus: The Devourer")
 			.reset(2, "v0.16.4 Galactus takes full damage on his body once the pylons are down, 4000 health (+1000 a fighter)", "galactus.bodyDamageMultiplier",
 					"galactus.health", "galactus.healthPerExtraFighter")
 			.reset(3, "v0.16.7 perf: revert 160 -> 64 blocks a tick", "converters.revertPerTick")
+			.reset(4, "v0.17.2 Galactus raid v2 (orbit, three stages): a 4 s Nullifier, a bigger chest", "nullifier.useTicks",
+					"rewards.valuablesMultiplier", "orbit", "stage1", "stage2", "stage3")
 			.build();
 
 	private static GalactusConfig instance = new GalactusConfig();
@@ -257,7 +259,7 @@ public final class GalactusConfig {
 
 	public static final class Nullifier {
 		/** Ticks of holding right-click on him to use it. */
-		public int useTicks = 60;
+		public int useTicks = 80;
 		/** It must be aimed at him from no further than this. */
 		public double range = 160.0;
 		/** A missing part (lost to lava or the void) is put back near the Surfer after this many ticks. */
@@ -265,7 +267,7 @@ public final class GalactusConfig {
 	}
 
 	public static final class Rewards {
-		public double valuablesMultiplier = 1.0;
+		public double valuablesMultiplier = 1.5;
 		public int netheriteMin = 2;
 		public int netheriteMax = 4;
 		public int books = 3;
@@ -285,6 +287,136 @@ public final class GalactusConfig {
 		public int blastCooldownTicks = 40;
 		public int shieldTicks = 60;
 		public int shieldCooldownTicks = 400;
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 raid v2
+
+	/** The orbit's rules (every stage up there). */
+	public static final class Orbit {
+		/** Jump Boost level in the arena (1 = II; -1 = none). */
+		public int jumpBoostAmplifier = 1;
+		/** Fall this far below the island plane and the Surfer catches you... */
+		public int fallDepth = 14;
+		/** ...for this much damage. */
+		public double fallDamage = 5.0;
+		/** Stage 1: flying higher than this over the plane counts as flying. */
+		public double flyHeight = 6.0;
+		/** Ticks of flight before the red lock-on, and before the beam. */
+		public int flyWarnTicks = 30;
+		public int flyBeamTicks = 50;
+		public double flyBeamDamage = 12.0;
+		/** Ticks a beamed flyer is grounded. */
+		public int groundedTicks = 100;
+		/** Ticks a smashed island stays gone before it re-forms. */
+		public int reformTicks = 400;
+	}
+
+	/** Stage 1: the Shattered Orbit. */
+	public static final class Stage1 {
+		/** Islands on the outer ring (on top of the Anchor and the inner six), +1 per extra fighter, 12 at most. */
+		public int outerIslands = 4;
+		public int outerPerExtraFighter = 1;
+		public int windTicks = 60;
+		public int strikeTicks = 8;
+		public int stuckTicks = 80;
+		public int recoilTicks = 22;
+		public int cooldownTicks = 70;
+		public int cooldownMin = 36;
+		public double smashDamage = 14.0;
+		public double sweepDamage = 10.0;
+		/** Damage to the stuck fist that fills the Stagger bar; +per extra fighter; x growth after each stagger. */
+		public double staggerHealth = 220.0;
+		public double staggerPerExtraFighter = 80.0;
+		public double staggerGrowth = 1.25;
+		/** Staggers that end the stage. */
+		public int staggers = 3;
+		public int breatherTicks = 120;
+	}
+
+	/** Stage 2: the Feast. */
+	public static final class Stage2 {
+		public int converters = 3;
+		public int convertersPerTwoExtraFighters = 1;
+		public int maxConverters = 5;
+		/** World Consumption per working converter per minute (percent). */
+		public double consumptionPerConverterPerMinute = 4.0;
+		public int cellIntervalTicks = 400;
+		/** Cells loose or carried at once, at most. */
+		public int maxLooseCells = 2;
+		public int overloadTicks = 120;
+		/** A Carrier hit this hard drops the cell. */
+		public double carrierDropDamage = 6.0;
+		public int beamCooldownTicks = 140;
+		public int beamTelegraphTicks = 40;
+		public int beamSweepTicks = 20;
+		public double beamDamage = 14.0;
+		public double boltDamage = 12.0;
+		public int punisherIntervalTicks = 500;
+		public int punisherCap = 4;
+	}
+
+	/** Stage 3: the Devourer. */
+	public static final class Stage3 {
+		public double health = 8000.0;
+		public double healthPerExtraFighter = 2000.0;
+		public double headMultiplier = 2.0;
+		public double headGagMultiplier = 3.0;
+		public double armMultiplier = 1.0;
+		public double handMultiplier = 1.0;
+		public double coreMultiplier = 1.5;
+		/** Damage to one arm (upper, forearm, hand) that breaks its gauntlet (limp for {@link #limpTicks}). */
+		public double gauntletBreak = 600.0;
+		public double gauntletPerExtraFighter = 150.0;
+		public int limpTicks = 500;
+		public int moveCooldownTicks = 60;
+		public double enragedCooldownScale = 0.8;
+		public double hammerDamage = 16.0;
+		public double sweepDamage = 12.0;
+		public double beamDamage = 16.0;
+		public double grabSqueezePerSecond = 3.0;
+		public double flingDamage = 10.0;
+		public double gripHealth = 80.0;
+		public double gripPerExtraFighter = 30.0;
+		public int devourTicks = 120;
+		public int gagTicks = 120;
+		public double devourDamage = 20.0;
+		public double chokeHealth = 150.0;
+		public double chokePerExtraFighter = 60.0;
+		public int meteorCount = 6;
+		public double meteorDamage = 10.0;
+		public int punisherCap = 4;
+		/** The Planet Cracker: first below this fraction of his health, then every {@link #crackerRepeatTicks}. */
+		public double crackerFraction = 0.4;
+		public int crackerTicks = 240;
+		public int crackerRepeatTicks = 1800;
+		public double crackerHandHealth = 300.0;
+		public double crackerPerExtraFighter = 100.0;
+		/** If it fires: this fraction of each fighter's max health (armour applies). */
+		public double crackerMaxHealthFraction = 0.7;
+		/** He kneels for the Nullifier at this fraction. */
+		public double finaleFraction = 0.05;
+		public double finaleBeamDamage = 8.0;
+	}
+
+	public Orbit orbit = new Orbit();
+	public Stage1 stage1 = new Stage1();
+	public Stage2 stage2 = new Stage2();
+	public Stage3 stage3 = new Stage3();
+
+	public static Orbit orbit() {
+		return instance.orbit;
+	}
+
+	public static Stage1 stage1() {
+		return instance.stage1;
+	}
+
+	public static Stage2 stage2() {
+		return instance.stage2;
+	}
+
+	public static Stage3 stage3() {
+		return instance.stage3;
 	}
 
 	// ---------------------------------------------------------------- access

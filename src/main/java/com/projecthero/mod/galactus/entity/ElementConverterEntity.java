@@ -52,6 +52,8 @@ public class ElementConverterEntity extends GalactusMob {
 	private double fallFromY;
 	private double fallToY;
 	/** The consumed radius so far, and the spiral cursor of the column walk (both saved). */
+	/** v0.17.2 raid v2: only an overload can destroy it (Stage 2). Not saved: orbit converters are re-made. */
+	public boolean cellOnly;
 	public int radius;
 	public int cursor;
 	public long nextGrowAt = -1;
@@ -172,6 +174,13 @@ public class ElementConverterEntity extends GalactusMob {
 	@Override
 	public boolean hurt(DamageSource source, float amount) {
 		if (source.getEntity() instanceof LivingEntity attacker && GalactusCombat.isCosmic(attacker)) {
+			return false;
+		}
+		// v0.17.2 raid v2: up in orbit a converter only falls to an overload (a socketed Cosmic Cell), never to weapons
+		if (cellOnly && !isShielded() && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			if (source.getEntity() instanceof Player p && level() instanceof ServerLevel) {
+				p.displayClientMessage(Component.translatable("message.projecthero.galactus.converter_cell").withStyle(ChatFormatting.LIGHT_PURPLE), true);
+			}
 			return false;
 		}
 		if (isShielded() && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {

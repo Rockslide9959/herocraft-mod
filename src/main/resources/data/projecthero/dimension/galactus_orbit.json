@@ -1,0 +1,13 @@
+{
+  "type": "projecthero:galactus_orbit",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "projecthero:galactus_orbit",
+      "layers": [],
+      "lakes": false,
+      "features": false,
+      "structure_overrides": []
+    }
+  }
+}

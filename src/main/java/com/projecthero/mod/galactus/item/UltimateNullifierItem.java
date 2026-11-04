@@ -89,7 +89,7 @@ public class UltimateNullifierItem extends Item implements GeoItem {
 		if (!(level instanceof ServerLevel server) || !(user instanceof ServerPlayer p)) {
 			return stack;
 		}
-		GalactusEntity g = target(server, p);
+		com.projecthero.mod.galactus.orbit.DevourerEntity g = target(server, p);
 		if (g == null || !aimedAt(p, g)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.galactus.nullifier_missed").withStyle(ChatFormatting.LIGHT_PURPLE), true);
 			return stack;
@@ -101,36 +101,25 @@ public class UltimateNullifierItem extends Item implements GeoItem {
 		stack.shrink(1);
 		return stack;
 	}
-
-	/** The Galactus of the event {@code p} fights in, or null. */
-	public static GalactusEntity target(ServerLevel level, Player p) {
-		for (GalactusEvent e : GalactusEvent.all(level.getServer())) {
-			if (e.dimension() == level.dimension() && e.isAt(level, p.blockPosition(), GalactusEvent.arena() + 64)) {
-				GalactusEntity g = e.galactus(level);
-				if (g != null) {
-					return g;
-				}
-			}
+	/** v0.17.2 raid v2: the Devourer of the raid {@code p} fights in up in the orbit, or null. */
+	public static com.projecthero.mod.galactus.orbit.DevourerEntity target(ServerLevel level, Player p) {
+		if (!com.projecthero.mod.galactus.orbit.GalactusOrbit.inOrbit(p)) {
+			return null;
 		}
-		return null;
+		GalactusEvent e = com.projecthero.mod.galactus.orbit.GalactusOrbit.eventForSlot(level.getServer(),
+				com.projecthero.mod.galactus.orbit.GalactusOrbit.slotOf(p.getX()));
+		return e == null ? null : e.devourer(level);
 	}
 
-	/** Is {@code p} looking at {@code g} (his body, or a weak point), within range? */
-	public static boolean aimedAt(Player p, GalactusEntity g) {
+	/** Is {@code p} looking at his head (or near his face), within range? */
+	public static boolean aimedAt(Player p, com.projecthero.mod.galactus.orbit.DevourerEntity g) {
 		double range = GalactusConfig.nullifier().range;
 		Vec3 eye = p.getEyePosition();
 		Vec3 end = eye.add(p.getLookAngle().scale(range));
-		AABB body = g.getBoundingBox().inflate(4.0).expandTowards(0, 22, 0);
-		if (body.contains(eye) || body.clip(eye, end).isPresent()) {
-			return true;
-		}
-		for (int k = 0; k < 4; k++) {
-			Vec3 w = g.weakPointPos(k);
-			if (new AABB(w, w).inflate(5.0).clip(eye, end).isPresent()) {
-				return true;
-			}
-		}
-		return false;
+		var pose = g.pose();
+		double r = 14.0 * pose.k + 4.0;
+		AABB head = new AABB(pose.face, pose.face).inflate(r).minmax(new AABB(pose.head, pose.head).inflate(r));
+		return head.contains(eye) || head.clip(eye, end).isPresent();
 	}
 
 	@Override

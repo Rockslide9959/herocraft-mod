@@ -97,7 +97,7 @@ public final class GalactusRenderers {
 	}
 
 	/** The per-entity model: its own asset name, the head look and the hurt flinch. */
-	static final class MobModel<T extends GalactusMob> extends GeoModel<T> {
+	static class MobModel<T extends GalactusMob> extends GeoModel<T> {
 		@Override
 		public ResourceLocation getModelResource(T animatable) {
 			return geo(animatable.model());
@@ -149,7 +149,12 @@ public final class GalactusRenderers {
 
 		/** {@code fixedHeight} &lt;= 0: fit to the hit-box height. */
 		public Mob(EntityRendererProvider.Context context, float shadow, float fixedHeight) {
-			super(context, new MobModel<>());
+			this(context, shadow, fixedHeight, new MobModel<>());
+		}
+
+		/** v0.17.2: with its own model (the Devourer's rig). */
+		public Mob(EntityRendererProvider.Context context, float shadow, float fixedHeight, GeoModel<T> model) {
+			super(context, model);
 			this.shadowRadius = shadow;
 			this.fixedHeight = fixedHeight;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));

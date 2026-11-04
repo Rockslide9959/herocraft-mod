@@ -50,17 +50,43 @@ public final class Galactus {
 		GalactusBlocks.initialize();
 		GalactusItems.initialize();
 		GalactusRewards.initialize();
+		com.projecthero.mod.galactus.orbit.GalactusOrbit.initialize(); // v0.17.2 raid v2: the orbit (return points, graves, rejoin)
+		com.projecthero.mod.galactus.cinematic.GalactusCinematics.initialize(); // v0.17.2 raid v2: cutscenes
 		PayloadTypeRegistry.playS2C().register(GalactusSkyPayload.TYPE, GalactusSkyPayload.CODEC);
 		EventTypes.register(GalactusEvent.TYPE_ID, GalactusEvent::new);
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p) {
 				for (GalactusEvent e : GalactusEvent.all(p.server)) {
-					if (e.dimension() == p.level().dimension() && e.isFighter(p.getUUID())) {
+					// v0.17.2: a fighter up in the raid's orbit counts too
+					boolean here = e.dimension() == p.level().dimension()
+							|| com.projecthero.mod.galactus.orbit.GalactusOrbit.inOrbit(p) && com.projecthero.mod.galactus.orbit.GalactusOrbit.slotOf(p.getX()) == e.orbitSlot();
+					if (here && e.isFighter(p.getUUID())) {
 						e.onFighterDied(p.serverLevel(), p);
 					}
 				}
 			}
 		});
+		// v0.17.2 raid v2: a Carrier hit hard drops the Cosmic Cell; a cell socketed into a converter overloads it
+		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
+			if (entity instanceof ServerPlayer p && com.projecthero.mod.galactus.orbit.GalactusOrbit.inOrbit(p)) {
+				GalactusEvent e = com.projecthero.mod.galactus.orbit.GalactusOrbit.eventForSlot(p.server, com.projecthero.mod.galactus.orbit.GalactusOrbit.slotOf(p.getX()));
+				if (e != null && e.phase() == GalactusEvent.Phase.STAGE2) {
+					e.stage2.onCarrierHurt(e, p.serverLevel(), p, damageTaken);
+				}
+			}
+		});
+		net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (world.isClientSide || !(player instanceof ServerPlayer sp) || !(entity instanceof com.projecthero.mod.galactus.entity.ElementConverterEntity conv)
+					|| !com.projecthero.mod.galactus.orbit.GalactusOrbit.inOrbit(sp)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+			GalactusEvent e = com.projecthero.mod.galactus.orbit.GalactusOrbit.eventForSlot(sp.server, com.projecthero.mod.galactus.orbit.GalactusOrbit.slotOf(sp.getX()));
+			if (e != null && e.phase() == GalactusEvent.Phase.STAGE2 && e.stage2.socket(e, sp.serverLevel(), sp, conv)) {
+				return net.minecraft.world.InteractionResult.SUCCESS;
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
+		com.projecthero.mod.galactus.orbit.OrbitRules.initialize();
 	}
 
 	/** Every server tick: each running event's per-tick work, the terrain revert, the cosmic signal. */
@@ -70,6 +96,11 @@ public final class Galactus {
 			if (level != null) {
 				e.serverTick(level);
 			}
+		}
+		com.projecthero.mod.galactus.orbit.OrbitDebris.tick(server); // v0.17.2 raid v2: flying island rock
+		com.projecthero.mod.galactus.cinematic.GalactusCinematics.tick(server);
+		if (server.getTickCount() % 100 == 7) {
+			com.projecthero.mod.galactus.orbit.GalactusOrbit.sweepStrays(server);
 		}
 		GalactusTerrain.get(server).tickRevert(server, Math.max(1, GalactusConfig.converters().revertPerTick));
 		if (server.getTickCount() % 20 == 3) {
@@ -226,7 +257,8 @@ public final class Galactus {
 				ServerPlayer player = c.getSource().getPlayerOrException();
 				GalactusEvent best = null;
 				for (GalactusEvent e : GalactusEvent.all(server)) {
-					if (e.isAt(player.serverLevel(), player.blockPosition(), 256)) {
+					if (e.isAt(player.serverLevel(), player.blockPosition(), 256)
+							|| com.projecthero.mod.galactus.orbit.GalactusOrbit.inOrbit(player) && com.projecthero.mod.galactus.orbit.GalactusOrbit.slotOf(player.getX()) == e.orbitSlot()) {
 						best = e;
 					}
 				}

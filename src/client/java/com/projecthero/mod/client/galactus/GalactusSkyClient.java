@@ -17,6 +17,13 @@ public final class GalactusSkyClient {
 	}
 
 	public static void accept(GalactusSkyPayload p) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level != null && mc.level.dimension() == com.projecthero.mod.galactus.orbit.GalactusOrbit.DIMENSION) {
+			// v0.17.2 raid v2: up in the orbit the packet drives the Earth's grey and the feed ribbon, not the daytime stars
+			GalactusOrbitSky.consumption = p.active() ? p.consumption() : 0f;
+			GalactusOrbitSky.feed = p.active() && p.stage() == 4 ? 1f : 0f;
+			return;
+		}
 		state = p.active() ? p : null;
 	}
 
