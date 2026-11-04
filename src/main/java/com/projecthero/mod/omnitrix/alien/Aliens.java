@@ -60,6 +60,8 @@ public final class Aliens {
 	public static final Alien UPCHUCK = declare("upchuck", 0x7CC83A);
 	// v0.17.2 (user: "Also build buzzshock please ... Make this another alien you unlock on the 11th mistransformation")
 	public static final Alien BUZZSHOCK = declare("buzzshock", 0x9CFF30);
+	// v0.17.2 (user: "build a feedback alien please ... add him to the mistransformation list")
+	public static final Alien FEEDBACK = declare("feedback", 0xE0B23C);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
@@ -118,7 +120,7 @@ public final class Aliens {
 	 * it an even chance to unlock either cannonbolt or wildvine"): an even pick among the ones still hidden ({@link #pickHidden}) -- add
 	 * an id here and it joins the draw.
 	 */
-	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine", "ditto", "way_big", "upchuck", "buzzshock");
+	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine", "ditto", "way_big", "upchuck", "buzzshock", "feedback");
 	/**
 	 * v0.17.2: hidden aliens no mistransform finds -- only their unlock item (Way Big: the To'kustar Shard, the Abyssal Behemoth's
 	 * drop).

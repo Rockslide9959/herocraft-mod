@@ -1,0 +1,380 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Supplier;
+
+import com.projecthero.mod.client.omnitrix.alien.FeedbackCables;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.feedback.FeedbackKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.SmallFireball;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Feedback -- turnaround stills, plug close-ups, a cable-motion run and a combat run. Enabled by run/feedback.flag. */
+public final class FeedbackHarness {
+	/** The camera (FeedbackHarnessCameraMixin): offset from the player (or from camAbs), looking at the player + camTarget (or camAbs). */
+	public static volatile Vec3 camOffset, camTarget = new Vec3(0, 1.05, 0);
+	public static volatile Supplier<Vec3> camAbs;
+
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static int frame;
+	private static Vec3 home;
+	private static Mob golem, blaze, skeleton;
+
+	private FeedbackHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("feedback.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(FeedbackHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "feedback-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static FeedbackKit kit() {
+		return (FeedbackKit) Aliens.kit(FeedbackKit.ID);
+	}
+
+	private static Mob mob(ServerPlayer p, EntityType<? extends Mob> type, double dx, double dz) {
+		Mob m = type.create(p.serverLevel());
+		m.moveTo(home.x + dx, home.y, home.z + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		p.serverLevel().addFreshEntity(m);
+		return m;
+	}
+
+	private static void face(ServerPlayer p, Vec3 at) {
+		Vec3 d = at.subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static Vec3 chest(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.6, 0);
+	}
+
+	private static void ready(ServerPlayer p) {
+		for (var m : kit().moves()) {
+			kit().cooldown(p, m.id(), 0);
+		}
+	}
+
+	private static void cam(double x, double y, double z) {
+		camAbs = null;
+		camTarget = new Vec3(0, 1.05, 0);
+		camOffset = new Vec3(x, y, z);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FeedbackHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, FeedbackKit.ID, true);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> Omnitrix.select(p, FeedbackKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+				Omnitrix.select(p, FeedbackKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+			});
+		}
+		// ---- the turnaround (he faces +z: his left is +x)
+		if (t == 60) {
+			mc.getWindow().setWindowed(1280, 720);
+		}
+		if (t == 140) {
+			cam(0, 1.25, 2.6);
+		}
+		if (t == 175) {
+			shot(mc, "fb_front");
+		}
+		if (t == 178) {
+			cam(1.9, 1.45, 2.0);
+		}
+		if (t == 205) {
+			shot(mc, "fb_threequarter");
+		}
+		if (t == 208) {
+			cam(2.8, 1.2, 0);
+		}
+		if (t == 235) {
+			shot(mc, "fb_side_left");
+		}
+		if (t == 238) {
+			cam(0, 1.45, -2.8);
+		}
+		if (t == 265) {
+			shot(mc, "fb_back");
+		}
+		if (t == 268) {
+			cam(-2.8, 1.2, 0);
+		}
+		if (t == 295) {
+			shot(mc, "fb_side_right");
+			cam(-1.6, 1.5, 2.3); // the reference picture's angle: from his front-right
+		}
+		if (t == 297) {
+			shot(mc, "fb_threequarter_right");
+		}
+		// ---- close-ups: a plug on the tail, one on an ear, a hand
+		if (t == 298) {
+			camAbs = () -> FeedbackCables.tip(mc.player, 2, 1f);
+			camOffset = new Vec3(0.75, 0.35, 0.55);
+		}
+		if (t == 310) {
+			shot(mc, "fb_plug_tail");
+		}
+		if (t == 312) {
+			camAbs = () -> FeedbackCables.tip(mc.player, 0, 1f);
+			camOffset = new Vec3(0.8, 0.2, -0.2);
+		}
+		if (t == 324) {
+			shot(mc, "fb_plug_ear");
+		}
+		if (t == 326) {
+			camAbs = () -> mc.player.position().add(-0.33, 0.66, 0.0);
+			camOffset = new Vec3(-0.75, 0.12, 0.6);
+		}
+		if (t == 338) {
+			shot(mc, "fb_hand");
+		}
+		// ---- the motion run: frames 342..461 -- walk, stop, turn, leap; the cords lag, swing and settle
+		if (t == 340) {
+			cam(-2.5, 1.5, -2.1);
+		}
+		if (t >= 342 && t < 462) {
+			Screenshot.grab(mc.gameDirectory, String.format("fbm_%03d.png", frame++), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (t >= 346 && t < 372) {
+			mc.options.keyUp.setDown(true);
+		}
+		if (t == 372) {
+			mc.options.keyUp.setDown(false);
+		}
+		if (t >= 392 && t < 412) {
+			float yaw = (t - 392) * 6f;
+			mc.player.setYRot(yaw);
+			mc.player.setYHeadRot(yaw);
+		}
+		if (t == 424) {
+			server(mc, p -> {
+				ready(p);
+				kit().leap(p);
+			});
+		}
+		// ---- the combat run: frames 470..669 -- absorb arrows and a fireball, redirect, blast, rapid fire, plug in, whip, discharge
+		if (t == 464) {
+			frame = 0;
+			cam(3.4, 1.7, 1.6);
+			camTarget = new Vec3(0, 1.0, 2.0);
+			server(mc, p -> {
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+				p.setYRot(0f);
+				p.setYHeadRot(0f);
+				golem = mob(p, EntityType.IRON_GOLEM, 0, 7);
+				blaze = mob(p, EntityType.BLAZE, -3.5, 6);
+				skeleton = mob(p, EntityType.SKELETON, 3.5, 6);
+				p.serverLevel().setBlockAndUpdate(net.minecraft.core.BlockPos.containing(home.x + 2, home.y, home.z + 2), Blocks.REDSTONE_BLOCK.defaultBlockState());
+			});
+		}
+		if (t >= 470 && t < 670) {
+			Screenshot.grab(mc.gameDirectory, String.format("fbc_%03d.png", frame++), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (t == 474) {
+			server(mc, p -> {
+				ready(p);
+				System.out.println("[HARNESS] absorb=" + kit().absorb(p));
+			});
+		}
+		if (t == 480 || t == 488) {
+			server(mc, p -> {
+				Vec3 from = chest(skeleton);
+				Arrow a = new Arrow(p.serverLevel(), from.x, from.y, from.z, new ItemStack(Items.ARROW), null);
+				a.setOwner(skeleton);
+				Vec3 d = chest(p).subtract(from);
+				a.shoot(d.x, d.y + d.length() * 0.05, d.z, 1.6f, 0f);
+				p.serverLevel().addFreshEntity(a);
+			});
+		}
+		if (t == 484) {
+			server(mc, p -> {
+				Vec3 from = chest(blaze);
+				Vec3 d = chest(p).subtract(from).normalize();
+				SmallFireball f = new SmallFireball(p.serverLevel(), blaze, d.scale(0.1));
+				f.setPos(from.x + d.x, from.y, from.z + d.z);
+				p.serverLevel().addFreshEntity(f);
+			});
+		}
+		if (t == 512) {
+			server(mc, p -> {
+				System.out.println("[HARNESS] charge after absorb=" + FeedbackKit.charge(p) + " banked=" + FeedbackKit.banked(p));
+				face(p, chest(blaze));
+				System.out.println("[HARNESS] redirect=" + kit().redirect(p));
+			});
+		}
+		if (t == 532) {
+			server(mc, p -> {
+				ready(p);
+				kit().fill(p, 80);
+				face(p, chest(golem));
+				System.out.println("[HARNESS] blast=" + kit().blast(p));
+			});
+		}
+		if (t == 546) {
+			server(mc, p -> {
+				ready(p);
+				System.out.println("[HARNESS] rapid=" + kit().rapidFire(p));
+			});
+		}
+		if (t == 572) {
+			server(mc, p -> {
+				ready(p);
+				face(p, chest(golem));
+				System.out.println("[HARNESS] plug golem=" + kit().plugIn(p));
+			});
+		}
+		if (t == 616) {
+			server(mc, p -> {
+				ready(p);
+				face(p, home.add(2.5, 0.5, 2.5));
+				System.out.println("[HARNESS] plug block=" + kit().plugIn(p));
+			});
+		}
+		if (t == 640) {
+			server(mc, p -> {
+				ready(p);
+				face(p, chest(golem));
+				System.out.println("[HARNESS] whip=" + kit().whip(p));
+			});
+		}
+		if (t == 654) {
+			server(mc, p -> {
+				ready(p);
+				kit().fill(p, 100);
+				System.out.println("[HARNESS] discharge=" + kit().discharge(p));
+			});
+		}
+		if (t == 672) {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				ready(p);
+				kit().fill(p, 64);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 15f);
+			});
+		}
+		if (t == 690) {
+			shot(mc, "fb_firstperson");
+		}
+		if (t == 696) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -1,0 +1,188 @@
+# Omnitrix: Feedback (v0.17.2)
+
+User: "build a feedback alien please, do research on his powers and abilites in the show and base his moves on that please, add him
+to the mistransformation list. use this skin: https://www.planetminecraft.com/skin/feedback-ben-10-5251468/ Give him the tail and long
+ear things with the plug things at the end please, look at the references and make sure the his tail and ear things look good and
+that the plugs at the end look really accurate aswell please, please do this well im begging you claude".
+
+Feedback belongs to the **prototype** Omnitrix. His dial glyph is U+E01A, after Buzzshock's U+E019. He is not on the Recalibrated
+Omnitrix.
+
+## Found by accident
+
+- He is a hidden alien (`Aliens.HIDDEN`), like Cannonbolt, Wildvine, Ditto, Upchuck and Buzzshock. At first he is **not on the dial**.
+- Every 11th mistransform (22nd, 33rd...) finds one hidden alien a mistransform can find. The pick is random and even among the ones
+  still unfound (`Aliens.pickHidden` / `unfound`), so he joins that draw. Way Big is `ITEM_ONLY` and stays out of it.
+- Once found, he is on the dial for good. The unlock belongs to the player, so taking the watch off and putting it back on keeps
+  him (`Omnitrix.keepPlayerData`).
+- Test tools: `/projecthero power tune omnitrix found on|off` and `mistransforms <count>`, as for Cannonbolt.
+
+## In the show (Ben 10: Omniverse)
+
+Feedback is a Conductoid, from Teslavorr. He is lanky and black, with a white chest panel (the Omnitrix in its middle), one green eye
+and a wide toothy grin. Two long antenna cables grow from the back of his head and one long tail from his lower back. All three end in
+gold plugs with prongs, and his fingers and toes are capped in gold plugs too. He was Ben's favourite Omniverse alien.
+
+What he does in the show:
+- He **absorbs energy** through his plugs, fingertips and antennae: electricity, energy blasts, lasers, power lines.
+- He **redirects** what he absorbed as powerful blasts. The species' name is about conducting it. Ben turned Malware's own energy back
+  on him this way.
+- He **plugs his cables into machines** and power sources and drains them.
+- He fires energy he has stored as bolts and beams.
+- He is agile and quick, with sharp reflexes (he knocked one of Ultimate Humungousaur's missiles back at him), and whips with his
+  cables and tail.
+
+His weaknesses in the show:
+- He needs energy to work with. Without a source he is a lanky brawler.
+- Too much energy at once can overload a Conductoid.
+
+Sources: the show itself; the Ben 10 wiki's Conductoid page (https://ben10.fandom.com/wiki/Conductoid) for the redirection and the
+missile reflexes; a fan FAQ summary of the plug-like fingers, tail and antennae. Fan-fiction wikis were not used.
+
+## Body
+
+The skin is the user's planetminecraft skin. It was downloaded through the built-in browser, since planetminecraft blocks curl
+(`scratchpad/ben10_v0171/feedback_dl/feedback_skin.png`).
+
+| | |
+|---|---|
+| Health | 32 |
+| Armour | 8 |
+| Speed | 1.2 |
+| Size | x1.05 (lanky, a little taller than Ben) |
+| Jump | +0.35 |
+| Fists | +3 (the attack stat), plus Plug Fingers' shock |
+| Safe fall | 6 blocks |
+
+- **Badge:** the skin paints the Omnitrix as a little hourglass in the middle of the white chest panel (jacket texels 23..24 x
+  37..39, over a dark pair on the body layer). `gen_feedback.js` paints those in the panel's own whites, and the mod's badge sits there
+  (body bone, y 2.5).
+- **Eye:** `feedback_glow.png` draws his one green eye full-bright.
+
+### The cables and plugs (FeedbackCables)
+
+The reference pictures are in `docs/reference/feedback/`.
+
+- **Three cords:** his left ear rises off the back of his head in a high arc and falls to his hip. His right ear loops out lower and
+  hangs to his hip. The tail leaves the small of his back and curves down to the ground beside him. Those resting shapes are
+  Catmull-Rom curves through hand-placed points, traced from the references. The ears ride the head bone (they turn and nod with it);
+  the tail rides the body.
+- **Physics:** each cord is a rope of 14 points simulated in the world every client tick (verlet, like Ghostfreak's tail). The root
+  is pinned. The rest keep their momentum, with a springy pull back to the resting shape: strong near the root, soft at the tip. So the
+  cords lag when he runs, swing out on a turn, trail behind a leap and settle again, with a slow idle sway. They are pushed out of
+  blocks (they lie on the floor and bend round walls) and out of his torso.
+- **Drawn smooth:** the points go through a spline, 4 rings a link and 8 sides a ring. A parallel-transport frame keeps them from
+  twisting, with smooth normals. They are blue-black (0x1F242B), between the skin's darks. The ears are about 1.5 px thick. The tail
+  swells to 2.7 px where it leaves his back.
+- **The plugs** follow the reference:
+  - a round gold barrel, 12-sided, 2.5 px across and 6.5 px long (the reference's 2.6 : 1), a little over twice the cord's width
+  - the cord enters a black socket that fills almost all of its back face, with a thin gold lip
+  - three thin dark-brown ring grooves (each a small step in), toward the front, split it into four bands
+  - a bevelled front
+  - two thin, flat, paler gold prongs side by side out of the front (about 0.3 of the barrel's length), set well apart with their flat faces toward each other
+
+  They light up yellow as his Charge fills, flicker when he is nearly full, and spark at 60+.
+- **Finger and toe caps:** each hand has three fingers and a thumb. Each is a short black finger ending in a gold cap, with a dark lip,
+  a groove near the tip and a dark hole in the end, like the reference's. Each foot has three smaller caps at the toes. The first-person
+  hand has its caps too.
+- **Checked against the references** over four in-game passes (see docs/screenshots/v0172/feedback/side_by_side_*.png). The passes made the ear arcs bigger and wider, the plugs longer and their grooves finer, and the finger caps chunkier.
+- **Moves bend them:** Absorb flares all three cords forward round him, plugs facing out. Plug Whip sweeps the tail round in front
+  of him at waist height. Plug In stretches all three out to what they plug into, and beads of light run up them into him. Cable
+  Swing stretches his left ear to the block it plugs into.
+
+## Charge
+
+His meter (HUD: "Charge", 0-100, flashing FULL).
+
+| Fills it | |
+|---|---|
+| Absorb (G), braced | shots, energy, fire and explosions: no damage, 4 Charge for each point |
+| Energy Sponge (always) | energy hits (fireballs, wither skulls, the Warden's boom, magic bolts, alien blasts) do half; the other half is Charge (x4) |
+| Lightning | never hurts: +40 (once a second) |
+| Plug In (Shift+Z) | a power source: 1-3 Charge a tick for 2 s; a creature: +6 every half second (machines +9) |
+| Plug Fingers (punch) | +3 |
+| Storm Feeder | a thunderstorm under open sky: +1 a second |
+
+**Power sources:**
+- 1 a tick: powered redstone wire, anything powered or lit (levers, buttons, repeaters, rails, lamps, furnaces), and any block
+  giving a signal
+- 2 a tick: a redstone block, a beacon, or a charged respawn anchor (drained: one charge a second)
+- 3 a tick: a powered lightning rod
+
+What you absorb in the last 15 s is also banked for Redirect.
+
+## Keys
+
+| Key | Move | What it does | Cooldown |
+|---|---|---|---|
+| R | **Feedback Blast** | a fingertip bolt at the crosshair (28): 14 for 10 Charge, knocked back; with less, a Static Spark (6) | 0.6 s |
+| Shift+R | **Rapid Fire** | five bolts from alternating hands over a second (25 Charge): 6 each | 7 s |
+| G | **Absorb** | 3 s braced, arms and plugs out: shots, energy, fire and blasts become Charge instead of damage | 8 s |
+| Shift+G | **Redirect** | sends back what you absorbed in the last 15 s (15 Charge): 12 + 1.5x it, 30 at most, at the crosshair or back at whoever sent it | 5 s |
+| X | **Conductoid Leap** | a long springy leap where you look; no fall damage for 2 s | 2 s |
+| Shift+X | **Cable Swing** | an antenna plugs into the block you look at (24) and yanks you to it; no fall damage when you land | 3 s |
+| Z | **Plug Whip** | the tail lashes across in front of you (4 blocks, 140 degrees): 12, knocked back; with 5 Charge the plug discharges for 4 more | 2.5 s |
+| Shift+Z | **Plug In** | cables plug into the creature you look at (8) or the nearest power within 6. Power: Charge for 2 s. A creature: drained 3 every half second (+6 Charge; machines x1.5 and stunned), then reeled in | 10 s |
+| V | **Power Feed** | 25 Charge into 6 health; clears slowness and weakness | 5 s |
+| Shift+V | **Overclock** | 30 Charge: 10 s of Speed II, Jump Boost II and shocks x1.25 | 20 s |
+| C | **Full Discharge** (ultimate) | 40+ Charge, spends all of it: 14-30 to everything within 3-8 blocks (by Charge), knocked back, stunned 1 s (machines 3 s) | 45 s |
+| Shift+C | **Feedback Cannon** | 50 Charge: a piercing beam (32): 24 to everything on it, knocked back, stunned 0.5 s | 15 s |
+
+H is the power selector and N is the Omnitrix's, as for every alien. A move that needs Charge (or a target, an anchor or a power
+source) refuses with a message and spends no cooldown.
+
+Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the ultimate up to 30.
+
+## Passives
+
+- **Plug Fingers** (attack): a punch shocks for 3 more (scaled by the swing's charge) and sips 3 Charge.
+- **Conductoid:** lightning never hurts him; a strike is 40 Charge.
+- **Energy Sponge:** half of any energy hit is drunk, even unbraced.
+- **Storm Feeder:** +1 Charge a second in a thunderstorm under open sky.
+- **Machine Drainer:** his shocks do x1.5 to machines (Upgrade's `UpgradeKit.machine`: golems and mechanical mobs), and draining
+  one gives half again.
+
+## Weaknesses
+
+- **Overcharge:** absorbing when his Charge is full overloads him: 2 damage and slowed for 2 s (once a second).
+- **Grounded:** in water his Charge leaks away, 2 a second.
+- **Needs energy:** without Charge his blast is a weak spark, and Rapid Fire, Redirect, Feed, Overclock, Discharge and the Cannon are locked.
+- Not on the dial until a mistransform finds him.
+
+## Build notes
+
+- Server: `omnitrix/alien/feedback/FeedbackKit`. Charge is a synced kit timer (`feedback.charge`), as Upchuck's Gut is. The plug
+  target (a block as `BlockPos.asLong`, or an entity id + 1) and the swing anchor (raw double bits) are synced timers too, so the
+  client can stretch the cords to them.
+- Client: `client/omnitrix/alien/FeedbackClient` (skin, badge, eye, poses, first-person clips, the Charge HUD), `FeedbackCables` (the
+  cords, plugs, caps and their glow and pulses), and `alien/feedback/FeedbackFx` (bolts).
+- **Bolts:** short-lived held `AlienProjectileEntity` carriers, as Buzzshock's are:
+  - `feedback_arc`: a bolt from his hand (or from the entity the colour field names)
+  - `feedback_big`: the Redirect, Discharge and Cannon bolt
+  - `feedback_suck`: energy pulled from what he absorbs or drains into his nearest plug
+
+  All are drawn with `BrainstormFx.bolt` in his pale electric yellow (0xF2E25A).
+- **Registration:**
+  - `Aliens.FEEDBACK` and `Aliens.HIDDEN`
+  - `OmnitrixMod` (register, and `clearSessionState`, which `ServerStateReset` calls)
+  - `OmnitrixClient`
+  - the `OmnitrixInfo.DIAL_ORDER` glyph list (after `buzzshock`)
+  - `font/omnitrix_dial.json` (U+E01A)
+- **Textures:** `scratchpad/ben10_v0171/gen_feedback.js`. The dial icon is a **placeholder** for now:
+  `gen_feedback_dial_placeholder.js` (his head, eye, grin and the two plugged antennae) through
+  `scratchpad/gen_omnitrix_icon_transplant.js feedback=<source>`, so the frame matches the others exactly. When the user sends his
+  icon, rerun the transplant with it.
+- **Tests:** `OmnitrixFeedbackGameTests`:
+  - the dial and glyph, and every key having a move
+  - blasts spending Charge, and hitting machines harder
+  - moves that need Charge refusing when empty
+  - Absorb, Redirect and the Energy Sponge
+  - lightning and Overcharge
+  - Plug In on a redstone block and on a golem, and Plug Fingers
+  - the whip, Rapid Fire, Discharge and the Cannon, Feed and Overclock, the leap and swing, and water
+
+  Note that Hard difficulty scales a mob's shot at a player by 1.5, so what gets absorbed is the scaled amount. The discovery tests in
+  `OmnitrixCannonboltGameTests` now name Feedback in the pool. The prototype dial count is 17.
+- **In game:** `docs/screenshots/v0172/feedback/`, from the harness `scratchpad/FeedbackHarness.v0172.java.txt`. It needs a
+  `feedback.flag` file in its run dir, and a temporary camera mixin (`scratchpad/FeedbackHarnessCameraMixin.java.txt`) for the true
+  front, side and back views.

@@ -105,8 +105,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		// v0.17.2 (Buzzshock): the pool is every hidden alien a mistransform can find -- Cannonbolt, Wildvine, Ditto, Upchuck, Buzzshock (and any
 		// added later), never an item-only one (Way Big)
 		java.util.List<Aliens.Alien> pool = Aliens.mistransformFinds();
-		helper.assertTrue(pool.containsAll(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO, Aliens.UPCHUCK, Aliens.BUZZSHOCK)) && !pool.contains(Aliens.WAY_BIG),
-				"Cannonbolt, Wildvine, Ditto, Upchuck and Buzzshock are all a mistransform's to find, Way Big is not: " + pool);
+		helper.assertTrue(pool.containsAll(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO, Aliens.UPCHUCK, Aliens.BUZZSHOCK, Aliens.FEEDBACK)) && !pool.contains(Aliens.WAY_BIG),
+				"Cannonbolt, Wildvine, Ditto, Upchuck, Buzzshock and Feedback are all a mistransform's to find, Way Big is not: " + pool);
 		helper.assertTrue(Aliens.unfound(p).equals(pool), "all of them are left for a glitch to find: " + Aliens.unfound(p));
 		Omnitrix.setMistransforms(p, 8); // two ordinary mistransforms, then the 11th
 		helper.onEachTick(() -> {
@@ -125,13 +125,13 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	/**
 	 * v0.17.2 (user: "When it comes to unlocking new aliens make it an even chance to unlock either cannonbolt or wildvine if you dont
 	 * unlock any of them ... im gonna add more new laiens still"): the 11th mistransform finds one hidden alien, the 22nd another, the
-	 * 33rd the next, and so on for every hidden alien (five with Upchuck and Buzzshock) -- never the same one twice -- and after that nothing is left.
+	 * 33rd the next, and so on for every hidden alien (six with Upchuck, Buzzshock and Feedback) -- never the same one twice -- and after that nothing is left.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 12000)
 	public void every11thMistransformFindsEachHiddenAlienOnceWithNoRepeat(GameTestHelper helper) {
 		ServerPlayer p = proto(helper);
 		java.util.List<Aliens.Alien> pool = Aliens.mistransformFinds();
-		helper.assertTrue(pool.size() >= 5 && pool.contains(Aliens.BUZZSHOCK) && pool.contains(Aliens.UPCHUCK), "five or more to find (v0.17.2: + Buzzshock): " + pool);
+		helper.assertTrue(pool.size() >= 6 && pool.contains(Aliens.BUZZSHOCK) && pool.contains(Aliens.UPCHUCK) && pool.contains(Aliens.FEEDBACK), "six or more to find (v0.17.2: + Buzzshock, Feedback): " + pool);
 		Omnitrix.setMistransforms(p, 10); // the next one is the 11th
 		helper.onEachTick(() -> {
 			p.tickCount++;
@@ -164,7 +164,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		ServerPlayer p = proto(helper);
 		net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(1234L);
 		java.util.List<Aliens.Alien> left = new java.util.ArrayList<>(Aliens.mistransformFinds());
-		helper.assertTrue(left.contains(Aliens.BUZZSHOCK), "Buzzshock is in the draw");
+		helper.assertTrue(left.contains(Aliens.BUZZSHOCK) && left.contains(Aliens.FEEDBACK), "Buzzshock and Feedback are in the draw");
 		while (!left.isEmpty()) {
 			java.util.Map<Aliens.Alien, Integer> n = new java.util.HashMap<>();
 			int draws = 400 * left.size();
