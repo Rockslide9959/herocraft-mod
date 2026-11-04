@@ -123,44 +123,53 @@ public final class CannonboltHarness {
 				p.serverLevel().addFreshEntity(h);
 			});
 		}
-		if (t == 230) {
+		if (t == 200) {
+			server(mc, p -> kit().setBall(p, true));
+		}
+		if (t == 210) {
 			mc.options.hideGui = true;
-			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 10f));
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, 12f));
 		}
-		if (t == 245) {
-			shot(mc, "stand_front");
-			mc.getEntityRenderDispatcher().setRenderHitBoxes(true);
+		if (t == 215) {
+			mc.options.keyUp.setDown(true);
+			mc.options.keySprint.setDown(true);
 		}
-		if (t == 255) {
-			shot(mc, "hitbox_stand");
-			System.out.println("[HARNESS] stand bb=" + mc.player.getBbHeight() + " eye=" + mc.player.getEyeHeight() + " tag="
-					+ mc.player.getAttachments().getNullable(net.minecraft.world.entity.EntityAttachment.NAME_TAG, 0, 0f));
+		if (t > 215 && t <= 300) {
+			double sp = Math.hypot(mc.player.getX() - mc.player.xo, mc.player.getZ() - mc.player.zo);
+			if (t % 5 == 0) {
+				System.out.println("[HARNESS] t=" + t + " speed=" + String.format("%.3f", sp) + " b/t (" + String.format("%.1f", sp * 20) + " b/s) sprint="
+						+ mc.player.isSprinting() + " ground=" + mc.player.onGround());
+			}
 		}
-		if (t == 260) {
-			mc.getEntityRenderDispatcher().setRenderHitBoxes(false);
-			mc.setCameraEntity(mc.player);
-			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.options.hideGui = false;
-			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 220f, 0f));
+		if (t == 300) {
+			mc.options.keyJump.setDown(true);
 		}
-		if (t == 275) {
-			shot(mc, "chest_view");
-			mc.options.hideGui = true;
-			server(mc, p -> {
-				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 10f);
-				kit().setBall(p, true);
-			});
-			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		if (t == 302) {
+			mc.options.keyJump.setDown(false);
 		}
-		if (t == 295) {
-			shot(mc, "ball_size");
-			mc.getEntityRenderDispatcher().setRenderHitBoxes(true);
+		if (t >= 296 && t < 344 && t % 2 == 0) {
+			shot(mc, String.format("launch_%03d", (t - 296) / 2));
 		}
-		if (t == 305) {
-			shot(mc, "hitbox_ball");
-			System.out.println("[HARNESS] ball bb=" + mc.player.getBbHeight() + "x" + mc.player.getBbWidth() + " eye=" + mc.player.getEyeHeight());
-			mc.getEntityRenderDispatcher().setRenderHitBoxes(false);
+		if (t > 300 && t < 344) {
+			System.out.println("[HARNESS] t=" + t + " y=" + String.format("%.2f", mc.player.getY()) + " v=" + String.format("%.2f", Math.hypot(mc.player.getX() - mc.player.xo, mc.player.getZ() - mc.player.zo)));
+		}
+		if (t == 344) {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		}
+		if (t == 352) {
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY() + 30, p.getZ(), 0f, 35f));
+		}
+		if (t >= 352 && t < 452 && t % 2 == 0) {
+			shot(mc, String.format("fall_%03d", (t - 352) / 2));
+			final int tt = t;
+			server(mc, p -> System.out.println("[HARNESS] t=" + tt + " y=" + String.format("%.2f", p.getY()) + " bounces=" + CannonboltKit.bouncesLeft(p)
+					+ " hp=" + p.getHealth()));
+		}
+		if (t == 460) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
 		}
 		if (t == 420) {
 			System.out.println("[HARNESS] done");

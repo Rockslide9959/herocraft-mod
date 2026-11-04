@@ -104,6 +104,21 @@ public final class CannonboltKit extends AlienKit {
 			BOOST_TICKS = 100, SPIN_TICKS = 40, UNSTOPPABLE_TICKS = 160, MOMENTUM_TICKS = 60;
 	/** Horizontal blocks / tick before rolling into something hurts it. */
 	public static final double RAM_SPEED = 0.3;
+	/**
+	 * v0.17.2 (user: "make cannonbolts ball form move at 25 blocks per second while sprinting"): the roll's speed bonus while
+	 * sprinting at full Momentum (tuned in game: 1.25 blocks a tick on flat ground). Plain rolling keeps 1.0 + 1.2 x Momentum.
+	 */
+	public static final double SPRINT_TOP_BONUS = 4.57; // measured 1.235 b/t at 4.5
+	/** v0.17.2 (user: "when he sprint jumps its more like a forward launch kind of thing"): the launch's speed out (blocks / tick) and lift. */
+	public static final double LAUNCH_SPEED = 1.7, LAUNCH_LIFT = 0.5;
+	public static final float LAUNCH_LAND_DAMAGE = 12f;
+	public static final int LAUNCH_GAP_TICKS = 16;
+	/**
+	 * v0.17.2 (user: "if he falls from a great distance the ball form should bounce a bit first"): after a fall that would hurt
+	 * (8+ blocks) the ball bounces up to this many times, each {@link #BOUNCE_KEEP} of the last, then settles.
+	 */
+	public static final int FALL_BOUNCES = 3;
+	public static final double BOUNCE_KEEP = 0.55, BOUNCE_MIN = 0.22;
 	/** v0.17.2 (user: "make canonbolts ball form 1,75 blocks tall please"): the ball's hitbox before the body's scale (1.3). */
 	public static final float BALL_SIZE = 1.75f / 1.3f;
 	/**
@@ -163,19 +178,42 @@ public final class CannonboltKit extends AlienKit {
 	}
 
 	private enum AirKind {
-		CURL_SMASH, BOUNCE, DROP
+		CURL_SMASH, BOUNCE, DROP, LAUNCH
 	}
 
 	private static final class Air {
 		final AirKind kind;
 		final long start;
 		boolean falling;
+		/** The Sprint Launch: the way he was fired (he lands still rolling that way). */
+		Vec3 dir = Vec3.ZERO;
 
 		Air(AirKind kind, long start) {
 			this.kind = kind;
 			this.start = start;
 		}
 	}
+
+	/** v0.17.2: a high fall's bounces still to come -- the next bounce's lift, how many are left, when it began. */
+	private static final class Bounces {
+		double lift;
+		int left;
+		final long start;
+		boolean airborne;
+
+		Bounces(double lift, int left, long start) {
+			this.lift = lift;
+			this.left = left;
+			this.start = start;
+		}
+	}
+
+	private static final Map<UUID, Bounces> BOUNCES = new ConcurrentHashMap<>();
+	/** Last tick's real motion (the client moves the player: the server's own velocity is not his). */
+	private static final Map<UUID, Vec3> LAST_MOVE = new ConcurrentHashMap<>();
+	/** Whether he stood on the ground last tick (the sprint jump), and the tick the last launch fired. */
+	private static final Map<UUID, Boolean> WAS_GROUND = new ConcurrentHashMap<>();
+	private static final Map<UUID, Long> LAST_LAUNCH = new ConcurrentHashMap<>();
 
 	private static final Map<UUID, Dash> DASHES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Rico> RICOS = new ConcurrentHashMap<>();
@@ -203,6 +241,10 @@ public final class CannonboltKit extends AlienKit {
 		ROLLED.clear();
 		RAMMED.clear();
 		LAST_TICK.clear();
+		BOUNCES.clear();
+		LAST_MOVE.clear();
+		WAS_GROUND.clear();
+		LAST_LAUNCH.clear();
 	}
 
 	@Override
@@ -265,6 +307,11 @@ public final class CannonboltKit extends AlienKit {
 			case SLOT_1 -> flag(p, F_RICOCHET);
 			default -> false;
 		};
+	}
+
+	/** v0.17.2: {@code p} is Cannonbolt rolled up right now (the server's "moved too quickly" check waves his top speed through). */
+	public static boolean rolling(Player p) {
+		return p != null && ID.equals(Omnitrix.active(p)) && ball(p);
 	}
 
 	/** Client-safe: whether {@code p} is rolled up (Ball Mode). */
@@ -336,6 +383,10 @@ public final class CannonboltKit extends AlienKit {
 		ROLLED.remove(id);
 		RAMMED.remove(id);
 		LAST_TICK.remove(id);
+		BOUNCES.remove(id);
+		LAST_MOVE.remove(id);
+		WAS_GROUND.remove(id);
+		LAST_LAUNCH.remove(id);
 	}
 
 	private static void clearRoll(ServerPlayer p) {
@@ -470,6 +521,7 @@ public final class CannonboltKit extends AlienKit {
 				DASHES.remove(p.getUUID());
 			}
 			ROLLED.remove(p.getUUID());
+			BOUNCES.remove(p.getUUID());
 			clearRoll(p);
 			anim(p, ANIM_UNCURL);
 			OmnitrixSounds.play(l, p.position(), SND_UNCURL, 1.0f, 1.0f);
@@ -627,9 +679,10 @@ public final class CannonboltKit extends AlienKit {
 		if (!use(p, BOUNCE)) {
 			return false;
 		}
-		Vec3 v = p.getDeltaMovement();
+		Vec3 v = motion(p);
 		p.setDeltaMovement(v.x, 1.25, v.z);
 		p.hurtMarked = true;
+		BOUNCES.remove(p.getUUID());
 		AIRS.put(p.getUUID(), new Air(AirKind.BOUNCE, p.level().getGameTime()));
 		setFlag(p, F_AIR, true);
 		OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 0.8f, 0.7f);
@@ -643,6 +696,7 @@ public final class CannonboltKit extends AlienKit {
 		}
 		p.setDeltaMovement(0, 1.7, 0);
 		p.hurtMarked = true;
+		BOUNCES.remove(p.getUUID());
 		AIRS.put(p.getUUID(), new Air(AirKind.DROP, p.level().getGameTime()));
 		setFlag(p, F_AIR, true);
 		OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 1.0f, 0.6f);
@@ -701,7 +755,11 @@ public final class CannonboltKit extends AlienKit {
 		double speed = Math.sqrt(moved.x * moved.x + moved.z * moved.z);
 		if (speed > 4.0) {
 			speed = 0; // a teleport, not a roll
+			moved = Vec3.ZERO;
 		}
+		LAST_MOVE.put(p.getUUID(), moved);
+		boolean onGround = p.onGround();
+		Boolean wasGround = WAS_GROUND.put(p.getUUID(), onGround);
 		endTimed(p, "guard_end", F_GUARD, now);
 		endTimed(p, "boost_end", F_BOOST, now);
 		endTimed(p, "spin_end", F_SPIN, now);
@@ -710,6 +768,10 @@ public final class CannonboltKit extends AlienKit {
 		tickDash(p, l, now);
 		tickRicochet(p, l, now);
 		tickAir(p, l, now);
+		if (ball && Boolean.TRUE.equals(wasGround) && !onGround && moved.y > 0.2 && p.isSprinting()) {
+			sprintLaunch(p, l, now, moved);
+		}
+		tickBounces(p, l, now);
 		if (ball) {
 			tickRoll(p, l, now, moved, speed);
 			if (flag(p, F_SPIN)) {
@@ -748,7 +810,11 @@ public final class CannonboltKit extends AlienKit {
 		int rolled = ROLLED.getOrDefault(p.getUUID(), 0);
 		rolled = speed > 0.12 ? Math.min(MOMENTUM_TICKS, rolled + 1) : speed < 0.04 ? 0 : rolled;
 		ROLLED.put(p.getUUID(), rolled);
-		double bonus = 1.0 + 1.2 * rolled / (double) MOMENTUM_TICKS + (flag(p, F_BOOST) ? 0.8 : 0) + (flag(p, F_UNSTOPPABLE) ? 1.0 : 0);
+		double mom = rolled / (double) MOMENTUM_TICKS;
+		// v0.17.2 (user): sprinting, he builds to 25 blocks a second; Roll Boost / Unstoppable fill his Momentum (above) but never go
+		// past that top speed -- walking, they add on as before
+		double bonus = p.isSprinting() ? 1.0 + (SPRINT_TOP_BONUS - 1.0) * mom
+				: 1.0 + 1.2 * mom + (flag(p, F_BOOST) ? 0.8 : 0) + (flag(p, F_UNSTOPPABLE) ? 1.0 : 0);
 		if (flag(p, F_SPIN)) {
 			bonus = -0.5;
 		}
@@ -939,6 +1005,10 @@ public final class CannonboltKit extends AlienKit {
 			if (t > 200 || p.isInWater()) {
 				return;
 			}
+			if (a.kind == AirKind.LAUNCH) {
+				landLaunch(p, l, a);
+				return;
+			}
 			float damage = a.kind == AirKind.DROP ? DROP_DAMAGE : a.kind == AirKind.BOUNCE ? BOUNCE_DAMAGE : CURL_SMASH_DAMAGE;
 			float radius = a.kind == AirKind.DROP ? 5f : a.kind == AirKind.BOUNCE ? 4f : 3.5f;
 			Vec3 c = p.position();
@@ -954,6 +1024,104 @@ public final class CannonboltKit extends AlienKit {
 				anim(p, ANIM_UNCURL);
 			}
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.2: the Sprint Launch and the fall bounces
+
+	/** His real motion last tick (horizontal), for anything that sets his velocity (the server's own is not his). */
+	private static Vec3 motion(ServerPlayer p) {
+		Vec3 m = LAST_MOVE.getOrDefault(p.getUUID(), Vec3.ZERO);
+		return new Vec3(m.x, 0, m.z);
+	}
+
+	/**
+	 * v0.17.2 (user: "when he sprint jumps its more like a forward launch kind of thing"): a sprint jump in Ball Mode fires him
+	 * forward where he looks -- a long, low arc at least as fast as he was rolling -- in a puff of dust and a crack.
+	 */
+	private void sprintLaunch(ServerPlayer p, ServerLevel l, long now, Vec3 moved) {
+		if (AIRS.containsKey(p.getUUID()) || DASHES.containsKey(p.getUUID()) || RICOS.containsKey(p.getUUID()) || flag(p, F_SPIN)) {
+			return;
+		}
+		Long last = LAST_LAUNCH.get(p.getUUID());
+		if (last != null && now - last < LAUNCH_GAP_TICKS) {
+			return;
+		}
+		LAST_LAUNCH.put(p.getUUID(), now);
+		BOUNCES.remove(p.getUUID());
+		Vec3 dir = flat(p);
+		double speed = Math.max(LAUNCH_SPEED, Math.sqrt(moved.x * moved.x + moved.z * moved.z) * 1.2);
+		p.setDeltaMovement(dir.x * speed, LAUNCH_LIFT, dir.z * speed);
+		p.hurtMarked = true;
+		Air a = new Air(AirKind.LAUNCH, now);
+		a.dir = dir;
+		AIRS.put(p.getUUID(), a);
+		setFlag(p, F_AIR, true);
+		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+		Vec3 c = center(p);
+		QuirkFx.ring(l, c.subtract(dir.scale(0.6))).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFFFFF, COLOUR).size(2.4f).thickness(0.5f).life(9).spawn();
+		dust(l, p.position(), 18);
+		l.sendParticles(ParticleTypes.CLOUD, c.x, p.getY() + 0.2, c.z, 10, 0.5, 0.1, 0.5, 0.05);
+		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 0.8f, 1.4f);
+	}
+
+	/** The launch comes down: a thud and a small ring (12 within 2.5), and he rolls straight on at speed. */
+	private void landLaunch(ServerPlayer p, ServerLevel l, Air a) {
+		Vec3 c = p.position();
+		for (LivingEntity e : around(p, c, 2.5)) {
+			hurt(p, e, LAUNCH_LAND_DAMAGE, false);
+			shove(e, c, 1.0, 0.4);
+		}
+		QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(3.2f).thickness(0.6f).life(12).ground().spawn();
+		dust(l, c, 24);
+		QuirkCamera.shake(p, 0.3f, 6);
+		OmnitrixSounds.play(l, c, SND_IMPACT, 1.0f, 0.9f);
+		p.setDeltaMovement(a.dir.x * 0.9, 0, a.dir.z * 0.9);
+		p.hurtMarked = true;
+		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+	}
+
+	/** One bounce of a high fall's run: up by the next lift, still rolling the way he was. */
+	private void bounceOnce(ServerPlayer p, ServerLevel l, Bounces b) {
+		Vec3 v = motion(p);
+		p.setDeltaMovement(v.x, b.lift, v.z);
+		p.hurtMarked = true;
+		b.airborne = false;
+		b.left--;
+		b.lift *= BOUNCE_KEEP;
+		l.sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + 0.2, p.getZ(), 8, 0.4, 0.05, 0.4, 0.2);
+		dust(l, p.position(), 10);
+		OmnitrixSounds.play(l, p.position(), SND_RICOCHET, 0.5f + (float) b.lift, 0.7f + (FALL_BOUNCES - b.left) * 0.12f);
+	}
+
+	/** The rest of a fall's bounces: each time he lands again, a smaller one, until they run out (never more than 6 s). */
+	private void tickBounces(ServerPlayer p, ServerLevel l, long now) {
+		Bounces b = BOUNCES.get(p.getUUID());
+		if (b == null) {
+			return;
+		}
+		if (!flag(p, F_BALL) || p.isInWater() || now - b.start > 120 || AIRS.containsKey(p.getUUID())) {
+			BOUNCES.remove(p.getUUID());
+			return;
+		}
+		p.resetFallDistance();
+		if (!p.onGround()) {
+			b.airborne = true;
+			return;
+		}
+		if (!b.airborne) {
+			return;
+		}
+		if (b.left <= 0 || b.lift < BOUNCE_MIN) {
+			BOUNCES.remove(p.getUUID()); // settled: he rolls on
+			return;
+		}
+		bounceOnce(p, l, b);
+	}
+
+	/** Gametests: the fall bounces still to come (0 = none running). */
+	public static int bouncesLeft(ServerPlayer p) {
+		Bounces b = BOUNCES.get(p.getUUID());
+		return b == null ? 0 : b.left;
 	}
 
 	// ---------------------------------------------------------------- helpers
@@ -1037,11 +1205,12 @@ public final class CannonboltKit extends AlienKit {
 				return false; // his own landings
 			}
 			if (ball) {
-				// the shell bounces off any fall instead of taking it
-				Vec3 v = p.getDeltaMovement();
-				p.setDeltaMovement(v.x, Math.min(1.2, 0.35 + amount * 0.05), v.z);
-				p.hurtMarked = true;
-				OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 0.7f, 0.7f);
+				// v0.17.2 (user: "if he falls from a great distance the ball form should bounce a bit first"): the shell takes no fall
+				// damage -- a fall that would have hurt (8+ blocks) starts a run of bounces, each smaller, then he rolls on
+				double lift = Mth.clamp(0.3 + amount * 0.04, 0.45, 1.1);
+				Bounces b = new Bounces(lift, FALL_BOUNCES, p.level().getGameTime());
+				BOUNCES.put(p.getUUID(), b);
+				bounceOnce(p, level(p), b);
 				return false;
 			}
 		}

@@ -273,6 +273,46 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "if he falls from a great distance the ball form should bounce a bit first"): a run of bounces that always ends. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aHighFallStartsBouncesThatAlwaysSettle(GameTestHelper helper) {
+		ServerPlayer p = cannonbolt(helper);
+		AlienKit kit = Aliens.kit(CannonboltKit.ID);
+		tap(p, AbilitySlot.SLOT_5, false);
+		Omnitrix.tick(p);
+		helper.assertFalse(kit.allowDamage(p, helper.getLevel().damageSources().fall(), 20f), "no fall damage rolled up");
+		helper.assertTrue(CannonboltKit.bouncesLeft(p) == CannonboltKit.FALL_BOUNCES - 1, "the first bounce, more to come: " + CannonboltKit.bouncesLeft(p));
+		helper.assertTrue(p.getDeltaMovement().y > 0.9, "a big fall's first bounce is high: " + p.getDeltaMovement().y);
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			Omnitrix.tick(p);
+		});
+		helper.runAfterDelay(130, () -> {
+			helper.assertTrue(CannonboltKit.bouncesLeft(p) == 0, "the bounces never run on forever");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 (user: "when he sprint jumps its more like a forward launch kind of thing"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aSprintJumpRolledUpIsAForwardLaunch(GameTestHelper helper) {
+		ServerPlayer p = cannonbolt(helper);
+		tap(p, AbilitySlot.SLOT_5, false);
+		p.setOnGround(true);
+		Omnitrix.tick(p); // on the ground
+		helper.runAfterDelay(1, () -> {
+			p.setSprinting(true);
+			p.setOnGround(false);
+			p.setPos(p.getX(), p.getY() + 0.42, p.getZ()); // the jump
+			Omnitrix.tick(p);
+			helper.assertTrue(CannonboltKit.moving(p), "the sprint jump fired him forward");
+			Vec3 v = p.getDeltaMovement();
+			helper.assertTrue(Math.hypot(v.x, v.z) >= CannonboltKit.LAUNCH_SPEED - 0.01 && v.y > 0.3, "a long, low arc: " + v);
+			helper.assertTrue(v.z > 0.5, "the way he faces (yaw 0 = +z): " + v);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void groundPoundAndShoulderBashHitStanding(GameTestHelper helper) {
 		ServerPlayer p = cannonbolt(helper);
