@@ -1436,7 +1436,9 @@ public final class Omnitrix {
 			// v0.17.2 (user: "make it so that on the 11th mistransformation the player unlocks a new alien which for now is just
 			// canonbolt"): every mistransform is counted; the 11th (then the 22nd... for later hidden aliens) lands on the next
 			// hidden alien and finds it -- the rest land on a random alien from the dial
-			Aliens.Alien hidden = Aliens.nextHidden(p);
+			// v0.17.2 (user: "make it an even chance to unlock either cannonbolt or wildvine if you dont unlock any of them"): which one is
+			// an even pick among every hidden alien he has not found yet
+			Aliens.Alien hidden = Aliens.pickHidden(p, p.getRandom());
 			String found = null;
 			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && (pool.size() > 1 || hidden != null)
 					&& p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {

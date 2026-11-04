@@ -44,14 +44,18 @@ public final class OmnitrixCommand {
 					}
 					return on ? "Now the Recalibrated Omnitrix" : "Now the prototype Omnitrix";
 				}))
-				// v0.17.2: the aliens found only by a mistransform (Cannonbolt) -- on the dial now, or hidden again
+				// v0.17.2: the aliens found only by a mistransform (Cannonbolt, Wildvine...) -- all on the dial now, or all hidden again
 				.then(onOff("found", (p, on) -> {
-					for (String id : new String[] { com.projecthero.mod.omnitrix.alien.Aliens.CANNONBOLT.id() }) {
-						com.projecthero.mod.omnitrix.alien.Aliens.discover(p, id, on);
+					java.util.List<String> names = new java.util.ArrayList<>();
+					for (com.projecthero.mod.omnitrix.alien.Aliens.Alien a : com.projecthero.mod.omnitrix.alien.Aliens.mistransformFinds()) {
+						com.projecthero.mod.omnitrix.alien.Aliens.discover(p, a.id(), on);
+						names.add(a.id());
 					}
-					return on ? "Cannonbolt is on your dial" : "Cannonbolt is hidden again (mistransform #" + OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS + " finds him)";
+					String list = String.join(", ", names);
+					return on ? "On your dial: " + list
+							: "Hidden again: " + list + " (every " + OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS + "th mistransform finds one at random)";
 				}))
-				// v0.17.2: how many mistransforms so far (the 11th finds Cannonbolt)
+				// v0.17.2: how many mistransforms so far (every 11th finds a hidden alien)
 				.then(Commands.literal("mistransforms")
 						.then(Commands.argument("count", IntegerArgumentType.integer(0, 10_000)).executes(c -> {
 							ServerPlayer p = wearer(c);
@@ -167,10 +171,17 @@ public final class OmnitrixCommand {
 		} else {
 			b.append("\n Transformations: ").append(Omnitrix.prototypeTransforms(p)).append("/").append(OmnitrixConfig.RECAL_MIN_TRANSFORMS);
 			b.append("\n Mistransforms: ").append(Omnitrix.glitches(p) ? "on" : "off").append(", ").append(Omnitrix.mistransforms(p)).append(" so far");
-			com.projecthero.mod.omnitrix.alien.Aliens.Alien next = com.projecthero.mod.omnitrix.alien.Aliens.nextHidden(p);
-			if (next != null) {
+			// v0.17.2: every hidden alien still unfound -- the next unlocking mistransform picks one of them at random
+			java.util.List<String> left = new java.util.ArrayList<>();
+			for (com.projecthero.mod.omnitrix.alien.Aliens.Alien a : com.projecthero.mod.omnitrix.alien.Aliens.unfound(p)) {
+				left.add(a.id());
+			}
+			if (!left.isEmpty()) {
 				int every = OmnitrixConfig.UNLOCK_EVERY_MISTRANSFORMS;
-				b.append(" (").append(next.id()).append(" on #").append((Omnitrix.mistransforms(p) / every + 1) * every).append(")");
+				b.append("\n Unfound: ").append(String.join(", ", left)).append(" (one at random on #")
+						.append((Omnitrix.mistransforms(p) / every + 1) * every).append(")");
+			} else {
+				b.append("\n Unfound: none");
 			}
 		}
 		if (OmnitrixRecal.busy(s)) {

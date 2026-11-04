@@ -596,34 +596,35 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		});
 	}
 
-	// ================================================================ saves made as Wildvine
+	// ================================================================ saves that say "wildvine"
 
+	/**
+	 * v0.17.2: Wildvine is a real alien of his own again (the prototype's hidden one), so a saved "wildvine" loads as Wildvine -- his
+	 * flags, pose and timers kept. A player who has not found him (a 0.17.1-era save that meant Wildmutt) gets the dial moved to a
+	 * playable alien when the watch comes up, so nothing is stuck.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void aWildvineSaveLoadsAsWildmutt(GameTestHelper helper) {
+	public void aWildvineSaveLoadsAsWildvineAndAnUnfoundOneFallsBack(GameTestHelper helper) {
 		OmnitrixState old = new OmnitrixState();
 		old.hasPower = true;
 		old.selected = "wildvine";
-		old.active = "wildvine";
 		old.kitFlags = 5;
-		old.animId = 7;
-		old.timers.put("wildvine.regrow_end", 1234L);
+		old.timers.put("wildvine.camo_end", 1234L);
 		old.timers.put("heatblast.fire_blast", 99L);
 		var json = OmnitrixState.CODEC.encodeStart(JsonOps.INSTANCE, old).getOrThrow();
 		OmnitrixState back = OmnitrixState.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
-		helper.assertTrue("wildmutt".equals(back.selected), "selected wildvine -> wildmutt (" + back.selected + ")");
-		helper.assertTrue("wildmutt".equals(back.active), "active wildvine -> wildmutt (" + back.active + ")");
-		helper.assertTrue(back.kitFlags == 0 && back.animId == 0, "Wildvine's bits and pose dropped");
-		helper.assertTrue(!back.timers.containsKey("wildvine.regrow_end") && back.timers.get("heatblast.fire_blast") == 99L,
-				"Wildvine's timers dropped, the rest kept");
-		helper.assertTrue(Aliens.playable(back.selected), "and Wildmutt is playable");
-		helper.assertTrue(Aliens.byId("wildvine") == null, "Wildvine is off the dial");
-		// a player loaded that way transforms into Wildmutt without trouble
+		helper.assertTrue("wildvine".equals(back.selected), "selected stays wildvine (" + back.selected + ")");
+		helper.assertTrue(back.kitFlags == 5 && back.timers.get("wildvine.camo_end") == 1234L && back.timers.get("heatblast.fire_blast") == 99L,
+				"his flags and timers are kept");
+		helper.assertTrue(Aliens.byId("wildvine") == Aliens.WILDVINE && Aliens.WILDVINE != Aliens.WILDMUTT, "Wildvine and Wildmutt are two aliens");
 		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
 		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
 		OmnitrixState n = Omnitrix.state(p).copy();
 		n.selected = back.selected;
 		Omnitrix.save(p, n);
-		helper.assertTrue(Omnitrix.transform(p) && WildmuttKit.ID.equals(Omnitrix.state(p).active), "transforms into Wildmutt");
+		Omnitrix.activate(p);
+		helper.assertTrue(Aliens.available(p, Omnitrix.state(p).selected), "not found yet: the dial moves to a playable alien ("
+				+ Omnitrix.state(p).selected + ")");
 		helper.succeed();
 	}
 }

@@ -268,6 +268,8 @@
       "com.projecthero.mod.gametest.OmnitrixVKeyGameTests",
       "com.projecthero.mod.gametest.OmnitrixCannonboltGameTests",
       "com.projecthero.mod.gametest.OmnitrixWayBigGameTests",
+      "com.projecthero.mod.gametest.OmnitrixWildvineGameTests",
+      "com.projecthero.mod.gametest.OmnitrixDittoGameTests",
       "com.projecthero.mod.gametest.OmnitrixAutoGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalibrationGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalChipGameTests",

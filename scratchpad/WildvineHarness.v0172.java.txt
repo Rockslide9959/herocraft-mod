@@ -1,0 +1,306 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): Wildvine's skin, badge and moves. Enabled by run/wildvine.flag. */
+public final class WildvineHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static double ox, oy, oz;
+
+	private WildvineHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("wildvine.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WildvineHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "wildvine-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "wildvine_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static WildvineKit kit() {
+		return (WildvineKit) Aliens.kit(WildvineKit.ID);
+	}
+
+	/** Back at the origin facing +Z (yaw 0), pitch {@code pitch}; every old zombie gone; cooldowns cleared. */
+	private static void reset(ServerPlayer p, float pitch) {
+		for (var e : p.serverLevel().getEntities(p, p.getBoundingBox().inflate(40))) {
+			if (e instanceof Zombie) {
+				e.discard();
+			}
+		}
+		p.connection.teleport(ox, oy, oz, 0f, pitch);
+		p.setYRot(0f);
+		p.setXRot(pitch);
+		p.setHealth(p.getMaxHealth());
+		if (Aliens.kit(WildvineKit.ID) != null && WildvineKit.ID.equals(Omnitrix.state(p).active)) {
+			for (var m : kit().moves()) {
+				kit().cooldown(p, m.id(), 0);
+			}
+		}
+	}
+
+	private static Zombie zombie(ServerPlayer p, double dx, double dz) {
+		Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+		z.moveTo(ox + dx, oy, oz + dz, 180f, 0f);
+		z.setNoAi(true);
+		z.setPersistenceRequired();
+		p.serverLevel().addFreshEntity(z);
+		return z;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WildvineHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, WildvineKit.ID, true);
+				ox = Math.floor(p.getX()) + 0.5;
+				oy = p.getY();
+				oz = Math.floor(p.getZ()) + 0.5;
+				// a beam high up ahead for the swing
+				for (int x = -3; x <= 3; x++) {
+					for (int z = 6; z <= 8; z++) {
+						p.serverLevel().setBlock(BlockPos.containing(ox + x, oy + 9, oz + z), Blocks.OAK_PLANKS.defaultBlockState(), 3);
+					}
+				}
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> Omnitrix.select(p, WildvineKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				reset(p, 5f);
+				Omnitrix.select(p, WildvineKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+			});
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 175) {
+			shot(mc, "front");
+		}
+		if (t == 180) {
+			server(mc, p -> p.connection.teleport(ox, oy, oz, 0f, 40f));
+		}
+		if (t == 190) {
+			shot(mc, "front_badge"); // looking down: the camera rises over his chest
+		}
+		if (t == 195) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> reset(p, 5f));
+		}
+		if (t == 205) {
+			shot(mc, "back");
+		}
+		// ---- R: Vine Lash
+		if (t == 210) {
+			server(mc, p -> {
+				reset(p, 2f);
+				zombie(p, 0, 7);
+			});
+		}
+		if (t == 220) {
+			server(mc, p -> System.out.println("[HARNESS] lash=" + kit().vineLash(p)));
+		}
+		if (t == 221) {
+			server(mc, p -> p.connection.teleport(ox, oy, oz, -40f, 2f));
+		}
+		if (t == 224) {
+			shot(mc, "lash");
+		}
+		// ---- Z: Constrict
+		if (t == 240) {
+			server(mc, p -> {
+				reset(p, 2f);
+				zombie(p, 0, 6);
+			});
+		}
+		if (t == 250) {
+			server(mc, p -> System.out.println("[HARNESS] constrict=" + kit().constrict(p)));
+		}
+		if (t == 252) {
+			server(mc, p -> p.connection.teleport(ox, oy, oz, -45f, 8f));
+		}
+		if (t == 260) {
+			shot(mc, "constrict");
+		}
+		// ---- G: Seed Bomb in flight
+		if (t == 280) {
+			server(mc, p -> {
+				reset(p, -10f);
+				System.out.println("[HARNESS] seed=" + kit().seedBomb(p));
+			});
+		}
+		if (t == 284) {
+			shot(mc, "seed_bomb");
+		}
+		// ---- Shift+G: Seed Mines
+		if (t == 300) {
+			server(mc, p -> {
+				reset(p, 20f);
+				System.out.println("[HARNESS] mines=" + kit().seedMines(p));
+			});
+		}
+		if (t == 330) {
+			shot(mc, "seed_mines");
+		}
+		// ---- C: Overgrowth
+		if (t == 350) {
+			server(mc, p -> {
+				reset(p, 15f);
+				zombie(p, 3, 4);
+				zombie(p, -3, 5);
+				zombie(p, 0, 6);
+			});
+		}
+		if (t == 360) {
+			server(mc, p -> System.out.println("[HARNESS] overgrowth=" + kit().overgrowth(p)));
+		}
+		if (t == 367) {
+			shot(mc, "overgrowth");
+		}
+		// ---- Shift+X: Root Burrow
+		if (t == 400) {
+			server(mc, p -> {
+				reset(p, 25f);
+				System.out.println("[HARNESS] burrow=" + kit().rootBurrow(p));
+			});
+		}
+		if (t == 412) {
+			shot(mc, "burrow");
+		}
+		if (t == 425) {
+			shot(mc, "burrow_moving");
+		}
+		// ---- X: Vine Swing
+		if (t == 470) {
+			server(mc, p -> {
+				reset(p, -50f);
+			});
+		}
+		if (t == 478) {
+			server(mc, p -> System.out.println("[HARNESS] swing=" + kit().vineSwing(p)));
+			mc.options.keyUp.setDown(true);
+		}
+		if (t == 486) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (t == 492) {
+			shot(mc, "swing");
+		}
+		if (t == 500) {
+			mc.options.keyUp.setDown(false);
+			server(mc, p -> kit().endLine(p, false));
+		}
+		// ---- first person: the vine from his hand
+		if (t == 520) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				reset(p, 2f);
+				zombie(p, 0, 6);
+			});
+		}
+		if (t == 530) {
+			server(mc, p -> kit().constrict(p));
+		}
+		if (t == 538) {
+			shot(mc, "firstperson_constrict");
+		}
+		if (t == 560) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
