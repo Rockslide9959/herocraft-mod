@@ -168,10 +168,8 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
   - `OmnitrixClient`
   - the `OmnitrixInfo.DIAL_ORDER` glyph list (after `buzzshock`)
   - `font/omnitrix_dial.json` (U+E01A)
-- **Textures:** `scratchpad/ben10_v0171/gen_feedback.js`. The dial icon is the user's (`scratchpad/feedback_icon_src/feedback.png`), through `gen_omnitrix_icon_transplant.js`. The earlier placeholder was
-  `gen_feedback_dial_placeholder.js` (his head, eye, grin and the two plugged antennae) through
-  `scratchpad/gen_omnitrix_icon_transplant.js feedback=<source>`, so the frame matches the others exactly. When the user sends his
-  icon, rerun the transplant with it.
+- **Textures:** `scratchpad/ben10_v0171/gen_feedback.js`. The dial icon is the user's (`scratchpad/feedback_icon_src/feedback.png`), through `node scratchpad/gen_omnitrix_icon_transplant.js feedback=scratchpad/feedback_icon_src/feedback.png`, so the frame matches
+  the others exactly. (The placeholder used before it came from `gen_feedback_dial_placeholder.js`.)
 - **Tests:** `OmnitrixFeedbackGameTests`:
   - the dial and glyph, and every key having a move
   - blasts spending Charge, and hitting machines harder
