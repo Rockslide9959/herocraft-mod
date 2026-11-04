@@ -1,0 +1,275 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): the rebuilt Abyssal Behemoth in a carved Nether cavern, posed and then lured. Enabled by run/behemoth.flag. */
+public final class BehemothHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static volatile boolean ready;
+	private static com.projecthero.mod.behemoth.entity.AbyssalBehemothEntity posed;
+
+	private BehemothHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("behemoth.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BehemothHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "behemoth-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "behemoth_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void look(ServerPlayer p, double x, double y, double z, double tx, double ty, double tz) {
+		double dx = tx - x, dy = ty - (y + p.getEyeHeight()), dz = tz - z;
+		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+		float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.connection.teleport(x, y, z, yaw, pitch);
+	}
+
+	private static final double BX = 0.5, BY = 62, BZ = -18.5;
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BehemothHarness::createWorld);
+			}
+			return;
+		}
+		if (inWorldTicks >= 60 && (!ready || mc.level.dimension() != Level.NETHER)) {
+			return; // the server is still carving the cavern / the client is still changing dimension
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				ServerLevel nether = p.server.getLevel(Level.NETHER);
+				nether.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				for (int cx = -4; cx <= 3; cx++) {
+					for (int cz = -4; cz <= 3; cz++) {
+						nether.getChunk(cx, cz);
+					}
+				}
+				var air = Blocks.AIR.defaultBlockState();
+				for (BlockPos q : BlockPos.betweenClosed(-44, 55, -50, 44, 102, 40)) {
+					if (!nether.getBlockState(q).isAir()) {
+						nether.setBlock(q, air, 2 | 16);
+					}
+				}
+				for (BlockPos q : BlockPos.betweenClosed(-48, 53, -54, 48, 106, 44)) {
+					if (!nether.getFluidState(q).isEmpty() && (Math.abs(q.getX()) > 44 || q.getZ() < -50 || q.getZ() > 40 || q.getY() > 102)) {
+						nether.setBlock(q, Blocks.BLACKSTONE.defaultBlockState(), 2 | 16); // seal the walls: no lava falls in the shots
+					}
+				}
+				for (BlockPos q : BlockPos.betweenClosed(-44, 54, -50, 44, 54, 40)) {
+					nether.setBlock(q, (q.getX() * 7 + q.getZ() * 3) % 23 == 0 ? Blocks.MAGMA_BLOCK.defaultBlockState()
+							: (q.getX() + q.getZ()) % 5 == 0 ? Blocks.SOUL_SOIL.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2 | 16);
+				}
+				// a pillar between the boss spot and a hidden player spot (for the line-of-sight check later)
+				for (BlockPos q : BlockPos.betweenClosed(28, 55, -6, 34, 66, 0)) {
+					nether.setBlock(q, Blocks.BLACKSTONE.defaultBlockState(), 2 | 16);
+				}
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				p.teleportTo(nether, 0.5, 55, 0.5, 180f, -10f);
+				System.out.println("[HARNESS] in nether");
+				ready = true;
+			});
+		}
+		if (t == 160) {
+			server(mc, p -> {
+				ServerLevel nether = p.serverLevel();
+				var boss = com.projecthero.mod.behemoth.entity.BehemothEntityTypes.ABYSSAL_BEHEMOTH.create(nether);
+				boss.moveTo(BX, BY, BZ, 0f, 0f);
+				boss.setYHeadRot(0f);
+				boss.setYBodyRot(0f);
+				boss.setNoAi(true);
+				nether.addFreshEntity(boss);
+				posed = boss;
+				look(p, BX, BY + 3, BZ + 14, BX, BY + 4.5, BZ);
+			});
+		}
+		if (t == 200) {
+			shot(mc, "front");
+		}
+		if (t == 205) {
+			server(mc, p -> look(p, BX + 15, BY + 3, BZ, BX, BY + 4.5, BZ));
+		}
+		if (t == 230) {
+			shot(mc, "side");
+		}
+		if (t == 235) {
+			server(mc, p -> look(p, BX - 10, BY + 6, BZ + 10, BX, BY + 4.5, BZ));
+		}
+		if (t == 260) {
+			shot(mc, "threequarter");
+		}
+		if (t == 262) {
+			server(mc, p -> {
+				look(p, BX - 6, BY + 3, BZ + 13, BX, BY + 4.5, BZ);
+				posedBoss(p).triggerAnim("action", "charge_beam");
+			});
+		}
+		if (t == 290) {
+			shot(mc, "attack_beam");
+		}
+		if (t == 300) {
+			server(mc, p -> posedBoss(p).triggerAnim("action", "hellwind"));
+		}
+		if (t == 314) {
+			shot(mc, "attack_hellwind");
+		}
+		if (t == 330) {
+			server(mc, p -> posedBoss(p).triggerAnim("action", "charge_fireball"));
+		}
+		if (t == 340) {
+			shot(mc, "attack_fireball");
+		}
+		if (t == 350) {
+			server(mc, p -> look(p, BX + 6, 55, BZ + 8, BX, BY + 2.0, BZ));
+		}
+		if (t == 370) {
+			shot(mc, "below");
+		}
+		if (t == 380) {
+			server(mc, p -> {
+				posedBoss(p).discard();
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().invulnerable = true;
+				p.getAbilities().mayfly = true;
+				p.onUpdateAbilities();
+				p.teleportTo(p.serverLevel(), 0.5, 55, 0.5, 180f, -5f);
+				var s = com.projecthero.mod.behemoth.item.AbyssalLureItem.summon(p.serverLevel(), p.position(), p);
+				System.out.println("[HARNESS] lure " + s.result() + (s.behemoth() == null ? "" : " at " + s.behemoth().position()));
+				if (s.behemoth() == null) {
+					var lv = p.serverLevel();
+					for (double[] o : new double[][] { { 0, 60, -30 }, { 20, 62, 20 }, { -25, 60, 5 } }) {
+						var feet = new net.minecraft.world.phys.Vec3(o[0], o[1], o[2]);
+						var box = com.projecthero.mod.behemoth.BehemothSpawner.boxAt(feet).inflate(2.0);
+						System.out.println("[HARNESS] probe " + feet + " open=" + com.projecthero.mod.behemoth.BehemothSpawner.isOpenSpace(lv, feet)
+								+ " chunks=" + lv.hasChunksAt(BlockPos.containing(box.minX, box.minY, box.minZ), BlockPos.containing(box.maxX, box.maxY, box.maxZ))
+								+ " noColl=" + lv.noCollision(box) + " liquid=" + lv.containsAnyLiquid(box) + " logical=" + lv.getLogicalHeight()
+								+ " player=" + p.position());
+					}
+				}
+				if (s.behemoth() != null) {
+					posed = s.behemoth();
+					look(p, 0.5, 55, 0.5, s.behemoth().getX(), s.behemoth().getY() + 4.5, s.behemoth().getZ());
+				}
+			});
+		}
+		if (t > 380 && t < 700 && t % 20 == 0) {
+			server(mc, p -> {
+				var b = posed;
+				if (b != null && b.isAlive()) {
+					System.out.println("[HARNESS] t=" + inWorldTicks + " boss=" + b.position() + " target=" + (b.getTarget() == null ? "-" : b.getTarget().getName().getString())
+							+ " open=" + p.serverLevel().noCollision(b.getBoundingBox()) + " sees=" + b.canStrike(p));
+					if (inWorldTicks < 560) {
+						look(p, p.getX(), p.getY(), p.getZ(), b.getX(), b.getY() + 4.5, b.getZ());
+					}
+				}
+			});
+		}
+		if (t == 420) {
+			shot(mc, "lured_rise");
+		}
+		if (t == 500) {
+			shot(mc, "lured_hunt");
+		}
+		if (t == 560) {
+			// hide behind the pillar: it must lose interest in attacking (a lured hunt still follows)
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), 31.5, 55, 3.5, 0f, 0f);
+				System.out.println("[HARNESS] hidden behind pillar");
+			});
+		}
+		if (t == 600) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 620) {
+			shot(mc, "lured_hidden");
+		}
+		if (t == 700) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static com.projecthero.mod.behemoth.entity.AbyssalBehemothEntity posedBoss(ServerPlayer p) {
+		return posed;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CTC",
+    "BNB",
+    "CTC"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "T": {
+      "item": "minecraft:ghast_tear"
+    },
+    "B": {
+      "item": "minecraft:blaze_powder"
+    },
+    "N": {
+      "item": "minecraft:netherite_scrap"
+    }
+  },
+  "result": {
+    "id": "projecthero:abyssal_lure",
+    "count": 1
+  }
+}

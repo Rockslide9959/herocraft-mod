@@ -74,7 +74,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 	public static final float SIZE = 9.0f;
 	/** The reference height the geo model itself was built at (blocks) -- {@code BehemothRenderer} scales
 	 *  the whole model by {@code SIZE / MODEL_HEIGHT}, the same trick {@code TitanFormRenderer} uses. */
-	public static final float MODEL_HEIGHT = 4.0f;
+	public static final float MODEL_HEIGHT = 4.5f; // v0.17.2 rebuild: tentacle tips (y=0) to horn tips (72 px)
 
 	public enum Ability { FIREBALL, BARRAGE, MAGMA_RAIN, BEAM, CINDER_TETHER, NETHERSTORM, HELLWIND, SOVEREIGN_DESCENT, SKYFALL }
 
@@ -109,6 +109,21 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 	private double beamStartYaw;
 	private double beamEndYaw;
 	private int airborneTargetTicks;
+
+	/** v0.17.2 sight-based aggro: ticks the current target has been out of sight, and where it was last seen. */
+	private int unseenTicks;
+	private Vec3 lastSeenAt;
+	/** v0.17.2 Abyssal Lure: who called it in, and how much longer it hunts them out of sight. */
+	private java.util.UUID luredBy;
+	private int luredTicks;
+	/** v0.17.2 unstick: ticks wedged in terrain / ticks barely moving while it wants to. */
+	private int wedgedTicks;
+	private int stuckTicks;
+	/** v0.17.2: open air above where it wants to hover (re-measured every 10 ticks). */
+	private double headroom = 64.0;
+	/** v0.17.2: how fast it wanted to go before steering, and how far its hover point was (the stuck test). */
+	private double wantedSpeed;
+	private double wantedDistance;
 
 	public AbyssalBehemothEntity(EntityType<? extends AbyssalBehemothEntity> type, Level level) {
 		super(type, level);
@@ -269,29 +284,88 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		return threat;
 	}
 
+	/**
+	 * v0.17.2 (user: "make it so that he actually spawns in and doesnt just get stuck in blocks and randomly attack players"):
+	 * it picks a fight for a REASON. It used to take the nearest player within 90 blocks with no sight check at all, so it
+	 * hunted people through solid netherrack (and, spawned on the bedrock roof, everyone under it). Now a fight starts only
+	 * when it <em>sees</em> a player within {@code detectionRange} (40), when someone hurts it (the threat table), or when
+	 * it is lured ({@link #lure}). A target it cannot see for {@code loseSightTicks} -- who is not hurting it and did not lure
+	 * it -- is dropped, and while it cannot see its target it hunts the last place it saw them and never attacks
+	 * ({@link #canStrike}).
+	 */
 	private void acquireTarget(ServerLevel server) {
 		// v0.15.19: whoever is hurting it most takes its attention (BossThreat: damage-built, decaying, 20% margin to
-		// switch). It used to keep its first target for as long as they stayed in range, so a kiting player let a
-		// friend hit it for free. The nearest-player scan below is only the fallback for an empty table.
+		// switch). The sight scan below is only the fallback for an empty table.
 		threat.tick();
+		var stats = BehemothConfig.stats();
+		if (luredTicks > 0) {
+			luredTicks--;
+		}
 		LivingEntity current = getTarget();
-		if (current != null && current.isAlive() && isValidTarget(current)
-				&& current.distanceToSqr(this) <= BehemothConfig.stats().followRange * BehemothConfig.stats().followRange) {
-			return;
+		if (current != null) {
+			boolean keep = current.isAlive() && isValidTarget(current) && current.level() == level()
+					&& current.distanceToSqr(this) <= stats.followRange * stats.followRange;
+			if (keep) {
+				if (getSensing().hasLineOfSight(current)) {
+					unseenTicks = 0;
+					lastSeenAt = current.position();
+				} else {
+					unseenTicks++;
+					boolean lured = luredTicks > 0 && current.getUUID().equals(luredBy);
+					if (unseenTicks > stats.loseSightTicks && !lured && threat.threatOf(current) < 1.0f) {
+						keep = false;
+					}
+				}
+			}
+			if (keep) {
+				return;
+			}
+			setTarget(null);
+			unseenTicks = 0;
+			lastSeenAt = null;
 		}
 		LivingEntity best = null;
-		double bestDist = Double.MAX_VALUE;
+		double bestDist = stats.detectionRange * stats.detectionRange;
 		for (Player p : server.players()) {
 			if (!isValidTarget(p)) {
 				continue;
 			}
 			double d = p.distanceToSqr(this);
-			if (d < BehemothConfig.stats().detectionRange * BehemothConfig.stats().detectionRange && d < bestDist) {
+			if (d < bestDist && getSensing().hasLineOfSight(p)) {
 				bestDist = d;
 				best = p;
 			}
 		}
-		setTarget(best);
+		if (best != null) {
+			setTarget(best);
+			unseenTicks = 0;
+			lastSeenAt = best.position();
+		}
+	}
+
+	/** v0.17.2: it may only start (or land) an attack on a target it can see, within {@code attackRange}. */
+	public boolean canStrike(LivingEntity target) {
+		double r = BehemothConfig.stats().attackRange;
+		return target != null && target.isAlive() && target.level() == level() && distanceToSqr(target) <= r * r
+				&& getSensing().hasLineOfSight(target);
+	}
+
+	/**
+	 * v0.17.2 Abyssal Lure: it was called in by {@code summoner} -- it hunts them for {@code lureHuntTicks} even out of sight
+	 * (it still only attacks what it can see).
+	 */
+	public void lure(LivingEntity summoner) {
+		luredBy = summoner.getUUID();
+		luredTicks = BehemothConfig.world().lureHuntTicks;
+		lastSeenAt = summoner.position();
+		unseenTicks = 0;
+		if (isValidTarget(summoner)) {
+			setTarget(summoner);
+		}
+	}
+
+	public boolean isLured() {
+		return luredTicks > 0;
 	}
 
 	private boolean isValidTarget(LivingEntity e) {
@@ -361,12 +435,15 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 			return; // the dive itself drives velocity directly in #tickAbility -- don't fight it here
 		}
 		LivingEntity target = getTarget();
+		// v0.17.2: out of sight, it hunts the last place it saw the target, not the target itself (no homing through walls)
+		// (a lure is the exception: it was called to its summoner, and comes for them)
+		boolean hunting = target != null && luredTicks > 0 && target.getUUID().equals(luredBy);
+		Vec3 focus = target == null ? null : unseenTicks == 0 || lastSeenAt == null || hunting ? target.position() : lastSeenAt;
 		Vec3 desiredPos;
-		if (target == null) {
+		if (focus == null) {
 			desiredPos = position().add(0, Math.sin(tickCount * 0.02) * 0.02, 0); // idle hover in place
 		} else {
-			double altitude = lowAltitudeTicks > 0 ? 4.0 : BehemothConfig.stats().preferredAerialAltitude;
-			Vec3 toSelfFlat = position().subtract(target.position());
+			Vec3 toSelfFlat = position().subtract(focus);
 			toSelfFlat = new Vec3(toSelfFlat.x, 0, toSelfFlat.z);
 			double horizDist = toSelfFlat.length();
 			double preferredHoriz = lowAltitudeTicks > 0 ? 9.0 : 14.0;
@@ -374,7 +451,15 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 			// slow orbit around the target rather than sitting dead still
 			double orbit = tickCount * 0.01;
 			Vec3 tangent = new Vec3(-dirFlat.z, 0, dirFlat.x).scale(Math.sin(orbit) * 3.0);
-			desiredPos = target.position().add(dirFlat.scale(preferredHoriz)).add(tangent).add(0, altitude, 0);
+			Vec3 spot = focus.add(dirFlat.scale(preferredHoriz)).add(tangent);
+			// v0.17.2: hover only as high as the cavern lets it -- it used to aim 12 blocks over the target whatever the
+			// ceiling, and pressed its 9-block body into the rock of any cave lower than ~21 blocks
+			if (tickCount % 10 == 0 || headroom > 63.0) {
+				headroom = measureHeadroom(spot);
+			}
+			double wantAlt = lowAltitudeTicks > 0 ? 4.0 : BehemothConfig.stats().preferredAerialAltitude;
+			double altitude = Mth.clamp(headroom - SIZE - 1.5, lowAltitudeTicks > 0 ? -2.0 : 0.5, wantAlt);
+			desiredPos = spot.add(0, altitude, 0);
 		}
 		Vec3 toDesired = desiredPos.subtract(position());
 		double maxSpeed = (target != null ? BehemothConfig.stats().aggressiveFlightSpeed : BehemothConfig.stats().flightSpeed) * speedMultiplier();
@@ -383,16 +468,140 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		if (wanted.length() > maxSpeed) {
 			wanted = wanted.normalize().scale(maxSpeed);
 		}
-		// a cheap "don't fly into the wall" probe -- nudge upward rather than pathing around
-		if (!level().noCollision(this, getBoundingBox().move(wanted.x * 3, wanted.y * 3, wanted.z * 3))) {
-			wanted = new Vec3(wanted.x * 0.3, Math.max(wanted.y, 0.15), wanted.z * 0.3);
-		}
+		wantedSpeed = wanted.length();
+		wantedDistance = toDesired.length();
+		wanted = steer(wanted);
 		desiredVelocity = wanted;
-		if (desiredVelocity.horizontalDistance() > 1.0e-3) {
-			double yaw = Math.toDegrees(Math.atan2(-desiredVelocity.x, desiredVelocity.z));
-			setYRot((float) yaw);
-			setYBodyRot((float) yaw);
+		// face the target while it can see it (it is about to breathe fire at them), else where it flies
+		Vec3 face = target != null && unseenTicks == 0 ? target.position().subtract(position()) : desiredVelocity;
+		if (face.horizontalDistance() > 1.0e-3) {
+			double yaw = Math.toDegrees(Math.atan2(-face.x, face.z));
+			float turned = Mth.approachDegrees(getYRot(), (float) yaw, 6.0f);
+			setYRot(turned);
+			setYBodyRot(turned);
+			setYHeadRot(turned);
 		}
+	}
+
+	/**
+	 * v0.17.2: obstacle avoidance. The old probe only ever nudged it UP when its path was blocked -- so under a cavern
+	 * ceiling (every Nether cave) it ground its box into the rock and stayed there. Now the box is swept ahead along the
+	 * wanted velocity; if that hits terrain it tries the same speed turned 35/70/110 degrees either way, then straight up,
+	 * then straight down, and takes the free direction closest to where it wanted to go. Nothing free: it stops (and the
+	 * unstick in {@link #tickUnstick} takes over if that lasts).
+	 */
+	private Vec3 steer(Vec3 wanted) {
+		double speed = wanted.length();
+		if (speed < 1.0e-4 || pathFree(wanted)) {
+			return wanted;
+		}
+		Vec3 flat = new Vec3(wanted.x, 0, wanted.z);
+		double flatSpeed = Math.max(flat.length(), speed * 0.6);
+		Vec3 flatDir = flat.lengthSqr() > 1.0e-6 ? flat.normalize() : Vec3.directionFromRotation(0, getYRot());
+		List<Vec3> options = new ArrayList<>();
+		for (double deg : new double[] { 35, -35, 70, -70, 110, -110 }) {
+			Vec3 d = flatDir.yRot((float) Math.toRadians(deg)).scale(flatSpeed);
+			options.add(new Vec3(d.x, wanted.y * 0.5, d.z));
+		}
+		options.add(new Vec3(wanted.x * 0.25, speed, wanted.z * 0.25));
+		options.add(new Vec3(wanted.x * 0.25, -speed, wanted.z * 0.25));
+		Vec3 best = null;
+		double bestDot = -2.0;
+		Vec3 wantDir = wanted.normalize();
+		for (Vec3 o : options) {
+			if (!pathFree(o)) {
+				continue;
+			}
+			double dot = o.normalize().dot(wantDir);
+			if (dot > bestDot) {
+				bestDot = dot;
+				best = o;
+			}
+		}
+		return best != null ? best : Vec3.ZERO;
+	}
+
+	/** Its box, swept 4 ticks (at least 1.5 blocks) along {@code v}, touches no terrain. */
+	private boolean pathFree(Vec3 v) {
+		Vec3 probe = v.normalize().scale(Math.max(1.5, v.length() * 4.0));
+		var box = getBoundingBox().deflate(0.05);
+		return level().noCollision(this, box.expandTowards(probe)) && (!(level() instanceof ServerLevel s) || belowRoof(s, box.move(probe)));
+	}
+
+	/** While its target is under the Nether's bedrock roof, it never drifts up through/above that roof. */
+	private boolean belowRoof(ServerLevel server, net.minecraft.world.phys.AABB box) {
+		int roof = server.getMinBuildHeight() + server.getLogicalHeight();
+		LivingEntity target = getTarget();
+		return getY() >= roof || (target != null && target.getY() >= roof) || box.maxY < roof;
+	}
+
+	/**
+	 * Open air above {@code spot} (blocks, up to 40), sampled at its centre and at 4 points round its 9-block width. A column
+	 * that starts inside a block (the spot is beside a pillar or a wall) is measured from the first air above it, and one that
+	 * is solid all the way up is left out -- otherwise one pillar beside its target read as "no headroom" and it sank to the floor.
+	 */
+	private double measureHeadroom(Vec3 spot) {
+		int roof = level().getMinBuildHeight() + level().dimensionType().logicalHeight();
+		double half = SIZE * 0.45;
+		double best = 40.0;
+		for (double[] o : new double[][] { { 0, 0 }, { half, 0 }, { -half, 0 }, { 0, half }, { 0, -half } }) {
+			net.minecraft.core.BlockPos.MutableBlockPos p = new net.minecraft.core.BlockPos.MutableBlockPos();
+			int x = Mth.floor(spot.x + o[0]), z = Mth.floor(spot.z + o[1]);
+			int y0 = Mth.floor(spot.y) + 1;
+			int dy = 0;
+			while (dy < 16 && isSolidOrRoof(p.set(x, y0 + dy, z), spot.y < roof, roof)) {
+				dy++;
+			}
+			if (dy >= 16) {
+				continue;
+			}
+			int start = dy;
+			double open = 40.0;
+			for (; dy < 40; dy++) {
+				if (isSolidOrRoof(p.set(x, y0 + dy, z), spot.y < roof, roof)) {
+					open = dy - start;
+					break;
+				}
+			}
+			best = Math.min(best, open);
+		}
+		return best;
+	}
+
+	private boolean isSolidOrRoof(net.minecraft.core.BlockPos p, boolean underRoof, int roof) {
+		return (underRoof && p.getY() >= roof) || !level().getBlockState(p).getCollisionShape(level(), p).isEmpty();
+	}
+
+	/**
+	 * v0.17.2 unstick: if its box ends up overlapping terrain (a block placed into it, a spawn by some other mod / command
+	 * into rock) for a second, or it has wanted to move but barely moved for 3 s, it shakes itself free -- a puff of smoke and
+	 * it is in the nearest open pocket ({@link BehemothSpawner#findOpenNear}). Never during the dive.
+	 */
+	private void tickUnstick(ServerLevel server, Vec3 before) {
+		if (activeAbility == Ability.SOVEREIGN_DESCENT && stage == Stage.ACTIVE) {
+			return;
+		}
+		boolean wedged = !level().noCollision(this, getBoundingBox().deflate(0.3));
+		wedgedTicks = wedged ? wedgedTicks + 1 : 0;
+		double moved = position().distanceTo(before);
+		boolean trying = wantedSpeed > 0.15 && wantedDistance > 6.0;
+		stuckTicks = trying && moved < 0.03 ? stuckTicks + 1 : Math.max(0, stuckTicks - 2);
+		if (wedgedTicks > 20 || stuckTicks > 60) {
+			Vec3 open = com.projecthero.mod.behemoth.BehemothSpawner.findOpenNear(server, position(), 24.0);
+			if (open != null && open.distanceToSqr(position()) > 1.0e-4) {
+				server.sendParticles(ParticleTypes.LARGE_SMOKE, getX(), getY() + SIZE * 0.5, getZ(), 30, SIZE * 0.4, SIZE * 0.4, SIZE * 0.4, 0.02);
+				moveTo(open.x, open.y, open.z, getYRot(), getXRot());
+				desiredVelocity = Vec3.ZERO;
+				server.sendParticles(ParticleTypes.LARGE_SMOKE, open.x, open.y + SIZE * 0.5, open.z, 30, SIZE * 0.4, SIZE * 0.4, SIZE * 0.4, 0.02);
+			}
+			wedgedTicks = 0;
+			stuckTicks = 0;
+		}
+	}
+
+	/** Test hook: wedged / stuck counters (v0.17.2). */
+	public int wedgedTicksForTest() {
+		return wedgedTicks;
 	}
 
 	@Override
@@ -401,9 +610,23 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 			super.travel(movementInput);
 			return;
 		}
+		Vec3 before = position();
 		tickMovementIntent((ServerLevel) level());
 		setDeltaMovement(desiredVelocity);
 		move(MoverType.SELF, getDeltaMovement());
+		tickUnstick((ServerLevel) level(), before);
+	}
+
+	/** v0.17.2: it is never pushed around by other mobs (a 9-block flier shoved into a wall by a zombie pack). */
+	@Override
+	public boolean isPushable() {
+		return false;
+	}
+
+	/** v0.17.2: no suffocation -- it unsticks itself instead ({@link #tickUnstick}); a world boss dying in a wall is a lost fight. */
+	@Override
+	public boolean isInWall() {
+		return false;
 	}
 
 	// ---------------------------------------------------------------- combat state machine (spec 6, 17-19, 26)
@@ -416,6 +639,9 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		}
 		if (target == null || server.getGameTime() < globalLockUntil || com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased
 			return;
+		}
+		if (!canStrike(target)) {
+			return; // v0.17.2: never an attack on someone it cannot see (it used to fire through walls at anyone in 90 blocks)
 		}
 		Ability choice = chooseAbility(server, target);
 		if (choice == null) {
@@ -508,7 +734,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		switch (activeAbility) {
 			case FIREBALL -> {
 				if (stage == Stage.WINDUP && stageTicks >= 14) {
-					if (target != null) {
+					if (canStrike(target)) {
 						BehemothCombat.fireFireball(this, target);
 					}
 					enterRecovery(server, Ability.FIREBALL, 20, cfg.fireballCooldownTicks);
@@ -520,9 +746,11 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 					stageTicks = 0;
 				} else if (stage == Stage.ACTIVE) {
 					int total = activeAbility == Ability.SKYFALL ? cfg.skyfallCount : cfg.hellfireCount;
-					if (stageTicks % 5 == 0 && barrageShotsLeft > 0 && target != null) {
+					if (stageTicks % 5 == 0 && barrageShotsLeft > 0) {
 						int index = total - barrageShotsLeft;
-						if (activeAbility == Ability.SKYFALL) {
+						if (!canStrike(target)) {
+							// v0.17.2: target ducked out of sight -- the shot is held back, not fired into the rock
+						} else if (activeAbility == Ability.SKYFALL) {
 							BehemothCombat.fireSkyfallVolley(this, target, index);
 						} else {
 							BehemothCombat.fireBarrageShot(this, target, index, total);
@@ -631,14 +859,28 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 
 	/** Snaps a horizontal point down onto the Nether floor beneath it (for Magma Rain's impact markers). */
 	private Vec3 groundedPoint(Vec3 point) {
-		var pos = net.minecraft.core.BlockPos.containing(point);
-		int y = level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ());
-		return new Vec3(point.x, Math.min(point.y, y), point.z);
+		// v0.17.2: a downward scan from the target's height (the heightmap is the Nether's bedrock roof)
+		net.minecraft.core.BlockPos.MutableBlockPos p = net.minecraft.core.BlockPos.containing(point.x, point.y + 2, point.z).mutable();
+		for (int i = 0; i < 24 && p.getY() > level().getMinBuildHeight(); i++) {
+			if (!level().getBlockState(p).getCollisionShape(level(), p).isEmpty()) {
+				return new Vec3(point.x, p.getY() + 1.0, point.z);
+			}
+			p.move(0, -1, 0);
+		}
+		return point;
 	}
 
+	/** v0.17.2: the first solid block under {@code e} (scanning down 48) -- the heightmap it used reads the bedrock ROOF in
+	 *  the Nether, so "is the target airborne" never came out true there and Skyfall never fired. */
 	private double groundLevelBelow(LivingEntity e) {
-		return level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-				(int) e.getX(), (int) e.getZ());
+		net.minecraft.core.BlockPos.MutableBlockPos p = new net.minecraft.core.BlockPos.MutableBlockPos(Mth.floor(e.getX()), Mth.floor(e.getY()), Mth.floor(e.getZ()));
+		for (int i = 0; i < 48 && p.getY() > level().getMinBuildHeight(); i++) {
+			if (!level().getBlockState(p).getCollisionShape(level(), p).isEmpty()) {
+				return p.getY() + 1.0;
+			}
+			p.move(0, -1, 0);
+		}
+		return e.getY() - 48.0;
 	}
 
 	private void scheduleWarned(ServerLevel server, Vec3 pos) {
@@ -683,7 +925,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		if (isRemoved() || isDeadOrDying()) {
 			return;
 		}
-		bossBar().update(server, blockPosition(), BehemothConfig.stats().detectionRange * 1.4,
+		bossBar().update(server, blockPosition(), Math.max(80.0, BehemothConfig.stats().detectionRange * 1.4),
 				Component.translatable("entity.projecthero.abyssal_behemoth").withStyle(net.minecraft.ChatFormatting.DARK_RED),
 				getHealth() / getMaxHealth());
 	}
@@ -798,6 +1040,10 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		tag.putInt("Phase", phase);
 		tag.putBoolean("Enraged", enraged);
 		tag.putInt("CombatTicks", combatTicks);
+		if (luredBy != null && luredTicks > 0) {
+			tag.putUUID("LuredBy", luredBy);
+			tag.putInt("LuredTicks", luredTicks);
+		}
 	}
 
 	@Override
@@ -806,5 +1052,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		phase = tag.contains("Phase") ? tag.getInt("Phase") : 1;
 		enraged = tag.getBoolean("Enraged");
 		combatTicks = tag.getInt("CombatTicks");
+		luredBy = tag.hasUUID("LuredBy") ? tag.getUUID("LuredBy") : null;
+		luredTicks = tag.getInt("LuredTicks");
 	}
 }

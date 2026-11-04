@@ -6,6 +6,15 @@
       "entries": [
         {
           "type": "minecraft:item",
+          "name": "projecthero:tokustar_shard"
+        }
+      ]
+    },
+    {
+      "rolls": 1.0,
+      "entries": [
+        {
+          "type": "minecraft:item",
           "name": "projecthero:abyssal_core",
           "functions": [
             { "function": "minecraft:set_count", "count": { "min": 1.0, "max": 2.0, "type": "minecraft:uniform" } }

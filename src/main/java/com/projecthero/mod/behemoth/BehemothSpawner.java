@@ -1,6 +1,7 @@
 package com.projecthero.mod.behemoth;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.projecthero.mod.behemoth.entity.AbyssalBehemothEntity;
@@ -12,14 +13,21 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 /**
  * The Abyssal Behemoth's rare natural spawn (spec section 3), modelled on {@link com.projecthero.mod.titan.TitanSpawner}:
  * a slow per-player roll rather than any persistent per-player cooldown, plus an explicit dimension-wide
  * dedup scan. Nether-only, never on Peaceful, at most {@code maxActivePerDimension} at a time, with a
  * cooldown after a natural spawn AND after a kill (spec: "killing one should also trigger a cooldown").
+ *
+ * <p>v0.17.2: the spawn-spot finder ({@link #findSpot} / {@link #isOpenSpace}) is shared with the Abyssal Lure and with
+ * the boss's own unstick search ({@link #findOpenNear}).
  *
  * <p>The cooldown map is keyed by {@link ResourceKey} (interned, no world reference) and holds only a
  * {@code long} game-time per dimension -- unlike a cache of entities or levels, this cannot leak a dead
@@ -28,6 +36,9 @@ import net.minecraft.world.phys.AABB;
  */
 public final class BehemothSpawner {
 	private static final Map<ResourceKey<Level>, Long> COOLDOWN_UNTIL = new HashMap<>();
+
+	/** Air (in blocks) kept clear all round its box at a spawn: room to turn and rise without scraping terrain. */
+	public static final double SPAWN_MARGIN = 2.0;
 
 	private BehemothSpawner() {
 	}
@@ -73,18 +84,13 @@ public final class BehemothSpawner {
 		if (cfg.maxActivePerDimension <= 0 || activeCount(level) >= cfg.maxActivePerDimension) {
 			return false;
 		}
-		BlockPos spawn = findSpot(level, player.blockPosition());
+		Vec3 spawn = findSpot(level, player.position(), cfg.minPlayerDistance, cfg.maxPlayerDistance, false);
 		if (spawn == null) {
 			return false;
 		}
-		AbyssalBehemothEntity behemoth = BehemothEntityTypes.ABYSSAL_BEHEMOTH.create(level);
-		if (behemoth == null) {
+		if (spawnAt(level, spawn, MobSpawnType.NATURAL) == null) {
 			return false;
 		}
-		behemoth.moveTo(spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, level.random.nextFloat() * 360f, 0f);
-		behemoth.finalizeSpawn(level, level.getCurrentDifficultyAt(spawn), MobSpawnType.NATURAL, null);
-		behemoth.setPersistenceRequired();
-		level.addFreshEntity(behemoth);
 		COOLDOWN_UNTIL.put(level.dimension(), level.getGameTime() + cfg.postSpawnCooldownTicks);
 		com.projecthero.mod.ProjectHeroMod.LOGGER.info("[Behemoth] The Abyssal Behemoth naturally spawned at {} in {}", spawn, level.dimension().location());
 		return true;
@@ -95,45 +101,111 @@ public final class BehemothSpawner {
 				new AABB(-3.0e7, level.getMinBuildHeight(), -3.0e7, 3.0e7, level.getMaxBuildHeight(), 3.0e7)).size();
 	}
 
-	/** A spot in open Nether air, {@code minPlayerDistance}-{@code maxPlayerDistance} blocks from the player,
-	 *  with room to fly (spec: never spawn beside/on top of the player, never inside solid terrain). */
-	private static BlockPos findSpot(ServerLevel level, BlockPos player) {
-		var cfg = BehemothConfig.world();
-		for (int attempt = 0; attempt < 12; attempt++) {
+	/** v0.17.2: one Behemoth with its feet at {@code feet}, facing a random way -- persistent, finalized, added. */
+	public static AbyssalBehemothEntity spawnAt(ServerLevel level, Vec3 feet, MobSpawnType why) {
+		AbyssalBehemothEntity behemoth = BehemothEntityTypes.ABYSSAL_BEHEMOTH.create(level);
+		if (behemoth == null) {
+			return null;
+		}
+		behemoth.moveTo(feet.x, feet.y, feet.z, level.random.nextFloat() * 360f, 0f);
+		behemoth.finalizeSpawn(level, level.getCurrentDifficultyAt(BlockPos.containing(feet)), why, null);
+		behemoth.setPersistenceRequired();
+		level.addFreshEntity(behemoth);
+		return behemoth;
+	}
+
+	/** Every living Behemoth within {@code radius} of {@code at}. */
+	public static List<AbyssalBehemothEntity> activeNear(ServerLevel level, Vec3 at, double radius) {
+		return level.getEntitiesOfClass(AbyssalBehemothEntity.class, new AABB(at, at).inflate(radius), e -> e.isAlive());
+	}
+
+	/** The box a Behemoth with its feet at {@code feet} fills. */
+	public static AABB boxAt(Vec3 feet) {
+		double h = AbyssalBehemothEntity.SIZE / 2.0;
+		return new AABB(feet.x - h, feet.y, feet.z - h, feet.x + h, feet.y + AbyssalBehemothEntity.SIZE, feet.z + h);
+	}
+
+	/**
+	 * v0.17.2: a spawn needs its WHOLE box (plus {@link #SPAWN_MARGIN}) empty. The old check sampled a 9x5x9 grid every 2
+	 * blocks centred on the feet -- but the box rises 9 blocks above the feet, so its top 7 blocks were never looked at and
+	 * it spawned with its body in the cavern ceiling ("stuck in blocks"); the y scan (up to y=147) also reached ABOVE the
+	 * Nether's bedrock roof, where it sat on the roof and hunted players underneath through it. Now: every block of the
+	 * inflated box is collision-free and dry, loaded, and the box ends below the dimension's roof (its logical height).
+	 */
+	public static boolean isOpenSpace(ServerLevel level, Vec3 feet) {
+		return isOpen(level, boxAt(feet).inflate(SPAWN_MARGIN));
+	}
+
+	/** {@code box} is loaded, below the roof, above the floor of the world, with no block collision and no liquid in it. */
+	public static boolean isOpen(ServerLevel level, AABB box) {
+		if (box.minY <= level.getMinBuildHeight() + 1 || box.maxY >= level.getMinBuildHeight() + level.getLogicalHeight() - 1) {
+			return false;
+		}
+		if (!level.hasChunksAt(BlockPos.containing(box.minX, box.minY, box.minZ), BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
+			return false;
+		}
+		return level.noCollision(box) && !level.containsAnyLiquid(box);
+	}
+
+	/**
+	 * v0.17.2: an open spot (see {@link #isOpenSpace}) {@code minDist}-{@code maxDist} blocks out from {@code around}, scanned
+	 * in a band of heights near it (so it never appears three caverns up). With {@code needSight} a spot that can also see
+	 * {@code around} is preferred (the lure wants it to rise into view); one that cannot is the fallback.
+	 */
+	public static Vec3 findSpot(ServerLevel level, Vec3 around, double minDist, double maxDist, boolean needSight) {
+		int roof = level.getMinBuildHeight() + level.getLogicalHeight();
+		int lowY = Math.max(level.getMinBuildHeight() + 4, (int) Math.floor(around.y) - 12);
+		int highY = Math.min(roof - (int) AbyssalBehemothEntity.SIZE - 4, (int) Math.floor(around.y) + 24);
+		if (highY < lowY) {
+			return null;
+		}
+		Vec3 fallback = null;
+		for (int attempt = 0; attempt < 32; attempt++) {
 			double angle = level.random.nextDouble() * Math.PI * 2;
-			double dist = cfg.minPlayerDistance + level.random.nextDouble() * (cfg.maxPlayerDistance - cfg.minPlayerDistance);
-			int x = (int) (player.getX() + Math.cos(angle) * dist);
-			int z = (int) (player.getZ() + Math.sin(angle) * dist);
-			// Nether has no reliable "surface" heightmap -- scan a mid-height band for a genuinely open pocket
-			// instead (large caverns / open ceilings are common, solid ceiling rock at y=128 is not).
-			int baseY = 60 + level.random.nextInt(48);
-			for (int attemptY = 0; attemptY < 6; attemptY++) {
-				int y = net.minecraft.util.Mth.clamp(baseY + attemptY * 8, level.getMinBuildHeight() + 8, level.getMaxBuildHeight() - 12);
-				BlockPos candidate = new BlockPos(x, y, z);
-				if (!level.isLoaded(candidate)) {
+			double dist = minDist + level.random.nextDouble() * Math.max(0.0, maxDist - minDist);
+			double x = Math.floor(around.x + Math.cos(angle) * dist) + 0.5;
+			double z = Math.floor(around.z + Math.sin(angle) * dist) + 0.5;
+			for (int y = lowY + level.random.nextInt(3); y <= highY; y += 3) {
+				Vec3 feet = new Vec3(x, y, z);
+				if (!isOpenSpace(level, feet)) {
 					continue;
 				}
-				if (isOpenPocket(level, candidate)) {
-					return candidate;
+				if (!needSight || sees(level, feet, around)) {
+					return feet;
+				}
+				if (fallback == null) {
+					fallback = feet;
+				}
+				break;
+			}
+		}
+		return fallback;
+	}
+
+	/** v0.17.2: an open spot near {@code at} (its own spot first), out to {@code maxDist} -- the unstick search for a wedged Behemoth. */
+	public static Vec3 findOpenNear(ServerLevel level, Vec3 at, double maxDist) {
+		if (isOpenSpace(level, at)) {
+			return at;
+		}
+		for (double r = 3.0; r <= maxDist; r += 3.0) {
+			for (int i = 0; i < 16; i++) {
+				double a = Math.PI * 2 * i / 16.0;
+				for (int dy : new int[] { 0, 3, -3, 6, -6, 9, -9 }) {
+					Vec3 feet = new Vec3(at.x + Math.cos(a) * r, Math.floor(at.y) + dy, at.z + Math.sin(a) * r);
+					if (isOpenSpace(level, feet)) {
+						return feet;
+					}
 				}
 			}
 		}
 		return null;
 	}
 
-	/** A generous open-air pocket (spec: "prefer large open Nether areas", "enough open air for the entity"). */
-	private static boolean isOpenPocket(ServerLevel level, BlockPos center) {
-		int r = 4;
-		for (int dx = -r; dx <= r; dx += 2) {
-			for (int dz = -r; dz <= r; dz += 2) {
-				for (int dy = -2; dy <= 2; dy += 2) {
-					BlockPos p = center.offset(dx, dy, dz);
-					if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) {
-						return false;
-					}
-				}
-			}
-		}
-		return true;
+	/** A clear line from a Behemoth's eye (feet at {@code feet}) to a player standing at {@code target}. */
+	public static boolean sees(ServerLevel level, Vec3 feet, Vec3 target) {
+		Vec3 eye = feet.add(0, AbyssalBehemothEntity.SIZE * 0.6, 0);
+		Vec3 to = target.add(0, 1.5, 0);
+		return level.clip(new ClipContext(eye, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, CollisionContext.empty()))
+				.getType() == HitResult.Type.MISS;
 	}
 }
