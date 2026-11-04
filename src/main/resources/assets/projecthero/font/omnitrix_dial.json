@@ -23,6 +23,7 @@
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/cannonbolt.png", "height": 9, "ascent": 8, "chars": ["\uE014"] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/way_big.png", "height": 9, "ascent": 8, "chars": ["\uE015"] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/wildvine.png", "height": 9, "ascent": 8, "chars": ["\uE016"] },
-    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/ditto.png", "height": 9, "ascent": 8, "chars": ["\uE017"] }
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/ditto.png", "height": 9, "ascent": 8, "chars": ["\uE017"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/upchuck.png", "height": 9, "ascent": 8, "chars": ["\uE018"] }
   ]
 }

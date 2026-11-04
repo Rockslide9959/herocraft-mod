@@ -1,0 +1,273 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.upchuck.UpchuckKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Upchuck -- body, badge, belly, tongues, a Gut Bomb (frames for the MP4), Devour. run/upchuck.flag. */
+public final class UpchuckHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static Zombie target, target2;
+
+	private UpchuckHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("upchuck.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UpchuckHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "upchuck-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "upchuck_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static UpchuckKit kit() {
+		return (UpchuckKit) Aliens.kit(UpchuckKit.ID);
+	}
+
+	private static Zombie zombie(ServerPlayer p, double dx, double dz) {
+		Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+		z.moveTo(p.getX() + dx, p.getY(), p.getZ() + dz, 0f, 0f);
+		z.setNoAi(true);
+		z.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(z);
+		return z;
+	}
+
+	private static void aim(ServerPlayer p, Vec3 at) {
+		Vec3 d = at.subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UpchuckHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, UpchuckKit.ID, true);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> Omnitrix.select(p, UpchuckKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 180f, 5f);
+				Omnitrix.select(p, UpchuckKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+			});
+		}
+		if (t == 160) {
+			shot(mc, "front");
+		}
+		if (t == 165) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 90f, 5f)); // his left side (the wrist badge) to the camera
+		}
+		if (t == 180) {
+			shot(mc, "side_badge");
+		}
+		if (t == 185) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			server(mc, p -> {
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 150f, 5f);
+				kit().fill(p, 95, 40);
+			});
+		}
+		if (t == 200) {
+			shot(mc, "stuffed");
+		}
+		// ---- the Gut Bomb: a zombie 9 blocks off, seen from behind him; a frame every tick for the MP4
+		if (t == 205) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				target = zombie(p, 0, -9);
+				target2 = zombie(p, 7, -6);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 0f);
+			});
+		}
+		if (t == 215) {
+			server(mc, p -> aim(p, target.position().add(0, 1.0, 0)));
+		}
+		if (t >= 218 && t <= 262) {
+			shot(mc, String.format("spit_%03d", t - 218));
+		}
+		if (t == 222) {
+			server(mc, p -> System.out.println("[HARNESS] bomb=" + kit().gutBomb(p) + " gut=" + UpchuckKit.gut(p)));
+		}
+		if (t == 262) {
+			server(mc, p -> System.out.println("[HARNESS] zombie hp=" + target.getHealth() + " alive=" + target.isAlive()));
+		}
+		// ---- Tongue Grab on the second zombie
+		if (t == 270) {
+			server(mc, p -> {
+				aim(p, target2.position().add(0, 1.0, 0));
+			});
+		}
+		if (t == 274) {
+			server(mc, p -> {
+				System.out.println("[HARNESS] grab=" + kit().tongueGrab(p));
+				// turned side-on, so the back camera sees the tongues cross the frame instead of hiding behind his head
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot() - 75f, 10f);
+			});
+		}
+		if (t >= 275 && t <= 292) {
+			shot(mc, String.format("tongue_%03d", t - 275));
+		}
+		// ---- Devour a wall with ore in it
+		if (t == 300) {
+			server(mc, p -> {
+				BlockPos c = p.blockPosition().offset(0, 0, 3);
+				for (int x = -1; x <= 1; x++) {
+					for (int y = 0; y <= 2; y++) {
+						p.serverLevel().setBlockAndUpdate(c.offset(x, y, 0), (x == 0 && y == 1) ? Blocks.IRON_ORE.defaultBlockState() : Blocks.STONE.defaultBlockState());
+					}
+				}
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+				kit().fill(p, 10, 0);
+			});
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 310) {
+			shot(mc, "wall_before");
+			server(mc, p -> aim(p, Vec3.atCenterOf(p.blockPosition().offset(0, 1, 3)).add(0, 0, -0.5)));
+		}
+		if (t == 314) {
+			server(mc, p -> System.out.println("[HARNESS] devour=" + kit().devour(p) + " gut=" + UpchuckKit.gut(p) + " rich=" + UpchuckKit.rich(p)));
+		}
+		if (t >= 315 && t <= 320) {
+			shot(mc, String.format("devour_%03d", t - 315));
+		}
+		// ---- the Mega Loogie, and the HUD
+		if (t == 330) {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				kit().fill(p, 100, 60);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, -5f);
+				zombie(p, 0, -12);
+			});
+		}
+		if (t == 345) {
+			shot(mc, "hud_firstperson");
+		}
+		if (t == 350) {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 355) {
+			server(mc, p -> System.out.println("[HARNESS] mega=" + kit().mega(p)));
+		}
+		if (t >= 352 && t <= 385) {
+			shot(mc, String.format("mega_%03d", t - 352));
+		}
+		if (t == 390) {
+			server(mc, p -> {
+				for (var e : p.serverLevel().getEntities(p, p.getBoundingBox().inflate(20))) {
+					if (e instanceof LivingEntity le) {
+						System.out.println("[HARNESS] after " + e.getType().toShortString() + " hp=" + le.getHealth());
+					}
+				}
+			});
+		}
+		if (t == 400) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

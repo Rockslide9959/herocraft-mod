@@ -30,6 +30,12 @@ import net.minecraft.world.phys.Vec3;
  * the standing moves hit.
  */
 public class OmnitrixCannonboltGameTests implements FabricGameTest {
+	/**
+	 * v0.17.2: every hidden alien a mistransform can find, in dial order (Way Big is item-only: never here). v0.17.2 (Upchuck): four.
+	 */
+	private static final java.util.List<Aliens.Alien> MISTRANSFORM_FINDS = java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO,
+			Aliens.UPCHUCK);
+
 	private static ServerPlayer mock(GameTestHelper helper, double x, double y, double z) {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
@@ -102,15 +108,15 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.CANNONBOLT), "Cannonbolt is not on the dial before he is found");
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.WILDVINE), "nor Wildvine");
 		helper.assertFalse(Omnitrix.select(p, CannonboltKit.ID) || Omnitrix.select(p, WildvineKit.ID), "and neither can be dialled");
-		helper.assertTrue(Aliens.unfound(p).equals(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO)),
-				"all three are left for a glitch to find (v0.17.2: + Ditto)");
+		helper.assertTrue(Aliens.unfound(p).equals(MISTRANSFORM_FINDS),
+				"all four are left for a glitch to find (v0.17.2: + Ditto, Upchuck): " + Aliens.unfound(p));
 		Omnitrix.setMistransforms(p, 8); // two ordinary mistransforms, then the 11th
 		helper.onEachTick(() -> {
 			p.tickCount++;
 			Omnitrix.tick(p);
 		});
 		attempt(helper, p, 0, 11, java.util.Set.of(), found -> {
-			java.util.List<Aliens.Alien> others = new java.util.ArrayList<>(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO));
+			java.util.List<Aliens.Alien> others = new java.util.ArrayList<>(MISTRANSFORM_FINDS);
 			others.remove(found);
 			helper.assertTrue(others.stream().noneMatch(o -> Aliens.found(p, o.id())), "the other hidden aliens are still hidden");
 			helper.assertTrue(Aliens.unfound(p).equals(others), "and they are the only ones left");
@@ -123,7 +129,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	 * unlock any of them ... im gonna add more new laiens still"): the 11th mistransform finds one hidden alien, the 22nd the other --
 	 * never the same one twice -- and after that nothing is left to find.
 	 */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 6000)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 8000)
 	public void the11thAnd22ndMistransformsFindBothHiddenAliensWithNoRepeat(GameTestHelper helper) {
 		ServerPlayer p = proto(helper);
 		Omnitrix.setMistransforms(p, 10); // the next one is the 11th
@@ -138,11 +144,16 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 				// v0.17.2 (Ditto): a third hidden alien -- the 33rd finds the last one
 				Omnitrix.setMistransforms(p, 32);
 				attempt(helper, p, 0, 33, java.util.Set.of(first.id(), second.id()), third -> {
-					helper.assertTrue(third != first && third != second, "the 33rd finds the last one, no repeat: " + third.id());
-					helper.assertTrue(Aliens.found(p, CannonboltKit.ID) && Aliens.found(p, WildvineKit.ID) && Aliens.found(p, Aliens.DITTO.id()),
-							"all three are on the dial now");
-					helper.assertTrue(Aliens.unfound(p).isEmpty() && Aliens.nextHidden(p) == null, "nothing hidden left");
-					helper.succeed();
+					helper.assertTrue(third != first && third != second, "the 33rd finds a third one, no repeat: " + third.id());
+					// v0.17.2 (Upchuck): a fourth hidden alien -- the 44th finds the last one
+					Omnitrix.setMistransforms(p, 43);
+					attempt(helper, p, 0, 44, java.util.Set.of(first.id(), second.id(), third.id()), fourth -> {
+						helper.assertTrue(fourth != first && fourth != second && fourth != third, "the 44th finds the last one, no repeat: " + fourth.id());
+						helper.assertTrue(MISTRANSFORM_FINDS.stream().allMatch(a -> Aliens.found(p, a.id())), "all four are on the dial now");
+						helper.assertFalse(Aliens.found(p, Aliens.WAY_BIG.id()), "never Way Big (his shard only)");
+						helper.assertTrue(Aliens.unfound(p).isEmpty() && Aliens.nextHidden(p) == null, "nothing hidden left");
+						helper.succeed();
+					});
 				});
 			});
 		});
@@ -153,26 +164,27 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	public void theHiddenAlienPickIsAnEvenChance(GameTestHelper helper) {
 		ServerPlayer p = proto(helper);
 		net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(1234L);
-		// v0.17.2 (Ditto): three unfound hidden aliens -- a third each (each between 25% and 42% of 600 picks)
+		// v0.17.2 (Ditto, Upchuck): four unfound hidden aliens -- a quarter each (each between 18% and 32% of 800 picks)
 		java.util.Map<Aliens.Alien, Integer> n = new java.util.HashMap<>();
-		for (int i = 0; i < 600; i++) {
+		for (int i = 0; i < 800; i++) {
 			Aliens.Alien a = Aliens.pickHidden(p, r);
-			helper.assertTrue(a == Aliens.CANNONBOLT || a == Aliens.WILDVINE || a == Aliens.DITTO, "the pick is one of the hidden aliens");
+			helper.assertTrue(MISTRANSFORM_FINDS.contains(a), "the pick is one of the hidden aliens: " + a);
 			n.merge(a, 1, Integer::sum);
 		}
-		for (Aliens.Alien a : java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO)) {
+		for (Aliens.Alien a : MISTRANSFORM_FINDS) {
 			int c = n.getOrDefault(a, 0);
-			helper.assertTrue(c > 150 && c < 250, "an even chance: " + a.id() + " " + c + "/600");
+			helper.assertTrue(c > 144 && c < 256, "an even chance: " + a.id() + " " + c + "/800");
 		}
-		Aliens.discover(p, CannonboltKit.ID, true);
-		for (int i = 0; i < 50; i++) {
-			Aliens.Alien a = Aliens.pickHidden(p, r);
-			helper.assertTrue(a == Aliens.WILDVINE || a == Aliens.DITTO, "once Cannonbolt is found only Wildvine and Ditto are left");
+		// found ones leave the draw, one by one, until none is left
+		java.util.List<Aliens.Alien> left = new java.util.ArrayList<>(MISTRANSFORM_FINDS);
+		for (Aliens.Alien gone : MISTRANSFORM_FINDS) {
+			Aliens.discover(p, gone.id(), true);
+			left.remove(gone);
+			for (int i = 0; i < 50; i++) {
+				Aliens.Alien a = Aliens.pickHidden(p, r);
+				helper.assertTrue(left.isEmpty() ? a == null : left.contains(a), "once " + gone.id() + " is found only " + left + " are left: " + a);
+			}
 		}
-		Aliens.discover(p, WildvineKit.ID, true);
-		helper.assertTrue(Aliens.pickHidden(p, r) == Aliens.DITTO, "then only Ditto");
-		Aliens.discover(p, Aliens.DITTO.id(), true);
-		helper.assertTrue(Aliens.pickHidden(p, r) == null, "and then none");
 		helper.succeed();
 	}
 
