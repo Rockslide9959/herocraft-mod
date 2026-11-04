@@ -30,6 +30,26 @@ for (const x of [23, 24]) {
 	set(x, 37, 0x589d46);
 	set(x, 38, 0x599e47);
 }
+// v0.17.2 (user: "can you add little seed bomb models to wildvines back please"): the flat dark pods the skin paints on his back
+// (base layer, back face x32..39: 33..34 / 37..38 on rows 23..24, 34 / 37 on rows 25, 27..29 and 31; the jacket layer repeats them
+// at 33..34 / 37..38 rows 39..40 and 34 / 37 rows 43..44, 46) go -- WildvineFx.backPods draws 3D pods there instead. Base pixels
+// take the green beside them in the same row (x35); the jacket's pod pixels turn clear so the base shows through.
+const dark = (x, y) => { const o = (y * 64 + x) * 4; return body[o + 3] > 10 && body[o] < 20 && body[o + 1] < 20 && body[o + 2] < 30; };
+for (let y = 20; y <= 31; y++) {
+	for (let x = 32; x <= 39; x++) {
+		if (dark(x, y)) {
+			const o = (y * 64 + 35) * 4;
+			set(x, y, (body[o] << 16) | (body[o + 1] << 8) | body[o + 2]);
+		}
+	}
+}
+for (let y = 36; y <= 47; y++) {
+	for (let x = 32; x <= 39; x++) {
+		if (dark(x, y)) {
+			body[(y * 64 + x) * 4 + 3] = 0;
+		}
+	}
+}
 fs.writeFileSync(path.join(RES, 'entity/omnitrix/wildvine.png'), L.encodePng(64, 64, body));
 
 // ---------------------------------------------------------------- the placeholder dial icon source (222 x 222)

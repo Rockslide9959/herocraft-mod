@@ -102,11 +102,11 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.CANNONBOLT), "Cannonbolt is not on the dial before he is found");
 		helper.assertFalse(Aliens.playable(p).contains(Aliens.WILDVINE), "nor Wildvine");
 		helper.assertFalse(Omnitrix.select(p, CannonboltKit.ID) || Omnitrix.select(p, WildvineKit.ID), "and neither can be dialled");
-		// v0.17.2 (Buzzshock): the pool is every hidden alien a mistransform can find -- Cannonbolt, Wildvine, Ditto, Buzzshock (and any
+		// v0.17.2 (Buzzshock): the pool is every hidden alien a mistransform can find -- Cannonbolt, Wildvine, Ditto, Upchuck, Buzzshock (and any
 		// added later), never an item-only one (Way Big)
 		java.util.List<Aliens.Alien> pool = Aliens.mistransformFinds();
-		helper.assertTrue(pool.containsAll(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO, Aliens.BUZZSHOCK)) && !pool.contains(Aliens.WAY_BIG),
-				"Cannonbolt, Wildvine, Ditto and Buzzshock are all a mistransform's to find, Way Big is not: " + pool);
+		helper.assertTrue(pool.containsAll(java.util.List.of(Aliens.CANNONBOLT, Aliens.WILDVINE, Aliens.DITTO, Aliens.UPCHUCK, Aliens.BUZZSHOCK)) && !pool.contains(Aliens.WAY_BIG),
+				"Cannonbolt, Wildvine, Ditto, Upchuck and Buzzshock are all a mistransform's to find, Way Big is not: " + pool);
 		helper.assertTrue(Aliens.unfound(p).equals(pool), "all of them are left for a glitch to find: " + Aliens.unfound(p));
 		Omnitrix.setMistransforms(p, 8); // two ordinary mistransforms, then the 11th
 		helper.onEachTick(() -> {
@@ -125,13 +125,13 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	/**
 	 * v0.17.2 (user: "When it comes to unlocking new aliens make it an even chance to unlock either cannonbolt or wildvine if you dont
 	 * unlock any of them ... im gonna add more new laiens still"): the 11th mistransform finds one hidden alien, the 22nd another, the
-	 * 33rd the next, and so on for every hidden alien (four with Buzzshock) -- never the same one twice -- and after that nothing is left.
+	 * 33rd the next, and so on for every hidden alien (five with Upchuck and Buzzshock) -- never the same one twice -- and after that nothing is left.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 12000)
 	public void every11thMistransformFindsEachHiddenAlienOnceWithNoRepeat(GameTestHelper helper) {
 		ServerPlayer p = proto(helper);
 		java.util.List<Aliens.Alien> pool = Aliens.mistransformFinds();
-		helper.assertTrue(pool.size() >= 4 && pool.contains(Aliens.BUZZSHOCK), "four or more to find (v0.17.2: + Buzzshock): " + pool);
+		helper.assertTrue(pool.size() >= 5 && pool.contains(Aliens.BUZZSHOCK) && pool.contains(Aliens.UPCHUCK), "five or more to find (v0.17.2: + Buzzshock): " + pool);
 		Omnitrix.setMistransforms(p, 10); // the next one is the 11th
 		helper.onEachTick(() -> {
 			p.tickCount++;
@@ -250,7 +250,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id().equals(CannonboltKit.BOUNCE), "ball G is the Big Bounce");
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_6, false, false).id().equals(CannonboltKit.UNSTOPPABLE), "ball C is Unstoppable");
 		helper.assertTrue(kit.pawsOnly(p), "rolled up: no items");
-		helper.assertFalse(kit.climbs(p), "not on a ladder in the open (only pressed into a wall)");
+		helper.assertFalse(kit.climbs(p), "the ball never climbs walls (v0.17.2 user)");
+		helper.assertTrue(p.maxUpStep() >= 3.99f, "the ball rolls up 4-block ledges: " + p.maxUpStep());
 		// uncurl after the V cooldown
 		helper.runAfterDelay(12, () -> {
 			tap(p, AbilitySlot.SLOT_5, false);

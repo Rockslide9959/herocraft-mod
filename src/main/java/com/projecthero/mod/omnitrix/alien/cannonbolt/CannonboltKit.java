@@ -126,7 +126,7 @@ public final class CannonboltKit extends AlienKit {
 	 * above the body instead of above the chest please"): standing, the box ends at his headless body's top (24 px), the eyes sit in
 	 * his chest and the nametag just over his shoulders -- before the body's scale (1.3).
 	 */
-	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = 0.4f;
+	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = -0.15f; // v0.17.2 (user: "make the nametag a bit higher since right now its inside his body"): was 0.4
 
 	private static final ResourceLocation ROLL_SPEED = PowerToggles.id("omnitrix_cannonbolt_roll");
 	private static final ResourceLocation ROLL_STEP = PowerToggles.id("omnitrix_cannonbolt_step");
@@ -142,12 +142,15 @@ public final class CannonboltKit extends AlienKit {
 	public static final OmnitrixSfx.Cue SND_IMPACT = OmnitrixSfx.cue("cannonbolt_impact")
 			.layer(SoundEvents.IRON_GOLEM_ATTACK, 0.5f, 0.6f)
 			.layer(SoundEvents.ANVIL_LAND, 0.15f, 0.55f);
+	// v0.17.2 (user: "when cannonbolt jumps and bounces dont make it an anvil sound, just make it a bounce sound of like light crash
+	// sound kind of thing please"): a springy thud and a light crunch, no metal
 	public static final OmnitrixSfx.Cue SND_RICOCHET = OmnitrixSfx.cue("cannonbolt_ricochet")
-			.layer(SoundEvents.ANVIL_LAND, 0.2f, 1.3f)
-			.layer(SoundEvents.SHIELD_BLOCK, 0.35f, 0.8f);
+			.layer(SoundEvents.SLIME_BLOCK_FALL, 0.7f, 0.75f)
+			.layer(SoundEvents.GENERIC_SMALL_FALL, 0.5f, 0.7f)
+			.layer(SoundEvents.GRAVEL_BREAK, 0.25f, 0.8f, 1);
 	public static final OmnitrixSfx.Cue SND_QUAKE = OmnitrixSfx.cue("cannonbolt_quake")
-			.layer(SoundEvents.GENERIC_EXPLODE, 0.35f, 0.6f)
-			.layer(SoundEvents.ANVIL_LAND, 0.2f, 0.5f, 1);
+			.layer(SoundEvents.GENERIC_EXPLODE.value(), 0.35f, 0.6f)
+			.layer(SoundEvents.GENERIC_BIG_FALL, 0.6f, 0.6f, 1); // v0.17.2 (user): a heavy landing, no anvil
 	public static final OmnitrixSfx.Cue SND_ROLL = OmnitrixSfx.cue("cannonbolt_roll")
 			.layer(SoundEvents.MINECART_RIDING, 0.18f, 0.55f)
 			.gap(16);
@@ -276,7 +279,7 @@ public final class CannonboltKit extends AlienKit {
 				AlienMove.vanilla(BOOST, "Ball Mode: X", 240), AlienMove.vanilla(SPIN, "Ball Mode: Z", 160),
 				AlienMove.vanilla(UNCURL, "Ball Mode: V", 10), AlienMove.vanilla(UNSTOPPABLE, "Ball Mode: C", 900),
 				AlienMove.vanilla(RAM, "Ball Mode: roll into it", 0), AlienMove.vanilla(SHELL, "Ball Mode: passive", 0),
-				AlienMove.vanilla(WALL_ROLL, "Ball Mode: roll into a wall", 0));
+				AlienMove.vanilla(WALL_ROLL, "Ball Mode: roll up a ledge", 0));
 	}
 
 	/** Ball Mode swaps every key for its rolling move. */
@@ -346,10 +349,17 @@ public final class CannonboltKit extends AlienKit {
 				.attach(net.minecraft.world.entity.EntityAttachment.VEHICLE, Player.DEFAULT_VEHICLE_ATTACHMENT));
 	}
 
+	/** v0.17.2 (user: "make it so that cannonbolts ball form cant climb walls and give his ball form a 4 blocks step assist please"). */
+	public static final float BALL_STEP = 4f;
+
 	@Override
 	public boolean climbs(Player p) {
-		// the show: the ball rolls straight up walls -- only while pressed into one ("on a ladder" caps the roll's speed)
-		return flag(p, F_BALL) && p.horizontalCollision;
+		return false; // v0.17.2 (user): the ball no longer rolls up walls -- it rolls up ledges instead (stepHeight)
+	}
+
+	@Override
+	public float stepHeight(Player p) {
+		return flag(p, F_BALL) ? BALL_STEP : -1f; // the ball rolls straight up a ledge up to 4 blocks high
 	}
 
 	@Override
@@ -819,7 +829,6 @@ public final class CannonboltKit extends AlienKit {
 			bonus = -0.5;
 		}
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, ROLL_SPEED, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, ROLL_STEP, 0.5, AttributeModifier.Operation.ADD_VALUE);
 		if (speed > 0.15 && p.onGround()) {
 			OmnitrixSounds.play(l, p.position(), SND_ROLL, 0.6f + (float) speed, 0.8f + (float) speed * 0.6f);
 			if (now % 3 == 0) {

@@ -124,6 +124,13 @@ public final class WildvineClient implements AlienClientKit {
 		};
 	}
 
+	/** v0.17.2 (user: "can you add little seed bomb models to wildvines back please"): the seed pods on his back. */
+	@Override
+	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p,
+			net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model, float partial, float age) {
+		WildvineFx.backPods(pose, buffers, light, p, model, partial, age);
+	}
+
 	// ---------------------------------------------------------------- the burrow: a mound moving under the ground
 
 	private static boolean burrowed(AbstractClientPlayer p) {

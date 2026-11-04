@@ -463,7 +463,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theDialListsAllTenAndOnlyKitsArePlayable(GameTestHelper helper) {
-		helper.assertTrue(Aliens.all().size() == 15, "the original ten, Cannonbolt, Wildvine, Ditto, Way Big and Buzzshock (v0.17.2) are on the dial");
+		helper.assertTrue(Aliens.all().size() == 16, "the original ten, Cannonbolt, Wildvine, Ditto, Way Big, Upchuck and Buzzshock (v0.17.2) are on the dial");
 		helper.assertTrue(Aliens.playable(HeatblastKit.ID) && Aliens.playable(FourArmsKit.ID), "Heatblast and Four Arms are playable");
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
 		// v0.17.1 wave A: more aliens get kits as they are built -- whichever is still without one stays "coming soon"

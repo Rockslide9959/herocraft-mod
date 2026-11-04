@@ -821,6 +821,7 @@ public final class Omnitrix {
 		}
 		HeroTiers.claimPrimary(p, KEY);
 		OmnitrixState s = new OmnitrixState();
+		keepPlayerData(state(p), s); // v0.17.2: the aliens he unlocked are his, not the watch's
 		s.hasPower = true;
 		if (recal) {
 			s.timers.put(RECAL, 1L);
@@ -900,6 +901,21 @@ public final class Omnitrix {
 		return a != null && a.getModifier(LATCH_SLOW_ID) != null;
 	}
 
+	/**
+	 * v0.17.2 (user: "when unlocking these aliens save the data to the player and not the omnitrix so if the player takes off the
+	 * omnitrix and puts it back on they still have all these aliens unlocked please"): what belongs to the player, not the watch --
+	 * every alien he has unlocked ({@code Aliens.foundKey}: a mistransform or the To'kustar Shard) and his mistransform count -- is
+	 * carried from {@code from} into the fresh state when the watch comes off ({@link #revoke}) and when one goes back on
+	 * ({@link #grant}). The state attachment is persistent and copied on death, so it survives logging out and dying too.
+	 */
+	public static void keepPlayerData(OmnitrixState from, OmnitrixState to) {
+		for (var e : from.timers.entrySet()) {
+			if (e.getKey().startsWith("omnitrix.found.") || e.getKey().equals(MISTRANSFORMS)) {
+				to.timers.put(e.getKey(), e.getValue());
+			}
+		}
+	}
+
 	/** Tears the power down (the pod's success, an admin revoke, a forced replacement). Turns the wearer back first. */
 	public static void revoke(ServerPlayer p) {
 		if (!hasPower(p)) {
@@ -908,7 +924,9 @@ public final class Omnitrix {
 		if (state(p).transformed()) {
 			revert(p, Reason.REVOKE);
 		}
-		save(p, new OmnitrixState());
+		OmnitrixState bare = new OmnitrixState();
+		keepPlayerData(state(p), bare); // v0.17.2: taking the watch off keeps the aliens he unlocked
+		save(p, bare);
 		p.removeAttached(OmnitrixAttachments.EXTRACTION);
 		latchLock(p, false);
 		forget(p.getUUID());

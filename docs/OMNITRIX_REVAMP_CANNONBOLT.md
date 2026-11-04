@@ -21,7 +21,7 @@ User: "for the canonbolt alien i want ben to accidentally transform into the ali
 - That one discovery shows a line on the action bar: "The Omnitrix glitched into a new alien: Cannonbolt! He is on your dial
   now." Ordinary mistransforms stay silent, as the user asked earlier.
 - Every other mistransform picks any alien on the dial at random, as before.
-- The flag is lost only when the watch comes off (the Containment Pod).
+- v0.17.2 (user: "save the data to the player and not the omnitrix"): the unlocks and the mistransform count belong to the player -- `Omnitrix.keepPlayerData` carries them through taking the watch off and putting one back on (either watch); the state is persistent and copied on death.
 - Test tools: `/projecthero power tune omnitrix found on|off` puts him on the dial or hides him again;
   `mistransforms <count>` sets the count (10 = the next mistransform finds him). `status` shows the count.
 - Code: `Aliens.HIDDEN`, `found`, `discover`, `nextHidden`. `playable(p)` and `available` skip unfound aliens. The glitch

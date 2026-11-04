@@ -99,6 +99,30 @@ public class OmnitrixWayBigGameTests implements FabricGameTest {
 		return m;
 	}
 
+	/**
+	 * v0.17.2 (user: "save the data to the player and not the omnitrix so if the player takes off the omnitrix and puts it back on
+	 * they still have all these aliens unlocked please"): the unlocks and the mistransform count outlive the watch.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void unlockedAliensStayWithThePlayerWhenTheWatchComesOff(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		Aliens.discover(p, WayBigKit.ID, true);
+		Aliens.discover(p, Aliens.CANNONBOLT.id(), true);
+		Omnitrix.setMistransforms(p, 7);
+		Omnitrix.revoke(p);
+		helper.assertFalse(Omnitrix.hasPower(p), "the watch is off");
+		helper.assertTrue(Omnitrix.mistransforms(p) == 0, "no watch, no count shown");
+		helper.assertTrue(Omnitrix.grant(p, true), "the Recalibrated Omnitrix goes on");
+		Omnitrix.revoke(p);
+		helper.assertTrue(Omnitrix.grant(p), "the prototype goes back on");
+		helper.assertTrue(Aliens.found(p, WayBigKit.ID) && Aliens.found(p, Aliens.CANNONBOLT.id()), "both unlocks kept");
+		helper.assertTrue(Aliens.playable(p).contains(Aliens.WAY_BIG) && Aliens.playable(p).contains(Aliens.CANNONBOLT), "still on the dial");
+		helper.assertTrue(Omnitrix.mistransforms(p) == 7, "the mistransform count kept: " + Omnitrix.mistransforms(p));
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wayBigIsUnlockedOnlyByHisItemNeverByAMistransform(GameTestHelper helper) {
 		floor(helper);

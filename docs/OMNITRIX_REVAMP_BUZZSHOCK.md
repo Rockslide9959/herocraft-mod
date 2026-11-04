@@ -5,7 +5,7 @@ about the new aliens: "remove the pixel omnitrix from his skin model and replace
 his powers and look at what he does in the show ... Make this another alien you unlock on the 11th mistransformation ... make it an
 even chance to unlock [any of the hidden aliens] if you dont unlock any of them".
 
-Buzzshock belongs to the **prototype** Omnitrix. His dial glyph is U+E019; U+E018 is held for Upchuck, built in parallel. He is not
+Buzzshock belongs to the **prototype** Omnitrix. His dial glyph is U+E019, next to Upchuck's U+E018 (built in parallel). He is not
 on the Recalibrated Omnitrix.
 
 ## Found by accident
@@ -126,7 +126,7 @@ User (the task): "For duplicates, reuse Ditto's copy entity approach where it fi
   lime (0x9CFF30) with a paler second strand. `buzzshock_ball` is the Spark Bomb: a real projectile with gravity and a 3.5 blast.
   Its burst adds a flash, sparks, a shock ring and arcs to everything it hit.
 - **Registration:** `Aliens.BUZZSHOCK`, `Aliens.HIDDEN`, `OmnitrixMod` (register and `clearSessionState`, which
-  `ServerStateReset` calls), `OmnitrixClient`, the `OmnitrixInfo.DIAL_ORDER` glyph list (with `upchuck` held at U+E018), and
+  `ServerStateReset` calls), `OmnitrixClient`, the `OmnitrixInfo.DIAL_ORDER` glyph list (after `upchuck`), and
   `font/omnitrix_dial.json` (U+E019).
 - **Textures:** `scratchpad/ben10_v0171/gen_buzzshock.js`, from `buzzshock_dl/buzzshock_skin.png`. The dial icons come from
   the user's icon (`buzzshock_dl/dial_src/buzzshock.png`) through `IDS=buzzshock node scratchpad/gen_omnitrix_dial_icons.js`.
@@ -136,7 +136,7 @@ User (the task): "For duplicates, reuse Ditto's copy entity approach where it fi
   - The discovery draw tests in `OmnitrixCannonboltGameTests` now read the pool from `Aliens.mistransformFinds()`, so the next
     hidden alien needs no test edits. They are: every 11th finds a new one with no repeats until all are found; even odds at every
     pool size.
-  - The prototype dial count is 15.
+  - The prototype dial count is 16, with Upchuck.
 - **In game:** `docs/screenshots/v0172/buzzshock/`.
   - Stills: front, copies, back, the swarm, flight and first person.
   - `buzzshock_lightning.mp4` (6 s, 20 fps): two bolts at an iron golem, Chain Lightning through the zombies, the Spark Bomb,

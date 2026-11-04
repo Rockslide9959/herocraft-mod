@@ -132,6 +132,113 @@ public final class WayBigClient implements AlienClientKit {
 		return SKIN;
 	}
 
+	// ---------------------------------------------------------------- the fins
+
+	/**
+	 * v0.17.2 (user: "add a fin to the top of waybigs head and his shoulders please, small ones on his shoulders, look at these
+	 * reference images, make the fins smooth looking please"): the show's tall head fin -- a crest rising from his brow and sweeping
+	 * back -- and a small curved crescent fin on top of each shoulder, built as smooth curved blades (many thin segments, both faces
+	 * and their edges), not boxes. Coloured from the skin's own dark fin stripe.
+	 */
+	@Override
+	public void renderExtras(com.mojang.blaze3d.vertex.PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+			AbstractClientPlayer p, net.minecraft.client.model.PlayerModel<AbstractClientPlayer> model, float partial, float age) {
+		com.mojang.blaze3d.vertex.VertexConsumer vc = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(SKIN));
+		// the head fin: on the head's centre line (x 0), a blade from the brow (front edge nearly upright, then curving back) to a tip
+		// up and behind; thin across x
+		pose.pushPose();
+		model.head.translateAndRotate(pose);
+		blade(pose, vc, light, new float[][] { { 0, -7.6f, -2.8f }, { 0, -14.5f, -2.6f }, { 0, -17.5f, 3.4f } },
+				new float[][] { { 0, -7.6f, 3.4f }, { 0, -10.4f, 4.0f }, { 0, -17.5f, 3.4f } }, new float[] { 1, 0, 0 }, 1.3f, FIN_RED);
+		// v0.17.2 (user: "make waybigs fin black in the front and red and the back"): the front half black over the red blade
+		blade(pose, vc, light, new float[][] { { 0, -7.6f, -2.95f }, { 0, -14.7f, -2.75f }, { 0, -17.6f, 3.35f } },
+				new float[][] { { 0, -7.6f, 0.3f }, { 0, -12.8f, 0.7f }, { 0, -17.3f, 3.3f } }, new float[] { 1, 0, 0 }, 1.45f, FIN_BLACK);
+		pose.popPose();
+		// the shoulder fins -- v0.17.2 (user: "make his shoulder spikes the same as his fin but make them fully black and make them as long
+		// as the length of his shoulder please"): the head fin's swept crest, all black, its base running the whole length of the
+		// shoulder top (front to back, z -2..2) and its tip swept up and back
+		for (int side = -1; side <= 1; side += 2) {
+			var arm = side < 0 ? model.rightArm : model.leftArm;
+			float c = side * 1f; // the arm cube's centre (right arm x -3..1, left -1..3)
+			pose.pushPose();
+			arm.translateAndRotate(pose);
+			blade(pose, vc, light, new float[][] { { c, -1.8f, -2.2f }, { c, -6.2f, -2.0f }, { c, -8.4f, 2.4f } },
+					new float[][] { { c, -1.8f, 2.2f }, { c, -3.7f, 2.6f }, { c, -8.4f, 2.4f } }, new float[] { 1, 0, 0 }, 1.1f, FIN_BLACK);
+			pose.popPose();
+		}
+	}
+
+	/** Solid colours picked from the skin itself (pixel centres on the 64x64 sheet): the fin stripe's navy and his red. */
+	private static final float[] FIN_BLACK = { 16.5f / 64f, 7.5f / 64f }, FIN_RED = { 10.5f / 64f, 0.5f / 64f };
+	private static final int SEG = 18;
+
+	/**
+	 * A smooth curved blade between two quadratic edges {@code a} and {@code b} (each three control points in bone pixels; they share
+	 * their last point, the tip), {@code thick} pixels thick along {@code across}: both faces and the edge walls.
+	 */
+	private static void blade(com.mojang.blaze3d.vertex.PoseStack pose, com.mojang.blaze3d.vertex.VertexConsumer vc, int light, float[][] a,
+			float[][] b, float[] across, float thick, float[] uv) {
+		var last = pose.last();
+		float h = thick * 0.5f;
+		float[][] ea = new float[SEG + 1][], eb = new float[SEG + 1][];
+		for (int i = 0; i <= SEG; i++) {
+			float t = i / (float) SEG;
+			ea[i] = quad(a, t);
+			eb[i] = quad(b, t);
+		}
+		for (int i = 0; i < SEG; i++) {
+			// the blade thins towards the tip
+			float h0 = h * (1f - 0.7f * i / SEG), h1 = h * (1f - 0.7f * (i + 1) / SEG);
+			for (int s = -1; s <= 1; s += 2) {
+				float[] n = { across[0] * s, across[1] * s, across[2] * s };
+				quadV(vc, last, light, uv, off(ea[i], across, s * h0), off(eb[i], across, s * h0), off(eb[i + 1], across, s * h1),
+						off(ea[i + 1], across, s * h1), n);
+			}
+			// the two edges' walls
+			for (float[][] e : new float[][][] { ea, eb }) {
+				float[] d = sub(e[i + 1], e[i]);
+				float[] n = norm(cross(d, across));
+				quadV(vc, last, light, uv, off(e[i], across, -h0), off(e[i], across, h0), off(e[i + 1], across, h1), off(e[i + 1], across, -h1), n);
+			}
+		}
+	}
+
+	private static float[] quad(float[][] p, float t) {
+		float u = 1 - t;
+		float[] o = new float[3];
+		for (int k = 0; k < 3; k++) {
+			o[k] = u * u * p[0][k] + 2 * u * t * p[1][k] + t * t * p[2][k];
+		}
+		return o;
+	}
+
+	private static float[] off(float[] v, float[] d, float s) {
+		return new float[] { v[0] + d[0] * s, v[1] + d[1] * s, v[2] + d[2] * s };
+	}
+
+	private static float[] sub(float[] x, float[] y) {
+		return new float[] { x[0] - y[0], x[1] - y[1], x[2] - y[2] };
+	}
+
+	private static float[] cross(float[] x, float[] y) {
+		return new float[] { x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0] };
+	}
+
+	private static float[] norm(float[] v) {
+		float l = Mth.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+		return l < 1.0e-5f ? new float[] { 0, 1, 0 } : new float[] { v[0] / l, v[1] / l, v[2] / l };
+	}
+
+	/** One quad (pixels to blocks), drawn both ways round so its facing never culls it. */
+	private static void quadV(com.mojang.blaze3d.vertex.VertexConsumer vc, com.mojang.blaze3d.vertex.PoseStack.Pose last, int light, float[] uv,
+			float[] p0, float[] p1, float[] p2, float[] p3, float[] n) {
+		float[][] ps = { p0, p1, p2, p3 };
+		for (float[] q : ps) {
+			vc.addVertex(last, q[0] / 16f, q[1] / 16f, q[2] / 16f).setColor(255, 255, 255, 255).setUv(uv[0], uv[1])
+					.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light).setNormal(last, n[0], n[1], n[2]);
+		}
+	}
+
 	@Override
 	public float[] badge() {
 		// the middle of his chest, where the show puts his Omnitrix symbol (the skin paints none -- see gen_way_big.js); just outside
