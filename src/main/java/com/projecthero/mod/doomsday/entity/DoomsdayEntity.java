@@ -85,7 +85,13 @@ public class DoomsdayEntity extends Monster {
 	public static final byte ACTION_NONE = 0, ACTION_HAMMER = 1, ACTION_GUARD = 2, ACTION_LEAP_CROUCH = 3, ACTION_LEAP_AIR = 4,
 			ACTION_LAND = 5, ACTION_SHATTER = 6, ACTION_ERUPT = 7, ACTION_VOLLEY = 8, ACTION_HEAT = 9, ACTION_GRAB = 10,
 			ACTION_BREATH = 11, ACTION_BLITZ = 12, ACTION_ROAR = 13, ACTION_BREAK_FREE = 14, ACTION_CORPSE = 15, ACTION_RISE = 16,
-			ACTION_BANISH = 17, ACTION_EMERGE = 18, ACTION_STAGGER = 19;
+			ACTION_BANISH = 17, ACTION_EMERGE = 18, ACTION_STAGGER = 19,
+			// v0.17.2 round 2 (user: "add more attacks and animations to doomsday please")
+			ACTION_RAMPAGE = 20, ACTION_RAMPAGE_CRASH = 21, ACTION_CLAP = 22, ACTION_SKYFALL = 23, ACTION_SKYFALL_LAND = 24, ACTION_HURL = 25,
+			ACTION_NOVA = 26;
+	/** Round-2 move timings (ticks from the move starting) the renderer mirrors. */
+	public static final int RAMPAGE_WINDUP = 18, RAMPAGE_RUN = 22, CRASH_TICKS = 34, CLAP_AT = 16, SKY_CROUCH = 18, SKY_RISE = 14, SKY_HANG = 22,
+			SKY_LAND_TICKS = 26, HURL_RIP = 14, HURL_LIFT = 26, HURL_THROW = 34, NOVA_AT = 32;
 	/** Move timings the renderer mirrors (ticks from the move starting). */
 	public static final int LEAP_CROUCH = 16, SHATTER_SLAM = 20, ERUPT_BURST = 16, VOLLEY_THROW = 14, HEAT_CHARGE = 20, HEAT_END = 60,
 			BREATH_INHALE = 20, BLITZ_GO = 10, ROAR_AT = 10, BREAK_AT = 20, RISE_TICKS = 40, BANISH_TICKS = 70, EMERGE_TICKS = 50;
@@ -96,6 +102,8 @@ public class DoomsdayEntity extends Monster {
 	private static final EntityDataAccessor<Integer> DATA_ADAPT = SynchedEntityData.defineId(DoomsdayEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Vector3f> DATA_BEAM = SynchedEntityData.defineId(DoomsdayEntity.class, EntityDataSerializers.VECTOR3);
 	private static final EntityDataAccessor<Float> DATA_REVIVE = SynchedEntityData.defineId(DoomsdayEntity.class, EntityDataSerializers.FLOAT);
+	/** Adaptive Nova: the bucket he is channelling (its ordinal), -1 when none -- the renderer's glow colour. */
+	private static final EntityDataAccessor<Integer> DATA_ELEMENT = SynchedEntityData.defineId(DoomsdayEntity.class, EntityDataSerializers.INT);
 
 	private final ServerBossEvent bossBar = new ServerBossEvent(Component.translatable("entity.projecthero.doomsday"),
 			BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -153,6 +161,7 @@ public class DoomsdayEntity extends Monster {
 		builder.define(DATA_ADAPT, 0);
 		builder.define(DATA_BEAM, new Vector3f());
 		builder.define(DATA_REVIVE, 0f);
+		builder.define(DATA_ELEMENT, -1);
 	}
 
 	@Override
@@ -191,6 +200,27 @@ public class DoomsdayEntity extends Monster {
 	public Vec3 beamTarget() {
 		Vector3f v = entityData.get(DATA_BEAM);
 		return new Vec3(v.x, v.y, v.z);
+	}
+
+	/** The Adaptive Nova's element (null when he isn't channelling one). */
+	public Bucket novaElement() {
+		int i = entityData.get(DATA_ELEMENT);
+		return i < 0 || i >= DoomsdayAdaptation.BUCKETS.length ? null : DoomsdayAdaptation.BUCKETS[i];
+	}
+
+	/** The bucket he has adapted to the most (immunities first), or null -- what the Adaptive Nova unleashes. */
+	public Bucket strongestAdaptation() {
+		List<Bucket> learned = adaptation.learned();
+		return learned.isEmpty() ? null : learned.get(0);
+	}
+
+	/** Client: the adaptation mask last seen and when it changed (the shudder animation). */
+	public int clientAdaptMask;
+	public float clientAdaptAt = -1000f;
+
+	/** True while he reels from a Rampage that ran into something he couldn't break. */
+	public boolean crashed() {
+		return action() == ACTION_RAMPAGE_CRASH;
 	}
 
 	/** 0..1 how far the corpse has come back (client: the twitching gets stronger). */
@@ -633,6 +663,13 @@ public class DoomsdayEntity extends Monster {
 			}
 		}
 		threat.tick();
+		// v0.17.2 round 2: a heavy walk -- every footfall thuds, kicks up dust and shakes the ground a little
+		Vec3 mv = getDeltaMovement();
+		if (action() == ACTION_NONE && onGround() && mv.x * mv.x + mv.z * mv.z > 0.0016 && tickCount % 11 == 0) {
+			level.playSound(null, getX(), getY(), getZ(), SoundEvents.RAVAGER_STEP, SoundSource.HOSTILE, 1.6f, 0.55f);
+			level.sendParticles(DoomsdayFx.DIRT, getX(), getY() + 0.1, getZ(), 6, getBbWidth() * 0.4, 0.05, getBbWidth() * 0.4, 0.05);
+			DoomsdayFx.shake(level, position(), 0.18f, 5, 18);
+		}
 		if (tickCount % 20 == 0 && getHealth() < getMaxHealth() && !staggered() && !com.projecthero.mod.kryptonian.KryptoniteStrikes.suppressed(this)) {
 			DoomsdayConfig.Boss b = DoomsdayConfig.boss();
 			heal((float) (inSunlight() ? b.regenSun : b.regenDark));
@@ -689,6 +726,23 @@ public class DoomsdayEntity extends Monster {
 		DamageSource src = attacker == null ? level.damageSources().magic() : level.damageSources().mobAttack(attacker);
 		target.invulnerableTime = 0;
 		return target.hurt(src, amount);
+	}
+
+	/** May his moves break blocks here? Terrain damage on ({@code abilityTerrainDamage}) and mob griefing on. */
+	public static boolean griefing(ServerLevel level) {
+		return AbilityHelpers.canGrief() && level.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_MOBGRIEFING);
+	}
+
+	/**
+	 * Can he smash this block? Only when {@link #griefing} allows it, and only soft blocks: nothing harder than 3 (so
+	 * obsidian, ancient debris and the like hold), no fluids, nothing with a block entity (chests, furnaces...).
+	 */
+	public static boolean mayBreak(ServerLevel level, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state) {
+		if (!griefing(level) || state.isAir() || state.hasBlockEntity() || !state.getFluidState().isEmpty() || !level.isLoaded(pos)) {
+			return false;
+		}
+		float h = state.getDestroySpeed(level, pos);
+		return h >= 0f && h <= 3.0f;
 	}
 
 	private List<LivingEntity> targetsNear(Vec3 at, double radius) {
@@ -875,7 +929,9 @@ public class DoomsdayEntity extends Monster {
 
 	/** Every move, as one state machine (one at a time, a breather between). */
 	static final class Brain extends Goal {
-		enum Move { NONE, HAMMER, GUARD, LEAP, SHATTER, ERUPT, VOLLEY, HEAT, GRAB, BREATH, BLITZ, ROAR, BREAK_FREE, STAGGER }
+		enum Move { NONE, HAMMER, GUARD, LEAP, SHATTER, ERUPT, VOLLEY, HEAT, GRAB, BREATH, BLITZ, ROAR, BREAK_FREE, STAGGER,
+			// v0.17.2 round 2
+			RAMPAGE, CLAP, SKYFALL, HURL, NOVA }
 
 		private final DoomsdayEntity d;
 		private Move move = Move.NONE;
@@ -891,6 +947,16 @@ public class DoomsdayEntity extends Monster {
 		private float grabDamage;
 		private final Set<UUID> struck = new HashSet<>();
 		private int pathStuck;
+		/** Round 2: the Rampage's line, the Thunderclaps done, Skyfall's mark and peak, the boulder in his hands, the Nova's element. */
+		private Vec3 chargeDir = new Vec3(0, 0, 1);
+		private int claps;
+		private Vec3 skyMark = Vec3.ZERO;
+		private double skyTop;
+		private DoomsdayAttackEntity heldBoulder;
+		private int thrown;
+		private Bucket novaBucket;
+		/** When the Rampage crash / the Skyfall landing began (brain ticks: the tests tick a NoAI Doomsday's brain by hand). */
+		private int phaseAt;
 		private Vec3 lastPos = Vec3.ZERO;
 
 		Brain(DoomsdayEntity d) {
@@ -928,6 +994,9 @@ public class DoomsdayEntity extends Monster {
 
 		void cancel() {
 			releaseGrab(false);
+			dropBoulder();
+			d.setNoGravity(false);
+			d.entityData.set(DATA_ELEMENT, -1);
 			move = Move.NONE;
 			timer = 0;
 			airborne = false;
@@ -984,9 +1053,17 @@ public class DoomsdayEntity extends Monster {
 				case BREATH -> 260;
 				case BLITZ -> 220;
 				case ROAR -> 420;
+				case RAMPAGE -> 200;
+				case CLAP -> 180;
+				case SKYFALL -> 320;
+				case HURL -> 200;
+				case NOVA -> 360;
 				default -> 0;
 			};
 			cooldowns.put(move, (int) (cd * cdScale()));
+			dropBoulder();
+			d.setNoGravity(false);
+			d.entityData.set(DATA_ELEMENT, -1);
 			move = Move.NONE;
 			timer = 0;
 			airborne = false;
@@ -1043,6 +1120,11 @@ public class DoomsdayEntity extends Monster {
 				case ROAR -> tickRoar(level);
 				case BREAK_FREE -> tickBreakFree(level);
 				case STAGGER -> tickStagger(level);
+				case RAMPAGE -> tickRampage(level);
+				case CLAP -> tickClap(level);
+				case SKYFALL -> tickSkyfall(level);
+				case HURL -> tickHurl(level);
+				case NOVA -> tickNova(level);
 				default -> finish(0);
 			}
 		}
@@ -1128,6 +1210,22 @@ public class DoomsdayEntity extends Monster {
 					c.add(Move.BLITZ);
 				}
 			}
+			// v0.17.2 round 2
+			if (dist >= 7 && dist <= m.rampageLength && ready(Move.RAMPAGE)) {
+				c.add(Move.RAMPAGE);
+			}
+			if (!d.bound() && dist <= m.clapRange * 0.9 && ready(Move.CLAP)) {
+				c.add(Move.CLAP);
+			}
+			if (life >= 2 && dist >= 8 && dist <= 40 && ready(Move.SKYFALL)) {
+				c.add(Move.SKYFALL);
+			}
+			if (dist >= 8 && dist <= 32 && sees(t) && ready(Move.HURL)) {
+				c.add(Move.HURL);
+			}
+			if (life >= 3 && dist <= m.novaRadius && d.strongestAdaptation() != null && ready(Move.NOVA)) {
+				c.add(Move.NOVA);
+			}
 			return c.isEmpty() ? Move.NONE : c.get(d.random.nextInt(c.size()));
 		}
 
@@ -1172,6 +1270,36 @@ public class DoomsdayEntity extends Monster {
 					d.setAction(ACTION_STAGGER);
 					d.level().playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_STUNNED, SoundSource.HOSTILE, 3.0f, 0.5f);
 					d.level().playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.5f, 0.5f);
+				}
+				case RAMPAGE -> {
+					d.setAction(ACTION_RAMPAGE);
+					Vec3 to = t != null ? t.position() : d.position().add(d.getLookAngle().scale(10));
+					Vec3 dir = new Vec3(to.x - d.getX(), 0, to.z - d.getZ());
+					chargeDir = dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : dir.normalize();
+					d.level().playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.7f);
+				}
+				case CLAP -> {
+					d.setAction(ACTION_CLAP);
+					claps = 0;
+				}
+				case SKYFALL -> {
+					d.setAction(ACTION_SKYFALL);
+					skyMark = t != null ? t.position() : d.position();
+					skyTop = 0;
+				}
+				case HURL -> {
+					d.setAction(ACTION_HURL);
+					thrown = 0;
+				}
+				case NOVA -> {
+					Bucket b = d.strongestAdaptation();
+					novaBucket = b;
+					d.entityData.set(DATA_ELEMENT, b == null ? -1 : b.ordinal());
+					d.setAction(ACTION_NOVA);
+					if (d.level() instanceof ServerLevel level) {
+						d.announce(level, Component.translatable("message.projecthero.doomsday.nova", bucketName(b)).withStyle(ChatFormatting.DARK_RED,
+								ChatFormatting.BOLD));
+					}
 				}
 				default -> d.setAction(ACTION_NONE);
 			}
@@ -1595,6 +1723,491 @@ public class DoomsdayEntity extends Monster {
 				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.6f);
 				d.announce(level, Component.translatable("message.projecthero.doomsday.recovered").withStyle(ChatFormatting.RED));
 				finish(0);
+			}
+		}
+
+		// ------------------------------------------------ v0.17.2 round 2 (user: "add more attacks and animations to doomsday please")
+
+		/** How much harder each life hits with the round-2 moves (+15% a life). */
+		private float lifeScale() {
+			return 1f + 0.15f * Math.max(0, Math.min(4, d.life()) - 1);
+		}
+
+		/**
+		 * <b>Rampage</b>: he paws the ground, lowers his head (a red line shows his path), then bulldozes straight down it
+		 * -- through every soft block in his way when terrain damage is on -- trampling whatever he meets. Anything he
+		 * can't break stops him dead: he reels, dazed, open to a beating.
+		 */
+		private void tickRampage(ServerLevel level) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			if (d.action() == ACTION_RAMPAGE_CRASH) {
+				d.getNavigation().stop();
+				if ((timer - phaseAt) % 6 == 0) {
+					level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, d.getX(), d.getY() + d.getBbHeight() * 0.95, d.getZ(), 5,
+							0.4, 0.15, 0.4, 0.05);
+				}
+				if (timer - phaseAt >= CRASH_TICKS) {
+					finish(0);
+				}
+				return;
+			}
+			if (timer < RAMPAGE_WINDUP) {
+				if (timer < 10 && target != null) {
+					Vec3 dir = new Vec3(target.getX() - d.getX(), 0, target.getZ() - d.getZ());
+					if (dir.lengthSqr() > 1.0e-4) {
+						chargeDir = dir.normalize();
+					}
+				}
+				face(d.position().add(chargeDir.scale(10)));
+				if (timer % 4 == 0) {
+					Vec3 a = d.position().add(0, 0.15, 0);
+					DoomsdayFx.line(level, DoomsdayFx.RED, a, a.add(chargeDir.scale(m.rampageLength)), 0.7);
+				}
+				if (timer == 6 || timer == 12) {
+					// pawing the ground like a bull
+					level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_STEP, SoundSource.HOSTILE, 2.5f, 0.5f);
+					DoomsdayFx.impact(level, d.position().add(chargeDir.scale(-0.8)), 0.6);
+				}
+				return;
+			}
+			int run = timer - RAMPAGE_WINDUP;
+			if (run < RAMPAGE_RUN) {
+				double speed = m.rampageSpeed * (0.85 + 0.15 * lifeScale());
+				Vec3 next = d.position().add(chargeDir.scale(speed));
+				if (!plough(level, next)) {
+					crash(level);
+					return;
+				}
+				double y = DoomsdayAttackEntity.ground(level, next.x, d.getY() + 1.5, next.z);
+				d.teleportTo(next.x, y, next.z);
+				face(next.add(chargeDir.scale(5)));
+				if (run % 3 == 0) {
+					level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_STEP, SoundSource.HOSTILE, 2.5f, 0.6f);
+					DoomsdayFx.impact(level, d.position(), 0.7);
+					DoomsdayFx.shake(level, d.position(), 0.35f, 6, 24);
+				}
+				AABB box = d.getBoundingBox().inflate(1.0, 0.2, 1.0);
+				for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, box, DoomsdayEntity::canTarget)) {
+					if (struck.add(t.getUUID()) && hit(level, d, t, m.rampageDamage * lifeScale())) {
+						t.setDeltaMovement(chargeDir.x * 2.0, 0.9, chargeDir.z * 2.0);
+						t.hurtMarked = true;
+						level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.HOSTILE, 2.0f, 0.5f);
+					}
+				}
+				return;
+			}
+			// skidding to a halt
+			if (run == RAMPAGE_RUN) {
+				DoomsdayFx.impact(level, d.position().add(chargeDir.scale(1.5)), 1.2);
+			}
+			if (run >= RAMPAGE_RUN + 12) {
+				finish(0);
+			}
+		}
+
+		/** Clears his body's path at {@code next}; false when something there won't break (he crashes). */
+		private boolean plough(ServerLevel level, Vec3 next) {
+			double hw = d.getBbWidth() * 0.5;
+			AABB box = new AABB(next.x - hw, d.getY() + 1.05, next.z - hw, next.x + hw, d.getY() + d.getBbHeight() * 0.9, next.z + hw);
+			java.util.List<net.minecraft.core.BlockPos> breakable = new java.util.ArrayList<>();
+			for (net.minecraft.core.BlockPos pos : net.minecraft.core.BlockPos.betweenClosed(net.minecraft.util.Mth.floor(box.minX),
+					net.minecraft.util.Mth.floor(box.minY), net.minecraft.util.Mth.floor(box.minZ), net.minecraft.util.Mth.floor(box.maxX),
+					net.minecraft.util.Mth.floor(box.maxY), net.minecraft.util.Mth.floor(box.maxZ))) {
+				net.minecraft.world.level.block.state.BlockState st = level.getBlockState(pos);
+				if (st.getCollisionShape(level, pos).isEmpty()) {
+					continue;
+				}
+				if (!mayBreak(level, pos, st)) {
+					return false;
+				}
+				breakable.add(pos.immutable());
+			}
+			for (net.minecraft.core.BlockPos pos : breakable) {
+				net.minecraft.world.level.block.state.BlockState st = level.getBlockState(pos);
+				DoomsdayFx.forced(level, new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK, st),
+						pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.3, 0.3, 0.3, 0.1);
+				level.destroyBlock(pos, false, d);
+			}
+			return true;
+		}
+
+		private void crash(ServerLevel level) {
+			d.setAction(ACTION_RAMPAGE_CRASH);
+			phaseAt = timer;
+			level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 3.0f, 0.4f);
+			level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_STUNNED, SoundSource.HOSTILE, 3.0f, 0.5f);
+			DoomsdayFx.impact(level, d.position().add(chargeDir.scale(d.getBbWidth())).add(0, 1.5, 0), 1.5);
+			DoomsdayFx.shake(level, d.position(), 1.0f, 14, 32);
+			d.announce(level, Component.translatable("message.projecthero.doomsday.crashed").withStyle(ChatFormatting.GOLD));
+		}
+
+		/**
+		 * <b>Thunderclap</b>: arms flung wide (a red arc marks the cone), then his palms meet -- a sonic shockwave that
+		 * throws everyone in front of him back, dizzy and slowed. Two hands needed: never while bound. Life 3+: twice.
+		 */
+		private void tickClap(ServerLevel level) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			if (target != null) {
+				face(target.position());
+			}
+			int total = d.life() >= 3 ? 2 : 1;
+			int at = CLAP_AT + claps * 18;
+			if (claps < total && timer < at && timer % 4 == 0) {
+				Vec3 c = d.position().add(0, 0.3, 0);
+				Vec3 look = Vec3.directionFromRotation(0, d.yBodyRot);
+				for (int i = -6; i <= 6; i++) {
+					Vec3 dir = look.yRot((float) Math.toRadians(i * 6));
+					level.sendParticles(DoomsdayFx.RED, c.x + dir.x * m.clapRange, c.y, c.z + dir.z * m.clapRange, 1, 0.1, 0.05, 0.1, 0);
+				}
+			}
+			if (claps < total && timer == at) {
+				claps++;
+				Vec3 eye = d.position().add(0, d.getBbHeight() * 0.6, 0);
+				Vec3 look = Vec3.directionFromRotation(0, d.yBodyRot);
+				level.playSound(null, eye.x, eye.y, eye.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.0f, 1.4f);
+				level.playSound(null, eye.x, eye.y, eye.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 2.5f, 0.7f);
+				DoomsdayFx.shake(level, eye, 1.2f, 16, 40);
+				for (int s = 1; s <= 5; s++) {
+					Vec3 p = eye.add(look.scale(s * m.clapRange / 5.0));
+					DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.SONIC_BOOM, p.x, p.y, p.z, 1, 0, 0, 0, 0);
+					DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.CLOUD, p.x, p.y, p.z, 6, s * 0.4, 0.4, s * 0.4, 0.05);
+				}
+				for (LivingEntity t : d.targetsNear(eye, m.clapRange)) {
+					Vec3 to = new Vec3(t.getX() - d.getX(), 0, t.getZ() - d.getZ());
+					if (to.lengthSqr() > 4.0 && to.normalize().dot(look) < Math.cos(Math.toRadians(38))) {
+						continue;
+					}
+					if (hit(level, d, t, m.clapDamage * lifeScale())) {
+						Vec3 out = to.lengthSqr() < 1.0e-4 ? look : to.normalize();
+						t.setDeltaMovement(out.x * 2.2, 0.55, out.z * 2.2);
+						t.hurtMarked = true;
+						t.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 80, 0));
+						t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 2));
+					}
+				}
+			}
+			if (claps >= total && timer >= CLAP_AT + (total - 1) * 18 + 14) {
+				finish(0);
+			}
+		}
+
+		/**
+		 * <b>Skyfall</b>: he crouches and launches himself straight up out of sight, hangs over his target (a growing red
+		 * ring on the ground marks where he will come down -- run), then drops like a meteor: a huge impact, a crater
+		 * (terrain damage on) and a shockwave. Bigger every life. Life 2+.
+		 */
+		private void tickSkyfall(ServerLevel level) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			double radius = 5.0 + d.life();
+			if (d.action() == ACTION_SKYFALL_LAND) {
+				if (timer - phaseAt >= SKY_LAND_TICKS) {
+					finish(10);
+				}
+				return;
+			}
+			if (timer < SKY_CROUCH) {
+				if (target != null) {
+					skyMark = target.position();
+				}
+				face(skyMark);
+				if (timer == 2) {
+					level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.45f);
+				}
+				if (timer % 3 == 0) {
+					DoomsdayFx.impact(level, d.position(), 0.4);
+				}
+				return;
+			}
+			if (timer == SKY_CROUCH) {
+				d.setNoGravity(true);
+				d.getNavigation().stop();
+				skyTop = d.getY() + m.skyHeight;
+				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.0f, 0.5f);
+				DoomsdayFx.impact(level, d.position(), 3.0);
+				DoomsdayFx.shake(level, d.position(), 1.2f, 16, 48);
+			}
+			int t = timer - SKY_CROUCH;
+			if (t <= SKY_RISE) {
+				double y = Math.min(skyTop, d.getY() + m.skyHeight / (double) SKY_RISE);
+				d.teleportTo(d.getX(), y, d.getZ());
+				d.setDeltaMovement(Vec3.ZERO);
+				level.sendParticles(DoomsdayFx.ASH, d.getX(), d.getY(), d.getZ(), 4, 0.5, 0.5, 0.5, 0.02);
+				return;
+			}
+			if (t <= SKY_RISE + SKY_HANG) {
+				int h = t - SKY_RISE;
+				if (h < 14 && target != null) {
+					skyMark = target.position();
+				}
+				Vec3 over = new Vec3(skyMark.x, skyTop, skyMark.z);
+				Vec3 now = d.position().lerp(over, 0.25);
+				d.teleportTo(now.x, skyTop, now.z);
+				d.setDeltaMovement(Vec3.ZERO);
+				double gy = DoomsdayAttackEntity.ground(level, skyMark.x, skyMark.y + 2, skyMark.z);
+				if (h % 3 == 0) {
+					double grow = radius * Math.min(1.0, 0.35 + h / (double) SKY_HANG);
+					DoomsdayFx.ring(level, DoomsdayFx.RED_BIG, new Vec3(skyMark.x, gy + 0.1, skyMark.z), grow, 60);
+					DoomsdayFx.ring(level, DoomsdayFx.RED, new Vec3(skyMark.x, gy + 0.1, skyMark.z), grow * 0.5, 30);
+				}
+				if (h == SKY_HANG - 6) {
+					level.playSound(null, skyMark.x, gy, skyMark.z, SoundEvents.WARDEN_SONIC_CHARGE, SoundSource.HOSTILE, 3.0f, 0.5f);
+				}
+				return;
+			}
+			// the drop
+			double gy = DoomsdayAttackEntity.ground(level, d.getX(), Math.max(skyMark.y + 3, d.getY() - 40), d.getZ());
+			double y = d.getY() - 3.4;
+			DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.FLAME, d.getX(), d.getY() + 1, d.getZ(), 6, 0.6, 0.6, 0.6, 0.02);
+			DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE, d.getX(), d.getY() + 1, d.getZ(), 4, 0.6, 0.6, 0.6,
+					0.02);
+			if (y <= gy || t > SKY_RISE + SKY_HANG + 40) {
+				d.teleportTo(d.getX(), gy, d.getZ());
+				d.setNoGravity(false);
+				skyImpact(level, radius);
+				return;
+			}
+			d.teleportTo(d.getX(), y, d.getZ());
+			d.setDeltaMovement(Vec3.ZERO);
+		}
+
+		private void skyImpact(ServerLevel level, double radius) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			d.setAction(ACTION_SKYFALL_LAND);
+			phaseAt = timer;
+			Vec3 at = d.position();
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 5.0f, 0.35f);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 3.0f, 0.3f);
+			DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.5, at.z, 1, 0, 0, 0, 0);
+			DoomsdayFx.impact(level, at, radius);
+			DoomsdayFx.shake(level, at, 2.2f, 30, 72);
+			for (LivingEntity t : d.targetsNear(at.add(0, 1, 0), radius)) {
+				double f = 1.0 - Math.min(1.0, Math.sqrt(t.distanceToSqr(at)) / radius);
+				if (hit(level, d, t, (float) (m.skyDamage * lifeScale() * (0.45 + 0.55 * f)))) {
+					Vec3 out = new Vec3(t.getX() - at.x, 0, t.getZ() - at.z);
+					out = out.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : out.normalize();
+					t.setDeltaMovement(out.x * (1.0 + f), 0.9 + f * 0.5, out.z * (1.0 + f));
+					t.hurtMarked = true;
+				}
+			}
+			DoomsdayAttackEntity.ring(level, d, at, radius * 2.2, 1.0, 6f);
+			crater(level, at, 2.0 + 0.5 * d.life(), 48);
+		}
+
+		/** A bowl-shaped crater (terrain damage on, mob griefing on; soft natural blocks only, nothing with a block entity). */
+		private void crater(ServerLevel level, Vec3 c, double radius, int max) {
+			if (!griefing(level)) {
+				return;
+			}
+			int r = (int) Math.ceil(radius);
+			net.minecraft.core.BlockPos centre = net.minecraft.core.BlockPos.containing(c);
+			java.util.List<net.minecraft.core.BlockPos> hits = new java.util.ArrayList<>();
+			for (int x = -r; x <= r; x++) {
+				for (int y = -r; y <= 0; y++) {
+					for (int z = -r; z <= r; z++) {
+						double dd = (x * x + z * z) / (radius * radius) + (y * y) / (radius * radius * 0.3);
+						if (dd > 1.0) {
+							continue;
+						}
+						net.minecraft.core.BlockPos p = centre.offset(x, y - 1, z);
+						if (mayBreak(level, p, level.getBlockState(p))) {
+							hits.add(p);
+						}
+					}
+				}
+			}
+			hits.sort(java.util.Comparator.comparingDouble(p -> p.distSqr(centre)));
+			for (int i = 0; i < Math.min(max, hits.size()); i++) {
+				level.destroyBlock(hits.get(i), false, d);
+			}
+		}
+
+		/**
+		 * <b>Boulder Hurl</b>: fists driven into the ground, he tears up a slab of whatever he is standing on, heaves it
+		 * over his head and throws it in an arc at his target -- it bursts where it lands. Life 3+: a second one.
+		 */
+		private void tickHurl(ServerLevel level) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			if (target != null) {
+				face(target.position());
+			}
+			net.minecraft.core.BlockPos under = d.blockPosition().below();
+			net.minecraft.world.level.block.state.BlockState st = level.getBlockState(under);
+			if (timer == 0 && d.action() == ACTION_NONE) {
+				d.setAction(ACTION_HURL);
+			}
+			if (timer < HURL_RIP) {
+				if (timer % 3 == 0 && !st.isAir()) {
+					DoomsdayFx.forced(level, new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK, st),
+							d.getX(), d.getY() + 0.2, d.getZ(), 10, 0.8, 0.1, 0.8, 0.15);
+				}
+				if (timer == 4) {
+					level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.HOSTILE, 3.0f, 0.4f);
+				}
+				return;
+			}
+			if (timer == HURL_RIP) {
+				net.minecraft.world.level.block.state.BlockState look = st.isAir() || st.hasBlockEntity() || !st.getFluidState().isEmpty()
+						? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState() : st;
+				if (look.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK)) {
+					look = net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState();
+				}
+				heldBoulder = DoomsdayAttackEntity.boulder(level, d, look, m.boulderDamage * lifeScale(), m.boulderRadius);
+				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 2.0f, 0.7f);
+				DoomsdayFx.impact(level, d.position(), 1.6);
+				// the hole he tore it out of, in front of his feet (terrain damage on)
+				if (griefing(level)) {
+					Vec3 fwd = Vec3.directionFromRotation(0, d.yBodyRot);
+					net.minecraft.core.BlockPos c = net.minecraft.core.BlockPos.containing(d.position().add(fwd.scale(d.getBbWidth() * 0.5 + 1.0))).below();
+					for (int x = -1; x <= 1; x++) {
+						for (int z = -1; z <= 1; z++) {
+							net.minecraft.core.BlockPos p = c.offset(x, 0, z);
+							if (mayBreak(level, p, level.getBlockState(p))) {
+								level.destroyBlock(p, false, d);
+							}
+						}
+					}
+				}
+			}
+			if (heldBoulder != null && timer < HURL_THROW) {
+				heldBoulder.holdAt(d.position().add(0, d.getBbHeight() + 0.9, 0).add(Vec3.directionFromRotation(0, d.yBodyRot).scale(0.4)));
+			}
+			if (timer == HURL_THROW && heldBoulder != null) {
+				Vec3 from = heldBoulder.position();
+				Vec3 to = target != null ? target.position().add(target.getDeltaMovement().scale(12)) : from.add(d.getLookAngle().scale(16));
+				Vec3 delta = to.subtract(from);
+				double flat = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+				double ticks = Math.max(10, flat / 1.3);
+				Vec3 v = new Vec3(delta.x / ticks, delta.y / ticks + 0.5 * DoomsdayAttackEntity.BOULDER_GRAVITY * ticks, delta.z / ticks);
+				heldBoulder.launch(v);
+				heldBoulder = null;
+				thrown++;
+				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 3.0f, 0.4f);
+				level.playSound(null, d.getX(), d.getY(), d.getZ(), SoundEvents.RAVAGER_ATTACK, SoundSource.HOSTILE, 2.5f, 0.5f);
+			}
+			if (timer >= HURL_THROW + 10) {
+				if (d.life() >= 3 && thrown < 2) {
+					// and another: a tick standing (so the client restarts the dig pose), then from the top
+					timer = -1;
+					d.setAction(ACTION_NONE);
+					return;
+				}
+				finish(0);
+			}
+		}
+
+		private void dropBoulder() {
+			if (heldBoulder != null) {
+				heldBoulder.discard();
+				heldBoulder = null;
+			}
+		}
+
+		/**
+		 * <b>Adaptive Nova</b>: life 3+, once he has adapted to something. He drops to one knee and channels what he has
+		 * learned most -- his body glows its colour, a ring shows the blast's reach -- then unleashes it back out:
+		 * fire, lightning, a storm of bone, a ring of blasts, a withering wave or a raw shockwave.
+		 */
+		private void tickNova(ServerLevel level) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			Bucket b = novaBucket;
+			Vec3 c = d.position().add(0, d.getBbHeight() * 0.5, 0);
+			if (timer < NOVA_AT) {
+				if (timer == 2) {
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 3.0f, 0.4f);
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.WARDEN_SONIC_CHARGE, SoundSource.HOSTILE, 2.5f, 0.6f);
+				}
+				if (timer % 4 == 0) {
+					DoomsdayFx.ring(level, novaParticle(b), new Vec3(d.getX(), d.getY() + 0.2, d.getZ()), m.novaRadius, 70);
+					double r = m.novaRadius * (1.0 - timer / (double) NOVA_AT);
+					DoomsdayFx.ring(level, novaParticle(b), new Vec3(d.getX(), d.getY() + 0.4, d.getZ()), Math.max(0.8, r), 40);
+				}
+				if (timer % 2 == 0) {
+					DoomsdayFx.forced(level, novaParticle(b), c.x, c.y, c.z, 6, d.getBbWidth() * 0.6, d.getBbHeight() * 0.4, d.getBbWidth() * 0.6, 0.02);
+				}
+				return;
+			}
+			if (timer == NOVA_AT) {
+				novaBurst(level, b, c);
+			}
+			if (timer >= NOVA_AT + 22) {
+				finish(0);
+			}
+		}
+
+		private static net.minecraft.core.particles.ParticleOptions novaParticle(Bucket b) {
+			if (b == null) {
+				return DoomsdayFx.ASH;
+			}
+			return switch (b) {
+				case FIRE -> net.minecraft.core.particles.ParticleTypes.FLAME;
+				case ENERGY -> net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK;
+				case PROJECTILE, MELEE -> DoomsdayFx.BONE;
+				case EXPLOSION -> DoomsdayFx.RED;
+				case MAGIC -> net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME;
+				default -> DoomsdayFx.PHANTOM;
+			};
+		}
+
+		private void novaBurst(ServerLevel level, Bucket b, Vec3 c) {
+			DoomsdayConfig.Moves m = DoomsdayConfig.moves();
+			float dmg = m.novaDamage * lifeScale();
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 4.0f, 0.6f);
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 4.0f, 0.4f);
+			DoomsdayFx.shake(level, c, 1.6f, 24, 56);
+			for (int i = 0; i < 4; i++) {
+				DoomsdayFx.ring(level, novaParticle(b), new Vec3(d.getX(), d.getY() + 0.3 + i * 0.8, d.getZ()), m.novaRadius * (0.4 + i * 0.2), 80);
+			}
+			java.util.List<LivingEntity> near = d.targetsNear(c, m.novaRadius);
+			Bucket kind = b == null ? Bucket.POWER : b;
+			switch (kind) {
+				case PROJECTILE, MELEE -> {
+					// a storm of bone in every direction
+					for (int i = 0; i < 20; i++) {
+						Vec3 dir = Vec3.directionFromRotation(-5f + d.random.nextFloat() * 10f, i * 18f);
+						DoomsdayAttackEntity.shard(level, d, c.add(dir.scale(d.getBbWidth())), dir.scale(1.5), m.volleyDamage + 3f);
+					}
+				}
+				case ENERGY -> {
+					int bolts = 0;
+					for (LivingEntity t : near) {
+						if (bolts++ >= 5) {
+							break;
+						}
+						net.minecraft.world.entity.LightningBolt bolt = net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(level);
+						if (bolt != null) {
+							bolt.moveTo(t.getX(), t.getY(), t.getZ());
+							bolt.setVisualOnly(true);
+							level.addFreshEntity(bolt);
+						}
+						hit(level, d, t, dmg);
+					}
+				}
+				default -> {
+					for (LivingEntity t : near) {
+						if (!hit(level, d, t, kind == Bucket.MAGIC ? dmg * 0.7f : dmg)) {
+							continue;
+						}
+						Vec3 out = new Vec3(t.getX() - d.getX(), 0, t.getZ() - d.getZ());
+						out = out.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : out.normalize();
+						double kb = kind == Bucket.POWER ? 3.0 : 1.4;
+						t.setDeltaMovement(out.x * kb, 0.6, out.z * kb);
+						t.hurtMarked = true;
+						switch (kind) {
+							case FIRE -> t.igniteForSeconds(6);
+							case MAGIC -> t.addEffect(new MobEffectInstance(MobEffects.WITHER, 120, 1));
+							case EXPLOSION -> DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.EXPLOSION, t.getX(), t.getY() + 1,
+									t.getZ(), 2, 0.3, 0.3, 0.3, 0);
+							default -> {
+							}
+						}
+					}
+					if (kind == Bucket.EXPLOSION) {
+						for (int i = 0; i < 8; i++) {
+							Vec3 p = c.add(Vec3.directionFromRotation(0, i * 45f).scale(m.novaRadius * 0.55));
+							DoomsdayFx.forced(level, net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, p.x, d.getY() + 0.5, p.z, 1, 0, 0, 0, 0);
+						}
+					}
+				}
 			}
 		}
 

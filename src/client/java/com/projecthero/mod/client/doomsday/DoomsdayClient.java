@@ -92,14 +92,40 @@ public final class DoomsdayClient {
 
 	/** A bone spike out of the ground, or a thrown bone shard. The ground wave is particles only. */
 	static final class Attack extends EntityRenderer<DoomsdayAttackEntity> {
+		private final net.minecraft.client.renderer.block.BlockRenderDispatcher blocks;
+
 		Attack(EntityRendererProvider.Context ctx) {
 			super(ctx);
+			this.blocks = ctx.getBlockRenderDispatcher();
 		}
 
 		@Override
 		public void render(DoomsdayAttackEntity e, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light) {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(DoomsdayRenderer.BONE));
 			float age = e.tickCount + partialTick;
+			if (e.kind() == DoomsdayAttackEntity.BOULDER) {
+				// v0.17.2 round 2: a jagged slab of the ground he tore up -- three blocks of it, clumped, tumbling once thrown
+				pose.pushPose();
+				if (!e.held()) {
+					pose.mulPose(Axis.YP.rotationDegrees(age * 14f));
+					pose.mulPose(Axis.XP.rotationDegrees(age * 11f));
+				} else {
+					pose.mulPose(Axis.YP.rotationDegrees(25f));
+				}
+				var st = e.blockLook();
+				float[][] lumps = { { 0f, 0f, 0f, 1.6f }, { 0.55f, 0.35f, -0.2f, 1.0f }, { -0.5f, -0.25f, 0.35f, 1.1f } };
+				for (float[] l : lumps) {
+					pose.pushPose();
+					pose.translate(l[0], l[1], l[2]);
+					pose.scale(l[3], l[3], l[3]);
+					pose.translate(-0.5, -0.5, -0.5);
+					blocks.renderSingleBlock(st, pose, buffers, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+					pose.popPose();
+				}
+				pose.popPose();
+				super.render(e, yaw, partialTick, pose, buffers, light);
+				return;
+			}
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(DoomsdayRenderer.BONE));
 			if (e.kind() == DoomsdayAttackEntity.SPIKE) {
 				float up = age - e.warn();
 				if (up < 0f) {

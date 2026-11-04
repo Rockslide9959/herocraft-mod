@@ -74,5 +74,7 @@
   "title.projecthero.doomsday.enraged": "HE RISES AGAIN",
   "title.projecthero.doomsday.enraged.sub": "Enraged: kill him and use the Projector",
   "title.projecthero.doomsday.banished": "DOOMSDAY BANISHED",
-  "title.projecthero.doomsday.banished.sub": "Sealed in the Phantom Zone"
+  "title.projecthero.doomsday.banished.sub": "Sealed in the Phantom Zone",
+  "message.projecthero.doomsday.nova": "DOOMSDAY CHANNELS %s: get out of the ring!",
+  "message.projecthero.doomsday.crashed": "Doomsday slams into the wall and reels. Hit him now!"
 }
