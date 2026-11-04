@@ -101,7 +101,8 @@ public final class AlienXCouncil {
 	private static final int[] BELLICUS_LIKES = { 0, 1, 2, 3 }, SERENA_LIKES = { 3, 4, 5, 6, 7 };
 	/** Self-contradicting pairs: force / mercy, glory / humility. */
 	private static final int[][] OPPOSED = { { 0, 4 }, { 1, 7 } };
-	public static final int TURNS = 7, OFFERS = 5, NEED = 100, METER_FLOOR = -50, CONTRA_PENALTY = 15, FLIPFLOP_PENALTY = 10;
+	// v0.17.2 (user: "right now its too difficult to get both heads to 100, maybe make it like 15% easier please"): NEED was 100
+	public static final int TURNS = 7, OFFERS = 5, NEED = 85, METER_FLOOR = -50, CONTRA_PENALTY = 15, FLIPFLOP_PENALTY = 10;
 	public static final float REPEAT_FACTOR = 0.5f, CONCERN_FACTOR = 2f;
 	public static final int REFUSED_COOLDOWN = 400;
 	public static final int PHASE_PROPOSE = 0, PHASE_DEBATE = 1, PHASE_RESULT = 2;
@@ -166,6 +167,8 @@ public final class AlienXCouncil {
 		@Nullable
 		Debate debate;
 		boolean lastCarried;
+		/** v0.17.2: the "Let Me Go" motion was carried -- he turns back at this tick (0 = not leaving). */
+		long releaseAt;
 		boolean watching;
 		boolean opened;
 		final Map<String, Long> readyAt = new HashMap<>();
@@ -533,6 +536,11 @@ public final class AlienXCouncil {
 				leave(p); // no longer Alien X (and the kit did not say): home
 				continue;
 			}
+			if (s.releaseAt > 0 && now >= s.releaseAt) {
+				s.releaseAt = 0;
+				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V); // the council let him go
+				continue;
+			}
 			if (s.bodyDimension != null) {
 				ServerLevel home = server.getLevel(s.bodyDimension);
 				Entity body = home == null ? null : home.getEntity(s.body);
@@ -581,10 +589,50 @@ public final class AlienXCouncil {
 					send(p, s, false);
 				}
 			}
-			case AlienXCouncilPayload.OP_LEAVE -> Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			case AlienXCouncilPayload.OP_LEAVE -> requestRelease(p);
 			default -> {
 			}
 		}
+	}
+
+	/** Ticks between the "Let Me Go" motion being carried and him turning back (the banner shows first). */
+	public static final int RELEASE_DELAY = 30;
+
+	/**
+	 * v0.17.2 (user: "when detransforming as alien x make it so that the player has to convince the heads to let them detransform
+	 * aswell please"): N, V, the alien wheel and "Leave the Council" no longer turn him back -- they move the "Let Me Go" motion
+	 * (target: his body) and open the screen; both heads must agree like any other motion. Mid-debate on something else, the
+	 * screen just opens (withdraw first). With no council session or no body to aim it at he turns back at once, so he can never
+	 * be stuck; death, logout, the watch coming off and /kill still end it outright.
+	 */
+	public static void requestRelease(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			return;
+		}
+		if (s.releaseAt > 0) {
+			return; // already let go
+		}
+		if (s.phase == PHASE_DEBATE) {
+			if (s.debate == null || !s.debate.action.id().equals("release")) {
+				say(s, WHO_COUNCIL, "council.release_busy");
+			}
+			open(p);
+			return;
+		}
+		if (!(origin(p) instanceof AlienXBodyEntity)) {
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V); // no body to return through: never trap him
+			return;
+		}
+		propose(p, "release", AlienXActions.T_BODY);
+		open(p);
+	}
+
+	/** v0.17.2: he is leaving (the "Let Me Go" motion carried, waiting out the banner). */
+	public static boolean releasing(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s != null && s.releaseAt > 0;
 	}
 
 	/** R in the council (or the screen asking): the screen opens with the current state. */
@@ -792,6 +840,9 @@ public final class AlienXCouncil {
 			s.lastCarried = res.done();
 			if (res.done()) {
 				s.readyAt.put(d.action.id(), now + d.action.cooldown());
+				if (d.action.id().equals("release")) {
+					s.releaseAt = now + RELEASE_DELAY; // the banner shows, then he goes
+				}
 			}
 			OmnitrixSfx.notify(p, AlienXKit.CARRIED, 1.0f, 1.0f);
 			s.debate = null;

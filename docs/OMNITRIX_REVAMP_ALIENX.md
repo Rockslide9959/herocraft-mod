@@ -25,7 +25,7 @@ Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
   his skin face him: **Serena** (soft blue, pale eyes, a halo) and **Bellicus** (red, burning eyes, hard angry brows). They drift,
   turn to look at him, and the one speaking nods, its eyes flare and rings of its colour ripple out.
 - Nothing can be built, broken, used or hurt there. Each visit has its own slot (2000 blocks apart).
-- **Coming back**: N, V or "Leave the Council" turns him back at his body (wherever it is now; inventory never left him). A
+- **Coming back**: v0.17.2 (user: "when detransforming as alien x make it so that the player has to convince the heads to let them detransform aswell please"): N, V, the alien wheel and "Leave the Council" move the **Let Me Go** motion (category Leave, target his body, leans 30 / 35, no cooldown); only when both heads agree does he turn back, 1.5 s after the banner (AlienXCouncil.requestRelease / RELEASE_DELAY). With no body or no session he turns back at once. Death, logout, the watch coming off and /kill still end it outright. Carried, he is turned back at his body (wherever it is now; inventory never left him). A
   switch to another alien also brings him back first. Where he came from is saved on him (`alien_x_council_return`), so a
   **logout**, a crash or a **stopped server** leaves him in the council only until his next login: the half-second sweep sends
   anyone found in the council without a session back to that spot (or to spawn if nothing was saved).
@@ -45,7 +45,7 @@ Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
    body within 48 blocks: "All round my body", "Where my body looks", "My body", and every creature / player with health and
    distance (only the kinds the action takes). The description says what it does and which argument tones backfire; the two
    meters preview where each head starts (how the action leans them).
-2. **Debate**: both meters must reach **100** within **7 turns** (the patience pips). Each turn five of the eight tones are
+2. **Debate**: both meters must reach **85** (v0.17.2, user: "maybe make it like 15% easier please"; was 100) within **7 turns** (the patience pips). Each turn five of the eight tones are
    offered (keys 1-5); each row shows how each head feels about the tone (▲▲ / ▲ / – / ▼ / ▼▼), and hovering shows Ben's actual
    words.
 
@@ -65,7 +65,7 @@ Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
    - **Repeating** a tone: half its gain each time (penalties stay whole).
    - Each head has a hidden **concern** (one of the tones it likes, never one the motion contradicts) worth **double**.
      **Listen** (L) spends a turn and both say what it is (★ on the rows after).
-   - Meters run -50..100. **Withdraw** (W) drops the motion at no cost.
+   - Meters run -50..85. **Withdraw** (W) drops the motion at no cost.
 3. **Carried**: the action happens at his body, the result is read out ("Husk is unmade."); that action rests its cooldown.
    **Refused** (out of patience): that whole category rests 20 s.
 
@@ -98,6 +98,7 @@ body, nothing is resting, the argument is on offer.
 | Travel | Move My Body | point, creature, player | 40 / 40 | | the body steps to where it looks / beside the target | 10 s |
 | Travel | Summon | player | 30 / 50 | | brings the player to the body | 20 s |
 | Summon | Guardian | area | 45 / 40 | | an iron golem beside the body for 60 s | 60 s |
+| Leave | **Let Me Go** | body | 30 / 35 | | he turns back and returns to his body (N, V and the wheel move it) | none |
 
 Terrain changes (Barrier, Raise the Earth, Cage blocks, Open the Ground) are temporary and need the abilityTerrainDamage rule;
 the opened ground is put back block for block (never over something placed since, never blocks with contents, bedrock or

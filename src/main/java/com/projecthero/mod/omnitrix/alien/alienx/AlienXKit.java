@@ -212,12 +212,19 @@ public final class AlienXKit extends AlienKit {
 		return false;
 	}
 
+	/** v0.17.2 (user): N and the alien wheel move the "Let Me Go" motion instead of turning him back. */
+	@Override
+	public boolean holdsRevert(ServerPlayer p) {
+		AlienXCouncil.requestRelease(p);
+		return true;
+	}
+
 	// ---------------------------------------------------------------- keys
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
 		if (slot == AbilitySlot.SLOT_5 && !shift) {
-			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			AlienXCouncil.requestRelease(p); // v0.17.2 (user): the heads must agree to let him go
 			return;
 		}
 		if (slot == AbilitySlot.SLOT_1 && !shift) {

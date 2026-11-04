@@ -52,15 +52,15 @@ public class OmnitrixAlienXGameTests implements FabricGameTest {
 		helper.assertTrue(AlienXCouncil.phase(p) == AlienXCouncil.PHASE_DEBATE, "the debate is open");
 		float[] m = AlienXCouncil.meters(p);
 		helper.assertTrue(m[0] == 50f && m[1] == 0f, "Bellicus leans in (50), Serena is against (0)");
-		// glory (Bellicus's concern, x2), balance (Serena's, x2), protection, wisdom, protection again (half)
-		int[] plan = { GLORY, BALANCE, PROTECTION, WISDOM };
+		// glory (Bellicus's concern, x2), balance (Serena's, x2), protection, then wisdom carries it (both at 85: v0.17.2 user, was 100)
+		int[] plan = { GLORY, BALANCE, PROTECTION };
 		for (int t : plan) {
 			helper.assertTrue(AlienXCouncil.argue(p, t), "argued " + AlienXCouncil.TONES.get(t));
 			helper.assertTrue(v.isAlive() && v.getHealth() == 400f, "nothing happens before both agree");
 		}
 		m = AlienXCouncil.meters(p);
-		helper.assertTrue(m[0] >= 100f && m[1] >= 89f && m[1] < 100f, "Bellicus is convinced, Serena almost (" + m[0] + ", " + m[1] + ")");
-		helper.assertTrue(AlienXCouncil.argue(p, PROTECTION), "protection again");
+		helper.assertTrue(m[0] >= AlienXCouncil.NEED && m[1] >= 60f && m[1] < AlienXCouncil.NEED, "Bellicus is convinced, Serena almost (" + m[0] + ", " + m[1] + ")");
+		helper.assertTrue(AlienXCouncil.argue(p, WISDOM), "wisdom");
 		helper.assertTrue(AlienXCouncil.phase(p) == AlienXCouncil.PHASE_RESULT && AlienXCouncil.lastCarried(p), "the motion is carried");
 		helper.assertTrue(!v.isAlive() || v.isDeadOrDying(), "the 400-health villager is unmade in one stroke");
 		helper.assertTrue(AlienXCouncil.cooldownLeft(p, "unmake") > 0, "Unmake now rests");

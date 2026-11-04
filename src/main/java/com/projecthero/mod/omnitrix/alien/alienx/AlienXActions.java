@@ -63,7 +63,7 @@ public final class AlienXActions {
 	public static final double RANGE = 48;
 
 	public static final List<String> CATEGORIES = List.of("strike", "time", "protect", "heal", "reshape", "create", "banish", "weather", "gravity",
-			"travel", "summon");
+			"travel", "summon", "leave");
 
 	/**
 	 * @param bellicus / serena the heads' leaning before any argument (the meters start here)
@@ -114,6 +114,9 @@ public final class AlienXActions {
 		add("summon_ally", "travel", K_PLAYER, 30, 50, 0, 400);
 		// summon
 		add("guardian", "summon", K_AREA, 45, 40, 0, 1200);
+		// leave -- v0.17.2 (user: "when detransforming as alien x make it so that the player has to convince the heads to let them
+		// detransform aswell please"): turning back is a motion too; carried, he returns to his body as Ben
+		add("release", "leave", K_BODY, 30, 35, 0, 0);
 	}
 
 	private static void add(String id, String category, int kinds, int b, int s, int contra, int cooldown) {
@@ -404,6 +407,11 @@ public final class AlienXActions {
 				t.resetFallDistance();
 				OmnitrixSfx.play(l, to, AlienXKit.BLINK_SOUND, 1.0f, 1.2f);
 				return new Result(true, "council.result.summon_ally", name);
+			}
+			case "release" -> {
+				// the council lets him go: AlienXCouncil turns him back a moment after the banner (Session.releaseAt)
+				QuirkFx.ring(l, origin.position().add(0, 0.1, 0)).colours(0xFFFFFF, 0x9FC4FF).size(3f).ground().life(14).spawn();
+				return new Result(true, "council.result.release");
 			}
 			case "guardian" -> {
 				IronGolem g = EntityType.IRON_GOLEM.create(l);

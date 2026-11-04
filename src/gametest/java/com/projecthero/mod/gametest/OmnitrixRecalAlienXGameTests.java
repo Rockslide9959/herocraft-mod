@@ -164,7 +164,20 @@ public class OmnitrixRecalAlienXGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.runAtTickTime(20, () -> {
 			helper.assertTrue(AlienXCouncil.isCouncil(p.level()) && p.getY() > AlienXCouncil.FLOOR_Y, "standing on the council's floor");
-			kit().press(p, AbilitySlot.SLOT_5, false); // V: leave the council
+			// v0.17.2 (user: "the player has to convince the heads to let them detransform aswell please"): V moves the Let Me Go
+			// motion -- nothing happens until both heads agree
+			AlienXCouncil.forceConcerns(p, 1, 5); // glory, balance
+			kit().press(p, AbilitySlot.SLOT_5, false); // V: ask to leave
+			helper.assertTrue(Omnitrix.state(p).transformed() && AlienXCouncil.inSession(p), "V alone does not turn him back");
+			helper.assertTrue(AlienXCouncil.phase(p) == AlienXCouncil.PHASE_DEBATE, "the Let Me Go motion is before the council");
+			helper.assertFalse(Omnitrix.revertEarly(p), "N does not turn him back either");
+			AlienXCouncil.freeTones(p);
+			for (int tone : new int[] { 1, 5, 3 }) { // glory (x2), balance (x2), protection: both reach 85
+				helper.assertTrue(AlienXCouncil.argue(p, tone), "argued");
+			}
+			helper.assertTrue(AlienXCouncil.lastCarried(p) && AlienXCouncil.releasing(p), "the council lets him go");
+		});
+		helper.runAtTickTime(20 + AlienXCouncil.RELEASE_DELAY + 6, () -> {
 			helper.assertFalse(Omnitrix.state(p).transformed(), "turned back");
 			helper.assertTrue(p.level() == helper.getLevel(), "back in the world");
 			helper.assertTrue(p.position().distanceTo(from) < 0.6, "at his body (" + p.position() + " vs " + from + ")");

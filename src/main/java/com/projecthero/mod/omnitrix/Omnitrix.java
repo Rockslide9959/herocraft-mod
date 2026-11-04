@@ -347,6 +347,9 @@ public final class Omnitrix {
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
 		}
+		if (s.transformed() && heldBack(p)) {
+			return false; // v0.17.2: Alien X's council must agree first
+		}
 		if (s.transformed()) {
 			// v0.17.2 (user: "player should be able to switch to alien form without reverting to human"): straight across -- no
 			// turn-back effects, no recharge
@@ -1305,12 +1308,22 @@ public final class Omnitrix {
 		return true;
 	}
 
+	/** v0.17.2: the alien kit takes a player's own turn-back over (Alien X: the council votes on it). */
+	private static boolean heldBack(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		AlienKit kit = s.transformed() ? Aliens.kit(s.active) : null;
+		return kit != null && kit.holdsRevert(p);
+	}
+
 	private static void showSelected(ServerPlayer p, String id) {
 		// v0.17.1 (user: "when selecting an alien remove the alien name that pops up"): the dial icon is the only cue
 	}
 
 	/** V while transformed (Shift+V is an alias): the five beeps, then back to human. A second press during the beeps does nothing. */
 	public static boolean revertEarly(ServerPlayer p) {
+		if (heldBack(p)) {
+			return false; // v0.17.2: Alien X's council must agree first
+		}
 		// v0.17.1 (user: "for master control remove the initial beeps when player wants to detransform just make it happen
 		// instantly"): under Master Control N turns him back at once -- no five beeps first
 		if (state(p).transformed() && (state(p).readyAt(MASTER) == 1L || recalibrated(p))) { // v0.17.2: the recalibrated watch too (its own detransform sound)

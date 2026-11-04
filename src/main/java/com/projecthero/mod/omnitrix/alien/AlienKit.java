@@ -218,6 +218,14 @@ public abstract class AlienKit {
 	}
 
 	/**
+	 * v0.17.2 (Alien X): the player asked to turn back (N) or switch on the wheel -- true if the kit takes it over instead (Alien X
+	 * has the council vote on it). Death, logout, the watch coming off and forced reverts never come here.
+	 */
+	public boolean holdsRevert(ServerPlayer p) {
+		return false;
+	}
+
+	/**
 	 * v0.17.2 (Way Big): the step height in blocks, past the step-height attribute's cap of 10 ({@code OmnitrixAlienLivingMixin}), or a
 	 * negative number for the attribute's own. Both sides (answer from synced state).
 	 */

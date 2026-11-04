@@ -32,7 +32,7 @@ import net.minecraft.util.Mth;
  * <li><b>Propose</b>: category (left), action (middle: greyed while it rests), target (right: what is round his body -- the area,
  * where the body looks, the body, creatures and players with health and distance -- only the kinds the action takes). Under them
  * the action's description and how each head leans (the meters preview where they start). "Propose the motion".</li>
- * <li><b>Debate</b>: both meters (each must reach 100), the patience pips (turns left), the transcript, and the offered
+ * <li><b>Debate</b>: both meters (each must reach AlienXCouncil.NEED, 85), the patience pips (turns left), the transcript, and the offered
  * arguments: each row shows its tone, Ben's line, and how each head feels about that tone (▲▲ / ▲ / ▼), marked ✖ if it
  * contradicts the motion and ★ once Listen has revealed a head's concern. Keys 1-5 argue, L listens, W withdraws.</li>
  * <li><b>Result</b>: carried or refused, what happened at his body; "New motion" or "Leave the Council".</li>
