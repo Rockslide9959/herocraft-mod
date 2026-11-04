@@ -255,3 +255,14 @@ then the **fall home**: a reverse star-streak tunnel ends on the overworld beaco
 5. C4 plus the bigger multipart Galactus and Stage 3 moves (MP4)
 6. Finale, C5, rewards, multiplayer, persistence and gametests
 7. Release-ready: reference doc rewritten, config v2, test modpack
+
+## 15. Decisions made while building (user asleep: "do everything automatically and dont ask me any questions")
+- **Galactus's size:** 230 blocks for the C2 head reveal, 180 leaning over the Stage 1 islands, 100 for the Stage 3 fight
+  (90 was proposed; 100 gives his arms reach over the deck). He drifts around the field toward the party so no side is safe.
+- **Stage 1 reach:** he only smashes islands his fist can actually reach (checked with the shared rig), so a punch never lands short.
+- **Rendering:** the Devourer entity stands at his chest and the model is drawn down to his feet, because an entity whose
+  feet are underground or in empty void isn't drawn by the client.
+- **Fog:** turned off in orbit and during C1/C2, so the giant reads clearly against the sky.
+- **Cosmic Shards:** 4 shards + a beacon craft a Herald's Beacon (the proposal didn't give them a use).
+- **Retired content:** the v0.16 overworld acts. `GalactusV0164GameTests` was removed and v0.16 saves restart at the C2 reveal.
+- **Converters:** they can only be destroyed by overloading them, and weapons get a hint message.
