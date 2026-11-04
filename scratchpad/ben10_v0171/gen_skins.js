@@ -1,3 +1,5 @@
+// v0.17.2: Heatblast and Stinkfly have second skins -- run gen_heatblast_v2.js and gen_stinkfly_v2.js AFTER this file (its
+// Heatblast and Stinkfly blocks below still write the first skins).
 // v0.17.1 Four Arms + Heatblast textures from the user's two planetminecraft skins (four_arms_src.png, heatblast_src.png).
 //   four_arms.png              the skin as-is (RGBA)
 //   heatblast.png              the skin as-is

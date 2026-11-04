@@ -1062,7 +1062,8 @@ public final class HeatblastClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		// over the skin's own symbol (painted out), the middle of his chest
-		return new float[] { 0f, 4.0f, -2.06f, 3.0f };
+		// over the skin's own symbol (painted out) -- v0.17.2: the second skin paints it higher, at the top of his chest
+		// (jacket 23..24 x 37..38, gen_heatblast_v2.js)
+		return new float[] { 0f, 2.0f, -2.06f, 3.0f };
 	}
 }

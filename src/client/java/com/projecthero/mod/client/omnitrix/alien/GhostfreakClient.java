@@ -61,7 +61,6 @@ public final class GhostfreakClient implements AlienClientKit {
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/ghostfreak_extras.png");
 	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
 
-	private static final float[] TAIL = { 0f, 0f, 0.5f, 0.5f };
 	private static final float[] EYE = { 0.5f, 0f, 1f, 0.5f };
 	private static final int TRUE_BLACK = 0xFF15141A;
 	private static final int TRUE_WHITE = 0xFFE9E6DE;
@@ -174,25 +173,10 @@ public final class GhostfreakClient implements AlienClientKit {
 		int flags = Omnitrix.state(p).kitFlags;
 		boolean phased = (flags & (GhostfreakKit.F_PHASE | GhostfreakKit.F_RUSH)) != 0;
 		int alpha = phased ? 130 : 255;
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
-		// the wispy tail in place of legs: shrinking segments, each swaying a little more than the last
-		AlienParts.on(pose, model.body, () -> {
-			pose.pushPose();
-			pose.translate(0, 11.5f / 16f, 0);
-			float[] w = { 8.4f, 7.2f, 5.8f, 4.2f, 2.6f, 1.2f };
-			float[] d = { 4.4f, 3.8f, 3.2f, 2.6f, 1.8f, 0.9f };
-			float[] h = { 4.4f, 4.2f, 4.0f, 3.6f, 3.2f, 2.6f };
-			for (int i = 0; i < w.length; i++) {
-				float sway = Mth.sin(age * 0.16f + i * 0.8f) * (0.08f + i * 0.05f);
-				pose.mulPose(Axis.ZP.rotation(sway));
-				pose.mulPose(Axis.XP.rotation(0.05f + i * 0.04f + Mth.sin(age * 0.11f + i) * 0.04f));
-				int a = Math.max(40, alpha - i * 26);
-				AlienParts.box(pose, vc, -w[i] / 2, 0, -d[i] / 2, w[i] / 2, h[i], d[i] / 2, TAIL[0], TAIL[1] + i * 0.065f, TAIL[2], TAIL[1] + i * 0.065f + 0.08f,
-						(a << 24) | 0xFFFFFF, light);
-				pose.translate(0, (h[i] - 0.4f) / 16f, 0);
-			}
-			pose.popPose();
-		});
+		// the wispy tail in place of legs -- v0.17.2 (user: "Make the ghostfreak tail better please ... make it react to the direciton
+		// that the player is moving in and never go through blocks or the player unless the player is phasing"): a simulated rope
+		// that trails his motion, ripples, and keeps out of blocks and his body (GhostfreakTail), in the second skin's colours
+		GhostfreakTail.render(pose, buffers, light, p, model, partial, alpha);
 		// v0.17.2 True Form: the skin flaps, the striped body under them, the tentacles, the bone jaw
 		float open = trueOpen(p, partial);
 		if (open > 0.001f) {
@@ -347,6 +331,8 @@ public final class GhostfreakClient implements AlienClientKit {
 	public void tick(AbstractClientPlayer p) {
 		var r = p.getRandom();
 		var level = p.level();
+		// v0.17.2: the tail's rope (through walls with him only while he is phasing)
+		GhostfreakTail.tick(p, (Omnitrix.state(p).kitFlags & (GhostfreakKit.F_PHASE | GhostfreakKit.F_RUSH)) != 0);
 		if (p.isInvisible()) {
 			return; // faded: not even a wisp gives him away
 		}
@@ -368,8 +354,9 @@ public final class GhostfreakClient implements AlienClientKit {
 	@Override
 	public float[] badge() {
 		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
-		// out), just left of the middle of his chest
-		return new float[] { 1.0f, 3.0f, -2.06f, 3.0f };
+		// out), just left of the middle of his chest. v0.17.2: the second skin's symbol is in the middle of his chest (jacket
+		// 23..24 x 39..40, painted out by gen_ghostfreak_v2.js)
+		return new float[] { 0f, 4.0f, -2.06f, 3.0f };
 	}
 
 	// ---------------------------------------------------------------- v0.17.2: the possessed player's client

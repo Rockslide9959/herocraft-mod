@@ -1,0 +1,474 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.2 Heatblast + Stinkfly second skins (Stinkfly modelled tail / double arms / thin legs).
+ * Enabled by run/skinswap.flag (filter text: heat, stink, fp). Shots in run/screenshots/v0172_ss_*.png.
+ */
+// TEMP-HARNESS
+public final class SkinSwapHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer ben;
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static String only = "";
+
+	private SkinSwapHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("skinswap.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("skinswap.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SkinSwapHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "skinswap-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String part) {
+		return only.isEmpty() || only.contains(part);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "v0172_ss_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SkinSwapHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+				if (p.tickCount % 5 == 0) {
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))) {
+						e.discard();
+					}
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void become(ServerPlayer f, String alien) {
+		if (Omnitrix.state(f).transformed()) {
+			Omnitrix.revert(f, Omnitrix.Reason.REVOKE);
+		}
+		var n = Omnitrix.state(f).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(f, n);
+		Omnitrix.transform(f);
+		f.setOnGround(true);
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), 180f, 0f);
+		f.setYHeadRot(180f);
+		f.yBodyRot = 180f;
+		f.yBodyRotO = 180f;
+	}
+
+	private static StinkflyKit kit() {
+		return (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+	}
+
+	private static void ready(ServerPlayer f) {
+		var n = Omnitrix.state(f).copy();
+		n.timers.keySet().removeIf(k -> k.startsWith("stinkfly.") && !k.contains("dive"));
+		Omnitrix.save(f, n);
+	}
+
+	private static void fly(ServerPlayer f, boolean on) {
+		f.getAbilities().mayfly = true;
+		f.getAbilities().flying = on;
+		f.onUpdateAbilities();
+		kit().setFlag(f, StinkflyKit.F_FLYING, on);
+		f.setOnGround(!on);
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw, float pitch) {
+		ben.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, pitch);
+		ben.setYHeadRot(yaw);
+		ben.yBodyRot = yaw;
+		ben.yBodyRotO = yaw;
+	}
+
+	/** One move fired on Ben (cooldowns cleared), the camera at camOff from him looking at lookOff; shots after each of {@code after}. */
+	private static int move(Minecraft mc, int t, String name, java.util.function.Consumer<ServerPlayer> fire, Vec3 camOff, Vec3 lookOff, int... after) {
+		at(t, () -> server(mc, p -> {
+			ready(ben);
+			camera(p, ben.position().add(camOff), ben.position().add(lookOff));
+			fire.accept(ben);
+		}));
+		int last = 0;
+		for (int i = 0; i < after.length; i++) {
+			shot(t + after[i], name + (i == 0 ? "" : "_" + (char) ('a' + i)));
+			last = Math.max(last, after[i]);
+		}
+		return t + last + 20;
+	}
+
+	/** Front, back, both sides and a back three-quarter round the alien standing at {@code at} (eye height {@code h}). */
+	private static int turntable(Minecraft mc, int t, String name, Vec3 at, double h, double d) {
+		Vec3 look = at.add(0, h, 0);
+		final int[] n = { 0 };
+		at(t, () -> mover = sp -> {
+			n[0]++;
+			Vec3 w = at.add(0, 0, 0.6 - Math.min(n[0], 6) * 0.1);
+			ben.teleportTo(sp.serverLevel(), w.x, w.y, w.z, 180f, 0f);
+			ben.setYHeadRot(180f);
+			ben.yBodyRot = 180f;
+		});
+		at(t + 8, () -> mover = null);
+		t += 30;
+		Object[][] views = { { "front", new Vec3(0, h + 0.2, -d) }, { "back", new Vec3(0, h + 0.3, d) }, { "side", new Vec3(-d, h + 0.1, 0) },
+				{ "side_r", new Vec3(d, h + 0.1, 0) }, { "back34", new Vec3(-d * 0.7, h + 0.6, d * 0.7) }, { "front34", new Vec3(d * 0.7, h + 0.4, -d * 0.7) } };
+		for (Object[] v : views) {
+			Vec3 off = (Vec3) v[1];
+			at(t, () -> server(mc, p -> camera(p, at.add(off), look)));
+			shot(t + 4, name + "_" + v[0]);
+			t += 6;
+		}
+		return t;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		Vec3 stage = origin.add(-24, 0, 0);
+		at(t, () -> server(mc, p -> {
+			p.setGameMode(GameType.SPECTATOR);
+			ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+		}));
+		t += 30;
+		if (want("heat")) {
+			at(t, () -> server(mc, p -> become(ben, "heatblast")));
+			t += 30;
+			t = turntable(mc, t, "heat", stage, 1.1, 2.6);
+			at(t, () -> server(mc, p -> camera(p, stage.add(0, 1.5, -1.3), stage.add(0, 1.35, 0))));
+			shot(t + 4, "heat_badge");
+			t += 8;
+		}
+		if (want("stink")) {
+			at(t, () -> server(mc, p -> {
+				become(ben, StinkflyKit.ID);
+				fly(ben, false);
+			}));
+			t += 40;
+			t = turntable(mc, t, "stink", stage, 1.0, 2.6);
+			at(t, () -> server(mc, p -> camera(p, stage.add(0, 1.75, -1.2), stage.add(0, 1.65, 0))));
+			shot(t + 4, "stink_badge");
+			at(t + 5, () -> server(mc, p -> camera(p, stage.add(-1.4, 0.7, 0.9), stage.add(0, 0.6, 0.2))));
+			shot(t + 9, "stink_tail_close");
+			t += 12;
+			// walking: Ben moved a little each tick so his legs and tail swing
+			final int[] k = { 0 };
+			at(t, () -> mover = sp -> {
+				k[0]++;
+				Vec3 w = stage.add(0, 0, 1.4 - k[0] * 0.13);
+				ben.teleportTo(sp.serverLevel(), w.x, w.y, w.z, 180f, 0f);
+				ben.setYHeadRot(180f);
+				ben.yBodyRot = 180f;
+			});
+			at(t + 1, () -> server(mc, p -> camera(p, stage.add(-2.6, 1.2, 0.6), stage.add(0, 0.9, 0.2))));
+			shot(t + 12, "stink_walk");
+			shot(t + 16, "stink_walk_b");
+			at(t + 17, () -> mover = null);
+			t += 22;
+			// the stab: the tail curls under him
+			t = move(mc, t, "stink_stab", b -> kit().stingerStab(b), new Vec3(-2.6, 1.0, 0.3), new Vec3(0, 0.8, 0), 2, 4, 7);
+			// hovering, then the flying views
+			at(t, () -> server(mc, p -> {
+				place(p, stage.add(0, 1.6, 0), 180f, 0f);
+				fly(ben, true);
+			}));
+			t += 30;
+			t = turntable(mc, t, "stink_fly", stage.add(0, 1.6, 0), 1.0, 3.0);
+			at(t, () -> server(mc, p -> {
+				place(p, stage, 180f, 0f);
+				fly(ben, false);
+			}));
+			t += 30;
+		}
+		if (want("ghost")) {
+			com.projecthero.mod.omnitrix.alien.AlienKit gk = Aliens.kit("ghostfreak");
+			at(t, () -> server(mc, p -> {
+				place(p, stage, 180f, 0f);
+				become(ben, "ghostfreak");
+				ben.setInvulnerable(true);
+			}));
+			t += 40;
+			t = turntable(mc, t, "ghost", stage, 1.0, 2.6);
+			// moving: flown sideways (his left to right), then forward, the tail trailing behind each way
+			final int[] k = { 0 };
+			at(t, () -> {
+				k[0] = 0;
+				mover = sp -> {
+					k[0]++;
+					Vec3 w = stage.add(-1.6 + k[0] * 0.16, 0.6, 0);
+					ben.teleportTo(sp.serverLevel(), w.x, w.y, w.z, 180f, 0f);
+					ben.setYHeadRot(180f);
+					ben.yBodyRot = 180f;
+				};
+			});
+			at(t + 1, () -> server(mc, p -> camera(p, stage.add(0, 1.6, -3.2), stage.add(0, 1.2, 0))));
+			shot(t + 10, "ghost_move_side");
+			at(t + 11, () -> server(mc, p -> camera(p, stage.add(0, 1.6, 3.2), stage.add(0.8, 1.2, 0))));
+			shot(t + 15, "ghost_move_side_back");
+			at(t + 20, () -> {
+				k[0] = 0;
+				mover = sp -> {
+					k[0]++;
+					Vec3 w = stage.add(0, 0.6 + k[0] * 0.03, 1.5 - k[0] * 0.2);
+					ben.teleportTo(sp.serverLevel(), w.x, w.y, w.z, 180f, 0f);
+					ben.setYHeadRot(180f);
+					ben.yBodyRot = 180f;
+				};
+			});
+			at(t + 21, () -> server(mc, p -> camera(p, stage.add(-3.4, 1.5, -0.3), stage.add(0, 1.2, -0.3))));
+			shot(t + 29, "ghost_move_fwd");
+			at(t + 31, () -> mover = null);
+			t += 45;
+			// against a wall: a stone wall just behind him, then he backs into it -- the tail lies along it, not through it
+			Vec3 wallAt = stage.add(0, 0, 1);
+			at(t, () -> server(mc, p -> {
+				net.minecraft.core.BlockPos b0 = net.minecraft.core.BlockPos.containing(wallAt);
+				for (int dx = -2; dx <= 2; dx++) {
+					for (int dy = 0; dy <= 2; dy++) {
+						p.serverLevel().setBlockAndUpdate(b0.offset(dx, dy, 0), net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState());
+					}
+				}
+				place(p, stage.add(0, 0.1, 0.12), 180f, 0f);
+				gk.setFlag(ben, 1, false);
+			}));
+			at(t + 2, () -> server(mc, p -> camera(p, stage.add(-2.4, 1.3, -0.6), stage.add(0, 0.8, 0.2))));
+			shot(t + 25, "ghost_wall_side");
+			at(t + 26, () -> server(mc, p -> camera(p, stage.add(-1.6, 1.2, -2.0), stage.add(0, 0.8, 0.2))));
+			shot(t + 30, "ghost_wall_34");
+			// on the floor: low down, the tail lies along the ground
+			at(t + 32, () -> server(mc, p -> place(p, stage.add(0, -0.35, -1.5), 180f, 0f)));
+			at(t + 33, () -> server(mc, p -> camera(p, stage.add(-2.4, 0.9, -1.5), stage.add(0, 0.4, -1.3))));
+			shot(t + 55, "ghost_floor");
+			// phasing: backed into the wall, the tail goes through it with him
+			at(t + 60, () -> server(mc, p -> {
+				gk.setFlag(ben, 1, true);
+				place(p, stage.add(0, 0.1, 0.3), 180f, 0f);
+			}));
+			at(t + 61, () -> mover = sp -> {
+				Vec3 w = stage.add(0, 0.1, 0.3 + (sp.tickCount % 2) * 0.04);
+				ben.teleportTo(sp.serverLevel(), w.x, w.y, w.z, 180f, 0f);
+			});
+			at(t + 62, () -> server(mc, p -> camera(p, stage.add(-2.4, 1.3, -0.6), stage.add(0, 0.8, 0.3))));
+			shot(t + 85, "ghost_phase_wall");
+			at(t + 86, () -> {
+				mover = null;
+				server(mc, p -> gk.setFlag(ben, 1, false));
+			});
+			t += 95;
+		}
+		if (want("fp")) {
+			// the local player as Stinkfly in first person: his modelled arms
+			at(t, () -> server(mc, p -> {
+				if (ben != null) {
+					Omnitrix.revert(ben, Omnitrix.Reason.REVOKE);
+					ben.discard();
+					ben = null;
+				}
+				p.setGameMode(GameType.CREATIVE);
+				p.teleportTo(p.serverLevel(), stage.x, stage.y, stage.z, 180f, 10f);
+				UniquePowers.forced(() -> Omnitrix.grant(p));
+				become(p, StinkflyKit.ID);
+			}));
+			at(t + 2, () -> {
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			});
+			shot(t + 130, "stink_fp");
+			at(t + 131, () -> server(mc, p -> kit().stingerStab(p)));
+			at(t + 132, () -> server(mc, p -> {
+				if (mc.player != null) {
+					mc.execute(() -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+				}
+			}));
+			shot(t + 134, "stink_fp_swing");
+			at(t + 140, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			});
+			shot(t + 150, "stink_3p_local");
+			t += 160;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static Zombie dummy(ServerPlayer near, Vec3 at) {
+		ServerLevel l = near.serverLevel();
+		Zombie z = EntityType.ZOMBIE.create(l);
+		z.moveTo(at.x, at.y, at.z, 0f, 0f);
+		z.setNoAi(true);
+		z.setInvulnerable(true);
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		z.setPersistenceRequired();
+		l.addFreshEntity(z);
+		return z;
+	}
+}

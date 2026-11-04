@@ -41,9 +41,6 @@ public final class StinkflyClient implements AlienClientKit {
 	// extras rectangles (px on the 64x64 sheet): u0, v0, u1, v1
 	private static final float[] STALK = { 32, 0, 36, 8 };
 	private static final float[] EYE = { 36, 0, 44, 8 };
-	private static final float[] TAIL = { 32, 8, 40, 16 };
-	private static final float[] STINGER = { 40, 8, 44, 12 };
-	private static final float[] LIMB = { 44, 0, 48, 16 };
 	private static final float[] MANDIBLE = { 48, 0, 52, 4 };
 
 	// {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX} (radians)
@@ -132,27 +129,10 @@ public final class StinkflyClient implements AlienClientKit {
 				pose.popPose();
 			}
 		});
-		// the abdomen and the stinger, curling under the body for the stab
-		float curl = 0f;
-		if (s.animId == StinkflyKit.ANIM_STAB && t < 12) {
-			curl = t < 3 ? t / 3f : 1f - (t - 3f) / 9f;
-		}
-		float sway = Mth.sin(age * 0.1f) * 0.08f;
-		final float c = curl;
-		AlienParts.on(pose, model.body, () -> {
-			pose.pushPose();
-			pose.translate(0, 10.5f / 16f, 1.2f / 16f);
-			pose.mulPose(Axis.XP.rotation(-0.55f - c * 1.6f));
-			pose.mulPose(Axis.YP.rotation(sway));
-			float[][] seg = { { 2.4f, 4.5f }, { 2.0f, 4.0f }, { 1.5f, 3.5f } };
-			for (float[] g : seg) {
-				box(pose, vc, -g[0], -g[0], 0f, g[0], g[0], g[1], TAIL, light);
-				pose.translate(0, 0, (g[1] - 0.3f) / 16f);
-				pose.mulPose(Axis.XP.rotation(-0.3f - c * 0.6f));
-			}
-			box(pose, vc, -0.6f, -0.6f, 0f, 0.6f, 0.6f, 3.2f, STINGER, light);
-			pose.popPose();
-		});
+		// v0.17.2 (the second skin): the modelled tail, double arms and thin legs (StinkflyBody) -- the skin paints them as
+		// see-through cut-outs, which it no longer carries
+		StinkflyBody.renderTail(pose, buffers, light, p, model, partial);
+		StinkflyBody.renderLimbs(pose, buffers, light, model, age);
 		// the wings: folded along the back on the ground, a fast beat in the air (v0.17.2: the reference's wing shapes)
 		renderWings(pose, buffers, light, p, model, partial, age);
 	}
@@ -224,7 +204,9 @@ public final class StinkflyClient implements AlienClientKit {
 		int tint = wet ? 0xFF8C9A7C : 0xFFFFFFFF;
 		AlienParts.on(pose, model.body, () -> {
 			// the mount: a small knot of chitin between the shoulder blades
-			box(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, TAIL, light);
+			VertexConsumer knot = buffers.getBuffer(RenderType.entityCutoutNoCull(StinkflyBody.SHEET));
+			float[] m = StinkflyBody.MOUNT;
+			AlienParts.box(pose, knot, -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, m[0] / 64f, m[1] / 64f, m[2] / 64f, m[3] / 64f, 0xFFFFFFFF, light);
 			VertexConsumer glass = buffers.getBuffer(RenderType.entityTranslucent(WINGS)); // fetched after the mount (another buffer ends this one)
 			for (int side = -1; side <= 1; side += 2) {
 				for (int pair = 0; pair < 2; pair++) {
@@ -361,7 +343,8 @@ public final class StinkflyClient implements AlienClientKit {
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		// v0.17.1: the skin's own arm (it has his claws painted on)
+		// v0.17.2: the second skin's arms are modelled (StinkflyBody) -- the thin clawed main arm, drawn in the arm's space
+		StinkflyBody.mainArm(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(StinkflyBody.SHEET)), light, right);
 	}
 
 	@Override
@@ -394,6 +377,11 @@ public final class StinkflyClient implements AlienClientKit {
 		f[LEAN + 1] += (lean - f[LEAN + 1]) * 0.2f;
 		f[BANK + 1] += (bank - f[BANK + 1]) * 0.18f;
 		f[SPEED + 1] += ((flying(p) ? sp : 0f) - f[SPEED + 1]) * 0.2f;
+		// v0.17.2: the modelled tail's spring chain (StinkflyBody), curling under him for the stab
+		OmnitrixState st = Omnitrix.state(p);
+		float since = level.getGameTime() - st.animStart;
+		float curl = st.animId == StinkflyKit.ANIM_STAB && since < 12 ? (since < 3 ? since / 3f : 1f - (since - 3f) / 9f) : 0f;
+		StinkflyBody.tick(p, o[1], f[SPEED + 1], f[LEAN + 1], f[BANK + 1], curl);
 		if (r.nextInt(25) == 0) {
 			level.addParticle(ParticleTypes.ITEM_SLIME, p.getX() + (r.nextDouble() - 0.5) * 0.4, p.getY() + p.getBbHeight() * 0.4,
 					p.getZ() + (r.nextDouble() - 0.5) * 0.4, 0, -0.05, 0);
@@ -409,7 +397,9 @@ public final class StinkflyClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "stinkfly's badge needs to be on his face"): on his forehead, between the eyes (head-bone pixels: the cube
 		// spans x -4..4, y -8..0, z -4..4; just in front of the hat layer)
-		return new float[] { 0f, -4.0f, -4.56f, 3.0f };
+		// v0.17.2: over the second skin's painted symbol (hat 43..44 x 10..11, painted out by gen_stinkfly_v2.js), a pixel
+		// higher than the first skin's
+		return new float[] { 0f, -5.0f, -4.56f, 2.8f };
 	}
 
 	@Override
