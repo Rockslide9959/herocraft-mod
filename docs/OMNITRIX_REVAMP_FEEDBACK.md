@@ -168,7 +168,7 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
   - `OmnitrixClient`
   - the `OmnitrixInfo.DIAL_ORDER` glyph list (after `buzzshock`)
   - `font/omnitrix_dial.json` (U+E01A)
-- **Textures:** `scratchpad/ben10_v0171/gen_feedback.js`. The dial icon is a **placeholder** for now:
+- **Textures:** `scratchpad/ben10_v0171/gen_feedback.js`. The dial icon is the user's (`scratchpad/feedback_icon_src/feedback.png`), through `gen_omnitrix_icon_transplant.js`. The earlier placeholder was
   `gen_feedback_dial_placeholder.js` (his head, eye, grin and the two plugged antennae) through
   `scratchpad/gen_omnitrix_icon_transplant.js feedback=<source>`, so the frame matches the others exactly. When the user sends his
   icon, rerun the transplant with it.
@@ -198,4 +198,4 @@ User (via the release session): "do everything automatically and dont ask me any
 - **Plug In drains rather than destroys.** Only a respawn anchor actually loses charges; redstone blocks, lit lamps and the like are left as they are, so builds aren't griefed.
 - **Cable lengths and arcs** were traced from the two reference pictures, then made a little wider so the ear plugs hang clear of his hands at Minecraft scale.
 - **Plug proportions** come from the clearer reference (the second picture): barrel about 2.6 : 1, prongs about 0.3 of the barrel, three thin brown groove lines toward the front.
-- **The dial icon is a placeholder** until the user sends one; the transplant script keeps the shared frame.
+- **The dial icon** is the user's own ("Use this for feedbacks alien icon please"), from `scratchpad/feedback_icon_src/feedback.png` through the transplant script, which keeps the shared frame. It replaced the placeholder.
