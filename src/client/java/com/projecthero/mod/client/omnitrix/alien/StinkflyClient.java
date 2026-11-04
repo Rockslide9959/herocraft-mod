@@ -129,10 +129,8 @@ public final class StinkflyClient implements AlienClientKit {
 				pose.popPose();
 			}
 		});
-		// v0.17.2 (the second skin): the modelled tail, double arms and thin legs (StinkflyBody) -- the skin paints them as
-		// see-through cut-outs, which it no longer carries
+		// v0.17.2 (the second skin): the modelled tail (StinkflyBody); his double arms and thin legs are the skin's own
 		StinkflyBody.renderTail(pose, buffers, light, p, model, partial);
-		StinkflyBody.renderLimbs(pose, buffers, light, model, age);
 		// the wings: folded along the back on the ground, a fast beat in the air (v0.17.2: the reference's wing shapes)
 		renderWings(pose, buffers, light, p, model, partial, age);
 	}
@@ -343,8 +341,7 @@ public final class StinkflyClient implements AlienClientKit {
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		// v0.17.2: the second skin's arms are modelled (StinkflyBody) -- the thin clawed main arm, drawn in the arm's space
-		StinkflyBody.mainArm(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(StinkflyBody.SHEET)), light, right);
+		// the skin's own arm (v0.17.2: the second skin's cut-out double arm)
 	}
 
 	@Override

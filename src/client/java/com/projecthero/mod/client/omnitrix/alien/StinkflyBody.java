@@ -29,12 +29,10 @@ import net.minecraft.util.Mth;
  *       tapering into a glossy black three-part stinger. It is a small spring chain per player: it hangs curving down behind him
  *       standing, lifts and sways as he walks, hangs low under him hovering and streams out straight behind at speed, lags and
  *       whips back on every turn, and curls under his body for the stinger stab;</li>
- *   <li><b>double arms</b> -- on each side the main arm (shoulder knob, thin upper arm, elbow, forearm bent forward, three black
- *       claws) on the arm bone, and a smaller second arm out of the front corner of his thorax, folded forward mantis-style and
- *       following the main arm's swing;</li>
- *   <li><b>thin legs</b> -- a hip knob, a 2 px thigh angled forward, a knee knob, a thinner shin angled back and a black clawed
- *       foot.</li>
  * </ul>
+ * v0.17.2 second pass (user: "why did you do this with stinkfly, just use the skin please"): the modelled arms and legs are gone
+ * -- the skin's own cut-out double arms and thin legs are drawn as its author made them -- and the tail is slimmer, black-banded,
+ * ending in the show's curved black hook.
  */
 final class StinkflyBody {
 	static final ResourceLocation SHEET = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_body.png");
@@ -43,14 +41,16 @@ final class StinkflyBody {
 	private static final float[] TAIL_TOP = { 0, 0, 8, 16 }, TAIL_SIDE = { 8, 0, 16, 16 }, TAIL_BELLY = { 16, 0, 24, 16 };
 	private static final float[] TAIL_CAP = { 24, 0, 32, 8 }, JOINT = { 24, 8, 32, 16 };
 	private static final float[] STING = { 32, 0, 36, 16 }, STING_CAP = { 36, 0, 40, 4 };
-	private static final float[] LIMB = { 40, 0, 44, 16 }, KNEE = { 44, 4, 48, 8 }, CLAW = { 48, 0, 52, 8 };
 	static final float[] MOUNT = { 0, 16, 8, 24 };
 
 	// ---------------------------------------------------------------- the tail's shape (body-bone pixels)
 	static final int N = 7;
-	private static final float[] HALF = { 1.9f, 2.4f, 2.7f, 2.7f, 2.4f, 1.95f, 1.45f };
+	private static final float[] HALF = { 1.45f, 1.85f, 2.05f, 2.0f, 1.7f, 1.3f, 0.95f }; // v0.17.2 second pass: slimmer
 	private static final float[] LEN = { 2.6f, 2.9f, 2.9f, 2.8f, 2.6f, 2.3f, 2.0f };
 	private static final float HH = 0.82f;
+	/** The hook: its segments and how far each bends back up (degrees). */
+	private static final int HOOK_N = 6;
+	private static final float HOOK_BEND = 27f;
 	/** Where it leaves his back: low on the body bone, just inside the back face. */
 	private static final float ROOT_Y = 10.4f, ROOT_Z = 1.2f;
 	/** How much of a body turn each segment keeps (the tip lags most). */
@@ -141,15 +141,17 @@ final class StinkflyBody {
 				segment(pose, vc, light, hw, hh, 0.15f, len + 0.25f, TAIL_TOP, TAIL_SIDE, TAIL_BELLY, TAIL_CAP);
 				pose.translate(0f, 0f, len / 16f);
 			}
-			// the stinger: a grey-ringed black root, a narrower shaft hooked a little down, the needle point
-			segment(pose, vc, light, 0.95f, 0.85f, -0.4f, 0.5f, JOINT, JOINT, JOINT, JOINT);
-			segment(pose, vc, light, 0.9f, 0.8f, 0f, 2.3f, STING, STING, STING, STING_CAP);
-			pose.translate(0f, 0f, 2.1f / 16f);
-			pose.mulPose(Axis.XP.rotationDegrees(-8f));
-			segment(pose, vc, light, 0.55f, 0.5f, 0f, 2.0f, STING, STING, STING, STING_CAP);
-			pose.translate(0f, 0f, 1.9f / 16f);
-			pose.mulPose(Axis.XP.rotationDegrees(-6f));
-			segment(pose, vc, light, 0.25f, 0.25f, 0f, 1.5f, STING, STING, STING, STING_CAP);
+			// v0.17.2 second pass (user: "his tail is slightly thinner with a hook thing at the end look at this reference image"):
+			// a thin neck, then the black hook -- a flat sickle blade curling back up behind him, broad at its root and drawn to a point
+			segment(pose, vc, light, 0.75f, 0.7f, -0.4f, 1.2f, JOINT, JOINT, JOINT, JOINT);
+			pose.translate(0f, 0f, 1.0f / 16f);
+			for (int k = 0; k < HOOK_N; k++) {
+				float f = k / (float) (HOOK_N - 1);
+				float hh = Mth.lerp(f, 1.55f, 0.25f), hw = Mth.lerp(f, 0.55f, 0.2f), len = Mth.lerp(f, 1.6f, 1.0f);
+				segment(pose, vc, light, hw, hh, -0.15f, len + 0.15f, STING, STING, STING, STING_CAP);
+				pose.translate(0f, 0f, len / 16f);
+				pose.mulPose(Axis.XP.rotationDegrees(HOOK_BEND));
+			}
 			pose.popPose();
 		});
 	}
@@ -175,101 +177,4 @@ final class StinkflyBody {
 		AlienParts.quad(vc, last, c, light, x1, y0, b, x0, y0, b, x0, y1, b, x1, y1, b, 0, 0, 1, cap[0] / 64f, cap[1] / 64f, cap[2] / 64f, cap[3] / 64f);
 	}
 
-	private static void box(PoseStack pose, VertexConsumer vc, float x0, float y0, float z0, float x1, float y1, float z1, float[] uv, int light) {
-		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, uv[0] / 64f, uv[1] / 64f, uv[2] / 64f, uv[3] / 64f, 0xFFFFFFFF, light);
-	}
-
-	// ---------------------------------------------------------------- the limbs
-
-	/** Both main arms, both second arms and both legs, on the model's bones. */
-	static void renderLimbs(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<AbstractClientPlayer> model, float age) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SHEET));
-		AlienParts.on(pose, model.rightArm, () -> mainArm(pose, vc, light, true));
-		AlienParts.on(pose, model.leftArm, () -> mainArm(pose, vc, light, false));
-		AlienParts.on(pose, model.body, () -> {
-			secondArm(pose, vc, light, true, model.rightArm, age);
-			secondArm(pose, vc, light, false, model.leftArm, age);
-		});
-		AlienParts.on(pose, model.rightLeg, () -> leg(pose, vc, light));
-		AlienParts.on(pose, model.leftLeg, () -> leg(pose, vc, light));
-	}
-
-	/** The main arm in its bone's space (also the first-person arm). */
-	static void mainArm(PoseStack pose, VertexConsumer vc, int light, boolean right) {
-		float cx = right ? -1f : 1f; // the vanilla arm's centre line
-		float out = right ? 1f : -1f;
-		pose.pushPose();
-		pose.translate(cx / 16f, 0f, 0f);
-		box(pose, vc, -1.35f, -1.9f, -1.35f, 1.35f, 0.8f, 1.35f, KNEE, light); // the shoulder knob
-		pose.mulPose(Axis.ZP.rotation(out * 0.06f));
-		box(pose, vc, -0.95f, -0.4f, -0.95f, 0.95f, 4.9f, 0.95f, LIMB, light); // the upper arm
-		pose.translate(0f, 4.9f / 16f, 0f);
-		box(pose, vc, -1.1f, -0.9f, -1.1f, 1.1f, 0.9f, 1.1f, KNEE, light); // the elbow
-		pose.mulPose(Axis.XP.rotation(-0.42f)); // the forearm bent forward
-		box(pose, vc, -0.8f, 0f, -0.8f, 0.8f, 4.6f, 0.8f, LIMB, light);
-		pose.translate(0f, 4.5f / 16f, 0f);
-		claws(pose, vc, light, 1f);
-		pose.popPose();
-	}
-
-	/** Three black claws off the end of a forearm, scaled. */
-	private static void claws(PoseStack pose, VertexConsumer vc, int light, float k) {
-		for (int f = -1; f <= 1; f += 2) {
-			pose.pushPose();
-			pose.translate(f * 0.45f * k / 16f, 0f, -0.2f * k / 16f);
-			pose.mulPose(Axis.XP.rotation(-0.35f));
-			pose.mulPose(Axis.ZP.rotation(f * 0.12f));
-			box(pose, vc, -0.32f * k, -0.2f, -0.32f * k, 0.32f * k, 2.3f * k, 0.32f * k, CLAW, light);
-			pose.translate(0f, 2.2f * k / 16f, 0f);
-			pose.mulPose(Axis.XP.rotation(-0.5f)); // hooked at the tip
-			box(pose, vc, -0.22f * k, -0.1f, -0.22f * k, 0.22f * k, 1.1f * k, 0.22f * k, CLAW, light);
-			pose.popPose();
-		}
-		// the thumb claw, from behind, curling forward
-		pose.pushPose();
-		pose.translate(0f, -0.3f / 16f, 0.55f * k / 16f);
-		pose.mulPose(Axis.XP.rotation(0.55f));
-		box(pose, vc, -0.28f * k, -0.2f, -0.28f * k, 0.28f * k, 1.7f * k, 0.28f * k, CLAW, light);
-		pose.popPose();
-	}
-
-	/**
-	 * The second, smaller arm of a side: out of the front corner of his thorax (body-bone space), folded forward like a mantis'
-	 * and following that side's main arm through its swing.
-	 */
-	private static void secondArm(PoseStack pose, VertexConsumer vc, int light, boolean right, ModelPart arm, float age) {
-		float sx = right ? -1f : 1f;
-		float twitch = Mth.sin(age * 0.13f + (right ? 0f : 1.7f)) * 0.05f;
-		pose.pushPose();
-		pose.translate(sx * 3.3f / 16f, 6.4f / 16f, -1.5f / 16f);
-		box(pose, vc, -0.9f, -0.9f, -0.9f, 0.9f, 0.9f, 0.9f, KNEE, light);
-		pose.mulPose(Axis.XP.rotation(-0.75f + arm.xRot * 0.55f + twitch));
-		pose.mulPose(Axis.ZP.rotation(-sx * 0.28f + arm.zRot * 0.5f));
-		box(pose, vc, -0.7f, -0.2f, -0.7f, 0.7f, 3.6f, 0.7f, LIMB, light);
-		pose.translate(0f, 3.6f / 16f, 0f);
-		box(pose, vc, -0.85f, -0.7f, -0.85f, 0.85f, 0.7f, 0.85f, KNEE, light);
-		pose.mulPose(Axis.XP.rotation(-0.85f - twitch));
-		pose.mulPose(Axis.ZP.rotation(sx * 0.2f));
-		box(pose, vc, -0.6f, 0f, -0.6f, 0.6f, 3.3f, 0.6f, LIMB, light);
-		pose.translate(0f, 3.2f / 16f, 0f);
-		claws(pose, vc, light, 0.7f);
-		pose.popPose();
-	}
-
-	/** A thin jointed leg in the leg bone's space (hip at the top, the foot on the ground 12 px down). */
-	private static void leg(PoseStack pose, VertexConsumer vc, int light) {
-		pose.pushPose();
-		box(pose, vc, -1.4f, -0.4f, -1.4f, 1.4f, 1.8f, 1.4f, KNEE, light); // the hip
-		pose.mulPose(Axis.XP.rotation(-0.18f)); // the thigh forward
-		box(pose, vc, -1.0f, 0f, -1.0f, 1.0f, 6.1f, 1.0f, LIMB, light);
-		pose.translate(0f, 6.0f / 16f, 0f);
-		box(pose, vc, -1.2f, -1.0f, -1.2f, 1.2f, 1.0f, 1.2f, KNEE, light); // the knee
-		pose.mulPose(Axis.XP.rotation(0.36f)); // the shin back
-		box(pose, vc, -0.8f, 0f, -0.8f, 0.8f, 5.9f, 0.8f, LIMB, light);
-		pose.translate(0f, 5.8f / 16f, 0f);
-		pose.mulPose(Axis.XP.rotation(-0.18f)); // the foot level
-		box(pose, vc, -0.9f, -0.5f, -2.9f, 0.9f, 0.5f, 0.6f, CLAW, light); // the clawed foot, pointing forward
-		box(pose, vc, -0.4f, -0.4f, 0.4f, 0.4f, 0.3f, 1.8f, CLAW, light); // its spur
-		pose.popPose();
-	}
 }

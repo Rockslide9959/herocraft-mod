@@ -34,13 +34,20 @@ const clear = (x0, y0, x1, y1) => { for (let y = y0; y < y1; y++) for (let x = x
 // the back: the front's thorax bands, mirrored (base and jacket)
 for (let y = 20; y < 32; y++) for (let x = 0; x < 8; x++) copy(20 + x, y, 39 - x, y);
 for (let y = 36; y < 48; y++) for (let x = 0; x < 8; x++) copy(20 + x, y, 39 - x, y);
-// the limbs, both layers: right leg / pants, right arm / sleeve, left leg / pants, left arm / sleeve
-clear(0, 16, 16, 48);
-clear(40, 16, 56, 48);
-clear(0, 48, 32, 64);
-clear(32, 48, 64, 64);
+// v0.17.2 second pass (user: "why did you do this with stinkfly, just use the skin please"): the limbs stay exactly as the
+// skin's author cut them (its double arms and thin legs are its own see-through cut-outs, drawn as they are); only the painted
+// tail is taken off them -- it runs on down the backs and inner sides of both legs (base and pants), its whites and greys
+// cleared so the thin green legs show through
+const isTail = o => sk[o + 3] && sk[o] > 150 && Math.abs(sk[o] - sk[o + 2]) < 40 && sk[o + 1] > 150;
+for (const [x0, y0] of [[0, 16], [0, 32], [16, 48], [0, 48]]) {
+	for (let y = y0 + 4; y < y0 + 16; y++) for (let x = x0; x < x0 + 16; x++) if (isTail(at(x, y))) sk[at(x, y) + 3] = 0;
+}
 // the painted Omnitrix on the hat's face
 for (let y = 10; y <= 11; y++) for (let x = 43; x <= 44; x++) for (let c = 0; c < 4; c++) sk[at(x, y) + c] = src.px[at(45, 10) + c];
+// and its black tip at the bottom of the legs' backs: every texel there that is not his green
+for (const [bx, by] of [[12, 20], [12, 36], [28, 52], [12, 52]]) {
+	for (let y = by; y < by + 12; y++) for (let x = bx; x < bx + 4; x++) { const o = at(x, y); if (sk[o + 3] && !(sk[o + 1] > sk[o] && sk[o + 1] > sk[o + 2] + 20)) sk[o + 3] = 0; }
+}
 write('stinkfly.png', sk);
 
 // ------------------------------------------------------------------ the modelled parts' sheet
@@ -60,9 +67,8 @@ const plate = (base, edge) => (u, v, w) => {
 	const across = Math.abs(u - (w - 1) / 2) / ((w - 1) / 2); // 0 on the ridge .. 1 at the edges
 	let c = mix(base, edge, across * across);
 	if (v === 0) c = mix(c, P.white, 0.6);
-	if (v >= 11) c = mix(c, P.dusk, (v - 10) / 6);
-	if (v === 14) c = mix(c, P.slate, 0.6);
-	if (v === 15) c = P.dark;
+	if (v >= 10) c = mix(c, P.dusk, (v - 9) / 8);
+	if (v >= 12) c = mix(P.ink, P.slate, across * 0.5); // v0.17.2 second pass: a black band at the end of every plate
 	if (u === Math.floor(w / 2) && v > 0 && v < 11 && base === P.white) c = mix(c, P.white, 0.8); // the ridge's highlight
 	return c;
 };
@@ -71,8 +77,7 @@ fill(8, 0, 16, 16, plate(P.light, P.dusk)); // TAIL_SIDE
 fill(16, 0, 24, 16, (u, v) => { // TAIL_BELLY: softer grey segments, a fine crease down the middle
 	let c = mix(P.mid, P.grey, Math.abs(u - 3.5) / 3.5);
 	if (u === 3 || u === 4) c = mix(c, P.dusk, 0.35);
-	if (v >= 12) c = mix(c, P.slate, (v - 11) / 5);
-	if (v === 15) c = P.dark;
+	if (v >= 12) c = P.ink;
 	return c;
 });
 fill(24, 0, 32, 8, (u, v) => { // TAIL_CAP: the end of a segment -- a grey rim round a dark core
