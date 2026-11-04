@@ -1,0 +1,395 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.doomsday.Doomsday;
+import com.projecthero.mod.doomsday.DoomsdayAdaptation.Bucket;
+import com.projecthero.mod.doomsday.DoomsdayEvent;
+import com.projecthero.mod.doomsday.entity.DoomsdayEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.2 Doomsday screenshots + MP4 frames. Enabled by run/doomsday.flag. */
+// TEMP-HARNESS
+public final class DoomsdayHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer fighter;
+	private static DoomsdayEvent ev;
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static volatile String recording;
+	private static int frame;
+
+	private DoomsdayHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("doomsday.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DoomsdayHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "doomsday-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				for (ServerPlayer p : srv.getPlayerList().getPlayers()) {
+					if (p != fighter) {
+						try {
+							fn.accept(p);
+						} catch (Throwable e) {
+							System.out.println("[HARNESS] error: " + e);
+							e.printStackTrace();
+						}
+						return;
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "v0172_ddr3_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(DoomsdayHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.HARD, true);
+				p.setGameMode(GameType.SPECTATOR);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> prepare(mc));
+			AT.put(30, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+				if (fighter != null) {
+					fighter.setHealth(fighter.getMaxHealth());
+					fighter.fallDistance = 0;
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			String rec = recording;
+			if (rec != null) {
+				frame++;
+				Screenshot.grab(mc.gameDirectory, String.format("vidr3_%s_%04d.png", rec, frame), mc.getMainRenderTarget(), m2 -> {
+				});
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DD_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.HARD, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+		return f;
+	}
+
+	private static DoomsdayEntity dd(ServerPlayer p) {
+		return ev == null ? null : ev.doomsday(p.serverLevel());
+	}
+
+	private static Vec3 stage;
+
+	/** Holds the fighter at {@code spot} and Doomsday on him, the camera at doomsday + camOff looking at doomsday + look. */
+	private static void hold(Vec3 spot, Vec3 camOff, Vec3 look, boolean follow) {
+		mover = p -> {
+			if (fighter != null && spot != null) {
+				fighter.teleportTo(p.serverLevel(), spot.x, spot.y, spot.z, fighter.getYRot(), 0f);
+				fighter.setDeltaMovement(Vec3.ZERO);
+			}
+			DoomsdayEntity d = dd(p);
+			if (d != null) {
+				d.setTarget(fighter);
+				Vec3 base = follow ? d.position() : stage;
+				camera(p, base.add(camOff), base.add(look));
+			}
+		};
+	}
+
+	private static int move(Minecraft mc, int t, String name, String moveName, int[] shots, Vec3 spot, Vec3 camOff, Vec3 look, boolean follow) {
+		at(t, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			if (d == null) {
+				return;
+			}
+			d.teleportTo(stage.x, stage.y, stage.z);
+			d.setYRot(180f);
+			hold(spot, camOff, look, follow);
+		}));
+		at(t + 8, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			if (d != null) {
+				boolean ok = d.debugStartMove(moveName);
+				System.out.println("[HARNESS] move " + moveName + " " + ok);
+			}
+		}));
+		int last = 0;
+		for (int i = 0; i < shots.length; i++) {
+			shot(t + 8 + shots[i], name + (i == 0 ? "" : "_" + (char) ('b' + i - 1)));
+			last = Math.max(last, shots[i]);
+		}
+		return t + 8 + last + 30;
+	}
+
+	private static void record(int from, int to, String name) {
+		at(from, () -> {
+			frame = 0;
+			recording = name;
+		});
+		at(to, () -> recording = null);
+	}
+
+	private static void prepare(Minecraft mc) {
+		server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			int x = (int) Math.floor(origin.x + 10), z = (int) Math.floor(origin.z);
+			int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+			stage = new Vec3(x + 0.5, y, z + 0.5);
+			// a flat, clear stage: 40 x 40 of grass
+			for (int dx = -24; dx <= 24; dx++) {
+				for (int dz = -30; dz <= 24; dz++) {
+					for (int dy = 0; dy <= 24; dy++) {
+						level.setBlock(new BlockPos(x + dx, y + dy, z + dz), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+					}
+					level.setBlock(new BlockPos(x + dx, y - 1, z + dz), net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+					level.setBlock(new BlockPos(x + dx, y - 2, z + dz), net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState(), 2);
+				}
+			}
+			camera(p, stage.add(-14, 9, -18), stage.add(0, 1, 0));
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 40;
+		at(t, () -> server(mc, p -> {
+			fighter = fake(p, "Fighter", stage.add(0, 0, -9), 0f);
+			ev = Doomsday.start(p.serverLevel(), BlockPos.containing(stage), fighter, Doomsday.Source.COMMAND, 180f);
+			mover = q -> camera(q, stage.add(-16, 8, -20), stage.add(0, 2, 0));
+		}));
+		// skip the casket: he is out, unbound
+		at(t + 60, () -> server(mc, p -> ev.debugAdvance(p.serverLevel(), p)));
+		at(t + 120, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.setAction(DoomsdayEntity.ACTION_NONE);
+			d.debugUnbind();
+		}));
+		t += 130;
+		Vec3 front = new Vec3(-2.5, 3.6, -8.5);
+		Vec3 body = new Vec3(0, 2.4, 0);
+		// the heavy walk: he trudges toward the fighter
+		at(t, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.teleportTo(stage.x, stage.y, stage.z + 8);
+			mover = q -> {
+				fighter.teleportTo(q.serverLevel(), stage.x, stage.y, stage.z - 10, 0f, 0f);
+				DoomsdayEntity dx = dd(q);
+				if (dx != null) {
+					dx.setTarget(null);
+					dx.getNavigation().moveTo(stage.x, stage.y, stage.z - 8, 0.8);
+					camera(q, dx.position().add(-7, 3.5, -4), dx.position().add(0, 2, 0));
+				}
+			};
+		}));
+		record(t + 5, t + 65, "walk");
+		shot(t + 30, "walk");
+		t += 75;
+		// Rampage through a dirt wall
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int x = -4; x <= 4; x++) {
+				for (int y = 0; y <= 5; y++) {
+					l.setBlockAndUpdate(BlockPos.containing(stage.add(x, y, -8)), net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState());
+				}
+			}
+		}));
+		int ram = t;
+		t = move(mc, t, "rampage", "RAMPAGE", new int[] { 12, 30, 34, 42 }, stage.add(0, 0, -18), new Vec3(-4, 5, -26), new Vec3(0, 2, -6), false);
+		record(ram + 8, ram + 80, "rampage");
+		// a crash into stone
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int x = -4; x <= 4; x++) {
+				for (int y = 0; y <= 6; y++) {
+					l.setBlockAndUpdate(BlockPos.containing(stage.add(x, y, -6)), net.minecraft.world.level.block.Blocks.OBSIDIAN.defaultBlockState());
+				}
+			}
+		}));
+		t = move(mc, t, "rampage_crash", "RAMPAGE", new int[] { 28, 40 }, stage.add(0, 0, -14), new Vec3(-8, 4, -2), new Vec3(0, 2, -3), false);
+		at(t - 5, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int x = -4; x <= 4; x++) {
+				for (int y = 0; y <= 6; y++) {
+					l.setBlockAndUpdate(BlockPos.containing(stage.add(x, y, -6)), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+					l.setBlockAndUpdate(BlockPos.containing(stage.add(x, y, -8)), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+				}
+			}
+		}));
+		int clap = t;
+		t = move(mc, t, "thunderclap", "CLAP", new int[] { 10, 17, 22 }, stage.add(0, 0, -9), new Vec3(-9, 4, -6), new Vec3(0, 2, -4), false);
+		record(clap + 8, clap + 45, "thunderclap");
+		int hurl = t;
+		t = move(mc, t, "hurl", "HURL", new int[] { 8, 26, 36, 50 }, stage.add(0, 0, -20), new Vec3(-11, 5, -8), new Vec3(0, 2.5, -9), false);
+		record(hurl + 8, hurl + 75, "hurl");
+		// life 2: Skyfall
+		at(t, () -> server(mc, p -> dd(p).debugSetLife(2)));
+		int sky = t + 5;
+		t = move(mc, t + 5, "skyfall", "SKYFALL", new int[] { 12, 26, 44, 60, 66 }, stage.add(0, 0, -16), new Vec3(-16, 9, -10), new Vec3(0, 6, -12), false);
+		record(sky + 8, sky + 100, "skyfall");
+		// life 3: the Adaptive Nova (fire)
+		at(t, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.debugSetLife(3);
+			d.adaptation().onDeath(com.projecthero.mod.doomsday.DoomsdayAdaptation.Bucket.FIRE);
+		}));
+		int nova = t + 5;
+		t = move(mc, t + 5, "nova", "NOVA", new int[] { 16, 30, 34, 38 }, stage.add(0, 0, -9), new Vec3(-9, 4.5, -7), new Vec3(0, 2, -2), false);
+		record(nova + 8, nova + 70, "nova");
+		// the adaptation shudder (learning explosions) and a hurt flinch
+		at(t, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.teleportTo(stage.x, stage.y, stage.z);
+			hold(stage.add(0, 0, -10), front, body, true);
+		}));
+		at(t + 10, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.invulnerableTime = 0;
+			d.hurt(p.serverLevel().damageSources().explosion(null, null), (float) (d.getMaxHealth() * 0.25));
+		}));
+		record(t + 8, t + 40, "adapt");
+		shot(t + 14, "adapt_shudder");
+		t += 50;
+		// death: he topples
+		at(t, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			hold(stage.add(0, 0, -12), new Vec3(-8, 3.5, -4), new Vec3(0, 1.5, 0), false);
+			d.teleportTo(stage.x, stage.y, stage.z);
+		}));
+		at(t + 5, () -> server(mc, p -> {
+			DoomsdayEntity d = dd(p);
+			d.invulnerableTime = 0;
+			d.hurt(p.serverLevel().damageSources().magic(), d.getHealth() + 9000f);
+		}));
+		record(t + 3, t + 30, "topple");
+		shot(t + 12, "topple");
+		at(t + 40, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

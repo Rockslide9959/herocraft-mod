@@ -592,7 +592,7 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 	 * lightning blue-white, bone ivory, blast red, magic soul-teal, raw power pale cyan), brighter as the burst nears.
 	 */
 	static final class NovaAura extends RenderLayer<DoomsdayEntity, Model> {
-		private static final ResourceLocation SWIRL = ResourceLocation.withDefaultNamespace("textures/entity/creeper/creeper_armor.png");
+		private static final ResourceLocation SWIRL = ProjectHeroMod.id("textures/entity/doomsday/nova_swirl.png");
 
 		NovaAura(RenderLayerParent<DoomsdayEntity, Model> parent) {
 			super(parent);
