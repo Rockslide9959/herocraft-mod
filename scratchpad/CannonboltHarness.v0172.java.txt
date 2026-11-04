@@ -126,48 +126,82 @@ public final class CannonboltHarness {
 		if (t == 230) {
 			mc.options.hideGui = true;
 			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 15f));
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 10f));
 		}
 		if (t == 245) {
 			shot(mc, "stand_front");
+			mc.getEntityRenderDispatcher().setRenderHitBoxes(true);
 		}
-		if (t == 250) {
-			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		if (t == 255) {
+			shot(mc, "hitbox_stand");
+			System.out.println("[HARNESS] stand bb=" + mc.player.getBbHeight() + " eye=" + mc.player.getEyeHeight() + " tag="
+					+ mc.player.getAttachments().getNullable(net.minecraft.world.entity.EntityAttachment.NAME_TAG, 0, 0f));
 		}
-		if (t == 262) {
-			shot(mc, "stand_back");
+		if (t == 260) {
+			mc.getEntityRenderDispatcher().setRenderHitBoxes(false);
+			mc.setCameraEntity(mc.player);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 220f, 0f));
 		}
-		if (t == 270) {
-			server(mc, p -> kit().setBall(p, true));
+		if (t == 275) {
+			shot(mc, "chest_view");
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 10f);
+				kit().setBall(p, true);
+			});
 			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
 		}
-		if (t == 300) {
-			shot(mc, "ball_still_front");
+		if (t == 295) {
+			shot(mc, "ball_size");
+			mc.getEntityRenderDispatcher().setRenderHitBoxes(true);
 		}
-		if (t == 304) {
-			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-		}
-		if (t == 312) {
-			shot(mc, "ball_still_back");
-			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-		}
-		// a sideways roll seen from the front, then the stop: the face turns over and settles back to the front
-		if (t == 318) {
-			mc.options.keyLeft.setDown(true);
-		}
-		if (t >= 318 && t < 400 && (t - 318) % 2 == 0) {
-			shot(mc, String.format("roll_%03d", (t - 318) / 2));
-		}
-		if (t == 356) {
-			mc.options.keyLeft.setDown(false);
-		}
-		if (t == 402) {
-			server(mc, p -> kit().setBall(p, false));
+		if (t == 305) {
+			shot(mc, "hitbox_ball");
+			System.out.println("[HARNESS] ball bb=" + mc.player.getBbHeight() + "x" + mc.player.getBbWidth() + " eye=" + mc.player.getEyeHeight());
+			mc.getEntityRenderDispatcher().setRenderHitBoxes(false);
 		}
 		if (t == 420) {
 			System.out.println("[HARNESS] done");
 			Runtime.getRuntime().halt(0);
 		}
+	}
+
+	private static int camId = -1;
+
+	private static void cam(Minecraft mc, double dist, double h, String tag) {
+		server(mc, p -> {
+			var s = net.minecraft.world.entity.EntityType.ARMOR_STAND.create(p.serverLevel());
+			net.minecraft.world.phys.Vec3 f = net.minecraft.world.phys.Vec3.directionFromRotation(0, p.getYRot());
+			net.minecraft.world.phys.Vec3 eye = p.position().add(f.scale(dist)).add(0, h, 0);
+			net.minecraft.world.phys.Vec3 look = p.position().add(0, Math.min(h, 1.4), 0);
+			net.minecraft.world.phys.Vec3 d = look.subtract(eye);
+			float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z)), pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+			net.minecraft.world.phys.Vec3 at = eye.add(d.normalize().scale(4.0)); // third-person back pulls the camera 4 blocks behind its eyes
+			s.moveTo(at.x, at.y - s.getEyeHeight(), at.z, yaw, pitch);
+			s.setYHeadRot(yaw);
+			s.setInvisible(true);
+			s.setNoGravity(true);
+			s.setInvulnerable(true);
+			p.serverLevel().addFreshEntity(s);
+			camId = s.getId();
+		});
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		new Thread(() -> {
+			try {
+				Thread.sleep(400);
+			} catch (InterruptedException e) {
+				return;
+			}
+			mc.execute(() -> {
+				var e = mc.level.getEntity(camId);
+				if (e != null) {
+					mc.setCameraEntity(e);
+				}
+				System.out.println("[HARNESS] cam " + tag + " " + (e != null));
+			});
+		}).start();
 	}
 
 	private static void createWorld() {

@@ -59,7 +59,8 @@ the user: "The body, arms and legs should be used for the alien model and the he
 | Health | 40 | 40 |
 | Armour | 16 + 3 toughness | 16 + 3, and half damage on top |
 | Speed | 0.8 | x2.0, rising to x3.2 as Momentum builds |
-| Hitbox | 0.78 x 2.34 | 0.98 ball (fits one-block gaps) |
+| Hitbox | 0.78 x 2.0 (headless: ends at his shoulders) | a 1.75-block ball |
+| View | from his chest (eye 1.63) | low (eye 1.05) |
 | Hands | fists +9 | none (no punching, no items) |
 
 ## Keys
@@ -86,6 +87,19 @@ V switches between the two modes. Every other key changes with the mode (`liveMo
 - **Ram** (ball): rolling fast (0.3+ blocks/tick) into a creature hits it for 8 to 20, scaled by speed, and knocks it flying.
   Each creature can be hit once per 0.5 s.
 - **Wall Roll** (ball): pressed into a wall, he rolls straight up it.
+
+## Size, view and nametag
+
+- Ball (user: "make canonbolts ball form 1,75 blocks tall please"): the hitbox and the drawn ball are 1.75 x 1.75 blocks, so he no
+  longer fits one-block gaps rolled up.
+- View (user: "make the players view come out of their chest please since they dont have a head"): standing, the eye is at his
+  chest (1.25 before the 1.3 scale, 1.0 crouching).
+- Nametag (user: "make the nametag appear above the body instead of above the chest please"): the standing box ends at the top of
+  his headless body (1.55 before scale), and the NAME_TAG attachment sits 0.4 under it. Vanilla adds 0.5, so the tag hangs just
+  over his shoulders (about 2.0 blocks). You never see your own tag on your own client; other players do.
+- Badge (user: "remove the pixel omnitrix from the cannonbolt skin please and raise our badge by like 0.1 pixel please"): the
+  skin's painted symbol (outer layer 21..26 x 36..37, base 23..24 x 21) is painted out in gen_cannonbolt.js. The badge sits at
+  y 1.3 px (was 1.4).
 
 ## Weaknesses
 

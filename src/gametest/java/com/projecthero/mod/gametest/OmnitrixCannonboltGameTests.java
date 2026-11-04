@@ -158,8 +158,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		tap(p, AbilitySlot.SLOT_5, false);
 		helper.assertTrue(CannonboltKit.ball(p), "V curls him up");
 		p.refreshDimensions();
-		helper.assertTrue(p.getBbHeight() < 1.2f && p.getBbWidth() < 1.0f, "a one-block ball: " + p.getBbWidth() + " x " + p.getBbHeight());
-		helper.assertTrue(p.getBbWidth() != standingWidth || p.getBbHeight() < 2f, "the hitbox changed");
+		helper.assertTrue(Math.abs(p.getBbHeight() - 1.75f) < 0.02f && Math.abs(p.getBbWidth() - 1.75f) < 0.02f, "a 1.75-block ball (v0.17.2 user): " + p.getBbWidth() + " x " + p.getBbHeight());
+		helper.assertTrue(p.getEyeHeight() < 1.2f, "the ball's eyes sit low: " + p.getEyeHeight());
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id().equals(CannonboltKit.CHARGE), "ball R is the Cannonball Charge");
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_1, true, false).id().equals(CannonboltKit.RICOCHET), "ball Shift+R is the Pinball Ricochet");
 		helper.assertTrue(kit.liveMoveOn(p, AbilitySlot.SLOT_2, false, false).id().equals(CannonboltKit.BOUNCE), "ball G is the Big Bounce");
@@ -171,7 +171,8 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 			tap(p, AbilitySlot.SLOT_5, false);
 			helper.assertFalse(CannonboltKit.ball(p), "V again uncurls him");
 			p.refreshDimensions();
-			helper.assertTrue(p.getBbHeight() > 2f, "standing again: " + p.getBbHeight());
+			helper.assertTrue(Math.abs(p.getBbHeight() - 1.55f * 1.3f) < 0.05f, "standing again, a headless body: " + p.getBbHeight());
+			helper.assertTrue(Math.abs(p.getEyeHeight() - 1.25f * 1.3f) < 0.05f && p.getEyeHeight() < p.getBbHeight() - 0.3f, "the view comes out of his chest: " + p.getEyeHeight());
 			helper.assertFalse(kit.pawsOnly(p), "hands back");
 			helper.succeed();
 		});

@@ -73,7 +73,7 @@ public final class CannonboltClient implements AlienClientKit {
 	@Override
 	public float[] badge() {
 		// the small grey disc the skin paints at the top of his chest, between the shoulder plates
-		return new float[] { 0f, 1.4f, -2.1f, 2.6f };
+		return new float[] { 0f, 1.3f, -2.1f, 2.6f }; // v0.17.2 (user: "raise our badge by like 0.1 pixel please")
 	}
 
 	@Override
@@ -143,7 +143,7 @@ public final class CannonboltClient implements AlienClientKit {
 	public void renderBody(AbstractClientPlayer p, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		boolean ball = (Omnitrix.state(p).kitFlags & CannonboltKit.F_BALL) != 0;
 		// a curl mid-move (standing hitbox) is drawn the size of his body's width; Ball Mode fills the ball hitbox
-		float radius = ball ? p.getBbWidth() * 0.52f : Math.max(p.getBbWidth() * 0.85f, 0.62f);
+		float radius = ball ? p.getBbHeight() * 0.5f : Math.max(p.getBbWidth() * 0.85f, 0.62f); // v0.17.2: Ball Mode is 1.75 blocks tall
 		Roll r = ROLLS.computeIfAbsent(p, k -> new Roll());
 		double x = Mth.lerp(partial, p.xo, p.getX()), z = Mth.lerp(partial, p.zo, p.getZ());
 		float age = p.tickCount + partial;

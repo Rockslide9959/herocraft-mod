@@ -24,5 +24,19 @@ for (let y = 0; y < 16; y++) {
 		body[(y * 64 + x) * 4 + 3] = 0; // the head and the hat layer: gone from the standing model
 	}
 }
+// v0.17.2 (user: "remove the pixel omnitrix from the cannonbolt skin please"): the skin paints a small grey Omnitrix at the top of
+// his chest -- on the outer layer (21..26 x 36..37: the grey core and its dark ring) over a dark 2-pixel centre on the base layer
+// (23..24 x 21). The outer pixels go (the base shows through), the base centre takes the body colour beside it; the mod's own
+// badge sits there instead.
+for (let y = 36; y <= 37; y++) {
+	for (let x = 21; x <= 26; x++) {
+		body[(y * 64 + x) * 4 + 3] = 0;
+	}
+}
+for (const x of [23, 24]) {
+	for (let c = 0; c < 4; c++) {
+		body[(21 * 64 + x) * 4 + c] = body[(21 * 64 + 22) * 4 + c];
+	}
+}
 write('entity/omnitrix/cannonbolt.png', 64, 64, body);
 console.log('cannonbolt textures written');

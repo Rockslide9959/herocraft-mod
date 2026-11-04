@@ -104,8 +104,14 @@ public final class CannonboltKit extends AlienKit {
 			BOOST_TICKS = 100, SPIN_TICKS = 40, UNSTOPPABLE_TICKS = 160, MOMENTUM_TICKS = 60;
 	/** Horizontal blocks / tick before rolling into something hurts it. */
 	public static final double RAM_SPEED = 0.3;
-	/** The ball's hitbox before the body's scale (1.3): a little under a block wide, so he rolls through one-block gaps. */
-	public static final float BALL_SIZE = 0.75f;
+	/** v0.17.2 (user: "make canonbolts ball form 1,75 blocks tall please"): the ball's hitbox before the body's scale (1.3). */
+	public static final float BALL_SIZE = 1.75f / 1.3f;
+	/**
+	 * v0.17.2 (user: "make the players view come out of their chest please since they dont have a head" / "make the nametag appear
+	 * above the body instead of above the chest please"): standing, the box ends at his headless body's top (24 px), the eyes sit in
+	 * his chest and the nametag just over his shoulders -- before the body's scale (1.3).
+	 */
+	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = 0.4f;
 
 	private static final ResourceLocation ROLL_SPEED = PowerToggles.id("omnitrix_cannonbolt_roll");
 	private static final ResourceLocation ROLL_STEP = PowerToggles.id("omnitrix_cannonbolt_step");
@@ -271,7 +277,26 @@ public final class CannonboltKit extends AlienKit {
 	@Override
 	@Nullable
 	public EntityDimensions body(Player p, Pose pose) {
-		return flag(p, F_BALL) ? EntityDimensions.scalable(BALL_SIZE, BALL_SIZE).withEyeHeight(BALL_SIZE * 0.6f) : null;
+		if (flag(p, F_BALL)) {
+			return BALL_BODY;
+		}
+		return switch (pose) {
+			case STANDING -> STANDING_BODY;
+			case CROUCHING -> CROUCHING_BODY;
+			default -> null;
+		};
+	}
+
+	// built once: the body mixin refreshes the hitbox whenever the answer stops being equal to the last one
+	private static final EntityDimensions BALL_BODY = EntityDimensions.scalable(BALL_SIZE, BALL_SIZE).withEyeHeight(BALL_SIZE * 0.6f);
+	private static final EntityDimensions STANDING_BODY = headless(BODY_HEIGHT, CHEST_EYE);
+	private static final EntityDimensions CROUCHING_BODY = headless(CROUCH_HEIGHT, CROUCH_EYE);
+
+	/** A headless body {@code height} tall, the eyes in his chest, the nametag a little under the box's top (the renderer adds 0.5). */
+	private static EntityDimensions headless(float height, float eye) {
+		return EntityDimensions.scalable(0.6f, height).withEyeHeight(eye).withAttachments(net.minecraft.world.entity.EntityAttachments.builder()
+				.attach(net.minecraft.world.entity.EntityAttachment.NAME_TAG, 0f, height - TAG_DROP, 0f)
+				.attach(net.minecraft.world.entity.EntityAttachment.VEHICLE, Player.DEFAULT_VEHICLE_ATTACHMENT));
 	}
 
 	@Override
@@ -427,7 +452,7 @@ public final class CannonboltKit extends AlienKit {
 		ServerLevel l = level(p);
 		if (!on) {
 			float scale = p.getScale();
-			AABB stand = EntityDimensions.scalable(0.6f, 1.8f).scale(scale).makeBoundingBox(p.position());
+			AABB stand = EntityDimensions.scalable(0.6f, BODY_HEIGHT).scale(scale).makeBoundingBox(p.position());
 			if (!l.noCollision(p, stand.deflate(1.0e-3))) {
 				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.cannonbolt.no_room").withStyle(ChatFormatting.GRAY), true);
 				cooldown(p, UNCURL, 0);
