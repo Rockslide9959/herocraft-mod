@@ -348,7 +348,8 @@ public abstract class AlienKit {
 		AABB box = p.getBoundingBox().expandTowards(look.scale(max)).inflate(1.0);
 		EntityHitResult hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(p, eye, eye.add(look.scale(max)), box,
 				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p && !(e instanceof ArmorStand)
-						&& !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e), max * max); // v0.17.2: never your mount / rider
+						&& !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e)
+						&& !com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.pilotPair(p, e), max * max); // v0.17.2: never your mount / rider, nor the golem you pilot
 		return hit != null && hit.getEntity() instanceof LivingEntity le ? le : null;
 	}
 
@@ -357,7 +358,8 @@ public abstract class AlienKit {
 		List<LivingEntity> out = new ArrayList<>();
 		for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(radius))) {
 			if (e == p || !e.isAlive() || e.isSpectator() || e instanceof ArmorStand || e.distanceToSqr(at) > radius * radius * 1.4
-					|| com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e)) { // v0.17.2: never your mount / rider
+					|| com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e) // v0.17.2: never your mount / rider
+					|| com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.pilotPair(p, e)) { // v0.17.2 fix: nor the golem Upgrade pilots
 				continue;
 			}
 			if (com.projecthero.mod.squad.Squads.areAllies(p, e) && !com.projecthero.mod.squad.Squads.friendlyFireOn(p)) {

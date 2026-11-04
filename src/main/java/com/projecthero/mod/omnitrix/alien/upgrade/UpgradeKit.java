@@ -1495,8 +1495,15 @@ public final class UpgradeKit extends AlienKit {
 			return true;
 		}
 		Merge m = MERGES.get(p.getUUID());
-		if (m != null && m.kind() == MergeKind.GOLEM && level(p).getEntity(m.entityId()) instanceof Mob golem && target instanceof LivingEntity le) {
-			// piloting a golem: the golem swings, not you
+		if (m != null && m.kind() == MergeKind.GOLEM && level(p).getEntity(m.entityId()) instanceof Mob golem && target instanceof LivingEntity hit) {
+			// piloting a golem: the golem swings, not you. v0.17.2 fix (user: "whenever i left click to hit the iron golem takes
+			// damage"): he stands inside it, so a click could land on the golem itself -- it punches what is in front of him
+			// instead (lookTarget skips his own golem), or just swings at the air
+			LivingEntity le = hit == golem ? lookTarget(p, 4.5) : hit;
+			if (le == null || le == golem) {
+				level(p).broadcastEntityEvent(golem, (byte) 4);
+				return true;
+			}
 			if (golem instanceof SnowGolem snow) {
 				snow.performRangedAttack(le, 1f);
 			} else {

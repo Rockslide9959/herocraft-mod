@@ -17,6 +17,7 @@
 		"OmnitrixGlowMixin",
 		"RipjawsScentColorMixin",
 		"GreyMatterInsideRenderMixin",
+		"UpgradePilotPickMixin",
 		"GreyMatterInsideShrinkMixin",
 		"UpgradeTechSenseColorMixin",
 		"OmnitrixHideGearMixin",

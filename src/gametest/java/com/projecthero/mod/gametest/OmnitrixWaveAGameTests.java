@@ -917,6 +917,12 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		golem.push(p);
 		p.push(golem);
 		helper.assertTrue(p.getDeltaMovement().lengthSqr() < 1.0e-8, "the golem does not shove him: " + p.getDeltaMovement());
+		// v0.17.2 fix (user: "whenever i left click to hit the iron golem takes damage"): a click on his own golem never hurts it
+		float before = golem.getHealth();
+		golem.invulnerableTime = 0;
+		helper.assertTrue(kit.onAttack(p, golem), "the click is the golem's swing");
+		helper.assertTrue(golem.getHealth() == before, "his golem is not hurt by his own click: " + golem.getHealth());
+		helper.assertTrue(com.projecthero.mod.omnitrix.alien.AlienKit.lookTarget(p, 6) != golem, "aimed moves skip his golem");
 		pump(helper, p);
 		helper.runAfterDelay(3, () -> {
 			p.teleportTo(p.getX() + 1.5, p.getY(), p.getZ());

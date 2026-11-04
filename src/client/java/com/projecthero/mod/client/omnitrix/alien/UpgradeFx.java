@@ -632,9 +632,18 @@ public final class UpgradeFx {
 		MultiBufferSource buffers = context.consumers();
 		Matrix4f inv = new Matrix4f(pose.last().pose()).invert();
 		// the coats
-		for (Track tr : TRACKS.values()) {
+		for (Map.Entry<Integer, Track> en : TRACKS.entrySet()) {
+			Track tr = en.getValue();
 			if (tr.merge != null) {
 				float t = time - tr.merge.start;
+				// v0.17.2 (user: "cant you create a cool new iron golem model? right now its just a weird texture overlay"): once
+				// the coat has covered a piloted iron golem it becomes the upgraded war mech (UpgradeGolemBody), not a coated golem
+				if (tr.merge.entity() && level.getEntity(tr.merge.entityId) instanceof net.minecraft.world.entity.animal.IronGolem golem
+						&& hidesBody(golem, true)) {
+					Player pilot = level.getEntity(en.getKey()) instanceof Player pl ? pl : null;
+					UpgradeGolemBody.render(golem, pilot, pose, buffers, cam, partial, t - (COVER + 6f));
+					continue;
+				}
 				coat(level, tr.merge, pose, buffers, inv, cam, partial, time, front(t), Mth.clamp((t - COVER + 2f) / (LIGHT - COVER), 0f, 1f), 1f);
 				if (!tr.merge.entity() && t < POUR + 4f) {
 					pour(level, tr.merge, pose, buffers, cam, time, t);

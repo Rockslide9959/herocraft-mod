@@ -1,0 +1,198 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): Upgrade merged into an iron golem -- the coat and the drift. Enabled by run/upgolem.flag. */
+public final class UpgradeGolemHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+
+	private UpgradeGolemHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("upgolem.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UpgradeGolemHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "upgolem-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "upgolem_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UpgradeGolemHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.omnitrix.Omnitrix.grant(p);
+				com.projecthero.mod.omnitrix.Omnitrix.noGlitch(p);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.select(p, "upgrade"));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 180f, 10f);
+				com.projecthero.mod.omnitrix.Omnitrix.select(p, "upgrade");
+				com.projecthero.mod.omnitrix.Omnitrix.transform(p);
+			});
+		}
+		if (t == 170) {
+			server(mc, p -> {
+				var g = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(p.serverLevel());
+				g.moveTo(p.getX(), p.getY(), p.getZ() - 1.6, 0f, 0f);
+				g.setPlayerCreated(true);
+				p.serverLevel().addFreshEntity(g);
+				var kit = (com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit) com.projecthero.mod.omnitrix.alien.Aliens.kit("upgrade");
+				System.out.println("[HARNESS] merge=" + kit.mergeWith(p, g));
+			});
+		}
+		if (t == 200) {
+			shot(mc, "takeover");
+		}
+		if (t == 230) {
+			shot(mc, "front");
+		}
+		if (t == 240) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (t == 255) {
+			shot(mc, "back");
+		}
+		if (t >= 262 && t <= 300) {
+			mc.options.keyUp.setDown(t < 285);
+		}
+		if (t == 275) {
+			shot(mc, "walking");
+		}
+		if (t == 300) {
+			server(mc, p -> {
+				var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(p.serverLevel());
+				net.minecraft.world.phys.Vec3 f = p.getLookAngle().multiply(1, 0, 1).normalize().scale(2.6);
+				z.moveTo(p.getX() + f.x, p.getY(), p.getZ() + f.z, p.getYRot() + 180f, 0f);
+				z.setNoAi(true);
+				p.serverLevel().addFreshEntity(z);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), 15f);
+			});
+		}
+		if (t == 320) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			System.out.println("[HARNESS] crosshair=" + mc.crosshairPickEntity + " hit=" + mc.hitResult.getType());
+			for (var e : mc.level.entitiesForRendering()) {
+				if (e instanceof net.minecraft.world.entity.LivingEntity le && !(e instanceof net.minecraft.world.entity.player.Player)) {
+					System.out.println("[HARNESS] before " + e.getType().toShortString() + " hp=" + le.getHealth());
+				}
+			}
+			if (mc.crosshairPickEntity != null) {
+				mc.gameMode.attack(mc.player, mc.crosshairPickEntity);
+			} else {
+				System.out.println("[HARNESS] nothing under crosshair");
+			}
+		}
+		if (t == 323) {
+			shot(mc, "punch");
+		}
+		if (t == 340) {
+			server(mc, p -> {
+				for (var e : p.serverLevel().getEntities(p, p.getBoundingBox().inflate(6))) {
+					if (e instanceof net.minecraft.world.entity.LivingEntity le) {
+						System.out.println("[HARNESS] after " + e.getType().toShortString() + " hp=" + le.getHealth());
+					}
+				}
+			});
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+		}
+		if (t == 350) {
+			server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), 35f));
+		}
+		if (t == 360) {
+			shot(mc, "firstperson");
+		}
+		if (t == 400) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
