@@ -117,3 +117,21 @@ Roots are the shared `AlienStatus.root` (a boss is held a quarter as long).
   Swap in the user's art the same way when they send it.
 - Tests: `OmnitrixWildvineGameTests`. The discovery tests (11th, then 22nd, no repeats; the even pick) are in
   `OmnitrixCannonboltGameTests`.
+
+## Seed pods on his back
+
+User: "can you add little seed bomb models to wildvines back please"
+
+- The skin's flat dark pods on his back are painted out in `gen_wildvine.js`: base back face 33..34 / 37..38 rows 23..25,
+  34 / 37 rows 27..29 and 31, and the jacket layer's copies.
+- `WildvineFx.backPods` draws 3D pods there, on the body bone (`WildvineClient.renderExtras`):
+  - a big upper pair, a slimmer pair under it, and two small buds
+  - each pod is a round green-brown body with a darker cap, a short stem and leaf, and a glint of shine
+  - each hangs from its cap and sways a little, more as he walks
+- They are his seed bombs:
+  - A **Seed Bomb** plucks one of the four big pods. Which one is set by the throw's cooldown end, so every viewer sees the same
+    pod missing.
+  - **Seed Mines** plant three of them.
+  - A missing pod stays gone for the first half of its move's cooldown, then swells back.
+  - The thrown and planted pods now share the same look.
+- Screenshots: `docs/screenshots/v0172/wildvine/wildvine_pods_*.png`.

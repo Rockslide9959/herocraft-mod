@@ -92,6 +92,8 @@ public final class WildvineKit extends AlienKit {
 			OVERGROWTH_ROOT = 60, CAMO_TICKS = 120, SWING_MAX = 400, ZIP_MAX = 40;
 	/** The zip's pull (blocks a tick) and where it lets go (blocks from the hook) -- Spidermonkey's / Ladybug's zip line. */
 	public static final double ZIP_SPEED = 1.8, ZIP_ARRIVE = 1.8, SWING_SLACK_BREAK = 12.0;
+	/** v0.17.2: the pod moves' cooldowns -- a thrown / planted pod regrows on his back over them (WildvineFx.backPods). */
+	public static final int SEED_BOMB_COOLDOWN = 60, SEED_MINES_COOLDOWN = 300;
 	/** Weaknesses: fire and frost hurt a plant this much more. */
 	public static final float FIRE_WEAKNESS = 1.75f, FROST_WEAKNESS = 1.75f;
 
@@ -177,7 +179,7 @@ public final class WildvineKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(LASH, AbilitySlot.SLOT_1, 20), AlienMove.shift(GRAB, AbilitySlot.SLOT_1, 120),
-				AlienMove.tap(SEED_BOMB, AbilitySlot.SLOT_2, 60), AlienMove.shift(SEED_MINES, AbilitySlot.SLOT_2, 300),
+				AlienMove.tap(SEED_BOMB, AbilitySlot.SLOT_2, SEED_BOMB_COOLDOWN), AlienMove.shift(SEED_MINES, AbilitySlot.SLOT_2, SEED_MINES_COOLDOWN),
 				AlienMove.tap(SWING, AbilitySlot.SLOT_3, 30), AlienMove.shift(BURROW, AbilitySlot.SLOT_3, 300),
 				AlienMove.tap(CONSTRICT, AbilitySlot.SLOT_4, 200), AlienMove.shift(SNARE, AbilitySlot.SLOT_4, 260),
 				AlienMove.tap(REGROWTH, AbilitySlot.SLOT_5, 400), AlienMove.shift(CAMO, AbilitySlot.SLOT_5, 500),
