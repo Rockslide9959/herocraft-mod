@@ -62,12 +62,25 @@ public final class DiamondheadClient implements AlienClientKit {
 	private static final float[][] SPEAR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.95f, 0.3f, 0.3f, -1.35f, 0.25f, -0.2f, -0.2f, 0.65f, 0.25f, 0, 0, -0.35f, 0, 0, -0.2f),
 			QuirkKeyframes.f(5, -2.95f, 0.3f, 0.3f, -1.35f, 0.25f, -0.2f, -0.2f, 0.65f, 0.25f, 0, 0, -0.35f, 0, 0, -0.2f),
 			QuirkKeyframes.f(8, -1.05f, -0.25f, 0, 0.35f, 0, -0.1f, 0.45f, -0.5f, -0.35f, 0, 0, 0.45f, 0, 0, 0.25f), QuirkKeyframes.rest(16) };
-	// the Spike Line: both fists raised overhead, then driven down into the ground in a crouch (at 6, when the first spike bursts up)
-	private static final float[][] SHATTER = { QuirkKeyframes.restC(0), QuirkKeyframes.fc(3, -2.9f, 0, 0.2f, -2.9f, 0, -0.2f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.3f, 0),
-			QuirkKeyframes.fc(6, -0.5f, 0, 0.1f, -0.5f, 0, -0.1f, 0.7f, 0, -0.6f, 0, 0.2f, -0.6f, 0, -0.2f, 0.4f, 0.8f),
-			QuirkKeyframes.fc(14, -0.4f, 0, 0.1f, -0.4f, 0, -0.1f, 0.6f, 0, -0.5f, 0, 0.2f, -0.5f, 0, -0.2f, 0.3f, 0.7f), QuirkKeyframes.restC(20) };
-	private static final float[][] SLIDE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.2f, 0, 1.3f, -0.2f, 0, -1.3f, 0.2f, 0.9f, -0.4f, 0.3f, 0.2f, 0.3f, 0.3f, -0.2f, 0),
-			QuirkKeyframes.f(18, -0.2f, 0, 1.2f, -0.2f, 0, -1.2f, 0.2f, 0.9f, -0.4f, 0.3f, 0.2f, 0.3f, 0.3f, -0.2f, 0), QuirkKeyframes.rest(22) };
+	// the Spike Line: a lunge with the right hand wound back low, the fingers driven into the ground ahead at 6 as the first spike bursts up, then
+	// ripped forward and up along the line it is tearing open, the left arm thrown back to balance him, the head kept up on the way ahead
+	private static final float[][] SHATTER = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(3, -0.1f, 0.3f, 0.5f, -1.0f, 0, -0.3f, -0.05f, 0.5f, 0.35f, 0, 0.1f, -0.3f, 0, -0.1f, 0, 0.35f),
+			QuirkKeyframes.fc(6, -0.75f, 0, 0.05f, 0.35f, 0, -0.35f, 0.75f, -0.25f, 0.55f, 0, 0.12f, -0.85f, 0, -0.1f, -0.55f, 1f),
+			QuirkKeyframes.fc(10, -1.35f, -0.05f, 0.05f, 0.5f, 0, -0.4f, 0.5f, -0.35f, 0.5f, 0, 0.12f, -0.8f, 0, -0.1f, -0.35f, 0.8f),
+			QuirkKeyframes.fc(15, -1.3f, -0.05f, 0.05f, 0.45f, 0, -0.4f, 0.45f, -0.3f, 0.45f, 0, 0.12f, -0.7f, 0, -0.1f, -0.3f, 0.7f), QuirkKeyframes.restC(21) };
+	// the Crystal Slide: he drops and slaps a hand to the crystal as it starts under him, then rises into a side-on surfer's stance -- knees bent,
+	// left foot and left arm leading, right arm out behind (pose adds a sway), and straightens up out of it when he steps off
+	private static final float[] SLIDE_HOLD = QuirkKeyframes.fc(0, 0.45f, 0.15f, 0.75f, -1.3f, 0.45f, -0.25f, 0.22f, 0.7f, 0.45f, 0.35f, 0.15f, -0.55f, 0.35f, -0.1f, -0.2f, 0.6f);
+	private static final float[][] SLIDE_IN = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(3, -0.5f, 0, 0.3f, -0.2f, 0, -0.5f, 0.75f, 0.2f, 0.3f, 0, 0.12f, -0.4f, 0, -0.1f, -0.5f, 1f), slideHoldAt(9) };
+
+	private static float[] slideHoldAt(float t) {
+		float[] f = SLIDE_HOLD.clone();
+		f[0] = t;
+		return f;
+	}
+
 	// the Crystal Vault: riding the pillar up, one fist punched at the sky, the other arm down at his side, knees bent under him
 	private static final float[][] VAULT = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(3, -3.05f, 0, 0.12f, 0.12f, 0, -0.3f, -0.12f, 0, 0.35f, 0, 0.1f, -0.45f, 0, -0.1f, -0.45f),
@@ -124,12 +137,14 @@ public final class DiamondheadClient implements AlienClientKit {
 	private static final float[][] SLASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.9f, 0.9f, 0.4f, 0.2f, 0, 0, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.f(5, -1.2f, -1.0f, -0.2f, 0.3f, 0, 0, 0.2f, -0.5f, 0.2f, 0, 0, -0.2f, 0, 0, 0), QuirkKeyframes.rest(10) };
 	private static final float[][] PLACE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.1f, 0, 0, 0, 0, 0, 0.15f, 0, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.rest(8) };
-	// v0.17.2 (user: "Make Z an aoe spike ability"): the Crystal Eruption -- both fists hauled up overhead, then a dropping
-	// slam into the ground on one knee-deep crouch, held while the rings burst out
+	// v0.17.2 (user: "Make Z an aoe spike ability"): the Crystal Eruption -- arms crossed on the chest as he gathers, flung overhead, a dropping
+	// two-fisted slam on to one knee (rings start at 6), then both arms sweep out along the ground with the rings as they spread
 	private static final float[][] ERUPT = { QuirkKeyframes.restC(0),
-			QuirkKeyframes.fc(4, -3.0f, 0.15f, 0.35f, -3.0f, -0.15f, -0.35f, -0.25f, 0, 0.1f, 0, 0, 0.1f, 0, 0, -0.35f, 0.1f),
-			QuirkKeyframes.fc(7, -0.35f, 0, 0.15f, -0.35f, 0, -0.15f, 0.75f, 0, -0.7f, 0, 0.15f, 0.2f, 0, -0.1f, 0.45f, 1.0f),
-			QuirkKeyframes.fc(17, -0.3f, 0, 0.15f, -0.3f, 0, -0.15f, 0.7f, 0, -0.65f, 0, 0.15f, 0.2f, 0, -0.1f, 0.4f, 0.95f), QuirkKeyframes.restC(24) };
+			QuirkKeyframes.fc(3, -1.5f, -0.8f, 0, -1.5f, 0.8f, 0, 0.25f, 0, 0.1f, 0, 0.1f, 0.1f, 0, -0.1f, 0.2f, 0.45f),
+			QuirkKeyframes.fc(5, -3.0f, 0, 0.4f, -3.0f, 0, -0.4f, -0.25f, 0, -0.1f, 0, 0.12f, -0.1f, 0, -0.12f, -0.3f, 0f),
+			QuirkKeyframes.fc(7, -0.5f, 0, 0.2f, -0.5f, 0, -0.2f, 0.85f, 0, -0.75f, 0, 0.15f, 0.35f, 0, -0.1f, -0.6f, 1f),
+			QuirkKeyframes.fc(12, -0.35f, 0, 1.0f, -0.35f, 0, -1.0f, 0.6f, 0, -0.7f, 0, 0.15f, 0.3f, 0, -0.1f, -0.4f, 0.9f),
+			QuirkKeyframes.fc(18, -0.3f, 0, 1.15f, -0.3f, 0, -1.15f, 0.5f, 0, -0.6f, 0, 0.15f, 0.25f, 0, -0.1f, -0.3f, 0.8f), QuirkKeyframes.restC(25) };
 	// ---- v0.17.2 revamp
 	// Combat Mode on: the right forearm held across the chest as the blade grows out of it, the left arm up as the shield forms on it, then
 	// the blade flung out to his side and the shield dropped to guard
@@ -176,8 +191,9 @@ public final class DiamondheadClient implements AlienClientKit {
 	private static final FirstPersonClip FP_SHIELD_UP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -40, 5, 0, 0.08f, 0.16f, 0.12f));
 	private static final FirstPersonClip FP_SPEAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -80, 0, 15, 0.05f, 0.5f, 0.25f),
 			FirstPersonClip.f(5, -80, 0, 15, 0.05f, 0.5f, 0.25f), FirstPersonClip.f(8, -10, 25, 0, 0.15f, 0.05f, -0.4f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_SLAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -80, 5, 0, 0.05f, 0.5f, 0.2f),
-			FirstPersonClip.f(6, 35, 10, 0, 0.05f, -0.35f, -0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_LINE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 20, -25, 0, -0.2f, -0.2f, 0.15f),
+			FirstPersonClip.f(6, 55, 10, 0, 0.1f, -0.5f, -0.35f), FirstPersonClip.f(10, -20, 12, 0, 0.12f, -0.1f, -0.6f), FirstPersonClip.f(15, -18, 12, 0, 0.12f, -0.12f, -0.55f),
+			FirstPersonClip.f(21, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_HEAVE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 25, 10, 0, 0, -0.25f, 0),
 			FirstPersonClip.f(9, -45, 25, 0, 0.2f, 0.25f, -0.3f), FirstPersonClip.f(14, -43, 25, 0, 0.2f, 0.22f, -0.3f), FirstPersonClip.f(19, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_MAUL = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -60, 0, 8, 0.02f, 0.35f, 0.15f),
@@ -190,15 +206,19 @@ public final class DiamondheadClient implements AlienClientKit {
 			FirstPersonClip.f(21, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_RAISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -80, -10, 12, -0.05f, 0.5f, 0.12f),
 			FirstPersonClip.f(14, -78, -10, 12, -0.05f, 0.48f, 0.12f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_SURF = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 10, -45, 40, -0.35f, 0.05f, 0.1f),
-			FirstPersonClip.f(18, 10, -45, 40, -0.35f, 0.05f, 0.1f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
+	// the Crystal Slide: a hand slapped down as it starts, then both arms held low and wide for balance for the whole ride (the last frame is
+	// out of reach of any ride), and back in as he steps off
+	private static final FirstPersonClip FP_SURF = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, 0, 0, 0, -0.3f, 0),
+			FirstPersonClip.f(9, -12, -30, 28, -0.22f, 0.02f, 0.05f), FirstPersonClip.f(1000000, -12, -30, 28, -0.22f, 0.02f, 0.05f)).both();
+	private static final FirstPersonClip FP_SURF_END = FirstPersonClip.of(FirstPersonClip.f(0, -12, -30, 28, -0.22f, 0.02f, 0.05f), FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_SLASH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -40, -40, -20, -0.2f, 0.25f, 0),
 			FirstPersonClip.f(5, -10, 50, 20, 0.35f, 0.0f, -0.25f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_PLACE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -15, 15, 0, 0.1f, 0.0f, -0.2f),
 			FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
 	/** v0.17.2: the Crystal Eruption's slam -- both fists up out of view, then driven down hard past the bottom of the screen. */
-	private static final FirstPersonClip FP_ERUPT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -95, 5, 0, 0.05f, 0.6f, 0.25f),
-			FirstPersonClip.f(7, 50, 10, 0, 0.05f, -0.5f, -0.2f), FirstPersonClip.f(17, 45, 10, 0, 0.05f, -0.45f, -0.18f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_ERUPT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -40, 35, 0, 0.2f, 0.2f, 0),
+			FirstPersonClip.f(5, -100, 5, 0, 0.05f, 0.65f, 0.25f), FirstPersonClip.f(7, 55, 10, 0, 0.05f, -0.5f, -0.2f), FirstPersonClip.f(12, 45, -30, 25, -0.2f, -0.42f, -0.18f),
+			FirstPersonClip.f(18, 42, -34, 28, -0.24f, -0.4f, -0.16f), FirstPersonClip.f(25, 0, 0, 0, 0, 0, 0)).both();
 	// ---- v0.17.2 revamp
 	private static final FirstPersonClip FP_COMBAT_ON = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -50, 35, 0, 0.18f, 0.25f, 0),
 			FirstPersonClip.f(9, -20, -20, 0, -0.1f, 0.05f, 0), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
@@ -935,7 +955,6 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_COMBAT_ON -> COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> COMBAT_OFF;
 			case DiamondheadKit.ANIM_SHATTER -> SHATTER;
-			case DiamondheadKit.ANIM_SLIDE -> SLIDE;
 			case DiamondheadKit.ANIM_VAULT -> VAULT;
 			case DiamondheadKit.ANIM_WALL -> WALL;
 			case DiamondheadKit.ANIM_BARRAGE -> BARRAGE;
@@ -953,9 +972,8 @@ public final class DiamondheadClient implements AlienClientKit {
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		if (!played && (flags & DiamondheadKit.F_SLIDING) != 0) {
-			// v0.17.2: the surfer's crouch held for the whole ride
-			return QuirkKeyframes.play(m, SLIDE, 10f, 1f);
+		if (slidePose(m, animId, ticks, age, flags, played)) {
+			return true;
 		}
 		boolean combat = (flags & DiamondheadKit.F_COMBAT) != 0;
 		if (!played && combat) {
@@ -975,6 +993,26 @@ public final class DiamondheadClient implements AlienClientKit {
 			played = true;
 		}
 		return played || combat;
+	}
+
+	/** The Crystal Slide: in, the stance held for the whole ride with a slow sway, and out again. */
+	private static boolean slidePose(HumanoidModel<?> m, int animId, float ticks, float age, int flags, boolean played) {
+		if (animId == DiamondheadKit.ANIM_SLIDE_END && ticks < 7f) {
+			float t = ticks / 7f;
+			QuirkKeyframes.apply(m, SLIDE_HOLD, 1f - t * t * (3f - 2f * t));
+			return true;
+		}
+		if (played || (flags & DiamondheadKit.F_SLIDING) == 0) {
+			return false;
+		}
+		boolean in = animId == DiamondheadKit.ANIM_SLIDE && ticks < 9f;
+		float w = animId == DiamondheadKit.ANIM_SLIDE ? Mth.clamp(ticks / 2f, 0f, 1f) : 1f;
+		QuirkKeyframes.apply(m, in ? QuirkKeyframes.sample(SLIDE_IN, ticks) : SLIDE_HOLD, w);
+		float sway = Mth.sin(age * 0.22f);
+		m.body.yRot += sway * 0.08f * w;
+		m.rightArm.zRot += sway * 0.12f * w;
+		m.leftArm.zRot += sway * 0.1f * w;
+		return true;
 	}
 
 	/**
@@ -1018,10 +1056,11 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_SPEAR -> FP_SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> FP_COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> FP_COMBAT_OFF;
-			case DiamondheadKit.ANIM_SHATTER -> FP_SLAM;
+			case DiamondheadKit.ANIM_SHATTER -> FP_LINE;
 			case DiamondheadKit.ANIM_WALL -> FP_HEAVE;
 			case DiamondheadKit.ANIM_VAULT -> FP_RAISE;
 			case DiamondheadKit.ANIM_SLIDE -> FP_SURF;
+			case DiamondheadKit.ANIM_SLIDE_END -> FP_SURF_END;
 			case DiamondheadKit.ANIM_SLASH -> FP_SLASH;
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
 			case DiamondheadKit.ANIM_MAUL -> FP_MAUL;

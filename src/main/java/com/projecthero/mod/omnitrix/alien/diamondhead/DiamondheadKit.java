@@ -104,6 +104,8 @@ public final class DiamondheadKit extends AlienKit {
 	/** The Shatter Line (the old Spike Line's pose). */
 	public static final int ANIM_SHATTER = 4;
 	public static final int ANIM_SLIDE = 5;
+	/** He steps off the Crystal Slide: up out of the stance. */
+	public static final int ANIM_SLIDE_END = 27;
 	public static final int ANIM_VAULT = 6;
 	public static final int ANIM_WALL = 7;
 	public static final int ANIM_BARRAGE = 9;
@@ -1414,6 +1416,7 @@ public final class DiamondheadKit extends AlienKit {
 		if (flag(p, F_SLIDING)) {
 			setFlag(p, F_SLIDING, false);
 			setTimer(p, "slide_grace", p.level().getGameTime() + 60);
+			anim(p, ANIM_SLIDE_END);
 		}
 	}
 
