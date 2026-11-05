@@ -1,0 +1,22 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:logs",
+    "#minecraft:leaves",
+    "#minecraft:wart_blocks",
+    "minecraft:bamboo",
+    "minecraft:cactus",
+    "minecraft:brown_mushroom_block",
+    "minecraft:red_mushroom_block",
+    "minecraft:mushroom_stem",
+    "minecraft:melon",
+    "minecraft:pumpkin",
+    "minecraft:azalea",
+    "minecraft:flowering_azalea",
+    "minecraft:big_dripleaf",
+    "minecraft:mangrove_roots",
+    "minecraft:chorus_plant",
+    "minecraft:chorus_flower",
+    "minecraft:shroomlight"
+  ]
+}
