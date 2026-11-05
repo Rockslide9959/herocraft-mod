@@ -67,8 +67,8 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   Passive  Tetramand Might  punches cycle all four fists; every 4th is a double-fist hammer (knocked down and back);
  *                             small mobs cannot knock him back; his Charge smashes glass, leaves and light wood
- *   R        Four-Fist Combo  a 4-press combo (like Ghostfreak's claws): upper right 8, upper left 8, both lower fists 2 x 5,
- *                             then all four fists hammer down (16, knocked down and back, a shockwave)
+ *   R        Four-Fist Combo  a 4-press combo (like Ghostfreak's claws): upper right 12, upper left 12, both lower fists 12,
+ *                             then all four fists hammer down (18, knocked down and back, a shockwave); 3 s cooldown after it
  *   Shift+R  Hammer Smash     both pairs overhead: a crack runs 9 blocks ahead, launching what stands on it (14)
  *   G        Haymaker         lunge up to 8 blocks at what you look at and slam it with both upper fists (15, sent flying)
  *   Shift+G  Boulder Rip      tear up the ground in front of you and hurl it (15)
@@ -111,6 +111,14 @@ public final class FourArmsKit extends AlienKit {
 	public static final int ANIM_HUG_SLAM = 21;
 	/** The long leap's crouch (held X). */
 	public static final int ANIM_CROUCH = 22;
+	/** The combo's third blow: both lower fists driven in together. */
+	public static final int ANIM_COMBO_LOW = 23;
+	/** The combo's last blow: all four fists up and down. */
+	public static final int ANIM_COMBO_FINISH = 24;
+	/** The Haymaker's lunge: both upper fists cocked back. */
+	public static final int ANIM_HAYMAKER = 25;
+	/** ...and the blow. */
+	public static final int ANIM_HAYMAKER_HIT = 26;
 
 	public static final int F_HOLDING = 1;
 	public static final int F_GUARD = 2;
@@ -163,9 +171,11 @@ public final class FourArmsKit extends AlienKit {
 	 * noirs R ability"): each press is the next blow if it comes within {@link #COMBO_WINDOW} of the last -- jab, cross, the lower
 	 * pair together, then the four-fist hammer -- with {@link #COMBO_GAP} between presses and {@link #COMBO_COOLDOWN} after it.
 	 */
-	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): 8 / 5 / 16 -> 12 / 9 / 28 -- his fists hit hardest of all the aliens
-	public static final float COMBO_JAB_DAMAGE = 12f, COMBO_BODY_DAMAGE = 9f, COMBO_HAMMER_DAMAGE = 28f;
-	public static final int COMBO_GAP = 6, COMBO_WINDOW = 30, COMBO_COOLDOWN = 40;
+	// v0.17.2 (user: "four fist combo, a four fist combo that deals 12 damage per attack, the final attack deals 18 damage, 3 second cooldown")
+	public static final float COMBO_BLOW_DAMAGE = 12f, COMBO_FINISH_DAMAGE = 18f;
+	public static final int COMBO_GAP = 6, COMBO_WINDOW = 30, COMBO_COOLDOWN = 60;
+	/** The last blow: the fists go up first, it lands this many ticks after the press. */
+	public static final int COMBO_FINISH_WINDUP = 5;
 	// v0.17.2 (user: "make fourarms and diamondhead a bit stronger"): every number about a fifth up
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): the damage pass below (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
 	public static final float HAMMER_DAMAGE = 28f;
@@ -174,6 +184,8 @@ public final class FourArmsKit extends AlienKit {
 	public static final int HAMMER_LENGTH = 9;
 	public static final float THROW_DAMAGE = 24f;
 	public static final float BOULDER_DAMAGE = 24f;
+	/** The boulder is hauled up overhead first, and leaves his hands this many ticks after the press. */
+	public static final int BOULDER_WINDUP = 8;
 	public static final float SWING_HIT_DAMAGE = 10f, SWING_FLING_DAMAGE = 27f;
 	public static final int SWING_TICKS = 30;
 	public static final float LEAP_LAND_DAMAGE = 16f;
@@ -334,8 +346,8 @@ public final class FourArmsKit extends AlienKit {
 		for (int f : new int[] { F_LEAP_CHARGE, F_GUARD, F_RAMPAGE, F_HUGGING, F_SWINGING, F_CHARGING, F_LEAPING, F_DIVING }) {
 			setFlag(p, f, false);
 		}
-		for (String t : new String[] { "leap_charge", "far_vx", "far_vz", "far_on", "far_hard", "combo_step", "combo_until", "guard_end", "rampage_end",
-				"charge_end", "meteor_rise", "swing_start", "kb_until", "punch_n" }) {
+		for (String t : new String[] { "leap_charge", "far_vx", "far_vz", "far_on", "far_hard", "combo_step", "combo_until", "combo_finish", "guard_end", "rampage_end",
+				"charge_end", "meteor_rise", "swing_start", "kb_until", "punch_n", "boulder_at", "boulder_block", "boulder_real" }) {
 			setTimer(p, t, 0);
 		}
 		drop(p, false);
@@ -364,6 +376,8 @@ public final class FourArmsKit extends AlienKit {
 		ServerLevel l = level(p);
 		tickClimb(p, l, now);
 		tickHaymaker(p, l, now);
+		tickComboFinish(p, l, now);
+		tickBoulder(p, l, now);
 		tickHeld(p, l, s, now);
 		tickSmash(p, l, now);
 		tickLanding(p, l, now);
@@ -453,66 +467,72 @@ public final class FourArmsKit extends AlienKit {
 	}
 
 	/**
-	 * R: one blow of the Four-Fist Combo -- the upper right jab, the upper left cross, the lower pair driven in together, then all
-	 * four fists hammered down. Returns how many it hit (-1 if refused).
+	 * R: one blow of the Four-Fist Combo -- v0.17.2 (user: "a four fist combo that deals 12 damage per attack, the final attack deals 18
+	 * damage, 3 second cooldown"): the upper right jab, the upper left cross and the lower pair driven in together, 12 each, then all
+	 * four fists hammered down for 18 ({@link #COMBO_FINISH_WINDUP} ticks after the press, as they land), {@link #COMBO_COOLDOWN} after
+	 * it. Returns how many it hit, the last blow how many it is about to (-1 if refused).
 	 */
 	public int flurry(ServerPlayer p) {
-		if (!use(p, FLURRY)) {
+		if (timer(p, "combo_finish") > 0 || !use(p, FLURRY)) {
 			return -1;
 		}
 		int step = comboStep(p);
 		long now = p.level().getGameTime();
-		boolean hammer = step == 3;
-		if (hammer) {
+		ServerLevel l = level(p);
+		LivingEntity t = lookTarget(p, REACH);
+		if (step == 3) {
 			setTimer(p, "combo_until", 0);
 			setTimer(p, "combo_step", 0);
+			setTimer(p, "combo_finish", now + COMBO_FINISH_WINDUP);
 			cooldown(p, FLURRY, COMBO_COOLDOWN);
-		} else {
-			setTimer(p, "combo_step", step + 1);
-			setTimer(p, "combo_until", now + COMBO_WINDOW);
+			anim(p, ANIM_COMBO_FINISH);
+			OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_ROAR, 0.5f, 1.3f);
+			return t == null ? 0 : 1;
 		}
+		setTimer(p, "combo_step", step + 1);
+		setTimer(p, "combo_until", now + COMBO_WINDOW);
 		anim(p, switch (step) {
 			case 0 -> ANIM_PUNCH_R;
 			case 1 -> ANIM_PUNCH_L;
-			case 2 -> ANIM_PUNCH_LOW_R;
-			default -> ANIM_HAMMER_PUNCH;
+			default -> ANIM_COMBO_LOW;
 		});
-		ServerLevel l = level(p);
-		LivingEntity t = lookTarget(p, REACH);
 		Vec3 fist = p.getEyePosition().add(p.getLookAngle().scale(1.8)).add(0, step == 2 ? -0.7 : -0.3, 0);
-		if (hammer) {
-			OmnitrixSounds.play(l, p.position(), SND_UPPERCUT, 1.2f, 0.8f);
-			Vec3 at = t != null ? t.position() : p.position().add(Vec3.directionFromRotation(0, p.getYRot()).scale(2.2));
-			QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFC0A0).style(QuirkFx.RING_SHOCK).size(3.5f).thickness(0.45f).life(10).ground().spawn();
-			QuirkFx.decal(l, at.add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xFFE0D0, COLOUR).size(2.4f).life(40).spawn();
-			QuirkCamera.shakeAround(l, at, 8, 0.3f, 6);
-		} else {
-			OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_PUNCH, 0.9f, 0.95f + step * 0.1f);
-			QuirkFx.ring(l, t != null ? t.position().add(0, t.getBbHeight() * (step == 2 ? 0.35 : 0.6), 0) : fist).flags(QuirkFx.F_VERTICAL)
-					.vec(p.getLookAngle()).colours(0xFFFFFF, 0xFFC0A0).size(1.2f).thickness(0.3f).life(6).spawn();
-		}
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_PUNCH, 0.9f, 0.95f + step * 0.1f);
+		QuirkFx.ring(l, t != null ? t.position().add(0, t.getBbHeight() * (step == 2 ? 0.35 : 0.6), 0) : fist).flags(QuirkFx.F_VERTICAL)
+				.vec(p.getLookAngle()).colours(0xFFFFFF, 0xFFC0A0).size(1.2f).thickness(0.3f).life(6).spawn();
 		if (t == null) {
 			return 0;
 		}
 		t.invulnerableTime = 0;
-		if (step == 2) {
-			// both lower fists into the body, one after the other
-			hurt(p, t, COMBO_BODY_DAMAGE, false);
-			t.invulnerableTime = 0;
-			hurt(p, t, COMBO_BODY_DAMAGE, false);
-			shove(t, p.position(), 0.3, 0.05);
-		} else if (hammer) {
-			hurt(p, t, COMBO_HAMMER_DAMAGE, false);
-			shove(t, p.position(), 1.2, 0.45);
-			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 2), p);
-			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
-		} else {
-			hurt(p, t, COMBO_JAB_DAMAGE, false);
-			shove(t, p.position(), 0.2, 0.03);
-			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
-		}
-		l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), hammer ? 10 : 5, 0.2, 0.2, 0.2, 0.2);
+		hurt(p, t, COMBO_BLOW_DAMAGE, false);
+		shove(t, p.position(), step == 2 ? 0.3 : 0.2, step == 2 ? 0.05 : 0.03);
+		QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+		l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 5, 0.2, 0.2, 0.2, 0.2);
 		return 1;
+	}
+
+	/** The combo's last blow lands: all four fists, knocked down and back, a shockwave on the ground. */
+	private void tickComboFinish(ServerPlayer p, ServerLevel l, long now) {
+		long at = timer(p, "combo_finish");
+		if (at <= 0 || now < at) {
+			return;
+		}
+		setTimer(p, "combo_finish", 0);
+		LivingEntity t = lookTarget(p, REACH);
+		OmnitrixSounds.play(l, p.position(), SND_UPPERCUT, 1.2f, 0.8f);
+		Vec3 ground = t != null ? t.position() : p.position().add(Vec3.directionFromRotation(0, p.getYRot()).scale(2.2));
+		QuirkFx.ring(l, ground.add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFC0A0).style(QuirkFx.RING_SHOCK).size(3.5f).thickness(0.45f).life(10).ground().spawn();
+		QuirkFx.decal(l, ground.add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xFFE0D0, COLOUR).size(2.4f).life(40).spawn();
+		QuirkCamera.shakeAround(l, ground, 8, 0.3f, 6);
+		if (t == null) {
+			return;
+		}
+		t.invulnerableTime = 0;
+		hurt(p, t, COMBO_FINISH_DAMAGE, false);
+		shove(t, p.position(), 1.2, 0.45);
+		t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 2), p);
+		QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+		l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 10, 0.2, 0.2, 0.2, 0.2);
 	}
 
 	// ---------------------------------------------------------------- Shift+R: Hammer Smash
@@ -756,18 +776,46 @@ public final class FourArmsKit extends AlienKit {
 		if (real) {
 			l.removeBlock(front, false);
 		}
-		Vec3 hand = p.getEyePosition().add(p.getLookAngle().scale(1.6)).add(0, 0.2, 0);
-		ThrownBlockEntity b = ThrownBlockEntity.create(l, p, rock, hand.add(0, -0.5, 0), BOULDER_DAMAGE);
-		b.dropsItems = real;
-		b.setDeltaMovement(p.getLookAngle().scale(1.7).add(0, 0.2, 0));
-		l.addFreshEntity(b);
+		// v0.17.2 (user: "edit and update animations on all moves"): he hauls it up overhead (it is drawn in his hands, FourArmsClient) and only
+		// then hurls it -- it used to leave at the press, before the arms had moved
+		long now = l.getGameTime();
+		setTimer(p, "boulder_at", now + BOULDER_WINDUP);
+		setTimer(p, "boulder_block", net.minecraft.world.level.block.Block.getId(rock) + 1L);
+		setTimer(p, "boulder_real", real ? 1 : 0);
 		Vec3 at = Vec3.atCenterOf(front);
 		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, st), at.x, at.y + 0.5, at.z, 30, 0.5, 0.3, 0.5, 0.15);
 		QuirkFx.shards(l, at.add(0, 0.6, 0)).block(st).size(1.4f).count(12).spawn();
 		OmnitrixSounds.play(l, at, SND_RIP, 1.1f, 1.0f);
-		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_THROW, 1.0f, 0.9f);
 		QuirkCamera.shake(p, 0.3f, 6);
 		return true;
+	}
+
+	/** The boulder in his hands right now (client-safe), or null. */
+	public BlockState boulderHeld(Player p) {
+		long id = timer(p, "boulder_block");
+		return id > 0 && timer(p, "boulder_at") > 0 ? net.minecraft.world.level.block.Block.stateById((int) (id - 1)) : null;
+	}
+
+	/** The boulder leaves his hands. */
+	private void tickBoulder(ServerPlayer p, ServerLevel l, long now) {
+		long at = timer(p, "boulder_at");
+		if (at <= 0 || now < at) {
+			return;
+		}
+		BlockState rock = boulderHeld(p);
+		boolean real = timer(p, "boulder_real") != 0;
+		for (String t : new String[] { "boulder_at", "boulder_block", "boulder_real" }) {
+			setTimer(p, t, 0);
+		}
+		if (rock == null) {
+			return;
+		}
+		Vec3 hand = p.position().add(0, p.getBbHeight() + 0.4, 0).add(p.getLookAngle().scale(0.8));
+		ThrownBlockEntity b = ThrownBlockEntity.create(l, p, rock, hand, BOULDER_DAMAGE);
+		b.dropsItems = real;
+		b.setDeltaMovement(p.getLookAngle().scale(1.7).add(0, 0.2, 0));
+		l.addFreshEntity(b);
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_THROW, 1.0f, 0.9f);
 	}
 
 	/** Shift+G while holding someone: the Giant Swing -- round and round, battering everything near, then flung. */
@@ -1266,7 +1314,7 @@ public final class FourArmsKit extends AlienKit {
 		p.hurtMarked = true;
 		setTimer(p, "hay_until", l.getGameTime() + HAYMAKER_TICKS);
 		setTimer(p, "hay_target", t == null ? 0 : t.getId() + 1L);
-		anim(p, ANIM_CHARGE);
+		anim(p, ANIM_HAYMAKER);
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_THROW, 1.0f, 0.7f);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFC0A0).size(1.8f).thickness(0.35f).life(8).ground().spawn();
 		return true;
@@ -1288,7 +1336,7 @@ public final class FourArmsKit extends AlienKit {
 		}
 		setTimer(p, "hay_until", 0);
 		setTimer(p, "hay_target", 0);
-		anim(p, ANIM_HAMMER_PUNCH);
+		anim(p, ANIM_HAYMAKER_HIT);
 		Vec3 fwd = Vec3.directionFromRotation(0, p.getYRot());
 		Vec3 at = p.position().add(fwd.scale(1.6)).add(0, 1.0, 0);
 		int n = 0;

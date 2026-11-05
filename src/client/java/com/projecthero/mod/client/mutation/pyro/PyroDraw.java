@@ -125,6 +125,14 @@ public final class PyroDraw {
 		}
 	}
 
+	/** v0.17.2: one coloured quad (corners in order, each its own colour; additive WHITE texture) for geometry built outside this class. */
+	public static void quad(VertexConsumer vc, PoseStack.Pose last, Vec3 a, Vec3 b, Vec3 c, Vec3 d, int ca, int cb, int cc, int cd) {
+		v(vc, last, (float) a.x, (float) a.y, (float) a.z, ca, 0, 0, FULL, 0, 1, 0);
+		v(vc, last, (float) b.x, (float) b.y, (float) b.z, cb, 0, 1, FULL, 0, 1, 0);
+		v(vc, last, (float) c.x, (float) c.y, (float) c.z, cc, 1, 1, FULL, 0, 1, 0);
+		v(vc, last, (float) d.x, (float) d.y, (float) d.z, cd, 1, 0, FULL, 0, 1, 0);
+	}
+
 	/** Scales an RGB colour by {@code k} (additive fades). */
 	public static int dim(int rgb, float k) {
 		k = Mth.clamp(k, 0.0f, 1.0f);
