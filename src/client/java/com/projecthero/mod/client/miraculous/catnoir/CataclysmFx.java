@@ -81,7 +81,7 @@ public final class CataclysmFx {
 
 	private static final int FB = LightTexture.FULL_BRIGHT;
 	/** How long a touched creature stays dark (ticks), and when it starts to fade. */
-	static final int DARK_TICKS = 70, DARK_FADE = 45;
+	static final int DARK_TICKS = 225, DARK_FADE = 200; // v0.17.2: dark through the 10 s burn
 	private static final int BURST_TICKS = 16;
 	private static final int MAX_DEBRIS = 2400;
 	private static final float GRAVITY = 0.045f;

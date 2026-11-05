@@ -40,8 +40,9 @@ pets, and players only when PvP is on.
       `mayInteract` (spawn protection and claims) and loaded chunks only.
     - It never breaks fluids, unbreakables (hardness -1 or `#wither_immune`), or block entities, so a chest is never
       voided with its contents.
-  - **On a creature:** its worn armour shatters first (mobs only; a player's armour is spared). Then it takes 100 damage
-    and Wither V for 7 s (v0.16.7).
+  - **On a creature:** its worn armour shatters first (mobs only; a player's armour is spared). Then it takes 2000 damage,
+    then 100 damage a second for 10 s (v0.17.2). A boss keeps its armour and takes at most 15% of its max health from the
+    touch and 3% from each second of the burn, so 45% at most.
 - **Once per transformation.** After a touch Cataclysm is spent for the rest of the transformation (state flag
   `cn_cataclysm_spent`; v0.16.6, user: the baton no longer rots black). If the charge runs out untouched it fizzles, and it can be called again after 20 s. The countdown keeps
   running either way.

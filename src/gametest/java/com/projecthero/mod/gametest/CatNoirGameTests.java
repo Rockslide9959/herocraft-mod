@@ -338,25 +338,59 @@ public class CatNoirGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void cataclysmOnAMobIsFortyWitherAndShatteredArmour(GameTestHelper helper) {
+	public void cataclysmOnAMobKillsAndShattersItsArmour(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 200); // v0.16.7: 100 damage now, so a 200-health target
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 200); // v0.17.2: 2000 damage: anything under boss health dies
 		z.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
 		z.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
 		pump(helper, p);
 		CatNoirCataclysm.call(p);
 		InteractionResult r = AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the blow is the touch");
-		// the armour shatters first, so the full 100 lands
-		float taken = 200f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - CatNoirConfig.CATACLYSM_DAMAGE) < EPS && CatNoirConfig.CATACLYSM_DAMAGE == 100f,
-				"100 through the shattered armour, took " + taken);
-		MobEffectInstance wither = z.getEffect(MobEffects.WITHER);
-		helper.assertTrue(wither != null && wither.getAmplifier() == 4 && wither.getDuration() <= 140, "Wither V for 7 s");
+		helper.assertTrue(CatNoirConfig.CATACLYSM_DAMAGE == 2000f, "2000 on the touch");
+		helper.assertTrue(z.isDeadOrDying(), "dead on the touch");
 		helper.assertTrue(z.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && z.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "its armour shattered");
 		helper.assertTrue(CatNoir.spent(p) && !CatNoir.rotted(p) && !CatNoir.charged(p), "spent, the baton not rotted");
 		helper.succeed();
+	}
+
+	/** v0.17.2: a boss big enough for the full burn: the capped touch, then 100 a second for 10 s, no vanilla Wither on top. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 280)
+	public void cataclysmBurnsAHugeBossAHundredASecondForTenSeconds(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 10000);
+		pump(helper, p);
+		CatNoirCataclysm.call(p);
+		AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
+		helper.assertTrue(z.getEffect(MobEffects.WITHER) == null, "no vanilla Wither");
+		helper.assertTrue(Math.abs(10000f - z.getHealth() - 1500f) < EPS, "the touch caps at 15% of a boss, took " + (10000f - z.getHealth()));
+		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 5 + 5, () -> {
+			float taken = 10000f - z.getHealth();
+			helper.assertTrue(Math.abs(taken - 2000f) < EPS, "five seconds of burn, took " + taken);
+		});
+		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 13, () -> {
+			float taken = 10000f - z.getHealth();
+			helper.assertTrue(Math.abs(taken - 2500f) < EPS, "ten hits of 100 and no more, took " + taken);
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2: a smaller boss takes at most 15% + 10 x 3%. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 280)
+	public void cataclysmNeverTakesMoreThanFortyFivePercentOfABoss(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 1000);
+		pump(helper, p);
+		CatNoirCataclysm.call(p);
+		AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
+		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 13, () -> {
+			float taken = 1000f - z.getHealth();
+			helper.assertTrue(Math.abs(taken - 450f) < EPS, "45% of a 1000-health boss, took " + taken);
+			helper.succeed();
+		});
 	}
 
 	// ---------------------------------------------------------------- V / Shift+V

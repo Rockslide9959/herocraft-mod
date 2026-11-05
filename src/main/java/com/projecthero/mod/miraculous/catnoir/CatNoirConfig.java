@@ -13,8 +13,10 @@ public final class CatNoirConfig {
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
 	/** A boss takes at most this fraction of its max health from one baton hit, and is never knocked about. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
-	/** ... and at most this much from Cataclysm. */
+	/** ... and at most this much from Cataclysm's touch. */
 	public static final float BOSS_MAX_FRACTION_CATACLYSM = 0.15f;
+	/** ... and this much from each second of its burn (ten of them: a boss loses at most 45% to one Cataclysm). */
+	public static final float BOSS_MAX_FRACTION_CATACLYSM_BURN = 0.03f;
 
 	// ---------------------------------------------------------------- R: Baton Strike (3-hit combo)
 	public static final float STRIKE_DAMAGE = 9f;
@@ -109,11 +111,12 @@ public final class CatNoirConfig {
 	// ---------------------------------------------------------------- Shift+Z: CATACLYSM
 	/** The hand crackles this long waiting for a touch. */
 	public static final int CATACLYSM_CHARGE_TICKS = 200;
-	/** v0.16.7 (user): 100 (was 40). */
-	public static final float CATACLYSM_DAMAGE = 100f;
-	/** v0.16.7 (user): Wither V for 7 s (was Wither III for 8 s). */
-	public static final int CATACLYSM_WITHER_TICKS = 140;
-	public static final int CATACLYSM_WITHER_AMPLIFIER = 4;
+	/** v0.17.2 (user): 2000 (was 100). */
+	public static final float CATACLYSM_DAMAGE = 2000f;
+	/** v0.17.2 (user): after the touch, 100 damage a second for 10 s (replaces Wither V for 7 s). */
+	public static final float CATACLYSM_BURN_DAMAGE = 100f;
+	public static final int CATACLYSM_BURN_HITS = 10;
+	public static final int CATACLYSM_BURN_INTERVAL_TICKS = 20;
 	/** A touched block and everything joined to it within this radius crumbles. */
 	/** v0.16.7 (user): 8 blocks (was 4). */
 	public static final double CATACLYSM_RADIUS = 8.0;

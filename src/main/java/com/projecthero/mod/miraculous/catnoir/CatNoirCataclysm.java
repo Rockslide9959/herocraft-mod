@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
@@ -25,8 +26,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -54,9 +53,11 @@ import org.joml.Vector3f;
  *       gamerule, spawn protection / claims ({@code mayInteract}), loaded chunks only; never fluids, bedrock and the
  *       other unbreakables (hardness -1 or {@code #wither_immune}), and never a block entity (chests, furnaces, spawners
  *       -- nothing is ever voided with its contents).</li>
- *   <li><b>A creature</b> ({@link #touchEntity}: attacked): {@link CatNoirConfig#CATACLYSM_DAMAGE} and Wither III; every
+ *   <li><b>A creature</b> ({@link #touchEntity}: attacked): {@link CatNoirConfig#CATACLYSM_DAMAGE}, then
+ *       {@link CatNoirConfig#CATACLYSM_BURN_DAMAGE} a second for {@link CatNoirConfig#CATACLYSM_BURN_HITS} s ({@link Burn}); every
  *       piece of armour a mob wears shatters (a player's is spared). A boss takes at most {@link CatNoirConfig#BOSS_MAX_FRACTION_CATACLYSM} of its
- *       max health and keeps its armour.</li>
+ *       max health from the touch and {@link CatNoirConfig#BOSS_MAX_FRACTION_CATACLYSM_BURN} from each second of the burn, and
+ *       keeps its armour.</li>
  * </ul>
  * The touch hooks are in {@link CatNoirMod} (attack block / use block / attack entity).
  */
@@ -77,13 +78,31 @@ public final class CatNoirCataclysm {
 		}
 	}
 
+	/** A creature burning after the touch. The owner is a UUID: a respawn replaces his ServerPlayer. */
+	private static final class Burn {
+		final ServerLevel level;
+		final UUID owner;
+		final LivingEntity target;
+		long next;
+		int hits;
+
+		Burn(ServerLevel level, UUID owner, LivingEntity target, long next) {
+			this.level = level;
+			this.owner = owner;
+			this.target = target;
+			this.next = next;
+		}
+	}
+
 	private static final List<Crumble> CRUMBLES = new CopyOnWriteArrayList<>();
+	private static final List<Burn> BURNS = new CopyOnWriteArrayList<>();
 
 	private CatNoirCataclysm() {
 	}
 
 	static void clearSessionState() {
 		CRUMBLES.clear();
+		BURNS.clear();
 	}
 
 	/** Shift+Z: call CATACLYSM. */
@@ -217,6 +236,7 @@ public final class CatNoirCataclysm {
 
 	/** The crumbles in this level, a step a tick (END_WORLD_TICK). */
 	static void worldTick(ServerLevel level) {
+		burnTick(level);
 		if (CRUMBLES.isEmpty()) {
 			return;
 		}
@@ -262,6 +282,41 @@ public final class CatNoirCataclysm {
 		}
 	}
 
+	/** One burn per target: a second touch starts it over. */
+	private static void startBurn(ServerPlayer p, LivingEntity target) {
+		BURNS.removeIf(b -> b.target == target);
+		BURNS.add(new Burn((ServerLevel) p.level(), p.getUUID(), target, p.level().getGameTime() + CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS));
+	}
+
+	private static void burnTick(ServerLevel level) {
+		if (BURNS.isEmpty()) {
+			return;
+		}
+		long now = level.getGameTime();
+		for (Burn b : BURNS) {
+			if (b.level != level) {
+				continue;
+			}
+			ServerPlayer owner = level.getServer().getPlayerList().getPlayer(b.owner);
+			if (owner == null || !b.target.isAlive() || b.target.isRemoved()) {
+				BURNS.remove(b);
+				continue;
+			}
+			if (now < b.next) {
+				continue;
+			}
+			CatNoirCombat.strike(owner, b.target, b.target.position(), CatNoirConfig.CATACLYSM_BURN_DAMAGE, 0.0, 0.0,
+					CatNoirConfig.BOSS_MAX_FRACTION_CATACLYSM_BURN);
+			Vec3 c = b.target.position().add(0, b.target.getBbHeight() * 0.5, 0);
+			level.sendParticles(new DustParticleOptions(new Vector3f(0.05f, 0.04f, 0.06f), 0.7f), c.x, c.y, c.z, 8, b.target.getBbWidth() * 0.5,
+					b.target.getBbHeight() * 0.4, b.target.getBbWidth() * 0.5, 0.0);
+			b.next += CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS;
+			if (++b.hits >= CatNoirConfig.CATACLYSM_BURN_HITS) {
+				BURNS.remove(b);
+			}
+		}
+	}
+
 	/** Test hook: crumbles still running anywhere. */
 	public static int running() {
 		return CRUMBLES.size();
@@ -284,12 +339,7 @@ public final class CatNoirCataclysm {
 		}
 		CatNoirCombat.strike(p, target, p.position(), CatNoirConfig.CATACLYSM_DAMAGE, 0.0, 0.0, CatNoirConfig.BOSS_MAX_FRACTION_CATACLYSM);
 		if (target.isAlive()) {
-			if (target instanceof Player) {
-				AbilityHelpers.applyControl(target, MobEffects.WITHER, CatNoirConfig.CATACLYSM_WITHER_TICKS, CatNoirConfig.CATACLYSM_WITHER_AMPLIFIER);
-			} else {
-				target.addEffect(new MobEffectInstance(MobEffects.WITHER, CatNoirConfig.CATACLYSM_WITHER_TICKS, CatNoirConfig.CATACLYSM_WITHER_AMPLIFIER),
-						p);
-			}
+			startBurn(p, target);
 		}
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
