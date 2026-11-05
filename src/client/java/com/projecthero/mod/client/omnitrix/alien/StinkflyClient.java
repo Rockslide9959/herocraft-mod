@@ -394,9 +394,8 @@ public final class StinkflyClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "stinkfly's badge needs to be on his face"): on his forehead, between the eyes (head-bone pixels: the cube
 		// spans x -4..4, y -8..0, z -4..4; just in front of the hat layer)
-		// v0.17.2: over the second skin's painted symbol (hat 43..44 x 10..11, painted out by gen_stinkfly_v2.js), a pixel
-		// higher than the first skin's
-		return new float[] { 0f, -5.0f, -4.56f, 2.8f };
+		// v0.17.2: over the third skin's painted symbol (forehead 11..12 x 11..12, painted out by gen_stinkfly_v3.js)
+		return new float[] { 0f, -4.0f, -4.56f, 3.0f };
 	}
 
 	@Override
