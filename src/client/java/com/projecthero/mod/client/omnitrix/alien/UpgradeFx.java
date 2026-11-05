@@ -67,7 +67,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * circuit lines lit) -- the grab's coils binding the target for the stun, the lash a whip that cracks out and snaps back, the
  * grapple anchored where it struck -- EMP Burst a shockwave wall racing out to its 8-block edge with circuit lines cracking
  * across the ground, the Charged Beam's charge a swelling orb at the eye, and the Liquid Form a puddle of liquid metal with
- * green circuit glints, his eye and drips.
+ * green circuit glints and drips.
  *
  * <p>v0.17.2 revamp (user: "Yes, build them" -- docs/OMNITRIX_REVAMP_UPGRADE_GREYMATTER_XLR8.md): the Stretch Fist (his arm a
  * stretched liquid-metal strand, a fist of his techno skin on the end that balloons as it lands), Tech Takeover (a nanite
@@ -1600,7 +1600,7 @@ public final class UpgradeFx {
 
 	// ---------------------------------------------------------------- the Liquid Form
 
-	/** A puddle of liquid metal: a low wobbling dome of his techno skin, circuit glints running through it and his eye glowing at the front. */
+	/** A puddle of liquid metal: a low wobbling dome of his techno skin with circuit glints running through it (v0.17.2 user: no floating eye or highlight quads on top). */
 	private static void puddle(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Player pl, float partial, float time) {
 		Vec3 at = pl.getPosition(partial);
 		Vec3 c = at.subtract(cam);
@@ -1660,13 +1660,5 @@ public final class UpgradeFx {
 				}
 			}
 		}
-		// a glossy highlight riding on top, and his eye at the front
-		VertexConsumer add = PyroDraw.additive(buffers);
-		PyroDraw.glow(pose, add, c.add(fwd.scale(-0.12)).add(0.05, H + 0.03, 0.05), 0.16f, PyroDraw.dim(0xFFE0E4E8, 0.25f));
-		Vec3 eye = c.add(fwd.scale(R * 0.62)).add(0, H * 0.55 + 0.02, 0);
-		float blink = 0.85f + 0.15f * Mth.sin(time * 0.4f);
-		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), eye, 0.28f * blink, PyroDraw.dim(GREEN, 0.85f));
-		PyroDraw.glow(pose, add, eye, 0.085f, PyroDraw.dim(CORE, 0.95f));
-		PyroDraw.glow(pose, add, eye, 0.14f, PyroDraw.dim(GREEN, 0.9f));
 	}
 }
