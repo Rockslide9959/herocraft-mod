@@ -39,6 +39,15 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 		return EchoEchoClient.SKIN;
 	}
 
+	/** The owner's poses the clones copy: his sound moves, not his leap, his swap or his splitting (those are his alone). */
+	private static boolean copied(int animId, float ticks) {
+		return switch (animId) {
+			case EchoEchoKit.ANIM_LEAP, EchoEchoKit.ANIM_SWAP, EchoEchoKit.ANIM_SPLIT, EchoEchoKit.ANIM_MERGE, EchoEchoKit.ANIM_JAB, EchoEchoKit.ANIM_HUM -> false;
+			case EchoEchoKit.ANIM_ASSAULT -> ticks >= 14; // they run on his order, then scream
+			default -> true;
+		};
+	}
+
 	private void resetPose() {
 		// v0.17.2 (user: "echo echo clones are still small, please fix this and make the clones use the same model as the regular echo
 		// echo please"): a model's young flag starts TRUE and only the living renderer clears it -- left on, every clone was drawn as a
@@ -67,11 +76,14 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 		model.head.xRot = Mth.lerp(partial, e.xRotO, e.getXRot()) * Mth.DEG_TO_RAD;
 		// the owner's move pose, so every clone moves with him
 		Player owner = e.owner();
-		if (owner instanceof AbstractClientPlayer cp && Omnitrix.hasPower(cp)) {
+		int animId = 0;
+		float ticks = 0f;
+		if (!e.homing() && owner instanceof AbstractClientPlayer cp && Omnitrix.hasPower(cp)) {
 			OmnitrixState s = Omnitrix.state(cp);
-			if (EchoEchoKit.ID.equals(s.active) && s.transformed()) {
-				float ticks = cp.level().getGameTime() - s.animStart + partial;
-				EchoEchoClient.posed(cp, model, s.animId, ticks);
+			if (EchoEchoKit.ID.equals(s.active) && s.transformed() && copied(s.animId, cp.level().getGameTime() - s.animStart + partial)) {
+				animId = s.animId;
+				ticks = cp.level().getGameTime() - s.animStart + partial;
+				EchoEchoClient.posed(cp, model, animId, ticks);
 			}
 		}
 		model.hat.copyFrom(model.head);
@@ -85,8 +97,16 @@ public class EchoCloneRenderer extends EntityRenderer<EchoCloneEntity> {
 		float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		pose.mulPose(Axis.YP.rotationDegrees(180f - yaw));
 		// v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell"): drawn at exactly his size (his live scale, the player renderer's 0.9375 included)
-		float s = (owner != null ? owner.getScale() : EchoEchoClient.SIZE) * 0.9375f;
-		pose.scale(-s, -s, s);
+		float size = owner != null ? owner.getScale() : EchoEchoClient.SIZE;
+		// out of him with a pop (it overshoots and settles); rushing back it dwindles into him
+		float born = age < 8f ? 0.6f + 0.4f * Mth.clamp(age / 3f, 0f, 1f) + 0.12f * Mth.sin(Mth.clamp((age - 3f) / 5f, 0f, 1f) * Mth.PI) : 1f;
+		double home = owner != null && e.homing() ? Math.sqrt(e.getPosition(partial).distanceToSqr(owner.getPosition(partial))) : 2.0;
+		float scale = size * born * (float) Mth.clamp(home / 1.5, 0.35, 1.0);
+		pose.scale(scale, scale, scale);
+		if (animId != 0) {
+			EchoEchoClient.turn(pose, animId, ticks);
+		}
+		pose.scale(-0.9375f, -0.9375f, 0.9375f);
 		pose.translate(0.0, -1.501, 0.0);
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EchoEchoClient.SKIN)), light, OverlayTexture.NO_OVERLAY, -1);
 		// ...and wearing the Omnitrix badge on the chest like him (green on the recalibrated watch)

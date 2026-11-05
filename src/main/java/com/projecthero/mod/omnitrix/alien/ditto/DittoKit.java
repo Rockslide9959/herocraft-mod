@@ -20,6 +20,7 @@ import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
 import com.projecthero.mod.omnitrix.alien.AlienStats;
 import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.CloneSpacing;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.quirk.fx.QuirkFx;
 
@@ -52,23 +53,23 @@ import net.minecraft.world.phys.Vec3;
  * v0.17.2 (user: "also create a moveset for ditto please. Use this skin: https://www.planetminecraft.com/skin/ditto-ben-10-5303343/
  * ... do research on his powers and look at what he does in the show ... Make this another alien you unlock on the 11th
  * mistransformation"). Ditto, a Splixson (prototype Omnitrix, a hidden alien): a small, quick, agile climber who splits into
- * identical copies of himself. Alone he is weak; his copies are his whole game -- they swarm, pile on, carry and throw together, and
+ * identical copies of himself. Alone he is weak; his copies are his whole game -- they swarm, pile on, throw and get thrown, and
  * merge back into him. As in the show, what a copy feels he feels: half the damage a copy takes reaches him. Spec:
  * {@code docs/OMNITRIX_REVAMP_DITTO.md}.
  *
  * <pre>
  *   R          Swarm Strike    every copy rushes the creature you look at (20) and fights it 8 s (3 a punch, once a second each)
- *   Shift+R    Dogpile         every copy leaps onto the creature you look at (16): 4 each (6 at most), pinned 2.5 s
- *   G          Pinwheel Kick   a spinning kick, 10 to everything within 2.5; every copy kicks round itself too (4, 2 blocks)
+ *   Shift+R    Dogpile         every copy leaps onto the creature you look at (16) and hangs on: 4 each (6 at most), pinned 2.5 s
+ *   G          Pinwheel Kick   he spins flat out on one leg, 10 to everything within 2.5; every copy spins too (4, 2 blocks)
  *   Shift+G    Split Burst     bursts into 3 copies at once: 8 to everything within 3, thrown back
  *   X          Splixson Leap   a long, agile leap; the copies leap after you; no fall damage 1.5 s
  *   Shift+X    Copy Toss       the nearest copy (6) hurls you where you look; the landing hits 9 within 2.5
  *   Z          Pile-Up         the copies dive onto the spot you look at (16): 14 within 3, +3 for each copy there (6 at most), slowed
- *   Shift+Z    Shell Game      swap places with a random copy; creatures hunting you lose you; invisible 3 s
- *   V          Split           a copy splits off (6 at most; 6 health each)
- *   Shift+V    Merge           the copies run back into you: +2 health each
- *   C          Ditto Army      ULTIMATE: 12 copies at once for 10 s, each going for its own creature within 12
- *   Shift+C    Copy Carry      two copies lift the creature you look at (12) and hurl it where you look: 16 (a big one is only slammed: 10)
+ *   Shift+Z    Ditto Army      ULTIMATE: splits up to all ten copies for 10 s, each going for its own creature within 12, punching twice as fast
+ *   V          Split           a copy pulls itself out of him (10 at most; 6 health each)
+ *   Shift+V    Merge           one copy walks back into him, one at a time, 0.5 s between them: +2 health each (hold to call them in turn)
+ *   C          Shell Game      swap places with a random copy; creatures hunting you lose you; invisible 3 s
+ *   Shift+C    Switcheroo      throw a copy where you look; where it lands you swap places with it (6 within 2 of the landing)
  *   Attack     Splixson Scrap  his fists (+3); every copy joins in on whatever he hits, and on whatever hits him
  *   Passives   Felt by All (half a copy's damage reaches him); Climber (press into a wall to climb); quick and small (x0.55)
  * </pre>
@@ -80,30 +81,30 @@ public final class DittoKit extends AlienKit {
 	public static EntityType<DittoCopyEntity> COPY;
 
 	// ---------------------------------------------------------------- synced flags / poses
-	public static final int F_LEAP = 1, F_ARMY = 2, F_CARRY = 4, F_TOSS = 8;
-	public static final int ANIM_PUNCH = 1, ANIM_KICK = 2, ANIM_SPLIT = 3, ANIM_MERGE = 4, ANIM_LEAP = 5, ANIM_POINT = 6, ANIM_BURST = 7,
-			ANIM_ARMY = 8, ANIM_TOSS = 9, ANIM_SHUFFLE = 10, ANIM_CARRY = 11;
+	public static final int F_LEAP = 1, F_ARMY = 2, F_THROW = 4, F_TOSS = 8, F_MERGE = 16, F_CALL = 32;
+	public static final int ANIM_PUNCH = 1, ANIM_KICK = 2, ANIM_SPLIT = 3, ANIM_MERGE = 4, ANIM_LEAP = 5, ANIM_SIC = 6, ANIM_BURST = 7, ANIM_ARMY = 8,
+			ANIM_TOSS = 9, ANIM_SHUFFLE = 10, ANIM_THROW = 11, ANIM_SHOVE = 12, ANIM_CHOP = 13, ANIM_CALL = 14, ANIM_ARRIVE = 15;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.ditto.<id>)
 	public static final String SWARM = "swarm_strike", DOGPILE = "dogpile", KICK = "pinwheel_kick", BURST = "split_burst", LEAP = "splixson_leap",
-			TOSS = "copy_toss", PILE = "pile_up", SHUFFLE = "shell_game", SPLIT = "split", MERGE = "merge", ARMY = "ditto_army", CARRY = "copy_carry",
+			TOSS = "copy_toss", PILE = "pile_up", SHUFFLE = "shell_game", SPLIT = "split", MERGE = "merge", ARMY = "ditto_army", SWITCHEROO = "switcheroo",
 			SCRAP = "splixson_scrap", FELT = "felt_by_all", CLIMB = "wall_crawl";
 
 	// ---------------------------------------------------------------- numbers (the prototype's scale: quick ~9-14, normal 14-22, big 22-28;
 	// his own hits are light, the pack's add up)
-	public static final int MAX_COPIES = 6, ARMY_COPIES = 12;
+	public static final int MAX_COPIES = CloneSpacing.LIMIT; // v0.17.2 (user: "make the limit to dittos clones 10 please")
 	public static final float COPY_PUNCH = 3f, DOGPILE_DAMAGE = 4f, KICK_DAMAGE = 10f, KICK_COPY_DAMAGE = 4f, BURST_DAMAGE = 8f, TOSS_DAMAGE = 9f,
-			PILE_DAMAGE = 14f, PILE_COPY_DAMAGE = 3f, CARRY_DAMAGE = 16f, CARRY_SLAM_DAMAGE = 10f;
+			PILE_DAMAGE = 14f, PILE_COPY_DAMAGE = 3f, SWITCHEROO_DAMAGE = 6f;
 	/** v0.17.2 (the show: damage to one is felt by all): the part of a copy's damage that reaches him. */
 	public static final float FEEDBACK = 0.5f;
 	public static final float MERGE_HEAL = 2f;
 	/** Most copies that add to one creature in one move (a full army stays fair). */
 	public static final int COPY_HIT_CAP = 6;
-	public static final int SWARM_TICKS = 160, DOGPILE_STUN = 50, LEAP_TICKS = 30, TOSS_TICKS = 60, PILE_DELAY = 10, SHUFFLE_INVIS = 60,
-			ARMY_TICKS = 200, CARRY_LIFT = 20, FOE_MEMORY = 100;
-	public static final double SWARM_RANGE = 20, DOGPILE_RANGE = 16, PILE_RANGE = 16, CARRY_RANGE = 12, TOSS_REACH = 6, ARMY_RANGE = 12;
-	/** Creatures heavier than this (max health) are too big to lift: Copy Carry slams them instead. */
-	public static final float CARRY_MAX_HEALTH = 100f;
+	public static final int SWARM_TICKS = 160, DOGPILE_STUN = 50, DOGPILE_LEAP = 7, LEAP_TICKS = 30, TOSS_WINDUP = 5, TOSS_TICKS = 60, PILE_DELAY = 14,
+			SHUFFLE_INVIS = 60, SHUFFLE_HOP = 8, ARMY_TICKS = 200, ARMY_STAGGER = 2, FOE_MEMORY = 100;
+	public static final double SWARM_RANGE = 20, DOGPILE_RANGE = 16, PILE_RANGE = 16, TOSS_REACH = 6, ARMY_RANGE = 12, SWITCHEROO_RADIUS = 2;
+	/** Merge's cooldown, which runs from the moment a copy is back in him (user: "give it a 0.5 second cooldown aswell please"). */
+	public static final int MERGE_COOLDOWN = 10;
 
 	public static final String LEAP_UNTIL = "leap_until", ARMY_UNTIL = "army_until";
 
@@ -138,20 +139,8 @@ public final class DittoKit extends AlienKit {
 	private record Pile(Vec3 at, long when) {
 	}
 
-	private static final class Carry {
-		final LivingEntity target;
-		final List<DittoCopyEntity> holders;
-		final Vec3 from;
-		final long start;
-		final boolean big;
-
-		Carry(LivingEntity target, List<DittoCopyEntity> holders, Vec3 from, long start, boolean big) {
-			this.target = target;
-			this.holders = holders;
-			this.from = from;
-			this.start = start;
-			this.big = big;
-		}
+	/** The Dogpile on its way: the pack lands on {@code target} at {@code when}. */
+	private record Pounce(UUID target, long when, int copies) {
 	}
 
 	private record Foe(long tick, @Nullable LivingEntity foe) {
@@ -159,7 +148,9 @@ public final class DittoKit extends AlienKit {
 
 	private static final Map<UUID, List<DittoCopyEntity>> COPIES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Pile> PILES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Carry> CARRIES = new ConcurrentHashMap<>();
+	private static final Map<UUID, Pounce> POUNCES = new ConcurrentHashMap<>();
+	/** Copy Toss: when the copy at his back heaves. */
+	private static final Map<UUID, Long> HEAVES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> TOSSED = new ConcurrentHashMap<>();
 	private static final Map<UUID, Foe> FOES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
@@ -177,7 +168,8 @@ public final class DittoKit extends AlienKit {
 	public static void clearSessionState() {
 		COPIES.clear();
 		PILES.clear();
-		CARRIES.clear();
+		POUNCES.clear();
+		HEAVES.clear();
 		TOSSED.clear();
 		FOES.clear();
 		LAST_TICK.clear();
@@ -204,17 +196,19 @@ public final class DittoKit extends AlienKit {
 		return List.of(AlienMove.tap(SWARM, AbilitySlot.SLOT_1, 100), AlienMove.shift(DOGPILE, AbilitySlot.SLOT_1, 200),
 				AlienMove.tap(KICK, AbilitySlot.SLOT_2, 30), AlienMove.shift(BURST, AbilitySlot.SLOT_2, 240),
 				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 20), AlienMove.shift(TOSS, AbilitySlot.SLOT_3, 120),
-				AlienMove.tap(PILE, AbilitySlot.SLOT_4, 160), AlienMove.shift(SHUFFLE, AbilitySlot.SLOT_4, 600),
-				AlienMove.tap(SPLIT, AbilitySlot.SLOT_5, 10), AlienMove.shift(MERGE, AbilitySlot.SLOT_5, 40),
-				AlienMove.tap(ARMY, AbilitySlot.SLOT_6, 1200), AlienMove.shift(CARRY, AbilitySlot.SLOT_6, 240),
+				AlienMove.tap(PILE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ARMY, AbilitySlot.SLOT_4, 1200), // user: "make ditto army Shift+Z and shell game the C move please"
+				AlienMove.tap(SPLIT, AbilitySlot.SLOT_5, 10), AlienMove.shift(MERGE, AbilitySlot.SLOT_5, MERGE_COOLDOWN),
+				AlienMove.tap(SHUFFLE, AbilitySlot.SLOT_6, 600), AlienMove.shift(SWITCHEROO, AbilitySlot.SLOT_6, 160),
 				AlienMove.vanilla(SCRAP, "Attack", 0), AlienMove.vanilla(FELT, "Passive", 0), AlienMove.vanilla(CLIMB, "Passive (press into a wall)", 0));
 	}
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_6 -> flag(p, F_ARMY) || flag(p, F_CARRY);
 			case SLOT_3 -> flag(p, F_TOSS);
+			case SLOT_4 -> flag(p, F_ARMY);
+			case SLOT_5 -> flag(p, F_MERGE);
+			case SLOT_6 -> flag(p, F_THROW);
 			default -> false;
 		};
 	}
@@ -236,17 +230,24 @@ public final class DittoKit extends AlienKit {
 		return List.copyOf(l);
 	}
 
-	/** How many copies he may have right now (more during the Ditto Army). */
-	public int cap(ServerPlayer p) {
-		return flag(p, F_ARMY) ? ARMY_COPIES : MAX_COPIES;
+	/** The copies free for an order: not walking back in, not being thrown. */
+	private static List<DittoCopyEntity> pack(ServerPlayer p) {
+		List<DittoCopyEntity> l = new ArrayList<>(copies(p));
+		l.removeIf(DittoCopyEntity::busy);
+		return l;
 	}
 
-	/** Splits off one copy at {@code at} if there is room; null if he is at his cap. */
+	/** The Ditto Army is on: the pack punches twice as fast. */
+	public static boolean frenzied(Player p) {
+		return (Omnitrix.state(p).kitFlags & F_ARMY) != 0;
+	}
+
+	/** A copy starts pulling itself out of him, {@code delay} ticks from now, over {@code ticks}; null if he is at his limit. */
 	@Nullable
-	public DittoCopyEntity addCopy(ServerPlayer p, Vec3 at) {
+	public DittoCopyEntity addCopy(ServerPlayer p, int delay, int ticks) {
 		List<DittoCopyEntity> l = COPIES.computeIfAbsent(p.getUUID(), k -> new ArrayList<>());
 		l.removeIf(c -> c.isRemoved());
-		if (l.size() >= cap(p)) {
+		if (l.size() >= MAX_COPIES) {
 			return null;
 		}
 		Set<Integer> used = new LinkedHashSet<>();
@@ -257,19 +258,11 @@ public final class DittoKit extends AlienKit {
 		while (used.contains(slot)) {
 			slot++;
 		}
-		DittoCopyEntity c = DittoCopyEntity.spawn(p, slot, at);
+		// it comes out in front of him, off to one side, so he sees it happen; then it walks to its own spot in the fan
+		Vec3 at = CloneSpacing.clear(p.level(), COPY, CloneSpacing.peel(p, slot, 1.5), p.position());
+		DittoCopyEntity c = DittoCopyEntity.spawn(p, slot, at, delay, ticks);
 		l.add(c);
-		level(p).sendParticles(ParticleTypes.POOF, at.x, at.y + 0.4, at.z, 4, 0.1, 0.2, 0.1, 0.01);
-		QuirkFx.ring(level(p), at.add(0, 0.3, 0)).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, COLOUR).size(0.9f).thickness(0.15f).life(8).spawn();
 		return c;
-	}
-
-	/** A spot beside him for a new copy ({@code i} goes round him). */
-	private static Vec3 beside(ServerPlayer p, int i, double r) {
-		float yaw = p.getYRot() * Mth.DEG_TO_RAD + Mth.PI * 0.5f + i * 2.1f;
-		Vec3 at = p.position().add(-Mth.sin(yaw) * r, 0, Mth.cos(yaw) * r);
-		// never inside a wall: fall back to his own spot
-		return p.level().noCollision(COPY.getDimensions().makeBoundingBox(at)) ? at : p.position();
 	}
 
 	private static void removeCopies(ServerPlayer p) {
@@ -339,8 +332,9 @@ public final class DittoKit extends AlienKit {
 		return out;
 	}
 
-	private static boolean fair(ServerPlayer p, @Nullable LivingEntity e) {
-		return e != null && e != p && e.isAlive() && !e.isRemoved() && e.level() == p.level() && e.distanceToSqr(p) < 16 * 16
+	/** {@code e} is fair game for his pack. */
+	public static boolean fair(ServerPlayer p, @Nullable LivingEntity e) {
+		return e != null && e != p && e.isAlive() && !e.isRemoved() && e.level() == p.level() && e.distanceToSqr(p) < 40 * 40
 				&& !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e)
 				&& !(com.projecthero.mod.squad.Squads.areAllies(p, e) && !com.projecthero.mod.squad.Squads.friendlyFireOn(p));
 	}
@@ -357,12 +351,8 @@ public final class DittoKit extends AlienKit {
 		removeCopies(p);
 		UUID id = p.getUUID();
 		PILES.remove(id);
-		Carry c = CARRIES.remove(id);
-		if (c != null) {
-			for (DittoCopyEntity h : c.holders) {
-				h.setHolding(false);
-			}
-		}
+		POUNCES.remove(id);
+		HEAVES.remove(id);
 		TOSSED.remove(id);
 		FOES.remove(id);
 		LAST_TICK.remove(id);
@@ -388,6 +378,12 @@ public final class DittoKit extends AlienKit {
 		if (flag(p, F_LEAP) && now >= timer(p, LEAP_UNTIL)) {
 			setFlag(p, F_LEAP, false);
 		}
+		// Copy Toss: the copy at his back heaves
+		Long heave = HEAVES.get(p.getUUID());
+		if (heave != null && now >= heave) {
+			HEAVES.remove(p.getUUID());
+			launch(p);
+		}
 		// Copy Toss: the landing
 		Long tossed = TOSSED.get(p.getUUID());
 		if (tossed != null) {
@@ -406,15 +402,20 @@ public final class DittoKit extends AlienKit {
 			PILES.remove(p.getUUID());
 			pileLand(p, pile.at);
 		}
-		tickCarry(p, l, now);
-		if (flag(p, F_ARMY) && now >= timer(p, ARMY_UNTIL)) {
-			setFlag(p, F_ARMY, false);
-			// the army's extras merge back: he keeps his usual six
-			List<DittoCopyEntity> l2 = new ArrayList<>(copies(p));
-			l2.sort(Comparator.comparingInt(DittoCopyEntity::slot));
-			for (int i = MAX_COPIES; i < l2.size(); i++) {
-				l2.get(i).pop();
+		// Dogpile: the pack lands on it
+		Pounce pounce = POUNCES.get(p.getUUID());
+		if (pounce != null && now >= pounce.when) {
+			POUNCES.remove(p.getUUID());
+			if (l.getEntity(pounce.target) instanceof LivingEntity t) {
+				dogpileLand(p, t, pounce.copies);
 			}
+		}
+		if (flag(p, F_ARMY) && now >= timer(p, ARMY_UNTIL)) {
+			setFlag(p, F_ARMY, false); // they stay: the limit is the limit, the frenzy is what ends
+		}
+		tickMerge(p);
+		if (flag(p, F_THROW) && copies(p).stream().noneMatch(c -> c.state() == DittoCopyEntity.HOISTED || c.state() == DittoCopyEntity.FLYING)) {
+			setFlag(p, F_THROW, false); // the copy broke or fell off the world
 		}
 	}
 
@@ -422,9 +423,6 @@ public final class DittoKit extends AlienKit {
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
-		if (flag(p, F_CARRY) && slot == AbilitySlot.SLOT_6) {
-			return;
-		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
@@ -449,23 +447,25 @@ public final class DittoKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					shuffle(p);
+					army(p);
 				} else {
 					pile(p);
 				}
 			}
 			case SLOT_5 -> {
 				if (shift) {
-					merge(p);
+					if (merge(p)) {
+						setFlag(p, F_CALL, true); // still held: the next one comes when this one is in
+					}
 				} else {
 					split(p);
 				}
 			}
 			case SLOT_6 -> {
 				if (shift) {
-					carry(p);
+					switcheroo(p);
 				} else {
-					army(p);
+					shuffle(p);
 				}
 			}
 			default -> {
@@ -473,18 +473,25 @@ public final class DittoKit extends AlienKit {
 		}
 	}
 
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_5) {
+			setFlag(p, F_CALL, false);
+		}
+	}
+
 	private static void say(ServerPlayer p, String key) {
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ditto." + key).withStyle(ChatFormatting.GRAY), true);
 	}
 
-	/** At least {@code n} copies, splitting the missing ones off for free (a move that needs a pack brings its own). */
+	/** At least {@code n} copies free, splitting the missing ones off for free (a move that needs a pack brings its own). */
 	private List<DittoCopyEntity> atLeast(ServerPlayer p, int n) {
-		for (int i = copies(p).size(); i < n; i++) {
-			if (addCopy(p, beside(p, i, 0.9)) == null) {
+		for (int i = pack(p).size(); i < n; i++) {
+			if (addCopy(p, 0, DittoCopyEntity.EMERGE_FAST) == null) {
 				break;
 			}
 		}
-		return copies(p);
+		return pack(p);
 	}
 
 	// ---------------------------------------------------------------- R / Shift+R
@@ -499,7 +506,7 @@ public final class DittoKit extends AlienKit {
 		if (!use(p, SWARM)) {
 			return false;
 		}
-		anim(p, ANIM_POINT);
+		anim(p, ANIM_SIC);
 		List<DittoCopyEntity> l = atLeast(p, 2);
 		for (DittoCopyEntity c : l) {
 			c.attack(t, SWARM_TICKS);
@@ -508,7 +515,7 @@ public final class DittoKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+R: every copy leaps onto the creature he looks at and pins it. */
+	/** Shift+R: every copy leaps onto the creature he looks at and hangs on. */
 	public boolean dogpile(ServerPlayer p) {
 		LivingEntity t = lookTarget(p, DOGPILE_RANGE);
 		if (t == null) {
@@ -518,26 +525,31 @@ public final class DittoKit extends AlienKit {
 		if (!use(p, DOGPILE)) {
 			return false;
 		}
-		anim(p, ANIM_POINT);
+		anim(p, ANIM_SHOVE);
 		List<DittoCopyEntity> l = atLeast(p, 1);
-		int n = 0;
-		for (DittoCopyEntity c : l) {
+		for (int n = 0; n < l.size(); n++) {
+			// each has its own hold on it: three bands up its body, a golden turn apart, so none sits inside another
+			DittoCopyEntity c = l.get(n);
 			float a = n * 2.4f;
-			double r = t.getBbWidth() * 0.5 + 0.2;
-			c.setPos(t.getX() + Mth.cos(a) * r, t.getY() + Math.min(t.getBbHeight() * 0.6, 1.2), t.getZ() + Mth.sin(a) * r);
-			c.setDeltaMovement(Vec3.ZERO);
-			c.attack(t, 100);
-			if (n < COPY_HIT_CAP) {
-				t.invulnerableTime = 0;
-				hurt(p, t, DOGPILE_DAMAGE, false);
-			}
-			n++;
+			double r = t.getBbWidth() * 0.5 + 0.12 + (n % 3) * 0.08;
+			double y = Math.min(t.getBbHeight(), 3.0) * (0.15 + 0.3 * (n % 3));
+			c.pounce(t, new Vec3(Mth.cos(a) * r, y, Mth.sin(a) * r), DOGPILE_LEAP, DOGPILE_STUN);
+			c.attack(t, DOGPILE_STUN + 40);
+		}
+		POUNCES.put(p.getUUID(), new Pounce(t.getUUID(), p.level().getGameTime() + DOGPILE_LEAP, l.size()));
+		OmnitrixSfx.play(level(p), p.position(), SND_LEAP, 1f, 1.3f);
+		return true;
+	}
+
+	private void dogpileLand(ServerPlayer p, LivingEntity t, int copies) {
+		for (int n = 0; n < Math.min(copies, COPY_HIT_CAP); n++) {
+			t.invulnerableTime = 0;
+			hurt(p, t, DOGPILE_DAMAGE, false);
 		}
 		t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, DOGPILE_STUN, 3, false, true, true), p);
 		t.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, DOGPILE_STUN, 0, false, true, true), p);
 		level(p).sendParticles(ParticleTypes.POOF, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
 		OmnitrixSfx.play(level(p), t.position(), SND_PILE, 1f, 1f);
-		return true;
 	}
 
 	// ---------------------------------------------------------------- G / Shift+G
@@ -555,7 +567,7 @@ public final class DittoKit extends AlienKit {
 			}
 		}
 		Map<Integer, Integer> counts = new HashMap<>();
-		for (DittoCopyEntity c : copies(p)) {
+		for (DittoCopyEntity c : pack(p)) {
 			for (LivingEntity e : around(p, c.position().add(0, 0.4, 0), 2.0)) {
 				if (counts.merge(e.getId(), 1, Integer::sum) <= COPY_HIT_CAP) {
 					e.invulnerableTime = 0;
@@ -565,7 +577,6 @@ public final class DittoKit extends AlienKit {
 				}
 			}
 		}
-		QuirkFx.ring(level(p), at.add(0, 0.35, 0)).colours(0xFFFFFF, COLOUR).size(2.5f).thickness(0.25f).life(6).spawn();
 		OmnitrixSfx.play(level(p), at, SND_KICK, 1f, 1f);
 		return true;
 	}
@@ -577,9 +588,8 @@ public final class DittoKit extends AlienKit {
 		}
 		anim(p, ANIM_BURST);
 		Vec3 at = p.position();
-		int base = copies(p).size();
 		for (int i = 0; i < 3; i++) {
-			if (addCopy(p, beside(p, base + i, 1.4)) == null) {
+			if (addCopy(p, 0, DittoCopyEntity.EMERGE_FAST) == null) {
 				break;
 			}
 		}
@@ -613,7 +623,7 @@ public final class DittoKit extends AlienKit {
 		setTimer(p, LEAP_UNTIL, p.level().getGameTime() + LEAP_TICKS);
 		setFlag(p, F_LEAP, true);
 		Vec3 land = p.position().add(h.scale(6));
-		for (DittoCopyEntity c : copies(p)) {
+		for (DittoCopyEntity c : pack(p)) {
 			c.dashTo(land.add(c.packPos(p).subtract(p.position())), 24);
 			c.setDeltaMovement(c.getDeltaMovement().x, 0.55, c.getDeltaMovement().z);
 		}
@@ -621,14 +631,12 @@ public final class DittoKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+X: the nearest copy hurls him where he looks; the landing hits. */
+	/** Shift+X: the nearest copy hops to his back, then hurls him where he looks; the landing hits. */
 	public boolean toss(ServerPlayer p) {
-		DittoCopyEntity thrower = null;
-		for (DittoCopyEntity c : copies(p)) {
-			if (c.distanceToSqr(p) <= TOSS_REACH * TOSS_REACH && (thrower == null || c.distanceToSqr(p) < thrower.distanceToSqr(p))) {
-				thrower = c;
-			}
+		if (flag(p, F_TOSS)) {
+			return false;
 		}
+		DittoCopyEntity thrower = nearest(p, TOSS_REACH);
 		if (thrower == null) {
 			say(p, "no_copy_near");
 			return false;
@@ -637,15 +645,36 @@ public final class DittoKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_TOSS);
+		Vec3 back = p.position().subtract(flat(p.getLookAngle()).scale(0.45));
+		thrower.leapTo(CloneSpacing.clear(p.level(), COPY, back, p.position()), TOSS_WINDUP, 0.25);
+		HEAVES.put(p.getUUID(), p.level().getGameTime() + TOSS_WINDUP);
+		setFlag(p, F_TOSS, true);
+		return true;
+	}
+
+	/** The nearest copy free for an order, within {@code reach}. */
+	@Nullable
+	private static DittoCopyEntity nearest(ServerPlayer p, double reach) {
+		DittoCopyEntity best = null;
+		for (DittoCopyEntity c : pack(p)) {
+			if (c.distanceToSqr(p) <= reach * reach && (best == null || c.distanceToSqr(p) < best.distanceToSqr(p))) {
+				best = c;
+			}
+		}
+		return best;
+	}
+
+	private void launch(ServerPlayer p) {
 		Vec3 look = p.getLookAngle();
 		p.setDeltaMovement(look.x * 1.7, Math.max(0.45, look.y * 1.2 + 0.45), look.z * 1.7);
 		p.hurtMarked = true;
 		p.fallDistance = 0f;
-		thrower.level().broadcastEntityEvent(thrower, (byte) 4);
+		DittoCopyEntity thrower = nearest(p, 2.0);
+		if (thrower != null) {
+			thrower.level().broadcastEntityEvent(thrower, (byte) 5);
+		}
 		TOSSED.put(p.getUUID(), p.level().getGameTime());
-		setFlag(p, F_TOSS, true);
 		OmnitrixSfx.play(level(p), p.position(), SND_LEAP, 1f, 0.8f);
-		return true;
 	}
 
 	private void land(ServerPlayer p) {
@@ -674,17 +703,15 @@ public final class DittoKit extends AlienKit {
 		return hit.getType() == HitResult.Type.MISS ? end : hit.getLocation();
 	}
 
-	/** Z: the copies dive onto the spot he looks at. */
+	/** Z: the copies leap up and dive onto the spot he looks at, each to its own place on the pile. */
 	public boolean pile(ServerPlayer p) {
 		if (!use(p, PILE)) {
 			return false;
 		}
-		anim(p, ANIM_POINT);
+		anim(p, ANIM_CHOP);
 		Vec3 at = spot(p, PILE_RANGE);
-		List<DittoCopyEntity> l = atLeast(p, 2);
-		for (DittoCopyEntity c : l) {
-			c.dashTo(at, PILE_DELAY + 4);
-			c.setDeltaMovement(c.getDeltaMovement().x, 0.6, c.getDeltaMovement().z);
+		for (DittoCopyEntity c : atLeast(p, 2)) {
+			c.leapTo(CloneSpacing.clear(p.level(), COPY, CloneSpacing.ring(at, c.slot(), 0.6), at), PILE_DELAY, 2.5);
 		}
 		PILES.put(p.getUUID(), new Pile(at, p.level().getGameTime() + PILE_DELAY));
 		OmnitrixSfx.play(level(p), p.position(), SND_LEAP, 1f, 1.2f);
@@ -710,19 +737,136 @@ public final class DittoKit extends AlienKit {
 		OmnitrixSfx.play(level(p), at, SND_PILE, 1.2f, 0.9f);
 	}
 
-	/** Shift+Z: swaps places with a random copy; whatever hunted him loses him; a moment unseen. */
+	/** Shift+Z (ultimate): he splits up to all ten at once, one after another, each going for its own creature. */
+	public boolean army(ServerPlayer p) {
+		if (flag(p, F_ARMY)) {
+			return false;
+		}
+		if (!use(p, ARMY)) {
+			return false;
+		}
+		anim(p, ANIM_ARMY);
+		setFlag(p, F_ARMY, true);
+		setTimer(p, ARMY_UNTIL, p.level().getGameTime() + ARMY_TICKS);
+		for (int i = 0; addCopy(p, i * ARMY_STAGGER, DittoCopyEntity.EMERGE_FAST) != null; i++) {
+			// a stream of them, each pulling out on its own side
+		}
+		List<LivingEntity> foes = new ArrayList<>(around(p, p.position(), ARMY_RANGE));
+		foes.removeIf(e -> e instanceof Player && !(e instanceof Mob)); // players only when they started it (the pack's own foe)
+		foes.sort(Comparator.comparingDouble(e -> e.distanceToSqr(p)));
+		List<DittoCopyEntity> l = pack(p);
+		if (!foes.isEmpty()) {
+			for (int k = 0; k < l.size(); k++) {
+				l.get(k).attack(foes.get(k % foes.size()), ARMY_TICKS);
+			}
+		}
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).colours(0xFFFFFF, COLOUR).size(5f).thickness(0.5f).life(14).ground().spawn();
+		OmnitrixSfx.play(level(p), p.position(), SND_ARMY, 1.4f, 1f);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- V / Shift+V
+
+	/** V: one copy pulls itself out of him. */
+	public boolean split(ServerPlayer p) {
+		if (copies(p).size() >= MAX_COPIES) {
+			say(p, "max_copies");
+			return false;
+		}
+		if (!use(p, SPLIT)) {
+			return false;
+		}
+		anim(p, ANIM_SPLIT);
+		addCopy(p, 0, DittoCopyEntity.EMERGE_TICKS);
+		OmnitrixSfx.play(level(p), p.position(), SND_SPLIT, 1f, 1f);
+		return true;
+	}
+
+	/**
+	 * Shift+V: the farthest copy walks back into him, so each one's walk reads (user: "they do so one at a time only and then walk back into the player and merge
+	 * with them"). Only one at a time: another press waits for it to be in, and the 0.5 s cooldown runs from then.
+	 */
+	public boolean merge(ServerPlayer p) {
+		List<DittoCopyEntity> l = copies(p);
+		if (l.isEmpty()) {
+			say(p, "no_copies");
+			return false;
+		}
+		if (l.stream().anyMatch(DittoCopyEntity::returning)) {
+			return false;
+		}
+		DittoCopyEntity next = null;
+		for (DittoCopyEntity c : l) {
+			if (c.state() == DittoCopyEntity.NORMAL && (next == null || c.distanceToSqr(p) > next.distanceToSqr(p))) {
+				next = c;
+			}
+		}
+		if (next == null || !use(p, MERGE)) {
+			return false;
+		}
+		anim(p, ANIM_CALL);
+		next.walkBack();
+		setFlag(p, F_MERGE, true);
+		return true;
+	}
+
+	/** Keeps the Merge key lit while one walks, and calls the next while Shift+V stays down. */
+	private void tickMerge(ServerPlayer p) {
+		List<DittoCopyEntity> l = copies(p);
+		boolean walking = l.stream().anyMatch(DittoCopyEntity::returning);
+		if (flag(p, F_MERGE) != walking) {
+			setFlag(p, F_MERGE, walking);
+		}
+		if (flag(p, F_CALL)) {
+			if (l.isEmpty()) {
+				setFlag(p, F_CALL, false);
+			} else if (!walking && ready(p, MERGE)) {
+				merge(p);
+			}
+		}
+	}
+
+	/** A walking copy reached him and starts sinking in. */
+	public static void absorbing(ServerPlayer p) {
+		if (Aliens.kit(ID) instanceof DittoKit k) {
+			k.anim(p, ANIM_MERGE);
+		}
+		OmnitrixSfx.play(level(p), p.position(), SND_SPLIT, 0.7f, 0.8f);
+	}
+
+	/** The copy is back in him: +2 health, and the 0.5 s starts. */
+	public static void absorbed(ServerPlayer p) {
+		p.heal(MERGE_HEAL);
+		if (Aliens.kit(ID) instanceof DittoKit k) {
+			k.cooldown(p, MERGE, -1);
+		}
+		QuirkFx.ring(level(p), p.position().add(0, 0.45, 0)).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, COLOUR).size(0.9f).thickness(0.15f).life(8).spawn();
+		OmnitrixSfx.play(level(p), p.position(), SND_MERGE, 1f, 1f);
+	}
+
+	// ---------------------------------------------------------------- C / Shift+C
+
+	/** C: swaps places with a random copy while the rest of the pack hops round; whatever hunted him loses him; a moment unseen. */
 	public boolean shuffle(ServerPlayer p) {
 		if (!use(p, SHUFFLE)) {
 			return false;
 		}
 		anim(p, ANIM_SHUFFLE);
-		List<DittoCopyEntity> l = copies(p);
+		List<DittoCopyEntity> l = new ArrayList<>(pack(p));
 		if (!l.isEmpty()) {
-			DittoCopyEntity c = l.get(p.getRandom().nextInt(l.size()));
+			DittoCopyEntity c = l.remove(p.getRandom().nextInt(l.size()));
 			Vec3 me = p.position(), it = c.position();
+			List<Vec3> spots = new ArrayList<>();
+			for (DittoCopyEntity o : l) {
+				spots.add(o.position());
+			}
 			p.teleportTo(it.x, it.y, it.z);
-			c.setPos(me.x, me.y, me.z);
 			p.fallDistance = 0f;
+			c.leapTo(me, SHUFFLE_HOP, 0.6);
+			// the rest change places in a ring, so nobody watching can follow which is which
+			for (int i = 0; i < l.size(); i++) {
+				l.get(i).leapTo(spots.get((i + 1) % spots.size()), SHUFFLE_HOP, 0.6);
+			}
 		}
 		for (Mob m : p.level().getEntitiesOfClass(Mob.class, new AABB(p.blockPosition()).inflate(24))) {
 			if (m.getTarget() == p) {
@@ -738,150 +882,59 @@ public final class DittoKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- V / Shift+V
-
-	/** V: one copy splits off. */
-	public boolean split(ServerPlayer p) {
-		if (copies(p).size() >= cap(p)) {
-			say(p, "max_copies");
+	/**
+	 * Shift+C (user: "replace copy carry with an ability where the player throws a clone and swaps place with it when it lands please"):
+	 * the nearest copy hops over his head (or a new one pulls out of him and goes up), he throws it where he looks, and when it lands
+	 * he and it change places.
+	 */
+	public boolean switcheroo(ServerPlayer p) {
+		if (flag(p, F_THROW)) {
 			return false;
 		}
-		if (!use(p, SPLIT)) {
-			return false;
+		DittoCopyEntity c = nearest(p, 40);
+		if (c == null && copies(p).size() < MAX_COPIES) {
+			c = addCopy(p, 0, 1);
 		}
-		anim(p, ANIM_SPLIT);
-		addCopy(p, beside(p, copies(p).size(), 0.9));
-		OmnitrixSfx.play(level(p), p.position(), SND_SPLIT, 1f, 1f);
-		return true;
-	}
-
-	/** Shift+V: the copies run back into him (+2 health each). */
-	public boolean merge(ServerPlayer p) {
-		List<DittoCopyEntity> l = copies(p);
-		if (l.isEmpty()) {
-			say(p, "no_copies");
-			return false;
-		}
-		if (!use(p, MERGE)) {
-			return false;
-		}
-		anim(p, ANIM_MERGE);
-		for (DittoCopyEntity c : l) {
-			QuirkFx.ribbon(level(p), c.position().add(0, 0.4, 0), p.position().add(0, 0.4, 0)).style(QuirkFx.RIBBON_LIGHT).colours(0xFFFFFF, COLOUR)
-					.size(0.15f).life(6).spawn();
-			c.pop();
-		}
-		COPIES.remove(p.getUUID());
-		p.heal(MERGE_HEAL * l.size());
-		OmnitrixSfx.play(level(p), p.position(), SND_MERGE, 1f, 1f);
-		return true;
-	}
-
-	// ---------------------------------------------------------------- C / Shift+C
-
-	/** C (ultimate): an army of copies at once, each going for its own creature. */
-	public boolean army(ServerPlayer p) {
-		if (flag(p, F_ARMY)) {
-			return false;
-		}
-		if (!use(p, ARMY)) {
-			return false;
-		}
-		anim(p, ANIM_ARMY);
-		setFlag(p, F_ARMY, true);
-		setTimer(p, ARMY_UNTIL, p.level().getGameTime() + ARMY_TICKS);
-		int i = copies(p).size();
-		while (addCopy(p, beside(p, i, 0.8 + (i % 3) * 0.5)) != null) {
-			i++;
-		}
-		List<LivingEntity> foes = new ArrayList<>(around(p, p.position(), ARMY_RANGE));
-		foes.removeIf(e -> e instanceof Player && !(e instanceof Mob)); // players only when they started it (the pack's own foe)
-		foes.sort(Comparator.comparingDouble(e -> e.distanceToSqr(p)));
-		List<DittoCopyEntity> l = copies(p);
-		if (!foes.isEmpty()) {
-			for (int k = 0; k < l.size(); k++) {
-				l.get(k).attack(foes.get(k % foes.size()), ARMY_TICKS);
-			}
-		}
-		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).colours(0xFFFFFF, COLOUR).size(5f).thickness(0.5f).life(14).ground().spawn();
-		OmnitrixSfx.play(level(p), p.position(), SND_ARMY, 1.4f, 1f);
-		return true;
-	}
-
-	/** Shift+C: two copies lift the creature he looks at and hurl it. */
-	public boolean carry(ServerPlayer p) {
-		LivingEntity t = lookTarget(p, CARRY_RANGE);
-		if (t == null) {
-			say(p, "no_target");
-			return false;
-		}
-		if (copies(p).size() < 2) {
-			say(p, "need_two");
-			return false;
-		}
-		if (!use(p, CARRY)) {
-			return false;
-		}
-		anim(p, ANIM_CARRY);
-		List<DittoCopyEntity> l = new ArrayList<>(copies(p));
-		l.sort(Comparator.comparingDouble(c -> c.distanceToSqr(t)));
-		List<DittoCopyEntity> holders = List.of(l.get(0), l.get(1));
-		boolean big = t.getMaxHealth() > CARRY_MAX_HEALTH;
-		for (DittoCopyEntity c : holders) {
-			c.setHolding(true);
-		}
-		CARRIES.put(p.getUUID(), new Carry(t, holders, t.position(), p.level().getGameTime(), big));
-		setFlag(p, F_CARRY, true);
-		OmnitrixSfx.play(level(p), t.position(), SND_SPLIT, 1f, 0.8f);
-		return true;
-	}
-
-	private void tickCarry(ServerPlayer p, ServerLevel l, long now) {
-		Carry c = CARRIES.get(p.getUUID());
 		if (c == null) {
-			return;
+			say(p, "no_copy_free");
+			return false;
 		}
-		long t = now - c.start;
-		boolean gone = !c.target.isAlive() || c.target.isRemoved() || c.holders.stream().anyMatch(h -> h.isRemoved());
-		if (gone || t >= CARRY_LIFT) {
-			CARRIES.remove(p.getUUID());
-			setFlag(p, F_CARRY, false);
-			for (DittoCopyEntity h : c.holders) {
-				h.setHolding(false);
-			}
-			if (gone) {
-				return;
-			}
-			c.target.invulnerableTime = 0;
-			if (c.big) {
-				hurt(p, c.target, CARRY_SLAM_DAMAGE, false); // too heavy to throw: slammed back down
-			} else {
-				Vec3 h = flat(p.getLookAngle());
-				hurt(p, c.target, CARRY_DAMAGE, false);
-				c.target.setDeltaMovement(h.x * 1.8, 0.5, h.z * 1.8);
-				c.target.hurtMarked = true;
-			}
-			l.sendParticles(ParticleTypes.POOF, c.target.getX(), c.target.getY() + 0.3, c.target.getZ(), 8, 0.4, 0.2, 0.4, 0.02);
-			OmnitrixSfx.play(l, c.target.position(), SND_PILE, 1f, 1f);
-			return;
+		if (!use(p, SWITCHEROO)) {
+			return false;
 		}
-		// lifting onto their raised hands, just over their heads (a big one barely leaves the ground)
-		double lift = (c.big ? 0.4 : COPY.getHeight() * 1.15) * Math.min(1.0, t / 8.0);
-		Vec3 at = c.from.add(0, lift, 0);
-		c.target.teleportTo(at.x, at.y, at.z);
-		c.target.setDeltaMovement(Vec3.ZERO);
-		c.target.fallDistance = 0f;
-		int i = 0;
-		for (DittoCopyEntity h : c.holders) {
-			double side = (i++ == 0 ? -1 : 1) * (c.target.getBbWidth() * 0.5 + 0.2);
-			float yaw = p.getYRot() * Mth.DEG_TO_RAD;
-			h.setPos(at.x + Mth.cos(yaw) * side, c.from.y, at.z + Mth.sin(yaw) * side); // standing under it
-			h.setDeltaMovement(Vec3.ZERO);
-		}
+		anim(p, ANIM_THROW);
+		c.hoist();
+		setFlag(p, F_THROW, true);
+		OmnitrixSfx.play(level(p), p.position(), SND_SPLIT, 1f, 0.8f);
+		return true;
 	}
 
-	/** Test hook: whether a carry is running. */
-	public static boolean carrying(ServerPlayer p) {
-		return CARRIES.containsKey(p.getUUID());
+	/** The thrown copy landed (on {@code hit} if it hit a creature): he and it change places. */
+	public static void thrownLanded(ServerPlayer p, DittoCopyEntity c, @Nullable LivingEntity hit) {
+		ServerLevel l = level(p);
+		Vec3 me = p.position(), it = c.position();
+		if (hit != null) {
+			hit.invulnerableTime = 0;
+		}
+		for (LivingEntity e : around(p, it.add(0, 0.4, 0), SWITCHEROO_RADIUS)) {
+			if (hurt(p, e, SWITCHEROO_DAMAGE, false)) {
+				shove(e, it, 0.5, 0.2);
+			}
+		}
+		p.stopRiding();
+		p.teleportTo(it.x, it.y, it.z);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.hurtMarked = true;
+		p.fallDistance = 0f;
+		c.setPos(me);
+		if (Aliens.kit(ID) instanceof DittoKit k) {
+			k.setFlag(p, F_THROW, false);
+			k.anim(p, ANIM_ARRIVE);
+		}
+		QuirkFx.ribbon(l, me.add(0, 0.5, 0), it.add(0, 0.5, 0)).style(QuirkFx.RIBBON_LIGHT).colours(0xFFFFFF, COLOUR).size(0.25f).life(8).spawn();
+		QuirkFx.ring(l, it.add(0, 0.15, 0)).colours(0xFFFFFF, COLOUR).size(2f).thickness(0.3f).life(10).ground().spawn();
+		l.sendParticles(ParticleTypes.POOF, it.x, it.y + 0.4, it.z, 8, 0.3, 0.3, 0.3, 0.02);
+		l.sendParticles(ParticleTypes.POOF, me.x, me.y + 0.4, me.z, 8, 0.3, 0.3, 0.3, 0.02);
+		OmnitrixSfx.play(l, it, SND_MERGE, 1f, 1.3f);
 	}
 }

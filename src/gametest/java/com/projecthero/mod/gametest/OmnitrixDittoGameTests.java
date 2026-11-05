@@ -234,26 +234,101 @@ public class OmnitrixDittoGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- copies
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void vSplitsCopiesUpToSixAndShiftVMergesThemBack(GameTestHelper helper) {
-		ServerPlayer p = ditto(helper);
-		DittoKit k = kit();
-		for (int i = 0; i < 8; i++) {
-			k.cooldown(p, DittoKit.SPLIT, 0);
+	private static void apart(GameTestHelper helper, List<DittoCopyEntity> l, double gap, String when) {
+		for (int i = 0; i < l.size(); i++) {
+			for (int j = i + 1; j < l.size(); j++) {
+				// a copy that stepped off the test's small floor is below the others, not inside one
+				double d = Math.sqrt(l.get(i).position().subtract(l.get(j).position()).horizontalDistanceSqr());
+				helper.assertTrue(d >= gap || Math.abs(l.get(i).getY() - l.get(j).getY()) > 0.9, when + ": copies " + i + " and " + j + " only " + d + " apart");
+			}
+		}
+	}
+
+	private static void splitAll(ServerPlayer p, int n) {
+		for (int i = 0; i < n; i++) {
+			kit().cooldown(p, DittoKit.SPLIT, 0);
 			tap(p, AbilitySlot.SLOT_5, false);
 		}
+	}
+
+	/** v0.17.2 (user: "make the limit to dittos clones 10 please and give them their own position"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void vSplitsCopiesUpToTenAndEachHasItsOwnSpot(GameTestHelper helper) {
+		ServerPlayer p = ditto(helper);
+		Vec3 open = helper.absoluteVec(new Vec3(3.5, 2, 4.5)); // clear of the test's structure block, so the whole fan has room
+		p.moveTo(open.x, open.y, open.z, 0f, 0f);
+		splitAll(p, 12);
 		List<DittoCopyEntity> l = DittoKit.copies(p);
-		helper.assertTrue(l.size() == DittoKit.MAX_COPIES, "six copies at most: " + l.size());
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(DittoCopyEntity.class, p.getBoundingBox().inflate(8)).size() == DittoKit.MAX_COPIES,
-				"real entities in the world");
-		p.setHealth(p.getMaxHealth() * 0.5f);
-		float hurt = p.getHealth();
-		tap(p, AbilitySlot.SLOT_5, true);
-		helper.assertTrue(DittoKit.copies(p).isEmpty(), "Shift+V merges them all back");
-		helper.assertTrue(p.getHealth() > hurt + 5f, "and heals him: " + hurt + " -> " + p.getHealth());
-		helper.runAfterDelay(1, () -> {
-			helper.assertTrue(helper.getLevel().getEntitiesOfClass(DittoCopyEntity.class, p.getBoundingBox().inflate(8)).isEmpty(), "gone from the world");
-			helper.succeed();
+		helper.assertTrue(l.size() == 10 && DittoKit.MAX_COPIES == 10, "ten copies at most: " + l.size());
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(DittoCopyEntity.class, p.getBoundingBox().inflate(8), c -> c.ownerId() == p.getId()).size() == 10, "real entities in the world");
+		helper.assertTrue(l.stream().allMatch(c -> c.state() == DittoCopyEntity.EMERGING), "each starts by pulling itself out of him");
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS + 40, () -> {
+			helper.assertTrue(l.stream().allMatch(c -> c.state() == DittoCopyEntity.NORMAL), "all out");
+			apart(helper, l, 0.6, "following him");
+			Zombie z = zombie(helper, 3.5, 2, 7.5);
+			lookAt(p, z);
+			tap(p, AbilitySlot.SLOT_1, false);
+			helper.runAfterDelay(40, () -> {
+				apart(helper, l, 0.55, "round a creature");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.17.2 (user: "make the clones almost stretch and pull themselves out of the player and separate from the player"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aCopyPullsItselfOutOfHimThenWalksToItsSpot(GameTestHelper helper) {
+		ServerPlayer p = ditto(helper);
+		tap(p, AbilitySlot.SLOT_5, false);
+		DittoCopyEntity c = DittoKit.copies(p).get(0);
+		helper.assertTrue(c.position().distanceTo(p.position()) < 0.01, "it starts inside him");
+		helper.assertFalse(c.hurt(helper.getLevel().damageSources().magic(), 1f), "nothing can hit it as it comes out");
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS / 2, () -> {
+			double half = c.position().distanceTo(p.position());
+			helper.assertTrue(half > 0.15 && half < 1.2, "part way out: " + half);
+			helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS / 2 + 1, () -> {
+				helper.assertTrue(c.state() == DittoCopyEntity.NORMAL, "out");
+				helper.assertTrue(c.hurt(helper.getLevel().damageSources().magic(), 1f), "and an ordinary copy now");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.17.2 (user: "they do so one at a time only and then walk back into the player and merge with them ... give it a 0.5 second cooldown"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void shiftVWalksOneCopyBackAtATime(GameTestHelper helper) {
+		ServerPlayer p = ditto(helper);
+		DittoKit k = kit();
+		splitAll(p, 3);
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS + 30, () -> {
+			p.setHealth(p.getMaxHealth() * 0.5f);
+			float hurt = p.getHealth();
+			tap(p, AbilitySlot.SLOT_5, true);
+			helper.assertTrue(DittoKit.copies(p).size() == 3, "none vanishes at once");
+			helper.assertTrue(DittoKit.copies(p).stream().filter(DittoCopyEntity::returning).count() == 1, "one walks back");
+			helper.assertTrue(p.getHealth() == hurt, "no health until it is in");
+			tap(p, AbilitySlot.SLOT_5, true);
+			helper.assertTrue(DittoKit.copies(p).stream().filter(DittoCopyEntity::returning).count() == 1, "only one at a time");
+			helper.assertTrue(k.keyActive(p, AbilitySlot.SLOT_5), "the key is lit while it walks");
+			helper.succeedWhen(() -> {
+				helper.assertTrue(DittoKit.copies(p).size() == 2, "the copy is back in him");
+				helper.assertTrue(Math.abs(p.getHealth() - (hurt + DittoKit.MERGE_HEAL)) < 0.01f, "+2 health: " + p.getHealth());
+				helper.assertTrue(k.cooldownLeft(p, DittoKit.MERGE) > 0 && k.cooldownLeft(p, DittoKit.MERGE) <= DittoKit.MERGE_COOLDOWN, "0.5 s from when it is in");
+				helper.assertTrue(DittoKit.MERGE_COOLDOWN == 10, "half a second");
+			});
+		});
+	}
+
+	/** Shift+V held: the next one starts when the last is in. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void holdingShiftVCallsThemAllIn(GameTestHelper helper) {
+		ServerPlayer p = ditto(helper);
+		splitAll(p, 2);
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS + 30, () -> {
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_5.number(), true);
+			p.setShiftKeyDown(false);
+			helper.succeedWhen(() -> helper.assertTrue(DittoKit.copies(p).isEmpty(), "all back in"));
 		});
 	}
 
@@ -264,17 +339,19 @@ public class OmnitrixDittoGameTests implements FabricGameTest {
 		tap(p, AbilitySlot.SLOT_5, false);
 		DittoCopyEntity c = DittoKit.copies(p).get(0);
 		Zombie z = zombie(helper, 6.5, 2, 6.5);
-		float before = p.getHealth();
-		helper.assertTrue(c.hurt(helper.getLevel().damageSources().mobAttack(z), 4f), "the copy takes the hit");
-		helper.assertTrue(c.hp() == DittoCopyEntity.MAX_HP - 4f, "4 off the copy: " + c.hp());
-		float felt = before - p.getHealth();
-		helper.assertTrue(felt > 1.0f && felt <= 2.01f, "about half of it reaches Ditto: " + felt);
-		helper.assertFalse(c.hurt(p.damageSources().playerAttack(p), 4f), "his own fists never hurt a copy");
-		float mid = p.getHealth();
-		c.hurt(helper.getLevel().damageSources().mobAttack(z), 20f);
-		helper.assertTrue(c.isRemoved(), "a copy breaks at 6");
-		helper.assertTrue(mid - p.getHealth() <= 1.01f, "he feels only what the copy had left (2 -> 1): " + (mid - p.getHealth()));
-		helper.succeed();
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS + 1, () -> {
+			float before = p.getHealth();
+			helper.assertTrue(c.hurt(helper.getLevel().damageSources().mobAttack(z), 4f), "the copy takes the hit");
+			helper.assertTrue(c.hp() == DittoCopyEntity.MAX_HP - 4f, "4 off the copy: " + c.hp());
+			float felt = before - p.getHealth();
+			helper.assertTrue(felt > 1.0f && felt <= 2.01f, "about half of it reaches Ditto: " + felt);
+			helper.assertFalse(c.hurt(p.damageSources().playerAttack(p), 4f), "his own fists never hurt a copy");
+			float mid = p.getHealth();
+			c.hurt(helper.getLevel().damageSources().mobAttack(z), 20f);
+			helper.assertTrue(c.isRemoved(), "a copy breaks at 6");
+			helper.assertTrue(mid - p.getHealth() <= 1.01f, "he feels only what the copy had left (2 -> 1): " + (mid - p.getHealth()));
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
@@ -306,38 +383,65 @@ public class OmnitrixDittoGameTests implements FabricGameTest {
 		float mid = z.getHealth();
 		z.invulnerableTime = 0;
 		tap(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(z.getHealth() < mid, "the Dogpile hits it: " + z.getHealth());
-		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
+		helper.assertTrue(z.getHealth() == mid, "the pack is still in the air");
+		helper.runAfterDelay(DittoKit.DOGPILE_LEAP + 2, () -> {
+			helper.assertTrue(z.getHealth() < mid, "the Dogpile hits it: " + z.getHealth());
+			helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
+			helper.assertTrue(DittoKit.copies(p).stream().anyMatch(c -> c.state() == DittoCopyEntity.CLINGING), "and they hang on");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 (user: "replace copy carry with an ability where the player throws a clone and swaps place with it when it lands please"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void switcherooThrowsACopyAndSwapsPlacesWhereItLands(GameTestHelper helper) {
+		ServerPlayer p = ditto(helper);
+		p.setXRot(-20f);
+		Vec3 from = p.position();
+		tap(p, AbilitySlot.SLOT_6, true);
+		helper.assertTrue(kit().cooldownLeft(p, DittoKit.SWITCHEROO) > 0, "Shift+C throws");
+		helper.assertTrue(DittoKit.copies(p).size() == 1, "with no copy, one comes out for it");
+		DittoCopyEntity c = DittoKit.copies(p).get(0);
+		helper.assertTrue(c.state() == DittoCopyEntity.HOISTED, "up over his head first");
+		helper.assertTrue(kit().keyActive(p, AbilitySlot.SLOT_6), "the key is lit while it flies");
+		helper.runAfterDelay(DittoCopyEntity.HOIST_TICKS + 1, () -> helper.assertTrue(c.state() == DittoCopyEntity.FLYING, "thrown"));
+		helper.succeedWhen(() -> {
+			helper.assertFalse(kit().keyActive(p, AbilitySlot.SLOT_6), "it landed");
+			helper.assertTrue(p.position().distanceTo(from) > 3.0, "he is where it landed: " + p.position().distanceTo(from));
+			helper.assertTrue(c.position().distanceTo(from) < 1.5, "and it is where he stood: " + c.position().distanceTo(from));
+		});
+	}
+
+	/** v0.17.2 (user: "make ditto army Shift+Z and shell game the C move please"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void armyIsShiftZAndShellGameIsC(GameTestHelper helper) {
+		DittoKit k = kit();
+		helper.assertTrue(DittoKit.ARMY.equals(k.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Ditto Army on Shift+Z");
+		helper.assertTrue(DittoKit.SHUFFLE.equals(k.moveOn(AbilitySlot.SLOT_6, false, false).id()), "Shell Game on C");
+		helper.assertTrue(DittoKit.SWITCHEROO.equals(k.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Switcheroo on Shift+C");
+		helper.assertTrue(k.move("copy_carry") == null, "Copy Carry is gone");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void copyCarryLiftsAndThrows(GameTestHelper helper) {
+	public void shellGameSwapsWithACopy(GameTestHelper helper) {
 		ServerPlayer p = ditto(helper);
-		Zombie z = zombie(helper, 3.5, 2, 4.5);
-		lookAt(p, z);
-		tap(p, AbilitySlot.SLOT_6, true);
-		helper.assertTrue(kit().cooldownLeft(p, DittoKit.CARRY) == 0, "no carry without two copies");
 		tap(p, AbilitySlot.SLOT_5, false);
-		kit().cooldown(p, DittoKit.SPLIT, 0);
-		tap(p, AbilitySlot.SLOT_5, false);
-		lookAt(p, z);
-		double y0 = z.getY();
-		float before = z.getHealth();
-		tap(p, AbilitySlot.SLOT_6, true);
-		helper.assertTrue(DittoKit.carrying(p), "two copies grab it");
-		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(z.getY() > y0 + 0.9, "lifted over their heads: " + (z.getY() - y0));
-			helper.assertTrue(DittoKit.copies(p).stream().filter(DittoCopyEntity::holding).count() == 2, "two copies hold it up");
-			helper.runAfterDelay(10, () -> {
-				helper.assertFalse(DittoKit.carrying(p), "and thrown");
-				helper.assertTrue(z.getHealth() < before, "the throw hurts: " + z.getHealth());
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_TICKS + 30, () -> {
+			Vec3 me = p.position();
+			DittoCopyEntity c = DittoKit.copies(p).get(0);
+			Vec3 it = c.position();
+			tap(p, AbilitySlot.SLOT_6, false);
+			helper.assertTrue(p.position().distanceTo(it) < 0.01, "he is where it was");
+			helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "unseen");
+			helper.runAfterDelay(DittoKit.SHUFFLE_HOP, () -> {
+				helper.assertTrue(c.position().distanceTo(me) < 1.0, "and it hopped to where he was: " + c.position().distanceTo(me));
 				helper.succeed();
 			});
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void leapTossAndArmy(GameTestHelper helper) {
 		ServerPlayer p = ditto(helper);
 		DittoKit k = kit();
@@ -346,15 +450,19 @@ public class OmnitrixDittoGameTests implements FabricGameTest {
 		tap(p, AbilitySlot.SLOT_3, false);
 		helper.assertTrue(p.getDeltaMovement().y > 0.5 && k.flag(p, DittoKit.F_LEAP), "X leaps, no fall damage");
 		helper.assertFalse(k.allowDamage(p, helper.getLevel().damageSources().fall(), 6f), "a leap's fall is free");
-		tap(p, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(k.flag(p, DittoKit.F_ARMY) && DittoKit.copies(p).size() == DittoKit.ARMY_COPIES, "C: a dozen copies at once");
-		tap(p, AbilitySlot.SLOT_3, true);
-		helper.assertTrue(k.cooldownLeft(p, DittoKit.TOSS) > 0, "Shift+X: a copy throws him");
-		k.setTimer(p, DittoKit.ARMY_UNTIL, 1);
-		Omnitrix.tick(p);
-		helper.assertTrue(!k.flag(p, DittoKit.F_ARMY) && DittoKit.copies(p).size() <= DittoKit.MAX_COPIES, "the army ends: back to six");
-		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-		helper.assertTrue(DittoKit.copies(p).isEmpty(), "turning back pops every copy");
-		helper.succeed();
+		tap(p, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(k.flag(p, DittoKit.F_ARMY) && DittoKit.copies(p).size() == 10, "Shift+Z: all ten at once");
+		helper.assertTrue(DittoKit.frenzied(p), "and they punch twice as fast");
+		helper.runAfterDelay(DittoCopyEntity.EMERGE_FAST + 10 * DittoKit.ARMY_STAGGER + 2, () -> {
+			tap(p, AbilitySlot.SLOT_3, true);
+			helper.assertTrue(k.cooldownLeft(p, DittoKit.TOSS) > 0, "Shift+X: a copy throws him");
+			k.setTimer(p, DittoKit.ARMY_UNTIL, 1);
+			helper.runAfterDelay(2, () -> {
+				helper.assertTrue(!k.flag(p, DittoKit.F_ARMY) && DittoKit.copies(p).size() == 10, "the army ends, the copies stay");
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.assertTrue(DittoKit.copies(p).isEmpty(), "turning back pops every copy");
+				helper.succeed();
+			});
+		});
 	}
 }

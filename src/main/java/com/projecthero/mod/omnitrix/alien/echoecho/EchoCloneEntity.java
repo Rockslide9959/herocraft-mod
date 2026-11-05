@@ -3,6 +3,7 @@ package com.projecthero.mod.omnitrix.alien.echoecho;
 import org.jetbrains.annotations.Nullable;
 
 import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.CloneSpacing;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -10,6 +11,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -19,7 +21,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2: one of Echo Echo's duplicates -- a small, plain (non-living) entity that keeps formation behind its owner, faces where he
+ * v0.17.2: one of Echo Echo's duplicates -- a small, plain (non-living) entity that keeps its own spot in the formation behind its owner
+ * ({@link CloneSpacing}; user: "make them each have their own position, they shouldnt stand inside each other"), faces where he
  * faces and copies his moves' poses (the client renders it with Echo Echo's body, {@code EchoCloneRenderer}). The kit makes its
  * screams; it only follows, dashes where the kit sends it and breaks after {@link #MAX_HP} damage. Never saved; it disappears the
  * moment its owner is not a transformed Echo Echo any more.
@@ -27,6 +30,8 @@ import net.minecraft.world.phys.Vec3;
 public class EchoCloneEntity extends Entity {
 	private static final EntityDataAccessor<Integer> OWNER = SynchedEntityData.defineId(EchoCloneEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> SLOT = SynchedEntityData.defineId(EchoCloneEntity.class, EntityDataSerializers.INT);
+	/** Merge: rushing back into him (synced -- drawn shrinking as it arrives). */
+	private static final EntityDataAccessor<Boolean> HOMING = SynchedEntityData.defineId(EchoCloneEntity.class, EntityDataSerializers.BOOLEAN);
 
 	public static final float MAX_HP = 6f;
 
@@ -34,6 +39,10 @@ public class EchoCloneEntity extends Entity {
 	@Nullable
 	private Vec3 goal;
 	private int goalTicks;
+	/** Surround Sound: the creature it looks in at, and for how long. */
+	@Nullable
+	private Entity faces;
+	private int faceTicks;
 
 	public EchoCloneEntity(EntityType<? extends EchoCloneEntity> type, Level level) {
 		super(type, level);
@@ -43,9 +52,8 @@ public class EchoCloneEntity extends Entity {
 		EchoCloneEntity e = new EchoCloneEntity(EchoEchoKit.CLONE, owner.level());
 		e.entityData.set(OWNER, owner.getId());
 		e.entityData.set(SLOT, slot);
-		Vec3 at = e.slotPos(owner);
+		// it slides out of him and on to its spot (the tick's easing does it)
 		e.moveTo(owner.getX(), owner.getY(), owner.getZ(), owner.getYRot(), 0f);
-		e.setPos(at.x, owner.getY(), at.z);
 		owner.level().addFreshEntity(e);
 		return e;
 	}
@@ -63,24 +71,31 @@ public class EchoCloneEntity extends Entity {
 		return level().getEntity(ownerId()) instanceof Player p ? p : null;
 	}
 
-	/** Where this clone stands in formation: a fan behind and beside its owner. */
+	/** Where this clone stands in formation: its own spot in the fan behind its owner, never inside a wall. */
 	public Vec3 slotPos(Player owner) {
-		float yaw = owner.getYRot() * Mth.DEG_TO_RAD;
-		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
-		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
-		double side = switch (slot()) {
-			case 0 -> -1.3;
-			case 1 -> 1.3;
-			default -> 0.0;
-		};
-		double back = slot() >= 2 ? 1.6 : 0.8;
-		return owner.position().add(right.scale(side)).subtract(fwd.scale(back));
+		return CloneSpacing.clear(level(), getType(), CloneSpacing.fan(owner, slot()), owner.position());
 	}
 
 	/** Sends the clone running to {@code at} for {@code ticks} (Echo Assault). */
 	public void dashTo(Vec3 at, int ticks) {
 		goal = at;
 		goalTicks = ticks;
+	}
+
+	/** Surround Sound: looks in at {@code e} for {@code ticks}. */
+	public void faceAt(Entity e, int ticks) {
+		faces = e;
+		faceTicks = ticks;
+	}
+
+	/** Merge: it rushes back into him and is gone. */
+	public void recall() {
+		entityData.set(HOMING, true);
+		goal = null;
+	}
+
+	public boolean homing() {
+		return entityData.get(HOMING);
 	}
 
 	/** A sound wave's mouth: the clone's eye. */
@@ -92,6 +107,7 @@ public class EchoCloneEntity extends Entity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(OWNER, -1);
 		builder.define(SLOT, 0);
+		builder.define(HOMING, false);
 	}
 
 	@Override
@@ -106,6 +122,17 @@ public class EchoCloneEntity extends Entity {
 			discard();
 			return;
 		}
+		if (homing()) {
+			Vec3 to = owner.position().subtract(position());
+			double dist = to.length();
+			if (dist < 0.35) {
+				discard();
+				return;
+			}
+			setPos(position().add(to.scale(Math.min(1.0, Math.max(0.3, 0.3 / dist)))));
+			setYRot((float) (Mth.atan2(-to.x, to.z) * Mth.RAD_TO_DEG));
+			return;
+		}
 		Vec3 target;
 		if (goal != null && goalTicks > 0) {
 			goalTicks--;
@@ -118,10 +145,25 @@ public class EchoCloneEntity extends Entity {
 		Vec3 d = target.subtract(cur);
 		double k = goal != null ? 0.45 : 0.3;
 		Vec3 next = cur.add(d.x * k, 0, d.z * k);
+		if (owner instanceof ServerPlayer sp) {
+			var brothers = EchoEchoKit.clones(sp);
+			// on the way there it steps round its brothers; nearly there with one in the way (a wall has squeezed two spots together) it stops
+			boolean give = d.horizontalDistanceSqr() < 0.36 && CloneSpacing.crowded(this, brothers);
+			next = (give ? cur : next).add(CloneSpacing.apart(this, brothers));
+		}
 		// keep to the owner's height (no pathing for a basic duplicate), easing toward it
 		double y = cur.y + (target.y - cur.y) * 0.4;
 		setPos(next.x, y, next.z);
 		float yaw = goal != null && d.horizontalDistanceSqr() > 0.05 ? (float) (Mth.atan2(-d.x, d.z) * Mth.RAD_TO_DEG) : owner.getYRot();
+		if (faceTicks > 0) {
+			faceTicks--;
+			if (faces != null && faces.isAlive() && d.horizontalDistanceSqr() <= 0.05) {
+				Vec3 in = faces.position().subtract(cur);
+				yaw = (float) (Mth.atan2(-in.x, in.z) * Mth.RAD_TO_DEG);
+			}
+		} else {
+			faces = null;
+		}
 		setYRot(yaw);
 		setXRot(owner.getXRot());
 	}
