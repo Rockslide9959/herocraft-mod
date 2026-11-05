@@ -44,7 +44,7 @@ final class Xlr8Tail {
 	/** The tail's root on the body bone (px): the small of his back, just inside it. */
 	private static final float ROOT_Y = 10.5f, ROOT_Z = 1.6f;
 	/** The tube's radius (px) at the root and tip. */
-	private static final float R_ROOT = 1.8f, R_TIP = 0.12f;
+	private static final float R_ROOT = 2.2f, R_TIP = 0.3f; // v0.17.2 (user: "slightly thicker"): was 1.8, 0.12
 	private static final int SUB = 3, SIDES = 8;
 	/** The fastest a point may carry its own motion (blocks / tick): a dead stop swings the tail past him, never flings it. */
 	private static final double MAX_CARRY = 0.45;

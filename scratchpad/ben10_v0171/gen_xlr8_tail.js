@@ -1,6 +1,6 @@
 // v0.17.2 (user: "make xlr8s tail better"): the sheet for Xlr8Tail's round tube -- textures/entity/omnitrix/xlr8_tail.png, 16x64.
 // x runs round the tube (its middle is the top of the tail), y from the root to the tip. His skin's own navy, and the teal chevrons
-// the source skin (xlr8_v0171/xlr8_src.png) paints down the tail, pointing at the tip and shrinking toward it; a pale tip.
+// the source skin (xlr8_v0171/xlr8_src.png) paints down the tail, pointing at the tip and shrinking toward it; no pale tip (v0.17.2 user).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -20,7 +20,6 @@ for (let y = 0; y < H; y++) {
 			const d = y - (at - across * 16);
 			if (across < wide && d >= 0 && d < band) c = d < 1 ? TEAL_DARK : TEAL;
 		}
-		if (y >= 56) c = mix(TEAL, PALE, Math.min(1, (y - 55) / 4));
 		const o = (y * W + x) * 4;
 		px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = 255;
 	}
