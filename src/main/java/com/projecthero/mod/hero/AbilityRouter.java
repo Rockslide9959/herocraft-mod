@@ -39,6 +39,10 @@ public final class AbilityRouter {
 		if (com.projecthero.mod.ultron.UltronJam.blocks(player, slotNumber, pressed)) {
 			return;
 		}
+		// v0.17.2 round 3: a squad mate inside Cannonbolt's ball is just along for the ride (releases pass so held moves end)
+		if (pressed && com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltStow.stowed(player)) {
+			return;
+		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
 		// v0.17.2: frozen in stopped time -- no power of any system takes a key press (releases pass so held moves end)
 		if (pressed && com.projecthero.mod.stand.TimeStop.frozen(player)) {

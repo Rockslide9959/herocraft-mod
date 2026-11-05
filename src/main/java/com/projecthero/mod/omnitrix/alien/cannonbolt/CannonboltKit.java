@@ -1,5 +1,7 @@
 package com.projecthero.mod.omnitrix.alien.cannonbolt;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.power.PowerToggles;
@@ -35,6 +38,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
@@ -63,16 +67,17 @@ import net.minecraft.world.phys.Vec3;
  * curls into a near-indestructible ball and rolls like a cannonball -- ramming through enemies and walls, ricocheting round a room
  * like a pinball, bouncing, rolling up walls, shrugging lasers off his shell. Spec: {@code docs/OMNITRIX_REVAMP_CANNONBOLT.md}.
  *
- * <p>V curls him up / uncurls him: in <b>Ball Mode</b> every key swaps for a rolling move ({@link #liveMoveOn}), his hitbox is a
- * one-block ball ({@link #body}), he rolls faster the longer he keeps rolling (Momentum), rams whatever he rolls into, rolls up
- * walls, bounces off any fall, deflects projectiles and takes half damage -- but he cannot punch or use items.
+ * <p>V curls him up / uncurls him: in <b>Ball Mode</b> R, G, X and V swap for rolling moves ({@link #liveMoveOn}), his hitbox is a
+ * two-block ball ({@link #body}), a sprint builds his Momentum from 10 to 25 blocks a second ({@link CannonboltRoll}), he rams whatever
+ * he rolls into, rolls up ledges and through leaves, bounces off any fall, deflects projectiles and takes half damage -- but he cannot
+ * punch or use tools. Z, Shift+Z, C and Shift+C are the same either way, and up to two squad mates can ride inside ({@link CannonboltStow}).
  */
 public final class CannonboltKit extends AlienKit {
 	public static final String ID = "cannonbolt";
 	public static final int COLOUR = 0xDABE0B;
 
 	// ---------------------------------------------------------------- synced flags
-	/** Ball Mode (V): the ball hitbox, the swapped keys. */
+	/** Ball Mode (V, or anything that curls him for good): the ball hitbox, the swapped keys. */
 	public static final int F_BALL = 1;
 	/** Drawn as the ball right now (Ball Mode, or a curl mid-move: the Tumble, the Curl Smash's drop, the Cannonball Launch). */
 	public static final int F_ROUND = 2;
@@ -80,35 +85,55 @@ public final class CannonboltKit extends AlienKit {
 	public static final int F_SPIN = 8;
 	public static final int F_UNSTOPPABLE = 16;
 	public static final int F_GUARD = 32;
-	public static final int F_RICOCHET = 64;
+	/** The Rolling Rampage: rolling from enemy to enemy. */
+	public static final int F_RAMPAGE = 64;
 	/** In the air from one of his own moves (no fall damage, the landing hits). */
 	public static final int F_AIR = 128;
+	/** The Spin Charge: spinning on the spot winding up Momentum, WASD dead. */
+	public static final int F_CHARGING = 256;
+	/** One of his moves is driving him: his keys do nothing, the server's velocity is what moves him. */
+	public static final int F_DRIVEN = 512;
+	/** The Unstoppable Cannonball: the shell's spikes are out, from the wind-up to the crash. */
+	public static final int F_SPIKES = 1024;
+	/** The Unstoppable Cannonball's wind-up: hanging in the air, spinning up. */
+	public static final int F_WIND = 2048;
 
 	// ---------------------------------------------------------------- poses
-	public static final int ANIM_BASH = 1, ANIM_SLAM = 2, ANIM_CURL = 3, ANIM_GUARD = 4, ANIM_POUND = 5, ANIM_UNCURL = 6, ANIM_PUNCH = 7;
+	public static final int ANIM_BASH = 1, ANIM_SLAM = 2, ANIM_CURL = 3, ANIM_GUARD = 4, ANIM_POUND = 5, ANIM_UNCURL = 6, ANIM_PUNCH = 7, ANIM_GUARD_END = 8;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.cannonbolt.<id>)
 	// standing
 	public static final String BASH = "shoulder_bash", SLAM = "shell_slam", CURL_SMASH = "curl_smash", GUARD = "shell_guard", TUMBLE = "tumble_roll",
-			POUND = "ground_pound", LAUNCH = "cannonball_launch", CURL = "curl_up", FISTS = "pelarota_fists", BACK = "shell_back";
+			POUND = "ground_pound", LAUNCH = "cannonball_launch", CURL = "curl_up", FISTS = "pelarota_fists", BACK = "shell_back",
+			SPIN_CHARGE = "spin_charge", REBOUND = "rebound_strike", UNSTOPPABLE = "unstoppable_cannonball";
 	// Ball Mode
-	public static final String CHARGE = "cannonball_charge", RICOCHET = "pinball_ricochet", BOUNCE = "big_bounce", DROP = "meteor_drop",
-			BOOST = "roll_boost", SPIN = "shell_spin", UNSTOPPABLE = "unstoppable", UNCURL = "uncurl", RAM = "ram", SHELL = "armoured_shell",
-			WALL_ROLL = "wall_roll";
+	public static final String CHARGE = "cannonball_charge", RAMPAGE = "rolling_rampage", BOUNCE = "big_bounce", DROP = "meteor_drop",
+			BOOST = "roll_boost", SPIN = "shell_spin", UNCURL = "uncurl", RAM = "ram", SHELL = "armoured_shell",
+			WALL_ROLL = "wall_roll", STOW = "shell_shuttle";
 
-	// ---------------------------------------------------------------- numbers (the alien damage scale: quick ~9-14, normal 14-22, big 22-28)
-	public static final float BASH_DAMAGE = 14f, SLAM_DAMAGE = 20f, CURL_SMASH_DAMAGE = 22f, TUMBLE_DAMAGE = 9f, POUND_DAMAGE = 16f, LAUNCH_DAMAGE = 26f;
-	public static final float CHARGE_DAMAGE = 20f, RICOCHET_DAMAGE = 16f, BOUNCE_DAMAGE = 18f, DROP_DAMAGE = 28f, SPIN_DAMAGE = 8f,
-			UNSTOPPABLE_DAMAGE = 24f, RAM_MIN = 8f, RAM_MAX = 20f;
-	public static final int GUARD_TICKS = 60, TUMBLE_TICKS = 10, LAUNCH_TICKS = 24, CHARGE_TICKS = 20, RICOCHET_TICKS = 100, RICOCHET_BOUNCES = 6,
-			BOOST_TICKS = 100, SPIN_TICKS = 40, UNSTOPPABLE_TICKS = 160, MOMENTUM_TICKS = 60;
+	// ---------------------------------------------------------------- numbers (quick 5-8, normal 12-17, big 17-20, ultimate 21-36; the user's own where given)
+	public static final float BASH_DAMAGE = 14f, SLAM_DAMAGE = 20f, CURL_SMASH_DAMAGE = 20f, TUMBLE_DAMAGE = 8f, POUND_DAMAGE = 16f, LAUNCH_DAMAGE = 20f;
+	public static final float CHARGE_DAMAGE = 20f, RAMPAGE_DAMAGE = 20f, BOUNCE_DAMAGE = 18f, DROP_DAMAGE = 20f, SPIN_DAMAGE = 8f;
+	/** The Rebound Strike: two hits and the big last one. */
+	public static final float REBOUND_DAMAGE = 12f, REBOUND_LAST_DAMAGE = 17f;
+	/** The Unstoppable Cannonball: every ram, and the crash that ends it. */
+	public static final float UNSTOPPABLE_DAMAGE = 30f, CRASH_DAMAGE = 36f;
+	public static final int TUMBLE_TICKS = 10, LAUNCH_TICKS = 24, CHARGE_TICKS = 20, BOOST_TICKS = 100, SPIN_TICKS = 40;
+	/** The Unstoppable Cannonball: the wind-up, then how long he rampages. */
+	public static final int WIND_TICKS = 30, UNSTOPPABLE_TICKS = 160;
+	/** The Spin Charge: ticks of holding C to full Momentum, and the most he can hold it. */
+	public static final int SPIN_CHARGE_FILL = 30, SPIN_CHARGE_MAX = 200;
+	/**
+	 * v0.17.2 round 3 (user: "actually autotrack the 20 nearest enemies on a similar Y level of the player within 50 blocks and then roll
+	 * and attack them dealing 20 damage"): the reach, how far above or below him counts as a similar level, and how long he may
+	 * fail to get closer to one enemy before giving it up.
+	 */
+	public static final int RAMPAGE_TARGETS = 20, RAMPAGE_STUCK_TICKS = 20, RAMPAGE_TICKS = 600;
+	public static final double RAMPAGE_RANGE = 50.0, RAMPAGE_Y = 5.0;
+	public static final int REBOUND_HITS = 3;
+	public static final double REBOUND_RANGE = 24.0, REBOUND_SPEED = 1.6;
 	/** Horizontal blocks / tick before rolling into something hurts it. */
 	public static final double RAM_SPEED = 0.3;
-	/**
-	 * v0.17.2 (user: "make cannonbolts ball form move at 25 blocks per second while sprinting"): the roll's speed bonus while
-	 * sprinting at full Momentum (tuned in game: 1.25 blocks a tick on flat ground). Plain rolling keeps 1.0 + 1.2 x Momentum.
-	 */
-	public static final double SPRINT_TOP_BONUS = 4.57; // measured 1.235 b/t at 4.5
 	/** v0.17.2 (user: "when he sprint jumps its more like a forward launch kind of thing"): the launch's speed out (blocks / tick) and lift. */
 	public static final double LAUNCH_SPEED = 1.7, LAUNCH_LIFT = 0.5;
 	public static final float LAUNCH_LAND_DAMAGE = 12f;
@@ -119,16 +144,21 @@ public final class CannonboltKit extends AlienKit {
 	 */
 	public static final int FALL_BOUNCES = 3;
 	public static final double BOUNCE_KEEP = 0.55, BOUNCE_MIN = 0.22;
-	/** v0.17.2 (user: "make canonbolts ball form 1,75 blocks tall please"): the ball's hitbox before the body's scale (1.3). */
-	public static final float BALL_SIZE = 1.75f / 1.3f;
+	/**
+	 * v0.17.2 round 3 (user: "make cannonbolt 2 blocks tall please even without his head"): the body's scale. His headless body is 24 px
+	 * of the player model, and vanilla draws players at 0.9375, so 2 blocks of him is 2 / (1.5 x 0.9375).
+	 */
+	public static final float SCALE = 2f / 1.40625f;
+	/** v0.17.2 round 3 (user: "Make his ball form 2 blocks tall aswell please"): the ball's hitbox before the body's scale. */
+	public static final float BALL_SIZE = 2f / SCALE;
 	/**
 	 * v0.17.2 (user: "make the players view come out of their chest please since they dont have a head" / "make the nametag appear
 	 * above the body instead of above the chest please"): standing, the box ends at his headless body's top (24 px), the eyes sit in
-	 * his chest and the nametag just over his shoulders -- before the body's scale (1.3).
+	 * his chest and the nametag just over his shoulders -- before the body's scale ({@link #SCALE}).
 	 */
-	public static final float BODY_HEIGHT = 1.55f, CHEST_EYE = 1.25f, CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.0f, TAG_DROP = -0.15f; // v0.17.2 (user: "make the nametag a bit higher since right now its inside his body"): was 0.4
+	public static final float BODY_HEIGHT = 1.40625f, CHEST_EYE = 1.14f, CROUCH_HEIGHT = 1.2f, CROUCH_EYE = 0.92f, TAG_DROP = -0.15f; // v0.17.2 (user: "make the nametag a bit higher since right now its inside his body"): was 0.4
 
-	private static final ResourceLocation ROLL_SPEED = PowerToggles.id("omnitrix_cannonbolt_roll");
+	private static final ResourceLocation ROLL_SPEED = PowerToggles.id("omnitrix_cannonbolt_roll"); // gone since CannonboltRoll: only ever cleared
 	private static final ResourceLocation ROLL_STEP = PowerToggles.id("omnitrix_cannonbolt_step");
 	private static final ResourceLocation STEADY = PowerToggles.id("omnitrix_cannonbolt_steady");
 
@@ -163,25 +193,42 @@ public final class CannonboltKit extends AlienKit {
 		TUMBLE, LAUNCH, CHARGE
 	}
 
-	private record Dash(DashKind kind, Vec3 dir, double speed, long end, Set<Integer> hits) {
-	}
-
-	private static final class Rico {
-		Vec3 dir;
-		double speed;
-		int bounces;
+	/** The Rolling Rampage: who is left (creature ids, nearest-next order), the one he is rolling for and how close he has got to it. */
+	private static final class Rush {
+		final List<Integer> left;
+		final Set<Integer> hit = new HashSet<>();
 		final long end;
-		final Map<Integer, Long> hits = new HashMap<>();
+		double best = Double.MAX_VALUE;
+		int stuck;
 
-		Rico(Vec3 dir, double speed, long end) {
-			this.dir = dir;
-			this.speed = speed;
+		Rush(List<Integer> left, long end) {
+			this.left = left;
 			this.end = end;
 		}
 	}
 
+	/** The Rebound Strike: the mark, strikes landed, and whether he is on the way in or hopping back off the last hit. */
+	private static final class Rebound {
+		final int target;
+		Vec3 aim;
+		final long start;
+		int hits;
+		long hopUntil;
+		long strikeStart;
+
+		Rebound(int target, Vec3 aim, long start) {
+			this.target = target;
+			this.aim = aim;
+			this.start = start;
+			this.strikeStart = start;
+		}
+	}
+
+	private record Dash(DashKind kind, Vec3 dir, double speed, long end, Set<Integer> hits) {
+	}
+
 	private enum AirKind {
-		CURL_SMASH, BOUNCE, DROP, LAUNCH
+		CURL_SMASH, BOUNCE, DROP, LAUNCH, CRASH
 	}
 
 	private static final class Air {
@@ -219,12 +266,15 @@ public final class CannonboltKit extends AlienKit {
 	private static final Map<UUID, Long> LAST_LAUNCH = new ConcurrentHashMap<>();
 
 	private static final Map<UUID, Dash> DASHES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Rico> RICOS = new ConcurrentHashMap<>();
+	private static final Map<UUID, Rush> RUSHES = new ConcurrentHashMap<>();
+	private static final Map<UUID, Rebound> REBOUNDS = new ConcurrentHashMap<>();
+	/** A Spin Charge just let go: the tick, until he is seen rolling away (or isn't) -- the takeoff's burst. */
+	private static final Map<UUID, Long> RELEASED = new ConcurrentHashMap<>();
 	private static final Map<UUID, Air> AIRS = new ConcurrentHashMap<>();
 	/** Last tick's position (the real rolling speed: the client moves the player). */
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
-	/** Ticks of unbroken rolling (Momentum). */
-	private static final Map<UUID, Integer> ROLLED = new ConcurrentHashMap<>();
+	/** Momentum as the server reads it from his real speed, 0..1 (the owner's client simulates the roll: {@link CannonboltRoll}). */
+	private static final Map<UUID, Double> MOMENTUM = new ConcurrentHashMap<>();
 	/** Creature id -> the tick the ball last rammed it. */
 	private static final Map<UUID, Map<Integer, Long>> RAMMED = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
@@ -234,14 +284,17 @@ public final class CannonboltKit extends AlienKit {
 
 	public static void register() {
 		Aliens.register(new CannonboltKit());
+		CannonboltStow.initialize();
 	}
 
 	public static void clearSessionState() {
 		DASHES.clear();
-		RICOS.clear();
+		RUSHES.clear();
+		REBOUNDS.clear();
+		RELEASED.clear();
 		AIRS.clear();
 		LAST_POS.clear();
-		ROLLED.clear();
+		MOMENTUM.clear();
 		RAMMED.clear();
 		LAST_TICK.clear();
 		BOUNCES.clear();
@@ -258,7 +311,7 @@ public final class CannonboltKit extends AlienKit {
 	@Override
 	public AlienStats stats() {
 		// a heavy, slow brute (the show: he lumbers when uncurled) -- his shell plates are diamond-grade armour
-		return AlienStats.builder().health(40f).speed(0.8f).scale(1.3f).armor(16f, 3f).knockbackResist(0.5f).attack(9f).step(0.4f).jump(0.02f)
+		return AlienStats.builder().health(40f).speed(0.8f).scale(SCALE).armor(16f, 3f).knockbackResist(0.5f).attack(9f).step(0.4f).jump(0.02f)
 				.safeFall(4f).reach(0.3f).build();
 	}
 
@@ -267,34 +320,33 @@ public final class CannonboltKit extends AlienKit {
 		return List.of(
 				// standing
 				AlienMove.tap(BASH, AbilitySlot.SLOT_1, 24), AlienMove.shift(SLAM, AbilitySlot.SLOT_1, 160),
-				AlienMove.tap(CURL_SMASH, AbilitySlot.SLOT_2, 200), AlienMove.shift(GUARD, AbilitySlot.SLOT_2, 240),
+				AlienMove.tap(LAUNCH, AbilitySlot.SLOT_2, 240), AlienMove.shift(POUND, AbilitySlot.SLOT_2, 140),
 				AlienMove.tap(TUMBLE, AbilitySlot.SLOT_3, 80),
-				AlienMove.tap(POUND, AbilitySlot.SLOT_4, 140),
-				AlienMove.tap(CURL, AbilitySlot.SLOT_5, 10),
-				AlienMove.tap(LAUNCH, AbilitySlot.SLOT_6, 500),
+				AlienMove.tap(CURL, AbilitySlot.SLOT_5, 10), AlienMove.shift(GUARD, AbilitySlot.SLOT_5, 80),
+				// the same in both forms (they curl him up if he is standing)
+				AlienMove.tap(REBOUND, AbilitySlot.SLOT_4, 160), AlienMove.shift(UNSTOPPABLE, AbilitySlot.SLOT_4, 1200),
+				AlienMove.tap(SPIN_CHARGE, AbilitySlot.SLOT_6, 60), AlienMove.shift(CURL_SMASH, AbilitySlot.SLOT_6, 200),
 				AlienMove.vanilla(FISTS, "Attack", 0), AlienMove.vanilla(BACK, "Passive", 0),
 				// Ball Mode (the HUD shows them on the same keys while he is rolled up, see liveMoveOn)
-				AlienMove.vanilla(CHARGE, "Ball Mode: R", 100), AlienMove.vanilla(RICOCHET, "Ball Mode: Shift+R", 240),
+				AlienMove.vanilla(CHARGE, "Ball Mode: R", 100), AlienMove.vanilla(RAMPAGE, "Ball Mode: Shift+R", 400),
 				AlienMove.vanilla(BOUNCE, "Ball Mode: G", 80), AlienMove.vanilla(DROP, "Ball Mode: Shift+G", 400),
-				AlienMove.vanilla(BOOST, "Ball Mode: X", 240), AlienMove.vanilla(SPIN, "Ball Mode: Z", 160),
-				AlienMove.vanilla(UNCURL, "Ball Mode: V", 10), AlienMove.vanilla(UNSTOPPABLE, "Ball Mode: C", 900),
+				AlienMove.vanilla(BOOST, "Ball Mode: X", 240),
+				AlienMove.vanilla(UNCURL, "Ball Mode: V", 10), AlienMove.vanilla(SPIN, "Ball Mode: Shift+V", 160),
 				AlienMove.vanilla(RAM, "Ball Mode: roll into it", 0), AlienMove.vanilla(SHELL, "Ball Mode: passive", 0),
-				AlienMove.vanilla(WALL_ROLL, "Ball Mode: roll up a ledge", 0));
+				AlienMove.vanilla(WALL_ROLL, "Ball Mode: roll up a ledge", 0), AlienMove.vanilla(STOW, "Ball Mode: squad mates right-click him", 0));
 	}
 
-	/** Ball Mode swaps every key for its rolling move. */
+	/** Ball Mode swaps R, G, X and V for their rolling moves; Z and C are the same either way. */
 	@Override
 	public AlienMove liveMoveOn(Player p, AbilitySlot slot, boolean shift, boolean hold) {
 		if (!flag(p, F_BALL) || hold) {
 			return moveOn(slot, shift, hold);
 		}
 		return switch (slot) {
-			case SLOT_1 -> move(shift ? RICOCHET : CHARGE);
+			case SLOT_1 -> move(shift ? RAMPAGE : CHARGE);
 			case SLOT_2 -> move(shift ? DROP : BOUNCE);
 			case SLOT_3 -> shift ? null : move(BOOST);
-			case SLOT_4 -> shift ? null : move(SPIN);
-			case SLOT_5 -> shift ? null : move(UNCURL);
-			case SLOT_6 -> shift ? null : move(UNSTOPPABLE);
+			case SLOT_5 -> move(shift ? SPIN : UNCURL);
 			default -> moveOn(slot, shift, hold);
 		};
 	}
@@ -302,12 +354,11 @@ public final class CannonboltKit extends AlienKit {
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_5 -> flag(p, F_BALL);
+			case SLOT_5 -> flag(p, F_BALL) || flag(p, F_GUARD);
 			case SLOT_3 -> flag(p, F_BOOST);
-			case SLOT_4 -> flag(p, F_SPIN);
-			case SLOT_6 -> flag(p, F_UNSTOPPABLE);
-			case SLOT_2 -> flag(p, F_GUARD);
-			case SLOT_1 -> flag(p, F_RICOCHET);
+			case SLOT_4 -> flag(p, F_SPIKES);
+			case SLOT_6 -> flag(p, F_CHARGING);
+			case SLOT_1 -> flag(p, F_RAMPAGE);
 			default -> false;
 		};
 	}
@@ -327,7 +378,7 @@ public final class CannonboltKit extends AlienKit {
 	@Override
 	@Nullable
 	public EntityDimensions body(Player p, Pose pose) {
-		if (flag(p, F_BALL)) {
+		if (ball(p)) {
 			return BALL_BODY;
 		}
 		return switch (pose) {
@@ -338,7 +389,10 @@ public final class CannonboltKit extends AlienKit {
 	}
 
 	// built once: the body mixin refreshes the hitbox whenever the answer stops being equal to the last one
-	private static final EntityDimensions BALL_BODY = EntityDimensions.scalable(BALL_SIZE, BALL_SIZE).withEyeHeight(BALL_SIZE * 0.6f);
+	private static final EntityDimensions BALL_BODY = EntityDimensions.scalable(BALL_SIZE, BALL_SIZE).withEyeHeight(BALL_SIZE * 0.58f)
+			.withAttachments(net.minecraft.world.entity.EntityAttachments.builder()
+					.attach(net.minecraft.world.entity.EntityAttachment.NAME_TAG, 0f, BALL_SIZE, 0f)
+					.attach(net.minecraft.world.entity.EntityAttachment.PASSENGER, 0f, 0f, 0f)); // a mate rides inside, not on top
 	private static final EntityDimensions STANDING_BODY = headless(BODY_HEIGHT, CHEST_EYE);
 	private static final EntityDimensions CROUCHING_BODY = headless(CROUCH_HEIGHT, CROUCH_EYE);
 
@@ -378,19 +432,22 @@ public final class CannonboltKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
-		for (int f : new int[] { F_BALL, F_ROUND, F_BOOST, F_SPIN, F_UNSTOPPABLE, F_GUARD, F_RICOCHET, F_AIR }) {
+		CannonboltStow.releaseAll(p); // whatever turned him back, anyone inside is out and dizzy
+		for (int f : new int[] { F_BALL, F_ROUND, F_BOOST, F_SPIN, F_UNSTOPPABLE, F_GUARD, F_RAMPAGE, F_AIR, F_CHARGING, F_DRIVEN, F_SPIKES, F_WIND }) {
 			setFlag(p, f, false);
 		}
-		for (String t : new String[] { "guard_end", "boost_end", "spin_end", "unstoppable_end" }) {
+		for (String t : new String[] { "boost_end", "spin_end", "unstoppable_end", "wind_end", "charge_start" }) {
 			setTimer(p, t, 0);
 		}
 		clearRoll(p);
 		UUID id = p.getUUID();
 		DASHES.remove(id);
-		RICOS.remove(id);
+		RUSHES.remove(id);
+		REBOUNDS.remove(id);
+		RELEASED.remove(id);
 		AIRS.remove(id);
 		LAST_POS.remove(id);
-		ROLLED.remove(id);
+		MOMENTUM.remove(id);
 		RAMMED.remove(id);
 		LAST_TICK.remove(id);
 		BOUNCES.remove(id);
@@ -409,11 +466,27 @@ public final class CannonboltKit extends AlienKit {
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
+		if (slot == AbilitySlot.SLOT_4) {
+			if (shift) {
+				unstoppable(p);
+			} else {
+				reboundStrike(p);
+			}
+			return;
+		}
+		if (slot == AbilitySlot.SLOT_6) {
+			if (shift) {
+				curlSmash(p);
+			} else {
+				spinChargeStart(p);
+			}
+			return;
+		}
 		if (flag(p, F_BALL)) {
 			switch (slot) {
 				case SLOT_1 -> {
 					if (shift) {
-						ricochet(p);
+						rampage(p);
 					} else {
 						charge(p);
 					}
@@ -430,19 +503,11 @@ public final class CannonboltKit extends AlienKit {
 						boost(p);
 					}
 				}
-				case SLOT_4 -> {
-					if (!shift) {
-						spin(p);
-					}
-				}
 				case SLOT_5 -> {
-					if (!shift && use(p, UNCURL)) {
+					if (shift) {
+						spin(p);
+					} else if (use(p, UNCURL)) {
 						setBall(p, false);
-					}
-				}
-				case SLOT_6 -> {
-					if (!shift) {
-						unstoppable(p);
 					}
 				}
 				default -> {
@@ -460,9 +525,9 @@ public final class CannonboltKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					shellGuard(p);
+					groundPound(p);
 				} else {
-					curlSmash(p);
+					launch(p);
 				}
 			}
 			case SLOT_3 -> {
@@ -470,23 +535,25 @@ public final class CannonboltKit extends AlienKit {
 					tumble(p);
 				}
 			}
-			case SLOT_4 -> {
-				if (!shift) {
-					groundPound(p);
-				}
-			}
 			case SLOT_5 -> {
-				if (!shift && use(p, CURL)) {
+				if (shift) {
+					shellGuard(p);
+				} else if (use(p, CURL)) {
 					setBall(p, true);
-				}
-			}
-			case SLOT_6 -> {
-				if (!shift) {
-					launch(p);
 				}
 			}
 			default -> {
 			}
+		}
+	}
+
+	/** The keys he holds: C's Spin Charge lets go, Shift+V's Shell Guard drops. */
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_6 && flag(p, F_CHARGING)) {
+			spinChargeRelease(p);
+		} else if (slot == AbilitySlot.SLOT_5 && flag(p, F_GUARD)) {
+			guardEnd(p);
 		}
 	}
 
@@ -504,7 +571,7 @@ public final class CannonboltKit extends AlienKit {
 
 	/**
 	 * Into or out of Ball Mode. Uncurling needs room to stand (false, and a line, under a low ceiling). Curling drops the Shell Guard;
-	 * uncurling stops every rolling move.
+	 * uncurling stops every rolling move and lets out anyone inside.
 	 */
 	public boolean setBall(ServerPlayer p, boolean on) {
 		if (flag(p, F_BALL) == on) {
@@ -519,32 +586,43 @@ public final class CannonboltKit extends AlienKit {
 				cooldown(p, UNCURL, 0);
 				return false;
 			}
-			for (int f : new int[] { F_BOOST, F_SPIN, F_UNSTOPPABLE, F_RICOCHET }) {
+			for (int f : new int[] { F_BOOST, F_SPIN, F_UNSTOPPABLE, F_RAMPAGE, F_CHARGING, F_SPIKES, F_WIND }) {
 				setFlag(p, f, false);
 			}
-			for (String t : new String[] { "boost_end", "spin_end", "unstoppable_end" }) {
+			for (String t : new String[] { "boost_end", "spin_end", "unstoppable_end", "wind_end", "charge_start" }) {
 				setTimer(p, t, 0);
 			}
-			RICOS.remove(p.getUUID());
+			RUSHES.remove(p.getUUID());
+			REBOUNDS.remove(p.getUUID());
+			RELEASED.remove(p.getUUID());
 			Dash d = DASHES.get(p.getUUID());
 			if (d != null && d.kind() == DashKind.CHARGE) {
 				DASHES.remove(p.getUUID());
 			}
-			ROLLED.remove(p.getUUID());
+			MOMENTUM.remove(p.getUUID());
 			BOUNCES.remove(p.getUUID());
 			clearRoll(p);
 			anim(p, ANIM_UNCURL);
 			OmnitrixSounds.play(l, p.position(), SND_UNCURL, 1.0f, 1.0f);
 		} else {
 			setFlag(p, F_GUARD, false);
-			setTimer(p, "guard_end", 0);
+			clearRoll(p); // old saves: the speed attribute's bonus from before CannonboltRoll
 			anim(p, ANIM_CURL);
 			OmnitrixSounds.play(l, p.position(), SND_CURL, 1.0f, 1.0f);
 		}
 		setFlag(p, F_BALL, on);
 		p.refreshDimensions();
 		l.sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + 0.6, p.getZ(), 10, 0.4, 0.4, 0.4, 0.1);
+		if (!on) {
+			CannonboltStow.releaseAll(p); // only now he is standing: the room to set them down is real
+		}
 		return true;
+	}
+
+	/** Something of his own is moving him right now: another move has to wait for it. */
+	private boolean busy(ServerPlayer p) {
+		UUID id = p.getUUID();
+		return DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || flag(p, F_CHARGING) || flag(p, F_WIND);
 	}
 
 	// ---------------------------------------------------------------- standing moves
@@ -588,9 +666,9 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** G: jump, curl in the air and drop like a wrecking ball -- 22 in a 3.5-block ring where he lands. */
+	/** Shift+C: jump, curl in the air and drop like a wrecking ball -- 20 in a 3.5-block ring where he lands. */
 	public boolean curlSmash(ServerPlayer p) {
-		if (!use(p, CURL_SMASH)) {
+		if (busy(p) || AIRS.containsKey(p.getUUID()) || !use(p, CURL_SMASH)) {
 			return false;
 		}
 		anim(p, ANIM_CURL);
@@ -603,29 +681,39 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+G: his shoulder plates turned to the front for 3 s -- blows from in front lose 75%, projectiles bounce back. */
+	/**
+	 * Hold Shift+V (user: "Make holding shift+V a block ability when not in ball form"): his shoulder plates turned to the front for
+	 * as long as he holds it -- blows from in front lose 75%, projectiles bounce back. The 4 s cooldown starts when he lets go.
+	 */
 	public boolean shellGuard(ServerPlayer p) {
-		if (!use(p, GUARD)) {
+		if (flag(p, F_GUARD) || !use(p, GUARD)) {
 			return false;
 		}
 		anim(p, ANIM_GUARD);
 		setFlag(p, F_GUARD, true);
-		setTimer(p, "guard_end", p.level().getGameTime() + GUARD_TICKS);
 		OmnitrixSounds.play(level(p), p.position(), SND_CURL, 0.6f, 1.4f);
 		return true;
 	}
 
-	/** X: a quick curl-and-roll dodge, 6 blocks the way he faces; 9 to whatever he bowls through, half damage while curled. */
+	private void guardEnd(ServerPlayer p) {
+		setFlag(p, F_GUARD, false);
+		cooldown(p, GUARD, -1);
+		anim(p, ANIM_GUARD_END);
+		OmnitrixSounds.play(level(p), p.position(), SND_UNCURL, 0.5f, 1.3f);
+	}
+
+	/** X: a quick curl-and-roll dodge, 6 blocks the way he faces; 8 to whatever he bowls through, half damage while curled. */
 	public boolean tumble(ServerPlayer p) {
 		if (!use(p, TUMBLE)) {
 			return false;
 		}
+		anim(p, ANIM_CURL);
 		startDash(p, DashKind.TUMBLE, flat(p), 0.65, TUMBLE_TICKS);
 		OmnitrixSounds.play(level(p), p.position(), SND_CURL, 0.7f, 1.3f);
 		return true;
 	}
 
-	/** Z: both fists into the ground -- 16 in a 4-block ring, everything thrown up. */
+	/** Shift+G: both fists into the ground -- 16 in a 4-block ring, everything thrown up. */
 	public boolean groundPound(ServerPlayer p) {
 		if (!use(p, POUND)) {
 			return false;
@@ -644,7 +732,7 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** C: curl and fire himself where he looks like a cannonball -- 26 to everything in the way, weak blocks burst; he lands rolled up. */
+	/** G: curl and fire himself where he looks like a cannonball -- 20 to everything in the way, weak blocks burst; he lands rolled up. */
 	public boolean launch(ServerPlayer p) {
 		if (!use(p, LAUNCH)) {
 			return false;
@@ -662,7 +750,7 @@ public final class CannonboltKit extends AlienKit {
 
 	/** Ball R: a straight-line burst where he faces -- 20 to everything in the way, weak blocks burst, stops dead against a wall. */
 	public boolean charge(ServerPlayer p) {
-		if (!use(p, CHARGE)) {
+		if (busy(p) || !use(p, CHARGE)) {
 			return false;
 		}
 		startDash(p, DashKind.CHARGE, flat(p), 1.25, CHARGE_TICKS);
@@ -671,22 +759,51 @@ public final class CannonboltKit extends AlienKit {
 	}
 
 	/**
-	 * Ball Shift+R: the show's pinball -- he shoots off where he faces and bounces off every wall and creature he hits, faster each
-	 * time (6 bounces or 5 s): 16 per hit.
+	 * Ball Shift+R (user: "actually autotrack the 20 nearest enemies on a similar Y level of the player within 50 blocks and then roll and
+	 * attack them dealing 20 damage please, player doesn't return to original position afterwards, player doesn't teleport between
+	 * enemies player must actually roll between enemies"): at top speed from one enemy to the next nearest, 20 each. An enemy he cannot
+	 * get any closer to is given up. He stops where the last one fell. The cooldown runs from the end.
 	 */
-	public boolean ricochet(ServerPlayer p) {
-		if (!use(p, RICOCHET)) {
+	public boolean rampage(ServerPlayer p) {
+		if (busy(p)) {
 			return false;
 		}
-		RICOS.put(p.getUUID(), new Rico(flat(p), 1.1, p.level().getGameTime() + RICOCHET_TICKS));
-		setFlag(p, F_RICOCHET, true);
-		OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 1.0f, 0.9f);
+		List<LivingEntity> marks = rampageTargets(p);
+		if (marks.isEmpty()) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.cannonbolt.no_targets").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (!use(p, RAMPAGE)) {
+			return false;
+		}
+		List<Integer> order = new ArrayList<>();
+		Vec3 from = p.position();
+		List<LivingEntity> pool = new ArrayList<>(marks);
+		while (!pool.isEmpty()) {
+			Vec3 at = from;
+			LivingEntity next = pool.stream().min(Comparator.comparingDouble(e -> e.position().distanceToSqr(at))).get();
+			pool.remove(next);
+			order.add(next.getId());
+			from = next.position();
+		}
+		RUSHES.put(p.getUUID(), new Rush(order, p.level().getGameTime() + RAMPAGE_TICKS));
+		setFlag(p, F_RAMPAGE, true);
+		setFlag(p, F_DRIVEN, true);
+		OmnitrixSounds.play(level(p), p.position(), SND_QUAKE, 0.8f, 1.5f);
 		return true;
+	}
+
+	/** The nearest {@value #RAMPAGE_TARGETS} enemies within {@value #RAMPAGE_RANGE} blocks and about his level, nearest first. */
+	public static List<LivingEntity> rampageTargets(ServerPlayer p) {
+		List<LivingEntity> out = new ArrayList<>(p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(RAMPAGE_RANGE, RAMPAGE_Y, RAMPAGE_RANGE),
+				e -> HeroTargets.isHostile(p, e) && e.distanceToSqr(p) <= RAMPAGE_RANGE * RAMPAGE_RANGE && Math.abs(e.getY() - p.getY()) <= RAMPAGE_Y));
+		out.sort(Comparator.comparingDouble(e -> e.distanceToSqr(p)));
+		return out.size() > RAMPAGE_TARGETS ? new ArrayList<>(out.subList(0, RAMPAGE_TARGETS)) : out;
 	}
 
 	/** Ball G: a huge bounce (about 8 blocks up); the landing hits 18 in a 4-block ring. */
 	public boolean bounce(ServerPlayer p) {
-		if (!use(p, BOUNCE)) {
+		if (busy(p) || !use(p, BOUNCE)) {
 			return false;
 		}
 		Vec3 v = motion(p);
@@ -699,9 +816,9 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** Ball Shift+G: up high, then straight down like a meteor -- 28 in a 5-block ring and a quake. */
+	/** Ball Shift+G: up high, then straight down like a meteor -- 20 in a 5-block ring and a quake. */
 	public boolean meteorDrop(ServerPlayer p) {
-		if (!use(p, DROP)) {
+		if (busy(p) || !use(p, DROP)) {
 			return false;
 		}
 		p.setDeltaMovement(0, 1.7, 0);
@@ -713,19 +830,19 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** Ball X: 5 s of top speed (his Momentum starts full and he rolls even faster). */
+	/** Ball X: 5 s of top speed (his Momentum is held full, sprinting or not). */
 	public boolean boost(ServerPlayer p) {
 		if (!use(p, BOOST)) {
 			return false;
 		}
 		setFlag(p, F_BOOST, true);
 		setTimer(p, "boost_end", p.level().getGameTime() + BOOST_TICKS);
-		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+		MOMENTUM.put(p.getUUID(), 1.0);
 		OmnitrixSounds.play(level(p), p.position(), SND_ROLL, 1.3f, 1.4f);
 		return true;
 	}
 
-	/** Ball Z: he spins on the spot for 2 s -- 8 to everything within 3 blocks every 0.4 s, projectiles flung away. */
+	/** Ball Shift+V: he spins on the spot for 2 s -- 8 to everything within 3 blocks every 0.4 s, projectiles flung away. */
 	public boolean spin(ServerPlayer p) {
 		if (!use(p, SPIN)) {
 			return false;
@@ -736,18 +853,258 @@ public final class CannonboltKit extends AlienKit {
 		return true;
 	}
 
-	/** Ball C (ultimate): 8 s as an unstoppable cannonball -- faster still, 80% less damage, no knockback, 24 rams through weak walls. */
-	public boolean unstoppable(ServerPlayer p) {
-		if (!use(p, UNSTOPPABLE)) {
+	/**
+	 * Hold C, either form (user: "player holds c and goes into ball form and begins spinning on the ground, theyre charging up their
+	 * momentum, the player cant move with wasd while in this mode, upon releasing C while holding W they charge forward at max
+	 * momentum"): curled and spinning on the spot, winding up to full Momentum in 1.5 s. The roll itself (and whether W is down) is on
+	 * his client: {@link CannonboltRoll#travel}.
+	 */
+	public boolean spinChargeStart(ServerPlayer p) {
+		if (busy(p) || AIRS.containsKey(p.getUUID()) || !ready(p, SPIN_CHARGE)) {
+			if (!busy(p)) {
+				use(p, SPIN_CHARGE); // the "not ready" line
+			}
 			return false;
 		}
-		setFlag(p, F_UNSTOPPABLE, true);
-		setTimer(p, "unstoppable_end", p.level().getGameTime() + UNSTOPPABLE_TICKS);
-		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+		setBall(p, true);
+		setFlag(p, F_CHARGING, true);
+		setFlag(p, F_DRIVEN, false);
+		setTimer(p, "charge_start", Math.max(1L, p.level().getGameTime()));
+		OmnitrixSounds.play(level(p), p.position(), SND_ROLL, 1.0f, 0.7f);
+		return true;
+	}
+
+	private void spinChargeRelease(ServerPlayer p) {
+		setFlag(p, F_CHARGING, false);
+		setTimer(p, "charge_start", 0);
+		cooldown(p, SPIN_CHARGE, -1);
+		RELEASED.put(p.getUUID(), p.level().getGameTime());
+	}
+
+	private void tickSpinCharge(ServerPlayer p, ServerLevel l, long now) {
+		long held = now - timer(p, "charge_start");
+		if (held >= SPIN_CHARGE_MAX) {
+			spinChargeRelease(p);
+			return;
+		}
+		float wound = Math.min(1f, held / (float) SPIN_CHARGE_FILL);
+		Vec3 back = flat(p).scale(-1.0);
+		if (now % 2 == 0) {
+			BlockState under = l.getBlockState(p.blockPosition().below());
+			if (!under.isAir()) {
+				Vec3 c = p.position().add(back.scale(0.9));
+				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, under), c.x, c.y + 0.1, c.z, 3 + (int) (wound * 7), 0.25, 0.05, 0.25, 0.2 + wound * 0.3);
+			}
+		}
+		if (held % 7 == 0) {
+			OmnitrixSounds.play(l, p.position(), SND_ROLL, 0.6f + wound * 0.6f, 0.7f + wound * 1.0f);
+		}
+		if (held == SPIN_CHARGE_FILL) {
+			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(3.2f).thickness(0.5f).life(10).ground().spawn();
+			OmnitrixSounds.play(l, p.position(), SND_DEFLECT, 0.7f, 1.6f);
+			QuirkCamera.shake(p, 0.15f, 4);
+		}
+		p.resetFallDistance();
+	}
+
+	/**
+	 * Z, either form (the show: he slams into a robot, bounces off it and comes straight back): fires himself at what he is aiming
+	 * at -- the creature under the crosshair, or the nearest enemy near it -- and rebounds off it for three hits, 12, 12 and 17. Never
+	 * a teleport: he crosses the gap each time. With nothing to aim at he shoots off along his look and rebounds off the first thing
+	 * he meets. He comes down rolled up.
+	 */
+	public boolean reboundStrike(ServerPlayer p) {
+		if (busy(p) || !use(p, REBOUND)) {
+			return false;
+		}
+		setBall(p, true);
+		LivingEntity mark = reboundMark(p);
+		Vec3 aim = mark != null ? mark.position().add(0, mark.getBbHeight() * 0.5, 0) : p.getEyePosition().add(p.getLookAngle().scale(REBOUND_RANGE * 0.7));
+		REBOUNDS.put(p.getUUID(), new Rebound(mark == null ? -1 : mark.getId(), aim, p.level().getGameTime()));
+		BOUNCES.remove(p.getUUID());
+		AIRS.remove(p.getUUID());
+		setFlag(p, F_AIR, true);
+		setFlag(p, F_DRIVEN, true);
+		ServerLevel l = level(p);
+		QuirkFx.ring(l, center(p)).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).colours(0xFFFFFF, COLOUR).size(2.4f).thickness(0.5f).life(9).spawn();
+		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 0.8f, 1.5f);
+		return true;
+	}
+
+	@Nullable
+	private static LivingEntity reboundMark(ServerPlayer p) {
+		LivingEntity under = lookTarget(p, REBOUND_RANGE);
+		if (under != null) {
+			return under;
+		}
+		Vec3 look = p.getLookAngle();
+		LivingEntity best = null;
+		double bestAim = 0.94; // about 20 degrees off the crosshair
+		for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(REBOUND_RANGE), e -> HeroTargets.isHostile(p, e))) {
+			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(p.getEyePosition());
+			double aim = to.lengthSqr() < 1.0e-3 ? 0 : to.normalize().dot(look);
+			if (aim > bestAim && to.length() <= REBOUND_RANGE && p.hasLineOfSight(e)) {
+				bestAim = aim;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	private void tickRebound(ServerPlayer p, ServerLevel l, long now) {
+		Rebound r = REBOUNDS.get(p.getUUID());
+		if (r == null) {
+			return;
+		}
+		p.resetFallDistance();
+		if (now - r.start > 80 || !flag(p, F_BALL)) {
+			endRebound(p);
+			return;
+		}
+		if (now < r.hopUntil) {
+			return; // arcing back off the last hit: gravity has him
+		}
+		Entity mark = r.target < 0 ? null : l.getEntity(r.target);
+		if (r.target >= 0 && (!(mark instanceof LivingEntity e) || !e.isAlive())) {
+			endRebound(p); // it's dead: down he comes
+			return;
+		}
+		if (mark != null) {
+			r.aim = mark.position().add(0, mark.getBbHeight() * 0.5, 0);
+		}
+		Vec3 c = center(p);
+		Vec3 to = r.aim.subtract(c);
+		double reach = p.getBbWidth() * 0.5 + (mark == null ? 0.6 : mark.getBbWidth() * 0.5 + 0.8);
+		Vec3 dir = to.lengthSqr() < 1.0e-4 ? flat(p) : to.normalize();
+		BlockHitResult ahead = l.clip(new ClipContext(c, c.add(dir.scale(REBOUND_SPEED + p.getBbWidth() * 0.5 + 0.1)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		// the ground under a dive at his mark is not in the way: only a wall is (or, with no mark, whatever he meets first)
+		boolean wall = ahead.getType() == HitResult.Type.BLOCK && (mark == null || ahead.getDirection().getAxis() != Direction.Axis.Y);
+		boolean there = to.length() <= reach;
+		if (there || wall) {
+			if (mark instanceof LivingEntity e) {
+				if (!there) {
+					endRebound(p); // a wall between them: he thuds into it and drops
+					OmnitrixSounds.play(l, c, SND_RICOCHET, 0.9f, 0.8f);
+					return;
+				}
+				boolean last = ++r.hits >= REBOUND_HITS;
+				hurt(p, e, last ? REBOUND_LAST_DAMAGE : REBOUND_DAMAGE, false);
+				shove(e, c, last ? 1.3 : 0.25, last ? 0.5 : 0.15);
+				RAMMED.computeIfAbsent(p.getUUID(), k -> new HashMap<>()).put(e.getId(), now); // rolling clear of it is not a ram too
+			} else {
+				r.hits = REBOUND_HITS;
+			}
+			Vec3 at = mark == null ? c.add(dir.scale(reach)) : r.aim;
+			l.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 14, 0.3, 0.3, 0.3, 0.3);
+			QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFFFFF, COLOUR).size(2.2f).thickness(0.5f).life(8).spawn();
+			QuirkCamera.shake(p, 0.25f, 5);
+			OmnitrixSounds.play(l, at, SND_IMPACT, 1.0f, 0.9f + r.hits * 0.12f);
+			OmnitrixSounds.play(l, at, SND_RICOCHET, 0.9f, 0.9f + r.hits * 0.12f);
+			Vec3 away = new Vec3(-dir.x, 0, -dir.z);
+			away = away.lengthSqr() < 1.0e-3 ? flat(p).scale(-1.0) : away.normalize();
+			if (r.hits >= REBOUND_HITS) {
+				p.setDeltaMovement(away.x * 0.45, 0.55, away.z * 0.45); // the last one throws him clear
+				p.hurtMarked = true;
+				endRebound(p);
+				return;
+			}
+			p.setDeltaMovement(away.x * 0.55, 0.75, away.z * 0.55);
+			p.hurtMarked = true;
+			r.hopUntil = now + 9;
+			r.strikeStart = now + 9;
+			return;
+		}
+		if (now - r.strikeStart > (long) (REBOUND_RANGE / REBOUND_SPEED) + 6) {
+			endRebound(p); // never reached it (it kept running): don't chase it for ever
+			return;
+		}
+		p.setDeltaMovement(dir.scale(REBOUND_SPEED));
+		p.hurtMarked = true;
+	}
+
+	private void endRebound(ServerPlayer p) {
+		REBOUNDS.remove(p.getUUID());
+		setFlag(p, F_AIR, false);
+		p.resetFallDistance();
+	}
+
+	/**
+	 * Shift+Z, either form (the ultimate): the show's unstoppable ball with Ultimate Cannonbolt's spikes. He rises spinning for 1.5 s,
+	 * dragging everything near him in as the spikes come out; then 8 s at full Momentum where nothing stops him -- 30 a ram, 80% less
+	 * damage, no knockback, weak blocks burst. Then (or on a second Shift+Z) he shoots up and crashes down, 36 in a 9-block ring.
+	 */
+	public boolean unstoppable(ServerPlayer p) {
+		if (flag(p, F_UNSTOPPABLE)) {
+			crash(p); // a second press: finish it now
+			return true;
+		}
+		if (flag(p, F_SPIKES) || busy(p) || !use(p, UNSTOPPABLE)) {
+			return false;
+		}
+		setBall(p, true);
+		BOUNCES.remove(p.getUUID());
+		AIRS.remove(p.getUUID());
+		setFlag(p, F_AIR, false);
+		setFlag(p, F_WIND, true);
+		setFlag(p, F_SPIKES, true);
+		setFlag(p, F_DRIVEN, true);
+		setTimer(p, "wind_end", p.level().getGameTime() + WIND_TICKS);
 		ServerLevel l = level(p);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(4f).thickness(0.7f).life(14).ground().spawn();
-		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 1.2f, 1.2f);
+		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 1.2f, 0.8f);
 		return true;
+	}
+
+	private void tickUltimate(ServerPlayer p, ServerLevel l, long now) {
+		long wind = timer(p, "wind_end");
+		if (wind > 0) {
+			int t = WIND_TICKS - (int) (wind - now);
+			p.setDeltaMovement(0, t < 12 ? 0.35 : 0.08, 0);
+			p.hurtMarked = true;
+			p.resetFallDistance();
+			Vec3 c = center(p);
+			for (LivingEntity e : around(p, c, 12.0)) {
+				Vec3 in = c.subtract(e.position());
+				if (in.lengthSqr() > 4.0) {
+					in = in.normalize().scale(0.14);
+					e.push(in.x, in.y * 0.5, in.z);
+					e.hurtMarked = true;
+				}
+			}
+			if (t % 3 == 0) {
+				l.sendParticles(ParticleTypes.CLOUD, c.x, p.getY() - 0.2, c.z, 3, 2.0, 0.1, 2.0, 0.06);
+				l.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 8, 1.2, 1.2, 1.2, 0.3);
+				OmnitrixSounds.play(l, c, SND_ROLL, 1.0f + t * 0.02f, 0.7f + t * 0.04f);
+			}
+			if (now >= wind) {
+				setTimer(p, "wind_end", 0);
+				setFlag(p, F_WIND, false);
+				setFlag(p, F_DRIVEN, false);
+				setFlag(p, F_UNSTOPPABLE, true);
+				setTimer(p, "unstoppable_end", now + UNSTOPPABLE_TICKS);
+				MOMENTUM.put(p.getUUID(), 1.0);
+				QuirkFx.ring(l, c).colours(0xFFFFFF, COLOUR).size(7f).thickness(0.9f).life(14).spawn();
+				QuirkCamera.shakeAround(l, c, 16, 0.4f, 8);
+				OmnitrixSounds.play(l, c, SND_QUAKE, 1.3f, 1.3f);
+			}
+			return;
+		}
+		long end = timer(p, "unstoppable_end");
+		if (flag(p, F_UNSTOPPABLE) && end > 0 && now >= end) {
+			crash(p);
+		}
+	}
+
+	/** The end of the ultimate: straight up, then down like the end of the world. */
+	private void crash(ServerPlayer p) {
+		setFlag(p, F_UNSTOPPABLE, false);
+		setTimer(p, "unstoppable_end", 0);
+		p.setDeltaMovement(p.getDeltaMovement().x * 0.2, 1.7, p.getDeltaMovement().z * 0.2);
+		p.hurtMarked = true;
+		BOUNCES.remove(p.getUUID());
+		AIRS.put(p.getUUID(), new Air(AirKind.CRASH, p.level().getGameTime()));
+		setFlag(p, F_AIR, true);
+		OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 1.2f, 0.6f);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -770,14 +1127,17 @@ public final class CannonboltKit extends AlienKit {
 		LAST_MOVE.put(p.getUUID(), moved);
 		boolean onGround = p.onGround();
 		Boolean wasGround = WAS_GROUND.put(p.getUUID(), onGround);
-		endTimed(p, "guard_end", F_GUARD, now);
 		endTimed(p, "boost_end", F_BOOST, now);
 		endTimed(p, "spin_end", F_SPIN, now);
-		endTimed(p, "unstoppable_end", F_UNSTOPPABLE, now);
 		boolean ball = flag(p, F_BALL);
 		tickDash(p, l, now);
-		tickRicochet(p, l, now);
+		tickRampage(p, l, now);
+		tickRebound(p, l, now);
+		tickUltimate(p, l, now);
 		tickAir(p, l, now);
+		if (flag(p, F_CHARGING)) {
+			tickSpinCharge(p, l, now);
+		}
 		if (ball && Boolean.TRUE.equals(wasGround) && !onGround && moved.y > 0.2 && p.isSprinting()) {
 			sprintLaunch(p, l, now, moved);
 		}
@@ -787,14 +1147,25 @@ public final class CannonboltKit extends AlienKit {
 			if (flag(p, F_SPIN)) {
 				tickSpin(p, l, now);
 			}
-			deflectAround(p, l, 1.6, false);
+			deflectAround(p, l, 2.1, false);
+			if (now % 10 == 0) {
+				CannonboltStow.hide(p);
+			}
 		} else if (flag(p, F_GUARD)) {
-			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 1, false, false, false));
-			deflectAround(p, l, 3.0, true);
+			if (!p.isShiftKeyDown()) {
+				guardEnd(p); // Shift let go, whatever V is doing
+			} else {
+				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 1, false, false, false));
+				deflectAround(p, l, 3.0, true);
+			}
 		}
-		boolean round = ball || DASHES.containsKey(p.getUUID()) || airRound(p);
+		UUID id = p.getUUID();
+		boolean round = ball || DASHES.containsKey(id) || airRound(p);
 		setFlag(p, F_ROUND, round);
-		boolean steady = flag(p, F_UNSTOPPABLE) || RICOS.containsKey(p.getUUID()) || DASHES.containsKey(p.getUUID());
+		Air air = AIRS.get(id);
+		setFlag(p, F_DRIVEN, DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || flag(p, F_WIND)
+				|| air != null && air.kind != AirKind.BOUNCE);
+		boolean steady = flag(p, F_SPIKES) || RUSHES.containsKey(id) || DASHES.containsKey(id) || REBOUNDS.containsKey(id);
 		if (steady) {
 			PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, STEADY, 1.0, AttributeModifier.Operation.ADD_VALUE);
 		} else {
@@ -815,20 +1186,28 @@ public final class CannonboltKit extends AlienKit {
 		return a != null && (a.kind != AirKind.CURL_SMASH || a.falling);
 	}
 
-	/** Ball Mode's rolling: Momentum (faster the longer he rolls), the step over blocks, the ram, the rumble. */
+	/**
+	 * Ball Mode's rolling, as the server sees it: his client moves him ({@link CannonboltRoll}), so Momentum is read back off how fast he
+	 * really goes (a reading held briefly, so one short packet doesn't drop it), and that sets the ram: 10 at none, 20 at full.
+	 */
 	private void tickRoll(ServerPlayer p, ServerLevel l, long now, Vec3 moved, double speed) {
-		int rolled = ROLLED.getOrDefault(p.getUUID(), 0);
-		rolled = speed > 0.12 ? Math.min(MOMENTUM_TICKS, rolled + 1) : speed < 0.04 ? 0 : rolled;
-		ROLLED.put(p.getUUID(), rolled);
-		double mom = rolled / (double) MOMENTUM_TICKS;
-		// v0.17.2 (user): sprinting, he builds to 25 blocks a second; Roll Boost / Unstoppable fill his Momentum (above) but never go
-		// past that top speed -- walking, they add on as before
-		double bonus = p.isSprinting() ? 1.0 + (SPRINT_TOP_BONUS - 1.0) * mom
-				: 1.0 + 1.2 * mom + (flag(p, F_BOOST) ? 0.8 : 0) + (flag(p, F_UNSTOPPABLE) ? 1.0 : 0);
-		if (flag(p, F_SPIN)) {
-			bonus = -0.5;
+		double mom = flag(p, F_BOOST) || flag(p, F_UNSTOPPABLE) ? 1.0
+				: speed < 0.04 ? 0.0 : Math.max(CannonboltRoll.momentumFromSpeed(speed), MOMENTUM.getOrDefault(p.getUUID(), 0.0) * 0.8);
+		MOMENTUM.put(p.getUUID(), mom);
+		Long released = RELEASED.get(p.getUUID());
+		if (released != null) {
+			if (speed > 0.45) {
+				RELEASED.remove(p.getUUID());
+				Vec3 dir = new Vec3(moved.x, 0, moved.z).normalize();
+				Vec3 c = center(p);
+				QuirkFx.ring(l, c.subtract(dir.scale(0.8))).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFFFFF, COLOUR).size(2.6f).thickness(0.5f).life(9).spawn();
+				dust(l, p.position(), 20);
+				l.sendParticles(ParticleTypes.CLOUD, c.x, p.getY() + 0.2, c.z, 10, 0.5, 0.1, 0.5, 0.05);
+				OmnitrixSounds.play(l, p.position(), SND_QUAKE, 0.8f, 1.5f);
+			} else if (now - released > 6) {
+				RELEASED.remove(p.getUUID());
+			}
 		}
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, ROLL_SPEED, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		if (speed > 0.15 && p.onGround()) {
 			OmnitrixSounds.play(l, p.position(), SND_ROLL, 0.6f + (float) speed, 0.8f + (float) speed * 0.6f);
 			if (now % 3 == 0) {
@@ -838,12 +1217,12 @@ public final class CannonboltKit extends AlienKit {
 				}
 			}
 		}
-		if (speed < RAM_SPEED || DASHES.containsKey(p.getUUID()) || RICOS.containsKey(p.getUUID())) {
+		if (speed < RAM_SPEED || DASHES.containsKey(p.getUUID()) || RUSHES.containsKey(p.getUUID()) || REBOUNDS.containsKey(p.getUUID())) {
 			return;
 		}
 		Vec3 dir = new Vec3(moved.x, 0, moved.z).normalize();
 		boolean unstoppable = flag(p, F_UNSTOPPABLE);
-		float damage = unstoppable ? UNSTOPPABLE_DAMAGE : Mth.clamp((float) (6.0 + speed * 20.0), RAM_MIN, RAM_MAX);
+		float damage = unstoppable ? UNSTOPPABLE_DAMAGE : CannonboltRoll.ramDamage(mom);
 		Map<Integer, Long> rammed = RAMMED.computeIfAbsent(p.getUUID(), k -> new HashMap<>());
 		Vec3 c = center(p).add(dir.scale(p.getBbWidth() * 0.6));
 		for (LivingEntity e : around(p, c, p.getBbWidth() * 0.5 + 0.7)) {
@@ -934,57 +1313,100 @@ public final class CannonboltKit extends AlienKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- the pinball
+	// ---------------------------------------------------------------- the Rolling Rampage
 
-	private void tickRicochet(ServerPlayer p, ServerLevel l, long now) {
-		Rico r = RICOS.get(p.getUUID());
+	/**
+	 * One tick of the Rampage. He is driven by velocity alone, at his top speed, so every block between two enemies is rolled: the step,
+	 * the leaves and the walls all work on him as they do on any roll. A wall he can't step over is steered round; an enemy he stops
+	 * getting closer to is given up.
+	 */
+	private void tickRampage(ServerPlayer p, ServerLevel l, long now) {
+		Rush r = RUSHES.get(p.getUUID());
 		if (r == null) {
 			return;
 		}
-		if (now >= r.end || r.bounces > RICOCHET_BOUNCES || !flag(p, F_BALL)) {
-			RICOS.remove(p.getUUID());
-			setFlag(p, F_RICOCHET, false);
+		p.resetFallDistance();
+		if (now >= r.end || !flag(p, F_BALL)) {
+			endRampage(p);
 			return;
 		}
-		// a wall ahead: reflect off its face
 		Vec3 c = center(p);
-		double reach = r.speed + p.getBbWidth() * 0.5 + 0.1;
-		BlockHitResult hit = l.clip(new ClipContext(c, c.add(r.dir.scale(reach)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-		if (hit.getType() == HitResult.Type.BLOCK && hit.getDirection().getAxis() != Direction.Axis.Y) {
-			Vec3 n = Vec3.atLowerCornerOf(hit.getDirection().getNormal());
-			r.dir = r.dir.subtract(n.scale(2 * r.dir.dot(n))).normalize();
-			bounceFx(p, l, hit.getLocation(), r);
-		}
-		// a creature: hit it and glance off it
-		for (LivingEntity e : around(p, c.add(r.dir.scale(0.6)), p.getBbWidth() * 0.5 + 0.8)) {
-			Long at = r.hits.get(e.getId());
-			if (at != null && now - at < 10) {
-				continue;
+		// everything he bowls through on the way counts, marked or not
+		for (LivingEntity e : around(p, c, p.getBbWidth() * 0.5 + 1.1)) {
+			if (r.hit.add(e.getId()) && (r.left.contains(e.getId()) || HeroTargets.isHostile(p, e))) {
+				strike(p, l, e, c);
 			}
-			r.hits.put(e.getId(), now);
-			hurt(p, e, RICOCHET_DAMAGE, false);
-			shove(e, c, 1.2, 0.4);
-			Vec3 away = c.subtract(e.position());
-			away = new Vec3(away.x, 0, away.z);
-			if (away.lengthSqr() > 1.0e-4) {
-				Vec3 n = away.normalize();
-				if (r.dir.dot(n) < 0) {
-					r.dir = r.dir.subtract(n.scale(2 * r.dir.dot(n))).normalize();
-				}
-			}
-			bounceFx(p, l, e.position().add(0, e.getBbHeight() * 0.5, 0), r);
 		}
-		p.setDeltaMovement(r.dir.x * r.speed, Math.min(0, p.getDeltaMovement().y), r.dir.z * r.speed);
+		LivingEntity mark = null;
+		while (!r.left.isEmpty()) {
+			Entity e = l.getEntity(r.left.get(0));
+			if (e instanceof LivingEntity le && le.isAlive() && !r.hit.contains(le.getId()) && le.distanceToSqr(p) <= RAMPAGE_RANGE * RAMPAGE_RANGE * 2.25) {
+				mark = le;
+				break;
+			}
+			r.left.remove(0);
+			r.best = Double.MAX_VALUE;
+			r.stuck = 0;
+		}
+		if (mark == null) {
+			endRampage(p);
+			return;
+		}
+		Vec3 to = mark.position().subtract(p.position());
+		double dist = Math.hypot(to.x, to.z);
+		if (dist < r.best - 0.3) {
+			r.best = dist;
+			r.stuck = 0;
+		} else if (++r.stuck > RAMPAGE_STUCK_TICKS) {
+			r.left.remove(0);
+			r.best = Double.MAX_VALUE;
+			r.stuck = 0;
+			return;
+		}
+		Vec3 dir = dist < 1.0e-3 ? flat(p) : new Vec3(to.x / dist, 0, to.z / dist);
+		dir = steer(p, l, dir);
+		double speed = CannonboltRoll.SPEED_MAX;
+		Vec3 m = LAST_MOVE.getOrDefault(p.getUUID(), Vec3.ZERO);
+		p.setDeltaMovement(dir.x * speed, p.onGround() ? -0.08 : Math.min(0, m.y) - 0.08, dir.z * speed);
 		p.hurtMarked = true;
+		MOMENTUM.put(p.getUUID(), 1.0);
+	}
+
+	private void strike(ServerPlayer p, ServerLevel l, LivingEntity e, Vec3 c) {
+		if (hurt(p, e, RAMPAGE_DAMAGE, false)) {
+			shove(e, c, 1.4, 0.45);
+			Vec3 at = e.position().add(0, e.getBbHeight() * 0.5, 0);
+			l.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 12, 0.3, 0.3, 0.3, 0.3);
+			OmnitrixSounds.play(l, at, SND_IMPACT, 0.9f, 1.1f);
+			QuirkCamera.shake(p, 0.2f, 4);
+		}
+	}
+
+	private void endRampage(ServerPlayer p) {
+		RUSHES.remove(p.getUUID());
+		setFlag(p, F_RAMPAGE, false);
+		cooldown(p, RAMPAGE, -1);
 		p.resetFallDistance();
 	}
 
-	private void bounceFx(ServerPlayer p, ServerLevel l, Vec3 at, Rico r) {
-		r.bounces++;
-		r.speed = Math.min(1.9, r.speed * 1.1);
-		l.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 10, 0.2, 0.2, 0.2, 0.25);
-		OmnitrixSounds.play(l, at, SND_RICOCHET, 1.0f, 0.8f + r.bounces * 0.08f);
-		QuirkCamera.shake(p, 0.2f, 4);
+	/** The heading closest to {@code dir} with nothing he can't step over in the way: straight on, or swung out either side. */
+	private static Vec3 steer(ServerPlayer p, ServerLevel l, Vec3 dir) {
+		for (double a : new double[] { 0, 30, -30, 60, -60, 90, -90, 125, -125 }) {
+			Vec3 d = dir.yRot((float) Math.toRadians(a));
+			if (!walled(p, l, d)) {
+				return d;
+			}
+		}
+		return dir;
+	}
+
+	/** A wall too high to step over 2 blocks ahead: the ray at the top of his step is blocked too, not just the one at his middle. */
+	private static boolean walled(ServerPlayer p, ServerLevel l, Vec3 dir) {
+		double reach = p.getBbWidth() * 0.5 + 2.0;
+		Vec3 low = p.position().add(0, 1.0, 0);
+		Vec3 high = p.position().add(0, BALL_STEP + 1.0, 0);
+		return l.clip(new ClipContext(low, low.add(dir.scale(reach)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p)).getType() == HitResult.Type.BLOCK
+				&& l.clip(new ClipContext(high, high.add(dir.scale(reach)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p)).getType() == HitResult.Type.BLOCK;
 	}
 
 	// ---------------------------------------------------------------- airborne moves
@@ -997,11 +1419,11 @@ public final class CannonboltKit extends AlienKit {
 		long t = now - a.start;
 		p.resetFallDistance();
 		if (!a.falling) {
-			int apex = a.kind == AirKind.DROP ? 12 : a.kind == AirKind.CURL_SMASH ? 7 : 0;
+			int apex = a.kind == AirKind.DROP ? 12 : a.kind == AirKind.CRASH ? 11 : a.kind == AirKind.CURL_SMASH ? 7 : 0;
 			if (apex > 0 && t >= apex) {
 				a.falling = true;
 				Vec3 v = p.getDeltaMovement();
-				p.setDeltaMovement(v.x * 0.3, a.kind == AirKind.DROP ? -2.5 : -1.4, v.z * 0.3);
+				p.setDeltaMovement(v.x * 0.3, a.kind == AirKind.CRASH ? -3.0 : a.kind == AirKind.DROP ? -2.5 : -1.4, v.z * 0.3);
 				p.hurtMarked = true;
 				OmnitrixSounds.play(l, p.position(), SND_ROLL, 1.0f, 0.6f);
 			} else if (apex == 0 && t > 4) {
@@ -1011,6 +1433,9 @@ public final class CannonboltKit extends AlienKit {
 		if (t > 3 && (p.onGround() || p.isInWater()) || t > 200) {
 			AIRS.remove(p.getUUID());
 			setFlag(p, F_AIR, false);
+			if (a.kind == AirKind.CRASH) {
+				setFlag(p, F_SPIKES, false);
+			}
 			if (t > 200 || p.isInWater()) {
 				return;
 			}
@@ -1018,8 +1443,13 @@ public final class CannonboltKit extends AlienKit {
 				landLaunch(p, l, a);
 				return;
 			}
-			float damage = a.kind == AirKind.DROP ? DROP_DAMAGE : a.kind == AirKind.BOUNCE ? BOUNCE_DAMAGE : CURL_SMASH_DAMAGE;
-			float radius = a.kind == AirKind.DROP ? 5f : a.kind == AirKind.BOUNCE ? 4f : 3.5f;
+			float damage = switch (a.kind) {
+				case DROP -> DROP_DAMAGE;
+				case BOUNCE -> BOUNCE_DAMAGE;
+				case CRASH -> CRASH_DAMAGE;
+				default -> CURL_SMASH_DAMAGE;
+			};
+			float radius = a.kind == AirKind.CRASH ? 9f : a.kind == AirKind.DROP ? 5f : a.kind == AirKind.BOUNCE ? 4f : 3.5f;
 			Vec3 c = p.position();
 			for (LivingEntity e : around(p, c, radius)) {
 				hurt(p, e, damage, false);
@@ -1027,9 +1457,13 @@ public final class CannonboltKit extends AlienKit {
 			}
 			QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(radius + 1f).thickness(0.8f).life(14).ground().spawn();
 			dust(l, c, (int) (radius * 8));
-			QuirkCamera.shakeAround(l, c, radius * 3, a.kind == AirKind.DROP ? 0.6f : 0.35f, 10);
-			OmnitrixSounds.play(l, c, SND_QUAKE, a.kind == AirKind.DROP ? 1.4f : 1.0f, 1.0f);
-			if (a.kind == AirKind.CURL_SMASH) {
+			QuirkCamera.shakeAround(l, c, radius * 3, a.kind == AirKind.CRASH ? 0.9f : a.kind == AirKind.DROP ? 0.6f : 0.35f, 10);
+			OmnitrixSounds.play(l, c, SND_QUAKE, a.kind == AirKind.DROP || a.kind == AirKind.CRASH ? 1.4f : 1.0f, a.kind == AirKind.CRASH ? 0.7f : 1.0f);
+			if (a.kind == AirKind.CRASH) {
+				QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(COLOUR, 0xB0A090).size(radius * 1.7f).thickness(1.0f).life(20).ground().spawn();
+				l.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.5, c.z, 7, 4.5, 0.2, 4.5, 0); // round him, not over his view
+			}
+			if (a.kind == AirKind.CURL_SMASH && !flag(p, F_BALL)) {
 				anim(p, ANIM_UNCURL);
 			}
 		}
@@ -1048,7 +1482,7 @@ public final class CannonboltKit extends AlienKit {
 	 * forward where he looks -- a long, low arc at least as fast as he was rolling -- in a puff of dust and a crack.
 	 */
 	private void sprintLaunch(ServerPlayer p, ServerLevel l, long now, Vec3 moved) {
-		if (AIRS.containsKey(p.getUUID()) || DASHES.containsKey(p.getUUID()) || RICOS.containsKey(p.getUUID()) || flag(p, F_SPIN)) {
+		if (AIRS.containsKey(p.getUUID()) || busy(p) || flag(p, F_SPIN)) {
 			return;
 		}
 		Long last = LAST_LAUNCH.get(p.getUUID());
@@ -1065,7 +1499,7 @@ public final class CannonboltKit extends AlienKit {
 		a.dir = dir;
 		AIRS.put(p.getUUID(), a);
 		setFlag(p, F_AIR, true);
-		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+		MOMENTUM.put(p.getUUID(), 1.0);
 		Vec3 c = center(p);
 		QuirkFx.ring(l, c.subtract(dir.scale(0.6))).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFFFFF, COLOUR).size(2.4f).thickness(0.5f).life(9).spawn();
 		dust(l, p.position(), 18);
@@ -1084,9 +1518,9 @@ public final class CannonboltKit extends AlienKit {
 		dust(l, c, 24);
 		QuirkCamera.shake(p, 0.3f, 6);
 		OmnitrixSounds.play(l, c, SND_IMPACT, 1.0f, 0.9f);
-		p.setDeltaMovement(a.dir.x * 0.9, 0, a.dir.z * 0.9);
+		p.setDeltaMovement(a.dir.x * CannonboltRoll.SPEED_MAX, 0, a.dir.z * CannonboltRoll.SPEED_MAX);
 		p.hurtMarked = true;
-		ROLLED.put(p.getUUID(), MOMENTUM_TICKS);
+		MOMENTUM.put(p.getUUID(), 1.0);
 	}
 
 	/** One bounce of a high fall's run: up by the next lift, still rolling the way he was. */
@@ -1166,7 +1600,8 @@ public final class CannonboltKit extends AlienKit {
 				for (int up = 0; up < high; up++) {
 					BlockPos pos = BlockPos.containing(p.position().add(flat.scale(ahead * 0.8)).add(side.scale(s * 0.6)).add(0, up + 0.2, 0));
 					BlockState st = l.getBlockState(pos);
-					if (FourArmsKit.weakBlock(l, pos, st) && HeroConfig.get().abilityTerrainDamage && p.mayBuild() && l.mayInteract(p, pos)) {
+					// leaves are never burst: he rolls straight through them now (SpeedLeaves)
+					if (FourArmsKit.weakBlock(l, pos, st) && !st.is(BlockTags.LEAVES) && HeroConfig.get().abilityTerrainDamage && p.mayBuild() && l.mayInteract(p, pos)) {
 						l.destroyBlock(pos, true, p);
 					}
 				}
@@ -1262,11 +1697,11 @@ public final class CannonboltKit extends AlienKit {
 
 	/** Gametests: whether a dash / ricochet / airborne move is running for {@code p}. */
 	public static boolean moving(ServerPlayer p) {
-		return DASHES.containsKey(p.getUUID()) || RICOS.containsKey(p.getUUID()) || AIRS.containsKey(p.getUUID());
+		return DASHES.containsKey(p.getUUID()) || RUSHES.containsKey(p.getUUID()) || REBOUNDS.containsKey(p.getUUID()) || AIRS.containsKey(p.getUUID());
 	}
 
-	/** Gametests: the Momentum ticks banked. */
-	public static int momentum(ServerPlayer p) {
-		return ROLLED.getOrDefault(p.getUUID(), 0);
+	/** Gametests: Momentum as the server reads it, 0..1. */
+	public static double momentum(ServerPlayer p) {
+		return MOMENTUM.getOrDefault(p.getUUID(), 0.0);
 	}
 }
