@@ -150,6 +150,11 @@ public interface AlienClientKit {
 		return 1f;
 	}
 
+	/** v0.17.2 (Way Big's cyclone): degrees the whole body is turned about its feet right now, on top of its facing. 0 = none. */
+	default float bodySpin(AbstractClientPlayer p, float partial) {
+		return 0f;
+	}
+
 	/** v0.17.2 (Way Big): the third-person camera's distance from the eyes in blocks, or 0 for vanilla's (OmnitrixCameraMixin). */
 	default float cameraDistance(AbstractClientPlayer p) {
 		return 0f;

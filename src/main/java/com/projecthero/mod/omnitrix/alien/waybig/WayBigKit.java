@@ -96,20 +96,30 @@ public final class WayBigKit extends AlienKit {
 	public static final int F_STRIDE = 8;
 
 	// ---------------------------------------------------------------- poses
-	public static final int ANIM_FIST = 1, ANIM_CHOP = 2, ANIM_RAY = 3, ANIM_STOMP = 4, ANIM_CLAP = 5, ANIM_STRIDE = 6, ANIM_SHIFT = 7, ANIM_ROAR = 8;
+	public static final int ANIM_FIST = 1, ANIM_CHOP = 2, ANIM_RAY = 3, ANIM_STOMP = 4, ANIM_CLAP = 5, ANIM_STRIDE = 6, ANIM_SHIFT = 7, ANIM_ROAR = 8,
+			ANIM_RAY_END = 9, ANIM_LAND = 10, ANIM_CYCLONE = 11, ANIM_CYCLONE_END = 12, ANIM_FIN = 13;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.way_big.<id>)
+	/** The kit timer holding the tick the cyclone started (the client's spin reads it). */
+	public static final String CYCLONE_START = "cyclone_start";
 	public static final String FIST = "titan_fist", CHOP = "colossal_chop", RAY = "cosmic_ray", STRIDE = "giant_stride", STOMP = "quake_stomp",
 			CLAP = "thunder_clap", CYCLONE = "tokustar_cyclone", SHIFT = "size_shift", BODY = "tokustar_body", FIN = "head_fin";
 
-	// ---------------------------------------------------------------- numbers (the strongest prototype alien: big 30-45, ultimates 60+)
-	public static final float FIST_DAMAGE = 42f, CHOP_DAMAGE = 36f, RAY_DAMAGE = 9f, RAY_BLAST = 30f, STRIDE_DAMAGE = 30f, STOMP_DAMAGE = 34f,
-			CLAP_DAMAGE = 26f, CYCLONE_DAMAGE = 5f, CYCLONE_FLING = 22f;
+	// ---------------------------------------------------------------- numbers
+	/**
+	 * v0.17.2 (user: "way big is a giant a really powerful alien, make his moves stronger since hes huge and really powerful please"):
+	 * far past the aliens' normal scale, every blow about the size of another alien's ultimate. Was 42 / 36 / 9 + 30 / 30 / 34 / 26 / 5 + 22.
+	 */
+	public static final float FIST_DAMAGE = 100f, CHOP_DAMAGE = 90f, RAY_DAMAGE = 20f, RAY_BLAST = 100f, STRIDE_DAMAGE = 70f, STOMP_DAMAGE = 85f,
+			CLAP_DAMAGE = 65f, CYCLONE_DAMAGE = 15f, CYCLONE_FLING = 100f;
 	/** Radii and reaches at 100 blocks tall (Compact: scaled by {@link #reachScale}). */
 	public static final double FIST_RADIUS = 6, CHOP_LENGTH = 48, CHOP_WIDTH = 4, RAY_RANGE = 220, RAY_RADIUS = 2.6, STRIDE_RADIUS = 10,
 			STOMP_RADIUS = 18, CLAP_RANGE = 40, CYCLONE_RADIUS = 28, LOOK_RANGE = 200;
-	public static final int FIST_DELAY = 6, CHOP_DELAY = 9, RAY_TAP_TICKS = 24, RAY_MAX_TICKS = 80, RAY_EVERY = 4, CYCLONE_TICKS = 100,
-			STRIDE_TICKS = 60;
+	/** Each blow lands on the tick its pose lands ({@code WayBigClient}: the fist, the chop, the foot and the clap all meet then). */
+	public static final int FIST_DELAY = 6, CHOP_DELAY = 9, STOMP_DELAY = 8, CLAP_DELAY = 8, RAY_TAP_TICKS = 24, RAY_MAX_TICKS = 80, RAY_EVERY = 4,
+			CYCLONE_TICKS = 100, STRIDE_TICKS = 60;
+	/** The head fin: from this share of his height up (his shoulders), and a shot falling at least this steeply (sine: 60 degrees). */
+	public static final double FIN_LINE = 0.82, FIN_STEEP = 0.866;
 
 	private static final ResourceLocation SIZE_SPEED = PowerToggles.id("omnitrix_way_big_speed");
 
@@ -263,12 +273,42 @@ public final class WayBigKit extends AlienKit {
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
 		// the head fin: the one weak spot -- a blow from above his shoulders hurts twice as much
-		Vec3 from = source.getSourcePosition();
-		if (from != null && from.y > p.getY() + height(p) * 0.82) {
-			level(p).sendParticles(ParticleTypes.CRIT, from.x, from.y, from.z, 12, 0.6, 0.6, 0.6, 0.2);
-			return amount * 2f;
+		if (!finStruck(p, source)) {
+			return amount;
 		}
-		return amount;
+		float h = height(p);
+		level(p).sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + h * 0.97, p.getZ(), 40, h * 0.04, h * 0.04, h * 0.04, 0.4);
+		// the show's paralysing pain: he clutches his head, unless something bigger is going on
+		OmnitrixState s = Omnitrix.state(p);
+		if (!flag(p, F_RAY) && !flag(p, F_CYCLONE) && !flag(p, F_STRIDE) && p.level().getGameTime() - s.animStart > 40) {
+			anim(p, ANIM_FIN);
+		}
+		return amount * 2f;
+	}
+
+	/**
+	 * v0.17.2 (audit: the fin almost never fired): the check used only {@link DamageSource#getSourcePosition()}, and for a shot that is
+	 * where the arrow IS when it strikes -- his shins, inside his 6-block hitbox -- so nothing short of a melee hit from 82 blocks up
+	 * counted. A blow is on the fin when it comes from at or above his shoulders: the source's own position, or whoever threw it, however
+	 * low the shot lands (his head is drawn far above his hitbox, so every hit has to land on the hitbox), or anything falling on him
+	 * steeply from overhead (a shot, a dropped anvil), which came down past his head to reach him.
+	 */
+	public static boolean finStruck(Player p, DamageSource source) {
+		double line = p.getY() + height(p) * FIN_LINE;
+		Vec3 from = source.getSourcePosition();
+		if (from != null && from.y > line) {
+			return true;
+		}
+		net.minecraft.world.entity.Entity who = source.getEntity();
+		if (who != null && who != p && who.getEyeY() > line) {
+			return true;
+		}
+		net.minecraft.world.entity.Entity direct = source.getDirectEntity();
+		if (direct == null || direct == p || direct instanceof LivingEntity) {
+			return false;
+		}
+		Vec3 v = direct.getDeltaMovement();
+		return v.lengthSqr() > 0.01 && -v.y / v.length() >= FIN_STEEP;
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -291,6 +331,7 @@ public final class WayBigKit extends AlienKit {
 		for (int f : new int[] { F_COMPACT, F_RAY, F_CYCLONE, F_STRIDE }) {
 			setFlag(p, f, false);
 		}
+		setTimer(p, CYCLONE_START, 0L);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SIZE_SPEED);
 		UUID id = p.getUUID();
 		PENDING.remove(id);
@@ -353,6 +394,7 @@ public final class WayBigKit extends AlienKit {
 		if (stride != null && now - stride > 3 && (p.onGround() || now - stride > STRIDE_TICKS)) {
 			STRIDE_START.remove(id);
 			setFlag(p, F_STRIDE, false);
+			anim(p, ANIM_LAND);
 			quake(p, p.position(), STRIDE_RADIUS * reachScale(p), STRIDE_DAMAGE, 1.2, 0.6);
 		}
 	}
@@ -483,8 +525,13 @@ public final class WayBigKit extends AlienKit {
 			OmnitrixSounds.play(l, at, SND_QUAKE, 3.0f, 0.7f);
 			QuirkFx.ring(l, at.add(0, 0.1, 0)).colours(WHITE, COLOUR).size((float) (FIST_RADIUS * k * 2)).thickness(1.4f).life(18).ground().spawn();
 			QuirkFx.blast(l, at.add(0, 1, 0)).colours(WHITE, 0xB0A090).size((float) (FIST_RADIUS * k)).life(16).spawn();
+			QuirkFx.decal(l, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colours(0x2A2622, 0x4A4238).size((float) (FIST_RADIUS * k * 1.6)).life(80).spawn();
 			QuirkCamera.shakeAround(l, at, 60, 0.45f, 12);
 			dust(l, at, (int) (FIST_RADIUS * k), 60);
+		} else if (STOMP.equals(pd.move())) {
+			quake(p, pd.at(), STOMP_RADIUS * k, STOMP_DAMAGE, 0.6, 1.3);
+		} else if (CLAP.equals(pd.move())) {
+			clapLands(p);
 		} else {
 			Vec3 dir = pd.dir();
 			double len = CHOP_LENGTH * k, width = CHOP_WIDTH * k;
@@ -591,7 +638,7 @@ public final class WayBigKit extends AlienKit {
 		QuirkFx.blast(l, to).colours(0xFFFFFF, COSMIC).size((float) r).life(18).spawn();
 		OmnitrixSounds.play(l, to, SND_QUAKE, 2.5f, 1.1f);
 		cooldown(p, RAY, -1);
-		anim(p, 0);
+		anim(p, ANIM_RAY_END);
 	}
 
 	// ---------------------------------------------------------------- X: Giant Stride
@@ -622,8 +669,8 @@ public final class WayBigKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_STOMP);
-		Vec3 foot = p.position().add(flat(p).scale(p.getBbWidth()));
-		quake(p, foot, STOMP_RADIUS * reachScale(p), STOMP_DAMAGE, 0.6, 1.3);
+		OmnitrixSounds.play(level(p), p.getEyePosition(), SND_SWING, 2.0f, 0.6f);
+		queue(p, new Pending(STOMP, p.position().add(flat(p).scale(p.getBbWidth())), flat(p), p.level().getGameTime() + STOMP_DELAY));
 		return true;
 	}
 
@@ -651,6 +698,13 @@ public final class WayBigKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_CLAP);
+		OmnitrixSounds.play(level(p), p.getEyePosition(), SND_SWING, 2.0f, 1.2f);
+		queue(p, new Pending(CLAP, p.position(), flat(p), p.level().getGameTime() + CLAP_DELAY));
+		return true;
+	}
+
+	/** The hands meet: the thunderclap goes out where he looks now. */
+	private void clapLands(ServerPlayer p) {
 		ServerLevel l = level(p);
 		double range = CLAP_RANGE * reachScale(p);
 		Vec3 from = p.position().add(0, Math.min(height(p) * 0.2, 12), 0);
@@ -671,7 +725,6 @@ public final class WayBigKit extends AlienKit {
 		OmnitrixSounds.play(l, from, SND_QUAKE, 2.0f, 1.0f);
 		QuirkFx.cone(l, from, dir).colours(0xFFFFFF, COSMIC).size((float) (range * 0.5)).length((float) range).life(14).spawn();
 		QuirkCamera.shakeAround(l, from, range * 2, 0.35f, 10);
-		return true;
 	}
 
 	// ---------------------------------------------------------------- V: Size Shift
@@ -703,6 +756,8 @@ public final class WayBigKit extends AlienKit {
 		if (!use(p, CYCLONE)) {
 			return false;
 		}
+		anim(p, ANIM_CYCLONE);
+		setTimer(p, CYCLONE_START, p.level().getGameTime());
 		setFlag(p, F_CYCLONE, true);
 		CYCLONE_END.put(p.getUUID(), p.level().getGameTime() + CYCLONE_TICKS);
 		OmnitrixSounds.play(level(p), p.position(), SND_ROAR, 2.0f, 1.1f);
@@ -746,6 +801,7 @@ public final class WayBigKit extends AlienKit {
 			return;
 		}
 		setFlag(p, F_CYCLONE, false);
+		anim(p, ANIM_CYCLONE_END);
 		double r = CYCLONE_RADIUS * reachScale(p);
 		for (LivingEntity e : around(p, p.position().add(0, r * 0.3, 0), r)) {
 			e.invulnerableTime = 0;

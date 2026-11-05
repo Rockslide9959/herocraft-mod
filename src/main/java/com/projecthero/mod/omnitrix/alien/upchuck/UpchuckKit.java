@@ -26,7 +26,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
-import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -49,7 +48,6 @@ import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -75,10 +73,10 @@ import net.minecraft.world.phys.Vec3;
  *   X          Vomit Rocket     a blast of vomit launches him where he looks (8 Gut, else a hop); 5 behind him, no fall damage
  *   Shift+X    Tongue Zip       the tongues stick to a block (24) and haul him to it
  *   Z          Devour           eats the block he looks at and the four round it (6): no drops, Gut by what it was
- *   Shift+Z    Gobble           mouth wide 3 s: eats dropped items, XP and every shot that comes near (shots can't hurt him)
+ *   Shift+Z    Mega Loogie      ULTIMATE (40+ Gut, spends it all): a heave, then one huge loogie, 18-32, blast 3-6
  *   V          Digest           20 Gut into 6 health; clears poison, hunger and nausea
  *   Shift+V    Slime Slick      spits a slick of slime (12): 4 on landing, everything in it slowed 5 s; melts snow and ice
- *   C          Mega Loogie      ULTIMATE (40+ Gut, spends it all): one huge loogie, 18-32, blast 3-6
+ *   C          Gobble           mouth wide for as long as C is held: draws in and eats dropped items, XP and every shot near (shots can't hurt him)
  *   Shift+C    Feeding Frenzy   10 s: double Gut from everything, Devour and Tongue Grab need no wait
  *   Attack     Chomp            his bite (+4), +3 Gut a bite
  *   Passives   Iron Stomach (no poison, hunger or nausea); Full Cheeks (over 75 Gut he is slowed); Gut slowly digests (-1 / 5 s)
@@ -91,7 +89,7 @@ public final class UpchuckKit extends AlienKit {
 	// ---------------------------------------------------------------- synced flags / poses
 	public static final int F_GOBBLE = 1, F_FRENZY = 2, F_ROCKET = 4, F_ZIP = 8, F_FULL = 16, F_GULPED = 32;
 	public static final int ANIM_SPIT = 1, ANIM_TONGUE = 2, ANIM_GULP = 3, ANIM_ROCKET = 4, ANIM_EAT = 5, ANIM_GOBBLE = 6, ANIM_DIGEST = 7,
-			ANIM_MEGA = 8, ANIM_FRENZY = 9, ANIM_CHOMP = 10;
+			ANIM_MEGA = 8, ANIM_FRENZY = 9, ANIM_CHOMP = 10, ANIM_CURVE = 11, ANIM_SLICK = 12, ANIM_GOBBLE_END = 13, ANIM_LAND = 14;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.upchuck.<id>)
 	public static final String BOMB = "gut_bomb", CURVE = "curveball", GRAB = "tongue_grab", SWALLOW = "swallow_whole", ROCKET = "vomit_rocket",
@@ -100,7 +98,7 @@ public final class UpchuckKit extends AlienKit {
 
 	// ---------------------------------------------------------------- the Gut
 	public static final int MAX_GUT = 100, FULL_CHEEKS = 75;
-	public static final String GUT = "gut", RICH = "rich", GOBBLE_UNTIL = "gobble_until", FRENZY_UNTIL = "frenzy_until", ROCKET_UNTIL = "rocket_until";
+	public static final String GUT = "gut", RICH = "rich", FRENZY_UNTIL = "frenzy_until", ROCKET_UNTIL = "rocket_until";
 	public static final int BOMB_COST = 15, CURVE_COST = 20, ROCKET_COST = 8, DIGEST_COST = 20, MEGA_MIN = 40;
 	/** Gut digests on its own: 1 point every this many ticks. */
 	public static final int DECAY_TICKS = 100;
@@ -114,8 +112,13 @@ public final class UpchuckKit extends AlienKit {
 	public static final double GRAB_RANGE = 14, SWALLOW_RANGE = 5, CURVE_RANGE = 24, ZIP_RANGE = 24, DEVOUR_RANGE = 6, GOBBLE_RADIUS = 5,
 			SLICK_RANGE = 12, SLICK_RADIUS = 2.5;
 	public static final float SWALLOW_MAX_HEALTH = 40f, GRAB_MAX_HEALTH = 100f;
-	public static final int GRAB_TICKS = 10, GULP_TICKS = 80, ZIP_TICKS = 30, GOBBLE_TICKS = 60, FRENZY_TICKS = 200, ROCKET_SAFE = 40,
-			SLICK_TICKS = 100;
+	public static final int GRAB_TICKS = 10, GULP_TICKS = 80, ZIP_TICKS = 30, FRENZY_TICKS = 200, ROCKET_SAFE = 40, SLICK_TICKS = 100;
+	/** v0.17.2: the Mega Loogie's heave: this long swelling up before it flies (the pose's launch tick). */
+	public static final int MEGA_WINDUP = 14;
+	/** What Gobble draws in eats at this distance from his mouth. */
+	public static final double GOBBLE_EAT = 1.3;
+	/** A burst of spit: how long the explosion lasts, and how long the splat it leaves on the ground stays. */
+	public static final int BURST_TICKS = 14, SPLAT_TICKS = 70;
 
 	// ---------------------------------------------------------------- sounds
 	public static final OmnitrixSfx.Cue SND_SPIT = OmnitrixSfx.cue("upchuck_spit")
@@ -163,28 +166,27 @@ public final class UpchuckKit extends AlienKit {
 	private static final Map<UUID, List<Curve>> CURVES = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Slick>> SLICKS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
+	/** The Mega Loogie on its way up: the tick it flies. */
+	private static final Map<UUID, Long> MEGAS = new ConcurrentHashMap<>();
 
 	private UpchuckKit() {
 	}
 
 	public static void register() {
 		Aliens.register(new UpchuckKit());
-		AlienProjectileEntity.trail("upchuck_spit", new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.SLIME_BALL)));
-		AlienProjectileEntity.trail("upchuck_mega", ParticleTypes.ITEM_SLIME);
-		AlienProjectileEntity.trail("upchuck_curve", ParticleTypes.ITEM_SLIME);
-		AlienProjectileEntity.onHit("upchuck_spit", (proj, hit) -> splat(proj, 1f));
-		AlienProjectileEntity.onHit("upchuck_curve", (proj, hit) -> splat(proj, 1f));
-		AlienProjectileEntity.onHit("upchuck_mega", (proj, hit) -> splat(proj, 2.2f));
-		AlienProjectileEntity.trail("upchuck_slime_spit", ParticleTypes.ITEM_SLIME);
+		// v0.17.2 (user: "upgrade his abilities vfx and models please, make it actually look like his spit bombs and stuff from the show"):
+		// the flights, bursts and splats are all UpchuckFx's smooth models; no block-particle trails
+		AlienProjectileEntity.onHit("upchuck_spit", (proj, hit) -> splat(proj, hit, proj.size() * 6.5f));
+		AlienProjectileEntity.onHit("upchuck_curve", (proj, hit) -> splat(proj, hit, proj.size() * 5.5f));
+		AlienProjectileEntity.onHit("upchuck_mega", (proj, hit) -> splat(proj, hit, proj.size() * 4.5f));
 		AlienProjectileEntity.onHit("upchuck_slime_spit", (proj, hit) -> {
 			if (hit instanceof net.minecraft.world.phys.EntityHitResult eh && eh.getEntity() instanceof LivingEntity e) {
 				e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1, false, true, true));
 			}
-			if (proj.level() instanceof ServerLevel l) {
-				l.sendParticles(ParticleTypes.ITEM_SLIME, proj.getX(), proj.getY(), proj.getZ(), 8, 0.2, 0.2, 0.2, 0.05);
+			if (proj.getOwner() instanceof ServerPlayer p) {
+				fx(p, "upchuck_burst", proj.position(), proj.colour(), 0.8f, BURST_TICKS);
 			}
 		});
-		AlienProjectileEntity.trail("upchuck_slime", ParticleTypes.ITEM_SLIME);
 		AlienProjectileEntity.onHit("upchuck_slime", (proj, hit) -> {
 			if (proj.getOwner() instanceof ServerPlayer p && Aliens.kit(ID) instanceof UpchuckKit k) {
 				k.slickLand(p, hit.getLocation());
@@ -199,6 +201,7 @@ public final class UpchuckKit extends AlienKit {
 		CURVES.clear();
 		SLICKS.clear();
 		LAST_TICK.clear();
+		MEGAS.clear();
 	}
 
 	@Override
@@ -220,20 +223,20 @@ public final class UpchuckKit extends AlienKit {
 
 	@Override
 	protected List<AlienMove> declareMoves() {
+		// v0.17.2 (user: "make gobble the c ability and mega loogie shift+Z"): the two swapped keys; Gobble's cooldown now starts when C comes up
 		return List.of(AlienMove.tap(BOMB, AbilitySlot.SLOT_1, 20), AlienMove.shift(CURVE, AbilitySlot.SLOT_1, 60),
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 80), AlienMove.shift(SWALLOW, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(ROCKET, AbilitySlot.SLOT_3, 40), AlienMove.shift(ZIP, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(DEVOUR, AbilitySlot.SLOT_4, 10), AlienMove.shift(GOBBLE, AbilitySlot.SLOT_4, 300),
+				AlienMove.tap(DEVOUR, AbilitySlot.SLOT_4, 10), AlienMove.shift(MEGA, AbilitySlot.SLOT_4, 1200),
 				AlienMove.tap(DIGEST, AbilitySlot.SLOT_5, 100), AlienMove.shift(SLICK, AbilitySlot.SLOT_5, 200),
-				AlienMove.tap(MEGA, AbilitySlot.SLOT_6, 1200), AlienMove.shift(FRENZY, AbilitySlot.SLOT_6, 900),
+				AlienMove.tap(GOBBLE, AbilitySlot.SLOT_6, 120), AlienMove.shift(FRENZY, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(CHOMP, "Attack", 0), AlienMove.vanilla(STOMACH, "Passive", 0), AlienMove.vanilla(CHEEKS, "Passive", 0));
 	}
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_4 -> flag(p, F_GOBBLE);
-			case SLOT_6 -> flag(p, F_FRENZY);
+			case SLOT_6 -> flag(p, F_GOBBLE) || flag(p, F_FRENZY);
 			case SLOT_3 -> flag(p, F_ZIP);
 			case SLOT_2 -> flag(p, F_GULPED);
 			default -> false;
@@ -357,7 +360,8 @@ public final class UpchuckKit extends AlienKit {
 		SLICKS.remove(id);
 		LAST_TICK.remove(id);
 		OmnitrixState n = Omnitrix.state(p).copy();
-		for (String t : new String[] { GUT, RICH, GOBBLE_UNTIL, FRENZY_UNTIL, ROCKET_UNTIL }) {
+		MEGAS.remove(id);
+		for (String t : new String[] { GUT, RICH, FRENZY_UNTIL, ROCKET_UNTIL }) {
 			n.timers.remove(key(t));
 		}
 		n.kitFlags = 0;
@@ -424,13 +428,17 @@ public final class UpchuckKit extends AlienKit {
 		if (flag(p, F_ROCKET) && (now >= timer(p, ROCKET_UNTIL) || (p.onGround() && now >= timer(p, ROCKET_UNTIL) - ROCKET_SAFE + 6))) {
 			setFlag(p, F_ROCKET, false);
 			p.fallDistance = 0f;
+			if (s.animId == ANIM_ROCKET) {
+				anim(p, ANIM_LAND);
+			}
 		}
 		if (flag(p, F_GOBBLE)) {
-			if (now >= timer(p, GOBBLE_UNTIL)) {
-				setFlag(p, F_GOBBLE, false);
-			} else {
-				gobbleTick(p, l);
-			}
+			gobbleTick(p, l);
+		}
+		Long mega = MEGAS.get(p.getUUID());
+		if (mega != null && now >= mega) {
+			MEGAS.remove(p.getUUID());
+			megaFires(p);
 		}
 		if (flag(p, F_FRENZY) && now >= timer(p, FRENZY_UNTIL)) {
 			setFlag(p, F_FRENZY, false);
@@ -470,7 +478,7 @@ public final class UpchuckKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					gobble(p);
+					mega(p);
 				} else {
 					devour(p);
 				}
@@ -486,11 +494,18 @@ public final class UpchuckKit extends AlienKit {
 				if (shift) {
 					frenzy(p);
 				} else {
-					mega(p);
+					gobble(p);
 				}
 			}
 			default -> {
 			}
+		}
+	}
+
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_6) {
+			gobbleEnds(p);
 		}
 	}
 
@@ -505,18 +520,31 @@ public final class UpchuckKit extends AlienKit {
 		return (r << 16) | (g << 8) | b;
 	}
 
-	/** A loogie bursting: green slime everywhere. */
-	private static void splat(AlienProjectileEntity proj, float scale) {
+	/**
+	 * A held, harmless projectile the client draws as one of his effects ({@code UpchuckFx}): synced to everyone who can see it, gone by
+	 * itself after {@code life} ticks.
+	 */
+	private static void fx(ServerPlayer owner, String kind, Vec3 at, int colour, float size, int life) {
+		AlienProjectileEntity e = AlienProjectileEntity.of(owner, kind);
+		e.moveTo(at.x, at.y, at.z, 0f, 0f);
+		e.colour(colour).size(size).held(true).speed(0).life(life).damage(0f).spawn();
+	}
+
+	/** A loogie bursting into its green energy explosion ({@code radius} blocks), with a splat where it hit the ground. */
+	private static void splat(AlienProjectileEntity proj, HitResult hit, float radius) {
 		if (!(proj.level() instanceof ServerLevel l)) {
 			return;
 		}
 		Vec3 at = proj.position();
-		l.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, (int) (14 * scale), 0.5 * scale, 0.4 * scale, 0.5 * scale, 0.15);
-		l.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.SLIME_BALL)), at.x, at.y, at.z, (int) (10 * scale), 0.3 * scale,
-				0.3 * scale, 0.3 * scale, 0.2);
-		l.sendParticles(scale > 1.5f ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-		QuirkFx.ring(l, at).colours(0xD8FF8A, COLOUR).size(2.2f * scale).thickness(0.35f * scale).life(10).spawn();
-		OmnitrixSfx.play(l, at, SND_BOOM, Math.min(2f, 0.8f * scale), scale > 1.5f ? 0.7f : 1.1f);
+		if (proj.getOwner() instanceof ServerPlayer p) {
+			fx(p, "upchuck_burst", at, proj.colour(), radius, BURST_TICKS);
+			if (hit instanceof BlockHitResult b && b.getDirection() == Direction.UP) {
+				// the puddle's colour is its life (see UpchuckFx.puddle)
+				fx(p, "upchuck_puddle", b.getLocation(), SPLAT_TICKS, radius * 0.7f, SPLAT_TICKS);
+			}
+		}
+		QuirkFx.ring(l, at).colours(0xD8FF8A, COLOUR).size(radius * 1.6f).thickness(radius * 0.2f).life(10).spawn();
+		OmnitrixSfx.play(l, at, SND_BOOM, Math.min(2f, 0.35f * radius), radius > 3.2f ? 0.7f : 1.1f);
 	}
 
 	// ---------------------------------------------------------------- R / Shift+R
@@ -564,7 +592,7 @@ public final class UpchuckKit extends AlienKit {
 		if (!use(p, CURVE)) {
 			return false;
 		}
-		anim(p, ANIM_SPIT);
+		anim(p, ANIM_CURVE);
 		int g = gut(p);
 		float dmg = Math.min(CURVE_MAX * (1f + RICH_BONUS), Mth.lerp(g / (float) MAX_GUT, CURVE_MIN, CURVE_MAX) * richness(p));
 		// thrown off to one side, it swings back round onto the target
@@ -684,7 +712,7 @@ public final class UpchuckKit extends AlienKit {
 			if (hurt(p, g.target, CHOMP_DAMAGE, false)) {
 				eat(p, 6, false);
 			}
-			l.sendParticles(ParticleTypes.ITEM_SLIME, g.target.getX(), g.target.getY() + g.target.getBbHeight() * 0.5, g.target.getZ(), 8, 0.3, 0.3, 0.3, 0.05);
+			fx(p, "upchuck_burst", g.target.position().add(0, g.target.getBbHeight() * 0.6, 0), 0x9BE05A, 0.7f, BURST_TICKS);
 			OmnitrixSfx.play(l, p.position(), SND_CHEW, 1f, 0.9f);
 		}
 	}
@@ -761,7 +789,7 @@ public final class UpchuckKit extends AlienKit {
 				// fully digested: a hearty meal
 				eat(p, Math.min(20, (int) (t.getMaxHealth() / 2)), false);
 				OmnitrixSfx.play(l, p.position(), SND_BURP, 1f, 0.8f);
-				l.sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + p.getBbHeight() * 0.6, p.getZ(), 10, 0.3, 0.2, 0.3, 0.05);
+				fx(p, "upchuck_burst", mouth(p), 0x9BE05A, 0.6f, BURST_TICKS);
 			}
 			return;
 		}
@@ -798,7 +826,7 @@ public final class UpchuckKit extends AlienKit {
 			t.hurtMarked = true;
 			p.level().playSound(null, p.blockPosition(), SoundEvents.LLAMA_SPIT, net.minecraft.sounds.SoundSource.PLAYERS, 1f, 0.6f);
 		}
-		((ServerLevel) p.level()).sendParticles(ParticleTypes.ITEM_SLIME, out.x, out.y + 0.4, out.z, 16, 0.3, 0.3, 0.3, 0.1);
+		fx(p, "upchuck_burst", out.add(0, 0.4, 0), 0x9BE05A, 0.9f, BURST_TICKS);
 	}
 
 	// ---------------------------------------------------------------- X / Shift+X
@@ -825,8 +853,7 @@ public final class UpchuckKit extends AlienKit {
 					shove(e, p.position(), 0.6, 0.2);
 				}
 			}
-			level(p).sendParticles(ParticleTypes.ITEM_SLIME, behind.x, behind.y, behind.z, 20, 0.4, 0.3, 0.4, 0.15);
-			level(p).sendParticles(ParticleTypes.EXPLOSION, behind.x, behind.y, behind.z, 1, 0, 0, 0, 0);
+			fx(p, "upchuck_burst", behind, spitColour(p), 1.8f, BURST_TICKS);
 		} else {
 			say(p, "hungry");
 		}
@@ -945,48 +972,73 @@ public final class UpchuckKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+Z: mouth wide open -- items, XP and shots near him go down. */
+	/**
+	 * C (user: "remove gobbles time limit and make it last as long as player holds C"): mouth wide open from the moment C goes down until
+	 * it comes up -- items, XP and shots near him are drawn in and go down. Its cooldown starts when he closes it ({@link #gobbleEnds}).
+	 */
 	public boolean gobble(ServerPlayer p) {
-		if (!use(p, GOBBLE)) {
+		if (flag(p, F_GOBBLE)) {
+			return false;
+		}
+		if (cooldownLeft(p, GOBBLE) > 0) {
+			use(p, GOBBLE); // the "not ready" line
 			return false;
 		}
 		anim(p, ANIM_GOBBLE);
-		setTimer(p, GOBBLE_UNTIL, p.level().getGameTime() + GOBBLE_TICKS);
 		setFlag(p, F_GOBBLE, true);
 		OmnitrixSfx.play(level(p), p.position(), SND_GULP, 1f, 1.3f);
 		return true;
 	}
 
+	/** C came up: the mouth shuts, a gulp, and Gobble cools down. */
+	public void gobbleEnds(ServerPlayer p) {
+		if (!flag(p, F_GOBBLE)) {
+			return;
+		}
+		setFlag(p, F_GOBBLE, false);
+		cooldown(p, GOBBLE, -1);
+		anim(p, ANIM_GOBBLE_END);
+		OmnitrixSfx.play(level(p), p.position(), SND_GULP, 0.8f, 0.9f);
+	}
+
 	private void gobbleTick(ServerPlayer p, ServerLevel l) {
 		Vec3 m = mouth(p);
 		AABB box = new AABB(m, m).inflate(GOBBLE_RADIUS);
+		p.takeXpDelay = Math.max(p.takeXpDelay, 2); // what flies at him goes in by the mouth, not into his pockets
 		for (Entity e : l.getEntities(p, box)) {
 			if (e.isRemoved() || e.distanceToSqr(m) > GOBBLE_RADIUS * GOBBLE_RADIUS) {
+				continue;
+			}
+			boolean item = e instanceof ItemEntity || e instanceof ExperienceOrb;
+			boolean shot = e instanceof Projectile pr && !(pr instanceof ThrownTrident) && pr.getOwner() != p && !(pr instanceof AlienProjectileEntity ap
+					&& ap.held());
+			if (!item && !shot) {
+				continue;
+			}
+			Vec3 to = m.subtract(e.position());
+			if (e instanceof ItemEntity it) {
+				it.setPickUpDelay(10); // also one already beside him: he eats it rather than pocketing it
+			}
+			if (to.length() > GOBBLE_EAT) {
+				// sucked in: it flies to his mouth, it doesn't vanish where it lay
+				e.setDeltaMovement(to.normalize().scale(Math.max(0.8, e.getDeltaMovement().length())));
+				e.hasImpulse = true;
+				e.hurtMarked = true;
 				continue;
 			}
 			if (e instanceof ItemEntity it) {
 				int[] w = worth(it.getItem());
 				eat(p, w[0], w[1] == 1);
-				gulpFx(l, e);
-				it.discard();
 			} else if (e instanceof ExperienceOrb orb) {
 				p.giveExperiencePoints(orb.getValue()); // XP is still his: it just goes in by the mouth
 				eat(p, 1, true);
-				gulpFx(l, e);
-				orb.discard();
-			} else if (e instanceof Projectile pr && !(pr instanceof ThrownTrident) && pr.getOwner() != p && !(pr instanceof AlienProjectileEntity ap
-					&& ap.held())) {
-				boolean energy = pr instanceof AbstractHurtingProjectile; // fireballs, wither skulls, wind charges: energy is rich
+			} else {
+				boolean energy = e instanceof AbstractHurtingProjectile; // fireballs, wither skulls, wind charges: energy is rich
 				eat(p, energy ? 10 : 5, energy);
-				gulpFx(l, e);
-				pr.discard();
 			}
+			l.playSound(null, e.blockPosition(), SoundEvents.FROG_EAT, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.2f);
+			e.discard();
 		}
-	}
-
-	private static void gulpFx(ServerLevel l, Entity e) {
-		l.sendParticles(ParticleTypes.ITEM_SLIME, e.getX(), e.getY() + 0.2, e.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
-		l.playSound(null, e.blockPosition(), SoundEvents.FROG_EAT, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.2f);
 	}
 
 	// ---------------------------------------------------------------- V / Shift+V
@@ -1016,7 +1068,7 @@ public final class UpchuckKit extends AlienKit {
 		if (!use(p, SLICK)) {
 			return false;
 		}
-		anim(p, ANIM_SPIT);
+		anim(p, ANIM_SLICK);
 		AlienProjectileEntity.of(p, "upchuck_slime").colour(0x9BE05A).size(0.35f).damage(SLICK_DAMAGE).gravity(0.05).speed(1.2)
 				.life(40).spawn();
 		OmnitrixSfx.play(level(p), p.position(), SND_SPIT, 1f, 0.8f);
@@ -1036,9 +1088,24 @@ public final class UpchuckKit extends AlienKit {
 			}
 			l.setBlock(b, s.is(Blocks.ICE) ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
 		}
-		l.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y + 0.1, at.z, 30, 1.2, 0.05, 1.2, 0.05);
+		// the puddle's colour is its life (see UpchuckFx.puddle)
+		fx(p, "upchuck_puddle", groundUnder(l, at), SLICK_TICKS, (float) SLICK_RADIUS, SLICK_TICKS);
+		fx(p, "upchuck_burst", at, 0x9BE05A, 1.2f, BURST_TICKS);
 		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xC8FF8A, COLOUR).size((float) SLICK_RADIUS).thickness(0.5f).life(14).ground().spawn();
 		OmnitrixSfx.play(l, at, SND_BOOM, 0.5f, 1.6f);
+	}
+
+	/** The top of the first solid block at or under {@code at} (within 6 blocks), or {@code at} itself. */
+	private static Vec3 groundUnder(ServerLevel l, Vec3 at) {
+		BlockPos.MutableBlockPos m = BlockPos.containing(at).mutable();
+		for (int i = 0; i < 6; i++) {
+			var shape = l.getBlockState(m).getCollisionShape(l, m);
+			if (!shape.isEmpty()) {
+				return new Vec3(at.x, m.getY() + shape.max(Direction.Axis.Y), at.z);
+			}
+			m.move(0, -1, 0);
+		}
+		return at;
 	}
 
 	private void tickSlicks(ServerPlayer p, ServerLevel l, long now) {
@@ -1052,9 +1119,6 @@ public final class UpchuckKit extends AlienKit {
 			return;
 		}
 		for (Slick s : list) {
-			if (now % 4 == 0) {
-				l.sendParticles(ParticleTypes.ITEM_SLIME, s.at.x, s.at.y + 0.05, s.at.z, 4, SLICK_RADIUS * 0.5, 0.02, SLICK_RADIUS * 0.5, 0.0);
-			}
 			for (LivingEntity e : around(p, s.at, SLICK_RADIUS)) {
 				if (Math.abs(e.getY() - s.at.y) > 1.5) {
 					continue;
@@ -1076,10 +1140,15 @@ public final class UpchuckKit extends AlienKit {
 		return Math.min(MEGA_MAX_DAMAGE * (1f + RICH_BONUS), Mth.lerp(gut / (float) MAX_GUT, MEGA_MIN_DAMAGE, MEGA_MAX_DAMAGE) * richness);
 	}
 
-	/** C (ultimate): everything in his Gut at once, one huge loogie. */
+	/**
+	 * Shift+Z (ultimate; user: "make gobble the c ability and mega loogie shift+Z"): he swells up for {@link #MEGA_WINDUP} ticks, then
+	 * everything in his Gut comes out at once, one huge loogie.
+	 */
 	public boolean mega(ServerPlayer p) {
-		int g = gut(p);
-		if (g < MEGA_MIN) {
+		if (MEGAS.containsKey(p.getUUID())) {
+			return false;
+		}
+		if (gut(p) < MEGA_MIN) {
 			say(p, "need_gut", MEGA_MIN);
 			return false;
 		}
@@ -1087,6 +1156,16 @@ public final class UpchuckKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_MEGA);
+		MEGAS.put(p.getUUID(), p.level().getGameTime() + MEGA_WINDUP);
+		OmnitrixSfx.play(level(p), p.position(), SND_GULP, 1.2f, 0.7f);
+		return true;
+	}
+
+	private void megaFires(ServerPlayer p) {
+		int g = gut(p);
+		if (g <= 0) {
+			return; // he spent it all while he heaved
+		}
 		float frac = g / (float) MAX_GUT;
 		float dmg = megaDamage(g, richness(p));
 		AlienProjectileEntity.of(p, "upchuck_mega").colour(spitColour(p)).size(0.7f + 0.6f * frac).damage(dmg).blast(3f + 3f * frac, dmg * 0.8f)
@@ -1096,7 +1175,6 @@ public final class UpchuckKit extends AlienKit {
 		p.push(back.x, 0.1, back.z); // the recoil
 		p.hurtMarked = true;
 		OmnitrixSfx.play(level(p), p.position(), SND_MEGA, 1.5f, 1f);
-		return true;
 	}
 
 	/** Shift+C: a Feeding Frenzy -- double Gut from everything, Devour and Tongue Grab with no wait. */

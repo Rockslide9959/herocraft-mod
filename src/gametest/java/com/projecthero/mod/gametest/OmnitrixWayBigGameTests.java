@@ -19,6 +19,7 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -186,6 +187,57 @@ public class OmnitrixWayBigGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.2 (audit: the fin almost never fired): a shot's source position is where it strikes -- his shins -- so what counts is who threw
+	 * it and how it came in. A shooter up at his head, or a shot falling on him from overhead, is on the fin; a flat shot from the ground and
+	 * a zombie at his feet are not. Compact, the fin is 12.3 blocks up.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHeadFinCountsWhereTheBlowCameFromNotWhereTheShotLanded(GameTestHelper helper) {
+		ServerPlayer p = wayBig(helper);
+		AlienKit kit = Aliens.kit(WayBigKit.ID);
+		Zombie archer = zombie(helper, 3.5, 2, 6.5);
+		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
+		arrow.moveTo(p.getX(), p.getY() + 3, p.getZ());
+		// a flat shot from the ground, the archer level with his feet
+		arrow.setDeltaMovement(0, -0.1, -2);
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().arrow(arrow, archer), 10f) == 10f, "a flat shot on his shins is no fin hit");
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().mobAttack(archer), 10f) == 10f, "nor a zombie at his feet");
+		// the same shot landing in the same place, shot from up at his head
+		archer.moveTo(archer.getX(), p.getY() + 90, archer.getZ());
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().arrow(arrow, archer), 10f) == 20f, "shot from up at his head: on the fin");
+		// a shot dropping out of the sky, from no shooter at all
+		arrow.setDeltaMovement(0.2, -2, 0);
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().arrow(arrow, null), 10f) == 20f, "falling straight down on him: on the fin");
+		arrow.setDeltaMovement(1.6, -1.2, 0);
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().arrow(arrow, null), 10f) == 10f, "a shot at a shallow slant is not");
+		// Compact, his shoulders are 12.3 blocks up
+		tap(p, AbilitySlot.SLOT_5, false);
+		archer.moveTo(archer.getX(), p.getY() + 13, archer.getZ());
+		arrow.setDeltaMovement(0, -0.1, -2);
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().arrow(arrow, archer), 10f) == 20f, "Compact: a shooter 13 blocks up is above his shoulders");
+		helper.succeed();
+	}
+
+	/** v0.17.2 (user: "make his moves stronger since hes huge and really powerful please"): every move past every other alien's ultimate scale. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyMoveHitsFarPastTheNormalScale(GameTestHelper helper) {
+		helper.assertTrue(WayBigKit.FIST_DAMAGE == 100f && WayBigKit.CHOP_DAMAGE == 90f && WayBigKit.STOMP_DAMAGE == 85f && WayBigKit.STRIDE_DAMAGE == 70f
+				&& WayBigKit.CLAP_DAMAGE == 65f, "the blows");
+		helper.assertTrue(WayBigKit.RAY_DAMAGE == 20f && WayBigKit.RAY_BLAST == 100f, "the Cosmic Ray");
+		helper.assertTrue(WayBigKit.CYCLONE_DAMAGE == 15f && WayBigKit.CYCLONE_FLING == 100f, "the cyclone");
+		ServerPlayer p = wayBig(helper);
+		Zombie z = zombie(helper, 3.5, 2, 6.5);
+		z.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.position());
+		float before = z.getHealth();
+		helper.runAfterDelay(30, () -> tap(p, AbilitySlot.SLOT_1, false));
+		helper.runAfterDelay(30 + WayBigKit.FIST_DELAY + 2, () -> {
+			helper.assertTrue(before - z.getHealth() >= 80f, "the Titan Fist really lands for about 100: " + (before - z.getHealth()));
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theTitanFistAndTheQuakeStompReachTheGroundFromTheSky(GameTestHelper helper) {
 		ServerPlayer p = wayBig(helper);
@@ -197,9 +249,12 @@ public class OmnitrixWayBigGameTests implements FabricGameTest {
 			helper.assertTrue(far.getHealth() < before, "the Titan Fist lands from 90 blocks up: " + far.getHealth() + " look " + WayBigKit.lookPoint(p, 200) + " zombie " + far.position() + " eye " + p.getEyePosition());
 			float b2 = far.getHealth();
 			tap(p, AbilitySlot.SLOT_4, false);
-			helper.assertTrue(far.getHealth() < b2, "the Quake Stomp's ring reaches it: " + far.getHealth());
+			helper.assertTrue(far.getHealth() == b2, "the foot is still in the air");
 			helper.assertTrue(Aliens.kit(WayBigKit.ID).cooldownLeft(p, WayBigKit.STOMP) > 0, "Z cools down");
-			helper.succeed();
+			helper.runAfterDelay(WayBigKit.STOMP_DELAY + 2, () -> {
+				helper.assertTrue(far.getHealth() < b2, "the Quake Stomp's ring reaches it when the foot lands: " + far.getHealth());
+				helper.succeed();
+			});
 		});
 	}
 

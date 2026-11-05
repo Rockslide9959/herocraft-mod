@@ -64,6 +64,10 @@ public abstract class OmnitrixPlayerRendererMixin {
 			if (k != 1f) {
 				pose.scale(k, k, k);
 			}
+			float spin = kit.bodySpin(player, partial);
+			if (spin != 0f) {
+				pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(spin));
+			}
 		}
 	}
 
