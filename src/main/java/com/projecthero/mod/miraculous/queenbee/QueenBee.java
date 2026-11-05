@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.2: Queen Bee's synced values (the keys of {@code MiraculousState#vals} / {@code vecs} her kit owns, all prefixed
  * {@code qb_}) and the small client-safe reads the HUD, the poses and the renderers share. Timers are absolute game times.
- * The transformation is the normal short one (no long sequence yet).
+ * "Pollen, buzz on!" in full plays the long transformation ({@link QueenBeeSequence}); "Buzz on!" alone is the quick one.
  */
 public final class QueenBee {
 	/** Top Strike: the combo's window for the next press runs until (the top is out on its string). */

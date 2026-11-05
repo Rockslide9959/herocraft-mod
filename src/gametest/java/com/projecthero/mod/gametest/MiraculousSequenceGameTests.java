@@ -175,6 +175,34 @@ public class MiraculousSequenceGameTests implements FabricGameTest {
 		shortPhrase(helper, Kwami.MULLO);
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void pollenBuzzOnPlaysTheLongSequence(GameTestHelper helper) {
+		fullPhrase(helper, Kwami.POLLEN);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void buzzOnAloneIsTheQuickOne(GameTestHelper helper) {
+		shortPhrase(helper, Kwami.POLLEN);
+	}
+
+	/** Queen Bee's own beats: the bands cover her body step by step, the mask is last, and she ends facing the way she began. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void queenBeesSuitFormsWithTheBandsAndTheMaskIsLast(GameTestHelper helper) {
+		MiraculousSequence.Timeline tl = MiraculousSequence.of(Kwami.POLLEN);
+		helper.assertTrue(tl == com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.TIMELINE && tl.total() == 170, "Ladybug's length");
+		int bands = com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.BANDS;
+		int end = com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.BANDS_END;
+		int mask = com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.MASK;
+		int maskEnd = com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.MASK_END;
+		float body = com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.BODY;
+		helper.assertTrue(tl.cover(bands) == 0f && Math.abs(tl.cover(end) - body) < 1.0e-4f && Math.abs(tl.cover(mask) - body) < 1.0e-4f,
+				"the bands cover her body, then it holds for the mask");
+		helper.assertTrue(tl.cover(maskEnd) >= 0.999f, "the mask finishes the suit");
+		helper.assertTrue(Math.abs(tl.spin(tl.total()) % 360f) < 1.0e-3f, "she ends facing the way she began");
+		helper.assertTrue(tl.lift(0f) == 0f && tl.lift(90f) > 0.8 && Math.abs(tl.lift(tl.total())) < 1.0e-3, "up off the ground and back down");
+		helper.succeed();
+	}
+
 	/** Multimouse's own beats: the suit steps on with each copy that merges, the hood rises after it, never back off. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void multimouseSuitFormsAsTheCopiesMerge(GameTestHelper helper) {
@@ -207,7 +235,7 @@ public class MiraculousSequenceGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(tl.cover(92f) - 0.84f) < 1.0e-4f && tl.cover(30f) == 0f && Math.abs(tl.spin(92f) - 720f) < 1.0e-3f
 				&& Math.abs(tl.lift(60f) - 1.0) < 1.0e-6, "the same reveal, twirl and lift");
 		for (Kwami k : Kwami.values()) {
-			helper.assertTrue(k == Kwami.POLLEN || MiraculousSequence.of(k) != null, k.id + " has a long transformation"); // v0.17.2: Queen Bee has the short one only (for now)
+			helper.assertTrue(MiraculousSequence.of(k) != null, k.id + " has a long transformation");
 		}
 		helper.succeed();
 	}

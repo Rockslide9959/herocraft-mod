@@ -357,7 +357,7 @@ public class QueenBeeGameTests implements FabricGameTest {
 		helper.assertTrue(PowerGrants.grantHero(p, "queen_bee").ok() && Miraculous.holds(p, Kwami.POLLEN) && HeroTiers.holdsHero(p, "queen_bee"),
 				"the command grants Queen Bee");
 		helper.assertTrue("Queen Bee".equals(MiraculousPhrases.heroName(Kwami.POLLEN)), "the hero's name");
-		helper.assertTrue(MiraculousPhrases.match(Kwami.POLLEN, "pollen buzz on") == MiraculousPhrases.Spoken.TRANSFORM
+		helper.assertTrue(MiraculousPhrases.match(Kwami.POLLEN, "pollen buzz on") == MiraculousPhrases.Spoken.TRANSFORM_LONG /* v0.17.2: the long one */
 				&& MiraculousPhrases.match(Kwami.POLLEN, "Buzz on!") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.POLLEN, "BUZZ OFF") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.POLLEN, "Pollen, buzz off!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");

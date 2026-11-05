@@ -42,8 +42,9 @@ import net.minecraft.world.entity.player.Player;
  * vanilla's offsets; while the suit shows the wearer's jacket / sleeves / trousers are hidden (their hat layer -- their
  * hair -- stays, as Viperion's).
  *
- * <p><b>The transformation</b> ({@link #cover}): the suit runs down from the Bee Comb in her hair, texel by texel, its
- * edge a band of honey-gold light; detransforming runs it backwards.
+ * <p><b>The transformation</b> ({@link #cover}): the suit runs down from her collar, under the Bee Comb, texel by texel, its
+ * edge a band of honey-gold light, and the mask comes last; detransforming runs it backwards. "Pollen, buzz on!" in full
+ * paces it with {@code QueenBeeSequence}.
  *
  * <p>Also the spinning top ({@link #renderTop}) and the Bee Comb ({@link #renderComb}), drawn from lit boxes.
  */
@@ -106,6 +107,11 @@ public final class QueenBeeRender {
 		if (s == null || !s.hasPower || !Kwami.POLLEN.id.equals(s.kwami) || player.level() == null) {
 			return 0f;
 		}
+		// the long transformation runs the change at its own pace (QueenBeeSequence)
+		float seq = com.projecthero.mod.client.miraculous.MiraculousSequenceClient.suitCover(player, s, partial);
+		if (seq >= 0f) {
+			return seq;
+		}
 		float total = MiraculousConfig.TRANSFORM_TICKS;
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		if (age < 0f && age > -40f) {
@@ -154,9 +160,14 @@ public final class QueenBeeRender {
 		if (h < 0f) {
 			return 2f;
 		}
-		// from the comb (the back of the head, model height ~30) down to her boots
-		float t = Math.abs(h - 30f) / 30f;
-		return Mth.clamp(0.03f + 0.84f * t + 0.1f * hash(u, v), 0f, 0.995f);
+		// the mask last, wiped across her face from her right eye to her left (the long transformation's hand sweep)
+		if (v < 16) {
+			return Mth.clamp(0.88f + 0.1f * (u - 7) / 9f, 0.88f, 0.98f);
+		}
+		// from the collar down to her boots (height counts down from the crown: 8 = shoulders, 32 = soles), always under
+		// QueenBeeSequence.BODY so the last band ends with the body covered
+		float t = Mth.clamp((h - 8f) / 24f, 0f, 1f);
+		return Mth.clamp(0.03f + 0.73f * t + 0.1f * hash(u, v), 0f, 0.86f);
 	}
 
 	private static float hash(int x, int y) {

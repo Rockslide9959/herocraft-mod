@@ -75,7 +75,7 @@ public final class MiraculousSequenceClient {
 			case KAALKI -> com.projecthero.mod.client.miraculous.pegasus.PegasusSequenceClient.SCENE;
 			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionSequenceClient.SCENE;
 			case MULLO -> com.projecthero.mod.client.miraculous.multimouse.MultimouseSequenceClient.SCENE;
-			case POLLEN -> null; // v0.17.2: the short transformation only
+			case POLLEN -> com.projecthero.mod.client.miraculous.queenbee.QueenBeeSequenceClient.SCENE; // v0.17.2
 		};
 	}
 

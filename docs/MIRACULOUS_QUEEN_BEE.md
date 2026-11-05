@@ -4,8 +4,8 @@ Kwami **Pollen** (Kwami of Subjection; `Kwami.POLLEN`, id `pollen`, colour `0xF5
 (`bee_comb`, in the Miraculous Box and the first-spawn Miraculous calling), hero key `queen_bee`. The core is
 `MIRACULOUS_REFERENCE.md`; this is the kit. Layout approved by the user 2026-11-02 (damage on the v0.17.2 scale).
 
-- Transform: `Pollen, buzz on!` (or just `Buzz on!`); change back: `Buzz off!` (or `Pollen, buzz off!`). The normal short
-  transformation (no long sequence yet: `MiraculousSequence.of(POLLEN)` is null, so the full phrase plays the short one).
+- Transform: `Pollen, buzz on!` plays the long transformation below; `Buzz on!` alone is the quick one. Change back:
+  `Buzz off!` (or `Pollen, buzz off!`).
 - Food: **honeycomb** (vanilla); 10 of any other food also works.
 - Transformed: the shared Miraculous stats, plus the buzzing glide.
 
@@ -21,6 +21,19 @@ the comb downward, the spinning top and the Bee Comb as lit boxes), `QueenBeePos
 thrown top, the hovering top and its stingers, the tangle wraps, Venom's paralysis rings), `QueenBeeHiveSense` (gold
 outlines through `ViperionHeatGlowMixin` / `ViperionHeatColorMixin`); mixins `QueenBeeFirstPersonArmMixin`,
 `QueenBeeArmorMixin`.
+
+## The long transformation
+
+`QueenBeeSequence` (server timeline, 170 ticks) + `QueenBeeSequenceClient` (poses, effects, camera), on the shared
+`MiraculousSequence` frame: tick 0 Pollen spirals into the comb, 16 gold flash on it (camera behind her head); 24-78 five
+bands of gold and black coil down her from the comb as she turns once, the suit stepping down with each (to 0.87 cover,
+`BODY`); 86-100 her right hand sweeps across her eyes and the mask wipes on after it; 106 the top forms in her hand, 114
+it flies out on its string and circles her twice, 136-142 it snaps to her hip (`QueenBeeLayer` keeps it off her hip until
+`topOnHip`); 148 the pose: a hand on her hip, the other pointing high, a wall of seven honeycomb cells behind her.
+
+`QueenBeeRender.order`: height counts DOWN from the crown (`OverlayStrips.height`: 8 shoulders, 32 soles), so the body
+runs collar to boots under 0.86 and the head texels sit at 0.88-0.98, left to right across the face. The quick
+transformation uses the same order.
 
 ## The suit
 

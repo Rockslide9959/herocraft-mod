@@ -39,7 +39,8 @@ public class QueenBeeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		if (cover < 0.999f) {
 			OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> QueenBeeRender.order(u, v) > cover, false);
 		}
-		if (cover > 0.6f && QueenBee.is(player) && !QueenBee.topAway(player)) {
+		// (in the long transformation the scene draws the top until it reaches her hip)
+		if (cover > 0.6f && QueenBee.is(player) && !QueenBee.topAway(player) && QueenBeeSequenceClient.topOnHip(player, partialTick)) {
 			renderTop(pose, buffers, light, player, getParentModel(), ageInTicks, partialTick);
 		}
 	}
