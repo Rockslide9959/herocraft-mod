@@ -148,22 +148,74 @@ final class StinkflyBody {
 				segment(pose, vc, light, hw, -hh, hh, -0.25f, SEG_LEN + 0.25f, SMOOTH_TOP, SMOOTH_SIDE, SMOOTH_BELLY, SMOOTH_CAP);
 				pose.translate(0f, 0f, SEG_LEN / 16f);
 			}
-			// the blade: flat, broad on its outer (lower) edge and drawn to a point, curling up and back, the white stripe on its inner
-			// (upper) edge
-			for (int k = 0; k < BLADE_N; k++) {
-				float f = k / (float) (BLADE_N - 1);
-				float belly = Mth.sin(Mth.PI * (float) Math.pow(f, 0.7)) * (1f - 0.25f * f);
-				float top = -(0.9f - 0.55f * f), bottom = 0.5f + 5.0f * belly - 0.3f * f;
-				float len = Mth.lerp(f, 0.74f, 0.5f);
-				segment(pose, vc, light, 0.42f - 0.2f * f, top, bottom, -0.12f, len + 0.12f, BLADE, BLADE, BLADE, BLADE_CAP);
-				if (k < BLADE_N - 4) { // the white inner edge, broad where the blade leaves the tail and thinning toward the tip
-					segment(pose, vc, light, 0.5f - 0.2f * f, top - 0.04f, top + Mth.lerp(f, 2.2f, 0.7f), -0.12f, len + 0.12f, STRIPE, STRIPE, STRIPE, STRIPE);
-				}
-				pose.translate(0f, 0f, len / 16f);
-				pose.mulPose(Axis.XP.rotationDegrees(BLADE_BEND));
-			}
+			// v0.17.2 fourth pass (user: "make his tail look like how it looks in these images please" -- the show still and the model
+			// sheet): the stinger is ONE smooth flat sickle, not a stack of boxes (that read as a jagged comb). In the tail tip's frame
+			// (+z on along the tail, -y his top) it flares from the tail's end into a broad black crescent -- the convex outer edge
+			// bulging down and back, the concave inner edge -- that sweeps on and curls UP to a sharp point, with the white stripe
+			// running along the inner edge from its base, as on the model sheet.
+			// v0.17.2 fifth pass (the model sheet): a two-tipped crescent like an axe head -- its lower tip below the tail's end, its upper
+			// tip above, the convex edge bulging back, the concave edge (facing him) passing through the tail's end
+			float[][] outer = { { -1.5f, 6.8f }, { 15.0f, -1.0f }, { 1.5f, -8.8f } }, inner = { { -1.5f, 6.8f }, { 3.2f, -1.0f }, { 1.5f, -8.8f } };
+			sickle(pose, vc, light, outer, inner, 0.42f, BLADE);
+			// the stripe: a thin white band hugging the inner edge from the base to near the tip (the exact first 88% of that edge,
+			// and a copy of it moved ~0.9 px into the blade)
+			float[][] band = { inner[0], { inner[1][0] + 2.0f, inner[1][1] }, inner[2] };
+			sickle(pose, vc, light, band, inner, 0.5f, STRIPE);
 			pose.popPose();
 		});
+	}
+
+	private static final int SICKLE_SEG = 24;
+
+	/**
+	 * A smooth flat blade in the y-z plane (pixels), {@code half} thick each side of x = 0: between two quadratic edges {@code a} and
+	 * {@code b} (three {z, y} control points each, sharing the tip), both faces and both edge walls, in one solid colour from the
+	 * sheet rectangle {@code uv}. Thins a little toward the tip.
+	 */
+	private static void sickle(PoseStack pose, VertexConsumer vc, int light, float[][] a, float[][] b, float half, float[] uv) {
+		PoseStack.Pose last = pose.last();
+		float u = (uv[0] + uv[2]) * 0.5f / 64f, v = (uv[1] + uv[3]) * 0.5f / 64f;
+		float s = 1f / 16f;
+		for (int i = 0; i < SICKLE_SEG; i++) {
+			float t0 = i / (float) SICKLE_SEG, t1 = (i + 1) / (float) SICKLE_SEG;
+			float h0 = half * (1f - 0.55f * t0) * s, h1 = half * (1f - 0.55f * t1) * s;
+			float[] a0 = quad(a, t0), a1 = quad(a, t1), b0 = quad(b, t0), b1 = quad(b, t1);
+			// the two faces (+x and -x)
+			for (int side = -1; side <= 1; side += 2) {
+				face(vc, last, light, u, v, side * h0, a0, side * h0, b0, side * h1, b1, side * h1, a1, side, 0, 0);
+			}
+			// the edge walls
+			for (float[][] e : new float[][][] { { a0, a1 }, { b0, b1 } }) {
+				float dz = e[1][0] - e[0][0], dy = e[1][1] - e[0][1], l = Mth.sqrt(dz * dz + dy * dy);
+				float ny = l < 1e-5f ? 0f : dz / l, nz = l < 1e-5f ? 0f : -dy / l;
+				face(vc, last, light, u, v, -h0, e[0], h0, e[0], h1, e[1], -h1, e[1], 0, ny, nz);
+			}
+		}
+	}
+
+	/** A quad of four (x, {z, y} px) corners, drawn both ways round so it never culls. */
+	private static void face(VertexConsumer vc, PoseStack.Pose last, int light, float u, float v, float x0, float[] p0, float x1, float[] p1, float x2,
+			float[] p2, float x3, float[] p3, float nx, float ny, float nz) {
+		float s = 1f / 16f;
+		float[][] ps = { { x0, p0[1] * s, p0[0] * s }, { x1, p1[1] * s, p1[0] * s }, { x2, p2[1] * s, p2[0] * s }, { x3, p3[1] * s, p3[0] * s } };
+		for (int k = 0; k < 8; k++) {
+			float[] q = ps[k < 4 ? k : 7 - k];
+			float sign = k < 4 ? 1f : -1f;
+			vc.addVertex(last, q[0], q[1], q[2]).setColor(255, 255, 255, 255).setUv(u, v)
+					.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light)
+					.setNormal(last, nx * sign, ny * sign, nz * sign);
+		}
+	}
+
+	/** The exact part of a quadratic edge from its start to {@code t}, as its own three control points. */
+	private static float[][] sub(float[][] p, float t) {
+		return new float[][] { p[0], { Mth.lerp(t, p[0][0], p[1][0]), Mth.lerp(t, p[0][1], p[1][1]) }, quad(p, t) };
+	}
+
+	/** A point on a quadratic edge ({z, y} control points) at {@code t}. */
+	private static float[] quad(float[][] p, float t) {
+		float w = 1f - t;
+		return new float[] { w * w * p[0][0] + 2 * w * t * p[1][0] + t * t * p[2][0], w * w * p[0][1] + 2 * w * t * p[1][1] + t * t * p[2][1] };
 	}
 
 	/**
