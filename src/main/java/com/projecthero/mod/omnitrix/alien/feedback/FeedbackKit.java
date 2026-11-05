@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -24,6 +25,7 @@ import com.projecthero.mod.quirk.fx.QuirkFx;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -62,18 +64,19 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R          Feedback Blast     a fingertip bolt at the crosshair (28; 10 Charge): 14; with less, a Static Spark (6)
  *   Shift+R    Rapid Fire         five bolts from alternating hands over a second (25 Charge): 6 each
- *   G          Absorb             3 s brace: shots, energy, fire and blasts hitting him become Charge (x4) instead of damage
- *   Shift+G    Redirect           sends back what he absorbed in the last 15 s (15 Charge): 12 + 1.5x absorbed, 30 at most
+ *   G          Power Feed         25 Charge into 6 health; clears slowness and weakness
+ *   Shift+G    Overclock          30 Charge: 10 s of speed, higher leaps and blasts x1.25
  *   X          Conductoid Leap    a long agile leap where you look; no fall damage 2 s
- *   Shift+X    Cable Swing        an antenna plugs into the block you look at (24) and swings / yanks you to it
- *   Z          Plug Whip          the tail lashes ahead (4 blocks, 140 deg): 12, knocked back; +4 shock with 5 Charge
- *   Shift+Z    Plug In            cables plug into what you look at (8) or the nearest power within 6: powered redstone, a lightning
+ *   Shift+X    Surge Flight       hold: energy shot out behind him drives him where he aims (22 b/s, 36 sprinting), 5 Charge a second
+ *   Z          Full Discharge     ULTIMATE (40+ Charge, spends it all): a burst round him, 14-30 within 3-8 by Charge, stunned 1 s
+ *   Shift+Z    Feedback Cannon    50 Charge: a piercing beam (32): 24 to everything on it, knocked back
+ *   V          Quick Absorb       tap: a 1 s brace (below)
+ *   Hold V     Absorb             braced for as long as V is held: shots, energy, fire and blasts hitting him become Charge (x4)
+ *   Shift+V    Redirect           sends back what he absorbed in the last 15 s (15 Charge): 12 + 1.5x absorbed, 30 at most
+ *   C          Plug Whip          the tail lashes ahead (4 blocks, 140 deg): 12, knocked back; +4 shock with 5 Charge
+ *   Shift+C    Plug In            cables plug into what you look at (8) or the nearest power within 6: powered redstone, a lightning
  *                                 rod, a beacon, a charged anchor (drained) -> Charge for 2 s; a creature is drained (3 every 0.5 s,
  *                                 +6 Charge; machines x1.5 and stunned) and reeled in
- *   V          Power Feed         25 Charge into 6 health; clears slowness and weakness
- *   Shift+V    Overclock          30 Charge: 10 s of speed, higher leaps and blasts x1.25
- *   C          Full Discharge     ULTIMATE (40+ Charge, spends it all): a burst round him, 14-30 within 3-8 by Charge, stunned 1 s
- *   Shift+C    Feedback Cannon    50 Charge: a piercing beam (32): 24 to everything on it, knocked back
  *   Attack     Plug Fingers       +3 shock a punch, +3 Charge
  *   Passives   Conductoid (lightning: +40 Charge, never hurts); Energy Sponge (energy hits do half, the rest is Charge); Storm
  *              Feeder (thunder under open sky: +1 Charge a second); Machine Drainer (shocks x1.5 to machines)
@@ -82,25 +85,27 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class FeedbackKit extends AlienKit {
 	public static final String ID = "feedback";
-	/** His energy: a pale electric yellow-white, like the gold of his plugs lit up. */
-	public static final int COLOUR = 0xF2E25A;
-	public static final int WHITE = 0xFFFBE0;
+	/** v0.17.2 round 3 (user: "make his lightning blue, his lightning and powers are blue in the show"): his energy. */
+	public static final int COLOUR = 0x2F9BFF;
+	public static final int WHITE = 0xD8F0FF;
+	/** The sparks off him: vanilla's electric spark is white, so a blue mote does the job instead. */
+	public static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.35f, 0.75f, 1.0f), 0.5f);
 
 	// ---------------------------------------------------------------- synced flags / poses
-	public static final int F_ABSORB = 1, F_PLUG = 2, F_SWING = 4, F_OVERCLOCK = 8, F_LEAP = 16;
-	public static final int ANIM_BLAST = 1, ANIM_RAPID = 2, ANIM_ABSORB = 3, ANIM_REDIRECT = 4, ANIM_LEAP = 5, ANIM_SWING = 6, ANIM_WHIP = 7,
-			ANIM_PLUG = 8, ANIM_FEED = 9, ANIM_OVERCLOCK = 10, ANIM_DISCHARGE = 11, ANIM_CANNON = 12, ANIM_PUNCH = 13, ANIM_TAKE = 14;
+	public static final int F_ABSORB = 1, F_PLUG = 2, F_FLY = 4, F_OVERCLOCK = 8, F_LEAP = 16, F_LANDING = 32;
+	public static final int ANIM_BLAST = 1, ANIM_RAPID = 2, ANIM_ABSORB = 3, ANIM_REDIRECT = 4, ANIM_LEAP = 5, ANIM_SURGE = 6, ANIM_WHIP = 7,
+			ANIM_PLUG = 8, ANIM_FEED = 9, ANIM_OVERCLOCK = 10, ANIM_DISCHARGE = 11, ANIM_CANNON = 12, ANIM_PUNCH = 13, ANIM_TAKE = 14, ANIM_ABSORB_END = 15, ANIM_LAND = 16, ANIM_PLUG_END = 17;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.feedback.<id>)
-	public static final String BLAST = "feedback_blast", RAPID = "rapid_fire", ABSORB = "absorb", REDIRECT = "redirect", LEAP = "conductoid_leap",
-			SWING = "cable_swing", WHIP = "plug_whip", PLUG = "plug_in", FEED = "power_feed", OVERCLOCK = "overclock", DISCHARGE = "full_discharge",
+	public static final String BLAST = "feedback_blast", RAPID = "rapid_fire", ABSORB = "absorb", QUICK_ABSORB = "quick_absorb", REDIRECT = "redirect",
+			LEAP = "conductoid_leap", FLIGHT = "surge_flight", WHIP = "plug_whip", PLUG = "plug_in", FEED = "power_feed", OVERCLOCK = "overclock", DISCHARGE = "full_discharge",
 			CANNON = "feedback_cannon", FINGERS = "plug_fingers", CONDUCTOID = "conductoid", SPONGE = "energy_sponge", STORM = "storm_feeder",
 			MACHINES = "machine_drainer", OVERCHARGE = "overcharge", GROUNDED = "grounded";
 
 	// ---------------------------------------------------------------- Charge
 	public static final int MAX_CHARGE = 100;
 	public static final String CHARGE = "charge", ABSORB_UNTIL = "absorb_until", PLUG_UNTIL = "plug_until", PLUG_BLOCK = "plug_block",
-			PLUG_ENT = "plug_ent", SWING_X = "swing_x", SWING_Y = "swing_y", SWING_Z = "swing_z", SWING_UNTIL = "swing_until", OVERCLOCK_UNTIL = "overclock_until", LEAP_UNTIL = "leap_until";
+			PLUG_ENT = "plug_ent", OVERCLOCK_UNTIL = "overclock_until", LEAP_UNTIL = "leap_until";
 
 	// ---------------------------------------------------------------- numbers (the prototype's scale: quick ~9-14, normal 14-22, big 22-28)
 	public static final float BLAST_DAMAGE = 14f, SPARK_DAMAGE = 6f, RAPID_DAMAGE = 6f, REDIRECT_BASE = 12f, REDIRECT_PER = 1.5f, REDIRECT_MAX = 30f,
@@ -108,10 +113,13 @@ public final class FeedbackKit extends AlienKit {
 			FINGER_DAMAGE = 3f, OVERCHARGE_DAMAGE = 2f;
 	public static final float MACHINE_BONUS = 1.5f, OVERCLOCK_BONUS = 1.25f, ABSORB_RATE = 4f;
 	public static final int BLAST_COST = 10, RAPID_COST = 25, REDIRECT_COST = 15, WHIP_COST = 5, FEED_COST = 25, OVERCLOCK_COST = 30, DISCHARGE_MIN_CHARGE = 40,
-			CANNON_COST = 50, FINGER_GAIN = 3, DRAIN_GAIN = 6, LIGHTNING_GAIN = 40, ABSORB_MIN = 4;
-	public static final int ABSORB_TICKS = 60, PLUG_TICKS = 40, SWING_TICKS = 16, OVERCLOCK_TICKS = 200, LEAP_TICKS = 40, RAPID_SHOTS = 5, RAPID_EVERY = 3,
+			CANNON_COST = 50, FINGER_GAIN = 3, DRAIN_GAIN = 6, LIGHTNING_GAIN = 40, ABSORB_MIN = 4, FLIGHT_MIN_CHARGE = 5;
+	/** Surge Flight spends 1 Charge every this many ticks: 5 a second. */
+	public static final int FLIGHT_EVERY = 4;
+	public static final int QUICK_ABSORB_TICKS = 20, ABSORB_COOLDOWN = 80, PLUG_TICKS = 40, OVERCLOCK_TICKS = 200, LEAP_TICKS = 40, RAPID_SHOTS = 5, RAPID_EVERY = 3,
 			BANK_TICKS = 300, DRAIN_EVERY = 10, DISCHARGE_STUN = 20, CANNON_STUN = 10;
-	public static final double BLAST_RANGE = 28, PLUG_RANGE = 8, PLUG_NEAR = 6, SWING_RANGE = 24, WHIP_RANGE = 4, CANNON_RANGE = 32;
+	public static final double BLAST_RANGE = 28, PLUG_RANGE = 8, PLUG_NEAR = 6, WHIP_RANGE = 4, CANNON_RANGE = 32;
+	public static final float FLY_SPEED = 0.06f;
 
 	// ---------------------------------------------------------------- sounds (the sounds test: volume <= 0.75, pitch >= 0.5)
 	public static final OmnitrixSfx.Cue SND_ZAP = OmnitrixSfx.cue("feedback_zap")
@@ -136,6 +144,11 @@ public final class FeedbackKit extends AlienKit {
 			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.3f)
 			.layer(SoundEvents.CHAIN_HIT, 0.5f, 1.1f)
 			.gap(3);
+	/** Surge Flight's jets, over and over while the keys are down. */
+	public static final OmnitrixSfx.Cue SND_SURGE = OmnitrixSfx.cue("feedback_surge")
+			.layer(SoundEvents.BEACON_AMBIENT, 0.5f, 1.8f)
+			.layer(SoundEvents.FIRECHARGE_USE, 0.1f, 1.7f)
+			.gap(4);
 	public static final OmnitrixSfx.Cue SND_FIZZ = OmnitrixSfx.cue("feedback_fizz")
 			.layer(SoundEvents.FIRE_EXTINGUISH, 0.3f, 1.6f)
 			.gap(8);
@@ -153,7 +166,6 @@ public final class FeedbackKit extends AlienKit {
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_LIGHTNING = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_OVERCHARGE = new ConcurrentHashMap<>();
-	private static final Map<UUID, Vec3> SWING_TO = new ConcurrentHashMap<>();
 
 	private FeedbackKit() {
 	}
@@ -168,12 +180,16 @@ public final class FeedbackKit extends AlienKit {
 		LAST_TICK.clear();
 		LAST_LIGHTNING.clear();
 		LAST_OVERCHARGE.clear();
-		SWING_TO.clear();
 	}
 
 	@Override
 	public String id() {
 		return ID;
+	}
+
+	/** {@code p} is flying on a held Shift+X right now (client-safe: a synced flag). */
+	public static boolean holdFlying(Player p) {
+		return isFeedback(p) && (Omnitrix.state(p).kitFlags & F_FLY) != 0;
 	}
 
 	/** {@code p} is Feedback right now. */
@@ -190,11 +206,14 @@ public final class FeedbackKit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(AlienMove.tap(BLAST, AbilitySlot.SLOT_1, 12), AlienMove.shift(RAPID, AbilitySlot.SLOT_1, 140),
-				AlienMove.tap(ABSORB, AbilitySlot.SLOT_2, 160), AlienMove.shift(REDIRECT, AbilitySlot.SLOT_2, 100),
-				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 40), AlienMove.shift(SWING, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(WHIP, AbilitySlot.SLOT_4, 50), AlienMove.shift(PLUG, AbilitySlot.SLOT_4, 200),
-				AlienMove.tap(FEED, AbilitySlot.SLOT_5, 100), AlienMove.shift(OVERCLOCK, AbilitySlot.SLOT_5, 400),
-				AlienMove.tap(DISCHARGE, AbilitySlot.SLOT_6, 900), AlienMove.shift(CANNON, AbilitySlot.SLOT_6, 300),
+				// v0.17.2 round 3 (user: "swap c and shift C abilities with z and shift z abilities please", "swap G and shift G abilities with v
+				// and shift V abilities please")
+				AlienMove.tap(FEED, AbilitySlot.SLOT_2, 100), AlienMove.shift(OVERCLOCK, AbilitySlot.SLOT_2, 400),
+				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 40), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 20),
+				AlienMove.tap(DISCHARGE, AbilitySlot.SLOT_4, 900), AlienMove.shift(CANNON, AbilitySlot.SLOT_4, 300),
+				AlienMove.tap(QUICK_ABSORB, AbilitySlot.SLOT_5, ABSORB_COOLDOWN), AlienMove.hold(ABSORB, AbilitySlot.SLOT_5, ABSORB_COOLDOWN),
+				AlienMove.shift(REDIRECT, AbilitySlot.SLOT_5, 100),
+				AlienMove.tap(WHIP, AbilitySlot.SLOT_6, 50), AlienMove.shift(PLUG, AbilitySlot.SLOT_6, 200),
 				AlienMove.vanilla(FINGERS, "Attack", 0), AlienMove.vanilla(CONDUCTOID, "Passive", 0), AlienMove.vanilla(SPONGE, "Passive", 0),
 				AlienMove.vanilla(STORM, "Passive", 0), AlienMove.vanilla(MACHINES, "Passive", 0), AlienMove.vanilla(OVERCHARGE, "Weakness", 0),
 				AlienMove.vanilla(GROUNDED, "Weakness", 0));
@@ -203,9 +222,10 @@ public final class FeedbackKit extends AlienKit {
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_2 -> flag(p, F_ABSORB);
-			case SLOT_4 -> flag(p, F_PLUG);
-			case SLOT_5 -> flag(p, F_OVERCLOCK);
+			case SLOT_2 -> flag(p, F_OVERCLOCK);
+			case SLOT_3 -> flag(p, F_FLY);
+			case SLOT_5 -> flag(p, F_ABSORB);
+			case SLOT_6 -> flag(p, F_PLUG);
 			default -> false;
 		};
 	}
@@ -273,7 +293,7 @@ public final class FeedbackKit extends AlienKit {
 		p.hurt(p.damageSources().magic(), OVERCHARGE_DAMAGE);
 		p.invulnerableTime = keep;
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 0, false, false, true));
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 24, 0.4, 0.6, 0.4, 0.3);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 24, 0.4, 0.6, 0.4, 0.3);
 		OmnitrixSfx.play(level(p), p.position(), SND_FIZZ, 1f, 0.8f);
 		say(p, "overcharged");
 	}
@@ -360,7 +380,7 @@ public final class FeedbackKit extends AlienKit {
 		if (from != null && from != p && from.distanceToSqr(p) < 40 * 40) {
 			suck(p, centre(from), 6);
 		}
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.1, p.getZ(), 10, 0.35, 0.5, 0.35, 0.12);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 1.1, p.getZ(), 10, 0.35, 0.5, 0.35, 0.12);
 		OmnitrixSfx.play(level(p), p.position(), SND_ABSORB, 0.8f, 1.2f);
 	}
 
@@ -379,9 +399,11 @@ public final class FeedbackKit extends AlienKit {
 		LAST_TICK.remove(id);
 		LAST_LIGHTNING.remove(id);
 		LAST_OVERCHARGE.remove(id);
-		SWING_TO.remove(id);
+		if (flag(p, F_FLY)) {
+			RecalKitMath.groundWings(p);
+		}
 		OmnitrixState n = Omnitrix.state(p).copy();
-		for (String t : new String[] { CHARGE, ABSORB_UNTIL, PLUG_UNTIL, PLUG_BLOCK, PLUG_ENT, SWING_X, SWING_Y, SWING_Z, SWING_UNTIL, OVERCLOCK_UNTIL, LEAP_UNTIL }) {
+		for (String t : new String[] { CHARGE, ABSORB_UNTIL, PLUG_UNTIL, PLUG_BLOCK, PLUG_ENT, OVERCLOCK_UNTIL, LEAP_UNTIL }) {
 			n.timers.remove(key(t));
 		}
 		n.kitFlags = 0;
@@ -399,12 +421,12 @@ public final class FeedbackKit extends AlienKit {
 				gain(p, LIGHTNING_GAIN, true);
 				bank(p, 10f, null);
 				OmnitrixSfx.play(level(p), p.position(), SND_ABSORB, 1f, 0.8f);
-				level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.5, 0.8, 0.5, 0.3);
+				level(p).sendParticles(SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.5, 0.8, 0.5, 0.3);
 			}
 			p.clearFire();
 			return false;
 		}
-		if ((flag(p, F_LEAP) || flag(p, F_SWING)) && source.is(DamageTypeTags.IS_FALL)) {
+		if ((flag(p, F_LEAP) || flag(p, F_FLY) || flag(p, F_LANDING)) && source.is(DamageTypeTags.IS_FALL)) {
 			return false;
 		}
 		if (flag(p, F_ABSORB) && absorbable(source)) {
@@ -437,8 +459,19 @@ public final class FeedbackKit extends AlienKit {
 			return;
 		}
 		ServerLevel l = level(p);
-		if (flag(p, F_ABSORB) && now >= timer(p, ABSORB_UNTIL)) {
-			setFlag(p, F_ABSORB, false);
+		if (flag(p, F_ABSORB)) {
+			long until = timer(p, ABSORB_UNTIL); // 0: held, so it lasts as long as V
+			if (until > 0L && now >= until) {
+				endAbsorb(p);
+			} else if (now % 24 == 0) {
+				OmnitrixSfx.play(l, p.position(), SND_ABSORB, 0.3f, 0.8f);
+			}
+		}
+		if (flag(p, F_LANDING) && (p.onGround() || p.isInWater())) {
+			setFlag(p, F_LANDING, false);
+		}
+		if (flag(p, F_FLY)) {
+			flyTick(p, l, now);
 		}
 		if (flag(p, F_LEAP) && now >= timer(p, LEAP_UNTIL)) {
 			setFlag(p, F_LEAP, false);
@@ -449,7 +482,7 @@ public final class FeedbackKit extends AlienKit {
 			} else if (now % 10 == 0) {
 				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 15, 1, false, false, false));
 				p.addEffect(new MobEffectInstance(MobEffects.JUMP, 15, 1, false, false, false));
-				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 2, 0.3, 0.6, 0.3, 0.05);
+				l.sendParticles(SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 2, 0.3, 0.6, 0.3, 0.05);
 			}
 		}
 		// Storm Feeder: a thunderstorm over his head is a slow meal
@@ -460,7 +493,7 @@ public final class FeedbackKit extends AlienKit {
 		if (now % 10 == 0 && p.isInWater() && charge(p) > 0) {
 			setCharge(p, charge(p) - 1);
 			if (now % 20 == 0) {
-				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.3, p.getZ(), 4, 0.3, 0.1, 0.3, 0.1);
+				l.sendParticles(SPARK, p.getX(), p.getY() + 0.3, p.getZ(), 4, 0.3, 0.1, 0.3, 0.1);
 				OmnitrixSfx.play(l, p.position(), SND_FIZZ, 0.4f, 1.2f);
 			}
 		}
@@ -476,9 +509,6 @@ public final class FeedbackKit extends AlienKit {
 		}
 		if (flag(p, F_PLUG)) {
 			plugTick(p, now);
-		}
-		if (flag(p, F_SWING)) {
-			swingTick(p, now);
 		}
 	}
 
@@ -496,41 +526,67 @@ public final class FeedbackKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					redirect(p);
+					overclock(p);
 				} else {
-					absorb(p);
+					feed(p);
 				}
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					cableSwing(p);
+					surgeFlight(p);
 				} else {
 					leap(p);
 				}
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					plugIn(p);
-				} else {
-					whip(p);
-				}
-			}
-			case SLOT_5 -> {
-				if (shift) {
-					overclock(p);
-				} else {
-					feed(p);
-				}
-			}
-			case SLOT_6 -> {
-				if (shift) {
 					cannon(p);
 				} else {
 					discharge(p);
 				}
 			}
+			case SLOT_5 -> {
+				if (shift) {
+					redirect(p);
+				} else {
+					quickAbsorb(p);
+				}
+			}
+			case SLOT_6 -> {
+				if (shift) {
+					plugIn(p);
+				} else {
+					whip(p);
+				}
+			}
 			default -> {
 			}
+		}
+	}
+
+	@Override
+	public boolean holdable(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_5; // v0.17.2 round 3: Absorb lasts as long as V
+	}
+
+	@Override
+	public void holdStart(ServerPlayer p, AbilitySlot slot) {
+		if (slot == AbilitySlot.SLOT_5) {
+			absorb(p);
+		}
+	}
+
+	@Override
+	public void holdEnd(ServerPlayer p, AbilitySlot slot, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_5) {
+			endAbsorb(p);
+		}
+	}
+
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_3 && shift) {
+			endFlight(p); // Surge Flight lasts as long as the keys
 		}
 	}
 
@@ -546,7 +602,7 @@ public final class FeedbackKit extends AlienKit {
 			e.invulnerableTime = 0;
 			shock(p, e, FINGER_DAMAGE * k);
 			gain(p, FINGER_GAIN, false);
-			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 5, 0.15, 0.2, 0.15, 0.1);
+			level(p).sendParticles(SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 5, 0.15, 0.2, 0.15, 0.1);
 		}
 		return false;
 	}
@@ -610,22 +666,50 @@ public final class FeedbackKit extends AlienKit {
 		return r == null ? 0 : r.left;
 	}
 
-	// ---------------------------------------------------------------- G / Shift+G
+	// ---------------------------------------------------------------- V / Shift+V
 
-	/** G: three seconds braced, plugs and fingers out: what hits him becomes Charge. */
+	/**
+	 * Hold V: v0.17.2 round 3 (user: "remove time limit of absorb, player can hold v as long as they want to absorb energy"). Braced,
+	 * plugs and fingers out, for as long as V is down: what hits him becomes Charge. The cooldown starts when he lets go.
+	 */
 	public boolean absorb(ServerPlayer p) {
-		if (!use(p, ABSORB)) {
+		return brace(p, 0L);
+	}
+
+	/** V, tapped: the same brace for a second (the key still has to do something on a tap, and a timed tap catches one shot). */
+	public boolean quickAbsorb(ServerPlayer p) {
+		return brace(p, p.level().getGameTime() + QUICK_ABSORB_TICKS);
+	}
+
+	/** Absorb on, until game time {@code until} (0 = until {@link #endAbsorb}). */
+	private boolean brace(ServerPlayer p, long until) {
+		if (flag(p, F_ABSORB)) {
 			return false;
 		}
+		if (!ready(p, ABSORB)) {
+			return use(p, ABSORB); // the usual "not ready" line
+		}
 		anim(p, ANIM_ABSORB);
-		setTimer(p, ABSORB_UNTIL, p.level().getGameTime() + ABSORB_TICKS);
+		setTimer(p, ABSORB_UNTIL, until);
 		setFlag(p, F_ABSORB, true);
 		QuirkFx.ring(level(p), p.position().add(0, 1.0, 0)).style(QuirkFx.RING_SHOCK).colours(WHITE, COLOUR).size(1.6f).thickness(0.15f).life(8).spawn();
 		OmnitrixSfx.play(level(p), p.position(), SND_ABSORB, 0.9f, 1f);
 		return true;
 	}
 
-	/** Shift+G: what he absorbed lately, sent back -- at the crosshair, else at whoever sent it. */
+	/** The brace stops: his arms come down and both of V's moves cool down from now. */
+	private void endAbsorb(ServerPlayer p) {
+		if (!flag(p, F_ABSORB)) {
+			return;
+		}
+		setFlag(p, F_ABSORB, false);
+		setTimer(p, ABSORB_UNTIL, 0L);
+		anim(p, ANIM_ABSORB_END);
+		cooldown(p, ABSORB, -1);
+		cooldown(p, QUICK_ABSORB, -1);
+	}
+
+	/** Shift+V: what he absorbed lately, sent back -- at the crosshair, else at whoever sent it. */
 	public boolean redirect(ServerPlayer p) {
 		float banked = banked(p);
 		if (banked <= 0f) {
@@ -660,7 +744,7 @@ public final class FeedbackKit extends AlienKit {
 		arc(p, centre(t), null, 9, true);
 		BANKS.remove(p.getUUID());
 		Vec3 c = centre(t);
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 30, 0.5, 0.5, 0.5, 0.35);
+		level(p).sendParticles(SPARK, c.x, c.y, c.z, 30, 0.5, 0.5, 0.5, 0.35);
 		QuirkFx.blast(level(p), c).colours(WHITE, COLOUR).size(1.6f).life(8).spawn();
 		OmnitrixSfx.playOn(p, SND_BIG, 0.75f, 1.0f, SoundSource.PLAYERS);
 		return true;
@@ -683,73 +767,83 @@ public final class FeedbackKit extends AlienKit {
 		p.resetFallDistance();
 		setTimer(p, LEAP_UNTIL, p.level().getGameTime() + LEAP_TICKS);
 		setFlag(p, F_LEAP, true);
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 8, 0.25, 0.05, 0.25, 0.08);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 8, 0.25, 0.05, 0.25, 0.08);
 		OmnitrixSfx.play(level(p), p.position(), SND_WHIP, 0.6f, 1.6f);
 		return true;
 	}
 
-	/** Shift+X: an antenna cable plugs into the block he looks at and yanks him to it. False (no cooldown) with nothing in reach. */
-	public boolean cableSwing(ServerPlayer p) {
-		Vec3 eye = p.getEyePosition();
-		BlockHitResult hit = p.level().clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(SWING_RANGE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-		if (hit.getType() != HitResult.Type.BLOCK) {
-			say(p, "no_anchor");
+	/**
+	 * Shift+X down: v0.17.2 round 3 (user: "replace the shift+X move with an ability that uses charge and flies, as long as player holds
+	 * shift+X they fly in the direction they are aiming by shooting out energy behind them"). {@code DirectionalFlight} drives him along
+	 * his aim until the keys come up ({@link #release}) or his Charge runs out; the jets are {@code FeedbackFx}, drawn from the synced flag.
+	 * False (no cooldown) with too little Charge to lift off.
+	 */
+	public boolean surgeFlight(ServerPlayer p) {
+		if (flag(p, F_FLY)) {
 			return false;
 		}
-		if (!use(p, SWING)) {
+		if (charge(p) < FLIGHT_MIN_CHARGE) {
+			say(p, "low_charge", FLIGHT_MIN_CHARGE);
 			return false;
 		}
-		anim(p, ANIM_SWING);
-		Vec3 at = hit.getLocation();
-		SWING_TO.put(p.getUUID(), at);
-		long now = p.level().getGameTime();
-		OmnitrixState n = Omnitrix.state(p).copy(); // raw bits: a negative coordinate must survive (setTimer drops values <= 0)
-		n.timers.put(key(SWING_X), Double.doubleToLongBits(at.x));
-		n.timers.put(key(SWING_Y), Double.doubleToLongBits(at.y));
-		n.timers.put(key(SWING_Z), Double.doubleToLongBits(at.z));
-		n.timers.put(key(SWING_UNTIL), now + SWING_TICKS);
-		Omnitrix.save(p, n);
-		setFlag(p, F_SWING, true);
-		p.setDeltaMovement(p.getDeltaMovement().add(0, 0.35, 0));
+		if (!ready(p, FLIGHT)) {
+			return use(p, FLIGHT); // the usual "not ready" line
+		}
+		setFlag(p, F_FLY, true);
+		setFlag(p, F_LANDING, false);
+		RecalKitMath.wings(p, true, FLY_SPEED);
+		anim(p, ANIM_SURGE);
+		p.setDeltaMovement(p.getDeltaMovement().add(0, p.onGround() ? 0.4 : 0.1, 0));
 		p.hurtMarked = true;
-		OmnitrixSfx.play(level(p), at, SND_PLUG, 0.8f, 1.3f);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 0.2, p.getZ(), 18, 0.35, 0.1, 0.35, 0.1);
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SHOCK).colours(WHITE, COLOUR).size(2.2f).thickness(0.2f).life(8).ground().spawn();
+		OmnitrixSfx.play(level(p), p.position(), SND_BIG, 0.5f, 1.5f);
 		return true;
 	}
 
-	/** Where the swinging cable is plugged in, or null; client-safe. */
-	@Nullable
-	public static Vec3 swingAnchor(Player p) {
-		var t = Omnitrix.state(p).timers;
-		Long x = t.get(ID + "." + SWING_X), y = t.get(ID + "." + SWING_Y), z = t.get(ID + "." + SWING_Z);
-		return x == null || y == null || z == null ? null : new Vec3(Double.longBitsToDouble(x), Double.longBitsToDouble(y), Double.longBitsToDouble(z));
-	}
-
-	private void swingTick(ServerPlayer p, long now) {
-		Vec3 to = SWING_TO.get(p.getUUID());
-		Vec3 at = p.position().add(0, p.getBbHeight() * 0.5, 0);
-		if (to == null || now >= timer(p, SWING_UNTIL) || at.distanceToSqr(to) < 2.2 * 2.2) {
-			endSwing(p);
+	/** One tick of Surge Flight: both keys down, Charge left, the energy going out behind him. */
+	private void flyTick(ServerPlayer p, ServerLevel l, long now) {
+		if (!p.isShiftKeyDown()) {
+			endFlight(p); // "as long as player holds shift+X": the Shift half came up first
 			return;
 		}
-		Vec3 d = to.subtract(at).normalize();
-		Vec3 v = p.getDeltaMovement().scale(0.55).add(d.scale(1.05));
-		p.setDeltaMovement(v);
-		p.hurtMarked = true;
+		if (charge(p) <= 0) {
+			endFlight(p);
+			say(p, "surge_empty");
+			OmnitrixSfx.play(l, p.position(), SND_FIZZ, 0.8f, 1.1f);
+			return;
+		}
+		if (!p.getAbilities().flying) {
+			RecalKitMath.wings(p, true, FLY_SPEED); // the client landed him for a tick (a scrape along the floor)
+		}
 		p.resetFallDistance();
+		if (now % FLIGHT_EVERY == 0) {
+			setCharge(p, charge(p) - 1);
+		}
+		if (now % 2 == 0) {
+			Vec3 tail = p.position().add(0, p.getBbHeight() * 0.45, 0).subtract(p.getLookAngle().scale(1.2));
+			l.sendParticles(SPARK, tail.x, tail.y, tail.z, 3, 0.15, 0.15, 0.15, 0.04);
+		}
+		if (now % 8 == 0) {
+			OmnitrixSfx.play(l, p.position(), SND_SURGE, 0.7f, 1f);
+		}
 	}
 
-	private void endSwing(ServerPlayer p) {
-		SWING_TO.remove(p.getUUID());
-		setFlag(p, F_SWING, false);
-		// a short grace for the landing
-		setTimer(p, LEAP_UNTIL, p.level().getGameTime() + LEAP_TICKS);
-		setFlag(p, F_LEAP, true);
-		p.resetFallDistance();
+	/** Surge Flight stops: the wings go, the cooldown starts, and no fall can hurt him until he lands. */
+	private void endFlight(ServerPlayer p) {
+		if (!flag(p, F_FLY)) {
+			return;
+		}
+		setFlag(p, F_FLY, false);
+		setFlag(p, F_LANDING, !p.onGround());
+		RecalKitMath.groundWings(p);
+		anim(p, ANIM_LAND);
+		cooldown(p, FLIGHT, -1);
 	}
 
-	// ---------------------------------------------------------------- Z / Shift+Z
+	// ---------------------------------------------------------------- C / Shift+C
 
-	/** Z: the tail lashes across in front of him; with 5 Charge the plug discharges into what it hits. */
+	/** C: the tail lashes across in front of him; with 5 Charge the plug discharges into what it hits. */
 	public boolean whip(ServerPlayer p) {
 		if (!use(p, WHIP)) {
 			return false;
@@ -836,7 +930,7 @@ public final class FeedbackKit extends AlienKit {
 		return best;
 	}
 
-	/** Shift+Z: cables plug into a creature in the crosshair (drain it) or a power source (drink it). False with nothing to plug into. */
+	/** Shift+C: cables plug into a creature in the crosshair (drain it) or a power source (drink it). False with nothing to plug into. */
 	public boolean plugIn(ServerPlayer p) {
 		LivingEntity t = lookTarget(p, PLUG_RANGE);
 		BlockPos b = t == null ? powerAhead(p) : null;
@@ -879,6 +973,7 @@ public final class FeedbackKit extends AlienKit {
 
 	private void endPlug(ServerPlayer p, @Nullable LivingEntity reel) {
 		setFlag(p, F_PLUG, false);
+		anim(p, ANIM_PLUG_END);
 		OmnitrixState n = Omnitrix.state(p).copy();
 		n.timers.remove(key(PLUG_BLOCK));
 		n.timers.remove(key(PLUG_ENT));
@@ -913,7 +1008,7 @@ public final class FeedbackKit extends AlienKit {
 					AlienStatus.stun(p, t, DRAIN_EVERY + 4);
 				}
 				suck(p, centre(t), 5);
-				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 6, 0.2, 0.3, 0.2, 0.1);
+				l.sendParticles(SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 6, 0.2, 0.3, 0.2, 0.1);
 			}
 			if (now >= timer(p, PLUG_UNTIL)) {
 				endPlug(p, t);
@@ -938,16 +1033,16 @@ public final class FeedbackKit extends AlienKit {
 		}
 		if (now % 4 == 0) {
 			Vec3 c = Vec3.atCenterOf(b);
-			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0.05);
+			l.sendParticles(SPARK, c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0.05);
 		}
 		if (now % 10 == 0) {
 			suck(p, Vec3.atCenterOf(b), 5);
 		}
 	}
 
-	// ---------------------------------------------------------------- V / Shift+V
+	// ---------------------------------------------------------------- G / Shift+G
 
-	/** V: banked energy into his own body. */
+	/** G: banked energy into his own body. */
 	public boolean feed(ServerPlayer p) {
 		if (charge(p) < FEED_COST) {
 			say(p, "low_charge", FEED_COST);
@@ -961,13 +1056,13 @@ public final class FeedbackKit extends AlienKit {
 		p.heal(FEED_HEAL);
 		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		p.removeEffect(MobEffects.WEAKNESS);
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.3, 0.6, 0.3, 0.08);
-		level(p).sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1.4, p.getZ(), 4, 0.3, 0.3, 0.3, 0.02);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.3, 0.6, 0.3, 0.08);
+		level(p).sendParticles(SPARK, p.getX(), p.getY() + 1.4, p.getZ(), 4, 0.3, 0.3, 0.3, 0.02);
 		OmnitrixSfx.play(level(p), p.position(), SND_ABSORB, 0.8f, 1.5f);
 		return true;
 	}
 
-	/** Shift+V: 10 s supercharged -- faster, higher leaps, blasts a quarter harder. */
+	/** Shift+G: 10 s supercharged -- faster, higher leaps, blasts a quarter harder. */
 	public boolean overclock(ServerPlayer p) {
 		if (flag(p, F_OVERCLOCK)) {
 			return false;
@@ -989,9 +1084,9 @@ public final class FeedbackKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- C / Shift+C
+	// ---------------------------------------------------------------- Z / Shift+Z
 
-	/** C (ultimate): everything he holds, let go at once round him. */
+	/** Z (ultimate): everything he holds, let go at once round him. */
 	public boolean discharge(ServerPlayer p) {
 		int c = charge(p);
 		if (c < DISCHARGE_MIN_CHARGE) {
@@ -1020,13 +1115,13 @@ public final class FeedbackKit extends AlienKit {
 			}
 		}
 		l.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 60, radius * 0.4, 0.8, radius * 0.4, 0.5);
+		l.sendParticles(SPARK, at.x, at.y, at.z, 60, radius * 0.4, 0.8, radius * 0.4, 0.5);
 		QuirkFx.ring(l, p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SHOCK).colours(WHITE, COLOUR).size((float) radius).thickness(0.6f).life(14).ground().spawn();
 		OmnitrixSfx.play(l, at, SND_BIG, 1.5f, 0.8f);
 		return true;
 	}
 
-	/** Shift+C: a piercing beam of banked energy. */
+	/** Shift+Z: a piercing beam of banked energy. */
 	public boolean cannon(ServerPlayer p) {
 		if (charge(p) < CANNON_COST) {
 			say(p, "low_charge", CANNON_COST);
@@ -1051,7 +1146,7 @@ public final class FeedbackKit extends AlienKit {
 		Vec3 from = p.getEyePosition().add(look.scale(0.6)).subtract(0, 0.25, 0);
 		QuirkFx.ribbon(l, from, end).style(QuirkFx.RIBBON_LIGHT).colours(WHITE, COLOUR).size(0.5f).life(10).spawn();
 		arc(p, end, null, 10, true);
-		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 30, 0.5, 0.5, 0.5, 0.4);
+		l.sendParticles(SPARK, end.x, end.y, end.z, 30, 0.5, 0.5, 0.5, 0.4);
 		QuirkFx.blast(l, end).colours(WHITE, COLOUR).size(1.4f).life(8).spawn();
 		OmnitrixSfx.playOn(p, SND_BIG, 0.75f, 0.9f, SoundSource.PLAYERS);
 		return true;

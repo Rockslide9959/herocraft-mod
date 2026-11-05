@@ -66,15 +66,15 @@ import net.minecraft.world.phys.Vec3;
  *   G          Static Touch       a point-blank discharge ahead (3 blocks, 120 deg): 14, stunned 1 s
  *   Shift+G    Spark Bomb         a lobbed ball of electricity: bursts for 18 within 3.5
  *   X          Spark Zip          a spark streak up to 12 blocks where you look, through creatures (8 each); no fall damage 1.5 s
- *   Shift+X    Spark Flight       toggle flight
- *   Z          Overload           an electric pulse, 12 within 6 (machines 24 and knocked offline 3 s), others stunned 1 s
- *   Shift+Z    Power Line Ride    through the nearest conductor along your look (48: redstone, copper, rails, rods, iron bars) and
- *                                 out at its end with a jolt (8 within 2.5)
+ *   Shift+X    Spark Flight       hold: flies where you look as a crackling bolt (26 b/s, 40 sprinting) until you let go
+ *   Z          Megavolt           every copy dives onto the creature you look at (16) and they discharge as one: 16, +3 a copy
+ *                                 (6 at most), stunned 2 s; the copies are spent
+ *   Shift+Z    Megawatt Swarm     ULTIMATE: 8 copies at once for 10 s, each shocking its own creature within 12
  *   V          Split              a copy splits off (4 at most; 4 health each), shocks whatever you fight once a second (3)
  *   Shift+V    Merge              the copies arc back into you: +2 health each
- *   C          Megawatt Swarm     ULTIMATE: 8 copies at once for 10 s, each shocking its own creature within 12
- *   Shift+C    Megavolt           every copy dives onto the creature you look at (16) and they discharge as one: 16, +3 a copy
- *                                 (6 at most), stunned 2 s; the copies are spent
+ *   C          Power Line Ride    through the nearest conductor along your look (48: redstone, copper, rails, rods, iron bars) and
+ *                                 out at its end with a jolt (8 within 2.5)
+ *   Shift+C    Overload           an electric pulse, 12 within 6 (machines 24 and knocked offline 3 s), others stunned 1 s
  *   Attack     Static Fists       +4 shock punches
  *   Passives   Living Electricity (lightning heals him, never hurts); Machine Killer (x1.5 to machines); tiny (x0.4); water shorts him
  * </pre>
@@ -88,9 +88,9 @@ public final class BuzzshockKit extends AlienKit {
 	public static EntityType<BuzzshockCopyEntity> COPY;
 
 	// ---------------------------------------------------------------- synced flags / poses
-	public static final int F_ZIP = 1, F_FLY = 2, F_SWARM = 4, F_WET = 8;
+	public static final int F_ZIP = 1, F_FLY = 2, F_SWARM = 4, F_WET = 8, F_LANDING = 16;
 	public static final int ANIM_BOLT = 1, ANIM_CHAIN = 2, ANIM_TOUCH = 3, ANIM_BOMB = 4, ANIM_ZIP = 5, ANIM_OVERLOAD = 6, ANIM_LINE = 7,
-			ANIM_SPLIT = 8, ANIM_MERGE = 9, ANIM_SWARM = 10, ANIM_MEGAVOLT = 11, ANIM_PUNCH = 12;
+			ANIM_SPLIT = 8, ANIM_MERGE = 9, ANIM_SWARM = 10, ANIM_MEGAVOLT = 11, ANIM_PUNCH = 12, ANIM_TAKEOFF = 13, ANIM_LAND = 14;
 
 	// ---------------------------------------------------------------- moves (lang projecthero.omnitrix.buzzshock.<id>)
 	public static final String BOLT = "lightning_bolt", CHAIN = "chain_lightning", TOUCH = "static_touch", BOMB = "spark_bomb", ZIP = "spark_zip",
@@ -132,6 +132,11 @@ public final class BuzzshockKit extends AlienKit {
 	public static final OmnitrixSfx.Cue SND_SPLIT = OmnitrixSfx.cue("buzzshock_split")
 			.layer(SoundEvents.AMETHYST_BLOCK_CHIME, 0.6f, 1.8f)
 			.layer(SoundEvents.FIRECHARGE_USE, 0.15f, 2.0f);
+	/** Spark Flight's crackle, over and over while the keys are down. */
+	public static final OmnitrixSfx.Cue SND_CRACKLE = OmnitrixSfx.cue("buzzshock_crackle")
+			.layer(SoundEvents.AMETHYST_BLOCK_HIT, 0.2f, 1.9f)
+			.layer(SoundEvents.FIRECHARGE_USE, 0.1f, 2.0f)
+			.gap(4);
 	public static final OmnitrixSfx.Cue SND_FIZZ = OmnitrixSfx.cue("buzzshock_fizz")
 			.layer(SoundEvents.FIRE_EXTINGUISH, 0.35f, 1.7f)
 			.gap(8);
@@ -167,6 +172,11 @@ public final class BuzzshockKit extends AlienKit {
 		return ID;
 	}
 
+	/** {@code p} is flying on a held Shift+X right now (client-safe: a synced flag). */
+	public static boolean holdFlying(Player p) {
+		return isBuzzshock(p) && (Omnitrix.state(p).kitFlags & F_FLY) != 0;
+	}
+
 	/** {@code p} is Buzzshock right now. */
 	public static boolean isBuzzshock(Player p) {
 		return Omnitrix.hasPower(p) && Omnitrix.state(p).transformed() && ID.equals(Omnitrix.state(p).active);
@@ -182,10 +192,11 @@ public final class BuzzshockKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(AlienMove.tap(BOLT, AbilitySlot.SLOT_1, 15), AlienMove.shift(CHAIN, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(TOUCH, AbilitySlot.SLOT_2, 50), AlienMove.shift(BOMB, AbilitySlot.SLOT_2, 200),
-				AlienMove.tap(ZIP, AbilitySlot.SLOT_3, 30), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 10),
-				AlienMove.tap(OVERLOAD, AbilitySlot.SLOT_4, 240), AlienMove.shift(LINE, AbilitySlot.SLOT_4, 160),
+				AlienMove.tap(ZIP, AbilitySlot.SLOT_3, 30), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 20),
+				// v0.17.2 round 3 (user: "Make power line ride c and megawatt storm shift+Z", "make megavolt z and overload shift+C please")
+				AlienMove.tap(MEGAVOLT, AbilitySlot.SLOT_4, 300), AlienMove.shift(SWARM, AbilitySlot.SLOT_4, 1200),
 				AlienMove.tap(SPLIT, AbilitySlot.SLOT_5, 10), AlienMove.shift(MERGE, AbilitySlot.SLOT_5, 40),
-				AlienMove.tap(SWARM, AbilitySlot.SLOT_6, 1200), AlienMove.shift(MEGAVOLT, AbilitySlot.SLOT_6, 300),
+				AlienMove.tap(LINE, AbilitySlot.SLOT_6, 160), AlienMove.shift(OVERLOAD, AbilitySlot.SLOT_6, 240),
 				AlienMove.vanilla(FISTS, "Attack", 0), AlienMove.vanilla(LIVING, "Passive", 0), AlienMove.vanilla(MACHINES, "Passive", 0),
 				AlienMove.vanilla(WATER, "Weakness", 0));
 	}
@@ -194,7 +205,7 @@ public final class BuzzshockKit extends AlienKit {
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_3 -> flag(p, F_FLY);
-			case SLOT_6 -> flag(p, F_SWARM);
+			case SLOT_4 -> flag(p, F_SWARM);
 			default -> false;
 		};
 	}
@@ -355,7 +366,7 @@ public final class BuzzshockKit extends AlienKit {
 			p.clearFire();
 			return false;
 		}
-		if (source.is(DamageTypeTags.IS_FALL) && (flag(p, F_ZIP) || flag(p, F_FLY))) {
+		if (source.is(DamageTypeTags.IS_FALL) && (flag(p, F_ZIP) || flag(p, F_FLY) || flag(p, F_LANDING))) {
 			return false;
 		}
 		return true;
@@ -371,17 +382,13 @@ public final class BuzzshockKit extends AlienKit {
 		if (flag(p, F_ZIP) && now >= timer(p, ZIP_UNTIL)) {
 			setFlag(p, F_ZIP, false);
 		}
-		// flight: follow the real ability (double-tap jump in creative, the server's own resets)
-		boolean flying = p.getAbilities().flying;
-		if (flying != flag(p, F_FLY)) {
-			setFlag(p, F_FLY, flying);
+		if (flag(p, F_LANDING) && (p.onGround() || p.isInWater())) {
+			setFlag(p, F_LANDING, false);
 		}
+		boolean flying = flag(p, F_FLY);
 		if (flying) {
-			p.resetFallDistance();
-			if (now % 3 == 0) {
-				Vec3 tail = p.position().subtract(p.getLookAngle().scale(0.7)); // a spark trail behind him, out of his own view
-				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, tail.x, tail.y + p.getBbHeight() * 0.3, tail.z, 2, 0.08, 0.1, 0.08, 0.02);
-			}
+			flyTick(p, l, now);
+			flying = flag(p, F_FLY);
 		}
 		// v0.17.2 weakness (the show: water and grounding short him out): in water he sparks and takes 1 a second, and his
 		// electric moves fizzle; flight drops
@@ -391,8 +398,7 @@ public final class BuzzshockKit extends AlienKit {
 		}
 		if (wet) {
 			if (flying) {
-				p.getAbilities().flying = false;
-				p.onUpdateAbilities();
+				endFlight(p);
 			}
 			if (now % WET_EVERY == 0) {
 				int keep = p.invulnerableTime;
@@ -447,9 +453,9 @@ public final class BuzzshockKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					lineRide(p);
+					swarm(p);
 				} else {
-					overload(p);
+					megavolt(p);
 				}
 			}
 			case SLOT_5 -> {
@@ -461,13 +467,20 @@ public final class BuzzshockKit extends AlienKit {
 			}
 			case SLOT_6 -> {
 				if (shift) {
-					megavolt(p);
+					overload(p);
 				} else {
-					swarm(p);
+					lineRide(p);
 				}
 			}
 			default -> {
 			}
+		}
+	}
+
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_3 && shift) {
+			endFlight(p); // Spark Flight lasts as long as the keys
 		}
 	}
 
@@ -641,32 +654,64 @@ public final class BuzzshockKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+X: flight on / off. */
+	/**
+	 * Shift+X down: v0.17.2 round 3 (user: "upgrade his spark flight please, as long as he holds SHift+X he flies in that direction with
+	 * his crackling lightning vfx please"). He takes off and {@code DirectionalFlight} drives him along his look until the keys come up
+	 * ({@link #release}); the cooldown starts when he lets go. The bolts round him are {@code BuzzshockFx}, drawn from the synced flag.
+	 */
 	public boolean flight(ServerPlayer p) {
-		boolean fly = !p.getAbilities().flying;
-		if (fly && shorted(p)) {
+		if (flag(p, F_FLY) || shorted(p)) {
 			return false;
 		}
-		if (!use(p, FLIGHT)) {
-			return false;
+		if (!ready(p, FLIGHT)) {
+			return use(p, FLIGHT); // the usual "not ready" line
 		}
-		if (fly) {
-			RecalKitMath.wings(p, true, FLY_SPEED);
-			p.setDeltaMovement(p.getDeltaMovement().add(0, 0.35, 0));
-			p.hurtMarked = true;
-			anim(p, ANIM_ZIP);
-			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 12, 0.2, 0.05, 0.2, 0.15);
-			OmnitrixSfx.play(level(p), p.position(), SND_ZIP, 0.8f, 1.4f);
-		} else {
-			RecalKitMath.groundWings(p);
-		}
-		setFlag(p, F_FLY, fly);
+		setFlag(p, F_FLY, true);
+		setFlag(p, F_LANDING, false);
+		RecalKitMath.wings(p, true, FLY_SPEED);
+		anim(p, ANIM_TAKEOFF);
+		p.setDeltaMovement(p.getDeltaMovement().add(0, p.onGround() ? 0.35 : 0.1, 0));
+		p.hurtMarked = true;
+		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 14, 0.2, 0.05, 0.2, 0.18);
+		QuirkFx.ring(level(p), p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SHOCK).colours(WHITE, COLOUR).size(1.4f).thickness(0.14f).life(7).ground().spawn();
+		OmnitrixSfx.play(level(p), p.position(), SND_ZIP, 0.8f, 1.4f);
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Z / Shift+Z
+	/** One tick of Spark Flight: both keys still down, still flying, still crackling. */
+	private void flyTick(ServerPlayer p, ServerLevel l, long now) {
+		if (!p.isShiftKeyDown()) {
+			endFlight(p); // "as long as he holds Shift+X": the Shift half came up first
+			return;
+		}
+		if (!p.getAbilities().flying) {
+			RecalKitMath.wings(p, true, FLY_SPEED); // the client landed him for a tick (a scrape along the floor)
+		}
+		p.resetFallDistance();
+		if (now % 2 == 0) {
+			Vec3 tail = p.position().subtract(p.getLookAngle().scale(0.6));
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, tail.x, tail.y + p.getBbHeight() * 0.4, tail.z, 2, 0.1, 0.1, 0.1, 0.04);
+		}
+		if (now % 8 == 0) {
+			OmnitrixSfx.play(l, p.position(), SND_CRACKLE, 0.7f, 1f + (now % 3) * 0.1f);
+		}
+	}
 
-	/** Z: an electric pulse round him; machines take it worst and go offline. */
+	/** Spark Flight stops: the wings go, the cooldown starts, and no fall can hurt him until he lands. */
+	private void endFlight(ServerPlayer p) {
+		if (!flag(p, F_FLY)) {
+			return;
+		}
+		setFlag(p, F_FLY, false);
+		setFlag(p, F_LANDING, !p.onGround());
+		RecalKitMath.groundWings(p);
+		anim(p, ANIM_LAND);
+		cooldown(p, FLIGHT, -1);
+	}
+
+	// ---------------------------------------------------------------- Shift+C
+
+	/** Shift+C: an electric pulse round him; machines take it worst and go offline. */
 	public boolean overload(ServerPlayer p) {
 		if (shorted(p) || !use(p, OVERLOAD)) {
 			return false;
@@ -749,7 +794,7 @@ public final class BuzzshockKit extends AlienKit {
 		return null;
 	}
 
-	/** Shift+Z: into the conductor he looks at and out of it, wherever it is (within 48). */
+	/** C: into the conductor he looks at and out of it, wherever it is (within 48). */
 	public boolean lineRide(ServerPlayer p) {
 		BlockPos c = conductorAhead(p);
 		Vec3 out = c == null ? null : exitAt(p, c);
@@ -826,9 +871,9 @@ public final class BuzzshockKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- C / Shift+C
+	// ---------------------------------------------------------------- Z / Shift+Z
 
-	/** C (ultimate): a swarm of copies at once, each shocking its own creature. */
+	/** Shift+Z (ultimate): a swarm of copies at once, each shocking its own creature. */
 	public boolean swarm(ServerPlayer p) {
 		if (flag(p, F_SWARM)) {
 			return false;
@@ -857,7 +902,7 @@ public final class BuzzshockKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+C: every copy dives onto the creature he looks at, and they discharge as one. */
+	/** Z: every copy dives onto the creature he looks at, and they discharge as one. */
 	public boolean megavolt(ServerPlayer p) {
 		LivingEntity t = lookTarget(p, MEGAVOLT_RANGE);
 		if (t == null) {

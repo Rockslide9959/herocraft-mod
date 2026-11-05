@@ -184,7 +184,7 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Z: an iron golem in the pulse takes about twice what a zombie does, and both are stunned. */
+	/** Shift+C: an iron golem in the pulse takes about twice what a zombie does, and both are stunned. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void overloadShortsMachinesOut(GameTestHelper helper) {
 		ServerPlayer p = buzzshock(helper);
@@ -192,7 +192,7 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 		IronGolem g = mob(helper, EntityType.IRON_GOLEM, 5.5, 2, 4.5);
 		helper.runAfterDelay(2, () -> {
 			float zh = z.getHealth(), gh = g.getHealth();
-			tap(p, AbilitySlot.SLOT_4, false);
+			tap(p, AbilitySlot.SLOT_6, true);
 			float zd = zh - z.getHealth(), gd = gh - g.getHealth();
 			helper.assertTrue(zd > 10f, "the zombie takes about 12: " + zd);
 			helper.assertTrue(gd > 23f && gd <= 24.01f, "the golem takes 24 (x2): " + gd);
@@ -237,8 +237,8 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 		IronGolem g = mob(helper, EntityType.IRON_GOLEM, 3.5, 2, 6.5);
 		BuzzshockKit k = kit();
 		helper.runAfterDelay(2, () -> {
-			tap(p, AbilitySlot.SLOT_6, false);
-			helper.assertTrue(k.flag(p, BuzzshockKit.F_SWARM) && BuzzshockKit.copies(p).size() == BuzzshockKit.SWARM_COPIES, "C: eight copies at once");
+			tap(p, AbilitySlot.SLOT_4, true);
+			helper.assertTrue(k.flag(p, BuzzshockKit.F_SWARM) && BuzzshockKit.copies(p).size() == BuzzshockKit.SWARM_COPIES, "Shift+Z: eight copies at once");
 			float before = g.getHealth();
 			helper.runAfterDelay(60, () -> {
 				helper.assertTrue(g.getHealth() < before - 10f, "the swarm shocks it on its own: " + (before - g.getHealth()));
@@ -253,7 +253,7 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Shift+C: the copies dive in and discharge as one -- 16 + 3 a copy (x1.5 on a machine) -- and are spent. */
+	/** Z: the copies dive in and discharge as one -- 16 + 3 a copy (x1.5 on a machine) -- and are spent. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void megavoltSpendsTheCopies(GameTestHelper helper) {
 		ServerPlayer p = buzzshock(helper);
@@ -266,7 +266,7 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 			}
 			lookAt(p, g);
 			float before = g.getHealth();
-			tap(p, AbilitySlot.SLOT_6, true);
+			tap(p, AbilitySlot.SLOT_4, false);
 			helper.assertTrue(BuzzshockKit.megavoltPending(p), "the copies are on their way");
 			helper.runAfterDelay(BuzzshockKit.MEGAVOLT_DELAY + 3, () -> {
 				float d = before - g.getHealth();
@@ -294,30 +294,72 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Round 3 (user: "Make power line ride c and megawatt storm shift+Z", "make megavolt z and overload shift+C please"): the key swaps. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void round3KeySwaps(GameTestHelper helper) {
+		AlienKit k = kit();
+		helper.assertTrue(BuzzshockKit.MEGAVOLT.equals(k.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z is Megavolt");
+		helper.assertTrue(BuzzshockKit.SWARM.equals(k.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is the Swarm");
+		helper.assertTrue(BuzzshockKit.LINE.equals(k.moveOn(AbilitySlot.SLOT_6, false, false).id()), "C is Power Line Ride");
+		helper.assertTrue(BuzzshockKit.OVERLOAD.equals(k.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C is Overload");
+		helper.succeed();
+	}
+
+	/** Round 3: Spark Flight lasts exactly as long as Shift+X is held, and its cooldown starts on letting go. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void shiftXTogglesFlight(GameTestHelper helper) {
+	public void shiftXFliesWhileHeld(GameTestHelper helper) {
 		ServerPlayer p = buzzshock(helper);
 		helper.runAfterDelay(2, () -> {
-			tap(p, AbilitySlot.SLOT_3, true);
-			helper.assertTrue(p.getAbilities().flying && p.getAbilities().mayfly, "Shift+X: flying");
-			helper.runAfterDelay(2, () -> {
-				helper.assertTrue(kit().flag(p, BuzzshockKit.F_FLY) && kit().keyActive(p, AbilitySlot.SLOT_3), "the X box lights");
-				kit().cooldown(p, BuzzshockKit.FLIGHT, 0);
-				tap(p, AbilitySlot.SLOT_3, true);
-				helper.assertFalse(p.getAbilities().flying || p.getAbilities().mayfly, "again: landed, flight taken away");
-				helper.succeed();
-			});
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.assertTrue(p.getAbilities().flying && BuzzshockKit.holdFlying(p), "keys down: flying");
+			helper.assertTrue(kit().keyActive(p, AbilitySlot.SLOT_3), "the X box lights");
+		});
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(p.getAbilities().flying && BuzzshockKit.holdFlying(p), "still flying while the keys stay down");
+			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.FLIGHT) == 0, "no cooldown until he lets go");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+			p.setShiftKeyDown(false);
+			helper.assertFalse(p.getAbilities().flying || p.getAbilities().mayfly || BuzzshockKit.holdFlying(p), "let go: flight gone");
+			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.FLIGHT) > 0, "the cooldown starts now");
+			p.fallDistance = 12f;
+			p.invulnerableTime = 0;
+			helper.assertFalse(!p.onGround() && p.hurt(p.damageSources().fall(), 6f), "no fall damage on the way down");
+			kit().cooldown(p, BuzzshockKit.FLIGHT, 0);
+			// the Shift half coming up first ends it too
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.assertTrue(BuzzshockKit.holdFlying(p), "up again");
+			p.setShiftKeyDown(false);
+		});
+		helper.runAfterDelay(34, () -> {
+			helper.assertFalse(BuzzshockKit.holdFlying(p), "Shift released: he stops, X or no X");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+			helper.succeed();
 		});
 	}
 
-	/** Shift+Z: he rides into the lightning rod he looks at and comes out on it. With no conductor in view nothing happens. */
+	/** Round 3: the thrust's numbers on the shared flight model: forced along the look, Sneak does not sink it. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sparkFlightThrustsAlongTheLook(GameTestHelper helper) {
+		var cruise = com.projecthero.mod.flight.DirectionalFlightModel.heldThrust(BuzzshockKit.FLY_SPEED, false, com.projecthero.mod.flight.DirectionalFlightModel.BUZZSHOCK_THRUST_BPS,
+				com.projecthero.mod.flight.DirectionalFlightModel.BUZZSHOCK_SPRINT_BPS);
+		helper.assertTrue(Math.abs(cruise.forcedForward() * 20 - 26.0) < 1e-6, "26 b/s");
+		helper.assertTrue(cruise.sneakBoosts(), "Sneak is part of the key chord, not descend");
+		Vec3 look = new Vec3(0, 0.6, 0.8);
+		Vec3 wanted = com.projecthero.mod.flight.DirectionalFlightModel.wantedVelocity(look, 0f, 0f, 0f, 0, cruise);
+		helper.assertTrue(wanted.subtract(look.scale(1.3)).length() < 1e-6, "no W needed: along the look: " + wanted);
+		helper.succeed();
+	}
+
+	/** C: he rides into the lightning rod he looks at and comes out on it. With no conductor in view nothing happens. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void powerLineRideGoesToAConductor(GameTestHelper helper) {
 		ServerPlayer p = buzzshock(helper);
 		helper.runAfterDelay(2, () -> {
 			p.setYRot(0f);
 			p.setXRot(0f);
-			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_6, false);
 			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.LINE) == 0, "no conductor ahead: no ride, no cooldown");
 			BlockPos rod = helper.absolutePos(new BlockPos(3, 2, 7));
 			helper.getLevel().setBlock(rod, Blocks.LIGHTNING_ROD.defaultBlockState(), 3);
@@ -326,9 +368,9 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 					&& !BuzzshockKit.conductor(Blocks.STONE.defaultBlockState()), "redstone and copper conduct, stone does not");
 			BlockPos seen = BuzzshockKit.conductorAhead(p);
 			Vec3 was = p.position();
-			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_6, false);
 			helper.assertTrue(p.position().distanceTo(Vec3.atBottomCenterOf(rod)) < 1.8, "he comes out at the rod: " + was + " -> " + p.position() + " vs " + rod + " (found " + seen + ", look " + p.getLookAngle() + ")");
-			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.LINE) > 0, "Shift+Z cools down");
+			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.LINE) > 0, "C cools down");
 			helper.succeed();
 		});
 	}
@@ -348,7 +390,7 @@ public class OmnitrixBuzzshockGameTests implements FabricGameTest {
 			lookAt(p, z);
 			tap(p, AbilitySlot.SLOT_1, false);
 			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.BOLT) == 0 && z.getHealth() == z.getMaxHealth(), "R fizzles in water");
-			tap(p, AbilitySlot.SLOT_4, false);
+			tap(p, AbilitySlot.SLOT_6, true);
 			helper.assertTrue(kit().cooldownLeft(p, BuzzshockKit.OVERLOAD) == 0, "so does Overload");
 			float h = p.getHealth();
 			helper.runAfterDelay(45, () -> {

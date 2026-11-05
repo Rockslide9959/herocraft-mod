@@ -41,7 +41,7 @@ public class BuzzshockCopyEntity extends Entity {
 	public static final int ZAP_EVERY = 20;
 	/** How far its shock reaches. */
 	public static final double ZAP_RANGE = 6.0;
-	public static final double FAST = 0.5, SLOW = 0.28;
+	public static final double FAST = 0.5, SLOW = 0.28, FLIGHT = 2.2;
 
 	private float hp = MAX_HP;
 	@Nullable
@@ -164,7 +164,7 @@ public class BuzzshockCopyEntity extends Entity {
 				speed = FAST;
 			} else {
 				to = swarmPos(owner);
-				speed = distanceToSqr(to) > 9 ? FAST : SLOW;
+				speed = BuzzshockKit.holdFlying(owner) ? FLIGHT : distanceToSqr(to) > 9 ? FAST : SLOW; // the swarm streaks along in his wake
 			}
 		}
 		Vec3 d = to.subtract(position());

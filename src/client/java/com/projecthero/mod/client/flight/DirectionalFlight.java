@@ -99,7 +99,9 @@ public final class DirectionalFlight {
 			pushedNow = true;
 		}
 
-		boolean boosting = tune.sneakBoosts() && sneak && player.isSprinting();
+		// v0.17.2 round 3: a held-key thrust (Shift+X) has Sneak down the whole time, and it must not sink him
+		boolean thrust = tune.sneakBoosts() && tune.forcedForward() > 0.0;
+		boolean boosting = tune.sneakBoosts() && sneak && (player.isSprinting() || thrust);
 		float forward = player.input.forwardImpulse;
 		float strafe = player.input.leftImpulse;
 		int vertical = DirectionalFlightModel.verticalInput(jump, sneak, boosting);
@@ -117,6 +119,9 @@ public final class DirectionalFlight {
 				: FlightSettings.physics()
 						? PhysicsFlightModel.step(velocity, player.getLookAngle(), forward, vertical, tune, carrying)
 						: DirectionalFlightModel.step(velocity, wanted, steering, tune, carrying);
+		if (thrust && player.onGround() && next.y < 0.12) {
+			next = new Vec3(next.x, 0.12, next.z); // off the ground: landing would end the flying bit under a key still held
+		}
 
 		player.setDeltaMovement(next);
 		player.move(MoverType.SELF, next);
@@ -166,6 +171,15 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.bluebeetle.BlueBeetle.flying(player)) {
 			return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.BLUE_BEETLE_CRUISE_BPS,
 					DirectionalFlightModel.BLUE_BEETLE_SPRINT_BPS);
+		}
+		// v0.17.2 round 3: Buzzshock's and Feedback's held Shift+X (creative too: the keys are the flight there as well)
+		if (com.projecthero.mod.omnitrix.alien.buzzshock.BuzzshockKit.holdFlying(player)) {
+			return DirectionalFlightModel.heldThrust(flyingSpeed, sprint, DirectionalFlightModel.BUZZSHOCK_THRUST_BPS,
+					DirectionalFlightModel.BUZZSHOCK_SPRINT_BPS);
+		}
+		if (com.projecthero.mod.omnitrix.alien.feedback.FeedbackKit.holdFlying(player)) {
+			return DirectionalFlightModel.heldThrust(flyingSpeed, sprint, DirectionalFlightModel.FEEDBACK_THRUST_BPS,
+					DirectionalFlightModel.FEEDBACK_SPRINT_BPS);
 		}
 		if (player.getAbilities().flying && !player.getAbilities().instabuild) {
 			if (com.projecthero.mod.miraculous.hawkmoth.HawkMothKit.flying(player)) {
