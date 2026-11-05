@@ -33,9 +33,11 @@ import net.minecraft.util.Mth;
  * degrees, cheek fins), four faceted crystal spikes out of his back (two long, two short). A pose for every move. Also hands
  * his crystal block to the translucent render layer.
  *
- * <p>v0.17.2 revamp: Combat Mode's two long faceted crystal BLADES out of both forearms (third and first person; they grow in
- * and shatter away), and the held Crystal SHIELD -- a faceted green tower shield over the left forearm, kept upright and facing
- * ahead whatever the arm does, cracking as it takes damage (third person; in first person it is held up on the left of the view).
+ * <p>v0.17.2 round 3 (user: "make the shield always show up on the players left hand, only make them hold the shield in front of them
+ * when they are right clicking, only have 1 blade on the right arm"): Combat Mode's long faceted crystal BLADE out of the right forearm,
+ * and the Crystal SHIELD -- a faceted green tower shield strapped along the left forearm for as long as Combat Mode lasts, swung round
+ * in front of him (upright, facing ahead, whatever the arm does) only while right-click is held, cracking as it takes damage. Third
+ * and first person alike. Also the Crystal Maul's hammer and the Crystal Spear in his hand before it is thrown.
  */
 public final class DiamondheadClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/diamondhead.png");
@@ -46,20 +48,35 @@ public final class DiamondheadClient implements AlienClientKit {
 	private static final float[] GLOW = { 0.75f, 0f, 1f, 0.25f };
 	private static final float[] PALE = { 0.5f, 0.25f, 0.75f, 0.5f };
 
-	private static final float[][] VOLLEY = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.3f, 0.6f, -0.3f, -0.3f, -0.6f, 0.3f, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.f(5, -1.6f, -0.35f, 0, -1.6f, 0.35f, 0, 0.2f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0), QuirkKeyframes.rest(12) };
-	private static final float[][] SPEAR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.9f, 0.3f, 0.3f, -0.8f, 0, -0.3f, -0.25f, 0.5f, 0.2f, 0, 0, -0.3f, 0, 0, -0.2f),
-			QuirkKeyframes.f(7, -1.2f, -0.2f, 0, 0.4f, 0, 0, 0.4f, -0.4f, -0.3f, 0, 0, 0.4f, 0, 0, 0.2f), QuirkKeyframes.rest(15) };
-	// the Shatter Line: both blades raised overhead, then driven down into the ground in a crouch
+	/** The Shard Volley's stance (arms level, along the look: pose adds the head's pitch): his legs stay his own, so he can walk and fire. */
+	private static final float[] VOLLEY_AIM = QuirkKeyframes.f(0, -1.42f, -0.1f, 0, -1.42f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	private static final int VOLLEY_MASK = QuirkKeyframes.bit(QuirkKeyframes.R_ARM_X) | QuirkKeyframes.bit(QuirkKeyframes.R_ARM_Y) | QuirkKeyframes.bit(QuirkKeyframes.R_ARM_Z)
+			| QuirkKeyframes.bit(QuirkKeyframes.L_ARM_X) | QuirkKeyframes.bit(QuirkKeyframes.L_ARM_Y) | QuirkKeyframes.bit(QuirkKeyframes.L_ARM_Z)
+			| QuirkKeyframes.bit(QuirkKeyframes.BODY_Y);
+	// each clump: the throwing hand punches out as the shoulders turn behind it and the other hand draws back, then the stance again
+	private static final float[][] VOLLEY_R = { VOLLEY_AIM, QuirkKeyframes.f(2, -1.64f, -0.18f, 0, -1.2f, 0.16f, 0, 0, -0.32f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(5, -1.42f, -0.1f, 0, -1.42f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.f(14, -1.42f, -0.1f, 0, -1.42f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	private static final float[][] VOLLEY_L = { VOLLEY_AIM, QuirkKeyframes.f(2, -1.2f, -0.16f, 0, -1.64f, 0.18f, 0, 0, 0.32f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(5, -1.42f, -0.1f, 0, -1.42f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.f(14, -1.42f, -0.1f, 0, -1.42f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	// the Crystal Spear: side-on, the free arm pointing the way as the right arm goes back with the spear, then the whole body behind the throw
+	private static final float[][] SPEAR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.95f, 0.3f, 0.3f, -1.35f, 0.25f, -0.2f, -0.2f, 0.65f, 0.25f, 0, 0, -0.35f, 0, 0, -0.2f),
+			QuirkKeyframes.f(5, -2.95f, 0.3f, 0.3f, -1.35f, 0.25f, -0.2f, -0.2f, 0.65f, 0.25f, 0, 0, -0.35f, 0, 0, -0.2f),
+			QuirkKeyframes.f(8, -1.05f, -0.25f, 0, 0.35f, 0, -0.1f, 0.45f, -0.5f, -0.35f, 0, 0, 0.45f, 0, 0, 0.25f), QuirkKeyframes.rest(16) };
+	// the Spike Line: both fists raised overhead, then driven down into the ground in a crouch (at 6, when the first spike bursts up)
 	private static final float[][] SHATTER = { QuirkKeyframes.restC(0), QuirkKeyframes.fc(3, -2.9f, 0, 0.2f, -2.9f, 0, -0.2f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.3f, 0),
 			QuirkKeyframes.fc(6, -0.5f, 0, 0.1f, -0.5f, 0, -0.1f, 0.7f, 0, -0.6f, 0, 0.2f, -0.6f, 0, -0.2f, 0.4f, 0.8f),
 			QuirkKeyframes.fc(14, -0.4f, 0, 0.1f, -0.4f, 0, -0.1f, 0.6f, 0, -0.5f, 0, 0.2f, -0.5f, 0, -0.2f, 0.3f, 0.7f), QuirkKeyframes.restC(20) };
 	private static final float[][] SLIDE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.2f, 0, 1.3f, -0.2f, 0, -1.3f, 0.2f, 0.9f, -0.4f, 0.3f, 0.2f, 0.3f, 0.3f, -0.2f, 0),
 			QuirkKeyframes.f(18, -0.2f, 0, 1.2f, -0.2f, 0, -1.2f, 0.2f, 0.9f, -0.4f, 0.3f, 0.2f, 0.3f, 0.3f, -0.2f, 0), QuirkKeyframes.rest(22) };
-	private static final float[][] VAULT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -3.0f, 0, 0.25f, -3.0f, 0, -0.25f, -0.2f, 0, 0.2f, 0, 0.1f, 0.2f, 0, -0.1f, -0.5f),
-			QuirkKeyframes.f(14, -2.8f, 0, 0.3f, -2.8f, 0, -0.3f, -0.15f, 0, 0.3f, 0, 0.1f, 0.3f, 0, -0.1f, -0.4f), QuirkKeyframes.rest(20) };
-	private static final float[][] WALL = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.3f, 0, -1.5f, 0.3f, 0, 0.3f, 0, -0.5f, 0, 0, 0.5f, 0, 0, 0),
-			QuirkKeyframes.f(10, -1.55f, -0.35f, 0, -1.55f, 0.35f, 0, 0.3f, 0, -0.5f, 0, 0, 0.5f, 0, 0, 0), QuirkKeyframes.rest(15) };
+	// the Crystal Vault: riding the pillar up, one fist punched at the sky, the other arm down at his side, knees bent under him
+	private static final float[][] VAULT = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(3, -3.05f, 0, 0.12f, 0.12f, 0, -0.3f, -0.12f, 0, 0.35f, 0, 0.1f, -0.45f, 0, -0.1f, -0.45f),
+			QuirkKeyframes.f(14, -2.95f, 0, 0.16f, 0.2f, 0, -0.35f, -0.08f, 0, 0.3f, 0, 0.1f, -0.35f, 0, -0.1f, -0.35f), QuirkKeyframes.rest(20) };
+	// the Crystal Construct: crouched with both palms low, then heaving up as the crystal climbs in front of him
+	private static final float[][] WALL = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(3, -0.45f, 0, 0.3f, -0.45f, 0, -0.3f, 0.5f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.2f, 0.8f),
+			QuirkKeyframes.fc(9, -1.95f, -0.2f, 0.1f, -1.95f, 0.2f, -0.1f, -0.12f, 0, -0.3f, 0, 0.12f, 0.3f, 0, -0.12f, 0.1f, 0f),
+			QuirkKeyframes.fc(14, -1.85f, -0.2f, 0.1f, -1.85f, 0.2f, -0.1f, -0.08f, 0, -0.3f, 0, 0.12f, 0.3f, 0, -0.12f, 0.1f, 0f), QuirkKeyframes.restC(19) };
 	/**
 	 * v0.17.2 (user: "lift up 3 giant diamond shards from the ground and then throw them at his target ... good animations"): the
 	 * Titan Shards -- he crouches, palms to the ground (the shards crack up at 4 / 10 / 16), heaves his arms up as they climb,
@@ -85,8 +102,25 @@ public final class DiamondheadClient implements AlienClientKit {
 			FirstPersonClip.f(48, -55, 0, 10, -0.05f, 0.5f, 0.1f), FirstPersonClip.f(52, 15, 0, 0, 0, 0.05f, -0.35f),
 			FirstPersonClip.f(56, -65, 0, 10, -0.05f, 0.6f, 0.12f), FirstPersonClip.f(60, 25, 0, 0, 0, -0.05f, -0.4f),
 			FirstPersonClip.f(72, 0, 0, 0, 0, 0, 0)).both();
-	private static final float[][] PRISON = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.0f, 0.9f, -0.4f, -1.0f, -0.9f, 0.4f, 0.35f, 0, -0.2f, 0, 0.2f, -0.2f, 0, -0.2f, 0.4f),
-			QuirkKeyframes.f(8, -0.4f, 0, 0.6f, -0.4f, 0, -0.6f, -0.1f, 0, 0, 0, 0.25f, 0, 0, -0.25f, -0.3f), QuirkKeyframes.rest(16) };
+	// the Crystal Maul: the right arm hauled up and back as the hammer swells on it, the left arm reaching up to help, up on his toes; at 11 the
+	// whole body comes down behind it into a deep crouch, held a moment while the ground cracks
+	private static final float[][] MAUL = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(5, -2.5f, 0.2f, 0.35f, -1.5f, -0.2f, -0.3f, -0.2f, 0.25f, 0.1f, 0, 0.1f, -0.2f, 0, -0.1f, -0.2f, 0f),
+			QuirkKeyframes.fc(10, -3.1f, 0.1f, 0.2f, -2.4f, -0.1f, -0.25f, -0.38f, 0.1f, 0.2f, 0, 0.1f, -0.3f, 0, -0.1f, -0.3f, 0f),
+			QuirkKeyframes.fc(12, -0.7f, -0.1f, 0.1f, -0.55f, 0.1f, -0.3f, 0.7f, -0.1f, -0.6f, 0, 0.15f, 0.25f, 0, -0.1f, 0.45f, 0.95f),
+			QuirkKeyframes.fc(18, -0.65f, -0.1f, 0.1f, -0.5f, 0.1f, -0.3f, 0.62f, -0.1f, -0.55f, 0, 0.15f, 0.2f, 0, -0.1f, 0.4f, 0.85f), QuirkKeyframes.restC(25) };
+	// the Prism Spire: crouched, palms to the ground, then both hands drawn up as the crystal climbs out of it, and held there a moment
+	private static final float[][] SPIRE = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(5, -0.35f, 0, 0.4f, -0.35f, 0, -0.4f, 0.6f, 0, -0.2f, 0, 0.15f, 0.2f, 0, -0.15f, 0.35f, 0.95f),
+			QuirkKeyframes.fc(13, -2.55f, 0, 0.3f, -2.55f, 0, -0.3f, -0.22f, 0, -0.1f, 0, 0.12f, 0.1f, 0, -0.12f, -0.3f, 0f),
+			QuirkKeyframes.fc(18, -2.45f, 0, 0.32f, -2.45f, 0, -0.32f, -0.18f, 0, -0.1f, 0, 0.12f, 0.1f, 0, -0.12f, -0.25f, 0f), QuirkKeyframes.restC(24) };
+	// the Crystal Pillar: one hand raised and driven down at the ground (at 6), the other out for balance, the head up on the target, then
+	// wrenched back up as the pillar bursts
+	private static final float[][] PILLAR = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(4, -2.85f, 0.1f, 0.3f, -0.7f, 0, -0.55f, -0.2f, 0.3f, 0.1f, 0, 0.1f, -0.2f, 0, -0.1f, -0.2f, 0.1f),
+			QuirkKeyframes.fc(7, -0.3f, 0, 0.1f, -0.9f, 0, -0.7f, 0.72f, -0.2f, -0.75f, 0, 0.15f, 0.25f, 0, -0.1f, -0.1f, 0.95f),
+			QuirkKeyframes.fc(11, -0.35f, 0, 0.1f, -0.85f, 0, -0.65f, 0.65f, -0.2f, -0.7f, 0, 0.15f, 0.2f, 0, -0.1f, -0.1f, 0.85f),
+			QuirkKeyframes.fc(15, -1.6f, 0, 0.25f, -0.5f, 0, -0.3f, 0.05f, 0.1f, -0.2f, 0, 0.1f, 0.1f, 0, -0.1f, 0, 0.1f), QuirkKeyframes.restC(21) };
 	private static final float[][] SLASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.9f, 0.9f, 0.4f, 0.2f, 0, 0, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.f(5, -1.2f, -1.0f, -0.2f, 0.3f, 0, 0, 0.2f, -0.5f, 0.2f, 0, 0, -0.2f, 0, 0, 0), QuirkKeyframes.rest(10) };
 	private static final float[][] PLACE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.1f, 0, 0, 0, 0, 0, 0.15f, 0, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.rest(8) };
@@ -97,72 +131,84 @@ public final class DiamondheadClient implements AlienClientKit {
 			QuirkKeyframes.fc(7, -0.35f, 0, 0.15f, -0.35f, 0, -0.15f, 0.75f, 0, -0.7f, 0, 0.15f, 0.2f, 0, -0.1f, 0.45f, 1.0f),
 			QuirkKeyframes.fc(17, -0.3f, 0, 0.15f, -0.3f, 0, -0.15f, 0.7f, 0, -0.65f, 0, 0.15f, 0.2f, 0, -0.1f, 0.4f, 0.95f), QuirkKeyframes.restC(24) };
 	// ---- v0.17.2 revamp
-	// Combat Mode on: the forearms crossed before the chest as the crystal grows, then flung out to the sides, blades bared
-	private static final float[][] COMBAT_ON = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.35f, -0.95f, 0, -1.35f, 0.95f, 0, 0.15f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
-			QuirkKeyframes.f(9, -0.55f, 0.35f, 0.55f, -0.55f, -0.35f, -0.55f, -0.05f, 0, -0.2f, 0, 0.1f, 0.2f, 0, -0.1f, -0.1f), QuirkKeyframes.rest(14) };
-	// off: a shake of both arms as the blades shatter away
+	// Combat Mode on: the right forearm held across the chest as the blade grows out of it, the left arm up as the shield forms on it, then
+	// the blade flung out to his side and the shield dropped to guard
+	private static final float[][] COMBAT_ON = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.35f, -0.95f, 0, -1.0f, 0.55f, -0.1f, 0.15f, 0.2f, 0, 0, 0, 0, 0, 0, 0.2f),
+			QuirkKeyframes.f(9, -0.65f, 0.55f, 0.75f, -0.5f, 0, -0.3f, -0.05f, -0.2f, -0.2f, 0, 0.1f, 0.2f, 0, -0.1f, -0.1f), QuirkKeyframes.rest(15) };
+	// off: a shake of both arms as the crystal shatters away
 	private static final float[][] COMBAT_OFF = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.9f, 0, 0.35f, -0.9f, 0, -0.35f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
 			QuirkKeyframes.f(6, -0.4f, 0, 0.15f, -0.4f, 0, -0.15f, 0, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(10) };
-	// the shield going up: a brace behind it (the left arm is held by heldShield after)
+	// the shield going up: a brace behind it (the left arm's raise comes from shieldRaise)
 	private static final float[][] SHIELD = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0, 0, 0, -1.1f, 0.55f, 0, 0.15f, 0.1f, -0.25f, 0, 0, 0.25f, 0, 0, 0),
 			QuirkKeyframes.rest(7) };
 	// the Shield Bash: lunging forward low behind it
 	private static final float[][] BASH = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(3, -0.5f, 0, 0.25f, -1.35f, 0.3f, 0, 0.35f, 0.15f, 0.55f, 0, 0, -0.7f, 0, 0, -0.2f),
 			QuirkKeyframes.f(10, -0.5f, 0, 0.25f, -1.35f, 0.3f, 0, 0.35f, 0.15f, -0.6f, 0, 0, 0.6f, 0, 0, -0.2f), QuirkKeyframes.rest(14) };
-	// Blade Flurry: the right blade sweeping right to left, the left blade back left to right, then the right blade's thrust
-	private static final float[][] FLURRY_1 = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.7f, 1.0f, 0.7f, -0.4f, 0, 0, 0.05f, 0.45f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.f(5, -1.45f, -1.0f, -0.25f, -0.4f, 0, 0, 0.15f, -0.45f, 0.2f, 0, 0, -0.2f, 0, 0, 0), QuirkKeyframes.rest(10) };
-	private static final float[][] FLURRY_2 = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.4f, 0, 0, -1.7f, -1.0f, -0.7f, 0.05f, -0.45f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.f(5, -0.4f, 0, 0, -1.45f, 1.0f, 0.25f, 0.15f, 0.45f, -0.2f, 0, 0, 0.2f, 0, 0, 0), QuirkKeyframes.rest(10) };
-	private static final float[][] STAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.9f, 0.2f, 0.2f, -0.5f, 0, -0.2f, -0.05f, 0.5f, 0.2f, 0, 0, -0.2f, 0, 0, 0),
-			QuirkKeyframes.f(6, -1.6f, -0.1f, 0, -0.3f, 0, -0.3f, 0.3f, -0.35f, -0.55f, 0, 0, 0.55f, 0, 0, 0.1f),
-			QuirkKeyframes.f(11, -1.55f, -0.1f, 0, -0.3f, 0, -0.3f, 0.28f, -0.35f, -0.5f, 0, 0, 0.5f, 0, 0, 0.1f), QuirkKeyframes.rest(15) };
-	// the Crystal Cyclone: both blades flung out level and swept round as the body whips through the turn
-	private static final float[][] CYCLONE = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(2, -1.5f, 1.2f, 0.4f, -1.5f, 1.2f, -0.4f, 0.1f, 0.8f, 0, 0, 0.15f, 0, 0, -0.15f, 0),
-			QuirkKeyframes.f(5, -1.5f, -1.1f, 0.4f, -1.5f, -1.1f, -0.4f, 0.1f, -0.8f, 0, 0, 0.15f, 0, 0, -0.15f, 0),
-			QuirkKeyframes.f(8, -1.5f, 1.0f, 0.4f, -1.5f, 1.0f, -0.4f, 0.1f, 0.7f, 0, 0, 0.15f, 0, 0, -0.15f, 0), QuirkKeyframes.rest(13) };
+	// the Blade Stab: weight dropped back with the blade drawn to the hip, then a full lunge, the arm driven straight along the look and held in
+	// the wound a moment before it is pulled out (the blow lands at 4)
+	private static final float[][] STAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.55f, 0.35f, 0.3f, -0.55f, 0, -0.25f, -0.08f, 0.55f, 0.3f, 0, 0, -0.25f, 0, 0, 0),
+			QuirkKeyframes.f(5, -1.62f, -0.12f, 0, -0.3f, 0, -0.35f, 0.32f, -0.4f, -0.6f, 0, 0, 0.6f, 0, 0, -0.15f),
+			QuirkKeyframes.f(11, -1.58f, -0.12f, 0, -0.3f, 0, -0.35f, 0.3f, -0.4f, -0.55f, 0, 0, 0.55f, 0, 0, -0.15f), QuirkKeyframes.rest(16) };
+	// the Crystal Cyclone: the blade held straight out at his right, the shield tucked in, knees bent -- spinDegrees turns all of him round
+	private static final float[][] CYCLONE = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(2, -1.55f, 1.25f, 0, -0.65f, 0, -0.2f, 0.12f, 0, -0.15f, 0, 0.18f, 0.15f, 0, -0.18f, -0.1f, 0.55f),
+			QuirkKeyframes.fc(11, -1.55f, 1.05f, 0, -0.65f, 0, -0.2f, 0.12f, 0, -0.15f, 0, 0.18f, 0.15f, 0, -0.18f, -0.1f, 0.55f), QuirkKeyframes.restC(15) };
 	// the shield shattering: knocked back a step, the arm flung wide
 	private static final float[][] SHIELD_BREAK = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.3f, 0, 0.4f, -0.6f, 0, -1.1f, -0.25f, 0, -0.3f, 0, 0, 0.3f, 0, 0, -0.3f),
 			QuirkKeyframes.rest(12) };
 
-	private static final FirstPersonClip FP_VOLLEY = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 15, -15, 0, -0.1f, -0.1f, 0.1f),
-			FirstPersonClip.f(5, -25, 25, 0, 0.2f, 0.12f, -0.25f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
+	// the Shard Volley: both hands out ahead, the one throwing punched deeper
+	private static float[] fpAim(float t) {
+		return FirstPersonClip.f(t, -38, 14, 0, 0.13f, 0.14f, -0.2f);
+	}
+
+	private static float[] fpThrust(float t) {
+		return FirstPersonClip.f(t, -50, 22, 0, 0.17f, 0.2f, -0.5f);
+	}
+
+	private static final FirstPersonClip FP_VOLLEY = FirstPersonClip.of(fpAim(0), fpThrust(2), fpAim(5), fpAim(14));
+	private static final FirstPersonClip FP_VOLLEY_FIRST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), fpThrust(2), fpAim(5), fpAim(14));
+	private static final FirstPersonClip FP_VOLLEY_IDLE = FirstPersonClip.of(fpAim(0), fpAim(14));
+	private static final FirstPersonClip FP_VOLLEY_RISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), fpAim(4), fpAim(14));
+	private static final FirstPersonClip FP_VOLLEY_END = FirstPersonClip.of(fpAim(0), FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0)).both();
+	/** The left arm brought up behind the raised shield (run by the raise, 0..4). */
+	private static final FirstPersonClip FP_SHIELD_UP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -40, 5, 0, 0.08f, 0.16f, 0.12f));
 	private static final FirstPersonClip FP_SPEAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -80, 0, 15, 0.05f, 0.5f, 0.25f),
-			FirstPersonClip.f(7, -10, 25, 0, 0.15f, 0.05f, -0.3f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0));
+			FirstPersonClip.f(5, -80, 0, 15, 0.05f, 0.5f, 0.25f), FirstPersonClip.f(8, -10, 25, 0, 0.15f, 0.05f, -0.4f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_SLAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -80, 5, 0, 0.05f, 0.5f, 0.2f),
 			FirstPersonClip.f(6, 35, 10, 0, 0.05f, -0.35f, -0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_PUSH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 30, 0, 0.2f, 0.15f, -0.3f),
-			FirstPersonClip.f(10, -30, 30, 0, 0.2f, 0.15f, -0.3f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_RAISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -70, -20, 20, -0.1f, 0.45f, 0.1f),
-			FirstPersonClip.f(14, -70, -20, 20, -0.1f, 0.45f, 0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HEAVE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 25, 10, 0, 0, -0.25f, 0),
+			FirstPersonClip.f(9, -45, 25, 0, 0.2f, 0.25f, -0.3f), FirstPersonClip.f(14, -43, 25, 0, 0.2f, 0.22f, -0.3f), FirstPersonClip.f(19, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_MAUL = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -60, 0, 8, 0.02f, 0.35f, 0.15f),
+			FirstPersonClip.f(10, -105, 0, 10, 0.05f, 0.72f, 0.3f), FirstPersonClip.f(12, 42, 6, 0, 0.1f, -0.42f, -0.3f), FirstPersonClip.f(18, 38, 6, 0, 0.1f, -0.4f, -0.28f),
+			FirstPersonClip.f(25, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_SPIRE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, 35, 10, 0, 0.02f, -0.35f, 0),
+			FirstPersonClip.f(13, -72, -12, 18, -0.05f, 0.42f, 0.05f), FirstPersonClip.f(18, -70, -12, 18, -0.05f, 0.4f, 0.05f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_PILLAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -85, 5, 0, 0.05f, 0.55f, 0.2f),
+			FirstPersonClip.f(7, 48, 10, 0, 0.08f, -0.45f, -0.25f), FirstPersonClip.f(11, 44, 10, 0, 0.08f, -0.42f, -0.22f), FirstPersonClip.f(15, -30, 5, 0, 0.05f, 0.1f, 0),
+			FirstPersonClip.f(21, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_RAISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -80, -10, 12, -0.05f, 0.5f, 0.12f),
+			FirstPersonClip.f(14, -78, -10, 12, -0.05f, 0.48f, 0.12f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_SURF = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 10, -45, 40, -0.35f, 0.05f, 0.1f),
 			FirstPersonClip.f(18, 10, -45, 40, -0.35f, 0.05f, 0.1f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_SLASH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -40, -40, -20, -0.2f, 0.25f, 0),
 			FirstPersonClip.f(5, -10, 50, 20, 0.35f, 0.0f, -0.25f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_PLACE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -15, 15, 0, 0.1f, 0.0f, -0.2f),
 			FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_FLEX = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -20, 40, 0, 0.25f, 0.15f, 0.05f),
-			FirstPersonClip.f(8, -20, -30, 30, -0.2f, 0.1f, 0), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
 	/** v0.17.2: the Crystal Eruption's slam -- both fists up out of view, then driven down hard past the bottom of the screen. */
 	private static final FirstPersonClip FP_ERUPT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -95, 5, 0, 0.05f, 0.6f, 0.25f),
 			FirstPersonClip.f(7, 50, 10, 0, 0.05f, -0.5f, -0.2f), FirstPersonClip.f(17, 45, 10, 0, 0.05f, -0.45f, -0.18f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
 	// ---- v0.17.2 revamp
 	private static final FirstPersonClip FP_COMBAT_ON = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -50, 35, 0, 0.18f, 0.25f, 0),
-			FirstPersonClip.f(9, -20, -20, 0, -0.1f, 0.05f, 0), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
+			FirstPersonClip.f(9, -20, -20, 0, -0.1f, 0.05f, 0), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_COMBAT_OFF = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 20, 0, 0.1f, 0.1f, 0),
 			FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0)).both();
-	/** The slashes swing wide across the view; the second comes back the other way. */
-	private static final FirstPersonClip FP_FLURRY_1 = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -45, -50, -25, -0.25f, 0.3f, 0),
-			FirstPersonClip.f(5, -15, 60, 25, 0.45f, 0.0f, -0.3f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_FLURRY_2 = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -35, 60, 30, 0.4f, 0.25f, -0.1f),
-			FirstPersonClip.f(5, -15, -45, -25, -0.25f, 0.0f, -0.3f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
-	/** The stab: drawn back, then driven straight into the screen. */
-	private static final FirstPersonClip FP_STAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 10, 0, 0, 0, -0.05f, 0.25f),
-			FirstPersonClip.f(6, -25, 8, 0, 0.12f, 0.12f, -0.65f), FirstPersonClip.f(11, -24, 8, 0, 0.12f, 0.12f, -0.6f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0));
+	/** The Blade Stab: drawn back to the hip, then driven straight into the screen and held there a moment. */
+	private static final FirstPersonClip FP_STAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 12, 0, 0, 0, -0.12f, 0.3f),
+			FirstPersonClip.f(5, -28, 8, 0, 0.14f, 0.14f, -0.75f), FirstPersonClip.f(11, -27, 8, 0, 0.14f, 0.14f, -0.7f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_CYCLONE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -25, -55, -35, -0.35f, 0.1f, 0),
-			FirstPersonClip.f(6, -25, 65, 35, 0.45f, 0.1f, -0.2f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0)).both();
+			FirstPersonClip.f(7, -25, 70, 35, 0.5f, 0.1f, -0.2f), FirstPersonClip.f(11, -25, 70, 35, 0.75f, 0.1f, -0.1f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_BASH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -25, 20, 0, 0.1f, 0.08f, -0.35f),
 			FirstPersonClip.f(10, -25, 20, 0, 0.1f, 0.08f, -0.35f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_SHIELD_BREAK = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 20, -15, 0, -0.12f, -0.2f, 0.2f),
@@ -176,6 +222,8 @@ public final class DiamondheadClient implements AlienClientKit {
 		OmnitrixRenderers.projectileLook("diamondhead_spear", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, true));
 		// v0.17.2: the Titan Shards -- the same cut crystal, giant
 		OmnitrixRenderers.projectileLook("diamondhead_titan", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, false));
+		// v0.17.2 round 3: the Prism Spire -- the same crystal again, standing
+		OmnitrixRenderers.projectileLook("diamondhead_spire", (e, partial, pose, buffers) -> crystalShot(e, partial, pose, buffers, false, new net.minecraft.world.phys.Vec3(0, 1, 0)));
 	}
 
 	// ---------------------------------------------------------------- v0.17.2: the shard and spear projectiles
@@ -193,7 +241,13 @@ public final class DiamondheadClient implements AlienClientKit {
 	 */
 	private static void shardShot(com.projecthero.mod.omnitrix.entity.AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers,
 			boolean spear) {
-		net.minecraft.world.phys.Vec3 v = e.getDeltaMovement();
+		crystalShot(e, partial, pose, buffers, spear, null);
+	}
+
+	/** As above; {@code pointing}, if given, is the way the crystal points (the Prism Spire stands straight up, whatever the entity's turn). */
+	private static void crystalShot(com.projecthero.mod.omnitrix.entity.AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers,
+			boolean spear, net.minecraft.world.phys.Vec3 pointing) {
+		net.minecraft.world.phys.Vec3 v = pointing != null ? pointing : e.getDeltaMovement();
 		if (v.lengthSqr() < 1.0e-6) {
 			v = net.minecraft.world.phys.Vec3.directionFromRotation(e.getXRot(), e.getYRot());
 		}
@@ -417,24 +471,85 @@ public final class DiamondheadClient implements AlienClientKit {
 		return s.animId == animId ? p.level().getGameTime() + partial - s.animStart : -1f;
 	}
 
-	private static boolean shieldShown(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & (DiamondheadKit.F_SHIELD | DiamondheadKit.F_BASH)) != 0;
+	private static boolean combat(AbstractClientPlayer p) {
+		return (Omnitrix.state(p).kitFlags & DiamondheadKit.F_COMBAT) != 0;
 	}
 
-	/** The shield's size now: it grows over the arm in its first 4 ticks. */
-	private static float shieldGrow(AbstractClientPlayer p, float partial) {
-		float t = since(p, DiamondheadKit.ANIM_SHIELD, partial);
-		return t < 0 ? 1f : Mth.clamp(0.25f + t / 4f, 0.25f, 1f);
+	/**
+	 * How far the shield is raised, 0 (strapped along the forearm, at his side) to 1 (held out in front), eased over a few ticks: it is up
+	 * only while right-click is held (F_SHIELD) or he is bashing.
+	 */
+	private static float shieldRaise(AbstractClientPlayer p, float partial) {
+		float k;
+		if ((Omnitrix.state(p).kitFlags & (DiamondheadKit.F_SHIELD | DiamondheadKit.F_BASH)) != 0) {
+			float t = since(p, DiamondheadKit.ANIM_SHIELD, partial);
+			k = t < 0 ? 1f : Mth.clamp(t / 3f, 0f, 1f);
+		} else {
+			float t = since(p, DiamondheadKit.ANIM_SHIELD_DOWN, partial);
+			k = t < 0 ? 0f : 1f - Mth.clamp(t / 4f, 0f, 1f);
+		}
+		return k * k * (3f - 2f * k);
 	}
 
-	/** The blades' size now: 0 without Combat Mode, growing in over 6 ticks, shrinking away over 5 as it ends. */
-	private static float bladeGrow(AbstractClientPlayer p, float partial) {
-		if ((Omnitrix.state(p).kitFlags & DiamondheadKit.F_COMBAT) == 0) {
+	/** The blade's and shield's size now: 0 without Combat Mode, growing in over 6 ticks, shrinking away over 5 as it ends. */
+	private static float combatGrow(AbstractClientPlayer p, float partial) {
+		if (!combat(p)) {
 			float off = since(p, DiamondheadKit.ANIM_COMBAT_OFF, partial);
 			return off >= 0 && off < 5 ? 1f - off / 5f : 0f;
 		}
 		float on = since(p, DiamondheadKit.ANIM_COMBAT_ON, partial);
 		return on < 0 ? 1f : Mth.clamp(on / 6f, 0.05f, 1f);
+	}
+
+	/** The blade: gone while the Crystal Maul has that arm. */
+	private static float bladeGrow(AbstractClientPlayer p, float partial) {
+		return maulGrow(p, partial) > 0f ? 0f : combatGrow(p, partial);
+	}
+
+	/** The shield: as {@link #combatGrow}, but shattered it is gone, and grows back over the last 8 ticks of its regrowth. */
+	private static float shieldGrow(AbstractClientPlayer p, float partial) {
+		float g = combatGrow(p, partial);
+		DiamondheadKit k = kit();
+		int left = k == null ? 0 : k.cooldownLeft(p, DiamondheadKit.SHIELD);
+		return left <= 0 ? g : Math.min(g, Mth.clamp(1f - (left - partial) / 8f, 0f, 1f));
+	}
+
+	/** The blade thrust out longer through the Blade Stab. */
+	private static float bladeReach(AbstractClientPlayer p, float partial) {
+		float t = since(p, DiamondheadKit.ANIM_STAB, partial);
+		return t < 3f || t > 13f ? 1f : 1f + 0.5f * Mth.sin((t - 3f) / 10f * Mth.PI);
+	}
+
+	/** The Crystal Maul's hammer: swelling as the arm goes up, whole for the blow, crumbling after. */
+	private static float maulGrow(AbstractClientPlayer p, float partial) {
+		float t = since(p, DiamondheadKit.ANIM_MAUL, partial);
+		if (t < 0f) {
+			return 0f;
+		}
+		float end = DiamondheadKit.MAUL_WINDUP + 8f;
+		return t < 7f ? Mth.clamp(t / 7f, 0.05f, 1f) : t < end ? 1f : Mth.clamp(1f - (t - end) / 4f, 0f, 1f);
+	}
+
+	/** The Crystal Spear in his hand, growing there until it is thrown. */
+	private static float spearGrow(AbstractClientPlayer p, float partial) {
+		float t = since(p, DiamondheadKit.ANIM_SPEAR, partial);
+		return t < 0f || t >= DiamondheadKit.SPEAR_WINDUP ? 0f : Mth.clamp(0.25f + t / 3.5f, 0f, 1f);
+	}
+
+	/**
+	 * v0.17.2 round 3: the Crystal Cyclone turns all of him, costume and blade (degrees; {@code DiamondheadSpinMixin}): one and a bit
+	 * eased turns to his left, the blade leading.
+	 */
+	public static float spinDegrees(AbstractClientPlayer p, float partial) {
+		if (!Omnitrix.transformed(p) || !DiamondheadKit.ID.equals(Omnitrix.state(p).active)) {
+			return 0f;
+		}
+		float t = since(p, DiamondheadKit.ANIM_CYCLONE, partial);
+		if (t < 1f || t > 12f) {
+			return 0f;
+		}
+		float k = (t - 1f) / 11f;
+		return k * k * (3f - 2f * k) * 360f;
 	}
 
 	private static float shieldHealth(AbstractClientPlayer p) {
@@ -460,17 +575,24 @@ public final class DiamondheadClient implements AlienClientKit {
 				crystal(pose, vc, side * 1.7f, 7.6f, 1.7f, -0.95f, side * 0.75f, 1.35f, 1.0f, 4.6f, light);
 			}
 		});
-		float blades = bladeGrow(p, partial);
-		boolean shield = shieldShown(p);
-		float grow = shield ? shieldGrow(p, partial) : 0f;
+		float blades = bladeGrow(p, partial), reach = bladeReach(p, partial), maul = maulGrow(p, partial), spear = spearGrow(p, partial);
+		float grow = shieldGrow(p, partial);
+		boolean shield = grow > 0f;
 		float hp = shield ? shieldHealth(p) : 1f;
+		// v0.17.2 round 3 (user: "only have 1 blade on the right arm please")
 		if (blades > 0f) {
-			AlienParts.on(pose, model.rightArm, () -> blade(pose, vc, -1f, blades, light));
-			AlienParts.on(pose, model.leftArm, () -> blade(pose, vc, 1f, blades, light));
+			AlienParts.on(pose, model.rightArm, () -> blade(pose, vc, -1f, blades, reach, light));
+		}
+		if (maul > 0f) {
+			AlienParts.on(pose, model.rightArm, () -> maul(pose, vc, maul, light));
+		}
+		if (spear > 0f) {
+			AlienParts.on(pose, model.rightArm, () -> heldSpear(pose, vc, spear, false, light));
 		}
 		if (shield) {
+			float raise = shieldRaise(p, partial);
 			AlienParts.on(pose, model.leftArm, () -> {
-				uprightOnForearm(pose, model.leftArm);
+				shieldOnArm(pose, model.leftArm, raise);
 				shield(pose, vc, grow, hp, light);
 			});
 		}
@@ -478,20 +600,32 @@ public final class DiamondheadClient implements AlienClientKit {
 		VertexConsumer glow = buffers.getBuffer(RenderType.eyes(EXTRAS));
 		float pulse = 0.75f + 0.25f * Mth.sin(age * 0.2f);
 		if (blades > 0f) {
-			AlienParts.on(pose, model.rightArm, () -> bladeCore(pose, glow, -1f, blades, pulse));
-			AlienParts.on(pose, model.leftArm, () -> bladeCore(pose, glow, 1f, blades, pulse));
+			AlienParts.on(pose, model.rightArm, () -> bladeCore(pose, glow, -1f, blades, reach, pulse));
+		}
+		if (maul > 0f) {
+			AlienParts.on(pose, model.rightArm, () -> maulCore(pose, glow, maul, pulse));
 		}
 		if (shield) {
+			float raise = shieldRaise(p, partial);
 			AlienParts.on(pose, model.leftArm, () -> {
-				uprightOnForearm(pose, model.leftArm);
+				shieldOnArm(pose, model.leftArm, raise);
 				shieldCore(pose, glow, grow, hp, pulse);
 			});
 		}
 	}
 
+	/** Strapped on: along the outside of the left forearm, its face turned out to his left, a little smaller. In arm-bone space. */
+	private static void shieldRest(PoseStack pose) {
+		pose.translate(3.9f / 16f, 6.2f / 16f, 0f);
+		pose.mulPose(Axis.YP.rotation(-Mth.HALF_PI));
+		pose.scale(SHIELD_REST_SCALE, SHIELD_REST_SCALE, SHIELD_REST_SCALE);
+	}
+
+	private static final float SHIELD_REST_SCALE = 0.78f;
+
 	/**
-	 * From the left arm's bone space to a frame on its forearm, a little in front of it, turned back upright and facing where
-	 * the body faces (the arm's own turn undone): the tower shield stands straight whatever the arm swings through.
+	 * Held out: from the left arm's bone space to a frame on its forearm, a little in front of it, turned back upright and facing
+	 * where the body faces (the arm's own turn undone), so the tower shield stands straight whatever the arm swings through.
 	 */
 	private static void uprightOnForearm(PoseStack pose, ModelPart arm) {
 		pose.translate(1f / 16f, 8.5f / 16f, 0f);
@@ -503,29 +637,92 @@ public final class DiamondheadClient implements AlienClientKit {
 		pose.mulPose(Axis.YP.rotation(-0.18f));
 	}
 
+	/** The shield's frame, {@code raise} of the way from strapped on to held out. */
+	private static void shieldOnArm(PoseStack pose, ModelPart arm, float raise) {
+		pose.pushPose();
+		shieldRest(pose);
+		org.joml.Matrix4f rest = new org.joml.Matrix4f(pose.last().pose());
+		pose.popPose();
+		pose.pushPose();
+		uprightOnForearm(pose, arm);
+		org.joml.Matrix4f held = new org.joml.Matrix4f(pose.last().pose());
+		pose.popPose();
+		blend(pose, rest, held, raise);
+	}
+
+	/** Sets the pose to the rigid blend of two frames: their places lerped, their turns slerped, so the shield swings round whole. */
+	private static void blend(PoseStack pose, org.joml.Matrix4f a, org.joml.Matrix4f b, float k) {
+		org.joml.Quaternionf q = a.getNormalizedRotation(new org.joml.Quaternionf()).slerp(b.getNormalizedRotation(new org.joml.Quaternionf()), k);
+		org.joml.Vector3f at = a.getTranslation(new org.joml.Vector3f()).lerp(b.getTranslation(new org.joml.Vector3f()), k);
+		org.joml.Vector3f sa = a.getScale(new org.joml.Vector3f()), sb = b.getScale(new org.joml.Vector3f());
+		float scale = Mth.lerp(k, sa.x, sb.x);
+		pose.last().pose().translation(at).rotate(q).scale(scale);
+		pose.last().normal().set(q);
+	}
+
 	// ---------------------------------------------------------------- the blades
 
 	/**
-	 * One forearm blade (arm-bone space, pixels; {@code side} -1 the right arm, +1 the left): a long faceted crystal running
-	 * down the forearm from just above the wrist and out past the fist, broad front-to-back and thin across, {@code g} grown.
+	 * The forearm blade (arm-bone space, pixels; {@code side} -1 the right arm): a long faceted crystal running down the forearm from
+	 * just above the wrist and out past the fist, broad front-to-back and thin across, {@code g} grown, {@code reach} times its length.
 	 */
-	private static void blade(PoseStack pose, VertexConsumer vc, float side, float g, int light) {
+	private static void blade(PoseStack pose, VertexConsumer vc, float side, float g, float reach, int light) {
 		pose.pushPose();
 		pose.translate(side / 16f, 0f, 0f);
 		// the crystal's broad side turned to face out of the arm
 		pose.mulPose(Axis.YP.rotation(Mth.HALF_PI));
-		crystal(pose, vc, 0f, 4.5f, 0f, Mth.PI, 0f, 2.3f * (0.45f + 0.55f * g), 0.32f, 19f * g, light);
+		crystal(pose, vc, 0f, 4.5f, 0f, Mth.PI, 0f, 2.3f * (0.45f + 0.55f * g), 0.32f, 19f * g * reach, light);
 		// a second, shorter spur along the back of the forearm
 		crystal(pose, vc, 1.4f, 6.5f, 0f, Mth.PI - 0.32f, 0f, 1.0f * g, 0.4f, 7f * g, light);
 		pose.popPose();
 	}
 
 	/** The blade's glowing heart (additive). */
-	private static void bladeCore(PoseStack pose, VertexConsumer glow, float side, float g, float pulse) {
+	private static void bladeCore(PoseStack pose, VertexConsumer glow, float side, float g, float reach, float pulse) {
 		pose.pushPose();
 		pose.translate(side / 16f, 0f, 0f);
 		pose.mulPose(Axis.YP.rotation(Mth.HALF_PI));
-		crystalCore(pose, glow, 0f, 5.5f, 0f, 0.7f * g, 0.3f, 16.5f * g, pulse);
+		crystalCore(pose, glow, 0f, 5.5f, 0f, 0.7f * g, 0.3f, 16.5f * g * reach, pulse);
+		pose.popPose();
+	}
+
+	// ---------------------------------------------------------------- the Crystal Maul and the spear in his hand
+
+	/** Where the hammer's head sits down the arm (px), {@code g} grown. */
+	private static float maulHead(float g) {
+		return 9f + 7f * g;
+	}
+
+	/**
+	 * The hammer on the right arm (arm-bone space, pixels): a faceted haft out of the fist, and across its end, along the line of the
+	 * swing, two great crystals back to back with stubby spurs round the join, {@code g} grown.
+	 */
+	private static void maul(PoseStack pose, VertexConsumer vc, float g, int light) {
+		float y = maulHead(g), x = -1f;
+		crystal(pose, vc, x, 7f, 0f, Mth.PI, 0f, 2.2f * g, 1f, 11f * g, light);
+		crystal(pose, vc, x, y, 0f, Mth.HALF_PI, 0f, 5.2f * g, 0.9f, 12.5f * g, light);
+		crystal(pose, vc, x, y, 0f, -Mth.HALF_PI, 0f, 5.2f * g, 0.9f, 12.5f * g, light);
+		crystal(pose, vc, x, y, 0f, 0f, Mth.HALF_PI, 2.6f * g, 0.95f, 7f * g, light);
+		crystal(pose, vc, x, y, 0f, 0f, -Mth.HALF_PI, 2.6f * g, 0.95f, 7f * g, light);
+		crystal(pose, vc, x, y, 0f, Mth.PI, 0f, 2.8f * g, 0.95f, 7.5f * g, light);
+	}
+
+	private static void maulCore(PoseStack pose, VertexConsumer glow, float g, float pulse) {
+		crystalCore(pose, glow, -1f, maulHead(g) - 4f * g, 0f, 1.6f * g, 0.9f, 9f * g, pulse);
+	}
+
+	/**
+	 * The Crystal Spear gripped in the right hand (arm-bone space): at the top of the throw its point (+z) is what leads; in first person
+	 * ({@code along}) it runs on down the arm, out of the fist and away ahead of the eye.
+	 */
+	private static void heldSpear(PoseStack pose, VertexConsumer vc, float g, boolean along, int light) {
+		pose.pushPose();
+		pose.translate(-1f / 16f, 10.5f / 16f, 0f);
+		if (along) {
+			pose.mulPose(Axis.XP.rotation(-Mth.HALF_PI));
+		}
+		float len = 2.6f * g;
+		facetted(pose.last(), vc, SPEAR_PROFILE, -len * 0.42f, len, 0.15f * g, 0.78f, 0xC8D8FFF2, light, true);
 		pose.popPose();
 	}
 
@@ -636,61 +833,104 @@ public final class DiamondheadClient implements AlienClientKit {
 
 	@Override
 	public boolean bothHandsInFirstPerson(AbstractClientPlayer p) {
-		return shieldShown(p) || bladeGrow(p, partial()) > 0f;
+		return shieldGrow(p, partial()) > 0f || bladeGrow(p, partial()) > 0f || (Omnitrix.state(p).kitFlags & DiamondheadKit.F_VOLLEY) != 0;
+	}
+
+	/**
+	 * v0.17.2 round 3: the left arm in first person -- brought up behind the shield as it is raised (user: no hand "moving on nothing"), and
+	 * out ahead with the right through the Shard Volley, throwing on its own turns.
+	 */
+	@Override
+	public void poseFirstPersonOffHand(PoseStack pose, AbstractClientPlayer p, float partial, float side) {
+		float raise = shieldRaise(p, partial);
+		if (raise > 0f) {
+			FP_SHIELD_UP.apply(pose, 4f * raise, side);
+		}
+		OmnitrixState s = Omnitrix.state(p);
+		if ((s.kitFlags & DiamondheadKit.F_VOLLEY) != 0) {
+			FirstPersonClip clip = s.animId == DiamondheadKit.ANIM_VOLLEY_L ? FP_VOLLEY : s.animId == DiamondheadKit.ANIM_VOLLEY_FIRST ? FP_VOLLEY_RISE : FP_VOLLEY_IDLE;
+			clip.apply(pose, Math.min(clip.length(), p.level().getGameTime() + partial - s.animStart), side);
+		}
+	}
+
+	@Override
+	public boolean swingsOnUseAir(AbstractClientPlayer p) {
+		return !combat(p); // the shield's right-click: no hand waved at nothing
 	}
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
 		float partial = partial();
-		float blades = bladeGrow(p, partial);
-		boolean shield = !right && shieldShown(p);
+		float blades = right ? bladeGrow(p, partial) : 0f, reach = bladeReach(p, partial);
+		float maul = right ? maulGrow(p, partial) : 0f, spear = right ? spearGrow(p, partial) : 0f;
+		float grow = right ? 0f : shieldGrow(p, partial);
+		boolean shield = grow > 0f;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
-		float side = right ? -1f : 1f;
 		if (blades > 0f) {
-			blade(pose, vc, side, blades, light);
+			blade(pose, vc, -1f, blades, reach, light);
 		}
-		float grow = shield ? shieldGrow(p, partial) : 0f;
+		if (maul > 0f) {
+			maul(pose, vc, maul, light);
+		}
+		if (spear > 0f) {
+			heldSpear(pose, vc, spear, true, light);
+		}
 		float hp = shield ? shieldHealth(p) : 1f;
+		float raise = shield ? shieldRaise(p, partial) : 0f;
 		if (shield) {
 			pose.pushPose();
-			firstPersonShield(pose);
+			firstPersonShield(pose, raise);
 			shield(pose, vc, grow, hp, light);
 			pose.popPose();
 		}
 		VertexConsumer glow = buffers.getBuffer(RenderType.eyes(EXTRAS));
 		float pulse = 0.75f + 0.25f * Mth.sin((p.tickCount + partial) * 0.2f);
 		if (blades > 0f) {
-			bladeCore(pose, glow, side, blades, pulse);
+			bladeCore(pose, glow, -1f, blades, reach, pulse);
+		}
+		if (maul > 0f) {
+			maulCore(pose, glow, maul, pulse);
 		}
 		if (shield) {
 			pose.pushPose();
-			firstPersonShield(pose);
+			firstPersonShield(pose, raise);
 			shieldCore(pose, glow, grow, hp, pulse);
 			pose.popPose();
 		}
 	}
 
 	/**
-	 * The shield held up on the left of the view: placed from the hand's starting pose (camera space with vanilla's bob and
-	 * sway, {@code OmnitrixFirstPerson.HAND_BASE}) rather than the arm, so it stands upright facing the eye, its face turned a
-	 * little toward the centre.
+	 * The shield in first person: strapped along the forearm (down in the corner of the view) at {@code raise} 0; at 1 held up on the left of
+	 * the view, placed from the hand's starting pose (camera space with vanilla's bob and sway, {@code OmnitrixFirstPerson.HAND_BASE}) rather
+	 * than the arm, so it stands upright facing the eye, its face turned a little toward the centre.
 	 */
-	private static void firstPersonShield(PoseStack pose) {
+	private static void firstPersonShield(PoseStack pose, float raise) {
+		pose.pushPose();
+		shieldRest(pose);
+		org.joml.Matrix4f rest = new org.joml.Matrix4f(pose.last().pose());
+		pose.popPose();
+		pose.pushPose();
 		pose.last().pose().set(com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.HAND_BASE);
 		pose.last().normal().set(com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.HAND_BASE_NORMAL);
-		pose.translate(-0.42f, -0.36f, -0.78f);
+		pose.translate(-0.46f, -0.08f, -0.52f);
 		pose.mulPose(Axis.YP.rotationDegrees(22f));
 		// the shield's frame (y down, face toward -z) turned to the camera's (y up, the eye at +z)
 		pose.mulPose(Axis.XP.rotation(Mth.PI));
-		pose.scale(0.62f, 0.62f, 0.62f);
+		pose.scale(0.5f, 0.5f, 0.5f);
+		org.joml.Matrix4f held = new org.joml.Matrix4f(pose.last().pose());
+		pose.popPose();
+		blend(pose, rest, held, raise);
 	}
 
 	// ---------------------------------------------------------------- poses
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
+		int flags = Omnitrix.state(p).kitFlags;
+		if (volleyPose(p, m, animId, ticks, flags)) {
+			return true;
+		}
 		float[][] clip = switch (animId) {
-			case DiamondheadKit.ANIM_VOLLEY -> VOLLEY;
 			case DiamondheadKit.ANIM_SPEAR -> SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> COMBAT_OFF;
@@ -699,63 +939,96 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_VAULT -> VAULT;
 			case DiamondheadKit.ANIM_WALL -> WALL;
 			case DiamondheadKit.ANIM_BARRAGE -> BARRAGE;
-			case DiamondheadKit.ANIM_PRISON -> PRISON;
+			case DiamondheadKit.ANIM_MAUL -> MAUL;
+			case DiamondheadKit.ANIM_SPIRE -> SPIRE;
 			case DiamondheadKit.ANIM_SLASH -> SLASH;
 			case DiamondheadKit.ANIM_PLACE -> PLACE;
-			case DiamondheadKit.ANIM_ERUPT, DiamondheadKit.ANIM_PILLAR -> ERUPT;
+			case DiamondheadKit.ANIM_ERUPT -> ERUPT;
+			case DiamondheadKit.ANIM_PILLAR -> PILLAR;
 			case DiamondheadKit.ANIM_SHIELD -> SHIELD;
 			case DiamondheadKit.ANIM_BASH -> BASH;
-			case DiamondheadKit.ANIM_FLURRY_1 -> FLURRY_1;
-			case DiamondheadKit.ANIM_FLURRY_2 -> FLURRY_2;
 			case DiamondheadKit.ANIM_STAB -> STAB;
 			case DiamondheadKit.ANIM_CYCLONE -> CYCLONE;
 			case DiamondheadKit.ANIM_SHIELD_BREAK -> SHIELD_BREAK;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		int flags = Omnitrix.state(p).kitFlags;
 		if (!played && (flags & DiamondheadKit.F_SLIDING) != 0) {
 			// v0.17.2: the surfer's crouch held for the whole ride
 			return QuirkKeyframes.play(m, SLIDE, 10f, 1f);
 		}
-		if ((flags & DiamondheadKit.F_SHIELD) != 0 && animId != DiamondheadKit.ANIM_BASH) {
-			// the shield held up across the front: the left forearm raised and turned in (whatever else his right arm does)
-			float k = animId == DiamondheadKit.ANIM_SHIELD ? Mth.clamp(ticks / 3f, 0f, 1f) : 1f;
-			m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -1.1f);
-			m.leftArm.yRot = Mth.lerp(k, m.leftArm.yRot, 0.55f);
-			m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, 0f);
-			played = true;
-		}
-		if (!played && (flags & DiamondheadKit.F_COMBAT) != 0) {
-			// a fighter's guard: both blades held a little forward and out from the body
+		boolean combat = (flags & DiamondheadKit.F_COMBAT) != 0;
+		if (!played && combat) {
+			// a fighter's guard: the blade held a little forward and out from the body, the shield arm at his side
 			m.rightArm.xRot = m.rightArm.xRot * 0.4f - 0.55f;
 			m.rightArm.zRot += 0.22f;
-			m.leftArm.xRot = m.leftArm.xRot * 0.4f - 0.45f;
-			m.leftArm.zRot -= 0.22f;
-			return true;
+			m.leftArm.xRot = m.leftArm.xRot * 0.4f - 0.2f;
+			m.leftArm.zRot -= 0.1f;
 		}
-		return played;
+		float raise = shieldRaise(p, partial());
+		if (raise > 0f && animId != DiamondheadKit.ANIM_BASH) {
+			// v0.17.2 round 3 (user: "only make them hold the shield in front of them when they are right clicking"): the left forearm brought up
+			// and across (the shield itself is stood upright by shieldOnArm, see uprightOnForearm)
+			m.leftArm.xRot = Mth.lerp(raise, m.leftArm.xRot, -1.2f);
+			m.leftArm.yRot = Mth.lerp(raise, m.leftArm.yRot, 0.28f);
+			m.leftArm.zRot = Mth.lerp(raise, m.leftArm.zRot, 0f);
+			played = true;
+		}
+		return played || combat;
+	}
+
+	/**
+	 * The Shard Volley's held pose, procedural so the clumps never drop the arms between them: the stance, with the hand that threw last
+	 * punching out and back, both arms following the look; it fades in over the first few ticks and out as R is let go.
+	 */
+	private static boolean volleyPose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, int flags) {
+		float w;
+		float[] frame;
+		if ((flags & DiamondheadKit.F_VOLLEY) != 0) {
+			DiamondheadKit k = kit();
+			long start = k == null ? 0L : k.timer(p, "volley_start");
+			w = Mth.clamp((p.level().getGameTime() + partial() - start) / 3f, 0f, 1f);
+			float[][] clip = animId == DiamondheadKit.ANIM_VOLLEY_L ? VOLLEY_L : VOLLEY_R;
+			boolean clump = animId == DiamondheadKit.ANIM_VOLLEY || animId == DiamondheadKit.ANIM_VOLLEY_L || animId == DiamondheadKit.ANIM_VOLLEY_FIRST;
+			frame = clump ? QuirkKeyframes.sample(clip, Math.min(ticks, QuirkKeyframes.length(clip))) : VOLLEY_AIM;
+		} else if (animId == DiamondheadKit.ANIM_VOLLEY_END && ticks < 6f) {
+			float t = ticks / 6f;
+			w = 1f - t * t * (3f - 2f * t);
+			frame = VOLLEY_AIM;
+		} else {
+			return false;
+		}
+		if (frame == null) {
+			frame = VOLLEY_AIM;
+		}
+		QuirkKeyframes.applyMasked(m, frame, w, VOLLEY_MASK);
+		m.rightArm.xRot += m.head.xRot * w;
+		m.leftArm.xRot += m.head.xRot * w;
+		return true;
 	}
 
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case DiamondheadKit.ANIM_VOLLEY -> FP_VOLLEY;
+			case DiamondheadKit.ANIM_VOLLEY_L -> FP_VOLLEY_IDLE;
+			case DiamondheadKit.ANIM_VOLLEY_FIRST -> FP_VOLLEY_FIRST;
+			case DiamondheadKit.ANIM_VOLLEY_END -> FP_VOLLEY_END;
 			case DiamondheadKit.ANIM_BARRAGE -> FP_TITAN;
 			case DiamondheadKit.ANIM_SPEAR -> FP_SPEAR;
 			case DiamondheadKit.ANIM_COMBAT_ON -> FP_COMBAT_ON;
 			case DiamondheadKit.ANIM_COMBAT_OFF -> FP_COMBAT_OFF;
 			case DiamondheadKit.ANIM_SHATTER -> FP_SLAM;
-			case DiamondheadKit.ANIM_WALL -> FP_PUSH;
+			case DiamondheadKit.ANIM_WALL -> FP_HEAVE;
 			case DiamondheadKit.ANIM_VAULT -> FP_RAISE;
 			case DiamondheadKit.ANIM_SLIDE -> FP_SURF;
 			case DiamondheadKit.ANIM_SLASH -> FP_SLASH;
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
-			case DiamondheadKit.ANIM_PRISON -> FP_FLEX;
-			case DiamondheadKit.ANIM_ERUPT, DiamondheadKit.ANIM_PILLAR -> FP_ERUPT;
+			case DiamondheadKit.ANIM_MAUL -> FP_MAUL;
+			case DiamondheadKit.ANIM_SPIRE -> FP_SPIRE;
+			case DiamondheadKit.ANIM_ERUPT -> FP_ERUPT;
+			case DiamondheadKit.ANIM_PILLAR -> FP_PILLAR;
 			case DiamondheadKit.ANIM_BASH -> FP_BASH;
-			case DiamondheadKit.ANIM_FLURRY_1 -> FP_FLURRY_1;
-			case DiamondheadKit.ANIM_FLURRY_2 -> FP_FLURRY_2;
 			case DiamondheadKit.ANIM_STAB -> FP_STAB;
 			case DiamondheadKit.ANIM_CYCLONE -> FP_CYCLONE;
 			case DiamondheadKit.ANIM_SHIELD_BREAK -> FP_SHIELD_BREAK;
@@ -773,7 +1046,7 @@ public final class DiamondheadClient implements AlienClientKit {
 		}
 		boolean broken = k.shieldBroken(p);
 		float hp = k.shieldHp(p);
-		if (!broken && hp >= DiamondheadKit.SHIELD_HP && !shieldShown(p)) {
+		if (!broken && hp >= DiamondheadKit.SHIELD_HP && (Omnitrix.state(p).kitFlags & (DiamondheadKit.F_SHIELD | DiamondheadKit.F_BASH)) == 0) {
 			return; // full and lowered: nothing to show
 		}
 		float frac;
@@ -804,7 +1077,9 @@ public final class DiamondheadClient implements AlienClientKit {
 	@Override
 	public void tick(AbstractClientPlayer p) {
 		var r = p.getRandom();
-		if (r.nextInt(6) == 0) {
+		// (not round his own eyes in first person: a sparkle there fills the screen)
+		boolean ownView = p == Minecraft.getInstance().getCameraEntity() && Minecraft.getInstance().options.getCameraType().isFirstPerson();
+		if (r.nextInt(6) == 0 && !ownView) {
 			p.level().addParticle(ParticleTypes.WAX_OFF, p.getX() + (r.nextDouble() - 0.5) * 0.8, p.getY() + r.nextDouble() * p.getBbHeight(),
 					p.getZ() + (r.nextDouble() - 0.5) * 0.8, 0, 0.02, 0);
 		}

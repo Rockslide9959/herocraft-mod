@@ -137,6 +137,18 @@ public interface AlienClientKit {
 	}
 
 	/**
+	 * v0.17.2 (Diamondhead's shield and Volley): moves the off-hand arm in first person when {@link #bothHandsInFirstPerson} draws it and no
+	 * two-handed clip has it ({@code side}: +1 right hand, -1 left).
+	 */
+	default void poseFirstPersonOffHand(PoseStack pose, AbstractClientPlayer p, float partial, float side) {
+	}
+
+	/** v0.17.2: false for a kit whose right-click on air is a held stance (Diamondhead's shield): the hand must not swing at nothing. */
+	default boolean swingsOnUseAir(AbstractClientPlayer p) {
+		return true;
+	}
+
+	/**
 	 * Where the Omnitrix badge sits, in {@link #badgeBone}'s pixels: {x, y, z, size} facing forward (x right, y down, z forward =
 	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre);
 	 * 2 turns it round to face out of the back (+z).

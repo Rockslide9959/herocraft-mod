@@ -397,31 +397,51 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void diamondheadCPrisonAndShiftCPrismBeam(GameTestHelper helper) {
-		// v0.17.2 (user: "Remove crystal regrowth ... and crystal armour ... and replace it with 2 other moves")
+	public void diamondheadCMaulAndShiftCPrismSpire(GameTestHelper helper) {
+		// v0.17.2 round 3 (user: "replace the current C abilities with other combat and utility powers please")
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) >= 20.0, "diamond-level armour");
 		p.setYRot(0f);
 		p.setXRot(0f);
-		helper.assertFalse(kit.crystalPrison(p), "nothing to seal: refused");
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PRISON) == 0, "and no cooldown");
-		Zombie z = zombie(helper, 3.5, 2, 5.5);
-		z.setHealth(z.getMaxHealth());
+		Zombie front = zombie(helper, 3.5, 2, 3.5);
+		Zombie behind = zombie(helper, 3.5, 2, 0.2);
+		front.setHealth(front.getMaxHealth());
+		behind.setHealth(behind.getMaxHealth());
+		float hp = front.getHealth();
 		kit.press(p, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(DiamondheadKit.imprisoned(z), "C: the Crystal Prison holds it");
-		helper.assertTrue(helper.getLevel().getBlockState(z.blockPosition().above(2)).is(com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks.CRYSTAL), "sealed in a crystal shell");
-		float hp = z.getHealth();
+		helper.assertTrue(DiamondheadKit.MAUL.equals(kit.moveOn(AbilitySlot.SLOT_6, false, false).id()) && kit.cooldownLeft(p, DiamondheadKit.MAUL) > 0, "C: the Crystal Maul");
+		helper.assertTrue(front.getHealth() == hp, "the hammer is still going up");
 		pump(helper, p);
-		helper.runAfterDelay(DiamondheadKit.PRISON_TICKS + 4, () -> {
-			helper.assertFalse(DiamondheadKit.imprisoned(z), "the prison ends");
-			helper.assertTrue(z.getHealth() <= hp - DiamondheadKit.PRISON_DAMAGE + 0.5f || !z.isAlive(), "and shatters for 14: " + (hp - z.getHealth()));
-			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PRISON) > 0, "it cools down");
-			// v0.17.2: Shift+C is the Crystal Tether now (the Prism Beam is gone)
-			helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_6, true, false).id()), "Shift+C: the Crystal Tether");
-			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-			z.discard();
-			helper.succeed();
+		helper.runAfterDelay(DiamondheadKit.MAUL_WINDUP + 2, () -> {
+			helper.assertTrue(front.getHealth() <= hp - DiamondheadKit.MAUL_DAMAGE + 0.5f || !front.isAlive(), "it lands on what is in front: " + front.getHealth());
+			// (it stands against the test structure's edge, which can chip it: the blow would take 20)
+			helper.assertTrue(behind.isAlive() && behind.getHealth() > behind.getMaxHealth() - 5f, "not what is behind him: " + behind.getHealth());
+			helper.assertTrue(front.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN) || !front.isAlive(), "staggered");
+			front.discard();
+			behind.discard();
+			// Shift+C: the Prism Spire stands where he looks and turns projectiles back
+			helper.assertTrue(DiamondheadKit.SPIRE.equals(kit.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C: the Prism Spire");
+			p.setXRot(30f);
+			kit.press(p, AbilitySlot.SLOT_6, true);
+			helper.assertTrue(DiamondheadKit.spireUp(p) && kit.cooldownLeft(p, DiamondheadKit.SPIRE) > 0, "it stands, and cools down");
+			helper.assertFalse(kit.prismSpire(p), "only one at a time");
+			var crystal = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.omnitrix.entity.AlienProjectileEntity.class, p.getBoundingBox().inflate(20), e -> e.kind().equals("diamondhead_spire"));
+			helper.assertTrue(crystal.size() == 1, "the crystal: " + crystal.size());
+			Zombie archer = zombie(helper, 7.5, 2, 7.5);
+			net.minecraft.world.entity.projectile.Arrow a = new net.minecraft.world.entity.projectile.Arrow(net.minecraft.world.entity.EntityType.ARROW, helper.getLevel());
+			a.setOwner(archer);
+			a.moveTo(crystal.get(0).getX() + 2.0, p.getY() + 1.2, crystal.get(0).getZ());
+			a.setDeltaMovement(-1.0, 0, 0);
+			helper.getLevel().addFreshEntity(a);
+			helper.runAfterDelay(4, () -> {
+				helper.assertTrue(a.getOwner() == p, "an arrow in its reach is turned back on the one who shot it");
+				helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE), "and it shelters him");
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.assertFalse(DiamondheadKit.spireUp(p), "turning back ends it");
+				archer.discard();
+				helper.succeed();
+			});
 		});
 	}
 

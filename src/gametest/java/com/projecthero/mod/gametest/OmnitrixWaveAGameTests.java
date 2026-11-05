@@ -436,7 +436,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
 		helper.assertTrue(kit.shardVolley(p), "Shard Volley");
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4)).size() == 5, "five shards");
+		int shards = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4)).size();
+		helper.assertTrue(shards >= 1 && shards <= 4, "a clump of 1-4 shards: " + shards);
+		kit.endVolley(p);
 		helper.assertFalse(kit.shardVolley(p), "then cools down");
 		helper.assertTrue(kit.crystalSpear(p) && kit.cooldownLeft(p, DiamondheadKit.SPEAR) > 0, "Crystal Spear");
 		// v0.17.2 revamp: the wall moved to Shift+V (V is Combat Mode, the dome is gone)
@@ -462,7 +464,8 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		helper.assertTrue(DiamondheadKit.SHATTER.equals(kit.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is the Spike Line");
 		helper.assertTrue(DiamondheadKit.PILLAR.equals(kit.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G the Crystal Pillar");
-		helper.assertTrue(DiamondheadKit.TETHER.equals(kit.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C the Crystal Tether");
+		helper.assertTrue(DiamondheadKit.MAUL.equals(kit.moveOn(AbilitySlot.SLOT_6, false, false).id()), "C the Crystal Maul");
+		helper.assertTrue(DiamondheadKit.SPIRE.equals(kit.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C the Prism Spire");
 		helper.assertTrue(kit.move("prism_beam") == null && kit.move(DiamondheadKit.BRIDGE) == null, "the Prism Beam is gone; the bridge is the Construct's");
 		helper.assertTrue(DiamondheadKit.COMBAT.equals(kit.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V Combat Mode");
 		helper.assertTrue(DiamondheadKit.WALL.equals(kit.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V the Crystal Construct");
@@ -477,7 +480,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.ERUPT) > DiamondheadKit.ERUPT_COOLDOWN - 5, "Z: the Crystal Eruption, on cooldown");
 		helper.assertFalse(kit.eruption(p), "and not again until it cools");
 		pump(helper, p);
-		helper.runAfterDelay(DiamondheadKit.ERUPT_RINGS + 4, () -> {
+		helper.runAfterDelay(DiamondheadKit.SLAM_DELAY + DiamondheadKit.ERUPT_RINGS + 4, () -> {
 			helper.assertTrue(near(behind.getHealth(), 60f - DiamondheadKit.ERUPT_DAMAGE), "the zombie behind him: 12, once: " + behind.getHealth());
 			helper.assertTrue(near(beside.getHealth(), 60f - DiamondheadKit.ERUPT_DAMAGE), "the one beside him (3.5 out): " + beside.getHealth());
 			helper.assertTrue(behind.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slowed");
@@ -500,8 +503,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertFalse(kit.flag(p, DiamondheadKit.F_SHIELD), "out of Combat Mode a right-click raises no shield");
 		kit.press(p, AbilitySlot.SLOT_5, false);
 		double speed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
-		kit.onUse(p, InteractionHand.MAIN_HAND);
+		var used = kit.onUse(p, InteractionHand.MAIN_HAND);
 		helper.assertTrue(kit.flag(p, DiamondheadKit.F_SHIELD), "in Combat Mode the right-click raises the shield");
+		helper.assertTrue(used.consumesAction() && !used.shouldSwing(), "with no swing of the hand at nothing: " + used);
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < speed - 1.0e-4, "and slows him");
 		Zombie front = zombie(helper, 3.5, 2, 3.5, 40f);
 		Zombie behind = zombie(helper, 3.5, 2, 0.4, 40f);
@@ -607,22 +611,15 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * v0.17.2 (user: "replace his g and Shift+G with other moves that he does in the show"): G's Crystal Tether cuts a foe it strikes
-	 * and hauls it toward him; Shift+G's Crystal Bridge grows a 3-wide span ahead; breaking one block of it brings the whole bridge
+	 * v0.17.2: Shift+V looking down grows the Crystal Bridge, a 3-wide span ahead; breaking one block of it brings the whole bridge
 	 * down (user: "the entire thing falls down and disappears"); and Diamondhead breaks his crystal as fast as dirt.
 	 */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "diamondhead_bridge") // alone: the bridge and the tether reach 20+ blocks
-	public void diamondheadTetherBridgeAndCollapse(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "diamondhead_bridge") // alone: the bridge reaches 20+ blocks
+	public void diamondheadBridgeAndCollapse(GameTestHelper helper) {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing +z, level
-		Zombie z = zombie(helper, 3.5, 2, 5.5, 60f);
-		kit.press(p, AbilitySlot.SLOT_6, true);
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.TETHER) > 0, "Shift+C: the Crystal Tether");
-		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.TETHER_DAMAGE), "it cuts the zombie: " + z.getHealth());
-		helper.assertTrue(z.getDeltaMovement().z < -0.2, "and hauls it in: " + z.getDeltaMovement());
-		z.discard();
 		// v0.17.2 (user: "looking down builds the bridge"): Shift+V looking down; a level 3-wide span at his feet
 		p.setXRot(DiamondheadKit.CONSTRUCT_PITCH + 5f);
 		kit.press(p, AbilitySlot.SLOT_5, true);
@@ -671,24 +668,29 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 7.5, 60f);
 		kit.press(p, AbilitySlot.SLOT_2, true);
 		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.PILLAR) > 0, "Shift+G: the Crystal Pillar");
-		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.PILLAR_DAMAGE), "it strikes the zombie: " + z.getHealth());
-		helper.assertTrue(z.getDeltaMovement().y > 0.8, "and throws it up: " + z.getDeltaMovement());
-		z.discard();
-		kit.press(p, AbilitySlot.SLOT_1, false);
-		var shards = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4), e -> e.kind().equals("diamondhead_shard"));
-		helper.assertTrue(shards.size() == 5, "five shards: " + shards.size());
-		for (AlienProjectileEntity s : shards) {
-			helper.assertTrue(s.getY() < p.getEyeY() - 0.25, "from his hands, below his eyes: " + (p.getEyeY() - s.getY()));
-		}
-		shards.forEach(AlienProjectileEntity::discard);
-		p.setXRot(-60f);
-		int placed = kit.wall(p);
-		helper.assertTrue(placed > 40, "Shift+V looking up: a dome: " + placed);
-		helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().above(3)).is(DiamondheadBlocks.CRYSTAL)
-				|| helper.getLevel().getBlockState(p.blockPosition().above(4)).is(DiamondheadBlocks.CRYSTAL), "capped over his head");
-		helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().east(3)).is(DiamondheadBlocks.CRYSTAL), "and walled round him");
-		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-		helper.succeed();
+		helper.assertTrue(near(z.getHealth(), 60f), "the hand has not landed yet");
+		pump(helper, p);
+		helper.runAfterDelay(DiamondheadKit.PILLAR_WINDUP + 2, () -> {
+			helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.PILLAR_DAMAGE), "it strikes the zombie: " + z.getHealth());
+			helper.assertTrue(z.getY() > at.y + 0.2 || z.getDeltaMovement().y > 0.4, "and throws it up: " + z.getY() + " " + z.getDeltaMovement());
+			z.discard();
+			kit.press(p, AbilitySlot.SLOT_1, false);
+			var shards = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4), e -> e.kind().equals("diamondhead_shard"));
+			helper.assertTrue(!shards.isEmpty() && shards.size() <= 4, "a clump of shards: " + shards.size());
+			for (AlienProjectileEntity s : shards) {
+				helper.assertTrue(s.getY() < p.getEyeY() - 0.05, "from his hands, below his eyes: " + (p.getEyeY() - s.getY()));
+			}
+			kit.release(p, AbilitySlot.SLOT_1, false, 1);
+			shards.forEach(AlienProjectileEntity::discard);
+			p.setXRot(-60f);
+			int placed = kit.wall(p);
+			helper.assertTrue(placed > 40, "Shift+V looking up: a dome: " + placed);
+			helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().above(3)).is(DiamondheadBlocks.CRYSTAL)
+					|| helper.getLevel().getBlockState(p.blockPosition().above(4)).is(DiamondheadBlocks.CRYSTAL), "capped over his head");
+			helper.assertTrue(helper.getLevel().getBlockState(p.blockPosition().east(3)).is(DiamondheadBlocks.CRYSTAL), "and walled round him");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.succeed();
+		});
 	}
 
 	/**
@@ -710,7 +712,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - dmg - DiamondheadKit.BLADE_BONUS) < 1.0e-4, "+4 more melee (+12 in all)");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) - reach - DiamondheadKit.BLADE_REACH) < 1.0e-4, "+1 reach");
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_SPEED) > swing + 0.5, "faster swings");
-		helper.assertTrue(DiamondheadKit.FLURRY.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id()), "R: the Blade Flurry");
+		helper.assertTrue(DiamondheadKit.STAB.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, false, false).id()), "R: the Blade Stab");
 		helper.assertTrue(DiamondheadKit.CYCLONE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_1, true, false).id()), "Shift+R: the Crystal Cyclone");
 		helper.assertTrue(DiamondheadKit.ERUPT.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, false, false).id()), "Z stays the Crystal Eruption");
 		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.liveMoveOn(p, AbilitySlot.SLOT_4, true, false).id()), "Shift+Z stays the Barrage");
@@ -719,7 +721,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		kit.press(p, AbilitySlot.SLOT_2, false);
 		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.SHATTER) > 0 && kit.cooldownLeft(p, DiamondheadKit.ERUPT) == 0, "G ran the Spike Line");
 		pump(helper, p);
-		helper.runAfterDelay(24, () -> {
+		helper.runAfterDelay(DiamondheadKit.SLAM_DELAY + 24, () -> {
 			helper.assertTrue(z.getHealth() <= 60f - DiamondheadKit.SPIKE_DAMAGE + 0.05f, "the spikes reached the zombie: " + z.getHealth());
 			kit.press(p, AbilitySlot.SLOT_5, false);
 			helper.assertFalse(kit.flag(p, DiamondheadKit.F_COMBAT), "V again: the blades go");
@@ -733,31 +735,66 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
-	/** v0.17.2 revamp: Combat Mode R chains -- slash 8, slash 8, then the stab 14, each within 1.5 s; the cooldown follows the stab. */
+	/** v0.17.2 round 3 (user: "a blade stab where player stabs a creature dealing 22 damage with a 4 second cooldown"): R in Combat Mode, one stab. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void diamondheadBladeFlurryChainsToAStab(GameTestHelper helper) {
+	public void diamondheadBladeStabHitsOneCreature(GameTestHelper helper) {
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
 		helper.assertTrue(kit.toggleCombat(p), "Combat Mode");
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 60f);
-		helper.assertTrue(kit.bladeFlurry(p) == 0, "the first slash");
-		helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.FLURRY_SLASH_DAMAGE), "8: " + z.getHealth());
-		helper.assertTrue(kit.bladeFlurry(p) == -1, "not twice in the same swing");
-		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.FLURRY) == 0, "no cooldown mid-chain");
-		helper.runAfterDelay(DiamondheadKit.FLURRY_GAP + 1, () -> {
-			helper.assertTrue(kit.flurryStep(p) == 1 && kit.bladeFlurry(p) == 1, "R again: the back-slash");
-			helper.assertTrue(near(z.getHealth(), 60f - 2 * DiamondheadKit.FLURRY_SLASH_DAMAGE), "8 more: " + z.getHealth());
-		});
-		helper.runAfterDelay(2 * DiamondheadKit.FLURRY_GAP + 2, () -> {
-			helper.assertTrue(kit.bladeFlurry(p) == 2, "and the stab");
-			helper.assertTrue(near(z.getHealth(), 60f - 2 * DiamondheadKit.FLURRY_SLASH_DAMAGE - DiamondheadKit.FLURRY_STAB_DAMAGE), "14: " + z.getHealth());
-			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.FLURRY) > 0, "then it cools down");
-			helper.assertTrue(kit.flurryStep(p) == 0, "and starts over");
-		});
-		helper.runAfterDelay(3 * DiamondheadKit.FLURRY_GAP + 3, () -> {
-			helper.assertTrue(kit.bladeFlurry(p) == -1, "nothing until it is ready");
+		Zombie second = zombie(helper, 3.5, 2, 4.6, 60f);
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.STAB) == DiamondheadKit.STAB_COOLDOWN, "4 s cooldown: " + kit.cooldownLeft(p, DiamondheadKit.STAB));
+		helper.assertTrue(DiamondheadKit.STAB_COOLDOWN == 80 && DiamondheadKit.STAB_DAMAGE == 22f, "the numbers the user gave");
+		helper.assertTrue(near(z.getHealth(), 60f), "the blade has not landed yet");
+		helper.assertFalse(kit.bladeStab(p), "not again while it cools");
+		pump(helper, p);
+		helper.runAfterDelay(DiamondheadKit.STAB_WINDUP + 2, () -> {
+			helper.assertTrue(near(z.getHealth(), 60f - DiamondheadKit.STAB_DAMAGE), "22 to the creature ahead: " + z.getHealth());
+			helper.assertTrue(near(second.getHealth(), 60f), "and only that one: " + second.getHealth());
 			z.discard();
+			second.discard();
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * v0.17.2 round 3 (user: "hold R ... sometimes he shoots 3 or 4 ... theyre all shooting forward together and at the same thing but they
+	 * don't spread out"): while R is down clumps of 1-4 shards keep coming, every one heading for the same point in a tight bunch; the
+	 * cooldown starts when R is let go.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "diamondhead_volley") // alone: it counts the shards in the air
+	public void diamondheadVolleyHoldsAndStaysBunched(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		helper.assertTrue(DiamondheadKit.SHARD_DAMAGE == 6f && DiamondheadKit.SPEAR_DAMAGE == 22f, "6 a shard, 22 the spear");
+		helper.assertTrue(DiamondheadKit.clumpSize(0f) == 1 && DiamondheadKit.clumpSize(0.99f) == 4, "from one shard to four");
+		java.util.Set<Integer> sizes = new java.util.HashSet<>();
+		for (float r = 0f; r < 1f; r += 0.01f) {
+			sizes.add(DiamondheadKit.clumpSize(r));
+		}
+		helper.assertTrue(sizes.size() == 4, "every size turns up: " + sizes);
+		kit.press(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(kit.flag(p, DiamondheadKit.F_VOLLEY) && kit.keyActive(p, AbilitySlot.SLOT_1), "R down: the volley is firing");
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.VOLLEY) == 0, "no cooldown while it is held");
+		var first = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4), e -> e.kind().equals("diamondhead_shard"));
+		helper.assertTrue(!first.isEmpty() && first.size() <= 4, "the first clump leaves at once: " + first.size());
+		Vec3 a = first.get(0).getDeltaMovement().normalize();
+		for (AlienProjectileEntity e : first) {
+			helper.assertTrue(e.getDeltaMovement().normalize().dot(a) > 0.995, "a bunch all flying the same way, no fan: " + e.getDeltaMovement());
+		}
+		long firstNext = kit.timer(p, "volley_next");
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(kit.flag(p, DiamondheadKit.F_VOLLEY), "still firing while R is down");
+			helper.assertTrue(kit.timer(p, "volley_next") >= firstNext + 2 * DiamondheadKit.VOLLEY_GAP_MIN, "clump after clump: " + (kit.timer(p, "volley_next") - firstNext));
+			kit.release(p, AbilitySlot.SLOT_1, false, 30);
+			helper.assertFalse(kit.flag(p, DiamondheadKit.F_VOLLEY), "let go: it stops");
+			helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.VOLLEY) == DiamondheadKit.VOLLEY_COOLDOWN, "and cools down");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 			helper.succeed();
 		});
 	}
