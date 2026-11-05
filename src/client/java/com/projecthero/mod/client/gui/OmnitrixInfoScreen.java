@@ -19,10 +19,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 
@@ -31,35 +29,34 @@ import net.minecraft.world.item.ItemStack;
  * the side work properly, only apply this new menu style to the aliens and omnitrixes for now please"): the Omnitrix wearer's I
  * menu, drawn like a vanilla container ({@link VanillaMenu}) -- every other power keeps {@link PowerInfoScreen}'s look.
  * <pre>
- *   [alien][watch][aliens]                 creative-inventory tabs with item / dial icons (the alien tab only while transformed)
+ *   [tab]                                  one creative-inventory tab: the alien while transformed, the watch otherwise
  *  +--------------------------------------+
  *  | Omnitrix: Heatblast                  |  the tab's name, vanilla label grey
- *  | [][][][][][][][][][]                 |  Aliens tab: the dial as slots; click one for its full page, again for the overview
  *  | text text text text text text     |#||  the page, dark text on the panel, clipped to the view
  *  | text text text text text text     | ||  the creative scroller on a recessed track: drag, click to page, wheel
  *  +--------------------------------------+
  *               [      Done      ]
  * </pre>
- * The content is unchanged: {@link OmnitrixInfo} builds it (the Guidebook uses the same builder), with the player's live keys and
- * state, rebuilt every half second (timers count down; the scroll position is kept).
+ * {@link OmnitrixInfo} builds the page (the Guidebook uses the same builder), with the player's live keys and state, rebuilt every
+ * half second (timers count down; the scroll position is kept).
+ *
+ * <p>v0.17.2 (user: "when the user presses I in alien form only make them have the alien menu they are transformed into and not
+ * access to everything ... if they just have the omnitrix remove the aliens tab"): an alien sees only its own page, a human only the
+ * watch's; the Aliens tab is gone (the Guidebook still has every alien).
  */
 public final class OmnitrixInfoScreen extends Screen {
 	private static final int LINE_H = 10;
 
 	public enum Tab {
-		ALIEN, WATCH, ALIENS
+		ALIEN, WATCH
 	}
 
 	private final List<Tab> tabs = new ArrayList<>();
 	private Tab tab;
-	/** The Aliens tab's opened alien (null: the overview of the whole dial). */
-	private @Nullable String picked;
 	private final List<FormattedCharSequence> body = new ArrayList<>();
 	private Component heading = Component.empty();
 	private final VanillaMenu.Scroll scroll = new VanillaMenu.Scroll(LINE_H * 3, LINE_H);
 	private int px, py, pw, ph;
-	private int slotsY, perRow;
-	private List<Aliens.Alien> dial = List.of();
 	private String shownActive = "";
 	private int ticks;
 
@@ -82,18 +79,8 @@ public final class OmnitrixInfoScreen extends Screen {
 		Aliens.Alien alien = current(p);
 		shownActive = s.active == null ? "" : s.active;
 		tabs.clear();
-		if (alien != null) {
-			tabs.add(Tab.ALIEN);
-		}
-		tabs.add(Tab.WATCH);
-		tabs.add(Tab.ALIENS);
-		if (tab == null || !tabs.contains(tab)) {
-			tab = tabs.get(0);
-		}
-		dial = Aliens.roster(p);
-		if (picked != null && dial.stream().noneMatch(a -> a.id().equals(picked))) {
-			picked = null;
-		}
+		tabs.add(alien != null ? Tab.ALIEN : Tab.WATCH);
+		tab = tabs.get(0);
 
 		this.pw = Math.min(this.width - 16, 344);
 		this.px = (this.width - pw) / 2;
@@ -110,15 +97,9 @@ public final class OmnitrixInfoScreen extends Screen {
 		return s.transformed() ? Aliens.byId(s.active) : null;
 	}
 
-	/** The view: under the heading (and the dial's slots on the Aliens tab), left of the scroll track. */
+	/** The view: under the heading, left of the scroll track. */
 	private void layout() {
 		int top = py + 18;
-		if (tab == Tab.ALIENS) {
-			perRow = Math.max(1, (pw - 16) / VanillaMenu.SLOT);
-			int rows = (dial.size() + perRow - 1) / perRow;
-			slotsY = top;
-			top += rows * VanillaMenu.SLOT + 5;
-		}
 		int trackX = px + pw - 8 - VanillaMenu.TRACK_W;
 		// a whole number of lines tall (plus the 1-px pads), so the page ends on a whole line
 		int bottom = top + Math.max(LINE_H, (py + ph - 8 - top - 2) / LINE_H * LINE_H) + 2;
@@ -131,7 +112,6 @@ public final class OmnitrixInfoScreen extends Screen {
 		if (p == null) {
 			return;
 		}
-		OmnitrixState s = Omnitrix.state(p);
 		Function<AbilitySlot, Component> keys = slot -> Component.keybind(slot.keyBindingTranslationKey());
 		List<Component> lines = new ArrayList<>();
 		String P = "screen.projecthero.power_info.omnitrix.";
@@ -145,8 +125,6 @@ public final class OmnitrixInfoScreen extends Screen {
 				OmnitrixInfo.status(lines, p);
 				lines.add(Component.empty());
 				OmnitrixInfo.alienPage(lines, a, keys, p);
-				lines.add(Component.empty());
-				lines.add(Component.translatable(P + "tab_hint.alien").withStyle(ChatFormatting.DARK_GRAY));
 			}
 			case WATCH -> {
 				heading = Component.translatable("projecthero.guide.omnitrix");
@@ -159,23 +137,6 @@ public final class OmnitrixInfoScreen extends Screen {
 				OmnitrixInfo.rules(lines, keys);
 				lines.add(Component.empty());
 				OmnitrixInfo.containment(lines);
-				lines.add(Component.empty());
-				lines.add(Component.translatable(P + "tab_hint.watch").withStyle(ChatFormatting.DARK_GRAY));
-			}
-			case ALIENS -> {
-				heading = Component.translatable("projecthero.omnitrix.info.roster");
-				Aliens.Alien a = picked == null ? null : Aliens.byId(picked);
-				if (a != null) {
-					OmnitrixInfo.alienPage(lines, a, keys, p);
-					lines.add(Component.empty());
-					lines.add(Component.translatable(P + "tab_hint.back").withStyle(ChatFormatting.DARK_GRAY));
-				} else {
-					lines.add(Component.translatable(P + "tab_hint.pick").withStyle(ChatFormatting.DARK_GRAY));
-					List<Component> roster = new ArrayList<>();
-					OmnitrixInfo.roster(roster, keys, s.selected, dial);
-					// its own heading is the tab's name, shown above
-					lines.addAll(roster.subList(Math.min(1, roster.size()), roster.size()));
-				}
 			}
 		}
 		body.clear();
@@ -184,21 +145,6 @@ public final class OmnitrixInfoScreen extends Screen {
 			VanillaMenu.wrap(this.font, line, w, body);
 		}
 		scroll.content(body.size() * LINE_H + 2);
-	}
-
-	private void setTab(Tab t) {
-		if (t == tab) {
-			return;
-		}
-		tab = t;
-		layout();
-		scroll.set(0);
-		rebuild();
-		click();
-	}
-
-	private static void click() {
-		Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
 	}
 
 	@Override
@@ -211,10 +157,7 @@ public final class OmnitrixInfoScreen extends Screen {
 		}
 		String active = Omnitrix.state(p).active == null ? "" : Omnitrix.state(p).active;
 		if (!active.equals(shownActive)) {
-			// transformed or turned back while open: the alien tab comes or goes
-			if (!active.isEmpty()) {
-				tab = Tab.ALIEN;
-			}
+			// transformed or turned back while open: the page swaps with the body
 			rebuildWidgets();
 			return;
 		}
@@ -256,8 +199,6 @@ public final class OmnitrixInfoScreen extends Screen {
 					g.renderItem(new ItemStack(item), x, y);
 				}
 			}
-			// the whole dial, one alien a second (like the recipe book cycling an ingredient's items)
-			case ALIENS -> dialIcon(g, dial.isEmpty() ? null : dial.get((ticks / 20) % dial.size()), x, y);
 		}
 	}
 
@@ -281,31 +222,6 @@ public final class OmnitrixInfoScreen extends Screen {
 		// the tab's name, like a container's label
 		g.drawString(this.font, VanillaMenu.onPanel(heading.getVisualOrderText(), OmnitrixInfo.DIAL_FONT), px + 8, py + 6, VanillaMenu.LABEL, false);
 
-		List<Component> tooltip = null;
-		if (tab == Tab.ALIENS) {
-			LocalPlayer p = Minecraft.getInstance().player;
-			String sel = p == null ? null : Omnitrix.state(p).selected;
-			for (int i = 0; i < dial.size(); i++) {
-				int x = slotX(i), y = slotY(i);
-				Aliens.Alien a = dial.get(i);
-				VanillaMenu.slot(g, x, y);
-				dialIcon(g, a, x + 1, y + 1);
-				boolean over = mx >= x && mx < x + VanillaMenu.SLOT && my >= y && my < y + VanillaMenu.SLOT;
-				if (over) {
-					VanillaMenu.slotHighlight(g, x, y);
-					tooltip = new ArrayList<>();
-					tooltip.add(OmnitrixInfo.alienName(a));
-					tooltip.add(Component.translatable(OmnitrixInfo.roleKey(a.id())).withStyle(ChatFormatting.GRAY));
-					if (a.id().equals(sel)) {
-						tooltip.add(Component.translatable("projecthero.omnitrix.info.roster.selected").withStyle(ChatFormatting.GREEN));
-					}
-				}
-				if (a.id().equals(picked)) {
-					VanillaMenu.slotSelected(g, x, y);
-				}
-			}
-		}
-
 		// the page, clipped to the view
 		scroll.beginClip(g);
 		int y = scroll.viewY0() + 1 - scroll.offset();
@@ -321,11 +237,8 @@ public final class OmnitrixInfoScreen extends Screen {
 
 		for (int i = 0; i < tabs.size(); i++) {
 			if (VanillaMenu.overTab(mx, my, px, py, i)) {
-				tooltip = List.of(tabName(tabs.get(i)));
+				g.renderTooltip(this.font, VanillaMenu.tooltip(this.font, List.of(tabName(tabs.get(i)))), mx, my);
 			}
-		}
-		if (tooltip != null) {
-			g.renderTooltip(this.font, VanillaMenu.tooltip(this.font, tooltip), mx, my);
 		}
 	}
 
@@ -337,16 +250,7 @@ public final class OmnitrixInfoScreen extends Screen {
 				yield a == null ? Component.empty() : OmnitrixInfo.alienName(a);
 			}
 			case WATCH -> Component.translatable("projecthero.guide.omnitrix");
-			case ALIENS -> Component.translatable("projecthero.omnitrix.info.roster");
 		};
-	}
-
-	private int slotX(int i) {
-		return px + 8 + (i % perRow) * VanillaMenu.SLOT;
-	}
-
-	private int slotY(int i) {
-		return slotsY + (i / perRow) * VanillaMenu.SLOT;
 	}
 
 	// ---------------------------------------------------------------- input
@@ -355,24 +259,6 @@ public final class OmnitrixInfoScreen extends Screen {
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (scroll.mouseClicked(mx, my, button)) {
 			return true;
-		}
-		if (button == 0) {
-			for (int i = 0; i < tabs.size(); i++) {
-				if (VanillaMenu.overTab(mx, my, px, py, i)) {
-					setTab(tabs.get(i));
-					return true;
-				}
-			}
-			if (tab == Tab.ALIENS) {
-				for (int i = 0; i < dial.size(); i++) {
-					int x = slotX(i), y = slotY(i);
-					if (mx >= x && mx < x + VanillaMenu.SLOT && my >= y && my < y + VanillaMenu.SLOT) {
-						pick(dial.get(i).id().equals(picked) ? null : dial.get(i).id());
-						click();
-						return true;
-					}
-				}
-			}
 		}
 		return super.mouseClicked(mx, my, button);
 	}
@@ -393,7 +279,7 @@ public final class OmnitrixInfoScreen extends Screen {
 		return scroll.mouseScrolled(dy) || super.mouseScrolled(mx, my, dx, dy);
 	}
 
-	/** Arrow keys / Page Up / Page Down / Home / End scroll the page; Tab and the number keys 1-3 switch tabs. */
+	/** Arrow keys / Page Up / Page Down / Home / End scroll the page. */
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
 		int page = Math.max(LINE_H, scroll.viewHeight() - LINE_H);
@@ -404,13 +290,6 @@ public final class OmnitrixInfoScreen extends Screen {
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> scroll.by(-page);
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> scroll.set(Integer.MAX_VALUE / 2);
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> scroll.set(0);
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_1, org.lwjgl.glfw.GLFW.GLFW_KEY_2, org.lwjgl.glfw.GLFW.GLFW_KEY_3 -> {
-				int i = key - org.lwjgl.glfw.GLFW.GLFW_KEY_1;
-				if (i >= tabs.size()) {
-					return super.keyPressed(key, scan, mods);
-				}
-				setTab(tabs.get(i));
-			}
 			default -> {
 				return super.keyPressed(key, scan, mods);
 			}
@@ -420,21 +299,9 @@ public final class OmnitrixInfoScreen extends Screen {
 
 	// ---------------------------------------------------------------- harness / tests
 
-	/** Opens the Aliens tab's page for {@code alienId} (null: the overview). */
-	public void pick(@Nullable String alienId) {
-		if (tab != Tab.ALIENS) {
-			tab = Tab.ALIENS;
-			layout();
-		}
-		picked = alienId;
-		scroll.set(0);
-		rebuild();
-	}
-
-	public void showTab(Tab t) {
-		if (tabs.contains(t)) {
-			setTab(t);
-		}
+	/** The tabs this player has (tests / harnesses). */
+	public List<Tab> tabs() {
+		return List.copyOf(tabs);
 	}
 
 	public void scrollFraction(float f) {

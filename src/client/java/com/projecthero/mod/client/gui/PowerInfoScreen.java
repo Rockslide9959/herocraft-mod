@@ -212,9 +212,9 @@ public final class PowerInfoScreen extends Screen {
 
 	/**
 	 * v0.17.1 (user): the Omnitrix page, built by {@link com.projecthero.mod.omnitrix.OmnitrixInfo} (the Guidebook chapter's
-	 * builder) with the player's live keys and state. Transformed: the alien's own page -- the time left, its role and
-	 * description, its body, passives, weaknesses and every move per key with cooldowns -- then the watch's keys and rules.
-	 * Human: the watch's state, keys, rules and the containment warning, then every alien on the dial in brief. Rebuilt every
+	 * builder) with the player's live keys and state. Transformed: only that alien's own page -- the time left, its role and
+	 * description, its body, passives, weaknesses and every move per key with cooldowns. Human: only the watch's state, keys,
+	 * rules and the containment warning. Rebuilt every
 	 * half second while open (the timers count down; the scroll position is kept).
 	 */
 	private void omnitrixBody(int wrapW) {
@@ -230,13 +230,6 @@ public final class PowerInfoScreen extends Screen {
 			com.projecthero.mod.omnitrix.OmnitrixInfo.status(lines, p);
 			lines.add(Component.empty());
 			com.projecthero.mod.omnitrix.OmnitrixInfo.alienPage(lines, alien, keys, p);
-			lines.add(Component.empty());
-			com.projecthero.mod.omnitrix.OmnitrixInfo.controls(lines, keys);
-			lines.add(Component.empty());
-			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, keys);
-			lines.add(Component.empty());
-			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.alien_hint", keys.apply(AbilitySlot.SLOT_8))
-					.withStyle(ChatFormatting.DARK_GRAY));
 		} else {
 			this.heading = Component.translatable("projecthero.guide.omnitrix").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
 			lines.add(Component.translatable("projecthero.guide.omnitrix.tier").withStyle(ChatFormatting.GREEN));
@@ -248,10 +241,6 @@ public final class PowerInfoScreen extends Screen {
 			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, keys);
 			lines.add(Component.empty());
 			com.projecthero.mod.omnitrix.OmnitrixInfo.containment(lines);
-			lines.add(Component.empty());
-			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, keys, s.selected, com.projecthero.mod.omnitrix.alien.Aliens.roster(p)); // v0.17.2: the dial of the watch worn
-			lines.add(Component.empty());
-			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.human_hint").withStyle(ChatFormatting.DARK_GRAY));
 		}
 		for (Component line : lines) {
 			wrap(line, wrapW);

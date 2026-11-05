@@ -114,7 +114,7 @@ public class OmnitrixInfoGameTests implements FabricGameTest {
 	public void vanillaStyledMenuHasItsLangAndEveryAlienHasADialIcon(GameTestHelper helper) {
 		Language lang = Language.getInstance();
 		List<String> problems = new ArrayList<>();
-		for (String k : new String[] { "tab_hint.alien", "tab_hint.watch", "tab_hint.pick", "tab_hint.back", "heading_alien" }) {
+		for (String k : new String[] { "heading_alien" }) {
 			if (!lang.has("screen.projecthero.power_info.omnitrix." + k)) {
 				problems.add("no lang " + k);
 			}

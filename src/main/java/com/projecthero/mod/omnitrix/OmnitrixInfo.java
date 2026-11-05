@@ -73,14 +73,14 @@ public final class OmnitrixInfo {
 			boolean warn = left <= OmnitrixConfig.WARN_TICKS;
 			out.add(Component.translatable(I + "as", a == null ? Component.literal(s.active) : iconName(a))
 					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-			out.add(Component.literal(" ").append(cells(left / (float) OmnitrixConfig.TRANSFORM_TICKS, warn ? ChatFormatting.RED : ChatFormatting.GREEN))
+			out.add(Component.literal(" ").append(cells(left / (float) (Omnitrix.recalibrated(live) ? OmnitrixConfig.BATTERY_TICKS : OmnitrixConfig.TRANSFORM_TICKS), warn ? ChatFormatting.RED : ChatFormatting.GREEN))
 					.append(Component.literal("  ")).append(Component.translatable(I + "time_left", clock(left))
 							.withStyle(warn ? ChatFormatting.RED : ChatFormatting.WHITE)));
 		} else {
 			int recharge = Omnitrix.rechargeLeft(live);
 			if (recharge > 0) {
 				out.add(Component.translatable(I + "recharging", (recharge + 19) / 20).withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-				out.add(Component.literal(" ").append(cells(recharge / (float) OmnitrixConfig.RECHARGE_TICKS, ChatFormatting.RED)));
+				out.add(Component.literal(" ").append(cells(recharge / (float) (Omnitrix.recalibrated(live) ? OmnitrixConfig.BATTERY_RECHARGE_TICKS : OmnitrixConfig.RECHARGE_TICKS), ChatFormatting.RED)));
 			} else {
 				out.add(Component.translatable(I + "ready").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
 			}
