@@ -147,6 +147,25 @@ Dark*, and lets him actually **steer** what he possesses.
 
 ---
 
+### Round 3 (v0.17.2, as built)
+
+User: "Upgrade ghostfreaks flying animations please, make it look good and make it look like how he flies in the show please" / "edit and
+update animations on all moves please".
+
+**Flight** is a pose of its own, read each tick from how he is actually moving (`GhostfreakClient.Drift`, per player on every client):
+- **Hover:** upright, a slight stoop, claws raised before him drifting unevenly, a slow bob: the stalking float of the show.
+- **Moving:** he tips head-first along his motion from the hips (level flight flat, a dive past flat, a climb upright, a retreat leaned
+  back), lifted and centred in his hitbox, head still on the look, claws reaching ahead with a long stroke passing between them.
+- **Flat out (sprinting):** the arms sweep back along his sides and he streaks.
+- **Turning:** he banks into the turn. A thin wake of ash comes off him at speed.
+
+GhostfreakTail's simulation is unchanged: the tail hangs off the leaning body bone and streams behind by itself.
+
+**Every move** got a new clip with a wind-up, a hit and a settle (the claw combo's three swings, Wail, Possess, Grasp, Phase, take-off,
+Fade, Fright Aura, the True Form peel and wrap, Lights Out, Tendril Snatch, Ecto Rush, the burst from a host, Chest Tentacles, Chilling
+Touch, Spectral Bolt, Spirit Sight) and its own first-person clip; all play over the flight pose, and a clip's end hands back to the
+base pose instead of snapping.
+
 ## Open questions
 
 **Wildmutt**

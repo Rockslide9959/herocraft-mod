@@ -248,11 +248,32 @@ gadget he builds, a remote **rewire** utility, and wall crawling.
 - **Inside Job:** he dives and shrinks into the target (a 4-tick scale-to-zero at the contact point). The target's model shakes and
   bulges in small pulses (render-scale jitter), with a grey eye glint at a seam. He pops out with a little spin. No particles beyond
   one small spark puff on machines.
-- **Gizmo Turret:** a tiny block-model entity (a cobbled box, a dish and a barrel) with a blinking red light; darts are thin
-  rendered lines.
+- **Gizmo Turret:** replaced in round 3 by the Galvan Sentry (below).
 - **Rewire:** a thin grey line from his hand to the block, and a brief grey outline on the block. The spawner's flame model stops
   spinning while disabled.
 - **Wall crawl:** a flat-to-wall pose with splayed limbs.
+
+### Round 3 (v0.17.2, as built)
+
+User: "Z - make it so that when he presses Z on a block it he builds a different kind of turret on it please, make it kinda powerful,
+20 second cooldown, make the turret last 15 seconds" / "Shift+Z - make it so that he builds a 1.5 block tall mech that he rides inside
+and uses to fight, the mech lasts 30 seconds or until it dies(make the hp based on the block its made from), 50 second cooldown, when
+player rides this mech the mech takes all damage and player takes none" / "edit and update animations on all moves please".
+
+| Key | Move | What it does | Numbers |
+|---|---|---|---|
+| Z | **Galvan Sentry** | On the block he looks at (8 blocks): a knee-high tripod with a turning, pitching twin autocannon, armoured in that block. A real creature: the analysed target first, else the nearest foe in sight; mobs within 10 go for it. His own side cannot break it. Folds in the Gizmo Turret (it had the same job at a fifth of the strength) | 8 a shot, one every 0.3 s, range 20, 60 HP, lasts 15 s, cd 20 s |
+| Shift+Z | **Block Mech** | On the block he looks at (6 blocks; the block stays): a walker 1.5 blocks tall in that block's textures, built round him over 1 s. He sits in the glass dome. It takes all damage, he takes none (the void and /kill still reach him). Pressed again he climbs out; Sneak does not, Shift is the move modifier | HP 30 + 20 x hardness, max 300 (dirt 40, stone 60, planks 70, iron 130, obsidian or unbreakable 300), 30 s, cd 50 s |
+| R (in the mech) | Piston Punch | left and right fists in turn; Attack does the same | 15, a shove, reach 4, cd 0.7 s |
+| Shift+R (in the mech) | Ground Slam | both fists overhead, then into the ground 0.4 s later | 18 within 4, thrown, cd 6 s |
+| X / Shift+X (in the mech) | Jets | a jet hop, a skimming dash (Big Leap's and Scurry's cooldowns) | |
+| C (in the mech) | Genius Repair | patches the mech instead of a block | +30% of its HP |
+| Shift+G | Inside Job | moved here from Shift+Z (the key the Gizmo Turret left); unchanged | |
+| Sneak + Use on a block | Snare Trap | moved off Z: two moves lost their keys and one key came free, so the smaller went to a vanilla key (empty hand); the snare goes where you click | unchanged |
+
+Every move has a new third-person clip (wind-up, hit, settle) and its own first-person clip; in the mech he sits working two levers that
+answer each move. The base pose lies under every clip so a clip's end no longer snaps. The mech is IK-legged and skinned in code
+(`GreyMatterGadgets`): side and top textures of the block, tints included, iron joints, a glass dome, and it scorches as it loses HP.
 
 ---
 
