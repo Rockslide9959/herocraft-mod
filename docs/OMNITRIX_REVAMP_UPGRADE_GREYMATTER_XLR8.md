@@ -130,6 +130,20 @@ The kit already covers beam, merge, stretch and liquid. What's missing is the **
 turning enemy robots on their owners) and **upgrading other heroes' gear**. The mod is full of robots now (Sentinels, Ultron
 drones, Iron Man suits), so he finally has things worth taking over.
 
+### Round 3 (v0.17.2, the user's list; these override the table below)
+
+- **R Optic Beam:** held. A constant beam, 6 every 5 ticks, 24 blocks; R up (or any other move) stops it and the 6 s cooldown runs from
+  there. A tap burns 6 ticks. Walks with it (upper-body pose).
+- **Shift+R Stretch Fist:** his real right arm. The model part lengthens the `ElasticityClient` way, aimed at the point (`UpgradeClient.reach`,
+  `aimArm`), a smooth liquid-metal fist on the end. 20, knockback 1.5, 8 blocks, cd 5 s; the hit lands on arrival (4 ticks). The whole
+  body is drawn in first person while it is out.
+- **Shift+G Circuit Lash:** no pull. A sweep over a 12-block cone (cos 0.55): 12 to everything in it, knockback 0.35 (on top of the hit's own), 3 ticks after the key.
+- **Shift+X Stretch Grapple:** 45 blocks. The arm travels 6 blocks a tick, the hand grips, he is reeled in at up to 1.9 blocks a tick, let
+  go 2.2 from the anchor with a hop. Shift+X again lets go. Any other move but the beam lets go too. Blocks only.
+- **C Merge:** no time limit; 4 s cooldown, from going in and again from coming out. Ally Upgrade too.
+- Every move's third- and first-person clip redone; the Liquid Form melts down and rises as a column. Inside a golem or as a machine
+  there is no arm to stretch, so a liquid-metal strand stands in for the fist and the grapple.
+
 ### Proposed kit
 
 | Key | Move | What it does | Numbers | Tag / source |

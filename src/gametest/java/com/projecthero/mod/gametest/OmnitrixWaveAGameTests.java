@@ -1078,9 +1078,10 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 4.5, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(kit.opticBeam(p), "Optic Beam");
-		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "8 damage");
-		helper.assertFalse(kit.opticBeam(p), "then cools down");
+		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "the first damage tick");
+		helper.assertFalse(kit.opticBeam(p), "already burning");
 		helper.assertTrue(kit.engulf(p, z) && near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE - UpgradeKit.GRAB_DAMAGE), "v0.17.2 revamp: Liquid Engulf (6)");
+		helper.assertTrue(kit.cooldownLeft(p, UpgradeKit.BEAM) == UpgradeKit.BEAM_COOLDOWN, "another move stops the beam and its cooldown starts");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		helper.assertTrue(slow != null && slow.getAmplifier() >= 9, "stunned");
 		float before = z.getHealth();
@@ -1130,6 +1131,92 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		return g;
 	}
 
+	/** v0.17.2 round 3 (user: "Holding R should make the player shoot a constant optic beam ..."). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeOpticBeamBurnsWhileHeldAndCoolsDownFromTheRelease(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 4.5, 200f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+		helper.assertTrue(near(UpgradeKit.BEAM_DAMAGE, 6f) && UpgradeKit.BEAM_COOLDOWN == 120, "6 a tick, 6 s");
+		helper.assertTrue(kit.opticBeam(p) && kit.flag(p, UpgradeKit.F_BEAM) && kit.keyActive(p, AbilitySlot.SLOT_1), "R down: it burns");
+		helper.assertTrue(kit.cooldownLeft(p, UpgradeKit.BEAM) == 0, "no cooldown while it burns");
+		pump(helper, p);
+		helper.runAfterDelay(UpgradeKit.BEAM_EVERY * 4 + 1, () -> {
+			helper.assertTrue(kit.flag(p, UpgradeKit.F_BEAM), "still burning while R stays down");
+			float dealt = 200f - z.getHealth();
+			helper.assertTrue(near(dealt, UpgradeKit.BEAM_DAMAGE * 5f), "a hit every " + UpgradeKit.BEAM_EVERY + " ticks: " + dealt);
+			kit.release(p, AbilitySlot.SLOT_1, false, 20);
+			helper.assertFalse(kit.flag(p, UpgradeKit.F_BEAM), "R up: it stops");
+			helper.assertTrue(kit.cooldownLeft(p, UpgradeKit.BEAM) == UpgradeKit.BEAM_COOLDOWN, "and goes on cooldown from there");
+			helper.assertFalse(kit.opticBeam(p), "for 6 s");
+			z.discard();
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 3 (user: "Don't make circuit lash pull mobs towards you, make it able to hit multiple creatures and make it knock them back slightly please"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void upgradeCircuitLashSweepsTheConeAndKnocksBack(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		Zombie a = zombie(helper, 5.5, 2, 6.5, 100f);
+		Zombie b = zombie(helper, 1.5, 2, 7.5, 100f);
+		Zombie behind = zombie(helper, 3.5, 2, -1.5, 100f);
+		helper.assertTrue(kit.lash(p) && near(a.getHealth(), 100f), "the arm cocks first");
+		helper.assertTrue(kit.lashLand(p) == 2, "both in the cone, not the one behind");
+		helper.assertTrue(near(a.getHealth(), 100f - UpgradeKit.LASH_DAMAGE) && near(b.getHealth(), 100f - UpgradeKit.LASH_DAMAGE) && near(behind.getHealth(), 100f), "12 each");
+		helper.assertTrue(a.getDeltaMovement().z > 0.1 && a.getDeltaMovement().z < 1.0 && b.getDeltaMovement().z > 0.1, "knocked away, slightly, never pulled: " + a.getDeltaMovement());
+		helper.assertFalse(kit.lash(p), "then it cools down");
+		a.discard();
+		b.discard();
+		behind.discard();
+		helper.succeed();
+	}
+
+	/** v0.17.2 round 3 (user: "for stretch grapple make the players arm actually reach out and grab onto something ... give the ability a 45 block range please"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeStretchGrappleReachesOutGripsAndReels(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		helper.assertTrue(UpgradeKit.GRAPPLE_RANGE == 45.0, "45 blocks");
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		BlockPos wall = BlockPos.containing(p.getX(), p.getEyeY(), p.getZ() + 4.5);
+		helper.getLevel().setBlockAndUpdate(wall, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+		helper.assertTrue(kit.grapple(p) && kit.flag(p, UpgradeKit.F_GRAPPLE), "a block ahead: the arm goes out");
+		Vec3 at = kit.grappleAnchor(p);
+		helper.assertTrue(at != null && Math.abs(at.z - wall.getZ()) < 0.1, "anchored on it: " + at);
+		long go = kit.timer(p, UpgradeKit.T_GRAPPLE_GO) - helper.getLevel().getGameTime();
+		helper.assertTrue(go == Math.max(2L, (long) Math.ceil(at.distanceTo(p.getEyePosition()) / UpgradeKit.GRAPPLE_ARM_SPEED)), "the arm has to travel there first: " + go);
+		pump(helper, p);
+		helper.runAfterDelay((int) go + 2, () -> {
+			helper.assertTrue(p.getDeltaMovement().z > 0.5, "the hand grips and reels him in: " + p.getDeltaMovement());
+			helper.assertTrue(kit.grapple(p) && !kit.flag(p, UpgradeKit.F_GRAPPLE), "Shift+X again lets go");
+			helper.getLevel().removeBlock(wall, false);
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 3 (user: "remove the time limit on the merge ability and lower the abilities cooldown to 4 seconds please"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradeMergeHasNoTimeLimitAndAFourSecondCooldown(GameTestHelper helper) {
+		ServerPlayer p = as(helper, UpgradeKit.ID);
+		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
+		helper.assertTrue(UpgradeKit.MERGE_COOLDOWN == 80 && kit.move(UpgradeKit.MERGE).cooldown() == 80, "4 s");
+		BlockPos at = helper.absolutePos(new BlockPos(2, 2, 3));
+		helper.getLevel().setBlockAndUpdate(at, net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState());
+		helper.assertTrue(kit.mergeWith(p, at), "merged");
+		helper.assertTrue(kit.timer(p, "merge_end") == 0L, "no end time");
+		pump(helper, p);
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(UpgradeKit.merge(p) != null, "still merged");
+			kit.endMerge(p, false);
+			helper.assertTrue(kit.cooldownLeft(p, UpgradeKit.MERGE) == 80, "coming out starts the cooldown");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void upgradeStretchFistPunchesOutEightBlocks(GameTestHelper helper) {
 		ServerPlayer p = as(helper, UpgradeKit.ID);
@@ -1140,13 +1227,17 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie far = zombie(helper, 3.5, 2, 7.0, 100f); // 5.5 blocks ahead
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 8f);
 		helper.assertTrue(kit.stretchFist(p), "Shift+R: the fist shoots out");
-		helper.assertTrue(near(far.getHealth(), 100f - UpgradeKit.FIST_DAMAGE), "10 damage at 5.5 blocks: " + far.getHealth());
+		helper.assertTrue(near(far.getHealth(), 100f), "v0.17.2 round 3: the arm has to get there first");
+		kit.fistLand(p);
+		helper.assertTrue(near(far.getHealth(), 100f - UpgradeKit.FIST_DAMAGE), "it lands at 5.5 blocks: " + far.getHealth());
 		helper.assertTrue(far.getDeltaMovement().z > 0.3, "slammed back: " + far.getDeltaMovement());
 		helper.assertFalse(kit.stretchFist(p), "then it cools down");
 		far.discard();
 		Zombie tooFar = zombie(helper, 3.5, 2, 11.5, 100f); // 10 blocks: out of reach
 		kit.cooldown(p, UpgradeKit.FIST, 0);
-		helper.assertTrue(kit.stretchFist(p) && near(tooFar.getHealth(), 100f), "past 8 blocks it punches air");
+		helper.assertTrue(kit.stretchFist(p), "it punches anyway");
+		kit.fistLand(p);
+		helper.assertTrue(near(tooFar.getHealth(), 100f), "past 8 blocks it punches air");
 		tooFar.discard();
 		helper.succeed();
 	}
