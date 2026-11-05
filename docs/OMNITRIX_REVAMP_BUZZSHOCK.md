@@ -61,6 +61,27 @@ The skin is the user's planetminecraft skin. It was downloaded through the built
   to a third.
 - **Crackle:** sparks flick off him now and then, and constantly while he flies.
 
+## Round 3
+
+User: "upgrade his spark flight please, as long as he holds SHift+X he flies in that direction with his crackling lightning vfx please",
+"Make power line ride c and megawatt storm shift+Z", "make megavolt z and overload shift+C please", "edit and update animations on all
+moves please".
+
+- **Spark Flight is a hold now.** Shift+X down lifts him off and `DirectionalFlight` drives him along his look (`DirectionalFlightModel.heldThrust`)
+  until either key comes up. W is not needed, A / D slide, Space lifts, and Sneak does not sink him (it is half of the key chord). The
+  framework has no Shift hold, so it is a Shift tap (`press`) plus `release`, and the server also watches Shift itself. The 1 s cooldown
+  starts when he lets go. Water still drops him. No fall damage until he lands.
+- **The lightning:** `BuzzshockFx` draws it from the synced flight flag, so everyone sees it: three strands of bolts following the path he
+  actually flew (his last 14 ticks; they run out behind him when he stops), arcs crawling over him and a soft halo. In his own view,
+  thin arcs streak past the edges of the screen and off his leading fist.
+- **The body** lies out along his aim, banks into turns and eases in and out (`ThrustFlightPose`, shared with Feedback, through
+  `StinkflyFlightPoseMixin`): one fist leading, the other arm and the legs streaming back. His copies streak along after him.
+- **Keys:** Megavolt Z, Megawatt Swarm Shift+Z, Power Line Ride C, Overload Shift+C. The user said "megawatt storm"; that is the move
+  named Megawatt Swarm, and the name stayed.
+- **Animations:** all 14 clips were rebuilt. A move lands on the press, so each clip hits its shape in two or three ticks, recoils past
+  it and settles, with hips and legs in it. Every move has a first-person clip too, including the ones that had none (Spark Zip,
+  Power Line Ride, Split, Merge, punches, take-off and landing). A clip played in flight blends back into the flying pose.
+
 ## Keys
 
 | Key | Move | What it does | Cooldown |
@@ -70,13 +91,13 @@ The skin is the user's planetminecraft skin. It was downloaded through the built
 | G | **Static Touch** | a point-blank discharge ahead (3 blocks, 120 degrees): 14, stunned 1 s | 2.5 s |
 | Shift+G | **Spark Bomb** | a lobbed ball of electricity; it bursts where it lands, up to 18 within 3.5 | 10 s |
 | X | **Spark Zip** | a spark streak up to 12 blocks where you look, through creatures (8 each), stopping short of walls; no fall damage for 1.5 s | 1.5 s |
-| Shift+X | **Spark Flight** | flight on / off | 0.5 s |
-| Z | **Overload** | a pulse round him, 12 within 6, stunned 1 s; machines take 24 and go offline for 3 s | 12 s |
-| Shift+Z | **Power Line Ride** | into the conductor you look at (within 48) and out of it, with a jolt of 8 within 2.5 | 8 s |
+| Shift+X (hold) | **Spark Flight** | flies where you look as a crackling bolt for as long as you hold it: 26 blocks a second, 40 sprinting; no fall damage until you land | 1 s, from letting go |
+| Z | **Megavolt** | every copy dives onto the creature you look at (16) and they discharge as one: 16, +3 a copy (6 at most), stunned 2 s; the copies are spent (with none, two split off first) | 15 s |
+| Shift+Z | **Megawatt Swarm** (ultimate) | 8 copies at once for 10 s, each shocking its own creature within 12; then the extras fizzle and four stay | 60 s |
 | V | **Split** | a copy splits off (4 at most, 4 health each) | 0.5 s |
 | Shift+V | **Merge** | the copies arc back into you, +2 health each | 2 s |
-| C | **Megawatt Swarm** (ultimate) | 8 copies at once for 10 s, each shocking its own creature within 12; then the extras fizzle and four stay | 60 s |
-| Shift+C | **Megavolt** | every copy dives onto the creature you look at (16) and they discharge as one: 16, +3 a copy (6 at most), stunned 2 s; the copies are spent (with none, two split off first) | 15 s |
+| C | **Power Line Ride** | into the conductor you look at (within 48) and out of it, with a jolt of 8 within 2.5 | 8 s |
+| Shift+C | **Overload** | a pulse round him, 12 within 6, stunned 1 s; machines take 24 and go offline for 3 s | 12 s |
 
 H is the power selector and N is the Omnitrix's, as for every alien.
 

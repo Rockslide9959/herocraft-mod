@@ -33,6 +33,10 @@ public abstract class StinkflyFlightPoseMixin {
 			tilt = com.projecthero.mod.client.omnitrix.alien.bigchill.BigChillWings.bodyTilt(player, partialTicks);
 		}
 		if (tilt == null) {
+			// v0.17.2 round 3: Buzzshock and Feedback, laid out along their held Shift+X flight
+			tilt = com.projecthero.mod.client.omnitrix.alien.ThrustFlightPose.bodyTilt(player, partialTicks);
+		}
+		if (tilt == null) {
 			return;
 		}
 		float pivot = 0.9f * scale;

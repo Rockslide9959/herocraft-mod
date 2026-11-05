@@ -193,9 +193,9 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			kit().fill(p, 20);
 			tap(p, AbilitySlot.SLOT_1, true);
-			tap(p, AbilitySlot.SLOT_6, false);
-			tap(p, AbilitySlot.SLOT_6, true);
-			tap(p, AbilitySlot.SLOT_5, true);
+			tap(p, AbilitySlot.SLOT_4, false);
+			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_2, true);
 			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.RAPID) == 0 && kit().cooldownLeft(p, FeedbackKit.DISCHARGE) == 0
 					&& kit().cooldownLeft(p, FeedbackKit.CANNON) == 0 && kit().cooldownLeft(p, FeedbackKit.OVERCLOCK) == 0, "no cooldown spent");
 			helper.assertTrue(FeedbackKit.charge(p) == 20, "and no Charge");
@@ -205,13 +205,13 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- Charge: absorbing fills it
 
-	/** G: braced, an arrow does no damage and becomes Charge (x4); Shift+G sends it back at the crosshair, harder. */
+	/** Hold V: braced, an arrow does no damage and becomes Charge (x4); Shift+V sends it back at the crosshair, harder. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void absorbTurnsShotsIntoChargeAndRedirectSendsThemBack(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2, 5.5);
 		helper.runAfterDelay(2, () -> {
-			tap(p, AbilitySlot.SLOT_2, false);
+			kit().holdStart(p, AbilitySlot.SLOT_5);
 			helper.assertTrue(kit().flag(p, FeedbackKit.F_ABSORB), "braced");
 			float h = p.getHealth();
 			p.invulnerableTime = 0;
@@ -222,7 +222,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 			helper.assertTrue(FeedbackKit.charge(p) == 30, "it is 30 Charge (7.5 x4): " + FeedbackKit.charge(p));
 			lookAt(p, z);
 			float zh = z.getHealth();
-			tap(p, AbilitySlot.SLOT_2, true);
+			tap(p, AbilitySlot.SLOT_5, true);
 			float d = zh - z.getHealth();
 			helper.assertTrue(d > 16f, "Redirect: 12 + 1.5 x 7.5 = 23.25 (the zombie has 20), got " + d);
 			helper.assertTrue(FeedbackKit.charge(p) == 15 && FeedbackKit.banked(p) == 0f, "15 Charge spent and the bank emptied: " + FeedbackKit.charge(p));
@@ -238,7 +238,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			lookAt(p, z);
 			kit().fill(p, 30);
-			tap(p, AbilitySlot.SLOT_2, true);
+			tap(p, AbilitySlot.SLOT_5, true);
 			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.REDIRECT) == 0, "nothing absorbed yet: Redirect refuses, no cooldown");
 			kit().fill(p, 0);
 			SmallFireball fb = EntityType.SMALL_FIREBALL.create(helper.getLevel());
@@ -278,7 +278,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2, 5.5);
 		helper.runAfterDelay(2, () -> {
 			kit().fill(p, FeedbackKit.MAX_CHARGE);
-			tap(p, AbilitySlot.SLOT_2, false);
+			kit().holdStart(p, AbilitySlot.SLOT_5);
 			float h = p.getHealth();
 			p.invulnerableTime = 0;
 			p.hurt(p.damageSources().arrow(arrow(helper), z), 5f);
@@ -291,17 +291,17 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- Charge: plugging in fills it
 
-	/** Shift+Z on a redstone block: the cables plug in and drink 2 a tick; with no power about, nothing (no cooldown). */
+	/** Shift+C on a redstone block: the cables plug in and drink 2 a tick; with no power about, nothing (no cooldown). */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void plugInDrinksFromPower(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
 		helper.runAfterDelay(2, () -> {
-			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_6, true);
 			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.PLUG) == 0 && !kit().flag(p, FeedbackKit.F_PLUG), "nothing to plug into: refused, no cooldown");
 			BlockPos b = helper.absolutePos(new BlockPos(3, 3, 4));
 			helper.getLevel().setBlock(b, Blocks.REDSTONE_BLOCK.defaultBlockState(), 3);
 			lookAt(p, Vec3.atCenterOf(b));
-			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_6, true);
 			helper.assertTrue(kit().flag(p, FeedbackKit.F_PLUG) && b.equals(FeedbackKit.plugBlock(p)), "plugged into the redstone block");
 		});
 		helper.runAfterDelay(14, () -> {
@@ -315,7 +315,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Shift+Z at an iron golem drains it: 4.5 every half second (a machine, x1.5) for +9 Charge, stunned. */
+	/** Shift+C at an iron golem drains it: 4.5 every half second (a machine, x1.5) for +9 Charge, stunned. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void plugInDrainsAMachine(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
@@ -324,7 +324,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			lookAt(p, g);
 			start[0] = g.getHealth();
-			tap(p, AbilitySlot.SLOT_4, true);
+			tap(p, AbilitySlot.SLOT_6, true);
 			helper.assertTrue(FeedbackKit.plugEntity(p) == g.getId() + 1, "plugged into the golem");
 		});
 		helper.runAfterDelay(48, () -> {
@@ -360,7 +360,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the other moves
 
-	/** Z: the tail lashes what is ahead (12); with 5 Charge the plug discharges for 4 more. */
+	/** C: the tail lashes what is ahead (12); with 5 Charge the plug discharges for 4 more. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void plugWhipLashesAhead(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
@@ -368,14 +368,14 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			lookAt(p, g);
 			float h = g.getHealth();
-			tap(p, AbilitySlot.SLOT_4, false);
+			tap(p, AbilitySlot.SLOT_6, false);
 			float d = h - g.getHealth();
 			helper.assertTrue(d > 11f && d <= 12.01f, "the lash: 12, got " + d);
 			kit().fill(p, 10);
 			kit().cooldown(p, FeedbackKit.WHIP, 0);
 			g.invulnerableTime = 0;
 			h = g.getHealth();
-			tap(p, AbilitySlot.SLOT_4, false);
+			tap(p, AbilitySlot.SLOT_6, false);
 			d = h - g.getHealth();
 			helper.assertTrue(d > 17f && d <= 18.01f, "charged: 12 + 4 x1.5 (machine) = 18, got " + d);
 			helper.assertTrue(FeedbackKit.charge(p) == 5, "5 Charge spent: " + FeedbackKit.charge(p));
@@ -404,7 +404,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** C spends all his Charge on a burst round him (30 at full); Shift+C a beam through everything in line (24). */
+	/** Z spends all his Charge on a burst round him (30 at full); Shift+Z a beam through everything in line (24). */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void dischargeAndCannon(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
@@ -413,7 +413,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			kit().fill(p, FeedbackKit.MAX_CHARGE);
 			float h = a.getHealth();
-			tap(p, AbilitySlot.SLOT_6, false);
+			tap(p, AbilitySlot.SLOT_4, false);
 			float d = h - a.getHealth();
 			helper.assertTrue(d > 44f && d <= 45.01f, "Full Discharge at 100: 30 (x1.5 a machine), got " + d);
 			helper.assertTrue(FeedbackKit.charge(p) == 0, "all of it spent");
@@ -424,7 +424,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 			b.removeAllEffects();
 			lookAt(p, a);
 			float ha = a.getHealth(), hb = b.getHealth();
-			tap(p, AbilitySlot.SLOT_6, true);
+			tap(p, AbilitySlot.SLOT_4, true);
 			float da = ha - a.getHealth(), db = hb - b.getHealth();
 			helper.assertTrue(da > 35f && db > 35f, "the beam pierces both: 36 each, got " + da + " / " + db);
 			helper.assertTrue(FeedbackKit.charge(p) == 10, "50 Charge spent: " + FeedbackKit.charge(p));
@@ -432,7 +432,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** V turns 25 Charge into 6 health; Shift+V Overclocks (30 Charge): faster, and blasts a quarter harder. */
+	/** G turns 25 Charge into 6 health; Shift+G Overclocks (30 Charge): faster, and blasts a quarter harder. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void powerFeedAndOverclock(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
@@ -440,10 +440,10 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> {
 			p.setHealth(10f);
 			kit().fill(p, 80);
-			tap(p, AbilitySlot.SLOT_5, false);
+			tap(p, AbilitySlot.SLOT_2, false);
 			helper.assertTrue(Math.abs(p.getHealth() - 16f) < 0.01f, "+6 health: " + p.getHealth());
 			helper.assertTrue(FeedbackKit.charge(p) == 55, "25 Charge spent");
-			tap(p, AbilitySlot.SLOT_5, true);
+			tap(p, AbilitySlot.SLOT_2, true);
 			helper.assertTrue(kit().flag(p, FeedbackKit.F_OVERCLOCK) && FeedbackKit.charge(p) == 25, "Overclocked for 30 Charge");
 			lookAt(p, g);
 			float h = g.getHealth();
@@ -457,31 +457,113 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** X leaps him forward and up with no fall damage; Shift+X plugs an antenna into the wall ahead and pulls him at it. */
+	/** X leaps him forward and up with no fall damage. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void leapAndCableSwing(GameTestHelper helper) {
+	public void leapsWithNoFallDamage(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
 		helper.runAfterDelay(2, () -> {
-			// (no "nothing in reach" check here: the test arena is boxed in, so some block is always within 24)
 			tap(p, AbilitySlot.SLOT_3, false);
 			Vec3 v = p.getDeltaMovement();
 			helper.assertTrue(v.z > 1.0 && v.y > 0.4 && kit().flag(p, FeedbackKit.F_LEAP), "the leap: forward and up, " + v);
 			p.fallDistance = 10f;
 			p.invulnerableTime = 0;
 			helper.assertFalse(p.hurt(p.damageSources().fall(), 6f), "no fall damage just after");
-			for (int x = 0; x <= 7; x++) {
-				for (int y = 2; y <= 6; y++) {
-					helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 7)), Blocks.STONE.defaultBlockState(), 3);
-				}
-			}
-			p.setDeltaMovement(Vec3.ZERO);
-			p.setXRot(0f);
-			p.setYRot(0f);
-			tap(p, AbilitySlot.SLOT_3, true);
-			helper.assertTrue(kit().flag(p, FeedbackKit.F_SWING) && FeedbackKit.swingAnchor(p) != null, "an antenna plugged into the wall");
+			helper.succeed();
 		});
-		helper.runAfterDelay(5, () -> {
-			helper.assertTrue(p.getDeltaMovement().z > 0.5, "pulled toward it: " + p.getDeltaMovement());
+	}
+
+	/** Round 3 (user: "swap c and shift C abilities with z and shift z", "swap G and shift G abilities with v and shift V"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void round3KeySwaps(GameTestHelper helper) {
+		AlienKit k = kit();
+		helper.assertTrue(FeedbackKit.FEED.equals(k.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is Power Feed");
+		helper.assertTrue(FeedbackKit.OVERCLOCK.equals(k.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G is Overclock");
+		helper.assertTrue(FeedbackKit.ABSORB.equals(k.moveOn(AbilitySlot.SLOT_5, false, true).id()), "hold V is Absorb");
+		helper.assertTrue(FeedbackKit.QUICK_ABSORB.equals(k.moveOn(AbilitySlot.SLOT_5, false, false).id()), "a tap of V is Quick Absorb");
+		helper.assertTrue(FeedbackKit.REDIRECT.equals(k.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V is Redirect");
+		helper.assertTrue(FeedbackKit.DISCHARGE.equals(k.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z is Full Discharge");
+		helper.assertTrue(FeedbackKit.CANNON.equals(k.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is the Cannon");
+		helper.assertTrue(FeedbackKit.WHIP.equals(k.moveOn(AbilitySlot.SLOT_6, false, false).id()), "C is Plug Whip");
+		helper.assertTrue(FeedbackKit.PLUG.equals(k.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C is Plug In");
+		helper.assertTrue(FeedbackKit.FLIGHT.equals(k.moveOn(AbilitySlot.SLOT_3, true, false).id()), "Shift+X is Surge Flight");
+		int c = FeedbackKit.COLOUR;
+		helper.assertTrue((c & 0xFF) > ((c >> 8) & 0xFF) && ((c >> 8) & 0xFF) > ((c >> 16) & 0xFF), "his energy is blue");
+		helper.succeed();
+	}
+
+	/** Round 3 (user: "remove time limit of absorb, player can hold v as long as they want to absorb energy"): through the real key. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void absorbLastsAsLongAsVIsHeld(GameTestHelper helper) {
+		ServerPlayer p = feedback(helper);
+		helper.runAfterDelay(2, () -> AbilityRouter.handleInput(p, AbilitySlot.SLOT_5.number(), true));
+		helper.runAfterDelay(100, () -> {
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_ABSORB), "still braced 5 s in (it used to end at 3 s)");
+			helper.assertTrue(kit().keyActive(p, AbilitySlot.SLOT_5), "the V box lights");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.ABSORB) == 0, "no cooldown until he lets go");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_5.number(), false);
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_ABSORB), "let go: the brace ends");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.ABSORB) == FeedbackKit.ABSORB_COOLDOWN, "the cooldown starts now");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.QUICK_ABSORB) > 0, "a tap shares it");
+			helper.succeed();
+		});
+	}
+
+	/** A tap of V is a one-second brace. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aTapOfVBracesForASecond(GameTestHelper helper) {
+		ServerPlayer p = feedback(helper);
+		helper.runAfterDelay(2, () -> {
+			tap(p, AbilitySlot.SLOT_5, false);
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_ABSORB), "braced");
+		});
+		helper.runAfterDelay(2 + FeedbackKit.QUICK_ABSORB_TICKS + 3, () -> {
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_ABSORB), "over after 1 s");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.ABSORB) > 0, "and cooling down");
+			helper.succeed();
+		});
+	}
+
+	/** Round 3: Surge Flight needs Charge, spends 5 a second while Shift+X is down, and ends when you let go. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void surgeFlightSpendsChargeWhileHeld(GameTestHelper helper) {
+		ServerPlayer p = feedback(helper);
+		helper.runAfterDelay(2, () -> {
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.assertFalse(FeedbackKit.holdFlying(p) || p.getAbilities().flying, "no Charge: no lift-off");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.FLIGHT) == 0, "and no cooldown");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+			kit().fill(p, 50);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.assertTrue(FeedbackKit.holdFlying(p) && p.getAbilities().flying && kit().keyActive(p, AbilitySlot.SLOT_3), "flying");
+		});
+		helper.runAfterDelay(42, () -> {
+			int c = FeedbackKit.charge(p);
+			helper.assertTrue(c >= 37 && c <= 41, "two seconds: about 10 Charge: " + c);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+			p.setShiftKeyDown(false);
+			helper.assertFalse(FeedbackKit.holdFlying(p) || p.getAbilities().flying || p.getAbilities().mayfly, "let go: flight gone");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.FLIGHT) > 0, "the cooldown starts now");
+			helper.succeed();
+		});
+	}
+
+	/** Round 3: "stops when Charge runs out", with the keys still down. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void surgeFlightStopsWhenTheChargeRunsOut(GameTestHelper helper) {
+		ServerPlayer p = feedback(helper);
+		helper.runAfterDelay(2, () -> {
+			kit().fill(p, FeedbackKit.FLIGHT_MIN_CHARGE);
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.assertTrue(FeedbackKit.holdFlying(p), "5 Charge lifts him");
+		});
+		helper.runAfterDelay(2 + FeedbackKit.FLIGHT_MIN_CHARGE * FeedbackKit.FLIGHT_EVERY + 6, () -> {
+			helper.assertTrue(FeedbackKit.charge(p) == 0, "all spent");
+			helper.assertFalse(FeedbackKit.holdFlying(p) || p.getAbilities().flying, "he drops, keys still down");
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_LANDING) || p.onGround(), "with no fall damage to come");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+			p.setShiftKeyDown(false);
 			helper.succeed();
 		});
 	}

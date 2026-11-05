@@ -89,7 +89,7 @@ The reference pictures are in `docs/reference/feedback/`.
   - a bevelled front
   - two thin, flat, paler gold prongs side by side out of the front (about 0.3 of the barrel's length), set well apart with their flat faces toward each other
 
-  They light up yellow as his Charge fills, flicker when he is nearly full, and spark at 60+.
+  They light up blue as his Charge fills, flicker when he is nearly full, and spark at 60+.
 - **No finger or toe caps** (round 2; user: "remove the plugs on his fingers please, they dont look good in first person either.
   also remove the plugs from his toes please"). The hands and feet are the skin's own.
 - **The skin's painted plugs are gone** (round 2; user: "since hes got the ear models remove the ear plugs from his back form his skin
@@ -99,8 +99,29 @@ The reference pictures are in `docs/reference/feedback/`.
 - **Round 2 footage:** feedback_walk_sprint.mp4 (walking from the side, sprinting from the front three-quarter, a quick turn, then
   sprinting away), plus feedback_round2_turnaround.png.
 - **Moves bend them:** Absorb flares all three cords forward round him, plugs facing out. Plug Whip sweeps the tail round in front
-  of him at waist height. Plug In stretches all three out to what they plug into, and beads of light run up them into him. Cable
-  Swing stretches his left ear to the block it plugs into.
+  of him at waist height. Plug In stretches all three out to what they plug into, and beads of light run up them into him.
+
+## Round 3
+
+User: "make his lightning blue, his lightning and powers are blue in the show", "swap c and shift C abilities with z and shift z abilities
+please", "swap G and shift G abilities with v and shift V abilities please", "remove time limit of absorb, player can hold v as long as
+they want to absorb energy", "replace the shift+X move with an ability that uses charge and flies, as long as player holds shift+X they
+fly in the direction they are aiming by shooting out energy behind them", "edit and update animations on all moves please".
+
+- **Blue:** his energy is 0x2F9BFF with a 0xD8F0FF hot edge, on every bolt, ring, beam, plug glow and the Charge meter. Vanilla's electric
+  spark particle is white, so his sparks are a blue mote (`FeedbackKit.SPARK`). The gold of the plugs themselves stays gold.
+- **Keys:** G / Shift+G took V's moves (Power Feed, Overclock). V / Shift+V took G's (Absorb, Redirect). Z / Shift+Z took C's (Full Discharge,
+  Feedback Cannon). C / Shift+C took Z's (Plug Whip, Plug In).
+- **Absorb has no time limit.** It is `AlienMove.hold` on V: braced until V comes up, then a 4 s cooldown. (A holdable key starts its hold
+  after the framework's 8 ticks.) Every key keeps a tap, so a tap of V is **Quick Absorb**, the same brace for 1 s, sharing the cooldown.
+  Overcharge is what stops an endless brace being free. While he braces, thin arcs crawl in from the air to his plugs.
+- **Surge Flight replaces Cable Swing** on Shift+X. Hold it: energy shot out of his palms behind him drives him along his aim, 22 blocks a
+  second, 36 sprinting, through `DirectionalFlight`. It spends 5 Charge a second, needs 5 to lift off, and stops when either key comes up
+  or the Charge runs out. No fall damage until he lands. The 1 s cooldown starts when it stops. The jets are tapering cones on the arm
+  bones, with bolts torn off behind them (`FeedbackFx`); his body lies along the aim (`ThrustFlightPose`).
+- **The cords' physics were not touched.** Removing the swing took out the one line that stretched the left ear to its anchor.
+- **Animations:** every clip was rebuilt with hips and legs, and every move has a first-person clip. Absorb, Plug In and flight are held
+  stances that a clip can play over, and each has an exit clip instead of snapping back.
 
 ## Charge
 
@@ -108,10 +129,10 @@ His meter (HUD: "Charge", 0-100, flashing FULL).
 
 | Fills it | |
 |---|---|
-| Absorb (G), braced | shots, energy, fire and explosions: no damage, 4 Charge for each point |
+| Absorb (hold V), braced | shots, energy, fire and explosions: no damage, 4 Charge for each point |
 | Energy Sponge (always) | energy hits (fireballs, wither skulls, the Warden's boom, magic bolts, alien blasts) do half; the other half is Charge (x4) |
 | Lightning | never hurts: +40 (once a second) |
-| Plug In (Shift+Z) | a power source: 1-3 Charge a tick for 2 s; a creature: +6 every half second (machines +9) |
+| Plug In (Shift+C) | a power source: 1-3 Charge a tick for 2 s; a creature: +6 every half second (machines +9) |
 | Plug Fingers (punch) | +3 |
 | Storm Feeder | a thunderstorm under open sky: +1 a second |
 
@@ -129,18 +150,19 @@ What you absorb in the last 15 s is also banked for Redirect.
 |---|---|---|---|
 | R | **Feedback Blast** | a fingertip bolt at the crosshair (28): 14 for 10 Charge, knocked back; with less, a Static Spark (6) | 0.6 s |
 | Shift+R | **Rapid Fire** | five bolts from alternating hands over a second (25 Charge): 6 each | 7 s |
-| G | **Absorb** | 3 s braced, arms and plugs out: shots, energy, fire and blasts become Charge instead of damage | 8 s |
-| Shift+G | **Redirect** | sends back what you absorbed in the last 15 s (15 Charge): 12 + 1.5x it, 30 at most, at the crosshair or back at whoever sent it | 5 s |
+| G | **Power Feed** | 25 Charge into 6 health; clears slowness and weakness | 5 s |
+| Shift+G | **Overclock** | 30 Charge: 10 s of Speed II, Jump Boost II and shocks x1.25 | 20 s |
 | X | **Conductoid Leap** | a long springy leap where you look; no fall damage for 2 s | 2 s |
-| Shift+X | **Cable Swing** | an antenna plugs into the block you look at (24) and yanks you to it; no fall damage when you land | 3 s |
-| Z | **Plug Whip** | the tail lashes across in front of you (4 blocks, 140 degrees): 12, knocked back; with 5 Charge the plug discharges for 4 more | 2.5 s |
-| Shift+Z | **Plug In** | cables plug into the creature you look at (8) or the nearest power within 6. Power: Charge for 2 s. A creature: drained 3 every half second (+6 Charge; machines x1.5 and stunned), then reeled in | 10 s |
-| V | **Power Feed** | 25 Charge into 6 health; clears slowness and weakness | 5 s |
-| Shift+V | **Overclock** | 30 Charge: 10 s of Speed II, Jump Boost II and shocks x1.25 | 20 s |
-| C | **Full Discharge** (ultimate) | 40+ Charge, spends all of it: 14-30 to everything within 3-8 blocks (by Charge), knocked back, stunned 1 s (machines 3 s) | 45 s |
-| Shift+C | **Feedback Cannon** | 50 Charge: a piercing beam (32): 24 to everything on it, knocked back, stunned 0.5 s | 15 s |
+| Shift+X (hold) | **Surge Flight** | energy shot out behind you drives you where you aim: 22 blocks a second, 36 sprinting, 5 Charge a second (5 to lift off); stops when you let go or run out; no fall damage until you land | 1 s, from letting go |
+| Z | **Full Discharge** (ultimate) | 40+ Charge, spends all of it: 14-30 to everything within 3-8 blocks (by Charge), knocked back, stunned 1 s (machines 3 s) | 45 s |
+| Shift+Z | **Feedback Cannon** | 50 Charge: a piercing beam (32): 24 to everything on it, knocked back, stunned 0.5 s | 15 s |
+| V | **Quick Absorb** | a tap: the Absorb brace for 1 s | 4 s, shared |
+| Hold V | **Absorb** | braced for as long as V is held, arms and plugs out: shots, energy, fire and blasts become Charge instead of damage | 4 s, from letting go |
+| Shift+V | **Redirect** | sends back what you absorbed in the last 15 s (15 Charge): 12 + 1.5x it, 30 at most, at the crosshair or back at whoever sent it | 5 s |
+| C | **Plug Whip** | the tail lashes across in front of you (4 blocks, 140 degrees): 12, knocked back; with 5 Charge the plug discharges for 4 more | 2.5 s |
+| Shift+C | **Plug In** | cables plug into the creature you look at (8) or the nearest power within 6. Power: Charge for 2 s. A creature: drained 3 every half second (+6 Charge; machines x1.5 and stunned), then reeled in | 10 s |
 
-H is the power selector and N is the Omnitrix's, as for every alien. A move that needs Charge (or a target, an anchor or a power
+H is the power selector and N is the Omnitrix's, as for every alien. A move that needs Charge (or a target or a power
 source) refuses with a message and spends no cooldown.
 
 Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the ultimate up to 30.
@@ -158,14 +180,13 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
 
 - **Overcharge:** absorbing when his Charge is full overloads him: 2 damage and slowed for 2 s (once a second).
 - **Grounded:** in water his Charge leaks away, 2 a second.
-- **Needs energy:** without Charge his blast is a weak spark, and Rapid Fire, Redirect, Feed, Overclock, Discharge and the Cannon are locked.
+- **Needs energy:** without Charge his blast is a weak spark, and Rapid Fire, Redirect, Feed, Overclock, Surge Flight, Discharge and the Cannon are locked.
 - Not on the dial until a mistransform finds him.
 
 ## Build notes
 
 - Server: `omnitrix/alien/feedback/FeedbackKit`. Charge is a synced kit timer (`feedback.charge`), as Upchuck's Gut is. The plug
-  target (a block as `BlockPos.asLong`, or an entity id + 1) and the swing anchor (raw double bits) are synced timers too, so the
-  client can stretch the cords to them.
+  target (a block as `BlockPos.asLong`, or an entity id + 1) is a synced timer too, so the client can stretch the cords to it.
 - Client: `client/omnitrix/alien/FeedbackClient` (skin, badge, eye, poses, first-person clips, the Charge HUD), `FeedbackCables` (the
   cords, plugs and their glow and pulses), and `alien/feedback/FeedbackFx` (bolts).
 - **Bolts:** short-lived held `AlienProjectileEntity` carriers, as Buzzshock's are:
@@ -173,7 +194,7 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
   - `feedback_big`: the Redirect, Discharge and Cannon bolt
   - `feedback_suck`: energy pulled from what he absorbs or drains into his nearest plug
 
-  All are drawn with `BrainstormFx.bolt` in his pale electric yellow (0xF2E25A).
+  All are drawn with `BrainstormFx.bolt` in his electric blue (0x2F9BFF).
 - **Registration:**
   - `Aliens.FEEDBACK` and `Aliens.HIDDEN`
   - `OmnitrixMod` (register, and `clearSessionState`, which `ServerStateReset` calls)
@@ -189,7 +210,7 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
   - Absorb, Redirect and the Energy Sponge
   - lightning and Overcharge
   - Plug In on a redstone block and on a golem, and Plug Fingers
-  - the whip, Rapid Fire, Discharge and the Cannon, Feed and Overclock, the leap and swing, and water
+  - the whip, Rapid Fire, Discharge and the Cannon, Feed and Overclock, the leap, Surge Flight, held Absorb, and water
 
   Note that Hard difficulty scales a mob's shot at a player by 1.5, so what gets absorbed is the scaled amount. The discovery tests in
   `OmnitrixCannonboltGameTests` now name Feedback in the pool. The prototype dial count is 17.
@@ -202,8 +223,8 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
 User (via the release session): "do everything automatically and dont ask me any questions please and add this all to my test modpack once its done please".
 
 - **The core is a Charge meter (0-100)**, filled by absorbing and draining and spent on his blasts. The show's Feedback has nothing to fire without something to absorb.
-- **Energy colour: pale electric yellow (0xF2E25A)**, so it reads as his gold plugs lit up and doesn't clash with the green Omnitrix aliens.
-- **Energy Sponge is passive at half.** Full absorption needs the G brace, so he isn't immune to anything energy-based.
+- **Energy colour:** pale electric yellow at first; round 3 made it the show's blue (0x2F9BFF, user).
+- **Energy Sponge is passive at half.** Full absorption needs the V brace, so he isn't immune to anything energy-based.
 - **Overcharge** (absorbing while full hurts him) is the show's Conductoid overload risk, turned into a weakness. **Grounded** (water drains Charge) is a light second one.
 - **Plug In drains rather than destroys.** Only a respawn anchor actually loses charges; redstone blocks, lit lamps and the like are left as they are, so builds aren't griefed.
 - **Cable lengths and arcs** were traced from the two reference pictures, then made a little wider so the ear plugs hang clear of his hands at Minecraft scale.

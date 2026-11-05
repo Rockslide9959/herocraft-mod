@@ -173,6 +173,28 @@ public final class DirectionalFlightModel {
 		return cruise(flyingSpeed, sprint, JETRAY_CRUISE_BPS * k, JETRAY_SPRINT_BPS * k);
 	}
 
+	/**
+	 * v0.17.2 round 3 (user: "as long as he holds SHift+X he flies in that direction with his crackling lightning vfx please"):
+	 * Buzzshock's Spark Flight, a thrust along the look for as long as the keys are down -- 26 b/s, 40 sprinting.
+	 */
+	public static final double BUZZSHOCK_THRUST_BPS = 26.0, BUZZSHOCK_SPRINT_BPS = 40.0;
+	/**
+	 * v0.17.2 round 3 (user: "as long as player holds shift+X they fly in the direction they are aiming by shooting out energy
+	 * behind them"): Feedback's Surge Flight -- 22 b/s, 36 sprinting.
+	 */
+	public static final double FEEDBACK_THRUST_BPS = 22.0, FEEDBACK_SPRINT_BPS = 36.0;
+
+	/**
+	 * v0.17.2 round 3: a held-key thrust. It drives along the look whatever W says, and because Sneak is half of the key chord
+	 * holding it up, Sneak is not "descend" here ({@code sneakBoosts}; {@code DirectionalFlight} reads a forced drive as boosting).
+	 */
+	public static Tune heldThrust(float flyingSpeed, boolean sprint, double bps, double sprintBps) {
+		double speed = (sprint ? sprintBps : bps) / 20.0;
+		Tune t = cruise(flyingSpeed, sprint, bps, sprintBps);
+		return new Tune(speed, t.verticalSpeed(), t.strafeScale(), t.acceleration(), t.reverse(), t.idle(), t.maxHorizontal(), speed, true,
+				t.pushCarryTicks(), false);
+	}
+
 	/** v0.17.1: a fixed-speed directional flight (cruise / sprint in blocks a second) on top of the vanilla tune. */
 	public static Tune cruise(float flyingSpeed, boolean sprint, double cruiseBps, double sprintBps) {
 		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? sprintBps : cruiseBps) / 20.0);

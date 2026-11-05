@@ -23,7 +23,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -41,8 +40,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * lag, swing out on turns and trail behind when he runs or leaps, while a springy pull toward a resting shape -- the big loose arcs of
  * the show (docs/reference/feedback) -- brings them back. The ears' resting shapes ride the HEAD bone (they turn and nod with it), the
  * tail's the body. They are pushed out of blocks (they lie on the floor, bend round walls) and out of his torso. Moves bend them:
- * Absorb flares all three forward with the plugs facing out, Plug Whip sweeps the tail round in front of him, Plug In and Cable Swing
- * stretch the cords out to what they plug into.
+ * Absorb flares all three forward with the plugs facing out, Plug Whip sweeps the tail round in front of him, Plug In stretches the
+ * cords out to what they plug into.
  * <p>
  * <b>Drawn</b> as smooth round tubes: the points through a Catmull-Rom spline, {@link #SUB} rings a link, {@link #SIDES} sides a
  * ring, carried along by a parallel-transport frame (no twisting), with smooth normals, in the cords' blue-black.
@@ -224,9 +223,6 @@ public final class FeedbackCables {
 	@Nullable
 	private static Vec3 plugTarget(AbstractClientPlayer p, int r, float partial) {
 		int flags = Omnitrix.state(p).kitFlags;
-		if ((flags & FeedbackKit.F_SWING) != 0 && r == EAR_LEFT) {
-			return FeedbackKit.swingAnchor(p);
-		}
 		if ((flags & FeedbackKit.F_PLUG) == 0) {
 			return null;
 		}
@@ -273,7 +269,7 @@ public final class FeedbackCables {
 				c.whip = -1f;
 			}
 		}
-		boolean plugging = (flags & (FeedbackKit.F_PLUG | FeedbackKit.F_SWING)) != 0;
+		boolean plugging = (flags & FeedbackKit.F_PLUG) != 0;
 		c.plugTicks = plugging ? c.plugTicks + 1 : 0;
 		float yaw = p.yBodyRot;
 		float k = k(p);
@@ -366,7 +362,7 @@ public final class FeedbackCables {
 		if (charge >= 60 && !(p == mc.player && mc.options.getCameraType().isFirstPerson()) && p.getRandom().nextInt(charge >= 90 ? 3 : 8) == 0) {
 			Rope r = c.ropes[p.getRandom().nextInt(3)];
 			Vec3 tip = r.pos[N - 1];
-			p.level().addParticle(ParticleTypes.ELECTRIC_SPARK, tip.x, tip.y, tip.z, 0, 0.02, 0);
+			p.level().addParticle(FeedbackKit.SPARK, tip.x, tip.y, tip.z, 0, 0.02, 0);
 		}
 	}
 
