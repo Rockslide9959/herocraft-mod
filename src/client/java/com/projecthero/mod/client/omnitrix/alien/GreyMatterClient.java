@@ -4,17 +4,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
-import com.projecthero.mod.client.omnitrix.OmnitrixRenderers;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.client.omnitrix.alien.greymatter.GreyMatterGadgets;
 import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit;
+import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterMechEntity;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
-import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -23,105 +22,174 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.LightningRodBlock;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * v0.17.1: Grey Matter's client kit -- the tiny grey Galvan. The whole body is a third of a player (the scale attribute does
  * it); on top of that the HEAD is drawn half again as big (the player's head is hidden and redrawn from the skin at x1.55 on
  * the same bone), and the legs splay like a frog's. A pose for every move.
  *
- * <p>v0.17.2 revamp: the Gizmo Turret's model (a cobbled box, a dish and a barrel with a blinking red light), Inside Job (he
- * shrinks into the creature over 4 ticks and is hidden while inside; the creature shudders and bulges in pulses --
- * {@code GreyMatterInsideRenderMixin}; he pops out with a spin), Rewire's pointing finger and the flat-to-wall crawl.
+ * <p>v0.17.2 revamp: Inside Job (he shrinks into the creature over 4 ticks and is hidden while inside; the creature shudders and
+ * bulges in pulses -- {@code GreyMatterInsideRenderMixin}; he pops out with a spin), Rewire's pointing finger and the flat-to-wall
+ * crawl.
+ *
+ * <p>v0.17.2 round 3 (user: "edit and update animations on all moves please"): every clip below reworked with a wind-up, a hit and a
+ * settle, a first-person clip of its own for each move, and the base pose always under the clip so nothing snaps when one ends. The
+ * machines are {@link com.projecthero.mod.client.omnitrix.alien.greymatter.GreyMatterGadgets}; in the Block Mech he sits on the seat
+ * working two levers, and the levers answer each move.
  */
 public final class GreyMatterClient implements AlienClientKit {
-	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
-	private static final float[][] WORKSHOP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.1f, 0.35f, 0f, -1f, -0.35f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
-			QuirkKeyframes.f(5, -0.9f, 0.2f, 0f, -1.2f, -0.45f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f), QuirkKeyframes.f(8, -1.2f, 0.4f, 0f, -0.9f, -0.2f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
-			QuirkKeyframes.rest(12) };
-	private static final FirstPersonClip FP_WORKSHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(2, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f),
-			FirstPersonClip.f(5, -5f, 15f, 0f, 0.06f, 0f, -0.05f), FirstPersonClip.f(8, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/grey_matter.png");
 	public static final float HEAD_SCALE = 1.55f;
 
 	private final ModelPart bigHead;
 
-	private static final float[][] PINCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -2.0f, 0.3f, 0, 0.3f, 0, 0, 0.15f, -0.3f, 0, 0, 0, 0, 0, 0, -0.2f),
-			QuirkKeyframes.f(6, -1.9f, 0.1f, 0, 0.3f, 0, 0, 0.15f, -0.3f, 0, 0, 0, 0, 0, 0, -0.2f), QuirkKeyframes.rest(11) };
-	private static final float[][] STRIKE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -2.8f, 0, 0.2f, -2.8f, 0, -0.2f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
-			QuirkKeyframes.f(5, -0.7f, 0, 0, -0.7f, 0, 0, 0.5f, 0, -0.4f, 0, 0, 0.3f, 0, 0, 0.3f), QuirkKeyframes.rest(12) };
-	private static final float[][] ANALYZE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.3f, -0.7f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15f),
-			QuirkKeyframes.f(20, -2.3f, -0.7f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15f), QuirkKeyframes.rest(26) };
-	/** v0.17.2 Gizmo Turret: crouched over it, both hands fitting parts, then one thrown up -- done. */
-	private static final float[][] TURRET = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, -0.3f, 0, -1.1f, 0.3f, 0, 0.5f, 0, -0.5f, 0, 0.15f, -0.5f, 0, -0.15f, 0.45f),
-			QuirkKeyframes.f(7, -0.7f, -0.4f, 0, -1.3f, 0.2f, 0, 0.5f, 0, -0.5f, 0, 0.15f, -0.5f, 0, -0.15f, 0.45f),
-			QuirkKeyframes.f(11, -1.3f, -0.2f, 0, -0.8f, 0.4f, 0, 0.5f, 0, -0.5f, 0, 0.15f, -0.5f, 0, -0.15f, 0.45f),
-			QuirkKeyframes.f(15, -2.9f, 0, 0.3f, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.2f), QuirkKeyframes.rest(20) };
-	private static final float[][] LEAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.8f, 0, 0.5f, 0.8f, 0, -0.5f, 0.3f, 0, -1.0f, 0, 0.2f, -1.0f, 0, -0.2f, -0.3f),
-			QuirkKeyframes.f(16, 0.8f, 0, 0.5f, 0.8f, 0, -0.5f, 0.3f, 0, -1.0f, 0, 0.2f, -1.0f, 0, -0.2f, -0.3f), QuirkKeyframes.rest(22) };
-	private static final float[][] SCURRY = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 1.2f, 0, 0.25f, 1.2f, 0, -0.25f, 0.5f, 0, 0, 0, 0, 0, 0, 0, -0.4f),
-			QuirkKeyframes.f(96, 1.2f, 0, 0.25f, 1.2f, 0, -0.25f, 0.5f, 0, 0, 0, 0, 0, 0, 0, -0.4f), QuirkKeyframes.rest(100) };
-	private static final float[][] TRAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.9f, 0, -0.2f, -0.7f, 0, 0.2f, 0.55f, 0, -0.6f, 0, 0.1f, -0.6f, 0, -0.1f, 0.4f),
-			QuirkKeyframes.f(7, -0.6f, 0, -0.2f, -1.0f, 0, 0.2f, 0.55f, 0, -0.6f, 0, 0.1f, -0.6f, 0, -0.1f, 0.4f),
-			QuirkKeyframes.f(11, -0.9f, 0, -0.2f, -0.7f, 0, 0.2f, 0.55f, 0, -0.6f, 0, 0.1f, -0.6f, 0, -0.1f, 0.4f), QuirkKeyframes.rest(16) };
-	/** v0.17.2 Inside Job: a headlong dive, arms first (seen for the 4 ticks he shrinks in). */
-	private static final float[][] DIVE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -3.0f, 0, 0.15f, -3.0f, 0, -0.15f, 0.9f, 0, 0.6f, 0, 0.1f, 0.6f, 0, -0.1f, -0.5f),
-			QuirkKeyframes.f(6, -3.0f, 0, 0.15f, -3.0f, 0, -0.15f, 0.9f, 0, 0.6f, 0, 0.1f, 0.6f, 0, -0.1f, -0.5f), QuirkKeyframes.rest(10) };
-	/** v0.17.2 Inside Job's exit: out with a little spin (the body's yaw, once round) and arms flung wide. */
+	// rArm xyz, lArm xyz, bodyX, bodyY, rLeg xyz, lLeg xyz, headX
+	/** Nerve Pinch: up on his toes, the arm cocked back, two fingers driven in, a squeeze and a twist, and let go. */
+	private static final float[][] PINCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.5f, 0.5f, 0.3f, 0.3f, 0, -0.15f, -0.12f, 0.4f, 0, 0, 0, 0, 0, 0, -0.2f),
+			QuirkKeyframes.f(4, -2.15f, -0.2f, 0, 0.4f, 0, -0.2f, 0.25f, -0.35f, -0.25f, 0, 0.1f, 0.25f, 0, -0.1f, -0.3f),
+			QuirkKeyframes.f(7, -2.05f, 0.1f, 0.15f, 0.35f, 0, -0.2f, 0.2f, -0.3f, -0.2f, 0, 0.1f, 0.2f, 0, -0.1f, -0.25f),
+			QuirkKeyframes.f(10, -1.2f, 0.25f, 0.25f, 0.1f, 0, -0.1f, 0.05f, -0.1f, 0, 0, 0, 0, 0, 0, -0.05f), QuirkKeyframes.rest(14) };
+	/** Weak-Spot Strike: both fists overhead, on one leg, then a hammer blow down on the exact spot. */
+	private static final float[][] STRIKE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -3.0f, 0.1f, 0.2f, -3.0f, -0.1f, -0.2f, -0.28f, 0, 0.2f, 0, 0.1f, -0.5f, 0, -0.1f, -0.35f),
+			QuirkKeyframes.f(4, -1.5f, 0.25f, 0, -1.5f, -0.25f, 0, 0.45f, 0, -0.5f, 0, 0.1f, 0.3f, 0, -0.1f, 0.2f),
+			QuirkKeyframes.f(6, -0.65f, 0.25f, -0.05f, -0.65f, -0.25f, 0.05f, 0.65f, 0, -0.55f, 0, 0.1f, 0.35f, 0, -0.1f, 0.35f),
+			QuirkKeyframes.f(9, -0.75f, 0.2f, 0, -0.75f, -0.2f, 0, 0.5f, 0, -0.4f, 0, 0.1f, 0.25f, 0, -0.1f, 0.25f), QuirkKeyframes.rest(15) };
+	/** Analyze: a finger to the temple, the other hand out at the creature, sizing it up with small nods. */
+	private static final float[][] ANALYZE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.4f, -0.85f, 0, -0.9f, 0.2f, -0.15f, -0.05f, 0, 0, 0, 0, 0, 0, 0, 0.1f),
+			QuirkKeyframes.f(9, -2.35f, -0.8f, 0, -1.3f, 0.1f, -0.1f, 0, 0.12f, 0, 0, 0, 0, 0, 0, -0.08f),
+			QuirkKeyframes.f(15, -2.4f, -0.85f, 0, -1.1f, 0.3f, -0.1f, 0, -0.12f, 0, 0, 0, 0, 0, 0, 0.1f),
+			QuirkKeyframes.f(21, -2.35f, -0.8f, 0, -1.4f, 0.05f, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0, -0.08f), QuirkKeyframes.rest(27) };
+	/** Galvan Sentry: squats down, hands flying over the parts in turn, tightens the last bolt with a twist, one arm flung up: done. */
+	private static final float[][] TURRET = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, -0.3f, 0, -1.2f, 0.3f, 0, 0.55f, 0, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
+			QuirkKeyframes.f(6, -0.65f, -0.5f, 0, -1.45f, 0.25f, 0, 0.55f, 0.2f, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
+			QuirkKeyframes.f(9, -1.45f, -0.2f, 0, -0.7f, 0.5f, 0, 0.55f, -0.2f, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
+			QuirkKeyframes.f(12, -1.2f, -0.6f, 0.3f, -1.2f, 0.6f, -0.3f, 0.55f, 0, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.5f),
+			QuirkKeyframes.f(15, -2.95f, 0, 0.35f, 0.25f, 0, -0.1f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.f(19, -2.8f, 0, 0.3f, 0.2f, 0, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0, -0.15f),
+			QuirkKeyframes.rest(24) };
+	/** Big Leap: squash, burst off both feet with the arms thrown back, tuck like a frog in the air, reach for the landing. */
+	private static final float[][] LEAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, 0.5f, 0, 0.4f, 0.5f, 0, -0.4f, 0.6f, 0, -0.8f, 0, 0.3f, -0.8f, 0, -0.3f, -0.2f),
+			QuirkKeyframes.f(3, 1.1f, 0, 0.35f, 1.1f, 0, -0.35f, -0.25f, 0, 0.45f, 0, 0.12f, 0.45f, 0, -0.12f, -0.3f),
+			QuirkKeyframes.f(9, 0.5f, 0, 0.9f, 0.5f, 0, -0.9f, 0.2f, 0, -1.1f, 0, 0.35f, -1.1f, 0, -0.35f, -0.15f),
+			QuirkKeyframes.f(16, -0.7f, 0, 0.8f, -0.7f, 0, -0.8f, 0.1f, 0, -0.7f, 0, 0.3f, -0.7f, 0, -0.3f, 0.15f), QuirkKeyframes.rest(22) };
+	/** Scurry: bolt upright for a beat, then low and flat out, arms pumping back (the legs keep the walk cycle). */
+	private static final float[][] SCURRY = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.6f, 0, 0.5f, -0.6f, 0, -0.5f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.2f),
+			QuirkKeyframes.f(5, 1.25f, 0, 0.3f, 1.25f, 0, -0.3f, 0.6f, 0, 0, 0, 0, 0, 0, 0, -0.45f), QuirkKeyframes.f(96, 1.25f, 0, 0.3f, 1.25f, 0, -0.3f, 0.6f, 0, 0, 0, 0, 0, 0, 0, -0.45f),
+			QuirkKeyframes.rest(100) };
+	/** Snare Trap: down on one knee, stringing the wire hand over hand, a tug to test it. */
+	private static final float[][] TRAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.9f, 0, -0.2f, -0.7f, 0, 0.2f, 0.6f, 0, -0.7f, 0, 0.12f, -0.4f, 0, -0.12f, 0.5f),
+			QuirkKeyframes.f(6, -0.55f, 0.3f, -0.2f, -1.05f, -0.3f, 0.2f, 0.6f, 0.15f, -0.7f, 0, 0.12f, -0.4f, 0, -0.12f, 0.5f),
+			QuirkKeyframes.f(9, -1.05f, 0.3f, -0.2f, -0.55f, -0.3f, 0.2f, 0.6f, -0.15f, -0.7f, 0, 0.12f, -0.4f, 0, -0.12f, 0.5f),
+			QuirkKeyframes.f(12, -0.3f, 0.2f, 0.1f, -0.3f, -0.2f, -0.1f, 0.4f, 0, -0.5f, 0, 0.12f, -0.3f, 0, -0.12f, 0.35f), QuirkKeyframes.rest(17) };
+	/** Inside Job: a headlong dive, arms first (seen for the 4 ticks he shrinks in). */
+	private static final float[][] DIVE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, 0.7f, 0, 0.4f, 0.7f, 0, -0.4f, 0.5f, 0, -0.6f, 0, 0.2f, -0.6f, 0, -0.2f, -0.2f),
+			QuirkKeyframes.f(3, -3.05f, 0, 0.12f, -3.05f, 0, -0.12f, 1.0f, 0, 0.7f, 0, 0.08f, 0.7f, 0, -0.08f, -0.6f),
+			QuirkKeyframes.f(6, -3.05f, 0, 0.12f, -3.05f, 0, -0.12f, 1.0f, 0, 0.7f, 0, 0.08f, 0.7f, 0, -0.08f, -0.6f), QuirkKeyframes.rest(10) };
+	/** Inside Job's exit: out with a little spin (the body's yaw, once round) and arms flung wide. */
 	private static final float[][] POP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.3f, 0, 1.4f, -0.3f, 0, -1.4f, 0, 2.2f, 0, 0, 0.3f, 0, 0, -0.3f, -0.2f),
 			QuirkKeyframes.f(7, -0.3f, 0, 1.2f, -0.3f, 0, -1.2f, 0, 4.8f, 0, 0, 0.3f, 0, 0, -0.3f, 0.1f),
-			QuirkKeyframes.f(10, 0, 0, 0.4f, 0, 0, -0.4f, 0, 6.2832f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(14) };
-	/** v0.17.2 Rewire: one arm out, finger pointed at the block, the other hand at his temple. */
-	private static final float[][] REWIRE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.6f, -0.1f, 0, -2.4f, 0.8f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1f),
-			QuirkKeyframes.f(10, -1.55f, -0.1f, 0, -2.4f, 0.8f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(15) };
-	private static final float[][] REPAIR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.3f, -0.4f, 0, -1.3f, 0.4f, 0, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0.25f),
-			QuirkKeyframes.f(8, -1.1f, -0.5f, 0, -1.4f, 0.3f, 0, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0.25f),
-			QuirkKeyframes.f(14, -1.4f, -0.3f, 0, -1.1f, 0.5f, 0, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0.25f), QuirkKeyframes.rest(22) };
-	private static final float[][] MIND = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.5f, -0.9f, 0, -2.5f, 0.9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.2f),
-			QuirkKeyframes.f(26, -2.5f, -0.9f, 0, -2.5f, 0.9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.2f), QuirkKeyframes.rest(32) };
-	private static final float[][] JAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.7f, 0.25f, 0, 0.4f, 0, 0, 0.1f, -0.4f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.rest(7) };
-	private static final float[][] READ = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, 0, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1f),
-			QuirkKeyframes.rest(10) };
+			QuirkKeyframes.f(10, 0, 0, 0.4f, 0, 0, -0.4f, 0, 6.2832f, -0.35f, 0, 0.2f, -0.35f, 0, -0.2f, 0.2f), QuirkKeyframes.rest(15) };
+	/** Rewire: a beat of thought, a finger at the temple, then the arm snaps out and points at the block. */
+	private static final float[][] REWIRE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.3f, 0, 0.2f, -2.4f, 0.8f, 0, -0.05f, 0, 0, 0, 0, 0, 0, 0, -0.1f),
+			QuirkKeyframes.f(4, -1.65f, -0.1f, 0, -2.4f, 0.8f, 0, 0.05f, -0.15f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.f(6, -1.5f, -0.1f, 0, -2.4f, 0.8f, 0, 0, -0.15f, 0, 0, 0, 0, 0, 0, 0.1f),
+			QuirkKeyframes.f(11, -1.55f, -0.1f, 0, -2.3f, 0.8f, 0, 0, -0.1f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(16) };
+	/** Genius Repair: over the job, one hand holding it, the other working quickly, then a flick of the wrist. */
+	private static final float[][] REPAIR = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.3f, -0.4f, 0, -1.3f, 0.4f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(6, -0.95f, -0.55f, 0.1f, -1.4f, 0.3f, 0, 0.2f, 0.1f, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.f(9, -1.5f, -0.3f, -0.1f, -1.2f, 0.45f, 0, 0.2f, -0.1f, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(12, -0.95f, -0.55f, 0.1f, -1.4f, 0.3f, 0, 0.2f, 0.1f, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(15, -1.5f, -0.3f, -0.1f, -1.2f, 0.45f, 0, 0.2f, -0.1f, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.f(18, -2.0f, 0, 0.4f, -0.9f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.1f),
+			QuirkKeyframes.rest(23) };
+	/** Mind Map: both hands to the temples, the big head tipped back as it all comes in, and a slow turn to take it in. */
+	private static final float[][] MIND = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.5f, -0.9f, 0, -2.5f, 0.9f, 0, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.35f),
+			QuirkKeyframes.f(12, -2.5f, -0.9f, 0.05f, -2.5f, 0.9f, -0.05f, -0.1f, 0.25f, 0, 0, 0, 0, 0, 0, -0.3f),
+			QuirkKeyframes.f(20, -2.5f, -0.9f, 0.05f, -2.5f, 0.9f, -0.05f, -0.1f, -0.25f, 0, 0, 0, 0, 0, 0, -0.3f), QuirkKeyframes.f(26, -2.5f, -0.9f, 0, -2.5f, 0.9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.2f),
+			QuirkKeyframes.rest(32) };
+	/** Precision Jab: a snap from the shoulder and straight back. */
+	private static final float[][] JAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, -0.5f, 0.3f, 0.2f, 0.3f, 0, -0.1f, -0.08f, 0.3f, 0, 0, 0, 0, 0, 0, 0),
+			QuirkKeyframes.f(3, -1.8f, 0.2f, 0, 0.45f, 0, -0.1f, 0.15f, -0.4f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(8) };
+	/** Quick Read: a palm laid on it, a tilt of the head. */
+	private static final float[][] READ = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.6f, 0, 0, 0.2f, 0, -0.1f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
+			QuirkKeyframes.f(6, -1.55f, 0.1f, 0, 0.2f, 0, -0.1f, 0.05f, 0.12f, 0, 0, 0, 0, 0, 0, 0.05f), QuirkKeyframes.rest(11) };
+	/** Pocket Workshop: rummages in thin air with both hands, then spreads them over the bench. */
+	private static final float[][] WORKSHOP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.1f, 0.35f, 0f, -0.9f, -0.35f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
+			QuirkKeyframes.f(5, -0.8f, 0.2f, 0f, -1.3f, -0.45f, 0f, 0.25f, 0.12f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
+			QuirkKeyframes.f(8, -1.3f, 0.45f, 0f, -0.8f, -0.2f, 0f, 0.25f, -0.12f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f), QuirkKeyframes.f(11, -1.2f, -0.3f, 0.3f, -1.2f, 0.3f, -0.3f, 0.2f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.35f),
+			QuirkKeyframes.rest(15) };
+	/** The Block Mech goes up round him: head down over the console, hands racing between the panels, then both grab the levers. */
+	private static final float[][] MECH_BUILD = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.5f, 0, -0.8f, 0.5f, 0, 0.3f, 0.3f, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(6, -0.8f, -0.5f, 0, -1.6f, 0.5f, 0, 0.3f, -0.3f, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.f(9, -2.3f, -0.4f, 0.3f, -0.8f, 0.3f, 0, 0.1f, 0.2f, 0, 0, 0, 0, 0, 0, -0.2f),
+			QuirkKeyframes.f(12, -0.8f, -0.3f, 0, -2.3f, 0.4f, -0.3f, 0.1f, -0.2f, 0, 0, 0, 0, 0, 0, -0.2f), QuirkKeyframes.f(15, -1.5f, -0.5f, 0, -1.5f, 0.5f, 0, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.25f),
+			QuirkKeyframes.f(19, -1.15f, -0.25f, 0.1f, -1.15f, 0.25f, -0.1f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(23) };
+	// the levers: a punch throws one forward and hauls the other back, the slam hauls both back then rams them home, the jets pull both up
+	private static final float[][] LEVER_PUNCH_R = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.65f, -0.25f, 0.1f, -1.5f, 0.25f, -0.1f, -0.1f, 0.3f, 0, 0, 0, 0, 0, 0, -0.1f),
+			QuirkKeyframes.f(5, -1.75f, -0.25f, 0.1f, -0.75f, 0.25f, -0.1f, 0.25f, -0.35f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(13) };
+	private static final float[][] LEVER_PUNCH_L = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.5f, -0.25f, 0.1f, -0.65f, 0.25f, -0.1f, -0.1f, -0.3f, 0, 0, 0, 0, 0, 0, -0.1f),
+			QuirkKeyframes.f(5, -0.75f, -0.25f, 0.1f, -1.75f, 0.25f, -0.1f, 0.25f, 0.35f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(13) };
+	private static final float[][] LEVER_SLAM = { QuirkKeyframes.rest(0), QuirkKeyframes.f(6, -0.5f, -0.25f, 0.1f, -0.5f, 0.25f, -0.1f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
+			QuirkKeyframes.f(9, -1.8f, -0.25f, 0.1f, -1.8f, 0.25f, -0.1f, 0.4f, 0, 0, 0, 0, 0, 0, 0, 0.25f), QuirkKeyframes.f(14, -1.7f, -0.25f, 0.1f, -1.7f, 0.25f, -0.1f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
+			QuirkKeyframes.rest(22) };
+	private static final float[][] LEVER_JET = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.45f, -0.25f, 0.1f, -0.45f, 0.25f, -0.1f, -0.25f, 0, 0, 0, 0, 0, 0, 0, -0.35f),
+			QuirkKeyframes.f(10, -0.55f, -0.25f, 0.1f, -0.55f, 0.25f, -0.1f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.rest(16) };
 
-	private static final FirstPersonClip FP_PINCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -30, 25, 0, 0.15f, 0.15f, -0.25f),
-			FirstPersonClip.f(6, -28, 22, 0, 0.14f, 0.14f, -0.24f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_CHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -80, 5, 0, 0.05f, 0.5f, 0.2f),
-			FirstPersonClip.f(5, 25, 15, 0, 0.1f, -0.25f, -0.1f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_THINK = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -60, 45, 20, 0.3f, 0.45f, 0.1f),
-			FirstPersonClip.f(20, -60, 45, 20, 0.3f, 0.45f, 0.1f), FirstPersonClip.f(26, 0, 0, 0, 0, 0, 0));
+	// first person: {tick, pitch, yaw, roll, x, y, z}
+	private static final FirstPersonClip FP_PINCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 10, -10, 0, 0, -0.08f, 0.1f),
+			FirstPersonClip.f(4, -32, 25, 0, 0.16f, 0.17f, -0.3f), FirstPersonClip.f(8, -30, 22, 25, 0.15f, 0.15f, -0.28f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_READ = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -18, 20, 0, 0.12f, 0.1f, -0.22f),
+			FirstPersonClip.f(7, -16, 22, 5, 0.12f, 0.1f, -0.22f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_CHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -85, 5, 0, 0.05f, 0.55f, 0.2f),
+			FirstPersonClip.f(5, 30, 15, 0, 0.1f, -0.3f, -0.12f), FirstPersonClip.f(8, 22, 12, 0, 0.1f, -0.22f, -0.1f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_THINK = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -60, 45, 20, 0.3f, 0.45f, 0.1f),
+			FirstPersonClip.f(9, -56, 42, 15, 0.28f, 0.42f, 0.08f), FirstPersonClip.f(15, -60, 45, 20, 0.3f, 0.45f, 0.1f), FirstPersonClip.f(21, -56, 42, 15, 0.28f, 0.42f, 0.08f),
+			FirstPersonClip.f(27, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_TINKER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, 25, 0, 0.18f, 0.1f, -0.05f),
-			FirstPersonClip.f(8, -28, 20, 5, 0.16f, 0.14f, -0.08f), FirstPersonClip.f(14, -20, 25, 0, 0.18f, 0.1f, -0.05f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0))
-			.both();
+			FirstPersonClip.f(6, -32, 18, 12, 0.14f, 0.16f, -0.1f), FirstPersonClip.f(9, -16, 28, -8, 0.2f, 0.08f, -0.03f), FirstPersonClip.f(12, -30, 20, 30, 0.15f, 0.14f, -0.08f),
+			FirstPersonClip.f(16, -55, 10, 0, 0.1f, 0.3f, 0f), FirstPersonClip.f(23, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_STRING = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 12, 25, 0, 0.18f, -0.12f, -0.1f),
+			FirstPersonClip.f(6, 20, 15, 10, 0.12f, -0.18f, -0.15f), FirstPersonClip.f(9, 12, 30, -10, 0.2f, -0.12f, -0.1f), FirstPersonClip.f(12, 2, 20, 0, 0.14f, -0.05f, 0.02f),
+			FirstPersonClip.f(17, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_REPAIR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -22, 25, 0, 0.18f, 0.1f, -0.06f),
+			FirstPersonClip.f(6, -30, 16, 15, 0.14f, 0.15f, -0.09f), FirstPersonClip.f(9, -14, 30, -10, 0.2f, 0.07f, -0.03f), FirstPersonClip.f(12, -30, 16, 15, 0.14f, 0.15f, -0.09f),
+			FirstPersonClip.f(15, -14, 30, -10, 0.2f, 0.07f, -0.03f), FirstPersonClip.f(18, -50, 10, 40, 0.08f, 0.26f, -0.05f), FirstPersonClip.f(23, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_TEMPLES = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -45, 22, 12, 0.1f, 0.3f, 0.05f),
-			FirstPersonClip.f(26, -46, 22, 12, 0.1f, 0.3f, 0.05f), FirstPersonClip.f(32, 0, 0, 0, 0, 0, 0)).both();
+			FirstPersonClip.f(16, -48, 24, 14, 0.1f, 0.32f, 0.05f), FirstPersonClip.f(26, -46, 22, 12, 0.1f, 0.3f, 0.05f), FirstPersonClip.f(32, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_LEAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 20, 0, 0, 0, -0.12f, 0.1f),
+			FirstPersonClip.f(3, 40, 10, 0, 0.05f, -0.45f, 0.2f), FirstPersonClip.f(16, -10, -10, -15, -0.08f, 0.05f, -0.05f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_RUN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 35, 10, 0, 0.05f, -0.4f, 0.2f),
 			FirstPersonClip.f(16, 35, 10, 0, 0.05f, -0.4f, 0.2f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_JAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -20, 25, 0, 0.15f, 0.08f, -0.22f),
-			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
-	/** v0.17.2: Rewire's point -- the hand out straight at the block. */
-	private static final FirstPersonClip FP_POINT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -12, 8, 0, 0.05f, 0.18f, -0.3f),
-			FirstPersonClip.f(10, -12, 8, 0, 0.05f, 0.18f, -0.3f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0));
-	/** v0.17.2: Inside Job's dive -- both hands thrust forward. */
-	private static final FirstPersonClip FP_DIVE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -35, 0, 0, 0f, 0.25f, -0.45f),
-			FirstPersonClip.f(6, -35, 0, 0, 0f, 0.25f, -0.45f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_JAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 8, -5, 0, 0, -0.04f, 0.08f),
+			FirstPersonClip.f(3, -20, 25, 0, 0.15f, 0.08f, -0.26f), FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
+	/** Rewire's point -- a beat, then the hand out straight at the block. */
+	private static final FirstPersonClip FP_POINT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 6, 0, 0, 0, -0.05f, 0.05f),
+			FirstPersonClip.f(4, -12, 8, 0, 0.05f, 0.18f, -0.34f), FirstPersonClip.f(11, -12, 8, 0, 0.05f, 0.18f, -0.3f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
+	/** Inside Job's dive -- both hands thrust forward. */
+	private static final FirstPersonClip FP_DIVE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 20, 0, 0, 0, -0.1f, 0.1f),
+			FirstPersonClip.f(3, -35, 0, 0, 0f, 0.25f, -0.5f), FirstPersonClip.f(6, -35, 0, 0, 0f, 0.25f, -0.5f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_POP = FirstPersonClip.of(FirstPersonClip.f(0, -35, 0, 0, 0f, 0.2f, -0.3f), FirstPersonClip.f(4, -15, -40, 30, -0.25f, 0.2f, 0f),
+			FirstPersonClip.f(10, -10, -30, 20, -0.15f, 0.1f, 0f), FirstPersonClip.f(15, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_WORKSHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(2, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f),
+			FirstPersonClip.f(5, -5f, 15f, 0f, 0.06f, 0f, -0.05f), FirstPersonClip.f(8, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f), FirstPersonClip.f(11, -20f, -10f, 0f, -0.05f, 0.08f, -0.08f),
+			FirstPersonClip.f(15, 0f, 0f, 0f, 0f, 0f, 0f)).both();
+	/** In the Block Mech: the lever coming up into view and being shoved. */
+	private static final FirstPersonClip FP_LEVER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -8, 10, 0, 0.05f, 0.1f, 0.12f),
+			FirstPersonClip.f(5, -25, 18, 0, 0.1f, 0.14f, -0.22f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_LEVER_BOTH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(6, -5, 10, 0, 0.05f, 0.08f, 0.2f),
+			FirstPersonClip.f(9, -28, 18, 0, 0.1f, 0.14f, -0.28f), FirstPersonClip.f(14, -24, 16, 0, 0.1f, 0.12f, -0.24f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_LEVER_UP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, 12, 0, 0.06f, 0.2f, 0.14f),
+			FirstPersonClip.f(10, -18, 12, 0, 0.06f, 0.18f, 0.12f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_CONSOLE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -22, 25, 0, 0.18f, 0.1f, -0.06f),
+			FirstPersonClip.f(7, -40, 15, 10, 0.12f, 0.24f, -0.08f), FirstPersonClip.f(11, -18, 28, -8, 0.2f, 0.06f, -0.04f), FirstPersonClip.f(15, -32, 18, 8, 0.14f, 0.16f, -0.06f),
+			FirstPersonClip.f(23, 0, 0, 0, 0, 0, 0)).both();
 
 	/** v0.17.2 Inside Job: creature entity id -> the game time its shudder runs to (kept up from every inside Grey Matter's tick). */
 	private static final Map<Integer, Long> SHAKING = new ConcurrentHashMap<>();
-	private static boolean looksRegistered;
+	private static boolean renderersRegistered;
 
 	public GreyMatterClient() {
 		ModelPart root = AlienParts.bake(64, 64, r -> r.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0).addBox(-4, -8, -4, 8, 8, 8)
@@ -129,9 +197,9 @@ public final class GreyMatterClient implements AlienClientKit {
 				.texOffs(32, 0).addBox(-4, -8, -4, 8, 8, 8, new net.minecraft.client.model.geom.builders.CubeDeformation(0.5f)),
 				PartPose.ZERO));
 		bigHead = root.getChild("head");
-		if (!looksRegistered) {
-			looksRegistered = true;
-			OmnitrixRenderers.projectileLook("grey_matter_turret", GreyMatterClient::turret); // v0.17.2 Gizmo Turret
+		if (!renderersRegistered) {
+			renderersRegistered = true;
+			GreyMatterGadgets.register(); // v0.17.2 round 3: the Galvan Sentry and the Block Mech
 		}
 	}
 
@@ -158,13 +226,13 @@ public final class GreyMatterClient implements AlienClientKit {
 		// the big head replaces the player's (renderExtras redraws it on the same bone)
 		m.head.visible = false;
 		m.hat.visible = false;
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
 		float[][] clip = switch (animId) {
 			case GreyMatterKit.ANIM_PINCH -> PINCH;
 			case GreyMatterKit.ANIM_STRIKE -> STRIKE;
 			case GreyMatterKit.ANIM_ANALYZE -> ANALYZE;
 			case GreyMatterKit.ANIM_TURRET -> TURRET;
 			case GreyMatterKit.ANIM_LEAP -> LEAP;
-			case GreyMatterKit.ANIM_SCURRY -> SCURRY;
 			case GreyMatterKit.ANIM_TRAP -> TRAP;
 			case GreyMatterKit.ANIM_DIVE -> DIVE;
 			case GreyMatterKit.ANIM_POP -> POP;
@@ -174,12 +242,13 @@ public final class GreyMatterClient implements AlienClientKit {
 			case GreyMatterKit.ANIM_JAB -> JAB;
 			case GreyMatterKit.ANIM_READ -> READ;
 			case GreyMatterKit.ANIM_WORKSHOP -> WORKSHOP;
+			case GreyMatterKit.ANIM_MECH_BUILD -> MECH_BUILD;
+			case GreyMatterKit.ANIM_LEVER_PUNCH -> mech != null && mech.action() == GreyMatterMechEntity.ACT_PUNCH_L ? LEVER_PUNCH_L : LEVER_PUNCH_R;
+			case GreyMatterKit.ANIM_LEVER_SLAM -> LEVER_SLAM;
+			case GreyMatterKit.ANIM_LEVER_JET -> LEVER_JET;
 			default -> null;
 		};
 		OmnitrixState s = Omnitrix.state(p);
-		if (animId == GreyMatterKit.ANIM_SCURRY && (s.kitFlags & GreyMatterKit.F_SCURRY) == 0 && ticks > 4) {
-			clip = null;
-		}
 		if (animId == GreyMatterKit.ANIM_LEAP && (s.kitFlags & GreyMatterKit.F_LEAP) == 0 && ticks > 4) {
 			clip = null;
 		}
@@ -203,14 +272,35 @@ public final class GreyMatterClient implements AlienClientKit {
 			m.rightLeg.zRot = 0.5f;
 			m.leftLeg.zRot = -0.5f;
 			m.head.xRot = -0.35f;
-		}
-		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		if (!played && !shoulder && !climbing) {
+		} else if (mech != null) {
+			// v0.17.2 round 3: on the seat with a lever in each hand; they rock as the mech walks
+			float walk = mech.walkAnimation.speed() > 0.05f ? Mth.sin(mech.walkAnimation.position() * 1.1f) * 0.18f : 0f;
+			m.rightArm.xRot = -1.15f + walk;
+			m.leftArm.xRot = -1.15f - walk;
+			m.rightArm.yRot = -0.25f;
+			m.leftArm.yRot = 0.25f;
+			m.rightArm.zRot = 0.1f;
+			m.leftArm.zRot = -0.1f;
+		} else if (!shoulder) {
 			// a frog's splayed stance
 			m.rightLeg.zRot += 0.14f;
 			m.leftLeg.zRot -= 0.14f;
 			m.rightArm.zRot += 0.1f;
 			m.leftArm.zRot -= 0.1f;
+		}
+		// the base pose lies under every clip, so a clip ending hands back to it instead of snapping
+		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		if (animId == GreyMatterKit.ANIM_SCURRY && ((s.kitFlags & GreyMatterKit.F_SCURRY) != 0 || ticks <= 4)) {
+			// arms, back and head only: his legs keep the walk cycle, flat out
+			float[] f = QuirkKeyframes.sample(SCURRY, Math.min(ticks, 90f));
+			if (f != null) {
+				int mask = 0;
+				for (int c = QuirkKeyframes.R_ARM_X; c <= QuirkKeyframes.BODY_Y; c++) {
+					mask |= QuirkKeyframes.bit(c);
+				}
+				QuirkKeyframes.applyMasked(m, f, Math.min(1f, ticks / 2f), mask | QuirkKeyframes.bit(QuirkKeyframes.HEAD_X));
+				played = true;
+			}
 		}
 		return played || climbing;
 	}
@@ -218,18 +308,53 @@ public final class GreyMatterClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case GreyMatterKit.ANIM_PINCH, GreyMatterKit.ANIM_READ -> FP_PINCH;
+			case GreyMatterKit.ANIM_PINCH -> FP_PINCH;
+			case GreyMatterKit.ANIM_READ -> FP_READ;
 			case GreyMatterKit.ANIM_STRIKE -> FP_CHOP;
 			case GreyMatterKit.ANIM_ANALYZE -> FP_THINK;
-			case GreyMatterKit.ANIM_TURRET, GreyMatterKit.ANIM_TRAP, GreyMatterKit.ANIM_REPAIR -> FP_TINKER;
+			case GreyMatterKit.ANIM_TURRET -> FP_TINKER;
+			case GreyMatterKit.ANIM_TRAP -> FP_STRING;
+			case GreyMatterKit.ANIM_REPAIR -> FP_REPAIR;
 			case GreyMatterKit.ANIM_MIND -> FP_TEMPLES;
-			case GreyMatterKit.ANIM_LEAP, GreyMatterKit.ANIM_SCURRY -> FP_RUN;
+			case GreyMatterKit.ANIM_LEAP -> FP_LEAP;
+			case GreyMatterKit.ANIM_SCURRY -> FP_RUN;
 			case GreyMatterKit.ANIM_JAB -> FP_JAB;
 			case GreyMatterKit.ANIM_WORKSHOP -> FP_WORKSHOP;
 			case GreyMatterKit.ANIM_REWIRE -> FP_POINT;
 			case GreyMatterKit.ANIM_DIVE -> FP_DIVE;
+			case GreyMatterKit.ANIM_POP -> FP_POP;
+			case GreyMatterKit.ANIM_MECH_BUILD -> FP_CONSOLE;
+			case GreyMatterKit.ANIM_LEVER_PUNCH -> FP_LEVER;
+			case GreyMatterKit.ANIM_LEVER_SLAM -> FP_LEVER_BOTH;
+			case GreyMatterKit.ANIM_LEVER_JET -> FP_LEVER_UP;
 			default -> null;
 		};
+	}
+
+	/** v0.17.2 round 3: inside the mech vanilla's camera (a tiny body's) would sit in the hull; pull back to see the whole machine. */
+	@Override
+	public float cameraDistance(AbstractClientPlayer p) {
+		return GreyMatterKit.piloting(p) ? 3.6f : 0f;
+	}
+
+	@Override
+	public int hudHeight() {
+		var p = Minecraft.getInstance().player;
+		return p != null && GreyMatterKit.piloting(p) ? 10 : 0;
+	}
+
+	/** v0.17.2 round 3: the Block Mech's health and the seconds left, over the name line. */
+	@Override
+	public void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, int w, float partial) {
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
+		if (mech == null) {
+			return;
+		}
+		float frac = Mth.clamp(mech.getHealth() / Math.max(1f, mech.getMaxHealth()), 0f, 1f);
+		int colour = frac < 0.3f ? 0xFFFF5A3C : 0xFF7FE6FF;
+		long left = Math.max(0L, (mech.endAt() - p.level().getGameTime() + 19) / 20);
+		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 8, net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.grey_matter.mech"), frac,
+				colour, Math.round(mech.getHealth()) + " HP  " + left + "s", colour);
 	}
 
 	@Override
@@ -251,6 +376,25 @@ public final class GreyMatterClient implements AlienClientKit {
 		}
 		if (!SHAKING.isEmpty()) {
 			SHAKING.values().removeIf(until -> until < now);
+		}
+		// v0.17.2 round 3: the block's shards pulled in while the mech goes up; a puff from its stacks as it runs
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
+		if (mech != null) {
+			if (mech.state() == GreyMatterMechEntity.STATE_ASSEMBLING) {
+				// vanilla has just told him Sneak gets off; here Sneak is the Shift+key modifier
+				if (p == Minecraft.getInstance().player) {
+					Minecraft.getInstance().gui.setOverlayMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.omnitrix.grey_matter.mech_seat"), false);
+				}
+				var shard = new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, mech.material());
+				for (int i = 0; i < 3; i++) {
+					double a = r.nextDouble() * Math.PI * 2, d = 0.7 + r.nextDouble() * 0.6;
+					p.level().addParticle(shard, mech.getX() + Math.cos(a) * d, mech.getY() + r.nextDouble() * 1.4, mech.getZ() + Math.sin(a) * d, -Math.cos(a) * 0.3, 0.02, -Math.sin(a) * 0.3);
+				}
+			} else if (mech.active() && now % 7 == 0) {
+				float yaw = mech.yBodyRot * Mth.DEG_TO_RAD;
+				double bx = Mth.sin(yaw) * 0.29, bz = -Mth.cos(yaw) * 0.29;
+				p.level().addParticle(ParticleTypes.SMOKE, mech.getX() + bx, mech.getY() + 1.24, mech.getZ() + bz, 0, 0.04, 0);
+			}
 		}
 	}
 
@@ -287,51 +431,6 @@ public final class GreyMatterClient implements AlienClientKit {
 		float bulge = (float) Math.exp(-phase * 0.55f) * 0.11f + Mth.sin(t * 2.3f) * 0.015f;
 		pose.translate(Mth.sin(t * 3.1f) * 0.03f, 0f, Mth.cos(t * 2.7f) * 0.03f);
 		pose.scale(1f + bulge, 1f - bulge * 0.4f, 1f + bulge);
-	}
-
-	// ---------------------------------------------------------------- v0.17.2 the Gizmo Turret's model
-
-	/** A fist-sized turret: a cobbled box, a dish on top, a barrel aimed where it last shot, and a blinking red light. */
-	private static void turret(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers) {
-		var blocks = Minecraft.getInstance().getBlockRenderer();
-		int light = LevelRenderer.getLightColor(e.level(), e.blockPosition());
-		float age = e.tickCount + partial;
-		float build = Math.min(1f, age / 5f); // it snaps together over a quarter second
-		float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
-		pose.pushPose();
-		pose.scale(build, build, build);
-		// the body
-		pose.pushPose();
-		pose.translate(-0.14f, 0f, -0.14f);
-		pose.scale(0.28f, 0.24f, 0.28f);
-		blocks.renderSingleBlock(Blocks.COBBLESTONE.defaultBlockState(), pose, buffers, light, OverlayTexture.NO_OVERLAY);
-		pose.popPose();
-		// the turning head: the dish and the barrel
-		pose.pushPose();
-		pose.translate(0f, 0.24f, 0f);
-		pose.mulPose(Axis.YP.rotationDegrees(-yaw));
-		pose.pushPose();
-		pose.translate(-0.1f, 0.03f, -0.14f);
-		pose.mulPose(Axis.XP.rotationDegrees(-35f));
-		pose.scale(0.2f, 0.2f, 0.2f);
-		blocks.renderSingleBlock(Blocks.DAYLIGHT_DETECTOR.defaultBlockState(), pose, buffers, light, OverlayTexture.NO_OVERLAY);
-		pose.popPose();
-		pose.pushPose();
-		pose.translate(-0.12f, -0.04f, 0.0f);
-		pose.scale(0.24f, 0.24f, 0.34f);
-		BlockState rod = Blocks.LIGHTNING_ROD.defaultBlockState().setValue(LightningRodBlock.FACING, Direction.SOUTH);
-		blocks.renderSingleBlock(rod, pose, buffers, light, OverlayTexture.NO_OVERLAY);
-		pose.popPose();
-		// the red light, blinking twice a second
-		if (((int) (age / 5f)) % 2 == 0) {
-			pose.pushPose();
-			pose.translate(-0.03f, 0.1f, -0.15f);
-			pose.scale(0.06f, 0.06f, 0.06f);
-			blocks.renderSingleBlock(Blocks.REDSTONE_BLOCK.defaultBlockState(), pose, buffers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
-			pose.popPose();
-		}
-		pose.popPose();
-		pose.popPose();
 	}
 
 	@Override

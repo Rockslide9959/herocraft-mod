@@ -23,7 +23,6 @@ import com.projecthero.mod.omnitrix.alien.AlienStats;
 import com.projecthero.mod.omnitrix.alien.AlienStatus;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
-import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
 import com.projecthero.mod.quirk.QuirkThreat;
 import com.projecthero.mod.quirk.fx.QuirkFx;
 
@@ -57,6 +56,7 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
@@ -101,21 +101,22 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R        Nerve Pinch      4, stuns the creature in front 3 s                Shift+R  Weak-Spot Strike  a precise crit (18; 24 on a marked target)
- *   G        Analyze          reads a creature and marks it: +35% damage from   Shift+G  Gizmo Turret      a fist-sized turret (6 blocks off): taunts mobs
- *                             everyone 10 s; a marked boss's strikes are                                  within 10, darts the nearest foe (the analysed
- *                             foreseen (a grey warning ring)                                              one first) 2 x 2/s for 10 s; 6 HP
+ *   G        Analyze          reads a creature and marks it: +35% damage from   Shift+G  Inside Job        ULTIMATE: climb INTO a mob within 6 -- 3 s of
+ *                             everyone 10 s; a marked boss's strikes are                                  13 every 0.5 s through its armour, then out the
+ *                             foreseen (a grey warning ring)                                              far side, stunned 2 s; a machine is rewired
+ *                                                                                                         instead (x1.4, shut down 5 s, bosses 2 s)
  *   X        Big Leap         a huge leap for something so small (no fall)      Shift+X  Scurry            5 s of top speed, hunters lose you; starts with
  *                                                                                                          a smoke puff (r 3, blind 2 s)
- *   Z        Snare Trap       a tripwire snare (10, roots 4 s; 3 max)           Shift+Z  Inside Job        ULTIMATE: climb INTO a mob within 6 -- 3 s of
- *                                                                                                          6 every 0.5 s through its armour, then out the
- *                                                                                                          far side, stunned 2 s; a machine is rewired
- *                                                                                                          instead (x1.5, shut down 5 s, bosses 2 s)
+ *   Z        Galvan Sentry    on the block you look at (8): a twin-barrel       Shift+Z  Block Mech        on the block you look at (6): a 1.5-block mech of
+ *                             tripod gun armoured in that block; 8 a shot,                                 that block, HP 30 + 20 x hardness (max 300); he
+ *                             3.3 shots/s, range 20, taunts within 10, 60 HP,                              rides inside and it takes every hit; 30 s, cd
+ *                             15 s, cd 20 s                                                                50 s; R punches, Shift+R slams, X / Shift+X jets
  *   V        Pocket Workshop  a crafting grid anywhere                          Shift+V  Rewire            tinker with the block you look at (16 blocks):
  *                                                                                                          doors, levers, buttons, lamps, spawners (off
  *                                                                                                          60 s), primed TNT, tripwires
  *   C        Genius Repair    fix a block / boost a furnace / mend held gear    Shift+C  Mind Map          ores, chests and spawners through walls (8 s)
  *   Attack   precision jab (+2 on an analyzed target)    Use on a creature: a quick read    Use on a player: shoulder ride (Backseat
- *            Genius: what the carrier hits is analysed for 5 s)
+ *            Genius: what the carrier hits is analysed for 5 s)    Sneak + Use on a block (empty hand): Snare Trap (10, roots 4 s; 3 max)
  * </pre>
  *
  * Passives: Too Small to Track, Sticky Climber (walls like a spider; Sneak holds on), Amphibian (breathes underwater, swims 50%
@@ -158,15 +159,6 @@ public final class GreyMatterKit extends AlienKit {
 			.layer(SoundEvents.SILVERFISH_AMBIENT, 0.28f, 1.5f)
 			.layer(SoundEvents.LEVER_CLICK, 0.15f, 2.0f)
 			.layer(SoundEvents.BOOK_PAGE_TURN, 0.2f, 1.6f, 3);
-	/** The Gizmo Turret's lure (every half second; v0.17.1 the Decoy's): a soft tick and a squeak. */
-	public static final OmnitrixSfx.Cue DECOY_SOUND = OmnitrixSfx.cue("grey_matter_decoy")
-			.layer(SoundEvents.TRIPWIRE_CLICK_ON, 0.16f, 1.7f)
-			.layer(SoundEvents.SILVERFISH_AMBIENT, 0.12f, 1.6f)
-			.gap(8);
-	/** v0.17.2: the Gizmo Turret's dart -- a tiny dispenser pop and a tick on the hit. */
-	public static final OmnitrixSfx.Cue DART = OmnitrixSfx.cue("grey_matter_dart")
-			.layer(SoundEvents.DISPENSER_LAUNCH, 0.18f, 1.9f)
-			.layer(SoundEvents.ARROW_HIT, 0.14f, 1.8f, 2);
 	/** v0.17.2: Inside Job -- squeezing in, wet and squirmy. */
 	public static final OmnitrixSfx.Cue SQUEEZE = OmnitrixSfx.cue("grey_matter_squeeze")
 			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.35f, 1.5f)
@@ -177,10 +169,35 @@ public final class GreyMatterKit extends AlienKit {
 			.layer(OmnitrixSounds.SWEEP, 0.12f, 1.8f, 1)
 			.layer(SoundEvents.COPPER_BULB_TURN_OFF, 0.25f, 1.3f, 3);
 
+	/** v0.17.2 round 3: the Galvan Sentry's shot -- a hard mechanical crack. */
+	public static final OmnitrixSfx.Cue SENTRY_SHOT = OmnitrixSfx.cue("grey_matter_sentry_shot")
+			.layer(SoundEvents.CROSSBOW_SHOOT, 0.3f, 1.7f)
+			.layer(SoundEvents.DISPENSER_LAUNCH, 0.2f, 1.3f);
+	/** v0.17.2 round 3: a block being pulled apart into plates and bolted together. */
+	public static final OmnitrixSfx.Cue MECH_BUILD = OmnitrixSfx.cue("grey_matter_mech_build")
+			.layer(SoundEvents.SMITHING_TABLE_USE, 0.4f, 1.2f)
+			.layer(SoundEvents.CRAFTER_CRAFT, 0.4f, 1.1f, 4)
+			.layer(SoundEvents.PISTON_EXTEND, 0.35f, 1.4f, 8)
+			.layer(SoundEvents.CRAFTER_CRAFT, 0.4f, 0.9f, 12)
+			.layer(SoundEvents.PISTON_CONTRACT, 0.4f, 1.2f, 16)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.4f, 1.0f, 19);
+	/** v0.17.2 round 3: the mech's piston arm. */
+	public static final OmnitrixSfx.Cue MECH_PUNCH_SOUND = OmnitrixSfx.cue("grey_matter_mech_punch")
+			.layer(SoundEvents.PISTON_EXTEND, 0.4f, 1.6f)
+			.layer(SoundEvents.IRON_GOLEM_ATTACK, 0.55f, 1.3f, 1);
+	/** v0.17.2 round 3: both fists into the ground. */
+	public static final OmnitrixSfx.Cue MECH_SLAM_SOUND = OmnitrixSfx.cue("grey_matter_mech_slam")
+			.layer(SoundEvents.ANVIL_LAND, 0.45f, 0.8f)
+			.layer(SoundEvents.IRON_GOLEM_DAMAGE, 0.5f, 0.7f, 1);
+	/** v0.17.2 round 3: the mech's jump jets. */
+	public static final OmnitrixSfx.Cue MECH_JET = OmnitrixSfx.cue("grey_matter_mech_jet")
+			.layer(SoundEvents.FIRECHARGE_USE, 0.3f, 1.5f)
+			.layer(SoundEvents.PISTON_EXTEND, 0.25f, 1.8f);
+
 	public static final int ANIM_PINCH = 1;
 	public static final int ANIM_STRIKE = 2;
 	public static final int ANIM_ANALYZE = 3;
-	/** v0.17.2: Gizmo Turret (was the Decoy's throw). */
+	/** v0.17.2 round 3: building the Galvan Sentry. */
 	public static final int ANIM_TURRET = 4;
 	public static final int ANIM_LEAP = 5;
 	public static final int ANIM_SCURRY = 6;
@@ -196,6 +213,8 @@ public final class GreyMatterKit extends AlienKit {
 	public static final int ANIM_POP = 14;
 	/** v0.17.2: Rewire -- pointing a finger at the block. */
 	public static final int ANIM_REWIRE = 15;
+	/** v0.17.2 round 3: the Block Mech goes up round him; then the levers shoved for a punch, and both yanked for the slam or the jets. */
+	public static final int ANIM_MECH_BUILD = 16, ANIM_LEVER_PUNCH = 17, ANIM_LEVER_SLAM = 18, ANIM_LEVER_JET = 19;
 
 	public static final int F_LEAP = 1;
 	public static final int F_SCURRY = 2;
@@ -205,16 +224,20 @@ public final class GreyMatterKit extends AlienKit {
 	public static final int F_INSIDE = 8;
 	/** v0.17.2 Sticky Climber: clinging to a wall (the flat-to-wall pose). */
 	public static final int F_CLIMB = 16;
+	/** v0.17.2 round 3: piloting the Block Mech (the mech moves swap R and Shift+R, the client's levers and camera). */
+	public static final int F_MECH = 32;
 
 	public static final String NERVE_PINCH = "nerve_pinch";
 	public static final String WEAK_SPOT = "weak_spot_strike";
 	public static final String ANALYZE = "analyze";
-	/** v0.17.2 (Shift+G, was Decoy): Gizmo Turret. */
-	public static final String TURRET = "gizmo_turret";
+	/** v0.17.2 round 3 (Z; the Gizmo Turret folded in): the Galvan Sentry. */
+	public static final String SENTRY = "galvan_sentry";
+	/** v0.17.2 round 3 (Shift+Z): the Block Mech, and what R and Shift+R do while he pilots it. */
+	public static final String MECH = "block_mech", MECH_PUNCH = "mech_punch", MECH_SLAM = "mech_slam";
 	public static final String BIG_LEAP = "big_leap";
 	public static final String SCURRY = "scurry";
 	public static final String SNARE = "snare_trap";
-	/** v0.17.2 (Shift+Z ultimate, was Smoke Charge): Inside Job. */
+	/** v0.17.2 (ultimate, was Smoke Charge; round 3: Shift+G, Shift+Z went to the Block Mech): Inside Job. */
 	public static final String INSIDE_JOB = "inside_job";
 	public static final String REPAIR_MOVE = "genius_repair";
 	public static final String MIND_MAP = "mind_map";
@@ -259,10 +282,14 @@ public final class GreyMatterKit extends AlienKit {
 	public static final int FORESIGHT_GAP = 15;
 	/** Backseat Genius: what his carrier hits is marked this long. */
 	public static final int BACKSEAT_MARK_TICKS = 100;
-	/** Gizmo Turret. */
-	public static final double TURRET_PLACE = 6.0, TURRET_RANGE = 10.0, TURRET_TAUNT = 10.0;
-	public static final int TURRET_TICKS = 200, TURRET_SHOT_GAP = 10;
-	public static final float TURRET_DAMAGE = 4f, TURRET_HP = 6f;
+	/** Galvan Sentry (user: "kinda powerful, 20 second cooldown, make the turret last 15 seconds"). */
+	public static final double SENTRY_PLACE = 8.0, SENTRY_RANGE = 20.0, SENTRY_TAUNT = 10.0;
+	public static final int SENTRY_TICKS = 300, SENTRY_COOLDOWN = 400, SENTRY_SHOT_GAP = 6;
+	public static final float SENTRY_DAMAGE = 8f, SENTRY_HP = 60f;
+	/** Block Mech (user: "1.5 block tall ... lasts 30 seconds ... 50 second cooldown"). */
+	public static final double MECH_PLACE = 6.0, MECH_REACH = 4.0, MECH_SLAM_RADIUS = 4.0;
+	public static final int MECH_TICKS = 600, MECH_COOLDOWN = 1000, MECH_PUNCH_COOLDOWN = 14, MECH_SLAM_COOLDOWN = 120, MECH_SLAM_DELAY = 8;
+	public static final float MECH_PUNCH_DAMAGE = 15f, MECH_SLAM_DAMAGE = 18f, MECH_REPAIR_FRACTION = 0.3f;
 	/** Scurry's smoke puff (what is left of Smoke Charge). */
 	public static final float PUFF_RADIUS = 3f;
 	public static final int PUFF_BLIND = 40;
@@ -297,8 +324,8 @@ public final class GreyMatterKit extends AlienKit {
 	private static final Map<UUID, Mark> MARKS = new ConcurrentHashMap<>();
 	/** player -> their snares. */
 	private static final Map<UUID, List<Trap>> TRAPS = new ConcurrentHashMap<>();
-	/** v0.17.2: player -> their Gizmo Turret. */
-	private static final Map<UUID, Turret> TURRETS = new ConcurrentHashMap<>();
+	/** v0.17.2 round 3: player -> their Galvan Sentry. */
+	private static final Map<UUID, GreyMatterSentryEntity> SENTRIES = new ConcurrentHashMap<>();
 	/** v0.17.2: player -> the Inside Job he is on. */
 	private static final Map<UUID, Inside> INSIDE = new ConcurrentHashMap<>();
 	/** v0.17.2: a marked boss -> when its last strike was foreseen. */
@@ -316,21 +343,6 @@ public final class GreyMatterKit extends AlienKit {
 	}
 
 	private record Lamp(ResourceKey<Level> dim, BlockPos pos, long until) {
-	}
-
-	private static final class Turret {
-		final ResourceKey<Level> dim;
-		final Vec3 at;
-		final long until;
-		float hp = TURRET_HP;
-		@Nullable
-		AlienProjectileEntity model;
-
-		Turret(ResourceKey<Level> dim, Vec3 at, long until) {
-			this.dim = dim;
-			this.at = at;
-			this.until = until;
-		}
 	}
 
 	private static final class Inside {
@@ -360,6 +372,8 @@ public final class GreyMatterKit extends AlienKit {
 
 	public static void register() {
 		Aliens.register(new GreyMatterKit());
+		GreyMatterMechEntity.register();
+		GreyMatterSentryEntity.register();
 		// Analyze's mark: a marked creature takes more from every source (re-issued behind a guard, the OmnitrixDamage pattern)
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
 			if (REENTRANT.get() || amount <= 0f || MARKS.isEmpty() || entity.level().isClientSide()) {
@@ -406,13 +420,18 @@ public final class GreyMatterKit extends AlienKit {
 			if (p != null && INSIDE.containsKey(p.getUUID())) {
 				endInside(p, false);
 			}
+			// v0.17.2 round 3: likewise out of the mech (it is never saved)
+			GreyMatterMechEntity m = p == null ? null : GreyMatterMechEntity.mechOf(p);
+			if (m != null) {
+				endMech(p, m);
+			}
 		});
 	}
 
 	public static void clearSessionState() {
 		MARKS.clear();
 		TRAPS.clear();
-		TURRETS.clear();
+		SENTRIES.clear();
 		INSIDE.clear();
 		FORESEEN.clear();
 		LAMPS.clear();
@@ -441,17 +460,11 @@ public final class GreyMatterKit extends AlienKit {
 		return t == null ? 0 : t.size();
 	}
 
-	/** v0.17.2: the HP his Gizmo Turret has left (0 = none standing). */
-	public static float turretHp(ServerPlayer p) {
-		Turret t = TURRETS.get(p.getUUID());
-		return t == null ? 0f : t.hp;
-	}
-
-	/** v0.17.2: his Gizmo Turret's model entity, or null. */
+	/** v0.17.2 round 3: his standing Galvan Sentry, or null. */
 	@Nullable
-	public static AlienProjectileEntity turretModel(ServerPlayer p) {
-		Turret t = TURRETS.get(p.getUUID());
-		return t == null ? null : t.model;
+	public static GreyMatterSentryEntity sentry(ServerPlayer p) {
+		GreyMatterSentryEntity s = SENTRIES.get(p.getUUID());
+		return s == null || s.isRemoved() || !s.isAlive() ? null : s;
 	}
 
 	/** v0.17.2: is he inside a creature (Inside Job) right now? Server side. */
@@ -480,13 +493,25 @@ public final class GreyMatterKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(NERVE_PINCH, AbilitySlot.SLOT_1, 120), AlienMove.shift(WEAK_SPOT, AbilitySlot.SLOT_1, 100),
-				AlienMove.tap(ANALYZE, AbilitySlot.SLOT_2, 200), AlienMove.shift(TURRET, AbilitySlot.SLOT_2, 300), // v0.17.2: Gizmo Turret 15 s (was Decoy)
+				AlienMove.tap(ANALYZE, AbilitySlot.SLOT_2, 200), AlienMove.shift(INSIDE_JOB, AbilitySlot.SLOT_2, 600), // v0.17.2 round 3: Inside Job 30 s, moved from Shift+Z
 				AlienMove.tap(BIG_LEAP, AbilitySlot.SLOT_3, 30), AlienMove.shift(SCURRY, AbilitySlot.SLOT_3, 240),
-				AlienMove.tap(SNARE, AbilitySlot.SLOT_4, 160), AlienMove.shift(INSIDE_JOB, AbilitySlot.SLOT_4, 600), // v0.17.2: Inside Job 30 s (was Smoke Charge)
+				// v0.17.2 round 3 (user: "Z ... 20 second cooldown" / "Shift+Z ... 50 second cooldown"); the Gizmo Turret folded into the
+				// Sentry, freeing Shift+G for Inside Job; Snare Trap had no key left and went to Sneak + Use
+				AlienMove.tap(SENTRY, AbilitySlot.SLOT_4, SENTRY_COOLDOWN), AlienMove.shift(MECH, AbilitySlot.SLOT_4, MECH_COOLDOWN),
 				AlienMove.tap(WORKSHOP, AbilitySlot.SLOT_5, 20), AlienMove.shift(REWIRE, AbilitySlot.SLOT_5, 100), // v0.17.2: Rewire 5 s (spawners 30 s)
 				AlienMove.tap(REPAIR_MOVE, AbilitySlot.SLOT_6, 600), AlienMove.shift(MIND_MAP, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(QUICK_READ, "Use on a creature", 10),
-				AlienMove.vanilla(SHOULDER_RIDE, "Use on a player", 0));
+				AlienMove.vanilla(SHOULDER_RIDE, "Use on a player", 0), AlienMove.vanilla(SNARE, "Sneak + Use on a block", 160),
+				AlienMove.vanilla(MECH_PUNCH, "R in the Block Mech", MECH_PUNCH_COOLDOWN), AlienMove.vanilla(MECH_SLAM, "Shift+R in the Block Mech", MECH_SLAM_COOLDOWN));
+	}
+
+	/** v0.17.2 round 3: in the Block Mech, R and Shift+R are the mech's arms (the HUD's boxes follow). */
+	@Override
+	public AlienMove liveMoveOn(Player p, AbilitySlot slot, boolean shift, boolean hold) {
+		if (slot == AbilitySlot.SLOT_1 && flag(p, F_MECH)) {
+			return move(shift ? MECH_SLAM : MECH_PUNCH);
+		}
+		return super.liveMoveOn(p, slot, shift, hold);
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -505,14 +530,18 @@ public final class GreyMatterKit extends AlienKit {
 		if (INSIDE.containsKey(p.getUUID())) {
 			endInside(p, false);
 		}
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p); // v0.17.2 round 3: out of the mech likewise
+		if (mech != null) {
+			endMech(p, mech);
+		}
 		OmnitrixRiding.endRides(p); // v0.17.2: off the shoulder
 		setFlag(p, F_LEFT_SHOULDER, false);
 		UUID me = p.getUUID();
 		MARKS.values().removeIf(m -> m.owner().equals(me));
 		TRAPS.remove(me);
-		Turret t = TURRETS.remove(me);
-		if (t != null && t.model != null) {
-			t.model.discard();
+		GreyMatterSentryEntity sentry = SENTRIES.remove(me);
+		if (sentry != null) {
+			sentry.discard();
 		}
 		List<Lamp> lamps = LAMPS.remove(me);
 		if (lamps != null) {
@@ -528,7 +557,7 @@ public final class GreyMatterKit extends AlienKit {
 		if (wb != null && !wb.isVisible() && wb.getDuration() <= 60) {
 			p.removeEffect(MobEffects.WATER_BREATHING); // only the Amphibian's own short, hidden one
 		}
-		setFlag(p, F_LEAP | F_SCURRY | F_INSIDE | F_CLIMB, false);
+		setFlag(p, F_LEAP | F_SCURRY | F_INSIDE | F_CLIMB | F_MECH, false);
 		if (timer(p, "scurry_end") > 0) {
 			setTimer(p, "scurry_end", 0);
 		}
@@ -593,7 +622,8 @@ public final class GreyMatterKit extends AlienKit {
 				}
 			}
 		}
-		tickTurret(p, l, now);
+		tickSentry(p, l, now);
+		tickMech(p, l, now);
 		tickForesight(p, l, now);
 		tickLamps(p, now);
 	}
@@ -619,9 +649,19 @@ public final class GreyMatterKit extends AlienKit {
 		if (timer(p, SWAT_END) > p.level().getGameTime()) {
 			return; // v0.17.2 Swatted: still seeing stars
 		}
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
+		if (mech != null && !mech.active() && !(slot == AbilitySlot.SLOT_4 && shift)) {
+			return; // v0.17.2 round 3: it is still going together round him
+		}
 		switch (slot) {
 			case SLOT_1 -> {
-				if (shift) {
+				if (mech != null) {
+					if (shift) {
+						mechSlam(p);
+					} else {
+						mechPunch(p, null);
+					}
+				} else if (shift) {
 					weakSpot(p);
 				} else {
 					nervePinch(p);
@@ -629,13 +669,15 @@ public final class GreyMatterKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					gizmoTurret(p);
+					insideJob(p);
 				} else {
 					analyze(p);
 				}
 			}
 			case SLOT_3 -> {
-				if (shift) {
+				if (mech != null) {
+					mechJets(p, shift);
+				} else if (shift) {
 					scurry(p);
 				} else {
 					bigLeap(p);
@@ -643,9 +685,9 @@ public final class GreyMatterKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					insideJob(p);
+					blockMech(p);
 				} else {
-					snare(p);
+					galvanSentry(p);
 				}
 			}
 			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
@@ -814,41 +856,66 @@ public final class GreyMatterKit extends AlienKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+G Gizmo Turret
+	// ---------------------------------------------------------------- v0.17.2 round 3: Z Galvan Sentry
+
+	/** The block he is looking at within {@code range}, or null. */
+	@Nullable
+	private static BlockHitResult blockInView(ServerPlayer p, double range) {
+		Vec3 eye = p.getEyePosition();
+		BlockHitResult hit = p.level().clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(range)), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, p));
+		return hit.getType() == HitResult.Type.BLOCK && !p.level().getBlockState(hit.getBlockPos()).isAir() ? hit : null;
+	}
+
+	/** Where something of {@code type}'s size stands on the block {@code hit} struck: on top of it, else beside the struck face; null if neither has room. */
+	@Nullable
+	private static Vec3 standOn(ServerLevel l, BlockHitResult hit, EntityType<?> type) {
+		BlockPos pos = hit.getBlockPos();
+		BlockState st = l.getBlockState(pos);
+		var shape = st.getCollisionShape(l, pos);
+		Vec3 top = new Vec3(pos.getX() + 0.5, pos.getY() + (shape.isEmpty() ? 0.0 : shape.max(net.minecraft.core.Direction.Axis.Y)), pos.getZ() + 0.5);
+		Vec3 beside = ground(l, hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.6)));
+		for (Vec3 c : new Vec3[] { top, beside }) {
+			if (l.noCollision(type.getDimensions().makeBoundingBox(c))) {
+				return c;
+			}
+		}
+		return null;
+	}
 
 	/**
-	 * Shift+G (v0.17.2, the Decoy folded in): builds a fist-sized turret from pocket scraps where you look (6 blocks). It beeps and
-	 * blinks, so mobs within 10 go after it, and it darts the nearest foe (the creature you analysed first) for 2, twice a second,
-	 * for 10 s. 6 HP: what reaches it can break it.
+	 * Z (v0.17.2 round 3, user: "when he presses Z on a block it he builds a different kind of turret on it please, make it kinda
+	 * powerful, 20 second cooldown, make the turret last 15 seconds"; the Gizmo Turret's taunt folded in): on the block he looks at (8
+	 * blocks) he bolts together a tripod gun, armoured in that block. It locks the creature he analysed first, else the nearest foe
+	 * within 20 in sight: 8 a shot, one every 0.3 s. Mobs within 10 go for it instead of him. 60 HP; his own side cannot break it.
 	 */
-	public boolean gizmoTurret(ServerPlayer p) {
-		if (!use(p, TURRET)) {
+	public boolean galvanSentry(ServerPlayer p) {
+		if (cooldownLeft(p, SENTRY) > 0) {
+			return use(p, SENTRY);
+		}
+		ServerLevel l = level(p);
+		BlockHitResult hit = blockInView(p, SENTRY_PLACE);
+		Vec3 at = hit == null ? null : standOn(l, hit, GreyMatterSentryEntity.TYPE);
+		if (at == null) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.grey_matter.no_block").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
+		use(p, SENTRY);
 		anim(p, ANIM_TURRET);
-		ServerLevel l = level(p);
-		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		BlockHitResult hit = l.clip(new ClipContext(eye, eye.add(look.scale(TURRET_PLACE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-		Vec3 at = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().subtract(look.scale(0.3)) : eye.add(look.scale(TURRET_PLACE));
-		at = ground(l, at);
-		Turret old = TURRETS.remove(p.getUUID());
-		if (old != null && old.model != null) {
-			old.model.discard();
+		GreyMatterSentryEntity old = SENTRIES.remove(p.getUUID());
+		if (old != null) {
+			old.discard();
 		}
 		long now = l.getGameTime();
-		Turret t = new Turret(l.dimension(), at, now + TURRET_TICKS);
-		AlienProjectileEntity model = AlienProjectileEntity.of(p, "grey_matter_turret").colour(COLOUR).size(0.5f).life(TURRET_TICKS + 40).held(true);
-		model.moveTo(at.x, at.y, at.z, p.getYRot(), 0f);
-		model.direction(new Vec3(0, 1, 0));
-		model.speed(0.0);
-		model.spawn();
-		model.setDeltaMovement(Vec3.ZERO);
-		t.model = model;
-		TURRETS.put(p.getUUID(), t);
+		GreyMatterSentryEntity s = GreyMatterSentryEntity.TYPE.create(l);
+		s.moveTo(at.x, at.y, at.z, p.getYRot(), 0f);
+		s.setYBodyRot(p.getYRot());
+		s.bind(p.getUUID(), l.getBlockState(hit.getBlockPos()), now + SENTRY_TICKS);
+		l.addFreshEntity(s);
+		SENTRIES.put(p.getUUID(), s);
 		QuirkFx.ribbon(l, p.position().add(0, p.getBbHeight() * 0.6, 0), at.add(0, 0.2, 0)).colours(0xFFFFFF, 0x8A9AA8).size(0.04f).life(6).spawn();
-		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, 0xF04030).size(1.2f).thickness(0.12f).life(12).ground().spawn();
-		OmnitrixSounds.play(l, at, GADGET, 1.0f, 1.3f);
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, 0xF04030).size(1.4f).thickness(0.14f).life(12).ground().spawn();
+		l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, s.material()), at.x, at.y + 0.3, at.z, 24, 0.25, 0.2, 0.25, 0.1);
+		OmnitrixSounds.play(l, at, GADGET, 1.0f, 0.9f);
 		return true;
 	}
 
@@ -858,72 +925,62 @@ public final class GreyMatterKit extends AlienKit {
 		return down.getType() == HitResult.Type.BLOCK ? down.getLocation() : at;
 	}
 
-	private void tickTurret(ServerPlayer p, ServerLevel l, long now) {
-		Turret t = TURRETS.get(p.getUUID());
-		if (t == null) {
+	private void tickSentry(ServerPlayer p, ServerLevel l, long now) {
+		GreyMatterSentryEntity s = SENTRIES.get(p.getUUID());
+		if (s == null) {
 			return;
 		}
-		if (now >= t.until || t.dim != l.dimension() || t.hp <= 0f || t.model == null || t.model.isRemoved()) {
-			breakTurret(p, l, t, t.hp <= 0f);
+		if (s.isRemoved() || !s.isAlive() || s.level() != l || now >= s.until) {
+			endSentry(p, s, s.isDeadOrDying());
 			return;
 		}
-		Vec3 top = t.at.add(0, 0.3, 0);
-		if (now % 10 == 0) {
-			OmnitrixSounds.play(l, t.at, DECOY_SOUND, 1.0f, (now / 10) % 2 == 0 ? 1.15f : 0.9f);
+		if (s.tickCount < GreyMatterSentryEntity.DEPLOY_TICKS) {
+			return;
 		}
-		// the lure (the old Decoy): what hunts him, and anything hostile with nothing better to do, goes for the beeping box
+		Vec3 head = s.headPos();
+		// the lure (once the Decoy, then the Gizmo Turret): what hunts him, and anything hostile with nothing better to do, goes for the gun
 		if (now % 5 == 0) {
-			for (Mob m : l.getEntitiesOfClass(Mob.class, new AABB(t.at, t.at).inflate(TURRET_TAUNT),
-					m -> m.isAlive() && !AlienStatus.isBoss(m) && (m instanceof Enemy || m.getTarget() == p) && !OmnitrixRiding.partners(p, m)
+			for (Mob m : l.getEntitiesOfClass(Mob.class, new AABB(head, head).inflate(SENTRY_TAUNT),
+					m -> m != s && m.isAlive() && !AlienStatus.isBoss(m) && (m instanceof Enemy || m.getTarget() == p) && !OmnitrixRiding.partners(p, m)
 							&& !com.projecthero.mod.squad.Squads.areAllies(p, m))) {
-				if (m.distanceToSqr(t.at) > TURRET_TAUNT * TURRET_TAUNT) {
-					continue;
-				}
-				if (m.getTarget() == p) {
-					AlienStatus.loseTrack(m, p);
-				}
-				if (m.getTarget() == null) {
-					if (m.distanceToSqr(t.at) > 1.6 * 1.6) {
-						m.getNavigation().moveTo(t.at.x, t.at.y, t.at.z, 1.1);
-					} else if (now % 20 == 0) {
-						// it reached the turret: it bashes it
-						m.swing(InteractionHand.MAIN_HAND);
-						double dmg = m.getAttributes().hasAttribute(Attributes.ATTACK_DAMAGE) ? m.getAttributeValue(Attributes.ATTACK_DAMAGE) : 2.0;
-						t.hp -= (float) Math.max(1.0, dmg);
-						l.sendParticles(ParticleTypes.ELECTRIC_SPARK, top.x, top.y, top.z, 4, 0.1, 0.1, 0.1, 0.05);
-						l.playSound(null, top.x, top.y, top.z, SoundEvents.COPPER_HIT, SoundSource.PLAYERS, 0.6f, 1.6f);
-					}
-					m.getLookControl().setLookAt(t.at);
+				if (m.distanceToSqr(head) <= SENTRY_TAUNT * SENTRY_TAUNT && (m.getTarget() == null || m.getTarget() == p)) {
+					m.setTarget(s);
 				}
 			}
 		}
-		// the darts
-		if ((now - (t.until - TURRET_TICKS)) % TURRET_SHOT_GAP == 0) {
-			LivingEntity foe = turretTarget(p, l, top);
-			if (foe != null) {
-				Vec3 aim = foe.position().add(0, foe.getBbHeight() * 0.55, 0);
-				Vec3 d = aim.subtract(top);
-				t.model.setYRot((float) (Mth.atan2(d.z, d.x) * Mth.RAD_TO_DEG) - 90f);
-				hurt(p, foe, TURRET_DAMAGE, false);
-				QuirkFx.ribbon(l, top, aim).colours(0xFFFFFF, 0xB0B8C0).size(0.025f).life(3).spawn();
-				OmnitrixSounds.play(l, top, DART, 1.0f, 1.0f);
-			}
+		LivingEntity foe = sentryTarget(p, l, s);
+		s.target(foe);
+		long age = s.tickCount - GreyMatterSentryEntity.DEPLOY_TICKS;
+		if (foe == null || age % SENTRY_SHOT_GAP != 0) {
+			return;
 		}
+		Vec3 aim = foe.position().add(0, foe.getBbHeight() * 0.55, 0);
+		Vec3 dir = aim.subtract(head).normalize();
+		Vec3 side = new Vec3(-dir.z, 0, dir.x);
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 muzzle = head.add(dir.scale(0.62)).add(side.scale(s.shotLeft() ? 0.09 : -0.09));
+		s.shot();
+		hurt(p, foe, SENTRY_DAMAGE, false);
+		QuirkFx.ribbon(l, muzzle, aim).colours(0xFFF4C0, 0xFF9A30).size(0.05f).life(3).spawn();
+		l.sendParticles(ParticleTypes.CRIT, aim.x, aim.y, aim.z, 3, 0.12, 0.12, 0.12, 0.15);
+		l.sendParticles(ParticleTypes.SMOKE, muzzle.x, muzzle.y, muzzle.z, 1, 0.02, 0.02, 0.02, 0.01);
+		OmnitrixSounds.play(l, head, SENTRY_SHOT, 1.0f, 0.95f + l.random.nextFloat() * 0.1f);
 	}
 
-	/** The turret's target: the creature he analysed if it is in range and in sight, else the nearest foe in range and in sight. */
+	/** The Sentry's target: the creature he analysed if it is in range and sight, else the nearest foe in range and sight. Never a player. */
 	@Nullable
-	private static LivingEntity turretTarget(ServerPlayer p, ServerLevel l, Vec3 top) {
+	private static LivingEntity sentryTarget(ServerPlayer p, ServerLevel l, GreyMatterSentryEntity s) {
+		Vec3 top = s.headPos();
 		LivingEntity best = null;
 		double bestD = Double.MAX_VALUE;
 		boolean bestMarked = false;
-		for (LivingEntity e : around(p, top, TURRET_RANGE)) {
-			if (e.distanceToSqr(top) > TURRET_RANGE * TURRET_RANGE || e instanceof Player) {
+		for (LivingEntity e : around(p, top, SENTRY_RANGE)) {
+			if (e.distanceToSqr(top) > SENTRY_RANGE * SENTRY_RANGE || e instanceof Player || e == s || e instanceof GreyMatterMechEntity) {
 				continue;
 			}
 			Mark mk = MARKS.get(e.getUUID());
 			boolean mine = mk != null && mk.owner().equals(p.getUUID()) && mk.until() > l.getGameTime();
-			boolean foe = mine || e instanceof Enemy || e instanceof Mob m && m.getTarget() == p;
+			boolean foe = mine || e instanceof Enemy || e instanceof Mob m && (m.getTarget() == p || m.getTarget() == s);
 			if (!foe) {
 				continue;
 			}
@@ -942,16 +999,225 @@ public final class GreyMatterKit extends AlienKit {
 		return best;
 	}
 
-	private void breakTurret(ServerPlayer p, ServerLevel l, Turret t, boolean smashed) {
-		TURRETS.remove(p.getUUID());
-		if (t.model != null) {
-			t.model.discard();
+	private void endSentry(ServerPlayer p, GreyMatterSentryEntity s, boolean smashed) {
+		SENTRIES.remove(p.getUUID());
+		Vec3 c = s.position().add(0, 0.5, 0);
+		if (s.level() == p.level()) {
+			ServerLevel l = level(p);
+			QuirkFx.blast(l, c).colours(0xFFFFFF, 0x8A9AA8).size(smashed ? 1.1f : 0.6f).life(7).flags(QuirkFx.F_NO_RING).spawn();
+			l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, s.material()), c.x, c.y, c.z, 30, 0.25, 0.3, 0.25, 0.12);
+			OmnitrixSounds.play(l, c, GADGET, 0.8f, smashed ? 0.6f : 0.9f);
 		}
-		if (t.dim == l.dimension()) {
-			QuirkFx.blast(l, t.at.add(0, 0.25, 0)).colours(0xFFFFFF, 0x8A9AA8).size(smashed ? 0.7f : 0.45f).life(6).flags(QuirkFx.F_NO_RING).spawn();
-			l.sendParticles(ParticleTypes.POOF, t.at.x, t.at.y + 0.2, t.at.z, 4, 0.1, 0.1, 0.1, 0.02);
-			OmnitrixSounds.play(l, t.at, GADGET, 0.7f, smashed ? 0.6f : 0.9f);
+		s.discard();
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 round 3: Shift+Z Block Mech
+
+	/** He is sitting in a Block Mech right now. Both sides. */
+	public static boolean piloting(Player p) {
+		return GreyMatterMechEntity.mechOf(p) != null;
+	}
+
+	/**
+	 * Shift+Z (v0.17.2 round 3, user: "he builds a 1.5 block tall mech that he rides inside and uses to fight, the mech lasts 30
+	 * seconds or until it dies(make the hp based on the block its made from), 50 second cooldown, when player rides this mech the mech
+	 * takes all damage and player takes none"): out of the block he looks at (6 blocks; the block itself stays) he builds a mech
+	 * in its material and climbs in. Its health is 30 + 20 x the block's hardness, at most 300. Pressed again: he climbs out.
+	 */
+	public boolean blockMech(ServerPlayer p) {
+		GreyMatterMechEntity cur = GreyMatterMechEntity.mechOf(p);
+		if (cur != null) {
+			endMech(p, cur);
+			return true;
 		}
+		if (cooldownLeft(p, MECH) > 0) {
+			return use(p, MECH);
+		}
+		ServerLevel l = level(p);
+		BlockHitResult hit = blockInView(p, MECH_PLACE);
+		Vec3 at = hit == null ? null : standOn(l, hit, GreyMatterMechEntity.TYPE);
+		if (at == null) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.grey_matter.no_block").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		BlockState block = l.getBlockState(hit.getBlockPos());
+		hopOff(p);
+		if (p.isPassenger()) {
+			p.stopRiding();
+		}
+		long now = l.getGameTime();
+		float hp = GreyMatterMechEntity.hpFor(block, l, hit.getBlockPos());
+		GreyMatterMechEntity m = GreyMatterMechEntity.TYPE.create(l);
+		m.moveTo(at.x, at.y, at.z, p.getYRot(), 0f);
+		m.setYBodyRot(p.getYRot());
+		m.setYHeadRot(p.getYRot());
+		m.bind(p, block, hp, now + GreyMatterMechEntity.ASSEMBLE_TICKS + MECH_TICKS);
+		l.addFreshEntity(m);
+		if (!p.startRiding(m, true)) {
+			m.discard();
+			return false;
+		}
+		use(p, MECH);
+		anim(p, ANIM_MECH_BUILD);
+		setFlag(p, F_MECH, true);
+		p.resetFallDistance();
+		l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, block), at.x, at.y + 0.5, at.z, 50, 0.35, 0.4, 0.35, 0.15);
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xFFFFFF, 0x5AB8F0).size(1.8f).thickness(0.16f).life(18).ground().spawn();
+		OmnitrixSounds.play(l, at, MECH_BUILD, 1.0f, 1.0f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.grey_matter.mech_built", block.getBlock().getName(), Math.round(hp)).withStyle(ChatFormatting.AQUA),
+				true);
+		return true;
+	}
+
+	private void tickMech(ServerPlayer p, ServerLevel l, long now) {
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		if (m == null) {
+			if (flag(p, F_MECH)) {
+				setFlag(p, F_MECH, false); // it died or he was pulled out
+			}
+			return;
+		}
+		p.resetFallDistance();
+		if (now >= m.endAt()) {
+			endMech(p, m);
+			return;
+		}
+		if (m.slamAt > 0 && now >= m.slamAt) {
+			m.slamAt = 0;
+			slamLands(p, l, m);
+		}
+		// what hunts him hunts the machine he is sitting in: it is the thing they can reach
+		if (now % 10 == 0) {
+			for (Mob e : l.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(24), e -> e.getTarget() == p)) {
+				e.setTarget(m);
+			}
+		}
+		if (m.getHealth() < m.getMaxHealth() * 0.3f && now % 4 == 0) {
+			l.sendParticles(ParticleTypes.LARGE_SMOKE, m.getX(), m.getY() + 1.2, m.getZ(), 1, 0.2, 0.1, 0.2, 0.01);
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, m.getX(), m.getY() + 1.0, m.getZ(), 2, 0.3, 0.3, 0.3, 0.05);
+		}
+	}
+
+	/** Out of the mech unharmed, and it falls to pieces (the time ran out, he climbed out, or he turned back). */
+	static void endMech(ServerPlayer p, GreyMatterMechEntity m) {
+		Vec3 at = m.position();
+		if (p.getVehicle() == m) {
+			p.stopRiding();
+		}
+		p.teleportTo(at.x, at.y, at.z);
+		p.setDeltaMovement(0, 0.25, 0);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		if (Aliens.kit(ID) instanceof GreyMatterKit k) {
+			k.setFlag(p, F_MECH, false);
+		}
+		m.collapse();
+		ServerLevel l = level(p);
+		l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, m.material()), at.x, at.y + 0.7, at.z, 24, 0.3, 0.4, 0.3, 0.1);
+		OmnitrixSounds.play(l, at, GADGET, 0.8f, 0.7f);
+	}
+
+	/** From the mech's own {@code die}: out of the wreck unharmed, in a burst of its block. */
+	static void mechDestroyed(GreyMatterMechEntity m) {
+		ServerLevel l = (ServerLevel) m.level();
+		Vec3 c = m.position().add(0, 0.8, 0);
+		if (m.getControllingPassenger() instanceof ServerPlayer p) {
+			p.stopRiding();
+			p.teleportTo(m.getX(), m.getY(), m.getZ());
+			p.setDeltaMovement(0, 0.4, 0);
+			p.hurtMarked = true;
+			p.resetFallDistance();
+			if (Aliens.kit(ID) instanceof GreyMatterKit k) {
+				k.setFlag(p, F_MECH, false);
+			}
+		}
+		l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, m.material()), c.x, c.y, c.z, 80, 0.4, 0.5, 0.4, 0.2);
+		QuirkFx.blast(l, c).colours(0xFFFFFF, 0x8A9AA8).size(1.4f).life(8).flags(QuirkFx.F_NO_RING).spawn();
+		OmnitrixSounds.play(l, c, MECH_SLAM_SOUND, 1.0f, 1.2f);
+	}
+
+	/** R in the mech (and Attack): a piston punch, the fists taking turns -- {@code t}, or what he is looking at, or what is right in front. */
+	public boolean mechPunch(ServerPlayer p, @Nullable LivingEntity t) {
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		if (m == null || !m.active() || !use(p, MECH_PUNCH)) {
+			return false;
+		}
+		ServerLevel l = level(p);
+		anim(p, ANIM_LEVER_PUNCH);
+		m.act(m.leftNext ? GreyMatterMechEntity.ACT_PUNCH_L : GreyMatterMechEntity.ACT_PUNCH_R);
+		m.leftNext = !m.leftNext;
+		if (t == null) {
+			t = lookTarget(p, MECH_REACH);
+		}
+		if (t == null) {
+			Vec3 f = Vec3.directionFromRotation(0f, p.getYRot());
+			Vec3 reach = m.position().add(0, 0.8, 0).add(f.scale(1.3));
+			double bestD = Double.MAX_VALUE;
+			for (LivingEntity e : around(p, reach, 1.5)) {
+				double d = e.distanceToSqr(reach);
+				if (d < bestD && !(e instanceof GreyMatterSentryEntity)) {
+					bestD = d;
+					t = e;
+				}
+			}
+		}
+		OmnitrixSounds.play(l, m.position(), MECH_PUNCH_SOUND, 1.0f, 1.0f);
+		if (t == null) {
+			return true; // a swing at nothing still costs the beat
+		}
+		hurt(p, t, MECH_PUNCH_DAMAGE, false);
+		shove(t, m.position(), 0.9, 0.3);
+		Vec3 c = t.position().add(0, t.getBbHeight() * 0.55, 0);
+		QuirkFx.blast(l, c).colours(0xFFFFFF, 0xC8D0D8).size(0.7f).life(5).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
+		l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, m.material()), c.x, c.y, c.z, 8, 0.15, 0.15, 0.15, 0.1);
+		QuirkThreat.add(t, p, 2f);
+		return true;
+	}
+
+	/** Shift+R in the mech: both fists up and down into the ground ({@value #MECH_SLAM_DELAY} ticks later). */
+	public boolean mechSlam(ServerPlayer p) {
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		if (m == null || !m.active() || !use(p, MECH_SLAM)) {
+			return false;
+		}
+		anim(p, ANIM_LEVER_SLAM);
+		m.act(GreyMatterMechEntity.ACT_SLAM);
+		m.slamAt = p.level().getGameTime() + MECH_SLAM_DELAY;
+		return true;
+	}
+
+	private void slamLands(ServerPlayer p, ServerLevel l, GreyMatterMechEntity m) {
+		Vec3 c = m.position().add(0, 0.05, 0);
+		for (LivingEntity e : around(p, m.position(), MECH_SLAM_RADIUS)) {
+			if (e instanceof GreyMatterSentryEntity) {
+				continue;
+			}
+			hurt(p, e, MECH_SLAM_DAMAGE, false);
+			shove(e, m.position(), 1.0, 0.55);
+			QuirkThreat.add(e, p, 2f);
+		}
+		QuirkFx.ring(l, c).colours(0xFFFFFF, 0x8A9AA8).size((float) MECH_SLAM_RADIUS).thickness(0.4f).life(10).ground().spawn();
+		for (int i = 0; i < 16; i++) {
+			double a = i * Math.PI / 8;
+			l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, l.getBlockState(m.blockPosition().below())), c.x + Math.cos(a) * 1.6, c.y + 0.1,
+					c.z + Math.sin(a) * 1.6, 4, 0.2, 0.05, 0.2, 0.15);
+		}
+		OmnitrixSounds.play(l, c, MECH_SLAM_SOUND, 1.0f, 1.0f);
+	}
+
+	/** X / Shift+X in the mech: the back jets kick it up and on (Big Leap's and Scurry's own cooldowns), or a long skimming dash. */
+	private void mechJets(ServerPlayer p, boolean dash) {
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		if (m == null || !use(p, dash ? SCURRY : BIG_LEAP)) {
+			return;
+		}
+		ServerLevel l = level(p);
+		anim(p, ANIM_LEVER_JET);
+		m.act(GreyMatterMechEntity.ACT_HOP);
+		Vec3 f = Vec3.directionFromRotation(0f, p.getYRot());
+		m.impulse(dash ? new Vec3(f.x * 1.5, 0.2, f.z * 1.5) : new Vec3(f.x * 0.7, 0.8, f.z * 0.7));
+		l.sendParticles(ParticleTypes.POOF, m.getX(), m.getY() + 0.1, m.getZ(), 8, 0.25, 0.05, 0.25, 0.03);
+		OmnitrixSounds.play(l, m.position(), MECH_JET, 1.0f, 1.0f);
 	}
 
 	// ---------------------------------------------------------------- X / Shift+X
@@ -1009,15 +1275,20 @@ public final class GreyMatterKit extends AlienKit {
 		return true;
 	}
 
-	/** Z: quick-crafts a tripwire snare on the ground just ahead (at most three; a fourth replaces the oldest). */
+	/** Sneak + Use (v0.17.2 round 3; was Z): quick-crafts a tripwire snare on the ground just ahead (at most three; a fourth replaces the oldest). */
 	public boolean snare(ServerPlayer p) {
+		Vec3 f = new Vec3(p.getLookAngle().x, 0, p.getLookAngle().z).normalize();
+		return snare(p, p.position().add(f.scale(1.2)).add(0, 0.6, 0));
+	}
+
+	/** The snare at the ground under {@code spot}. */
+	private boolean snare(ServerPlayer p, Vec3 spot) {
 		if (!use(p, SNARE)) {
 			return false;
 		}
 		anim(p, ANIM_TRAP);
 		ServerLevel l = level(p);
-		Vec3 f = new Vec3(p.getLookAngle().x, 0, p.getLookAngle().z).normalize();
-		Vec3 at = ground(l, p.position().add(f.scale(1.2)).add(0, 0.6, 0));
+		Vec3 at = ground(l, spot);
 		List<Trap> list = TRAPS.computeIfAbsent(p.getUUID(), k -> new CopyOnWriteArrayList<>());
 		while (list.size() >= MAX_TRAPS) {
 			list.remove(0);
@@ -1030,7 +1301,7 @@ public final class GreyMatterKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Shift+Z Inside Job
+	// ---------------------------------------------------------------- Shift+G Inside Job
 
 	/**
 	 * Whether {@code e} is a machine to Inside Job (it is rewired, not thrashed): iron golems, the Sentinels, Ultron's robots, and
@@ -1051,7 +1322,7 @@ public final class GreyMatterKit extends AlienKit {
 	}
 
 	/**
-	 * Shift+Z ULTIMATE (v0.17.2, replaces Smoke Charge; the show's "crawling inside machines to rewire them"): leap at a creature
+	 * Shift+G ULTIMATE (v0.17.2, replaces Smoke Charge; the show's "crawling inside machines to rewire them"): leap at a creature
 	 * within 6 and climb inside (ear, vent, armour seam). For 3 s he is gone and it thrashes -- 6 every 0.5 s that ignores armour --
 	 * then he pops out of the far side and it is stunned 2 s. A machine is rewired instead: x1.5 damage and shut down 5 s (a boss
 	 * 2 s). Creatures only, never players (v0.17.2 default for the doc's open question GM1). He rides inside it ({@code
@@ -1066,7 +1337,7 @@ public final class GreyMatterKit extends AlienKit {
 		if (t == null) {
 			return false;
 		}
-		if (!(t instanceof Mob) || !t.isAlive()) {
+		if (!(t instanceof Mob) || !t.isAlive() || t instanceof GreyMatterSentryEntity || t instanceof GreyMatterMechEntity || piloting(p)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.grey_matter.not_a_creature").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
@@ -1254,6 +1525,16 @@ public final class GreyMatterKit extends AlienKit {
 			return use(p, REPAIR_MOVE);
 		}
 		ServerLevel l = level(p);
+		// v0.17.2 round 3: in the mech he patches the mech (30% of its health)
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
+		if (mech != null) {
+			use(p, REPAIR_MOVE);
+			anim(p, ANIM_REPAIR);
+			mech.heal(mech.getMaxHealth() * MECH_REPAIR_FRACTION);
+			sparks(l, mech.position().add(0, 1.0, 0));
+			OmnitrixSounds.play(l, mech.position(), REPAIR, 1.0f, 1.0f);
+			return true;
+		}
 		BlockHitResult hit = l.clip(new ClipContext(p.getEyePosition(), p.getEyePosition().add(p.getLookAngle().scale(4.5)), ClipContext.Block.OUTLINE,
 				ClipContext.Fluid.NONE, p));
 		boolean fixed = false;
@@ -1417,6 +1698,12 @@ public final class GreyMatterKit extends AlienKit {
 		if (INSIDE.containsKey(p.getUUID())) {
 			return true; // no punching from inside
 		}
+		if (piloting(p)) {
+			if (target instanceof LivingEntity le) {
+				mechPunch(p, le); // v0.17.2 round 3: the fist that lands is the mech's
+			}
+			return true;
+		}
 		if (target instanceof LivingEntity le) {
 			anim(p, ANIM_JAB);
 			if (marked(le)) {
@@ -1427,6 +1714,15 @@ public final class GreyMatterKit extends AlienKit {
 			}
 		}
 		return false;
+	}
+
+	/** v0.17.2 round 3: Sneak + Use with an empty hand on a block: a Snare Trap there (Z went to the Galvan Sentry). */
+	@Override
+	public InteractionResult onUseBlock(ServerPlayer p, InteractionHand hand, BlockHitResult hit) {
+		if (hand != InteractionHand.MAIN_HAND || !p.isShiftKeyDown() || !p.getMainHandItem().isEmpty() || piloting(p) || INSIDE.containsKey(p.getUUID())) {
+			return InteractionResult.PASS;
+		}
+		return snare(p, hit.getLocation().add(0, 0.2, 0)) ? InteractionResult.SUCCESS : InteractionResult.PASS;
 	}
 
 	@Override
@@ -1449,6 +1745,12 @@ public final class GreyMatterKit extends AlienKit {
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		if (INSIDE.containsKey(p.getUUID())) {
 			return false; // v0.17.2 Inside Job: nothing reaches him in there (the void and /kill still do: OmnitrixDamage)
+		}
+		// v0.17.2 round 3 (user: "when player rides this mech the mech takes all damage and player takes none")
+		GreyMatterMechEntity mech = GreyMatterMechEntity.mechOf(p);
+		if (mech != null) {
+			mech.hurt(source, amount);
+			return false;
 		}
 		return !(flag(p, F_LEAP) && source.is(DamageTypeTags.IS_FALL));
 	}

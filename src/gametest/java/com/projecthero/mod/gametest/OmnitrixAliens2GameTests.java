@@ -6,6 +6,8 @@ import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit;
+import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterMechEntity;
+import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterSentryEntity;
 import com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit;
 import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
 import com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit;
@@ -371,7 +373,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		kit.incomingDamage(p, helper.getLevel().damageSources().magic(), 9f);
 		helper.assertTrue(!p.getAbilities().flying && !p.getAbilities().mayfly && kit.flag(p, StinkflyKit.F_CLIPPED),
 				"a big hit clips his wings (flying " + p.getAbilities().flying + ", mayfly " + p.getAbilities().mayfly + ", clipped "
-						+ kit.flag(p, StinkflyKit.F_CLIPPED) + ", creative " + p.isCreative() + ")");
+			+ kit.flag(p, StinkflyKit.F_CLIPPED) + ", creative " + p.isCreative() + ")");
 		var n = Omnitrix.state(p).copy();
 		n.timers.remove(kit.key(StinkflyKit.FLIGHT));
 		Omnitrix.save(p, n);
@@ -456,7 +458,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 				helper.assertTrue(!p.hasEffect(MobEffects.DOLPHINS_GRACE) && !p.hasEffect(MobEffects.CONDUIT_POWER), "no water buffs left behind");
 				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1.01 && p.getAttributeValue(Attributes.WATER_MOVEMENT_EFFICIENCY) < 0.01,
-						"no wet-fist or swim modifiers left behind");
+			"no wet-fist or swim modifiers left behind");
 				helper.assertTrue(Omnitrix.state(p).readyAt(kit.key("dry_base")) == 0, "the meter is gone");
 				helper.succeed();
 			});
@@ -653,7 +655,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 					"healed a quarter of the damage dealt, capped at 8");
 			if (weakAlive[0]) {
 				helper.assertTrue(RipjawsKit.dryness(p, helper.getLevel().getGameTime()) < 1200 - RipjawsKit.MEGA_KILL_REFILL + 60,
-						"the kill gave back 30 s of hydration (" + RipjawsKit.dryness(p, helper.getLevel().getGameTime()) + ")");
+			"the kill gave back 30 s of hydration (" + RipjawsKit.dryness(p, helper.getLevel().getGameTime()) + ")");
 			}
 			z.discard();
 			behind.discard();
@@ -849,8 +851,10 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		near(helper, z.getHealth(), b - 10f * GreyMatterKit.MARK_FACTOR, "a marked creature takes 35% more from anyone");
 		// v0.17.2: on a marked creature the Weak-Spot Strike comes to 24 once the mark's x1.35 is on it
 		near(helper, GreyMatterKit.strikeDamage(z) * GreyMatterKit.MARK_FACTOR, GreyMatterKit.STRIKE_MARKED_DAMAGE, "a marked weak spot takes 24");
-		// v0.17.2 revamp: Shift+G is the Gizmo Turret (was Decoy)
-		helper.assertTrue(kit.gizmoTurret(p) && GreyMatterKit.turretHp(p) == GreyMatterKit.TURRET_HP && !kit.gizmoTurret(p), "Gizmo Turret, then cools down");
+		// v0.17.2 round 3: Z builds the Galvan Sentry on the block he looks at (down at his feet here), then cools down
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 60f);
+		helper.assertTrue(kit.galvanSentry(p) && GreyMatterKit.sentry(p) != null && !kit.galvanSentry(p), "Galvan Sentry, then cools down");
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
 		// v0.17.2: Scurry opens with the smoke puff (what is left of Smoke Charge): blinds within 3, no damage
 		float bs = z.getHealth();
 		helper.assertTrue(kit.scurry(p) && kit.flag(p, GreyMatterKit.F_SCURRY) && !kit.scurry(p), "Scurry, then cools down");
@@ -884,7 +888,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 			helper.assertTrue(GreyMatterKit.traps(p) == 0 && rooted(z), "the snare caught it");
 			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 			helper.assertFalse(GreyMatterKit.marked(z), "turning back clears his marks");
-			helper.assertTrue(GreyMatterKit.turretHp(p) == 0f, "and takes his turret down");
+			helper.assertTrue(GreyMatterKit.sentry(p) == null, "and takes his sentry down");
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED)) < 1.0e-6,
 					"no scurry speed left behind");
 			z.discard();
@@ -976,27 +980,116 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		});
 	}
 
-	/** Shift+G Gizmo Turret: darts the analysed creature first, 2 a shot, twice a second; gone when he turns back. */
+	/** Z Galvan Sentry: built on the block looked at, in its material, shoots the analysed creature first at 8 a shot; gone when he turns back. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void greyMatterGizmoTurretDartsTheAnalysedFoeFirst(GameTestHelper helper) {
+	public void greyMatterSentryShootsTheAnalysedFoeFirst(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, GreyMatterKit.ID);
 		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
 		Zombie near = zombie(helper, 2.5, 2, 6.0, 100f);
 		Zombie far = zombie(helper, 5.5, 2, 2.5, 100f);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
-		helper.assertTrue(kit.gizmoTurret(p) && GreyMatterKit.turretModel(p) != null, "a turret goes up");
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 70f);
+		helper.assertTrue(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, false, false).id().equals(GreyMatterKit.SENTRY), "Z is the Sentry");
+		helper.assertTrue(kit.move(GreyMatterKit.SENTRY).cooldown() == 400 && GreyMatterKit.SENTRY_TICKS == 300, "20 s cooldown, 15 s long");
+		helper.assertTrue(kit.galvanSentry(p), "a sentry goes up on the block he looks at");
+		var sentry = GreyMatterKit.sentry(p);
+		helper.assertTrue(sentry != null && sentry.material().isSolid(), "built from that block");
 		GreyMatterKit.mark(p, far, 200);
 		pump(helper, p);
-		helper.runAfterDelay(25, () -> {
+		helper.runAfterDelay(GreyMatterSentryEntity.DEPLOY_TICKS + 16, () -> {
 			helper.assertTrue(near.getHealth() == 100f, "the nearer zombie is left alone: " + near.getHealth());
 			float lost = 100f - far.getHealth();
-			helper.assertTrue(lost >= 2f * GreyMatterKit.TURRET_DAMAGE * GreyMatterKit.MARK_FACTOR - 0.05f, "the analysed one is darted (x1.35 marked): " + lost);
-			var model = GreyMatterKit.turretModel(p);
+			helper.assertTrue(lost >= 2f * GreyMatterKit.SENTRY_DAMAGE * GreyMatterKit.MARK_FACTOR - 0.05f, "the analysed one is shot (x1.35 marked): " + lost);
+			float hp = sentry.getHealth();
+			sentry.hurt(com.projecthero.mod.omnitrix.OmnitrixDamage.alienStrike(p), 10f);
+			helper.assertTrue(sentry.getHealth() == hp, "his own side cannot break it");
 			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
-			helper.assertTrue(GreyMatterKit.turretHp(p) == 0f && model.isRemoved(), "the turret goes with him");
+			helper.assertTrue(GreyMatterKit.sentry(p) == null && sentry.isRemoved(), "the sentry goes with him");
 			near.discard();
 			far.discard();
+			helper.succeed();
+		});
+	}
+
+	/** The Block Mech's HP comes from its block's hardness, 30 + 20 x hardness, at most 300. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 20)
+	public void greyMatterMechHpFollowsTheBlock(GameTestHelper helper) {
+		var l = helper.getLevel();
+		BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.DIRT.defaultBlockState(), l, at), 40f, "dirt");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.STONE.defaultBlockState(), l, at), 60f, "stone");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.OAK_PLANKS.defaultBlockState(), l, at), 70f, "planks");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.IRON_BLOCK.defaultBlockState(), l, at), 130f, "iron");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.OBSIDIAN.defaultBlockState(), l, at), 300f, "obsidian hits the cap");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.BEDROCK.defaultBlockState(), l, at), 300f, "unbreakable is the cap");
+		near(helper, GreyMatterMechEntity.hpFor(Blocks.TORCH.defaultBlockState(), l, at), 30f, "nothing is under the base");
+		helper.succeed();
+	}
+
+	/** Shift+Z Block Mech: 1.5 tall, he rides it, it takes the hit and he takes none, it ends after 30 s or at 0 HP, and he is set down unhurt. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void greyMatterMechTakesAllDamageAndFights(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		BlockPos stone = helper.absolutePos(new BlockPos(3, 1, 3));
+		helper.getLevel().setBlock(stone, Blocks.IRON_BLOCK.defaultBlockState(), 3);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 80f);
+		helper.assertTrue(kit.move(GreyMatterKit.MECH).cooldown() == 1000 && GreyMatterKit.MECH_TICKS == 600, "50 s cooldown, 30 s long");
+		helper.assertTrue(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, true, false).id().equals(GreyMatterKit.MECH), "Shift+Z is the mech");
+		helper.assertTrue(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, true, false).id().equals(GreyMatterKit.INSIDE_JOB), "Inside Job moved to Shift+G");
+		helper.assertTrue(kit.blockMech(p), "the mech goes up");
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		helper.assertTrue(m != null && kit.flag(p, GreyMatterKit.F_MECH), "he is riding it");
+		near(helper, m.getBbHeight(), 1.5f, "1.5 blocks tall");
+		near(helper, m.getMaxHealth(), GreyMatterMechEntity.hpFor(m.material(), helper.getLevel(), m.blockPosition()), "HP from its block");
+		helper.assertTrue(p.getVehicle() == m && m.getControllingPassenger() == p, "and steers it");
+		helper.assertTrue(kit.liveMoveOn(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false, false).id().equals(GreyMatterKit.MECH_PUNCH), "R is the mech's fist");
+		Zombie z = zombie(helper, 3.0, 2, 3.0, 100f);
+		pump(helper, p);
+		helper.runAfterDelay(GreyMatterMechEntity.ASSEMBLE_TICKS + 2, () -> {
+			helper.assertTrue(m.active(), "built");
+			float hp = p.getHealth(), mech = m.getHealth();
+			m.invulnerableTime = 0;
+			p.hurt(helper.getLevel().damageSources().magic(), 9f);
+			near(helper, p.getHealth(), hp, "the pilot takes nothing");
+			near(helper, m.getHealth(), mech - 9f, "the mech takes it all");
+			float before = z.getHealth();
+			helper.assertTrue(kit.mechPunch(p, z), "a punch");
+			near(helper, z.getHealth(), before - GreyMatterKit.MECH_PUNCH_DAMAGE, "the piston punch lands 15");
+			helper.assertFalse(kit.mechPunch(p, z), "the fist has a beat");
+			m.invulnerableTime = 0;
+			m.hurt(helper.getLevel().damageSources().magic(), 100000f);
+			helper.assertTrue(p.getVehicle() == null && GreyMatterMechEntity.mechOf(p) == null, "at 0 HP he is out");
+			near(helper, p.getHealth(), hp, "unhurt");
+			helper.runAfterDelay(3, () -> {
+				helper.assertFalse(kit.flag(p, GreyMatterKit.F_MECH), "the flag clears");
+				helper.assertTrue(kit.cooldownLeft(p, GreyMatterKit.MECH) > 0, "and the cooldown runs");
+				z.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	/** Shift+Z again climbs out, and the mech falls apart; turning back does the same. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void greyMatterClimbsOutOfTheMech(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, GreyMatterKit.ID);
+		GreyMatterKit kit = (GreyMatterKit) Aliens.kit(GreyMatterKit.ID);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 80f);
+		helper.assertTrue(kit.blockMech(p), "up");
+		GreyMatterMechEntity m = GreyMatterMechEntity.mechOf(p);
+		helper.assertTrue(m != null, "riding");
+		helper.assertTrue(kit.blockMech(p) && p.getVehicle() == null && m.state() == GreyMatterMechEntity.STATE_COLLAPSING, "pressed again he climbs out and it falls apart");
+		pump(helper, p);
+		helper.runAfterDelay(GreyMatterMechEntity.COLLAPSE_TICKS + 4, () -> {
+			helper.assertTrue(m.isRemoved(), "gone");
+			kit.cooldown(p, GreyMatterKit.MECH, 0);
+			helper.assertTrue(kit.blockMech(p), "up again");
+			GreyMatterMechEntity m2 = GreyMatterMechEntity.mechOf(p);
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			helper.assertTrue(p.getVehicle() == null && m2.state() == GreyMatterMechEntity.STATE_COLLAPSING, "turning back puts him out");
 			helper.succeed();
 		});
 	}

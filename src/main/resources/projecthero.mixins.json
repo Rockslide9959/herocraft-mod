@@ -81,6 +81,7 @@
 		"OmnitrixPhaseMoveCheckMixin",
 		"OmnitrixGhostfreakFadeMixin",
 		"GreyMatterKnockbackMixin",
+		"GreyMatterMechSeatMixin",
 		"GreyMatterAnvilMixin",
 		"GreyMatterEnchantMixin",
 		"OmnitrixAlienLivingMixin",
