@@ -159,6 +159,11 @@ public final class OmnitrixClient {
 	public static boolean onUseAir() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
+		// v0.17.2 round 3 (user: "make player able to eat in ball form"): food or a drink in the off hand of a body with no hands is
+		// still eaten, not swallowed by the kit's right-click
+		if (p != null && com.projecthero.mod.omnitrix.alien.AlienKit.pawsOnlyNow(p) && com.projecthero.mod.omnitrix.alien.AlienKit.pawsCanUse(p.getOffhandItem())) {
+			return false;
+		}
 		if (p == null || !Omnitrix.transformed(p) || !p.getMainHandItem().isEmpty()
 				|| (mc.hitResult != null && mc.hitResult.getType() != net.minecraft.world.phys.HitResult.Type.MISS)) {
 			return false;

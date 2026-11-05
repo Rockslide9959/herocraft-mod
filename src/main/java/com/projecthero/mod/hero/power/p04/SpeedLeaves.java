@@ -43,6 +43,10 @@ public final class SpeedLeaves {
 				&& (com.projecthero.mod.omnitrix.Omnitrix.state(player).kitFlags & com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.F_SPEED) != 0) {
 			return true;
 		}
+		// v0.17.2 round 3 (user: "when in ball form player can roll through leaves like a speedster")
+		if (com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltKit.rolling(player)) {
+			return true;
+		}
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null || !st.ownedPowers.contains(SuperSpeedHandlers.KEY)) {
 			return false;

@@ -10978,55 +10978,101 @@
   "_comment_recal_0172_end": "",
   "_comment_omnitrix_cannonbolt_start": "v0.17.2 Omnitrix: Cannonbolt",
   "projecthero.omnitrix.alien.cannonbolt": "Cannonbolt",
-  "projecthero.guide.omnitrix.alien.cannonbolt": "An Arburian Pelarota: a huge, slow, top-heavy brute with his face on his chest and a shell of gold plates on his back, shoulders and arms. Press V to curl into a near-indestructible ball and every key changes: he rolls faster the longer he keeps rolling (25 blocks a second at a sprint), rams whatever he rolls into, ricochets off walls like a pinball, bounces, rolls up ledges up to 4 blocks high and lets arrows glance off -- but rolled up he cannot punch or use tools or blocks, and he must uncurl to fight with his fists. He is not on the dial at first: the prototype finds him by accident -- every 11th mistransform (11th, 22nd, 33rd...) finds one hidden alien, picked at random from those not found yet -- and from then on you can dial him.",
+  "projecthero.guide.omnitrix.alien.cannonbolt": "An Arburian Pelarota: a huge, slow, top-heavy brute, 2 blocks tall with no head at all, his face on his chest and a shell of gold plates on his back, shoulders and arms. Press V to curl into a near-indestructible 2-block ball: R, G, X and V become rolling moves, Z, Shift+Z, C and Shift+C stay the same, and you go 10 blocks a second, building to 25 over 3 seconds of sprinting. Ramming does 10 to 20 by your Momentum. Hold C to wind up on the spot, then let go with W held to shoot off at full speed. Rolled up you roll through leaves and up 4-block ledges, and up to 2 squad mates can climb inside you. Hold Shift+V standing to block. Shift+Z is your ultimate.",
   "message.projecthero.omnitrix.cannonbolt.no_room": "No room to uncurl here.",
+
+  "message.projecthero.omnitrix.cannonbolt.no_targets": "No enemies near your level within 50 blocks.",
+
+
+  "message.projecthero.omnitrix.cannonbolt.full": "Two inside already: this ball is full.",
+
+
+
+  "message.projecthero.omnitrix.cannonbolt.inside": "You're inside %s. You get out when he uncurls.",
+
+
+
+
+  "message.projecthero.omnitrix.cannonbolt.carrying": "%s climbed inside you.",
   "projecthero.omnitrix.cannonbolt.shoulder_bash": "Shoulder Bash",
   "projecthero.omnitrix.cannonbolt.shoulder_bash.desc": "Lunge behind your shoulder plate: 14 to everything just in front of you, knocked back.",
   "projecthero.omnitrix.cannonbolt.shell_slam": "Shell Slam",
   "projecthero.omnitrix.cannonbolt.shell_slam.desc": "Topple forward onto your shell: 20 to everything in a 2.5-block patch ahead, slowed for 2 s.",
   "projecthero.omnitrix.cannonbolt.curl_smash": "Curl Smash",
-  "projecthero.omnitrix.cannonbolt.curl_smash.desc": "Jump, curl up in the air and drop like a wrecking ball: 22 to everything within 3.5 blocks of where you land. No fall damage.",
+  "projecthero.omnitrix.cannonbolt.curl_smash.desc": "Jump, curl up in the air and drop like a wrecking ball: 20 to everything within 3.5 blocks of where you land. No fall damage.",
   "projecthero.omnitrix.cannonbolt.shell_guard": "Shell Guard",
-  "projecthero.omnitrix.cannonbolt.shell_guard.desc": "Turn your shoulder plates to the front for 3 s: blows from in front lose 75% and projectiles bounce back where you look. You move slowly.",
+  "projecthero.omnitrix.cannonbolt.shell_guard.desc": "Hold to block, standing: your shoulder plates turn to the front, blows from in front lose 75% and projectiles bounce back where you look. You move slowly. Lasts as long as you hold it; 4 s cooldown after.",
   "projecthero.omnitrix.cannonbolt.tumble_roll": "Tumble Roll",
-  "projecthero.omnitrix.cannonbolt.tumble_roll.desc": "A quick curl-and-roll dodge about 6 blocks the way you face: 9 to whatever you bowl through, and half damage while curled.",
+  "projecthero.omnitrix.cannonbolt.tumble_roll.desc": "A quick curl-and-roll dodge about 6 blocks the way you face: 8 to whatever you bowl through, and half damage while curled.",
   "projecthero.omnitrix.cannonbolt.ground_pound": "Ground Pound",
   "projecthero.omnitrix.cannonbolt.ground_pound.desc": "Both fists into the ground: 16 to everything within 4 blocks, thrown into the air.",
   "projecthero.omnitrix.cannonbolt.curl_up": "Curl Up",
-  "projecthero.omnitrix.cannonbolt.curl_up.desc": "Curl into your ball (Ball Mode): every key changes to a rolling move, you become a 1.75-block ball and roll faster the longer you keep rolling, up to 25 blocks a second at a sprint. Press V again to uncurl (you need room to stand).",
+  "projecthero.omnitrix.cannonbolt.curl_up.desc": "Curl into your ball (Ball Mode): R, G, X and V change to rolling moves and you become a 2-block ball. You go 10 blocks a second, building to 25 over 3 s of sprinting. Press V again to uncurl.",
   "projecthero.omnitrix.cannonbolt.cannonball_launch": "Cannonball Launch",
-  "projecthero.omnitrix.cannonbolt.cannonball_launch.desc": "Ultimate: curl and fire yourself where you look like a cannonball -- 26 to everything in the way, glass, leaves and light wood burst. You land rolled up, in Ball Mode.",
+  "projecthero.omnitrix.cannonbolt.cannonball_launch.desc": "Curl and fire yourself where you look like a cannonball: 20 to everything in the way, glass and light wood burst. You land rolled up, in Ball Mode.",
+
+  "projecthero.omnitrix.cannonbolt.spin_charge": "Spin Charge",
+
+
+  "projecthero.omnitrix.cannonbolt.spin_charge.desc": "Hold, in either form: curl up and spin on the spot, winding up to full Momentum in 1.5 s. WASD does nothing while you do. Let go with W held to shoot forward at what you wound up, 25 blocks a second at full.",
+
+
+
+  "projecthero.omnitrix.cannonbolt.rebound_strike": "Rebound Strike",
+
+
+
+
+  "projecthero.omnitrix.cannonbolt.rebound_strike.desc": "Curl and fire yourself at what you aim at, within 24 blocks: you rebound off it and come straight back, three hits for 12, 12 and 17. With nothing to aim at you rebound off the first thing you meet. You stay rolled up.",
+
+
+
+
+
+  "projecthero.omnitrix.cannonbolt.unstoppable_cannonball": "Unstoppable Cannonball",
+
+
+
+
+
+
+  "projecthero.omnitrix.cannonbolt.unstoppable_cannonball.desc": "Ultimate: rise up spinning for 1.5 s as your shell's spikes come out, dragging everything within 12 blocks in. Then 8 s at full speed: 30 a ram, 80% less damage, no knockback, glass and light wood burst. Then, or on a second Shift+Z, you shoot up and crash down: 36 to everything within 9 blocks.",
   "projecthero.omnitrix.cannonbolt.pelarota_fists": "Pelarota Fists",
   "projecthero.omnitrix.cannonbolt.pelarota_fists.desc": "Standing, your punches are heavy (+9 damage).",
   "projecthero.omnitrix.cannonbolt.shell_back": "Shell Back",
   "projecthero.omnitrix.cannonbolt.shell_back.desc": "Standing, the plates on your back take 40% off hits from behind.",
   "projecthero.omnitrix.cannonbolt.cannonball_charge": "Cannonball Charge",
-  "projecthero.omnitrix.cannonbolt.cannonball_charge.desc": "Burst forward in a straight line where you face: 20 to everything in the way, glass, leaves and light wood burst, and you stop dead against a wall.",
-  "projecthero.omnitrix.cannonbolt.pinball_ricochet": "Pinball Ricochet",
-  "projecthero.omnitrix.cannonbolt.pinball_ricochet.desc": "Shoot off where you face and bounce off every wall and creature you hit, faster after every bounce (6 bounces or 5 s): 16 per hit.",
-  "projecthero.omnitrix.cannonbolt.big_bounce": "Big Bounce",
+  "projecthero.omnitrix.cannonbolt.cannonball_charge.desc": "Burst forward in a straight line where you face: 20 to everything in the way, glass and light wood burst, and you stop dead against a wall.",
+
+  "projecthero.omnitrix.cannonbolt.rolling_rampage": "Rolling Rampage",
+
+  "projecthero.omnitrix.cannonbolt.rolling_rampage.desc": "Lock on to the 20 nearest enemies within 50 blocks and about your level, and roll from one to the next at top speed: 20 each. You stay where the last one fell. The 20 s cooldown starts when you finish.",  "projecthero.omnitrix.cannonbolt.big_bounce": "Big Bounce",
   "projecthero.omnitrix.cannonbolt.big_bounce.desc": "Bounce about 8 blocks up; the landing hits 18 to everything within 4 blocks.",
   "projecthero.omnitrix.cannonbolt.meteor_drop": "Meteor Drop",
-  "projecthero.omnitrix.cannonbolt.meteor_drop.desc": "Shoot high into the air, then straight down like a meteor: 28 to everything within 5 blocks and a quake.",
+  "projecthero.omnitrix.cannonbolt.meteor_drop.desc": "Shoot high into the air, then straight down like a meteor: 20 to everything within 5 blocks and a quake.",
   "projecthero.omnitrix.cannonbolt.roll_boost": "Roll Boost",
-  "projecthero.omnitrix.cannonbolt.roll_boost.desc": "5 s at top speed: your Momentum is full at once and, unless you are sprinting, you roll even faster.",
+  "projecthero.omnitrix.cannonbolt.roll_boost.desc": "5 s at top speed: your Momentum is held full, sprinting or not.",
   "projecthero.omnitrix.cannonbolt.shell_spin": "Shell Spin",
   "projecthero.omnitrix.cannonbolt.shell_spin.desc": "Spin on the spot for 2 s: 8 to everything within 3 blocks every 0.4 s, and projectiles are flung away.",
   "projecthero.omnitrix.cannonbolt.uncurl": "Uncurl",
-  "projecthero.omnitrix.cannonbolt.uncurl.desc": "Uncurl and stand up (you need room to stand).",
-  "projecthero.omnitrix.cannonbolt.unstoppable": "Unstoppable",
-  "projecthero.omnitrix.cannonbolt.unstoppable.desc": "Ultimate: 8 s as an unstoppable cannonball -- Momentum full, faster still unless you are sprinting, 80% less damage, no knockback, and every ram does 24 and bursts glass, leaves and light wood.",
-  "projecthero.omnitrix.cannonbolt.ram": "Ram",
-  "projecthero.omnitrix.cannonbolt.ram.desc": "Rolling fast, you hurt whatever you roll into: 12 to 20 by your speed, knocked flying.",
+  "projecthero.omnitrix.cannonbolt.uncurl.desc": "Uncurl and stand up (you need room to stand).",  "projecthero.omnitrix.cannonbolt.ram": "Ram",
+  "projecthero.omnitrix.cannonbolt.ram.desc": "Rolling into something hurts it: 10 at no Momentum up to 20 at full, and it is knocked flying.",
   "projecthero.omnitrix.cannonbolt.armoured_shell": "Armoured Shell",
-  "projecthero.omnitrix.cannonbolt.armoured_shell.desc": "Rolled up, you take half damage, arrows and other projectiles glance off, and falls never hurt: a long one bounces you back up a few times. You cannot punch or use tools or blocks, but you can eat and drink.",
+  "projecthero.omnitrix.cannonbolt.armoured_shell.desc": "Rolled up, you take half damage, arrows and other projectiles glance off, and falls never hurt: a long one bounces you back up a few times. You cannot punch or use tools or blocks, but you can eat and drink, and eating does not slow the roll.",
   "projecthero.omnitrix.cannonbolt.wall_roll": "Ledge Roll",
-  "projecthero.omnitrix.cannonbolt.wall_roll.desc": "Rolled up, you roll straight up ledges and steps up to 4 blocks high (the ball can't climb walls).",
+  "projecthero.omnitrix.cannonbolt.wall_roll.desc": "Rolled up, you roll straight up ledges and steps up to 4 blocks high and through leaves (the ball can't climb walls).",
+
+  "projecthero.omnitrix.cannonbolt.shell_shuttle": "Shell Shuttle",
+
+
+  "projecthero.omnitrix.cannonbolt.shell_shuttle.desc": "Up to 2 squad mates can right-click your ball to climb inside. They are hidden and safe in there, and carried wherever you roll. They get out when you uncurl, dizzy with Nausea.",
   "projecthero.omnitrix.info.cannonbolt.role": "Living cannonball: a slow brute standing, a rolling wrecking ball curled up (V).",
-  "projecthero.omnitrix.info.cannonbolt.passive.1": "Ball Mode: half damage, projectiles glance off and falls never hurt (a long one bounces him back up a few times).",
-  "projecthero.omnitrix.info.cannonbolt.passive.2": "Momentum: the longer he rolls, the faster he goes (25 blocks a second at a sprint), and rolling into creatures rams them (12 to 20).",
-  "projecthero.omnitrix.info.cannonbolt.passive.3": "Ball Mode rolls up ledges up to 4 blocks high; standing, his back plates take 40% off hits from behind.",
+  "projecthero.omnitrix.info.cannonbolt.passive.1": "Ball Mode: a 2-block ball with half damage; projectiles glance off and falls never hurt (a long one bounces him back up a few times).",
+  "projecthero.omnitrix.info.cannonbolt.passive.2": "Momentum: 10 blocks a second, 25 after 3 s of sprinting, and ledges, air time and turns cost none of it. Rams hit for 10 to 20 by Momentum.",
+  "projecthero.omnitrix.info.cannonbolt.passive.3": "Ball Mode rolls up ledges up to 4 blocks high and through leaves; standing, his back plates take 40% off hits from behind.",
   "projecthero.omnitrix.info.cannonbolt.passive.4": "Sprint Launch: a sprint jump in Ball Mode fires him forward in a long, low arc; he lands with 12 to everything within 2.5 blocks and rolls straight on.",
+
+  "projecthero.omnitrix.info.cannonbolt.passive.5": "Shell Shuttle: up to 2 squad mates can right-click the ball to ride hidden inside. They get out when he uncurls, with Nausea.",
   "projecthero.omnitrix.info.cannonbolt.weakness.1": "Slow and clumsy standing up, and a big target (x1.3 size).",
   "projecthero.omnitrix.info.cannonbolt.weakness.2": "Rolled up he cannot punch or use tools or blocks (he can still eat and drink), and needs room to uncurl.",
   "message.projecthero.omnitrix.found": "The Omnitrix glitched into a new alien: %s! He is on your dial now.",

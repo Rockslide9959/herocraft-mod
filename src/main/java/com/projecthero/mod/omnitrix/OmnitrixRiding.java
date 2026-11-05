@@ -235,6 +235,10 @@ public final class OmnitrixRiding {
 		if (hand != InteractionHand.MAIN_HAND || clicker.isShiftKeyDown()) {
 			return InteractionResult.PASS;
 		}
+		// v0.17.2 round 3: a squad mate climbs inside Cannonbolt's ball
+		if (com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltStow.climbIn(clicker, host)) {
+			return InteractionResult.SUCCESS;
+		}
 		if (isWildmutt(host)) {
 			return mountWildmutt(clicker, host) ? InteractionResult.SUCCESS : InteractionResult.PASS;
 		}
