@@ -82,6 +82,10 @@ public class OmnitrixUpchuckGameTests implements FabricGameTest {
 		p.setShiftKeyDown(false);
 	}
 
+	private static void hold(ServerPlayer p, AbilitySlot slot) {
+		AbilityRouter.handleInput(p, slot.number(), true);
+	}
+
 	private static Zombie zombie(GameTestHelper helper, double x, double y, double z) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.HARD, true);
 		Zombie m = EntityType.ZOMBIE.create(helper.getLevel());
@@ -233,14 +237,52 @@ public class OmnitrixUpchuckGameTests implements FabricGameTest {
 		helper.assertTrue(UpchuckKit.gut(p) == 5, "too hungry: a free Slime Spit");
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4),
 				e -> e.kind().equals("upchuck_slime_spit")).size() == 1, "a Slime Spit flies");
-		// the ultimate: 40 at least, then all of it
+		// the ultimate, on Shift+Z (user: "make gobble the c ability and mega loogie shift+Z"): 40 at least, then all of it, after his heave
 		kit().fill(p, 30, 0);
-		tap(p, AbilitySlot.SLOT_6, false);
+		tap(p, AbilitySlot.SLOT_4, true);
 		helper.assertTrue(kit().cooldownLeft(p, UpchuckKit.MEGA) == 0 && UpchuckKit.gut(p) == 30, "no Mega Loogie under 40");
 		kit().fill(p, 90, 30);
-		tap(p, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(kit().cooldownLeft(p, UpchuckKit.MEGA) > 0 && UpchuckKit.gut(p) == 0 && UpchuckKit.rich(p) == 0, "the Mega Loogie empties him");
+		tap(p, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(kit().cooldownLeft(p, UpchuckKit.MEGA) > 0 && UpchuckKit.gut(p) == 90, "Shift+Z starts the heave, the Gut still in him");
+		helper.runAfterDelay(UpchuckKit.MEGA_WINDUP + 2, () -> {
+			helper.assertTrue(UpchuckKit.gut(p) == 0 && UpchuckKit.rich(p) == 0, "the Mega Loogie empties him");
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(12),
+					e -> e.kind().equals("upchuck_mega")).size() == 1, "and it flies");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 (user: "make gobble the c ability and mega loogie shift+Z"): the keys are swapped; Devour and the Frenzy stay. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void gobbleIsOnCAndMegaLoogieOnShiftZ(GameTestHelper helper) {
+		AlienKit k = kit();
+		helper.assertTrue(UpchuckKit.GOBBLE.equals(k.moveOn(AbilitySlot.SLOT_6, false, false).id()), "C is Gobble");
+		helper.assertTrue(UpchuckKit.MEGA.equals(k.moveOn(AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is the Mega Loogie");
+		helper.assertTrue(UpchuckKit.DEVOUR.equals(k.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z stays Devour");
+		helper.assertTrue(UpchuckKit.FRENZY.equals(k.moveOn(AbilitySlot.SLOT_6, true, false).id()), "Shift+C stays the Feeding Frenzy");
 		helper.succeed();
+	}
+
+	/** v0.17.2 (user: "upgrade his abilities vfx and models please"): a bomb that lands leaves its explosion and a splat, synced, gone again. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aLoogieLeavesAnExplosionAndASplatThenTheyGo(GameTestHelper helper) {
+		ServerPlayer p = upchuck(helper);
+		lookAt(p, helper.absoluteVec(new Vec3(3.5, 2.0, 4.5)));
+		kit().fill(p, 100, 0);
+		tap(p, AbilitySlot.SLOT_1, false);
+		boolean[] seen = new boolean[2];
+		helper.onEachTick(() -> {
+			var all = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, new AABB(p.blockPosition()).inflate(16));
+			seen[0] |= all.stream().anyMatch(e -> e.kind().equals("upchuck_burst") && e.held());
+			seen[1] |= all.stream().anyMatch(e -> e.kind().equals("upchuck_puddle") && e.held());
+		});
+		helper.runAfterDelay(30 + UpchuckKit.SPLAT_TICKS, () -> {
+			helper.assertTrue(seen[0], "an explosion");
+			helper.assertTrue(seen[1], "a splat on the ground");
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, new AABB(p.blockPosition()).inflate(16),
+					e -> e.kind().startsWith("upchuck")).isEmpty(), "both gone again");
+			helper.succeed();
+		});
 	}
 
 	/** A Gut Bomb into a zombie: it lands, it hurts. */
@@ -318,12 +360,35 @@ public class OmnitrixUpchuckGameTests implements FabricGameTest {
 		helper.getLevel().addFreshEntity(arrow);
 		ItemEntity bread = new ItemEntity(helper.getLevel(), at.x + 1, at.y - 0.5, at.z - 1, new ItemStack(Items.BREAD));
 		helper.getLevel().addFreshEntity(bread);
-		tap(p, AbilitySlot.SLOT_4, true);
+		hold(p, AbilitySlot.SLOT_6);
 		helper.assertTrue(kit().flag(p, UpchuckKit.F_GOBBLE), "mouth open");
 		helper.assertFalse(kit().allowDamage(p, p.damageSources().arrow(arrow, null), 4f), "a shot can't hurt him while he gobbles");
-		helper.runAfterDelay(3, () -> {
+		helper.runAfterDelay(1, () -> {
+			helper.assertFalse(arrow.isRemoved() || bread.isRemoved(), "they fly to his mouth, they don't vanish where they are");
+			helper.assertTrue(bread.hasPickUpDelay(), "and he eats it rather than pocketing it");
+		});
+		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(arrow.isRemoved() && bread.isRemoved(), "the arrow and the bread went down");
 			helper.assertTrue(UpchuckKit.gut(p) >= 5 + 5, "both fill his Gut: " + UpchuckKit.gut(p));
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 (user: "remove gobbles time limit and make it last as long as player holds C"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void gobbleLastsExactlyAsLongAsCIsHeld(GameTestHelper helper) {
+		ServerPlayer p = upchuck(helper);
+		AbilityRouter.handleInput(p, AbilitySlot.SLOT_6.number(), true);
+		helper.assertTrue(kit().flag(p, UpchuckKit.F_GOBBLE), "open the moment C goes down");
+		helper.assertTrue(kit().keyActive(p, AbilitySlot.SLOT_6), "C lights");
+		helper.assertTrue(kit().cooldownLeft(p, UpchuckKit.GOBBLE) == 0, "no cooldown while it's open");
+		helper.runAfterDelay(120, () -> {
+			helper.assertTrue(kit().flag(p, UpchuckKit.F_GOBBLE), "still open after 6 s, twice the old limit");
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_6.number(), false);
+			helper.assertFalse(kit().flag(p, UpchuckKit.F_GOBBLE), "shut the moment C comes up");
+			helper.assertTrue(kit().cooldownLeft(p, UpchuckKit.GOBBLE) == 120, "6 s from the release: " + kit().cooldownLeft(p, UpchuckKit.GOBBLE));
+			tap(p, AbilitySlot.SLOT_6, false);
+			helper.assertFalse(kit().flag(p, UpchuckKit.F_GOBBLE), "not again until it's ready");
 			helper.succeed();
 		});
 	}

@@ -44,14 +44,37 @@ Every move aims from his eyes to where he looks, so he fights from the sky. He c
 
 | Key | Move | What it does |
 |---|---|---|
-| R | Titan Fist | A house-sized fist comes down where he looks (up to 200 blocks): 42 damage in 6 blocks, flung away. 2.5 s |
-| Shift+R | Colossal Chop | Both hands brought down edge-first: 36 damage along a 48-block line ahead. 9 s |
-| G (tap / hold) | Cosmic Ray | Arms raised in the cross. Tap for a 1.2 s burst, hold for up to 4 s: 9 burning damage every 4 ticks in the beam, then a 30-damage blast where it strikes. The beam is drawn on the client every frame. 20 s after it stops |
-| X | Giant Stride | A leap that clears a valley; the landing quakes for 30 damage in 10 blocks. 8 s |
-| Z | Quake Stomp | Shockwave ring out to 18 blocks: 34 damage, thrown up, slowed (ground only, not fliers high above). 10 s |
-| Shift+Z | Thunder Clap | A thunderclap down a 40-block cone: 26 damage, blown away, dazed. 12 s |
-| V | Size Shift | Colossal (100 blocks) and Compact (15 blocks). 3 s |
-| C | To'kustar Cyclone | Spins for 5 s: everything within 28 blocks is dragged in and torn at (5 every half second), then flung out for 22. 45 s |
+| R | Titan Fist | A house-sized fist comes down where he looks (up to 220 blocks): 100 damage in 6 blocks, flung away. 2.5 s |
+| Shift+R | Colossal Chop | Both hands brought down edge-first: 90 damage along a 48-block line ahead. 9 s |
+| G (tap / hold) | Cosmic Ray | Arms raised in the cross. Tap for a 1.2 s burst, hold for up to 4 s: 20 burning damage every 4 ticks in the beam, then a 100-damage blast where it strikes. The beam is drawn on the client every frame. 20 s after it stops |
+| X | Giant Stride | A leap that clears a valley; the landing quakes for 70 damage in 10 blocks. 8 s |
+| Z | Quake Stomp | Shockwave ring out to 18 blocks: 85 damage, thrown up, slowed (ground only, not fliers high above). 10 s |
+| Shift+Z | Thunder Clap | A thunderclap down a 40-block cone: 65 damage, blown away, dazed. 12 s |
+| V | Size Shift | Colossal (100 blocks) and Compact (15 blocks), eased over 0.6 s. 3 s |
+| C | To'kustar Cyclone | Spins for 5 s: everything within 28 blocks is dragged in and torn at (15 every half second), then flung out for 100. 45 s |
+
+### Damage (round 3)
+
+User: "way big is a giant a really powerful alien, make his moves stronger since hes huge and really powerful please". He sits well above the
+aliens' normal scale (quick 5-8, normal 12-17, big 17-20, ultimates 21-36): every blow is about another alien's ultimate or more.
+
+| Move | Before | After |
+|---|---|---|
+| Titan Fist | 42 | 100 |
+| Colossal Chop | 36 | 90 |
+| Cosmic Ray (tick / end blast) | 9 / 30 | 20 / 100 |
+| Giant Stride landing | 30 | 70 |
+| Quake Stomp | 34 | 85 |
+| Thunder Clap | 26 | 65 |
+| Cyclone (tick / fling) | 5 / 22 | 15 / 100 |
+
+### Animations (round 3)
+
+Every move has a wind-up, a hit and a recovery, third and first person. Each blow lands on the tick its pose does: fist 6, chop 9, foot 8,
+clap 8 (the stomp and the clap used to hit on the press, before the pose got there). The Stride holds its pose until he lands, then a landing
+pose takes it. The Cyclone turns his whole body (`AlienClientKit.bodySpin`) inside a funnel of six wind bands, and winds down onto a whole
+turn. Size Shift eases along the log of his height, so the shrink reads evenly, with its own pose each way. A hit on the fin makes him clutch
+his head.
 
 ## Passives
 
@@ -61,7 +84,9 @@ Every move aims from his eyes to where he looks, so he fights from the sky. He c
 
 ## Weaknesses
 
-- **Head fin:** a blow from above his shoulders, more than 82% of his height, does double damage.
+- **Head fin:** a blow from above his shoulders does double damage, and he clutches his head (`WayBigKit.finStruck`). It counts when the source, or whoever threw it, is above 82% of his height (82 blocks Colossal, 12.3 Compact), or when a shot or dropped thing falls on him from overhead at 60 degrees or steeper.
+  - The old check read only `DamageSource.getSourcePosition()`. For a shot that is where the arrow is when it hits, and it can only hit his 6-block hitbox, so it never counted, and no melee reaches him from 82 blocks up.
+  - His drawn head has no hitbox of its own: a shot aimed at his head in the air passes through, and a flyer up there can't punch him there. Anything shot from up there lands on his shins and still counts as the fin.
 - He can't use tools or blocks, and is too high up to punch or mine by hand.
 - He's a 100-block target that every mob can see.
 - He isn't on the dial until a **To'kustar Shard** unlocks him. It's the Abyssal Behemoth's guaranteed drop in the Nether. `Aliens.ITEM_ONLY` keeps him out of the mistransform unlock pool.
@@ -69,3 +94,5 @@ Every move aims from his eyes to where he looks, so he fights from the sky. He c
 ## Skin
 
 Every face of the downloaded skin was checked. It paints **no** Omnitrix symbol: the chest is his red stripe, the head stripe is the fin, and the dark bands are his wrists and collar. So nothing was painted out, and the mod's badge sits in the middle of his chest, where the show has it (`WayBigClient.badge()`). Textures come from `scratchpad/ben10_v0171/gen_way_big.js`. The dial icon is a placeholder silhouette until the user's icon art arrives.
+
+Round 3 screenshots: `docs/screenshots/v0172/round3_waybig/`.

@@ -20,6 +20,10 @@ import net.minecraft.util.Mth;
  * of his small feet-and-shins hitbox, the third-person camera pulled back to see all of him, and his poses: the Titan Fist, the
  * two-handed Colossal Chop, the Cosmic Ray's crossed arms (the show's plus sign: the right forearm upright, the left across it),
  * the Quake Stomp, the Thunder Clap, the Giant Stride and the cyclone's spin.
+ *
+ * <p>v0.17.2 (user: "edit and update animations on all moves please"): every move has a wind-up, a blow that lands on the tick the
+ * server's hit does ({@link WayBigKit#FIST_DELAY} and friends) and a recovery, third person and first person; the cyclone turns his whole
+ * body inside a funnel of wind, Size Shift grows and shrinks him smoothly, and a hit on the head fin makes him clutch his head.
  */
 public final class WayBigClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/way_big.png");
@@ -42,7 +46,17 @@ public final class WayBigClient implements AlienClientKit {
 		com.mojang.blaze3d.vertex.VertexConsumer vc = null;
 		float time = mc.level.getGameTime() + partial;
 		for (net.minecraft.world.entity.player.Player pl : mc.level.players()) {
-			if (!WayBigKit.is(pl) || (Omnitrix.state(pl).kitFlags & WayBigKit.F_RAY) == 0) {
+			if (!WayBigKit.is(pl)) {
+				continue;
+			}
+			int flags = Omnitrix.state(pl).kitFlags;
+			if ((flags & WayBigKit.F_CYCLONE) != 0) {
+				if (vc == null) {
+					vc = ctx.consumers().getBuffer(net.minecraft.client.renderer.RenderType.debugQuads());
+				}
+				funnel(vc, m, cam, pl, partial, time);
+			}
+			if ((flags & WayBigKit.F_RAY) == 0) {
 				continue;
 			}
 			float h = WayBigKit.height(pl);
@@ -65,6 +79,29 @@ public final class WayBigClient implements AlienClientKit {
 			// the strike: a flare where it lands, and one at his crossed arms
 			flare(vc, m, cam, to, r * 3.5f * flick, 0.55f, 0.9f, 1.0f, 0.7f);
 			flare(vc, m, cam, from, r * 1.8f * flick, 0.7f, 0.95f, 1.0f, 0.6f);
+		}
+	}
+
+	/** The To'kustar Cyclone: six bands of wind winding up round him, wider the higher they go, gathering as he spins up. */
+	private static void funnel(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, net.minecraft.world.phys.Vec3 cam,
+			net.minecraft.world.entity.player.Player pl, float partial, float time) {
+		float h = WayBigKit.height(pl);
+		float reach = (float) (WayBigKit.CYCLONE_RADIUS * WayBigKit.reachScale(pl));
+		float in = Mth.clamp((time - Omnitrix.state(pl).readyAt(WayBigKit.ID + "." + WayBigKit.CYCLONE_START)) / 14f, 0f, 1f);
+		net.minecraft.world.phys.Vec3 c = pl.getPosition(partial);
+		int steps = 26;
+		for (int band = 0; band < 6; band++) {
+			net.minecraft.world.phys.Vec3 last = null;
+			for (int i = 0; i <= steps; i++) {
+				float s = i / (float) steps;
+				float ang = -time * 0.55f + band * Mth.TWO_PI / 6f + s * 7.5f;
+				float rad = reach * (0.16f + 0.84f * s * s) * in;
+				net.minecraft.world.phys.Vec3 at = c.add(Mth.cos(ang) * rad, h * 0.72f * s, Mth.sin(ang) * rad);
+				if (last != null) {
+					beam(vc, m, cam, last, at, 1.2f + reach * 0.14f * s, 0.86f, 0.95f, 1.0f, 0.42f * in * (1f - 0.4f * s));
+				}
+				last = at;
+			}
 		}
 	}
 
@@ -98,34 +135,103 @@ public final class WayBigClient implements AlienClientKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- poses (QuirkKeyframes: tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX)
-	private static float[] f(float t, float rax, float ray, float raz, float lax, float lay, float laz, float bx, float rlx, float llx) {
-		return QuirkKeyframes.f(t, rax, ray, raz, lax, lay, laz, bx, 0, rlx, 0, 0, llx, 0, 0, 0);
+	// ---------------------------------------------------------------- poses (QuirkKeyframes: tick, rArm xyz, lArm xyz, body xy, rLeg x, lLeg x, head x, crouch)
+	private static float[] g(float t, float rax, float ray, float raz, float lax, float lay, float laz, float bx, float by, float rlx, float llx, float hx,
+			float crouch) {
+		return QuirkKeyframes.fc(t, rax, ray, raz, lax, lay, laz, bx, by, rlx, 0, 0, llx, 0, 0, hx, crouch);
 	}
 
-	private static final float[][] FIST = { QuirkKeyframes.rest(0), f(3, -2.9f, 0, 0.2f, 0.3f, 0, 0, -0.15f, 0, 0), f(6, -1.1f, 0, 0.1f, 0.4f, 0, 0, 0.45f, 0, 0),
-			f(12, -1.0f, 0, 0.1f, 0.3f, 0, 0, 0.4f, 0, 0), QuirkKeyframes.rest(20) };
-	private static final float[][] CHOP = { QuirkKeyframes.rest(0), f(5, -3.0f, 0.3f, 0, -3.0f, -0.3f, 0, -0.25f, 0, 0),
-			f(9, -0.9f, 0.3f, 0, -0.9f, -0.3f, 0, 0.6f, 0, 0), f(16, -0.8f, 0.3f, 0, -0.8f, -0.3f, 0, 0.55f, 0, 0), QuirkKeyframes.rest(24) };
-	/** The Cosmic Ray: the right forearm held upright, the left laid across it -- a plus sign, held while he fires. */
-	private static final float[][] RAY = { QuirkKeyframes.rest(0), f(4, -2.55f, 0.35f, 0, -1.5f, 1.05f, 0, 0.05f, 0, 0),
-			f(400, -2.55f, 0.35f, 0, -1.5f, 1.05f, 0, 0.05f, 0, 0) };
-	private static final float[][] STOMP = { QuirkKeyframes.rest(0), f(5, 0.3f, 0, 0.5f, 0.3f, 0, -0.5f, 0, -1.4f, 0), f(8, 0.3f, 0, 0.6f, 0.3f, 0, -0.6f, 0.15f, 0.2f, 0),
-			QuirkKeyframes.rest(18) };
-	private static final float[][] CLAP = { QuirkKeyframes.rest(0), f(4, -1.4f, -0.9f, 0, -1.4f, 0.9f, 0, -0.1f, 0, 0), f(7, -1.5f, 0.2f, 0, -1.5f, -0.2f, 0, 0.2f, 0, 0),
-			f(12, -1.5f, 0.2f, 0, -1.5f, -0.2f, 0, 0.2f, 0, 0), QuirkKeyframes.rest(20) };
-	private static final float[][] STRIDE = { QuirkKeyframes.rest(0), f(4, 0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.3f, -1.2f, 0.6f),
-			f(30, 0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.2f, -0.9f, 0.6f), QuirkKeyframes.rest(40) };
-	private static final float[][] SHIFT = { QuirkKeyframes.rest(0), f(5, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, -0.2f, 0, 0), QuirkKeyframes.rest(14) };
-	private static final float[][] ROAR = { QuirkKeyframes.rest(0), f(8, -0.5f, 0, 1.3f, -0.5f, 0, -1.3f, -0.3f, 0, 0), f(26, -0.5f, 0, 1.3f, -0.5f, 0, -1.3f, -0.3f, 0, 0),
-			QuirkKeyframes.rest(36) };
+	private static float[] rest(float t) {
+		return QuirkKeyframes.restC(t);
+	}
 
-	private static final FirstPersonClip FP_FIST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -60, 10, 0, 0.1f, 0.4f, 0.1f),
-			FirstPersonClip.f(6, 30, 5, 0, 0.1f, -0.3f, -0.2f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_RAY = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -20, 40, 30, -0.1f, 0.15f, -0.1f),
+	/** Titan Fist: the right fist hauled up behind his head, then driven down and forward, his whole weight behind it. Lands on tick 6. */
+	private static final float[][] FIST = { rest(0), g(3, -3.0f, 0.25f, 0.3f, 0.2f, 0, -0.25f, -0.2f, 0.3f, 0, 0, -0.15f, 0.1f),
+			g(6, -1.15f, -0.1f, 0.05f, 0.55f, 0, -0.3f, 0.5f, -0.25f, 0.25f, -0.45f, 0.25f, 0.45f),
+			g(11, -1.05f, -0.1f, 0.05f, 0.45f, 0, -0.3f, 0.45f, -0.2f, 0.25f, -0.4f, 0.2f, 0.4f), rest(22) };
+	/** Colossal Chop: both hands high and together, then down edge-first, doubling him over. Lands on tick 9. */
+	private static final float[][] CHOP = { rest(0), g(6, -3.05f, 0.25f, 0, -3.05f, -0.25f, 0, -0.3f, 0, -0.1f, 0.1f, -0.2f, 0.1f),
+			g(9, -0.75f, 0.3f, 0, -0.75f, -0.3f, 0, 0.7f, 0, 0.35f, -0.5f, 0.2f, 0.6f), g(15, -0.7f, 0.3f, 0, -0.7f, -0.3f, 0, 0.62f, 0, 0.35f, -0.5f, 0.2f, 0.55f),
+			rest(26) };
+	/** The Cosmic Ray: the right forearm held upright, the left laid across it -- a plus sign, held while he fires. */
+	private static final float[] RAY_HELD = g(0, -2.55f, 0.35f, 0, -1.5f, 1.05f, 0, 0.05f, 0.12f, 0.12f, -0.12f, 0, 0.12f);
+	private static final float[][] RAY = { rest(0), at(5, RAY_HELD), at(400, RAY_HELD) };
+	private static final float[][] RAY_END = { at(0, RAY_HELD), at(3, RAY_HELD), rest(12) };
+	/** Quake Stomp: the right leg raised high, arms out for balance, then the foot driven down. Lands on tick 8. */
+	private static final float[][] STOMP = { rest(0), g(5, 0.35f, 0, 0.55f, -0.35f, 0, -0.55f, -0.12f, 0.1f, -1.55f, 0.05f, -0.1f, 0.2f),
+			g(8, -0.25f, 0, 0.75f, -0.25f, 0, -0.75f, 0.3f, -0.05f, 0.1f, -0.25f, 0.2f, 0.55f), g(12, -0.2f, 0, 0.7f, -0.2f, 0, -0.7f, 0.25f, 0, 0.1f, -0.2f, 0.15f, 0.45f),
+			rest(22) };
+	/** Thunder Clap: the arms thrown wide, then the hands slammed together out in front. They meet on tick 8. */
+	private static final float[][] CLAP = { rest(0), g(5, -1.5f, -1.15f, 0, -1.5f, 1.15f, 0, -0.18f, 0, 0, 0, -0.1f, 0),
+			g(8, -1.55f, 0.12f, 0, -1.55f, -0.12f, 0, 0.28f, 0, 0.1f, -0.15f, 0.15f, 0.2f), g(13, -1.5f, 0.12f, 0, -1.5f, -0.12f, 0, 0.24f, 0, 0.1f, -0.15f, 0.1f, 0.15f),
+			rest(22) };
+	/** Giant Stride: the leading leg swung out, the trailing one behind, arms pumping -- held until he comes down. */
+	private static final float[] STRIDE_AIR = g(0, 0.7f, 0, 0.25f, -0.9f, 0, -0.25f, 0.25f, 0, -1.0f, 0.6f, 0, 0);
+	private static final float[][] STRIDE = { rest(0), g(3, 0.9f, 0, 0.2f, -1.1f, 0, -0.2f, 0.35f, 0, -1.35f, 0.75f, 0, 0), at(12, STRIDE_AIR), at(400, STRIDE_AIR) };
+	/** The landing: his knees take it, arms flung out, then he straightens up. */
+	private static final float[][] LAND = { at(0, STRIDE_AIR), g(3, 0.5f, 0, 0.9f, 0.5f, 0, -0.9f, 0.55f, 0, -0.35f, 0.35f, 0.3f, 1f),
+			g(8, 0.4f, 0, 0.8f, 0.4f, 0, -0.8f, 0.5f, 0, -0.3f, 0.3f, 0.25f, 0.9f), rest(18) };
+	/** Size Shift, growing: arms lifted and spread as he rises. */
+	private static final float[][] GROW = { rest(0), g(5, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, -0.2f, 0, 0, 0, -0.25f, 0), g(10, -0.6f, 0, 1.25f, -0.6f, 0, -1.25f, -0.22f, 0, 0, 0, -0.25f, 0),
+			rest(16) };
+	/** Size Shift, shrinking: he folds in on himself, arms drawn across his chest. */
+	private static final float[][] SHRINK = { rest(0), g(5, -1.0f, 0.75f, 0, -1.0f, -0.75f, 0, 0.45f, 0, 0, 0, 0.25f, 0.6f), g(10, -1.0f, 0.8f, 0, -1.0f, -0.8f, 0, 0.42f, 0, 0, 0, 0.2f, 0.55f),
+			rest(16) };
+	private static final float[][] ROAR = { rest(0), g(8, -0.55f, 0, 1.35f, -0.55f, 0, -1.35f, -0.35f, 0, 0.15f, -0.15f, -0.35f, 0.2f),
+			g(26, -0.55f, 0, 1.35f, -0.55f, 0, -1.35f, -0.35f, 0, 0.15f, -0.15f, -0.35f, 0.2f), rest(36) };
+	/** The cyclone's wind-up: one arm thrown across him, ready to unwind into the spin. */
+	private static final float[][] CYCLONE_END = { g(0, 0, 0, 1.45f, 0, 0, -1.45f, 0, 0, 0, 0, 0, 0), g(5, -0.5f, 0, 1.5f, -0.5f, 0, -1.5f, -0.25f, 0, 0.1f, -0.1f, -0.15f, 0.3f), rest(18) };
+	/** The head fin struck: both hands clapped to his head. */
+	private static final float[][] FIN = { rest(0), g(3, -2.7f, 0.5f, -0.15f, -2.7f, -0.5f, 0.15f, 0.25f, 0, 0, 0, 0.35f, 0.2f),
+			g(14, -2.7f, 0.5f, -0.15f, -2.7f, -0.5f, 0.15f, 0.2f, 0, 0, 0, 0.3f, 0.15f), rest(24) };
+
+	private static float[] at(float t, float[] frame) {
+		float[] o = frame.clone();
+		o[0] = t;
+		return o;
+	}
+
+	/** A clip that picks up where a held pose left off: no fade in (it starts on the held pose), its own fade out. */
+	private static boolean follow(HumanoidModel<?> m, float[][] clip, float ticks) {
+		float[] p = QuirkKeyframes.sample(clip, ticks);
+		if (p == null) {
+			return false;
+		}
+		QuirkKeyframes.apply(m, p, Math.min(1f, (QuirkKeyframes.length(clip) - ticks) / QuirkKeyframes.FADE_OUT));
+		return true;
+	}
+
+	private static final FirstPersonClip FP_FIST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -65, 12, 0, 0.1f, 0.45f, 0.15f),
+			FirstPersonClip.f(6, 32, 6, 0, 0.1f, -0.32f, -0.25f), FirstPersonClip.f(11, 26, 5, 0, 0.08f, -0.28f, -0.2f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_CHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(6, -75, 14, 0, 0.12f, 0.55f, 0.15f),
+			FirstPersonClip.f(9, 42, 14, 0, 0.12f, -0.45f, -0.25f), FirstPersonClip.f(15, 36, 12, 0, 0.1f, -0.4f, -0.2f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_RAY = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -20, 40, 30, -0.1f, 0.15f, -0.1f),
 			FirstPersonClip.f(400, -20, 40, 30, -0.1f, 0.15f, -0.1f)).both();
-	private static final FirstPersonClip FP_DOWN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -70, 10, 0, 0.05f, 0.5f, 0.1f),
-			FirstPersonClip.f(9, 40, 10, 0, 0.05f, -0.45f, 0.2f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_RAY_END = FirstPersonClip.of(FirstPersonClip.f(0, -20, 40, 30, -0.1f, 0.15f, -0.1f), FirstPersonClip.f(3, -20, 40, 30, -0.1f, 0.15f, -0.1f),
+			FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
+	/** Stomp: the hands dip with the blow. */
+	private static final FirstPersonClip FP_STOMP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -12, -18, 0, -0.1f, 0.12f, 0.05f),
+			FirstPersonClip.f(8, 20, -14, 0, -0.1f, -0.3f, 0.05f), FirstPersonClip.f(12, 16, -12, 0, -0.08f, -0.24f, 0.05f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	/** Clap: the arms out wide, then slammed together in the middle of the view. */
+	private static final FirstPersonClip FP_CLAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -28, -40, 0, -0.35f, 0.2f, 0.05f),
+			FirstPersonClip.f(8, -30, 34, 0, 0.32f, 0.2f, -0.2f), FirstPersonClip.f(13, -28, 30, 0, 0.28f, 0.18f, -0.18f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	/** The Stride: arms driving back as he leaps, held in the air. */
+	private static final FirstPersonClip FP_STRIDE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 26, 0, 0, 0, -0.32f, 0.2f),
+			FirstPersonClip.f(400, 22, 0, 0, 0, -0.28f, 0.16f)).both();
+	private static final FirstPersonClip FP_LAND = FirstPersonClip.of(FirstPersonClip.f(0, 22, 0, 0, 0, -0.28f, 0.16f), FirstPersonClip.f(3, -24, -24, 0, -0.2f, 0.05f, 0f),
+			FirstPersonClip.f(8, -20, -20, 0, -0.16f, 0.03f, 0f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	/** Size Shift: the hands raised in front of him as the world changes size. */
+	private static final FirstPersonClip FP_SHIFT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -38, 22, 0, 0.14f, 0.2f, 0f),
+			FirstPersonClip.f(10, -38, 22, 0, 0.14f, 0.2f, 0f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	/** Arms flung wide for the cyclone and the roar: they sweep out of view at the edges. */
+	private static final FirstPersonClip FP_WIDE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(7, -18, -46, 0, -0.42f, 0.14f, 0.05f),
+			FirstPersonClip.f(100, -18, -46, 0, -0.42f, 0.14f, 0.05f), FirstPersonClip.f(112, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_WIDE_END = FirstPersonClip.of(FirstPersonClip.f(0, -18, -46, 0, -0.42f, 0.14f, 0.05f), FirstPersonClip.f(5, -30, -50, 0, -0.5f, 0.2f, 0.05f),
+			FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_ROAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(8, -18, -46, 0, -0.42f, 0.14f, 0.05f),
+			FirstPersonClip.f(26, -18, -46, 0, -0.42f, 0.14f, 0.05f), FirstPersonClip.f(36, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_FIN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -60, 20, 0, 0.16f, 0.4f, 0.05f),
+			FirstPersonClip.f(14, -60, 20, 0, 0.16f, 0.4f, 0.05f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
 
 	@Override
 	public ResourceLocation skin() {
@@ -246,41 +352,105 @@ public final class WayBigClient implements AlienClientKit {
 		return new float[] { 0f, 4.0f, -2.3f, 3.0f };
 	}
 
+	/** How tall he is DRAWN now: Size Shift eases from one size to the other. */
+	private static float drawnHeight(AbstractClientPlayer p) {
+		var s = Omnitrix.state(p);
+		boolean compact = (s.kitFlags & WayBigKit.F_COMPACT) != 0;
+		float to = compact ? WayBigKit.COMPACT_HEIGHT : WayBigKit.COLOSSAL_HEIGHT;
+		if (s.animId != WayBigKit.ANIM_SHIFT) {
+			return to;
+		}
+		float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float t = Mth.clamp((p.level().getGameTime() + partial - s.animStart) / SHIFT_TICKS, 0f, 1f);
+		t = t * t * (3f - 2f * t);
+		// by the eye the size change is a ratio, so it eases along the logarithm
+		float from = compact ? WayBigKit.COLOSSAL_HEIGHT : WayBigKit.COMPACT_HEIGHT;
+		return (float) Math.exp(Mth.lerp(t, Math.log(from), Math.log(to)));
+	}
+
+	private static final float SHIFT_TICKS = 12f;
+
 	@Override
 	public float renderScale(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & WayBigKit.F_COMPACT) != 0 ? WayBigKit.COMPACT_SCALE : WayBigKit.COLOSSAL_SCALE;
+		return drawnHeight(p) / 1.8f;
 	}
 
 	@Override
 	public float cameraDistance(AbstractClientPlayer p) {
 		// far enough back to see a 100-block giant from the head down (the eyes are near the top)
-		return WayBigKit.height(p) * 0.8f;
+		return drawnHeight(p) * 0.8f;
+	}
+
+	/** Degrees a tick at full spin, ticks to reach it, ticks to wind down. */
+	private static final float SPIN = 30f, SPIN_UP = 12f, SPIN_DOWN = 14f;
+
+	private static float spunBy(float t) {
+		return t < SPIN_UP ? SPIN * t * t / (2f * SPIN_UP) : SPIN * (t - SPIN_UP * 0.5f);
+	}
+
+	@Override
+	public float bodySpin(AbstractClientPlayer p, float partial) {
+		var s = Omnitrix.state(p);
+		float now = p.level().getGameTime() + partial;
+		if ((s.kitFlags & WayBigKit.F_CYCLONE) != 0) {
+			return -spunBy(now - s.readyAt(WayBigKit.ID + "." + WayBigKit.CYCLONE_START)) % 360f;
+		}
+		if (s.animId == WayBigKit.ANIM_CYCLONE_END) {
+			// winding down, onto a whole turn so he ends facing where he looks
+			float dt = now - s.animStart;
+			if (dt >= SPIN_DOWN) {
+				return 0f;
+			}
+			float a0 = spunBy(WayBigKit.CYCLONE_TICKS);
+			float target = Mth.ceil((a0 + SPIN * SPIN_DOWN * 0.5f) / 360f) * 360f;
+			float k = (target - a0) / (SPIN_DOWN * 0.5f);
+			return -(a0 + k * (dt - dt * dt / (2f * SPIN_DOWN))) % 360f;
+		}
+		return 0f;
 	}
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
-		boolean ray = (Omnitrix.state(p).kitFlags & WayBigKit.F_RAY) != 0;
-		float[][] clip = ray ? RAY : switch (animId) {
-			case WayBigKit.ANIM_FIST -> FIST;
-			case WayBigKit.ANIM_CHOP -> CHOP;
-			case WayBigKit.ANIM_RAY -> RAY;
-			case WayBigKit.ANIM_STOMP -> STOMP;
-			case WayBigKit.ANIM_CLAP -> CLAP;
-			case WayBigKit.ANIM_STRIDE -> STRIDE;
-			case WayBigKit.ANIM_SHIFT -> SHIFT;
-			case WayBigKit.ANIM_ROAR -> ROAR;
-			default -> null;
-		};
-		boolean played = clip != null && QuirkKeyframes.play(m, clip, ray && animId != WayBigKit.ANIM_RAY ? Math.max(ticks, 4f) : ticks, 1f);
-		if ((Omnitrix.state(p).kitFlags & WayBigKit.F_CYCLONE) != 0) {
-			// the cyclone: arms flung wide while the body spins
-			m.rightArm.zRot = 1.45f;
-			m.leftArm.zRot = -1.45f;
-			m.body.yRot = age * 0.9f;
-			m.rightArm.yRot = age * 0.9f;
-			m.leftArm.yRot = age * 0.9f;
+		int flags = Omnitrix.state(p).kitFlags;
+		if ((flags & WayBigKit.F_CYCLONE) != 0) {
+			// the cyclone: arms flung wide, opening out as he spins up; the whole body turns (bodySpin)
+			float w = Mth.clamp((p.level().getGameTime() - Omnitrix.state(p).readyAt(WayBigKit.ID + "." + WayBigKit.CYCLONE_START)) / 8f, 0f, 1f);
+			m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, 0f);
+			m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, 0f);
+			m.rightArm.zRot = 1.45f * w;
+			m.leftArm.zRot = -1.45f * w;
+			m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, 0f);
+			m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, 0f);
+			m.rightLeg.zRot = 0.14f * w;
+			m.leftLeg.zRot = -0.14f * w;
 			return true;
 		}
+		if ((flags & WayBigKit.F_RAY) != 0) {
+			// held for as long as he fires, whatever else plays; a faint strain runs through him
+			boolean played = QuirkKeyframes.play(m, RAY, animId == WayBigKit.ANIM_RAY ? ticks : Math.max(ticks, 5f), 1f);
+			m.rightArm.xRot += Mth.sin(age * 2.1f) * 0.012f;
+			m.leftArm.yRot += Mth.sin(age * 2.6f) * 0.012f;
+			return played;
+		}
+		boolean played = switch (animId) {
+			case WayBigKit.ANIM_RAY_END -> follow(m, RAY_END, ticks);
+			case WayBigKit.ANIM_LAND -> follow(m, LAND, ticks);
+			case WayBigKit.ANIM_CYCLONE_END -> follow(m, CYCLONE_END, ticks);
+			default -> {
+				float[][] clip = switch (animId) {
+					case WayBigKit.ANIM_FIST -> FIST;
+					case WayBigKit.ANIM_CHOP -> CHOP;
+					case WayBigKit.ANIM_STOMP -> STOMP;
+					case WayBigKit.ANIM_CLAP -> CLAP;
+					case WayBigKit.ANIM_STRIDE -> (flags & WayBigKit.F_STRIDE) != 0 ? STRIDE : null;
+					case WayBigKit.ANIM_SHIFT -> (flags & WayBigKit.F_COMPACT) != 0 ? SHRINK : GROW;
+					case WayBigKit.ANIM_ROAR -> ROAR;
+					case WayBigKit.ANIM_FIN -> FIN;
+					default -> null;
+				};
+				yield clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+			}
+		};
 		if (!played) {
 			// a giant's slow sway: the arms hang a little out from his broad body
 			m.rightArm.zRot += 0.08f + Mth.sin(age * 0.05f) * 0.02f;
@@ -293,8 +463,18 @@ public final class WayBigClient implements AlienClientKit {
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case WayBigKit.ANIM_FIST -> FP_FIST;
+			case WayBigKit.ANIM_CHOP -> FP_CHOP;
 			case WayBigKit.ANIM_RAY -> FP_RAY;
-			case WayBigKit.ANIM_CHOP, WayBigKit.ANIM_CLAP, WayBigKit.ANIM_STOMP -> FP_DOWN;
+			case WayBigKit.ANIM_RAY_END -> FP_RAY_END;
+			case WayBigKit.ANIM_STOMP -> FP_STOMP;
+			case WayBigKit.ANIM_CLAP -> FP_CLAP;
+			case WayBigKit.ANIM_STRIDE -> FP_STRIDE;
+			case WayBigKit.ANIM_LAND -> FP_LAND;
+			case WayBigKit.ANIM_SHIFT -> FP_SHIFT;
+			case WayBigKit.ANIM_ROAR -> FP_ROAR;
+			case WayBigKit.ANIM_CYCLONE -> FP_WIDE;
+			case WayBigKit.ANIM_CYCLONE_END -> FP_WIDE_END;
+			case WayBigKit.ANIM_FIN -> FP_FIN;
 			default -> null;
 		};
 	}

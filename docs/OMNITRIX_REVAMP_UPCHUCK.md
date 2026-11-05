@@ -98,10 +98,10 @@ His meter, 0 to 100, shown on the HUD ("Gut", lime turning gold the richer it is
 | X | **Vomit Rocket** | A blast of vomit launches him where he looks (8 Gut): 5 to everything just behind him. No fall damage for 2 s. With an empty Gut only a hop. | 2 s |
 | Shift+X | **Tongue Zip** | The tongues stick to the block he looks at (24) and haul him to it (1.5 s at most). | 3 s |
 | Z | **Devour** | The tongues snatch the block he looks at and the four round it on that face (6): eaten whole, nothing drops, Gut by what it was. | 0.5 s |
-| Shift+Z | **Gobble** | Mouth wide for 3 s: dropped items, XP and every shot within 5 blocks go down his throat. Shots can't hurt him meanwhile. | 15 s |
+| Shift+Z | **Mega Loogie** (ultimate) | He swells up for 0.7 s, then everything in his Gut comes out at once (40 at least, spends it all): one huge loogie, 18 to 32 by Gut (x1.2 rich at most), a blast of 3 to 6 blocks at 80%. A little recoil. | 60 s |
 | V | **Digest** | 20 Gut into 6 health; poison, hunger and nausea cleared. | 5 s |
 | Shift+V | **Slime Slick** | A gob of slime (about 12 blocks): 4 where it lands, then a 2.5-block slick for 5 s. Everything in it is slowed (III) and slides about. It melts snow and ice (only where he could build). | 10 s |
-| C | **Mega Loogie** (ultimate) | Everything in his Gut at once (40 at least, spends it all): one huge loogie, 18 to 32 by Gut (x1.2 rich at most), a blast of 3 to 6 blocks at 80%. A little recoil. | 60 s |
+| C (hold) | **Gobble** | Mouth wide for as long as C is held, no time limit: dropped items, XP and every shot but a trident within 5 blocks are sucked to his mouth and eaten. Shots can't hurt him meanwhile. | 6 s, from when C comes up |
 | Shift+C | **Feeding Frenzy** | 10 s: double Gut from everything, and Devour and Tongue Grab need no wait (Grab 0.5 s). | 45 s |
 | Attack | **Chomp** | His bite, +4. Every bite adds 3 Gut. | |
 
@@ -133,10 +133,20 @@ turns back comes back out alive.
 - `UpchuckKit` (main, `omnitrix/alien/upchuck`) and `UpchuckClient` (client).
 - His tongues are three held `AlienProjectileEntity`s (`upchuck_tongue`, `size()` = which of the three, `colour()` = the creature's
   id + 1, or 0 for a point). The client draws each as a flat pink tube from his mouth that lashes out over 3 ticks and pulls taut.
-- The loogies are `upchuck_spit` / `upchuck_curve` / `upchuck_mega` / `upchuck_slime_spit` / `upchuck_slime` projectiles: the shared
-  glowing core in the spit's colour (lime, gold when rich), slime trails, and a green splat on impact (blasts break no blocks).
+- The loogies are `upchuck_spit` / `upchuck_curve` / `upchuck_mega` / `upchuck_slime_spit` / `upchuck_slime` projectiles, drawn by
+  `UpchuckFx` (blasts break no blocks).
+  - Flight: a smooth teardrop mesh shaded by the view (a hot core through the spit's colour, lime or gold when rich, to a saturated edge), two soft
+    halos, a tail, and a few drops strung behind. It's on the flat unlit render type, so the colour holds in daylight.
+  - Bursts and splats are held projectiles the server spawns (`UpchuckKit.fx`: `upchuck_burst`, `upchuck_puddle`), so every player sees them. A
+    burst is a flash, a swelling hollow shell and gobs on arcs; the puddle is a glossy, wavy-edged pool with a shine and bubbles. The Slime Slick is a
+    puddle too.
+  - Round the player (`UpchuckFx.world`): Gobble's suction streams, the Rocket's jet, the Mega Loogie gathering in his mouth, and the Frenzy's
+    lashing tongues. All read synced flags.
+- His mouth really opens on his face (`UpchuckClient.mouth`): lip, throat, top teeth and tongue, sized by the pose. The belly is a smooth half ellipsoid.
+- Every move has its own pose, third and first person. Gobble's holds as long as the flag does; a move played over it hands back to the open stance.
 - Swallowed creatures are kept exactly on his spot each tick (so neither pushes the other), invisible, weakened and slowed; the
   digest damage is his own `alien_strike` (the framework's `hurt` skips a creature standing inside him).
 - Gut and rich are kit timers (`upchuck.gut`, `upchuck.rich`), so the client's HUD and belly read them from the synced state.
 - Tests: `OmnitrixUpchuckGameTests`; the four-alien discovery tests are in `OmnitrixCannonboltGameTests`. Screenshots and the spit
   video: `docs/screenshots/v0172/upchuck/`. Harness: `scratchpad/UpchuckHarness.v0172.java.txt` (needs `run/upchuck.flag`).
+- Round 3 screenshots: `docs/screenshots/v0172/round3_upchuck/`.
