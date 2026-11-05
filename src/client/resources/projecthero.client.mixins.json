@@ -178,6 +178,7 @@
 		"MoonKnightTruncheonSpinMixin",
 		"AllMightSpinMixin",
 		"ErasureSpinMixin",
+		"DiamondheadSpinMixin",
 		"ZeroGravityBodyTurnMixin",
 		"ZeroGravityNauseaSwayMixin",
 		"PlayerModelMixin",

@@ -61,27 +61,31 @@ import net.minecraft.util.Mth;
  *
  * <p>v0.17.2 revamp (user: "his blade hand thing should be a full on combat mode and he should also have a shield ... do research
  * on his powers and look at the stuff he does in the show"): in the show he grows his arms into blades, raises crystal shields
- * and walls, fires shards and refracts lasers back at whoever fired them. So: a held crystal SHIELD on G that reflects what hits
- * it (and stores the light it catches for the Prism Beam), and a Combat Mode on V that turns both forearms into blades and
- * swaps R / Shift+R / Z for blade moves.
+ * and walls, fires shards and refracts lasers back at whoever fired them. So: a held crystal SHIELD that reflects what hits it, and
+ * a Combat Mode on V that swaps R / Shift+R for blade moves.
+ *
+ * <p>v0.17.2 round 3 (user): one blade, on the right arm; the shield always strapped to the left arm, held out in front only while
+ * right-click is held. R is a held barrage of irregular shard clumps, Combat Mode's R a single stab, and C / Shift+C the Crystal
+ * Maul and the Prism Spire.
  *
  * <pre>
- *   Passive  Petrosapien Body  40% of projectiles glance back; melee attackers are cut on his crystal (2)
- *   R        Shard Volley      a fan of 5 crystal shards (4 each)             Shift+R  Crystal Spear    one huge spear (18, knockback)
- *   G        Spike Line        crystal spikes burst up in a 12-block line ahead (16, launch)
+ *   Passive  Petrosapien Body  40% of projectiles glance back; melee attackers are cut on his crystal (4)
+ *   Hold R   Shard Volley      clumps of 1-4 shards (6 each), bunched, all at the aim point   Shift+R  Crystal Spear    one huge spear (22, knockback)
+ *   G        Spike Line        crystal spikes burst up in a 12-block line ahead (30, launch)
  *                                                                            Shift+G  Crystal Pillar   a pillar bursts up under the one you look at
- *                                                                                                      (22 blocks; 14, launched)
+ *                                                                                                      (22 blocks; 28, launched)
  *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
- *   Z        Crystal Eruption  rings of spikes all round you (r 6; 12)       Shift+Z  Titan Shards     ultimate: lifts 3 giant shards, hurls them
- *   V        Combat Mode       toggle: both forearms are blades -- +6 melee, +1 reach, faster swings, every swing sweeps
+ *   Z        Crystal Eruption  rings of spikes all round you (r 6; 24)       Shift+Z  Titan Shards     ultimate: lifts 3 giant shards, hurls them
+ *   V        Combat Mode       toggle: right forearm a blade, left arm a shield -- +4 melee, +1 reach, faster swings, every swing sweeps
  *                                                                            Shift+V  Crystal Construct  a wall ahead; look up: a dome round you;
  *                                                                                                      look down: a bridge ahead
- *   C        Crystal Prison    seal the creature you look at for 3 s (a boss 1 s), then it shatters (14)
- *            Shift+C  Crystal Tether   crystal reaches out: hauls a foe in, or pulls him to a wall
- *   Combat Mode keys: R Blade Flurry (slash 8, slash 8, stab 14 -- chained within 1.5 s), Shift+R Crystal Cyclone (r 4; 12,
- *   slowed); held Use the crystal shield (frontal hits blocked and reflected; 40 HP), running into foes behind it bashes them
+ *   C        Crystal Maul      the fist grows a giant crystal hammer: 20 in a frontal arc, staggered
+ *                                                                            Shift+C  Prism Spire      a crystal spire that throws projectiles back
+ *                                                                                                      and shelters you and your squad for 12 s
+ *   Combat Mode keys: R Blade Stab (22 to the creature ahead, 4 s), Shift+R Crystal Cyclone (r 4; 24, slowed); held Use the crystal
+ *   shield (frontal hits blocked and reflected; 40 HP), running into foes behind it bashes them
  *   v0.17.2 (user: "dont make the projectiles shoot from his face, make them shoot from his hands"): every shard leaves a hand
- *   Attack   Crystal Edge (blades: the slash sweeps)   Use on a block (empty hand)   a crystal block for 30 s
+ *   Attack   Crystal Edge (blade: the slash sweeps)    Use on a block (empty hand)   a crystal block for 30 s
  * </pre>
  */
 public final class DiamondheadKit extends AlienKit {
@@ -89,9 +93,13 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int COLOUR = 0x4FE0C8;
 	public static final int DEEP = 0x1E9A6A;
 
+	/** The Shard Volley's clumps: thrown off the right hand, off the left, the first of a volley (up from rest), and the arms coming down. */
 	public static final int ANIM_VOLLEY = 1;
+	public static final int ANIM_VOLLEY_L = 24;
+	public static final int ANIM_VOLLEY_FIRST = 25;
+	public static final int ANIM_VOLLEY_END = 26;
 	public static final int ANIM_SPEAR = 2;
-	/** v0.17.2: Combat Mode on -- the blades grow out of both forearms. */
+	/** v0.17.2: Combat Mode on -- the blade grows out of the right forearm, the shield over the left. */
 	public static final int ANIM_COMBAT_ON = 3;
 	/** The Shatter Line (the old Spike Line's pose). */
 	public static final int ANIM_SHATTER = 4;
@@ -99,7 +107,7 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int ANIM_VAULT = 6;
 	public static final int ANIM_WALL = 7;
 	public static final int ANIM_BARRAGE = 9;
-	public static final int ANIM_PRISON = 10;
+	public static final int ANIM_MAUL = 10;
 	public static final int ANIM_SLASH = 11;
 	public static final int ANIM_PLACE = 12;
 	public static final int ANIM_PILLAR = 13;
@@ -108,9 +116,8 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int ANIM_SHIELD = 16;
 	public static final int ANIM_SHIELD_DOWN = 17;
 	public static final int ANIM_BASH = 18;
-	/** The Blade Flurry's three beats: a right-to-left slash, a left-to-right slash, the stab. */
-	public static final int ANIM_FLURRY_1 = 19;
-	public static final int ANIM_FLURRY_2 = 20;
+	public static final int ANIM_SPIRE = 19;
+	/** Combat Mode's R. */
 	public static final int ANIM_STAB = 21;
 	public static final int ANIM_CYCLONE = 22;
 	public static final int ANIM_SHIELD_BREAK = 23;
@@ -120,6 +127,8 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int F_SHIELD = 2;
 	public static final int F_SLIDING = 4;
 	public static final int F_BASH = 8;
+	/** R is held down: the Shard Volley is firing. */
+	public static final int F_VOLLEY = 16;
 
 	public static final String VOLLEY = "shard_volley";
 	public static final String SPEAR = "crystal_spear";
@@ -127,7 +136,9 @@ public final class DiamondheadKit extends AlienKit {
 	public static final String VAULT = "crystal_vault";
 	public static final String WALL = "crystal_wall";
 	public static final String BARRAGE = "diamond_barrage";
-	public static final String PRISON = "crystal_prison";
+	/** v0.17.2 round 3 (user: "replace the current C abilities with other combat and utility powers please"): C and Shift+C. */
+	public static final String MAUL = "crystal_maul";
+	public static final String SPIRE = "prism_spire";
 	/** v0.17.2 (user: "Make G spike line and shift+G a different attack move"): the pillar that bursts up under a foe. */
 	public static final String PILLAR = "crystal_pillar";
 	public static final String EDGE = "crystal_edge";
@@ -138,16 +149,25 @@ public final class DiamondheadKit extends AlienKit {
 	public static final String SHIELD = "crystal_shield";
 	public static final String BASH = "shield_bash";
 	public static final String COMBAT = "combat_mode";
-	/** Combat Mode's R / Shift+R / Z. */
-	public static final String FLURRY = "blade_flurry";
+	/** Combat Mode's R / Shift+R. */
+	public static final String STAB = "blade_stab";
 	public static final String CYCLONE = "crystal_cyclone";
 	public static final String SHATTER = "shatter_line";
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	// v0.17.2 (user: "make fourarms and diamondhead a bit stronger"): about a fifth up across the kit
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): every number below about x1.6 (old -> new in docs/OMNITRIX_DAMAGE_PASS_PROTOTYPE.md)
-	public static final float SHARD_DAMAGE = 9f;
-	public static final float SPEAR_DAMAGE = 30f; // v0.17.2: was 12, then 18, then 21
+	// v0.17.2 round 3 (user: "make the diamonds deal 6 damage each please")
+	public static final float SHARD_DAMAGE = 6f;
+	/** The Shard Volley held: ticks between clumps (uneven, so it rattles like a barrage, not a gun), and the cooldown once R is let go. */
+	public static final int VOLLEY_GAP_MIN = 5, VOLLEY_GAP_MAX = 9, VOLLEY_COOLDOWN = 30;
+	/** How far (blocks) the shards of a clump sit from the clump's middle: a tight bunch, nothing like a fan. */
+	public static final double VOLLEY_BUNCH = 0.2;
+	public static final double SHARD_SPEED = 2.1;
+	// v0.17.2 round 3 (user: "nerf crystal spears damage to 22 please"): was 12, then 18, 21, 30
+	public static final float SPEAR_DAMAGE = 22f;
+	/** Ticks from the press to the throw: the spear grows in his hand as the arm goes back. */
+	public static final int SPEAR_WINDUP = 5;
 	/** v0.17.2: the Diamond Barrage's falling shards (was SHARD_DAMAGE, 3): about 26 a target over its 2 s. */
 	public static final float BARRAGE_SHARD_DAMAGE = 8f;
 	/** Combat Mode's melee bonus (the old Blade Arm's), reach and swing speed (+50% of the base). */
@@ -172,15 +192,22 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int SLIDE_TICKS = 40;
 	public static final int PLACE_TICKS = 600;
 	public static final int BARRAGE_TICKS = 40;
-	/** v0.17.2: C -- the Crystal Prison: reach, how long it holds (a boss a third of it), the shatter's damage and the cooldown. */
-	public static final double PRISON_RANGE = 16.0;
-	public static final int PRISON_TICKS = 60;
-	public static final float PRISON_DAMAGE = 27f;
-	public static final int PRISON_COOLDOWN = 240;
-	/** v0.17.2: Shift+C -- the Prism Beam: reach, damage, the open-daylight bonus and the cooldown. */
+	/** Shift+G: the ground splits under the target as the hand lands ({@link #PILLAR_WINDUP} ticks after the press). */
 	public static final double PILLAR_RANGE = 22.0;
 	public static final float PILLAR_DAMAGE = 28f;
-	public static final int PILLAR_COOLDOWN = 140;
+	public static final int PILLAR_COOLDOWN = 140, PILLAR_WINDUP = 6;
+	/** The Spike Line and the Crystal Eruption start when his fists reach the ground (ticks after the press). */
+	public static final int SLAM_DELAY = 6;
+	/** C: the Crystal Maul -- the hammer's blow lands {@link #MAUL_WINDUP} ticks after the press, on everything in a frontal arc. */
+	public static final float MAUL_DAMAGE = 20f;
+	public static final double MAUL_RADIUS = 4.5;
+	public static final int MAUL_WINDUP = 11, MAUL_COOLDOWN = 200, MAUL_STAGGER_TICKS = 40;
+	/** Shift+C: the Prism Spire -- where it can stand from him, how long it stands, how far its refraction reaches. */
+	public static final double SPIRE_RANGE = 16.0, SPIRE_RADIUS = 7.0;
+	public static final int SPIRE_TICKS = 240, SPIRE_COOLDOWN = 600;
+	/** The crystal's size (it stands about 4.4 blocks tall) and its climb out of the ground, as his hands come up. */
+	public static final float SPIRE_SIZE = 1.3f;
+	public static final int SPIRE_RISE_AT = 5, SPIRE_RISE_TICKS = 12;
 	/** Shift+V looking this far up builds the dome, this far down the bridge (degrees of pitch). */
 	public static final float CONSTRUCT_PITCH = 30f;
 	/** The dome: its radius (blocks, a shell one block thick round his feet). */
@@ -208,25 +235,15 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int BASH_REHIT_TICKS = 20;
 	/** The shield stays up this long after the last right-click use arrives (vanilla repeats uses while the button is held). */
 	public static final int SHIELD_HOLD_GRACE = 6;
-	/** v0.17.2 (user): G -- the Crystal Tether. */
-	public static final String TETHER = "crystal_tether";
-	public static final double TETHER_RANGE = 22.0;
-	public static final float TETHER_DAMAGE = 11f;
-	public static final int TETHER_COOLDOWN = 80;
 	/** v0.17.2 (user): Shift+G -- the Crystal Bridge. */
 	public static final String BRIDGE = "crystal_bridge";
 	public static final int BRIDGE_LENGTH = 20;
 	public static final int BRIDGE_TICKS = 400;
 	public static final int BRIDGE_COOLDOWN = 300;
-	/** Combat Mode R: the Blade Flurry -- two slashes then the stab, each within {@link #FLURRY_WINDOW} of the last. */
-	public static final float FLURRY_SLASH_DAMAGE = 12f;
-	public static final float FLURRY_STAB_DAMAGE = 27f;
-	public static final int FLURRY_WINDOW = 30;
-	public static final int FLURRY_GAP = 5;
-	/** After the stab. */
-	public static final int FLURRY_COOLDOWN = 40;
-	public static final double FLURRY_REACH = 4.0;
-	public static final double STAB_REACH = 5.5;
+	/** Combat Mode R (user: "a blade stab where player stabs a creature dealing 22 damage with a 4 second cooldown"): the blade lands {@link #STAB_WINDUP} ticks after the press. */
+	public static final float STAB_DAMAGE = 22f;
+	public static final int STAB_COOLDOWN = 80, STAB_WINDUP = 4;
+	public static final double STAB_REACH = 5.0;
 	/** Combat Mode Shift+R: the Crystal Cyclone. */
 	public static final float CYCLONE_DAMAGE = 24f;
 	public static final double CYCLONE_RADIUS = 4.0;
@@ -298,6 +315,18 @@ public final class DiamondheadKit extends AlienKit {
 			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.45f, 0.9f, 3)
 			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.45f, 1.3f, 4)
 			.gap(4);
+	/** The Crystal Maul landing: an anvil's weight, stone and crystal breaking. */
+	public static final OmnitrixSfx.Cue SND_MAUL = OmnitrixSfx.cue("diamondhead_maul")
+			.layer(SoundEvents.ANVIL_LAND, 0.35f, 0.6f)
+			.layer(SoundEvents.GENERIC_EXPLODE.value(), 0.3f, 1.2f)
+			.layer(SoundEvents.AMETHYST_CLUSTER_BREAK, 0.6f, 0.6f)
+			.layer(SoundEvents.DECORATED_POT_SHATTER, 0.45f, 0.7f, 2)
+			.gap(4);
+	/** A projectile caught by the Prism Spire: a bright ping. */
+	public static final OmnitrixSfx.Cue SND_REFRACT = OmnitrixSfx.cue("diamondhead_refract")
+			.layer(SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 1.6f)
+			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.4f, 1.8f)
+			.gap(2);
 	/** The beam: a bright crystal chime over a beacon's hum. */
 	public static final OmnitrixSfx.Cue SND_BEAM = OmnitrixSfx.cue("diamondhead_beam")
 			.layer(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.6f, 1.4f)
@@ -310,6 +339,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final ResourceLocation SHIELD_SLOW_ID = PowerToggles.id("omnitrix_diamondhead_shield_slow");
 	/** An entity tag: this projectile was already judged by the reflection passive (once per flight). */
 	public static final String SEEN_TAG = "projecthero.diamondhead_seen";
+	/** An entity tag: the Prism Spire has dealt with this projectile. */
+	public static final String SPIRE_TAG = "projecthero.diamondhead_spire";
 	static final DustParticleOptions SPARKLE = new DustParticleOptions(new Vector3f(0.45f, 1.0f, 0.82f), 0.9f);
 
 	/** player -> the Shatter Line running. */
@@ -318,8 +349,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final Map<UUID, Storm> STORMS = new ConcurrentHashMap<>();
 	/** player -> the Titan Shards being raised and thrown. */
 	private static final Map<UUID, Titan> TITANS = new ConcurrentHashMap<>();
-	/** player -> the creature his Crystal Prison holds. */
-	private static final Map<UUID, Prison> PRISONS = new ConcurrentHashMap<>();
+	/** player -> his Prism Spire. */
+	private static final Map<UUID, Spire> SPIRES = new ConcurrentHashMap<>();
 	/** player -> the Crystal Eruption spreading out from him. */
 	private static final Map<UUID, Eruption> ERUPTIONS = new ConcurrentHashMap<>();
 	/** player -> creatures this Shield Bash already struck. */
@@ -371,7 +402,8 @@ public final class DiamondheadKit extends AlienKit {
 	private static final ResourceLocation TITAN_SLOW_ID = PowerToggles.id("omnitrix_diamondhead_titan_slow");
 
 
-	private record Prison(ResourceKey<Level> dim, int target, Vec3 at, long end, List<BlockPos> shell) {
+	/** The Prism Spire: where it stands, the crystal's entity id, when it began and when it ends. */
+	private record Spire(ResourceKey<Level> dim, Vec3 foot, int crystal, long start, long end) {
 	}
 
 	private record Eruption(ResourceKey<Level> dim, Vec3 at, long start, Set<Integer> hit) {
@@ -413,7 +445,8 @@ public final class DiamondheadKit extends AlienKit {
 		LINES.clear();
 		STORMS.clear();
 		ERUPTIONS.clear();
-		PRISONS.clear();
+		SPIRES.clear();
+		TITANS.clear();
 		BASH_HITS.clear();
 		cutting = false;
 		DiamondheadRise.clearSessionState();
@@ -438,7 +471,9 @@ public final class DiamondheadKit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 24), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
+				// v0.17.2 round 3 (user: "player can hold R to shoot out a volley of diamonds"): R is pressed and released through press /
+				// release, not the framework's holdable (which would hold the first clump back 8 ticks); VOLLEY_COOLDOWN starts on the release
+				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, VOLLEY_COOLDOWN), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
 				// v0.17.2 (user: "i wanted diamondheads shield to be the right click for his combat mode, shield bash can happen when he
 				// holds out the shield and runs into enemies ... replace his g and Shift+G with other moves that he does in the show"): G is
 				// the Crystal Tether (his crystal reaching out to grab -- a foe hauled in, or him zipped to a wall), Shift+G the Crystal
@@ -458,19 +493,20 @@ public final class DiamondheadKit extends AlienKit {
 				// v0.17.2 (user: "Make the shift+V move the building move, using it normally places a wall, looking up builds the dome,
 				// looking down builds the bridge"): the Crystal Construct
 				AlienMove.tap(COMBAT, AbilitySlot.SLOT_5, 20), AlienMove.shift(WALL, AbilitySlot.SLOT_5, 200),
-				// v0.17.2 (user: "Remove crystal regrowth ... and crystal armour"): the Crystal Prison and the Prism Beam
-				AlienMove.tap(PRISON, AbilitySlot.SLOT_6, PRISON_COOLDOWN), AlienMove.shift(TETHER, AbilitySlot.SLOT_6, TETHER_COOLDOWN),
+				// v0.17.2 round 3 (user: "replace the current C abilities with other combat and utility powers please"): the Prison and
+				// the Tether gave way to the Crystal Maul (combat) and the Prism Spire (utility)
+				AlienMove.tap(MAUL, AbilitySlot.SLOT_6, MAUL_COOLDOWN), AlienMove.shift(SPIRE, AbilitySlot.SLOT_6, SPIRE_COOLDOWN),
 				// Combat Mode's swapped keys (the HUD shows them on R / Shift+R while it is on, see liveMoveOn)
-				AlienMove.vanilla(FLURRY, "Combat Mode: R", FLURRY_COOLDOWN), AlienMove.vanilla(CYCLONE, "Combat Mode: Shift+R", CYCLONE_COOLDOWN),
+				AlienMove.vanilla(STAB, "Combat Mode: R", STAB_COOLDOWN), AlienMove.vanilla(CYCLONE, "Combat Mode: Shift+R", CYCLONE_COOLDOWN),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
 	}
 
-	/** Combat Mode swaps R, Shift+R and Z for the blade moves. */
+	/** Combat Mode swaps R and Shift+R for the blade moves. */
 	@Override
 	public AlienMove liveMoveOn(Player p, AbilitySlot slot, boolean shift, boolean hold) {
 		if (flag(p, F_COMBAT) && !hold) {
 			if (slot == AbilitySlot.SLOT_1) {
-				return move(shift ? CYCLONE : FLURRY);
+				return move(shift ? CYCLONE : STAB);
 			}
 		}
 		return moveOn(slot, shift, hold);
@@ -478,7 +514,7 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_5 ? flag(p, F_COMBAT) : slot == AbilitySlot.SLOT_3 && flag(p, F_SLIDING);
+		return slot == AbilitySlot.SLOT_5 ? flag(p, F_COMBAT) : slot == AbilitySlot.SLOT_3 ? flag(p, F_SLIDING) : slot == AbilitySlot.SLOT_1 && flag(p, F_VOLLEY);
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -495,11 +531,12 @@ public final class DiamondheadKit extends AlienKit {
 		setCombat(p, false);
 		setShield(p, false);
 		setFlag(p, F_BASH, false);
+		setFlag(p, F_VOLLEY, false);
 		endSlide(p);
-		for (String t : new String[] { "shield_hp", "bash_end", "flurry_at", "flurry_step", "storm_end", "shield_use", "tether_safe" }) {
+		for (String t : new String[] { "shield_hp", "bash_end", "storm_end", "shield_use", "volley_next", "volley_left", "spear_at", "stab_at", "maul_at", "pillar_at" }) {
 			setTimer(p, t, 0);
 		}
-		PRISONS.remove(p.getUUID());
+		endSpire(p, true);
 		LINES.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
 		endTitan(p, true);
@@ -542,8 +579,9 @@ public final class DiamondheadKit extends AlienKit {
 		}
 		tickShield(p, l, now);
 		tickBash(p, l, now);
-		tickFlurry(p, now);
-		tickPrison(p, l, now);
+		tickVolley(p, now);
+		tickStrikes(p, l, now);
+		tickSpire(p, l, now);
 		slideTick(p, l, now);
 		tickSpikes(p, l, now);
 		tickStorm(p, l, now);
@@ -592,12 +630,15 @@ public final class DiamondheadKit extends AlienKit {
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
 		boolean combat = flag(p, F_COMBAT);
+		if (slot != AbilitySlot.SLOT_1 && slot != AbilitySlot.SLOT_3) {
+			endVolley(p); // the hands are wanted elsewhere
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (combat && shift) {
 					cyclone(p);
 				} else if (combat) {
-					bladeFlurry(p);
+					bladeStab(p);
 				} else if (shift) {
 					crystalSpear(p);
 				} else {
@@ -634,13 +675,21 @@ public final class DiamondheadKit extends AlienKit {
 			}
 			case SLOT_6 -> {
 				if (shift) {
-					crystalTether(p);
+					prismSpire(p);
 				} else {
-					crystalPrison(p);
+					crystalMaul(p);
 				}
 			}
 			default -> {
 			}
+		}
+	}
+
+	/** R let go: the Shard Volley stops. */
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_1) {
+			endVolley(p);
 		}
 	}
 
@@ -659,7 +708,8 @@ public final class DiamondheadKit extends AlienKit {
 		if (!flag(p, F_SHIELD)) {
 			raiseShield(p);
 		}
-		return InteractionResult.SUCCESS;
+		// v0.17.2 round 3 (user: "the players hand just interacting and moving on nothing"): CONSUME, not SUCCESS -- the hand must not swing
+		return InteractionResult.CONSUME;
 	}
 
 	@Override
@@ -672,59 +722,7 @@ public final class DiamondheadKit extends AlienKit {
 		return hand == InteractionHand.MAIN_HAND && p.getMainHandItem().isEmpty() ? shieldUse(p) : InteractionResult.PASS;
 	}
 
-	// ---------------------------------------------------------------- G: the Crystal Tether, Shift+G: the Crystal Bridge
-
-	/**
-	 * G: crystal shoots from his palm along his aim -- a creature it strikes is cut and hauled to him (a boss only cut and slowed); a
-	 * wall or the ground it strikes anchors it and yanks him there. Up to {@link #TETHER_RANGE} blocks.
-	 */
-	public boolean crystalTether(ServerPlayer p) {
-		if (!use(p, TETHER)) {
-			return false;
-		}
-		ServerLevel l = level(p);
-		Vec3 eye = p.getEyePosition(), look = p.getLookAngle(), far = eye.add(look.scale(TETHER_RANGE));
-		BlockHitResult bh = l.clip(new net.minecraft.world.level.ClipContext(eye, far, net.minecraft.world.level.ClipContext.Block.COLLIDER,
-				net.minecraft.world.level.ClipContext.Fluid.NONE, p));
-		Vec3 stop = bh.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? far : bh.getLocation();
-		net.minecraft.world.phys.EntityHitResult eh = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(l, p, eye, stop,
-				p.getBoundingBox().expandTowards(look.scale(TETHER_RANGE)).inflate(1.0),
-				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e), 0.3f);
-		anim(p, ANIM_SPEAR);
-		Vec3 hitAt;
-		if (eh != null && eh.getEntity() instanceof LivingEntity le) {
-			hitAt = le.position().add(0, le.getBbHeight() * 0.5, 0);
-			le.invulnerableTime = 0;
-			hurt(p, le, TETHER_DAMAGE, false);
-			if (AlienStatus.isBoss(le)) {
-				le.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 2), p);
-			} else {
-				Vec3 pull = p.position().subtract(le.position());
-				double d = pull.length();
-				le.setDeltaMovement(pull.normalize().scale(Math.min(1.7, 0.4 + d * 0.13)).add(0, 0.38, 0));
-				le.hurtMarked = true;
-				le.hasImpulse = true;
-			}
-		} else if (bh.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-			hitAt = bh.getLocation();
-			Vec3 pull = hitAt.subtract(p.position());
-			double d = pull.length();
-			p.setDeltaMovement(pull.normalize().scale(Math.min(2.1, 0.5 + d * 0.12)).add(0, 0.3, 0));
-			p.hurtMarked = true;
-			p.fallDistance = 0f;
-			// no fall damage from the landing a tether flings him into
-			setTimer(p, "tether_safe", p.level().getGameTime() + 60);
-			QuirkFx.shards(l, hitAt).block(crystal()).size(0.9f).count(8).life(30).spawn();
-		} else {
-			hitAt = far;
-		}
-		Vec3 from = hand(p, true);
-		QuirkFx.ribbon(l, from, hitAt).colours(0xE0FFF6, COLOUR).size(0.3f).life(9).style(QuirkFx.RIBBON_LIGHT).spawn();
-		QuirkFx.ribbon(l, from, hitAt).colours(0xFFFFFF, 0xB8FFF0).size(0.12f).life(7).style(QuirkFx.RIBBON_LIGHT).spawn();
-		OmnitrixSounds.play(l, p.position(), SND_SHARD, 1.0f, 0.8f);
-		OmnitrixSounds.play(l, hitAt, SND_GROW, 0.8f, 1.4f);
-		return true;
-	}
+	// ---------------------------------------------------------------- Shift+V looking down: the Crystal Bridge
 
 	/**
 	 * Shift+G: a 3-wide crystal span grows out ahead of him for {@link #BRIDGE_LENGTH} blocks at his feet's level -- level, or a
@@ -767,36 +765,128 @@ public final class DiamondheadKit extends AlienKit {
 		return h.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : h.normalize();
 	}
 
+	// ---------------------------------------------------------------- R: the Shard Volley, Shift+R: the Crystal Spear
+
+	/**
+	 * How many shards a clump has, from a roll in 0..1: 1 to 4, mostly 2 or 3 -- v0.17.2 round 3 (user: "don't just make it 1 at a time
+	 * make it like an assortment ... so sometimes he shoots 3 or 4 or something").
+	 */
+	public static int clumpSize(float roll) {
+		return roll < 0.2f ? 1 : roll < 0.55f ? 2 : roll < 0.85f ? 3 : 4;
+	}
+
+	/**
+	 * R down: the barrage starts, the first clump at once; it keeps coming until R is let go ({@link #endVolley}). False while it cools
+	 * down.
+	 */
 	public boolean shardVolley(ServerPlayer p) {
-		if (!use(p, VOLLEY)) {
+		if (flag(p, F_VOLLEY)) {
 			return false;
 		}
-		anim(p, ANIM_VOLLEY);
-		Vec3 aim = aimPoint(p);
-		for (int i = -2; i <= 2; i++) {
-			// the fan leaves both hands (the left two from the left, the rest from the right), converging on the crosshair
-			Vec3 from = hand(p, i >= 0);
-			Vec3 to = aim.subtract(from).normalize();
-			Vec3 side = to.cross(new Vec3(0, 1, 0));
-			side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
-			fromHand(AlienProjectileEntity.of(p, "diamondhead_shard"), from).colour(COLOUR).size(0.28f).damage(SHARD_DAMAGE).speed(2.0).life(40)
-					.direction(to.add(side.scale(i * 0.09)).add(0, Math.abs(i) * -0.015, 0)).spawn();
+		int left = cooldownLeft(p, VOLLEY);
+		if (left > 0) {
+			use(p, VOLLEY); // (refused: the "not ready" line)
+			return false;
 		}
-		OmnitrixSounds.play(level(p), p.position(), SND_SHARD, 1.0f, 1.0f + p.getRandom().nextFloat() * 0.2f);
+		setFlag(p, F_VOLLEY, true);
+		setTimer(p, "volley_start", p.level().getGameTime());
+		setTimer(p, "volley_left", 0);
+		fireClump(p, p.level().getGameTime(), true);
 		return true;
 	}
 
+	/** The barrage stops; the arms come down and the cooldown starts. */
+	public void endVolley(ServerPlayer p) {
+		if (!flag(p, F_VOLLEY)) {
+			return;
+		}
+		setFlag(p, F_VOLLEY, false);
+		setTimer(p, "volley_next", 0);
+		anim(p, ANIM_VOLLEY_END);
+		cooldown(p, VOLLEY, -1);
+	}
+
+	private void tickVolley(ServerPlayer p, long now) {
+		if (!flag(p, F_VOLLEY)) {
+			return;
+		}
+		if (flag(p, F_COMBAT)) {
+			endVolley(p);
+		} else if (now >= timer(p, "volley_next")) {
+			fireClump(p, now, false);
+		}
+	}
+
+	/**
+	 * One clump: 1-4 shards off one hand (the hands take turns), of uneven sizes, strung out a little along the line of flight and
+	 * packed within {@link #VOLLEY_BUNCH} of its middle. Every shard flies at the same point -- what the crosshair is on -- so the
+	 * clump arrives as a bunch and never fans out. The next one comes after an uneven gap.
+	 */
+	private void fireClump(ServerPlayer p, long now, boolean first) {
+		var r = p.getRandom();
+		boolean left = timer(p, "volley_left") != 0;
+		setTimer(p, "volley_left", left ? 0 : 1);
+		anim(p, first ? ANIM_VOLLEY_FIRST : left ? ANIM_VOLLEY_L : ANIM_VOLLEY);
+		Vec3 aim = aimPoint(p);
+		Vec3 from = hand(p, !left);
+		Vec3 dir = aim.subtract(from).normalize();
+		Vec3 side = dir.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 up = side.cross(dir).normalize();
+		int n = clumpSize(r.nextFloat());
+		for (int i = 0; i < n; i++) {
+			double a = r.nextDouble() * Math.PI * 2, d = VOLLEY_BUNCH * Math.sqrt(r.nextDouble());
+			Vec3 off = side.scale(Math.cos(a) * d).add(up.scale(Math.sin(a) * d));
+			Vec3 start = from.add(off).add(dir.scale(r.nextDouble() * 0.55));
+			// the bunch closes up a little on the way in, so all of it lands on what he aims at
+			fromHand(AlienProjectileEntity.of(p, "diamondhead_shard"), start).colour(COLOUR).size(0.2f + r.nextFloat() * 0.15f).damage(SHARD_DAMAGE)
+					.speed(SHARD_SPEED).life(40).direction(aim.add(off.scale(0.4)).subtract(start)).spawn();
+		}
+		ServerLevel l = level(p);
+		OmnitrixSounds.play(l, from, SND_SHARD, 0.7f + n * 0.1f, 1.0f + r.nextFloat() * 0.35f);
+		setTimer(p, "volley_next", now + VOLLEY_GAP_MIN + r.nextInt(VOLLEY_GAP_MAX - VOLLEY_GAP_MIN + 1));
+	}
+
+	/** Shift+R: the spear grows in his right hand as the arm goes back, and leaves it {@link #SPEAR_WINDUP} ticks after the press. */
 	public boolean crystalSpear(ServerPlayer p) {
 		if (!use(p, SPEAR)) {
 			return false;
 		}
 		anim(p, ANIM_SPEAR);
+		setTimer(p, "spear_at", p.level().getGameTime() + SPEAR_WINDUP);
+		OmnitrixSounds.play(level(p), p.position(), SND_GROW, 0.9f, 0.7f);
+		return true;
+	}
+
+	private void throwSpear(ServerPlayer p, ServerLevel l) {
 		Vec3 from = hand(p, true);
 		fromHand(AlienProjectileEntity.of(p, "diamondhead_spear"), from).colour(0xA8FFE8).size(0.7f).damage(SPEAR_DAMAGE).speed(2.4).life(50)
 				.direction(aimPoint(p).subtract(from)).spawn();
-		ServerLevel l = level(p);
-		OmnitrixSounds.play(l, p.position(), SND_GROW, 0.9f, 0.7f);
 		OmnitrixSounds.play(l, p.position(), SND_SHARD, 1.0f, 0.6f);
+	}
+
+	/** The blows that land part-way through their animation, each when his arm gets there. */
+	private void tickStrikes(ServerPlayer p, ServerLevel l, long now) {
+		if (due(p, "spear_at", now)) {
+			throwSpear(p, l);
+		}
+		if (due(p, "stab_at", now)) {
+			stabStrike(p, l);
+		}
+		if (due(p, "maul_at", now)) {
+			maulStrike(p, l);
+		}
+		if (due(p, "pillar_at", now)) {
+			pillarStrike(p, l);
+		}
+	}
+
+	private boolean due(ServerPlayer p, String timer, long now) {
+		long at = timer(p, timer);
+		if (at <= 0 || now < at) {
+			return false;
+		}
+		setTimer(p, timer, 0);
 		return true;
 	}
 
@@ -821,7 +911,7 @@ public final class DiamondheadKit extends AlienKit {
 		return cooldownLeft(p, SHIELD) > 0;
 	}
 
-	/** G down: the tower shield grows over his left forearm and stays while G is held. False while it is shattered. */
+	/** Right-click held: the shield strapped to his left forearm comes up in front of him. False while it is shattered. */
 	public boolean raiseShield(ServerPlayer p) {
 		if (flag(p, F_SHIELD)) {
 			return true;
@@ -835,12 +925,12 @@ public final class DiamondheadKit extends AlienKit {
 		anim(p, ANIM_SHIELD);
 		ServerLevel l = level(p);
 		Vec3 at = shieldCentre(p);
-		QuirkFx.shards(l, at).block(crystal()).size(1.1f).count(10).life(10).reassemble().spawn();
-		OmnitrixSounds.play(l, at, SND_SHIELD_UP, 0.9f, 1.0f);
+		l.sendParticles(SPARKLE, at.x, at.y, at.z, 6, 0.3, 0.4, 0.3, 0.02);
+		OmnitrixSounds.play(l, at, SND_SHIELD_UP, 0.7f, 1.2f);
 		return true;
 	}
 
-	/** G up: the shield melts back into his arm. */
+	/** Right-click let go: the shield drops back to his side. */
 	public void lowerShield(ServerPlayer p) {
 		if (!flag(p, F_SHIELD)) {
 			return;
@@ -849,7 +939,6 @@ public final class DiamondheadKit extends AlienKit {
 		if (!flag(p, F_BASH)) {
 			anim(p, ANIM_SHIELD_DOWN);
 		}
-		level(p).sendParticles(SPARKLE, p.getX(), p.getY() + 1.1, p.getZ(), 6, 0.4, 0.3, 0.4, 0.02);
 	}
 
 	private void setShield(ServerPlayer p, boolean on) {
@@ -969,7 +1058,7 @@ public final class DiamondheadKit extends AlienKit {
 
 	// ---------------------------------------------------------------- V: Combat Mode, Shift+V: Crystal Wall
 
-	/** V: Combat Mode on / off -- both forearms grow into long crystal blades (R / Shift+R / Z turn into blade moves). */
+	/** V: Combat Mode on / off -- the right forearm grows a long crystal blade, the left arm the shield (R / Shift+R turn into blade moves). */
 	public boolean toggleCombat(ServerPlayer p) {
 		if (!use(p, COMBAT)) {
 			return false;
@@ -980,7 +1069,10 @@ public final class DiamondheadKit extends AlienKit {
 		ServerLevel l = level(p);
 		OmnitrixSounds.play(l, p.position(), on ? SND_BLADE : SND_SHATTER, 0.9f, on ? 1.0f : 1.4f);
 		l.sendParticles(SPARKLE, p.getX(), p.getY() + 1.1, p.getZ(), 14, 0.5, 0.3, 0.5, 0.02);
-		if (!on) {
+		if (on) {
+			endVolley(p);
+			QuirkFx.shards(l, hand(p, false)).block(crystal()).size(1.0f).count(10).life(10).reassemble().spawn();
+		} else {
 			QuirkFx.shards(l, p.position().add(0, 1.1, 0)).block(crystal()).size(1.0f).count(10).life(14).spawn();
 		}
 		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.diamondhead.combat_on" : "message.projecthero.omnitrix.diamondhead.combat_off")
@@ -996,8 +1088,7 @@ public final class DiamondheadKit extends AlienKit {
 			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, BLADE_DAMAGE_ID);
 			PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH_ID);
 			PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, BLADE_SPEED_ID);
-			setTimer(p, "flurry_at", 0);
-			setTimer(p, "flurry_step", 0);
+			setTimer(p, "stab_at", 0);
 		}
 	}
 
@@ -1007,100 +1098,69 @@ public final class DiamondheadKit extends AlienKit {
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, BLADE_SPEED_ID, BLADE_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 	}
 
-	// ---------------------------------------------------------------- Combat Mode R: Blade Flurry, Shift+R: Crystal Cyclone
-
-	/** The Blade Flurry beat the next R plays (0, 1 the slashes, 2 the stab; client-safe). */
-	public int flurryStep(Player p) {
-		long at = timer(p, "flurry_at");
-		long step = timer(p, "flurry_step");
-		if (at <= 0 || step <= 0 || p.level().getGameTime() - at > FLURRY_WINDOW) {
-			return 0;
-		}
-		return (int) Math.min(2, step - 1);
-	}
+	// ---------------------------------------------------------------- Combat Mode R: Blade Stab, Shift+R: Crystal Cyclone
 
 	/**
-	 * Combat Mode R: the Blade Flurry -- a slash (8), a back-slash (8) and a thrusting stab (14), each R within 1.5 s of the last;
-	 * the slashes cut everything in a wide arc in front, the stab runs through a line. The cooldown starts after the stab.
-	 * Returns the beat played (0-2), or -1 if refused.
+	 * Combat Mode R: the Blade Stab -- v0.17.2 round 3 (user: "a blade stab where player stabs a creature dealing 22 damage with a 4
+	 * second cooldown"). He drops his weight behind the blade and drives it into the creature ahead ({@link #STAB_WINDUP} ticks after
+	 * the press), lunging a little if it stands off.
 	 */
-	public int bladeFlurry(ServerPlayer p) {
-		long now = p.level().getGameTime();
-		long at = timer(p, "flurry_at");
-		if (at > 0 && now - at < FLURRY_GAP) {
-			return -1; // still mid-swing
+	public boolean bladeStab(ServerPlayer p) {
+		if (!use(p, STAB)) {
+			return false;
 		}
-		int beat = flurryStep(p);
-		if (beat == 0 && !ready(p, FLURRY)) {
-			use(p, FLURRY); // the "not ready" line
-			return -1;
-		}
-		ServerLevel l = level(p);
-		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		if (beat < 2) {
-			anim(p, beat == 0 ? ANIM_FLURRY_1 : ANIM_FLURRY_2);
-			int n = 0;
-			for (LivingEntity e : around(p, eye.add(look.scale(FLURRY_REACH * 0.5)), FLURRY_REACH)) {
-				Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-				if (to.length() > FLURRY_REACH + e.getBbWidth() * 0.5 || to.normalize().dot(look) < 0.45) {
-					continue;
-				}
-				e.invulnerableTime = 0;
-				hurt(p, e, FLURRY_SLASH_DAMAGE, false);
-				shove(e, p.position(), 0.35, 0.1);
-				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 6, 0.2, 0.3, 0.2, 0.1);
-				n++;
-			}
-			Vec3 c = eye.add(look.scale(2.0)).add(0, -0.3, 0);
-			l.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-			QuirkFx.ring(l, c).flags(QuirkFx.F_VERTICAL).vec(look).style(QuirkFx.RING_SOFT).colours(0xE0FFF6, COLOUR).size(2.4f).life(6).spawn();
-			OmnitrixSounds.play(l, c, SND_SLASH, 1.0f, beat == 0 ? 1.0f : 1.15f);
-			if (n > 0) {
-				QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
-			}
-			setTimer(p, "flurry_at", now);
-			setTimer(p, "flurry_step", beat + 2L);
-			return beat;
-		}
-		// the stab
 		anim(p, ANIM_STAB);
-		cooldown(p, FLURRY, -1);
-		setTimer(p, "flurry_at", 0);
-		setTimer(p, "flurry_step", 0);
-		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(STAB_REACH)), net.minecraft.world.level.ClipContext.Block.COLLIDER,
-				net.minecraft.world.level.ClipContext.Fluid.NONE, p));
-		double len = hit.getLocation().distanceTo(eye);
-		for (LivingEntity e : around(p, eye.add(look.scale(len * 0.5)), len * 0.5 + 1.5)) {
-			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
-			double along = c.subtract(eye).dot(look);
-			if (along < 0 || along > len + 0.5 || eye.add(look.scale(along)).distanceTo(c) > e.getBbWidth() * 0.5 + 0.9) {
+		setTimer(p, "stab_at", p.level().getGameTime() + STAB_WINDUP);
+		LivingEntity t = stabTarget(p);
+		if (t != null && t.distanceTo(p) > 2.2f) {
+			Vec3 to = t.position().subtract(p.position());
+			Vec3 h = new Vec3(to.x, 0, to.z).normalize();
+			p.setDeltaMovement(p.getDeltaMovement().add(h.scale(0.55)));
+			p.hurtMarked = true;
+		}
+		OmnitrixSounds.play(level(p), p.position(), SND_BLADE, 0.5f, 1.5f);
+		return true;
+	}
+
+	/** The creature the blade goes into: the nearest within {@link #STAB_REACH}, close to the crosshair, in plain sight. */
+	private static LivingEntity stabTarget(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
+		LivingEntity best = null;
+		double bestD = Double.MAX_VALUE;
+		for (LivingEntity e : around(p, eye.add(look.scale(STAB_REACH * 0.5)), STAB_REACH)) {
+			Vec3 c = e.getBoundingBox().getCenter();
+			Vec3 to = c.subtract(eye);
+			double d = to.length() - e.getBbWidth() * 0.5;
+			if (d > STAB_REACH || to.normalize().dot(look) < 0.82 || !p.hasLineOfSight(e)) {
 				continue;
 			}
-			e.invulnerableTime = 0;
-			hurt(p, e, FLURRY_STAB_DAMAGE, false);
-			shove(e, p.position(), 1.2, 0.25);
-			QuirkFx.shards(l, c).block(crystal()).size(1.0f).count(8).life(14).spawn();
+			if (d < bestD) {
+				bestD = d;
+				best = e;
+			}
 		}
-		Vec3 tip = eye.add(look.scale(Math.min(len, 3.5))).add(0, -0.3, 0);
-		QuirkFx.spike(l, eye.add(look.scale(0.8)).add(0, -0.35, 0), look).block(crystal()).colours(0xC8FFF0, COLOUR).size((float) Math.min(len, 4.0)).size2(0.3f)
-				.life(8).spawn();
+		return best;
+	}
+
+	private void stabStrike(ServerPlayer p, ServerLevel l) {
+		Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
+		LivingEntity t = stabTarget(p);
+		Vec3 tip = t != null ? t.getBoundingBox().getCenter() : eye.add(look.scale(3.0)).add(0, -0.3, 0);
+		if (t != null) {
+			t.invulnerableTime = 0;
+			hurt(p, t, STAB_DAMAGE, false);
+			shove(t, p.position(), 0.5, 0.12);
+			QuirkFx.shards(l, tip).block(crystal()).size(1.0f).count(10).life(14).spawn();
+			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+		}
+		Vec3 from = hand(p, true);
+		Vec3 to = tip.subtract(from);
+		QuirkFx.spike(l, from, to.normalize()).block(crystal()).colours(0xC8FFF0, COLOUR).size((float) Math.min(to.length() + 0.4, 4.4)).size2(0.26f).life(8).spawn();
 		QuirkFx.ring(l, tip).flags(QuirkFx.F_VERTICAL).vec(look).colours(0xFFFFFF, COLOUR).size(1.6f).thickness(0.4f).life(8).spawn();
 		OmnitrixSounds.play(l, tip, SND_STAB, 1.1f, 1.0f);
-		QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
-		return 2;
 	}
 
-	private void tickFlurry(ServerPlayer p, long now) {
-		long at = timer(p, "flurry_at");
-		if (at > 0 && now - at > FLURRY_WINDOW) {
-			// the chain lapsed: it starts over (no cooldown -- that only follows the stab)
-			setTimer(p, "flurry_at", 0);
-			setTimer(p, "flurry_step", 0);
-		}
-	}
-
-	/** Combat Mode Shift+R: the Crystal Cyclone -- one spinning slash all round him (radius 4): 12, thrown out, slowed. Returns how many it hit (-1 refused). */
+	/** Combat Mode Shift+R: the Crystal Cyclone -- one spinning slash all round him (radius 4): 24, thrown out, slowed. Returns how many it hit (-1 refused). */
 	public int cyclone(ServerPlayer p) {
 		if (!use(p, CYCLONE)) {
 			return -1;
@@ -1133,7 +1193,7 @@ public final class DiamondheadKit extends AlienKit {
 		return n;
 	}
 
-	// ---------------------------------------------------------------- Combat Mode Z: the Shatter Line
+	// ---------------------------------------------------------------- G: the Spike Line
 
 	private void tickSpikes(ServerPlayer p, ServerLevel l, long now) {
 		SpikeLine line = LINES.get(p.getUUID());
@@ -1144,6 +1204,17 @@ public final class DiamondheadKit extends AlienKit {
 		if (step >= SPIKE_LENGTH || line.dim() != l.dimension()) {
 			LINES.remove(p.getUUID());
 			return;
+		}
+		if (step < 0) {
+			return;
+		}
+		if (step == 0) {
+			// his fist lands
+			Vec3 c = line.from().add(line.dir().scale(1.2));
+			QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).size(2.2f).thickness(0.5f).life(10).ground().spawn();
+			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), c.x, c.y + 0.1, c.z, 16, 0.4, 0.05, 0.4, 0.2);
+			OmnitrixSounds.play(l, c, SND_STAB, 0.9f, 0.7f);
+			QuirkCamera.shakeAround(l, c, 10, 0.25f, 8);
 		}
 		Vec3 at = line.from().add(line.dir().scale(1.5 + step));
 		BlockPos ground = groundUnder(l, BlockPos.containing(at));
@@ -1183,19 +1254,13 @@ public final class DiamondheadKit extends AlienKit {
 		return null;
 	}
 
-	/** Combat Mode Z: the blade driven into the ground -- crystal spikes erupt in a 12-block line ahead (16, launch). */
+	/** G: a fist driven into the ground ({@link #SLAM_DELAY} ticks after the press) -- crystal spikes erupt in a 12-block line ahead (30, launch). */
 	public boolean shatterLine(ServerPlayer p) {
 		if (!use(p, SHATTER)) {
 			return false;
 		}
 		anim(p, ANIM_SHATTER);
-		ServerLevel l = level(p);
-		LINES.put(p.getUUID(), new SpikeLine(p.level().dimension(), p.position(), flatLook(p), p.level().getGameTime(), new HashSet<>()));
-		Vec3 c = p.position().add(flatLook(p).scale(1.2));
-		QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).size(2.2f).thickness(0.5f).life(10).ground().spawn();
-		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), c.x, c.y + 0.1, c.z, 16, 0.4, 0.05, 0.4, 0.2);
-		OmnitrixSounds.play(l, c, SND_STAB, 0.9f, 0.7f);
-		QuirkCamera.shakeAround(l, p.position(), 10, 0.25f, 8);
+		LINES.put(p.getUUID(), new SpikeLine(p.level().dimension(), p.position(), flatLook(p), p.level().getGameTime() + SLAM_DELAY, new HashSet<>()));
 		return true;
 	}
 
@@ -1237,12 +1302,8 @@ public final class DiamondheadKit extends AlienKit {
 		}
 		anim(p, ANIM_ERUPT);
 		ServerLevel l = level(p);
-		ERUPTIONS.put(p.getUUID(), new Eruption(l.dimension(), p.position(), l.getGameTime(), new HashSet<>()));
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).size((float) ERUPT_RADIUS + 0.5f).thickness(0.7f).life(12).ground().spawn();
-		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), p.getX(), p.getY() + 0.1, p.getZ(), 30, 0.6, 0.05, 0.6, 0.25);
-		OmnitrixSounds.play(l, p.position(), SND_SHATTER, 1.1f, 0.6f);
-		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.2f, 0.7f);
-		QuirkCamera.shakeAround(l, p.position(), 12, 0.35f, 10);
+		// the rings start when his fists reach the ground
+		ERUPTIONS.put(p.getUUID(), new Eruption(l.dimension(), p.position(), l.getGameTime() + SLAM_DELAY, new HashSet<>()));
 		return true;
 	}
 
@@ -1263,6 +1324,14 @@ public final class DiamondheadKit extends AlienKit {
 		}
 		if (ring < 0) {
 			return;
+		}
+		if (ring == 0) {
+			Vec3 c = er.at();
+			QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).size((float) ERUPT_RADIUS + 0.5f).thickness(0.7f).life(12).ground().spawn();
+			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), c.x, c.y + 0.1, c.z, 30, 0.6, 0.05, 0.6, 0.25);
+			OmnitrixSounds.play(l, c, SND_SHATTER, 1.1f, 0.6f);
+			OmnitrixSounds.play(l, c, SND_GROW, 1.2f, 0.7f);
+			QuirkCamera.shakeAround(l, c, 12, 0.35f, 10);
 		}
 		double r = eruptionRing(ring);
 		int n = Math.max(6, (int) Math.round(Math.PI * 2 * r / 1.35));
@@ -1488,15 +1557,19 @@ public final class DiamondheadKit extends AlienKit {
 	/**
 	 * Shift+G: the Crystal Pillar -- v0.17.2 (user: "shift+G a different attack move"; in the show he makes crystal burst out of the
 	 * ground under his enemies). He drives a hand down; the ground under the creature he looks at (up to {@link #PILLAR_RANGE}
-	 * blocks, else the spot) splits and a pillar of crystal spears up: {@link #PILLAR_DAMAGE} and thrown high (a boss only
-	 * staggered), the pillar standing a moment before it shatters.
+	 * blocks, else the spot) splits and a pillar of crystal spears up as the hand lands ({@link #PILLAR_WINDUP} ticks after the press):
+	 * {@link #PILLAR_DAMAGE} and thrown high (a boss only staggered), the pillar standing a moment before it shatters.
 	 */
 	public boolean crystalPillar(ServerPlayer p) {
 		if (!use(p, PILLAR)) {
 			return false;
 		}
 		anim(p, ANIM_PILLAR);
-		ServerLevel l = level(p);
+		setTimer(p, "pillar_at", p.level().getGameTime() + PILLAR_WINDUP);
+		return true;
+	}
+
+	private void pillarStrike(ServerPlayer p, ServerLevel l) {
 		LivingEntity t = lookTarget(p, PILLAR_RANGE);
 		Vec3 at;
 		if (t != null) {
@@ -1531,7 +1604,6 @@ public final class DiamondheadKit extends AlienKit {
 		OmnitrixSounds.play(l, foot, DiamondheadRise.SND_RISE, 1.2f, 0.9f);
 		OmnitrixSounds.play(l, foot, SND_STAB, 1.0f, 0.7f);
 		QuirkCamera.shakeAround(l, foot, 12, 0.3f, 8);
-		return true;
 	}
 
 	// ---------------------------------------------------------------- his hands
@@ -1805,10 +1877,6 @@ public final class DiamondheadKit extends AlienKit {
 	/** The Crystal Shield (and the Bash behind it): anything from in front is blocked and chips the shield instead. */
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
-		// v0.17.2: the landing a Crystal Tether flings him into never hurts
-		if (source.is(DamageTypeTags.IS_FALL) && p.level().getGameTime() < timer(p, "tether_safe")) {
-			return false;
-		}
 		if ((flag(p, F_SHIELD) || flag(p, F_BASH)) && source.getSourcePosition() != null && !source.is(DamageTypeTags.BYPASSES_ARMOR)
 				&& !source.is(DamageTypeTags.BYPASSES_SHIELD) && inFront(p, source.getSourcePosition())) {
 			damageShield(p, amount);
@@ -1840,107 +1908,172 @@ public final class DiamondheadKit extends AlienKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- v0.17.2 C / Shift+C (replacing Regrowth and Crystal Armour)
+	// ---------------------------------------------------------------- C: the Crystal Maul, Shift+C: the Prism Spire
 
 	/**
-	 * C: the Crystal Prison -- the creature he looks at (within {@link #PRISON_RANGE}) is sealed in a shell of crystal for
-	 * {@link #PRISON_TICKS} (a boss a third of it) and can't move; then the shell shatters for {@link #PRISON_DAMAGE}. A creature too big
-	 * for a shell is held by crystal spikes instead. False (no cooldown) with nothing to aim at.
+	 * C: the Crystal Maul -- v0.17.2 round 3 (his hands reshape into whatever he needs in the show, blades and giant crystal
+	 * hammers). His right fist swells into a huge crystal hammer as the arm goes up, and {@link #MAUL_WINDUP} ticks after the press it
+	 * comes down: {@link #MAUL_DAMAGE} to everything in the arc in front of him out to {@link #MAUL_RADIUS} blocks, thrown back and
+	 * staggered, the ground cracked and crystal spikes fanning out of the crack.
 	 */
-	public boolean crystalPrison(ServerPlayer p) {
-		LivingEntity t = lookTarget(p, PRISON_RANGE);
-		if (t == null || !use(p, PRISON)) {
+	public boolean crystalMaul(ServerPlayer p) {
+		if (!use(p, MAUL)) {
 			return false;
 		}
-		anim(p, ANIM_PRISON);
-		ServerLevel l = level(p);
-		boolean boss = AlienStatus.isBoss(t);
-		int ticks = boss ? PRISON_TICKS / 3 : PRISON_TICKS;
-		List<BlockPos> cells = new java.util.ArrayList<>();
-		// v0.17.2 revamp: the shell grows up out of the ground round it
-		DiamondheadRise.Batch shellRise = DiamondheadRise.batch(l, 5);
-		var box = t.getBoundingBox();
-		if (box.getXsize() <= 3.0 && box.getYsize() <= 4.0) {
-			// a shell one block out from every block the creature fills; it melts away with the prison
-			int x0 = net.minecraft.util.Mth.floor(box.minX) - 1, x1 = net.minecraft.util.Mth.floor(box.maxX - 1.0e-3) + 1;
-			int y0 = net.minecraft.util.Mth.floor(box.minY) - 1, y1 = net.minecraft.util.Mth.floor(box.maxY - 1.0e-3) + 1;
-			int z0 = net.minecraft.util.Mth.floor(box.minZ) - 1, z1 = net.minecraft.util.Mth.floor(box.maxZ - 1.0e-3) + 1;
-			for (int x = x0; x <= x1; x++) {
-				for (int y = y0; y <= y1; y++) {
-					for (int z = z0; z <= z1; z++) {
-						boolean shell = x == x0 || x == x1 || y == y0 || y == y1 || z == z0 || z == z1;
-						BlockPos at = new BlockPos(x, y, z);
-						if (shell && l.getBlockState(at).canBeReplaced() && shellRise.place(at, ticks + 20)) {
-							cells.add(at);
-						}
-					}
-				}
-			}
-		} else {
-			for (int i = 0; i < 6; i++) {
-				double a = i * Math.PI / 3;
-				Vec3 base = t.position().add(Math.cos(a) * box.getXsize() * 0.55, 0, Math.sin(a) * box.getXsize() * 0.55);
-				QuirkFx.spike(l, base, new Vec3(-Math.cos(a) * 0.4, 1, -Math.sin(a) * 0.4).normalize()).block(crystal()).colours(0xC8FFF0, COLOUR)
-						.size(2.6f).size2(0.5f).life(ticks).spawn();
-			}
-		}
-		shellRise.start();
-		PRISONS.put(p.getUUID(), new Prison(l.dimension(), t.getId(), t.position(), l.getGameTime() + ticks, cells));
-		QuirkFx.ribbon(l, p.position().add(0, 1.3, 0), t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(0xE0FFF6, COLOUR).size(0.25f).life(8)
-				.style(QuirkFx.RIBBON_LIGHT).spawn();
-		OmnitrixSounds.play(l, t.position(), SND_GROW, 1.2f, 0.6f);
+		anim(p, ANIM_MAUL);
+		setTimer(p, "maul_at", p.level().getGameTime() + MAUL_WINDUP);
+		OmnitrixSounds.play(level(p), p.position(), SND_GROW, 1.1f, 0.6f);
 		return true;
 	}
 
-	/** Whether {@code e} is sealed in someone's Crystal Prison right now (server side). */
-	public static boolean imprisoned(Entity e) {
-		for (Prison pr : PRISONS.values()) {
-			if (pr.target() == e.getId() && pr.dim() == e.level().dimension()) {
-				return true;
+	private void maulStrike(ServerPlayer p, ServerLevel l) {
+		Vec3 f = flatLook(p);
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		Vec3 at = p.position().add(f.scale(1.9));
+		for (LivingEntity e : around(p, p.position().add(0, 1, 0), MAUL_RADIUS + 0.5)) {
+			Vec3 to = e.position().subtract(p.position());
+			Vec3 h = new Vec3(to.x, 0, to.z);
+			if (Math.abs(to.y) > 3.0 || h.length() > MAUL_RADIUS + e.getBbWidth() * 0.5 || (h.lengthSqr() > 1.0 && h.normalize().dot(f) < 0.2)) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, MAUL_DAMAGE, false);
+			shove(e, p.position(), 1.1, 0.45);
+			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, AlienStatus.isBoss(e) ? MAUL_STAGGER_TICKS / 4 : MAUL_STAGGER_TICKS, 2), p);
+			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 8, 0.25, 0.3, 0.25, 0.12);
+		}
+		QuirkFx.decal(l, at.add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xE0FFF6, COLOUR).size(4.2f).life(60).spawn();
+		QuirkFx.ring(l, at.add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).style(QuirkFx.RING_SHOCK).size((float) MAUL_RADIUS + 0.5f).thickness(0.5f).life(12).ground().spawn();
+		QuirkFx.shards(l, at.add(0, 0.5, 0)).block(crystal()).size(1.6f).count(18).life(26).spawn();
+		// a fan of crystal spikes out of the crack
+		for (int i = -2; i <= 2; i++) {
+			Vec3 d = f.add(side.scale(i * 0.42)).normalize();
+			Vec3 b = at.add(d.scale(1.4 + (2 - Math.abs(i)) * 0.5));
+			BlockPos ground = groundUnder(l, BlockPos.containing(b.x, p.getY() - 0.5, b.z));
+			if (ground != null) {
+				QuirkFx.spike(l, new Vec3(b.x, ground.getY() + 1.0, b.z), d.scale(0.5).add(0, 1, 0).normalize()).block(crystal()).colours(0xC8FFF0, COLOUR)
+						.size(1.5f + (2 - Math.abs(i)) * 0.3f).size2(0.42f).life(24).spawn();
 			}
 		}
-		return false;
+		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, l.getBlockState(BlockPos.containing(at).below())), at.x, at.y + 0.1, at.z, 24, 0.7, 0.05, 0.7, 0.2);
+		OmnitrixSounds.play(l, at, SND_MAUL, 1.2f, 0.9f);
+		QuirkCamera.shakeAround(l, at, 14, 0.45f, 10);
 	}
 
-	private void tickPrison(ServerPlayer p, ServerLevel l, long now) {
-		Prison pr = PRISONS.get(p.getUUID());
-		if (pr == null) {
+	/**
+	 * Shift+C: the Prism Spire -- v0.17.2 round 3: in the show his crystal bends and refracts what is fired at him and he walls his
+	 * friends off behind it; this stands that up on the ground where he looks (up to {@link #SPIRE_RANGE} blocks). For
+	 * {@link #SPIRE_TICKS} every projectile entering {@link #SPIRE_RADIUS} blocks of it is thrown back at whoever fired it, and he and
+	 * his squad inside take less damage (Resistance I). The spire itself is a held crystal, cut like the Titan Shards: it climbs out of
+	 * the ground and shatters when its time is up. False with nowhere to plant it.
+	 */
+	public boolean prismSpire(ServerPlayer p) {
+		ServerLevel l = level(p);
+		if (cooldownLeft(p, SPIRE) > 0) {
+			use(p, SPIRE); // (refused: the "not ready" line)
+			return false;
+		}
+		Vec3 eye = p.getEyePosition();
+		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(p.getLookAngle().scale(SPIRE_RANGE)),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		// the point he looks at, or if that is thin air the ground below it, or his own feet
+		BlockPos ground = groundUnder(l, BlockPos.containing(hit.getLocation().add(p.getLookAngle().scale(-0.2))));
+		if (ground == null) {
+			ground = groundUnder(l, p.blockPosition());
+		}
+		if (ground == null) {
+			return false;
+		}
+		if (!use(p, SPIRE)) {
+			return false;
+		}
+		anim(p, ANIM_SPIRE);
+		endSpire(p, false);
+		Vec3 foot = Vec3.atBottomCenterOf(ground.above());
+		// the crystal starts under the ground (a held shard, 3.4 x its size long, a third of that behind its centre)
+		AlienProjectileEntity s = AlienProjectileEntity.of(p, "diamondhead_spire").colour(COLOUR).size(SPIRE_SIZE).damage(0f).life(SPIRE_RISE_AT + SPIRE_RISE_TICKS + SPIRE_TICKS + 20)
+				.held(true);
+		s.setDeltaMovement(Vec3.ZERO);
+		s.moveTo(foot.x, foot.y - SPIRE_SIZE * 3.4 * 0.68, foot.z, 0f, -90f);
+		s.spawn();
+		long now = l.getGameTime();
+		SPIRES.put(p.getUUID(), new Spire(l.dimension(), foot, s.getId(), now, now + SPIRE_RISE_AT + SPIRE_RISE_TICKS + SPIRE_TICKS));
+		QuirkFx.decal(l, foot.add(0, 0.02, 0)).style(QuirkFx.DECAL_CRACK).colours(0xE0FFF6, COLOUR).size(3.6f).life(SPIRE_TICKS).spawn();
+		// a collar of small crystals bursting up round its foot
+		for (int i = 0; i < 6; i++) {
+			double a = i * Math.PI * 2 / 6 + 0.4;
+			Vec3 lean = new Vec3(Math.cos(a) * 0.5, 1, Math.sin(a) * 0.5).normalize();
+			QuirkFx.spike(l, foot.add(Math.cos(a) * 0.8, 0, Math.sin(a) * 0.8), lean).block(crystal()).colours(0xC8FFF0, COLOUR).size(1.3f + (i % 2) * 0.6f)
+					.size2(0.34f).life(40).spawn();
+		}
+		QuirkFx.shards(l, foot.add(0, 0.3, 0)).block(crystal()).size(1.0f).count(12).life(22).spawn();
+		OmnitrixSounds.play(l, foot, DiamondheadRise.SND_RISE, 1.2f, 0.8f);
+		OmnitrixSounds.play(l, foot, SND_BEAM, 0.7f, 1.0f);
+		QuirkCamera.shakeAround(l, foot, 10, 0.2f, 8);
+		return true;
+	}
+
+	/** Whether {@code p}'s Prism Spire stands now (server side). */
+	public static boolean spireUp(Player p) {
+		return SPIRES.containsKey(p.getUUID());
+	}
+
+	private void tickSpire(ServerPlayer p, ServerLevel l, long now) {
+		Spire sp = SPIRES.get(p.getUUID());
+		if (sp == null) {
 			return;
 		}
-		Entity e = l.getEntity(pr.target());
-		if (pr.dim() != l.dimension() || !(e instanceof LivingEntity t) || !t.isAlive()) {
-			PRISONS.remove(p.getUUID());
+		if (sp.dim() != l.dimension() || now >= sp.end() || !(l.getEntity(sp.crystal()) instanceof AlienProjectileEntity crystal) || !crystal.isAlive()) {
+			endSpire(p, true);
 			return;
 		}
-		if (now < pr.end()) {
-			// held: no walking out
-			t.setDeltaMovement(0, Math.min(0, t.getDeltaMovement().y), 0);
-			t.teleportTo(pr.at().x, t.getY(), pr.at().z);
-			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 5, 9, false, false, false), p);
-			t.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 5, 4, false, false, false), p);
-			if (now % 4 == 0) {
-				l.sendParticles(SPARKLE, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 2, t.getBbWidth() * 0.6, t.getBbHeight() * 0.4,
-						t.getBbWidth() * 0.6, 0.0);
+		// it climbs out of the ground, a touch of a wobble dying away as it locks in place
+		float k = Mth.clamp((now - sp.start() - SPIRE_RISE_AT) / (float) SPIRE_RISE_TICKS, 0f, 1f);
+		float ease = 1f - (1f - k) * (1f - k) * (1f - k);
+		double len = SPIRE_SIZE * 3.4;
+		crystal.moveTo(sp.foot().x, sp.foot().y + Mth.lerp(ease, -len * 0.68f, len * 0.32f - 0.2f), sp.foot().z, 0f, -90f);
+		crystal.setDeltaMovement(Vec3.ZERO);
+		Vec3 c = sp.foot().add(0, len * 0.5, 0);
+		double r2 = SPIRE_RADIUS * SPIRE_RADIUS;
+		for (Projectile pr : l.getEntitiesOfClass(Projectile.class, new net.minecraft.world.phys.AABB(c, c).inflate(SPIRE_RADIUS),
+				pr -> pr.getOwner() != p && !pr.getTags().contains(SPIRE_TAG) && pr.distanceToSqr(c) <= r2)) {
+			pr.addTag(SPIRE_TAG);
+			pr.addTag(SEEN_TAG);
+			if (pr.getDeltaMovement().lengthSqr() < 0.01 || (pr.getOwner() != null && com.projecthero.mod.squad.Squads.areAllies(p, pr.getOwner()))) {
+				continue; // spent, or a friend's
 			}
+			sendBack(p, pr);
+			QuirkFx.ribbon(l, c, pr.position()).colours(0xFFFFFF, COLOUR).size(0.12f).life(6).style(QuirkFx.RIBBON_LIGHT).spawn();
+			l.sendParticles(SPARKLE, pr.getX(), pr.getY(), pr.getZ(), 8, 0.15, 0.15, 0.15, 0.05);
+			OmnitrixSounds.play(l, pr.position(), SND_REFRACT, 0.9f, 1.0f);
+		}
+		if (now % 10 == 0) {
+			for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(c, c).inflate(SPIRE_RADIUS),
+					e -> e.distanceToSqr(c) <= r2 && (e == p || com.projecthero.mod.squad.Squads.areAllies(p, e)))) {
+				e.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30, 0, false, false, true), p);
+			}
+		}
+		if ((now - sp.end()) % 30 == 0) {
+			QuirkFx.ring(l, sp.foot().add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).style(QuirkFx.RING_SOFT).size((float) SPIRE_RADIUS).thickness(0.25f).life(24).ground().spawn();
+		}
+		if (now % 3 == 0) {
+			l.sendParticles(SPARKLE, c.x, c.y, c.z, 1, 0.3, 1.1, 0.3, 0.0);
+		}
+	}
+
+	/** The Prism Spire is over: its crystal shatters ({@code loud}: with a crash), or goes quietly as a new one replaces it. */
+	private static void endSpire(ServerPlayer p, boolean loud) {
+		Spire sp = SPIRES.remove(p.getUUID());
+		if (sp == null || !(p.level() instanceof ServerLevel l)) {
 			return;
 		}
-		// the shell shatters, there and then
-		PRISONS.remove(p.getUUID());
-		// (shattered, not sunk)
-		PetrosapienCrystalBlock.shattering = true;
-		try {
-			for (BlockPos c : pr.shell()) {
-				if (l.getBlockState(c).is(DiamondheadBlocks.CRYSTAL)) {
-					l.setBlock(c, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-				}
+		if (l.dimension() == sp.dim() && l.getEntity(sp.crystal()) instanceof AlienProjectileEntity crystal) {
+			QuirkFx.shards(l, crystal.position()).block(crystal()).size(1.6f).count(18).life(24).spawn();
+			if (loud) {
+				OmnitrixSounds.play(l, crystal.position(), SND_SHATTER, 1.0f, 1.0f);
 			}
-		} finally {
-			PetrosapienCrystalBlock.shattering = false;
+			crystal.discard();
 		}
-		t.invulnerableTime = 0;
-		hurt(p, t, PRISON_DAMAGE, false);
-		QuirkFx.shards(l, t.position().add(0, t.getBbHeight() * 0.5, 0)).block(crystal()).size(1.8f).count(22).life(22).spawn();
-		OmnitrixSounds.play(l, t.position(), SND_SHATTER, 1.2f, 0.8f);
 	}
 
 }

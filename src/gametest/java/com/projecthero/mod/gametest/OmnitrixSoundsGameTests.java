@@ -84,7 +84,7 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				OmnitrixSounds.FOUR_ARMS_ROAR, OmnitrixSounds.FOUR_ARMS_STANCE,
 				Xlr8Kit.SND_DASH, Xlr8Kit.SND_HIT, Xlr8Kit.SND_TORNADO, Xlr8Kit.SND_BURST, Xlr8Kit.SND_VISOR,
 				DiamondheadKit.SND_SHARD, DiamondheadKit.SND_GROW, DiamondheadKit.SND_SHATTER, DiamondheadKit.SND_BLADE, DiamondheadKit.SND_SHIELD_UP, DiamondheadKit.SND_SHIELD_HIT,
-				DiamondheadKit.SND_SHIELD_BREAK, DiamondheadKit.SND_BASH, DiamondheadKit.SND_SLASH, DiamondheadKit.SND_STAB, DiamondheadKit.SND_CYCLONE, DiamondheadKit.SND_BEAM,
+				DiamondheadKit.SND_SHIELD_BREAK, DiamondheadKit.SND_BASH, DiamondheadKit.SND_SLASH, DiamondheadKit.SND_STAB, DiamondheadKit.SND_CYCLONE, DiamondheadKit.SND_MAUL, DiamondheadKit.SND_REFRACT, DiamondheadKit.SND_BEAM,
 				com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadRise.SND_RISE, com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadRise.SND_SINK,
 				UpgradeKit.SND_BEAM, UpgradeKit.SND_CHARGE, UpgradeKit.SND_MERGE, UpgradeKit.SND_EMP, UpgradeKit.SND_SLIDE,
 				UpgradeKit.SND_FIST, UpgradeKit.SND_TAKEOVER, UpgradeKit.SND_GEYSER,

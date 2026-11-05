@@ -164,7 +164,10 @@ public final class OmnitrixClient {
 			return false;
 		}
 		ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.USE_AIR, ""));
-		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+		AlienClientKit kit = AlienClients.shownKit(p);
+		if (kit == null || kit.swingsOnUseAir(p)) {
+			p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+		}
 		return true;
 	}
 

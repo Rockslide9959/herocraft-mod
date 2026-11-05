@@ -99,6 +99,9 @@ public abstract class OmnitrixItemInHandMixin {
 			pose.pushPose();
 			// v0.17.1 (Wildmutt, bothHandsInFirstPerson): a beast's off paw is always in view, clip or not
 			boolean applied = clip != null && clip.twoHanded() && clip.apply(pose, OmnitrixFirstPerson.clipTicks(player, partial), side);
+			if (!applied && both) {
+				kit.poseFirstPersonOffHand(pose, player, partial, side);
+			}
 			if (applied || both) {
 				renderPlayerArm(pose, buffers, light, 0f, 0f, off);
 			}
