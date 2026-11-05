@@ -22,6 +22,10 @@ Everything else on his keys keeps its numbers. While he gathers, charges or brea
 - The last 14% crushes it all down into a white-hot core (`crush`), with the inhale sound and a negative FOV punch.
 - `novaBurst`: a shell of fire racing out to the blast's edge with jagged spears through it. It plays on the Supernova only: the Meteor Crash's landing has its own anim id now (`ANIM_CRASH`) and keeps just the star pose.
 
+### The rest of his moves' animations
+
+Third person and first person, numbers unchanged: Flame Jump (coil, palms punched down, a knee up, a tuck at the top), Rock Ride (fists low, the right drawn slowly up as it burns; on the rock the knees give and he leans into the speed), Blaze Dash (fist-first through the air), Heat Aura (clenched in, then the heat bursts out; held, the arms stay clear of his body), Absorb Flames (arms wide, drawn in as the streams arrive, one breath out), Volcanic Eruption (the left palm shoves along the line after the fist lands), Meteor Crash (one fist leading up, both fists below him on the dive, a one-knee landing with its own clip), the fire bolt (a flick across the body) and smelting (hands kneading on a beat). The smelt's flames are smaller and start at his hands, not on the camera. Fire Tornado is untouched.
+
 ## Four Arms
 
 R, the Four-Fist Combo: still 4 presses within 1.5 s of each other. Upper right 12, upper left 12, both lower fists together 12, then all four fists 18. The last blow lands 5 ticks after the press, as the fists come down. 3 s cooldown after it. If the combo lapses early there is no cooldown, as before.
@@ -29,5 +33,7 @@ R, the Four-Fist Combo: still 4 presses within 1.5 s of each other. Upper right 
 Boulder Rip now keeps the boulder in his hands for 8 ticks (`boulderHeld`, drawn in `FourArmsClient`) and throws it as the arms come over. It used to fly at the press, before the arms had moved.
 
 ### Animations
+
+First person his arms sat behind the hotbar: punches now reach up toward the crosshair, and raised arms stand clear at the sides of the view, the fists going out of the top.
 
 Every move is two tables that run together: `upperClip` (the limbs) and `lowerClip` (the lower pair, absolute angles). The lower pair used to step between two poses. Arm-only moves leave the legs on the walk cycle while he moves. Punches go down the aim with the hips turned into them. The Haymaker has its own lunge and hit. The Giant Swing turns his whole body with the victim (the client sets the body yaw to the angle the server whirls it through).

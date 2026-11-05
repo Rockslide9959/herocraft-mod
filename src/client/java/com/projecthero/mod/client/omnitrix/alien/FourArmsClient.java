@@ -38,8 +38,8 @@ public final class FourArmsClient implements AlienClientKit {
 	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
 	private static final float[][] CLIMB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.6f, 0f, 0.3f, -2.6f, 0f, -0.3f, 0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.3f),
 			QuirkKeyframes.f(7, -2.4f, 0f, 0.5f, -2.4f, 0f, -0.5f, 0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.3f), QuirkKeyframes.rest(12) };
-	private static final FirstPersonClip FP_CLIMB = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -60f, -10f, 0f, -0.05f, 0.3f, 0f),
-			FirstPersonClip.f(7, -50f, -10f, 15f, -0.05f, 0.25f, 0f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
+	private static final FirstPersonClip FP_CLIMB = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -78f, 10f, 0f, 0.08f, 0.46f, 0.16f),
+			FirstPersonClip.f(7, -70f, 8f, 6f, 0.08f, 0.4f, 0.16f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 
 	/** Wall Climb on and on a wall: all four hands reaching up in turn. */
 	private static boolean climbing(AbstractClientPlayer p) {
@@ -180,42 +180,42 @@ public final class FourArmsClient implements AlienClientKit {
 		return new float[] { tick, rx, ry, rz, lx, ly, lz };
 	}
 
-	private static final FirstPersonClip FP_HAMMER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -75, 10, 0, 0.05f, 0.45f, 0.2f),
-			FirstPersonClip.f(5.5f, 15, 20, 0, 0.12f, -0.05f, -0.25f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HAMMER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -78, 10, 0, 0.08f, 0.46f, 0.2f),
+			FirstPersonClip.f(5.5f, 8, 22, 0, 0.16f, 0.02f, -0.28f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.2f, 10, -10, 0, -0.04f, -0.05f, 0.12f),
-			FirstPersonClip.f(3, -18, 24, 0, 0.16f, 0.08f, -0.26f), FirstPersonClip.f(5, -16, 22, 0, 0.15f, 0.07f, -0.22f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
+			FirstPersonClip.f(3, -30, 28, 0, 0.34f, 0.34f, -0.46f), FirstPersonClip.f(5, -28, 26, 0, 0.32f, 0.32f, -0.42f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
 	/** Both hands dip down and punch in low. */
 	private static final FirstPersonClip FP_COMBO_LOW = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.5f, 30, 0, 0, 0, -0.22f, 0.12f),
-			FirstPersonClip.f(3.5f, -8, 18, 0, 0.12f, -0.2f, -0.3f), FirstPersonClip.f(6, -6, 16, 0, 0.1f, -0.2f, -0.26f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_GRAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2.5f, -18, 24, 0, 0.16f, 0.08f, -0.24f),
-			FirstPersonClip.f(5, -18, 22, 0, 0.14f, 0.08f, -0.22f), FirstPersonClip.f(10, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(13, -80, 0, 0, 0, 0.5f, 0.2f)).both();
-	private static final FirstPersonClip FP_CLAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -25, -30, 0, -0.2f, 0.15f, -0.05f),
-			FirstPersonClip.f(6, -25, 35, 0, 0.3f, 0.15f, -0.2f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_POUND = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -80, 5, 0, 0.05f, 0.5f, 0.2f),
+			FirstPersonClip.f(3.5f, -14, 24, 0, 0.18f, -0.02f, -0.34f), FirstPersonClip.f(6, -12, 22, 0, 0.16f, -0.02f, -0.3f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_GRAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2.5f, -30, 28, 0, 0.34f, 0.34f, -0.44f),
+			FirstPersonClip.f(5, -28, 26, 0, 0.32f, 0.32f, -0.42f), FirstPersonClip.f(10, -78, 10, 0, 0.08f, 0.46f, 0.2f), FirstPersonClip.f(13, -78, 10, 0, 0.08f, 0.46f, 0.2f)).both();
+	private static final FirstPersonClip FP_CLAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -26, -30, 0, -0.2f, 0.22f, -0.05f),
+			FirstPersonClip.f(6, -28, 38, 0, 0.32f, 0.28f, -0.24f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_POUND = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -78, 10, 0, 0.08f, 0.46f, 0.2f),
 			FirstPersonClip.f(7, 35, 10, 0, 0.05f, -0.3f, -0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_THROW = FirstPersonClip.of(FirstPersonClip.f(0, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(4, -10, 20, 0, 0.1f, 0.05f, -0.25f),
+	private static final FirstPersonClip FP_THROW = FirstPersonClip.of(FirstPersonClip.f(0, -78, 10, 0, 0.08f, 0.46f, 0.2f), FirstPersonClip.f(4, -14, 24, 0, 0.14f, 0.14f, -0.3f),
 			FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_LEAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.5f, 30, 0, 0, 0, -0.3f, 0.1f),
-			FirstPersonClip.f(4, -70, 0, 0, 0, 0.42f, 0.15f), FirstPersonClip.f(16, -62, 0, 8, 0, 0.36f, 0.15f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
+			FirstPersonClip.f(4, -78, 10, 0, 0.08f, 0.46f, 0.2f), FirstPersonClip.f(16, -72, 8, 4, 0.08f, 0.42f, 0.18f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_BOULDER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2.5f, 40, 10, 0, 0.05f, -0.4f, -0.1f),
-			FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP + 3, -10, 20, 0, 0.1f, 0.05f, -0.25f),
+			FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP, -78, 10, 0, 0.08f, 0.46f, 0.2f), FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP + 3, -14, 24, 0, 0.14f, 0.14f, -0.3f),
 			FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP + 10, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_SWING = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 30, -20, 0.25f, 0.1f, -0.2f),
-			FirstPersonClip.f(30, -30, 30, -20, 0.25f, 0.1f, -0.2f), FirstPersonClip.f(34, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_GUARD = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -25, 40, 0, 0.25f, 0.15f, 0),
-			FirstPersonClip.f(60, -25, 40, 0, 0.25f, 0.15f, 0), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -25, 40, 0, 0.25f, 0.1f, 0),
-			FirstPersonClip.f(18, -25, 40, 0, 0.25f, 0.1f, 0), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_SWING = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 32, -14, 0.26f, 0.22f, -0.2f),
+			FirstPersonClip.f(30, -30, 32, -14, 0.26f, 0.22f, -0.2f), FirstPersonClip.f(34, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_GUARD = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -32, 44, 0, 0.28f, 0.28f, 0),
+			FirstPersonClip.f(60, -32, 44, 0, 0.28f, 0.28f, 0), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -28, 42, 0, 0.26f, 0.2f, 0),
+			FirstPersonClip.f(18, -28, 42, 0, 0.26f, 0.2f, 0), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_HAYMAKER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -12, 0, -0.1f, -0.12f, 0.25f),
 			FirstPersonClip.f(FourArmsKit.HAYMAKER_TICKS + 3, 32, -12, 0, -0.1f, -0.14f, 0.27f)).both();
-	private static final FirstPersonClip FP_HAYMAKER_HIT = FirstPersonClip.of(FirstPersonClip.f(0, 32, -12, 0, -0.1f, -0.14f, 0.27f), FirstPersonClip.f(2.5f, -18, 26, 0, 0.16f, 0.08f, -0.3f),
-			FirstPersonClip.f(6, -16, 24, 0, 0.15f, 0.07f, -0.26f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_HUG = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, 50, 0, 0.3f, 0.05f, -0.05f),
-			FirstPersonClip.f(60, -20, 55, 0, 0.32f, 0.05f, -0.05f), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HAYMAKER_HIT = FirstPersonClip.of(FirstPersonClip.f(0, 32, -12, 0, -0.1f, -0.14f, 0.27f), FirstPersonClip.f(2.5f, -30, 28, 0, 0.34f, 0.34f, -0.48f),
+			FirstPersonClip.f(6, -28, 26, 0, 0.32f, 0.32f, -0.44f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HUG = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -24, 50, 0, 0.3f, 0.22f, -0.05f),
+			FirstPersonClip.f(60, -24, 55, 0, 0.32f, 0.22f, -0.05f), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_ROAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -15, 40, 0, 0.22f, 0.02f, 0.05f),
 			FirstPersonClip.f(7, -20, -40, 30, -0.25f, 0.2f, 0), FirstPersonClip.f(22, -20, -40, 30, -0.25f, 0.2f, 0), FirstPersonClip.f(28, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_RISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -85, 0, 0, 0, 0.6f, 0.15f),
-			FirstPersonClip.f(26, -85, 0, 0, 0, 0.6f, 0.15f), FirstPersonClip.f(30, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_RISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -78, 10, 0, 0.08f, 0.46f, 0.2f),
+			FirstPersonClip.f(26, -78, 10, 0, 0.08f, 0.46f, 0.2f), FirstPersonClip.f(30, 0, 0, 0, 0, 0, 0)).both();
 
 	public FourArmsClient() {
 		ModelPart root = AlienParts.bake(64, 64, r -> {

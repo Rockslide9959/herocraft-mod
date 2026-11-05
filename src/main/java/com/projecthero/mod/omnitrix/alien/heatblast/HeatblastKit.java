@@ -2291,12 +2291,11 @@ public final class HeatblastKit extends AlienKit {
 		}
 		p.giveExperiencePoints(Math.max(1, Math.round(recipe.get().value().getExperience() * n)));
 		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FURNACE_FIRE_CRACKLE, SoundSource.PLAYERS, 1.0f, 1.0f);
-		Vec3 cup = p.getEyePosition().add(p.getLookAngle().scale(0.6)).add(0, -0.45, 0);
+		Vec3 cup = p.position().add(Vec3.directionFromRotation(0, p.getYRot()).scale(0.55)).add(0, 0.85 * p.getScale(), 0);
 		for (int k = 0; k < 8; k++) {
 			double a = k * Math.PI / 4;
-			l.sendParticles(ParticleTypes.FLAME, cup.x + Math.cos(a) * 0.25, cup.y, cup.z + Math.sin(a) * 0.25, 0, -Math.sin(a) * 0.5, 0.6, Math.cos(a) * 0.5, 0.06);
+			l.sendParticles(ParticleTypes.SMALL_FLAME, cup.x + Math.cos(a) * 0.2, cup.y, cup.z + Math.sin(a) * 0.2, 0, -Math.sin(a) * 0.5, 0.3, Math.cos(a) * 0.5, 0.04);
 		}
-		l.sendParticles(ParticleTypes.SMOKE, cup.x, cup.y + 0.3, cup.z, 4, 0.1, 0.1, 0.1, 0.02);
 		p.swing(hand, true);
 		return true;
 	}
