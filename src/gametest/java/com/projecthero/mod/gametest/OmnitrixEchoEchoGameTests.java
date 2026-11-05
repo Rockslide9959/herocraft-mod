@@ -232,7 +232,7 @@ public class OmnitrixEchoEchoGameTests implements FabricGameTest {
 		EchoEchoKit k = kit();
 		Villager close = prey(helper, 3.5, 2, 3.5, 200f);
 		helper.assertTrue(k.chorusStart(p), "the chorus gathers");
-		helper.assertTrue(EchoEchoKit.clones(p).size() == EchoEchoKit.MAX_CLONES, "a full chorus of three");
+		helper.assertTrue(EchoEchoKit.clones(p).size() == EchoEchoKit.MAX_CLONES, "a full chorus of ten");
 		helper.assertTrue(k.flag(p, EchoEchoKit.F_CHARGE), "building up");
 		pump(helper, p);
 		helper.runAfterDelay(EchoEchoKit.CHARGE_TICKS + 2, () -> {
@@ -262,5 +262,58 @@ public class OmnitrixEchoEchoGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.state(p).kitFlags == 0, "no kit flags left");
 		helper.assertTrue(Omnitrix.state(p).readyAt(EchoEchoKit.ID + "." + EchoEchoKit.WALL_START) <= 0, "no move timers left");
 		helper.succeed();
+	}
+
+	private static void apart(GameTestHelper helper, java.util.List<EchoCloneEntity> l, double gap, String when) {
+		for (int i = 0; i < l.size(); i++) {
+			for (int j = i + 1; j < l.size(); j++) {
+				double d = Math.sqrt(l.get(i).position().subtract(l.get(j).position()).horizontalDistanceSqr());
+				helper.assertTrue(d >= gap, when + ": clones " + i + " and " + j + " only " + d + " apart");
+			}
+		}
+	}
+
+	/** v0.17.2 (user: "make the limit on his clones 10 and make them each have their own position, they shouldnt stand inside each other"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void echoEchoTenClonesEachHaveTheirOwnPosition(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = echo(helper);
+		EchoEchoKit k = kit();
+		for (int i = 0; i < 12; i++) {
+			clearCooldown(p, EchoEchoKit.SPLIT);
+			k.split(p);
+		}
+		helper.assertTrue(EchoEchoKit.clones(p).size() == 10, "ten at most: " + EchoEchoKit.clones(p).size());
+		pump(helper, p);
+		Villager v = prey(helper, 3.5, 2, 7.5, 200f);
+		helper.runAfterDelay(30, () -> {
+			apart(helper, EchoEchoKit.clones(p), 0.7, "in formation");
+			helper.assertTrue(k.surround(p), "the clones run round it");
+			helper.runAfterDelay(EchoEchoKit.SURROUND_DELAY - 2, () -> {
+				apart(helper, EchoEchoKit.clones(p), 0.6, "round the target");
+				helper.assertTrue(EchoEchoKit.clones(p).stream().allMatch(c -> c.distanceToSqr(v) < 6 * 6), "all round it");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** Merge: they rush in and are gone a moment later, and he is healed at once. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void echoEchoMergedClonesRushBackIn(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = echo(helper);
+		EchoEchoKit k = kit();
+		k.split(p);
+		EchoCloneEntity c = EchoEchoKit.clones(p).get(0);
+		pump(helper, p);
+		helper.runAfterDelay(12, () -> {
+			helper.assertTrue(k.merge(p), "merged");
+			helper.assertFalse(c.isRemoved(), "it is still on its way");
+			helper.assertTrue(EchoEchoKit.clones(p).isEmpty(), "but no longer one of his clones");
+			helper.runAfterDelay(20, () -> {
+				helper.assertTrue(c.isRemoved(), "back in him");
+				helper.succeed();
+			});
+		});
 	}
 }

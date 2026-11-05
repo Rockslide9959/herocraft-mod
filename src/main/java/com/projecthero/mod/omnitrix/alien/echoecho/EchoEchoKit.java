@@ -18,6 +18,7 @@ import com.projecthero.mod.omnitrix.alien.AlienMove;
 import com.projecthero.mod.omnitrix.alien.AlienStats;
 import com.projecthero.mod.omnitrix.alien.AlienStatus;
 import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.CloneSpacing;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.quirk.fx.QuirkCamera;
 import com.projecthero.mod.quirk.fx.QuirkFx;
@@ -85,8 +86,8 @@ import net.minecraft.world.phys.Vec3;
  *   C          Shatter Note     one pitched note at the creature you look at (20): 15 (x1.5 to golems and shulkers), Resonating
  *                               6 s, glass and ice round it shatter
  *   Shift+C    Echolocation     a ping: every creature within 32 glows 8 s
- *   V          Duplicate        splits off a clone (up to 3; 6 health each; they last until he turns back)
- *   Shift+V    Merge            calls the clones back into him (+2 health for each)
+ *   V          Duplicate        splits off a clone (up to 10, each on its own spot; 6 health each; they last until he turns back)
+ *   Shift+V    Merge            calls the clones back into him: they rush in and are gone (+2 health for each)
  *   Use        Sound Barrier    HOLD right-click (empty hand), up to 3 s: half damage, creatures pushed off, shots turned back
  *   Attack     Chorus Jab       each clone within 6 blocks of the target echoes the punch: +1.5 each
  *   Passives   Sonorosian (small, quick); Chorus (clones scream with him); Resonating (+25% from his sound);
@@ -115,6 +116,8 @@ public final class EchoEchoKit extends AlienKit {
 	public static final int ANIM_CHORUS = 13;
 	public static final int ANIM_NOTE = 14;
 	public static final int ANIM_JAB = 15;
+	public static final int ANIM_WALL_END = 16;
+	public static final int ANIM_BARRIER_END = 17;
 
 	public static final int F_BARRIER = 1;
 	public static final int F_CHARGE = 2;
@@ -141,7 +144,7 @@ public final class EchoEchoKit extends AlienKit {
 	public static final String BARRIER_UNTIL = "barrier_until", BARRIER_USE = "barrier_use", LEAP_UNTIL = "leap_until", CHARGE_AT = "charge_at",
 			AIM_TARGET = "aim_target", WALL_START = "wall_start", SURROUND_AT = "surround_at";
 
-	public static final int MAX_CLONES = 10; // v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell")
+	public static final int MAX_CLONES = CloneSpacing.LIMIT; // v0.17.2 (user: "make echo echos clones look the axact same as him and be the same size, reduce the cooldown on his clone to 0.5 seconds and make his max limit for clones be 10" / "make them all have our omnitrix badge aswell")
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md);
 	// per-clone hits stay modest and at most CLONE_HIT_CAP clones add to one creature per move, so 10 clones never one-shot a boss
 	public static final int CLONE_HIT_CAP = 5;
@@ -305,14 +308,16 @@ public final class EchoEchoKit extends AlienKit {
 			return List.of();
 		}
 		l.removeIf(c -> c.isRemoved());
-		return List.copyOf(l);
+		List<EchoCloneEntity> out = new ArrayList<>(l);
+		out.removeIf(EchoCloneEntity::homing); // already part of him again
+		return out;
 	}
 
 	/** Splits off one clone if there is room; null if he already has {@link #MAX_CLONES}. */
 	public static EchoCloneEntity addClone(ServerPlayer p) {
 		List<EchoCloneEntity> l = CLONES.computeIfAbsent(p.getUUID(), k -> new ArrayList<>());
 		l.removeIf(c -> c.isRemoved());
-		if (l.size() >= MAX_CLONES) {
+		if (l.stream().filter(c -> !c.homing()).count() >= MAX_CLONES) {
 			return null;
 		}
 		Set<Integer> used = new LinkedHashSet<>();
@@ -325,7 +330,6 @@ public final class EchoEchoKit extends AlienKit {
 		}
 		EchoCloneEntity c = EchoCloneEntity.spawn(p, slot);
 		l.add(c);
-		QuirkFx.ring(level(p), c.position().add(0, 0.4, 0)).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, WAVE).size(1.2f).thickness(0.2f).life(8).spawn();
 		return c;
 	}
 
@@ -642,7 +646,7 @@ public final class EchoEchoKit extends AlienKit {
 		setTimer(p, WALL_START, 0);
 		cooldown(p, WALL, WALL_COOLDOWN); // the 6 s run from the release
 		if (Omnitrix.state(p).animId == ANIM_BLAST) {
-			anim(p, 0);
+			anim(p, ANIM_WALL_END); // eases out of the held pose
 		}
 	}
 
@@ -743,12 +747,13 @@ public final class EchoEchoKit extends AlienKit {
 		n.timers.put(key(SURROUND_AT), now + SURROUND_DELAY);
 		n.kitFlags |= F_SURROUND;
 		Omnitrix.save(p, n);
-		// the clones fan out evenly round it
-		double r = 1.3 + t.getBbWidth() * 0.5;
+		// the clones fan out evenly round it, each on a spot of its own and far enough out that a full ten do not touch, and look in at it
+		double r = Math.max(1.3 + t.getBbWidth() * 0.5, cl.size() * CloneSpacing.GAP * 1.15 / (2.0 * Math.PI));
 		for (int i = 0; i < cl.size(); i++) {
 			double a = Math.toRadians(p.getYRot() + 180 + i * 360.0 / cl.size() + (cl.size() == 1 ? 0 : 60));
 			Vec3 at = t.position().add(-Math.sin(a) * r, 0, Math.cos(a) * r);
-			cl.get(i).dashTo(at, SURROUND_DELAY + 10);
+			cl.get(i).dashTo(at, SURROUND_DELAY + 12);
+			cl.get(i).faceAt(t, SURROUND_DELAY + 12);
 		}
 		OmnitrixSfx.play(level(p), p.position(), SND_SPLIT, 0.9f, 1.4f);
 		return true;
@@ -953,7 +958,9 @@ public final class EchoEchoKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_MERGE);
-		removeClones(p);
+		for (EchoCloneEntity c : clones(p)) {
+			c.recall(); // they rush back in on their own; turning back still clears them
+		}
 		p.heal(MERGE_HEAL * n);
 		OmnitrixSfx.play(level(p), p.position(), SND_MERGE, 1f, 1f);
 		return true;
@@ -1034,7 +1041,7 @@ public final class EchoEchoKit extends AlienKit {
 		setTimer(p, BARRIER_USE, 0);
 		cooldown(p, BARRIER, -1);
 		if (Omnitrix.state(p).animId == ANIM_BARRIER) {
-			anim(p, 0);
+			anim(p, ANIM_BARRIER_END);
 		}
 	}
 

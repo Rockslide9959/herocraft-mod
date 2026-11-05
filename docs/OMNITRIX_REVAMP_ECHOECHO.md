@@ -31,18 +31,21 @@ aside. He is light and easy to knock around.
 | X | Sonic Leap | blast at the ground throws him up and forward; no fall damage 1.5 s | 4 in 2 at take-off; cd 1.5 s |
 | Shift+X | Echo Swap | change places with the clone you look at (else the farthest) | cd 3 s |
 | Z | Sonic Cannon | focused beam through everything in line; glass and ice in its path shatter (real blocks) | 16, 24 blocks; clones +3; cd 8 s |
-| Shift+Z | Ultimate Chorus | ULT. Fills the chorus to 3, 1 s build-up, then a dome of sound plus a ring round every clone | 55 centre / 40 at 10 blocks, stun 2 s; clone rings 8 in 4; cd 60 s |
+| Shift+Z | Ultimate Chorus | ULT. Fills the chorus to 10, 1 s build-up, then a dome of sound plus a ring round every clone | 55 centre / 40 at 10 blocks, stun 2 s; clone rings 8 in 4; cd 60 s |
 | C | Shatter Note | NEW. One pitched note at the creature you look at; golems and shulkers crack; glass and ice round it shatter | 15 (x1.5 iron / snow golem, shulker), Resonating 6 s, range 20; cd 7 s |
 | Shift+C | Echolocation | NEW. A ping: every creature within 32 glows | glow 8 s; cd 20 s |
-| V | Duplicate | split off a clone (up to 3, 6 HP each) | cd 2 s |
-| Shift+V | Merge | call the clones back in | +2 HP each; cd 2 s |
+| V | Duplicate | split off a clone (up to 10, 6 HP each); it slides out of him to its own spot | cd 0.5 s |
+| Shift+V | Merge | the clones rush back into him | +2 HP each; cd 2 s |
 | Use (hold, empty hand) | Sound Barrier | moved from Z. Held shell, up to 3 s: half damage, creatures pushed off, shots turned back | cd 5 s after it drops |
 | Attack | Chorus Jab | NEW. Clones near the target echo the punch | +1.5 per clone within 6 |
 
 Damage check: quick 3-7 (scream, wall pulses, clone echoes), normal 12-16 (ring, cannon, note), ult 55/40.
 
 ### Passives
-- **Chorus:** clones follow in formation and copy his poses. Scream, Wall of Sound, Echo Ring, Cannon, the ultimate and his punches
+- **Chorus:** clones follow in formation, each on its own spot (user: "make the limit on his clones 10 and make them each have their own
+  position, they shouldnt stand inside each other like how they currently do please"): ten places in a two-row fan behind him
+  (`CloneSpacing`, shared with Ditto), an even ring round a Surround Sound target, and a push that keeps any two apart on the way.
+  They copy his sound poses. Scream, Wall of Sound, Echo Ring, Cannon, the ultimate and his punches
   all come from every clone too.
 - **Which One's Real? (NEW):** lethal damage while a clone is up breaks the nearest clone instead. He stands where it stood on 6 HP,
   and every mob hunting him loses track. Cooldown 90 s. `/kill` and the void still kill him. This runs as an early `ALLOW_DEATH`
@@ -62,4 +65,13 @@ Removed: the ear discs, head crest and back speaker disc (`renderExtras`), the s
 chorus dome. New moves draw QuirkFx shapes: the Wall of Sound beam cone, ribbons from the clones, shock rings, the echolocation ring,
 and shards when a decoy breaks.
 
-Screenshots: `docs/screenshots/v0172/echo_echo/`.
+## Animations (v0.17.2 round 3)
+
+Every move has its own third-person clip and first-person clip, and the sound moves shake and shove his whole body (`AlienBodyTurn`).
+His scream is a breath in, chin out and arms thrown back as the sound drives him a step back. The Wall of Sound holds that pose for as
+long as the key is down and eases out on release. The cannon is two hands cupped at the mouth with a recoil. Shatter Note is one hand at
+the ear and one pointing it home. Echolocation is one hand at the mouth and one at the ear. Echo Ring balls up and flings wide. Sonic
+Leap crouches over the blast. The chorus folds in shaking harder, then bursts. Clones slide out of him on a ring of sound with a small pop,
+rush back in dwindling on a Merge, look in at a Surround Sound target and scream with his sound moves, but not his leap or swap.
+
+Screenshots: `docs/screenshots/v0172/echo_echo/`, `docs/screenshots/v0172/round3_echo_echo/`.

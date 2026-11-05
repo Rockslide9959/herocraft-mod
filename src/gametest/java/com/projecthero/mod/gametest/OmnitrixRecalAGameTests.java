@@ -100,7 +100,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 	// ================================================================ Echo Echo
 
 	private static List<EchoCloneEntity> clonesNear(GameTestHelper helper, ServerPlayer p) {
-		return helper.getLevel().getEntitiesOfClass(EchoCloneEntity.class, new AABB(p.blockPosition()).inflate(16), c -> !c.isRemoved());
+		return helper.getLevel().getEntitiesOfClass(EchoCloneEntity.class, new AABB(p.blockPosition()).inflate(16), c -> !c.isRemoved() && c.ownerId() == p.getId() && !c.homing()); // only his: tests beside this one have clones of their own
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -130,7 +130,7 @@ public class OmnitrixRecalAGameTests implements FabricGameTest {
 		p.setHealth(8f);
 		helper.assertTrue(kit.merge(p), "the clones merge back");
 		near(helper, p.getHealth(), Math.min(p.getMaxHealth(), 8f + (EchoEchoKit.MAX_CLONES - 1) * EchoEchoKit.MERGE_HEAL), "+2 health a clone");
-		helper.assertTrue(clonesNear(helper, p).isEmpty(), "merged: no clones left");
+		helper.assertTrue(EchoEchoKit.clones(p).isEmpty(), "merged: no clones left");
 		clearCooldown(p, EchoEchoKit.ID, EchoEchoKit.SPLIT);
 		kit.split(p);
 		clearCooldown(p, EchoEchoKit.ID, EchoEchoKit.SPLIT);
