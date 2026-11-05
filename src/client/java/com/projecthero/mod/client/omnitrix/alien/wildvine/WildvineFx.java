@@ -344,13 +344,15 @@ public final class WildvineFx {
 
 	// ---------------------------------------------------------------- the pods on his back
 
+	/** v0.17.2 (user: "make wildvines bombs the same size please"): all six the same. */
+	private static final float POD_SIZE = 0.17f;
+
 	/**
 	 * v0.17.2 (user: "can you add little seed bomb models to wildvines back please"): where the skin painted its flat pods (now painted
-	 * out) -- {x, y down, size in blocks} in body-bone pixels: the big upper pair (texels 33..34 / 37..38, rows 23..25), the slimmer
-	 * pair under them (34 / 37, rows 27..29) and two buds below (row 31). The first four are his seed bombs.
+	 * out) -- {x, y down, size in blocks} in body-bone pixels: three even pairs down his back. The first four are his seed bombs.
 	 */
-	private static final float[][] BACK_PODS = { { -2.0f, 4.4f, 0.20f }, { 2.0f, 4.4f, 0.20f }, { -1.5f, 8.5f, 0.15f }, { 1.5f, 8.5f, 0.15f },
-			{ -1.5f, 11.4f, 0.08f }, { 1.5f, 11.4f, 0.08f } };
+	private static final float[][] BACK_PODS = { { -2.0f, 4.4f, POD_SIZE }, { 2.0f, 4.4f, POD_SIZE }, { -2.0f, 8.1f, POD_SIZE }, { 2.0f, 8.1f, POD_SIZE },
+			{ -2.0f, 11.6f, POD_SIZE }, { 2.0f, 11.6f, POD_SIZE } };
 
 	/**
 	 * How grown back pod {@code i} is (0 gone .. 1 full): a Seed Bomb plucks one of the four big ones (which, by the throw's cooldown end:
