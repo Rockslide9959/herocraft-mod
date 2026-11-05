@@ -29,8 +29,10 @@ import net.minecraft.util.Mth;
  * own arm UVs, a touch thinner, under the first pair: they follow the upper arms with a lag and take their own swing in the
  * punches, the clap, the smashes and the holds), and a pose (third and first person) for every move.
  *
- * <p>v0.17.2: the revamped kit's poses -- the four-fist punch cycle and hammer, the Flurry and its uppercut, Hammer Smash,
- * Boulder Rip, Giant Swing, Tetramand Charge, Thunder Clap, Meteor Slam, Four-Arm Guard, Rampage and the Bear Hug.
+ * <p>v0.17.2 round 3 (user: "edit and update animations on all moves please"): every move is two keyframe tables that run together -- the
+ * model's limbs and the lower pair ({@link #lowerClip}: {tick, right xyz, left xyz}, absolute angles in the body's space), so all four arms
+ * wind up and land on the beat instead of the lower pair stepping between two poses; punches go down the aim with the hips turned
+ * into them, and on the move the legs stay on the walk cycle.
  */
 public final class FourArmsClient implements AlienClientKit {
 	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
@@ -48,85 +50,170 @@ public final class FourArmsClient implements AlienClientKit {
 	private final ModelPart lowerRight;
 	private final ModelPart lowerLeft;
 
-	// ---- the punch cycle (upper right, upper left, lower right -- the lower arm does the work -- then the double-fist hammer)
-	private static final float[][] PUNCH_R = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, 0.3f, 0, 0.3f, 0, 0, 0.1f, -0.35f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.rest(6) };
-	private static final float[][] PUNCH_L = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.3f, 0, 0, -1.6f, -0.3f, 0, 0.1f, 0.35f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.rest(6) };
-	private static final float[][] PUNCH_LOW_R = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.35f, 0, 0.2f, -0.3f, 0, 0, 0.2f, -0.4f, 0, 0, 0, 0, 0, 0, 0.05f),
-			QuirkKeyframes.rest(6) };
-	private static final float[][] PUNCH_LOW_L = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.3f, 0, 0, 0.35f, 0, -0.2f, 0.2f, 0.4f, 0, 0, 0, 0, 0, 0, 0.05f),
-			QuirkKeyframes.rest(6) };
+	private static final float A = QuirkKeyframes.AIM;
+
+	// ---- the punches: wound up across the body, driven down the aim with the hips, the other pair drawn back to balance it
+	private static final float[][] PUNCH_R = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1.2f, -0.3f, 0.35f, 0.25f, -0.9f, 0.3f, -0.1f, 0.06f, 0.4f, 0.18f, 0, 0, -0.18f, 0, 0, 0),
+			QuirkKeyframes.f(3, A, A, 0, 0.35f, 0, -0.15f, 0.2f, -0.5f, 0.3f, 0, 0, -0.32f, 0, 0, 0.02f),
+			QuirkKeyframes.f(5, A, A, 0, 0.3f, 0, -0.15f, 0.18f, -0.45f, 0.28f, 0, 0, -0.3f, 0, 0, 0), QuirkKeyframes.rest(10) };
+	private static final float[][] PUNCH_L = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1.2f, -0.9f, -0.3f, 0.1f, -0.3f, -0.35f, -0.25f, 0.06f, -0.4f, -0.18f, 0, 0, 0.18f, 0, 0, 0),
+			QuirkKeyframes.f(3, 0.35f, 0, 0.15f, A, A, 0, 0.2f, 0.5f, -0.32f, 0, 0, 0.3f, 0, 0, 0.02f),
+			QuirkKeyframes.f(5, 0.3f, 0, 0.15f, A, A, 0, 0.18f, 0.45f, -0.3f, 0, 0, 0.28f, 0, 0, 0), QuirkKeyframes.rest(10) };
+	private static final float[][] LOW_PUNCH_R = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.2f, -0.6f, 0, 0.3f, 0.25f, 0, -0.3f), low(3, 0.5f, 0, 0.35f, -0.55f, 0, -0.3f),
+			low(10, 0, 0, 0.3f, 0, 0, -0.3f) };
+	private static final float[][] LOW_PUNCH_L = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.2f, 0.25f, 0, 0.3f, -0.6f, 0, -0.3f), low(3, -0.55f, 0, 0.3f, 0.5f, 0, -0.35f),
+			low(10, 0, 0, 0.3f, 0, 0, -0.3f) };
+	// the passive cycle's body blows: the upper pair up as a guard, a lower fist driven up into the gut
+	private static final float[][] PUNCH_LOW_R = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1.5f, -0.9f, -0.4f, 0.1f, -0.7f, 0.3f, -0.1f, 0.05f, 0.3f, 0.12f, 0, 0, -0.12f, 0, 0, 0),
+			QuirkKeyframes.f(3.5f, -1.0f, -0.4f, 0.1f, -0.8f, 0.3f, -0.1f, 0.25f, -0.35f, 0.3f, 0, 0, -0.3f, 0, 0, 0.05f), QuirkKeyframes.rest(10) };
+	private static final float[][] PUNCH_LOW_L = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1.5f, -0.7f, -0.3f, 0.1f, -0.9f, 0.4f, -0.1f, 0.05f, -0.3f, -0.12f, 0, 0, 0.12f, 0, 0, 0),
+			QuirkKeyframes.f(3.5f, -0.8f, -0.3f, 0.1f, -1.0f, 0.4f, -0.1f, 0.25f, 0.35f, -0.3f, 0, 0, 0.3f, 0, 0, 0.05f), QuirkKeyframes.rest(10) };
+	private static final float[][] LOW_LOW_R = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.5f, 0.8f, 0, 0.35f, 0.2f, 0, -0.3f), low(3.5f, -1.8f, -0.1f, 0.15f, 0.5f, 0, -0.3f),
+			low(10, 0, 0, 0.3f, 0, 0, -0.3f) };
+	private static final float[][] LOW_LOW_L = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.5f, 0.2f, 0, 0.3f, 0.8f, 0, -0.35f), low(3.5f, 0.5f, 0, 0.3f, -1.8f, 0.1f, -0.15f),
+			low(10, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** The combo's third blow: both lower fists drawn back and driven in together, the upper pair guarding the face. */
+	private static final float[][] COMBO_LOW = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1.5f, -1.1f, -0.4f, 0.1f, -1.1f, 0.4f, -0.1f, -0.05f, 0, 0.1f, 0, 0, -0.1f, 0, 0, 0.1f),
+			QuirkKeyframes.f(3.5f, -1.35f, -0.55f, 0.1f, -1.35f, 0.55f, -0.1f, 0.38f, 0, 0.3f, 0, 0, -0.35f, 0, 0, -0.2f),
+			QuirkKeyframes.f(6, -1.3f, -0.55f, 0.1f, -1.3f, 0.55f, -0.1f, 0.34f, 0, 0.28f, 0, 0, -0.32f, 0, 0, -0.18f), QuirkKeyframes.rest(11) };
+	private static final float[][] LOW_COMBO_LOW = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.5f, 0.8f, 0, 0.35f, 0.8f, 0, -0.35f), low(3.5f, -1.75f, -0.15f, 0.1f, -1.75f, 0.15f, -0.1f),
+			low(6, -1.6f, -0.15f, 0.1f, -1.6f, 0.15f, -0.1f), low(11, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** The double-fist hammer (and the combo's last blow): up high on his toes, then the whole body behind it. */
 	private static final float[][] HAMMER_PUNCH = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(3, -2.9f, 0.2f, 0.25f, -2.9f, -0.2f, -0.25f, -0.25f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
-			QuirkKeyframes.f(6, -1.1f, -0.2f, 0, -1.1f, 0.2f, 0, 0.45f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.3f), QuirkKeyframes.rest(13) };
-	/** The Flurry's finisher: a rising uppercut from the hip. */
-	private static final float[][] UPPERCUT = { QuirkKeyframes.f(0, 0.5f, 0, 0.25f, -0.4f, 0, 0, 0.35f, -0.3f, -0.4f, 0, 0, 0.2f, 0, 0, 0.1f),
-			QuirkKeyframes.f(3, -2.9f, -0.2f, 0.1f, 0.3f, 0, -0.2f, -0.3f, 0.25f, 0.2f, 0, 0, -0.2f, 0, 0, -0.35f), QuirkKeyframes.rest(10) };
-	private static final float[][] HAMMER_SMASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -3.0f, 0, 0.3f, -3.0f, 0, -0.3f, -0.35f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.4f),
+			QuirkKeyframes.f(3, -3.0f, 0.15f, 0.2f, -3.0f, -0.15f, -0.2f, -0.28f, 0, 0.1f, 0, 0.1f, -0.1f, 0, -0.1f, -0.3f),
+			QuirkKeyframes.f(5.5f, -1.05f, -0.2f, 0, -1.05f, 0.2f, 0, 0.5f, 0, 0.35f, 0, 0, -0.4f, 0, 0, 0.1f),
+			QuirkKeyframes.f(8, -0.95f, -0.2f, 0, -0.95f, 0.2f, 0, 0.45f, 0, 0.32f, 0, 0, -0.36f, 0, 0, 0.1f), QuirkKeyframes.rest(14) };
+	private static final float[][] LOW_HAMMER = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -1.9f, 0, 0.35f, -1.9f, 0, -0.35f), low(5.5f, -0.9f, 0, 0.2f, -0.9f, 0, -0.2f),
+			low(14, 0, 0, 0.3f, 0, 0, -0.3f) };
+	private static final float[][] LOW_FINISH = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -2.7f, 0.1f, 0.3f, -2.7f, -0.1f, -0.3f), low(5.5f, -1.15f, 0, 0.15f, -1.15f, 0, -0.15f),
+			low(8, -1.0f, 0, 0.15f, -1.0f, 0, -0.15f), low(14, 0, 0, 0.3f, 0, 0, -0.3f) };
+	private static final float[][] HAMMER_SMASH = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(4, -3.0f, 0, 0.3f, -3.0f, 0, -0.3f, -0.35f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.4f),
 			QuirkKeyframes.f(6, -0.5f, 0, 0.15f, -0.5f, 0, -0.15f, 0.85f, 0, -0.9f, 0, 0.2f, -0.9f, 0, -0.2f, 0.5f),
 			QuirkKeyframes.f(14, -0.4f, 0, 0.15f, -0.4f, 0, -0.15f, 0.75f, 0, -0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.4f), QuirkKeyframes.rest(20) };
-	private static final float[][] GRAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.35f, 0, -1.5f, 0.35f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
-			QuirkKeyframes.rest(10) };
-	private static final float[][] THROW = { QuirkKeyframes.f(0, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
-			QuirkKeyframes.f(4, -1.0f, 0, 0, -1.0f, 0, 0, 0.4f, 0, 0.4f, 0, 0, -0.3f, 0, 0, 0.2f), QuirkKeyframes.rest(12) };
-	/** Boulder Rip: bend, fingers into the ground, the chunk up overhead, hurled. */
-	private static final float[][] BOULDER = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, 0, 0.3f, -1.0f, 0, -0.3f, 0.75f, 0, -0.6f, 0, 0.15f, -0.6f, 0, -0.15f, 0.3f),
-			QuirkKeyframes.f(7, -2.9f, 0, 0.3f, -2.9f, 0, -0.3f, -0.25f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.3f),
-			QuirkKeyframes.f(10, -1.0f, 0, 0, -1.0f, 0, 0, 0.45f, 0, 0.4f, 0, 0, -0.3f, 0, 0, 0.2f), QuirkKeyframes.rest(17) };
-	private static final float[][] LEAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.8f, 0, 0.4f, -2.8f, 0, -0.4f, -0.2f, 0, -0.6f, 0, 0, 0.5f, 0, 0, -0.4f),
+	private static final float[][] LOW_SMASH = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(4, -2.6f, 0, 0.4f, -2.6f, 0, -0.4f), low(6, -0.75f, 0, 0.15f, -0.75f, 0, -0.15f),
+			low(14, -0.65f, 0, 0.15f, -0.65f, 0, -0.15f), low(20, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Grab: both hands out along the aim, then the catch hoisted up over his head. */
+	private static final float[][] GRAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2.5f, A, A, 0, A, A, 0, 0.22f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.1f),
+			QuirkKeyframes.f(5, A, A, 0, A, A, 0, 0.18f, 0, 0.18f, 0, 0, -0.18f, 0, 0, 0.05f),
+			QuirkKeyframes.f(10, -2.9f, 0, 0.25f, -2.9f, 0, -0.25f, -0.12f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.2f),
+			QuirkKeyframes.f(13, -2.9f, 0, 0.25f, -2.9f, 0, -0.25f, -0.12f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.2f) };
+	private static final float[][] LOW_GRAB = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(2.5f, -1.5f, 0, 0.2f, -1.5f, 0, -0.2f), low(5, -1.5f, 0, 0.2f, -1.5f, 0, -0.2f),
+			low(10, -2.5f, 0, 0.5f, -2.5f, 0, -0.5f), low(13, -2.5f, 0, 0.5f, -2.5f, 0, -0.5f) };
+	private static final float[][] THROW = { QuirkKeyframes.f(0, -2.9f, 0, 0.25f, -2.9f, 0, -0.25f, -0.12f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.2f),
+			QuirkKeyframes.f(4, -1.0f, 0, 0, -1.0f, 0, 0, 0.45f, 0, 0.42f, 0, 0, -0.34f, 0, 0, 0.2f),
+			QuirkKeyframes.f(7, -0.8f, 0, 0, -0.8f, 0, 0, 0.35f, 0, 0.36f, 0, 0, -0.3f, 0, 0, 0.1f), QuirkKeyframes.rest(13) };
+	private static final float[][] LOW_THROW = { low(0, -2.5f, 0, 0.5f, -2.5f, 0, -0.5f), low(4, -0.9f, 0, 0.2f, -0.9f, 0, -0.2f), low(13, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Boulder Rip: bent over, fingers into the ground; the chunk hauled up overhead; hurled on the windup's last tick. */
+	private static final float[][] BOULDER = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(2.5f, -1.0f, 0, 0.3f, -1.0f, 0, -0.3f, 0.75f, 0, -0.6f, 0, 0.15f, -0.6f, 0, -0.15f, 0.3f),
+			QuirkKeyframes.f(FourArmsKit.BOULDER_WINDUP - 1, -2.95f, 0, 0.3f, -2.95f, 0, -0.3f, -0.25f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.3f),
+			QuirkKeyframes.f(FourArmsKit.BOULDER_WINDUP, -2.95f, 0, 0.3f, -2.95f, 0, -0.3f, -0.28f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.3f),
+			QuirkKeyframes.f(FourArmsKit.BOULDER_WINDUP + 3, -1.0f, 0, 0, -1.0f, 0, 0, 0.45f, 0, 0.4f, 0, 0, -0.3f, 0, 0, 0.2f),
+			QuirkKeyframes.rest(FourArmsKit.BOULDER_WINDUP + 10) };
+	private static final float[][] LOW_BOULDER = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(2.5f, -1.0f, 0, 0.2f, -1.0f, 0, -0.2f), low(FourArmsKit.BOULDER_WINDUP - 1, -2.4f, 0, 0.5f, -2.4f, 0, -0.5f),
+			low(FourArmsKit.BOULDER_WINDUP, -2.4f, 0, 0.5f, -2.4f, 0, -0.5f), low(FourArmsKit.BOULDER_WINDUP + 3, -0.9f, 0, 0.2f, -0.9f, 0, -0.2f),
+			low(FourArmsKit.BOULDER_WINDUP + 10, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** The leap: down into a squat with all four arms swung back, then flung up, reaching. */
+	private static final float[][] LEAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1.5f, 0.6f, 0, 0.35f, 0.6f, 0, -0.35f, 0.3f, 0, -0.5f, 0, 0, -0.5f, 0, 0, 0.1f),
+			QuirkKeyframes.f(4, -2.8f, 0, 0.4f, -2.8f, 0, -0.4f, -0.2f, 0, 0.3f, 0, 0, -0.5f, 0, 0, -0.4f),
 			QuirkKeyframes.f(16, -2.6f, 0, 0.5f, -2.6f, 0, -0.5f, -0.1f, 0, -0.5f, 0, 0, 0.4f, 0, 0, -0.3f), QuirkKeyframes.rest(24) };
+	private static final float[][] LOW_LEAP = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(1.5f, 0.8f, 0, 0.4f, 0.8f, 0, -0.4f), low(4, -2.2f, 0, 0.5f, -2.2f, 0, -0.5f), low(16, -2.0f, 0, 0.6f, -2.0f, 0, -0.6f),
+			low(24, 0, 0, 0.3f, 0, 0, -0.3f) };
 	/** Meteor Slam's take-off: fists to the sky, legs tucked. */
 	private static final float[][] METEOR_RISE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -3.0f, 0, 0.15f, -3.0f, 0, -0.15f, -0.25f, 0, -0.9f, 0, 0, -0.4f, 0, 0, -0.5f),
 			QuirkKeyframes.f(26, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.2f, 0, -0.9f, 0, 0, -0.4f, 0, 0, -0.5f), QuirkKeyframes.rest(30) };
-	/** Tetramand Charge: head down, shoulder first. */
+	private static final float[][] LOW_METEOR_RISE = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -2.7f, 0, 0.4f, -2.7f, 0, -0.4f), low(26, -2.7f, 0, 0.45f, -2.7f, 0, -0.45f),
+			low(30, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Tetramand Charge: head down, shoulder first, the lower fists pumping (the legs run in pose()). */
 	private static final float[][] CHARGE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.6f, 0, 0.2f, -0.9f, 0.4f, 0, 0.6f, 0.5f, 0.4f, 0, 0, -0.3f, 0, 0, -0.4f),
 			QuirkKeyframes.f(18, 0.6f, 0, 0.2f, -0.9f, 0.4f, 0, 0.6f, 0.5f, -0.4f, 0, 0, 0.4f, 0, 0, -0.4f), QuirkKeyframes.rest(22) };
+	private static final float[][] LOW_CHARGE = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(2, 0.5f, 0, 0.3f, -1.0f, 0.3f, -0.1f), low(18, 0.5f, 0, 0.3f, -1.0f, 0.3f, -0.1f), low(22, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Haymaker: thrown forward with both upper fists cocked back behind him... */
+	private static final float[][] HAYMAKER = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.7f, 0, 0.45f, 0.7f, 0, -0.45f, 0.42f, 0, 0.5f, 0, 0, -0.6f, 0, 0, -0.3f),
+			QuirkKeyframes.f(FourArmsKit.HAYMAKER_TICKS + 3, 0.8f, 0, 0.45f, 0.8f, 0, -0.45f, 0.46f, 0, 0.5f, 0, 0, -0.6f, 0, 0, -0.3f) };
+	/** ...and both slammed down the aim. */
+	private static final float[][] HAYMAKER_HIT = { QuirkKeyframes.f(0, 0.8f, 0, 0.45f, 0.8f, 0, -0.45f, 0.46f, 0, 0.5f, 0, 0, -0.6f, 0, 0, -0.3f),
+			QuirkKeyframes.f(2.5f, A, A, 0, A, A, 0, 0.36f, 0, 0.42f, 0, 0, -0.46f, 0, 0, 0f), QuirkKeyframes.f(6, A, A, 0, A, A, 0, 0.3f, 0, 0.38f, 0, 0, -0.42f, 0, 0, 0f),
+			QuirkKeyframes.rest(13) };
+	private static final float[][] LOW_HAYMAKER = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, 0.9f, 0, 0.4f, 0.9f, 0, -0.4f), low(FourArmsKit.HAYMAKER_TICKS + 3, 0.95f, 0, 0.4f, 0.95f, 0, -0.4f) };
+	private static final float[][] LOW_HAYMAKER_HIT = { low(0, 0.95f, 0, 0.4f, 0.95f, 0, -0.4f), low(2.5f, -1.3f, -0.1f, 0.15f, -1.3f, 0.1f, -0.15f), low(6, -1.2f, -0.1f, 0.15f, -1.2f, 0.1f, -0.15f),
+			low(13, 0, 0, 0.3f, 0, 0, -0.3f) };
 	/** Thunder Clap: all four arms thrown wide, then slammed together. */
 	private static final float[][] CLAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.4f, 1.0f, 0.2f, -1.4f, -1.0f, -0.2f, -0.2f, 0, 0, 0, 0.15f, 0, 0, -0.15f, -0.15f),
 			QuirkKeyframes.f(6, -1.5f, -0.3f, 0, -1.5f, 0.3f, 0, 0.3f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.15f),
 			QuirkKeyframes.f(12, -1.45f, -0.25f, 0, -1.45f, 0.25f, 0, 0.25f, 0, 0.25f, 0, 0, -0.25f, 0, 0, 0.1f), QuirkKeyframes.rest(16) };
+	private static final float[][] LOW_CLAP = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(4, -1.1f, 0.9f, 0.5f, -1.1f, -0.9f, -0.5f), low(6, -1.35f, -0.35f, 0.1f, -1.35f, 0.35f, -0.1f),
+			low(12, -1.25f, -0.3f, 0.1f, -1.25f, 0.3f, -0.1f), low(16, 0, 0, 0.3f, 0, 0, -0.3f) };
 	private static final float[][] DIVE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -3.0f, 0, 0.15f, -3.0f, 0, -0.15f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.6f),
 			QuirkKeyframes.f(30, -3.0f, 0, 0.15f, -3.0f, 0, -0.15f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.6f), QuirkKeyframes.rest(34) };
-	/** Four-Arm Guard: the upper arms crossed in front of the face, braced low. */
+	private static final float[][] LOW_DIVE = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -2.8f, 0, 0.2f, -2.8f, 0, -0.2f), low(30, -2.8f, 0, 0.2f, -2.8f, 0, -0.2f), low(34, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Four-Arm Guard: the upper arms crossed in front of the face, the lower pair crossed under them, braced low. */
 	private static final float[][] GUARD = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.7f, -0.9f, 0, -1.7f, 0.9f, 0, 0.25f, 0, -0.3f, 0, 0.35f, -0.3f, 0, -0.35f, 0.2f),
 			QuirkKeyframes.f(60, -1.7f, -0.9f, 0, -1.7f, 0.9f, 0, 0.25f, 0, -0.3f, 0, 0.35f, -0.3f, 0, -0.35f, 0.2f), QuirkKeyframes.rest(64) };
-	/** Rampage: a chest-out roar, arms flexed wide. */
-	private static final float[][] RAMPAGE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -0.5f, 0, 1.3f, -0.5f, 0, -1.3f, -0.3f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.7f),
+	private static final float[][] LOW_GUARD = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -1.35f, -0.75f, 0.15f, -1.35f, 0.75f, -0.15f), low(60, -1.35f, -0.75f, 0.15f, -1.35f, 0.75f, -0.15f),
+			low(64, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Rampage: gathered in, fists to his chest, then thrown open in a chest-out roar. */
+	private static final float[][] RAMPAGE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.2f, -0.7f, 0, -1.2f, 0.7f, 0, 0.32f, 0, -0.2f, 0, 0.12f, -0.2f, 0, -0.12f, 0.3f),
+			QuirkKeyframes.f(7, -0.55f, 0, 1.35f, -0.55f, 0, -1.35f, -0.35f, 0, 0, 0, 0.22f, 0, 0, -0.22f, -0.75f),
 			QuirkKeyframes.f(22, -0.6f, 0, 1.4f, -0.6f, 0, -1.4f, -0.3f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.7f), QuirkKeyframes.rest(28) };
-	/** Bear Hug: arms wrapped round in front, squeezing (a slow throb). */
+	private static final float[][] LOW_RAMPAGE = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -1.0f, -0.5f, 0.1f, -1.0f, 0.5f, -0.1f), low(7, 0.45f, 0, 1.05f, 0.45f, 0, -1.05f), low(22, 0.5f, 0, 1.1f, 0.5f, 0, -1.1f),
+			low(28, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** Bear Hug: arms wrapped round in front, squeezing (a slow throb in pose()). */
 	private static final float[][] HUG = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.35f, -0.75f, 0, -1.35f, 0.75f, 0, 0.1f, 0, 0, 0, 0.1f, 0, 0, -0.1f, 0.1f),
 			QuirkKeyframes.f(60, -1.35f, -0.75f, 0, -1.35f, 0.75f, 0, 0.1f, 0, 0, 0, 0.1f, 0, 0, -0.1f, 0.1f), QuirkKeyframes.rest(64) };
-	private static final float[][] HUG_SLAM = { QuirkKeyframes.f(0, -3.0f, 0, 0.2f, -3.0f, 0, -0.2f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
-			QuirkKeyframes.f(3, -0.6f, 0, 0.1f, -0.6f, 0, -0.1f, 0.8f, 0, -0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.5f), QuirkKeyframes.rest(14) };
+	private static final float[][] LOW_HUG = { low(0, 0, 0, 0.3f, 0, 0, -0.3f), low(3, -1.3f, -0.6f, 0.05f, -1.3f, 0.6f, -0.05f), low(60, -1.3f, -0.6f, 0.05f, -1.3f, 0.6f, -0.05f), low(64, 0, 0, 0.3f, 0, 0, -0.3f) };
+	/** ...then the whole hug driven down into the ground in front of him. */
+	private static final float[][] HUG_SLAM = { QuirkKeyframes.f(0, -1.35f, -0.75f, 0, -1.35f, 0.75f, 0, 0.1f, 0, 0, 0, 0.1f, 0, 0, -0.1f, 0.1f),
+			QuirkKeyframes.f(3, -0.6f, -0.2f, 0.1f, -0.6f, 0.2f, -0.1f, 0.8f, 0, -0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.5f),
+			QuirkKeyframes.f(8, -0.55f, -0.2f, 0.1f, -0.55f, 0.2f, -0.1f, 0.72f, 0, -0.72f, 0, 0.2f, -0.72f, 0, -0.2f, 0.42f), QuirkKeyframes.rest(15) };
+	private static final float[][] LOW_HUG_SLAM = { low(0, -1.3f, -0.6f, 0.05f, -1.3f, 0.6f, -0.05f), low(3, -0.65f, -0.1f, 0.15f, -0.65f, 0.1f, -0.15f), low(8, -0.6f, -0.1f, 0.15f, -0.6f, 0.1f, -0.15f),
+			low(15, 0, 0, 0.3f, 0, 0, -0.3f) };
+
+	/** One frame of a lower-pair table: {tick, right xyz, left xyz} (absolute, in the body's space; rest is 0, 0, +-0.3). */
+	private static float[] low(float tick, float rx, float ry, float rz, float lx, float ly, float lz) {
+		return new float[] { tick, rx, ry, rz, lx, ly, lz };
+	}
 
 	private static final FirstPersonClip FP_HAMMER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -75, 10, 0, 0.05f, 0.45f, 0.2f),
-			FirstPersonClip.f(6, 15, 20, 0, 0.12f, -0.05f, -0.25f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -18, 24, 0, 0.16f, 0.08f, -0.22f),
-			FirstPersonClip.f(6, 0, 0, 0, 0, 0, 0));
-	/** The Flurry: four quick jabs, then the uppercut rises through the view. */
-	private static final FirstPersonClip FP_FLURRY = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, -18, 24, 0, 0.16f, 0.08f, -0.22f),
-			FirstPersonClip.f(3, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -18, 28, 0, 0.18f, 0.02f, -0.22f), FirstPersonClip.f(6, 0, 0, 0, 0, 0, 0),
-			FirstPersonClip.f(7, -18, 24, 0, 0.16f, -0.05f, -0.22f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(10, -18, 28, 0, 0.18f, -0.08f, -0.22f),
-			FirstPersonClip.f(12, 10, 0, 0, 0, -0.25f, 0), FirstPersonClip.f(15, -80, 10, 0, 0.1f, 0.5f, -0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0));
+			FirstPersonClip.f(5.5f, 15, 20, 0, 0.12f, -0.05f, -0.25f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.2f, 10, -10, 0, -0.04f, -0.05f, 0.12f),
+			FirstPersonClip.f(3, -18, 24, 0, 0.16f, 0.08f, -0.26f), FirstPersonClip.f(5, -16, 22, 0, 0.15f, 0.07f, -0.22f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
+	/** Both hands dip down and punch in low. */
+	private static final FirstPersonClip FP_COMBO_LOW = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.5f, 30, 0, 0, 0, -0.22f, 0.12f),
+			FirstPersonClip.f(3.5f, -8, 18, 0, 0.12f, -0.2f, -0.3f), FirstPersonClip.f(6, -6, 16, 0, 0.1f, -0.2f, -0.26f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_GRAB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2.5f, -18, 24, 0, 0.16f, 0.08f, -0.24f),
+			FirstPersonClip.f(5, -18, 22, 0, 0.14f, 0.08f, -0.22f), FirstPersonClip.f(10, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(13, -80, 0, 0, 0, 0.5f, 0.2f)).both();
 	private static final FirstPersonClip FP_CLAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -25, -30, 0, -0.2f, 0.15f, -0.05f),
 			FirstPersonClip.f(6, -25, 35, 0, 0.3f, 0.15f, -0.2f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_POUND = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -80, 5, 0, 0.05f, 0.5f, 0.2f),
 			FirstPersonClip.f(7, 35, 10, 0, 0.05f, -0.3f, -0.1f), FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_THROW = FirstPersonClip.of(FirstPersonClip.f(0, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(4, -10, 20, 0, 0.1f, 0.05f, -0.25f),
 			FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_BOULDER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 40, 10, 0, 0.05f, -0.4f, -0.1f),
-			FirstPersonClip.f(7, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(10, -10, 20, 0, 0.1f, 0.05f, -0.25f), FirstPersonClip.f(17, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_LEAP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1.5f, 30, 0, 0, 0, -0.3f, 0.1f),
+			FirstPersonClip.f(4, -70, 0, 0, 0, 0.42f, 0.15f), FirstPersonClip.f(16, -62, 0, 8, 0, 0.36f, 0.15f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_BOULDER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2.5f, 40, 10, 0, 0.05f, -0.4f, -0.1f),
+			FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP, -80, 0, 0, 0, 0.5f, 0.2f), FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP + 3, -10, 20, 0, 0.1f, 0.05f, -0.25f),
+			FirstPersonClip.f(FourArmsKit.BOULDER_WINDUP + 10, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_SWING = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 30, -20, 0.25f, 0.1f, -0.2f),
 			FirstPersonClip.f(30, -30, 30, -20, 0.25f, 0.1f, -0.2f), FirstPersonClip.f(34, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_GUARD = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -25, 40, 0, 0.25f, 0.15f, 0),
 			FirstPersonClip.f(60, -25, 40, 0, 0.25f, 0.15f, 0), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -25, 40, 0, 0.25f, 0.1f, 0),
 			FirstPersonClip.f(18, -25, 40, 0, 0.25f, 0.1f, 0), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HAYMAKER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -12, 0, -0.1f, -0.12f, 0.25f),
+			FirstPersonClip.f(FourArmsKit.HAYMAKER_TICKS + 3, 32, -12, 0, -0.1f, -0.14f, 0.27f)).both();
+	private static final FirstPersonClip FP_HAYMAKER_HIT = FirstPersonClip.of(FirstPersonClip.f(0, 32, -12, 0, -0.1f, -0.14f, 0.27f), FirstPersonClip.f(2.5f, -18, 26, 0, 0.16f, 0.08f, -0.3f),
+			FirstPersonClip.f(6, -16, 24, 0, 0.15f, 0.07f, -0.26f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_HUG = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, 50, 0, 0.3f, 0.05f, -0.05f),
 			FirstPersonClip.f(60, -20, 55, 0, 0.32f, 0.05f, -0.05f), FirstPersonClip.f(64, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_ROAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -20, -40, 30, -0.25f, 0.2f, 0),
-			FirstPersonClip.f(22, -20, -40, 30, -0.25f, 0.2f, 0), FirstPersonClip.f(28, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_ROAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -15, 40, 0, 0.22f, 0.02f, 0.05f),
+			FirstPersonClip.f(7, -20, -40, 30, -0.25f, 0.2f, 0), FirstPersonClip.f(22, -20, -40, 30, -0.25f, 0.2f, 0), FirstPersonClip.f(28, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_RISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -85, 0, 0, 0, 0.6f, 0.15f),
 			FirstPersonClip.f(26, -85, 0, 0, 0, 0.6f, 0.15f), FirstPersonClip.f(30, 0, 0, 0, 0, 0, 0)).both();
 
@@ -150,82 +237,153 @@ public final class FourArmsClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	/** The Flurry's beat at {@code ticks}: 0-3 the four fists (each 3 ticks), 4 the uppercut. */
-	private static int flurryBeat(float ticks) {
-		return ticks < 12f ? (int) (ticks / 3f) : 4;
+	private static float[][] upperClip(int animId) {
+		return switch (animId) {
+			case FourArmsKit.ANIM_PUNCH_R -> PUNCH_R;
+			case FourArmsKit.ANIM_PUNCH_L -> PUNCH_L;
+			case FourArmsKit.ANIM_PUNCH_LOW_R -> PUNCH_LOW_R;
+			case FourArmsKit.ANIM_PUNCH_LOW_L -> PUNCH_LOW_L;
+			case FourArmsKit.ANIM_COMBO_LOW -> COMBO_LOW;
+			case FourArmsKit.ANIM_HAMMER_PUNCH, FourArmsKit.ANIM_COMBO_FINISH -> HAMMER_PUNCH;
+			case FourArmsKit.ANIM_HAMMER_SMASH -> HAMMER_SMASH;
+			case FourArmsKit.ANIM_GRAB -> GRAB;
+			case FourArmsKit.ANIM_THROW -> THROW;
+			case FourArmsKit.ANIM_BOULDER -> BOULDER;
+			case FourArmsKit.ANIM_LEAP -> LEAP;
+			case FourArmsKit.ANIM_CHARGE -> CHARGE;
+			case FourArmsKit.ANIM_HAYMAKER -> HAYMAKER;
+			case FourArmsKit.ANIM_HAYMAKER_HIT -> HAYMAKER_HIT;
+			case FourArmsKit.ANIM_CLAP -> CLAP;
+			case FourArmsKit.ANIM_METEOR_RISE -> METEOR_RISE;
+			case FourArmsKit.ANIM_DIVE -> DIVE;
+			case FourArmsKit.ANIM_CLIMB -> CLIMB;
+			case FourArmsKit.ANIM_GUARD -> GUARD;
+			case FourArmsKit.ANIM_RAMPAGE -> RAMPAGE;
+			case FourArmsKit.ANIM_HUG -> HUG;
+			case FourArmsKit.ANIM_HUG_SLAM -> HUG_SLAM;
+			default -> null;
+		};
 	}
 
-	/** The lower arms' extra swing for the move playing: {rightX, leftX, rightZ, leftZ} added on top of following the upper arms. */
-	private static float[] lowerOffsets(AbstractClientPlayer p, float partial) {
-		OmnitrixState s = Omnitrix.state(p);
-		float t = p.level().getGameTime() + partial - s.animStart;
-		int f = s.kitFlags;
+	private static float[][] lowerClip(int animId) {
+		return switch (animId) {
+			case FourArmsKit.ANIM_PUNCH_R -> LOW_PUNCH_R;
+			case FourArmsKit.ANIM_PUNCH_L -> LOW_PUNCH_L;
+			case FourArmsKit.ANIM_PUNCH_LOW_R -> LOW_LOW_R;
+			case FourArmsKit.ANIM_PUNCH_LOW_L -> LOW_LOW_L;
+			case FourArmsKit.ANIM_COMBO_LOW -> LOW_COMBO_LOW;
+			case FourArmsKit.ANIM_HAMMER_PUNCH -> LOW_HAMMER;
+			case FourArmsKit.ANIM_COMBO_FINISH -> LOW_FINISH;
+			case FourArmsKit.ANIM_HAMMER_SMASH -> LOW_SMASH;
+			case FourArmsKit.ANIM_GRAB -> LOW_GRAB;
+			case FourArmsKit.ANIM_THROW -> LOW_THROW;
+			case FourArmsKit.ANIM_BOULDER -> LOW_BOULDER;
+			case FourArmsKit.ANIM_LEAP -> LOW_LEAP;
+			case FourArmsKit.ANIM_CHARGE -> LOW_CHARGE;
+			case FourArmsKit.ANIM_HAYMAKER -> LOW_HAYMAKER;
+			case FourArmsKit.ANIM_HAYMAKER_HIT -> LOW_HAYMAKER_HIT;
+			case FourArmsKit.ANIM_CLAP -> LOW_CLAP;
+			case FourArmsKit.ANIM_METEOR_RISE -> LOW_METEOR_RISE;
+			case FourArmsKit.ANIM_DIVE -> LOW_DIVE;
+			case FourArmsKit.ANIM_GUARD -> LOW_GUARD;
+			case FourArmsKit.ANIM_RAMPAGE -> LOW_RAMPAGE;
+			case FourArmsKit.ANIM_HUG -> LOW_HUG;
+			case FourArmsKit.ANIM_HUG_SLAM -> LOW_HUG_SLAM;
+			default -> null;
+		};
+	}
+
+	/** A clip whose first frame is the end of the one before it: no fade in from the walk cycle, only the fade out. */
+	private static boolean chained(int animId) {
+		return animId == FourArmsKit.ANIM_THROW || animId == FourArmsKit.ANIM_HAYMAKER_HIT || animId == FourArmsKit.ANIM_HUG_SLAM;
+	}
+
+	/** The arm-work moves: on the move the legs stay on the walk cycle. */
+	private static boolean armsOnly(int animId) {
+		return switch (animId) {
+			case FourArmsKit.ANIM_PUNCH_R, FourArmsKit.ANIM_PUNCH_L, FourArmsKit.ANIM_PUNCH_LOW_R, FourArmsKit.ANIM_PUNCH_LOW_L, FourArmsKit.ANIM_COMBO_LOW, FourArmsKit.ANIM_HAMMER_PUNCH,
+					FourArmsKit.ANIM_COMBO_FINISH, FourArmsKit.ANIM_CLAP, FourArmsKit.ANIM_GRAB, FourArmsKit.ANIM_THROW, FourArmsKit.ANIM_RAMPAGE -> true;
+			default -> false;
+		};
+	}
+
+	/** The fade weight of {@code clip} at {@code t}. */
+	private static float weight(float[][] clip, float t, int animId) {
+		float len = QuirkKeyframes.length(clip);
+		return chained(animId) ? Mth.clamp((len - t) / QuirkKeyframes.FADE_OUT, 0f, 1f) : QuirkKeyframes.weight(t, len);
+	}
+
+	/** A held state's lower-arm pose {right xyz, left xyz} (what they settle to between the moves), or null for the walk. */
+	private static float[] heldLower(AbstractClientPlayer p, float partial) {
+		int f = Omnitrix.state(p).kitFlags;
 		if ((f & FourArmsKit.F_HUGGING) != 0) {
-			return new float[] { -1.3f, -1.3f, -0.55f, 0.55f }; // the lower pair locks round the waist
+			return new float[] { -1.3f, -0.6f, 0.05f, -1.3f, 0.6f, -0.05f }; // the lower pair locks round the waist
 		}
 		if ((f & FourArmsKit.F_SWINGING) != 0) {
-			return new float[] { -1.4f, -1.4f, 0.4f, -0.4f };
+			return new float[] { -1.5f, -0.25f, 0.1f, -1.5f, 0.25f, -0.1f }; // all four hands on the victim
 		}
 		if ((f & FourArmsKit.F_HOLDING) != 0) {
-			return new float[] { -2.0f, -2.0f, 0.3f, -0.3f };
+			return new float[] { -2.5f, 0f, 0.5f, -2.5f, 0f, -0.5f }; // up under the load with the others
 		}
 		if (climbing(p)) {
 			float c = Mth.sin((p.tickCount + partial) * 0.6f);
-			return new float[] { -2.0f - c * 0.6f, -2.0f + c * 0.6f, 0.2f, -0.2f }; // the lower pair climbs out of step with the upper
+			return new float[] { -2.2f - c * 0.6f, 0f, 0.3f, -2.2f + c * 0.6f, 0f, -0.3f }; // the lower pair climbs out of step with the upper
 		}
 		if ((f & FourArmsKit.F_GUARD) != 0) {
-			return new float[] { -1.1f, -1.1f, -0.6f, 0.6f }; // crossed under the upper pair
+			return new float[] { -1.35f, -0.75f, 0.15f, -1.35f, 0.75f, -0.15f }; // crossed under the upper pair
 		}
-		float[] move = switch (s.animId) {
-			case FourArmsKit.ANIM_PUNCH_R, FourArmsKit.ANIM_PUNCH_L -> t < 6 ? new float[] { 0.5f, 0.5f, 0, 0 } : null;
-			case FourArmsKit.ANIM_PUNCH_LOW_R -> t < 6 ? new float[] { t < 3 ? -1.7f : -0.8f, 0.3f, 0, 0 } : null;
-			case FourArmsKit.ANIM_PUNCH_LOW_L -> t < 6 ? new float[] { 0.3f, t < 3 ? -1.7f : -0.8f, 0, 0 } : null;
-			case FourArmsKit.ANIM_HAMMER_PUNCH -> t < 13 ? new float[] { t < 4 ? -1.8f : -0.9f, t < 4 ? -1.8f : -0.9f, 0.2f, -0.2f } : null;
-			case FourArmsKit.ANIM_FLURRY -> t < 20 ? switch (flurryBeat(t)) {
-				case 2 -> new float[] { -1.7f, 0.3f, 0, 0 };
-				case 3 -> new float[] { 0.3f, -1.7f, 0, 0 };
-				case 4 -> new float[] { -0.6f, -0.6f, 0.2f, -0.2f };
-				default -> new float[] { 0.4f, 0.4f, 0, 0 };
-			} : null;
-			case FourArmsKit.ANIM_HAMMER_SMASH, FourArmsKit.ANIM_HUG_SLAM -> t < 16 ? new float[] { t < 5 ? -1.6f : -0.6f, t < 5 ? -1.6f : -0.6f, 0.25f, -0.25f } : null;
-			case FourArmsKit.ANIM_BOULDER -> t < 17 ? new float[] { -1.1f, -1.1f, 0.2f, -0.2f } : null;
-			case FourArmsKit.ANIM_THROW -> t < 12 ? new float[] { -0.8f, -0.8f, 0.1f, -0.1f } : null;
-			case FourArmsKit.ANIM_CHARGE -> t < 22 ? new float[] { -0.8f, -0.8f, 0.2f, -0.2f } : null;
-			case FourArmsKit.ANIM_CLAP -> t < 16 ? new float[] { -0.3f, -0.3f, t < 4 ? 0.7f : -0.35f, t < 4 ? -0.7f : 0.35f } : null;
-			case FourArmsKit.ANIM_METEOR_RISE -> t < 30 ? new float[] { -2.2f, -2.2f, 0.4f, -0.4f } : null;
-			case FourArmsKit.ANIM_DIVE -> t < 34 ? new float[] { -2.4f, -2.4f, 0.15f, -0.15f } : null;
-			case FourArmsKit.ANIM_RAMPAGE -> t < 28 ? new float[] { 0.6f, 0.6f, 0.45f, -0.45f } : null;
-			default -> null;
-		};
-		if (move == null && (f & FourArmsKit.F_RAMPAGE) != 0) {
+		if ((f & FourArmsKit.F_LEAP_CHARGE) != 0) {
+			return new float[] { -0.75f, 0f, 0.45f, -0.75f, 0f, -0.45f }; // all four fists braced on the ground
+		}
+		if ((f & FourArmsKit.F_RAMPAGE) != 0) {
 			float c = Mth.sin((p.tickCount + partial) * 0.4f) * 0.08f;
-			return new float[] { -0.3f + c, -0.3f - c, 0.35f, -0.35f }; // fists clenched, flexed out
+			return new float[] { -0.3f + c, 0f, 0.65f, -0.3f - c, 0f, -0.65f }; // fists clenched, flexed out
 		}
-		return move;
+		return null;
+	}
+
+	/** The lower arms' keyframed pose for the move playing {right xyz, left xyz, weight}, or null when none is. */
+	private static float[] moveLower(AbstractClientPlayer p, float partial) {
+		OmnitrixState s = Omnitrix.state(p);
+		float t = p.level().getGameTime() + partial - s.animStart;
+		float[][] clip = lowerClip(s.animId);
+		if (clip == null || (s.kitFlags & FourArmsKit.F_SWINGING) != 0) {
+			return null;
+		}
+		float[] v = QuirkKeyframes.sampleN(clip, t, 7);
+		if (v == null) {
+			return null;
+		}
+		return new float[] { v[1], v[2], v[3], v[4], v[5], v[6], weight(clip, t, s.animId) };
 	}
 
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
-		float[] off = lowerOffsets(p, partial);
 		// v0.17.1 (user: "make four arms extra arms not look so weird ... I dont mind if the arms overlap a bit"): the lower pair
 		// hangs from the ribs right under the upper pair, nearly parallel to them (a slight flare, not splayed out), a touch behind
 		// so the two pairs layer instead of crossing; they swing with the walk half a beat behind the upper arms
 		float lag = Mth.sin(p.walkAnimation.position(partial) * 0.6662f - 0.9f) * 0.9f * p.walkAnimation.speed(partial);
-		boolean busy = off != null;
+		float[] base = heldLower(p, partial);
+		if (base == null) {
+			base = new float[] { lag * 0.85f + model.rightArm.xRot * 0.15f, model.rightArm.yRot * 0.4f, 0.3f + model.rightArm.zRot * 0.35f, -lag * 0.85f + model.leftArm.xRot * 0.15f,
+					model.leftArm.yRot * 0.4f, -0.3f + model.leftArm.zRot * 0.35f };
+		}
+		float[] move = moveLower(p, partial);
+		float mw = move == null ? 0f : move[6];
 		lowerRight.x = -5.4f;
 		lowerRight.y = 5.4f;
 		lowerRight.z = 1.0f;
-		lowerRight.xRot = busy ? model.rightArm.xRot * 0.6f + off[0] : lag * 0.85f + model.rightArm.xRot * 0.15f;
-		lowerRight.yRot = model.rightArm.yRot * 0.4f;
-		lowerRight.zRot = 0.3f + model.rightArm.zRot * 0.35f + (busy ? off[2] : 0f);
+		lowerRight.xRot = move == null ? base[0] : Mth.lerp(mw, base[0], move[0]);
+		lowerRight.yRot = move == null ? base[1] : Mth.lerp(mw, base[1], move[1]);
+		lowerRight.zRot = move == null ? base[2] : Mth.lerp(mw, base[2], move[2]);
 		lowerLeft.x = 5.4f;
 		lowerLeft.y = 5.4f;
 		lowerLeft.z = 1.0f;
-		lowerLeft.xRot = busy ? model.leftArm.xRot * 0.6f + off[1] : -lag * 0.85f + model.leftArm.xRot * 0.15f;
-		lowerLeft.yRot = model.leftArm.yRot * 0.4f;
-		lowerLeft.zRot = -0.3f + model.leftArm.zRot * 0.35f + (busy ? off[3] : 0f);
+		lowerLeft.xRot = move == null ? base[3] : Mth.lerp(mw, base[3], move[3]);
+		lowerLeft.yRot = move == null ? base[4] : Mth.lerp(mw, base[4], move[4]);
+		lowerLeft.zRot = move == null ? base[5] : Mth.lerp(mw, base[5], move[5]);
 		// v0.17.2: the long transformation -- the second pair splits out of the first (from inside the upper arms, sliding down to the
 		// ribs) and takes the beats' poses
 		float[] seq = com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.lowerArms(p, model, partial);
@@ -251,6 +409,18 @@ public final class FourArmsClient implements AlienClientKit {
 				com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.renderSplitGlow(pose, buffers, p, new ModelPart[] { lowerRight, lowerLeft }, partial);
 			}
 		});
+		// the Boulder Rip's chunk of ground, held in all four hands on its way up
+		if (com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit k) {
+			net.minecraft.world.level.block.state.BlockState rock = k.boulderHeld(p);
+			if (rock != null) {
+				org.joml.Vector3f r = new org.joml.Quaternionf().rotationZYX(model.rightArm.zRot, model.rightArm.yRot, model.rightArm.xRot).transform(new org.joml.Vector3f(1f, 12f, 0f));
+				org.joml.Vector3f l = new org.joml.Quaternionf().rotationZYX(model.leftArm.zRot, model.leftArm.yRot, model.leftArm.xRot).transform(new org.joml.Vector3f(-1f, 12f, 0f));
+				pose.pushPose();
+				pose.translate((model.rightArm.x + r.x + model.leftArm.x + l.x) / 32f, (model.rightArm.y + r.y + model.leftArm.y + l.y) / 32f - 0.25f, (model.rightArm.z + r.z + model.leftArm.z + l.z) / 32f);
+				com.projecthero.mod.client.mutation.geo.GeoModels.centred(pose, buffers, light, rock, 0.85f, 0.75f, 0.85f);
+				pose.popPose();
+			}
+		}
 	}
 
 	@Override
@@ -264,11 +434,37 @@ public final class FourArmsClient implements AlienClientKit {
 		lower.xRot = 0.1f;
 		lower.yRot = 0f;
 		lower.zRot = right ? 0.12f : -0.12f;
-		float[] off = lowerOffsets(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
-		if (off != null) {
-			lower.xRot += (right ? off[0] : off[1]) * 0.25f;
+		float[] move = moveLower(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+		if (move != null) {
+			lower.xRot += (right ? move[0] : move[3]) * 0.25f * move[6];
 		}
 		lower.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+	}
+
+	/** Every column but the legs'. */
+	private static final int NO_LEGS;
+
+	static {
+		int mask = QuirkKeyframes.bit(QuirkKeyframes.HEAD_X);
+		for (int c = QuirkKeyframes.R_ARM_X; c <= QuirkKeyframes.BODY_Y; c++) {
+			mask |= QuirkKeyframes.bit(c);
+		}
+		NO_LEGS = mask;
+	}
+
+	/** Plays a table, its {@link QuirkKeyframes#AIM} columns pointing down the look. */
+	private static boolean play(AbstractClientPlayer p, HumanoidModel<?> m, float[][] clip, int animId, float t) {
+		float[] f = QuirkKeyframes.sample(clip, t, -Mth.HALF_PI + m.head.xRot, m.head.yRot);
+		if (f == null) {
+			return false;
+		}
+		float w = weight(clip, t, animId);
+		if (armsOnly(animId) && p.walkAnimation.speed() > 0.08f) {
+			QuirkKeyframes.applyMasked(m, f, w, NO_LEGS);
+		} else {
+			QuirkKeyframes.apply(m, f, w);
+		}
+		return true;
 	}
 
 	@Override
@@ -278,67 +474,54 @@ public final class FourArmsClient implements AlienClientKit {
 		}
 		int flags = Omnitrix.state(p).kitFlags;
 		if ((flags & FourArmsKit.F_SWINGING) != 0) {
-			// v0.17.2: the Giant Swing -- both arms out at the victim, the body whipping round, feet planted wide
-			float spin = ticks * (0.35f + ticks * 0.012f);
-			m.rightArm.xRot = -1.45f;
-			m.leftArm.xRot = -1.45f;
-			m.rightArm.yRot = -0.35f;
-			m.leftArm.yRot = 0.35f;
-			m.body.yRot = Mth.sin(spin) * 0.5f;
-			m.rightLeg.zRot = 0.2f;
-			m.leftLeg.zRot = -0.2f;
+			// v0.17.2: the Giant Swing -- leaning back against the weight on wide-planted feet, all four hands on the victim at arm's length;
+			// the body itself turns with it (tick())
+			float in = Mth.clamp(ticks / 4f, 0f, 1f);
+			m.rightArm.xRot = Mth.lerp(in, m.rightArm.xRot, -1.5f);
+			m.leftArm.xRot = Mth.lerp(in, m.leftArm.xRot, -1.5f);
+			m.rightArm.yRot = -0.32f;
+			m.leftArm.yRot = 0.32f;
+			m.rightArm.zRot = 0f;
+			m.leftArm.zRot = 0f;
+			com.projecthero.mod.client.HipBend.pitch(m, in, -0.2f);
+			m.rightLeg.zRot = 0.22f;
+			m.leftLeg.zRot = -0.22f;
+			m.rightLeg.xRot = 0.12f;
+			m.leftLeg.xRot = -0.12f;
 			m.head.xRot = 0.1f;
+			m.head.yRot = 0f;
+			m.hat.copyFrom(m.head);
 			return true;
 		}
-		float t = ticks;
-		float[][] clip = switch (animId) {
-			case FourArmsKit.ANIM_PUNCH_R -> PUNCH_R;
-			case FourArmsKit.ANIM_PUNCH_L -> PUNCH_L;
-			case FourArmsKit.ANIM_PUNCH_LOW_R -> PUNCH_LOW_R;
-			case FourArmsKit.ANIM_PUNCH_LOW_L -> PUNCH_LOW_L;
-			case FourArmsKit.ANIM_HAMMER_PUNCH -> HAMMER_PUNCH;
-			case FourArmsKit.ANIM_FLURRY -> {
-				int beat = flurryBeat(ticks);
-				t = beat == 4 ? ticks - 12f : ticks % 3f * 2f;
-				yield switch (beat) {
-					case 0 -> PUNCH_R;
-					case 1 -> PUNCH_L;
-					case 2 -> PUNCH_LOW_R;
-					case 3 -> PUNCH_LOW_L;
-					default -> UPPERCUT;
-				};
-			}
-			case FourArmsKit.ANIM_HAMMER_SMASH -> HAMMER_SMASH;
-			case FourArmsKit.ANIM_GRAB -> GRAB;
-			case FourArmsKit.ANIM_THROW -> THROW;
-			case FourArmsKit.ANIM_BOULDER -> BOULDER;
-			case FourArmsKit.ANIM_LEAP -> LEAP;
-			case FourArmsKit.ANIM_CHARGE -> CHARGE;
-			case FourArmsKit.ANIM_CLAP -> CLAP;
-			case FourArmsKit.ANIM_METEOR_RISE -> METEOR_RISE;
-			case FourArmsKit.ANIM_DIVE -> DIVE;
-			case FourArmsKit.ANIM_CLIMB -> CLIMB;
-			case FourArmsKit.ANIM_GUARD -> GUARD;
-			case FourArmsKit.ANIM_RAMPAGE -> RAMPAGE;
-			case FourArmsKit.ANIM_HUG -> HUG;
-			case FourArmsKit.ANIM_HUG_SLAM -> HUG_SLAM;
-			default -> null;
-		};
-		boolean played = clip != null && (animId != FourArmsKit.ANIM_FLURRY || ticks < 22) && QuirkKeyframes.play(m, clip, t, 1f);
+		float[][] clip = upperClip(animId);
+		boolean played = clip != null && play(p, m, clip, animId, ticks);
+		if (played && animId == FourArmsKit.ANIM_CHARGE && ticks > 2f && ticks < FourArmsKit.CHARGE_TICKS) {
+			// the legs pounding under him
+			float s = Mth.sin(ticks * 1.5f) * 0.85f;
+			m.rightLeg.xRot = s;
+			m.leftLeg.xRot = -s;
+		}
 		if ((flags & FourArmsKit.F_HUGGING) != 0) {
 			// v0.17.2: the Bear Hug's squeeze -- a slow throb of the crossed arms
 			float sq = Mth.sin(age * 0.6f) * 0.08f;
-			m.rightArm.xRot = -1.35f;
-			m.leftArm.xRot = -1.35f;
-			m.rightArm.yRot = -0.75f - sq;
-			m.leftArm.yRot = 0.75f + sq;
-			m.body.xRot = 0.1f;
+			float w = played ? QuirkKeyframes.weight(ticks, QuirkKeyframes.length(HUG)) : 1f;
+			m.rightArm.yRot += -sq * w;
+			m.leftArm.yRot += sq * w;
+			m.body.xRot += sq * 0.25f * w;
+			if (!played) {
+				m.rightArm.xRot = -1.35f;
+				m.leftArm.xRot = -1.35f;
+				m.rightArm.yRot = -0.75f - sq;
+				m.leftArm.yRot = 0.75f + sq;
+				m.body.xRot = 0.1f;
+			}
 			return true;
 		}
-		if ((flags & FourArmsKit.F_HOLDING) != 0) {
-			// holding something overhead
-			m.rightArm.xRot = -2.9f;
-			m.leftArm.xRot = -2.9f;
+		if ((flags & FourArmsKit.F_HOLDING) != 0 && !played) {
+			// holding something overhead, feeling its weight
+			float h = Mth.sin(age * 0.18f) * 0.03f;
+			m.rightArm.xRot = -2.9f + h;
+			m.leftArm.xRot = -2.9f + h;
 			m.rightArm.zRot = 0.25f;
 			m.leftArm.zRot = -0.25f;
 			return true;
@@ -398,6 +581,17 @@ public final class FourArmsClient implements AlienClientKit {
 
 	@Override
 	public void tick(AbstractClientPlayer p) {
+		// v0.17.2 (user: "edit and update animations on all moves"): the Giant Swing turns his whole body after the victim (the same angle the
+		// server whirls it through, FourArmsKit.tickHeld), so he is always facing what he is swinging
+		if (com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit sk && sk.flag(p, FourArmsKit.F_SWINGING)) {
+			long t = p.level().getGameTime() - sk.timer(p, "swing_start");
+			float was = p.yBodyRot;
+			float now = p.getYRot() + (float) Math.toDegrees(t * (0.35 + t * 0.012));
+			p.yBodyRotO = was;
+			p.yBodyRot = now;
+			p.yHeadRotO = was;
+			p.yHeadRot = now;
+		}
 		// the long leap flies drag-free on its owner's client (as the Hulk's Super Leap): the launch's horizontal speed held,
 		// vanilla's vertical drag taken back off -- until he hits something, lands or swims
 		if (p != Minecraft.getInstance().player || !(com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit k)) {
@@ -435,13 +629,17 @@ public final class FourArmsClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case FourArmsKit.ANIM_PUNCH_R, FourArmsKit.ANIM_PUNCH_L, FourArmsKit.ANIM_PUNCH_LOW_R, FourArmsKit.ANIM_PUNCH_LOW_L, FourArmsKit.ANIM_GRAB -> FP_PUNCH;
-			case FourArmsKit.ANIM_HAMMER_PUNCH -> FP_HAMMER;
-			case FourArmsKit.ANIM_FLURRY -> FP_FLURRY;
+			case FourArmsKit.ANIM_PUNCH_R, FourArmsKit.ANIM_PUNCH_L, FourArmsKit.ANIM_PUNCH_LOW_R, FourArmsKit.ANIM_PUNCH_LOW_L -> FP_PUNCH;
+			case FourArmsKit.ANIM_COMBO_LOW -> FP_COMBO_LOW;
+			case FourArmsKit.ANIM_GRAB -> FP_GRAB;
+			case FourArmsKit.ANIM_HAMMER_PUNCH, FourArmsKit.ANIM_COMBO_FINISH -> FP_HAMMER;
 			case FourArmsKit.ANIM_HAMMER_SMASH, FourArmsKit.ANIM_DIVE, FourArmsKit.ANIM_HUG_SLAM -> FP_POUND;
 			case FourArmsKit.ANIM_CLAP -> FP_CLAP;
-			case FourArmsKit.ANIM_THROW, FourArmsKit.ANIM_LEAP -> FP_THROW;
+			case FourArmsKit.ANIM_THROW -> FP_THROW;
+			case FourArmsKit.ANIM_LEAP -> FP_LEAP;
 			case FourArmsKit.ANIM_BOULDER -> FP_BOULDER;
+			case FourArmsKit.ANIM_HAYMAKER -> FP_HAYMAKER;
+			case FourArmsKit.ANIM_HAYMAKER_HIT -> FP_HAYMAKER_HIT;
 			case FourArmsKit.ANIM_SWING -> FP_SWING;
 			case FourArmsKit.ANIM_METEOR_RISE -> FP_RISE;
 			case FourArmsKit.ANIM_GUARD -> FP_GUARD;

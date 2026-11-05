@@ -63,6 +63,10 @@ import net.minecraft.world.phys.Vec3;
  * own client ({@link #ride}); the Fire Lasso's whip, the Fire Tornado's column, the Heat Shield's dome, the Meteor Crash's
  * cloak of fire and a pose for every new move.
  *
+ * <p>v0.17.2 round 3: the gather in both hands before the volley, the Fire Breath from his mouth ({@link #breath}), the big ball over
+ * his head, the Magma Slam, and the Supernova's 4 s charge -- flames that grow and turn jagged on his body ({@link #novaFlames},
+ * {@link #jagged}), the fire drawn in from all round him ({@link #novaWorld}) and the blast ({@link #novaBurst}).
+ *
  * <p>Doused (user: "change heatblasts skin when hes flame it put out, his fire parts should be a dark red and the flames on his
  * head should be out aswell"): the charred skin ({@code heatblast_doused.png}: the flame-yellow parts dark ember red, the rock
  * charcoal), no burning overlay and no head fire, grey smoke curling off his head; out of the water embers flicker over him
@@ -85,32 +89,49 @@ public final class HeatblastClient implements AlienClientKit {
 	private static final DustParticleOptions DIM_EMBER = new DustParticleOptions(new Vector3f(0.55f, 0.12f, 0.06f), 0.6f);
 
 	// {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX} (radians); A = along the look
-	// R Fireball Volley -- a palm thrust from alternate hands, the torso turning into each
-	private static final float[][] VOLLEY_R = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(1, 0.4f, 0.3f, 0.2f, -0.3f, 0f, -0.1f, 0f, 0.3f, 0.2f, 0f, 0f, -0.2f, 0f, 0f, 0f),
-			QuirkKeyframes.f(2.5f, A, A, 0f, -0.4f, 0f, -0.15f, 0.1f, -0.3f, 0.25f, 0f, 0f, -0.25f, 0f, 0f, 0f),
-			QuirkKeyframes.f(5, A, A, 0f, -0.35f, 0f, -0.12f, 0.08f, -0.25f, 0.2f, 0f, 0f, -0.2f, 0f, 0f, 0f), QuirkKeyframes.rest(9) };
-	private static final float[][] VOLLEY_L = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(1, -0.3f, 0f, 0.1f, 0.4f, -0.3f, -0.2f, 0f, -0.3f, -0.2f, 0f, 0f, 0.2f, 0f, 0f, 0f),
-			QuirkKeyframes.f(2.5f, -0.4f, 0f, 0.15f, A, A, 0f, 0.1f, 0.3f, -0.25f, 0f, 0f, 0.25f, 0f, 0f, 0f),
-			QuirkKeyframes.f(5, -0.35f, 0f, 0.12f, A, A, 0f, 0.08f, 0.25f, -0.2f, 0f, 0f, 0.2f, 0f, 0f, 0f), QuirkKeyframes.rest(9) };
+	// R Fireball Volley -- v0.17.2 (user: "player gathers fire in their hands and throws 3 fireballs"): both hands in front of his belly while
+	// the fire gathers, then each hand in turn thrown out down the aim, the other drawn back to the belly and the torso turning into it
+	private static final float[][] VOLLEY_GATHER = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(4, -1.0f, -0.5f, 0.12f, -1.0f, 0.5f, -0.12f, 0.1f, 0f, 0.14f, 0f, 0.06f, -0.14f, 0f, -0.06f, 0.12f),
+			QuirkKeyframes.f(9, -1.05f, -0.55f, 0.1f, -1.05f, 0.55f, -0.1f, 0.13f, 0f, 0.16f, 0f, 0.06f, -0.16f, 0f, -0.06f, 0.15f), QuirkKeyframes.rest(12) };
+	private static final float[][] VOLLEY_R = {
+			QuirkKeyframes.f(0, -1.05f, -0.55f, 0.1f, -1.05f, 0.55f, -0.1f, 0.13f, 0f, 0.16f, 0f, 0.06f, -0.16f, 0f, -0.06f, 0.15f),
+			QuirkKeyframes.f(2.5f, A, A, 0f, -1.05f, 0.55f, -0.1f, 0.06f, -0.42f, 0.26f, 0f, 0f, -0.26f, 0f, 0f, 0f),
+			QuirkKeyframes.f(5, A, A, 0f, -1.05f, 0.55f, -0.1f, 0.05f, -0.36f, 0.22f, 0f, 0f, -0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(9, -0.7f, 0f, 0.1f, -0.7f, 0.3f, -0.1f, 0f, -0.12f, 0.1f, 0f, 0f, -0.1f, 0f, 0f, 0f), QuirkKeyframes.rest(13) };
+	private static final float[][] VOLLEY_L = {
+			QuirkKeyframes.f(0, A, A, 0f, -1.05f, 0.55f, -0.1f, 0.05f, -0.36f, 0.22f, 0f, 0f, -0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(2.5f, -1.05f, -0.55f, 0.1f, A, A, 0f, 0.06f, 0.42f, -0.26f, 0f, 0f, 0.26f, 0f, 0f, 0f),
+			QuirkKeyframes.f(5, -1.05f, -0.55f, 0.1f, A, A, 0f, 0.05f, 0.36f, -0.22f, 0f, 0f, 0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(9, -0.7f, -0.3f, 0.1f, -0.7f, 0f, -0.1f, 0f, 0.12f, -0.1f, 0f, 0f, 0.1f, 0f, 0f, 0f), QuirkKeyframes.rest(13) };
+	private static final float[][] VOLLEY_3 = {
+			QuirkKeyframes.f(0, -1.05f, -0.55f, 0.1f, A, A, 0f, 0.05f, 0.36f, -0.22f, 0f, 0f, 0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(2.5f, A, A, 0f, 0.3f, 0f, -0.2f, 0.12f, -0.5f, 0.3f, 0f, 0f, -0.3f, 0f, 0f, 0f),
+			QuirkKeyframes.f(7, A, A, 0f, 0.25f, 0f, -0.18f, 0.1f, -0.42f, 0.26f, 0f, 0f, -0.26f, 0f, 0f, 0f),
+			QuirkKeyframes.f(11, -0.7f, 0f, 0.1f, 0.1f, 0f, -0.1f, 0.03f, -0.12f, 0.1f, 0f, 0f, -0.1f, 0f, 0f, 0f), QuirkKeyframes.rest(15) };
 	// Use's small bolt -- a quick flick from the hip
 	private static final float[][] BOLT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, -0.6f, 0.2f, 0.2f, 0f, 0f, 0f, 0f, 0.15f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
 			QuirkKeyframes.f(3, A, A, 0f, 0.1f, 0f, -0.1f, 0.05f, -0.15f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
 			QuirkKeyframes.f(5, A, A, 0f, 0.1f, 0f, -0.1f, 0.05f, -0.12f, 0f, 0f, 0f, 0f, 0f, 0f, 0f), QuirkKeyframes.rest(9) };
-	// Shift+R Flamethrower -- palms drawn in, then both thrust down the aim in a wide braced stance, held while the keys are
-	// (the recoil is added in pose())
-	private static final float[][] THROWER = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(2, -1.0f, 0f, 0.4f, -1.0f, 0f, -0.4f, -0.1f, 0f, 0.35f, 0f, 0.08f, -0.35f, 0f, -0.08f, -0.1f),
-			QuirkKeyframes.f(5, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
-			QuirkKeyframes.f(HeatblastKit.THROWER_TICKS, A, A, 0f, A, A, 0f, 0.18f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
-			QuirkKeyframes.rest(HeatblastKit.THROWER_TICKS + 6) };
-	// Shift+G Blaze Cone -- the same thrust as the Flamethrower, but a burst: out and back in under a second. v0.17.2 (user: "after
-	// using blaze cone heatblast gets stuck in the blaze cone attack pose") -- it shared the Flamethrower's clip, held for its 5 s
-	private static final float[][] CONE = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(2, -1.0f, 0f, 0.4f, -1.0f, 0f, -0.4f, -0.1f, 0f, 0.35f, 0f, 0.08f, -0.35f, 0f, -0.08f, -0.1f),
-			QuirkKeyframes.f(5, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f),
-			QuirkKeyframes.f(9, A, A, 0f, A, A, 0f, 0.15f, 0f, 0.45f, 0f, 0.1f, -0.45f, 0f, -0.1f, 0f), QuirkKeyframes.rest(15) };
+	// Shift+R Fire Breath -- v0.17.2 (user: "player breaths fire from their mouths"): a breath in, chest high and head back, then the chest
+	// driven forward, fists clenched and drawn back past his hips, feet braced, the head on the aim; held for as long as the key is
+	private static final float[][] BREATH = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(HeatblastKit.BREATH_INHALE - 0.5f, 0.2f, 0f, 0.45f, 0.2f, 0f, -0.45f, -0.2f, 0f, 0.14f, 0f, 0.05f, -0.14f, 0f, -0.05f, -0.24f),
+			QuirkKeyframes.f(HeatblastKit.BREATH_INHALE + 3, 0.62f, 0f, 0.38f, 0.62f, 0f, -0.38f, 0.22f, 0f, 0.36f, 0f, 0.08f, -0.4f, 0f, -0.08f, 0f),
+			QuirkKeyframes.f(1000000f, 0.62f, 0f, 0.38f, 0.62f, 0f, -0.38f, 0.22f, 0f, 0.36f, 0f, 0.08f, -0.4f, 0f, -0.08f, 0f) };
+	private static final float[][] BREATH_END = {
+			QuirkKeyframes.f(0, 0.62f, 0f, 0.38f, 0.62f, 0f, -0.38f, 0.22f, 0f, 0.36f, 0f, 0.08f, -0.4f, 0f, -0.08f, 0f),
+			QuirkKeyframes.f(4, 0.3f, 0f, 0.3f, 0.3f, 0f, -0.3f, 0.06f, 0f, 0.18f, 0f, 0.04f, -0.2f, 0f, -0.04f, 0.1f), QuirkKeyframes.rest(9) };
+	// Shift+G Magma Slam -- v0.17.2 (user: "gathers fire in their hands and slams the ground in front of them"): fists brought together at
+	// the chest, raised high over his head on his toes, then both driven down into the ground in front of him, deep in a crouch
+	private static final float[][] SLAM_GATHER = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(4, -1.2f, -0.7f, 0.1f, -1.2f, 0.7f, -0.1f, 0.14f, 0f, 0.1f, 0f, 0.08f, -0.1f, 0f, -0.08f, 0.15f, 0.35f),
+			QuirkKeyframes.fc(HeatblastKit.SLAM_WINDUP - 1, -2.95f, -0.25f, 0.05f, -2.95f, 0.25f, -0.05f, -0.3f, 0f, 0.12f, 0f, 0.12f, -0.12f, 0f, -0.12f, -0.35f, 0f),
+			QuirkKeyframes.fc(HeatblastKit.SLAM_WINDUP + 3, -2.95f, -0.25f, 0.05f, -2.95f, 0.25f, -0.05f, -0.3f, 0f, 0.12f, 0f, 0.12f, -0.12f, 0f, -0.12f, -0.35f, 0f) };
+	private static final float[][] SLAM = {
+			QuirkKeyframes.fc(0, -2.95f, -0.25f, 0.05f, -2.95f, 0.25f, -0.05f, -0.3f, 0f, 0.12f, 0f, 0.12f, -0.12f, 0f, -0.12f, -0.35f, 0f),
+			QuirkKeyframes.fc(2.5f, -0.45f, -0.2f, 0f, -0.45f, 0.2f, 0f, 0.85f, 0f, -0.9f, 0f, 0.14f, 0.5f, 0f, -0.14f, -0.5f, 1f),
+			QuirkKeyframes.fc(10, -0.4f, -0.2f, 0f, -0.4f, 0.2f, 0f, 0.78f, 0f, -0.85f, 0f, 0.14f, 0.46f, 0f, -0.14f, -0.45f, 0.95f), QuirkKeyframes.restC(19) };
 	// G Fire Lasso -- the whip wound up overhead, cracked out down the aim...
 	private static final float[][] LASSO = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(2, -2.9f, 0.2f, 0.45f, -0.3f, 0f, -0.2f, -0.12f, 0.35f, 0.15f, 0f, 0f, -0.15f, 0f, 0f, -0.1f),
@@ -119,12 +140,16 @@ public final class HeatblastClient implements AlienClientKit {
 	private static final float[][] YANK = { QuirkKeyframes.f(0, A, A, 0f, 0.3f, 0f, -0.15f, 0.2f, -0.25f, 0.3f, 0f, 0f, -0.3f, 0f, 0f, 0.05f),
 			QuirkKeyframes.f(2, -1.3f, 0.2f, 0.15f, -1.3f, -0.2f, -0.15f, -0.25f, 0.1f, -0.35f, 0f, 0.05f, 0.35f, 0f, -0.05f, -0.1f),
 			QuirkKeyframes.f(6, -0.5f, 0.1f, 0.3f, -0.5f, -0.1f, -0.3f, -0.3f, 0.15f, -0.45f, 0f, 0.05f, 0.4f, 0f, -0.05f, -0.15f), QuirkKeyframes.rest(12) };
-	// Shift+G Magma Bomb -- wound up high behind the head, whipped over and down, followed through
-	private static final float[][] MAGMA = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(2, -2.9f, 0.2f, 0.35f, -0.9f, 0f, -0.2f, -0.2f, 0.35f, 0.35f, 0f, 0f, -0.4f, 0f, 0f, -0.25f),
-			QuirkKeyframes.f(4, -1.9f, 0f, 0.1f, 0.2f, 0f, -0.1f, 0.1f, 0.05f, 0.4f, 0f, 0f, -0.4f, 0f, 0f, 0f),
-			QuirkKeyframes.f(6, -0.9f, -0.2f, 0f, 0.5f, 0f, -0.15f, 0.3f, -0.3f, 0.4f, 0f, 0f, -0.35f, 0f, 0f, 0.05f),
-			QuirkKeyframes.f(10, -0.6f, -0.25f, 0f, 0.35f, 0f, -0.1f, 0.22f, -0.25f, 0.35f, 0f, 0f, -0.3f, 0f, 0f, 0f), QuirkKeyframes.rest(16) };
+	// G Magma Bomb -- v0.17.2 (user: "charges a big ball of fire above their head for 1 second and throws it"): both arms up under the ball
+	// on braced legs, then the whole body whipped over and down, stepping into the throw
+	private static final float[][] MAGMA_CHARGE = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(4, -2.7f, -0.2f, 0.3f, -2.7f, 0.2f, -0.3f, -0.12f, 0f, 0.12f, 0f, 0.12f, -0.12f, 0f, -0.12f, -0.3f),
+			QuirkKeyframes.f(HeatblastKit.MAGMA_CHARGE, -3.0f, -0.2f, 0.12f, -3.0f, 0.2f, -0.12f, -0.2f, 0f, 0.16f, 0f, 0.14f, -0.16f, 0f, -0.14f, -0.35f),
+			QuirkKeyframes.f(HeatblastKit.MAGMA_CHARGE + 4, -3.0f, -0.2f, 0.12f, -3.0f, 0.2f, -0.12f, -0.2f, 0f, 0.16f, 0f, 0.14f, -0.16f, 0f, -0.14f, -0.35f) };
+	private static final float[][] MAGMA = {
+			QuirkKeyframes.f(0, -3.0f, -0.2f, 0.12f, -3.0f, 0.2f, -0.12f, -0.2f, 0f, 0.16f, 0f, 0.14f, -0.16f, 0f, -0.14f, -0.35f),
+			QuirkKeyframes.f(3, -1.35f, -0.1f, 0.05f, -1.35f, 0.1f, -0.05f, 0.42f, 0f, 0.42f, 0f, 0.1f, -0.42f, 0f, -0.1f, 0.05f),
+			QuirkKeyframes.f(7, -0.85f, -0.1f, 0f, -0.85f, 0.1f, 0f, 0.3f, 0f, 0.36f, 0f, 0.05f, -0.36f, 0f, -0.05f, 0f), QuirkKeyframes.rest(14) };
 	// X Flame Jump -- knees bent and palms down, then sprung up off the jets, palms pushed down and back
 	private static final float[][] JUMP = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.fc(2, 0.35f, 0f, 0.5f, 0.35f, 0f, -0.5f, 0.2f, 0f, -0.5f, 0f, 0.05f, -0.5f, 0f, -0.05f, 0f, 0.6f),
@@ -156,20 +181,29 @@ public final class HeatblastClient implements AlienClientKit {
 			QuirkKeyframes.f(3, -2.7f, 0f, 0.6f, -2.7f, 0f, -0.6f, -0.2f, 0f, 0f, 0f, 0.12f, 0f, 0f, -0.12f, -0.35f),
 			QuirkKeyframes.f(6, A, A, 0f, A, A, 0f, 0.12f, 0f, 0.3f, 0f, 0.1f, -0.3f, 0f, -0.1f, 0f),
 			QuirkKeyframes.f(16, A, A, 0f, A, A, 0f, 0.1f, 0f, 0.3f, 0f, 0.1f, -0.3f, 0f, -0.1f, 0f), QuirkKeyframes.rest(22) };
-	// Shift+Z Supernova's charge -- hunched over the core cupped at his chest, tightening (and trembling, in pose())
-	private static final float[][] CHARGE = { QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(4, -0.9f, 0.75f, -0.2f, -0.9f, -0.75f, 0.2f, 0.4f, 0f, -0.3f, 0f, 0.15f, -0.3f, 0f, -0.15f, 0.35f),
-			QuirkKeyframes.f(25, -1.0f, 0.8f, -0.25f, -1.0f, -0.8f, 0.25f, 0.5f, 0f, -0.35f, 0f, 0.18f, -0.35f, 0f, -0.18f, 0.4f),
-			QuirkKeyframes.f(27, -1.0f, 0.8f, -0.25f, -1.0f, -0.8f, 0.25f, 0.5f, 0f, -0.35f, 0f, 0.18f, -0.35f, 0f, -0.18f, 0.4f) };
+	// Shift+Z Supernova's 4 s charge -- v0.17.2 (user: "flames grow around the players body ... players gathers flames ... make the animations
+	// better please"): palms pressed down at his sides as the fire rises, arms swept wide to pull it in from all round him, sweeping in to
+	// the chest as he sinks, then crushed down over the core (and trembling, in pose())
+	private static final float[][] CHARGE = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(10, -0.2f, 0f, 0.85f, -0.2f, 0f, -0.85f, 0.05f, 0f, 0f, 0f, 0.16f, 0f, 0f, -0.16f, 0.12f, 0.15f),
+			QuirkKeyframes.fc(32, -1.0f, 0.75f, 0.35f, -1.0f, -0.75f, -0.35f, -0.12f, 0f, 0f, 0f, 0.2f, 0f, 0f, -0.2f, -0.22f, 0.2f),
+			QuirkKeyframes.fc(56, -1.2f, -0.75f, 0.1f, -1.2f, 0.75f, -0.1f, 0.25f, 0f, -0.1f, 0f, 0.2f, -0.1f, 0f, -0.2f, 0.2f, 0.45f),
+			QuirkKeyframes.fc(HeatblastKit.SUPERNOVA_CHARGE - 8, -1.05f, -1.0f, 0f, -1.05f, 1.0f, 0f, 0.5f, 0f, -0.2f, 0f, 0.22f, -0.2f, 0f, -0.22f, 0.45f, 0.85f),
+			QuirkKeyframes.fc(HeatblastKit.SUPERNOVA_CHARGE + 4, -1.05f, -1.0f, 0f, -1.05f, 1.0f, 0f, 0.5f, 0f, -0.2f, 0f, 0.22f, -0.2f, 0f, -0.22f, 0.45f, 0.85f) };
 	// ...and the blast (and the Meteor Crash's impact): thrown open into a huge star
-	private static final float[][] SUPERNOVA = { QuirkKeyframes.f(0, -1.0f, 0.8f, -0.25f, -1.0f, -0.8f, 0.25f, 0.5f, 0f, -0.35f, 0f, 0.18f, -0.35f, 0f, -0.18f, 0.4f),
-			QuirkKeyframes.f(2, -0.6f, 0f, 2.3f, -0.6f, 0f, -2.3f, -0.45f, 0f, 0.15f, 0f, 0.5f, 0.15f, 0f, -0.5f, -0.7f),
-			QuirkKeyframes.f(14, -0.5f, 0f, 2.1f, -0.5f, 0f, -2.1f, -0.35f, 0f, 0.1f, 0f, 0.45f, 0.1f, 0f, -0.45f, -0.6f), QuirkKeyframes.rest(24) };
+	private static final float[][] SUPERNOVA = {
+			QuirkKeyframes.fc(0, -1.05f, -1.0f, 0f, -1.05f, 1.0f, 0f, 0.5f, 0f, -0.2f, 0f, 0.22f, -0.2f, 0f, -0.22f, 0.45f, 0.85f),
+			QuirkKeyframes.fc(2, -0.6f, 0f, 2.3f, -0.6f, 0f, -2.3f, -0.45f, 0f, 0.15f, 0f, 0.5f, 0.15f, 0f, -0.5f, -0.7f, 0f),
+			QuirkKeyframes.fc(14, -0.5f, 0f, 2.1f, -0.5f, 0f, -2.1f, -0.35f, 0f, 0.1f, 0f, 0.45f, 0.1f, 0f, -0.45f, -0.6f, 0f), QuirkKeyframes.restC(24) };
 	// the flaming punch -- cocked back, driven out along the look with the hips
 	private static final float[][] PUNCH = { QuirkKeyframes.rest(0),
 			QuirkKeyframes.f(1, 0.4f, 0.3f, 0.2f, -0.5f, 0f, -0.1f, 0f, 0.35f, 0.2f, 0f, 0f, -0.2f, 0f, 0f, 0f),
 			QuirkKeyframes.f(3, A, A, 0f, 0.45f, 0f, -0.1f, 0.15f, -0.45f, 0.3f, 0f, 0f, -0.3f, 0f, 0f, 0f),
 			QuirkKeyframes.f(5, A, A, 0f, 0.4f, 0f, -0.1f, 0.12f, -0.4f, 0.28f, 0f, 0f, -0.28f, 0f, 0f, 0f), QuirkKeyframes.rest(10) };
+	private static final float[][] PUNCH_L = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(1, -0.5f, 0f, 0.1f, 0.4f, -0.3f, -0.2f, 0f, -0.35f, -0.2f, 0f, 0f, 0.2f, 0f, 0f, 0f),
+			QuirkKeyframes.f(3, 0.45f, 0f, 0.1f, A, A, 0f, 0.15f, 0.45f, -0.3f, 0f, 0f, 0.3f, 0f, 0f, 0f),
+			QuirkKeyframes.f(5, 0.4f, 0f, 0.1f, A, A, 0f, 0.12f, 0.4f, -0.28f, 0f, 0f, 0.28f, 0f, 0f, 0f), QuirkKeyframes.rest(10) };
 	// smelting -- hands cupped round the heat, kneading it
 	private static final float[][] SMELT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.2f, -0.45f, 0f, -1.2f, 0.45f, 0f, 0.15f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.35f),
 			QuirkKeyframes.f(7, -1.05f, -0.52f, 0f, -1.05f, 0.52f, 0f, 0.18f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
@@ -210,18 +244,28 @@ public final class HeatblastClient implements AlienClientKit {
 
 	// first person {tick, pitch, yaw, roll, x, y, z}: each pulled back a touch first, then thrust, then eased home
 	private static final FirstPersonClip FP_BLAST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 15, -10, 0, -0.05f, -0.05f, 0.12f),
-			FirstPersonClip.f(2.5f, -28, 18, 0, 0.14f, 0.12f, -0.16f), FirstPersonClip.f(5, -24, 16, 0, 0.12f, 0.1f, -0.12f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0));
+			FirstPersonClip.f(2.5f, -28, 18, 0, 0.14f, 0.12f, -0.16f), FirstPersonClip.f(5, -24, 16, 0, 0.12f, 0.1f, -0.12f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0)).both();
+	/** The hands drawn in to the middle of the view as the fire gathers in them. */
+	private static final FirstPersonClip FP_GATHER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -18, 30, 0, 0.14f, 0.06f, 0.02f),
+			FirstPersonClip.f(9, -20, 34, 0, 0.16f, 0.08f, 0.02f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_BOLT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 8, -5, 0, 0f, -0.03f, 0.06f),
 			FirstPersonClip.f(3, -22, 14, 0, 0.1f, 0.08f, -0.12f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_THROWER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 5, 10, 0, 0.1f, -0.02f, 0.1f),
-			FirstPersonClip.f(5, -30, 22, 0, 0.18f, 0.16f, -0.14f), FirstPersonClip.f(HeatblastKit.THROWER_TICKS, -28, 20, 0, 0.17f, 0.15f, -0.12f),
-			FirstPersonClip.f(HeatblastKit.THROWER_TICKS + 6, 0, 0, 0, 0, 0, 0)).both();
+	/** The arms drawn down out of the way: the fire comes from his mouth, not his hands. */
+	private static final FirstPersonClip FP_BREATH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, 25, 0, 0, 0, -0.42f, 0.1f),
+			FirstPersonClip.f(1000000f, 25, 0, 0, 0, -0.42f, 0.1f)).both();
+	private static final FirstPersonClip FP_BREATH_END = FirstPersonClip.of(FirstPersonClip.f(0, 25, 0, 0, 0, -0.42f, 0.1f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_SLAM_GATHER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -20, 30, 0, 0.14f, 0.08f, 0f),
+			FirstPersonClip.f(HeatblastKit.SLAM_WINDUP - 1, -75, 10, 10, 0, 0.42f, 0.15f), FirstPersonClip.f(HeatblastKit.SLAM_WINDUP + 3, -75, 10, 10, 0, 0.42f, 0.15f)).both();
+	private static final FirstPersonClip FP_SLAM = FirstPersonClip.of(FirstPersonClip.f(0, -75, 10, 10, 0, 0.42f, 0.15f), FirstPersonClip.f(2.5f, 45, 8, 0, 0.03f, -0.38f, -0.1f),
+			FirstPersonClip.f(10, 40, 8, 0, 0.03f, -0.36f, -0.1f), FirstPersonClip.f(19, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_LASSO = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -70, 5, 12, 0.02f, 0.38f, 0.12f),
 			FirstPersonClip.f(3.5f, -18, 22, 0, 0.12f, 0.06f, -0.22f), FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_YANK = FirstPersonClip.of(FirstPersonClip.f(0, -18, 22, 0, 0.12f, 0.06f, -0.22f),
 			FirstPersonClip.f(2, 18, 15, 0, 0.08f, -0.08f, 0.22f), FirstPersonClip.f(6, 25, 12, 0, 0.06f, -0.12f, 0.28f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_MAGMA = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -75, 0, 12, 0, 0.38f, 0.18f),
-			FirstPersonClip.f(4, -10, 22, 0, 0.12f, 0.05f, -0.22f), FirstPersonClip.f(8, 5, 15, 0, 0.08f, -0.05f, -0.12f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_MAGMA_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -60, 6, 8, 0.02f, 0.34f, 0.12f),
+			FirstPersonClip.f(HeatblastKit.MAGMA_CHARGE + 4, -78, 8, 10, 0.02f, 0.42f, 0.16f)).both();
+	private static final FirstPersonClip FP_MAGMA = FirstPersonClip.of(FirstPersonClip.f(0, -78, 8, 10, 0.02f, 0.42f, 0.16f), FirstPersonClip.f(3, -10, 22, 0, 0.12f, 0.05f, -0.22f),
+			FirstPersonClip.f(7, 5, 15, 0, 0.08f, -0.05f, -0.12f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_JUMP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 35, 0, 0, 0, -0.3f, 0.1f),
 			FirstPersonClip.f(5, 25, 0, 0, 0, -0.25f, 0.08f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_RIDE_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0),
@@ -235,9 +279,11 @@ public final class HeatblastClient implements AlienClientKit {
 	private static final FirstPersonClip FP_TORNADO = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -80, 0, 15, -0.05f, 0.45f, 0.05f),
 			FirstPersonClip.f(6, -26, 18, 0, 0.14f, 0.12f, -0.16f), FirstPersonClip.f(16, -24, 16, 0, 0.12f, 0.1f, -0.12f), FirstPersonClip.f(22, 0, 0, 0, 0, 0, 0))
 			.both();
-	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -15, 35, 0, 0.2f, 0.0f, 0.05f),
-			FirstPersonClip.f(27, -18, 38, 0, 0.22f, 0.0f, 0.05f)).both();
-	private static final FirstPersonClip FP_SUPERNOVA = FirstPersonClip.of(FirstPersonClip.f(0, -18, 38, 0, 0.22f, 0.0f, 0.05f),
+	// the Supernova: the hands at the bottom corners, swept out to the edges, then in to the core in the middle of the view
+	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(10, 25, -6, 0, -0.1f, -0.25f, 0f),
+			FirstPersonClip.f(32, -26, -32, 18, -0.24f, 0.1f, 0f), FirstPersonClip.f(56, -28, 38, 0, 0.22f, 0.02f, 0.05f),
+			FirstPersonClip.f(HeatblastKit.SUPERNOVA_CHARGE - 8, -18, 48, 0, 0.3f, -0.06f, 0.14f), FirstPersonClip.f(HeatblastKit.SUPERNOVA_CHARGE + 4, -18, 48, 0, 0.3f, -0.06f, 0.14f)).both();
+	private static final FirstPersonClip FP_SUPERNOVA = FirstPersonClip.of(FirstPersonClip.f(0, -18, 48, 0, 0.3f, -0.06f, 0.14f),
 			FirstPersonClip.f(2, -45, -50, 35, -0.3f, 0.3f, 0), FirstPersonClip.f(14, -40, -45, 30, -0.27f, 0.27f, 0), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(1, 10, -8, 0, -0.03f, -0.05f, 0.1f),
 			FirstPersonClip.f(3, -22, 26, 0, 0.16f, 0.08f, -0.22f), FirstPersonClip.f(5, -20, 24, 0, 0.15f, 0.08f, -0.18f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
@@ -380,10 +426,11 @@ public final class HeatblastClient implements AlienClientKit {
 		// the burning overlay -- the skin's pale cracks run with lava, flames lick up the rock, the head glows from inside
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(glow(age))), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		// the burning-skull fire on his head -- blazing up taller in the big moves (and the moment he relights)
-		boolean big = anim == HeatblastKit.ANIM_SUPERNOVA || anim == HeatblastKit.ANIM_CHARGE || anim == HeatblastKit.ANIM_TORNADO
-				|| anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f || (st.kitFlags & HeatblastKit.F_RIDE_CHARGE) != 0;
+		boolean big = anim == HeatblastKit.ANIM_SUPERNOVA || anim == HeatblastKit.ANIM_TORNADO || anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f
+				|| (st.kitFlags & (HeatblastKit.F_RIDE_CHARGE | HeatblastKit.F_STREAM | HeatblastKit.F_MAGMA | HeatblastKit.F_SLAM)) != 0;
 		float relit = anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f ? 1f + 0.8f * (1f - ticks / 14f) : 1f;
-		headFire(pose, buffers, model.head, big ? 1.4f * relit : 1f, age);
+		float nova = kit().novaCharge(p, partial);
+		headFire(pose, buffers, model.head, nova > 0f ? 1f + 0.6f * nova : big ? 1.4f * relit : 1f, age);
 		if (anim == HeatblastKit.ANIM_REIGNITE && ticks < 10f) {
 			// the flames burst back over his whole body
 			PyrokinesisClient.bodyFire(pose, buffers, age, 1.2f * (1f - ticks / 10f) + 0.2f);
@@ -398,8 +445,38 @@ public final class HeatblastClient implements AlienClientKit {
 		} else if (anim == HeatblastKit.ANIM_JUMP && ticks < 8f) {
 			PyrokinesisClient.jetFlames(pose, buffers, model, false, age, 1.2f * (1f - ticks / 8f) + 0.2f);
 		}
+		// v0.17.2 (user: "player gathers fire in their hands"): the fire gathering in both palms; each hand keeps its fire until it has thrown it
+		if (anim == HeatblastKit.ANIM_VOLLEY_GATHER) {
+			float k = Mth.clamp(ticks / HeatblastKit.VOLLEY_GATHER, 0f, 1f);
+			handBall(pose, buffers, model.rightArm, -1f, 0.06f + 0.16f * k, age);
+			handBall(pose, buffers, model.leftArm, 1f, 0.06f + 0.16f * k, age);
+		}
+		if (anim == HeatblastKit.ANIM_VOLLEY) {
+			handBall(pose, buffers, model.leftArm, 1f, 0.2f, age);
+		} else if (anim == HeatblastKit.ANIM_VOLLEY_L) {
+			handBall(pose, buffers, model.rightArm, -1f, 0.2f, age);
+		}
+		// the Magma Slam: the fire swelling in both raised fists, then bursting out where they hit the ground
+		if ((st.kitFlags & HeatblastKit.F_SLAM) != 0) {
+			float k = Mth.clamp(ticks / HeatblastKit.SLAM_WINDUP, 0f, 1f);
+			handBall(pose, buffers, model.rightArm, -1f, 0.1f + 0.24f * k, age);
+			handBall(pose, buffers, model.leftArm, 1f, 0.1f + 0.24f * k, age);
+			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 0.4f + 0.5f * k, 0f);
+		} else if (anim == HeatblastKit.ANIM_SLAM && ticks < 9f) {
+			float k = 1.1f * (1f - ticks / 9f);
+			palmFire(pose, buffers, model.rightArm, -1f, k, age);
+			palmFire(pose, buffers, model.leftArm, 1f, k, age);
+		}
+		// the Fire Breath: the glow of it in his mouth and flames licking off his head and shoulders
+		if ((st.kitFlags & HeatblastKit.F_STREAM) != 0) {
+			pose.pushPose();
+			model.head.translateAndRotate(pose);
+			float g = Mth.clamp(ticks / HeatblastKit.BREATH_INHALE, 0f, 1f);
+			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, -2.0 / 16.0, -4.6 / 16.0), 0.34f * g, PyroDraw.dim(0xFFFFB050, 0.9f));
+			pose.popPose();
+		}
 		// the shots' palm flares, the punch's burning fist
-		if (anim == HeatblastKit.ANIM_VOLLEY && ticks < 5f) {
+		if ((anim == HeatblastKit.ANIM_VOLLEY || anim == HeatblastKit.ANIM_VOLLEY_3) && ticks < 5f) {
 			palmFire(pose, buffers, model.rightArm, -1f, 0.85f * (1f - ticks / 5f) + 0.2f, age);
 		} else if (anim == HeatblastKit.ANIM_VOLLEY_L && ticks < 5f) {
 			palmFire(pose, buffers, model.leftArm, 1f, 0.85f * (1f - ticks / 5f) + 0.2f, age);
@@ -409,6 +486,8 @@ public final class HeatblastClient implements AlienClientKit {
 			palmFire(pose, buffers, model.rightArm, -1f, 0.5f, age);
 		} else if (anim == HeatblastKit.ANIM_PUNCH && ticks < 5f) {
 			handGlow(pose, buffers, model.rightArm, -1f, 0.32f * (1f - ticks / 5f) + 0.1f);
+		} else if (anim == HeatblastKit.ANIM_PUNCH_L && ticks < 5f) {
+			handGlow(pose, buffers, model.leftArm, 1f, 0.32f * (1f - ticks / 5f) + 0.1f);
 		} else if (anim == HeatblastKit.ANIM_ERUPT && ticks < 12f) {
 			palmFire(pose, buffers, model.rightArm, -1f, ticks < 5f ? 0.4f + ticks * 0.1f : 0.9f * (1f - (ticks - 5f) / 7f), age);
 		}
@@ -420,21 +499,40 @@ public final class HeatblastClient implements AlienClientKit {
 		} else if (anim == HeatblastKit.ANIM_RIDE_PUNCH && ticks < 6f) {
 			handGlow(pose, buffers, model.rightArm, -1f, 0.7f * (1f - ticks / 6f));
 		}
-		// the Magma Bomb swelling in the raised hand until it leaves it
-		if (anim == HeatblastKit.ANIM_MAGMA && ticks < 4.5f) {
+		// the Magma Bomb swelling over his head, between his raised hands, until it is thrown
+		float mag = kit().magmaCharge(p, partial);
+		if (mag > 0f) {
 			pose.pushPose();
-			model.rightArm.translateAndRotate(pose);
-			float r = 0.14f + 0.16f * Mth.clamp(ticks / 2.5f, 0f, 1f);
-			pose.translate(-1f / 16f, 11f / 16f + r * 0.6f, 0f);
-			PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, -1, 0), true);
+			float r = magmaRadius(mag);
+			pose.translate(0f, -0.62f - r * 0.85f, 0f);
+			PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, 1, 0), true);
 			pose.popPose();
+			handGlow(pose, buffers, model.rightArm, -1f, 0.3f + 0.2f * mag);
+			handGlow(pose, buffers, model.leftArm, 1f, 0.3f + 0.2f * mag);
+		} else if (anim == HeatblastKit.ANIM_MAGMA && ticks < 3f) {
+			handGlow(pose, buffers, model.rightArm, -1f, 0.5f * (1f - ticks / 3f));
+			handGlow(pose, buffers, model.leftArm, 1f, 0.5f * (1f - ticks / 3f));
 		}
-		// the Supernova's core growing between his cupped hands; the smelt's small flame
-		if ((st.kitFlags & HeatblastKit.F_CHARGING) != 0) {
-			float k = Mth.clamp(ticks / HeatblastKit.SUPERNOVA_CHARGE, 0f, 1f);
-			chestBall(pose, buffers, model, (0.12f + 0.4f * k) * (0.94f + 0.06f * Mth.sin(age * 1.7f)), age, 0.42f);
+		// the Supernova: the core growing between his hands, the flames growing and turning jagged round his body; right at the end
+		// it all crushes down into the core, white-hot, before the blast
+		if (nova > 0f) {
+			float crush = Mth.clamp((nova - 0.86f) / 0.14f, 0f, 1f);
+			novaFlames(pose, buffers, model, nova, crush, age);
+			float r = (nova < 0.86f ? 0.1f + 0.42f * nova / 0.86f : Mth.lerp(crush, 0.52f, 0.24f)) * (0.95f + 0.05f * Mth.sin(age * 1.7f));
+			chestBall(pose, buffers, model, r, age, 0.42f);
+			if (crush > 0f) {
+				pose.pushPose();
+				model.body.translateAndRotate(pose);
+				PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, 0.42, -0.3f - r), 0.5f + 1.2f * crush, PyroDraw.dim(0xFFFFF0D0, crush));
+				pose.popPose();
+			}
 		} else if (anim == HeatblastKit.ANIM_SMELT && ticks < 13f) {
 			chestBall(pose, buffers, model, 0.1f + 0.02f * Mth.sin(age * 0.9f), age, 0.5f);
+		}
+		if (anim == HeatblastKit.ANIM_SUPERNOVA && ticks < 12f) {
+			// the blast: fire pouring off him
+			PyrokinesisClient.bodyFire(pose, buffers, age, 1.9f * (1f - ticks / 12f) + 0.2f);
+			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 2.2f * (1f - ticks / 12f) + 0.3f, 0f);
 		}
 		// v0.17.2 (user: "Make shift+V absorb flames instead of heat shield"): Absorb Flames -- a shell of fire collapsing in on him
 		// as the streams arrive (the streams themselves are rendered ribbons from the server), fire licking up off every limb
@@ -493,7 +591,18 @@ public final class HeatblastClient implements AlienClientKit {
 				continue;
 			}
 			if ((st.kitFlags & HeatblastKit.F_STREAM) != 0) {
-				PyrokinesisClient.flamethrower(pl, partial, cam, pose, buffers, HeatblastKit.THROWER_RANGE);
+				breath(pl, partial, cam, pose, buffers);
+			}
+			float nova = kit().novaCharge(pl, partial);
+			if (nova > 0f) {
+				novaWorld(pl, nova, partial, cam, pose, buffers);
+			}
+			float mag = kit().magmaCharge(pl, partial);
+			if (mag > 0f && pl == mc.player && mc.options.getCameraType().isFirstPerson()) {
+				magmaFirstPerson(pl, mag, partial, cam, pose, buffers);
+			}
+			if (st.animId == HeatblastKit.ANIM_SUPERNOVA) {
+				novaBurst(pl, animTicks((AbstractClientPlayer) pl, partial), partial, cam, pose, buffers);
 			}
 			if ((st.kitFlags & HeatblastKit.F_LASSO) != 0) {
 				Entity t = mc.level.getEntity(kit().lassoTarget(pl));
@@ -510,6 +619,258 @@ public final class HeatblastClient implements AlienClientKit {
 			if ((st.kitFlags & HeatblastKit.F_RIDING) != 0) {
 				rock(pl, partial, cam, pose, buffers);
 			}
+		}
+	}
+
+	/** The big ball's radius at charge {@code k} (0..1): it swells fast, then steadies at the size that is thrown. */
+	private static float magmaRadius(float k) {
+		return 0.2f + (HeatblastKit.MAGMA_BALL - 0.2f) * (1f - (1f - k) * (1f - k));
+	}
+
+	/** First person the ball is out of the model's view: it hangs at the top of his sight instead. */
+	private static void magmaFirstPerson(Player pl, float k, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		Vec3 look = pl.getViewVector(partial);
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(look).normalize();
+		float r = magmaRadius(k);
+		Vec3 at = pl.getEyePosition(partial).add(look.scale(1.5)).add(up.scale(0.72 + r * 0.6)).subtract(cam);
+		pose.pushPose();
+		pose.translate(at.x, at.y, at.z);
+		PyroDraw.fireball(pose, buffers, r, pl.tickCount + partial, new Vec3(0, -1, 0), true);
+		pose.popPose();
+	}
+
+	/** Where the Fire Breath leaves him: his mouth, or first person just under the view. */
+	private static Vec3 mouth(Player pl, float partial, Vec3 look) {
+		Minecraft mc = Minecraft.getInstance();
+		Vec3 eye = pl.getEyePosition(partial);
+		float s = pl.getScale();
+		if (pl == mc.player && mc.options.getCameraType().isFirstPerson()) {
+			Vec3 right = look.cross(new Vec3(0, 1, 0));
+			right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
+			return eye.add(look.scale(0.75)).subtract(right.cross(look).normalize().scale(0.5));
+		}
+		return eye.add(look.scale(0.33 * s)).add(0, -0.08 * s, 0);
+	}
+
+	/**
+	 * The Fire Breath -- v0.17.2 (user: "player breaths fire from their mouths"): a narrow white-hot jet from his mouth widening into a
+	 * rolling stream of fire down his aim, stopping at the first block, jagged tongues of flame lashing off it near the mouth.
+	 */
+	private static void breath(Player pl, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		float age = kit().breathAge(pl, partial) - HeatblastKit.BREATH_INHALE;
+		float grow = Mth.clamp(age / 5f, 0f, 1f);
+		if (grow <= 0f) {
+			return;
+		}
+		float time = pl.tickCount + partial;
+		Vec3 look = pl.getViewVector(partial);
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(look).normalize();
+		double range = HeatblastKit.BREATH_RANGE * grow;
+		var hit = pl.pick(range, partial, false);
+		if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+			range = Math.max(0.8, hit.getLocation().distanceTo(pl.getEyePosition(partial)));
+		}
+		Minecraft mc = Minecraft.getInstance();
+		boolean own = pl == mc.player && mc.options.getCameraType().isFirstPerson();
+		float view = own ? 0.5f : 1f;
+		Vec3 h = mouth(pl, partial, look).subtract(cam);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		final double reach = range;
+		List<Vec3> core = new ArrayList<>();
+		for (int i = 0; i <= 10; i++) {
+			double u = i / 10.0;
+			double wob = Math.sin(u * 7.0 - time * 1.3) * 0.05 * u;
+			core.add(h.add(look.scale(Math.min(reach, 3.6) * u)).add(up.scale(wob)));
+		}
+		PyroDraw.ribbon(pose, add, core, u -> 0.08 + 0.75 * u, u -> PyroDraw.dim(0xFFFFE8B0, (float) (1.0 - u * 0.9)));
+		PyroDraw.glow(pose, glow, h, 0.42f, PyroDraw.dim(0xFFFFC070, 0.8f * grow));
+		// the jagged tongues lashing off the jet (a few steps from the mouth)
+		for (int i = 0; i < 7; i++) {
+			double a = i * 2.4 + time * 0.31;
+			double d = 0.3 + (i * 0.37 + time * 0.09) % 1.0 * Math.min(reach, 2.6);
+			Vec3 at = h.add(look.scale(d));
+			Vec3 out = right.scale(Math.cos(a)).add(up.scale(Math.sin(a))).add(look.scale(1.3)).normalize();
+			jagged(pose, add, at, out, 0.5f + 0.5f * (float) (d / 2.6), 0.13f, 0.35f, i, time, 0xFFFF7A20, 0xFF301000);
+		}
+		int n = 40;
+		for (int i = 0; i < n; i++) {
+			// each puff of fire scrolls out along the stream and grows as it goes (bunched toward the mouth)
+			double u0 = (i * 0.6180339 + time * 0.13) % 1.0;
+			double u = u0 * u0 * 0.6 + u0 * 0.4;
+			double d = 0.25 + u * range;
+			double jx = Math.sin(i * 12.9898) * 0.5;
+			double jy = Math.sin(i * 78.233) * 0.5;
+			if (own && d < 1.6) {
+				continue;
+			}
+			double spread = 0.02 + d * 0.085;
+			Vec3 q = h.add(look.scale(d)).add(right.scale(jx * spread * 2)).add(up.scale(jy * spread * 2));
+			float size = (float) (0.16 + u * 1.3) * view;
+			float k = (float) (u > 0.82 ? (1.0 - u) / 0.18 : 1.0);
+			if (i % 2 == 0) {
+				PyroDraw.glow(pose, glow, q, size * 1.05f, PyroDraw.dim(PyroDraw.lerpRgb(0xFFFFB050, 0xFFB02800, (float) u), 0.55f * k));
+			}
+			if (k > 0.3f) {
+				PyroDraw.fireBillboard(pose, fire, q.subtract(0, size * 0.4, 0), Vec3.ZERO, size * 0.85f * k, size * k, (int) (time / 2) + i);
+			}
+		}
+	}
+
+	/**
+	 * One jagged tongue of fire from {@code root} along {@code dir} (unit) in the pose's space: a zig-zag spine, its width pinched and
+	 * flared at every kink so the edge is all barbs, in two crossed strips that read from any side. {@code rough} 0 is a smooth
+	 * spike, 0.5 savagely jagged. Additive: {@code hot} at the root, {@code tip} (near black) at the point.
+	 */
+	private static void jagged(PoseStack pose, VertexConsumer vc, Vec3 root, Vec3 dir, float len, float width, float rough, int seed, float time, int hot, int tip) {
+		Vec3 a = Math.abs(dir.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+		Vec3 s1 = dir.cross(a).normalize();
+		Vec3 s2 = dir.cross(s1).normalize();
+		PoseStack.Pose last = pose.last();
+		int segs = 6;
+		for (int strip = 0; strip < 2; strip++) {
+			Vec3 side = strip == 0 ? s1 : s2;
+			Vec3 prevL = null, prevR = null;
+			int prevC = hot;
+			for (int j = 0; j <= segs; j++) {
+				float u = j / (float) segs;
+				float flick = 0.75f + 0.25f * Mth.sin(time * 0.9f + j * 1.7f + seed * 2.3f);
+				// the spine kicks left and right, harder toward the tip
+				float kick = (j == 0 ? 0f : (j % 2 == 0 ? 1f : -1f)) * rough * len * 0.2f * flick * (0.4f + u);
+				float w = width * (1f - u * 0.92f) * (j % 2 == 0 ? 1.45f : 0.6f) * (j == segs ? 0f : 1f);
+				Vec3 p = root.add(dir.scale(len * u)).add(side.scale(kick));
+				Vec3 l = p.add(side.scale(w * 0.5f));
+				Vec3 r = p.subtract(side.scale(w * 0.5f));
+				int c = PyroDraw.lerpRgb(hot, tip, u * u);
+				if (prevL != null) {
+					PyroDraw.quad(vc, last, prevL, prevR, r, l, prevC, prevC, c, c);
+					PyroDraw.quad(vc, last, l, r, prevR, prevL, c, c, prevC, prevC);
+				}
+				prevL = l;
+				prevR = r;
+				prevC = c;
+			}
+		}
+	}
+
+	/** The points on his body the Supernova's flames rise from: {bone 0 body / 1 right arm / 2 left arm / 3 right leg / 4 left leg / 5 head, x, y, z px}. */
+	private static final float[][] NOVA_ROOTS = { { 0, -3, 2, -2 }, { 0, 3, 2, -2 }, { 0, -3, 2, 2 }, { 0, 3, 2, 2 }, { 0, 0, 7, -2 }, { 0, 0, 7, 2 }, { 0, -4, 8, 0 },
+			{ 0, 4, 8, 0 }, { 0, -2, 11, -2 }, { 0, 2, 11, -2 }, { 0, -2, 11, 2 }, { 0, 2, 11, 2 }, { 1, -3, 1, 0 }, { 1, -3, 5, 0 }, { 1, -3, 9, 0 }, { 1, -1, 3, -2 },
+			{ 1, -1, 7, 2 }, { 2, 3, 1, 0 }, { 2, 3, 5, 0 }, { 2, 3, 9, 0 }, { 2, 1, 3, -2 }, { 2, 1, 7, 2 }, { 3, -2, 3, 0 }, { 3, -2, 8, 0 }, { 3, 0, 6, -2 }, { 4, 2, 3, 0 },
+			{ 4, 2, 8, 0 }, { 4, 0, 6, -2 }, { 5, -4, -3, 0 }, { 5, 4, -3, 0 } };
+
+	/**
+	 * The Supernova's flames on his body -- v0.17.2 (user: "flames grow around the players body, they become bigger and more jagged").
+	 * Early on soft little flames lick up the limbs; as {@code k} climbs there are more of them, longer and jagged (the kinks of
+	 * {@link #jagged} kicking harder), real fire rising off him higher and higher. In the last moments ({@code crush}) they are
+	 * dragged back down into him, white-hot. Model space: y down, the feet at +1.5.
+	 */
+	private static void novaFlames(PoseStack pose, MultiBufferSource buffers, PlayerModel<AbstractClientPlayer> m, float k, float crush, float age) {
+		PyrokinesisClient.bodyFire(pose, buffers, age, (0.7f + 0.95f * k) * (1f - 0.5f * crush));
+		PyrokinesisClient.limbFlames(pose, buffers, m, false, age, (0.55f + 1.5f * k) * (1f - 0.45f * crush), 0f);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		ModelPart[] bones = { m.body, m.rightArm, m.leftArm, m.rightLeg, m.leftLeg, m.head };
+		int n = Math.round(Mth.lerp(k, 10, NOVA_ROOTS.length));
+		float len = (0.22f + 1.5f * k * k) * (1f - 0.65f * crush);
+		float rough = 0.03f + 0.62f * k;
+		int hot = PyroDraw.lerpRgb(0xFFFF7A20, 0xFFFFF0C0, crush);
+		for (int i = 0; i < n; i++) {
+			float[] r = NOVA_ROOTS[i];
+			ModelPart b = bones[(int) r[0]];
+			org.joml.Vector3f c = new org.joml.Quaternionf().rotationZYX(b.zRot, b.yRot, b.xRot).transform(new org.joml.Vector3f(r[1], r[2], r[3]));
+			Vec3 at = new Vec3((b.x + c.x) / 16f, (b.y + c.y) / 16f, (b.z + c.z) / 16f);
+			Vec3 outward = at.subtract(0, 0.7, 0);
+			outward = outward.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, -1) : outward.normalize();
+			Vec3 dir = outward.scale(0.75).add(0, -1.0, 0).normalize();
+			float size = len * (0.65f + 0.55f * Mth.sin(i * 12.9898f) * Mth.sin(i * 12.9898f)) * (0.8f + 0.2f * Mth.sin(age * 0.8f + i * 1.9f));
+			jagged(pose, add, at, dir, size, 0.14f + 0.14f * k, rough, i, age, hot, 0xFF401000);
+			jagged(pose, add, at, dir, size * 0.6f, 0.07f + 0.07f * k, rough, i + 40, age, 0xFFFFE8B0, 0xFF803000);
+		}
+	}
+
+	/**
+	 * The Supernova's charge in the world (every viewer, first person too): the ground glowing wider and hotter, a crown of jagged flames
+	 * rising round his feet, and ribbons of fire spiralling in from all round him to his chest -- "players gathers flames".
+	 */
+	private static void novaWorld(Player pl, float k, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		float time = pl.tickCount + partial;
+		float crush = Mth.clamp((k - 0.86f) / 0.14f, 0f, 1f);
+		Vec3 b = pl.getPosition(partial).subtract(cam);
+		Vec3 chest = b.add(0, 1.05, 0);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		pose.pushPose();
+		pose.translate(b.x, b.y + 0.06, b.z);
+		PyroDraw.annulus(pose, add, 0f, (1.4f + 4.2f * k) * (1f - 0.7f * crush), PyroDraw.dim(0xFFFF5A10, 0.25f + 0.45f * k), 0xFF000000, 0f);
+		pose.popPose();
+		// the crown of jagged flames round his feet, pulled in at the end
+		int crown = 12 + (int) (14 * k);
+		float ringR = Mth.lerp(k, 0.8f, 1.35f) * (1f - 0.75f * crush);
+		for (int i = 0; i < crown; i++) {
+			float a = i * Mth.TWO_PI / crown + time * 0.04f;
+			Vec3 at = b.add(Mth.cos(a) * ringR, 0.05, Mth.sin(a) * ringR);
+			Vec3 dir = new Vec3(Mth.cos(a) * (0.35 - 0.8 * crush), 1, Mth.sin(a) * (0.35 - 0.8 * crush)).normalize();
+			float size = (0.3f + 2.3f * k * k) * (0.6f + 0.4f * Mth.sin(i * 2.7f + time * 0.33f) * Mth.sin(i * 2.7f + time * 0.33f)) * (1f - 0.5f * crush);
+			jagged(pose, add, at, dir, size, 0.22f + 0.2f * k, 0.05f + 0.6f * k, i, time, 0xFFFF7A20, 0xFF401000);
+		}
+		// the flames drawn in: comets of fire winding down a spiral to his chest, more and faster as it builds
+		int arms = 5 + (int) (6 * k);
+		for (int i = 0; i < arms; i++) {
+			double head = ((time * (0.018 + 0.03 * k) + i * 0.6180339) % 1.0);
+			double tail = Math.max(0.0, head - 0.34);
+			List<Vec3> pts = new ArrayList<>();
+			Vec3 last = chest;
+			for (int j = 0; j <= 14; j++) {
+				double s = Mth.lerp(j / 14.0, tail, head);
+				double r = (1.0 - s) * (1.0 - s * 0.3) * 7.0;
+				double ang = i * 2.399963 + s * 4.6;
+				last = chest.add(Math.cos(ang) * r, (1.0 - s) * (-0.9 + 0.5 * Math.sin(i * 3.1)), Math.sin(ang) * r);
+				pts.add(last);
+			}
+			float fade = (float) Math.min(1.0, Math.min(head / 0.15, (1.0 - head) / 0.08)) * (0.45f + 0.55f * k);
+			if (fade <= 0.02f) {
+				continue;
+			}
+			PyroDraw.ribbon(pose, add, pts, u -> 0.03 + 0.17 * u, u -> PyroDraw.dim(PyroDraw.lerpRgb(0xFF601000, 0xFFFF9030, (float) u), (float) u * 0.7f * fade));
+			// real fire along it, thickest at the head of the comet
+			for (int j = 6; j <= 14; j += 4) {
+				float sz = (0.25f + 0.4f * j / 14f) * fade;
+				PyroDraw.fireBillboard(pose, fire, pts.get(j).subtract(0, sz * 0.4f, 0), Vec3.ZERO, sz * 0.85f, sz, (int) (time / 2) + i + j);
+			}
+		}
+	}
+
+	/** The Supernova's blast: a hot shell of fire racing out to the blast's edge, jagged spears of flame bursting through it. */
+	private static void novaBurst(Player pl, float a, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		float u = a / 16f;
+		if (u >= 1f) {
+			return;
+		}
+		float out = 1f - (1f - u) * (1f - u) * (1f - u);
+		float fade = (1f - u) * (1f - u);
+		float r = 1f + (HeatblastKit.SUPERNOVA_RADIUS - 1f) * out;
+		float time = pl.tickCount + partial;
+		Vec3 b = pl.getPosition(partial).add(0, 1.0, 0).subtract(cam);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		pose.pushPose();
+		pose.translate(b.x, b.y, b.z);
+		PyroDraw.sphere(pose, add, r, PyroDraw.dim(0xFFFFC070, 0.55f * fade), PyroDraw.dim(0xFF902000, 0.3f * fade), 0.07f, time, PyroDraw.FULL);
+		PyroDraw.sphere(pose, add, r * 0.72f, PyroDraw.dim(0xFFFFF0D0, 0.5f * fade), PyroDraw.dim(0xFFFF8020, 0.2f * fade), 0.1f, -time * 1.3f, PyroDraw.FULL);
+		pose.popPose();
+		int n = 34;
+		for (int i = 0; i < n; i++) {
+			// a golden-spiral spread of directions
+			double y = 1.0 - (i + 0.5) * 2.0 / n;
+			double rad = Math.sqrt(Math.max(0.0, 1.0 - y * y));
+			double ang = i * 2.399963;
+			Vec3 dir = new Vec3(Math.cos(ang) * rad, y, Math.sin(ang) * rad);
+			jagged(pose, add, b.add(dir.scale(r * 0.55f)), dir, (2.0f + 3.0f * out) * (0.7f + 0.3f * Mth.sin(i * 1.7f)), 0.5f * (1f - u * 0.5f), 0.6f, i, time,
+					PyroDraw.dim(0xFFFFB050, fade), 0xFF000000);
 		}
 	}
 
@@ -794,6 +1155,15 @@ public final class HeatblastClient implements AlienClientKit {
 		pose.popPose();
 	}
 
+	/** A ball of fire held in a palm. */
+	private static void handBall(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float r, float age) {
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		pose.translate(side / 16f, 11f / 16f + r * 0.5f, 0f);
+		PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, 1, 0), false);
+		pose.popPose();
+	}
+
 	/** A soft glow round a fist. */
 	private static void handGlow(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float r) {
 		pose.pushPose();
@@ -828,8 +1198,18 @@ public final class HeatblastClient implements AlienClientKit {
 			var st = Omnitrix.state(p);
 			float ticks = animTicks(p, partial);
 			float side = right ? -1f : 1f;
-			if (right && st.animId == HeatblastKit.ANIM_VOLLEY && ticks < 5f || !right && st.animId == HeatblastKit.ANIM_VOLLEY_L && ticks < 5f) {
+			float nova = kit().novaCharge(p, partial);
+			if (right && (st.animId == HeatblastKit.ANIM_VOLLEY || st.animId == HeatblastKit.ANIM_VOLLEY_3) && ticks < 5f
+					|| !right && st.animId == HeatblastKit.ANIM_VOLLEY_L && ticks < 5f) {
 				palmFire(pose, buffers, arm, side, 0.65f * (1f - ticks / 5f) + 0.15f, age);
+			} else if (st.animId == HeatblastKit.ANIM_VOLLEY_GATHER) {
+				handBall(pose, buffers, arm, side, 0.05f + 0.12f * Mth.clamp(ticks / HeatblastKit.VOLLEY_GATHER, 0f, 1f), age);
+			} else if ((st.kitFlags & HeatblastKit.F_SLAM) != 0) {
+				handBall(pose, buffers, arm, side, 0.08f + 0.16f * Mth.clamp(ticks / HeatblastKit.SLAM_WINDUP, 0f, 1f), age);
+			} else if (st.animId == HeatblastKit.ANIM_SLAM && ticks < 9f) {
+				palmFire(pose, buffers, arm, side, 0.9f * (1f - ticks / 9f), age);
+			} else if (nova > 0f) {
+				palmFire(pose, buffers, arm, side, 0.25f + 0.85f * nova, age);
 			} else if (right && st.animId == HeatblastKit.ANIM_BOLT && ticks < 4f) {
 				palmFire(pose, buffers, arm, side, 0.45f * (1f - ticks / 4f) + 0.1f, age);
 			} else if (right && (st.kitFlags & HeatblastKit.F_RIDE_CHARGE) != 0) {
@@ -841,15 +1221,54 @@ public final class HeatblastClient implements AlienClientKit {
 
 	// ---------------------------------------------------------------- poses
 
+	/** Every column but the legs': a held move leaves the walk cycle's legs alone while he walks. */
+	private static final int NO_LEGS;
+
+	static {
+		int mask = QuirkKeyframes.bit(QuirkKeyframes.HEAD_X);
+		for (int c = QuirkKeyframes.R_ARM_X; c <= QuirkKeyframes.BODY_Y; c++) {
+			mask |= QuirkKeyframes.bit(c);
+		}
+		NO_LEGS = mask;
+	}
+
+	/**
+	 * A clip that carries on from the one before it: its first frame IS that pose, so there is no fade in from the walk cycle to snap
+	 * through ({@code QuirkKeyframes.weight}'s), only the fade out.
+	 */
+	private static boolean chained(int animId) {
+		return switch (animId) {
+			case HeatblastKit.ANIM_VOLLEY, HeatblastKit.ANIM_VOLLEY_L, HeatblastKit.ANIM_VOLLEY_3, HeatblastKit.ANIM_BREATH_END, HeatblastKit.ANIM_SLAM, HeatblastKit.ANIM_MAGMA,
+					HeatblastKit.ANIM_SUPERNOVA, HeatblastKit.ANIM_METEOR_DIVE, HeatblastKit.ANIM_RIDE_PUNCH, HeatblastKit.ANIM_YANK -> true;
+			default -> false;
+		};
+	}
+
+	/** A held move: the legs stay on the walk cycle while he is moving. */
+	private static boolean legsFree(AbstractClientPlayer p, int animId, float ticks) {
+		boolean held = animId == HeatblastKit.ANIM_BREATH || animId == HeatblastKit.ANIM_MAGMA_CHARGE || animId == HeatblastKit.ANIM_CHARGE
+				|| animId == HeatblastKit.ANIM_VOLLEY_GATHER || animId == HeatblastKit.ANIM_VOLLEY || animId == HeatblastKit.ANIM_VOLLEY_L || animId == HeatblastKit.ANIM_VOLLEY_3;
+		return held && p.walkAnimation.speed() > 0.08f;
+	}
+
 	/** Plays a keyframe table, its {@link QuirkKeyframes#AIM} arm columns resolved to point down the look. */
-	private static boolean playAimed(HumanoidModel<?> m, float[][] clip, float ticks) {
+	private static boolean playAimed(HumanoidModel<?> m, float[][] clip, float ticks, boolean chained, boolean noLegs) {
 		// (the crouching tables -- 17 columns -- have no aimed arms: sampled whole so the crouch column is kept)
 		float[] f = clip[0].length > QuirkKeyframes.COLS ? QuirkKeyframes.sample(clip, ticks)
 				: QuirkKeyframes.sample(clip, ticks, -Mth.HALF_PI + m.head.xRot, m.head.yRot);
 		if (f == null) {
 			return false;
 		}
-		QuirkKeyframes.apply(m, f, QuirkKeyframes.weight(ticks, QuirkKeyframes.length(clip)));
+		float len = QuirkKeyframes.length(clip);
+		float w = chained ? Mth.clamp((len - ticks) / QuirkKeyframes.FADE_OUT, 0f, 1f) : QuirkKeyframes.weight(ticks, len);
+		if (noLegs) {
+			QuirkKeyframes.applyMasked(m, f, w, NO_LEGS);
+			if (f.length > QuirkKeyframes.CROUCH) {
+				QuirkKeyframes.crouch(m, w * f[QuirkKeyframes.CROUCH]);
+			}
+		} else {
+			QuirkKeyframes.apply(m, f, w);
+		}
 		return true;
 	}
 
@@ -857,11 +1276,16 @@ public final class HeatblastClient implements AlienClientKit {
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		int flags = Omnitrix.state(p).kitFlags;
 		float[][] clip = switch (animId) {
+			case HeatblastKit.ANIM_VOLLEY_GATHER -> VOLLEY_GATHER;
 			case HeatblastKit.ANIM_VOLLEY -> VOLLEY_R;
 			case HeatblastKit.ANIM_VOLLEY_L -> VOLLEY_L;
+			case HeatblastKit.ANIM_VOLLEY_3 -> VOLLEY_3;
 			case HeatblastKit.ANIM_BOLT -> BOLT;
-			case HeatblastKit.ANIM_THROWER -> THROWER;
-			case HeatblastKit.ANIM_CONE -> CONE;
+			case HeatblastKit.ANIM_BREATH -> (flags & HeatblastKit.F_STREAM) != 0 ? BREATH : null;
+			case HeatblastKit.ANIM_BREATH_END -> BREATH_END;
+			case HeatblastKit.ANIM_SLAM_GATHER -> SLAM_GATHER;
+			case HeatblastKit.ANIM_SLAM -> SLAM;
+			case HeatblastKit.ANIM_MAGMA_CHARGE -> MAGMA_CHARGE;
 			case HeatblastKit.ANIM_LASSO -> LASSO;
 			case HeatblastKit.ANIM_YANK -> YANK;
 			case HeatblastKit.ANIM_MAGMA -> MAGMA;
@@ -871,8 +1295,9 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_DASH -> DASH;
 			case HeatblastKit.ANIM_TORNADO -> TORNADO;
 			case HeatblastKit.ANIM_CHARGE -> CHARGE;
-			case HeatblastKit.ANIM_SUPERNOVA -> SUPERNOVA;
+			case HeatblastKit.ANIM_SUPERNOVA, HeatblastKit.ANIM_CRASH -> SUPERNOVA;
 			case HeatblastKit.ANIM_PUNCH -> PUNCH;
+			case HeatblastKit.ANIM_PUNCH_L -> PUNCH_L;
 			case HeatblastKit.ANIM_SMELT -> SMELT;
 			case HeatblastKit.ANIM_AURA -> AURA;
 			case HeatblastKit.ANIM_ABSORB -> SHIELD;
@@ -893,16 +1318,21 @@ public final class HeatblastClient implements AlienClientKit {
 			m.rightArm.zRot += bank * 0.9f + sway;
 			m.leftArm.zRot += bank * 0.9f - sway;
 		}
-		boolean played = clip != null && playAimed(m, clip, ticks);
+		boolean played = clip != null && playAimed(m, clip, ticks, chained(animId), legsFree(p, animId, ticks));
 		if (played) {
 			float w = QuirkKeyframes.weight(ticks, QuirkKeyframes.length(clip));
-			if (animId == HeatblastKit.ANIM_THROWER && ticks > 5f) {
-				// the palms converge on the stream and kick with its recoil
-				float kick = Mth.sin(age * 2.3f) * 0.035f + Mth.sin(age * 3.7f) * 0.015f;
-				m.rightArm.yRot -= 0.18f * w;
-				m.leftArm.yRot += 0.18f * w;
-				m.rightArm.xRot += kick * w;
-				m.leftArm.xRot -= kick * w;
+			if (animId == HeatblastKit.ANIM_BREATH && ticks > HeatblastKit.BREATH_INHALE) {
+				// the whole chest heaves with the stream of fire
+				float heave = Mth.sin(age * 1.9f) * 0.02f + Mth.sin(age * 3.3f) * 0.012f;
+				m.head.xRot += heave * w;
+				m.rightArm.xRot += heave * 1.5f * w;
+				m.leftArm.xRot -= heave * 1.5f * w;
+				m.hat.copyFrom(m.head);
+			} else if (animId == HeatblastKit.ANIM_MAGMA_CHARGE) {
+				// the arms straining under the weight of it
+				float k = Mth.clamp(ticks / HeatblastKit.MAGMA_CHARGE, 0f, 1f) * w;
+				m.rightArm.zRot += Mth.sin(age * 2.6f) * 0.03f * k;
+				m.leftArm.zRot -= Mth.sin(age * 2.6f) * 0.03f * k;
 			} else if (animId == HeatblastKit.ANIM_CHARGE || animId == HeatblastKit.ANIM_RIDE_CHARGE) {
 				// a tremble that builds with the charge
 				float k = (animId == HeatblastKit.ANIM_CHARGE ? Mth.clamp(ticks / HeatblastKit.SUPERNOVA_CHARGE, 0f, 1f) : kit().rideCharge(p)) * w;
@@ -936,9 +1366,14 @@ public final class HeatblastClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case HeatblastKit.ANIM_VOLLEY, HeatblastKit.ANIM_VOLLEY_L -> FP_BLAST;
+			case HeatblastKit.ANIM_VOLLEY_GATHER -> FP_GATHER;
+			case HeatblastKit.ANIM_VOLLEY, HeatblastKit.ANIM_VOLLEY_L, HeatblastKit.ANIM_VOLLEY_3 -> FP_BLAST;
 			case HeatblastKit.ANIM_BOLT -> FP_BOLT;
-			case HeatblastKit.ANIM_THROWER, HeatblastKit.ANIM_CONE -> FP_THROWER; // (the first-person clip ends with the anim)
+			case HeatblastKit.ANIM_BREATH -> FP_BREATH;
+			case HeatblastKit.ANIM_BREATH_END -> FP_BREATH_END;
+			case HeatblastKit.ANIM_SLAM_GATHER -> FP_SLAM_GATHER;
+			case HeatblastKit.ANIM_SLAM -> FP_SLAM;
+			case HeatblastKit.ANIM_MAGMA_CHARGE -> FP_MAGMA_CHARGE;
 			case HeatblastKit.ANIM_LASSO -> FP_LASSO;
 			case HeatblastKit.ANIM_YANK -> FP_YANK;
 			case HeatblastKit.ANIM_MAGMA -> FP_MAGMA;
@@ -948,8 +1383,8 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_DASH -> FP_DASH;
 			case HeatblastKit.ANIM_TORNADO -> FP_TORNADO;
 			case HeatblastKit.ANIM_CHARGE -> FP_CHARGE;
-			case HeatblastKit.ANIM_SUPERNOVA -> FP_SUPERNOVA;
-			case HeatblastKit.ANIM_PUNCH -> FP_PUNCH;
+			case HeatblastKit.ANIM_SUPERNOVA, HeatblastKit.ANIM_CRASH -> FP_SUPERNOVA;
+			case HeatblastKit.ANIM_PUNCH, HeatblastKit.ANIM_PUNCH_L -> FP_PUNCH;
 			case HeatblastKit.ANIM_SMELT -> FP_CUP;
 			case HeatblastKit.ANIM_AURA -> FP_AURA;
 			case HeatblastKit.ANIM_ABSORB -> FP_SHIELD;
@@ -1035,7 +1470,11 @@ public final class HeatblastClient implements AlienClientKit {
 	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, int w, float partial) {
 		Minecraft mc = Minecraft.getInstance();
 		HeatblastKit k = kit();
-		if (k.flag(p, HeatblastKit.F_RIDE_CHARGE)) {
+		float nova = k.novaCharge(p, partial);
+		if (nova > 0f) {
+			OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.heatblast.supernova"), nova, nova >= 0.86f ? 0xFFFFE060 : 0xFFFF7A1A,
+					Math.round(nova * 100) + "%", 0xFFFFFFFF);
+		} else if (k.flag(p, HeatblastKit.F_RIDE_CHARGE)) {
 			float c = k.rideCharge(p);
 			OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.heatblast.ride"), c, c >= 1f ? 0xFFFFE060 : 0xFFFF7A1A,
 					Math.round(c * 100) + "%", 0xFFFFFFFF);
