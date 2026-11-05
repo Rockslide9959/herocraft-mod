@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1: Ripjaws' client kit -- the grey-blue fish-man skin (pale belly, gills, dark trunks) (v0.17.1: the huge jaw is gone, user's skin face instead; it used to be an
  * upper snout and a hinged lower jaw, both lined with teeth, that gape and snap on every bite) (v0.17.2: no head or
- * forearm fins), and a FISH TAIL (v0.17.2: its own ripjaws_tail.png sheet in his body's palette): a short finned tail behind him on land; in water the legs vanish into a long undulating
+ * forearm fins), and a FISH TAIL (v0.17.2: its own ripjaws_tail.png sheet, black with lime bands): a short finned tail behind him on land; in water the legs vanish into a long undulating
  * tail. The hydration meter over the keys turns orange, then red, as he dries out. A pose for every move.
  *
  * <p>v0.17.2 revamp (user: "Draw jaws as an effect"): every bite draws the JAWS in the world pass -- two toothed crescents (upper
@@ -155,8 +155,8 @@ public final class RipjawsClient implements AlienClientKit {
 
 	/**
 	 * v0.17.2 (user: "fix ripjaws tail please, the textures arent working properly"): the tail has its own 64x32 sheet
-	 * (ripjaws_tail.png) in his body's palette instead of borrowing the skin's striped leg (whose yellow bands and white blocks
-	 * never matched his body). Layout, u in px: 0-8 the dorsal face (pale grey-white, the dark green stripe down the middle,
+	 * (ripjaws_tail.png; v0.17.2 user: "look like the green and black tail on his skin model": black with lime bands, the leg tail's colours) instead of borrowing the skin's striped leg (whose yellow bands and white blocks
+	 * never matched his body). Layout, u in px: 0-8 the dorsal face (banded,
 	 * continuing the one down his back), 8-16 a flank (col 0 = the dorsal edge, col 7 = the belly edge), 16-24 the darker
 	 * underside with its ventral plates, 24-32 x 0-8 an end cap (row 0 = dorsal); 32-64 x 0-16 the fluke's upper face, 32-64 x
 	 * 16-32 its underside.
@@ -248,7 +248,7 @@ public final class RipjawsClient implements AlienClientKit {
 		// has his face (v0.17.2: the jaws are a rendered effect now, renderWorld)
 		// v0.17.2 (user: "remove the fins on ripjaws arms and his head"): no dorsal fin, no forearm fins
 		// the tail: a short one on land; in water the legs become a long undulating one -- v0.17.2 (user: "fix ripjaws tail please,
-		// the textures arent working properly"): every segment and the fluke wear the tail sheet (his body's pale grey-white, the
+		// the textures arent working properly"): every segment and the fluke wear the tail sheet (black with lime bands now, was the
 		// green dorsal stripe running on down the tail, a darker underside), not the skin's striped leg
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
