@@ -26,8 +26,7 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.1: Stinkfly's client kit -- a basic model on the player body: the green insect skin, thin segmented limbs (the player's
  * arms and legs are hidden and redrawn 2 px thick on the same bones), FOUR EYES ON STALKS wobbling on the head, mandibles,
- * two pairs of translucent WINGS on the back (folded along the back on the ground, a fast beat in flight), and a segmented
- * abdomen with a STINGER that curls under the body for the stab. A pose for every move.
+ * two pairs of translucent WINGS on the back (folded along the back on the ground, a fast beat in flight). A pose for every move.
  */
 public final class StinkflyClient implements AlienClientKit {
 	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
@@ -37,6 +36,9 @@ public final class StinkflyClient implements AlienClientKit {
 			FirstPersonClip.f(8, 25f, -15f, 0f, -0.05f, -0.25f, -0.05f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_extras.png");
+	/** The wing mount's chitin (px on stinkfly_body.png). */
+	private static final ResourceLocation BODY_SHEET = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_body.png");
+	private static final float[] MOUNT = { 0, 16, 8, 24 };
 
 	// extras rectangles (px on the 64x64 sheet): u0, v0, u1, v1
 	private static final float[] STALK = { 32, 0, 36, 8 };
@@ -129,8 +131,7 @@ public final class StinkflyClient implements AlienClientKit {
 				pose.popPose();
 			}
 		});
-		// v0.17.2 (the second skin): the modelled tail (StinkflyBody); his double arms and thin legs are the skin's own
-		StinkflyBody.renderTail(pose, buffers, light, p, model, partial);
+		// v0.17.2 (user: "just remove stinkflys tail please"): no modelled tail, and the skin's painted one stays off (gen_stinkfly_v3.js)
 		// the wings: folded along the back on the ground, a fast beat in the air (v0.17.2: the reference's wing shapes)
 		renderWings(pose, buffers, light, p, model, partial, age);
 	}
@@ -202,8 +203,8 @@ public final class StinkflyClient implements AlienClientKit {
 		int tint = wet ? 0xFF8C9A7C : 0xFFFFFFFF;
 		AlienParts.on(pose, model.body, () -> {
 			// the mount: a small knot of chitin between the shoulder blades
-			VertexConsumer knot = buffers.getBuffer(RenderType.entityCutoutNoCull(StinkflyBody.SHEET));
-			float[] m = StinkflyBody.MOUNT;
+			VertexConsumer knot = buffers.getBuffer(RenderType.entityCutoutNoCull(BODY_SHEET));
+			float[] m = MOUNT;
 			AlienParts.box(pose, knot, -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, m[0] / 64f, m[1] / 64f, m[2] / 64f, m[3] / 64f, 0xFFFFFFFF, light);
 			VertexConsumer glass = buffers.getBuffer(RenderType.entityTranslucent(WINGS)); // fetched after the mount (another buffer ends this one)
 			for (int side = -1; side <= 1; side += 2) {
@@ -374,11 +375,6 @@ public final class StinkflyClient implements AlienClientKit {
 		f[LEAN + 1] += (lean - f[LEAN + 1]) * 0.2f;
 		f[BANK + 1] += (bank - f[BANK + 1]) * 0.18f;
 		f[SPEED + 1] += ((flying(p) ? sp : 0f) - f[SPEED + 1]) * 0.2f;
-		// v0.17.2: the modelled tail's spring chain (StinkflyBody), curling under him for the stab
-		OmnitrixState st = Omnitrix.state(p);
-		float since = level.getGameTime() - st.animStart;
-		float curl = st.animId == StinkflyKit.ANIM_STAB && since < 12 ? (since < 3 ? since / 3f : 1f - (since - 3f) / 9f) : 0f;
-		StinkflyBody.tick(p, o[1], f[SPEED + 1], f[LEAN + 1], f[BANK + 1], curl);
 		if (r.nextInt(25) == 0) {
 			level.addParticle(ParticleTypes.ITEM_SLIME, p.getX() + (r.nextDouble() - 0.5) * 0.4, p.getY() + p.getBbHeight() * 0.4,
 					p.getZ() + (r.nextDouble() - 0.5) * 0.4, 0, -0.05, 0);

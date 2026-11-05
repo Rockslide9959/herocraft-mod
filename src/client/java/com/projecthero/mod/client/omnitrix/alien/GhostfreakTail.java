@@ -143,7 +143,7 @@ final class GhostfreakTail {
 	}
 
 	/** {@code q} pushed out of every block collision box it is inside (with radius {@code r}), along the shortest way out. */
-	private static Vec3 outOfBlocks(AbstractClientPlayer p, Vec3 q, double r) {
+	static Vec3 outOfBlocks(AbstractClientPlayer p, Vec3 q, double r) {
 		for (int it = 0; it < 3; it++) {
 			AABB box = new AABB(q.x - r, q.y - r, q.z - r, q.x + r, q.y + r, q.z + r);
 			boolean moved = false;

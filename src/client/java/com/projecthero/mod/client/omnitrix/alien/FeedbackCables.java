@@ -95,12 +95,15 @@ public final class FeedbackCables {
 	/**
 	 * v0.17.2 round 2 (user: "the tail and ears react way too much to movement, they jiggle a LOT and shake around a lot and go inside his
 	 * body sometimes, i like this detail but tone it down a bit please"): the first points of each cord are rigid with the bone (the ears
-	 * 2, the tail 3), so the bases never swing into him; the rest are damped hard ({@link #DAMP}), sprung stiffly toward the rest shape,
-	 * and carry {@link #CARRY} of his own movement with them, so they only trail a little.
+	 * 2, the tail 3), so the bases never swing into him.
+	 * Round 3 (user: "you made feedbacks tails not move a lot iwht movement, thats not what i wanted I just wanted it to move slightly
+	 * less bc it was too flappy and wiggly and woggly anf shaky, please give it more movement now"): the rest swing freely again -- soft
+	 * springs, so the tips lag and sweep -- and {@link #DAMP} is what takes the shake out: a swing settles instead of ringing on.
+	 * {@link #CARRY} of his own movement still comes along with them, so they swing a little less far than round 1's.
 	 */
 	private static final int[] PINNED = { 2, 2, 3 };
-	private static final double DAMP = 0.72, CARRY = 0.78;
-	private static final float PULL_ROOT = 0.6f, PULL_TIP = 0.28f, SWAY = 0.5f;
+	private static final double DAMP = 0.76, CARRY = 0.3;
+	private static final float PULL_ROOT = 0.42f, PULL_TIP = 0.12f, SWAY = 0.75f;
 
 	// ---------------------------------------------------------------- the plug (pixels)
 	/** The reference's proportions: the barrel ~2.6x as long as it is wide, the prongs ~0.3 of the barrel. */
@@ -314,7 +317,7 @@ public final class FeedbackCables {
 			for (int i = 0; i < N; i++) {
 				r.last[i] = r.pos[i];
 			}
-			// most of his own movement carries the cords along with him (they only trail a little)
+			// some of his own movement carries the cords along with him, the rest they trail
 			Vec3 carry = rest[0].subtract(r.pos[0]).scale(CARRY);
 			int pin = target != null ? 1 : PINNED[r.index];
 			for (int i = 0; i < N; i++) {

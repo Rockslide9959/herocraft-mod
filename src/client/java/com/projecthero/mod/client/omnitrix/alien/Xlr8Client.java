@@ -2,7 +2,6 @@ package com.projecthero.mod.client.omnitrix.alien;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienParts;
@@ -35,7 +34,7 @@ import net.minecraft.world.phys.Vec3;
  * ({@code xlr8.png}, the visor up, his teal face and green eyes) and the closed-mask copy ({@code xlr8_mask.png}, the blue-black
  * visor slid down over the face) -- the mask is drawn whenever {@link Xlr8Kit#visorDown} (Speed Mode, a dash, the tornado, the
  * skate, any speed move just now) and the face at rest. The green eyes glow (an emissive pass of the skin's own eye pixels,
- * through the visor too). The long blue-black tail streams out flat as he runs. A pose (third and first person) for every move.
+ * through the visor too). His tail is {@link Xlr8Tail}. A pose (third and first person) for every move.
  *
  * <p>v0.17.2 revamp (user: "add xlr8s speed trail to his speed mode please, the blue and black lines"): his streak lines
  * ({@link Xlr8StreakTrail}) beside the plain Speedster's after-images ({@link #trails}), the particle spam gone; the tail swings
@@ -48,18 +47,6 @@ public final class Xlr8Client implements AlienClientKit {
 	private static final ResourceLocation MASK = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_mask.png");
 	private static final ResourceLocation EYES = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_eyes.png");
 	private static final ResourceLocation MASK_EYES = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_mask_eyes.png");
-	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_extras.png");
-
-	// the extras sheet's swatches (32x32): u0, v0, u1, v1
-	private static final float[] BLACK = sw(0, 0, 4, 4);
-	private static final float[] PALE = sw(8, 0, 4, 4);
-	private static final float[] WHITE = sw(12, 0, 4, 4);
-	private static final float[] WHEEL = sw(16, 0, 8, 8);
-	private static final float[] TAIL = sw(0, 8, 8, 8);
-
-	private static float[] sw(int x, int y, int w, int h) {
-		return new float[] { x / 32f, y / 32f, (x + w) / 32f, (y + h) / 32f };
-	}
 
 	// {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX}
 	private static final float[] JAB_R = { -1.65f, 0.25f, 0, 0.6f, 0, 0, 0.3f, -0.35f, 0.2f, 0, 0, -0.3f, 0, 0, 0 };
@@ -199,7 +186,7 @@ public final class Xlr8Client implements AlienClientKit {
 	private static final float VISOR_SLIDE = 6f;
 	/** Per player: whether the visor was last seen down and when that changed (client-only; dropped with the client). */
 	private static final java.util.Map<java.util.UUID, float[]> VISOR = new java.util.HashMap<>();
-	/** v0.17.2 revamp: per player, the tail's swing on hard turns {previous, current} (radians; + = out to his left). */
+	/** v0.17.2 revamp (Tail Balance): per player, the tail's swing on hard turns {previous, current} (radians; + = out to his left). */
 	private static final java.util.Map<java.util.UUID, float[]> SWING = new java.util.HashMap<>();
 	/** v0.17.2 revamp (Friction): the local player's skid -- {x, z, ticks left}. */
 	private static final float[] SKID = new float[3];
@@ -221,16 +208,6 @@ public final class Xlr8Client implements AlienClientKit {
 		return down ? k : 1f - k;
 	}
 
-	/** v0.17.2 revamp (Tail Balance): how far the tail swings out sideways on a hard turn, radians (eased; any player in view). */
-	static float tailSwing(Player p, float partial) {
-		float[] s = SWING.get(p.getUUID());
-		return s == null ? 0f : Mth.lerp(partial, s[0], s[1]);
-	}
-
-	private static void box(PoseStack pose, VertexConsumer vc, float x0, float y0, float z0, float x1, float y1, float z1, float[] uv, int light) {
-		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, uv[0], uv[1], uv[2], uv[3], 0xFFFFFFFF, light);
-	}
-
 	/** Horizontal speed in blocks per tick (works for every player in view: from the last two positions). */
 	private static float speed(AbstractClientPlayer p) {
 		double dx = p.getX() - p.xo, dz = p.getZ() - p.zo;
@@ -249,34 +226,8 @@ public final class Xlr8Client implements AlienClientKit {
 		// v0.17.1 (user: "remove whatever extra is there and just leave the alien skin itself"): no crest or ear fins (the helmet is
 		// the skin's now)
 		// v0.17.2 (user: "give xlr8 his tail back ... i just wanted you to edit his skin to remove the tail"): the 3D tail is back,
-		// the painted one stays out of the skin
-		// the tail: four segments from the small of the back, streaming out flatter the faster he runs
-		int f = flags(p);
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-		// v0.17.2 revamp: Tail Spin and the kick finisher whip it round flat out
-		float spin = Math.max(animTicks(p, Xlr8Kit.ANIM_TAIL_SPIN, partial) >= 0 && animTicks(p, Xlr8Kit.ANIM_TAIL_SPIN, partial) < 13 ? 1f : 0f,
-				animTicks(p, Xlr8Kit.ANIM_TAIL_WHIP, partial) >= 0 && animTicks(p, Xlr8Kit.ANIM_TAIL_WHIP, partial) < 8 ? 1f : 0f);
-		float swing = tailSwing(p, partial);
-		AlienParts.on(pose, model.body, () -> {
-			pose.pushPose();
-			pose.translate(0, 10.5f / 16f, 1.6f / 16f);
-			// v0.17.1 (user: "xlr8s tail still shakes viciously when he moves"): the lift follows vanilla's smoothed walk speed and the
-			// sway keeps one slow beat; it calms as the tail streams out behind him
-			float ws = Mth.clamp(p.walkAnimation.speed(partial), 0f, 1f);
-			float lift = Math.max(ws * 0.6f, spin * 0.75f);
-			float[] w = { 3.0f, 2.4f, 1.8f, 1.1f };
-			float[] len = { 4.5f, 4.5f, 4.0f, 3.5f };
-			for (int i = 0; i < 4; i++) {
-				float sway = Mth.sin(age * 0.15f + i * 0.9f) * (0.08f + i * 0.03f) * (1f - 0.6f * ws) * (1f - spin);
-				pose.mulPose(Axis.XP.rotation(i == 0 ? -0.75f + lift : (0.22f - lift * 0.15f) * (1f - spin)));
-				// v0.17.2 revamp (Tail Balance): on a hard turn the tail swings out to the side
-				pose.mulPose(Axis.YP.rotation(sway + swing * (i == 0 ? 0.55f : 0.2f)));
-				box(pose, vc, -w[i] / 2, -w[i] / 2, 0, w[i] / 2, w[i] / 2, len[i], TAIL, light);
-				pose.translate(0, 0, (len[i] - 0.3f) / 16f);
-			}
-			box(pose, vc, -0.4f, -0.4f, 0, 0.4f, 0.4f, 1.5f, PALE, light);
-			pose.popPose();
-		});
+		// the painted one stays out of the skin; Xlr8Tail moves it with him
+		Xlr8Tail.render(pose, buffers, light, p, model, partial);
 		// (no ball-foot discs: the user removed his ball feet in v0.17.1)
 		float vis = visor(p, partial);
 		if (vis > 0.001f && vis < 1f) {
@@ -424,6 +375,10 @@ public final class Xlr8Client implements AlienClientKit {
 		s[0] = s[1];
 		float want = mode && sp > 0.2f ? Mth.clamp(-turn * 0.035f, -0.75f, 0.75f) : 0f;
 		s[1] = Mth.lerp(0.3f, s[1], want);
+		// v0.17.2: the tail's chain (Xlr8Tail); flat out for Tail Spin, the kick finisher and the skate
+		float spin = animTicks(p, Xlr8Kit.ANIM_TAIL_SPIN, 0f), whip = animTicks(p, Xlr8Kit.ANIM_TAIL_WHIP, 0f);
+		boolean flat = spin >= 0f && spin < 13f || whip >= 0f && whip < 8f || (flags & Xlr8Kit.F_SKATE) != 0;
+		Xlr8Tail.tick(p, flat ? 1f : 0f, s[1]);
 		// v0.17.2 revamp: no more cloud puffs and static -- the blue-and-black streak lines (Xlr8StreakTrail) replace them; only
 		// the splash of running on water stays
 		if (mode && !p.isInWater() && p.level().getFluidState(p.blockPosition().below()).isSource() && sp > 0.1f && p.getRandom().nextInt(2) == 0) {

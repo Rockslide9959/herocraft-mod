@@ -72,9 +72,9 @@ The reference pictures are in `docs/reference/feedback/`.
   - **Round 2** (user: "the tail and ears react way too much to movement, they jiggle a LOT and shake around a lot and go inside his
     body sometimes, i like this detail but tone it down a bit please"). The cords are now calm:
     - The first points are rigid with the bone: 2 for each ear, 3 for the tail. The bases never swing.
-    - The rest are damped hard (0.72) and sprung firmly toward the resting shape (0.6 at the root to 0.28 at the tip).
-    - They carry 78% of his own movement, so they only trail a little when he walks, sprints, turns or leaps.
-    - The idle sway is half what it was.
+    - Round 3 (user: "please give it more movement now"): the rest swing freely again on soft springs (0.42 at the root to 0.12 at the tip), damped at 0.76 so a swing settles instead of ringing on.
+    - They carry 30% of his own movement, so they trail about as far as round 1 did, with far less shake.
+    - The idle sway is three quarters of what it was.
   - **Body collision** covers the head, torso and legs, padded by the cord's thickness. Out of the torso or legs a cord always leaves
     by his back or a side, never through his front or out under his torso.
   - **The tail roots on the surface of his back.** It used to root inside the body and could poke out at the bottom of the torso while
