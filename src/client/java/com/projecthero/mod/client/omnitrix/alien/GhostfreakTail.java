@@ -114,12 +114,12 @@ final class GhostfreakTail {
 		t.pos[0] = root;
 		for (int i = 1; i < N; i++) {
 			float k = i / (float) (N - 1);
-			Vec3 vel = t.pos[i].subtract(t.prev[i]).scale(0.84);
+			Vec3 vel = t.pos[i].subtract(t.prev[i]).scale(0.76); // v0.17.2 (user: "moves around too much"): calmer, was 0.84
 			// a weak pull to the resting shape (stronger near the root, so it leaves his waist hanging down), a ghostly
 			// half-gravity, and the travelling ripple: side to side and a little up and down, larger toward the tip
-			Vec3 pull = rest[i].subtract(t.pos[i]).scale(0.05 + 0.1 * (1f - k));
-			double wave = Mth.sin(age * 0.17f - i * 0.62f) * 0.006 * k;
-			double bob = Mth.cos(age * 0.13f - i * 0.5f) * 0.0025 * k;
+			Vec3 pull = rest[i].subtract(t.pos[i]).scale(0.08 + 0.12 * (1f - k));
+			double wave = Mth.sin(age * 0.17f - i * 0.62f) * 0.0035 * k;
+			double bob = Mth.cos(age * 0.13f - i * 0.5f) * 0.0015 * k;
 			Vec3 acc = pull.add(side.scale(wave)).add(0, -0.004 + bob, 0);
 			t.prev[i] = t.pos[i];
 			t.pos[i] = t.pos[i].add(vel).add(acc);
