@@ -29,7 +29,7 @@ import net.minecraft.util.Mth;
  * https://www.planetminecraft.com/skin/feedback-ben-10-5251468/ Give him the tail and long ear things with the plug things at the end
  * please"). The user's skin on the player body (x1.05, lanky), its painted chest Omnitrix painted out
  * ({@code scratchpad/ben10_v0171/gen_feedback.js}) and the mod's badge in its place on his white chest panel; his one green eye drawn
- * full-bright ({@code feedback_glow.png}). The two antenna cables, the tail, their gold plugs and his gold finger and toe caps are
+ * full-bright ({@code feedback_glow.png}). The two antenna cables, the tail and their gold plugs are
  * {@link FeedbackCables}; his bolts {@link FeedbackFx}. The HUD shows his Charge.
  */
 public final class FeedbackClient implements AlienClientKit {
@@ -113,15 +113,14 @@ public final class FeedbackClient implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		// the cords, plugs and caps first (solid), then the full-bright eye
+		// the cords and plugs first (solid), then the full-bright eye
 		FeedbackCables.render(pose, buffers, light, p, model, partial, age);
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFF8C8C8C); // a soft glow: the skin's own green shows through
 	}
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		// his plug-capped fingers on the bare arm too
-		FeedbackCables.hand(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(ProjectHeroMod.id("textures/entity/mutation/white.png"))), light, arm, right);
+		// v0.17.2 round 2 (user: "remove the plugs on his fingers please, they dont look good in first person either"): the skin's own arm
 	}
 
 	@Override

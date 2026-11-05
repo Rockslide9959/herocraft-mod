@@ -231,30 +231,46 @@ public final class FeedbackHarness {
 		if (t == 338) {
 			shot(mc, "fb_hand");
 		}
-		// ---- the motion run: frames 342..461 -- walk, stop, turn, leap; the cords lag, swing and settle
+		// ---- the motion run (round 2): frames 342..461 -- walk (side camera), sprint (front 3/4), a quick turn, sprint away (behind)
 		if (t == 340) {
-			cam(-2.5, 1.5, -2.1);
+			cam(2.7, 1.3, 0.3);
 		}
 		if (t >= 342 && t < 462) {
 			Screenshot.grab(mc.gameDirectory, String.format("fbm_%03d.png", frame++), mc.getMainRenderTarget(), m -> {
 			});
 		}
-		if (t >= 346 && t < 372) {
+		if (t >= 346 && t < 418) {
 			mc.options.keyUp.setDown(true);
 		}
-		if (t == 372) {
-			mc.options.keyUp.setDown(false);
+		if (t == 386) {
+			cam(1.9, 1.4, 2.4);
 		}
-		if (t >= 392 && t < 412) {
-			float yaw = (t - 392) * 6f;
+		if (t >= 386 && t < 418) {
+			mc.options.keySprint.setDown(true);
+			mc.player.setSprinting(true);
+		}
+		if (t == 418) {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+			mc.player.setSprinting(false);
+		}
+		if (t >= 422 && t < 432) {
+			float yaw = (t - 421) * 9f;
 			mc.player.setYRot(yaw);
 			mc.player.setYHeadRot(yaw);
 		}
-		if (t == 424) {
-			server(mc, p -> {
-				ready(p);
-				kit().leap(p);
-			});
+		if (t == 432) {
+			cam(2.9, 1.6, 0.5); // facing -x now: this is behind him
+		}
+		if (t >= 436 && t < 462) {
+			mc.options.keyUp.setDown(true);
+			mc.options.keySprint.setDown(true);
+			mc.player.setSprinting(true);
+		}
+		if (t == 462) {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+			mc.player.setSprinting(false);
 		}
 		// ---- the combat run: frames 470..669 -- absorb arrows and a fireball, redirect, blast, rapid fire, plug in, whip, discharge
 		if (t == 464) {

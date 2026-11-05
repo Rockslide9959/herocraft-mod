@@ -33,6 +33,58 @@ for (const x of [23, 24]) {
 	put(px, x, 22, 0xe1e5e9);
 	put(px, x, 23, 0xb0b7be);
 }
+// v0.17.2 round 2 (user: "since hes got the ear models remove the ear plugs from his back form his skin model please. Also remove the tail
+// plug from his leg from his skin model please"): the painted gold plugs on his back (body 33..38 x 21..23) and on his right leg's upper
+// back / side (14..15 x 24..26, 0 x 26) take the black round them; the same spots on the jacket / trouser overlay go clear.
+const GOLD = new Set(['76612f', 'ac8e3f', 'c5a75a', 'b18e36']);
+const isGold = (x, y) => {
+	const i = at(x, y);
+	return px[i + 3] > 10 && GOLD.has(px.slice(i, i + 3).toString('hex'));
+};
+/** The nearest non-gold texel in the same row, searching within [x0, x1). */
+const fill = (x, y, x0, x1) => {
+	for (let d = 1; d < 8; d++) {
+		for (const nx of [x - d, x + d]) {
+			if (nx >= x0 && nx < x1 && !isGold(nx, y)) {
+				const i = at(nx, y);
+				return (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
+			}
+		}
+	}
+	return 0x0e0f10;
+};
+const paintOff = (x0, y0, x1, y1, overlay) => {
+	const hits = [];
+	for (let y = y0; y < y1; y++) {
+		for (let x = x0; x < x1; x++) {
+			if (isGold(x, y)) hits.push([x, y]);
+		}
+	}
+	for (const [x, y] of hits) {
+		if (overlay) put(px, x, y, 0, 0);
+		else put(px, x, y, fill(x, y, x0, x1));
+	}
+	return hits.length;
+};
+let off = 0;
+off += paintOff(32, 20, 40, 32, false); // body back
+off += paintOff(32, 36, 40, 48, true); // jacket back
+off += paintOff(12, 20, 16, 32, false); // right leg back
+off += paintOff(0, 20, 4, 32, false); // right leg outer side
+off += paintOff(12, 36, 16, 48, true); // trousers back
+off += paintOff(0, 36, 4, 48, true); // trousers outer side
+// the plugs' silver middles on his back (c7cbd0, rows 22..23) go too, to the row's own black either side
+for (let y = 21; y <= 23; y++) {
+	for (let x = 33; x <= 38; x++) {
+		const i = at(x, y);
+		const k = px.slice(i, i + 3).toString('hex');
+		if (k === 'c7cbd0' || y === 21) {
+			put(px, x, y, y === 23 ? 0x23272b : 0x33393f);
+			off++;
+		}
+	}
+}
+console.log('painted-off plug texels: ' + off);
 fs.writeFileSync(path.join(RES, 'entity/omnitrix/feedback.png'), L.encodePng(64, 64, px));
 
 // ---- the glow pass: only the green eye texels, everything else transparent black

@@ -34,7 +34,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * v0.17.2 (user: "Give him the tail and long ear things with the plug things at the end please, look at the references and make sure
  * the his tail and ear things look good and that the plugs at the end look really accurate aswell please"): Feedback's two antenna
- * cables and his tail, each ending in a gold plug, and the gold caps on his fingertips and toes.
+ * cables and his tail, each ending in a gold plug.
  * <p>
  * <b>The cords.</b> Three ropes of {@link #N} points simulated in the WORLD each client tick (verlet, as {@code GhostfreakTail}): the
  * first point is pinned to the head (the ears) or the small of the back (the tail); the rest keep their own momentum, so the cords
@@ -46,6 +46,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <p>
  * <b>Drawn</b> as smooth round tubes: the points through a Catmull-Rom spline, {@link #SUB} rings a link, {@link #SIDES} sides a
  * ring, carried along by a parallel-transport frame (no twisting), with smooth normals, in the cords' blue-black.
+ * <p>
+ * (v0.17.2 round 2, user: "remove the plugs on his fingers please ... also remove the plugs from his toes please": no finger or toe caps.)
  * <p>
  * <b>The plugs</b> follow the reference closely: a round gold barrel (12 sides) a little over twice the cord's width, the cord going
  * into a dark socket in its back face, three black ring grooves splitting it into four bands, a bevelled front, and two thin flat
@@ -76,7 +78,7 @@ public final class FeedbackCables {
 	private static final float[][] EAR_R = { { -2.0f, -7.0f, 3.4f }, { -4.6f, -9.4f, 7.0f }, { -9.0f, -8.6f, 10.6f }, { -12.8f, -3.0f, 11.6f },
 			{ -14.4f, 4.0f, 9.6f }, { -14.0f, 9.4f, 6.4f } };
 	/** Body-bone control points: from the small of his back, out and down in a long curve to the ground beside him. */
-	private static final float[][] TAIL = { { 0.0f, 10.4f, 1.8f }, { 0.8f, 12.6f, 5.6f }, { 2.6f, 16.6f, 10.0f }, { 5.4f, 21.0f, 12.2f },
+	private static final float[][] TAIL = { { 0.0f, 9.6f, 2.3f }, { 0.5f, 10.6f, 5.4f }, { 2.6f, 16.6f, 10.0f }, { 5.4f, 21.0f, 12.2f },
 			{ 8.6f, 23.4f, 11.0f }, { 11.4f, 23.6f, 7.4f }, { 12.6f, 23.4f, 3.6f } };
 
 	/** Absorb: the cords flared forward round him, plugs facing out ahead. */
@@ -90,6 +92,15 @@ public final class FeedbackCables {
 	/** Cord radius (pixels) at the root and tip of each rope: the tail swells into his back. */
 	private static final float[][] RADIUS = { { 0.66f, 0.5f }, { 0.66f, 0.5f }, { 1.3f, 0.58f } };
 	private static final int EAR_LEFT = 0, EAR_RIGHT = 1, TAILI = 2;
+	/**
+	 * v0.17.2 round 2 (user: "the tail and ears react way too much to movement, they jiggle a LOT and shake around a lot and go inside his
+	 * body sometimes, i like this detail but tone it down a bit please"): the first points of each cord are rigid with the bone (the ears
+	 * 2, the tail 3), so the bases never swing into him; the rest are damped hard ({@link #DAMP}), sprung stiffly toward the rest shape,
+	 * and carry {@link #CARRY} of his own movement with them, so they only trail a little.
+	 */
+	private static final int[] PINNED = { 2, 2, 3 };
+	private static final double DAMP = 0.72, CARRY = 0.78;
+	private static final float PULL_ROOT = 0.6f, PULL_TIP = 0.28f, SWAY = 0.5f;
 
 	// ---------------------------------------------------------------- the plug (pixels)
 	/** The reference's proportions: the barrel ~2.6x as long as it is wide, the prongs ~0.3 of the barrel. */
@@ -271,17 +282,7 @@ public final class FeedbackCables {
 			// the resting shape in the world this tick
 			Vec3[] rest = new Vec3[N];
 			for (int i = 0; i < N; i++) {
-				Vector3f m = new Vector3f(r.rest[i]);
-				if (c.absorb > 0f) {
-					m.lerp(r.restAbsorb[i], c.absorb * c.absorb * (3 - 2 * c.absorb));
-				}
-				if (r.index == TAILI && c.whip >= 0f) {
-					m = whipRest(r, i, c.whip);
-				}
-				// a slow idle sway, growing toward the tip, out of step between the ropes
-				float t = i / (float) (N - 1);
-				float ph = r.index * 2.1f;
-				m.add(Mth.sin(age * 0.09f + ph - i * 0.35f) * 0.9f * t, Mth.cos(age * 0.07f + ph - i * 0.3f) * 0.5f * t, Mth.sin(age * 0.06f + ph * 1.7f) * 0.6f * t);
+				Vector3f m = localRest(c, r, i, age);
 				Vector3f mm = bone.transformPosition(new Vector3f(m.x / 16f, m.y / 16f, m.z / 16f));
 				rest[i] = at.add(toWorld(mm, yaw, k));
 			}
@@ -313,14 +314,24 @@ public final class FeedbackCables {
 			for (int i = 0; i < N; i++) {
 				r.last[i] = r.pos[i];
 			}
-			r.prev[0] = r.pos[0];
-			r.pos[0] = rest[0];
+			// most of his own movement carries the cords along with him (they only trail a little)
+			Vec3 carry = rest[0].subtract(r.pos[0]).scale(CARRY);
+			int pin = target != null ? 1 : PINNED[r.index];
+			for (int i = 0; i < N; i++) {
+				if (i < pin) {
+					r.prev[i] = r.pos[i];
+					r.pos[i] = rest[i]; // rigid with the bone
+				} else {
+					r.pos[i] = r.pos[i].add(carry);
+					r.prev[i] = r.prev[i].add(carry);
+				}
+			}
 			boolean stiff = target != null || (r.index == TAILI && c.whip >= 0f);
-			for (int i = 1; i < N; i++) {
+			for (int i = pin; i < N; i++) {
 				float t = i / (float) (N - 1);
-				Vec3 vel = r.pos[i].subtract(r.prev[i]).scale(0.86);
-				// springy cords: a strong pull near the root, softer toward the tip (so the tips lag and swing)
-				double pull = stiff ? 0.5 : Mth.lerp(t, 0.42f, 0.11f);
+				Vec3 vel = r.pos[i].subtract(r.prev[i]).scale(DAMP);
+				// sprung toward the rest shape: firm near the root, softer toward the tip
+				double pull = stiff ? 0.5 : Mth.lerp(t, PULL_ROOT, PULL_TIP);
 				Vec3 acc = rest[i].subtract(r.pos[i]).scale(pull).add(0, -0.004 * t, 0);
 				r.prev[i] = r.pos[i];
 				r.pos[i] = r.pos[i].add(vel).add(acc);
@@ -329,7 +340,7 @@ public final class FeedbackCables {
 				r.pos[N - 1] = target;
 			}
 			for (int pass = 0; pass < 4; pass++) {
-				for (int i = 1; i < N; i++) {
+				for (int i = pin; i < N; i++) {
 					Vec3 d = r.pos[i].subtract(r.pos[i - 1]);
 					double l = d.length();
 					double want = r.len[i - 1] * k * r.stretch;
@@ -337,11 +348,11 @@ public final class FeedbackCables {
 						r.pos[i] = r.pos[i - 1].add(d.scale(want / l));
 					}
 				}
-				for (int i = 1; i < N; i++) {
+				for (int i = pin; i < N; i++) {
 					if (target == null || i < N - 2) {
 						r.pos[i] = outOfBlocks(p, r.pos[i], 0.05);
 					}
-					r.pos[i] = outOfBody(r.pos[i], at, yaw, k);
+					r.pos[i] = outOfBody(r.pos[i], at, yaw, k, RADIUS[r.index][i < 3 ? 0 : 1] / 16f);
 				}
 			}
 		}
@@ -354,6 +365,23 @@ public final class FeedbackCables {
 			Vec3 tip = r.pos[N - 1];
 			p.level().addParticle(ParticleTypes.ELECTRIC_SPARK, tip.x, tip.y, tip.z, 0, 0.02, 0);
 		}
+	}
+
+	/** Rope {@code r}'s resting point {@code i} in its bone's pixels this tick: the rest shape, Absorb's flare, Plug Whip's sweep, a gentle sway. */
+	private static Vector3f localRest(Cables c, Rope r, int i, float age) {
+		Vector3f m = new Vector3f(r.rest[i]);
+		if (c.absorb > 0f) {
+			m.lerp(r.restAbsorb[i], c.absorb * c.absorb * (3 - 2 * c.absorb));
+		}
+		if (r.index == TAILI && c.whip >= 0f) {
+			m = whipRest(r, i, c.whip);
+		}
+		// a slow, gentle idle sway, growing toward the tip, out of step between the ropes
+		float t = i / (float) (N - 1);
+		float ph = r.index * 2.1f;
+		m.add(Mth.sin(age * 0.07f + ph - i * 0.3f) * 0.9f * SWAY * t, Mth.cos(age * 0.06f + ph - i * 0.25f) * 0.5f * SWAY * t,
+				Mth.sin(age * 0.05f + ph * 1.7f) * 0.6f * SWAY * t);
+		return m;
 	}
 
 	/** Plug Whip's tail ({@code w} 0..1.6): swept round from behind him, across his front at waist height, and let go. */
@@ -401,23 +429,39 @@ public final class FeedbackCables {
 		return q;
 	}
 
-	/** {@code q} kept out of his torso and head (model-space boxes, padded). */
-	private static Vec3 outOfBody(Vec3 q, Vec3 at, float yaw, float k) {
+	/**
+	 * {@code q} kept out of his body (model-space boxes padded by the cord's radius {@code rad}): the head, the torso and the legs. v0.17.2
+	 * round 2 (user: "go inside his body sometimes ... sometimes you can see the tail poking out of at the bottom of his torso"): out of the
+	 * torso or the legs a cord always leaves by the back or a side -- never through his front or out under his torso.
+	 */
+	private static Vec3 outOfBody(Vec3 q, Vec3 at, float yaw, float k, float rad) {
 		Vector3f m = toModel(q.subtract(at), yaw, k);
 		float s = 1f / 16f;
-		if (m.y > 12.4f * s || m.y < -8.6f * s) {
-			return q;
-		}
-		boolean head = m.y < 0f;
-		float hx = (head ? 4.7f : 4.7f) * s, hz = (head ? 4.7f : 2.7f) * s;
-		if (Math.abs(m.x) >= hx || Math.abs(m.z) >= hz) {
-			return q;
-		}
-		float ox = hx - Math.abs(m.x), oz = hz - Math.abs(m.z);
-		if (oz <= ox) {
-			m.z = Math.copySign(hz, m.z == 0f ? 1f : m.z);
+		float x0, z0;
+		boolean head;
+		if (m.y >= -8.6f * s - rad && m.y < 0f) {
+			x0 = 4.6f * s;
+			z0 = 4.6f * s;
+			head = true;
+		} else if (m.y >= 0f && m.y <= 24.4f * s) {
+			x0 = 4.4f * s; // torso and legs share a width (the legs are 2 x 4 px side by side)
+			z0 = 2.4f * s;
+			head = false;
 		} else {
-			m.x = Math.copySign(hx, m.x == 0f ? 1f : m.x);
+			return q;
+		}
+		x0 += rad;
+		z0 += rad;
+		if (Math.abs(m.x) >= x0 || Math.abs(m.z) >= z0) {
+			return q;
+		}
+		float ox = x0 - Math.abs(m.x), back = z0 - m.z, front = z0 + m.z;
+		if (head && front < ox && front < back) {
+			m.z = -z0;
+		} else if (back <= ox) {
+			m.z = z0; // out of his back
+		} else {
+			m.x = Math.copySign(x0, m.x == 0f ? 1f : m.x);
 		}
 		return at.add(toWorld(m, yaw, k));
 	}
@@ -436,8 +480,6 @@ public final class FeedbackCables {
 		c.body.set(bp.last().pose());
 		c.posed = true;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE));
-		// the finger and toe caps ride their bones
-		caps(pose, vc, light, model);
 		Minecraft mc = Minecraft.getInstance();
 		if (!c.started || (p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson())) {
 			return;
@@ -454,7 +496,13 @@ public final class FeedbackCables {
 			// the root rides the bone exactly this frame; the rest is the simulation, interpolated
 			Vector3f root = bone.transformPosition(new Vector3f(r.rest[0].x / 16f, r.rest[0].y / 16f, r.rest[0].z / 16f));
 			m[0].set(root);
+			int pin = plugTarget(p, r.index, partial) != null ? 1 : PINNED[r.index];
 			for (int i = 1; i < N; i++) {
+				if (i < pin) {
+					Vector3f l = localRest(c, r, i, age); // rigid with the bone, exactly this frame
+					m[i].set(bone.transformPosition(new Vector3f(l.x / 16f, l.y / 16f, l.z / 16f)));
+					continue;
+				}
 				Vec3 w = r.last[i].lerp(r.pos[i], partial);
 				m[i].set(toModel(w.subtract(at), yaw, k));
 			}
@@ -689,72 +737,6 @@ public final class FeedbackCables {
 	private static int argb(int rgb, float k) {
 		int r = (int) (((rgb >> 16) & 255) * k), g = (int) (((rgb >> 8) & 255) * k), b = (int) ((rgb & 255) * k);
 		return 0xFF000000 | (Mth.clamp(r, 0, 255) << 16) | (Mth.clamp(g, 0, 255) << 8) | Mth.clamp(b, 0, 255);
-	}
-
-	// ---------------------------------------------------------------- finger and toe caps
-
-	/**
-	 * The plug caps: three fingers and a thumb on each hand (a short black finger, then a gold cylinder with a dark hole in its tip, as
-	 * the reference's), and three toe caps at the front of each foot.
-	 */
-	static void caps(PoseStack pose, VertexConsumer vc, int light, PlayerModel<AbstractClientPlayer> model) {
-		hand(pose, vc, light, model.rightArm, true);
-		hand(pose, vc, light, model.leftArm, false);
-		foot(pose, vc, light, model.rightLeg);
-		foot(pose, vc, light, model.leftLeg);
-	}
-
-	/** One hand's caps on {@code arm} (wide arms: x -3..1 right, -1..3 left; the hand's end is y 10). */
-	static void hand(PoseStack pose, VertexConsumer vc, int light, ModelPart arm, boolean right) {
-		if (!arm.visible) {
-			return;
-		}
-		pose.pushPose();
-		arm.translateAndRotate(pose);
-		float cx = right ? -1f : 1f, in = right ? 1f : -1f;
-		// three fingers across the front-to-back of the hand's outer half, splayed a little; the thumb on the inside, forward
-		float[][] fingers = { { cx - in * 0.5f, -1.4f, 0.2f, -0.3f }, { cx - in * 0.75f, 0f, 0.14f, 0f }, { cx - in * 0.5f, 1.4f, 0.2f, 0.3f },
-				{ cx + in * 1.15f, -1.0f, -0.35f * in, -0.35f } };
-		for (float[] f : fingers) {
-			Vector3f root = new Vector3f(f[0] / 16f, 9.2f / 16f, f[1] / 16f);
-			Vector3f dir = new Vector3f(-f[2] * in * 0f + (f[2] * (right ? -1 : 1)), 1f, f[3]).normalize();
-			finger(pose, vc, light, root, dir, f == fingers[3] ? 0.85f : 1f);
-		}
-		pose.popPose();
-	}
-
-	/** A finger from {@code root} along {@code dir} (model blocks): a black knuckle, then the gold cap with its dark hole. */
-	static void finger(PoseStack pose, VertexConsumer vc, int light, Vector3f root, Vector3f dir, float size) {
-		PoseStack.Pose last = pose.last();
-		Vector3f n = perpendicular(dir), b = new Vector3f(dir).cross(n).normalize();
-		float fr = 0.5f * size, cr = 0.85f * size, fl = 2.0f * size, cl = 1.9f * size;
-		int sides = 10;
-		frustum(vc, last, light, root, dir, n, b, 0f, fr, fl + 0.1f, fr, CORD, sides);
-		// the cap: a dark lip where the finger goes in, the gold barrel, a groove near the tip, and the hole
-		ringFace(vc, last, light, root, dir, n, b, fl, fr, cr, -1f, GOLD_DARK, sides);
-		frustum(vc, last, light, root, dir, n, b, fl, cr, fl + cl * 0.62f, cr, GOLD, sides);
-		frustum(vc, last, light, root, dir, n, b, fl + cl * 0.62f, cr * 0.9f, fl + cl * 0.7f, cr * 0.9f, GROOVE, sides);
-		ringFace(vc, last, light, root, dir, n, b, fl + cl * 0.62f, cr * 0.9f, cr, 1f, GOLD, sides);
-		ringFace(vc, last, light, root, dir, n, b, fl + cl * 0.7f, cr * 0.9f, cr, -1f, GOLD, sides);
-		frustum(vc, last, light, root, dir, n, b, fl + cl * 0.7f, cr, fl + cl, cr * 0.9f, GOLD, sides);
-		ringFace(vc, last, light, root, dir, n, b, fl + cl, cr * 0.48f, cr * 0.9f, 1f, GOLD_DARK, sides);
-		ringFace(vc, last, light, root, dir, n, b, fl + cl - 0.12f, 0f, cr * 0.48f, 1f, SOCKET, sides);
-		frustum(vc, last, light, root, dir, n, b, fl + cl - 0.12f, cr * 0.48f, fl + cl, cr * 0.48f, SOCKET, sides);
-	}
-
-	/** Three toe caps at the front of the foot (leg: x -2..2, the sole at y 12, the toes at z -2), lying forward. */
-	static void foot(PoseStack pose, VertexConsumer vc, int light, ModelPart leg) {
-		if (!leg.visible) {
-			return;
-		}
-		pose.pushPose();
-		leg.translateAndRotate(pose);
-		for (int i = -1; i <= 1; i++) {
-			Vector3f root = new Vector3f(i * 1.3f / 16f, 11.2f / 16f, -1.4f / 16f);
-			Vector3f dir = new Vector3f(i * 0.15f, 0.12f, -1f).normalize();
-			finger(pose, vc, light, root, dir, 0.72f);
-		}
-		pose.popPose();
 	}
 
 	// ---------------------------------------------------------------- vertices

@@ -67,10 +67,18 @@ The reference pictures are in `docs/reference/feedback/`.
   hangs to his hip. The tail leaves the small of his back and curves down to the ground beside him. Those resting shapes are
   Catmull-Rom curves through hand-placed points, traced from the references. The ears ride the head bone (they turn and nod with it);
   the tail rides the body.
-- **Physics:** each cord is a rope of 14 points simulated in the world every client tick (verlet, like Ghostfreak's tail). The root
-  is pinned. The rest keep their momentum, with a springy pull back to the resting shape: strong near the root, soft at the tip. So the
-  cords lag when he runs, swing out on a turn, trail behind a leap and settle again, with a slow idle sway. They are pushed out of
-  blocks (they lie on the floor and bend round walls) and out of his torso.
+- **Physics:** each cord is a rope of 14 points simulated in the world every client tick (verlet, like Ghostfreak's tail). They are
+  pushed out of blocks, so they lie on the floor and bend round walls.
+  - **Round 2** (user: "the tail and ears react way too much to movement, they jiggle a LOT and shake around a lot and go inside his
+    body sometimes, i like this detail but tone it down a bit please"). The cords are now calm:
+    - The first points are rigid with the bone: 2 for each ear, 3 for the tail. The bases never swing.
+    - The rest are damped hard (0.72) and sprung firmly toward the resting shape (0.6 at the root to 0.28 at the tip).
+    - They carry 78% of his own movement, so they only trail a little when he walks, sprints, turns or leaps.
+    - The idle sway is half what it was.
+  - **Body collision** covers the head, torso and legs, padded by the cord's thickness. Out of the torso or legs a cord always leaves
+    by his back or a side, never through his front or out under his torso.
+  - **The tail roots on the surface of his back.** It used to root inside the body and could poke out at the bottom of the torso while
+    he moved (user: "sometimes you can see the tail poking out of at the bottom of his torso").
 - **Drawn smooth:** the points go through a spline, 4 rings a link and 8 sides a ring. A parallel-transport frame keeps them from
   twisting, with smooth normals. They are blue-black (0x1F242B), between the skin's darks. The ears are about 1.5 px thick. The tail
   swells to 2.7 px where it leaves his back.
@@ -82,10 +90,14 @@ The reference pictures are in `docs/reference/feedback/`.
   - two thin, flat, paler gold prongs side by side out of the front (about 0.3 of the barrel's length), set well apart with their flat faces toward each other
 
   They light up yellow as his Charge fills, flicker when he is nearly full, and spark at 60+.
-- **Finger and toe caps:** each hand has three fingers and a thumb. Each is a short black finger ending in a gold cap, with a dark lip,
-  a groove near the tip and a dark hole in the end, like the reference's. Each foot has three smaller caps at the toes. The first-person
-  hand has its caps too.
-- **Checked against the references** over four in-game passes (see docs/screenshots/v0172/feedback/side_by_side_*.png). The passes made the ear arcs bigger and wider, the plugs longer and their grooves finer, and the finger caps chunkier.
+- **No finger or toe caps** (round 2; user: "remove the plugs on his fingers please, they dont look good in first person either.
+  also remove the plugs from his toes please"). The hands and feet are the skin's own.
+- **The skin's painted plugs are gone** (round 2; user: "since hes got the ear models remove the ear plugs from his back form his skin
+  model please. Also remove the tail plug from his leg"). `gen_feedback.js` paints the gold and silver plug texels on his back and on his
+  right leg's upper back and side in the black round them, and clears the same spots on the overlay layer. The 3D cords replace them.
+- **Checked against the references** over four in-game passes (see docs/screenshots/v0172/feedback/side_by_side_*.png). The passes made the ear arcs bigger and wider and the plugs longer, with finer grooves.
+- **Round 2 footage:** feedback_walk_sprint.mp4 (walking from the side, sprinting from the front three-quarter, a quick turn, then
+  sprinting away), plus feedback_round2_turnaround.png.
 - **Moves bend them:** Absorb flares all three cords forward round him, plugs facing out. Plug Whip sweeps the tail round in front
   of him at waist height. Plug In stretches all three out to what they plug into, and beads of light run up them into him. Cable
   Swing stretches his left ear to the block it plugs into.
@@ -155,7 +167,7 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
   target (a block as `BlockPos.asLong`, or an entity id + 1) and the swing anchor (raw double bits) are synced timers too, so the
   client can stretch the cords to them.
 - Client: `client/omnitrix/alien/FeedbackClient` (skin, badge, eye, poses, first-person clips, the Charge HUD), `FeedbackCables` (the
-  cords, plugs, caps and their glow and pulses), and `alien/feedback/FeedbackFx` (bolts).
+  cords, plugs and their glow and pulses), and `alien/feedback/FeedbackFx` (bolts).
 - **Bolts:** short-lived held `AlienProjectileEntity` carriers, as Buzzshock's are:
   - `feedback_arc`: a bolt from his hand (or from the entity the colour field names)
   - `feedback_big`: the Redirect, Discharge and Cannon bolt
