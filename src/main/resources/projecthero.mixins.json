@@ -78,6 +78,7 @@
 		"SuperSpeedPhaseCollideMixin",
 		"SilverSurferPhaseCollideMixin",
 		"OmnitrixAlienCollideMixin",
+		"OmnitrixAlienBlockShapeMixin",
 		"OmnitrixPhaseMoveCheckMixin",
 		"OmnitrixGhostfreakFadeMixin",
 		"GreyMatterKnockbackMixin",

@@ -198,6 +198,21 @@ public abstract class AlienKit {
 		return false;
 	}
 
+	/**
+	 * v0.17.2 (Wildvine): this one block has no collision for the wearer right now -- {@link #phasing} block by block
+	 * ({@code mixin/OmnitrixAlienBlockShapeMixin}; {@code shape} is its real collision shape, never empty). Called for every block a
+	 * collision query touches: keep it cheap.
+	 */
+	public boolean passesBlock(Player p, net.minecraft.world.level.block.state.BlockState state, net.minecraft.world.level.BlockGetter level,
+			net.minecraft.core.BlockPos pos, net.minecraft.world.phys.shapes.VoxelShape shape) {
+		return false;
+	}
+
+	/** v0.17.2 (Wildvine): no "inside a block" texture for {@code blocking} over the screen right now (client, {@code OmnitrixAlienScreenEffectMixin}). */
+	public boolean clearInBlocks(Player p, net.minecraft.world.level.block.state.BlockState blocking) {
+		return false;
+	}
+
 	/** {@code fluid} holds the wearer up like ground (water running). */
 	public boolean standsOnFluid(Player p, net.minecraft.world.level.material.FluidState fluid) {
 		return false;
