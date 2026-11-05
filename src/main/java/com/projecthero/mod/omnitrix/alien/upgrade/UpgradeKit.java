@@ -113,6 +113,13 @@ import net.minecraft.world.phys.Vec3;
  * </pre>
  * Open questions, the parent's defaults: Ally Upgrade only on squad mates / teammates; Tech Takeover never hijacks another
  * player's Iron Man suit (machines only -- a player is shorted out); EMP Burst stays his ultimate; Overload folds into Takeover.
+ *
+ * <p>v0.17.2 round 3 (the user's list). R Optic Beam is a constant beam for as long as R is held (6 every {@link #BEAM_EVERY}
+ * ticks; 6 s cooldown from the release). Shift+R Stretch Fist and Shift+X Stretch Grapple are his real arm: the model's right arm
+ * lengthens the way the Elasticity power's does (UpgradeClient), a big fist of liquid metal on the end of the punch, a gripping
+ * hand on the end of the grapple (45 blocks: the arm travels out, grabs, then reels him in). Shift+G Circuit Lash pulls nothing:
+ * a sweep that hits everything in the cone and knocks it back slightly. C Merge has no time limit and a 4 s cooldown (from
+ * going in and again from coming out).
  */
 public final class UpgradeKit extends AlienKit {
 	public static final String ID = "upgrade";
@@ -136,10 +143,16 @@ public final class UpgradeKit extends AlienKit {
 	public static final int ANIM_TAKEOVER = 15;
 	public static final int ANIM_GEYSER = 16;
 	public static final int ANIM_ALLY_BEAM = 17;
+	// v0.17.2 round 3: letting go of the beam, the arm snapping back off the anchor, rising out of the puddle
+	public static final int ANIM_BEAM_END = 19;
+	public static final int ANIM_GRAPPLE_END = 20;
+	public static final int ANIM_RISE = 21;
 
 	public static final int F_SLIDE = 1;
 	public static final int F_MERGED = 2;
 	public static final int F_CHARGING = 4;
+	/** v0.17.2 round 3: the Optic Beam is firing / the arm is out on the Stretch Grapple (both synced: every client draws them). */
+	public static final int F_BEAM = 16, F_GRAPPLE = 32;
 
 	public static final String BEAM = "optic_beam";
 	public static final String CHARGED = "charged_beam";
@@ -165,6 +178,23 @@ public final class UpgradeKit extends AlienKit {
 	public static final float FIST_DAMAGE = 20f;
 	public static final double FIST_RANGE = 8, FIST_KNOCKBACK = 1.5;
 	public static final int FIST_COOLDOWN = 100;
+	/** v0.17.2 round 3: the arm is really out now, so the hit lands when the fist gets there. */
+	public static final int FIST_LAND = 4;
+	/**
+	 * v0.17.2 round 3 (user: "for stretch grapple make the players arm actually reach out and grab onto something similar to the
+	 * elasticity power, give the ability a 45 block range please"): the arm travels {@link #GRAPPLE_ARM_SPEED} blocks a tick, grips,
+	 * then he is reeled in, up to {@link #GRAPPLE_SPEED} blocks a tick, and let go {@link #GRAPPLE_STOP} from the anchor.
+	 */
+	public static final double GRAPPLE_RANGE = 45, GRAPPLE_ARM_SPEED = 6, GRAPPLE_SPEED = 1.9, GRAPPLE_STOP = 2.2;
+	/** The grapple's anchor (x / y / z), when the arm left and when it grips (all kept for the arm's snap back). */
+	public static final String T_GRAPPLE_X = "grapple_x", T_GRAPPLE_Y = "grapple_y", T_GRAPPLE_Z = "grapple_z", T_GRAPPLE_AT = "grapple_at", T_GRAPPLE_GO = "grapple_go";
+	/**
+	 * v0.17.2 round 3 (user: "Don't make circuit lash pull mobs towards you, make it able to hit multiple creatures and make it
+	 * knock them back slightly please"): the sweep crosses everything within {@link #LASH_RANGE} in the cone ahead of him (cos of
+	 * the half angle, {@link #LASH_CONE}), {@link #LASH_LAND} ticks after the key.
+	 */
+	public static final double LASH_RANGE = 12, LASH_CONE = 0.55, LASH_KNOCKBACK = 0.35;
+	public static final int LASH_LAND = 3;
 	public static final float GEYSER_DAMAGE = 20f;
 	public static final double GEYSER_REACH = 2.5;
 	public static final int GEYSER_COOLDOWN = 80;
@@ -188,7 +218,11 @@ public final class UpgradeKit extends AlienKit {
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
 	// v0.17.2 (user: "adjust the other combat aliens damage ... to try and match this"): a 1 s move does 8, like the other quick moves
-	public static final float BEAM_DAMAGE = 12f;
+	// v0.17.2 round 3 (user: "Holding R should make the player shoot a constant optic beam that deals 6 damage per damage tick, when player releases r this goes on cooldown for 6 seconds")
+	public static final float BEAM_DAMAGE = 6f;
+	/** The beam hits every this many ticks while R is held; a tap still burns for {@link #BEAM_MIN} ticks; 6 s cooldown from the release. */
+	public static final int BEAM_EVERY = 5, BEAM_MIN = 6, BEAM_COOLDOWN = 120;
+	public static final double BEAM_RANGE = 24;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 14
 	public static final float CHARGED_DAMAGE = 30f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 5
@@ -221,8 +255,8 @@ public final class UpgradeKit extends AlienKit {
 	public static final float EMP_CENTER = 100f, EMP_EDGE = 70f;
 	public static final double EMP_RADIUS = 8;
 	public static final int EMP_COOLDOWN = 600;
-	public static final int MERGE_TICKS = 400;
-	public static final int MERGE_COOLDOWN = 300;
+	// v0.17.2 round 3 (user: "remove the time limit on the merge ability and lower the abilities cooldown to 4 seconds please"): was 20 s and 15 s
+	public static final int MERGE_COOLDOWN = 80;
 	public static final float JOLT_DAMAGE = 2f;
 	/** A supercharged piston's punch (merged into one). */
 	public static final float PISTON_DAMAGE = 8f;
@@ -233,6 +267,10 @@ public final class UpgradeKit extends AlienKit {
 			.layer(OmnitrixSounds.SWEEP, 0.3f, 1.8f)
 			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.35f, 1.6f)
 			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.4f, 0.8f);
+	/** v0.17.2 round 3: the beam burning -- a thin electric sizzle, repeated while R is held. */
+	public static final OmnitrixSfx.Cue SND_BEAM_LOOP = OmnitrixSfx.cue("upgrade_beam_loop")
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.3f, 1.8f)
+			.layer(OmnitrixSounds.WHIRR, 0.2f, 1.6f);
 	/** Charging up: a low techno hum rising, a crackle. */
 	public static final OmnitrixSfx.Cue SND_CHARGE = OmnitrixSfx.cue("upgrade_charge")
 			.layer(OmnitrixSounds.WHIRR, 0.35f, 0.7f)
@@ -435,7 +473,7 @@ public final class UpgradeKit extends AlienKit {
 				// Shift+R Charged Beam, Z Overload, Shift+Z EMP Burst (400)
 				// v0.17.2 revamp (user: "Yes, build them"): Shift+R Overload -> Stretch Fist (Overload folds into Shift+C Tech
 				// Takeover), Tech Grab -> Liquid Engulf, Upgrade Tool C -> Shift+V, the Liquid Form's Geyser
-				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(FIST, AbilitySlot.SLOT_1, FIST_COOLDOWN),
+				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, BEAM_COOLDOWN), AlienMove.shift(FIST, AbilitySlot.SLOT_1, FIST_COOLDOWN),
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 120), AlienMove.shift(LASH, AbilitySlot.SLOT_2, 100),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 10), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(CHARGED, AbilitySlot.SLOT_4, 220), AlienMove.shift(EMP, AbilitySlot.SLOT_4, EMP_COOLDOWN),
@@ -461,15 +499,20 @@ public final class UpgradeKit extends AlienKit {
 		endSlide(p, true);
 		setFlag(p, F_CHARGING, false);
 		setTimer(p, "charge_at", 0);
+		// v0.17.2 round 3: the beam and the grapple let go, nothing still on its way
+		endBeam(p, false);
+		endGrapple(p, false);
+		putTimers(p, "fist_land", 0L, "fist_ent", 0L, "lash_land", 0L, T_GRAPPLE_X, 0L, T_GRAPPLE_Y, 0L, T_GRAPPLE_Z, 0L, T_GRAPPLE_AT, 0L, T_GRAPPLE_GO, 0L);
 		// v0.17.2 revamp: every machine he holds is let go; the once-a-tick guard forgets him
 		UpgradeTakeover.releaseAll(p);
 		LAST_TICK.remove(p.getId());
 	}
 
-	/** v0.17.2 revamp: the HUD lights X in the Liquid Form, V while overclocked and C while merged. */
+	/** v0.17.2 revamp: the HUD lights X in the Liquid Form, V while overclocked and C while merged (round 3: R while the beam burns). */
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
+			case SLOT_1 -> flag(p, F_BEAM);
 			case SLOT_3 -> flag(p, F_SLIDE);
 			case SLOT_5 -> flag(p, F_OVERCLOCK);
 			case SLOT_6 -> flag(p, F_MERGED);
@@ -516,6 +559,16 @@ public final class UpgradeKit extends AlienKit {
 			}
 		}
 		tickMerge(p, l, now);
+		tickBeam(p, now);
+		tickGrapple(p, l, now);
+		long fist = timer(p, "fist_land");
+		if (fist > 0 && now >= fist) {
+			fistLand(p);
+		}
+		long lash = timer(p, "lash_land");
+		if (lash > 0 && now >= lash) {
+			lashLand(p);
+		}
 	}
 
 	// ---------------------------------------------------------------- keys
@@ -543,7 +596,7 @@ public final class UpgradeKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					lash(p, lookTarget(p, 12));
+					lash(p);
 				} else {
 					engulf(p, lookTarget(p, ENGULF_RANGE));
 				}
@@ -577,6 +630,14 @@ public final class UpgradeKit extends AlienKit {
 		}
 	}
 
+	/** v0.17.2 round 3: R let go -- the beam stops (after {@link #BEAM_MIN} ticks at least) and its cooldown starts. */
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_1) {
+			stopBeam(p);
+		}
+	}
+
 	private static BlockHitResult blockLook(ServerPlayer p, double range) {
 		Vec3 eye = p.getEyePosition();
 		return p.level().clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(range)), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, p));
@@ -586,24 +647,79 @@ public final class UpgradeKit extends AlienKit {
 		return QuirkThreat.add(e, p, threat) || e.getMaxHealth() >= 150f;
 	}
 
+	/**
+	 * R (v0.17.2 round 3): the eye opens up and burns for as long as R is held -- {@link #BEAM_DAMAGE} every {@link #BEAM_EVERY}
+	 * ticks to what he looks at, out to {@link #BEAM_RANGE}; he can walk and turn it. A tap is a short burst. The cooldown starts
+	 * when it stops ({@link #endBeam}), not when it starts.
+	 */
 	public boolean opticBeam(ServerPlayer p) {
-		if (!use(p, BEAM)) {
+		if (flag(p, F_BEAM) || flag(p, F_CHARGING) || !use(p, BEAM)) {
 			return false;
 		}
+		cooldown(p, BEAM, 0); // nothing counts down while it burns
 		anim(p, ANIM_BEAM);
+		setFlag(p, F_BEAM, true);
+		putTimers(p, "beam_at", p.level().getGameTime(), "beam_stop", 0L);
+		OmnitrixSounds.play(level(p), p.position(), SND_BEAM, 0.9f, 1.1f + p.getRandom().nextFloat() * 0.2f);
+		beamHit(p);
+		return true;
+	}
+
+	/** One damage tick of the beam; the beam itself is UpgradeFx's (it follows his look on every client). */
+	private void beamHit(ServerPlayer p) {
 		ServerLevel l = level(p);
-		Vec3 eye = p.getEyePosition();
-		LivingEntity t = lookTarget(p, 24);
-		Vec3 end = t != null ? t.position().add(0, t.getBbHeight() * 0.6, 0) : blockLook(p, 24).getLocation();
+		LivingEntity t = lookTarget(p, BEAM_RANGE);
+		BlockHitResult block = t == null ? blockLook(p, BEAM_RANGE) : null;
+		Vec3 end = t != null ? t.position().add(0, t.getBbHeight() * 0.6, 0) : block.getLocation();
 		if (t != null) {
 			t.invulnerableTime = 0;
 			hurt(p, t, BEAM_DAMAGE, false);
 		}
-		// v0.17.2 VFX: the beam itself is UpgradeFx's (a green energy tube with a white core); here only the hit
-		fxTarget(p, end, t);
-		impact(l, end, t == null ? blockLook(p, 24) : null, 0.6f);
-		OmnitrixSounds.play(l, p.position(), SND_BEAM, 0.9f, 1.1f + p.getRandom().nextFloat() * 0.2f);
-		return true;
+		impact(l, end, block, 0.5f);
+	}
+
+	private void tickBeam(ServerPlayer p, long now) {
+		if (!flag(p, F_BEAM)) {
+			return;
+		}
+		long stop = timer(p, "beam_stop");
+		if (stop > 0 && now >= stop) {
+			endBeam(p, true);
+			return;
+		}
+		long age = now - timer(p, "beam_at");
+		if (age > 0 && age % BEAM_EVERY == 0) {
+			beamHit(p);
+		}
+		if (age > 0 && age % 12 == 0) {
+			OmnitrixSounds.play(level(p), p.position(), SND_BEAM_LOOP, 0.7f, 1.0f);
+		}
+	}
+
+	/** R came up: stops the beam, or books the stop if a tap has not burnt {@link #BEAM_MIN} ticks yet. */
+	public void stopBeam(ServerPlayer p) {
+		if (!flag(p, F_BEAM)) {
+			return;
+		}
+		long end = timer(p, "beam_at") + BEAM_MIN;
+		if (p.level().getGameTime() >= end) {
+			endBeam(p, true);
+		} else {
+			setTimer(p, "beam_stop", end);
+		}
+	}
+
+	/** The beam is out: with {@code settle}, the eye's pose eases off; the 6 s cooldown starts either way. */
+	private void endBeam(ServerPlayer p, boolean settle) {
+		if (!flag(p, F_BEAM)) {
+			return;
+		}
+		setFlag(p, F_BEAM, false);
+		putTimers(p, "beam_at", 0L, "beam_stop", 0L);
+		cooldown(p, BEAM, -1);
+		if (settle) {
+			anim(p, ANIM_BEAM_END);
+		}
 	}
 
 	/**
@@ -713,30 +829,49 @@ public final class UpgradeKit extends AlienKit {
 		t.hurtMarked = true;
 	}
 
-	public boolean lash(ServerPlayer p, LivingEntity t) {
-		if (t == null) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_target").withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
+	/**
+	 * Shift+G: Circuit Lash (v0.17.2 round 3) -- the arm cocks and the whip sweeps across what is ahead of him; nothing is pulled.
+	 * It always swings, and the hit comes {@link #LASH_LAND} ticks later as the sweep crosses ({@link #lashLand}).
+	 */
+	public boolean lash(ServerPlayer p) {
 		if (!use(p, LASH)) {
 			return false;
 		}
 		anim(p, ANIM_LASH);
-		ServerLevel l = level(p);
-		t.invulnerableTime = 0;
-		hurt(p, t, LASH_DAMAGE, false);
-		if (!boss(p, t, 4f)) {
-			Vec3 pull = p.position().subtract(t.position());
-			double d = pull.length();
-			double res = 1.0 - Math.min(1.0, t.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
-			t.setDeltaMovement(pull.normalize().scale(Math.min(1.6, 0.25 + d * 0.14) * Math.max(0.35, res)).add(0, 0.35, 0));
-			t.hurtMarked = true;
-		}
-		// v0.17.2 VFX: UpgradeFx draws the whip (a liquid-metal strand cracking out and snapping back)
-		fxTarget(p, t.position().add(0, t.getBbHeight() * 0.5, 0), t);
-		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 10, 0.25, 0.3, 0.25, 0.25);
-		OmnitrixSounds.play(l, p.position(), SND_SLIDE, 0.8f, 1.6f);
+		// v0.17.2 VFX: UpgradeFx draws the whip sweeping from his right across to his left
+		fxTarget(p, blockLook(p, LASH_RANGE).getLocation(), null);
+		setTimer(p, "lash_land", p.level().getGameTime() + LASH_LAND);
+		OmnitrixSounds.play(level(p), p.position(), SND_SLIDE, 0.8f, 1.6f);
 		return true;
+	}
+
+	/** The sweep lands: everything in the cone takes {@link #LASH_DAMAGE} and is knocked back slightly. How many it hit. */
+	public int lashLand(ServerPlayer p) {
+		setTimer(p, "lash_land", 0);
+		ServerLevel l = level(p);
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		int hits = 0;
+		for (LivingEntity e : around(p, eye, LASH_RANGE + 1.5)) {
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
+			Vec3 to = c.subtract(eye);
+			double d = to.length();
+			if (d > LASH_RANGE + e.getBbWidth() * 0.5 || (d > 1.5 && to.normalize().dot(look) < LASH_CONE) || !p.hasLineOfSight(e)) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, LASH_DAMAGE, false);
+			if (!boss(p, e, 4f)) {
+				shove(e, p.position(), LASH_KNOCKBACK, 0.2);
+			}
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.25, 0.3, 0.25, 0.25);
+			QuirkFx.ring(l, c).style(QuirkFx.RING_SOFT).colours(GLOW, COLOUR).size(1.1f).thickness(0.1f).life(7).spawn();
+			hits++;
+		}
+		if (hits > 0) {
+			OmnitrixSounds.play(l, p.position(), SND_BEAM, 0.7f, 0.8f);
+		}
+		return hits;
 	}
 
 	// ---------------------------------------------------------------- the Liquid Form
@@ -791,6 +926,7 @@ public final class UpgradeKit extends AlienKit {
 				com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.settleOutsideBlocks(p);
 			}
 			if (!force) {
+				anim(p, ANIM_RISE); // v0.17.2 round 3: he pulls himself back up out of the puddle (a move used next plays over it)
 				OmnitrixSounds.play(level(p), p.position(), SND_SLIDE, 0.7f, 0.7f);
 			}
 		}
@@ -801,6 +937,13 @@ public final class UpgradeKit extends AlienKit {
 	protected void onUse(ServerPlayer p, String moveId) {
 		if (!SLIDE.equals(moveId) && flag(p, F_SLIDE)) {
 			endSlide(p, false);
+		}
+		// v0.17.2 round 3: any other move stops the beam (its cooldown starts) and lets go of the anchor; the beam can burn on the way
+		if (!BEAM.equals(moveId)) {
+			endBeam(p, true);
+			if (!GRAPPLE.equals(moveId)) {
+				endGrapple(p, true);
+			}
 		}
 	}
 
@@ -836,8 +979,17 @@ public final class UpgradeKit extends AlienKit {
 				&& !context.isAbove(state.getShape(level, pos), pos, false);
 	}
 
+	/**
+	 * Shift+X: Stretch Grapple (v0.17.2 round 3). His arm shoots out to the block he aims at, up to {@link #GRAPPLE_RANGE} away, at
+	 * {@link #GRAPPLE_ARM_SPEED} blocks a tick; the hand grips and he is reeled in along it, gathering speed, and let go at the
+	 * anchor with a hop to clear the ledge. Shift+X again lets go early, as does any other move but the beam.
+	 */
 	public boolean grapple(ServerPlayer p) {
-		BlockHitResult hit = blockLook(p, 22);
+		if (flag(p, F_GRAPPLE)) {
+			endGrapple(p, true);
+			return true;
+		}
+		BlockHitResult hit = blockLook(p, GRAPPLE_RANGE);
 		if (hit.getType() != HitResult.Type.BLOCK) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_anchor").withStyle(ChatFormatting.GRAY), true);
 			return false;
@@ -846,52 +998,112 @@ public final class UpgradeKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_GRAPPLE);
-		Vec3 to = hit.getLocation().subtract(p.getEyePosition());
-		double d = to.length();
-		p.setDeltaMovement(to.normalize().scale(Math.min(2.2, 0.5 + d * 0.11)).add(0, 0.3, 0));
-		p.hurtMarked = true;
-		p.resetFallDistance();
-		ServerLevel l = level(p);
-		// v0.17.2 VFX: UpgradeFx draws the stretched arm, anchored where it struck; a splash of metal there
-		fxTarget(p, hit.getLocation(), null);
 		Vec3 at = hit.getLocation();
-		l.sendParticles(METAL, at.x, at.y, at.z, 10, 0.15, 0.15, 0.15, 0.0);
-		l.sendParticles(SPARK, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
-		OmnitrixSounds.play(l, p.position(), SND_SLIDE, 0.9f, 1.3f);
+		long now = p.level().getGameTime();
+		double d = at.distanceTo(p.getEyePosition());
+		long go = now + Math.max(2L, (long) Math.ceil(d / GRAPPLE_ARM_SPEED));
+		setFlag(p, F_GRAPPLE, true);
+		// (the longest the reel can take, then he lets go: a wall between him and the anchor must not hold him there)
+		putTimers(p, T_GRAPPLE_X, encode(at.x), T_GRAPPLE_Y, encode(at.y), T_GRAPPLE_Z, encode(at.z), T_GRAPPLE_AT, now, T_GRAPPLE_GO, go,
+				"grapple_end", go + (long) Math.ceil(d / GRAPPLE_SPEED) + 16L);
+		OmnitrixSounds.play(level(p), p.position(), SND_SLIDE, 0.9f, 1.3f);
 		return true;
+	}
+
+	/** The anchor he is on (or was last on), or null. */
+	@Nullable
+	public Vec3 grappleAnchor(Player p) {
+		long x = timer(p, T_GRAPPLE_X);
+		return x <= 0 ? null : new Vec3(decode(x), decode(timer(p, T_GRAPPLE_Y)), decode(timer(p, T_GRAPPLE_Z)));
+	}
+
+	private void tickGrapple(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_GRAPPLE)) {
+			return;
+		}
+		Vec3 at = grappleAnchor(p);
+		long go = timer(p, T_GRAPPLE_GO);
+		if (at == null || now >= timer(p, "grapple_end") || !p.isAlive() || p.isPassenger()) {
+			endGrapple(p, true);
+			return;
+		}
+		p.resetFallDistance();
+		if (now < go) {
+			return; // the arm is still on its way
+		}
+		if (now == go) {
+			// the hand lands and grips: a splash of metal round it
+			l.sendParticles(METAL, at.x, at.y, at.z, 12, 0.18, 0.18, 0.18, 0.0);
+			l.sendParticles(SPARK, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
+			OmnitrixSounds.play(l, at, SND_MERGE, 0.8f, 1.4f);
+		}
+		Vec3 to = at.subtract(p.position().add(0, p.getBbHeight() * 0.5, 0));
+		double d = to.length();
+		if (d <= GRAPPLE_STOP) {
+			p.setDeltaMovement(p.getDeltaMovement().scale(0.35).add(0, 0.42, 0));
+			p.hurtMarked = true;
+			endGrapple(p, true);
+			return;
+		}
+		// the stretched arm snaps him in: quick to start, then flat out
+		double speed = Math.min(GRAPPLE_SPEED, 0.6 + (now - go) * 0.2);
+		p.setDeltaMovement(to.normalize().scale(speed));
+		p.hurtMarked = true;
+	}
+
+	/** Lets go of the anchor ({@code snap}: the arm's snap back plays; the anchor stays in the timers for it). */
+	private void endGrapple(ServerPlayer p, boolean snap) {
+		if (!flag(p, F_GRAPPLE)) {
+			return;
+		}
+		setFlag(p, F_GRAPPLE, false);
+		setTimer(p, "grapple_end", 0);
+		p.resetFallDistance();
+		if (snap) {
+			anim(p, ANIM_GRAPPLE_END);
+			OmnitrixSounds.play(level(p), p.position(), SND_SLIDE, 0.6f, 1.6f);
+		}
 	}
 
 	// ---------------------------------------------------------------- v0.17.2 revamp: Stretch Fist, Geyser, Tech Takeover
 
 	/**
-	 * Shift+R: Stretch Fist (v0.17.2 revamp, replaces Overload) -- an arm shoots out up to {@link #FIST_RANGE} blocks as a
-	 * liquid-metal fist and slams what it hits back ({@link #FIST_DAMAGE}, knockback {@link #FIST_KNOCKBACK}). It punches out even
-	 * with nothing there.
+	 * Shift+R: Stretch Fist (v0.17.2 revamp, replaces Overload; round 3: user "for the stretch fist ability make the players hand
+	 * morph into a big fist model and actually have their arm stretch out in front of them and attack whatever they were aiming at
+	 * instead of spawning in a weird tentacle please"). His hand swells into a big fist and the arm itself shoots out to what he
+	 * aims at, up to {@link #FIST_RANGE} blocks; {@link #FIST_LAND} ticks later it lands ({@link #fistLand}:
+	 * {@link #FIST_DAMAGE}, knockback {@link #FIST_KNOCKBACK}). It punches out even with nothing there.
 	 */
 	public boolean stretchFist(ServerPlayer p) {
 		if (!use(p, FIST)) {
 			return false;
 		}
 		anim(p, ANIM_FIST);
-		ServerLevel l = level(p);
 		LivingEntity t = lookTarget(p, FIST_RANGE);
-		Vec3 end;
-		if (t != null) {
-			end = t.position().add(0, t.getBbHeight() * 0.55, 0);
+		Vec3 end = t != null ? t.position().add(0, t.getBbHeight() * 0.55, 0) : blockLook(p, FIST_RANGE).getLocation();
+		// UpgradeClient stretches the arm to here
+		fxTarget(p, end, t);
+		putTimers(p, "fist_land", p.level().getGameTime() + FIST_LAND, "fist_ent", t == null ? 0L : t.getId() + 1L);
+		OmnitrixSounds.play(level(p), p.position(), SND_FIST, 1.0f, 1.0f);
+		return true;
+	}
+
+	/** The fist arrives: the target it went for (if it is still in reach) takes the hit. */
+	public void fistLand(ServerPlayer p) {
+		long id = timer(p, "fist_ent");
+		putTimers(p, "fist_land", 0L, "fist_ent", 0L);
+		ServerLevel l = level(p);
+		if (id > 0 && l.getEntity((int) id - 1) instanceof LivingEntity t && t.isAlive() && t.distanceTo(p) <= FIST_RANGE + 3) {
 			t.invulnerableTime = 0;
 			hurt(p, t, FIST_DAMAGE, false);
 			if (!boss(p, t, 5f)) {
 				shove(t, p.position(), FIST_KNOCKBACK, 0.35);
 			}
+			Vec3 c = t.position().add(0, t.getBbHeight() * 0.55, 0);
+			l.sendParticles(METAL, c.x, c.y, c.z, 10, 0.25, 0.25, 0.25, 0.0);
+			QuirkFx.ring(l, c).style(QuirkFx.RING_SOFT).colours(GLOW, COLOUR).size(1.4f).thickness(0.14f).life(8).spawn();
 			QuirkCamera.shake(p, 0.15f, 4);
-		} else {
-			BlockHitResult hit = blockLook(p, FIST_RANGE);
-			end = hit.getLocation();
 		}
-		// UpgradeFx draws the arm (a stretched liquid-metal strand) and the fist ballooning as it lands
-		fxTarget(p, end, t);
-		OmnitrixSounds.play(l, p.position(), SND_FIST, 1.0f, 1.0f);
-		return true;
 	}
 
 	/**
@@ -1201,7 +1413,7 @@ public final class UpgradeKit extends AlienKit {
 
 	/**
 	 * C on a squad mate (v0.17.2 revamp: Ally Upgrade, "merging to make things better"): he pours over them as living armour for
-	 * {@link #MERGE_TICKS} -- +{@link #ALLY_ARMOR} armour, +{@link #ALLY_TOUGHNESS} toughness, and every
+	 * as long as he likes -- +{@link #ALLY_ARMOR} armour, +{@link #ALLY_TOUGHNESS} toughness, and every
 	 * {@link #ALLY_BEAM_EVERY} ticks their hits fire his Optic Beam ({@link #ALLY_BEAM_DAMAGE}). He rides on their upper back,
 	 * unseen and untouchable, and can still use R. C again (or Sneak) leaves.
 	 */
@@ -1276,7 +1488,6 @@ public final class UpgradeKit extends AlienKit {
 		MERGES.put(p.getUUID(), m);
 		anim(p, ANIM_MERGE);
 		setFlag(p, F_MERGED, true);
-		setTimer(p, "merge_end", p.level().getGameTime() + MERGE_TICKS);
 		setTimer(p, "machine_cd", 0); // a new machine is ready to fire at once
 		if (!m.kind().stored()) {
 			// v0.17.2: a machine he became is seen (it is him); inside a golem / on an ally he is hidden
@@ -1299,15 +1510,15 @@ public final class UpgradeKit extends AlienKit {
 				.withStyle(ChatFormatting.GREEN), true);
 	}
 
-	/** Leaves the merge (C again, the timer, the target gone, turning back). */
+	/** Leaves the merge (C again, the target gone, turning back; v0.17.2 round 3: no timer, and the 4 s cooldown runs from here too). */
 	public void endMerge(ServerPlayer p, boolean sound) {
 		Merge m = MERGES.remove(p.getUUID());
 		boolean was = flag(p, F_MERGED);
 		setFlag(p, F_MERGED, false);
-		setTimer(p, "merge_end", 0);
 		if (m == null && !was) {
 			return;
 		}
+		cooldown(p, MERGE, -1);
 		// v0.17.2: the client sees the target go and peels the coat back off it
 		putTimers(p, T_MERGE_KIND, 0L, T_MERGE_ENT, 0L, T_MERGE_X, 0L, T_MERGE_Y, 0L, T_MERGE_Z, 0L, T_MERGE_AT, 0L, T_MERGE_VARIANT, 0L);
 		// v0.17.2 (user: "if the player detransforms while merged the block places wherever the player is, same for if the player
@@ -1361,7 +1572,7 @@ public final class UpgradeKit extends AlienKit {
 		if (m == null) {
 			return;
 		}
-		if (now >= timer(p, "merge_end") || m.dim() != l.dimension()) {
+		if (m.dim() != l.dimension()) {
 			endMerge(p, true);
 			return;
 		}

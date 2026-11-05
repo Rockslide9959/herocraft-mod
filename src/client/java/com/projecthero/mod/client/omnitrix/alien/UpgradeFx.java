@@ -76,6 +76,11 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * column of liquid metal shooting up out of the puddle), Ally Upgrade (the squad mate wears his coat; their hits fire his beam
  * from their chest), and Tech Sense (the powered redstone near a local Upgrade outlined faint green; the machines' outlines
  * are UpgradeClient's).
+ *
+ * <p>v0.17.2 round 3: the Optic Beam burns for as long as R is held (it follows his look on every client, {@link #heldBeam}); the
+ * Stretch Fist and Stretch Grapple are his real arm ({@code UpgradeClient.reach}), so here only their impact (the strand stays
+ * only as the stand-in while he is inside a golem or is a machine, where there is no arm to stretch); the Circuit Lash is a sweep
+ * across the cone; and melting into and rising out of the Liquid Form run a column of him down into, and up out of, the puddle.
  */
 public final class UpgradeFx {
 	public static final ResourceLocation TECHNO = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_techno.png");
@@ -163,6 +168,8 @@ public final class UpgradeFx {
 		ClientTickEvents.END_CLIENT_TICK.register(UpgradeFx::tick);
 		WorldRenderEvents.AFTER_ENTITIES.register(UpgradeFx::render);
 		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> clear());
+		// v0.17.2 round 3: the real arm in first person while it is out, as for Elasticity
+		com.projecthero.mod.client.fpbody.FirstPersonBody.register(UpgradeClient::armOut);
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(UpgradeTakeoverPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> receive(payload)));
 	}
@@ -280,6 +287,13 @@ public final class UpgradeFx {
 			if (up && UpgradeKit.sliding(pl)) {
 				puddleParticles(pl, r);
 			}
+			if (up && (st.kitFlags & UpgradeKit.F_BEAM) != 0 && r.nextInt(2) == 0) {
+				// v0.17.2 round 3: green motes shed along the burning beam
+				Vec3 a = beamFrom(pl, 1f), b = beamTo(level, pl, 1f);
+				Vec3 m = a.lerp(b, r.nextDouble());
+				level.addParticle(SPARK, m.x, m.y, m.z, (r.nextDouble() - 0.5) * 0.04, (r.nextDouble() - 0.5) * 0.04, (r.nextDouble() - 0.5) * 0.04);
+				level.addParticle(ParticleTypes.ELECTRIC_SPARK, b.x, b.y, b.z, (r.nextDouble() - 0.5) * 0.3, r.nextDouble() * 0.2, (r.nextDouble() - 0.5) * 0.3);
+			}
 			if (!pl.isInvisible()) {
 				tr.lastChest = pl.position().add(0, pl.getBbHeight() * 0.55, 0);
 			}
@@ -354,10 +368,10 @@ public final class UpgradeFx {
 			case UpgradeKit.ANIM_TAKEOVER -> 14;
 			case UpgradeKit.ANIM_GEYSER -> 12;
 			case UpgradeKit.ANIM_ALLY_BEAM -> 9;
-			case UpgradeKit.ANIM_BEAM -> 9;
+			case UpgradeKit.ANIM_RISE -> 10;
 			case UpgradeKit.ANIM_CHARGED -> 16;
 			case UpgradeKit.ANIM_GRAB -> UpgradeKit.STUN_TICKS;
-			case UpgradeKit.ANIM_LASH -> 12;
+			case UpgradeKit.ANIM_LASH -> 13;
 			case UpgradeKit.ANIM_GRAPPLE -> 14;
 			case UpgradeKit.ANIM_OVERLOAD -> 12;
 			case UpgradeKit.ANIM_EMP -> 22;
@@ -401,7 +415,7 @@ public final class UpgradeFx {
 		}
 		long t = now - f.start;
 		switch (f.kind) {
-			case UpgradeKit.ANIM_BEAM, UpgradeKit.ANIM_CHARGED -> {
+			case UpgradeKit.ANIM_CHARGED -> {
 				if (t <= 3) {
 					Vec3 a = eye(owner, 1f);
 					for (int k = 0; k < (f.kind == UpgradeKit.ANIM_CHARGED ? 6 : 2); k++) {
@@ -543,9 +557,20 @@ public final class UpgradeFx {
 		return owner.getEyePosition(partial).add(look.scale(0.4)).add(0, -0.06, 0);
 	}
 
+	/** v0.17.2 round 3: is {@code e} the player whose eyes the camera is at? (What leaves his head or hand must clear the lens.) */
+	static boolean firstPersonView(Entity e) {
+		Minecraft mc = Minecraft.getInstance();
+		return e == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
+	}
+
 	/** His right hand (world): the right shoulder plus an arm's length down the look -- the tendril poses aim the arm along it. */
 	private static Vec3 hand(Entity owner, float partial) {
 		Vec3 look = owner.getViewVector(partial);
+		if (firstPersonView(owner)) {
+			// where the first-person hand sits: out from under the lens, low on the right
+			float r = owner.getViewYRot(partial) * Mth.DEG_TO_RAD;
+			return owner.getEyePosition(partial).add(look.scale(1.05)).add(-Mth.cos(r) * 0.42, -0.36, -Mth.sin(r) * 0.42);
+		}
 		float yaw = owner instanceof LivingEntity le ? Mth.lerp(partial, le.yBodyRotO, le.yBodyRot) : owner.getViewYRot(partial);
 		float rad = yaw * Mth.DEG_TO_RAD;
 		Vec3 right = new Vec3(-Mth.cos(rad), 0, -Mth.sin(rad));
@@ -687,8 +712,8 @@ public final class UpgradeFx {
 				continue;
 			}
 			switch (f.kind) {
-				case UpgradeKit.ANIM_BEAM -> beam(pose, buffers, cam, eye(owner, partial), f.end, t, f.life, 0.075f, false, time);
-				case UpgradeKit.ANIM_CHARGED -> beam(pose, buffers, cam, eye(owner, partial), f.end, t, f.life, 0.17f, true, time);
+				case UpgradeKit.ANIM_CHARGED -> beam(pose, buffers, cam, owner instanceof Player cp ? beamFrom(cp, partial) : eye(owner, partial), f.end, t, f.life, 0.17f, true, time,
+						firstPersonView(owner) ? 1.2f : 4.5f);
 				case UpgradeKit.ANIM_GRAB -> grab(level, pose, buffers, cam, owner, f, t, partial, time);
 				case UpgradeKit.ANIM_LASH -> lash(level, pose, buffers, cam, owner, f, t, partial, time);
 				case UpgradeKit.ANIM_GRAPPLE -> grapple(level, pose, buffers, cam, owner, f, t, partial, time);
@@ -699,6 +724,8 @@ public final class UpgradeFx {
 				case UpgradeKit.ANIM_FIST -> fist(level, pose, buffers, cam, owner, f, t, partial, time);
 				case UpgradeKit.ANIM_TAKEOVER -> takeoverBolt(level, pose, buffers, cam, owner, f, t, partial, time);
 				case UpgradeKit.ANIM_GEYSER -> geyser(level, pose, buffers, cam, f, t, time);
+				case UpgradeKit.ANIM_SLIDE -> melt(level, pose, buffers, cam, f, t, time);
+				case UpgradeKit.ANIM_RISE -> rise(level, pose, buffers, cam, f, t, time);
 				case UpgradeKit.ANIM_ALLY_BEAM -> beam(pose, buffers, cam, allyChest(owner, partial), f.end, t, f.life, 0.06f, false, time);
 				default -> {
 				}
@@ -712,6 +739,9 @@ public final class UpgradeFx {
 			}
 			if ((st.kitFlags & UpgradeKit.F_CHARGING) != 0) {
 				charging(pose, buffers, cam, pl, partial, time, time - st.animStart);
+			}
+			if ((st.kitFlags & UpgradeKit.F_BEAM) != 0) {
+				heldBeam(level, pose, buffers, cam, pl, partial, time);
 			}
 			if ((st.kitFlags & UpgradeKit.F_SLIDE) != 0) {
 				puddle(level, pose, buffers, cam, pl, partial, time);
@@ -1241,26 +1271,36 @@ public final class UpgradeFx {
 	}
 
 	/**
-	 * Stretch Fist: the arm shoots out to the target in 3 ticks (a liquid-metal strand), the fist on its end balloons on impact
-	 * (to 1.8x) and settles, then the arm snaps back.
+	 * Stretch Fist: the arm itself is UpgradeClient's -- here the shock where the fist lands. Inside a golem, or as a machine, there
+	 * is no arm to stretch: a liquid-metal strand with a fist on its end stands in for it.
 	 */
 	private static void fist(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Entity owner, Fx f, float t, float partial, float time) {
+		float land = UpgradeKit.FIST_LAND;
+		if (t >= land - 0.5f && t < land + 5f) {
+			float k = (t - land + 0.5f) / 5.5f;
+			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), f.end.subtract(cam), 1.1f * (1f - k), PyroDraw.dim(GREEN, 0.85f));
+			pose.pushPose();
+			Vec3 at = f.end.subtract(cam);
+			pose.translate(at.x, at.y, at.z);
+			PyroDraw.alignY(pose, f.end.subtract(owner.getEyePosition(partial)));
+			PyroDraw.band(pose, PyroDraw.additive(buffers), 0.25f + 0.9f * k, 0.05f * (1f - k), PyroDraw.dim(PALE, 0.8f * (1f - k)), 0xFF000000);
+			pose.popPose();
+		}
+		if (owner instanceof Player pl && UpgradeClient.armShown(pl)) {
+			return;
+		}
 		Vec3 a = hand(owner, partial);
-		Vec3 tp = targetPoint(level, f, partial);
-		Vec3 b = tp != null && t < 8f ? tp : f.end;
-		float reach = t < 3f ? t / 3f : t < 7f ? 1f : 1f - (t - 7f) / 7f;
+		Vec3 b = f.end;
+		float reach = t < land ? t / land : t < 8f ? 1f : 1f - (t - 8f) / 6f;
 		if (reach <= 0.02f) {
 			return;
 		}
 		Vec3 end = a.lerp(b, reach);
 		tendril(level, pose, buffers, cam, a, end, 0.2f, 0.15f, 0.04, time, 1f, 0.5f);
-		float swell = t < 3f ? 1f : t < 6f ? 1f + 0.8f * Mth.sin((t - 3f) / 3f * Mth.PI) : 1f;
+		float swell = t < land ? 1f : t < land + 3f ? 1f + 0.8f * Mth.sin((t - land) / 3f * Mth.PI) : 1f;
 		int light = LevelRenderer.getLightColor(level, BlockPos.containing(end));
 		Vec3 dir = b.subtract(a);
 		techCube(pose, buffers, end.subtract(cam), 0.2f * swell, dir.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : dir, light, 0.9f);
-		if (t >= 2.5f && t < 6f) {
-			PyroDraw.glow(pose, PyroDraw.additive(buffers), end.subtract(cam), 0.45f * (1f - (t - 2.5f) / 3.5f), PyroDraw.dim(GREEN, 0.8f));
-		}
 	}
 
 	/**
@@ -1314,6 +1354,28 @@ public final class UpgradeFx {
 		pose.popPose();
 	}
 
+	/** v0.17.2 round 3: melting down -- a column of him the height of his body sinks and spreads into the puddle in 6 ticks. */
+	private static void melt(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Fx f, float t, float time) {
+		float k = Mth.clamp(t / 6f, 0f, 1f);
+		if (k >= 1f) {
+			return;
+		}
+		Vec3 base = f.origin.add(0, 0.05, 0);
+		float s = 1f - k * k;
+		tendril(level, pose, buffers, cam, base, base.add(0, 1.85 * s, 0), 0.72f + 0.5f * k, 0.5f * s + 0.04f, 0.0, time, 1f, 1.3f);
+	}
+
+	/** v0.17.2 round 3: rising -- the column pulls up out of the puddle as his body fades back in round it (UpgradeClient.bodyAlpha). */
+	private static void rise(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Fx f, float t, float time) {
+		float up = Mth.clamp(t / 4f, 0f, 1f);
+		float fade = 1f - Mth.clamp((t - 3f) / 5f, 0f, 1f);
+		if (fade <= 0.02f) {
+			return;
+		}
+		Vec3 base = f.origin.add(0, 0.05, 0);
+		tendril(level, pose, buffers, cam, base, base.add(0, 1.85 * up, 0), 1.0f * fade + 0.04f, 0.45f * fade + 0.04f, 0.0, time, 1f, 1.3f);
+	}
+
 	/** The circuit lines (only) over a held machine; {@code front} how far up they have crawled, {@code alpha} their strength. */
 	private static void takeoverLines(Level level, int id, PoseStack pose, MultiBufferSource buffers, Matrix4f inv, Vec3 cam, float partial, float time,
 			float front, float alpha) {
@@ -1361,41 +1423,69 @@ public final class UpgradeFx {
 		}
 	}
 
-	/** Circuit Lash: a whip that cracks out in an S, snaps straight on the hit, and recoils. */
+	/** How far the Circuit Lash sweeps either side of his aim (radians): to the edges of the cone it hits. */
+	private static final float LASH_SWEEP = 0.99f;
+
+	/**
+	 * Circuit Lash (v0.17.2 round 3): the whip uncoils out of his hand on his right, sweeps across the whole cone to his left --
+	 * bowed back against the swing -- leaving a fading green arc where its tip went, and recoils.
+	 */
 	private static void lash(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Entity owner, Fx f, float t, float partial, float time) {
 		Vec3 a = hand(owner, partial);
-		Vec3 tp = targetPoint(level, f, partial);
-		Vec3 b = tp != null && t < 6f ? tp : f.end;
-		float reach = t < 3f ? t / 3f : t < 6f ? 1f : 1f - (t - 6f) / 6f;
+		Vec3 aim = f.end.subtract(a);
+		double range = Math.max(3.0, aim.length());
+		Vec3 fwd = aim.normalize();
+		// t: 0-3 out to the right, 3-7 the sweep, 7-13 back in
+		float reach = t < 3f ? t / 3f : t < 8f ? 1f : 1f - (t - 8f) / 5f;
 		if (reach <= 0.02f) {
 			return;
 		}
-		Vec3 d = b.subtract(a);
+		float sw = Mth.clamp((t - 2.5f) / 4.5f, 0f, 1f);
+		sw = sw * sw * (3f - 2f * sw);
+		float ang = Mth.lerp(sw, LASH_SWEEP, -LASH_SWEEP);
+		Vec3 tip = a.add(fwd.yRot(ang).scale(range * reach));
+		Vec3 d = tip.subtract(a);
 		Vec3 side = d.cross(new Vec3(0, 1, 0));
 		side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
 		final Vec3 sd = side;
-		float amp = (float) Math.min(1.2, d.length() * 0.12) * (t < 3f ? 1f - t / 3f : t < 6f ? 0.1f : (t - 6f) / 6f * 0.8f);
-		Vec3 end = a.lerp(b, reach);
-		tendril(level, pose, buffers, cam, a, end, 0.16f, 0.07f,
-				s -> sd.scale(Math.sin(s * Math.PI * 2.0 + time * 0.6) * amp * Math.sin(s * Math.PI)).add(0, Math.sin(s * Math.PI) * amp * 0.4, 0), time, 1.2f, 0.6f);
-		if (t >= 2.5f && t < 5f) {
-			// the crack where it lands
-			PyroDraw.glow(pose, PyroDraw.additive(buffers), end.subtract(cam), 0.35f * (1f - (t - 2.5f) / 2.5f), PyroDraw.dim(GREEN, 0.9f));
+		// the whip bows behind the swing while it moves, and shakes out at the end
+		float bow = (float) (range * 0.2) * Mth.sin(sw * Mth.PI) + (t > 7f ? 0.5f * (t - 7f) / 6f : 0f);
+		float wave = t < 3f ? 1f - t / 3f : t > 7f ? (t - 7f) / 6f : 0f;
+		tendril(level, pose, buffers, cam, a, tip, firstPersonView(owner) ? 0.13f : 0.26f, 0.1f,
+				s -> sd.scale(-bow * Math.sin(s * Math.PI * 0.5) * s + Math.sin(s * Math.PI * 3.0 + time * 0.7) * wave * 0.45 * Math.sin(s * Math.PI)), time, 1.3f, 0.5f);
+		// the arc the tip has swept
+		if (t >= 3f && t < 11f) {
+			float fade = t < 7f ? 1f : 1f - (t - 7f) / 4f;
+			List<Vec3> arc = new ArrayList<>();
+			int n = 14;
+			for (int i = 0; i <= n; i++) {
+				float aa = Mth.lerp(i / (float) n * sw, LASH_SWEEP, -LASH_SWEEP);
+				arc.add(a.add(fwd.yRot(aa).scale(range)).subtract(cam));
+			}
+			PyroDraw.ribbon(pose, PyroDraw.additive(buffers), arc, s -> 0.03 + 0.12 * s, s -> PyroDraw.dim(GREEN, (float) ((0.15 + 0.75 * s) * fade)));
+			PyroDraw.ribbon(pose, PyroDraw.additive(buffers), arc, s -> 0.012 + 0.04 * s, s -> PyroDraw.dim(CORE, (float) ((0.1 + 0.7 * s) * fade)));
 		}
 	}
 
-	/** Stretch Grapple: his arm stretched out to where it struck, anchored there in a splash of metal, shortening as he flies in. */
+	/**
+	 * Stretch Grapple: the arm is UpgradeClient's -- here the flash where the hand lands. Inside a golem, or as a machine, a strand
+	 * stands in for the arm that isn't there.
+	 */
 	private static void grapple(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Entity owner, Fx f, float t, float partial, float time) {
-		Vec3 a = hand(owner, partial);
-		float reach = t < 2.5f ? t / 2.5f : 1f;
-		float fade = t > f.life - 4f ? (f.life - t) / 4f : 1f;
-		if (fade <= 0.02f) {
+		if (!(owner instanceof Player pl) || !Omnitrix.hasPower(pl)) {
 			return;
 		}
-		Vec3 end = a.lerp(f.end, reach);
-		tendril(level, pose, buffers, cam, a, end, 0.16f * fade + 0.02f, 0.12f * fade + 0.02f, 0.05 * fade, time, 1f, 0.4f);
-		if (reach >= 1f) {
-			PyroDraw.glow(pose, PyroDraw.additive(buffers), f.end.subtract(cam), 0.25f * fade, PyroDraw.dim(GREEN, 0.6f));
+		OmnitrixState st = Omnitrix.state(pl);
+		if ((st.kitFlags & UpgradeKit.F_GRAPPLE) == 0) {
+			return;
+		}
+		long at = timer(st, UpgradeKit.T_GRAPPLE_AT), go = timer(st, UpgradeKit.T_GRAPPLE_GO);
+		Vec3 anchor = new Vec3(UpgradeKit.decode(timer(st, UpgradeKit.T_GRAPPLE_X)), UpgradeKit.decode(timer(st, UpgradeKit.T_GRAPPLE_Y)),
+				UpgradeKit.decode(timer(st, UpgradeKit.T_GRAPPLE_Z)));
+		if (!UpgradeClient.armShown(pl)) {
+			Vec3 a = hand(owner, partial);
+			float reach = Mth.clamp((time - at) / Math.max(1f, go - at), 0f, 1f);
+			tendril(level, pose, buffers, cam, a, a.lerp(anchor, reach), 0.18f, 0.14f, 0.05, time, 1f, 0.4f);
 		}
 	}
 
@@ -1406,6 +1496,11 @@ public final class UpgradeFx {
 	 * each end; {@code big} (the Charged Beam) adds circuit rings racing down it and a double helix wound round it.
 	 */
 	private static void beam(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 a, Vec3 b, float t, int life, float r, boolean big, float time) {
+		beam(pose, buffers, cam, a, b, t, life, r, big, time, 4.5f);
+	}
+
+	/** {@code muzzle}: the flare where it leaves him (small in his own first-person view, where that point is at the lens). */
+	private static void beam(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 a, Vec3 b, float t, int life, float r, boolean big, float time, float muzzle) {
 		float k = t < 1.5f ? 0.6f + 0.4f * t / 1.5f : 1f - Mth.clamp((t - 1.5f) / (life - 1.5f), 0f, 1f);
 		if (k <= 0.01f) {
 			return;
@@ -1451,9 +1546,58 @@ public final class UpgradeFx {
 				PyroDraw.ribbon(pose, add, pts, s -> 0.05, s -> PyroDraw.dim(GREEN, 0.75f * k));
 			}
 		}
-		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), ra, w * 4.5f, PyroDraw.dim(GREEN, 0.8f * k));
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), ra, w * muzzle, PyroDraw.dim(GREEN, 0.8f * k));
 		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), b.subtract(cam), w * (big ? 9f : 6f), PyroDraw.dim(GREEN, 0.9f * k));
-		PyroDraw.glow(pose, add, b.subtract(cam), w * (big ? 3.5f : 2.5f), PyroDraw.dim(CORE, 0.8f * k));
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), b.subtract(cam), w * (big ? 5f : 3.5f), PyroDraw.dim(CORE, 0.8f * k));
+	}
+
+	/** Where the held beam leaves him: his eye, or just under the crosshair for his own first-person view. */
+	private static Vec3 beamFrom(Player pl, float partial) {
+		if (firstPersonView(pl)) {
+			return pl.getEyePosition(partial).add(pl.getViewVector(partial).scale(1.6)).add(0, -0.34, 0);
+		}
+		return eye(pl, partial);
+	}
+
+	/** Where the beam ends: the first block or creature down his look (the server's damage runs the same ray). */
+	private static Vec3 beamTo(Level level, Player pl, float partial) {
+		Vec3 from = pl.getEyePosition(partial);
+		Vec3 look = pl.getViewVector(partial);
+		Vec3 to = from.add(look.scale(UpgradeKit.BEAM_RANGE));
+		HitResult block = level.clip(new net.minecraft.world.level.ClipContext(from, to, net.minecraft.world.level.ClipContext.Block.OUTLINE,
+				net.minecraft.world.level.ClipContext.Fluid.NONE, pl));
+		double max = block.getType() == HitResult.Type.MISS ? UpgradeKit.BEAM_RANGE : block.getLocation().distanceTo(from);
+		AABB box = pl.getBoundingBox().expandTowards(look.scale(max)).inflate(1.0);
+		var hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(pl, from, from.add(look.scale(max)), box,
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand), max * max);
+		return hit != null ? hit.getLocation() : block.getType() == HitResult.Type.MISS ? to : block.getLocation();
+	}
+
+	/** v0.17.2 round 3: the Optic Beam, burning: it grows in, shimmers, pulses run down it, and it bites a ring where it lands. */
+	private static void heldBeam(Level level, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Player pl, float partial, float time) {
+		Vec3 a = beamFrom(pl, partial), b = beamTo(level, pl, partial);
+		Vec3 d = b.subtract(a);
+		float len = (float) d.length();
+		if (len < 0.05f) {
+			return;
+		}
+		float r = 0.085f + 0.01f * Mth.sin(time * 1.3f);
+		beam(pose, buffers, cam, a, b, 1.5f, 100, r, false, time, firstPersonView(pl) ? 1.2f : 4.5f);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		Vec3 n = d.normalize();
+		// bright pulses racing away down it
+		for (float y = (time * 1.1f) % 2.4f; y < len; y += 2.4f) {
+			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), a.add(n.scale(y)).subtract(cam), 0.3f, PyroDraw.dim(PALE, 0.6f));
+		}
+		pose.pushPose();
+		Vec3 end = b.subtract(cam);
+		pose.translate(end.x, end.y, end.z);
+		PyroDraw.alignY(pose, n);
+		for (int i = 0; i < 2; i++) {
+			float k = (time * 0.11f + i * 0.5f) % 1f;
+			PyroDraw.band(pose, add, 0.12f + 0.55f * k, 0.03f, PyroDraw.dim(GREEN, 0.75f * (1f - k)), 0xFF000000);
+		}
+		pose.popPose();
 	}
 
 	/** An open cylinder up the pose's y axis, radius {@code r}, {@code len} long; both faces. Additive. */
@@ -1580,11 +1724,13 @@ public final class UpgradeFx {
 	/** The Charged Beam's charge: an orb of green swelling at his eye, rings of circuitry closing in on it. */
 	private static void charging(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Player pl, float partial, float time, float t) {
 		float k = Mth.clamp(t / UpgradeKit.CHARGE_TICKS, 0f, 1f);
-		Vec3 at = eye(pl, partial).add(pl.getViewVector(partial).scale(0.15)).subtract(cam);
+		// v0.17.2 round 3: in his own first-person view it hangs out ahead of him, low in the view, not over the lens
+		boolean fp = firstPersonView(pl);
+		Vec3 at = (fp ? pl.getEyePosition(partial).add(pl.getViewVector(partial).scale(2.2)).add(0, -0.42, 0) : eye(pl, partial).add(pl.getViewVector(partial).scale(0.15))).subtract(cam);
 		VertexConsumer add = PyroDraw.additive(buffers);
 		float pulse = 0.9f + 0.1f * Mth.sin(time * 2.2f);
 		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, (0.2f + 0.45f * k) * pulse, PyroDraw.dim(GREEN, 0.5f + 0.5f * k));
-		PyroDraw.glow(pose, add, at, (0.06f + 0.16f * k) * pulse, PyroDraw.dim(CORE, 0.9f));
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, (0.1f + 0.24f * k) * pulse, PyroDraw.dim(CORE, 0.9f));
 		pose.pushPose();
 		pose.translate(at.x, at.y, at.z);
 		PyroDraw.alignY(pose, pl.getViewVector(partial));
@@ -1613,7 +1759,10 @@ public final class UpgradeFx {
 		Vec3 stretchDir = speed > 0.05 ? flatV.normalize() : fwd;
 		int light = LevelRenderer.getLightColor(level, BlockPos.containing(at.add(0, 0.2, 0)));
 		int segs = 24, rings = 5;
-		float R = 0.74f;
+		// v0.17.2 round 3: it spreads out as he melts into it
+		OmnitrixState st = Omnitrix.state(pl);
+		float grow = st.animId == UpgradeKit.ANIM_SLIDE ? 0.25f + 0.75f * Mth.clamp((time - st.animStart) / 6f, 0f, 1f) : 1f;
+		float R = 0.74f * grow;
 		float H = 0.17f;
 		VertexConsumer base = lazy(buffers, RenderType.entityTranslucent(TECHNO));
 		VertexConsumer glow = lazy(buffers, RenderType.eyes(TECHNO_GLOW));

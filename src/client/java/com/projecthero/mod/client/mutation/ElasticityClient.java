@@ -207,7 +207,7 @@ public final class ElasticityClient {
 	 * Lengthens {@code arm} along itself so its hand reaches {@code lengthPx} pixels from the shoulder pivot (normally 10),
 	 * keeping the top of the arm at the shoulder.
 	 */
-	static void stretchArm(ModelPart arm, float lengthPx, float girth) {
+	public static void stretchArm(ModelPart arm, float lengthPx, float girth) {
 		float s = Math.max(0.2f, lengthPx / 10.0f);
 		arm.yScale *= s;
 		arm.xScale *= girth;
