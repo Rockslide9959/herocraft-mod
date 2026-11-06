@@ -392,17 +392,13 @@ public final class Stands {
 			player.setAttached(ModAttachments.STAND_POSE, StandPoseState.NONE);
 			return;
 		}
-		int pose = Math.max(1, Math.min(4, s.pose));
+		int pose = Math.max(1, Math.min(StandConfig.POSE_COUNT, s.pose));
 		player.setAttached(ModAttachments.STAND_POSE, new StandPoseState(pose, player.level().getGameTime()));
-		if (pose == 2) {
-			// "Yare yare daze" -- the user's voice line slot (Stand users hear it)
-			sound((ServerLevel) player.level(), player.position(), StandSounds.YARE_YARE, 0.9f, 1.0f);
-		}
 	}
 
 	public static void setPoseChoice(ServerPlayer player, int pose) {
 		StandState n = state(player).copy();
-		n.pose = Math.max(1, Math.min(4, pose));
+		n.pose = Math.max(1, Math.min(StandConfig.POSE_COUNT, pose));
 		save(player, n);
 	}
 

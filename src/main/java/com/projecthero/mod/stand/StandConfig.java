@@ -136,6 +136,8 @@ public final class StandConfig {
 	public static final float UPPERCUT_COST = 6f;
 
 	// ---------------------------------------------------------------- N: pose
+	/** v0.17.2 (user: "make this the only pose thats availible in the pose menu for now"): Jotaro's point. */
+	public static final int POSE_COUNT = 1;
 	/** Holding a pose this long gives Resistance I (refreshed while held). */
 	public static final int POSE_RESIST_AFTER = 30;
 

@@ -130,7 +130,7 @@ public class StandGameTests implements FabricGameTest {
 		ServerPlayer p = user(helper, 2.5, 2.0, 2.5);
 		Stands.setPoseChoice(p, 4);
 		Stands.togglePose(p);
-		helper.assertTrue(p.getAttachedOrElse(ModAttachments.STAND_POSE, null).pose() == 4, "N strikes the chosen pose");
+		helper.assertTrue(p.getAttachedOrElse(ModAttachments.STAND_POSE, null).pose() == 1, "N strikes the one pose, whatever an old save chose");
 		Stands.togglePose(p);
 		helper.assertTrue(p.getAttachedOrElse(ModAttachments.STAND_POSE, null).pose() == 0, "N again drops it");
 		helper.succeed();

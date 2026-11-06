@@ -309,18 +309,13 @@ public final class StandPoses {
 		p.body(0.2f, -0.1f, 0f).lean(0.15f, 0f, 0f).go(0.25f, 0.1f, 0f);
 	});
 
-	// the N poses, struck along with its user
+	/**
+	 * The N pose, struck along with its user (docs/reference/jotaro_pose): looming behind the left shoulder, leaning in over them, the
+	 * right arm raised high in a fist and the left fist drawn back at the chest, glaring down.
+	 */
 	private static final float[] POSE_POINT = pose(p -> {
-		p.ra(-H, 0f, 0f, 0f).la(-0.4f, 0.98f, -0.14f, 1.9f).rl(-0.5f, 0.06f, 0.05f, 0.95f).ll(0.08f, -0.04f, -0.05f, 0.3f);
-		p.body(0.04f, -0.3f, 0f).head(0.05f, 0.3f).aim(1f, 0f);
-	});
-	private static final float[] POSE_YARE = pose(p -> {
-		p.ra(-0.42f, -0.98f, 0.14f, 1.8f).la(-0.3f, 0.98f, -0.14f, 1.9f).rl(-0.5f, 0.06f, 0.05f, 0.95f).ll(0.08f, -0.04f, -0.05f, 0.3f);
-		p.body(0.12f, 0f, 0f).head(0.42f, 0.15f);
-	});
-	private static final float[] POSE_JOJO = pose(p -> {
-		p.ra(-1.7f, -0.7f, 0.15f, 0.55f).la(-2.5f, 0.85f, 0.35f, 2.1f).rl(-0.7f, 0.25f, 0.15f, 1.15f).ll(0.3f, -0.2f, -0.22f, 0.35f);
-		p.body(0.05f, 0.6f, 0.1f).head(0.05f, -0.45f).lean(-0.05f, 0.18f, 0f);
+		p.ra(-0.5f, 0f, 2.4f, 0.3f).la(-1.2f, 0.25f, -0.15f, 2.0f).rl(-0.45f, 0.08f, 0.1f, 0.7f).ll(0.15f, -0.06f, -0.08f, 0.25f);
+		p.body(0.3f, 0.32f, 0f).head(0.34f, -0.18f).lean(0.25f, -0.06f, 0f).go(0.05f, 0.1f, -1.5f);
 	});
 
 	private static float[] mirrorPose(float[] p) {
@@ -404,12 +399,7 @@ public final class StandPoses {
 		} else if (s.sightUntil > now) {
 			System.arraycopy(SIGHT, 0, out, 0, N);
 		} else if (userPose != null && userPose.pose() != 0) {
-			System.arraycopy(switch (userPose.pose()) {
-				case 1 -> POSE_POINT;
-				case 2 -> POSE_YARE;
-				case 4 -> POSE_JOJO;
-				default -> REST;
-			}, 0, out, 0, N);
+			System.arraycopy(POSE_POINT, 0, out, 0, N);
 		} else {
 			System.arraycopy(fight ? STANCE : REST, 0, out, 0, N);
 		}

@@ -28,11 +28,24 @@ public final class StandClient {
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(StandHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(StandRender::render);
+		WorldRenderEvents.AFTER_ENTITIES.register(StandCoat::render); // the N pose's coat: the user's, so every viewer sees it
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(StandFx::render);
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
 				(payload, context) -> StandFx.receive(payload));
 		WorldRenderEvents.END.register(TimeStopClient::render);
 		ClientPlayNetworking.registerGlobalReceiver(TimeStopPayload.TYPE, (payload, context) -> TimeStopClient.receive(payload));
+		// the N pose points down the look: a player standing still lets their body drift up to 50 degrees from it, so while posing it squares up
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			if (client.level == null) {
+				return;
+			}
+			for (net.minecraft.world.entity.player.Player p : client.level.players()) {
+				var pose = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null);
+				if (pose != null && pose.pose() != 0) {
+					p.yBodyRot += net.minecraft.util.Mth.wrapDegrees(p.getYHeadRot() - p.yBodyRot) * 0.5f;
+				}
+			}
+		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			TimeStopClient.reset();
 			StandRender.reset();

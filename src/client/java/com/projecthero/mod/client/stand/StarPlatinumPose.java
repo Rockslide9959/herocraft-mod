@@ -1,6 +1,7 @@
 package com.projecthero.mod.client.stand;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.HipBend;
 import com.projecthero.mod.client.render.JointedLimbs;
 import com.projecthero.mod.stand.data.StandPoseState;
 
@@ -10,20 +11,18 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.2: the pose a Stand user strikes with N (chosen in the Stand Menu), on the user's own body -- everyone sees this
- * one (it is the player, not the Stand), driven by the synced {@link StandPoseState}. Set from {@code HumanoidModelMixin}.
- * <ol>
- *   <li><b>Pointing</b>: the right arm straight out along the look ("You're next").</li>
- *   <li><b>Yare yare</b>: head down, tugging the brim of the cap.</li>
- *   <li><b>Hands in pockets</b>: shoulders back, chin up.</li>
- *   <li><b>JoJo pose</b>: twisted at the waist, one arm thrust out, the other hand at the brow, feet apart.</li>
- * </ol>
+ * v0.17.2 (user: "create this pose please, recreate it exactly how it looks in these reference images, make this the only pose thats
+ * availible", {@code docs/reference/jotaro_pose/}): the one pose N strikes, on the user's own body -- everyone sees this one (it is the
+ * player, not the Stand), driven by the synced {@link StandPoseState}. Set from {@code HumanoidModelMixin}.
+ *
+ * <p>Jotaro's point: turned three-quarters with the right shoulder driven forward and the chest open, the right arm thrust out down
+ * the look with a slight bend, the left hand on the hip with the elbow out, chin turned over the shoulder, legs wide apart with the
+ * right one forward. {@link StandCoat} flares the coat out behind, and the Stand looms over the left shoulder ({@link StandPoses}).
  */
 public final class StarPlatinumPose {
 	public static final int POINTING = 1;
-	public static final int YARE_YARE = 2;
-	public static final int POCKETS = 3;
-	public static final int JOJO = 4;
+	/** How far the torso turns from the look (radians, toward the user's left). */
+	public static final float TURN = -0.62f;
 
 	private StarPlatinumPose() {
 	}
@@ -36,42 +35,31 @@ public final class StarPlatinumPose {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float age = player.level().getGameTime() - s.start() + partial;
 		float w = Mth.clamp(age / 4f, 0f, 1f);
-		switch (s.pose()) {
-			case POINTING -> {
-				StandPoses.pose(model.rightArm, w, model.head.xRot - Mth.HALF_PI, model.head.yRot, 0f);
-				StandPoses.pose(model.leftArm, w, 0.1f, 0f, -0.1f);
-				StandPoses.joint(JointedLimbs.LEFT_ARM, -0.25f * w);
-			}
-			case YARE_YARE -> {
-				StandPoses.pose(model.rightArm, w, -1.75f, -0.6f, 0.1f);
-				StandPoses.joint(JointedLimbs.RIGHT_ARM, -1.75f * w); // the elbow out, fingers at the brim
-				StandPoses.pose(model.leftArm, w, 0.15f, 0f, -0.1f);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, 0.45f);
-				model.hat.copyFrom(model.head);
-			}
-			case POCKETS -> {
-				StandPoses.pose(model.rightArm, w, 0.42f, 0.1f, 0.14f);
-				StandPoses.pose(model.leftArm, w, 0.42f, -0.1f, -0.14f);
-				StandPoses.joint(JointedLimbs.RIGHT_ARM, -0.6f * w); // hands down in the pockets, elbows back
-				StandPoses.joint(JointedLimbs.LEFT_ARM, -0.6f * w);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.12f);
-				model.hat.copyFrom(model.head);
-			}
-			case JOJO -> {
-				model.body.yRot = Mth.lerp(w, model.body.yRot, 0.45f);
-				StandPoses.pose(model.rightArm, w, -1.45f, -0.25f, 0.15f);
-				StandPoses.joint(JointedLimbs.RIGHT_ARM, -0.35f * w);
-				StandPoses.pose(model.leftArm, w, -2.1f, 0.8f, 0.3f);
-				StandPoses.joint(JointedLimbs.LEFT_ARM, -1.9f * w);
-				StandPoses.pose(model.rightLeg, w, 0.1f, 0.2f, 0.18f);
-				StandPoses.pose(model.leftLeg, w, -0.5f, -0.15f, -0.1f);
-				StandPoses.joint(JointedLimbs.LEFT_LEG, 0.85f * w);
-				model.head.yRot = Mth.lerp(w, model.head.yRot, -0.35f);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, 0.1f);
-				model.hat.copyFrom(model.head);
-			}
-			default -> {
-			}
-		}
+		float look = model.head.xRot;
+
+		// the torso side-on, shoulders swung round with it (as vanilla's attack swing moves them)
+		float yaw = TURN * w;
+		model.body.yRot = yaw;
+		model.rightArm.z = Mth.sin(yaw) * 5f;
+		model.rightArm.x = -Mth.cos(yaw) * 5f;
+		model.leftArm.z = -Mth.sin(yaw) * 5f;
+		model.leftArm.x = Mth.cos(yaw) * 5f;
+
+		// the right arm straight down the look, the elbow barely soft
+		StandPoses.pose(model.rightArm, w, look - Mth.HALF_PI - 0.12f, 0.18f, 0.05f);
+		StandPoses.joint(JointedLimbs.RIGHT_ARM, -0.3f * w);
+		// the left hand on the hip: elbow out and back, the forearm folded in to the belt
+		StandPoses.pose(model.leftArm, w, 0.38f, 1.4f + yaw * 0.5f, -0.5f);
+		StandPoses.joint(JointedLimbs.LEFT_ARM, -1.55f * w);
+		// legs wide apart, the right one forward and straight, the left trailing, knee soft
+		StandPoses.pose(model.rightLeg, w, -0.3f, -0.2f, 0.36f);
+		StandPoses.joint(JointedLimbs.RIGHT_LEG, 0.12f * w);
+		StandPoses.pose(model.leftLeg, w, 0.28f, -0.2f, -0.42f);
+		StandPoses.joint(JointedLimbs.LEFT_LEG, 0.22f * w);
+		// the chin turned over the left shoulder, eyes on the target, chest open
+		model.head.yRot = Mth.lerp(w, model.head.yRot, model.head.yRot - 0.3f);
+		model.head.xRot = Mth.lerp(w, model.head.xRot, look + 0.06f);
+		model.hat.copyFrom(model.head);
+		HipBend.pitch(model, w, -0.1f);
 	}
 }

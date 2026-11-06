@@ -37,7 +37,7 @@ public final class StandMenuScreen extends Screen {
 	private static final int LIST_BOTTOM = PANEL_H - 32;
 	private static final float SMALL = 0.8f;
 	private static final String[] STAT_KEYS = { "power", "speed", "range", "stamina", "precision", "potential" };
-	private static final String[] POSES = { "pointing", "yare_yare", "pockets", "jojo" };
+	private static final String[] POSES = { "pointing" };
 	private static final String[] KEYS = { "R", "Shift+R", "G", "Shift+G", "X", "Shift+X", "Z", "Shift+Z", "V", "Shift+V", "C", "Shift+C" };
 
 	private int pose = 1;
@@ -55,22 +55,21 @@ public final class StandMenuScreen extends Screen {
 	protected void init() {
 		StandState s = minecraft.player == null ? null : Stands.peek(minecraft.player);
 		if (s != null) {
-			pose = Mth.clamp(s.pose, 1, 4);
+			pose = Mth.clamp(s.pose, 1, POSES.length);
 			oraText = s.oraText;
 			autoFace = s.autoFace;
 		}
 		int left = (width - PANEL_W) / 2;
 		int top = (height - PANEL_H) / 2;
-		int bw = (LEFT_W - 26) / 2;
 		for (int i = 0; i < POSES.length; i++) {
 			int index = i + 1;
-			int bx = left + 10 + (i % 2) * (bw + 6);
-			int by = top + 128 + (i / 2) * 22;
+			int bx = left + 10;
+			int by = top + 128 + i * 22;
 			addRenderableWidget(Button.builder(poseLabel(index), b -> {
 				pose = index;
 				ClientPlayNetworking.send(new StandActionPayload(StandActionPayload.Action.SET_POSE, index));
 				rebuildWidgets();
-			}).bounds(bx, by, bw, 20).tooltip(Tooltip.create(Component.translatable("screen.projecthero.stand_menu.pose." + POSES[i] + ".tip"))).build());
+			}).bounds(bx, by, LEFT_W - 20, 20).tooltip(Tooltip.create(Component.translatable("screen.projecthero.stand_menu.pose." + POSES[i] + ".tip"))).build());
 		}
 		addRenderableWidget(Button.builder(toggleLabel("ora_text", oraText), b -> {
 			oraText = !oraText;
