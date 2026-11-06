@@ -206,7 +206,7 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		ServerPlayer c = as(helper, ChromastoneKit.ID);
 		ChromastoneKit ck = (ChromastoneKit) Aliens.kit(ChromastoneKit.ID);
 		ck.setCharge(c, 70);
-		ck.press(c, AbilitySlot.SLOT_5, false);
+		ck.holdStart(c, AbilitySlot.SLOT_5);
 		helper.assertTrue(ck.flag(c, ChromastoneKit.F_STANCE), "Chromastone in the Absorb Stance");
 		Omnitrix.revert(c, Omnitrix.Reason.SHIFT_V);
 		helper.assertTrue(ChromastoneKit.charge(c) == 0 && ck.timer(c, ChromastoneKit.CHARGE) == 0, "the charge is gone");

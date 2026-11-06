@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  * skins: {@code big_chill_cloaked} (wings wrapped round him, his normal look) or {@code big_chill} (wings open) while the kit's
  * synced {@link BigChillKit#F_OPEN} is set (flying, diving, breathing, storming, the ultimate, a moment after any attack). The
  * server holds the flag open for 1.5 s after a move, so the swap never flickers, and marks it with a soft frost ring. Phased or
- * cloaked he is see-through. Effects (world pass, {@link RecalFx}): the held breath's cone, the ice shard, Absolute Zero's dome,
+ * cloaked he is see-through. Effects (world pass, {@link RecalFx}): the held breath's mist, the ice shard, Absolute Zero's dome,
  * the blizzard's bands, the frost armour shell and the ice shells on frozen creatures; rings / shards / decals come from the
  * server as QuirkFx.
  */
@@ -55,8 +55,10 @@ public final class BigChillClient implements AlienClientKit {
 	private static boolean worldPass;
 
 	// ---------------------------------------------------------------- third-person poses
+	// v0.17.2 round 4: held for as long as the keys are (a long last frame), with a chained settle on the release
 	private static final float[][] BREATH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, 0.25f, 0, 0, 0, 0, 0, 0, 0, -0.25f),
-			QuirkKeyframes.f(50, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, 0.25f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.rest(54) };
+			QuirkKeyframes.f(1000000f, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, 0.25f, 0, 0, 0, 0, 0, 0, 0, -0.25f) };
+	private static final float[][] BREATH_END = { QuirkKeyframes.f(0, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, 0.25f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.rest(8) };
 	private static final float[][] SHARD = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, -0.1f, 0, 0.2f, 0, 0, 0.1f, -0.2f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.rest(8) };
 	private static final float[][] GRIP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, 0.2f, 0, -1.5f, -0.2f, 0, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0),
@@ -91,7 +93,8 @@ public final class BigChillClient implements AlienClientKit {
 
 	// ---------------------------------------------------------------- first-person clips
 	private static final FirstPersonClip FP_BREATH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 25, -20, 10, -0.1f, -0.25f, 0.1f),
-			FirstPersonClip.f(50, 25, -20, 10, -0.1f, -0.25f, 0.1f), FirstPersonClip.f(54, 0, 0, 0, 0, 0, 0)).both();
+			FirstPersonClip.f(1000000f, 25, -20, 10, -0.1f, -0.25f, 0.1f)).both();
+	private static final FirstPersonClip FP_BREATH_END = FirstPersonClip.of(FirstPersonClip.f(0, 25, -20, 10, -0.1f, -0.25f, 0.1f), FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_THROW = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -35, 15, 0, 0.1f, 0.15f, -0.3f),
 			FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_GRIP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 25, 0, 0.18f, 0.15f, -0.3f),
@@ -183,8 +186,21 @@ public final class BigChillClient implements AlienClientKit {
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
+		int fl = Omnitrix.state(p).kitFlags;
+		// v0.17.2 round 4: in the air the hover is the base every clip blends on and off, so nothing snaps at either end
+		boolean air = (fl & BigChillKit.F_FLYING) != 0 && (fl & BigChillKit.F_CLOAK) == 0 && !p.onGround();
+		if (air) {
+			flightPose(p, m, age);
+		}
+		if (animId == BigChillKit.ANIM_BREATH_END) {
+			float[] end = QuirkKeyframes.sample(BREATH_END, ticks); // chained: it starts on the breath's own pose, so no fade in
+			if (end != null) {
+				QuirkKeyframes.apply(m, end, Mth.clamp((QuirkKeyframes.length(BREATH_END) - ticks) / QuirkKeyframes.FADE_OUT, 0f, 1f));
+				return true;
+			}
+		}
 		float[][] clip = switch (animId) {
-			case BigChillKit.ANIM_BREATH -> (Omnitrix.state(p).kitFlags & BigChillKit.F_BREATH) != 0 || ticks < 4 ? BREATH : null;
+			case BigChillKit.ANIM_BREATH -> (fl & BigChillKit.F_BREATH) != 0 || ticks < 4 ? BREATH : null;
 			case BigChillKit.ANIM_SHARD -> SHARD;
 			case BigChillKit.ANIM_GRIP -> GRIP;
 			case BigChillKit.ANIM_SHATTER -> SHATTER;
@@ -203,8 +219,7 @@ public final class BigChillClient implements AlienClientKit {
 		if (clip != null && QuirkKeyframes.play(m, clip, ticks, 1f)) {
 			return true;
 		}
-		int f = Omnitrix.state(p).kitFlags;
-		if ((f & BigChillKit.F_CLOAK) != 0) {
+		if ((fl & BigChillKit.F_CLOAK) != 0) {
 			// arms folded in under the wrapped wings
 			m.rightArm.xRot = -0.9f;
 			m.leftArm.xRot = -0.9f;
@@ -212,11 +227,7 @@ public final class BigChillClient implements AlienClientKit {
 			m.leftArm.yRot = -0.6f;
 			return true;
 		}
-		if ((f & BigChillKit.F_FLYING) != 0 && !p.onGround()) {
-			flightPose(p, m, age);
-			return true;
-		}
-		return false;
+		return air;
 	}
 
 	/**
@@ -257,6 +268,7 @@ public final class BigChillClient implements AlienClientKit {
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case BigChillKit.ANIM_BREATH -> FP_BREATH;
+			case BigChillKit.ANIM_BREATH_END -> FP_BREATH_END;
 			case BigChillKit.ANIM_SHARD -> FP_THROW;
 			case BigChillKit.ANIM_GRIP -> FP_GRIP;
 			case BigChillKit.ANIM_SHATTER, BigChillKit.ANIM_AMBUSH -> FP_FIST;
@@ -290,6 +302,35 @@ public final class BigChillClient implements AlienClientKit {
 
 	// ---------------------------------------------------------------- the world pass
 
+	/**
+	 * v0.17.2 round 4: the breath can now run as long as the keys do, so the solid cone it used (a white wedge, and a white disc over his
+	 * own view) became a rolling mist: pale blue puffs that leave his mouth small and swell and thin as they drift down the cone, round a
+	 * short bright jet. In his own view the jet goes and the mist starts further out and thinner, so he can see what he is freezing.
+	 */
+	private static void breathMist(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 mouth, Vec3 f, float len, float k, float now, boolean fp) {
+		Vec3 side = f.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 up = side.cross(f).normalize();
+		float spread = Mth.sin((float) BigChillKit.BREATH_HALF_ANGLE * 0.8f * Mth.DEG_TO_RAD);
+		float start = fp ? 1.5f : 0.1f;
+		for (int i = 0; i < 34; i++) {
+			float s = (now * 0.055f + i * 0.618f) % 1f;
+			float d = start + s * Math.max(0.5f, len - start);
+			double a = i * 2.399 + now * 0.05;
+			float r = Mth.sqrt(((i * 0.381f) % 1f)) * spread * d;
+			Vec3 at = mouth.add(f.scale(d)).add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
+			float size = (fp ? 0.3f : 0.14f) + s * 1.05f;
+			float alpha = k * Mth.sin(Math.min(1f, s * 1.15f) * Mth.PI) * (fp ? 0.14f : 0.2f);
+			PyroDraw.worldGlow(pose, PyroDraw.glowBuffer(buffers), at.subtract(cam), size, PyroDraw.dim(i % 3 == 0 ? ICE_CORE : ICE_GLOW, alpha));
+		}
+		if (!fp) {
+			Vec3 m = mouth.subtract(cam);
+			PyroDraw.ribbon(pose, PyroDraw.additive(buffers), java.util.List.of(m, m.add(f.scale(len * 0.22)), m.add(f.scale(len * 0.45))), t -> 0.1 + t * 0.34,
+					t -> PyroDraw.dim(ICE_CORE, k * 0.55f * (float) (1.0 - t)));
+			PyroDraw.worldGlow(pose, PyroDraw.glowBuffer(buffers), m, 0.22f, PyroDraw.dim(ICE_CORE, k * 0.8f));
+		}
+	}
+
 	private static void renderWorld(WorldRenderContext context) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || context.consumers() == null || context.matrixStack() == null) {
@@ -321,14 +362,7 @@ public final class BigChillClient implements AlienClientKit {
 			if ((st.kitFlags & BigChillKit.F_BREATH) != 0) {
 				long start = st.readyAt(BigChillKit.ID + "." + BigChillKit.BREATH_START);
 				float held = start > 0 ? now - start : t;
-				float k = Mth.clamp(held / 2f, 0f, 1f) * 0.9f;
-				float len = (float) BigChillKit.breathReach(held);
-				RecalFx.cone(pose, buffers, mouth.subtract(cam), f, len * 0.3f, len, ICE_CORE, ICE_GLOW, k);
-				for (int i = 0; i < 6; i++) {
-					float s = ((now * 0.35f + i / 6f) % 1f);
-					Vec3 at = mouth.add(f.scale(s * len)).add(Mth.sin(i * 2.1f + now) * s * 0.8, Mth.cos(i * 1.7f + now) * s * 0.6, 0);
-					PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at.subtract(cam), 0.18f + s * 0.25f, PyroDraw.dim(ICE_CORE, k * 0.7f));
-				}
+				breathMist(pose, buffers, cam, mouth, f, (float) BigChillKit.breathReach(held), Mth.clamp(held / 2f, 0f, 1f), now, fp);
 			}
 			if (st.animId == BigChillKit.ANIM_ZERO) {
 				if (t < BigChillKit.ZERO_WINDUP) {

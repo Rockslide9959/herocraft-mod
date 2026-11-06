@@ -160,6 +160,17 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
+	 * v0.17.2 round 4 (user: "make big chills flight the directional flight where he flies in the direction hes looking in please"):
+	 * Big Chill on the shared model, at about the speeds his wings already had (15.6 / 31 b/s).
+	 */
+	public static final double BIG_CHILL_CRUISE_BPS = 16.0, BIG_CHILL_SPRINT_BPS = 30.0;
+
+	/** v0.17.2 round 4: Big Chill's Moth Flight -- 16 b/s cruising, 30 sprinting, along where he looks. */
+	public static Tune bigChill(float flyingSpeed, boolean sprint) {
+		return cruise(flyingSpeed, sprint, BIG_CHILL_CRUISE_BPS, BIG_CHILL_SPRINT_BPS);
+	}
+
+	/**
 	 * v0.17.2 (user: "give jetray the directional flight and edit his flight speed, make it 25 blocks per second cruise and 45
 	 * blocks per second sprinting please"): the Recalibrated Omnitrix's Jetray on the shared model. Streamline (V) still flies
 	 * faster on top: x{@value #JETRAY_STREAMLINE_MULT}.

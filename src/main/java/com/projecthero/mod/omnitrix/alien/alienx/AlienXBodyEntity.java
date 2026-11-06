@@ -33,9 +33,10 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.2 (user: "when the player transforms into alien x i want his body to remain in place, make alien x 2.5 blocks tall by
  * the way, but the player gets transported to that dimension where he talks to the two heads"): Alien X's body, left standing
- * where Ben transformed while Ben himself is in the Celestial Council ({@link AlienXCouncil}). Frozen like the show: it never
- * moves on its own, cannot be hurt, pushed or blown away, is never saved, and removes itself the moment its owner's council
- * session is gone. Drawn with the Alien X skin, 2.5 blocks tall ({@code AlienXBodyRenderer}); {@link #ACT} is the tick of the
+ * where Ben transformed while Ben himself is in the Celestial Council's hall ({@link AlienXCouncil}). v0.17.2 round 4: the hall is a
+ * mind palace, so he is really standing inside this body, hidden, and this is all the world sees of him. Frozen like the show: it
+ * never moves on its own, cannot be hurt, pushed or blown away, is never saved, never falls out of the world, and removes itself
+ * the moment its owner's council session is gone. Drawn with the Alien X skin, 2.5 blocks tall ({@code AlienXBodyRenderer}); {@link #ACT} is the tick of the
  * last carried motion (the body raises a hand and its eyes flare as reality bends round it).
  */
 public class AlienXBodyEntity extends LivingEntity {
@@ -109,6 +110,11 @@ public class AlienXBodyEntity extends LivingEntity {
 	public void tick() {
 		super.tick();
 		setDeltaMovement(0, Math.min(0, getDeltaMovement().y), 0); // frozen in place (it may still settle onto the ground)
+		if (getY() < level().getMinBuildHeight() + 2) {
+			// standing over the void: it hangs there (its owner is held here, and the void is one of the few things that can kill him)
+			setNoGravity(true);
+			setDeltaMovement(Vec3.ZERO);
+		}
 		if (level() instanceof ServerLevel && this.tickCount % 5 == 0 && !AlienXCouncil.bodyLive(ownerId().orElse(null), getUUID())) {
 			discard(); // the owner came back (or left the game): no orphans
 		}

@@ -81,6 +81,9 @@ public final class OmnitrixHud {
 		OmnitrixRecalClient.drawScreen(g, p, s, partial); // v0.17.2: the Recalibration Chip's reform flashes
 		extraction(g, mc, p, now);
 		autoRing(g, s, now, partial);
+		if (com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.showing()) {
+			return; // v0.17.2 round 4: Alien X's hall is a place, not a HUD
+		}
 		int x0 = g.guiWidth() - MARGIN - WIDTH;
 		int bottom = g.guiHeight() - MARGIN;
 		// on a narrow window the HUD would sit on the right end of the hotbar (and the food bar above it): lift it clear

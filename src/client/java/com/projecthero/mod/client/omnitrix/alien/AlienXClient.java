@@ -8,9 +8,11 @@ import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.OmnitrixHud;
 import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXCouncilScreen;
 import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXFx;
+import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall;
+import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHallAmbience;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXBodyEntity;
-import com.projecthero.mod.omnitrix.alien.alienx.AlienXCouncil;
+import com.projecthero.mod.omnitrix.alien.alienx.AlienXKit;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXCouncilStatePayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -28,15 +30,11 @@ import net.minecraft.resources.ResourceLocation;
  * and only use the skins i provided"), with his three horns. v0.17.2 Celestial Council (user: "when the player transforms into
  * alien x i want his body to remain in place, make alien x 2.5 blocks tall ... the player gets transported to that dimension where
  * he talks to the two heads"): registers the body's renderer ({@link AlienXBodyRenderer}), the council screen
- * ({@link AlienXCouncilScreen}, opened by the server's state payload) and the heads / council effects ({@link AlienXFx}); the HUD
- * row says how to address the council.
+ * ({@link AlienXCouncilScreen}, opened by the server's state payload) and the council's hall ({@link AlienXHall}: v0.17.2 round 4, a
+ * mind palace drawn over the screen, with the heads from {@link AlienXFx}); the HUD row shows only outside the hall.
  */
 public final class AlienXClient implements AlienClientKit {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/alien_x.png");
-	/** The starfield texture sheet (AlienXFx). */
-	public static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_extras.png");
-	public static final float[] STARFIELD = { 32 / 64f, 0f, 1f, 0.5f };
-	public static final float[] VOID = { 0f, 32 / 64f, 16 / 64f, 48 / 64f };
 
 	public static final int SERENA_COLOUR = 0xFF9FE8FF, BELLICUS_COLOUR = 0xFFFF5040, BEN_COLOUR = 0xFF7CFF6A;
 
@@ -46,7 +44,8 @@ public final class AlienXClient implements AlienClientKit {
 	/** One line in {@code OmnitrixClient.initialize}. */
 	public static void register() {
 		AlienClients.register(Aliens.ALIEN_X.id(), new AlienXClient());
-		AlienXFx.init();
+		AlienXHall.init();
+		AlienXHallAmbience.init();
 		EntityRendererRegistry.register(AlienXBodyEntity.TYPE, AlienXBodyRenderer::new);
 		ClientPlayNetworking.registerGlobalReceiver(AlienXCouncilStatePayload.TYPE, (payload, context) -> context.client().execute(() -> {
 			Minecraft mc = Minecraft.getInstance();
@@ -97,11 +96,11 @@ public final class AlienXClient implements AlienClientKit {
 		return 10;
 	}
 
-	/** One row: in the council, how to address it (R) and leave (V / N); elsewhere, where his body is. */
+	/** One row: in the hall (the HUD is put away there, so only for a moment), how to speak; otherwise, that the council is away. */
 	@Override
 	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, int w, float partial) {
 		Minecraft mc = Minecraft.getInstance();
-		boolean inCouncil = p.level().dimension() == AlienXCouncil.DIMENSION;
+		boolean inCouncil = AlienXKit.inHall(p);
 		OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.alien_x.council"), inCouncil ? 1f : 0f, 0xFF9FC4FF,
 				Component.translatable(inCouncil ? "hud.projecthero.omnitrix.alien_x.address" : "hud.projecthero.omnitrix.alien_x.away").getString(),
 				0xFFBFD8FF);

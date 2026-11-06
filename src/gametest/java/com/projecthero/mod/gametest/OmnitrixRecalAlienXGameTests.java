@@ -19,6 +19,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -28,8 +29,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2 Alien X's Celestial Council (docs/OMNITRIX_REVAMP_ALIENX.md): impervious to every kind of damage (but /kill and the
- * void still get through), 2.5 blocks tall, the Recalibrated Omnitrix battery held where it was, the trip to the council and
- * back (body left standing, inventory intact, back at the body), and a logout mid-council bringing him home on the next login.
+ * void still get through), 2.5 blocks tall, the Recalibrated Omnitrix battery held where it was, the hall (v0.17.2 round 4: he
+ * stays in the world, hidden and held at his body, inventory intact), a logout mid-council, a lost session, and the rescue of a
+ * player saved in the old dimension.
  * The debates themselves are OmnitrixAlienXGameTests. Mock players are not ticked by the server, so the tests pump
  * {@link Omnitrix#tick} themselves.
  */
@@ -58,7 +60,7 @@ public class OmnitrixRecalAlienXGameTests implements FabricGameTest {
 		}
 	}
 
-	/** A recalibrated watch, Alien X selected and transformed (he is now before the council). */
+	/** A recalibrated watch, Alien X selected and transformed (he is now in the council's hall). */
 	static ServerPlayer alienX(GameTestHelper helper, ServerPlayer p) {
 		helper.assertTrue(Omnitrix.grant(p, true), "the Recalibrated Omnitrix goes on");
 		helper.assertTrue(Omnitrix.select(p, AlienXKit.ID), "Alien X is on its dial");
@@ -77,16 +79,15 @@ public class OmnitrixRecalAlienXGameTests implements FabricGameTest {
 		return (AlienXKit) Aliens.kit(AlienXKit.ID);
 	}
 
-	/**
-	 * The game-test server loads no datapack dimensions: without the real council, the trip goes through the Nether as its
-	 * stand-in (the same code path -- another level, the floor, the body left behind, the way home).
-	 */
-	private static void standIn(GameTestHelper helper) {
+	/** The game-test server loads no datapack dimensions: the old dimension's rescue is tested through the Nether as its stand-in. */
+	private static net.minecraft.server.level.ServerLevel standIn(GameTestHelper helper) {
 		var server = helper.getLevel().getServer();
-		if (server.getLevel(AlienXCouncil.DIMENSION) == null) {
-			helper.assertTrue(server.getLevel(net.minecraft.world.level.Level.NETHER) != null, "a level to stand in for the council");
-			AlienXCouncil.useTestCouncil(net.minecraft.world.level.Level.NETHER);
+		if (server.getLevel(AlienXCouncil.DIMENSION) != null) {
+			return server.getLevel(AlienXCouncil.DIMENSION);
 		}
+		helper.assertTrue(server.getLevel(net.minecraft.world.level.Level.NETHER) != null, "a level to stand in for the council");
+		AlienXCouncil.useTestCouncil(net.minecraft.world.level.Level.NETHER);
+		return server.getLevel(net.minecraft.world.level.Level.NETHER);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -151,19 +152,20 @@ public class OmnitrixRecalAlienXGameTests implements FabricGameTest {
 		p.getInventory().add(new ItemStack(Items.DIAMOND, 5));
 		p.getInventory().add(new ItemStack(Items.IRON_SWORD));
 		Vec3 from = p.position();
-		standIn(helper);
 		alienX(helper, p);
-		helper.assertTrue(AlienXCouncil.isCouncil(p.level()), "Ben is before the council");
+		// v0.17.2 round 4 (user: "change the alien x council thing to be the mind palace thing that the hulk has"): he never leaves
+		helper.assertTrue(p.level() == helper.getLevel() && p.position().distanceTo(from) < 0.01, "he stays in the world, where he was");
+		helper.assertTrue(AlienXKit.inHall(p), "in the hall");
 		helper.assertTrue(AlienXCouncil.inSession(p), "a council session");
 		AlienXBodyEntity body = AlienXCouncil.body(helper.getLevel().getServer(), p);
 		helper.assertTrue(body != null && body.level() == helper.getLevel() && body.position().distanceTo(from) < 0.01, "his body stands where he was");
 		helper.assertTrue(Math.abs(body.getBbHeight() - 2.5f) < 0.01f, "the body is 2.5 blocks tall");
 		helper.assertFalse(body.hurt(helper.getLevel().damageSources().magic(), 1000f), "the body cannot be hurt");
-		helper.assertTrue(p.getAttachedOrElse(AlienXCouncil.RETURN, null) != null, "where he came from is saved on him");
-		helper.assertTrue(p.getInventory().countItem(Items.DIAMOND) == 5, "his inventory went with him");
+		helper.assertTrue(AlienXKit.bodyId(p) == body.getId(), "his client is told which body to look at");
+		helper.assertTrue(p.getInventory().countItem(Items.DIAMOND) == 5, "his inventory is untouched");
 		pump(helper, p);
 		helper.runAtTickTime(20, () -> {
-			helper.assertTrue(AlienXCouncil.isCouncil(p.level()) && p.getY() > AlienXCouncil.FLOOR_Y, "standing on the council's floor");
+			helper.assertTrue(p.level() == helper.getLevel() && p.position().distanceTo(body.position()) < 0.7, "still standing at his body");
 			// v0.17.2 (user: "the player has to convince the heads to let them detransform aswell please"): V moves the Let Me Go
 			// motion -- nothing happens until both heads agree
 			AlienXCouncil.forceConcerns(p, 1, 5); // glory, balance
@@ -179,39 +181,118 @@ public class OmnitrixRecalAlienXGameTests implements FabricGameTest {
 		});
 		helper.runAtTickTime(20 + AlienXCouncil.RELEASE_DELAY + 6, () -> {
 			helper.assertFalse(Omnitrix.state(p).transformed(), "turned back");
-			helper.assertTrue(p.level() == helper.getLevel(), "back in the world");
+			helper.assertTrue(p.level() == helper.getLevel(), "in the world");
 			helper.assertTrue(p.position().distanceTo(from) < 0.6, "at his body (" + p.position() + " vs " + from + ")");
 			helper.assertTrue(body.isRemoved(), "the body is gone");
 			helper.assertFalse(AlienXCouncil.inSession(p), "the session is over");
-			helper.assertTrue(p.getAttachedOrElse(AlienXCouncil.RETURN, null) == null, "the return point is cleared");
+			helper.assertFalse(AlienXKit.inHall(p), "the hall is gone");
 			helper.assertTrue(p.getInventory().countItem(Items.DIAMOND) == 5 && p.getInventory().countItem(Items.IRON_SWORD) == 1, "the inventory is intact");
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void aLogoutInTheCouncilBringsHimHomeOnLogin(GameTestHelper helper) {
+	public void aLogoutInTheHallLeavesHimAtHisBody(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
 		Vec3 from = p.position();
-		standIn(helper);
 		alienX(helper, p);
-		helper.assertTrue(AlienXCouncil.isCouncil(p.level()), "in the council");
 		AlienXBodyEntity body = AlienXCouncil.body(helper.getLevel().getServer(), p);
-		// the logout: the session ends first (the body goes), then the Omnitrix turns him back -- with no teleport mid-disconnect
+		// the logout: the session ends first (the body goes), then the Omnitrix turns him back -- with nothing moved mid-disconnect
 		AlienXCouncil.onDisconnect(p);
 		Omnitrix.onLogout(p);
 		helper.assertFalse(Omnitrix.state(p).transformed(), "turned back on logout");
-		helper.assertTrue(AlienXCouncil.isCouncil(p.level()), "saved where he was (in the council)");
-		helper.assertTrue(p.getAttachedOrElse(AlienXCouncil.RETURN, null) != null, "with his way home saved");
+		helper.assertFalse(AlienXKit.inHall(p), "out of the hall");
+		helper.assertTrue(p.level() == helper.getLevel() && p.position().distanceTo(from) < 0.6, "saved where his body stood");
 		helper.runAtTickTime(10, () -> {
 			helper.assertTrue(body == null || body.isRemoved(), "no orphaned body");
-			// the next login: the sweep finds him in the council with no session
-			AlienXCouncil.check(p);
-			helper.assertTrue(p.level() == helper.getLevel(), "back in the world");
-			helper.assertTrue(p.position().distanceTo(from) < 0.6, "where his body stood");
-			helper.assertTrue(p.getAttachedOrElse(AlienXCouncil.RETURN, null) == null, "the return point is cleared");
 			helper.succeed();
 		});
 	}
+
+	/** v0.17.2 round 4: the hall is a place in his head: the world sees only the body. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void inTheHallHeIsHiddenAndHeldAtHisBody(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = alienX(helper, mock(helper, 3.5, 2, 1.5));
+		Vec3 from = p.position();
+		helper.assertFalse(p.isPickable(), "no hitbox: nothing can aim at him");
+		helper.assertFalse(p.isPushable(), "nothing pushes him");
+		helper.assertFalse(p.canBeSeenAsEnemy(), "mobs lose him");
+		Zombie z = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertFalse(com.projecthero.mod.combat.HeroTargets.canHarm(z, p), "no hero's targeting finds him");
+		// nothing he clicks reaches the world
+		BlockPos under = BlockPos.containing(p.position()).below();
+		helper.assertTrue(net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.invoker()
+				.interact(p, helper.getLevel(), net.minecraft.world.InteractionHand.MAIN_HAND, under, net.minecraft.core.Direction.UP) == net.minecraft.world.InteractionResult.FAIL,
+				"he cannot touch a block");
+		// he picks nothing up
+		ItemEntity drop = new ItemEntity(helper.getLevel(), p.getX(), p.getY(), p.getZ(), new ItemStack(Items.EMERALD, 3));
+		drop.setNoPickUpDelay();
+		helper.getLevel().addFreshEntity(drop);
+		drop.playerTouch(p);
+		helper.assertTrue(p.getInventory().countItem(Items.EMERALD) == 0, "what falls round the body stays on the ground");
+		// the client walks him nowhere: wherever he is put, he is back at the body next tick
+		p.setPos(p.getX() + 5.0, p.getY(), p.getZ());
+		pump(helper, p);
+		helper.runAtTickTime(4, () -> {
+			helper.assertTrue(p.position().distanceTo(from) < 0.7, "held at his body (" + p.position() + " vs " + from + ")");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 4: "Move My Body" carries him too: his view and his chunks go with it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void movingTheBodyMovesHimAndALostBodyIsPutBack(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = alienX(helper, mock(helper, 3.5, 2, 1.5));
+		AlienXBodyEntity body = AlienXCouncil.body(helper.getLevel().getServer(), p);
+		Vec3 to = body.position().add(4.0, 0.0, 0.0);
+		body.teleportTo(to.x, to.y, to.z);
+		pump(helper, p);
+		helper.runAtTickTime(4, () -> {
+			helper.assertTrue(p.position().distanceTo(to) < 0.7, "he went with it");
+			body.discard();
+		});
+		helper.runAtTickTime(8, () -> {
+			AlienXBodyEntity next = AlienXCouncil.body(helper.getLevel().getServer(), p);
+			helper.assertTrue(next != null && next != body && next.isAlive(), "a lost body is put back");
+			helper.assertTrue(AlienXKit.bodyId(p) == next.getId(), "and his client told");
+			helper.assertTrue(next.position().distanceTo(to) < 0.7, "where he stands");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 4: a player saved inside the old dimension is sent home, even mid-transformation, and the session opens after. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void aPlayerSavedInTheOldDimensionIsSentHome(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		Vec3 from = p.position();
+		var old = standIn(helper);
+		p.setAttached(AlienXCouncil.RETURN, new AlienXCouncil.Return(helper.getLevel().dimension().location().toString(), from.x, from.y, from.z, 90f, 0f));
+		p.teleportTo(old, 0.5, 101.0, 0.5, 180f, 0f);
+		helper.assertTrue(AlienXCouncil.isCouncil(p.level()), "saved in the old dimension");
+		AlienXCouncil.check(p);
+		helper.assertTrue(p.level() == helper.getLevel(), "back in the world");
+		helper.assertTrue(p.position().distanceTo(from) < 0.6, "where he came from");
+		helper.assertTrue(p.getAttachedOrElse(AlienXCouncil.RETURN, null) == null, "the return point is cleared");
+		AlienXCouncil.useTestCouncil(null);
+		helper.succeed();
+	}
+
+	/** A crash mid-session saves him as Alien X with no session: the kit opens a new one, with a new body. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void aLostSessionOpensAgain(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = alienX(helper, mock(helper, 3.5, 2, 1.5));
+		AlienXCouncil.onDisconnect(p); // the session and the body gone, as a restart would leave them
+		helper.assertFalse(AlienXCouncil.inSession(p), "no session");
+		kit().tick(p, Omnitrix.state(p), p.level().getGameTime());
+		helper.assertTrue(AlienXCouncil.inSession(p) && AlienXKit.inHall(p), "back in the hall");
+		helper.assertTrue(AlienXCouncil.body(helper.getLevel().getServer(), p) != null, "with a body");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 }

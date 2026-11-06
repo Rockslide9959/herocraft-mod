@@ -27,7 +27,7 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.2 Celestial Council (user: "make a good debating system where the player can do many many many things, make it work well
  * and be intuitive please"): the council screen, in the game's own look (dark panels, white shadowed text, boss-bar meters,
- * vanilla buttons), drawn over the council so the two heads stay visible behind it. Everything wraps.
+ * vanilla buttons), drawn over the council's hall so the two heads stay visible behind it. Everything wraps.
  * <ol>
  * <li><b>Propose</b>: category (left), action (middle: greyed while it rests), target (right: what is round his body -- the area,
  * where the body looks, the body, creatures and players with health and distance -- only the kinds the action takes). Under them

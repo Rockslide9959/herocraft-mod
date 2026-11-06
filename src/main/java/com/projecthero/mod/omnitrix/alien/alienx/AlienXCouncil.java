@@ -22,10 +22,11 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -43,21 +44,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.TicketType;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.LightBlock;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
@@ -68,14 +63,23 @@ import net.minecraft.world.phys.Vec3;
  * hit things"; "it should be difficult to use him").
  *
  * <h2>The Celestial Council</h2>
- * Transforming leaves Alien X's body ({@link AlienXBodyEntity}, 2.5 blocks tall, impervious, frozen) standing in the world and
- * sends Ben into {@code projecthero:celestial_council}: a black, star-filled void (datapack dimension, always night) where he
- * stands on an invisible floor before two enormous heads -- Serena (soft blue, mercy) and Bellicus (red, rage), drawn by the
- * client ({@code AlienXFx}). Every visit gets its own slot ({@link #SLOT_SPACING} apart). Where he came from is saved on him
- * ({@link #RETURN}), so a logout, a crash or a stopped server still brings him back to his body's spot on his next login.
+ * v0.17.2 round 4 (user: "change the alien x council thing to be the mind palace thing that the hulk has, i also want a screen where
+ * the player can see a third person view of themselves and even turn and look around if they want to please"). Transforming leaves
+ * Alien X's body ({@link AlienXBodyEntity}, 2.5 blocks tall, impervious, frozen) standing in the world, and the player STAYS in the
+ * world too: a client can only draw the level its player stands in, and the hall's giant screen shows that level, live. He is held
+ * exactly at his body ({@link #hold}), hidden from everyone ({@link AlienXKit#inHall}: drawn by nobody, no hitbox, no pushing, mobs
+ * lose him, he picks nothing up, and nothing he clicks reaches the world), and the hall itself is an illusion drawn over his screen
+ * by his own client ({@code AlienXHall}). Everything the old dimension gave for free is therefore done here: his own presence keeps
+ * the chunks loaded, a body that goes missing is put back ({@link #spawnBody}), and a session is memory only (a logout ends it and
+ * turns him back where he stands; a crash leaves him Alien X, and the kit simply opens a new session).
+ *
+ * <h3>The old dimension</h3>
+ * Until v0.17.2 round 4 he was really sent to {@code projecthero:celestial_council}, with where he came from saved on him
+ * ({@link #RETURN}). Nothing sends anyone there now, but a player may still be SAVED in it, so its data files, {@link #DIMENSION}, the
+ * saved return and the half-second sweep ({@link #check}) stay: he is sent back to that spot, or to spawn.
  *
  * <h2>The debate</h2>
- * The council screen ({@code AlienXCouncilScreen}, R to reopen): pick a <b>category</b>, an <b>action</b> ({@link AlienXActions})
+ * The council screen ({@code AlienXCouncilScreen}, reached by walking up to the heads in the hall): pick a <b>category</b>, an <b>action</b> ({@link AlienXActions})
  * and a <b>target</b> from what is around his body (creatures and players with health and distance, "where my body looks", the
  * area round the body, the body itself), then <b>propose</b> it. Each head has a persuasion meter (starting where the action
  * leans them) and both must reach {@link #NEED} within {@link #TURNS} turns. Each turn Ben picks one of {@link #OFFERS}
@@ -88,11 +92,6 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class AlienXCouncil {
 	public static final ResourceKey<Level> DIMENSION = ResourceKey.create(Registries.DIMENSION, ProjectHeroMod.id("celestial_council"));
-	public static final int SLOT_SPACING = 2000, FLOOR_Y = 100;
-	/** The heads' centres, relative to the slot origin (he arrives at origin + (0.5, 1, 0.5) facing north, -Z). */
-	public static final Vec3 SERENA_HEAD = new Vec3(-8.0, 8.0, -19.0), BELLICUS_HEAD = new Vec3(9.0, 8.0, -19.0);
-	/** The floor's half width (barrier blocks: invisible), and the walls' height. */
-	private static final int HALF = 5, WALL = 4;
 
 	// ---------------------------------------------------------------- the debate's rules
 	public static final List<String> TONES = List.of("force", "glory", "resolve", "protection", "mercy", "balance", "wisdom", "humility");
@@ -114,7 +113,7 @@ public final class AlienXCouncil {
 			Map.entry("listen", 2));
 	public static final int BEN_LINES = 3, TRANSCRIPT = 14;
 
-	// ---------------------------------------------------------------- the saved return point
+	// ---------------------------------------------------------------- the saved return point (the old dimension only)
 	public record Return(String dimension, double x, double y, double z, float yRot, float xRot) {
 		public static final Codec<Return> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.STRING.fieldOf("dimension").forGetter(Return::dimension),
@@ -127,8 +126,6 @@ public final class AlienXCouncil {
 
 	public static final AttachmentType<Return> RETURN = AttachmentRegistry.create(ProjectHeroMod.id("alien_x_council_return"),
 			b -> b.persistent(Return.CODEC));
-
-	private static final TicketType<ChunkPos> BODY_TICKET = TicketType.create("projecthero_alien_x_body", Comparator.comparingLong(ChunkPos::toLong), 60);
 
 	// ---------------------------------------------------------------- sessions
 
@@ -159,8 +156,6 @@ public final class AlienXCouncil {
 
 	static final class Session {
 		final UUID player;
-		final int slot;
-		final long enteredAt;
 		UUID body;
 		ResourceKey<Level> bodyDimension;
 		int phase = PHASE_PROPOSE;
@@ -170,14 +165,11 @@ public final class AlienXCouncil {
 		/** v0.17.2: the "Let Me Go" motion was carried -- he turns back at this tick (0 = not leaving). */
 		long releaseAt;
 		boolean watching;
-		boolean opened;
 		final Map<String, Long> readyAt = new HashMap<>();
 		final List<Line> transcript = new ArrayList<>();
 
-		Session(UUID player, int slot, long enteredAt) {
+		Session(UUID player) {
 			this.player = player;
-			this.slot = slot;
-			this.enteredAt = enteredAt;
 		}
 	}
 
@@ -202,19 +194,20 @@ public final class AlienXCouncil {
 		ServerPlayNetworking.registerGlobalReceiver(AlienXCouncilPayload.TYPE, (payload, context) -> handle(context.player(), payload));
 		ServerTickEvents.END_SERVER_TICK.register(AlienXCouncil::tick);
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> AlienXActions.tick(server, true));
-		// a logout ends the session (the body goes); the saved return brings him back on his next login. (Registered before
-		// OmnitrixMod's own logout hook, so the revert that follows finds no session and teleports nothing mid-disconnect.)
+		// a logout ends the session (the body goes), and he is saved where he stands: at his body. (Registered before OmnitrixMod's
+		// own logout hook, so the revert that follows finds no session and moves nothing mid-disconnect.)
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			if (handler.getPlayer() != null) {
 				onDisconnect(handler.getPlayer());
 			}
 		});
-		// nothing in the council can be built, broken or hurt
-		UseBlockCallback.EVENT.register((player, level, hand, hit) -> level.dimension() == DIMENSION ? InteractionResult.FAIL : InteractionResult.PASS);
-		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) -> level.dimension() == DIMENSION ? InteractionResult.FAIL : InteractionResult.PASS);
-		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> level.dimension() != DIMENSION);
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> entity.level().dimension() != DIMENSION
-				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY));
+		// he is in the hall, not in the world: nothing he clicks reaches it, whatever a client sends
+		UseBlockCallback.EVENT.register((player, level, hand, hit) -> inSession(player) ? InteractionResult.FAIL : InteractionResult.PASS);
+		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) -> inSession(player) ? InteractionResult.FAIL : InteractionResult.PASS);
+		UseEntityCallback.EVENT.register((player, level, hand, target, hit) -> inSession(player) ? InteractionResult.FAIL : InteractionResult.PASS);
+		UseItemCallback.EVENT.register((player, level, hand) -> inSession(player) ? InteractionResultHolder.fail(player.getItemInHand(hand))
+				: InteractionResultHolder.pass(player.getItemInHand(hand)));
+		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> !inSession(player));
 	}
 
 	public static void clearSessionState() {
@@ -231,21 +224,14 @@ public final class AlienXCouncil {
 	}
 
 	/**
-	 * Game tests only: the game-test server has no datapack dimensions, so the trip is tested through a stand-in level (the
-	 * Nether). Null in play.
+	 * Game tests only: the game-test server has no datapack dimensions, so the rescue from the old dimension is tested through a
+	 * stand-in level (the Nether). Null in play.
 	 */
 	@Nullable
 	private static ResourceKey<Level> testCouncil;
 
 	public static void useTestCouncil(@Nullable ResourceKey<Level> stand) {
 		testCouncil = stand;
-	}
-
-	/** The council's level (the real dimension, or the tests' stand-in), or null if there is none. */
-	@Nullable
-	static ServerLevel councilLevel(MinecraftServer server) {
-		ServerLevel l = server.getLevel(DIMENSION);
-		return l == null && testCouncil != null ? server.getLevel(testCouncil) : l;
 	}
 
 	/** Whether {@code level} is the council (or the tests' stand-in for it). */
@@ -268,14 +254,10 @@ public final class AlienXCouncil {
 		return level != null && level.getEntity(s.body) instanceof AlienXBodyEntity b ? b : null;
 	}
 
-	/** Where the motions happen: his body, or Ben himself if there is none (no council dimension). */
+	/** Where the motions happen: his body, or Ben himself in the moment before a lost body is put back. */
 	static LivingEntity origin(ServerPlayer p) {
 		AlienXBodyEntity b = p.getServer() == null ? null : body(p.getServer(), p);
 		return b != null && b.isAlive() ? b : p;
-	}
-
-	public static BlockPos originOf(int slot) {
-		return new BlockPos(slot * SLOT_SPACING, FLOOR_Y, 0);
 	}
 
 	public static int phase(Player p) {
@@ -321,103 +303,78 @@ public final class AlienXCouncil {
 
 	// ---------------------------------------------------------------- going in
 
-	private static int freeSlot() {
-		for (int i = 0;; i++) {
-			boolean used = false;
-			for (Session s : SESSIONS.values()) {
-				if (s.slot == i) {
-					used = true;
-					break;
-				}
-			}
-			if (!used) {
-				return i;
-			}
-		}
-	}
-
 	/**
-	 * He just became Alien X: the body stays standing here, Ben goes before the council. With no council dimension (a broken
-	 * datapack) he gets a session all the same, with no body: the motions then happen round him.
+	 * He just became Alien X: the body stays standing here and he goes into the hall. He never leaves the level: {@link #tick} holds
+	 * him at the body, and his client draws the hall as soon as the synced flag ({@link AlienXKit#inHall}) is up.
 	 */
 	public static void enter(ServerPlayer p) {
-		if (SESSIONS.containsKey(p.getUUID())) {
+		if (SESSIONS.containsKey(p.getUUID()) || p.getServer() == null) {
 			return;
 		}
-		MinecraftServer server = p.getServer();
-		if (server == null) {
-			return;
-		}
-		Session s = new Session(p.getUUID(), freeSlot(), now(p));
+		Session s = new Session(p.getUUID());
 		SESSIONS.put(p.getUUID(), s);
 		say(s, WHO_SERENA, "council.serena.welcome." + (1 + p.getRandom().nextInt(LINES.get("welcome"))));
 		say(s, WHO_BELLICUS, "council.bellicus.welcome." + (1 + p.getRandom().nextInt(LINES.get("welcome"))));
-		ServerLevel council = councilLevel(server);
-		if (council == null || isCouncil(p.level())) {
-			return;
-		}
-		ServerLevel home = p.serverLevel();
 		p.stopRiding();
 		p.ejectPassengers();
-		p.setAttached(RETURN, new Return(home.dimension().location().toString(), p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot()));
-		AlienXBodyEntity body = AlienXBodyEntity.TYPE.create(home);
-		if (body != null) {
-			body.setOwner(p.getUUID());
-			body.moveTo(p.getX(), p.getY(), p.getZ(), p.getYRot(), Mth.clamp(p.getXRot(), -30f, 30f));
-			body.yBodyRot = p.getYRot();
-			body.yBodyRotO = p.getYRot();
-			body.yHeadRot = p.getYRot();
-			body.yHeadRotO = p.getYRot();
-			s.body = body.getUUID();
-			s.bodyDimension = home.dimension();
-			home.addFreshEntity(body);
-			holdChunk(home, body.blockPosition());
-		}
-		BlockPos o = originOf(s.slot);
-		buildFloor(council, o);
-		Vec3 arrive = new Vec3(o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5);
-		p.teleportTo(council, arrive.x, arrive.y, arrive.z, 180.0f, -8.0f);
-		p.resetFallDistance();
+		spawnBody(p, s);
 		p.setDeltaMovement(Vec3.ZERO);
-		syncOrigin(p, o);
+		OmnitrixState n = Omnitrix.state(p).copy();
+		n.timers.put(AlienXKit.ID + "." + AlienXKit.T_HALL, 1L);
+		Omnitrix.save(p, n);
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.alien_x.council.enter").withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC),
 				false);
 	}
 
-	/** The council's floor and walls -- barrier blocks (invisible: the void all round) and two hidden lights. */
-	static void buildFloor(ServerLevel level, BlockPos o) {
-		BlockState barrier = Blocks.BARRIER.defaultBlockState();
-		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
-		for (int x = -HALF - 1; x <= HALF + 1; x++) {
-			for (int z = -HALF - 1; z <= HALF + 1; z++) {
-				for (int y = 0; y <= WALL; y++) {
-					boolean edge = Math.abs(x) == HALF + 1 || Math.abs(z) == HALF + 1;
-					BlockState st = y == 0 || edge ? barrier : Blocks.AIR.defaultBlockState();
-					level.setBlock(m.set(o.getX() + x, o.getY() + y, o.getZ() + z), st, Block.UPDATE_CLIENTS);
-				}
-			}
+	/** A body for this session, standing where he stands, looking where he looks (the first one, or one to replace a lost one). */
+	private static void spawnBody(ServerPlayer p, Session s) {
+		ServerLevel home = p.serverLevel();
+		AlienXBodyEntity body = AlienXBodyEntity.TYPE.create(home);
+		if (body == null) {
+			return;
 		}
-		level.setBlock(m.set(o.getX(), o.getY() + WALL, o.getZ()), Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 12), Block.UPDATE_CLIENTS);
-	}
-
-	private static void holdChunk(ServerLevel level, BlockPos at) {
-		ChunkPos c = new ChunkPos(at);
-		level.getChunkSource().addRegionTicket(BODY_TICKET, c, 1, c);
-	}
-
-	private static void syncOrigin(ServerPlayer p, BlockPos o) {
+		body.setOwner(p.getUUID());
+		body.moveTo(p.getX(), p.getY(), p.getZ(), p.getYRot(), Mth.clamp(p.getXRot(), -30f, 30f));
+		body.yBodyRot = p.getYRot();
+		body.yBodyRotO = p.getYRot();
+		body.yHeadRot = p.getYRot();
+		body.yHeadRotO = p.getYRot();
+		s.body = body.getUUID();
+		s.bodyDimension = home.dimension();
+		home.addFreshEntity(body);
 		OmnitrixState n = Omnitrix.state(p).copy();
-		n.timers.put(AlienXKit.ID + "." + AlienXKit.P_COUNCIL + "_x", AlienXKit.enc(o.getX()));
-		n.timers.put(AlienXKit.ID + "." + AlienXKit.P_COUNCIL + "_y", AlienXKit.enc(o.getY()));
-		n.timers.put(AlienXKit.ID + "." + AlienXKit.P_COUNCIL + "_z", AlienXKit.enc(o.getZ()));
+		n.timers.put(AlienXKit.ID + "." + AlienXKit.T_BODY, (long) body.getId());
 		Omnitrix.save(p, n);
+	}
+
+	/**
+	 * Every tick of a session: he stays exactly where his body is (it may settle onto the ground, or step through reality when "Move
+	 * My Body" is carried; his chunks and his view go with it), wherever anything else tries to send him. A body that has gone
+	 * (nothing in the game should do that, but it is what the whole hall looks at) is put back where he stands.
+	 */
+	private static void hold(MinecraftServer server, ServerPlayer p, Session s) {
+		AlienXBodyEntity body = body(server, p);
+		if (body == null || !body.isAlive()) {
+			if (!isCouncil(p.level())) {
+				spawnBody(p, s);
+			}
+			return;
+		}
+		p.setPortalCooldown();
+		if (p.level() != body.level()) {
+			p.teleportTo((ServerLevel) body.level(), body.getX(), body.getY(), body.getZ(), p.getYRot(), p.getXRot());
+		} else if (p.distanceToSqr(body) > HOLD_SLACK * HOLD_SLACK) {
+			p.teleportTo(body.getX(), body.getY(), body.getZ());
+			p.setDeltaMovement(Vec3.ZERO);
+			p.resetFallDistance();
+		}
 	}
 
 	// ---------------------------------------------------------------- coming back
 
 	/**
-	 * He is turning back (N, "Leave the Council", a switch, death...): back to where his body stands (or where he stood), the
-	 * body goes. Dead -- nothing but the clean-up (he respawns as usual).
+	 * He is turning back (N, "Leave the Council", a switch, death...): the hall goes, and so does the body, leaving him standing
+	 * exactly where it stood. Dead -- nothing but the clean-up (he respawns as usual).
 	 */
 	public static void leave(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
@@ -426,38 +383,29 @@ public final class AlienXCouncil {
 			if (s != null) {
 				SESSIONS.remove(p.getUUID());
 			}
+			clearHall(p);
 			return;
 		}
-		Return saved = p.getAttachedOrElse(RETURN, null);
-		ServerLevel level = null;
-		Vec3 at = null;
-		float yRot = saved == null ? p.getYRot() : saved.yRot();
 		AlienXBodyEntity body = body(server, p);
-		if (body != null && body.isAlive()) {
-			level = (ServerLevel) body.level();
-			at = body.position();
-			yRot = body.getYRot();
-		}
+		ServerLevel level = body != null && body.isAlive() ? (ServerLevel) body.level() : null;
+		Vec3 at = level != null ? body.position() : null;
+		float yRot = level != null ? body.getYRot() : p.getYRot();
 		end(server, s);
-		if (p.isDeadOrDying() || p.isRemoved()) {
-			p.removeAttached(RETURN);
-			return;
+		clearHall(p);
+		if (at != null && !p.isDeadOrDying() && !p.isRemoved() && (p.level() != level || p.position().distanceToSqr(at) > 1.0e-3)) {
+			p.teleportTo(level, at.x, at.y, at.z, yRot, p.getXRot());
+			p.resetFallDistance();
+			p.setDeltaMovement(Vec3.ZERO);
 		}
-		if (!isCouncil(p.level()) && saved == null) {
-			return; // no council trip (no dimension): he never went anywhere
-		}
-		if (at == null) {
-			level = savedLevel(server, saved);
-			at = savedPos(level, saved);
-		}
-		finish(p, level, at, yRot, saved == null ? 0f : saved.xRot());
 	}
 
-	private static void finish(ServerPlayer p, ServerLevel level, Vec3 at, float yRot, float xRot) {
-		p.removeAttached(RETURN);
-		p.teleportTo(level, at.x, at.y, at.z, yRot, xRot);
-		p.resetFallDistance();
-		p.setDeltaMovement(Vec3.ZERO);
+	private static void clearHall(ServerPlayer p) {
+		if (Omnitrix.state(p).readyAt(AlienXKit.ID + "." + AlienXKit.T_HALL) != 0L) {
+			OmnitrixState n = Omnitrix.state(p).copy();
+			n.timers.remove(AlienXKit.ID + "." + AlienXKit.T_HALL);
+			n.timers.remove(AlienXKit.ID + "." + AlienXKit.T_BODY);
+			Omnitrix.save(p, n);
+		}
 	}
 
 	private static ServerLevel savedLevel(MinecraftServer server, @Nullable Return saved) {
@@ -490,11 +438,12 @@ public final class AlienXCouncil {
 		}
 	}
 
-	/** Logging out mid-session: the session (and the body) ends; the saved return brings him back on his next login. */
+	/** Logging out mid-session: the session (and the body) ends, and he is saved where he stands, at his body. */
 	public static void onDisconnect(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
 		if (s != null && p.getServer() != null) {
 			end(p.getServer(), s);
+			clearHall(p);
 		}
 	}
 
@@ -505,17 +454,23 @@ public final class AlienXCouncil {
 	}
 
 	/**
-	 * A player with no live session: in the council with a saved return (a relog, a crash, a stopped server) -- sent back to
-	 * where his body stood; in the council with nothing saved -- spawn; anywhere else with a leftover return -- it is dropped.
+	 * The old dimension (nothing sends anyone there since v0.17.2 round 4): a player found in it -- saved there by an older version,
+	 * or dropped there by a command -- goes back to the saved spot, or to spawn if nothing was saved. Anywhere else a leftover
+	 * return is just dropped. Before any session, so a save that was mid-transformation gets out too ({@code AlienXKit.tick} waits
+	 * for this before it opens one).
 	 */
 	public static void check(ServerPlayer p) {
-		if (SESSIONS.containsKey(p.getUUID()) || p.getServer() == null) {
+		if (p.getServer() == null) {
 			return;
 		}
 		Return saved = p.getAttachedOrElse(RETURN, null);
 		if (isCouncil(p.level())) {
 			ServerLevel level = savedLevel(p.getServer(), saved);
-			finish(p, level, savedPos(level, saved), saved == null ? p.getYRot() : saved.yRot(), saved == null ? 0f : saved.xRot());
+			Vec3 at = savedPos(level, saved);
+			p.removeAttached(RETURN);
+			p.teleportTo(level, at.x, at.y, at.z, saved == null ? p.getYRot() : saved.yRot(), saved == null ? 0f : saved.xRot());
+			p.resetFallDistance();
+			p.setDeltaMovement(Vec3.ZERO);
 		} else if (saved != null) {
 			p.removeAttached(RETURN);
 		}
@@ -541,24 +496,8 @@ public final class AlienXCouncil {
 				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V); // the council let him go
 				continue;
 			}
-			if (s.bodyDimension != null) {
-				ServerLevel home = server.getLevel(s.bodyDimension);
-				Entity body = home == null ? null : home.getEntity(s.body);
-				if (body != null && now % 20L == 0L) {
-					holdChunk(home, body.blockPosition());
-				}
-				if (isCouncil(p.level())) {
-					BlockPos o = originOf(s.slot);
-					if (p.getY() < FLOOR_Y - 3 || Math.abs(p.getX() - o.getX()) > HALF + 3 || Math.abs(p.getZ() - o.getZ()) > HALF + 3) {
-						p.teleportTo(o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5);
-						p.resetFallDistance();
-					}
-				}
-			}
-			if (!s.opened && now - s.enteredAt >= 30) {
-				s.opened = true;
-				send(p, s, true);
-			} else if (s.watching && s.phase == PHASE_PROPOSE && now % 20L == 0L) {
+			hold(server, p, s);
+			if (s.watching && s.phase == PHASE_PROPOSE && now % 20L == 0L) {
 				send(p, s, false); // the live list of what is round his body
 			}
 		}
@@ -594,6 +533,9 @@ public final class AlienXCouncil {
 			}
 		}
 	}
+
+	/** How far from his body he may drift before he is put back (blocks): his own client walks him nowhere. */
+	private static final double HOLD_SLACK = 0.6;
 
 	/** Ticks between the "Let Me Go" motion being carried and him turning back (the banner shows first). */
 	public static final int RELEASE_DELAY = 30;
@@ -635,11 +577,10 @@ public final class AlienXCouncil {
 		return s != null && s.releaseAt > 0;
 	}
 
-	/** R in the council (or the screen asking): the screen opens with the current state. */
+	/** At the heads (or the screen asking): the screen opens with the current state. */
 	public static void open(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
 		if (s != null) {
-			s.opened = true;
 			s.watching = true;
 			send(p, s, true);
 		}
@@ -666,7 +607,7 @@ public final class AlienXCouncil {
 		int kind = AlienXActions.kindOf(target, te);
 		boolean ok = kind != 0 && a.takes(kind);
 		if (ok && target >= 0) {
-			ok = te instanceof LivingEntity le && le.isAlive() && le != p && le != origin && le.level() == origin.level()
+			ok = te instanceof LivingEntity le && le.isAlive() && le != p && le != origin && !AlienXKit.inHall(le) && le.level() == origin.level()
 					&& le.distanceTo(origin) <= AlienXActions.RANGE;
 		}
 		if (ok && target == AlienXActions.T_BODY) {
@@ -914,7 +855,7 @@ public final class AlienXCouncil {
 		}
 		List<LivingEntity> near = origin.level().getEntitiesOfClass(LivingEntity.class, origin.getBoundingBox().inflate(AlienXActions.RANGE),
 				e -> e != origin && e != p && e.isAlive() && !e.isSpectator() && !(e instanceof ArmorStand) && !(e instanceof AlienXBodyEntity)
-						&& e.distanceTo(origin) <= AlienXActions.RANGE);
+						&& !AlienXKit.inHall(e) && e.distanceTo(origin) <= AlienXActions.RANGE);
 		near.sort(Comparator.comparingDouble(e -> e.distanceToSqr(origin)));
 		for (LivingEntity e : near.subList(0, Math.min(16, near.size()))) {
 			targets.add(target(e.getId(), e instanceof Player ? AlienXActions.K_PLAYER : AlienXActions.K_LIVING, e.getDisplayName().getString(), e.getHealth(),
