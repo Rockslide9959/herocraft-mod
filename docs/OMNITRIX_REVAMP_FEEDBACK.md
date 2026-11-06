@@ -149,7 +149,7 @@ What you absorb in the last 15 s is also banked for Redirect.
 | Key | Move | What it does | Cooldown |
 |---|---|---|---|
 | R | **Feedback Blast** | a fingertip bolt at the crosshair (28): 14 for 10 Charge, knocked back; with less, a Static Spark (6) | 0.6 s |
-| Shift+R | **Feedback Beam** | hold: a beam from his hand for as long as the keys are down (24 blocks): 6 every 5 ticks, no Charge | 6 s from release |
+| Shift+R | **Feedback Beam** | hold: a beam from his hand for as long as the keys are down (24 blocks): 6 every 5 ticks, 5 Charge a second, 5 to start | 6 s from release |
 | G | **Storm Burst** | 25 Charge: electricity in a 20-block, 70-degree cone: 20 to everything in it, knocked back | 5 s |
 | Shift+G | **Chain Surge** | 30 Charge: a bolt at the crosshair (28) that jumps to the nearest creature within 10, six in all: 16 each, stunned 0.5 s | 8 s |
 | X | **Conductoid Leap** | a long springy leap where you look; no fall damage for 2 s | 2 s |

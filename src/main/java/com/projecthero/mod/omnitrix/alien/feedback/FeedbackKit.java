@@ -63,7 +63,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R          Feedback Blast     a fingertip bolt at the crosshair (28; 10 Charge): 14; with less, a Static Spark (6)
- *   Shift+R    Feedback Beam      hold: a beam from his hand for as long as the keys are down (24 blocks): 6 every 5 ticks; 6 s cooldown from release
+ *   Shift+R    Feedback Beam      hold: a beam from his hand for as long as the keys are down and Charge lasts (24 blocks): 6 every 5 ticks, 5 Charge a second; 6 s cooldown from release
  *   G          Storm Burst        25 Charge: electricity out in a 20-block cone, 20 to everything in it
  *   Shift+G    Chain Surge        30 Charge: a bolt at the crosshair that jumps to five more creatures within 10 of each other, 16 each
  *   X          Conductoid Leap    a long agile leap where you look; no fall damage 2 s
@@ -114,9 +114,11 @@ public final class FeedbackKit extends AlienKit {
 			FINGER_DAMAGE = 3f, OVERCHARGE_DAMAGE = 2f;
 	public static final float MACHINE_BONUS = 1.5f, ABSORB_RATE = 4f;
 	public static final int BLAST_COST = 10, REDIRECT_COST = 15, WHIP_COST = 5, CONE_COST = 25, CHAIN_COST = 30, DISCHARGE_MIN_CHARGE = 40,
-			CANNON_COST = 50, FINGER_GAIN = 3, DRAIN_GAIN = 6, LIGHTNING_GAIN = 40, ABSORB_MIN = 4, FLIGHT_MIN_CHARGE = 5;
+			CANNON_COST = 50, FINGER_GAIN = 3, DRAIN_GAIN = 6, LIGHTNING_GAIN = 40, ABSORB_MIN = 4, FLIGHT_MIN_CHARGE = 5, BEAM_MIN_CHARGE = 5;
 	/** Surge Flight spends 1 Charge every this many ticks: 5 a second. */
 	public static final int FLIGHT_EVERY = 4;
+	/** The Feedback Beam likewise: 1 Charge every this many ticks. */
+	public static final int BEAM_DRAIN_EVERY = 4;
 	public static final int QUICK_ABSORB_TICKS = 20, ABSORB_COOLDOWN = 80, PLUG_TICKS = 40, LEAP_TICKS = 40, BEAM_EVERY = 5, CHAIN_HITS = 6, CANNON_CHARGE_TICKS = 30,
 			BANK_TICKS = 300, DRAIN_EVERY = 10, DISCHARGE_STUN = 20, CANNON_STUN = 10, CHAIN_STUN = 10;
 	public static final double BLAST_RANGE = 28, PLUG_RANGE = 8, PLUG_NEAR = 6, WHIP_RANGE = 4, CANNON_RANGE = 32, BEAM_RANGE = 24, CONE_RANGE = 20, CHAIN_RANGE = 10;
@@ -627,7 +629,8 @@ public final class FeedbackKit extends AlienKit {
 
 	/**
 	 * Shift+R: v0.17.2 (user: "Make his shift+R move a beam ability where player shoots a beam as long as they hold the ability
-	 * keybind"). No time limit and no Charge, so it never cuts out while the keys are down; the cooldown starts when he lets go.
+	 * keybind"; "feedbacks feedback beam ability should drain charge"). No time limit but his Charge, 5 a second; the cooldown starts when
+	 * he lets go or runs dry.
 	 */
 	public boolean startBeam(ServerPlayer p) {
 		if (flag(p, F_BEAM)) {
@@ -635,6 +638,10 @@ public final class FeedbackKit extends AlienKit {
 		}
 		if (!ready(p, BEAM)) {
 			return use(p, BEAM); // the usual "not ready" line
+		}
+		if (charge(p) < BEAM_MIN_CHARGE) {
+			say(p, "low_charge", BEAM_MIN_CHARGE);
+			return false;
 		}
 		setFlag(p, F_BEAM, true);
 		anim(p, ANIM_BEAM);
@@ -646,6 +653,15 @@ public final class FeedbackKit extends AlienKit {
 		if (!p.isShiftKeyDown()) {
 			endBeam(p); // the Shift half came up first
 			return;
+		}
+		if (charge(p) <= 0) {
+			endBeam(p);
+			say(p, "beam_empty");
+			OmnitrixSfx.play(l, p.position(), SND_FIZZ, 0.8f, 1.1f);
+			return;
+		}
+		if (now % BEAM_DRAIN_EVERY == 0) {
+			setCharge(p, charge(p) - 1);
 		}
 		if (now % BEAM_EVERY != 0) {
 			return;

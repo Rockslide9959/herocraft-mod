@@ -2,8 +2,6 @@ package com.projecthero.mod.omnitrix.alien.alienx;
 
 import java.util.List;
 
-import org.jetbrains.annotations.Nullable;
-
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -26,7 +24,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2: Alien X, the Celestialsapien (Ben 10: Alien Force).
@@ -38,10 +35,10 @@ import net.minecraft.world.phys.Vec3;
  * body to remain in place, make alien x 2.5 blocks tall by the way, but the player gets transported to that dimension where he
  * talks to the two heads, make a good debating system where the player can do many many many things".
  * <ul>
- * <li>Transforming leaves his 2.5-block body standing, frozen and impervious ({@link AlienXBodyEntity}), and sends Ben to the
- * Celestial Council ({@link AlienXCouncil}): there he talks Serena and Bellicus into anything from a one-shot strike to
- * bringing the night ({@link AlienXActions}), and it happens at his body.</li>
- * <li>No key casts a power: R opens the council screen, V leaves the council (turns back, like N). Punches do nothing.</li>
+ * <li>Transforming leaves his 2.5-block body standing, frozen and impervious ({@link AlienXBodyEntity}), and puts Ben in the
+ * Celestial Council's hall, a mind palace like the Hulk's ({@link AlienXCouncil}, client {@code AlienXHall}): there he talks Serena
+ * and Bellicus into anything from a one-shot strike to bringing the night ({@link AlienXActions}), and it happens at his body.</li>
+ * <li>No key casts a power: at the heads R (or a right-click) opens the council screen, V asks to leave (like N). Punches do nothing.</li>
  * <li>Impervious: no damage of any kind ({@link #allowDamage}; /kill and the void still work -- OmnitrixDamage lets them past
  * every kit), no knockback, no harmful effects, no fire, no drowning.</li>
  * <li>The Recalibrated Omnitrix's battery is held while he is Alien X (Omnitrix#HOLD_BATTERY, set in {@link #onTransform}).</li>
@@ -54,8 +51,8 @@ public final class AlienXKit extends AlienKit {
 	public static final String LEAVE = "leave_council";
 	public static final List<String> MOVE_IDS = List.of(ADDRESS, LEAVE);
 
-	/** Synced timers: the council slot's origin (position), and which head speaks (and since when). */
-	public static final String P_COUNCIL = "council", T_SPEAK_WHO = "speak_who", T_SPEAK_AT = "speak_at";
+	/** Synced timers: he is in the hall (and his body's entity id), and which head speaks (and since when). */
+	public static final String T_HALL = "hall", T_BODY = "body_id", T_SPEAK_WHO = "speak_who", T_SPEAK_AT = "speak_at";
 
 	private static final ResourceLocation STEADY = PowerToggles.id("omnitrix_alien_x_steady");
 
@@ -127,23 +124,17 @@ public final class AlienXKit extends AlienKit {
 
 	// ---------------------------------------------------------------- client-safe reads
 
-	public static long enc(double v) {
-		return Math.round(v * 64.0) + (1L << 40);
+	/**
+	 * Is {@code e} a player in the hall right now? Both sides, read off the synced state: he stands inside his own body, and to
+	 * everything in the world only the body is there -- nobody draws him, nothing can aim at him, push him or hunt him.
+	 */
+	public static boolean inHall(Entity e) {
+		return e instanceof Player p && Omnitrix.state(p).readyAt(ID + "." + T_HALL) != 0L;
 	}
 
-	public static double dec(long v) {
-		return (v - (1L << 40)) / 64.0;
-	}
-
-	/** A position stored in the synced timers ({@code <name>_x / _y / _z}), or null. */
-	@Nullable
-	public static Vec3 pos(Player p, String name) {
-		OmnitrixState s = Omnitrix.state(p);
-		long x = s.readyAt(ID + "." + name + "_x");
-		if (x <= 0) {
-			return null;
-		}
-		return new Vec3(dec(x), dec(s.readyAt(ID + "." + name + "_y")), dec(s.readyAt(ID + "." + name + "_z")));
+	/** His body's entity id (client-safe), or 0. */
+	public static int bodyId(Player p) {
+		return (int) Omnitrix.state(p).readyAt(ID + "." + T_BODY);
 	}
 
 	/** Which head speaks (AlienXCouncil.WHO_*) and for how many ticks it has. */
@@ -183,6 +174,11 @@ public final class AlienXKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		impervious(p);
+		// transformed with no session: the session was lost with a crash or a stopped server (the Omnitrix state was saved). Back in
+		// the hall, a new body where he stands. (The sweep gets him out of the old dimension first.)
+		if (!AlienXCouncil.inSession(p) && !AlienXCouncil.isCouncil(p.level())) {
+			AlienXCouncil.enter(p);
+		}
 	}
 
 	/** v0.17.2 (user: "impervious to all forms of damage"): no fire, no breathlessness, no harmful effect stays on him. */

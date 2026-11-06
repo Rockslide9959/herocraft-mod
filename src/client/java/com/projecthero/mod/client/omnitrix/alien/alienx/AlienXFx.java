@@ -10,9 +10,6 @@ import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXCouncil;
 import com.projecthero.mod.omnitrix.alien.alienx.AlienXKit;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
@@ -27,19 +24,18 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 Celestial Council (user: "the player gets transported to that dimension where he talks to the two heads"): the council
- * drawn on the client, only while he is in {@code projecthero:celestial_council} -- two enormous floating heads
- * ({@link #HEAD_SCALE} times a player's head, head and hat layer). v0.17.2 (user: "use this for bellicus and serenas faces: [the
- * planetminecraft Bellicus and Serena skin] ... use the one side of the head for bellicus and other side for serena, split it into 2
- * head models"): that skin carries Bellicus' face on one side of the head and Serena's on the other; each head here is its own skin
- * with that face moved to the front ({@code scratchpad/gen_alienx_council_heads_v0172.js}). They drift, turn to look at him, blink
- * now and then, and the one speaking (synced: {@code AlienXKit.speaker}) nods, its mouth moves, its eyes flare and green rings
- * ripple out from it. Under him a faint ring of light marks the invisible floor, and far nebulae glow in the dark among the vanilla night sky's stars. Additive glows, ribbons and bands
- * ({@link PyroDraw}): no particles.
+ * v0.17.2 Celestial Council: the two enormous floating heads ({@link #HEAD_SCALE} times a player's head, head and hat layer) and the
+ * point of light in {@link AlienXHall} (v0.17.2 round 4: the hall took over the old dimension's sky, floor and nebulae). v0.17.2 (user:
+ * "use this for bellicus and serenas faces: [the planetminecraft Bellicus and Serena skin] ... use the one side of the head for
+ * bellicus and other side for serena, split it into 2 head models"): that skin carries Bellicus' face on one side of the head and
+ * Serena's on the other; each head here is its own skin with that face moved to the front
+ * ({@code scratchpad/gen_alienx_council_heads_v0172.js}). They drift, turn to look at him, blink now and then, and the one speaking
+ * (synced: {@code AlienXKit.speaker}) nods, its mouth moves, its eyes flare and green rings ripple out from it. Additive glows and
+ * bands ({@link PyroDraw}): no particles.
  */
 public final class AlienXFx {
 	public static final float HEAD_SCALE = 14f;
-	private static final int SERENA_EYE = 0xFFC8FFB0, BELLICUS_EYE = 0xFF8CFF30, VIOLET = 0xFF8A4DFF, STAR_BLUE = 0xFF9FC4FF, NEBULA = 0xFF3A2A9A;
+	private static final int SERENA_EYE = 0xFFC8FFB0, BELLICUS_EYE = 0xFF8CFF30, VIOLET = 0xFF8A4DFF, STAR_BLUE = 0xFF9FC4FF;
 	/** [bellicus ? 1 : 0][blink + 2 * talk]: the four face variants of each head. */
 	private static final ResourceLocation[][] SKINS = new ResourceLocation[2][4];
 	static {
@@ -49,70 +45,39 @@ public final class AlienXFx {
 			SKINS[1][k] = ProjectHeroMod.id("textures/entity/omnitrix/alien_x_bellicus" + suffix[k] + ".png");
 		}
 	}
-	private static boolean registered;
 	private static PlayerModel<AbstractClientPlayer> model;
 
 	private AlienXFx() {
 	}
 
-	public static void init() {
-		if (!registered) {
-			registered = true;
-			WorldRenderEvents.AFTER_ENTITIES.register(AlienXFx::render);
-		}
-	}
-
-	private static void render(WorldRenderContext context) {
+	/**
+	 * The heads and the point of light. {@code pose} holds the view rotation, as a world pass's does, and everything is drawn relative
+	 * to {@code cam}. {@code light}: how strongly the point of light shows (it steps back while he uses it).
+	 */
+	static void council(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 look, Vec3 serena, Vec3 bellicus, Vec3 console, float time, float partial,
+			float light) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || mc.player == null || context.consumers() == null || context.matrixStack() == null
-				|| mc.level.dimension() != AlienXCouncil.DIMENSION) {
-			return;
-		}
-		try {
-			council(context, mc);
-		} catch (RuntimeException e) {
-			// a draw must never take the frame down
-		}
-	}
-
-	private static void council(WorldRenderContext context, Minecraft mc) {
-		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
-		Vec3 cam = context.camera().getPosition();
-		PoseStack pose = context.matrixStack();
 		BASE.set(pose.last().pose());
-		MultiBufferSource buffers = context.consumers();
-		long now = mc.level.getGameTime();
-		float time = now + partial;
-		Vec3 o = AlienXKit.pos(mc.player, AlienXKit.P_COUNCIL);
-		if (o == null) {
-			Vec3 p = mc.player.position();
-			o = new Vec3(Math.round(p.x / AlienXCouncil.SLOT_SPACING) * (double) AlienXCouncil.SLOT_SPACING, AlienXCouncil.FLOOR_Y, 0);
-		}
-		Vec3 centre = o.add(0.5, 0, 0.5);
 		VertexConsumer add = PyroDraw.additive(buffers);
 		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
-		// the floor: a faint ring of light, a slowly turning band
-		pose.pushPose();
-		Vec3 f = centre.add(0, 1.02, 0).subtract(cam);
-		pose.translate(f.x, f.y, f.z);
-		PyroDraw.annulus(pose, add, 3.6f, 4.4f, PyroDraw.dim(STAR_BLUE, 0.35f), PyroDraw.dim(NEBULA, 0.05f), 0f);
-		PyroDraw.annulus(pose, add, 0f, 3.6f, PyroDraw.dim(NEBULA, 0.10f), PyroDraw.dim(NEBULA, 0.22f), 0f);
-		pose.mulPose(Axis.YP.rotation(time * 0.01f));
-		PyroDraw.band(pose, add, 4.0f, 0.03f, PyroDraw.dim(VIOLET, 0.6f), 0xFF000000);
-		pose.popPose();
-		// far nebulae
-		float[][] neb = { { -60, 30, -90, 26, 0 }, { 70, 10, -110, 32, 1 }, { 10, 60, -140, 40, 2 }, { -90, -20, 40, 30, 1 }, { 80, 40, 60, 28, 0 } };
-		for (float[] n : neb) {
-			int col = n[4] == 0 ? VIOLET : n[4] == 1 ? STAR_BLUE : NEBULA;
-			PyroDraw.glow(pose, glow, centre.add(n[0], n[1], n[2]).subtract(cam), n[3], PyroDraw.dim(col, 0.18f));
-		}
 		int speaker = AlienXKit.speaker(mc.player);
+		long now = mc.level.getGameTime();
 		float since = now - AlienXKit.speakAt(mc.player) + partial;
-		Vec3 eye = mc.player.getEyePosition(partial);
-		head(pose, buffers, add, glow, cam, centre.add(AlienXCouncil.SERENA_HEAD), eye, time, false,
-				speaker == AlienXCouncil.WHO_SERENA && since >= 0 && since < 50 ? since : -1f);
-		head(pose, buffers, add, glow, cam, centre.add(AlienXCouncil.BELLICUS_HEAD), eye, time, true,
-				speaker == AlienXCouncil.WHO_BELLICUS && since >= 0 && since < 50 ? since : -1f);
+		head(pose, buffers, add, glow, cam, serena, look, time, false, speaker == AlienXCouncil.WHO_SERENA && since >= 0 && since < 50 ? since : -1f);
+		head(pose, buffers, add, glow, cam, bellicus, look, time, true, speaker == AlienXCouncil.WHO_BELLICUS && since >= 0 && since < 50 ? since : -1f);
+		// the point of light, turning over its plinth
+		Vec3 p = console.add(0.0, 1.45 + 0.08 * Mth.sin(time * 0.06f), 0.0);
+		PyroDraw.glow(pose, glow, p.subtract(cam), 1.5f, PyroDraw.dim(STAR_BLUE, 0.55f * light));
+		PyroDraw.glow(pose, glow, p.subtract(cam), 0.42f, PyroDraw.dim(0xFFFFFFFF, 0.95f * light));
+		pose.pushPose();
+		Vec3 r = p.subtract(cam);
+		pose.translate(r.x, r.y, r.z);
+		pose.mulPose(Axis.YP.rotation(time * 0.05f));
+		pose.mulPose(Axis.ZP.rotationDegrees(62f));
+		PyroDraw.band(pose, add, 0.62f, 0.025f, PyroDraw.dim(VIOLET, light), 0xFF000000);
+		pose.mulPose(Axis.XP.rotationDegrees(70f));
+		PyroDraw.band(pose, add, 0.5f, 0.02f, PyroDraw.dim(STAR_BLUE, light), 0xFF000000);
+		pose.popPose();
 	}
 
 	private static PlayerModel<AbstractClientPlayer> model() {

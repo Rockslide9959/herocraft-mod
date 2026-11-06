@@ -64,6 +64,10 @@ public final class HeroTargets {
 				|| target instanceof ArmorStand || target.isSpectator() || target.isRemoved()) {
 			return false;
 		}
+		// v0.17.2 round 4: a player in Alien X's hall stands hidden inside his frozen body: nothing in the world can aim at him
+		if (com.projecthero.mod.omnitrix.alien.alienx.AlienXKit.inHall(target)) {
+			return false;
+		}
 		// creative (and any other invulnerable) players -- the same flag vanilla's Player#hurt checks
 		if (target instanceof Player p && p.getAbilities().invulnerable) {
 			return false;

@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.projecthero.mod.client.hulk.HulkMindScreen;
+import com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall;
 
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.player.LocalPlayer;
@@ -25,12 +26,20 @@ public abstract class MouseHandlerHulkMindMixin {
 			HulkMindScreen.turn(dx, dy);
 			return;
 		}
+		if (AlienXHall.showing()) {
+			AlienXHall.turn(dx, dy); // v0.17.2 round 4: the walker of Alien X's hall, or the view round his body
+			return;
+		}
 		original.call(player, dx, dy);
 	}
 
 	@Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
 	private void projecthero$hulkMindNoScroll(long window, double xOffset, double yOffset, CallbackInfo ci) {
 		if (HulkMindScreen.showing() && net.minecraft.client.Minecraft.getInstance().screen == null) {
+			ci.cancel();
+		}
+		if (AlienXHall.showing() && net.minecraft.client.Minecraft.getInstance().screen == null) {
+			AlienXHall.scroll(yOffset);
 			ci.cancel();
 		}
 	}

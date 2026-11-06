@@ -484,7 +484,7 @@ public final class HulkMindScreen {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		capture(main, w, h);
+		pov = capture(pov, main, w, h);
 
 		float partial = delta.getGameTimeDeltaPartialTick(false);
 		float screenW = screenWidth(mc);
@@ -663,8 +663,11 @@ public final class HulkMindScreen {
 		RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 	}
 
-	/** Copies the finished world frame into {@link #pov}: alpha forced to 1 (the shader discards alpha 0), then mipmaps. */
-	private static void capture(RenderTarget main, int w, int h) {
+	/**
+	 * Copies the finished world frame into {@code pov} (made or resized as needed, and returned): alpha forced to 1 (the shader
+	 * discards alpha 0), then mipmaps. Shared with Alien X's hall.
+	 */
+	public static RenderTarget capture(RenderTarget pov, RenderTarget main, int w, int h) {
 		if (pov == null) {
 			pov = new TextureTarget(w, h, false, Minecraft.ON_OSX);
 		} else if (pov.width != w || pov.height != h) {
@@ -683,6 +686,7 @@ public final class HulkMindScreen {
 		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 		GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
 		GlStateManager._bindTexture(0);
+		return pov;
 	}
 
 	/** Now and then the signal stutters (a frame or two dimmer). */

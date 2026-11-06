@@ -290,7 +290,7 @@ public final class AlienXActions {
 			case "mend_all" -> {
 				int n = 0;
 				for (Player o : l.getEntitiesOfClass(Player.class, new AABB(origin.position(), origin.position()).inflate(MEND_RADIUS))) {
-					if (o.isAlive() && o != p) {
+					if (o.isAlive() && o != p && !AlienXKit.inHall(o)) {
 						mend(o, 20f);
 						n++;
 					}
@@ -448,7 +448,7 @@ public final class AlienXActions {
 	static List<LivingEntity> around(ServerPlayer p, LivingEntity origin, Vec3 at, double r) {
 		List<LivingEntity> out = new ArrayList<>();
 		for (LivingEntity e : origin.level().getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(r))) {
-			if (e == p || e == origin || e instanceof AlienXBodyEntity || !e.isAlive() || e.isSpectator()
+			if (e == p || e == origin || e instanceof AlienXBodyEntity || AlienXKit.inHall(e) || !e.isAlive() || e.isSpectator()
 					|| e instanceof net.minecraft.world.entity.decoration.ArmorStand || e.distanceToSqr(at) > r * r * 1.4) {
 				continue;
 			}
