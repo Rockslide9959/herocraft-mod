@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.render.JointedLimbs;
+import com.projecthero.mod.stand.StandClips;
 import com.projecthero.mod.stand.StandConfig;
 import com.projecthero.mod.stand.StandType;
 import com.projecthero.mod.stand.Stands;
@@ -49,7 +50,7 @@ import net.minecraft.world.phys.Vec3;
  *       1.15x a player, with a faint purple glow shell, floating and bobbing behind the right shoulder at rest.</li>
  *   <li>While it fights (any attack, the rush, Guard, the charge, a held thing, the inhale) it moves in front of its user --
  *       in first person far enough out to be seen.</li>
- *   <li>Its body moves on real elbows and knees ({@link StandPoses}: keyframed clips, cross-faded every frame), and Star Finger is a
+ *   <li>Its body moves on real elbows and knees ({@link StandClips}: keyframed clips, cross-faded every frame), and Star Finger is a
  *       stretching finger mesh ({@link StandFinger}).</li>
  *   <li>The ORA Rush draws blurred extra arm copies and (setting) floating "ORA" text; a summon throws up ゴゴゴ.</li>
  *   <li>A held block is drawn in its hand; faint violet motes drift off it (client particles: Stand users only).</li>
@@ -65,7 +66,7 @@ public final class StandRender {
 		Vec3 pos;
 		float yaw = Float.NaN;
 		long lastNanos;
-		/** The pose on screen, chasing the wanted one ({@link StandPoses#target}); null until the first frame. */
+		/** The pose on screen, chasing the wanted one ({@link StandClips#target}); null until the first frame. */
 		float[] pose;
 		/** The Star Finger whose fingertip flash has gone off (its animation's start). */
 		long fingerFlash;
@@ -89,7 +90,7 @@ public final class StandRender {
 
 	/** Length of a one-shot animation (ticks). */
 	static int animLength(int animId) {
-		return StandPoses.length(animId);
+		return StandClips.length(animId);
 	}
 
 	/** The Star Finger clip is playing. */
@@ -204,13 +205,13 @@ public final class StandRender {
 		sm.yaw += Mth.wrapDegrees(wantYaw - sm.yaw) * Mth.clamp(0.35f * dt, 0f, 1f);
 
 		// ---- the pose: chase the wanted one, fast enough that a strike still snaps (a filter on frame time, not a tick step)
-		float[] wantPose = new float[StandPoses.N];
-		StandPoses.target(s, p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null), age, t, now, fight, wantPose);
+		float[] wantPose = new float[StandClips.N];
+		StandClips.target(s, p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null), age, t, now, fight, wantPose);
 		if (sm.pose == null) {
 			sm.pose = wantPose.clone();
 		}
 		float follow = 1f - (float) Math.exp(-1.7f * dt);
-		for (int i = 0; i < StandPoses.N; i++) {
+		for (int i = 0; i < StandClips.N; i++) {
 			sm.pose[i] += (wantPose[i] - sm.pose[i]) * follow;
 		}
 		float[] pp = sm.pose;
@@ -218,8 +219,8 @@ public final class StandRender {
 		Vec3 vel = p.getDeltaMovement();
 		float speedLean = Mth.clamp((float) vel.horizontalDistance() * 0.9f, 0f, 0.4f);
 		Vec3 facing = dir(sm.yaw);
-		Vec3 pos = sm.pos.add(facing.scale(pp[StandPoses.FWD])).add(0, pp[StandPoses.UP], 0)
-				.add(StarPlatinum.rightOf(facing).scale(pp[StandPoses.SIDE]));
+		Vec3 pos = sm.pos.add(facing.scale(pp[StandClips.FWD])).add(0, pp[StandClips.UP], 0)
+				.add(StarPlatinum.rightOf(facing).scale(pp[StandClips.SIDE]));
 
 		float alpha = 1f;
 		if (s.animId == StandState.ANIM_SUMMON && age < StandConfig.SUMMON_ANIM_TICKS) {
@@ -266,11 +267,11 @@ public final class StandRender {
 		int a = Mth.clamp((int) (alpha * 255f), 0, 255);
 		pose.pushPose();
 		pose.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-		pose.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw + pp[StandPoses.TWIST] * Mth.RAD_TO_DEG));
+		pose.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw + pp[StandClips.TWIST] * Mth.RAD_TO_DEG));
 		// the whole figure leans about its waist
 		pose.translate(0f, WAIST, 0f);
-		pose.mulPose(Axis.XP.rotation(-(pp[StandPoses.LEAN] + speedLean)));
-		pose.mulPose(Axis.ZP.rotation(pp[StandPoses.ROLL]));
+		pose.mulPose(Axis.XP.rotation(-(pp[StandClips.LEAN] + speedLean)));
+		pose.mulPose(Axis.ZP.rotation(pp[StandClips.ROLL]));
 		pose.translate(0f, -WAIST, 0f);
 		pose.scale(-SCALE, -SCALE, SCALE);
 		pose.translate(0f, -1.501f, 0f);
@@ -285,7 +286,7 @@ public final class StandRender {
 			for (int i = 1; i <= 3; i++) {
 				pose.pushPose();
 				// straight back along the way it is going, whatever its lean
-				float back = 9f * i / 16f, lean = pp[StandPoses.LEAN] + speedLean;
+				float back = 9f * i / 16f, lean = pp[StandClips.LEAN] + speedLean;
 				pose.translate(0f, Mth.sin(lean) * back, Mth.cos(lean) * back);
 				m.renderToBuffer(pose, body, light, OverlayTexture.NO_OVERLAY, ((int) (a * (0.4f - 0.1f * i)) << 24) | 0xFFFFFF);
 				pose.popPose();
@@ -418,7 +419,8 @@ public final class StandRender {
 				arm.yRot = aimYaw;
 				arm.zRot = 0f;
 				arm.x = (right ? -5f : 5f) + ox * 0.6f;
-				arm.y = 2f + oy;
+				// never across its own face: a fist in the middle stays at chest height
+				arm.y = Math.abs(arm.x) < 9f ? Math.max(5f, 2f + oy) : 2f + oy;
 				arm.z = -(reach - back) + 2f;
 				sleeve.copyFrom(arm);
 				arm.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);

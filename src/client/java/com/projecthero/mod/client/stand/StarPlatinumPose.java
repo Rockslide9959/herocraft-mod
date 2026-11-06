@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>Jotaro's point: turned three-quarters with the right shoulder driven forward and the chest open, the right arm thrust out down
  * the look with a slight bend, the left hand on the hip with the elbow out, chin turned over the shoulder, legs wide apart with the
- * right one forward. {@link StandCoat} flares the coat out behind, and the Stand looms over the left shoulder ({@link StandPoses}).
+ * right one forward. The Stand looms over the left shoulder ({@link com.projecthero.mod.stand.StandClips}).
  */
 public final class StarPlatinumPose {
 	public static final int POINTING = 1;

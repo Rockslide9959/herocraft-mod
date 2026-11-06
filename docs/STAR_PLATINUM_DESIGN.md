@@ -25,7 +25,7 @@ Power A, Speed A, Range C, Stamina A, Precision A, Potential A, shown on the men
 | Key | Move | What it does |
 |---|---|---|
 | H | Summon / Dismiss | Star Platinum appears behind you with a menacing ゴゴゴ burst. While out, empty-hand punches become Stand punches (3-hit chain, +reach, the 3rd hit knocks back). |
-| N | Pose | The one pose for now (user, v0.17.2, `docs/reference/jotaro_pose/`): Jotaro's point, side-on, right arm thrust out, left hand on the hip, coat flaring, the Stand looming over the shoulder with a fist raised. Holding it briefly gives Resistance I. |
+| N | Pose | The one pose for now (user, v0.17.2, `docs/reference/jotaro_pose/`): Jotaro's point, side-on, right arm thrust out, left hand on the hip, the Stand looming over the shoulder with a fist raised. Holding it briefly gives Resistance I. |
 | Shift+N | Stand Menu | Stat card, pose picker, move list with descriptions, settings (ORA text, rush auto-face). |
 | R | ORA Rush (hold) | A barrage in front: many fast hits on everything within reach, deflects arrows and projectiles. Releasing it (or Stamina running out) finishes with one ORAAA knockback punch. |
 | Shift+R | Star Finger | The fingers shoot out about 8 blocks in a straight line, pierce through every mob in the line and cause bleeding. |

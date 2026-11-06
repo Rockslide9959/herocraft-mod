@@ -28,7 +28,6 @@ public final class StandClient {
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(StandHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(StandRender::render);
-		WorldRenderEvents.AFTER_ENTITIES.register(StandCoat::render); // the N pose's coat: the user's, so every viewer sees it
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(StandFx::render);
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
 				(payload, context) -> StandFx.receive(payload));

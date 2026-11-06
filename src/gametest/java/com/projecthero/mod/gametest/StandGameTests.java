@@ -284,6 +284,15 @@ public class StandGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "hands ... in his face or just in his head a lot of the time"): every frame of every move and held pose. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void handsStayClearOfTheHead(GameTestHelper helper) {
+		java.util.List<String> bad = com.projecthero.mod.stand.StandClips.clearanceProblems();
+		bad.forEach(line -> System.out.println("[STAND-POSE] " + line));
+		helper.assertTrue(bad.isEmpty(), bad.size() + " frames with a fist in the head or face, first: " + (bad.isEmpty() ? "" : bad.get(0)));
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- the time stop
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "stand_time_stop")
