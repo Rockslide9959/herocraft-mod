@@ -21,6 +21,8 @@ public abstract class MinecraftHulkMindMusicMixin {
 	private void projecthero$hulkMindMusic(CallbackInfoReturnable<Music> cir) {
 		if (HulkMindAmbience.active()) {
 			cir.setReturnValue(HulkMindAmbience.MUSIC);
+		} else if (com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.showing()) {
+			cir.setReturnValue(net.minecraft.sounds.Musics.END); // v0.17.2 round 4: the council's own music, as it was in the old dimension
 		}
 	}
 }

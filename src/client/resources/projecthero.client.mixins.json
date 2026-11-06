@@ -3,6 +3,9 @@
 	"package": "com.projecthero.mod.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"AlienXHallCameraMixin",
+		"AlienXHallHideMixin",
+		"AlienXHallOutlineMixin",
 		"BossHealthOverlayAccessor",
 		"CannonboltHideStowedMixin",
 		"StandTimeStopRenderMixin",

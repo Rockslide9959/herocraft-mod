@@ -10,25 +10,65 @@ tall by the way, but the player gets transported to that dimension where he talk
 where the player can do many many many things, make it work well and be intuitive please".
 
 Code: `omnitrix/alien/alienx/` -- `AlienXKit` (the kit), `AlienXCouncil` (sessions, the trip, the debate, validation, networking),
-`AlienXActions` (the 24 actions), `AlienXBodyEntity` (the body left in the world), `AlienXCouncilPayload` /
+`AlienXActions` (the actions), `AlienXBodyEntity` (the body left in the world), `AlienXCouncilPayload` /
 `AlienXCouncilStatePayload`; client `AlienXClient`, `AlienXBodyRenderer`, `alienx/AlienXCouncilScreen`, `alienx/AlienXFx` (the
-heads). Data: `dimension/celestial_council.json`, `dimension_type/celestial_council.json`, `worldgen/biome/celestial_council.json`.
+heads), `alienx/AlienXHall` + `AlienXHallMesh` + `AlienXHallAmbience` (the mind palace); mixins `AlienXHallCameraMixin`, `AlienXHallHideMixin`,
+`AlienXHallOutlineMixin`, `AlienXHallHiddenMixin`, `AlienXHallNoPickupMixin`, and one line each in the Hulk's `GuiHulkRampageMixin`,
+`MouseHandlerHulkMindMixin` and `MinecraftHulkMindMusicMixin`.
 Battery hook: `Omnitrix.HOLD_BATTERY`. Tests: `OmnitrixRecalAlienXGameTests`, `OmnitrixAlienXGameTests`.
 Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
 
-## Transforming
+## Transforming: the hall (v0.17.2 round 4)
+
+User: "can you change the alien x council thing to be the mind palace thing that the hulk has, i also want a screen where the player
+can see a third person view of themselves and even turn and look around if they want to please".
 
 - His **body** (2.5 blocks tall, the user's Alien X skin and horns) stays standing where he transformed: frozen like the show,
   impervious, no knockback, never saved, gone the moment the session ends. When a motion is carried it lifts a hand.
-- **Ben** is sent to **the Celestial Council** (`projecthero:celestial_council`): always night, a black sky full of stars, far
-  nebulae, an invisible barrier floor (walls too, so nobody walks off) under a faint ring of light. Two enormous floating heads in
-  his skin face him: **Serena** (soft blue, pale eyes, a halo) and **Bellicus** (red, burning eyes, hard angry brows). They drift,
-  turn to look at him, and the one speaking nods, its eyes flare and rings of its colour ripple out.
-- Nothing can be built, broken, used or hurt there. Each visit has its own slot (2000 blocks apart).
-- **Coming back**: v0.17.2 (user: "when detransforming as alien x make it so that the player has to convince the heads to let them detransform aswell please"): N, V, the alien wheel and "Leave the Council" move the **Let Me Go** motion (category Leave, target his body, leans 30 / 35, no cooldown); only when both heads agree does he turn back, 1.5 s after the banner (AlienXCouncil.requestRelease / RELEASE_DELAY). With no body or no session he turns back at once. Death, logout, the watch coming off and /kill still end it outright. Carried, he is turned back at his body (wherever it is now; inventory never left him). A
-  switch to another alien also brings him back first. Where he came from is saved on him (`alien_x_council_return`), so a
-  **logout**, a crash or a **stopped server** leaves him in the council only until his next login: the half-second sweep sends
-  anyone found in the council without a session back to that spot (or to spawn if nothing was saved).
+- **He stays in the world**, held inside that body, because a client can only draw the level its player stands in and the hall's
+  screen shows that level. **The hall is an illusion drawn over his screen** (`AlienXHall`, the method of `HulkMindScreen`): the world
+  frame is rendered from a third-person camera on an orbit round the body, copied to a texture, and the hall is drawn over the window
+  with that texture on its giant screen.
+- **The hall**: a star-filled void (stars, a band of the galaxy, nebulae) with a causeway and a round dais of dark glass, a low curtain
+  of light along every edge, standing slabs round the rim. **Serena** and **Bellicus** hang either side of the screen; they drift,
+  turn to watch him, and the one speaking nods, its eyes flare and rings ripple out. He arrives at the far end of the causeway, 57
+  blocks from the screen, and walks with WASD, the mouse and the sprint key at vanilla speeds, with vanilla's bobbing and footsteps.
+- **Talking to the heads**: inside the ring of light under either head (pale blue for Serena, red for Bellicus), a right-click or **R**
+  opens the council screen. R elsewhere says to walk closer. **V, N and the alien wheel work anywhere** in the hall: they move Let Me
+  Go and the screen opens where he stands, so nobody has to walk anywhere to ask to leave. The screen itself is unchanged.
+- **Looking round his body**: at the point of light in front of the screen a right-click takes the view. The hall camera rises to face
+  the screen, which nearly fills the window; the mouse then swings the camera round the body (any direction, kept out of walls by a
+  block ray), the scroll wheel zooms (3 to 22 blocks), a left-click resets it behind him, and a right-click, S or Sneak steps back. The
+  view stays where he left it.
+- **Everything else** is swallowed, as in the Hulk's hall (chat, the player list, screenshots, the I screen and the power wheel still
+  work), the HUD is put away, and the music is the End's over a low hum and far chimes.
+- **Coming back**: v0.17.2 (user: "when detransforming as alien x make it so that the player has to convince the heads to let them
+  detransform aswell please"): N, V, the alien wheel and "Leave the Council" move the **Let Me Go** motion (category Leave, target his
+  body, leans 30 / 35, no cooldown); only when both heads agree does he turn back, 1.5 s after the banner
+  (AlienXCouncil.requestRelease / RELEASE_DELAY). The camera flies into the screen, as the Hulk's does, and he is standing where
+  the body stood (the inventory never left him). With no body or no session he turns back at once. Death, logout, the watch coming
+  off and /kill still end it outright. A switch to another alien brings him back first.
+
+### What the old dimension gave for free, and where it is now
+
+| Used to be free | Now |
+|---|---|
+| Others could not see or touch him | `AlienXKit.inHall` (synced Omnitrix state): no client draws him (`AlienXHallHideMixin`, himself included: only the body is on screen), no hitbox, no pushing, mobs lose him (`AlienXHallHiddenMixin`), hero targeting skips him (`HeroTargets.canHarm`), the motions' target lists and areas skip him |
+| He could not touch the world | Keys let go on his client; on the server every use, attack and break is refused while in session; no item or XP pickup (`AlienXHallNoPickupMixin`) |
+| Safe from anything | The kit's existing imperviousness, unchanged; /kill and the void still get through |
+| Could not wander off | `AlienXCouncil.hold`, every tick: he is put back at the body (it may settle onto the ground, or Move My Body may carry it), and portals are held off |
+| Body's chunk held by a ticket | He stands there, so his own chunks hold it. The ticket is gone |
+| A lost body | `hold` puts a new one where he stands. The body hangs rather than falling out of the world |
+| Logout | Session and body end, the Omnitrix turns him back, and he is saved where he stands |
+| Crash or stopped server | He is saved as Alien X with no session: the kit opens a new one at once, with a new body |
+| Death | The normal revert ends the session; the client drops the hall with no flight |
+| GPU | The captured frame is freed as soon as the scene ends and on leaving the world |
+
+**The dimension's data stays**: `dimension/`, `dimension_type/` and `worldgen/biome/celestial_council.json`, `AlienXCouncil.DIMENSION`,
+the saved return (`alien_x_council_return`) and the half-second sweep (`AlienXCouncil.check`). Nothing sends anyone there any more, but
+a player saved inside it by an older version must be sent back to his saved spot (or spawn, if nothing was saved), and vanilla only
+drops an unknown dimension's player into the overworld at the same coordinates. These can go in a later release. Slots, the
+barrier floor and the world-render pass are gone.
 
 ## Passives
 
@@ -37,9 +77,9 @@ Screenshots + video: `docs/screenshots/v0172/alien_x_system/`.
   once, no fire, never out of breath.
 - **Battery held**: on the Recalibrated Omnitrix the battery stops where it was (`HOLD_BATTERY`), no timeout; turning back stores
   exactly that.
-- **No key powers, no punches**: R opens the council screen, V leaves. A punch does nothing ("the council must agree").
+- **No key powers, no punches**: R at the heads opens the council screen, V asks to leave. A punch does nothing ("the council must agree").
 
-## The debate (the council screen, R)
+## The debate (the council screen, at the heads)
 
 1. **Propose**: a category (left), an action (middle; greyed + seconds while it rests), a target (right) from what is round his
    body within 48 blocks: "All round my body", "Where my body looks", "My body", and every creature / player with health and
