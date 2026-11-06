@@ -290,10 +290,12 @@ public class StandGameTests implements FabricGameTest {
 	public void timeStopFreezesAndQueuesDamage(GameTestHelper helper) {
 		TimeStop.clear();
 		TimeStop.testRadius = 8.0;
+		TimeStop.testTicks = 20; // (the real stop runs 10 s)
 		ServerPlayer p = user(helper, 2.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 3.5, 60);
 		helper.assertTrue(TimeStop.begin(p), "Shift+Z stops time");
 		TimeStop.testRadius = 0.0;
+		TimeStop.testTicks = 0;
 		// v0.17.2: the voice line plays first; time stops on its burst
 		helper.assertTrue(TimeStop.windingUp() && !TimeStop.active() && !TimeStop.frozen(z), "the voice line first, nothing frozen yet");
 		helper.assertFalse(TimeStop.begin(p), "no second stop while the line plays");
@@ -306,19 +308,19 @@ public class StandGameTests implements FabricGameTest {
 		StarPlatinum.uppercut(p);
 		helper.assertTrue(Math.abs(z.getHealth() - 60f) < 0.01f, "inside the stop the hit doesn't land yet");
 		helper.assertTrue(TimeStop.queued(z) >= StandConfig.UPPERCUT_DAMAGE - 0.01f, "it is queued: " + TimeStop.queued(z));
-		helper.assertTrue(Stands.stamina(p) > StandConfig.TIME_STOP_MIN_STAMINA - 1f, "moves are free inside your own stop");
+		helper.assertTrue(Stands.stamina(p) > StandConfig.STAMINA_MAX - 1f, "moves are free inside your own stop");
 		helper.runAfterDelay(8, () -> {
-			helper.assertTrue(TimeStop.active(), "still stopped after 8 ticks (1 s at first)");
+			helper.assertTrue(TimeStop.active(), "still stopped after 8 ticks");
 			helper.assertTrue(z.tickCount == ticksBefore, "the zombie hasn't ticked: " + z.tickCount + " vs " + ticksBefore);
 			helper.assertTrue(Math.abs(z.getHealth() - 60f) < 0.01f, "nothing landed yet");
 		});
-		helper.runAfterDelay(StandConfig.timeStopTicks(0) + 6, () -> {
-			helper.assertFalse(TimeStop.active(), "time resumed after 1 s");
+		helper.runAfterDelay(26, () -> {
+			helper.assertFalse(TimeStop.active(), "time resumed");
 			helper.assertTrue(z.getHealth() <= 60f - StandConfig.UPPERCUT_DAMAGE + 0.6f, "the queued hit landed on resume, health " + z.getHealth());
 			helper.assertTrue(z.tickCount > ticksBefore, "the zombie ticks again");
 			helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "the caster is winded");
-			helper.assertTrue(Stands.state(p).timeStopUses == 1, "mastery counts the stop");
-			helper.assertTrue(Stands.stamina(p) < 5f, "the bar emptied as time resumed (a few ticks of refill since): " + Stands.stamina(p));
+			float st = Stands.stamina(p);
+			helper.assertTrue(st < StandConfig.STAMINA_MAX - StandConfig.TIME_STOP_COST + 5f && st > 0f, "the stop is paid for as time resumes, not the whole bar: " + st);
 			helper.succeed();
 		});
 	}

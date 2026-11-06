@@ -187,12 +187,6 @@ public final class Stands {
 		save(player, n);
 	}
 
-	public static void setTimeStopUses(ServerPlayer player, int uses) {
-		StandState n = state(player).copy();
-		n.timeStopUses = Math.max(0, uses);
-		save(player, n);
-	}
-
 	static void markCombat(ServerPlayer player) {
 		LAST_COMBAT.put(player.getUUID(), player.level().getGameTime());
 	}
@@ -526,6 +520,7 @@ public final class Stands {
 		n.leapRebounds = -1;
 		n.inhaleUntil = 0L;
 		n.dashUntil = 0L;
+		n.fingerEnd = java.util.List.of();
 		n.comboStep = 0;
 		n.animId = StandState.ANIM_NONE;
 		return n;

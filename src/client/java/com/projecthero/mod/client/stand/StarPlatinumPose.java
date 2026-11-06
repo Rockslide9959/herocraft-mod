@@ -1,6 +1,7 @@
 package com.projecthero.mod.client.stand;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.render.JointedLimbs;
 import com.projecthero.mod.stand.data.StandPoseState;
 
 import net.minecraft.client.Minecraft;
@@ -39,25 +40,32 @@ public final class StarPlatinumPose {
 			case POINTING -> {
 				StandPoses.pose(model.rightArm, w, model.head.xRot - Mth.HALF_PI, model.head.yRot, 0f);
 				StandPoses.pose(model.leftArm, w, 0.1f, 0f, -0.1f);
+				StandPoses.joint(JointedLimbs.LEFT_ARM, -0.25f * w);
 			}
 			case YARE_YARE -> {
-				StandPoses.pose(model.rightArm, w, -2.55f, -0.35f, 0.25f);
+				StandPoses.pose(model.rightArm, w, -1.75f, -0.6f, 0.1f);
+				StandPoses.joint(JointedLimbs.RIGHT_ARM, -1.75f * w); // the elbow out, fingers at the brim
 				StandPoses.pose(model.leftArm, w, 0.15f, 0f, -0.1f);
 				model.head.xRot = Mth.lerp(w, model.head.xRot, 0.45f);
 				model.hat.copyFrom(model.head);
 			}
 			case POCKETS -> {
-				StandPoses.pose(model.rightArm, w, 0.28f, 0.1f, 0.1f);
-				StandPoses.pose(model.leftArm, w, 0.28f, -0.1f, -0.1f);
+				StandPoses.pose(model.rightArm, w, 0.42f, 0.1f, 0.14f);
+				StandPoses.pose(model.leftArm, w, 0.42f, -0.1f, -0.14f);
+				StandPoses.joint(JointedLimbs.RIGHT_ARM, -0.6f * w); // hands down in the pockets, elbows back
+				StandPoses.joint(JointedLimbs.LEFT_ARM, -0.6f * w);
 				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.12f);
 				model.hat.copyFrom(model.head);
 			}
 			case JOJO -> {
 				model.body.yRot = Mth.lerp(w, model.body.yRot, 0.45f);
 				StandPoses.pose(model.rightArm, w, -1.45f, -0.25f, 0.15f);
-				StandPoses.pose(model.leftArm, w, -2.35f, 0.65f, 0.35f);
+				StandPoses.joint(JointedLimbs.RIGHT_ARM, -0.35f * w);
+				StandPoses.pose(model.leftArm, w, -2.1f, 0.8f, 0.3f);
+				StandPoses.joint(JointedLimbs.LEFT_ARM, -1.9f * w);
 				StandPoses.pose(model.rightLeg, w, 0.1f, 0.2f, 0.18f);
-				StandPoses.pose(model.leftLeg, w, -0.25f, -0.15f, -0.1f);
+				StandPoses.pose(model.leftLeg, w, -0.5f, -0.15f, -0.1f);
+				StandPoses.joint(JointedLimbs.LEFT_LEG, 0.85f * w);
 				model.head.yRot = Mth.lerp(w, model.head.yRot, -0.35f);
 				model.head.xRot = Mth.lerp(w, model.head.xRot, 0.1f);
 				model.hat.copyFrom(model.head);

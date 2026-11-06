@@ -36,7 +36,7 @@ import net.minecraft.world.phys.Vec3;
  *       and flies on when time resumes.</li>
  *   <li>Damage the caster deals to a frozen creature is queued with its knockback ({@link #queue}) and lands all at once on
  *       resume: players at most {@link StandConfig#TIME_STOP_PLAYER_CAP} of their max health, bosses reduced.</li>
- *   <li>Inside the stop the caster's moves cost no Stamina and the bar doesn't refill; it empties when time resumes.</li>
+ *   <li>Inside the stop the caster's moves cost no Stamina and the bar doesn't refill; the stop is paid for when time resumes.</li>
  *   <li>Frozen players' ability keys, attacks, item use and block breaking are refused server-side; the caster can't use
  *       blocks or break them (fighting and moving only).</li>
  *   <li>Every client gets {@link TimeStopPayload}: a Stand user's client freezes everything but the caster and drains
@@ -91,6 +91,8 @@ public final class TimeStop {
 	private static volatile Windup windup;
 	/** Test hook: a radius for the next stop (0 = whole dimension). */
 	public static double testRadius = 0.0;
+	/** Test hook: a length for the next stop (0 = the real {@link StandConfig#TIME_STOP_TICKS}). */
+	public static int testTicks = 0;
 
 	private TimeStop() {
 	}
@@ -173,15 +175,14 @@ public final class TimeStop {
 					(Stands.cooldownRemaining(caster, StandMove.THE_WORLD) + 19) / 20);
 			return false;
 		}
-		if (s.stamina + 1.0e-3f < StandConfig.TIME_STOP_MIN_STAMINA) {
-			Stands.say(caster, "message.projecthero.stand.time_stop_stamina", ChatFormatting.GRAY, Math.round(StandConfig.TIME_STOP_MIN_STAMINA));
+		if (s.stamina + 1.0e-3f < StandConfig.TIME_STOP_COST) {
+			Stands.say(caster, "message.projecthero.stand.time_stop_stamina", ChatFormatting.GRAY, Math.round(StandConfig.TIME_STOP_COST));
 			return false;
 		}
 		ServerLevel level = (ServerLevel) caster.level();
 		long now = level.getGameTime();
-		int ticks = StandConfig.timeStopTicks(s.timeStopUses);
+		int ticks = testTicks > 0 ? testTicks : StandConfig.TIME_STOP_TICKS;
 		StandState n = s.copy();
-		n.timeStopUses = s.timeStopUses + 1;
 		n.abilityReadyAt.put(StandMove.THE_WORLD, now + StandConfig.TIME_STOP_COOLDOWN);
 		n.animId = StandState.ANIM_THE_WORLD;
 		n.animStart = now;
@@ -268,7 +269,7 @@ public final class TimeStop {
 			land(level, caster, q);
 		}
 		if (caster != null && Stands.isStandUser(caster)) {
-			Stands.setStamina(caster, 0f); // the stop spent everything: the bar empties as time resumes
+			Stands.setStamina(caster, Stands.stamina(caster) - StandConfig.TIME_STOP_COST); // the stop is paid for as time resumes
 		}
 		if (caster != null && caster.isAlive()) {
 			caster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, StandConfig.TIME_STOP_WINDED_TICKS, 1, false, false, true));
