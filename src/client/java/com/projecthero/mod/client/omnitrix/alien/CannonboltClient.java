@@ -174,15 +174,13 @@ public final class CannonboltClient implements AlienClientKit {
 	/** The ball's radius, its hat layer's. The hat layer's outside is what makes him 2 blocks tall. */
 	private static final float RADIUS = 1f / 1.07f, OUTER = 1f;
 
-	/** One tick for everyone in view: how far curled he is, the wind-up and the spikes, and his dust. */
+	/** One tick for everyone in view: how far curled he is, the wind-up, and his dust. */
 	@Override
 	public void tick(AbstractClientPlayer p) {
 		Roll r = ROLLS.computeIfAbsent(p, k -> new Roll());
 		int flags = Omnitrix.state(p).kitFlags;
 		r.curlO = r.curl;
 		r.curl = Mth.approach(r.curl, (flags & CannonboltKit.F_ROUND) != 0 ? 1f : 0f, 1f / CURL_TICKS);
-		r.spikesO = r.spikes;
-		r.spikes = Mth.approach(r.spikes, (flags & CannonboltKit.F_SPIKES) != 0 ? 1f : 0f, 1f / 10f);
 		boolean winding = (flags & CannonboltKit.F_CHARGING) != 0;
 		r.wind = Mth.approach(r.wind, winding ? 1f : 0f, winding ? 1f / CannonboltKit.SPIN_CHARGE_FILL : 1f / 12f);
 		if (p.isLocalPlayer() && (flags & CannonboltKit.F_BALL) == 0) {
@@ -213,8 +211,8 @@ public final class CannonboltClient implements AlienClientKit {
 		boolean seen;
 		/** How far curled up he is (0 standing, 1 the closed ball), and last tick's, for the lerp. */
 		float curl, curlO;
-		/** How far the ultimate's spikes are out, and how wound-up a spin is (both 0..1). */
-		float spikes, spikesO, wind;
+		/** How wound-up a spin is (0..1). */
+		float wind;
 	}
 
 	private static final Map<AbstractClientPlayer, Roll> ROLLS = new WeakHashMap<>();
@@ -277,10 +275,6 @@ public final class CannonboltClient implements AlienClientKit {
 		if (c >= 0.999f) {
 			pose.mulPose(Axis.XP.rotation(spinning ? 0f : r.angle));
 			shell(pose, buffers, -2f, light);
-			float s = Mth.lerp(partial, r.spikesO, r.spikes);
-			if (s > 0f) {
-				spikes(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(BALL)), s, light);
-			}
 		} else {
 			drawCurl(p, pose, buffers, ease(c), r.angle, light);
 		}
@@ -359,52 +353,6 @@ public final class CannonboltClient implements AlienClientKit {
 		pose.popPose();
 	}
 
-	/** Where the spikes stand on the ball: evenly round it (a Fibonacci sphere). */
-	private static final float[][] SPIKES = new float[34][];
-	static {
-		float gold = Mth.PI * (3f - Mth.sqrt(5f));
-		for (int i = 0; i < SPIKES.length; i++) {
-			float y = 1f - 2f * (i + 0.5f) / SPIKES.length, ring = Mth.sqrt(1f - y * y);
-			SPIKES[i] = new float[] { Mth.cos(i * gold) * ring, y, Mth.sin(i * gold) * ring };
-		}
-	}
-
-	/** Ultimate Cannonbolt's spikes, {@code out} of the way out: a four-sided cone off the shell at each point. */
-	private static void spikes(PoseStack pose, VertexConsumer vc, float out, int light) {
-		PoseStack.Pose last = pose.last();
-		float len = 0.55f * out, base = 0.17f;
-		for (float[] d : SPIKES) {
-			float ax = Math.abs(d[1]) > 0.9f ? 1f : 0f, ay = 1f - ax;
-			// two tangents of the sphere here
-			float ux = d[1] * 0f - d[2] * ay, uy = d[2] * ax, uz = d[0] * ay - d[1] * ax;
-			float ul = Mth.sqrt(ux * ux + uy * uy + uz * uz);
-			ux /= ul;
-			uy /= ul;
-			uz /= ul;
-			float vx = d[1] * uz - d[2] * uy, vy = d[2] * ux - d[0] * uz, vz = d[0] * uy - d[1] * ux;
-			float[][] ring = new float[4][];
-			for (int i = 0; i < 4; i++) {
-				float a = i == 0 || i == 3 ? 1f : -1f, b = i < 2 ? 1f : -1f;
-				ring[i] = new float[] { d[0] * RADIUS + (ux * a + vx * b) * base, d[1] * RADIUS + (uy * a + vy * b) * base, d[2] * RADIUS + (uz * a + vz * b) * base };
-			}
-			float tx = d[0] * (OUTER + len), ty = d[1] * (OUTER + len), tz = d[2] * (OUTER + len);
-			for (int i = 0; i < 4; i++) {
-				float[] e = ring[i], f = ring[(i + 1) % 4];
-				float mx = e[0] + f[0] - 2f * tx * 0f, my = e[1] + f[1], mz = e[2] + f[2];
-				float ml = Mth.sqrt(mx * mx + my * my + mz * mz);
-				spikeCorner(vc, last, e, mx / ml, my / ml, mz / ml, light, 0xC8);
-				spikeCorner(vc, last, f, mx / ml, my / ml, mz / ml, light, 0xC8);
-				spikeCorner(vc, last, new float[] { tx, ty, tz }, mx / ml, my / ml, mz / ml, light, 0xFF);
-				spikeCorner(vc, last, new float[] { tx, ty, tz }, mx / ml, my / ml, mz / ml, light, 0xFF);
-			}
-		}
-	}
-
-	private static void spikeCorner(VertexConsumer vc, PoseStack.Pose last, float[] at, float nx, float ny, float nz, int light, int shade) {
-		vc.addVertex(last, at[0], at[1], at[2]).setColor(shade, shade, shade, 255).setUv(12.5f / 64f, 4.5f / 64f).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
-				.setNormal(last, nx, ny, nz);
-	}
-
 	/** Cube-sphere subdivisions per head face (each of the head's 8x8 faces spread over N x N quads). */
 	private static final int N = 12;
 
@@ -478,14 +426,9 @@ public final class CannonboltClient implements AlienClientKit {
 			float rise = ease((r.curl - 0.65f) / 0.35f);
 			pose.translate(0, -1.62f + 0.32f * rise, -0.95f);
 			pose.mulPose(Axis.XP.rotation(r.angle));
-			float out = Math.max(0f, r.spikes);
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(BALL));
 			headBall(pose, vc, 0.84f, 0, light, -2f, N);
 			headBall(pose, vc, 0.9f, 32, light, -2f, N);
-			if (out > 0f) {
-				pose.scale(0.9f, 0.9f, 0.9f);
-				spikes(pose, vc, out * 0.55f, light);
-			}
 			pose.popPose();
 		}
 		return true;

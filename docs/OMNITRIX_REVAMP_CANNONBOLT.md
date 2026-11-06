@@ -81,7 +81,7 @@ and Shift+C are the same in both forms; those that need the ball curl him up and
 | Z | **Rebound Strike**: fires himself at the mark and rebounds off it, three hits, 12, 12, 17 (8 s) | the same |
 | Shift+Z | **Unstoppable Cannonball** (ultimate): see below (60 s) | the same |
 
-**v0.17.2 change (user):** the ultimate is now a lock-on (30 blocks): dash at the target for 30, boost up, slam down on it for 30 more within 6 blocks, 80% less damage until he lands. The 8 s rampage is gone.
+**v0.17.2 change (user):** the ultimate is now a lock-on (30 blocks): dash at the target for 30, boost up, slam down on it for 30 more within 6 blocks, 80% less damage until he lands, no spikes (user). The 8 s rampage is gone.
 
 | C | **Spin Charge** (hold): curls and spins on the spot, WASD dead, full Momentum in 1.5 s; let go with W held to shoot off (3 s) | the same |
 | Shift+C | **Curl Smash**: jump, curl, drop, 20 in 3.5 blocks (10 s) | the same |
@@ -184,7 +184,6 @@ player uncurls and get nausea from the experience, dont combine hitboxes and mod
   smooth and make sense"): `drawCurl`. 0.55 s, driven only by the synced `F_ROUND` flag, so every curl and uncurl of every move plays it on
   every client. He tucks, somersaults forward as he shrinks inside, and the plates sweep round from his back to close over his face. The
   body is a `PlayerModel` drawn by hand so it can turn over as one piece; the plates are the ball's own quads, cut by angle.
-- **Spikes** on the ball for the ultimate: 34 four-sided cones on a Fibonacci sphere, growing over 0.5 s.
 - **First person:** his arms play `FP_CURL` / `FP_UNCURL`, then rolled up he sees the top of his own shell turning over under his view at
   the speed of the roll, which is how every ball move reads from inside.
 - **Facing and rolling:**
