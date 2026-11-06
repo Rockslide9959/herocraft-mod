@@ -112,7 +112,11 @@ public class GalactusGameTests implements FabricGameTest {
 			shard |= ing.test(new ItemStack(GalactusItems.COSMIC_SHARD));
 		}
 		helper.assertTrue(shard, "it takes Cosmic Shards");
-		helper.assertTrue(GalactusOrbit.level(helper.getLevel().getServer()) != null, "the orbit dimension is loaded");
+		// GameTestServer bakes its worlds with an empty dimension registry, so no datapack dimension ever loads here: check the data
+		helper.assertTrue(helper.getLevel().getServer().registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.DIMENSION_TYPE)
+				.containsKey(ProjectHeroMod.id("galactus_orbit")), "the orbit's dimension type");
+		helper.assertTrue(helper.getLevel().getServer().getResourceManager().getResource(ProjectHeroMod.id("dimension/galactus_orbit.json")).isPresent(),
+				"the orbit dimension's data");
 		helper.assertTrue(GalactusConfig.stage1().staggers == 3 && GalactusConfig.stage3().health == 8000.0 && GalactusConfig.nullifier().useTicks == 80,
 				"three staggers, 8000 health, a 4 s Nullifier");
 		helper.assertTrue(GalactusConfig.rewards().valuablesMultiplier == 1.5, "a bigger chest");
@@ -166,7 +170,8 @@ public class GalactusGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void islandsBuildShatterReformAndTheInstanceWipesClean(GameTestHelper helper) {
-		ServerLevel orbit = GalactusOrbit.level(helper.getLevel().getServer());
+		// (the test server has no orbit dimension, see the registration test: the same far-off slot, in this world)
+		ServerLevel orbit = helper.getLevel();
 		GalactusOrbit.hold(orbit, TEST_SLOT);
 		try {
 			GalactusOrbit.wipe(orbit, TEST_SLOT);
@@ -229,16 +234,19 @@ public class GalactusGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the orbit rules
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void aFallerIsCaughtAndSetDownForALittleDamage(GameTestHelper helper) {
 		ServerPlayer p = survivor(helper, false);
 		GalactusEvent ev = new GalactusEvent(UUID.randomUUID());
 		Vec3 safe = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(3, 2, 3)));
-		float before = p.getHealth();
-		OrbitRules.rescue(ev, helper.getLevel(), p, safe);
-		helper.assertTrue(p.position().distanceTo(safe) < 0.5, "set down on safe ground");
-		helper.assertTrue(p.getHealth() < before && before - p.getHealth() <= GalactusConfig.orbit().fallDamage + 0.01, "a little damage");
-		helper.succeed();
+		// a new player's 3 s of spawn protection stops the hit, so wait it out
+		helper.runAfterDelay(65, () -> {
+			float before = p.getHealth();
+			OrbitRules.rescue(ev, helper.getLevel(), p, safe);
+			helper.assertTrue(p.position().distanceTo(safe) < 0.5, "set down on safe ground");
+			helper.assertTrue(p.getHealth() < before && before - p.getHealth() <= GalactusConfig.orbit().fallDamage + 0.01, "a little damage");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)

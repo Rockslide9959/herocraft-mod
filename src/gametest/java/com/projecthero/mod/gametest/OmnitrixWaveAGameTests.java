@@ -1589,6 +1589,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().inWall(), 2f);
 		helper.assertTrue(p.getHealth() == hp, "nothing physical touches him (walls neither)");
+		helper.getLevel().setDayTime(18000L); // night: at 5 a second the sun would finish him off first
 		pump(helper, p);
 		// v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please")
 		helper.runAfterDelay(140, () -> {
