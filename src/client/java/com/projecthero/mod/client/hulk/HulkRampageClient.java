@@ -102,7 +102,7 @@ public final class HulkRampageClient {
 
 	/** v0.16.4: the normal HUD is put away -- the rampage inset, or the mind hall of a death rampage ({@link HulkMindScreen}). */
 	public static boolean viewTaken() {
-		return insetShowing() || HulkMindScreen.showing();
+		return insetShowing() || HulkMindScreen.showing() || com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.showing();
 	}
 
 	/** v0.16.4 (user): a death rampage -- the player is in the mind hall, not watching an inset. */

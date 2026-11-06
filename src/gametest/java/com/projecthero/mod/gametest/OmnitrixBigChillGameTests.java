@@ -141,7 +141,9 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 		ServerPlayer p = bigChill(helper);
 		BigChillKit k = kit();
 		Villager v = prey(helper, 3.5, 2, 4.5, 60f);
+		p.setShiftKeyDown(true); // Shift+R: it runs for as long as both keys are down
 		helper.assertTrue(k.breath(p), "the Freezing Breath starts");
+		helper.assertTrue(k.cooldownLeft(p, BigChillKit.BREATH_MOVE) == 0, "no cooldown runs while it is held");
 		near(helper, v.getHealth(), 60f - (BigChillKit.BREATH_PULSE_DAMAGE * BigChillKit.heat(p)), "the first pulse lands at once (8)");
 		helper.assertTrue(v.getTicksFrozen() >= v.getTicksRequiredToFreeze() && !BigChillKit.shelled(v), "chilled, not yet frozen solid");
 		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(3, 1, 3))).is(Blocks.FROSTED_ICE), "the water under it ices over");
@@ -156,6 +158,48 @@ public class OmnitrixBigChillGameTests implements FabricGameTest {
 			helper.assertTrue(cd >= BigChillKit.BREATH_COOLDOWN - 1, "the 6 s cooldown runs from the release (" + cd + ")");
 			helper.succeed();
 		});
+	}
+
+	/** v0.17.2 round 4 (user: "remove the time limit on freezing breath, it goes as long as player holds shift+R"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void bigChillBreathHasNoTimeLimitAndEndsWhenShiftComesUp(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = bigChill(helper);
+		BigChillKit k = kit();
+		Villager v = prey(helper, 3.5, 2, 4.5, 1000f);
+		p.setShiftKeyDown(true);
+		helper.assertTrue(k.breath(p), "the Freezing Breath starts");
+		pump(helper, p);
+		helper.runAfterDelay(120, () -> {
+			helper.assertTrue(k.flag(p, BigChillKit.F_BREATH), "still breathing after 6 s, far past the old 2.5 s limit");
+			helper.assertTrue(v.getHealth() < 1000f - BigChillKit.BREATH_PULSE_DAMAGE * BigChillKit.heat(p) * 10, "and every pulse kept landing (" + v.getHealth() + ")");
+			p.setShiftKeyDown(false);
+			helper.runAfterDelay(2, () -> {
+				helper.assertFalse(k.flag(p, BigChillKit.F_BREATH), "letting go of Shift alone ends it");
+				helper.assertTrue(k.cooldownLeft(p, BigChillKit.BREATH_MOVE) > BigChillKit.BREATH_COOLDOWN - 5, "and the 6 s cooldown starts");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.17.2 round 4 (user: "make big chills flight the directional flight where he flies in the direction hes looking in please"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void bigChillFlightIsDirectional16And30(GameTestHelper helper) {
+		var model = com.projecthero.mod.flight.DirectionalFlightModel.bigChill(BigChillKit.FLY_SPEED, false);
+		var fast = com.projecthero.mod.flight.DirectionalFlightModel.bigChill(BigChillKit.FLY_SPEED, true);
+		Vec3 look = new Vec3(0, 0.6, 0.8); // up and forward: he climbs along his look
+		Vec3 cruise = Vec3.ZERO, sprint = Vec3.ZERO;
+		for (int i = 0; i < 200; i++) {
+			cruise = com.projecthero.mod.flight.DirectionalFlightModel.step(cruise, com.projecthero.mod.flight.DirectionalFlightModel.wantedVelocity(look, 0f, 1f, 0f, 0, model), true, model, false);
+			sprint = com.projecthero.mod.flight.DirectionalFlightModel.step(sprint, com.projecthero.mod.flight.DirectionalFlightModel.wantedVelocity(look, 0f, 1f, 0f, 0, fast), true, fast, false);
+		}
+		helper.assertTrue(Math.abs(cruise.length() - 0.8) < 0.02, "16 b/s (" + cruise.length() + " blocks a tick)");
+		helper.assertTrue(Math.abs(sprint.length() - 1.5) < 0.02, "30 b/s sprinting (" + sprint.length() + " blocks a tick)");
+		helper.assertTrue(cruise.normalize().dot(look) > 0.99, "along where he looks, up included (" + cruise + ")");
+		ServerPlayer p = bigChill(helper);
+		helper.assertTrue("big_chill".equals(Omnitrix.active(p)), "the directional flight's switch sees Big Chill (got " + Omnitrix.active(p) + ")");
+		helper.assertTrue(BigChillKit.breathing(p) == false, "not breathing yet");
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

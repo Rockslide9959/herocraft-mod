@@ -145,6 +145,105 @@ public class OmnitrixChromastoneGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	private static void pump(GameTestHelper helper, ServerPlayer p) {
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			Omnitrix.tick(p);
+		});
+	}
+
+	/** v0.17.2 round 4 (user: "give him more attack moves on G and shift+G please"). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void chromastonePrismPunchHitsTheFirstAndCarriesThrough(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = chromastone(helper);
+		ChromastoneKit k = kit();
+		Villager first = prey(helper, 3.5, 2, 4.5, 60f);
+		Villager behind = prey(helper, 3.5, 2, 7.2, 60f);
+		Villager aside = prey(helper, 8.5, 2, 3.5, 60f);
+		helper.assertTrue(ChromastoneKit.charge(p) == 0, "no charge: the punch is free");
+		k.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false);
+		helper.assertTrue(k.flag(p, ChromastoneKit.F_PUNCH), "G: the Prism Punch is coming round");
+		helper.assertTrue(k.cooldownLeft(p, ChromastoneKit.PRISM_PUNCH) > 0, "and cooling down");
+		k.landPunch(p, helper.getLevel());
+		near(helper, first.getHealth(), 60f - ChromastoneKit.PUNCH_DAMAGE, "the fist: 16");
+		near(helper, behind.getHealth(), 60f - ChromastoneKit.PUNCH_BLAST, "the light through it: 10");
+		near(helper, aside.getHealth(), 60f, "nothing to the side");
+		helper.assertFalse(k.flag(p, ChromastoneKit.F_PUNCH), "the punch is over");
+		helper.succeed();
+	}
+
+	/** v0.17.2 round 4 (user: "give him more attack moves on G and shift+G please"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void chromastoneSpectrumSweepCrossesTheArcOnceEach(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = chromastone(helper);
+		ChromastoneKit k = kit();
+		Villager left = prey(helper, 7.5, 2, 6.5, 60f); // facing +z, his left is +x
+		Villager right = prey(helper, 0.5, 2, 5.5, 60f);
+		Villager behind = prey(helper, 3.5, 2, 0.3, 60f);
+		helper.assertFalse(k.spectrumSweep(p), "no charge, no sweep");
+		helper.assertTrue(k.cooldownLeft(p, ChromastoneKit.SPECTRUM_SWEEP) == 0, "and a refused sweep costs no cooldown");
+		k.setCharge(p, 40);
+		k.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
+		helper.assertTrue(k.flag(p, ChromastoneKit.F_SWEEP), "Shift+G: the sweep starts");
+		helper.assertTrue(ChromastoneKit.charge(p) == 25, "for 15 charge");
+		pump(helper, p);
+		helper.runAfterDelay(ChromastoneKit.SWEEP_WINDUP + ChromastoneKit.SWEEP_TICKS + 4, () -> {
+			near(helper, left.getHealth(), 60f - ChromastoneKit.SWEEP_DAMAGE, "the left of the arc, once");
+			near(helper, right.getHealth(), 60f - ChromastoneKit.SWEEP_DAMAGE, "the right of the arc, once");
+			near(helper, behind.getHealth(), 60f, "nothing behind him");
+			helper.assertFalse(k.flag(p, ChromastoneKit.F_SWEEP), "the sweep is over");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 4 (user: "only make it deal 20 damage and release 20 energy please"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void chromastoneChargeReleaseDeals20AndSpends20(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = chromastone(helper);
+		ChromastoneKit k = kit();
+		Villager near = prey(helper, 3.5, 2, 6.5, 60f);
+		Villager far = prey(helper, 3.5, 2, 10.5, 60f);
+		k.setCharge(p, 19);
+		helper.assertFalse(k.release(p), "under 20 charge it is refused");
+		helper.assertTrue(k.cooldownLeft(p, ChromastoneKit.CHARGE_RELEASE) == 0 && ChromastoneKit.charge(p) == 19, "and costs nothing");
+		k.setCharge(p, 90);
+		helper.assertTrue(k.release(p), "C: he draws it in");
+		helper.assertTrue(ChromastoneKit.charge(p) == 70, "20 charge, not all of it (got " + ChromastoneKit.charge(p) + ")");
+		near(helper, near.getHealth(), 60f, "nothing yet: it is still coming in");
+		pump(helper, p);
+		helper.runAfterDelay(ChromastoneKit.RELEASE_WINDUP + 2, () -> {
+			near(helper, near.getHealth(), 60f - 20f, "20, whatever the charge was");
+			near(helper, far.getHealth(), 60f, "6 blocks at most");
+			helper.assertFalse(k.flag(p, ChromastoneKit.F_RELEASE), "it has gone off");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.2 round 4: what G held moved, it did not go: tap V Redirect, hold V Absorb Stance, hold C Refraction. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void chromastoneMovedMovesAnswerTheirNewKeys(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = chromastone(helper);
+		ChromastoneKit k = kit();
+		Villager v = prey(helper, 3.5, 2, 6.5, 60f);
+		var v5 = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		var c6 = com.projecthero.mod.hero.AbilitySlot.SLOT_6;
+		k.press(p, v5, false);
+		helper.assertTrue(k.flag(p, ChromastoneKit.F_REDIRECT), "tap V: Redirect");
+		k.holdStart(p, v5);
+		helper.assertTrue(k.flag(p, ChromastoneKit.F_STANCE), "hold V: the Absorb Stance");
+		k.press(p, v5, false);
+		helper.assertFalse(k.flag(p, ChromastoneKit.F_STANCE), "a tap ends the stance");
+		k.setCharge(p, 40);
+		k.holdStart(p, c6);
+		near(helper, v.getHealth(), 60f - ChromastoneKit.REFRACT_DAMAGE, "hold C: Refraction");
+		helper.assertTrue(ChromastoneKit.charge(p) == 10, "for 30 charge");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void chromastoneRadiantBurstHitsAllRoundAndHarderWithCharge(GameTestHelper helper) {
 		floor(helper);

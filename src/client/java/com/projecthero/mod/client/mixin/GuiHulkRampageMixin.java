@@ -25,6 +25,8 @@ public abstract class GuiHulkRampageMixin {
 		HulkRampageClient.shrinkWorld();
 		// v0.16.4 (user): a death rampage -- the frame goes onto the screen of the mind hall, drawn over everything
 		com.projecthero.mod.client.hulk.HulkMindScreen.renderScene(delta);
+		// v0.17.2 round 4: Alien X's council hall, the same illusion
+		com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.renderScene(delta);
 	}
 
 	@Inject(method = "renderHotbarAndDecorations", at = @At("HEAD"), cancellable = true)

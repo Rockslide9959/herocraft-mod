@@ -63,13 +63,13 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R          Ice Shard        a shard of ice (7, chilled), 0.6 s
- *   Shift+R    Freezing Breath  HOLD up to 2.5 s: a cone of freezing breath, reach 4 growing to 8; 3 every 0.5 s (up to 15),
- *                               chilled, frozen solid from the third pulse; water under it freezes over, fire goes out;
- *                               6 s cooldown from the release
+ *   Shift+R    Freezing Breath  HOLD, no time limit: a cone of freezing breath, reach 4 growing to 8; 8 every 0.5 s, chilled,
+ *                               frozen solid from the third pulse; water under it freezes over, fire goes out; 6 s cooldown
+ *                               from the release
  *   G          Frost Grip       seize the creature in reach (4.5): 13, frozen solid 3 s
  *   Shift+G    Shatter          every frozen-solid creature within 8 he can see bursts out of its ice: 16, flying ice 5 to
  *                               anything within 2 of it (refused, free, if nothing is frozen)
- *   X          Moth Flight      take off / land
+ *   X          Moth Flight      take off / land; he flies where he looks (DirectionalFlight, 16 b/s, 30 sprinting)
  *   Shift+X    Phase            intangible 5 s: through walls, no physical harm; PHANTOM CHILL: passing through a creature
  *                               freezes it from the inside (8, frozen solid 2 s, once each per phase). Not while burning
  *   Z          Ice Dive         climb, then plunge: r 4, 17 + chilled, a frost crater
@@ -139,7 +139,7 @@ public final class BigChillKit extends AlienKit {
 
 	// ---------------------------------------------------------------- poses (client: BigChillClient)
 	public static final int ANIM_BREATH = 1, ANIM_SHARD = 2, ANIM_GRIP = 3, ANIM_SHATTER = 4, ANIM_TAKEOFF = 5, ANIM_PHASE = 6, ANIM_DIVE = 7,
-			ANIM_FIELD = 8, ANIM_CLOAK = 9, ANIM_ARMOUR = 10, ANIM_BLIZZARD = 11, ANIM_ZERO = 12, ANIM_LAND = 13, ANIM_AMBUSH = 14;
+			ANIM_FIELD = 8, ANIM_CLOAK = 9, ANIM_ARMOUR = 10, ANIM_BLIZZARD = 11, ANIM_ZERO = 12, ANIM_LAND = 13, ANIM_AMBUSH = 14, ANIM_BREATH_END = 15;
 
 	public static final int F_FLYING = 1;
 	public static final int F_PHASE = 2;
@@ -164,7 +164,8 @@ public final class BigChillKit extends AlienKit {
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
 	public static final float SHARD_DAMAGE = 11f;
 	public static final float BREATH_PULSE_DAMAGE = 8f;
-	public static final int BREATH_MAX_TICKS = 50, BREATH_PULSE = 10, BREATH_COOLDOWN = 120;
+	// v0.17.2 round 4 (user: "remove the time limit on freezing breath, it goes as long as player holds shift+R"): no limit, 6 s from the release
+	public static final int BREATH_PULSE = 10, BREATH_COOLDOWN = 120;
 	public static final double BREATH_RANGE = 8.0, BREATH_HALF_ANGLE = 28.0;
 	public static final float GRIP_DAMAGE = 22f;
 	public static final float SHATTER_DAMAGE = 28f, SHATTER_SPLASH = 10f;
@@ -229,6 +230,11 @@ public final class BigChillKit extends AlienKit {
 		return Omnitrix.hasPower(p) && Omnitrix.state(p).transformed() && ID.equals(Omnitrix.state(p).active);
 	}
 
+	/** v0.17.2 round 4: {@code p} is breathing frost (client-safe): the Sneak in the Shift+R chord must not sink him in flight. */
+	public static boolean breathing(Player p) {
+		return isBigChill(p) && (Omnitrix.state(p).kitFlags & F_BREATH) != 0;
+	}
+
 	@Override
 	public AlienStats stats() {
 		// v0.17.2 revamp: a slight ghost of a thing -- no armour of his own (only every alien's hidden Resistance I)
@@ -284,6 +290,7 @@ public final class BigChillKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		boolean wasPhased = flag(p, F_PHASE);
 		endCloak(p);
+		stopBreath(p);
 		PHASED_THROUGH.remove(p.getUUID());
 		LAST_TICK.remove(p.getUUID());
 		OmnitrixState n = Omnitrix.state(p).copy();
@@ -580,11 +587,16 @@ public final class BigChillKit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+R (held): the Freezing Breath starts; it pulses until the keys come up (2.5 s at most). True if it started. */
+	/**
+	 * Shift+R (held): v0.17.2 round 4 (user: "remove the time limit on freezing breath, it goes as long as player holds shift+R"): the
+	 * Freezing Breath pulses until the keys come up, with no limit. No cooldown runs while it does; {@link #BREATH_COOLDOWN} starts on
+	 * the release. True if it started.
+	 */
 	public boolean breath(ServerPlayer p) {
 		if (flag(p, F_BREATH) || !use(p, BREATH_MOVE)) {
 			return false;
 		}
+		cooldown(p, BREATH_MOVE, 0); // it only starts on the release
 		anim(p, ANIM_BREATH);
 		setTimer(p, BREATH_START, p.level().getGameTime());
 		setFlag(p, F_BREATH, true);
@@ -606,7 +618,7 @@ public final class BigChillKit extends AlienKit {
 		setTimer(p, BREATH_START, 0);
 		cooldown(p, BREATH_MOVE, BREATH_COOLDOWN); // the 6 s run from the release
 		if (Omnitrix.state(p).animId == ANIM_BREATH) {
-			anim(p, 0);
+			anim(p, ANIM_BREATH_END);
 		}
 		long now = p.level().getGameTime();
 		setTimer(p, OPEN_UNTIL, now + OPEN_TICKS / 2);
@@ -616,11 +628,12 @@ public final class BigChillKit extends AlienKit {
 		if (!flag(p, F_BREATH)) {
 			return;
 		}
-		long held = now - timer(p, BREATH_START);
-		if (held >= BREATH_MAX_TICKS) {
+		// letting go of either key ends it (the release only fires for R; a lost key-up must not leave him breathing)
+		if (!p.isShiftKeyDown()) {
 			stopBreath(p);
 			return;
 		}
+		long held = now - timer(p, BREATH_START);
 		if (held > 0 && held % BREATH_PULSE == 0) {
 			breathPulse(p, l, (int) (held / BREATH_PULSE), held);
 		}
@@ -749,7 +762,10 @@ public final class BigChillKit extends AlienKit {
 
 	// ---------------------------------------------------------------- X: Moth Flight / Shift+X: Phase
 
-	/** X: take off / land. */
+	/**
+	 * X: take off / land. v0.17.2 round 4 (user: "make big chills flight the directional flight where he flies in the direction hes
+	 * looking in please"): {@code DirectionalFlight} drives him along his look once he is up (double-tap jump flies the same).
+	 */
 	public boolean flight(ServerPlayer p) {
 		if (!use(p, FLIGHT)) {
 			return false;

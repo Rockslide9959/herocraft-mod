@@ -383,7 +383,7 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Shift+R: a beam for as long as the keys are held, 6 a damage tick (9 on a machine), no Charge; the cooldown starts on release. */
+	/** Shift+R: a beam for as long as the keys are held and Charge lasts, 6 a damage tick (9 on a machine), 5 Charge a second; the cooldown starts on release. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void beamLastsAsLongAsTheKeys(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
@@ -394,16 +394,28 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 			start[0] = g.getHealth();
 			p.setShiftKeyDown(true);
 			kit().press(p, AbilitySlot.SLOT_1, true);
-			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "firing with no Charge at all");
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_BEAM), "no Charge, no beam");
+			kit().fill(p, 40);
+			kit().press(p, AbilitySlot.SLOT_1, true);
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "firing");
 			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.BEAM) == 0, "no cooldown while firing");
 		});
 		helper.runAfterDelay(34, () -> {
 			float d = start[0] - g.getHealth();
 			helper.assertTrue(d >= 45f && d <= 63.01f, "about six ticks of 9: " + d);
 			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "still firing");
+			helper.assertTrue(FeedbackKit.charge(p) >= 30 && FeedbackKit.charge(p) <= 34, "about 8 Charge in 32 ticks: " + FeedbackKit.charge(p));
 			kit().release(p, AbilitySlot.SLOT_1, true, 32);
 			helper.assertFalse(kit().flag(p, FeedbackKit.F_BEAM), "stopped");
 			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.BEAM) > 100, "6 s cooldown from release");
+			kit().cooldown(p, FeedbackKit.BEAM, 0);
+			kit().fill(p, 5);
+			kit().press(p, AbilitySlot.SLOT_1, true);
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "5 Charge is enough to start");
+		});
+		helper.runAfterDelay(34 + 30, () -> {
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_BEAM), "out of Charge: it cuts out");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.BEAM) > 80, "and the cooldown runs");
 			p.setShiftKeyDown(false);
 			helper.succeed();
 		});

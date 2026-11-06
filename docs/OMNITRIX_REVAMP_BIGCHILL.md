@@ -40,10 +40,10 @@ less in the heat (see weaknesses).
 | Key | Move | What it does | Numbers |
 |---|---|---|---|
 | R | Ice Shard | a spinning shard of ice (rendered spike projectile), chills | 7, cd 0.6 s |
-| Shift+R (hold) | Freezing Breath | hold up to 2.5 s: a cone whose reach grows from 4 to 8 blocks over 1.5 s. Every pulse chills. From the third pulse they freeze solid. Water under the cone ices over (frosted ice that thaws by itself) and fire blocks go out | 3 per 0.5 s (up to 15), cd 6 s from the release |
+| Shift+R (hold) | Freezing Breath | round 4 (user: "remove the time limit on freezing breath, it goes as long as player holds shift+R"): held with no time limit, ending when either key comes up: a cone whose reach grows from 4 to 8 blocks over 1.5 s. Every pulse chills. From the third pulse they freeze solid. Water under the cone ices over (frosted ice that thaws by itself) and fire blocks go out | 3 per 0.5 s (up to 15), cd 6 s from the release |
 | G | Frost Grip | seizes the creature in reach and freezes it solid | 13, frozen 3 s, reach 4.5, cd 7 s |
 | Shift+G | Shatter | every frozen-solid creature within 8 that he can see bursts out of its ice (block shards). The flying ice cuts anything within 2. Refused with no cooldown if nothing is frozen | 16, splash 5, cd 8 s |
-| X | Moth Flight | take off / land (double-tap jump works too); wings open through the lift-off | cd 0.5 s |
+| X | Moth Flight | take off / land (double-tap jump works too); wings open through the lift-off. Round 4 (user: "make big chills flight the directional flight where he flies in the direction hes looking in please"): on `DirectionalFlight`, 16 b/s, 30 sprinting (about what his wings did before). He hangs in the air while breathing: the Sneak in Shift+R does not sink him | cd 0.5 s |
 | Shift+X | Phase | intangible 5 s: walls and physical harm pass through him. **Phantom Chill**: passing through a creature freezes it from the inside, once per creature per Phase. Can't start while burning | 8, frozen 2 s; cd 10 s after it ends |
 | Z | Ice Dive | climb, then plunge: frost shock ring, crack decal, ice shards, camera shake, water ices over | 17 + chilled in r 4, cd 10 s |
 | Shift+Z | **Absolute Zero (ULT)** | 1 s drawing the cold in (rooted, blue vignette), then an ice dome: everything near is frozen solid, and water freezes and fire dies in r 8 | 55 at the centre, 40 at the 8-block edge; frozen 4 s; cd 60 s |
@@ -53,7 +53,7 @@ less in the heat (see weaknesses).
 | Shift+V | Frost Armour | an ice shell: less damage taken, and attackers within 4 are chilled | -40% for 6 s, cd 15 s |
 | Attack | Frost Touch | blows chill; an already-chilled creature freezes solid | frozen 2 s |
 
-Damage check: quick 7 (Shard), 3 a pulse; normal 13 to 17 (Grip, Shatter 16, Dive 17); the Breath is 15 at most; the ultimate
+Damage check: quick 7 (Shard), 3 a pulse; normal 13 to 17 (Grip, Shatter 16, Dive 17); the Breath is 8 a pulse with no ceiling while held; the ultimate
 55/40.
 
 ### Passives
@@ -68,6 +68,10 @@ Damage check: quick 7 (Shard), 3 a pulse; normal 13 to 17 (Grip, Shatter 16, Div
 - **Slight body:** 28 health with no armour. Phasing only stops physical harm, so fire and magic still reach him.
 
 ## Conventions kept
+Round 4 look: the breath is a rolling mist of soft pale puffs round a short bright jet (`BigChillClient.breathMist`). The old solid
+cone was a white wedge, and a white disc over his own view, which a breath with no time limit could not live with. In his own view
+the jet goes and the mist starts 1.5 blocks out and thinner. A chained clip settles the pose on the release.
+
 Static per-player maps (`PHASED_THROUGH`, `LAST_TICK`) are cleared on revert and in `clearSessionState`. Timed pulses (the breath,
 blizzard, field) are guarded against double ticks. Lang covers `projecthero.omnitrix.big_chill.<move>` + `.desc`, the guide entry,
 the role and passive/weakness lines, and three action-bar messages.

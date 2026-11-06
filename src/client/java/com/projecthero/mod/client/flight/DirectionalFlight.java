@@ -104,7 +104,9 @@ public final class DirectionalFlight {
 		boolean boosting = tune.sneakBoosts() && sneak && (player.isSprinting() || thrust);
 		float forward = player.input.forwardImpulse;
 		float strafe = player.input.leftImpulse;
-		int vertical = DirectionalFlightModel.verticalInput(jump, sneak, boosting);
+		// v0.17.2 round 4: the same for Big Chill's held Shift+R: he hangs in the air breathing, he does not sink
+		int vertical = DirectionalFlightModel.verticalInput(jump, sneak,
+				boosting || com.projecthero.mod.omnitrix.alien.bigchill.BigChillKit.breathing(player));
 
 		Vec3 wanted = DirectionalFlightModel.wantedVelocity(player.getLookAngle(), player.getYRot(), forward, strafe,
 				vertical, tune);
@@ -209,6 +211,11 @@ public final class DirectionalFlight {
 					// sprinting"): Streamline doubles it
 					return DirectionalFlightModel.jetray(flyingSpeed, sprint,
 							com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.streamlined(player));
+				}
+				case "big_chill" -> {
+					// v0.17.2 round 4 (user: "make big chills flight the directional flight where he flies in the direction hes looking in
+					// please"): 16 b/s, 30 sprinting
+					return DirectionalFlightModel.bigChill(flyingSpeed, sprint);
 				}
 				case "ghostfreak" -> {
 					// v0.17.2 (user: "make ghost freaks flight the directional flight where he flies in the direction he looks
