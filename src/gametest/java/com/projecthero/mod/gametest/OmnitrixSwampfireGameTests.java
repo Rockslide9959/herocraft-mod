@@ -6,6 +6,7 @@ import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
+import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -24,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2 Swampfire revamp (docs/OMNITRIX_REVAMP_SWAMPFIRE.md): his body and weaknesses (fire immune, cold x2, no regrowth while
- * frozen), the held Methane Torch (pulses, the cooldown from the release), Methane Cloud / Ignite on Z (and a Fire Blast setting
+ * frozen), the Fire Blast's gather and two hands, the Fire Punch, Methane Cloud / Ignite on Z (and a Fire Blast setting
  * the cloud off), Methane Inferno + Methane Surge, Reassembly (mulch, reform, cooldown, never while frozen), the seeds (Seed Scatter
  * mines, 5 at most), Vine Snare's yank, Vine Lash, the Overgrowth ladder, and that turning back leaves no state behind. Mock players
  * are not ticked: tests over time drive {@link Omnitrix#tick} themselves.
@@ -131,25 +132,62 @@ public class OmnitrixSwampfireGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void swampfireTorchPulsesWhileHeldAndCoolsDownFromTheRelease(GameTestHelper helper) {
+	public void swampfireFireBlastGathersThenThrowsOneFireballFromEachHand(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = swampfire(helper, 0f);
+		SwampfireKit k = kit();
+		// each ball starts at its own hand, either side of him and well below his eyes
+		k.throwFireball(p, true);
+		k.throwFireball(p, false);
+		java.util.List<AlienProjectileEntity> balls = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(4), e -> "swampfire_blast".equals(e.kind()));
+		helper.assertTrue(balls.size() == 2, "one ball a hand (got " + balls.size() + ")");
+		helper.assertTrue(Math.abs(balls.get(0).getX() - balls.get(1).getX()) > 0.6, "from two different hands");
+		helper.assertTrue(balls.get(0).getY() < p.getEyeY() - 0.2, "not from his face");
+		balls.forEach(AlienProjectileEntity::discard);
+		// R: nothing leaves during the gather, then two balls
+		helper.assertTrue(k.fireBlast(p), "the gather starts");
+		helper.assertTrue(k.gathering(p) && k.keyActive(p, AbilitySlot.SLOT_1), "the key is lit while the fire gathers");
+		helper.assertFalse(k.firePunch(p), "and the hands are busy");
+		pump(helper, p);
+		helper.runAfterDelay(SwampfireKit.BLAST_GATHER - 3, () -> {
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(20)).isEmpty(), "nothing thrown yet");
+			helper.assertTrue(Omnitrix.state(p).animId == SwampfireKit.ANIM_BLAST_GATHER, "gathering");
+			helper.runAfterDelay(4, () -> {
+				helper.assertTrue(Omnitrix.state(p).animId == SwampfireKit.ANIM_BLAST, "the right hand threw first");
+				helper.assertTrue(k.gathering(p), "the left still has its fire");
+				helper.runAfterDelay(SwampfireKit.BLAST_GAP + 1, () -> {
+					// (the first ball may already have hit the test arena's barrier)
+					helper.assertFalse(helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(9), e -> e.getOwner() == p).isEmpty(), "the second fireball");
+					helper.assertFalse(k.gathering(p), "done");
+					helper.assertTrue(Omnitrix.state(p).animId == SwampfireKit.ANIM_BLAST_L, "the left hand threw last");
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void swampfireFirePunchBurnsHitsAndLightsTheCloud(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = swampfire(helper, 0f);
 		SwampfireKit k = kit();
 		Villager v = prey(helper, 3.5, 2, 4.0, 100f);
-		helper.assertTrue(k.torch(p), "the Methane Torch lights");
-		helper.assertTrue(k.flag(p, SwampfireKit.F_TORCH), "and burns while held");
-		near(helper, v.getHealth(), 100f - SwampfireKit.TORCH_PULSE_DAMAGE, "the first lick");
-		helper.assertTrue(v.isOnFire(), "sets it alight");
-		helper.assertFalse(k.torch(p), "a second press does not restart it");
-		v.clearFire(); // its own burning must not blur the pulse count
+		helper.assertTrue(SwampfireKit.FIRE_PUNCH.equals(k.moveOn(AbilitySlot.SLOT_1, true, false).id()), "the Fire Punch is on Shift+R");
+		helper.assertTrue(k.firePunch(p), "his hand catches fire");
+		helper.assertTrue(k.flag(p, SwampfireKit.F_FIST), "the synced flag");
+		near(helper, v.getHealth(), 100f, "no hit until the punch");
 		pump(helper, p);
-		helper.runAfterDelay(SwampfireKit.TORCH_PULSE + 1, () -> {
-			v.invulnerableTime = 0;
-			near(helper, v.getHealth(), 100f - 2 * SwampfireKit.TORCH_PULSE_DAMAGE, "a second lick half a second later");
-			k.release(p, AbilitySlot.SLOT_1, true, SwampfireKit.TORCH_PULSE + 1);
-			helper.assertFalse(k.flag(p, SwampfireKit.F_TORCH), "let go, it stops");
-			int left = k.cooldownLeft(p, SwampfireKit.TORCH);
-			helper.assertTrue(left > SwampfireKit.TORCH_COOLDOWN - 3, "the 6 s cooldown runs from the release (" + left + ")");
+		helper.runAfterDelay(SwampfireKit.PUNCH_WINDUP + 2, () -> {
+			near(helper, v.getHealth(), 100f - SwampfireKit.PUNCH_DAMAGE, "the punch lands");
+			helper.assertTrue(v.isOnFire(), "and burns");
+			helper.assertFalse(k.flag(p, SwampfireKit.F_FIST), "the fist is spent");
+			helper.assertTrue(Omnitrix.state(p).animId == SwampfireKit.ANIM_FIRE_PUNCH, "the punch clip");
+			helper.assertTrue(k.cooldownLeft(p, SwampfireKit.FIRE_PUNCH) > SwampfireKit.PUNCH_COOLDOWN - 15, "the 6 s cooldown");
+			// the torch's job: the methane goes up
+			v.discard();
+			helper.assertTrue(k.cloud(p), "a cloud");
+			k.punch(p);
+			helper.assertFalse(SwampfireKit.hasCloud(p), "a punch inside the cloud sets it off");
 			helper.succeed();
 		});
 	}
@@ -178,7 +216,7 @@ public class OmnitrixSwampfireGameTests implements FabricGameTest {
 		helper.assertTrue(k.cloud(p), "a fresh cloud");
 		helper.assertTrue(k.fireBlast(p), "a Fire Blast");
 		pump(helper, p);
-		helper.runAfterDelay(3, () -> {
+		helper.runAfterDelay(SwampfireKit.BLAST_GATHER + 3, () -> {
 			helper.assertFalse(SwampfireKit.hasCloud(p), "the fireball set the cloud off");
 			helper.assertTrue(k.cooldownLeft(p, SwampfireKit.CLOUD) > 0, "and Z cools down");
 			helper.succeed();

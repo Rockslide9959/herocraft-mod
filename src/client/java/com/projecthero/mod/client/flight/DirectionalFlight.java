@@ -183,6 +183,13 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.heldThrust(flyingSpeed, sprint, DirectionalFlightModel.FEEDBACK_THRUST_BPS,
 					DirectionalFlightModel.FEEDBACK_SPRINT_BPS);
 		}
+		// v0.17.2 round 4: Jetray's held Shift+X -- the charge's slow drift (Sneak must not sink him), then 200 b/s
+		if (com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.supersonic(player)) {
+			return DirectionalFlightModel.jetraySupersonic(clearAhead(player));
+		}
+		if (com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.supersonicCharging(player)) {
+			return DirectionalFlightModel.heldThrust(flyingSpeed, false, DirectionalFlightModel.JETRAY_CHARGE_BPS, DirectionalFlightModel.JETRAY_CHARGE_BPS);
+		}
 		if (player.getAbilities().flying && !player.getAbilities().instabuild) {
 			if (com.projecthero.mod.miraculous.hawkmoth.HawkMothKit.flying(player)) {
 				return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.HAWK_MOTH_CRUISE_BPS,
@@ -273,6 +280,27 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.vanilla(flyingSpeed, sprint);
 		}
 		return null;
+	}
+
+	/**
+	 * v0.17.2 round 4: blocks of loaded chunks along the look, up to {@link DirectionalFlightModel#SUPERSONIC_LOOK} (a chunk this client has,
+	 * the server has too). Sampled every 4 blocks. In a fresh world this is what really sets his speed: he flies as fast as chunks
+	 * generate and arrive (about 30 b/s at render distance 8 in the test run), and 200 over ground already generated or over the build limit.
+	 */
+	private static double clearAhead(LocalPlayer player) {
+		var look = player.getLookAngle();
+		if (player.getY() > player.level().getMaxBuildHeight() + 2.0 && look.y >= -0.05) {
+			return DirectionalFlightModel.SUPERSONIC_LOOK; // over the build limit nothing unloaded can be in his way
+		}
+		for (double d = 0.0; d < DirectionalFlightModel.SUPERSONIC_LOOK; d += 4.0) {
+			int cx = net.minecraft.core.SectionPos.blockToSectionCoord(player.getX() + look.x * d);
+			int cz = net.minecraft.core.SectionPos.blockToSectionCoord(player.getZ() + look.z * d);
+			// (hasChunk alone answers true on the client: a chunk not there yet is the empty placeholder)
+			if (!player.level().hasChunk(cx, cz) || player.level().getChunk(cx, cz) instanceof net.minecraft.world.level.chunk.EmptyLevelChunk) {
+				return d;
+			}
+		}
+		return DirectionalFlightModel.SUPERSONIC_LOOK;
 	}
 
 	/**

@@ -185,6 +185,36 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
+	 * v0.17.2 round 4 (user: "while hes holding shift+X while flying he gets a green trail and flies at 200 blocks per second please"):
+	 * Jetray's Supersonic Flight, a forced drive along the look of 10 blocks a tick. {@code Entity.move} sweeps the player's box along the
+	 * whole step, so blocks stop him however fast he goes, but it only sees loaded chunks: past them he would fly through the unloaded
+	 * world and wake up inside a mountain. So the drive follows {@link #supersonicLimit}.
+	 */
+	public static final double JETRAY_SUPERSONIC_BPS = 200.0;
+	/** The slow drift along the look while he charges (Sneak is half of the key chord, so it must not sink him). */
+	public static final double JETRAY_CHARGE_BPS = 4.0;
+	/** How far ahead along the look the client checks for loaded chunks. */
+	public static final double SUPERSONIC_LOOK = 96.0;
+	/** Blocks kept between him and the first unloaded chunk, and the ticks of braking the rest of the clear stretch is spent on. */
+	public static final double SUPERSONIC_MARGIN = 24.0, SUPERSONIC_BRAKE_TICKS = 6.0;
+	private static final double SUPERSONIC_CREEP = 0.05;
+
+	/**
+	 * Blocks a tick he may fly with {@code clear} blocks of loaded chunks ahead: the full 10 with {@value #SUPERSONIC_LOOK} clear, easing down
+	 * as the unloaded edge comes nearer, and all but stopped {@value #SUPERSONIC_MARGIN} blocks short of it until the server catches up.
+	 */
+	public static double supersonicLimit(double clear) {
+		double full = JETRAY_SUPERSONIC_BPS / 20.0;
+		return Math.max(SUPERSONIC_CREEP, Math.min(full, (clear - SUPERSONIC_MARGIN) / SUPERSONIC_BRAKE_TICKS));
+	}
+
+	/** The Supersonic drive with {@code clear} blocks of loaded world ahead: no climb of its own (the look steers), a light strafe. */
+	public static Tune jetraySupersonic(double clear) {
+		double speed = supersonicLimit(clear);
+		return new Tune(speed, 0.0, 0.3, 0.25, 0.25, 0.25, 0.0, speed, true, 0, false);
+	}
+
+	/**
 	 * v0.17.2 round 3 (user: "as long as he holds SHift+X he flies in that direction with his crackling lightning vfx please"):
 	 * Buzzshock's Spark Flight, a thrust along the look for as long as the keys are down -- 26 b/s, 40 sprinting.
 	 */

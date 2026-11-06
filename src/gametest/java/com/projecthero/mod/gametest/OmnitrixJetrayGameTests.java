@@ -1,5 +1,6 @@
 package com.projecthero.mod.gametest;
 
+import com.projecthero.mod.flight.DirectionalFlightModel;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -153,7 +154,7 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		// up he goes
 		Vec3 up = helper.absoluteVec(new Vec3(3.5, 7, 1.5));
 		p.teleportTo(up.x, up.y, up.z);
-		k.flight(p);
+		k.wingBeat(p);
 		pump(helper, p);
 		helper.runAfterDelay(4, () -> {
 			helper.assertTrue(v.getY() < p.getY() && v.distanceTo(p) < 3.5, "carried under him (" + v.position() + " vs " + p.position() + ")");
@@ -170,21 +171,21 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		ServerPlayer p = jetray(helper);
 		JetrayKit k = kit();
 		if (!p.getAbilities().flying) {
-			k.flight(p);
+			k.wingStroke(p);
 		}
 		helper.assertTrue(p.getAbilities().flying, "flying");
 		near(helper, k.incomingDamage(p, helper.getLevel().damageSources().explosion(null, null), 4f), 6f, "a blast does 50% more");
 		helper.assertTrue(k.flag(p, JetrayKit.F_STALL) && !p.getAbilities().flying && !p.getAbilities().mayfly, "and knocks him out of the air");
-		clearCooldown(p, JetrayKit.FLIGHT);
-		helper.assertFalse(k.flight(p), "no flight while stalled");
+		clearCooldown(p, JetrayKit.WING_BEAT);
+		helper.assertFalse(k.wingBeat(p), "no Wing Beat while stalled");
 		near(helper, k.incomingDamage(p, helper.getLevel().damageSources().lightningBolt(), 10f), 5f, "Insulated: lightning halved");
 		pump(helper, p);
 		helper.runAfterDelay(JetrayKit.STALL_TICKS + 2, () -> {
 			helper.assertFalse(k.flag(p, JetrayKit.F_STALL), "the stall wears off");
 			helper.assertTrue(p.getAbilities().mayfly, "the wings are back");
-			clearCooldown(p, JetrayKit.FLIGHT);
+			clearCooldown(p, JetrayKit.WING_BEAT);
 			if (!p.getAbilities().flying) {
-				k.flight(p);
+				k.wingStroke(p);
 			}
 			helper.assertTrue(p.getAbilities().flying, "flying again");
 			k.incomingDamage(p, helper.getLevel().damageSources().generic(), 10f);
@@ -239,10 +240,133 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		// the mock transformed mid-air (already on the wings): set him down first
 		p.getAbilities().flying = false;
 		p.onUpdateAbilities();
-		helper.assertTrue(kit().flight(p), "X takes off");
+		helper.assertTrue(kit().wingBeat(p), "X");
+		kit().wingStroke(p);
 		helper.assertTrue(p.getAbilities().flying, "flying (abilities)");
 		helper.assertTrue((Omnitrix.state(p).kitFlags & JetrayKit.F_FLYING) != 0, "the synced flying flag the client's wings read");
 		helper.assertTrue("jetray".equals(Omnitrix.active(p)), "the directional flight's switch sees Jetray (got " + Omnitrix.active(p) + ")");
+		helper.succeed();
+	}
+
+	/** On the wings, Shift down. */
+	private static ServerPlayer airborne(GameTestHelper helper) {
+		ServerPlayer p = jetray(helper);
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.onUpdateAbilities();
+		p.setShiftKeyDown(true);
+		return p;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void jetraySupersonicChargesThreeSecondsThenFliesUntilReleased(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = airborne(helper);
+		JetrayKit k = kit();
+		helper.assertTrue(JetrayKit.SUPERSONIC.equals(k.moveOn(AbilitySlot.SLOT_3, true, false).id()), "Supersonic Flight is on Shift+X");
+		helper.assertTrue(JetrayKit.WING_BEAT.equals(k.moveOn(AbilitySlot.SLOT_3, false, false).id()), "and flight is off X");
+		k.press(p, AbilitySlot.SLOT_3, true);
+		helper.assertTrue(JetrayKit.supersonicCharging(p) && k.keyActive(p, AbilitySlot.SLOT_3), "charging");
+		helper.assertFalse(JetrayKit.supersonic(p), "not yet");
+		helper.assertTrue(k.cooldownLeft(p, JetrayKit.SUPERSONIC) == 0, "no cooldown while it runs");
+		pump(helper, p);
+		helper.runAfterDelay(JetrayKit.SONIC_CHARGE - 5, () -> {
+			helper.assertTrue(JetrayKit.supersonicCharging(p) && !JetrayKit.supersonic(p), "still charging just before 3 s");
+			helper.runAfterDelay(8, () -> {
+				helper.assertTrue(JetrayKit.supersonic(p) && !JetrayKit.supersonicCharging(p), "through the barrier at 3 s");
+				helper.assertTrue(JetrayKit.fastMove(p), "the server takes his 10 blocks a tick");
+				k.release(p, AbilitySlot.SLOT_3, true, JetrayKit.SONIC_CHARGE + 8);
+				helper.assertFalse(JetrayKit.supersonic(p), "it stops with the keys");
+				helper.assertTrue(k.cooldownLeft(p, JetrayKit.SUPERSONIC) > JetrayKit.SONIC_COOLDOWN - 3, "the 5 s cooldown runs from the release");
+				helper.assertTrue(JetrayKit.fastMove(p), "and his last fast moves still get through");
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void jetraySupersonicNeedsFlightAndBothKeysHeld(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = jetray(helper);
+		JetrayKit k = kit();
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		helper.assertFalse(k.supersonicStart(p), "not on the ground");
+		helper.assertTrue(k.cooldownLeft(p, JetrayKit.SUPERSONIC) == 0, "and that costs nothing");
+		p.getAbilities().flying = true;
+		p.onUpdateAbilities();
+		p.setShiftKeyDown(true);
+		helper.assertTrue(k.supersonicStart(p), "flying, it starts");
+		k.release(p, AbilitySlot.SLOT_3, true, 5);
+		helper.assertFalse(JetrayKit.supersonicCharging(p), "X up drops the charge");
+		helper.assertTrue(k.cooldownLeft(p, JetrayKit.SUPERSONIC) <= JetrayKit.SONIC_CANCEL_COOLDOWN, "with the short cooldown");
+		clearCooldown(p, JetrayKit.SUPERSONIC);
+		helper.assertTrue(k.supersonicStart(p), "again");
+		p.setShiftKeyDown(false);
+		pump(helper, p);
+		helper.runAfterDelay(3, () -> {
+			helper.assertFalse(JetrayKit.supersonicCharging(p), "Shift up drops it too");
+			clearCooldown(p, JetrayKit.SUPERSONIC);
+			p.setShiftKeyDown(true);
+			helper.assertTrue(k.supersonicStart(p), "once more");
+			k.stall(p);
+			helper.assertFalse(JetrayKit.supersonicCharging(p), "a clipped wing ends it");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void jetraySupersonicHolds200BlocksASecondAndBrakesForUnloadedChunks(GameTestHelper helper) {
+		Vec3 look = new Vec3(0.6, -0.1, 0.8).normalize();
+		DirectionalFlightModel.Tune t = DirectionalFlightModel.jetraySupersonic(DirectionalFlightModel.SUPERSONIC_LOOK);
+		Vec3 v = Vec3.ZERO;
+		for (int i = 0; i < 40; i++) {
+			Vec3 wanted = DirectionalFlightModel.wantedVelocity(look, 0f, 1f, 1f, 1, t);
+			v = DirectionalFlightModel.step(v, wanted, true, t, false);
+			helper.assertTrue(v.length() <= 10.0 + 1.0e-6, "never over 10 blocks a tick (" + v.length() + ")");
+		}
+		helper.assertTrue(v.length() > 9.9, "200 blocks a second (" + v.length() * 20 + ")");
+		helper.assertTrue(DirectionalFlightModel.verticalInput(false, true, true) == 0, "Shift is the key chord, not a descent");
+		near(helper, (float) DirectionalFlightModel.supersonicLimit(96), 10f, "all clear: full speed");
+		near(helper, (float) DirectionalFlightModel.supersonicLimit(54), 5f, "the edge coming up: easing down");
+		helper.assertTrue(DirectionalFlightModel.supersonicLimit(20) < 0.1, "held short of the edge");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void jetraySupersonicCannotTunnelThroughAWall(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = airborne(helper);
+		// a wall one block thick, 4 blocks ahead: a single 10-block step would land well past it
+		for (int x = 0; x <= 7; x++) {
+			for (int y = 2; y <= 5; y++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 6)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		double wall = helper.absoluteVec(new Vec3(0, 0, 6)).z;
+		p.setPos(p.getX(), p.getY() + 0.2, p.getZ());
+		p.move(net.minecraft.world.entity.MoverType.SELF, new Vec3(0, 0, 10));
+		helper.assertTrue(p.getZ() + p.getBbWidth() / 2 <= wall + 1.0e-6, "stopped at the wall, not through it (z " + p.getZ() + ", wall " + wall + ")");
+		helper.assertTrue(p.getZ() > wall - 2, "and he did travel");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void jetrayWingBeatThrowsHimAndTheDownwashHits(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = jetray(helper);
+		JetrayKit k = kit();
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		p.setOnGround(true);
+		Villager v = prey(helper, 3.5, 2, 4.5, 40f);
+		helper.assertTrue(k.wingBeat(p), "the wings go up");
+		near(helper, v.getHealth(), 40f, "no hit until the stroke");
+		k.wingStroke(p);
+		helper.assertTrue(p.getAbilities().flying && k.flag(p, JetrayKit.F_FLYING), "off the ground it is a take-off");
+		near(helper, v.getHealth(), 40f - JetrayKit.BEAT_DAMAGE, "the downwash");
+		helper.assertTrue(p.getDeltaMovement().y > 1.5, "thrown up (" + p.getDeltaMovement() + ")");
+		helper.assertTrue(k.cooldownLeft(p, JetrayKit.WING_BEAT) > JetrayKit.BEAT_COOLDOWN - 5, "3 s cooldown");
 		helper.succeed();
 	}
 
@@ -254,10 +378,13 @@ public class OmnitrixJetrayGameTests implements FabricGameTest {
 		Villager v = prey(helper, 3.5, 2, 4.5, 40f);
 		k.tailGrab(p);
 		k.eyes(p);
-		k.flight(p);
+		k.wingBeat(p);
 		k.stall(p);
 		k.roll(p);
 		k.tick(p, Omnitrix.state(p), p.level().getGameTime());
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		k.supersonicStart(p);
 		helper.assertTrue(JetrayKit.stacks(p, v) > 0 || v.isAlive(), "state built up");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 		helper.assertFalse(JetrayKit.holds(p), "no static state left");

@@ -137,18 +137,17 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 	// ================================================================ Jetray
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void jetrayFliesOnXAndLandsAgain(GameTestHelper helper) {
+	public void jetrayWingBeatLiftsHimIntoFlight(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, JetrayKit.ID);
 		JetrayKit kit = (JetrayKit) Aliens.kit(JetrayKit.ID);
 		helper.assertTrue(p.getAbilities().mayfly, "the wings are ready");
 		helper.assertFalse(p.getAbilities().flying, "on the ground he stays down");
 		kit.press(p, AbilitySlot.SLOT_3, false);
+		kit.wingStroke(p);
 		helper.assertTrue(p.getAbilities().flying && kit.flag(p, JetrayKit.F_FLYING), "X takes off");
 		helper.assertTrue(Math.abs(p.getAbilities().getFlyingSpeed() - JetrayKit.FLY_SPEED) < 1.0e-4f, "fast flight");
-		helper.assertFalse(kit.flight(p), "X has a short cooldown");
-		clearCooldown(p, kit, JetrayKit.FLIGHT);
-		helper.assertTrue(kit.flight(p) && !p.getAbilities().flying && !kit.flag(p, JetrayKit.F_FLYING), "X again lands");
+		helper.assertFalse(kit.wingBeat(p), "X cools down");
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().fall(), 12f);
 		near(helper, p.getHealth(), hp, "no fall damage");
@@ -182,7 +181,8 @@ public class OmnitrixRecalBGameTests implements FabricGameTest {
 		// Jetray: flying, streamlined
 		ServerPlayer j = as(helper, JetrayKit.ID);
 		JetrayKit jk = (JetrayKit) Aliens.kit(JetrayKit.ID);
-		jk.flight(j);
+		jk.wingBeat(j);
+		jk.wingStroke(j);
 		jk.press(j, AbilitySlot.SLOT_5, false);
 		helper.assertTrue(jk.flag(j, JetrayKit.F_STREAM) && j.getAbilities().flying, "Jetray flying in Streamline");
 		Omnitrix.revert(j, Omnitrix.Reason.SHIFT_V);

@@ -54,8 +54,10 @@ import net.minecraft.world.phys.Vec3;
  *   Shift+R    Tail Blast        tail bolt (28): 14, paralysed 1.5 s
  *   G          Dive Strike       streak along the look: 15 to all you pass
  *   Shift+G    Tail Grab         the tail grabs the creature you look at (5): 4, carried under him up to 5 s; Shift+G again drops it
- *   X          Flight            take off / land (fast flight)
- *   Shift+X    Supersonic Burst  a burst of speed along the look; the sonic boom behind him: 6 in 3, shoved
+ *   X          Wing Beat         round 4: one huge stroke of the wings throws him along the look (off the ground: up into flight); the
+ *                                downwash: 6 in 4, shoved; flight itself is a double-tap of jump
+ *   Shift+X    Supersonic Flight round 4: HOLD while flying: 3 s of charging, a sonic boom (12 in 3, shoved), then 200 blocks a second along
+ *                                the look with a green trail until the keys come up
  *   Z          Neuroshock Barrage five beams in a fan (16): 6 each + a stack
  *   Shift+Z    Neuroshock Overload ULTIMATE: 1 s charge (held still), a 30-block, 3-wide beam: 60, paralysed 3 s
  *   C          Dive Bomb         climb, then plunge: r 4, 18, paralysed 1 s
@@ -129,10 +131,21 @@ public final class JetrayKit extends AlienKit {
 	public static final OmnitrixSfx.Cue STALL = OmnitrixSfx.cue("jetray_stall")
 			.layer(SoundEvents.PHANTOM_HURT, 0.35f, 0.7f)
 			.layer(SoundEvents.BREEZE_WIND_CHARGE_BURST, 0.25f, 0.8f);
+	// round 4
+	public static final OmnitrixSfx.Cue BEAT = OmnitrixSfx.cue("jetray_beat")
+			.layer(SoundEvents.PHANTOM_FLAP, 0.6f, 0.6f)
+			.layer(SoundEvents.WIND_CHARGE_BURST.value(), 0.3f, 0.8f);
+	public static final OmnitrixSfx.Cue SONIC_HUM = OmnitrixSfx.cue("jetray_sonic_hum")
+			.layer(SoundEvents.BEACON_AMBIENT, 0.5f, 1.2f)
+			.layer(SoundEvents.PHANTOM_SWOOP, 0.12f, 1.6f);
+	public static final OmnitrixSfx.Cue SONIC_RUSH = OmnitrixSfx.cue("jetray_sonic_rush")
+			.layer(SoundEvents.WIND_CHARGE_BURST.value(), 0.25f, 0.5f)
+			.layer(SoundEvents.PHANTOM_SWOOP, 0.3f, 0.7f);
 
 	// ---------------------------------------------------------------- poses (client: JetrayClient)
-	public static final int ANIM_EYES = 1, ANIM_TAIL = 2, ANIM_DIVE = 3, ANIM_SLASH = 4, ANIM_TAKEOFF = 5, ANIM_BOOST = 6, ANIM_SPREAD = 7,
-			ANIM_PULSE = 8, ANIM_STREAM = 9, ANIM_ROLL = 10, ANIM_THUNDER = 11, ANIM_OVERLOAD = 12, ANIM_GRAB = 13, ANIM_RAM = 14;
+	public static final int ANIM_EYES = 1, ANIM_TAIL = 2, ANIM_DIVE = 3, ANIM_SLASH = 4, ANIM_SPREAD = 7,
+			ANIM_PULSE = 8, ANIM_STREAM = 9, ANIM_ROLL = 10, ANIM_THUNDER = 11, ANIM_OVERLOAD = 12, ANIM_GRAB = 13, ANIM_RAM = 14,
+			ANIM_BEAT = 15, ANIM_SONIC_CHARGE = 16, ANIM_SONIC = 17, ANIM_SONIC_END = 18;
 
 	public static final int F_FLYING = 1;
 	public static final int F_STREAM = 2;
@@ -142,16 +155,19 @@ public final class JetrayKit extends AlienKit {
 	public static final int F_CARRY = 32;
 	public static final int F_ROLL = 64;
 	public static final int F_STALL = 128;
+	/** Round 4: Shift+X held, charging; Shift+X held, past the barrier. */
+	public static final int F_SONIC_CHARGE = 256, F_SONIC = 512;
 
 	// ---------------------------------------------------------------- moves
 	public static final String EYES = "neuroshock_eyes", TAIL_BLAST = "tail_blast", DIVE_STRIKE = "dive_strike", TAIL_GRAB = "tail_grab",
-			FLIGHT = "flight", AFTERBURNER = "supersonic_burst", SPREAD = "neuroshock_barrage", OVERLOAD_MOVE = "neuroshock_overload",
+			WING_BEAT = "wing_beat", SUPERSONIC = "supersonic_flight", SPREAD = "neuroshock_barrage", OVERLOAD_MOVE = "neuroshock_overload",
 			DIVE_BOMB = "dive_bomb", SHOCK_PULSE = "neuroshock_pulse", STREAMLINE = "streamline", ROLL = "barrel_roll", RAM = "wing_ram",
 			WING_SLASH = "wing_slash";
 
 	/** Synced kit timers. */
 	public static final String DIVE_END = "dive_end", THUNDER_AT = "thunder_at", THUNDER_END = "thunder_end", OVERLOAD_AT = "overload_at",
-			CARRY_TARGET = "carry_target", CARRY_UNTIL = "carry_until", ROLL_UNTIL = "roll_until", STALL_UNTIL = "stall_until";
+			CARRY_TARGET = "carry_target", CARRY_UNTIL = "carry_until", ROLL_UNTIL = "roll_until", STALL_UNTIL = "stall_until", SONIC_AT = "sonic_at", SONIC_TAIL = "sonic_tail",
+			BEAT_AT = "beat_at", BEAT_LIFT = "beat_lift";
 
 	// v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
 	public static final float EYES_DAMAGE = 11f;
@@ -166,6 +182,21 @@ public final class JetrayKit extends AlienKit {
 	public static final int CARRY_TICKS = 100, GRAB_COOLDOWN = 200;
 	public static final float BOOM_DAMAGE = 12f;
 	public static final double BOOM_RADIUS = 3.0;
+	/**
+	 * Round 4 (user: "dont make x his flight, he already flies by double pressing space bar, put another move in x"): Wing Beat. In the show
+	 * he goes from a standstill to flat out in one stroke of those manta wings. {@link #BEAT_WINDUP} ticks raising the wings, then the stroke.
+	 */
+	public static final float BEAT_DAMAGE = 6f;
+	public static final double BEAT_RADIUS = 4.0, BEAT_SPEED = 2.4;
+	public static final int BEAT_WINDUP = 3, BEAT_COOLDOWN = 60;
+	/**
+	 * Round 4 (user: "for supersonic flight make it so that while hes holding shift+X while flying he gets a green trail and flies at 200
+	 * blocks per second please, player needs to hold shift+X for 3 seconds tho and there must be a chargeup animation aswell"): the speed
+	 * and its chunk / terrain safety are {@code DirectionalFlightModel.jetraySupersonic}. The cooldown starts when he lets go.
+	 */
+	public static final int SONIC_CHARGE = 60, SONIC_COOLDOWN = 100, SONIC_CANCEL_COOLDOWN = 20;
+	/** Ticks past the end the server still accepts his last fast moves ({@link #fastMove}). */
+	public static final int SONIC_TAIL_TICKS = 20;
 	public static final float SPREAD_DAMAGE = 10f;
 	public static final double SPREAD_RANGE = 16.0;
 	public static final float PULSE_DAMAGE = 22f;
@@ -222,7 +253,7 @@ public final class JetrayKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(AlienMove.tap(EYES, AbilitySlot.SLOT_1, 16), AlienMove.shift(TAIL_BLAST, AbilitySlot.SLOT_1, 80),
 				AlienMove.tap(DIVE_STRIKE, AbilitySlot.SLOT_2, 120), AlienMove.shift(TAIL_GRAB, AbilitySlot.SLOT_2, GRAB_COOLDOWN),
-				AlienMove.tap(FLIGHT, AbilitySlot.SLOT_3, 10), AlienMove.shift(AFTERBURNER, AbilitySlot.SLOT_3, 60),
+				AlienMove.tap(WING_BEAT, AbilitySlot.SLOT_3, BEAT_COOLDOWN), AlienMove.shift(SUPERSONIC, AbilitySlot.SLOT_3, SONIC_COOLDOWN),
 				AlienMove.tap(SPREAD, AbilitySlot.SLOT_4, 100), AlienMove.shift(OVERLOAD_MOVE, AbilitySlot.SLOT_4, 1200),
 				AlienMove.tap(STREAMLINE, AbilitySlot.SLOT_5, 10), AlienMove.shift(ROLL, AbilitySlot.SLOT_5, 120),
 				AlienMove.tap(DIVE_BOMB, AbilitySlot.SLOT_6, 240), AlienMove.shift(SHOCK_PULSE, AbilitySlot.SLOT_6, 160),
@@ -241,7 +272,8 @@ public final class JetrayKit extends AlienKit {
 		}
 	}
 
-	private static final String[] STATE_TIMERS = { DIVE_END, THUNDER_AT, THUNDER_END, OVERLOAD_AT, CARRY_TARGET, CARRY_UNTIL, ROLL_UNTIL, STALL_UNTIL };
+	private static final String[] STATE_TIMERS = { DIVE_END, THUNDER_AT, THUNDER_END, OVERLOAD_AT, CARRY_TARGET, CARRY_UNTIL, ROLL_UNTIL, STALL_UNTIL, SONIC_AT,
+			SONIC_TAIL, BEAT_AT, BEAT_LIFT };
 
 	@Override
 	public void onRevert(ServerPlayer p) {
@@ -262,7 +294,7 @@ public final class JetrayKit extends AlienKit {
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_2 -> flag(p, F_CARRY);
-			case SLOT_3 -> flag(p, F_FLYING);
+			case SLOT_3 -> flag(p, F_SONIC_CHARGE) || flag(p, F_SONIC);
 			case SLOT_4 -> flag(p, F_OVERLOAD);
 			case SLOT_5 -> flag(p, F_STREAM);
 			default -> false;
@@ -288,7 +320,7 @@ public final class JetrayKit extends AlienKit {
 				p.onUpdateAbilities();
 			}
 		}
-		// the wings are always ready (X or a double-tap of jump)
+		// the wings are always ready (a double-tap of jump)
 		if (!p.getAbilities().mayfly && !flag(p, F_STALL)) {
 			RecalKitMath.wings(p, false, flag(p, F_STREAM) ? STREAM_FLY_SPEED : FLY_SPEED);
 		}
@@ -315,6 +347,8 @@ public final class JetrayKit extends AlienKit {
 			setTimer(p, ROLL_UNTIL, 0);
 		}
 		p.resetFallDistance();
+		tickBeat(p, now);
+		tickSonic(p, l, now);
 		tickDive(p, l, now);
 		tickThunder(p, l, now);
 		tickOverload(p, l, now);
@@ -327,6 +361,11 @@ public final class JetrayKit extends AlienKit {
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
 		if (flag(p, F_OVERLOAD)) {
 			return; // charging the overload: nothing else
+		}
+		// Supersonic Flight owns his body: his eyes and tail still fire, but nothing that would move him or hold him still
+		if ((flag(p, F_SONIC_CHARGE) || flag(p, F_SONIC)) && !(slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_4 && !shift
+				|| slot == AbilitySlot.SLOT_6 && shift || slot == AbilitySlot.SLOT_2 && shift && flag(p, F_CARRY))) {
+			return;
 		}
 		switch (slot) {
 			case SLOT_1 -> {
@@ -349,9 +388,9 @@ public final class JetrayKit extends AlienKit {
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					afterburner(p);
+					supersonicStart(p);
 				} else {
-					flight(p);
+					wingBeat(p);
 				}
 			}
 			case SLOT_4 -> {
@@ -377,6 +416,13 @@ public final class JetrayKit extends AlienKit {
 			}
 			default -> {
 			}
+		}
+	}
+
+	@Override
+	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_3) {
+			supersonicStop(p);
 		}
 	}
 
@@ -550,7 +596,7 @@ public final class JetrayKit extends AlienKit {
 			return;
 		}
 		LivingEntity t = carried(p);
-		if (t == null || now >= timer(p, CARRY_UNTIL) || t.level() != p.level() || t.distanceToSqr(p) > 64) {
+		if (t == null || now >= timer(p, CARRY_UNTIL) || t.level() != p.level() || t.distanceToSqr(p) > (flag(p, F_SONIC) ? 400 : 64)) {
 			drop(p);
 			return;
 		}
@@ -573,48 +619,154 @@ public final class JetrayKit extends AlienKit {
 
 	// ---------------------------------------------------------------- X / Shift+X
 
-	/** X: take off / land. True if the wings changed. */
-	public boolean flight(ServerPlayer p) {
+	/**
+	 * X: Wing Beat -- the wings go up ({@link #BEAT_WINDUP} ticks), then {@link #wingStroke} throws him. False if he is stalled or it is not
+	 * ready. Flight itself starts on the stroke, not here: the client drops {@code flying} the moment it finds itself on the ground.
+	 */
+	public boolean wingBeat(ServerPlayer p) {
 		if (flag(p, F_STALL)) {
 			say(p, "message.projecthero.omnitrix.jetray.stalled");
 			return false;
 		}
-		if (!use(p, FLIGHT)) {
+		if (timer(p, BEAT_AT) > 0 || !use(p, WING_BEAT)) {
 			return false;
 		}
-		boolean fly = !p.getAbilities().flying;
-		RecalKitMath.wings(p, fly, flag(p, F_STREAM) ? STREAM_FLY_SPEED : FLY_SPEED);
-		setFlag(p, F_FLYING, fly);
-		if (fly) {
-			anim(p, ANIM_TAKEOFF);
-			p.setDeltaMovement(p.getDeltaMovement().add(0, 0.5, 0));
-			p.hurtMarked = true;
-			OmnitrixSfx.playOn(p, WHOOSH, 1.0f, 1.0f, SoundSource.PLAYERS);
-		}
+		anim(p, ANIM_BEAT);
+		setTimer(p, BEAT_AT, p.level().getGameTime() + BEAT_WINDUP);
 		return true;
 	}
 
-	/** Shift+X: Supersonic Burst -- a burst along the look, and the sonic boom behind him (6 in 3, shoved). */
-	public boolean afterburner(ServerPlayer p) {
-		if (!use(p, AFTERBURNER)) {
+	private void tickBeat(ServerPlayer p, long now) {
+		long at = timer(p, BEAT_AT);
+		if (at > 0 && now >= at) {
+			wingStroke(p);
+		}
+		// the take-off's first ticks: if the client was still on the ground when the flight reached it, it dropped it again
+		if (timer(p, BEAT_LIFT) > now && !p.getAbilities().flying && !p.onGround() && !p.isInWater()) {
+			RecalKitMath.wings(p, true, flag(p, F_STREAM) ? STREAM_FLY_SPEED : FLY_SPEED);
+		}
+	}
+
+	/**
+	 * The stroke: {@link #BEAT_SPEED} along the look, lifted a little in the air and well up off the ground, straight along the look in water;
+	 * the downwash hits everything within {@link #BEAT_RADIUS} ({@link #BEAT_DAMAGE}) and shoves it out. Tests call it straight.
+	 */
+	public void wingStroke(ServerPlayer p) {
+		setTimer(p, BEAT_AT, 0);
+		ServerLevel l = level(p);
+		Vec3 look = p.getLookAngle();
+		Vec3 at = p.position().add(0, 0.2, 0);
+		boolean ground = p.onGround();
+		if (!p.isInWater() && !p.getAbilities().flying) {
+			RecalKitMath.wings(p, true, flag(p, F_STREAM) ? STREAM_FLY_SPEED : FLY_SPEED);
+			setFlag(p, F_FLYING, true);
+			setTimer(p, BEAT_LIFT, p.level().getGameTime() + 8);
+		}
+		Vec3 v = p.isInWater() ? look.scale(BEAT_SPEED + 0.4)
+				: ground ? new Vec3(look.x, 0, look.z).scale(BEAT_SPEED * 0.45).add(0, BEAT_SPEED * 0.8, 0)
+						: look.add(0, 0.25, 0).normalize().scale(BEAT_SPEED);
+		p.setDeltaMovement(v);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+		for (LivingEntity e : around(p, at, BEAT_RADIUS)) {
+			if (e.getId() != (int) (timer(p, CARRY_TARGET) - 1) && hurt(p, e, BEAT_DAMAGE, false)) {
+				shove(e, at, 1.0, 0.2);
+			}
+		}
+		QuirkFx.ring(l, at).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, 0xFFD27A).size((float) BEAT_RADIUS).thickness(0.3f).life(10).ground().spawn();
+		l.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, at.x, at.y, at.z, 14, 1.2, 0.1, 1.2, 0.08);
+		OmnitrixSfx.play(l, at, BEAT, 1.0f, 1.0f);
+	}
+
+	/**
+	 * Shift+X down, flying: the charge starts; {@link #SONIC_CHARGE} ticks later {@link #breakBarrier} if the keys are still down. Refused
+	 * (no cooldown) on the ground or stalled: double-tap jump first.
+	 */
+	public boolean supersonicStart(ServerPlayer p) {
+		if (flag(p, F_SONIC_CHARGE) || flag(p, F_SONIC)) {
 			return false;
 		}
-		anim(p, ANIM_BOOST);
-		ServerLevel l = level(p);
+		if (flag(p, F_STALL)) {
+			say(p, "message.projecthero.omnitrix.jetray.stalled");
+			return false;
+		}
+		if (!p.getAbilities().flying) {
+			say(p, "message.projecthero.omnitrix.jetray.fly_first");
+			return false;
+		}
+		if (!ready(p, SUPERSONIC)) {
+			return use(p, SUPERSONIC); // the usual "not ready" line
+		}
+		anim(p, ANIM_SONIC_CHARGE);
+		setTimer(p, SONIC_AT, p.level().getGameTime() + SONIC_CHARGE);
+		setFlag(p, F_SONIC_CHARGE, true);
+		OmnitrixSfx.playOn(p, CHARGE, 1.0f, 0.8f, SoundSource.PLAYERS);
+		return true;
+	}
+
+	private void tickSonic(ServerPlayer p, ServerLevel l, long now) {
+		boolean charging = flag(p, F_SONIC_CHARGE);
+		if (!charging && !flag(p, F_SONIC)) {
+			return;
+		}
+		if (!p.isShiftKeyDown()) {
+			supersonicStop(p); // "while hes holding shift+X": the Shift half came up first
+			return;
+		}
+		if (!p.getAbilities().flying) {
+			RecalKitMath.wings(p, true, flag(p, F_STREAM) ? STREAM_FLY_SPEED : FLY_SPEED); // the client landed him for a tick (a scrape along the floor)
+		}
+		p.resetFallDistance();
+		if (charging) {
+			long left = timer(p, SONIC_AT) - now;
+			if (left <= 0) {
+				breakBarrier(p, l);
+			} else if (left % 10 == 0) {
+				OmnitrixSfx.playOn(p, SONIC_HUM, 0.5f + 0.5f * (SONIC_CHARGE - left) / SONIC_CHARGE, 0.7f + 1.1f * (SONIC_CHARGE - left) / SONIC_CHARGE,
+						SoundSource.PLAYERS);
+			}
+		} else if (now % 15 == 0) {
+			OmnitrixSfx.playOn(p, SONIC_RUSH, 0.8f, 1.0f, SoundSource.PLAYERS);
+		}
+	}
+
+	/** Three seconds held: the sonic boom ({@link #BOOM_DAMAGE} in {@link #BOOM_RADIUS}, shoved), and {@code DirectionalFlight} takes him to 200 b/s. */
+	public void breakBarrier(ServerPlayer p, ServerLevel l) {
+		setFlag(p, F_SONIC_CHARGE, false);
+		setTimer(p, SONIC_AT, 0);
+		setFlag(p, F_SONIC, true);
+		anim(p, ANIM_SONIC);
 		Vec3 at = p.position().add(0, p.getBbHeight() * 0.5, 0);
 		for (LivingEntity e : around(p, at, BOOM_RADIUS)) {
 			if (e.getId() != (int) (timer(p, CARRY_TARGET) - 1) && hurt(p, e, BOOM_DAMAGE, false)) {
 				shove(e, at, 0.9, 0.3);
 			}
 		}
-		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, 0xBFE8FF).size(2.6f).thickness(0.35f)
-				.life(10).spawn();
-		p.setDeltaMovement(p.getLookAngle().scale(flag(p, F_STREAM) ? 3.0 : 2.5));
-		p.hurtMarked = true;
-		p.resetFallDistance();
-		QuirkCamera.fovPunch(p, 0.15f, 8);
-		OmnitrixSfx.play(l, at, BOOM, 1.0f, 1.0f);
-		return true;
+		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).style(QuirkFx.RING_SHOCK).colours(0xF4FFC8, SHOCK).size(4.5f).thickness(0.45f).life(12)
+				.spawn();
+		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).style(QuirkFx.RING_SOFT).colours(0xFFFFFF, 0xBFE8FF).size(7f).thickness(0.3f).life(16)
+				.spawn();
+		QuirkCamera.fovPunch(p, 0.2f, 10);
+		QuirkCamera.shakeAround(l, at, 14, 0.25f, 6);
+		OmnitrixSfx.play(l, at, BOOM, 1.5f, 0.9f);
+	}
+
+	/** The keys came up (or he was knocked out of the sky): a charge is dropped with a short cooldown; a flight starts the full one. */
+	public void supersonicStop(ServerPlayer p) {
+		if (flag(p, F_SONIC_CHARGE)) {
+			setFlag(p, F_SONIC_CHARGE, false);
+			setTimer(p, SONIC_AT, 0);
+			cooldown(p, SUPERSONIC, SONIC_CANCEL_COOLDOWN);
+			if (Omnitrix.state(p).animId == ANIM_SONIC_CHARGE) {
+				anim(p, 0);
+			}
+		}
+		if (flag(p, F_SONIC)) {
+			setFlag(p, F_SONIC, false);
+			setTimer(p, SONIC_TAIL, p.level().getGameTime() + SONIC_TAIL_TICKS);
+			cooldown(p, SUPERSONIC, -1);
+			anim(p, ANIM_SONIC_END);
+		}
 	}
 
 	// ---------------------------------------------------------------- Z / Shift+Z
@@ -889,6 +1041,7 @@ public final class JetrayKit extends AlienKit {
 
 	/** Knocked out of the air: no flight for 1.5 s (he drops; still no fall damage). */
 	public void stall(ServerPlayer p) {
+		supersonicStop(p);
 		setTimer(p, STALL_UNTIL, p.level().getGameTime() + STALL_TICKS);
 		setFlag(p, F_STALL, true);
 		setFlag(p, F_FLYING, false);
@@ -909,6 +1062,24 @@ public final class JetrayKit extends AlienKit {
 	public static boolean streamlined(Player p) {
 		AlienKit k = activeKit(p);
 		return k instanceof JetrayKit j && j.flag(p, F_STREAM);
+	}
+
+	/** Round 4: {@code p} is charging Supersonic Flight (client-safe; the charge's slow drive). */
+	public static boolean supersonicCharging(Player p) {
+		return activeKit(p) instanceof JetrayKit j && j.flag(p, F_SONIC_CHARGE);
+	}
+
+	/** Round 4: {@code p} is past the barrier, flying at 200 b/s (client-safe). */
+	public static boolean supersonic(Player p) {
+		return activeKit(p) instanceof JetrayKit j && j.flag(p, F_SONIC);
+	}
+
+	/**
+	 * Round 4: 10 blocks a tick is exactly vanilla's "moved too quickly" limit, so the server waves that one check through for him, through
+	 * the moment the flight ends too: his last fast moves are still arriving then ({@code SpeedForceMoveCheckMixin}).
+	 */
+	public static boolean fastMove(ServerPlayer p) {
+		return activeKit(p) instanceof JetrayKit j && (j.flag(p, F_SONIC) || j.timer(p, SONIC_TAIL) > p.level().getGameTime());
 	}
 
 	/** Static state held for {@code p} (tests: nothing is left after turning back). */
