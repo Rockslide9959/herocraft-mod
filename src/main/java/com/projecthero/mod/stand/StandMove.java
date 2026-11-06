@@ -29,7 +29,7 @@ public record StandMove(String id, int slot, boolean shift, int cooldown, float 
 			new StandMove(LEAP, 3, false, StandConfig.LEAP_COOLDOWN, StandConfig.LEAP_COST, false),
 			new StandMove(DASH, 3, true, StandConfig.DASH_COOLDOWN, StandConfig.DASH_COST, false),
 			new StandMove(STAR_BREAKER, 4, false, StandConfig.BREAKER_COOLDOWN, StandConfig.BREAKER_COST, true),
-			new StandMove(THE_WORLD, 4, true, StandConfig.TIME_STOP_COOLDOWN, StandConfig.TIME_STOP_MIN_STAMINA, false),
+			new StandMove(THE_WORLD, 4, true, StandConfig.TIME_STOP_COOLDOWN, StandConfig.TIME_STOP_COST, false),
 			new StandMove(GUARD, 5, false, StandConfig.GUARD_COOLDOWN, 0f, true),
 			new StandMove(SIGHT, 5, true, StandConfig.SIGHT_COOLDOWN, 0f, false),
 			new StandMove(INHALE, 6, false, StandConfig.INHALE_COOLDOWN, StandConfig.INHALE_COST, false),

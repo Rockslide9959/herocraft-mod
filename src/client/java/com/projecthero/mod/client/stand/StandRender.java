@@ -3,15 +3,20 @@ package com.projecthero.mod.client.stand;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.render.JointedLimbs;
 import com.projecthero.mod.stand.StandConfig;
 import com.projecthero.mod.stand.StandType;
 import com.projecthero.mod.stand.Stands;
 import com.projecthero.mod.stand.StarPlatinum;
 import com.projecthero.mod.stand.data.StandState;
+import com.projecthero.mod.stand.network.StandFxPayload;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
@@ -44,18 +49,26 @@ import net.minecraft.world.phys.Vec3;
  *       1.15x a player, with a faint purple glow shell, floating and bobbing behind the right shoulder at rest.</li>
  *   <li>While it fights (any attack, the rush, Guard, the charge, a held thing, the inhale) it moves in front of its user --
  *       in first person far enough out to be seen.</li>
+ *   <li>Its body moves on real elbows and knees ({@link StandPoses}: keyframed clips, cross-faded every frame), and Star Finger is a
+ *       stretching finger mesh ({@link StandFinger}).</li>
  *   <li>The ORA Rush draws blurred extra arm copies and (setting) floating "ORA" text; a summon throws up ゴゴゴ.</li>
  *   <li>A held block is drawn in its hand; faint violet motes drift off it (client particles: Stand users only).</li>
  * </ul>
  */
 public final class StandRender {
 	private static final float SCALE = 1.15f * 0.9375f;
+	/** The waist, above the figure's origin (blocks): what it leans about. */
+	private static final float WAIST = 0.95f;
 
 	/** Per-Stand smoothing (where it floats, which way it faces). */
 	private static final class Smooth {
 		Vec3 pos;
 		float yaw = Float.NaN;
 		long lastNanos;
+		/** The pose on screen, chasing the wanted one ({@link StandPoses#target}); null until the first frame. */
+		float[] pose;
+		/** The Star Finger whose fingertip flash has gone off (its animation's start). */
+		long fingerFlash;
 	}
 
 	private static final Map<Integer, Smooth> SMOOTH = new ConcurrentHashMap<>();
@@ -76,23 +89,12 @@ public final class StandRender {
 
 	/** Length of a one-shot animation (ticks). */
 	static int animLength(int animId) {
-		return switch (animId) {
-			case StandState.ANIM_SUMMON -> StandConfig.SUMMON_ANIM_TICKS;
-			case StandState.ANIM_PUNCH_L, StandState.ANIM_PUNCH_R -> 8;
-			case StandState.ANIM_PUNCH_HEAVY, StandState.ANIM_RUSH_FINISH -> 12;
-			case StandState.ANIM_FINGER -> 14;
-			case StandState.ANIM_GRAB -> 10;
-			case StandState.ANIM_THROW -> 10;
-			case StandState.ANIM_FLICK -> 10;
-			case StandState.ANIM_LEAP, StandState.ANIM_DASH -> 10;
-			case StandState.ANIM_BREAKER -> 16;
-			case StandState.ANIM_THE_WORLD -> 30;
-			case StandState.ANIM_INHALE -> StandConfig.INHALE_TICKS;
-			case StandState.ANIM_UPPERCUT -> 12;
-			case StandState.ANIM_DISMISS -> 10;
-			case StandState.ANIM_CATCH -> 8;
-			default -> 0;
-		};
+		return StandPoses.length(animId);
+	}
+
+	/** The Star Finger clip is playing. */
+	private static boolean fingerOut(StandState s, float age) {
+		return s.animId == StandState.ANIM_FINGER && age >= 0f && age < animLength(StandState.ANIM_FINGER) && s.fingerEnd.size() == 3;
 	}
 
 	/** It is fighting: it stands in front of its user. */
@@ -101,7 +103,7 @@ public final class StandRender {
 			return true;
 		}
 		return switch (s.animId) {
-			case StandState.ANIM_NONE, StandState.ANIM_SUMMON, StandState.ANIM_DISMISS, StandState.ANIM_LEAP, StandState.ANIM_DASH -> false;
+			case StandState.ANIM_NONE, StandState.ANIM_SUMMON, StandState.ANIM_DISMISS, StandState.ANIM_LEAP -> false;
 			default -> age >= 0f && age < animLength(s.animId);
 		};
 	}
@@ -166,14 +168,24 @@ public final class StandRender {
 			double out = firstPerson ? 2.1 : 1.05;
 			want = at.add(fwdHead.scale(out)).add(0, 0.05, 0);
 			wantYaw = headYaw;
+			if (fingerOut(s, age)) {
+				// Star Finger: squared up on the target -- and in first person a step aside, so you see the finger and what it pokes
+				Vec3 tip = new Vec3(s.fingerEnd.get(0), s.fingerEnd.get(1), s.fingerEnd.get(2));
+				if (firstPerson) {
+					want = want.add(StarPlatinum.rightOf(fwdHead).scale(0.95)).subtract(fwdHead.scale(0.35));
+				}
+				Vec3 to = tip.subtract(want.add(0, 1.4, 0));
+				wantYaw = (float) (Mth.atan2(-to.x, to.z) * Mth.RAD_TO_DEG);
+				pitch = (float) -(Mth.atan2(to.y, to.horizontalDistance()) * Mth.RAD_TO_DEG);
+			}
+		} else if (s.animId == StandState.ANIM_LEAP && age >= 0f && age < animLength(StandState.ANIM_LEAP)) {
+			// Stand Leap: it is underneath you, throwing you up
+			want = at.add(0, -1.2, 0).add(fwdBody.scale(0.15));
+			wantYaw = bodyYaw;
 		} else {
 			want = at.subtract(fwdBody.scale(0.5)).add(StarPlatinum.rightOf(fwdBody).scale(0.75)).add(0, 0.35 + 0.06 * Mth.sin(t * 0.1f), 0);
 			wantYaw = bodyYaw;
 		}
-		if (s.animId == StandState.ANIM_SUMMON && age < StandConfig.SUMMON_ANIM_TICKS) {
-			want = want.add(0, -0.6 * (1f - ease(age / StandConfig.SUMMON_ANIM_TICKS)), 0); // it rises out of its user
-		}
-
 		Smooth sm = SMOOTH.computeIfAbsent(p.getId(), k -> new Smooth());
 		long nanos = System.nanoTime();
 		float dt = sm.lastNanos == 0L ? 1f : Mth.clamp((nanos - sm.lastNanos) / 5.0e7f, 0f, 3f);
@@ -183,14 +195,31 @@ public final class StandRender {
 		} else {
 			// quick: it snaps out in front to fight, and drifts back to the shoulder -- in first person a little slower both ways
 			// (user: "make him float in front of the user and then float back behind the user like how it happens in third person")
-			float k = Mth.clamp((fight ? (firstPerson ? 0.32f : 0.6f) : (firstPerson ? 0.1f : 0.25f)) * dt, 0f, 1f);
+			float k = Mth.clamp((fight ? (firstPerson && !fingerOut(s, age) ? 0.32f : 0.6f) : (firstPerson ? 0.1f : 0.25f)) * dt, 0f, 1f);
 			sm.pos = sm.pos.lerp(want, k);
 		}
 		if (Float.isNaN(sm.yaw)) {
 			sm.yaw = wantYaw;
 		}
 		sm.yaw += Mth.wrapDegrees(wantYaw - sm.yaw) * Mth.clamp(0.35f * dt, 0f, 1f);
-		Vec3 pos = sm.pos;
+
+		// ---- the pose: chase the wanted one, fast enough that a strike still snaps (a filter on frame time, not a tick step)
+		float[] wantPose = new float[StandPoses.N];
+		StandPoses.target(s, p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null), age, t, now, fight, wantPose);
+		if (sm.pose == null) {
+			sm.pose = wantPose.clone();
+		}
+		float follow = 1f - (float) Math.exp(-1.7f * dt);
+		for (int i = 0; i < StandPoses.N; i++) {
+			sm.pose[i] += (wantPose[i] - sm.pose[i]) * follow;
+		}
+		float[] pp = sm.pose;
+		// it leans into its user's speed
+		Vec3 vel = p.getDeltaMovement();
+		float speedLean = Mth.clamp((float) vel.horizontalDistance() * 0.9f, 0f, 0.4f);
+		Vec3 facing = dir(sm.yaw);
+		Vec3 pos = sm.pos.add(facing.scale(pp[StandPoses.FWD])).add(0, pp[StandPoses.UP], 0)
+				.add(StarPlatinum.rightOf(facing).scale(pp[StandPoses.SIDE]));
 
 		float alpha = 1f;
 		if (s.animId == StandState.ANIM_SUMMON && age < StandConfig.SUMMON_ANIM_TICKS) {
@@ -212,17 +241,37 @@ public final class StandRender {
 		// ---- pose the body
 		PlayerModel<Player> m = model;
 		resetPose(m);
-		float lookYaw = Mth.clamp(Mth.wrapDegrees(headYaw - sm.yaw), -70f, 70f);
-		m.head.yRot = lookYaw * Mth.DEG_TO_RAD;
-		m.head.xRot = Mth.clamp(pitch, -60f, 60f) * Mth.DEG_TO_RAD;
-		StandPoses.apply(m, s, age, t, now);
-		copyLayers(m);
+		float lookYaw = Mth.clamp(Mth.wrapDegrees(headYaw - sm.yaw), -70f, 70f) * Mth.DEG_TO_RAD;
+		float lookPitch = Mth.clamp(pitch, -60f, 60f) * Mth.DEG_TO_RAD;
+		JointedLimbs.begin();
+		try {
+			StandPoses.apply(m, pp, lookPitch, lookYaw);
+			copyLayers(m);
+			drawBody(pose, buffers, m, s, type, p, sm, pos, pp, speedLean, age, t, alpha, cam);
+		} finally {
+			JointedLimbs.end();
+		}
+		int light = light(p, pos.add(0, 1.2, 0));
+		if (s.grabbedBlock != 0) {
+			renderHeldBlock(pose, buffers, p, partial, cam, s.grabbedBlock, light);
+		}
+		renderText(pose, buffers, p, s, pos, age, t, cam);
+	}
+
+	/** The figure, its rush arms, its glow shell and Star Finger, in the pose set on {@code m}. */
+	private static void drawBody(PoseStack pose, MultiBufferSource buffers, PlayerModel<Player> m, StandState s, StandType type, Player p, Smooth sm,
+			Vec3 pos, float[] pp, float speedLean, float age, float t, float alpha, Vec3 cam) {
 
 		int light = light(p, pos.add(0, 1.2, 0));
 		int a = Mth.clamp((int) (alpha * 255f), 0, 255);
 		pose.pushPose();
 		pose.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-		pose.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw));
+		pose.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw + pp[StandPoses.TWIST] * Mth.RAD_TO_DEG));
+		// the whole figure leans about its waist
+		pose.translate(0f, WAIST, 0f);
+		pose.mulPose(Axis.XP.rotation(-(pp[StandPoses.LEAN] + speedLean)));
+		pose.mulPose(Axis.ZP.rotation(pp[StandPoses.ROLL]));
+		pose.translate(0f, -WAIST, 0f);
 		pose.scale(-SCALE, -SCALE, SCALE);
 		pose.translate(0f, -1.501f, 0f);
 		VertexConsumer body = buffers.getBuffer(RenderType.entityTranslucent(type.texture()));
@@ -231,6 +280,17 @@ public final class StandRender {
 		if (s.rushing) {
 			renderRushArms(pose, body, m, t, light, a);
 		}
+		if (s.animId == StandState.ANIM_DASH && age >= 0f && age < animLength(StandState.ANIM_DASH)) {
+			// Stand Dash: after-images streaming off it
+			for (int i = 1; i <= 3; i++) {
+				pose.pushPose();
+				// straight back along the way it is going, whatever its lean
+				float back = 9f * i / 16f, lean = pp[StandPoses.LEAN] + speedLean;
+				pose.translate(0f, Mth.sin(lean) * back, Mth.cos(lean) * back);
+				m.renderToBuffer(pose, body, light, OverlayTexture.NO_OVERLAY, ((int) (a * (0.4f - 0.1f * i)) << 24) | 0xFFFFFF);
+				pose.popPose();
+			}
+		}
 		// the faint purple glow shell
 		pose.pushPose();
 		pose.scale(1.06f, 1.04f, 1.06f);
@@ -238,12 +298,51 @@ public final class StandRender {
 		int ga = (int) (a * (0.16f + 0.05f * Mth.sin(t * 0.2f)));
 		m.renderToBuffer(pose, glow, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, (ga << 24) | (type.colour() & 0xFFFFFF));
 		pose.popPose();
+		boolean finger = fingerOut(s, age);
+		Vector3f hand = finger ? rightHand(pose, m) : null;
 		pose.popPose();
-
-		if (s.grabbedBlock != 0) {
-			renderHeldBlock(pose, buffers, p, partial, cam, s.grabbedBlock, light);
+		if (finger) {
+			renderFinger(pose, buffers, s, sm, hand, age, light, a, cam);
 		}
-		renderText(pose, buffers, p, s, pos, age, t, cam);
+	}
+
+	/** Where Star Platinum's right fist is right now, in the frame of the outer pose: down the arm, through the bent elbow. */
+	private static Vector3f rightHand(PoseStack pose, PlayerModel<Player> m) {
+		pose.pushPose();
+		m.rightArm.translateAndRotate(pose);
+		Quaternionf elbow = JointedLimbs.joint(JointedLimbs.RIGHT_ARM);
+		float jy = JointedLimbs.jointY(JointedLimbs.RIGHT_ARM) / 16f;
+		pose.translate(-1f / 16f, jy, 0f);
+		if (elbow != null) {
+			pose.mulPose(elbow);
+		}
+		pose.translate(0f, 10.5f / 16f - jy, 0f);
+		Vector3f out = pose.last().pose().transformPosition(new Vector3f());
+		pose.popPose();
+		return out;
+	}
+
+	/** Star Finger: the fingers shoot from the fist to the synced point, hold there, trembling, then draw back in. */
+	private static void renderFinger(PoseStack pose, MultiBufferSource buffers, StandState s, Smooth sm, Vector3f hand, float age, int light, int a, Vec3 cam) {
+		Vector3f tip = pose.last().pose().transformPosition((float) (s.fingerEnd.get(0) - cam.x), (float) (s.fingerEnd.get(1) - cam.y),
+				(float) (s.fingerEnd.get(2) - cam.z), new Vector3f());
+		float out = Mth.clamp(age / 3f, 0f, 1f);
+		out = 1f - (1f - out) * (1f - out) * (1f - out);
+		float back = Mth.clamp((age - 10f) / 4f, 0f, 1f);
+		float extend = out * (1f - back * back);
+		float whip = (1f - Mth.clamp(age / 4f, 0f, 1f)) + back * 0.6f;
+		if (age >= 3f && sm.fingerFlash != s.animStart) {
+			// it lands: a small flash on the fingertip
+			sm.fingerFlash = s.animStart;
+			StandFx.local(StandFxPayload.IMPACT, new Vec3(s.fingerEnd.get(0), s.fingerEnd.get(1), s.fingerEnd.get(2)), Vec3.ZERO, 0.6f);
+		}
+		// the fingers sit side by side, level across the hand
+		Vector3f along = new Vector3f(tip).sub(hand);
+		Vector3f side = new Vector3f(along).cross(pose.last().pose().transformDirection(new Vector3f(0, 1, 0))).normalize();
+		if (!side.isFinite()) {
+			side.set(1, 0, 0);
+		}
+		StandFinger.draw(buffers, hand, tip, side, extend, whip, Math.max(light, LightTexture.pack(10, 10)), a);
 	}
 
 	/** A steady pseudo-random 0..1 from an int (the same arm keeps its spot all through one punch). */
@@ -291,6 +390,7 @@ public final class StandRender {
 	private static void renderRushArms(PoseStack pose, VertexConsumer vc, PlayerModel<Player> m, float t, int light, int a) {
 		var saveR = m.rightArm.storePose();
 		var saveL = m.leftArm.storePose();
+		Quaternionf elbowR = JointedLimbs.joint(JointedLimbs.RIGHT_ARM), elbowL = JointedLimbs.joint(JointedLimbs.LEFT_ARM);
 		for (int i = 0; i < BARRAGE_ARMS; i++) {
 			float phase = t / BARRAGE_LIFE + i * 0.618f;
 			int cycle = Mth.floor(phase);
@@ -305,6 +405,8 @@ public final class StandRender {
 			float aimPitch = (hash(seed + 3) - 0.5f) * 0.25f;
 			float reach = 4f + 20f * ease(Math.min(1f, u * 1.6f)); // a quick snap out, then hangs at full reach
 			float fade = u < 0.15f ? u / 0.15f : 1f - Mth.clamp((u - 0.55f) / 0.45f, 0f, 1f);
+			// each one comes out of a folded elbow and locks straight at full reach
+			StandPoses.joint(right ? JointedLimbs.RIGHT_ARM : JointedLimbs.LEFT_ARM, -1.9f * (1f - ease(Math.min(1f, u * 2f))));
 			for (int ghost = 0; ghost < 2; ghost++) {
 				float back = ghost * 3.5f;
 				int ga = (int) (a * fade * (ghost == 0 ? 0.85f : 0.3f));
@@ -323,6 +425,8 @@ public final class StandRender {
 				sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY, (ga << 24) | 0xFFFFFF);
 			}
 		}
+		JointedLimbs.setJoint(JointedLimbs.RIGHT_ARM, elbowR);
+		JointedLimbs.setJoint(JointedLimbs.LEFT_ARM, elbowL);
 		m.rightArm.loadPose(saveR);
 		m.leftArm.loadPose(saveL);
 		m.rightSleeve.copyFrom(m.rightArm);

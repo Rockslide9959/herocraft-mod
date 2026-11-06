@@ -24,6 +24,8 @@ public record StandFxPayload(int kind, double x, double y, double z, double dx, 
 	public static final int RISE = 4;
 	/** The World: a wide ground ring and a fading dome of light. */
 	public static final int WORLD = 5;
+	/** A flicked ball bearing: a steel ball flying from the point to {@code (dx, dy, dz)}. */
+	public static final int BEARING = 6;
 
 	public static final CustomPacketPayload.Type<StandFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("stand_fx"));
 

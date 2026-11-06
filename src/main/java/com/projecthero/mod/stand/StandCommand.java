@@ -16,7 +16,6 @@ import net.minecraft.server.level.ServerPlayer;
  * v0.17.2 admin / test commands (op only), hung off {@code /projecthero power tune}:
  * <ul>
  *   <li>{@code stand stamina <0-100>} -- sets your Stamina;</li>
- *   <li>{@code stand mastery <uses>} -- sets your time stops done (1 s, 2 s at 10, 3 s at 25, 5 s at 50);</li>
  *   <li>{@code stand cooldowns} -- clears every move's cooldown.</li>
  * </ul>
  * The power itself is granted like every other hero's: {@code /projecthero power grant <player> stand}.
@@ -31,9 +30,6 @@ public final class StandCommand {
 				.then(Commands.literal("stamina")
 						.then(Commands.argument("amount", FloatArgumentType.floatArg(0f, StandConfig.STAMINA_MAX))
 								.executes(StandCommand::stamina)))
-				.then(Commands.literal("mastery")
-						.then(Commands.argument("uses", IntegerArgumentType.integer(0, 999))
-								.executes(StandCommand::mastery)))
 				.then(Commands.literal("cooldowns").executes(StandCommand::cooldowns));
 	}
 
@@ -54,18 +50,6 @@ public final class StandCommand {
 		float v = FloatArgumentType.getFloat(c, "amount");
 		Stands.setStamina(player, v);
 		c.getSource().sendSuccess(() -> Component.literal("Stamina set to " + Math.round(v)), false);
-		return 1;
-	}
-
-	private static int mastery(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
-		ServerPlayer player = user(c);
-		if (player == null) {
-			return 0;
-		}
-		int uses = IntegerArgumentType.getInteger(c, "uses");
-		Stands.setTimeStopUses(player, uses);
-		c.getSource().sendSuccess(() -> Component.literal("Time stops done set to " + uses + " (" + StandConfig.timeStopTicks(uses) / 20
-				+ " s)"), false);
 		return 1;
 	}
 

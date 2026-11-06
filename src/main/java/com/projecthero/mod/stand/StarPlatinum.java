@@ -358,11 +358,10 @@ public final class StarPlatinum {
 		st.animId = StandState.ANIM_FINGER;
 		st.animStart = now;
 		st.abilityReadyAt.put(StandMove.STAR_FINGER, now + StandConfig.FINGER_COOLDOWN);
+		// v0.17.2 (user: "make star finger actually make a finger model stretch out and poke something"): the client stretches
+		// the finger mesh (StandFinger) from Star Platinum's hand to this point
+		st.fingerEnd = java.util.List.of(end.x, end.y, end.z);
 		Stands.save(p, st);
-		double len = end.distanceTo(eye);
-		if (len > 1.0) {
-			Stands.vfx(level(p), com.projecthero.mod.stand.network.StandFxPayload.BEAM, eye.add(look).subtract(0, 0.25, 0), end.subtract(0, 0.25, 0), 1.0f);
-		}
 		fx(p, StandSounds.STAR_FINGER, 1.0f, 1.0f);
 	}
 
@@ -609,11 +608,8 @@ public final class StarPlatinum {
 				StandCombat.hit(p, hit, StandConfig.BEARING_DAMAGE, dir.scale(0.25));
 				end = eye.add(dir.scale(best));
 			}
-			double len = end.distanceTo(eye);
-			for (double d = 1.0; d < len; d += 1.2) {
-				Vec3 at = eye.add(dir.scale(d));
-				Stands.particles(level, ParticleTypes.CRIT, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-			}
+			// the bearing itself, flicked out of Star Platinum's hand (StandFx: a steel ball and its streak)
+			Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.BEARING, eye.add(dir.scale(1.6)).subtract(0, 0.3, 0), end, 1.0f);
 		}
 		long now = p.level().getGameTime();
 		StandState n = Stands.state(p).copy();

@@ -1,6 +1,7 @@
 package com.projecthero.mod.stand.data;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.mojang.serialization.Codec;
@@ -41,8 +42,6 @@ public final class StandState {
 	public final Map<String, Long> abilityReadyAt;
 	public int animId;
 	public long animStart;
-	/** Time stops done (the mastery). */
-	public int timeStopUses;
 	/** The pose N strikes (1..4, chosen in the menu). */
 	public int pose;
 	/** Settings: floating ORA text over the rush; the rush turns to the nearest enemy. */
@@ -70,14 +69,16 @@ public final class StandState {
 	/** The empty-hand punch chain: hit number (0..2) and when the last one landed. */
 	public int comboStep;
 	public long comboAt;
+	/** Star Finger: where the fingertip lands, x, y, z (empty = no finger out). */
+	public List<Double> fingerEnd = List.of();
 
 	public StandState() {
-		this("", false, 0f, new HashMap<>(), 0, 0L, 0, 1, true, true, false, 0L, false, 0L, -1, 0);
+		this("", false, 0f, new HashMap<>(), 0, 0L, 1, true, true, false, 0L, false, 0L, -1, 0);
 		this.leapRebounds = -1;
 	}
 
 	public StandState(String standId, boolean summoned, float stamina, Map<String, Long> abilityReadyAt, int animId, long animStart,
-			int timeStopUses, int pose, boolean oraText, boolean autoFace, boolean rushing, long rushStart, boolean guarding,
+			int pose, boolean oraText, boolean autoFace, boolean rushing, long rushStart, boolean guarding,
 			long chargeStart, int grabbedEntity, int grabbedBlock) {
 		this.standId = standId;
 		this.summoned = summoned;
@@ -85,7 +86,6 @@ public final class StandState {
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.animId = animId;
 		this.animStart = animStart;
-		this.timeStopUses = timeStopUses;
 		this.pose = pose;
 		this.oraText = oraText;
 		this.autoFace = autoFace;
@@ -99,7 +99,7 @@ public final class StandState {
 	}
 
 	public StandState copy() {
-		StandState n = new StandState(standId, summoned, stamina, abilityReadyAt, animId, animStart, timeStopUses, pose, oraText, autoFace,
+		StandState n = new StandState(standId, summoned, stamina, abilityReadyAt, animId, animStart, pose, oraText, autoFace,
 				rushing, rushStart, guarding, chargeStart, grabbedEntity, grabbedBlock);
 		n.sightUntil = sightUntil;
 		n.leapRebounds = leapRebounds;
@@ -107,6 +107,7 @@ public final class StandState {
 		n.dashUntil = dashUntil;
 		n.comboStep = comboStep;
 		n.comboAt = comboAt;
+		n.fingerEnd = fingerEnd;
 		return n;
 	}
 
@@ -123,7 +124,6 @@ public final class StandState {
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.INT.optionalFieldOf("anim_id", 0).forGetter(s -> s.animId),
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
-			Codec.INT.optionalFieldOf("time_stop_uses", 0).forGetter(s -> s.timeStopUses),
 			Codec.INT.optionalFieldOf("pose", 1).forGetter(s -> s.pose),
 			Codec.BOOL.optionalFieldOf("ora_text", true).forGetter(s -> s.oraText),
 			Codec.BOOL.optionalFieldOf("auto_face", true).forGetter(s -> s.autoFace),
@@ -142,14 +142,16 @@ public final class StandState {
 			Codec.LONG.optionalFieldOf("inhale_until", 0L).forGetter(s -> s.inhaleUntil),
 			Codec.LONG.optionalFieldOf("dash_until", 0L).forGetter(s -> s.dashUntil),
 			Codec.INT.optionalFieldOf("combo_step", 0).forGetter(s -> s.comboStep),
-			Codec.LONG.optionalFieldOf("combo_at", 0L).forGetter(s -> s.comboAt)
-	).apply(i, (s, sight, leap, inhale, dash, step, at) -> {
+			Codec.LONG.optionalFieldOf("combo_at", 0L).forGetter(s -> s.comboAt),
+			Codec.DOUBLE.listOf().optionalFieldOf("finger_end", List.of()).forGetter(s -> s.fingerEnd)
+	).apply(i, (s, sight, leap, inhale, dash, step, at, finger) -> {
 		s.sightUntil = sight;
 		s.leapRebounds = leap;
 		s.inhaleUntil = inhale;
 		s.dashUntil = dash;
 		s.comboStep = step;
 		s.comboAt = at;
+		s.fingerEnd = List.copyOf(finger);
 		return s;
 	}));
 }

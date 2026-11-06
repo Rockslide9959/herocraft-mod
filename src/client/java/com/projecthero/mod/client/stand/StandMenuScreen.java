@@ -25,8 +25,7 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.2: the Stand Menu (Shift+N). Left: the Stand's stat card (Power, Speed, Range, Stamina, Precision, Potential --
  * canon grades with a bar each), the pose picker (what N strikes) and the settings (floating ORA text, rush auto-face).
- * Right: the time stop's mastery (stops done, the current length, a bar to the next step) and the whole move list with
- * each move's description, wrapped to the column and scrollable (the tooltip-wrap rule: no text runs off the panel).
+ * Right: the whole move list with each move's description, wrapped to the column and scrollable (the tooltip-wrap rule: no text runs off the panel).
  * Choices go to the server and are saved. The menu never pauses the game.
  */
 public final class StandMenuScreen extends Screen {
@@ -34,7 +33,7 @@ public final class StandMenuScreen extends Screen {
 	private static final int RIGHT_W = 220;
 	private static final int PANEL_W = LEFT_W + RIGHT_W;
 	private static final int PANEL_H = 236;
-	private static final int LIST_TOP = 74;
+	private static final int LIST_TOP = 26;
 	private static final int LIST_BOTTOM = PANEL_H - 32;
 	private static final float SMALL = 0.8f;
 	private static final String[] STAT_KEYS = { "power", "speed", "range", "stamina", "precision", "potential" };
@@ -172,21 +171,8 @@ public final class StandMenuScreen extends Screen {
 		g.drawString(font, Component.translatable("screen.projecthero.stand_menu.pose"), left + 10, top + 116, 0xFFD8C2FF, true);
 		g.drawString(font, Component.translatable("screen.projecthero.stand_menu.settings"), left + 10, top + 174, 0xFFD8C2FF, false);
 
-		// ---- the time stop's mastery
-		int rx = left + LEFT_W + 6;
-		int uses = s.timeStopUses;
-		int secs = StandConfig.timeStopTicks(uses) / 20;
-		int next = StandConfig.nextMasteryStep(uses);
-		g.drawString(font, Component.translatable("screen.projecthero.stand_menu.mastery"), rx, top + 26, 0xFFD8C2FF, true);
-		Component info = next < 0 ? Component.translatable("screen.projecthero.stand_menu.mastery.max", uses, secs)
-				: Component.translatable("screen.projecthero.stand_menu.mastery.info", uses, secs, StandConfig.timeStopTicks(next) / 20, next);
-		drawWrapped(g, info, rx, top + 38, RIGHT_W - 16, 0xFFE8E0F0, 2);
-		int prev = uses < 10 ? 0 : uses < 25 ? 10 : uses < 50 ? 25 : 50;
-		float prog = next < 0 ? 1f : (uses - prev) / (float) (next - prev);
-		g.fill(rx, top + 60, rx + RIGHT_W - 16, top + 63, 0xAA0C0C0C);
-		g.fill(rx, top + 60, rx + Math.round((RIGHT_W - 16) * Mth.clamp(prog, 0f, 1f)), top + 63, 0xFF9A5CFF);
-
 		// ---- the move list (scrolls)
+		int rx = left + LEFT_W + 6;
 		g.enableScissor(rx, top + LIST_TOP, rx + RIGHT_W - 12, top + LIST_BOTTOM);
 		g.pose().pushPose();
 		g.pose().translate(rx, top + LIST_TOP - scroll, 0);
@@ -204,22 +190,6 @@ public final class StandMenuScreen extends Screen {
 			g.fill(rx + RIGHT_W - 10, top + LIST_TOP, rx + RIGHT_W - 8, top + LIST_BOTTOM, 0x60FFFFFF);
 			g.fill(rx + RIGHT_W - 10, barY, rx + RIGHT_W - 8, barY + barH, 0xFFB07CFF);
 		}
-	}
-
-	private void drawWrapped(GuiGraphics g, Component text, int x, int y, int w, int colour, int maxLines) {
-		g.pose().pushPose();
-		g.pose().translate(x, y, 0);
-		g.pose().scale(SMALL, SMALL, 1f);
-		int ly = 0;
-		int n = 0;
-		for (FormattedCharSequence line : font.split(text, (int) (w / SMALL))) {
-			if (n++ >= maxLines) {
-				break;
-			}
-			g.drawString(font, line, 0, ly, colour, false);
-			ly += 10;
-		}
-		g.pose().popPose();
 	}
 
 	/** A canon grade as bar segments: A 5 .. E 1 (anything else, "None" / "?", 0). */

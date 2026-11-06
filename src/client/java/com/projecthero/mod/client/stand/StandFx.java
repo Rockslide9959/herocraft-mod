@@ -46,6 +46,7 @@ public final class StandFx {
 			case StandFxPayload.BEAM -> 9;
 			case StandFxPayload.AURA -> 14;
 			case StandFxPayload.RISE -> 10;
+			case StandFxPayload.BEARING -> 4;
 			default -> 26;
 		};
 		if (ACTIVE.size() > 96) {
@@ -53,6 +54,11 @@ public final class StandFx {
 		}
 		ACTIVE.add(new Fx(p.kind(), new Vec3(p.x(), p.y(), p.z()), new Vec3(p.dx(), p.dy(), p.dz()), p.size(), mc.level.getGameTime(), life,
 				mc.level.getRandom().nextFloat() * Mth.TWO_PI));
+	}
+
+	/** An effect this client starts itself (a fingertip landing, drawn where the finger actually arrives). */
+	static void local(int kind, Vec3 at, Vec3 dir, float size) {
+		receive(new StandFxPayload(kind, at.x, at.y, at.z, dir.x, dir.y, dir.z, size));
 	}
 
 	public static void reset() {
@@ -111,6 +117,16 @@ public final class StandFx {
 					beam(vc, m, f.at.add(0, -0.6, 0), f.at.add(0, 0.6 + 2.4 * ease(t), 0), cam, 0.22f * fade + 0.02f, fade);
 					ring(vc, m, f.at.add(0, -0.6, 0), up, s * (0.3f + 1.4f * ease(t)), 0.08f * fade + 0.01f, VIOLET, fade);
 					flash(vc, m, f.at, camLeft, camUp, s * 0.6f, fade * fade, f.spin, 4);
+				}
+				case StandFxPayload.BEARING -> {
+					// the steel ball itself, its streak behind it, and a spark where it strikes
+					Vec3 ball = f.at.lerp(f.dir, ease(t));
+					Vec3 tail = f.at.lerp(f.dir, ease(Math.max(0f, t - 0.3f)));
+					beam(vc, m, tail, ball, cam, 0.05f, 0.75f);
+					soft(vc, m, ball, camLeft, camUp, 0.11f, 1f);
+					if (t > 0.8f) {
+						flash(vc, m, f.dir, camLeft, camUp, 0.3f, (1f - t) * 5f, f.spin, 4);
+					}
 				}
 				case StandFxPayload.WORLD -> {
 					Vec3 up = new Vec3(0, 1, 0);
