@@ -288,6 +288,27 @@ public final class PyroDraw {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.17.2 round 4: {@link #glow} for a world-pass draw. The world pass's stack carries no camera rotation, so {@link #faceCamera}
+	 * has nothing to undo there and a plain glow stays square to the world (a sliver seen along X). This one is built from the camera's
+	 * own axes, so it faces the viewer from every side. {@code at} is camera-relative.
+	 */
+	public static void worldGlow(PoseStack pose, VertexConsumer vc, Vec3 at, float r, int rgb) {
+		net.minecraft.client.Camera cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera();
+		org.joml.Vector3f l = cam.getLeftVector(), u = cam.getUpVector();
+		PoseStack.Pose last = pose.last();
+		float lx = l.x() * r, ly = l.y() * r, lz = l.z() * r, ux = u.x() * r, uy = u.y() * r, uz = u.z() * r;
+		float x = (float) at.x, y = (float) at.y, z = (float) at.z;
+		float[][] c = { { x + lx - ux, y + ly - uy, z + lz - uz, 0, 1 }, { x - lx - ux, y - ly - uy, z - lz - uz, 1, 1 }, { x - lx + ux, y - ly + uy, z - lz + uz, 1, 0 },
+				{ x + lx + ux, y + ly + uy, z + lz + uz, 0, 0 } };
+		for (int i = 0; i < 4; i++) {
+			v(vc, last, c[i][0], c[i][1], c[i][2], rgb, c[i][3], c[i][4], FULL, 0, 0, 1);
+		}
+		for (int i = 3; i >= 0; i--) {
+			v(vc, last, c[i][0], c[i][1], c[i][2], rgb, c[i][3], c[i][4], FULL, 0, 0, -1);
+		}
+	}
+
 	/** A glow disc lying in the pose's XZ plane (ground glow), radius {@code r}. Additive. */
 	public static void groundGlow(PoseStack pose, VertexConsumer vc, float r, int rgb) {
 		PoseStack.Pose last = pose.last();

@@ -37,6 +37,10 @@ public abstract class StinkflyFlightPoseMixin {
 			tilt = com.projecthero.mod.client.omnitrix.alien.ThrustFlightPose.bodyTilt(player, partialTicks);
 		}
 		if (tilt == null) {
+			// v0.17.2 round 4 (user: "upgrade his flight animations please"): Chromastone
+			tilt = com.projecthero.mod.client.omnitrix.alien.ChromastoneFlightPose.bodyTilt(player, partialTicks);
+		}
+		if (tilt == null) {
 			return;
 		}
 		float pivot = 0.9f * scale;
