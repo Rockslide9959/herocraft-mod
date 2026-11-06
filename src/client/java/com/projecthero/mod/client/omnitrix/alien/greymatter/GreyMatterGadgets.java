@@ -296,6 +296,9 @@ public final class GreyMatterGadgets {
 			Minecraft mc = Minecraft.getInstance();
 			long now = e.level().getGameTime();
 			float t = e.stateTicks() + partial;
+			if (e.state() == GreyMatterMechEntity.STATE_ASSEMBLING) {
+				t *= 20f / GreyMatterMechEntity.ASSEMBLE_TICKS; // the parts' timing is laid out over 20 ticks
+			}
 			float act = now - e.actionAt() + partial;
 			int action = e.action();
 			float bodyYaw = Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot);

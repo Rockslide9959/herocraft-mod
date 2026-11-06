@@ -45,16 +45,18 @@ final class GhostfreakTail {
 	/** Link lengths (blocks), root to tip. */
 	private static final float[] LEN = { 0.11f, 0.12f, 0.12f, 0.12f, 0.115f, 0.11f, 0.105f, 0.1f, 0.095f, 0.09f };
 	/** Width (x) and depth (z) at each point, model pixels. */
-	private static final float[] W = { 7.8f, 7.2f, 6.4f, 5.6f, 4.8f, 4.0f, 3.3f, 2.6f, 1.9f, 1.3f, 0.6f };
-	private static final float[] D = { 3.9f, 3.6f, 3.3f, 3.0f, 2.7f, 2.3f, 2.0f, 1.6f, 1.2f, 0.8f, 0.4f };
+	private static final float[] W = { 8.4f, 7.2f, 6.4f, 5.6f, 4.8f, 4.0f, 3.3f, 2.6f, 1.9f, 1.3f, 0.6f };
+	private static final float[] D = { 4.4f, 3.6f, 3.3f, 3.0f, 2.7f, 2.3f, 2.0f, 1.6f, 1.2f, 0.8f, 0.4f };
 	/** The root under his waist (model space, blocks: y down from the top of the model, z backward). */
-	private static final float ROOT_Y = 11.2f / 16f;
+	private static final float ROOT_Y = 10.2f / 16f;
 	/** The resting shape: each link this far from straight down toward his back (degrees), growing to the tip. */
 	private static final float REST_BACK = 18f, REST_BACK_TIP = 42f;
 
 	private static final class Tail {
 		final Vec3[] pos = new Vec3[N], prev = new Vec3[N], last = new Vec3[N];
 		Vector3f rootModel = new Vector3f(0f, ROOT_Y, 0f);
+		/** The body bone's down and back this frame, so the tail leaves him along his body however far he leans. */
+		Vector3f down = new Vector3f(0f, 1f, 0f), back = new Vector3f(0f, 0f, 1f);
 		boolean started;
 	}
 
@@ -92,7 +94,7 @@ final class GhostfreakTail {
 			rest[0] = root;
 			for (int i = 1; i < N; i++) {
 				float a = Mth.lerp(i / (float) (N - 1), REST_BACK, REST_BACK_TIP) * Mth.DEG_TO_RAD;
-				m.add(0f, LEN[i - 1] * Mth.cos(a), LEN[i - 1] * Mth.sin(a));
+				m.add(new Vector3f(t.down).mul(LEN[i - 1] * Mth.cos(a))).add(new Vector3f(t.back).mul(LEN[i - 1] * Mth.sin(a)));
 				rest[i] = at.add(toWorld(m, yaw));
 			}
 		}
@@ -124,20 +126,26 @@ final class GhostfreakTail {
 			t.prev[i] = t.pos[i];
 			t.pos[i] = t.pos[i].add(vel).add(acc);
 		}
+		// v0.17.2 (user: "at some angles his leg trail tail thing like kind disconnected from his body"): the first link is part of him
+		t.pos[1] = rest[1];
 		// the links' lengths, then out of blocks and out of his body -- a few passes so they settle together
 		for (int pass = 0; pass < 4; pass++) {
-			for (int i = 1; i < N; i++) {
+			for (int i = 2; i < N; i++) {
 				Vec3 d = t.pos[i].subtract(t.pos[i - 1]);
 				double l = d.length();
 				if (l > 1e-6) {
 					t.pos[i] = t.pos[i - 1].add(d.scale(LEN[i - 1] / l));
 				}
 			}
-			for (int i = 1; i < N; i++) {
+			// (the body test is for an upright torso: leaning into flight he is not in that box, and it tore the tail off him)
+			boolean upright = t.down.y > 0.85f;
+			for (int i = 2; i < N; i++) {
 				if (!phasing) {
 					t.pos[i] = outOfBlocks(p, t.pos[i], Math.max(0.025, D[i] / 32f));
 				}
-				t.pos[i] = outOfBody(t.pos[i], at, yaw, t.rootModel);
+				if (upright) {
+					t.pos[i] = outOfBody(t.pos[i], at, yaw, t.rootModel);
+				}
 			}
 		}
 	}
@@ -210,6 +218,8 @@ final class GhostfreakTail {
 		model.body.translateAndRotate(bp);
 		Vector3f root = bp.last().pose().transformPosition(new Vector3f(0f, ROOT_Y, 0f));
 		t.rootModel = root;
+		t.down = bp.last().pose().transformDirection(new Vector3f(0f, 1f, 0f)).normalize();
+		t.back = bp.last().pose().transformDirection(new Vector3f(0f, 0f, 1f)).normalize();
 		Minecraft mc = Minecraft.getInstance();
 		if (!t.started || (p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson())) {
 			return;
@@ -222,6 +232,8 @@ final class GhostfreakTail {
 			Vec3 w = t.last[i].lerp(t.pos[i], partial);
 			m[i] = toModel(w.subtract(at), yaw);
 		}
+		// this frame's body, not last tick's: the first link never lags off him
+		m[1] = new Vector3f(root).add(new Vector3f(t.down).mul(LEN[0]));
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(SHEET));
 		Vector3f up = new Vector3f(0f, 1f, 0f);
 		for (int i = 0; i < N - 1; i++) {

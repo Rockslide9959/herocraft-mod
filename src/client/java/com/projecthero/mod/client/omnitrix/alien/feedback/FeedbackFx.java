@@ -86,6 +86,63 @@ public final class FeedbackFx {
 			if ((flags & FeedbackKit.F_ABSORB) != 0) {
 				drawIn(context.matrixStack(), context.consumers(), p, partial);
 			}
+			if ((flags & FeedbackKit.F_BEAM) != 0) {
+				beam(context.matrixStack(), context.consumers(), p, partial);
+			}
+			if ((flags & FeedbackKit.F_CANNON) != 0) {
+				cannonCharge(context.matrixStack(), context.consumers(), p, partial);
+			}
+		}
+	}
+
+	private static boolean ownView(AbstractClientPlayer p) {
+		Minecraft mc = Minecraft.getInstance();
+		return p == mc.player && mc.options.getCameraType().isFirstPerson();
+	}
+
+	/** A point {@code out} along his aim and {@code down} under it, for what would sit in his hands in his own view. */
+	private static Vec3 ahead(AbstractClientPlayer p, float partial, double out, double down) {
+		return p.getEyePosition(partial).add(p.getViewVector(partial).scale(out)).subtract(0, down, 0);
+	}
+
+	/** A glowing ball at world point {@code at}. */
+	private static void orb(PoseStack pose, MultiBufferSource buffers, Vec3 at, float radius, float age) {
+		Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		PyroDraw.sphere(pose, PyroDraw.additive(buffers), radius, 0xFFE8F6FF, 0xFF1E5EC0, 0.1f, age, PyroDraw.FULL);
+		pose.popPose();
+	}
+
+	/** Feedback Beam: a thick blue bolt with a white core from his hand to what he aims at, re-struck every other tick. */
+	private static void beam(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, float partial) {
+		// in his own view it starts out past the hand and thin, or the first block of it would fill the screen
+		boolean own = ownView(p);
+		Vec3 from = own ? ahead(p, partial, 1.6, 0.28) : BrainstormFx.hand(p, partial);
+		Vec3 to = p.pick(FeedbackKit.BEAM_RANGE, partial, false).getLocation();
+		float w = own ? 0.45f : 1f;
+		long seed = p.getId() * 31L + p.level().getGameTime() / 2;
+		BrainstormFx.bolt(pose, buffers, from, to, seed, 0.2f * w, 1f, FeedbackKit.COLOUR);
+		BrainstormFx.bolt(pose, buffers, from, to, seed + 3, 0.12f * w, 0.8f, FeedbackKit.COLOUR);
+		BrainstormFx.bolt(pose, buffers, from, to, seed + 9, 0.06f * w, 1f, FeedbackKit.WHITE);
+		if (!own) {
+			orb(pose, buffers, from, 0.14f, p.tickCount + partial);
+		}
+		orb(pose, buffers, to, 0.3f, p.tickCount + partial);
+	}
+
+	/** The Cannon's charge: a ball swelling at his hands with bolts crawling in to it from the air round him. */
+	private static void cannonCharge(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, float partial) {
+		float k = FeedbackKit.cannonCharge(p, partial);
+		boolean own = ownView(p);
+		Vec3 at = own ? ahead(p, partial, 1.9, 0.42) : BrainstormFx.hand(p, partial);
+		float age = p.tickCount + partial;
+		orb(pose, buffers, at, (own ? 0.04f + 0.2f * k : 0.08f + 0.42f * k) * (1f + Mth.sin(age * 1.4f) * 0.06f), age);
+		Random rnd = new Random(p.getId() * 17L + p.level().getGameTime() / 2);
+		int bolts = 2 + (int) (k * 4f);
+		for (int i = 0; i < bolts; i++) {
+			Vec3 out = new Vec3(rnd.nextDouble() - 0.5, rnd.nextDouble() - 0.5, rnd.nextDouble() - 0.5).normalize().scale((own ? 0.5 : 1.2) + rnd.nextDouble() * (own ? 0.5 : 1.4));
+			BrainstormFx.bolt(pose, buffers, at.add(out), at, rnd.nextLong(), own ? 0.018f : 0.05f, 0.5f + 0.5f * k, FeedbackKit.COLOUR);
 		}
 	}
 

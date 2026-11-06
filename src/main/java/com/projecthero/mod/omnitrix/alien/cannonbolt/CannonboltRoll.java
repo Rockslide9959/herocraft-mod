@@ -18,8 +18,8 @@ import net.minecraft.world.phys.Vec3;
  * The pure numbers live here so the gametests can check them; nothing below touches a client class.
  */
 public final class CannonboltRoll {
-	/** Blocks a tick at no Momentum and at full Momentum (10 and 25 blocks a second). */
-	public static final double SPEED_MIN = 0.5, SPEED_MAX = 1.25;
+	/** Blocks a tick at no Momentum and at full Momentum (10 and 30 blocks a second). */
+	public static final double SPEED_MIN = 0.5, SPEED_MAX = 1.5;
 	/** Ticks of sprinting from none to full (3 s). */
 	public static final int BUILD_TICKS = 60;
 	/** Ticks with no key held on the ground from full to none. */
@@ -136,7 +136,7 @@ public final class CannonboltRoll {
 			heading = Vec3.ZERO;
 			return input; // the Shell Spin holds him on the spot; water and lava drag at him; creative flight is its own thing
 		}
-		boolean full = (flags & (CannonboltKit.F_BOOST | CannonboltKit.F_UNSTOPPABLE)) != 0;
+		boolean full = (flags & CannonboltKit.F_BOOST) != 0;
 		Vec3 keys = keysToWorld(input, p.getYRot());
 		boolean held = keys != Vec3.ZERO;
 		momentum = full ? 1.0 : step(momentum, held, p.isSprinting() && input.z > 1.0e-5, p.onGround(), p.horizontalCollision && !p.minorHorizontalCollision);

@@ -74,12 +74,15 @@ and Shift+C are the same in both forms; those that need the ball curl him up and
 | Key | Standing | Ball Mode |
 |---|---|---|
 | R | **Shoulder Bash**: lunge, 14 to everything just ahead, knockback (1.2 s) | **Cannonball Charge**: straight-line burst, 20, bursts weak blocks, stops at walls (5 s) |
-| Shift+R | **Shell Slam**: topple onto the shell, 20 in 2.5 blocks ahead, slowed (8 s) | **Rolling Rampage**: rolls to each of the 20 nearest enemies within 50 blocks and 5 above or below, 20 each (20 s from the end) |
+| Shift+R | **Shell Slam**: topple onto the shell, 20 in 2.5 blocks ahead, slowed (8 s) | **Rolling Rampage**: rolls to each of the 20 nearest enemies within 30 blocks and 5 above or below, 20 each (20 s from the end) |
 | G | **Cannonball Launch**: fires himself where he looks, 20, bursts weak blocks, lands in Ball Mode (12 s) | **Big Bounce**: about 8 blocks up, landing 18 in 4 blocks (4 s) |
 | Shift+G | **Ground Pound**: 16 in 4 blocks, knocked up (7 s) | **Meteor Drop**: up high, then straight down, 20 in 5 blocks and a quake (20 s) |
 | X | **Tumble Roll**: about 6-block curled dodge, 8 to anything hit, half damage (4 s) | **Roll Boost**: 5 s with Momentum held full (12 s) |
 | Z | **Rebound Strike**: fires himself at the mark and rebounds off it, three hits, 12, 12, 17 (8 s) | the same |
 | Shift+Z | **Unstoppable Cannonball** (ultimate): see below (60 s) | the same |
+
+**v0.17.2 change (user):** the ultimate is now a lock-on (30 blocks): dash at the target for 30, boost up, slam down on it for 30 more within 6 blocks, 80% less damage until he lands. The 8 s rampage is gone.
+
 | C | **Spin Charge** (hold): curls and spins on the spot, WASD dead, full Momentum in 1.5 s; let go with W held to shoot off (3 s) | the same |
 | Shift+C | **Curl Smash**: jump, curl, drop, 20 in 3.5 blocks (10 s) | the same |
 | V | **Curl Up** | **Uncurl** (needs room to stand) |
@@ -125,9 +128,9 @@ this, increase his ball collision damage based on his momentum, make it 10 at 0 
   player cant move with wasd while in this mode, upon releasing C while holding W they charge forward at max momentum"): the Momentum is
   wound up on his client; whether W is down at the release is only known there too. A hold shorter than 1.5 s leaves with what it wound up (decision: the
   user said "charging up"). With no W he just stops. Held 10 s it lets go by itself.
-- **Rolling Rampage** (user: "autotrack the 20 nearest enemies on a similar Y level of the player within 50 blocks and then roll and attack
+- **Rolling Rampage** (user: "autotrack the 20 nearest enemies on a similar Y level of the player within 30 blocks and then roll and attack
   them dealing 20 damage please, player doesn't return to original position afterwards, player doesn't teleport between enemies"):
-  the order is nearest-next. He is moved only by velocity, at 25 blocks a second. "Enemies" is `HeroTargets.isHostile`, so
+  the order is nearest-next. He is moved only by velocity, at 30 blocks a second. "Enemies" is `HeroTargets.isHostile`, so
   villagers and farm animals are safe. "Similar Y" is 5 blocks up or down. A wall that the 4-block step can't take is steered round (30 to 125
   degrees either way). If he stops getting closer to one for 1 s, it is skipped. He has no true pathfinding, so a maze can defeat him.
 - **Rebound Strike** (Z, my design from the show's habit of slamming into a robot and bouncing straight back): the creature under the

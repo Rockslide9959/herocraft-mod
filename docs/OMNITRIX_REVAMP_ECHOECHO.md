@@ -31,7 +31,7 @@ aside. He is light and easy to knock around.
 | X | Sonic Leap | blast at the ground throws him up and forward; no fall damage 1.5 s | 4 in 2 at take-off; cd 1.5 s |
 | Shift+X | Echo Swap | change places with the clone you look at (else the farthest) | cd 3 s |
 | Z | Sonic Cannon | focused beam through everything in line; glass and ice in its path shatter (real blocks) | 16, 24 blocks; clones +3; cd 8 s |
-| Shift+Z | Ultimate Chorus | ULT. Fills the chorus to 10, 1 s build-up, then a dome of sound plus a ring round every clone | 55 centre / 40 at 10 blocks, stun 2 s; clone rings 8 in 4; cd 60 s |
+| Shift+Z | Sonic Doom | ULT. Fills the chorus to 10, 1 s build-up, then a dome of sound plus a ring round every clone | 55 centre / 40 at 10 blocks, stun 2 s; clone rings 8 in 4; cd 60 s |
 | C | Shatter Note | NEW. One pitched note at the creature you look at; golems and shulkers crack; glass and ice round it shatter | 15 (x1.5 iron / snow golem, shulker), Resonating 6 s, range 20; cd 7 s |
 | Shift+C | Echolocation | NEW. A ping: every creature within 32 glows | glow 8 s; cd 20 s |
 | V | Duplicate | split off a clone (up to 10, 6 HP each); it slides out of him to its own spot | cd 0.5 s |

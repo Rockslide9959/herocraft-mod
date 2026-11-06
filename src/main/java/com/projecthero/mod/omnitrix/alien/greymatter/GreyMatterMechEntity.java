@@ -70,7 +70,7 @@ public class GreyMatterMechEntity extends Mob {
 	public static final float SEAT_Y = 1.21f;
 
 	public static final int STATE_ASSEMBLING = 0, STATE_ACTIVE = 1, STATE_COLLAPSING = 2;
-	public static final int ASSEMBLE_TICKS = 20, COLLAPSE_TICKS = 14;
+	public static final int ASSEMBLE_TICKS = 60, COLLAPSE_TICKS = 14; // v0.17.2 (user: "they should take a few seconds"): 3 s, was 1
 	/** {@link #action()}: which arm move is playing. */
 	public static final int ACT_NONE = 0, ACT_PUNCH_R = 1, ACT_PUNCH_L = 2, ACT_SLAM = 3, ACT_HOP = 4;
 
@@ -355,8 +355,17 @@ public class GreyMatterMechEntity extends Mob {
 			return;
 		}
 		ServerLevel l = (ServerLevel) level();
-		if (state() == STATE_ASSEMBLING && stateTicks() >= ASSEMBLE_TICKS) {
-			setState(STATE_ACTIVE);
+		if (state() == STATE_ASSEMBLING) {
+			if (stateTicks() >= ASSEMBLE_TICKS) {
+				setState(STATE_ACTIVE);
+			} else if (stateTicks() % 7 == 0) {
+				// bolted up piece by piece: sparks off the joints and the clack of each going home
+				double a = stateTicks() * 2.1;
+				l.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, getX() + Math.cos(a) * 0.55, getY() + 0.3 + stateTicks() / 60.0, getZ() + Math.sin(a) * 0.55, 8, 0.1,
+						0.1, 0.1, 0.25);
+				l.playSound(null, getX(), getY() + 0.7, getZ(), net.minecraft.sounds.SoundEvents.SMITHING_TABLE_USE, net.minecraft.sounds.SoundSource.PLAYERS, 0.35f,
+						1.1f + stateTicks() / 80f);
+			}
 		}
 		if (state() == STATE_COLLAPSING) {
 			if (stateTicks() >= COLLAPSE_TICKS) {

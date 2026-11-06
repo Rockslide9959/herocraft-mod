@@ -22,7 +22,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.2 (user: "make xlr8s tail better, make it move with player movement, not go into blocks or the player, similar to jetrays
+ * v0.17.2: a chain tail, first XLR8's, now any alien's (user: "give uphuck a short little tail, make it the updated tail please"). v0.17.2 (user: "make xlr8s tail better, make it move with player movement, not go into blocks or the player, similar to jetrays
  * tail"): XLR8's tail, one smooth tapering tube instead of four stiff boxes, on the Jetray tail's rules.
  * <p>
  * A follow-the-leader chain simulated in the WORLD each client tick: every point keeps its own momentum, is sprung toward his
@@ -34,22 +34,22 @@ import net.minecraft.world.phys.Vec3;
  * held flat. Drawn as a round spline tube from {@code xlr8_tail.png} (gen_xlr8_tail.js: the navy and teal chevrons the source skin
  * paints on the tail). Not drawn in first person; the inventory doll, which is not where he is in the world, gets the resting shape.
  */
-final class Xlr8Tail {
-	private static final ResourceLocation SHEET = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_tail.png");
+final class TubeTail {
+	private final ResourceLocation sheet;
 	/** The chain's points, the length of a link (blocks at scale 1). */
-	private static final int N = 10;
-	private static final double LEN = 0.17;
+	private final int N;
+	private final double LEN;
 	/** The player renderer's model scale. */
 	private static final float MODEL_SCALE = 0.9375f;
 	/** The tail's root on the body bone (px): the small of his back, just inside it. */
-	private static final float ROOT_Y = 10.5f, ROOT_Z = 1.6f;
+	private final float ROOT_Y, ROOT_Z;
 	/** The tube's radius (px) at the root and tip. */
-	private static final float R_ROOT = 2.2f, R_TIP = 0.3f; // v0.17.2 (user: "slightly thicker"): was 1.8, 0.12
+	private final float R_ROOT, R_TIP;
 	private static final int SUB = 3, SIDES = 8;
 	/** The fastest a point may carry its own motion (blocks / tick): a dead stop swings the tail past him, never flings it. */
 	private static final double MAX_CARRY = 0.45;
 
-	private static final class Tail {
+	private final class Tail {
 		final Vec3[] pos = new Vec3[N], last = new Vec3[N];
 		/** Where the body bone holds the tail this frame (model space), so the moves carry it. */
 		Vector3f rootModel = new Vector3f(0f, ROOT_Y / 16f, ROOT_Z / 16f);
@@ -57,9 +57,17 @@ final class Xlr8Tail {
 		boolean started;
 	}
 
-	private static final Map<AbstractClientPlayer, Tail> TAILS = new WeakHashMap<>();
+	private final Map<AbstractClientPlayer, Tail> TAILS = new WeakHashMap<>();
 
-	private Xlr8Tail() {
+	/** @param texture the sheet under textures/entity/omnitrix/ @param rootY rootZ the root on the body bone (px) */
+	TubeTail(String texture, int points, double linkLength, float rootRadius, float tipRadius, float rootY, float rootZ) {
+		sheet = ProjectHeroMod.id("textures/entity/omnitrix/" + texture + ".png");
+		N = points;
+		LEN = linkLength;
+		R_ROOT = rootRadius;
+		R_TIP = tipRadius;
+		ROOT_Y = rootY;
+		ROOT_Z = rootZ;
 	}
 
 	/** Model space (blocks, y down from the top of the model) to a world offset from his feet. */
@@ -71,8 +79,9 @@ final class Xlr8Tail {
 	}
 
 	/** Link {@code i}'s resting angle below level (degrees, negative curls up): {@code lift} 0 standing .. 1 flat out. */
-	private static float restAngle(int i, float lift) {
-		return Mth.lerp(lift, 60f - i * 10f, 7f - i * 1.6f);
+	private float restAngle(int i, float lift) {
+		float k = i * 8f / (N - 2); // the whole curl, however many links
+		return Mth.lerp(lift, 60f - k * 10f, 7f - k * 1.6f);
 	}
 
 	/**
@@ -81,7 +90,7 @@ final class Xlr8Tail {
 	 * @param flat  0..1 forced flat out (Tail Spin, the kick finisher, Friction Zero's skate)
 	 * @param swing the Tail Balance swing, radians (+ = out to his left)
 	 */
-	static void tick(AbstractClientPlayer p, float flat, float swing) {
+	void tick(AbstractClientPlayer p, float flat, float swing) {
 		Tail t = TAILS.computeIfAbsent(p, k -> new Tail());
 		float yaw = p.yBodyRot, sc = p.getScale();
 		double len = LEN * sc;
@@ -138,7 +147,7 @@ final class Xlr8Tail {
 	}
 
 	/** Link {@code i}'s resting direction: {@code move} sets the slow sway of his walk, {@code age} the idle one, {@code swing} Tail Balance. */
-	private static Vec3 rest(int i, Vec3 back, Vec3 up, Vec3 left, float lift, float age, float move, float swing) {
+	private Vec3 rest(int i, Vec3 back, Vec3 up, Vec3 left, float lift, float age, float move, float swing) {
 		double a = Math.toRadians(restAngle(i, lift));
 		float tip = i / (float) (N - 2);
 		double sway = Mth.sin(age * 0.13f - i * 0.6f) * 0.07 * (0.4 + 0.6 * tip) + Mth.sin(age * 0.3f - i * 0.55f) * 0.13 * move + swing * (0.7 - 0.25 * tip);
@@ -162,14 +171,14 @@ final class Xlr8Tail {
 		return q;
 	}
 
-	private static float radius(float f) {
+	private float radius(float f) {
 		return Mth.lerp((float) Math.pow(f, 1.25), R_ROOT, R_TIP);
 	}
 
 	// ---------------------------------------------------------------- drawing
 
 	/** In the model space the player renderer hands {@code renderExtras} (before any bone). */
-	static void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial) {
+	void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial) {
 		Tail t = TAILS.computeIfAbsent(p, k -> new Tail());
 		PoseStack bp = new PoseStack();
 		model.body.translateAndRotate(bp);
@@ -207,11 +216,11 @@ final class Xlr8Tail {
 				q[i] = new Vector3f(q[i - 1]).add(0f, (float) LEN / MODEL_SCALE * Mth.sin(a), (float) LEN / MODEL_SCALE * Mth.cos(a));
 			}
 		}
-		tube(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(SHEET)), light, q);
+		tube(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(sheet)), light, q);
 	}
 
 	/** The chain as one round tube: a spline through its points, a ring every step turned smoothly from the last (the top stays on top). */
-	private static void tube(PoseStack pose, VertexConsumer vc, int light, Vector3f[] q) {
+	private void tube(PoseStack pose, VertexConsumer vc, int light, Vector3f[] q) {
 		int steps = (N - 1) * SUB;
 		Vector3f[] c = new Vector3f[steps + 1];
 		for (int s = 0; s <= steps; s++) {

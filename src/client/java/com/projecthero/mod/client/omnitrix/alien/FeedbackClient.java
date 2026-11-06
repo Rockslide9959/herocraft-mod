@@ -60,11 +60,9 @@ public final class FeedbackClient implements AlienClientKit {
 	private static final float[][] BLAST = { QuirkKeyframes.rest(0), f(2, -1.7f, 0.12f, 0, 0.5f, 0, -0.3f, 0.08f, -0.45f, -0.25f, 0, 0, 0.3f, 0, 0, 0),
 			f(4, -1.95f, 0.12f, 0.08f, 0.55f, 0, -0.32f, 0.0f, -0.52f, -0.2f, 0, 0, 0.26f, 0, 0, -0.06f),
 			f(7, -1.68f, 0.1f, 0.04f, 0.38f, 0, -0.26f, 0.05f, -0.36f, -0.15f, 0, 0, 0.2f, 0, 0, 0), QuirkKeyframes.rest(12) };
-	/** Rapid Fire: right, left, right, left, right, the shoulders rocking from one to the other on planted feet. */
-	private static final float[][] RAPID = { QuirkKeyframes.rest(0), f(2, -1.72f, 0.15f, 0, 0.45f, 0, 0, 0.08f, -0.42f, -0.3f, 0, 0, 0.35f, 0, 0, 0),
-			f(5, 0.45f, 0, 0, -1.72f, -0.15f, 0, 0.08f, 0.42f, -0.3f, 0, 0, 0.35f, 0, 0, 0), f(8, -1.72f, 0.15f, 0, 0.45f, 0, 0, 0.08f, -0.42f, -0.3f, 0, 0, 0.35f, 0, 0, 0),
-			f(11, 0.45f, 0, 0, -1.72f, -0.15f, 0, 0.08f, 0.42f, -0.3f, 0, 0, 0.35f, 0, 0, 0), f(14, -1.8f, 0.15f, 0, 0.5f, 0, 0, 0.04f, -0.5f, -0.3f, 0, 0, 0.35f, 0, 0, -0.05f),
-			f(17, -1.3f, 0.1f, 0.1f, 0.3f, 0, -0.1f, 0.04f, -0.3f, -0.15f, 0, 0, 0.2f, 0, 0, 0), QuirkKeyframes.rest(21) };
+	/** The beam lifting into place (the held pose is {@link #pose}'s). */
+	private static final float[][] BEAM = { QuirkKeyframes.rest(0), f(3, -1.5f, 0, 0, -0.9f, 0.7f, 0, 0.12f, -0.25f, -0.3f, 0, 0, 0.35f, 0, 0, 0) };
+	private static final float[][] BEAM_END = { f(0, -1.5f, 0, 0, -0.9f, 0.7f, 0, 0.12f, -0.25f, -0.3f, 0, 0, 0.35f, 0, 0, 0), QuirkKeyframes.rest(8) };
 	/** Absorb's held stance: feet planted wide, arms spread wide and forward, palms out to take it, chin up. */
 	private static final float[] ABSORB_HOLD = f(0, -1.0f, 0.35f, 0.95f, -1.0f, -0.35f, -0.95f, -0.14f, 0, -0.15f, 0, 0.16f, 0.25f, 0, -0.16f, -0.12f);
 	/** The arms snap open past the stance and settle into it. */
@@ -100,21 +98,21 @@ public final class FeedbackClient implements AlienClientKit {
 	/** The cords let go and he rocks back upright. */
 	private static final float[][] PLUG_END = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, -1.3f, 0.3f, 0.15f, -1.3f, -0.3f, -0.15f, 0.2f, 0, -0.4f, 0, 0.1f, 0.4f, 0, -0.1f, 0.05f),
 			f(5, -0.1f, 0, 0.3f, -0.1f, 0, -0.3f, -0.12f, 0, -0.1f, 0, 0, 0.1f, 0, 0, -0.1f), QuirkKeyframes.rest(10) };
-	/** Power Feed: both hands drawn in to his chest panel, head thrown back as it floods in. */
-	private static final float[][] FEED = { QuirkKeyframes.rest(0), f(3, -1.35f, -0.9f, 0, -1.35f, 0.9f, 0, 0.18f, 0, -0.1f, 0, 0, 0.1f, 0, 0, 0.3f),
-			f(9, -1.45f, -1.0f, 0, -1.45f, 1.0f, 0, -0.22f, 0, 0, 0, 0, 0, 0, 0, -0.5f), f(13, -1.2f, -0.9f, 0, -1.2f, 0.9f, 0, -0.14f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
-			QuirkKeyframes.rest(18) };
-	/** Overclock: arched back, fists down and out, shaking with the power running through him. */
-	private static final float[][] OVERCLOCK = { QuirkKeyframes.rest(0), f(3, 0.35f, 0, 0.6f, 0.35f, 0, -0.6f, -0.38f, 0, 0.05f, 0, 0.16f, 0.05f, 0, -0.16f, -0.45f),
-			f(6, 0.3f, 0, 0.52f, 0.4f, 0, -0.68f, -0.32f, 0.07f, 0.05f, 0, 0.16f, 0.05f, 0, -0.16f, -0.4f),
-			f(9, 0.42f, 0, 0.68f, 0.28f, 0, -0.52f, -0.36f, -0.07f, 0.05f, 0, 0.16f, 0.05f, 0, -0.16f, -0.42f),
-			f(12, 0.3f, 0, 0.54f, 0.38f, 0, -0.64f, -0.3f, 0.05f, 0.05f, 0, 0.14f, 0.05f, 0, -0.14f, -0.36f), QuirkKeyframes.rest(18) };
+	/** Storm Burst: both hands thrown out and apart, electricity fanning between them, the body driven back on planted feet. */
+	private static final float[][] CONE = { QuirkKeyframes.rest(0), f(2, -1.75f, -0.5f, 0, -1.75f, 0.5f, 0, -0.12f, 0, -0.4f, 0, 0, 0.45f, 0, 0, -0.16f),
+			f(9, -1.6f, -0.62f, 0, -1.6f, 0.62f, 0, -0.06f, 0, -0.34f, 0, 0, 0.4f, 0, 0, -0.1f), QuirkKeyframes.rest(16) };
+	/** Chain Surge: one arm flung at the target, then a flick across as the bolt jumps on. */
+	private static final float[][] CHAIN = { QuirkKeyframes.rest(0), f(2, -1.85f, 0.3f, 0, 0.4f, 0, -0.4f, 0.1f, -0.5f, -0.3f, 0, 0, 0.3f, 0, 0, 0),
+			f(6, -1.75f, -0.4f, 0, 0.45f, 0, -0.4f, 0.05f, 0.25f, -0.2f, 0, 0, 0.25f, 0, 0, 0), QuirkKeyframes.rest(13) };
 	/** Full Discharge: everything leaves him at once -- flung open, up on his toes, then the spent sag. */
 	private static final float[][] DISCHARGE = { QuirkKeyframes.rest(0), f(2, -0.3f, 0, 1.75f, -0.3f, 0, -1.75f, -0.42f, 0, 0.1f, 0, 0.32f, 0.1f, 0, -0.32f, -0.5f),
 			f(9, -0.45f, 0, 1.55f, -0.45f, 0, -1.55f, -0.34f, 0, 0.1f, 0, 0.3f, 0.1f, 0, -0.3f, -0.4f),
 			f(14, -0.45f, 0, 1.6f, -0.45f, 0, -1.6f, -0.36f, 0, 0.1f, 0, 0.3f, 0.1f, 0, -0.3f, -0.42f), f(19, 0.15f, 0, 0.35f, 0.15f, 0, -0.35f, 0.42f, 0, -0.25f, 0, 0, 0.25f, 0, 0, 0.35f),
 			QuirkKeyframes.rest(26) };
 	/** Feedback Cannon: heels of both hands together at the end of his arms, a braced stance, the beam pushing him back. */
+	/** The Cannon's charge: both hands drawn back to his right hip round the shot, sinking into the stance as it builds. */
+	private static final float[][] CANNON_CHARGE = { QuirkKeyframes.rest(0), f(6, -0.7f, 0.5f, 0.2f, -0.9f, 0.9f, 0, 0.28f, -0.5f, -0.3f, 0, 0.1f, 0.35f, 0, -0.1f, 0.2f),
+			f(30, -0.85f, 0.55f, 0.2f, -1.05f, 0.95f, 0, 0.36f, -0.55f, -0.42f, 0, 0.1f, 0.46f, 0, -0.1f, 0.26f) };
 	private static final float[][] CANNON = { QuirkKeyframes.rest(0), f(2, -1.6f, -0.4f, 0, -1.6f, 0.4f, 0, 0.26f, 0, -0.6f, 0, 0, 0.55f, 0, 0, -0.2f),
 			f(6, -1.8f, -0.4f, 0, -1.8f, 0.4f, 0, 0.02f, 0, -0.5f, 0, 0, 0.6f, 0, 0, -0.1f), f(13, -1.65f, -0.4f, 0, -1.65f, 0.4f, 0, 0.08f, 0, -0.45f, 0, 0, 0.5f, 0, 0, -0.1f),
 			QuirkKeyframes.rest(19) };
@@ -124,10 +122,12 @@ public final class FeedbackClient implements AlienClientKit {
 	// v0.17.2 round 3: every move has a first-person clip now
 	private static final FirstPersonClip FP_BLAST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -24, 8, 0, 0.06f, 0.14f, -0.42f),
 			FirstPersonClip.f(4, -36, 8, 0, 0.06f, 0.2f, -0.3f), FirstPersonClip.f(7, -22, 6, 0, 0.05f, 0.12f, -0.3f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_RAPID = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -24, 8, 0, 0.06f, 0.14f, -0.42f),
-			FirstPersonClip.f(4, -14, 6, 0, 0.04f, 0.04f, -0.14f), FirstPersonClip.f(6, -24, 8, 0, 0.06f, 0.14f, -0.42f), FirstPersonClip.f(8, -14, 6, 0, 0.04f, 0.04f, -0.14f),
-			FirstPersonClip.f(10, -24, 8, 0, 0.06f, 0.14f, -0.42f), FirstPersonClip.f(12, -14, 6, 0, 0.04f, 0.04f, -0.14f), FirstPersonClip.f(14, -24, 8, 0, 0.06f, 0.14f, -0.42f),
-			FirstPersonClip.f(20, 0, 0, 0, 0, 0, 0)).both();
+	/** The beam, for as long as it lasts (ended by ANIM_BEAM_END). */
+	private static final FirstPersonClip FP_BEAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, 10, 0, 0.1f, 0.14f, -0.46f),
+			FirstPersonClip.f(100000, -20, 10, 0, 0.1f, 0.14f, -0.46f));
+	private static final FirstPersonClip FP_BEAM_END = FirstPersonClip.of(FirstPersonClip.f(0, -20, 10, 0, 0.1f, 0.14f, -0.46f), FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_CANNON_CHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(6, -10, 18, 10, 0.16f, 0.02f, -0.22f),
+			FirstPersonClip.f(30, -14, 22, 12, 0.1f, 0.04f, -0.14f)).both();
 	/** Absorb, for as long as V is held: palms up and out at the edges of the view (a clip this long ends when ANIM_ABSORB_END replaces it). */
 	private static final FirstPersonClip FP_ABSORB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -24, -22, -16, -0.12f, 0.2f, -0.2f),
 			FirstPersonClip.f(5, -20, -16, -12, -0.08f, 0.16f, -0.22f), FirstPersonClip.f(100000, -20, -16, -12, -0.08f, 0.16f, -0.22f)).both();
@@ -148,11 +148,10 @@ public final class FeedbackClient implements AlienClientKit {
 	private static final FirstPersonClip FP_PLUG = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -24, 10, 0, 0.1f, 0.16f, -0.46f),
 			FirstPersonClip.f(6, -20, 10, 0, 0.1f, 0.12f, -0.38f), FirstPersonClip.f(100000, -20, 10, 0, 0.1f, 0.12f, -0.38f)).both();
 	private static final FirstPersonClip FP_PLUG_END = FirstPersonClip.of(FirstPersonClip.f(0, -20, 10, 0, 0.1f, 0.12f, -0.38f), FirstPersonClip.f(9, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_FEED = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, 34, 14, 0.2f, 0.0f, -0.14f),
-			FirstPersonClip.f(9, -36, 40, 16, 0.24f, -0.06f, -0.06f), FirstPersonClip.f(13, -28, 32, 14, 0.2f, -0.02f, -0.1f), FirstPersonClip.f(18, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_OVERCLOCK = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -30, -6, -10, -0.04f, 0.26f, -0.16f),
-			FirstPersonClip.f(6, -26, -10, -6, -0.06f, 0.22f, -0.18f), FirstPersonClip.f(9, -33, -3, -12, -0.02f, 0.28f, -0.15f), FirstPersonClip.f(12, -27, -8, -8, -0.05f, 0.24f, -0.17f),
-			FirstPersonClip.f(18, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_CONE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -24, 26, 0, 0.22f, 0.14f, -0.5f),
+			FirstPersonClip.f(9, -20, 30, 0, 0.26f, 0.12f, -0.42f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_CHAIN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -24, 8, 0, 0.06f, 0.14f, -0.46f),
+			FirstPersonClip.f(6, -16, -22, 0, -0.14f, 0.1f, -0.34f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_DISCHARGE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -18, -44, -34, -0.24f, 0.14f, -0.14f),
 			FirstPersonClip.f(9, -22, -38, -30, -0.2f, 0.16f, -0.16f), FirstPersonClip.f(14, -18, -42, -32, -0.22f, 0.14f, -0.14f), FirstPersonClip.f(19, 22, -6, -6, -0.02f, -0.34f, 0.04f),
 			FirstPersonClip.f(26, 0, 0, 0, 0, 0, 0)).both();
@@ -211,6 +210,18 @@ public final class FeedbackClient implements AlienClientKit {
 			m.leftArm.xRot += Mth.sin(age * 0.23f + 1f) * 0.05f;
 			held = true;
 		}
+		if ((flags & FeedbackKit.F_BEAM) != 0) {
+			// the beam: the firing arm on his aim, the other hand steadying it, the current shaking him a little
+			if (animId == FeedbackKit.ANIM_BEAM && ticks >= 3f) {
+				m.rightArm.xRot = m.head.xRot - Mth.HALF_PI + Mth.sin(age * 1.7f) * 0.02f;
+				m.rightArm.yRot = m.head.yRot;
+				m.rightArm.zRot = 0f;
+				m.leftArm.xRot = m.head.xRot - 1.25f;
+				m.leftArm.yRot = m.head.yRot + 0.55f;
+				m.leftArm.zRot = 0f;
+				return true;
+			}
+		}
 		if ((flags & FeedbackKit.F_PLUG) != 0) {
 			QuirkKeyframes.apply(m, PLUG_HOLD, 1f);
 			m.rightArm.xRot += Mth.sin(age * 1.1f) * 0.03f; // the current shaking his arms
@@ -219,14 +230,16 @@ public final class FeedbackClient implements AlienClientKit {
 		}
 		float[][] clip = switch (animId) {
 			case FeedbackKit.ANIM_BLAST -> BLAST;
-			case FeedbackKit.ANIM_RAPID -> RAPID;
+			case FeedbackKit.ANIM_BEAM -> BEAM;
+			case FeedbackKit.ANIM_BEAM_END -> BEAM_END;
+			case FeedbackKit.ANIM_CANNON_CHARGE -> CANNON_CHARGE;
 			case FeedbackKit.ANIM_REDIRECT -> REDIRECT;
 			case FeedbackKit.ANIM_LEAP -> LEAP;
 			case FeedbackKit.ANIM_SURGE -> SURGE;
 			case FeedbackKit.ANIM_LAND -> LAND;
 			case FeedbackKit.ANIM_WHIP -> WHIP;
-			case FeedbackKit.ANIM_FEED -> FEED;
-			case FeedbackKit.ANIM_OVERCLOCK -> OVERCLOCK;
+			case FeedbackKit.ANIM_CONE -> CONE;
+			case FeedbackKit.ANIM_CHAIN -> CHAIN;
 			case FeedbackKit.ANIM_DISCHARGE -> DISCHARGE;
 			case FeedbackKit.ANIM_CANNON -> CANNON;
 			case FeedbackKit.ANIM_PUNCH -> PUNCH;
@@ -261,7 +274,9 @@ public final class FeedbackClient implements AlienClientKit {
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case FeedbackKit.ANIM_BLAST -> FP_BLAST;
-			case FeedbackKit.ANIM_RAPID -> FP_RAPID;
+			case FeedbackKit.ANIM_BEAM -> FP_BEAM;
+			case FeedbackKit.ANIM_BEAM_END -> FP_BEAM_END;
+			case FeedbackKit.ANIM_CANNON_CHARGE -> FP_CANNON_CHARGE;
 			case FeedbackKit.ANIM_ABSORB -> FP_ABSORB;
 			case FeedbackKit.ANIM_ABSORB_END -> FP_ABSORB_END;
 			case FeedbackKit.ANIM_TAKE -> FP_TAKE;
@@ -272,8 +287,8 @@ public final class FeedbackClient implements AlienClientKit {
 			case FeedbackKit.ANIM_WHIP -> FP_WHIP;
 			case FeedbackKit.ANIM_PLUG -> FP_PLUG;
 			case FeedbackKit.ANIM_PLUG_END -> FP_PLUG_END;
-			case FeedbackKit.ANIM_FEED -> FP_FEED;
-			case FeedbackKit.ANIM_OVERCLOCK -> FP_OVERCLOCK;
+			case FeedbackKit.ANIM_CONE -> FP_CONE;
+			case FeedbackKit.ANIM_CHAIN -> FP_CHAIN;
 			case FeedbackKit.ANIM_DISCHARGE -> FP_DISCHARGE;
 			case FeedbackKit.ANIM_CANNON -> FP_CANNON;
 			case FeedbackKit.ANIM_PUNCH -> FP_PUNCH;

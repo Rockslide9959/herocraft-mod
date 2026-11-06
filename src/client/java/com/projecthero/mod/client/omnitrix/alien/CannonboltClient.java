@@ -183,7 +183,7 @@ public final class CannonboltClient implements AlienClientKit {
 		r.curl = Mth.approach(r.curl, (flags & CannonboltKit.F_ROUND) != 0 ? 1f : 0f, 1f / CURL_TICKS);
 		r.spikesO = r.spikes;
 		r.spikes = Mth.approach(r.spikes, (flags & CannonboltKit.F_SPIKES) != 0 ? 1f : 0f, 1f / 10f);
-		boolean winding = (flags & (CannonboltKit.F_CHARGING | CannonboltKit.F_WIND)) != 0;
+		boolean winding = (flags & CannonboltKit.F_CHARGING) != 0;
 		r.wind = Mth.approach(r.wind, winding ? 1f : 0f, winding ? 1f / CannonboltKit.SPIN_CHARGE_FILL : 1f / 12f);
 		if (p.isLocalPlayer() && (flags & CannonboltKit.F_BALL) == 0) {
 			CannonboltRoll.reset();
@@ -200,10 +200,6 @@ public final class CannonboltClient implements AlienClientKit {
 		if (speed > 1.15) {
 			// top speed: the sparks off the shell and the streaks of air
 			l.addParticle(ParticleTypes.CRIT, p.getX() - dx * 0.8, p.getY() + 0.2, p.getZ() - dz * 0.8, -dx * 0.4, 0.15, -dz * 0.4);
-		}
-		if ((flags & CannonboltKit.F_WIND) != 0) {
-			double a = p.tickCount * 0.8;
-			l.addParticle(ParticleTypes.CLOUD, p.getX() + Math.cos(a) * 2.2, p.getY() + 1.0, p.getZ() + Math.sin(a) * 2.2, -Math.sin(a) * 0.3, 0.05, Math.cos(a) * 0.3);
 		}
 	}
 
@@ -245,7 +241,7 @@ public final class CannonboltClient implements AlienClientKit {
 		} else {
 			float dt = Mth.clamp(age - r.age, 0f, 5f);
 			double dx = x - r.x, dy = y - r.y, dz = z - r.z, d = Math.sqrt(dx * dx + dz * dz);
-			boolean spun = (flags & (CannonboltKit.F_CHARGING | CannonboltKit.F_WIND)) != 0 || r.wind > 0f;
+			boolean spun = (flags & CannonboltKit.F_CHARGING) != 0 || r.wind > 0f;
 			boolean rolling = d > 0.02 * Math.max(dt, 0.05f) && d < 4;
 			float target = rolling ? (float) Math.toDegrees(Mth.atan2(dx, dz)) : look;
 			// the face swings round to the way he rolls (quickly) or looks (gently)

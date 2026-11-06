@@ -48,8 +48,8 @@ public class GreyMatterSentryEntity extends Mob {
 
 	/** Height of the barrels' pivot above its feet. */
 	public static final float HEAD_Y = 0.72f;
-	/** It unfolds over this many ticks and shoots only after. */
-	public static final int DEPLOY_TICKS = 10;
+	/** He builds it over this many ticks, and it shoots only after. */
+	public static final int DEPLOY_TICKS = 50; // v0.17.2 (user: "they should take a few seconds"): 2.5 s, was 0.5
 
 	private static final EntityDataAccessor<BlockState> MATERIAL = SynchedEntityData.defineId(GreyMatterSentryEntity.class, EntityDataSerializers.BLOCK_STATE);
 	private static final EntityDataAccessor<Optional<UUID>> OWNER = SynchedEntityData.defineId(GreyMatterSentryEntity.class, EntityDataSerializers.OPTIONAL_UUID);

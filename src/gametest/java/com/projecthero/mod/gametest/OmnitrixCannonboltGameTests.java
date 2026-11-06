@@ -369,7 +369,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 	/** v0.17.2 round 3 (user: "at 0 momentum he moves at 10 blocks per second, at max momentum he moves at 25 ... make it 10 at 0 momentum and 20 at max momentum ... like 3 seconds of sprinting"). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theRollsNumbersAreTheOnesAskedFor(GameTestHelper helper) {
-		helper.assertTrue(Math.abs(CannonboltRoll.speedAt(0) * 20 - 10) < 1.0e-6 && Math.abs(CannonboltRoll.speedAt(1) * 20 - 25) < 1.0e-6, "10 to 25 blocks a second");
+		helper.assertTrue(Math.abs(CannonboltRoll.speedAt(0) * 20 - 10) < 1.0e-6 && Math.abs(CannonboltRoll.speedAt(1) * 20 - 30) < 1.0e-6, "10 to 30 blocks a second");
 		helper.assertTrue(CannonboltRoll.ramDamage(0) == 10f && CannonboltRoll.ramDamage(1) == 20f && CannonboltRoll.ramDamage(0.5) == 15f, "the ram goes 10 to 20 with Momentum");
 		double m = 0;
 		for (int i = 0; i < 59; i++) {
@@ -385,7 +385,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		helper.assertTrue(CannonboltRoll.step(m, true, true, true, true) == 0, "a wall ends it");
 		Vec3 turned = CannonboltRoll.turn(new Vec3(1, 0, 0), new Vec3(0, 0, 1));
 		helper.assertTrue(Math.abs(turned.length() - 1) < 1.0e-6, "a turn is a change of heading, never of speed: " + turned.length());
-		helper.assertTrue(Math.abs(CannonboltRoll.momentumFromSpeed(0.875) - 0.5) < 1.0e-6, "the server reads Momentum back off his speed");
+		helper.assertTrue(Math.abs(CannonboltRoll.momentumFromSpeed(1.0) - 0.5) < 1.0e-6, "the server reads Momentum back off his speed");
 		helper.succeed();
 	}
 
@@ -396,7 +396,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(100.0);
 		z.setHealth(100f);
 		tap(p, AbilitySlot.SLOT_5, false);
-		p.setDeltaMovement(0, 0, 1.25); // top speed straight at the zombie, 25 blocks a second
+		p.setDeltaMovement(0, 0, 1.5); // top speed straight at the zombie, 30 blocks a second
 		helper.onEachTick(() -> {
 			if (z.getHealth() >= 100f) {
 				roll(p);
@@ -458,7 +458,7 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		ServerPlayer p = cannonbolt(helper);
 		java.util.List<Zombie> near = new java.util.ArrayList<>();
 		for (int i = 0; i < 22; i++) {
-			near.add(zombie(helper, 3.5 + (i % 2 == 0 ? 6 : -6), 2, 3 + i * 2));
+			near.add(zombie(helper, 3.5 + (i % 2 == 0 ? 3 : -3), 2, 3 + i)); // (the Rampage reaches 30 blocks)
 		}
 		Zombie high = zombie(helper, 3.5, 12, 4);
 		tap(p, AbilitySlot.SLOT_5, false);
@@ -521,36 +521,37 @@ public class OmnitrixCannonboltGameTests implements FabricGameTest {
 		});
 	}
 
-	/** v0.17.2 round 3: the ultimate winds up, rampages and always ends in the crash. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void theUltimateWindsUpRampagesAndCrashes(GameTestHelper helper) {
+	/** Shift+Z: dash at the target for 30, up, and down on it for another 30; 80% less damage until he lands. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void ultimateDashesThenSlams(GameTestHelper helper) {
 		ServerPlayer p = cannonbolt(helper);
-		AlienKit kit = Aliens.kit(CannonboltKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 3.5);
-		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(100.0);
-		z.setHealth(100f);
+		CannonboltKit kit = (CannonboltKit) Aliens.kit(CannonboltKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 8);
+		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(200.0);
+		z.setHealth(200f);
+		p.setXRot(0f);
 		tap(p, AbilitySlot.SLOT_4, true);
-		helper.assertTrue(CannonboltKit.ball(p) && kit.flag(p, CannonboltKit.F_WIND) && kit.flag(p, CannonboltKit.F_SPIKES), "Shift+Z from standing: curled, winding up, spikes out");
+		helper.assertTrue(CannonboltKit.ball(p) && kit.flag(p, CannonboltKit.F_SPIKES), "Shift+Z: curled, spikes out");
+		helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 10f) == 2f, "80% less");
+		helper.assertTrue(CannonboltKit.moving(p), "and he goes");
+		float[] atLanding = { -1f };
 		helper.onEachTick(() -> {
 			p.tickCount++;
 			Omnitrix.tick(p);
-		});
-		helper.runAfterDelay(CannonboltKit.WIND_TICKS + 3, () -> {
-			helper.assertTrue(kit.flag(p, CannonboltKit.F_UNSTOPPABLE) && !kit.flag(p, CannonboltKit.F_WIND), "then the rampage");
-			helper.assertTrue(kit.incomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 10f) == 2f, "80% less");
-			tap(p, AbilitySlot.SLOT_4, true); // a second press finishes it
-			helper.assertFalse(kit.flag(p, CannonboltKit.F_UNSTOPPABLE), "the second press ends the rampage");
-			helper.assertTrue(CannonboltKit.moving(p), "and he goes up for the crash");
-			float before = z.getHealth();
-			helper.runAfterDelay(20, () -> {
-				p.setPos(helper.absoluteVec(new Vec3(3.5, 2, 1.5)));
+			if (atLanding[0] < 0f && !kit.flag(p, CannonboltKit.F_SPIKES)) {
+				atLanding[0] = 200f - z.getHealth();
+			}
+			p.setPos(p.position().add(p.getDeltaMovement()));
+			if (p.getY() < helper.absoluteVec(new Vec3(0, 2, 0)).y) {
+				p.setPos(p.getX(), helper.absoluteVec(new Vec3(0, 2, 0)).y, p.getZ());
 				p.setOnGround(true);
-				helper.runAfterDelay(2, () -> {
-					helper.assertFalse(kit.flag(p, CannonboltKit.F_SPIKES) || CannonboltKit.moving(p), "the crash ends it");
-					helper.assertTrue(before - z.getHealth() >= 35f, "36 where he lands: " + (before - z.getHealth()));
-					helper.succeed();
-				});
-			});
+			} else {
+				p.setOnGround(false);
+			}
+		});
+		helper.succeedWhen(() -> {
+			helper.assertFalse(kit.flag(p, CannonboltKit.F_SPIKES), "spikes away once he lands");
+			helper.assertTrue(atLanding[0] >= 57f && atLanding[0] <= 63f, "30 + 30 by the time he lands (a shoved zombie may land hard), took " + atLanding[0]);
 		});
 	}
 

@@ -163,6 +163,7 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getY() - (under.y + 3.4)) < 1.0e-3, "phased: rises INTO the roof");
 		// v0.17.2 (user: "make ghost freaks phase toggleable and remove the time limit please"): it never runs out -- he stays
 		// in the roof well past the old 5 s, then X turns it off there: settled outside, never stuck
+		helper.getLevel().setDayTime(18000L); // night: at 5 a second the sun would finish him off first
 		pump(helper, p);
 		helper.runAfterDelay(140, () -> {
 			helper.assertTrue(kit.phasing(p) && kit.keyActive(p, AbilitySlot.SLOT_3), "still phased after 7 s (no time limit), X lit");

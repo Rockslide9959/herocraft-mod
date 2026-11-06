@@ -83,7 +83,6 @@ public final class CannonboltKit extends AlienKit {
 	public static final int F_ROUND = 2;
 	public static final int F_BOOST = 4;
 	public static final int F_SPIN = 8;
-	public static final int F_UNSTOPPABLE = 16;
 	public static final int F_GUARD = 32;
 	/** The Rolling Rampage: rolling from enemy to enemy. */
 	public static final int F_RAMPAGE = 64;
@@ -93,10 +92,8 @@ public final class CannonboltKit extends AlienKit {
 	public static final int F_CHARGING = 256;
 	/** One of his moves is driving him: his keys do nothing, the server's velocity is what moves him. */
 	public static final int F_DRIVEN = 512;
-	/** The Unstoppable Cannonball: the shell's spikes are out, from the wind-up to the crash. */
+	/** The ultimate: the shell's spikes are out, from the dash to the slam. */
 	public static final int F_SPIKES = 1024;
-	/** The Unstoppable Cannonball's wind-up: hanging in the air, spinning up. */
-	public static final int F_WIND = 2048;
 
 	// ---------------------------------------------------------------- poses
 	public static final int ANIM_BASH = 1, ANIM_SLAM = 2, ANIM_CURL = 3, ANIM_GUARD = 4, ANIM_POUND = 5, ANIM_UNCURL = 6, ANIM_PUNCH = 7, ANIM_GUARD_END = 8;
@@ -116,11 +113,12 @@ public final class CannonboltKit extends AlienKit {
 	public static final float CHARGE_DAMAGE = 20f, RAMPAGE_DAMAGE = 20f, BOUNCE_DAMAGE = 18f, DROP_DAMAGE = 20f, SPIN_DAMAGE = 8f;
 	/** The Rebound Strike: two hits and the big last one. */
 	public static final float REBOUND_DAMAGE = 12f, REBOUND_LAST_DAMAGE = 17f;
-	/** The Unstoppable Cannonball: every ram, and the crash that ends it. */
-	public static final float UNSTOPPABLE_DAMAGE = 30f, CRASH_DAMAGE = 36f;
+	/** The ultimate (user: "dash towards the target and deals 30 damage ... boost up into the air and slams down on them dealing another 30"). */
+	public static final float ULT_HIT_DAMAGE = 30f, CRASH_DAMAGE = 30f;
 	public static final int TUMBLE_TICKS = 10, LAUNCH_TICKS = 24, CHARGE_TICKS = 20, BOOST_TICKS = 100, SPIN_TICKS = 40;
-	/** The Unstoppable Cannonball: the wind-up, then how long he rampages. */
-	public static final int WIND_TICKS = 30, UNSTOPPABLE_TICKS = 160;
+	/** How far off he can lock on, how fast the dash goes (blocks a tick) and how long it may try. */
+	public static final double ULT_RANGE = 30.0, ULT_DASH_SPEED = 2.0;
+	public static final int ULT_DASH_TICKS = 40;
 	/** The Spin Charge: ticks of holding C to full Momentum, and the most he can hold it. */
 	public static final int SPIN_CHARGE_FILL = 30, SPIN_CHARGE_MAX = 200;
 	/**
@@ -129,7 +127,7 @@ public final class CannonboltKit extends AlienKit {
 	 * fail to get closer to one enemy before giving it up.
 	 */
 	public static final int RAMPAGE_TARGETS = 20, RAMPAGE_STUCK_TICKS = 20, RAMPAGE_TICKS = 600;
-	public static final double RAMPAGE_RANGE = 50.0, RAMPAGE_Y = 5.0;
+	public static final double RAMPAGE_RANGE = 30.0, RAMPAGE_Y = 5.0;
 	public static final int REBOUND_HITS = 3;
 	public static final double REBOUND_RANGE = 24.0, REBOUND_SPEED = 1.6;
 	/** Horizontal blocks / tick before rolling into something hurts it. */
@@ -267,6 +265,19 @@ public final class CannonboltKit extends AlienKit {
 
 	private static final Map<UUID, Dash> DASHES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Rush> RUSHES = new ConcurrentHashMap<>();
+	/** The ultimate, from the press to the slam: who it is for, and whether the dash has landed. */
+	private static final class Smash {
+		final int target;
+		final long start;
+		boolean dashed;
+
+		Smash(int target, long start) {
+			this.target = target;
+			this.start = start;
+		}
+	}
+
+	private static final Map<UUID, Smash> SMASHES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Rebound> REBOUNDS = new ConcurrentHashMap<>();
 	/** A Spin Charge just let go: the tick, until he is seen rolling away (or isn't) -- the takeoff's burst. */
 	private static final Map<UUID, Long> RELEASED = new ConcurrentHashMap<>();
@@ -290,6 +301,7 @@ public final class CannonboltKit extends AlienKit {
 	public static void clearSessionState() {
 		DASHES.clear();
 		RUSHES.clear();
+		SMASHES.clear();
 		REBOUNDS.clear();
 		RELEASED.clear();
 		AIRS.clear();
@@ -433,16 +445,17 @@ public final class CannonboltKit extends AlienKit {
 	@Override
 	public void onRevert(ServerPlayer p) {
 		CannonboltStow.releaseAll(p); // whatever turned him back, anyone inside is out and dizzy
-		for (int f : new int[] { F_BALL, F_ROUND, F_BOOST, F_SPIN, F_UNSTOPPABLE, F_GUARD, F_RAMPAGE, F_AIR, F_CHARGING, F_DRIVEN, F_SPIKES, F_WIND }) {
+		for (int f : new int[] { F_BALL, F_ROUND, F_BOOST, F_SPIN, F_GUARD, F_RAMPAGE, F_AIR, F_CHARGING, F_DRIVEN, F_SPIKES }) {
 			setFlag(p, f, false);
 		}
-		for (String t : new String[] { "boost_end", "spin_end", "unstoppable_end", "wind_end", "charge_start" }) {
+		for (String t : new String[] { "boost_end", "spin_end", "charge_start" }) {
 			setTimer(p, t, 0);
 		}
 		clearRoll(p);
 		UUID id = p.getUUID();
 		DASHES.remove(id);
 		RUSHES.remove(id);
+		SMASHES.remove(id);
 		REBOUNDS.remove(id);
 		RELEASED.remove(id);
 		AIRS.remove(id);
@@ -586,13 +599,14 @@ public final class CannonboltKit extends AlienKit {
 				cooldown(p, UNCURL, 0);
 				return false;
 			}
-			for (int f : new int[] { F_BOOST, F_SPIN, F_UNSTOPPABLE, F_RAMPAGE, F_CHARGING, F_SPIKES, F_WIND }) {
+			for (int f : new int[] { F_BOOST, F_SPIN, F_RAMPAGE, F_CHARGING, F_SPIKES }) {
 				setFlag(p, f, false);
 			}
-			for (String t : new String[] { "boost_end", "spin_end", "unstoppable_end", "wind_end", "charge_start" }) {
+			for (String t : new String[] { "boost_end", "spin_end", "charge_start" }) {
 				setTimer(p, t, 0);
 			}
 			RUSHES.remove(p.getUUID());
+			SMASHES.remove(p.getUUID());
 			REBOUNDS.remove(p.getUUID());
 			RELEASED.remove(p.getUUID());
 			Dash d = DASHES.get(p.getUUID());
@@ -622,7 +636,7 @@ public final class CannonboltKit extends AlienKit {
 	/** Something of his own is moving him right now: another move has to wait for it. */
 	private boolean busy(ServerPlayer p) {
 		UUID id = p.getUUID();
-		return DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || flag(p, F_CHARGING) || flag(p, F_WIND);
+		return DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || flag(p, F_CHARGING) || SMASHES.containsKey(id);
 	}
 
 	// ---------------------------------------------------------------- standing moves
@@ -1029,82 +1043,92 @@ public final class CannonboltKit extends AlienKit {
 	}
 
 	/**
-	 * Shift+Z, either form (the ultimate): the show's unstoppable ball with Ultimate Cannonbolt's spikes. He rises spinning for 1.5 s,
-	 * dragging everything near him in as the spikes come out; then 8 s at full Momentum where nothing stops him -- 30 a ram, 80% less
-	 * damage, no knockback, weak blocks burst. Then (or on a second Shift+Z) he shoots up and crashes down, 36 in a 9-block ring.
+	 * Shift+Z, either form (the ultimate). v0.17.2 (user: "change his ultimate to an ability where he dash towards the target and deals
+	 * 30 damage to them and then boost up into the air and slams down on them dealing another 30 damage"): he locks on to what he aims
+	 * at, spikes out, and rolls straight at it; the hit throws him up, and he comes down on wherever it has gone.
 	 */
 	public boolean unstoppable(ServerPlayer p) {
-		if (flag(p, F_UNSTOPPABLE)) {
-			crash(p); // a second press: finish it now
-			return true;
+		if (flag(p, F_SPIKES) || busy(p)) {
+			return false;
 		}
-		if (flag(p, F_SPIKES) || busy(p) || !use(p, UNSTOPPABLE)) {
+		LivingEntity mark = lookTarget(p, ULT_RANGE);
+		if (mark == null) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.cannonbolt.no_ult_target").withStyle(ChatFormatting.GOLD), true);
+			return false;
+		}
+		if (!use(p, UNSTOPPABLE)) {
 			return false;
 		}
 		setBall(p, true);
 		BOUNCES.remove(p.getUUID());
 		AIRS.remove(p.getUUID());
 		setFlag(p, F_AIR, false);
-		setFlag(p, F_WIND, true);
 		setFlag(p, F_SPIKES, true);
 		setFlag(p, F_DRIVEN, true);
-		setTimer(p, "wind_end", p.level().getGameTime() + WIND_TICKS);
+		SMASHES.put(p.getUUID(), new Smash(mark.getId(), p.level().getGameTime()));
 		ServerLevel l = level(p);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(4f).thickness(0.7f).life(14).ground().spawn();
-		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 1.2f, 0.8f);
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(3f).thickness(0.6f).life(10).ground().spawn();
+		OmnitrixSounds.play(l, p.position(), SND_QUAKE, 1.2f, 1.1f);
 		return true;
 	}
 
+	/** The dash: straight at the mark, over the ground or off it, until it is hit. */
 	private void tickUltimate(ServerPlayer p, ServerLevel l, long now) {
-		long wind = timer(p, "wind_end");
-		if (wind > 0) {
-			int t = WIND_TICKS - (int) (wind - now);
-			p.setDeltaMovement(0, t < 12 ? 0.35 : 0.08, 0);
-			p.hurtMarked = true;
-			p.resetFallDistance();
-			Vec3 c = center(p);
-			for (LivingEntity e : around(p, c, 12.0)) {
-				Vec3 in = c.subtract(e.position());
-				if (in.lengthSqr() > 4.0) {
-					in = in.normalize().scale(0.14);
-					e.push(in.x, in.y * 0.5, in.z);
-					e.hurtMarked = true;
-				}
-			}
-			if (t % 3 == 0) {
-				l.sendParticles(ParticleTypes.CLOUD, c.x, p.getY() - 0.2, c.z, 3, 2.0, 0.1, 2.0, 0.06);
-				l.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 8, 1.2, 1.2, 1.2, 0.3);
-				OmnitrixSounds.play(l, c, SND_ROLL, 1.0f + t * 0.02f, 0.7f + t * 0.04f);
-			}
-			if (now >= wind) {
-				setTimer(p, "wind_end", 0);
-				setFlag(p, F_WIND, false);
-				setFlag(p, F_DRIVEN, false);
-				setFlag(p, F_UNSTOPPABLE, true);
-				setTimer(p, "unstoppable_end", now + UNSTOPPABLE_TICKS);
-				MOMENTUM.put(p.getUUID(), 1.0);
-				QuirkFx.ring(l, c).colours(0xFFFFFF, COLOUR).size(7f).thickness(0.9f).life(14).spawn();
-				QuirkCamera.shakeAround(l, c, 16, 0.4f, 8);
-				OmnitrixSounds.play(l, c, SND_QUAKE, 1.3f, 1.3f);
-			}
+		Smash s = SMASHES.get(p.getUUID());
+		if (s == null || s.dashed) {
 			return;
 		}
-		long end = timer(p, "unstoppable_end");
-		if (flag(p, F_UNSTOPPABLE) && end > 0 && now >= end) {
-			crash(p);
+		LivingEntity mark = l.getEntity(s.target) instanceof LivingEntity e && e.isAlive() ? e : null;
+		if (mark == null || now - s.start > ULT_DASH_TICKS) {
+			if (mark == null || p.distanceTo(mark) > ULT_RANGE) {
+				SMASHES.remove(p.getUUID());
+				setFlag(p, F_SPIKES, false);
+				return;
+			}
 		}
+		Vec3 to = mark.position().add(0, mark.getBbHeight() * 0.5, 0).subtract(center(p));
+		double reach = (p.getBbWidth() + mark.getBbWidth()) * 0.5 + 0.8;
+		p.resetFallDistance();
+		if (to.length() > reach && now - s.start <= ULT_DASH_TICKS) {
+			Vec3 v = to.normalize().scale(Math.min(ULT_DASH_SPEED, to.length()));
+			p.setDeltaMovement(v.x, Math.max(v.y, -0.2), v.z);
+			p.hurtMarked = true;
+			Vec3 c = center(p);
+			l.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 5, 0.6, 0.6, 0.6, 0.2);
+			return;
+		}
+		s.dashed = true;
+		if (to.length() <= reach) {
+			hurt(p, mark, ULT_HIT_DAMAGE, false);
+			OmnitrixSounds.play(l, mark.position(), SND_IMPACT, 1.2f, 0.8f);
+			QuirkCamera.shakeAround(l, mark.position(), 12, 0.4f, 6);
+			Vec3 c = mark.position().add(0, mark.getBbHeight() * 0.5, 0);
+			QuirkFx.ring(l, c).colours(0xFFFFFF, COLOUR).size(3f).thickness(0.6f).life(10).spawn();
+		}
+		crash(p);
 	}
 
-	/** The end of the ultimate: straight up, then down like the end of the world. */
+	/** The boost: straight up, then down like the end of the world, on the mark. */
 	private void crash(ServerPlayer p) {
-		setFlag(p, F_UNSTOPPABLE, false);
-		setTimer(p, "unstoppable_end", 0);
-		p.setDeltaMovement(p.getDeltaMovement().x * 0.2, 1.7, p.getDeltaMovement().z * 0.2);
+		p.setDeltaMovement(0, 1.7, 0);
 		p.hurtMarked = true;
 		BOUNCES.remove(p.getUUID());
 		AIRS.put(p.getUUID(), new Air(AirKind.CRASH, p.level().getGameTime()));
 		setFlag(p, F_AIR, true);
 		OmnitrixSounds.play(level(p), p.position(), SND_RICOCHET, 1.2f, 0.6f);
+	}
+
+	/** While he is up, the slam keeps over the mark: he lands on it wherever it runs. */
+	private void steerCrash(ServerPlayer p, ServerLevel l) {
+		Smash s = SMASHES.get(p.getUUID());
+		if (s == null || !(l.getEntity(s.target) instanceof LivingEntity mark) || !mark.isAlive()) {
+			return;
+		}
+		Vec3 to = mark.position().subtract(p.position());
+		double max = 0.9;
+		double x = Mth.clamp(to.x * 0.35, -max, max), z = Mth.clamp(to.z * 0.35, -max, max);
+		p.setDeltaMovement(x, p.getDeltaMovement().y, z);
+		p.hurtMarked = true;
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -1163,7 +1187,7 @@ public final class CannonboltKit extends AlienKit {
 		boolean round = ball || DASHES.containsKey(id) || airRound(p);
 		setFlag(p, F_ROUND, round);
 		Air air = AIRS.get(id);
-		setFlag(p, F_DRIVEN, DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || flag(p, F_WIND)
+		setFlag(p, F_DRIVEN, DASHES.containsKey(id) || RUSHES.containsKey(id) || REBOUNDS.containsKey(id) || SMASHES.containsKey(id)
 				|| air != null && air.kind != AirKind.BOUNCE);
 		boolean steady = flag(p, F_SPIKES) || RUSHES.containsKey(id) || DASHES.containsKey(id) || REBOUNDS.containsKey(id);
 		if (steady) {
@@ -1191,7 +1215,10 @@ public final class CannonboltKit extends AlienKit {
 	 * really goes (a reading held briefly, so one short packet doesn't drop it), and that sets the ram: 10 at none, 20 at full.
 	 */
 	private void tickRoll(ServerPlayer p, ServerLevel l, long now, Vec3 moved, double speed) {
-		double mom = flag(p, F_BOOST) || flag(p, F_UNSTOPPABLE) ? 1.0
+		if (SMASHES.containsKey(p.getUUID())) {
+			return; // the ultimate deals its two hits, and only those
+		}
+		double mom = flag(p, F_BOOST) ? 1.0
 				: speed < 0.04 ? 0.0 : Math.max(CannonboltRoll.momentumFromSpeed(speed), MOMENTUM.getOrDefault(p.getUUID(), 0.0) * 0.8);
 		MOMENTUM.put(p.getUUID(), mom);
 		Long released = RELEASED.get(p.getUUID());
@@ -1221,8 +1248,7 @@ public final class CannonboltKit extends AlienKit {
 			return;
 		}
 		Vec3 dir = new Vec3(moved.x, 0, moved.z).normalize();
-		boolean unstoppable = flag(p, F_UNSTOPPABLE);
-		float damage = unstoppable ? UNSTOPPABLE_DAMAGE : CannonboltRoll.ramDamage(mom);
+		float damage = CannonboltRoll.ramDamage(mom);
 		Map<Integer, Long> rammed = RAMMED.computeIfAbsent(p.getUUID(), k -> new HashMap<>());
 		Vec3 c = center(p).add(dir.scale(p.getBbWidth() * 0.6));
 		for (LivingEntity e : around(p, c, p.getBbWidth() * 0.5 + 0.7)) {
@@ -1235,9 +1261,6 @@ public final class CannonboltKit extends AlienKit {
 				shove(e, p.position().subtract(dir), 1.0 + speed, 0.35);
 				OmnitrixSounds.play(l, e.position(), SND_IMPACT, 0.8f, 1.0f);
 			}
-		}
-		if (unstoppable) {
-			smashAhead(p, l, dir, 1);
 		}
 		if (rammed.size() > 64) {
 			rammed.entrySet().removeIf(en -> now - en.getValue() > 40);
@@ -1384,6 +1407,7 @@ public final class CannonboltKit extends AlienKit {
 
 	private void endRampage(ServerPlayer p) {
 		RUSHES.remove(p.getUUID());
+		SMASHES.remove(p.getUUID());
 		setFlag(p, F_RAMPAGE, false);
 		cooldown(p, RAMPAGE, -1);
 		p.resetFallDistance();
@@ -1418,12 +1442,15 @@ public final class CannonboltKit extends AlienKit {
 		}
 		long t = now - a.start;
 		p.resetFallDistance();
+		if (a.kind == AirKind.CRASH) {
+			steerCrash(p, l);
+		}
 		if (!a.falling) {
 			int apex = a.kind == AirKind.DROP ? 12 : a.kind == AirKind.CRASH ? 11 : a.kind == AirKind.CURL_SMASH ? 7 : 0;
 			if (apex > 0 && t >= apex) {
 				a.falling = true;
 				Vec3 v = p.getDeltaMovement();
-				p.setDeltaMovement(v.x * 0.3, a.kind == AirKind.CRASH ? -3.0 : a.kind == AirKind.DROP ? -2.5 : -1.4, v.z * 0.3);
+				p.setDeltaMovement(a.kind == AirKind.CRASH ? v.x : v.x * 0.3, a.kind == AirKind.CRASH ? -3.0 : a.kind == AirKind.DROP ? -2.5 : -1.4, a.kind == AirKind.CRASH ? v.z : v.z * 0.3);
 				p.hurtMarked = true;
 				OmnitrixSounds.play(l, p.position(), SND_ROLL, 1.0f, 0.6f);
 			} else if (apex == 0 && t > 4) {
@@ -1435,6 +1462,7 @@ public final class CannonboltKit extends AlienKit {
 			setFlag(p, F_AIR, false);
 			if (a.kind == AirKind.CRASH) {
 				setFlag(p, F_SPIKES, false);
+				SMASHES.remove(p.getUUID());
 			}
 			if (t > 200 || p.isInWater()) {
 				return;
@@ -1449,11 +1477,12 @@ public final class CannonboltKit extends AlienKit {
 				case CRASH -> CRASH_DAMAGE;
 				default -> CURL_SMASH_DAMAGE;
 			};
-			float radius = a.kind == AirKind.CRASH ? 9f : a.kind == AirKind.DROP ? 5f : a.kind == AirKind.BOUNCE ? 4f : 3.5f;
+			float radius = a.kind == AirKind.CRASH ? 6f : a.kind == AirKind.DROP ? 5f : a.kind == AirKind.BOUNCE ? 4f : 3.5f;
 			Vec3 c = p.position();
 			for (LivingEntity e : around(p, c, radius)) {
 				hurt(p, e, damage, false);
 				shove(e, c, 0.9, 0.5);
+				RAMMED.computeIfAbsent(p.getUUID(), x -> new HashMap<>()).put(e.getId(), now); // no ram on top of the slam
 			}
 			QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(radius + 1f).thickness(0.8f).life(14).ground().spawn();
 			dust(l, c, (int) (radius * 8));
@@ -1672,7 +1701,7 @@ public final class CannonboltKit extends AlienKit {
 		if (source.is(DamageTypeTags.BYPASSES_ARMOR)) {
 			return amount;
 		}
-		if (flag(p, F_UNSTOPPABLE)) {
+		if (flag(p, F_SPIKES)) {
 			return amount * 0.2f;
 		}
 		if (flag(p, F_ROUND)) {
@@ -1697,7 +1726,7 @@ public final class CannonboltKit extends AlienKit {
 
 	/** Gametests: whether a dash / ricochet / airborne move is running for {@code p}. */
 	public static boolean moving(ServerPlayer p) {
-		return DASHES.containsKey(p.getUUID()) || RUSHES.containsKey(p.getUUID()) || REBOUNDS.containsKey(p.getUUID()) || AIRS.containsKey(p.getUUID());
+		return SMASHES.containsKey(p.getUUID()) || DASHES.containsKey(p.getUUID()) || RUSHES.containsKey(p.getUUID()) || REBOUNDS.containsKey(p.getUUID()) || AIRS.containsKey(p.getUUID());
 	}
 
 	/** Gametests: Momentum as the server reads it, 0..1. */

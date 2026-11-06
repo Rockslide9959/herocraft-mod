@@ -153,13 +153,19 @@ public class AlienXCouncilScreen extends Screen {
 		for (int i = 0; i < a.length; i++) {
 			a[i] = text(args.getString(i));
 		}
-		MutableComponent body = Component.translatable(P + l.getString("key"), a);
+		// v0.17.2 (user: "make them stop saying bens name, make them say the players name"): {player} in the lines is whoever is here
+		String me = net.minecraft.client.Minecraft.getInstance().getUser().getName();
+		if (net.minecraft.client.Minecraft.getInstance().player != null) {
+			me = net.minecraft.client.Minecraft.getInstance().player.getName().getString();
+		}
+		String you = me;
+		MutableComponent body = Component.literal(Component.translatable(P + l.getString("key"), a).getString().replace("{player}", you));
 		if (who == AlienXCouncil.WHO_COUNCIL) {
 			return body.withStyle(s -> s.withColor(COUNCIL & 0xFFFFFF).withItalic(true));
 		}
 		int col = who == AlienXCouncil.WHO_BEN ? BEN : who == AlienXCouncil.WHO_SERENA ? SERENA : BELLICUS;
 		String name = who == AlienXCouncil.WHO_BEN ? "ben" : who == AlienXCouncil.WHO_SERENA ? "serena" : "bellicus";
-		return Component.empty().append(Component.translatable(P + "voice." + name).withStyle(s -> s.withColor(col & 0xFFFFFF).withBold(true)))
+		return Component.empty().append((who == AlienXCouncil.WHO_BEN ? Component.literal(you) : Component.translatable(P + "voice." + name)).withStyle(s -> s.withColor(col & 0xFFFFFF).withBold(true)))
 				.append(Component.literal(": ").withStyle(s -> s.withColor(col & 0xFFFFFF))).append(body.withStyle(ChatFormatting.WHITE));
 	}
 

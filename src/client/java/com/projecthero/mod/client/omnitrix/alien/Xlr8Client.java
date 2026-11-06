@@ -34,7 +34,7 @@ import net.minecraft.world.phys.Vec3;
  * ({@code xlr8.png}, the visor up, his teal face and green eyes) and the closed-mask copy ({@code xlr8_mask.png}, the blue-black
  * visor slid down over the face) -- the mask is drawn whenever {@link Xlr8Kit#visorDown} (Speed Mode, a dash, the tornado, the
  * skate, any speed move just now) and the face at rest. The green eyes glow (an emissive pass of the skin's own eye pixels,
- * through the visor too). His tail is {@link Xlr8Tail}. A pose (third and first person) for every move.
+ * through the visor too). His tail is {@link TubeTail}. A pose (third and first person) for every move.
  *
  * <p>v0.17.2 revamp (user: "add xlr8s speed trail to his speed mode please, the blue and black lines"): his streak lines
  * ({@link Xlr8StreakTrail}) beside the plain Speedster's after-images ({@link #trails}), the particle spam gone; the tail swings
@@ -43,6 +43,8 @@ import net.minecraft.world.phys.Vec3;
  * Kinetic Charge, whose bar sits over his keys; on ice, slime and honey his own client lets him skid.
  */
 public final class Xlr8Client implements AlienClientKit {
+	private static final TubeTail TAIL = new TubeTail("xlr8_tail", 10, 0.17, 2.2f, 0.3f, 10.5f, 1.6f);
+
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/xlr8.png");
 	private static final ResourceLocation MASK = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_mask.png");
 	private static final ResourceLocation EYES = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_eyes.png");
@@ -226,8 +228,8 @@ public final class Xlr8Client implements AlienClientKit {
 		// v0.17.1 (user: "remove whatever extra is there and just leave the alien skin itself"): no crest or ear fins (the helmet is
 		// the skin's now)
 		// v0.17.2 (user: "give xlr8 his tail back ... i just wanted you to edit his skin to remove the tail"): the 3D tail is back,
-		// the painted one stays out of the skin; Xlr8Tail moves it with him
-		Xlr8Tail.render(pose, buffers, light, p, model, partial);
+		// the painted one stays out of the skin; TAIL moves it with him
+		TAIL.render(pose, buffers, light, p, model, partial);
 		// (no ball-foot discs: the user removed his ball feet in v0.17.1)
 		float vis = visor(p, partial);
 		if (vis > 0.001f && vis < 1f) {
@@ -378,7 +380,7 @@ public final class Xlr8Client implements AlienClientKit {
 		// v0.17.2: the tail's chain (Xlr8Tail); flat out for Tail Spin, the kick finisher and the skate
 		float spin = animTicks(p, Xlr8Kit.ANIM_TAIL_SPIN, 0f), whip = animTicks(p, Xlr8Kit.ANIM_TAIL_WHIP, 0f);
 		boolean flat = spin >= 0f && spin < 13f || whip >= 0f && whip < 8f || (flags & Xlr8Kit.F_SKATE) != 0;
-		Xlr8Tail.tick(p, flat ? 1f : 0f, s[1]);
+		TAIL.tick(p, flat ? 1f : 0f, s[1]);
 		// v0.17.2 revamp: no more cloud puffs and static -- the blue-and-black streak lines (Xlr8StreakTrail) replace them; only
 		// the splash of running on water stays
 		if (mode && !p.isInWater() && p.level().getFluidState(p.blockPosition().below()).isSource() && sp > 0.1f && p.getRandom().nextInt(2) == 0) {

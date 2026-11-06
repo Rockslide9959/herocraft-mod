@@ -909,7 +909,7 @@ public final class GreyMatterKit extends AlienKit {
 		GreyMatterSentryEntity s = GreyMatterSentryEntity.TYPE.create(l);
 		s.moveTo(at.x, at.y, at.z, p.getYRot(), 0f);
 		s.setYBodyRot(p.getYRot());
-		s.bind(p.getUUID(), l.getBlockState(hit.getBlockPos()), now + SENTRY_TICKS);
+		s.bind(p.getUUID(), l.getBlockState(hit.getBlockPos()), now + GreyMatterSentryEntity.DEPLOY_TICKS + SENTRY_TICKS);
 		l.addFreshEntity(s);
 		SENTRIES.put(p.getUUID(), s);
 		QuirkFx.ribbon(l, p.position().add(0, p.getBbHeight() * 0.6, 0), at.add(0, 0.2, 0)).colours(0xFFFFFF, 0x8A9AA8).size(0.04f).life(6).spawn();
@@ -935,6 +935,13 @@ public final class GreyMatterKit extends AlienKit {
 			return;
 		}
 		if (s.tickCount < GreyMatterSentryEntity.DEPLOY_TICKS) {
+			// he builds it: a welding arc from his hands to the part going on, a shower of sparks and the clack of it
+			if (s.tickCount % 7 == 0) {
+				Vec3 joint = s.position().add(0, 0.2 + 0.6 * s.tickCount / GreyMatterSentryEntity.DEPLOY_TICKS, 0);
+				QuirkFx.ribbon(l, p.position().add(0, p.getBbHeight() * 0.6, 0), joint).colours(0xFFFFFF, 0x8A9AA8).size(0.03f).life(5).spawn();
+				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, joint.x, joint.y, joint.z, 10, 0.12, 0.12, 0.12, 0.25);
+				OmnitrixSounds.play(l, joint, GADGET, 0.6f, 1.0f + s.tickCount / 60f);
+			}
 			return;
 		}
 		Vec3 head = s.headPos();

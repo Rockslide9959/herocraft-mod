@@ -149,13 +149,13 @@ What you absorb in the last 15 s is also banked for Redirect.
 | Key | Move | What it does | Cooldown |
 |---|---|---|---|
 | R | **Feedback Blast** | a fingertip bolt at the crosshair (28): 14 for 10 Charge, knocked back; with less, a Static Spark (6) | 0.6 s |
-| Shift+R | **Rapid Fire** | five bolts from alternating hands over a second (25 Charge): 6 each | 7 s |
-| G | **Power Feed** | 25 Charge into 6 health; clears slowness and weakness | 5 s |
-| Shift+G | **Overclock** | 30 Charge: 10 s of Speed II, Jump Boost II and shocks x1.25 | 20 s |
+| Shift+R | **Feedback Beam** | hold: a beam from his hand for as long as the keys are down (24 blocks): 6 every 5 ticks, no Charge | 6 s from release |
+| G | **Storm Burst** | 25 Charge: electricity in a 20-block, 70-degree cone: 20 to everything in it, knocked back | 5 s |
+| Shift+G | **Chain Surge** | 30 Charge: a bolt at the crosshair (28) that jumps to the nearest creature within 10, six in all: 16 each, stunned 0.5 s | 8 s |
 | X | **Conductoid Leap** | a long springy leap where you look; no fall damage for 2 s | 2 s |
 | Shift+X (hold) | **Surge Flight** | energy shot out behind you drives you where you aim: 22 blocks a second, 36 sprinting, 5 Charge a second (5 to lift off); stops when you let go or run out; no fall damage until you land | 1 s, from letting go |
-| Z | **Full Discharge** (ultimate) | 40+ Charge, spends all of it: 14-30 to everything within 3-8 blocks (by Charge), knocked back, stunned 1 s (machines 3 s) | 45 s |
-| Shift+Z | **Feedback Cannon** | 50 Charge: a piercing beam (32): 24 to everything on it, knocked back, stunned 0.5 s | 15 s |
+| Z | **Full Discharge** (ultimate) | 40+ Charge, spends all of it: 35 to everything within 3-8 blocks (reach by Charge), knocked back, stunned 1 s (machines 3 s) | 45 s |
+| Shift+Z | **Feedback Cannon** | 50 Charge: 1.5 s charging, slowed, then a piercing beam (32): 100 to everything on it, knocked back, stunned 0.5 s | 15 s |
 | V | **Quick Absorb** | a tap: the Absorb brace for 1 s | 4 s, shared |
 | Hold V | **Absorb** | braced for as long as V is held, arms and plugs out: shots, energy, fire and blasts become Charge instead of damage | 4 s, from letting go |
 | Shift+V | **Redirect** | sends back what you absorbed in the last 15 s (15 Charge): 12 + 1.5x it, 30 at most, at the crosshair or back at whoever sent it | 5 s |
@@ -180,7 +180,7 @@ Damage follows the prototype's scale: quick moves about 6-14, normal 12-24, the 
 
 - **Overcharge:** absorbing when his Charge is full overloads him: 2 damage and slowed for 2 s (once a second).
 - **Grounded:** in water his Charge leaks away, 2 a second.
-- **Needs energy:** without Charge his blast is a weak spark, and Rapid Fire, Redirect, Feed, Overclock, Surge Flight, Discharge and the Cannon are locked.
+- **Needs energy:** without Charge his blast is a weak spark, and Storm Burst, Chain Surge, Redirect, Surge Flight, Discharge and the Cannon are locked.
 - Not on the dial until a mistransform finds him.
 
 ## Build notes

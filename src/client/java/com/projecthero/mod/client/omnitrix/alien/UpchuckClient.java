@@ -49,6 +49,14 @@ import net.minecraft.world.phys.Vec3;
  * than a box; his spit, its explosions and splats are {@link com.projecthero.mod.client.omnitrix.alien.upchuck.UpchuckFx}.
  */
 public final class UpchuckClient implements AlienClientKit {
+	/** v0.17.2 (user: "give uphuck a short little tail, make it the updated tail please"): short, green, and on XLR8's chain. */
+	private static final TubeTail TAIL = new TubeTail("upchuck_tail", 5, 0.12, 1.9f, 0.7f, 10.5f, 1.6f);
+
+	@Override
+	public void tick(AbstractClientPlayer p) {
+		TAIL.tick(p, 0f, 0f);
+	}
+
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/upchuck.png");
 	/** The wrist badge: the left arm's outer side (+x), at the skin's painted symbol (rows 60..61 = arm y 6..8). */
 	public static final float[] BADGE = { 3.3f, 7.0f, 0f, 3.0f, 1f };
@@ -297,6 +305,7 @@ public final class UpchuckClient implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
 			float partial, float age) {
+		TAIL.render(pose, buffers, light, p, model, partial);
 		var s = Omnitrix.state(p);
 		float t = p.level().getGameTime() + partial - s.animStart;
 		float open = mouthOpen(s.kitFlags, s.animId, t, age);

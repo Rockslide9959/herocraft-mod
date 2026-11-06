@@ -192,12 +192,12 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		mob(helper, EntityType.ZOMBIE, 3.5, 2, 4.5);
 		helper.runAfterDelay(2, () -> {
 			kit().fill(p, 20);
-			tap(p, AbilitySlot.SLOT_1, true);
+			tap(p, AbilitySlot.SLOT_2, false);
 			tap(p, AbilitySlot.SLOT_4, false);
 			tap(p, AbilitySlot.SLOT_4, true);
 			tap(p, AbilitySlot.SLOT_2, true);
-			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.RAPID) == 0 && kit().cooldownLeft(p, FeedbackKit.DISCHARGE) == 0
-					&& kit().cooldownLeft(p, FeedbackKit.CANNON) == 0 && kit().cooldownLeft(p, FeedbackKit.OVERCLOCK) == 0, "no cooldown spent");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.CONE) == 0 && kit().cooldownLeft(p, FeedbackKit.DISCHARGE) == 0
+					&& kit().cooldownLeft(p, FeedbackKit.CANNON) == 0 && kit().cooldownLeft(p, FeedbackKit.CHAIN) == 0, "no cooldown spent");
 			helper.assertTrue(FeedbackKit.charge(p) == 20, "and no Charge");
 			helper.succeed();
 		});
@@ -383,76 +383,102 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Shift+R: five bolts over a second, 6 each. */
+	/** Shift+R: a beam for as long as the keys are held, 6 a damage tick (9 on a machine), no Charge; the cooldown starts on release. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void rapidFireShootsFive(GameTestHelper helper) {
+	public void beamLastsAsLongAsTheKeys(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
 		IronGolem g = mob(helper, EntityType.IRON_GOLEM, 3.5, 2, 6.5);
 		float[] start = new float[1];
 		helper.runAfterDelay(2, () -> {
 			lookAt(p, g);
-			kit().fill(p, 30);
 			start[0] = g.getHealth();
-			tap(p, AbilitySlot.SLOT_1, true);
-			helper.assertTrue(FeedbackKit.charge(p) == 5 && FeedbackKit.rapidLeft(p) == 4, "25 Charge, four shots to come");
+			p.setShiftKeyDown(true);
+			kit().press(p, AbilitySlot.SLOT_1, true);
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "firing with no Charge at all");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.BEAM) == 0, "no cooldown while firing");
 		});
-		helper.runAfterDelay(25, () -> {
+		helper.runAfterDelay(34, () -> {
 			float d = start[0] - g.getHealth();
-			helper.assertTrue(d > 44f && d <= 45.01f, "five bolts of 9 (6 x1.5 on a machine): " + d);
-			helper.assertTrue(FeedbackKit.rapidLeft(p) == 0, "all fired");
+			helper.assertTrue(d >= 45f && d <= 63.01f, "about six ticks of 9: " + d);
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_BEAM), "still firing");
+			kit().release(p, AbilitySlot.SLOT_1, true, 32);
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_BEAM), "stopped");
+			helper.assertTrue(kit().cooldownLeft(p, FeedbackKit.BEAM) > 100, "6 s cooldown from release");
+			p.setShiftKeyDown(false);
 			helper.succeed();
 		});
 	}
 
-	/** Z spends all his Charge on a burst round him (30 at full); Shift+Z a beam through everything in line (24). */
+	/** Z spends all his Charge on a burst round him (35); Shift+Z charges 1.5 s, then a beam through everything in line (100). */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void dischargeAndCannon(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
 		IronGolem a = mob(helper, EntityType.IRON_GOLEM, 3.5, 2, 4.0);
 		IronGolem b = mob(helper, EntityType.IRON_GOLEM, 3.5, 2, 7.0);
+		float[] h = new float[2];
 		helper.runAfterDelay(2, () -> {
-			kit().fill(p, FeedbackKit.MAX_CHARGE);
-			float h = a.getHealth();
+			kit().fill(p, 40);
+			float before = a.getHealth();
 			tap(p, AbilitySlot.SLOT_4, false);
-			float d = h - a.getHealth();
-			helper.assertTrue(d > 44f && d <= 45.01f, "Full Discharge at 100: 30 (x1.5 a machine), got " + d);
+			float d = before - a.getHealth();
+			helper.assertTrue(d > 52f && d <= 52.51f, "Full Discharge: 35 at any Charge (x1.5 a machine), got " + d);
 			helper.assertTrue(FeedbackKit.charge(p) == 0, "all of it spent");
 			kit().fill(p, 60);
 			a.invulnerableTime = 0;
 			b.invulnerableTime = 0;
 			a.removeAllEffects();
 			b.removeAllEffects();
+			a.setHealth(a.getMaxHealth());
+			b.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(400.0);
+			b.setHealth(400f);
+			a.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(400.0);
+			a.setHealth(400f);
 			lookAt(p, a);
-			float ha = a.getHealth(), hb = b.getHealth();
+			h[0] = a.getHealth();
+			h[1] = b.getHealth();
 			tap(p, AbilitySlot.SLOT_4, true);
-			float da = ha - a.getHealth(), db = hb - b.getHealth();
-			helper.assertTrue(da > 35f && db > 35f, "the beam pierces both: 36 each, got " + da + " / " + db);
-			helper.assertTrue(FeedbackKit.charge(p) == 10, "50 Charge spent: " + FeedbackKit.charge(p));
+			helper.assertTrue(kit().flag(p, FeedbackKit.F_CANNON) && FeedbackKit.charge(p) == 10, "charging, 50 Charge spent");
+			helper.assertTrue(a.getHealth() == h[0], "nothing fired yet");
+		});
+		helper.runAfterDelay(2 + FeedbackKit.CANNON_CHARGE_TICKS + 3, () -> {
+			float da = h[0] - a.getHealth(), db = h[1] - b.getHealth();
+			helper.assertFalse(kit().flag(p, FeedbackKit.F_CANNON), "charge over");
+			helper.assertTrue(da > 149f && db > 149f, "the beam pierces both: 150 on a machine, got " + da + " / " + db);
 			helper.succeed();
 		});
 	}
 
-	/** G turns 25 Charge into 6 health; Shift+G Overclocks (30 Charge): faster, and blasts a quarter harder. */
+	/** G: 25 Charge, 20 to everything in a 20-block cone, nothing behind him. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void powerFeedAndOverclock(GameTestHelper helper) {
+	public void stormBurstHitsTheCone(GameTestHelper helper) {
 		ServerPlayer p = feedback(helper);
-		IronGolem g = mob(helper, EntityType.IRON_GOLEM, 3.5, 2, 6.5);
+		Zombie front = mob(helper, EntityType.ZOMBIE, 3.5, 2, 7.0);
 		helper.runAfterDelay(2, () -> {
-			p.setHealth(10f);
-			kit().fill(p, 80);
+			lookAt(p, front);
+			kit().fill(p, 40);
+			float h = front.getHealth();
 			tap(p, AbilitySlot.SLOT_2, false);
-			helper.assertTrue(Math.abs(p.getHealth() - 16f) < 0.01f, "+6 health: " + p.getHealth());
-			helper.assertTrue(FeedbackKit.charge(p) == 55, "25 Charge spent");
-			tap(p, AbilitySlot.SLOT_2, true);
-			helper.assertTrue(kit().flag(p, FeedbackKit.F_OVERCLOCK) && FeedbackKit.charge(p) == 25, "Overclocked for 30 Charge");
-			lookAt(p, g);
-			float h = g.getHealth();
-			tap(p, AbilitySlot.SLOT_1, false);
-			float d = h - g.getHealth();
-			helper.assertTrue(d > 26f && d <= 26.26f, "Overclocked blast on a machine: 14 x1.5 x1.25 = 26.25, got " + d);
+			helper.assertTrue(FeedbackKit.charge(p) == 15, "25 Charge spent");
+			float took = h - front.getHealth();
+			helper.assertTrue(took > 19f && took <= 20.01f, "20 in the cone (a zombie's armour takes a little off), took " + took);
+			helper.assertTrue(FeedbackKit.CONE_RANGE == 20, "20 blocks");
+			helper.succeed();
 		});
-		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SPEED), "faster while Overclocked");
+	}
+
+	/** Shift+G: 30 Charge; the bolt jumps from the target to the next creature. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void chainSurgeJumps(GameTestHelper helper) {
+		ServerPlayer p = feedback(helper);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 3.5, 2, 6.5);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 5.5, 2, 7.5);
+		helper.runAfterDelay(2, () -> {
+			lookAt(p, a);
+			kit().fill(p, 40);
+			float ha = a.getHealth(), hb = b.getHealth();
+			tap(p, AbilitySlot.SLOT_2, true);
+			helper.assertTrue(FeedbackKit.charge(p) == 10, "30 Charge spent");
+			helper.assertTrue(a.getHealth() < ha && b.getHealth() < hb, "both hit: " + a.getHealth() + " / " + b.getHealth());
 			helper.succeed();
 		});
 	}
@@ -476,8 +502,8 @@ public class OmnitrixFeedbackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void round3KeySwaps(GameTestHelper helper) {
 		AlienKit k = kit();
-		helper.assertTrue(FeedbackKit.FEED.equals(k.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is Power Feed");
-		helper.assertTrue(FeedbackKit.OVERCLOCK.equals(k.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G is Overclock");
+		helper.assertTrue(FeedbackKit.CONE.equals(k.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G is Storm Burst");
+		helper.assertTrue(FeedbackKit.CHAIN.equals(k.moveOn(AbilitySlot.SLOT_2, true, false).id()), "Shift+G is Chain Surge");
 		helper.assertTrue(FeedbackKit.ABSORB.equals(k.moveOn(AbilitySlot.SLOT_5, false, true).id()), "hold V is Absorb");
 		helper.assertTrue(FeedbackKit.QUICK_ABSORB.equals(k.moveOn(AbilitySlot.SLOT_5, false, false).id()), "a tap of V is Quick Absorb");
 		helper.assertTrue(FeedbackKit.REDIRECT.equals(k.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V is Redirect");

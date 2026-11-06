@@ -53,6 +53,27 @@ public final class GreyMatterClient implements AlienClientKit {
 
 	// rArm xyz, lArm xyz, bodyX, bodyY, rLeg xyz, lLeg xyz, headX
 	/** Nerve Pinch: up on his toes, the arm cocked back, two fingers driven in, a squeeze and a twist, and let go. */
+	/**
+	 * v0.17.2 (user: "add animations for grey matter building his mechs and sentrys and stuff please, they should take a few seconds"):
+	 * clip {@code c} with frames {@code from..to-1} worked through {@code repeats} more times, {@code period} ticks a round.
+	 */
+	private static float[][] stretch(float[][] c, int from, int to, int period, int repeats) {
+		java.util.List<float[]> out = new java.util.ArrayList<>(java.util.Arrays.asList(c).subList(0, to));
+		for (int r = 1; r <= repeats; r++) {
+			for (int i = from; i < to; i++) {
+				float[] f = c[i].clone();
+				f[0] += r * period;
+				out.add(f);
+			}
+		}
+		for (int i = to; i < c.length; i++) {
+			float[] f = c[i].clone();
+			f[0] += repeats * period;
+			out.add(f);
+		}
+		return out.toArray(new float[0][]);
+	}
+
 	private static final float[][] PINCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.5f, 0.5f, 0.3f, 0.3f, 0, -0.15f, -0.12f, 0.4f, 0, 0, 0, 0, 0, 0, -0.2f),
 			QuirkKeyframes.f(4, -2.15f, -0.2f, 0, 0.4f, 0, -0.2f, 0.25f, -0.35f, -0.25f, 0, 0.1f, 0.25f, 0, -0.1f, -0.3f),
 			QuirkKeyframes.f(7, -2.05f, 0.1f, 0.15f, 0.35f, 0, -0.2f, 0.2f, -0.3f, -0.2f, 0, 0.1f, 0.2f, 0, -0.1f, -0.25f),
@@ -68,12 +89,12 @@ public final class GreyMatterClient implements AlienClientKit {
 			QuirkKeyframes.f(15, -2.4f, -0.85f, 0, -1.1f, 0.3f, -0.1f, 0, -0.12f, 0, 0, 0, 0, 0, 0, 0.1f),
 			QuirkKeyframes.f(21, -2.35f, -0.8f, 0, -1.4f, 0.05f, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0, -0.08f), QuirkKeyframes.rest(27) };
 	/** Galvan Sentry: squats down, hands flying over the parts in turn, tightens the last bolt with a twist, one arm flung up: done. */
-	private static final float[][] TURRET = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, -0.3f, 0, -1.2f, 0.3f, 0, 0.55f, 0, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
+	private static final float[][] TURRET = stretch(new float[][] { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.0f, -0.3f, 0, -1.2f, 0.3f, 0, 0.55f, 0, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
 			QuirkKeyframes.f(6, -0.65f, -0.5f, 0, -1.45f, 0.25f, 0, 0.55f, 0.2f, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
 			QuirkKeyframes.f(9, -1.45f, -0.2f, 0, -0.7f, 0.5f, 0, 0.55f, -0.2f, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.45f),
 			QuirkKeyframes.f(12, -1.2f, -0.6f, 0.3f, -1.2f, 0.6f, -0.3f, 0.55f, 0, -0.55f, 0, 0.18f, -0.55f, 0, -0.18f, 0.5f),
 			QuirkKeyframes.f(15, -2.95f, 0, 0.35f, 0.25f, 0, -0.1f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.f(19, -2.8f, 0, 0.3f, 0.2f, 0, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0, -0.15f),
-			QuirkKeyframes.rest(24) };
+			QuirkKeyframes.rest(24) }, 1, 4, 9, 3);
 	/** Big Leap: squash, burst off both feet with the arms thrown back, tuck like a frog in the air, reach for the landing. */
 	private static final float[][] LEAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1, 0.5f, 0, 0.4f, 0.5f, 0, -0.4f, 0.6f, 0, -0.8f, 0, 0.3f, -0.8f, 0, -0.3f, -0.2f),
 			QuirkKeyframes.f(3, 1.1f, 0, 0.35f, 1.1f, 0, -0.35f, -0.25f, 0, 0.45f, 0, 0.12f, 0.45f, 0, -0.12f, -0.3f),
@@ -123,10 +144,10 @@ public final class GreyMatterClient implements AlienClientKit {
 			QuirkKeyframes.f(8, -1.3f, 0.45f, 0f, -0.8f, -0.2f, 0f, 0.25f, -0.12f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f), QuirkKeyframes.f(11, -1.2f, -0.3f, 0.3f, -1.2f, 0.3f, -0.3f, 0.2f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.35f),
 			QuirkKeyframes.rest(15) };
 	/** The Block Mech goes up round him: head down over the console, hands racing between the panels, then both grab the levers. */
-	private static final float[][] MECH_BUILD = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.5f, 0, -0.8f, 0.5f, 0, 0.3f, 0.3f, 0, 0, 0, 0, 0, 0, 0.3f),
+	private static final float[][] MECH_BUILD = stretch(new float[][] { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, -0.5f, 0, -0.8f, 0.5f, 0, 0.3f, 0.3f, 0, 0, 0, 0, 0, 0, 0.3f),
 			QuirkKeyframes.f(6, -0.8f, -0.5f, 0, -1.6f, 0.5f, 0, 0.3f, -0.3f, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.f(9, -2.3f, -0.4f, 0.3f, -0.8f, 0.3f, 0, 0.1f, 0.2f, 0, 0, 0, 0, 0, 0, -0.2f),
 			QuirkKeyframes.f(12, -0.8f, -0.3f, 0, -2.3f, 0.4f, -0.3f, 0.1f, -0.2f, 0, 0, 0, 0, 0, 0, -0.2f), QuirkKeyframes.f(15, -1.5f, -0.5f, 0, -1.5f, 0.5f, 0, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.25f),
-			QuirkKeyframes.f(19, -1.15f, -0.25f, 0.1f, -1.15f, 0.25f, -0.1f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(23) };
+			QuirkKeyframes.f(19, -1.15f, -0.25f, 0.1f, -1.15f, 0.25f, -0.1f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(23) }, 1, 5, 12, 3);
 	// the levers: a punch throws one forward and hauls the other back, the slam hauls both back then rams them home, the jets pull both up
 	private static final float[][] LEVER_PUNCH_R = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.65f, -0.25f, 0.1f, -1.5f, 0.25f, -0.1f, -0.1f, 0.3f, 0, 0, 0, 0, 0, 0, -0.1f),
 			QuirkKeyframes.f(5, -1.75f, -0.25f, 0.1f, -0.75f, 0.25f, -0.1f, 0.25f, -0.35f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(13) };

@@ -96,7 +96,7 @@ import net.minecraft.world.phys.Vec3;
  *                                                                                                       burst r 10 (10, flee 4 s); 20 s of
  *                                                                                                       lashing tentacles (4/s x3), claws +30%,
  *                                                                                                       a stare that scares; no physical
- *                                                                                                       resistance, sun burns 3/s
+ *                                                                                                       resistance, sun burns 5/s
  *   V        Spirit Sight     toggle: night vision, the living outlined        Shift+V  Lights Out      darkness within 12 for 8 s: Darkness,
  *                                                                                                       no outlines / name tags
  *   C        Invisibility     (Fade) TOGGLE, truly unseen: no armour, items,   Shift+C  Fright Aura     10 s: everything near panics, 2/s
@@ -104,7 +104,7 @@ import net.minecraft.world.phys.Vec3;
  *                             the first blow out of it is an Ambush (+10, blinds)
  *   Attack   Chilling Touch (+2, slows)   Use (empty hand)  Spectral Bolt (5)   Shift+Use (empty hand)  Tendril Snatch (16 blocks: 6, yanked in)
  *   Passives Ghost Flight (double-tap jump, no key; directional, 15 b/s / 30 sprinting), Ectonurite Body, Protective Skin, Creature of the Dark (light 4 or less: +20%
- *            damage, cooldowns 25% faster); weakness: sunlight (1 / 2 s; True Form 3 / s), daylight slows cooldowns 15%
+ *            damage, cooldowns 25% faster); weakness: sunlight (5 / s, True Form too), daylight slows cooldowns 15%
  * </pre>
  */
 public final class GhostfreakKit extends AlienKit {
@@ -241,7 +241,7 @@ public final class GhostfreakKit extends AlienKit {
 	/** His stare in True Form: a mob held in it for {@link #STARE_TICKS} flees for {@link #STARE_FEAR}. */
 	public static final int STARE_TICKS = 20;
 	public static final int STARE_FEAR = 60;
-	public static final float TRUE_SUN_DAMAGE = 3f;
+	public static final float TRUE_SUN_DAMAGE = 5f;
 	/** True Form's skin wraps back on its own in sunlight at this health or below (proposal G4). */
 	public static final float TRUE_SUN_FLOOR = 6f;
 	/** Lights Out: {@link #DARK_RADIUS} blocks for {@link #DARK_TICKS}. */
@@ -256,7 +256,7 @@ public final class GhostfreakKit extends AlienKit {
 	public static final float TOUCH_DAMAGE = 2f;
 	public static final float BOLT_DAMAGE = 8f;
 	public static final float PHYSICAL_FACTOR = 0.5f;
-	public static final float SUN_DAMAGE = 1f;
+	public static final float SUN_DAMAGE = 5f; // v0.17.2 (user): 5 a second, was 1 every 2 s
 	public static final float FLY_SPEED = 0.035f;
 
 	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
@@ -483,8 +483,8 @@ public final class GhostfreakKit extends AlienKit {
 		if (now % 4 == 0 && !hidden(p)) {
 			l.sendParticles(WISP, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.15, 0.1, 0.15, 0.0);
 		}
-		// the sun burns an Ectonurite a little -- his skin takes most of it (not while he hides inside a host)
-		if (now % 40 == 0 && !flag(p, F_POSSESS) && !flag(p, F_TRUE) && inSunlight(p)) {
+		// the sun burns an Ectonurite (not while he hides inside a host)
+		if (now % 20 == 0 && !flag(p, F_POSSESS) && !flag(p, F_TRUE) && inSunlight(p)) {
 			p.hurt(p.damageSources().inFire(), SUN_DAMAGE);
 			l.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.2, p.getZ(), 8, 0.3, 0.5, 0.3, 0.01);
 			if (now % 200 == 0) {
