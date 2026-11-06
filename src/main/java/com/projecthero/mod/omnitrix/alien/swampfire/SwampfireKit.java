@@ -68,9 +68,10 @@ import net.minecraft.world.phys.Vec3;
  * damage numbers in the table below are the pre-pass ones (~x1.6 now) -- the constants are the source of truth.
  *
  * <pre>
- *   R          Fire Blast       a methane fireball (7, alight 4 s, 0.75 s); flying through his gas cloud sets the cloud off
- *   Shift+R    Methane Torch    HOLD up to 2 s: a cone of burning gas that grows while held (3.5 every 0.5 s, up to 14, alight 5 s),
- *                               real fire where it plays on the ground; 6 s cooldown from the release
+ *   R          Fire Blast       round 4: fire gathers in both hands (0.5 s), then two fireballs, one from each hand (11 each, alight 4 s, 2 s);
+ *                               flying through his gas cloud sets the cloud off
+ *   Shift+R    Fire Punch       round 4, replaces the Methane Torch: his right hand catches fire (0.4 s) and he punches (19, +4 on a burning
+ *                               creature, alight 6 s, 4.5 blocks, real fire where it lands); the punch sets his cloud off; 6 s
  *   G          Seed Bomb        a lobbed seed pod (15 in 3.5, roots 2 s / bosses 0.5 s) that leaves a 2 s vine tangle
  *   Shift+G    Vine Snare       vines round the creature you look at (6, rooted 3 s, 20 blocks); Shift+G again while it holds = yank it
  *                               4 blocks toward you
@@ -96,7 +97,8 @@ public final class SwampfireKit extends AlienKit {
 	public static final String ID = Aliens.SWAMPFIRE.id();
 
 	public static final int ANIM_BLAST = 1;
-	public static final int ANIM_TORCH = 2;
+	/** Round 4: Shift+R's right hand catching fire. */
+	public static final int ANIM_FIST_LIGHT = 2;
 	public static final int ANIM_SEED = 3;
 	public static final int ANIM_SNARE = 4;
 	public static final int ANIM_JET = 5;
@@ -113,20 +115,22 @@ public final class SwampfireKit extends AlienKit {
 	public static final int ANIM_SCATTER = 16;
 	public static final int ANIM_YANK = 17;
 	public static final int ANIM_REFORM = 18;
+	/** Round 4: R's fire gathering in both hands, the second fireball (the left hand), Shift+R's punch. */
+	public static final int ANIM_BLAST_GATHER = 19, ANIM_BLAST_L = 20, ANIM_FIRE_PUNCH = 21;
 
 	public static final int F_REGROW = 1;
 	public static final int F_CLOUD = 2;
 	public static final int F_SNARE = 4;
 	public static final int F_CHARGE = 8;
 	public static final int F_JET = 16;
-	public static final int F_TORCH = 32;
+	public static final int F_FIST = 32;
 	public static final int F_SWING = 64;
 	public static final int F_SURGE = 128;
 	public static final int F_MULCH = 256;
 	public static final int F_TANGLE = 512;
 
 	public static final String FIRE_BLAST = "fire_blast";
-	public static final String TORCH = "methane_torch";
+	public static final String FIRE_PUNCH = "fire_punch";
 	public static final String SEED = "seed_bomb";
 	public static final String SNARE = "vine_snare";
 	public static final String JET = "methane_jet";
@@ -143,16 +147,26 @@ public final class SwampfireKit extends AlienKit {
 
 	/** Synced kit timers (the client draws from them). */
 	public static final String SNARE_TARGET = "snare_target", SNARE_UNTIL = "snare_until", CLOUD_UNTIL = "cloud_until", REGROW_UNTIL = "regrow_until",
-			JET_UNTIL = "jet_until", CHARGE_AT = "charge_at", TORCH_START = "torch_start", SWING_START = "swing_start", SWING_LEN = "swing_len",
+			JET_UNTIL = "jet_until", CHARGE_AT = "charge_at", BLAST_AT = "blast_at", FIST_AT = "fist_at", SWING_START = "swing_start", SWING_LEN = "swing_len",
 			SURGE_UNTIL = "surge_until", MULCH_UNTIL = "mulch_until", TANGLE_UNTIL = "tangle_until", MINE_UNTIL = "mine_until_";
 	public static final String P_CLOUD = "cloud", P_BLAST = "blast", P_ROOTS = "roots", P_ANCHOR = "anchor", P_TANGLE = "tangle", P_LASH = "lash",
-			P_MINE = "mine", P_SNAP = "snap";
+			P_MINE = "mine", P_SNAP = "snap", P_PUNCH = "punch";
 
 // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger, i want each alien to feel like its own entire ability and i want them to be strong aswell"): ~x1.6 damage pass (docs/OMNITRIX_DAMAGE_PASS_ALIENFORCE.md)
 	public static final float BLAST_DAMAGE = 11f;
-	public static final float TORCH_PULSE_DAMAGE = 9f;
-	public static final int TORCH_MAX_TICKS = 40, TORCH_PULSE = 10, TORCH_COOLDOWN = 120;
-	public static final double TORCH_RANGE = 8.0, TORCH_DEG = 60.0;
+	/**
+	 * Round 4 (user: "For the fire blast ability make him gather fire in his hands and then launch 2 fireballs please, make them come from
+	 * his hands and not his face please"): {@link #BLAST_GATHER} ticks of gathering, the right hand's ball, {@link #BLAST_GAP} ticks, the
+	 * left's. The cooldown goes from 0.75 s to 2 s: there are two balls now, and the cooldown runs from the press.
+	 */
+	public static final int BLAST_GATHER = 10, BLAST_GAP = 4, BLAST_COOLDOWN = 40;
+	/**
+	 * Round 4 (user: "Change methane touch to a fire punch ability, player sets their hand on fire and punches"): there never was a
+	 * "Methane Touch"; this is the Methane Torch's key, Shift+R, and the punch keeps the torch's 6 s cooldown and its job of lighting the cloud.
+	 */
+	public static final float PUNCH_DAMAGE = 19f;
+	public static final int PUNCH_WINDUP = 8, PUNCH_COOLDOWN = 120, PUNCH_BURN_SECONDS = 6;
+	public static final double PUNCH_REACH = 4.5, PUNCH_DEG = 80.0;
 	public static final float SEED_DAMAGE = 25f, SEED_RADIUS = 3.5f, SEED_IMPACT = 8f;
 	public static final int SEED_ROOT = 40, TANGLE_TICKS = 40;
 	public static final double TANGLE_RADIUS = 2.5;
@@ -200,10 +214,17 @@ public final class SwampfireKit extends AlienKit {
 			.layer(SoundEvents.FIRECHARGE_USE, 0.35f, 1.2f)
 			.layer(SoundEvents.BLAZE_SHOOT, 0.2f, 1.4f)
 			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.25f, 0.8f);
-	public static final OmnitrixSfx.Cue SND_TORCH = OmnitrixSfx.cue("swampfire_torch")
-			.layer(SoundEvents.BLAZE_SHOOT, 0.4f, 0.7f)
-			.layer(SoundEvents.FIRE_AMBIENT, 0.5f, 0.8f, 2)
-			.layer(SoundEvents.BREEZE_WIND_CHARGE_BURST, 0.15f, 0.6f);
+	public static final OmnitrixSfx.Cue SND_GATHER = OmnitrixSfx.cue("swampfire_gather")
+			.layer(SoundEvents.FIRE_AMBIENT, 0.6f, 1.2f)
+			.layer(SoundEvents.FIRECHARGE_USE, 0.15f, 0.7f)
+			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.2f, 0.6f, 3);
+	public static final OmnitrixSfx.Cue SND_FIST = OmnitrixSfx.cue("swampfire_fist")
+			.layer(SoundEvents.FIRECHARGE_USE, 0.4f, 0.8f)
+			.layer(SoundEvents.FIRE_AMBIENT, 0.6f, 1.0f, 1);
+	public static final OmnitrixSfx.Cue SND_PUNCH = OmnitrixSfx.cue("swampfire_punch")
+			.layer(SoundEvents.PLAYER_ATTACK_STRONG, 0.6f, 0.8f)
+			.layer(SoundEvents.BLAZE_SHOOT, 0.3f, 0.9f)
+			.layer(SoundEvents.GENERIC_EXPLODE, 0.15f, 1.7f);
 	public static final OmnitrixSfx.Cue SND_SEED = OmnitrixSfx.cue("swampfire_seed")
 			.layer(SoundEvents.SLIME_SQUISH, 0.3f, 1.3f)
 			.layer(SoundEvents.AZALEA_LEAVES_BREAK, 0.4f, 0.9f);
@@ -282,7 +303,7 @@ public final class SwampfireKit extends AlienKit {
 	private static final Map<UUID, List<Mine>> MINES = new ConcurrentHashMap<>();
 	/** v0.17.2 revamp: player -> (creature id -> ticks it has stood in his stench). */
 	private static final Map<UUID, Map<Integer, Integer>> STENCH = new ConcurrentHashMap<>();
-	/** v0.17.2 revamp: once per game tick (the torch pulses, the mines, the stench count must not double up). */
+	/** v0.17.2 revamp: once per game tick (the mines, the stench count must not double up). */
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 
 	private static final ResourceLocation EARLY = ProjectHeroMod.id("swampfire_reassembly");
@@ -357,7 +378,7 @@ public final class SwampfireKit extends AlienKit {
 
 	@Override
 	protected List<AlienMove> declareMoves() {
-		return List.of(AlienMove.tap(FIRE_BLAST, AbilitySlot.SLOT_1, 15), AlienMove.shift(TORCH, AbilitySlot.SLOT_1, TORCH_COOLDOWN),
+		return List.of(AlienMove.tap(FIRE_BLAST, AbilitySlot.SLOT_1, BLAST_COOLDOWN), AlienMove.shift(FIRE_PUNCH, AbilitySlot.SLOT_1, PUNCH_COOLDOWN),
 				AlienMove.tap(SEED, AbilitySlot.SLOT_2, 100), AlienMove.shift(SNARE, AbilitySlot.SLOT_2, 160),
 				AlienMove.tap(JET, AbilitySlot.SLOT_3, 40), AlienMove.shift(SWING, AbilitySlot.SLOT_3, 80),
 				AlienMove.tap(CLOUD, AbilitySlot.SLOT_4, 200), AlienMove.shift(INFERNO, AbilitySlot.SLOT_4, 1200),
@@ -405,7 +426,7 @@ public final class SwampfireKit extends AlienKit {
 
 	// ---------------------------------------------------------------- lifecycle
 
-	private static final String[] STATE_TIMERS = { SNARE_TARGET, SNARE_UNTIL, CLOUD_UNTIL, REGROW_UNTIL, JET_UNTIL, CHARGE_AT, TORCH_START, SWING_START,
+	private static final String[] STATE_TIMERS = { SNARE_TARGET, SNARE_UNTIL, CLOUD_UNTIL, REGROW_UNTIL, JET_UNTIL, CHARGE_AT, BLAST_AT, FIST_AT, SWING_START,
 			SWING_LEN, SURGE_UNTIL, MULCH_UNTIL, TANGLE_UNTIL };
 
 	@Override
@@ -427,7 +448,7 @@ public final class SwampfireKit extends AlienKit {
 			n.timers.remove(key(MINE_UNTIL + i));
 			removePos(n, P_MINE + i);
 		}
-		for (String k : new String[] { P_CLOUD, P_BLAST, P_ROOTS, P_ROOTS + "_dir", P_ANCHOR, P_TANGLE, P_LASH, P_SNAP }) {
+		for (String k : new String[] { P_CLOUD, P_BLAST, P_ROOTS, P_ROOTS + "_dir", P_ANCHOR, P_TANGLE, P_LASH, P_SNAP, P_PUNCH }) {
 			removePos(n, k);
 		}
 		n.kitFlags = 0;
@@ -451,7 +472,7 @@ public final class SwampfireKit extends AlienKit {
 	@Override
 	public boolean keyActive(Player p, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> flag(p, F_TORCH);
+			case SLOT_1 -> gathering(p) || flag(p, F_FIST);
 			case SLOT_2 -> flag(p, F_SNARE);
 			case SLOT_3 -> flag(p, F_SWING);
 			case SLOT_4 -> flag(p, F_CLOUD) || flag(p, F_SURGE);
@@ -511,7 +532,8 @@ public final class SwampfireKit extends AlienKit {
 		if (flag(p, F_SNARE) && now >= timer(p, SNARE_UNTIL)) {
 			endSnare(p);
 		}
-		tickTorch(p, l, now);
+		tickBlast(p, l, now);
+		tickFist(p, l, now);
 		tickSwing(p, now);
 		tickCloud(p, l, now);
 		tickRoots(p, l, now);
@@ -564,13 +586,13 @@ public final class SwampfireKit extends AlienKit {
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
-		if (flag(p, F_CHARGE) || flag(p, F_MULCH)) {
+		if (flag(p, F_CHARGE) || flag(p, F_MULCH) || busy(p)) {
 			return;
 		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
-					torch(p);
+					firePunch(p);
 				} else {
 					fireBlast(p);
 				}
@@ -623,9 +645,6 @@ public final class SwampfireKit extends AlienKit {
 
 	@Override
 	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
-		if (slot == AbilitySlot.SLOT_1 && flag(p, F_TORCH)) {
-			stopTorch(p); // the Methane Torch runs while Shift+R is held
-		}
 		if (slot == AbilitySlot.SLOT_3 && shift && flag(p, F_SWING)) {
 			swingRelease(p, heldTicks);
 		}
@@ -648,14 +667,83 @@ public final class SwampfireKit extends AlienKit {
 
 	// ---------------------------------------------------------------- R / Shift+R: fire
 
+	/** Round 4: fire gathering in his hands for the Fire Blast (client-safe). */
+	public boolean gathering(Player p) {
+		return timer(p, BLAST_AT) > 0;
+	}
+
+	/** Round 4: mid-gather or mid-punch, the other keys wait (client-safe). */
+	public boolean busy(Player p) {
+		return gathering(p) || flag(p, F_FIST);
+	}
+
+	/** Round 4: R starts the gather; {@link #tickBlast} throws the two fireballs. False if it fizzled or is not ready. */
 	public boolean fireBlast(ServerPlayer p) {
-		if (fizzles(p) || !use(p, FIRE_BLAST)) {
+		if (busy(p) || fizzles(p) || !use(p, FIRE_BLAST)) {
 			return false;
 		}
-		anim(p, ANIM_BLAST);
-		AlienProjectileEntity.of(p, "swampfire_blast").colour(0xFF8A2A).size(0.4f).damage(BLAST_DAMAGE * fireFactor(p)).fire(4).speed(1.6).spawn();
-		OmnitrixSfx.play(level(p), p.position(), SND_BLAST, 1f, 1f);
+		anim(p, ANIM_BLAST_GATHER);
+		setTimer(p, BLAST_AT, p.level().getGameTime() + BLAST_GATHER);
+		OmnitrixSfx.play(level(p), p.position(), SND_GATHER, 1f, 1f);
 		return true;
+	}
+
+	private void tickBlast(ServerPlayer p, ServerLevel l, long now) {
+		long at = timer(p, BLAST_AT);
+		if (at <= 0) {
+			return;
+		}
+		if (doused(p)) {
+			setTimer(p, BLAST_AT, 0); // ducked under water with fire in his hands
+			fizzles(p);
+			anim(p, 0);
+			return;
+		}
+		long d = now - at;
+		if (d < 0) {
+			if (d % 2 == 0) {
+				for (boolean right : new boolean[] { true, false }) {
+					Vec3 h = hand(p, right);
+					l.sendParticles(ParticleTypes.SMALL_FLAME, h.x, h.y, h.z, 1, 0.16, 0.16, 0.16, 0.01);
+				}
+			}
+			return;
+		}
+		if (d == 0) {
+			throwFireball(p, true);
+		} else if (d >= BLAST_GAP) {
+			setTimer(p, BLAST_AT, 0);
+			throwFireball(p, false);
+		}
+	}
+
+	/** Where his hand is: the shoulder, out along the look, as the arm is drawn while it throws. */
+	public static Vec3 hand(ServerPlayer p, boolean right) {
+		Vec3 f = Vec3.directionFromRotation(0, p.getYRot());
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		double s = p.getScale();
+		return p.position().add(0, 1.3 * s, 0).add(side.scale((right ? 0.36 : -0.36) * s)).add(p.getLookAngle().scale(0.7 * s));
+	}
+
+	/** What his crosshair is on (a creature's middle, else the first block, 48 blocks out at most): each hand's ball heads there. */
+	private static Vec3 aimPoint(ServerPlayer p) {
+		LivingEntity t = lookTarget(p, 48);
+		if (t != null) {
+			return t.getBoundingBox().getCenter();
+		}
+		Vec3 eye = p.getEyePosition();
+		return p.level().clip(new ClipContext(eye, eye.add(p.getLookAngle().scale(48)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p)).getLocation();
+	}
+
+	/** One fireball out of {@code right} / the left hand, heading for the crosshair (tests call it straight). */
+	public void throwFireball(ServerPlayer p, boolean right) {
+		anim(p, right ? ANIM_BLAST : ANIM_BLAST_L);
+		Vec3 h = hand(p, right);
+		Vec3 dir = aimPoint(p).subtract(h);
+		AlienProjectileEntity ball = AlienProjectileEntity.of(p, "swampfire_blast");
+		ball.moveTo(h.x, h.y, h.z, p.getYRot(), p.getXRot());
+		ball.direction(dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir).colour(0xFF8A2A).size(0.4f).damage(BLAST_DAMAGE * fireFactor(p)).fire(4).speed(1.6).spawn();
+		OmnitrixSfx.play(level(p), h, SND_BLAST, 1f, right ? 1f : 1.12f);
 	}
 
 	/** Creatures in a cone of {@code deg} degrees, {@code range} blocks along {@code dir} from {@code from}. */
@@ -675,75 +763,81 @@ public final class SwampfireKit extends AlienKit {
 		return out;
 	}
 
-	/** Shift+R (held): the Methane Torch lights; it burns in pulses until the keys come up (2 s at most). */
-	public boolean torch(ServerPlayer p) {
-		if (flag(p, F_TORCH) || fizzles(p) || !use(p, TORCH)) {
+	/** Shift+R: the Fire Punch -- his right hand catches fire; {@link #tickFist} lands the punch {@link #PUNCH_WINDUP} ticks later. */
+	public boolean firePunch(ServerPlayer p) {
+		if (busy(p) || fizzles(p) || !use(p, FIRE_PUNCH)) {
 			return false;
 		}
-		anim(p, ANIM_TORCH);
-		setTimer(p, TORCH_START, p.level().getGameTime());
-		setFlag(p, F_TORCH, true);
-		OmnitrixSfx.play(level(p), p.position(), SND_TORCH, 1.2f, 1f);
-		torchPulse(p, level(p), 0); // the first lick lands at once
+		anim(p, ANIM_FIST_LIGHT);
+		setTimer(p, FIST_AT, p.level().getGameTime() + PUNCH_WINDUP);
+		setFlag(p, F_FIST, true);
+		OmnitrixSfx.play(level(p), p.position(), SND_FIST, 1f, 1f);
 		return true;
 	}
 
-	/** The torch's reach after {@code held} ticks: 4 blocks, growing to 8 over 1.5 s. */
-	public static double torchReach(float held) {
-		return TORCH_RANGE * (0.5 + 0.5 * Math.min(1.0, held / 30.0));
+	private void cancelFist(ServerPlayer p) {
+		setFlag(p, F_FIST, false);
+		setTimer(p, FIST_AT, 0);
 	}
 
-	public void stopTorch(ServerPlayer p) {
-		if (!flag(p, F_TORCH)) {
+	private void tickFist(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_FIST)) {
 			return;
 		}
-		setFlag(p, F_TORCH, false);
-		setTimer(p, TORCH_START, 0);
-		cooldown(p, TORCH, TORCH_COOLDOWN); // v0.17.2 revamp: the 6 s run from the release
-		if (Omnitrix.state(p).animId == ANIM_TORCH) {
+		if (doused(p)) {
+			cancelFist(p);
+			fizzles(p);
 			anim(p, 0);
+		} else if (now >= timer(p, FIST_AT)) {
+			punch(p);
 		}
 	}
 
-	private void tickTorch(ServerPlayer p, ServerLevel l, long now) {
-		if (!flag(p, F_TORCH)) {
-			return;
-		}
-		long held = now - timer(p, TORCH_START);
-		if (held >= TORCH_MAX_TICKS || doused(p)) {
-			stopTorch(p);
-			return;
-		}
-		if (held > 0 && held % TORCH_PULSE == 0) {
-			torchPulse(p, l, held);
-		}
-		if (held % 12 == 6) {
-			OmnitrixSfx.play(l, p.position(), SND_TORCH, 0.6f, 1.1f);
-		}
-	}
-
-	private void torchPulse(ServerPlayer p, ServerLevel l, long held) {
+	/**
+	 * The punch lands: the nearest creature in front of him takes {@link #PUNCH_DAMAGE} (+{@link #FIST_BONUS} if it already burns, Methane
+	 * Surge's +25% on top), burns and is knocked back, and real fire catches where it lands. A swing inside his methane cloud sets the
+	 * cloud off, the job the Methane Torch had. Tests call it straight.
+	 */
+	public void punch(ServerPlayer p) {
+		cancelFist(p);
+		anim(p, ANIM_FIRE_PUNCH);
+		ServerLevel l = level(p);
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		double reach = torchReach(held);
-		for (LivingEntity e : cone(p, eye, look, reach, TORCH_DEG)) {
-			if (hurt(p, e, TORCH_PULSE_DAMAGE * fireFactor(p), true)) {
-				e.igniteForSeconds(5);
+		Vec3 h = new Vec3(look.x, 0, look.z);
+		if (p.onGround() && h.lengthSqr() > 1.0e-4) {
+			p.setDeltaMovement(p.getDeltaMovement().add(h.normalize().scale(0.45)));
+			p.hurtMarked = true;
+		}
+		LivingEntity target = null;
+		double best = Double.MAX_VALUE;
+		for (LivingEntity e : cone(p, eye, look, PUNCH_REACH, PUNCH_DEG)) {
+			double d = e.distanceToSqr(p);
+			if (d < best) {
+				best = d;
+				target = e;
 			}
 		}
-		// where it plays on the ground: real fire (4 s, halved in rain)
-		BlockHitResult hit = l.clip(new ClipContext(eye, eye.add(look.scale(reach)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-		if (hit.getType() == HitResult.Type.BLOCK) {
-			PyrokinesisHandlers.placeFire(p, l, hit.getBlockPos().relative(hit.getDirection()), fireTtl(l, hit.getBlockPos(), 80));
+		Vec3 fist = eye.add(look.scale(PUNCH_REACH * 0.5));
+		BlockHitResult hit = l.clip(new ClipContext(eye, eye.add(look.scale(PUNCH_REACH)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		int ttl = fireTtl(l, p.blockPosition(), 80);
+		if (target != null) {
+			fist = target.getBoundingBox().getCenter();
+			float dmg = (PUNCH_DAMAGE + (target.isOnFire() ? FIST_BONUS : 0f)) * fireFactor(p);
+			if (hurt(p, target, dmg, true)) {
+				target.igniteForSeconds(PUNCH_BURN_SECONDS);
+				shove(target, p.position(), 1.1, 0.35);
+			}
+			PyrokinesisHandlers.groundFire(p, l, target.position(), ttl);
+		} else if (hit.getType() == HitResult.Type.BLOCK) {
+			fist = hit.getLocation();
+			PyrokinesisHandlers.placeFire(p, l, hit.getBlockPos().relative(hit.getDirection()), ttl);
 		}
-		// a torch played through his gas sets it off
+		setPos(p, P_PUNCH, fist);
+		OmnitrixSfx.play(l, fist, SND_PUNCH, 1f, 1f);
 		Cloud c = CLOUDS.get(p.getUUID());
-		if (c != null) {
-			Vec3 to = c.at().subtract(eye);
-			double d = to.length();
-			if (d <= reach + CLOUD_RADIUS && (d < CLOUD_RADIUS || to.normalize().dot(look) > Math.cos(Math.toRadians(TORCH_DEG)))) {
-				ignite(p);
-			}
+		if (c != null && c.dim() == l.dimension() && c.at().distanceToSqr(fist) <= CLOUD_RADIUS * CLOUD_RADIUS) {
+			ignite(p);
 		}
 	}
 
@@ -1322,7 +1416,7 @@ public final class SwampfireKit extends AlienKit {
 		if (hand != InteractionHand.MAIN_HAND || !p.getMainHandItem().isEmpty()) {
 			return InteractionResult.PASS;
 		}
-		if (flag(p, F_MULCH) || flag(p, F_CHARGE)) {
+		if (flag(p, F_MULCH) || flag(p, F_CHARGE) || busy(p)) {
 			return InteractionResult.FAIL;
 		}
 		return vineLash(p) ? InteractionResult.SUCCESS : InteractionResult.FAIL;
@@ -1375,14 +1469,15 @@ public final class SwampfireKit extends AlienKit {
 		long now = p.level().getGameTime();
 		p.setHealth(1f);
 		p.clearFire();
-		stopTorch(p);
 		if (flag(p, F_SWING)) {
 			swingRelease(p, SWING_MAX);
 		}
 		OmnitrixState n = Omnitrix.state(p).copy();
 		n.timers.put(key(REASSEMBLY), now + REASSEMBLY_COOLDOWN);
 		n.timers.put(key(MULCH_UNTIL), now + MULCH_TICKS);
-		n.kitFlags = (n.kitFlags | F_MULCH) & ~(F_REGROW | F_CHARGE | F_SNARE);
+		n.kitFlags = (n.kitFlags | F_MULCH) & ~(F_REGROW | F_CHARGE | F_SNARE | F_FIST);
+		n.timers.remove(key(BLAST_AT));
+		n.timers.remove(key(FIST_AT));
 		n.animId = 0;
 		Omnitrix.save(p, n);
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, MULCH_TICKS, 9, false, false, false));

@@ -26,6 +26,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -39,8 +40,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.2: Swampfire's client kit (basic version) -- the player body in his mossy, bark-streaked skin with a maroon bloom of petals
- * on his head and seed pods on his shoulders. Rendered effects (world pass): the Methane Torch's cone of fire, the jet under his
- * feet, the Vine Snare's vines wound round the creature, the swing vine, the methane cloud, the Ignite / Inferno Bloom fireballs
+ * on his head and seed pods on his shoulders. Rendered effects: the fire gathering in his palms and the burning Fire Punch fist on the
+ * arm bones; in the world pass the jet under his feet, the Vine Snare's vines wound round the creature, the swing vine, the methane cloud, the Ignite / Inferno Bloom fireballs
  * and ground ring, the Root Eruption's spikes, the Regrowth's green rings. Particles are only small accents.
  */
 public final class SwampfireClient implements AlienClientKit {
@@ -50,10 +51,29 @@ public final class SwampfireClient implements AlienClientKit {
 
 	// ---------------------------------------------------------------- third-person poses
 	// f(tick, rArm xyz, lArm xyz, body x y, rLeg xyz, lLeg xyz, head x)
-	private static final float[][] BLAST = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.55f, -0.1f, 0, 0.3f, 0, 0, 0.1f, -0.35f, 0, 0, 0, 0, 0, 0, 0),
-			QuirkKeyframes.f(5, -1.5f, -0.1f, 0, 0.3f, 0, 0, 0.1f, -0.35f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(10) };
-	private static final float[][] TORCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, 0.25f, 0, -1.5f, -0.25f, 0, 0.15f, 0, -0.2f, 0, 0, 0.2f, 0, 0, 0),
-			QuirkKeyframes.f(14, -1.45f, 0.25f, 0, -1.45f, -0.25f, 0, 0.15f, 0, -0.2f, 0, 0, 0.2f, 0, 0, 0), QuirkKeyframes.rest(18) };
+	private static final float A = QuirkKeyframes.AIM;
+	// R Fire Blast, round 4 (user: "gather fire in his hands and then launch 2 fireballs please, make them come from his hands"): both palms
+	// cupped in front of his belly, then the right thrown out down the aim with the torso behind it, then the left
+	private static final float[][] GATHER = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(5, -1.05f, -0.28f, 0.12f, -1.05f, 0.28f, -0.12f, 0.12f, 0f, 0.14f, 0f, 0.06f, -0.14f, 0f, -0.06f, 0.16f),
+			QuirkKeyframes.f(11, -1.15f, -0.3f, 0.1f, -1.15f, 0.3f, -0.1f, 0.15f, 0f, 0.16f, 0f, 0.06f, -0.16f, 0f, -0.06f, 0.2f), QuirkKeyframes.rest(14) };
+	private static final float[][] THROW_R = { QuirkKeyframes.f(0, -1.15f, -0.3f, 0.1f, -1.15f, 0.3f, -0.1f, 0.15f, 0f, 0.16f, 0f, 0.06f, -0.16f, 0f, -0.06f, 0.2f),
+			QuirkKeyframes.f(2.5f, A, A, 0f, -1.15f, 0.3f, -0.1f, 0.06f, -0.44f, 0.26f, 0f, 0f, -0.26f, 0f, 0f, 0f),
+			QuirkKeyframes.f(4, A, A, 0f, -1.15f, 0.3f, -0.1f, 0.05f, -0.38f, 0.22f, 0f, 0f, -0.22f, 0f, 0f, 0f), QuirkKeyframes.rest(9) };
+	private static final float[][] THROW_L = { QuirkKeyframes.f(0, A, A, 0f, -1.15f, 0.3f, -0.1f, 0.05f, -0.38f, 0.22f, 0f, 0f, -0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(2.5f, -0.9f, -0.4f, 0.1f, A, A, 0f, 0.06f, 0.44f, -0.26f, 0f, 0f, 0.26f, 0f, 0f, 0f),
+			QuirkKeyframes.f(6, -0.8f, -0.3f, 0.1f, A, A, 0f, 0.05f, 0.36f, -0.22f, 0f, 0f, 0.22f, 0f, 0f, 0f),
+			QuirkKeyframes.f(10, -0.5f, 0f, 0.1f, -0.7f, 0f, -0.1f, 0f, 0.12f, -0.1f, 0f, 0f, 0.1f, 0f, 0f, 0f), QuirkKeyframes.rest(14) };
+	// Shift+R Fire Punch, round 4 (user: "player sets their hand on fire and punches"): the fist brought up in front of his chest as it
+	// catches, then drawn back with the shoulder turning away, then driven out down the aim, his whole weight stepping in behind it
+	private static final float[][] FIST_LIGHT = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(3, -1.5f, -0.5f, 0f, -0.5f, 0.3f, 0f, 0f, -0.1f, 0.1f, 0f, 0.05f, -0.1f, 0f, -0.05f, 0.25f),
+			QuirkKeyframes.f(8, 0.75f, 0.1f, 0.35f, -1.15f, 0.35f, -0.1f, 0.05f, 0.62f, 0.35f, 0f, 0.08f, -0.3f, 0f, -0.08f, 0.05f), QuirkKeyframes.f(11, 0.75f, 0.1f, 0.35f,
+					-1.15f, 0.35f, -0.1f, 0.05f, 0.62f, 0.35f, 0f, 0.08f, -0.3f, 0f, -0.08f, 0.05f) };
+	private static final float[][] FIRE_PUNCH = {
+			QuirkKeyframes.f(0, 0.75f, 0.1f, 0.35f, -1.15f, 0.35f, -0.1f, 0.05f, 0.62f, 0.35f, 0f, 0.08f, -0.3f, 0f, -0.08f, 0.05f),
+			QuirkKeyframes.f(2, A, A, 0f, 0.35f, 0f, -0.15f, 0.2f, -0.72f, -0.5f, 0f, 0.08f, 0.45f, 0f, -0.08f, -0.05f),
+			QuirkKeyframes.f(6, A, A, 0f, 0.3f, 0f, -0.15f, 0.18f, -0.62f, -0.45f, 0f, 0.08f, 0.4f, 0f, -0.08f, -0.05f), QuirkKeyframes.rest(13) };
 	private static final float[][] LOB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.9f, 0, 0.2f, 0.4f, 0, 0, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.1f),
 			QuirkKeyframes.f(6, -0.7f, 0, 0, 0.2f, 0, 0, 0.3f, -0.2f, 0, 0, 0, 0, 0, 0, 0.1f), QuirkKeyframes.rest(12) };
 	private static final float[][] SNARE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.6f, 0, 0, -1.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
@@ -93,10 +113,22 @@ public final class SwampfireClient implements AlienClientKit {
 			QuirkKeyframes.f(8, -0.6f, 0, 1.1f, -0.6f, 0, -1.1f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.3f), QuirkKeyframes.rest(16) };
 
 	// ---------------------------------------------------------------- first-person clips
-	private static final FirstPersonClip FP_PALM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -20, 15, 0, 0.12f, 0.15f, -0.3f),
-			FirstPersonClip.f(5, -18, 15, 0, 0.12f, 0.15f, -0.3f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
-	private static final FirstPersonClip FP_TWO = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -15, 25, 0, 0.18f, 0.15f, -0.3f),
-			FirstPersonClip.f(14, -15, 25, 0, 0.18f, 0.15f, -0.3f), FirstPersonClip.f(18, 0, 0, 0, 0, 0, 0)).both();
+	/** Round 4: both hands drawn in to the middle of the view as the fire gathers in them. */
+	private static final FirstPersonClip FP_GATHER = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -18, 30, 0, 0.35f, 0.2f, 0.02f),
+			FirstPersonClip.f(11, -20, 34, 0, 0.48f, 0.32f, 0.02f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
+	/** One hand thrown out from the gather. */
+	private static final FirstPersonClip FP_THROW = FirstPersonClip.of(FirstPersonClip.f(0, -20, 34, 0, 0.48f, 0.32f, 0.02f), FirstPersonClip.f(2.5f, -28, 16, 0, 0.3f, 0.3f, -0.34f),
+			FirstPersonClip.f(5, -24, 14, 0, 0.26f, 0.24f, -0.26f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0));
+	/** The right hand settling after its throw while the left throws. */
+	private static final FirstPersonClip FP_THROWN = FirstPersonClip.of(FirstPersonClip.f(0, -24, 14, 0, 0.26f, 0.24f, -0.26f), FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
+	/** The left hand holding its fire while the right throws. */
+	private static final FirstPersonClip FP_HOLD = FirstPersonClip.of(FirstPersonClip.f(0, -20, 34, 0, 0.48f, 0.32f, 0.02f), FirstPersonClip.f(6, -20, 34, 0, 0.48f, 0.32f, 0.02f));
+	/** Round 4, Fire Punch: the fist up in the middle of the view as it catches, drawn back past the jaw... */
+	private static final FirstPersonClip FP_FIST_LIGHT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -35, 34, 0, 0.42f, 0.32f, -0.1f),
+			FirstPersonClip.f(8, -28, 20, 0, 0.2f, 0.16f, 0.28f), FirstPersonClip.f(11, -28, 20, 0, 0.2f, 0.16f, 0.28f));
+	/** ...and driven straight out. */
+	private static final FirstPersonClip FP_FIRE_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, -28, 20, 0, 0.2f, 0.16f, 0.28f), FirstPersonClip.f(2, -24, 30, 0, 0.42f, 0.3f, -0.62f),
+			FirstPersonClip.f(5, -22, 28, 0, 0.37f, 0.26f, -0.5f), FirstPersonClip.f(13, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_LOB = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -70, 5, 0, 0.05f, 0.5f, 0.15f),
 			FirstPersonClip.f(6, 10, 15, 0, 0.1f, -0.1f, -0.3f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_RAISE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, -60, 10, 10, 0.1f, 0.5f, 0f),
@@ -114,9 +146,6 @@ public final class SwampfireClient implements AlienClientKit {
 			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
 
 	private static boolean registered;
-	/** v0.17.2 revamp: per player, how long the torch had been held (for its fade after the release) and when it was let go. */
-	private static final java.util.Map<Integer, Float> TORCH_HELD = new java.util.HashMap<>();
-	private static final java.util.Map<Integer, Long> TORCH_END = new java.util.HashMap<>();
 
 	private SwampfireClient() {
 	}
@@ -156,7 +185,173 @@ public final class SwampfireClient implements AlienClientKit {
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		// v0.17.2 (user: "delete all the alien models and only use the skins i provided please no extra things untill i say"):
-		// only the skin -- no extra parts
+		// only the skin -- no extra parts. Round 4: fire is an effect, not a part.
+		OmnitrixState st = Omnitrix.state(p);
+		float t = animTicks(p, partial);
+		switch (st.animId) {
+			case SwampfireKit.ANIM_BLAST_GATHER -> {
+				float k = Mth.clamp(t / SwampfireKit.BLAST_GATHER, 0f, 1f);
+				palmBall(pose, buffers, model.rightArm, -1f, k, age);
+				palmBall(pose, buffers, model.leftArm, 1f, k, age);
+			}
+			case SwampfireKit.ANIM_BLAST -> {
+				palmBall(pose, buffers, model.leftArm, 1f, 1f, age); // the left hand still holds its fire
+				if (t < 5f) {
+					palmFlare(pose, buffers, model.rightArm, -1f, 1f - t / 5f, age);
+				}
+			}
+			case SwampfireKit.ANIM_BLAST_L -> {
+				if (t < 5f) {
+					palmFlare(pose, buffers, model.leftArm, 1f, 1f - t / 5f, age);
+				}
+			}
+			case SwampfireKit.ANIM_FIST_LIGHT -> burningFist(pose, buffers, model.rightArm, -1f, Mth.clamp(t / 3f, 0.1f, 1f), age);
+			case SwampfireKit.ANIM_FIRE_PUNCH -> {
+				if (t < 8f) {
+					burningFist(pose, buffers, model.rightArm, -1f, 1f + 0.35f * Mth.clamp(1f - t / 3f, 0f, 1f) - Mth.clamp((t - 4f) / 4f, 0f, 1f) * 0.8f, age);
+				}
+			}
+			default -> {
+			}
+		}
+	}
+
+	@Override
+	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
+		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float age = p.tickCount + partial;
+		float t = animTicks(p, partial);
+		float side = right ? -1f : 1f;
+		switch (Omnitrix.state(p).animId) {
+			case SwampfireKit.ANIM_BLAST_GATHER -> palmBallView(pose, buffers, arm, side, Mth.clamp(t / SwampfireKit.BLAST_GATHER, 0f, 1f), age);
+			case SwampfireKit.ANIM_BLAST -> {
+				if (!right) {
+					palmBallView(pose, buffers, arm, side, 1f, age);
+				} else if (t < 4f) {
+					palmBallView(pose, buffers, arm, side, 1f - t / 4f, age);
+				}
+			}
+			case SwampfireKit.ANIM_BLAST_L -> {
+				if (!right && t < 4f) {
+					palmBallView(pose, buffers, arm, side, 1f - t / 4f, age);
+				}
+			}
+			case SwampfireKit.ANIM_FIST_LIGHT -> {
+				if (right) {
+					burningArmView(pose, buffers, arm, side, Mth.clamp(t / 3f, 0.1f, 1f), age);
+				}
+			}
+			case SwampfireKit.ANIM_FIRE_PUNCH -> {
+				if (right && t < 8f) {
+					burningArmView(pose, buffers, arm, side, 1f - Mth.clamp((t - 4f) / 4f, 0f, 1f) * 0.8f, age);
+				}
+			}
+			default -> {
+			}
+		}
+	}
+
+	/** The off-hand arm is in view from the gather to the end of the left hand's throw. */
+	@Override
+	public boolean bothHandsInFirstPerson(AbstractClientPlayer p) {
+		int a = Omnitrix.state(p).animId;
+		return (a == SwampfireKit.ANIM_BLAST || a == SwampfireKit.ANIM_BLAST_L) && animTicks(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false)) < 11f;
+	}
+
+	@Override
+	public void poseFirstPersonOffHand(PoseStack pose, AbstractClientPlayer p, float partial, float side) {
+		OmnitrixState s = Omnitrix.state(p);
+		float t = animTicks(p, partial);
+		if (s.animId == SwampfireKit.ANIM_BLAST) {
+			FP_HOLD.apply(pose, Math.min(t, FP_HOLD.length()), side);
+		} else if (s.animId == SwampfireKit.ANIM_BLAST_L) {
+			FP_THROW.apply(pose, Math.min(t, FP_THROW.length()), side);
+		}
+	}
+
+	/** Round 4: the fire gathering in a palm: a green flare of gas catching, then a fireball growing, {@code k} of its full size. */
+	private static void palmBall(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float k, float age) {
+		float r = 0.06f + 0.17f * k;
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		pose.translate(side / 16f, 11f / 16f + r * 0.5f, 0f);
+		PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, 1, 0), false);
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), Vec3.ZERO, 0.22f + 0.3f * k, PyroDraw.dim(PyroDraw.lerpRgb(0xFF9FD040, 0xFFFF9A30, Mth.clamp(k * 1.6f, 0f, 1f)), 0.8f));
+		pose.popPose();
+	}
+
+	/** Round 4: the burst of flame off a palm as it throws. */
+	private static void palmFlare(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float k, float age) {
+		float flick = 0.85f + 0.2f * Mth.sin(age * 2.4f + side);
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		pose.translate(side / 16f, 10f / 16f, 0f);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		PyroDraw.cone(pose, add, 0.2f * k, 0.9f * k * flick, 0xFFFF7A20, 0xFF000000);
+		PyroDraw.fireCross(pose, PyroDraw.fireBuffer(buffers), 0.4f * k, 0.7f * k * flick, (int) (age / 2), age * 0.3f);
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, 0.1, 0), 0.4f * k, PyroDraw.dim(0xFFFF9040, 0.8f));
+		pose.popPose();
+	}
+
+	/** A point on an arm (px on the bone) in the camera-relative world the world pass draws in. */
+	private static Vec3 onBone(PoseStack pose, ModelPart arm, float x, float y, float z) {
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		org.joml.Vector3f v = pose.last().pose().transformPosition(x / 16f, y / 16f, z / 16f, new org.joml.Vector3f());
+		pose.popPose();
+		return new Vec3(v.x, v.y, v.z);
+	}
+
+	/**
+	 * Round 4 (user: "player sets their hand on fire"; the orchestrator's brief: "the hand visibly burns"), third person: real flames up
+	 * the forearm that always lick upward whatever the arm is doing (world-space fire sheets), and a white-hot glow in the fist.
+	 */
+	private static void burningFist(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float k, float age) {
+		PoseStack world = new PoseStack();
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		float flick = 0.9f + 0.15f * Mth.sin(age * 2.1f) + 0.08f * Mth.sin(age * 4.7f);
+		Vec3 fist = onBone(pose, arm, side, 10.5f, 0f);
+		for (int i = 0; i < 4; i++) {
+			Vec3 at = onBone(pose, arm, side, 4.5f + i * 2f, 0f).add(0, -0.08, 0);
+			float w = (0.34f + 0.1f * i) * k, h = (0.5f + 0.12f * i) * k * flick;
+			PyroDraw.fireBillboard(world, fire, at, Vec3.ZERO, w, h, (int) (age / 2) + i * 3);
+		}
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		PyroDraw.glow(world, glow, fist, 0.62f * k, PyroDraw.dim(0xFFFF8A2A, 0.85f));
+		PyroDraw.glow(world, glow, fist, 0.3f * k, PyroDraw.dim(0xFFFFE8A0, 0.9f));
+	}
+
+	/** Fire in the first-person hand, as light: the fire texture goes dull brown under the hand pass's lighting, additive shapes do not. */
+	private static void palmBallView(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float k, float age) {
+		float r = 0.05f + 0.07f * k;
+		pose.pushPose(); // (the framework has already put the pose on the arm's bone)
+		pose.translate(side / 16f, 11f / 16f + r, 0f);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		int hot = PyroDraw.lerpRgb(0xFF9FD040, 0xFFFF7A20, Mth.clamp(k * 1.6f, 0f, 1f));
+		PyroDraw.sphere(pose, add, r, 0xFFC09040, PyroDraw.dim(hot, 0.6f), 0.3f, age * 0.5f, PyroDraw.FULL);
+		PyroDraw.sphere(pose, add, r * 1.5f, PyroDraw.dim(hot, 0.45f), 0xFF200800, 0.4f, -age * 0.4f, PyroDraw.FULL);
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), Vec3.ZERO, 0.08f + 0.1f * k, PyroDraw.dim(hot, 0.45f));
+		pose.popPose();
+	}
+
+	/** The burning hand on the first-person arm: tongues of flame running back from the knuckles over the forearm, thin so they leave the view clear. */
+	private static void burningArmView(PoseStack pose, MultiBufferSource buffers, ModelPart arm, float side, float k, float age) {
+		pose.pushPose(); // (the framework has already put the pose on the arm's bone)
+		VertexConsumer add = PyroDraw.additive(buffers);
+		pose.translate(side / 16f, 10.5f / 16f, 0f);
+		PyroDraw.sphere(pose, add, 0.2f * k, 0xFFD08830, 0xFFB04810, 0.35f, age * 0.6f, PyroDraw.FULL); // (the arm is 0.125 from its axis: outside it, or the arm hides the fire)
+		PyroDraw.sphere(pose, add, 0.26f * k, 0xFF803010, 0xFF200800, 0.45f, -age * 0.5f, PyroDraw.FULL);
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), Vec3.ZERO, 0.3f * k, PyroDraw.dim(0xFFFFA040, 0.5f));
+		for (int i = 0; i < 5; i++) {
+			float a = i * 1.257f + age * 0.05f;
+			float len = (0.42f + 0.16f * Mth.sin(age * 1.3f + i * 2f)) * k;
+			pose.pushPose();
+			pose.translate(Mth.cos(a) * 0.18f, 0.03f, Mth.sin(a) * 0.18f);
+			pose.mulPose(Axis.XP.rotationDegrees(180f + 9f * Mth.sin(age * 0.9f + i)));
+			PyroDraw.cone(pose, add, 0.07f * k, len * 1.3f, 0xFFFF9030, 0xFF100200);
+			pose.popPose();
+		}
+		pose.popPose();
 	}
 
 	// ---------------------------------------------------------------- poses
@@ -164,9 +359,6 @@ public final class SwampfireClient implements AlienClientKit {
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		int flags = Omnitrix.state(p).kitFlags;
-		if ((flags & SwampfireKit.F_TORCH) != 0) {
-			return QuirkKeyframes.play(m, TORCH, Math.min(ticks, 10f), 1f); // both palms held out while Shift+R is down
-		}
 		if ((flags & SwampfireKit.F_SWING) != 0) {
 			return QuirkKeyframes.play(m, SWING, Math.min(ticks, 10f), 1f); // hanging on the vine
 		}
@@ -175,8 +367,11 @@ public final class SwampfireClient implements AlienClientKit {
 			case SwampfireKit.ANIM_SCATTER -> FAN;
 			case SwampfireKit.ANIM_YANK -> YANK;
 			case SwampfireKit.ANIM_REFORM -> REFORM;
-			case SwampfireKit.ANIM_BLAST -> BLAST;
-			case SwampfireKit.ANIM_TORCH -> TORCH;
+			case SwampfireKit.ANIM_BLAST_GATHER -> GATHER;
+			case SwampfireKit.ANIM_BLAST -> THROW_R;
+			case SwampfireKit.ANIM_BLAST_L -> THROW_L;
+			case SwampfireKit.ANIM_FIST_LIGHT -> FIST_LIGHT;
+			case SwampfireKit.ANIM_FIRE_PUNCH -> FIRE_PUNCH;
 			case SwampfireKit.ANIM_SEED -> LOB;
 			case SwampfireKit.ANIM_SNARE -> SNARE;
 			case SwampfireKit.ANIM_JET -> JET;
@@ -191,14 +386,53 @@ public final class SwampfireClient implements AlienClientKit {
 			case SwampfireKit.ANIM_PUNCH -> PUNCH;
 			default -> null;
 		};
-		return clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		if (clip == null) {
+			return false;
+		}
+		if (animId == SwampfireKit.ANIM_BLAST_GATHER || animId == SwampfireKit.ANIM_BLAST || animId == SwampfireKit.ANIM_BLAST_L || animId == SwampfireKit.ANIM_FIST_LIGHT
+				|| animId == SwampfireKit.ANIM_FIRE_PUNCH) {
+			return playAimed(p, m, clip, animId, ticks);
+		}
+		return QuirkKeyframes.play(m, clip, ticks, 1f);
+	}
+
+	/** Every column but the legs': he can walk through the Fire Blast. */
+	private static final int NO_LEGS;
+
+	static {
+		int mask = QuirkKeyframes.bit(QuirkKeyframes.HEAD_X);
+		for (int c = QuirkKeyframes.R_ARM_X; c <= QuirkKeyframes.BODY_Y; c++) {
+			mask |= QuirkKeyframes.bit(c);
+		}
+		NO_LEGS = mask;
+	}
+
+	/** Round 4: a clip with {@link QuirkKeyframes#AIM} arms pointing down the look; the throws carry on from the gather (no fade in). */
+	private static boolean playAimed(AbstractClientPlayer p, HumanoidModel<?> m, float[][] clip, int animId, float ticks) {
+		float[] f = QuirkKeyframes.sample(clip, ticks, -Mth.HALF_PI + m.head.xRot, m.head.yRot);
+		if (f == null) {
+			return false;
+		}
+		float len = QuirkKeyframes.length(clip);
+		boolean chained = animId == SwampfireKit.ANIM_BLAST || animId == SwampfireKit.ANIM_BLAST_L || animId == SwampfireKit.ANIM_FIRE_PUNCH;
+		float w = chained ? Mth.clamp((len - ticks) / QuirkKeyframes.FADE_OUT, 0f, 1f) : QuirkKeyframes.weight(ticks, len);
+		boolean blast = animId == SwampfireKit.ANIM_BLAST_GATHER || animId == SwampfireKit.ANIM_BLAST || animId == SwampfireKit.ANIM_BLAST_L;
+		if (blast && p.walkAnimation.speed() > 0.08f) {
+			QuirkKeyframes.applyMasked(m, f, w, NO_LEGS);
+		} else {
+			QuirkKeyframes.apply(m, f, w);
+		}
+		return true;
 	}
 
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case SwampfireKit.ANIM_BLAST -> FP_PALM;
-			case SwampfireKit.ANIM_TORCH -> FP_TWO;
+			case SwampfireKit.ANIM_BLAST_GATHER -> FP_GATHER;
+			case SwampfireKit.ANIM_BLAST -> FP_THROW;
+			case SwampfireKit.ANIM_BLAST_L -> FP_THROWN;
+			case SwampfireKit.ANIM_FIST_LIGHT -> FP_FIST_LIGHT;
+			case SwampfireKit.ANIM_FIRE_PUNCH -> FP_FIRE_PUNCH;
 			case SwampfireKit.ANIM_SEED -> FP_LOB;
 			case SwampfireKit.ANIM_SNARE, SwampfireKit.ANIM_SWING -> FP_RAISE;
 			case SwampfireKit.ANIM_JET, SwampfireKit.ANIM_REGROW -> FP_DOWN;
@@ -341,22 +575,6 @@ public final class SwampfireClient implements AlienClientKit {
 			float time = pl.tickCount + partial;
 			long now = pl.level().getGameTime();
 			int flags = st.kitFlags;
-			// v0.17.2 revamp: the held torch -- the cone grows with the hold, and fades out over a few ticks after the release
-			if ((flags & SwampfireKit.F_TORCH) != 0) {
-				float held = now - st.readyAt(SwampfireKit.ID + "." + SwampfireKit.TORCH_START) + partial;
-				torch(pl, partial, held, time, cam, pose, buffers, 1f);
-				TORCH_HELD.put(pl.getId(), held);
-				TORCH_END.remove(pl.getId());
-			} else if (TORCH_HELD.containsKey(pl.getId())) {
-				long end = TORCH_END.computeIfAbsent(pl.getId(), k -> now);
-				float f = 1f - (now + partial - end) / 4f;
-				if (f <= 0f || now < end) {
-					TORCH_HELD.remove(pl.getId());
-					TORCH_END.remove(pl.getId());
-				} else {
-					torch(pl, partial, TORCH_HELD.get(pl.getId()), time, cam, pose, buffers, f);
-				}
-			}
 			// the swing tether while Shift+X is held
 			if ((flags & SwampfireKit.F_SWING) != 0) {
 				Vec3 a = SwampfireKit.pos(pl, SwampfireKit.P_ANCHOR);
@@ -424,6 +642,12 @@ public final class SwampfireClient implements AlienClientKit {
 						roots(o, d, t, cam, pose, buffers);
 					}
 				}
+				case SwampfireKit.ANIM_FIRE_PUNCH -> {
+					Vec3 b = SwampfireKit.pos(pl, SwampfireKit.P_PUNCH);
+					if (b != null && t >= 1f && t < 10f) {
+						burst(b, 1.7f, t - 1f, 9f, time, cam, pose, buffers);
+					}
+				}
 				case SwampfireKit.ANIM_IGNITE -> {
 					Vec3 b = SwampfireKit.pos(pl, SwampfireKit.P_BLAST);
 					if (b != null && t < 14) {
@@ -461,35 +685,6 @@ public final class SwampfireClient implements AlienClientKit {
 				charge(pl, partial, t, time, cam, pose, buffers);
 			}
 		}
-	}
-
-	/**
-	 * The Methane Torch: a widening cone of burning gas from his palms, white-yellow at the hands, orange and red out at the end.
-	 * v0.17.2 revamp: held -- its length follows the server's reach ({@link SwampfireKit#torchReach}), {@code fade} after the release.
-	 */
-	private static void torch(Player pl, float partial, float held, float time, Vec3 cam, PoseStack pose, MultiBufferSource buffers, float fade) {
-		float grow = Mth.clamp(held / 3f, 0f, 1f);
-		Vec3 look = pl.getViewVector(partial);
-		Vec3 h = hand(pl, partial, true);
-		float len = (float) SwampfireKit.torchReach(held) * grow;
-		Vec3 end = h.add(look.scale(len)).subtract(cam);
-		VertexConsumer add = PyroDraw.additive(buffers);
-		pose.pushPose();
-		pose.translate(end.x, end.y, end.z);
-		PyroDraw.alignY(pose, look.scale(-1));
-		float flick = 1f + Mth.sin(time * 1.7f) * 0.06f;
-		PyroDraw.cone(pose, add, 2.6f * grow * flick, len, PyroDraw.dim(0xFF7A1C08, fade * 0.8f), PyroDraw.dim(0xFFFF9A30, fade));
-		PyroDraw.cone(pose, add, 1.3f * grow * flick, len, PyroDraw.dim(0xFFB04010, fade * 0.8f), PyroDraw.dim(0xFFFFE8A0, fade));
-		pose.popPose();
-		// a few licks of real fire along it
-		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
-		for (int i = 1; i <= 4; i++) {
-			float u = i / 4.5f;
-			Vec3 at = h.add(look.scale(len * u)).subtract(cam).add(0, -0.4 * u, 0);
-			float s = 0.5f + 1.6f * u;
-			PyroDraw.fireBillboard(pose, fire, at, Vec3.ZERO, s * fade, s * 1.2f * fade, (int) (time / 2) + i);
-		}
-		PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), h.subtract(cam), 0.5f, PyroDraw.dim(0xFFFFC060, fade));
 	}
 
 	/** The Methane Jet: a short blast of fire downward from his feet. */

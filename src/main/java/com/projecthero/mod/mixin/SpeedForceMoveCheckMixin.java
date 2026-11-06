@@ -27,6 +27,7 @@ public abstract class SpeedForceMoveCheckMixin {
 		// v0.17.2 (user: Overdrive "170 blocks per second while running"): XLR8 runs 8.5 blocks a tick, more with a Speed potion
 		return original || SpeedForceSpeedster.hasPower(this.player) || com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(this.player)
 				|| com.projecthero.mod.omnitrix.alien.waybig.WayBigKit.is(this.player) // v0.17.2: Way Big strides 40-block steps
-				|| com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltKit.rolling(this.player); // v0.17.2: the ball sprints 25 blocks a second
+				|| com.projecthero.mod.omnitrix.alien.cannonbolt.CannonboltKit.rolling(this.player) // v0.17.2: the ball sprints 25 blocks a second
+				|| com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.fastMove(this.player); // v0.17.2 round 4: Supersonic Flight, 200 blocks a second
 	}
 }

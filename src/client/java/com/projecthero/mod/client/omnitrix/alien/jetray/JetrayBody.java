@@ -69,6 +69,8 @@ public final class JetrayBody {
 	static final class State {
 		float open, openO;
 		float lean, leanO, bank, bankO, speed, speedO, sweep, sweepO;
+		/** Round 4: 0..1, drawn into the Supersonic dart. */
+		float tuck, tuckO;
 		final Vec3[] tail = new Vec3[SEGMENTS + 1];
 		final Vec3[] tailO = new Vec3[SEGMENTS + 1];
 		boolean tailLive;
@@ -91,7 +93,19 @@ public final class JetrayBody {
 	}
 
 	static boolean flying(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & (JetrayKit.F_FLYING | JetrayKit.F_DIVING | JetrayKit.F_THUNDER)) != 0;
+		OmnitrixState st = Omnitrix.state(p);
+		return (st.kitFlags & (JetrayKit.F_FLYING | JetrayKit.F_DIVING | JetrayKit.F_THUNDER)) != 0
+				|| st.animId == JetrayKit.ANIM_BEAT && p.level().getGameTime() - st.animStart < 12; // round 4: the wings open as they go up, a take-off too
+	}
+
+	/** Round 4: how far through its 3 s the Supersonic charge is (0 if not charging). */
+	public static float charge(net.minecraft.world.entity.player.Player p, float partial) {
+		OmnitrixState st = Omnitrix.state(p);
+		if ((st.kitFlags & JetrayKit.F_SONIC_CHARGE) == 0) {
+			return 0f;
+		}
+		float left = st.readyAt(JetrayKit.ID + "." + JetrayKit.SONIC_AT) - (p.level().getGameTime() + partial);
+		return Mth.clamp(1f - left / JetrayKit.SONIC_CHARGE, 0f, 1f);
 	}
 
 	private static float lerp(float partial, float o, float n) {
@@ -125,13 +139,22 @@ public final class JetrayBody {
 		float sp = Mth.clamp(Math.max(0f, fwd) / CRUISE, 0f, 1f);
 		float bank = fly ? Mth.clamp(-turn * 2.6f * (0.35f + sp) - side / CRUISE * 22f, -45f, 45f) : 0f;
 		float sweep = fly ? Mth.clamp((horiz - CRUISE * 1.05f) / (SPRINT - CRUISE * 1.05f), 0f, 1f) : 0f;
+		// round 4: he levels out along his aim as the Supersonic charge builds, and holds that dart line past the barrier
+		boolean sonic = (Omnitrix.state(p).kitFlags & JetrayKit.F_SONIC) != 0;
+		float charge = charge(p, 0f);
+		if (sonic || charge > 0f) {
+			lean = Mth.lerp(sonic ? 1f : smooth(charge / 0.5f), lean, Mth.clamp(90f + p.getXRot(), -30f, 125f));
+		}
+		float tuck = sonic ? 1f : smooth((charge - 0.35f) / 0.65f);
+		s.tuckO = s.tuck;
+		s.tuck += (tuck - s.tuck) * 0.25f;
 		s.leanO = s.lean;
 		s.bankO = s.bank;
 		s.speedO = s.speed;
 		s.sweepO = s.sweep;
 		s.lean += (lean - s.lean) * 0.2f;
 		s.bank += (bank - s.bank) * 0.2f;
-		s.speed += ((fly ? Math.max(sp, moving * 0.6f) : 0f) - s.speed) * 0.2f;
+		s.speed += ((sonic || charge > 0f ? 1f : fly ? Math.max(sp, moving * 0.6f) : 0f) - s.speed) * 0.2f;
 		s.sweep += (sweep - s.sweep) * 0.15f;
 		tickTail(p, s);
 	}
@@ -153,7 +176,7 @@ public final class JetrayBody {
 		}
 		float age = p.tickCount + partial;
 		float speed = lerp(partial, s.speedO, s.speed);
-		float bob = Mth.sin(age * 0.28f) * 0.05f * (1f - speed) * open;
+		float bob = Mth.sin(age * 0.28f) * 0.05f * (1f - speed) * open + Mth.sin(age * 3.1f) * 0.016f * charge(p, partial); // round 4: the shudder as it builds
 		return new float[] { lerp(partial, s.leanO, s.lean) * open, lerp(partial, s.bankO, s.bank) * open, bob };
 	}
 
@@ -176,6 +199,16 @@ public final class JetrayBody {
 		float hoverZ = 1.1f + flap * 0.32f, cruiseZ = 1.42f + ripple * 0.07f, sprintZ = 0.42f + ripple * 0.03f;
 		float armZ = Mth.lerp(sw, Mth.lerp(sp, hoverZ, cruiseZ), sprintZ);
 		float armX = Mth.lerp(sw, Mth.lerp(sp, -0.12f + flap * 0.06f, 0.0f), 0.3f);
+		// round 4, Supersonic: the wings thrown wide to catch the charge, then drawn in shuddering, tight to his sides past the barrier
+		float charge = charge(p, partial);
+		if (charge > 0f) {
+			float wide = smooth(charge / 0.2f) * (1f - smooth((charge - 0.2f) / 0.8f));
+			armZ = Mth.lerp(wide, armZ, 1.75f) + Mth.sin(age * 2.6f) * 0.035f * charge;
+			armX = Mth.lerp(wide, armX, 0.55f) + Mth.sin(age * 3.7f) * 0.025f * charge;
+		}
+		float tuck = lerp(partial, s.tuckO, s.tuck);
+		armZ = Mth.lerp(tuck, armZ, 0.12f);
+		armX = Mth.lerp(tuck, armX, 0.2f);
 		armZ = Mth.lerp(open, 0.35f, armZ);
 		m.rightArm.xRot = armX;
 		m.leftArm.xRot = armX;
@@ -269,7 +302,8 @@ public final class JetrayBody {
 					at = at.add(restDir(i - 1, back, up, right, open, false, 0, 0, 0).scale(len));
 				}
 				s.tail[i] = at;
-				s.tailO[i] = at;
+				// round 4: at 200 b/s this runs every tick, so last tick's point is where the body was then, or the tail would not keep up with him between ticks
+				s.tailO[i] = at.subtract(p.getX() - p.xo, p.getY() - p.yo, p.getZ() - p.zo);
 			}
 			s.tailLive = true;
 			return;

@@ -1,5 +1,19 @@
 # Omnitrix revamp proposal: Swampfire
 
+> **Round 4 changes (v0.17.2), which override the tables below.**
+> User: "For the fire blast ability make him gather fire in his hands and then launch 2 fireballs please, make them come from his hands
+> and not his face please" and "Change methane touch to a fire punch ability, player sets their hand on fire and punches".
+>
+> - **R Fire Blast:** 0.5 s of fire gathering in both hands, then a fireball from the right hand and, 0.2 s later, one from the left, both
+>   heading for the crosshair. 11 damage each, alight 4 s. Cooldown 2 s (was 0.75 s): two balls, and it runs from the press.
+> - **Shift+R Fire Punch:** there was never a move called Methane Touch. The nearest thing, and the one the user's words fit, was the Methane Torch on
+>   Shift+R, so the punch replaces it. His right hand catches fire (0.4 s, flames up the forearm), he draws back and punches
+>   the nearest creature in front of him within 4.5 blocks: 19 damage (big, in the scale), +4 on a creature already burning (same as Burning
+>   Fist), Methane Surge's +25%, alight 6 s, knocked back, real fire where it lands. Cooldown 6 s, the torch's.
+> - **What depended on the torch, and where it went:** the torch lit the methane cloud; a Fire Punch thrown inside the cloud lights it now, so
+>   the gas + fire engine still has a close-range trigger next to the Fire Blast and Root Eruption. Doused refuses the punch as it did the
+>   torch, and ducking under water mid-gather or mid-windup cancels. Nothing outside the kit used it; Wildmutt's Choked Nose reads only the cloud.
+
 Status: **PROPOSAL, awaiting approval.** No code written. Same format as the Wildmutt / Ghostfreak revamp:
 R G Z X C V, each with a tap and a Shift variant (some held); X = movement, V = utility/mode, the rest attacks; Z / Shift+Z the
 big moves. No H or N moves. Effects are rendered shapes (cones, vines, rings, model parts), with few particles; fire that lands
