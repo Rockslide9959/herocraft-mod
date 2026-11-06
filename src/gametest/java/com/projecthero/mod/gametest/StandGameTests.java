@@ -284,6 +284,27 @@ public class StandGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "mirror the users pose but do it behind their back"): idle it copies them from straight behind; a move takes over. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void idleStandCopiesFromDirectlyBehind(GameTestHelper helper) {
+		ServerPlayer p = user(helper, 2.5, 2.0, 2.5);
+		Vec3 back = StarPlatinum.restPoint(p).subtract(p.position());
+		helper.assertTrue(back.z < -0.5 && Math.abs(back.x) < 0.01, "straight behind a player facing +Z: " + back);
+		StandState n = Stands.state(p).copy();
+		n.animId = StandState.ANIM_NONE;
+		p.setAttached(ModAttachments.STAND_STATE, n);
+		long now = helper.getLevel().getGameTime();
+		helper.assertTrue(com.projecthero.mod.stand.StandClips.mirrors(n, 0f, now), "nothing running: it copies its user");
+		n = Stands.state(p).copy();
+		n.animId = StandState.ANIM_FINGER;
+		helper.assertFalse(com.projecthero.mod.stand.StandClips.mirrors(n, 3f, now), "a move playing: it does not");
+		helper.assertTrue(com.projecthero.mod.stand.StandClips.mirrors(n, 200f, now), "the move over: it copies again");
+		n = Stands.state(p).copy();
+		n.rushing = true;
+		helper.assertFalse(com.projecthero.mod.stand.StandClips.mirrors(n, 200f, now), "a held move: it does not");
+		helper.succeed();
+	}
+
 	/** v0.17.2 (user: "hands ... in his face or just in his head a lot of the time"): every frame of every move and held pose. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void handsStayClearOfTheHead(GameTestHelper helper) {

@@ -13,6 +13,8 @@
 		"StandTimeStopInputMixin",
 		"StandMinecraftMixin",
 		"StandSightFovMixin",
+		"StandRotationsInvoker",
+		"StandArmPoseInvoker",
 		"OmnitrixInputMixin",
 		"OmnitrixRenderDispatcherAccessor",
 		"OmnitrixScrollMixin",

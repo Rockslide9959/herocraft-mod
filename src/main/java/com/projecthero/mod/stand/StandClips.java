@@ -3,7 +3,6 @@ package com.projecthero.mod.stand;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.projecthero.mod.stand.data.StandPoseState;
 import com.projecthero.mod.stand.data.StandState;
 
 import net.minecraft.util.Mth;
@@ -308,15 +307,6 @@ public final class StandClips {
 		p.body(0.2f, -0.1f, 0f).lean(0.15f, 0f, 0f).go(0.25f, 0.1f, 0f);
 	});
 
-	/**
-	 * The N pose, struck along with its user (docs/reference/jotaro_pose): looming behind the left shoulder, leaning in over them, the
-	 * right arm raised high in a fist and the left fist drawn back at the chest, glaring down.
-	 */
-	private static final float[] POSE_POINT = pose(p -> {
-		p.ra(-0.5f, 0f, 2.4f, 0.3f).la(-0.35f, 0.2f, -0.2f, 1.5f).rl(-0.45f, 0.08f, 0.1f, 0.7f).ll(0.15f, -0.06f, -0.08f, 0.25f);
-		p.body(0.3f, 0.32f, 0f).head(0.34f, -0.18f).lean(0.25f, -0.06f, 0f).go(0.05f, 0.1f, -1.5f);
-	});
-
 	private static float[] mirrorPose(float[] p) {
 		float[] m = p.clone();
 		for (int side = 0; side < 2; side++) {
@@ -372,6 +362,18 @@ public final class StandClips {
 		};
 	}
 
+	/**
+	 * v0.17.2 (user: "make star platinum mirror the users pose but do it behind their back"): nothing of its own is running, so it stands
+	 * behind its user copying them (the client works their pose out; these clips only cover the moves).
+	 */
+	public static boolean mirrors(StandState s, float age, long now) {
+		if (s.rushing || s.guarding || s.chargeStart != 0L || s.grabbedEntity != -1 || s.grabbedBlock != 0 || s.inhaleUntil != 0L || s.sightUntil > now) {
+			return false;
+		}
+		Clip one = clip(s.animId);
+		return one == null || age < 0f || age >= one.length();
+	}
+
 	/** Length of a one-shot animation (ticks; 0 = none). */
 	public static int length(int animId) {
 		Clip c = clip(animId);
@@ -381,7 +383,7 @@ public final class StandClips {
 	// ---------------------------------------------------------------- what the figure should be doing right now
 
 	/** The wanted pose this frame into {@code out}. */
-	public static void target(StandState s, StandPoseState userPose, float age, float t, long now, boolean fight, float[] out) {
+	public static void target(StandState s, float age, float t, long now, boolean fight, float[] out) {
 		Clip one = clip(s.animId);
 		boolean playing = one != null && age >= 0f && age < one.length();
 		if (s.rushing) {
@@ -397,8 +399,6 @@ public final class StandClips {
 			System.arraycopy(HOLD, 0, out, 0, N);
 		} else if (s.sightUntil > now) {
 			System.arraycopy(SIGHT, 0, out, 0, N);
-		} else if (userPose != null && userPose.pose() != 0) {
-			System.arraycopy(POSE_POINT, 0, out, 0, N);
 		} else {
 			System.arraycopy(fight ? STANCE : REST, 0, out, 0, N);
 		}
@@ -540,7 +540,7 @@ public final class StandClips {
 				}
 			}
 		}
-		for (Object[] held : new Object[][] { { "rest", REST }, { "stance", STANCE }, { "hold", HOLD }, { "guard", GUARD }, { "sight", SIGHT }, { "pose", POSE_POINT } }) {
+		for (Object[] held : new Object[][] { { "rest", REST }, { "stance", STANCE }, { "hold", HOLD }, { "guard", GUARD }, { "sight", SIGHT } }) {
 			String bad = problem((float[]) held[1], held[1] == GUARD);
 			if (bad != null) {
 				out.add(held[0] + ": " + bad);

@@ -27,7 +27,8 @@ public final class StandClient {
 
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(StandHud::render);
-		WorldRenderEvents.AFTER_ENTITIES.register(StandRender::render);
+		// (after every entity is on screen: thinned out in third person, it must not hide the user it stands behind)
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(StandRender::render);
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(StandFx::render);
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
 				(payload, context) -> StandFx.receive(payload));

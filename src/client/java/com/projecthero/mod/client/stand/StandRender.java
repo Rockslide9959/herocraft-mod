@@ -3,13 +3,17 @@ package com.projecthero.mod.client.stand;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.mixin.StandArmPoseInvoker;
+import com.projecthero.mod.client.mixin.StandRotationsInvoker;
 import com.projecthero.mod.client.render.JointedLimbs;
 import com.projecthero.mod.stand.StandClips;
 import com.projecthero.mod.stand.StandConfig;
@@ -23,17 +27,22 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -47,7 +56,11 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ul>
  *   <li>The body is the vanilla wide player model wearing the Stand's skin (Star Platinum: the user's NovaSkin), about
- *       1.15x a player, with a faint purple glow shell, floating and bobbing behind the right shoulder at rest.</li>
+ *       1.15x a player, with a faint purple glow shell.</li>
+ *   <li>v0.17.2 (user: "make star platinum mirror the users pose but do it behind their back"): when no move is playing it stands
+ *       directly behind its user, facing their way, and copies them limb for limb, right arm to right arm: {@link #poseMirror} runs
+ *       the same animation code on a private model that the user's own renderer runs, so walking, crouching, jumping, swimming, an
+ *       elytra, held items, the N pose and every power's body poses all come through without being listed.</li>
  *   <li>While it fights (any attack, the rush, Guard, the charge, a held thing, the inhale) it moves in front of its user --
  *       in first person far enough out to be seen.</li>
  *   <li>Its body moves on real elbows and knees ({@link StandClips}: keyframed clips, cross-faded every frame), and Star Finger is a
@@ -60,6 +73,8 @@ public final class StandRender {
 	private static final float SCALE = 1.15f * 0.9375f;
 	/** The waist, above the figure's origin (blocks): what it leans about. */
 	private static final float WAIST = 0.95f;
+	/** How far behind its user it stands when it copies them (blocks). */
+	private static final double BEHIND = StarPlatinum.BEHIND;
 
 	/** Per-Stand smoothing (where it floats, which way it faces). */
 	private static final class Smooth {
@@ -68,12 +83,16 @@ public final class StandRender {
 		long lastNanos;
 		/** The pose on screen, chasing the wanted one ({@link StandClips#target}); null until the first frame. */
 		float[] pose;
+		/** 0 = copying its user, 1 = playing a move; eased, so it blends one into the other. */
+		float moved = 1f;
 		/** The Star Finger whose fingertip flash has gone off (its animation's start). */
 		long fingerFlash;
 	}
 
 	private static final Map<Integer, Smooth> SMOOTH = new ConcurrentHashMap<>();
 	private static PlayerModel<Player> model;
+	/** A second model that the user's pose is worked out on (the same code their own renderer runs). */
+	private static PlayerModel<Player> mirror;
 
 	private StandRender() {
 	}
@@ -81,6 +100,7 @@ public final class StandRender {
 	static void reset() {
 		SMOOTH.clear();
 		model = null;
+		mirror = null;
 	}
 
 	private static float ease(float t) {
@@ -119,6 +139,7 @@ public final class StandRender {
 		}
 		if (model == null) {
 			model = new PlayerModel<>(mc.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);
+			mirror = new PlayerModel<>(mc.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);
 		}
 		float partial = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
 		Vec3 cam = ctx.camera().getPosition();
@@ -184,7 +205,10 @@ public final class StandRender {
 			want = at.add(0, -1.2, 0).add(fwdBody.scale(0.15));
 			wantYaw = bodyYaw;
 		} else {
-			want = at.subtract(fwdBody.scale(0.5)).add(StarPlatinum.rightOf(fwdBody).scale(0.75)).add(0, 0.35 + 0.06 * Mth.sin(t * 0.1f), 0);
+			// directly behind its user, just clear of their swinging arms; along the body when they lie flat (swimming, an elytra)
+			boolean flat = p.isVisuallySwimming() || p.isFallFlying();
+			Vec3 back = flat ? p.getViewVector(partial).scale(BEHIND + 0.5) : fwdBody.scale(BEHIND);
+			want = at.subtract(back).add(0, StarPlatinum.BEHIND_UP + 0.04 * Mth.sin(t * 0.1f), 0);
 			wantYaw = bodyYaw;
 		}
 		Smooth sm = SMOOTH.computeIfAbsent(p.getId(), k -> new Smooth());
@@ -196,7 +220,7 @@ public final class StandRender {
 		} else {
 			// quick: it snaps out in front to fight, and drifts back to the shoulder -- in first person a little slower both ways
 			// (user: "make him float in front of the user and then float back behind the user like how it happens in third person")
-			float k = Mth.clamp((fight ? (firstPerson && !fingerOut(s, age) ? 0.32f : 0.6f) : (firstPerson ? 0.1f : 0.25f)) * dt, 0f, 1f);
+			float k = Mth.clamp((fight ? (firstPerson && !fingerOut(s, age) ? 0.32f : 0.6f) : (firstPerson ? 0.1f : 0.55f)) * dt, 0f, 1f);
 			sm.pos = sm.pos.lerp(want, k);
 		}
 		if (Float.isNaN(sm.yaw)) {
@@ -206,7 +230,7 @@ public final class StandRender {
 
 		// ---- the pose: chase the wanted one, fast enough that a strike still snaps (a filter on frame time, not a tick step)
 		float[] wantPose = new float[StandClips.N];
-		StandClips.target(s, p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null), age, t, now, fight, wantPose);
+		StandClips.target(s, age, t, now, fight, wantPose);
 		if (sm.pose == null) {
 			sm.pose = wantPose.clone();
 		}
@@ -215,9 +239,13 @@ public final class StandRender {
 			sm.pose[i] += (wantPose[i] - sm.pose[i]) * follow;
 		}
 		float[] pp = sm.pose;
-		// it leans into its user's speed
+		// a move takes over fast; it settles back into copying its user more slowly
+		boolean copying = StandClips.mirrors(s, age, now);
+		sm.moved += ((copying ? 0f : 1f) - sm.moved) * (1f - (float) Math.exp(-(copying ? 0.3f : 1.1f) * dt));
+		float moved = sm.moved;
+		// playing a move it leans into its user's speed (copying them, the run cycle says it)
 		Vec3 vel = p.getDeltaMovement();
-		float speedLean = Mth.clamp((float) vel.horizontalDistance() * 0.9f, 0f, 0.4f);
+		float speedLean = Mth.clamp((float) vel.horizontalDistance() * 0.9f, 0f, 0.4f) * moved;
 		Vec3 facing = dir(sm.yaw);
 		Vec3 pos = sm.pos.add(facing.scale(pp[StandClips.FWD])).add(0, pp[StandClips.UP], 0)
 				.add(StarPlatinum.rightOf(facing).scale(pp[StandClips.SIDE]));
@@ -234,6 +262,9 @@ public final class StandRender {
 			// gliding past your shoulder it fades in/out rather than filling the screen; at rest behind you it is gone
 			double near = pos.add(0, 1.2, 0).distanceTo(cam);
 			alpha *= Mth.clamp((float) (near - 1.25) / 0.7f, 0f, 1f);
+		} else if (p == mc.getCameraEntity() && mc.options.getCameraType() == net.minecraft.client.CameraType.THIRD_PERSON_BACK) {
+			// third person: it stands between the camera and you, so while it copies you it thins out enough to see you and the crosshair
+			alpha *= Mth.lerp(moved, 0.45f, 1f);
 		}
 		if (alpha <= 0.02f) {
 			return;
@@ -246,9 +277,21 @@ public final class StandRender {
 		float lookPitch = Mth.clamp(pitch, -60f, 60f) * Mth.DEG_TO_RAD;
 		JointedLimbs.begin();
 		try {
+			Quaternionf[] joints = new Quaternionf[4];
+			if (moved < 0.999f) {
+				poseMirror((AbstractClientPlayer) p, partial, bodyYaw, headYaw, pitch);
+				for (int i = 0; i < 4; i++) {
+					joints[i] = JointedLimbs.joint(i);
+				}
+				JointedLimbs.begin(); // (the move's pose sets its own)
+			}
 			StandPoses.apply(m, pp, lookPitch, lookYaw);
+			if (moved < 0.999f) {
+				blendMirror(m, 1f - moved, joints);
+			}
 			copyLayers(m);
-			drawBody(pose, buffers, m, s, type, p, sm, pos, pp, speedLean, age, t, alpha, cam);
+			PoseStack root = rootPose(p, sm, pp, speedLean, bodyYaw, partial, t, moved);
+			drawBody(pose, buffers, m, s, type, p, sm, pos, root, age, t, alpha, cam, pp, speedLean);
 		} finally {
 			JointedLimbs.end();
 		}
@@ -259,22 +302,111 @@ public final class StandRender {
 		renderText(pose, buffers, p, s, pos, age, t, cam);
 	}
 
-	/** The figure, its rush arms, its glow shell and Star Finger, in the pose set on {@code m}. */
-	private static void drawBody(PoseStack pose, MultiBufferSource buffers, PlayerModel<Player> m, StandState s, StandType type, Player p, Smooth sm,
-			Vec3 pos, float[] pp, float speedLean, float age, float t, float alpha, Vec3 cam) {
+	/**
+	 * The user's pose this frame, on {@link #mirror}: the same steps as {@code LivingEntityRenderer#render} and
+	 * {@code PlayerRenderer#setModelProperties} (so every pose mixin on the humanoid model runs on it too, joints included). Their limbs,
+	 * not a flip of them: the right arm follows the right arm.
+	 */
+	private static void poseMirror(AbstractClientPlayer p, float partial, float bodyYaw, float headYaw, float pitch) {
+		PlayerModel<Player> m = mirror;
+		for (ModelPart part : new ModelPart[] { m.head, m.hat, m.body, m.rightArm, m.leftArm, m.rightLeg, m.leftLeg }) {
+			part.resetPose();
+		}
+		HumanoidModel.ArmPose main = StandArmPoseInvoker.projecthero$armPose(p, InteractionHand.MAIN_HAND);
+		HumanoidModel.ArmPose off = StandArmPoseInvoker.projecthero$armPose(p, InteractionHand.OFF_HAND);
+		if (main.isTwoHanded()) {
+			off = p.getOffhandItem().isEmpty() ? HumanoidModel.ArmPose.EMPTY : HumanoidModel.ArmPose.ITEM;
+		}
+		boolean rightHanded = p.getMainArm() == HumanoidArm.RIGHT;
+		m.rightArmPose = rightHanded ? main : off;
+		m.leftArmPose = rightHanded ? off : main;
+		m.crouching = p.isCrouching();
+		m.attackTime = p.getAttackAnim(partial);
+		m.riding = p.isPassenger();
+		m.young = false;
+		float speed = 0f, swing = 0f;
+		if (!p.isPassenger() && p.isAlive()) {
+			speed = Math.min(1f, p.walkAnimation.speed(partial));
+			swing = p.walkAnimation.position(partial);
+		}
+		m.prepareMobModel(p, swing, speed, partial);
+		m.setupAnim(p, swing, speed, p.tickCount + partial, Mth.wrapDegrees(headYaw - bodyYaw), pitch);
+	}
+
+	/** Eases the move's pose on {@code m} toward the copied one on {@link #mirror} ({@code w} 1 = all copied), joints included. */
+	private static void blendMirror(PlayerModel<Player> m, float w, Quaternionf[] mirrorJoints) {
+		blend(m.head, mirror.head, w);
+		blend(m.body, mirror.body, w);
+		blend(m.rightArm, mirror.rightArm, w);
+		blend(m.leftArm, mirror.leftArm, w);
+		blend(m.rightLeg, mirror.rightLeg, w);
+		blend(m.leftLeg, mirror.leftLeg, w);
+		for (int i = 0; i < 4; i++) {
+			Quaternionf a = JointedLimbs.joint(i), b = mirrorJoints[i];
+			if (a != null || b != null) {
+				Quaternionf from = a == null ? new Quaternionf() : a;
+				JointedLimbs.setJoint(i, new Quaternionf(from).slerp(b == null ? new Quaternionf() : b, w));
+			}
+		}
+	}
+
+	private static void blend(ModelPart to, ModelPart from, float w) {
+		to.x = Mth.lerp(w, to.x, from.x);
+		to.y = Mth.lerp(w, to.y, from.y);
+		to.z = Mth.lerp(w, to.z, from.z);
+		to.xRot = Mth.lerp(w, to.xRot, from.xRot);
+		to.yRot = Mth.lerp(w, to.yRot, from.yRot);
+		to.zRot = Mth.lerp(w, to.zRot, from.zRot);
+	}
+
+	/**
+	 * The figure's turn and tilt about its feet: a move's (its facing, leaning about the waist) eased toward the one the user's own
+	 * renderer gives them, which is what lays it flat when they swim or fly. {@code moved} 1 = all the move's.
+	 */
+	private static PoseStack rootPose(Player p, Smooth sm, float[] pp, float speedLean, float bodyYaw, float partial, float t, float moved) {
+		PoseStack move = new PoseStack();
+		move.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw + pp[StandClips.TWIST] * Mth.RAD_TO_DEG));
+		// the whole figure leans about its waist
+		move.translate(0f, WAIST, 0f);
+		move.mulPose(Axis.XP.rotation(-(pp[StandClips.LEAN] + speedLean)));
+		move.mulPose(Axis.ZP.rotation(pp[StandClips.ROLL]));
+		move.translate(0f, -WAIST, 0f);
+		if (moved >= 0.999f || !(Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(p) instanceof LivingEntityRenderer<?, ?> renderer)) {
+			return move;
+		}
+		PoseStack copied = new PoseStack();
+		((StandRotationsInvoker) renderer).projecthero$setupRotations(p, copied, t, bodyYaw, partial, 1f);
+		Matrix4f a = move.last().pose(), b = copied.last().pose();
+		Quaternionf q = a.getNormalizedRotation(new Quaternionf()).slerp(b.getNormalizedRotation(new Quaternionf()), 1f - moved);
+		Vector3f at = a.getTranslation(new Vector3f()).lerp(b.getTranslation(new Vector3f()), 1f - moved);
+		PoseStack out = new PoseStack();
+		out.translate(at.x, at.y, at.z);
+		out.mulPose(q);
+		return out;
+	}
+
+	/** The figure, its rush arms, its glow shell and Star Finger, in the pose set on {@code m}, turned by {@code root}. */
+	private static void drawBody(PoseStack pose, MultiBufferSource buffers, PlayerModel<Player> m, StandState s, StandType type, Player p, Smooth sm, Vec3 pos,
+			PoseStack root, float age, float t, float alpha, Vec3 cam, float[] pp, float speedLean) {
 
 		int light = light(p, pos.add(0, 1.2, 0));
 		int a = Mth.clamp((int) (alpha * 255f), 0, 255);
 		pose.pushPose();
 		pose.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-		pose.mulPose(Axis.YP.rotationDegrees(180f - sm.yaw + pp[StandClips.TWIST] * Mth.RAD_TO_DEG));
-		// the whole figure leans about its waist
-		pose.translate(0f, WAIST, 0f);
-		pose.mulPose(Axis.XP.rotation(-(pp[StandClips.LEAN] + speedLean)));
-		pose.mulPose(Axis.ZP.rotation(pp[StandClips.ROLL]));
-		pose.translate(0f, -WAIST, 0f);
+		pose.last().pose().mul(root.last().pose());
+		pose.last().normal().mul(root.last().normal());
 		pose.scale(-SCALE, -SCALE, SCALE);
 		pose.translate(0f, -1.501f, 0f);
+		if (a < 250 && buffers instanceof MultiBufferSource.BufferSource batch) {
+			// thinned out, it would show its own insides (nothing culls them): lay its nearest surface in the depth buffer first,
+			// colourless, so the colour pass draws one clean ghost of a figure
+			RenderType depth = RenderType.entityTranslucent(type.texture());
+			batch.endBatch();
+			RenderSystem.colorMask(false, false, false, false);
+			m.renderToBuffer(pose, batch.getBuffer(depth), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			batch.endBatch(depth);
+			RenderSystem.colorMask(true, true, true, true);
+		}
 		VertexConsumer body = buffers.getBuffer(RenderType.entityTranslucent(type.texture()));
 		m.renderToBuffer(pose, body, light, OverlayTexture.NO_OVERLAY, (a << 24) | 0xFFFFFF);
 		// the rush's blurred extra arms

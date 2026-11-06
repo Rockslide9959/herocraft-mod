@@ -76,10 +76,13 @@ public final class StarPlatinum {
 		return new Vec3(-fwd.z, 0, fwd.x);
 	}
 
-	/** Where the Stand floats at rest: behind the right shoulder (the model's feet). */
+	/** How far behind its user it stands while it copies them, and how far off the ground it floats (blocks). */
+	public static final double BEHIND = 1.0, BEHIND_UP = 0.1;
+
+	/** Where the Stand floats at rest: directly behind its user (the model's feet). */
 	public static Vec3 restPoint(Player p) {
 		Vec3 f = forward(p);
-		return p.position().subtract(f.scale(0.5)).add(rightOf(f).scale(0.75)).add(0, 0.35, 0);
+		return p.position().subtract(f.scale(BEHIND)).add(0, BEHIND_UP, 0);
 	}
 
 	/** Where it stands when it fights: in front. */
