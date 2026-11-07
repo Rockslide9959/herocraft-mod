@@ -109,15 +109,12 @@ public final class OmnitrixInfo {
 
 	// ---------------------------------------------------------------- the watch
 
-	/** The Omnitrix's own keys: R (raise / lower), the scroll wheel, a click, N as an alien (v0.17.1 user: N, was V). */
+	/** The Omnitrix's own keys: R (raise / lower), the scroll wheel, a click. */
 	public static void controls(List<Component> out, Function<AbilitySlot, Component> keys) {
-		Component v = keys.apply(AbilitySlot.SLOT_8);
 		out.add(head("controls"));
 		out.add(keyCell(keys.apply(AbilitySlot.SLOT_1)).append(Component.translatable(I + "key.raise").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.scroll_label")).append(Component.translatable(I + "key.scroll").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.click_label")).append(Component.translatable(I + "key.slap").withStyle(ChatFormatting.WHITE)));
-		out.add(keyCell(v).append(Component.translatable(I + "key.revert").withStyle(ChatFormatting.WHITE)));
-		out.add(Component.translatable(I + "key.kit").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
 	}
 
 	/** The timeout, the warning, the recharge and the early revert, from {@link OmnitrixConfig}. */

@@ -390,8 +390,6 @@
   "projecthero.omnitrix.info.key.scroll": "Turn the dial to the next alien (watch raised)",
   "projecthero.omnitrix.info.key.click_label": "Click",
   "projecthero.omnitrix.info.key.slap": "Slam the core down and transform (watch raised)",
-  "projecthero.omnitrix.info.key.revert": "On the Recalibrated Omnitrix: turn back at will, free (the prototype stays an alien until the watch times out)",
-  "projecthero.omnitrix.info.key.kit": "As an alien, R, G, X (movement), Z, V (utility / mode) and C and their Shift versions are its moves; attack and use do something too.",
   "projecthero.omnitrix.info.rules": "Omnitrix rules",
   "projecthero.omnitrix.info.rule.timeout": "Prototype: a transformation lasts %s. In the last %s s the watch flashes red, then you time out.",
   "projecthero.omnitrix.info.rule.recharge": "Prototype: timing out leaves the watch recharging for %s s.",
