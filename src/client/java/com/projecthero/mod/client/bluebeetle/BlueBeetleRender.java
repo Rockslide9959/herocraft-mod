@@ -372,6 +372,12 @@ public final class BlueBeetleRender {
 
 	/** The distance (model pixels, -1 if unused) from the Scarab to base texel ({@code u}, {@code v}), overlay mapped. */
 	private static float distance(int u, int v) {
+		int base = baseTexel(u, v);
+		return base < 0 ? -1f : geodesic()[base];
+	}
+
+	/** v0.17.3: index ({@code v * 64 + u}) of the base texel under skin texel (u, v), overlay mapped; -1 off the sheet. */
+	public static int baseTexel(int u, int v) {
 		// overlay regions -> the base texel under them
 		if (v < 16 && u >= 32) {
 			u -= 32; // hat -> head
@@ -383,9 +389,9 @@ public final class BlueBeetleRender {
 			u -= 16; // left sleeve -> left arm
 		}
 		if (u < 0 || v < 0 || u >= 64 || v >= 64) {
-			return -1f;
+			return -1;
 		}
-		return geodesic()[v * 64 + u];
+		return v * 64 + u;
 	}
 
 	private static float[] geodesic;
@@ -396,9 +402,14 @@ public final class BlueBeetleRender {
 	 * the joins where the head, arms and legs meet the body -- never through a cube's inside.
 	 */
 	private static float[] geodesic() {
-		if (geodesic != null) {
-			return geodesic;
+		if (geodesic == null) {
+			geodesic = geodesicFrom(SX, SY, SZ);
 		}
+		return geodesic;
+	}
+
+	/** v0.17.3: the same walk from any seed on the front or back of the body ({@code sz}: 2 the back, -2 the chest). */
+	public static float[] geodesicFrom(float sx, float sy, float sz) {
 		java.util.List<Integer> ids = new java.util.ArrayList<>();
 		java.util.List<float[]> pos = new java.util.ArrayList<>();
 		for (int v = 0; v < 64; v++) {
@@ -419,13 +430,13 @@ public final class BlueBeetleRender {
 		float nearestD = Float.MAX_VALUE;
 		for (int i = 0; i < n; i++) {
 			float[] p = pos.get(i);
-			float dx = p[0] - SX, dy = p[1] - SY, dz = p[2] - SZ;
+			float dx = p[0] - sx, dy = p[1] - sy, dz = p[2] - sz;
 			float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
 			if (d < nearestD) {
 				nearestD = d;
 				nearest = i;
 			}
-			if (d <= 2.0f && p[2] >= SZ - 0.01f) {
+			if (d <= 2.0f && Math.signum(sz) * p[2] >= Math.abs(sz) - 0.01f) {
 				dist[i] = d;
 				queue.add(new float[] { d, i });
 			}
@@ -467,7 +478,6 @@ public final class BlueBeetleRender {
 		for (int i = 0; i < n; i++) {
 			out[ids.get(i)] = dist[i] == Float.MAX_VALUE ? -1f : dist[i];
 		}
-		geodesic = out;
 		return out;
 	}
 

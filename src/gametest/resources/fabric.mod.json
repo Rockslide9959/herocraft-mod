@@ -242,6 +242,7 @@
       "com.projecthero.mod.gametest.OmnitrixGhostfreakGameTests",
       "com.projecthero.mod.gametest.SpeedForceSurvivalGameTests",
       "com.projecthero.mod.gametest.BlueBeetleGameTests",
+      "com.projecthero.mod.gametest.BlackPantherGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",

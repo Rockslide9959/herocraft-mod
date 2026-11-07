@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:bowl"
+    },
+    {
+      "item": "projecthero:heart_shaped_herb"
+    },
+    {
+      "item": "projecthero:heart_shaped_herb"
+    },
+    {
+      "item": "projecthero:heart_shaped_herb"
+    }
+  ],
+  "result": {
+    "id": "projecthero:heart_shaped_herb_soup",
+    "count": 1
+  }
+}

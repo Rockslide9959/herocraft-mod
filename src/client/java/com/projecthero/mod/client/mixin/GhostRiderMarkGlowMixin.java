@@ -21,7 +21,8 @@ public abstract class GhostRiderMarkGlowMixin {
 		// v0.16.5: and Cyborg's Scan (cyan, the scanner alone)
 		// v0.17.1: and the Falcon's Tactical Goggles (red, the wearer alone)
 		if (GhostRiderMarkClient.marked(entity) || com.projecthero.mod.client.cyborg.CyborgScanClient.scanned(entity)
-				|| com.projecthero.mod.client.falcon.FalconClient.marked(entity)) {
+				|| com.projecthero.mod.client.falcon.FalconClient.marked(entity)
+				|| com.projecthero.mod.client.blackpanther.PantherSensesClient.sensed(entity)) { // v0.17.3: Panther Senses
 			cir.setReturnValue(true);
 		}
 	}

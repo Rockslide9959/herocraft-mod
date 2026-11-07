@@ -156,6 +156,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.omnitrix.OmnitrixClient.initialize(); // v0.17.1: the Omnitrix
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
+		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.speed.SpeedsterGroundStick.initialize(); // v0.17.1
@@ -916,6 +917,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.cyborg.CyborgClient.ownsH(client.player)) {
 				// v0.16.5: H as Cyborg -- combat / civilian form (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.cyborg.CyborgClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(client.player)) {
+				// v0.17.3: H as Black Panther -- the suit out of the necklace / back in (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.blackpanther.BlackPantherClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(client.player)) {
 				// v0.16.5: H as Blue Beetle -- the armour on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.bluebeetle.BlueBeetleClient.pressH();
@@ -966,7 +970,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.stand.Stands.hasPower(client.player)
 							|| com.projecthero.mod.miraculous.Miraculous.hasPower(client.player)
 							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
-							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player))) {
+							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player)
+							|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.

@@ -214,6 +214,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.speedforce.SpeedForceMod.clearSessionState();
 		// v0.16.5: Blue Beetle move sessions, bubbles, Adaptation counts, Khaji-Da's lines, lent flight
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.clearSessionState();
+		com.projecthero.mod.blackpanther.BlackPantherMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();

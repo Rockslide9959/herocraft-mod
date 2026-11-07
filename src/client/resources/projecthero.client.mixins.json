@@ -141,6 +141,7 @@
 		"SilverSurferScreenEffectMixin",
 
 		"BlueBeetleFirstPersonArmMixin",
+		"BlackPantherFirstPersonArmMixin",
 		"CatNoirFirstPersonArmMixin",
 		"CatNoirItemInHandMixin",
 		"CatNoirItemInHandLayerMixin",

@@ -59,6 +59,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.miraculous.MiraculousClient.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.quirk.QuirkClient.hidesSkinOverlay(player)
+				|| com.projecthero.mod.client.blackpanther.BlackPantherRender.hidesSkinOverlay(player) // v0.17.3
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.falcon.FalconRender.hidesSkinOverlay(player)) { // v0.17.1
 			model.hat.visible = false;

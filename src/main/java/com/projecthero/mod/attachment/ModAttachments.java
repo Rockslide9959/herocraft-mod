@@ -960,6 +960,15 @@ public final class ModAttachments {
 					.copyOnDeath()
 					.initializer(() -> com.projecthero.mod.stormbreaker.BifrostWaypoints.EMPTY));
 
+	/** v0.17.3: Black Panther (T'Challa) -- the power, the suit, Kinetic Energy, the Ancestral Plane, timers. */
+	public static final AttachmentType<com.projecthero.mod.blackpanther.data.BlackPantherState> BLACK_PANTHER_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("black_panther_state"),
+					builder -> builder.persistent(com.projecthero.mod.blackpanther.data.BlackPantherState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.blackpanther.data.BlackPantherState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.blackpanther.data.BlackPantherState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),

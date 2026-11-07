@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "projecthero:block/heart_shaped_herb"
+  }
+}

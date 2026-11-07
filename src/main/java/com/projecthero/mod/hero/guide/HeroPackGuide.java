@@ -135,6 +135,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
+	/** Black Panther (v0.17.3). */
+	public static Chapter blackPantherChapter() {
+		return chapters().get(CH_BLACK_PANTHER);
+	}
+
 	/** The Falcon (v0.17.1). */
 	public static Chapter falconChapter() {
 		return chapters().get(CH_FALCON);
@@ -558,7 +563,8 @@ public final class HeroPackGuide {
 	private static final int CH_STANDS = CH_OMNITRIX + 1; // 62
 	/** v0.17.2: Queen Bee (after the Stands, so every earlier index stays put). */
 	private static final int CH_QUEEN_BEE = CH_STANDS + 1; // 63
-	private static final int CHAPTER_POWER_BASE = CH_QUEEN_BEE + 1; // 64
+	private static final int CH_BLACK_PANTHER = CH_QUEEN_BEE + 1; // 64, v0.17.3
+	private static final int CHAPTER_POWER_BASE = CH_BLACK_PANTHER + 1; // 65
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1660,6 +1666,29 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.stand.commands.body");
 		}));
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.POLLEN)); // CH_QUEEN_BEE (v0.17.2)
+		// v0.17.3: Black Panther (CH_BLACK_PANTHER)
+		out.add(chapter("projecthero.guide.black_panther", lines -> {
+			lines.add(Component.translatable("projecthero.guide.black_panther.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.black_panther.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "suit", "kinetic", "passives"}) {
+				head(lines, "projecthero.guide.black_panther." + section);
+				para(lines, "projecthero.guide.black_panther." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.black_panther.controls");
+			for (String[] row : new String[][] { { "R", "kinetic_pulse" }, { "Shift+R", "kinetic_overload" }, { "G", "claw_combo" },
+					{ "Shift+G", "pounce" }, { "X", "panther_leap" }, { "Shift+X", "drop_strike" }, { "Z", "vibranium_dagger" },
+					{ "Shift+Z", "kimoyo_flash" }, { "V", "stalk" }, { "Shift+V", "panther_senses" }, { "C", "absorb_stance" },
+					{ "Shift+C", "kinetic_return" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.black_panther.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.black_panther.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.black_panther.commands");
+			para(lines, "projecthero.guide.black_panther.commands.body");
+		}));
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -1811,6 +1840,7 @@ public final class HeroPackGuide {
 		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
 		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
+		icon(CH_BLACK_PANTHER, "heart_shaped_herb"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
@@ -1865,6 +1895,7 @@ public final class HeroPackGuide {
 		link(marvel, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		link(marvel, "projecthero.guide.nova", CH_NOVA);
 		link(marvel, "projecthero.guide.falcon", CH_FALCON); // v0.17.1
+		link(marvel, "projecthero.guide.black_panther", CH_BLACK_PANTHER); // v0.17.3
 		link(marvel, "projecthero.guide.silver_surfer", CH_SILVER_SURFER); // v0.17.1
 
 		List<IndexEntry> dc = map.get(Category.DC);

@@ -78,6 +78,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
 			return "projecthero.squad.identity.cyborg";
 		}
+		if (com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {
+			return "projecthero.squad.identity.black_panther"; // v0.17.3
+		}
 		if (com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)) {
 			return "projecthero.squad.identity.blue_beetle";
 		}
