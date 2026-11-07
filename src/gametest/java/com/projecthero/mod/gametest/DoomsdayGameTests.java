@@ -235,7 +235,8 @@ public class DoomsdayGameTests implements FabricGameTest {
 			d.debugSetLife(3);
 			kill(level, d);
 			helper.assertTrue(d.finalDeath() && e.projectorGiven(), "the third death hands the Projector over");
-			helper.assertTrue(p.getInventory().countItem(DoomsdayItems.PROJECTOR) == 1, "the only fighter holds it");
+			// other tests' mock players can stand inside the event too, and the nearest fighter gets it
+			helper.assertTrue(level.players().stream().mapToInt(x -> x.getInventory().countItem(DoomsdayItems.PROJECTOR)).sum() == 1, "exactly one fighter holds it");
 			helper.assertTrue(p.getInventory().countItem(DoomsdayItems.PHANTOM_SHARD) == 0, "no shards left over");
 		} finally {
 			if (e.state().active()) {
