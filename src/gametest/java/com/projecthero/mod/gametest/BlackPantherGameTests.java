@@ -73,6 +73,37 @@ public class BlackPantherGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void herbPatchGrowsOnGrassAndTheSoupHasARecipe(GameTestHelper helper) {
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				helper.setBlock(new BlockPos(x, 1, z), net.minecraft.world.level.block.Blocks.GRASS_BLOCK);
+				helper.setBlock(new BlockPos(x, 2, z), net.minecraft.world.level.block.Blocks.AIR);
+			}
+		}
+		var level = helper.getLevel();
+		var feature = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.CONFIGURED_FEATURE)
+				.get(com.projecthero.mod.ProjectHeroMod.id("heart_shaped_herb"));
+		helper.assertTrue(feature != null, "the configured feature loads");
+		helper.assertTrue(level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.PLACED_FEATURE)
+				.containsKey(BlackPantherItems.HERB_FEATURE), "the placed feature loads");
+		BlockPos centre = helper.absolutePos(new BlockPos(4, 2, 4));
+		for (int i = 0; i < 6; i++) {
+			feature.place(level, level.getChunkSource().getGenerator(), level.getRandom(), centre);
+		}
+		int herbs = 0;
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				if (helper.getBlockState(new BlockPos(x, 2, z)).is(BlackPantherItems.HERB_BLOCK)) {
+					herbs++;
+				}
+			}
+		}
+		helper.assertTrue(herbs > 0, "the patch grows herbs on grass");
+		helper.assertTrue(level.getServer().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("heart_shaped_herb_soup")).isPresent(), "the soup recipe loads");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void takesTheOnePrimarySlot(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);
 		Kryptonian.grant(p);
