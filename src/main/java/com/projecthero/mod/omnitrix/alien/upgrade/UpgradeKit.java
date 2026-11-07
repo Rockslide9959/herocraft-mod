@@ -688,6 +688,7 @@ public final class UpgradeKit extends AlienKit {
 			return;
 		}
 		long age = now - timer(p, "beam_at");
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 1.2f, 0x7CFF6A); // v0.17.3
 		if (age > 0 && age % BEAM_EVERY == 0) {
 			beamHit(p);
 		}

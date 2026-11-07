@@ -93,7 +93,7 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 	public void render(DoomsdayEntity e, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light) {
 		super.render(e, yaw, partialTick, pose, buffers, light);
 		float elapsed = e.tickCount - e.actionStartTick + partialTick;
-		if (e.action() == DoomsdayEntity.ACTION_HEAT && elapsed >= DoomsdayEntity.HEAT_CHARGE && elapsed <= DoomsdayEntity.HEAT_END + 1) {
+		if (e.action() == DoomsdayEntity.ACTION_HEAT && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(e) && elapsed >= DoomsdayEntity.HEAT_CHARGE && elapsed <= DoomsdayEntity.HEAT_END + 1) {
 			heatBeam(e, partialTick, pose, buffers);
 		}
 		if (e.action() == DoomsdayEntity.ACTION_BANISH) {

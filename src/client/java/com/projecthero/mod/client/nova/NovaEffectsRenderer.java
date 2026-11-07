@@ -189,7 +189,7 @@ public final class NovaEffectsRenderer {
 				continue;
 			}
 			boolean self = player == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
-			if (s.blasting) {
+			if (s.blasting && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(player)) {
 				beam(mc, level, player, partial, time, self, glow, core);
 			}
 			if (s.shieldUntil > now) {

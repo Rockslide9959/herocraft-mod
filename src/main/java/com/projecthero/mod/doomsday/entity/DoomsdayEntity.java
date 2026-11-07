@@ -1516,6 +1516,7 @@ public class DoomsdayEntity extends Monster {
 				Vec3 eye = d.eyes();
 				Vec3 dir = aim.subtract(eye);
 				Vec3 end = eye.add(dir.normalize().scale(m.heatRange));
+				com.projecthero.mod.beamclash.BeamClash.report(d, eye, dir, m.heatRange, 1.6f, 0xFF2A20); // v0.17.3
 				HitResult hr = level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, d));
 				if (hr.getType() != HitResult.Type.MISS) {
 					end = hr.getLocation();

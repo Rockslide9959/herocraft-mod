@@ -312,6 +312,7 @@ public final class SilverSurferAbilities {
 		LivingEntity[] out = new LivingEntity[1];
 		Vec3 from = hand(p);
 		Vec3 end = SilverSurferCombat.ray(p, p.getEyePosition(), p.getLookAngle(), SilverSurferConfig.BEAM_RANGE, 0.25, out);
+		com.projecthero.mod.beamclash.BeamClash.report(p, from, p.getLookAngle(), SilverSurferConfig.BEAM_RANGE, 1.3f, 0xB8E4FF); // v0.17.3
 		if (held % 2 == 0) {
 			SilverSurferState n = SilverSurfer.state(p).copy();
 			n.beamEnd = List.of(end.x, end.y, end.z);

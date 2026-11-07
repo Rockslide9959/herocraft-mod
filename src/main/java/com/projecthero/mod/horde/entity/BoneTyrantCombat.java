@@ -671,6 +671,7 @@ public final class BoneTyrantCombat {
 		}
 		face(core.add(beamDir), 180f);
 		Vec3 end = core.add(beamDir.scale(BEAM_LENGTH));
+		com.projecthero.mod.beamclash.BeamClash.report(boss, core, beamDir, BEAM_LENGTH, 1.3f, 0x55E0D0); // v0.17.3
 		var hit = level.clip(new ClipContext(core, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, boss));
 		if (hit.getType() != HitResult.Type.MISS) {
 			end = hit.getLocation();

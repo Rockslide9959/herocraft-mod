@@ -930,6 +930,7 @@ public final class HellflameMoves {
 		}
 		int n = 0;
 		Vec3[] seg = beamSegment(p);
+		com.projecthero.mod.beamclash.BeamClash.report(p, seg[0], seg[1].subtract(seg[0]), 48.0, 1.4f, 0xFF7A20); // v0.17.3
 		ServerLevel level = p.serverLevel();
 		if (age % HellflameConfig.HELLBLAST_HIT_INTERVAL == 0) {
 			for (LivingEntity e : HellflameCombat.alongPath(p, seg[0], seg[1], HellflameConfig.HELLBLAST_RADIUS * size(p), null)) {

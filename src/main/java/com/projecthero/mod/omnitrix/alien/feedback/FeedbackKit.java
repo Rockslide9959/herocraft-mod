@@ -663,6 +663,7 @@ public final class FeedbackKit extends AlienKit {
 		if (now % BEAM_DRAIN_EVERY == 0) {
 			setCharge(p, charge(p) - 1);
 		}
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 1.1f, 0x4FC8FF); // v0.17.3
 		if (now % BEAM_EVERY != 0) {
 			return;
 		}

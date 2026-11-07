@@ -56,7 +56,7 @@ public final class WayBigClient implements AlienClientKit {
 				}
 				funnel(vc, m, cam, pl, partial, time);
 			}
-			if ((flags & WayBigKit.F_RAY) == 0) {
+			if ((flags & WayBigKit.F_RAY) == 0 || com.projecthero.mod.client.beamclash.BeamClashClient.hides(pl)) {
 				continue;
 			}
 			float h = WayBigKit.height(pl);

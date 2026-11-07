@@ -605,6 +605,7 @@ public final class GreenLanternMech {
 		Vec3 from = m.chest();
 		Vec3 end = beamTarget(m, p);
 		m.setBeamEnd(end);
+		com.projecthero.mod.beamclash.BeamClash.report(p, from, end.subtract(from), 48.0, 2f * GreenLanternRanks.power(p), 0x3EE06A); // v0.17.3
 		if (m.tickCount % GreenLanternMechConfig.BEAM_INTERVAL_TICKS == 0) {
 			float dmg = GreenLanternMechConfig.BEAM_DAMAGE * GreenLanternRanks.power(p);
 			for (LivingEntity t : along(level, p, m, from, end, 1.0)) {

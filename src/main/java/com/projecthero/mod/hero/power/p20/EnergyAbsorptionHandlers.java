@@ -357,6 +357,7 @@ public final class EnergyAbsorptionHandlers {
 				LivingEntity t = AbilityHelpers.raycastEntity(p, 22.0);
 				Vec3 end = AbilityHelpers.aimPoint(p, 22.0);
 				AbilityHelpers.line(ctx.level(), handOrigin(p), end, elDust(p, 1.2f), 2.5);
+				com.projecthero.mod.beamclash.BeamClash.report(p, handOrigin(p), p.getLookAngle(), 22.0, 1f, 0xE050FF); // v0.17.3
 				if (p.tickCount % 2 == 0) {
 					AbilityHelpers.line(ctx.level(), handOrigin(p), end, ParticleTypes.END_ROD, 0.6);
 				}

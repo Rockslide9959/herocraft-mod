@@ -400,6 +400,7 @@ public final class LaserVisionHandlers {
 		float held = res(p, "beam_held") + 1;
 		set(p, "beam_held", Math.min(held, 2000));
 		ensureLoop(p, ANIM_BEAM);
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 100.0, 1f, 0xFF3A20); // v0.17.3
 		beamToFarViewers(p, ctx.level(), LaserBeamPayload.KIND_BEAM);
 		if (p.tickCount % 10 == 0) {
 			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
@@ -504,6 +505,7 @@ public final class LaserVisionHandlers {
 		set(p, "heat", MAX_HEAT);
 		set(p, "vent_delay", VENT_DELAY);
 		ensureLoop(p, ANIM_MAX);
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 100.0, 1.6f, 0xFF2A10); // v0.17.3
 		ServerLevel level = ctx.level();
 		Vec3 end = beamDamage(ctx, 14.0f, 0.9);
 		LaserBeams.send(level, p, p.getEyePosition(), end, LaserBeamPayload.KIND_MAX, LaserBeamPayload.REFRESH_TICKS);

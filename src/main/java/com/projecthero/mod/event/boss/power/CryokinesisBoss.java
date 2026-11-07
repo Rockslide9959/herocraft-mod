@@ -138,6 +138,7 @@ public class CryokinesisBoss extends BossPowerController {
 		face(target);
 		Vec3 from = boss.getEyePosition();
 		Vec3 to = clipEnd(level, from, from.add(aimFromEyes(mid(target)).scale(16.0)));
+		com.projecthero.mod.beamclash.BeamClash.report(boss, from, to.subtract(from), 16.0, 0.8f, 0x9FE8FF); // v0.17.3
 		if (beamTicks % 2 == 0) {
 			particleLine(level, FROST_BEAM, from, to, 2.0);
 		}

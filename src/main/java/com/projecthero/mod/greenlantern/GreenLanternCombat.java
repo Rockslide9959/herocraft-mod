@@ -147,6 +147,7 @@ public final class GreenLanternCombat {
 		BEAM_CHANNEL.put(player.getUUID(), 0);
 		GreenLanternVisuals.channel(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_BEAM, true);
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 6, movementPenaltyAmplifier(), false, false, false));
+		com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), GreenLanternConfig.BEAM_RANGE, com.projecthero.mod.greenlantern.GreenLanternRanks.power(player), 0x3EE06A); // v0.17.3
 		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 0.7f);
 	}
 

@@ -89,7 +89,7 @@ public final class KryptonianBeamRenderer {
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 		List<Ribbon> ribbons = new ArrayList<>();
 		for (Player player : level.players()) {
-			if (Kryptonian.heatVisionActive(player)) {
+			if (Kryptonian.heatVisionActive(player) && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(player)) {
 				beam(client, level, player, partial, level.getGameTime() + partial, ribbons);
 			}
 		}
@@ -97,7 +97,7 @@ public final class KryptonianBeamRenderer {
 		SENT.removeIf(b -> gameTime - b.startTick() >= b.ticks() || gameTime < b.startTick() - 40);
 		for (SentBeam b : SENT) {
 			Vec3 dir = b.end().subtract(b.start());
-			if (dir.lengthSqr() > 1.0e-6) {
+			if (dir.lengthSqr() > 1.0e-6 && !com.projecthero.mod.client.beamclash.BeamClashClient.hidesFrom(b.start())) {
 				draw(b.start(), b.end(), dir.normalize(), gameTime + partial, false, ribbons);
 			}
 		}

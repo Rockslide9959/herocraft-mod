@@ -370,6 +370,7 @@ public final class NovaAbilities {
 		ServerLevel level = level(p);
 		LivingEntity[] hit = new LivingEntity[1];
 		Vec3 end = blastEnd(p, hit);
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 32.0, 1.1f, 0xFFC83C); // v0.17.3
 		if (hit[0] != null) {
 			// v0.15.19: per-target timer -- the first tick the beam touches a creature it is hit, then every interval
 			Map<Integer, Long> lastHits = BLAST_HITS.computeIfAbsent(p.getUUID(), k -> new HashMap<>());

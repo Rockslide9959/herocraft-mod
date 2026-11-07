@@ -142,6 +142,8 @@
 
 		"BlueBeetleFirstPersonArmMixin",
 		"BlackPantherFirstPersonArmMixin",
+		"BeamClashInputMixin",
+		"BeamClashParticleMixin",
 		"CatNoirFirstPersonArmMixin",
 		"CatNoirItemInHandMixin",
 		"CatNoirItemInHandLayerMixin",

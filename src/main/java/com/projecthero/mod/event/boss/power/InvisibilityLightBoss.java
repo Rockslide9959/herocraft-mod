@@ -181,6 +181,7 @@ public class InvisibilityLightBoss extends BossPowerController {
 			face(t);
 			Vec3 from = boss.getEyePosition();
 			Vec3 to = clipEnd(level, from, from.add(aimFromEyes(mid(t)).scale(40.0)));
+			com.projecthero.mod.beamclash.BeamClash.report(boss, from, to.subtract(from), 40.0, 1.2f, 0xFFF0A0); // v0.17.3
 			if (holyTicks % 2 == 0) {
 				particleLine(level, ParticleTypes.END_ROD, from, to, 1.5);
 			}

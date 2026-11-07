@@ -647,6 +647,7 @@ public final class CryokinesisHandlers {
 		Vec3 eye = p.getEyePosition();
 		Vec3 far = eye.add(p.getLookAngle().scale(BEAM_RANGE));
 		BlockHitResult bhr = level.clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.SOURCE_ONLY, p));
+		com.projecthero.mod.beamclash.BeamClash.report(p, eye, p.getLookAngle(), BEAM_RANGE, 0.8f, 0x9FE8FF); // v0.17.3
 		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
 		LivingEntity target = AbilityHelpers.raycastEntity(p, eye.distanceTo(end));
 		if (target != null) {

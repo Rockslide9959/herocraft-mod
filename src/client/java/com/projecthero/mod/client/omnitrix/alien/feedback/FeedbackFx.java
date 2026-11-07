@@ -86,7 +86,7 @@ public final class FeedbackFx {
 			if ((flags & FeedbackKit.F_ABSORB) != 0) {
 				drawIn(context.matrixStack(), context.consumers(), p, partial);
 			}
-			if ((flags & FeedbackKit.F_BEAM) != 0) {
+			if ((flags & FeedbackKit.F_BEAM) != 0 && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(p)) {
 				beam(context.matrixStack(), context.consumers(), p, partial);
 			}
 			if ((flags & FeedbackKit.F_CANNON) != 0) {

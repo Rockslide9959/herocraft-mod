@@ -740,7 +740,7 @@ public final class UpgradeFx {
 			if ((st.kitFlags & UpgradeKit.F_CHARGING) != 0) {
 				charging(pose, buffers, cam, pl, partial, time, time - st.animStart);
 			}
-			if ((st.kitFlags & UpgradeKit.F_BEAM) != 0) {
+			if ((st.kitFlags & UpgradeKit.F_BEAM) != 0 && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(pl)) {
 				heldBeam(level, pose, buffers, cam, pl, partial, time);
 			}
 			if ((st.kitFlags & UpgradeKit.F_SLIDE) != 0) {

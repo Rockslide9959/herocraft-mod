@@ -133,7 +133,7 @@ public final class LaserBeamRenderer {
 		for (Player player : level.players()) {
 			MutationVisualState s = MutationVisuals.state(player);
 			String anim = s.anim();
-			if (anim.isEmpty() && !s.has("p02.max")) {
+			if ((anim.isEmpty() && !s.has("p02.max")) || com.projecthero.mod.client.beamclash.BeamClashClient.hides(player)) {
 				continue;
 			}
 			float age = (gameTime - s.animStart()) + partial;
@@ -173,7 +173,7 @@ public final class LaserBeamRenderer {
 		SENT.removeIf(b -> gameTime - b.startTick() >= b.ticks() || gameTime < b.startTick() - 40);
 		for (SentBeam b : SENT) {
 			float bAge = (gameTime - b.startTick()) + partial;
-			if (bAge < 0 || bAge >= b.ticks()) {
+			if (bAge < 0 || bAge >= b.ticks() || com.projecthero.mod.client.beamclash.BeamClashClient.hidesFrom(b.start())) {
 				continue;
 			}
 			float fade = b.ticks() > LaserBeamPayload.REFRESH_TICKS ? 1f - bAge / b.ticks() : 1f;

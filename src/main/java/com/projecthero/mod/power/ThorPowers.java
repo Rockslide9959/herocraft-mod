@@ -1073,6 +1073,7 @@ public final class ThorPowers {
 		ThorVisuals.channel(player, ThorFx.CH_BEAM, true);
 
 		StormEnergy.spend(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f);
+		com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, 1.4f, 0x9FD8FF); // v0.17.3
 
 		if (!(player.level() instanceof ServerLevel serverLevel)) {
 			return;

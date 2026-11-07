@@ -165,6 +165,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.16.5: Blue Beetle -- the Scarab (+ pyramid loot), drones, damage rules, payload, lifecycle hooks
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.initialize();
 		com.projecthero.mod.blackpanther.BlackPantherMod.initialize(); // v0.17.3
+		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		// v0.16.5: the Mannequin (player-shaped armour stand) and the ten-suit Wardrobe
 		com.projecthero.mod.wardrobe.WardrobeMod.initialize();
 		// v0.14.11: the Flash Suit and the Flash Ring (H packs the suit into the ring and lets it out again)

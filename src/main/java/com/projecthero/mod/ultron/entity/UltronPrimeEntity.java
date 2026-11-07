@@ -524,6 +524,7 @@ public class UltronPrimeEntity extends UltronRobot {
 			}
 			return;
 		}
+		com.projecthero.mod.beamclash.BeamClash.report(this, from, dir, 36.0, 1.5f, 0xFF3030); // v0.17.3
 		if (moveTick % 2 == 0) {
 			UltronFx.beam(server, from, to, UltronFx.ENCEPHALO, 3);
 			server.sendParticles(UltronFx.RED, to.x, to.y, to.z, 3, 0.2, 0.2, 0.2, 0.02);

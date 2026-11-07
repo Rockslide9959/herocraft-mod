@@ -203,6 +203,7 @@ public final class MindStoneBeam {
 				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !(e instanceof Player), eye.distanceToSqr(end));
 		Vec3 stop = hit != null ? hit.getLocation() : end;
 		Vec3 from = eye.add(p.getLookAngle().scale(0.5)).add(0, -0.3, 0);
+		com.projecthero.mod.beamclash.BeamClash.report(p, from, p.getLookAngle(), cfg.range, 1.5f, 0xFFD24A); // v0.17.3
 		if (h.beamTicks % 2 == 0) {
 			ContagionNet.beam(level, from, stop, GOLD, 0.35f, 3);
 		}

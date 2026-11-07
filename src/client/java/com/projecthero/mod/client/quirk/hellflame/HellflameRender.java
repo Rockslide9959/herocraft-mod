@@ -233,6 +233,9 @@ public final class HellflameRender {
 	private static void beam(VertexConsumer vc, PoseStack.Pose last, ClientLevel level, Player p, Vec3 cam, long now, float partial, boolean firstPerson) {
 		Vec3 from = hand(p, partial, firstPerson);
 		Vec3 look = p.getViewVector(partial);
+		if (com.projecthero.mod.client.beamclash.BeamClashClient.hides(p)) {
+			return;
+		}
 		Vec3 end = clip(level, p, from, from.add(look.scale(HellflameConfig.HELLBLAST_RANGE)));
 		double size = Hellflame.size(p);
 		float age = now - Hellflame.val(p, Hellflame.V_BEAM) + partial;

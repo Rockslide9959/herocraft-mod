@@ -101,6 +101,7 @@ public final class BehemothCombat {
 		double half = cfg.beamWidth * 0.5 + 1.0;
 		double range = cfg.beamRange;
 		Vec3 mid = origin.add(dir.scale(range * 0.5));
+		com.projecthero.mod.beamclash.BeamClash.report(self, origin, dir, range, 1.6f, 0x60FFD0); // v0.17.3
 		AABB box = new AABB(mid.x - range * 0.5 - half, origin.y - half - range * 0.5, mid.z - range * 0.5 - half,
 				mid.x + range * 0.5 + half, origin.y + half + range * 0.5, mid.z + range * 0.5 + half);
 		for (LivingEntity victim : nearbyLiving(level, box, self)) {

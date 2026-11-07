@@ -59,7 +59,7 @@ public final class SilverSurferEffects {
 			pose.translate(-cam.x, -cam.y, -cam.z);
 			Matrix4f m = pose.last().pose();
 			boolean fp = player == mc.player && mc.options.getCameraType().isFirstPerson();
-			if (beam) {
+			if (beam && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(player)) {
 				float flicker = 0.85f + 0.15f * Mth.sin((now + partial) * 1.7f);
 				Vec3 from = hand(player, partial, fp, camera);
 				Vec3 to = new Vec3(s.beamEnd.get(0), s.beamEnd.get(1), s.beamEnd.get(2));

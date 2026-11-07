@@ -1643,6 +1643,7 @@ public final class IronManComicMoves {
 		Vec3 from = IronManComicFx.chest(p);
 		// v0.16.7 (user): with the head broken there is no targeting -- the beam wanders
 		Vec3 dir = com.projecthero.mod.ironman.HulkbusterParts.beamWobble(p, IronManTargeting.aim(p, from, p.getLookAngle(), 44));
+		com.projecthero.mod.beamclash.BeamClash.report(p, from, dir, 44.0, 1.8f, 0x6ADFFF); // v0.17.3
 		if ((now - r.channelStart) % HB_BEAM_PULSE == 0) {
 			IronManComicKit.Move m = IronManComicKit.byId("mk8_mega_beam");
 			IronManComicFx.beam(p, from, dir, 44.0, 2.2, true, IronManComicFx.BEAM_MEGA, m == null ? 18f : m.damage(), 0.8);

@@ -11401,5 +11401,14 @@
   "projecthero.black_panther.ability.absorb_stance.desc": "Hold to brace and move slowly. Hits from the front do nothing and go fully into Kinetic, up to 40 a stance or 6s, then it breaks. 4s cooldown.",
   "projecthero.black_panther.ability.kinetic_return": "Kinetic Return",
   "projecthero.black_panther.ability.kinetic_return.desc": "Send the last arrow or shot that hit you (in the last 10s) straight back at the shooter for 1.5x its damage, at least 6. 6s cooldown.",
+  "hud.projecthero.beam_clash.mash": "CLICK TO PUSH!",
+  "projecthero.guide.beam_clash": "Beam Clashing",
+  "projecthero.guide.beam_clash.body": "When your beam meets an enemy beam head on, the two lock together and a blazing struggle point forms where they touch. While the clash lasts, the two of you can not hurt each other.",
+  "projecthero.guide.beam_clash.push": "Pushing",
+  "projecthero.guide.beam_clash.push.body": "Keep the beam held and click the left mouse button as fast as you can: each click drives the point toward your enemy. Stronger beams push harder. A boss pushes on its own, so you have to out-click it. You move slowly during a clash, and the bar on screen shows who is winning.",
+  "projecthero.guide.beam_clash.end": "How it ends",
+  "projecthero.guide.beam_clash.end.body": "If the point reaches someone, they take a big blast and are thrown back (capped on bosses). If either side lets go, runs out of energy or turns away, the clash just ends, and the other beam carries on. It also ends after 15 seconds. The same two can clash again 3 seconds later.",
+  "projecthero.guide.beam_clash.beams": "What can clash",
+  "projecthero.guide.beam_clash.beams.body": "Continuous beams: Heat Vision and Maximum Output, Kryptonian Heat Vision, the Cosmic Beam, Nova Blast, Green Lantern beams, Thor's Lightning Beam, Freeze Beam, Energy Beam, Holy Light, Hydro Jet, Hellblast, Upgrade's Optic Beam, Feedback's beam, Way Big's Cosmic Ray, the Mark VIII Mega Beam and the Mind Stone. Boss beams clash too. Short blasts, projectiles and flame sprays do not.",
   "_comment_omnitrix_way_big_end": ""
 }

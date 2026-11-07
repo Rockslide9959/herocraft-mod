@@ -387,6 +387,7 @@ public final class KryptonianAbilities {
 		Vec3 eye = p.getEyePosition();
 		Vec3 dir = p.getLookAngle();
 		Vec3 far = eye.add(dir.scale(KryptonianConfig.HEAT_RANGE));
+		com.projecthero.mod.beamclash.BeamClash.report(p, eye, dir, KryptonianConfig.HEAT_RANGE, 1.3f, 0xFF3020); // v0.17.3
 		BlockHitResult bhr = level.clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
 		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(p, eye, end, new AABB(eye, end).inflate(1.0),

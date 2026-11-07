@@ -355,6 +355,7 @@ public final class InvisibilityLightHandlers {
 							? bhr.getLocation() : start.add(p.getLookAngle().scale(40.0));
 				}
 				Vec3 from = start.add(p.getLookAngle().scale(0.3));
+				com.projecthero.mod.beamclash.BeamClash.report(p, from, p.getLookAngle(), 40.0, 1.5f, 0xFFF0A0); // v0.17.3
 				AbilityHelpers.line(level, from, end, ParticleTypes.END_ROD, 4.0);
 				yellowBurst(level, from.lerp(end, 0.5), 6, 1.0);
 				if (t % 10 == 0) {

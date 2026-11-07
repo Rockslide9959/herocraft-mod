@@ -601,6 +601,7 @@ public final class WayBigKit extends AlienKit {
 		}
 		dir = dir.scale(1 / len);
 		double r = RAY_RADIUS * Math.max(0.5, reachScale(p));
+		com.projecthero.mod.beamclash.BeamClash.report(p, from, dir, len, 3f, 0x7CE0FF); // v0.17.3
 		// the beam itself is drawn by the client every frame (WayBigClient.renderWorld), following his look
 		OmnitrixSounds.play(l, from, SND_RAY_HUM, 2.0f, 1.0f);
 		if (now % RAY_EVERY == 0) {

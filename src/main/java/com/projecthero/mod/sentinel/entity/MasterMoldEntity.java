@@ -440,6 +440,7 @@ public class MasterMoldEntity extends SentinelRobot {
 			}
 		} else if (attackTicks < BEAM_END) {
 			entityData.set(DATA_BEAM, (byte) 2);
+			com.projecthero.mod.beamclash.BeamClash.report(this, eye, end.subtract(eye), 56.0, 1.6f, 0xFF3AA0); // v0.17.3
 			if (attackTicks == BEAM_FIRE) {
 				server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 4.0f, 0.5f);
 			}

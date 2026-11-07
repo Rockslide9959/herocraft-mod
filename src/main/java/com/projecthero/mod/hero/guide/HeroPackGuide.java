@@ -564,7 +564,8 @@ public final class HeroPackGuide {
 	/** v0.17.2: Queen Bee (after the Stands, so every earlier index stays put). */
 	private static final int CH_QUEEN_BEE = CH_STANDS + 1; // 63
 	private static final int CH_BLACK_PANTHER = CH_QUEEN_BEE + 1; // 64, v0.17.3
-	private static final int CHAPTER_POWER_BASE = CH_BLACK_PANTHER + 1; // 65
+	private static final int CH_BEAM_CLASH = CH_BLACK_PANTHER + 1; // 65, v0.17.3
+	private static final int CHAPTER_POWER_BASE = CH_BEAM_CLASH + 1; // 66
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1690,6 +1691,17 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.black_panther.commands.body");
 		}));
 
+		// v0.17.3: beam clashing (CH_BEAM_CLASH)
+		out.add(chapter("projecthero.guide.beam_clash", lines -> {
+			para(lines, "projecthero.guide.beam_clash.body");
+			blank(lines);
+			for (String section : new String[]{"push", "end", "beams"}) {
+				head(lines, "projecthero.guide.beam_clash." + section);
+				para(lines, "projecthero.guide.beam_clash." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -1881,6 +1893,7 @@ public final class HeroPackGuide {
 		List<IndexEntry> start = map.get(Category.GETTING_STARTED);
 		link(start, "projecthero.guide.overview", CH_OVERVIEW);
 		link(start, "projecthero.guide.squads", CH_SQUADS);
+		link(start, "projecthero.guide.beam_clash", CH_BEAM_CLASH); // v0.17.3
 
 		List<IndexEntry> marvel = map.get(Category.MARVEL);
 		link(marvel, "projecthero.guide.thor", CH_THOR);

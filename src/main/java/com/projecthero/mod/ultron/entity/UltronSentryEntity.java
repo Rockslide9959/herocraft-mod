@@ -558,6 +558,7 @@ public class UltronSentryEntity extends UltronRobot {
 			getLookControl().setLookAt(from.x + cannonDir.x * 10, from.y + cannonDir.y * 10, from.z + cannonDir.z * 10, 10f, 10f);
 		}
 		Vec3 to = beamEnd(server, from, cannonDir, cfg.cannonRange);
+		com.projecthero.mod.beamclash.BeamClash.report(this, from, cannonDir, cfg.cannonRange, 1.1f, 0xFF3030); // v0.17.3
 		if (moveTick % 2 == 0) {
 			UltronFx.beam(server, from, to, UltronFx.CANNON, 3);
 			server.sendParticles(ParticleTypes.EXPLOSION, to.x, to.y, to.z, 1, 0.3, 0.3, 0.3, 0);

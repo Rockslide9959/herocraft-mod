@@ -674,6 +674,7 @@ public final class WaterHandlers {
 		}
 		set(p, METER, w - cost);
 		MutationVisuals.ensure(p, "p25.jet");
+		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), JET_RANGE, 0.8f, 0x4FA8FF); // v0.17.3
 		int t = (int) res(p, "jet_t") + 1;
 		set(p, "jet_t", t);
 		jetBeam(p, level, t % JET_PULSE == 0);

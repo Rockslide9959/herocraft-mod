@@ -159,6 +159,7 @@ public class LaserVisionBoss extends BossPowerController {
 			// tracks with a small lag: aims where the target was a few ticks ago, so strafing beats it
 			Vec3 aim = mid(target).subtract(target.getDeltaMovement().scale(4.0));
 			Vec3 to = clipEnd(level, from, from.add(aimFromEyes(aim).scale(REACH)));
+			com.projecthero.mod.beamclash.BeamClash.report(boss, from, to.subtract(from), REACH, 1f, 0xFF3A20); // v0.17.3
 			if (beamHeld % 3 == 0) {
 				LaserBeams.send(level, boss, from, to, LaserBeamPayload.KIND_BEAM, LaserBeamPayload.REFRESH_TICKS);
 				particleLine(level, ParticleTypes.FLAME, from, to, 0.8);
@@ -216,6 +217,7 @@ public class LaserVisionBoss extends BossPowerController {
 			}
 			Vec3 from = boss.getEyePosition();
 			Vec3 to = clipEnd(level, from, from.add(aimFromEyes(maxAim).scale(REACH)));
+			com.projecthero.mod.beamclash.BeamClash.report(boss, from, to.subtract(from), REACH, 1.6f, 0xFF2A10); // v0.17.3
 			LaserBeams.send(level, boss, from, to, LaserBeamPayload.KIND_MAX, LaserBeamPayload.REFRESH_TICKS);
 			if (maxTicks % 2 == 0) {
 				particleLine(level, ParticleTypes.FLAME, from, to, 0.5);
