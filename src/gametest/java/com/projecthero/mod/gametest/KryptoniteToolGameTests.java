@@ -95,6 +95,7 @@ public class KryptoniteToolGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void aKryptonianTakesDoubleFullDamageAndLosesHisPowersOnTheThirdHit(GameTestHelper helper) {
+		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true); // its neighbour above leaves the world on Hard
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2.0, 3.5));
