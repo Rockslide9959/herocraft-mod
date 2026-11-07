@@ -37,6 +37,7 @@ public final class MiraculousPhrases {
 			case SASS -> "Viperion";
 			case MULLO -> "Multimouse"; // v0.17.1
 			case POLLEN -> "Queen Bee"; // v0.17.2
+			case LONGG -> "Ryuko"; // v0.17.3
 		};
 	}
 
@@ -52,6 +53,7 @@ public final class MiraculousPhrases {
 			case SASS -> "Sass, scales slither!";
 			case MULLO -> "Mullo, multiply!";
 			case POLLEN -> "Pollen, buzz on!";
+			case LONGG -> "Longg, bring the storm!";
 		};
 	}
 
@@ -67,6 +69,7 @@ public final class MiraculousPhrases {
 			case SASS -> "Scales rest!";
 			case MULLO -> "Divide!";
 			case POLLEN -> "Buzz off!";
+			case LONGG -> "Calm the storm!";
 		};
 	}
 

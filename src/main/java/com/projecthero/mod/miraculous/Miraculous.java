@@ -246,6 +246,7 @@ public final class Miraculous {
 			case SASS -> net.minecraft.world.item.Items.EGG; // v0.16.7
 			case MULLO -> com.projecthero.mod.miraculous.item.MiraculousItems.CHEESE_WEDGE; // v0.17.1
 			case POLLEN -> net.minecraft.world.item.Items.HONEYCOMB; // v0.17.2
+			case LONGG -> net.minecraft.world.item.Items.COOKED_SALMON; // v0.17.3
 		};
 	}
 

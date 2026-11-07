@@ -76,6 +76,7 @@ public final class MiraculousSequenceClient {
 			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionSequenceClient.SCENE;
 			case MULLO -> com.projecthero.mod.client.miraculous.multimouse.MultimouseSequenceClient.SCENE;
 			case POLLEN -> com.projecthero.mod.client.miraculous.queenbee.QueenBeeSequenceClient.SCENE; // v0.17.2
+			case LONGG -> com.projecthero.mod.client.miraculous.ryuko.RyukoSequenceClient.SCENE; // v0.17.3
 		};
 	}
 

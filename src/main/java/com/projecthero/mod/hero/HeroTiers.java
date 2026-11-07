@@ -109,7 +109,7 @@ public final class HeroTiers {
 			"black_panther", // v0.17.3
 			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
 			"stand_star_platinum", // v0.17.2: a JoJo Stand (Star Platinum first)
-			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee",
+			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko",
 			// v0.16.7: the seven Quirks (one shared state; each key is "holds that Quirk")
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity");
 
@@ -149,6 +149,7 @@ public final class HeroTiers {
 			case "viperion" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.SASS);
 			case "multimouse" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.MULLO); // v0.17.1
 			case "queen_bee" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.POLLEN); // v0.17.2
+			case "ryuko" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.LONGG); // v0.17.3
 			default -> {
 				com.projecthero.mod.quirk.Quirk q = key.startsWith("quirk_") ? com.projecthero.mod.quirk.Quirk.byHeroKey(key) : null;
 				yield q != null && com.projecthero.mod.quirk.Quirks.holds(player, q);
@@ -271,7 +272,7 @@ public final class HeroTiers {
 					com.projecthero.mod.falcon.Falcon.revoke(player);
 				}
 			}
-			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee" -> {
+			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				com.projecthero.mod.miraculous.Kwami k = com.projecthero.mod.miraculous.Kwami.byHeroKey(key);
 				if (k != null && com.projecthero.mod.miraculous.Miraculous.holds(player, k)) {
 					com.projecthero.mod.miraculous.Miraculous.revoke(player);

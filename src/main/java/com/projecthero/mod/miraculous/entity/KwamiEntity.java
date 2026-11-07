@@ -346,6 +346,8 @@ public class KwamiEntity extends Entity implements GeoEntity {
 				case MULLO -> base.add(0, owner.getBbHeight() * 0.76, 0).add(fwd.scale(0.25));
 				// v0.17.2: the Bee Comb in the hair at the back of the head
 				case POLLEN -> base.add(0, owner.getEyeHeight() + 0.2, 0).add(fwd.scale(-0.3));
+				// v0.17.3: the Dragon Choker at the throat
+				case LONGG -> base.add(0, owner.getBbHeight() * 0.8, 0).add(fwd.scale(0.2));
 			};
 		}
 		boolean tired = mode == MODE_TIRED || mode == MODE_POP_TIRED;

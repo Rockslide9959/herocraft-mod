@@ -73,6 +73,8 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			// v0.17.1: the Mouse Pendant at the collar -- transformed, the suit's own painted pendant takes its place
 			// v0.17.2: the Bee Comb in her hair at the back of the head
 			case POLLEN -> com.projecthero.mod.client.miraculous.queenbee.QueenBeeRender.renderComb(pose, buffers, light, m.head, on);
+			// v0.17.3: the Dragon Choker at the throat
+			case LONGG -> com.projecthero.mod.client.miraculous.ryuko.RyukoRender.renderChoker(pose, buffers, light, m.body, on);
 			case MULLO -> {
 				if (com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.cover(player, partialTick) < 0.5f) {
 					com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.renderPendant(pose, buffers, light, m.body);

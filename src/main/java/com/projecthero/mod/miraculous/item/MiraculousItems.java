@@ -43,6 +43,7 @@ public final class MiraculousItems {
 	public static Item CHEESE_WEDGE;
 	/** v0.17.2: Queen Bee's jewel (in the Miraculous Box). */
 	public static Item BEE_COMB;
+	public static Item DRAGON_CHOKER; // v0.17.3
 	public static Item CAMEMBERT;
 	public static Item MACARON;
 
@@ -66,6 +67,7 @@ public final class MiraculousItems {
 		SNAKE_BRACELET = register("snake_bracelet", new KwamiJewelItem(Kwami.SASS, jewel()));
 		MOUSE_PENDANT = register("mouse_pendant", new KwamiJewelItem(Kwami.MULLO, jewel()));
 		BEE_COMB = register("bee_comb", new KwamiJewelItem(Kwami.POLLEN, jewel()));
+		DRAGON_CHOKER = register("dragon_choker", new KwamiJewelItem(Kwami.LONGG, jewel()));
 		CHEESE_WEDGE = register("cheese_wedge", new Item(new Item.Properties()
 				.food(new FoodProperties.Builder().nutrition(3).saturationModifier(0.5f).fast().build())));
 		CAMEMBERT = register("camembert", new Item(new Item.Properties()
@@ -117,6 +119,7 @@ public final class MiraculousItems {
 			case SASS -> SNAKE_BRACELET;
 			case MULLO -> MOUSE_PENDANT;
 			case POLLEN -> BEE_COMB;
+			case LONGG -> DRAGON_CHOKER;
 		};
 	}
 
@@ -131,6 +134,7 @@ public final class MiraculousItems {
 		output.accept(SNAKE_BRACELET);
 		output.accept(MOUSE_PENDANT);
 		output.accept(BEE_COMB);
+		output.accept(DRAGON_CHOKER);
 		output.accept(CAMEMBERT);
 		output.accept(MACARON);
 		output.accept(CHEESE_WEDGE);

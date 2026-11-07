@@ -65,6 +65,7 @@ public final class MiraculousMod {
 		com.projecthero.mod.miraculous.viperion.ViperionMod.initialize(); // v0.16.7
 		com.projecthero.mod.miraculous.multimouse.MultimouseMod.initialize(); // v0.17.1
 		com.projecthero.mod.miraculous.queenbee.QueenBeeMod.initialize(); // v0.17.2
+		com.projecthero.mod.miraculous.ryuko.RyukoMod.initialize(); // v0.17.3
 
 		// v0.16.6 (user): the transformation is spoken in chat ("Tikki, spots on!"). v0.16.7 (user): it goes out as the
 		// HERO saying it ("<Ladybug> Spots on!"), never under the player's own name -- chat is global

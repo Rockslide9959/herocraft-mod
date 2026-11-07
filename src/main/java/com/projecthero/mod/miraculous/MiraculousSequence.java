@@ -73,6 +73,7 @@ public final class MiraculousSequence {
 			case SASS -> com.projecthero.mod.miraculous.viperion.ViperionSequence.TIMELINE;
 			case MULLO -> com.projecthero.mod.miraculous.multimouse.MultimouseSequence.TIMELINE;
 			case POLLEN -> com.projecthero.mod.miraculous.queenbee.QueenBeeSequence.TIMELINE; // v0.17.2
+			case LONGG -> com.projecthero.mod.miraculous.ryuko.RyukoSequence.TIMELINE; // v0.17.3
 		};
 	}
 

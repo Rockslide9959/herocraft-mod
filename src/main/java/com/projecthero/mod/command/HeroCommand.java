@@ -435,7 +435,7 @@ public final class HeroCommand {
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "black_panther" -> com.projecthero.mod.blackpanther.BlackPanther.revoke(target); // v0.17.3
-			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee" -> {
+			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				// v0.16.6: only if they hold THAT Kwami (no jewel comes back)
 				if (com.projecthero.mod.hero.HeroTiers.holdsHero(target, hero)) {
 					com.projecthero.mod.miraculous.Miraculous.revoke(target);

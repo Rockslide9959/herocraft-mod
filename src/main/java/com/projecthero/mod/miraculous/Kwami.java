@@ -25,7 +25,9 @@ public enum Kwami {
 	/** Multimouse (v0.17.1): the Mouse Pendant, the jump rope, the Cheese Wedge. */
 	MULLO("mullo", "multimouse", "mouse_pendant", 0xFFE0559E),
 	/** Queen Bee (v0.17.2): the Bee Comb, the spinning top, honeycomb. */
-	POLLEN("pollen", "queen_bee", "bee_comb", 0xFFF5C518);
+	POLLEN("pollen", "queen_bee", "bee_comb", 0xFFF5C518),
+	/** Ryuko (v0.17.3): the Dragon Choker, the sword, cooked salmon. */
+	LONGG("longg", "ryuko", "dragon_choker", 0xFFD22A28);
 
 	/** The Kwami's own id ({@code tikki}): the entity variant, the state's {@code kwami} field, lang keys. */
 	public final String id;
