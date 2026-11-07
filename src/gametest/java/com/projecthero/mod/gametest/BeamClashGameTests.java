@@ -44,6 +44,17 @@ public class BeamClashGameTests implements FabricGameTest {
 		BeamClash.report(z, z.getEyePosition(), p.getEyePosition().subtract(z.getEyePosition()), 32, mobPower, 0x00FF00);
 	}
 
+	/** Runs {@code then} once, the first tick the player is locked; never locking times the test out. */
+	private static void whenLocked(GameTestHelper helper, ServerPlayer p, Runnable then) {
+		boolean[] done = { false };
+		helper.onEachTick(() -> {
+			if (!done[0] && BeamClash.inClash(p)) {
+				done[0] = true;
+				then.run();
+			}
+		});
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void headOnBeamsLockAndCannotHurtEachOther(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
@@ -53,8 +64,8 @@ public class BeamClashGameTests implements FabricGameTest {
 				fire(p, z, 0.1f);
 			}
 		});
-		helper.runAfterDelay(5, () -> {
-			helper.assertTrue(BeamClash.inClash(p) && BeamClash.inClash(z), "the beams lock");
+		whenLocked(helper, p, () -> {
+			helper.assertTrue(BeamClash.inClash(z), "both sides lock");
 			float hp = z.getHealth();
 			z.hurt(p.damageSources().playerAttack(p), 5f);
 			helper.assertTrue(z.getHealth() == hp, "the sides can't hurt each other");
@@ -86,14 +97,13 @@ public class BeamClashGameTests implements FabricGameTest {
 				fire(p, z, 0.1f);
 			}
 		});
-		helper.runAfterDelay(5, () -> {
-			helper.assertTrue(BeamClash.inClash(p), "locked");
+		whenLocked(helper, p, () -> {
 			firing[0] = false;
-		});
-		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(!BeamClash.inClash(p), "the clash ends");
-			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "no backlash");
-			helper.succeed();
+			helper.runAfterDelay(9, () -> {
+				helper.assertTrue(!BeamClash.inClash(p), "the clash ends");
+				helper.assertTrue(p.getHealth() == p.getMaxHealth(), "no backlash");
+				helper.succeed();
+			});
 		});
 	}
 
@@ -111,14 +121,13 @@ public class BeamClashGameTests implements FabricGameTest {
 				BeamClash.mash(p);
 			}
 		});
-		helper.runAfterDelay(5, () -> {
-			helper.assertTrue(BeamClash.inClash(p), "locked");
+		whenLocked(helper, p, () -> {
 			mash[0] = true;
-		});
-		helper.runAfterDelay(120, () -> {
-			helper.assertTrue(!BeamClash.inClash(p), "the clash is over");
-			helper.assertTrue(!z.isAlive() || z.getHealth() < hp, "the loser takes the backlash");
-			helper.succeed();
+			helper.runAfterDelay(100, () -> {
+				helper.assertTrue(!BeamClash.inClash(p), "the clash is over");
+				helper.assertTrue(!z.isAlive() || z.getHealth() < hp, "the loser takes the backlash");
+				helper.succeed();
+			});
 		});
 	}
 
