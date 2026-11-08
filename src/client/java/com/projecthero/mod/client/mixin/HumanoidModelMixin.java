@@ -83,6 +83,25 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/**
+	 * v0.17.3 (tester, the "broken neck"): vanilla {@code HumanoidModel.setupAnim} (1.21.1, checked in the bytecode) sets the
+	 * head's x/y rotation, the body's x/y rotation, every limb's x/y/z rotation and the y pivots each frame -- but never
+	 * {@code head.zRot} or {@code body.zRot}, and the player model is one shared instance. Queen Bee's long transformation
+	 * lerped the head toward a haughty tilt ({@code head.zRot} from its own last value), so the tilt stayed on the model for
+	 * good: through /kill, a world change, other players. Every pose in the mod that rolls the head or body has the same
+	 * hazard, so the roll goes back to the model's rest pose here, at HEAD, before vanilla and before any pose: a pose only
+	 * lasts the frame it is applied in. (The x/z pivots are put back at TAIL by {@link #projecthero$resetTorsoZ}, the legs' x
+	 * pivots by {@code HumanoidModelLimbRegistryMixin}; the scale by {@code HulkMorph.resetScale}.) Players only -- a mob
+	 * model's own rest pose is its business.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("HEAD"))
+	private void projecthero$resetRoll(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player) {
+			com.projecthero.mod.client.PoseRest.resetUnmanaged((HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.7 (user): held by the Hulkbuster's build pod mid-air -- standing, not sat. */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("HEAD"))
 	private void projecthero$hulkbusterPodStand(LivingEntity entity, float limbSwing, float limbSwingAmount,

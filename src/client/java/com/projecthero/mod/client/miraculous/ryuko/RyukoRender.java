@@ -14,6 +14,7 @@ import com.projecthero.mod.miraculous.Kwami;
 import com.projecthero.mod.miraculous.Miraculous;
 import com.projecthero.mod.miraculous.MiraculousConfig;
 import com.projecthero.mod.miraculous.data.MiraculousState;
+import com.projecthero.mod.miraculous.ryuko.Ryuko;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -48,8 +49,11 @@ public final class RyukoRender {
 
 	public static final int RED = 0xD22A28, RED_D = 0x8E1A20, GOLD = 0xF4BE3C, GOLD_L = 0xFFE690, STEEL = 0xDDE4EE, STEEL_D = 0x9AA6B8, BLACK = 0x17151A;
 
-	private static ResourceLocation[] slimFrames;
-	private static ResourceLocation[] wideFrames;
+	/** The long scene's storm-climb edge: hot red-gold (the quick change uses her element's colour, {@link #edgeColor}). */
+	public static final int HOT_EDGE = 0xFFBE5A;
+
+	/** The reveal frames, per skin model and edge colour (slim bit 24 | RGB). */
+	private static final java.util.Map<Integer, ResourceLocation[]> FRAMES_BY_EDGE = new java.util.HashMap<>();
 	private static float[] orders;
 
 	private RyukoRender() {
@@ -130,24 +134,33 @@ public final class RyukoRender {
 		return (h & 0xFFFF) / 65535f;
 	}
 
-	private static ResourceLocation texture(boolean slim, float cover) {
+	/**
+	 * v0.17.3 (tester: the suit-up "could use some work"): the colour of the suit's rising frontier -- her current element's
+	 * ({@link Ryuko#color}) for the quick change and the way back; the long scene keeps its hot red-gold storm edge.
+	 */
+	public static int edgeColor(Player player, float partial) {
+		MiraculousState s = Miraculous.peek(player);
+		if (s == null || MiraculousSequenceClient.suitCover(player, s, partial) >= 0f) {
+			return HOT_EDGE;
+		}
+		return Ryuko.color(Ryuko.element(player));
+	}
+
+	private static ResourceLocation texture(boolean slim, float cover, int edgeRgb) {
 		ResourceLocation full = slim ? SUIT_SLIM : SUIT_WIDE;
 		if (cover >= 0.999f) {
 			return full;
 		}
-		ResourceLocation[] f = slim ? slimFrames : wideFrames;
+		int key = (slim ? 1 << 24 : 0) | (edgeRgb & 0xFFFFFF);
+		ResourceLocation[] f = FRAMES_BY_EDGE.get(key);
 		if (f == null) {
-			f = build(full, slim ? "slim" : "wide");
-			if (slim) {
-				slimFrames = f;
-			} else {
-				wideFrames = f;
-			}
+			f = build(full, (slim ? "slim_" : "wide_") + Integer.toHexString(edgeRgb & 0xFFFFFF), edgeRgb);
+			FRAMES_BY_EDGE.put(key, f);
 		}
 		return f.length == 0 ? full : f[Math.max(0, Math.min(FRAMES, Math.round(cover * FRAMES)))];
 	}
 
-	private static ResourceLocation[] build(ResourceLocation tex, String name) {
+	private static ResourceLocation[] build(ResourceLocation tex, String name, int edgeRgb) {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> res = mc.getResourceManager().getResource(tex);
 		if (res.isEmpty()) {
@@ -173,7 +186,7 @@ public final class RyukoRender {
 					if (o > line || k == 0) {
 						img.setPixelRGBA(x, y, 0);
 					} else if (k < FRAMES && line - o < 0.07f && ((px >>> 24) & 0xFF) > 0) {
-						img.setPixelRGBA(x, y, edge(px, (line - o) / 0.07f));
+						img.setPixelRGBA(x, y, edge(px, (line - o) / 0.07f, edgeRgb));
 					} else {
 						img.setPixelRGBA(x, y, px);
 					}
@@ -185,13 +198,18 @@ public final class RyukoRender {
 		return out;
 	}
 
-	/** The suit's moving edge: a band of hot red-gold. */
-	private static int edge(int abgr, float t) {
+	/** The suit's moving edge: a band of {@code rgb}, brightest at the very front ({@code t} = 0), fading into the suit. */
+	private static int edge(int abgr, float t, int rgb) {
 		int a = (abgr >>> 24) & 0xFF, b = (abgr >>> 16) & 0xFF, g = (abgr >>> 8) & 0xFF, r = abgr & 0xFF;
 		float k = 1f - t;
-		r = (int) Mth.lerp(k, r, 255);
-		g = (int) Mth.lerp(k, g, 190);
-		b = (int) Mth.lerp(k, b, 90);
+		// the leading texels run a little hotter than the colour itself, so even the pale wind reads as a glow
+		float hot = Mth.clamp(1f - t * 3f, 0f, 1f) * 0.35f;
+		int er = (int) Mth.lerp(hot, (rgb >> 16) & 0xFF, 255);
+		int eg = (int) Mth.lerp(hot, (rgb >> 8) & 0xFF, 255);
+		int eb = (int) Mth.lerp(hot, rgb & 0xFF, 255);
+		r = (int) Mth.lerp(k, r, er);
+		g = (int) Mth.lerp(k, g, eg);
+		b = (int) Mth.lerp(k, b, eb);
 		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 
@@ -219,18 +237,18 @@ public final class RyukoRender {
 		return m;
 	}
 
-	public static void renderSuit(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slim, float cover) {
+	public static void renderSuit(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slim, float cover, int edgeRgb) {
 		if (cover <= 0f) {
 			return;
 		}
-		ResourceLocation tex = texture(slim, cover);
+		ResourceLocation tex = texture(slim, cover, edgeRgb);
 		posed(QueenBeeRender.base(slim), parent, true).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		posed(QueenBeeRender.over(slim), parent, false).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 	}
 
 	/** First person: the suit sleeve over the bare arm vanilla just drew. */
-	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean right, boolean slim, float cover) {
-		ResourceLocation tex = texture(slim, cover);
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean right, boolean slim, float cover, int edgeRgb) {
+		ResourceLocation tex = texture(slim, cover, edgeRgb);
 		ModelPart a = right ? QueenBeeRender.base(slim).rightArm : QueenBeeRender.base(slim).leftArm;
 		ModelPart sleeve = right ? QueenBeeRender.over(slim).rightSleeve : QueenBeeRender.over(slim).leftSleeve;
 		a.copyFrom(arm);
@@ -246,37 +264,63 @@ public final class RyukoRender {
 	}
 
 	/**
-	 * The sword at the pose's origin, its grip there, the blade running along -z, in model pixels (scaled 1/16 here): a red
-	 * wrapped grip, a gold guard, a slim steel blade with an edge of its element's colour.
+	 * The sword centred on the pose's origin -- the middle of the grip, where the fist closes -- the blade running along -z,
+	 * in model pixels (scaled 1/16 here): a red wrapped grip with gold bands and a pommel cap, a round gold guard, a slim
+	 * single-edged steel blade (its edge, +y, carries her element's colour) to a clipped katana point.
+	 *
+	 * <p>v0.17.3 (tester: the sword "is bugged as well"): the grip used to start AT the origin and run 4.4 px backwards, so
+	 * the hilt hung out of the bottom of her hand / through her forearm with the fist round the guard; it is centred now,
+	 * and the whole sword is a little shorter (16.5 px, a katana to her 32 px height).
 	 */
 	public static void renderSword(PoseStack pose, MultiBufferSource buffers, int light, int elementRgb) {
 		VertexConsumer vc = boxes(buffers);
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		QueenBeeRender.box(vc, pose, 0f, 0f, 1.2f, 0.42f, 0.55f, 2.2f, RED_D, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, 3.6f, 0.5f, 0.62f, 0.4f, GOLD, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, -1.2f, 0.5f, 1.5f, 0.28f, GOLD, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, -8.6f, 0.2f, 0.62f, 7.2f, STEEL, light);
-		QueenBeeRender.box(vc, pose, 0f, 0.5f, -8.6f, 0.12f, 0.16f, 7.2f, elementRgb, LightTexture.FULL_BRIGHT);
-		QueenBeeRender.box(vc, pose, 0f, 0f, -16.4f, 0.17f, 0.42f, 0.7f, STEEL_D, light);
+		// the grip: z -2.3 .. +2.3, through the fist; the pommel cap behind it
+		QueenBeeRender.box(vc, pose, 0f, 0f, 0f, 0.4f, 0.5f, 2.3f, RED_D, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, -1.3f, 0.44f, 0.54f, 0.12f, GOLD, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, 1.3f, 0.44f, 0.54f, 0.12f, GOLD, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, 2.55f, 0.48f, 0.58f, 0.25f, GOLD, light);
+		// the guard (tsuba) and the collar in front of it
+		QueenBeeRender.box(vc, pose, 0f, 0f, -2.5f, 0.95f, 1.05f, 0.2f, GOLD, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, -2.85f, 0.3f, 0.6f, 0.15f, GOLD_L, light);
+		// the blade: z -3.0 .. -13.4, then the point
+		QueenBeeRender.box(vc, pose, 0f, -0.08f, -8.2f, 0.16f, 0.5f, 5.2f, STEEL, light);
+		QueenBeeRender.box(vc, pose, 0f, 0.5f, -8.2f, 0.1f, 0.12f, 5.2f, elementRgb, LightTexture.FULL_BRIGHT);
+		QueenBeeRender.box(vc, pose, 0f, 0.05f, -13.85f, 0.14f, 0.45f, 0.45f, STEEL_D, light);
+		QueenBeeRender.box(vc, pose, 0f, 0.2f, -14.45f, 0.1f, 0.25f, 0.2f, STEEL_D, light);
 		pose.popPose();
 	}
 
-	/** The Dragon Choker round the neck, in the posed body's space. {@code on}: it glows as the Kwami goes in. */
+	/**
+	 * The Dragon Choker round her collar, in the posed body's space (it follows the body: sneaking, turning). {@code on}: it
+	 * glows as the Kwami goes in.
+	 *
+	 * <p>v0.17.3 (tester: the choker "is bugged slightly"): it used to be two loose 8.1 px planks floating 0.4 px off the front
+	 * and back of the chest -- wider than the torso, nothing on the sides, the clasp hanging below them -- so from above it
+	 * read as a red strip lying across the chest rather than a band round the neck. Now a slim band wraps all four sides of
+	 * the collar flush over the skin's second layer (and the suit), with a small gold clasp at the throat.
+	 */
 	public static void renderChoker(PoseStack pose, MultiBufferSource buffers, int light, ModelPart body, boolean on) {
 		VertexConsumer vc = boxes(buffers);
 		pose.pushPose();
 		body.translateAndRotate(pose);
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		int band = on ? 0xFF5A48 : RED;
-		// a block body has no neck: the band runs round the collar, on the shoulders' top edge, just proud of the skin (and of a
-		// worn layer)
-		float y = 0.62f;
-		QueenBeeRender.box(vc, pose, 0f, y, -2.42f, 4.05f, 0.62f, 0.2f, band, light);
-		QueenBeeRender.box(vc, pose, 0f, y, 2.42f, 4.05f, 0.62f, 0.2f, RED_D, light);
-		// the gold clasp at the throat
-		QueenBeeRender.box(vc, pose, 0f, y + 0.5f, -2.7f, 0.95f, 0.85f, 0.16f, on ? GOLD_L : GOLD, on ? LightTexture.FULL_BRIGHT : light);
-		QueenBeeRender.box(vc, pose, 0f, y + 1.6f, -2.7f, 0.42f, 0.42f, 0.14f, GOLD, light);
+		// transformed, a deeper red, so the band still reads against the red suit
+		int band = on ? RED_D : RED;
+		int bandBack = on ? 0x6E1218 : RED_D;
+		// the second layer (jacket / suit) sits 0.25 px proud of the 8 x 12 x 4 torso; the band 0.06 px over that, 0.12 thick
+		float g = 0.31f, th = 0.06f;
+		float y = 0.55f, hy = 0.45f; // y 0.1 .. 1.0, just under the chin
+		float fx = 4f + g, fz = 2f + g;
+		QueenBeeRender.box(vc, pose, 0f, y, -fz - th, fx + 2f * th, hy, th, band, light); // front
+		QueenBeeRender.box(vc, pose, 0f, y, fz + th, fx + 2f * th, hy, th, bandBack, light); // back
+		QueenBeeRender.box(vc, pose, -fx - th, y, 0f, th, hy, fz, bandBack, light); // sides
+		QueenBeeRender.box(vc, pose, fx + th, y, 0f, th, hy, fz, bandBack, light);
+		// the gold clasp at the throat, a dragon-red gem in it
+		float cz = -fz - 2f * th;
+		QueenBeeRender.box(vc, pose, 0f, y, cz - 0.08f, 0.75f, 0.62f, 0.08f, on ? GOLD_L : GOLD, on ? LightTexture.FULL_BRIGHT : light);
+		QueenBeeRender.box(vc, pose, 0f, y, cz - 0.2f, 0.32f, 0.3f, 0.05f, on ? 0xFF6A50 : RED_D, on ? LightTexture.FULL_BRIGHT : light);
 		pose.popPose();
 	}
 }

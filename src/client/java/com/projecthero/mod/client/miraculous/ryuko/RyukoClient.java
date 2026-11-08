@@ -43,6 +43,8 @@ public final class RyukoClient implements KwamiClientKit {
 		});
 		WorldRenderEvents.AFTER_ENTITIES.register(RyukoWorldFx::render);
 		ClientTickEvents.END_CLIENT_TICK.register(RyukoClient::glide);
+		// v0.17.3: the quick change's element swirl and sound
+		ClientTickEvents.END_CLIENT_TICK.register(RyukoSuitUpFx::tick);
 	}
 
 	private static void glide(Minecraft mc) {
@@ -86,11 +88,11 @@ public final class RyukoClient implements KwamiClientKit {
 		if (cover <= 0f) {
 			return;
 		}
-		RyukoRender.renderArm(pose, buffers, light, arm, right, RyukoRender.slim(player), cover);
+		RyukoRender.renderArm(pose, buffers, light, arm, right, RyukoRender.slim(player), cover, RyukoRender.edgeColor(player, partial));
 		if (right && cover > 0.99f && !Ryuko.swordAway(player)) {
 			pose.pushPose();
 			arm.translateAndRotate(pose);
-			RyukoLayer.placeInHand(pose);
+			RyukoLayer.placeInHand(pose, arm.xRot, RyukoRender.slim(player));
 			pose.mulPose(Axis.XP.rotationDegrees(24f));
 			RyukoRender.renderSword(pose, buffers, light, Ryuko.color(Ryuko.element(player)));
 			pose.popPose();
