@@ -210,8 +210,8 @@ public final class AndyAbilities {
 		cooldown(p, PARTS_BULLET, AndyConfig.PARTS_BULLET_COOLDOWN);
 		anim(p, AndyState.ANIM_FINGER);
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, handOrigin(p), p.getLookAngle().scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
-		sound(p, SoundEvents.CROSSBOW_SHOOT, 0.8f, 1.6f);
 		Vec3 h = handOrigin(p);
+		AndySfx.partsBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 3, 0.03, 0.03, 0.03, 0.0);
 	}
 
@@ -225,9 +225,8 @@ public final class AndyAbilities {
 		AndyState n = Andy.state(p).copy();
 		n.slowRegenUntil = p.level().getGameTime() + AndyConfig.CRIMSON_SLOW_TICKS;
 		Andy.save(p, n);
-		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.5f, 1.8f);
-		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.6f);
 		Vec3 h = handOrigin(p);
+		AndySfx.crimsonBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}
 

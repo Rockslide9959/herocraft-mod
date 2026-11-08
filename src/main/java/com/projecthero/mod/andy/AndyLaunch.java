@@ -143,7 +143,7 @@ public final class AndyLaunch {
 	public static boolean headHit(ServerPlayer owner, LivingEntity target, Vec3 from, float damage) {
 		boolean hit = AndyAbilities.strike(owner, target, from, damage, 1.4, 0.3);
 		if (hit) {
-			owner.level().playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR, SoundSource.PLAYERS, 0.8f, 1.2f);
+			AndySfx.headRoll(owner.level(), target.position().add(0, target.getBbHeight() * 0.6, 0), 1.0f);
 		}
 		return hit;
 	}
@@ -222,9 +222,9 @@ public final class AndyLaunch {
 		level.sendParticles(Andy.BLOOD_BIG, hips.x, hips.y, hips.z, 10, 0.2, 0.08, 0.2, 0.0);
 		level.sendParticles(Andy.BLOOD, hips.x, hips.y, hips.z, 18, 0.35, 0.25, 0.35, 0.0);
 		level.sendParticles(Andy.BLOOD_DARK, hips.x, hips.y - 0.1, hips.z, 6, 0.15, 0.05, 0.15, 0.0);
-		level.playSound(null, hips.x, hips.y, hips.z, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 1.0f, 0.5f);
-		level.playSound(null, hips.x, hips.y, hips.z, SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.6f);
-		level.playSound(null, hips.x, hips.y, hips.z, SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 0.8f, 1.3f);
+		AndySfx.partBreak(level, hips);
+		AndySfx.bloodBurst(level, hips, 1.0f);
+		AndySfx.launch(level, hips);
 	}
 
 	// ---------------------------------------------------------------- Head Launch
@@ -258,9 +258,9 @@ public final class AndyLaunch {
 		Vec3 neck = at.add(0, legless ? 0.8 : 1.5, 0);
 		level.sendParticles(Andy.BLOOD_BIG, neck.x, neck.y, neck.z, 14, 0.15, 0.1, 0.15, 0.0);
 		level.sendParticles(Andy.BLOOD, neck.x, neck.y + 0.2, neck.z, 24, 0.3, 0.4, 0.3, 0.0);
-		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 1.2f, 0.4f);
-		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 1.0f, 0.5f);
-		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.4f, 1.8f);
+		AndySfx.partBreak(level, neck.add(0, -0.4, 0));
+		AndySfx.bloodBurst(level, neck, 1.5f);
+		AndySfx.launch(level, neck);
 	}
 
 	// ---------------------------------------------------------------- the flight
@@ -278,7 +278,10 @@ public final class AndyLaunch {
 	}
 
 	private static void land(ServerPlayer p, long now) {
-		RUNS.remove(p.getUUID());
+		Run r = RUNS.remove(p.getUUID());
+		if (r != null && r.head) {
+			AndySfx.headRoll(p.level(), p.position().add(0, 0.25, 0), 1.0f);
+		}
 		SAFE_UNTIL.put(p.getUUID(), now + 40);
 		p.resetFallDistance();
 	}

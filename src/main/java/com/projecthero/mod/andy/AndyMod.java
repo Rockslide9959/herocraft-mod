@@ -39,6 +39,7 @@ public final class AndyMod {
 	}
 
 	public static void initialize() {
+		AndySoundEvents.initialize(); // v0.17.3 Andy sounds: projecthero:andy.*
 		AndyItems.initialize();
 		AndyEntityTypes.initialize();
 		AndyDamage.initialize();

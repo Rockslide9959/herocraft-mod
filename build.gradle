@@ -305,3 +305,39 @@ publishing {
 		// retrieving dependencies.
 	}
 }
+
+// v0.17.3 (user: "add the new test version ... into this google drive folder"): every jar that reaches the test modpack also goes to
+// the user's Google Drive mods folder (Google Drive for Desktop syncs it up), replacing the older projecthero jars there. Runs after
+// copyToModpack unless that failed (a broken jar or a crash-unsafe copy never reaches Drive); `gradlew copyToDrive` runs it alone.
+tasks.register('copyToDrive') {
+	group = 'projecthero'
+	description = 'Copies the built mod jar into the Google Drive mods folder (driveModsDir in gradle.properties).'
+	dependsOn tasks.named('remapJar')
+	def driveDir = providers.gradleProperty('driveModsDir').orElse('')
+	def jarFile = layout.buildDirectory.file("libs/${base.archivesName.get()}-${project.version}.jar")
+	onlyIf {
+		def cm = tasks.findByName('copyToModpack')
+		if (cm != null && cm.state.executed && cm.state.failure != null) {
+			logger.warn("[ProjectHero] copyToModpack failed -- not copying to Google Drive either.")
+			return false
+		}
+		def target = driveDir.get()
+		if (target.isBlank() || !new File(target).isDirectory()) {
+			logger.warn("[ProjectHero] driveModsDir '${target}' is not set or not there (is Google Drive for Desktop running?) -- skipping copyToDrive.")
+			return false
+		}
+		return true
+	}
+	doLast {
+		def target = new File(driveDir.get())
+		def src = jarFile.get().asFile
+		target.listFiles().findAll { it.name ==~ /projecthero-.*\.jar/ && it.name != src.name }.each { old ->
+			if (old.delete()) {
+				logger.lifecycle("[ProjectHero] Removed ${old.name} from Google Drive")
+			}
+		}
+		java.nio.file.Files.copy(src.toPath(), new File(target, src.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		logger.lifecycle("[ProjectHero] Copied ${src.name} to ${target}")
+	}
+}
+tasks.named('copyToModpack') { finalizedBy tasks.named('copyToDrive') }

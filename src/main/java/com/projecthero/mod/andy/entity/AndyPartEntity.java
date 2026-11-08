@@ -226,14 +226,14 @@ public class AndyPartEntity extends Projectile {
 				}
 			}
 			case STYLE_HEAD -> {
-				com.projecthero.mod.andy.AndyLaunch.headHit(p, le, this.position().subtract(v), this.damage);
+				com.projecthero.mod.andy.AndyLaunch.headHit(p, le, this.position().subtract(v), this.damage); // shared with the Head Launch (sound in it)
 				this.falling = true;
 				this.setNoGravity(false);
 				this.setDeltaMovement(v.scale(-0.25).add(0, 0.25, 0));
 			}
 			case STYLE_CRIMSON -> {
 				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 1.6, 0.25);
-				this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5f, 1.6f);
+				com.projecthero.mod.andy.AndySfx.crimsonImpact(this.level(), le.position().add(0, le.getBbHeight() * 0.5, 0)); // v0.17.3 Andy sounds
 			}
 			case STYLE_DIVISION -> {
 				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.3, 0.0);
@@ -242,6 +242,7 @@ public class AndyPartEntity extends Projectile {
 			}
 			default -> {
 				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.25, 0.0);
+				com.projecthero.mod.andy.AndySfx.splat(this.level(), this.position()); // v0.17.3 Andy sounds
 				this.discard();
 			}
 		}
@@ -264,7 +265,7 @@ public class AndyPartEntity extends Projectile {
 				this.setNoGravity(false);
 				Vec3 v = this.getDeltaMovement();
 				this.setDeltaMovement(v.scale(-0.2).add(0, 0.15, 0));
-				this.level().playSound(null, at.x, at.y, at.z, SoundEvents.WOOD_HIT, SoundSource.PLAYERS, 0.8f, 0.8f);
+				com.projecthero.mod.andy.AndySfx.headRoll(this.level(), at, (float) Math.min(1.0, v.length())); // v0.17.3 Andy sounds
 			}
 			case STYLE_DIVISION -> {
 				if (this.getOwner() instanceof ServerPlayer p) {
