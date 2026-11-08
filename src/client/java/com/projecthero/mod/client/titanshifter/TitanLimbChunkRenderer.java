@@ -23,6 +23,7 @@ import org.joml.Vector3f;
 
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
+import software.bernie.geckolib.cache.object.GeoCube;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 /**
@@ -44,6 +45,9 @@ public class TitanLimbChunkRenderer extends GeoEntityRenderer<TitanLimbChunkEnti
 	private double windX;
 	private double windZ;
 	private Vec3 centre = Vec3.ZERO;
+	/** This frame's corpse-dissolve time of the limb (0 before it starts), for the vanilla bones' own dissolve. */
+	private float boneTime;
+	private final TitanBones.Pending bones = new TitanBones.Pending();
 
 	public TitanLimbChunkRenderer(EntityRendererProvider.Context context) {
 		super(context, new TitanLimbChunkModel());
@@ -58,6 +62,7 @@ public class TitanLimbChunkRenderer extends GeoEntityRenderer<TitanLimbChunkEnti
 			return;
 		}
 		mainPass = true;
+		bones.clear();
 		TitanType type = animatable.titanType();
 		tx = TitanTexels.get(type.modelName());
 		fx = TitanFx.state(animatable);
@@ -70,6 +75,7 @@ public class TitanLimbChunkRenderer extends GeoEntityRenderer<TitanLimbChunkEnti
 		windZ = Math.sin(ang);
 		centre = animatable.position().add(0.0, animatable.getBbHeight() * 0.5, 0.0);
 		float d = animatable.dissolveProgress(partialTick);
+		boneTime = tx != null && d > 0.0f ? TitanLimbChunkModel.limbTime(tx, limbBit, d) : 0.0f;
 		Minecraft mc = Minecraft.getInstance();
 		if (tx != null && d > 0.0f && !mc.isPaused()) {
 			int slot = TitanTexels.limbSlot(limbBit);
@@ -128,6 +134,13 @@ public class TitanLimbChunkRenderer extends GeoEntityRenderer<TitanLimbChunkEnti
 	}
 
 	@Override
+	public void render(TitanLimbChunkEntity entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource,
+			int packedLight) {
+		super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+		TitanBones.draw(bones, poseStack, bufferSource, packedLight, TitanBones.skeletonGone(tx, limbBit, boneTime));
+	}
+
+	@Override
 	public void applyRenderLayers(PoseStack poseStack, TitanLimbChunkEntity animatable, BakedGeoModel model, RenderType renderType,
 			MultiBufferSource bufferSource, VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
 		mainPass = false;
@@ -136,10 +149,21 @@ public class TitanLimbChunkRenderer extends GeoEntityRenderer<TitanLimbChunkEnti
 
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, GeoBone bone, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
-		if (TitanTexels.limbBitOf(bone.getName()) != limbBit) {
+		if (TitanTexels.limbBitOf(bone.getName()) != limbBit || bone.isHidden()) {
 			return; // only the severed limb itself (its parents still carry the pose down to it)
 		}
-		super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
+		// v0.17.3 (user): the limb's own skeleton-layer cubes are replaced by the vanilla skeleton's arm / leg (TitanBones)
+		for (GeoCube cube : bone.getCubes()) {
+			if (tx != null && TitanBones.isSkeletonCube(tx, cube)) {
+				continue;
+			}
+			poseStack.pushPose();
+			renderCube(poseStack, cube, buffer, packedLight, packedOverlay, colour);
+			poseStack.popPose();
+		}
+		if (mainPass && tx != null) {
+			TitanBones.collect(bones, bone, poseStack);
+		}
 		if (!mainPass || tx == null || fx == null || Minecraft.getInstance().isPaused()) {
 			return;
 		}

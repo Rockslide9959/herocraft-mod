@@ -22,13 +22,15 @@ import org.joml.Matrix4f;
 
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
+import software.bernie.geckolib.cache.object.GeoCube;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 /**
  * Draws the Titan's abandoned body (v0.16.7, user): it sinks to its knees and bows its head over the ground, the nape
  * torn open where the shifter climbed out and steaming, then it dissolves -- skin, muscle, skeleton -- and the pixels do
  * not just vanish: each frame, the texels that just went (sampled down to the particle budget) fly off the posed body in
- * their own colour on one steady wind per corpse, lifting a little and fading as they drift away.
+ * their own colour on one steady wind per corpse, lifting a little and fading as they drift away. v0.17.3 (user): the
+ * skeleton under the flesh is the vanilla skeleton mob's model and texture ({@link TitanBones}), not the rig's own bones.
  */
 public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 	/**
@@ -48,6 +50,7 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 	private double windZ;
 	private float dissolve;
 	private Vec3 centre = Vec3.ZERO;
+	private final TitanBones.Pending bones = new TitanBones.Pending();
 
 	public TitanCorpseRenderer(EntityRendererProvider.Context context) {
 		super(context, new TitanCorpseModel());
@@ -70,6 +73,7 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 		// the baked model is shared with the living Titans (whose first-person rider hides the head)
 		model.getBone("head").ifPresent(b -> b.setHidden(false));
 		mainPass = true;
+		bones.clear();
 		TitanType type = animatable.titanType();
 		tx = TitanTexels.get(type.modelName());
 		fx = TitanFx.state(animatable);
@@ -113,9 +117,31 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 	}
 
 	@Override
+	public void render(TitanCorpseEntity entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource,
+			int packedLight) {
+		super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+		// v0.17.3 (user): the bones under the flesh are the vanilla skeleton mob, posed bone by bone like the corpse
+		TitanBones.draw(bones, poseStack, bufferSource, packedLight, TitanBones.skeletonGone(tx, 0, dissolve));
+	}
+
+	@Override
 	public void renderCubesOfBone(PoseStack poseStack, GeoBone bone, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
-		super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
-		if (!mainPass || tx == null || fx == null || bone.isHidden() || Minecraft.getInstance().isPaused()) {
+		if (bone.isHidden()) {
+			return;
+		}
+		// the rig's own skeleton-layer cubes are replaced by the vanilla skeleton (TitanBones)
+		for (GeoCube cube : bone.getCubes()) {
+			if (tx != null && TitanBones.isSkeletonCube(tx, cube)) {
+				continue;
+			}
+			poseStack.pushPose();
+			renderCube(poseStack, cube, buffer, packedLight, packedOverlay, colour);
+			poseStack.popPose();
+		}
+		if (mainPass && tx != null) {
+			TitanBones.collect(bones, bone, poseStack);
+		}
+		if (!mainPass || tx == null || fx == null || Minecraft.getInstance().isPaused()) {
 			return;
 		}
 		Integer idx = tx.boneIndex.get(bone.getName());

@@ -272,5 +272,6 @@ public final class TitanSkinFrames {
 		});
 		SOURCES.clear();
 		TitanTexels.clear();
+		TitanBones.reset();
 	}
 }

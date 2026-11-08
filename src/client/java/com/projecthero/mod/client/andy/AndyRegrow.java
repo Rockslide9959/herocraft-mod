@@ -1,11 +1,11 @@
 package com.projecthero.mod.client.andy;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.andy.data.AndyState;
+import com.projecthero.mod.client.render.VanillaSkeleton;
 
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -26,11 +26,12 @@ import org.joml.Vector3f;
  * <li>{@link AndyState#STYLE_BUILD}: nothing flies. Each texel appears in its own place in the organic order of
  * {@link AndyTexels.Texel#grow} (spreading patches, broadly from the joint), popping in a little small and dark and settling
  * to full size and colour over a couple of ticks.</li>
- * <li>{@link AndyState#STYLE_BONE}: a thin voxel bone (a skull for the head, a spine and ribs for the body) pushes out of the
- * stump, dark red flesh wraps round it and fills the part out, then the skin closes over it in place from the joint.</li>
+ * <li>{@link AndyState#STYLE_BONE}: the vanilla skeleton mob's own bone for the part ({@link VanillaSkeleton}: the skull, the
+ * ribcage, the thin arm / leg bone, in skeleton.png) grows out of the stump, dark red flesh wraps round it and fills the part
+ * out, then the skin closes over it in place from the joint.</li>
  * </ul>
- * No glow and no flash in any of them. Bone and flesh are flat-coloured cubes on one white texel of the palette (one buffer,
- * faces between two settled flesh cells skipped).
+ * No glow and no flash in any of them. The flesh is flat-coloured cubes on one white texel of the palette (one buffer, faces
+ * between two settled flesh cells skipped).
  */
 public final class AndyRegrow {
 	/** Streaming: the share of a regrowth each pixel spends flying in from the stump. */
@@ -155,18 +156,10 @@ public final class AndyRegrow {
 		if (skinDone || p >= 0.999f) {
 			return; // closed over: nothing inside can show
 		}
+		vanillaBone(pose, buffers, light, slim, part, p);
 		Body body = Body.of(part, slim);
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
 		Vector3f[] c = corners8();
-		for (Piece b : body.bones) {
-			float appear = BONE_START + b.key * (BONE_SPAN - 0.06f);
-			float f = (p - appear) / 0.06f;
-			if (f <= 0f) {
-				continue;
-			}
-			float s = f >= 1f ? 1f : 0.35f + 0.65f * ease(f);
-			piece(vc, last, c, b, s, light, 63);
-		}
 		Piece[] grid = body.flesh;
 		for (int i = 0; i < grid.length; i++) {
 			Piece b = grid[i];
@@ -195,6 +188,59 @@ public final class AndyRegrow {
 			piece(vc, last, c, b, s, light, mask);
 		}
 	}
+
+	/**
+	 * v0.17.3 (user): the bone is the vanilla skeleton mob's own part ({@link VanillaSkeleton}: the skull, the ribcage, the
+	 * thin 2 px arm and leg bones, in skeleton.png), drawn in the player part's space (so it is posed exactly like the part
+	 * it replaces), centred in it, and revealed from the joint outward: a band of the bone that widens from the stump to the
+	 * far end, its growing tip closed with the bone's own end face. The skull and the ribcage are drawn a little smaller
+	 * than the 8 px player head / body so the flesh can close over them.
+	 */
+	private static void vanillaBone(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float p) {
+		float f = Math.max(0f, Math.min(1f, (p - BONE_START) / BONE_SPAN));
+		if (f <= 0f) {
+			return;
+		}
+		f = f * f * (3f - 2f * f);
+		float[] box = AndyTexels.box(part, slim);
+		float cx = box[0] + box[3] * 0.5f;
+		float y0, y1;
+		pose.pushPose();
+		switch (part) {
+			case AndyState.HEAD -> {
+				// from the neck up
+				y0 = -8f * f;
+				y1 = 0f;
+				pose.translate(0f, -4f / 16f, 0f);
+				pose.scale(SKULL_SCALE, SKULL_SCALE, SKULL_SCALE);
+				pose.translate(0f, 4f / 16f, 0f);
+			}
+			case AndyState.BODY -> {
+				// from the neck down
+				y0 = 0f;
+				y1 = 12f * f;
+				pose.scale(RIBS_SCALE_X, 1f, RIBS_SCALE_Z);
+			}
+			case AndyState.RIGHT_ARM, AndyState.LEFT_ARM -> {
+				// from the shoulder down, centred in the (wide or slim) arm
+				y0 = -2f;
+				y1 = -2f + 12f * f;
+				pose.translate(cx / 16f, 0f, 0f);
+			}
+			default -> {
+				// from the hip down
+				y0 = 0f;
+				y1 = 12f * f;
+				pose.translate(cx / 16f, 0f, 0f);
+			}
+		}
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(VanillaSkeleton.TEXTURE));
+		VanillaSkeleton.draw(pose.last(), vc, part, y0, y1, light, OverlayTexture.NO_OVERLAY, -1);
+		pose.popPose();
+	}
+
+	/** The skull and the ribcage are scaled in from the player's 8 px head / body so the flesh closes over them. */
+	static final float SKULL_SCALE = 0.8f, RIBS_SCALE_X = 0.8f, RIBS_SCALE_Z = 0.7f;
 
 	private static float fleshF(Piece b, float p) {
 		return (p - (FLESH_START + b.key * (FLESH_SPAN - 0.07f))) / 0.07f;
@@ -297,12 +343,10 @@ public final class AndyRegrow {
 		}
 	}
 
-	static final int BONE = 0xEDE6D2, BONE_SHADE = 0xD9CFB8, BONE_DARK = 0x3A2622, TOOTH = 0xF8F4EA;
 	private static final int[] FLESH = { 0x4C060C, 0x5E0910, 0x700C15, 0x84111B, 0x9A1A24 };
 
-	/** The bone pieces and the flesh grid of one part (cached). */
+	/** The flesh grid of one part (cached). */
 	static final class Body {
-		final List<Piece> bones = new ArrayList<>();
 		Piece[] flesh;
 		int gw, gh, gd;
 
@@ -345,139 +389,8 @@ public final class AndyRegrow {
 			return Math.max(0f, Math.min(1f, a));
 		}
 
-		private void bone(float x0, float y0, float z0, float x1, float y1, float z1) {
-			bones.add(new Piece(x0, y0, z0, x1, y1, z1, (bones.size() & 1) == 0 ? BONE : BONE_SHADE));
-		}
-
-		private void bone(float x0, float y0, float z0, float x1, float y1, float z1, int rgb) {
-			bones.add(new Piece(x0, y0, z0, x1, y1, z1, rgb));
-		}
-
-		/** A bone column along y in 1 px voxels from {@code ya} to {@code yb}, {@code r} px thick each way. */
-		private void column(float cx, float cz, float ya, float yb, float rx, float rz) {
-			float step = 1f;
-			for (float y = ya; y < yb - 0.01f; y += step) {
-				bone(cx - rx, y, cz - rz, cx + rx, Math.min(yb, y + step * 0.92f), cz + rz);
-			}
-		}
-
 		private void make(int part, boolean slim) {
-			float[] box = AndyTexels.box(part, slim);
-			float cx = box[0] + box[3] * 0.5f, cz = box[2] + box[5] * 0.5f;
-			switch (part) {
-				case AndyState.HEAD -> skull();
-				case AndyState.BODY -> ribcage();
-				case AndyState.RIGHT_ARM, AndyState.LEFT_ARM -> arm(cx, cz, box[1], slim ? 0.8f : 1f);
-				default -> leg(cx, cz);
-			}
-			for (Piece b : bones) {
-				b.key = along(part, box, b.cy());
-			}
-			fleshGrid(part, box, slim);
-		}
-
-		private void arm(float cx, float cz, float y0, float k) {
-			bone(cx - 1.05f * k, y0 + 0.25f, cz - 1.05f, cx + 1.05f * k, y0 + 1.45f, cz + 1.05f); // the head of the humerus
-			column(cx, cz, y0 + 1.45f, y0 + 5.6f, 0.62f * k, 0.62f);
-			bone(cx - 1.0f * k, y0 + 5.6f, cz - 0.95f, cx + 1.0f * k, y0 + 6.55f, cz + 0.95f); // the elbow
-			column(cx - 0.5f * k, cz + 0.1f, y0 + 6.55f, y0 + 10.4f, 0.32f * k, 0.36f); // radius
-			column(cx + 0.5f * k, cz - 0.1f, y0 + 6.55f, y0 + 10.4f, 0.32f * k, 0.36f); // ulna
-			bone(cx - 0.95f * k, y0 + 10.4f, cz - 0.8f, cx + 0.95f * k, y0 + 10.95f, cz + 0.8f); // the wrist
-			for (int f = -1; f <= 1; f++) {
-				column(cx + f * 0.62f * k, cz - 0.2f, y0 + 10.95f, y0 + 11.85f, 0.2f * k, 0.22f); // fingers
-			}
-		}
-
-		private void leg(float cx, float cz) {
-			bone(cx - 1.25f, 0.2f, cz - 1.0f, cx + 1.25f, 1.3f, cz + 1.0f); // the hip joint
-			column(cx, cz, 1.3f, 5.6f, 0.7f, 0.7f); // femur
-			bone(cx - 1.05f, 5.6f, cz - 1.0f, cx + 1.05f, 6.6f, cz + 1.0f); // the knee
-			bone(cx - 0.55f, 5.7f, cz - 1.35f, cx + 0.55f, 6.5f, cz - 1.0f, BONE_SHADE); // the kneecap
-			column(cx - 0.35f, cz, 6.6f, 10.6f, 0.45f, 0.45f); // tibia
-			column(cx + 0.65f, cz + 0.2f, 6.6f, 10.6f, 0.22f, 0.22f); // fibula
-			bone(cx - 0.9f, 10.6f, cz - 1.75f, cx + 0.9f, 11.6f, cz + 0.7f); // the foot
-		}
-
-		private void ribcage() {
-			for (float y = 0.3f; y < 11.6f; y += 1f) {
-				bone(-0.6f, y, 0.35f, 0.6f, y + 0.78f, 1.55f); // the spine, vertebra by vertebra
-			}
-			for (float x = -3.5f; x < 3.4f; x += 1f) {
-				bone(x, 0.35f, -1.35f, x + 0.92f, 0.95f, -0.8f); // the collarbones
-			}
-			float[] ribs = { 2.0f, 3.4f, 4.8f, 6.2f, 7.6f };
-			for (int i = 0; i < ribs.length; i++) {
-				float y = ribs[i];
-				float w = i == ribs.length - 1 ? 2.1f : 2.55f;
-				bone(-w, y, -1.3f, -w + 0.5f, y + 0.55f, 1.35f); // the sides
-				bone(w - 0.5f, y, -1.3f, w, y + 0.55f, 1.35f);
-				if (i < ribs.length - 1) {
-					bone(-w, y, -1.3f, -0.55f, y + 0.55f, -0.85f); // round the front
-					bone(0.55f, y, -1.3f, w, y + 0.55f, -0.85f);
-				}
-				bone(-w, y, 0.9f, -0.6f, y + 0.55f, 1.35f, BONE_SHADE); // round the back to the spine
-				bone(0.6f, y, 0.9f, w, y + 0.55f, 1.35f, BONE_SHADE);
-			}
-			for (float y = 1.4f; y < 7.0f; y += 1f) {
-				bone(-0.4f, y, -1.45f, 0.4f, y + 0.9f, -1.0f, BONE_SHADE); // the breastbone
-			}
-			bone(-2.9f, 9.9f, -1.1f, -1.0f, 11.7f, 1.1f); // the hips
-			bone(1.0f, 9.9f, -1.1f, 2.9f, 11.7f, 1.1f);
-			bone(-1.0f, 10.9f, -0.2f, 1.0f, 11.6f, 1.2f, BONE_SHADE);
-		}
-
-		/** A blocky skull, built as a shell of voxels from the neck up, with sockets, a nose and teeth. */
-		private void skull() {
-			bone(-0.6f, -1.75f, 0.2f, 0.6f, -0.95f, 1.4f); // the top of the neck
-			bone(-0.6f, -0.85f, 0.2f, 0.6f, -0.1f, 1.4f, BONE_SHADE);
-			// the cranium: 7 x 6 x 7 voxels over x, z -3.4..3.4 and y -7.7..-2.0
-			float vx = 6.8f / 7f, vy = 5.7f / 6f;
-			for (int iy = 0; iy < 6; iy++) {
-				for (int ix = 0; ix < 7; ix++) {
-					for (int iz = 0; iz < 7; iz++) {
-						boolean shell = ix == 0 || ix == 6 || iz == 0 || iz == 6 || iy == 0;
-						if (!shell) {
-							continue;
-						}
-						boolean edgeX = ix == 0 || ix == 6, edgeZ = iz == 0 || iz == 6;
-						if (edgeX && edgeZ) {
-							continue; // round the vertical corners off
-						}
-						if (iy == 0 && (edgeX || edgeZ)) {
-							continue; // and the top into a dome
-						}
-						float x0 = -3.4f + ix * vx, z0 = -3.4f + iz * vx, y0 = -7.7f + iy * vy;
-						int rgb = ((ix + iy + iz) & 1) == 0 ? BONE : BONE_SHADE;
-						if (iz == 0) {
-							// the face: sockets, nose, upper teeth
-							if ((iy == 2 || iy == 3) && (ix == 1 || ix == 2 || ix == 4 || ix == 5)) {
-								rgb = BONE_DARK;
-							} else if (iy == 4 && ix == 3) {
-								rgb = BONE_DARK;
-							} else if (iy == 5) {
-								rgb = (ix & 1) == 0 ? TOOTH : 0xCFC6B0;
-							}
-						}
-						if (iy == 0) {
-							// the dome sits a little lower and in
-							bone(x0 + 0.05f, y0 + 0.35f, z0 + 0.05f, x0 + vx - 0.05f, y0 + vy, z0 + vx - 0.05f, rgb);
-						} else {
-							bone(x0, y0, z0, x0 + vx, y0 + vy, z0 + vx, rgb);
-						}
-					}
-				}
-			}
-			// the jaw: a U of voxels under the front, with a row of lower teeth
-			for (int ix = 0; ix < 5; ix++) {
-				float x0 = -2.5f + ix;
-				bone(x0, -1.95f, -3.25f, x0 + 0.95f, -1.35f, -2.55f, (ix & 1) == 0 ? TOOTH : 0xCFC6B0);
-				bone(x0, -1.35f, -3.25f, x0 + 0.95f, -0.45f, -2.3f);
-			}
-			for (int iz = 0; iz < 3; iz++) {
-				float z0 = -2.3f + iz;
-				bone(-2.5f, -1.35f, z0, -1.6f, -0.45f, z0 + 0.95f, BONE_SHADE);
-				bone(1.6f, -1.35f, z0, 2.5f, -0.45f, z0 + 0.95f, BONE_SHADE);
-			}
+			fleshGrid(part, AndyTexels.box(part, slim), slim);
 		}
 
 		/** One flesh cell per px of the part, inset a little under the skin, skipping where the bone runs (it shows between). */
@@ -528,7 +441,7 @@ public final class AndyRegrow {
 		private static boolean keepOut(int part, float x, float y, float z, float cx, float cz, boolean slim) {
 			return switch (part) {
 				case AndyState.HEAD -> Math.abs(x) < 3.0f && Math.abs(z) < 3.0f && y > -7.0f && y < -1.0f;
-				case AndyState.BODY -> Math.abs(x) < 2.6f && Math.abs(z) < 1.0f;
+				case AndyState.BODY -> Math.abs(x) < 3.0f && Math.abs(z) < 1.2f; // inside the scaled-in vanilla ribcage
 				default -> Math.abs(x - cx) < (slim ? 0.8f : 1.0f) && Math.abs(z - cz) < 1.0f;
 			};
 		}
