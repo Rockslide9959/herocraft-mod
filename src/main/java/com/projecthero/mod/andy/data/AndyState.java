@@ -50,6 +50,12 @@ public final class AndyState {
 	public static final int ANIM_HEADBUTT = 13;
 	public static final int ANIM_CARD_BACK = 14;
 
+	/** The look of a regrowth (same length every style): pixels stream in, build in place, or bone, flesh, then skin. */
+	public static final int STYLE_STREAMING = 0;
+	public static final int STYLE_BUILD = 1;
+	public static final int STYLE_BONE = 2;
+	public static final int STYLES = 3;
+
 	public static final int FLAG_PROPELLING = 1;
 	public static final int FLAG_DEAD_LINE = 2;
 	public static final int FLAG_DEAD_ROAD = 4;
@@ -74,13 +80,15 @@ public final class AndyState {
 	/** When the held move (X / C) started. */
 	public long holdStart;
 	public long lastHitAt;
+	/** How a part looks as it regrows ({@link #STYLE_STREAMING}..{@link #STYLE_BONE}); held V cycles it. */
+	public int regenStyle;
 
 	public AndyState() {
-		this(false, full(), times(), 0, 1, new HashMap<>(), 0L, 0, 0L, 0L, 0L, 0, 0L, 0L);
+		this(false, full(), times(), 0, 1, new HashMap<>(), 0L, 0, 0L, 0L, 0L, 0, 0L, 0L, 0);
 	}
 
 	public AndyState(boolean hasPower, List<Float> partHp, List<Long> partTimes, int kinds, int regenSpeed, Map<String, Long> abilityReadyAt,
-			long victorUntil, int animId, long animStart, long reformUntil, long slowRegenUntil, int flags, long holdStart, long lastHitAt) {
+			long victorUntil, int animId, long animStart, long reformUntil, long slowRegenUntil, int flags, long holdStart, long lastHitAt, int regenStyle) {
 		this.hasPower = hasPower;
 		this.partHp = new ArrayList<>(partHp);
 		while (this.partHp.size() < PARTS) {
@@ -101,6 +109,7 @@ public final class AndyState {
 		this.flags = flags;
 		this.holdStart = holdStart;
 		this.lastHitAt = lastHitAt;
+		this.regenStyle = Math.floorMod(regenStyle, STYLES);
 	}
 
 	public static List<Float> full() {
@@ -121,7 +130,7 @@ public final class AndyState {
 
 	public AndyState copy() {
 		return new AndyState(hasPower, partHp, partTimes, kinds, regenSpeed, abilityReadyAt, victorUntil, animId, animStart, reformUntil,
-				slowRegenUntil, flags, holdStart, lastHitAt);
+				slowRegenUntil, flags, holdStart, lastHitAt, regenStyle);
 	}
 
 	// ---------------------------------------------------------------- the parts
@@ -209,6 +218,7 @@ public final class AndyState {
 			Codec.LONG.optionalFieldOf("slow_regen_until", 0L).forGetter(s -> s.slowRegenUntil),
 			Codec.INT.optionalFieldOf("flags", 0).forGetter(s -> s.flags),
 			Codec.LONG.optionalFieldOf("hold_start", 0L).forGetter(s -> s.holdStart),
-			Codec.LONG.optionalFieldOf("last_hit_at", 0L).forGetter(s -> s.lastHitAt)
+			Codec.LONG.optionalFieldOf("last_hit_at", 0L).forGetter(s -> s.lastHitAt),
+			Codec.INT.optionalFieldOf("regen_style", 0).forGetter(s -> s.regenStyle)
 	).apply(i, AndyState::new));
 }

@@ -1,6 +1,5 @@
 package com.projecthero.mod.client.andy;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,13 +26,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
  * v0.17.3: how Andy looks. The vanilla parts of a broken part are hidden ({@link #hideParts}, every frame, every viewer,
- * first person too); a part that is regrowing is drawn here texel by texel ({@link #regrow}): the skin's own pixels fly out
- * of the stump one by one, each to its exact place, and click in from the joint outward behind a thin glowing line. Also the
+ * first person too); a part that is regrowing is drawn texel by texel ({@link #regrow}) in the player's chosen style
+ * ({@link AndyRegrow}: Streaming, Build in place, or Bone and flesh -- no glow in any of them). Also the
  * flesh caps on a stump, the Undead Card on the forehead, Kurikara and the Dead Blade in his hand, and Victor's red haze.
  *
  * <p>The model's per-part world transform is remembered every frame ({@link #capture}) so a part bursts from exactly where
@@ -43,11 +41,6 @@ public final class AndyRender {
 	public static final ResourceLocation CARD = ProjectHeroMod.id("textures/entity/andy/card.png");
 	public static final ResourceLocation FLESH = ProjectHeroMod.id("textures/entity/andy/flesh.png");
 	public static final ResourceLocation PALETTE = ProjectHeroMod.id("textures/entity/andy/palette.png");
-
-	/** The share of a regrowth each pixel spends flying in from the stump. */
-	static final float FLIGHT = 0.34f;
-	/** How long (as a share of the regrowth) a pixel flashes after it clicks in. */
-	static final float FLASH = 0.08f;
 
 	private record Captured(Matrix4f[] parts, long nanos) {
 	}
@@ -174,13 +167,13 @@ public final class AndyRender {
 			if (p > 0f && p < 1f) {
 				pose.pushPose();
 				part(model, i).translateAndRotate(pose);
-				regrow(pose, buffers, light, tex, slim, i, p);
+				regrow(pose, buffers, light, tex, slim, i, p, s.regenStyle);
 				pose.popPose();
 			} else if (p >= 1f) {
 				// the server has not cleared it yet: draw it whole
 				pose.pushPose();
 				part(model, i).translateAndRotate(pose);
-				regrow(pose, buffers, light, tex, slim, i, 1f);
+				regrow(pose, buffers, light, tex, slim, i, 1f, s.regenStyle);
 				pose.popPose();
 			}
 		}
@@ -258,77 +251,9 @@ public final class AndyRender {
 
 	// ---------------------------------------------------------------- the regrowth
 
-	/**
-	 * A part re-forming, in its own space (the pose already at the part): at {@code p} (0..1) the pixels whose turn has come
-	 * are in place, the next ones are flying in from the joint, and a thin glowing line runs along the frontier.
-	 */
-	public static void regrow(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
-		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
-		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
-		float[] joint = AndyTexels.joint(part, slim);
-		PoseStack.Pose last = pose.last();
-		Matrix4f m = last.pose();
-		Quaternionf q = new Quaternionf();
-		Vector3f[] c = new Vector3f[8];
-		for (int i = 0; i < 8; i++) {
-			c[i] = new Vector3f();
-		}
-		java.util.List<AndyTexels.Texel> flashing = new java.util.ArrayList<>();
-		for (AndyTexels.Texel t : texels) {
-			if (!SkinPixels.shows(tex, t.u, t.v)) {
-				continue;
-			}
-			float click = t.order * (1f - FLIGHT) + FLIGHT;
-			float launch = click - FLIGHT;
-			float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
-			if (p >= click) {
-				square(skin, last, t, u0, v0, u1, v1, light, 0f);
-				if (p - click < FLASH) {
-					flashing.add(t);
-				}
-			} else if (p >= launch) {
-				float f = (p - launch) / FLIGHT;
-				float e = f * f * (3f - 2f * f);
-				// from the stump (a spot on the cut), bulging out past the surface, home to its own place
-				float sx = joint[0] + (t.seed - 0.5f) * 2.4f, sy = joint[1], sz = joint[2] + (((t.seed * 7.31f) % 1f) - 0.5f) * 2.4f;
-				float tx = t.x - t.nx * 0.5f, ty = t.y - t.ny * 0.5f, tz = t.z - t.nz * 0.5f;
-				float bulge = 2.2f + t.seed * 2.2f;
-				float mx = (sx + tx) * 0.5f + t.nx * bulge, my = (sy + ty) * 0.5f + t.ny * bulge, mz = (sz + tz) * 0.5f + t.nz * bulge;
-				float a = 1f - e;
-				float x = a * a * sx + 2 * a * e * mx + e * e * tx;
-				float y = a * a * sy + 2 * a * e * my + e * e * ty;
-				float z = a * a * sz + 2 * a * e * mz + e * e * tz;
-				float size = (0.55f + 0.45f * e) * 0.5f;
-				float spin = (1f - e) * (1f - e) * (4f + t.seed * 5f);
-				q.setAngleAxis(spin, 0.4f + t.seed * 0.6f, 1f - t.seed, 0.3f);
-				for (int i = 0; i < 8; i++) {
-					c[i].set((i & 1) == 0 ? -size : size, (i & 2) == 0 ? -size : size, (i & 4) == 0 ? -size : size).rotate(q).add(x, y, z).mul(1f / 16f);
-				}
-				cube(skin, last, c, u0, v0, u1, v1, light);
-			}
-		}
-		VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
-		for (AndyTexels.Texel t : flashing) {
-			float click = t.order * (1f - FLIGHT) + FLIGHT;
-			float k = 1f - (p - click) / FLASH;
-			glowSquare(glow, m, t, 0.06f, 1f, 0.82f, 0.7f, 0.55f * k);
-		}
-		float frontier = (p - FLIGHT) / (1f - FLIGHT);
-		if (frontier > 0f && frontier < 1f) {
-			ring(glow, m, part, slim, frontier);
-		}
-	}
-
-	/** One placed texel: its square on the surface (pushed {@code out} px further out). */
-	private static void square(VertexConsumer vc, PoseStack.Pose pose, AndyTexels.Texel t, float u0, float v0, float u1, float v1, int light, float out) {
-		float[][] p = corners(t, out, 0f);
-		Matrix4f m = pose.pose();
-		for (int i = 0; i < 4; i++) {
-			float uu = (i == 1 || i == 2) ? u1 : u0;
-			float vv = (i >= 2) ? v1 : v0;
-			vc.addVertex(m, p[i][0] / 16f, p[i][1] / 16f, p[i][2] / 16f).setColor(255, 255, 255, 255).setUv(uu, vv)
-					.setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, t.nx, t.ny, t.nz);
-		}
+	/** A part re-forming, in its own space (the pose already at the part), {@code p} 0..1, in {@code style} ({@link AndyRegrow}). */
+	public static void regrow(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, int style) {
+		AndyRegrow.draw(pose, buffers, light, tex, slim, part, p, style);
 	}
 
 	/** The four corners of a texel's square, {@code out} px along its normal, grown by {@code grow} px. */
@@ -342,14 +267,8 @@ public final class AndyRender {
 		};
 	}
 
-	private static void glowSquare(VertexConsumer vc, Matrix4f m, AndyTexels.Texel t, float out, float r, float g, float b, float a) {
-		float[][] p = corners(t, out, 0.05f);
-		for (int i = 0; i < 4; i++) {
-			vc.addVertex(m, p[i][0] / 16f, p[i][1] / 16f, p[i][2] / 16f).setColor(r, g, b, a);
-		}
-		for (int i = 3; i >= 0; i--) {
-			vc.addVertex(m, p[i][0] / 16f, p[i][1] / 16f, p[i][2] / 16f).setColor(r, g, b, a);
-		}
+	static float[][] cornersPublic(AndyTexels.Texel t, float out, float grow) {
+		return corners(t, out, grow);
 	}
 
 	private static void cube(VertexConsumer vc, PoseStack.Pose pose, Vector3f[] p, float u0, float v0, float u1, float v1, int light) {
@@ -374,45 +293,6 @@ public final class AndyRender {
 
 	static void cubePublic(VertexConsumer vc, PoseStack.Pose pose, Vector3f[] p, float u0, float v0, float u1, float v1, int light) {
 		cube(vc, pose, p, u0, v0, u1, v1, light);
-	}
-
-	/** The thin bright line round the part where the pixels are clicking in. */
-	private static void ring(VertexConsumer vc, Matrix4f m, int part, boolean slim, float frontier) {
-		float[] b = AndyTexels.box(part, slim);
-		float y = switch (part) {
-			case AndyState.HEAD -> -frontier * 8f;
-			case AndyState.RIGHT_ARM, AndyState.LEFT_ARM -> b[1] + frontier * b[4];
-			default -> frontier * b[4];
-		};
-		float grow = (part == AndyState.HEAD ? 0.5f : 0.25f) + 0.18f;
-		float x0 = b[0] - grow, x1 = b[0] + b[3] + grow, z0 = b[2] - grow, z1 = b[2] + b[5] + grow;
-		band(vc, m, x0, x1, z0, z1, y, 0.22f, 1f, 0.92f, 0.85f, 0.95f);
-		band(vc, m, x0 - 0.15f, x1 + 0.15f, z0 - 0.15f, z1 + 0.15f, y, 0.75f, 1f, 0.25f, 0.2f, 0.35f);
-	}
-
-	private static void band(VertexConsumer vc, Matrix4f m, float x0, float x1, float z0, float z1, float y, float half, float r, float g, float b, float a) {
-		float ya = (y - half) / 16f, yb = (y + half) / 16f;
-		float[][] sides = { { x0, z0, x1, z0 }, { x1, z0, x1, z1 }, { x1, z1, x0, z1 }, { x0, z1, x0, z0 } };
-		for (float[] s : sides) {
-			float ax = s[0] / 16f, az = s[1] / 16f, bx = s[2] / 16f, bz = s[3] / 16f;
-			vc.addVertex(m, ax, ya, az).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, bx, ya, bz).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, bx, (ya + yb) * 0.5f, bz).setColor(r, g, b, a);
-			vc.addVertex(m, ax, (ya + yb) * 0.5f, az).setColor(r, g, b, a);
-			vc.addVertex(m, ax, (ya + yb) * 0.5f, az).setColor(r, g, b, a);
-			vc.addVertex(m, bx, (ya + yb) * 0.5f, bz).setColor(r, g, b, a);
-			vc.addVertex(m, bx, yb, bz).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, ax, yb, az).setColor(r, g, b, a * 0.4f);
-			// and the back faces
-			vc.addVertex(m, ax, yb, az).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, bx, yb, bz).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, bx, (ya + yb) * 0.5f, bz).setColor(r, g, b, a);
-			vc.addVertex(m, ax, (ya + yb) * 0.5f, az).setColor(r, g, b, a);
-			vc.addVertex(m, ax, (ya + yb) * 0.5f, az).setColor(r, g, b, a);
-			vc.addVertex(m, bx, (ya + yb) * 0.5f, bz).setColor(r, g, b, a);
-			vc.addVertex(m, bx, ya, bz).setColor(r, g, b, a * 0.4f);
-			vc.addVertex(m, ax, ya, az).setColor(r, g, b, a * 0.4f);
-		}
 	}
 
 	// ---------------------------------------------------------------- stumps, the card, boxes

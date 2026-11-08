@@ -35,7 +35,8 @@ import org.joml.Vector3f;
  * Six parts (head, body, both arms, both legs), each with its own HP. Every hit is placed on a part by where it lands
  * ({@link AndyParts}); a part at 0 HP breaks ({@link #breakPart}) -- every client bursts it into one cube per skin texel --
  * and is gone until it regrows: after {@link AndyConfig#REGROW_DELAY} it re-forms pixel by pixel from the joint outward over
- * {@link AndyConfig#REGROW_TICKS}, costing hunger. V cycles the speed (Slow / Normal / Burst).
+ * {@link AndyConfig#REGROW_TICKS}, costing hunger. A tap of V cycles the speed (Slow / Normal / Burst); holding V for
+ * {@link AndyConfig#STYLE_HOLD_TICKS} cycles how the regrowth looks (Streaming / Build in place / Bone and flesh).
  *
  * <h2>Vanilla health</h2>
  * Vanilla health stays the player's real life pool and takes every hit as usual. The part system runs beside it and only
@@ -131,6 +132,11 @@ public final class Andy {
 	public static int regenSpeed(Player player) {
 		AndyState s = peek(player);
 		return s == null ? AndyConfig.SPEED_NORMAL : s.regenSpeed;
+	}
+
+	public static int regenStyle(Player player) {
+		AndyState s = peek(player);
+		return s == null ? AndyState.STYLE_STREAMING : s.regenStyle;
 	}
 
 	public static int cooldownRemaining(Player player, String abilityId) {
@@ -337,6 +343,26 @@ public final class Andy {
 				0.8f, 0.7f + 0.3f * n.regenSpeed);
 	}
 
+	/** The lang names of the three regrowth styles, by {@link AndyState#regenStyle}. */
+	public static final String[] STYLE_NAMES = { "streaming", "build", "bone" };
+
+	/** Held V: the next regrowth style (Streaming, Build in place, Bone and flesh). Kept through death and logging out. */
+	public static void cycleStyle(ServerPlayer player) {
+		AndyState n = state(player).copy();
+		n.regenStyle = (n.regenStyle + 1) % AndyState.STYLES;
+		save(player, n);
+		LAST_MESSAGE.remove(player.getUUID());
+		say(player, "message.projecthero.andy.style", ChatFormatting.RED, Component.translatable("projecthero.andy.style." + STYLE_NAMES[n.regenStyle]));
+		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS,
+				0.8f, 0.8f + 0.25f * n.regenStyle);
+	}
+
+	public static void setStyle(ServerPlayer player, int style) {
+		AndyState n = state(player).copy();
+		n.regenStyle = Math.floorMod(style, AndyState.STYLES);
+		save(player, n);
+	}
+
 	public static void setSpeed(ServerPlayer player, int speed) {
 		AndyState n = state(player).copy();
 		n.regenSpeed = Math.floorMod(speed, 3);
@@ -472,6 +498,7 @@ public final class Andy {
 		if (victor(player) && player.tickCount % 4 == 0) {
 			((ServerLevel) player.level()).sendParticles(BLOOD, player.getX(), player.getEyeY() + 0.2, player.getZ(), 1, 0.25, 0.1, 0.25, 0.0);
 		}
+		AndyAbilityManager.tickHold(player);
 		AndyAbilities.tick(player);
 	}
 

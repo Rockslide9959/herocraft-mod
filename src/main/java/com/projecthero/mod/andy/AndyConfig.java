@@ -27,6 +27,8 @@ public final class AndyConfig {
 	/** Crimson Bullet: the regeneration delay is multiplied by this for {@link #CRIMSON_SLOW_TICKS}. */
 	public static final float CRIMSON_SLOW_FACTOR = 2.5f;
 	public static final int CRIMSON_SLOW_TICKS = 300;
+	/** V held this long cycles the regrowth style instead of the speed (a shorter tap, decided on release, is the speed). */
+	public static final int STYLE_HOLD_TICKS = 20;
 
 	// ---------------------------------------------------------------- Undead
 	/** The whole body re-forms from the head over this long (invulnerable, can't act). */

@@ -39,7 +39,7 @@ public abstract class AndyFirstPersonArmMixin {
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		AndyRender.regrow(pose, buffers, light, player.getSkin().texture(), AndyRender.slim(player), part, Math.min(1f, p));
+		AndyRender.regrow(pose, buffers, light, player.getSkin().texture(), AndyRender.slim(player), part, Math.min(1f, p), s.regenStyle);
 		pose.popPose();
 	}
 }

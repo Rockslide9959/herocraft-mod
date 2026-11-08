@@ -18,7 +18,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * v0.17.3: the Andy HUD (bottom-right), mono style: a little pixel body with each part shaded by its HP (gone parts hollow,
- * regrowing ones filling from the joint), the regeneration speed, Victor's hairline, and the six keys.
+ * regrowing ones filling from the joint), the regeneration speed and style, Victor's hairline, and the six keys.
  */
 public final class AndyHud {
 	private static final int BOX = 20;
@@ -94,11 +94,15 @@ public final class AndyHud {
 		String[] speeds = { "slow", "normal", "burst" };
 		Component speed = Component.translatable("projecthero.andy.speed." + speeds[s.regenSpeed]);
 		int textY = fy + 24;
-		g.drawString(mc.font, Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title"), x0, textY - 10,
+		g.drawString(mc.font, Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title"), x0, textY - 20,
 				victor ? VICTOR : NAME, false);
-		g.drawString(mc.font, Component.translatable("hud.projecthero.andy.regen", speed), x0, textY, KEY, false);
+		g.drawString(mc.font, Component.translatable("hud.projecthero.andy.regen", speed), x0, textY - 10, KEY, false);
+		// the style (held V) under the speed (tapped V), clipped short of the little body
+		Component style = Component.translatable("hud.projecthero.andy.style",
+				Component.translatable("projecthero.andy.style." + Andy.STYLE_NAMES[s.regenStyle]));
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), totalW - 18), x0, textY, KEY, false);
 		if (s.reformUntil > now) {
-			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, textY - 20, VICTOR, false);
+			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, textY - 30, VICTOR, false);
 		}
 
 		if (MoveListOverlay.held()) {

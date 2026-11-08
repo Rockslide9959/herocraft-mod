@@ -20,7 +20,8 @@ import net.minecraft.world.entity.player.Player;
  *   G (2)  Crimson Crescent Moon     Shift+G  Great Deep-Crimson Crescent Moon   (Victor: Dead Blade)
  *   X (3)  Blood Propulsion (hold)   Shift+X  Repair Glide
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  Regeneration speed        Shift+V  Pull the Card (Victor)
+ *   V (5)  tap: Regeneration speed   Shift+V  Pull the Card (Victor)
+ *          hold 1 s: Regeneration style
  *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
  * </pre>
  */
@@ -28,16 +29,20 @@ public final class AndyAbilityManager {
 	static final int REPEAT_WINDOW = 25;
 
 	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
+	/** A plain V held down: {when it went down, 1 once the hold has cycled the style}. */
+	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
 
 	private AndyAbilityManager() {
 	}
 
 	static void clearSessionState() {
 		LAST_PRESS.clear();
+		V_HELD.clear();
 	}
 
 	static void forget(UUID id) {
 		LAST_PRESS.remove(id);
+		V_HELD.remove(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -117,10 +122,17 @@ public final class AndyAbilityManager {
 				}
 			}
 			case SLOT_5 -> {
+				// a tap cycles the speed (on release); a hold of STYLE_HOLD_TICKS cycles the style (tickHold, while still held)
 				if (pressed) {
 					if (shift) {
+						V_HELD.remove(player.getUUID());
 						AndyAbilities.pullCard(player);
-					} else if (Andy.canAct(player)) {
+					} else {
+						V_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L });
+					}
+				} else {
+					long[] held = V_HELD.remove(player.getUUID());
+					if (held != null && held[1] == 0L && Andy.canAct(player)) {
 						Andy.cycleSpeed(player);
 					}
 				}
@@ -138,6 +150,18 @@ public final class AndyAbilityManager {
 			}
 			default -> {
 			}
+		}
+	}
+
+	/** From {@link Andy#tick}: a plain V held long enough cycles the regrowth style, once per hold. */
+	static void tickHold(ServerPlayer player) {
+		long[] held = V_HELD.get(player.getUUID());
+		if (held == null || held[1] != 0L) {
+			return;
+		}
+		if (player.level().getGameTime() - held[0] >= AndyConfig.STYLE_HOLD_TICKS) {
+			held[1] = 1L;
+			Andy.cycleStyle(player);
 		}
 	}
 

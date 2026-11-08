@@ -12,7 +12,10 @@ import com.projecthero.mod.andy.data.AndyState;
  * uses: positions in model pixels relative to the part's pivot (vanilla model space: +y down, -z the front).
  *
  * <p>{@link Texel#order} runs 0 at the part's joint (neck, shoulder, hip; the neck for the body) to 1 at its far end, with a
- * little scatter so a regrowing part fills in like a wave of pixels rather than a ruler-straight wipe.
+ * little scatter so a regrowing part fills in like a wave of pixels rather than a ruler-straight wipe. {@link Texel#grow} is
+ * the organic order the "Build in place" style uses: a few growth seeds (the first at the joint, the rest kicking in later
+ * the further they sit from it) flood out over the surface through seeded noise at their own speeds, so the skin fills in
+ * irregular patches that spread and merge, broadly from the joint outward, at a steady rate of pixels.
  */
 public final class AndyTexels {
 	private AndyTexels() {
@@ -34,6 +37,8 @@ public final class AndyTexels {
 		public final int plane; // 0: the square is in YZ (normal x), 1: XZ (normal y), 2: XY (normal z)
 		public final boolean overlay;
 		public float order;
+		/** The organic, patchy order (0..1) of "Build in place" (and the skin closing over in "Bone and flesh"). */
+		public float grow;
 		/** A fixed random number per texel (scatter, spin axes). */
 		public final float seed;
 
@@ -152,7 +157,149 @@ public final class AndyTexels {
 			// a little scatter, and the overlay just behind the skin under it
 			t.order = Math.max(0f, Math.min(1f, o * 0.92f + t.seed * 0.06f + (t.overlay ? 0.02f : 0f)));
 		}
+		growOrder(out, part, slim, h);
 		return out;
+	}
+
+	/**
+	 * Fills {@link Texel#grow}: arrival times of several growth fronts flooding over the base layer's surface graph (edge cost
+	 * scaled by smooth 3D value noise, so the fronts are ragged), blended a little with the joint-outward order, then ranked so
+	 * pixels appear at an even rate. Each overlay texel follows the base texel under it a moment later.
+	 */
+	private static void growOrder(List<Texel> all, int part, boolean slim, float length) {
+		int n = all.size() / 2; // addCube adds the base layer, then the overlay in the very same order
+		List<Texel> base = all.subList(0, n);
+		java.util.Random rnd = new java.util.Random(9001L + part * 17L + (slim ? 3 : 0));
+		long noiseSeed = rnd.nextLong();
+		// the surface graph: 4-neighbours on a face and the ones across an edge (0.71 px apart)
+		int[][] nbr = new int[n][];
+		float[][] cost = new float[n][];
+		for (int i = 0; i < n; i++) {
+			Texel a = base.get(i);
+			int[] tmpI = new int[8];
+			float[] tmpC = new float[8];
+			int k = 0;
+			for (int j = 0; j < n && k < 8; j++) {
+				if (j == i) {
+					continue;
+				}
+				Texel b = base.get(j);
+				float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+				float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+				if (d < 1.05f) {
+					float mx = (a.x + b.x) * 0.5f, my = (a.y + b.y) * 0.5f, mz = (a.z + b.z) * 0.5f;
+					tmpI[k] = j;
+					tmpC[k] = d * (0.35f + 1.3f * noise(mx / 2.6f, my / 2.6f, mz / 2.6f, noiseSeed));
+					k++;
+				}
+			}
+			nbr[i] = java.util.Arrays.copyOf(tmpI, k);
+			cost[i] = java.util.Arrays.copyOf(tmpC, k);
+		}
+		float[] arrival = new float[n];
+		java.util.Arrays.fill(arrival, Float.MAX_VALUE);
+		// texels by their joint-outward order
+		Integer[] byOrder = new Integer[n];
+		for (int i = 0; i < n; i++) {
+			byOrder[i] = i;
+		}
+		java.util.Arrays.sort(byOrder, (x, y) -> Float.compare(base.get(x).order, base.get(y).order));
+		int seeds = part == AndyState.HEAD || part == AndyState.BODY ? 7 : 5;
+		for (int s = 0; s < seeds; s++) {
+			int at;
+			float start;
+			float speed;
+			if (s < 2) {
+				// at the joint, from the start
+				at = byOrder[rnd.nextInt(Math.max(1, n / 10))];
+				start = 0f;
+				speed = 0.9f + rnd.nextFloat() * 0.3f;
+			} else {
+				// further out, kicking in a while before the joint fronts get there: islands that spread and join up
+				at = byOrder[(int) (n * (0.2f + 0.75f * rnd.nextFloat()))];
+				start = base.get(at).order * length * (0.3f + 0.4f * rnd.nextFloat());
+				speed = 0.55f + rnd.nextFloat() * 0.9f;
+			}
+			float[] d = dijkstra(n, nbr, cost, at);
+			for (int i = 0; i < n; i++) {
+				if (d[i] < Float.MAX_VALUE) {
+					arrival[i] = Math.min(arrival[i], start + d[i] / speed);
+				}
+			}
+		}
+		float max = 0f;
+		for (int i = 0; i < n; i++) {
+			if (arrival[i] == Float.MAX_VALUE) {
+				arrival[i] = base.get(i).order * length * 2f;
+			}
+			max = Math.max(max, arrival[i]);
+		}
+		float[] key = new float[n];
+		for (int i = 0; i < n; i++) {
+			key[i] = 0.78f * (arrival[i] / Math.max(1e-3f, max)) + 0.22f * base.get(i).order;
+		}
+		Integer[] rank = new Integer[n];
+		for (int i = 0; i < n; i++) {
+			rank[i] = i;
+		}
+		java.util.Arrays.sort(rank, (x, y) -> Float.compare(key[x], key[y]));
+		for (int r = 0; r < n; r++) {
+			int i = rank[r];
+			Texel b = base.get(i);
+			b.grow = r / (float) Math.max(1, n - 1) * 0.92f;
+			Texel o = all.get(n + i);
+			o.grow = Math.min(1f, b.grow + 0.03f + o.seed * 0.05f);
+		}
+	}
+
+	private static float[] dijkstra(int n, int[][] nbr, float[][] cost, int from) {
+		float[] d = new float[n];
+		java.util.Arrays.fill(d, Float.MAX_VALUE);
+		d[from] = 0f;
+		java.util.PriorityQueue<float[]> q = new java.util.PriorityQueue<>((a, b) -> Float.compare(a[0], b[0]));
+		q.add(new float[] { 0f, from });
+		while (!q.isEmpty()) {
+			float[] top = q.poll();
+			int i = (int) top[1];
+			if (top[0] > d[i]) {
+				continue;
+			}
+			for (int k = 0; k < nbr[i].length; k++) {
+				int j = nbr[i][k];
+				float nd = d[i] + cost[i][k];
+				if (nd < d[j]) {
+					d[j] = nd;
+					q.add(new float[] { nd, j });
+				}
+			}
+		}
+		return d;
+	}
+
+	/** Smooth 3D value noise in 0..1 (trilinear over a hashed lattice). */
+	static float noise(float x, float y, float z, long seed) {
+		int x0 = (int) Math.floor(x), y0 = (int) Math.floor(y), z0 = (int) Math.floor(z);
+		float fx = x - x0, fy = y - y0, fz = z - z0;
+		fx = fx * fx * (3 - 2 * fx);
+		fy = fy * fy * (3 - 2 * fy);
+		fz = fz * fz * (3 - 2 * fz);
+		float r = 0f;
+		for (int i = 0; i < 8; i++) {
+			int dx = i & 1, dy = (i >> 1) & 1, dz = (i >> 2) & 1;
+			float w = (dx == 1 ? fx : 1 - fx) * (dy == 1 ? fy : 1 - fy) * (dz == 1 ? fz : 1 - fz);
+			r += w * hash(x0 + dx, y0 + dy, z0 + dz, seed);
+		}
+		return r;
+	}
+
+	static float hash(int x, int y, int z, long seed) {
+		long h = seed ^ (x * 0x9E3779B97F4A7C15L) ^ (y * 0xC2B2AE3D27D4EB4FL) ^ (z * 0x165667B19E3779F9L);
+		h ^= h >>> 33;
+		h *= 0xff51afd7ed558ccdL;
+		h ^= h >>> 33;
+		h *= 0xc4ceb9fe1a85ec53L;
+		h ^= h >>> 33;
+		return (h >>> 40) / (float) (1L << 24);
 	}
 
 	private static void addCube(List<Texel> out, int u, int v, float[] b, float grow, boolean overlay, java.util.Random rnd) {
