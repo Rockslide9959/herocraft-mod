@@ -39,6 +39,8 @@ import org.joml.Vector3f;
  */
 public final class AndyRender {
 	public static final ResourceLocation CARD = ProjectHeroMod.id("textures/entity/andy/card.png");
+	/** The steel shard in his forehead (v0.17.3: it replaced the little card). */
+	public static final ResourceLocation SHARD = ProjectHeroMod.id("textures/entity/andy/shard.png");
 	public static final ResourceLocation FLESH = ProjectHeroMod.id("textures/entity/andy/flesh.png");
 	public static final ResourceLocation PALETTE = ProjectHeroMod.id("textures/entity/andy/palette.png");
 
@@ -351,22 +353,37 @@ public final class AndyRender {
 		}
 	}
 
-	/** The Undead Card above the left eye ({@code out} 0..1: pulled away from the forehead). */
+	/**
+	 * v0.17.3 (user: "the thing on andys head isnt a little card, its a piece of metal thats jabbed into his brain and pokes out his skull
+	 * and forehead"): the jagged steel shard driven into his forehead above the left eye -- a broken plate, part sunk into the skull,
+	 * a raised ridge and chipped edges poking out through the hat layer ({@code out} 0..1: pulled out of the forehead, for Victor).
+	 */
 	static void card(PoseStack pose, MultiBufferSource buffers, int light, float out) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(CARD));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SHARD));
 		pose.pushPose();
 		float fwd = out * 6f;
-		pose.translate(1.6f / 16f, -6.3f / 16f, (-4.56f - fwd) / 16f);
-		pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-9f + out * 40f));
-		float s = 1f - out * 0.6f;
-		float hw = 1.15f * s, hh = 1.55f * s;
-		Matrix4f m = pose.last().pose();
-		float[][] p = { { -hw, -hh, 0, 0 }, { hw, -hh, 1, 0 }, { hw, hh, 1, 1 }, { -hw, hh, 0, 1 } };
-		for (float[] v : p) {
-			vc.addVertex(m, v[0] / 16f, v[1] / 16f, 0f).setColor(255, 255, 255, 255).setUv(1f - v[2], v[3]).setOverlay(OverlayTexture.NO_OVERLAY)
-					.setLight(light).setNormal(pose.last(), 0, 0, -1);
-		}
+		pose.translate(1.7f / 16f, -6.2f / 16f, (-4.0f - fwd) / 16f);
+		pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-14f + out * 40f));
+		pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-8f));
+		pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(6f));
+		float s = 1f - out * 0.4f;
+		pose.scale(s, s, s);
+		// light plate (u 0..8), mid steel (8..12), dark edges (12..16); z < 0 is out of the face, z > 0 sunk into the skull
+		steel(vc, pose, -1.6f, -1.2f, -0.9f, 1.4f, 1.4f, 0.3f, 0, 8, light);   // the main plate
+		steel(vc, pose, -0.6f, -2.3f, -0.8f, 1.9f, -1.2f, 0.3f, 1, 7, light);  // the chipped top edge
+		steel(vc, pose, -2.3f, -0.5f, -0.7f, -1.6f, 0.9f, 0.3f, 8, 12, light); // a nub on the left
+		steel(vc, pose, -0.3f, 1.4f, -0.7f, 0.8f, 2.2f, 0.3f, 8, 12, light);   // the broken point at the bottom
+		steel(vc, pose, -1.1f, -1.7f, -1.6f, 0.6f, -0.5f, -0.9f, 2, 8, light); // the raised ridge where it was driven in
+		steel(vc, pose, 1.4f, -0.9f, -0.6f, 1.9f, 1.0f, 0.3f, 12, 16, light);  // a dark bent rim
 		pose.popPose();
+	}
+
+	private static void steel(VertexConsumer vc, PoseStack pose, float x0, float y0, float z0, float x1, float y1, float z1, int u0, int u1, int light) {
+		Vector3f[] c = new Vector3f[8];
+		for (int i = 0; i < 8; i++) {
+			c[i] = new Vector3f(((i & 1) == 0 ? x0 : x1) / 16f, ((i & 2) == 0 ? y0 : y1) / 16f, ((i & 4) == 0 ? z0 : z1) / 16f);
+		}
+		cube(vc, pose.last(), c, u0 / 16f, 0f, u1 / 16f, 1f, light);
 	}
 
 	/** A box in model px textured with one texel ({@code tu}, {@code tv}) of the 16x16 palette. */
