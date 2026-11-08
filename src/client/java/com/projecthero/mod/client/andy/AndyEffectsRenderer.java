@@ -103,7 +103,7 @@ public final class AndyEffectsRenderer {
 			float len = boost ? 1.7f : 1.05f, rad = boost ? 0.1f : 0.075f;
 			if (s.headOnly(now)) {
 				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
-				cone(context, pose, cam, neck[0], neck[1].scale(-1), len * 1.1f, rad * 1.2f, now, player.getId());
+				cone(context, pose, cam, neck[0], player.getViewVector(partial).scale(-1), len * 1.1f, rad * 1.2f, now, player.getId());
 				continue;
 			}
 			for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
@@ -118,7 +118,7 @@ public final class AndyEffectsRenderer {
 			}
 			if (s.broken(AndyState.BODY)) {
 				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
-				cone(context, pose, cam, neck[0], neck[1].scale(-1), len, rad * 1.2f, now, player.getId());
+				cone(context, pose, cam, neck[0], player.getViewVector(partial).scale(-1), len, rad * 1.2f, now, player.getId());
 			}
 		}
 	}

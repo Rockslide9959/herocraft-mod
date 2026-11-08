@@ -31,6 +31,8 @@ public final class AndyClient {
 	private static final Map<UUID, long[]> SEEN = new HashMap<>();
 	/** Per player: flying last tick, the arms' bites last tick (x1000), the burn ticks last tick. */
 	private static final Map<UUID, long[]> SEEN_CUTS = new HashMap<>();
+	/** Other players: the stage their box was last refreshed for. */
+	private static final Map<UUID, Integer> SEEN_STAGE = new HashMap<>();
 	/** The boost (right click held while flying) as last told to the server. */
 	private static boolean boostSent;
 
@@ -57,6 +59,7 @@ public final class AndyClient {
 	static void reset() {
 		SEEN.clear();
 		SEEN_CUTS.clear();
+		SEEN_STAGE.clear();
 		boostSent = false;
 		BloodFx.reset();
 		AndyMotion.reset();
@@ -112,6 +115,13 @@ public final class AndyClient {
 			regrowSounds(mc, player, s, now);
 			AndyEffectsRenderer.watch(player, s, now);
 			AndyMotion.tick(player, s);
+			if (player != mc.player) {
+				// their box follows the stage on this client too (AndyCrawlPoseMixin reads it straight off the part times)
+				Integer last = SEEN_STAGE.put(player.getUUID(), com.projecthero.mod.andy.AndyStages.stage(s, now));
+				if (last == null || last != SEEN_STAGE.get(player.getUUID())) {
+					player.refreshDimensions();
+				}
+			}
 			watchCuts(player, s, now);
 			AndyBlood.tick(player, s, now);
 		}
@@ -119,6 +129,7 @@ public final class AndyClient {
 		if (now % 100 == 0) {
 			SEEN.keySet().retainAll(present);
 			SEEN_CUTS.keySet().retainAll(present);
+			SEEN_STAGE.keySet().retainAll(present);
 			AndyMotion.forgetMissing(present);
 		}
 	}

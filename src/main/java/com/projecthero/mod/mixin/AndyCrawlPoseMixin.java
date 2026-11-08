@@ -52,7 +52,8 @@ public abstract class AndyCrawlPoseMixin {
 		}
 		int st = this.projecthero$andyStage;
 		if (AndyStages.dims(st) != null) {
-			Pose pose = st == AndyStages.DRAG ? Pose.SWIMMING : Pose.STANDING;
+			// flying, the flight lays the body along the look itself (vanilla's crawl tilt on top would turn him over)
+			Pose pose = st == AndyStages.DRAG && !com.projecthero.mod.andy.AndyFlight.isFlying(self) ? Pose.SWIMMING : Pose.STANDING;
 			if (self.getPose() != pose) {
 				self.setPose(pose);
 			}
@@ -62,7 +63,15 @@ public abstract class AndyCrawlPoseMixin {
 
 	@Inject(method = "getDefaultDimensions", at = @At("HEAD"), cancellable = true)
 	private void projecthero$andyStageBox(Pose pose, CallbackInfoReturnable<EntityDimensions> cir) {
-		EntityDimensions d = AndyStages.dims(this.projecthero$andyStage);
+		Player self = (Player) (Object) this;
+		int stage = this.projecthero$andyStage;
+		if (self.level() != null && self.level().isClientSide && !self.isLocalPlayer()) {
+			// another player on this client: vanilla never runs updatePlayerPose for them (their pose comes from the server),
+			// so the box follows the synced part times directly (AndyClient refreshes it when the stage changes)
+			AndyState s = Andy.peek(self);
+			stage = s == null || !s.hasPower || self.isPassenger() ? AndyStages.NORMAL : AndyStages.stage(s, self.level().getGameTime());
+		}
+		EntityDimensions d = AndyStages.dims(stage);
 		if (d != null) {
 			cir.setReturnValue(d);
 		}

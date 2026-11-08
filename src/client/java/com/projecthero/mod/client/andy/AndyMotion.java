@@ -196,11 +196,11 @@ public final class AndyMotion {
 		// the body follows the look exactly (not vanilla's lagging body yaw)
 		pose.mulPose(Axis.YP.rotationDegrees(Mth.wrapDegrees(bodyYaw - headYaw) * e));
 		if (headOnly) {
-			// just the head: it leads, tumbling a little on the neck jet
-			float wob = Mth.sin(now * 0.9f) * 9f + Mth.sin(now * 0.37f) * 6f;
-			pose.translate(0f, HEAD_CENTRE * scale * (1f - 0.75f * e), 0f);
-			pose.mulPose(Axis.XP.rotationDegrees((-pitch + wob) * e));
-			pose.mulPose(Axis.ZP.rotationDegrees((bank * 0.6f + Mth.sin(now * 0.53f) * 7f) * e));
+			// just the head: crown first, the neck (and its jet) straight back, tumbling a little on the jet
+			float wob = Mth.sin(now * 0.9f) * 8f + Mth.sin(now * 0.37f) * 5f;
+			pose.translate(0f, Mth.lerp(e, HEAD_CENTRE, 0.25f) * scale, 0f);
+			pose.mulPose(Axis.XP.rotationDegrees((-(90f + pitch) + wob) * e));
+			pose.mulPose(Axis.YP.rotationDegrees((-bank * 0.8f + Mth.sin(now * 0.53f) * 10f) * e));
 			pose.translate(0f, -HEAD_CENTRE * scale, 0f);
 			return;
 		}

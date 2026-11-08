@@ -110,7 +110,7 @@ public final class AndyBlood {
 			if (s.headOnly(now)) {
 				Vec3[] neck = stump(player, AndyState.HEAD);
 				// out of the neck: the head's own down
-				BloodFx.jet(neck[0], neck[1].scale(-1), carry, power);
+				BloodFx.jet(neck[0], player.getLookAngle().scale(-1), carry, power);
 			} else {
 				for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
 					if (!s.broken(part)) {
@@ -125,7 +125,7 @@ public final class AndyBlood {
 				}
 				if (s.broken(AndyState.BODY)) {
 					Vec3[] neck = stump(player, AndyState.HEAD);
-					BloodFx.jet(neck[0], neck[1].scale(-1), carry, power);
+					BloodFx.jet(neck[0], player.getLookAngle().scale(-1), carry, power);
 				}
 			}
 		}

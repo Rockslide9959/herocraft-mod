@@ -178,8 +178,10 @@ public final class AndyPose {
 		boolean boost = s.flag(AndyState.FLAG_BOOST);
 		float wave = Mth.sin(now * (boost ? 1.9f : 1.1f));
 		float tight = boost ? 0.55f : 1f;
-		set(model.head, e, -1.25f, 0f, 0f);
-		set(model.hat, e, -1.25f, 0f, 0f);
+		// the head raised to look ahead (just a head: only a little, so the neck stays aimed behind)
+		float lift = s.headOnly(now) ? -0.45f : -1.25f;
+		set(model.head, e, lift, 0f, 0f);
+		set(model.hat, e, lift, 0f, 0f);
 		set(model.rightArm, e, 0.32f + 0.05f * wave, 0f, 0.3f * tight + 0.03f * wave);
 		set(model.leftArm, e, 0.32f - 0.05f * wave, 0f, -0.3f * tight - 0.03f * wave);
 		set(model.rightLeg, e, 0.1f + 0.12f * wave * tight, 0f, 0.05f);
