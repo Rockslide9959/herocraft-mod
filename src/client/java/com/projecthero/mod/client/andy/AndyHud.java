@@ -98,12 +98,14 @@ public final class AndyHud {
 		}
 
 		// the text lines and the little body, right-aligned above the meters
-		int fy = by - 34;
+		// (the style line sits under the body, the full width: "Style: Bone and flesh" was cut short beside it)
+		int fy = by - 47;
 		int fx = x0 + WIDTH - 17;
 		figure(g, s, now, victor, fx, fy);
 		int textW = WIDTH - 20;
 		int ty = fy + 2;
-		Component title = Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title");
+		ty += 9; // title and speed centred on the body's height
+		Component title =Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title");
 		g.drawString(mc.font, title, x0, ty, victor ? VanillaHud.RED : VanillaHud.WHITE, true);
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
@@ -113,7 +115,7 @@ public final class AndyHud {
 				ty + 11, VanillaHud.GREY, true);
 		Component style = Component.translatable("hud.projecthero.andy.style",
 				Component.translatable("projecthero.andy.style." + Andy.STYLE_NAMES[s.regenStyle]));
-		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), textW), x0, ty + 22, VanillaHud.GREY, true);
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), WIDTH), x0, fy + 34, VanillaHud.GREY, true);
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
