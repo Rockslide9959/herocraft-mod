@@ -9,79 +9,143 @@ import com.projecthero.mod.andy.AndyConfig;
 import com.projecthero.mod.andy.data.AndyState;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
 /**
- * v0.17.3: the Andy HUD (bottom-right), mono style: a little pixel body with each part shaded by its HP (gone parts hollow,
- * regrowing ones filling from the joint), the regeneration speed and style, Victor's hairline, and the six keys.
+ * v0.17.3 (user: "can you give andy the minecraft style GUI please"): the Andy HUD, bottom-right, drawn from the game's own pieces
+ * ({@link VanillaHud}), like the Omnitrix and the Stands:
+ * <pre>
+ *   Andy                        [body]     the title (Victor in red while he is out), the little pixel body: each part shaded
+ *   Regen: Normal                          by its HP, gone parts dark, regrowing ones filling from the joint
+ *   Style: Bone and flesh
+ *   Regrowth [boss bar ====---] 64%        while a part regrows: a pink boss bar
+ *   Victor   [boss bar ======-] 21s        while Victor is out: a red boss bar
+ *   +----+----+----+----+----+----+        the six keys, a short hotbar: R G Z X C V, yellow while Shift shows the Shift moves;
+ *   | R  | G  | Z  | X  | C  | V  |        the shown move's cooldown as the item-cooldown sweep and a stack count, the other
+ *   +----+----+----+----+----+----+        move's as a durability bar, the selection frame on a move that is running
+ * </pre>
+ * Hold Left-Alt for the move names.
  */
 public final class AndyHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
 	private static final int MARGIN = 4;
-	private static final int BAR_H = 3;
+	private static final int WIDTH = VanillaHud.width(6);
+	private static final int REGROWTH = 0xFF6FA0;
+	private static final int VICTOR = 0xE0303A;
 
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int BORDER_ACTIVE = 0xFFE0303A;
-	private static final int KEY = 0xFFB4B4B4;
-	private static final int NAME = 0xFFE2E2E2;
-	private static final int BAR_BG = 0xAA0C0C0C;
-	private static final int COOLDOWN = 0xB0000000;
-	private static final int VICTOR = 0xFFE0303A;
+	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
 
+	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5). */
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
 			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
 	/** The little body: x, y, w, h (in HUD px) of head, body, right arm, left arm, right leg, left leg -- seen from the front. */
 	private static final int[][] FIGURE = { { 4, 0, 8, 8 }, { 4, 8, 8, 12 }, { 0, 8, 4, 12 }, { 12, 8, 4, 12 }, { 4, 20, 4, 12 }, { 8, 20, 4, 12 } };
+	private static final String[] SPEEDS = { "slow", "normal", "burst" };
 
 	private AndyHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.options.hideGui) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.level == null || mc.options.hideGui) {
 			return;
 		}
-		AndyState s = Andy.peek(mc.player);
+		AndyState s = Andy.peek(p);
 		if (s == null || !s.hasPower) {
 			return;
 		}
-		var exp = mc.player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		var exp = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
 		float now = mc.level.getGameTime() + delta.getGameTimeDeltaPartialTick(false);
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
-
-		int by = y0 - 2 - BAR_H;
-		boolean victor = s.victorUntil > now;
-		if (victor) {
-			float r = (s.victorUntil - now) / AndyConfig.VICTOR_TICKS;
-			g.fill(x0, by, x0 + totalW, by + BAR_H, BAR_BG);
-			g.fill(x0, by, x0 + Math.round(totalW * Math.max(0f, Math.min(1f, r))), by + BAR_H, VICTOR);
-			by -= 5;
+		int x0 = g.guiWidth() - MARGIN - WIDTH;
+		int bottom = g.guiHeight() - MARGIN;
+		// on a narrow window it would sit on the right end of the hotbar (and the food bar above it): lift it clear
+		if (x0 < g.guiWidth() / 2 + 91 + 2) {
+			bottom = g.guiHeight() - 41;
 		}
-		// the body, right-aligned above the keys, with the speed beside it
-		int fx = x0 + totalW - 16, fy = by - 33;
+		int y0 = bottom - VanillaHud.HEIGHT;
+		boolean victor = s.victorUntil > now;
+		keys(g, p, s, victor, x0, y0);
+
+		// the meters, stacked up from the keys
+		int by = y0 - 8;
+		if (victor) {
+			float left = (s.victorUntil - now) / AndyConfig.VICTOR_TICKS;
+			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.victor"), left, VICTOR,
+					((int) Math.ceil((s.victorUntil - now) / 20f)) + "s", VanillaHud.RED);
+			by -= 11;
+		}
+		float regrow = -1f;
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			if (s.broken(i)) {
+				regrow = Math.max(regrow, s.regrowth(i, now));
+			}
+		}
+		if (regrow >= 0f) {
+			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.regrowth"), regrow, REGROWTH,
+					Math.round(regrow * 100f) + "%", VanillaHud.WHITE);
+			by -= 11;
+		}
+
+		// the text lines and the little body, right-aligned above the meters
+		int fy = by - 34;
+		int fx = x0 + WIDTH - 17;
+		figure(g, s, now, victor, fx, fy);
+		int textW = WIDTH - 20;
+		int ty = fy + 2;
+		Component title = Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title");
+		g.drawString(mc.font, title, x0, ty, victor ? VanillaHud.RED : VanillaHud.WHITE, true);
+		if (s.reformUntil > now) {
+			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
+		}
+		Component speed = Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(2, s.regenSpeed))]);
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
+				ty + 11, VanillaHud.GREY, true);
+		Component style = Component.translatable("hud.projecthero.andy.style",
+				Component.translatable("projecthero.andy.style." + Andy.STYLE_NAMES[s.regenStyle]));
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), textW), x0, ty + 22, VanillaHud.GREY, true);
+
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : SLOTS) {
+				String[] ids = AndyAbilityManager.idsOf(p, slot);
+				if (ids.length > 0) {
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.andy.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.andy.ability." + ids[1]) : null));
+				}
+			}
+			MoveListOverlay.draw(g, x0 + WIDTH, fy - 4, rows);
+		}
+	}
+
+	/** The little body with a 1-px dark frame behind it, like an item in a slot. */
+	private static void figure(GuiGraphics g, AndyState s, float now, boolean victor, int fx, int fy) {
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			int[] f = FIGURE[i];
+			int px = fx + f[0], py = fy + f[1];
+			g.fill(px - 1, py - 1, px + f[2] + 1, py + f[3] + 1, 0xFF1A1A1A);
+		}
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			int[] f = FIGURE[i];
 			int px = fx + f[0], py = fy + f[1];
 			if (!s.broken(i)) {
-				float hp = s.hp(i) / AndyConfig.PART_HP[i];
-				g.fill(px, py, px + f[2], py + f[3], partColour(hp, victor));
+				g.fill(px, py, px + f[2], py + f[3], partColour(s.hp(i) / AndyConfig.PART_HP[i], victor));
+				g.fill(px, py, px + f[2], py + 1, 0x40FFFFFF); // a lit top edge, like the inventory's slot shading
 			} else {
-				float p = s.regrowth(i, now);
-				g.renderOutline(px, py, f[2], f[3], 0xFF5A1010);
-				if (p > 0f) {
-					int h = Math.round(f[3] * p);
+				g.fill(px, py, px + f[2], py + f[3], 0xFF3A0A0A);
+				float r = s.regrowth(i, now);
+				if (r > 0f) {
+					int h = Math.round(f[3] * r);
 					// from the joint outward: legs and arms fill downward, the head upward
 					if (i == AndyState.HEAD) {
 						g.fill(px, py + f[3] - h, px + f[2], py + f[3], 0xFFFFD8D0);
@@ -91,54 +155,27 @@ public final class AndyHud {
 				}
 			}
 		}
-		String[] speeds = { "slow", "normal", "burst" };
-		Component speed = Component.translatable("projecthero.andy.speed." + speeds[s.regenSpeed]);
-		int textY = fy + 24;
-		g.drawString(mc.font, Component.translatable(victor ? "hud.projecthero.andy.victor" : "hud.projecthero.andy.title"), x0, textY - 20,
-				victor ? VICTOR : NAME, false);
-		g.drawString(mc.font, Component.translatable("hud.projecthero.andy.regen", speed), x0, textY - 10, KEY, false);
-		// the style (held V) under the speed (tapped V), clipped short of the little body
-		Component style = Component.translatable("hud.projecthero.andy.style",
-				Component.translatable("projecthero.andy.style." + Andy.STYLE_NAMES[s.regenStyle]));
-		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), totalW - 18), x0, textY, KEY, false);
-		if (s.reformUntil > now) {
-			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, textY - 30, VICTOR, false);
-		}
+	}
 
-		if (MoveListOverlay.held()) {
-			List<MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : SLOTS) {
-				String[] ids = AndyAbilityManager.idsOf(mc.player, slot);
-				if (ids.length > 0) {
-					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.andy.ability." + ids[0]),
-							ids.length > 1 ? Component.translatable("projecthero.andy.ability." + ids[1]) : null));
-				}
-			}
-			MoveListOverlay.draw(g, x0 + totalW, fy - 4, rows);
-		}
+	private static void keys(GuiGraphics g, LocalPlayer p, AndyState s, boolean victor, int x0, int y0) {
+		boolean shift = forceShift || p.isShiftKeyDown();
+		VanillaHud.strip(g, x0, y0, SLOTS.length);
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
-			int cd = 0;
-			int max = 1;
-			for (String id : AndyAbilityManager.idsOf(mc.player, slot)) {
-				int c = Andy.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, AndyAbilityManager.maxCooldown(id));
-				}
+			String[] ids = AndyAbilityManager.idsOf(p, slot);
+			if (ids.length == 0) {
+				continue;
 			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = Andy.cooldownRemaining(p, shown);
+			float frac = Math.min(1f, cd / (float) Math.max(1, AndyAbilityManager.maxCooldown(shown)));
+			float otherFrac = other == null ? 0f
+					: Math.min(1f, Andy.cooldownRemaining(p, other) / (float) Math.max(1, AndyAbilityManager.maxCooldown(other)));
 			boolean active = (slot == AbilitySlot.SLOT_3 && (s.flag(AndyState.FLAG_PROPELLING) || s.flag(AndyState.FLAG_GLIDING)))
 					|| (slot == AbilitySlot.SLOT_6 && (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)))
 					|| (slot == AbilitySlot.SLOT_5 && victor);
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
+			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
 	}
 
