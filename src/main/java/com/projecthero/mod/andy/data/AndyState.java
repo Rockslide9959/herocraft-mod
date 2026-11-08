@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.projecthero.mod.andy.AndyConfig;
 
 /**
  * v0.17.3: the whole Andy (Undead Unluck) power for one player in one attachment ({@code projecthero:andy_state}):
@@ -15,10 +16,14 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  *
  * <h2>The six parts</h2>
  * Index {@link #HEAD}..{@link #LEFT_LEG}. Each has HP ({@link #partHp}) and three times in {@link #partTimes}: when it broke
- * (0 = whole), when its regrowth started (0 = still waiting) and when the regrowth ends. Clients draw the part hidden from
- * the break until the regrowth starts, then re-forming pixel by pixel until it ends. How it went ({@link #kind}) decides the
- * look: {@link #KIND_BURST} bursts into the skin's pixels, {@link #KIND_LAUNCHED} left as a projectile (no burst: the
- * projectile is the part), {@link #KIND_SHATTER} went in the Undead shatter.
+ * (0 = whole), when its regrowth started (0 = still waiting; it may be set in the future, as the head-only regrowth plans
+ * every part at once) and when the regrowth ends. Clients draw the part hidden from the break until the regrowth starts,
+ * then re-forming (bone, then muscle, then skin) until it ends. How it went ({@link #kind}) decides the look:
+ * {@link #KIND_BURST} bursts into the skin's pixels, {@link #KIND_LAUNCHED} left as a projectile, {@link #KIND_SHATTER}
+ * went in the Undead shatter, {@link #KIND_SPENT} was used up by finger shots and {@link #KIND_BURNT} burnt away in a boost.
+ *
+ * <p>The stage of the head-only regrowth (rolling head, arm drag, ...) is not stored: both sides work it out from the part
+ * times ({@code AndyStages}).
  */
 public final class AndyState {
 	public static final int HEAD = 0;
@@ -33,6 +38,10 @@ public final class AndyState {
 	public static final int KIND_BURST = 1;
 	public static final int KIND_LAUNCHED = 2;
 	public static final int KIND_SHATTER = 3;
+	/** Used up by Parts / Crimson Bullets: the last pixels went with the shot (no burst). */
+	public static final int KIND_SPENT = 4;
+	/** Burnt away while boosting in flight (it went pixel by pixel as embers: no burst). */
+	public static final int KIND_BURNT = 5;
 
 	public static final int ANIM_NONE = 0;
 	public static final int ANIM_FINGER = 1;
@@ -49,20 +58,32 @@ public final class AndyState {
 	public static final int ANIM_DIVISION = 12;
 	public static final int ANIM_HEADBUTT = 13;
 	public static final int ANIM_CARD_BACK = 14;
-
-	/**
-	 * The look of a regrowth (same length every style): bone, flesh, then skin (the default), pixels stream in, or build in
-	 * place. v0.17.3: Bone and flesh is id 0 so it is the default (and what a save without the field loads as).
-	 */
-	public static final int STYLE_BONE = 0;
-	public static final int STYLE_STREAMING = 1;
-	public static final int STYLE_BUILD = 2;
-	public static final int STYLES = 3;
+	public static final int ANIM_PUNCH = 15;
 
 	public static final int FLAG_PROPELLING = 1;
 	public static final int FLAG_DEAD_LINE = 2;
 	public static final int FLAG_DEAD_ROAD = 4;
 	public static final int FLAG_GLIDING = 8;
+	/** Right click held while flying: 40 b/s and the body burns away. */
+	public static final int FLAG_BOOST = 16;
+	/** R held: the arm drawn back for the stretch punch. */
+	public static final int FLAG_PUNCH = 32;
+	/** The last one-arm move (finger shot, punch) used the off arm (the main one was gone or used up). */
+	public static final int FLAG_OFF_ARM = 64;
+
+	// ---------------------------------------------------------------- the extra slots ({@link #extra})
+	/** When the hands / feet (and anything half burnt) started growing back after a flight (0: not). */
+	public static final int X_CUT_REGROW = 0;
+	/** The burn: which stage it is in (0 legs, 1 arms, 2 body) and how many ticks into it. */
+	public static final int X_BURN_SEG = 1;
+	public static final int X_BURN_TICKS = 2;
+	/** Parts / Crimson Bullets: how much of each arm is used up (x1000) as of the last shot, and when that was. */
+	public static final int X_EATEN_R = 3;
+	public static final int X_EATEN_L = 4;
+	public static final int X_LAST_SHOT = 5;
+	/** When the stretch punch started winding up. */
+	public static final int X_PUNCH_START = 6;
+	public static final int EXTRA = 8;
 
 	public boolean hasPower;
 	public List<Float> partHp;
@@ -75,7 +96,7 @@ public final class AndyState {
 	public long victorUntil;
 	public int animId;
 	public long animStart;
-	/** Undead: the body re-forms from the head until this game time (invulnerable, no moves). */
+	/** Undead: just shattered, untouchable and no moves until this game time. */
 	public long reformUntil;
 	/** Crimson Bullet slowed the regeneration until this game time. */
 	public long slowRegenUntil;
@@ -83,19 +104,19 @@ public final class AndyState {
 	/** When the held move (X / C) started. */
 	public long holdStart;
 	public long lastHitAt;
-	/** How a part looks as it regrows ({@link #STYLE_BONE}, {@link #STYLE_STREAMING}, {@link #STYLE_BUILD}); held V cycles it. */
-	public int regenStyle;
+	/** Small extra numbers by index ({@link #X_CUT_REGROW} ...), one list for the codec's 16-field limit. */
+	public List<Long> extra;
 
 	public AndyState() {
-		this(false, full(), times(), 0, 1, new HashMap<>(), 0L, 0, 0L, 0L, 0L, 0, 0L, 0L, 0);
+		this(false, full(), times(), 0, 1, new HashMap<>(), 0L, 0, 0L, 0L, 0L, 0, 0L, 0L, List.of());
 	}
 
 	public AndyState(boolean hasPower, List<Float> partHp, List<Long> partTimes, int kinds, int regenSpeed, Map<String, Long> abilityReadyAt,
-			long victorUntil, int animId, long animStart, long reformUntil, long slowRegenUntil, int flags, long holdStart, long lastHitAt, int regenStyle) {
+			long victorUntil, int animId, long animStart, long reformUntil, long slowRegenUntil, int flags, long holdStart, long lastHitAt, List<Long> extra) {
 		this.hasPower = hasPower;
 		this.partHp = new ArrayList<>(partHp);
 		while (this.partHp.size() < PARTS) {
-			this.partHp.add(com.projecthero.mod.andy.AndyConfig.PART_HP[this.partHp.size()]);
+			this.partHp.add(AndyConfig.PART_HP[this.partHp.size()]);
 		}
 		this.partTimes = new ArrayList<>(partTimes);
 		while (this.partTimes.size() < PARTS * 3) {
@@ -112,12 +133,15 @@ public final class AndyState {
 		this.flags = flags;
 		this.holdStart = holdStart;
 		this.lastHitAt = lastHitAt;
-		this.regenStyle = Math.floorMod(regenStyle, STYLES);
+		this.extra = new ArrayList<>(extra);
+		while (this.extra.size() < EXTRA) {
+			this.extra.add(0L);
+		}
 	}
 
 	public static List<Float> full() {
 		List<Float> l = new ArrayList<>();
-		for (float hp : com.projecthero.mod.andy.AndyConfig.PART_HP) {
+		for (float hp : AndyConfig.PART_HP) {
 			l.add(hp);
 		}
 		return l;
@@ -133,7 +157,7 @@ public final class AndyState {
 
 	public AndyState copy() {
 		return new AndyState(hasPower, partHp, partTimes, kinds, regenSpeed, abilityReadyAt, victorUntil, animId, animStart, reformUntil,
-				slowRegenUntil, flags, holdStart, lastHitAt, regenStyle);
+				slowRegenUntil, flags, holdStart, lastHitAt, extra);
 	}
 
 	// ---------------------------------------------------------------- the parts
@@ -189,6 +213,11 @@ public final class AndyState {
 		return Math.min(1f, (now - start) / (float) (end - start));
 	}
 
+	/** The part is there and whole (not broken, or regrown right to the end). */
+	public boolean has(int part, float now) {
+		return !broken(part) || regrowth(part, now) >= 1f;
+	}
+
 	public boolean anyBroken() {
 		for (int i = 0; i < PARTS; i++) {
 			if (broken(i)) {
@@ -196,6 +225,66 @@ public final class AndyState {
 			}
 		}
 		return false;
+	}
+
+	/** Only the head is left (everything else gone or still growing back). */
+	public boolean headOnly(float now) {
+		if (!has(HEAD, now)) {
+			return false;
+		}
+		for (int i = BODY; i < PARTS; i++) {
+			if (has(i, now)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public long ex(int i) {
+		return extra.get(i);
+	}
+
+	public void setEx(int i, long v) {
+		extra.set(i, v);
+	}
+
+	// ---------------------------------------------------------------- the finger shots' bite out of an arm
+
+	/** What was gone of the arm at the last shot (0..1). */
+	public float eaten0(int arm) {
+		return ex(arm == RIGHT_ARM ? X_EATEN_R : X_EATEN_L) / 1000f;
+	}
+
+	/** 0..1 through the regrowth of the used-up bit of an arm (0 while still waiting for {@link AndyConfig#EATEN_REGROW_WAIT}). */
+	public float eatenRegrow(int arm, float now) {
+		float c0 = eaten0(arm);
+		if (c0 <= 0f) {
+			return 0f;
+		}
+		float start = ex(X_LAST_SHOT) + AndyConfig.EATEN_REGROW_WAIT;
+		if (now < start) {
+			return 0f;
+		}
+		return Math.min(1f, (now - start) / AndyConfig.cutRegrowTicks(regenSpeed, c0));
+	}
+
+	/**
+	 * How much of an arm the finger shots have used up (0..1) at {@code now}: what was gone at the last shot, then -- once
+	 * {@link AndyConfig#EATEN_REGROW_WAIT} has passed without a shot -- less and less as the skin closes back down to the
+	 * fingertips (it follows the skin front of the bone / muscle / skin regrowth).
+	 */
+	public float eaten(int arm, float now) {
+		float c0 = eaten0(arm);
+		if (c0 <= 0f) {
+			return 0f;
+		}
+		float q = eatenRegrow(arm, now);
+		return q <= 0f ? c0 : c0 * (1f - AndyConfig.skinShare(q));
+	}
+
+	/** The arm can shoot or punch: there, whole, and not used up. */
+	public boolean armReady(int arm, float now) {
+		return has(arm, now) && !broken(arm) && eaten(arm, now) < 0.999f;
 	}
 
 	public boolean flag(int f) {
@@ -222,6 +311,7 @@ public final class AndyState {
 			Codec.INT.optionalFieldOf("flags", 0).forGetter(s -> s.flags),
 			Codec.LONG.optionalFieldOf("hold_start", 0L).forGetter(s -> s.holdStart),
 			Codec.LONG.optionalFieldOf("last_hit_at", 0L).forGetter(s -> s.lastHitAt),
-			Codec.INT.optionalFieldOf("regen_style", STYLE_BONE).forGetter(s -> s.regenStyle)
+			// v0.17.3: an old save's "regen_style" (three looks, now one) is simply skipped -- a record codec ignores keys it doesn't know
+			Codec.LONG.listOf().optionalFieldOf("extra", List.of()).forGetter(s -> s.extra)
 	).apply(i, AndyState::new));
 }

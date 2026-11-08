@@ -102,6 +102,7 @@
 		"SuperSpeedPhasePoseMixin",
 		"ViperionDashPoseMixin",
 		"AndyCrawlPoseMixin",
+		"AndyFlightKickMixin",
 		"SuperSpeedTimeSlowMixin",
 		"SuperSpeedWaterSoundMixin",
 		"ZombieSpawnMixin",

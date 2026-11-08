@@ -30,6 +30,10 @@ public abstract class AndyFirstPersonItemMixin {
 		if (s == null || !s.hasPower) {
 			return;
 		}
+		if (com.projecthero.mod.client.andy.AndyFirstPerson.arms((ItemInHandRenderer) (Object) this, player, partial, hand, pose, buffers, light)) {
+			ci.cancel();
+			return;
+		}
 		HumanoidArm side = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
 		int part = side == HumanoidArm.RIGHT ? AndyState.RIGHT_ARM : AndyState.LEFT_ARM;
 		if (!s.broken(part)) {

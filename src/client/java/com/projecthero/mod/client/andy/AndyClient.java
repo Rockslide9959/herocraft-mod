@@ -31,6 +31,10 @@ import net.minecraft.world.phys.Vec3;
 public final class AndyClient {
 	/** Per player: the last break time seen for each part. */
 	private static final Map<UUID, long[]> SEEN = new HashMap<>();
+	/** Per player: flying last tick, the arms' bites last tick (x1000), the burn ticks last tick. */
+	private static final Map<UUID, long[]> SEEN_CUTS = new HashMap<>();
+	/** The boost (right click held while flying) as last told to the server. */
+	private static boolean boostSent;
 
 	private AndyClient() {
 	}
@@ -53,6 +57,10 @@ public final class AndyClient {
 
 	static void reset() {
 		SEEN.clear();
+		SEEN_CUTS.clear();
+		boostSent = false;
+		BloodFx.reset();
+		AndyMotion.reset();
 		PixelCubes.reset();
 		SkinPixels.reset();
 		AndyRender.reset();
@@ -72,6 +80,9 @@ public final class AndyClient {
 			return;
 		}
 		PixelCubes.tick();
+		BloodFx.tick();
+		boost(mc);
+		AndyFirstPerson.tick(mc.player == null ? null : Andy.peek(mc.player));
 		long now = mc.level.getGameTime();
 		java.util.Set<UUID> present = new java.util.HashSet<>();
 		for (Player player : mc.level.players()) {
@@ -94,21 +105,76 @@ public final class AndyClient {
 					int kind = s.kind(i);
 					if (at > 0L && now - at < 20L && (kind == AndyState.KIND_BURST || kind == AndyState.KIND_SHATTER)) {
 						burst(player, i, kind == AndyState.KIND_SHATTER ? 1.5f : 1f);
+					} else if (at > 0L && now - at < 20L && kind == AndyState.KIND_LAUNCHED) {
+						AndyBlood.stumpSpurt(player, i, 1.2f); // thrown off: the stump spurts
 					}
 				}
 			}
 			regrowSounds(mc, player, s, now);
 			AndyEffectsRenderer.watch(player, s, now);
+			AndyMotion.tick(player, s);
+			watchCuts(player, s, now);
+			AndyBlood.tick(player, s, now);
 		}
+		AndyEffectsRenderer.tickBlood(now);
 		if (now % 100 == 0) {
 			SEEN.keySet().retainAll(present);
+			SEEN_CUTS.keySet().retainAll(present);
+			AndyMotion.forgetMissing(present);
 		}
+	}
+
+	/** The local player's right click while flying is the boost: sent on the edges. */
+	private static void boost(Minecraft mc) {
+		boolean want = mc.player != null && mc.screen == null && mc.options.keyUse.isDown() && com.projecthero.mod.andy.AndyFlight.isFlying(mc.player);
+		if (want != boostSent && mc.getConnection() != null) {
+			boostSent = want;
+			net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.projecthero.mod.network.AndyBoostPayload(want));
+		}
+	}
+
+	/**
+	 * The ends that come off without the part breaking: at take-off the hands and feet burst off (their texels as pixel cubes,
+	 * blood spurting); a finger shot's bite out of an arm bursts the texels it took.
+	 */
+	private static void watchCuts(Player player, AndyState s, long now) {
+		long[] seen = SEEN_CUTS.computeIfAbsent(player.getUUID(), k -> new long[] { s.flags & AndyState.FLAG_PROPELLING, s.ex(AndyState.X_EATEN_R),
+				s.ex(AndyState.X_EATEN_L) });
+		boolean flying = s.flag(AndyState.FLAG_PROPELLING);
+		if (flying && seen[0] == 0L) {
+			float cut = 12f - com.projecthero.mod.andy.AndyConfig.HAND_ROWS;
+			for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
+				if (!s.broken(part)) {
+					burstEnd(player, part, cut, 99f, 1.1f);
+					AndyBlood.stumpEndSpurt(player, part, cut, 1.4f);
+				}
+			}
+		}
+		seen[0] = flying ? 1L : 0L;
+		for (int k = 0; k < 2; k++) {
+			int arm = AndyState.RIGHT_ARM + k;
+			long e = s.ex(k == 0 ? AndyState.X_EATEN_R : AndyState.X_EATEN_L);
+			if (e > seen[1 + k] && !s.broken(arm)) {
+				float from = 12f * (1f - e / 1000f), to = 12f * (1f - seen[1 + k] / 1000f);
+				burstEnd(player, arm, from, seen[1 + k] == 0L ? 99f : to, 0.6f);
+				AndyBlood.stumpEndSpurt(player, arm, from, e - seen[1 + k] > 200 ? 1.4f : 0.6f);
+			}
+			seen[1 + k] = e;
+		}
+	}
+
+	/** The texels of a limb between {@code from} and {@code to} rows burst off as pixel cubes. */
+	static void burstEnd(Player player, int part, float from, float to, float power) {
+		boolean slim = AndyRender.slim(player);
+		PixelCubes.burst(AndyRender.skin(player), slim, part, AndyRender.partMatrix(player, part), player.getDeltaMovement().scale(0.5), 0xFFFFFFFF, power,
+				AndyRegrow.texelsBetween(part, slim, from - 0.3f, to));
 	}
 
 	/** A part of {@code player} bursts into its skin's pixels, from where it was drawn. */
 	public static void burst(Player player, int part, float power) {
 		Vec3 push = player.getDeltaMovement().scale(0.6);
 		PixelCubes.burst(AndyRender.skin(player), AndyRender.slim(player), part, AndyRender.partMatrix(player, part), push, 0xFFFFFFFF, power);
+		AndyBlood.partBurst(player, part, power);
 	}
 
 	/** A soft run of clicks while a part re-forms, rising as it fills. */

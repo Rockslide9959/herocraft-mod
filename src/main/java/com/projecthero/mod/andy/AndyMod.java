@@ -28,7 +28,7 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.3: one entry point for the whole Andy power, called once from {@code ProjectHeroMod.onInitialize}: the card, the
  * flying pieces and clones, the damage rules, the missing-hand rules and the lifecycle hooks; plus
- * {@code /projecthero power tune andy (break <part|all> | restore | regen <slow|normal|burst> | style <streaming|build|bone>)}. The per-player tick runs
+ * {@code /projecthero power tune andy (break <part|all> | restore | regen <slow|normal|burst>)}. The per-player tick runs
  * from {@code AbilityRouter.serverTick}; static state is dropped by {@code ServerStateReset} through
  * {@link #clearSessionState}.
  */
@@ -116,16 +116,7 @@ public final class AndyMod {
 				.then(Commands.literal("regen")
 						.then(Commands.literal("slow").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_SLOW)))
 						.then(Commands.literal("normal").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_NORMAL)))
-						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST))))
-				.then(Commands.literal("style")
-						.then(Commands.literal("streaming").executes(c -> setStyle(c.getSource(), AndyState.STYLE_STREAMING)))
-						.then(Commands.literal("build").executes(c -> setStyle(c.getSource(), AndyState.STYLE_BUILD)))
-						.then(Commands.literal("bone").executes(c -> setStyle(c.getSource(), AndyState.STYLE_BONE))));
-	}
-
-	private static int setStyle(CommandSourceStack source, int style) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-		Andy.setStyle(source.getPlayerOrException(), style);
-		return 1;
+						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST))));
 	}
 
 	private static int setSpeed(CommandSourceStack source, int speed) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

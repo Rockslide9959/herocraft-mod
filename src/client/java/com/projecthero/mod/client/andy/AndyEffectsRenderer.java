@@ -35,6 +35,7 @@ public final class AndyEffectsRenderer {
 
 	static void render(WorldRenderContext context) {
 		PixelCubes.render(context);
+		BloodFx.render(context);
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || context.consumers() == null || context.matrixStack() == null) {
 			return;
@@ -43,6 +44,7 @@ public final class AndyEffectsRenderer {
 		Vec3 cam = context.camera().getPosition();
 		PoseStack pose = context.matrixStack();
 		renderWaves(context, pose, cam, mc.level.getGameTime() + partial);
+		renderJets(context, pose, cam, mc, partial);
 		for (Player player : mc.level.players()) {
 			AndyState s = Andy.peek(player);
 			if (s == null || !s.hasPower || (!s.flag(AndyState.FLAG_DEAD_LINE) && !s.flag(AndyState.FLAG_DEAD_ROAD))) {
@@ -78,6 +80,131 @@ public final class AndyEffectsRenderer {
 				}
 			}
 			pose.popPose();
+		}
+	}
+
+	// ---------------------------------------------------------------- the flight's jets
+
+	/**
+	 * The core of each blood jet while Andy flies: a tapered, flickering cone out of every stump (the hands', the feet', or the
+	 * neck), a hot bright-red core in a darker sheath, longer and fatter while boosting. The spray round it is {@link BloodFx}.
+	 */
+	private static void renderJets(WorldRenderContext context, PoseStack pose, Vec3 cam, Minecraft mc, float partial) {
+		float now = mc.level.getGameTime() + partial;
+		for (Player player : mc.level.players()) {
+			AndyState s = Andy.peek(player);
+			if (s == null || !s.hasPower || !s.flag(AndyState.FLAG_PROPELLING)) {
+				continue;
+			}
+			if (player == mc.player && mc.options.getCameraType().isFirstPerson()) {
+				continue; // drawn on the first-person arms instead
+			}
+			boolean boost = s.flag(AndyState.FLAG_BOOST);
+			float len = boost ? 1.7f : 1.05f, rad = boost ? 0.1f : 0.075f;
+			if (s.headOnly(now)) {
+				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
+				cone(context, pose, cam, neck[0], neck[1].scale(-1), len * 1.1f, rad * 1.2f, now, player.getId());
+				continue;
+			}
+			for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
+				if (!s.broken(part)) {
+					AndyCuts.Cut cut = AndyCuts.of(s, part, now);
+					cone(context, pose, cam, AndyBlood.endOf(player, part, cut != null ? cut.rows() : 12f), AndyBlood.axis(player, part), len, rad, now,
+							player.getId() * 7 + part);
+				} else if (!s.broken(AndyState.BODY)) {
+					Vec3[] st = AndyBlood.stump(player, part);
+					cone(context, pose, cam, st[0], st[1], len * 0.8f, rad, now, player.getId() * 7 + part);
+				}
+			}
+			if (s.broken(AndyState.BODY)) {
+				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
+				cone(context, pose, cam, neck[0], neck[1].scale(-1), len, rad * 1.2f, now, player.getId());
+			}
+		}
+	}
+
+	private static void cone(WorldRenderContext context, PoseStack pose, Vec3 cam, Vec3 from, Vec3 dirV, float len, float rad, float now, int seed) {
+		pose.pushPose();
+		pose.translate(from.x - cam.x, from.y - cam.y, from.z - cam.z);
+		Matrix4f m = pose.last().pose();
+		Vector3f dir = new Vector3f((float) dirV.x, (float) dirV.y, (float) dirV.z);
+		if (dir.lengthSquared() < 1.0e-6f) {
+			pose.popPose();
+			return;
+		}
+		dir.normalize();
+		Vector3f a = new Vector3f(dir).cross(Math.abs(dir.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
+		Vector3f b = new Vector3f(dir).cross(a).normalize();
+		float flick = 0.85f + 0.15f * Mth.sin(now * 2.7f + seed) + 0.1f * Mth.sin(now * 6.1f + seed * 1.7f);
+		float l = len * flick;
+		jetCone(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, l, rad * 1.7f, 0.55f, 0.02f, 0.03f, 0.55f);
+		jetCone(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, l * 0.8f, rad, 0.62f, 0.03f, 0.05f, 0.95f);
+		jetCone(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, l * 0.55f, rad * 0.45f, 1.0f, 0.25f, 0.2f, 0.8f);
+		pose.popPose();
+	}
+
+	/** A cone from the origin along {@code dir}: {@code r} wide at the root, a point at {@code len}; fading toward the tip. */
+	private static void jetCone(VertexConsumer vc, Matrix4f m, Vector3f dir, Vector3f a, Vector3f b, float len, float r, float cr, float cg, float cb, float ca) {
+		int sides = 7;
+		Vector3f tip = new Vector3f(dir).mul(len);
+		for (int i = 0; i < sides; i++) {
+			float t0 = i * Mth.TWO_PI / sides, t1 = (i + 1) * Mth.TWO_PI / sides;
+			Vector3f p0 = new Vector3f(a).mul(Mth.cos(t0) * r).add(new Vector3f(b).mul(Mth.sin(t0) * r));
+			Vector3f p1 = new Vector3f(a).mul(Mth.cos(t1) * r).add(new Vector3f(b).mul(Mth.sin(t1) * r));
+			// a widening bell: the jet spreads a little before it thins out
+			Vector3f q0 = new Vector3f(p0).mul(1.6f).add(new Vector3f(dir).mul(len * 0.45f));
+			Vector3f q1 = new Vector3f(p1).mul(1.6f).add(new Vector3f(dir).mul(len * 0.45f));
+			vc.addVertex(m, p0.x, p0.y, p0.z).setColor(cr, cg, cb, ca);
+			vc.addVertex(m, p1.x, p1.y, p1.z).setColor(cr, cg, cb, ca);
+			vc.addVertex(m, q1.x, q1.y, q1.z).setColor(cr, cg, cb, ca * 0.7f);
+			vc.addVertex(m, q0.x, q0.y, q0.z).setColor(cr, cg, cb, ca * 0.7f);
+			vc.addVertex(m, q0.x, q0.y, q0.z).setColor(cr, cg, cb, ca * 0.7f);
+			vc.addVertex(m, q1.x, q1.y, q1.z).setColor(cr, cg, cb, ca * 0.7f);
+			vc.addVertex(m, tip.x, tip.y, tip.z).setColor(cr, cg, cb, 0f);
+			vc.addVertex(m, tip.x, tip.y, tip.z).setColor(cr, cg, cb, 0f);
+		}
+	}
+
+	static void jetConePublic(VertexConsumer vc, Matrix4f m, Vector3f dir, Vector3f a, Vector3f b, float len, float r, float cr, float cg, float cb,
+			float ca) {
+		jetCone(vc, m, dir, a, b, len, r, cr, cg, cb, ca);
+	}
+
+	/** From the client tick: the blood the waves and the beams throw about. */
+	static void tickBlood(long now) {
+		for (Waves w : WAVES) {
+			float age = now - w.start() - 5f;
+			if (age < 0f) {
+				continue;
+			}
+			float d = 1.2f + age * 1.1f;
+			if (d > AndyConfig.GREAT_CRESCENT_RANGE) {
+				continue;
+			}
+			Vec3 front = w.from().add(w.dir().scale(d));
+			Vec3 side = new Vec3(-w.dir().z, 0, w.dir().x);
+			for (int k = 0; k < 4; k++) {
+				double sd = (Math.random() - 0.5) * 2.6;
+				Vec3 at = front.add(side.scale(sd)).add(0, 1.6 + Math.random() * 1.2, 0);
+				BloodFx.spurt(at, w.dir().add(0, 0.8, 0), 2, 0.25, 0.5, Vec3.ZERO);
+			}
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null) {
+			return;
+		}
+		for (Player player : mc.level.players()) {
+			AndyState s = Andy.peek(player);
+			if (s == null || !s.hasPower || (!s.flag(AndyState.FLAG_DEAD_LINE) && !s.flag(AndyState.FLAG_DEAD_ROAD))) {
+				continue;
+			}
+			boolean road = s.flag(AndyState.FLAG_DEAD_ROAD);
+			Vec3[] seg = beam(player, 1f, road ? AndyConfig.DEAD_ROAD_RANGE : AndyConfig.DEAD_LINE_RANGE);
+			Vec3 back = seg[0].subtract(seg[1]);
+			BloodFx.spurt(seg[1], back, road ? 6 : 3, road ? 0.3 : 0.18, 0.7, Vec3.ZERO);
+			if (now % 3 == 0) {
+				BloodFx.mist(seg[1], 1, road ? 0.5f : 0.25f, Vec3.ZERO);
+			}
 		}
 	}
 

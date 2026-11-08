@@ -73,6 +73,12 @@ public final class PixelCubes {
 	 * @param power 1 for a normal break; more for the Undead shatter
 	 */
 	public static void burst(ResourceLocation tex, boolean slim, int part, Matrix4f partToWorld, Vec3 push, int tint, float power) {
+		burst(tex, slim, part, partToWorld, push, tint, power, null);
+	}
+
+	/** As above, only the texels {@code only} accepts (null: all) -- a hand, a foot, the bite a finger shot took. */
+	public static void burst(ResourceLocation tex, boolean slim, int part, Matrix4f partToWorld, Vec3 push, int tint, float power,
+			java.util.function.Predicate<AndyTexels.Texel> only) {
 		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
 		float[] b = AndyTexels.box(part, slim);
 		Vector3f centre = partToWorld.transformPosition(new Vector3f((b[0] + b[3] * 0.5f) / 16f, (b[1] + b[4] * 0.5f) / 16f, (b[2] + b[5] * 0.5f) / 16f));
@@ -83,7 +89,7 @@ public final class PixelCubes {
 			if (CUBES.size() >= MAX) {
 				break;
 			}
-			if (!SkinPixels.shows(tex, t.u, t.v)) {
+			if (!SkinPixels.shows(tex, t.u, t.v) || (only != null && !only.test(t))) {
 				continue;
 			}
 			// the cube sits just inside the skin surface, so the burst starts as the exact shape of the part
@@ -122,6 +128,36 @@ public final class PixelCubes {
 			c.light = level != null ? LevelRenderer.getLightColor(level, BlockPos.containing(c.x, c.y, c.z)) : 0xF000F0;
 			CUBES.add(c);
 		}
+	}
+
+	/** One skin texel's cube falling off a burning edge (no outward fling, a little drift). */
+	public static void ember(ResourceLocation tex, AndyTexels.Texel t, Vec3 at, Vec3 carry) {
+		if (CUBES.size() >= MAX) {
+			return;
+		}
+		RandomSource rnd = RandomSource.create();
+		ClientLevel level = Minecraft.getInstance().level;
+		Cube c = new Cube();
+		c.tex = tex;
+		c.u0 = (t.u + 0.05f) / 64f;
+		c.v0 = (t.v + 0.05f) / 64f;
+		c.u1 = (t.u + 0.95f) / 64f;
+		c.v1 = (t.v + 0.95f) / 64f;
+		c.x = c.px = at.x;
+		c.y = c.py = at.y;
+		c.z = c.pz = at.z;
+		c.vx = carry.x * 0.6 + (rnd.nextDouble() - 0.5) * 0.06;
+		c.vy = carry.y * 0.6 + rnd.nextDouble() * 0.05;
+		c.vz = carry.z * 0.6 + (rnd.nextDouble() - 0.5) * 0.06;
+		c.ax = 0.3f;
+		c.ay = 0.9f;
+		c.az = 0.2f;
+		c.spin = (rnd.nextFloat() - 0.5f) * 0.8f;
+		c.size = 1f / 16f * 0.9375f;
+		c.life = 16 + rnd.nextInt(14);
+		c.argb = 0xFFFFB080; // scorched
+		c.light = level != null ? LevelRenderer.getLightColor(level, BlockPos.containing(at)) : 0xF000F0;
+		CUBES.add(c);
 	}
 
 	/** A few cubes of one texel (a spent finger). */

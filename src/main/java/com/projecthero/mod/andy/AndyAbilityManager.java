@@ -16,12 +16,12 @@ import net.minecraft.world.entity.player.Player;
  * when {@link #hasContext} is true. Shift is read server-side. H stays the power selector; N is not his.
  *
  * <pre>
- *   R (1)  Parts Bullet              Shift+R  Crimson Bullet          (Victor: Dead Vulcan / Division Bullet)
+ *   R (1)  tap: Parts Bullet         Shift+R  Crimson Bullet          (Victor: Dead Vulcan / Division Bullet)
+ *          hold: Stretch Punch (the arm draws back past PUNCH_HOLD_TICKS, thrown on release)
  *   G (2)  Crimson Crescent Moon     Shift+G  Great Deep-Crimson Crescent Moon   (Victor: Dead Blade)
  *   X (3)  Blood Propulsion (hold)   Shift+X  Repair Glide
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  tap: Regeneration speed   Shift+V  Pull the Card (Victor)
- *          hold 1 s: Regeneration style
+ *   V (5)  Regeneration speed        Shift+V  Pull the Card (Victor)
  *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
  * </pre>
  */
@@ -29,20 +29,20 @@ public final class AndyAbilityManager {
 	static final int REPEAT_WINDOW = 25;
 
 	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
-	/** A plain V held down: {when it went down, 1 once the hold has cycled the style}. */
-	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
+	/** A plain R held down (not Victor): when it went down. Tap = Parts Bullet on release; hold = the stretch punch. */
+	private static final Map<UUID, Long> R_HELD = new ConcurrentHashMap<>();
 
 	private AndyAbilityManager() {
 	}
 
 	static void clearSessionState() {
 		LAST_PRESS.clear();
-		V_HELD.clear();
+		R_HELD.clear();
 	}
 
 	static void forget(UUID id) {
 		LAST_PRESS.remove(id);
-		V_HELD.remove(id);
+		R_HELD.remove(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -78,18 +78,30 @@ public final class AndyAbilityManager {
 		boolean victor = Andy.victor(player);
 		switch (slot) {
 			case SLOT_1 -> {
-				if (pressed) {
-					if (victor) {
-						if (shift) {
-							AndyAbilities.division(player);
+				if (!pressed) {
+					Long down = R_HELD.remove(player.getUUID());
+					if (down != null) {
+						long held = player.level().getGameTime() - down;
+						if (Andy.state(player).flag(com.projecthero.mod.andy.data.AndyState.FLAG_PUNCH)) {
+							if (held >= AndyConfig.PUNCH_MIN_HOLD) {
+								AndyAbilities.throwPunch(player);
+							} else {
+								AndyAbilities.cancelPunch(player);
+							}
 						} else {
-							AndyAbilities.vulcan(player);
+							AndyAbilities.partsBullet(player); // a tap
 						}
-					} else if (shift) {
-						AndyAbilities.crimsonBullet(player);
-					} else {
-						AndyAbilities.partsBullet(player);
 					}
+				} else if (victor) {
+					if (shift) {
+						AndyAbilities.division(player);
+					} else {
+						AndyAbilities.vulcan(player);
+					}
+				} else if (shift) {
+					AndyAbilities.crimsonBullet(player);
+				} else {
+					R_HELD.put(player.getUUID(), player.level().getGameTime());
 				}
 			}
 			case SLOT_2 -> {
@@ -122,17 +134,10 @@ public final class AndyAbilityManager {
 				}
 			}
 			case SLOT_5 -> {
-				// a tap cycles the speed (on release); a hold of STYLE_HOLD_TICKS cycles the style (tickHold, while still held)
 				if (pressed) {
 					if (shift) {
-						V_HELD.remove(player.getUUID());
 						AndyAbilities.pullCard(player);
-					} else {
-						V_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L });
-					}
-				} else {
-					long[] held = V_HELD.remove(player.getUUID());
-					if (held != null && held[1] == 0L && Andy.canAct(player)) {
+					} else if (Andy.canAct(player)) {
 						Andy.cycleSpeed(player);
 					}
 				}
@@ -153,15 +158,21 @@ public final class AndyAbilityManager {
 		}
 	}
 
-	/** From {@link Andy#tick}: a plain V held long enough cycles the regrowth style, once per hold. */
+	/** From {@link Andy#tick}: a plain R held past {@link AndyConfig#PUNCH_HOLD_TICKS} draws the arm back for the punch. */
 	static void tickHold(ServerPlayer player) {
-		long[] held = V_HELD.get(player.getUUID());
-		if (held == null || held[1] != 0L) {
+		Long down = R_HELD.get(player.getUUID());
+		var s = Andy.state(player);
+		if (down == null) {
+			if (s.flag(com.projecthero.mod.andy.data.AndyState.FLAG_PUNCH)) {
+				AndyAbilities.cancelPunch(player); // the release went missing (a screen opened)
+			}
 			return;
 		}
-		if (player.level().getGameTime() - held[0] >= AndyConfig.STYLE_HOLD_TICKS) {
-			held[1] = 1L;
-			Andy.cycleStyle(player);
+		if (!s.flag(com.projecthero.mod.andy.data.AndyState.FLAG_PUNCH) && player.level().getGameTime() - down == AndyConfig.PUNCH_HOLD_TICKS) {
+			AndyAbilities.startPunch(player);
+		}
+		if (s.flag(com.projecthero.mod.andy.data.AndyState.FLAG_PUNCH) && Andy.shootingArm(player) < 0) {
+			AndyAbilities.cancelPunch(player);
 		}
 	}
 
@@ -182,6 +193,7 @@ public final class AndyAbilityManager {
 	public static int maxCooldown(String id) {
 		return switch (id) {
 			case AndyAbilities.PARTS_BULLET -> AndyConfig.PARTS_BULLET_COOLDOWN;
+			case AndyAbilities.PUNCH -> AndyConfig.PUNCH_COOLDOWN;
 			case AndyAbilities.CRIMSON_BULLET -> AndyConfig.CRIMSON_COOLDOWN;
 			case AndyAbilities.CRESCENT -> AndyConfig.CRESCENT_COOLDOWN;
 			case AndyAbilities.GREAT_CRESCENT -> AndyConfig.GREAT_CRESCENT_COOLDOWN;

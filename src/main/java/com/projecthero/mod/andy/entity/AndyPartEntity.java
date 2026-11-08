@@ -44,6 +44,8 @@ public class AndyPartEntity extends Projectile {
 	public static final int STYLE_DIVISION = 3;
 	public static final int STYLE_DRILL = 4;
 	public static final int STYLE_HEAD = 5;
+	/** v0.17.3: the stretch punch -- the whole arm thrown fist first off the body; it drops where it hits. */
+	public static final int STYLE_PUNCH = 6;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<AndyPartEntity> clientRemoval = e -> {
@@ -118,7 +120,7 @@ public class AndyPartEntity extends Projectile {
 
 	private int maxLife() {
 		return switch (this.style()) {
-			case STYLE_DRILL, STYLE_HEAD -> AndyConfig.SEVERED_LIFE;
+			case STYLE_DRILL, STYLE_HEAD, STYLE_PUNCH -> AndyConfig.SEVERED_LIFE;
 			case STYLE_CRIMSON -> 60;
 			default -> 40;
 		};
@@ -169,6 +171,10 @@ public class AndyPartEntity extends Projectile {
 		}
 		if (this.style() == STYLE_DRILL && this.level() instanceof ServerLevel level && this.life % 2 == 0) {
 			level.sendParticles(Andy.BLOOD, this.getX(), this.getY(), this.getZ(), 2, 0.12, 0.12, 0.12, 0.0);
+		} else if (this.style() == STYLE_PUNCH && this.level() instanceof ServerLevel level) {
+			// blood from the shoulder end, trailing
+			Vec3 back = v.normalize().scale(-0.4);
+			level.sendParticles(Andy.BLOOD, this.getX() + back.x, this.getY() + back.y, this.getZ() + back.z, 2, 0.05, 0.05, 0.05, 0.0);
 		} else if (this.style() == STYLE_CRIMSON && this.level() instanceof ServerLevel level) {
 			level.sendParticles(Andy.BLOOD_BIG, this.getX(), this.getY(), this.getZ(), 2, 0.05, 0.05, 0.05, 0.0);
 		}
@@ -198,6 +204,13 @@ public class AndyPartEntity extends Projectile {
 				if (this.struck.size() >= AndyConfig.VORTEX_PIERCE) {
 					this.setDeltaMovement(v.scale(0.8));
 				}
+			}
+			case STYLE_PUNCH -> {
+				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 1.5, 0.3);
+				this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.7f);
+				this.falling = true;
+				this.setNoGravity(false);
+				this.setDeltaMovement(v.scale(-0.15).add(0, 0.2, 0));
 			}
 			case STYLE_HEAD -> {
 				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 1.4, 0.3);
@@ -234,7 +247,7 @@ public class AndyPartEntity extends Projectile {
 				this.entityData.set(STUCK, true);
 				this.level().playSound(null, at.x, at.y, at.z, SoundEvents.TRIDENT_HIT_GROUND, SoundSource.PLAYERS, 1.0f, 0.8f);
 			}
-			case STYLE_HEAD -> {
+			case STYLE_HEAD, STYLE_PUNCH -> {
 				this.falling = true;
 				this.setNoGravity(false);
 				Vec3 v = this.getDeltaMovement();

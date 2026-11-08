@@ -119,7 +119,9 @@ public class AndyGameTests implements FabricGameTest {
 		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
 		helper.assertTrue(Andy.missing(p, AndyState.LEFT_LEG), "broken");
 		Andy.reconcile(p);
-		helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "one leg gone: slowed");
+		helper.assertTrue(Andy.stage(p) == com.projecthero.mod.andy.AndyStages.LEG_HOP, "one leg gone: hopping");
+		double walk = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(walk < 0.1 * 0.75, "and slowed: " + walk);
 		long start = helper.getLevel().getGameTime();
 		helper.onEachTick(() -> Andy.tick(p));
 		helper.runAfterDelay(AndyConfig.REGROW_DELAY[1] - 5, () -> helper.assertTrue(Andy.state(p).regrowStart(AndyState.LEFT_LEG) == 0L,
@@ -131,7 +133,7 @@ public class AndyGameTests implements FabricGameTest {
 		helper.runAfterDelay(AndyConfig.REGROW_DELAY[1] + AndyConfig.REGROW_TICKS[1] + 4, () -> {
 			helper.assertTrue(!Andy.missing(p, AndyState.LEFT_LEG), "whole again after " + (helper.getLevel().getGameTime() - start) + " ticks");
 			helper.assertTrue(Andy.state(p).hp(AndyState.LEFT_LEG) == AndyConfig.PART_HP[AndyState.LEFT_LEG], "full HP");
-			helper.assertTrue(!p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "no longer slowed");
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - 0.1) < 1.0e-4, "no longer slowed");
 			helper.succeed();
 		});
 	}
@@ -163,7 +165,7 @@ public class AndyGameTests implements FabricGameTest {
 		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
 			helper.assertTrue(s.broken(i) && s.kind(i) == AndyState.KIND_SHATTER, "part " + i + " shattered");
 		}
-		helper.assertTrue(Andy.reforming(p), "re-forming");
+		helper.assertTrue(Andy.reforming(p), "the grace after the shatter");
 		float hp = p.getHealth();
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().magic(), 5f);
@@ -204,84 +206,274 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void tapVCyclesTheSpeedAndHoldVCyclesTheStyle(GameTestHelper helper) {
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void tapVCyclesTheSpeedOnThePress(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "starts on Bone and flesh (the default)");
-		// a quick tap: the speed, on release, and not the style
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "nothing on the press itself");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "a press of V cycles the speed (there is no style to hold for any more)");
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "a tap cycles the speed");
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "a tap leaves the style");
-		helper.onEachTick(() -> Andy.tick(p));
-		helper.runAfterDelay(2, () -> com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true));
-		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS - 4, () -> helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE,
-				"not yet before the hold time"));
-		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS + 3, () -> {
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "held V cycles to Streaming: " + Andy.regenStyle(p));
-		});
-		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS + 12, () -> {
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "once per hold, however long");
-			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-			helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "letting go after a hold does not touch the speed");
-			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
-		});
-		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS * 2 + 18, () -> {
-			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "then Build in place");
-			Andy.cycleStyle(p);
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "and round to Bone and flesh");
-			helper.succeed();
-		});
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "the release does nothing");
+		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theRegrowthStyleIsSavedAndKeptThroughDeath(GameTestHelper helper) {
+	public void theSpeedIsSavedAndOldSavesWithAStyleStillLoad(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		Andy.setStyle(p, AndyState.STYLE_BUILD);
 		Andy.setSpeed(p, AndyConfig.SPEED_SLOW);
 		AndyState s = Andy.state(p);
 		net.minecraft.nbt.Tag tag = AndyState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s).getOrThrow();
 		AndyState back = AndyState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
-		helper.assertTrue(back.regenStyle == AndyState.STYLE_BUILD && back.regenSpeed == AndyConfig.SPEED_SLOW, "saved and loaded: " + tag);
-		AndyState old = AndyState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, new net.minecraft.nbt.CompoundTag()).getOrThrow();
-		helper.assertTrue(old.regenStyle == AndyState.STYLE_BONE, "a save without the field loads as Bone and flesh, the default");
-		helper.assertTrue(s.copy().regenStyle == AndyState.STYLE_BUILD, "copies keep it");
+		helper.assertTrue(back.regenSpeed == AndyConfig.SPEED_SLOW, "saved and loaded: " + tag);
+		net.minecraft.nbt.CompoundTag old = ((net.minecraft.nbt.CompoundTag) tag).copy();
+		old.remove("extra");
+		old.putInt("regen_style", 2); // a save from before there was only one look
+		AndyState fromOld = AndyState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, old).getOrThrow();
+		helper.assertTrue(fromOld.hasPower && fromOld.regenSpeed == AndyConfig.SPEED_SLOW && fromOld.extra.size() == AndyState.EXTRA,
+				"an old save with regen_style still loads (the key is ignored)");
 		Andy.breakPart(p, AndyState.RIGHT_ARM, AndyState.KIND_BURST);
 		Andy.clearTransient(p); // a real death, a new world, logging out
 		helper.assertTrue(!Andy.missing(p, AndyState.RIGHT_ARM), "made whole");
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "the style stays");
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_SLOW, "and the speed");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_SLOW, "the speed stays");
 		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void everyStyleRegrowsInTheSameTime(GameTestHelper helper) {
+	public void aRegrowthTakesTheThreeLayerTime(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		// one style and speed a tick, once the game clock is past the longest wait (each is back-dated to start at once)
+		helper.assertTrue(AndyConfig.REGROW_TICKS[AndyConfig.SPEED_NORMAL] == 170, "Normal: 8.5 s");
+		helper.assertTrue(Math.abs(AndyConfig.LAYER_MUSCLE[0] * 170f - 40f) < 0.01f && Math.abs(AndyConfig.LAYER_SKIN[0] * 170f - 80f) < 0.01f,
+				"the muscle starts 2 s after the bone, the skin 2 s after that");
+		helper.assertTrue(Math.abs(AndyConfig.LAYER_SKIN[0] + AndyConfig.LAYER_SKIN[1] - 1f) < 1.0e-4f, "the skin closing is the end of it");
 		int start = AndyConfig.REGROW_DELAY[AndyConfig.SPEED_SLOW] + 10;
-		for (int k = 0; k < 3 * AndyState.STYLES; k++) {
-			int speed = k / AndyState.STYLES, style = k % AndyState.STYLES;
+		for (int k = 0; k < 3; k++) {
+			int speed = k;
 			helper.runAfterDelay(start + k, () -> {
 				Andy.restore(p);
 				p.getFoodData().setFoodLevel(20);
 				Andy.setSpeed(p, speed);
-				Andy.setStyle(p, style);
 				Andy.breakPart(p, AndyState.LEFT_ARM, AndyState.KIND_BURST);
 				long now = helper.getLevel().getGameTime();
 				edit(p, n -> n.setTimes(AndyState.LEFT_ARM, now - AndyConfig.REGROW_DELAY[speed], 0L, 0L));
 				Andy.tick(p);
 				AndyState s = Andy.state(p);
 				long len = s.regrowEnd(AndyState.LEFT_ARM) - s.regrowStart(AndyState.LEFT_ARM);
-				helper.assertTrue(s.regrowStart(AndyState.LEFT_ARM) > 0L, "style " + style + " speed " + speed + " starts regrowing");
-				helper.assertTrue(len == AndyConfig.REGROW_TICKS[speed], "style " + style + " speed " + speed + " takes " + len + " ticks, not "
-						+ AndyConfig.REGROW_TICKS[speed]);
-				helper.assertTrue(s.regenStyle == style, "and keeps its style");
+				helper.assertTrue(s.regrowStart(AndyState.LEFT_ARM) > 0L, "speed " + speed + " starts regrowing");
+				helper.assertTrue(len == AndyConfig.REGROW_TICKS[speed], "speed " + speed + " takes " + len + " ticks, not " + AndyConfig.REGROW_TICKS[speed]);
 			});
 		}
-		helper.runAfterDelay(start + 3 * AndyState.STYLES + 1, helper::succeed);
+		helper.runAfterDelay(start + 4, helper::succeed);
+	}
+
+	// ---------------------------------------------------------------- R: finger shots eat the arm, the stretch punch
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void fingerShotNumbers(GameTestHelper helper) {
+		helper.assertTrue(AndyConfig.PARTS_BULLET_COOLDOWN == 10, "Parts Bullet: half a second");
+		helper.assertTrue(AndyConfig.CRIMSON_DAMAGE == 12f && AndyConfig.CRIMSON_COOLDOWN == 20, "Crimson Bullet: 12 damage, 1 s");
+		helper.assertTrue(AndyConfig.PUNCH_DAMAGE == 20f && AndyConfig.PUNCH_COOLDOWN == 20, "Stretch Punch: 20 damage, 1 s");
+		helper.assertTrue(Math.abs(AndyConfig.CRIMSON_EAT - 4f * AndyConfig.PARTS_EAT) < 1.0e-5f, "a Crimson Bullet takes four times the bite");
+		helper.assertTrue(AndyConfig.EATEN_REGROW_WAIT == 40, "regrowth waits 2 s without a shot");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void fingerShotsEatTheArmAndItWaitsToRegrow(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.setXRot(-85f);
+		int arm = Andy.mainArm(p);
+		AndyAbilities.partsBullet(p);
+		float one = Andy.state(p).eaten(arm, helper.getLevel().getGameTime());
+		helper.assertTrue(Math.abs(one - AndyConfig.PARTS_EAT) < 0.002f, "one shot takes a twelfth: " + one);
+		edit(p, n -> n.abilityReadyAt.clear());
+		AndyAbilities.partsBullet(p);
+		edit(p, n -> n.abilityReadyAt.clear());
+		AndyAbilities.crimsonBullet(p);
+		float six = Andy.state(p).eaten(arm, helper.getLevel().getGameTime());
+		helper.assertTrue(Math.abs(six - 6f / 12f) < 0.003f, "two Parts and a Crimson: half the arm: " + six);
+		long shot = helper.getLevel().getGameTime();
+		helper.onEachTick(() -> Andy.tick(p));
+		helper.runAfterDelay(AndyConfig.EATEN_REGROW_WAIT - 4, () -> helper.assertTrue(
+				Math.abs(Andy.state(p).eaten(arm, helper.getLevel().getGameTime()) - six) < 0.001f, "nothing grows back before 2 s"));
+		helper.runAfterDelay(AndyConfig.EATEN_REGROW_WAIT + 2, () -> helper.assertTrue(Andy.state(p).eatenRegrow(arm, helper.getLevel().getGameTime()) > 0f,
+				"it starts growing back after 2 s without a shot (" + (helper.getLevel().getGameTime() - shot) + " ticks)"));
+		helper.runAfterDelay(AndyConfig.EATEN_REGROW_WAIT + 4, () -> {
+			// shooting again stops it and the bite carries on from what is still gone
+			edit(p, n -> n.abilityReadyAt.clear());
+			AndyAbilities.partsBullet(p);
+			AndyState s = Andy.state(p);
+			helper.assertTrue(s.eatenRegrow(arm, helper.getLevel().getGameTime()) == 0f, "a new shot restarts the wait");
+			// eat the rest: the arm is used up and gone, and the other arm shoots
+			for (int i = 0; i < 8 && !Andy.missing(p, arm); i++) {
+				edit(p, n -> n.abilityReadyAt.clear());
+				AndyAbilities.crimsonBullet(p);
+			}
+			helper.assertTrue(Andy.missing(p, arm) && Andy.state(p).kind(arm) == AndyState.KIND_SPENT, "a used-up arm is gone");
+			helper.assertTrue(Andy.shootingArm(p) == Andy.otherArm(arm), "the other arm shoots now");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void noArmsNoShot(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		Andy.breakPart(p, AndyState.RIGHT_ARM, AndyState.KIND_BURST);
+		Andy.breakPart(p, AndyState.LEFT_ARM, AndyState.KIND_BURST);
+		AndyAbilities.partsBullet(p);
+		AndyAbilities.crimsonBullet(p);
+		AABB box = new AABB(p.blockPosition()).inflate(4);
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> true).isEmpty(), "nothing fires with no arms");
+		helper.assertTrue(!AndyAbilities.startPunch(p), "and no punch winds up");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void holdRThrowsTheArmAndUsesTheOtherWhenTheMainIsGone(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.setXRot(-85f);
+		int main = Andy.mainArm(p);
+		Andy.breakPart(p, main, AndyState.KIND_BURST);
+		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, true);
+		helper.onEachTick(() -> Andy.tick(p));
+		helper.runAfterDelay(AndyConfig.PUNCH_HOLD_TICKS + 3, () -> helper.assertTrue(Andy.state(p).flag(AndyState.FLAG_PUNCH), "held: the arm draws back"));
+		helper.runAfterDelay(AndyConfig.PUNCH_MIN_HOLD + 4, () -> {
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, false);
+			int other = Andy.otherArm(main);
+			helper.assertTrue(Andy.missing(p, other) && Andy.state(p).kind(other) == AndyState.KIND_LAUNCHED, "the other arm was thrown");
+			AABB box = new AABB(p.blockPosition()).inflate(6);
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.style() == AndyPartEntity.STYLE_PUNCH && e.bodyPart() == other)
+					.size() == 1, "it flies as the punch");
+			helper.assertTrue(Andy.cooldownRemaining(p, AndyAbilities.PUNCH) > 0, "1 s cooldown");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void aTapOfRIsStillAPartsBullet(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.setXRot(-85f);
+		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, true);
+		helper.onEachTick(() -> Andy.tick(p));
+		helper.runAfterDelay(2, () -> {
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, false);
+			AABB box = new AABB(p.blockPosition()).inflate(6);
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.style() == AndyPartEntity.STYLE_FINGER).size() == 1,
+					"a tap fires a finger");
+			helper.assertTrue(!Andy.state(p).flag(AndyState.FLAG_PUNCH), "and winds nothing up");
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- flight, the boost, the head-only regrowth
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flightSpeeds(GameTestHelper helper) {
+		helper.assertTrue(Math.abs(AndyConfig.PROPULSION_SPEED * 20 - 25) < 1.0e-6, "25 b/s");
+		helper.assertTrue(Math.abs(AndyConfig.BOOST_SPEED * 20 - 40) < 1.0e-6, "40 b/s boosting");
+		helper.assertTrue(Math.abs(AndyConfig.HEAD_FLIGHT_SPEED * 20 - 32) < 1.0e-6, "32 b/s as a head");
+		ServerPlayer p = andy(helper);
+		helper.assertTrue(com.projecthero.mod.andy.AndyFlight.start(p) && com.projecthero.mod.andy.AndyFlight.isFlying(p), "takes off");
+		AndyState s = Andy.state(p);
+		long now = helper.getLevel().getGameTime();
+		helper.assertTrue(com.projecthero.mod.andy.AndyFlight.speed(s, now) == AndyConfig.PROPULSION_SPEED, "flying at 25");
+		com.projecthero.mod.andy.AndyFlight.setBoost(p, true);
+		helper.assertTrue(com.projecthero.mod.andy.AndyFlight.speed(Andy.state(p), now) == AndyConfig.BOOST_SPEED, "boosting at 40");
+		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+			int part = i;
+			edit(p, n -> n.setTimes(part, now, 0L, 0L));
+		}
+		helper.assertTrue(com.projecthero.mod.andy.AndyFlight.speed(Andy.state(p), now) == AndyConfig.HEAD_FLIGHT_SPEED, "a head flies at 32, boost or not");
+		helper.assertTrue(!Andy.state(p).headOnly(now) || Andy.stage(p) == com.projecthero.mod.andy.AndyStages.ROLL, "and is a rolling head");
+		com.projecthero.mod.andy.AndyFlight.stop(p);
+		helper.assertTrue(!com.projecthero.mod.andy.AndyFlight.isFlying(p) && !Andy.state(p).flag(AndyState.FLAG_BOOST), "lands");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theBoostBurnsLegsThenArmsThenBodyDownToTheHead(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.setXRot(-85f);
+		float health = p.getHealth();
+		com.projecthero.mod.andy.AndyFlight.start(p);
+		com.projecthero.mod.andy.AndyFlight.setBoost(p, true);
+		int legs = AndyConfig.BURN_TICKS[0], arms = legs + AndyConfig.BURN_TICKS[1], body = arms + AndyConfig.BURN_TICKS[2];
+		helper.assertTrue(body == 80, "4 s from whole to a head");
+		int[] ticks = { 0 };
+		helper.onEachTick(() -> {
+			edit(p, n -> n.holdStart = helper.getLevel().getGameTime()); // no time limit in the test
+			Andy.tick(p);
+			ticks[0]++;
+			AndyState s = Andy.state(p);
+			if (ticks[0] == legs - 2) {
+				helper.assertTrue(!s.broken(AndyState.RIGHT_LEG) && !s.broken(AndyState.LEFT_LEG), "the legs are still burning");
+			}
+			if (ticks[0] == legs + 2) {
+				helper.assertTrue(s.broken(AndyState.RIGHT_LEG) && s.broken(AndyState.LEFT_LEG) && s.kind(AndyState.LEFT_LEG) == AndyState.KIND_BURNT,
+						"the legs went first");
+				helper.assertTrue(!s.broken(AndyState.RIGHT_ARM) && !s.broken(AndyState.BODY), "nothing else yet");
+			}
+			if (ticks[0] == arms + 2) {
+				helper.assertTrue(s.broken(AndyState.RIGHT_ARM) && s.broken(AndyState.LEFT_ARM) && !s.broken(AndyState.BODY), "then the arms");
+			}
+			if (ticks[0] == body + 2) {
+				helper.assertTrue(s.broken(AndyState.BODY) && !s.broken(AndyState.HEAD), "then the body: just the head");
+				helper.assertTrue(s.regrowStart(AndyState.BODY) == 0L, "nothing regrows mid-flight");
+				helper.assertTrue(p.isAlive() && p.getHealth() >= health, "burning never hurts him");
+				com.projecthero.mod.andy.AndyFlight.stop(p);
+			}
+			if (ticks[0] == body + 4) {
+				helper.assertTrue(Andy.state(p).regrowStart(AndyState.BODY) > 0L, "landed: the head-only regrowth is planned");
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void headOnlyRegrowthOrder(GameTestHelper helper) {
+		for (int speed = 0; speed < 3; speed++) {
+			long[][] plan = Andy.headOnlyPlan(speed, 1000L);
+			long[] body = plan[0], main = plan[1], off = plan[2], leg1 = plan[3], leg2 = plan[4];
+			helper.assertTrue(main[0] > body[0] && (main[0] - body[0]) < 0.2 * (body[1] - body[0]), "the main arm starts before the body is a fifth done");
+			helper.assertTrue(off[0] == main[1], "the second arm starts when the first is done");
+			helper.assertTrue(body[1] == off[1] + AndyConfig.STAGE_TORSO_TAIL, "the body is done 1 s after the arms");
+			helper.assertTrue(leg1[0] >= body[1], "then a leg");
+			helper.assertTrue(leg2[0] >= leg1[1], "then the other leg");
+		}
+		long[][] n = Andy.headOnlyPlan(AndyConfig.SPEED_NORMAL, 0L);
+		helper.assertTrue(n[4][1] + AndyConfig.STAGE_DELAY[1] >= 20 * 20 && n[4][1] + AndyConfig.STAGE_DELAY[1] <= 30 * 20,
+				"head to walking at Normal: 20-30 s (" + (n[4][1] + AndyConfig.STAGE_DELAY[1]) + " ticks)");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theStagesFollowTheParts(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		Andy.shatter(p);
+		Andy.tick(p); // plans the head-only regrowth
+		AndyState s = Andy.state(p);
+		int main = Andy.mainArm(p);
+		int leg1 = Andy.mainLeg(p);
+		long[][] plan = { { s.regrowStart(AndyState.BODY), s.regrowEnd(AndyState.BODY) }, { s.regrowStart(main), s.regrowEnd(main) },
+				{ s.regrowStart(Andy.otherArm(main)), s.regrowEnd(Andy.otherArm(main)) }, { s.regrowStart(leg1), s.regrowEnd(leg1) } };
+		helper.assertTrue(plan[0][0] > 0L, "planned at once");
+		java.util.function.LongFunction<Integer> at = t -> com.projecthero.mod.andy.AndyStages.stage(s, t);
+		helper.assertTrue(at.apply(plan[0][0] + 2) == com.projecthero.mod.andy.AndyStages.ROLL, "the body growing: still a rolling head");
+		helper.assertTrue(at.apply(plan[1][0] + 2) == com.projecthero.mod.andy.AndyStages.DRAG, "the main arm growing: dragging himself");
+		helper.assertTrue(at.apply(plan[2][1] + 2) == com.projecthero.mod.andy.AndyStages.ARM_WALK, "both arms: walking on his hands");
+		helper.assertTrue(at.apply(plan[3][0] + 2) == com.projecthero.mod.andy.AndyStages.NUB_HOP, "a leg growing: hopping on the nub");
+		helper.assertTrue(at.apply(plan[3][1] + 2) == com.projecthero.mod.andy.AndyStages.LEG_HOP, "one leg: hopping on it");
+		long leg2 = s.regrowStart(leg1 == AndyState.RIGHT_LEG ? AndyState.LEFT_LEG : AndyState.RIGHT_LEG);
+		helper.assertTrue(at.apply(leg2 + 2) == com.projecthero.mod.andy.AndyStages.LIMP, "the second leg growing: limping");
+		helper.assertTrue(at.apply(s.regrowEnd(leg1 == AndyState.RIGHT_LEG ? AndyState.LEFT_LEG : AndyState.RIGHT_LEG) + 1)
+				== com.projecthero.mod.andy.AndyStages.NORMAL, "both legs: walking");
+		// any way of losing parts gives the stage: just both legs gone (another move, a hit) is the hand walk
+		Andy.restore(p);
+		Andy.breakPart(p, AndyState.RIGHT_LEG, AndyState.KIND_BURST);
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
+		helper.assertTrue(Andy.stage(p) == com.projecthero.mod.andy.AndyStages.ARM_WALK, "both legs gone: on his hands");
+		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
@@ -388,7 +580,7 @@ public class AndyGameTests implements FabricGameTest {
 		AndyAbilities.startPropulsion(p);
 		helper.assertTrue(Andy.state(p).flag(AndyState.FLAG_PROPELLING), "flying");
 		Andy.tick(p);
-		helper.assertTrue(p.getDeltaMovement().lengthSqr() > 0.5, "pushed along the look");
+		helper.assertTrue(Math.abs(p.getDeltaMovement().length() - AndyConfig.PROPULSION_SPEED) < 1.0e-6, "along the look at 25 b/s");
 		AndyAbilities.stopPropulsion(p);
 		helper.assertTrue(!Andy.state(p).flag(AndyState.FLAG_PROPELLING), "stops on release");
 		p.setDeltaMovement(Vec3.ZERO);

@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.projecthero.mod.andy.AndyConfig;
 import com.projecthero.mod.andy.data.AndyState;
 import com.projecthero.mod.client.render.VanillaSkeleton;
 
@@ -13,38 +14,33 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * v0.17.3: the three looks of a regrowing part, all over the same length of time (the server decides the time; the style is
- * only the drawing). Called from {@link AndyRender#regrow} in the part's own space (model px, +y down, -z the front).
- *
+ * v0.17.3: how a part of Andy grows back -- the one look, bone and flesh (user: "make this the only one"). Three layers,
+ * each from the joint outward, timed by {@link AndyConfig#LAYER_BONE}, {@link AndyConfig#LAYER_MUSCLE} and
+ * {@link AndyConfig#LAYER_SKIN} (at Normal: the bone pushes out over 0-3 s, the muscle builds over 2-6 s, the skin over
+ * 4-8.5 s; the bone always ahead of the muscle, the muscle ahead of the skin):
  * <ul>
- * <li>{@link AndyState#STYLE_STREAMING}: the skin's own pixels fly out of the stump on a curve, each to its exact place, and
- * click in from the joint outward.</li>
- * <li>{@link AndyState#STYLE_BUILD}: nothing flies. Each texel appears in its own place in the organic order of
- * {@link AndyTexels.Texel#grow} (spreading patches, broadly from the joint), popping in a little small and dark and settling
- * to full size and colour over a couple of ticks.</li>
- * <li>{@link AndyState#STYLE_BONE} (the default): for an arm or leg ({@link #limb}, after the user's reference animations)
- * the skin creeps down from the joint with a ragged band of dark red flesh cubes riding its front and the vanilla skeleton's
- * thin bone poking out below the flesh, swallowed as they come down. For the head and body the vanilla skeleton mob's own
- * skull / ribcage ({@link VanillaSkeleton}, in skeleton.png) grows out of the stump, dark red flesh wraps round it and fills
- * the part out, then the skin closes over it in place from the joint.</li>
+ * <li>an arm or leg ({@link #limb}): nothing pops in; the vanilla skeleton's thin bone pushes slowly out of the joint; ragged
+ * dark-red muscle cubes build round it from the joint, swelling in at their front; the player's own skin texels close over
+ * the muscle behind a ragged front, the hand / foot end last. The same drawing shows a limb that only lost its end -- the
+ * hands and feet after a flight, the bite the finger shots took, a stage half burnt in a boost ({@link #cut}) -- and its
+ * regrowth from that cut ({@link #limb} with {@code from});</li>
+ * <li>the head and body ({@link #boneAndFlesh}): the vanilla skull / ribcage grows out of the stump, the muscle wraps it, the
+ * skin closes over, in the same three windows.</li>
  * </ul>
- * No glow and no flash in any of them. The flesh is flat-coloured cubes on one white texel of the palette (one buffer, faces
- * between two settled flesh cells skipped).
+ * Called from {@link AndyRender} in the part's own space (model px, +y down, -z the front). No glow (but for the embers of a
+ * boost burn on a cut face). The flesh is flat-coloured cubes on one white texel of the palette.
  */
 public final class AndyRegrow {
-	/** Streaming: the share of a regrowth each pixel spends flying in from the stump. */
-	static final float FLIGHT = 0.34f;
-	/** Build in place: the share of a regrowth a pixel takes to settle from popping in to full size. */
+	/** A texel's pop-in (share of a whole regrowth) for the head and body. */
 	static final float SETTLE = 0.075f;
 
-	// Bone and flesh: when each layer runs (shares of the regrowth)
-	static final float BONE_START = 0f, BONE_SPAN = 0.30f;
-	static final float FLESH_START = 0.17f, FLESH_SPAN = 0.45f;
-	static final float SKIN_START = 0.52f, SKIN_SPAN = 0.42f;
+	// the head and body: when each layer runs (shares of the regrowth)
+	static final float BONE_START = AndyConfig.LAYER_BONE[0], BONE_SPAN = AndyConfig.LAYER_BONE[1];
+	static final float FLESH_START = AndyConfig.LAYER_MUSCLE[0], FLESH_SPAN = AndyConfig.LAYER_MUSCLE[1];
+	static final float SKIN_START = AndyConfig.LAYER_SKIN[0], SKIN_SPAN = AndyConfig.LAYER_SKIN[1];
 
 	/** The palette's plain white texel (column 5): bone and flesh are tinted from it. */
 	private static final float WU0 = 5.3f / 16f, WV0 = 0.3f / 16f, WU1 = 5.7f / 16f, WV1 = 0.7f / 16f;
@@ -52,98 +48,26 @@ public final class AndyRegrow {
 	private AndyRegrow() {
 	}
 
-	public static void draw(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, int style) {
-		switch (style) {
-			case AndyState.STYLE_BUILD -> build(pose, buffers, light, tex, slim, part, p);
-			case AndyState.STYLE_BONE -> boneAndFlesh(pose, buffers, light, tex, slim, part, p);
-			default -> streaming(pose, buffers, light, tex, slim, part, p);
+	/** A whole part growing back, {@code p} 0..1. */
+	public static void draw(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
+		if (part >= AndyState.RIGHT_ARM) {
+			limb(pose, buffers, light, tex, slim, part, p, 0f, false);
+		} else {
+			boneAndFlesh(pose, buffers, light, tex, slim, part, p);
 		}
 	}
 
-	// ---------------------------------------------------------------- Streaming
-
-	static void streaming(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
-		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
-		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
-		float[] joint = AndyTexels.joint(part, slim);
-		PoseStack.Pose last = pose.last();
-		Quaternionf q = new Quaternionf();
-		Vector3f[] c = corners8();
-		for (AndyTexels.Texel t : texels) {
-			if (!SkinPixels.shows(tex, t.u, t.v)) {
-				continue;
-			}
-			float click = t.order * (1f - FLIGHT) + FLIGHT;
-			float launch = click - FLIGHT;
-			float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
-			if (p >= click) {
-				square(skin, last, t, u0, v0, u1, v1, light, 0f, 0f, 255);
-			} else if (p >= launch) {
-				float f = (p - launch) / FLIGHT;
-				float e = f * f * (3f - 2f * f);
-				// from the stump (a spot on the cut), bulging out past the surface, home to its own place
-				float sx = joint[0] + (t.seed - 0.5f) * 2.4f, sy = joint[1], sz = joint[2] + (((t.seed * 7.31f) % 1f) - 0.5f) * 2.4f;
-				float tx = t.x - t.nx * 0.5f, ty = t.y - t.ny * 0.5f, tz = t.z - t.nz * 0.5f;
-				float bulge = 2.2f + t.seed * 2.2f;
-				float mx = (sx + tx) * 0.5f + t.nx * bulge, my = (sy + ty) * 0.5f + t.ny * bulge, mz = (sz + tz) * 0.5f + t.nz * bulge;
-				float a = 1f - e;
-				float x = a * a * sx + 2 * a * e * mx + e * e * tx;
-				float y = a * a * sy + 2 * a * e * my + e * e * ty;
-				float z = a * a * sz + 2 * a * e * mz + e * e * tz;
-				float size = (0.55f + 0.45f * e) * 0.5f;
-				float spin = (1f - e) * (1f - e) * (4f + t.seed * 5f);
-				q.setAngleAxis(spin, 0.4f + t.seed * 0.6f, 1f - t.seed, 0.3f);
-				for (int i = 0; i < 8; i++) {
-					c[i].set((i & 1) == 0 ? -size : size, (i & 2) == 0 ? -size : size, (i & 4) == 0 ? -size : size).rotate(q).add(x, y, z).mul(1f / 16f);
-				}
-				AndyRender.cubePublic(skin, last, c, u0, v0, u1, v1, light);
-			}
-		}
-		// the inside of what is already there reads as flesh, not as the skin seen from behind
-		inside(pose, buffers, light, tex, slim, part, t -> p >= t.order * (1f - FLIGHT) + FLIGHT);
+	/**
+	 * An arm or leg missing its last {@code 12 - rows} rows (its end: the hand / foot, a used-up bit of arm, a burnt stage),
+	 * the cut face ragged dark-red muscle -- glowing embers while it burns.
+	 */
+	public static void cut(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float rows, boolean embers) {
+		limb(pose, buffers, light, tex, slim, part, 0f, Math.max(0f, rows), embers);
 	}
 
-	// ---------------------------------------------------------------- Build in place
-
-	static void build(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
-		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
-		PoseStack.Pose last = pose.last();
-		for (AndyTexels.Texel t : AndyTexels.of(part, slim)) {
-			if (!SkinPixels.shows(tex, t.u, t.v)) {
-				continue;
-			}
-			float appear = t.grow * (1f - SETTLE);
-			popIn(skin, last, t, light, (p - appear) / SETTLE);
-		}
-		inside(pose, buffers, light, tex, slim, part, t -> p >= t.grow * (1f - SETTLE) + SETTLE * 0.5f);
-	}
-
-	/** A texel growing in place: {@code f} 0..1 from popping in (small, dark, a hair proud) to settled. Nothing below 0. */
-	private static void popIn(VertexConsumer skin, PoseStack.Pose last, AndyTexels.Texel t, int light, float f) {
-		if (f <= 0f) {
-			return;
-		}
-		float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
-		if (f >= 1f) {
-			square(skin, last, t, u0, v0, u1, v1, light, 0f, 0f, 255);
-			return;
-		}
-		// ease out with a touch of overshoot: it swells into place
-		float g = f - 1f;
-		float s = 1f + 2.2f * g * g * g + 1.2f * g * g;
-		float scale = 0.3f + 0.7f * s;
-		float shrink = -(1f - scale) * Math.min(t.ha, t.hb);
-		int shade = (int) (255 * (0.62f + 0.38f * Math.min(1f, f * 1.3f)));
-		square(skin, last, t, u0, v0, u1, v1, light, 0.12f * (1f - f), shrink, shade);
-	}
-
-	// ---------------------------------------------------------------- Bone and flesh
+	// ---------------------------------------------------------------- the head and body
 
 	static void boneAndFlesh(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
-		if (part >= AndyState.RIGHT_ARM) {
-			limb(pose, buffers, light, tex, slim, part, p);
-			return;
-		}
 		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		PoseStack.Pose last = pose.last();
 		boolean skinDone = true;
@@ -195,37 +119,69 @@ public final class AndyRegrow {
 		}
 	}
 
-	// ---------------------------------------------------------------- Bone and flesh: arms and legs
+	/** A texel growing in place: {@code f} 0..1 from popping in (small, dark, a hair proud) to settled. Nothing below 0. */
+	private static void popIn(VertexConsumer skin, PoseStack.Pose last, AndyTexels.Texel t, int light, float f) {
+		if (f <= 0f) {
+			return;
+		}
+		float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
+		if (f >= 1f) {
+			square(skin, last, t, u0, v0, u1, v1, light, 0f, 0f, 255);
+			return;
+		}
+		// ease out with a touch of overshoot: it swells into place
+		float g = f - 1f;
+		float s = 1f + 2.2f * g * g * g + 1.2f * g * g;
+		float scale = 0.3f + 0.7f * s;
+		float shrink = -(1f - scale) * Math.min(t.ha, t.hb);
+		int shade = (int) (255 * (0.62f + 0.38f * Math.min(1f, f * 1.3f)));
+		square(skin, last, t, u0, v0, u1, v1, light, 0.12f * (1f - f), shrink, shade);
+	}
 
-	/** Where the growing front starts (rows from the joint): a skin cap at the shoulder already, only flesh at the hip. */
-	static final float LIMB_F0_ARM = 2.4f, LIMB_F0_LEG = 0f;
-	/** How long (in rows of the front) a texel takes to pop in and settle, and a flesh cube to swell out. */
-	static final float LIMB_SETTLE = 0.6f, LIMB_SWELL = 0.7f;
+	// ---------------------------------------------------------------- arms and legs
+
+	/** How long (in rows of a front) a texel takes to pop in and settle, and a muscle cube to swell out. */
+	static final float LIMB_SETTLE = 0.6f, LIMB_SWELL = 0.9f;
 	/** Five dark reds, darkest first. */
 	static final int[] LIMB_FLESH = { 0x3D0606, 0x5A0A0A, 0x7A0F12, 0x941A1A, 0xB02020 };
+	/** The burning edge of a boost: ember oranges and reds (only on a cut face that is burning). */
+	static final int[] EMBER = { 0x7A1A08, 0xB8360C, 0xE0601A, 0xFF8C2A, 0xFFC060 };
+	/** Where the bone's tip stops (rows from the joint). */
+	static final float BONE_REACH = 11.9f;
 
-	/** The growing front for {@code p}, in rows (model px) from the joint: past the far end at 1, so the skin has closed. */
-	static float limbFront(int part, boolean slim, float p) {
-		float f0 = part <= AndyState.LEFT_ARM ? LIMB_F0_ARM : LIMB_F0_LEG;
-		return f0 + (Limb.of(part, slim).end - f0) * p;
+	/** The skin front (rows from the joint) for regrowth progress {@code p} from a cut at {@code from} rows. */
+	static float skinFront(int part, boolean slim, float p, float from) {
+		Limb lb = Limb.of(part, slim);
+		return from + (lb.end - from) * AndyConfig.layer(AndyConfig.LAYER_SKIN, p);
 	}
 
 	/**
-	 * v0.17.3 (user's reference animations): an arm or leg regrows from the joint down. The skin (the player's own texels)
-	 * creeps down from the shoulder / hip; right under it rides a ragged band of dark red flesh cubes (the boundary steps per
-	 * texel column, the cubes bulge a little past the limb near the skin and taper in at the tip); out of the bottom of the
-	 * flesh pokes the vanilla skeleton's thin arm / leg bone, which shoots out to nearly full length at the start and is
-	 * swallowed as the flesh and skin come down over it. Last a little flesh cap at the hand / foot closes over with skin.
-	 * Nothing flies and nothing glows; everything is steady from the joint to the far end.
+	 * v0.17.3 (user: "make the bone slowly push out and then the muscle slowly builds and then the skin builds over that"): an
+	 * arm or leg growing from {@code from} rows (0: from the joint; more: from a cut, the rows above it whole) to its end. Three
+	 * fronts, all in rows from the joint: the bone's tip, the muscle's front and the skin's front, each moving over its own
+	 * window of {@code p} and clamped behind the one before it. {@code p} = 0 with {@code from} > 0 is a still cut.
 	 */
-	static void limb(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
+	static void limb(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, float from,
+			boolean embers) {
 		Limb lb = Limb.of(part, slim);
-		float f = limbFront(part, slim, p);
+		float qb = AndyConfig.layer(AndyConfig.LAYER_BONE, p);
+		float qm = AndyConfig.layer(AndyConfig.LAYER_MUSCLE, p);
+		float qs = AndyConfig.layer(AndyConfig.LAYER_SKIN, p);
+		float fb = from + Math.max(0f, BONE_REACH - from) * qb * qb * (3f - 2f * qb);
+		float fm = from + (lb.fleshEnd - from) * qm;
+		if (qb < 1f) {
+			fm = Math.min(fm, Math.max(from, fb - 0.2f)); // the muscle never passes the bone's tip
+		}
+		float fs = from + (lb.end - from) * qs;
+		if (qm < 1f) {
+			fs = Math.min(fs, Math.max(from, fm - 0.3f)); // nor the skin the muscle's front
+		}
 		PoseStack.Pose last = pose.last();
 		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
 		for (int i = 0; i < texels.size(); i++) {
-			float g = (f - lb.texelAt[i]) / LIMB_SETTLE;
+			float key = lb.texelAt[i];
+			float g = key < from ? 1f : (fs - key) / LIMB_SETTLE;
 			if (g <= 0f) {
 				continue;
 			}
@@ -234,60 +190,72 @@ public final class AndyRegrow {
 				popIn(skin, last, t, light, g);
 			}
 		}
-		if (f >= lb.done) {
+		if (fs >= lb.done) {
 			return; // closed over
 		}
-		limbBone(pose, buffers, light, slim, part, p, f);
+		if (fb > from + 0.05f) {
+			limbBone(pose, buffers, light, slim, part, Math.max(from, fm - 1.5f), fb);
+		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
 		float[] box = lb.box;
+		boolean building = qm > 0f;
 		for (int i = 0; i < lb.n; i++) {
-			float lo = lb.fleshAt[i];
-			if (f <= lo) {
-				continue;
+			float skinAt = lb.skinAt[i];
+			if (skinAt < from) {
+				continue; // above the cut: under whole skin
 			}
-			float hi = lb.skinAt[i];
-			float x0 = box[0] + i % lb.w, y0 = box[1] + (i / lb.w) % lb.h, z0 = box[2] + i / (lb.w * lb.h);
+			float key = lb.fleshKey[i];
+			boolean face = from > 0f && key < from; // the cut face itself
+			if (!face && (!building || key >= fm)) {
+				continue; // not built yet
+			}
+			float cap = lb.capAt[i];
+			if (fs > skinAt + LIMB_SETTLE && (Float.isNaN(cap) || fs > cap + LIMB_SETTLE)) {
+				continue; // the skin has closed over it
+			}
 			float s, out;
-			if (f < hi) {
-				// in the band: swelling in at its tip, bulging out near the skin, tapering in at the tip
-				float d = (hi - f) / Math.max(0.01f, hi - lo); // 1 just appeared .. 0 about to be skinned
-				float g = Math.min(1f, (f - lo) / LIMB_SWELL);
-				s = lb.js[i] * (g >= 1f ? 1f : 0.25f + 0.75f * ease(g));
-				out = 0.30f - 0.72f * d + lb.jo[i];
-			} else if (f < hi + LIMB_SETTLE || (!Float.isNaN(lb.capAt[i]) && f < lb.capAt[i] + LIMB_SETTLE)) {
-				// the skin is popping in over it (or, at the far end, it is the cap still waiting for its skin): just inside
-				s = 0.96f;
+			if (fs > skinAt) {
+				s = 0.96f; // the skin is popping in over it
 				out = -0.04f;
+			} else if (face) {
+				s = lb.js[i];
+				out = -0.06f + lb.jo[i] * 0.5f;
 			} else {
-				continue;
+				float g = Math.min(1f, (fm - key) / LIMB_SWELL);
+				s = lb.js[i] * (g >= 1f ? 1f : 0.2f + 0.8f * ease(g));
+				float d = Math.min(1f, (fm - key) / 2.5f); // fresh at the front (tapered in) .. settled (a hair proud)
+				out = -0.45f + 0.6f * d + lb.jo[i];
 			}
+			float x0 = box[0] + i % lb.w, y0 = box[1] + (i / lb.w) % lb.h, z0 = box[2] + i / (lb.w * lb.h);
 			int dir = lb.dir[i];
 			float cx = x0 + 0.5f, cy = y0 + 0.5f, cz = z0 + 0.5f;
 			if (dir != 0) {
 				cx += (((dir & 2) != 0 ? 1 : 0) - ((dir & 1) != 0 ? 1 : 0)) * out;
 				cz += (((dir & 8) != 0 ? 1 : 0) - ((dir & 4) != 0 ? 1 : 0)) * out;
 			}
+			int rgb = lb.rgb[i];
+			int l = light;
+			if (embers && key < from + 1.6f) {
+				// the burning edge: hottest right at the cut
+				float heat = 1f - Math.max(0f, (from - key)) / 2.2f;
+				rgb = EMBER[Math.max(0, Math.min(EMBER.length - 1, (int) (heat * EMBER.length + lb.jo[i] * 6f)))];
+				l = 0xF000F0;
+			}
 			float hlf = 0.5f * s;
-			flatBox(vc, last, cx - hlf, cy - hlf, cz - hlf, cx + hlf, cy + hlf, cz + hlf, lb.rgb[i], light);
+			flatBox(vc, last, cx - hlf, cy - hlf, cz - hlf, cx + hlf, cy + hlf, cz + hlf, rgb, l);
 		}
 	}
 
-	/**
-	 * The limb's bone: the vanilla skeleton's thin arm / leg ({@link VanillaSkeleton}), centred in the limb, drawn from just
-	 * above the flesh front to its tip. It shoots out to most of its length in the first moments and is then swallowed by
-	 * the flesh and skin coming down.
-	 */
-	private static void limbBone(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float p, float f) {
-		float g = Math.min(1f, p / 0.12f);
-		float reach = Math.min(11.9f, 9f + 2.9f * g * g * (3f - 2f * g));
-		float top = Math.max(0f, f - 1.5f);
+	/** The limb's bone: the vanilla skeleton's thin arm / leg ({@link VanillaSkeleton}), centred in it, from {@code top} to its tip. */
+	private static void limbBone(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float top, float reach) {
+		reach = Math.min(BONE_REACH, reach);
 		if (reach <= top + 0.05f) {
 			return;
 		}
 		float[] box = AndyTexels.box(part, slim);
 		pose.pushPose();
 		pose.translate((box[0] + box[3] * 0.5f) / 16f, 0f, 0f);
-		pose.scale(0.94f, 1f, 0.94f); // a hair inside the flesh cubes round it
+		pose.scale(0.94f, 1f, 0.94f); // a hair inside the muscle cubes round it
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(VanillaSkeleton.TEXTURE));
 		VanillaSkeleton.draw(pose.last(), vc, part, box[1] + top, box[1] + reach, light, OverlayTexture.NO_OVERLAY, -1);
 		pose.popPose();
@@ -297,7 +265,7 @@ public final class AndyRegrow {
 	private static final float[][] BOX_NORMALS = { { -1, 0, 0 }, { 1, 0, 0 }, { 0, -1, 0 }, { 0, 1, 0 }, { 0, 0, -1 }, { 0, 0, 1 } };
 
 	/** A flat-coloured box (model px) on the palette's white texel, all six faces. No allocation. */
-	private static void flatBox(VertexConsumer vc, PoseStack.Pose pose, float x0, float y0, float z0, float x1, float y1, float z1, int rgb, int light) {
+	static void flatBox(VertexConsumer vc, PoseStack.Pose pose, float x0, float y0, float z0, float x1, float y1, float z1, int rgb, int light) {
 		int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
 		Matrix4f m = pose.pose();
 		for (int f = 0; f < 6; f++) {
@@ -314,21 +282,21 @@ public final class AndyRegrow {
 
 	/**
 	 * The fixed timetable of one limb (cached per part and skin model): for every 1 px cell of the limb (column x, z; row
-	 * from the joint) the front at which its flesh appears and the front at which the skin covers it, and for every texel
-	 * the front at which it pops in. The boundary is ragged per column (smooth noise down the rows plus a little per-cell
-	 * scatter, kept monotonic down each column so nothing un-grows), and the band is 2.2-3.3 px tall.
+	 * from the joint) the front at which its muscle builds ({@link #fleshKey}) and the front at which the skin covers it
+	 * ({@link #skinAt}), and for every texel the front at which it pops in. Both boundaries are ragged per column (smooth
+	 * noise down the rows plus a little per-cell scatter, kept monotonic down each column so nothing un-grows).
 	 */
 	static final class Limb {
 		float[] box;
 		int w, h, d, n;
-		float[] skinAt, fleshAt, capAt, jo, js;
+		float[] skinAt, fleshKey, capAt, jo, js;
 		int[] rgb;
 		/** Which outer sides a cell is on: 1 -x, 2 +x, 4 -z, 8 +z (0 inside). */
 		byte[] dir;
 		/** Per texel of {@link AndyTexels#of}. */
 		float[] texelAt;
-		/** The front past which nothing but finished skin is left; and the front at p = 1. */
-		float done, end;
+		/** The front past which nothing but finished skin is left; the skin front at the end; the muscle front at the end. */
+		float done, end, fleshEnd;
 
 		private static final Limb[][] CACHE = new Limb[2][AndyState.PARTS];
 
@@ -354,7 +322,7 @@ public final class AndyRegrow {
 			d = (int) box[5];
 			n = w * h * d;
 			skinAt = new float[n];
-			fleshAt = new float[n];
+			fleshKey = new float[n];
 			capAt = new float[n];
 			jo = new float[n];
 			js = new float[n];
@@ -362,7 +330,7 @@ public final class AndyRegrow {
 			dir = new byte[n];
 			java.util.Arrays.fill(capAt, Float.NaN);
 			long seed = 4242L + part * 101L + (slim ? 7L : 0L);
-			float last = 0f;
+			float last = 0f, lastFlesh = 0f;
 			for (int z = 0; z < d; z++) {
 				for (int x = 0; x < w; x++) {
 					float prevS = -9f, prevF = -9f;
@@ -371,9 +339,11 @@ public final class AndyRegrow {
 						float off = AndyTexels.noise(x * 0.85f + 3.1f, r * 0.55f, z * 0.85f + 1.7f, seed) * 1.8f - 0.9f
 								+ (AndyTexels.hash(x, r, z, seed + 1) - 0.5f) * 0.5f;
 						float s = Math.max(r + 0.5f - off, prevS + 0.3f);
-						float fl = Math.max(s - (2.2f + 1.1f * AndyTexels.hash(x, r, z, seed + 2)), prevF + 0.3f);
+						// the muscle's own ragged front, a little ahead of where the skin will close (so a cut shows a red face)
+						float foff = AndyTexels.noise(x * 0.9f + 7.3f, r * 0.6f, z * 0.9f + 4.1f, seed + 9) * 1.4f - 0.7f;
+						float fl = Math.max(Math.min(s - 0.6f, r + 0.2f - foff), prevF + 0.3f);
 						skinAt[i] = s;
-						fleshAt[i] = fl;
+						fleshKey[i] = fl;
 						prevS = s;
 						prevF = fl;
 						jo[i] = (AndyTexels.hash(x, r, z, seed + 3) - 0.5f) * 0.24f;
@@ -388,6 +358,7 @@ public final class AndyRegrow {
 							last = Math.max(last, capAt[i]);
 						}
 						last = Math.max(last, s);
+						lastFlesh = Math.max(lastFlesh, fl);
 					}
 				}
 			}
@@ -415,15 +386,28 @@ public final class AndyRegrow {
 			}
 			done = Math.max(last, maxT) + LIMB_SETTLE + 0.05f;
 			end = done + 0.05f;
+			fleshEnd = lastFlesh + LIMB_SWELL + 0.1f;
 		}
 	}
 
+	/** The texels of a limb whose skin front key lies in [{@code lo}, {@code hi}) rows -- what a cut from hi to lo took away. */
+	static java.util.function.Predicate<AndyTexels.Texel> texelsBetween(int part, boolean slim, float lo, float hi) {
+		Limb lb = Limb.of(part, slim);
+		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
+		java.util.Set<AndyTexels.Texel> in = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+		for (int i = 0; i < texels.size(); i++) {
+			float k = lb.texelAt[i];
+			if (k >= lo && k < hi) {
+				in.add(texels.get(i));
+			}
+		}
+		return in::contains;
+	}
+
 	/**
-	 * v0.17.3 (user): the bone is the vanilla skeleton mob's own part ({@link VanillaSkeleton}: the skull, the ribcage, the
-	 * thin 2 px arm and leg bones, in skeleton.png), drawn in the player part's space (so it is posed exactly like the part
-	 * it replaces), centred in it, and revealed from the joint outward: a band of the bone that widens from the stump to the
-	 * far end, its growing tip closed with the bone's own end face. The skull and the ribcage are drawn a little smaller
-	 * than the 8 px player head / body so the flesh can close over them.
+	 * The head's skull / the body's ribcage ({@link VanillaSkeleton}), drawn in the player part's space, centred in it, and
+	 * revealed from the joint outward over the bone window. Drawn a little smaller than the 8 px head / body so the muscle can
+	 * close over them.
 	 */
 	private static void vanillaBone(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float p) {
 		float f = Math.max(0f, Math.min(1f, (p - BONE_START) / BONE_SPAN));
@@ -431,37 +415,20 @@ public final class AndyRegrow {
 			return;
 		}
 		f = f * f * (3f - 2f * f);
-		float[] box = AndyTexels.box(part, slim);
-		float cx = box[0] + box[3] * 0.5f;
 		float y0, y1;
 		pose.pushPose();
-		switch (part) {
-			case AndyState.HEAD -> {
-				// from the neck up
-				y0 = -8f * f;
-				y1 = 0f;
-				pose.translate(0f, -4f / 16f, 0f);
-				pose.scale(SKULL_SCALE, SKULL_SCALE, SKULL_SCALE);
-				pose.translate(0f, 4f / 16f, 0f);
-			}
-			case AndyState.BODY -> {
-				// from the neck down
-				y0 = 0f;
-				y1 = 12f * f;
-				pose.scale(RIBS_SCALE_X, 1f, RIBS_SCALE_Z);
-			}
-			case AndyState.RIGHT_ARM, AndyState.LEFT_ARM -> {
-				// from the shoulder down, centred in the (wide or slim) arm
-				y0 = -2f;
-				y1 = -2f + 12f * f;
-				pose.translate(cx / 16f, 0f, 0f);
-			}
-			default -> {
-				// from the hip down
-				y0 = 0f;
-				y1 = 12f * f;
-				pose.translate(cx / 16f, 0f, 0f);
-			}
+		if (part == AndyState.HEAD) {
+			// from the neck up
+			y0 = -8f * f;
+			y1 = 0f;
+			pose.translate(0f, -4f / 16f, 0f);
+			pose.scale(SKULL_SCALE, SKULL_SCALE, SKULL_SCALE);
+			pose.translate(0f, 4f / 16f, 0f);
+		} else {
+			// from the neck down
+			y0 = 0f;
+			y1 = 12f * f;
+			pose.scale(RIBS_SCALE_X, 1f, RIBS_SCALE_Z);
 		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(VanillaSkeleton.TEXTURE));
 		VanillaSkeleton.draw(pose.last(), vc, part, y0, y1, light, OverlayTexture.NO_OVERLAY, -1);
@@ -475,7 +442,7 @@ public final class AndyRegrow {
 		return (p - (FLESH_START + b.key * (FLESH_SPAN - 0.07f))) / 0.07f;
 	}
 
-	private static float ease(float f) {
+	static float ease(float f) {
 		float g = f - 1f;
 		return 1f + 2.2f * g * g * g + 1.2f * g * g;
 	}
@@ -489,14 +456,12 @@ public final class AndyRegrow {
 		}
 		int r = (b.rgb >> 16) & 0xFF, g = (b.rgb >> 8) & 0xFF, bl = b.rgb & 0xFF;
 		Matrix4f m = pose.pose();
-		int[][] faces = { { 0, 4, 6, 2 }, { 1, 3, 7, 5 }, { 0, 1, 5, 4 }, { 2, 6, 7, 3 }, { 0, 2, 3, 1 }, { 4, 5, 7, 6 } };
-		float[][] normals = { { -1, 0, 0 }, { 1, 0, 0 }, { 0, -1, 0 }, { 0, 1, 0 }, { 0, 0, -1 }, { 0, 0, 1 } };
 		for (int f = 0; f < 6; f++) {
 			if ((mask & (1 << f)) == 0) {
 				continue;
 			}
-			int[] fi = faces[f];
-			float[] n = normals[f];
+			int[] fi = BOX_FACES[f];
+			float[] n = BOX_NORMALS[f];
 			for (int k = 0; k < 4; k++) {
 				Vector3f v = c[fi[k]];
 				vc.addVertex(m, v.x, v.y, v.z).setColor(r, g, bl, 255).setUv(k == 1 || k == 2 ? WU1 : WU0, k >= 2 ? WV1 : WV0)
@@ -505,23 +470,42 @@ public final class AndyRegrow {
 		}
 	}
 
-	// ---------------------------------------------------------------- the inside of a half-grown part
+	// ---------------------------------------------------------------- the body cut (a boost burning it from the bottom up)
 
-	/** Behind each placed base texel, a dark-flesh square facing in: the part's inside as seen through the gaps. */
-	private static void inside(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part,
-			java.util.function.Predicate<AndyTexels.Texel> placed) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
+	/**
+	 * The body with only its top {@code rows} rows (of 12, from the neck) left: the skin above a ragged line, the muscle
+	 * grid's cubes at the line as the cut face (embers while burning).
+	 */
+	public static void bodyCut(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, float rows, boolean embers) {
+		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		PoseStack.Pose last = pose.last();
-		Matrix4f m = last.pose();
-		for (AndyTexels.Texel t : AndyTexels.of(part, slim)) {
-			if (t.overlay || !placed.test(t)) {
+		for (AndyTexels.Texel t : AndyTexels.of(AndyState.BODY, slim)) {
+			if (!SkinPixels.shows(tex, t.u, t.v)) {
 				continue;
 			}
-			float[][] q = AndyRender.cornersPublic(t, -0.06f, 0f);
-			int shade = 0x4A + (int) (t.seed * 0x22);
-			for (int i = 3; i >= 0; i--) {
-				vc.addVertex(m, q[i][0] / 16f, q[i][1] / 16f, q[i][2] / 16f).setColor(shade, 8, 14, 255).setUv(WU0, WV0).setOverlay(OverlayTexture.NO_OVERLAY)
-						.setLight(light).setNormal(last, -t.nx, -t.ny, -t.nz);
+			float line = rows + (AndyTexels.hash(Math.round(t.x * 2f), 0, Math.round(t.z * 2f), 99L) - 0.5f) * 1.4f;
+			if (t.y < line || (t.ny < -0.5f)) {
+				popIn(skin, last, t, light, 1f);
+			}
+		}
+		Body body = Body.of(AndyState.BODY, slim);
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
+		for (int i = 0; i < body.flesh.length; i++) {
+			Piece b = body.flesh[i];
+			if (b == null) {
+				continue;
+			}
+			float cy = b.cy();
+			float line = rows + (AndyTexels.hash(Math.round((b.x0 + b.x1)), 0, Math.round((b.z0 + b.z1)), 99L) - 0.5f) * 1.4f;
+			if (cy > line - 1.4f && cy < line + 0.3f) {
+				int rgb = b.rgb;
+				int l = light;
+				if (embers) {
+					float heat = Math.max(0f, Math.min(1f, 1f - (line - cy) / 1.4f));
+					rgb = EMBER[Math.max(0, Math.min(EMBER.length - 1, (int) (heat * EMBER.length)))];
+					l = 0xF000F0;
+				}
+				flatBox(vc, last, b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, rgb, l);
 			}
 		}
 	}
@@ -549,7 +533,7 @@ public final class AndyRegrow {
 		}
 	}
 
-	// ---------------------------------------------------------------- the bones and flesh of each part
+	// ---------------------------------------------------------------- the muscle of the head and body
 
 	/** A coloured box in the part's space with its turn ({@code key} 0..1) within its layer. */
 	static final class Piece {
@@ -649,7 +633,6 @@ public final class AndyRegrow {
 							float dy = (my + 4f) / 4f;
 							radial = Math.min(1f, (float) Math.sqrt(dx * dx + dy * dy + dz * dz) / 1.732f);
 						}
-						// fibres: bands that run along the part, broken up by the noise; deeper is darker
 						float band = AndyTexels.hash(Math.round(mx * 1.3f), 0, Math.round(mz * 1.3f), seed + 9) * 0.9f;
 						int shade = Math.max(0, Math.min(FLESH.length - 1, (int) (fib * 2.6f + band * 1.6f + radial * 1.2f - 0.6f)));
 						int rgb = FLESH[shade];

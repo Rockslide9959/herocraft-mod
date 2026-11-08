@@ -30,8 +30,8 @@ import org.joml.Vector3f;
 
 /**
  * v0.17.3: how Andy looks. The vanilla parts of a broken part are hidden ({@link #hideParts}, every frame, every viewer,
- * first person too); a part that is regrowing is drawn texel by texel ({@link #regrow}) in the player's chosen style
- * ({@link AndyRegrow}: Streaming, Build in place, or Bone and flesh -- no glow in any of them). Also the
+ * first person too); a part that is regrowing is drawn layer by layer ({@link #regrow}: bone, muscle, skin -- {@link AndyRegrow}),
+ * and a part missing only its end ({@link AndyCuts}: hands and feet in flight, a burnt stage, a bitten arm) is drawn cut. Also the
  * flesh caps on a stump, the Undead Card on the forehead, Kurikara and the Dead Blade in his hand, and Victor's red haze.
  *
  * <p>The model's per-part world transform is remembered every frame ({@link #capture}) so a part bursts from exactly where
@@ -88,8 +88,9 @@ public final class AndyRender {
 		if (s == null || !s.hasPower) {
 			return;
 		}
+		float now = player.level().getGameTime();
 		for (int i = 0; i < AndyState.PARTS; i++) {
-			if (s.broken(i)) {
+			if (s.broken(i) || AndyCuts.of(s, i, now) != null) {
 				part(model, i).visible = false;
 				overlay(model, i).visible = false;
 			}
@@ -160,22 +161,25 @@ public final class AndyRender {
 		boolean bodyGone = s.broken(AndyState.BODY);
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			if (!s.broken(i)) {
+				AndyCuts.Cut cut = AndyCuts.of(s, i, now);
+				if (cut != null) {
+					pose.pushPose();
+					part(model, i).translateAndRotate(pose);
+					drawCut(pose, buffers, light, tex, slim, i, cut);
+					pose.popPose();
+				}
 				continue;
 			}
 			float p = s.regrowth(i, now);
-			if (p < 0.22f) {
+			if (p < AndyRegrow.SKIN_START + 0.04f) {
+				// the wet stump face, until the skin has crept over the joint
 				stump(pose, buffers, light, model, i, slim, bodyGone);
 			}
-			if (p > 0f && p < 1f) {
+			if (p > 0f) {
+				// (p >= 1: the server has not cleared it yet -- drawn whole)
 				pose.pushPose();
 				part(model, i).translateAndRotate(pose);
-				regrow(pose, buffers, light, tex, slim, i, p, s.regenStyle);
-				pose.popPose();
-			} else if (p >= 1f) {
-				// the server has not cleared it yet: draw it whole
-				pose.pushPose();
-				part(model, i).translateAndRotate(pose);
-				regrow(pose, buffers, light, tex, slim, i, 1f, s.regenStyle);
+				regrow(pose, buffers, light, tex, slim, i, Math.min(1f, p));
 				pose.popPose();
 			}
 		}
@@ -253,9 +257,19 @@ public final class AndyRender {
 
 	// ---------------------------------------------------------------- the regrowth
 
-	/** A part re-forming, in its own space (the pose already at the part), {@code p} 0..1, in {@code style} ({@link AndyRegrow}). */
-	public static void regrow(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, int style) {
-		AndyRegrow.draw(pose, buffers, light, tex, slim, part, p, style);
+	/** A part re-forming, in its own space (the pose already at the part), {@code p} 0..1 ({@link AndyRegrow}). */
+	public static void regrow(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
+		AndyRegrow.draw(pose, buffers, light, tex, slim, part, p);
+	}
+
+	/** A part missing its end ({@link AndyCuts}), in its own space: cut, or growing back from the cut. */
+	public static void drawCut(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, AndyCuts.Cut cut) {
+		if (part == AndyState.BODY) {
+			float rows = cut.rows() + (12f - cut.rows()) * AndyRegrow.ease(Math.min(1f, cut.q()));
+			AndyRegrow.bodyCut(pose, buffers, light, tex, slim, Math.min(12.5f, rows), cut.embers());
+		} else {
+			AndyRegrow.limb(pose, buffers, light, tex, slim, part, cut.q(), cut.rows(), cut.embers());
+		}
 	}
 
 	/** The four corners of a texel's square, {@code out} px along its normal, grown by {@code grow} px. */

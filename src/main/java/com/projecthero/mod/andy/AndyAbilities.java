@@ -51,6 +51,8 @@ public final class AndyAbilities {
 	public static final String DIVISION = "division_bullet";
 	public static final String DEAD_BLADE = "dead_blade";
 	public static final String DEAD_ROAD = "dead_road";
+	/** v0.17.3: hold R -- the arm drawn back and thrown off the body. */
+	public static final String PUNCH = "stretch_punch";
 
 	/** Great Deep-Crimson Crescent Moon: where the waves run from, which way, since when, and who they hit. */
 	private record Waves(Vec3 from, Vec3 dir, long start, Set<Integer> hit) {
@@ -91,6 +93,9 @@ public final class AndyAbilities {
 		AndyState s = Andy.peek(p);
 		if (s != null && s.flags != 0) {
 			AndyState n = s.copy();
+			if (s.flag(AndyState.FLAG_PROPELLING)) {
+				n.setEx(AndyState.X_CUT_REGROW, p.level().getGameTime()); // the hands and feet grow back
+			}
 			n.flags = 0;
 			Andy.save(p, n);
 		}
@@ -158,8 +163,13 @@ public final class AndyAbilities {
 
 	/** The main hand's fingertip, about where the arm points along the look. */
 	public static Vec3 handOrigin(ServerPlayer p) {
+		return handOrigin(p, Andy.mainArm(p));
+	}
+
+	/** That arm's fingertip, about where the arm points along the look. */
+	public static Vec3 handOrigin(ServerPlayer p, int arm) {
 		Vec3 r = AndyParts.right(p);
-		double side = Andy.mainArm(p) == AndyState.RIGHT_ARM ? 1 : -1;
+		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
 		return p.getEyePosition().add(r.scale(0.32 * side)).add(0, -0.32, 0).add(p.getLookAngle().scale(0.55));
 	}
 
@@ -209,34 +219,136 @@ public final class AndyAbilities {
 		}).toList();
 	}
 
-	// ---------------------------------------------------------------- R: fingers
+	// ---------------------------------------------------------------- R: fingers and the stretch punch
+
+	/**
+	 * The arm a one-arm move uses (the main one, else the other: {@link Andy#shootingArm}); remembered in
+	 * {@link AndyState#FLAG_OFF_ARM} so every viewer poses the right one. -1 (and a dull click) with neither.
+	 */
+	private static int pickArm(ServerPlayer p) {
+		int arm = Andy.shootingArm(p);
+		if (arm < 0) {
+			Andy.say(p, "message.projecthero.andy.no_arm", ChatFormatting.GRAY);
+			sound(p, SoundEvents.DISPENSER_FAIL, 0.6f, 1.4f);
+			return -1;
+		}
+		AndyState n = Andy.state(p).copy();
+		n.setFlag(AndyState.FLAG_OFF_ARM, arm != Andy.mainArm(p));
+		Andy.save(p, n);
+		return arm;
+	}
+
+	/**
+	 * v0.17.3 (user): every finger shot takes a bite out of the arm, from the fingertips up ({@code amount} of it, see
+	 * {@link AndyConfig#PARTS_EAT}); it adds up shot after shot, and a used-up arm is gone ({@link AndyState#KIND_SPENT}). It
+	 * only starts to grow back {@link AndyConfig#EATEN_REGROW_WAIT} after the last shot.
+	 */
+	public static void eat(ServerPlayer p, int arm, float amount) {
+		long now = p.level().getGameTime();
+		AndyState n = Andy.state(p).copy();
+		float c = Math.min(1f, n.eaten(arm, now) + amount);
+		n.setEx(AndyState.X_LAST_SHOT, now);
+		boolean spent = c >= 0.999f;
+		n.setEx(arm == AndyState.RIGHT_ARM ? AndyState.X_EATEN_R : AndyState.X_EATEN_L, spent ? 0L : Math.round(c * 1000f));
+		// the other arm's bite waits as well: "after not shooting for 2 seconds"
+		int other = Andy.otherArm(arm);
+		float co = n.eaten(other, now);
+		n.setEx(other == AndyState.RIGHT_ARM ? AndyState.X_EATEN_R : AndyState.X_EATEN_L, Math.round(co * 1000f));
+		Andy.save(p, n);
+		if (spent) {
+			Andy.breakPart(p, arm, AndyState.KIND_SPENT);
+		}
+	}
 
 	public static void partsBullet(ServerPlayer p) {
-		if (!begin(p, PARTS_BULLET) || !hand(p)) {
+		if (!begin(p, PARTS_BULLET)) {
+			return;
+		}
+		int arm = pickArm(p);
+		if (arm < 0) {
 			return;
 		}
 		cooldown(p, PARTS_BULLET, AndyConfig.PARTS_BULLET_COOLDOWN);
 		anim(p, AndyState.ANIM_FINGER);
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, handOrigin(p), p.getLookAngle().scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
+		Vec3 h = handOrigin(p, arm);
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, h, p.getLookAngle().scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
+		eat(p, arm, AndyConfig.PARTS_EAT);
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 0.8f, 1.6f);
-		Vec3 h = handOrigin(p);
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 3, 0.03, 0.03, 0.03, 0.0);
 	}
 
 	public static void crimsonBullet(ServerPlayer p) {
-		if (!begin(p, CRIMSON_BULLET) || !hand(p)) {
+		if (!begin(p, CRIMSON_BULLET)) {
+			return;
+		}
+		int arm = pickArm(p);
+		if (arm < 0) {
 			return;
 		}
 		cooldown(p, CRIMSON_BULLET, AndyConfig.CRIMSON_COOLDOWN);
 		anim(p, AndyState.ANIM_CRIMSON);
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_CRIMSON, -1, handOrigin(p), p.getLookAngle().scale(AndyConfig.FINGER_SPEED * 1.2), AndyConfig.CRIMSON_DAMAGE);
+		Vec3 h = handOrigin(p, arm);
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_CRIMSON, -1, h, p.getLookAngle().scale(AndyConfig.FINGER_SPEED * 1.2), AndyConfig.CRIMSON_DAMAGE);
+		eat(p, arm, AndyConfig.CRIMSON_EAT);
 		AndyState n = Andy.state(p).copy();
 		n.slowRegenUntil = p.level().getGameTime() + AndyConfig.CRIMSON_SLOW_TICKS;
 		Andy.save(p, n);
 		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.5f, 1.8f);
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.6f);
-		Vec3 h = handOrigin(p);
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
+	}
+
+	/** Hold R past {@link AndyConfig#PUNCH_HOLD_TICKS}: the arm draws back. False if it can't (cooldown, no arm). */
+	public static boolean startPunch(ServerPlayer p) {
+		if (Andy.cooldownRemaining(p, PUNCH) > 0 || !Andy.canAct(p) || Andy.shootingArm(p) < 0) {
+			return false;
+		}
+		int arm = pickArm(p);
+		AndyState n = Andy.state(p).copy();
+		n.setFlag(AndyState.FLAG_PUNCH, true);
+		n.setEx(AndyState.X_PUNCH_START, p.level().getGameTime());
+		Andy.save(p, n);
+		sound(p, SoundEvents.CROSSBOW_LOADING_START.value(), 0.8f, 0.6f);
+		return arm >= 0;
+	}
+
+	/** The wind-up dropped (let go too early, the arm lost meanwhile). */
+	public static void cancelPunch(ServerPlayer p) {
+		AndyState s = Andy.state(p);
+		if (s.flag(AndyState.FLAG_PUNCH)) {
+			AndyState n = s.copy();
+			n.setFlag(AndyState.FLAG_PUNCH, false);
+			Andy.save(p, n);
+		}
+	}
+
+	/**
+	 * Let go of a charged R: the whole arm flies off his body fist first ({@link AndyPartEntity#STYLE_PUNCH}), 20 damage. That
+	 * arm is gone (launched) and grows back as usual.
+	 */
+	public static void throwPunch(ServerPlayer p) {
+		AndyState s = Andy.state(p);
+		if (!s.flag(AndyState.FLAG_PUNCH)) {
+			return;
+		}
+		cancelPunch(p);
+		int arm = s.flag(AndyState.FLAG_OFF_ARM) ? Andy.otherArm(Andy.mainArm(p)) : Andy.mainArm(p);
+		if (!s.armReady(arm, p.level().getGameTime())) {
+			arm = Andy.shootingArm(p);
+			if (arm < 0) {
+				return;
+			}
+		}
+		cooldown(p, PUNCH, AndyConfig.PUNCH_COOLDOWN);
+		anim(p, AndyState.ANIM_PUNCH);
+		Andy.breakPart(p, arm, AndyState.KIND_LAUNCHED);
+		Vec3 r = AndyParts.right(p);
+		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
+		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.5));
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_PUNCH, arm, from, p.getLookAngle().scale(AndyConfig.PUNCH_SPEED), AndyConfig.PUNCH_DAMAGE);
+		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.6f);
+		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.9f, 0.5f);
+		level(p).sendParticles(Andy.BLOOD_BIG, from.x, from.y, from.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}
 
 	// ---------------------------------------------------------------- G: Kurikara
@@ -311,55 +423,13 @@ public final class AndyAbilities {
 
 	// ---------------------------------------------------------------- X: movement
 
+	/** Blood Propulsion: see {@link AndyFlight#start}. */
 	public static void startPropulsion(ServerPlayer p) {
-		if (!begin(p, PROPULSION)) {
-			return;
-		}
-		if (Andy.missing(p, AndyState.RIGHT_ARM) && Andy.missing(p, AndyState.LEFT_ARM)) {
-			Andy.say(p, "message.projecthero.andy.no_arm", ChatFormatting.GRAY);
-			return;
-		}
-		flag(p, AndyState.FLAG_PROPELLING, true);
-		sound(p, SoundEvents.GENERIC_SPLASH, 1.0f, 1.4f);
+		AndyFlight.start(p);
 	}
 
 	public static void stopPropulsion(ServerPlayer p) {
-		AndyState s = Andy.state(p);
-		if (!s.flag(AndyState.FLAG_PROPELLING)) {
-			return;
-		}
-		flag(p, AndyState.FLAG_PROPELLING, false);
-		cooldown(p, PROPULSION, AndyConfig.PROPULSION_COOLDOWN);
-		p.resetFallDistance();
-	}
-
-	private static void tickPropulsion(ServerPlayer p, AndyState s, long now) {
-		if (now - s.holdStart > AndyConfig.PROPULSION_MAX || (Andy.missing(p, AndyState.RIGHT_ARM) && Andy.missing(p, AndyState.LEFT_ARM))) {
-			stopPropulsion(p);
-			return;
-		}
-		boolean oneArm = Andy.missing(p, AndyState.RIGHT_ARM) || Andy.missing(p, AndyState.LEFT_ARM);
-		double speed = AndyConfig.PROPULSION_SPEED * (oneArm ? 0.6 : 1.0);
-		Vec3 v = p.getLookAngle().scale(speed);
-		AbilityHelpers.launchSelf(p, v);
-		if (now % 4 == 0) {
-			p.causeFoodExhaustion(0.4f);
-		}
-		Vec3 r = AndyParts.right(p);
-		Vec3 back = p.getLookAngle().scale(-0.4);
-		ServerLevel level = level(p);
-		for (int side = -1; side <= 1; side += 2) {
-			int arm = side > 0 ? AndyState.RIGHT_ARM : AndyState.LEFT_ARM;
-			if (Andy.missing(p, arm)) {
-				continue;
-			}
-			Vec3 wrist = p.position().add(r.scale(0.42 * side)).add(0, 0.75, 0).add(back);
-			level.sendParticles(Andy.BLOOD_BIG, wrist.x, wrist.y, wrist.z, 3, 0.05, 0.05, 0.05, 0.0);
-			level.sendParticles(Andy.BLOOD, wrist.x - v.x, wrist.y - v.y, wrist.z - v.z, 3, 0.12, 0.12, 0.12, 0.0);
-		}
-		if (now % 6 == 0) {
-			sound(p, SoundEvents.GENERIC_SPLASH, 0.5f, 1.6f);
-		}
+		AndyFlight.stop(p);
 	}
 
 	public static void glide(ServerPlayer p) {
@@ -416,6 +486,10 @@ public final class AndyAbilities {
 		}
 		if (Andy.missing(p, AndyState.HEAD)) {
 			Andy.say(p, "message.projecthero.andy.no_head", ChatFormatting.GRAY);
+			return;
+		}
+		if (Andy.missing(p, AndyState.BODY)) {
+			Andy.say(p, "message.projecthero.andy.no_body", ChatFormatting.GRAY);
 			return;
 		}
 		cooldown(p, HEAD_BULLET, AndyConfig.HEAD_BULLET_COOLDOWN);
@@ -695,9 +769,6 @@ public final class AndyAbilities {
 		long now = p.level().getGameTime();
 		if (s.reformUntil > now) {
 			return;
-		}
-		if (s.flag(AndyState.FLAG_PROPELLING)) {
-			tickPropulsion(p, s, now);
 		}
 		if (s.flag(AndyState.FLAG_DEAD_LINE)) {
 			tickDeadLine(p, Andy.state(p), now);

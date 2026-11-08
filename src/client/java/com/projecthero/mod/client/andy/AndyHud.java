@@ -24,7 +24,6 @@ import net.minecraft.network.chat.Component;
  * <pre>
  *   Andy                        [body]     the title (Victor in red while he is out), the little pixel body: each part shaded
  *   Regen: Normal                          by its HP, gone parts dark, regrowing ones filling from the joint
- *   Style: Bone and flesh
  *   Regrowth [boss bar ====---] 64%        while a part regrows: a pink boss bar
  *   Victor   [boss bar ======-] 21s        while Victor is out: a red boss bar
  *   +----+----+----+----+----+----+        the six keys, a short hotbar: R G Z X C V, yellow while Shift shows the Shift moves;
@@ -98,8 +97,7 @@ public final class AndyHud {
 		}
 
 		// the text lines and the little body, right-aligned above the meters
-		// (the style line sits under the body, the full width: "Style: Bone and flesh" was cut short beside it)
-		int fy = by - 47;
+		int fy = by - 36;
 		int fx = x0 + WIDTH - 17;
 		figure(g, s, now, victor, fx, fy);
 		int textW = WIDTH - 20;
@@ -113,9 +111,6 @@ public final class AndyHud {
 		Component speed = Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(2, s.regenSpeed))]);
 		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
 				ty + 11, VanillaHud.GREY, true);
-		Component style = Component.translatable("hud.projecthero.andy.style",
-				Component.translatable("projecthero.andy.style." + Andy.STYLE_NAMES[s.regenStyle]));
-		g.drawString(mc.font, mc.font.plainSubstrByWidth(style.getString(), WIDTH), x0, fy + 34, VanillaHud.GREY, true);
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
@@ -175,6 +170,7 @@ public final class AndyHud {
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, Andy.cooldownRemaining(p, other) / (float) Math.max(1, AndyAbilityManager.maxCooldown(other)));
 			boolean active = (slot == AbilitySlot.SLOT_3 && (s.flag(AndyState.FLAG_PROPELLING) || s.flag(AndyState.FLAG_GLIDING)))
+					|| (slot == AbilitySlot.SLOT_1 && s.flag(AndyState.FLAG_PUNCH))
 					|| (slot == AbilitySlot.SLOT_6 && (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)))
 					|| (slot == AbilitySlot.SLOT_5 && victor);
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
