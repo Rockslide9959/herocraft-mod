@@ -231,6 +231,14 @@ public final class TitanShifter {
 		return grant(player, TitanType.GENERIC_TITAN);
 	}
 
+	/**
+	 * v0.17.3: the random-power serums' grant -- unlock Titan Shifting as a weighted random Titan
+	 * ({@link TitanType#rollNatural}), so every Titan can come from a serum roll, not only the Attack Titan.
+	 */
+	public static boolean grantNatural(ServerPlayer player) {
+		return grant(player, TitanType.rollNatural(player.getRandom()));
+	}
+
 	/** v0.16.7: unlock Titan Shifting as {@code type}. Returns false if already unlocked (or refused). */
 	public static boolean grant(ServerPlayer player, TitanType type) {
 		if (state(player).unlocked) {

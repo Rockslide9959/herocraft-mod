@@ -154,6 +154,37 @@ public enum TitanType {
 		return GENERIC_TITAN;
 	}
 
+	/**
+	 * v0.17.3 (bug: "you cannot naturally get other titan shifters, only Attack Titan"): how often a random-power serum
+	 * (Heroic / Prismatic) that rolls Titan Shifting hands out this Titan. The Attack Titan stays the most common; the
+	 * Armoured Titan -- the tankiest -- is the rarest. Out of 100: Attack 40, Female 25, Beast 20, Armoured 15. The Titan
+	 * Serum's picker is unaffected (it always lets the drinker choose).
+	 */
+	public int naturalWeight() {
+		return switch (this) {
+			case GENERIC_TITAN -> 40;
+			case FEMALE_TITAN -> 25;
+			case BEAST_TITAN -> 20;
+			case ARMORED_TITAN -> 15;
+		};
+	}
+
+	/** v0.17.3: a weighted random Titan (see {@link #naturalWeight}) for a shifter who did not get to pick. */
+	public static TitanType rollNatural(net.minecraft.util.RandomSource random) {
+		int total = 0;
+		for (TitanType t : values()) {
+			total += t.naturalWeight();
+		}
+		int r = random.nextInt(total);
+		for (TitanType t : values()) {
+			r -= t.naturalWeight();
+			if (r < 0) {
+				return t;
+			}
+		}
+		return GENERIC_TITAN;
+	}
+
 	public static TitanType byOrdinal(int i) {
 		TitanType[] all = values();
 		return all[Math.floorMod(i, all.length)];

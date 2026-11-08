@@ -194,7 +194,10 @@ public final class PowerGrants {
 						? Result.ok("Ascended " + name + " into Wolverine") : Result.fail("Could not ascend " + name + " into Wolverine");
 			}
 			case "titan_shifter" -> {
-				boolean ok = com.projecthero.mod.titanshifter.TitanShifter.grant(target);
+				// v0.17.3: the admin command (allowWipe) keeps granting the Attack Titan; a random serum (the only
+				// allowWipe=false caller) rolls a weighted random Titan, so the other three are not command-only
+				boolean ok = allowWipe ? com.projecthero.mod.titanshifter.TitanShifter.grant(target)
+						: com.projecthero.mod.titanshifter.TitanShifter.grantNatural(target);
 				return new Result(ok, Component.literal(ok ? "Granted Titan Shifting to " + name : name + " already has Titan Shifting"));
 			}
 			case "all_might" -> {
