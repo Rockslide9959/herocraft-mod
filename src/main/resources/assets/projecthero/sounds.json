@@ -3408,21 +3408,27 @@
         "attenuation_distance": 12
       },
       {
-        "name": "minecraft:block/honeyblock/slide1",
+        "name": "minecraft:mob/slime/small1",
         "attenuation_distance": 12,
         "volume": 0.45,
-        "pitch": 0.75
+        "pitch": 0.6
       },
       {
-        "name": "minecraft:block/honeyblock/slide3",
+        "name": "minecraft:mob/slime/small3",
         "attenuation_distance": 12,
         "volume": 0.45,
-        "pitch": 0.7
+        "pitch": 0.6
       },
       {
-        "name": "minecraft:block/mud/step2",
+        "name": "minecraft:block/mud/step3",
         "attenuation_distance": 12,
         "volume": 0.5,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/mud/step5",
+        "attenuation_distance": 12,
+        "volume": 0.45,
         "pitch": 0.65
       }
     ]
@@ -3464,10 +3470,20 @@
         "attenuation_distance": 12
       },
       {
-        "name": "minecraft:block/honeyblock/slide2",
+        "name": "projecthero:andy/regrow_skin_stretch5",
+        "attenuation_distance": 12
+      },
+      {
+        "name": "minecraft:item/armor/equip_leather2",
+        "attenuation_distance": 12,
+        "volume": 0.35,
+        "pitch": 0.85
+      },
+      {
+        "name": "minecraft:item/armor/equip_leather4",
         "attenuation_distance": 12,
         "volume": 0.3,
-        "pitch": 1.25
+        "pitch": 0.8
       }
     ]
   },
@@ -3491,10 +3507,16 @@
         "attenuation_distance": 12
       },
       {
-        "name": "minecraft:block/frogspawn/break2",
+        "name": "minecraft:mob/slime/big2",
         "attenuation_distance": 12,
-        "volume": 0.45,
-        "pitch": 0.7
+        "volume": 0.4,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/slime/big4",
+        "attenuation_distance": 12,
+        "volume": 0.35,
+        "pitch": 0.8
       }
     ]
   },

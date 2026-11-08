@@ -3,6 +3,7 @@
 // volume as extra variants (checked against the 1.21.1 asset index when it is in the Loom cache). Text insertion keeps each
 // file's own line endings; refuses a key that is already there; validates both files as JSON afterwards.
 //   node scratchpad/andy_sounds_json.js
+//   node scratchpad/andy_sounds_json.js --update [andy.event ...]   (rewrites existing events in place, all if none named)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -19,12 +20,14 @@ const EVENTS = {
 	'andy.regrow.bone_push': ['Bone grinds outward', 12, syn('regrow_bone_push', 3)],
 	'andy.regrow.bone_crack': ['Bone cracks into place', 12, [...syn('regrow_bone_crack', 5),
 		van('block/bone_block/break1', 0.35, 1.45), van('block/bone_block/break4', 0.35, 1.3)]],
+	// regrowth v2: no honey-block slides (a dense granular crackle) or frogspawn (bubbly) -- only compact squishes / leather
 	'andy.regrow.muscle': ['Flesh knits wetly', 12, syn('regrow_muscle', 3)],
 	'andy.regrow.squelch': ['Flesh squelches', 12, [...syn('regrow_squelch', 5),
-		van('block/honeyblock/slide1', 0.45, 0.75), van('block/honeyblock/slide3', 0.45, 0.7), van('block/mud/step2', 0.5, 0.65)]],
+		van('mob/slime/small1', 0.45, 0.6), van('mob/slime/small3', 0.45, 0.6), van('block/mud/step3', 0.5, 0.6), van('block/mud/step5', 0.45, 0.65)]],
 	'andy.regrow.skin': ['Skin stretches over', 12, syn('regrow_skin', 3)],
-	'andy.regrow.skin_stretch': ['Skin pulls tight', 12, [...syn('regrow_skin_stretch', 4), van('block/honeyblock/slide2', 0.3, 1.25)]],
-	'andy.regrow.finish': ['Body part re-forms', 12, [...syn('regrow_finish', 4), van('block/frogspawn/break2', 0.45, 0.7)]],
+	'andy.regrow.skin_stretch': ['Skin pulls tight', 12, [...syn('regrow_skin_stretch', 5),
+		van('item/armor/equip_leather2', 0.35, 0.85), van('item/armor/equip_leather4', 0.3, 0.8)]],
+	'andy.regrow.finish': ['Body part re-forms', 12, [...syn('regrow_finish', 4), van('mob/slime/big2', 0.4, 0.8), van('mob/slime/big4', 0.35, 0.8)]],
 	'andy.part.break': ['Body part tears off', 20, syn('part_break', 5)],
 	'andy.blood.burst': ['Blood bursts', 24, syn('blood_burst', 4)],
 	'andy.blood.spray': ['Blood spurts', 16, syn('blood_spray', 4)],
@@ -81,18 +84,45 @@ if (require.main === module) {
 		console.log(path.basename(file), '+' + lines.length, 'eol', eol === '\r\n' ? 'CRLF' : 'LF');
 	}
 
+	const entry = (ev, dist, list) => {
+		const sounds = list.map(s => {
+			const o = { name: s.name, attenuation_distance: dist };
+			if (s.volume !== undefined) o.volume = s.volume;
+			if (s.pitch !== undefined) o.pitch = s.pitch;
+			return o;
+		});
+		return JSON.stringify({ subtitle: 'subtitles.projecthero.' + ev, sounds }, null, 2).split('\n').map((l, i) => (i === 0 ? l : '  ' + l)).join('\n');
+	};
+
+	if (process.argv.includes('--update')) {
+		// rewrite the given (or every) andy.* event in place, keeping the file's order and line endings; subtitles untouched
+		const only = process.argv.slice(2).filter(a => !a.startsWith('--'));
+		const raw = fs.readFileSync(SOUNDS, 'utf8');
+		const eol = raw.includes('\r\n') ? '\r\n' : '\n';
+		let text = raw.split('\r\n').join('\n');
+		const before = JSON.parse(text);
+		for (const [ev, [, dist, list]] of Object.entries(EVENTS)) {
+			if (only.length && !only.includes(ev)) continue;
+			const head = '\n  ' + JSON.stringify(ev) + ': {';
+			const at = text.indexOf(head);
+			if (at < 0 || text.indexOf(head, at + 1) >= 0) throw new Error('sounds.json needs exactly one ' + ev);
+			let i = at + head.length - 1, depth = 0;
+			do { const c = text[i++]; if (c === '{') depth++; else if (c === '}') depth--; } while (depth > 0);
+			text = text.slice(0, at + head.length - 1) + entry(ev, dist, list) + text.slice(i);
+			console.log('updated', ev);
+		}
+		const after = JSON.parse(text);
+		if (Object.keys(after).join() !== Object.keys(before).join()) throw new Error('key set changed');
+		fs.writeFileSync(SOUNDS, text.split('\n').join(eol));
+		console.log('ok');
+		process.exit(0);
+	}
+
 	insert(SOUNDS, existing => {
 		const out = [];
 		for (const [ev, [, dist, list]] of Object.entries(EVENTS)) {
 			if (existing[ev]) throw new Error('sounds.json already has ' + ev);
-			const sounds = list.map(s => {
-				const o = { name: s.name, attenuation_distance: dist };
-				if (s.volume !== undefined) o.volume = s.volume;
-				if (s.pitch !== undefined) o.pitch = s.pitch;
-				return o;
-			});
-			const json = JSON.stringify({ subtitle: 'subtitles.projecthero.' + ev, sounds }, null, 2).split('\n').map((l, i) => (i === 0 ? l : '  ' + l)).join('\n');
-			out.push('  ' + JSON.stringify(ev) + ': ' + json);
+			out.push('  ' + JSON.stringify(ev) + ': ' + entry(ev, dist, list));
 		}
 		return out;
 	});

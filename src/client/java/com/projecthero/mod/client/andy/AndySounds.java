@@ -54,9 +54,15 @@ public final class AndySounds {
 	private static final float[] PART_PITCH = { 1.04f, 0.86f, 1.06f, 1.06f, 0.96f, 0.96f };
 	/** Height of each part's centre above the feet. */
 	private static final double[] PART_Y = { 1.65, 1.1, 1.25, 1.25, 0.45, 0.45 };
-	private static final float[] BASE_VOLUME = { 0.55f, 0.6f, 0.42f };
-	/** Accent rates per second at full layer volume (bone cracks, flesh squelches, skin stretches). */
-	private static final float[] ACCENT_RATE = { 3.2f, 2.2f, 0.9f };
+	/**
+	 * Loop levels. Since the v2 regrowth sounds (no more boiling-water bubbles / fizz) the loops are sparse events over
+	 * near-silence, so they sit under the accents: the accents carry the sound, the loops fill the gaps between them.
+	 */
+	private static final float[] BASE_VOLUME = { 0.45f, 0.4f, 0.32f };
+	/** Accent rates per second at full layer volume (bone cracks, flesh squelches, skin stretches); kept sparse. */
+	private static final float[] ACCENT_RATE = { 2.4f, 1.2f, 0.7f };
+	/** Accent volume range (min, spread). */
+	private static final float ACCENT_VOLUME = 0.45f, ACCENT_VOLUME_SPREAD = 0.3f;
 	/** Regrowth sounds only for Andys this close to the camera (the beds are audible ~12 blocks). */
 	private static final double RANGE = 20.0;
 
@@ -195,7 +201,7 @@ public final class AndySounds {
 				}
 				// accents, Poisson at a rate that follows the layer
 				if (step > 0f && RANDOM.nextFloat() < ACCENT_RATE[k] * e * crowd * Math.min(2.2f, speed) * step) {
-					local(player, y, accents[k], 0.35f + 0.35f * RANDOM.nextFloat(), partPitch * (0.9f + 0.2f * RANDOM.nextFloat()));
+					local(player, y, accents[k], ACCENT_VOLUME + ACCENT_VOLUME_SPREAD * RANDOM.nextFloat(), partPitch * (0.9f + 0.2f * RANDOM.nextFloat()));
 				}
 			} else if (loop != null) {
 				loop.feed(0f, pitch);

@@ -2,6 +2,8 @@
 // stick-slip pulse trains through body resonances, Minnaert bubbles (rising-pitch decaying sines: the core of anything
 // "wet") and short click clusters (bone). 44.1 kHz mono WAVs, encoded to OGG Vorbis with an ffmpeg that has libvorbis
 // (Minecraft needs mono for positional sound). Loops are crossfaded end-into-start so they repeat without a seam.
+// The REGROWTH sounds use no bubbles at all since v2 (bubbles + noise beds + crackle read as boiling water / lava): see the
+// REGROWTH section. Look at them with scratchpad/andy_sound_pics.js (spectrogram + envelope sheets).
 //   node scratchpad/synth_andy_sounds.js "C:/Users/<you>/AppData/Local/Medal/recorder-*/ffmpeg7.exe"
 // Output: src/main/resources/assets/projecthero/sounds/andy/*.ogg   (WAVs go to the OS temp folder)
 // The events and their vanilla extras live in sounds.json (projecthero:andy.*); scratchpad/andy_sounds_json.js writes those.
@@ -220,22 +222,136 @@ function save(name, x) {
 }
 
 // ================================================================ REGROWTH
+// v2 (tester: "it sounds like water boiling or lava when the muscle and skin start regrowing"): the regrowth is FLESH
+// REBUILDING, so no bubbles, no constant fizz / hiss / crackle beds and no steady-rate grains anywhere in it. The loops are
+// sparse, irregular events (0.4-1.3 s apart) over near-silence: slurps (band-passed noise through a resonance that falls in
+// pitch, like meat being kneaded or pulled), sinew creaks (stick-slip impulse trains at a 180-700 Hz jittering pitch, rung
+// through leathery formants), tight wet ticks, tacky "peel in reverse" releases and faint seals; only a whisper of low rumble.
 
-/** BONE PUSH (loop): bone extending -- a slow stick-slip grind rung high and hard, small cracks, a low grinding mass. */
+/** A slow random wander, -1..1 (lowpassed noise), for jittery pitch. */
+function wander(sec, hz) { return normalise(filt(noiseBuf(sec), 'lp', hz), 1, false); }
+/** One envelope bump: fast rise over `a` of its width, then a curved fall. */
+function bump(u, w, a = 0.15, k = 1.8) { if (u < 0 || u > w) return 0; const r = w * a; return u < r ? u / r : Math.pow(1 - (u - r) / (w - r), k); }
+
+/**
+ * A SLURP: meat kneaded / pulled. Noise through a resonance falling f0 -> f1 (plus a weaker second formant 2.3x above, the
+ * "vowel" of wet flesh), shaped by 1-3 irregular overlapping pulls; a low lowpassed mass under it. No bubbles.
+ */
+function slurp(dur, f0, f1, q = 6, body = 0.6, lumps = 1) {
+	const out = buf(dur + 0.03);
+	const n = noiseBuf(dur);
+	const sweep = t => f0 * Math.pow(f1 / f0, Math.pow(t, 0.7));
+	const a = filt(n, 'bp', sweep, q);
+	const b = filt(n, 'bp', t => sweep(t) * 2.3, q * 1.4);
+	const pulls = [[0, dur * (lumps > 1 ? rr(0.45, 0.65) : 1), 1]];
+	for (let k = 1; k < lumps; k++) {
+		const s = dur * rr(0.25, 0.5) * k / (lumps - 1) + dur * 0.1 * (k - 1);
+		pulls.push([s, Math.max(0.03, dur - s), rr(0.55, 0.9)]);
+	}
+	const e = u => pulls.reduce((m, [s, w, g]) => Math.max(m, g * bump(u - s, w, 0.12, 1.6)), 0);
+	for (let i = 0; i < a.length; i++) { const u = i / SR, ev = e(u); a[i] = (a[i] + 0.45 * b[i]) * ev; }
+	mix(out, normalise(a, 1, false), 0, 1);
+	if (body > 0) {
+		const m = filt(noiseBuf(dur), 'lp', t => 260 - 140 * t, 0.9);
+		for (let i = 0; i < m.length; i++) m[i] *= e(i / SR);
+		mix(out, normalise(m, 1, false), 0, body);
+	}
+	return out;
+}
+/**
+ * A FIBRE CREAK: stretched sinew / leather / rubber. Stick-slip -- an impulse train whose rate IS the pitch (p0 -> p1 Hz),
+ * wandering and jittering per pulse, now and then slipping a pulse -- in 1-3 uneven pulls ("errk-errk"), each pull swelling
+ * and rising in pitch as the tension builds, rung through broad formants.
+ */
+function fibreCreak(dur, p0, p1, freqs, q = 4, jitter = 0.1, wob = 0.12) {
+	const exc = buf(dur);
+	const w = wander(dur, 7);
+	const n = Math.max(1, Math.min(3, Math.round(dur / rr(0.12, 0.24))));
+	const cuts = [0];
+	for (let k = 1; k < n; k++) cuts.push((k + rr(-0.4, 0.4)) / n);
+	cuts.push(1);
+	const gains = Array.from({ length: n }, () => rr(0.55, 1));
+	let t = 0;
+	while (t < dur) {
+		const u = t / dur;
+		let k = 0;
+		while (k < n - 1 && u >= cuts[k + 1]) k++;
+		const local = (u - cuts[k]) / (cuts[k + 1] - cuts[k]);
+		const f = (p0 + (p1 - p0) * u) * (1 + wob * w[Math.min(w.length - 1, Math.floor(t * SR))]) * (0.92 + 0.16 * local);
+		t += (1 / f) * (1 + jitter * (rnd() * 2 - 1));
+		if (rnd() < 0.07) continue; // a slip
+		const i = Math.round(t * SR);
+		const g = rr(0.6, 1) * gains[k] * Math.max(0.06, bump(local, 1, 0.45, 1.3)) * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.02)), 0.4);
+		if (i + 1 < exc.length) { exc[i] += g; exc[i + 1] -= g * 0.6; }
+	}
+	const y = resonate(exc, freqs, q);
+	mix(y, filt(exc, 'lp', p1 * 1.6), 0, 0.3); // the fundamental itself
+	return normalise(y, 1, false);
+}
+/** A WET TICK: a fibre attaching -- a tight damped tone falling in pitch (falling, never the rising chirp of a bubble) and a soft click. */
+function wetTick(f = 1600) {
+	const d = 0.03;
+	const out = buf(d);
+	let ph = 0;
+	for (let i = 0; i < out.length; i++) {
+		const s = i / SR;
+		ph += 2 * Math.PI * f * (0.62 + 0.38 * Math.exp(-s / 0.004)) / SR;
+		out[i] = Math.sin(ph) * Math.min(1, s / 0.0004) * Math.exp(-s / 0.0045);
+	}
+	const c = filt(noiseBuf(0.004), 'lp', f * 1.5);
+	env(c, u => Math.pow(1 - u, 3));
+	mix(out, c, 0, 0.5);
+	return normalise(out, 1, false);
+}
+/** A PEEL IN REVERSE: skin tacking down -- 3-6 soft sticky ticks closing up (accelerating) and a last, fuller "tk". Short and sparse. */
+function peelReverse(f = 1) {
+	const n = 3 + Math.floor(rnd() * 4);
+	const out = buf(0.3);
+	let t = 0, gap = rr(0.03, 0.05);
+	for (let k = 0; k < n; k++) {
+		const g = filt(noiseBuf(0.003), 'bp', rr(1800, 3400) * f, 2.5);
+		env(g, u => Math.pow(1 - u, 2));
+		mix(out, normalise(g, 1, false), t, 0.35 + 0.5 * k / n);
+		t += gap; gap *= rr(0.6, 0.8);
+	}
+	mix(out, wetTick(rr(1300, 1800) * f), t, 0.8);
+	mix(out, slurp(0.04, 900 * f, 500 * f, 4, 0.3), t, 0.25);
+	return normalise(out, 1, false);
+}
+/** A SEAL: the faintest wet closing -- a tiny low slurp. */
+function seal(f = 1) { return normalise(slurp(rr(0.05, 0.08), rr(700, 950) * f, rr(320, 450) * f, 4, 0.5), 1, false); }
+/** A soft fleshy slap (the start of a squelch accent): a few ms of lowpassed noise. */
+function slap(cut = 1800) { const s = filt(noiseBuf(0.018), 'lp', cut); env(s, u => Math.pow(1 - u, 3)); return normalise(s, 1, false); }
+/** Events for a loop, spaced irregularly gapMin..gapMax apart, keeping the spacing across the loop's wrap. */
+function placeEvents(len, gapMin, gapMax, place) {
+	const first = rr(0.2, 0.4);
+	let t = first;
+	while (t < len + first - gapMin) { place(t); t += rr(gapMin, gapMax); }
+}
+/** The bed under a loop: a whisper of low organic rumble, breathing slowly (it reads as silence next to the events). */
+function whisper(len, cut, gain, v) {
+	const r = filt(brownBuf(len), 'lp', cut);
+	env(r, (u, s) => 0.55 + 0.45 * Math.sin(s * 1.3 + v * 2.1));
+	return normalise(r, gain, false);
+}
+
+/** BONE PUSH (loop): bone extending in pushes -- stick-slip grinds rung high and hard, in phrases with gaps, a lone crack now and then. */
 function bonePushLoop(v) {
 	return makeLoop(len => {
 		const out = buf(len);
 		const p = [1, 1.12, 0.9][v];
-		const g = creak(len, t => 34 + 22 * Math.sin(t * len * 2.1 + v) + 14 * Math.sin(t * len * 5.3), [480 * p, 1050 * p, 2300 * p], 9,
-				t => 0.6 + 0.4 * Math.sin(t * len * 1.3 + v * 2), 0.45);
-		mix(out, g, 0, 1.0);
-		// a second, slower and lower grind (the marrow side)
-		mix(out, creak(len, t => 14 + 8 * Math.sin(t * len * 0.9 + v), [260 * p, 640 * p], 7, () => 0.7, 0.5, 2), 0, 0.6);
-		crackle(out, 0, len, 9, 0.12, 0.45, [1500, 3800], 0.45);
-		const rumble = filt(brownBuf(len), 'lp', 180);
-		mix(out, rumble, 0, 0.8);
+		let t = rr(0.15, 0.3);
+		while (t < len - 0.15) {
+			const d = rr(0.35, 0.85);
+			const g = creak(d, u => 24 + 30 * u + 8 * Math.sin(u * 9 + v), [480 * p, 1050 * p, 2300 * p], 9, u => Math.pow(Math.sin(Math.PI * u), 0.8), 0.45);
+			mix(out, normalise(g, 1, false), t, rr(0.55, 0.85));
+			if (rnd() < 0.6) mix(out, normalise(creak(d * 0.7, u => 12 + 6 * u, [260 * p, 640 * p], 7, u => Math.sin(Math.PI * u), 0.5, 2), 1, false), t + d * 0.15, 0.35);
+			if (rnd() < 0.45) click(out, t + d * rr(0.6, 0.95), rr(0.25, 0.45), rr(1600, 3200), 4);
+			t += d + rr(0.25, 0.7);
+		}
+		mix(out, whisper(len, 150, 0.04, v), 0, 1);
 		return out;
-	}, 3.0, 0.4);
+	}, 4.0, 0.25);
 }
 /** BONE CRACK (accent): a small sharp crack with a ring, a tiny crunch after. */
 function boneCrack(v) {
@@ -248,78 +364,95 @@ function boneCrack(v) {
 	return normalise(softClip(out, 1.3), 0.85);
 }
 
-/** MUSCLE (loop): the flesh knitting -- a wet, slow churn of bubbles and squelch formants, low sinew creaks, fibres ticking. */
+/** MUSCLE (loop): flesh kneading itself back -- sparse slurps, sinew creaks and little clusters of wet ticks over near-silence. */
 function muscleLoop(v) {
 	return makeLoop(len => {
 		const out = buf(len);
-		const p = [1, 0.88, 1.1][v];
-		// the wet churn: lowpassed noise with a wandering resonance and random swells (slosh)
-		let sw = 0.5;
-		const churn = filt(noiseBuf(len), 'bp', (t, s) => (420 + 260 * Math.sin(s * 3.1 + v) + 160 * Math.sin(s * 7.7)) * p, 3.5);
-		env(churn, () => { sw += (rnd() - 0.5) * 0.02; sw = Math.max(0.15, Math.min(1, sw)); return sw; });
-		mix(out, churn, 0, 1.2);
-		// bubbles: low and thick
-		bubbles(out, 0, len, t => 38 + 20 * Math.sin(t * len * 2 + v), 140 * p, 700 * p, 0.12, 0.42, 0.012, 0.05);
-		// sinew: soft, low stick-slip
-		mix(out, creak(len, t => 18 + 10 * Math.sin(t * len * 1.7 + v), [230 * p, 520 * p], 6, t => 0.5 + 0.5 * Math.sin(t * len * 0.8 + v), 0.5, 2.5), 0, 0.55);
-		// fibres knitting: tiny soft ticks
-		crackle(out, 0, len, 22, 0.04, 0.12, [900, 2200], 0.5);
-		// squelch grains
-		let t = 0.1;
-		while (t < len - 0.3) { mix(out, squelch(rr(0.07, 0.16), rr(250, 450) * p, rr(700, 1300) * p, 5, 0.4), t, rr(0.25, 0.5)); t += rr(0.25, 0.7); }
-		mix(out, filt(brownBuf(len), 'lp', 220), 0, 0.6);
+		const p = [1, 0.9, 1.1][v];
+		placeEvents(len, 0.4, 1.2, t => {
+			const r = rnd();
+			if (r < 0.55) {
+				mix(out, slurp(rr(0.14, 0.32), rr(650, 1150) * p, rr(200, 360) * p, rr(5, 8), 0.6, rnd() < 0.4 ? 2 : 1), t, rr(0.5, 0.85));
+			} else if (r < 0.85) {
+				mix(out, fibreCreak(rr(0.18, 0.45), rr(170, 250) * p, rr(300, 480) * p, [380 * p, 820 * p, 1500 * p], 4), t, rr(0.45, 0.7));
+			} else {
+				let s = t;
+				for (let k = 2 + Math.floor(rnd() * 3); k > 0; k--) { mix(out, wetTick(rr(1000, 2000) * p), s, rr(0.25, 0.45)); s += rr(0.035, 0.13); }
+			}
+		});
+		mix(out, whisper(len, 110, 0.035, v), 0, 1);
 		return out;
-	}, 3.0, 0.4);
+	}, 4.0, 0.2);
 }
-/** SQUELCH (accent): a single wet squelch of flesh closing. */
+/** SQUELCH (accent): one punchy flesh squelch -- five different takes, wet but not splashy. */
 function squelchAccent(v) {
-	const d = rr(0.12, 0.24);
-	const up = rnd() < 0.6;
-	const a = rr(260, 420), b = rr(900, 1500);
-	const out = buf(d + 0.12);
-	mix(out, squelch(d, up ? a : b, up ? b : a, rr(4, 7), 1.2), 0, 1);
-	mix(out, thud(0.12, rr(120, 160), 60, 0.4), 0, 0.35);
+	const f = rr(0.9, 1.12);
+	const out = buf(0.6);
+	if (v === 0) { // a long falling slurp
+		mix(out, slap(1600), 0, 0.5);
+		mix(out, slurp(0.26, 1300 * f, 300 * f, 6, 0.7), 0.004, 1);
+		mix(out, thud(0.12, 140 * f, 60, 0.2), 0, 0.45);
+	} else if (v === 1) { // a double knead
+		mix(out, slap(1400), 0, 0.45);
+		mix(out, slurp(0.3, 1000 * f, 260 * f, 7, 0.7, 2), 0.004, 1);
+		mix(out, thud(0.1, 130 * f, 55, 0.2), 0, 0.4);
+	} else if (v === 2) { // short and tight, a fibre catching at the end
+		mix(out, slap(2200), 0, 0.55);
+		mix(out, slurp(0.13, 1500 * f, 450 * f, 7, 0.5), 0.003, 1);
+		mix(out, wetTick(1700 * f), 0.15, 0.5);
+	} else if (v === 3) { // pulled: a slurp that drags into a sinew creak
+		mix(out, slap(1500), 0, 0.4);
+		mix(out, slurp(0.2, 1100 * f, 320 * f, 6, 0.6), 0.004, 1);
+		mix(out, fibreCreak(0.22, 210 * f, 330 * f, [400 * f, 900 * f, 1600 * f], 4), 0.12, 0.5);
+	} else { // low and heavy
+		mix(out, slap(1100), 0, 0.5);
+		mix(out, slurp(0.28, 850 * f, 190 * f, 5, 0.9), 0.004, 1);
+		mix(out, thud(0.16, 115 * f, 45, 0.25), 0, 0.6);
+	}
 	return normalise(softClip(out, 1.4), 0.8);
 }
 
-/** SKIN (loop): softer -- tacky micro-crackle swelling and easing (tape peeling in reverse), a faint tight creak, rare wet seals. */
+/** SKIN (loop): skin drawing over -- slow leathery creaks, a sticky peel-in-reverse now and then, faint seals; higher and gentler than muscle. */
 function skinLoop(v) {
 	return makeLoop(len => {
 		const out = buf(len);
 		const p = [1, 1.1, 0.93][v];
-		crackle(out, 0, len, t => 70 + 60 * Math.sin(t * len * 2.4 + v) + 40 * Math.sin(t * len * 5.9), 0.04, 0.16, [2500 * p, 6500 * p], 0.6);
-		mix(out, creak(len, t => 45 + 25 * Math.sin(t * len * 1.4 + v), [950 * p, 1700 * p], 10, t => 0.35 + 0.3 * Math.sin(t * len * 1.1 + v), 0.3, 0.8), 0, 0.35);
-		const air = filt(noiseBuf(len), 'bp', 2600 * p, 0.8);
-		env(air, (t, s) => 0.08 + 0.06 * Math.sin(s * 2.2 + v));
-		mix(out, air, 0, 1);
-		bubbles(out, 0, len, 7, 900 * p, 2400 * p, 0.05, 0.15, 0.005, 0.015);
+		placeEvents(len, 0.5, 1.3, t => {
+			const r = rnd();
+			if (r < 0.45) {
+				mix(out, fibreCreak(rr(0.25, 0.6), rr(320, 430) * p, rr(450, 680) * p, [1000 * p, 2000 * p, 3200 * p], 5, 0.08, 0.1), t, rr(0.45, 0.65));
+			} else if (r < 0.75) {
+				mix(out, peelReverse(p), t, rr(0.3, 0.5));
+			} else {
+				mix(out, seal(p * 1.2), t, rr(0.25, 0.4));
+			}
+		});
+		mix(out, whisper(len, 160, 0.02, v), 0, 1);
 		return out;
-	}, 3.0, 0.4);
+	}, 4.0, 0.2);
 }
-/** SKIN STRETCH (accent): a short rubbery stretch -- a creak rising in rate and pitch with a sticky tail. */
+/** SKIN STRETCH (accent): skin pulling tight -- a leathery creak rising in pitch, ending in a tacky release or a seal. */
 function skinStretch(v) {
-	const d = rr(0.3, 0.5);
-	const out = buf(d + 0.1);
 	const f = rr(0.9, 1.15);
-	mix(out, creak(d, t => 30 + 90 * t, [800 * f, 1500 * f, 2600 * f], 11, t => Math.sin(Math.PI * Math.min(1, t * 1.1)), 0.25, 0.7), 0, 1);
-	crackle(out, d * 0.6, d * 0.4, 120, 0.05, 0.2, [3000, 7000], 0.6);
-	mix(out, bubble(rr(1300, 1900), 0.03, 0.8), d * 0.85, 0.15);
+	const d = rr(0.28, 0.48);
+	const out = buf(d + 0.3);
+	const lo = [250, 300, 220, 340, 280][v], hi = [520, 600, 430, 700, 560][v];
+	mix(out, fibreCreak(d, lo * f, hi * f, [850 * f, 1700 * f, 2900 * f], 5, 0.09, 0.14), 0, 1);
+	if (v % 2 === 0) mix(out, peelReverse(f), d * 0.85, 0.5);
+	else mix(out, seal(f * 1.3), d * 0.9, 0.35);
 	return normalise(softClip(out, 1.2), 0.7);
 }
 
-/** FINISH: a final wet snap and settle -- a tight squelch-snap, a click, a soft sucking settle and a tiny thud. */
+/** FINISH: the part whole -- a tight wet snap (slap, short squelch, click, low thud), a slow sucking settle and a last faint seal. */
 function finish(v) {
 	const out = buf(0.6);
 	const f = rr(0.9, 1.15);
-	mix(out, squelch(0.09, 1400 * f, 500 * f, 6, 1.5), 0, 1);
-	click(out, 0.002, 0.7, 1800, 4);
+	mix(out, slap(2000), 0, 0.6);
+	mix(out, slurp(0.08, 1600 * f, 500 * f, 6, 0.4), 0.002, 1);
+	mix(out, wetTick(1800 * f), 0.003, 0.6);
 	mix(out, thud(0.16, 150 * f, 65, 0.3), 0.01, 0.6);
-	// the settle: a slow downward suck and two late tiny bubbles
-	const suck = filt(noiseBuf(0.25), 'bp', t => 900 * f * (1 - 0.6 * t), 6);
-	env(suck, t => Math.min(1, t * 6) * Math.pow(1 - t, 2));
-	mix(out, suck, 0.1, 0.6);
-	mix(out, bubble(rr(500, 700), 0.04, 0.5), 0.3, 0.25);
-	mix(out, bubble(rr(800, 1100), 0.03, 0.7), 0.38, 0.15);
+	mix(out, slurp(0.2, 650 * f, 230 * f, 5, 0.8), 0.1, 0.45);
+	mix(out, seal(f), rr(0.33, 0.4), 0.18);
 	return normalise(softClip(out, 1.5), 0.85);
 }
 
@@ -555,12 +688,12 @@ function punchFire(v) {
 // ================================================================ render all
 
 const SPEC = [
-	['regrow_bone_push', 3, v => normRms(bonePushLoop(v), 0.12)],
+	['regrow_bone_push', 3, v => normalise(bonePushLoop(v), 0.8, false)],
 	['regrow_bone_crack', 5, boneCrack],
-	['regrow_muscle', 3, v => normRms(muscleLoop(v), 0.14)],
+	['regrow_muscle', 3, v => normalise(muscleLoop(v), 0.8, false)],
 	['regrow_squelch', 5, squelchAccent],
-	['regrow_skin', 3, v => normRms(skinLoop(v), 0.08)],
-	['regrow_skin_stretch', 4, skinStretch],
+	['regrow_skin', 3, v => normalise(skinLoop(v), 0.7, false)],
+	['regrow_skin_stretch', 5, skinStretch],
 	['regrow_finish', 4, finish],
 	['part_break', 5, partBreak],
 	['blood_burst', 4, bloodBurst],
@@ -578,7 +711,11 @@ const SPEC = [
 	['punch_stretch', 3, v => normRms(punchStretchLoop(v), 0.13)],
 	['punch_fire', 4, punchFire],
 ];
+// optional 2nd argument: a regex of names to render (e.g. "^regrow_(muscle|skin)"); the rest are left alone (every file has
+// its own seed, so a partial render matches a full one; re-encoding an unchanged file still changes its OGG bytes)
+const ONLY = process.argv[3] ? new RegExp(process.argv[3]) : null;
 for (const [name, n, gen] of SPEC) {
+	if (ONLY && !ONLY.test(name)) continue;
 	for (let v = 0; v < n; v++) {
 		seed = (name.length * 7919 + v * 104729 + name.charCodeAt(0) * 31) >>> 0;
 		save(name + (v + 1), gen(v));
