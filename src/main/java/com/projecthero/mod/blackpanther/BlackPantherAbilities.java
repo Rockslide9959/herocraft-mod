@@ -57,8 +57,8 @@ public final class BlackPantherAbilities {
 	private record Bleed(UUID owner, long until) {
 	}
 
-	/** Claw Combo: game time of the first slash. */
-	private static final Map<UUID, Long> CLAW_RUNS = new ConcurrentHashMap<>();
+	/** Claw Combo: game time of the first slash, and the next slash to land (1 or 2; slash 0 lands on the press). */
+	private static final Map<UUID, long[]> CLAW_RUNS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Pounce> POUNCES = new ConcurrentHashMap<>();
 	/** Panther Leap: until when he can still catch a ledge. */
 	private static final Map<UUID, Long> LEAPS = new ConcurrentHashMap<>();
@@ -206,29 +206,39 @@ public final class BlackPantherAbilities {
 		}
 		cooldown(p, CLAWS, BlackPantherConfig.CLAW_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_CLAW);
-		CLAW_RUNS.put(p.getUUID(), p.level().getGameTime());
+		BlackPanther.setClaws(p, true); // the combo pops the claws out by itself
+		long now = p.level().getGameTime();
+		// slash 1 lands now: the server first steps the run a tick later, so a slash waiting for age 0 never came
+		slash(p, 0, now);
+		CLAW_RUNS.put(p.getUUID(), new long[] { now, 1L });
 	}
 
-	private static void tickClaws(ServerPlayer p, long start, long now) {
-		int age = (int) (now - start);
-		if (age % BlackPantherConfig.CLAW_STEP == 0) {
-			int slash = age / BlackPantherConfig.CLAW_STEP;
-			boolean last = slash == 2;
-			float damage = last ? BlackPantherConfig.CLAW_FINISH_DAMAGE : BlackPantherConfig.CLAW_DAMAGE;
-			Vec3 eye = p.getEyePosition();
-			Vec3 look = p.getLookAngle();
-			Vec3 c = eye.add(look.scale(BlackPantherConfig.CLAW_REACH * 0.6));
-			for (LivingEntity e : BlackPantherCombat.within(p, c, BlackPantherConfig.CLAW_REACH * 0.7, e -> BlackPantherCombat.isTarget(p, e))) {
-				if (BlackPantherCombat.strike(p, e, p.position(), damage, last ? 0.5 : 0.1, 0.0) && last) {
-					BLEEDS.put(e.getId(), new Bleed(p.getUUID(), now + BlackPantherConfig.BLEED_TICKS));
-				}
-			}
-			level(p).sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y - 0.3, c.z, 1, 0, 0, 0, 0);
-			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.5f + slash * 0.15f);
-			if (last) {
+	private static void tickClaws(ServerPlayer p, long[] run, long now) {
+		int next = (int) run[1];
+		if (now - run[0] >= (long) next * BlackPantherConfig.CLAW_STEP) {
+			slash(p, next, now);
+			if (next >= 2) {
 				CLAW_RUNS.remove(p.getUUID());
+			} else {
+				run[1] = next + 1;
 			}
 		}
+	}
+
+	/** One slash (0..2) of the combo; the third leaves a bleed. */
+	private static void slash(ServerPlayer p, int slash, long now) {
+		boolean last = slash == 2;
+		float damage = last ? BlackPantherConfig.CLAW_FINISH_DAMAGE : BlackPantherConfig.CLAW_DAMAGE;
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		Vec3 c = eye.add(look.scale(BlackPantherConfig.CLAW_REACH * 0.6));
+		for (LivingEntity e : BlackPantherCombat.within(p, c, BlackPantherConfig.CLAW_REACH * 0.7, e -> BlackPantherCombat.isTarget(p, e))) {
+			if (BlackPantherCombat.strike(p, e, p.position(), damage, last ? 0.5 : 0.1, 0.0) && last) {
+				BLEEDS.put(e.getId(), new Bleed(p.getUUID(), now + BlackPantherConfig.BLEED_TICKS));
+			}
+		}
+		level(p).sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y - 0.3, c.z, 1, 0, 0, 0, 0);
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.5f + slash * 0.15f);
 	}
 
 	private static void tickBleeds(ServerPlayer p, long now) {
@@ -419,13 +429,22 @@ public final class BlackPantherAbilities {
 		}
 	}
 
+	/** A toggle with no cooldown: on until pressed again or the suit comes off. */
 	public static void senses(ServerPlayer p) {
+		if (BlackPanther.sensing(p)) {
+			BlackPantherState n = BlackPanther.state(p).copy();
+			n.senses = false;
+			BlackPanther.save(p, n);
+			TRACKS.remove(p.getUUID());
+			ServerPlayNetworking.send(p, new PantherSensesPayload(List.of(), 0)); // the outlines fade at once
+			sound(p, SoundEvents.ENDER_EYE_DEATH, 0.5f, 1.2f);
+			return;
+		}
 		if (!begin(p, SENSES)) {
 			return;
 		}
-		cooldown(p, SENSES, BlackPantherConfig.SENSES_COOLDOWN);
 		BlackPantherState n = BlackPanther.state(p).copy();
-		n.sensesUntil = p.level().getGameTime() + BlackPantherConfig.SENSES_TICKS;
+		n.senses = true;
 		BlackPanther.save(p, n);
 		TRACKS.put(p.getUUID(), new HashMap<>());
 		sendSenses(p);
@@ -509,11 +528,23 @@ public final class BlackPantherAbilities {
 		}
 		cooldown(p, RETURN, BlackPantherConfig.RETURN_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_RETURN);
+		// the shot comes back harder, and the stored bar rides along with it
+		float spent = Math.min(BlackPantherConfig.RETURN_MAX_SPEND, BlackPanther.kinetic(p));
+		if (spent > 0f) {
+			BlackPanther.setKinetic(p, BlackPanther.kinetic(p) - spent);
+		}
+		float damage = returnDamage(shot.damage(), spent);
 		Vec3 from = p.getEyePosition().add(0, -0.3, 0);
 		Vec3 to = target.position().add(0, target.getBbHeight() * 0.6, 0);
-		AbilityHelpers.line(level(p), from, to, BlackPanther.PURPLE, 3.0);
-		BlackPantherCombat.strike(p, target, from, Math.max(BlackPantherConfig.RETURN_MIN_DAMAGE, shot.damage() * BlackPantherConfig.RETURN_FACTOR), 0.6, 0.0);
+		AbilityHelpers.line(level(p), from, to, spent > 0f ? BlackPanther.PURPLE_BIG : BlackPanther.PURPLE, 3.0);
+		BlackPantherCombat.strike(p, target, from, damage, 0.6 + spent / 80.0, 0.0);
 		sound(p, SoundEvents.TRIDENT_THROW.value(), 1.0f, 1.2f);
+	}
+
+	/** Kinetic Return: max(4, the shot x1.25), plus 0.25 per Kinetic point spent (up to 40 spent). */
+	public static float returnDamage(float shotDamage, float kineticSpent) {
+		return Math.max(BlackPantherConfig.RETURN_MIN_DAMAGE, shotDamage * BlackPantherConfig.RETURN_FACTOR)
+				+ Math.min(BlackPantherConfig.RETURN_MAX_SPEND, Math.max(0f, kineticSpent)) * BlackPantherConfig.RETURN_PER_KINETIC;
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -521,9 +552,9 @@ public final class BlackPantherAbilities {
 	static void tick(ServerPlayer p) {
 		UUID id = p.getUUID();
 		long now = p.level().getGameTime();
-		Long clawStart = CLAW_RUNS.get(id);
-		if (clawStart != null) {
-			tickClaws(p, clawStart, now);
+		long[] clawRun = CLAW_RUNS.get(id);
+		if (clawRun != null) {
+			tickClaws(p, clawRun, now);
 		}
 		Pounce run = POUNCES.get(id);
 		if (run != null) {
@@ -544,7 +575,7 @@ public final class BlackPantherAbilities {
 		if (s.stalking && now % 5 == 0) {
 			tickStalk(p);
 		}
-		if (s.sensesUntil > now) {
+		if (s.senses && s.suited) {
 			tickSenses(p, now);
 		}
 		if (!BLEEDS.isEmpty()) {

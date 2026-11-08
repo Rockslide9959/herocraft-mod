@@ -1141,6 +1141,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			maxSteelTransformWasDown = down;
 			return;
 		}
+		// v0.17.3 (tester): Black Panther's N pops the vibranium claws out / in; Shift+N takes the mask off / on (the server reads Shift)
+		if (client.player != null && com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player) && !mutationSelected(client)) {
+			if (down && !maxSteelTransformWasDown && client.screen == null) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+			} else if (!down && maxSteelTransformWasDown) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		// v0.17.1 (user): Shift+N toggles Ground-Stick for a speedster (before N's own utility move can take it)
 		if (client.player != null && Screen.hasShiftDown()
 				&& com.projecthero.mod.client.speed.SpeedsterGroundStick.isSpeedster(client.player)) {

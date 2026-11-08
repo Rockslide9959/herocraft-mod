@@ -38,7 +38,6 @@ public final class BlackPantherHud {
 	private static final int COOLDOWN = 0xB0000000;
 	private static final int KINETIC = 0xFF9A4CFF;
 	private static final int ABSORB = 0xFFD9B8FF;
-	private static final int SENSES = 0xFF6E5A9E;
 
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
 			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
@@ -62,7 +61,21 @@ public final class BlackPantherHud {
 			renderVision(g, s, mc.level.getGameTime(), delta.getGameTimeDeltaPartialTick(false));
 			return;
 		}
-		if (!s.hasPower || !s.suited || mc.options.hideGui) {
+		if (!s.hasPower || mc.options.hideGui) {
+			return;
+		}
+		float hold = BlackPantherClient.holdProgress();
+		if (hold > 0.1f) {
+			// holding H: a thin bar over the hotbar fills toward the necklace coming off (or going back on)
+			int w = 82;
+			int x = g.guiWidth() / 2 - w / 2;
+			int y = g.guiHeight() - 62;
+			g.fill(x, y, x + w, y + BAR_H, BAR_BG);
+			g.fill(x, y, x + Math.round(w * hold), y + BAR_H, KINETIC);
+			g.drawCenteredString(mc.font, Component.translatable(s.necklaceOff ? "hud.projecthero.black_panther.necklace_on"
+					: "hud.projecthero.black_panther.necklace_off"), g.guiWidth() / 2, y - 10, NAME);
+		}
+		if (!s.suited) {
 			return;
 		}
 		var exp = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
@@ -78,9 +91,6 @@ public final class BlackPantherHud {
 		bars.add(new Bar(s.kinetic / BlackPantherConfig.KINETIC_MAX, KINETIC));
 		if (s.absorbing) {
 			bars.add(new Bar(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, ABSORB));
-		}
-		if (s.sensesUntil > now) {
-			bars.add(new Bar((s.sensesUntil - now) / (float) BlackPantherConfig.SENSES_TICKS, SENSES));
 		}
 		int by = y0 - 2 - BAR_H;
 		for (Bar b : bars) {
@@ -100,6 +110,11 @@ public final class BlackPantherHud {
 							ids.length > 1 ? Component.translatable("projecthero.black_panther.ability." + ids[1]) : null));
 				}
 			}
+			// N has no HUD box (the project rule): the claws and the mask are listed here instead
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.black_panther.ability.claws"),
+					Component.translatable("projecthero.black_panther.ability.mask")));
+			rows.add(MoveListOverlay.Row.of("Hold " + MoveListOverlay.key(AbilitySlot.SLOT_7),
+					Component.translatable("projecthero.black_panther.ability.necklace"), null));
 			MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
 		}
 		for (int i = 0; i < SLOTS.length; i++) {
@@ -114,7 +129,7 @@ public final class BlackPantherHud {
 					max = Math.max(1, BlackPantherAbilityManager.maxCooldown(id));
 				}
 			}
-			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.sensesUntil > now)) || (slot == AbilitySlot.SLOT_6 && s.absorbing);
+			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.senses)) || (slot == AbilitySlot.SLOT_6 && s.absorbing);
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);

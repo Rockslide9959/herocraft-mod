@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   Z (4)  Vibranium Dagger    Shift+Z  Kimoyo Flash
  *   V (5)  Stalk (toggle)      Shift+V  Panther Senses
  *   C (6)  Absorb Stance (hold) Shift+C Kinetic Return
+ *   N (8)  Claws (toggle)      Shift+N  Mask (toggle)       -- no HUD box; listed in the Left-Alt move list
  * </pre>
  */
 public final class BlackPantherAbilityManager {
@@ -122,6 +123,15 @@ public final class BlackPantherAbilityManager {
 					BlackPantherAbilities.kineticReturn(player);
 				} else {
 					BlackPantherAbilities.raiseStance(player);
+				}
+			}
+			case SLOT_8 -> { // N (AbilityRouter's utility branch hands it here): the claws; Shift+N the mask
+				if (pressed) {
+					if (shift) {
+						BlackPanther.toggleMask(player);
+					} else {
+						BlackPanther.toggleClaws(player);
+					}
 				}
 			}
 			default -> {

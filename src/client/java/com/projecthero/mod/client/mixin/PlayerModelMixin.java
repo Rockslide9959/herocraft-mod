@@ -68,6 +68,10 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 			model.rightSleeve.visible = false;
 			model.leftPants.visible = false;
 			model.rightPants.visible = false;
+			// v0.17.3 tester round: Black Panther unmasked (Shift+N) -- the suit's head isn't drawn, so the wearer's hat / hair shows
+			if (com.projecthero.mod.client.blackpanther.BlackPantherRender.showsWearerHat(player)) {
+				model.hat.visible = true;
+			}
 			return;
 		}
 		// v0.16.5: Cyborg keeps the wearer's hat / hair layer (user: it should show on the human half of the head) -- the

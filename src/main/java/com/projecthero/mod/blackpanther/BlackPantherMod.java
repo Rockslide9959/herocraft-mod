@@ -42,6 +42,8 @@ public final class BlackPantherMod {
 			}
 			if (payload.action() == BlackPantherActionPayload.Action.TOGGLE_SUIT) {
 				BlackPanther.toggleSuit(p);
+			} else if (payload.action() == BlackPantherActionPayload.Action.TOGGLE_NECKLACE) {
+				BlackPanther.toggleNecklace(p);
 			}
 		});
 		ServerPlayerEvents.JOIN.register(BlackPanther::onPlayerJoin);

@@ -37,7 +37,14 @@ public final class BlackPantherState {
 	/** The Ancestral Plane shows until this game time, then the power is granted (0 = no vision running). */
 	public long visionUntil;
 	public boolean stalking;
-	public long sensesUntil;
+	/** Panther Senses is on (a toggle since the v0.17.3 tester round; it ends when the suit comes off). */
+	public boolean senses;
+	/** N: the vibranium claws are out (the +5 melee only applies while they are). */
+	public boolean clawsOut;
+	/** Shift+N: the mask is off (the suit's head is not drawn). */
+	public boolean unmasked;
+	/** Hold H: the necklace is off -- no suit and no moves, only the herb's Speed I and Jump Boost I. */
+	public boolean necklaceOff;
 	/** C is held. */
 	public boolean absorbing;
 	/** Kinetic gained in the current Absorb Stance. */
@@ -48,11 +55,11 @@ public final class BlackPantherState {
 	public List<Double> pulsePos;
 
 	public BlackPantherState() {
-		this(false, false, 0L, 0f, 0, 0L, new HashMap<>(), 0L, 0L, false, 0L, false, 0f, 0L, 0f, new ArrayList<>());
+		this(false, false, 0L, 0f, 0, 0L, new HashMap<>(), 0L, 0L, false, 0, false, 0f, 0L, 0f, new ArrayList<>());
 	}
 
 	public BlackPantherState(boolean hasPower, boolean suited, long suitChangeAt, float kinetic, int animId, long animStart,
-			Map<String, Long> abilityReadyAt, long lastFightAt, long visionUntil, boolean stalking, long sensesUntil, boolean absorbing,
+			Map<String, Long> abilityReadyAt, long lastFightAt, long visionUntil, boolean stalking, int flags, boolean absorbing,
 			float absorbed, long pulseStart, float pulseRadius, List<Double> pulsePos) {
 		this.hasPower = hasPower;
 		this.suited = suited;
@@ -64,7 +71,10 @@ public final class BlackPantherState {
 		this.lastFightAt = lastFightAt;
 		this.visionUntil = visionUntil;
 		this.stalking = stalking;
-		this.sensesUntil = sensesUntil;
+		this.senses = (flags & 1) != 0;
+		this.clawsOut = (flags & 2) != 0;
+		this.unmasked = (flags & 4) != 0;
+		this.necklaceOff = (flags & 8) != 0;
 		this.absorbing = absorbing;
 		this.absorbed = absorbed;
 		this.pulseStart = pulseStart;
@@ -74,7 +84,12 @@ public final class BlackPantherState {
 
 	public BlackPantherState copy() {
 		return new BlackPantherState(hasPower, suited, suitChangeAt, kinetic, animId, animStart, abilityReadyAt, lastFightAt, visionUntil,
-				stalking, sensesUntil, absorbing, absorbed, pulseStart, pulseRadius, pulsePos);
+				stalking, flags(), absorbing, absorbed, pulseStart, pulseRadius, pulsePos);
+	}
+
+	/** The four toggles packed in one int (the codec is at RecordCodecBuilder's 16-field limit). */
+	public int flags() {
+		return (senses ? 1 : 0) | (clawsOut ? 2 : 0) | (unmasked ? 4 : 0) | (necklaceOff ? 8 : 0);
 	}
 
 	public static final Codec<BlackPantherState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -89,7 +104,7 @@ public final class BlackPantherState {
 			Codec.LONG.optionalFieldOf("last_fight_at", 0L).forGetter(s -> s.lastFightAt),
 			Codec.LONG.optionalFieldOf("vision_until", 0L).forGetter(s -> s.visionUntil),
 			Codec.BOOL.optionalFieldOf("stalking", false).forGetter(s -> s.stalking),
-			Codec.LONG.optionalFieldOf("senses_until", 0L).forGetter(s -> s.sensesUntil),
+			Codec.INT.optionalFieldOf("flags", 0).forGetter(BlackPantherState::flags),
 			Codec.BOOL.optionalFieldOf("absorbing", false).forGetter(s -> s.absorbing),
 			Codec.FLOAT.optionalFieldOf("absorbed", 0f).forGetter(s -> s.absorbed),
 			Codec.LONG.optionalFieldOf("pulse_start", 0L).forGetter(s -> s.pulseStart),
