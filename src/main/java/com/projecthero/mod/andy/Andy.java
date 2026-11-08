@@ -36,7 +36,7 @@ import org.joml.Vector3f;
  * ({@link AndyParts}); a part at 0 HP breaks ({@link #breakPart}) -- every client bursts it into one cube per skin texel --
  * and is gone until it regrows: after {@link AndyConfig#REGROW_DELAY} it re-forms pixel by pixel from the joint outward over
  * {@link AndyConfig#REGROW_TICKS}, costing hunger. A tap of V cycles the speed (Slow / Normal / Burst); holding V for
- * {@link AndyConfig#STYLE_HOLD_TICKS} cycles how the regrowth looks (Streaming / Build in place / Bone and flesh).
+ * {@link AndyConfig#STYLE_HOLD_TICKS} cycles how the regrowth looks (Bone and flesh / Streaming / Build in place).
  *
  * <h2>Vanilla health</h2>
  * Vanilla health stays the player's real life pool and takes every hit as usual. The part system runs beside it and only
@@ -136,7 +136,7 @@ public final class Andy {
 
 	public static int regenStyle(Player player) {
 		AndyState s = peek(player);
-		return s == null ? AndyState.STYLE_STREAMING : s.regenStyle;
+		return s == null ? AndyState.STYLE_BONE : s.regenStyle;
 	}
 
 	public static int cooldownRemaining(Player player, String abilityId) {
@@ -344,9 +344,9 @@ public final class Andy {
 	}
 
 	/** The lang names of the three regrowth styles, by {@link AndyState#regenStyle}. */
-	public static final String[] STYLE_NAMES = { "streaming", "build", "bone" };
+	public static final String[] STYLE_NAMES = { "bone", "streaming", "build" };
 
-	/** Held V: the next regrowth style (Streaming, Build in place, Bone and flesh). Kept through death and logging out. */
+	/** Held V: the next regrowth style (Bone and flesh, Streaming, Build in place). Kept through death and logging out. */
 	public static void cycleStyle(ServerPlayer player) {
 		AndyState n = state(player).copy();
 		n.regenStyle = (n.regenStyle + 1) % AndyState.STYLES;

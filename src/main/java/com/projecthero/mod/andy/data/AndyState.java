@@ -50,10 +50,13 @@ public final class AndyState {
 	public static final int ANIM_HEADBUTT = 13;
 	public static final int ANIM_CARD_BACK = 14;
 
-	/** The look of a regrowth (same length every style): pixels stream in, build in place, or bone, flesh, then skin. */
-	public static final int STYLE_STREAMING = 0;
-	public static final int STYLE_BUILD = 1;
-	public static final int STYLE_BONE = 2;
+	/**
+	 * The look of a regrowth (same length every style): bone, flesh, then skin (the default), pixels stream in, or build in
+	 * place. v0.17.3: Bone and flesh is id 0 so it is the default (and what a save without the field loads as).
+	 */
+	public static final int STYLE_BONE = 0;
+	public static final int STYLE_STREAMING = 1;
+	public static final int STYLE_BUILD = 2;
 	public static final int STYLES = 3;
 
 	public static final int FLAG_PROPELLING = 1;
@@ -80,7 +83,7 @@ public final class AndyState {
 	/** When the held move (X / C) started. */
 	public long holdStart;
 	public long lastHitAt;
-	/** How a part looks as it regrows ({@link #STYLE_STREAMING}..{@link #STYLE_BONE}); held V cycles it. */
+	/** How a part looks as it regrows ({@link #STYLE_BONE}, {@link #STYLE_STREAMING}, {@link #STYLE_BUILD}); held V cycles it. */
 	public int regenStyle;
 
 	public AndyState() {
@@ -219,6 +222,6 @@ public final class AndyState {
 			Codec.INT.optionalFieldOf("flags", 0).forGetter(s -> s.flags),
 			Codec.LONG.optionalFieldOf("hold_start", 0L).forGetter(s -> s.holdStart),
 			Codec.LONG.optionalFieldOf("last_hit_at", 0L).forGetter(s -> s.lastHitAt),
-			Codec.INT.optionalFieldOf("regen_style", 0).forGetter(s -> s.regenStyle)
+			Codec.INT.optionalFieldOf("regen_style", STYLE_BONE).forGetter(s -> s.regenStyle)
 	).apply(i, AndyState::new));
 }

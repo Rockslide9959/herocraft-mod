@@ -208,31 +208,31 @@ public class AndyGameTests implements FabricGameTest {
 	public void tapVCyclesTheSpeedAndHoldVCyclesTheStyle(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "starts on Streaming");
+		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "starts on Bone and flesh (the default)");
 		// a quick tap: the speed, on release, and not the style
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "nothing on the press itself");
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "a tap cycles the speed");
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "a tap leaves the style");
+		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "a tap leaves the style");
 		helper.onEachTick(() -> Andy.tick(p));
 		helper.runAfterDelay(2, () -> com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true));
-		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS - 4, () -> helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING,
+		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS - 4, () -> helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE,
 				"not yet before the hold time"));
 		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS + 3, () -> {
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "held V cycles to Build in place: " + Andy.regenStyle(p));
+			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "held V cycles to Streaming: " + Andy.regenStyle(p));
 		});
 		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS + 12, () -> {
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "once per hold, however long");
+			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "once per hold, however long");
 			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
 			helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "letting go after a hold does not touch the speed");
 			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
 		});
 		helper.runAfterDelay(2 + AndyConfig.STYLE_HOLD_TICKS * 2 + 18, () -> {
 			com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "then Bone and flesh");
+			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "then Build in place");
 			Andy.cycleStyle(p);
-			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_STREAMING, "and round to Streaming");
+			helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "and round to Bone and flesh");
 			helper.succeed();
 		});
 	}
@@ -240,19 +240,19 @@ public class AndyGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theRegrowthStyleIsSavedAndKeptThroughDeath(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		Andy.setStyle(p, AndyState.STYLE_BONE);
+		Andy.setStyle(p, AndyState.STYLE_BUILD);
 		Andy.setSpeed(p, AndyConfig.SPEED_SLOW);
 		AndyState s = Andy.state(p);
 		net.minecraft.nbt.Tag tag = AndyState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s).getOrThrow();
 		AndyState back = AndyState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
-		helper.assertTrue(back.regenStyle == AndyState.STYLE_BONE && back.regenSpeed == AndyConfig.SPEED_SLOW, "saved and loaded: " + tag);
+		helper.assertTrue(back.regenStyle == AndyState.STYLE_BUILD && back.regenSpeed == AndyConfig.SPEED_SLOW, "saved and loaded: " + tag);
 		AndyState old = AndyState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, new net.minecraft.nbt.CompoundTag()).getOrThrow();
-		helper.assertTrue(old.regenStyle == AndyState.STYLE_STREAMING, "a save from before the styles loads as Streaming");
-		helper.assertTrue(s.copy().regenStyle == AndyState.STYLE_BONE, "copies keep it");
+		helper.assertTrue(old.regenStyle == AndyState.STYLE_BONE, "a save without the field loads as Bone and flesh, the default");
+		helper.assertTrue(s.copy().regenStyle == AndyState.STYLE_BUILD, "copies keep it");
 		Andy.breakPart(p, AndyState.RIGHT_ARM, AndyState.KIND_BURST);
 		Andy.clearTransient(p); // a real death, a new world, logging out
 		helper.assertTrue(!Andy.missing(p, AndyState.RIGHT_ARM), "made whole");
-		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BONE, "the style stays");
+		helper.assertTrue(Andy.regenStyle(p) == AndyState.STYLE_BUILD, "the style stays");
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_SLOW, "and the speed");
 		helper.succeed();
 	}
