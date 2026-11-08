@@ -102,9 +102,9 @@ public final class AndyFirstPerson {
 			if (flying) {
 				// the forearm stumps swept down and back into the corners, jets roaring out of them
 				float wob = Mth.sin(now * 1.7f + sd) * 0.01f;
-				pose.translate(0.06f * sd, -0.32f + wob, 0.22f);
-				pose.mulPose(Axis.XP.rotationDegrees(62f));
-				pose.mulPose(Axis.ZP.rotationDegrees(-10f * sd));
+				pose.translate(0.06f * sd, -0.36f + wob, 0.16f);
+				pose.mulPose(Axis.XP.rotationDegrees(30f));
+				pose.mulPose(Axis.ZP.rotationDegrees(14f * sd));
 			} else if (stage == AndyStages.DRAG) {
 				if (arm != Andy.mainArm(player) && !s.has(arm, now) && !AndyStages.growing(s, arm, now)) {
 					pose.popPose();
@@ -123,8 +123,8 @@ public final class AndyFirstPerson {
 					reach = k;
 				}
 				float lift = amount < 0.05f || c < 0.58f ? 0f : Mth.sin((c - 0.58f) / 0.42f * Mth.PI) * 0.12f;
-				pose.translate(0.02f * sd, -0.1f + lift - 0.12f * (1f - reach), -0.45f * reach + 0.1f);
-				pose.mulPose(Axis.XP.rotationDegrees(-25f * reach));
+				pose.translate(0.02f * sd, 0.14f + lift - 0.2f * (1f - reach), -0.6f * reach + 0.05f);
+				pose.mulPose(Axis.XP.rotationDegrees(-35f * reach));
 			} else {
 				// walking on his hands: each hand comes down in turn
 				float step = Mth.sin(swing * 0.6662f + (sd > 0 ? 0f : Mth.PI)) * amount;
@@ -150,7 +150,8 @@ public final class AndyFirstPerson {
 		float[] b = AndyTexels.box(part, AndyRender.slim(player));
 		pose.translate((b[0] + b[3] * 0.5f) / 16f, (b[1] + cut.rows()) / 16f, (b[2] + b[5] * 0.5f) / 16f);
 		Matrix4f m = pose.last().pose();
-		Vector3f dir = new Vector3f(0, 1, 0), a = new Vector3f(1, 0, 0), c = new Vector3f(0, 0, 1);
+		// the jet streams back along the forearm, past the bottom of the view (a sheath wider than the arm)
+		Vector3f dir = new Vector3f(0, -1, 0), a = new Vector3f(1, 0, 0), c = new Vector3f(0, 0, 1);
 		float flick = 0.85f + 0.15f * Mth.sin(now * 2.9f + part) + 0.1f * Mth.sin(now * 6.3f + part * 2f);
 		float len = (boost ? 1.3f : 0.85f) * flick, rad = boost ? 0.09f : 0.07f;
 		AndyEffectsRenderer.jetConePublic(buffers.getBuffer(RenderType.lightning()), m, dir, a, c, len, rad * 1.7f, 0.55f, 0.02f, 0.03f, 0.5f);
