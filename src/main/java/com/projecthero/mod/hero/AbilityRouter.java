@@ -221,6 +221,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.nova.NovaAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.3: Andy (Undead Unluck), on the same terms
+		if (com.projecthero.mod.andy.AndyAbilityManager.hasContext(player)) {
+			com.projecthero.mod.andy.AndyAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.17.3: Black Panther, on the same terms
 		if (com.projecthero.mod.blackpanther.BlackPantherAbilityManager.hasContext(player)) {
 			com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(player, slot, pressed);
@@ -409,6 +414,7 @@ public final class AbilityRouter {
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
 		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		com.projecthero.mod.blackpanther.BlackPanther.tick(player); // v0.17.3
+		com.projecthero.mod.andy.Andy.tick(player); // v0.17.3
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

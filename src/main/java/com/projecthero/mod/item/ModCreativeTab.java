@@ -117,6 +117,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
 				// v0.17.3 Black Panther: the Heart-Shaped Herb and its soup
 				com.projecthero.mod.blackpanther.item.BlackPantherItems.addToCreativeTab(output);
+				// v0.17.3 Andy: the Undead Card
+				com.projecthero.mod.andy.item.AndyItems.addToCreativeTab(output);
 				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit
 				com.projecthero.mod.falcon.item.FalconItems.addToCreativeTab(output);
 				// v0.17.1 the Omnitrix: the watch, the Meteor Scanner, the Plumber Alloy, the Containment Core and Pod

@@ -961,6 +961,14 @@ public final class ModAttachments {
 					.initializer(() -> com.projecthero.mod.stormbreaker.BifrostWaypoints.EMPTY));
 
 	/** v0.17.3: Black Panther (T'Challa) -- the power, the suit, Kinetic Energy, the Ancestral Plane, timers. */
+	public static final AttachmentType<com.projecthero.mod.andy.data.AndyState> ANDY_STATE = // v0.17.3: Andy (Undead Unluck) -- the six parts, regeneration, Victor
+			AttachmentRegistry.create(ProjectHeroMod.id("andy_state"),
+					builder -> builder.persistent(com.projecthero.mod.andy.data.AndyState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.andy.data.AndyState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.andy.data.AndyState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.blackpanther.data.BlackPantherState> BLACK_PANTHER_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("black_panther_state"),
 					builder -> builder.persistent(com.projecthero.mod.blackpanther.data.BlackPantherState.CODEC)

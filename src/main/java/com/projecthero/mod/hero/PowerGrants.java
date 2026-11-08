@@ -21,7 +21,7 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "black_panther",
+			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "black_panther", "andy",
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
@@ -62,6 +62,7 @@ public final class PowerGrants {
 	/** v0.17.1: heroes no random serum gives -- Falcon's gear is crafted, the Silver Surfer comes from his board. */
 	public static final java.util.Set<String> NOT_FROM_SERUMS = java.util.Set.of("falcon", "silver_surfer",
 			"black_panther", // v0.17.3: only the Heart-Shaped Herb Soup
+			"andy", // v0.17.3: only the Undead Card
 			"speed_force_speedster", // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
 			"omnitrix", // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
 			"stand_star_platinum"); // v0.17.2: only the Stand Arrow awakens a Stand
@@ -220,6 +221,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.kryptonian.Kryptonian.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " a Kryptonian" : name + " is already a Kryptonian"));
 			}
+			case "andy" -> {
+				boolean ok = com.projecthero.mod.andy.Andy.grant(target);
+				return new Result(ok, Component.literal(ok ? "Made " + name + " the Undead (Andy)" : name + " is already the Undead"));
+			}
 			case "black_panther" -> {
 				boolean ok = com.projecthero.mod.blackpanther.BlackPanther.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " the Black Panther" : name + " is already the Black Panther"));
@@ -318,6 +323,7 @@ public final class PowerGrants {
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "black_panther" -> com.projecthero.mod.blackpanther.BlackPanther.revoke(target); // v0.17.3
+			case "andy" -> com.projecthero.mod.andy.Andy.revoke(target); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.revoke(target); // v0.17.1
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				if (HeroTiers.holdsHero(target, hero)) {

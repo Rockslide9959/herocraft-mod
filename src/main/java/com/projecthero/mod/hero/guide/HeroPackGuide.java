@@ -135,6 +135,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
+	/** Andy (v0.17.3). */
+	public static Chapter andyChapter() {
+		return chapters().get(CH_ANDY);
+	}
+
 	/** Black Panther (v0.17.3). */
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
@@ -569,7 +574,8 @@ public final class HeroPackGuide {
 	private static final int CH_BLACK_PANTHER = CH_QUEEN_BEE + 1; // 64, v0.17.3
 	private static final int CH_BEAM_CLASH = CH_BLACK_PANTHER + 1; // 65, v0.17.3
 	private static final int CH_RYUKO = CH_BEAM_CLASH + 1; // 66, v0.17.3
-	private static final int CHAPTER_POWER_BASE = CH_RYUKO + 1; // 67
+	private static final int CH_ANDY = CH_RYUKO + 1; // 67, v0.17.3
+	private static final int CHAPTER_POWER_BASE = CH_ANDY + 1; // 68
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1708,6 +1714,37 @@ public final class HeroPackGuide {
 
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.LONGG)); // CH_RYUKO (v0.17.3)
 
+		// v0.17.3: Andy (CH_ANDY)
+		out.add(chapter("projecthero.guide.andy", lines -> {
+			lines.add(Component.translatable("projecthero.guide.andy.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.andy.body");
+			blank(lines);
+			for (String section : new String[]{"card", "parts", "missing", "regen", "undead", "passives", "victor"}) {
+				head(lines, "projecthero.guide.andy." + section);
+				para(lines, "projecthero.guide.andy." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.andy.controls");
+			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
+					{ "Shift+G", "great_crescent_moon" }, { "X", "blood_propulsion" }, { "Shift+X", "repair_glide" }, { "Z", "vortex_bullet" },
+					{ "Shift+Z", "parts_bullet_head" }, { "V", "regen_speed" }, { "Shift+V", "pull_the_card" }, { "C", "dead_line" },
+					{ "Shift+C", "dead_quardead" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.andy.victor_controls");
+			for (String[] row : new String[][] { { "R", "dead_vulcan" }, { "Shift+R", "division_bullet" }, { "G", "dead_blade" }, { "C", "dead_road" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.DARK_RED)
+						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.andy.commands");
+			para(lines, "projecthero.guide.andy.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -1860,6 +1897,7 @@ public final class HeroPackGuide {
 		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
 		icon(CH_RYUKO, "dragon_choker"); // v0.17.3
 		icon(CH_BLACK_PANTHER, "heart_shaped_herb"); // v0.17.3
+		icon(CH_ANDY, "undead_card"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
@@ -1960,6 +1998,7 @@ public final class HeroPackGuide {
 			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
 		}
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.andy"), 2, CH_ANDY)); // v0.17.3
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));

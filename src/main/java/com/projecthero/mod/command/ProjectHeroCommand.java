@@ -55,6 +55,7 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.cyborg.CyborgCommand.build())
 				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())
 				.then(com.projecthero.mod.blackpanther.BlackPantherMod.command())
+				.then(com.projecthero.mod.andy.AndyMod.command())
 				.then(com.projecthero.mod.miraculous.MiraculousCommand.build())
 				.then(com.projecthero.mod.quirk.QuirkCommand.build())
 				// v0.17.2 (user: "the greenlantern rank command doesnt work"): it was never registered -- rank 1-5, energy, status, dismiss

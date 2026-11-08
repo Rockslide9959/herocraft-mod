@@ -157,6 +157,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
+		com.projecthero.mod.client.andy.AndyClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11

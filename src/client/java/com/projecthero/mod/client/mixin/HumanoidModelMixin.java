@@ -426,6 +426,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.17.3: Andy's poses (fingers, Kurikara, the blood jets, the beams, the card). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$andyPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.andy.AndyPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.17.3: Black Panther's poses (the claws, the stance, the throw, the pounce). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$blackPantherPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
