@@ -66,6 +66,11 @@ public final class AndyMotion {
 			double fwd = d.x * -Math.sin(yawR) + d.z * Math.cos(yawR);
 			if (d.horizontalDistanceSqr() < 4.0) {
 				t.rolled += fwd;
+				// the rolling head knocks along the ground
+				if (!flying && player.onGround() && d.horizontalDistanceSqr() > 1.0e-4 && player.tickCount % 5 == 0
+						&& AndyStages.stage(s, player.level().getGameTime()) == AndyStages.ROLL) {
+					AndySounds.headRoll(player, (float) Math.sqrt(d.horizontalDistanceSqr()) * 20f);
+				}
 			}
 		}
 		t.lastPos = pos;

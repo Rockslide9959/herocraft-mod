@@ -64,6 +64,7 @@ public final class AndyBlood {
 		Vec3 c = at(player, part, b[0] + b[3] * 0.5f, b[1] + b[4] * 0.5f, b[2] + b[5] * 0.5f);
 		Vec3 carry = player.getDeltaMovement().scale(0.5);
 		BloodFx.spurt(c, new Vec3(0, 1, 0), (int) (26 * power), 0.22, 0.9, carry);
+		AndySounds.bloodBurst(c, power);
 		BloodFx.mist(c, (int) (4 * power), 0.35f, carry);
 		Vec3[] s = stump(player, part);
 		BloodFx.spurt(s[0], s[1], (int) (10 * power), 0.3, 0.35, carry);
@@ -82,6 +83,7 @@ public final class AndyBlood {
 		Vec3 e = endOf(player, part, rows);
 		Vec3 carry = player.getDeltaMovement().scale(0.5);
 		BloodFx.spurt(e, axis(player, part), (int) (14 * power), 0.22, 0.45, carry);
+		AndySounds.spray(e);
 		if (power > 1f) {
 			BloodFx.mist(e, 2, 0.25f, carry);
 		}
@@ -92,6 +94,14 @@ public final class AndyBlood {
 		Minecraft mc = Minecraft.getInstance();
 		boolean firstPersonSelf = player == mc.player && mc.options.getCameraType().isFirstPerson();
 		Vec3 carry = player.getDeltaMovement();
+		boolean flying = s.flag(AndyState.FLAG_PROPELLING);
+		AndySounds.jet(player, flying, flying && s.flag(AndyState.FLAG_BOOST));
+		boolean burning = false;
+		for (int part = AndyState.BODY; part < AndyState.PARTS && flying && s.flag(AndyState.FLAG_BOOST); part++) {
+			burning |= AndyFlight.burnt(s, part) > 0f;
+		}
+		AndySounds.burn(player, burning);
+		AndySounds.punchCharge(player, s.flag(AndyState.FLAG_PUNCH));
 		if (s.flag(AndyState.FLAG_PROPELLING) && firstPersonSelf && player instanceof net.minecraft.client.player.AbstractClientPlayer acp) {
 			AndyFirstPerson.spray(acp, s);
 		}
@@ -150,6 +160,9 @@ public final class AndyBlood {
 				if (s.broken(part) && now - s.brokenAt(part) < 50 && s.regrowth(part, now) <= 0f && part != AndyState.BODY) {
 					Vec3[] st = stump(player, part);
 					BloodFx.drip(st[0]);
+					if (now % 9 == 0) {
+						AndySounds.drip(st[0]);
+					}
 				}
 			}
 			if (now - s.ex(AndyState.X_LAST_SHOT) < 30) {

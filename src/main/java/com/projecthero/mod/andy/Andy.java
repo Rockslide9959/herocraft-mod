@@ -312,8 +312,7 @@ public final class Andy {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = AndyParts.centre(player, part);
 		if (kind == AndyState.KIND_BURST) {
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.0f, 0.7f);
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 0.8f, 0.6f);
+			AndySfx.partBreak(level, c); // v0.17.3 Andy sounds: wet tear + crunch, a spurt of blood
 			level.sendParticles(BLOOD, c.x, c.y, c.z, 3, 0.1, 0.1, 0.1, 0.0);
 		}
 		if (part == AndyState.HEAD && kind == AndyState.KIND_BURST) {
@@ -361,8 +360,7 @@ public final class Andy {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.2f, 0.5f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.2f, 0.5f);
+		AndySfx.shatter(level, c); // v0.17.3 Andy sounds: the whole body bursts
 		level.sendParticles(BLOOD, c.x, c.y, c.z, 6, 0.3, 0.5, 0.3, 0.0);
 		say(player, "message.projecthero.andy.undead", ChatFormatting.DARK_RED);
 	}
@@ -495,8 +493,7 @@ public final class Andy {
 				n.setKind(i, AndyState.KIND_NONE);
 				n.partHp.set(i, AndyConfig.PART_HP[i]);
 				whole = true;
-				Vec3 c = AndyParts.centre(player, i);
-				player.level().playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_PLACE, SoundSource.PLAYERS, 0.7f, 1.5f);
+				// v0.17.3 Andy sounds: the wet snap of a finished part is client-side (AndySounds.regrowth -> andy.regrow.finish)
 			}
 		}
 		AndyState cur = n != null ? n : s;
@@ -666,8 +663,7 @@ public final class Andy {
 	}
 
 	private static void startedRegrowing(ServerPlayer player, int part, int kind) {
-		Vec3 c = AndyParts.centre(player, part);
-		player.level().playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6f, 1.3f);
+		// v0.17.3 Andy sounds: the regrowth itself is heard client-side (AndySounds: bone, muscle, skin beds)
 		if (kind == AndyState.KIND_LAUNCHED) {
 			// the launched part (still lying about, or stuck in a wall) bursts as its replacement grows
 			ServerLevel level = (ServerLevel) player.level();

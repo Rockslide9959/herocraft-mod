@@ -51,6 +51,7 @@ public final class BloodFx {
 	private static final int[] SRGB = new int[MAX_SPLATS], SAGE = new int[MAX_SPLATS], SLIFE = new int[MAX_SPLATS], SLIGHT = new int[MAX_SPLATS];
 	private static int splats;
 	private static int splatCursor;
+	private static long lastSplatSound;
 
 	private static final RandomSource RND = RandomSource.create();
 	private static final Vector3f[] CORNERS = new Vector3f[8];
@@ -197,6 +198,10 @@ public final class BloodFx {
 						double top = below.getY() + shape.max(Direction.Axis.Y);
 						if (ny <= top + 0.001 && Y[i] >= top - 0.05) {
 							splat(nx, (float) top, nz, SIZE[i] * (2.2f + RND.nextFloat() * 1.6f), RGB[i], level);
+							if (level.getGameTime() - lastSplatSound >= 4) {
+								lastSplatSound = level.getGameTime();
+								AndySounds.splat(new Vec3(nx, top, nz));
+							}
 						}
 						remove(i);
 						i--;

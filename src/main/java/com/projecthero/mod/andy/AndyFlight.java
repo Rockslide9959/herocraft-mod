@@ -6,10 +6,7 @@ import com.projecthero.mod.andy.data.AndyState;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -73,10 +70,8 @@ public final class AndyFlight {
 		n.setEx(AndyState.X_BURN_TICKS, 0L);
 		n.setEx(AndyState.X_BURN_SEG, 0L);
 		Andy.save(p, n);
-		Vec3 c = p.position().add(0, 0.6, 0);
-		p.level().playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 1.0f, 0.5f);
-		p.level().playSound(null, c.x, c.y, c.z, SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.6f);
-		p.level().playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 1.0f, 1.4f);
+		// the jets' start / loop / stop are client-side (AndySounds.jet, from the synced flag); the hands and feet bursting off:
+		AndySfx.bloodBurst(p.level(), p.position().add(0, 0.6, 0), 1.2f);
 		return true;
 	}
 
@@ -105,9 +100,7 @@ public final class AndyFlight {
 		AndyState n = s.copy();
 		n.setFlag(AndyState.FLAG_BOOST, on);
 		Andy.save(p, n);
-		if (on) {
-			p.level().playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.8f, 0.6f);
-		}
+
 	}
 
 	// ---------------------------------------------------------------- the burn
@@ -176,13 +169,6 @@ public final class AndyFlight {
 		if (s.flag(AndyState.FLAG_BOOST) && !s.headOnly(now)) {
 			burn(p, s, now);
 		}
-		ServerLevel level = (ServerLevel) p.level();
-		if (now % 6 == 0) {
-			level.playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 0.5f, 1.6f);
-		}
-		if (s.flag(AndyState.FLAG_BOOST) && now % 5 == 0) {
-			level.playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.FIRE_AMBIENT, SoundSource.PLAYERS, 1.0f, 1.4f);
-		}
 	}
 
 	/** One tick of the boost burn: the current stage burns on; when it is through, its parts break (no lethal damage). */
@@ -204,7 +190,7 @@ public final class AndyFlight {
 			for (int part : BURN_STAGES[k]) {
 				Andy.breakPart(p, part, AndyState.KIND_BURNT);
 			}
-			p.level().playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.8f, 0.8f);
+			AndySfx.spray(p.level(), p.position().add(0, 1, 0)); // the burn loop itself is client-side (AndySounds.burn)
 		}
 	}
 }

@@ -273,7 +273,7 @@ public final class AndyAbilities {
 		Vec3 h = handOrigin(p, arm);
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, h, p.getLookAngle().scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
 		eat(p, arm, AndyConfig.PARTS_EAT);
-		sound(p, SoundEvents.CROSSBOW_SHOOT, 0.8f, 1.6f);
+		AndySfx.partsBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 3, 0.03, 0.03, 0.03, 0.0);
 	}
 
@@ -293,8 +293,7 @@ public final class AndyAbilities {
 		AndyState n = Andy.state(p).copy();
 		n.slowRegenUntil = p.level().getGameTime() + AndyConfig.CRIMSON_SLOW_TICKS;
 		Andy.save(p, n);
-		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.5f, 1.8f);
-		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.6f);
+		AndySfx.crimsonBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}
 
@@ -308,7 +307,7 @@ public final class AndyAbilities {
 		n.setFlag(AndyState.FLAG_PUNCH, true);
 		n.setEx(AndyState.X_PUNCH_START, p.level().getGameTime());
 		Andy.save(p, n);
-		sound(p, SoundEvents.CROSSBOW_LOADING_START.value(), 0.8f, 0.6f);
+		AndySfx.punchStretch(p.level(), p.getEyePosition()); // the stretch loop while it is held is client-side (AndySounds.punchCharge)
 		return arm >= 0;
 	}
 
@@ -346,8 +345,8 @@ public final class AndyAbilities {
 		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
 		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.5));
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_PUNCH, arm, from, p.getLookAngle().scale(AndyConfig.PUNCH_SPEED), AndyConfig.PUNCH_DAMAGE);
-		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.6f);
-		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.9f, 0.5f);
+		AndySfx.punchFire(level(p), from);
+		AndySfx.launch(level(p), from);
 		level(p).sendParticles(Andy.BLOOD_BIG, from.x, from.y, from.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}
 
