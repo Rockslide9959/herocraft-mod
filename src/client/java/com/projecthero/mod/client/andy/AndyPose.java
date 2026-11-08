@@ -45,14 +45,6 @@ public final class AndyPose {
 			set(model.leftLeg, 1f, 0.25f, 0f, -0.04f);
 			return;
 		}
-		if (s.flag(AndyState.FLAG_GLIDING)) {
-			float spin = now * 1.2f;
-			set(model.rightArm, 1f, -0.2f, 0f, 1.45f + 0.1f * Mth.sin(spin));
-			set(model.leftArm, 1f, -0.2f, 0f, -1.45f - 0.1f * Mth.sin(spin));
-			set(model.rightLeg, 1f, -0.9f, 0f, 0.1f);
-			set(model.leftLeg, 1f, 0.5f, 0f, -0.1f);
-			return;
-		}
 		if (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)) {
 			set(main, 1f, aim, model.head.yRot, 0f);
 			if (s.flag(AndyState.FLAG_DEAD_ROAD)) {
@@ -138,6 +130,25 @@ public final class AndyPose {
 					float w = Mth.sin(age / 14f * Mth.PI);
 					set(model.rightArm, w, -0.3f, 0f, 1.3f);
 					set(model.leftArm, w, -0.3f, 0f, -1.3f);
+				}
+			}
+			case AndyState.ANIM_HEAD_CHARGE -> {
+				// the Head Launch wind-up: the head tips back, shoulders pulled down and back, a building tremble
+				float k = Mth.clamp(age / 15f, 0f, 1f);
+				if (age < 30f) {
+					float shake = 0.035f * k * Mth.sin(age * 4.1f);
+					model.head.xRot = Mth.lerp(k, model.head.xRot, -0.75f) + shake;
+					model.body.xRot += 0.12f * k;
+					set(model.rightArm, k, 0.45f + shake, 0f, 0.28f);
+					set(model.leftArm, k, 0.45f - shake, 0f, -0.28f);
+				}
+			}
+			case AndyState.ANIM_LEG_LAUNCH -> {
+				if (age < 14f) {
+					// thrown forward: arms swept back along the flight
+					float w = Math.min(1f, (14f - age) / 4f);
+					set(model.rightArm, w, 0.9f, 0f, 0.35f);
+					set(model.leftArm, w, 0.9f, 0f, -0.35f);
 				}
 			}
 			default -> {

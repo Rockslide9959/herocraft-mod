@@ -150,6 +150,7 @@
 		"AndyHeldItemMixin",
 		"AndyFirstPersonItemMixin",
 		"AndyArmorPartsMixin",
+		"AndyLaunchFovMixin",
 		"BeamClashParticleMixin",
 		"CatNoirFirstPersonArmMixin",
 		"CatNoirItemInHandMixin",

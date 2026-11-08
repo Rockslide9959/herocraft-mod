@@ -382,7 +382,7 @@ public class AndyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void glidePropulsionAndWavesRun(GameTestHelper helper) {
+	public void propulsionAndWavesRun(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		Zombie z = zombie(helper, 2, 5);
 		AndyAbilities.startPropulsion(p);
@@ -397,8 +397,6 @@ public class AndyGameTests implements FabricGameTest {
 		helper.onEachTick(() -> Andy.tick(p));
 		helper.runAfterDelay(14, () -> {
 			helper.assertTrue(z.getHealth() < 200f, "the blood waves reach the zombie");
-			AndyAbilities.glide(p);
-			helper.assertTrue(Andy.state(p).flag(AndyState.FLAG_GLIDING), "Repair Glide runs");
 			helper.succeed();
 		});
 	}
@@ -421,6 +419,104 @@ public class AndyGameTests implements FabricGameTest {
 			AndyAbilities.deadRoad(p);
 			helper.assertTrue(Andy.state(p).flag(AndyState.FLAG_DEAD_ROAD), "Dead Road fires");
 			helper.getLevel().getEntitiesOfClass(AndyCloneEntity.class, box, e -> true).forEach(e -> e.discard());
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- X: Leg Launch, Head Launch, Shift + hold flight (v0.17.3)
+
+	private static final com.projecthero.mod.hero.AbilitySlot X = com.projecthero.mod.hero.AbilitySlot.SLOT_3;
+
+	private static java.util.List<AndyPartEntity> leftBehind(GameTestHelper helper, ServerPlayer p) {
+		return helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, new AABB(p.blockPosition()).inflate(8), e -> e.isLeftBehind() && e.ownerIs(p));
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void tapXLaunchesTheBodyOffTheLegs(GameTestHelper helper) {
+		ServerPlayer p = andy(helper); // facing +z
+		helper.onEachTick(() -> Andy.tick(p));
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, true);
+		helper.runAfterDelay(4, () -> {
+			helper.assertTrue(!Andy.missing(p, AndyState.RIGHT_LEG), "nothing yet while X is still down");
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, false);
+			AndyState s = Andy.state(p);
+			helper.assertTrue(s.broken(AndyState.RIGHT_LEG) && s.broken(AndyState.LEFT_LEG), "a tap breaks both legs");
+			helper.assertTrue(s.kind(AndyState.RIGHT_LEG) == AndyState.KIND_LAUNCHED, "left behind, not burst");
+			helper.assertTrue(!s.broken(AndyState.HEAD) && !s.broken(AndyState.BODY), "the rest of him goes");
+			Vec3 v = p.getDeltaMovement();
+			helper.assertTrue(v.z > 1.0 && v.y > 0.0, "thrown forward along the look with a small arc: " + v);
+			helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.flying(p), "the launch runs");
+			helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.fallImmune(p), "no fall damage from it");
+			helper.assertTrue(leftBehind(helper, p).size() == 2, "the two legs stay where he stood: " + leftBehind(helper, p).size());
+			helper.assertTrue(Andy.cooldownRemaining(p, com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH) > 0, "on cooldown");
+			leftBehind(helper, p).forEach(e -> e.discard());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void holdXLaunchesTheHeadAndLeavesTheBody(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		helper.onEachTick(() -> Andy.tick(p));
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, true);
+		helper.runAfterDelay(AndyConfig.LAUNCH_CHARGE_SHOW + 3, () -> {
+			helper.assertTrue(Andy.state(p).animId == AndyState.ANIM_HEAD_CHARGE, "the wind-up shows while X is held");
+			helper.assertTrue(!Andy.state(p).anyBroken(), "nothing breaks during the wind-up");
+		});
+		helper.runAfterDelay(AndyConfig.HEAD_LAUNCH_HOLD + 3, () -> {
+			// still held: it fired on its own at the full hold
+			AndyState s = Andy.state(p);
+			helper.assertTrue(!s.broken(AndyState.HEAD), "the player is the head");
+			for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+				helper.assertTrue(s.broken(i), "part " + i + " is left behind");
+			}
+			helper.assertTrue(leftBehind(helper, p).size() == 5, "the body, arms and legs stay where he stood: " + leftBehind(helper, p).size());
+			helper.assertTrue(Andy.cooldownRemaining(p, com.projecthero.mod.andy.AndyLaunch.HEAD_LAUNCH) > 0, "on cooldown");
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, false);
+			helper.assertTrue(Andy.cooldownRemaining(p, com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH) == 0, "letting go after it does not also Leg Launch");
+			leftBehind(helper, p).forEach(e -> e.discard());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void headLaunchGivesTheHeadFlight(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		com.projecthero.mod.andy.AndyLaunch.headLaunch(p);
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(v.z > 1.0 && v.y > 0.4, "the head shoots off forward and up: " + v);
+		helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.flying(p), "the launch runs");
+		leftBehind(helper, p).forEach(e -> e.discard());
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void shiftHoldXFliesAndGlideIsGone(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		helper.assertTrue(java.util.Arrays.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, X),
+				new String[] { com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH, AndyAbilities.PROPULSION }), "X: Leg Launch, Shift: the flight");
+		boolean glide = true;
+		try {
+			AndyAbilities.class.getField("GLIDE");
+		} catch (NoSuchFieldException e) {
+			glide = false;
+		}
+		helper.assertTrue(!glide, "Repair Glide is gone");
+		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH) == AndyConfig.LEG_LAUNCH_COOLDOWN
+				&& AndyConfig.LEG_LAUNCH_COOLDOWN == 60, "Leg Launch 3s cooldown");
+		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(com.projecthero.mod.andy.AndyLaunch.HEAD_LAUNCH) == AndyConfig.HEAD_LAUNCH_COOLDOWN
+				&& AndyConfig.HEAD_LAUNCH_COOLDOWN == 200, "Head Launch 10s cooldown");
+		helper.assertTrue(AndyConfig.HEAD_LAUNCH_HOLD == 20, "the hold is a second");
+		p.setShiftKeyDown(true);
+		helper.onEachTick(() -> Andy.tick(p));
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, true);
+		helper.runAfterDelay(1, () -> helper.assertTrue(!Andy.state(p).flag(AndyState.FLAG_PROPELLING), "a Shift tap does not fly yet"));
+		helper.runAfterDelay(AndyConfig.FLIGHT_HOLD_TICKS + 3, () -> {
+			helper.assertTrue(Andy.state(p).flag(AndyState.FLAG_PROPELLING), "Shift + hold X flies");
+			helper.assertTrue(!Andy.state(p).anyBroken(), "and launches nothing");
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, X, false);
+			helper.assertTrue(!Andy.state(p).flag(AndyState.FLAG_PROPELLING), "letting go stops it");
+			helper.assertTrue(Andy.cooldownRemaining(p, com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH) == 0, "no Leg Launch on release");
 			helper.succeed();
 		});
 	}

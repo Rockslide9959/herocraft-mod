@@ -174,7 +174,7 @@ public final class AndyHud {
 			float frac = Math.min(1f, cd / (float) Math.max(1, AndyAbilityManager.maxCooldown(shown)));
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, Andy.cooldownRemaining(p, other) / (float) Math.max(1, AndyAbilityManager.maxCooldown(other)));
-			boolean active = (slot == AbilitySlot.SLOT_3 && (s.flag(AndyState.FLAG_PROPELLING) || s.flag(AndyState.FLAG_GLIDING)))
+			boolean active = (slot == AbilitySlot.SLOT_3 && s.flag(AndyState.FLAG_PROPELLING))
 					|| (slot == AbilitySlot.SLOT_6 && (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)))
 					|| (slot == AbilitySlot.SLOT_5 && victor);
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);

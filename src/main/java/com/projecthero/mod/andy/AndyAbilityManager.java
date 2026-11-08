@@ -18,7 +18,8 @@ import net.minecraft.world.entity.player.Player;
  * <pre>
  *   R (1)  Parts Bullet              Shift+R  Crimson Bullet          (Victor: Dead Vulcan / Division Bullet)
  *   G (2)  Crimson Crescent Moon     Shift+G  Great Deep-Crimson Crescent Moon   (Victor: Dead Blade)
- *   X (3)  Blood Propulsion (hold)   Shift+X  Repair Glide
+ *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
+ *          hold 1 s: Head Launch
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
  *   V (5)  tap: Regeneration speed   Shift+V  Pull the Card (Victor)
  *          hold 1 s: Regeneration style
@@ -31,6 +32,11 @@ public final class AndyAbilityManager {
 	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
 	/** A plain V held down: {when it went down, 1 once the hold has cycled the style}. */
 	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
+	/**
+	 * X held down: {when it went down, 1 if Shift was down then (flight), 1 once the hold has fired (flight started / Head
+	 * Launch), 1 once the Head Launch wind-up shows}.
+	 */
+	private static final Map<UUID, long[]> X_HELD = new ConcurrentHashMap<>();
 
 	private AndyAbilityManager() {
 	}
@@ -38,11 +44,15 @@ public final class AndyAbilityManager {
 	static void clearSessionState() {
 		LAST_PRESS.clear();
 		V_HELD.clear();
+		X_HELD.clear();
+		AndyLaunch.clearSessionState();
 	}
 
 	static void forget(UUID id) {
 		LAST_PRESS.remove(id);
 		V_HELD.remove(id);
+		X_HELD.remove(id);
+		AndyLaunch.forget(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -104,12 +114,16 @@ public final class AndyAbilityManager {
 				}
 			}
 			case SLOT_3 -> {
-				if (!pressed) {
-					AndyAbilities.stopPropulsion(player);
-				} else if (shift) {
-					AndyAbilities.glide(player);
+				// tap: Leg Launch (on release); hold HEAD_LAUNCH_HOLD: Head Launch (tickHold, while still held);
+				// Shift + hold: the flight, from FLIGHT_HOLD_TICKS until release. Which one is decided by Shift when X goes down.
+				if (pressed) {
+					X_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), shift ? 1L : 0L, 0L, 0L });
 				} else {
-					AndyAbilities.startPropulsion(player);
+					long[] held = X_HELD.remove(player.getUUID());
+					AndyAbilities.stopPropulsion(player); // FLIGHT HOOK (stop)
+					if (held != null && held[1] == 0L && held[2] == 0L) {
+						AndyLaunch.legLaunch(player);
+					}
 				}
 			}
 			case SLOT_4 -> {
@@ -155,6 +169,8 @@ public final class AndyAbilityManager {
 
 	/** From {@link Andy#tick}: a plain V held long enough cycles the regrowth style, once per hold. */
 	static void tickHold(ServerPlayer player) {
+		tickX(player);
+		AndyLaunch.tick(player);
 		long[] held = V_HELD.get(player.getUUID());
 		if (held == null || held[1] != 0L) {
 			return;
@@ -165,13 +181,37 @@ public final class AndyAbilityManager {
 		}
 	}
 
+	/** X held: Shift + hold starts the flight; a plain hold winds up and fires the Head Launch, still held. */
+	private static void tickX(ServerPlayer player) {
+		long[] x = X_HELD.get(player.getUUID());
+		if (x == null || x[2] != 0L) {
+			return;
+		}
+		long held = player.level().getGameTime() - x[0];
+		if (x[1] != 0L) {
+			if (held >= AndyConfig.FLIGHT_HOLD_TICKS) {
+				x[2] = 1L;
+				AndyAbilities.startPropulsion(player); // FLIGHT HOOK (start)
+			}
+		} else if (held >= AndyConfig.HEAD_LAUNCH_HOLD) {
+			x[2] = 1L;
+			AndyLaunch.headLaunch(player);
+		} else if (held >= AndyConfig.LAUNCH_CHARGE_SHOW) {
+			if (x[3] == 0L) {
+				x[3] = 1L;
+				AndyLaunch.charge(player);
+			}
+			AndyLaunch.charging(player, held);
+		}
+	}
+
 	/** The move ids on a slot (plain, Shift), for the HUD; Victor's kit while he is Victor. */
 	public static String[] idsOf(Player player, AbilitySlot slot) {
 		boolean victor = Andy.victor(player);
 		return switch (slot) {
 			case SLOT_1 -> victor ? new String[] { AndyAbilities.VULCAN, AndyAbilities.DIVISION } : new String[] { AndyAbilities.PARTS_BULLET, AndyAbilities.CRIMSON_BULLET };
 			case SLOT_2 -> new String[] { victor ? AndyAbilities.DEAD_BLADE : AndyAbilities.CRESCENT, AndyAbilities.GREAT_CRESCENT };
-			case SLOT_3 -> new String[] { AndyAbilities.PROPULSION, AndyAbilities.GLIDE };
+			case SLOT_3 -> new String[] { AndyLaunch.LEG_LAUNCH, AndyAbilities.PROPULSION };
 			case SLOT_4 -> new String[] { AndyAbilities.VORTEX, AndyAbilities.HEAD_BULLET };
 			case SLOT_5 -> new String[] { AndyAbilities.REGEN, AndyAbilities.CARD };
 			case SLOT_6 -> new String[] { victor ? AndyAbilities.DEAD_ROAD : AndyAbilities.DEAD_LINE, AndyAbilities.QUARDEAD };
@@ -186,7 +226,8 @@ public final class AndyAbilityManager {
 			case AndyAbilities.CRESCENT -> AndyConfig.CRESCENT_COOLDOWN;
 			case AndyAbilities.GREAT_CRESCENT -> AndyConfig.GREAT_CRESCENT_COOLDOWN;
 			case AndyAbilities.PROPULSION -> AndyConfig.PROPULSION_COOLDOWN;
-			case AndyAbilities.GLIDE -> AndyConfig.GLIDE_COOLDOWN;
+			case AndyLaunch.LEG_LAUNCH -> AndyConfig.LEG_LAUNCH_COOLDOWN;
+			case AndyLaunch.HEAD_LAUNCH -> AndyConfig.HEAD_LAUNCH_COOLDOWN;
 			case AndyAbilities.VORTEX -> AndyConfig.VORTEX_COOLDOWN;
 			case AndyAbilities.HEAD_BULLET -> AndyConfig.HEAD_BULLET_COOLDOWN;
 			case AndyAbilities.CARD -> AndyConfig.VICTOR_COOLDOWN;
