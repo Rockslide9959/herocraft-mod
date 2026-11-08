@@ -195,15 +195,13 @@ public class AndyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void regenSpeedCyclesSlowNormalBurst(GameTestHelper helper) {
+	public void vTogglesFastRegeneration(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "starts on Normal");
 		Andy.cycleSpeed(p);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "then Burst");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "then Fast");
 		Andy.cycleSpeed(p);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_SLOW, "then Slow");
-		Andy.cycleSpeed(p);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "and round");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "and back to Normal (no Slow to pick)");
 		helper.succeed();
 	}
 

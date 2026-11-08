@@ -155,7 +155,7 @@ public final class AndyFlight {
 			return;
 		}
 		long now = p.level().getGameTime();
-		if (now - s.holdStart > AndyConfig.PROPULSION_MAX || !p.isAlive() || p.isSpectator() || s.broken(AndyState.HEAD)) {
+		if (!p.isAlive() || p.isSpectator() || s.broken(AndyState.HEAD)) {
 			stop(p);
 			return;
 		}

@@ -14,7 +14,9 @@ public final class AndyConfig {
 	/** An explosion lands this share of its damage on every part. */
 	public static final float BLAST_SHARE = 0.55f;
 
-	// ---------------------------------------------------------------- regeneration (Slow, Normal, Burst)
+	// ---------------------------------------------------------------- regeneration (Normal, or Fast on V; Slow only when starving)
+	// v0.17.3 (user: "the regen is slow but player can press V to speed it up at the cost of losing hunger a lot faster"):
+	// V toggles Normal and Fast (SPEED_BURST). SPEED_SLOW is no longer picked -- it is what a starving Andy falls back to.
 	public static final int SPEED_SLOW = 0;
 	public static final int SPEED_NORMAL = 1;
 	public static final int SPEED_BURST = 2;
@@ -24,7 +26,7 @@ public final class AndyConfig {
 	 * How long the regrowth itself takes (v0.17.3, user: "regrowth should be slower"): at Normal 170 ticks = 8.5 s. Slow and
 	 * Burst scale the whole thing (x1.4, x0.6), the gaps between the layers included.
 	 */
-	public static final int[] REGROW_TICKS = { 238, 170, 102 };
+	public static final int[] REGROW_TICKS = { 238, 170, 68 };
 	/**
 	 * The three layers of a regrowth, as {start, length} shares of {@link #REGROW_TICKS} (user: "the bone starts pushing out and
 	 * then 2 seconds after the muscle starts rebuilding and then 2 seconds after that the skin starts building on"). At Normal
@@ -35,7 +37,9 @@ public final class AndyConfig {
 	public static final float[] LAYER_MUSCLE = { 40f / 170f, 80f / 170f };
 	public static final float[] LAYER_SKIN = { 80f / 170f, 90f / 170f };
 	/** Hunger (food points) a regrown part costs; the body costs one more. */
-	public static final int[] REGROW_FOOD = { 1, 2, 3 };
+	public static final int[] REGROW_FOOD = { 1, 2, 4 };
+	/** Fast regeneration also burns hunger every tick a part is growing back (food exhaustion; 4 = one food point). */
+	public static final float FAST_EXHAUSTION_PER_TICK = 0.1f;
 	/** Crimson Bullet: the regeneration delay is multiplied by this for {@link #CRIMSON_SLOW_TICKS}. */
 	public static final float CRIMSON_SLOW_FACTOR = 2.5f;
 	public static final int CRIMSON_SLOW_TICKS = 300;
@@ -75,11 +79,11 @@ public final class AndyConfig {
 	 * Each arm and leg takes {@link #STAGE_LIMB} (the same bone / muscle / skin layers, compressed: at Normal 110 ticks, so the
 	 * gaps are 1.3 s rather than the 2 s of a single limb) -- head to walking takes about 27 s at Normal, 37 s Slow, 16 s Burst.
 	 */
-	public static final int[] STAGE_DELAY = { 28, 20, 12 };
-	public static final int[] STAGE_ARM_LEAD = { 22, 16, 10 };
-	public static final int[] STAGE_LIMB = { 154, 110, 66 };
+	public static final int[] STAGE_DELAY = { 28, 20, 8 };
+	public static final int[] STAGE_ARM_LEAD = { 22, 16, 7 };
+	public static final int[] STAGE_LIMB = { 154, 110, 44 };
 	public static final int STAGE_TORSO_TAIL = 20;
-	public static final int[] STAGE_LEG_GAP = { 28, 20, 12 };
+	public static final int[] STAGE_LEG_GAP = { 28, 20, 8 };
 
 	// ---------------------------------------------------------------- Undead
 	/** Just shattered: untouchable and no moves for this long (the body then grows back by the staged regrowth). */
@@ -135,7 +139,8 @@ public final class AndyConfig {
 	public static final double PROPULSION_SPEED = 1.25;
 	public static final double BOOST_SPEED = 2.0;
 	public static final double HEAD_FLIGHT_SPEED = 1.6;
-	public static final int PROPULSION_MAX = 200;
+	/** v0.17.3 (user: "remove the time limit on the flight, player should be able to fly infinitely"): no limit. */
+	public static final int PROPULSION_MAX = Integer.MAX_VALUE;
 	public static final int PROPULSION_COOLDOWN = 30;
 	/** Rows (model px, of 12) of each arm and leg that burst off at take-off: the hands and feet. */
 	public static final int HAND_ROWS = 4;

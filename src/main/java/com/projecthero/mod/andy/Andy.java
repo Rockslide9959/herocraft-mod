@@ -387,13 +387,22 @@ public final class Andy {
 
 	public static void cycleSpeed(ServerPlayer player) {
 		AndyState n = state(player).copy();
-		n.regenSpeed = (n.regenSpeed + 1) % 3;
+		n.regenSpeed = n.regenSpeed == AndyConfig.SPEED_BURST ? AndyConfig.SPEED_NORMAL : AndyConfig.SPEED_BURST; // V: Normal <-> Fast
 		save(player, n);
 		String[] names = { "slow", "normal", "burst" };
 		LAST_MESSAGE.remove(player.getUUID());
 		say(player, "message.projecthero.andy.speed", ChatFormatting.RED, Component.translatable("projecthero.andy.speed." + names[n.regenSpeed]));
 		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
 				0.8f, 0.7f + 0.3f * n.regenSpeed);
+	}
+
+	static boolean regrowingAny(AndyState s, long now) {
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			if (s.broken(i) && s.regrowStart(i) > 0L && s.regrowStart(i) <= now && now < s.regrowEnd(i)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static void setSpeed(ServerPlayer player, int speed) {
@@ -469,6 +478,10 @@ public final class Andy {
 		if (!flying && needsHeadOnlyPlan(s)) {
 			n = s.copy();
 			planHeadOnly(player, n, now);
+		}
+		// Fast regeneration eats hunger the whole time something is growing back
+		if (s.regenSpeed == AndyConfig.SPEED_BURST && !player.getAbilities().instabuild && regrowingAny(s, now)) {
+			player.causeFoodExhaustion(AndyConfig.FAST_EXHAUSTION_PER_TICK);
 		}
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			AndyState cur = n != null ? n : s;
