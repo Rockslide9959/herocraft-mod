@@ -278,8 +278,8 @@ public final class AndyRegrow {
 	 * the flesh and skin coming down.
 	 */
 	private static void limbBone(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float p, float f) {
-		float g = Math.min(1f, p / 0.15f);
-		float reach = Math.min(11.9f, 7f + 4.9f * g * g * (3f - 2f * g));
+		float g = Math.min(1f, p / 0.12f);
+		float reach = Math.min(11.9f, 9f + 2.9f * g * g * (3f - 2f * g));
 		float top = Math.max(0f, f - 1.5f);
 		if (reach <= top + 0.05f) {
 			return;
@@ -316,7 +316,7 @@ public final class AndyRegrow {
 	 * The fixed timetable of one limb (cached per part and skin model): for every 1 px cell of the limb (column x, z; row
 	 * from the joint) the front at which its flesh appears and the front at which the skin covers it, and for every texel
 	 * the front at which it pops in. The boundary is ragged per column (smooth noise down the rows plus a little per-cell
-	 * scatter, kept monotonic down each column so nothing un-grows), and the band is 2.4-4 px tall.
+	 * scatter, kept monotonic down each column so nothing un-grows), and the band is 2.2-3.3 px tall.
 	 */
 	static final class Limb {
 		float[] box;
@@ -368,10 +368,10 @@ public final class AndyRegrow {
 					float prevS = -9f, prevF = -9f;
 					for (int r = 0; r < h; r++) {
 						int i = cell(x, r, z);
-						float off = AndyTexels.noise(x * 0.85f + 3.1f, r * 0.55f, z * 0.85f + 1.7f, seed) * 2.6f - 1.3f
+						float off = AndyTexels.noise(x * 0.85f + 3.1f, r * 0.55f, z * 0.85f + 1.7f, seed) * 1.8f - 0.9f
 								+ (AndyTexels.hash(x, r, z, seed + 1) - 0.5f) * 0.5f;
 						float s = Math.max(r + 0.5f - off, prevS + 0.3f);
-						float fl = Math.max(s - (2.4f + 1.6f * AndyTexels.hash(x, r, z, seed + 2)), prevF + 0.3f);
+						float fl = Math.max(s - (2.2f + 1.1f * AndyTexels.hash(x, r, z, seed + 2)), prevF + 0.3f);
 						skinAt[i] = s;
 						fleshAt[i] = fl;
 						prevS = s;
