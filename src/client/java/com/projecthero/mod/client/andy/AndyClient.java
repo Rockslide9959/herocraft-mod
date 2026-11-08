@@ -19,8 +19,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -49,6 +47,7 @@ public final class AndyClient {
 		AndyCloneEntity.clientRemoval = AndyCloneRenderer::removed;
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
 		ClientTickEvents.END_CLIENT_TICK.register(AndyClient::tick);
+		AndySounds.initialize(); // v0.17.3 Andy sounds: regrowth beds + accents, jets, burn, punch
 	}
 
 	static void reset() {
@@ -111,18 +110,8 @@ public final class AndyClient {
 		PixelCubes.burst(AndyRender.skin(player), AndyRender.slim(player), part, AndyRender.partMatrix(player, part), push, 0xFFFFFFFF, power);
 	}
 
-	/** A soft run of clicks while a part re-forms, rising as it fills. */
+	/** The flesh rebuilding itself: bone grind, wet muscle, tightening skin and a snap per part ({@link AndySounds#watch}). */
 	private static void regrowSounds(Minecraft mc, Player player, AndyState s, long now) {
-		if (now % 3 != 0 || mc.player == null || player.distanceToSqr(mc.player) > 24 * 24) {
-			return;
-		}
-		for (int i = 0; i < AndyState.PARTS; i++) {
-			float p = s.regrowth(i, now);
-			if (s.broken(i) && p > 0.05f && p < 1f) {
-				mc.level.playLocalSound(player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
-						0.18f, 1.1f + p * 0.9f, false);
-				return;
-			}
-		}
+		AndySounds.watch(player, s, now);
 	}
 }
