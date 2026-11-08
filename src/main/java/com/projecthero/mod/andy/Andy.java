@@ -171,7 +171,7 @@ public final class Andy {
 		Vec3 c = player.getEyePosition();
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 0.35f, 1.6f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 0.6f);
-		level.sendParticles(BLOOD_BIG, c.x, c.y, c.z, 24, 0.4, 0.4, 0.4, 0.0);
+		level.sendParticles(BLOOD, c.x, c.y + 0.6, c.z, 8, 0.4, 0.2, 0.4, 0.0);
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
 				Component.translatable("message.projecthero.andy.title").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)));
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
@@ -259,7 +259,7 @@ public final class Andy {
 		if (kind == AndyState.KIND_BURST) {
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.0f, 0.7f);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 0.8f, 0.6f);
-			level.sendParticles(BLOOD, c.x, c.y, c.z, 10, 0.15, 0.15, 0.15, 0.0);
+			level.sendParticles(BLOOD, c.x, c.y, c.z, 3, 0.1, 0.1, 0.1, 0.0);
 		}
 		if (part == AndyState.HEAD && kind == AndyState.KIND_BURST) {
 			AndyAbilities.repairHeadbutt(player, true);
@@ -307,7 +307,7 @@ public final class Andy {
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.2f, 0.5f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.2f, 0.5f);
-		level.sendParticles(BLOOD_BIG, c.x, c.y, c.z, 30, 0.4, 0.6, 0.4, 0.0);
+		level.sendParticles(BLOOD, c.x, c.y, c.z, 6, 0.3, 0.5, 0.3, 0.0);
 		say(player, "message.projecthero.andy.undead", ChatFormatting.DARK_RED);
 	}
 

@@ -103,10 +103,10 @@ public final class PixelCubes {
 				out.set(0, 1, 0);
 			}
 			out.normalize();
-			double speed = (0.05 + rnd.nextDouble() * 0.11) * power;
-			c.vx = out.x * speed + (rnd.nextDouble() - 0.5) * 0.06 * power + push.x;
-			c.vy = out.y * speed * 0.6 + 0.06 + rnd.nextDouble() * 0.12 * power + push.y;
-			c.vz = out.z * speed + (rnd.nextDouble() - 0.5) * 0.06 * power + push.z;
+			double speed = (0.03 + rnd.nextDouble() * 0.07) * power;
+			c.vx = out.x * speed + (rnd.nextDouble() - 0.5) * 0.03 * power + push.x;
+			c.vy = out.y * speed * 0.6 + 0.04 + rnd.nextDouble() * 0.09 * power + push.y;
+			c.vz = out.z * speed + (rnd.nextDouble() - 0.5) * 0.03 * power + push.z;
 			Vector3f axis = new Vector3f(rnd.nextFloat() - 0.5f, rnd.nextFloat() - 0.5f, rnd.nextFloat() - 0.5f);
 			if (axis.lengthSquared() < 1.0e-4f) {
 				axis.set(0, 1, 0);
@@ -116,8 +116,8 @@ public final class PixelCubes {
 			c.ay = axis.y;
 			c.az = axis.z;
 			c.spin = (rnd.nextFloat() - 0.5f) * 0.9f;
-			c.size = (t.overlay ? 1.1f : 1.0f) / 16f * scale;
-			c.life = 34 + rnd.nextInt(26);
+			c.size = 1f / 16f * scale; // exactly one skin texel
+			c.life = 28 + rnd.nextInt(22);
 			c.argb = tint;
 			c.light = level != null ? LevelRenderer.getLightColor(level, BlockPos.containing(c.x, c.y, c.z)) : 0xF000F0;
 			CUBES.add(c);
@@ -190,8 +190,8 @@ public final class PixelCubes {
 						// the floor: bounce, lose spin and speed
 						ny = top + half;
 						c.vy = -c.vy * 0.38;
-						c.vx *= 0.62;
-						c.vz *= 0.62;
+						c.vx *= 0.45;
+						c.vz *= 0.45;
 						c.spin *= 0.55;
 						if (Math.abs(c.vy) < 0.035 && c.vx * c.vx + c.vz * c.vz < 0.0004) {
 							c.vy = 0;
@@ -226,15 +226,20 @@ public final class PixelCubes {
 		Vec3 cam = context.camera().getPosition();
 		PoseStack pose = context.matrixStack();
 		PoseStack.Pose last = pose.last();
-		Map<ResourceLocation, VertexConsumer> buffers = new HashMap<>();
+		// one texture at a time: asking the buffer source for another type ends the last one
+		Map<ResourceLocation, List<Cube>> groups = new HashMap<>();
+		for (Cube c : CUBES) {
+			groups.computeIfAbsent(c.tex, k -> new ArrayList<>()).add(c);
+		}
 		Quaternionf q = new Quaternionf();
 		Vector3f[] corners = new Vector3f[8];
 		for (int i = 0; i < 8; i++) {
 			corners[i] = new Vector3f();
 		}
 		Vector3f n = new Vector3f();
-		for (Cube c : CUBES) {
-			VertexConsumer vc = buffers.computeIfAbsent(c.tex, t -> context.consumers().getBuffer(RenderType.entityCutoutNoCull(t)));
+		for (Map.Entry<ResourceLocation, List<Cube>> group : groups.entrySet()) {
+		VertexConsumer vc = context.consumers().getBuffer(RenderType.entityCutoutNoCull(group.getKey()));
+		for (Cube c : group.getValue()) {
 			float x = (float) (Mth.lerp(partial, c.px, c.x) - cam.x);
 			float y = (float) (Mth.lerp(partial, c.py, c.y) - cam.y);
 			float z = (float) (Mth.lerp(partial, c.pz, c.z) - cam.z);
@@ -257,6 +262,7 @@ public final class PixelCubes {
 			face(vc, last, corners, 2, 6, 7, 3, n.set(0, 1, 0).rotate(q), c, r, g, b, a);
 			face(vc, last, corners, 0, 2, 3, 1, n.set(0, 0, -1).rotate(q), c, r, g, b, a);
 			face(vc, last, corners, 4, 5, 7, 6, n.set(0, 0, 1).rotate(q), c, r, g, b, a);
+		}
 		}
 	}
 

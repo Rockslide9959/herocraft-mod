@@ -236,7 +236,7 @@ public final class AndyAbilities {
 		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.5f, 1.8f);
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.6f);
 		Vec3 h = handOrigin(p);
-		level(p).sendParticles(Andy.BLOOD_BIG, h.x, h.y, h.z, 10, 0.1, 0.1, 0.1, 0.0);
+		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}
 
 	// ---------------------------------------------------------------- G: Kurikara
@@ -289,14 +289,14 @@ public final class AndyAbilities {
 		ServerLevel level = level(p);
 		double width = 1.4 + d * 0.06;
 		double height = 2.6 + d * 0.08;
-		// a tall crescent of blood: the edge curves back at the sides
-		for (int i = -8; i <= 8; i++) {
-			double s = i / 8.0;
+		// the waves themselves are drawn by every client (AndyEffectsRenderer); a spray of blood along the crest here
+		for (int i = -4; i <= 4 && age % 2 == 0; i++) {
+			double s = i / 4.0;
 			double back = s * s * 0.9;
-			for (int k = 0; k < 6; k++) {
-				double y = k / 5.0 * height * (1.0 - 0.45 * s * s);
+			for (int k = 2; k < 3; k++) {
+				double y = k / 2.0 * height * (1.0 - 0.45 * s * s);
 				Vec3 at = front.add(side.scale(s * width)).add(w.dir().scale(-back)).add(0, y, 0);
-				level.sendParticles(k % 2 == 0 ? Andy.BLOOD_BIG : Andy.BLOOD_DARK, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.0);
+				level.sendParticles(Andy.BLOOD, at.x, at.y, at.z, 1, 0.1, 0.05, 0.1, 0.0);
 			}
 		}
 		if (age % 3 == 0) {
@@ -407,7 +407,7 @@ public final class AndyAbilities {
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_DRILL, arm, from, p.getLookAngle().scale(AndyConfig.VORTEX_SPEED), AndyConfig.VORTEX_DAMAGE);
 		sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 1.0f, 1.2f);
 		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.8f, 0.5f);
-		level(p).sendParticles(Andy.BLOOD_BIG, from.x, from.y, from.z, 8, 0.1, 0.1, 0.1, 0.0);
+		level(p).sendParticles(Andy.BLOOD, from.x, from.y, from.z, 5, 0.1, 0.1, 0.1, 0.0);
 	}
 
 	public static void headBullet(ServerPlayer p) {
@@ -425,7 +425,7 @@ public final class AndyAbilities {
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_HEAD, AndyState.HEAD, from, p.getLookAngle().scale(AndyConfig.HEAD_SPEED), AndyConfig.HEAD_BULLET_DAMAGE);
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.5f);
 		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.8f, 0.6f);
-		level(p).sendParticles(Andy.BLOOD_BIG, from.x, from.y - 0.25, from.z, 10, 0.12, 0.05, 0.12, 0.0);
+		level(p).sendParticles(Andy.BLOOD, from.x, from.y - 0.25, from.z, 5, 0.12, 0.05, 0.12, 0.0);
 	}
 
 	// ---------------------------------------------------------------- V
@@ -458,8 +458,7 @@ public final class AndyAbilities {
 		sound(p, SoundEvents.WITHER_AMBIENT, 0.6f, 1.4f);
 		sound(p, SoundEvents.ELYTRA_FLYING, 0.4f, 2.0f);
 		Vec3 c = p.getEyePosition();
-		level(p).sendParticles(Andy.BLOOD_BIG, c.x, c.y + 0.2, c.z, 30, 0.4, 0.3, 0.4, 0.0);
-		level(p).sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y, c.z, 12, 0.3, 0.4, 0.3, 0.02);
+		level(p).sendParticles(Andy.BLOOD, c.x, c.y + 0.3, c.z, 10, 0.3, 0.2, 0.3, 0.0);
 		Andy.say(p, "message.projecthero.andy.victor", ChatFormatting.DARK_RED);
 	}
 
@@ -534,7 +533,7 @@ public final class AndyAbilities {
 		int[] tints = { AndyCloneEntity.TINT_SKIN, AndyCloneEntity.TINT_BLOOD, AndyCloneEntity.TINT_BONE };
 		for (int i = 0; i < 3; i++) {
 			AndyCloneEntity.spawn(p, at[i].x, p.getY(), at[i].z, tints[i], AndyConfig.QUARDEAD_TICKS, dmg);
-			level(p).sendParticles(Andy.BLOOD_BIG, at[i].x, p.getY() + 1, at[i].z, 12, 0.3, 0.6, 0.3, 0.0);
+			level(p).sendParticles(Andy.BLOOD, at[i].x, p.getY() + 1, at[i].z, 5, 0.3, 0.6, 0.3, 0.0);
 		}
 		sound(p, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
 		sound(p, SoundEvents.SKELETON_AMBIENT, 0.8f, 0.8f);
@@ -591,7 +590,7 @@ public final class AndyAbilities {
 	public static void divisionClone(ServerPlayer p, Vec3 at) {
 		AndyCloneEntity.spawn(p, at.x, at.y, at.z, AndyCloneEntity.TINT_BLOOD, AndyConfig.DIVISION_CLONE_TICKS,
 				AndyConfig.CLONE_DAMAGE * AndyConfig.VICTOR_DAMAGE);
-		level(p).sendParticles(Andy.BLOOD_BIG, at.x, at.y + 1, at.z, 14, 0.3, 0.6, 0.3, 0.0);
+		level(p).sendParticles(Andy.BLOOD, at.x, at.y + 1, at.z, 5, 0.3, 0.6, 0.3, 0.0);
 		p.level().playSound(null, at.x, at.y, at.z, SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.7f);
 	}
 
@@ -607,11 +606,11 @@ public final class AndyAbilities {
 		}
 		Vec3 f = flatLook(p);
 		Vec3 r = AndyParts.right(p);
-		for (int i = -10; i <= 10; i++) {
-			double a = i / 10.0 * 1.6;
-			for (double rad = 2.0; rad <= 5.0; rad += 1.0) {
+		for (int i = -6; i <= 6; i++) {
+			double a = i / 6.0 * 1.6;
+			for (double rad = 4.0; rad <= 5.0; rad += 1.0) {
 				Vec3 at = c.add(f.scale(Math.cos(a) * rad)).add(r.scale(Math.sin(a) * rad));
-				level(p).sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.0);
+				level(p).sendParticles(Andy.BLOOD, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.0);
 			}
 		}
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.3f, 0.5f);

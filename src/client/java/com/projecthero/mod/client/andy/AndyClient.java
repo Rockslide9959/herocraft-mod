@@ -58,6 +58,7 @@ public final class AndyClient {
 		AndyRender.reset();
 		AndyPartRenderer.LAST.clear();
 		AndyCloneRenderer.forgetAll();
+		AndyEffectsRenderer.reset();
 	}
 
 	private static void tick(Minecraft mc) {
@@ -97,6 +98,7 @@ public final class AndyClient {
 				}
 			}
 			regrowSounds(mc, player, s, now);
+			AndyEffectsRenderer.watch(player, s, now);
 		}
 		if (now % 100 == 0) {
 			SEEN.keySet().retainAll(present);

@@ -42,6 +42,7 @@ public final class AndyEffectsRenderer {
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 		Vec3 cam = context.camera().getPosition();
 		PoseStack pose = context.matrixStack();
+		renderWaves(context, pose, cam, mc.level.getGameTime() + partial);
 		for (Player player : mc.level.players()) {
 			AndyState s = Andy.peek(player);
 			if (s == null || !s.hasPower || (!s.flag(AndyState.FLAG_DEAD_LINE) && !s.flag(AndyState.FLAG_DEAD_ROAD))) {
@@ -64,21 +65,94 @@ public final class AndyEffectsRenderer {
 				Vector3f b = new Vector3f(dir).cross(a).normalize();
 				float grow = Mth.clamp(age / 3f, 0f, 1f);
 				float reach = len * grow;
-				VertexConsumer core = context.consumers().getBuffer(RenderType.debugQuads());
-				VertexConsumer glow = context.consumers().getBuffer(RenderType.lightning());
 				if (!road) {
-					tube(core, m, dir, a, b, reach, 0.035f, 6, 0.42f, 0.0f, 0.03f, 0.97f);
-					tube(glow, m, dir, a, b, reach, 0.085f, 6, 0.9f, 0.08f, 0.08f, 0.45f);
+					tube(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, reach, 0.035f, 6, 0.42f, 0.0f, 0.03f, 0.97f);
+					tube(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, reach, 0.085f, 6, 0.9f, 0.08f, 0.08f, 0.45f);
 				} else {
-					tube(core, m, dir, a, b, reach, 0.22f, 10, 0.5f, 0.0f, 0.04f, 0.9f);
-					tube(glow, m, dir, a, b, reach, 0.42f, 10, 0.95f, 0.1f, 0.1f, 0.4f);
+					tube(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, reach, 0.22f, 10, 0.5f, 0.0f, 0.04f, 0.9f);
+					tube(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, reach, 0.42f, 10, 0.95f, 0.1f, 0.1f, 0.4f);
 					// the spiral: three strands winding round the core
 					for (int k = 0; k < 3; k++) {
-						helix(core, m, dir, a, b, reach, 0.5f, age * 0.6f + k * Mth.TWO_PI / 3f, 0.7f, 0.04f, 0.06f, 0.95f);
+						helix(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, reach, 0.5f, age * 0.6f + k * Mth.TWO_PI / 3f, 0.7f, 0.04f, 0.06f, 0.95f);
 					}
 				}
 			}
 			pose.popPose();
+		}
+	}
+
+	// ---------------------------------------------------------------- Great Deep-Crimson Crescent Moon
+
+	/** One set of blood waves: where they started, which way they run, when. */
+	private record Waves(Vec3 from, Vec3 dir, long start) {
+	}
+
+	private static final java.util.List<Waves> WAVES = new java.util.ArrayList<>();
+	private static final java.util.Map<java.util.UUID, Long> SEEN_ANIM = new java.util.HashMap<>();
+
+	static void reset() {
+		WAVES.clear();
+		SEEN_ANIM.clear();
+	}
+
+	/** From the client tick: a Great Crescent that just started launches its waves from where he stood. */
+	static void watch(Player player, AndyState s, long now) {
+		Long seen = SEEN_ANIM.put(player.getUUID(), s.animStart);
+		if (seen != null && seen != s.animStart && s.animId == AndyState.ANIM_GREAT_CRESCENT && now - s.animStart < 10) {
+			Vec3 look = Vec3.directionFromRotation(0f, player.getYRot());
+			WAVES.add(new Waves(player.position(), look.normalize(), s.animStart));
+		}
+		WAVES.removeIf(w -> now - w.start() > 30);
+	}
+
+	private static void renderWaves(WorldRenderContext context, PoseStack pose, Vec3 cam, float now) {
+		for (Waves w : WAVES) {
+			float age = now - w.start() - 5f;
+			if (age < 0f) {
+				continue;
+			}
+			for (int k = 0; k < 3; k++) {
+				// three crests, the first the biggest, running out along the line
+				float d = 1.2f + (age - k * 2.2f) * 1.1f;
+				if (d < 0.8f || d > AndyConfig.GREAT_CRESCENT_RANGE) {
+					continue;
+				}
+				float fade = Mth.clamp((float) ((AndyConfig.GREAT_CRESCENT_RANGE - d) / 4.0), 0f, 1f) * Mth.clamp(d / 1.5f, 0f, 1f);
+				float scale = 1f - k * 0.22f;
+				Vec3 front = w.from().add(w.dir().scale(d));
+				pose.pushPose();
+				pose.translate(front.x - cam.x, front.y - cam.y, front.z - cam.z);
+				wave(context.consumers().getBuffer(RenderType.debugQuads()), pose.last().pose(), w.dir(), (1.5f + d * 0.06f) * scale,
+						(2.8f + d * 0.08f) * scale, fade, now * 0.5f + k);
+				pose.popPose();
+			}
+		}
+	}
+
+	/** A tall crescent wall of blood, curling back at its ends and lower there; dark at the root, bright at the crest. */
+	private static void wave(VertexConsumer vc, Matrix4f m, Vec3 dir, float width, float height, float alpha, float ripple) {
+		float dx = (float) dir.x, dz = (float) dir.z;
+		float sx = -dz, sz = dx;
+		int n = 16, rows = 5;
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < rows; j++) {
+				float[][] p = new float[4][];
+				int c = 0;
+				for (int[] q : new int[][] { { i, j }, { i + 1, j }, { i + 1, j + 1 }, { i, j + 1 } }) {
+					float s = q[0] / (float) n * 2f - 1f;
+					float v = q[1] / (float) rows;
+					float back = s * s * 1.1f - v * v * 0.6f; // the crest leans forward over the root
+					float h = v * height * (1f - 0.5f * s * s) + Mth.sin(ripple + s * 5f) * 0.06f;
+					p[c++] = new float[] { sx * s * width - dx * back, h, sz * s * width - dz * back, v };
+				}
+				for (int side = 0; side < 2; side++) {
+					for (int e = 0; e < 4; e++) {
+						float[] v = p[side == 0 ? e : 3 - e];
+						float r = 0.45f + 0.5f * v[3], g = 0.01f + 0.12f * v[3] * v[3], b = 0.03f + 0.1f * v[3] * v[3];
+						vc.addVertex(m, v[0], v[1], v[2]).setColor(r, g, b, alpha * (0.92f - 0.35f * v[3]));
+					}
+				}
+			}
 		}
 	}
 

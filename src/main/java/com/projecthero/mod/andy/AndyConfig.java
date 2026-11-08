@@ -21,7 +21,7 @@ public final class AndyConfig {
 	/** How long a broken part stays gone before it starts to regrow. */
 	public static final int[] REGROW_DELAY = { 100, 50, 14 };
 	/** How long the regrowth itself takes (the pixels streaming in). */
-	public static final int[] REGROW_TICKS = { 56, 40, 24 };
+	public static final int[] REGROW_TICKS = { 72, 46, 26 };
 	/** Hunger (food points) a regrown part costs; the body costs one more. */
 	public static final int[] REGROW_FOOD = { 1, 2, 3 };
 	/** Crimson Bullet: the regeneration delay is multiplied by this for {@link #CRIMSON_SLOW_TICKS}. */
