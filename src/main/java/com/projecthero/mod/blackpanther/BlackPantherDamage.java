@@ -29,7 +29,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li>every other hit from something (a creature, a blast): 40% soaked and stored, 1 damage = 4 Kinetic. Burning, drowning,
  *       hunger and the like are not hits and are not soaked.</li>
  * </ul>
- * And a Stalk hit: from behind, three times the damage (capped on bosses); any hit ends the Stalk. A change cancels the hit
+ * And a Stalk hit: from behind, three times the damage on a creature, 1.75x on a player (capped on bosses); any hit ends the Stalk. A change cancels the hit
  * and re-issues the new amount behind a re-entrancy guard, vanilla's difficulty scaling undone first.
  */
 public final class BlackPantherDamage {
@@ -56,8 +56,13 @@ public final class BlackPantherDamage {
 		LAST_SHOT.remove(id);
 	}
 
-	static LastShot lastShot(ServerPlayer player) {
+	public static LastShot lastShot(ServerPlayer player) {
 		return LAST_SHOT.get(player.getUUID());
+	}
+
+	/** A Stalk hit from behind: x3 on a creature, x1.75 on a player (the tester's PvP nerf). */
+	public static float backstabFactor(LivingEntity target) {
+		return target instanceof net.minecraft.world.entity.player.Player ? BlackPantherConfig.STALK_BACKSTAB_PLAYER : BlackPantherConfig.STALK_BACKSTAB;
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
@@ -68,7 +73,7 @@ public final class BlackPantherDamage {
 			boolean behind = behind(attacker, entity);
 			BlackPantherAbilities.endStalk(attacker);
 			if (behind) {
-				float tripled = BlackPantherCombat.capped(entity, amount * BlackPantherConfig.STALK_BACKSTAB);
+				float tripled = BlackPantherCombat.capped(entity, amount * backstabFactor(entity));
 				ServerLevel level = (ServerLevel) attacker.level();
 				Vec3 c = entity.position().add(0, entity.getBbHeight() * 0.5, 0);
 				level.sendParticles(BlackPanther.PURPLE_BIG, c.x, c.y, c.z, 12, 0.3, 0.4, 0.3, 0.0);
@@ -87,12 +92,14 @@ public final class BlackPantherDamage {
 			player.resetFallDistance();
 			return false;
 		}
+		// Kinetic Return remembers the RAW incoming amount, before any soak, deflection or stance -- arrows and bullets alike,
+		// even a pellet that lands inside the hurt window
+		boolean shot = source.is(DamageTypeTags.IS_PROJECTILE) || Gunfire.active();
+		if (shot && source.getEntity() != null && source.getEntity() != player) {
+			LAST_SHOT.put(player.getUUID(), new LastShot(source.getEntity().getUUID(), amount, player.level().getGameTime()));
+		}
 		if (player.invulnerableTime > 10) {
 			return true; // vanilla will ignore this hit: it must not charge the bar
-		}
-		boolean shot = source.is(DamageTypeTags.IS_PROJECTILE) || Gunfire.active();
-		if (shot && source.getEntity() != null) {
-			LAST_SHOT.put(player.getUUID(), new LastShot(source.getEntity().getUUID(), amount, player.level().getGameTime()));
 		}
 		BlackPantherState s = BlackPanther.state(player);
 		if (s.absorbing && fromFront(player, source)) {

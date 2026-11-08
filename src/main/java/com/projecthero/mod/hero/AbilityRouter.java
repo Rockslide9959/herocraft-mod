@@ -71,6 +71,11 @@ public final class AbilityRouter {
 				com.projecthero.mod.stand.StandAbilityManager.handle(player, slot, pressed);
 				return;
 			}
+			// v0.17.3 (tester): Black Panther's N is the vibranium claws, Shift+N the mask
+			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.blackpanther.BlackPantherAbilityManager.hasContext(player)) {
+				com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(player, slot, pressed);
+				return;
+			}
 			// Sneak + N fires a power combo when the player owns a matching pair of mutations (v0.13.22)
 			if (slot == AbilitySlot.SLOT_8 && player.isShiftKeyDown()
 					&& com.projecthero.mod.hero.power.ComboMoves.available(player) != null) {

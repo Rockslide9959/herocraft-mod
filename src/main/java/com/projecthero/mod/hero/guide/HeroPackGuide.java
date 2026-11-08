@@ -1685,7 +1685,7 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "kinetic_pulse" }, { "Shift+R", "kinetic_overload" }, { "G", "claw_combo" },
 					{ "Shift+G", "pounce" }, { "X", "panther_leap" }, { "Shift+X", "drop_strike" }, { "Z", "vibranium_dagger" },
 					{ "Shift+Z", "kimoyo_flash" }, { "V", "stalk" }, { "Shift+V", "panther_senses" }, { "C", "absorb_stance" },
-					{ "Shift+C", "kinetic_return" } }) {
+					{ "Shift+C", "kinetic_return" }, { "N", "claws" }, { "Shift+N", "mask" }, { "Hold H", "necklace" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.black_panther.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.black_panther.ability." + row[1] + ".desc");

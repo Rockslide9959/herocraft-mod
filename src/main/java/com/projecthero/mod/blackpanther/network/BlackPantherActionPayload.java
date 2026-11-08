@@ -8,10 +8,11 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-/** Client to server (v0.17.3): H, the suit out of the necklace or back into it. */
+/** Client to server (v0.17.3): a tap of H, the suit out of the necklace or back into it; a 1.5 s hold, the necklace off / on. */
 public record BlackPantherActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_SUIT
+		TOGGLE_SUIT,
+		TOGGLE_NECKLACE
 	}
 
 	public static final CustomPacketPayload.Type<BlackPantherActionPayload> TYPE =

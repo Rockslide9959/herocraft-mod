@@ -32,5 +32,9 @@ public abstract class BlackPantherFirstPersonArmMixin {
 		}
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
 		BlackPantherRender.renderArm(pose, buffers, light, player, arm, arm == model.rightArm, progress);
+		if (progress >= 1f && BlackPantherRender.clawsShown(player)) {
+			// v0.17.3 tester round: the vibranium claws on the hand the player sees (longer, Wolverine style)
+			BlackPantherRender.renderClaws(pose, buffers, light, player, arm, arm == model.rightArm, true);
+		}
 	}
 }

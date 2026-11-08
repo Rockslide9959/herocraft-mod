@@ -16,7 +16,11 @@ public final class BlackPantherConfig {
 	public static final float DRAIN = 2f;
 	public static final int DRAIN_DELAY = 200;
 
-	public static final double SUIT_MELEE = 5.0; // the vibranium claws
+	public static final double SUIT_MELEE = 5.0; // the vibranium claws: only while they are out (N)
+	public static final double SUIT_ARMOR = 8.0;
+	public static final double SUIT_TOUGHNESS = 2.0;
+	/** Hold H this long to take the necklace off / put it back on. */
+	public static final int NECKLACE_HOLD_TICKS = 30;
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
 	public static final float DEFLECT_LIMIT = 15f;
 
@@ -27,17 +31,17 @@ public final class BlackPantherConfig {
 	public static final float PULSE_COST = 30f;
 	public static final float PULSE_DAMAGE = 8f;
 	public static final double PULSE_RADIUS = 5.0;
-	public static final int PULSE_COOLDOWN = 30;
+	public static final int PULSE_COOLDOWN = 50; // tester round: was 30
 	public static final float OVERLOAD_DAMAGE = 30f;
 	public static final double OVERLOAD_RADIUS = 10.0;
 	public static final int OVERLOAD_COOLDOWN = 100;
 
 	// G
-	public static final float CLAW_DAMAGE = 6f;
-	public static final float CLAW_FINISH_DAMAGE = 9f;
+	public static final float CLAW_DAMAGE = 5f; // tester round: was 6
+	public static final float CLAW_FINISH_DAMAGE = 8f; // was 9
 	public static final double CLAW_REACH = 3.5;
 	public static final int CLAW_STEP = 6;
-	public static final int CLAW_COOLDOWN = 24;
+	public static final int CLAW_COOLDOWN = 40; // was 24
 	public static final int BLEED_TICKS = 80;
 	public static final float BLEED_DAMAGE = 1f;
 	public static final double POUNCE_RANGE = 12.0;
@@ -45,7 +49,7 @@ public final class BlackPantherConfig {
 	public static final float POUNCE_LAND_DAMAGE = 8f;
 	public static final float POUNCE_STRIKE_DAMAGE = 12f;
 	public static final int POUNCE_PIN_TICKS = 40;
-	public static final int POUNCE_COOLDOWN = 200;
+	public static final int POUNCE_COOLDOWN = 240; // was 200
 
 	// X
 	public static final double LEAP_SPEED = 1.62; // about 12 blocks up
@@ -55,26 +59,26 @@ public final class BlackPantherConfig {
 	public static final double DROP_SPEED = 2.4;
 	public static final float DROP_DAMAGE = 10f;
 	public static final double DROP_RADIUS = 4.0;
-	public static final int DROP_COOLDOWN = 80;
+	public static final int DROP_COOLDOWN = 160; // was 80
 
 	// Z
 	public static final float DAGGER_DAMAGE = 8f;
 	public static final int DAGGER_BOUNCES = 3;
 	public static final double DAGGER_SPEED = 1.7;
-	public static final double DAGGER_RANGE = 24.0;
-	public static final double DAGGER_HOP = 10.0;
-	public static final int DAGGER_COOLDOWN = 100;
+	public static final double DAGGER_RANGE = 14.0; // was 24
+	public static final double DAGGER_HOP = 6.0; // was 10
+	public static final int DAGGER_COOLDOWN = 140; // was 100
 	public static final double FLASH_RADIUS = 6.0;
 	public static final int FLASH_TICKS = 60;
 	public static final int FLASH_COOLDOWN = 200;
 
 	// V
 	public static final double STALK_SEEN_WITHIN = 6.0;
-	public static final float STALK_BACKSTAB = 3f;
-	public static final int STALK_COOLDOWN = 40;
+	public static final float STALK_BACKSTAB = 3f; // on mobs
+	public static final float STALK_BACKSTAB_PLAYER = 1.75f; // tester round: PvP
+	public static final int STALK_COOLDOWN = 200; // was 40
 	public static final double SENSES_RANGE = 40.0;
-	public static final int SENSES_TICKS = 200;
-	public static final int SENSES_COOLDOWN = 400;
+	public static final int SENSES_COOLDOWN = 0; // a toggle (was 400)
 	public static final int FOOTPRINTS = 10;
 
 	// C
@@ -86,8 +90,12 @@ public final class BlackPantherConfig {
 	public static final double FRONT_ARC = 0.5;
 	public static final int RETURN_WINDOW = 200;
 	public static final double RETURN_RANGE = 48.0;
-	public static final float RETURN_FACTOR = 1.5f;
-	public static final float RETURN_MIN_DAMAGE = 6f;
+	public static final float RETURN_FACTOR = 1.25f; // tester round: scales with the stored bar too
+	public static final float RETURN_MIN_DAMAGE = 4f;
+	/** Kinetic Return spends up to this much of the bar... */
+	public static final float RETURN_MAX_SPEND = 40f;
+	/** ...and adds this much damage per point spent. */
+	public static final float RETURN_PER_KINETIC = 0.25f;
 	public static final int RETURN_COOLDOWN = 120;
 
 	private BlackPantherConfig() {

@@ -44,6 +44,8 @@ public final class BlackPanther {
 
 	private static final ResourceLocation MELEE_ID = PowerToggles.id("black_panther_melee");
 	private static final ResourceLocation ABSORB_ID = PowerToggles.id("black_panther_absorb");
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("black_panther_armor");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("black_panther_toughness");
 
 	public static final DustParticleOptions PURPLE = new DustParticleOptions(new Vector3f(0.62f, 0.25f, 1.0f), 1.2f);
 	public static final DustParticleOptions PURPLE_BIG = new DustParticleOptions(new Vector3f(0.72f, 0.4f, 1.0f), 2.2f);
@@ -97,6 +99,30 @@ public final class BlackPanther {
 	public static boolean absorbing(Player player) {
 		BlackPantherState s = peek(player);
 		return s != null && s.suited && s.absorbing;
+	}
+
+	/** N: the vibranium claws are out (only ever while suited). */
+	public static boolean clawsOut(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.suited && s.clawsOut;
+	}
+
+	/** Shift+N: the mask is off. */
+	public static boolean unmasked(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.suited && s.unmasked;
+	}
+
+	/** Panther Senses is on. */
+	public static boolean sensing(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.suited && s.senses;
+	}
+
+	/** The power is held but the necklace is off (hold H): no suit, no moves, the herb's physical passives only. */
+	public static boolean necklaceOff(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.necklaceOff;
 	}
 
 	public static float kinetic(Player player) {
@@ -272,6 +298,10 @@ public final class BlackPanther {
 		if (!s.hasPower || !player.isAlive() || player.isSpectator() || changing(player)) {
 			return;
 		}
+		if (s.necklaceOff) {
+			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
+			return;
+		}
 		long now = player.level().getGameTime();
 		Long last = LAST_TOGGLE.get(player.getUUID());
 		if (last != null && now - last < BlackPantherConfig.TOGGLE_COOLDOWN && now >= last) {
@@ -290,18 +320,34 @@ public final class BlackPanther {
 		if (!s.hasPower || s.suited) {
 			return;
 		}
+		if (s.necklaceOff) {
+			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
+			return;
+		}
 		long now = player.level().getGameTime();
 		BlackPantherState n = s.copy();
 		n.suited = true;
 		n.suitChangeAt = now;
 		n.animId = BlackPantherState.ANIM_SUIT_UP;
 		n.animStart = now;
+		n.unmasked = false;
+		n.clawsOut = false;
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.4, 0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 1.4f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, 0.8f);
+		// a puff of violet out of the necklace as the suit starts to run
+		Vec3 neck = necklacePos(player);
+		level.sendParticles(PURPLE, neck.x, neck.y, neck.z, 14, 0.22, 0.12, 0.22, 0.0);
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.WITCH, neck.x, neck.y, neck.z, 6, 0.2, 0.1, 0.2, 0.0);
+	}
+
+	/** Where the necklace hangs: the collar, a little in front of the chest. */
+	static Vec3 necklacePos(ServerPlayer player) {
+		Vec3 f = Vec3.directionFromRotation(0f, player.yBodyRot);
+		return player.position().add(f.x * 0.2, player.getBbHeight() * 0.78, f.z * 0.2);
 	}
 
 	public static void suitDown(ServerPlayer player) {
@@ -316,12 +362,13 @@ public final class BlackPanther {
 		n.suitChangeAt = now;
 		n.stalking = false;
 		n.absorbing = false;
-		n.sensesUntil = 0L;
+		n.senses = false;
+		n.clawsOut = false;
+		n.unmasked = false;
 		n.animId = BlackPantherState.ANIM_SUIT_DOWN;
 		n.animStart = now;
 		save(player, n);
 		reconcile(player);
-		PowerToggles.clearEffect(player, MobEffects.JUMP);
 		PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.4, 0);
@@ -329,13 +376,105 @@ public final class BlackPanther {
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.6f);
 	}
 
+	// ---------------------------------------------------------------- the necklace (hold H), the claws (N), the mask (Shift+N)
+
+	/**
+	 * Hold H: the necklace comes off (the suit drains back into it first) or goes back on. Without it there is no suit and no
+	 * move, but the herb is still in him: Speed I and Jump Boost I stay.
+	 */
+	public static void toggleNecklace(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 neck = necklacePos(player);
+		if (s.necklaceOff) {
+			BlackPantherState n = state(player).copy();
+			n.necklaceOff = false;
+			save(player, n);
+			say(player, "message.projecthero.black_panther.necklace_on", ChatFormatting.LIGHT_PURPLE);
+			level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.2f);
+			level.sendParticles(PURPLE, neck.x, neck.y, neck.z, 10, 0.2, 0.1, 0.2, 0.0);
+			return;
+		}
+		if (s.suited) {
+			suitDown(player);
+		}
+		BlackPantherAbilities.clear(player);
+		BlackPantherState n = state(player).copy();
+		n.necklaceOff = true;
+		n.stalking = false;
+		n.absorbing = false;
+		n.senses = false;
+		n.clawsOut = false;
+		save(player, n);
+		reconcile(player);
+		PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
+		LAST_MESSAGE.remove(player.getUUID());
+		say(player, "message.projecthero.black_panther.necklace_off", ChatFormatting.GRAY);
+		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.ARMOR_EQUIP_CHAIN.value(), SoundSource.PLAYERS, 1.0f, 1.3f);
+	}
+
+	/** N: the claws out of the fists or back in. Suited only. */
+	public static void toggleClaws(ServerPlayer player) {
+		if (!canAct(player)) {
+			return;
+		}
+		setClaws(player, !state(player).clawsOut);
+	}
+
+	/** Claw Combo calls this to pop them out by itself. */
+	static void setClaws(ServerPlayer player, boolean out) {
+		BlackPantherState s = state(player);
+		if (s.clawsOut == out || (out && !s.suited)) {
+			return;
+		}
+		BlackPantherState n = s.copy();
+		n.clawsOut = out;
+		save(player, n);
+		reconcile(player);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(),
+				out ? SoundEvents.TRIDENT_RETURN : SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 0.9f, out ? 1.7f : 1.3f);
+	}
+
+	/** Shift+N: the mask off or back on. Suited only. */
+	public static void toggleMask(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		if (s.necklaceOff) {
+			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
+			return;
+		}
+		if (!s.suited) {
+			say(player, "message.projecthero.black_panther.not_suited", ChatFormatting.GRAY);
+			return;
+		}
+		BlackPantherState n = s.copy();
+		n.unmasked = !s.unmasked;
+		save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getEyeY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 0.7f,
+				n.unmasked ? 0.9f : 1.5f);
+	}
+
 	// ---------------------------------------------------------------- stats
 
 	public static void reconcile(ServerPlayer player) {
-		if (suited(player)) {
+		if (clawsOut(player)) {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, BlackPantherConfig.SUIT_MELEE, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
+		}
+		if (suited(player)) {
+			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, BlackPantherConfig.SUIT_ARMOR, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, BlackPantherConfig.SUIT_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		}
 		if (absorbing(player)) {
 			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, ABSORB_ID, BlackPantherConfig.ABSORB_SLOW, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
@@ -347,6 +486,10 @@ public final class BlackPanther {
 	static boolean canAct(ServerPlayer player) {
 		BlackPantherState s = state(player);
 		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return false;
+		}
+		if (s.necklaceOff) {
+			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
 			return false;
 		}
 		if (!s.suited) {
@@ -382,9 +525,10 @@ public final class BlackPanther {
 			reconcile(player);
 		}
 		if (player.tickCount % 40 == 0) {
-			PowerToggles.effect(player, MobEffects.MOVEMENT_SPEED, 0, false); // suit on or off
+			// the herb: Speed I and Jump Boost I, suit on or off, necklace on or off; the suit adds night vision
+			PowerToggles.effect(player, MobEffects.MOVEMENT_SPEED, 0, false);
+			PowerToggles.effect(player, MobEffects.JUMP, 0, false);
 			if (s.suited) {
-				PowerToggles.effect(player, MobEffects.JUMP, 0, false);
 				PowerToggles.effect(player, MobEffects.NIGHT_VISION, 0, false);
 			}
 		}
