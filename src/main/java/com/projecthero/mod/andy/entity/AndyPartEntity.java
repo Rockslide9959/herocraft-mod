@@ -44,8 +44,16 @@ public class AndyPartEntity extends Projectile {
 	public static final int STYLE_DIVISION = 3;
 	public static final int STYLE_DRILL = 4;
 	public static final int STYLE_HEAD = 5;
+	/**
+	 * v0.17.3 X launches: a part left behind where he stood, standing as it was on his body, then toppling over. A leg from the Leg
+	 * Launch splays to its side; the body (and limbs) from the Head Launch fall back as one; LEGLESS draws the body sitting on
+	 * the ground (the legs were already gone). Never hits anything; lies there until the part regrows, then bursts into pixels.
+	 */
+	public static final int STYLE_LEFT_LEG = 6;
+	public static final int STYLE_LEFT_BODY = 7;
+	public static final int STYLE_LEFT_BODY_LEGLESS = 8;
 	/** v0.17.3: the stretch punch -- the whole arm thrown fist first off the body; it drops where it hits. */
-	public static final int STYLE_PUNCH = 6;
+	public static final int STYLE_PUNCH = 9;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<AndyPartEntity> clientRemoval = e -> {
@@ -76,6 +84,24 @@ public class AndyPartEntity extends Projectile {
 		e.faceVelocity(velocity);
 		owner.level().addFreshEntity(e);
 		return e;
+	}
+
+	/** A part left standing at {@code at} (his feet), facing {@code bodyYaw}; it falls and rests under gravity. */
+	public static AndyPartEntity drop(ServerPlayer owner, int part, int style, Vec3 at, float bodyYaw, Vec3 velocity) {
+		AndyPartEntity e = new AndyPartEntity(AndyEntityTypes.PART, owner.level());
+		e.setOwner(owner);
+		e.entityData.set(STYLE, style);
+		e.entityData.set(PART, part);
+		e.falling = true;
+		e.setNoGravity(false);
+		e.moveTo(at.x, at.y, at.z, bodyYaw, 0f);
+		e.setDeltaMovement(velocity);
+		owner.level().addFreshEntity(e);
+		return e;
+	}
+
+	public boolean isLeftBehind() {
+		return this.style() >= STYLE_LEFT_LEG;
 	}
 
 	@Override
@@ -120,7 +146,7 @@ public class AndyPartEntity extends Projectile {
 
 	private int maxLife() {
 		return switch (this.style()) {
-			case STYLE_DRILL, STYLE_HEAD, STYLE_PUNCH -> AndyConfig.SEVERED_LIFE;
+			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH -> AndyConfig.SEVERED_LIFE;
 			case STYLE_CRIMSON -> 60;
 			default -> 40;
 		};
@@ -213,8 +239,7 @@ public class AndyPartEntity extends Projectile {
 				this.setDeltaMovement(v.scale(-0.15).add(0, 0.2, 0));
 			}
 			case STYLE_HEAD -> {
-				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 1.4, 0.3);
-				com.projecthero.mod.andy.AndySfx.headRoll(this.level(), le.position().add(0, le.getBbHeight() * 0.6, 0), 1.0f); // v0.17.3 Andy sounds
+				com.projecthero.mod.andy.AndyLaunch.headHit(p, le, this.position().subtract(v), this.damage); // shared with the Head Launch (sound in it)
 				this.falling = true;
 				this.setNoGravity(false);
 				this.setDeltaMovement(v.scale(-0.25).add(0, 0.25, 0));

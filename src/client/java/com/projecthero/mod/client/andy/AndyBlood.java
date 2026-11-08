@@ -63,7 +63,7 @@ public final class AndyBlood {
 		float[] b = AndyTexels.box(part, AndyRender.slim(player));
 		Vec3 c = at(player, part, b[0] + b[3] * 0.5f, b[1] + b[4] * 0.5f, b[2] + b[5] * 0.5f);
 		Vec3 carry = player.getDeltaMovement().scale(0.5);
-		BloodFx.spurt(c, new Vec3(0, 1, 0), (int) (26 * power), 0.22, 0.9, carry);
+		BloodFx.spurt(c, new Vec3(0, 1, 0), (int) (18 * power), 0.2, 0.9, carry);
 		AndySounds.bloodBurst(c, power);
 		BloodFx.mist(c, (int) (4 * power), 0.35f, carry);
 		Vec3[] s = stump(player, part);
@@ -141,10 +141,9 @@ public final class AndyBlood {
 					continue;
 				}
 				Vec3 edge = part == AndyState.BODY ? at(player, part, 0f, cut.rows(), 0f) : endOf(player, part, cut.rows());
-				BloodFx.embers(edge, carry, 3);
-				if (RND.nextFloat() < 0.6f && player.level() != null) {
-					player.level().addParticle(RND.nextFloat() < 0.5f ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE, edge.x, edge.y, edge.z,
-							carry.x * 0.3, carry.y * 0.3 + 0.02, carry.z * 0.3);
+				BloodFx.embers(edge, carry, 2);
+				if (RND.nextFloat() < 0.3f && player.level() != null && !firstPersonSelf) {
+					player.level().addParticle(ParticleTypes.SMOKE, edge.x, edge.y, edge.z, carry.x * 0.85, carry.y * 0.85 + 0.02, carry.z * 0.85);
 				}
 				// a scorched pixel drops off the edge
 				if (RND.nextFloat() < 0.7f) {

@@ -1719,14 +1719,15 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.andy.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.andy.body");
 			blank(lines);
-			for (String section : new String[]{"card", "parts", "missing", "regen", "undead", "passives", "victor"}) {
+			for (String section : new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "victor"}) {
 				head(lines, "projecthero.guide.andy." + section);
 				para(lines, "projecthero.guide.andy." + section + ".body");
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.andy.controls");
-			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
-					{ "Shift+G", "great_crescent_moon" }, { "X", "blood_propulsion" }, { "Shift+X", "repair_glide" }, { "Z", "vortex_bullet" },
+			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
+					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
+					{ "Z", "vortex_bullet" },
 					{ "Shift+Z", "parts_bullet_head" }, { "V", "regen_speed" }, { "Shift+V", "pull_the_card" }, { "C", "dead_line" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)

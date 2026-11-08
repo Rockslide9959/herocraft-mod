@@ -40,7 +40,6 @@ public final class AndyAbilities {
 	public static final String CRESCENT = "crimson_crescent_moon";
 	public static final String GREAT_CRESCENT = "great_crescent_moon";
 	public static final String PROPULSION = "blood_propulsion";
-	public static final String GLIDE = "repair_glide";
 	public static final String VORTEX = "vortex_bullet";
 	public static final String HEAD_BULLET = "parts_bullet_head";
 	public static final String REGEN = "regen_speed";
@@ -58,11 +57,7 @@ public final class AndyAbilities {
 	private record Waves(Vec3 from, Vec3 dir, long start, Set<Integer> hit) {
 	}
 
-	private record Glide(Vec3 dir, long start, Set<Integer> hit) {
-	}
-
 	private static final Map<UUID, Waves> WAVES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Glide> GLIDES = new ConcurrentHashMap<>();
 	/** Dead Vulcan: shots still to fire. */
 	private static final Map<UUID, Integer> VULCANS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_HEADBUTT = new ConcurrentHashMap<>();
@@ -72,14 +67,12 @@ public final class AndyAbilities {
 
 	static void clearSessionState() {
 		WAVES.clear();
-		GLIDES.clear();
 		VULCANS.clear();
 		LAST_HEADBUTT.clear();
 	}
 
 	static void forget(UUID id) {
 		WAVES.remove(id);
-		GLIDES.remove(id);
 		VULCANS.remove(id);
 		LAST_HEADBUTT.remove(id);
 	}
@@ -88,7 +81,6 @@ public final class AndyAbilities {
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
 		WAVES.remove(id);
-		GLIDES.remove(id);
 		VULCANS.remove(id);
 		AndyState s = Andy.peek(p);
 		if (s != null && s.flags != 0) {
@@ -431,35 +423,6 @@ public final class AndyAbilities {
 		AndyFlight.stop(p);
 	}
 
-	public static void glide(ServerPlayer p) {
-		if (!begin(p, GLIDE)) {
-			return;
-		}
-		cooldown(p, GLIDE, AndyConfig.GLIDE_COOLDOWN);
-		anim(p, AndyState.ANIM_GLIDE);
-		flag(p, AndyState.FLAG_GLIDING, true);
-		GLIDES.put(p.getUUID(), new Glide(flatLook(p), p.level().getGameTime(), new HashSet<>()));
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 1.5f);
-	}
-
-	private static void tickGlide(ServerPlayer p, Glide g, long now) {
-		long age = now - g.start();
-		if (age >= AndyConfig.GLIDE_TICKS || !p.isAlive()) {
-			GLIDES.remove(p.getUUID());
-			flag(p, AndyState.FLAG_GLIDING, false);
-			return;
-		}
-		Vec3 v = g.dir().scale(AndyConfig.GLIDE_SPEED * (1.0 - age / (double) AndyConfig.GLIDE_TICKS * 0.5));
-		AbilityHelpers.launchSelf(p, new Vec3(v.x, Math.min(0, p.getDeltaMovement().y), v.z));
-		ServerLevel level = level(p);
-		level.sendParticles(Andy.BLOOD, p.getX(), p.getY() + 0.2, p.getZ(), 3, 0.25, 0.05, 0.25, 0.0);
-		for (LivingEntity e : around(p, p.position().add(0, 0.6, 0), 1.5)) {
-			if (g.hit().add(e.getId())) {
-				strike(p, e, p.position(), AndyConfig.GLIDE_DAMAGE, 0.9, 0.35);
-			}
-		}
-	}
-
 	// ---------------------------------------------------------------- Z: launched parts
 
 	public static void vortexBullet(ServerPlayer p) {
@@ -778,10 +741,6 @@ public final class AndyAbilities {
 		Waves w = WAVES.get(p.getUUID());
 		if (w != null) {
 			tickWaves(p, w, now);
-		}
-		Glide g = GLIDES.get(p.getUUID());
-		if (g != null) {
-			tickGlide(p, g, now);
 		}
 		Integer v = VULCANS.get(p.getUUID());
 		if (v != null) {

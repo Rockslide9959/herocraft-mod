@@ -155,6 +155,7 @@
 		"AndyBoostInputMixin",
 		"AndyItemInHandInvoker",
 		"AndyCameraMixin",
+		"AndyLaunchFovMixin",
 		"BeamClashParticleMixin",
 		"CatNoirFirstPersonArmMixin",
 		"CatNoirItemInHandMixin",

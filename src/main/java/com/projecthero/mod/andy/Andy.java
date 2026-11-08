@@ -130,6 +130,10 @@ public final class Andy {
 		return arm == AndyState.RIGHT_ARM ? AndyState.LEFT_ARM : AndyState.RIGHT_ARM;
 	}
 
+	public static boolean bothLegsMissing(Player player) {
+		return missing(player, AndyState.RIGHT_LEG) && missing(player, AndyState.LEFT_LEG);
+	}
+
 	/** The leg on the main hand's side (it regrows first after the arms). */
 	public static int mainLeg(Player player) {
 		return mainArm(player) == AndyState.RIGHT_ARM ? AndyState.RIGHT_LEG : AndyState.LEFT_LEG;
@@ -485,6 +489,8 @@ public final class Andy {
 					n.setTimes(i, cur.brokenAt(i), now, now + AndyConfig.REGROW_TICKS[speed]);
 					startedRegrowing(player, i, cur.kind(i));
 				}
+			} else if (cur.regrowStart(i) == now && cur.regrowEnd(i) > now) {
+				startedRegrowing(player, i, cur.kind(i)); // a planned (head-only) part starting: its left-behind piece goes
 			} else if (cur.regrowEnd(i) > 0L && now >= cur.regrowEnd(i)) {
 				if (n == null) {
 					n = s.copy();

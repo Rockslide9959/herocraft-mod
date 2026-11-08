@@ -60,6 +60,11 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 		boolean slim = owner != null && AndyRender.slim(owner);
 		float age = e.tickCount + partial;
 		Vec3 cam = this.entityRenderDispatcher.camera.getPosition();
+		if (e.isLeftBehind()) {
+			leftBehind(e, partial, pose, buffers, light, tex, slim, cam);
+			super.render(e, yaw, partial, pose, buffers, light);
+			return;
+		}
 		pose.pushPose();
 		float ry = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		float rx = Mth.lerp(partial, e.xRotO, e.getXRot());
@@ -109,6 +114,51 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 		LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, part));
 		pose.popPose();
 		super.render(e, yaw, partial, pose, buffers, light);
+	}
+
+	/**
+	 * v0.17.3: a part left behind by a Leg / Head Launch -- drawn exactly where it was on his standing body (the entity sits at his
+	 * feet), still for a moment, then toppling over about the feet: a leg splays back and out to its side, the body falls back.
+	 */
+	private void leftBehind(AndyPartEntity e, float partial, PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim,
+			Vec3 cam) {
+		int part = e.bodyPart();
+		if (part < 0) {
+			return;
+		}
+		boolean leg = e.style() == AndyPartEntity.STYLE_LEFT_LEG;
+		float age = e.tickCount + partial;
+		float wait = leg ? 3f : 5f;
+		float len = leg ? 7f : 9f;
+		float t = Mth.clamp((age - wait) / len, 0f, 1f);
+		float fall = t * t; // speeds up like a real topple
+		float settle = t >= 1f ? Mth.sin(Mth.clamp((age - wait - len) / 4f, 0f, 1f) * Mth.PI) * 4f : 0f; // a small bounce on landing
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotationDegrees(180f - e.getYRot()));
+		if (e.style() == AndyPartEntity.STYLE_LEFT_BODY_LEGLESS) {
+			pose.translate(0f, -0.70f, 0f); // no legs under it: the body sits on the ground
+		}
+		// in this frame +z is behind him and +x is his right
+		pose.mulPose(Axis.XP.rotationDegrees((leg ? 70f : 84f) * fall - settle));
+		if (leg) {
+			float out = part == AndyState.RIGHT_LEG ? -1f : 1f;
+			pose.mulPose(Axis.ZP.rotationDegrees(out * 24f * fall));
+		}
+		pose.mulPose(AndyRender.standing(Vec3.ZERO, 180f, slim, part));
+		PlayerModel<Player> model = slim ? this.slimModel : this.wide;
+		ModelPart base = AndyRender.part(model, part);
+		ModelPart over = AndyRender.overlay(model, part);
+		base.resetPose();
+		over.resetPose();
+		base.x = base.y = base.z = 0f;
+		over.x = over.y = over.z = 0f;
+		base.visible = true;
+		over.visible = true;
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
+		base.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+		over.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+		LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, part));
+		pose.popPose();
 	}
 
 	/** A fingertip: a 1x1x2.5 px stub of the hand's skin (red-hot for the Crimson Bullet). */

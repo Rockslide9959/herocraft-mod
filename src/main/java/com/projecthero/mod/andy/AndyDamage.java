@@ -52,6 +52,9 @@ public final class AndyDamage {
 		if (Andy.reforming(player)) {
 			return false;
 		}
+		if (source.is(DamageTypeTags.IS_FALL) && AndyLaunch.fallImmune(player)) {
+			return false; // a Leg / Head Launch lands without fall damage
+		}
 		if (player.invulnerableTime > 10 || player.getAbilities().invulnerable) {
 			return true; // vanilla will ignore (most of) this hit: the parts ignore it too
 		}

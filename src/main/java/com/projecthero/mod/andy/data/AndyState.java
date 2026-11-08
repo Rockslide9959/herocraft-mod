@@ -48,7 +48,6 @@ public final class AndyState {
 	public static final int ANIM_CRIMSON = 2;
 	public static final int ANIM_CRESCENT = 3;
 	public static final int ANIM_GREAT_CRESCENT = 4;
-	public static final int ANIM_GLIDE = 5;
 	public static final int ANIM_VORTEX = 6;
 	public static final int ANIM_HEAD = 7;
 	public static final int ANIM_CARD = 8;
@@ -59,11 +58,15 @@ public final class AndyState {
 	public static final int ANIM_HEADBUTT = 13;
 	public static final int ANIM_CARD_BACK = 14;
 	public static final int ANIM_PUNCH = 15;
+	/** X: the Head Launch wind-up while X is held, the Leg Launch and the Head Launch themselves (AndyLaunch). */
+	public static final int ANIM_HEAD_CHARGE = 40;
+	public static final int ANIM_LEG_LAUNCH = 41;
+	public static final int ANIM_HEAD_LAUNCH = 42;
+
 
 	public static final int FLAG_PROPELLING = 1;
 	public static final int FLAG_DEAD_LINE = 2;
 	public static final int FLAG_DEAD_ROAD = 4;
-	public static final int FLAG_GLIDING = 8;
 	/** Right click held while flying: 40 b/s and the body burns away. */
 	public static final int FLAG_BOOST = 16;
 	/** R held: the arm drawn back for the stretch punch. */

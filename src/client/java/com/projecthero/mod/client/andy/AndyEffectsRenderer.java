@@ -137,9 +137,9 @@ public final class AndyEffectsRenderer {
 		Vector3f b = new Vector3f(dir).cross(a).normalize();
 		float flick = 0.85f + 0.15f * Mth.sin(now * 2.7f + seed) + 0.1f * Mth.sin(now * 6.1f + seed * 1.7f);
 		float l = len * flick;
-		jetCone(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, l, rad * 1.7f, 0.55f, 0.02f, 0.03f, 0.55f);
+		jetCone(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, l, rad * 1.5f, 0.36f, 0.01f, 0.02f, 0.75f);
 		jetCone(context.consumers().getBuffer(RenderType.debugQuads()), m, dir, a, b, l * 0.8f, rad, 0.62f, 0.03f, 0.05f, 0.95f);
-		jetCone(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, l * 0.55f, rad * 0.45f, 1.0f, 0.25f, 0.2f, 0.8f);
+		jetCone(context.consumers().getBuffer(RenderType.lightning()), m, dir, a, b, l * 0.5f, rad * 0.4f, 0.75f, 0.08f, 0.05f, 0.45f);
 		pose.popPose();
 	}
 

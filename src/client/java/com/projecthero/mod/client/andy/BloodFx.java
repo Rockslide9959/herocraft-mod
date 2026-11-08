@@ -100,7 +100,7 @@ public final class BloodFx {
 		AGE[i] = 0;
 		LIFE[i] = life;
 		KIND[i] = kind;
-		GRAV[i] = kind == 0 ? 0.045f : kind == 2 ? -0.004f : 0.0f;
+		GRAV[i] = kind == 0 || kind == 3 ? 0.045f : kind == 2 ? -0.004f : 0.0f;
 	}
 
 	public static int shade(float darkness) {
@@ -115,8 +115,8 @@ public final class BloodFx {
 			double sp = speed * (0.45 + RND.nextDouble() * 0.8);
 			double ox = (RND.nextDouble() - 0.5) * 2 * spread, oy = (RND.nextDouble() - 0.5) * 2 * spread, oz = (RND.nextDouble() - 0.5) * 2 * spread;
 			Vec3 v = d.add(ox, oy, oz).normalize().scale(sp).add(carry);
-			float size = 0.03f + RND.nextFloat() * 0.05f;
-			drop(at.x, at.y, at.z, v.x, v.y, v.z, size, shade(RND.nextFloat()), 24 + RND.nextInt(30), 0);
+			float size = 0.022f + RND.nextFloat() * 0.03f;
+			drop(at.x, at.y, at.z, v.x, v.y, v.z, size, shade(RND.nextFloat()), 22 + RND.nextInt(26), 0);
 		}
 	}
 
@@ -140,19 +140,19 @@ public final class BloodFx {
 	 * other way): a fast bright core, darker spray round it, a few heavy drops that arc away. {@code power} 1 normal, ~1.8 boost.
 	 */
 	public static void jet(Vec3 at, Vec3 dir, Vec3 carry, float power) {
-		int core = (int) (5 * power), spray = (int) (6 * power);
+		int core = (int) (3 * power), spray = (int) (3 * power);
 		for (int k = 0; k < core; k++) {
-			double sp = (0.55 + RND.nextDouble() * 0.35) * power;
+			double sp = (0.45 + RND.nextDouble() * 0.3) * power;
 			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.12, (RND.nextDouble() - 0.5) * 0.12, (RND.nextDouble() - 0.5) * 0.12).normalize().scale(sp).add(carry);
-			drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.05f + RND.nextFloat() * 0.03f, SHADES[4 + RND.nextInt(3)], 6 + RND.nextInt(4), 0);
+			drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.03f + RND.nextFloat() * 0.02f, SHADES[4 + RND.nextInt(3)], 4 + RND.nextInt(3), 3);
 		}
 		for (int k = 0; k < spray; k++) {
-			double sp = (0.2 + RND.nextDouble() * 0.35) * power;
-			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.7, (RND.nextDouble() - 0.5) * 0.7, (RND.nextDouble() - 0.5) * 0.7).normalize().scale(sp).add(carry.scale(0.9));
-			drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.03f + RND.nextFloat() * 0.03f, shade(0.4f + RND.nextFloat() * 0.6f), 14 + RND.nextInt(20), 0);
+			double sp = (0.15 + RND.nextDouble() * 0.25) * power;
+			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.8, (RND.nextDouble() - 0.5) * 0.8, (RND.nextDouble() - 0.5) * 0.8).normalize().scale(sp).add(carry.scale(0.85));
+			drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.02f + RND.nextFloat() * 0.02f, shade(0.4f + RND.nextFloat() * 0.6f), 8 + RND.nextInt(10), 0);
 		}
-		if (RND.nextFloat() < 0.35f * power) {
-			mist(at.add(dir.scale(0.4)), 1, 0.22f, carry.scale(0.6));
+		if (RND.nextFloat() < 0.15f * power) {
+			mist(at.add(dir.scale(0.3)), 1, 0.16f, carry.scale(0.9));
 		}
 	}
 
@@ -189,14 +189,14 @@ public final class BloodFx {
 			VY[i] *= KIND[i] == 1 ? 0.86f : 0.985f;
 			VZ[i] *= drag;
 			float nx = X[i] + VX[i], ny = Y[i] + VY[i], nz = Z[i] + VZ[i];
-			if (KIND[i] == 0) {
+			if (KIND[i] == 0 || KIND[i] == 3) {
 				BlockPos below = BlockPos.containing(nx, ny, nz);
 				BlockState st = level.getBlockState(below);
 				if (!st.isAir()) {
 					VoxelShape shape = st.getCollisionShape(level, below);
 					if (!shape.isEmpty()) {
 						double top = below.getY() + shape.max(Direction.Axis.Y);
-						if (ny <= top + 0.001 && Y[i] >= top - 0.05) {
+						if (KIND[i] == 0 && ny <= top + 0.001 && Y[i] >= top - 0.05 && RND.nextFloat() < 0.45f) {
 							splat(nx, (float) top, nz, SIZE[i] * (2.2f + RND.nextFloat() * 1.6f), RGB[i], level);
 							if (level.getGameTime() - lastSplatSound >= 4) {
 								lastSplatSound = level.getGameTime();
@@ -254,7 +254,7 @@ public final class BloodFx {
 		SX[i] = x;
 		SY[i] = y + 0.004f + RND.nextFloat() * 0.003f;
 		SZ[i] = z;
-		SS[i] = Math.min(0.28f, size);
+		SS[i] = Math.min(0.13f, size * 0.8f);
 		SR[i] = RND.nextFloat() * Mth.TWO_PI;
 		SRGB[i] = rgb;
 		SAGE[i] = 0;
@@ -304,14 +304,15 @@ public final class BloodFx {
 			float y = Mth.lerp(partial, PY[i], Y[i]) - (float) cam.y;
 			float z = Mth.lerp(partial, PZ[i], Z[i]) - (float) cam.z;
 			float age = AGE[i] + partial;
-			float h = SIZE[i] * 0.5f * Mth.clamp((LIFE[i] - age) / 6f, 0f, 1f);
+			float near = Mth.clamp((Mth.sqrt(x * x + y * y + z * z) - 1.3f) / 1.7f, 0f, 1f);
+			float h = SIZE[i] * 0.5f * Mth.clamp((LIFE[i] - age) / 4f, 0f, 1f) * near;
 			if (h < 0.002f) {
 				continue;
 			}
 			// stretched along its velocity: a falling streak, not a cube
 			float vx = VX[i], vy = VY[i], vz = VZ[i];
 			float sp = Mth.sqrt(vx * vx + vy * vy + vz * vz);
-			float stretch = 1f + Math.min(3f, sp * 6f);
+			float stretch = 1f + Math.min(1.6f, sp * 3f);
 			if (sp > 1.0e-4f) {
 				Q.rotationTo(0f, 1f, 0f, vx / sp, vy / sp, vz / sp);
 			} else {
@@ -350,7 +351,8 @@ public final class BloodFx {
 			float z = Mth.lerp(partial, PZ[i], Z[i]) - (float) cam.z;
 			float t = (AGE[i] + partial) / LIFE[i];
 			float s = SIZE[i] * (0.5f + t * 1.1f);
-			int a = (int) (120 * (1f - t) * Math.min(1f, t * 6f));
+			float near = Mth.clamp((Mth.sqrt(x * x + y * y + z * z) - 2f) / 2f, 0f, 1f);
+			int a = (int) (80 * (1f - t) * Math.min(1f, t * 6f) * near);
 			if (a < 3) {
 				continue;
 			}

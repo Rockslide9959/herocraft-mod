@@ -145,10 +145,27 @@ public final class AndyConfig {
 	 * whose parts are already gone is skipped.
 	 */
 	public static final int[] BURN_TICKS = { 28, 24, 28 };
-	public static final int GLIDE_TICKS = 14;
-	public static final double GLIDE_SPEED = 1.15;
-	public static final float GLIDE_DAMAGE = 7f;
-	public static final int GLIDE_COOLDOWN = 80;
+	/** Shift + X held this long starts the flight (a shorter Shift tap does nothing). */
+	public static final int FLIGHT_HOLD_TICKS = 4;
+
+	// X tapped: Leg Launch; X held: Head Launch (AndyLaunch)
+	/** A plain X held this long fires the Head Launch on the spot; released sooner it is a Leg Launch. */
+	public static final int HEAD_LAUNCH_HOLD = 20;
+	/** The Head Launch wind-up shows from this long into the hold (so a quick tap never flashes it). */
+	public static final int LAUNCH_CHARGE_SHOW = 5;
+	/** A launch flies a scripted arc: this many blocks a tick forward, this much up at the start, minus the gravity every tick. */
+	public static final double LEG_LAUNCH_SPEED = 1.55;
+	public static final double LEG_LAUNCH_LIFT = 0.45;
+	public static final double HEAD_LAUNCH_SPEED = 1.6;
+	public static final double HEAD_LAUNCH_LIFT = 1.1;
+	public static final double LAUNCH_GRAVITY = 0.08;
+	/** The arc is pushed for at most this long (it normally ends on landing first). */
+	public static final int LEG_LAUNCH_MAX = 30;
+	public static final int HEAD_LAUNCH_MAX = 60;
+	/** Leg Launch: what the flying body does to whatever it passes through. (The Head Launch uses {@link #HEAD_BULLET_DAMAGE}.) */
+	public static final float LEG_LAUNCH_DAMAGE = 6f;
+	public static final int LEG_LAUNCH_COOLDOWN = 60;
+	public static final int HEAD_LAUNCH_COOLDOWN = 200;
 
 	// ---------------------------------------------------------------- Z
 	public static final float VORTEX_DAMAGE = 16f;
