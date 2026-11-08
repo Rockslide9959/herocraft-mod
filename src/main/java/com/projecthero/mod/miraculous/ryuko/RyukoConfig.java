@@ -78,13 +78,13 @@ public final class RyukoConfig {
 	public static final float GUARD_SHOCK_DAMAGE = 6f;
 	public static final int GUARD_COOLDOWN = 300;
 
-	// C
+	// C (v0.17.3 tester: Parry cooldown 40 -> 120, the Riposte window 60 -> 30, damage 22 -> 15, cooldown 20 -> 100 -- too spammable)
 	public static final int PARRY_TICKS = 12;
-	public static final int RIPOSTE_WINDOW = 60;
-	public static final int PARRY_COOLDOWN = 40;
-	public static final float RIPOSTE_DAMAGE = 22f;
+	public static final int RIPOSTE_WINDOW = 30;
+	public static final int PARRY_COOLDOWN = 120;
+	public static final float RIPOSTE_DAMAGE = 15f;
 	public static final double RIPOSTE_REACH = 8.0;
-	public static final int RIPOSTE_COOLDOWN = 20;
+	public static final int RIPOSTE_COOLDOWN = 100;
 
 	private RyukoConfig() {
 	}

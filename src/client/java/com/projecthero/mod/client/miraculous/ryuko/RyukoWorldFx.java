@@ -64,6 +64,8 @@ public final class RyukoWorldFx {
 					pose.mulPose(Axis.YP.rotationDegrees((now + partial) * 40f));
 					pose.mulPose(Axis.XP.rotationDegrees((now + partial) * 55f));
 					pose.scale(1.2f, 1.2f, 1.2f);
+					// v0.17.3: spin about the sword's middle, not its grip (the grip is the model's origin)
+					pose.translate(0f, 0f, 6f / 16f);
 					int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(at));
 					RyukoRender.renderSword(pose, ctx.consumers(), light, Ryuko.color(Ryuko.element(p)));
 					pose.popPose();

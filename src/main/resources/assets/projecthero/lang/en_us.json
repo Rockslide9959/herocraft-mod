@@ -11488,8 +11488,8 @@
   "projecthero.miraculous.ability.ryuko_storm_guard": "Storm Guard",
   "projecthero.miraculous.ability.ryuko_storm_guard.desc": "A 6s aura of your element. Wind throws arrows back, Water heals you and puts out fire, Lightning shocks attackers for 6. 15s cooldown.",
   "projecthero.miraculous.ability.ryuko_parry": "Parry",
-  "projecthero.miraculous.ability.ryuko_parry.desc": "A brief guard: the first hit from the front in the next 0.6s does nothing and opens a Riposte for 3s. 2s cooldown.",
+  "projecthero.miraculous.ability.ryuko_parry.desc": "A brief guard: the first hit from the front in the next 0.6s does nothing and opens a Riposte for 1.5s. 6s cooldown.",
   "projecthero.miraculous.ability.ryuko_riposte": "Riposte",
-  "projecthero.miraculous.ability.ryuko_riposte.desc": "After a parry: a heavy counter on whoever you parried, 22 damage.",
+  "projecthero.miraculous.ability.ryuko_riposte.desc": "Within 1.5s of a parry: a heavy counter on whoever you parried, 15 damage. 5s cooldown.",
   "_comment_omnitrix_way_big_end": ""
 }

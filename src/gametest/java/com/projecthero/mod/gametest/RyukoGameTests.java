@@ -5,6 +5,7 @@ import com.projecthero.mod.miraculous.Miraculous;
 import com.projecthero.mod.miraculous.MiraculousPhrases;
 import com.projecthero.mod.miraculous.MiraculousSequence;
 import com.projecthero.mod.miraculous.ryuko.Ryuko;
+import com.projecthero.mod.miraculous.ryuko.RyukoConfig;
 import com.projecthero.mod.miraculous.ryuko.RyukoMoves;
 import com.projecthero.mod.miraculous.ryuko.RyukoSequence;
 
@@ -122,6 +123,33 @@ public class RyukoGameTests implements FabricGameTest {
 		float hp = z.getHealth();
 		helper.assertTrue(RyukoMoves.riposte(p), "the riposte fires");
 		helper.assertTrue(z.getHealth() < hp, "and lands");
+		helper.succeed();
+	}
+
+	/** v0.17.3 tester: Parry and Riposte were too spammable -- 6 s / 5 s cooldowns, a 1.5 s window, 15 damage. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void parryAndRiposteAreNoLongerSpammable(GameTestHelper helper) {
+		helper.assertTrue(RyukoConfig.PARRY_COOLDOWN == 120 && RyukoConfig.RIPOSTE_COOLDOWN == 100, "the new cooldowns");
+		helper.assertTrue(RyukoConfig.RIPOSTE_WINDOW == 30 && RyukoConfig.RIPOSTE_DAMAGE == 15f, "the shorter window, the lighter counter");
+		ServerPlayer p = ryuko(helper);
+		Zombie z = zombie(helper, 2, 4);
+		long now = helper.getLevel().getGameTime();
+		RyukoMoves.parry(p);
+		helper.assertTrue(Miraculous.state(p).abilityReadyAt.getOrDefault(RyukoConfig.PARRY, 0L) == now + 120L, "Parry waits 6 s");
+		p.hurt(p.damageSources().mobAttack(z), 6f);
+		helper.assertTrue(Miraculous.state(p).val(Ryuko.V_RIPOSTE) == now + 30L, "the Riposte is open for 1.5 s");
+		float hp = z.getHealth();
+		helper.assertTrue(RyukoMoves.riposte(p), "the riposte fires");
+		float dealt = hp - z.getHealth();
+		// other tests may leave the world on Hard -- player damage to a mob does not scale with difficulty, but allow armour
+		helper.assertTrue(dealt > 0f && dealt <= RyukoConfig.RIPOSTE_DAMAGE + 1.0e-3f, "at most 15 damage, dealt " + dealt);
+		helper.assertTrue(Miraculous.state(p).abilityReadyAt.getOrDefault(RyukoConfig.RIPOSTE, 0L) == now + 100L, "Riposte waits 5 s");
+		// a second parry, the window lapsed: no counter
+		Miraculous.edit(p, n -> n.abilityReadyAt.clear());
+		RyukoMoves.parry(p);
+		p.hurt(p.damageSources().mobAttack(z), 6f);
+		Miraculous.edit(p, n -> n.vals.put(Ryuko.V_RIPOSTE, now - 1L));
+		helper.assertTrue(!RyukoMoves.riposte(p), "no riposte once the window has closed");
 		helper.succeed();
 	}
 
