@@ -111,7 +111,8 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	// v0.17.3: the three-layer regrowth takes 170 ticks at Normal -- with the delay that is past 200
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void aBrokenPartRegrowsAfterTheDelayForHunger(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		Andy.setSpeed(p, AndyConfig.SPEED_NORMAL);
@@ -535,7 +536,9 @@ public class AndyGameTests implements FabricGameTest {
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.bodyPart() == arm).size() == 1, "the drill flies");
 		edit(p, n -> n.abilityReadyAt.clear());
 		AndyAbilities.partsBullet(p);
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.isFinger()).isEmpty(), "no fingers from a missing hand");
+		// v0.17.3: a one-arm move falls back to the other arm -- the finger comes from the hand he still has
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.isFinger()).size() == 1, "the other hand shoots instead");
+		helper.assertTrue(Andy.shootingArm(p) == (arm == AndyState.RIGHT_ARM ? AndyState.LEFT_ARM : AndyState.RIGHT_ARM), "from the other arm");
 		AndyAbilities.headBullet(p);
 		helper.assertTrue(Andy.missing(p, AndyState.HEAD), "the head is gone");
 		Andy.reconcile(p);
