@@ -298,6 +298,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			this.leftArm.zRot = Mth.lerp(w, this.leftArm.zRot, -0.05f);
 		}
 
+		projecthero$flightFeelLimbs(player, partialTick, ageInTicks);
+
 		float raise = FlightPoseHelper.armRaise(player, partialTick);
 		if (raise <= 0.001f) {
 			return;
@@ -503,6 +505,41 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	 * then drags it off the face -- the "second layer disconnected while flying" bug. Applies to every
 	 * flight in the mod because they all drive {@link FlightPoseHelper#lean}.
 	 */
+	/**
+	 * v0.17.3 flight feel ({@code client.flight.FlightFeel}; tester: "make flight feel less stiff", after Andy's flight): hanging in
+	 * the air the legs dangle, one a little ahead, swaying slowly apart and together; at speed they trail with a gentle scissor
+	 * from the hips, quicker the faster he goes. A hero flier's pinned arms flutter a touch. Added on top of whatever pose the
+	 * flight already set, so the per-power arm poses (Kryptonian, Nova, Thor's raised hammer) keep their shape.
+	 */
+	private void projecthero$flightFeelLimbs(Player player, float partialTick, float ageInTicks) {
+		float wave = FlightPoseHelper.limbWave(player, partialTick);
+		if (wave <= 0.01f || com.projecthero.mod.client.mutation.FlightClient.posing(player)) {
+			return;
+		}
+		float pace = FlightPoseHelper.pace(player, partialTick);
+		float hover = 1.0f - pace;
+		float slow = Mth.sin(ageInTicks * 0.07f);
+		float slow2 = Mth.sin(ageInTicks * 0.05f + 1.3f);
+		float scissor = Mth.sin(ageInTicks * (0.16f + 0.22f * pace));
+		// no running on air: vanilla's walk cycle (driven by the flight's horizontal speed) is settled out as soon as he moves,
+		// not only once the body has leaned far over
+		float settle = Mth.clamp(pace * 2.0f, 0.0f, 1.0f) * Mth.clamp(wave * 2.0f, 0.0f, 1.0f);
+		this.rightLeg.xRot = Mth.lerp(settle, this.rightLeg.xRot, 0.0f);
+		this.leftLeg.xRot = Mth.lerp(settle, this.leftLeg.xRot, 0.0f);
+		// dangling: the right leg a touch forward, the left a touch back, both swaying; trailing: a scissor kick
+		this.rightLeg.xRot += wave * (hover * (-0.14f + 0.07f * slow) + pace * 0.09f * scissor);
+		this.leftLeg.xRot += wave * (hover * (0.05f - 0.06f * slow2) - pace * 0.09f * scissor);
+		this.rightLeg.zRot += wave * (hover * (0.035f + 0.02f * slow2) + pace * 0.02f);
+		this.leftLeg.zRot -= wave * (hover * (0.035f + 0.02f * slow) + pace * 0.02f);
+		if (FlightPoseHelper.heroFlight(player, partialTick) || hover > 0.5f) {
+			float flutter = Mth.sin(ageInTicks * (0.11f + 0.2f * pace) + 0.7f);
+			this.rightArm.zRot += wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
+			this.leftArm.zRot -= wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
+			this.rightArm.xRot += wave * 0.03f * flutter;
+			this.leftArm.xRot -= wave * 0.03f * flutter;
+		}
+	}
+
 	private void levelHead(Player player, float partialTick) {
 		float lean = FlightPoseHelper.lean(player, partialTick);
 		if (Math.abs(lean) < 0.05f) {

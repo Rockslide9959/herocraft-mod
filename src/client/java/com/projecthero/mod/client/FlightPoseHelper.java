@@ -55,6 +55,9 @@ public final class FlightPoseHelper {
 
 	private static final Map<UUID, PoseAnim> ANIMS = new HashMap<>();
 
+	/** v0.17.3: the shared flight feel on (FlightFeel); off only for before / after comparison films. */
+	public static volatile boolean FEEL_ENABLED = true;
+
 	private FlightPoseHelper() {
 	}
 
@@ -74,6 +77,19 @@ public final class FlightPoseHelper {
 		private float roll;
 		private float rollPrev;
 		private double lastY;
+		/** v0.17.3 flight feel ({@link com.projecthero.mod.client.flight.FlightFeel}): the bank into turns and slides, eased. */
+		private float bank;
+		private float bankPrev;
+		private float lastYaw;
+		private boolean hasYaw;
+		/** 0..1, eased: how much the feel is on (it fades in at take-off and out on landing). */
+		private float feel;
+		private float feelPrev;
+		/** 0..1, eased: how fast he is going (for the limbs: dangling in a hover, trailing at speed). */
+		private float pace;
+		private float pacePrev;
+		/** The last feel flown with (kept while it fades out). */
+		private com.projecthero.mod.client.flight.FlightFeel tune = com.projecthero.mod.client.flight.FlightFeel.GENERIC;
 	}
 
 	/** Called once per client tick (see {@code ProjectHeroModClient}) for every player in the level. */
@@ -159,6 +175,15 @@ public final class FlightPoseHelper {
 			targetLean = Mth.clamp(90.0f + player.getXRot(), 0.0f, 180.0f);
 			leanRate = PHYSICS_APPROACH_PER_TICK;
 		}
+		feel(player, anim, FEEL_ENABLED && flying && !ironManFlying && !physics ? com.projecthero.mod.client.flight.FlightFeel.of(player, thorFlying) : null,
+				speed, dy, dx, dz, bodyYaw);
+		// v0.17.3 flight feel: flying along, the body lies along the actual path -- a climb stands it up, a dive tips it over
+		if (anim.feel > 0.0f && flying && !noLean && !physics && (anim.tier == Tier.SLOW || anim.tier == Tier.FAST)) {
+			float dive = (float) Math.toDegrees(Math.atan2(-dy, Math.max(speed, 1.0e-3))) * anim.tune.pitchFollow();
+			float feltLean = anim.tier == Tier.FAST ? Mth.clamp(LEAN_FAST_DEGREES + dive, 20.0f, 160.0f)
+					: LEAN_SLOW_DEGREES * Mth.clamp((float) (speed / 0.7), 0.5f, 1.35f) + Mth.clamp(dive * 0.4f, -20.0f, 30.0f);
+			targetLean = Mth.lerp(anim.feel, targetLean, feltLean);
+		}
 		anim.rollPrev = anim.roll;
 		float targetRoll = physics ? physicsRoll(player) : 0.0f;
 		anim.roll += (float) com.projecthero.mod.flight.PhysicsFlightModel.wrap(targetRoll - anim.roll) * 0.5f;
@@ -178,6 +203,83 @@ public final class FlightPoseHelper {
 				anim.lean = 0.0f;
 			}
 		}
+	}
+
+	/** v0.17.3 flight feel: how quickly the bank follows the turn (Andy's 0.25, a touch softer for a body that isn't a torpedo). */
+	private static final float BANK_APPROACH_PER_TICK = 0.2f;
+	/** Blocks a tick at which the turn bank is at full strength (it fades out toward a hover). */
+	private static final double FULL_BANK_SPEED = 0.5;
+
+	/**
+	 * v0.17.3 (tester: "apply that sort of flight to the other flying powers"): one tick of the shared flight feel -- the bank
+	 * into turns (yaw rate) and slides (sideways speed), a slow sway in a hover, and how much of all of it is on. {@code tune}
+	 * null: not flying with a feel, everything eases back out.
+	 */
+	private static void feel(Player player, PoseAnim anim, com.projecthero.mod.client.flight.FlightFeel tune, double speed, double dy,
+			double dx, double dz, float bodyYawRad) {
+		if (tune != null) {
+			anim.tune = tune;
+		}
+		anim.feelPrev = anim.feel;
+		anim.bankPrev = anim.bank;
+		anim.pacePrev = anim.pace;
+		anim.feel = approach(anim.feel, tune != null ? 1.0f : 0.0f, 0.002f, tune != null ? 0.15f : 0.12f);
+		float yaw = player.getYHeadRot();
+		float rate = anim.hasYaw ? Mth.wrapDegrees(yaw - anim.lastYaw) : 0.0f;
+		anim.lastYaw = yaw;
+		anim.hasYaw = true;
+		float move = (float) Mth.clamp(speed / FULL_BANK_SPEED, 0.0, 1.0);
+		anim.pace = approach(anim.pace, tune != null ? (float) Mth.clamp(Math.sqrt(speed * speed + dy * dy) / 1.2, 0.0, 1.0) : 0.0f, 0.002f, 0.15f);
+		float want = 0.0f;
+		if (tune != null) {
+			com.projecthero.mod.client.flight.FlightFeel f = tune;
+			// sideways speed (blocks a tick, + = to his left): a slide right drops the right side (+ roll)
+			float left = (float) (dx * Mth.cos(bodyYawRad) + dz * Mth.sin(bodyYawRad));
+			want = rate * f.bankPerDegree() * move - left * f.strafeBank();
+			// a hover sways gently from side to side
+			want += Mth.sin((player.tickCount) * f.bobRate() * 0.5f) * 2.5f * (1.0f - move) * (f.bobAmp() > 0.0f ? 1.0f : 0.0f);
+			want = Mth.clamp(want, -f.maxBank(), f.maxBank());
+		}
+		anim.bank += (want - anim.bank) * BANK_APPROACH_PER_TICK;
+		if (tune == null && Math.abs(anim.bank) < 0.05f) {
+			anim.bank = 0.0f;
+		}
+	}
+
+	/** v0.17.3 flight feel: the bank (degrees, + = right side down), eased and interpolated; 0 with no feel. */
+	public static float bank(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.bankPrev, anim.bank);
+	}
+
+	/**
+	 * v0.17.3 flight feel: the hover bob (blocks, up), strongest hanging still and gone once the body leans into the flight;
+	 * 0 with no feel.
+	 */
+	public static float bob(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		if (anim == null) {
+			return 0.0f;
+		}
+		float feel = Mth.lerp(partialTick, anim.feelPrev, anim.feel);
+		if (feel <= 0.001f || anim.tune.bobAmp() <= 0.0f) {
+			return 0.0f;
+		}
+		float hover = 1.0f - Mth.clamp(Math.abs(Mth.lerp(partialTick, anim.leanPrev, anim.lean)) / 35.0f, 0.0f, 1.0f);
+		float t = player.tickCount + partialTick;
+		return feel * hover * anim.tune.bobAmp() * (Mth.sin(t * anim.tune.bobRate()) + 0.25f * Mth.sin(t * anim.tune.bobRate() * 2.3f));
+	}
+
+	/** v0.17.3 flight feel: how much the limb motion is on (0..1, already scaled by the power's {@code limbWave}). */
+	public static float limbWave(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.feelPrev, anim.feel) * anim.tune.limbWave();
+	}
+
+	/** v0.17.3 flight feel: 0 hanging still .. 1 at full tilt (eased), for the limbs. */
+	public static float pace(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.pacePrev, anim.pace);
 	}
 
 	private static float approach(float current, float target, float snapEpsilon) {
@@ -217,14 +319,16 @@ public final class FlightPoseHelper {
 		if (falcon != 0.0f) {
 			return falcon;
 		}
+		// v0.17.3 flight feel: the bank into turns and slides, on top (it is 0 in Physics Flight, which rolls on its own)
+		float bank = bank(player, partialTick);
 		if (player == net.minecraft.client.Minecraft.getInstance().player) {
-			return com.projecthero.mod.client.flight.PhysicsFlight.roll();
+			return com.projecthero.mod.client.flight.PhysicsFlight.roll() + bank;
 		}
 		PoseAnim anim = ANIMS.get(player.getUUID());
 		if (anim == null) {
 			return 0.0f;
 		}
-		return anim.rollPrev + (float) com.projecthero.mod.flight.PhysicsFlightModel.wrap(anim.roll - anim.rollPrev) * partialTick;
+		return anim.rollPrev + (float) com.projecthero.mod.flight.PhysicsFlightModel.wrap(anim.roll - anim.rollPrev) * partialTick + bank;
 	}
 
 	/**

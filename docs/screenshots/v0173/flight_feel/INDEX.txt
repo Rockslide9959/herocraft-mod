@@ -1,0 +1,10 @@
+v0.17.3 shared flight feel (client.flight.FlightFeel), after Andy's flight. Films are 10 fps (one frame every 2 ticks = real time).
+Each power flies the same scripted path: hover (0-1.2 s), cruise (to 3 s), sprint (to 7 s) with a hard right turn at 4-5.5 s,
+a pull-up then a dive (5.5-7 s), slow down and slide right (7-9.5 s), hover. The flier is a harness fake player (default skin).
+
+kryptonian_before_vs_after.mp4 - left: before (tier lean only), right: after (bank into the turn, body follows the climb/dive,
+  legs settle instead of running on air, hover bob and dangling legs). Chase camera behind and to the left.
+lantern_before_vs_after.mp4 - the same for Green Lantern's Ring Flight (the green trail is GL's own FX).
+maxsteel_before_vs_after.mp4 - the same for Max Steel's Turbo Flight flag (no suit on the fake; Max Steel colours untouched).
+kryptonian_side_after.mp4 - after only, side view: the body pitching up through the climb and head-down into the dive.
+*_sheet.png - contact sheets, 8 frames each: hover, cruise, sprint, turn x2, climb, dive, slide-hover.

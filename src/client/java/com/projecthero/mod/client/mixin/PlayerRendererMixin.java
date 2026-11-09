@@ -151,7 +151,9 @@ public abstract class PlayerRendererMixin {
 		// v0.15.9 Repulsor Boots: a slow hover bob, and a bank into a strafe -- before the lean, so the banked body
 		// then leans forward along its own axis. Local +X is the flier's right here, and a positive Z rotation tips the
 		// top toward -X, hence the minus. (IronManFlightFxClient mirrors this order for the boot jets.)
-		float bob = com.projecthero.mod.client.ironman.IronManFlightPose.bootsBob(player, partialTicks);
+		// v0.17.3 flight feel: every other flight's hover bob too (FlightPoseHelper#bob; 0 for Iron Man)
+		float bob = com.projecthero.mod.client.ironman.IronManFlightPose.bootsBob(player, partialTicks)
+				+ FlightPoseHelper.bob(player, partialTicks);
 		if (bob != 0.0f) {
 			poseStack.translate(0.0f, bob, 0.0f);
 		}
