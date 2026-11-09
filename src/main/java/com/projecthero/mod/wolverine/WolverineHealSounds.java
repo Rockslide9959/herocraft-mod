@@ -32,9 +32,9 @@ public final class WolverineHealSounds {
 	public static final int SIZZLE_GAP_TICKS = 50;
 	/** A single hit at least this big (after his reductions) counts as a big wound: its first heal sizzles. */
 	public static final float BIG_WOUND_HP = 6.0f;
-	public static final float CRACKLE_VOLUME = 0.28f;
-	public static final float SIZZLE_VOLUME = 0.45f;
-	public static final float SURGE_VOLUME = 0.7f;
+	public static final float CRACKLE_VOLUME = 0.16f; // v0.17.3 (user: "dont make the sound effects too loud")
+	public static final float SIZZLE_VOLUME = 0.26f;
+	public static final float SURGE_VOLUME = 0.45f;
 
 	private static final class Tracker {
 		long nextCrackleAt;
