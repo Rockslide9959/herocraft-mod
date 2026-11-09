@@ -176,18 +176,38 @@ public final class AndyPose {
 	private static void flight(Player player, AndyState s, HumanoidModel<?> model, float fly, float now) {
 		float e = fly * fly * (3f - 2f * fly);
 		boolean boost = s.flag(AndyState.FLAG_BOOST);
+		// (user: "the legs are disconnected from the body") the flight is Shift + X, so he is usually sneaking: vanilla's crouch
+		// drops the body 3.2 px, the head 4.2, the arms to 5.2 and pushes the hips 4 px back -- with the body straightened for
+		// the torpedo that left the legs hanging off behind it. Every pivot back to the standing skeleton (blended both ways).
+		pivot(model.head, e, 0f, 0f);
+		pivot(model.hat, e, 0f, 0f);
+		pivot(model.body, e, 0f, 0f);
+		pivot(model.rightArm, e, 2f, 0f);
+		pivot(model.leftArm, e, 2f, 0f);
+		pivot(model.rightLeg, e, 12f, 0f);
+		pivot(model.leftLeg, e, 12f, 0f);
 		float wave = Mth.sin(now * (boost ? 1.9f : 1.1f));
-		float tight = boost ? 0.55f : 1f;
+		float tight = boost ? 0.5f : 1f;
 		// the head raised to look ahead (just a head: only a little, so the neck stays aimed behind)
-		float lift = s.headOnly(now) ? -0.45f : -1.25f;
+		float lift = s.headOnly(now) ? -0.45f : -1.2f;
 		set(model.head, e, lift, 0f, 0f);
 		set(model.hat, e, lift, 0f, 0f);
-		set(model.rightArm, e, 0.32f + 0.05f * wave, 0f, 0.3f * tight + 0.03f * wave);
-		set(model.leftArm, e, 0.32f - 0.05f * wave, 0f, -0.3f * tight - 0.03f * wave);
-		set(model.rightLeg, e, 0.1f + 0.12f * wave * tight, 0f, 0.05f);
-		set(model.leftLeg, e, 0.1f - 0.12f * wave * tight, 0f, -0.05f);
+		// arms straight back along the sides (the body is already lying along the flight: hanging = trailing), the stumps
+		// pointing behind, just off the hips so the jets clear the legs
+		set(model.rightArm, e, 0.06f + 0.03f * wave, 0f, 0.13f * tight + 0.02f * wave);
+		set(model.leftArm, e, 0.06f - 0.03f * wave, 0f, -0.13f * tight - 0.02f * wave);
+		// legs together, trailing straight, a gentle scissor wave from the hips
+		set(model.rightLeg, e, 0.04f + 0.07f * wave * tight, 0f, 0.015f);
+		set(model.leftLeg, e, 0.04f - 0.07f * wave * tight, 0f, -0.015f);
 		model.body.xRot = Mth.lerp(e, model.body.xRot, 0f);
 		model.body.yRot = Mth.lerp(e, model.body.yRot, 0f);
+		model.body.zRot = Mth.lerp(e, model.body.zRot, 0f);
+	}
+
+	/** A part's pivot (model px) eased toward the standing skeleton's. */
+	private static void pivot(ModelPart part, float weight, float y, float z) {
+		part.y = Mth.lerp(weight, part.y, y);
+		part.z = Mth.lerp(weight, part.z, z);
 	}
 
 	/**
