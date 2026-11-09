@@ -90,9 +90,15 @@ public final class AndyHud {
 				regrow = Math.max(regrow, s.regrowth(i, now));
 			}
 		}
+		// v0.17.3: a part that could not pay its food regrows at half Normal (Andy.payForPart): the number turns red and the
+		// speed line says why
+		boolean starved = false;
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			starved |= s.regrowth(i, now) < 1f && Andy.starvedRegrowth(s, i);
+		}
 		if (regrow >= 0f) {
 			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.regrowth"), regrow, REGROWTH,
-					Math.round(regrow * 100f) + "%", VanillaHud.WHITE);
+					Math.round(regrow * 100f) + "%", starved ? VanillaHud.RED : VanillaHud.WHITE);
 			by -= 11;
 		}
 
@@ -108,9 +114,10 @@ public final class AndyHud {
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
 		}
-		Component speed = Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, s.regenSpeed))]);
+		Component speed = starved ? Component.translatable("projecthero.andy.speed.starving")
+				: Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, s.regenSpeed))]);
 		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
-				ty + 11, VanillaHud.GREY, true);
+				ty + 11, starved ? VanillaHud.RED : VanillaHud.GREY, true);
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();

@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.3: Andy's box and pose follow what his body has left ({@link AndyStages}): a 0.5 rolling head, a 0.6 crawl dragging
- * himself on an arm (vanilla's crawl pose), a 1.3 hand walk, a 1.5 hop on a growing nub, then the normal box. Both sides read
+ * himself along on his arms (vanilla's crawl pose), a 1.3 hand walk, a 1.5 shuffle on both growing stumps, then the normal box. Both sides read
  * the synced part times, so the server's box and every client's agree. The box only grows when the bigger one fits where he
  * is (otherwise he stays small until there is room), so a growing body never wedges him into a ceiling.
  */
@@ -53,7 +53,7 @@ public abstract class AndyCrawlPoseMixin {
 		int st = this.projecthero$andyStage;
 		if (AndyStages.dims(st) != null) {
 			// flying, the flight lays the body along the look itself (vanilla's crawl tilt on top would turn him over)
-			Pose pose = st == AndyStages.DRAG && !com.projecthero.mod.andy.AndyFlight.isFlying(self) ? Pose.SWIMMING : Pose.STANDING;
+			Pose pose = st == AndyStages.CRAWL && !com.projecthero.mod.andy.AndyFlight.isFlying(self) ? Pose.SWIMMING : Pose.STANDING;
 			if (self.getPose() != pose) {
 				self.setPose(pose);
 			}
