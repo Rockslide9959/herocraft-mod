@@ -1,0 +1,5 @@
+Andy regrowth, inside out (v0.17.3): bone first, then dark red muscle strands on the bone that fill in and thicken outward, then skin closing over full-thickness muscle from the joint. Normal speed (170-tick limb). Limb films are 20 fps (one frame per game tick, real time); the stump film is 10 fps at one frame per 2 ticks (real time). Particles are cleared in the harness so the burst blobs don't hide the arm. Every MP4 has a contact sheet PNG of the same name.
+arm_regrowth.mp4 / .png - right arm, front 3/4: the vanilla bone pushes out of the shoulder, red strands run down it with bone showing between, they fill in and swell, then the skin creeps down from the shoulder, the hand last.
+arm_end_on.mp4 / .png - from below the right hand looking up the arm: bone column, then strands on its faces, then a solid muscle sleeve thicker than the bone, then skin from the shoulder down.
+leg_regrowth.mp4 / .png - left leg, 3/4: the same order from the hip.
+body_from_stump.mp4 / .png - everything but the head gone: the ribcage grows from the neck, muscle wraps it, skin closes from the neck, the arms (bone, strands, muscle, skin) and legs follow.

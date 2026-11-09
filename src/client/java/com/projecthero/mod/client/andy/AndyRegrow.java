@@ -149,7 +149,9 @@ public final class AndyRegrow {
 	/** The burning edge of a boost: ember oranges and reds (only on a cut face that is burning). */
 	static final int[] EMBER = { 0x7A1A08, 0xB8360C, 0xE0601A, 0xFF8C2A, 0xFFC060 };
 	/** How far behind the joint's rows the far rows' muscle starts thickening (in muscle progress: 0 = all rows at once). */
-	static final float MUSCLE_LAG = 0.5f;
+	static final float MUSCLE_LAG = 0.25f;
+	/** Muscle strands: each column of cells starts up to this much later (in muscle progress), so it begins as fibres on the bone. */
+	static final float MUSCLE_STRANDS = 0.35f;
 
 	/** Where the bone's tip stops (rows from the joint). */
 	static final float BONE_REACH = 11.9f;
@@ -179,7 +181,7 @@ public final class AndyRegrow {
 		float span = Math.max(1f, lb.h - from);
 		float fs = from + (lb.end - from) * qs;
 		if (qm < 1f) {
-			float fullRow = from + span * (qm * (1f + MUSCLE_LAG) - 1f) / MUSCLE_LAG;
+			float fullRow = from + span * (qm * (1f + MUSCLE_LAG + MUSCLE_STRANDS) - 1f - MUSCLE_STRANDS) / MUSCLE_LAG;
 			fs = Math.min(fs, Math.max(from, fullRow - 0.3f));
 		}
 		PoseStack.Pose last = pose.last();
@@ -221,7 +223,8 @@ public final class AndyRegrow {
 					continue; // no muscle yet, or no bone here yet to build on
 				}
 				float u = Math.max(0f, (row + 0.5f - from) / span);
-				mr = Math.max(0f, Math.min(1f, qm * (1f + MUSCLE_LAG) - MUSCLE_LAG * u + lb.jo[i] * 0.35f));
+				float strand = MUSCLE_STRANDS * AndyTexels.hash(i % lb.w, 0, i / (lb.w * lb.h), 515L + part);
+				mr = Math.max(0f, Math.min(1f, qm * (1f + MUSCLE_LAG + MUSCLE_STRANDS) - MUSCLE_LAG * u - strand));
 				if (mr <= 0f) {
 					continue;
 				}
@@ -253,7 +256,7 @@ public final class AndyRegrow {
 				}
 				// fresh muscle is wetter and darker, settling to its own red as it reaches full thickness
 				int rgb = e < 0.6f ? LIMB_FLESH[Math.max(0, java.util.Arrays.binarySearch(LIMB_FLESH, lb.rgb[i]) - 1)] : lb.rgb[i];
-				flatBox(vc, last, cx0, y0 + 0.02f, cz0, cx1, y0 + 0.98f, cz1, rgb, light);
+				flatBox(vc, last, cx0, y0, cz0, cx1, y0 + 1f, cz1, rgb, light);
 				continue;
 			} else {
 				s = lb.js[i];
