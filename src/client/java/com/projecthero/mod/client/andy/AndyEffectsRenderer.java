@@ -44,7 +44,7 @@ public final class AndyEffectsRenderer {
 		Vec3 cam = context.camera().getPosition();
 		PoseStack pose = context.matrixStack();
 		renderWaves(context, pose, cam, mc.level.getGameTime() + partial);
-		renderJets(context, pose, cam, mc, partial);
+		AndyJets.render(context, pose, cam, mc, partial);
 		for (Player player : mc.level.players()) {
 			AndyState s = Andy.peek(player);
 			if (s == null || !s.hasPower || (!s.flag(AndyState.FLAG_DEAD_LINE) && !s.flag(AndyState.FLAG_DEAD_ROAD))) {
@@ -81,135 +81,6 @@ public final class AndyEffectsRenderer {
 			}
 			pose.popPose();
 		}
-	}
-
-	// ---------------------------------------------------------------- the flight's jets
-
-	/**
-	 * The core of each blood jet while Andy flies: a tapered, flickering cone out of every stump (the hands', the feet', or the
-	 * neck), a hot bright-red core in a darker sheath, longer and fatter while boosting. The spray round it is {@link BloodFx}.
-	 */
-	private static void renderJets(WorldRenderContext context, PoseStack pose, Vec3 cam, Minecraft mc, float partial) {
-		float now = mc.level.getGameTime() + partial;
-		for (Player player : mc.level.players()) {
-			AndyState s = Andy.peek(player);
-			if (s == null || !s.hasPower || !s.flag(AndyState.FLAG_PROPELLING)) {
-				continue;
-			}
-			if (player == mc.player && mc.options.getCameraType().isFirstPerson()) {
-				continue; // drawn on the first-person arms instead
-			}
-			boolean boost = s.flag(AndyState.FLAG_BOOST);
-			// (user: the jets read as wing blobs) long thin streams, no wider than the stump where they leave it
-			float len = boost ? 2.4f : 1.6f, rad = boost ? 0.075f : 0.06f;
-			Vec3 look = player.getViewVector(partial);
-			if (s.headOnly(now)) {
-				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
-				cone(context, pose, cam, neck[0], look.scale(-1), len * 1.1f, rad * 1.3f, now, player.getId());
-				continue;
-			}
-			for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
-				if (!s.broken(part)) {
-					AndyCuts.Cut cut = AndyCuts.of(s, part, now);
-					cone(context, pose, cam, AndyBlood.endOf(player, part, cut != null ? cut.rows() : 12f), AndyBlood.jetDir(AndyBlood.axis(player, part), look),
-							len, rad, now, player.getId() * 7 + part);
-				} else if (!s.broken(AndyState.BODY)) {
-					Vec3[] st = AndyBlood.stump(player, part);
-					cone(context, pose, cam, st[0], AndyBlood.jetDir(st[1], look), len * 0.8f, rad, now, player.getId() * 7 + part);
-				}
-			}
-			if (s.broken(AndyState.BODY)) {
-				Vec3[] neck = AndyBlood.stump(player, AndyState.HEAD);
-				cone(context, pose, cam, neck[0], player.getViewVector(partial).scale(-1), len, rad * 1.2f, now, player.getId());
-			}
-		}
-	}
-
-	private static void cone(WorldRenderContext context, PoseStack pose, Vec3 cam, Vec3 from, Vec3 dirV, float len, float rad, float now, int seed) {
-		pose.pushPose();
-		pose.translate(from.x - cam.x, from.y - cam.y, from.z - cam.z);
-		Matrix4f m = pose.last().pose();
-		Vector3f dir = new Vector3f((float) dirV.x, (float) dirV.y, (float) dirV.z);
-		if (dir.lengthSquared() < 1.0e-6f) {
-			pose.popPose();
-			return;
-		}
-		dir.normalize();
-		Vector3f a = new Vector3f(dir).cross(Math.abs(dir.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
-		Vector3f b = new Vector3f(dir).cross(a).normalize();
-		float flick = 0.85f + 0.15f * Mth.sin(now * 2.7f + seed) + 0.1f * Mth.sin(now * 6.1f + seed * 1.7f);
-		float l = len * flick;
-		// a dark sheath, a red body, a hot core: each starts at the stump's own width, widens as it goes and fades out
-		// (no depth write: the faded tail must not punch the clouds out of the sky behind it)
-		VertexConsumer vc = context.consumers().getBuffer(com.projecthero.mod.client.omnitrix.OmnitrixFxRenderType.FLAT);
-		stream(vc, m, dir, a, b, l, rad * 1.3f, 2.4f, 0.34f, 0.01f, 0.02f, 0.32f, now, seed);
-		stream(vc, m, dir, a, b, l * 0.75f, rad, 1.7f, 0.62f, 0.03f, 0.05f, 0.6f, now, seed + 3);
-		stream(vc, m, dir, a, b, l * 0.45f, rad * 0.45f, 1.3f, 0.95f, 0.22f, 0.15f, 0.7f, now, seed + 5);
-		pose.popPose();
-	}
-
-	/**
-	 * A stream from the origin along {@code dir}: {@code r} wide at the root (inside the stump), {@code r * spread} at the far
-	 * end, opaque at the root and gone at the end, with a slight ripple travelling down it.
-	 */
-	private static void stream(VertexConsumer vc, Matrix4f m, Vector3f dir, Vector3f a, Vector3f b, float len, float r, float spread, float cr, float cg,
-			float cb, float ca, float now, int seed) {
-		final int sides = 8, rings = 5;
-		float[] rr = new float[rings + 1], al = new float[rings + 1], dd = new float[rings + 1];
-		for (int k = 0; k <= rings; k++) {
-			float t = k / (float) rings;
-			float ripple = 1f + 0.12f * t * Mth.sin(now * 3.3f - t * 9f + seed);
-			rr[k] = r * (1f + (spread - 1f) * (float) Math.sqrt(t)) * ripple;
-			float fade = 1f - t;
-			al[k] = ca * fade * fade;
-			dd[k] = len * t;
-		}
-		Vector3f p0 = new Vector3f(), p1 = new Vector3f(), q0 = new Vector3f(), q1 = new Vector3f();
-		for (int k = 0; k < rings; k++) {
-			for (int i = 0; i < sides; i++) {
-				float t0 = i * Mth.TWO_PI / sides, t1 = (i + 1) * Mth.TWO_PI / sides;
-				ring(p0, a, b, dir, t0, rr[k], dd[k]);
-				ring(p1, a, b, dir, t1, rr[k], dd[k]);
-				ring(q0, a, b, dir, t0, rr[k + 1], dd[k + 1]);
-				ring(q1, a, b, dir, t1, rr[k + 1], dd[k + 1]);
-				vc.addVertex(m, p0.x, p0.y, p0.z).setColor(cr, cg, cb, al[k]);
-				vc.addVertex(m, p1.x, p1.y, p1.z).setColor(cr, cg, cb, al[k]);
-				vc.addVertex(m, q1.x, q1.y, q1.z).setColor(cr, cg, cb, al[k + 1]);
-				vc.addVertex(m, q0.x, q0.y, q0.z).setColor(cr, cg, cb, al[k + 1]);
-			}
-		}
-	}
-
-	private static void ring(Vector3f out, Vector3f a, Vector3f b, Vector3f dir, float ang, float r, float d) {
-		float c = Mth.cos(ang) * r, s = Mth.sin(ang) * r;
-		out.set(a.x * c + b.x * s + dir.x * d, a.y * c + b.y * s + dir.y * d, a.z * c + b.z * s + dir.z * d);
-	}
-
-	/** A cone from the origin along {@code dir}: {@code r} wide at the root, a point at {@code len}; fading toward the tip. */
-	private static void jetCone(VertexConsumer vc, Matrix4f m, Vector3f dir, Vector3f a, Vector3f b, float len, float r, float cr, float cg, float cb, float ca) {
-		int sides = 7;
-		Vector3f tip = new Vector3f(dir).mul(len);
-		for (int i = 0; i < sides; i++) {
-			float t0 = i * Mth.TWO_PI / sides, t1 = (i + 1) * Mth.TWO_PI / sides;
-			Vector3f p0 = new Vector3f(a).mul(Mth.cos(t0) * r).add(new Vector3f(b).mul(Mth.sin(t0) * r));
-			Vector3f p1 = new Vector3f(a).mul(Mth.cos(t1) * r).add(new Vector3f(b).mul(Mth.sin(t1) * r));
-			// a widening bell: the jet spreads a little before it thins out
-			Vector3f q0 = new Vector3f(p0).mul(1.6f).add(new Vector3f(dir).mul(len * 0.45f));
-			Vector3f q1 = new Vector3f(p1).mul(1.6f).add(new Vector3f(dir).mul(len * 0.45f));
-			vc.addVertex(m, p0.x, p0.y, p0.z).setColor(cr, cg, cb, ca);
-			vc.addVertex(m, p1.x, p1.y, p1.z).setColor(cr, cg, cb, ca);
-			vc.addVertex(m, q1.x, q1.y, q1.z).setColor(cr, cg, cb, ca * 0.7f);
-			vc.addVertex(m, q0.x, q0.y, q0.z).setColor(cr, cg, cb, ca * 0.7f);
-			vc.addVertex(m, q0.x, q0.y, q0.z).setColor(cr, cg, cb, ca * 0.7f);
-			vc.addVertex(m, q1.x, q1.y, q1.z).setColor(cr, cg, cb, ca * 0.7f);
-			vc.addVertex(m, tip.x, tip.y, tip.z).setColor(cr, cg, cb, 0f);
-			vc.addVertex(m, tip.x, tip.y, tip.z).setColor(cr, cg, cb, 0f);
-		}
-	}
-
-	static void jetConePublic(VertexConsumer vc, Matrix4f m, Vector3f dir, Vector3f a, Vector3f b, float len, float r, float cr, float cg, float cb,
-			float ca) {
-		jetCone(vc, m, dir, a, b, len, r, cr, cg, cb, ca);
 	}
 
 	/** From the client tick: the blood the waves and the beams throw about. */
@@ -262,6 +133,7 @@ public final class AndyEffectsRenderer {
 	static void reset() {
 		WAVES.clear();
 		SEEN_ANIM.clear();
+		AndyJets.reset();
 	}
 
 	/** From the client tick: a Great Crescent that just started launches its waves from where he stood. */

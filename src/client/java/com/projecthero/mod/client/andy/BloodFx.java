@@ -170,6 +170,65 @@ public final class BloodFx {
 		}
 	}
 
+	// ---------------------------------------------------------------- arterial spray (v0.17.3 blood flight, AndyJets)
+
+	/** Flesh shades: torn muscle and fat, for the bits the boost's burn and the take-off throw off. */
+	public static final int[] FLESH = { 0x5E1416, 0x7E2224, 0x9C3434, 0xB8504A, 0xD08070 };
+
+	/**
+	 * One piece breaking off an arterial jet at {@code at}: out along unit {@code dir} at {@code speed} (relative to the body,
+	 * which carries it with {@code carry}), off the line by up to {@code spread}. A drop is small and quick (it streaks); a
+	 * {@code glob} is heavy, dark and lives long enough to land and splat.
+	 */
+	public static void arterialDrop(Vec3 at, Vec3 dir, Vec3 carry, double speed, double spread, boolean glob) {
+		double ox = (RND.nextDouble() - 0.5) * 2 * spread, oy = (RND.nextDouble() - 0.5) * 2 * spread, oz = (RND.nextDouble() - 0.5) * 2 * spread;
+		double dx = dir.x + ox, dy = dir.y + oy, dz = dir.z + oz;
+		double l = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		if (l < 1.0e-6) {
+			return;
+		}
+		double k = speed / l;
+		double jx = (RND.nextDouble() - 0.5) * 0.06, jy = (RND.nextDouble() - 0.5) * 0.06, jz = (RND.nextDouble() - 0.5) * 0.06;
+		float size = glob ? 0.07f + RND.nextFloat() * 0.03f : 0.018f + RND.nextFloat() * 0.03f;
+		int rgb = glob ? SHADES[1 + RND.nextInt(3)] : shade(RND.nextFloat());
+		drop(at.x + jx, at.y + jy, at.z + jz, carry.x + dx * k, carry.y + dy * k, carry.z + dz * k, size, rgb, glob ? 50 + RND.nextInt(20) : 14 + RND.nextInt(16), 0);
+	}
+
+	/**
+	 * A stump erupting (a hand or foot blown off): a crown of blood thrown out round the cut, a fast core out of it, a few
+	 * heavy globs, torn flesh and a puff of mist. {@code axis}: out of the stump.
+	 */
+	public static void eruption(Vec3 at, Vec3 axis, Vec3 carry, float power) {
+		Vec3 d = axis.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : axis.normalize();
+		Vec3 a = d.cross(Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+		Vec3 b = d.cross(a);
+		int ring = (int) (22 * power);
+		for (int k = 0; k < ring; k++) {
+			// round the cut face, tipped outward: a crown
+			double ang = RND.nextDouble() * Math.PI * 2;
+			Vec3 radial = a.scale(Math.cos(ang)).add(b.scale(Math.sin(ang)));
+			Vec3 v = radial.scale(0.6 + RND.nextDouble() * 0.4).add(d.scale(0.4 + RND.nextDouble() * 0.6)).normalize().scale((0.12 + RND.nextDouble() * 0.28) * power);
+			drop(at.x, at.y, at.z, carry.x + v.x, carry.y + v.y + 0.05, carry.z + v.z, 0.02f + RND.nextFloat() * 0.035f, shade(RND.nextFloat()),
+					24 + RND.nextInt(24), 0);
+		}
+		for (int k = 0; k < (int) (8 * power); k++) {
+			arterialDrop(at, d, carry, (0.35 + RND.nextDouble() * 0.3) * power, 0.15, false);
+		}
+		for (int k = 0; k < 3; k++) {
+			arterialDrop(at, d.add(0, 0.4, 0), carry, (0.12 + RND.nextDouble() * 0.15) * power, 0.5, true);
+		}
+		flesh(at, carry.add(d.scale(0.12 * power)), (int) (4 * power));
+		mist(at.add(d.scale(0.2)), (int) (3 * power), 0.3f, carry.scale(0.6));
+	}
+
+	/** Torn flesh: small chunks in muscle and fat shades, flung with {@code vel} (plus a scatter), that fall and splat. */
+	public static void flesh(Vec3 at, Vec3 vel, int count) {
+		for (int k = 0; k < count; k++) {
+			drop(at.x, at.y, at.z, vel.x + (RND.nextDouble() - 0.5) * 0.18, vel.y + RND.nextDouble() * 0.12, vel.z + (RND.nextDouble() - 0.5) * 0.18,
+					0.035f + RND.nextFloat() * 0.03f, FLESH[RND.nextInt(FLESH.length)], 30 + RND.nextInt(20), 0);
+		}
+	}
+
 	// ---------------------------------------------------------------- tick
 
 	public static void tick() {

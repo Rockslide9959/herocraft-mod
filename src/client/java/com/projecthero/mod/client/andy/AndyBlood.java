@@ -114,30 +114,8 @@ public final class AndyBlood {
 		if (s.flag(AndyState.FLAG_PROPELLING) && firstPersonSelf && player instanceof net.minecraft.client.player.AbstractClientPlayer acp) {
 			AndyFirstPerson.spray(acp, s);
 		}
-		if (s.flag(AndyState.FLAG_PROPELLING) && !firstPersonSelf) {
-			float power = s.flag(AndyState.FLAG_BOOST) ? 1.8f : 1f;
-			if (s.headOnly(now)) {
-				Vec3[] neck = stump(player, AndyState.HEAD);
-				// out of the neck: the head's own down
-				BloodFx.jet(neck[0], player.getLookAngle().scale(-1), carry, power);
-			} else {
-				for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
-					if (!s.broken(part)) {
-						AndyCuts.Cut cut = AndyCuts.of(s, part, now);
-						float rows = cut != null ? cut.rows() : 12f;
-						BloodFx.jet(endOf(player, part, rows), jetDir(axis(player, part), player.getLookAngle()), carry, power);
-					} else if (!s.broken(AndyState.BODY)) {
-						// the limb is gone: the jet comes straight out of the shoulder / hip
-						Vec3[] st = stump(player, part);
-						BloodFx.jet(st[0], jetDir(st[1], player.getLookAngle()), carry, power * 0.8f);
-					}
-				}
-				if (s.broken(AndyState.BODY)) {
-					Vec3[] neck = stump(player, AndyState.HEAD);
-					BloodFx.jet(neck[0], player.getLookAngle().scale(-1), carry, power);
-				}
-			}
-		}
+		// the jets: pulsing arterial spurts, the take-off eruption, the boost's surge and the landing's sputter
+		AndyJets.tick(player, s, now, firstPersonSelf);
 		// the boost's burning edge
 		if (s.flag(AndyState.FLAG_PROPELLING) && s.flag(AndyState.FLAG_BOOST)) {
 			for (int part = AndyState.BODY; part < AndyState.PARTS; part++) {

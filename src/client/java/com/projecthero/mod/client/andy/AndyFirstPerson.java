@@ -12,14 +12,10 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.phys.Vec3;
-
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 /**
  * v0.17.3: Andy's own view. Flying: both forearm stumps swept down into the bottom corners, a blood jet out of each, and -- when
@@ -143,20 +139,12 @@ public final class AndyFirstPerson {
 		if (s == null || !s.flag(AndyState.FLAG_PROPELLING)) {
 			return;
 		}
-		float now = player.level().getGameTime() + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		boolean boost = s.flag(AndyState.FLAG_BOOST);
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		float[] b = AndyTexels.box(part, AndyRender.slim(player));
 		pose.translate((b[0] + b[3] * 0.5f) / 16f, (b[1] + cut.rows()) / 16f, (b[2] + b[5] * 0.5f) / 16f);
-		Matrix4f m = pose.last().pose();
-		// the jet streams back along the forearm, past the bottom of the view (a sheath wider than the arm)
-		Vector3f dir = new Vector3f(0, -1, 0), a = new Vector3f(1, 0, 0), c = new Vector3f(0, 0, 1);
-		float flick = 0.85f + 0.15f * Mth.sin(now * 2.9f + part) + 0.1f * Mth.sin(now * 6.3f + part * 2f);
-		float len = (boost ? 1.3f : 0.85f) * flick, rad = boost ? 0.09f : 0.07f;
-		AndyEffectsRenderer.jetConePublic(buffers.getBuffer(RenderType.lightning()), m, dir, a, c, len, rad * 1.7f, 0.55f, 0.02f, 0.03f, 0.5f);
-		AndyEffectsRenderer.jetConePublic(buffers.getBuffer(RenderType.debugQuads()), m, dir, a, c, len * 0.8f, rad, 0.6f, 0.03f, 0.05f, 0.95f);
-		AndyEffectsRenderer.jetConePublic(buffers.getBuffer(RenderType.lightning()), m, dir, a, c, len * 0.5f, rad * 0.45f, 1.0f, 0.25f, 0.2f, 0.8f);
+		// the spurt streams back along the forearm, past the bottom of the view (short: it never reaches the camera)
+		AndyJets.firstPersonArm(pose, buffers, light, player, part, 0f, -1f, 0f, 0f, 0f, 0.4f);
 		pose.popPose();
 	}
 
@@ -166,14 +154,13 @@ public final class AndyFirstPerson {
 		Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
 		Vec3 down = right.cross(look).normalize().scale(-1);
 		Vec3 eye = player.getEyePosition();
-		float power = s.flag(AndyState.FLAG_BOOST) ? 1.6f : 1f;
 		for (int sd = -1; sd <= 1; sd += 2) {
 			int arm = sd > 0 ? AndyState.RIGHT_ARM : AndyState.LEFT_ARM;
 			if (s.broken(arm)) {
 				continue;
 			}
 			Vec3 at = eye.add(look.scale(0.55)).add(right.scale(0.42 * sd)).add(down.scale(0.5));
-			BloodFx.jet(at, look.scale(-1).add(down.scale(0.4)).normalize(), player.getDeltaMovement(), power * 0.6f);
+			AndyJets.firstPersonSpray(player, s, at, look.scale(-1).add(down.scale(0.4)).normalize());
 		}
 	}
 }

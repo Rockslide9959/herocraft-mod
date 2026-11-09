@@ -250,7 +250,8 @@ public final class AndySounds {
 
 	private static void updateJet(Player player, Voices v) {
 		boolean on = (v.apiJet || v.autoJet) && player.isAlive();
-		float vol = v.boosting ? 0.85f : 0.6f;
+		// swelling with each beat of the jets' spurts (AndyJets' heart)
+		float vol = (v.boosting ? 0.85f : 0.6f) * (0.78f + 0.3f * AndyJets.soundPulse(player));
 		float pitch = v.boosting ? 1.18f : 1.0f;
 		if (on) {
 			if (v.jet == null || v.jet.isStopped()) {
