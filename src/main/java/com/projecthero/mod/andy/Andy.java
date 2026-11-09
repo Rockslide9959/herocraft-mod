@@ -457,6 +457,105 @@ public final class Andy {
 		return s != null && s.flag(AndyState.FLAG_REGEN_OFF);
 	}
 
+	// ---------------------------------------------------------------- tap V: Reform
+
+	/**
+	 * What Reform costs right now: {@link AndyConfig#partFood} at his speed for every part still to be paid for (gone and not
+	 * started regrowing yet; a part already growing has paid, and the head is free) plus {@link AndyConfig#REFORM_FOOD}.
+	 */
+	public static float reformCost(ServerPlayer player) {
+		AndyState s = state(player);
+		long now = player.level().getGameTime();
+		int unpaid = 0;
+		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+			if (s.broken(i) && (s.regrowStart(i) <= 0L || s.regrowStart(i) > now)) {
+				unpaid++;
+			}
+		}
+		return unpaid * AndyConfig.partFood(s.regenSpeed) + AndyConfig.REFORM_FOOD;
+	}
+
+	/** Enough saturation and hunger together for {@code cost} (creative always). */
+	static boolean canAfford(ServerPlayer player, float cost) {
+		return player.getAbilities().instabuild
+				|| player.getFoodData().getSaturationLevel() + player.getFoodData().getFoodLevel() >= cost - 1.0e-4f;
+	}
+
+	/**
+	 * v0.17.3 tap V (user: ripping off your arm is useless, V should be another utility): Reform -- he forces his body back
+	 * together at once. Every part that is gone or regrowing is whole on the spot (the finger-shot bites and burnt hands and feet
+	 * too), he heals {@link AndyConfig#REFORM_HEAL}, and the fire and every harmful effect on him go. Costs {@link #reformCost},
+	 * saturation first; without enough food it fails. Works with regeneration Off (a deliberate choice). Not while the Bone
+	 * Sword is out (V puts it away then, {@link AndyBoneSword#handle}). {@link AndyConfig#REFORM_COOLDOWN}.
+	 */
+	public static boolean reform(ServerPlayer player) {
+		if (!canAct(player)) {
+			return false;
+		}
+		AndyState s = state(player);
+		if (s.boneSword()) {
+			return false;
+		}
+		String id = AndyAbilities.REFORM;
+		int cd = cooldownRemaining(player, id);
+		if (cd > 0) {
+			say(player, "message.projecthero.andy.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.andy.ability." + id),
+					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+			return false;
+		}
+		float cost = reformCost(player);
+		ServerLevel level = (ServerLevel) player.level();
+		if (!canAfford(player, cost)) {
+			LAST_MESSAGE.remove(player.getUUID());
+			say(player, "message.projecthero.andy.reform_no_food", ChatFormatting.GRAY, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cost)));
+			level.playSound(null, player.getX(), player.getEyeY(), player.getZ(), SoundEvents.DISPENSER_FAIL, SoundSource.PLAYERS, 0.6f, 1.4f);
+			return false;
+		}
+		payFood(player, cost);
+		long now = Math.max(1L, level.getGameTime());
+		AndyState n = s.copy();
+		long mask = 0L;
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			if (n.broken(i)) {
+				mask |= 1L << i;
+				n.setTimes(i, 0L, 0L, 0L);
+				n.setKind(i, AndyState.KIND_NONE);
+				n.partHp.set(i, AndyConfig.PART_HP[i]);
+			}
+		}
+		n.setEx(AndyState.X_EATEN_R, 0L);
+		n.setEx(AndyState.X_EATEN_L, 0L);
+		if (!n.flag(AndyState.FLAG_PROPELLING)) {
+			n.setEx(AndyState.X_CUT_REGROW, 0L);
+			n.setEx(AndyState.X_BURN_TICKS, 0L);
+			n.setEx(AndyState.X_BURN_SEG, 0L);
+		}
+		n.setEx(AndyState.X_REFORMED, mask);
+		n.abilityReadyAt.put(id, now + AndyConfig.REFORM_COOLDOWN);
+		n.animId = AndyState.ANIM_REFORM;
+		n.animStart = now;
+		save(player, n);
+		reconcile(player);
+		// the launched parts still lying about burst, as when their replacement grows
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			if ((mask & (1L << i)) != 0L && s.kind(i) == AndyState.KIND_LAUNCHED) {
+				startedRegrowing(player, i, AndyState.KIND_LAUNCHED);
+			}
+		}
+		player.heal(AndyConfig.REFORM_HEAL);
+		player.clearFire();
+		for (net.minecraft.world.effect.MobEffectInstance e : java.util.List.copyOf(player.getActiveEffects())) {
+			if (e.getEffect().value().getCategory() == net.minecraft.world.effect.MobEffectCategory.HARMFUL) {
+				player.removeEffect(e.getEffect());
+			}
+		}
+		if (player.getVehicle() instanceof Player) {
+			player.stopRiding(); // carried as a head: he has a body again
+		}
+		AndySfx.reform(level, player.position().add(0, 1.0, 0), mask != 0L);
+		return true;
+	}
+
 	// ---------------------------------------------------------------- stats
 
 	public static void reconcile(ServerPlayer player) {
@@ -763,10 +862,17 @@ public final class Andy {
 	 * hunger/saturation in order to regrow otherwise you regenerate 50% slower than normal speed"). Creative pays nothing.
 	 */
 	static boolean payForPart(ServerPlayer player, int speed) {
+		return payFood(player, AndyConfig.partFood(speed));
+	}
+
+	/**
+	 * Takes {@code share} food points, out of the saturation first, then the hunger bar (whole points; a fraction left over is
+	 * owed to the next payment). True if it was paid in full. Creative pays nothing.
+	 */
+	static boolean payFood(ServerPlayer player, float share) {
 		if (player.getAbilities().instabuild) {
 			return true;
 		}
-		float share = AndyConfig.partFood(speed);
 		var food = player.getFoodData();
 		float sat = food.getSaturationLevel();
 		float fromSat = Math.min(sat, share);

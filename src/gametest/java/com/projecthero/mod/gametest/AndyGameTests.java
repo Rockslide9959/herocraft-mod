@@ -932,8 +932,8 @@ public class AndyGameTests implements FabricGameTest {
 		AndyAbilities.pullCard(p);
 		helper.assertTrue(!Andy.victor(p) && Andy.state(p).victorUntil == 0L, "pulling the card does nothing");
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
-		helper.assertTrue(AndyAbilities.TEAR_OFF.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, v)[0])
-				&& AndyAbilities.REGEN.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, v)[1]), "V is Tear Off, Shift+V the speed");
+		helper.assertTrue(AndyAbilities.REFORM.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, v)[0])
+				&& AndyAbilities.REGEN.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, v)[1]), "V is Reform, Shift+V the speed");
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Andy.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(AndyAbilities.PARTS_BULLET.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
@@ -1058,39 +1058,113 @@ public class AndyGameTests implements FabricGameTest {
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
 		helper.assertTrue(Andy.state(p).animId != AndyState.ANIM_SWORD_STRUGGLE && !AndyBoneSword.held(p) && !Andy.missing(p, off),
 				"let go early: no sword, the arm stays on");
-		helper.assertTrue(Andy.cooldownRemaining(p, AndyAbilities.TEAR_OFF) == 0, "and it was no tap: nothing torn off");
+		helper.assertTrue(Andy.cooldownRemaining(p, AndyAbilities.REFORM) == 0, "and it was no tap: no Reform");
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- tap V: Reform (replaced Tear Off)
+
+	private static void feed(ServerPlayer p, int food, float saturation) {
+		p.getFoodData().setFoodLevel(food);
+		p.getFoodData().setSaturation(saturation);
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void tapVTearsOffTheWorstLimbAndWhatIsOnHim(GameTestHelper helper) {
-		// v0.17.3 (user: "put another move on regular V")
+	public void tapVReformFinishesEveryPartAndCleanses(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		Andy.damagePart(p, AndyState.LEFT_LEG, 5f);
+		feed(p, 20, 5f);
+		long now = helper.getLevel().getGameTime();
+		int off = Andy.otherArm(Andy.mainArm(p));
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST); // gone, not started
+		Andy.breakPart(p, off, AndyState.KIND_BURST);
+		edit(p, n -> n.setTimes(off, Math.max(1L, now - 30), now - 5, now + 100)); // regrowing
+		p.setHealth(10f);
 		p.igniteForSeconds(8f);
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.POISON, 200, 1));
-		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200, 1));
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.WITHER, 200, 1));
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 0));
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-		helper.assertTrue(Andy.missing(p, AndyState.LEFT_LEG) && !Andy.missing(p, AndyState.RIGHT_LEG), "the hurt leg was torn off");
-		helper.assertTrue(!p.isOnFire() && !p.hasEffect(MobEffects.POISON) && !p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "fire, poison and slowness went with it");
+		AndyState s = Andy.state(p);
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			helper.assertTrue(!s.broken(i) && Math.abs(s.hp(i) - AndyConfig.PART_HP[i]) < 0.01f, "part " + i + " is whole");
+		}
+		helper.assertTrue(s.animId == AndyState.ANIM_REFORM, "the snap-together animation");
+		helper.assertTrue(s.ex(AndyState.X_REFORMED) == ((1L << AndyState.LEFT_LEG) | (1L << off)), "the flash on the two parts that closed");
+		helper.assertTrue(Math.abs(p.getHealth() - (10f + AndyConfig.REFORM_HEAL)) < 0.01f, "healed 6: " + p.getHealth());
+		helper.assertTrue(!p.isOnFire() && !p.hasEffect(MobEffects.POISON) && !p.hasEffect(MobEffects.WITHER), "fire, poison and wither gone");
 		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "a good effect stays");
-		helper.assertTrue(Andy.cooldownRemaining(p, AndyAbilities.TEAR_OFF) > 0, "a cooldown");
-		AABB box = new AABB(p.blockPosition()).inflate(4);
-		helper.assertTrue(!helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.bodyPart() == AndyState.LEFT_LEG).isEmpty(), "the leg is flung aside");
-		// nothing hurt: the off arm
-		Andy.restore(p);
-		edit(p, n -> n.abilityReadyAt.clear());
+		helper.assertTrue(Andy.cooldownRemaining(p, AndyAbilities.REFORM) == AndyConfig.REFORM_COOLDOWN, "20s cooldown");
+		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(AndyAbilities.REFORM) == AndyConfig.REFORM_COOLDOWN, "the HUD's cooldown");
+		Andy.tick(p);
+		helper.assertTrue(!Andy.state(p).broken(off) && !Andy.state(p).broken(AndyState.LEFT_LEG), "and the tick leaves it whole");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void reformCostsTheUnpaidRegrowthPlusFour(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		long now = helper.getLevel().getGameTime();
 		int off = Andy.otherArm(Andy.mainArm(p));
-		helper.assertTrue(AndyBoneSword.tearOffTarget(p) == off, "whole: the off arm");
-		// one hand left: never that one
-		Andy.restore(p);
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
+		Andy.breakPart(p, AndyState.RIGHT_LEG, AndyState.KIND_BURST);
 		Andy.breakPart(p, off, AndyState.KIND_BURST);
-		Andy.damagePart(p, Andy.mainArm(p), 6f);
-		int target = AndyBoneSword.tearOffTarget(p);
-		helper.assertTrue(target != Andy.mainArm(p) && target >= AndyState.RIGHT_LEG, "the last hand stays: " + target);
+		edit(p, n -> n.setTimes(off, Math.max(1L, now - 30), now - 5, now + 100)); // already paid for
+		float normal = 2 * AndyConfig.partFood(AndyConfig.SPEED_NORMAL) + AndyConfig.REFORM_FOOD;
+		helper.assertTrue(Math.abs(Andy.reformCost(p) - normal) < 0.01f, "Normal: two unpaid legs + 4 = " + Andy.reformCost(p));
+		Andy.setSpeed(p, AndyConfig.SPEED_BURST);
+		helper.assertTrue(Math.abs(Andy.reformCost(p) - (2 * AndyConfig.partFood(AndyConfig.SPEED_BURST) + AndyConfig.REFORM_FOOD)) < 0.01f, "Burst costs more");
+		Andy.setSpeed(p, AndyConfig.SPEED_NORMAL);
+		feed(p, 20, 3f);
+		helper.assertTrue(Andy.reform(p), "reformed");
+		// 8 food: 3 saturation, then 5 off the bar
+		helper.assertTrue(p.getFoodData().getSaturationLevel() < 0.01f, "saturation first: " + p.getFoodData().getSaturationLevel());
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 20 - (int) (normal - 3f), "then the hunger bar: " + p.getFoodData().getFoodLevel());
+		// whole and nothing to close: just the 4
+		edit(p, n -> n.abilityReadyAt.clear());
+		feed(p, 20, 0f);
+		helper.assertTrue(Math.abs(Andy.reformCost(p) - AndyConfig.REFORM_FOOD) < 0.01f, "whole: 4");
+		helper.assertTrue(Andy.reform(p) && p.getFoodData().getFoodLevel() == 16, "a whole body still heals and cleanses for 4");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void reformFailsWithoutFood(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
+		feed(p, 0, 0f);
+		helper.assertTrue(!Andy.reform(p), "an empty stomach: no Reform");
+		helper.assertTrue(Andy.missing(p, AndyState.LEFT_LEG) && Andy.cooldownRemaining(p, AndyAbilities.REFORM) == 0, "the leg still gone, no cooldown");
+		feed(p, 3, 1f); // 4 of the 6 it needs
+		helper.assertTrue(!Andy.reform(p) && Andy.missing(p, AndyState.LEFT_LEG), "not enough: no Reform");
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 3 && p.getFoodData().getSaturationLevel() > 0.99f, "and nothing taken");
+		feed(p, 6, 0f);
+		helper.assertTrue(Andy.reform(p) && !Andy.missing(p, AndyState.LEFT_LEG) && p.getFoodData().getFoodLevel() == 0, "exactly enough: whole");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void reformHasACooldownWorksWithRegenOffAndNotWithTheSword(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		feed(p, 20, 20f);
+		Andy.setRegenOff(p, true);
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
+		helper.assertTrue(Andy.reform(p) && !Andy.missing(p, AndyState.LEFT_LEG), "regeneration Off: Reform still works");
+		Andy.breakPart(p, AndyState.LEFT_LEG, AndyState.KIND_BURST);
+		helper.assertTrue(!Andy.reform(p) && Andy.missing(p, AndyState.LEFT_LEG), "cooling down");
+		edit(p, n -> n.abilityReadyAt.put(AndyAbilities.REFORM, helper.getLevel().getGameTime()));
+		helper.assertTrue(Andy.reform(p) && !Andy.missing(p, AndyState.LEFT_LEG), "ready again");
+		// the sword out: V puts it away and Reform does nothing
+		Andy.setRegenOff(p, false);
+		edit(p, n -> n.abilityReadyAt.clear());
+		helper.assertTrue(AndyBoneSword.draw(p), "the sword is drawn");
+		int off = Andy.otherArm(Andy.mainArm(p));
+		helper.assertTrue(!Andy.reform(p) && Andy.missing(p, off), "Reform does not grow the sword arm back");
+		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
+		helper.assertTrue(!AndyBoneSword.held(p) && Andy.cooldownRemaining(p, AndyAbilities.REFORM) == 0, "V puts the sword away, no Reform with it");
 		helper.succeed();
 	}
 

@@ -102,7 +102,7 @@ public final class AndyBoneSwordRender {
 
 	/**
 	 * From {@link AndyPose#apply}: the sword arm while the Bone Sword is out (vanilla's held-item arm, the attack swing kept), the
-	 * hold-V struggle, the rip and the grip, Tear Off, the put-away, and each sword move. True if it set the pose.
+	 * hold-V struggle, the rip and the grip, Reform, the put-away, and each sword move. True if it set the pose.
 	 */
 	static boolean pose(Player player, AndyState s, net.minecraft.client.model.HumanoidModel<?> model, float now) {
 		float age = now - s.animStart;
@@ -124,8 +124,8 @@ public final class AndyBoneSwordRender {
 				model.head.zRot += sd * 0.12f * pull;
 				return true;
 			}
-			if (s.animId == AndyState.ANIM_TEAR_OFF && age >= 0f && age < 10f) {
-				tearOffPose(player, s, model, age);
+			if (s.animId == AndyState.ANIM_REFORM && age >= 0f && age < AndyConfig.REFORM_ANIM) {
+				reformPose(model, age);
 				return true;
 			}
 			if (s.animId == AndyState.ANIM_SWORD_IMPALE && age >= 0f && age < 10f) {
@@ -207,25 +207,13 @@ public final class AndyBoneSwordRender {
 		return true;
 	}
 
-	/** Tap V: the hand that does it grabs the limb (across the chest, or down at the hip) and wrenches it off and away. */
-	private static void tearOffPose(Player player, AndyState s, net.minecraft.client.model.HumanoidModel<?> model, float age) {
-		int limb = (int) s.ex(AndyState.X_TORN);
-		int main = Andy.mainArm(player);
-		int ripper = limb == main ? Andy.otherArm(main) : main;
-		ModelPart arm = ripper == AndyState.RIGHT_ARM ? model.rightArm : model.leftArm;
-		float q = ripper == AndyState.RIGHT_ARM ? 1f : -1f;
-		float grab = ease(age / 2.5f), fling = ease((age - 3f) / 3f), w = fade(age, 10f);
-		boolean armLimb = limb == AndyState.RIGHT_ARM || limb == AndyState.LEFT_ARM;
-		if (armLimb) {
-			set(arm, w * grab, Mth.lerp(fling, -1.35f, -1.0f), Mth.lerp(fling, -q * 0.95f, q * 0.9f), Mth.lerp(fling, 0f, q * 0.6f));
-			model.body.yRot += Mth.lerp(fling, -q * 0.15f, q * 0.35f) * w;
-		} else {
-			boolean same = (limb == AndyState.RIGHT_LEG) == (ripper == AndyState.RIGHT_ARM);
-			set(arm, w * grab, Mth.lerp(fling, -0.25f, -1.6f), Mth.lerp(fling, same ? 0f : -q * 0.4f, q * 0.5f), Mth.lerp(fling, same ? q * 0.1f : -q * 0.2f,
-					q * 0.7f));
-			model.body.xRot += 0.35f * (1f - fling) * w;
-		}
-		model.head.xRot += 0.25f * w;
+	/** Tap V, Reform: he jolts as the body slams back together -- arms flung out, chest and head thrown back -- and settles. */
+	private static void reformPose(net.minecraft.client.model.HumanoidModel<?> model, float age) {
+		float open = ease(age / 1.5f) * (1f - ease((age - 2f) / (AndyConfig.REFORM_ANIM - 2f)));
+		set(model.rightArm, open, -0.25f, 0.1f, 1.05f);
+		set(model.leftArm, open, -0.25f, -0.1f, -1.05f);
+		model.head.xRot -= 0.4f * open;
+		model.body.xRot -= 0.12f * open;
 	}
 
 	private static void set(ModelPart part, float weight, float x, float y, float z) {

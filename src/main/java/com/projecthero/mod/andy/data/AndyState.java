@@ -79,8 +79,8 @@ public final class AndyState {
 	public static final int ANIM_SWORD_COUNTER = 62;
 	/** v0.17.3 hold V: reaching over and struggling with the off arm before it tears off (animStart: when the struggle began). */
 	public static final int ANIM_SWORD_STRUGGLE = 63;
-	/** v0.17.3 tap V: Tear Off -- a limb wrenched off and flung aside. */
-	public static final int ANIM_TEAR_OFF = 64;
+	/** v0.17.3 tap V: Reform -- the body snapped back together at once (a flash of blood and flesh closing on each part). */
+	public static final int ANIM_REFORM = 64;
 
 
 	public static final int FLAG_PROPELLING = 1;
@@ -114,8 +114,8 @@ public final class AndyState {
 	 * free); see {@link #boneSwordArm} / {@link #boneSwordSince}.
 	 */
 	public static final int X_BONE_SWORD = 8;
-	/** v0.17.3 tap V: the limb the last Tear Off took (for its animation). */
-	public static final int X_TORN = 7;
+	/** v0.17.3 tap V: the parts the last Reform closed (bit per part, for its flash). */
+	public static final int X_REFORMED = 7;
 	public static final int EXTRA = 10;
 
 	public boolean hasPower;

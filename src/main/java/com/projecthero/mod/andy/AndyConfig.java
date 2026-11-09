@@ -269,16 +269,22 @@ public final class AndyConfig {
 	 * {@link #BONE_SWORD_REVEAL} more it bursts, leaving the sword in his hand.
 	 */
 	public static final int BONE_SWORD_HOLD = 40;
-	/** A V released before this is a tap: Tear Off. */
+	/** A V released before this is a tap: Reform. */
 	public static final int BONE_SWORD_TAP = 5;
 	public static final int BONE_SWORD_REVEAL = 14;
 
-	// ---------------------------------------------------------------- V: Tear Off
+	// ---------------------------------------------------------------- V: Reform
 	/**
-	 * v0.17.3 (user: "put another move on regular V"): he rips off his most damaged limb (the off arm when none is hurt) and with
-	 * it whatever is on him: fire, poison, wither, slowness and every other harmful effect. The limb regrows as ever.
+	 * v0.17.3 (user: ripping off your arm is useless, V should be another utility): Reform -- he forces his body back together at
+	 * once. Every part that is missing or regrowing is whole on the spot, he heals {@link #REFORM_HEAL} and the fire and harmful
+	 * effects on him go. It costs the food the regrowth still owed at his speed ({@link #partFood} a part not yet paid for) plus
+	 * {@link #REFORM_FOOD}, saturation first. Works with regeneration Off too (it is a deliberate choice).
 	 */
-	public static final int TEAR_OFF_COOLDOWN = 160;
+	public static final int REFORM_COOLDOWN = 400;
+	public static final float REFORM_HEAL = 6f;
+	public static final float REFORM_FOOD = 4f;
+	/** How long the snap-together pose and flash last. */
+	public static final int REFORM_ANIM = 8;
 
 	// ---------------------------------------------------------------- Victor (disabled)
 	/**
