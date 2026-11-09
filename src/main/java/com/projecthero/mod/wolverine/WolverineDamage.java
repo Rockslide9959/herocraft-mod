@@ -36,6 +36,7 @@ public final class WolverineDamage {
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
 				Wolverine.markCombat(p);
 				Wolverine.markHurt(p);
+				WolverineHealSounds.onHurt(p, source, dealtAmount); // v0.17.3: burns / big wounds sizzle as they close
 				Wolverine.addRage(p, WolverineConfig.RAGE_PER_HIT);
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Wolverine.hasPower(attacker)) {
@@ -93,6 +94,7 @@ public final class WolverineDamage {
 			level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.65f, 0.0f, 0.02f), 1.6f),
 					player.getX(), player.getY() + 0.3, player.getZ(), 40, 0.5, 0.3, 0.5, 0.1);
 		}
+		WolverineHealSounds.surge(player); // v0.17.3: the legs knitting back
 		return true;
 	}
 

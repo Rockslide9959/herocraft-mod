@@ -181,6 +181,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.hero.power.p11.TeleportationHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p27.SizeHandlers.clearSessionState();
 		com.projecthero.mod.wolverine.WolverineAbilityManager.clearSessionState();
+		com.projecthero.mod.wolverine.WolverineHealSounds.clearSessionState(); // v0.17.3: heal-sound throttles
 		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.clearSessionState();
 		com.projecthero.mod.allmight.AllMightAbilityManager.clearSessionState();
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.clearSessionState();

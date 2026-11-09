@@ -2483,6 +2483,48 @@
       }
     ]
   },
+  "wolverine_heal_crackle": {
+    "subtitle": "subtitles.projecthero.wolverine_heal_crackle",
+    "sounds": [
+      {
+        "name": "projecthero:wolverine/heal_crackle1"
+      },
+      {
+        "name": "projecthero:wolverine/heal_crackle2"
+      },
+      {
+        "name": "projecthero:wolverine/heal_crackle3"
+      },
+      {
+        "name": "projecthero:wolverine/heal_crackle4"
+      }
+    ]
+  },
+  "wolverine_heal_sizzle": {
+    "subtitle": "subtitles.projecthero.wolverine_heal_sizzle",
+    "sounds": [
+      {
+        "name": "projecthero:wolverine/heal_sizzle1"
+      },
+      {
+        "name": "projecthero:wolverine/heal_sizzle2"
+      },
+      {
+        "name": "projecthero:wolverine/heal_sizzle3"
+      }
+    ]
+  },
+  "wolverine_heal_surge": {
+    "subtitle": "subtitles.projecthero.wolverine_heal_surge",
+    "sounds": [
+      {
+        "name": "projecthero:wolverine/heal_surge1"
+      },
+      {
+        "name": "projecthero:wolverine/heal_surge2"
+      }
+    ]
+  },
   "quirk_whoosh": {
     "subtitle": "subtitles.projecthero.quirk_whoosh",
     "sounds": [

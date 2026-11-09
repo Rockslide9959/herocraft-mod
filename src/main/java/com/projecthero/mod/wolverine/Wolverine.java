@@ -371,5 +371,6 @@ public final class Wolverine {
 		WolverineDamage.initialize();
 		WolverineSuitMend.initialize(); // v0.16.1: the suit mends 1/s after 30 s out of combat
 		WolverineSounds.initialize(); // v0.16.1: the Sniff
+		WolverineHealSounds.initialize(); // v0.17.3: healing-factor crackle / sizzle / surge
 	}
 }

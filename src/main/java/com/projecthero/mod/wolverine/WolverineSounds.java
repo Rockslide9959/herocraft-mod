@@ -14,6 +14,13 @@ import net.minecraft.sounds.SoundEvent;
  */
 public final class WolverineSounds {
 	public static final SoundEvent SNIFF = register("wolverine_sniff");
+	/**
+	 * v0.17.3: the healing factor (see {@link WolverineHealSounds}), synthesised by {@code scratchpad/synth_wolverine_heal.js}:
+	 * flesh knitting (crackle), burns closing (sizzle), the whole body regenerating (surge).
+	 */
+	public static final SoundEvent HEAL_CRACKLE = register("wolverine_heal_crackle");
+	public static final SoundEvent HEAL_SIZZLE = register("wolverine_heal_sizzle");
+	public static final SoundEvent HEAL_SURGE = register("wolverine_heal_surge");
 
 	private WolverineSounds() {
 	}
