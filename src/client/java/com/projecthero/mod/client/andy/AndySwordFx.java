@@ -364,7 +364,7 @@ public final class AndySwordFx {
 
 	/** The cut's centre: a little below his eyes (so it crosses the view in first person). */
 	private static Vec3 centre(Player p, float partial) {
-		return p.getEyePosition(partial).add(0, -0.4, 0);
+		return p.getEyePosition(partial).add(0, -0.25, 0);
 	}
 
 	private static Vec3 flat(Vec3 v) {
@@ -393,7 +393,7 @@ public final class AndySwordFx {
 			switch (fx.anim) {
 				case AndyState.ANIM_SWORD_SLASH1, AndyState.ANIM_SWORD_SLASH2, AndyState.ANIM_SWORD_SLASH3, AndyState.ANIM_SWORD_COUNTER -> {
 					if (p != null) {
-						drawSlash(body, glow, buffers, m, slash(fx), centre(p, partial).subtract(cam), age, fx.anim == AndyState.ANIM_SWORD_SLASH3 ? 0.75f : 0.55f);
+						drawSlash(body, glow, buffers, m, slash(fx), centre(p, partial).subtract(cam), age, fx.anim == AndyState.ANIM_SWORD_SLASH3 ? 1.1f : 0.85f);
 					}
 					if (fx.anim == AndyState.ANIM_SWORD_COUNTER && p != null) {
 						Vec3 at = p.getEyePosition(partial).add(fx.look.scale(0.9)).add(0, -0.3, 0).subtract(cam);
@@ -491,7 +491,7 @@ public final class AndySwordFx {
 			u[i] = k;
 		}
 		for (int i = 0; i < n; i++) {
-			float a0 = u[i] * u[i] * fade, a1 = u[i + 1] * u[i + 1] * fade;
+			float a0 = (0.25f + 0.75f * u[i]) * u[i] * fade, a1 = (0.25f + 0.75f * u[i + 1]) * u[i + 1] * fade;
 			// dark red root to bright red crest, more opaque toward the head
 			band(body, m, lo[i], lo[i + 1], hi[i + 1], hi[i], 0.32f, 0.01f, 0.03f, 0.9f * a0, 0.32f, 0.01f, 0.03f, 0.9f * a1, 0.86f, 0.1f, 0.1f,
 					0.95f * a0, 0.86f, 0.1f, 0.1f, 0.95f * a1);

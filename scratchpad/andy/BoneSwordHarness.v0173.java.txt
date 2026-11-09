@@ -1,0 +1,455 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.andy.Andy;
+import com.projecthero.mod.andy.AndyAbilityManager;
+import com.projecthero.mod.andy.AndyBoneSword;
+import com.projecthero.mod.andy.data.AndyState;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.AbilitySlot;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the Bone Sword v2 (hold-V draw, vanilla hold, drips, kit VFX, Tear Off). Enabled by run/bonesword.flag. */
+public final class BoneSwordHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static String only;
+
+	/** The third-person camera (BoneSwordHarnessCameraMixin): a fixed spot looking at a fixed spot. */
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private BoneSwordHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("bonesword.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("bonesword.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BoneSwordHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "bonesword-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BoneSwordHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				String name = String.format("bs_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BS_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static Mob dummy(ServerPlayer p, Vec3 at, float yaw) {
+		Mob m = EntityType.ZOMBIE.create(p.serverLevel());
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+		m.setHealth(400);
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void still(int t, String name) {
+		at(t, () -> {
+			Screenshot.grab(Minecraft.getInstance().gameDirectory, "bs_" + name + ".png", Minecraft.getInstance().getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] still " + name);
+		});
+	}
+
+	private static void reset(ServerPlayer p, float pitch) {
+		if (Andy.state(p).boneSword()) {
+			AndyBoneSword.putAway(p, false, false);
+		}
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(256), e -> true).forEach(e -> e.discard());
+		p.clearFire();
+		p.removeAllEffects();
+		Andy.restore(p);
+		AndyState n = Andy.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.regenSpeed = 1;
+		p.setAttached(ModAttachments.ANDY_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, pitch);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.getFoodData().setFoodLevel(20);
+		p.getFoodData().setSaturation(20f);
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void clearCd(ServerPlayer p) {
+		AndyState n = Andy.state(p).copy();
+		n.abilityReadyAt.clear();
+		p.setAttached(ModAttachments.ANDY_STATE, n);
+	}
+
+	private static void back(ServerPlayer p) {
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, p.getXRot());
+		p.yBodyRot = 0f;
+	}
+
+	/** A fresh spot for each scene. */
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 look, float pitch, boolean gui,
+			java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 40, 0, 0);
+			mc.options.setCameraType(type);
+			mc.gui.clear();
+			mc.options.hideGui = !gui && type != CameraType.FIRST_PERSON; // (F1 hides the hand too)
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				clearDummies();
+				reset(p, pitch);
+				setup.accept(p);
+			});
+		});
+	}
+
+	private static void v(Minecraft mc, int t, boolean down) {
+		at(t, () -> server(mc, p -> AndyAbilityManager.handle(p, AbilitySlot.SLOT_5, down)));
+	}
+
+	private static void key(Minecraft mc, int t, AbilitySlot slot, boolean shift) {
+		at(t, () -> server(mc, p -> {
+			clearCd(p);
+			p.setShiftKeyDown(shift);
+			AndyAbilityManager.handle(p, slot, true);
+			AndyAbilityManager.handle(p, slot, false);
+			p.setShiftKeyDown(false);
+		}));
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Andy.grant(p);
+			reset(p, 0f);
+		}));
+		t += 30;
+		int idx = 1;
+		if (want("compare")) {
+			// vanilla netherite sword vs the Bone Sword, first person, same view
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 8f, false, p -> p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_SWORD)));
+			still(t + 25, "fp_vanilla");
+			at(t + 30, () -> server(mc, p -> {
+				p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+				AndyBoneSword.toggle(p);
+			}));
+			still(t + 95, "fp_bone");
+			at(t + 96, () -> com.projecthero.mod.client.andy.AndyBoneSwordRender.DEBUG_OVERLAY = true);
+			still(t + 98, "fp_overlay");
+			at(t + 99, () -> com.projecthero.mod.client.andy.AndyBoneSwordRender.DEBUG_OVERLAY = false);
+			// third person, both
+			at(t + 100, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camPos = base.add(-2.0, 1.5, 1.6);
+				camLook = base.add(-0.3, 1.0, 0.3);
+			});
+			still(t + 110, "tp_bone");
+			at(t + 115, () -> server(mc, p -> {
+				AndyBoneSword.putAway(p, false, false);
+				Andy.restore(p);
+				p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_SWORD));
+			}));
+			still(t + 125, "tp_vanilla");
+			t += 140;
+		}
+		if (want("pose")) {
+			// first-person struggle pose sets, frozen at a pull
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 12f, false, p -> {
+				AndyState n = Andy.state(p).copy();
+				n.animId = AndyState.ANIM_SWORD_STRUGGLE;
+				n.animStart = p.level().getGameTime() + 100000L; // far ahead: nothing ends it; the age is frozen client-side
+				p.setAttached(ModAttachments.ANDY_STATE, n);
+			});
+			float[][] sets = { { 0.45f, 45f, 10f, -40f, 25f, -12f, 0.0f, 0.12f, 0.08f }, { 0.45f, 45f, 10f, -20f, 25f, -12f, 0.0f, 0.12f, 0.08f },
+					{ 0.45f, 45f, 10f, 0f, 25f, -12f, 0.0f, 0.12f, 0.08f }, { 0.45f, 45f, 10f, 50f, 25f, -12f, 0.0f, 0.12f, 0.08f },
+					{ 0.45f, 20f, 30f, -30f, 25f, -12f, 0.0f, 0.12f, 0.08f }, { 0.45f, 70f, 30f, -30f, 25f, -12f, 0.0f, 0.12f, 0.08f },
+					{ 0.35f, 45f, 45f, -30f, 25f, -12f, -0.05f, 0.12f, 0.08f }, { 0.55f, 45f, -15f, -30f, 25f, -12f, 0.05f, 0.12f, 0.08f } };
+			for (int i = 0; i < sets.length; i++) {
+				float[] st = sets[i];
+				int k = i;
+				for (int a = 0; a < 2; a++) {
+					float age = a == 0 ? 10f : 21f;
+					int aa = a;
+					at(t + 20 + i * 8 + a * 4, () -> {
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.FREEZE_AGE = age;
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_MAIN_SHIFT = st[0];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_MAIN_Y = st[1];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_MAIN_X = st[2];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_MAIN_Z = st[3];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_OFF_Y = st[4];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_OFF_X = st[5];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_MAIN_LIFT = st[6];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_OFF_SHIFT = st[7];
+						com.projecthero.mod.client.andy.AndyBoneSwordRender.STRUGGLE_OFF_LIFT = st[8];
+					});
+					still(t + 22 + i * 8 + a * 4, "pose_" + k + "_" + aa);
+				}
+			}
+			at(t + 20 + sets.length * 8 + 2, () -> com.projecthero.mod.client.andy.AndyBoneSwordRender.FREEZE_AGE = -1f);
+			t += 30 + sets.length * 8;
+		}
+		if (want("fpdraw")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 12f, false, p -> {
+			});
+			record(t + 15, "fp_draw", 90);
+			v(mc, t + 20, true);
+			v(mc, t + 65, false);
+			t += 120;
+		}
+		if (want("tpdraw")) {
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-1.25, 1.6, 1.75), new Vec3(-0.05, 1.15, 0), 0f, false, p -> {
+			});
+			record(t + 15, "tp_draw_front", 90);
+			v(mc, t + 20, true);
+			v(mc, t + 65, false);
+			t += 120;
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-2.2, 1.45, 0.45), new Vec3(0, 1.15, 0.25), 0f, false, p -> {
+			});
+			record(t + 15, "tp_draw_side", 90);
+			v(mc, t + 20, true);
+			v(mc, t + 65, false);
+			t += 120;
+		}
+		if (want("hud")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 12f, true, p -> {
+			});
+			v(mc, t + 20, true);
+			still(t + 45, "hud_struggle");
+			v(mc, t + 65, false);
+			at(t + 100, () -> com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = true);
+			still(t + 104, "hud_sword_moves");
+			at(t + 106, () -> server(mc, p -> AndyBoneSword.putAway(p, false, false)));
+			still(t + 112, "hud_moves");
+			at(t + 114, () -> com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = false);
+			t += 125;
+		}
+		if (want("drips")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 38f, false, p -> AndyBoneSword.toggle(p));
+			record(t + 60, "fp_drips", 160);
+			t += 230;
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-1.7, 1.05, 1.7), new Vec3(-0.35, 0.85, 0.5), 0f, false, p -> AndyBoneSword.toggle(p));
+			record(t + 60, "tp_drips", 160);
+			t += 230;
+		}
+		for (int pass = 0; pass < 2; pass++) {
+			boolean fp = pass == 1;
+			if (!want(fp ? "kitfp" : "kittp")) {
+				continue;
+			}
+			scene(mc, t, idx++, fp ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK, fp ? null : new Vec3(-3.0, 2.0, -1.4),
+					fp ? null : new Vec3(0.2, 1.1, 2.6), 4f, false, p -> {
+						AndyBoneSword.toggle(p);
+						dummy(p, base.add(0, 0, 3.0), 180f);
+						dummy(p, base.add(1.4, 0, 2.8), 180f);
+						dummy(p, base.add(-1.4, 0, 3.1), 180f);
+						dummy(p, base.add(0.4, 0, 10), 180f);
+					});
+			String n = fp ? "kit_fp" : "kit_tp";
+			record(t + 70, n, 300);
+			int k = t + 75;
+			key(mc, k, AbilitySlot.SLOT_1, false); // slash 1
+			key(mc, k + 12, AbilitySlot.SLOT_1, false); // slash 2
+			key(mc, k + 24, AbilitySlot.SLOT_1, false); // slash 3
+			key(mc, k + 50, AbilitySlot.SLOT_1, true); // thrust
+			at(k + 64, () -> server(mc, BoneSwordHarness::back));
+			key(mc, k + 75, AbilitySlot.SLOT_2, false); // edge wave
+			key(mc, k + 105, AbilitySlot.SLOT_2, true); // rib cage guard
+			key(mc, k + 145, AbilitySlot.SLOT_4, false); // splinters
+			key(mc, k + 170, AbilitySlot.SLOT_6, false); // parry
+			at(k + 173, () -> server(mc, p -> {
+				Mob z = dummies.isEmpty() ? null : dummies.get(0);
+				if (z != null) {
+					AndyBoneSword.blocks(p, z.damageSources().mobAttack(z)); // a parried hit: the counter
+				}
+			}));
+			key(mc, k + 200, AbilitySlot.SLOT_3, false); // blood-jet dash
+			at(k + 222, () -> server(mc, BoneSwordHarness::back));
+			key(mc, k + 235, AbilitySlot.SLOT_4, true); // impale throw
+			t += 390;
+		}
+		if (want("tear")) {
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-1.6, 1.5, 2.1), new Vec3(0, 0.9, 0), 0f, false, p -> {
+				Andy.damagePart(p, AndyState.LEFT_LEG, 5f);
+				p.igniteForSeconds(20f);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.POISON, 400, 0));
+			});
+			record(t + 15, "tear_tp", 110);
+			v(mc, t + 25, true);
+			v(mc, t + 27, false);
+			at(t + 70, () -> server(mc, p -> {
+				clearCd(p);
+				Andy.restore(p);
+			}));
+			v(mc, t + 80, true);
+			v(mc, t + 82, false);
+			t += 140;
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 20f, false, p -> p.igniteForSeconds(20f));
+			record(t + 15, "tear_fp", 60);
+			v(mc, t + 25, true);
+			v(mc, t + 27, false);
+			t += 90;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

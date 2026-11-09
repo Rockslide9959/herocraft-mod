@@ -70,6 +70,8 @@ public final class AndyBoneSword {
 	public static final String IMPALE = "impale_throw";
 	public static final String DASH = "blood_jet_dash";
 	public static final String PARRY = "bone_parry";
+	/** v0.17.3: V while the sword is out (the HUD and move list name). */
+	public static final String AWAY = "bone_sword_away";
 
 	// ---------------------------------------------------------------- the kit's numbers
 	public static final float[] SLASH_DAMAGE = { 8f, 8f, 12f };
@@ -217,7 +219,7 @@ public final class AndyBoneSword {
 			case SLOT_2 -> new String[] { EDGE, GUARD };
 			case SLOT_3 -> new String[] { DASH };
 			case SLOT_4 -> new String[] { SPLINTER, IMPALE };
-			case SLOT_5 -> new String[] { BONE_SWORD, AndyAbilities.REGEN };
+			case SLOT_5 -> new String[] { AWAY, AndyAbilities.REGEN };
 			case SLOT_6 -> new String[] { PARRY };
 			default -> new String[0];
 		};
@@ -417,8 +419,6 @@ public final class AndyBoneSword {
 		AndySfx.partBreak(level, at);
 		AndySfx.bloodBurst(level, at, 0.6f);
 		sound(p, SoundEvents.SKELETON_HURT, 0.5f, 0.6f);
-		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 10, 0.12, 0.15, 0.12, 0.0);
-		level.sendParticles(Andy.BLOOD_DARK, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
 		return true;
 	}
 
@@ -429,8 +429,6 @@ public final class AndyBoneSword {
 		AndySfx.bloodBurst(level, at, 0.8f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.75f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.6f, 0.5f);
-		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.0);
-		level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.BONE_MEAL)), at.x, at.y, at.z, 8, 0.15, 0.15, 0.15, 0.08);
 	}
 
 	// ---------------------------------------------------------------- tap V: Tear Off
@@ -472,7 +470,7 @@ public final class AndyBoneSword {
 		p.swing(limb == Andy.mainArm(p) ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		// the limb, flung out to his side
 		Vec3 side = AndyParts.right(p).scale(limb == AndyState.RIGHT_ARM || limb == AndyState.RIGHT_LEG ? 1 : -1);
-		Vec3 fling = side.scale(0.32).add(flatLook(p).scale(0.12)).add(0, 0.28, 0);
+		Vec3 fling = side.scale(0.2).add(flatLook(p).scale(0.08)).add(0, 0.25, 0);
 		AndyPartEntity.drop(p, limb, AndyPartEntity.STYLE_PUNCH, at.subtract(0, 0.35, 0), p.getYRot(), fling);
 		// and everything on him with it
 		boolean cleansed = p.isOnFire();
@@ -486,7 +484,6 @@ public final class AndyBoneSword {
 		AndySfx.partBreak(level, at);
 		AndySfx.bloodBurst(level, at, 0.5f);
 		sound(p, SoundEvents.SKELETON_HURT, 0.45f, 0.6f);
-		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 8, 0.12, 0.15, 0.12, 0.0);
 		if (cleansed) {
 			level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 6, 0.15, 0.15, 0.15, 0.01);
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 1.4f);
@@ -561,9 +558,6 @@ public final class AndyBoneSword {
 			Vec3 at = AndyAbilities.handOrigin(p, hand).add(p.getLookAngle().scale(0.4));
 			AndySfx.bloodBurst(level, at, 0.5f);
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f);
-			level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 10, 0.15, 0.25, 0.15, 0.0);
-			level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.BONE)), at.x, at.y, at.z, 12, 0.12, 0.2, 0.12, 0.08);
-			level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.BONE_MEAL)), at.x, at.y, at.z, 8, 0.1, 0.2, 0.1, 0.05);
 		}
 	}
 
@@ -731,11 +725,7 @@ public final class AndyBoneSword {
 		Vec3 side = new Vec3(-w.dir().z, 0, w.dir().x).normalize();
 		ServerLevel level = level(p);
 		double width = 1.6;
-		for (int i = -4; i <= 4; i++) {
-			double s = i / 4.0;
-			Vec3 at = front.add(side.scale(s * width)).add(w.dir().scale(-s * s * 0.8)).add(0, -s * s * 0.15, 0);
-			level.sendParticles(i % 2 == 0 ? Andy.BLOOD_BIG : Andy.BLOOD, at.x, at.y, at.z, 1, 0.04, 0.06, 0.04, 0.0);
-		}
+		// (the crescent itself and the blood it rains are drawn client-side: AndySwordFx)
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(front, front).inflate(width + 0.4, 1.4, width + 0.4),
 				e -> e != p && !(e instanceof AndyCloneEntity) && HeroTargets.canHarm(p, e))) {
 			if (w.hit().add(e.getId())) {

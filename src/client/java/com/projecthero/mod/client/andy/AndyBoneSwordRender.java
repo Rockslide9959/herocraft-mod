@@ -11,7 +11,6 @@ import com.projecthero.mod.andy.Andy;
 import com.projecthero.mod.andy.AndyBoneSword;
 import com.projecthero.mod.andy.AndyConfig;
 import com.projecthero.mod.andy.data.AndyState;
-import com.projecthero.mod.client.mixin.AndyItemInHandInvoker;
 import com.projecthero.mod.client.render.VanillaSkeleton;
 
 import net.minecraft.client.Camera;
@@ -76,8 +75,9 @@ public final class AndyBoneSwordRender {
 
 	static {
 		float k = (float) (1.0 / Math.sqrt(2.0));
-		// columns: sword x -> item -z, sword y -> (1,-1,0)/sqrt2, sword z -> (-1,-1,0)/sqrt2
-		ITEM_TO_SWORD = new Quaternionf().setFromNormalized(new Matrix3f(0f, 0f, -1f, k, -k, 0f, -k, -k, 0f));
+		// columns: sword x -> item +z, sword y -> (-1,1,0)/sqrt2 (its bottom edge, the blood runs and guard drops, hangs down when
+		// held in third person), sword z -> (-1,-1,0)/sqrt2
+		ITEM_TO_SWORD = new Quaternionf().setFromNormalized(new Matrix3f(0f, 0f, 1f, -k, k, 0f, -k, -k, 0f));
 	}
 
 	private AndyBoneSwordRender() {
@@ -335,10 +335,14 @@ public final class AndyBoneSwordRender {
 		float sq = Mth.sqrt(sw);
 		pose.pushPose();
 		// the torn arm swung in from where the hand grabbed it
-		if (s.animId == AndyState.ANIM_SWORD_RIP && age >= 0f && age < 5f) {
-			float e = 1f - ease(age / 4f);
-			pose.translate(-sd * 0.5f * e, 0.12f * e, 0.05f * e);
-			pose.mulPose(Axis.ZP.rotationDegrees(sd * 30f * e));
+		if (s.animId == AndyState.ANIM_SWORD_RIP && age >= 0f && age < AndyConfig.BONE_SWORD_REVEAL + 8f) {
+			// torn off: swung in from where the hand grabbed it, then held up into view, gripped hard, until it bursts; then
+			// down into the held place
+			float in = 1f - ease(age / 4f);
+			float up = age < AndyConfig.BONE_SWORD_REVEAL ? ease(age / 5f) : 1f - ease((age - AndyConfig.BONE_SWORD_REVEAL - 1f) / 7f);
+			pose.translate(-sd * (0.5f * in + 0.2f * up), 0.12f * in + 0.24f * up, 0.05f * in - 0.12f * up);
+			pose.mulPose(Axis.ZP.rotationDegrees(sd * (30f * in + 12f * up)));
+			pose.mulPose(Axis.XP.rotationDegrees(-10f * up));
 		}
 		// vanilla's renderArmWithItem for a held item: the swing, applyItemArmTransform, applyItemArmAttackTransform
 		pose.translate(sd * -0.4f * Mth.sin(sq * Mth.PI), 0.2f * Mth.sin(sq * Mth.TWO_PI), -0.2f * Mth.sin(sw * Mth.PI));
@@ -363,24 +367,62 @@ public final class AndyBoneSwordRender {
 	 */
 	private static void struggleFirstPerson(ItemInHandRenderer renderer, AbstractClientPlayer player, float age, PoseStack pose, MultiBufferSource buffers,
 			int light) {
-		AndyItemInHandInvoker inv = (AndyItemInHandInvoker) renderer;
 		HumanoidArm mainSide = player.getMainArm();
 		float sd = mainSide == HumanoidArm.RIGHT ? 1f : -1f;
 		float r = ease(age / 6f), pull = strugglePull(age), shake = struggleShake(age);
-		// the off arm: raised into view, dragged in toward the middle on each wrench
+		// the off arm: held out into view in its corner, dragged in toward the middle on each wrench
+		// (the moves across the view are made before fpArm, in the view's own axes; the turns at the shoulder inside it)
 		pose.pushPose();
-		pose.translate(sd * (0.1f * r + 0.07f * pull) + shake * 0.08f, 0.06f * r + 0.03f * pull, -0.05f * r);
-		pose.mulPose(Axis.ZP.rotationDegrees(-sd * (14f * r + 6f * pull)));
-		pose.mulPose(Axis.XP.rotationDegrees(-8f * r + shake * 25f));
-		inv.projecthero$renderPlayerArm(pose, buffers, light, 0f, 0f, mainSide.getOpposite());
+		pose.translate(sd * (STRUGGLE_OFF_SHIFT * r + 0.04f * pull) + shake * 0.04f, STRUGGLE_OFF_LIFT * r + 0.02f * pull, 0f);
+		fpArm(player, pose, buffers, light, mainSide.getOpposite(), p -> {
+			p.mulPose(Axis.YP.rotationDegrees(-sd * (STRUGGLE_OFF_Y * r + 9f * pull)));
+			p.mulPose(Axis.XP.rotationDegrees(STRUGGLE_OFF_X * r + shake * 20f));
+		});
 		pose.popPose();
-		// the sword hand: across to the other side, gripping the off arm, yanking
+		// the sword hand: swung across from its corner onto the off arm, wrenching it
 		pose.pushPose();
-		pose.translate(-sd * (0.52f * r - 0.06f * pull) + shake * 0.1f, 0.1f * r - 0.04f * pull, 0.06f * r);
-		pose.mulPose(Axis.YP.rotationDegrees(sd * 40f * r));
-		pose.mulPose(Axis.ZP.rotationDegrees(sd * (22f * r - 10f * pull)));
-		pose.mulPose(Axis.XP.rotationDegrees(shake * 30f));
-		inv.projecthero$renderPlayerArm(pose, buffers, light, 0f, 0f, mainSide);
+		pose.translate(-sd * (STRUGGLE_MAIN_SHIFT * r - 0.05f * pull) + shake * 0.05f, (STRUGGLE_MAIN_LIFT - 0.03f * pull) * r, 0f);
+		fpArm(player, pose, buffers, light, mainSide, p -> {
+			p.mulPose(Axis.YP.rotationDegrees(sd * (STRUGGLE_MAIN_Y * r - 8f * pull)));
+			p.mulPose(Axis.XP.rotationDegrees(STRUGGLE_MAIN_X * r + shake * 25f));
+			p.mulPose(Axis.ZP.rotationDegrees(sd * STRUGGLE_MAIN_Z * r));
+		});
+		pose.popPose();
+	}
+
+	/**
+	 * The first-person struggle (picked from filmed sets): the off arm moved in and up a little and turned in toward the middle;
+	 * the sword hand moved across onto it, turned to grip it.
+	 */
+	private static final float STRUGGLE_OFF_SHIFT = 0.12f, STRUGGLE_OFF_LIFT = 0.08f, STRUGGLE_OFF_Y = 25f, STRUGGLE_OFF_X = -12f;
+	private static final float STRUGGLE_MAIN_SHIFT = 0.45f, STRUGGLE_MAIN_LIFT = 0.0f, STRUGGLE_MAIN_Y = 45f, STRUGGLE_MAIN_X = 10f, STRUGGLE_MAIN_Z = -20f;
+
+
+	/**
+	 * Vanilla's {@code renderPlayerArm} (an empty hand in first person) with {@code custom} turned in at its shoulder (after its
+	 * first placement, before it lays the arm out), so an arm can reach about from where it sits.
+	 */
+	private static void fpArm(AbstractClientPlayer player, PoseStack pose, MultiBufferSource buffers, int light, HumanoidArm side,
+			java.util.function.Consumer<PoseStack> custom) {
+		Object r = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(player);
+		if (!(r instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer pr)) {
+			return;
+		}
+		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
+		pose.pushPose();
+		pose.translate(f * 0.64000005f, -0.6f, -0.71999997f);
+		pose.mulPose(Axis.YP.rotationDegrees(f * 45f));
+		custom.accept(pose);
+		pose.translate(f * -1.0f, 3.6f, 3.5f);
+		pose.mulPose(Axis.ZP.rotationDegrees(f * 120f));
+		pose.mulPose(Axis.XP.rotationDegrees(200f));
+		pose.mulPose(Axis.YP.rotationDegrees(f * -135f));
+		pose.translate(f * 5.6f, 0f, 0f);
+		if (side == HumanoidArm.RIGHT) {
+			pr.renderRightHand(pose, buffers, light, player);
+		} else {
+			pr.renderLeftHand(pose, buffers, light, player);
+		}
 		pose.popPose();
 	}
 
@@ -519,17 +561,17 @@ public final class AndyBoneSwordRender {
 	 * Where drops form on the blade, in sword space (on its blood: the tip, the three runs off the bottom edge, the two drops
 	 * under the guard) and how many ticks each takes to swell and fall.
 	 */
-	private static final float[][] DRIP_AT = { { 0f, 0.7f, TIP_Z + 0.78f }, { 0f, 3.6f, -4.2f }, { 0f, 2.9f, -9.8f }, { 0f, 2.95f, -15.4f },
-			{ 0f, 6.8f, -2.05f }, { 0.67f, 3.0f, -1.8f } };
+	private static final float[][] DRIP_AT = { { 0f, 0.6f, TIP_Z + 0.78f, 0.4f }, { 0f, 1.88f, -4.2f, 1.6f }, { 0f, 1.63f, -9.8f, 1.1f },
+			{ 0f, 1.375f, -15.4f, 1.4f }, { 0f, 5.5f, -2.05f, 1.2f }, { 0.67f, 1.7f, -1.8f, 1.2f } };
 	private static final int[] DRIP_EVERY = { 47, 63, 55, 71, 52, 79 };
 	private static final Map<UUID, int[]> DRIP_SEEN = new HashMap<>();
 
-	/** First person: world-down in the hand renderer's (view) space. */
+	/**
+	 * First person: world-down in the hand renderer's pose space. (Its pose stack starts with the camera's rotation undone --
+	 * GameRenderer.renderItemInHand -- so it is world-aligned round the camera, like the world's: down is down.)
+	 */
 	private static Vector3f viewDown() {
-		Camera cam = Minecraft.getInstance().gameRenderer.getMainCamera();
-		Vector3f look = cam.getLookVector(), up = cam.getUpVector(), left = cam.getLeftVector();
-		// view space: x = right (-left), y = up, z = back (-look); world down is (0,-1,0)
-		return new Vector3f(left.y(), -up.y(), look.y()).normalize();
+		return new Vector3f(0f, -1f, 0f);
 	}
 
 	/**
@@ -550,7 +592,7 @@ public final class AndyBoneSwordRender {
 			int cycle = (int) Math.floor(tt / period);
 			float c = (tt - cycle * period) / period; // 0 .. 1 through this drop's swelling
 			float[] a = DRIP_AT[i];
-			float len = 0.25f + 1.9f * c * c;
+			float len = a[3] + 1.9f * c * c; // the run's own length, then the drop swelling at its end
 			float w = 0.17f + 0.13f * c;
 			bead(vc, pose.last(), a[0], a[1], a[2], d, len, w, c, light);
 			if (cycle != seen[i]) {
@@ -558,9 +600,10 @@ public final class AndyBoneSwordRender {
 				seen[i] = cycle;
 				if (!first && !mc.isPaused()) {
 					// it let go: the drop falls from the bead's end, in the world
-					Vector4f end = m.transform(new Vector4f((a[0] + d.x * 2.1f) / 16f, (a[1] + d.y * 2.1f) / 16f, (a[2] + d.z * 2.1f) / 16f, 1f));
+					float reach = a[3] + 1.9f;
+					Vector4f end = m.transform(new Vector4f((a[0] + d.x * reach) / 16f, (a[1] + d.y * reach) / 16f, (a[2] + d.z * reach) / 16f, 1f));
 					Vec3 at = firstPerson ? viewToWorld(end) : cameraRelative(end);
-					BloodFx.bladeDrip(at, player.getDeltaMovement(), 0.04f + 0.015f * (i % 3));
+					BloodFx.bladeDrip(at, player.getDeltaMovement(), 0.055f + 0.015f * (i % 3));
 				}
 			}
 		}
@@ -571,6 +614,7 @@ public final class AndyBoneSwordRender {
 		Vector3f a = new Vector3f(d).cross(Math.abs(d.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
 		Vector3f b = new Vector3f(d).cross(a).normalize();
 		float neck = c > 0.7f ? w * (1f - (c - 0.7f) / 0.3f * 0.6f) : w;
+		orientedBox(vc, pose, x, y, z, d, a, b, -0.2f, Math.min(len * 0.45f, 0.9f), 0.3f, BLOOD, light); // where it runs off the blade
 		orientedBox(vc, pose, x, y, z, d, a, b, 0f, len - w * 1.2f, neck * 0.7f, BLOOD_WET, light);
 		float ball = w * (1f + 0.6f * c);
 		orientedBox(vc, pose, x, y, z, d, a, b, len - ball * 1.4f, len, ball, c > 0.5f ? BLOOD_DARK : BLOOD_WET, light);
@@ -620,10 +664,14 @@ public final class AndyBoneSwordRender {
 		}
 		double k = Math.tan(Math.toRadians(fov) * 0.5) / Math.tan(Math.toRadians(70.0) * 0.5);
 		Vector3f look = cam.getLookVector(), up = cam.getUpVector(), left = cam.getLeftVector();
-		double x = v.x() * k, y = v.y() * k, z = v.z();
+		// the pose is world-aligned round the camera (see viewDown): into the camera's own axes, the sideways and up parts
+		// scaled for the field of view, and back
+		double l = (v.x() * left.x() + v.y() * left.y() + v.z() * left.z()) * k;
+		double u = (v.x() * up.x() + v.y() * up.y() + v.z() * up.z()) * k;
+		double f = v.x() * look.x() + v.y() * look.y() + v.z() * look.z();
 		Vec3 p = cam.getPosition();
-		return new Vec3(p.x - left.x() * x + up.x() * y - look.x() * z, p.y - left.y() * x + up.y() * y - look.y() * z,
-				p.z - left.z() * x + up.z() * y - look.z() * z);
+		return new Vec3(p.x + left.x() * l + up.x() * u + look.x() * f, p.y + left.y() * l + up.y() * u + look.y() * f,
+				p.z + left.z() * l + up.z() * u + look.z() * f);
 	}
 
 	// ---------------------------------------------------------------- the mesh
@@ -673,8 +721,11 @@ public final class AndyBoneSwordRender {
 		for (float[] r : runs) {
 			float edge = 1.0f + 0.95f * (1f - (-r[0] - 2.7f) / 2.1f / 10f);
 			box(vc, p, -0.36f, edge - 0.2f, r[0] - 0.7f, 0.36f, edge + 0.15f, r[0] + 0.5f, BLOOD, light);
-			box(vc, p, -0.2f, edge, r[0] - 0.2f, 0.2f, edge + r[1], r[0] + 0.2f, BLOOD_WET, light);
-			box(vc, p, -0.28f, edge + r[1] - 0.1f, r[0] - 0.28f, 0.28f, edge + r[1] + 0.4f, r[0] + 0.28f, BLOOD_DARK, light);
+			if (!wet) {
+				// (held, the run hangs toward the ground and drips: drips())
+				box(vc, p, -0.2f, edge, r[0] - 0.2f, 0.2f, edge + r[1], r[0] + 0.2f, BLOOD_WET, light);
+				box(vc, p, -0.28f, edge + r[1] - 0.1f, r[0] - 0.28f, 0.28f, edge + r[1] + 0.4f, r[0] + 0.28f, BLOOD_DARK, light);
+			}
 		}
 		// the tip: blood over the point and a drop that swells and falls
 		box(vc, p, -0.4f, -0.5f, -23.2f, 0.4f, 0.9f, -22.2f, BLOOD, light);
@@ -698,11 +749,13 @@ public final class AndyBoneSwordRender {
 		box(vc, p, -1.52f, 3.7f, -2.6f, -1.46f, 4.5f, -2.1f, BLOOD_GLOSS, light);
 		box(vc, p, 1.61f, -0.9f, -2.7f, 1.67f, 0.4f, -2.3f, BLOOD_GLOSS, light);
 		box(vc, p, -1.67f, -0.2f, -2.5f, -1.61f, 0.9f, -2.1f, BLOOD_GLOSS, light);
-		// drops hanging from the guard
-		box(vc, p, -0.22f, 5.5f, -2.25f, 0.22f, 6.7f, -1.85f, BLOOD_WET, light);
-		box(vc, p, -0.3f, 6.5f, -2.32f, 0.3f, 7.05f, -1.78f, BLOOD_DARK, light);
-		box(vc, p, 0.5f, 1.7f, -2.0f, 0.85f, 2.9f, -1.6f, BLOOD_WET, light);
-		box(vc, p, 0.45f, 2.75f, -2.05f, 0.9f, 3.2f, -1.55f, BLOOD_DARK, light);
+		if (!wet) {
+			// drops hanging from the guard (held, they hang toward the ground and fall: drips())
+			box(vc, p, -0.22f, 5.5f, -2.25f, 0.22f, 6.7f, -1.85f, BLOOD_WET, light);
+			box(vc, p, -0.3f, 6.5f, -2.32f, 0.3f, 7.05f, -1.78f, BLOOD_DARK, light);
+			box(vc, p, 0.5f, 1.7f, -2.0f, 0.85f, 2.9f, -1.6f, BLOOD_WET, light);
+			box(vc, p, 0.45f, 2.75f, -2.05f, 0.9f, 3.2f, -1.55f, BLOOD_DARK, light);
+		}
 
 		// the grip: the arm's skin wrapped round, torn, raw flesh between
 		box(vc, p, -0.85f, -0.85f, -1.4f, 0.85f, 0.85f, 3.0f, SKIN, light);
