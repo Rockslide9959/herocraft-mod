@@ -14,21 +14,33 @@ public final class AndyConfig {
 	/** An explosion lands this share of its damage on every part. */
 	public static final float BLAST_SHARE = 0.55f;
 
-	// ---------------------------------------------------------------- regeneration (Normal, or Fast on V; Slow only when starving)
+	// ---------------------------------------------------------------- regeneration (Normal, Fast or Burst on V; half Normal while starving)
 	// v0.17.3 (user: "the regen is slow but player can press V to speed it up at the cost of losing hunger a lot faster"):
-	// V cycles Normal, Fast and Burst. SPEED_SLOW is never picked -- it is what a starving Andy (empty hunger bar) falls back to.
+	// V cycles Normal, Fast and Burst. SPEED_SLOW is never picked (an old save may still hold it); its numbers are the starved rate.
 	public static final int SPEED_SLOW = 0;
 	public static final int SPEED_NORMAL = 1;
 	public static final int SPEED_FAST = 2;
 	public static final int SPEED_BURST = 3;
 	public static final int SPEEDS = 4;
-	/** How long a broken part stays gone before it starts to regrow. */
+	/** How long a broken part stays gone before it starts to regrow (starving: {@link #starvedDelay}). */
 	public static final int[] REGROW_DELAY = { 100, 50, 14, 6 };
 	/**
-	 * How long the regrowth itself takes (v0.17.3, user: "regrowth should be slower"): at Normal 170 ticks = 8.5 s. Slow and
-	 * Burst scale the whole thing (x1.4, x0.6), the gaps between the layers included.
+	 * How long the regrowth itself takes (v0.17.3, user: "regrowth should be slower"): at Normal 170 ticks = 8.5 s. Fast and
+	 * Burst scale the whole thing, the gaps between the layers included. The Slow slot is the starved rate.
 	 */
-	public static final int[] REGROW_TICKS = { 238, 170, 68, 34 };
+	public static final int[] REGROW_TICKS = { 340, 170, 68, 34 };
+	/**
+	 * v0.17.3 (user: "make it so that you need hunger/saturation in order to regrow otherwise you regenerate 50% slower than
+	 * normal speed"): a part whose food share ({@link #partFood}) could not be paid in full when it started regrows at half the
+	 * NORMAL speed, whatever the mode: a whole limb in this many ticks (the torso {@link #TORSO_FACTOR} times that); its wait
+	 * before starting doubles from Normal's too ({@code Andy.payForPart}).
+	 */
+	public static final int STARVED_TICKS = 2 * 170;
+
+	/** The wait before a regrowth starts while starving: twice Normal's. */
+	public static int starvedDelay() {
+		return 2 * REGROW_DELAY[SPEED_NORMAL];
+	}
 	/**
 	 * The three layers of a regrowth, as {start, length} shares of {@link #REGROW_TICKS} (user: "the bone starts pushing out and
 	 * then 2 seconds after the muscle starts rebuilding and then 2 seconds after that the skin starts building on"). At Normal
@@ -41,8 +53,8 @@ public final class AndyConfig {
 	/**
 	 * v0.17.3 (user: "Slow mode: regenerating your entire body should drain an amount equal to half the hunger bar, Fast mode ...
 	 * 75% of the hunger bar, Burst Mode ... the full hunger bar"): food points a WHOLE body (the body and all four limbs) costs to
-	 * regrow, per speed {Slow (starving), Normal, Fast, Burst}. Each part is a fifth of it, drained smoothly over that part's own
-	 * regrowth (no flat cost up front). The bar is 20 points.
+	 * regrow, per speed {Slow (unused), Normal, Fast, Burst} (user: "lets go back to flat values"): each part pays a fifth of it
+	 * up front, the moment it starts regrowing, out of the saturation first, then the hunger bar. The bar is 20 points.
 	 */
 	public static final float[] WHOLE_BODY_FOOD = { 10f, 10f, 15f, 20f };
 	public static final int BODY_SHARES = 5;
@@ -75,26 +87,41 @@ public final class AndyConfig {
 		return REGROW_TICKS[Math.floorMod(speed, SPEEDS)] * Math.max(CUT_MIN_SHARE, Math.min(1f, missing));
 	}
 
-	// ---------------------------------------------------------------- only the head left (the staged regrowth)
+	// ---------------------------------------------------------------- the order a broken body grows back in
 	/**
-	 * When only the head is left (a shatter, a boost burnt down to the head, or anything else that took the rest), it all grows
-	 * back in a set order -- by Slow / Normal / Burst:
+	 * v0.17.3 (user: "torso until theres space for arms and then both arms at the same time and then once torso is done both
+	 * legs at the same time ... like how it would work as if you actually had healing powers"): whenever the torso is gone it
+	 * comes back first, from the neck down (spine and ribcage, then the muscle, then the skin; shoulders first, hips last), and
+	 * the limbs grow out of it as there is something to grow from:
 	 * <ol>
-	 *   <li>after {@link #STAGE_DELAY} the body starts;</li>
-	 *   <li>{@link #STAGE_ARM_LEAD} later (before the body is a fifth done) the main arm starts: he drags himself with it;</li>
-	 *   <li>when it is done the other arm starts; with both he walks on his hands;</li>
-	 *   <li>the body ends {@link #STAGE_TORSO_TAIL} after the second arm;</li>
-	 *   <li>{@link #STAGE_LEG_GAP} later the main-side leg starts (he hops on the nub, then on the leg);</li>
-	 *   <li>{@link #STAGE_LEG_GAP} after it is done the other leg (he limps), then he walks.</li>
+	 *   <li>once its regrowth passes {@link #SHOULDER_SHARE} (the bone is down past the shoulders, the first muscle is on the
+	 *   upper chest) BOTH arms start together;</li>
+	 *   <li>once it passes {@link #HIP_SHARE} (1: the torso is whole, hips and all) BOTH legs start together.</li>
 	 * </ol>
-	 * Each arm and leg takes {@link #STAGE_LIMB} (the same bone / muscle / skin layers, compressed: at Normal 110 ticks, so the
-	 * gaps are 1.3 s rather than the 2 s of a single limb) -- head to walking takes about 27 s at Normal, 37 s Slow, 16 s Burst.
+	 * A limb lost while the torso is whole regrows at once, in parallel with anything else. The torso, the biggest part, takes
+	 * {@link #TORSO_FACTOR} times a limb's time. From only a head at Normal: a 1 s wait, the torso 1-12.9 s, both arms
+	 * 4.8-13.3 s, both legs 12.9-21.4 s: walking again after about 21 s (Fast 8.6 s, Burst 4.3 s).
 	 */
-	public static final int[] STAGE_DELAY = { 28, 20, 8, 4 };
-	public static final int[] STAGE_ARM_LEAD = { 22, 16, 7, 4 };
-	public static final int[] STAGE_LIMB = { 154, 110, 44, 22 };
-	public static final int STAGE_TORSO_TAIL = 20;
-	public static final int[] STAGE_LEG_GAP = { 28, 20, 8, 4 };
+	public static final float TORSO_FACTOR = 1.4f;
+	public static final float SHOULDER_SHARE = 0.32f;
+	public static final float HIP_SHARE = 1.0f;
+	/** With only the head left, the torso starts after this (by speed; starving: twice Normal's). */
+	public static final int[] STAGE_DELAY = { 40, 20, 8, 4 };
+
+	/** How long {@code part}'s regrowth takes at {@code speed} (the torso is bigger than a limb). */
+	public static int regrowTicks(int part, int speed) {
+		int t = REGROW_TICKS[Math.floorMod(speed, SPEEDS)];
+		return part == com.projecthero.mod.andy.data.AndyState.BODY ? Math.round(t * TORSO_FACTOR) : t;
+	}
+
+	/** The share of the torso's regrowth a part waits for while the torso is gone: arms the shoulders, legs the hips, the head all. */
+	public static float torsoShareFor(int part) {
+		return switch (part) {
+			case com.projecthero.mod.andy.data.AndyState.RIGHT_ARM, com.projecthero.mod.andy.data.AndyState.LEFT_ARM -> SHOULDER_SHARE;
+			case com.projecthero.mod.andy.data.AndyState.RIGHT_LEG, com.projecthero.mod.andy.data.AndyState.LEFT_LEG -> HIP_SHARE;
+			default -> 1f;
+		};
+	}
 
 	// ---------------------------------------------------------------- Undead
 	/** Just shattered: untouchable and no moves for this long (the body then grows back by the staged regrowth). */
@@ -177,6 +204,18 @@ public final class AndyConfig {
 	public static final double HEAD_LAUNCH_SPEED = 1.6;
 	public static final double HEAD_LAUNCH_LIFT = 1.1;
 	public static final double LAUNCH_GRAVITY = 0.08;
+	/**
+	 * v0.17.3 (user: "make leg launch and the head launch dash the player where the player aims ... directly where the player is
+	 * aiming like with the other dash abilities"): both fly in a straight line along the look, no arc, this far (blocks).
+	 */
+	public static final double LEG_LAUNCH_RANGE = 20.0;
+	public static final double HEAD_LAUNCH_RANGE = 45.0;
+	public static final double LEG_LAUNCH_DASH_SPEED = 2.0;
+	public static final double HEAD_LAUNCH_DASH_SPEED = 2.5;
+
+	/** v0.17.3 (user: passive auto-eat): he eats from his inventory once his food falls below this (food + saturation, points). */
+	public static final int AUTO_EAT_BELOW = 14;
+	public static final int AUTO_EAT_EVERY = 30;
 	/** The arc is pushed for at most this long (it normally ends on landing first). */
 	public static final int LEG_LAUNCH_MAX = 30;
 	public static final int HEAD_LAUNCH_MAX = 60;

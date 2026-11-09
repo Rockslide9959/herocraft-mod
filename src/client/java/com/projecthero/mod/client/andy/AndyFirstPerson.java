@@ -72,10 +72,10 @@ public final class AndyFirstPerson {
 		if (!flying && stage == AndyStages.NORMAL && AndyBoneSwordRender.firstPerson(player, s, partial, hand, pose, buffers, light)) {
 			return true; // v0.17.3: the Bone Sword in hand
 		}
-		if (!flying && stage != AndyStages.DRAG && stage != AndyStages.ARM_WALK && !punch) {
+		if (!flying && stage != AndyStages.CRAWL && stage != AndyStages.ARM_WALK && !punch) {
 			return false;
 		}
-		if (punch && !flying && stage != AndyStages.DRAG && stage != AndyStages.ARM_WALK) {
+		if (punch && !flying && stage != AndyStages.CRAWL && stage != AndyStages.ARM_WALK) {
 			if (hand != InteractionHand.MAIN_HAND || !player.getMainHandItem().isEmpty() && !s.flag(AndyState.FLAG_OFF_ARM)) {
 				return false; // a held item stays vanilla's; the punch arm is the bare main one
 			}
@@ -108,13 +108,13 @@ public final class AndyFirstPerson {
 				pose.translate(0.06f * sd, -0.36f + wob, 0.16f);
 				pose.mulPose(Axis.XP.rotationDegrees(30f));
 				pose.mulPose(Axis.ZP.rotationDegrees(14f * sd));
-			} else if (stage == AndyStages.DRAG) {
+			} else if (stage == AndyStages.CRAWL) {
 				if (arm != Andy.mainArm(player) && !s.has(arm, now) && !AndyStages.growing(s, arm, now)) {
 					pose.popPose();
 					continue;
 				}
-				// reach ahead, plant, drag back toward him
-				float c = (swing * 0.16f) % 1f;
+				// reach ahead, plant, drag back toward him; two arms take turns, half a stroke apart (AndyPose's belly crawl)
+				float c = (swing * 0.16f + (arm != Andy.mainArm(player) ? 0.5f : 0f)) % 1f;
 				float reach;
 				if (amount < 0.05f) {
 					reach = 0.6f;

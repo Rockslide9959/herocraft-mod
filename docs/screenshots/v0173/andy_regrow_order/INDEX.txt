@@ -1,0 +1,21 @@
+v0.17.3 Andy -- the regrowth order (torso first, both arms on the shoulders, both legs on the hips)
+Filmed with a temporary client harness (removed before the commit), the other player's view of a fake Andy
+(stages derived from the synced part times), Normal speed, 854x480 game window.
+
+andy_head_to_walk_normal_realtime.mp4   Shattered to a head while walking forward, side view, every tick at 20 fps (real time):
+                                        rolling head (1 s) -> the torso grows out of the neck, he lies on it and inches along
+                                        -> both arms sprout together at the shoulders, belly crawl pulling with both arms in
+                                        turn -> arm muscle in: walking on his hands while the torso finishes -> torso done,
+                                        both legs grow together: stump shuffle, low -> legs full length: wobbly walk -> walk.
+                                        Head to walking 428 ticks = 21.4 s. Cropped round him and scaled 2x.
+andy_head_to_walk_normal_2x.mp4         The same at double speed.
+andy_torso_neck_down_arms_together_closeup.mp4
+                                        Standing still, close, three-quarter view: the torso's spine / ribs, muscle and skin
+                                        building from the neck down along the ground behind the head, both arms' bones pushing
+                                        out of the shoulders at the same moment, then the hand walk.
+walk_sheet.png                          Contact sheet of the walk film, every 25th frame (1.25 s apart).
+closeup_sheet.png                       Contact sheet of the close-up, every 14th frame.
+
+Harness log (game ticks, Normal): shatter t=507; torso 528-766; both arms 605-775; both legs 766-936;
+stages ROLL -> CRAWL -> ARM_WALK (t~748) -> SHUFFLE (t~788) -> WOBBLE (t~828) -> NORMAL (t=936).
+The green sparkles in some frames are an unrelated ambient particle of the test world, not Andy.

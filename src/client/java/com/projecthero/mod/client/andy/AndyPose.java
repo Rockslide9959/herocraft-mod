@@ -228,28 +228,22 @@ public final class AndyPose {
 				set(model.hat, 1f, 0f, 0f, 0f);
 				return true;
 			}
-			case AndyStages.DRAG -> {
-				// lying flat (vanilla's crawl turns the body face down): the main arm reaches ahead, plants, and drags him on
+			case AndyStages.CRAWL -> {
+				// a belly crawl (vanilla's crawl turns the body face down): each arm reaches ahead, plants and pulls him on; with
+				// both arms there or growing (they grow back together) they take turns, half a stroke apart
 				int mainPart = main == model.rightArm ? AndyState.RIGHT_ARM : AndyState.LEFT_ARM;
-				ModelPart arm = s.has(mainPart, now) || AndyStages.growing(s, mainPart, now) ? main : off;
-				float sd = arm == model.rightArm ? 1f : -1f;
+				int offPart = Andy.otherArm(mainPart);
+				boolean hasMain = s.has(mainPart, now) || AndyStages.growing(s, mainPart, now);
+				boolean hasOff = s.has(offPart, now) || AndyStages.growing(s, offPart, now);
 				float c = (swing * 0.16f) % 1f;
-				float x, z;
-				if (amount < 0.05f) {
-					x = -2.7f;
-					z = 0.25f * sd;
-				} else if (c < 0.58f) {
-					// the pull: the hand flat on the ground sweeps from ahead to under the chest
-					float k = c / 0.58f;
-					x = Mth.lerp(k * k * (3f - 2f * k), -3.0f, -1.25f);
-					z = 0.18f * sd;
-				} else {
-					// the reach: lifted out to the side and thrown forward again
-					float k = (c - 0.58f) / 0.42f;
-					x = Mth.lerp(k, -1.25f, -3.0f);
-					z = (0.18f + 0.7f * Mth.sin(k * Mth.PI)) * sd;
+				if (hasMain && hasOff) {
+					crawlStroke(main, main == model.rightArm ? 1f : -1f, c, amount);
+					crawlStroke(off, off == model.rightArm ? 1f : -1f, (c + 0.5f) % 1f, amount);
+					return true;
 				}
-				set(arm, 1f, x, 0f, z);
+				ModelPart arm = hasMain ? main : off;
+				float sd = arm == model.rightArm ? 1f : -1f;
+				crawlStroke(arm, sd, c, amount);
 				ModelPart other = arm == main ? off : main;
 				set(other, 1f, -2.3f, 0f, -0.35f * sd); // the other one (if it is there yet) trails along
 				return true;
@@ -261,18 +255,32 @@ public final class AndyPose {
 				set(model.leftArm, 1f, -step, 0f, -0.06f);
 				return true;
 			}
-			case AndyStages.NUB_HOP, AndyStages.LEG_HOP -> {
-				// arms out for balance, flapping a little with each hop
-				float hop = Mth.sin(swing * (stage == AndyStages.NUB_HOP ? 0.42f : 0.5f) * 2f) * 0.18f * amount;
-				set(model.rightArm, 1f, -0.25f, 0f, 0.55f + hop);
-				set(model.leftArm, 1f, -0.25f, 0f, -0.55f - hop);
-				set(model.rightLeg, 1f, 0.08f * Mth.sin(swing) * amount, 0f, 0.04f);
-				set(model.leftLeg, 1f, -0.08f * Mth.sin(swing) * amount, 0f, -0.04f);
+			case AndyStages.SHUFFLE -> {
+				// on both stumps, knees bent back, tiny alternating steps; the arms out a little to steady the waddle
+				float step = Mth.sin(swing * 0.75f) * 0.22f * amount;
+				set(model.rightLeg, 1f, AndyMotion.KNEEL + step, 0f, 0.1f);
+				set(model.leftLeg, 1f, AndyMotion.KNEEL - step, 0f, -0.1f);
+				float flap = Mth.sin(swing * 0.75f) * 0.12f * amount;
+				set(model.rightArm, 1f, -0.35f, 0f, 0.45f + flap);
+				set(model.leftArm, 1f, -0.35f, 0f, -0.45f + flap);
+				return true;
+			}
+			case AndyStages.WOBBLE -> {
+				// standing on legs not steady yet: short steps, feet a little apart, arms held out and trembling for balance
+				float steady = Math.min(1f, Math.max(0f, (Math.min(s.regrowth(AndyState.RIGHT_LEG, now), s.regrowth(AndyState.LEFT_LEG, now))
+						- AndyStages.LEG_STAND) / (1f - AndyStages.LEG_STAND)));
+				float shake = 1f - 0.6f * steady;
+				float tremble = Mth.sin(now * 2.3f) * 0.05f * shake;
+				float step = Mth.sin(swing * 0.6662f) * 0.45f * amount;
+				set(model.rightLeg, 1f, step, 0f, 0.09f * shake + tremble * 0.5f);
+				set(model.leftLeg, 1f, -step, 0f, -0.09f * shake - tremble * 0.5f);
+				set(model.rightArm, shake, -0.3f + tremble, 0f, 0.6f + tremble);
+				set(model.leftArm, shake, -0.3f - tremble, 0f, -0.6f + tremble);
 				return true;
 			}
 			case AndyStages.LIMP -> {
 				// the short leg barely swings
-				int leg = AndyMotion.growingLeg(s, now);
+				int leg = AndyMotion.shortLeg(s, now);
 				if (leg >= 0) {
 					ModelPart lp = leg == AndyState.RIGHT_LEG ? model.rightLeg : model.leftLeg;
 					float len = AndyMotion.legLength(s, leg, now);
@@ -284,6 +292,26 @@ public final class AndyPose {
 				return false;
 			}
 		}
+	}
+
+	/** One arm's crawl stroke at phase {@code c} (0..1): the pull along the ground, then the reach forward again. */
+	private static void crawlStroke(ModelPart arm, float sd, float c, float amount) {
+		float x, z;
+		if (amount < 0.05f) {
+			x = -2.7f;
+			z = 0.25f * sd;
+		} else if (c < 0.58f) {
+			// the pull: the hand flat on the ground sweeps from ahead to under the chest
+			float k = c / 0.58f;
+			x = Mth.lerp(k * k * (3f - 2f * k), -3.0f, -1.25f);
+			z = 0.18f * sd;
+		} else {
+			// the reach: lifted out to the side and thrown forward again
+			float k = (c - 0.58f) / 0.42f;
+			x = Mth.lerp(k, -1.25f, -3.0f);
+			z = (0.18f + 0.7f * Mth.sin(k * Mth.PI)) * sd;
+		}
+		set(arm, 1f, x, 0f, z);
 	}
 
 	private static void set(ModelPart part, float weight, float x, float y, float z) {
