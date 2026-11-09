@@ -46,7 +46,7 @@ public final class AndyHud {
 			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
 	/** The little body: x, y, w, h (in HUD px) of head, body, right arm, left arm, right leg, left leg -- seen from the front. */
 	private static final int[][] FIGURE = { { 4, 0, 8, 8 }, { 4, 8, 8, 12 }, { 0, 8, 4, 12 }, { 12, 8, 4, 12 }, { 4, 20, 4, 12 }, { 8, 20, 4, 12 } };
-	private static final String[] SPEEDS = { "slow", "normal", "burst" };
+	private static final String[] SPEEDS = { "slow", "normal", "fast", "burst" };
 
 	private AndyHud() {
 	}
@@ -108,7 +108,7 @@ public final class AndyHud {
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
 		}
-		Component speed = Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(2, s.regenSpeed))]);
+		Component speed = Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, s.regenSpeed))]);
 		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
 				ty + 11, VanillaHud.GREY, true);
 

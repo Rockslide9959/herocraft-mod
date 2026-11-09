@@ -62,6 +62,8 @@ public final class Andy {
 
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
+	/** Food points owed by the regrowth, below one whole point (taken when it reaches one). */
+	private static final Map<UUID, Float> FOOD_OWED = new ConcurrentHashMap<>();
 	/** The stage last reconciled (the speed and jump modifiers follow it). */
 	private static final Map<UUID, Integer> LAST_STAGE = new ConcurrentHashMap<>();
 
@@ -71,6 +73,7 @@ public final class Andy {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
+		FOOD_OWED.clear();
 		LAST_STAGE.clear();
 		AndyAbilities.clearSessionState();
 		AndyAbilityManager.clearSessionState();
@@ -81,6 +84,7 @@ public final class Andy {
 	static void forget(UUID id) {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
+		FOOD_OWED.remove(id);
 		LAST_STAGE.remove(id);
 		AndyAbilities.forget(id);
 		AndyAbilityManager.forget(id);
@@ -387,9 +391,9 @@ public final class Andy {
 
 	public static void cycleSpeed(ServerPlayer player) {
 		AndyState n = state(player).copy();
-		n.regenSpeed = n.regenSpeed == AndyConfig.SPEED_BURST ? AndyConfig.SPEED_NORMAL : AndyConfig.SPEED_BURST; // V: Normal <-> Fast
+		n.regenSpeed = n.regenSpeed >= AndyConfig.SPEED_BURST ? AndyConfig.SPEED_NORMAL : n.regenSpeed + 1; // V: Normal -> Fast -> Burst
 		save(player, n);
-		String[] names = { "slow", "normal", "burst" };
+		String[] names = { "slow", "normal", "fast", "burst" };
 		LAST_MESSAGE.remove(player.getUUID());
 		say(player, "message.projecthero.andy.speed", ChatFormatting.RED, Component.translatable("projecthero.andy.speed." + names[n.regenSpeed]));
 		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
@@ -407,7 +411,7 @@ public final class Andy {
 
 	public static void setSpeed(ServerPlayer player, int speed) {
 		AndyState n = state(player).copy();
-		n.regenSpeed = Math.floorMod(speed, 3);
+		n.regenSpeed = Math.floorMod(speed, AndyConfig.SPEEDS);
 		save(player, n);
 	}
 
@@ -479,10 +483,7 @@ public final class Andy {
 			n = s.copy();
 			planHeadOnly(player, n, now);
 		}
-		// Fast regeneration eats hunger the whole time something is growing back
-		if (s.regenSpeed == AndyConfig.SPEED_BURST && !player.getAbilities().instabuild && regrowingAny(s, now)) {
-			player.causeFoodExhaustion(AndyConfig.FAST_EXHAUSTION_PER_TICK);
-		}
+		drainRegrowthFood(player, s, now);
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			AndyState cur = n != null ? n : s;
 			if (!cur.broken(i)) {
@@ -497,8 +498,7 @@ public final class Andy {
 					if (n == null) {
 						n = s.copy();
 					}
-					int speed = starving(player, cur, i) ? AndyConfig.SPEED_SLOW : cur.regenSpeed;
-					payFood(player, cur, i);
+					int speed = starving(player) ? AndyConfig.SPEED_SLOW : cur.regenSpeed;
 					n.setTimes(i, cur.brokenAt(i), now, now + AndyConfig.REGROW_TICKS[speed]);
 					startedRegrowing(player, i, cur.kind(i));
 				}
@@ -605,18 +605,8 @@ public final class Andy {
 	static void planHeadOnly(ServerPlayer player, AndyState n, long now) {
 		boolean shattered = n.kind(AndyState.BODY) == AndyState.KIND_SHATTER;
 		int speed = n.regenSpeed;
-		if (!shattered && !player.getAbilities().instabuild) {
-			// it costs what the five parts would (the Undead shatter is free); short of food it all goes at the slow speed
-			int cost = 0;
-			for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
-				cost += foodCost(n, i);
-			}
-			var food = player.getFoodData();
-			if (food.getFoodLevel() < cost) {
-				speed = AndyConfig.SPEED_SLOW;
-			}
-			food.setFoodLevel(Math.max(0, food.getFoodLevel() - cost));
-			food.setSaturation(Math.min(food.getSaturationLevel(), food.getFoodLevel()));
+		if (!shattered && starving(player)) {
+			speed = AndyConfig.SPEED_SLOW; // an empty hunger bar: it all goes at the slow speed (the Undead shatter never starves)
 		}
 		long delay = AndyConfig.STAGE_DELAY[speed];
 		if (n.slowRegenUntil > now) {
@@ -655,7 +645,7 @@ public final class Andy {
 		if (s.kind(part) == AndyState.KIND_SPENT && now < s.ex(AndyState.X_LAST_SHOT) + AndyConfig.EATEN_REGROW_WAIT) {
 			return 0L; // an arm used up by finger shots waits until he stops shooting
 		}
-		int speed = starving(player, s, part) ? AndyConfig.SPEED_SLOW : s.regenSpeed;
+		int speed = starving(player) ? AndyConfig.SPEED_SLOW : s.regenSpeed;
 		float delay = AndyConfig.REGROW_DELAY[speed];
 		if (s.slowRegenUntil > now) {
 			delay *= AndyConfig.CRIMSON_SLOW_FACTOR;
@@ -663,22 +653,46 @@ public final class Andy {
 		return now >= s.brokenAt(part) + (long) delay ? now : 0L;
 	}
 
-	private static int foodCost(AndyState s, int part) {
-		return AndyConfig.REGROW_FOOD[s.regenSpeed] + (part == AndyState.BODY ? 1 : 0);
+	/** An empty hunger bar: parts still regrow, at the slow speed. */
+	private static boolean starving(ServerPlayer player) {
+		return !player.getAbilities().instabuild && player.getFoodData().getFoodLevel() <= 0;
 	}
 
-	/** Not enough food for this speed: the part still regrows, at the slow speed, for whatever food is left. */
-	private static boolean starving(ServerPlayer player, AndyState s, int part) {
-		return !player.getAbilities().instabuild && player.getFoodData().getFoodLevel() < foodCost(s, part);
+	/**
+	 * v0.17.3: food points per tick the regrowth is draining right now: each part growing back costs
+	 * {@link AndyConfig#partFood} spread evenly over its own regrowth, so a whole body costs exactly
+	 * {@link AndyConfig#WHOLE_BODY_FOOD} for the speed (half the bar on Normal, three quarters on Fast, all of it on Burst).
+	 */
+	public static float regrowthFoodPerTick(AndyState s, long now) {
+		if (s == null || !s.hasPower) {
+			return 0f;
+		}
+		float perPart = AndyConfig.partFood(s.regenSpeed);
+		float sum = 0f;
+		for (int i = 0; i < AndyState.PARTS; i++) {
+			long st = s.regrowStart(i), end = s.regrowEnd(i);
+			if (s.broken(i) && st > 0L && st <= now && now < end) {
+				sum += perPart / Math.max(1L, end - st);
+			}
+		}
+		return sum;
 	}
 
-	private static void payFood(ServerPlayer player, AndyState s, int part) {
-		if (player.getAbilities().instabuild) {
+	/** Takes the regrowth's food: from the hunger bar itself (saturation never above it), a whole point at a time. */
+	private static void drainRegrowthFood(ServerPlayer player, AndyState s, long now) {
+		float rate = regrowthFoodPerTick(s, now);
+		if (rate <= 0f || player.getAbilities().instabuild) {
 			return;
 		}
-		var food = player.getFoodData();
-		food.setFoodLevel(Math.max(0, food.getFoodLevel() - foodCost(s, part)));
-		food.setSaturation(Math.min(food.getSaturationLevel(), food.getFoodLevel()));
+		float owed = FOOD_OWED.getOrDefault(player.getUUID(), 0f) + rate;
+		int whole = (int) owed;
+		if (whole > 0) {
+			var food = player.getFoodData();
+			food.setFoodLevel(Math.max(0, food.getFoodLevel() - whole));
+			food.setSaturation(Math.min(food.getSaturationLevel(), food.getFoodLevel()));
+			owed -= whole;
+		}
+		FOOD_OWED.put(player.getUUID(), owed);
 	}
 
 	private static void startedRegrowing(ServerPlayer player, int part, int kind) {

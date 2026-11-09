@@ -16,17 +16,19 @@ public final class AndyConfig {
 
 	// ---------------------------------------------------------------- regeneration (Normal, or Fast on V; Slow only when starving)
 	// v0.17.3 (user: "the regen is slow but player can press V to speed it up at the cost of losing hunger a lot faster"):
-	// V toggles Normal and Fast (SPEED_BURST). SPEED_SLOW is no longer picked -- it is what a starving Andy falls back to.
+	// V cycles Normal, Fast and Burst. SPEED_SLOW is never picked -- it is what a starving Andy (empty hunger bar) falls back to.
 	public static final int SPEED_SLOW = 0;
 	public static final int SPEED_NORMAL = 1;
-	public static final int SPEED_BURST = 2;
+	public static final int SPEED_FAST = 2;
+	public static final int SPEED_BURST = 3;
+	public static final int SPEEDS = 4;
 	/** How long a broken part stays gone before it starts to regrow. */
-	public static final int[] REGROW_DELAY = { 100, 50, 14 };
+	public static final int[] REGROW_DELAY = { 100, 50, 14, 6 };
 	/**
 	 * How long the regrowth itself takes (v0.17.3, user: "regrowth should be slower"): at Normal 170 ticks = 8.5 s. Slow and
 	 * Burst scale the whole thing (x1.4, x0.6), the gaps between the layers included.
 	 */
-	public static final int[] REGROW_TICKS = { 238, 170, 68 };
+	public static final int[] REGROW_TICKS = { 238, 170, 68, 34 };
 	/**
 	 * The three layers of a regrowth, as {start, length} shares of {@link #REGROW_TICKS} (user: "the bone starts pushing out and
 	 * then 2 seconds after the muscle starts rebuilding and then 2 seconds after that the skin starts building on"). At Normal
@@ -36,10 +38,19 @@ public final class AndyConfig {
 	public static final float[] LAYER_BONE = { 0f, 60f / 170f };
 	public static final float[] LAYER_MUSCLE = { 40f / 170f, 80f / 170f };
 	public static final float[] LAYER_SKIN = { 80f / 170f, 90f / 170f };
-	/** Hunger (food points) a regrown part costs; the body costs one more. */
-	public static final int[] REGROW_FOOD = { 1, 2, 4 };
-	/** Fast regeneration also burns hunger every tick a part is growing back (food exhaustion; 4 = one food point). */
-	public static final float FAST_EXHAUSTION_PER_TICK = 0.1f;
+	/**
+	 * v0.17.3 (user: "Slow mode: regenerating your entire body should drain an amount equal to half the hunger bar, Fast mode ...
+	 * 75% of the hunger bar, Burst Mode ... the full hunger bar"): food points a WHOLE body (the body and all four limbs) costs to
+	 * regrow, per speed {Slow (starving), Normal, Fast, Burst}. Each part is a fifth of it, drained smoothly over that part's own
+	 * regrowth (no flat cost up front). The bar is 20 points.
+	 */
+	public static final float[] WHOLE_BODY_FOOD = { 10f, 10f, 15f, 20f };
+	public static final int BODY_SHARES = 5;
+
+	/** Food points one part costs to regrow at {@code speed}. */
+	public static float partFood(int speed) {
+		return WHOLE_BODY_FOOD[Math.floorMod(speed, SPEEDS)] / BODY_SHARES;
+	}
 	/** Crimson Bullet: the regeneration delay is multiplied by this for {@link #CRIMSON_SLOW_TICKS}. */
 	public static final float CRIMSON_SLOW_FACTOR = 2.5f;
 	public static final int CRIMSON_SLOW_TICKS = 300;
@@ -61,7 +72,7 @@ public final class AndyConfig {
 	public static final float CUT_MIN_SHARE = 0.35f;
 
 	public static float cutRegrowTicks(int speed, float missing) {
-		return REGROW_TICKS[Math.floorMod(speed, 3)] * Math.max(CUT_MIN_SHARE, Math.min(1f, missing));
+		return REGROW_TICKS[Math.floorMod(speed, SPEEDS)] * Math.max(CUT_MIN_SHARE, Math.min(1f, missing));
 	}
 
 	// ---------------------------------------------------------------- only the head left (the staged regrowth)
@@ -79,11 +90,11 @@ public final class AndyConfig {
 	 * Each arm and leg takes {@link #STAGE_LIMB} (the same bone / muscle / skin layers, compressed: at Normal 110 ticks, so the
 	 * gaps are 1.3 s rather than the 2 s of a single limb) -- head to walking takes about 27 s at Normal, 37 s Slow, 16 s Burst.
 	 */
-	public static final int[] STAGE_DELAY = { 28, 20, 8 };
-	public static final int[] STAGE_ARM_LEAD = { 22, 16, 7 };
-	public static final int[] STAGE_LIMB = { 154, 110, 44 };
+	public static final int[] STAGE_DELAY = { 28, 20, 8, 4 };
+	public static final int[] STAGE_ARM_LEAD = { 22, 16, 7, 4 };
+	public static final int[] STAGE_LIMB = { 154, 110, 44, 22 };
 	public static final int STAGE_TORSO_TAIL = 20;
-	public static final int[] STAGE_LEG_GAP = { 28, 20, 8 };
+	public static final int[] STAGE_LEG_GAP = { 28, 20, 8, 4 };
 
 	// ---------------------------------------------------------------- Undead
 	/** Just shattered: untouchable and no moves for this long (the body then grows back by the staged regrowth). */

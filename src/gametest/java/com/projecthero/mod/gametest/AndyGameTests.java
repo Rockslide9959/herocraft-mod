@@ -129,7 +129,7 @@ public class AndyGameTests implements FabricGameTest {
 				"still waiting before the delay"));
 		helper.runAfterDelay(AndyConfig.REGROW_DELAY[1] + 3, () -> {
 			helper.assertTrue(Andy.state(p).regrowStart(AndyState.LEFT_LEG) > 0L, "regrowing after the delay");
-			helper.assertTrue(p.getFoodData().getFoodLevel() == 20 - AndyConfig.REGROW_FOOD[1], "it cost hunger: " + p.getFoodData().getFoodLevel());
+			helper.assertTrue(Andy.regrowthFoodPerTick(Andy.state(p), helper.getLevel().getGameTime()) > 0f, "it drains hunger as it grows");
 		});
 		helper.runAfterDelay(AndyConfig.REGROW_DELAY[1] + AndyConfig.REGROW_TICKS[1] + 4, () -> {
 			helper.assertTrue(!Andy.missing(p, AndyState.LEFT_LEG), "whole again after " + (helper.getLevel().getGameTime() - start) + " ticks");
@@ -142,7 +142,7 @@ public class AndyGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theBodyRegrowsBeforeTheRest(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		Andy.setSpeed(p, AndyConfig.SPEED_BURST);
+		Andy.setSpeed(p, AndyConfig.SPEED_FAST);
 		Andy.breakPart(p, AndyState.BODY, AndyState.KIND_BURST);
 		Andy.breakPart(p, AndyState.RIGHT_ARM, AndyState.KIND_BURST);
 		edit(p, n -> {
@@ -199,7 +199,9 @@ public class AndyGameTests implements FabricGameTest {
 		ServerPlayer p = andy(helper);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "starts on Normal");
 		Andy.cycleSpeed(p);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "then Fast");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_FAST, "then Fast");
+		Andy.cycleSpeed(p);
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "then Burst");
 		Andy.cycleSpeed(p);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "and back to Normal (no Slow to pick)");
 		helper.succeed();
@@ -210,9 +212,9 @@ public class AndyGameTests implements FabricGameTest {
 		ServerPlayer p = andy(helper);
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, true);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "a press of V cycles the speed (there is no style to hold for any more)");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_FAST, "a press of V cycles the speed (there is no style to hold for any more)");
 		com.projecthero.mod.andy.AndyAbilityManager.handle(p, v, false);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "the release does nothing");
+		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_FAST, "the release does nothing");
 		helper.succeed();
 	}
 
@@ -245,7 +247,7 @@ public class AndyGameTests implements FabricGameTest {
 				"the muscle starts 2 s after the bone, the skin 2 s after that");
 		helper.assertTrue(Math.abs(AndyConfig.LAYER_SKIN[0] + AndyConfig.LAYER_SKIN[1] - 1f) < 1.0e-4f, "the skin closing is the end of it");
 		int start = AndyConfig.REGROW_DELAY[AndyConfig.SPEED_SLOW] + 10;
-		for (int k = 0; k < 3; k++) {
+		for (int k = 0; k < AndyConfig.SPEEDS; k++) {
 			int speed = k;
 			helper.runAfterDelay(start + k, () -> {
 				Andy.restore(p);
@@ -261,7 +263,46 @@ public class AndyGameTests implements FabricGameTest {
 				helper.assertTrue(len == AndyConfig.REGROW_TICKS[speed], "speed " + speed + " takes " + len + " ticks, not " + AndyConfig.REGROW_TICKS[speed]);
 			});
 		}
-		helper.runAfterDelay(start + 4, helper::succeed);
+		helper.runAfterDelay(start + 5, helper::succeed);
+	}
+
+	/** v0.17.3 (user): a whole body costs half / three quarters / all of the hunger bar on Normal / Fast / Burst, drained as it grows. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 1200)
+	public void aWholeBodyCostsTheSpeedsShareOfTheHungerBar(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		helper.assertTrue(AndyConfig.REGROW_TICKS[AndyConfig.SPEED_BURST] < AndyConfig.REGROW_TICKS[AndyConfig.SPEED_FAST], "Burst is faster than Fast");
+		int[] speeds = { AndyConfig.SPEED_NORMAL, AndyConfig.SPEED_FAST, AndyConfig.SPEED_BURST };
+		int[] want = { 10, 15, 20 };
+		int[] k = { 0 };
+		int[] startFood = { 0 };
+		Runnable begin = () -> {
+			Andy.restore(p);
+			Andy.setSpeed(p, speeds[k[0]]);
+			p.getFoodData().setFoodLevel(20);
+			p.getFoodData().setSaturation(20f);
+			for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+				Andy.breakPart(p, i, AndyState.KIND_BURST);
+			}
+			startFood[0] = p.getFoodData().getFoodLevel();
+		};
+		begin.run();
+		helper.onEachTick(() -> {
+			Andy.tick(p);
+			AndyState s = Andy.state(p);
+			boolean any = false;
+			for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+				any |= s.broken(i);
+			}
+			if (!any) {
+				int spent = startFood[0] - p.getFoodData().getFoodLevel();
+				helper.assertTrue(Math.abs(spent - want[k[0]]) <= 1, "speed " + speeds[k[0]] + ": the whole body cost " + spent + ", not " + want[k[0]]);
+				if (++k[0] == speeds.length) {
+					helper.succeed();
+				} else {
+					begin.run();
+				}
+			}
+		});
 	}
 
 	// ---------------------------------------------------------------- R: finger shots eat the arm, the stretch punch

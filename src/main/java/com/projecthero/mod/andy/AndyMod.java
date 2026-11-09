@@ -116,7 +116,8 @@ public final class AndyMod {
 				}))
 				.then(Commands.literal("regen")
 												.then(Commands.literal("normal").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_NORMAL)))
-						.then(Commands.literal("fast").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST))));
+						.then(Commands.literal("fast").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_FAST)))
+						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST))));
 	}
 
 	private static int setSpeed(CommandSourceStack source, int speed) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

@@ -126,7 +126,7 @@ public final class AndyState {
 			this.partTimes.add(0L);
 		}
 		this.kinds = kinds;
-		this.regenSpeed = Math.floorMod(regenSpeed, 3);
+		this.regenSpeed = Math.floorMod(regenSpeed, AndyConfig.SPEEDS);
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.victorUntil = victorUntil;
 		this.animId = animId;
