@@ -22,7 +22,8 @@ import net.minecraft.world.entity.player.Player;
  *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
  *          hold 1 s: Head Launch
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  Regeneration speed        Shift+V  Pull the Card (Victor)
+ *   V (5)  Regeneration speed        Shift+V  Bone Sword (AndyBoneSword: the keys turn into the sword kit while it is out)
+ *   (Victor -- Pull the Card and the kit in brackets -- is off: AndyConfig.VICTOR_ENABLED)
  *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
  * </pre>
  */
@@ -86,6 +87,14 @@ public final class AndyAbilityManager {
 		}
 		boolean shift = player.isShiftKeyDown();
 		boolean victor = Andy.victor(player);
+		if (Andy.state(player).boneSword() && AndyBoneSword.handle(player, slot, pressed, shift)) {
+			// v0.17.3: the Bone Sword's own kit while it is out; nothing half-held from before carries over
+			R_HELD.remove(player.getUUID());
+			if (X_HELD.remove(player.getUUID()) != null) {
+				AndyAbilities.stopPropulsion(player);
+			}
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (!pressed) {
@@ -150,7 +159,10 @@ public final class AndyAbilityManager {
 			case SLOT_5 -> {
 				if (pressed) {
 					if (shift) {
-						AndyAbilities.pullCard(player);
+						// v0.17.3 (user: "remove the Victor ability for now, add an ability for shift+V where the player rips an arm
+						// off and uses it as a bone sword"): Shift+V is the Bone Sword; Pull the Card (AndyAbilities.pullCard) has
+						// no key while AndyConfig.VICTOR_ENABLED is false
+						AndyBoneSword.toggle(player);
 					} else if (Andy.canAct(player)) {
 						Andy.cycleSpeed(player);
 					}
@@ -218,19 +230,27 @@ public final class AndyAbilityManager {
 
 	/** The move ids on a slot (plain, Shift), for the HUD; Victor's kit while he is Victor. */
 	public static String[] idsOf(Player player, AbilitySlot slot) {
+		String[] sword = AndyBoneSword.idsOf(player, slot);
+		if (sword != null) {
+			return sword; // v0.17.3: the Bone Sword kit while it is out
+		}
 		boolean victor = Andy.victor(player);
 		return switch (slot) {
 			case SLOT_1 -> victor ? new String[] { AndyAbilities.VULCAN, AndyAbilities.DIVISION } : new String[] { AndyAbilities.PARTS_BULLET, AndyAbilities.CRIMSON_BULLET };
 			case SLOT_2 -> new String[] { victor ? AndyAbilities.DEAD_BLADE : AndyAbilities.CRESCENT, AndyAbilities.GREAT_CRESCENT };
 			case SLOT_3 -> new String[] { AndyLaunch.LEG_LAUNCH, AndyAbilities.PROPULSION };
 			case SLOT_4 -> new String[] { AndyAbilities.VORTEX, AndyAbilities.HEAD_BULLET };
-			case SLOT_5 -> new String[] { AndyAbilities.REGEN, AndyAbilities.CARD };
+			case SLOT_5 -> new String[] { AndyAbilities.REGEN, AndyConfig.VICTOR_ENABLED ? AndyAbilities.CARD : AndyBoneSword.BONE_SWORD };
 			case SLOT_6 -> new String[] { victor ? AndyAbilities.DEAD_ROAD : AndyAbilities.DEAD_LINE, AndyAbilities.QUARDEAD };
 			default -> new String[0];
 		};
 	}
 
 	public static int maxCooldown(String id) {
+		int sword = AndyBoneSword.maxCooldown(id);
+		if (sword >= 0) {
+			return sword;
+		}
 		return switch (id) {
 			case AndyAbilities.PARTS_BULLET -> AndyConfig.PARTS_BULLET_COOLDOWN;
 			case AndyAbilities.PUNCH -> AndyConfig.PUNCH_COOLDOWN;

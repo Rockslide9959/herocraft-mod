@@ -69,17 +69,20 @@ public final class AndyAbilities {
 		WAVES.clear();
 		VULCANS.clear();
 		LAST_HEADBUTT.clear();
+		AndyBoneSword.clearSessionState();
 	}
 
 	static void forget(UUID id) {
 		WAVES.remove(id);
 		VULCANS.remove(id);
 		LAST_HEADBUTT.remove(id);
+		AndyBoneSword.forget(id);
 	}
 
-	/** Ends every running move. */
+	/** Ends every running move (and the Bone Sword bursts: the arm grows back). */
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
+		AndyBoneSword.clear(p);
 		WAVES.remove(id);
 		VULCANS.remove(id);
 		AndyState s = Andy.peek(p);
@@ -163,6 +166,36 @@ public final class AndyAbilities {
 		Vec3 r = AndyParts.right(p);
 		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
 		return p.getEyePosition().add(r.scale(0.32 * side)).add(0, -0.32, 0).add(p.getLookAngle().scale(0.55));
+	}
+
+	/**
+	 * v0.17.3 (user: "when the player launches their arm the arm shoots slightly above where they were aiming"): what the
+	 * crosshair is on -- the first block or creature along the look from the eye, within {@link AndyConfig#AIM_RANGE} (the far
+	 * end of the look when nothing is).
+	 */
+	public static Vec3 aimPoint(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(p.getLookAngle().scale(AndyConfig.AIM_RANGE));
+		BlockHitResult bhr = p.level().clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
+		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(p, eye, end, new AABB(eye, end).inflate(1.0),
+				e -> e instanceof LivingEntity && e != p && !e.isSpectator() && e.isPickable() && !(e instanceof AndyCloneEntity), eye.distanceToSqr(end));
+		return ehr != null ? ehr.getLocation() : end;
+	}
+
+	/**
+	 * The direction from {@code from} (a hand, a shoulder: off the eye line) to {@link #aimPoint}, so what leaves the hand lands
+	 * on the crosshair rather than flying parallel to the look (and off by the hand's offset). Straight along the look when the
+	 * aim point is too close or behind the hand.
+	 */
+	public static Vec3 aimDir(ServerPlayer p, Vec3 from) {
+		Vec3 look = p.getLookAngle();
+		Vec3 d = aimPoint(p).subtract(from);
+		if (d.lengthSqr() < 1.0) {
+			return look;
+		}
+		d = d.normalize();
+		return d.dot(look) < 0.7 ? look : d;
 	}
 
 	static boolean isBoss(LivingEntity target) {
@@ -260,10 +293,12 @@ public final class AndyAbilities {
 		if (arm < 0) {
 			return;
 		}
-		cooldown(p, PARTS_BULLET, AndyConfig.PARTS_BULLET_COOLDOWN);
+		if (AndyConfig.PARTS_BULLET_COOLDOWN > 0) {
+			cooldown(p, PARTS_BULLET, AndyConfig.PARTS_BULLET_COOLDOWN);
+		}
 		anim(p, AndyState.ANIM_FINGER);
 		Vec3 h = handOrigin(p, arm);
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, h, p.getLookAngle().scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_FINGER, -1, h, aimDir(p, h).scale(AndyConfig.FINGER_SPEED), AndyConfig.PARTS_BULLET_DAMAGE);
 		eat(p, arm, AndyConfig.PARTS_EAT);
 		AndySfx.partsBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 3, 0.03, 0.03, 0.03, 0.0);
@@ -280,7 +315,7 @@ public final class AndyAbilities {
 		cooldown(p, CRIMSON_BULLET, AndyConfig.CRIMSON_COOLDOWN);
 		anim(p, AndyState.ANIM_CRIMSON);
 		Vec3 h = handOrigin(p, arm);
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_CRIMSON, -1, h, p.getLookAngle().scale(AndyConfig.FINGER_SPEED * 1.2), AndyConfig.CRIMSON_DAMAGE);
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_CRIMSON, -1, h, aimDir(p, h).scale(AndyConfig.FINGER_SPEED * 1.2), AndyConfig.CRIMSON_DAMAGE);
 		eat(p, arm, AndyConfig.CRIMSON_EAT);
 		AndyState n = Andy.state(p).copy();
 		n.slowRegenUntil = p.level().getGameTime() + AndyConfig.CRIMSON_SLOW_TICKS;
@@ -336,7 +371,8 @@ public final class AndyAbilities {
 		Vec3 r = AndyParts.right(p);
 		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
 		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.5));
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_PUNCH, arm, from, p.getLookAngle().scale(AndyConfig.PUNCH_SPEED), AndyConfig.PUNCH_DAMAGE);
+		// v0.17.3: at what the crosshair is on (from the shoulder, not parallel to the look), fist first along the flight
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_PUNCH, arm, from, aimDir(p, from).scale(AndyConfig.PUNCH_SPEED), AndyConfig.PUNCH_DAMAGE);
 		AndySfx.punchFire(level(p), from);
 		AndySfx.launch(level(p), from);
 		level(p).sendParticles(Andy.BLOOD_BIG, from.x, from.y, from.z, 6, 0.1, 0.1, 0.1, 0.0);
@@ -436,7 +472,7 @@ public final class AndyAbilities {
 		Vec3 r = AndyParts.right(p);
 		double side = arm == AndyState.RIGHT_ARM ? 1 : -1;
 		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.4));
-		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_DRILL, arm, from, p.getLookAngle().scale(AndyConfig.VORTEX_SPEED), AndyConfig.VORTEX_DAMAGE);
+		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_DRILL, arm, from, aimDir(p, from).scale(AndyConfig.VORTEX_SPEED), AndyConfig.VORTEX_DAMAGE);
 		sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 1.0f, 1.2f);
 		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.8f, 0.5f);
 		level(p).sendParticles(Andy.BLOOD, from.x, from.y, from.z, 5, 0.1, 0.1, 0.1, 0.0);
@@ -467,7 +503,7 @@ public final class AndyAbilities {
 	// ---------------------------------------------------------------- V
 
 	public static void pullCard(ServerPlayer p) {
-		if (!Andy.canAct(p)) {
+		if (!AndyConfig.VICTOR_ENABLED || !Andy.canAct(p)) {
 			return;
 		}
 		AndyState s = Andy.state(p);
@@ -727,6 +763,7 @@ public final class AndyAbilities {
 	// ---------------------------------------------------------------- tick
 
 	static void tick(ServerPlayer p) {
+		AndyBoneSword.tick(p); // v0.17.3 Shift+V
 		AndyState s = Andy.state(p);
 		long now = p.level().getGameTime();
 		if (s.reformUntil > now) {

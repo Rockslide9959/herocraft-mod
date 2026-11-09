@@ -1719,7 +1719,9 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.andy.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.andy.body");
 			blank(lines);
-			for (String section : new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "victor"}) {
+			boolean victorOn = com.projecthero.mod.andy.AndyConfig.VICTOR_ENABLED; // v0.17.3: Victor is off for now
+			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "victor"}
+					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword"}) {
 				head(lines, "projecthero.guide.andy." + section);
 				para(lines, "projecthero.guide.andy." + section + ".body");
 				blank(lines);
@@ -1728,20 +1730,30 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
 					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
 					{ "Z", "vortex_bullet" },
-					{ "Shift+Z", "parts_bullet_head" }, { "V", "regen_speed" }, { "Shift+V", "pull_the_card" }, { "C", "dead_line" },
+					{ "Shift+Z", "parts_bullet_head" }, { "V", "regen_speed" }, { "Shift+V", victorOn ? "pull_the_card" : "bone_sword" }, { "C", "dead_line" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.andy.victor_controls");
-			for (String[] row : new String[][] { { "R", "dead_vulcan" }, { "Shift+R", "division_bullet" }, { "G", "dead_blade" }, { "C", "dead_road" } }) {
-				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.DARK_RED)
+			head(lines, "projecthero.guide.andy.sword_controls"); // v0.17.3: the keys while the Bone Sword is out
+			for (String[] row : new String[][] { { "R", "bone_slash" }, { "Shift+R", "marrow_thrust" }, { "G", "blood_edge_wave" }, { "Shift+G", "rib_cage_guard" },
+					{ "X", "blood_jet_dash" }, { "Z", "bone_splinter_volley" }, { "Shift+Z", "impale_throw" }, { "C", "bone_parry" }, { "Shift+V", "bone_sword" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
 			}
 			blank(lines);
+			if (victorOn) {
+				head(lines, "projecthero.guide.andy.victor_controls");
+				for (String[] row : new String[][] { { "R", "dead_vulcan" }, { "Shift+R", "division_bullet" }, { "G", "dead_blade" }, { "C", "dead_road" } }) {
+					lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.DARK_RED)
+							.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+					para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+				}
+				blank(lines);
+			}
 			head(lines, "projecthero.guide.andy.commands");
 			para(lines, "projecthero.guide.andy.commands.body");
 		}));

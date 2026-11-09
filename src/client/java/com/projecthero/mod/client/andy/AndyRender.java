@@ -190,7 +190,7 @@ public final class AndyRender {
 			}
 		}
 		long age = (long) (now - s.animStart);
-		boolean victor = s.victorUntil > now;
+		boolean victor = com.projecthero.mod.andy.AndyConfig.VICTOR_ENABLED && s.victorUntil > now;
 		if (!s.broken(AndyState.HEAD)) {
 			float out = 0f;
 			if (s.animId == AndyState.ANIM_CARD && age < 12) {
@@ -208,6 +208,7 @@ public final class AndyRender {
 			}
 		}
 		renderHeld(pose, buffers, light, player, model, s, now);
+		AndyBoneSwordRender.thirdPerson(pose, buffers, light, player, model, s, now); // v0.17.3 Shift+V
 		if (victor) {
 			float pulse = 0.55f + 0.45f * Mth.sin(now * 0.25f);
 			int a = (int) (40 + 40 * pulse);

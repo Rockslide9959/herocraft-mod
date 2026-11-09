@@ -39,6 +39,9 @@ public final class AndyPose {
 		if (stage(player, s, model, main, off, now, partial)) {
 			return;
 		}
+		if (AndyBoneSwordRender.pose(player, s, model, now)) {
+			return; // v0.17.3: the Bone Sword held, its rip / put-away and the sword moves
+		}
 		if (s.flag(AndyState.FLAG_PUNCH)) {
 			// the stretch punch winding up: the arm drawn right back behind him, the body twisted away, a tremor of strain
 			float e = Mth.clamp((now - s.ex(AndyState.X_PUNCH_START)) / 6f, 0f, 1f);

@@ -54,6 +54,9 @@ public class AndyPartEntity extends Projectile {
 	public static final int STYLE_LEFT_BODY_LEGLESS = 8;
 	/** v0.17.3: the stretch punch -- the whole arm thrown fist first off the body; it drops where it hits. */
 	public static final int STYLE_PUNCH = 9;
+	/** v0.17.3 Bone Sword: a bone shard of the Splinter Volley (spent on the first hit), and the sword thrown by Impale Throw. */
+	public static final int STYLE_SPLINTER = 10;
+	public static final int STYLE_SWORD = 11;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<AndyPartEntity> clientRemoval = e -> {
@@ -79,7 +82,9 @@ public class AndyPartEntity extends Projectile {
 		e.entityData.set(STYLE, style);
 		e.entityData.set(PART, part);
 		e.damage = damage;
-		e.moveTo(from.x, from.y, from.z, 0f, 0f);
+		// v0.17.3: {@code from} is where the piece's middle starts (it is drawn and hits round the middle of its box), so the
+		// box's foot goes half its height lower -- otherwise everything flew half a box above the line it was aimed along
+		e.moveTo(from.x, from.y - e.getBbHeight() * 0.5, from.z, 0f, 0f);
 		e.setDeltaMovement(velocity);
 		e.faceVelocity(velocity);
 		owner.level().addFreshEntity(e);
@@ -101,7 +106,18 @@ public class AndyPartEntity extends Projectile {
 	}
 
 	public boolean isLeftBehind() {
-		return this.style() >= STYLE_LEFT_LEG;
+		// v0.17.3: only the X launches' pieces (6-8) -- the thrown arm (9) used to fall in here and was drawn standing upright as
+		// if still on the body, so it flew through the air vertical
+		int s = this.style();
+		return s >= STYLE_LEFT_LEG && s <= STYLE_LEFT_BODY_LEGLESS;
+	}
+
+	public boolean isSplinter() {
+		return this.style() == STYLE_SPLINTER;
+	}
+
+	public boolean isSword() {
+		return this.style() == STYLE_SWORD;
 	}
 
 	@Override
@@ -147,7 +163,7 @@ public class AndyPartEntity extends Projectile {
 	private int maxLife() {
 		return switch (this.style()) {
 			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH -> AndyConfig.SEVERED_LIFE;
-			case STYLE_CRIMSON -> 60;
+			case STYLE_CRIMSON, STYLE_SWORD -> 60;
 			default -> 40;
 		};
 	}
@@ -198,9 +214,15 @@ public class AndyPartEntity extends Projectile {
 		if (this.style() == STYLE_DRILL && this.level() instanceof ServerLevel level && this.life % 2 == 0) {
 			level.sendParticles(Andy.BLOOD, this.getX(), this.getY(), this.getZ(), 2, 0.12, 0.12, 0.12, 0.0);
 		} else if (this.style() == STYLE_PUNCH && this.level() instanceof ServerLevel level) {
-			// blood from the shoulder end, trailing
+			// blood from the shoulder end, trailing (the arm is drawn round the middle of the box, fist leading)
 			Vec3 back = v.normalize().scale(-0.4);
-			level.sendParticles(Andy.BLOOD, this.getX() + back.x, this.getY() + back.y, this.getZ() + back.z, 2, 0.05, 0.05, 0.05, 0.0);
+			double mid = this.getBbHeight() * 0.5;
+			level.sendParticles(Andy.BLOOD, this.getX() + back.x, this.getY() + mid + back.y, this.getZ() + back.z, 3, 0.04, 0.04, 0.04, 0.0);
+			if (this.life % 2 == 0) {
+				level.sendParticles(Andy.BLOOD_BIG, this.getX() + back.x, this.getY() + mid + back.y, this.getZ() + back.z, 1, 0.02, 0.02, 0.02, 0.0);
+			}
+		} else if (this.style() == STYLE_SWORD && this.level() instanceof ServerLevel level && this.life % 2 == 0) {
+			level.sendParticles(Andy.BLOOD, this.getX(), this.getY() + this.getBbHeight() * 0.5, this.getZ(), 1, 0.05, 0.05, 0.05, 0.0);
 		} else if (this.style() == STYLE_CRIMSON && this.level() instanceof ServerLevel level) {
 			level.sendParticles(Andy.BLOOD_BIG, this.getX(), this.getY(), this.getZ(), 2, 0.05, 0.05, 0.05, 0.0);
 		}
@@ -253,6 +275,15 @@ public class AndyPartEntity extends Projectile {
 				AndyAbilities.divisionClone(p, this.position());
 				this.discard();
 			}
+			case STYLE_SWORD -> {
+				// Impale Throw: run through and pinned; the sword bursts into blood and bone
+				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.2, 0.0);
+				com.projecthero.mod.andy.AndyBoneSword.pin(p, le);
+				com.projecthero.mod.andy.AndySfx.swordHit(this.level(), this.position());
+				com.projecthero.mod.andy.AndySfx.bloodBurst(this.level(), this.position(), 0.5f);
+				this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.9f, 1.1f);
+				this.discard();
+			}
 			default -> {
 				AndyAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.25, 0.0);
 				com.projecthero.mod.andy.AndySfx.splat(this.level(), this.position()); // v0.17.3 Andy sounds
@@ -279,6 +310,15 @@ public class AndyPartEntity extends Projectile {
 				Vec3 v = this.getDeltaMovement();
 				this.setDeltaMovement(v.scale(-0.2).add(0, 0.15, 0));
 				com.projecthero.mod.andy.AndySfx.headRoll(this.level(), at, (float) Math.min(1.0, v.length())); // v0.17.3 Andy sounds
+			}
+			case STYLE_SWORD -> {
+				// stuck in the wall a moment, then it crumbles (the life runs out)
+				Vec3 v = this.getDeltaMovement().normalize();
+				this.setPos(at.x - v.x * 0.3, at.y - v.y * 0.3 - this.getBbHeight() * 0.5, at.z - v.z * 0.3);
+				this.setDeltaMovement(Vec3.ZERO);
+				this.entityData.set(STUCK, true);
+				this.life = Math.max(this.life, 40);
+				this.level().playSound(null, at.x, at.y, at.z, SoundEvents.TRIDENT_HIT_GROUND, SoundSource.PLAYERS, 0.8f, 1.2f);
 			}
 			case STYLE_DIVISION -> {
 				if (this.getOwner() instanceof ServerPlayer p) {

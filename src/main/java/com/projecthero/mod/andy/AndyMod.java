@@ -43,6 +43,7 @@ public final class AndyMod {
 		AndyItems.initialize();
 		AndyEntityTypes.initialize();
 		AndyDamage.initialize();
+		AndyBoneSword.initialize(); // v0.17.3 Shift+V: the sword's melee sweep
 		// a missing hand can't hit or use anything (main arm), or hold anything (off arm)
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
 		AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);

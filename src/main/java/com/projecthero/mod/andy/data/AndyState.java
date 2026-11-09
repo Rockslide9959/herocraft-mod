@@ -62,6 +62,21 @@ public final class AndyState {
 	public static final int ANIM_HEAD_CHARGE = 40;
 	public static final int ANIM_LEG_LAUNCH = 41;
 	public static final int ANIM_HEAD_LAUNCH = 42;
+	/** v0.17.3 Shift+V: the arm torn off as the Bone Sword, and the sword bursting as it is put away. */
+	public static final int ANIM_SWORD_RIP = 50;
+	public static final int ANIM_SWORD_AWAY = 51;
+	/** The Bone Sword kit (AndyBoneSword): the three Bone Slash cuts (52-54), then one id a move. */
+	public static final int ANIM_SWORD_SLASH1 = 52;
+	public static final int ANIM_SWORD_SLASH2 = 53;
+	public static final int ANIM_SWORD_SLASH3 = 54;
+	public static final int ANIM_SWORD_THRUST = 55;
+	public static final int ANIM_SWORD_EDGE = 56;
+	public static final int ANIM_SWORD_GUARD = 57;
+	public static final int ANIM_SWORD_SPLINTER = 58;
+	public static final int ANIM_SWORD_IMPALE = 59;
+	public static final int ANIM_SWORD_DASH = 60;
+	public static final int ANIM_SWORD_PARRY = 61;
+	public static final int ANIM_SWORD_COUNTER = 62;
 
 
 	public static final int FLAG_PROPELLING = 1;
@@ -86,7 +101,12 @@ public final class AndyState {
 	public static final int X_LAST_SHOT = 5;
 	/** When the stretch punch started winding up. */
 	public static final int X_PUNCH_START = 6;
-	public static final int EXTRA = 8;
+	/**
+	 * v0.17.3 Bone Sword (Shift+V): 0 when it is not out, else (when it was drawn << 3) | the torn-off arm. Slot 8 (7 is left
+	 * free); see {@link #boneSwordArm} / {@link #boneSwordSince}.
+	 */
+	public static final int X_BONE_SWORD = 8;
+	public static final int EXTRA = 10;
 
 	public boolean hasPower;
 	public List<Float> partHp;
@@ -249,6 +269,28 @@ public final class AndyState {
 
 	public void setEx(int i, long v) {
 		extra.set(i, v);
+	}
+
+	// ---------------------------------------------------------------- the Bone Sword (Shift+V)
+
+	/** The Bone Sword is out. */
+	public boolean boneSword() {
+		return ex(X_BONE_SWORD) != 0L;
+	}
+
+	/** The arm torn off to make the Bone Sword (-1 when it is not out); the sword is held in the other hand. */
+	public int boneSwordArm() {
+		long v = ex(X_BONE_SWORD);
+		return v == 0L ? -1 : (int) (v & 7L);
+	}
+
+	/** When the Bone Sword was drawn (0 when it is not out). */
+	public long boneSwordSince() {
+		return ex(X_BONE_SWORD) >> 3;
+	}
+
+	public void setBoneSword(int arm, long since) {
+		setEx(X_BONE_SWORD, arm < 0 ? 0L : (Math.max(1L, since) << 3) | arm);
 	}
 
 	// ---------------------------------------------------------------- the finger shots' bite out of an arm
