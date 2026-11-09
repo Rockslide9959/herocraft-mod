@@ -1,0 +1,30 @@
+v0.17.3 Andy -- Bone Sword v2: hold V to draw (struggle, rip, grip, burst), Shift+V regen speed, tap V Tear Off, sword-kit VFX,
+vanilla sword hold, blade drips. Filmed in a dev client (temporary harness, kept as scratchpad/andy/BoneSwordHarness.v0173.java.txt,
+removed from src). 854x480, one frame per game tick: NAME.mp4 is real time (20 fps), NAME_slow.mp4 half speed, NAME_sheet.png a
+contact sheet (frame numbers drawn on). The dev skin is random per run (Steve / Alex).
+
+fp_hold_vs_vanilla.png       First person, same view: a vanilla netherite sword (left) and the Bone Sword (right). The Bone Sword now
+fp_hold_vs_vanilla_close.png uses the vanilla iron sword's own display transforms (first and third person), so it sits on the same
+                             diagonal from the lower right as any sword. It is longer and narrower than a sword sprite.
+tp_hold_vs_vanilla.png       The same in third person.
+
+fp_draw / tp_draw_front / tp_draw_side
+                             Hold V. Frame 5 V goes down; from frame 10 (past the 5-tick tap window) the sword hand reaches across
+                             and grips the off arm, both arms shaking, the wrenches getting harder; the V box fills red and a
+                             "Bone Sword nn%" meter counts up. Blood seeps and spurts at the shoulder. Frame 45 (2 s) the arm tears
+                             off, is swung round in front and gripped hard (it shakes and swells, blood runs down it). Frame 59 it
+                             bursts (blood, bone and flesh) and the sword pops out, then settles into the held pose. Drips start.
+fp_drips / tp_drips          The sword held for 8 s: drops swell at the end of each blood run, the tip and the guard, hanging toward
+                             the ground whichever way the blade points, then let go, fall and splat (about one drop every 10 ticks).
+kit_tp / kit_fp              The sword kit with the new VFX: Bone Slash x3 (a crescent swoosh of blood with a white-hot leading
+                             edge; forehand, backhand, wide finisher), Marrow Thrust (spear streak + shock ring), Blood Edge Wave
+                             (a flying crescent of blood raining drops), Rib Cage Guard (ring along the ground, bone and blood off
+                             the chest, the ribs), Bone Splinter Volley (muzzle cone of bone dust and blood), Parry (white star on
+                             the blade) and a parried hit (bigger flash, sparks, the counter's cut), Blood-jet Dash (curtain of blood
+                             along the path, the stump's jet), Impale Throw (overhead swoosh; the arm then regrows).
+tear_tp / tear_fp            Tap V: Tear Off. On fire and poisoned with a hurt left leg: the hand wrenches the leg off and flings it
+                             aside; the fire and poison go with it. Then, unhurt, the off arm is torn off instead.
+hud_struggle.png             The HUD while V is held: red fill in the V box, the Bone Sword meter.
+hud_moves.png                Left-Alt move list: V Tear Off, Shift: Regeneration Speed, Hold: Bone Sword.
+hud_sword_moves.png          The move list with the sword out (V puts it away). (This still was taken before the V label was renamed
+                             "Put Away"; it read "Bone Sword".)

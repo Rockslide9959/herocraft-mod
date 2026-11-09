@@ -114,6 +114,7 @@ public final class AndyClient {
 			}
 			regrowSounds(mc, player, s, now);
 			AndyEffectsRenderer.watch(player, s, now);
+			AndySwordFx.watch(player, s, now); // v0.17.3: the Bone Sword's effects and the hold-V draw
 			AndyMotion.tick(player, s);
 			if (player != mc.player) {
 				// their box follows the stage on this client too (AndyCrawlPoseMixin reads it straight off the part times)
@@ -126,6 +127,7 @@ public final class AndyClient {
 			AndyBlood.tick(player, s, now);
 		}
 		AndyEffectsRenderer.tickBlood(now);
+		AndySwordFx.tick(now);
 		if (now % 100 == 0) {
 			SEEN.keySet().retainAll(present);
 			SEEN_CUTS.keySet().retainAll(present);

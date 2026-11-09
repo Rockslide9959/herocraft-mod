@@ -43,6 +43,8 @@ public final class AndyAbilities {
 	public static final String VORTEX = "vortex_bullet";
 	public static final String HEAD_BULLET = "parts_bullet_head";
 	public static final String REGEN = "regen_speed";
+	/** v0.17.3 tap V. */
+	public static final String TEAR_OFF = "tear_off";
 	public static final String CARD = "pull_the_card";
 	public static final String DEAD_LINE = "dead_line";
 	public static final String QUARDEAD = "dead_quardead";

@@ -45,6 +45,7 @@ public final class AndyEffectsRenderer {
 		PoseStack pose = context.matrixStack();
 		renderWaves(context, pose, cam, mc.level.getGameTime() + partial);
 		AndyJets.render(context, pose, cam, mc, partial);
+		AndySwordFx.render(context, pose, cam, mc.level.getGameTime() + partial); // v0.17.3: the Bone Sword's effects
 		for (Player player : mc.level.players()) {
 			AndyState s = Andy.peek(player);
 			if (s == null || !s.hasPower || (!s.flag(AndyState.FLAG_DEAD_LINE) && !s.flag(AndyState.FLAG_DEAD_ROAD))) {
@@ -134,6 +135,7 @@ public final class AndyEffectsRenderer {
 		WAVES.clear();
 		SEEN_ANIM.clear();
 		AndyJets.reset();
+		AndySwordFx.reset();
 	}
 
 	/** From the client tick: a Great Crescent that just started launches its waves from where he stood. */
