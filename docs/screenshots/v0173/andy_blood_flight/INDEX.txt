@@ -1,0 +1,34 @@
+v0.17.3 Andy -- Blood Propulsion jets as real blood (user: "make it look like actual blood bursting out of the players body please, make it look good please")
+
+Filmed with a temporary client harness (removed before commit): a second, server-side Andy flying (camera follows his
+client-side position), plus the local player for the chase / first-person shots. 20 fps, every tick.
+MP4s: 1280 wide, libx264 / yuv420p / +faststart. Each *_sheet.png: 16 evenly spaced frames, 4x4.
+
+BEFORE (master's code, same cameras): translucent glowing red cones -- reads as rocket exhaust
+  before_side.mp4 / _sheet.png           side: take-off, cruise
+  before_close.mp4 / _sheet.png          close-up from below of the arm + leg stumps
+  before_behind.mp4 / _sheet.png         from behind and below
+  before_front34.mp4 / _sheet.png        ahead and to the side
+  before_land_side.mp4 / _sheet.png      low flight, landing at 2 s
+  before_takeoff_chase.mp4 / _sheet.png  the local player's chase camera, take-off
+  before_boost_chase.mp4 / _sheet.png    chase camera, boost
+
+AFTER
+  side.mp4 / _sheet.png           take-off eruption (hands/feet blow off: crown of blood, globs, flesh), then pulsing spurts
+  close.mp4 / _sheet.png          close-up from below: opaque glossy ropes surging ~3.4x a second, slugs breaking into globs
+  closetop.mp4 / _sheet.png       close-up from above the arm stump: the specular streak along the top of the rope
+  behind.mp4 / _sheet.png         behind and below
+  front34.mp4 / _sheet.png        front 3/4
+  land_side.mp4 / _sheet.png      landing: last weak spurts, skipped beats, dribbles off the stumps, splats on the grass
+  land_behind.mp4 / _sheet.png    the same landing from behind and above
+  boost_side.mp4 / _sheet.png     boost: faster, thicker spurts; blood + flesh off the burning edges; head-only neck spurt
+  boost_behind.mp4 / _sheet.png   the same boost from behind
+  takeoff_chase.mp4 / _sheet.png  local player's chase camera, take-off
+  boost_chase.mp4 / _sheet.png    chase camera, boost burn-down
+  head_flight.mp4 / _sheet.png    chase camera, head-only flight on the neck jet
+  landing.mp4 / _sheet.png        chase camera, landing (head-only at that point in the script)
+  fp_flight.mp4 / _sheet.png      first person: small spurting fountains at the forearm stumps, a few drops at the bottom corners
+
+STILLS (left before, right after, same shot and frame)
+  compare_close_020.png, compare_close_023.png  close-up, a surge and a between-beats frame
+  compare_side_040.png, compare_front34_040.png, compare_takeoff_chase_040.png, compare_land_side_060.png
