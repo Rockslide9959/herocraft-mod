@@ -1,0 +1,24 @@
+v0.17.3 Andy -- Blood Propulsion flight pose fix (user: "the legs are disconnected from the body ... make it better")
+
+Filmed with a temporary client harness (removed before commit): a second, server-side Andy flying Shift + X
+(sneak held, like the user), camera following him. 20 fps, every tick. MP4s are 1280 wide, libx264/yuv420p/faststart;
+each *_sheet.png is every 8th frame, 4x4.
+
+BEFORE (old code, same cameras)
+  before_behind.mp4 / _sheet.png  chase cam behind and a little below -- the user's view: four fat cone "wings" fanning out
+  before_side.mp4 / _sheet.png    side view -- the legs hang 4 px off the hips, up behind the torso (vanilla sneak pivots)
+
+AFTER
+  behind.mp4 / _sheet.png         chase cam: take-off, cruise, a bank right and back, landing blend
+  side.mp4 / _sheet.png           side: take-off blend, torpedo line, legs on the hips, jets streaming straight back, landing
+  front34.mp4 / _sheet.png        ahead and to the side (front 3/4), head leading
+  boost_behind.mp4 / _sheet.png   right-click boost from behind: legs, then arms, then body burn off; head-only flight at the end
+  boost_side.mp4 / _sheet.png     the same boost from the side (no sneak), down to head-only flight on the neck jet
+  noshift_behind.mp4 / _sheet.png flight without Shift held, behind (unchanged path, for comparison)
+
+STILLS
+  compare_side_before_after.png   left: before (legs detached, wide wedges), right: after
+  compare_behind_before_after.png left: before (the user's "wing blobs"), right: after
+
+Not filmed: first person (only the shared droplet spray changed there; the first-person arm path already renders
+un-sneaked, so the new pivots are a no-op in it).
