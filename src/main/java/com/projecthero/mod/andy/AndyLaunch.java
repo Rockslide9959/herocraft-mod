@@ -49,6 +49,7 @@ public final class AndyLaunch {
 		final double lift;
 		final long start;
 		final Set<Integer> hit = new HashSet<>();
+		final Vec3 from;
 		Vec3 last;
 		/** Ticks in a row it has barely moved (a wall). */
 		int still;
@@ -59,6 +60,7 @@ public final class AndyLaunch {
 			this.speed = speed;
 			this.lift = lift;
 			this.start = start;
+			this.from = at;
 			this.last = at;
 		}
 	}
@@ -128,6 +130,11 @@ public final class AndyLaunch {
 
 	private static void sound(ServerPlayer p, net.minecraft.sounds.SoundEvent s, float vol, float pitch) {
 		p.level().playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), s, SoundSource.PLAYERS, vol, pitch);
+	}
+
+	/** Straight where he aims (v0.17.3): the full look, up and down included. */
+	private static Vec3 aim(ServerPlayer p) {
+		return p.getLookAngle().normalize();
 	}
 
 	private static Vec3 flatLook(ServerPlayer p) {
@@ -204,7 +211,7 @@ public final class AndyLaunch {
 		}
 		Vec3 at = p.position();
 		float yaw = p.yBodyRot;
-		Vec3 dir = flatLook(p);
+		Vec3 dir = aim(p);
 		// the legs stay where he stood, kicked back a touch by the launch
 		for (int leg = AndyState.RIGHT_LEG; leg <= AndyState.LEFT_LEG; leg++) {
 			if (Andy.missing(p, leg)) {
@@ -214,8 +221,7 @@ public final class AndyLaunch {
 			AndyPartEntity.drop(p, leg, AndyPartEntity.STYLE_LEFT_LEG, at, yaw, dir.scale(-0.04));
 		}
 		begin(p, LEG_LAUNCH, AndyConfig.LEG_LAUNCH_COOLDOWN, AndyState.ANIM_LEG_LAUNCH);
-		double lift = Math.max(0.25, Math.min(0.9, AndyConfig.LEG_LAUNCH_LIFT + p.getLookAngle().y * 0.5));
-		start(p, false, dir, AndyConfig.LEG_LAUNCH_SPEED, lift);
+		start(p, false, dir, AndyConfig.LEG_LAUNCH_DASH_SPEED, 0.0);
 		// blood bursts from the hip stumps
 		ServerLevel level = level(p);
 		Vec3 hips = at.add(0, 0.75, 0);
@@ -241,7 +247,7 @@ public final class AndyLaunch {
 		}
 		Vec3 at = p.position();
 		float yaw = p.yBodyRot;
-		Vec3 dir = flatLook(p);
+		Vec3 dir = aim(p);
 		boolean legless = Andy.bothLegsMissing(p);
 		// the body stays behind and falls as one; every part but the head goes (and so all of it grows back)
 		for (int part = AndyState.BODY; part < AndyState.PARTS; part++) {
@@ -252,8 +258,7 @@ public final class AndyLaunch {
 			AndyPartEntity.drop(p, part, legless ? AndyPartEntity.STYLE_LEFT_BODY_LEGLESS : AndyPartEntity.STYLE_LEFT_BODY, at, yaw, Vec3.ZERO);
 		}
 		begin(p, HEAD_LAUNCH, AndyConfig.HEAD_LAUNCH_COOLDOWN, AndyState.ANIM_HEAD_LAUNCH);
-		double lift = Math.max(0.5, Math.min(1.6, AndyConfig.HEAD_LAUNCH_LIFT + p.getLookAngle().y * 0.8));
-		start(p, true, dir, AndyConfig.HEAD_LAUNCH_SPEED, lift);
+		start(p, true, dir, AndyConfig.HEAD_LAUNCH_DASH_SPEED, 0.0);
 		ServerLevel level = level(p);
 		Vec3 neck = at.add(0, legless ? 0.8 : 1.5, 0);
 		level.sendParticles(Andy.BLOOD_BIG, neck.x, neck.y, neck.z, 14, 0.15, 0.1, 0.15, 0.0);
@@ -273,8 +278,8 @@ public final class AndyLaunch {
 	}
 
 	private static void push(ServerPlayer p, Run r, long age) {
-		Vec3 v = r.dir.scale(r.speed).add(0, r.lift - AndyConfig.LAUNCH_GRAVITY * age, 0);
-		AbilityHelpers.launchSelf(p, v);
+		// a straight dash along the aim: no lift, no gravity
+		AbilityHelpers.launchSelf(p, r.dir.scale(r.speed));
 	}
 
 	private static void land(ServerPlayer p, long now) {
@@ -302,7 +307,14 @@ public final class AndyLaunch {
 		Vec3 pos = p.position();
 		r.still = age >= 3 && pos.distanceToSqr(r.last) < 0.04 ? r.still + 1 : 0;
 		boolean stalled = r.still >= 2;
-		if (!p.isAlive() || p.isSpectator() || age > max || (age >= 3 && (p.onGround() || p.isInWater())) || stalled || age < 0) {
+		double range = r.head ? AndyConfig.HEAD_LAUNCH_RANGE : AndyConfig.LEG_LAUNCH_RANGE;
+		boolean far = pos.distanceToSqr(r.from) >= range * range;
+		// aimed down into the ground it ends on landing; aimed flat or up it runs its range (or hits a wall)
+		boolean grounded = age >= 2 && r.dir.y < -0.25 && p.onGround();
+		if (!p.isAlive() || p.isSpectator() || age > max || far || grounded || (age >= 3 && p.isInWater()) || stalled || age < 0) {
+			if (far) {
+				AbilityHelpers.launchSelf(p, r.dir.scale(0.35)); // ease out instead of flying on
+			}
 			land(p, now);
 			return;
 		}

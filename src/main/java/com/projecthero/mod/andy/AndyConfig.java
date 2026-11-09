@@ -202,6 +202,18 @@ public final class AndyConfig {
 	public static final double HEAD_LAUNCH_SPEED = 1.6;
 	public static final double HEAD_LAUNCH_LIFT = 1.1;
 	public static final double LAUNCH_GRAVITY = 0.08;
+	/**
+	 * v0.17.3 (user: "make leg launch and the head launch dash the player where the player aims ... directly where the player is
+	 * aiming like with the other dash abilities"): both fly in a straight line along the look, no arc, this far (blocks).
+	 */
+	public static final double LEG_LAUNCH_RANGE = 20.0;
+	public static final double HEAD_LAUNCH_RANGE = 45.0;
+	public static final double LEG_LAUNCH_DASH_SPEED = 2.0;
+	public static final double HEAD_LAUNCH_DASH_SPEED = 2.5;
+
+	/** v0.17.3 (user: passive auto-eat): he eats from his inventory once his food falls below this (food + saturation, points). */
+	public static final int AUTO_EAT_BELOW = 14;
+	public static final int AUTO_EAT_EVERY = 30;
 	/** The arc is pushed for at most this long (it normally ends on landing first). */
 	public static final int LEG_LAUNCH_MAX = 30;
 	public static final int HEAD_LAUNCH_MAX = 60;

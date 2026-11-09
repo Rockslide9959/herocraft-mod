@@ -42,6 +42,15 @@ public final class AndyBlood {
 		return new Vec3(TMP.x, TMP.y, TMP.z);
 	}
 
+	/**
+	 * Which way a flight jet streams out of a limb's stump: mostly straight back against the travel ({@code look} reversed),
+	 * only a little along the limb, so the four jets run behind him as one wake instead of fanning out like wings.
+	 */
+	static Vec3 jetDir(Vec3 limbAxis, Vec3 look) {
+		Vec3 d = limbAxis.scale(0.25).add(look.scale(-0.75));
+		return d.lengthSqr() < 1.0e-6 ? look.scale(-1) : d.normalize();
+	}
+
 	/** Where a limb ends when only {@code rows} of it are left (the middle of the cut). */
 	static Vec3 endOf(Player player, int part, float rows) {
 		float[] b = AndyTexels.box(part, AndyRender.slim(player));
@@ -116,11 +125,11 @@ public final class AndyBlood {
 					if (!s.broken(part)) {
 						AndyCuts.Cut cut = AndyCuts.of(s, part, now);
 						float rows = cut != null ? cut.rows() : 12f;
-						BloodFx.jet(endOf(player, part, rows), axis(player, part), carry, power);
+						BloodFx.jet(endOf(player, part, rows), jetDir(axis(player, part), player.getLookAngle()), carry, power);
 					} else if (!s.broken(AndyState.BODY)) {
 						// the limb is gone: the jet comes straight out of the shoulder / hip
 						Vec3[] st = stump(player, part);
-						BloodFx.jet(st[0], st[1], carry, power * 0.8f);
+						BloodFx.jet(st[0], jetDir(st[1], player.getLookAngle()), carry, power * 0.8f);
 					}
 				}
 				if (s.broken(AndyState.BODY)) {

@@ -140,7 +140,10 @@ public final class BloodFx {
 	 * other way): a fast bright core, darker spray round it, a few heavy drops that arc away. {@code power} 1 normal, ~1.8 boost.
 	 */
 	public static void jet(Vec3 at, Vec3 dir, Vec3 carry, float power) {
-		int core = (int) (3 * power), spray = (int) (3 * power);
+		// (the drawn stream is the jet's body; the drops only texture it: few, and leaving a little behind the stump so they do
+		// not crowd the silhouette seen from behind)
+		int core = power > 1.5f ? 2 : 1, spray = (int) (2 * power);
+		at = at.add(dir.scale(0.2));
 		for (int k = 0; k < core; k++) {
 			double sp = (0.45 + RND.nextDouble() * 0.3) * power;
 			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.12, (RND.nextDouble() - 0.5) * 0.12, (RND.nextDouble() - 0.5) * 0.12).normalize().scale(sp).add(carry);
@@ -148,11 +151,12 @@ public final class BloodFx {
 		}
 		for (int k = 0; k < spray; k++) {
 			double sp = (0.15 + RND.nextDouble() * 0.25) * power;
-			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.8, (RND.nextDouble() - 0.5) * 0.8, (RND.nextDouble() - 0.5) * 0.8).normalize().scale(sp).add(carry.scale(0.85));
+			// a narrow spray round the stream (a wide one fanned out beside him like wings)
+			Vec3 v = dir.add((RND.nextDouble() - 0.5) * 0.45, (RND.nextDouble() - 0.5) * 0.45, (RND.nextDouble() - 0.5) * 0.45).normalize().scale(sp).add(carry.scale(0.85));
 			drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.02f + RND.nextFloat() * 0.02f, shade(0.4f + RND.nextFloat() * 0.6f), 8 + RND.nextInt(10), 0);
 		}
 		if (RND.nextFloat() < 0.15f * power) {
-			mist(at.add(dir.scale(0.3)), 1, 0.16f, carry.scale(0.9));
+			mist(at.add(dir.scale(0.7)), 1, 0.12f, carry.scale(0.9));
 		}
 	}
 
