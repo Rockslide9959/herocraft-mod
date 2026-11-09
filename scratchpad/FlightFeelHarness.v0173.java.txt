@@ -1,0 +1,355 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.kryptonian.Kryptonian;
+import com.projecthero.mod.kryptonian.data.KryptonianState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.3 flight feel before / after films. Frames into run/screenshots/ff_&lt;scene&gt;_NNN.png. */
+public final class FlightFeelHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static int recEvery = 2;
+
+	static ServerPlayer flier;
+	static Vec3 origin;
+	/** Path clock: ticks since the flight started, or -1. */
+	static int pathT = -1;
+	static Vec3 vel = Vec3.ZERO;
+	static float yaw, pitch;
+	static String kind = "kryptonian";
+	static String sideView;
+
+	private FlightFeelHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("flightfeel.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(FlightFeelHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_500_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "ff-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FlightFeelHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SPECTATOR);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY() + 6, Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				if ((inWorldTicks - t0) % recEvery == 0) {
+					String name = String.format("ff_%s_%03d.png", recording, recFrame++);
+					Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+					});
+				}
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+			server(mc, FlightFeelHarness::fly);
+			chase(mc);
+		}
+	}
+
+	/** Path length in ticks. */
+	static final int PATH = 210;
+
+	/**
+	 * The test path, one tick: hover, cruise, sprint, a hard right turn, a climb then a dive, slow down and slide right, hover.
+	 * Velocity eases toward the wanted one like the directional flight model (0.2 a tick).
+	 */
+	private static void fly(ServerPlayer cam) {
+		if (flier == null || pathT < 0) {
+			return;
+		}
+		int t = pathT++;
+		double speed = 0.0;
+		boolean sprint = false;
+		double strafe = 0.0;
+		if (t < 25) {
+			speed = 0.0;
+		} else if (t < 60) {
+			speed = 0.9;
+		} else if (t < 140) {
+			speed = 1.8;
+			sprint = true;
+		} else if (t < 170) {
+			speed = 0.9;
+		} else if (t < 190) {
+			speed = 0.0;
+			strafe = 0.6;
+		}
+		if (t >= 85 && t < 110) {
+			yaw += 4.5f; // the hard right turn
+		}
+		if (t >= 112 && t < 125) {
+			pitch = Math.max(-30f, pitch - 4f); // pull up
+		} else if (t >= 125 && t < 140) {
+			pitch = Math.min(28f, pitch + 5f); // and dive
+		} else if (t >= 140) {
+			pitch *= 0.8f;
+		}
+		flier.setSprinting(sprint);
+		Vec3 look = Vec3.directionFromRotation(pitch, yaw);
+		double yr = Math.toRadians(yaw);
+		Vec3 right = new Vec3(-Math.cos(yr), 0, -Math.sin(yr));
+		Vec3 want = look.scale(speed).add(right.scale(strafe));
+		vel = vel.add(want.subtract(vel).scale(0.2));
+		if (t >= PATH) {
+			vel = Vec3.ZERO;
+		}
+		flier.move(MoverType.SELF, vel);
+		flier.setDeltaMovement(vel);
+		flier.setYRot(yaw);
+		flier.setXRot(pitch);
+		flier.setYHeadRot(yaw);
+		flier.yBodyRot = yaw;
+		flier.hurtMarked = true;
+		keepFlying();
+	}
+
+	/** The chase camera, on the client: the local spectator placed off the flier as the client sees it (no lag). */
+	private static void chase(Minecraft mc) {
+		net.minecraft.world.entity.player.Player r = null;
+		for (net.minecraft.world.entity.player.Player pl : mc.level.players()) {
+			if (pl != mc.player && "Flier".equals(pl.getGameProfile().getName())) {
+				r = pl;
+			}
+		}
+		if (r == null || pathT < 0) {
+			return;
+		}
+		double yr = Math.toRadians(r.getYHeadRot());
+		Vec3 fwd = new Vec3(-Math.sin(yr), 0, Math.cos(yr));
+		Vec3 left = new Vec3(Math.cos(yr), 0, Math.sin(yr));
+		Vec3 eye;
+		if ("side".equals(sideView)) {
+			eye = r.position().add(left.scale(3.2)).add(fwd.scale(0.4)).add(0, 0.9, 0);
+		} else {
+			eye = r.position().add(fwd.scale(-2.6)).add(left.scale(1.3)).add(0, 1.2, 0);
+		}
+		Vec3 target = r.position().add(0, 0.8, 0);
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float y = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		mc.player.setPos(eye.x, eye.y - mc.player.getEyeHeight(), eye.z);
+		mc.player.xo = mc.player.getX();
+		mc.player.yo = mc.player.getY();
+		mc.player.zo = mc.player.getZ();
+		mc.player.setYRot(y);
+		mc.player.setXRot(pit);
+		mc.player.yRotO = y;
+		mc.player.xRotO = pit;
+		mc.player.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static void keepFlying() {
+		switch (kind) {
+			case "kryptonian" -> {
+				KryptonianState s = Kryptonian.state(flier);
+				if (!s.flying) {
+					KryptonianState n = s.copy();
+					n.flying = true;
+					flier.setAttached(ModAttachments.KRYPTONIAN_STATE, n);
+				}
+			}
+			case "lantern" -> {
+				if (!flier.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
+					flier.setAttached(ModAttachments.GREEN_LANTERN_FLYING, true);
+				}
+			}
+			default -> {
+				if (!flier.getAttachedOrElse(ModAttachments.MAX_STEEL_FLYING, false)) {
+					flier.setAttached(ModAttachments.MAX_STEEL_FLYING, true);
+				}
+			}
+		}
+		flier.resetFallDistance();
+	}
+
+	static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			flier = fake(p, "Flier", origin);
+			flier.setNoGravity(true);
+			Kryptonian.grant(flier);
+		}));
+		t += 30;
+		String[] kinds = { "maxsteel" };
+		for (String k : kinds) {
+			for (int pass = 0; pass < 2; pass++) {
+				boolean after = pass == 1;
+				t = run(mc, t, k, after, null);
+			}
+		}
+		done(t + 10);
+	}
+
+	static int run(Minecraft mc, int t, String k, boolean after, String view) {
+		at(t, () -> server(mc, p -> {
+			FlightPoseHelper.FEEL_ENABLED = after;
+			kind = k;
+			sideView = view;
+			flier.setAttached(ModAttachments.GREEN_LANTERN_FLYING, false);
+			flier.setAttached(ModAttachments.MAX_STEEL_FLYING, false);
+			KryptonianState s = Kryptonian.state(flier).copy();
+			s.flying = false;
+			flier.setAttached(ModAttachments.KRYPTONIAN_STATE, s);
+			flier.teleportTo(flier.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			yaw = 0f;
+			pitch = 0f;
+			vel = Vec3.ZERO;
+			keepFlying();
+		}));
+		at(t + 8, () -> server(mc, p -> pathT = 0));
+		record(t + 8, k + (view != null ? "_" + view : "") + (after ? "_after" : "_before"), PATH, 2);
+		return t + PATH + 20;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.nameUUIDFromBytes(("harness-" + name).getBytes()), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.CREATIVE);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		return f;
+	}
+
+	static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float y = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, y, pit);
+	}
+
+	static void record(int start, String name, int ticks, int every) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			recEvery = every;
+		});
+	}
+
+	static void done(int t) {
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
