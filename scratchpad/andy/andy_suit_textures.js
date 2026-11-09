@@ -4,7 +4,17 @@
 //  - an empty vanilla armour layer (textures/models/armor/andy_suit_layer_1/2.png: never drawn, AndySuitArmourMixin).
 // Run from the repo root: node scratchpad/andy/andy_suit_textures.js
 const P = require('./png.js');
-const src = P.read('scratchpad/andy/andy_suit_skin.png');
+const orig = P.read('scratchpad/andy/andy_suit_skin.png');
+// v0.17.3 (user: 'the andy armour should just be the suit without the skin so that the players skin can show'): only the
+// clothes -- the head (base + hat) is cleared and every skin-tone texel elsewhere (hands, the collar's neck) is transparent,
+// so the wearer's own face, hair and hands show through. The forehead card is Andy's own render (AndyRender.card), not the suit.
+const src = P.blank(64, 64);
+orig.data.copy(src.data);
+const skinTone = c => c[3] > 0 && c[0] >= 0xe0 && c[1] >= 0xb4 && c[1] <= 0xd8 && c[2] >= 0x88 && c[2] <= 0xb0;
+for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+  const head = y < 16 && x < 64; // the head and hat boxes
+  if (head || skinTone(P.get(src, x, y))) P.set(src, x, y, [0, 0, 0, 0]);
+}
 const R = 'src/main/resources/assets/projecthero/textures/';
 P.write(R + 'entity/andy/andy_suit_wide.png', src);
 
@@ -29,7 +39,7 @@ P.write(R + 'entity/andy/andy_suit_slim.png', slim);
 
 // ---- item icons
 function over(a, b) { return b[3] > 0 ? b : a; }
-function px(x, y, ox, oy) { return over(P.get(src, x, y), P.get(src, x + ox, y + oy)); }
+function px(x, y, ox, oy) { return over(P.get(orig, x, y), P.get(orig, x + ox, y + oy)); }
 function icon(name, w, h, sample, scale) {
   const img = P.blank(16, 16);
   const x0 = Math.floor((16 - w * scale) / 2), y0 = Math.floor((16 - h * scale) / 2);
