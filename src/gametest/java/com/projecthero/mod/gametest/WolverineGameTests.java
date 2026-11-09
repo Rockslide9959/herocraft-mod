@@ -540,4 +540,38 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertTrue(p.isAlive() && Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX - 100.0f, "at most 100 is taken from the pool, has " + Wolverine.state(p).healPool);
 		helper.succeed();
 	}
+
+	/**
+	 * v0.17.3: the healing factor's sounds -- a heal pulse crackles (throttled: a second pulse in the same window stays
+	 * quiet), nothing plays at full health, a burn makes the next heal sizzle, and the Death Surge plays the surge.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void healingTickPlaysThrottledHealSounds(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.tickCount = 5;
+		com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.plays(p) == 0, "full health: no heal, no sound");
+
+		p.setHealth(6.0f);
+		p.tickCount = 10;
+		com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.lastPlayed(p) == com.projecthero.mod.wolverine.WolverineSounds.HEAL_CRACKLE,
+				"a heal pulse crackles");
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.plays(p) == 1, "one crackle");
+		p.tickCount = 15;
+		com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.plays(p) == 1, "the next pulse is inside the throttle: quiet");
+
+		com.projecthero.mod.wolverine.WolverineHealSounds.onHurt(p, p.damageSources().onFire(), 1.0f);
+		p.tickCount = 20;
+		com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.lastPlayed(p) == com.projecthero.mod.wolverine.WolverineSounds.HEAL_SIZZLE,
+				"a burn makes the next heal sizzle");
+
+		p.setHealth(1.0f);
+		helper.assertTrue(WolverinePassives.tryEmergency(p), "the Death Surge fires");
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineHealSounds.lastPlayed(p) == com.projecthero.mod.wolverine.WolverineSounds.HEAL_SURGE,
+				"the Death Surge plays the surge");
+		helper.succeed();
+	}
 }

@@ -168,7 +168,9 @@ public final class WolverinePassives {
 		if (player.tickCount % WolverineConfig.REGEN_INTERVAL_TICKS == 0 && pool > 0.0f && player.getHealth() < player.getMaxHealth()) {
 			float before = player.getHealth();
 			player.heal(Math.min(WolverineConfig.REGEN_HP, pool));
-			pool = Math.max(0.0f, pool - Math.max(0.0f, player.getHealth() - before));
+			float healed = Math.max(0.0f, player.getHealth() - before);
+			pool = Math.max(0.0f, pool - healed);
+			WolverineHealSounds.onHealed(player, healed); // v0.17.3: throttled knitting crackle / burn sizzle
 		}
 		if (player.tickCount % 10 == 0 && pool < WolverineConfig.HEAL_POOL_MAX
 				&& now - s.lastHurtAt >= WolverineConfig.HEAL_POOL_REGEN_DELAY_TICKS) {
@@ -213,6 +215,7 @@ public final class WolverinePassives {
 					SoundSource.PLAYERS, 0.8f, 1.3f);
 			bloodBurst(level, player, 260, 140);
 		}
+		WolverineHealSounds.surge(player); // v0.17.3: the whole body knitting back
 		player.displayClientMessage(Component.translatable("message.projecthero.wolverine.emergency")
 				.withStyle(ChatFormatting.RED), true);
 		return true;
