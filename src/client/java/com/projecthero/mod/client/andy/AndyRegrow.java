@@ -75,7 +75,9 @@ public final class AndyRegrow {
 			if (!SkinPixels.shows(tex, t.u, t.v)) {
 				continue;
 			}
-			float key = 0.7f * t.order + 0.3f * t.grow;
+			// the torso closes from the neck down (shoulders first, hips last: the limbs grow out of it in that order); the
+			// head keeps its patchier spread
+			float key = part == AndyState.BODY ? 0.9f * t.order + 0.1f * t.grow : 0.7f * t.order + 0.3f * t.grow;
 			float appear = SKIN_START + key * (SKIN_SPAN - SETTLE);
 			float f = (p - appear) / SETTLE;
 			if (f < 1f) {
@@ -642,7 +644,9 @@ public final class AndyRegrow {
 						Piece c = new Piece(x0, y0, z0, x0 + sx, y0 + sy, z0 + sz, rgb);
 						float a = along(part, box, my);
 						float jitter = AndyTexels.noise(mx * 0.7f + 11f, my * 0.7f, mz * 0.7f, seed + 5) * 0.22f + rnd.nextFloat() * 0.06f;
-						c.key = Math.max(0f, Math.min(1f, 0.62f * a + 0.22f * radial + jitter - 0.04f));
+						// the torso's muscle builds from the neck down, row by row (the shoulders first, the hips last)
+						c.key = part == AndyState.BODY ? Math.max(0f, Math.min(1f, 0.84f * a + 0.08f * radial + jitter * 0.5f - 0.02f))
+								: Math.max(0f, Math.min(1f, 0.62f * a + 0.22f * radial + jitter - 0.04f));
 						flesh[x + y * gw + z * gw * gh] = c;
 					}
 				}

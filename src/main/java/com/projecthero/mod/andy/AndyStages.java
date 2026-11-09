@@ -7,39 +7,49 @@ import net.minecraft.world.entity.EntityDimensions;
 /**
  * v0.17.3 (user: the rolling head and the staged regrowth): how Andy gets about with what he has left. Worked out on both
  * sides purely from which parts are there, gone or still growing ({@link AndyState} part times, already synced) -- no
- * packets -- so it is the same whatever took the parts (a shatter, a boost, a launch, a hit):
+ * packets -- so it is the same whatever took the parts (a shatter, a boost, a launch, a hit). From only a head the regrowth
+ * (torso first, both arms on the shoulders, both legs on the hips: {@link AndyConfig#SHOULDER_SHARE}) runs through them in
+ * order:
  * <pre>
- *   ROLL      just the head (a body may be growing): a rolling head      0.5 x 0.5 box, eyes at 0.25   speed x0.32
- *   DRAG      no legs, an arm there or growing (or only a body):           0.6 x 0.6 box, eyes at 0.40   speed x0.38
- *             lying flat, pulling himself along with the arm
- *   ARM_WALK  no legs, both arms whole: walking on his hands, the body     0.6 x 1.3 box, eyes at 1.05   speed x0.50
- *             hanging between them
- *   NUB_HOP   no whole leg, one growing (and a body): hopping on the nub   0.6 x 1.5 box, eyes at 1.30   speed x0.58
- *   LEG_HOP   one whole leg, the other gone: hopping on it                 standing box                 speed x0.68
- *   LIMP      one whole leg, the other growing: limping                    standing box                 speed x0.82
+ *   ROLL      just the head, nothing growing yet: a rolling head          0.5 x 0.5 box, eyes at 0.25   speed x0.32
+ *   CRAWL     no legs; the torso growing out of the neck (he lies on it,   0.6 x 0.6 box, eyes at 0.40   speed x0.38
+ *             inching along), then the arms growing: a belly crawl, pulling
+ *             with both arms in turn as they lengthen (or one arm)
+ *   ARM_WALK  no legs, both arms usable (their muscle is in): walking on   0.6 x 1.3 box, eyes at 1.05   speed x0.50
+ *             his hands while the torso finishes
+ *   SHUFFLE   both legs growing, the bone still pushing out: shuffling     0.6 x 1.5 box, eyes at 1.28   speed x0.45
+ *             on the stumps, knees bent, low to the ground, a waddle
+ *   WOBBLE    both legs growing, full length (the muscle and skin still    standing box                 speed x0.70
+ *             building): a wobbly, unsteady walk, short steps
+ *   LIMP      one whole leg, the other gone or growing: hopping / limping  standing box                 speed x0.70
  *   NORMAL    both legs                                                    standing box                 speed x1
  * </pre>
- * The box only grows when there is room for the bigger one ({@code AndyStagePoseMixin}).
+ * The box only grows when there is room for the bigger one ({@code AndyCrawlPoseMixin}).
  */
 public final class AndyStages {
 	public static final int ROLL = 0;
-	public static final int DRAG = 1;
+	public static final int CRAWL = 1;
 	public static final int ARM_WALK = 2;
-	public static final int NUB_HOP = 3;
-	public static final int LEG_HOP = 4;
+	public static final int SHUFFLE = 3;
+	public static final int WOBBLE = 4;
 	public static final int LIMP = 5;
 	public static final int NORMAL = 6;
 
+	/** An arm can carry him once its muscle has built (the skin is still closing over it). */
+	public static final float ARM_USE = AndyConfig.LAYER_MUSCLE[0] + AndyConfig.LAYER_MUSCLE[1];
+	/** Growing legs can stand once their bone is full length (the muscle and skin still building: wobbly). */
+	public static final float LEG_STAND = AndyConfig.LAYER_BONE[0] + AndyConfig.LAYER_BONE[1];
+
 	/** Movement speed by stage (a multiplier on the player's walking speed). */
-	public static final double[] SPEED = { 0.32, 0.38, 0.50, 0.58, 0.68, 0.82, 1.0 };
+	public static final double[] SPEED = { 0.32, 0.38, 0.50, 0.45, 0.70, 0.70, 1.0 };
 	/** Jump strength by stage. */
-	public static final double[] JUMP = { 0.45, 0.0, 0.5, 0.75, 0.85, 0.9, 1.0 };
+	public static final double[] JUMP = { 0.45, 0.0, 0.5, 0.4, 0.7, 0.85, 1.0 };
 
 	private static final EntityDimensions[] DIMS = {
 			EntityDimensions.scalable(0.5f, 0.5f).withEyeHeight(0.25f),
 			EntityDimensions.scalable(0.6f, 0.6f).withEyeHeight(0.4f),
 			EntityDimensions.scalable(0.6f, 1.3f).withEyeHeight(1.05f),
-			EntityDimensions.scalable(0.6f, 1.5f).withEyeHeight(1.3f),
+			EntityDimensions.scalable(0.6f, 1.5f).withEyeHeight(1.28f),
 	};
 
 	private AndyStages() {
@@ -51,25 +61,36 @@ public final class AndyStages {
 			return NORMAL;
 		}
 		int legs = (s.has(AndyState.RIGHT_LEG, now) ? 1 : 0) + (s.has(AndyState.LEFT_LEG, now) ? 1 : 0);
-		boolean legGrowing = growing(s, AndyState.RIGHT_LEG, now) || growing(s, AndyState.LEFT_LEG, now);
 		if (legs == 2) {
 			return NORMAL;
 		}
 		if (legs == 1) {
-			return legGrowing ? LIMP : LEG_HOP;
+			return LIMP;
 		}
 		boolean body = s.has(AndyState.BODY, now);
-		if (legGrowing && body) {
-			return NUB_HOP;
+		float legP = Math.max(growth(s, AndyState.RIGHT_LEG, now), growth(s, AndyState.LEFT_LEG, now));
+		if (legP > 0f && (body || s.regrowth(AndyState.BODY, now) >= AndyConfig.HIP_SHARE - 0.05f)) {
+			return legP >= LEG_STAND ? WOBBLE : SHUFFLE;
 		}
-		boolean ra = s.has(AndyState.RIGHT_ARM, now), la = s.has(AndyState.LEFT_ARM, now);
-		if (ra && la && (body || s.regrowth(AndyState.BODY, now) > 0.5f)) {
+		if (usable(s, AndyState.RIGHT_ARM, now) && usable(s, AndyState.LEFT_ARM, now) && (body || s.regrowth(AndyState.BODY, now) > 0.5f)) {
 			return ARM_WALK;
 		}
-		if (ra || la || growing(s, AndyState.RIGHT_ARM, now) || growing(s, AndyState.LEFT_ARM, now) || body) {
-			return DRAG;
+		// the torso growing out of the neck lays him down on it (it grows along the ground behind the head, not into it)
+		if (s.has(AndyState.RIGHT_ARM, now) || s.has(AndyState.LEFT_ARM, now) || growing(s, AndyState.RIGHT_ARM, now)
+				|| growing(s, AndyState.LEFT_ARM, now) || body || growing(s, AndyState.BODY, now)) {
+			return CRAWL;
 		}
 		return ROLL;
+	}
+
+	/** An arm whole, or grown far enough to carry him. */
+	public static boolean usable(AndyState s, int arm, float now) {
+		return s.has(arm, now) || s.regrowth(arm, now) >= ARM_USE;
+	}
+
+	/** How far a growing part is (0 when not growing). */
+	private static float growth(AndyState s, int part, float now) {
+		return growing(s, part, now) ? s.regrowth(part, now) : 0f;
 	}
 
 	/** Regrowing and already showing. */

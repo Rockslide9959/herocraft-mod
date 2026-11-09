@@ -133,28 +133,42 @@ public final class AndyMotion {
 				pose.mulPose(Axis.ZP.rotationDegrees(4f * Mth.sin(swing * 0.6662f) * amount));
 				pose.translate(0f, -0.7f * scale, 0f);
 			}
-			case AndyStages.NUB_HOP -> {
-				// hopping on the growing nub: as low as the nub is short, a slow little hop
-				int leg = growingLeg(s, now);
-				float len = leg < 0 ? 0f : legLength(s, leg, now);
-				float hop = Math.abs(Mth.sin(swing * 0.42f)) * 0.16f * amount;
-				pose.translate(0f, (-(12f - len) * PX + hop) * scale, 0f);
-				// the nub sits off centre: lean over it
-				float side = leg == AndyState.RIGHT_LEG ? 1f : -1f;
-				pose.mulPose(Axis.ZP.rotationDegrees(5f * side));
+			case AndyStages.CRAWL -> {
+				// another player's crawl pose comes from the server a tick or two after the part times say "crawl", and vanilla
+				// only lays the body down once its swim amount starts rising: until then keep him on the ground (the head where
+				// it lay) instead of popping up to standing height
+				if (player.getSwimAmount(partial) < 1.0e-3f) {
+					pose.translate(0f, (4f * PX - HEAD_CENTRE) * scale, 0f);
+				}
 			}
-			case AndyStages.LEG_HOP -> {
-				float hop = Math.abs(Mth.sin(swing * 0.5f)) * 0.22f * amount;
-				int leg = s.has(AndyState.RIGHT_LEG, now) ? AndyState.RIGHT_LEG : AndyState.LEFT_LEG;
-				float side = leg == AndyState.RIGHT_LEG ? 1f : -1f;
-				pose.translate(0f, hop * scale, 0f);
+			case AndyStages.SHUFFLE -> {
+				// both stumps growing together: knees bent (AndyPose), the body as low as their tips reach, a side-to-side
+				// waddle with each step and a little bob
+				float tip = shuffleTip(bothLegsLength(s, now));
+				float step = Mth.sin(swing * 0.75f);
+				float bob = Math.abs(step) * 0.035f * amount;
+				pose.translate(0f, (-(12f - tip) * PX + bob) * scale, 0f);
+				pose.translate(0f, 0.5f * scale, 0f);
+				pose.mulPose(Axis.ZP.rotationDegrees(7f * step * amount));
+				pose.mulPose(Axis.XP.rotationDegrees(-5f));
+				pose.translate(0f, -0.5f * scale, 0f);
+			}
+			case AndyStages.WOBBLE -> {
+				// up on the new legs, not steady on them yet: a sway even standing still, bigger with each short step
+				float len = bothLegsLength(s, now);
+				float steady = Math.min(1f, Math.max(0f, (Math.min(s.regrowth(AndyState.RIGHT_LEG, now), s.regrowth(AndyState.LEFT_LEG, now))
+						- AndyStages.LEG_STAND) / (1f - AndyStages.LEG_STAND)));
+				float shake = 1f - 0.6f * steady;
+				float sway = (Mth.sin(now * 0.31f) * 2.6f + Mth.sin(now * 0.83f) * 1.2f) * shake;
+				float step = Mth.sin(swing * 0.6662f);
+				pose.translate(0f, -(12f - len) * PX * scale, 0f);
 				pose.translate(0f, 0.7f * scale, 0f);
-				pose.mulPose(Axis.ZP.rotationDegrees(6f * side));
-				pose.mulPose(Axis.XP.rotationDegrees(-6f * amount));
+				pose.mulPose(Axis.ZP.rotationDegrees(sway + 5f * step * amount * shake));
+				pose.mulPose(Axis.XP.rotationDegrees(Mth.sin(now * 0.47f) * 2.2f * shake - 3f * amount));
 				pose.translate(0f, -0.7f * scale, 0f);
 			}
 			case AndyStages.LIMP -> {
-				int leg = growingLeg(s, now);
+				int leg = shortLeg(s, now);
 				float len = leg < 0 ? 12f : legLength(s, leg, now);
 				// the body dips onto the short leg every other step
 				float step = Mth.sin(swing * 0.6662f);
@@ -170,12 +184,25 @@ public final class AndyMotion {
 		}
 	}
 
-	/** A leg growing back right now, or -1. */
-	static int growingLeg(AndyState s, float now) {
-		if (AndyStages.growing(s, AndyState.RIGHT_LEG, now)) {
+	/** The leg that is gone or still growing back (limping on the other), or -1. */
+	static int shortLeg(AndyState s, float now) {
+		if (!s.has(AndyState.RIGHT_LEG, now)) {
 			return AndyState.RIGHT_LEG;
 		}
-		return AndyStages.growing(s, AndyState.LEFT_LEG, now) ? AndyState.LEFT_LEG : -1;
+		return !s.has(AndyState.LEFT_LEG, now) ? AndyState.LEFT_LEG : -1;
+	}
+
+	/** The stump shuffle's knee bend (radians, the legs angled back from the hip). */
+	static final float KNEEL = 0.6f;
+
+	/** How high (model px) the bent stumps hold the hips. */
+	static float shuffleTip(float len) {
+		return len * Mth.cos(KNEEL);
+	}
+
+	/** The shorter of the two legs (model px): both grow together, so they are nearly the same. */
+	static float bothLegsLength(AndyState s, float now) {
+		return Math.min(legLength(s, AndyState.RIGHT_LEG, now), legLength(s, AndyState.LEFT_LEG, now));
 	}
 
 	/** How long (model px, of 12) a growing leg already reaches: the bone's tip leads, the muscle carries the weight. */
