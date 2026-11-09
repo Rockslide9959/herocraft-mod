@@ -678,18 +678,29 @@ public final class Andy {
 		return sum;
 	}
 
-	/** Takes the regrowth's food: from the hunger bar itself (saturation never above it), a whole point at a time. */
+	/**
+	 * Takes the regrowth's food the way vanilla hunger goes (user: "i want it to drain saturation"): out of saturation first,
+	 * smoothly; once saturation is empty, out of the hunger bar a whole point at a time.
+	 */
 	private static void drainRegrowthFood(ServerPlayer player, AndyState s, long now) {
 		float rate = regrowthFoodPerTick(s, now);
 		if (rate <= 0f || player.getAbilities().instabuild) {
 			return;
 		}
+		var food = player.getFoodData();
+		float sat = food.getSaturationLevel();
+		if (sat > 0f) {
+			float take = Math.min(sat, rate);
+			food.setSaturation(sat - take);
+			rate -= take;
+			if (rate <= 0f) {
+				return;
+			}
+		}
 		float owed = FOOD_OWED.getOrDefault(player.getUUID(), 0f) + rate;
 		int whole = (int) owed;
 		if (whole > 0) {
-			var food = player.getFoodData();
 			food.setFoodLevel(Math.max(0, food.getFoodLevel() - whole));
-			food.setSaturation(Math.min(food.getSaturationLevel(), food.getFoodLevel()));
 			owed -= whole;
 		}
 		FOOD_OWED.put(player.getUUID(), owed);

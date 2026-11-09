@@ -279,11 +279,11 @@ public class AndyGameTests implements FabricGameTest {
 			Andy.restore(p);
 			Andy.setSpeed(p, speeds[k[0]]);
 			p.getFoodData().setFoodLevel(20);
-			p.getFoodData().setSaturation(20f);
+			p.getFoodData().setSaturation(5f);
 			for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
 				Andy.breakPart(p, i, AndyState.KIND_BURST);
 			}
-			startFood[0] = p.getFoodData().getFoodLevel();
+			startFood[0] = p.getFoodData().getFoodLevel() + 5; // the bar and the saturation together
 		};
 		begin.run();
 		helper.onEachTick(() -> {
@@ -294,6 +294,7 @@ public class AndyGameTests implements FabricGameTest {
 				any |= s.broken(i);
 			}
 			if (!any) {
+				helper.assertTrue(p.getFoodData().getSaturationLevel() < 1.0e-4f, "the saturation went first");
 				int spent = startFood[0] - p.getFoodData().getFoodLevel();
 				helper.assertTrue(Math.abs(spent - want[k[0]]) <= 1, "speed " + speeds[k[0]] + ": the whole body cost " + spent + ", not " + want[k[0]]);
 				if (++k[0] == speeds.length) {
