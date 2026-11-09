@@ -1,0 +1,19 @@
+v0.17.3 Andy -- Parts Bullet: Arm (ex Stretch Punch) aim/orientation, no-cooldown Parts Bullet, Bone Sword (Shift+V) + its kit
+Filmed in a dev client (temporary harness, removed before commit). Each film has an MP4 and a contact sheet (*_sheet.png).
+
+punch_side.mp4         Hold R / release: the arm flies fist first, level along its path (shoulder end trailing, blood trail),
+                       hits the iron golem on the crosshair line, drops and lies flat. (Before: drawn standing upright.)
+punch_chase.mp4        Same, from behind his shoulder: the arm goes where the crosshair is.
+rapid_bullets.mp4      12 Parts Bullets, one every 2 ticks (no cooldown); the hand is eaten a bite a shot.
+rip_front.mp4          Shift+V: he grabs his off shoulder and tears the arm off (stump spurts, blood pool); the arm becomes the sword.
+close_front/side/above/threequarter (+ *_still.png)
+                       Third-person close-ups: bone blade (vanilla skeleton arm bone, stretched) with jagged bone edges and point,
+                       dark blood streaks and runs dripping off the bottom edge and the tip, a glossy blobby crossguard of congealed
+                       blood with hanging drops, the grip wrapped in torn skin with raw flesh between, bone-knuckle pommel.
+held_wide.mp4          Standing with the sword out.
+put_away.mp4           Shift+V again: the sword bursts into blood and bone bits; the arm then regrows (bone, muscle, skin).
+kit.mp4                The sword kit (third person): Bone Slash x3 (third is the wide sweep), Marrow Thrust, Blood Edge Wave,
+                       Rib Cage Guard (ribs burst out round the chest), Bone Splinter Volley, Parry, Blood-jet Dash, Impale Throw
+                       (ends the sword; the arm starts regrowing).
+fp_sword.mp4           First person: draw, four plain left-click swings, then Bone Slash x3, Marrow Thrust, Rib Cage Guard,
+                       Splinter Volley, Blood Edge Wave, Parry, and putting it away (burst). HUD shows the sword kit + "Bone Sword" meter.

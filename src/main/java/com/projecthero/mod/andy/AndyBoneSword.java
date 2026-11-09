@@ -79,8 +79,8 @@ public final class AndyBoneSword {
 	/** The next press within this long carries the combo on. */
 	public static final int COMBO_WINDOW = 30;
 	public static final float THRUST_DAMAGE = 14f;
-	public static final int THRUST_TICKS = 5;
-	public static final double THRUST_SPEED = 1.3;
+	public static final int THRUST_TICKS = 3;
+	public static final double THRUST_SPEED = 1.1;
 	public static final int THRUST_COOLDOWN = 60;
 	public static final float EDGE_DAMAGE = 12f;
 	public static final double EDGE_RANGE = 12.0;
@@ -96,8 +96,8 @@ public final class AndyBoneSword {
 	public static final double IMPALE_SPEED = 2.0;
 	public static final int IMPALE_PIN_TICKS = 40;
 	public static final float DASH_DAMAGE = 10f;
-	public static final int DASH_TICKS = 6;
-	public static final double DASH_SPEED = 1.6;
+	public static final int DASH_TICKS = 5;
+	public static final double DASH_SPEED = 1.5;
 	public static final int DASH_COOLDOWN = 50;
 	public static final int PARRY_TICKS = 12;
 	public static final float PARRY_COUNTER_DAMAGE = 14f;
