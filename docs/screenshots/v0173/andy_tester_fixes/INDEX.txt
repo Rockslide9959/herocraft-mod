@@ -1,0 +1,8 @@
+Andy tester fixes + Andy suit, v0.17.3.
+alternating.mp4 - arm throws alternate right/left.
+head_pickup.mp4 - another player picks up the lone head.
+clones.png - clones now render with the owner skin and deliberate stages.
+off_then_on_hud.png - Regen: Off on the HUD.
+suit_views.png - Andy suit front/back/side.
+suit_regrow.mp4, suit_headonly_regrow.mp4 - suit hidden on missing parts while they regrow.
+suit_icons_hotbar.png - the four suit item icons.

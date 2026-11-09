@@ -108,7 +108,10 @@ public final class QuirkCostume {
 	}
 
 	private static @Nullable Tex tex(Quirk q, boolean slim) {
-		ResourceLocation id = textureId(q, slim);
+		return tex(textureId(q, slim));
+	}
+
+	private static @Nullable Tex tex(ResourceLocation id) {
 		Optional<Tex> t = CACHE.get(id);
 		if (t == null) {
 			t = load(id);
@@ -185,6 +188,10 @@ public final class QuirkCostume {
 
 	/** The worn suit piece's texture in this slot (null: no Quirk suit there, or no texture). */
 	private static @Nullable Tex worn(LivingEntity entity, EquipmentSlot slot) {
+		// v0.17.3: Andy's Suit is drawn the same way, from its own skin
+		if (com.projecthero.mod.andy.item.AndySuitItem.wornIn(entity, slot)) {
+			return tex(com.projecthero.mod.andy.item.AndySuitItem.texture(slim(entity)));
+		}
 		Quirk q = QuirkSuits.wornIn(entity, slot);
 		return q == null ? null : tex(q, slim(entity));
 	}
@@ -281,7 +288,7 @@ public final class QuirkCostume {
 			return;
 		}
 		boolean bird = birdHead(entity);
-		if (!bird && !QuirkSuits.anyWorn(entity)) {
+		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.andy.item.AndySuitItem.anyWorn(entity)) {
 			return;
 		}
 		boolean slim = slim(entity);

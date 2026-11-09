@@ -131,7 +131,11 @@ public final class AndyHud {
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
 		}
-		Component speed = starved ? Component.translatable("projecthero.andy.speed.starving")
+		// v0.17.3: Off (Shift+V) and an empty stomach (nothing grows back) say so
+		boolean off = s.flag(AndyState.FLAG_REGEN_OFF);
+		starved |= !off && Andy.emptyStomach(p);
+		Component speed = off ? Component.translatable("projecthero.andy.speed.off")
+				: starved ? Component.translatable(Andy.emptyStomach(p) ? "projecthero.andy.speed.empty" : "projecthero.andy.speed.starving")
 				: Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, s.regenSpeed))]);
 		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
 				ty + 11, starved ? VanillaHud.RED : VanillaHud.GREY, true);

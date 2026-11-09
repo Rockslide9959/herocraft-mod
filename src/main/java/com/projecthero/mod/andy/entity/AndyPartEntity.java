@@ -340,8 +340,36 @@ public class AndyPartEntity extends Projectile {
 		return distance < 128 * 128;
 	}
 
+	/** v0.17.3 (tester: "A way people can naturally pick up the head"): the thrown head can be clicked once it is down. */
 	@Override
 	public boolean isPickable() {
+		return this.style() == STYLE_HEAD;
+	}
+
+	@Override
+	public boolean canBeHitByProjectile() {
 		return false;
+	}
+
+	/**
+	 * v0.17.3: right-click the head lying about (the owner, or anyone helping him) and it is picked up and set back on his
+	 * shoulders at once.
+	 */
+	@Override
+	public net.minecraft.world.InteractionResult interact(Player player, net.minecraft.world.InteractionHand hand) {
+		if (this.style() != STYLE_HEAD) {
+			return net.minecraft.world.InteractionResult.PASS;
+		}
+		if (this.level().isClientSide) {
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		}
+		if (this.getOwner() instanceof ServerPlayer owner && owner.level() == this.level() && Andy.missing(owner, AndyState.HEAD)) {
+			Andy.reattach(owner, AndyState.HEAD);
+			((ServerLevel) this.level()).sendParticles(Andy.BLOOD, this.getX(), this.getY() + 0.2, this.getZ(), 6, 0.15, 0.1, 0.15, 0.0);
+			this.level().playSound(null, owner.getX(), owner.getEyeY(), owner.getZ(), SoundEvents.SLIME_BLOCK_PLACE, SoundSource.PLAYERS, 1.0f, 0.8f);
+			this.discard();
+			return net.minecraft.world.InteractionResult.CONSUME;
+		}
+		return net.minecraft.world.InteractionResult.PASS;
 	}
 }

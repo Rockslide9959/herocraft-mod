@@ -156,10 +156,13 @@ public final class Andy {
 		}
 		float now = player.level().getGameTime();
 		int main = mainArm(player);
-		if (s.armReady(main, now)) {
-			return main;
+		int other = otherArm(main);
+		boolean mainOk = s.armReady(main, now), otherOk = s.armReady(other, now);
+		if (mainOk && otherOk) {
+			// v0.17.3 (tester: "Alternation between left and right hands instead of just one"): both there, the one not used last
+			return s.flag(AndyState.FLAG_NEXT_OFF) ? other : main; // the main arm first
 		}
-		return s.armReady(otherArm(main), now) ? otherArm(main) : -1;
+		return mainOk ? main : otherOk ? other : -1;
 	}
 
 	/** What he gets about with right now ({@link AndyStages}), client-safe. */
@@ -228,6 +231,7 @@ public final class Andy {
 				Component.translatable("message.projecthero.andy.subtitle").withStyle(ChatFormatting.RED)));
 		player.displayClientMessage(Component.translatable("message.projecthero.andy.acquired").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.andy.acquired_hint").withStyle(ChatFormatting.GRAY), false);
+		com.projecthero.mod.andy.item.AndySuitItem.giveFirstTime(player); // v0.17.3: his suit, the first time only
 		return true;
 	}
 
@@ -252,7 +256,7 @@ public final class Andy {
 			}
 			n.kinds = 0;
 			n.reformUntil = 0L;
-			n.flags = 0;
+			n.flags = s.flags & AndyState.FLAG_REGEN_OFF; // v0.17.3: Off stays Off
 			clearExtra(n);
 			save(player, n);
 			reconcile(player);
@@ -393,11 +397,20 @@ public final class Andy {
 
 	public static void cycleSpeed(ServerPlayer player) {
 		AndyState n = state(player).copy();
-		n.regenSpeed = n.regenSpeed >= AndyConfig.SPEED_BURST ? AndyConfig.SPEED_NORMAL : n.regenSpeed + 1; // V: Normal -> Fast -> Burst
+		// Shift+V: Normal -> Fast -> Burst -> Off (v0.17.3, tester: "the option to choose not to regenerate") -> Normal
+		if (n.flag(AndyState.FLAG_REGEN_OFF)) {
+			n.setFlag(AndyState.FLAG_REGEN_OFF, false);
+			n.regenSpeed = AndyConfig.SPEED_NORMAL;
+		} else if (n.regenSpeed >= AndyConfig.SPEED_BURST) {
+			n.setFlag(AndyState.FLAG_REGEN_OFF, true);
+		} else {
+			n.regenSpeed = n.regenSpeed + 1;
+		}
 		save(player, n);
 		String[] names = { "slow", "normal", "fast", "burst" };
 		LAST_MESSAGE.remove(player.getUUID());
-		say(player, "message.projecthero.andy.speed", ChatFormatting.RED, Component.translatable("projecthero.andy.speed." + names[n.regenSpeed]));
+		String name = n.flag(AndyState.FLAG_REGEN_OFF) ? "off" : names[n.regenSpeed];
+		say(player, "message.projecthero.andy.speed", ChatFormatting.RED, Component.translatable("projecthero.andy.speed." + name));
 		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
 				0.8f, 0.7f + 0.3f * n.regenSpeed);
 	}
@@ -414,7 +427,34 @@ public final class Andy {
 	public static void setSpeed(ServerPlayer player, int speed) {
 		AndyState n = state(player).copy();
 		n.regenSpeed = Math.floorMod(speed, AndyConfig.SPEEDS);
+		n.setFlag(AndyState.FLAG_REGEN_OFF, false);
 		save(player, n);
+	}
+
+	/** v0.17.3: a lost part put straight back (the thrown head picked up): whole at once, nothing to regrow or pay. */
+	public static void reattach(ServerPlayer player, int part) {
+		AndyState s = state(player);
+		if (!s.hasPower || !s.broken(part)) {
+			return;
+		}
+		AndyState n = s.copy();
+		n.setTimes(part, 0L, 0L, 0L);
+		n.setKind(part, AndyState.KIND_NONE);
+		n.partHp.set(part, AndyConfig.PART_HP[part]);
+		save(player, n);
+		reconcile(player);
+	}
+
+	/** v0.17.3: regeneration Off (or back on at the current speed). */
+	public static void setRegenOff(ServerPlayer player, boolean off) {
+		AndyState n = state(player).copy();
+		n.setFlag(AndyState.FLAG_REGEN_OFF, off);
+		save(player, n);
+	}
+
+	public static boolean regenOff(Player player) {
+		AndyState s = peek(player);
+		return s != null && s.flag(AndyState.FLAG_REGEN_OFF);
 	}
 
 	// ---------------------------------------------------------------- stats
@@ -478,18 +518,39 @@ public final class Andy {
 		if (prev != null && prev == now) {
 			return;
 		}
-		AndyAutoEat.tick(player);
+		// v0.17.3 (user: "remove the players passive auto feeding since this armour will do it for him"): only Andy's Suit's
+		// chestplate feeds him
+		if (com.projecthero.mod.andy.item.AndySuitItem.feedsHim(player)) {
+			AndyAutoEat.tick(player);
+		}
 		AndyState n = null;
 		boolean whole = false;
 		// nothing starts growing back mid-flight: the hands, feet and whatever burnt off wait for the landing
 		boolean flying = s.flag(AndyState.FLAG_PROPELLING);
-		if (!flying && needsHeadOnlyPlan(s)) {
+		boolean halted = regrowthHalted(player, s);
+		if (!flying && !halted && needsHeadOnlyPlan(s)) {
 			n = s.copy();
 			planHeadOnly(player, n, now);
 		}
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			AndyState cur = n != null ? n : s;
 			if (!cur.broken(i)) {
+				continue;
+			}
+			boolean growing = cur.regrowStart(i) > 0L && cur.regrowStart(i) < now;
+			if (halted && i != AndyState.HEAD && (s.flag(AndyState.FLAG_REGEN_OFF) || !growing)) {
+				// v0.17.3 Off: nothing grows back -- what was growing (or planned) falls away again and waits. An empty stomach:
+				// nothing new starts (a part already growing, paid for, finishes). The head still comes back: it is free.
+				if (cur.regrowStart(i) > 0L) {
+					if (n == null) {
+						n = s.copy();
+					}
+					n.setTimes(i, cur.brokenAt(i), 0L, 0L);
+					if (cur.regrowStart(i) <= now) {
+						Vec3 c = AndyParts.centre(player, i);
+						((ServerLevel) player.level()).sendParticles(BLOOD, c.x, c.y, c.z, 6, 0.15, 0.2, 0.15, 0.0);
+					}
+				}
 				continue;
 			}
 			if (cur.regrowStart(i) <= 0L) {
@@ -549,16 +610,32 @@ public final class Andy {
 			n.setEx(AndyState.X_BURN_SEG, 0L);
 		}
 		// parts knit back slowly between fights
-		if (now % 20 == 0 && now - cur.lastHitAt > AndyConfig.KNIT_DELAY) {
+		// v0.17.3 (tester: "Fast regen doesnt feel fast enough when being hurt"): the speed sets how soon after a hit and how
+		// fast hurt parts knit and his health comes back
+		int hs = healSpeed(player, cur);
+		if (hs >= 0 && now % 10 == 0 && now - cur.lastHitAt > AndyConfig.KNIT_DELAY_BY_SPEED[hs]) {
 			for (int i = 0; i < AndyState.PARTS; i++) {
 				if (!cur.broken(i) && cur.hp(i) < AndyConfig.PART_HP[i]) {
 					if (n == null) {
 						n = s.copy();
 						cur = n;
 					}
-					n.partHp.set(i, Math.min(AndyConfig.PART_HP[i], n.hp(i) + AndyConfig.PART_KNIT));
+					n.partHp.set(i, Math.min(AndyConfig.PART_HP[i], n.hp(i) + AndyConfig.KNIT_PER_SECOND[hs] * 0.5f));
 				}
 			}
+		}
+		if (hs >= 0 && now % 10 == 0 && now - cur.lastHitAt > AndyConfig.HEAL_DELAY[hs] && AndyConfig.HEAL_PER_SECOND[hs] > 0f
+				&& player.getHealth() < player.getMaxHealth() && player.isAlive()) {
+			float amount = Math.min(AndyConfig.HEAL_PER_SECOND[hs] * 0.5f, player.getMaxHealth() - player.getHealth());
+			player.heal(amount);
+			if (!player.getAbilities().instabuild) {
+				player.causeFoodExhaustion(amount * AndyConfig.HEAL_EXHAUSTION);
+			}
+		}
+		// v0.17.3 (tester: "A way people can naturally pick up the head"): carried by another player while only a head; once his
+		// body is back he climbs down
+		if (player.getVehicle() instanceof Player && !cur.broken(AndyState.BODY)) {
+			player.stopRiding();
 		}
 		if (cur.reformUntil > 0L && now >= cur.reformUntil) {
 			if (n == null) {
@@ -705,6 +782,28 @@ public final class Andy {
 		food.setFoodLevel(Math.max(0, have - whole));
 		FOOD_OWED.put(player.getUUID(), Math.max(0f, owed - whole));
 		return have >= whole;
+	}
+
+	/**
+	 * v0.17.3: nothing but the head grows back right now -- regeneration set to Off (Shift+V, tester: "the option to choose not
+	 * to regenerate"), or a completely empty stomach, no hunger and no saturation left (tester: "Make regeneration slow to
+	 * impossible when completely starving, leaving only the head until you eat"). Low but not empty still regrows, at half Normal.
+	 */
+	public static boolean regrowthHalted(ServerPlayer player, AndyState s) {
+		return s.flag(AndyState.FLAG_REGEN_OFF) || emptyStomach(player);
+	}
+
+	/** No hunger and no saturation at all (creative never). */
+	public static boolean emptyStomach(Player player) {
+		return !player.getAbilities().instabuild && player.getFoodData().getFoodLevel() <= 0 && player.getFoodData().getSaturationLevel() <= 0f;
+	}
+
+	/** The speed slot that drives his healing: his speed, the starved slot when he can't pay, -1 when it is halted. */
+	static int healSpeed(ServerPlayer player, AndyState s) {
+		if (regrowthHalted(player, s)) {
+			return -1;
+		}
+		return canPay(player, s.regenSpeed) ? Math.floorMod(s.regenSpeed, AndyConfig.SPEEDS) : AndyConfig.SPEED_SLOW;
 	}
 
 	/** Enough food for a part's share right now (otherwise the wait doubles and it will grow at half Normal). */

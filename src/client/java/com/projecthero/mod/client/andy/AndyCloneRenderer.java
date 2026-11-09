@@ -63,16 +63,31 @@ public class AndyCloneRenderer extends EntityRenderer<AndyCloneEntity> {
 	static int tint(AndyCloneEntity e) {
 		return switch (e.tint()) {
 			case AndyCloneEntity.TINT_BLOOD -> 0xE8E83A3A;
-			case AndyCloneEntity.TINT_BONE -> 0xF0FFFFFF;
-			default -> 0xE0FFD9C9;
+			case AndyCloneEntity.TINT_BONE -> 0xFFFFFFFF;
+			default -> 0xFFFFEAE2; // his own skin, a touch raw
 		};
 	}
+
+	/**
+	 * v0.17.3 (tester: "Not sure if this was intentional or not for the cloning power" -- a blank-faced skin copy and a plain
+	 * white one): the skin self is drawn solid in the owner's real skin, hat and jacket layers and all, like the player himself;
+	 * the bones self is a real skeleton ({@link #BONE_CLONE}: skull, ribs, limb bones, see-through between them); the blood self
+	 * stays a red, half-clear copy.
+	 */
+	static RenderType renderType(AndyCloneEntity e, ResourceLocation tex) {
+		return switch (e.tint()) {
+			case AndyCloneEntity.TINT_BLOOD -> RenderType.entityTranslucent(tex);
+			default -> RenderType.entityCutoutNoCull(tex);
+		};
+	}
+
+	public static final ResourceLocation BONE_CLONE = ProjectHeroMod.id("textures/entity/andy/bone_clone.png");
 
 	@Override
 	public void render(AndyCloneEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		PlayerSkin skin = skinOf(e);
 		boolean slim = skin.model() == PlayerSkin.Model.SLIM;
-		ResourceLocation tex = e.tint() == AndyCloneEntity.TINT_BONE ? BONE : skin.texture();
+		ResourceLocation tex = e.tint() == AndyCloneEntity.TINT_BONE ? BONE_CLONE : skin.texture();
 		PlayerModel<AndyCloneEntity> model = slim ? this.slimModel : this.wide;
 		pose.pushPose();
 		float bodyYaw = Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot);
@@ -91,7 +106,7 @@ public class AndyCloneRenderer extends EntityRenderer<AndyCloneEntity> {
 		model.prepareMobModel(e, pos, speed, partial);
 		model.setupAnim(e, pos, speed, e.tickCount + partial, headYaw, pitch);
 		int overlay = LivingEntityRenderer.getOverlayCoords(e, 0f);
-		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, tint(e));
+		model.renderToBuffer(pose, buffers.getBuffer(renderType(e, tex)), light, overlay, tint(e));
 		Vec3 cam = this.entityRenderDispatcher.camera.getPosition();
 		Matrix4f[] parts = new Matrix4f[AndyState.PARTS];
 		for (int i = 0; i < AndyState.PARTS; i++) {

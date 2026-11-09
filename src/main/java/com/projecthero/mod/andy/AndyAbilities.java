@@ -261,6 +261,7 @@ public final class AndyAbilities {
 		}
 		AndyState n = Andy.state(p).copy();
 		n.setFlag(AndyState.FLAG_OFF_ARM, arm != Andy.mainArm(p));
+		n.setFlag(AndyState.FLAG_NEXT_OFF, arm == Andy.mainArm(p)); // the next one comes from the other hand
 		Andy.save(p, n);
 		return arm;
 	}
@@ -464,10 +465,13 @@ public final class AndyAbilities {
 	// ---------------------------------------------------------------- Z: launched parts
 
 	public static void vortexBullet(ServerPlayer p) {
-		if (!begin(p, VORTEX) || !hand(p)) {
+		if (!begin(p, VORTEX)) {
 			return;
 		}
-		int arm = Andy.mainArm(p);
+		int arm = pickArm(p); // v0.17.3: left and right in turn, like the other thrown parts
+		if (arm < 0) {
+			return;
+		}
 		cooldown(p, VORTEX, AndyConfig.VORTEX_COOLDOWN);
 		anim(p, AndyState.ANIM_VORTEX);
 		Andy.breakPart(p, arm, AndyState.KIND_LAUNCHED);
@@ -570,6 +574,17 @@ public final class AndyAbilities {
 		return new Vec3[] { from, end };
 	}
 
+	/**
+	 * v0.17.3 (tester: "Make deadline do damage less consistently"): one Dead Line hit -- 0 (a miss, {@link AndyConfig#DEAD_LINE_MISS})
+	 * or {@link AndyConfig#DEAD_LINE_DAMAGE} times a roll in [{@link AndyConfig#DEAD_LINE_MIN}, {@link AndyConfig#DEAD_LINE_MAX_ROLL}].
+	 */
+	public static float deadLineRoll(net.minecraft.util.RandomSource r) {
+		if (r.nextFloat() < AndyConfig.DEAD_LINE_MISS) {
+			return 0f;
+		}
+		return AndyConfig.DEAD_LINE_DAMAGE * (AndyConfig.DEAD_LINE_MIN + (AndyConfig.DEAD_LINE_MAX_ROLL - AndyConfig.DEAD_LINE_MIN) * r.nextFloat());
+	}
+
 	private static void tickDeadLine(ServerPlayer p, AndyState s, long now) {
 		long age = now - s.holdStart;
 		if (age > AndyConfig.DEAD_LINE_MAX || Andy.mainArmMissing(p)) {
@@ -581,7 +596,10 @@ public final class AndyAbilities {
 		LivingEntity[] hit = new LivingEntity[1];
 		Vec3[] seg = beam(p, AndyConfig.DEAD_LINE_RANGE, hit);
 		if (hit[0] != null && age % AndyConfig.DEAD_LINE_HIT_EVERY == 0 && !com.projecthero.mod.beamclash.BeamClash.inClash(p)) {
-			strike(p, hit[0], from, AndyConfig.DEAD_LINE_DAMAGE, 0.15, 0.0);
+			float dmg = deadLineRoll(p.getRandom());
+			if (dmg > 0f) {
+				strike(p, hit[0], from, dmg, 0.15, 0.0);
+			}
 		}
 		if (age % 3 == 0) {
 			level(p).sendParticles(Andy.BLOOD, seg[1].x, seg[1].y, seg[1].z, 3, 0.1, 0.1, 0.1, 0.0);

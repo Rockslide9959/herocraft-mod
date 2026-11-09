@@ -49,6 +49,8 @@ public final class AndyMod {
 		AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
+		// v0.17.3 (tester: "A way people can naturally pick up the head"): an empty hand picks up an Andy who is only a head
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> AndyCarry.tryPickUp(player, hand, entity));
 		UseItemCallback.EVENT.register((player, world, hand) -> handGone(player, hand)
 				? InteractionResultHolder.fail(player.getItemInHand(hand)) : InteractionResultHolder.pass(player.getItemInHand(hand)));
 		ServerPlayerEvents.JOIN.register(Andy::onPlayerJoin);
@@ -118,7 +120,11 @@ public final class AndyMod {
 				.then(Commands.literal("regen")
 												.then(Commands.literal("normal").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_NORMAL)))
 						.then(Commands.literal("fast").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_FAST)))
-						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST))));
+						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST)))
+						.then(Commands.literal("off").executes(c -> {
+							Andy.setRegenOff(c.getSource().getPlayerOrException(), true);
+							return 1;
+						})));
 	}
 
 	private static int setSpeed(CommandSourceStack source, int speed) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

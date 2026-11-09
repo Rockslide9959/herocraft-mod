@@ -11,6 +11,17 @@ public final class AndyConfig {
 	/** A part that has not been hit for this long knits back at {@link #PART_KNIT} HP a second. */
 	public static final int KNIT_DELAY = 100;
 	public static final float PART_KNIT = 1.0f;
+	/**
+	 * v0.17.3 (tester: "Fast regen doesnt feel fast enough when being hurt and damaged by mobs"): the regen speed drives the
+	 * healing too, per speed {starved, Normal, Fast, Burst}: how long after the last hit a hurt part starts knitting and how much
+	 * HP a second it knits, and how long after the last hit his health starts coming back and how much a second (on top of
+	 * vanilla's own food healing; each point healed costs {@link #HEAL_EXHAUSTION} food exhaustion). Off and empty-stomach: none.
+	 */
+	public static final int[] KNIT_DELAY_BY_SPEED = { 200, 100, 40, 16 };
+	public static final float[] KNIT_PER_SECOND = { 0.5f, 1.0f, 2.5f, 5.0f };
+	public static final int[] HEAL_DELAY = { 120, 80, 30, 12 };
+	public static final float[] HEAL_PER_SECOND = { 0f, 0.5f, 1.5f, 3.0f };
+	public static final float HEAL_EXHAUSTION = 0.5f;
 	/** An explosion lands this share of its damage on every part. */
 	public static final float BLAST_SHARE = 0.55f;
 
@@ -142,14 +153,15 @@ public final class AndyConfig {
 	public static final int HEADBUTT_COOLDOWN = 40;
 
 	// ---------------------------------------------------------------- R: fingers and the stretch punch
-	public static final float PARTS_BULLET_DAMAGE = 7f;
+	// v0.17.3 (tester: "have it be a spammy moveset with weak abilities (DPS)"): every hit a little lighter, the cooldowns shorter
+	public static final float PARTS_BULLET_DAMAGE = 6f;
 	public static final double FINGER_SPEED = 2.6;
 	/** v0.17.3 (user: "remove the cooldown on parts bullet please"): none -- only the key (one shot a tap) and the arm it eats limit it. */
 	public static final int PARTS_BULLET_COOLDOWN = 0;
 	/** The finger shots and the thrown arm fly at what the crosshair is on, up to this far (beyond it: straight along the look). */
 	public static final double AIM_RANGE = 64.0;
-	public static final float CRIMSON_DAMAGE = 12f;
-	public static final int CRIMSON_COOLDOWN = 20;
+	public static final float CRIMSON_DAMAGE = 10f;
+	public static final int CRIMSON_COOLDOWN = 15;
 	/**
 	 * Each finger shot takes a bite out of the shooting arm, from the fingertips up: a Parts Bullet 1/12 (about twelve shots
 	 * use up a whole arm), a Crimson Bullet four times that. A used-up arm is gone (the other arm shoots); what is gone starts
@@ -162,17 +174,18 @@ public final class AndyConfig {
 	public static final int PUNCH_HOLD_TICKS = 7;
 	/** Let go at least this long after pressing to throw the punch (earlier: the wind-up is dropped, nothing fires). */
 	public static final int PUNCH_MIN_HOLD = 14;
-	public static final float PUNCH_DAMAGE = 20f;
-	public static final int PUNCH_COOLDOWN = 20;
+	/** Parts Bullet: Arm (tester: "Nerf arm throw, i think 20 is a bit much"). */
+	public static final float PUNCH_DAMAGE = 14f;
+	public static final int PUNCH_COOLDOWN = 15;
 	public static final double PUNCH_SPEED = 2.2;
 
 	// ---------------------------------------------------------------- G
-	public static final float CRESCENT_DAMAGE = 13f;
+	public static final float CRESCENT_DAMAGE = 11f;
 	public static final double CRESCENT_REACH = 4.5;
-	public static final int CRESCENT_COOLDOWN = 50;
+	public static final int CRESCENT_COOLDOWN = 35;
 	public static final float GREAT_CRESCENT_DAMAGE = 18f;
 	public static final double GREAT_CRESCENT_RANGE = 18.0;
-	public static final int GREAT_CRESCENT_COOLDOWN = 400;
+	public static final int GREAT_CRESCENT_COOLDOWN = 300;
 
 	// ---------------------------------------------------------------- flight (Blood Propulsion)
 	/** Blocks a tick: 25 b/s; holding right click 40 b/s (and the body burns away); just a head 32 b/s. */
@@ -223,17 +236,18 @@ public final class AndyConfig {
 	public static final int LAUNCH_CARRY_SAFE = 200;
 	/** Leg Launch: what the flying body does to whatever it passes through. (The Head Launch uses {@link #HEAD_BULLET_DAMAGE}.) */
 	public static final float LEG_LAUNCH_DAMAGE = 6f;
-	public static final int LEG_LAUNCH_COOLDOWN = 60;
-	public static final int HEAD_LAUNCH_COOLDOWN = 200;
+	public static final int LEG_LAUNCH_COOLDOWN = 40;
+	public static final int HEAD_LAUNCH_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- Z
-	public static final float VORTEX_DAMAGE = 16f;
+	public static final float VORTEX_DAMAGE = 13f;
 	public static final double VORTEX_SPEED = 1.7;
 	public static final int VORTEX_PIERCE = 3;
-	public static final int VORTEX_COOLDOWN = 120;
-	public static final float HEAD_BULLET_DAMAGE = 12f;
+	public static final int VORTEX_COOLDOWN = 80;
+	/** The head hits hardest of the thrown parts (tester: "the head throw makes sense for more damage"); the Head Launch too. */
+	public static final float HEAD_BULLET_DAMAGE = 18f;
 	public static final double HEAD_SPEED = 1.5;
-	public static final int HEAD_BULLET_COOLDOWN = 200;
+	public static final int HEAD_BULLET_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- Shift+V: the Bone Sword (AndyBoneSword)
 	/**
@@ -277,10 +291,15 @@ public final class AndyConfig {
 	public static final int VICTOR_COOLDOWN = 1800;
 
 	public static final double DEAD_LINE_RANGE = 24.0;
-	public static final float DEAD_LINE_DAMAGE = 4f;
+	/**
+	 * v0.17.3 (tester: "Make deadline do damage less consistently"): each tick of contact rolls {@link #DEAD_LINE_MIN}..
+	 * {@link #DEAD_LINE_MAX_ROLL} times this, and {@link #DEAD_LINE_MISS} of them miss outright: about 4 a hit on average, as before.
+	 */
+	public static final float DEAD_LINE_DAMAGE = 4.7f;
+	public static final float DEAD_LINE_MIN = 0.5f, DEAD_LINE_MAX_ROLL = 1.5f, DEAD_LINE_MISS = 0.15f;
 	public static final int DEAD_LINE_HIT_EVERY = 4;
 	public static final int DEAD_LINE_MAX = 100;
-	public static final int DEAD_LINE_COOLDOWN = 60;
+	public static final int DEAD_LINE_COOLDOWN = 50;
 	public static final int QUARDEAD_TICKS = 300;
 	public static final float CLONE_DAMAGE = 5f;
 	public static final int QUARDEAD_COOLDOWN = 800;

@@ -28,6 +28,7 @@
 		"ContagionPoisonImmunityMixin",
 		"CraftingMenuMixin",
 		"EntityHulkRideMixin",
+		"EntityAndyCarryMixin",
 		"EntityOmnitrixRideMixin",
 		"EntityWebMixin",
 		"EntityWebCollisionMixin",

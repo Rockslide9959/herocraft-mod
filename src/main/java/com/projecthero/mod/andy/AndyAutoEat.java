@@ -34,7 +34,7 @@ public final class AndyAutoEat {
 	}
 
 	/** Every tick for an Andy (from {@link Andy#tick}). */
-	static void tick(ServerPlayer p) {
+	public static void tick(ServerPlayer p) {
 		if (p.getAbilities().instabuild || p.isSpectator() || !p.isAlive()) {
 			return;
 		}

@@ -92,6 +92,10 @@ public final class AndyState {
 	public static final int FLAG_PUNCH = 32;
 	/** The last one-arm move (finger shot, punch) used the off arm (the main one was gone or used up). */
 	public static final int FLAG_OFF_ARM = 64;
+	/** v0.17.3 (tester: "Add the option to choose not to regenerate"): Shift+V's fourth setting, Off -- nothing grows back or heals. */
+	public static final int FLAG_REGEN_OFF = 128;
+	/** v0.17.3 (tester: "Alternation between left and right hands"): the next one-arm move comes from the off arm (the last used the main one). */
+	public static final int FLAG_NEXT_OFF = 256;
 
 	// ---------------------------------------------------------------- the extra slots ({@link #extra})
 	/** When the hands / feet (and anything half burnt) started growing back after a flight (0: not). */

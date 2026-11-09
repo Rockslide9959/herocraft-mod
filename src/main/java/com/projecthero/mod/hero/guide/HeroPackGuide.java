@@ -1720,8 +1720,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.andy.body");
 			blank(lines);
 			boolean victorOn = com.projecthero.mod.andy.AndyConfig.VICTOR_ENABLED; // v0.17.3: Victor is off for now
-			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "victor"}
-					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword"}) {
+			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit", "victor"}
+					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit"}) {
 				head(lines, "projecthero.guide.andy." + section);
 				para(lines, "projecthero.guide.andy." + section + ".body");
 				blank(lines);

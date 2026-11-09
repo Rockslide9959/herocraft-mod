@@ -301,7 +301,7 @@ public class AndyGameTests implements FabricGameTest {
 	public void onlyTheUnpaidPartIsSlow(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		Andy.setSpeed(p, AndyConfig.SPEED_NORMAL);
-		p.getFoodData().setFoodLevel(2); // one Normal share
+		p.getFoodData().setFoodLevel(3); // one Normal share and a point (v0.17.3: an empty stomach starts nothing)
 		p.getFoodData().setSaturation(0f);
 		breakAll(p, AndyState.RIGHT_ARM, AndyState.LEFT_ARM);
 		helper.onEachTick(() -> {
@@ -363,7 +363,9 @@ public class AndyGameTests implements FabricGameTest {
 		Andy.cycleSpeed(p);
 		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_BURST, "then Burst");
 		Andy.cycleSpeed(p);
-		helper.assertTrue(Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "and back to Normal (no Slow to pick)");
+		helper.assertTrue(Andy.regenOff(p), "then Off (tester: the option not to regenerate)");
+		Andy.cycleSpeed(p);
+		helper.assertTrue(!Andy.regenOff(p) && Andy.regenSpeed(p) == AndyConfig.SPEED_NORMAL, "and back to Normal (no Slow to pick)");
 		helper.succeed();
 	}
 
@@ -480,13 +482,221 @@ public class AndyGameTests implements FabricGameTest {
 		p.getInventory().setItem(2, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BREAD, 2));
 		p.getFoodData().setFoodLevel(6);
 		p.getFoodData().setSaturation(0f);
+		// v0.17.3 (user): no suit chestplate, no auto-feeding
 		Andy.tick(p);
-		helper.assertTrue(p.getFoodData().getFoodLevel() > 6, "he ate: " + p.getFoodData().getFoodLevel());
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 6, "without the suit's chestplate he does not feed himself");
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(AndyItems.SUIT_CHESTPLATE));
+		com.projecthero.mod.andy.AndyAutoEat.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() > 6, "with it on he ate: " + p.getFoodData().getFoodLevel());
 		helper.assertTrue(p.getInventory().getItem(2).getCount() == 1, "the bread (least filling) went first");
 		helper.assertTrue(p.getInventory().getItem(0).getCount() == 2, "the golden apples are never eaten");
 		int food = p.getFoodData().getFoodLevel();
-		Andy.tick(p);
+		com.projecthero.mod.andy.AndyAutoEat.tick(p);
 		helper.assertTrue(p.getFoodData().getFoodLevel() == food, "not again straight away");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.3 tester fixes
+
+	/** v0.17.3 (user): Andy's Suit mends itself while worn, one point every 2 s, never past whole, and not in the inventory. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void andysSuitMendsItselfWhileWorn(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		ItemStack worn = new ItemStack(AndyItems.SUIT_LEGGINGS);
+		worn.setDamageValue(10);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, worn);
+		ItemStack spare = new ItemStack(AndyItems.SUIT_BOOTS);
+		spare.setDamageValue(10);
+		p.getInventory().setItem(5, spare);
+		helper.assertTrue(AndyItems.SUIT_CHESTPLATE.getDefense() == 6 && AndyItems.SUIT_HELMET.getDefense() == 2
+				&& AndyItems.SUIT_LEGGINGS.getDefense() == 5 && AndyItems.SUIT_BOOTS.getDefense() == 2, "iron protection 2/6/5/2");
+		helper.assertTrue(worn.getMaxDamage() == net.minecraft.world.item.ArmorItem.Type.LEGGINGS.getDurability(15), "iron durability");
+		helper.assertTrue(com.projecthero.mod.andy.item.AndySuitItem.REPAIR_EVERY == 40 && com.projecthero.mod.andy.item.AndySuitItem.REPAIR_AMOUNT == 1, "1 durability every 2 s");
+		for (int i = 0; i < 20; i++) { // twenty 2 s steps
+			com.projecthero.mod.andy.item.AndySuitItem.mend(worn, p);
+			com.projecthero.mod.andy.item.AndySuitItem.mend(spare, p);
+		}
+		helper.assertTrue(worn.getDamageValue() == 0, "mended back to whole, never past: " + worn.getDamageValue());
+		helper.assertTrue(spare.getDamageValue() == 10, "a spare piece in the inventory does not mend: " + spare.getDamageValue());
+		helper.succeed();
+	}
+
+	/** v0.17.3 (user): the whole suit is given the first time he takes the power, and only then. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void andysSuitIsGivenOnce(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1 && p.getInventory().countItem(AndyItems.SUIT_HELMET) == 1
+				&& p.getInventory().countItem(AndyItems.SUIT_LEGGINGS) == 1 && p.getInventory().countItem(AndyItems.SUIT_BOOTS) == 1, "the full set on first gaining the power");
+		Andy.revoke(p);
+		Andy.grant(p);
+		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1, "not a second time");
+		helper.succeed();
+	}
+
+	/** Tester: "Alternation between left and right hands instead of just one when throwing arms or hands". */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void shotsAlternateHands(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		long now = helper.getLevel().getGameTime();
+		AndyAbilities.partsBullet(p);
+		AndyState s = Andy.state(p);
+		boolean firstLeft = s.eaten(AndyState.LEFT_ARM, now) > 0f;
+		helper.assertTrue(firstLeft != (s.eaten(AndyState.RIGHT_ARM, now) > 0f), "one hand fired first");
+		AndyAbilities.partsBullet(p);
+		s = Andy.state(p);
+		helper.assertTrue(s.eaten(AndyState.LEFT_ARM, now) > 0f && s.eaten(AndyState.RIGHT_ARM, now) > 0f, "the second shot came from the other hand");
+		AndyAbilities.partsBullet(p);
+		s = Andy.state(p);
+		int arm = firstLeft ? AndyState.LEFT_ARM : AndyState.RIGHT_ARM;
+		helper.assertTrue(Math.abs(s.eaten(arm, now) - 2f * AndyConfig.PARTS_EAT) < 1.0e-3f, "and the third from the first again: " + s.eaten(arm, now));
+		// with one arm gone, the other fires every time
+		Andy.breakPart(p, AndyState.LEFT_ARM, AndyState.KIND_BURST);
+		helper.assertTrue(Andy.shootingArm(p) == AndyState.RIGHT_ARM, "one arm left: always that one");
+		helper.succeed();
+	}
+
+	/** Tester: "Make deadline do damage less consistently" -- rolls vary and some miss, about 4 on average. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void deadLineRollsVary(GameTestHelper helper) {
+		net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(42L);
+		float sum = 0f, min = 99f, max = 0f;
+		int misses = 0, n = 4000;
+		for (int i = 0; i < n; i++) {
+			float d = AndyAbilities.deadLineRoll(r);
+			sum += d;
+			if (d <= 0f) {
+				misses++;
+			} else {
+				min = Math.min(min, d);
+				max = Math.max(max, d);
+			}
+		}
+		float avg = sum / n;
+		helper.assertTrue(avg > 3.6f && avg < 4.4f, "about 4 a hit on average: " + avg);
+		helper.assertTrue(misses > n / 10 && misses < n / 5, "some miss: " + misses);
+		helper.assertTrue(min < 3f && max > 6.5f, "hits range widely: " + min + ".." + max);
+		helper.succeed();
+	}
+
+	/** Tester: "Add the option to choose not to regenerate": Off stops regrowth until it is turned back on. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 600)
+	public void regenOffKeepsPartsGone(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		Andy.setRegenOff(p, true);
+		Andy.breakPart(p, AndyState.LEFT_ARM, AndyState.KIND_BURST);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Andy.tick(p);
+			t[0]++;
+			if (t[0] == 300) {
+				helper.assertTrue(Andy.missing(p, AndyState.LEFT_ARM), "Off: the arm is still gone after 15 s");
+				helper.assertTrue(Andy.state(p).regrowStart(AndyState.LEFT_ARM) == 0L, "and nothing is growing");
+				Andy.cycleSpeed(p); // Off -> Normal
+			}
+			if (t[0] > 300 && !Andy.missing(p, AndyState.LEFT_ARM)) {
+				helper.succeed();
+			}
+		});
+	}
+
+	/** Tester: "Make regeneration slow to impossible when completely starving, leaving only the head until you eat". */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 800)
+	public void anEmptyStomachRegrowsNothingButTheHead(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.getFoodData().setFoodLevel(0);
+		p.getFoodData().setSaturation(0f);
+		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+			Andy.breakPart(p, i, AndyState.KIND_BURST);
+		}
+		Andy.breakPart(p, AndyState.HEAD, AndyState.KIND_BURST);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Andy.tick(p);
+			t[0]++;
+			if (t[0] == 400) {
+				AndyState s = Andy.state(p);
+				for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+					helper.assertTrue(s.broken(i) && s.regrowStart(i) == 0L, "part " + i + " stays gone on an empty stomach");
+				}
+				p.getFoodData().setFoodLevel(20); // he eats
+				p.getFoodData().setSaturation(5f);
+			}
+			if (t[0] > 400 && !Andy.state(p).broken(AndyState.BODY)) {
+				helper.succeed();
+			}
+		});
+	}
+
+	/** Tester: "Fast regen doesnt feel fast enough when being hurt": Burst brings health back quickly, Normal slowly, Off not at all. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void burstHealsWoundsQuickly(GameTestHelper helper) {
+		ServerPlayer burst = andy(helper);
+		ServerPlayer normal = andy(helper);
+		ServerPlayer off = andy(helper);
+		Andy.setSpeed(burst, AndyConfig.SPEED_BURST);
+		Andy.setRegenOff(off, true);
+		for (ServerPlayer p : new ServerPlayer[] { burst, normal, off }) {
+			p.setHealth(6f);
+			p.getFoodData().setFoodLevel(20);
+			p.getFoodData().setSaturation(0f); // no vanilla saturation healing in the way
+			edit(p, s -> s.lastHitAt = helper.getLevel().getGameTime());
+		}
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			t[0]++;
+			for (ServerPlayer p : new ServerPlayer[] { burst, normal, off }) {
+				Andy.tick(p);
+			}
+			if (t[0] == 100) {
+				helper.assertTrue(burst.getHealth() >= 15f, "Burst: about 3 health a second after a short wait: " + burst.getHealth());
+				helper.assertTrue(normal.getHealth() < burst.getHealth() - 5f, "Normal heals much slower: " + normal.getHealth());
+				helper.assertTrue(off.getHealth() <= 6.5f, "Off heals nothing extra: " + off.getHealth());
+				helper.succeed();
+			}
+		});
+	}
+
+	/** Tester: "A way people can naturally pick up the head": right-click the thrown head and it goes back on. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theThrownHeadCanBePickedUp(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		AndyAbilities.headBullet(p);
+		helper.assertTrue(Andy.missing(p, AndyState.HEAD), "the head is thrown");
+		AndyPartEntity head = helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, new AABB(p.blockPosition()).inflate(8),
+				e -> e.ownerIs(p) && e.bodyPart() == AndyState.HEAD).stream().findFirst().orElse(null);
+		helper.assertTrue(head != null, "the head entity is out");
+		helper.assertTrue(head.isPickable(), "and can be clicked");
+		ServerPlayer friend = mock(helper);
+		head.interact(friend, InteractionHand.MAIN_HAND);
+		helper.assertTrue(!Andy.missing(p, AndyState.HEAD), "a friend right-clicking it puts it straight back on");
+		helper.assertTrue(head.isRemoved(), "and the thrown one is gone");
+		helper.succeed();
+	}
+
+	/** Tester: "A way people can naturally pick up the head": an Andy who is only a head can be picked up and carried. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aHeadOnlyAndyCanBeCarried(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		ServerPlayer friend = mock(helper);
+		helper.assertTrue(com.projecthero.mod.andy.AndyCarry.tryPickUp(friend, InteractionHand.MAIN_HAND, p) == net.minecraft.world.InteractionResult.PASS,
+				"a whole Andy can not be picked up");
+		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+			Andy.breakPart(p, i, AndyState.KIND_BURST);
+		}
+		com.projecthero.mod.andy.AndyCarry.tryPickUp(friend, InteractionHand.MAIN_HAND, p);
+		helper.assertTrue(p.getVehicle() == friend, "only a head: the friend picks him up");
+		Vec3 seat = com.projecthero.mod.andy.AndyCarry.seat(friend);
+		helper.assertTrue(seat.y < 1.2 && seat.horizontalDistance() > 0.3, "carried in front of the chest, not on the head: " + seat);
+		Andy.restore(p);
+		Andy.tick(p);
+		helper.assertTrue(p.getVehicle() == null, "with his body back he climbs down");
+		helper.succeed();
+	}
+
+	/** Tester: the clones -- the bones self has its own skeleton texture (the blank white one is gone). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theBoneCloneHasASkeletonTexture(GameTestHelper helper) {
+		helper.assertTrue(AndyGameTests.class.getResource("/assets/projecthero/textures/entity/andy/bone_clone.png") != null, "bone_clone.png ships");
 		helper.succeed();
 	}
 
@@ -496,8 +706,9 @@ public class AndyGameTests implements FabricGameTest {
 	public void fingerShotNumbers(GameTestHelper helper) {
 		helper.assertTrue(AndyConfig.PARTS_BULLET_COOLDOWN == 0, "Parts Bullet: no cooldown");
 		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(AndyAbilities.PARTS_BULLET) == 0, "and the HUD shows none");
-		helper.assertTrue(AndyConfig.CRIMSON_DAMAGE == 12f && AndyConfig.CRIMSON_COOLDOWN == 20, "Crimson Bullet: 12 damage, 1 s");
-		helper.assertTrue(AndyConfig.PUNCH_DAMAGE == 20f && AndyConfig.PUNCH_COOLDOWN == 20, "Stretch Punch: 20 damage, 1 s");
+		helper.assertTrue(AndyConfig.CRIMSON_DAMAGE == 10f && AndyConfig.CRIMSON_COOLDOWN == 15, "Crimson Bullet: 10 damage, 0.75 s");
+		helper.assertTrue(AndyConfig.PUNCH_DAMAGE == 14f && AndyConfig.PUNCH_COOLDOWN == 15, "Parts Bullet: Arm: 14 damage (tester: 20 is a bit much), 0.75 s");
+		helper.assertTrue(AndyConfig.HEAD_BULLET_DAMAGE > AndyConfig.PUNCH_DAMAGE, "the head hits harder than the arm");
 		helper.assertTrue(Math.abs(AndyConfig.CRIMSON_EAT - 4f * AndyConfig.PARTS_EAT) < 1.0e-5f, "a Crimson Bullet takes four times the bite");
 		helper.assertTrue(AndyConfig.EATEN_REGROW_WAIT == 40, "regrowth waits 2 s without a shot");
 		helper.succeed();
@@ -511,9 +722,9 @@ public class AndyGameTests implements FabricGameTest {
 		AndyAbilities.partsBullet(p);
 		float one = Andy.state(p).eaten(arm, helper.getLevel().getGameTime());
 		helper.assertTrue(Math.abs(one - AndyConfig.PARTS_EAT) < 0.002f, "one shot takes a twelfth: " + one);
-		edit(p, n -> n.abilityReadyAt.clear());
+		edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(AndyState.FLAG_NEXT_OFF, false); });
 		AndyAbilities.partsBullet(p);
-		edit(p, n -> n.abilityReadyAt.clear());
+		edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(AndyState.FLAG_NEXT_OFF, false); });
 		AndyAbilities.crimsonBullet(p);
 		float six = Andy.state(p).eaten(arm, helper.getLevel().getGameTime());
 		helper.assertTrue(Math.abs(six - 6f / 12f) < 0.003f, "two Parts and a Crimson: half the arm: " + six);
@@ -525,13 +736,13 @@ public class AndyGameTests implements FabricGameTest {
 				"it starts growing back after 2 s without a shot (" + (helper.getLevel().getGameTime() - shot) + " ticks)"));
 		helper.runAfterDelay(AndyConfig.EATEN_REGROW_WAIT + 4, () -> {
 			// shooting again stops it and the bite carries on from what is still gone
-			edit(p, n -> n.abilityReadyAt.clear());
+			edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(AndyState.FLAG_NEXT_OFF, false); });
 			AndyAbilities.partsBullet(p);
 			AndyState s = Andy.state(p);
 			helper.assertTrue(s.eatenRegrow(arm, helper.getLevel().getGameTime()) == 0f, "a new shot restarts the wait");
 			// eat the rest: the arm is used up and gone, and the other arm shoots
 			for (int i = 0; i < 8 && !Andy.missing(p, arm); i++) {
-				edit(p, n -> n.abilityReadyAt.clear());
+				edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(AndyState.FLAG_NEXT_OFF, false); });
 				AndyAbilities.crimsonBullet(p);
 			}
 			helper.assertTrue(Andy.missing(p, arm) && Andy.state(p).kind(arm) == AndyState.KIND_SPENT, "a used-up arm is gone");
@@ -1186,9 +1397,9 @@ public class AndyGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(!glide, "Repair Glide is gone");
 		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(com.projecthero.mod.andy.AndyLaunch.LEG_LAUNCH) == AndyConfig.LEG_LAUNCH_COOLDOWN
-				&& AndyConfig.LEG_LAUNCH_COOLDOWN == 60, "Leg Launch 3s cooldown");
+				&& AndyConfig.LEG_LAUNCH_COOLDOWN == 40, "Leg Launch 2s cooldown");
 		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(com.projecthero.mod.andy.AndyLaunch.HEAD_LAUNCH) == AndyConfig.HEAD_LAUNCH_COOLDOWN
-				&& AndyConfig.HEAD_LAUNCH_COOLDOWN == 200, "Head Launch 10s cooldown");
+				&& AndyConfig.HEAD_LAUNCH_COOLDOWN == 160, "Head Launch 8s cooldown");
 		helper.assertTrue(AndyConfig.HEAD_LAUNCH_HOLD == 20, "the hold is a second");
 		p.setShiftKeyDown(true);
 		helper.onEachTick(() -> Andy.tick(p));
