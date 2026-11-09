@@ -131,6 +131,15 @@ public final class AndySwordFx {
 		}
 	}
 
+	/**
+	 * v0.17.3: a Splinter Volley shard (or the thrown sword) spent where it hit -- small pale bone bits and a few drops, the mod's
+	 * own droplets (they fade out right in front of the camera) instead of vanilla's big item-crack particles.
+	 */
+	public static void shardHit(Vec3 at, boolean sword) {
+		bone(at, new Vec3(0, 0.06, 0), sword ? 12 : 4, sword ? 0.12 : 0.08);
+		BloodFx.spurt(at, new Vec3(0, 1, 0), sword ? 10 : 3, 0.15, 0.6, Vec3.ZERO);
+	}
+
 	/** The first tick of a move: its one-off bursts. */
 	private static void started(Player p, AndyState s, int anim) {
 		Vec3 look = p.getLookAngle();

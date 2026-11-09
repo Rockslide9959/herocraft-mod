@@ -1,0 +1,22 @@
+v0.17.3 Andy polish -- limb end gap, inside-out torso/head muscle, small Bone Sword particles
+(harness: scratchpad/andy/AndyPolishHarness.v0173.java.txt + AndyPolishHarnessCameraMixin.v0173.java.txt; films: scratchpad/andy/ap_films.sh)
+Regrowth stills are frozen at the p shown (regrowth progress 0..1); *_film.mp4 are 20 fps real-time slow regrowths (p from 0.7 for limbs, 0.15 for torso/head).
+
+1. Hand / foot end of a regrowing limb (no grey sliver between the settled muscle cubes and the end cap)
+  arm_front_stills.png     right arm end, front-low close-up, p 0.80-0.99
+  arm_under_stills.png     right arm end from straight under the hand, p 0.80-0.99 (solid red plug, skin texels pop over it)
+  leg_under_stills.png     left foot end at the ground, p 0.80-0.99
+  arm_front_film.mp4 / _sheet.png, arm_under_film.mp4 / _sheet.png, leg_under_film.mp4 / _sheet.png
+
+2. Torso / head grow muscle from the inside out (thin sheets on the ribcage / skull thickening outward, the faces
+   nearest the bone first, edges and corners last, shoulders a touch ahead), skin only closing over full-thickness muscle
+  torso_front_stills.png   close-up from a stump, p 0.20-0.88
+  torso_side_stills.png    3/4 view, p 0.20-0.88
+  head_stills.png          skull -> muscle -> skin (dark: the head missing blinds him), p 0.20-0.80
+  torso_front_film.mp4 / _sheet.png, torso_side_film.mp4 / _sheet.png, head_film.mp4 / _sheet.png
+
+3. Bone Sword particles in first person
+  splinter_fp.mp4 / _sheet.png   Bone Splinter Volley twice into close zombies: hits now spill the mod's small bone bits
+                                 and blood drops (they fade out near the camera) instead of vanilla bone item cracks
+  guard_fp.mp4 / _sheet.png      Rib Cage Guard blocking 6 hits: small bone-chip / blood-fleck dust low on the ribs
+                                 instead of 4 big bone-meal item cracks in front of the eyes

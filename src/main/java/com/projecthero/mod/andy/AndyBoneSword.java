@@ -18,7 +18,7 @@ import com.projecthero.mod.hero.power.PowerToggles;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -37,10 +37,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 /**
  * v0.17.3 (user: "add an ability for shift+V where the player rips an arm off and uses it as a bone sword with the accents being
@@ -90,6 +90,10 @@ public final class AndyBoneSword {
 	public static final int EDGE_COOLDOWN = 100;
 	public static final int GUARD_TICKS = 30;
 	public static final int GUARD_COOLDOWN = 160;
+	/** v0.17.3: a fleck of bone (Rib Cage Guard blocks): small, so nothing big pops up in front of the camera. */
+	public static final DustParticleOptions BONE_CHIP = new DustParticleOptions(new Vector3f(0.90f, 0.87f, 0.78f), 0.45f);
+	/** v0.17.3: a small fleck of blood (Rib Cage Guard blocks; {@link Andy#BLOOD} is too big that close to the camera). */
+	public static final DustParticleOptions BLOOD_FLECK = new DustParticleOptions(new Vector3f(0.72f, 0.03f, 0.06f), 0.5f);
 	public static final int SPLINTERS = 7;
 	public static final float SPLINTER_DAMAGE = 5f;
 	public static final double SPLINTER_SPEED = 2.2;
@@ -864,7 +868,12 @@ public final class AndyBoneSword {
 			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 8, 0.2, 0.2, 0.2, 0.2);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.8f);
 		} else {
-			level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.BONE_MEAL)), c.x, c.y - 0.3, c.z, 4, 0.3, 0.3, 0.3, 0.05);
+			// v0.17.3: small bone chips and a drop off the ribs at his chest (vanilla's bone-meal item cracks were huge right in
+			// front of the camera in first person)
+			// (on the ribs themselves, just in front of the chest: below a first-person view looking ahead)
+			Vec3 chest = p.position().add(0, p.getBbHeight() * 0.58, 0).add(flatLook(p).scale(0.25));
+			level.sendParticles(BONE_CHIP, chest.x, chest.y, chest.z, 4, 0.16, 0.1, 0.16, 0.0);
+			level.sendParticles(BLOOD_FLECK, chest.x, chest.y, chest.z, 2, 0.14, 0.08, 0.14, 0.0);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.6f, 0.7f);
 		}
 		return true;

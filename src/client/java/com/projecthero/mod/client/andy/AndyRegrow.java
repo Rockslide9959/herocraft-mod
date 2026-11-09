@@ -71,14 +71,18 @@ public final class AndyRegrow {
 		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		PoseStack.Pose last = pose.last();
 		boolean skinDone = true;
-		for (AndyTexels.Texel t : AndyTexels.of(part, slim)) {
+		Body body = Body.of(part, slim);
+		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
+		float[] under = body.skinAfter(texels);
+		for (int i = 0; i < texels.size(); i++) {
+			AndyTexels.Texel t = texels.get(i);
 			if (!SkinPixels.shows(tex, t.u, t.v)) {
 				continue;
 			}
 			// the torso closes from the neck down (shoulders first, hips last: the limbs grow out of it in that order); the
-			// head keeps its patchier spread
+			// head keeps its patchier spread. v0.17.3: a texel only closes over muscle that has reached its full thickness
 			float key = part == AndyState.BODY ? 0.9f * t.order + 0.1f * t.grow : 0.7f * t.order + 0.3f * t.grow;
-			float appear = SKIN_START + key * (SKIN_SPAN - SETTLE);
+			float appear = Math.max(SKIN_START + key * (SKIN_SPAN - SETTLE), under[i]);
 			float f = (p - appear) / SETTLE;
 			if (f < 1f) {
 				skinDone = false;
@@ -89,7 +93,6 @@ public final class AndyRegrow {
 			return; // closed over: nothing inside can show
 		}
 		vanillaBone(pose, buffers, light, slim, part, p);
-		Body body = Body.of(part, slim);
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
 		Vector3f[] c = corners8();
 		Piece[] grid = body.flesh;
@@ -116,8 +119,14 @@ public final class AndyRegrow {
 					continue;
 				}
 			}
-			float s = f >= 1f ? 1f : 0.2f + 0.8f * ease(f);
-			piece(vc, last, c, b, s, light, mask);
+			if (f >= 1f) {
+				piece(vc, last, c, b, 1f, light, mask);
+			} else {
+				// v0.17.3 (user: "the muscle builds from the inside out"): a thin sheet laid on the ribcage / skull that
+				// thickens outward from the bone's side of its cell
+				float e = f * f * (3f - 2f * f);
+				growPiece(vc, last, c, b, 0.92f + 0.08f * e, 0.05f + 0.95f * e, light);
+			}
 		}
 	}
 
@@ -152,6 +161,9 @@ public final class AndyRegrow {
 	static final float MUSCLE_LAG = 0.25f;
 	/** Muscle strands: each column of cells starts up to this much later (in muscle progress), so it begins as fibres on the bone. */
 	static final float MUSCLE_STRANDS = 0.35f;
+
+	/** How far the hand / foot end's plug stays inside the skin planes (model px). */
+	static final float PLUG_INSET = 0.035f;
 
 	/** Where the bone's tip stops (rows from the joint). */
 	static final float BONE_REACH = 11.9f;
@@ -259,11 +271,20 @@ public final class AndyRegrow {
 				flatBox(vc, last, cx0, y0, cz0, cx1, y0 + 1f, cz1, rgb, light);
 				continue;
 			} else {
-				s = lb.js[i];
+				// settled: never smaller than its cell, so no slit opens between neighbours
+				s = Math.max(1f, lb.js[i]);
 				out = 0.15f + lb.jo[i];
 			}
 			float x0 = box[0] + i % lb.w, y0 = box[1] + row, z0 = box[2] + i / (lb.w * lb.h);
 			int dir = lb.dir[i];
+			if (!Float.isNaN(cap) && !face) {
+				// v0.17.3: the hand / foot end -- a solid plug filling the cell under the ragged cube, so the end never shows a
+				// grey sliver of the bone (or daylight) between the cubes before its skin closes; kept a hair inside the skin
+				// planes so the two don't fight
+				float px0 = x0 + ((dir & 1) != 0 ? PLUG_INSET : 0f), px1 = x0 + 1f - ((dir & 2) != 0 ? PLUG_INSET : 0f);
+				float pz0 = z0 + ((dir & 4) != 0 ? PLUG_INSET : 0f), pz1 = z0 + 1f - ((dir & 8) != 0 ? PLUG_INSET : 0f);
+				flatBox(vc, last, px0, y0, pz0, px1, y0 + 1f - PLUG_INSET, pz1, lb.rgb[i], light);
+			}
 			float cx = x0 + 0.5f, cy = y0 + 0.5f, cz = z0 + 0.5f;
 			if (dir != 0) {
 				cx += (((dir & 2) != 0 ? 1 : 0) - ((dir & 1) != 0 ? 1 : 0)) * out;
@@ -474,8 +495,33 @@ public final class AndyRegrow {
 	/** The skull and the ribcage are scaled in from the player's 8 px head / body so the flesh closes over them. */
 	static final float SKULL_SCALE = 0.8f, RIBS_SCALE_X = 0.8f, RIBS_SCALE_Z = 0.7f;
 
+	/** How long (share of the regrowth) one head / body muscle cell takes to thicken from a sheet on the bone to full. */
+	static final float FLESH_GROW = 0.16f;
+
 	private static float fleshF(Piece b, float p) {
-		return (p - (FLESH_START + b.key * (FLESH_SPAN - 0.07f))) / 0.07f;
+		return (p - (FLESH_START + b.key * (FLESH_SPAN - FLESH_GROW))) / FLESH_GROW;
+	}
+
+	/** When a cell's muscle reaches full thickness (share of the regrowth). */
+	private static float fleshDone(Piece b) {
+		return FLESH_START + b.key * (FLESH_SPAN - FLESH_GROW) + FLESH_GROW;
+	}
+
+	/**
+	 * A muscle cell part-grown: across its outward axes it spans {@code out} of its depth from its anchor (its face against the
+	 * bone), along the others {@code along} of its size about its middle. All faces (a growing cell has no settled cover).
+	 */
+	private static void growPiece(VertexConsumer vc, PoseStack.Pose pose, Vector3f[] c, Piece b, float along, float out, int light) {
+		float sx = b.outX ? out : along, sy = b.outY ? out : along, sz = b.outZ ? out : along;
+		float x0 = b.ax + (b.x0 - b.ax) * sx, x1 = b.ax + (b.x1 - b.ax) * sx;
+		float y0 = b.ay + (b.y0 - b.ay) * sy, y1 = b.ay + (b.y1 - b.ay) * sy;
+		float z0 = b.az + (b.z0 - b.az) * sz, z1 = b.az + (b.z1 - b.az) * sz;
+		int rgb = b.rgb;
+		if (out < 0.6f) {
+			// fresh and wet: a shade darker until it has some thickness
+			rgb = ((rgb >> 16 & 0xFF) * 3 / 4) << 16 | ((rgb >> 8 & 0xFF) * 3 / 4) << 8 | (rgb & 0xFF) * 3 / 4;
+		}
+		flatBox(vc, pose, x0, y0, z0, x1, y1, z1, rgb, light);
 	}
 
 	static float ease(float f) {
@@ -576,6 +622,9 @@ public final class AndyRegrow {
 		final float x0, y0, z0, x1, y1, z1;
 		final int rgb;
 		float key;
+		/** Where it grows from (its point nearest the bone) and along which axes it thickens outward from there. */
+		float ax, ay, az;
+		boolean outX, outY, outZ;
 
 		Piece(float x0, float y0, float z0, float x1, float y1, float z1, int rgb) {
 			this.x0 = Math.min(x0, x1);
@@ -676,16 +725,108 @@ public final class AndyRegrow {
 							rgb = 0xB8545C; // a pale streak of sinew
 						}
 						Piece c = new Piece(x0, y0, z0, x0 + sx, y0 + sy, z0 + sz, rgb);
-						float a = along(part, box, my);
-						float jitter = AndyTexels.noise(mx * 0.7f + 11f, my * 0.7f, mz * 0.7f, seed + 5) * 0.22f + rnd.nextFloat() * 0.06f;
-						// v0.17.3 (user: "start inwards and regenerate outwards"): the muscle builds outward from the ribcage / skull
-						// (the torso still a little from the neck down, so the shoulders are ready first)
-						c.key = part == AndyState.BODY ? Math.max(0f, Math.min(1f, 0.30f * a + 0.62f * radial + jitter * 0.4f - 0.02f))
-								: Math.max(0f, Math.min(1f, 0.15f * a + 0.75f * radial + jitter * 0.6f - 0.04f));
+						// v0.17.3 (user: "the muscle builds from the inside out -- outward from the ribcage / skull, then the skin
+						// covers it"): each cell grows from its point nearest the bone, and its turn is how far it lies from the bone
+						float[] bb = boneBox(part);
+						float qx = Math.max(bb[0], Math.min(bb[3], mx)), qy = Math.max(bb[1], Math.min(bb[4], my)), qz = Math.max(bb[2], Math.min(bb[5], mz));
+						c.ax = Math.max(c.x0, Math.min(c.x1, qx));
+						c.ay = Math.max(c.y0, Math.min(c.y1, qy));
+						c.az = Math.max(c.z0, Math.min(c.z1, qz));
+						c.outX = qx != mx;
+						c.outY = qy != my;
+						c.outZ = qz != mz;
+						float dist = (float) Math.sqrt((mx - qx) * (mx - qx) + (my - qy) * (my - qy) + (mz - qz) * (mz - qz));
+						c.key = dist; // normalised below
 						flesh[x + y * gw + z * gw * gh] = c;
 					}
 				}
 			}
+			// the turn: nearest the bone first, thickening outward (the edges and corners of the part last); a little noise so
+			// it is not a clean sweep; the torso's shoulders a touch ahead so the arms can start
+			float maxD = 1e-3f;
+			for (Piece c : flesh) {
+				if (c != null) {
+					maxD = Math.max(maxD, c.key);
+				}
+			}
+			for (Piece c : flesh) {
+				if (c == null) {
+					continue;
+				}
+				float mx = (c.x0 + c.x1) * 0.5f, my = c.cy(), mz = (c.z0 + c.z1) * 0.5f;
+				float rn = c.key / maxD;
+				float jitter = AndyTexels.noise(mx * 0.7f + 11f, my * 0.7f, mz * 0.7f, seed + 5) * 0.22f + rnd.nextFloat() * 0.06f;
+				float a = along(part, box, my);
+				float k;
+				if (part == AndyState.BODY) {
+					float shoulder = Math.max(0f, 1f - my / 3.5f) * (Math.abs(mx) > 2f ? 1f : 0.5f);
+					k = 0.70f * rn + 0.12f * a + 0.55f * jitter - 0.14f * shoulder;
+				} else {
+					k = 0.78f * rn + 0.08f * a + 0.55f * jitter - 0.03f;
+				}
+				c.key = k;
+			}
+			// spread over the whole muscle window
+			float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+			for (Piece c : flesh) {
+				if (c != null) {
+					lo = Math.min(lo, c.key);
+					hi = Math.max(hi, c.key);
+				}
+			}
+			for (Piece c : flesh) {
+				if (c != null) {
+					c.key = Math.max(0f, Math.min(1f, (c.key - lo) / Math.max(1e-3f, hi - lo)));
+				}
+			}
+		}
+
+		/** The box (min x, y, z, max x, y, z) the bone fills that the muscle grows out from: the ribcage, the skull. */
+		private static float[] boneBox(int part) {
+			return part == AndyState.HEAD ? new float[] { -3.0f, -7.0f, -3.0f, 3.0f, -1.0f, 3.0f }
+					: new float[] { -3.0f, -1f, -1.2f, 3.0f, 13f, 1.2f };
+		}
+
+		private final java.util.Map<List<AndyTexels.Texel>, float[]> skinAfter = new java.util.IdentityHashMap<>();
+
+		/**
+		 * Per texel of {@code texels}: the earliest its skin may close (share of the regrowth) -- once the muscle cell under it
+		 * is full thickness (0 where no muscle lies under it).
+		 */
+		float[] skinAfter(List<AndyTexels.Texel> texels) {
+			float[] r = skinAfter.get(texels);
+			if (r != null) {
+				return r;
+			}
+			r = new float[texels.size()];
+			float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, z0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE, z1 = -Float.MAX_VALUE;
+			for (Piece c : flesh) {
+				if (c != null) {
+					x0 = Math.min(x0, c.x0);
+					y0 = Math.min(y0, c.y0);
+					z0 = Math.min(z0, c.z0);
+					x1 = Math.max(x1, c.x1);
+					y1 = Math.max(y1, c.y1);
+					z1 = Math.max(z1, c.z1);
+				}
+			}
+			for (int k = 0; k < r.length; k++) {
+				AndyTexels.Texel t = texels.get(k);
+				// a point just under the texel, clamped into the grid
+				float px = Math.max(x0 + 0.01f, Math.min(x1 - 0.01f, t.x - t.nx * 0.6f));
+				float py = Math.max(y0 + 0.01f, Math.min(y1 - 0.01f, t.y - t.ny * 0.6f));
+				float pz = Math.max(z0 + 0.01f, Math.min(z1 - 0.01f, t.z - t.nz * 0.6f));
+				float best = 0f;
+				for (Piece c : flesh) {
+					if (c != null && px >= c.x0 - 0.3f && px <= c.x1 + 0.3f && py >= c.y0 - 0.3f && py <= c.y1 + 0.3f && pz >= c.z0 - 0.3f
+							&& pz <= c.z1 + 0.3f) {
+						best = Math.max(best, fleshDone(c)); // (and the neighbours it overlaps: no muscle edge shows past the skin)
+					}
+				}
+				r[k] = best;
+			}
+			skinAfter.put(texels, r);
+			return r;
 		}
 
 		/** Where the bone runs (no flesh there, so the bone shows until the flesh round it closes over). */
