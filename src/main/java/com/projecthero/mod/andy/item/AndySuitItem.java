@@ -96,7 +96,7 @@ public class AndySuitItem extends ArmorItem {
 			return;
 		}
 		player.addTag(GIVEN_TAG);
-		for (var item : List.of(AndyItems.SUIT_HELMET, AndyItems.SUIT_CHESTPLATE, AndyItems.SUIT_LEGGINGS, AndyItems.SUIT_BOOTS)) {
+		for (var item : List.of(AndyItems.SUIT_CHESTPLATE, AndyItems.SUIT_LEGGINGS, AndyItems.SUIT_BOOTS)) {
 			ItemStack stack = new ItemStack(item);
 			if (!player.getInventory().add(stack)) {
 				player.drop(stack, false);

@@ -58,7 +58,7 @@ function icon(name, w, h, sample, scale) {
   P.write(R + 'item/' + name + '.png', out);
 }
 // helmet: the face (head front 8,8 with the hat front 40,8 over it), 2x
-icon('andy_suit_helmet', 7, 7, (x, y) => px(8 + Math.min(7, Math.round(x * 8 / 7)), 8 + Math.min(7, Math.round(y * 8 / 7)), 32, 0), 2);
+if (false) icon('andy_suit_helmet', 7, 7, (x, y) => px(8 + Math.min(7, Math.round(x * 8 / 7)), 8 + Math.min(7, Math.round(y * 8 / 7)), 32, 0), 2);
 // chestplate: right arm front | body front | left arm front, 16x12 at 1x -- squeezed to 14 wide
 icon('andy_suit_chestplate', 14, 12, (x, y) => {
   if (x < 3) return px(44 + Math.min(3, Math.round(x * 4 / 3)), 20 + y, 0, 16);

@@ -508,8 +508,8 @@ public class AndyGameTests implements FabricGameTest {
 		ItemStack spare = new ItemStack(AndyItems.SUIT_BOOTS);
 		spare.setDamageValue(10);
 		p.getInventory().setItem(5, spare);
-		helper.assertTrue(AndyItems.SUIT_CHESTPLATE.getDefense() == 6 && AndyItems.SUIT_HELMET.getDefense() == 2
-				&& AndyItems.SUIT_LEGGINGS.getDefense() == 5 && AndyItems.SUIT_BOOTS.getDefense() == 2, "iron protection 2/6/5/2");
+		helper.assertTrue(AndyItems.SUIT_CHESTPLATE.getDefense() == 6
+				&& AndyItems.SUIT_LEGGINGS.getDefense() == 5 && AndyItems.SUIT_BOOTS.getDefense() == 2, "iron protection 6/5/2 (no helmet)");
 		helper.assertTrue(worn.getMaxDamage() == net.minecraft.world.item.ArmorItem.Type.LEGGINGS.getDurability(15), "iron durability");
 		helper.assertTrue(com.projecthero.mod.andy.item.AndySuitItem.REPAIR_EVERY == 40 && com.projecthero.mod.andy.item.AndySuitItem.REPAIR_AMOUNT == 1, "1 durability every 2 s");
 		for (int i = 0; i < 20; i++) { // twenty 2 s steps
@@ -525,7 +525,7 @@ public class AndyGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void andysSuitIsGivenOnce(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1 && p.getInventory().countItem(AndyItems.SUIT_HELMET) == 1
+		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1
 				&& p.getInventory().countItem(AndyItems.SUIT_LEGGINGS) == 1 && p.getInventory().countItem(AndyItems.SUIT_BOOTS) == 1, "the full set on first gaining the power");
 		Andy.revoke(p);
 		Andy.grant(p);

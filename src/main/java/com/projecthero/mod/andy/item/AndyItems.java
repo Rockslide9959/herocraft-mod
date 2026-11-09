@@ -37,7 +37,7 @@ public final class AndyItems {
 	public static Item UNDEAD_CARD;
 	/** v0.17.3: Andy's Suit (AndySuitItem): iron-level, self-repairing, the chestplate feeds him. */
 	public static Holder<ArmorMaterial> SUIT_MATERIAL;
-	public static AndySuitItem SUIT_HELMET, SUIT_CHESTPLATE, SUIT_LEGGINGS, SUIT_BOOTS;
+	public static AndySuitItem SUIT_CHESTPLATE, SUIT_LEGGINGS, SUIT_BOOTS;
 
 	private AndyItems() {
 	}
@@ -49,7 +49,6 @@ public final class AndyItems {
 		SUIT_MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL, ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id("andy_suit")),
 				new ArmorMaterial(Map.of(ArmorItem.Type.BOOTS, 2, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 6, ArmorItem.Type.HELMET, 2, ArmorItem.Type.BODY, 5),
 						9, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.IRON_INGOT), List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("andy_suit"))), 0f, 0f));
-		SUIT_HELMET = suit("andy_suit_helmet", ArmorItem.Type.HELMET);
 		SUIT_CHESTPLATE = suit("andy_suit_chestplate", ArmorItem.Type.CHESTPLATE);
 		SUIT_LEGGINGS = suit("andy_suit_leggings", ArmorItem.Type.LEGGINGS);
 		SUIT_BOOTS = suit("andy_suit_boots", ArmorItem.Type.BOOTS);
@@ -80,7 +79,6 @@ public final class AndyItems {
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		output.accept(UNDEAD_CARD);
-		output.accept(SUIT_HELMET);
 		output.accept(SUIT_CHESTPLATE);
 		output.accept(SUIT_LEGGINGS);
 		output.accept(SUIT_BOOTS);
