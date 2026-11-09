@@ -73,6 +73,7 @@ public final class Andy {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
+		AndyAutoEat.clearSessionState();
 		FOOD_OWED.clear();
 		LAST_STAGE.clear();
 		AndyAbilities.clearSessionState();
@@ -84,6 +85,7 @@ public final class Andy {
 	static void forget(UUID id) {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
+		AndyAutoEat.forget(id);
 		FOOD_OWED.remove(id);
 		LAST_STAGE.remove(id);
 		AndyAbilities.forget(id);
@@ -475,6 +477,7 @@ public final class Andy {
 		if (prev != null && prev == now) {
 			return;
 		}
+		AndyAutoEat.tick(player);
 		AndyState n = null;
 		boolean whole = false;
 		// nothing starts growing back mid-flight: the hands, feet and whatever burnt off wait for the landing

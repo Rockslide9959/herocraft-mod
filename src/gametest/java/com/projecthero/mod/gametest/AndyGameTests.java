@@ -306,6 +306,26 @@ public class AndyGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.3 (user: passive auto-eat): hungry, he eats the least filling plain food; never a golden apple. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void heFeedsHimselfPlainFood(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.getInventory().clearContent();
+		p.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLDEN_APPLE, 2));
+		p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COOKED_BEEF, 2));
+		p.getInventory().setItem(2, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BREAD, 2));
+		p.getFoodData().setFoodLevel(6);
+		p.getFoodData().setSaturation(0f);
+		Andy.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() > 6, "he ate: " + p.getFoodData().getFoodLevel());
+		helper.assertTrue(p.getInventory().getItem(2).getCount() == 1, "the bread (least filling) went first");
+		helper.assertTrue(p.getInventory().getItem(0).getCount() == 2, "the golden apples are never eaten");
+		int food = p.getFoodData().getFoodLevel();
+		Andy.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == food, "not again straight away");
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- R: finger shots eat the arm, the stretch punch
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
@@ -679,7 +699,7 @@ public class AndyGameTests implements FabricGameTest {
 			helper.assertTrue(s.kind(AndyState.RIGHT_LEG) == AndyState.KIND_LAUNCHED, "left behind, not burst");
 			helper.assertTrue(!s.broken(AndyState.HEAD) && !s.broken(AndyState.BODY), "the rest of him goes");
 			Vec3 v = p.getDeltaMovement();
-			helper.assertTrue(v.z > 1.0 && v.y > 0.0, "thrown forward along the look with a small arc: " + v);
+			helper.assertTrue(v.z > 1.5 && Math.abs(v.y) < 0.05, "dashed straight along the aim (level look: no arc): " + v);
 			helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.flying(p), "the launch runs");
 			helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.fallImmune(p), "no fall damage from it");
 			helper.assertTrue(leftBehind(helper, p).size() == 2, "the two legs stay where he stood: " + leftBehind(helper, p).size());
@@ -719,7 +739,7 @@ public class AndyGameTests implements FabricGameTest {
 		ServerPlayer p = andy(helper);
 		com.projecthero.mod.andy.AndyLaunch.headLaunch(p);
 		Vec3 v = p.getDeltaMovement();
-		helper.assertTrue(v.z > 1.0 && v.y > 0.4, "the head shoots off forward and up: " + v);
+		helper.assertTrue(v.z > 2.0 && Math.abs(v.y) < 0.05, "the head dashes straight along the aim (level look: no arc): " + v);
 		helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.flying(p), "the launch runs");
 		leftBehind(helper, p).forEach(e -> e.discard());
 		helper.succeed();
