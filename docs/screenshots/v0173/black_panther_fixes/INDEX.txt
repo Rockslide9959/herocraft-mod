@@ -1,0 +1,6 @@
+Black Panther tester-notes check, v0.17.3. Every item on the tester list was already fixed in commit b81a9470 ("Black Panther tester round"); these films confirm it in game. 10 fps, one frame every 2 ticks. Each MP4 has a contact sheet PNG of the same name.
+stills.png - top row: necklace without the suit (front, 3/4), then the suit with the necklace still drawn over it (front, 3/4). Bottom row: unmasked (the face shows, suit kept), claws out (three per fist), necklace taken off (no chain), and close.
+suit_up.mp4 / .png - H: the suit spreads out from the necklace behind a violet edge with a puff of purple, the head last; the necklace stays visible on top of the suit.
+unmask.mp4 / remask.mp4 - Shift+N: the mask comes off (face and hair show, the suit stays), then goes back on.
+claws_out.mp4 - N: the vibranium claws come out of both fists.
+necklace_off.mp4 - hold H 1.5 s: the suit drains back into the necklace and the necklace comes off (Speed I + Jump Boost I from the herb stay).
