@@ -270,12 +270,7 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 			// bone bits and blood
 			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
 			if (Minecraft.getInstance().level != null) {
-				var bone = new net.minecraft.core.particles.ItemParticleOption(net.minecraft.core.particles.ParticleTypes.ITEM,
-						new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BONE));
-				for (int i = 0; i < (e.isSword() ? 14 : 3); i++) {
-					Minecraft.getInstance().level.addParticle(bone, c.x, c.y, c.z, (Math.random() - 0.5) * 0.25, Math.random() * 0.2, (Math.random() - 0.5) * 0.25);
-				}
-				BloodFx.spurt(c, new Vec3(0, 1, 0), e.isSword() ? 10 : 3, 0.15, 0.6, Vec3.ZERO);
+				AndySwordFx.shardHit(c, e.isSword());
 			}
 			return;
 		}
