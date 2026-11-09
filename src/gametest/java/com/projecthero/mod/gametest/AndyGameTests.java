@@ -2,6 +2,7 @@ package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.andy.Andy;
 import com.projecthero.mod.andy.AndyAbilities;
+import com.projecthero.mod.andy.AndyBoneSword;
 import com.projecthero.mod.andy.AndyConfig;
 import com.projecthero.mod.andy.AndyParts;
 import com.projecthero.mod.andy.data.AndyState;
@@ -489,7 +490,8 @@ public class AndyGameTests implements FabricGameTest {
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void fingerShotNumbers(GameTestHelper helper) {
-		helper.assertTrue(AndyConfig.PARTS_BULLET_COOLDOWN == 10, "Parts Bullet: half a second");
+		helper.assertTrue(AndyConfig.PARTS_BULLET_COOLDOWN == 0, "Parts Bullet: no cooldown");
+		helper.assertTrue(com.projecthero.mod.andy.AndyAbilityManager.maxCooldown(AndyAbilities.PARTS_BULLET) == 0, "and the HUD shows none");
 		helper.assertTrue(AndyConfig.CRIMSON_DAMAGE == 12f && AndyConfig.CRIMSON_COOLDOWN == 20, "Crimson Bullet: 12 damage, 1 s");
 		helper.assertTrue(AndyConfig.PUNCH_DAMAGE == 20f && AndyConfig.PUNCH_COOLDOWN == 20, "Stretch Punch: 20 damage, 1 s");
 		helper.assertTrue(Math.abs(AndyConfig.CRIMSON_EAT - 4f * AndyConfig.PARTS_EAT) < 1.0e-5f, "a Crimson Bullet takes four times the bite");
@@ -707,23 +709,24 @@ public class AndyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void victorRunsOnATimerAndSwapsTheKit(GameTestHelper helper) {
+	public void victorIsDisabled(GameTestHelper helper) {
+		// v0.17.3 (user: "remove the Victor ability for now"): no key pulls the card, the kit never swaps, a stale save clears
 		ServerPlayer p = andy(helper);
+		helper.assertTrue(!AndyConfig.VICTOR_ENABLED, "Victor is off");
 		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		AndyAbilities.pullCard(p);
-		helper.assertTrue(Andy.victor(p), "Victor");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base - (AndyConfig.VICTOR_MELEE - AndyConfig.BLOODY_ARTS_MELEE)) < 0.01,
-				"Victor hits harder");
-		helper.assertTrue(AndyAbilities.VULCAN.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0]),
-				"R is Dead Vulcan");
-		helper.assertTrue(AndyAbilities.DEAD_ROAD.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
-				"C is Dead Road");
-		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime());
+		helper.assertTrue(!Andy.victor(p) && Andy.state(p).victorUntil == 0L, "pulling the card does nothing");
+		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		helper.assertTrue(AndyBoneSword.BONE_SWORD.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, v)[1]), "Shift+V is the Bone Sword");
+		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
+		helper.assertTrue(!Andy.victor(p), "an old save with the card out is not Victor");
+		helper.assertTrue(AndyAbilities.PARTS_BULLET.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
+				&& AndyAbilities.CRESCENT.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2)[0])
+				&& AndyAbilities.DEAD_LINE.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
+				"the kit never swaps to Victor's");
 		Andy.tick(p);
-		helper.assertTrue(!Andy.victor(p), "the card goes back when the time is up");
-		helper.assertTrue(AndyAbilities.PARTS_BULLET.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0]),
-				"R is Parts Bullet again");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base) < 0.01, "back to Bloody Arts");
+		helper.assertTrue(Andy.state(p).victorUntil == 0L, "and the tick clears it");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base) < 0.01, "still Bloody Arts");
 		helper.succeed();
 	}
 
@@ -734,10 +737,186 @@ public class AndyGameTests implements FabricGameTest {
 		AndyAbilities.crescent(p);
 		float after = z.getHealth();
 		helper.assertTrue(after < 200f, "Crimson Crescent Moon hits");
-		AndyAbilities.pullCard(p);
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- R aim, Shift+V: the Bone Sword and its kit (v0.17.3)
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void thePartsBulletArmFliesAtTheCrosshair(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		p.setXRot(0f);
+		Zombie z = zombie(helper, 2, 9); // straight ahead, the eye line through its head
+		AndyAbilities.startPunch(p);
+		edit(p, n -> n.setEx(AndyState.X_PUNCH_START, helper.getLevel().getGameTime() - 20));
+		AndyAbilities.throwPunch(p);
+		AABB box = new AABB(p.blockPosition()).inflate(6);
+		java.util.List<AndyPartEntity> arms = helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.style() == AndyPartEntity.STYLE_PUNCH);
+		helper.assertTrue(arms.size() == 1, "the arm flies");
+		AndyPartEntity a = arms.get(0);
+		Vec3 centre = a.position().add(0, a.getBbHeight() * 0.5, 0);
+		Vec3 aimAt = new Vec3(z.getX(), p.getEyeY(), z.getBoundingBox().minZ);
+		double cos = a.getDeltaMovement().normalize().dot(aimAt.subtract(centre).normalize());
+		helper.assertTrue(cos > Math.cos(Math.toRadians(2.5)), "it flies at the crosshair: " + Math.toDegrees(Math.acos(Math.min(1, cos))) + " degrees off");
+		helper.assertTrue(!a.isLeftBehind(), "and is not drawn as a part left standing");
+		// the finger shots aim the same way
+		edit(p, n -> n.abilityReadyAt.clear());
+		Andy.restore(p);
+		AndyAbilities.partsBullet(p);
+		AndyPartEntity f = helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.style() == AndyPartEntity.STYLE_FINGER).get(0);
+		Vec3 fc = f.position().add(0, f.getBbHeight() * 0.5, 0);
+		double fcos = f.getDeltaMovement().normalize().dot(aimAt.subtract(fc).normalize());
+		helper.assertTrue(fcos > Math.cos(Math.toRadians(2.5)), "a Parts Bullet too: " + Math.toDegrees(Math.acos(Math.min(1, fcos))));
+		AndyAbilities.partsBullet(p);
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, e -> e.style() == AndyPartEntity.STYLE_FINGER).size() == 2,
+				"and fires again at once (no cooldown)");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void shiftVRipsAnArmIntoTheBoneSword(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		int main = Andy.mainArm(p), off = Andy.otherArm(main);
+		double baseReach = p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+		p.setShiftKeyDown(true);
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+		p.setShiftKeyDown(false);
+		helper.assertTrue(AndyBoneSword.held(p), "Shift+V draws the sword");
+		helper.assertTrue(Andy.missing(p, off) && !Andy.missing(p, main) && Andy.state(p).boneSwordArm() == off, "the off arm was torn off");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - AndyConfig.BONE_SWORD_DAMAGE) < 0.01,
+				"a sword's damage: " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) - baseReach - AndyConfig.BONE_SWORD_REACH_BONUS) < 0.01, "longer reach");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_SPEED) - AndyConfig.BONE_SWORD_ATTACK_SPEED) < 0.01, "a sword's speed");
+		helper.assertTrue(AndyBoneSword.SLASH.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
+				&& AndyBoneSword.DASH.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3)[0])
+				&& AndyBoneSword.PARRY.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
+				"the keys are the sword kit");
+		helper.onEachTick(() -> Andy.tick(p));
+		helper.runAfterDelay(AndyConfig.REGROW_DELAY[AndyConfig.SPEED_NORMAL] + 20, () -> {
+			AndyState s = Andy.state(p);
+			helper.assertTrue(s.broken(off) && s.regrowStart(off) == 0L, "the torn-off arm does not grow back while the sword is out");
+			AndyBoneSword.toggle(p);
+			helper.assertTrue(!AndyBoneSword.held(p), "Shift+V again puts it away");
+			helper.assertTrue(Andy.cooldownRemaining(p, AndyBoneSword.BONE_SWORD) > 0, "a short cooldown");
+			helper.assertTrue(AndyAbilities.PARTS_BULLET.equals(com.projecthero.mod.andy.AndyAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0]),
+					"the keys are his own again");
+			helper.assertTrue(p.getAttribute(Attributes.ENTITY_INTERACTION_RANGE).getModifiers().stream().noneMatch(m -> m.id().getPath().contains("bone_sword")),
+					"the reach goes back");
+		});
+		helper.runAfterDelay(AndyConfig.REGROW_DELAY[AndyConfig.SPEED_NORMAL] + 25, () -> {
+			helper.assertTrue(Andy.state(p).regrowStart(off) > 0L, "then the arm regrows");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void noSpareArmNoBoneSword(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		Andy.breakPart(p, Andy.otherArm(Andy.mainArm(p)), AndyState.KIND_BURST);
+		helper.assertTrue(!AndyBoneSword.draw(p) && !AndyBoneSword.held(p), "one arm: nothing to tear off and hold");
+		Andy.restore(p);
+		Andy.breakPart(p, Andy.mainArm(p), AndyState.KIND_BURST);
+		helper.assertTrue(!AndyBoneSword.draw(p), "no hand to hold it with");
+		helper.succeed();
+	}
+
+	private static ServerPlayer swordsman(GameTestHelper helper) {
+		ServerPlayer p = andy(helper);
+		helper.assertTrue(AndyBoneSword.draw(p), "the sword is drawn");
+		return p;
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theBoneSwordHitsLikeASwordAndSweeps(GameTestHelper helper) {
+		ServerPlayer p = swordsman(helper);
+		Zombie z = zombie(helper, 2, 4);
+		Zombie side = zombie(helper, 3, 4);
+		z.getAttribute(Attributes.ARMOR).setBaseValue(0);
+		try {
+			java.lang.reflect.Field f = net.minecraft.world.entity.LivingEntity.class.getDeclaredField("attackStrengthTicker");
+			f.setAccessible(true);
+			f.setInt(p, 100);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		helper.assertTrue(p.getAttackStrengthScale(0.5f) > 0.99f, "a full swing");
+		AndyBoneSword.melee(p, z, p.getAttackStrengthScale(0.5f)); // what the attack hook does before the hit
+		p.attack(z);
+		float dealt = 200f - z.getHealth();
+		helper.assertTrue(dealt >= AndyConfig.BONE_SWORD_DAMAGE - 0.5f, "a sword hit: " + dealt);
+		helper.assertTrue(side.getHealth() < 200f, "the sweep catches the one beside it");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void theSwordKitMovesHit(GameTestHelper helper) {
+		ServerPlayer p = swordsman(helper);
+		Zombie z = zombie(helper, 2, 4);
+		// R: the combo, the third a sweep
+		AndyBoneSword.slash(p);
+		float h1 = z.getHealth();
+		helper.assertTrue(h1 < 200f, "Bone Slash hits");
+		edit(p, n -> n.abilityReadyAt.remove(AndyBoneSword.SLASH));
 		z.invulnerableTime = 0;
-		AndyAbilities.deadBlade(p);
-		helper.assertTrue(z.getHealth() < after, "Dead Blade hits");
+		AndyBoneSword.slash(p);
+		edit(p, n -> n.abilityReadyAt.remove(AndyBoneSword.SLASH));
+		z.invulnerableTime = 0;
+		AndyBoneSword.slash(p);
+		helper.assertTrue(Andy.state(p).animId == AndyState.ANIM_SWORD_SLASH3, "the third cut is the sweep");
+		helper.assertTrue(Andy.cooldownRemaining(p, AndyBoneSword.SLASH) > AndyBoneSword.SLASH_COOLDOWN, "with the longer wait after it");
+		// Shift+R and X: lunges that cut what they pass
+		float h2 = z.getHealth();
+		z.invulnerableTime = 0;
+		AndyBoneSword.thrust(p);
+		helper.assertTrue(z.getHealth() < h2, "Marrow Thrust hits");
+		// Z: shards; Shift+G: the guard blocks; C: a parried hit is countered
+		AndyBoneSword.splinters(p);
+		AABB box = new AABB(p.blockPosition()).inflate(5);
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, box, AndyPartEntity::isSplinter).size() == AndyBoneSword.SPLINTERS,
+				"seven bone shards");
+		AndyBoneSword.guard(p);
+		helper.assertTrue(AndyBoneSword.guarding(p), "the ribs are up");
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
+		helper.assertTrue(p.getHealth() == hp, "the guard blocks a hit");
+		AndyBoneSword.forTestsEndGuard(p);
+		AndyBoneSword.parry(p);
+		float zh = z.getHealth();
+		z.invulnerableTime = 0;
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
+		helper.assertTrue(p.getHealth() == hp, "a parried hit does nothing");
+		helper.assertTrue(z.getHealth() < zh, "and is countered");
+		// G: the wave runs out and hits
+		Zombie far = zombie(helper, 2, 9);
+		AndyBoneSword.edgeWave(p);
+		helper.onEachTick(() -> Andy.tick(p));
+		helper.runAfterDelay(14, () -> {
+			helper.assertTrue(far.getHealth() < 200f, "Blood Edge Wave reaches 7 blocks out");
+			// X: the dash
+			z.invulnerableTime = 0;
+			float hz = z.getHealth();
+			AndyBoneSword.dash(p);
+			helper.assertTrue(z.getHealth() < hz || Andy.cooldownRemaining(p, AndyBoneSword.DASH) > 0, "Blood-jet Dash runs");
+			// Shift+Z: the sword is thrown, which ends it
+			p.setXRot(-85f);
+			AndyBoneSword.impale(p);
+			helper.assertTrue(!AndyBoneSword.held(p), "Impale Throw ends the sword");
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, new AABB(p.blockPosition()).inflate(5), AndyPartEntity::isSword).size() == 1,
+					"and the sword flies");
+			helper.getLevel().getEntitiesOfClass(AndyPartEntity.class, new AABB(p.blockPosition()).inflate(8), e -> true).forEach(e -> e.discard());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theThrownSwordPins(GameTestHelper helper) {
+		ServerPlayer p = swordsman(helper);
+		Zombie z = zombie(helper, 2, 4);
+		AndyBoneSword.pin(p, z);
+		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "pinned");
 		helper.succeed();
 	}
 

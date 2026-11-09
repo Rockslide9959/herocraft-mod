@@ -144,8 +144,10 @@ public final class AndyConfig {
 	// ---------------------------------------------------------------- R: fingers and the stretch punch
 	public static final float PARTS_BULLET_DAMAGE = 7f;
 	public static final double FINGER_SPEED = 2.6;
-	/** v0.17.3 (user): half a second. */
-	public static final int PARTS_BULLET_COOLDOWN = 10;
+	/** v0.17.3 (user: "remove the cooldown on parts bullet please"): none -- only the key (one shot a tap) and the arm it eats limit it. */
+	public static final int PARTS_BULLET_COOLDOWN = 0;
+	/** The finger shots and the thrown arm fly at what the crosshair is on, up to this far (beyond it: straight along the look). */
+	public static final double AIM_RANGE = 64.0;
 	public static final float CRIMSON_DAMAGE = 12f;
 	public static final int CRIMSON_COOLDOWN = 20;
 	/**
@@ -231,6 +233,28 @@ public final class AndyConfig {
 	public static final double HEAD_SPEED = 1.5;
 	public static final int HEAD_BULLET_COOLDOWN = 200;
 
+	// ---------------------------------------------------------------- Shift+V: the Bone Sword (AndyBoneSword)
+	/**
+	 * v0.17.3 (user: "add an ability for shift+V where the player rips an arm off and uses it as a bone sword"): he tears off his
+	 * off arm and holds it in his main hand as a sword. Melee with it hits for {@link #BONE_SWORD_DAMAGE} (an empty hand's
+	 * total, Bloody Arts included), sweeps like a sword and reaches a little further; the torn-off arm only grows back once it
+	 * is put away (Shift+V again, after {@link #BONE_SWORD_MAX}, or on losing the hand).
+	 */
+	public static final float BONE_SWORD_DAMAGE = 9f;
+	public static final float BONE_SWORD_SWEEP_DAMAGE = 4f;
+	public static final double BONE_SWORD_REACH_BONUS = 1.0;
+	/** Attack speed while held: a sword's 1.6 a second (the player's base is 4). */
+	public static final double BONE_SWORD_ATTACK_SPEED = 1.6;
+	public static final int BONE_SWORD_MAX = 1200;
+	public static final int BONE_SWORD_COOLDOWN = 60;
+
+	// ---------------------------------------------------------------- Victor (disabled)
+	/**
+	 * v0.17.3 (user: "remove the Victor ability for now"): off. No key pulls the card (Shift+V is the Bone Sword), the kit never
+	 * swaps to Dead Vulcan / Division Bullet / Dead Blade / Dead Road, and the HUD, haze and guide pages are hidden. The code
+	 * stays: set this back to true to bring him back.
+	 */
+	public static final boolean VICTOR_ENABLED = false;
 	public static final int VICTOR_TICKS = 600;
 	public static final int VICTOR_COOLDOWN = 1800;
 

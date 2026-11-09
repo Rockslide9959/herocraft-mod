@@ -91,6 +91,18 @@ public final class AndySfx {
 		play(level, at, AndySoundEvents.PUNCH_STRETCH, 0.6f, 1.0f);
 	}
 
+	/** A Bone Sword swing: a soft whoosh ({@code size} 0..1, bigger is louder and lower). */
+	public static void swordSwing(Level level, Vec3 at, float size) {
+		float s = Mth.clamp(size, 0f, 1f);
+		play(level, at, AndySoundEvents.LAUNCH_WHOOSH, 0.3f + 0.3f * s, 1.5f - 0.3f * s);
+	}
+
+	/** A Bone Sword move cuts into something: a wet slash. */
+	public static void swordHit(Level level, Vec3 at) {
+		play(level, at, AndySoundEvents.BLOOD_SPLAT, 0.7f, 0.85f);
+		play(level, at, AndySoundEvents.BLOOD_SPRAY, 0.35f, 1.2f);
+	}
+
 	public static void jetStart(Level level, Vec3 at) {
 		play(level, at, AndySoundEvents.BLOOD_JET_START, 0.8f, 1.0f);
 	}

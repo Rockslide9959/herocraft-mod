@@ -73,11 +73,18 @@ public final class AndyHud {
 			bottom = g.guiHeight() - 41;
 		}
 		int y0 = bottom - VanillaHud.HEIGHT;
-		boolean victor = s.victorUntil > now;
+		boolean victor = AndyConfig.VICTOR_ENABLED && s.victorUntil > now;
 		keys(g, p, s, victor, x0, y0);
 
 		// the meters, stacked up from the keys
 		int by = y0 - 8;
+		if (s.boneSword()) {
+			// v0.17.3: how long the Bone Sword has left
+			float left = Math.max(0f, 1f - (now - s.boneSwordSince()) / AndyConfig.BONE_SWORD_MAX);
+			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.bone_sword"), left, 0xE6DFC8,
+					((int) Math.ceil(left * AndyConfig.BONE_SWORD_MAX / 20f)) + "s", VanillaHud.WHITE);
+			by -= 11;
+		}
 		if (victor) {
 			float left = (s.victorUntil - now) / AndyConfig.VICTOR_TICKS;
 			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.victor"), left, VICTOR,
@@ -179,7 +186,7 @@ public final class AndyHud {
 			boolean active = (slot == AbilitySlot.SLOT_3 && s.flag(AndyState.FLAG_PROPELLING))
 					|| (slot == AbilitySlot.SLOT_1 && s.flag(AndyState.FLAG_PUNCH))
 					|| (slot == AbilitySlot.SLOT_6 && (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)))
-					|| (slot == AbilitySlot.SLOT_5 && victor);
+					|| (slot == AbilitySlot.SLOT_5 && (victor || s.boneSword()));
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
 	}

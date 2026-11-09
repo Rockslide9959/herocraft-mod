@@ -52,6 +52,9 @@ public final class AndyDamage {
 		if (Andy.reforming(player)) {
 			return false;
 		}
+		if (AndyBoneSword.blocks(player, source)) {
+			return false; // v0.17.3 Bone Sword: the Rib Cage Guard or a parry
+		}
 		if (source.is(DamageTypeTags.IS_FALL) && AndyLaunch.fallImmune(player)) {
 			return false; // a Leg / Head Launch lands without fall damage
 		}

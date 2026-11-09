@@ -65,6 +65,9 @@ public final class AndyFirstPerson {
 		boolean flying = s.flag(AndyState.FLAG_PROPELLING);
 		int stage = AndyStages.stage(s, now);
 		boolean punch = s.flag(AndyState.FLAG_PUNCH);
+		if (!flying && stage == AndyStages.NORMAL && AndyBoneSwordRender.firstPerson(player, s, partial, hand, pose, buffers, light)) {
+			return true; // v0.17.3: the Bone Sword in hand
+		}
 		if (!flying && stage != AndyStages.CRAWL && stage != AndyStages.ARM_WALK && !punch) {
 			return false;
 		}

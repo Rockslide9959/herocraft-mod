@@ -69,6 +69,14 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 		float ry = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		float rx = Mth.lerp(partial, e.xRotO, e.getXRot());
 		pose.translate(0, e.getBbHeight() * 0.5, 0);
+		boolean along = e.style() == AndyPartEntity.STYLE_PUNCH || e.isSword() || e.isSplinter();
+		if (along) {
+			// v0.17.3: aligned to where it is going (yaw and pitch from the motion, eased frame to frame); once it lies on the
+			// ground it settles flat
+			float[] yp = travel(e, ry, rx);
+			ry = yp[0];
+			rx = yp[1];
+		}
 		pose.mulPose(Axis.YP.rotationDegrees(ry));
 		pose.mulPose(Axis.XP.rotationDegrees(-rx));
 		if (e.isFinger()) {
@@ -76,11 +84,27 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 			pose.popPose();
 			return;
 		}
+		if (e.isSplinter() || e.isSword()) {
+			if (e.isSplinter()) {
+				AndyBoneSwordRender.splinter(pose, buffers, light);
+			} else {
+				// the thrown Bone Sword, point first: sword space has the blade toward -z and +y down
+				pose.mulPose(Axis.YP.rotationDegrees(180f));
+				pose.mulPose(Axis.ZP.rotationDegrees(180f));
+				pose.translate(0f, 0f, 10f / 16f);
+				AndyBoneSwordRender.mesh(pose, buffers, light, age, false);
+			}
+			LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, -1));
+			pose.popPose();
+			return;
+		}
 		PlayerModel<Player> model = slim ? this.slimModel : this.wide;
 		int part = e.bodyPart();
-		if (e.style() == AndyPartEntity.STYLE_DRILL) {
-			// fist first along the flight, spinning about it
-			if (!e.stuck()) {
+		if (e.style() == AndyPartEntity.STYLE_DRILL || e.style() == AndyPartEntity.STYLE_PUNCH) {
+			// fist first along the flight (the drill spinning about it; the thrown arm just a slight roll), the shoulder trailing
+			if (e.style() == AndyPartEntity.STYLE_PUNCH) {
+				pose.mulPose(Axis.ZP.rotationDegrees(Mth.sin(age * 0.35f) * 8f));
+			} else if (!e.stuck()) {
 				pose.mulPose(Axis.ZP.rotationDegrees(age * 47f));
 			}
 			pose.mulPose(Axis.XP.rotationDegrees(-90f));
@@ -114,6 +138,40 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 		LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, part));
 		pose.popPose();
 		super.render(e, yaw, partial, pose, buffers, light);
+	}
+
+	/** Entity id -> {yaw, pitch, last frame nanos}: the eased travel direction of a thrown arm / sword / shard. */
+	private static final Map<Integer, float[]> TRAVEL = new ConcurrentHashMap<>();
+
+	/**
+	 * The yaw / pitch (entity convention: yaw = atan2(x, z), pitch up positive) of {@code e}'s motion, eased toward it frame by
+	 * frame; still or lying on the ground it keeps its heading and settles level. Falls back to the synced rotation.
+	 */
+	private static float[] travel(AndyPartEntity e, float ry, float rx) {
+		long t = System.nanoTime();
+		float[] st = TRAVEL.computeIfAbsent(e.getId(), k -> new float[] { ry, rx, 0f });
+		float dt = st[2] == 0f ? 1f : Math.min(1f, (t / 1.0e6f - st[2]) / 50f); // in ticks
+		st[2] = t / 1.0e6f;
+		Vec3 v = e.getDeltaMovement();
+		float ty = st[0], tx = st[1];
+		if (v.lengthSqr() > 0.004 && !e.stuck()) {
+			double flat = Math.sqrt(v.x * v.x + v.z * v.z);
+			ty = (float) (Mth.atan2(v.x, v.z) * Mth.RAD_TO_DEG);
+			tx = (float) (Mth.atan2(v.y, flat) * Mth.RAD_TO_DEG);
+			if (e.tickCount <= 1) {
+				st[0] = ty;
+				st[1] = tx;
+			}
+		} else if (!e.stuck()) {
+			tx = 0f; // lying there: flat on the ground
+		}
+		float k = 1f - (float) Math.pow(0.45, dt);
+		st[0] = st[0] + Mth.wrapDegrees(ty - st[0]) * k;
+		st[1] = st[1] + (tx - st[1]) * k;
+		if (TRAVEL.size() > 256) {
+			TRAVEL.clear();
+		}
+		return new float[] { st[0], st[1] };
 	}
 
 	/**
@@ -207,6 +265,20 @@ public class AndyPartRenderer extends EntityRenderer<AndyPartEntity> {
 	/** The piece is gone: a launched arm or head bursts into pixels where it was last drawn; a finger sprinkles a few. */
 	static void removed(AndyPartEntity e) {
 		Last last = LAST.remove(e.getId());
+		TRAVEL.remove(e.getId());
+		if (e.isSplinter() || e.isSword()) {
+			// bone bits and blood
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
+			if (Minecraft.getInstance().level != null) {
+				var bone = new net.minecraft.core.particles.ItemParticleOption(net.minecraft.core.particles.ParticleTypes.ITEM,
+						new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BONE));
+				for (int i = 0; i < (e.isSword() ? 14 : 3); i++) {
+					Minecraft.getInstance().level.addParticle(bone, c.x, c.y, c.z, (Math.random() - 0.5) * 0.25, Math.random() * 0.2, (Math.random() - 0.5) * 0.25);
+				}
+				BloodFx.spurt(c, new Vec3(0, 1, 0), e.isSword() ? 10 : 3, 0.15, 0.6, Vec3.ZERO);
+			}
+			return;
+		}
 		Player owner = owner(e);
 		ResourceLocation tex = owner != null ? AndyRender.skin(owner) : net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture();
 		if (e.isFinger()) {

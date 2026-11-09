@@ -170,7 +170,7 @@ public final class Andy {
 
 	public static boolean victor(Player player) {
 		AndyState s = peek(player);
-		return s != null && s.hasPower && s.victorUntil > player.level().getGameTime();
+		return AndyConfig.VICTOR_ENABLED && s != null && s.hasPower && s.victorUntil > player.level().getGameTime();
 	}
 
 	public static boolean reforming(Player player) {
@@ -424,6 +424,7 @@ public final class Andy {
 		// v0.17.3: the old reform root and one-leg Slowness are gone (the stage modifiers below replace them)
 		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, REFORM_ID);
 		PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, REFORM_JUMP_ID);
+		AndyBoneSword.attributes(player, s); // v0.17.3 Shift+V: the sword's damage / reach / speed while it is out
 		if (s == null || !s.hasPower) {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, STAGE_ID);
@@ -566,7 +567,7 @@ public final class Andy {
 			}
 			n.reformUntil = 0L;
 		}
-		if (cur.victorUntil > 0L && now >= cur.victorUntil) {
+		if (cur.victorUntil > 0L && (now >= cur.victorUntil || !AndyConfig.VICTOR_ENABLED)) {
 			if (n == null) {
 				n = s.copy();
 				cur = n;
@@ -661,6 +662,9 @@ public final class Andy {
 	 * whole torso. With the torso there they go after their own delay, all in parallel.
 	 */
 	private static long scheduleRegrow(ServerPlayer player, AndyState s, int part, long now) {
+		if (s.boneSwordArm() == part) {
+			return 0L; // v0.17.3: the arm is the Bone Sword in his hand -- it grows back (and is paid for) once the sword is put away
+		}
 		if (part != AndyState.BODY && s.broken(AndyState.BODY) && !torsoPast(s, AndyConfig.torsoShareFor(part), now)) {
 			return 0L;
 		}
