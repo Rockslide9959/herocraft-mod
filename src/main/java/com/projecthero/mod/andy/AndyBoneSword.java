@@ -217,7 +217,7 @@ public final class AndyBoneSword {
 			case SLOT_2 -> new String[] { EDGE, GUARD };
 			case SLOT_3 -> new String[] { DASH };
 			case SLOT_4 -> new String[] { SPLINTER, IMPALE };
-			case SLOT_5 -> new String[] { AndyAbilities.REGEN, BONE_SWORD };
+			case SLOT_5 -> new String[] { BONE_SWORD, AndyAbilities.REGEN };
 			case SLOT_6 -> new String[] { PARRY };
 			default -> new String[0];
 		};
@@ -238,10 +238,7 @@ public final class AndyBoneSword {
 		};
 	}
 
-	/**
-	 * A key while the sword is out; true if the sword kit took it. Plain V is left to the normal handler (the regeneration
-	 * speed); Shift+V puts the sword away.
-	 */
+	/** A key while the sword is out; true if the sword kit took it. V puts the sword away; Shift+V is the regeneration speed. */
 	static boolean handle(ServerPlayer p, AbilitySlot slot, boolean pressed, boolean shift) {
 		switch (slot) {
 			case SLOT_1 -> {
@@ -281,11 +278,17 @@ public final class AndyBoneSword {
 				return true;
 			}
 			case SLOT_5 -> {
-				if (pressed && shift) {
-					toggle(p);
-					return true;
+				// v0.17.3: V puts it away, Shift+V is still the regeneration speed
+				if (pressed) {
+					if (shift) {
+						if (Andy.canAct(p)) {
+							Andy.cycleSpeed(p);
+						}
+					} else {
+						putAway(p, true, true);
+					}
 				}
-				return false;
+				return true;
 			}
 			case SLOT_6 -> {
 				if (pressed) {
@@ -299,9 +302,9 @@ public final class AndyBoneSword {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+V: drawing and putting away
+	// ---------------------------------------------------------------- hold V: drawing; V again: putting away
 
-	/** Shift+V: tear off an arm for the sword, or put it away. */
+	/** Draws the sword at once (no struggle), or puts it away (commands, tests). */
 	public static void toggle(ServerPlayer p) {
 		if (held(p)) {
 			putAway(p, true, true);
@@ -310,15 +313,20 @@ public final class AndyBoneSword {
 		}
 	}
 
-	/** Tears off the off arm and holds it as the sword. False (with a dull click and a line) with no spare arm. */
-	public static boolean draw(ServerPlayer p) {
+	/**
+	 * Whether he can draw the sword now: not cooling down, one arm to tear off and one to hold it, a body. If not and {@code say},
+	 * a line and a dull click say why.
+	 */
+	public static boolean canDraw(ServerPlayer p, boolean say) {
 		if (!Andy.canAct(p)) {
 			return false;
 		}
 		int cd = Andy.cooldownRemaining(p, BONE_SWORD);
 		if (cd > 0) {
-			Andy.say(p, "message.projecthero.andy.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.andy.ability." + BONE_SWORD),
-					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+			if (say) {
+				Andy.say(p, "message.projecthero.andy.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.andy.ability." + BONE_SWORD),
+						String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+			}
 			return false;
 		}
 		AndyState s = Andy.state(p);
@@ -326,11 +334,75 @@ public final class AndyBoneSword {
 		int hand = Andy.mainArm(p);
 		int arm = Andy.otherArm(hand);
 		if (!s.armReady(hand, now) || !s.armReady(arm, now) || s.broken(AndyState.BODY)) {
-			// he needs one arm to tear off and one to hold it
-			Andy.say(p, "message.projecthero.andy.no_spare_arm", ChatFormatting.GRAY);
-			sound(p, SoundEvents.DISPENSER_FAIL, 0.6f, 1.4f);
+			if (say) {
+				Andy.say(p, "message.projecthero.andy.no_spare_arm", ChatFormatting.GRAY);
+				sound(p, SoundEvents.DISPENSER_FAIL, 0.6f, 1.4f);
+			}
 			return false;
 		}
+		return true;
+	}
+
+	/**
+	 * Hold V, past the tap: his sword hand reaches over, grabs the off arm at the shoulder and starts wrenching at it
+	 * ({@link AndyState#ANIM_SWORD_STRUGGLE}). False (having said why) if he can't draw the sword.
+	 */
+	public static boolean startStruggle(ServerPlayer p) {
+		if (!canDraw(p, true)) {
+			return false;
+		}
+		AndyAbilities.cancelPunch(p);
+		long now = p.level().getGameTime();
+		AndyState n = Andy.state(p).copy();
+		n.animId = AndyState.ANIM_SWORD_STRUGGLE;
+		n.animStart = now;
+		Andy.save(p, n);
+		AndySfx.punchStretch(level(p), AndyParts.centre(p, Andy.otherArm(Andy.mainArm(p))));
+		return true;
+	}
+
+	/** Every tick of the struggle ({@code held}: ticks V has been down): the sinew stretching and a trickle at the shoulder. */
+	public static void struggling(ServerPlayer p, long held) {
+		if (!canDraw(p, false)) {
+			cancelStruggle(p); // lost an arm / the body meanwhile
+			return;
+		}
+		long t = held - AndyConfig.BONE_SWORD_TAP;
+		Vec3 at = AndyParts.centre(p, Andy.otherArm(Andy.mainArm(p))).add(0, 0.25, 0);
+		// the wrenches come quicker as it gives
+		if (t == 9 || t == 18 || t == 25 || t == 31) {
+			AndySfx.punchStretch(level(p), at);
+		}
+		if (t == 22) {
+			sound(p, SoundEvents.SKELETON_HURT, 0.35f, 0.55f); // a crack at the shoulder
+		}
+		if (t > 14 && t % 3 == 0) {
+			level(p).sendParticles(Andy.BLOOD, at.x, at.y, at.z, 1, 0.06, 0.06, 0.06, 0.0);
+		}
+	}
+
+	/** V let go before the arm came off: he lets go of it. */
+	public static void cancelStruggle(ServerPlayer p) {
+		AndyState s = Andy.state(p);
+		if (s.animId != AndyState.ANIM_SWORD_STRUGGLE) {
+			return;
+		}
+		AndyState n = s.copy();
+		n.animId = AndyState.ANIM_NONE;
+		Andy.save(p, n);
+	}
+
+	/**
+	 * Tears off the off arm and holds it as the sword (the end of the hold). The arm comes away in his hand; he grips it and
+	 * {@link AndyConfig#BONE_SWORD_REVEAL} later it bursts round the blade ({@link #tick}). False (with a line) if he can't.
+	 */
+	public static boolean draw(ServerPlayer p) {
+		if (!canDraw(p, true)) {
+			return false;
+		}
+		AndyState s = Andy.state(p);
+		long now = p.level().getGameTime();
+		int arm = Andy.otherArm(Andy.mainArm(p));
 		Vec3 at = AndyParts.centre(p, arm);
 		AndyAbilities.cancelPunch(p);
 		Andy.breakPart(p, arm, AndyState.KIND_LAUNCHED); // no pixel burst: the arm is in his hand
@@ -348,6 +420,117 @@ public final class AndyBoneSword {
 		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 10, 0.12, 0.15, 0.12, 0.0);
 		level.sendParticles(Andy.BLOOD_DARK, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
 		return true;
+	}
+
+	/** {@link AndyConfig#BONE_SWORD_REVEAL} after the rip: the arm bursts in his grip and the sword is left. */
+	private static void reveal(ServerPlayer p, AndyState s) {
+		ServerLevel level = level(p);
+		Vec3 at = AndyAbilities.handOrigin(p, hand(s)).add(p.getLookAngle().scale(0.35));
+		AndySfx.bloodBurst(level, at, 0.8f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.75f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.6f, 0.5f);
+		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.0);
+		level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.BONE_MEAL)), at.x, at.y, at.z, 8, 0.15, 0.15, 0.15, 0.08);
+	}
+
+	// ---------------------------------------------------------------- tap V: Tear Off
+
+	/**
+	 * Tap V: Tear Off -- he wrenches off his most damaged limb (the off arm when none is hurt) and flings it aside, and with it
+	 * goes whatever is on him: the fire, poison, wither, slowness and every other harmful effect. It regrows as ever (and is paid
+	 * for like any regrowth). He needs a hand to do it with, and never tears off the last one.
+	 */
+	public static boolean tearOff(ServerPlayer p) {
+		if (!Andy.canAct(p)) {
+			return false;
+		}
+		String id = AndyAbilities.TEAR_OFF;
+		int cd = Andy.cooldownRemaining(p, id);
+		if (cd > 0) {
+			Andy.say(p, "message.projecthero.andy.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.andy.ability." + id),
+					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+			return false;
+		}
+		int limb = tearOffTarget(p);
+		if (limb < 0) {
+			Andy.say(p, "message.projecthero.andy.nothing_to_tear", ChatFormatting.GRAY);
+			sound(p, SoundEvents.DISPENSER_FAIL, 0.6f, 1.4f);
+			return false;
+		}
+		long now = p.level().getGameTime();
+		ServerLevel level = level(p);
+		Vec3 at = AndyParts.centre(p, limb);
+		AndyAbilities.cancelPunch(p);
+		Andy.breakPart(p, limb, AndyState.KIND_LAUNCHED); // no pixel burst: the limb goes flying whole
+		AndyState n = Andy.state(p).copy();
+		n.abilityReadyAt.put(id, now + AndyConfig.TEAR_OFF_COOLDOWN);
+		n.animId = AndyState.ANIM_TEAR_OFF;
+		n.animStart = now;
+		n.setEx(AndyState.X_TORN, limb);
+		Andy.save(p, n);
+		// the hand that does it swings (first person sees the wrench as the arm's swing)
+		p.swing(limb == Andy.mainArm(p) ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND, true);
+		// the limb, flung out to his side
+		Vec3 side = AndyParts.right(p).scale(limb == AndyState.RIGHT_ARM || limb == AndyState.RIGHT_LEG ? 1 : -1);
+		Vec3 fling = side.scale(0.32).add(flatLook(p).scale(0.12)).add(0, 0.28, 0);
+		AndyPartEntity.drop(p, limb, AndyPartEntity.STYLE_PUNCH, at.subtract(0, 0.35, 0), p.getYRot(), fling);
+		// and everything on him with it
+		boolean cleansed = p.isOnFire();
+		p.clearFire();
+		for (MobEffectInstance e : List.copyOf(p.getActiveEffects())) {
+			if (e.getEffect().value().getCategory() == net.minecraft.world.effect.MobEffectCategory.HARMFUL) {
+				p.removeEffect(e.getEffect());
+				cleansed = true;
+			}
+		}
+		AndySfx.partBreak(level, at);
+		AndySfx.bloodBurst(level, at, 0.5f);
+		sound(p, SoundEvents.SKELETON_HURT, 0.45f, 0.6f);
+		level.sendParticles(Andy.BLOOD_BIG, at.x, at.y, at.z, 8, 0.12, 0.15, 0.12, 0.0);
+		if (cleansed) {
+			level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 6, 0.15, 0.15, 0.15, 0.01);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 1.4f);
+		}
+		return true;
+	}
+
+	/** The limb Tear Off takes: the most damaged arm or leg he has, else the off arm; never his last hand. -1: none. */
+	public static int tearOffTarget(ServerPlayer p) {
+		AndyState s = Andy.state(p);
+		long now = p.level().getGameTime();
+		int main = Andy.mainArm(p), off = Andy.otherArm(main);
+		boolean mainOk = s.armReady(main, now), offOk = s.armReady(off, now);
+		if (!mainOk && !offOk) {
+			return -1; // nothing to tear it off with
+		}
+		int best = -1;
+		float worst = 2f;
+		for (int part = AndyState.RIGHT_ARM; part <= AndyState.LEFT_LEG; part++) {
+			if (s.broken(part)) {
+				continue;
+			}
+			boolean arm = part == main || part == off;
+			if (arm && !(mainOk && offOk)) {
+				continue; // the only hand he has stays
+			}
+			float frac = s.hp(part) / AndyConfig.PART_HP[part];
+			if (frac < 0.999f && frac < worst) {
+				worst = frac;
+				best = part;
+			}
+		}
+		if (best >= 0) {
+			return best;
+		}
+		if (mainOk && offOk) {
+			return off;
+		}
+		for (int part = AndyState.RIGHT_LEG; part <= AndyState.LEFT_LEG; part++) {
+			if (!s.broken(part)) {
+				return part; // one arm left and nothing hurt: a leg
+			}
+		}
+		return -1;
 	}
 
 	/**
@@ -712,6 +895,9 @@ public final class AndyBoneSword {
 			if (now - s.boneSwordSince() >= AndyConfig.BONE_SWORD_MAX) {
 				putAway(p, true, true);
 				return;
+			}
+			if (s.animId == AndyState.ANIM_SWORD_RIP && now - s.animStart == AndyConfig.BONE_SWORD_REVEAL) {
+				reveal(p, s);
 			}
 			// (the drops off the blade's tip and guard are client-side: AndyBoneSwordRender)
 		}

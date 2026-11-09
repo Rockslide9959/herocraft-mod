@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.projecthero.mod.andy.Andy;
 import com.projecthero.mod.andy.AndyAbilityManager;
+import com.projecthero.mod.andy.AndyBoneSword;
 import com.projecthero.mod.andy.AndyConfig;
 import com.projecthero.mod.andy.data.AndyState;
 import com.projecthero.mod.client.ModKeyBindings;
@@ -17,6 +18,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 /**
  * v0.17.3 (user: "can you give andy the minecraft style GUI please"): the Andy HUD, bottom-right, drawn from the game's own pieces
@@ -28,7 +30,8 @@ import net.minecraft.network.chat.Component;
  *   Victor   [boss bar ======-] 21s        while Victor is out: a red boss bar
  *   +----+----+----+----+----+----+        the six keys, a short hotbar: R G Z X C V, yellow while Shift shows the Shift moves;
  *   | R  | G  | Z  | X  | C  | V  |        the shown move's cooldown as the item-cooldown sweep and a stack count, the other
- *   +----+----+----+----+----+----+        move's as a durability bar, the selection frame on a move that is running
+ *   +----+----+----+----+----+----+        move's as a durability bar, the selection frame on a move that is running;
+ *                                          holding V for the Bone Sword fills the V box red (and a meter)
  * </pre>
  * Hold Left-Alt for the move names.
  */
@@ -74,10 +77,17 @@ public final class AndyHud {
 		}
 		int y0 = bottom - VanillaHud.HEIGHT;
 		boolean victor = AndyConfig.VICTOR_ENABLED && s.victorUntil > now;
-		keys(g, p, s, victor, x0, y0);
+		keys(g, p, s, victor, x0, y0, now);
 
 		// the meters, stacked up from the keys
 		int by = y0 - 8;
+		if (s.animId == AndyState.ANIM_SWORD_STRUGGLE && !s.boneSword()) {
+			// v0.17.3 hold V: how far the arm has given
+			float give = Mth.clamp((now - s.animStart) / (AndyConfig.BONE_SWORD_HOLD - AndyConfig.BONE_SWORD_TAP), 0f, 1f);
+			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("projecthero.andy.ability." + AndyBoneSword.BONE_SWORD), give, 0xE0303A,
+					Math.round(give * 100f) + "%", VanillaHud.RED);
+			by -= 11;
+		}
 		if (s.boneSword()) {
 			// v0.17.3: how long the Bone Sword has left
 			float left = Math.max(0f, 1f - (now - s.boneSwordSince()) / AndyConfig.BONE_SWORD_MAX);
@@ -131,8 +141,12 @@ public final class AndyHud {
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = AndyAbilityManager.idsOf(p, slot);
 				if (ids.length > 0) {
+					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out)
+					Component extra = slot == AbilitySlot.SLOT_5 && !s.boneSword()
+							? Component.translatable("hud.projecthero.andy.hold", Component.translatable("projecthero.andy.ability." + AndyBoneSword.BONE_SWORD))
+							: null;
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.andy.ability." + ids[0]),
-							ids.length > 1 ? Component.translatable("projecthero.andy.ability." + ids[1]) : null));
+							ids.length > 1 ? Component.translatable("projecthero.andy.ability." + ids[1]) : null, extra));
 				}
 			}
 			MoveListOverlay.draw(g, x0 + WIDTH, fy - 4, rows);
@@ -168,7 +182,7 @@ public final class AndyHud {
 		}
 	}
 
-	private static void keys(GuiGraphics g, LocalPlayer p, AndyState s, boolean victor, int x0, int y0) {
+	private static void keys(GuiGraphics g, LocalPlayer p, AndyState s, boolean victor, int x0, int y0, float now) {
 		boolean shift = forceShift || p.isShiftKeyDown();
 		VanillaHud.strip(g, x0, y0, SLOTS.length);
 		for (int i = 0; i < SLOTS.length; i++) {
@@ -188,6 +202,14 @@ public final class AndyHud {
 					|| (slot == AbilitySlot.SLOT_6 && (s.flag(AndyState.FLAG_DEAD_LINE) || s.flag(AndyState.FLAG_DEAD_ROAD)))
 					|| (slot == AbilitySlot.SLOT_5 && (victor || s.boneSword()));
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
+			if (slot == AbilitySlot.SLOT_5 && s.animId == AndyState.ANIM_SWORD_STRUGGLE && !s.boneSword()) {
+				// v0.17.3 hold V: the charge -- a red fill rising up the box as the arm gives
+				float give = Mth.clamp((now - s.animStart) / (AndyConfig.BONE_SWORD_HOLD - AndyConfig.BONE_SWORD_TAP), 0f, 1f);
+				int ix = x0 + 3 + i * VanillaHud.SLOT, iy = y0 + 3;
+				int top = iy + 16 - Math.round(16f * give);
+				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, iy + 16, 0x90C01020);
+				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, Math.min(iy + 16, top + 1), 0xFFFF4040);
+			}
 		}
 	}
 

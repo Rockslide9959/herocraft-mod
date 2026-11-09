@@ -247,6 +247,22 @@ public final class AndyConfig {
 	public static final double BONE_SWORD_ATTACK_SPEED = 1.6;
 	public static final int BONE_SWORD_MAX = 1200;
 	public static final int BONE_SWORD_COOLDOWN = 60;
+	/**
+	 * v0.17.3 (user: "make the bone sword hold V for 2 seconds"): V held this long draws it. From {@link #BONE_SWORD_TAP} on he
+	 * reaches over and struggles with the arm (the hold is the struggle); at the end it tears off, he grips it and after
+	 * {@link #BONE_SWORD_REVEAL} more it bursts, leaving the sword in his hand.
+	 */
+	public static final int BONE_SWORD_HOLD = 40;
+	/** A V released before this is a tap: Tear Off. */
+	public static final int BONE_SWORD_TAP = 5;
+	public static final int BONE_SWORD_REVEAL = 14;
+
+	// ---------------------------------------------------------------- V: Tear Off
+	/**
+	 * v0.17.3 (user: "put another move on regular V"): he rips off his most damaged limb (the off arm when none is hurt) and with
+	 * it whatever is on him: fire, poison, wither, slowness and every other harmful effect. The limb regrows as ever.
+	 */
+	public static final int TEAR_OFF_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- Victor (disabled)
 	/**

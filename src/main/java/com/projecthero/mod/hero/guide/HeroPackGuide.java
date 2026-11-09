@@ -1730,7 +1730,8 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
 					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
 					{ "Z", "vortex_bullet" },
-					{ "Shift+Z", "parts_bullet_head" }, { "V", "regen_speed" }, { "Shift+V", victorOn ? "pull_the_card" : "bone_sword" }, { "C", "dead_line" },
+					{ "Shift+Z", "parts_bullet_head" }, { "V", "tear_off" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : "regen_speed" },
+					{ "C", "dead_line" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
@@ -1739,7 +1740,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.andy.sword_controls"); // v0.17.3: the keys while the Bone Sword is out
 			for (String[] row : new String[][] { { "R", "bone_slash" }, { "Shift+R", "marrow_thrust" }, { "G", "blood_edge_wave" }, { "Shift+G", "rib_cage_guard" },
-					{ "X", "blood_jet_dash" }, { "Z", "bone_splinter_volley" }, { "Shift+Z", "impale_throw" }, { "C", "bone_parry" }, { "Shift+V", "bone_sword" } }) {
+					{ "X", "blood_jet_dash" }, { "Z", "bone_splinter_volley" }, { "Shift+Z", "impale_throw" }, { "C", "bone_parry" }, { "V", "bone_sword_away" },
+					{ "Shift+V", "regen_speed" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.andy.ability." + row[1] + ".desc");

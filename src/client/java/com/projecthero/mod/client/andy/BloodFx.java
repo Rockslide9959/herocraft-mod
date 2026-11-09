@@ -100,7 +100,16 @@ public final class BloodFx {
 		AGE[i] = 0;
 		LIFE[i] = life;
 		KIND[i] = kind;
-		GRAV[i] = kind == 0 || kind == 3 ? 0.045f : kind == 2 ? -0.004f : 0.0f;
+		GRAV[i] = kind == 0 || kind == 3 || kind == 4 ? 0.045f : kind == 2 ? -0.004f : 0.0f;
+	}
+
+	/**
+	 * v0.17.3 (user: "make the blood on the blade actually drip off onto the ground"): a drop falling off the Bone Sword at
+	 * {@code at}. Unlike the other drops it shows right in front of the camera (kind 4: no near fade), so the drips off a sword
+	 * held in first person are seen leaving it; it falls and splats like any drop.
+	 */
+	public static void bladeDrip(Vec3 at, Vec3 carry, float size) {
+		drop(at.x, at.y, at.z, carry.x * 0.6, Math.min(0.0, carry.y * 0.4) - 0.02, carry.z * 0.6, size, SHADES[1 + RND.nextInt(3)], 50, 4);
 	}
 
 	public static int shade(float darkness) {
@@ -252,14 +261,14 @@ public final class BloodFx {
 			VY[i] *= KIND[i] == 1 ? 0.86f : 0.985f;
 			VZ[i] *= drag;
 			float nx = X[i] + VX[i], ny = Y[i] + VY[i], nz = Z[i] + VZ[i];
-			if (KIND[i] == 0 || KIND[i] == 3) {
+			if (KIND[i] == 0 || KIND[i] == 3 || KIND[i] == 4) {
 				BlockPos below = BlockPos.containing(nx, ny, nz);
 				BlockState st = level.getBlockState(below);
 				if (!st.isAir()) {
 					VoxelShape shape = st.getCollisionShape(level, below);
 					if (!shape.isEmpty()) {
 						double top = below.getY() + shape.max(Direction.Axis.Y);
-						if (KIND[i] == 0 && ny <= top + 0.001 && Y[i] >= top - 0.05 && RND.nextFloat() < 0.45f) {
+						if ((KIND[i] == 0 && RND.nextFloat() < 0.45f || KIND[i] == 4) && ny <= top + 0.001 && Y[i] >= top - 0.05) {
 							splat(nx, (float) top, nz, SIZE[i] * (2.2f + RND.nextFloat() * 1.6f), RGB[i], level);
 							if (level.getGameTime() - lastSplatSound >= 4) {
 								lastSplatSound = level.getGameTime();
@@ -367,7 +376,7 @@ public final class BloodFx {
 			float y = Mth.lerp(partial, PY[i], Y[i]) - (float) cam.y;
 			float z = Mth.lerp(partial, PZ[i], Z[i]) - (float) cam.z;
 			float age = AGE[i] + partial;
-			float near = Mth.clamp((Mth.sqrt(x * x + y * y + z * z) - 1.3f) / 1.7f, 0f, 1f);
+			float near = KIND[i] == 4 ? 1f : Mth.clamp((Mth.sqrt(x * x + y * y + z * z) - 1.3f) / 1.7f, 0f, 1f);
 			float h = SIZE[i] * 0.5f * Mth.clamp((LIFE[i] - age) / 4f, 0f, 1f) * near;
 			if (h < 0.002f) {
 				continue;

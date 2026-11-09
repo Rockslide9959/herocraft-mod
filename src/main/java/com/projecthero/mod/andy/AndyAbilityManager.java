@@ -22,7 +22,8 @@ import net.minecraft.world.entity.player.Player;
  *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
  *          hold 1 s: Head Launch
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  Regeneration speed        Shift+V  Bone Sword (AndyBoneSword: the keys turn into the sword kit while it is out)
+ *   V (5)  tap: Tear Off             Shift+V  Regeneration speed
+ *          hold 2 s: Bone Sword (AndyBoneSword: he struggles the arm off; the keys turn into the sword kit while it is out)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: AndyConfig.VICTOR_ENABLED)
  *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
  * </pre>
@@ -38,6 +39,11 @@ public final class AndyAbilityManager {
 	 * Launch), 1 once the Head Launch wind-up shows}.
 	 */
 	private static final Map<UUID, long[]> X_HELD = new ConcurrentHashMap<>();
+	/**
+	 * v0.17.3: a plain V held down: {when it went down, 1 once the hold is spoken for (the struggle started, or it could not and
+	 * said why), 1 once the sword is drawn}. A release before {@link AndyConfig#BONE_SWORD_TAP} is a tap: Tear Off.
+	 */
+	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
 
 	private AndyAbilityManager() {
 	}
@@ -46,6 +52,7 @@ public final class AndyAbilityManager {
 		LAST_PRESS.clear();
 		R_HELD.clear();
 		X_HELD.clear();
+		V_HELD.clear();
 		AndyLaunch.clearSessionState();
 	}
 
@@ -53,6 +60,7 @@ public final class AndyAbilityManager {
 		LAST_PRESS.remove(id);
 		R_HELD.remove(id);
 		X_HELD.remove(id);
+		V_HELD.remove(id);
 		AndyLaunch.forget(id);
 	}
 
@@ -90,6 +98,7 @@ public final class AndyAbilityManager {
 		if (Andy.state(player).boneSword() && AndyBoneSword.handle(player, slot, pressed, shift)) {
 			// v0.17.3: the Bone Sword's own kit while it is out; nothing half-held from before carries over
 			R_HELD.remove(player.getUUID());
+			V_HELD.remove(player.getUUID());
 			if (X_HELD.remove(player.getUUID()) != null) {
 				AndyAbilities.stopPropulsion(player);
 			}
@@ -157,14 +166,25 @@ public final class AndyAbilityManager {
 				}
 			}
 			case SLOT_5 -> {
+				// v0.17.3 (user: "make the bone sword hold V for 2 seconds and the regen speed switch shift+V please, put another
+				// move on regular V"): Shift+V cycles the regeneration speed; a plain tap is Tear Off (on release); held, he
+				// reaches over and struggles his off arm loose (tickV) and at BONE_SWORD_HOLD it tears off as the Bone Sword.
+				// Pull the Card (AndyAbilities.pullCard) has no key while AndyConfig.VICTOR_ENABLED is false.
 				if (pressed) {
 					if (shift) {
-						// v0.17.3 (user: "remove the Victor ability for now, add an ability for shift+V where the player rips an arm
-						// off and uses it as a bone sword"): Shift+V is the Bone Sword; Pull the Card (AndyAbilities.pullCard) has
-						// no key while AndyConfig.VICTOR_ENABLED is false
-						AndyBoneSword.toggle(player);
-					} else if (Andy.canAct(player)) {
-						Andy.cycleSpeed(player);
+						V_HELD.remove(player.getUUID());
+						if (Andy.canAct(player)) {
+							Andy.cycleSpeed(player);
+						}
+					} else {
+						V_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L, 0L });
+					}
+				} else {
+					long[] held = V_HELD.remove(player.getUUID());
+					if (held != null && held[1] == 0L) {
+						AndyBoneSword.tearOff(player); // a tap
+					} else if (held != null && held[2] == 0L) {
+						AndyBoneSword.cancelStruggle(player); // let go before it came off
 					}
 				}
 			}
@@ -187,6 +207,7 @@ public final class AndyAbilityManager {
 	/** From {@link Andy#tick}: a plain R held past {@link AndyConfig#PUNCH_HOLD_TICKS} draws the arm back for the punch. */
 	static void tickHold(ServerPlayer player) {
 		tickX(player);
+		tickV(player);
 		AndyLaunch.tick(player);
 		Long down = R_HELD.get(player.getUUID());
 		var s = Andy.state(player);
@@ -202,6 +223,46 @@ public final class AndyAbilityManager {
 		if (s.flag(com.projecthero.mod.andy.data.AndyState.FLAG_PUNCH) && Andy.shootingArm(player) < 0) {
 			AndyAbilities.cancelPunch(player);
 		}
+	}
+
+	/**
+	 * V held: past {@link AndyConfig#BONE_SWORD_TAP} he reaches over and starts struggling with the off arm (or, if he can't
+	 * draw the sword, says why once); at {@link AndyConfig#BONE_SWORD_HOLD} it tears off as the Bone Sword.
+	 */
+	private static void tickV(ServerPlayer player) {
+		long[] v = V_HELD.get(player.getUUID());
+		if (v == null || v[2] != 0L) {
+			return;
+		}
+		long held = player.level().getGameTime() - v[0];
+		if (v[1] == 0L) {
+			if (held >= AndyConfig.BONE_SWORD_TAP) {
+				v[1] = 1L;
+				if (!AndyBoneSword.startStruggle(player)) {
+					v[2] = 1L; // it could not (and said why): the rest of the hold does nothing
+				}
+			}
+			return;
+		}
+		if (!Andy.state(player).boneSword() && Andy.state(player).animId != com.projecthero.mod.andy.data.AndyState.ANIM_SWORD_STRUGGLE) {
+			v[2] = 1L; // the struggle was broken off (a part lost, a re-form)
+			return;
+		}
+		if (held >= AndyConfig.BONE_SWORD_HOLD) {
+			v[2] = 1L;
+			AndyBoneSword.draw(player);
+		} else {
+			AndyBoneSword.struggling(player, held);
+		}
+	}
+
+	/** Gametests: V has been down for {@code ticks} (the press moved back in time), and the hold ticks. */
+	public static void forTestsHoldV(ServerPlayer player, int ticks) {
+		long[] v = V_HELD.get(player.getUUID());
+		if (v != null) {
+			v[0] = player.level().getGameTime() - ticks;
+		}
+		tickV(player);
 	}
 
 	/** X held: Shift + hold starts the flight; a plain hold winds up and fires the Head Launch, still held. */
@@ -240,7 +301,8 @@ public final class AndyAbilityManager {
 			case SLOT_2 -> new String[] { victor ? AndyAbilities.DEAD_BLADE : AndyAbilities.CRESCENT, AndyAbilities.GREAT_CRESCENT };
 			case SLOT_3 -> new String[] { AndyLaunch.LEG_LAUNCH, AndyAbilities.PROPULSION };
 			case SLOT_4 -> new String[] { AndyAbilities.VORTEX, AndyAbilities.HEAD_BULLET };
-			case SLOT_5 -> new String[] { AndyAbilities.REGEN, AndyConfig.VICTOR_ENABLED ? AndyAbilities.CARD : AndyBoneSword.BONE_SWORD };
+			// v0.17.3: tap V Tear Off, Shift+V the speed (hold V, the Bone Sword, is the third: boneSwordHoldId)
+			case SLOT_5 -> new String[] { AndyAbilities.TEAR_OFF, AndyConfig.VICTOR_ENABLED ? AndyAbilities.CARD : AndyAbilities.REGEN };
 			case SLOT_6 -> new String[] { victor ? AndyAbilities.DEAD_ROAD : AndyAbilities.DEAD_LINE, AndyAbilities.QUARDEAD };
 			default -> new String[0];
 		};
@@ -263,6 +325,7 @@ public final class AndyAbilityManager {
 			case AndyAbilities.VORTEX -> AndyConfig.VORTEX_COOLDOWN;
 			case AndyAbilities.HEAD_BULLET -> AndyConfig.HEAD_BULLET_COOLDOWN;
 			case AndyAbilities.CARD -> AndyConfig.VICTOR_COOLDOWN;
+			case AndyAbilities.TEAR_OFF -> AndyConfig.TEAR_OFF_COOLDOWN;
 			case AndyAbilities.DEAD_LINE -> AndyConfig.DEAD_LINE_COOLDOWN;
 			case AndyAbilities.QUARDEAD -> AndyConfig.QUARDEAD_COOLDOWN;
 			case AndyAbilities.VULCAN -> AndyConfig.VULCAN_COOLDOWN;
