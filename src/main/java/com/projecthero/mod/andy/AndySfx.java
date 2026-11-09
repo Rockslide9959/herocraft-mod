@@ -37,6 +37,20 @@ public final class AndySfx {
 		play(level, at, AndySoundEvents.PART_BREAK, 1.0f, 0.7f);
 	}
 
+	/**
+	 * Reform (tap V): the whole regrowth in one beat -- the bone crack and wet squelch of the regrowth under its finishing snap
+	 * ({@code parts}: something was actually closed; without, only a soft squelch as the wounds knit).
+	 */
+	public static void reform(Level level, Vec3 at, boolean parts) {
+		if (parts) {
+			play(level, at, AndySoundEvents.REGROW_BONE_CRACK, 0.8f, 1.2f);
+			play(level, at, AndySoundEvents.REGROW_SQUELCH, 0.9f, 1.1f);
+			play(level, at, AndySoundEvents.REGROW_FINISH, 1.0f, 1.0f);
+		} else {
+			play(level, at, AndySoundEvents.REGROW_SQUELCH, 0.6f, 1.3f);
+		}
+	}
+
 	/** A big splash of blood; {@code size} 0..1 (bigger is louder and lower). */
 	public static void bloodBurst(Level level, Vec3 at, float size) {
 		float s = Mth.clamp(size, 0f, 1f);

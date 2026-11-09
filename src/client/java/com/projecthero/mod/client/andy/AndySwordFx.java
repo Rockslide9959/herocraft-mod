@@ -43,7 +43,7 @@ import org.joml.Vector3f;
  * <li>Impale Throw: an overhead swoosh.</li>
  * <li>Parry: a white star flash on the blade; a landed parry flares bigger, throws sparks and cuts back.</li>
  * </ul>
- * Also the hold-V draw (blood at the shoulder as the arm gives, the arm bursting round the blade) and Tear Off's eruption.
+ * Also the hold-V draw (blood at the shoulder as the arm gives, the arm bursting round the blade) and Reform's flash of blood and flesh closing.
  * Drawn from {@link AndyEffectsRenderer#render} after the entities; the drops are {@link BloodFx}'s.
  */
 public final class AndySwordFx {
@@ -92,11 +92,13 @@ public final class AndySwordFx {
 		long age = now - s.animStart;
 		if (seen != null && seen != s.animStart && age < 6) {
 			int a = s.animId;
-			if (a >= AndyState.ANIM_SWORD_SLASH1 && a <= AndyState.ANIM_SWORD_COUNTER || a == AndyState.ANIM_TEAR_OFF) {
+			if (a >= AndyState.ANIM_SWORD_SLASH1 && a <= AndyState.ANIM_SWORD_COUNTER) {
 				int hand = s.boneSword() ? AndyBoneSword.hand(s) : Andy.mainArm(player);
 				LIVE.add(new Fx(a, s.animStart, player.getUUID(), player.position(), player.getLookAngle(), player.getYRot(),
 						hand == AndyState.RIGHT_ARM ? 1f : -1f));
 				started(player, s, a);
+			} else if (a == AndyState.ANIM_REFORM) {
+				reformFlash(player, s);
 			}
 		}
 		// the hold-V draw
@@ -140,6 +142,46 @@ public final class AndySwordFx {
 		BloodFx.spurt(at, new Vec3(0, 1, 0), sword ? 10 : 3, 0.15, 0.6, Vec3.ZERO);
 	}
 
+	/**
+	 * v0.17.3 tap V, Reform: the regrowth's bone, flesh and skin compressed into one beat -- on every part that just closed, blood,
+	 * flesh and bone bits rush in from all round and vanish into it, with a puff of mist where it shut.
+	 */
+	private static void reformFlash(Player p, AndyState s) {
+		long mask = s.ex(AndyState.X_REFORMED);
+		Vec3 carry = p.getDeltaMovement();
+		if (mask == 0L) {
+			BloodFx.mist(p.position().add(0, 1.1, 0), 2, 0.25f, carry);
+			return;
+		}
+		for (int part = 0; part < AndyState.PARTS; part++) {
+			if ((mask & (1L << part)) == 0L) {
+				continue;
+			}
+			Vec3 c = AndyParts.centre(p, part);
+			boolean big = part == AndyState.BODY;
+			int n = big ? 30 : 18;
+			for (int k = 0; k < n; k++) {
+				Vec3 d = new Vec3(RND.nextGaussian(), RND.nextGaussian(), RND.nextGaussian());
+				if (d.lengthSqr() < 1.0e-4) {
+					continue;
+				}
+				d = d.normalize();
+				double r = (big ? 0.55 : 0.4) + RND.nextDouble() * 0.2;
+				int life = 3 + RND.nextInt(3);
+				// in to the centre over its life (drag 0.97, gravity 0.045 a tick lifted off)
+				double speed = r / (life * 0.97);
+				Vec3 from = c.add(d.scale(r));
+				int kind = k % 6;
+				int rgb = kind == 0 ? (RND.nextBoolean() ? BONE : BONE_SHADE) : kind < 3 ? BloodFx.FLESH[RND.nextInt(BloodFx.FLESH.length)]
+						: BloodFx.shade(RND.nextFloat());
+				float size = kind == 0 ? 0.025f + RND.nextFloat() * 0.02f : kind < 3 ? 0.035f + RND.nextFloat() * 0.025f : 0.025f + RND.nextFloat() * 0.03f;
+				BloodFx.drop(from.x, from.y, from.z, carry.x - d.x * speed, carry.y - d.y * speed + 0.045 * (life + 1) * 0.5, carry.z - d.z * speed,
+						size, rgb, life, 3);
+			}
+			BloodFx.mist(c, big ? 3 : 2, 0.22f, carry);
+		}
+	}
+
 	/** The first tick of a move: its one-off bursts. */
 	private static void started(Player p, AndyState s, int anim) {
 		Vec3 look = p.getLookAngle();
@@ -178,15 +220,6 @@ public final class AndySwordFx {
 				for (int k = 0; k < 6; k++) {
 					Vec3 v = new Vec3(RND.nextGaussian(), RND.nextGaussian() * 0.5 + 0.3, RND.nextGaussian()).normalize().scale(0.15);
 					BloodFx.drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.018f, 0xFFF6D8, 6 + RND.nextInt(5), 2);
-				}
-			}
-			case AndyState.ANIM_TEAR_OFF -> {
-				int limb = (int) s.ex(AndyState.X_TORN);
-				if (limb >= AndyState.RIGHT_ARM && limb <= AndyState.LEFT_LEG) {
-					boolean arm = limb == AndyState.RIGHT_ARM || limb == AndyState.LEFT_ARM;
-					Vec3 at = arm ? shoulder(p, limb) : AndyParts.centre(p, limb).add(0, 0.3, 0);
-					Vec3 out = AndyParts.right(p).scale(limb == AndyState.RIGHT_ARM || limb == AndyState.RIGHT_LEG ? 1 : -1);
-					BloodFx.eruption(at, arm ? out.add(0, 0.3, 0) : new Vec3(0, -1, 0).add(out.scale(0.3)), carry, 1.1f);
 				}
 			}
 			default -> {
