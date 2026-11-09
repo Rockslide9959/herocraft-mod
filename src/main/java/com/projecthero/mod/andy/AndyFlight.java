@@ -163,9 +163,7 @@ public final class AndyFlight {
 		// the owner's client moves him (AndyFlightTravelMixin); this keeps the server's idea of his velocity in step
 		p.setDeltaMovement(v);
 		p.resetFallDistance();
-		if (now % 4 == 0) {
-			p.causeFoodExhaustion(0.4f);
-		}
+		// (v0.17.3, user: flight no longer costs hunger -- it emptied the bar in under a minute)
 		if (s.flag(AndyState.FLAG_BOOST) && !s.headOnly(now)) {
 			burn(p, s, now);
 		}

@@ -11552,7 +11552,7 @@
   "projecthero.andy.ability.great_crescent_moon": "Spine Sheath - Great Deep-Crimson Crescent Moon",
   "projecthero.andy.ability.great_crescent_moon.desc": "Bring Kurikara down and send a line of huge blood waves 18 blocks forward: 18 damage and a throw to everything they pass. 20s cooldown.",
   "projecthero.andy.ability.blood_propulsion": "Blood Propulsion",
-  "projecthero.andy.ability.blood_propulsion.desc": "Shift + hold X: fly where you look at 25 blocks a second on jets of blood from the stumps of your hands and feet for as long as you hold it. Hold right click to boost to 40 blocks a second while your body burns away down to your head; a head flies at 32. Costs a little hunger.",
+  "projecthero.andy.ability.blood_propulsion.desc": "Shift + hold X: fly where you look at 25 blocks a second on jets of blood from the stumps of your hands and feet for as long as you hold it. Hold right click to boost to 40 blocks a second while your body burns away down to your head; a head flies at 32.",
   "projecthero.andy.ability.leg_launch": "Leg Launch",
   "projecthero.andy.ability.leg_launch.desc": "Tap X: your legs come off at the hips and stay standing where you were while the rest of you is thrown about 20 blocks forward, 6 damage and a knock to everything you fly through. No fall damage. The legs grow back. 3s cooldown.",
   "projecthero.andy.ability.head_launch": "Head Launch",

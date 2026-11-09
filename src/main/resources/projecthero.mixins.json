@@ -9,6 +9,7 @@
 		"CannonboltStowMixin",
 		"LivingEntityKryptoniteHealMixin",
 		"SpeedsterHungerMixin",
+		"AndyPassiveHungerMixin",
 		"StandTimeStopServerLevelMixin",
 		"StandTimeStopLevelMixin",
 		"SpeedsterHungerMoveMixin",
