@@ -1093,6 +1093,24 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.3 (user: "make the player keep the momentum"): at the end of its range the dash lets go at full speed, still fall-safe. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aLaunchKeepsItsMomentumPastItsRange(GameTestHelper helper) {
+		ServerPlayer p = andy(helper); // facing +z
+		com.projecthero.mod.andy.AndyLaunch.legLaunch(p);
+		helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.flying(p), "the launch runs");
+		// past its range, up in the open air
+		p.teleportTo(p.getX(), p.getY() + 6, p.getZ() + AndyConfig.LEG_LAUNCH_RANGE + 2);
+		p.setOnGround(false);
+		com.projecthero.mod.andy.AndyLaunch.tick(p);
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(!com.projecthero.mod.andy.AndyLaunch.flying(p), "the scripted dash has ended");
+		helper.assertTrue(v.z > 1.5, "but he flies on at full speed, not stopped in mid-air: " + v);
+		helper.assertTrue(com.projecthero.mod.andy.AndyLaunch.fallImmune(p), "and no fall damage while momentum carries him");
+		leftBehind(helper, p).forEach(e -> e.discard());
+		helper.succeed();
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void shiftHoldXFliesAndGlideIsGone(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);

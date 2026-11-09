@@ -219,6 +219,8 @@ public final class AndyConfig {
 	/** The arc is pushed for at most this long (it normally ends on landing first). */
 	public static final int LEG_LAUNCH_MAX = 30;
 	public static final int HEAD_LAUNCH_MAX = 60;
+	/** v0.17.3: after a launch lets go in the air, how long at most he is safe from fall damage while momentum carries him (ends on landing). */
+	public static final int LAUNCH_CARRY_SAFE = 200;
 	/** Leg Launch: what the flying body does to whatever it passes through. (The Head Launch uses {@link #HEAD_BULLET_DAMAGE}.) */
 	public static final float LEG_LAUNCH_DAMAGE = 6f;
 	public static final int LEG_LAUNCH_COOLDOWN = 60;

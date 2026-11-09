@@ -282,23 +282,26 @@ public final class AndyLaunch {
 		AbilityHelpers.launchSelf(p, r.dir.scale(r.speed));
 	}
 
-	private static void land(ServerPlayer p, long now) {
+	private static void land(ServerPlayer p, long now, boolean carrying) {
 		Run r = RUNS.remove(p.getUUID());
 		if (r != null && r.head) {
 			AndySfx.headRoll(p.level(), p.position().add(0, 0.25, 0), 1.0f);
 		}
-		SAFE_UNTIL.put(p.getUUID(), now + 40);
+		// still flying on its momentum: no fall damage until he touches down (then a moment more)
+		SAFE_UNTIL.put(p.getUUID(), now + (carrying ? AndyConfig.LAUNCH_CARRY_SAFE : 40));
 		p.resetFallDistance();
 	}
 
 	/** Every tick, from {@link AndyAbilityManager#tickHold}. */
-	static void tick(ServerPlayer p) {
+	public static void tick(ServerPlayer p) {
 		Run r = RUNS.get(p.getUUID());
 		long now = p.level().getGameTime();
 		if (r == null) {
 			Long until = SAFE_UNTIL.get(p.getUUID());
 			if (until != null && now > until) {
 				SAFE_UNTIL.remove(p.getUUID());
+			} else if (until != null && until > now + 10 && (p.onGround() || p.isInWater())) {
+				SAFE_UNTIL.put(p.getUUID(), now + 10); // touched down after flying on: safe a moment longer
 			}
 			return;
 		}
@@ -312,10 +315,13 @@ public final class AndyLaunch {
 		// aimed down into the ground it ends on landing; aimed flat or up it runs its range (or hits a wall)
 		boolean grounded = age >= 2 && r.dir.y < -0.25 && p.onGround();
 		if (!p.isAlive() || p.isSpectator() || age > max || far || grounded || (age >= 3 && p.isInWater()) || stalled || age < 0) {
-			if (far) {
-				AbilityHelpers.launchSelf(p, r.dir.scale(0.35)); // ease out instead of flying on
+			// v0.17.3 (user: "make the player keep the momentum"): at the end of its range (or time) in the open air the dash
+			// lets go at full speed and ordinary physics (air drag, gravity) carry him on; only a wall, the ground or water stop it
+			boolean open = (far || age > max) && !stalled && !grounded && !p.isInWater() && p.isAlive();
+			if (open) {
+				AbilityHelpers.launchSelf(p, r.dir.scale(r.speed));
 			}
-			land(p, now);
+			land(p, now, open);
 			return;
 		}
 		p.resetFallDistance();
