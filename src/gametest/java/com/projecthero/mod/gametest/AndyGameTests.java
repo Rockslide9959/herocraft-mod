@@ -488,11 +488,17 @@ public class AndyGameTests implements FabricGameTest {
 		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(AndyItems.SUIT_CHESTPLATE));
 		com.projecthero.mod.andy.AndyAutoEat.tick(p);
 		helper.assertTrue(p.getFoodData().getFoodLevel() > 6, "with it on he ate: " + p.getFoodData().getFoodLevel());
-		helper.assertTrue(p.getInventory().getItem(2).getCount() == 1, "the bread (least filling) went first");
+		helper.assertTrue(p.getInventory().getItem(1).getCount() == 1, "the steak (most filling, Iron Man's rule) went first");
 		helper.assertTrue(p.getInventory().getItem(0).getCount() == 2, "the golden apples are never eaten");
 		int food = p.getFoodData().getFoodLevel();
 		com.projecthero.mod.andy.AndyAutoEat.tick(p);
 		helper.assertTrue(p.getFoodData().getFoodLevel() == food, "not again straight away");
+		// like the Iron Man suit: a full bar is the only thing that stops it (19/20 still eats)
+		com.projecthero.mod.andy.AndyAutoEat.forget(p.getUUID());
+		p.getFoodData().setFoodLevel(19);
+		p.getFoodData().setSaturation(19f);
+		com.projecthero.mod.andy.AndyAutoEat.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 20, "at 19 the suit still feeds him");
 		helper.succeed();
 	}
 
@@ -828,7 +834,7 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void theBoostBurnsLegsThenArmsThenBodyDownToTheHead(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
 		p.setXRot(-85f);
@@ -836,7 +842,7 @@ public class AndyGameTests implements FabricGameTest {
 		com.projecthero.mod.andy.AndyFlight.start(p);
 		com.projecthero.mod.andy.AndyFlight.setBoost(p, true);
 		int legs = AndyConfig.BURN_TICKS[0], arms = legs + AndyConfig.BURN_TICKS[1], body = arms + AndyConfig.BURN_TICKS[2];
-		helper.assertTrue(body == 80, "4 s from whole to a head");
+		helper.assertTrue(body == 300, "15 s from whole to a head");
 		int[] ticks = { 0 };
 		helper.onEachTick(() -> {
 			edit(p, n -> n.holdStart = helper.getLevel().getGameTime()); // no time limit in the test

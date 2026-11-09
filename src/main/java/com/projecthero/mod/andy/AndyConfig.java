@@ -199,10 +199,10 @@ public final class AndyConfig {
 	public static final int HAND_ROWS = 4;
 	/**
 	 * The boost burns the body away in three stages -- both legs (from the feet up), both arms (from the hands up), the body
-	 * (from the bottom up) -- this many ticks each: 80 ticks (4 s) of boosting from a whole body down to the head. A stage
+	 * (from the bottom up) -- this many ticks each: v0.17.3 (user: "the right click boosted flight should last about 15 seconds before the player becomes just a head") 300 ticks (15 s) of boosting from a whole body down to the head. A stage
 	 * whose parts are already gone is skipped.
 	 */
-	public static final int[] BURN_TICKS = { 28, 24, 28 };
+	public static final int[] BURN_TICKS = { 105, 90, 105 };
 	/** Shift + X held this long starts the flight (a shorter Shift tap does nothing). */
 	public static final int FLIGHT_HOLD_TICKS = 4;
 
@@ -228,7 +228,7 @@ public final class AndyConfig {
 
 	/** v0.17.3 (user: passive auto-eat): he eats from his inventory once his food falls below this (food + saturation, points). */
 	public static final int AUTO_EAT_BELOW = 14;
-	public static final int AUTO_EAT_EVERY = 30;
+	public static final int AUTO_EAT_EVERY = 40; // Iron Man's 2 s
 	/** The arc is pushed for at most this long (it normally ends on landing first). */
 	public static final int LEG_LAUNCH_MAX = 30;
 	public static final int HEAD_LAUNCH_MAX = 60;
