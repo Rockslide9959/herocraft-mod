@@ -123,9 +123,10 @@ public final class AndyRegrow {
 				piece(vc, last, c, b, 1f, light, mask);
 			} else {
 				// v0.17.3 (user: "the muscle builds from the inside out"): a thin sheet laid on the ribcage / skull that
-				// thickens outward from the bone's side of its cell
+				// thickens outward from the bone's side of its cell -- full width along the bone (no slits between
+				// neighbours), ending exactly as the settled cell
 				float e = f * f * (3f - 2f * f);
-				growPiece(vc, last, c, b, 0.92f + 0.08f * e, 0.05f + 0.95f * e, light);
+				growPiece(vc, last, c, b, 1f, 0.05f + 0.95f * e, light);
 			}
 		}
 	}
@@ -162,8 +163,12 @@ public final class AndyRegrow {
 	/** Muscle strands: each column of cells starts up to this much later (in muscle progress), so it begins as fibres on the bone. */
 	static final float MUSCLE_STRANDS = 0.35f;
 
-	/** How far the hand / foot end's plug stays inside the skin planes (model px). */
-	static final float PLUG_INSET = 0.035f;
+	/**
+	 * How far the muscle's outer faces stay inside the part's skin planes (model px): every settled muscle cell fills its 1 px
+	 * cell exactly, so the muscle is one flush block a hair under the skin -- nothing pokes out past the silhouette, and the
+	 * skin texels popping in over it never z-fight it.
+	 */
+	static final float MUSCLE_INSET = 0.035f;
 
 	/** Where the bone's tip stops (rows from the joint). */
 	static final float BONE_REACH = 11.9f;
@@ -245,61 +250,47 @@ public final class AndyRegrow {
 			if (fs > skinAt + LIMB_SETTLE && (Float.isNaN(cap) || fs > cap + LIMB_SETTLE)) {
 				continue; // the skin has closed over it
 			}
-			float s, out;
-			if (fs > skinAt) {
-				s = 0.96f; // the skin is popping in over it
-				out = -0.04f;
-			} else if (face) {
-				s = lb.js[i];
-				out = -0.06f + lb.jo[i] * 0.5f;
-			} else if (mr < 1f) {
+			// v0.17.3 (user: "remove the gaps in between the pixels so that the muscle doesnt poke out"): every cell fills its own
+			// 1 px cell exactly -- no size or position jitter -- so neighbours meet with no gap, and the whole block is clamped
+			// MUSCLE_INSET inside the limb's skin planes so nothing sticks out past the silhouette or fights the skin over it
+			float x0 = box[0] + i % lb.w, y0 = box[1] + row, z0 = box[2] + i / (lb.w * lb.h);
+			float cx0 = x0, cx1 = x0 + 1f, cz0 = z0, cz1 = z0 + 1f;
+			int rgb = lb.rgb[i];
+			int l = light;
+			if (fs <= skinAt && !face && mr < 1f) {
 				// still thickening: the cell is the part of it inside the muscle's radius round the bone, so the muscle
-				// grows out from the bone's surface (cells wholly inside the bone are the bone)
-				float x0 = box[0] + i % lb.w, y0 = box[1] + row, z0 = box[2] + i / (lb.w * lb.h);
+				// grows out from the bone's surface (cells wholly inside the bone are the bone); full row height, so no slits
 				float e = mr * mr * (3f - 2f * mr);
 				float rx = boneR + 0.08f + (lb.w * 0.5f - boneR + 0.1f) * e;
 				float rz = boneR + 0.08f + (lb.d * 0.5f - boneR + 0.1f) * e;
-				float cx0 = Math.max(x0, ax - rx), cx1 = Math.min(x0 + 1f, ax + rx);
-				float cz0 = Math.max(z0, az - rz), cz1 = Math.min(z0 + 1f, az + rz);
+				cx0 = Math.max(x0, ax - rx);
+				cx1 = Math.min(x0 + 1f, ax + rx);
+				cz0 = Math.max(z0, az - rz);
+				cz1 = Math.min(z0 + 1f, az + rz);
 				boolean inBone = x0 >= ax - boneR - 0.01f && x0 + 1f <= ax + boneR + 0.01f && z0 >= az - boneR - 0.01f
 						&& z0 + 1f <= az + boneR + 0.01f;
-				if (inBone || cx1 - cx0 < 0.04f || cz1 - cz0 < 0.04f) {
+				if (inBone) {
 					continue;
 				}
 				// fresh muscle is wetter and darker, settling to its own red as it reaches full thickness
-				int rgb = e < 0.6f ? LIMB_FLESH[Math.max(0, java.util.Arrays.binarySearch(LIMB_FLESH, lb.rgb[i]) - 1)] : lb.rgb[i];
-				flatBox(vc, last, cx0, y0, cz0, cx1, y0 + 1f, cz1, rgb, light);
-				continue;
-			} else {
-				// settled: never smaller than its cell, so no slit opens between neighbours
-				s = Math.max(1f, lb.js[i]);
-				out = 0.15f + lb.jo[i];
-			}
-			float x0 = box[0] + i % lb.w, y0 = box[1] + row, z0 = box[2] + i / (lb.w * lb.h);
-			int dir = lb.dir[i];
-			if (!Float.isNaN(cap) && !face) {
-				// v0.17.3: the hand / foot end -- a solid plug filling the cell under the ragged cube, so the end never shows a
-				// grey sliver of the bone (or daylight) between the cubes before its skin closes; kept a hair inside the skin
-				// planes so the two don't fight
-				float px0 = x0 + ((dir & 1) != 0 ? PLUG_INSET : 0f), px1 = x0 + 1f - ((dir & 2) != 0 ? PLUG_INSET : 0f);
-				float pz0 = z0 + ((dir & 4) != 0 ? PLUG_INSET : 0f), pz1 = z0 + 1f - ((dir & 8) != 0 ? PLUG_INSET : 0f);
-				flatBox(vc, last, px0, y0, pz0, px1, y0 + 1f - PLUG_INSET, pz1, lb.rgb[i], light);
-			}
-			float cx = x0 + 0.5f, cy = y0 + 0.5f, cz = z0 + 0.5f;
-			if (dir != 0) {
-				cx += (((dir & 2) != 0 ? 1 : 0) - ((dir & 1) != 0 ? 1 : 0)) * out;
-				cz += (((dir & 8) != 0 ? 1 : 0) - ((dir & 4) != 0 ? 1 : 0)) * out;
-			}
-			int rgb = lb.rgb[i];
-			int l = light;
-			if (embers && key < from + 1.6f) {
+				if (e < 0.6f) {
+					rgb = LIMB_FLESH[Math.max(0, java.util.Arrays.binarySearch(LIMB_FLESH, lb.rgb[i]) - 1)];
+				}
+			} else if (embers && key < from + 1.6f) {
 				// the burning edge: hottest right at the cut
 				float heat = 1f - Math.max(0f, (from - key)) / 2.2f;
 				rgb = EMBER[Math.max(0, Math.min(EMBER.length - 1, (int) (heat * EMBER.length + lb.jo[i] * 6f)))];
 				l = 0xF000F0;
 			}
-			float hlf = 0.5f * s;
-			flatBox(vc, last, cx - hlf, cy - hlf, cz - hlf, cx + hlf, cy + hlf, cz + hlf, rgb, l);
+			cx0 = Math.max(cx0, box[0] + MUSCLE_INSET);
+			cx1 = Math.min(cx1, box[0] + lb.w - MUSCLE_INSET);
+			cz0 = Math.max(cz0, box[2] + MUSCLE_INSET);
+			cz1 = Math.min(cz1, box[2] + lb.d - MUSCLE_INSET);
+			float cy0 = Math.max(y0, box[1] + MUSCLE_INSET), cy1 = Math.min(y0 + 1f, box[1] + lb.h - MUSCLE_INSET);
+			if (cx1 - cx0 < 0.04f || cz1 - cz0 < 0.04f) {
+				continue;
+			}
+			flatBox(vc, last, cx0, cy0, cz0, cx1, cy1, cz1, rgb, l);
 		}
 	}
 
@@ -346,10 +337,10 @@ public final class AndyRegrow {
 	static final class Limb {
 		float[] box;
 		int w, h, d, n;
-		float[] skinAt, fleshKey, capAt, jo, js;
+		float[] skinAt, fleshKey, capAt;
+		/** Per cell: a little scatter for the embers' colour. */
+		float[] jo;
 		int[] rgb;
-		/** Which outer sides a cell is on: 1 -x, 2 +x, 4 -z, 8 +z (0 inside). */
-		byte[] dir;
 		/** Per texel of {@link AndyTexels#of}. */
 		float[] texelAt;
 		/** The front past which nothing but finished skin is left; the skin front at the end; the muscle front at the end. */
@@ -382,9 +373,7 @@ public final class AndyRegrow {
 			fleshKey = new float[n];
 			capAt = new float[n];
 			jo = new float[n];
-			js = new float[n];
 			rgb = new int[n];
-			dir = new byte[n];
 			java.util.Arrays.fill(capAt, Float.NaN);
 			long seed = 4242L + part * 101L + (slim ? 7L : 0L);
 			float last = 0f, lastFlesh = 0f;
@@ -404,12 +393,9 @@ public final class AndyRegrow {
 						prevS = s;
 						prevF = fl;
 						jo[i] = (AndyTexels.hash(x, r, z, seed + 3) - 0.5f) * 0.24f;
-						js[i] = 0.94f + 0.12f * AndyTexels.hash(x, r, z, seed + 4);
 						// mostly the darker reds, a few bright ones
 						float hc = AndyTexels.hash(x, r, z, seed + 5);
 						rgb[i] = LIMB_FLESH[Math.min(LIMB_FLESH.length - 1, (int) (hc * hc * 1.25f * LIMB_FLESH.length))];
-						int dr = (x == 0 ? 1 : 0) | (x == w - 1 ? 2 : 0) | (z == 0 ? 4 : 0) | (z == d - 1 ? 8 : 0);
-						dir[i] = (byte) dr;
 						if (r == h - 1) {
 							capAt[i] = s + 0.9f + 1.1f * AndyTexels.hash(x, r, z, seed + 6);
 							last = Math.max(last, capAt[i]);
@@ -691,22 +677,26 @@ public final class AndyRegrow {
 			fleshGrid(part, AndyTexels.box(part, slim), slim);
 		}
 
-		/** One flesh cell per px of the part, inset a little under the skin, skipping where the bone runs (it shows between). */
+		/**
+		 * One flesh cell per px of the part, each filling its 1 px cell exactly (no gaps between neighbours), the outer faces
+		 * {@link #MUSCLE_INSET} under the skin; skipping where the bone runs (it shows between).
+		 */
 		private void fleshGrid(int part, float[] box, boolean slim) {
 			gw = (int) box[3];
 			gh = (int) box[4];
 			gd = (int) box[5];
 			flesh = new Piece[gw * gh * gd];
-			float inset = 0.14f;
-			float sx = (box[3] - 2 * inset) / gw, sy = (box[4] - 2 * inset) / gh, sz = (box[5] - 2 * inset) / gd;
+			float inset = MUSCLE_INSET;
 			float cx = box[0] + box[3] * 0.5f, cz = box[2] + box[5] * 0.5f;
 			long seed = 77L + part * 13L;
 			java.util.Random rnd = new java.util.Random(seed);
 			for (int z = 0; z < gd; z++) {
 				for (int y = 0; y < gh; y++) {
 					for (int x = 0; x < gw; x++) {
-						float x0 = box[0] + inset + x * sx, y0 = box[1] + inset + y * sy, z0 = box[2] + inset + z * sz;
-						float mx = x0 + sx * 0.5f, my = y0 + sy * 0.5f, mz = z0 + sz * 0.5f;
+						float mx = box[0] + x + 0.5f, my = box[1] + y + 0.5f, mz = box[2] + z + 0.5f;
+						float x0 = Math.max(box[0] + x, box[0] + inset), x1 = Math.min(box[0] + x + 1f, box[0] + box[3] - inset);
+						float y0 = Math.max(box[1] + y, box[1] + inset), y1 = Math.min(box[1] + y + 1f, box[1] + box[4] - inset);
+						float z0 = Math.max(box[2] + z, box[2] + inset), z1 = Math.min(box[2] + z + 1f, box[2] + box[5] - inset);
 						if (keepOut(part, mx, my, mz, cx, cz, slim)) {
 							continue;
 						}
@@ -724,7 +714,7 @@ public final class AndyRegrow {
 						if (rnd.nextFloat() < 0.05f) {
 							rgb = 0xB8545C; // a pale streak of sinew
 						}
-						Piece c = new Piece(x0, y0, z0, x0 + sx, y0 + sy, z0 + sz, rgb);
+						Piece c = new Piece(x0, y0, z0, x1, y1, z1, rgb);
 						// v0.17.3 (user: "the muscle builds from the inside out -- outward from the ribcage / skull, then the skin
 						// covers it"): each cell grows from its point nearest the bone, and its turn is how far it lies from the bone
 						float[] bb = boneBox(part);

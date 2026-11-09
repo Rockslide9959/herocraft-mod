@@ -1,0 +1,37 @@
+v0.17.3 Andy -- flush regrowth muscle (user: "remove the gaps in between the pixels so that the muscle doesnt poke out
+slightly like it does right now")
+
+Change (AndyRegrow.java):
+- Arm/leg muscle cells now fill their 1x1x1 px cell exactly: no size jitter (js 0.94..1.06), no outward offset
+  (jo +-0.12, settled cells pushed 0.15 px proud), no shrunk 0.96 cells under popping skin. Neighbours touch with no gap.
+- Everything is clamped MUSCLE_INSET (0.035 px, the old plug inset) inside the part's skin planes, so nothing sticks
+  out past the silhouette and the skin texels popping in never z-fight the muscle. The separate hand/foot plug is gone
+  (the end cells themselves are now solid and inset).
+- Thickening cells (inside-out growth round the bone) still grow outward, full row height, and end clamped to the same
+  inset boundary, so the hand-off to the settled cell is seamless.
+- Head/body flesh grid: cells sit on the integer px grid, fill it fully (only the outer 0.035 px inset, was a 0.14 px
+  inset with 0.965 px cells); the growing sheet is now full width along the bone (was 0.92) so no slits, and its end
+  state is the full cell.
+- Per-cell reds, the darker "fresh" shade, cut faces and boost embers kept. Timing (bone -> muscle -> skin) unchanged.
+
+Capture: temporary client harness (scratchpad/andy/AndyFlushHarness.v0173.java.txt), game time 1,000,000, regrowth
+frozen at p = 0.36 .. 0.92 (muscle part-thick ~0.36-0.52, muscle full before skin ~0.60, skin closing 0.68-0.84).
+Both runs used the same player skin (--username Player828), 1280x720.
+
+Files:
+  before_after_comparison.png              arm side p.60/.68, leg side p.60, torso front p.44 -- before vs after
+  zoom_arm_side_before_after_p68_p76.png   before | after | before | after, arm side at p.68 and p.76
+  zoom_torso_before_after.png              torso front p.44 (top) and grazing p.52 (bottom), before | after
+  before_*_stills.png / after_*_stills.png 8 progress points each, for:
+      arm_front, arm_side, arm_graze (from below the hand, looking up the outer side face)
+      leg_front, leg_side, leg_graze (horizontal, skimming the front face)
+      torso_front, torso_side (3/4), torso_graze (horizontal skim; partly blocked by the left arm)
+  before_arm_regrow.mp4 / after_arm_regrow.mp4 (+ _sheet.png)  whole right arm regrowing, 9.5 s at 20 fps
+
+What the frames show:
+  BEFORE: single cubes standing proud of the arm/leg outline on the side views (p.60-.84), visible slits and steps
+  between cells, and on the torso light grid lines between the inset cells with the ribcage showing through (p.36-.44)
+  and a gap at the torso's left/right edges.
+  AFTER: the muscle is one flat block with a straight silhouette, no gaps between neighbours, filled to the edges,
+  sitting just under where the skin closes. The only remaining relief is transient: a cell still thickening (slightly
+  darker) shows a thin edge until it reaches full thickness, and the skin's own pop-in texels at the front (unchanged).
