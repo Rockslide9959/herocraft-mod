@@ -143,8 +143,9 @@ public final class AndyFirstPerson {
 		arm.translateAndRotate(pose);
 		float[] b = AndyTexels.box(part, AndyRender.slim(player));
 		pose.translate((b[0] + b[3] * 0.5f) / 16f, (b[1] + cut.rows()) / 16f, (b[2] + b[5] * 0.5f) / 16f);
-		// the spurt streams back along the forearm, past the bottom of the view (short: it never reaches the camera)
-		AndyJets.firstPersonArm(pose, buffers, light, player, part, 0f, -1f, 0f, 0f, 0f, 0.4f);
+		// the spurt erupts out of the cut face and the wind folds it straight back along the forearm (a short fountain at the
+		// bottom of the view: it never reaches the camera)
+		AndyJets.firstPersonArm(pose, buffers, light, player, part, 0f, 1f, 0f, 0f, -14f, 0f);
 		pose.popPose();
 	}
 
@@ -159,7 +160,8 @@ public final class AndyFirstPerson {
 			if (s.broken(arm)) {
 				continue;
 			}
-			Vec3 at = eye.add(look.scale(0.55)).add(right.scale(0.42 * sd)).add(down.scale(0.5));
+			// (far enough out that BloodFx's near-camera fade lets them show: a few drops at the bottom corners)
+			Vec3 at = eye.add(look.scale(1.8)).add(right.scale(0.62 * sd)).add(down.scale(1.0));
 			AndyJets.firstPersonSpray(player, s, at, look.scale(-1).add(down.scale(0.4)).normalize());
 		}
 	}

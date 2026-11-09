@@ -304,8 +304,8 @@ public final class AndyJets {
 		if (RND.nextFloat() < 0.16f * p * power) {
 			BloodFx.arterialDrop(from, dir, carry, v * 0.9f, 0.06f, true); // a heavy glob: it splats where it lands
 		}
-		if (p > 0.72f && RND.nextFloat() < 0.3f * power) {
-			BloodFx.mist(from.add(dir.scale(0.35)), 1, 0.11f + 0.04f * power, carry.add(dir.scale(v * 0.5)));
+		if (p > 0.85f && RND.nextFloat() < 0.12f * power) {
+			BloodFx.mist(from.add(dir.scale(0.35)), 1, 0.08f + 0.03f * power, carry.add(dir.scale(v * 0.5)));
 		}
 		if (p < 0.18f && RND.nextFloat() < 0.3f) {
 			BloodFx.drop(at.x, at.y, at.z, carry.x * 0.95, carry.y * 0.95 - 0.03, carry.z * 0.95, 0.028f + RND.nextFloat() * 0.018f,
@@ -648,8 +648,9 @@ public final class AndyJets {
 		boolean boost = s.flag(AndyState.FLAG_BOOST);
 		long[] seen = seen(player);
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(AndyRender.PALETTE));
-		rope(vc, pose.last(), 0f, 0f, 0f, dx, dy, dz, gx, gy, gz, 0.075f, speed(boost) * 0.8f, boost ? 1.5f : 1f, violence(seen, now), now, boost,
-				player.getId() * 7 + part, light, boost ? 1.7f : 1.3f);
+		// (right in front of the camera: a small fountain, a third the size of what others see)
+		rope(vc, pose.last(), 0f, 0f, 0f, dx, dy, dz, gx, gy, gz, 0.05f, speed(boost) * 0.65f, boost ? 1.3f : 1f, Math.min(1.3f, violence(seen, now)), now, boost,
+				player.getId() * 7 + part, light, boost ? 1.2f : 1.0f);
 	}
 
 	/** First person, flying: the spray off the arm jets streaming back past the bottom corners of the view. */
