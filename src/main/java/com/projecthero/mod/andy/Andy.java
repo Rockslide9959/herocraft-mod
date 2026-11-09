@@ -231,7 +231,6 @@ public final class Andy {
 				Component.translatable("message.projecthero.andy.subtitle").withStyle(ChatFormatting.RED)));
 		player.displayClientMessage(Component.translatable("message.projecthero.andy.acquired").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.andy.acquired_hint").withStyle(ChatFormatting.GRAY), false);
-		com.projecthero.mod.andy.item.AndySuitItem.giveFirstTime(player); // v0.17.3: his suit, the first time only
 		return true;
 	}
 

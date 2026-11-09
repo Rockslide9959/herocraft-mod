@@ -89,22 +89,4 @@ public class AndySuitItem extends ArmorItem {
 			tooltip.add(Component.translatable("item.projecthero.andy_suit_chestplate.tooltip").withStyle(ChatFormatting.DARK_RED));
 		}
 	}
-
-	/** v0.17.3: the whole suit, given once the first time a player gains the Andy power (a full inventory drops it at the feet). */
-	public static void giveFirstTime(ServerPlayer player) {
-		if (player.getTags().contains(GIVEN_TAG)) {
-			return;
-		}
-		player.addTag(GIVEN_TAG);
-		for (var item : List.of(AndyItems.SUIT_CHESTPLATE, AndyItems.SUIT_LEGGINGS, AndyItems.SUIT_BOOTS)) {
-			ItemStack stack = new ItemStack(item);
-			if (!player.getInventory().add(stack)) {
-				player.drop(stack, false);
-			}
-		}
-		player.displayClientMessage(Component.translatable("message.projecthero.andy.suit_given").withStyle(ChatFormatting.DARK_RED), false);
-	}
-
-	/** Remembered in the player's tags (saved with the player): the suit only ever comes once. */
-	public static final String GIVEN_TAG = "projecthero.andy_suit_given";
 }

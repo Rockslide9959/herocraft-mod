@@ -527,15 +527,16 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.3 (user): the whole suit is given the first time he takes the power, and only then. */
+	/** v0.17.3 (user): the suit is not given with the power -- it is only crafted. */
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void andysSuitIsGivenOnce(GameTestHelper helper) {
+	public void andysSuitIsCraftedNotGiven(GameTestHelper helper) {
 		ServerPlayer p = andy(helper);
-		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1
-				&& p.getInventory().countItem(AndyItems.SUIT_LEGGINGS) == 1 && p.getInventory().countItem(AndyItems.SUIT_BOOTS) == 1, "the full set on first gaining the power");
-		Andy.revoke(p);
-		Andy.grant(p);
-		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 1, "not a second time");
+		helper.assertTrue(p.getInventory().countItem(AndyItems.SUIT_CHESTPLATE) == 0 && p.getInventory().countItem(AndyItems.SUIT_LEGGINGS) == 0
+				&& p.getInventory().countItem(AndyItems.SUIT_BOOTS) == 0, "gaining the power gives no suit");
+		var recipes = helper.getLevel().getRecipeManager();
+		for (String id : new String[] { "andy_suit_chestplate", "andy_suit_leggings", "andy_suit_boots" }) {
+			helper.assertTrue(recipes.byKey(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("projecthero", id)).isPresent(), "craftable: " + id);
+		}
 		helper.succeed();
 	}
 
