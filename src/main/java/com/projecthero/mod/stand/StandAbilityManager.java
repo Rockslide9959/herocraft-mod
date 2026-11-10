@@ -16,15 +16,16 @@ import net.minecraft.server.level.ServerPlayer;
  * server-side off the sneak state. Star Platinum:
  *
  * <pre>
- *   R (1)  ORA Rush (hold)        Shift+R  Star Finger
- *   G (2)  Power Grab / hurl      Shift+G  Ball Bearing Flick
- *   X (3)  Stand Leap / rebound   Shift+X  Stand Dash
- *   Z (4)  Star Breaker (hold)    Shift+Z  Star Platinum: The World
- *   V (5)  Stand Guard (hold)     Shift+V  Precision Sight
- *   C (6)  Super Inhale           Shift+C  ORAAA Uppercut
+ *   R (1)  tap: Platinum Smash, hold: ORA Barrage    Shift+R  Star Finger
+ *   G (2)  Ora Chase                                Shift+G  Ball Bearing Flick
+ *   X (3)  Stand Jump                               Shift+X  Ora Rush
+ *   Z (4)  Star Breaker (hold)                      Shift+Z  Star Platinum: The World (again: time resumes)
+ *   V (5)  Stand Guard (hold)                       Shift+V  Stand Grab (holding: V throws, Shift+V puts down, R punches)
+ *   C (6)  Super Inhale                             Shift+C  ORAAA Uppercut
  *   N (8)  pose (Shift+N is the Stand Menu, client-side)
  * </pre>
- * H summons / dismisses (its own payload). A held move started with Shift ends on release however Shift is then.
+ * H summons / dismisses (its own payload). A held move started with Shift ends on release however Shift is then. v0.17.3: R
+ * decides tap or hold by how long it stays down ({@link StandConfig#HOLD_THRESHOLD}, see {@link StarPlatinum#rPressed}).
  */
 public final class StandAbilityManager {
 	static final int REPEAT_WINDOW = 25;
@@ -78,11 +79,9 @@ public final class StandAbilityManager {
 		switch (slot) {
 			case SLOT_1 -> {
 				if (!pressed) {
-					StarPlatinum.stopRush(player);
-				} else if (shift) {
-					StarPlatinum.starFinger(player);
+					StarPlatinum.rReleased(player);
 				} else {
-					StarPlatinum.startRush(player);
+					StarPlatinum.rPressed(player, shift);
 				}
 			}
 			case SLOT_2 -> {
@@ -90,16 +89,16 @@ public final class StandAbilityManager {
 					if (shift) {
 						StarPlatinum.flick(player);
 					} else {
-						StarPlatinum.grabKey(player);
+						StarPlatinum.oraChase(player);
 					}
 				}
 			}
 			case SLOT_3 -> {
 				if (pressed) {
 					if (shift) {
-						StarPlatinum.dash(player);
+						StarPlatinum.oraRush(player);
 					} else {
-						StarPlatinum.leapKey(player);
+						StarPlatinum.standJump(player);
 					}
 				}
 			}
@@ -115,8 +114,15 @@ public final class StandAbilityManager {
 			case SLOT_5 -> {
 				if (!pressed) {
 					StarPlatinum.stopGuard(player);
+				} else if (Stands.state(player).grabbedEntity != -1) {
+					// holding something: V throws it, Shift+V sets it down gently
+					if (shift) {
+						StarPlatinum.putDown(player);
+					} else {
+						StarPlatinum.hurl(player);
+					}
 				} else if (shift) {
-					StarPlatinum.toggleSight(player);
+					StarPlatinum.grabKey(player);
 				} else {
 					StarPlatinum.startGuard(player);
 				}
@@ -143,11 +149,11 @@ public final class StandAbilityManager {
 	/** The two moves on one key: [plain, shift]. */
 	public static String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> new String[] { StandMove.ORA_RUSH, StandMove.STAR_FINGER };
-			case SLOT_2 -> new String[] { StandMove.POWER_GRAB, StandMove.BEARING_FLICK };
-			case SLOT_3 -> new String[] { StandMove.LEAP, StandMove.DASH };
+			case SLOT_1 -> new String[] { StandMove.PLATINUM_SMASH, StandMove.STAR_FINGER };
+			case SLOT_2 -> new String[] { StandMove.ORA_CHASE, StandMove.BEARING_FLICK };
+			case SLOT_3 -> new String[] { StandMove.STAND_JUMP, StandMove.ORA_RUSH };
 			case SLOT_4 -> new String[] { StandMove.STAR_BREAKER, StandMove.THE_WORLD };
-			case SLOT_5 -> new String[] { StandMove.GUARD, StandMove.SIGHT };
+			case SLOT_5 -> new String[] { StandMove.GUARD, StandMove.STAND_GRAB };
 			case SLOT_6 -> new String[] { StandMove.INHALE, StandMove.UPPERCUT };
 			default -> new String[0];
 		};

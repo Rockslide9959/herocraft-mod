@@ -82,6 +82,12 @@ public final class TimeStopClient {
 		return casterId;
 	}
 
+	/** v0.17.3: the local player is the one holding time still (the HUD lights Shift+Z: pressing it again resumes time). */
+	public static boolean casterIsLocal() {
+		Minecraft mc = Minecraft.getInstance();
+		return active() && mc.player != null && mc.player.getId() == casterId;
+	}
+
 	/** Is this entity held still on this client? */
 	public static boolean frozen(Entity e) {
 		if (!active()) {

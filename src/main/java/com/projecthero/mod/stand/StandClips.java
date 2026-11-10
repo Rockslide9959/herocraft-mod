@@ -15,7 +15,7 @@ import net.minecraft.util.Mth;
  * the joint), the overlay layers and the glow shell bend with them.
  *
  * <p>Each move is a keyframed {@link Clip}: a short anticipation, a strike that snaps in on an ease-out, a held follow-through and a
- * return. Held moves (the rush, Guard, the Star Breaker charge, a held grab, Precision Sight) are computed. {@link StandRender} then
+ * return. Held moves (the rush, Guard, the Star Breaker charge, a held grab, Ora Chase, Ora Rush) are computed. {@link StandRender} then
  * cross-fades the figure toward whatever this gives on a fast per-frame filter, so nothing ever pops from one pose to the next.
  * Negative shoulder / hip {@code x} swings a limb forward and up; a positive elbow or knee folds it. Common code (no client classes), so a gametest can
  * walk every frame ({@link #clearanceProblems}); the client's {@code StandPoses} sets the result on the model.
@@ -193,13 +193,16 @@ public final class StandClips {
 			.at(8f)
 			.at(16f, STANCE);
 
-	/** Star Finger: the arm whips out and locks, two fingers extended, the other hand back at the hip. */
+	/**
+	 * Star Finger: the arm whips out and locks, two fingers extended, the other hand back at the hip -- held, pointing, the whole second
+	 * the fingers take to stretch 30 blocks (v0.17.3, {@link StandConfig#FINGER_EXTEND_TICKS}), and while they draw back.
+	 */
 	private static final Clip FINGER = new Clip(STANCE)
 			.ra(-1.3f, -0.2f, 0.1f, 0.9f).body(0.1f, 0.3f, 0f).aim(1f, 0f)
 			.at(2f).snap().ra(-1.42f, 0.36f, 0f, 0f).la(0.4f, 0.35f, -0.3f, 1.4f).body(0.16f, -0.42f, 0f)
 			.rl(-0.3f, 0.06f, 0.06f, 0.55f).ll(0.45f, -0.05f, -0.06f, 0.75f).lean(0.2f, 0f, 0f).go(0.2f, 0f, 0f)
-			.at(10f)
-			.at(14f, STANCE);
+			.at(StandConfig.FINGER_EXTEND_TICKS + StandConfig.FINGER_HOLD_TICKS + StandConfig.FINGER_RETRACT_TICKS)
+			.at(StandConfig.FINGER_EXTEND_TICKS + StandConfig.FINGER_HOLD_TICKS + StandConfig.FINGER_RETRACT_TICKS + 5f, STANCE);
 
 	/** Power Grab: a long reach, the fingers closing on it, then the catch drawn in. */
 	private static final Clip GRAB = new Clip(STANCE)
@@ -214,6 +217,20 @@ public final class StandClips {
 		p.ra(-1.2f, 0f, 0.12f, 0.35f).la(-1.2f, 0f, -0.12f, 0.35f).rl(-0.45f, 0.06f, 0.06f, 0.8f).ll(0.15f, -0.05f, -0.06f, 0.35f);
 		p.body(0.1f, 0f, 0f).lean(0.1f, 0f, 0f).aim(1f, 1f);
 	});
+
+	/** v0.17.3 Stand Grab's combo: the left hand keeps hold, the right cocks and drives straight into the catch. */
+	private static final Clip GRAB_PUNCH = new Clip(HOLD)
+			.at(1.5f).ra(-0.45f, -0.1f, 0.25f, 1.5f).la(-1.25f, 0.1f, -0.15f, 0.3f).body(0.1f, 0.35f, 0f).aim(0f, 1f)
+			.at(3f).snap().ra(-1.42f, 0.3f, 0f, 0.04f).la(-1.2f, 0.25f, -0.2f, 0.3f).body(0.16f, -0.35f, 0f).lean(0.2f, 0f, 0f).aim(1f, 1f)
+			.at(5f)
+			.at(8f, HOLD);
+
+	/** v0.17.3 Stand Grab, Shift+V: bending to set the catch down on its feet. */
+	private static final Clip PUT_DOWN = new Clip(HOLD)
+			.at(4f).ra(-0.9f, 0f, 0.14f, 0.2f).la(-0.9f, 0f, -0.14f, 0.2f).rl(-0.9f, 0.06f, 0.06f, 1.4f).ll(-0.3f, -0.05f, -0.06f, 0.9f)
+			.body(0.45f, 0f, 0f).lean(0.15f, 0f, 0f).go(0.25f, -0.3f, 0f).aim(0f, 0f)
+			.at(7f)
+			.at(12f, STANCE);
 
 	/** The hurl: wound over the shoulder, the whole body whipping through. */
 	private static final Clip THROW = new Clip(HOLD)
@@ -301,11 +318,17 @@ public final class StandClips {
 		p.body(0.26f, 0f, 0f).head(0.3f, 0f).lean(0.12f, 0f, 0f).go(0f, -0.08f, 0f);
 	});
 
-	/** Precision Sight: leaning over the shoulder, a hand raised beside the temple, the other arm down. */
-	public static final float[] SIGHT = pose(p -> {
-		p.ra(-0.35f, 0f, 1.05f, 1.75f).la(-0.1f, 0f, -0.26f, 0.35f).rl(-0.5f, 0.06f, 0.05f, 0.95f).ll(0.08f, -0.04f, -0.05f, 0.3f);
-		p.body(0.2f, -0.1f, 0f).lean(0.15f, 0f, 0f).go(0.25f, 0.1f, 0f);
+	/** v0.17.3 Ora Chase, flying: flat out like a thrown punch, the right fist leading, legs streaming behind. */
+	public static final float[] CHASE_FLY = pose(p -> {
+		p.ra(-2.8f, 0.2f, -0.55f, 0f).la(0.55f, 0f, -0.2f, 0.9f).rl(0.35f, 0.04f, 0.05f, 0.55f).ll(0.1f, -0.04f, -0.05f, 1.3f);
+		p.body(0.1f, -0.1f, 0f).head(-0.95f, 0f).lean(1.2f, 0f, 0f);
 	});
+
+	/** v0.17.3 Ora Chase's catch: the left hand up and out in front, holding it by the neck. */
+	private static final float[] CHASE_GRIP = { -2.2f, 0.15f, 0.4f, 0.1f };
+
+	/** v0.17.3 the floating legs (user: "star platinum shouldn't walk behind the player, star platinum should float"): relaxed, toes down. */
+	public static final float[] FLOAT_LEGS = { -0.28f, 0.05f, 0.06f, 0.55f, 0.06f, -0.04f, -0.05f, 0.25f };
 
 	private static float[] mirrorPose(float[] p) {
 		float[] m = p.clone();
@@ -350,10 +373,12 @@ public final class StandClips {
 			case StandState.ANIM_BREAKER -> BREAKER;
 			case StandState.ANIM_FINGER -> FINGER;
 			case StandState.ANIM_GRAB -> GRAB;
-			case StandState.ANIM_THROW -> THROW;
+			case StandState.ANIM_GRAB_PUNCH -> GRAB_PUNCH;
+			case StandState.ANIM_PUT_DOWN -> PUT_DOWN;
+			case StandState.ANIM_THROW, StandState.ANIM_CHASE_THROW -> THROW;
 			case StandState.ANIM_FLICK -> FLICK;
 			case StandState.ANIM_LEAP -> LEAP;
-			case StandState.ANIM_DASH -> DASH;
+			case StandState.ANIM_DASH, StandState.ANIM_ORA_RUSH -> DASH;
 			case StandState.ANIM_THE_WORLD -> THE_WORLD;
 			case StandState.ANIM_INHALE -> INHALE;
 			case StandState.ANIM_UPPERCUT -> UPPERCUT;
@@ -367,7 +392,8 @@ public final class StandClips {
 	 * behind its user copying them (the client works their pose out; these clips only cover the moves).
 	 */
 	public static boolean mirrors(StandState s, float age, long now) {
-		if (s.rushing || s.guarding || s.chargeStart != 0L || s.grabbedEntity != -1 || s.grabbedBlock != 0 || s.inhaleUntil != 0L || s.sightUntil > now) {
+		if (s.rushing || s.guarding || s.chargeStart != 0L || s.grabbedEntity != -1 || s.grabbedBlock != 0 || s.inhaleUntil != 0L || s.chaseStart != 0L
+				|| s.dashUntil > now) {
 			return false;
 		}
 		Clip one = clip(s.animId);
@@ -386,7 +412,19 @@ public final class StandClips {
 	public static void target(StandState s, float age, float t, long now, boolean fight, float[] out) {
 		Clip one = clip(s.animId);
 		boolean playing = one != null && age >= 0f && age < one.length();
-		if (s.rushing) {
+		if (s.chaseStart != 0L) {
+			if (s.chaseGrabAt == 0L) {
+				System.arraycopy(CHASE_FLY, 0, out, 0, N);
+				out[RL + 3] += 0.15f * Mth.sin(t * 0.6f);
+				out[LL + 3] -= 0.15f * Mth.sin(t * 0.6f);
+			} else {
+				chaseHold(t, out);
+			}
+			return;
+		} else if (s.dashUntil > now) {
+			oraRush(t, out);
+			return;
+		} else if (s.rushing) {
 			rushing(t, out);
 		} else if (s.guarding) {
 			System.arraycopy(GUARD, 0, out, 0, N);
@@ -397,8 +435,6 @@ public final class StandClips {
 			one.sample(age, out);
 		} else if (s.grabbedEntity != -1 || s.grabbedBlock != 0) {
 			System.arraycopy(HOLD, 0, out, 0, N);
-		} else if (s.sightUntil > now) {
-			System.arraycopy(SIGHT, 0, out, 0, N);
 		} else {
 			System.arraycopy(fight ? STANCE : REST, 0, out, 0, N);
 		}
@@ -438,6 +474,44 @@ public final class StandClips {
 		out[LL + 3] = 1.1f;
 		out[AIM_R] = 1f;
 		out[AIM_L] = 1f;
+	}
+
+	/**
+	 * v0.17.3 Ora Chase's catch (user: "grabs them by the neck and lifts them up and barrages them with one hand"): the left hand holds
+	 * the victim up in front, the right fist pistons in and out, the shoulders rolling behind it, the legs hanging loose.
+	 */
+	private static void chaseHold(float t, float[] out) {
+		System.arraycopy(STANCE, 0, out, 0, N);
+		float r = 0.5f + 0.5f * Mth.sin(t * 1.9f);
+		out[LA] = CHASE_GRIP[0];
+		out[LA + 1] = CHASE_GRIP[1];
+		out[LA + 2] = CHASE_GRIP[2];
+		out[LA + 3] = CHASE_GRIP[3];
+		out[RA] = Mth.lerp(r, -0.7f, -1.42f);
+		out[RA + 1] = Mth.lerp(r, -0.05f, 0.35f);
+		out[RA + 2] = Mth.lerp(r, 0.14f, 0f);
+		out[RA + 3] = Mth.lerp(r, 1.3f, 0.04f);
+		out[BODY] = Mth.lerp(r, 0.05f, 0.12f);
+		out[BODY + 1] = Mth.lerp(r, 0.15f, -0.3f);
+		out[HEAD] = -0.25f;
+		System.arraycopy(FLOAT_LEGS, 0, out, RL, 8);
+		out[LEAN] = 0.05f;
+		out[AIM_R] = 0f;
+		out[AIM_L] = 0f;
+	}
+
+	/** v0.17.3 Ora Rush (Shift+X): the barrage's pistoning fists, the whole body thrown forward into the dash. */
+	private static void oraRush(float t, float[] out) {
+		rushing(t, out);
+		out[LEAN] = 0.38f;
+		out[HEAD] = -0.2f;
+		out[FWD] = 0.55f;
+		out[RL] = 0.35f;
+		out[RL + 3] = 0.6f;
+		out[LL] = 0.1f;
+		out[LL + 3] = 1.2f;
+		out[AIM_R] = 0f;
+		out[AIM_L] = 0f;
 	}
 
 	/** The Star Breaker charge: coiling back further and further, the fist at the hip, the front arm out, shaking with the power. */
@@ -525,10 +599,11 @@ public final class StandClips {
 	public static List<String> clearanceProblems() {
 		List<String> out = new ArrayList<>();
 		String[] names = { "summon", "punch", "punch left", "heavy", "dismiss", "finger", "grab", "throw", "flick", "leap", "dash", "breaker", "the world", "inhale",
-				"uppercut", "catch" };
+				"uppercut", "catch", "grab punch", "put down" };
 		int[] ids = { StandState.ANIM_SUMMON, StandState.ANIM_PUNCH_R, StandState.ANIM_PUNCH_L, StandState.ANIM_PUNCH_HEAVY, StandState.ANIM_DISMISS,
 				StandState.ANIM_FINGER, StandState.ANIM_GRAB, StandState.ANIM_THROW, StandState.ANIM_FLICK, StandState.ANIM_LEAP, StandState.ANIM_DASH,
-				StandState.ANIM_BREAKER, StandState.ANIM_THE_WORLD, StandState.ANIM_INHALE, StandState.ANIM_UPPERCUT, StandState.ANIM_CATCH };
+				StandState.ANIM_BREAKER, StandState.ANIM_THE_WORLD, StandState.ANIM_INHALE, StandState.ANIM_UPPERCUT, StandState.ANIM_CATCH,
+				StandState.ANIM_GRAB_PUNCH, StandState.ANIM_PUT_DOWN };
 		float[] p = new float[N];
 		for (int i = 0; i < ids.length; i++) {
 			Clip c = clip(ids[i]);
@@ -540,7 +615,7 @@ public final class StandClips {
 				}
 			}
 		}
-		for (Object[] held : new Object[][] { { "rest", REST }, { "stance", STANCE }, { "hold", HOLD }, { "guard", GUARD }, { "sight", SIGHT } }) {
+		for (Object[] held : new Object[][] { { "rest", REST }, { "stance", STANCE }, { "hold", HOLD }, { "guard", GUARD }, { "chase fly", CHASE_FLY } }) {
 			String bad = problem((float[]) held[1], held[1] == GUARD);
 			if (bad != null) {
 				out.add(held[0] + ": " + bad);
@@ -556,6 +631,16 @@ public final class StandClips {
 			bad = problem(p);
 			if (bad != null) {
 				out.add("charge @" + t + ": " + bad);
+			}
+			chaseHold(t, p);
+			bad = problem(p);
+			if (bad != null) {
+				out.add("chase hold @" + t + ": " + bad);
+			}
+			oraRush(t, p);
+			bad = problem(p);
+			if (bad != null) {
+				out.add("ora rush @" + t + ": " + bad);
 			}
 		}
 		return out;

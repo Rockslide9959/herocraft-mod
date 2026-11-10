@@ -16,8 +16,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -36,7 +34,11 @@ import net.minecraft.world.phys.Vec3;
  *       and flies on when time resumes.</li>
  *   <li>Damage the caster deals to a frozen creature is queued with its knockback ({@link #queue}) and lands all at once on
  *       resume: players at most {@link StandConfig#TIME_STOP_PLAYER_CAP} of their max health, bosses reduced.</li>
- *   <li>Inside the stop the caster's moves cost no Stamina and the bar doesn't refill; the stop is paid for when time resumes.</li>
+ *   <li>v0.17.3 (the user's rework): the stop drains {@link StandConfig#TIME_STOP_STAMINA_PER_SECOND} Stamina a second and runs
+ *       while there is any (Shift+Z again ends it sooner); the caster's moves inside it cost nothing, the caster's damage is
+ *       {@link StandConfig#TIME_STOP_DAMAGE_BONUS}x, the caster flies at 10 blocks a second, and for 20 s after it the bar refills
+ *       at half speed. It freezes every entity in every loaded chunk of the dimension: there is no radius (only the gametests set
+ *       one, {@link #testRadius}, so the tests around them keep running).</li>
  *   <li>Frozen players' ability keys, attacks, item use and block breaking are refused server-side; the caster can't use
  *       blocks or break them (fighting and moving only).</li>
  *   <li>Every client gets {@link TimeStopPayload}: a Stand user's client freezes everything but the caster and drains
@@ -66,11 +68,14 @@ public final class TimeStop {
 		final UUID caster;
 		final int casterId;
 		final ResourceKey<Level> dimension;
-		final long end;
+		long end;
 		/** 0 = the whole dimension (gametests use a small radius so the parallel tests around them keep running). */
 		final double radius;
 		final Vec3 centre;
 		final Map<UUID, Queued> queue = new LinkedHashMap<>();
+		/** The caster's flight before the stop (restored when time resumes). */
+		boolean hadMayfly, wasFlying;
+		float flySpeed = 0.05f;
 
 		Stop(UUID caster, int casterId, ResourceKey<Level> dimension, long end, double radius, Vec3 centre) {
 			this.caster = caster;
@@ -105,6 +110,12 @@ public final class TimeStop {
 	/** The voice line is playing and the stop is about to start. */
 	public static boolean windingUp() {
 		return windup != null;
+	}
+
+	/** This player's voice line is playing (their bar holds still until the stop). */
+	public static boolean windingUpFor(Entity e) {
+		Windup w = windup;
+		return w != null && e != null && w.caster.equals(e.getUUID());
 	}
 
 	/** Test hook: start a winding-up stop now instead of at the end of the voice line. */
@@ -175,8 +186,8 @@ public final class TimeStop {
 					(Stands.cooldownRemaining(caster, StandMove.THE_WORLD) + 19) / 20);
 			return false;
 		}
-		if (s.stamina + 1.0e-3f < StandConfig.TIME_STOP_COST) {
-			Stands.say(caster, "message.projecthero.stand.time_stop_stamina", ChatFormatting.GRAY, Math.round(StandConfig.TIME_STOP_COST));
+		if (s.stamina + 1.0e-3f < StandConfig.TIME_STOP_MIN_STAMINA) {
+			Stands.say(caster, "message.projecthero.stand.time_stop_stamina", ChatFormatting.GRAY, Math.round(StandConfig.TIME_STOP_MIN_STAMINA));
 			return false;
 		}
 		ServerLevel level = (ServerLevel) caster.level();
@@ -188,7 +199,7 @@ public final class TimeStop {
 		n.animStart = now;
 		Stands.save(caster, n);
 		// the voice line first; time stops on its burst (tick())
-		Stands.sound(level, caster.position().add(0, 1.2, 0), StandSounds.TIME_STOP, 1.2f, 1.0f);
+		Stands.sound(level, caster.position().add(0, 1.2, 0), StandSounds.TIME_STOP, 0.8f, 1.0f);
 		windup = new Windup(caster.getUUID(), now + StandConfig.TIME_STOP_WINDUP_TICKS, ticks, testRadius);
 		return true;
 	}
@@ -196,10 +207,52 @@ public final class TimeStop {
 	private static void stopTime(ServerPlayer caster, Windup w) {
 		ServerLevel level = (ServerLevel) caster.level();
 		long now = level.getGameTime();
-		active = new Stop(caster.getUUID(), caster.getId(), level.dimension(), now + w.ticks, w.radius, caster.position());
+		// it lasts while the Stamina does (10 a second): the end sent to clients is that estimate (a resume always follows)
+		int ticks = Math.min(w.ticks, Math.max(1, (int) Math.ceil(Stands.stamina(caster) / (StandConfig.TIME_STOP_STAMINA_PER_SECOND / 20f))));
+		Stop stop = new Stop(caster.getUUID(), caster.getId(), level.dimension(), now + ticks, w.radius, caster.position());
+		var ab = caster.getAbilities();
+		stop.hadMayfly = ab.mayfly;
+		stop.wasFlying = ab.flying;
+		stop.flySpeed = ab.getFlyingSpeed();
+		active = stop;
+		grantFlight(caster);
 		broadcast(level.getServer());
 		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.WORLD, caster.position(), new Vec3(0, 1, 0), 1.0f);
-		caster.displayClientMessage(stopMessage("message.projecthero.stand.time_stop", w.ticks / 20f), true);
+		caster.displayClientMessage(stopMessage("message.projecthero.stand.time_stop", ticks / 20f), true);
+	}
+
+	/** v0.17.3 (user: "player can fly at 10 blocks per second during time stop"). */
+	private static void grantFlight(ServerPlayer caster) {
+		var ab = caster.getAbilities();
+		if (caster.isSpectator()) {
+			return;
+		}
+		if (!ab.mayfly || Math.abs(ab.getFlyingSpeed() - StandConfig.TIME_STOP_FLY_SPEED) > 1.0e-4f) {
+			ab.mayfly = true;
+			ab.setFlyingSpeed(StandConfig.TIME_STOP_FLY_SPEED);
+			caster.onUpdateAbilities();
+		}
+	}
+
+	private static void restoreFlight(ServerPlayer caster, Stop s) {
+		if (caster == null || caster.isSpectator()) {
+			return;
+		}
+		var ab = caster.getAbilities();
+		boolean creative = caster.isCreative();
+		ab.mayfly = s.hadMayfly || creative;
+		ab.flying = ab.mayfly && (s.wasFlying || creative && ab.flying);
+		ab.setFlyingSpeed(s.flySpeed > 0f ? s.flySpeed : 0.05f);
+		caster.onUpdateAbilities();
+		caster.fallDistance = 0f;
+	}
+
+	/** Shift+Z inside your own stop: time resumes now. */
+	public static void endEarly(ServerPlayer caster) {
+		Stop s = active;
+		if (s != null && s.caster.equals(caster.getUUID()) && caster.getServer() != null) {
+			resume(caster.getServer(), caster);
+		}
 	}
 
 	private static net.minecraft.network.chat.Component stopMessage(String key, float seconds) {
@@ -236,11 +289,19 @@ public final class TimeStop {
 			resume(server, caster);
 			return;
 		}
-		if (caster != null && (s.end - now) % 20 == 0) {
+		// v0.17.3 (user: "time stop drains 10 stamina per second"): it runs on the bar, and ends when the bar is empty
+		float st = Stands.stamina(caster) - StandConfig.TIME_STOP_STAMINA_PER_SECOND / 20f;
+		Stands.setStamina(caster, st);
+		if (st <= 0f) {
+			resume(server, caster);
+			return;
+		}
+		grantFlight(caster); // (another power's tick may have taken it)
+		if (now % 20 == 0) {
 			// v0.17.2 (user: "make it sound like a clock is ticking during time stop like how it is in the anime"): a ringing
 			// clock tick each second, alternating tick (higher) and tock (lower)
-			boolean tock = ((s.end - now) / 20) % 2 == 0;
-			Stands.sound(level, caster.position(), StandSounds.CLOCK_TICK, 0.9f, tock ? 0.8f : 1.0f);
+			boolean tock = (now / 20) % 2 == 0;
+			Stands.sound(level, caster.position(), StandSounds.CLOCK_TICK, 0.5f, tock ? 0.8f : 1.0f);
 		}
 	}
 
@@ -252,11 +313,15 @@ public final class TimeStop {
 		}
 		Stop s = active;
 		if (s != null && s.caster.equals(player.getUUID()) && player.getServer() != null) {
+			restoreFlight(player, s);
 			resume(player.getServer(), null);
 		}
 	}
 
-	/** Time flows again: the queued damage and knockback land, the colour comes back, the caster is winded. */
+	/**
+	 * Time flows again: the queued damage and knockback land, the colour comes back, the caster's flight goes and (v0.17.3, user:
+	 * "after time stop ends stamina regenerates 50% slower for 20 seconds") the bar refills at half speed for 20 s.
+	 */
 	static void resume(MinecraftServer server, ServerPlayer caster) {
 		Stop s = active;
 		if (s == null) {
@@ -268,14 +333,16 @@ public final class TimeStop {
 		for (Queued q : s.queue.values()) {
 			land(level, caster, q);
 		}
-		if (caster != null && Stands.isStandUser(caster)) {
-			Stands.setStamina(caster, Stands.stamina(caster) - StandConfig.TIME_STOP_COST); // the stop is paid for as time resumes
+		if (caster != null) {
+			restoreFlight(caster, s);
 		}
-		if (caster != null && caster.isAlive()) {
-			caster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, StandConfig.TIME_STOP_WINDED_TICKS, 1, false, false, true));
-			if (level != null) {
-				Stands.sound(level, caster.position(), StandSounds.TIME_RESUME, 1.0f, 1.0f);
-			}
+		if (caster != null && Stands.isStandUser(caster)) {
+			StandState n = Stands.state(caster).copy();
+			n.regenSlowUntil = caster.level().getGameTime() + StandConfig.REGEN_SLOW_TICKS;
+			Stands.save(caster, n);
+		}
+		if (caster != null && caster.isAlive() && level != null) {
+			Stands.sound(level, caster.position(), StandSounds.TIME_RESUME, 0.7f, 1.0f);
 		}
 	}
 
@@ -325,7 +392,8 @@ public final class TimeStop {
 			return;
 		}
 		Queued q = s.queue.computeIfAbsent(victim.getUUID(), k -> new Queued(victim));
-		q.damage += Math.max(0f, damage);
+		// v0.17.3 (user: "player deals 30% increased damage during time stop"): only the caster's hits are ever queued
+		q.damage += Math.max(0f, damage) * StandConfig.TIME_STOP_DAMAGE_BONUS;
 		if (knock != null) {
 			q.knock = q.knock.add(knock);
 		}

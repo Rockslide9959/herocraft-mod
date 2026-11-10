@@ -25,7 +25,7 @@ import net.minecraft.world.entity.LivingEntity;
 
 /**
  * v0.17.2: one entry point for Stands, called once from {@code ProjectHeroMod.onInitialize}: the Stand Arrow (+ loot), the
- * sounds, the payloads (H / the menu in, the time stop out), the damage rules (time-stop queue, Guard, the dash catch),
+ * sounds, the payloads (H / the menu in, the time stop out), the damage rules (time-stop queue, Guard),
  * the time-stop refusals and the lifecycle hooks. The per-player tick runs from {@code AbilityRouter.serverTick}; static
  * state is dropped by {@code ServerStateReset} through {@link #clearSessionState}.
  */
@@ -39,6 +39,7 @@ public final class StandMod {
 	public static void initialize() {
 		StandItems.initialize();
 		StandSounds.initialize();
+		com.projecthero.mod.stand.entity.StandEntities.initialize(); // v0.17.3: the flicked ball bearing
 
 		PayloadTypeRegistry.playC2S().register(StandActionPayload.TYPE, StandActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TimeStopPayload.TYPE, TimeStopPayload.CODEC);
@@ -62,7 +63,6 @@ public final class StandMod {
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			TimeStop.tick(server);
-			StandCombat.tickBleeding(server);
 			StarPlatinum.tickThrown(server);
 		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(StandMod::allowDamage);
@@ -116,12 +116,9 @@ public final class StandMod {
 		if (!Stands.summoned(p) || source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
 		}
-		if (StarPlatinum.tryDashCatch(p, source)) {
-			return false;
-		}
 		if (StarPlatinum.guardsAgainst(p, source)) {
 			float reduced = amount * StandConfig.GUARD_FACTOR;
-			Stands.sound((net.minecraft.server.level.ServerLevel) p.level(), p.position(), StandSounds.GUARD, 0.6f, 1.3f);
+			Stands.sound((net.minecraft.server.level.ServerLevel) p.level(), p.position(), StandSounds.GUARD, 0.4f, 1.3f);
 			if (reduced >= 0.05f) {
 				reissue(p, source, reduced);
 			}

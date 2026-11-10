@@ -38,7 +38,7 @@ public final class StandMenuScreen extends Screen {
 	private static final float SMALL = 0.8f;
 	private static final String[] STAT_KEYS = { "power", "speed", "range", "stamina", "precision", "potential" };
 	private static final String[] POSES = { "pointing" };
-	private static final String[] KEYS = { "R", "Shift+R", "G", "Shift+G", "X", "Shift+X", "Z", "Shift+Z", "V", "Shift+V", "C", "Shift+C" };
+	private static final String[] KEYS = { "R", "Hold R", "Shift+R", "G", "Shift+G", "X", "Shift+X", "Z", "Shift+Z", "V", "Shift+V", "C", "Shift+C" };
 
 	private int pose = 1;
 	private boolean oraText = true;
@@ -115,6 +115,12 @@ public final class StandMenuScreen extends Screen {
 		addLines(lines, colours, Component.literal("N  ").withStyle(ChatFormatting.GOLD)
 				.append(Component.translatable("projecthero.stand.move.pose").withStyle(ChatFormatting.WHITE)), wrap, 0xFFFFFFFF);
 		addLines(lines, colours, Component.translatable("projecthero.stand.move.pose.desc"), wrap, 0xFFB0A8C0);
+		// v0.17.3: the left mouse button's two jobs (punching, mining)
+		for (String lmb : new String[] { "punch", "mining" }) {
+			addLines(lines, colours, Component.literal("LMB  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.stand.move." + lmb).withStyle(ChatFormatting.WHITE)), wrap, 0xFFFFFFFF);
+			addLines(lines, colours, Component.translatable("projecthero.stand.move." + lmb + ".desc"), wrap, 0xFFB0A8C0);
+		}
 		for (int i = 0; i < ids.length; i++) {
 			addLines(lines, colours, Component.literal(KEYS[i] + "  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.stand.move." + ids[i]).withStyle(ChatFormatting.WHITE)), wrap, 0xFFFFFFFF);

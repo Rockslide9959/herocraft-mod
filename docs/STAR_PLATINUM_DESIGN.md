@@ -2,6 +2,22 @@
 
 Status: APPROVED by the user 2026-11-01; BUILT on branch claude/star-platinum-2cd2ef (v0.17.2). Change from the proposal: the Stand is NOT visible, audible or perceivable to non-Stand users (only Stand users see it, hear its sounds and see its particles). Voice lines and SFX: the user will supply them after the build -- leave clean sound hooks.
 
+## v0.17.3 rework (the user's list) -- supersedes the move list below
+Numbers live in `StandConfig` (each marked with the user's words); the guidebook / Stand Menu text is the player-facing copy.
+- Left click (empty hand, Stand out): Star Platinum punches at anything. Root cause of "doesn't punch anymore": the punch only
+  ran from the server's `AttackEntityCallback` (a click that connected with a creature); since the mirror rewrite every other
+  click just showed the user's arm swing copied at their back. `StandSwing` now turns every empty-hand swing into a jab.
+- Mining with an empty hand: iron pickaxe / axe / shovel speed and harvest level (`StandMiningMixin`), normal drops.
+- Stamina refills 3/s flat (half for 20 s after a time stop). Fully opaque body; floats (no walk cycle); steps out of its user.
+- R tap: Platinum Smash (8/8/8 stun 0.5 s, 12 knockback; 4 Stamina a hit; 3 s cooldown, or after 2 s idle). R held 6+ ticks:
+  ORA Barrage (8 a punch, 5 a second, victims held then launched 5 blocks, 3 Stamina/s). Shift+R: Star Finger (22, 30 blocks
+  over 1 s, 15 Stamina). G: Ora Chase (3 b/s along the look, 10 blocks; grab, 15 over 3 s one-handed, throw 10 blocks for 10).
+  Shift+G: one ball bearing projectile (20). X: Stand Jump (~15 blocks along the look, 2 s). Shift+X: Ora Rush (8-block dash,
+  6 a hit). Z: Star Breaker 30. Shift+Z: The World -- whole dimension, 10 Stamina/s until dry or pressed again, +30% damage,
+  10 b/s flight. V: Guard 60%, no limit, 6 s cooldown on release. Shift+V: Stand Grab (V throw, Shift+V set down, R 5-hit
+  combo for 30). C: Inhale 4 s cooldown. Shift+C: Uppercut 22. Precision Sight, Power Grab, Stand Dash and Star Finger's
+  bleed are gone.
+
 Sources: jojowiki.com (Star Platinum, Star Platinum: The World, Stand), ASBR / Eyes of Heaven / Heritage for the
 Future move lists, Roblox JoJo games (Project JoJo, Morioh High, A Universal Time), Roundabout mod wiki.
 

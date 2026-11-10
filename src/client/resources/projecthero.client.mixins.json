@@ -12,7 +12,6 @@
 		"StandTimeStopParticleMixin",
 		"StandTimeStopInputMixin",
 		"StandMinecraftMixin",
-		"StandSightFovMixin",
 		"StandRotationsInvoker",
 		"StandArmPoseInvoker",
 		"OmnitrixInputMixin",

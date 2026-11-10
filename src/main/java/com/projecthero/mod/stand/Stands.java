@@ -168,7 +168,7 @@ public final class Stands {
 
 	public static boolean spendStamina(ServerPlayer player, float cost) {
 		if (cost <= 0f || TimeStop.isCaster(player)) {
-			return true; // inside your own time stop every move is free (the bar empties when time resumes)
+			return true; // inside your own time stop every move is free (the stop itself drains 10 a second)
 		}
 		StandState s = state(player);
 		if (s.stamina + 1.0e-3f < cost) {
@@ -191,10 +191,11 @@ public final class Stands {
 		LAST_COMBAT.put(player.getUUID(), player.level().getGameTime());
 	}
 
+	/** Dealt or took combat damage in the last 2 s. */
 	static boolean inCombat(ServerPlayer player) {
 		Long last = LAST_COMBAT.get(player.getUUID());
 		long now = player.level().getGameTime();
-		return last != null && now - last < StandConfig.OUT_OF_COMBAT_TICKS && now >= last;
+		return last != null && now - last < 40 && now >= last;
 	}
 
 	static void setAnim(ServerPlayer player, int animId) {
@@ -304,6 +305,7 @@ public final class Stands {
 		LAST_TOGGLE.remove(id);
 		LAST_COMBAT.remove(id);
 		StandAbilityManager.forget(id);
+		StarPlatinum.forget(id);
 	}
 
 	// ---------------------------------------------------------------- H: summon / dismiss
@@ -339,11 +341,12 @@ public final class Stands {
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = StarPlatinum.restPoint(player);
-		// v0.17.2: a soft glow rising round the Stand (no dust; the summoner's own client skips it in first person)
+		// v0.17.3 (user: "when star platinum gets summoned make him come out of the player"): the glow rises off its user's body,
+		// where it steps out of them (StandRender slides it back to its spot)
+		Vec3 c = player.position();
 		vfx(level, com.projecthero.mod.stand.network.StandFxPayload.AURA, c, new Vec3(0, 1, 0), 1.0f);
-		sound(level, c, StandSounds.SUMMON, 1.0f, 1.0f);
-		sound(level, c, StandSounds.MENACING, 0.7f, 1.0f);
+		sound(level, c.add(0, 1.0, 0), StandSounds.SUMMON, 0.6f, 1.0f);
+		sound(level, c.add(0, 1.0, 0), StandSounds.MENACING, 0.4f, 1.0f);
 	}
 
 	public static void dismiss(ServerPlayer player) {
@@ -359,9 +362,19 @@ public final class Stands {
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = StarPlatinum.restPoint(player);
+		Vec3 c = player.position();
 		vfx(level, com.projecthero.mod.stand.network.StandFxPayload.AURA, c, new Vec3(0, -1, 0), 0.8f);
-		sound(level, c, StandSounds.DISMISS, 0.8f, 1.0f);
+		sound(level, c.add(0, 1.0, 0), StandSounds.DISMISS, 0.5f, 1.0f);
+	}
+
+	/**
+	 * v0.17.3 (user: "if player tries to mine a block with an empty hand while star platinum is active star platinum helps and breaks
+	 * the block"): the Stand is out, at its user's side, and the main hand is empty -- the hand mines like iron tools
+	 * ({@code StandMiningMixin}). Client-safe (both sides work the break speed out).
+	 */
+	public static boolean standMines(Player player) {
+		StandState s = peek(player);
+		return s != null && s.isUser() && s.summoned && !s.chasing() && player.getMainHandItem().isEmpty() && !player.isSpectator();
 	}
 
 	/** The Stand's passives on the body: +1 block of punch reach while it is out. */
@@ -461,13 +474,19 @@ public final class Stands {
 		StarPlatinum.tick(player);
 	}
 
+	/** v0.17.3 (user: "stand stamina regens 3 stamina per second"): Stamina per second right now (half for 20 s after a time stop). */
+	public static float regenRate(Player player) {
+		StandState s = peek(player);
+		boolean slow = s != null && s.regenSlowUntil > player.level().getGameTime();
+		return StandConfig.STAMINA_REGEN * (slow ? StandConfig.REGEN_SLOW_FACTOR : 1f);
+	}
+
 	private static void tickStamina(ServerPlayer player, StandState s) {
-		if (s.rushing || s.guarding || TimeStop.isCaster(player)) {
+		if (s.rushing || TimeStop.isCaster(player) || TimeStop.windingUpFor(player)) {
 			return;
 		}
 		float st = Float.isNaN(s.stamina) ? 0f : s.stamina;
-		float rate = s.summoned && !inCombat(player) ? StandConfig.STAMINA_REGEN_IDLE : StandConfig.STAMINA_REGEN_BUSY;
-		float next = Math.min(StandConfig.STAMINA_MAX, st + rate / 4f);
+		float next = Math.min(StandConfig.STAMINA_MAX, st + regenRate(player) / 4f);
 		if (next != s.stamina) {
 			StandState n = s.copy();
 			n.stamina = next;
@@ -512,12 +531,17 @@ public final class Stands {
 		n.chargeStart = 0L;
 		n.grabbedEntity = -1;
 		n.grabbedBlock = 0;
-		n.sightUntil = 0L;
 		n.leapRebounds = -1;
 		n.inhaleUntil = 0L;
 		n.dashUntil = 0L;
 		n.fingerEnd = java.util.List.of();
 		n.comboStep = 0;
+		n.smashStep = 0;
+		n.chaseStart = 0L;
+		n.chaseGrabAt = 0L;
+		n.chaseTarget = -1;
+		n.chasePos = java.util.List.of();
+		n.grabCombo = 0;
 		n.animId = StandState.ANIM_NONE;
 		return n;
 	}
@@ -529,7 +553,7 @@ public final class Stands {
 		forget(player.getUUID());
 		StandState s = player.getAttachedOrElse(ModAttachments.STAND_STATE, null);
 		if (s != null && s.isUser() && (s.rushing || s.guarding || s.chargeStart != 0L || s.grabbedEntity != -1 || s.grabbedBlock != 0
-				|| s.sightUntil != 0L || s.leapRebounds != -1 || s.inhaleUntil != 0L || s.dashUntil != 0L)) {
+				|| s.leapRebounds != -1 || s.inhaleUntil != 0L || s.dashUntil != 0L || s.chaseStart != 0L || s.smashStep != 0)) {
 			save(player, cleared(s));
 		}
 	}
