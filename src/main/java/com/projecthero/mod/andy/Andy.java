@@ -517,7 +517,7 @@ public final class Andy {
 		// the launched parts still lying about burst, as when their replacement grows
 		for (int i = 0; i < AndyState.PARTS; i++) {
 			if ((mask & (1L << i)) != 0L && s.kind(i) == AndyState.KIND_LAUNCHED) {
-				startedRegrowing(player, i, AndyState.KIND_LAUNCHED);
+				dropLaunched(player, i, false); // every one, the thrown ones too (the part is whole again now)
 			}
 		}
 		player.heal(AndyConfig.REFORM_HEAL);
@@ -754,12 +754,20 @@ public final class Andy {
 	static void startedRegrowing(ServerPlayer player, int part, int kind) {
 		// v0.17.3 Andy sounds: the regrowth itself is heard client-side (AndySounds: bone, muscle, skin beds)
 		if (kind == AndyState.KIND_LAUNCHED) {
-			// the launched part (still lying about, or stuck in a wall) bursts as its replacement grows
-			ServerLevel level = (ServerLevel) player.level();
-			for (AndyPartEntity e : level.getEntitiesOfClass(AndyPartEntity.class, new AABB(player.blockPosition()).inflate(256.0),
-					e -> e.ownerIs(player) && e.bodyPart() == part)) {
-				e.discard();
-			}
+			// a piece left standing where he was (the Leg / Head Launch) bursts as its replacement grows. NOT a thrown one (the
+			// stretch punch's arm, the Vortex Bullet, the Parts Bullet Head): since the NBC regrowth a launched arm or head starts
+			// growing back the very next tick, so bursting it here deleted the arm a tick after it left the shoulder -- nothing
+			// flew and nothing was hit. A thrown piece bursts when the part is whole again (AndyPartEntity#tick).
+			dropLaunched(player, part, true);
+		}
+	}
+
+	/** The launched pieces of {@code part} lying about burst ({@code leftBehindOnly}: only the X launches' standing pieces). */
+	static void dropLaunched(ServerPlayer player, int part, boolean leftBehindOnly) {
+		ServerLevel level = (ServerLevel) player.level();
+		for (AndyPartEntity e : level.getEntitiesOfClass(AndyPartEntity.class, new AABB(player.blockPosition()).inflate(256.0),
+				e -> e.ownerIs(player) && e.bodyPart() == part && (!leftBehindOnly || e.isLeftBehind()))) {
+			e.discard();
 		}
 	}
 }

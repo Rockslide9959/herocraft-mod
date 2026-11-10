@@ -800,6 +800,39 @@ public class AndyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void theThrownArmSurvivesItsRegrowthStarting(GameTestHelper helper) {
+		// v0.17.3 bug (user: "the part bullet arm ability doesnt seem to shoot properly anymore"): since the NBC regrowth a
+		// launched arm starts growing back the very next tick, and the start of the regrowth burst the thrown arm -- it was gone
+		// a tick after leaving the shoulder, nothing flew and nothing was hit. Held R through the key flow, his tick running,
+		// thrown straight up (open sky): it must keep flying while the arm regrows, and burst once the arm is whole.
+		ServerPlayer p = andy(helper);
+		p.setXRot(-85f);
+		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, true);
+		helper.onEachTick(() -> Andy.tick(p));
+		int[] arm = { -1 };
+		java.util.function.Supplier<java.util.List<AndyPartEntity>> thrown = () -> helper.getLevel().getEntitiesOfClass(AndyPartEntity.class,
+				new AABB(p.blockPosition()).inflate(64), e -> e.style() == AndyPartEntity.STYLE_PUNCH && e.bodyPart() == arm[0]);
+		int release = AndyConfig.PUNCH_MIN_HOLD + 2;
+		helper.runAfterDelay(release, () -> {
+			com.projecthero.mod.andy.AndyAbilityManager.handle(p, r, false);
+			arm[0] = Andy.mainArm(p);
+			helper.assertTrue(Andy.missing(p, arm[0]) && thrown.get().size() == 1, "the arm was thrown");
+		});
+		helper.runAfterDelay(release + 5, () -> {
+			helper.assertTrue(Andy.state(p).regrowStart(arm[0]) > 0L, "it is already growing back (NBC: at once)");
+			java.util.List<AndyPartEntity> a = thrown.get();
+			helper.assertTrue(a.size() == 1, "and the thrown arm is still flying");
+			helper.assertTrue(a.get(0).position().distanceTo(p.getEyePosition()) > 2.5, "away from the shoulder: " + a.get(0).position().distanceTo(p.getEyePosition()));
+		});
+		helper.runAfterDelay(release + AndyConfig.FRAMES[AndyState.RIGHT_ARM] + 4, () -> {
+			helper.assertTrue(!Andy.missing(p, arm[0]), "the arm has grown back");
+			helper.assertTrue(thrown.get().isEmpty(), "and the thrown one burst once it was whole");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void holdVRipsAnArmIntoTheBoneSword(GameTestHelper helper) {
 		// v0.17.3 (user: "make the bone sword hold V for 2 seconds"): the hold is the struggle; at its end the arm tears off

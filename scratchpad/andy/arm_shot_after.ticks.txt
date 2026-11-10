@@ -1,0 +1,743 @@
+[HARNESS] recording tap_tp
+[SHOT] tap_tp S t=238 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=239 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=240 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] tap_tp S t=241 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] tap_tp S t=242 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=243 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   part id=122 style=0 part=-1 pos=(46,08,-58,98,9,43) vel=(0,11,-0,07,2,60) |v|=2,60 age=1 stuck=false
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=244 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   part id=122 style=0 part=-1 pos=(46,19,-59,05,12,02) vel=(0,11,-0,07,2,60) |v|=2,60 age=2 stuck=false
+[SHOT] tap_tp S   zombie hp=20,0 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp C t=242 part id=122 style=0 pos=(46,19,-59,05,12,02) vel=(0,11,-0,07,2,60) age=1
+[SHOT] tap_tp C t=243 part id=122 style=0 pos=(46,30,-59,11,14,62) vel=(0,11,-0,07,2,60) age=2
+[SHOT] tap_tp C t=244 part id=122 style=0 pos=(46,41,-59,18,17,22) vel=(0,11,-0,07,2,60) age=3
+[SHOT] tap_tp C t=245 part id=122 style=0 pos=(46,52,-59,25,19,81) vel=(0,11,-0,07,2,60) age=4
+[SHOT] tap_tp S t=245 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=246 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=247 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=248 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=249 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=250 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=251 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=252 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=253 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] tap_tp S t=254 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=255 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] tap_tp S t=256 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp C t=256 part id=124 style=0 pos=(46,15,-58,76,11,20) vel=(-0,03,-0,15,2,60) age=1
+[SHOT] tap_tp S t=257 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   part id=124 style=0 part=-1 pos=(46,15,-58,76,11,20) vel=(-0,03,-0,15,2,60) |v|=2,60 age=1 stuck=false
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp C t=257 part id=124 style=0 pos=(46,15,-58,76,11,20) vel=(-0,03,-0,15,2,60) age=2
+[SHOT] tap_tp S t=258 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   part id=124 style=0 part=-1 pos=(46,12,-58,91,13,80) vel=(-0,03,-0,15,2,60) |v|=2,60 age=2 stuck=false
+[SHOT] tap_tp S   zombie hp=14,1 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp C t=258 part id=124 style=0 pos=(46,12,-58,91,13,80) vel=(-0,03,-0,15,2,60) age=3
+[SHOT] tap_tp S t=259 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=260 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=261 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=262 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=263 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=264 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=265 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=266 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=267 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=268 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=269 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=270 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=271 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=272 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=273 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=274 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=275 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=276 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[SHOT] tap_tp S t=277 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_tp S   zombie hp=8,3 pos=(46,50,-60,00,14,50)
+[HARNESS] recorded tap_tp frames=41
+[HARNESS] recording hold_tp
+[SHOT] hold_tp S t=309 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=310 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] hold_tp S t=311 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=312 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=313 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=314 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=315 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=316 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=317 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=318 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=319 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=320 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=321 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=322 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=323 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=324 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=325 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=326 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=327 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=328 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=329 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=330 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=331 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=332 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] hold_tp C t=333 part id=128 style=9 pos=(86,24,-58,96,8,20) vel=(0,10,-0,07,2,20) age=1
+[SHOT] hold_tp S t=333 punch=false anim=15 rArm=gone@332(f0) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,24,-58,96,8,20) vel=(0,10,-0,07,2,20) |v|=2,20 age=1 stuck=false
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=334 punch=false anim=15 rArm=gone@332(f1) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,33,-59,04,10,39) vel=(0,10,-0,07,2,20) |v|=2,20 age=2 stuck=false
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=334 part id=128 style=9 pos=(86,24,-58,96,8,20) vel=(0,10,-0,07,2,20) age=2
+[SHOT] hold_tp C t=335 part id=128 style=9 pos=(86,33,-59,04,10,39) vel=(0,10,-0,07,2,20) age=3
+[SHOT] hold_tp S t=335 punch=false anim=15 rArm=gone@332(f2) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,43,-59,11,12,59) vel=(0,10,-0,07,2,20) |v|=2,20 age=3 stuck=false
+[SHOT] hold_tp S   zombie hp=20,0 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=336 punch=false anim=15 rArm=gone@332(f3) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,43,-59,11,12,59) vel=(-0,01,0,21,-0,33) |v|=0,39 age=4 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=336 part id=128 style=9 pos=(86,53,-59,18,14,79) vel=(0,10,-0,07,2,20) age=4
+[SHOT] hold_tp S t=337 punch=false anim=15 rArm=gone@332(f4) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,41,-58,90,12,26) vel=(-0,01,0,17,-0,32) |v|=0,36 age=5 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=337 part id=128 style=9 pos=(86,51,-58,97,14,46) vel=(-0,01,0,21,-0,33) age=5
+[SHOT] hold_tp S t=338 punch=false anim=15 rArm=gone@332(f5) lArm=whole rHand=gone@332(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,40,-58,73,11,94) vel=(-0,01,0,12,-0,31) |v|=0,33 age=6 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=338 part id=128 style=9 pos=(86,40,-58,73,11,94) vel=(-0,01,0,17,-0,32) age=6
+[SHOT] hold_tp S t=339 punch=false anim=15 rArm=gone@332(f6) lArm=whole rHand=gone@332(f1) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,39,-58,61,11,63) vel=(-0,01,0,08,-0,30) |v|=0,31 age=7 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=339 part id=128 style=9 pos=(86,39,-58,61,11,63) vel=(-0,01,0,12,-0,31) age=7
+[SHOT] hold_tp S t=340 punch=false anim=15 rArm=gone@332(f7) lArm=whole rHand=gone@332(f2) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,37,-58,54,11,33) vel=(-0,01,0,03,-0,29) |v|=0,29 age=8 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=340 part id=128 style=9 pos=(86,37,-58,49,11,32) vel=(-0,01,0,12,-0,31) age=8
+[SHOT] hold_tp S t=341 punch=false anim=15 rArm=gone@332(f8) lArm=whole rHand=gone@332(f3) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,36,-58,50,11,04) vel=(-0,01,-0,01,-0,28) |v|=0,28 age=9 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=340 part id=128 style=9 pos=(86,36,-58,50,11,04) vel=(-0,01,0,03,-0,29) age=9
+[SHOT] hold_tp S t=342 punch=false anim=15 rArm=gone@332(f9) lArm=whole rHand=gone@332(f4) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,35,-58,52,10,75) vel=(-0,01,-0,06,-0,27) |v|=0,28 age=10 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=341 part id=128 style=9 pos=(86,35,-58,52,10,75) vel=(-0,01,-0,01,-0,28) age=10
+[SHOT] hold_tp S t=343 punch=false anim=15 rArm=gone@332(f10) lArm=whole rHand=gone@332(f5) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,34,-58,58,10,48) vel=(-0,01,-0,10,-0,27) |v|=0,29 age=11 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=342 part id=128 style=9 pos=(86,34,-58,58,10,48) vel=(-0,01,-0,06,-0,27) age=11
+[SHOT] hold_tp S t=344 punch=false anim=15 rArm=gone@332(f11) lArm=whole rHand=gone@332(f6) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,33,-58,68,10,21) vel=(-0,01,-0,15,-0,26) |v|=0,30 age=12 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=343 part id=128 style=9 pos=(86,33,-58,68,10,21) vel=(-0,01,-0,10,-0,27) age=12
+[SHOT] hold_tp S t=345 punch=false anim=15 rArm=gone@332(f12) lArm=whole rHand=gone@332(f7) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,31,-58,83,9,96) vel=(-0,01,-0,19,-0,25) |v|=0,32 age=13 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=344 part id=128 style=9 pos=(86,31,-58,83,9,96) vel=(-0,01,-0,15,-0,26) age=13
+[SHOT] hold_tp S t=346 punch=false anim=15 rArm=gone@332(f13) lArm=whole rHand=gone@332(f8) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,30,-59,02,9,70) vel=(-0,01,-0,24,-0,24) |v|=0,34 age=14 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=345 part id=128 style=9 pos=(86,30,-59,02,9,70) vel=(-0,01,-0,19,-0,25) age=14
+[SHOT] hold_tp S t=347 punch=false anim=15 rArm=gone@332(f14) lArm=whole rHand=gone@332(f9) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,29,-59,26,9,46) vel=(-0,01,-0,28,-0,24) |v|=0,37 age=15 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=346 part id=128 style=9 pos=(86,29,-59,26,9,46) vel=(-0,01,-0,24,-0,24) age=15
+[SHOT] hold_tp S t=348 punch=false anim=15 rArm=gone@332(f15) lArm=whole rHand=gone@332(f10) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,28,-59,55,9,23) vel=(-0,01,-0,33,-0,23) |v|=0,40 age=16 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=347 part id=128 style=9 pos=(86,28,-59,55,9,23) vel=(-0,01,-0,28,-0,24) age=16
+[SHOT] hold_tp S t=349 punch=false anim=15 rArm=gone@332(f16) lArm=whole rHand=gone@332(f11) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,27,-59,88,9,00) vel=(-0,01,-0,37,-0,22) |v|=0,43 age=17 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=348 part id=128 style=9 pos=(86,27,-59,88,9,00) vel=(-0,01,-0,33,-0,23) age=17
+[SHOT] hold_tp S t=350 punch=false anim=15 rArm=gone@332(f17) lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,26,-60,00,8,78) vel=(-0,01,0,00,-0,13) |v|=0,13 age=18 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=349 part id=128 style=9 pos=(86,26,-60,21,8,77) vel=(-0,01,-0,33,-0,23) age=18
+[SHOT] hold_tp S t=351 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   part id=128 style=9 part=2 pos=(86,26,-60,00,8,64) vel=(-0,01,-0,05,-0,13) |v|=0,14 age=19 stuck=false
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp C t=350 part id=128 style=9 pos=(86,26,-60,00,8,64) vel=(-0,01,0,00,-0,13) age=19
+[SHOT] hold_tp S t=352 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=353 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=354 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=355 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=356 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=357 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=358 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=359 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=360 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=361 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=362 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=363 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=364 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=365 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=366 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=367 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=368 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=369 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=370 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=371 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=372 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=373 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=374 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=375 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=376 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=377 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[SHOT] hold_tp S t=378 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_tp S   zombie hp=6,3 pos=(86,50,-60,00,14,50)
+[HARNESS] recorded hold_tp frames=71
+[HARNESS] recording tap_fp
+[SHOT] tap_fp S t=409 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=410 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] tap_fp S t=411 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=412 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] tap_fp S t=413 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   part id=132 style=0 part=-1 pos=(126,28,-58,99,8,65) vel=(0,10,-0,08,2,60) |v|=2,60 age=1 stuck=false
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=413 part id=132 style=0 pos=(126,28,-58,99,8,65) vel=(0,10,-0,08,2,60) age=1
+[SHOT] tap_fp S t=414 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   part id=132 style=0 part=-1 pos=(126,38,-59,07,11,24) vel=(0,10,-0,08,2,60) |v|=2,60 age=2 stuck=false
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=414 part id=132 style=0 pos=(126,38,-59,07,11,24) vel=(0,10,-0,08,2,60) age=2
+[SHOT] tap_fp S t=415 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   part id=132 style=0 part=-1 pos=(126,49,-59,15,13,84) vel=(0,10,-0,08,2,60) |v|=2,60 age=3 stuck=false
+[SHOT] tap_fp S   zombie hp=20,0 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=415 part id=132 style=0 pos=(126,49,-59,15,13,84) vel=(0,10,-0,08,2,60) age=3
+[SHOT] tap_fp S t=416 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=417 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=418 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=419 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=420 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=421 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=422 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=423 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=424 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] tap_fp S t=425 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=426 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,00 shootArm=3
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] tap_fp S t=427 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   part id=134 style=0 part=-1 pos=(126,72,-58,99,8,65) vel=(-0,10,-0,08,2,60) |v|=2,60 age=1 stuck=false
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=427 part id=134 style=0 pos=(126,72,-58,99,8,65) vel=(-0,10,-0,08,2,60) age=1
+[SHOT] tap_fp S t=428 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   part id=134 style=0 part=-1 pos=(126,62,-59,07,11,24) vel=(-0,10,-0,08,2,60) |v|=2,60 age=2 stuck=false
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=428 part id=134 style=0 pos=(126,62,-59,07,11,24) vel=(-0,10,-0,08,2,60) age=2
+[SHOT] tap_fp S t=429 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   part id=134 style=0 part=-1 pos=(126,51,-59,15,13,84) vel=(-0,10,-0,08,2,60) |v|=2,60 age=3 stuck=false
+[SHOT] tap_fp S   zombie hp=14,1 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=429 part id=134 style=0 pos=(126,51,-59,15,13,84) vel=(-0,10,-0,08,2,60) age=3
+[SHOT] tap_fp S t=430 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp C t=430 part id=134 style=0 pos=(126,41,-59,23,16,44) vel=(-0,10,-0,08,2,60) age=4
+[SHOT] tap_fp S t=431 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=432 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=433 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=434 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=435 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=436 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=437 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=438 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=439 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=440 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=441 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=442 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=443 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=444 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=445 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=446 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=447 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[SHOT] tap_fp S t=448 punch=false anim=1 rArm=whole lArm=whole rHand=whole eatR=0,08 eatL=0,08 shootArm=2
+[SHOT] tap_fp S   zombie hp=8,3 pos=(126,50,-60,00,14,50)
+[HARNESS] recorded tap_fp frames=41
+[HARNESS] recording hold_fp
+[SHOT] hold_fp S t=479 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=480 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] hold_fp S t=481 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=482 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=483 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=484 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=485 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=486 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=487 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=488 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=489 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=490 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=491 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=492 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=493 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=494 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=495 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=496 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=497 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=498 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=499 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=500 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=501 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=502 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] hold_fp S t=503 punch=false anim=15 rArm=gone@502(f0) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,24,-58,96,8,20) vel=(0,10,-0,07,2,20) |v|=2,20 age=1 stuck=false
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=503 part id=138 style=9 pos=(166,24,-58,96,8,20) vel=(0,10,-0,07,2,20) age=1
+[SHOT] hold_fp S t=504 punch=false anim=15 rArm=gone@502(f1) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,33,-59,04,10,39) vel=(0,10,-0,07,2,20) |v|=2,20 age=2 stuck=false
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=504 part id=138 style=9 pos=(166,33,-59,04,10,39) vel=(0,10,-0,07,2,20) age=2
+[SHOT] hold_fp S t=505 punch=false anim=15 rArm=gone@502(f2) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,43,-59,11,12,59) vel=(0,10,-0,07,2,20) |v|=2,20 age=3 stuck=false
+[SHOT] hold_fp S   zombie hp=20,0 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=505 part id=138 style=9 pos=(166,43,-59,11,12,59) vel=(0,10,-0,07,2,20) age=3
+[SHOT] hold_fp S t=506 punch=false anim=15 rArm=gone@502(f3) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,43,-59,11,12,59) vel=(-0,01,0,21,-0,33) |v|=0,39 age=4 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=506 part id=138 style=9 pos=(166,53,-59,18,14,79) vel=(0,10,-0,07,2,20) age=4
+[SHOT] hold_fp S t=507 punch=false anim=15 rArm=gone@502(f4) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,41,-58,90,12,26) vel=(-0,01,0,17,-0,32) |v|=0,36 age=5 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=507 part id=138 style=9 pos=(166,51,-58,97,14,46) vel=(-0,01,0,21,-0,33) age=5
+[SHOT] hold_fp S t=508 punch=false anim=15 rArm=gone@502(f5) lArm=whole rHand=gone@502(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,40,-58,73,11,94) vel=(-0,01,0,12,-0,31) |v|=0,33 age=6 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=508 part id=138 style=9 pos=(166,40,-58,73,11,94) vel=(-0,01,0,17,-0,32) age=6
+[SHOT] hold_fp S t=509 punch=false anim=15 rArm=gone@502(f6) lArm=whole rHand=gone@502(f1) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,39,-58,61,11,63) vel=(-0,01,0,08,-0,30) |v|=0,31 age=7 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=509 part id=138 style=9 pos=(166,39,-58,61,11,63) vel=(-0,01,0,12,-0,31) age=7
+[SHOT] hold_fp S t=510 punch=false anim=15 rArm=gone@502(f7) lArm=whole rHand=gone@502(f2) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,37,-58,54,11,33) vel=(-0,01,0,03,-0,29) |v|=0,29 age=8 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=510 part id=138 style=9 pos=(166,37,-58,54,11,33) vel=(-0,01,0,08,-0,30) age=8
+[SHOT] hold_fp S t=511 punch=false anim=15 rArm=gone@502(f8) lArm=whole rHand=gone@502(f3) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,36,-58,50,11,04) vel=(-0,01,-0,01,-0,28) |v|=0,28 age=9 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=511 part id=138 style=9 pos=(166,36,-58,50,11,04) vel=(-0,01,0,03,-0,29) age=9
+[SHOT] hold_fp S t=512 punch=false anim=15 rArm=gone@502(f9) lArm=whole rHand=gone@502(f4) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,35,-58,52,10,75) vel=(-0,01,-0,06,-0,27) |v|=0,28 age=10 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=512 part id=138 style=9 pos=(166,35,-58,52,10,75) vel=(-0,01,-0,01,-0,28) age=10
+[SHOT] hold_fp S t=513 punch=false anim=15 rArm=gone@502(f10) lArm=whole rHand=gone@502(f5) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,34,-58,58,10,48) vel=(-0,01,-0,10,-0,27) |v|=0,29 age=11 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=513 part id=138 style=9 pos=(166,34,-58,58,10,48) vel=(-0,01,-0,06,-0,27) age=11
+[SHOT] hold_fp S t=514 punch=false anim=15 rArm=gone@502(f11) lArm=whole rHand=gone@502(f6) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,33,-58,68,10,21) vel=(-0,01,-0,15,-0,26) |v|=0,30 age=12 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=514 part id=138 style=9 pos=(166,33,-58,68,10,21) vel=(-0,01,-0,10,-0,27) age=12
+[SHOT] hold_fp S t=515 punch=false anim=15 rArm=gone@502(f12) lArm=whole rHand=gone@502(f7) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,31,-58,83,9,96) vel=(-0,01,-0,19,-0,25) |v|=0,32 age=13 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=515 part id=138 style=9 pos=(166,31,-58,83,9,96) vel=(-0,01,-0,15,-0,26) age=13
+[SHOT] hold_fp S t=516 punch=false anim=15 rArm=gone@502(f13) lArm=whole rHand=gone@502(f8) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,30,-59,02,9,70) vel=(-0,01,-0,24,-0,24) |v|=0,34 age=14 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=516 part id=138 style=9 pos=(166,30,-59,02,9,70) vel=(-0,01,-0,19,-0,25) age=14
+[SHOT] hold_fp S t=517 punch=false anim=15 rArm=gone@502(f14) lArm=whole rHand=gone@502(f9) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,29,-59,26,9,46) vel=(-0,01,-0,28,-0,24) |v|=0,37 age=15 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=517 part id=138 style=9 pos=(166,29,-59,26,9,46) vel=(-0,01,-0,24,-0,24) age=15
+[SHOT] hold_fp S t=518 punch=false anim=15 rArm=gone@502(f15) lArm=whole rHand=gone@502(f10) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,28,-59,55,9,23) vel=(-0,01,-0,33,-0,23) |v|=0,40 age=16 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=518 part id=138 style=9 pos=(166,28,-59,55,9,23) vel=(-0,01,-0,28,-0,24) age=16
+[SHOT] hold_fp S t=519 punch=false anim=15 rArm=gone@502(f16) lArm=whole rHand=gone@502(f11) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,27,-59,88,9,00) vel=(-0,01,-0,37,-0,22) |v|=0,43 age=17 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=519 part id=138 style=9 pos=(166,27,-59,88,9,00) vel=(-0,01,-0,33,-0,23) age=17
+[SHOT] hold_fp S t=520 punch=false anim=15 rArm=gone@502(f17) lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,26,-60,00,8,78) vel=(-0,01,0,00,-0,13) |v|=0,13 age=18 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=520 part id=138 style=9 pos=(166,26,-60,25,8,78) vel=(-0,01,-0,37,-0,22) age=18
+[SHOT] hold_fp S t=521 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   part id=138 style=9 part=2 pos=(166,26,-60,00,8,64) vel=(-0,01,-0,05,-0,13) |v|=0,14 age=19 stuck=false
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp C t=521 part id=138 style=9 pos=(166,26,-60,00,8,64) vel=(-0,01,0,00,-0,13) age=19
+[SHOT] hold_fp S t=522 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=523 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=524 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=525 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=526 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=527 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=528 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=529 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=530 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=531 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=532 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=533 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=534 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=535 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=536 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=537 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=538 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=539 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=540 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=541 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=542 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=543 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=544 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=545 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=546 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=547 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[SHOT] hold_fp S t=548 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_fp S   zombie hp=6,3 pos=(166,50,-60,00,14,50)
+[HARNESS] recorded hold_fp frames=71
+[HARNESS] recording hold_back
+[SHOT] hold_back S t=579 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=580 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[HARNESS] R down
+[SHOT] hold_back S t=581 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=582 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=583 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=584 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=585 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=586 punch=false anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=2
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=587 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=588 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=589 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=590 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=591 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=592 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=593 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=594 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=595 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=596 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=597 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=598 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=599 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=600 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=601 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=602 punch=true anim=0 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[HARNESS] R up
+[SHOT] hold_back S t=603 punch=false anim=15 rArm=gone@602(f0) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,24,-58,96,8,20) vel=(0,10,-0,07,2,20) |v|=2,20 age=1 stuck=false
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=603 part id=142 style=9 pos=(206,24,-58,96,8,20) vel=(0,10,-0,07,2,20) age=1
+[SHOT] hold_back S t=604 punch=false anim=15 rArm=gone@602(f1) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,33,-59,04,10,39) vel=(0,10,-0,07,2,20) |v|=2,20 age=2 stuck=false
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=604 part id=142 style=9 pos=(206,33,-59,04,10,39) vel=(0,10,-0,07,2,20) age=2
+[SHOT] hold_back S t=605 punch=false anim=15 rArm=gone@602(f2) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,43,-59,11,12,59) vel=(0,10,-0,07,2,20) |v|=2,20 age=3 stuck=false
+[SHOT] hold_back S   zombie hp=20,0 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=605 part id=142 style=9 pos=(206,43,-59,11,12,59) vel=(0,10,-0,07,2,20) age=3
+[SHOT] hold_back S t=606 punch=false anim=15 rArm=gone@602(f3) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,43,-59,11,12,59) vel=(-0,01,0,21,-0,33) |v|=0,39 age=4 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=606 part id=142 style=9 pos=(206,53,-59,18,14,79) vel=(0,10,-0,07,2,20) age=4
+[SHOT] hold_back S t=607 punch=false anim=15 rArm=gone@602(f4) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,41,-58,90,12,26) vel=(-0,01,0,17,-0,32) |v|=0,36 age=5 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=607 part id=142 style=9 pos=(206,51,-58,97,14,46) vel=(-0,01,0,21,-0,33) age=5
+[SHOT] hold_back S t=608 punch=false anim=15 rArm=gone@602(f5) lArm=whole rHand=gone@602(f0) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,40,-58,73,11,94) vel=(-0,01,0,12,-0,31) |v|=0,33 age=6 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=608 part id=142 style=9 pos=(206,40,-58,73,11,94) vel=(-0,01,0,17,-0,32) age=6
+[SHOT] hold_back S t=609 punch=false anim=15 rArm=gone@602(f6) lArm=whole rHand=gone@602(f1) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,39,-58,61,11,63) vel=(-0,01,0,08,-0,30) |v|=0,31 age=7 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=609 part id=142 style=9 pos=(206,39,-58,61,11,63) vel=(-0,01,0,12,-0,31) age=7
+[SHOT] hold_back S t=610 punch=false anim=15 rArm=gone@602(f7) lArm=whole rHand=gone@602(f2) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,37,-58,54,11,33) vel=(-0,01,0,03,-0,29) |v|=0,29 age=8 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=610 part id=142 style=9 pos=(206,37,-58,54,11,33) vel=(-0,01,0,08,-0,30) age=8
+[SHOT] hold_back S t=611 punch=false anim=15 rArm=gone@602(f8) lArm=whole rHand=gone@602(f3) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,36,-58,50,11,04) vel=(-0,01,-0,01,-0,28) |v|=0,28 age=9 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=611 part id=142 style=9 pos=(206,36,-58,50,11,04) vel=(-0,01,0,03,-0,29) age=9
+[SHOT] hold_back S t=612 punch=false anim=15 rArm=gone@602(f9) lArm=whole rHand=gone@602(f4) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,35,-58,52,10,75) vel=(-0,01,-0,06,-0,27) |v|=0,28 age=10 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=612 part id=142 style=9 pos=(206,35,-58,52,10,75) vel=(-0,01,-0,01,-0,28) age=10
+[SHOT] hold_back S t=613 punch=false anim=15 rArm=gone@602(f10) lArm=whole rHand=gone@602(f5) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,34,-58,58,10,48) vel=(-0,01,-0,10,-0,27) |v|=0,29 age=11 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=613 part id=142 style=9 pos=(206,34,-58,58,10,48) vel=(-0,01,-0,06,-0,27) age=11
+[SHOT] hold_back S t=614 punch=false anim=15 rArm=gone@602(f11) lArm=whole rHand=gone@602(f6) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,33,-58,68,10,21) vel=(-0,01,-0,15,-0,26) |v|=0,30 age=12 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=614 part id=142 style=9 pos=(206,33,-58,68,10,21) vel=(-0,01,-0,10,-0,27) age=12
+[SHOT] hold_back S t=615 punch=false anim=15 rArm=gone@602(f12) lArm=whole rHand=gone@602(f7) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,31,-58,83,9,96) vel=(-0,01,-0,19,-0,25) |v|=0,32 age=13 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=615 part id=142 style=9 pos=(206,31,-58,83,9,96) vel=(-0,01,-0,15,-0,26) age=13
+[SHOT] hold_back S t=616 punch=false anim=15 rArm=gone@602(f13) lArm=whole rHand=gone@602(f8) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,30,-59,02,9,70) vel=(-0,01,-0,24,-0,24) |v|=0,34 age=14 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=616 part id=142 style=9 pos=(206,30,-59,02,9,70) vel=(-0,01,-0,19,-0,25) age=14
+[SHOT] hold_back S t=617 punch=false anim=15 rArm=gone@602(f14) lArm=whole rHand=gone@602(f9) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,29,-59,26,9,46) vel=(-0,01,-0,28,-0,24) |v|=0,37 age=15 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=617 part id=142 style=9 pos=(206,29,-59,26,9,46) vel=(-0,01,-0,24,-0,24) age=15
+[SHOT] hold_back S t=618 punch=false anim=15 rArm=gone@602(f15) lArm=whole rHand=gone@602(f10) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,28,-59,55,9,23) vel=(-0,01,-0,33,-0,23) |v|=0,40 age=16 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=618 part id=142 style=9 pos=(206,28,-59,50,9,22) vel=(-0,01,-0,24,-0,24) age=16
+[SHOT] hold_back S t=619 punch=false anim=15 rArm=gone@602(f16) lArm=whole rHand=gone@602(f11) eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,27,-59,88,9,00) vel=(-0,01,-0,37,-0,22) |v|=0,43 age=17 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=619 part id=142 style=9 pos=(206,27,-59,88,9,00) vel=(-0,01,-0,33,-0,23) age=17
+[SHOT] hold_back S t=620 punch=false anim=15 rArm=gone@602(f17) lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,26,-60,00,8,78) vel=(-0,01,0,00,-0,13) |v|=0,13 age=18 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=620 part id=142 style=9 pos=(206,26,-60,25,8,78) vel=(-0,01,-0,37,-0,22) age=18
+[SHOT] hold_back S t=621 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   part id=142 style=9 part=2 pos=(206,26,-60,00,8,64) vel=(-0,01,-0,05,-0,13) |v|=0,14 age=19 stuck=false
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back C t=621 part id=142 style=9 pos=(206,26,-60,00,8,64) vel=(-0,01,0,00,-0,13) age=19
+[SHOT] hold_back S t=622 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=623 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=624 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=625 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=626 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=627 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=628 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=629 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=630 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=631 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=632 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=633 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=634 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=635 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=636 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=637 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=638 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=639 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=640 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=641 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=642 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=643 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=644 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=645 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=646 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=647 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[SHOT] hold_back S t=648 punch=false anim=15 rArm=whole lArm=whole rHand=whole eatR=0,00 eatL=0,00 shootArm=3
+[SHOT] hold_back S   zombie hp=6,3 pos=(206,50,-60,00,14,50)
+[HARNESS] recorded hold_back frames=71
+[HARNESS] DONE
