@@ -33,8 +33,6 @@ public final class UndeadClient {
 	private static final Map<UUID, long[]> SEEN_CUTS = new HashMap<>();
 	/** Other players: the stage their box was last refreshed for. */
 	private static final Map<UUID, Integer> SEEN_STAGE = new HashMap<>();
-	/** The boost (right click held while flying) as last told to the server. */
-	private static boolean boostSent;
 
 	private UndeadClient() {
 	}
@@ -60,7 +58,7 @@ public final class UndeadClient {
 		SEEN.clear();
 		SEEN_CUTS.clear();
 		SEEN_STAGE.clear();
-		boostSent = false;
+		UndeadBloodMovesFx.reset();
 		BloodFx.reset();
 		UndeadMotion.reset();
 		PixelCubes.reset();
@@ -83,7 +81,6 @@ public final class UndeadClient {
 		}
 		PixelCubes.tick();
 		BloodFx.tick();
-		boost(mc);
 		UndeadFirstPerson.tick(mc.player == null ? null : Undead.peek(mc.player));
 		long now = mc.level.getGameTime();
 		java.util.Set<UUID> present = new java.util.HashSet<>();
@@ -125,6 +122,7 @@ public final class UndeadClient {
 			}
 			watchCuts(player, s, now);
 			UndeadBlood.tick(player, s, now);
+			UndeadBloodMovesFx.tick(player, s, now); // v0.17.3: Blood Spray / Whirlwind streams, Combustion Punch
 		}
 		UndeadEffectsRenderer.tickBlood(now);
 		UndeadSwordFx.tick(now);
@@ -136,33 +134,44 @@ public final class UndeadClient {
 		}
 	}
 
-	/** The local player's right click while flying is the boost: sent on the edges. */
-	private static void boost(Minecraft mc) {
-		boolean want = mc.player != null && mc.screen == null && mc.options.keyUse.isDown() && com.projecthero.mod.undead.UndeadFlight.isFlying(mc.player);
-		if (want != boostSent && mc.getConnection() != null) {
-			boostSent = want;
-			net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.projecthero.mod.network.UndeadBoostPayload(want));
-		}
-	}
-
 	/**
-	 * The ends that come off without the part breaking: at take-off the hands and feet burst off (their texels as pixel cubes,
-	 * blood spurting); a finger shot's bite out of an arm bursts the texels it took.
+	 * The ends that come off without the part breaking: an ejection blowing off a hand / foot with half the forearm / calf (the
+	 * stump erupts: a crown of blood, a fast core, globs, torn flesh) or cutting the torso down to its top third; a finger shot's
+	 * bite out of an arm (a spurt).
 	 */
 	private static void watchCuts(Player player, UndeadState s, long now) {
-		long[] seen = SEEN_CUTS.computeIfAbsent(player.getUUID(), k -> new long[] { s.flags & UndeadState.FLAG_PROPELLING, s.ex(UndeadState.X_EATEN_R),
+		long[] seen = SEEN_CUTS.computeIfAbsent(player.getUUID(), k -> new long[] { s.ex(UndeadState.X_EJECTED), s.ex(UndeadState.X_EATEN_R),
 				s.ex(UndeadState.X_EATEN_L) });
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
-		if (flying && seen[0] == 0L) {
-			float cut = 12f - com.projecthero.mod.undead.UndeadConfig.HAND_ROWS;
-			for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
-				if (!s.broken(part)) {
-					burstEnd(player, part, cut, 99f, 1.1f);
-					UndeadBlood.stumpEndSpurt(player, part, cut, 1.4f);
+		long ej = s.ex(UndeadState.X_EJECTED);
+		long fresh = ej & ~seen[0];
+		if (fresh != 0L) {
+			Minecraft mc = Minecraft.getInstance();
+			boolean firstPersonSelf = player == mc.player && mc.options.getCameraType().isFirstPerson();
+			Vec3 carry = new Vec3(player.getX() - player.xo, player.getY() - player.yo, player.getZ() - player.zo).scale(0.4);
+			float rows = com.projecthero.mod.undead.UndeadEjectConfig.EJECT_ROWS;
+			for (int seg = UndeadState.RIGHT_HAND; seg <= UndeadState.LEFT_FOOT; seg++) {
+				int limb = UndeadState.limbOf(seg);
+				if ((fresh & (1L << seg)) == 0L || s.broken(limb)) {
+					continue;
 				}
+				Vec3 at = UndeadBlood.endOf(player, limb, rows);
+				if (firstPersonSelf && limb <= UndeadState.LEFT_ARM) {
+					// (his own view: the arm's stump is drawn at the bottom of the screen; a smaller burst out in front, not in his face)
+					Vec3 look = player.getLookAngle();
+					at = player.getEyePosition().add(look.scale(1.4)).add(0, -0.55, 0);
+					BloodFx.eruption(at, look.add(0, 0.3, 0), carry, 0.45f);
+				} else {
+					BloodFx.eruption(at, UndeadBlood.axis(player, limb), carry, 0.85f);
+				}
+				UndeadBlood.stumpEndSpurt(player, limb, rows, 0.8f);
+			}
+			if ((fresh & (1L << UndeadState.BODY)) != 0L && !s.broken(UndeadState.BODY)) {
+				Vec3 at = UndeadBlood.at(player, UndeadState.BODY, 0f, com.projecthero.mod.undead.UndeadEjectConfig.COMBUSTION_BODY_ROWS, 0f);
+				BloodFx.eruption(at, UndeadBlood.axis(player, UndeadState.BODY), carry, firstPersonSelf ? 0.6f : 1.3f);
+				UndeadSounds.bloodBurst(at, 1f);
 			}
 		}
-		seen[0] = flying ? 1L : 0L;
+		seen[0] = ej;
 		for (int k = 0; k < 2; k++) {
 			int arm = UndeadState.RIGHT_ARM + k;
 			long e = s.ex(k == 0 ? UndeadState.X_EATEN_R : UndeadState.X_EATEN_L);

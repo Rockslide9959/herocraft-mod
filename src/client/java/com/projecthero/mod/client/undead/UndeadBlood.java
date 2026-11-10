@@ -1,10 +1,9 @@
 package com.projecthero.mod.client.undead;
 
-import com.projecthero.mod.undead.UndeadFlight;
+
 import com.projecthero.mod.undead.data.UndeadState;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -98,43 +97,17 @@ public final class UndeadBlood {
 		}
 	}
 
-	/** Every tick, for every Undead in view: jets, the burn, drips. */
+	/** Every tick, for every Undead in view: jets, the ejected stumps, drips. */
 	static void tick(Player player, UndeadState s, long now) {
 		Minecraft mc = Minecraft.getInstance();
 		boolean firstPersonSelf = player == mc.player && mc.options.getCameraType().isFirstPerson();
-		Vec3 carry = player.getDeltaMovement();
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
-		UndeadSounds.jet(player, flying, flying && s.flag(UndeadState.FLAG_BOOST));
-		boolean burning = false;
-		for (int part = UndeadState.BODY; part < UndeadState.PARTS && flying && s.flag(UndeadState.FLAG_BOOST); part++) {
-			burning |= UndeadFlight.burnt(s, part) > 0f;
-		}
-		UndeadSounds.burn(player, burning);
+		UndeadSounds.jet(player, UndeadJets.jetting(player), false);
 		UndeadSounds.punchCharge(player, s.flag(UndeadState.FLAG_PUNCH));
 		if (s.flag(UndeadState.FLAG_PROPELLING) && firstPersonSelf && player instanceof net.minecraft.client.player.AbstractClientPlayer acp) {
 			UndeadFirstPerson.spray(acp, s);
 		}
-		// the jets: pulsing arterial spurts, the take-off eruption, the boost's surge and the landing's sputter
+		// the jets: pulsing arterial spurts, the start's eruption and the stop's sputter
 		UndeadJets.tick(player, s, now, firstPersonSelf);
-		// the boost's burning edge
-		if (s.flag(UndeadState.FLAG_PROPELLING) && s.flag(UndeadState.FLAG_BOOST)) {
-			for (int part = UndeadState.BODY; part < UndeadState.PARTS; part++) {
-				float b = UndeadFlight.burnt(s, part);
-				if (b <= 0f) {
-					continue;
-				}
-				UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
-				if (cut == null) {
-					continue;
-				}
-				Vec3 edge = part == UndeadState.BODY ? at(player, part, 0f, cut.rows(), 0f) : endOf(player, part, cut.rows());
-				BloodFx.embers(edge, carry, 2);
-				if (RND.nextFloat() < 0.3f && player.level() != null && !firstPersonSelf) {
-					player.level().addParticle(ParticleTypes.SMOKE, edge.x, edge.y, edge.z, carry.x * 0.85, carry.y * 0.85 + 0.02, carry.z * 0.85);
-				}
-				// (v0.17.3, user: no skin pixels falling off the body -- the scorched-pixel drop is gone)
-			}
-		}
 		// fresh stumps drip for a couple of seconds
 		if (now % 3 == 0) {
 			for (int part = 0; part < UndeadState.PARTS; part++) {
@@ -154,11 +127,12 @@ public final class UndeadBlood {
 					}
 				}
 			}
-			if (!s.flag(UndeadState.FLAG_PROPELLING) && s.ex(UndeadState.X_CUT_REGROW) > 0L && now - s.ex(UndeadState.X_CUT_REGROW) < 40) {
+			// v0.17.3: an ejected end not jetting or spraying drips off its stump until it has grown back over
+			if (s.ex(UndeadState.X_EJECTED) != 0L && !UndeadJets.jetting(s, now)) {
 				for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
 					UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
-					if (cut != null) {
-						BloodFx.drip(endOf(player, part, cut.rows()));
+					if (cut != null && cut.q() < 0.5f && !UndeadJets.armBusy(s, part) && !(firstPersonSelf && part <= UndeadState.LEFT_ARM)) {
+						BloodFx.drip(endOf(player, part, cut.rows() + (12f - cut.rows()) * cut.q()));
 					}
 				}
 			}

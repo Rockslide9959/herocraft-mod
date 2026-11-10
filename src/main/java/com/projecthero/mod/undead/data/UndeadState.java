@@ -90,6 +90,14 @@ public final class UndeadState {
 	public static final int ANIM_SWORD_STRUGGLE = 63;
 	/** v0.17.3 tap V: Reform -- the body snapped back together at once (a flash of blood and flesh closing on each part). */
 	public static final int ANIM_REFORM = 64;
+	/**
+	 * v0.17.3 ejection moves (UndeadLaunch / UndeadBloodMoves; animStart: when it began): Shift+G Blood Whirlwind (the rise and
+	 * the spin), tap X Eject Feet (the launch), Shift+X Combustion Punch (flying at the target, then the punch itself).
+	 */
+	public static final int ANIM_BLOOD_WHIRL = 80;
+	public static final int ANIM_EJECT_FEET = 81;
+	public static final int ANIM_COMBUSTION = 82;
+	public static final int ANIM_COMBUSTION_PUNCH = 83;
 
 
 	public static final int FLAG_PROPELLING = 1;
@@ -106,6 +114,8 @@ public final class UndeadState {
 	private static final int LEGACY_FLAGS = 128 | 512;
 	/** v0.17.3 (tester: "Alternation between left and right hands"): the next one-arm move comes from the off arm (the last used the main one). */
 	public static final int FLAG_NEXT_OFF = 256;
+	/** v0.17.3 G held: Blood Spray -- both forearm stumps spraying a 2-block stream along the aim (UndeadBloodMoves). */
+	public static final int FLAG_BLOOD_SPRAY = 8192;
 
 	// ---------------------------------------------------------------- the extra slots ({@link #extra})
 	/** When the hands / feet (and anything half burnt) started growing back after a flight (0: not). */
@@ -126,7 +136,14 @@ public final class UndeadState {
 	public static final int X_BONE_SWORD = 8;
 	/** v0.17.3 tap V: the parts the last Reform closed (bit per part, for its flash). */
 	public static final int X_REFORMED = 7;
-	public static final int EXTRA = 10;
+	/**
+	 * v0.17.3 ejection (UndeadEject): a bit per segment that came off with more than itself -- a hand / foot bit: it took half
+	 * its forearm / calf with it (the limb is drawn cut at {@code UndeadEjectConfig.EJECT_ROWS} and grows back from there with
+	 * the hand / foot); the {@link #BODY} bit: the torso is cut to its top third (Combustion Punch). A bit clears once its
+	 * segment is whole again. Slot 13 (9-12 left free for the other v0.17.3 work).
+	 */
+	public static final int X_EJECTED = 13;
+	public static final int EXTRA = 16;
 
 	public boolean hasPower;
 	public List<Float> partHp;

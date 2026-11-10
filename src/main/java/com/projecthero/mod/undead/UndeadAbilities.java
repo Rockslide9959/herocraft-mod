@@ -447,17 +447,6 @@ public final class UndeadAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- X: movement
-
-	/** Blood Propulsion: see {@link UndeadFlight#start}. */
-	public static void startPropulsion(ServerPlayer p) {
-		UndeadFlight.start(p);
-	}
-
-	public static void stopPropulsion(ServerPlayer p) {
-		UndeadFlight.stop(p);
-	}
-
 	// ---------------------------------------------------------------- Z: launched parts
 
 	public static void vortexBullet(ServerPlayer p) {
@@ -536,23 +525,7 @@ public final class UndeadAbilities {
 		Undead.say(p, "message.projecthero.undead.victor", ChatFormatting.DARK_RED);
 	}
 
-	// ---------------------------------------------------------------- C: Dead Line (beam), Dead Quardead
-
-	public static void startDeadLine(ServerPlayer p) {
-		if (!begin(p, DEAD_LINE) || !hand(p)) {
-			return;
-		}
-		flag(p, UndeadState.FLAG_DEAD_LINE, true);
-		sound(p, SoundEvents.BUCKET_EMPTY, 1.0f, 1.8f);
-	}
-
-	public static void stopDeadLine(ServerPlayer p) {
-		if (!Undead.state(p).flag(UndeadState.FLAG_DEAD_LINE)) {
-			return;
-		}
-		flag(p, UndeadState.FLAG_DEAD_LINE, false);
-		cooldown(p, DEAD_LINE, UndeadConfig.DEAD_LINE_COOLDOWN);
-	}
+	// ---------------------------------------------------------------- C: Dead Quardead (Deadline: UndeadBloodMoves)
 
 	/** The beam's end this tick: the first block or creature along the look from the fingertip. */
 	public static Vec3[] beam(ServerPlayer p, double range, LivingEntity[] hitOut) {
@@ -570,43 +543,7 @@ public final class UndeadAbilities {
 		return new Vec3[] { from, end };
 	}
 
-	/**
-	 * v0.17.3 (tester: "Make deadline do damage less consistently"): one Dead Line hit -- 0 (a miss, {@link UndeadConfig#DEAD_LINE_MISS})
-	 * or {@link UndeadConfig#DEAD_LINE_DAMAGE} times a roll in [{@link UndeadConfig#DEAD_LINE_MIN}, {@link UndeadConfig#DEAD_LINE_MAX_ROLL}].
-	 */
-	public static float deadLineRoll(net.minecraft.util.RandomSource r) {
-		if (r.nextFloat() < UndeadConfig.DEAD_LINE_MISS) {
-			return 0f;
-		}
-		return UndeadConfig.DEAD_LINE_DAMAGE * (UndeadConfig.DEAD_LINE_MIN + (UndeadConfig.DEAD_LINE_MAX_ROLL - UndeadConfig.DEAD_LINE_MIN) * r.nextFloat());
-	}
-
-	private static void tickDeadLine(ServerPlayer p, UndeadState s, long now) {
-		long age = now - s.holdStart;
-		if (age > UndeadConfig.DEAD_LINE_MAX || Undead.mainArmMissing(p)) {
-			stopDeadLine(p);
-			return;
-		}
-		Vec3 from = handOrigin(p);
-		com.projecthero.mod.beamclash.BeamClash.report(p, from, p.getLookAngle(), UndeadConfig.DEAD_LINE_RANGE, 1.0f, 0xC0101A); // v0.17.3
-		LivingEntity[] hit = new LivingEntity[1];
-		Vec3[] seg = beam(p, UndeadConfig.DEAD_LINE_RANGE, hit);
-		if (hit[0] != null && age % UndeadConfig.DEAD_LINE_HIT_EVERY == 0 && !com.projecthero.mod.beamclash.BeamClash.inClash(p)) {
-			float dmg = deadLineRoll(p.getRandom());
-			if (dmg > 0f) {
-				strike(p, hit[0], from, dmg, 0.15, 0.0);
-			}
-		}
-		if (age % 3 == 0) {
-			level(p).sendParticles(Undead.BLOOD, seg[1].x, seg[1].y, seg[1].z, 3, 0.1, 0.1, 0.1, 0.0);
-		}
-		if (age % 8 == 0) {
-			sound(p, SoundEvents.BUCKET_EMPTY, 0.4f, 2.0f);
-		}
-		if (age % 10 == 0) {
-			p.causeFoodExhaustion(0.6f);
-		}
-	}
+	// (v0.17.3: Deadline, the reworked Dead Line, is UndeadBloodMoves')
 
 	public static void quardead(ServerPlayer p) {
 		if (!begin(p, QUARDEAD)) {
@@ -784,9 +721,6 @@ public final class UndeadAbilities {
 		long now = p.level().getGameTime();
 		if (s.reformUntil > now) {
 			return;
-		}
-		if (s.flag(UndeadState.FLAG_DEAD_LINE)) {
-			tickDeadLine(p, Undead.state(p), now);
 		}
 		if (s.flag(UndeadState.FLAG_DEAD_ROAD)) {
 			tickDeadRoad(p, Undead.state(p), now);

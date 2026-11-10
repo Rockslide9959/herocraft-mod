@@ -1,41 +1,50 @@
 package com.projecthero.mod.undead;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.undead.data.UndeadState;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 (user): Undead's flight, Blood Propulsion. The whole API the key routing needs:
- * <ul>
- *   <li>{@link #start(ServerPlayer)} -- take off (the hands and feet burst off, blood jets out of the four stumps);</li>
- *   <li>{@link #stop(ServerPlayer)} -- land / let go (the hands and feet grow back);</li>
- *   <li>{@link #isFlying(Player)} -- client-safe;</li>
- *   <li>{@link #setBoost(ServerPlayer, boolean)} -- right click held while flying (from {@code UndeadBoostPayload}).</li>
- * </ul>
- * Speeds ({@link #speed}): 25 b/s; 40 b/s boosting, and the body burns away (legs, arms, body: {@link UndeadConfig#BURN_TICKS});
- * 32 b/s as just a head. The movement itself is the owner's client's ({@code UndeadFlightTravelMixin} moves the local player
- * along the look at exactly {@link #speed} a tick); the server sets the same velocity, keeps the fall distance at nothing and
- * the "flying is not enabled" kick away ({@code UndeadFlightKickMixin}).
- *
- * <p>v0.17.3: the hands and feet are segments of their own ({@link UndeadState#RIGHT_HAND} ...): taking off breaks them (no burst:
- * the jets are the look) and they grow back by the regrowth once he lands. What the boost burns is really broken (kind
- * {@link UndeadState#KIND_BURNT}), the stage in progress drawn shortened by {@link UndeadState#X_BURN_TICKS}; a stage only part
- * burnt when he lands is lost whole (it regrows in about a second).
+ * v0.17.3 (user: "when player double presses space bar they eject their hands and half their forearm aswell as their feet and
+ * half their calf as blood starts spraying out ... allowing them to fly ... the same directional flight as the other flight
+ * powers"): Undead's flight. Double-tap jump in the air takes off ({@link #toggle}, from {@code UndeadFlightPayload}): the
+ * hands and feet blow off with half the forearms and calves ({@link UndeadEject}), blood jets stream out of the four stumps
+ * (client-side, from {@link UndeadState#FLAG_PROPELLING}: {@code UndeadJets}) and he flies on the shared directional flight
+ * ({@code client.flight.DirectionalFlight}: {@link UndeadEjectConfig#FLIGHT_CRUISE_BPS} cruising,
+ * {@link UndeadEjectConfig#FLIGHT_SPRINT_BPS} sprinting, a dead hover with no input). Like the Saiyan's, vanilla
+ * {@code mayfly} / {@code flying} are granted so nobody is kicked for floating. Landing or a second double-tap ends it; then the
+ * ends grow back by the normal regrowth. No cost, no time limit.
  */
 public final class UndeadFlight {
+	public static final String FLIGHT = "flight";
+
+	private static final Map<UUID, Long> STARTED = new ConcurrentHashMap<>();
+	/** Players this flight gave vanilla flight to (taken back when it ends, however it ends). */
+	private static final Set<UUID> GRANTED = ConcurrentHashMap.newKeySet();
+	/** The last toggle (a double-tap is one toggle; the client's own drop of vanilla flight may race it). */
+	private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
+
 	private UndeadFlight() {
 	}
 
 	static void clearSessionState() {
+		STARTED.clear();
+		GRANTED.clear();
+		LAST_TOGGLE.clear();
 	}
 
 	static void forget(UUID id) {
+		STARTED.remove(id);
+		GRANTED.remove(id);
+		LAST_TOGGLE.remove(id);
 	}
 
 	/** Flying right now (client-safe). */
@@ -44,116 +53,87 @@ public final class UndeadFlight {
 		return s != null && s.hasPower && s.flag(UndeadState.FLAG_PROPELLING);
 	}
 
-	/** Blocks a tick along the look for this state: 1.6 just a head, 2.0 boosting, else 1.25. */
-	public static double speed(UndeadState s, float now) {
-		if (s.headOnly(now)) {
-			return UndeadConfig.HEAD_FLIGHT_SPEED;
+	/** Double-tap jump in the air: take off, or drop out of the flight. */
+	public static void toggle(ServerPlayer p) {
+		long now = p.level().getGameTime();
+		Long last = LAST_TOGGLE.get(p.getUUID());
+		if (last != null && now - last < UndeadEjectConfig.FLIGHT_TOGGLE_COOLDOWN && now >= last) {
+			return;
 		}
-		return s.flag(UndeadState.FLAG_BOOST) ? UndeadConfig.BOOST_SPEED : UndeadConfig.PROPULSION_SPEED;
+		LAST_TOGGLE.put(p.getUUID(), now);
+		if (isFlying(p)) {
+			stop(p);
+		} else {
+			start(p);
+		}
 	}
 
-	/** Take off (the hold starts). False if he can't right now. */
+	/** Take off. False if he can't right now. */
 	public static boolean start(ServerPlayer p) {
-		if (!Undead.canAct(p) || isFlying(p)) {
+		if (!Undead.canAct(p) || isFlying(p) || p.isPassenger() || p.isFallFlying() || p.isSpectator()) {
 			return false;
 		}
-		int cd = Undead.cooldownRemaining(p, UndeadAbilities.PROPULSION);
-		if (cd > 0) {
-			Undead.say(p, "message.projecthero.undead.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.undead.ability." + UndeadAbilities.PROPULSION),
-					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+		UndeadState s = Undead.state(p);
+		if (s.broken(UndeadState.HEAD) || s.broken(UndeadState.BODY)) {
 			return false;
 		}
-		UndeadState n = Undead.state(p).copy();
+		UndeadState n = s.copy();
 		n.setFlag(UndeadState.FLAG_PROPELLING, true);
 		n.setFlag(UndeadState.FLAG_BOOST, false);
 		n.holdStart = p.level().getGameTime();
-		// a fresh flight: whatever was still growing back from the last one is whole again
-		n.setEx(UndeadState.X_CUT_REGROW, 0L);
-		n.setEx(UndeadState.X_BURN_TICKS, 0L);
-		n.setEx(UndeadState.X_BURN_SEG, 0L);
 		Undead.save(p, n);
-		for (int end = UndeadState.RIGHT_HAND; end <= UndeadState.LEFT_FOOT; end++) {
-			Undead.breakPart(p, end, UndeadState.KIND_SPENT); // the hands and feet burst off (the jets are the look)
-		}
-		// the jets' start / loop / stop are client-side (UndeadSounds.jet, from the synced flag); the hands and feet bursting off:
-		UndeadSfx.bloodBurst(p.level(), p.position().add(0, 0.6, 0), 1.2f);
+		UndeadEject.hold(p, UndeadEject.Hold.FLIGHT);
+		UndeadEject.eject(p, UndeadEject.HANDS | UndeadEject.FEET, true);
+		STARTED.put(p.getUUID(), p.level().getGameTime());
+		grant(p);
+		p.resetFallDistance();
+		// a little hop up off the take-off as the stumps erupt
+		Vec3 v = p.getDeltaMovement();
+		com.projecthero.mod.hero.power.AbilityHelpers.launchSelf(p, new Vec3(v.x, Math.max(v.y, 0.25), v.z));
+		// the jets' start / loop / stop are client-side (UndeadSounds.jet, from the synced flag)
+		UndeadSfx.bloodBurst(p.level(), p.position().add(0, 0.6, 0), 0.6f);
 		return true;
 	}
 
-	/** Let go / land: the cooldown starts and the hands, feet and any half-burnt stage grow back. */
+	/** Land / drop out: the ends grow back by the regrowth from here. */
 	public static void stop(ServerPlayer p) {
 		UndeadState s = Undead.state(p);
-		if (!s.flag(UndeadState.FLAG_PROPELLING)) {
-			return;
+		STARTED.remove(p.getUUID());
+		UndeadEject.release(p, UndeadEject.Hold.FLIGHT);
+		if (s.flag(UndeadState.FLAG_PROPELLING) || s.flag(UndeadState.FLAG_BOOST)) {
+			UndeadState n = s.copy();
+			n.setFlag(UndeadState.FLAG_PROPELLING, false);
+			n.setFlag(UndeadState.FLAG_BOOST, false);
+			Undead.save(p, n);
 		}
-		long now = p.level().getGameTime();
-		UndeadState n = s.copy();
-		n.setFlag(UndeadState.FLAG_PROPELLING, false);
-		n.setFlag(UndeadState.FLAG_BOOST, false);
-		n.setEx(UndeadState.X_CUT_REGROW, 0L);
-		n.abilityReadyAt.put(UndeadAbilities.PROPULSION, now + UndeadConfig.PROPULSION_COOLDOWN);
-		// a stage only part burnt is lost whole: it grows back with the hands and feet
-		int[] half = new int[UndeadState.PARTS];
-		int halves = 0;
-		for (int part = UndeadState.BODY; part < UndeadState.PARTS; part++) {
-			if (burnt(s, part) > 0f) {
-				half[halves++] = part;
-			}
-		}
-		n.setEx(UndeadState.X_BURN_TICKS, 0L);
-		n.setEx(UndeadState.X_BURN_SEG, 0L);
-		Undead.save(p, n);
-		for (int k = 0; k < halves; k++) {
-			Undead.breakPart(p, half[k], UndeadState.KIND_BURNT);
-		}
+		ungrant(p);
 		p.resetFallDistance();
 	}
 
-	/** Right click held / let go while flying. */
-	public static void setBoost(ServerPlayer p, boolean on) {
-		UndeadState s = Undead.state(p);
-		if (!s.hasPower || (on && !s.flag(UndeadState.FLAG_PROPELLING)) || s.flag(UndeadState.FLAG_BOOST) == on) {
-			return;
+	private static void grant(ServerPlayer p) {
+		if (!p.getAbilities().instabuild && !p.isSpectator()) {
+			GRANTED.add(p.getUUID());
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
 		}
-		UndeadState n = s.copy();
-		n.setFlag(UndeadState.FLAG_BOOST, on);
-		Undead.save(p, n);
-
 	}
 
-	// ---------------------------------------------------------------- the burn
-
-	/** The parts each burn stage takes: both legs, both arms, the body. */
-	public static final int[][] BURN_STAGES = { { UndeadState.RIGHT_LEG, UndeadState.LEFT_LEG }, { UndeadState.RIGHT_ARM, UndeadState.LEFT_ARM }, { UndeadState.BODY } };
-
-	/** The first burn stage with anything left to burn, or -1 (just a head). */
-	public static int burnStage(UndeadState s) {
-		for (int k = 0; k < BURN_STAGES.length; k++) {
-			for (int part : BURN_STAGES[k]) {
-				if (!s.broken(part)) {
-					return k;
-				}
-			}
+	private static void ungrant(ServerPlayer p) {
+		if (GRANTED.remove(p.getUUID()) && !p.getAbilities().instabuild && !p.isSpectator() && !anyOtherFlightWants(p)) {
+			p.getAbilities().mayfly = false;
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
 		}
-		return -1;
 	}
 
-	/**
-	 * How far the current burn stage has eaten {@code part} (0..1): 0 for a part not in it. Read by the renderer (with the
-	 * hands / feet cut, whichever is shorter wins).
-	 */
-	public static float burnt(UndeadState s, int part) {
-		int k = (int) s.ex(UndeadState.X_BURN_SEG);
-		long ticks = s.ex(UndeadState.X_BURN_TICKS);
-		if (ticks <= 0L || k < 0 || k >= BURN_STAGES.length || s.broken(part)) {
-			return 0f;
-		}
-		for (int q : BURN_STAGES[k]) {
-			if (q == part) {
-				return Math.min(1f, ticks / (float) UndeadConfig.BURN_TICKS[k]);
-			}
-		}
-		return 0f;
+	private static boolean anyOtherFlightWants(ServerPlayer player) {
+		return player.getAttachedOrElse(ModAttachments.FLYING, false)
+				|| player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
+				|| player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)
+				|| player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)
+				|| player.getAttachedOrElse(ModAttachments.MAX_STEEL_FLYING, false)
+				|| player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -161,43 +141,31 @@ public final class UndeadFlight {
 	static void tick(ServerPlayer p) {
 		UndeadState s = Undead.state(p);
 		if (!s.flag(UndeadState.FLAG_PROPELLING)) {
+			if (GRANTED.contains(p.getUUID()) || UndeadEject.holding(p, UndeadEject.Hold.FLIGHT)) {
+				stop(p); // the flag went some other way (a shatter, a clear): give vanilla flight back and let the ends regrow
+			}
 			return;
 		}
 		long now = p.level().getGameTime();
-		if (!p.isAlive() || p.isSpectator() || s.broken(UndeadState.HEAD)) {
+		if (!p.isAlive() || p.isSpectator() || p.isPassenger() || p.isFallFlying() || s.broken(UndeadState.HEAD) || s.broken(UndeadState.BODY)) {
 			stop(p);
 			return;
 		}
-		Vec3 v = p.getLookAngle().scale(speed(s, now));
-		// the owner's client moves him (UndeadFlightTravelMixin); this keeps the server's idea of his velocity in step
-		p.setDeltaMovement(v);
-		p.resetFallDistance();
-		// (v0.17.3, user: flight no longer costs hunger -- it emptied the bar in under a minute)
-		if (s.flag(UndeadState.FLAG_BOOST) && !s.headOnly(now)) {
-			burn(p, s, now);
-		}
-	}
-
-	/** One tick of the boost burn: the current stage burns on; when it is through, its parts break (no lethal damage). */
-	private static void burn(ServerPlayer p, UndeadState s, long now) {
-		int k = burnStage(s);
-		if (k < 0) {
+		Long start = STARTED.computeIfAbsent(p.getUUID(), k -> now);
+		if (com.projecthero.mod.flight.FlightLanding.landed(p, start)) {
+			stop(p);
 			return;
 		}
-		UndeadState n = s.copy();
-		long ticks = n.ex(UndeadState.X_BURN_SEG) == k ? n.ex(UndeadState.X_BURN_TICKS) + 1 : 1;
-		n.setEx(UndeadState.X_BURN_SEG, k);
-		n.setEx(UndeadState.X_BURN_TICKS, ticks);
-		Undead.save(p, n);
-		if (ticks >= UndeadConfig.BURN_TICKS[k]) {
-			UndeadState m = Undead.state(p).copy();
-			m.setEx(UndeadState.X_BURN_TICKS, 0L);
-			m.setEx(UndeadState.X_BURN_SEG, Math.min(BURN_STAGES.length - 1, k + 1));
-			Undead.save(p, m);
-			for (int part : BURN_STAGES[k]) {
-				Undead.breakPart(p, part, UndeadState.KIND_BURNT);
+		if (!p.getAbilities().flying || !p.getAbilities().mayfly) {
+			if (now - start >= UndeadEjectConfig.FLIGHT_LIFTOFF_GRACE && !p.getAbilities().flying && p.getAbilities().mayfly) {
+				// the client dropped vanilla flight on its own (its own double-tap): follow it
+				stop(p);
+				LAST_TOGGLE.put(p.getUUID(), now);
+				return;
 			}
-			UndeadSfx.spray(p.level(), p.position().add(0, 1, 0)); // the burn loop itself is client-side (UndeadSounds.burn)
+			grant(p);
 		}
+		UndeadEject.hold(p, UndeadEject.Hold.FLIGHT);
+		p.resetFallDistance();
 	}
 }

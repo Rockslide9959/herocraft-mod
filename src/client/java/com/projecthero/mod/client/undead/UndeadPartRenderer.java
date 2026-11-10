@@ -60,6 +60,11 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		boolean slim = owner != null && UndeadRender.slim(owner);
 		float age = e.tickCount + partial;
 		Vec3 cam = this.entityRenderDispatcher.camera.getPosition();
+		if (e.isEjectPiece()) {
+			UndeadEjectRender.piece(e, partial, pose, buffers, light, tex, slim); // v0.17.3: an end / the torso an ejection left
+			super.render(e, yaw, partial, pose, buffers, light);
+			return;
+		}
 		if (e.isLeftBehind()) {
 			leftBehind(e, partial, pose, buffers, light, tex, slim, cam);
 			super.render(e, yaw, partial, pose, buffers, light);

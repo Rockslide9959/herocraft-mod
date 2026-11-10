@@ -34,7 +34,17 @@ public final class UndeadPose {
 		float fly = UndeadMotion.flightBlend(player, partial);
 		if (fly > 0.001f) {
 			flight(player, s, model, fly, now);
+			// v0.17.3: spraying / firing the Deadline in the air -- the arms come forward to the aim over the flight pose
+			if (s.flag(UndeadState.FLAG_BLOOD_SPRAY)) {
+				set(model.rightArm, 1f, aim, model.head.yRot + 0.1f, 0f);
+				set(model.leftArm, 1f, aim, model.head.yRot - 0.1f, 0f);
+			} else if (s.flag(UndeadState.FLAG_DEAD_LINE)) {
+				set(main, 1f, aim, model.head.yRot, 0f);
+			}
 			return;
+		}
+		if (eject(player, s, model, main, off, side, aim, now)) {
+			return; // v0.17.3: the ejection moves (Whirlwind, Eject Feet, Combustion Punch, Blood Spray)
 		}
 		if (stage(player, s, model, main, off, now, partial)) {
 			return;
@@ -172,16 +182,83 @@ public final class UndeadPose {
 	}
 
 	/**
-	 * v0.17.3 (user: "make the flight animation better"): the torpedo line on top of {@link UndeadMotion}'s body tilt -- arms swept
-	 * back and down along the body (the stumps aimed behind, so the jets push along the travel), legs trailing together with a
-	 * gentle wave, the head raised to look ahead. Boosting: tighter and stiffer. Blended by {@code fly} both ways.
+	 * v0.17.3 ejection moves' poses (true if one owns the pose):
+	 * <ul>
+	 * <li>Blood Whirlwind: rising, the arms swing out to the sides and the legs dangle; spinning ({@link UndeadMotion} turns the
+	 * body), arms straight out level with the shoulders, head tipped back a little, the legs trailing with the spin;</li>
+	 * <li>Eject Feet: thrown -- arms swept back along the flight, the calf stumps trailing, easing out on the way down;</li>
+	 * <li>Combustion Punch: what is left of him rockets at the target, the one arm out in front (fist leading); the punch drives it
+	 * through;</li>
+	 * <li>Blood Spray: both forearm stumps held out along the aim, a little apart, braced and shaking with the pressure.</li>
+	 * </ul>
+	 */
+	private static boolean eject(Player player, UndeadState s, HumanoidModel<?> model, ModelPart main, ModelPart off, float side, float aim, float now) {
+		float age = now - s.animStart;
+		if (s.animId == UndeadState.ANIM_BLOOD_WHIRL && age >= 0f && age < com.projecthero.mod.undead.UndeadEjectConfig.WHIRL_TICKS + 6f) {
+			float in = Mth.clamp(age / 6f, 0f, 1f);
+			float outFade = Mth.clamp((com.projecthero.mod.undead.UndeadEjectConfig.WHIRL_TICKS + 6f - age) / 6f, 0f, 1f);
+			float w = in * in * (3f - 2f * in) * outFade;
+			float shake = Mth.sin(now * 2.7f) * 0.03f;
+			set(model.rightArm, w, -0.05f + shake, 0f, 1.5f);
+			set(model.leftArm, w, -0.05f - shake, 0f, -1.5f);
+			model.head.xRot = Mth.lerp(w, model.head.xRot, -0.4f);
+			model.hat.xRot = model.head.xRot;
+			model.head.yRot = Mth.lerp(w, model.head.yRot, 0f);
+			model.hat.yRot = model.head.yRot;
+			float drift = Mth.sin(now * 0.8f) * 0.08f;
+			set(model.rightLeg, w, 0.18f + drift, 0f, 0.16f);
+			set(model.leftLeg, w, 0.12f - drift, 0f, -0.16f);
+			model.body.xRot = Mth.lerp(w, model.body.xRot, -0.08f);
+			return true;
+		}
+		if (s.animId == UndeadState.ANIM_EJECT_FEET && age >= 0f && age < 22f) {
+			float w = Math.min(1f, (22f - age) / 6f) * Mth.clamp(age / 2f + 0.3f, 0f, 1f);
+			set(model.rightArm, w, 1.05f, 0f, 0.3f);
+			set(model.leftArm, w, 1.05f, 0f, -0.3f);
+			set(model.rightLeg, w, 0.55f, 0f, 0.06f);
+			set(model.leftLeg, w, 0.35f, 0f, -0.06f);
+			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot - 0.35f);
+			model.hat.xRot = model.head.xRot;
+			return true;
+		}
+		if (s.animId == UndeadState.ANIM_COMBUSTION && age >= 0f) {
+			// flying fist first (vanilla's crawl lays the body flat along the travel: up over the head is straight ahead)
+			float e = Mth.clamp(age / 3f, 0f, 1f);
+			float shake = Mth.sin(now * 3.3f) * 0.04f;
+			set(main, e, -3.05f + shake, 0f, 0.05f * side);
+			model.head.xRot = Mth.lerp(e, model.head.xRot, -0.9f);
+			model.hat.xRot = model.head.xRot;
+			return true;
+		}
+		if (s.animId == UndeadState.ANIM_COMBUSTION_PUNCH && age >= 0f && age < 14f) {
+			// the punch: the fist driven through, the shoulder rolled into it, then easing off
+			float hit = age < 2f ? age / 2f : Math.max(0f, 1f - (age - 2f) / 12f);
+			set(main, Math.max(hit, 0.4f), -3.14f, 0.15f * side * hit, 0f);
+			model.body.yRot += 0.35f * side * hit;
+			return true;
+		}
+		if (s.flag(UndeadState.FLAG_BLOOD_SPRAY)) {
+			float shake = Mth.sin(now * 3.7f) * 0.025f;
+			set(model.rightArm, 1f, aim + shake, model.head.yRot + 0.12f, 0f);
+			set(model.leftArm, 1f, aim - shake, model.head.yRot - 0.12f, 0f);
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * v0.17.3 (user: "give it good animations"): the flight on top of {@link UndeadMotion}'s body tilt, blended between a hover
+	 * and a torpedo by how fast he goes ({@link UndeadMotion#flightSpeed}). Hovering: upright, the forearm stumps angled down and
+	 * a little out and the calf stumps hanging (the jets hold him up), a slow tread of the legs. Flying: lying along the travel,
+	 * the arms swept back along the sides (the stumps aimed behind, so the jets push along the travel), the legs trailing
+	 * together with a gentle scissor wave, the head raised to look ahead. Blended by {@code fly} both ways.
 	 */
 	private static void flight(Player player, UndeadState s, HumanoidModel<?> model, float fly, float now) {
 		float e = fly * fly * (3f - 2f * fly);
-		boolean boost = s.flag(UndeadState.FLAG_BOOST);
-		// (user: "the legs are disconnected from the body") the flight is Shift + X, so he is usually sneaking: vanilla's crouch
-		// drops the body 3.2 px, the head 4.2, the arms to 5.2 and pushes the hips 4 px back -- with the body straightened for
-		// the torpedo that left the legs hanging off behind it. Every pivot back to the standing skeleton (blended both ways).
+		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float m = UndeadMotion.flightSpeed(player, partial);
+		// (user: "the legs are disconnected from the body") a sneak would have dropped the body 3.2 px, the head 4.2, the arms to
+		// 5.2 and pushed the hips 4 px back -- every pivot back to the standing skeleton (blended both ways)
 		pivot(model.head, e, 0f, 0f);
 		pivot(model.hat, e, 0f, 0f);
 		pivot(model.body, e, 0f, 0f);
@@ -189,19 +266,23 @@ public final class UndeadPose {
 		pivot(model.leftArm, e, 2f, 0f);
 		pivot(model.rightLeg, e, 12f, 0f);
 		pivot(model.leftLeg, e, 12f, 0f);
-		float wave = Mth.sin(now * (boost ? 1.9f : 1.1f));
-		float tight = boost ? 0.5f : 1f;
-		// the head raised to look ahead (just a head: only a little, so the neck stays aimed behind)
-		float lift = s.headOnly(now) ? -0.45f : -1.2f;
-		set(model.head, e, lift, 0f, 0f);
-		set(model.hat, e, lift, 0f, 0f);
-		// arms straight back along the sides (the body is already lying along the flight: hanging = trailing), the stumps
-		// pointing behind, just off the hips so the jets clear the legs
-		set(model.rightArm, e, 0.06f + 0.03f * wave, 0f, 0.13f * tight + 0.02f * wave);
-		set(model.leftArm, e, 0.06f - 0.03f * wave, 0f, -0.13f * tight - 0.02f * wave);
-		// legs together, trailing straight, a gentle scissor wave from the hips
-		set(model.rightLeg, e, 0.04f + 0.07f * wave * tight, 0f, 0.015f);
-		set(model.leftLeg, e, 0.04f - 0.07f * wave * tight, 0f, -0.015f);
+		float wave = Mth.sin(now * Mth.lerp(m, 0.5f, 1.1f));
+		// the head: level while hovering (the look is his own), raised to look ahead once he is lying along the flight
+		if (s.headOnly(now)) {
+			set(model.head, e, -0.45f * m, 0f, 0f);
+			set(model.hat, e, -0.45f * m, 0f, 0f);
+		} else if (m > 0.01f) {
+			model.head.xRot = Mth.lerp(e * m, model.head.xRot, -1.2f);
+			model.hat.xRot = model.head.xRot;
+		}
+		// arms: hovering, angled down and out (the jets straight down); flying, straight back along the sides
+		float ax = Mth.lerp(m, 0.18f, 0.06f), az = Mth.lerp(m, 0.42f, 0.13f);
+		set(model.rightArm, e, ax + 0.04f * wave, 0f, az + 0.03f * wave);
+		set(model.leftArm, e, ax - 0.04f * wave, 0f, -az - 0.03f * wave);
+		// legs: hovering, a slow tread; flying, together and trailing with a gentle scissor wave
+		float tread = 0.16f * (1f - m);
+		set(model.rightLeg, e, 0.04f + (0.07f * m + tread) * wave, 0f, Mth.lerp(m, 0.07f, 0.015f));
+		set(model.leftLeg, e, 0.04f - (0.07f * m + tread) * wave, 0f, -Mth.lerp(m, 0.07f, 0.015f));
 		model.body.xRot = Mth.lerp(e, model.body.xRot, 0f);
 		model.body.yRot = Mth.lerp(e, model.body.yRot, 0f);
 		model.body.zRot = Mth.lerp(e, model.body.zRot, 0f);

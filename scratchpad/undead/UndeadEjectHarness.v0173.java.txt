@@ -1,0 +1,467 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.data.UndeadState;
+import com.projecthero.mod.undead.entity.UndeadPartEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films Undead's ejection moves through the real keys (double-tap jump, G, Shift+G, X, Shift+X, C).
+ * Enabled by run/undeadeject.flag; {@code -Dundeadeject.only=name,name} films just those scenes.
+ */
+public final class UndeadEjectHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static volatile String logTag;
+	private static final String PREFIX = System.getProperty("undeadeject.prefix", "ue");
+	private static final String ONLY = System.getProperty("undeadeject.only", "");
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	/** Follow cam: camPos / camLook are offsets from the player (set every tick). */
+	private static Vec3 followCam, followLook;
+	private static Vec3 launchFrom;
+
+	private UndeadEjectHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadeject.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadEjectHarness::tick);
+		ServerTickEvents.END_SERVER_TICK.register(UndeadEjectHarness::serverLog);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadeject-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void serverLog(MinecraftServer srv) {
+		String tag = logTag;
+		if (tag == null || srv.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
+		ServerPlayer p = srv.getPlayerList().getPlayers().get(0);
+		UndeadState s = Undead.state(p);
+		long now = p.level().getGameTime();
+		Vec3 pos = p.position();
+		String dist = launchFrom == null ? "-" : String.format("%.2f", Math.sqrt(Math.pow(pos.x - launchFrom.x, 2) + Math.pow(pos.z - launchFrom.z, 2)));
+		System.out.println(String.format("[EJ] %s t=%d pos=(%.2f,%.2f,%.2f) v=(%.2f,%.2f,%.2f) ground=%b fly=%b mayfly=%b anim=%d flags=%d ej=%d rHand=%s lFoot=%s body=%s flatDist=%s",
+				tag, now, pos.x, pos.y, pos.z, p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, p.onGround(),
+				s.flag(UndeadState.FLAG_PROPELLING), p.getAbilities().mayfly, s.animId, s.flags, s.ex(UndeadState.X_EJECTED),
+				seg(s, UndeadState.RIGHT_HAND, now), seg(s, UndeadState.LEFT_FOOT, now), seg(s, UndeadState.BODY, now), dist));
+		for (Zombie z : p.serverLevel().getEntitiesOfClass(Zombie.class, p.getBoundingBox().inflate(40))) {
+			System.out.println(String.format("[EJ] %s   zombie hp=%.1f pos=(%.2f,%.2f,%.2f) slow=%b blind=%b", tag, z.getHealth(), z.getX(), z.getY(), z.getZ(),
+					z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), z.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)));
+		}
+	}
+
+	private static String seg(UndeadState s, int i, long now) {
+		if (!s.broken(i)) {
+			return "whole";
+		}
+		return String.format("gone@%d(f%.0f)", s.brokenAt(i), s.frame(i, now));
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadEjectHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			if (followCam != null && mc.player != null) {
+				Vec3 pp = mc.player.position();
+				camPos = pp.add(followCam);
+				camLook = pp.add(followLook);
+			}
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("%s_%s_%03d.png", PREFIX, recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+					logTag = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("UE_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			logTag = name;
+			System.out.println("[HARNESS] recording " + name);
+		});
+	}
+
+	private static void zombie(ServerPlayer p, double dx, double dz, float yaw) {
+		Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+		if (z != null) {
+			z.moveTo(base.x + dx, base.y, base.z + dz, yaw, 0f);
+			z.setNoAi(true);
+			z.setPersistenceRequired();
+			z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(200);
+			z.setHealth(200);
+			z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+			z.setYHeadRot(yaw);
+			z.setYBodyRot(yaw);
+			p.serverLevel().addFreshEntity(z);
+		}
+	}
+
+	private static void reset(ServerPlayer p) {
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, p.getBoundingBox().inflate(80),
+				e -> e instanceof UndeadPartEntity || e instanceof Zombie).forEach(e -> e.discard());
+		com.projecthero.mod.undead.UndeadFlight.stop(p);
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.flags = 0;
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.getFoodData().setFoodLevel(20);
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 look, java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 48, 0, 0);
+			mc.options.setCameraType(type);
+			followCam = null;
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			releaseAll(mc);
+			mc.gui.getChat().clearMessages(false);
+			mc.gui.clear();
+			server(mc, p -> {
+				reset(p);
+				if (setup != null) {
+					setup.accept(p);
+				}
+			});
+		});
+		at(t + 6, () -> aim(mc, 0f, 4f));
+	}
+
+	private static void follow(int t, Vec3 cam, Vec3 look) {
+		at(t, () -> {
+			followCam = cam;
+			followLook = look;
+		});
+	}
+
+	private static void aim(Minecraft mc, float yaw, float pitch) {
+		if (mc.player != null) {
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = yaw;
+			mc.player.xRotO = pitch;
+		}
+	}
+
+	private static void releaseAll(Minecraft mc) {
+		for (KeyMapping k : ModKeyBindings.ABILITY_SLOTS) {
+			k.setDown(false);
+		}
+		mc.options.keyShift.setDown(false);
+		mc.options.keyJump.setDown(false);
+		mc.options.keyUp.setDown(false);
+		mc.options.keyLeft.setDown(false);
+		mc.options.keySprint.setDown(false);
+	}
+
+	private static void key(int t, KeyMapping k, int hold, String name) {
+		at(t, () -> {
+			System.out.println("[HARNESS] " + name + " down");
+			k.setDown(true);
+		});
+		at(t + hold, () -> {
+			System.out.println("[HARNESS] " + name + " up");
+			k.setDown(false);
+		});
+	}
+
+	private static boolean want(String name) {
+		if (ONLY.isEmpty()) {
+			return true;
+		}
+		for (String s : ONLY.split(",")) {
+			if (s.equals(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** A strip of marker blocks along +z from the base: every block light, every 5th gold (the Eject Feet distance ruler). */
+	private static void ruler(ServerPlayer p) {
+		for (int dz = 0; dz <= 14; dz++) {
+			BlockPos at = BlockPos.containing(base.x + 2, base.y - 1, base.z + dz);
+			p.serverLevel().setBlockAndUpdate(at, dz % 5 == 0 ? Blocks.GOLD_BLOCK.defaultBlockState() : dz % 2 == 0 ? Blocks.QUARTZ_BLOCK.defaultBlockState()
+					: Blocks.STONE.defaultBlockState());
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Undead.grant(p);
+		}));
+		t += 40;
+		int idx = 1;
+		Minecraft m = mc;
+		KeyMapping G = ModKeyBindings.ABILITY_2, X = ModKeyBindings.ABILITY_3, C = ModKeyBindings.ABILITY_6;
+		Vec3 side = new Vec3(-7, 2.4, 4.5), sideLook = new Vec3(0, 1.3, 4.5);
+
+		if (want("flight_tp")) {
+			// take-off by a real double-tap of jump, a hover, a sprint forward with a turn, a hover, then down to land
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, null, null, null);
+			// (the vanilla third-person camera follows him)
+			record(t + 16, "flight_tp", 170);
+			key(t + 20, m.options.keyJump, 2, "jump");
+			key(t + 25, m.options.keyJump, 2, "jump");
+			key(t + 40, m.options.keyJump, 12, "jump(rise)");
+			at(t + 62, () -> {
+				m.options.keyUp.setDown(true);
+				m.options.keySprint.setDown(true);
+			});
+			for (int k = 0; k < 30; k++) {
+				final int kk = k;
+				at(t + 70 + k, () -> aim(m, kk * 2.0f, 0f));
+			}
+			at(t + 110, () -> {
+				m.options.keyUp.setDown(false);
+				m.options.keySprint.setDown(false);
+			});
+			key(t + 140, m.options.keyShift, 40, "sneak(down)");
+			t += 200;
+		}
+		if (want("flight_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null, null, null);
+			record(t + 16, "flight_fp", 120);
+			key(t + 20, m.options.keyJump, 2, "jump");
+			key(t + 25, m.options.keyJump, 2, "jump");
+			key(t + 40, m.options.keyJump, 10, "jump(rise)");
+			at(t + 55, () -> m.options.keyUp.setDown(true));
+			at(t + 100, () -> m.options.keyUp.setDown(false));
+			key(t + 110, m.options.keyJump, 2, "jump");
+			key(t + 114, m.options.keyJump, 2, "jump");
+			t += 150;
+		}
+		if (want("spray_tp")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, side, sideLook, p -> {
+				zombie(p, 0, 7, 180f);
+				zombie(p, 1.2, 9, 180f);
+			});
+			record(t + 16, "spray_tp", 90);
+			key(t + 20, G, 55, "G");
+			t += 120;
+		}
+		if (want("spray_wall")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-6, 3.0, 2.0), new Vec3(0, 1.3, 5.0), p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(base.x + x, base.y + y, base.z + 6), Blocks.STONE_BRICKS.defaultBlockState());
+					}
+				}
+			});
+			record(t + 16, "spray_wall", 70);
+			key(t + 20, G, 45, "G");
+			at(t + 100, () -> server(m, p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(base.x + x, base.y + y, base.z + 6), Blocks.AIR.defaultBlockState());
+					}
+				}
+			}));
+			t += 110;
+		}
+		if (want("spray_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null, null, p -> zombie(p, 0, 7, 180f));
+			record(t + 16, "spray_fp", 70);
+			key(t + 20, G, 45, "G");
+			t += 100;
+		}
+		if (want("whirl_tp")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-10, 5.5, 2), new Vec3(0, 2.2, 1), p -> {
+				zombie(p, 0, 6, 180f);
+				zombie(p, 6, 0, 90f);
+				zombie(p, -5, -3, -60f);
+				zombie(p, 4, 6, -150f);
+			});
+			record(t + 16, "whirl_tp", 70);
+			at(t + 18, () -> m.options.keyShift.setDown(true));
+			key(t + 20, G, 3, "Shift+G");
+			at(t + 24, () -> m.options.keyShift.setDown(false));
+			t += 100;
+		}
+		if (want("whirl_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null, null, p -> zombie(p, 0, 6, 180f));
+			record(t + 16, "whirl_fp", 55);
+			at(t + 18, () -> m.options.keyShift.setDown(true));
+			key(t + 20, G, 3, "Shift+G");
+			at(t + 24, () -> m.options.keyShift.setDown(false));
+			t += 90;
+		}
+		if (want("feet_tp")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-8, 2.5, 6), new Vec3(0, 1.0, 6), UndeadEjectHarness::ruler);
+			record(t + 16, "feet_tp", 60);
+			at(t + 19, () -> launchFrom = m.player == null ? null : m.player.position());
+			at(t + 19, () -> aim(m, 0f, 0f));
+			key(t + 20, X, 2, "X");
+			at(t + 75, () -> launchFrom = null);
+			t += 90;
+		}
+		if (want("combustion_tp")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-8, 2.6, 5.5), new Vec3(0, 1.0, 5.5), p -> zombie(p, 0, 10, 180f));
+			record(t + 16, "combustion_tp", 75);
+			at(t + 18, () -> m.options.keyShift.setDown(true));
+			key(t + 20, X, 3, "Shift+X");
+			at(t + 24, () -> m.options.keyShift.setDown(false));
+			t += 110;
+		}
+		if (want("combustion_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null, null, p -> zombie(p, 0, 10, 180f));
+			record(t + 16, "combustion_fp", 60);
+			at(t + 18, () -> m.options.keyShift.setDown(true));
+			key(t + 20, X, 3, "Shift+X");
+			at(t + 24, () -> m.options.keyShift.setDown(false));
+			t += 100;
+		}
+		if (want("deadline_tp")) {
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, side, new Vec3(0, 1.3, 5), p -> zombie(p, 0, 10, 180f));
+			record(t + 16, "deadline_tp", 70);
+			key(t + 20, C, 45, "C");
+			t += 100;
+		}
+		if (want("deadline_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null, null, p -> zombie(p, 0, 10, 180f));
+			record(t + 16, "deadline_fp", 60);
+			key(t + 20, C, 40, "C");
+			t += 90;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

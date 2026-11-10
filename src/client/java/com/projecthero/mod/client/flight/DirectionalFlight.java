@@ -160,6 +160,11 @@ public final class DirectionalFlight {
 					: com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_CRUISE_BPS) * mult);
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
+		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 18 b/s cruise, 36 sprinting
+		if (com.projecthero.mod.undead.UndeadFlight.isFlying(player)) {
+			double bps = sprint ? com.projecthero.mod.undead.UndeadEjectConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.undead.UndeadEjectConfig.FLIGHT_CRUISE_BPS;
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// v0.15.13: Nova flight -- 20 b/s, 40 sprinting
 		if (com.projecthero.mod.nova.Nova.isFlying(player)) {
 			return DirectionalFlightModel.nova(sprint);

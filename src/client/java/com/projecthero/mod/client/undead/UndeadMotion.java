@@ -27,7 +27,8 @@ public final class UndeadMotion {
 		double rolled, prevRolled;
 		Vec3 lastPos;
 		float lastYaw;
-		boolean boost;
+		/** v0.17.3: his smoothed travel (blocks / tick), now and last tick -- the flight leans along it. */
+		Vec3 vel = Vec3.ZERO, prevVel = Vec3.ZERO;
 	}
 
 	private static final Map<UUID, Track> TRACKS = new HashMap<>();
@@ -51,7 +52,7 @@ public final class UndeadMotion {
 		t.prevBank = t.bank;
 		t.prevRolled = t.rolled;
 		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
-		t.boost = s.flag(UndeadState.FLAG_BOOST);
+		t.prevVel = t.vel;
 		// ease in fast (the take-off is a snap of blood), out a little slower
 		t.blend = flying ? Math.min(1f, t.blend + 0.22f + 0.3f * (1f - t.blend)) : Math.max(0f, t.blend - 0.12f);
 		float yaw = player.getYHeadRot();
@@ -62,6 +63,9 @@ public final class UndeadMotion {
 		Vec3 pos = player.position();
 		if (t.lastPos != null) {
 			Vec3 d = pos.subtract(t.lastPos);
+			if (d.lengthSqr() < 16.0) {
+				t.vel = t.vel.lerp(d, 0.45);
+			}
 			double yawR = Math.toRadians(player.yBodyRot);
 			double fwd = d.x * -Math.sin(yawR) + d.z * Math.cos(yawR);
 			if (d.horizontalDistanceSqr() < 4.0) {
@@ -84,6 +88,18 @@ public final class UndeadMotion {
 	public static float flightBlend(Player player, float partial) {
 		Track t = TRACKS.get(player.getUUID());
 		return t == null ? 0f : Mth.lerp(partial, t.prevBlend, t.blend);
+	}
+
+	/** v0.17.3: 0 (hovering) .. 1 (flying flat out, ~12 b/s and up): how far the flight pose has gone from hover to torpedo. */
+	public static float flightSpeed(Player player, float partial) {
+		Track t = TRACKS.get(player.getUUID());
+		if (t == null) {
+			return 0f;
+		}
+		Vec3 v = t.prevVel.lerp(t.vel, partial);
+		double sp = Math.sqrt(v.x * v.x + v.z * v.z) + Math.abs(v.y) * 0.25; // (rising / sinking stays the hover pose)
+		float m = (float) Mth.clamp((sp - 0.08) / 0.52, 0.0, 1.0);
+		return m * m * (3f - 2f * m);
 	}
 
 	/** The distance (blocks) rolled forward so far, for the rolling head. */
@@ -110,6 +126,24 @@ public final class UndeadMotion {
 			return;
 		}
 		if (player.isPassenger() || player.isSleeping()) {
+			return;
+		}
+		float age = now - s.animStart;
+		if (s.animId == UndeadState.ANIM_BLOOD_WHIRL && age >= 0f && age < com.projecthero.mod.undead.UndeadEjectConfig.WHIRL_TICKS) {
+			// v0.17.3 Blood Whirlwind: the whole body turns with the spin (the arms' streams with it), the body yaw stays his own
+			float spin = (float) Math.toDegrees(com.projecthero.mod.undead.UndeadBloodMoves.whirlAngle(age));
+			pose.mulPose(Axis.YP.rotationDegrees(-spin));
+			return;
+		}
+		if (s.animId == UndeadState.ANIM_EJECT_FEET && age >= 0f && age < 22f && t != null) {
+			// v0.17.3 Eject Feet: thrown, the body leans into the flight (easing back up for the landing)
+			Vec3 v = t.prevVel.lerp(t.vel, partial);
+			double flat = Math.sqrt(v.x * v.x + v.z * v.z);
+			float w = Math.min(1f, (22f - age) / 6f) * Mth.clamp(age / 2f, 0f, 1f);
+			float lean = (float) Mth.clamp(flat / 0.9, 0.0, 1.0) * 38f * w;
+			pose.translate(0f, 0.9f * scale, 0f);
+			pose.mulPose(Axis.XP.rotationDegrees(-lean));
+			pose.translate(0f, -0.9f * scale, 0f);
 			return;
 		}
 		int stage = UndeadStages.stage(s, now);
@@ -213,34 +247,49 @@ public final class UndeadMotion {
 		return Math.min(12f, Math.max(11.9f * qb * qb * (3f - 2f * qb) * 0.85f, 12f * qm));
 	}
 
+	/**
+	 * v0.17.3: the flight's body line. Hovering he hangs upright on his jets with a slow bob; moving, he leans over along the
+	 * travel -- flat out he lies along it, head first (diving or climbing with it), sliding sideways he banks into it, backing up he
+	 * tips back -- and banks into turns. Just a head: crown first along the travel, tumbling a little on the neck's jet.
+	 */
 	private static void flight(Player player, UndeadState s, Track t, PoseStack pose, float partial, float scale, float blend, boolean headOnly, float now) {
 		float e = blend * blend * (3f - 2f * blend);
-		float pitch = player.getViewXRot(partial);
 		float bodyYaw = Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot);
 		float headYaw = Mth.rotLerp(partial, player.yHeadRotO, player.yHeadRot);
 		float bank = t == null ? 0f : Mth.lerp(partial, t.prevBank, t.bank);
-		boolean boost = t != null && t.boost;
+		Vec3 v = t == null ? Vec3.ZERO : t.prevVel.lerp(t.vel, partial);
+		float m = flightSpeed(player, partial);
 		// the body follows the look exactly (not vanilla's lagging body yaw)
 		pose.mulPose(Axis.YP.rotationDegrees(Mth.wrapDegrees(bodyYaw - headYaw) * e));
+		// the travel in his own frame: forward along the look's yaw, to his right, up
+		double yawR = Math.toRadians(headYaw);
+		double fwd = v.x * -Math.sin(yawR) + v.z * Math.cos(yawR);
+		double side = v.x * -Math.cos(yawR) + v.z * -Math.sin(yawR);
+		double flat = Math.sqrt(fwd * fwd + side * side);
+		float travelPitch = (float) Math.toDegrees(Math.atan2(-v.y, Math.max(1.0e-4, flat))); // + diving
 		if (headOnly) {
-			// just the head: crown first, the neck (and its jet) straight back, tumbling a little on the jet
 			float wob = Mth.sin(now * 0.9f) * 8f + Mth.sin(now * 0.37f) * 5f;
 			pose.translate(0f, Mth.lerp(e, HEAD_CENTRE, 0.25f) * scale, 0f);
-			pose.mulPose(Axis.XP.rotationDegrees((-(90f + pitch) + wob) * e));
+			pose.mulPose(Axis.XP.rotationDegrees((-(90f + travelPitch) * m + wob) * e));
 			pose.mulPose(Axis.YP.rotationDegrees((-bank * 0.8f + Mth.sin(now * 0.53f) * 10f) * e));
 			pose.translate(0f, -HEAD_CENTRE * scale, 0f);
 			return;
 		}
 		float pivot = 0.95f * scale;
-		float flutter = Mth.sin(now * (boost ? 2.1f : 1.3f)) * (boost ? 2.6f : 1.6f);
-		pose.translate(0f, pivot, 0f);
-		// the torpedo: lying along the look, the head leading
-		pose.mulPose(Axis.XP.rotationDegrees(-(90f + pitch + flutter) * e));
+		float bob = Mth.sin(now * 0.35f) * 0.04f * (1f - m);
+		float flutter = Mth.sin(now * 1.3f) * 1.6f * m;
+		// forward travel lays him along it (head first); backing up tips him back a little; sideways he banks over
+		float fwdShare = (float) (flat < 1.0e-4 ? 1.0 : fwd / flat);
+		// straight up or down he stays upright (rising / sinking on the jets); the more of the travel is level, the more he lies along it
+		float level = (float) Mth.clamp(flat / Math.max(1.0e-4, v.length()), 0.0, 1.0);
+		level = (float) Math.sqrt(level);
+		float lean = (fwdShare >= 0f ? (90f + travelPitch) * fwdShare : 22f * fwdShare) * level;
+		float sideBank = (float) (flat < 1.0e-4 ? 0.0 : side / flat) * 28f;
+		pose.translate(0f, pivot + bob * scale, 0f);
+		pose.mulPose(Axis.XP.rotationDegrees(-(Mth.clamp(lean, -30f, 170f) * m + flutter + 6f * (1f - m)) * e));
+		pose.mulPose(Axis.ZP.rotationDegrees(sideBank * level * m * e * (fwdShare >= 0f ? 1f - fwdShare * 0.7f : 1f)));
 		// banking into turns: a roll about the body's own long axis
-		pose.mulPose(Axis.YP.rotationDegrees(-bank * e));
-		if (boost) {
-			pose.scale(1f, 1f + 0.04f * e, 1f); // stretched by the speed
-		}
+		pose.mulPose(Axis.YP.rotationDegrees(-bank * e * m));
 		pose.translate(0f, -pivot, 0f);
 	}
 }

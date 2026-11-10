@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.undead.Undead;
-import com.projecthero.mod.undead.UndeadFlight;
+import com.projecthero.mod.undead.UndeadEjectConfig;
 import com.projecthero.mod.undead.data.UndeadState;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -26,14 +26,16 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * v0.17.3 (user: "make it look like actual blood bursting out of the players body"): Blood Propulsion's jets as arterial
- * spurts, not exhaust. One heart drives every stump: a sharp surge then a decay, ~3.5 beats a second (~4.5 boosting).
- * Each jet is a chain of liquid parcels leaving the cut face, each with the speed of the beat it left on; the fast surge
- * parcels catch up with the slow ones (the slugs and bulges of a pulsing jet), stay one opaque rope near the stump and
- * then break into globs that keep their momentum and fall. The rope is lit, opaque, dark at its core and underside with a
- * glossy streak along its top. Around it {@link BloodFx} carries the pieces that leave it (drops, motion-stretched
- * streaks, globs that splat, mist only at the peaks, drips between beats). Take-off erupts, the boost surges and throws
- * blood and flesh off the burning edges, landing sputters out in a few weak spurts and dribbles.
+ * v0.17.3 (user: "make it look like actual blood bursting out of the players body"): the blood jets out of Undead's stumps as
+ * arterial spurts, not exhaust. One heart drives every stump: a sharp surge then a decay, ~3.4 beats a second. Each jet is a
+ * chain of liquid parcels leaving the cut face, each with the speed of the beat it left on; the fast surge parcels catch up with
+ * the slow ones (the slugs and bulges of a pulsing jet), stay one opaque rope near the stump and then break into globs that keep
+ * their momentum and fall. Around it {@link BloodFx} carries the pieces that leave it (drops, streaks, globs that splat, mist
+ * only at the peaks, drips between beats). When the jets stop the stumps sputter out in a few weak spurts and dribbles.
+ *
+ * <p>v0.17.3 ejection moves ({@link #jetting}): the flight (all four stumps, streaming opposite to the travel -- straight down
+ * while he hovers), the Eject Feet blast (the calf stumps, the first moments of the launch), the Blood Whirlwind (the calf
+ * stumps holding him up) and the Combustion Punch (the cut torso and the empty shoulder driving him at the target).
  *
  * <p>Everything is worked out from the synced state and the game time (the heart's phase included), so every viewer sees
  * the same jets. Rendering allocates nothing per parcel (scratch arrays); particles are BloodFx's pooled ones.
@@ -41,13 +43,15 @@ import org.joml.Matrix4f;
 public final class UndeadJets {
 	private static final RandomSource RND = RandomSource.create();
 
-	/** Per player: flying last tick, take-off tick, landing tick, boosting last tick, boost start tick. */
+	/** Per player: jetting last tick, start tick, stop tick, (unused), (unused). */
 	private static final Map<UUID, long[]> SEEN = new HashMap<>();
 
-	/** How long after landing the stumps still sputter. */
+	/** How long after the jets stop the stumps still sputter. */
 	static final int SPUTTER_TICKS = 32;
-	/** How long the take-off eruption keeps the jets violent. */
+	/** How long the start's eruption keeps the jets violent. */
 	static final int ERUPT_TICKS = 12;
+	/** Eject Feet: the calf stumps jet for this long after the blast. */
+	static final int FEET_JET_TICKS = 9;
 
 	// liquid colours: the rope's glossy top, its sides, its underside, the specular streak
 	private static final int TOP = 0xA8161A, SIDE = 0x6E0A0E, BOTTOM = 0x34030A, SPEC = 0xF26A55, CAP = 0x55060A;
@@ -61,7 +65,7 @@ public final class UndeadJets {
 
 	// ---------------------------------------------------------------- the heart
 
-	/** Beats per tick: ~3.4 Hz cruising, ~4.4 Hz boosting. */
+	/** Ticks a beat: ~3.4 Hz (boost: kept for the stronger moves, ~4.4 Hz). */
 	static float period(boolean boost) {
 		return boost ? 4.5f : 5.9f;
 	}
@@ -85,7 +89,7 @@ public final class UndeadJets {
 		return Math.min(1f, p);
 	}
 
-	/** Which beat {@code t} falls in (for per-beat randomness: the landing's skipped beats). */
+	/** Which beat {@code t} falls in (for per-beat randomness: the sputter's skipped beats). */
 	static int beat(float t, boolean boost) {
 		return Mth.floor(t / period(boost));
 	}
@@ -139,15 +143,46 @@ public final class UndeadJets {
 		return SEEN.computeIfAbsent(player.getUUID(), k -> new long[] { 0L, -1000L, -1000L, 0L, -1000L });
 	}
 
-	static Mode mode(UndeadState s, long[] seen, float now) {
+	/** Some move has blood jetting out of his stumps right now (the flight, Eject Feet, the Whirlwind, the Combustion Punch). */
+	static boolean jetting(UndeadState s, float now) {
 		if (s.flag(UndeadState.FLAG_PROPELLING)) {
+			return true;
+		}
+		float age = now - s.animStart;
+		return switch (s.animId) {
+			case UndeadState.ANIM_EJECT_FEET -> age >= 0f && age < FEET_JET_TICKS;
+			case UndeadState.ANIM_BLOOD_WHIRL -> age >= 0f && age < UndeadEjectConfig.WHIRL_TICKS;
+			case UndeadState.ANIM_COMBUSTION -> age >= 0f && age < UndeadEjectConfig.COMBUSTION_MAX_TICKS + 2;
+			default -> false;
+		};
+	}
+
+	static Mode mode(UndeadState s, long[] seen, float now) {
+		if (jetting(s, now)) {
 			return Mode.FLYING;
 		}
 		return now - seen[2] < SPUTTER_TICKS && now >= seen[2] ? Mode.SPUTTER : Mode.NONE;
 	}
 
+	/** Where he is going this tick (blocks / tick), from his own movement: right for every viewer, remote players too. */
+	static Vec3 travel(Player player) {
+		return new Vec3(player.getX() - player.xo, player.getY() - player.yo, player.getZ() - player.zo);
+	}
+
+	/**
+	 * The way the jets push him: along the travel, with a little lift (so a hovering flier's jets point straight down and a fast
+	 * one's stream straight back, a touch low). Unit length.
+	 */
+	static Vec3 thrust(Player player, float lift) {
+		Vec3 v = travel(player);
+		// sinking, the jets still point down (they cushion him), not up at the sky
+		v = new Vec3(v.x, Math.max(v.y, -0.05), v.z);
+		Vec3 t = v.add(0, lift, 0);
+		return t.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : t.normalize();
+	}
+
 	/** Fills the stump arrays for {@code player}; returns the mode. */
-	private static Mode collect(Player player, UndeadState s, float now, Vec3 look) {
+	private static Mode collect(Player player, UndeadState s, float now) {
 		stumps = 0;
 		long[] seen = seen(player);
 		Mode mode = mode(s, seen, now);
@@ -156,10 +191,10 @@ public final class UndeadJets {
 		}
 		int id = player.getId() * 7;
 		if (mode == Mode.SPUTTER) {
-			// landed: the stumps hang where the pose puts them and the last spurts drop out of them, along the limb
+			// stopped: the stumps hang where the pose puts them and the last spurts drop out of them, along the limb
 			for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
 				UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
-				if (cut == null || s.broken(part)) {
+				if (cut == null || s.broken(part) || armBusy(s, part)) {
 					continue;
 				}
 				float rows = cut.rows() + (12f - cut.rows()) * Mth.clamp(cut.q(), 0f, 1f);
@@ -167,46 +202,90 @@ public final class UndeadJets {
 			}
 			return mode;
 		}
-		float power = s.flag(UndeadState.FLAG_BOOST) ? 1.75f : 1f;
-		Vec3 back = look.scale(-1);
-		if (s.headOnly(now)) {
-			Vec3[] neck = UndeadBlood.stump(player, UndeadState.HEAD);
-			add(neck[0], back, 0.075f, power * 1.1f, id, UndeadState.HEAD, 0f);
+		float age = now - s.animStart;
+		if (s.flag(UndeadState.FLAG_PROPELLING)) {
+			// the flight: all four stumps, streaming back against the travel (down while he hovers)
+			Vec3 push = thrust(player, 0.18f);
+			if (s.headOnly(now)) {
+				Vec3[] neck = UndeadBlood.stump(player, UndeadState.HEAD);
+				add(neck[0], push.scale(-1), 0.075f, 1.1f, id, UndeadState.HEAD, 0f);
+				return mode;
+			}
+			for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
+				float lag = part >= UndeadState.RIGHT_LEG ? 0.35f : 0f; // the legs' arteries are a little further from the heart
+				if (armBusy(s, part)) {
+					continue; // the arm is spraying / firing the Deadline instead
+				}
+				if (!s.broken(part)) {
+					UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
+					float rows = cut != null ? cut.rows() : 12f;
+					add(UndeadBlood.endOf(player, part, rows), UndeadBlood.jetDir(UndeadBlood.axis(player, part), push), 0.058f, 1f, id + part, part, lag);
+				} else if (!s.broken(UndeadState.BODY)) {
+					Vec3[] st = UndeadBlood.stump(player, part);
+					add(st[0], UndeadBlood.jetDir(st[1], push), 0.062f, 0.9f, id + part, part, lag);
+				}
+			}
 			return mode;
 		}
-		for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
-			float lag = part >= UndeadState.RIGHT_LEG ? 0.35f : 0f; // the legs' arteries are a little further from the heart
-			if (!s.broken(part)) {
-				UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
-				float rows = cut != null ? cut.rows() : 12f;
-				add(UndeadBlood.endOf(player, part, rows), UndeadBlood.jetDir(UndeadBlood.axis(player, part), look), 0.058f, power, id + part, part, lag);
-			} else if (!s.broken(UndeadState.BODY)) {
-				Vec3[] st = UndeadBlood.stump(player, part);
-				add(st[0], UndeadBlood.jetDir(st[1], look), 0.062f, power * 0.9f, id + part, part, lag);
+		switch (s.animId) {
+			case UndeadState.ANIM_EJECT_FEET -> {
+				// the blast that threw him: the calf stumps, hard at first, against the travel
+				Vec3 push = thrust(player, 0.05f);
+				float pw = 1.6f - 0.7f * Mth.clamp(age / FEET_JET_TICKS, 0f, 1f);
+				legJets(player, s, now, push, pw, id);
 			}
-		}
-		if (s.broken(UndeadState.BODY)) {
-			Vec3[] neck = UndeadBlood.stump(player, UndeadState.HEAD);
-			add(neck[0], back, 0.072f, power, id, UndeadState.HEAD, 0f);
+			case UndeadState.ANIM_BLOOD_WHIRL -> legJets(player, s, now, new Vec3(0, 1, 0), 1.2f, id); // holding him up
+			case UndeadState.ANIM_COMBUSTION -> {
+				// the cut torso and the empty shoulder drive him at the target
+				Vec3 push = thrust(player, 0.02f);
+				if ((s.ex(UndeadState.X_EJECTED) & (1L << UndeadState.BODY)) != 0L && !s.broken(UndeadState.BODY)) {
+					Vec3 face = UndeadBlood.at(player, UndeadState.BODY, 0f, UndeadEjectConfig.COMBUSTION_BODY_ROWS, 0f);
+					add(face, UndeadBlood.jetDir(UndeadBlood.axis(player, UndeadState.BODY), push), 0.11f, 1.5f, id + 1, UndeadState.BODY, 0f);
+				}
+				for (int arm = UndeadState.RIGHT_ARM; arm <= UndeadState.LEFT_ARM; arm++) {
+					if (s.broken(arm) && !s.broken(UndeadState.BODY)) {
+						Vec3[] st = UndeadBlood.stump(player, arm);
+						add(st[0], UndeadBlood.jetDir(st[1], push), 0.06f, 1.0f, id + arm, arm, 0.2f);
+					}
+				}
+			}
+			default -> {
+			}
 		}
 		return mode;
 	}
 
-	/** Extra violence: the take-off eruption and the boost's first surge, fading. */
+	/** The two calf stumps jetting along {@code -push} (a little along the leg). */
+	private static void legJets(Player player, UndeadState s, float now, Vec3 push, float power, int id) {
+		for (int leg = UndeadState.RIGHT_LEG; leg <= UndeadState.LEFT_LEG; leg++) {
+			if (s.broken(leg)) {
+				continue;
+			}
+			UndeadCuts.Cut cut = UndeadCuts.of(s, leg, now);
+			float rows = cut != null ? cut.rows() : 12f;
+			add(UndeadBlood.endOf(player, leg, rows), UndeadBlood.jetDir(UndeadBlood.axis(player, leg), push), 0.062f, power, id + leg, leg, 0.35f);
+		}
+	}
+
+	/** The arm is busy with a stream of its own (Blood Spray: both; Deadline: the firing one): no jet out of it. */
+	static boolean armBusy(UndeadState s, int part) {
+		if (part != UndeadState.RIGHT_ARM && part != UndeadState.LEFT_ARM) {
+			return false;
+		}
+		return s.flag(UndeadState.FLAG_BLOOD_SPRAY) || s.flag(UndeadState.FLAG_DEAD_LINE);
+	}
+
+	/** Extra violence: the start's eruption, fading. */
 	private static float violence(long[] seen, float now) {
 		float v = 1f;
 		float up = now - seen[1];
 		if (up >= 0f && up < ERUPT_TICKS) {
 			v += 1.1f * (1f - up / ERUPT_TICKS);
 		}
-		float b = now - seen[4];
-		if (b >= 0f && b < 10f) {
-			v += 0.6f * (1f - b / 10f);
-		}
 		return v;
 	}
 
-	/** The landing's sputter: how strong the jets still are (0 = done), with whole beats skipped as it dies. */
+	/** The stop's sputter: how strong the jets still are (0 = done), with whole beats skipped as it dies. */
 	private static float sputter(long[] seen, float now, float t, int seed) {
 		float age = now - seen[2];
 		if (age < 0f || age >= SPUTTER_TICKS) {
@@ -218,43 +297,37 @@ public final class UndeadJets {
 		return hash(b, seed + 77) < keep * 0.9f + 0.1f ? fade : fade * 0.08f;
 	}
 
-	// ---------------------------------------------------------------- tick: edges, particles, sounds
+	// ---------------------------------------------------------------- tick: particles, sounds
 
 	/** From the client tick, for every Undead in view (after the cut / burst watch). */
 	static void tick(Player player, UndeadState s, long now, boolean firstPersonSelf) {
 		long[] seen = seen(player);
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
-		boolean boost = flying && s.flag(UndeadState.FLAG_BOOST);
-		Vec3 carry = player.getDeltaMovement();
-		if (flying && seen[0] == 0L) {
+		boolean on = jetting(s, now);
+		Vec3 carry = travel(player);
+		if (on && seen[0] == 0L) {
 			seen[1] = now;
-			if (!firstPersonSelf) {
-				takeoff(player, s, now, carry);
-			}
-		} else if (!flying && seen[0] != 0L) {
+		} else if (!on && seen[0] != 0L) {
 			seen[2] = now;
 		}
-		if (boost && seen[3] == 0L) {
-			seen[4] = now;
+		seen[0] = on ? 1L : 0L;
+		if (firstPersonSelf && s.flag(UndeadState.FLAG_PROPELLING)) {
+			return; // UndeadFirstPerson's spray does the local view of the flight
 		}
-		seen[0] = flying ? 1L : 0L;
-		seen[3] = boost ? 1L : 0L;
-		if (firstPersonSelf) {
-			return; // UndeadFirstPerson's spray does the local view
-		}
-		Vec3 look = player.getLookAngle();
-		Mode mode = collect(player, s, now, look);
+		Mode mode = collect(player, s, now);
 		if (mode == Mode.NONE) {
 			return;
 		}
 		float vio = violence(seen, now);
 		for (int k = 0; k < stumps; k++) {
 			float t = now - LAG[k];
-			float p = pulse(t, boost);
+			float p = pulse(t, false);
 			float pw = POW[k];
+			Vec3 at = new Vec3(OX[k], OY[k], OZ[k]);
+			if (firstPersonSelf && at.distanceToSqr(player.getEyePosition()) < 0.6) {
+				continue; // (right at the camera: nothing that would fill the view)
+			}
 			if (mode == Mode.SPUTTER) {
 				float sp = sputter(seen, now, t, SEED[k]);
-				Vec3 at = new Vec3(OX[k], OY[k], OZ[k]);
 				if (sp * p > 0.25f) {
 					// a weak spurt: a few drops out of the stump that arc straight down
 					Vec3 d = new Vec3(DX[k], DY[k], DZ[k]);
@@ -265,25 +338,7 @@ public final class UndeadJets {
 				}
 				continue;
 			}
-			emit(new Vec3(OX[k], OY[k], OZ[k]), new Vec3(DX[k], DY[k], DZ[k]), carry, p, pw * vio, boost);
-		}
-		// the boost burning him away: blood and flesh off every burning edge
-		if (boost) {
-			for (int part = UndeadState.BODY; part < UndeadState.PARTS; part++) {
-				if (UndeadFlight.burnt(s, part) <= 0f) {
-					continue;
-				}
-				UndeadCuts.Cut cut = UndeadCuts.of(s, part, now);
-				if (cut == null) {
-					continue;
-				}
-				Vec3 edge = part == UndeadState.BODY ? UndeadBlood.at(player, part, 0f, cut.rows(), 0f) : UndeadBlood.endOf(player, part, cut.rows());
-				Vec3 out = UndeadBlood.axis(player, part);
-				BloodFx.spurt(edge, out.add(look.scale(-0.8)), 2, 0.22, 0.6, carry.scale(0.9));
-				if (RND.nextFloat() < 0.55f) {
-					BloodFx.flesh(edge, out.scale(0.08).add(look.scale(-0.12)).add(carry.scale(0.9)), 1);
-				}
-			}
+			emit(at, new Vec3(DX[k], DY[k], DZ[k]), carry, p, pw * vio, pw > 1.3f);
 		}
 	}
 
@@ -313,25 +368,18 @@ public final class UndeadJets {
 		}
 	}
 
-	/** Take-off: as the hands and feet blow off, each stump erupts (a crown of blood, globs, mist, flesh). */
-	private static void takeoff(Player player, UndeadState s, long now, Vec3 carry) {
-		float cut = 12f - com.projecthero.mod.undead.UndeadConfig.HAND_ROWS;
-		for (int part = UndeadState.RIGHT_ARM; part <= UndeadState.LEFT_LEG; part++) {
-			if (s.broken(part)) {
-				continue;
-			}
-			Vec3 at = UndeadBlood.endOf(player, part, cut);
-			BloodFx.eruption(at, UndeadBlood.axis(player, part), carry.scale(0.5), 1f);
-		}
-	}
-
 	/** For the jet sound: the heart's push for this player right now (1 = loud surge). */
 	public static float soundPulse(Player player) {
-		UndeadState s = Undead.peek(player);
-		if (s == null || player.level() == null) {
+		if (Undead.peek(player) == null || player.level() == null) {
 			return 0.5f;
 		}
-		return pulse(player.level().getGameTime(), s.flag(UndeadState.FLAG_BOOST));
+		return pulse(player.level().getGameTime(), false);
+	}
+
+	/** For the jet sound: some move has his stumps jetting (client-safe). */
+	public static boolean jetting(Player player) {
+		UndeadState s = Undead.peek(player);
+		return s != null && s.hasPower && player.level() != null && jetting(s, player.level().getGameTime());
 	}
 
 	// ---------------------------------------------------------------- render (third person / other players)
@@ -351,14 +399,13 @@ public final class UndeadJets {
 			if (seen == null) {
 				continue;
 			}
-			Mode mode = collect(player, s, now, player.getViewVector(partial));
+			Mode mode = collect(player, s, now);
 			if (mode == Mode.NONE || stumps == 0) {
 				continue;
 			}
 			if (vc == null) {
 				vc = context.consumers().getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
 			}
-			boolean boost = s.flag(UndeadState.FLAG_BOOST);
 			float vio = violence(seen, now);
 			PoseStack.Pose last = pose.last();
 			for (int k = 0; k < stumps; k++) {
@@ -372,7 +419,8 @@ public final class UndeadJets {
 					}
 					continue;
 				}
-				rope(vc, last, ox, oy, oz, DX[k], DY[k], DZ[k], 0f, -1f, 0f, RAD[k], speed(boost), POW[k], vio, t, boost, SEED[k], light, 3.5f);
+				boolean hard = POW[k] > 1.3f;
+				rope(vc, last, ox, oy, oz, DX[k], DY[k], DZ[k], 0f, -1f, 0f, RAD[k], speed(hard), POW[k], vio, t, false, SEED[k], light, 3.5f);
 			}
 		}
 	}
@@ -645,7 +693,7 @@ public final class UndeadJets {
 			return;
 		}
 		float now = player.level().getGameTime() + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		boolean boost = s.flag(UndeadState.FLAG_BOOST);
+		boolean boost = false;
 		long[] seen = seen(player);
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
 		// (right in front of the camera: a small fountain, a third the size of what others see)
@@ -655,7 +703,7 @@ public final class UndeadJets {
 
 	/** First person, flying: the spray off the arm jets streaming back past the bottom corners of the view. */
 	static void firstPersonSpray(Player player, UndeadState s, Vec3 at, Vec3 dir) {
-		boolean boost = s.flag(UndeadState.FLAG_BOOST);
+		boolean boost = false;
 		float p = pulse(player.level().getGameTime(), boost);
 		float v = speed(boost) * (0.55f + 0.75f * p);
 		int drops = (int) (2f * p * (boost ? 1.5f : 1f) + RND.nextFloat() * 0.8f);
