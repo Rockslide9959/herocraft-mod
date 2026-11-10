@@ -660,6 +660,7 @@ public final class SaiyanMoves {
 			return;
 		}
 		Run r = new Run(SPIRIT_ORB, p.level().getGameTime());
+		r.dir = p.position(); // where he is rooted
 		begin(p, r);
 		anim(p, ANIM_ORB_CHARGE);
 		fx(p, SaiyanFxPayload.ORB_CHARGE, p.getId(), Vec3.ZERO, Vec3.ZERO, SaiyanMoveConfig.ORB_MAX_CHARGE, kiColor(SaiyanForm.BASE), 0);
@@ -678,14 +679,12 @@ public final class SaiyanMoves {
 			return;
 		}
 		r.charge = Math.min(1f, age / (float) SaiyanMoveConfig.ORB_MAX_CHARGE);
-		// rooted: he can't move or turn the charge into a run
+		// rooted: walking away pulls him back to where he stood (no slowness: it would zoom his view)
+		if (p.position().distanceToSqr(r.dir) > 0.04) {
+			p.teleportTo(r.dir.x, r.dir.y, r.dir.z);
+		}
 		p.setDeltaMovement(0, Math.min(0, p.getDeltaMovement().y), 0);
 		p.hurtMarked = true;
-		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 3, 9, false, false, false));
-		if (age % 4 == 0) {
-			Vec3 at = orbHold(p, r.charge);
-			level(p).sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD, at.x, at.y, at.z, 3, 2.5, 1.5, 2.5, -0.15);
-		}
 		if (age % 20 == 0 && age > 0) {
 			sound(p, SaiyanSounds.ORB_CHARGE, 0.6f, 0.8f + 0.3f * r.charge);
 		}

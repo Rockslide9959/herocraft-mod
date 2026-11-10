@@ -169,9 +169,6 @@ public final class SaiyanFxClient {
 			double vx = (Math.random() - 0.5) * 2 * speed, vy = (Math.random() - 0.3) * 2 * speed, vz = (Math.random() - 0.5) * 2 * speed;
 			level.addParticle(i % 3 == 0 ? ParticleTypes.ELECTRIC_SPARK : dust, at.x, at.y, at.z, vx, vy, vz);
 		}
-		if (count >= 10) {
-			level.addParticle(ParticleTypes.FLASH, at.x, at.y, at.z, 0, 0, 0);
-		}
 	}
 
 	// ---------------------------------------------------------------- the tick
@@ -212,8 +209,8 @@ public final class SaiyanFxClient {
 			}
 			float charge = Math.min(1f, (now - e.getValue().start()) / e.getValue().maxCharge());
 			Vec3 at = SaiyanMoves.orbHold(p, charge);
-			for (int i = 0; i < 4; i++) {
-				double a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 6, h = Math.random() * 6 - 1;
+			for (int i = 0; i < 2; i++) {
+				double a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 4, h = Math.random() * 5 - 1;
 				Vec3 from = at.add(Math.cos(a) * r, h, Math.sin(a) * r);
 				Vec3 v = at.subtract(from).scale(0.06);
 				level.addParticle(ParticleTypes.END_ROD, from.x, from.y, from.z, v.x, v.y, v.z);
@@ -245,13 +242,13 @@ public final class SaiyanFxClient {
 		Vec3 cam = ctx.camera().getPosition();
 		PoseStack pose = ctx.matrixStack();
 		MultiBufferSource buffers = ctx.consumers();
-		VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
-		VertexConsumer solid = buffers.getBuffer(RenderType.debugQuads());
+		VertexConsumer glow = null, solid = null; // fetched per draw call: switching buffers ends the last one
+		BUFFERS = buffers;
 
 		for (Map.Entry<Integer, BeamState> e : BEAMS.entrySet()) {
 			Entity ent = mc.level.getEntity(e.getKey());
 			if (ent instanceof Player p && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(p)) {
-				drawBeam(pose, cam, glow, solid, p, e.getValue(), partial, t);
+				drawBeam(pose, cam, G(), solid, p, e.getValue(), partial, t);
 			}
 		}
 		for (Map.Entry<Integer, OrbCharge> e : ORB_CHARGES.entrySet()) {
@@ -259,28 +256,28 @@ public final class SaiyanFxClient {
 			if (ent instanceof Player p) {
 				float charge = Mth.clamp((t - e.getValue().start()) / e.getValue().maxCharge(), 0f, 1f);
 				Vec3 at = SaiyanMoves.orbHold(p, charge).add(p.getPosition(partial).subtract(p.position()));
-				drawOrb(pose, cam, glow, solid, at, SaiyanMoves.orbSize(charge), e.getValue().rgb(), t);
+				drawOrb(pose, cam, G(), solid, at, SaiyanMoves.orbSize(charge), e.getValue().rgb(), t);
 			}
 		}
 		for (OrbFly o : ORBS.values()) {
 			float age = t - o.start();
 			Vec3 at = o.pos().add(o.vel().scale(age));
-			drawOrb(pose, cam, glow, solid, at, o.size(), o.rgb(), t);
+			drawOrb(pose, cam, G(), solid, at, o.size(), o.rgb(), t);
 		}
 		for (Timed b : BOOMS) {
-			drawBoom(pose, cam, glow, solid, b, t);
+			drawBoom(pose, cam, G(), solid, b, t);
 		}
 		for (Timed i : IMPACTS) {
-			drawImpact(pose, cam, glow, i, t);
+			drawImpact(pose, cam, G(), i, t);
 		}
 		for (Timed w : WAVES) {
-			drawWave(pose, cam, glow, w, t);
+			drawWave(pose, cam, G(), w, t);
 		}
 		for (Ghost g : GHOSTS) {
-			drawGhost(pose, cam, glow, g, t);
+			drawGhost(pose, cam, G(), g, t);
 		}
 		for (Trail tr : TRAILS.values()) {
-			drawTrail(pose, cam, glow, tr);
+			drawTrail(pose, cam, G(), tr);
 		}
 	}
 
@@ -317,15 +314,26 @@ public final class SaiyanFxClient {
 		if (s.fired() < 0) {
 			// charging: a ball of Ki gathering between the cupped hands, flickering and growing
 			float charge = Mth.clamp((t - s.start()) / s.maxCharge(), 0f, 1f);
+			boolean ownFpCharge = p == Minecraft.getInstance().player && Minecraft.getInstance().options.getCameraType().isFirstPerson();
 			Vec3 at = p.getPosition(partial).add(0, p.getEyeHeight() - 0.45, 0).add(p.getViewVector(partial).scale(0.7));
+			if (ownFpCharge) {
+				// his own view: the ball sits low and further out, smaller, so it doesn't cover the screen
+				at = p.getPosition(partial).add(0, p.getEyeHeight() - 0.7, 0).add(p.getViewVector(partial).scale(1.4));
+			}
 			float flick = 0.85f + 0.15f * Mth.sin(t * 2.3f);
-			float rad = (0.12f + 0.32f * charge) * flick;
-			sphere(pose, cam, solid, at, rad * 0.45f, 1f, 1f, 1f, 1f, 8);
-			sphere(pose, cam, glow, at, rad, r(rgb), g(rgb), b(rgb), 0.65f, 10);
-			sphere(pose, cam, glow, at, rad * 1.8f, r(rgb), g(rgb), b(rgb), 0.18f, 10);
+			float rad = (0.12f + 0.32f * charge) * flick * (ownFpCharge ? 0.45f : 1f);
+			sphere(pose, cam, S(), at, rad * 0.45f, 1f, 1f, 1f, 1f, 8);
+			sphere(pose, cam, G(), at, rad, r(rgb), g(rgb), b(rgb), 0.65f, 10);
+			sphere(pose, cam, G(), at, rad * 1.8f, r(rgb), g(rgb), b(rgb), 0.18f, 10);
 			return;
 		}
 		Vec3[] seg = beamSeg(p, partial, 32.0);
+		// his own beam in first person: start it a little further out and lower, thinner, with no ball at the hands, so it
+		// doesn't fill the view
+		boolean ownFp = p == Minecraft.getInstance().player && Minecraft.getInstance().options.getCameraType().isFirstPerson();
+		if (ownFp) {
+			seg[0] = seg[0].add(p.getViewVector(partial).scale(0.9)).add(0, -0.2, 0);
+		}
 		Vec3 d = seg[1].subtract(seg[0]);
 		float len = (float) d.length();
 		if (len < 0.05f) {
@@ -334,7 +342,7 @@ public final class SaiyanFxClient {
 		float age = t - s.fired();
 		float grow = Mth.clamp(age / 3f, 0f, 1f);
 		float fade = Mth.clamp((s.fireTicks() - age) / 5f, 0f, 1f);
-		float width = (0.55f + 0.35f * s.charge()) * fade;
+		float width = (0.55f + 0.35f * s.charge()) * fade * (ownFp ? 0.55f : 1f);
 		float pulse = 1f + 0.08f * Mth.sin(t * 3.1f);
 		float reach = len * grow;
 		pose.pushPose();
@@ -344,19 +352,21 @@ public final class SaiyanFxClient {
 		Vector3f a = new Vector3f(dir).cross(Math.abs(dir.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
 		Vector3f bb = new Vector3f(dir).cross(a).normalize();
 		// white-hot core, then the coloured body, then a soft outer glow
-		tube(solid, m, dir, a, bb, reach, 0.16f * width * pulse, 12, 0.95f, 0.98f, 1f, 1f);
-		tube(glow, m, dir, a, bb, reach, 0.34f * width * pulse, 14, r(rgb), g(rgb), b(rgb), 0.7f);
-		tube(glow, m, dir, a, bb, reach, 0.62f * width, 16, r(rgb), g(rgb), b(rgb), 0.22f);
+		tube(S(), m, dir, a, bb, reach, 0.16f * width * pulse, 12, 0.95f, 0.98f, 1f, 1f);
+		tube(G(), m, dir, a, bb, reach, 0.34f * width * pulse, 14, r(rgb), g(rgb), b(rgb), 0.7f);
+		tube(G(), m, dir, a, bb, reach, 0.62f * width, 16, r(rgb), g(rgb), b(rgb), 0.22f);
 		for (int k = 0; k < 3; k++) {
-			helix(glow, m, dir, a, bb, reach, 0.42f * width, t * 0.9f + k * Mth.TWO_PI / 3f, 0.9f, 0.95f, 1f, 0.5f);
+			helix(G(), m, dir, a, bb, reach, 0.42f * width, t * 0.9f + k * Mth.TWO_PI / 3f, 0.9f, 0.95f, 1f, 0.5f);
 		}
 		pose.popPose();
 		// the boiling end-point and the start at the hands
 		float boil = 0.8f + 0.2f * Mth.sin(t * 4.7f);
 		Vec3 end = seg[0].add(d.scale(grow));
-		sphere(pose, cam, solid, end, 0.45f * width * boil, 1f, 1f, 1f, 1f, 10);
-		sphere(pose, cam, glow, end, 1.1f * width * boil, r(rgb), g(rgb), b(rgb), 0.45f, 12);
-		sphere(pose, cam, glow, seg[0], 0.5f * width, r(rgb), g(rgb), b(rgb), 0.55f, 10);
+		sphere(pose, cam, S(), end, 0.45f * width * boil, 1f, 1f, 1f, 1f, 10);
+		sphere(pose, cam, G(), end, 1.1f * width * boil, r(rgb), g(rgb), b(rgb), 0.45f, 12);
+		if (!ownFp) {
+			sphere(pose, cam, G(), seg[0], 0.5f * width, r(rgb), g(rgb), b(rgb), 0.55f, 10);
+		}
 		if (Math.random() < 0.6) {
 			Minecraft.getInstance().level.addParticle(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, (Math.random() - 0.5) * 0.6,
 					Math.random() * 0.4, (Math.random() - 0.5) * 0.6);
@@ -366,10 +376,10 @@ public final class SaiyanFxClient {
 	private static void drawOrb(PoseStack pose, Vec3 cam, VertexConsumer glow, VertexConsumer solid, Vec3 at, float size, int rgb, float t) {
 		float pulse = 1f + 0.05f * Mth.sin(t * 1.7f);
 		// a bright core, the body of the ball, a churning shell and a wide halo
-		sphere(pose, cam, solid, at, size * 0.55f * pulse, 0.92f, 0.97f, 1f, 1f, 14);
-		sphere(pose, cam, glow, at, size * 0.85f * pulse, r(rgb), g(rgb), b(rgb), 0.55f, 16);
-		sphere(pose, cam, glow, at, size * (1.0f + 0.04f * Mth.sin(t * 3.3f)), 0.8f, 0.92f, 1f, 0.28f, 16);
-		sphere(pose, cam, glow, at, size * 1.45f, r(rgb), g(rgb), b(rgb), 0.1f, 16);
+		sphere(pose, cam, S(), at, size * 0.55f * pulse, 0.92f, 0.97f, 1f, 1f, 14);
+		sphere(pose, cam, G(), at, size * 0.85f * pulse, r(rgb), g(rgb), b(rgb), 0.55f, 16);
+		sphere(pose, cam, G(), at, size * (1.0f + 0.04f * Mth.sin(t * 3.3f)), 0.8f, 0.92f, 1f, 0.28f, 16);
+		sphere(pose, cam, G(), at, size * 1.45f, r(rgb), g(rgb), b(rgb), 0.1f, 16);
 	}
 
 	private static void drawBoom(PoseStack pose, Vec3 cam, VertexConsumer glow, VertexConsumer solid, Timed bm, float t) {
@@ -379,11 +389,11 @@ public final class SaiyanFxClient {
 		float rad = bm.size() * (0.2f + 0.8f * (1f - (1f - grow) * (1f - grow)));
 		int rgb = bm.rgb();
 		if (age < 6f) {
-			sphere(pose, cam, solid, bm.pos(), rad * 0.5f, 1f, 1f, 1f, 1f, 14);
+			sphere(pose, cam, S(), bm.pos(), rad * 0.5f, 1f, 1f, 1f, 1f, 14);
 		}
-		sphere(pose, cam, glow, bm.pos(), rad * 0.85f, 1f, 1f, 1f, 0.5f * fade, 16);
-		sphere(pose, cam, glow, bm.pos(), rad, r(rgb), g(rgb), b(rgb), 0.45f * fade, 18);
-		ring(pose, cam, glow, bm.pos().add(0, -rad * 0.4, 0), rad * 1.6f * grow, 0.6f, r(rgb), g(rgb), b(rgb), 0.5f * fade);
+		sphere(pose, cam, G(), bm.pos(), rad * 0.85f, 1f, 1f, 1f, 0.5f * fade, 16);
+		sphere(pose, cam, G(), bm.pos(), rad, r(rgb), g(rgb), b(rgb), 0.45f * fade, 18);
+		ring(pose, cam, G(), bm.pos().add(0, -rad * 0.4, 0), rad * 1.6f * grow, 0.6f, r(rgb), g(rgb), b(rgb), 0.5f * fade);
 	}
 
 	private static void drawImpact(PoseStack pose, Vec3 cam, VertexConsumer glow, Timed i, float t) {
@@ -392,8 +402,8 @@ public final class SaiyanFxClient {
 		float s = i.size() * (0.4f + 0.9f * k);
 		float a = (1f - k) * 0.8f;
 		int rgb = i.rgb();
-		sphere(pose, cam, glow, i.pos(), s * 0.35f, 1f, 1f, 1f, a, 8);
-		sphere(pose, cam, glow, i.pos(), s * 0.6f, r(rgb), g(rgb), b(rgb), a * 0.6f, 10);
+		sphere(pose, cam, G(), i.pos(), s * 0.35f, 1f, 1f, 1f, a, 8);
+		sphere(pose, cam, G(), i.pos(), s * 0.6f, r(rgb), g(rgb), b(rgb), a * 0.6f, 10);
 		// spokes: thin streaks flung out from the hit
 		long seed = (long) (i.pos().x * 31 + i.pos().y * 17 + i.pos().z * 7);
 		java.util.Random rnd = new java.util.Random(seed);
@@ -406,7 +416,7 @@ public final class SaiyanFxClient {
 			Vector3f bb = new Vector3f(dir).cross(aa).normalize();
 			pose.pushPose();
 			Matrix4f mm = new Matrix4f(m).translate(new Vector3f(dir).mul(s * 0.3f));
-			tube(glow, mm, dir, aa, bb, s * (0.6f + rnd.nextFloat() * 0.6f), 0.03f * i.size(), 4, 1f, 1f, 1f, a);
+			tube(G(), mm, dir, aa, bb, s * (0.6f + rnd.nextFloat() * 0.6f), 0.03f * i.size(), 4, 1f, 1f, 1f, a);
 			pose.popPose();
 		}
 		pose.popPose();
@@ -420,10 +430,10 @@ public final class SaiyanFxClient {
 		int rgb = w.rgb();
 		if (w.kind() == 1) {
 			// an upright ring facing the way the rush hit
-			ringFacing(pose, cam, glow, w.pos(), w.dir(), rad, 0.35f, r(rgb), g(rgb), b(rgb), a);
+			ringFacing(pose, cam, G(), w.pos(), w.dir(), rad, 0.35f, r(rgb), g(rgb), b(rgb), a);
 		} else {
-			ring(pose, cam, glow, w.pos().add(0, 0.1, 0), rad, 0.45f, r(rgb), g(rgb), b(rgb), a);
-			ring(pose, cam, glow, w.pos().add(0, 0.1, 0), rad * 0.7f, 0.25f, 1f, 1f, 1f, a * 0.6f);
+			ring(pose, cam, G(), w.pos().add(0, 0.1, 0), rad, 0.45f, r(rgb), g(rgb), b(rgb), a);
+			ring(pose, cam, G(), w.pos().add(0, 0.1, 0), rad * 0.7f, 0.25f, 1f, 1f, 1f, a * 0.6f);
 		}
 	}
 
@@ -437,12 +447,12 @@ public final class SaiyanFxClient {
 		pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-gh.yaw()));
 		float grow = 1f + age * 0.03f;
 		Matrix4f m = pose.last().pose();
-		box(glow, m, -0.25f * grow, 1.5f, -0.25f * grow, 0.25f * grow, 2.0f, 0.25f * grow, r(rgb), g(rgb), b(rgb), a);
-		box(glow, m, -0.25f * grow, 0.75f, -0.13f * grow, 0.25f * grow, 1.5f, 0.13f * grow, r(rgb), g(rgb), b(rgb), a);
-		box(glow, m, -0.5f * grow, 0.8f, -0.12f * grow, -0.26f * grow, 1.5f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
-		box(glow, m, 0.26f * grow, 0.8f, -0.12f * grow, 0.5f * grow, 1.5f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
-		box(glow, m, -0.25f * grow, 0f, -0.12f * grow, -0.01f, 0.75f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
-		box(glow, m, 0.01f, 0f, -0.12f * grow, 0.25f * grow, 0.75f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, -0.25f * grow, 1.5f, -0.25f * grow, 0.25f * grow, 2.0f, 0.25f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, -0.25f * grow, 0.75f, -0.13f * grow, 0.25f * grow, 1.5f, 0.13f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, -0.5f * grow, 0.8f, -0.12f * grow, -0.26f * grow, 1.5f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, 0.26f * grow, 0.8f, -0.12f * grow, 0.5f * grow, 1.5f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, -0.25f * grow, 0f, -0.12f * grow, -0.01f, 0.75f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
+		box(G(), m, 0.01f, 0f, -0.12f * grow, 0.25f * grow, 0.75f, 0.12f * grow, r(rgb), g(rgb), b(rgb), a);
 		pose.popPose();
 		if (age < 6f) {
 			Vec3 a0 = gh.from().add(0, 1, 0), a1 = gh.to().add(0, 1, 0);
@@ -454,7 +464,7 @@ public final class SaiyanFxClient {
 				Vector3f dir = new Vector3f((float) d.x, (float) d.y, (float) d.z).normalize();
 				Vector3f aa = new Vector3f(dir).cross(Math.abs(dir.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
 				Vector3f bb = new Vector3f(dir).cross(aa).normalize();
-				tube(glow, pose.last().pose(), dir, aa, bb, len, 0.06f, 6, 1f, 1f, 1f, (1f - age / 6f) * 0.7f);
+				tube(G(), pose.last().pose(), dir, aa, bb, len, 0.06f, 6, 1f, 1f, 1f, (1f - age / 6f) * 0.7f);
 				pose.popPose();
 			}
 		}
@@ -474,7 +484,7 @@ public final class SaiyanFxClient {
 					Vector3f dir = new Vector3f((float) d.x, (float) d.y, (float) d.z).normalize();
 					Vector3f aa = new Vector3f(dir).cross(Math.abs(dir.y) > 0.9f ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0)).normalize();
 					Vector3f bb = new Vector3f(dir).cross(aa).normalize();
-					tube(glow, pose.last().pose(), dir, aa, bb, len, 0.12f + 0.3f * i / n, 8, r(tr.rgb), g(tr.rgb), b(tr.rgb), a);
+					tube(G(), pose.last().pose(), dir, aa, bb, len, 0.06f + 0.14f * i / n, 8, r(tr.rgb), g(tr.rgb), b(tr.rgb), a * 0.6f);
 					pose.popPose();
 				}
 			}
@@ -484,6 +494,17 @@ public final class SaiyanFxClient {
 	}
 
 	// ---------------------------------------------------------------- geometry
+
+	private static MultiBufferSource BUFFERS;
+
+	/** The additive glow buffer, fetched fresh for each shape (fetching another type ends the batch before). */
+	private static VertexConsumer G() {
+		return BUFFERS.getBuffer(RenderType.lightning());
+	}
+
+	private static VertexConsumer S() {
+		return BUFFERS.getBuffer(RenderType.debugQuads());
+	}
 
 	private static void sphere(PoseStack pose, Vec3 cam, VertexConsumer vc, Vec3 at, float rad, float r, float g, float b, float a, int seg) {
 		if (rad <= 0.001f || a <= 0.001f) {

@@ -1,0 +1,36 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): places the third-person camera for SaiyanMovesHarness. */
+@Mixin(Camera.class)
+public abstract class SaiyanMovesHarnessCameraMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$saiyanMovesHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Vec3 pos = com.projecthero.mod.client.SaiyanMovesHarness.camPos;
+		Vec3 target = com.projecthero.mod.client.SaiyanMovesHarness.camLook;
+		if (pos == null || target == null || !detached) {
+			return;
+		}
+		Vec3 d = target.subtract(pos);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(yaw, pitch);
+		setPosition(pos);
+	}
+}
