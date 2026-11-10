@@ -412,16 +412,13 @@ public final class Saiyan {
 		return true;
 	}
 
-	/** The transformation flash: a column of the new aura colour, a ring of debris and a crack of thunder. */
+	/**
+	 * The transformation's sound. The flash itself (star rays, a light pillar, a shockwave ring, ground debris) is drawn by every
+	 * client from {@link #transformingTicks} ({@code client.saiyan.aura.SaiyanAuraRenderer} / {@code SaiyanAuraParticles}).
+	 */
 	private static void burst(ServerPlayer player, SaiyanForm f) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position();
-		DustParticleOptions aura = dust(f.auraColor, 2.4f);
-		level.sendParticles(aura, c.x, c.y + 1.0, c.z, 40, 0.45, 1.0, 0.45, 0.0);
-		for (int i = 0; i < 20; i++) {
-			double a = Math.PI * 2 * i / 20.0;
-			level.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * 1.2, c.y + 0.1, c.z + Math.sin(a) * 1.2, 1, 0.0, 0.0, 0.0, 0.05);
-		}
 		// one burst for every form, pitched up a little the higher the form; Super Saiyan 2's lightning crackles on top
 		level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 0.95f + f.ordinal() * 0.02f);
 		if (f == SaiyanForm.SSJ2) {
@@ -608,20 +605,7 @@ public final class Saiyan {
 		level.sendParticles(dust(0xFFFF2A2A, 1.4f), player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.35, 0.6, 0.35, 0.0);
 	}
 
-	/** Placeholder charge effect (the real aura is the client's): a ring of the aura colour and dust kicked up from the ground. */
+	/** The charge's look is the client's aura (bigger flame, ground glow, floating debris: {@code client.saiyan.aura}); nothing to send. */
 	private static void chargeFx(ServerPlayer player, SaiyanForm f) {
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position();
-		level.sendParticles(dust(f.auraColor, 1.6f), c.x, c.y + 0.9, c.z, 4, 0.45, 0.8, 0.45, 0.0);
-		double a = player.getRandom().nextDouble() * Math.PI * 2;
-		double r = 0.8 + player.getRandom().nextDouble() * 1.4;
-		level.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * r, c.y + 0.05, c.z + Math.sin(a) * r, 1, 0.0, 0.0, 0.0, 0.03);
-		if (player.tickCount % 6 == 0) {
-			net.minecraft.world.level.block.state.BlockState below = level.getBlockState(player.blockPosition().below());
-			if (!below.isAir()) {
-				level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, below), c.x + Math.cos(a) * r,
-						c.y + 0.2, c.z + Math.sin(a) * r, 3, 0.1, 0.4, 0.1, 0.15);
-			}
-		}
 	}
 }

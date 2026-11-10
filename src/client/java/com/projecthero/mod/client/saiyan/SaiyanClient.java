@@ -24,6 +24,7 @@ public final class SaiyanClient {
 
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(SaiyanHud::render);
+		SaiyanVisualsClient.initialize(); // the aura
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanLoopSounds::tick); // the aura and charge loops (SaiyanSounds)
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SaiyanLoopSounds.reset());
 	}
