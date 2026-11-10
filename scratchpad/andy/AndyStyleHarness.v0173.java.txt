@@ -1,0 +1,290 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.andy.Andy;
+import com.projecthero.mod.andy.data.AndyState;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.andy.AndyRegrowStyle;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films Andy's two regrowth looks side by side. Enabled by run/andystyle.flag. */
+public final class AndyStyleHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static String only;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private AndyStyleHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("andystyle.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("andystyle.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(AndyStyleHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "andystyle-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(AndyStyleHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				((net.minecraft.world.level.storage.ServerLevelData) level.getLevelData()).setGameTime(1_000_000L);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				String name = String.format("st_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("ST_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void still(int t, String name) {
+		at(t, () -> {
+			Screenshot.grab(Minecraft.getInstance().gameDirectory, "st_" + name + ".png", Minecraft.getInstance().getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] still " + name);
+		});
+	}
+
+	private static void reset(ServerPlayer p, float pitch) {
+		p.clearFire();
+		p.removeAllEffects();
+		Andy.restore(p);
+		AndyState n = Andy.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.regenSpeed = 1;
+		p.setAttached(ModAttachments.ANDY_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, pitch);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.getFoodData().setFoodLevel(20);
+		p.getFoodData().setSaturation(20f);
+		p.setHealth(p.getMaxHealth());
+	}
+
+	/** The part regrowing at {@code p0}, advancing over {@code span} ticks for the whole regrowth (huge: frozen). */
+	private static void grow(ServerPlayer p, int part, float p0, long span) {
+		long now = p.level().getGameTime();
+		AndyState n = Andy.state(p).copy();
+		n.partHp.set(part, 0f);
+		long start = now - (long) (p0 * span);
+		n.setTimes(part, Math.max(1L, start - 5L), start, start + span);
+		n.setKind(part, AndyState.KIND_BURST);
+		p.setAttached(ModAttachments.ANDY_STATE, n);
+	}
+
+	private static void scene(Minecraft mc, int t, int index, Vec3 cam, Vec3 look, java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 40, 0, 0);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.gui.clear();
+			mc.options.hideGui = true;
+			camPos = base.add(cam);
+			camLook = base.add(look);
+			server(mc, p -> {
+				reset(p, 0f);
+				setup.accept(p);
+			});
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void style(int t, AndyRegrowStyle.Style s) {
+		at(t, () -> AndyRegrowStyle.forced = s);
+	}
+
+	/** Frozen stills of one part at each p, in both looks (3D first, then stepped). */
+	private static int pair(Minecraft mc, int t, int idx, String name, int part, Vec3 cam, Vec3 look, float[] ps) {
+		scene(mc, t, idx, cam, look, p -> grow(p, part, ps[0], 1_000_000L));
+		int k = t + 20;
+		for (float pp : ps) {
+			at(k, () -> server(mc, p -> grow(p, part, pp, 1_000_000L)));
+			style(k + 3, AndyRegrowStyle.Style.THREE_D);
+			still(k + 7, name + "_3d_p" + Math.round(pp * 100));
+			style(k + 9, AndyRegrowStyle.Style.STEPPED);
+			still(k + 13, name + "_st_p" + Math.round(pp * 100));
+			k += 16;
+		}
+		return k + 5;
+	}
+
+	private static int film(Minecraft mc, int t, int idx, String name, int part, Vec3 cam, Vec3 look, AndyRegrowStyle.Style s, long span) {
+		scene(mc, t, idx, cam, look, p -> grow(p, part, 0.999f, 1_000_000L));
+		style(t + 2, s);
+		at(t + 10, () -> server(mc, p -> grow(p, part, 0f, span)));
+		record(t + 11, name, (int) span + 14);
+		return t + (int) span + 40;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Andy.grant(p);
+			reset(p, 0f);
+		}));
+		t += 30;
+		int idx = 1;
+		float[] ps = { 0.12f, 0.25f, 0.38f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 0.97f };
+		Vec3 arm = new Vec3(-0.375, 1.10, 0.0);
+		Vec3 leg = new Vec3(0.125, 0.38, 0.0);
+		Vec3 torso = new Vec3(0.0, 1.12, 0.0);
+		Vec3 head = new Vec3(0.0, 1.70, 0.0);
+		if (want("arm")) {
+			t = pair(mc, t, idx++, "arm", AndyState.RIGHT_ARM, new Vec3(-0.95, 1.2, 0.75), arm, ps);
+		}
+		if (want("leg")) {
+			t = pair(mc, t, idx++, "leg", AndyState.LEFT_LEG, new Vec3(0.75, 0.55, 0.85), leg, ps);
+		}
+		if (want("torso")) {
+			t = pair(mc, t, idx++, "torso", AndyState.BODY, new Vec3(0.35, 1.25, 1.15), torso, ps);
+		}
+		if (want("head")) {
+			t = pair(mc, t, idx++, "head", AndyState.HEAD, new Vec3(0.3, 1.8, 0.95), head, ps);
+		}
+		if (want("film")) {
+			// slowed 4x: an arm's 18 frames over 72 ticks
+			t = film(mc, t, idx++, "film_arm_3d", AndyState.RIGHT_ARM, new Vec3(-0.95, 1.2, 0.75), arm, AndyRegrowStyle.Style.THREE_D, 72L);
+			t = film(mc, t, idx++, "film_arm_st", AndyState.RIGHT_ARM, new Vec3(-0.95, 1.2, 0.75), arm, AndyRegrowStyle.Style.STEPPED, 72L);
+			t = film(mc, t, idx++, "film_torso_3d", AndyState.BODY, new Vec3(0.35, 1.25, 1.15), torso, AndyRegrowStyle.Style.THREE_D, 80L);
+			t = film(mc, t, idx++, "film_torso_st", AndyState.BODY, new Vec3(0.35, 1.25, 1.15), torso, AndyRegrowStyle.Style.STEPPED, 80L);
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

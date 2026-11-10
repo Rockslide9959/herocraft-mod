@@ -1,0 +1,8 @@
+Andy regrowth, two looks (v0.17.3). Pick per player with the client command /andystyle 3d  or  /andystyle stepped (saved in config/projecthero_andy.json; default 3d).
+
+*_styles.png  - arm / leg / torso / head growing back from a stump, frozen at p = 0.12 .. 0.97: top row the 3D look (bone, muscle thickening outward, skin), bottom row the new stepped look (bone-and-blood surface revealed frame by frame from the joint with a cross-section cap at the open end, then raw red flesh fading, then skin). The head stills are dark because a missing head blinds the camera player.
+arm_side_by_side_4x_slow.mp4 / torso_side_by_side_4x_slow.mp4  - 3D (left) vs stepped (right), the whole regrowth slowed 4x (one game tick per frame at 20 fps).
+arm_side_by_side_real_speed.mp4 / torso_side_by_side_real_speed.mp4  - the same at the NBC-style speed (an arm in 18 ticks, a torso in 20).
+arm_stepped_film_sheet.png / torso_stepped_film_sheet.png  - every 5th frame of the stepped film.
+
+Timings in these films use the regrowth progress the current master gives; the stepped look snaps to whole frames per segment (head 17, body 20, arm 18, hand 12, legs 20, feet 11; bone to 9 / 12 / 10 / 6 / 11 / 4).
