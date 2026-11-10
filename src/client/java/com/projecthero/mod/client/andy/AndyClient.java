@@ -53,6 +53,7 @@ public final class AndyClient {
 		AndyCloneEntity.clientRemoval = AndyCloneRenderer::removed;
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
 		ClientTickEvents.END_CLIENT_TICK.register(AndyClient::tick);
+		AndyRegrowStyle.initialize(); // v0.17.3: /andystyle 3d|stepped
 		AndySounds.initialize(); // v0.17.3 Andy sounds: regrowth beds + accents, jets, burn, punch
 	}
 

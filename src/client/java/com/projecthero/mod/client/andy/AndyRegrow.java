@@ -68,6 +68,10 @@ public final class AndyRegrow {
 	// ---------------------------------------------------------------- the head and body
 
 	static void boneAndFlesh(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
+		if (AndyRegrowStyle.stepped()) { // v0.17.3: the stepped look, picked per viewer (/andystyle)
+			AndyRegrowStepped.boneAndFlesh(pose, buffers, light, tex, slim, part, p);
+			return;
+		}
 		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		PoseStack.Pose last = pose.last();
 		boolean skinDone = true;
@@ -187,6 +191,10 @@ public final class AndyRegrow {
 	 */
 	static void limb(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, float from,
 			boolean embers) {
+		if (AndyRegrowStyle.stepped()) { // v0.17.3: the stepped look, picked per viewer (/andystyle)
+			AndyRegrowStepped.limb(pose, buffers, light, tex, slim, part, p, from, embers);
+			return;
+		}
 		Limb lb = Limb.of(part, slim);
 		float qb = AndyConfig.layer(AndyConfig.LAYER_BONE, p);
 		float qm = AndyConfig.layer(AndyConfig.LAYER_MUSCLE, p);
@@ -545,6 +553,10 @@ public final class AndyRegrow {
 	 * grid's cubes at the line as the cut face (embers while burning).
 	 */
 	public static void bodyCut(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, float rows, boolean embers) {
+		if (AndyRegrowStyle.stepped()) { // v0.17.3: the stepped look, picked per viewer (/andystyle)
+			AndyRegrowStepped.bodyCut(pose, buffers, light, tex, slim, rows, embers);
+			return;
+		}
 		VertexConsumer skin = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		PoseStack.Pose last = pose.last();
 		for (AndyTexels.Texel t : AndyTexels.of(AndyState.BODY, slim)) {
