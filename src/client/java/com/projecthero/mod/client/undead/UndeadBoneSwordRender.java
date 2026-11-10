@@ -140,6 +140,11 @@ public final class UndeadBoneSwordRender {
 				set(arm, fade(age, 8f), -1.2f, 0.2f * sd, -0.1f * sd); // the hand opening as it bursts
 				return true;
 			}
+			float draw = shoulderDraw(player, now - (float) Math.floor(now));
+			if (draw >= 0f) {
+				shoulderDrawPose(model, arm, sd, aim, draw);
+				return true;
+			}
 			return kitPose(player, s, model, now, age, arm, other, sd, aim);
 		}
 		if (s.animId == UndeadState.ANIM_SWORD_RIP && age >= 0f && age < UndeadConfig.BONE_SWORD_REVEAL + 6f) {
@@ -285,6 +290,35 @@ public final class UndeadBoneSwordRender {
 		return false;
 	}
 
+	/**
+	 * The quick draw's arm: across to the off shoulder and gripping the hilt, wrenched up and out over the head, cut down and across
+	 * in front, then snapped back to the shoulder to drive it home. (Main arm only; the body twists a little with the cut.)
+	 */
+	private static void shoulderDrawPose(net.minecraft.client.model.HumanoidModel<?> model, ModelPart arm, float sd, float aim, float k) {
+		float x, y, z;
+		if (k < DRAW_OUT) { // the reach: to the hilt on the other shoulder
+			float t = ease(k / DRAW_OUT);
+			x = Mth.lerp(t, arm.xRot, -2.4f);
+			y = Mth.lerp(t, arm.yRot, -0.8f * sd);
+			z = Mth.lerp(t, arm.zRot, -0.15f * sd);
+		} else if (k < DRAW_IN) { // out and up, then the cut down across the front
+			float t = (k - DRAW_OUT) / (DRAW_IN - DRAW_OUT);
+			float up = ease(Math.min(1f, t / 0.3f)), cut = ease(Math.max(0f, (t - 0.3f) / 0.7f));
+			x = Mth.lerp(cut, Mth.lerp(up, -2.4f, -2.9f), aim + 0.9f);
+			y = Mth.lerp(cut, Mth.lerp(up, -0.8f * sd, 0.15f * sd), -0.45f * sd);
+			z = Mth.lerp(cut, 0.1f * sd, -0.1f * sd);
+			model.body.yRot += sd * (0.25f * up - 0.45f * cut);
+		} else { // back across to the shoulder to drive it in
+			float t = ease((k - DRAW_IN) / (1f - DRAW_IN));
+			x = Mth.lerp(t, aim + 0.9f, -2.3f);
+			y = Mth.lerp(t, -0.45f * sd, -0.75f * sd);
+			z = Mth.lerp(t, -0.1f * sd, -0.2f * sd);
+		}
+		arm.xRot = x;
+		arm.yRot = y;
+		arm.zRot = z;
+	}
+
 	/** Tap V, Reform: he jolts as the body slams back together -- arms flung out, chest and head thrown back -- and settles. */
 	private static void reformPose(net.minecraft.client.model.HumanoidModel<?> model, float age) {
 		float open = ease(age / 1.5f) * (1f - ease((age - 2f) / (UndeadConfig.REFORM_ANIM - 2f)));
@@ -341,6 +375,48 @@ public final class UndeadBoneSwordRender {
 		pose.popPose();
 	}
 
+	// ---------------------------------------------------------------- the shoulder sword's quick draw (v0.17.3)
+
+	/** Draw phases of one empty-hand swing (fractions of vanilla's attack swing): reach to the shoulder, out and slashing, back in. */
+	static final float DRAW_OUT = 0.22f, DRAW_IN = 0.82f;
+
+	/**
+	 * v0.17.3 (user: "When a player stabs a sword inside them and then left clicks with an empty hand the player pulls the sword out
+	 * and then hits and then puts it back in again, this must all be a really quick animation"): 0..1 through the current swing when
+	 * that is a shoulder-sword hit (a sword in his shoulder, nothing in the swinging main hand, no Bone Sword out); -1 otherwise. It
+	 * rides vanilla's attack swing (6 ticks), so the whole draw, cut and re-sheathe takes about a third of a second.
+	 */
+	static float shoulderDraw(Player player, float partial) {
+		if (UndeadShoulderSword.stored(player).isEmpty() || !player.getMainHandItem().isEmpty() || !player.swinging
+				|| player.swingingArm != InteractionHand.MAIN_HAND) {
+			return -1f;
+		}
+		UndeadState s = Undead.peek(player);
+		if (s == null || s.boneSword() || s.broken(UndeadState.BODY)) {
+			return -1f;
+		}
+		return player.getAttackAnim(partial);
+	}
+
+	/** True while the sword is out of the shoulder in his hand (the middle of the draw). */
+	static boolean swordDrawn(float k) {
+		return k >= DRAW_OUT && k < DRAW_IN;
+	}
+
+	/** Third person: the drawn sword in the main hand, exactly where ItemInHandLayer puts a held item. */
+	private static void drawnSwordThirdPerson(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model) {
+		boolean left = player.getMainArm() == HumanoidArm.LEFT;
+		pose.pushPose();
+		model.translateToHand(left ? HumanoidArm.LEFT : HumanoidArm.RIGHT, pose);
+		pose.mulPose(Axis.XP.rotationDegrees(-90f));
+		pose.mulPose(Axis.YP.rotationDegrees(180f));
+		pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+		Minecraft.getInstance().getItemRenderer().renderStatic(player, UndeadShoulderSword.stored(player),
+				left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, left, pose, buffers, player.level(), light,
+				OverlayTexture.NO_OVERLAY, player.getId());
+		pose.popPose();
+	}
+
 	/** Where the shoulder sword sits on the body (model px, the body's frame: +y down, front -z) and how it is turned (degrees). */
 	static float SHOULDER_X = 4.4f, SHOULDER_Y = -1.6f, SHOULDER_Z = 0.3f, SHOULDER_ROT_Z = -45f, SHOULDER_ROT_Y = 0f, SHOULDER_TILT = 14f,
 			SHOULDER_SINK = 0f, SHOULDER_SCALE = 0.85f;
@@ -353,6 +429,11 @@ public final class UndeadBoneSwordRender {
 	static void shoulderSword(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s) {
 		ItemStack sword = UndeadShoulderSword.stored(player);
 		if (sword.isEmpty() || s.broken(UndeadState.BODY)) {
+			return;
+		}
+		float draw = shoulderDraw(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+		if (swordDrawn(draw)) {
+			drawnSwordThirdPerson(pose, buffers, light, player, model); // out of the shoulder, in his hand for the cut
 			return;
 		}
 		int off = Undead.otherArm(Undead.mainArm(player));
@@ -424,8 +505,16 @@ public final class UndeadBoneSwordRender {
 				}
 				return true;
 			}
+			float draw = shoulderDraw(player, partial);
 			if (hand == InteractionHand.OFF_HAND) {
-				shoulderFirstPerson(player, partial, pose, buffers, light);
+				if (!swordDrawn(draw)) {
+					shoulderFirstPerson(player, partial, pose, buffers, light);
+				}
+				return false;
+			}
+			if (swordDrawn(draw)) {
+				drawnSwordFirstPerson(renderer, player, partial, draw, pose, buffers, light);
+				return true;
 			}
 			return false;
 		}
@@ -528,6 +617,30 @@ public final class UndeadBoneSwordRender {
 	 * First person, the sword in his shoulder: its hilt standing up out of the bottom corner of the view on the off side (where
 	 * the shoulder is), swaying a little with him. Drawn from the off hand's turn (vanilla then draws whatever that hand holds).
 	 */
+	/** First person, the drawn sword: up from the off shoulder, a cut down across the view, the way vanilla swings a held sword. */
+	private static void drawnSwordFirstPerson(ItemInHandRenderer renderer, AbstractClientPlayer player, float partial, float k, PoseStack pose,
+			MultiBufferSource buffers, int light) {
+		boolean right = player.getMainArm() == HumanoidArm.RIGHT;
+		float sd = right ? 1f : -1f;
+		float t = (k - DRAW_OUT) / (DRAW_IN - DRAW_OUT);
+		float in = 1f - ease(Math.min(1f, t / 0.25f)); // just pulled from the other shoulder: it sweeps in from that side
+		float sw = ease(Math.max(0f, (t - 0.2f) / 0.8f)); // then the cut
+		float sq = Mth.sqrt(sw);
+		pose.pushPose();
+		pose.translate(-sd * 0.7f * in, 0.25f * in, 0f);
+		pose.translate(sd * -0.4f * Mth.sin(sq * Mth.PI), 0.2f * Mth.sin(sq * Mth.TWO_PI), -0.2f * Mth.sin(sw * Mth.PI));
+		pose.translate(sd * 0.56f, -0.52f, -0.72f);
+		float f = Mth.sin(sw * sw * Mth.PI);
+		pose.mulPose(Axis.YP.rotationDegrees(sd * (45f + f * -20f)));
+		float g = Mth.sin(sq * Mth.PI);
+		pose.mulPose(Axis.ZP.rotationDegrees(sd * g * -20f));
+		pose.mulPose(Axis.XP.rotationDegrees(g * -80f));
+		pose.mulPose(Axis.YP.rotationDegrees(sd * -45f));
+		renderer.renderItem(player, UndeadShoulderSword.stored(player), right ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
+				!right, pose, buffers, light);
+		pose.popPose();
+	}
+
 	private static void shoulderFirstPerson(AbstractClientPlayer player, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		ItemStack sword = UndeadShoulderSword.stored(player);
 		if (sword.isEmpty() || !player.getOffhandItem().isEmpty()) {
