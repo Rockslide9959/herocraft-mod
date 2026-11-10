@@ -1670,10 +1670,11 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.stand.controls");
-			for (String[] row : new String[][] { { "H", "summon" }, { "N", "pose" }, { "Shift+N", "menu" }, { "R", "ora_rush" },
-					{ "Shift+R", "star_finger" }, { "G", "power_grab" }, { "Shift+G", "bearing_flick" }, { "X", "stand_leap" },
-					{ "Shift+X", "stand_dash" }, { "Z", "star_breaker" }, { "Shift+Z", "the_world" }, { "V", "stand_guard" },
-					{ "Shift+V", "precision_sight" }, { "C", "super_inhale" }, { "Shift+C", "ora_uppercut" } }) {
+			for (String[] row : new String[][] { { "H", "summon" }, { "N", "pose" }, { "Shift+N", "menu" }, { "LMB", "punch" },
+					{ "LMB", "mining" }, { "R", "platinum_smash" }, { "Hold R", "ora_barrage" }, { "Shift+R", "star_finger" },
+					{ "G", "ora_chase" }, { "Shift+G", "bearing_flick" }, { "X", "stand_jump" }, { "Shift+X", "ora_rush" },
+					{ "Z", "star_breaker" }, { "Shift+Z", "the_world" }, { "V", "stand_guard" }, { "Shift+V", "stand_grab" },
+					{ "C", "super_inhale" }, { "Shift+C", "ora_uppercut" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.stand.move." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.stand.move." + row[1] + ".desc");

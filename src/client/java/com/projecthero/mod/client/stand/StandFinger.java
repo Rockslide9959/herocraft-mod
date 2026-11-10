@@ -34,7 +34,7 @@ final class StandFinger {
 	 * {@code side}: a unit vector across the hand (the fingers sit either side of the line); {@code up}: the bend of the snake.
 	 */
 	static void draw(MultiBufferSource buffers, Vector3f base, Vector3f tip, Vector3f side, float extend, float whip, int light, int alpha) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE)); // v0.17.3: solid, like the rest of him
 		Vector3f s = new Vector3f(side).mul(0.075f);
 		tube(vc, new Vector3f(base).add(s), new Vector3f(tip).add(s), extend, whip, 0.092f, light, alpha, 0f);
 		Vector3f b2 = new Vector3f(base).sub(s);

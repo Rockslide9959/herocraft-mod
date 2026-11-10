@@ -1,8 +1,6 @@
 package com.projecthero.mod.client.stand;
 
-import com.projecthero.mod.stand.StandConfig;
 import com.projecthero.mod.stand.Stands;
-import com.projecthero.mod.stand.data.StandState;
 import com.projecthero.mod.stand.network.StandActionPayload;
 import com.projecthero.mod.stand.network.TimeStopPayload;
 
@@ -13,13 +11,11 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 
 /**
  * v0.17.2: the Stand's client side -- the Stand drawn in the world ({@link StandRender}, Stand users only), the HUD, the
- * Stand Menu (Shift+N), the time stop ({@link TimeStopClient}), Precision Sight's zoom and outlines, and the H request
- * (sent from {@code ProjectHeroModClient}).
+ * Stand Menu (Shift+N), the time stop ({@link TimeStopClient}), the flicked ball bearing, the swing-driven Stand jabs
+ * ({@link StandSwing}) and the H request (sent from {@code ProjectHeroModClient}).
  */
 public final class StandClient {
 	private StandClient() {
@@ -39,6 +35,7 @@ public final class StandClient {
 			if (client.level == null) {
 				return;
 			}
+			StandSwing.tick(client.level);
 			for (net.minecraft.world.entity.player.Player p : client.level.players()) {
 				var pose = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.STAND_POSE, null);
 				if (pose != null && pose.pose() != 0) {
@@ -50,7 +47,10 @@ public final class StandClient {
 			TimeStopClient.reset();
 			StandRender.reset();
 			StandFx.reset();
+			StandSwing.reset();
 		});
+		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(com.projecthero.mod.stand.entity.StandEntities.BALL_BEARING,
+				BallBearingRenderer::new);
 	}
 
 	/** Whether plain H belongs to the Stand for this player. */
@@ -67,19 +67,4 @@ public final class StandClient {
 		Minecraft.getInstance().setScreen(new StandMenuScreen());
 	}
 
-	/** Precision Sight is on for the local player. */
-	public static boolean sightActive() {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
-			return false;
-		}
-		StandState s = Stands.peek(mc.player);
-		return s != null && s.isUser() && s.sightUntil > mc.level.getGameTime();
-	}
-
-	/** Precision Sight outlines every creature within range, for this Stand user's eyes only. */
-	public static boolean sightOutlined(Entity e) {
-		Minecraft mc = Minecraft.getInstance();
-		return e instanceof LivingEntity && e != mc.player && sightActive() && e.distanceToSqr(mc.player) < StandConfig.SIGHT_GLOW_RANGE * StandConfig.SIGHT_GLOW_RANGE;
-	}
 }

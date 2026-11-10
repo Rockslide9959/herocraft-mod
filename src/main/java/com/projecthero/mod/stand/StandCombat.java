@@ -1,48 +1,32 @@
 package com.projecthero.mod.stand;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
-
-import org.joml.Vector3f;
 
 /**
  * Stand hits (v0.17.2). Every Star Platinum move goes through {@link #hit}, so every move follows the mod-wide targeting
  * rules ({@link HeroTargets}: never yourself, never a squadmate or a friendly pet, other players only with PvP on),
  * bosses take at most {@link StandConfig#BOSS_MAX_FRACTION_PER_HIT} of their max health a hit and are never knocked about,
- * and inside a time stop the hit is queued on the frozen victim instead ({@link TimeStop#queue}). Star Finger's bleeding
- * ticks here too.
+ * and inside a time stop the hit is queued on the frozen victim instead ({@link TimeStop#queue}). v0.17.3: Star Finger no
+ * longer bleeds (the user set its damage at 22, flat); {@link #stun} holds a victim in place.
  */
 public final class StandCombat {
-	private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.6f, 0.02f, 0.02f), 1.0f);
-
-	/** Bleeding victims: id -> (the Stand user, end time). */
-	private record Bleed(UUID owner, long until) {
-	}
-
-	private static final Map<UUID, Bleed> BLEEDING = new ConcurrentHashMap<>();
 	private static final ThreadLocal<Boolean> STAND_HIT = ThreadLocal.withInitial(() -> false);
 
 	private StandCombat() {
 	}
 
 	static void clearSessionState() {
-		BLEEDING.clear();
 	}
 
 	public static boolean isStandHit() {
@@ -94,6 +78,18 @@ public final class StandCombat {
 		return true;
 	}
 
+	/**
+	 * v0.17.3 (user: "stunned in place"): {@code ticks} unable to move or fight back (the Punisher's stun: Slowness X, no target,
+	 * Weakness); a boss only gets a heavy slow, as with every other kit.
+	 */
+	public static void stun(LivingEntity e, int ticks) {
+		if (isBoss(e)) {
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, ticks, 2);
+		} else {
+			com.projecthero.mod.punisher.PunisherControl.stun(e, ticks);
+		}
+	}
+
 	/** A push away from {@code from}, flat, plus {@code lift}. */
 	public static Vec3 away(Vec3 from, Entity target, double strength, double lift) {
 		Vec3 d = target.position().subtract(from);
@@ -109,53 +105,6 @@ public final class StandCombat {
 		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.IMPACT, c, c.subtract(owner.position().add(0, 1.2, 0)), landed ? 0.8f : 0.5f);
 		if (landed) {
 			Stands.particles(level, ParticleTypes.CRIT, c.x, c.y, c.z, 4, 0.2, 0.2, 0.2, 0.25);
-		}
-	}
-
-	// ---------------------------------------------------------------- Star Finger's bleeding
-
-	public static void bleed(ServerPlayer owner, LivingEntity target, int ticks) {
-		BLEEDING.put(target.getUUID(), new Bleed(owner.getUUID(), target.level().getGameTime() + ticks));
-	}
-
-	public static boolean bleeding(LivingEntity target) {
-		Bleed b = BLEEDING.get(target.getUUID());
-		return b != null && b.until > target.level().getGameTime();
-	}
-
-	/** Server tick: one point of bleeding a second (held while time is stopped -- a frozen wound does not bleed). */
-	public static void tickBleeding(MinecraftServer server) {
-		if (BLEEDING.isEmpty()) {
-			return;
-		}
-		Iterator<Map.Entry<UUID, Bleed>> it = BLEEDING.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry<UUID, Bleed> e = it.next();
-			LivingEntity victim = null;
-			for (ServerLevel level : server.getAllLevels()) {
-				if (level.getEntity(e.getKey()) instanceof LivingEntity le) {
-					victim = le;
-					break;
-				}
-			}
-			if (victim == null || !victim.isAlive()) {
-				it.remove();
-				continue;
-			}
-			long now = victim.level().getGameTime();
-			if (now >= e.getValue().until) {
-				it.remove();
-				continue;
-			}
-			if (TimeStop.frozen(victim) || now % 20 != 0) {
-				continue;
-			}
-			ServerPlayer owner = server.getPlayerList().getPlayer(e.getValue().owner);
-			DamageSource src = owner != null ? victim.damageSources().playerAttack(owner) : victim.damageSources().generic();
-			victim.invulnerableTime = 0;
-			victim.hurt(src, StandConfig.BLEED_DAMAGE);
-			Vec3 c = victim.position().add(0, victim.getBbHeight() * 0.5, 0);
-			((ServerLevel) victim.level()).sendParticles(BLOOD, c.x, c.y, c.z, 6, 0.2, 0.3, 0.2, 0.0); // the wound is the victim's
 		}
 	}
 }

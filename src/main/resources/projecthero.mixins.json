@@ -12,6 +12,7 @@
 		"UndeadPassiveHungerMixin",
 		"StandTimeStopServerLevelMixin",
 		"StandTimeStopLevelMixin",
+		"StandMiningMixin",
 		"SpeedsterHungerMoveMixin",
 		"SuggestModIdsByPathMixin",
 		"ServerLevelGunkMixin",

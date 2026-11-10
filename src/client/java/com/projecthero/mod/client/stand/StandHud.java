@@ -77,7 +77,12 @@ public final class StandHud {
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = StandAbilityManager.idsOf(slot);
 				if (ids.length > 0) {
-					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.stand.move." + ids[0]),
+					// v0.17.3: R carries two moves: "Platinum Smash / hold: ORA Barrage"
+					Component plain = slot == AbilitySlot.SLOT_1
+							? Component.translatable("hud.projecthero.stand.tap_hold", Component.translatable("projecthero.stand.move." + ids[0]),
+									Component.translatable("projecthero.stand.move." + com.projecthero.mod.stand.StandMove.ORA_BARRAGE))
+							: Component.translatable("projecthero.stand.move." + ids[0]);
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), plain,
 							ids.length > 1 ? Component.translatable("projecthero.stand.move." + ids[1]) : null));
 				}
 			}
@@ -95,11 +100,11 @@ public final class StandHud {
 			int cd = Stands.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, StandAbilityManager.maxCooldown(shown)));
 			float otherFrac = Math.min(1f, Stands.cooldownRemaining(p, other) / (float) Math.max(1, StandAbilityManager.maxCooldown(other)));
-			boolean active = (slot == AbilitySlot.SLOT_1 && s.rushing)
-					|| (slot == AbilitySlot.SLOT_2 && (s.grabbedEntity != -1 || s.grabbedBlock != 0))
+			boolean active = (slot == AbilitySlot.SLOT_1 && (s.rushing || s.smashStep > 0))
+					|| (slot == AbilitySlot.SLOT_2 && s.chaseStart != 0L)
 					|| (slot == AbilitySlot.SLOT_3 && (s.leapRebounds >= 0 || s.dashUntil > now))
-					|| (slot == AbilitySlot.SLOT_4 && s.chargeStart != 0L)
-					|| (slot == AbilitySlot.SLOT_5 && (s.guarding || s.sightUntil > now))
+					|| (slot == AbilitySlot.SLOT_4 && (s.chargeStart != 0L || com.projecthero.mod.client.stand.TimeStopClient.casterIsLocal()))
+					|| (slot == AbilitySlot.SLOT_5 && (s.guarding || s.grabbedEntity != -1))
 					|| (slot == AbilitySlot.SLOT_6 && s.inhaleUntil > now);
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
