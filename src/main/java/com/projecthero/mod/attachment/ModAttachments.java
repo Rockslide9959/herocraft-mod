@@ -977,6 +977,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.blackpanther.data.BlackPantherState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.3: the Saiyan -- the power, the form, Ki, mastery, timers. */
+	public static final AttachmentType<com.projecthero.mod.saiyan.data.SaiyanState> SAIYAN_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("saiyan_state"),
+					builder -> builder.persistent(com.projecthero.mod.saiyan.data.SaiyanState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.saiyan.data.SaiyanState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.saiyan.data.SaiyanState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),

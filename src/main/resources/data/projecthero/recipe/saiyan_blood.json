@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IAI",
+    "PBP",
+    " D "
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:gold_ingot"
+    },
+    "A": {
+      "item": "minecraft:golden_apple"
+    },
+    "P": {
+      "item": "minecraft:blaze_powder"
+    },
+    "B": {
+      "item": "minecraft:glass_bottle"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "id": "projecthero:saiyan_blood",
+    "count": 1
+  }
+}

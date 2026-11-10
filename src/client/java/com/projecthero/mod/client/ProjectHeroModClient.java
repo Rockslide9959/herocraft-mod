@@ -158,6 +158,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.andy.AndyClient.initialize(); // v0.17.3
+		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, form wheel, Ki charge key
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
@@ -919,6 +920,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.cyborg.CyborgClient.ownsH(client.player)) {
 				// v0.16.5: H as Cyborg -- combat / civilian form (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.cyborg.CyborgClient.pressH();
+			} else if (client.player != null && com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(client.player)) {
+				// v0.17.3: H as a Saiyan -- the form wheel (hold H, click a form; Shift+H still opens the power wheel).
+				com.projecthero.mod.client.saiyan.SaiyanClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(client.player)) {
 				// v0.17.3: H as Black Panther -- the suit out of the necklace / back in (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.blackpanther.BlackPantherClient.pressH();

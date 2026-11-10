@@ -67,6 +67,7 @@ public final class HeroTiers {
 				|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)
 				|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(player) // v0.17.3
 				|| com.projecthero.mod.andy.Andy.hasPower(player) // v0.17.3
+				|| com.projecthero.mod.saiyan.Saiyan.hasPower(player) // v0.17.3
 				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player) // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
 				|| com.projecthero.mod.quirk.Quirks.hasPower(player) // v0.16.7: the seven Quirks
 				|| com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1: the Omnitrix
@@ -109,6 +110,7 @@ public final class HeroTiers {
 			"speed_force_speedster", // v0.17.1: the DC Flash (the plain Speedster's upgrade)
 			"black_panther", // v0.17.3
 			"andy", // v0.17.3: Undead Unluck
+			"saiyan", // v0.17.3
 			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
 			"stand_star_platinum", // v0.17.2: a JoJo Stand (Star Platinum first)
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko",
@@ -141,6 +143,7 @@ public final class HeroTiers {
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player);
 			case "black_panther" -> com.projecthero.mod.blackpanther.BlackPanther.hasPower(player); // v0.17.3
 			case "andy" -> com.projecthero.mod.andy.Andy.hasPower(player); // v0.17.3
+			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.hasPower(player); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1
 			// v0.16.6: the three Miraculous heroes share one state; each key is "holds that Kwami"
 			case "ladybug" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.TIKKI);
@@ -256,6 +259,11 @@ public final class HeroTiers {
 			case "andy" -> {
 				if (com.projecthero.mod.andy.Andy.hasPower(player)) {
 					com.projecthero.mod.andy.Andy.revoke(player);
+				}
+			}
+			case "saiyan" -> {
+				if (com.projecthero.mod.saiyan.Saiyan.hasPower(player)) {
+					com.projecthero.mod.saiyan.Saiyan.revoke(player);
 				}
 			}
 			case "black_panther" -> {
@@ -598,6 +606,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("andy") && com.projecthero.mod.andy.Andy.hasPower(player)) {
+			return true; // v0.17.3
+		}
+		if (!excludeHeroKeys.contains("saiyan") && com.projecthero.mod.saiyan.Saiyan.hasPower(player)) {
 			return true; // v0.17.3
 		}
 		if (!excludeHeroKeys.contains("black_panther") && com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {
