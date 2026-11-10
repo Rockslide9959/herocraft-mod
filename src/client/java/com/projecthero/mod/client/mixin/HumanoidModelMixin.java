@@ -446,6 +446,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.17.3: the Saiyan moves' poses (punches, kicks, the beam, the orb, the barrage, the rush). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$saiyanMovePose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.saiyan.fx.SaiyanMovePose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.5: Blue Beetle's poses (blaster arm, cannon, blade swings, grip, shield, flight, the bonding). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$blueBeetlePose(LivingEntity entity, float limbSwing, float limbSwingAmount,

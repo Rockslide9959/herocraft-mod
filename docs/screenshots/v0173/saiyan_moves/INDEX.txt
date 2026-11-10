@@ -1,0 +1,10 @@
+Saiyan moves, v0.17.3. Third person unless named; real time (20 fps); every MP4 has a same-named contact sheet. Dummies are zombies with 1000 health (and helmets).
+combo.mp4 - left-click combo: three jabs (right, left, right) with Ki impact flashes, then the launching kick.
+feint.mp4 - Feint Strike in Super Saiyan: the stunning jab, then the kick 8 ticks later.
+beam.mp4 - Ki Beam: the ball gathering at the hip, then the beam (white core, coloured body, outer glow, spiral streaks) into two zombies with a boiling end-point.
+beam_fp.mp4 - the same from his own eyes (Blue form numbers): a small low charge ball, then a thinner beam that leaves the view clear.
+orb.mp4 - Spirit Orb: arms up, the ball growing overhead with energy streaming in, thrown at three zombies, the blast dome and ground ring.
+barrage.mp4 - Barrage (SSJ2): alternating fist flurry with impacts, the knockback finisher.
+sky.mp4 - Sky Combo: kick up, chase, two air kicks, the hammer down and the landing shockwave (this dummy has AI so it can be knocked up).
+rush.mp4 - Dragon Rush (SSJ3): hop back, wind-up, the rush trail and the hit with an upright shock ring.
+step.mp4 - Instant Step (Instinct): the fading afterimage and streak, reappearing behind the zombie.

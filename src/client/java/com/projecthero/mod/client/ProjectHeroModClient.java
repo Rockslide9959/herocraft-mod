@@ -159,6 +159,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.andy.AndyClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, form wheel, Ki charge key
+		com.projecthero.mod.client.saiyan.fx.SaiyanFxClient.initialize(); // v0.17.3: the Saiyan moves' effects
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
