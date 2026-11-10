@@ -78,8 +78,8 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
 			return "projecthero.squad.identity.cyborg";
 		}
-		if (com.projecthero.mod.andy.Andy.hasPower(player)) {
-			return "projecthero.squad.identity.andy"; // v0.17.3
+		if (com.projecthero.mod.undead.Undead.hasPower(player)) {
+			return "projecthero.squad.identity.undead"; // v0.17.3
 		}
 		if (com.projecthero.mod.saiyan.Saiyan.hasPower(player)) {
 			return "projecthero.squad.identity.saiyan"; // v0.17.3

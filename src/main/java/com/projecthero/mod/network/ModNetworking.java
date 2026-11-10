@@ -83,7 +83,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternSniperPayload.TYPE, GreenLanternSniperPayload.CODEC); // v0.16.1
-		PayloadTypeRegistry.playC2S().register(AndyBoostPayload.TYPE, AndyBoostPayload.CODEC); // v0.17.3
+		PayloadTypeRegistry.playC2S().register(UndeadBoostPayload.TYPE, UndeadBoostPayload.CODEC); // v0.17.3
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternCuePayload.TYPE, GreenLanternCuePayload.CODEC); // v0.17.1 combos + ring voice
 		PayloadTypeRegistry.playS2C().register(GreenLanternConstructHealthPayload.TYPE, GreenLanternConstructHealthPayload.CODEC); // v0.17.1
@@ -373,9 +373,9 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
 
-		// v0.17.3: Andy's right click held while flying -- the boost.
-		ServerPlayNetworking.registerGlobalReceiver(AndyBoostPayload.TYPE, (payload, context) ->
-				com.projecthero.mod.andy.AndyFlight.setBoost(context.player(), payload.held()));
+		// v0.17.3: Undead's right click held while flying -- the boost.
+		ServerPlayNetworking.registerGlobalReceiver(UndeadBoostPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.undead.UndeadFlight.setBoost(context.player(), payload.held()));
 
 		// v0.16.1: Green Lantern Sniper Rifle construct -- attack charges / fires, right-click scopes.
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternSniperPayload.TYPE, (payload, context) -> {

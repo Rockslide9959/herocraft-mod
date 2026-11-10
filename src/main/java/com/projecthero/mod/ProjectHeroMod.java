@@ -166,7 +166,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.16.5: Blue Beetle -- the Scarab (+ pyramid loot), drones, damage rules, payload, lifecycle hooks
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.initialize();
 		com.projecthero.mod.blackpanther.BlackPantherMod.initialize(); // v0.17.3
-		com.projecthero.mod.andy.AndyMod.initialize(); // v0.17.3
+		com.projecthero.mod.undead.UndeadMod.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.initialize(); // v0.17.3
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.moves.SaiyanMoves.initialize(); // v0.17.3: the Saiyan's moves

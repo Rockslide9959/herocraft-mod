@@ -430,8 +430,8 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.cyborgChapter();
 		}
-		if (com.projecthero.mod.andy.Andy.hasPower(mc.player)) {
-			return com.projecthero.mod.hero.guide.HeroPackGuide.andyChapter(); // v0.17.3
+		if (com.projecthero.mod.undead.Undead.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.undeadChapter(); // v0.17.3
 		}
 		if (com.projecthero.mod.saiyan.Saiyan.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.saiyanChapter(); // v0.17.3

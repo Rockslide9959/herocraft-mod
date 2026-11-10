@@ -25,7 +25,7 @@ public abstract class QuirkSuitArmourMixin {
 	private void projecthero$skipQuirkSuit(PoseStack pose, MultiBufferSource buffers, LivingEntity entity, EquipmentSlot slot, int light,
 			HumanoidModel<?> model, CallbackInfo ci) {
 		if (entity.getItemBySlot(slot).getItem() instanceof QuirkSuitItem
-				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.andy.item.AndySuitItem) { // v0.17.3: Andy's Suit too
+				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.undead.item.UndeadSuitItem) { // v0.17.3: Undead's Suit too
 			ci.cancel();
 		}
 	}

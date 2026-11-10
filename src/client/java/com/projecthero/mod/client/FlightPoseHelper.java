@@ -207,7 +207,7 @@ public final class FlightPoseHelper {
 		}
 	}
 
-	/** v0.17.3 flight feel: how quickly the bank follows the turn (Andy's 0.25, a touch softer for a body that isn't a torpedo). */
+	/** v0.17.3 flight feel: how quickly the bank follows the turn (Undead's 0.25, a touch softer for a body that isn't a torpedo). */
 	private static final float BANK_APPROACH_PER_TICK = 0.2f;
 	/** Blocks a tick at which the turn bank is at full strength (it fades out toward a hover). */
 	private static final double FULL_BANK_SPEED = 0.5;

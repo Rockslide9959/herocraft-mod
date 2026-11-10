@@ -428,12 +428,12 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
-	/** v0.17.3: Andy's poses (fingers, Kurikara, the blood jets, the beams, the card). */
+	/** v0.17.3: Undead's poses (fingers, Kurikara, the blood jets, the beams, the card). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
-	private void projecthero$andyPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+	private void projecthero$undeadPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
-			com.projecthero.mod.client.andy.AndyPose.apply(player, (HumanoidModel<?>) (Object) this);
+			com.projecthero.mod.client.undead.UndeadPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 
@@ -515,7 +515,7 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	 * flight in the mod because they all drive {@link FlightPoseHelper#lean}.
 	 */
 	/**
-	 * v0.17.3 flight feel ({@code client.flight.FlightFeel}; tester: "make flight feel less stiff", after Andy's flight): hanging in
+	 * v0.17.3 flight feel ({@code client.flight.FlightFeel}; tester: "make flight feel less stiff", after Undead's flight): hanging in
 	 * the air the legs dangle, one a little ahead, swaying slowly apart and together; at speed they trail with a gentle scissor
 	 * from the hips, quicker the faster he goes. A hero flier's pinned arms flutter a touch. Added on top of whatever pose the
 	 * flight already set, so the per-power arm poses (Kryptonian, Nova, Thor's raised hammer) keep their shape.

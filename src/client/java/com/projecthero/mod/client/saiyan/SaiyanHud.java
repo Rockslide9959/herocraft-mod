@@ -20,7 +20,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
 /**
- * v0.17.3: the Saiyan HUD, bottom-right, drawn from the game's own pieces ({@link VanillaHud}) like Andy's and the Omnitrix's:
+ * v0.17.3: the Saiyan HUD, bottom-right, drawn from the game's own pieces ({@link VanillaHud}) like Undead's and the Omnitrix's:
  * <pre>
  *   Super Saiyan 2                        the form, in its hair colour (red while exhausted)
  *   Mastery  [boss bar ====---]  SSJ3     time toward the next form (gone once all are unlocked)

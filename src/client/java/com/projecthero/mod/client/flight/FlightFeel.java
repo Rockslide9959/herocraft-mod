@@ -5,8 +5,8 @@ import com.projecthero.mod.attachment.ModAttachments;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.3 (tester: "I really like Andy's flight with full locomotion ... could you also apply that sort of flight to the other
- * flying powers to make flight feel less stiff?"): how alive a flight's body looks, the way Andy's Blood Propulsion does. One
+ * v0.17.3 (tester: "I really like Undead's flight with full locomotion ... could you also apply that sort of flight to the other
+ * flying powers to make flight feel less stiff?"): how alive a flight's body looks, the way Undead's Blood Propulsion does. One
  * shared set of motions, tuned per power, read by {@code FlightPoseHelper} (lean and bank), {@code PlayerRendererMixin} (the
  * hover bob) and {@code HumanoidModelMixin} (the limbs):
  * <ul>
@@ -19,7 +19,7 @@ import net.minecraft.world.entity.player.Player;
  *   <li><b>limbs</b> -- legs dangle and sway in a hover and trail with a gentle scissor at speed ({@link #limbWave} scales it).</li>
  * </ul>
  * Iron Man keeps his own suit poses ({@code IronManFlightPose}: his thruster effects are placed through the lean alone), the
- * Physics Flight setting keeps its own attitude, and Andy has his own (AndyMotion / AndyPose).
+ * Physics Flight setting keeps its own attitude, and Undead has his own (UndeadMotion / UndeadPose).
  */
 public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, float pitchFollow, float bobAmp, float bobRate,
 		float limbWave) {

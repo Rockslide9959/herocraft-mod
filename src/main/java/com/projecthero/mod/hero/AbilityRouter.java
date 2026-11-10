@@ -221,9 +221,9 @@ public final class AbilityRouter {
 			com.projecthero.mod.nova.NovaAbilityManager.handle(player, slot, pressed);
 			return;
 		}
-		// v0.17.3: Andy (Undead Unluck), on the same terms
-		if (com.projecthero.mod.andy.AndyAbilityManager.hasContext(player)) {
-			com.projecthero.mod.andy.AndyAbilityManager.handle(player, slot, pressed);
+		// v0.17.3: Undead (Undead Unluck), on the same terms
+		if (com.projecthero.mod.undead.UndeadAbilityManager.hasContext(player)) {
+			com.projecthero.mod.undead.UndeadAbilityManager.handle(player, slot, pressed);
 			return;
 		}
 		// v0.17.3: the Saiyan, on the same terms
@@ -419,7 +419,7 @@ public final class AbilityRouter {
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
 		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		com.projecthero.mod.blackpanther.BlackPanther.tick(player); // v0.17.3
-		com.projecthero.mod.andy.Andy.tick(player); // v0.17.3
+		com.projecthero.mod.undead.Undead.tick(player); // v0.17.3
 		com.projecthero.mod.saiyan.Saiyan.tick(player); // v0.17.3: Ki, the form, mastery, flight
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);

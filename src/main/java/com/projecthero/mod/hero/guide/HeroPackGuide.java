@@ -135,9 +135,9 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
-	/** Andy (v0.17.3). */
-	public static Chapter andyChapter() {
-		return chapters().get(CH_ANDY);
+	/** Undead (v0.17.3). */
+	public static Chapter undeadChapter() {
+		return chapters().get(CH_UNDEAD);
 	}
 
 	/** Black Panther (v0.17.3). */
@@ -579,8 +579,8 @@ public final class HeroPackGuide {
 	private static final int CH_BLACK_PANTHER = CH_QUEEN_BEE + 1; // 64, v0.17.3
 	private static final int CH_BEAM_CLASH = CH_BLACK_PANTHER + 1; // 65, v0.17.3
 	private static final int CH_RYUKO = CH_BEAM_CLASH + 1; // 66, v0.17.3
-	private static final int CH_ANDY = CH_RYUKO + 1; // 67, v0.17.3
-	private static final int CH_SAIYAN = CH_ANDY + 1; // 68, v0.17.3
+	private static final int CH_UNDEAD = CH_RYUKO + 1; // 67, v0.17.3
+	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
 	private static final int CHAPTER_POWER_BASE = CH_SAIYAN + 1; // 69
 
 	private static List<Chapter> build() {
@@ -1720,19 +1720,19 @@ public final class HeroPackGuide {
 
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.LONGG)); // CH_RYUKO (v0.17.3)
 
-		// v0.17.3: Andy (CH_ANDY)
-		out.add(chapter("projecthero.guide.andy", lines -> {
-			lines.add(Component.translatable("projecthero.guide.andy.tier").withStyle(ChatFormatting.GOLD));
-			para(lines, "projecthero.guide.andy.body");
+		// v0.17.3: Undead (CH_UNDEAD)
+		out.add(chapter("projecthero.guide.undead", lines -> {
+			lines.add(Component.translatable("projecthero.guide.undead.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.undead.body");
 			blank(lines);
-			boolean victorOn = com.projecthero.mod.andy.AndyConfig.VICTOR_ENABLED; // v0.17.3: Victor is off for now
+			boolean victorOn = com.projecthero.mod.undead.UndeadConfig.VICTOR_ENABLED; // v0.17.3: Victor is off for now
 			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit", "victor"}
 					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit"}) {
-				head(lines, "projecthero.guide.andy." + section);
-				para(lines, "projecthero.guide.andy." + section + ".body");
+				head(lines, "projecthero.guide.undead." + section);
+				para(lines, "projecthero.guide.undead." + section + ".body");
 				blank(lines);
 			}
-			head(lines, "projecthero.guide.andy.controls");
+			head(lines, "projecthero.guide.undead.controls");
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
 					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
 					{ "Z", "vortex_bullet" },
@@ -1740,30 +1740,30 @@ public final class HeroPackGuide {
 					{ "C", "dead_line" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+						.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.undead.ability." + row[1] + ".desc");
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.andy.sword_controls"); // v0.17.3: the keys while the Bone Sword is out
+			head(lines, "projecthero.guide.undead.sword_controls"); // v0.17.3: the keys while the Bone Sword is out
 			for (String[] row : new String[][] { { "R", "bone_slash" }, { "Shift+R", "marrow_thrust" }, { "G", "blood_edge_wave" }, { "Shift+G", "rib_cage_guard" },
 					{ "X", "blood_jet_dash" }, { "Z", "bone_splinter_volley" }, { "Shift+Z", "impale_throw" }, { "C", "bone_parry" }, { "V", "bone_sword_away" },
 					{ "Shift+V", "regen_speed" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+						.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.undead.ability." + row[1] + ".desc");
 			}
 			blank(lines);
 			if (victorOn) {
-				head(lines, "projecthero.guide.andy.victor_controls");
+				head(lines, "projecthero.guide.undead.victor_controls");
 				for (String[] row : new String[][] { { "R", "dead_vulcan" }, { "Shift+R", "division_bullet" }, { "G", "dead_blade" }, { "C", "dead_road" } }) {
 					lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.DARK_RED)
-							.append(Component.translatable("projecthero.andy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
-					para(lines, "projecthero.andy.ability." + row[1] + ".desc");
+							.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+					para(lines, "projecthero.undead.ability." + row[1] + ".desc");
 				}
 				blank(lines);
 			}
-			head(lines, "projecthero.guide.andy.commands");
-			para(lines, "projecthero.guide.andy.commands.body");
+			head(lines, "projecthero.guide.undead.commands");
+			para(lines, "projecthero.guide.undead.commands.body");
 		}));
 
 		// v0.17.3: the Saiyan (CH_SAIYAN)
@@ -1941,7 +1941,7 @@ public final class HeroPackGuide {
 		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
 		icon(CH_RYUKO, "dragon_choker"); // v0.17.3
 		icon(CH_BLACK_PANTHER, "heart_shaped_herb"); // v0.17.3
-		icon(CH_ANDY, "undead_card"); // v0.17.3
+		icon(CH_UNDEAD, "undead_card"); // v0.17.3
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
@@ -2043,7 +2043,7 @@ public final class HeroPackGuide {
 			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
 		}
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
-		other.add(new IndexEntry(Component.translatable("projecthero.guide.andy"), 2, CH_ANDY)); // v0.17.3
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.undead"), 2, CH_UNDEAD)); // v0.17.3
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.saiyan"), 2, CH_SAIYAN)); // v0.17.3
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));

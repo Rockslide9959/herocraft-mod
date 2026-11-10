@@ -20,7 +20,7 @@ import net.minecraft.resources.ResourceLocation;
  * v0.17.3 (user: "for the player's skeleton use the same model as the skeleton mob in Minecraft, do the same for the Titan
  * corpse skeletons"): the vanilla skeleton mob's own geometry ({@link ModelLayers#SKELETON}, baked from the game's
  * entity model set -- the 8 px skull, the ribcage body and the thin 2 px arm and leg bones) and its own texture, drawn one
- * part at a time wherever a body needs bones: Andy's Bone and flesh regrowth and the Titan corpse / severed limbs.
+ * part at a time wherever a body needs bones: Undead's Bone and flesh regrowth and the Titan corpse / severed limbs.
  *
  * <p>A part can be drawn clipped to a band of its own height ({@code y0..y1}, part-local model px, +y down), which is how
  * a bone grows out of a stump (the band widens from the joint outward) and how one straight vanilla arm or leg is shared

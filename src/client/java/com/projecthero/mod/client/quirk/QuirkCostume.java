@@ -188,9 +188,9 @@ public final class QuirkCostume {
 
 	/** The worn suit piece's texture in this slot (null: no Quirk suit there, or no texture). */
 	private static @Nullable Tex worn(LivingEntity entity, EquipmentSlot slot) {
-		// v0.17.3: Andy's Suit is drawn the same way, from its own skin
-		if (com.projecthero.mod.andy.item.AndySuitItem.wornIn(entity, slot)) {
-			return tex(com.projecthero.mod.andy.item.AndySuitItem.texture(slim(entity)));
+		// v0.17.3: Undead's Suit is drawn the same way, from its own skin
+		if (com.projecthero.mod.undead.item.UndeadSuitItem.wornIn(entity, slot)) {
+			return tex(com.projecthero.mod.undead.item.UndeadSuitItem.texture(slim(entity)));
 		}
 		Quirk q = QuirkSuits.wornIn(entity, slot);
 		return q == null ? null : tex(q, slim(entity));
@@ -255,16 +255,16 @@ public final class QuirkCostume {
 		m.leftPants.copyFrom(m.leftLeg);
 		m.rightPants.copyFrom(m.rightLeg);
 		m.hat.copyFrom(m.head);
-		boolean vHead = vis(parent.head, com.projecthero.mod.andy.data.AndyState.HEAD);
-		boolean vBody = vis(parent.body, com.projecthero.mod.andy.data.AndyState.BODY);
-		boolean vRA = vis(parent.rightArm, com.projecthero.mod.andy.data.AndyState.RIGHT_ARM);
-		boolean vLA = vis(parent.leftArm, com.projecthero.mod.andy.data.AndyState.LEFT_ARM);
-		boolean vRL = vis(parent.rightLeg, com.projecthero.mod.andy.data.AndyState.RIGHT_LEG);
-		boolean vLL = vis(parent.leftLeg, com.projecthero.mod.andy.data.AndyState.LEFT_LEG);
-		// v0.17.3: a chestplate sleeve torn off with its shoulder pad (AndyArmour) is gone until the piece is repaired
+		boolean vHead = vis(parent.head, com.projecthero.mod.undead.data.UndeadState.HEAD);
+		boolean vBody = vis(parent.body, com.projecthero.mod.undead.data.UndeadState.BODY);
+		boolean vRA = vis(parent.rightArm, com.projecthero.mod.undead.data.UndeadState.RIGHT_ARM);
+		boolean vLA = vis(parent.leftArm, com.projecthero.mod.undead.data.UndeadState.LEFT_ARM);
+		boolean vRL = vis(parent.rightLeg, com.projecthero.mod.undead.data.UndeadState.RIGHT_LEG);
+		boolean vLL = vis(parent.leftLeg, com.projecthero.mod.undead.data.UndeadState.LEFT_LEG);
+		// v0.17.3: a chestplate sleeve torn off with its shoulder pad (UndeadArmour) is gone until the piece is repaired
 		if (body) {
-			vRA &= (andyLostPads & com.projecthero.mod.andy.AndyArmour.PAD_RIGHT) == 0;
-			vLA &= (andyLostPads & com.projecthero.mod.andy.AndyArmour.PAD_LEFT) == 0;
+			vRA &= (undeadLostPads & com.projecthero.mod.undead.UndeadArmour.PAD_RIGHT) == 0;
+			vLA &= (undeadLostPads & com.projecthero.mod.undead.UndeadArmour.PAD_LEFT) == 0;
 		}
 		head &= vHead;
 		body &= vBody;
@@ -285,39 +285,39 @@ public final class QuirkCostume {
 	}
 
 	/**
-	 * v0.17.3: for an Andy, which of his six parts may wear a suit piece (bit per AndyState part; -1 = not an Andy, follow the
-	 * parent model) and which shoulder pads his chestplate has lost. The same rule as worn armour (AndyArmorPartsMixin): nothing on a
+	 * v0.17.3: for an Undead, which of his six parts may wear a suit piece (bit per UndeadState part; -1 = not an Undead, follow the
+	 * parent model) and which shoulder pads his chestplate has lost. The same rule as worn armour (UndeadArmorPartsMixin): nothing on a
 	 * part that is gone or regrowing, while a part with only its hand or foot cut keeps its piece (the parent model hides those for
-	 * Andy's own cut drawing, so his own state is read instead).
+	 * Undead's own cut drawing, so his own state is read instead).
 	 */
-	private static int andyParts = -1, andyLostPads = 0;
+	private static int undeadParts = -1, undeadLostPads = 0;
 
-	private static boolean vis(ModelPart parentPart, int andyPart) {
-		return andyParts < 0 ? parentPart.visible : (andyParts & (1 << andyPart)) != 0;
+	private static boolean vis(ModelPart parentPart, int undeadPart) {
+		return undeadParts < 0 ? parentPart.visible : (undeadParts & (1 << undeadPart)) != 0;
 	}
 
-	/** Sets {@link #andyParts} / {@link #andyLostPads} for this wearer (cleared with {@link #endAndy}). */
-	private static void beginAndy(LivingEntity entity) {
-		andyParts = -1;
-		andyLostPads = 0;
+	/** Sets {@link #undeadParts} / {@link #undeadLostPads} for this wearer (cleared with {@link #endUndead}). */
+	private static void beginUndead(LivingEntity entity) {
+		undeadParts = -1;
+		undeadLostPads = 0;
 		if (entity instanceof Player p) {
-			com.projecthero.mod.andy.data.AndyState s = com.projecthero.mod.andy.Andy.peek(p);
+			com.projecthero.mod.undead.data.UndeadState s = com.projecthero.mod.undead.Undead.peek(p);
 			if (s != null && s.hasPower) {
 				int mask = 0;
-				for (int i = 0; i < com.projecthero.mod.andy.data.AndyState.PARTS; i++) {
+				for (int i = 0; i < com.projecthero.mod.undead.data.UndeadState.PARTS; i++) {
 					if (!s.broken(i)) {
 						mask |= 1 << i;
 					}
 				}
-				andyParts = mask;
+				undeadParts = mask;
 			}
 		}
-		andyLostPads = com.projecthero.mod.andy.AndyArmour.wornLostPads(entity);
+		undeadLostPads = com.projecthero.mod.undead.UndeadArmour.wornLostPads(entity);
 	}
 
-	private static void endAndy() {
-		andyParts = -1;
-		andyLostPads = 0;
+	private static void endUndead() {
+		undeadParts = -1;
+		undeadLostPads = 0;
 	}
 
 	private static void draw(PoseStack pose, MultiBufferSource buffers, int light, int overlay, HumanoidModel<?> parent, boolean slim,
@@ -335,14 +335,14 @@ public final class QuirkCostume {
 			return;
 		}
 		boolean bird = birdHead(entity);
-		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.andy.item.AndySuitItem.anyWorn(entity)) {
+		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)) {
 			return;
 		}
-		beginAndy(entity);
+		beginUndead(entity);
 		try {
 			renderPieces(pose, buffers, light, entity, parent, bird);
 		} finally {
-			endAndy();
+			endUndead();
 		}
 	}
 
@@ -374,11 +374,11 @@ public final class QuirkCostume {
 	 * ({@code EngineFirstPersonLegs}).
 	 */
 	public static void renderLegs(PoseStack pose, MultiBufferSource buffers, int light, LivingEntity entity, HumanoidModel<?> parent) {
-		beginAndy(entity);
+		beginUndead(entity);
 		try {
 			renderLegPieces(pose, buffers, light, entity, parent);
 		} finally {
-			endAndy();
+			endUndead();
 		}
 	}
 
@@ -400,13 +400,13 @@ public final class QuirkCostume {
 		if (chest == null) {
 			return;
 		}
-		// v0.17.3: not on a torn-off shoulder pad's arm, nor on an arm Andy hasn't got
-		int lost = com.projecthero.mod.andy.AndyArmour.wornLostPads(player);
-		if ((lost & (right ? com.projecthero.mod.andy.AndyArmour.PAD_RIGHT : com.projecthero.mod.andy.AndyArmour.PAD_LEFT)) != 0) {
+		// v0.17.3: not on a torn-off shoulder pad's arm, nor on an arm Undead hasn't got
+		int lost = com.projecthero.mod.undead.UndeadArmour.wornLostPads(player);
+		if ((lost & (right ? com.projecthero.mod.undead.UndeadArmour.PAD_RIGHT : com.projecthero.mod.undead.UndeadArmour.PAD_LEFT)) != 0) {
 			return;
 		}
-		com.projecthero.mod.andy.data.AndyState s = com.projecthero.mod.andy.Andy.peek(player);
-		if (s != null && s.hasPower && s.broken(right ? com.projecthero.mod.andy.data.AndyState.RIGHT_ARM : com.projecthero.mod.andy.data.AndyState.LEFT_ARM)) {
+		com.projecthero.mod.undead.data.UndeadState s = com.projecthero.mod.undead.Undead.peek(player);
+		if (s != null && s.hasPower && s.broken(right ? com.projecthero.mod.undead.data.UndeadState.RIGHT_ARM : com.projecthero.mod.undead.data.UndeadState.LEFT_ARM)) {
 			return;
 		}
 		boolean slim = slim(player);
