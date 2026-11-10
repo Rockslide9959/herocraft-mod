@@ -123,6 +123,10 @@ public final class SaiyanFxClient {
 			case SaiyanFxPayload.BEAM_FIRE -> {
 				BeamState b = BEAMS.get(p.entity());
 				BEAMS.put(p.entity(), new BeamState(b == null ? now : b.start(), b == null ? 30f : b.maxCharge(), p.rgb(), now, p.f(), p.extra()));
+				Entity shooter = Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.getEntity(p.entity());
+				if (shooter != null) {
+					Minecraft.getInstance().getSoundManager().play(new BeamLoop(shooter, 0.9f - 0.15f * p.f()));
+				}
 			}
 			case SaiyanFxPayload.BEAM_END -> BEAMS.remove(p.entity());
 			case SaiyanFxPayload.ORB_CHARGE -> ORB_CHARGES.put(p.entity(), new OrbCharge(now, p.f(), p.rgb()));
@@ -578,6 +582,39 @@ public final class SaiyanFxClient {
 		vc.addVertex(m, p2.x, p2.y, p2.z).setColor(r, g, b, a);
 		vc.addVertex(m, p1.x, p1.y, p1.z).setColor(r, g, b, a);
 		vc.addVertex(m, p0.x, p0.y, p0.z).setColor(r, g, b, a);
+	}
+
+	/** The Ki Beam's roar: loops on the shooter for as long as the beam is firing, fading in and out. */
+	private static final class BeamLoop extends net.minecraft.client.resources.sounds.AbstractTickableSoundInstance {
+		private final Entity shooter;
+		private int fade;
+
+		BeamLoop(Entity shooter, float pitch) {
+			super(com.projecthero.mod.saiyan.SaiyanSounds.BEAM_FIRE_LOOP, net.minecraft.sounds.SoundSource.PLAYERS, net.minecraft.client.resources.sounds.SoundInstance.createUnseededRandom());
+			this.shooter = shooter;
+			this.looping = true;
+			this.delay = 0;
+			this.volume = 0.01f;
+			this.pitch = pitch;
+			this.x = shooter.getX();
+			this.y = shooter.getY() + 1.2;
+			this.z = shooter.getZ();
+		}
+
+		@Override
+		public void tick() {
+			BeamState s = BEAMS.get(shooter.getId());
+			boolean live = shooter.isAlive() && s != null && s.fired() >= 0;
+			fade = live ? Math.min(4, fade + 1) : fade - 1;
+			if (fade < 0) {
+				stop();
+				return;
+			}
+			this.volume = 0.8f * fade / 4f;
+			this.x = shooter.getX();
+			this.y = shooter.getY() + 1.2;
+			this.z = shooter.getZ();
+		}
 	}
 
 	// ---------------------------------------------------------------- the pose's view

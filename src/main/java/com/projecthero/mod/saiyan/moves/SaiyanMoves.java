@@ -471,7 +471,7 @@ public final class SaiyanMoves {
 			p.swing(step == 1 ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND, true);
 			if (t != null && strike(p, t, p.position(), SaiyanMoveConfig.COMBO_HIT_DAMAGE, 0.15, 0.0)) {
 				impact(p, t, 0.6f, rgb);
-				sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.7f, 1.0f + step * 0.08f);
+				sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.6f, 1.0f + step * 0.08f);
 			} else {
 				sound(p, SaiyanSounds.KI_DASH, 0.25f, 1.6f);
 			}
@@ -481,7 +481,7 @@ public final class SaiyanMoves {
 			if (t != null && strike(p, t, p.position(), SaiyanMoveConfig.COMBO_KICK_DAMAGE, SaiyanMoveConfig.COMBO_KICK_KNOCKBACK,
 					SaiyanMoveConfig.COMBO_KICK_LIFT)) {
 				impact(p, t, 1.2f, rgb);
-				sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.9f, 0.9f);
+				sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 0.9f);
 			} else {
 				sound(p, SaiyanSounds.KI_DASH, 0.4f, 1.2f);
 			}
@@ -513,7 +513,7 @@ public final class SaiyanMoves {
 			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SaiyanMoveConfig.FEINT_STUN_TICKS, 6, false, false, true));
 			t.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, SaiyanMoveConfig.FEINT_STUN_TICKS, 2, false, false, true));
 			impact(p, t, 0.8f, kiColor(form(p)));
-			sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.8f, 0.8f);
+			sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.6f, 0.8f);
 		}
 	}
 
@@ -532,7 +532,7 @@ public final class SaiyanMoves {
 				}
 				if (strike(p, t, p.position(), SaiyanMoveConfig.FEINT_KICK_DAMAGE, 0.7, 0.2)) {
 					impact(p, t, 1.4f, kiColor(form(p)));
-					sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 1.0f, 0.75f);
+					sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 0.75f);
 				}
 			}
 		}
@@ -569,11 +569,20 @@ public final class SaiyanMoves {
 		Vec3 far = from.add(p.getLookAngle().scale(range));
 		BlockHitResult bhr = p.level().clip(new ClipContext(from, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
-		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(p, from, end, new AABB(from, end).inflate(1.2),
-				e -> e instanceof LivingEntity le && e != p && le.isAlive() && HeroTargets.canHarm(p, e), from.distanceToSqr(end));
-		if (ehr != null) {
-			end = ehr.getLocation();
-			hit[0] = (LivingEntity) ehr.getEntity();
+		// the nearest creature whose box (a little fattened: the beam is thick) the line passes through
+		double best = from.distanceToSqr(end);
+		for (LivingEntity e : HeroTargets.harmable(p.level(), p, new AABB(from, end).inflate(1.0))) {
+			if (e == p || !e.isAlive()) {
+				continue;
+			}
+			java.util.Optional<Vec3> at = e.getBoundingBox().inflate(0.35).clip(from, end);
+			if (at.isPresent() && from.distanceToSqr(at.get()) < best) {
+				best = from.distanceToSqr(at.get());
+				hit[0] = e;
+			}
+		}
+		if (hit[0] != null) {
+			end = from.add(p.getLookAngle().scale(Math.sqrt(best)));
 		}
 		return new Vec3[] { from, end };
 	}
@@ -596,7 +605,7 @@ public final class SaiyanMoves {
 				r.fired = now;
 				anim(p, ANIM_BEAM_FIRE);
 				fx(p, SaiyanFxPayload.BEAM_FIRE, p.getId(), Vec3.ZERO, Vec3.ZERO, r.charge, rgb, SaiyanMoveConfig.BEAM_FIRE_TICKS);
-				sound(p, SaiyanSounds.BEAM_FIRE_LOOP, 1.0f, 1.1f - 0.2f * r.charge);
+				// the firing roar is a looping sound on every viewer's client (SaiyanFxClient), held while the beam lives
 			}
 			return;
 		}
@@ -760,7 +769,7 @@ public final class SaiyanMoves {
 		float radius = SaiyanMoveConfig.ORB_MIN_RADIUS + (SaiyanMoveConfig.ORB_MAX_RADIUS - SaiyanMoveConfig.ORB_MIN_RADIUS) * o.charge;
 		float dmg = SaiyanMoveConfig.ORB_MIN_DAMAGE + (SaiyanMoveConfig.ORB_MAX_DAMAGE - SaiyanMoveConfig.ORB_MIN_DAMAGE) * o.charge;
 		fxAt(o.level, o.pos, SaiyanFxPayload.ORB_BOOM, owner == null ? -1 : owner.getId(), o.pos, Vec3.ZERO, radius, kiColor(SaiyanForm.BASE), o.id);
-		soundAt(o.level, o.pos, SaiyanSounds.ORB_EXPLODE, 2.5f, 0.7f);
+		soundAt(o.level, o.pos, SaiyanSounds.ORB_EXPLODE, 0.85f, 0.7f);
 		o.level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER, o.pos.x, o.pos.y, o.pos.z, 1, 0, 0, 0, 0);
 		if (owner == null) {
 			return;
@@ -828,7 +837,7 @@ public final class SaiyanMoves {
 				impact(p, t, 1.4f, rgb);
 			}
 		}
-		sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 1.0f, 0.8f);
+		sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 0.8f);
 		end(p, r);
 	}
 
@@ -852,7 +861,7 @@ public final class SaiyanMoves {
 		anim(p, ANIM_SKY_KICK);
 		if (strike(p, t, p.position(), SaiyanMoveConfig.SKY_LAUNCH_DAMAGE, 0.0, 0.0)) {
 			impact(p, t, 1.0f, kiColor(form(p)));
-			sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.9f, 1.1f);
+			sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 1.1f);
 		}
 		if (!isBoss(t)) {
 			t.setDeltaMovement(0, 1.3, 0);
@@ -886,14 +895,14 @@ public final class SaiyanMoves {
 			anim(p, ANIM_SKY_KICK);
 			if (strike(p, t, p.position(), SaiyanMoveConfig.SKY_AIR_DAMAGE, 0.0, 0.0)) {
 				impact(p, t, 0.9f, rgb);
-				sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.9f, 1.2f);
+				sound(p, SaiyanSounds.PUNCH_HIT_LIGHT, 0.6f, 1.2f);
 			}
 		}
 		if (age == SaiyanMoveConfig.SKY_SMASH) {
 			anim(p, ANIM_SKY_SMASH);
 			if (strike(p, t, p.position(), SaiyanMoveConfig.SKY_SMASH_DAMAGE, 0.0, 0.0)) {
 				impact(p, t, 1.6f, rgb);
-				sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 1.2f, 0.7f);
+				sound(p, SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 0.7f);
 			}
 			if (!boss) {
 				t.setDeltaMovement(0, -2.6, 0);
@@ -974,7 +983,7 @@ public final class SaiyanMoves {
 			}
 			if (strike(p, t, before, SaiyanMoveConfig.RUSH_DAMAGE, SaiyanMoveConfig.RUSH_KNOCKBACK, 0.5)) {
 				impact(p, t, 2.0f, rgb);
-				soundAt(level(p), t.position(), SaiyanSounds.PUNCH_HIT_HEAVY, 1.4f, 0.6f);
+				soundAt(level(p), t.position(), SaiyanSounds.PUNCH_HIT_HEAVY, 0.75f, 0.6f);
 				fxAt(level(p), t.position(), SaiyanFxPayload.SHOCKWAVE, p.getId(), t.position().add(0, t.getBbHeight() * 0.5, 0), r.dir, 2.5f, rgb, 1);
 				r.hits++;
 				p.setDeltaMovement(r.dir.scale(0.2));
