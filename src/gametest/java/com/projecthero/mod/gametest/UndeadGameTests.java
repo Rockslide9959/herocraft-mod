@@ -500,29 +500,6 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** Tester: "Make deadline do damage less consistently" -- rolls vary and some miss, about 4 on average. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void deadLineRollsVary(GameTestHelper helper) {
-		net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(42L);
-		float sum = 0f, min = 99f, max = 0f;
-		int misses = 0, n = 4000;
-		for (int i = 0; i < n; i++) {
-			float d = UndeadAbilities.deadLineRoll(r);
-			sum += d;
-			if (d <= 0f) {
-				misses++;
-			} else {
-				min = Math.min(min, d);
-				max = Math.max(max, d);
-			}
-		}
-		float avg = sum / n;
-		helper.assertTrue(avg > 3.6f && avg < 4.4f, "about 4 a hit on average: " + avg);
-		helper.assertTrue(misses > n / 10 && misses < n / 5, "some miss: " + misses);
-		helper.assertTrue(min < 3f && max > 6.5f, "hits range widely: " + min + ".." + max);
-		helper.succeed();
-	}
-
 	/** Tester: "A way people can naturally pick up the head": right-click the thrown head and it goes back on. */
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theThrownHeadCanBePickedUp(GameTestHelper helper) {
@@ -673,68 +650,6 @@ public class UndeadGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- flight, the boost, the head-only regrowth
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void flightSpeeds(GameTestHelper helper) {
-		helper.assertTrue(Math.abs(UndeadConfig.PROPULSION_SPEED * 20 - 25) < 1.0e-6, "25 b/s");
-		helper.assertTrue(Math.abs(UndeadConfig.BOOST_SPEED * 20 - 40) < 1.0e-6, "40 b/s boosting");
-		helper.assertTrue(Math.abs(UndeadConfig.HEAD_FLIGHT_SPEED * 20 - 32) < 1.0e-6, "32 b/s as a head");
-		ServerPlayer p = undead(helper);
-		helper.assertTrue(com.projecthero.mod.undead.UndeadFlight.start(p) && com.projecthero.mod.undead.UndeadFlight.isFlying(p), "takes off");
-		UndeadState s = Undead.state(p);
-		long now = helper.getLevel().getGameTime();
-		helper.assertTrue(com.projecthero.mod.undead.UndeadFlight.speed(s, now) == UndeadConfig.PROPULSION_SPEED, "flying at 25");
-		com.projecthero.mod.undead.UndeadFlight.setBoost(p, true);
-		helper.assertTrue(com.projecthero.mod.undead.UndeadFlight.speed(Undead.state(p), now) == UndeadConfig.BOOST_SPEED, "boosting at 40");
-		for (int i = UndeadState.BODY; i < UndeadState.PARTS; i++) {
-			int part = i;
-			edit(p, n -> n.setTimes(part, now, 0L, 0L));
-		}
-		helper.assertTrue(com.projecthero.mod.undead.UndeadFlight.speed(Undead.state(p), now) == UndeadConfig.HEAD_FLIGHT_SPEED, "a head flies at 32, boost or not");
-		helper.assertTrue(!Undead.state(p).headOnly(now) || Undead.stage(p) == com.projecthero.mod.undead.UndeadStages.ROLL, "and is a rolling head");
-		com.projecthero.mod.undead.UndeadFlight.stop(p);
-		helper.assertTrue(!com.projecthero.mod.undead.UndeadFlight.isFlying(p) && !Undead.state(p).flag(UndeadState.FLAG_BOOST), "lands");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void theBoostBurnsLegsThenArmsThenBodyDownToTheHead(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		p.setXRot(-85f);
-		float health = p.getHealth();
-		com.projecthero.mod.undead.UndeadFlight.start(p);
-		com.projecthero.mod.undead.UndeadFlight.setBoost(p, true);
-		int legs = UndeadConfig.BURN_TICKS[0], arms = legs + UndeadConfig.BURN_TICKS[1], body = arms + UndeadConfig.BURN_TICKS[2];
-		helper.assertTrue(body == 300, "15 s from whole to a head");
-		int[] ticks = { 0 };
-		helper.onEachTick(() -> {
-			edit(p, n -> n.holdStart = helper.getLevel().getGameTime()); // no time limit in the test
-			Undead.tick(p);
-			ticks[0]++;
-			UndeadState s = Undead.state(p);
-			if (ticks[0] == legs - 2) {
-				helper.assertTrue(!s.broken(UndeadState.RIGHT_LEG) && !s.broken(UndeadState.LEFT_LEG), "the legs are still burning");
-			}
-			if (ticks[0] == legs + 2) {
-				helper.assertTrue(s.broken(UndeadState.RIGHT_LEG) && s.broken(UndeadState.LEFT_LEG) && s.kind(UndeadState.LEFT_LEG) == UndeadState.KIND_BURNT,
-						"the legs went first");
-				helper.assertTrue(!s.broken(UndeadState.RIGHT_ARM) && !s.broken(UndeadState.BODY), "nothing else yet");
-			}
-			if (ticks[0] == arms + 2) {
-				helper.assertTrue(s.broken(UndeadState.RIGHT_ARM) && s.broken(UndeadState.LEFT_ARM) && !s.broken(UndeadState.BODY), "then the arms");
-			}
-			if (ticks[0] == body + 2) {
-				helper.assertTrue(s.broken(UndeadState.BODY) && !s.broken(UndeadState.HEAD), "then the body: just the head");
-				helper.assertTrue(s.regrowStart(UndeadState.BODY) == 0L, "nothing regrows mid-flight");
-				helper.assertTrue(p.isAlive() && p.getHealth() >= health, "burning never hurts him");
-				com.projecthero.mod.undead.UndeadFlight.stop(p);
-			}
-			if (ticks[0] == body + 4) {
-				helper.assertTrue(Undead.state(p).regrowStart(UndeadState.BODY) > 0L, "landed: the head-only regrowth is planned");
-				helper.succeed();
-			}
-		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void victorIsDisabled(GameTestHelper helper) {
 		// v0.17.3 (user: "remove the Victor ability for now"): no key pulls the card, the kit never swaps, a stale save clears
 		ServerPlayer p = undead(helper);
@@ -748,8 +663,8 @@ public class UndeadGameTests implements FabricGameTest {
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Undead.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(UndeadAbilities.PARTS_BULLET.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
-				&& UndeadAbilities.CRESCENT.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2)[0])
-				&& UndeadAbilities.DEAD_LINE.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
+				&& com.projecthero.mod.undead.UndeadBloodMoves.SPRAY.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2)[0])
+				&& com.projecthero.mod.undead.UndeadBloodMoves.DEADLINE.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
 				"the kit never swaps to Victor's");
 		Undead.tick(p);
 		helper.assertTrue(Undead.state(p).victorUntil == 0L, "and the tick clears it");
@@ -1117,32 +1032,9 @@ public class UndeadGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void deadLineIsABeamThatHurts(GameTestHelper helper) {
+	public void greatCrescentWavesRun(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		Zombie z = zombie(helper, 2, 5);
-		p.setXRot(8f);
-		UndeadAbilities.startDeadLine(p);
-		helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_DEAD_LINE), "the jet is on");
-		helper.onEachTick(() -> Undead.tick(p));
-		helper.runAfterDelay(20, () -> {
-			helper.assertTrue(z.getHealth() < 200f, "Dead Line hurts what it touches: " + z.getHealth());
-			UndeadAbilities.stopDeadLine(p);
-			helper.assertTrue(!Undead.state(p).flag(UndeadState.FLAG_DEAD_LINE), "and stops on release");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void propulsionAndWavesRun(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		Zombie z = zombie(helper, 2, 5);
-		UndeadAbilities.startPropulsion(p);
-		helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_PROPELLING), "flying");
-		Undead.tick(p);
-		helper.assertTrue(Math.abs(p.getDeltaMovement().length() - UndeadConfig.PROPULSION_SPEED) < 1.0e-6, "along the look at 25 b/s");
-		UndeadAbilities.stopPropulsion(p);
-		helper.assertTrue(!Undead.state(p).flag(UndeadState.FLAG_PROPELLING), "stops on release");
-		p.setDeltaMovement(Vec3.ZERO);
 		p.moveTo(helper.absoluteVec(new Vec3(2.5, 2.0, 1.5)));
 		UndeadAbilities.greatCrescent(p);
 		helper.onEachTick(() -> Undead.tick(p));
@@ -1174,60 +1066,12 @@ public class UndeadGameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- X: Leg Launch, Head Launch, Shift + hold flight (v0.17.3)
+	// ---------------------------------------------------------------- the Regen Menu's Eject Head (the old Head Launch; the X moves: UndeadEjectGameTests)
 
 	private static final com.projecthero.mod.hero.AbilitySlot X = com.projecthero.mod.hero.AbilitySlot.SLOT_3;
 
 	private static java.util.List<UndeadPartEntity> leftBehind(GameTestHelper helper, ServerPlayer p) {
 		return helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, new AABB(p.blockPosition()).inflate(8), e -> e.isLeftBehind() && e.ownerIs(p));
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void tapXLaunchesTheBodyOffTheLegs(GameTestHelper helper) {
-		ServerPlayer p = undead(helper); // facing +z
-		helper.onEachTick(() -> Undead.tick(p));
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, true);
-		helper.runAfterDelay(4, () -> {
-			helper.assertTrue(!Undead.missing(p, UndeadState.RIGHT_LEG), "nothing yet while X is still down");
-			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, false);
-			UndeadState s = Undead.state(p);
-			helper.assertTrue(s.broken(UndeadState.RIGHT_LEG) && s.broken(UndeadState.LEFT_LEG), "a tap breaks both legs");
-			helper.assertTrue(s.kind(UndeadState.RIGHT_LEG) == UndeadState.KIND_LAUNCHED, "left behind, not burst");
-			helper.assertTrue(!s.broken(UndeadState.HEAD) && !s.broken(UndeadState.BODY), "the rest of him goes");
-			Vec3 v = p.getDeltaMovement();
-			helper.assertTrue(v.z > 1.5 && Math.abs(v.y) < 0.05, "dashed straight along the aim (level look: no arc): " + v);
-			helper.assertTrue(com.projecthero.mod.undead.UndeadLaunch.flying(p), "the launch runs");
-			helper.assertTrue(com.projecthero.mod.undead.UndeadLaunch.fallImmune(p), "no fall damage from it");
-			helper.assertTrue(leftBehind(helper, p).size() == 2, "the two legs stay where he stood: " + leftBehind(helper, p).size());
-			helper.assertTrue(Undead.cooldownRemaining(p, com.projecthero.mod.undead.UndeadLaunch.LEG_LAUNCH) > 0, "on cooldown");
-			leftBehind(helper, p).forEach(e -> e.discard());
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void holdXLaunchesTheHeadAndLeavesTheBody(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		helper.onEachTick(() -> Undead.tick(p));
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, true);
-		helper.runAfterDelay(UndeadConfig.LAUNCH_CHARGE_SHOW + 3, () -> {
-			helper.assertTrue(Undead.state(p).animId == UndeadState.ANIM_HEAD_CHARGE, "the wind-up shows while X is held");
-			helper.assertTrue(!Undead.state(p).anyBroken(), "nothing breaks during the wind-up");
-		});
-		helper.runAfterDelay(UndeadConfig.HEAD_LAUNCH_HOLD + 3, () -> {
-			// still held: it fired on its own at the full hold
-			UndeadState s = Undead.state(p);
-			helper.assertTrue(!s.broken(UndeadState.HEAD), "the player is the head");
-			for (int i = UndeadState.BODY; i < UndeadState.PARTS; i++) {
-				helper.assertTrue(s.broken(i), "part " + i + " is left behind");
-			}
-			helper.assertTrue(leftBehind(helper, p).size() == 5, "the body, arms and legs stay where he stood: " + leftBehind(helper, p).size());
-			helper.assertTrue(Undead.cooldownRemaining(p, com.projecthero.mod.undead.UndeadLaunch.HEAD_LAUNCH) > 0, "on cooldown");
-			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, false);
-			helper.assertTrue(Undead.cooldownRemaining(p, com.projecthero.mod.undead.UndeadLaunch.LEG_LAUNCH) == 0, "letting go after it does not also Leg Launch");
-			leftBehind(helper, p).forEach(e -> e.discard());
-			helper.succeed();
-		});
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
@@ -1241,55 +1085,4 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.3 (user: "make the player keep the momentum"): at the end of its range the dash lets go at full speed, still fall-safe. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void aLaunchKeepsItsMomentumPastItsRange(GameTestHelper helper) {
-		ServerPlayer p = undead(helper); // facing +z
-		com.projecthero.mod.undead.UndeadLaunch.legLaunch(p);
-		helper.assertTrue(com.projecthero.mod.undead.UndeadLaunch.flying(p), "the launch runs");
-		// past its range, up in the open air
-		p.teleportTo(p.getX(), p.getY() + 6, p.getZ() + UndeadConfig.LEG_LAUNCH_RANGE + 2);
-		p.setOnGround(false);
-		com.projecthero.mod.undead.UndeadLaunch.tick(p);
-		Vec3 v = p.getDeltaMovement();
-		helper.assertTrue(!com.projecthero.mod.undead.UndeadLaunch.flying(p), "the scripted dash has ended");
-		helper.assertTrue(v.z > 1.5, "but he flies on at full speed, not stopped in mid-air: " + v);
-		helper.assertTrue(com.projecthero.mod.undead.UndeadLaunch.fallImmune(p), "and no fall damage while momentum carries him");
-		leftBehind(helper, p).forEach(e -> e.discard());
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void shiftHoldXFliesAndGlideIsGone(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		helper.assertTrue(java.util.Arrays.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, X),
-				new String[] { com.projecthero.mod.undead.UndeadLaunch.LEG_LAUNCH, UndeadAbilities.PROPULSION }), "X: Leg Launch, Shift: the flight");
-		boolean glide = true;
-		try {
-			UndeadAbilities.class.getField("GLIDE");
-		} catch (NoSuchFieldException e) {
-			glide = false;
-		}
-		helper.assertTrue(!glide, "Repair Glide is gone");
-		helper.assertTrue(com.projecthero.mod.undead.UndeadAbilityManager.maxCooldown(com.projecthero.mod.undead.UndeadLaunch.LEG_LAUNCH) == UndeadConfig.LEG_LAUNCH_COOLDOWN
-				&& UndeadConfig.LEG_LAUNCH_COOLDOWN == 40, "Leg Launch 2s cooldown");
-		helper.assertTrue(com.projecthero.mod.undead.UndeadAbilityManager.maxCooldown(com.projecthero.mod.undead.UndeadLaunch.HEAD_LAUNCH) == UndeadConfig.HEAD_LAUNCH_COOLDOWN
-				&& UndeadConfig.HEAD_LAUNCH_COOLDOWN == 160, "Head Launch 8s cooldown");
-		helper.assertTrue(UndeadConfig.HEAD_LAUNCH_HOLD == 20, "the hold is a second");
-		p.setShiftKeyDown(true);
-		helper.onEachTick(() -> Undead.tick(p));
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, true);
-		helper.runAfterDelay(1, () -> helper.assertTrue(!Undead.state(p).flag(UndeadState.FLAG_PROPELLING), "a Shift tap does not fly yet"));
-		helper.runAfterDelay(UndeadConfig.FLIGHT_HOLD_TICKS + 3, () -> {
-			helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_PROPELLING), "Shift + hold X flies");
-			for (int i = 0; i < UndeadState.PARTS; i++) {
-				helper.assertTrue(!Undead.state(p).broken(i), "and launches nothing");
-			}
-			helper.assertTrue(Undead.state(p).broken(UndeadState.RIGHT_HAND) && Undead.state(p).broken(UndeadState.LEFT_FOOT), "the hands and feet burst off");
-			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, X, false);
-			helper.assertTrue(!Undead.state(p).flag(UndeadState.FLAG_PROPELLING), "letting go stops it");
-			helper.assertTrue(Undead.cooldownRemaining(p, com.projecthero.mod.undead.UndeadLaunch.LEG_LAUNCH) == 0, "no Leg Launch on release");
-			helper.succeed();
-		});
-	}
 }

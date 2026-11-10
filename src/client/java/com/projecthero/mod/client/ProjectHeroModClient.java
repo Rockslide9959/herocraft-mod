@@ -1405,6 +1405,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.17.3 (user): Undead -- double-tap jump in the air blows off his hands and feet and flies on the blood jets / lands
+		// (server re-validates). Dropping out works from anywhere (the jets keep him off the ground anyway).
+		if (com.projecthero.mod.undead.Undead.hasPower(player)
+				&& (!player.onGround() || com.projecthero.mod.undead.UndeadFlight.isFlying(player))) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			ClientPlayNetworking.send(new com.projecthero.mod.network.UndeadFlightPayload());
+			return;
+		}
+
 		// v0.17.1: the Silver Surfer -- double-tap jump in the air calls the board up under his feet / drops it (server re-validates).
 		if (!player.onGround() && com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;

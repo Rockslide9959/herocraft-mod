@@ -235,6 +235,8 @@ public final class Undead {
 	}
 
 	public static void revoke(ServerPlayer player) {
+		UndeadFlight.stop(player); // v0.17.3: vanilla flight and the Deadline's slow go with the power
+		UndeadBloodMoves.stopAll(player);
 		UndeadAbilities.clear(player);
 		save(player, new UndeadState());
 		reconcile(player);

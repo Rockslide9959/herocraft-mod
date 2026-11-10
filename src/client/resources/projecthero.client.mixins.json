@@ -151,8 +151,6 @@
 		"UndeadFirstPersonItemMixin",
 		"UndeadArmorPartsMixin",
 		"UndeadBodyRotationMixin",
-		"UndeadFlightTravelMixin",
-		"UndeadBoostInputMixin",
 		"UndeadItemInHandInvoker",
 		"UndeadCameraMixin",
 		"UndeadLaunchFovMixin",

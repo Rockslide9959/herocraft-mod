@@ -18,16 +18,18 @@ import net.minecraft.world.entity.player.Player;
  * <pre>
  *   R (1)  tap: Parts Bullet         Shift+R  Crimson Bullet          (Victor: Dead Vulcan / Division Bullet)
  *          hold: Stretch Punch (the arm draws back past PUNCH_HOLD_TICKS, thrown on release)
- *   G (2)  Crimson Crescent Moon     Shift+G  Great Deep-Crimson Crescent Moon   (Victor: Dead Blade)
- *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
- *          hold 1 s: Head Launch
+ *   G (2)  hold: Blood Spray         Shift+G  Blood Whirlwind          (Victor: Dead Blade)
+ *   X (3)  tap: Eject Feet           Shift+X  Combustion Punch
+ *          hold 2 s: Head Throw (UndeadHeadThrow: start at 2 s, tickHeld while held, release on let-go, cancel if cut short)
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
  *   V (5)  tap: Reform               Shift+V  Toggle Regen (auto-regrowth on / off)
  *          hold 2 s: Bone Sword (UndeadBoneSword: he struggles the arm off; the keys turn into the sword kit while it is out)
  *          Shift + hold V: the Regen Menu (UndeadRegenMenu: the keys grow / strip his ten segments while it is open)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: UndeadConfig.VICTOR_ENABLED)
- *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
+ *   C (6)  hold: Deadline            Shift+C  Division Bullet          (Victor: Dead Road)
+ *   double-tap jump in the air: the flight (UndeadFlight.toggle, from UndeadFlightPayload: doubleJump)
  * </pre>
+ * The ejection moves (flight, G, Shift+G, X, Shift+X, C) all blow ends off through {@link UndeadEject}.
  */
 public final class UndeadAbilityManager {
 	static final int REPEAT_WINDOW = 25;
@@ -36,8 +38,8 @@ public final class UndeadAbilityManager {
 	/** A plain R held down (not Victor): when it went down. Tap = Parts Bullet on release; hold = the stretch punch. */
 	private static final Map<UUID, Long> R_HELD = new ConcurrentHashMap<>();
 	/**
-	 * X held down: {when it went down, 1 if Shift was down then (flight), 1 once the hold has fired (flight started / Head
-	 * Launch), 1 once the Head Launch wind-up shows}.
+	 * A plain X held down: {when it went down, 1 once the Head Throw started (the hold reached {@link #HEAD_THROW_HOLD})}. A
+	 * release before that is a tap: Eject Feet.
 	 */
 	private static final Map<UUID, long[]> X_HELD = new ConcurrentHashMap<>();
 	/**
@@ -49,6 +51,8 @@ public final class UndeadAbilityManager {
 	private static final Map<UUID, long[]> SV_HELD = new ConcurrentHashMap<>();
 	/** Shift + V held this long opens (or closes) the Regen Menu. */
 	public static final int MENU_HOLD = 10;
+	/** v0.17.3: a plain X held this long is the Head Throw (2 s). */
+	public static final int HEAD_THROW_HOLD = 40;
 
 	private UndeadAbilityManager() {
 	}
@@ -60,6 +64,8 @@ public final class UndeadAbilityManager {
 		V_HELD.clear();
 		SV_HELD.clear();
 		UndeadLaunch.clearSessionState();
+		UndeadEject.clearSessionState();
+		UndeadBloodMoves.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -69,6 +75,8 @@ public final class UndeadAbilityManager {
 		V_HELD.remove(id);
 		SV_HELD.remove(id);
 		UndeadLaunch.forget(id);
+		UndeadEject.forget(id);
+		UndeadBloodMoves.forget(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -116,6 +124,7 @@ public final class UndeadAbilityManager {
 			return;
 		}
 		if (UndeadRegenMenu.open(player)) {
+			dropHeld(player); // v0.17.3: an X / G / C hold from before the menu opened ends here
 			UndeadRegenMenu.handle(player, slot, pressed, shift);
 			return;
 		}
@@ -123,9 +132,7 @@ public final class UndeadAbilityManager {
 			// v0.17.3: the Bone Sword's own kit while it is out; nothing half-held from before carries over
 			R_HELD.remove(player.getUUID());
 			V_HELD.remove(player.getUUID());
-			if (X_HELD.remove(player.getUUID()) != null) {
-				UndeadAbilities.stopPropulsion(player);
-			}
+			dropHeld(player);
 			return;
 		}
 		switch (slot) {
@@ -157,26 +164,36 @@ public final class UndeadAbilityManager {
 				}
 			}
 			case SLOT_2 -> {
+				// v0.17.3 (user): hold G -- Blood Spray, until let go (then its cooldown); Shift+G -- Blood Whirlwind. (The old
+				// Crimson Crescent Moons moved into the Bone Sword's kit.)
 				if (pressed) {
 					if (shift) {
-						UndeadAbilities.greatCrescent(player);
+						UndeadBloodMoves.startWhirl(player);
 					} else if (victor) {
 						UndeadAbilities.deadBlade(player);
 					} else {
-						UndeadAbilities.crescent(player);
+						UndeadBloodMoves.startSpray(player);
 					}
+				} else if (UndeadBloodMoves.spraying(player)) {
+					UndeadBloodMoves.stopSpray(player);
 				}
 			}
 			case SLOT_3 -> {
-				// tap: Leg Launch (on release); hold HEAD_LAUNCH_HOLD: Head Launch (tickHold, while still held);
-				// Shift + hold: the flight, from FLIGHT_HOLD_TICKS until release. Which one is decided by Shift when X goes down.
+				// v0.17.3 (user): tap X -- Eject Feet (on release); Shift+X -- Combustion Punch (on press); a plain X held
+				// HEAD_THROW_HOLD -- the Head Throw (UndeadHeadThrow, still held: tickX), thrown on release
 				if (pressed) {
-					X_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), shift ? 1L : 0L, 0L, 0L });
+					if (shift) {
+						X_HELD.remove(player.getUUID());
+						UndeadLaunch.combustionPunch(player);
+					} else {
+						X_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L });
+					}
 				} else {
 					long[] held = X_HELD.remove(player.getUUID());
-					UndeadAbilities.stopPropulsion(player); // FLIGHT HOOK (stop)
-					if (held != null && held[1] == 0L && held[2] == 0L) {
-						UndeadLaunch.legLaunch(player);
+					if (held != null && held[1] != 0L) {
+						UndeadHeadThrow.release(player);
+					} else if (held != null) {
+						UndeadLaunch.ejectFeet(player); // a tap
 					}
 				}
 			}
@@ -206,14 +223,16 @@ public final class UndeadAbilityManager {
 				}
 			}
 			case SLOT_6 -> {
+				// v0.17.3 (user): hold C -- Deadline (8 s at most; let go: its cooldown). Shift+C is the Division Bullet's (its
+				// own rework wires it here); the old Dead Quardead is gone from the key.
 				if (!pressed) {
-					UndeadAbilities.stopDeadLine(player);
+					UndeadBloodMoves.stopDeadline(player);
 				} else if (shift) {
-					UndeadAbilities.quardead(player);
+					// Shift+C: Division Bullet
 				} else if (victor) {
 					UndeadAbilities.deadRoad(player);
 				} else {
-					UndeadAbilities.startDeadLine(player);
+					UndeadBloodMoves.startDeadline(player);
 				}
 			}
 			default -> {
@@ -223,6 +242,8 @@ public final class UndeadAbilityManager {
 
 	/** From {@link Undead#tick}: a plain R held past {@link UndeadConfig#PUNCH_HOLD_TICKS} draws the arm back for the punch. */
 	static void tickHold(ServerPlayer player) {
+		UndeadEject.tick(player);
+		UndeadBloodMoves.tick(player);
 		tickX(player);
 		tickV(player);
 		tickShiftV(player);
@@ -307,28 +328,58 @@ public final class UndeadAbilityManager {
 		tickV(player);
 	}
 
-	/** X held: Shift + hold starts the flight; a plain hold winds up and fires the Head Launch, still held. */
+	/**
+	 * X held: at {@link #HEAD_THROW_HOLD} the Head Throw starts ({@link UndeadHeadThrow#start}); every tick after that it is
+	 * still held, {@link UndeadHeadThrow#tickHeld}. Shattered mid-hold: {@link UndeadHeadThrow#cancel}.
+	 */
 	private static void tickX(ServerPlayer player) {
 		long[] x = X_HELD.get(player.getUUID());
-		if (x == null || x[2] != 0L) {
+		if (x == null) {
 			return;
 		}
-		long held = player.level().getGameTime() - x[0];
-		if (x[1] != 0L) {
-			if (held >= UndeadConfig.FLIGHT_HOLD_TICKS) {
-				x[2] = 1L;
-				UndeadAbilities.startPropulsion(player); // FLIGHT HOOK (start)
+		com.projecthero.mod.undead.data.UndeadState s = Undead.state(player);
+		if (!player.isAlive() || s.reformUntil > player.level().getGameTime()) {
+			X_HELD.remove(player.getUUID());
+			if (x[1] != 0L) {
+				UndeadHeadThrow.cancel(player);
 			}
-		} else if (held >= UndeadConfig.HEAD_LAUNCH_HOLD) {
-			x[2] = 1L;
-			UndeadLaunch.headLaunch(player);
-		} else if (held >= UndeadConfig.LAUNCH_CHARGE_SHOW) {
-			if (x[3] == 0L) {
-				x[3] = 1L;
-				UndeadLaunch.charge(player);
-			}
-			UndeadLaunch.charging(player, held);
+			return;
 		}
+		if (x[1] != 0L) {
+			UndeadHeadThrow.tickHeld(player);
+		} else if (player.level().getGameTime() - x[0] >= HEAD_THROW_HOLD) {
+			x[1] = 1L;
+			UndeadHeadThrow.start(player);
+		}
+	}
+
+	/** Gametests: X has been down for {@code ticks} (the press moved back in time), and the hold ticks. */
+	public static void forTestsHoldX(ServerPlayer player, int ticks) {
+		long[] x = X_HELD.get(player.getUUID());
+		if (x != null) {
+			x[0] = player.level().getGameTime() - ticks;
+		}
+		tickX(player);
+	}
+
+	/** An X / G / C hold from before is cut short (the Regen Menu opened, the Bone Sword took the keys). */
+	private static void dropHeld(ServerPlayer player) {
+		long[] x = X_HELD.remove(player.getUUID());
+		if (x != null && x[1] != 0L) {
+			UndeadHeadThrow.cancel(player);
+		}
+		UndeadBloodMoves.stopAll(player);
+	}
+
+	/** v0.17.3: double-tap jump in the air (UndeadFlightPayload): take off, or drop out of the flight. */
+	public static void doubleJump(ServerPlayer player) {
+		if (!hasContext(player) || UndeadRegenMenu.open(player)) {
+			return;
+		}
+		if (!UndeadFlight.isFlying(player) && com.projecthero.mod.hero.PowerSuppression.refuse(player)) {
+			return;
+		}
+		UndeadFlight.toggle(player);
 	}
 
 	/** The move ids on a slot (plain, Shift), for the HUD; Victor's kit while he is Victor. */
@@ -344,12 +395,12 @@ public final class UndeadAbilityManager {
 		boolean victor = Undead.victor(player);
 		return switch (slot) {
 			case SLOT_1 -> victor ? new String[] { UndeadAbilities.VULCAN, UndeadAbilities.DIVISION } : new String[] { UndeadAbilities.PARTS_BULLET, UndeadAbilities.CRIMSON_BULLET };
-			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadAbilities.CRESCENT, UndeadAbilities.GREAT_CRESCENT };
-			case SLOT_3 -> new String[] { UndeadLaunch.LEG_LAUNCH, UndeadAbilities.PROPULSION };
+			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadBloodMoves.SPRAY, UndeadBloodMoves.WHIRL };
+			case SLOT_3 -> new String[] { UndeadLaunch.EJECT_FEET, UndeadLaunch.COMBUSTION };
 			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadAbilities.HEAD_BULLET };
 			// v0.17.3: tap V Reform, Shift+V Toggle Regen (hold V, the Bone Sword, is the third: boneSwordHoldId)
 			case SLOT_5 -> new String[] { UndeadAbilities.REFORM, UndeadConfig.VICTOR_ENABLED ? UndeadAbilities.CARD : UndeadAbilities.REGEN };
-			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadAbilities.DEAD_LINE, UndeadAbilities.QUARDEAD };
+			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadBloodMoves.DEADLINE, UndeadAbilities.DIVISION }; // Shift+C: Division Bullet
 			default -> new String[0];
 		};
 	}
@@ -365,8 +416,11 @@ public final class UndeadAbilityManager {
 			case UndeadAbilities.CRIMSON_BULLET -> UndeadConfig.CRIMSON_COOLDOWN;
 			case UndeadAbilities.CRESCENT -> UndeadConfig.CRESCENT_COOLDOWN;
 			case UndeadAbilities.GREAT_CRESCENT -> UndeadConfig.GREAT_CRESCENT_COOLDOWN;
-			case UndeadAbilities.PROPULSION -> UndeadConfig.PROPULSION_COOLDOWN;
-			case UndeadLaunch.LEG_LAUNCH -> UndeadConfig.LEG_LAUNCH_COOLDOWN;
+			case UndeadBloodMoves.SPRAY -> UndeadEjectConfig.SPRAY_COOLDOWN;
+			case UndeadBloodMoves.WHIRL -> UndeadEjectConfig.WHIRL_COOLDOWN;
+			case UndeadBloodMoves.DEADLINE -> UndeadEjectConfig.DEADLINE_COOLDOWN;
+			case UndeadLaunch.EJECT_FEET -> UndeadEjectConfig.EJECT_FEET_COOLDOWN;
+			case UndeadLaunch.COMBUSTION -> UndeadEjectConfig.COMBUSTION_COOLDOWN;
 			case UndeadLaunch.HEAD_LAUNCH -> UndeadConfig.HEAD_LAUNCH_COOLDOWN;
 			case UndeadAbilities.VORTEX -> UndeadConfig.VORTEX_COOLDOWN;
 			case UndeadAbilities.HEAD_BULLET -> UndeadConfig.HEAD_BULLET_COOLDOWN;

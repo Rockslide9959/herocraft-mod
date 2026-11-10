@@ -45,6 +45,7 @@ public final class UndeadEffectsRenderer {
 		PoseStack pose = context.matrixStack();
 		renderWaves(context, pose, cam, mc.level.getGameTime() + partial);
 		UndeadJets.render(context, pose, cam, mc, partial);
+		UndeadBloodMovesFx.render(context, pose, cam, mc, partial); // v0.17.3: Blood Spray / Whirlwind streams
 		UndeadSwordFx.render(context, pose, cam, mc.level.getGameTime() + partial); // v0.17.3: the Bone Sword's effects
 		for (Player player : mc.level.players()) {
 			UndeadState s = Undead.peek(player);
@@ -208,6 +209,12 @@ public final class UndeadEffectsRenderer {
 		double side = Undead.mainArm(p) == UndeadState.RIGHT_ARM ? 1 : -1;
 		Vec3 from = eye.add(r.scale(0.32 * side)).add(0, -0.32, 0).add(look.scale(0.55));
 		Vec3 far = eye.add(look.scale(range));
+		UndeadState st = Undead.peek(p);
+		if (st != null && st.flag(UndeadState.FLAG_DEAD_LINE) && !st.flag(UndeadState.FLAG_DEAD_ROAD)) {
+			// v0.17.3 Deadline: out of the wrist stump of the arm that fires it (low in the corner of his own view), onto the crosshair
+			from = UndeadBloodMovesFx.stump(p, com.projecthero.mod.undead.UndeadBloodMoves.deadlineArm(p, st), eye, look);
+			far = from.add(com.projecthero.mod.undead.UndeadBloodMoves.deadlineDir(p, from, eye, look).scale(range));
+		}
 		BlockHitResult bhr = p.level().clip(new ClipContext(from, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
 		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(p, from, end, new AABB(from, end).inflate(1.0),

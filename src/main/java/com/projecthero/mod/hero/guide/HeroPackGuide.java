@@ -1733,11 +1733,11 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.undead.controls");
-			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
-					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
+			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "Hold G", "blood_spray" },
+					{ "Shift+G", "blood_whirlwind" }, { "X", "eject_feet" }, { "Shift+X", "combustion_punch" }, { "Double-tap jump", "flight" },
 					{ "Z", "vortex_bullet" },
 					{ "Shift+Z", "parts_bullet_head" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : "regen_speed" }, { "Shift + hold V", "regen_menu" },
-					{ "C", "dead_line" },
+					{ "Hold C", "deadline" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));

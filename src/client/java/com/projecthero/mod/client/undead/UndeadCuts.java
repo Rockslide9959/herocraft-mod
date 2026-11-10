@@ -1,14 +1,16 @@
 package com.projecthero.mod.client.undead;
 
 import com.projecthero.mod.undead.UndeadConfig;
-import com.projecthero.mod.undead.UndeadFlight;
+import com.projecthero.mod.undead.UndeadEjectConfig;
 import com.projecthero.mod.undead.data.UndeadState;
 
 /**
- * v0.17.3: a part of Undead that is there but missing its end, worked out from the synced state -- the hand / foot segment gone
- * or growing back (NBC's segments: in flight, after a shot, a strip from the Regen Menu), a stage half burnt by the boost, the
- * bite the finger shots took out of an arm (and its regrowth). {@link #of} gives how many rows (model px from the joint, of
- * 12) are left and how far the regrowth from there is ({@code q}, 0 while it is still a fresh cut).
+ * v0.17.3: a part of Undead that is there but missing its end, worked out from the synced state -- an end blown off by an
+ * ejection ({@code UndeadEject}: the hand / foot and half the forearm / calf, {@link UndeadState#X_EJECTED}) and its regrowth
+ * from there, the hand / foot segment gone or growing back on its own (after a shot, a strip from the Regen Menu), the torso cut
+ * to its top third by the Combustion Punch, the bite the finger shots took out of an arm (and its regrowth). {@link #of} gives
+ * how many rows (model px from the joint, of 12) are left and how far the regrowth from there is ({@code q}, 0 while it is
+ * still a fresh cut).
  */
 public final class UndeadCuts {
 	/** {@code rows} left from the joint, {@code q} through the regrowth from there, {@code embers}: burning right now. */
@@ -26,15 +28,15 @@ public final class UndeadCuts {
 		if (s == null || !s.hasPower || s.broken(part) || part == UndeadState.HEAD) {
 			return null;
 		}
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
-		float burnt = UndeadFlight.burnt(s, part);
+		long ejected = s.ex(UndeadState.X_EJECTED);
 		if (part == UndeadState.BODY) {
-			return burnt <= 0f ? null : new Cut(12f * (1f - burnt), 0f, flying && s.flag(UndeadState.FLAG_BOOST));
+			return (ejected & (1L << UndeadState.BODY)) != 0L ? new Cut(UndeadEjectConfig.COMBUSTION_BODY_ROWS, 0f, false) : null;
 		}
 		int end = UndeadState.extremity(part);
 		boolean endGone = end >= 0 && s.broken(end);
-		if (flying && (endGone || burnt > 0f)) {
-			return new Cut(WRIST * (1f - burnt), 0f, burnt > 0f && s.flag(UndeadState.FLAG_BOOST));
+		if (endGone && (ejected & (1L << end)) != 0L) {
+			// blown off with half the forearm / calf: cut there, growing back from there with the hand / foot's own frames
+			return new Cut(UndeadEjectConfig.EJECT_ROWS, s.regrowth(end, now), false);
 		}
 		Cut bite = null;
 		if (part == UndeadState.RIGHT_ARM || part == UndeadState.LEFT_ARM) {

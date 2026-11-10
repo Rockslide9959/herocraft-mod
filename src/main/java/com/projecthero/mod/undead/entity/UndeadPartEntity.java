@@ -57,6 +57,14 @@ public class UndeadPartEntity extends Projectile {
 	/** v0.17.3 Bone Sword: a bone shard of the Splinter Volley (spent on the first hit), and the sword thrown by Impale Throw. */
 	public static final int STYLE_SPLINTER = 10;
 	public static final int STYLE_SWORD = 11;
+	/**
+	 * v0.17.3 ejection (UndeadEject): a hand with half its forearm / a foot with half its calf ({@link #bodyPart} the hand / foot
+	 * segment), dropped where it came off: it tumbles to the ground and lies there; and the Combustion Punch's lower two thirds
+	 * of the torso ({@link #bodyPart} one of the parts left with it), standing where he was, then falling back. Both live
+	 * {@link com.projecthero.mod.undead.UndeadEjectConfig#PIECE_LIFE} and sink away at the end, whatever the regrowth does.
+	 */
+	public static final int STYLE_EJECT_END = 12;
+	public static final int STYLE_EJECT_TORSO = 13;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<UndeadPartEntity> clientRemoval = e -> {
@@ -112,6 +120,12 @@ public class UndeadPartEntity extends Projectile {
 		return s >= STYLE_LEFT_LEG && s <= STYLE_LEFT_BODY_LEGLESS;
 	}
 
+	/** v0.17.3: a piece an ejection left behind (a hand / foot end, the Combustion Punch's lower torso). */
+	public boolean isEjectPiece() {
+		int s = this.style();
+		return s == STYLE_EJECT_END || s == STYLE_EJECT_TORSO;
+	}
+
 	public boolean isSplinter() {
 		return this.style() == STYLE_SPLINTER;
 	}
@@ -163,6 +177,7 @@ public class UndeadPartEntity extends Projectile {
 	private int maxLife() {
 		return switch (this.style()) {
 			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH -> UndeadConfig.SEVERED_LIFE;
+			case STYLE_EJECT_END, STYLE_EJECT_TORSO -> com.projecthero.mod.undead.UndeadEjectConfig.PIECE_LIFE;
 			case STYLE_CRIMSON, STYLE_SWORD -> 60;
 			default -> 40;
 		};
@@ -182,7 +197,7 @@ public class UndeadPartEntity extends Projectile {
 			this.discard();
 			return;
 		}
-		if (this.bodyPart() >= 0 && !Undead.missing(owner, this.bodyPart())) {
+		if (this.bodyPart() >= 0 && !this.isEjectPiece() && !Undead.missing(owner, this.bodyPart())) {
 			this.discard(); // regrown (or the power ended)
 			return;
 		}

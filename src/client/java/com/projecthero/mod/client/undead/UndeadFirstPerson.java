@@ -31,8 +31,9 @@ public final class UndeadFirstPerson {
 	/** From the client tick (the local player). */
 	static void tick(UndeadState s) {
 		prevBoost = boost;
-		boolean on = s != null && s.hasPower && s.flag(UndeadState.FLAG_PROPELLING) && s.flag(UndeadState.FLAG_BOOST);
-		boost = on ? Math.min(1f, boost + 0.2f) : Math.max(0f, boost - 0.12f);
+		// v0.17.3: the kick is the Combustion Punch's rush now (the boost is gone)
+		boolean on = s != null && s.hasPower && s.animId == UndeadState.ANIM_COMBUSTION;
+		boost = on ? Math.min(1f, boost + 0.25f) : Math.max(0f, boost - 0.15f);
 	}
 
 	public static double fovScale(float partial) {
@@ -67,6 +68,9 @@ public final class UndeadFirstPerson {
 		boolean punch = s.flag(UndeadState.FLAG_PUNCH);
 		if (!flying && stage == UndeadStages.NORMAL && UndeadBoneSwordRender.firstPerson(renderer, player, s, partial, hand, pose, buffers, light)) {
 			return true; // v0.17.3: the Bone Sword in hand (and the hold-V struggle for it)
+		}
+		if (!flying && ejectArms(renderer, player, s, now, hand, pose, buffers, light)) {
+			return true; // v0.17.3: the ejection moves' own view
 		}
 		if (!flying && stage != UndeadStages.CRAWL && stage != UndeadStages.ARM_WALK && !punch) {
 			return false;
@@ -129,6 +133,63 @@ public final class UndeadFirstPerson {
 				float step = Mth.sin(swing * 0.6662f + (sd > 0 ? 0f : Mth.PI)) * amount;
 				pose.translate(0.02f * sd, -0.18f + 0.07f * Math.max(0f, step), -0.12f * step);
 				pose.mulPose(Axis.XP.rotationDegrees(30f));
+			}
+			((UndeadItemInHandInvoker) renderer).projecthero$renderPlayerArm(pose, buffers, light, 0f, 0f, side);
+			pose.popPose();
+		}
+		return true;
+	}
+
+	/**
+	 * v0.17.3: his own view during the ejection moves (true if one took the hands over; only the main hand's call draws):
+	 * <ul>
+	 * <li>Blood Spray: both forearm stumps held out low in the bottom corners, the streams leaving them toward the crosshair
+	 * ({@link UndeadBloodMovesFx}), braced and shaking;</li>
+	 * <li>Deadline: the firing arm's stump out low in its corner;</li>
+	 * <li>Blood Whirlwind: the arms are out to his sides -- nothing in front of him;</li>
+	 * <li>Combustion Punch: the one arm thrust out ahead, low (the fist leading), and driven forward on the punch.</li>
+	 * </ul>
+	 */
+	private static boolean ejectArms(ItemInHandRenderer renderer, AbstractClientPlayer player, UndeadState s, float now, InteractionHand hand, PoseStack pose,
+			MultiBufferSource buffers, int light) {
+		float age = now - s.animStart;
+		boolean spray = s.flag(UndeadState.FLAG_BLOOD_SPRAY);
+		boolean line = s.flag(UndeadState.FLAG_DEAD_LINE) && !s.flag(UndeadState.FLAG_DEAD_ROAD);
+		boolean whirl = s.animId == UndeadState.ANIM_BLOOD_WHIRL && age >= 0f && age < com.projecthero.mod.undead.UndeadEjectConfig.WHIRL_TICKS + 4f;
+		boolean rush = s.animId == UndeadState.ANIM_COMBUSTION && age >= 0f;
+		boolean punch = s.animId == UndeadState.ANIM_COMBUSTION_PUNCH && age >= 0f && age < 14f;
+		if (!spray && !line && !whirl && !rush && !punch) {
+			return false;
+		}
+		if (hand != InteractionHand.MAIN_HAND) {
+			return true;
+		}
+		if (whirl) {
+			return true; // arms spread out to the sides: out of view
+		}
+		float shake = Mth.sin(now * 3.7f) * 0.006f;
+		for (HumanoidArm side : HumanoidArm.values()) {
+			int arm = side == HumanoidArm.RIGHT ? UndeadState.RIGHT_ARM : UndeadState.LEFT_ARM;
+			if (s.broken(arm)) {
+				continue;
+			}
+			int firing = com.projecthero.mod.undead.UndeadBloodMoves.deadlineArm(player, s);
+			if ((line || rush || punch) && arm != firing) {
+				continue; // one arm only (Deadline: the firing one; Combustion Punch: the one he kept)
+			}
+			float sd = side == HumanoidArm.RIGHT ? 1f : -1f;
+			pose.pushPose();
+			if (rush || punch) {
+				// the fist out ahead, low and in toward the middle; the punch drives it forward and back
+				float drive = punch ? (age < 2f ? age / 2f : Math.max(0f, 1f - (age - 2f) / 10f)) : 0f;
+				float tremble = rush ? Mth.sin(now * 3.3f) * 0.008f : 0f;
+				pose.translate(-0.1f * sd + tremble, 0.02f, -0.18f - 0.22f * drive);
+				pose.mulPose(Axis.XP.rotationDegrees(-14f - 10f * drive));
+			} else {
+				// the stump held out level, low in its corner, the hand gone (the cut is drawn by UndeadFirstPersonArmMixin)
+				pose.translate(-0.06f * sd + shake, 0.2f + shake, -0.32f);
+				pose.mulPose(Axis.XP.rotationDegrees(-8f));
+				pose.mulPose(Axis.YP.rotationDegrees(4f * sd));
 			}
 			((UndeadItemInHandInvoker) renderer).projecthero$renderPlayerArm(pose, buffers, light, 0f, 0f, side);
 			pose.popPose();

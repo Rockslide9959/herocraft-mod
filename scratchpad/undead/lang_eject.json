@@ -1,0 +1,16 @@
+{
+  "projecthero.undead.ability.flight": "Blood Jet Flight",
+  "projecthero.undead.ability.flight.desc": "Double-tap jump in the air: your hands blow off with half your forearms and your feet with half your calves, and blood jets out of the four stumps to fly you anywhere -- W along your look, A / D sideways, jump / sneak up and down, sprint for 36 blocks a second (18 cruising), a dead hover with nothing held. Land or double-tap again to drop out; your hands and feet grow back once you are down.",
+  "projecthero.undead.ability.blood_spray": "Blood Spray",
+  "projecthero.undead.ability.blood_spray.desc": "Hold G: your hands blow off with half your forearms and a stream of blood two blocks wide pours out of the stumps wherever you aim, 11 blocks (a wall stops it). 10 damage every half second to everything in it; anything sprayed for longer than 1.5s is slowed and blinded. Spray as long as you like; letting go starts a 6s cooldown.",
+  "projecthero.undead.ability.blood_whirlwind": "Blood Whirlwind",
+  "projecthero.undead.ability.blood_whirlwind.desc": "Shift+G: your hands and feet blow off and the blast lifts you 2 blocks; arms spread, you spin, two streams of blood sweeping everything within 10 blocks for 25 damage. 15s cooldown.",
+  "projecthero.undead.ability.eject_feet": "Eject Feet",
+  "projecthero.undead.ability.eject_feet.desc": "Tap X: your feet blow off with half your calves and fling you about 10 blocks where you look -- one blast, then you carry on and come down like any jump. No fall damage for the landing; the feet grow back once you are down. 2s cooldown.",
+  "projecthero.undead.ability.combustion_punch": "Combustion Punch",
+  "projecthero.undead.ability.combustion_punch.desc": "Shift+X: lock onto the creature you are aiming at within 15 blocks and blow off everything but your head, the top of your chest and one arm -- the rest stays standing where you were -- and rocket at it. The punch hits for 22 and knocks it back about 5 blocks, then your body grows back. Nothing to lock onto: nothing happens. 10s cooldown.",
+  "projecthero.undead.ability.deadline": "Deadline",
+  "projecthero.undead.ability.deadline.desc": "Hold C: your hand blows off and a thin, pressurised stream of blood shoots from the stump, 24 blocks: 12 damage every half second to what it hits. You move 80% slower while you fire it. Up to 8s; letting go (or running out) starts an 8s cooldown.",
+  "message.projecthero.undead.no_target": "Nothing in your sights to punch",
+  "projecthero.guide.undead.flight.body": "Double-tap jump in the air: your hands blow off with half your forearms and your feet with half your calves, and blood jets out of the four stumps, streaming back against the way you go. You fly on the same controls as the other flights (W along your look, A / D sideways, jump / sneak up and down, sprint to go faster, a hover when you let go): 18 blocks a second, 36 sprinting, for as long as you like. Touch down or double-tap again to land; the hands and feet grow back once you are down. Every blood move works the same way: what you blow off is left lying where it came off, and grows back once the move is over."
+}
