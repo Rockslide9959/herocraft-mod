@@ -275,9 +275,14 @@ public final class UndeadPose {
 		if (s.headOnly(now)) {
 			set(model.head, e, -0.45f * m, 0f, 0f);
 			set(model.hat, e, -0.45f * m, 0f, 0f);
-		} else if (m > 0.01f) {
-			model.head.xRot = Mth.lerp(e * m, model.head.xRot, -1.2f);
-			model.hat.xRot = model.head.xRot;
+		} else {
+			// v0.17.3 (user: "the players head seems to just swing around wildly while flying"): the flight already turns his whole body
+			// to the look (UndeadMotion), so vanilla's head yaw on top of that turned it twice -- the head faces straight along the
+			// body; and it undoes the body's forward tip so it looks where he looks (a neck's worth: up to 80 up, 50 down)
+			float look = player.getViewXRot(partial);
+			float rel = Mth.clamp(look - UndeadMotion.flightBodyPitch(player), -80f, 50f) * Mth.DEG_TO_RAD;
+			set(model.head, e, rel, 0f, 0f);
+			set(model.hat, e, rel, 0f, 0f);
 		}
 		// arms: hovering, angled down and out (the jets straight down); flying, straight back along the sides
 		float ax = Mth.lerp(m, 0.18f, 0.06f), az = Mth.lerp(m, 0.42f, 0.13f);

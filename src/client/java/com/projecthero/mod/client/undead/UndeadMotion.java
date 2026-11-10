@@ -43,6 +43,7 @@ public final class UndeadMotion {
 
 	static void reset() {
 		TRACKS.clear();
+		BODY_PITCH.clear();
 	}
 
 	/** From the client tick, for every Undead in view. */
@@ -82,6 +83,14 @@ public final class UndeadMotion {
 
 	static void forgetMissing(java.util.Set<UUID> present) {
 		TRACKS.keySet().retainAll(present);
+	}
+
+	/** v0.17.3: per player, how far (degrees) the flight has tipped his body forward this frame -- the head undoes it to keep looking ahead. */
+	private static final java.util.Map<Integer, Float> BODY_PITCH = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** The flight's forward tip of his body this frame (degrees, + = face down), set while the root pose is built; 0 when not flying. */
+	public static float flightBodyPitch(Player player) {
+		return BODY_PITCH.getOrDefault(player.getId(), 0f);
 	}
 
 	/** 0..1: how far into the flight pose. */
@@ -288,7 +297,9 @@ public final class UndeadMotion {
 		// slide, a little (this frame faces -z with +x his right, so leaning right is a negative Z roll; it was +28, hanging him away from it)
 		float sideBank = (float) (flat < 1.0e-4 ? 0.0 : side / flat) * -14f;
 		pose.translate(0f, pivot + bob * scale, 0f);
-		pose.mulPose(Axis.XP.rotationDegrees(-(Mth.clamp(lean, -30f, 170f) * m + flutter + 6f * (1f - m)) * e));
+		float tip = (Mth.clamp(lean, -30f, 170f) * m + flutter + 6f * (1f - m)) * e;
+		BODY_PITCH.put(player.getId(), tip);
+		pose.mulPose(Axis.XP.rotationDegrees(-tip));
 		pose.mulPose(Axis.ZP.rotationDegrees(sideBank * level * m * e * (fwdShare >= 0f ? 1f - fwdShare * 0.7f : 1f)));
 		// banking into turns: a roll about the body's own long axis
 		pose.mulPose(Axis.YP.rotationDegrees(-bank * e * m));
