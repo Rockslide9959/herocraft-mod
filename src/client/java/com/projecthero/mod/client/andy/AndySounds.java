@@ -51,9 +51,11 @@ public final class AndySounds {
 	/** Layer rates at Normal (fraction per second): a faster layer sounds a little higher and busier. */
 	private static final float[] NOMINAL_RATE = { 1f / 3f, 1f / 4f, 1f / 4.5f };
 	/** A heavier part sounds lower. */
-	private static final float[] PART_PITCH = { 1.04f, 0.86f, 1.06f, 1.06f, 0.96f, 0.96f };
+	private static final float[] PART_PITCH = { 1.04f, 0.86f, 1.06f, 1.06f, 0.96f, 0.96f, 1.22f, 1.22f, 1.12f, 1.12f };
+	/** v0.17.3: per segment loudness -- the hands and feet (segments 6-9) are small: quieter, fewer accents. */
+	private static final float[] SEG_GAIN = { 1f, 1f, 1f, 1f, 1f, 1f, 0.45f, 0.45f, 0.45f, 0.45f };
 	/** Height of each part's centre above the feet. */
-	private static final double[] PART_Y = { 1.65, 1.1, 1.25, 1.25, 0.45, 0.45 };
+	private static final double[] PART_Y = { 1.65, 1.1, 1.25, 1.25, 0.45, 0.45, 0.75, 0.75, 0.1, 0.1 };
 	/**
 	 * Loop levels. Since the v2 regrowth sounds (no more boiling-water bubbles / fizz) the loops are sparse events over
 	 * near-silence, so they sit under the accents: the accents carry the sound, the loops fill the gaps between them.
@@ -109,7 +111,7 @@ public final class AndySounds {
 		v.autoJet = s.hasPower && s.flag(AndyState.FLAG_PROPELLING) && player.isAlive();
 		updateJet(player, v);
 		boolean near = mc.player != null && player.distanceToSqr(mc.player) <= RANGE * RANGE;
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			PartVoice pv = v.parts[i];
 			if (!near) {
 				if (pv != null) {
@@ -138,7 +140,7 @@ public final class AndySounds {
 	 */
 	public static void regrowth(Player player, int part, float boneFrac, float muscleFrac, float skinFrac) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || player == null || part < 0 || part >= AndyState.PARTS) {
+		if (mc.level == null || player == null || part < 0 || part >= AndyState.SEGS) {
 			return;
 		}
 		Voices v = VOICES.computeIfAbsent(player.getUUID(), k -> new Voices());
@@ -174,6 +176,7 @@ public final class AndySounds {
 		}
 		double y = PART_Y[part];
 		float partPitch = PART_PITCH[part];
+		float gain = SEG_GAIN[part];
 		// several parts at once (the Undead re-form): the beds share the level instead of stacking up
 		pv.lastFedTick = ticks;
 		int growing = 0;
@@ -188,7 +191,7 @@ public final class AndySounds {
 		for (int k = 0; k < 3; k++) {
 			float e = f[k] > 0f && f[k] < 1f ? Math.min(1f, f[k] / 0.08f) * Math.min(1f, (1f - f[k]) / 0.12f) : 0f;
 			float speed = pv.rate[k];
-			float vol = BASE_VOLUME[k] * e * crowd * (0.85f + 0.15f * Math.min(2f, speed));
+			float vol = BASE_VOLUME[k] * gain * e * crowd * (0.85f + 0.15f * Math.min(2f, speed));
 			float pitch = partPitch * (0.9f + 0.2f * f[k]) * (0.94f + 0.06f * speed);
 			Loop loop = pv.beds[k];
 			if (vol > 0.001f) {
@@ -200,8 +203,8 @@ public final class AndySounds {
 					loop.feed(vol, pitch);
 				}
 				// accents, Poisson at a rate that follows the layer
-				if (step > 0f && RANDOM.nextFloat() < ACCENT_RATE[k] * e * crowd * Math.min(2.2f, speed) * step) {
-					local(player, y, accents[k], ACCENT_VOLUME + ACCENT_VOLUME_SPREAD * RANDOM.nextFloat(), partPitch * (0.9f + 0.2f * RANDOM.nextFloat()));
+				if (step > 0f && RANDOM.nextFloat() < ACCENT_RATE[k] * gain * e * crowd * Math.min(2.2f, speed) * step) {
+					local(player, y, accents[k], gain * (ACCENT_VOLUME + ACCENT_VOLUME_SPREAD * RANDOM.nextFloat()), partPitch * (0.9f + 0.2f * RANDOM.nextFloat()));
 				}
 			} else if (loop != null) {
 				loop.feed(0f, pitch);
@@ -209,15 +212,15 @@ public final class AndySounds {
 			// a layer starting: a crack for the bone, a thick squelch as the flesh begins
 			if (last[k] <= 0f && f[k] > 0f && f[k] < 0.5f) {
 				if (k == 0) {
-					local(player, y, AndySoundEvents.REGROW_BONE_CRACK, 0.75f, partPitch * 0.9f);
+					local(player, y, AndySoundEvents.REGROW_BONE_CRACK, 0.75f * gain, partPitch * 0.9f);
 				} else if (k == 1) {
-					local(player, y, AndySoundEvents.REGROW_SQUELCH, 0.8f, partPitch * 0.85f);
+					local(player, y, AndySoundEvents.REGROW_SQUELCH, 0.8f * gain, partPitch * 0.85f);
 				}
 			}
 		}
 		if (!pv.finished && f[2] >= 0.999f && pv.lastSkin >= 0f) {
 			pv.finished = true;
-			local(player, y, AndySoundEvents.REGROW_FINISH, 0.8f, partPitch * (0.95f + 0.1f * RANDOM.nextFloat()));
+			local(player, y, AndySoundEvents.REGROW_FINISH, 0.8f * gain, partPitch * (0.95f + 0.1f * RANDOM.nextFloat()));
 			pv.fadeBeds();
 		}
 		pv.lastBone = f[0];
@@ -228,7 +231,7 @@ public final class AndySounds {
 	/** The part just broke (again): any regrowth sound for it stops at once and the next regrowth starts fresh. */
 	public static void partBroken(Player player, int part) {
 		Voices v = player == null ? null : VOICES.get(player.getUUID());
-		if (v != null && part >= 0 && part < AndyState.PARTS && v.parts[part] != null) {
+		if (v != null && part >= 0 && part < AndyState.SEGS && v.parts[part] != null) {
 			v.parts[part].release();
 			v.parts[part] = null;
 		}
@@ -430,7 +433,7 @@ public final class AndySounds {
 	// ================================================================ state
 
 	private static final class Voices {
-		final PartVoice[] parts = new PartVoice[AndyState.PARTS];
+		final PartVoice[] parts = new PartVoice[AndyState.SEGS];
 		Loop jet, burn, punch;
 		boolean apiJet, autoJet, boosting;
 		long lastWatched;
