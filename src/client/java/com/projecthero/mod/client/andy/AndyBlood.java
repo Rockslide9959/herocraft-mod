@@ -132,12 +132,7 @@ public final class AndyBlood {
 				if (RND.nextFloat() < 0.3f && player.level() != null && !firstPersonSelf) {
 					player.level().addParticle(ParticleTypes.SMOKE, edge.x, edge.y, edge.z, carry.x * 0.85, carry.y * 0.85 + 0.02, carry.z * 0.85);
 				}
-				// a scorched pixel drops off the edge
-				if (RND.nextFloat() < 0.7f) {
-					java.util.List<AndyTexels.Texel> texels = AndyTexels.of(part, AndyRender.slim(player));
-					AndyTexels.Texel t = texels.get(RND.nextInt(texels.size()));
-					PixelCubes.ember(AndyRender.skin(player), t, edge.add((RND.nextDouble() - 0.5) * 0.2, 0, (RND.nextDouble() - 0.5) * 0.2), carry);
-				}
+				// (v0.17.3, user: no skin pixels falling off the body -- the scorched-pixel drop is gone)
 			}
 		}
 		// fresh stumps drip for a couple of seconds

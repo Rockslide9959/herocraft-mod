@@ -176,17 +176,16 @@ public final class AndyClient {
 		}
 	}
 
-	/** The texels of a limb between {@code from} and {@code to} rows burst off as pixel cubes. */
+	/**
+	 * The texels of a limb between {@code from} and {@code to} rows come off. v0.17.3 (user: "remove the body pixels that fall
+	 * off the players body when undead loses a limb"): no pixel cubes any more -- the blood spurt alone shows it.
+	 */
 	static void burstEnd(Player player, int part, float from, float to, float power) {
-		boolean slim = AndyRender.slim(player);
-		PixelCubes.burst(AndyRender.skin(player), slim, part, AndyRender.partMatrix(player, part), player.getDeltaMovement().scale(0.5), 0xFFFFFFFF, power,
-				AndyRegrow.texelsBetween(part, slim, from - 0.3f, to));
 	}
 
 	/** A part of {@code player} bursts into its skin's pixels, from where it was drawn. */
 	public static void burst(Player player, int part, float power) {
-		Vec3 push = player.getDeltaMovement().scale(0.6);
-		PixelCubes.burst(AndyRender.skin(player), AndyRender.slim(player), part, AndyRender.partMatrix(player, part), push, 0xFFFFFFFF, power);
+		// v0.17.3 (user): no falling skin pixels when a part comes off -- just the blood
 		AndyBlood.partBurst(player, part, power);
 	}
 
