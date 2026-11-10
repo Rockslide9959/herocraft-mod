@@ -146,7 +146,6 @@
 		"RyukoFirstPersonArmMixin",
 		"RyukoArmorMixin",
 		"AndyPlayerModelMixin",
-		"SaiyanMovesHarnessCameraMixin",
 		"AndyFirstPersonArmMixin",
 		"AndyHeldItemMixin",
 		"AndyFirstPersonItemMixin",

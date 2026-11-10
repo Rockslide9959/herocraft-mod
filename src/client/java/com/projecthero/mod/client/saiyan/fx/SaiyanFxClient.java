@@ -221,6 +221,9 @@ public final class SaiyanFxClient {
 			if (!(ent instanceof Player p) || e.getValue().fired() >= 0) {
 				continue;
 			}
+			if (p == mc.player && mc.options.getCameraType().isFirstPerson()) {
+				continue; // sparks this close to his own eyes would just be big blobs
+			}
 			Vec3 at = SaiyanMoves.beamFrom(p);
 			for (int i = 0; i < 2; i++) {
 				Vec3 from = at.add((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.6);
