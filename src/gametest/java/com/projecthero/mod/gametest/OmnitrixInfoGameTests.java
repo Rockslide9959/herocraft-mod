@@ -56,7 +56,7 @@ public class OmnitrixInfoGameTests implements FabricGameTest {
 		OmnitrixInfo.roster(rosterLines, OmnitrixInfo.LETTERS, null);
 		Set<String> roster = keys(rosterLines);
 		List<String> problems = new ArrayList<>();
-		if (Aliens.playable().size() != 17) { // v0.17.2: + Cannonbolt, Wildvine, Ditto, Way Big, Upchuck, Buzzshock, Feedback
+		if (Aliens.playable().size() != 18) { // v0.17.2: + Cannonbolt, Wildvine, Ditto, Way Big, Upchuck, Buzzshock, Feedback; v0.17.3: + Snare-oh
 			problems.add("expected all 17 aliens playable, got " + Aliens.playable().size());
 		}
 		for (Aliens.Alien a : Aliens.all()) {

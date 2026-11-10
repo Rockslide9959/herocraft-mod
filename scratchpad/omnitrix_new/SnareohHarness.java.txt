@@ -1,0 +1,407 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.snareoh.SnareohKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): Snare-oh -- a turntable, then every move filmed frame by frame (screenshots so_<clip>_NNN.png). Enabled by
+ * run/snareoh.flag. The camera is SnareohHarnessCameraMixin's.
+ */
+public final class SnareohHarness {
+	/** Camera offset from the player, looking at the player + camTarget. Null = vanilla. */
+	public static volatile Vec3 camOffset, camTarget = new Vec3(0, 1.05, 0);
+
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, frame;
+	private static String clip;
+	private static Vec3 home;
+	private static Mob golem, zombie, z2, z3, z4;
+
+	private SnareohHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("snareoh.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SnareohHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "snareoh-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static SnareohKit kit() {
+		return (SnareohKit) Aliens.kit(SnareohKit.ID);
+	}
+
+	private static Mob mob(ServerPlayer p, EntityType<? extends Mob> type, double dx, double dz) {
+		Mob m = type.create(p.serverLevel());
+		m.moveTo(home.x + dx, home.y, home.z + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		p.serverLevel().addFreshEntity(m);
+		return m;
+	}
+
+	private static void clearMobs() {
+		for (Mob m : new Mob[] { golem, zombie, z2, z3, z4 }) {
+			if (m != null) {
+				m.discard();
+			}
+		}
+		golem = zombie = z2 = z3 = z4 = null;
+	}
+
+	private static void face(ServerPlayer p, Vec3 at) {
+		Vec3 d = at.subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static Vec3 chest(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.6, 0);
+	}
+
+	private static void ready(ServerPlayer p) {
+		for (var m : kit().moves()) {
+			kit().cooldown(p, m.id(), 0);
+		}
+	}
+
+	private static void cam(double x, double y, double z) {
+		camTarget = new Vec3(0, 1.05, 0);
+		camOffset = new Vec3(x, y, z);
+	}
+
+	private static void reset(ServerPlayer p) {
+		clearMobs();
+		p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.setYRot(0f);
+		p.setYHeadRot(0f);
+		ready(p);
+	}
+
+	/** Starts clip {@code name}: frames are grabbed every tick until {@link #stop}. */
+	private static void film(String name) {
+		clip = name;
+		frame = 0;
+		System.out.println("[HARNESS] clip " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SnareohHarness::createWorld);
+			}
+			return;
+		}
+		if (clip != null) {
+			Screenshot.grab(mc.gameDirectory, String.format("so_%s_%03d.png", clip, frame++), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.getWindow().setWindowed(854, 480);
+		}
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, SnareohKit.ID, true);
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 115) {
+			server(mc, p -> Omnitrix.select(p, SnareohKit.ID));
+		}
+		if (t == 120) {
+			server(mc, p -> {
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+				Omnitrix.select(p, SnareohKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+				// an overhang to swing / zip from: a stone beam 9 up, 10 ahead
+				for (int x = -3; x <= 3; x++) {
+					for (int z = 6; z <= 16; z++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(home.x + x, home.y + 9, home.z + z), Blocks.STONE.defaultBlockState());
+					}
+				}
+			});
+		}
+		// ---- turntable 150..245 (96 frames, 3.75 deg a frame)
+		if (t == 150) {
+			film("turntable");
+		}
+		if (t >= 150 && t < 246) {
+			double a = Math.toRadians((t - 150) * 3.75);
+			cam(Math.sin(a) * 2.7, 1.3, Math.cos(a) * 2.7);
+		}
+		if (t == 246) {
+			clip = null;
+		}
+		// ---- whip (R) and bind (Shift+R) on a golem
+		if (t == 250) {
+			cam(3.4, 1.7, 1.2);
+			camTarget = new Vec3(0, 1.0, 2.5);
+			server(mc, p -> {
+				reset(p);
+				golem = mob(p, EntityType.IRON_GOLEM, 0, 6);
+			});
+		}
+		if (t == 254) {
+			film("whip");
+		}
+		if (t == 258) {
+			server(mc, p -> {
+				face(p, chest(golem));
+				System.out.println("[HARNESS] whip=" + kit().whip(p));
+			});
+		}
+		if (t == 274) {
+			server(mc, p -> {
+				ready(p);
+				face(p, chest(golem));
+				System.out.println("[HARNESS] whip2=" + kit().whip(p));
+			});
+		}
+		if (t == 292) {
+			film("bind");
+			server(mc, p -> {
+				ready(p);
+				face(p, chest(golem));
+			});
+		}
+		if (t == 296) {
+			server(mc, p -> System.out.println("[HARNESS] bind=" + kit().bindMove(p)));
+		}
+		// ---- grapple pull (G) on a zombie 12 away
+		if (t == 340) {
+			film("pull");
+			cam(4.5, 1.8, 3.0);
+			camTarget = new Vec3(0, 1.0, 5.0);
+			server(mc, p -> {
+				reset(p);
+				zombie = mob(p, EntityType.ZOMBIE, 0, 11);
+			});
+		}
+		if (t == 346) {
+			server(mc, p -> {
+				face(p, chest(zombie));
+				System.out.println("[HARNESS] pull=" + kit().pull(p));
+			});
+		}
+		// ---- mummy wrap (Z) on four zombies round him
+		if (t == 380) {
+			film("wrap");
+			cam(4.2, 3.2, 4.2);
+			camTarget = new Vec3(0, 0.8, 0);
+			server(mc, p -> {
+				reset(p);
+				zombie = mob(p, EntityType.ZOMBIE, 3.5, 0);
+				z2 = mob(p, EntityType.ZOMBIE, -3.5, 0);
+				z3 = mob(p, EntityType.ZOMBIE, 0, 4);
+				z4 = mob(p, EntityType.ZOMBIE, 0, -3.5);
+			});
+		}
+		if (t == 386) {
+			server(mc, p -> System.out.println("[HARNESS] wrap=" + kit().mummyWrap(p)));
+		}
+		// ---- unravel spin (C)
+		if (t == 430) {
+			film("spin");
+			cam(3.6, 2.2, 3.0);
+			camTarget = new Vec3(0, 1.0, 0);
+			server(mc, p -> {
+				reset(p);
+				zombie = mob(p, EntityType.ZOMBIE, 2.5, 1.5);
+				z2 = mob(p, EntityType.ZOMBIE, -2.5, 1.0);
+			});
+		}
+		if (t == 436) {
+			server(mc, p -> System.out.println("[HARNESS] spin=" + kit().spin(p)));
+		}
+		// ---- detach (V): the hand flies to a zombie and drags it back
+		if (t == 470) {
+			film("detach");
+			cam(5.0, 2.0, 4.0);
+			camTarget = new Vec3(0, 1.0, 5.0);
+			server(mc, p -> {
+				reset(p);
+				zombie = mob(p, EntityType.ZOMBIE, 0, 11);
+			});
+		}
+		if (t == 476) {
+			server(mc, p -> {
+				face(p, chest(zombie));
+				System.out.println("[HARNESS] detach=" + kit().detach(p));
+			});
+		}
+		// ---- scatter (Shift+V): come apart, slip sideways, reform
+		if (t == 520) {
+			film("scatter");
+			cam(3.5, 1.8, 3.5);
+			camTarget = new Vec3(0, 1.0, 0);
+			server(mc, p -> {
+				reset(p);
+				zombie = mob(p, EntityType.ZOMBIE, 1.5, 2.0);
+			});
+		}
+		if (t == 526) {
+			server(mc, p -> System.out.println("[HARNESS] scatter=" + kit().scatter(p)));
+		}
+		if (t >= 530 && t < 552) {
+			mc.options.keyUp.setDown(true);
+		}
+		if (t == 552) {
+			mc.options.keyUp.setDown(false);
+		}
+		// ---- swing (X held): to the beam overhead, swing forward, let go
+		if (t == 575) {
+			film("swing");
+			cam(9.0, 3.5, 4.0);
+			camTarget = new Vec3(0, 2.0, 3.0);
+			server(mc, p -> {
+				reset(p);
+				face(p, new Vec3(home.x, home.y + 9, home.z + 9));
+			});
+		}
+		if (t == 580) {
+			server(mc, p -> System.out.println("[HARNESS] swing=" + kit().swing(p)));
+		}
+		if (t >= 582 && t < 615) {
+			mc.options.keyUp.setDown(true);
+		}
+		if (t == 615) {
+			mc.options.keyUp.setDown(false);
+			server(mc, p -> kit().endLine(p, true));
+		}
+		// ---- zip (Shift+X): reeled straight up to the beam
+		if (t == 650) {
+			film("zip");
+			cam(7.0, 3.0, 2.0);
+			camTarget = new Vec3(0, 3.0, 3.0);
+			server(mc, p -> {
+				reset(p);
+				face(p, new Vec3(home.x + 1, home.y + 9, home.z + 7));
+			});
+		}
+		if (t == 655) {
+			server(mc, p -> System.out.println("[HARNESS] zip=" + kit().zip(p)));
+		}
+		if (t == 690) {
+			clip = null;
+			server(mc, p -> {
+				reset(p);
+				kit().endLine(p, false);
+			});
+		}
+		// ---- first person: a whip
+		if (t == 700) {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				reset(p);
+				golem = mob(p, EntityType.IRON_GOLEM, 0, 5);
+			});
+		}
+		if (t == 704) {
+			film("firstperson");
+			server(mc, p -> {
+				face(p, chest(golem));
+				kit().whip(p);
+			});
+		}
+		if (t == 716) {
+			server(mc, p -> {
+				ready(p);
+				kit().detach(p);
+			});
+		}
+		if (t == 740) {
+			clip = null;
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SO_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
