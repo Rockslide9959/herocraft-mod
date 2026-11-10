@@ -284,7 +284,9 @@ public final class UndeadMotion {
 		float level = (float) Mth.clamp(flat / Math.max(1.0e-4, v.length()), 0.0, 1.0);
 		level = (float) Math.sqrt(level);
 		float lean = (fwdShare >= 0f ? (90f + travelPitch) * fwdShare : 22f * fwdShare) * level;
-		float sideBank = (float) (flat < 1.0e-4 ? 0.0 : side / flat) * 28f;
+		// v0.17.3 (user: "when i fly to the right i lean like this ... this doesnt look right"): sliding sideways he tips his head INTO the
+		// slide, a little (this frame faces -z with +x his right, so leaning right is a negative Z roll; it was +28, hanging him away from it)
+		float sideBank = (float) (flat < 1.0e-4 ? 0.0 : side / flat) * -14f;
 		pose.translate(0f, pivot + bob * scale, 0f);
 		pose.mulPose(Axis.XP.rotationDegrees(-(Mth.clamp(lean, -30f, 170f) * m + flutter + 6f * (1f - m)) * e));
 		pose.mulPose(Axis.ZP.rotationDegrees(sideBank * level * m * e * (fwdShare >= 0f ? 1f - fwdShare * 0.7f : 1f)));
