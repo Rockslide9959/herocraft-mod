@@ -141,13 +141,19 @@ public final class UndeadHud {
 				String[] ids = UndeadAbilityManager.idsOf(p, slot);
 				if (ids.length > 0) {
 					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out)
-					Component extra = slot == AbilitySlot.SLOT_5 && !s.boneSword()
-							? Component.translatable("hud.projecthero.undead.hold", Component.translatable("projecthero.undead.ability."
-									+ UndeadBoneSword.BONE_SWORD))
-							: null;
+					// v0.17.3 rework: each slot's held move -- R the arm, X the Head Throw, V the katana (not while it is out)
+					String held = s.boneSword() ? null : slot == AbilitySlot.SLOT_1 ? com.projecthero.mod.undead.UndeadAbilities.PUNCH
+							: slot == AbilitySlot.SLOT_3 ? com.projecthero.mod.undead.UndeadAbilities.HEAD_THROW
+							: slot == AbilitySlot.SLOT_5 ? UndeadBoneSword.BONE_SWORD : null;
+					Component extra = held == null ? null
+							: Component.translatable("hud.projecthero.undead.hold", Component.translatable("projecthero.undead.ability." + held));
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.undead.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.undead.ability." + ids[1]) : null, extra));
 				}
+			}
+			if (!s.boneSword()) {
+				rows.add(MoveListOverlay.Row.of("2x Jump", Component.translatable("projecthero.undead.ability.flight"), null));
+				rows.add(MoveListOverlay.Row.of("Shift+RMB", Component.translatable("projecthero.undead.ability.shoulder_sword"), null));
 			}
 			MoveListOverlay.draw(g, x0 + WIDTH, fy - 4, rows);
 		}
