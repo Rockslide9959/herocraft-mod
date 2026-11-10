@@ -1,0 +1,13 @@
+/**
+ * v0.17.3: Kurikara, the bone katana ({@link UndeadBoneSword}) -- his own torn-off arm's bone, drawn out into a long, slender,
+ * slightly curved single-edged blade: a pale spine, a white cutting edge with a wavy line of blood (the hamon) along it, a
+ * blood groove down the flat, a collar of blood at its root, an oval bone guard (tsuba), a long grip wrapped in dark red over
+ * white ray-skin bone, and a bone cap at its end. Drops of blood swell on the edge and tip and fall.
+ *
+ * <p>Sword space: model px / 16 units, +y down (the cutting edge's side), the grip round the origin and the blade running toward
+ * -z, bowing toward -y (the spine) as it goes. It is held exactly as a vanilla sword is ({@link #held}: the iron sword's own
+ * display transforms, first and third person), drawn in his hand ({@link #thirdPerson}), in first person ({@link #firstPerson})
+ * and as a thrown sword ({@link #mesh}, from {@link UndeadPartRenderer}). Also the hold-V draw -- reaching over, struggling,
+ * the arm torn off and gripped until it bursts round the blade --, each sword skill's pose, the v0.17.3 kit's poses (Ten Twists,
+ * the Unluck Meteor, the Rib Cage Guard) and the sword stuck in his shoulder ({@link #shoulderSword}).
+ */

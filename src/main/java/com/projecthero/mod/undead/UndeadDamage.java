@@ -52,8 +52,8 @@ public final class UndeadDamage {
 		if (Undead.reforming(player)) {
 			return false;
 		}
-		if (UndeadBoneSword.blocks(player, source)) {
-			return false; // v0.17.3 Bone Sword: the Rib Cage Guard or a parry
+		if (UndeadBoneSword.blocks(player, source, amount)) {
+			return false; // v0.17.3 Shift+V: the Rib Cage Guard (a frontal melee hit is re-dealt at a quarter)
 		}
 		if (source.is(DamageTypeTags.IS_FALL) && UndeadLaunch.fallImmune(player)) {
 			return false; // a Leg / Head Launch lands without fall damage

@@ -1,0 +1,76 @@
+	/**
+	 * The v0.17.3 kit's poses with the katana not out: Ten Twists (the arm thrust out and wrenched round by the other hand, then
+	 * the follow-through as it flies), the Unluck Meteor (both arms raised to the sky, trembling as it builds; then one thrown
+	 * down at the target), the Rib Cage Guard (both hands hauling the ribs open), the shoulder sword going in and out. True if
+	 * one set the pose.
+	 */
+	private static boolean kitPose(Player player, UndeadState s, net.minecraft.client.model.HumanoidModel<?> model, float now, float age, ModelPart main,
+			ModelPart off, float sd, float aim) {
+		float partial = now - (float) Math.floor(now);
+		if (s.animId == UndeadKitConfig.ANIM_VORTEX_TWIST && age >= 0f && age < UndeadKitConfig.VORTEX_WINDUP + 1f) {
+			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+			ModelPart arm = useOff ? off : main, other = useOff ? main : off;
+			float as = useOff ? -sd : sd;
+			float k = Mth.clamp(age / UndeadKitConfig.VORTEX_WINDUP, 0f, 1f);
+			// each twist a wrench: the arm ratchets round its own length (zRot, with the arm pointing ahead), a jolt each time
+			float twists = k * UndeadKitConfig.VORTEX_TWISTS;
+			float step = twists - (float) Math.floor(twists);
+			float wrench = ((float) Math.floor(twists) + ease(step * 1.6f)) * 0.62f;
+			float jolt = Mth.sin(step * Mth.PI) * 0.06f;
+			set(arm, ease(age / 2f), aim + jolt, model.head.yRot, -as * wrench);
+			// the other hand grips the wrist and cranks it
+			set(other, ease(age / 2f), aim + 0.25f, model.head.yRot + 0.55f * as, as * (0.4f + Mth.sin(twists * Mth.TWO_PI) * 0.25f));
+			model.body.yRot += 0.18f * as * k;
+			return true;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_VORTEX_FIRE && age >= 0f && age < 8f) {
+			// the follow-through: the shoulder thrown forward after the arm, the other arm swinging back
+			float w = Mth.sin(Math.min(1f, age / 8f) * Mth.PI);
+			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+			ModelPart other = useOff ? main : off;
+			float as = useOff ? -sd : sd;
+			model.body.yRot -= 0.3f * as * w;
+			set(other, w, 0.7f, 0f, -0.2f * as);
+			return true;
+		}
+		float k = UndeadKitFx.charge(player, partial);
+		if (k >= 0f) {
+			// calling the meteor: both arms raised high to the sky, spread, trembling harder as it builds; the head thrown back
+			float e = ease(k * 6f);
+			float shake = Mth.sin(now * 2.7f) * 0.06f * k;
+			set(main, e, -2.75f + shake, 0.15f * sd, 0.45f * sd);
+			set(off, e, -2.75f - shake, -0.15f * sd, -0.45f * sd);
+			model.head.xRot = Mth.lerp(e * 0.6f, model.head.xRot, -0.7f) + shake * 0.5f;
+			model.body.xRot -= 0.08f * e;
+			return true;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_METEOR_CALL && age >= 0f && age < 16f) {
+			// thrown down at the target
+			float t = ease(age / 3f);
+			float w = fade(age, 16f);
+			set(main, w, Mth.lerp(t, -2.9f, aim + 0.1f), model.head.yRot, 0f);
+			set(off, w, Mth.lerp(t, -2.75f, 0.4f), -0.15f * sd, -0.3f * sd);
+			model.body.xRot += 0.2f * t * w;
+			return true;
+		}
+		float ribs = UndeadKitFx.ribs(player, partial);
+		if (ribs > 0.01f) {
+			// both hands at his chest, hauling the ribs apart
+			set(model.rightArm, ribs, -1.15f, -0.55f, 0.35f);
+			set(model.leftArm, ribs, -1.15f, 0.55f, -0.35f);
+			model.body.xRot -= 0.1f * ribs;
+			return true;
+		}
+		if ((s.animId == UndeadKitConfig.ANIM_SHOULDER_IN || s.animId == UndeadKitConfig.ANIM_SHOULDER_OUT) && age >= 0f && age < 10f) {
+			// the hand across to the other shoulder: driving it down in, or wrenching it up out
+			boolean in = s.animId == UndeadKitConfig.ANIM_SHOULDER_IN;
+			float t = ease(age / 4f);
+			float w = fade(age, 10f);
+			float x = in ? Mth.lerp(t, -3.0f, -2.3f) : Mth.lerp(t, -2.3f, -3.0f);
+			set(main, w, x, -0.75f * sd, -0.2f * sd);
+			model.head.yRot -= 0.35f * sd * w;
+			return true;
+		}
+		return false;
+	}
+

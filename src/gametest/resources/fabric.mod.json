@@ -248,6 +248,7 @@
       "com.projecthero.mod.gametest.BeamClashGameTests",
       "com.projecthero.mod.gametest.RyukoGameTests",
       "com.projecthero.mod.gametest.UndeadGameTests",
+      "com.projecthero.mod.gametest.UndeadKitGameTests",
       "com.projecthero.mod.gametest.SaiyanMovesGameTests",
       "com.projecthero.mod.gametest.UndeadSoundsGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",

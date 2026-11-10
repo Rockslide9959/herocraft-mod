@@ -10,6 +10,8 @@ import com.mojang.math.Axis;
 import com.projecthero.mod.undead.Undead;
 import com.projecthero.mod.undead.UndeadBoneSword;
 import com.projecthero.mod.undead.UndeadConfig;
+import com.projecthero.mod.undead.UndeadKitConfig;
+import com.projecthero.mod.undead.UndeadShoulderSword;
 import com.projecthero.mod.undead.data.UndeadState;
 import com.projecthero.mod.client.render.VanillaSkeleton;
 
@@ -40,17 +42,17 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 /**
- * v0.17.3: the Bone Sword ({@link UndeadBoneSword}) -- his own torn-off arm held as a sword. The blade is the arm's bone (the
- * vanilla skeleton's arm bone, the same one the regrowth pushes out of a stump, drawn longer) with jagged bone edges and a
- * point; dark blood streaks run along it, drops swell on its blood and fall off to splat on the ground; the crossguard is a
- * glossy, blobby lump of congealed blood with drops hanging from it; the grip is wrapped in the arm's torn skin with raw flesh
- * showing between, the knuckle of the bone as the pommel.
+ * v0.17.3: Kurikara, the bone katana ({@link UndeadBoneSword}) -- his own torn-off arm's bone, drawn out into a long, slender,
+ * slightly curved single-edged blade: a pale spine, a white cutting edge with a wavy line of blood (the hamon) along it, a
+ * blood groove down the flat, a collar of blood at its root, an oval bone guard (tsuba), a long grip wrapped in dark red over
+ * white ray-skin bone, and a bone cap at its end. Drops of blood swell on the edge and tip and fall.
  *
- * <p>Sword space: model px / 16 units, +y down, the grip round the origin and the blade running toward -z. It is held exactly
- * as a vanilla sword is ({@link #held}: the iron sword's own display transforms, first and third person), drawn in his hand
- * ({@link #thirdPerson}), in first person ({@link #firstPerson}) and as the thrown Impale Throw ({@link #mesh}, from
- * {@link UndeadPartRenderer}). Also the hold-V draw -- reaching over, struggling, the arm torn off and gripped until it bursts
- * round the blade -- and the Rib Cage Guard's ribs ({@link #ribs}).
+ * <p>Sword space: model px / 16 units, +y down (the cutting edge's side), the grip round the origin and the blade running toward
+ * -z, bowing toward -y (the spine) as it goes. It is held exactly as a vanilla sword is ({@link #held}: the iron sword's own
+ * display transforms, first and third person), drawn in his hand ({@link #thirdPerson}), in first person ({@link #firstPerson})
+ * and as a thrown sword ({@link #mesh}, from {@link UndeadPartRenderer}). Also the hold-V draw -- reaching over, struggling,
+ * the arm torn off and gripped until it bursts round the blade --, each sword skill's pose, the v0.17.3 kit's poses (Ten Twists,
+ * the Unluck Meteor, the Rib Cage Guard) and the sword stuck in his shoulder ({@link #shoulderSword}).
  */
 public final class UndeadBoneSwordRender {
 	// colours
@@ -62,7 +64,7 @@ public final class UndeadBoneSwordRender {
 	private static final float WU0 = 5.3f / 16f, WV0 = 0.3f / 16f, WU1 = 5.7f / 16f, WV1 = 0.7f / 16f;
 
 	/** The blade's tip in sword space (px). */
-	static final float TIP_Z = -24.2f;
+	static final float TIP_Z = -29.4f;
 
 	/** The vanilla sword whose display transforms the Bone Sword is held by. */
 	private static final ItemStack REFERENCE = new ItemStack(Items.IRON_SWORD);
@@ -70,7 +72,7 @@ public final class UndeadBoneSwordRender {
 	 * Item space (the 16 px item cube, 0..1) to sword space: the grip where a sword sprite's hand is, the blade up the sprite's
 	 * diagonal (toward +x +y), its flat facing the item's front like the sprite's, its bottom edge (+y down) to the lower right.
 	 */
-	static final float GRIP_X = 0.24f, GRIP_Y = 0.24f, HELD_SCALE = 0.78f;
+	static final float GRIP_X = 0.24f, GRIP_Y = 0.24f, HELD_SCALE = 0.72f;
 	private static final Quaternionf ITEM_TO_SWORD;
 
 	static {
@@ -138,7 +140,7 @@ public final class UndeadBoneSwordRender {
 				set(arm, fade(age, 8f), -1.2f, 0.2f * sd, -0.1f * sd); // the hand opening as it bursts
 				return true;
 			}
-			return false;
+			return kitPose(player, s, model, now, age, arm, other, sd, aim);
 		}
 		if (s.animId == UndeadState.ANIM_SWORD_RIP && age >= 0f && age < UndeadConfig.BONE_SWORD_REVEAL + 6f) {
 			// torn off: the arm swung round in front of him and gripped hard, shaking, until it bursts; then it settles into the
@@ -159,52 +161,128 @@ public final class UndeadBoneSwordRender {
 			return true;
 		}
 		switch (s.animId) {
-			case UndeadState.ANIM_SWORD_SLASH1, UndeadState.ANIM_SWORD_SLASH2, UndeadState.ANIM_SWORD_COUNTER -> {
-				if (age < 8f) {
-					float t = ease(age / 4f);
-					float dir = s.animId == UndeadState.ANIM_SWORD_SLASH2 ? -1f : 1f;
-					// the forehand comes from high on the sword side across and down; the backhand back the other way
-					set(arm, fade(age, 8f), Mth.lerp(t, -2.3f, -1.1f), Mth.lerp(t, 0.9f, -1.0f) * sd * dir, Mth.lerp(t, 0.3f, -0.2f) * sd * dir);
-					model.body.yRot += Mth.lerp(t, 0.3f, -0.35f) * sd * dir * fade(age, 8f);
-				}
-			}
-			case UndeadState.ANIM_SWORD_SLASH3 -> {
-				if (age < 12f) {
-					float t = ease(age / 6f);
-					set(arm, fade(age, 12f), -1.6f, Mth.lerp(t, 1.5f, -1.6f) * sd, 0f);
-					model.body.yRot += Mth.lerp(t, 0.6f, -0.7f) * sd * fade(age, 12f);
-				}
-			}
-			case UndeadState.ANIM_SWORD_THRUST, UndeadState.ANIM_SWORD_DASH -> {
+			case UndeadKitConfig.ANIM_K_CRESCENT -> {
 				if (age < 10f) {
+					// the draw-cut: from across the body out wide in one flat sweep, the body turning into it
+					float t = ease(age / 3f);
 					float w = fade(age, 10f);
-					set(arm, w, aim, model.head.yRot, 0f);
-					model.body.xRot += 0.3f * w;
-					model.body.yRot -= 0.3f * sd * w;
+					set(arm, w, -1.45f, Mth.lerp(t, 0.95f, -1.25f) * sd, Mth.lerp(t, 0.25f, -0.15f) * sd);
+					model.body.yRot += Mth.lerp(t, 0.35f, -0.4f) * sd * w;
 				}
 			}
-			case UndeadState.ANIM_SWORD_EDGE -> {
-				if (age < 12f) {
-					float t = ease(age / 5f);
-					set(arm, fade(age, 12f), Mth.lerp(t, -3.0f, -0.45f), model.head.yRot, 0f);
-					model.body.xRot += 0.25f * t * fade(age, 12f);
+			case UndeadKitConfig.ANIM_K_GREAT -> {
+				float wind = UndeadKitConfig.K_GREAT_WINDUP;
+				if (age < wind + 10f) {
+					// raised high overhead (a tremble as the blood gathers), then brought down hard to the front
+					float x = age < wind ? Mth.lerp(ease(age / 4f), -0.3f, -3.05f) + Mth.sin(age * 3f) * 0.03f
+							: Mth.lerp(ease((age - wind) / 2.5f), -3.05f, -0.55f);
+					float w = age < wind ? 1f : fade(age - wind, 10f);
+					set(arm, w, x, -0.15f * sd, 0.05f * sd);
+					model.body.xRot += (age < wind ? -0.08f : 0.35f * ease((age - wind) / 2.5f)) * w;
 				}
 			}
-			case UndeadState.ANIM_SWORD_GUARD, UndeadState.ANIM_SWORD_PARRY -> {
-				float len = s.animId == UndeadState.ANIM_SWORD_GUARD ? UndeadBoneSword.GUARD_TICKS : UndeadBoneSword.PARRY_TICKS + 4f;
+			case UndeadKitConfig.ANIM_K_FLASH -> {
+				float len = UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY + 4f;
 				if (age < len) {
-					set(arm, Math.min(ease(age / 2f), fade(age, len)), -1.45f, 0.75f * sd, 0.3f * sd); // the blade across the chest
+					// iaido: low at the hip, then the draw out across and forward, held out wide behind him until the cuts open
+					float t = ease(age / 2f);
+					float w = Math.min(1f, (len - age) / 4f);
+					set(arm, w, Mth.lerp(t, -0.35f, -1.35f), Mth.lerp(t, 0.85f, -1.45f) * sd, Mth.lerp(t, 0.1f, -0.35f) * sd);
+					model.body.yRot += Mth.lerp(t, 0.4f, -0.45f) * sd * w;
+					model.body.xRot += 0.2f * w;
 				}
 			}
-			case UndeadState.ANIM_SWORD_SPLINTER -> {
-				if (age < 10f) {
-					set(arm, fade(age, 10f), aim + Mth.sin(age * 3f) * 0.08f, model.head.yRot, 0f);
+			case UndeadKitConfig.ANIM_K_WHIRL -> {
+				float len = UndeadKitConfig.K_WHIRL_TICKS + 3f;
+				if (age < len) {
+					// the blade held out flat, swept round and round with the body swinging into each turn
+					float turn = Mth.clamp(age / (UndeadKitConfig.K_WHIRL_TICKS - 1f), 0f, 1f);
+					float ph = (1f - (1f - turn) * (1f - turn)) * Mth.TWO_PI * 2f;
+					float w = fade(age, len);
+					set(arm, w, -1.5f, Mth.sin(ph) * 1.3f * sd - 0.2f * sd, -0.2f * sd);
+					model.body.yRot += Mth.sin(ph) * 0.55f * sd * w;
 				}
 			}
 			default -> {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The v0.17.3 kit's poses with the katana not out: Ten Twists (the arm thrust out and wrenched round by the other hand, then
+	 * the follow-through as it flies), the Unluck Meteor (both arms raised to the sky, trembling as it builds; then one thrown
+	 * down at the target), the Rib Cage Guard (both hands hauling the ribs open), the shoulder sword going in and out. True if
+	 * one set the pose.
+	 */
+	private static boolean kitPose(Player player, UndeadState s, net.minecraft.client.model.HumanoidModel<?> model, float now, float age, ModelPart main,
+			ModelPart off, float sd, float aim) {
+		float partial = now - (float) Math.floor(now);
+		if (s.animId == UndeadKitConfig.ANIM_VORTEX_TWIST && age >= 0f && age < UndeadKitConfig.VORTEX_WINDUP + 1f) {
+			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+			ModelPart arm = useOff ? off : main, other = useOff ? main : off;
+			float as = useOff ? -sd : sd;
+			float k = Mth.clamp(age / UndeadKitConfig.VORTEX_WINDUP, 0f, 1f);
+			// each twist a wrench: the arm ratchets round its own length (zRot, with the arm pointing ahead), a jolt each time
+			float twists = k * UndeadKitConfig.VORTEX_TWISTS;
+			float step = twists - (float) Math.floor(twists);
+			float wrench = ((float) Math.floor(twists) + ease(step * 1.6f)) * 0.62f;
+			float jolt = Mth.sin(step * Mth.PI) * 0.06f;
+			set(arm, ease(age / 2f), aim + jolt, model.head.yRot, -as * wrench);
+			// the other hand grips the wrist and cranks it
+			set(other, ease(age / 2f), aim + 0.25f, model.head.yRot + 0.55f * as, as * (0.4f + Mth.sin(twists * Mth.TWO_PI) * 0.25f));
+			model.body.yRot += 0.18f * as * k;
+			return true;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_VORTEX_FIRE && age >= 0f && age < 8f) {
+			// the follow-through: the shoulder thrown forward after the arm, the other arm swinging back
+			float w = Mth.sin(Math.min(1f, age / 8f) * Mth.PI);
+			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+			ModelPart other = useOff ? main : off;
+			float as = useOff ? -sd : sd;
+			model.body.yRot -= 0.3f * as * w;
+			set(other, w, 0.7f, 0f, -0.2f * as);
+			return true;
+		}
+		float k = UndeadKitFx.charge(player, partial);
+		if (k >= 0f) {
+			// calling the meteor: both arms raised high to the sky, spread, trembling harder as it builds; the head thrown back
+			float e = ease(k * 6f);
+			float shake = Mth.sin(now * 2.7f) * 0.06f * k;
+			set(main, e, -2.75f + shake, 0.15f * sd, 0.45f * sd);
+			set(off, e, -2.75f - shake, -0.15f * sd, -0.45f * sd);
+			model.head.xRot = Mth.lerp(e * 0.6f, model.head.xRot, -0.7f) + shake * 0.5f;
+			model.body.xRot -= 0.08f * e;
+			return true;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_METEOR_CALL && age >= 0f && age < 16f) {
+			// thrown down at the target
+			float t = ease(age / 3f);
+			float w = fade(age, 16f);
+			set(main, w, Mth.lerp(t, -2.9f, aim + 0.1f), model.head.yRot, 0f);
+			set(off, w, Mth.lerp(t, -2.75f, 0.4f), -0.15f * sd, -0.3f * sd);
+			model.body.xRot += 0.2f * t * w;
+			return true;
+		}
+		float ribs = UndeadKitFx.ribs(player, partial);
+		if (ribs > 0.01f) {
+			// both hands at his chest, hauling the ribs apart
+			set(model.rightArm, ribs, -1.15f, -0.55f, 0.35f);
+			set(model.leftArm, ribs, -1.15f, 0.55f, -0.35f);
+			model.body.xRot -= 0.1f * ribs;
+			return true;
+		}
+		if ((s.animId == UndeadKitConfig.ANIM_SHOULDER_IN || s.animId == UndeadKitConfig.ANIM_SHOULDER_OUT) && age >= 0f && age < 10f) {
+			// the hand across to the other shoulder: driving it down in, or wrenching it up out
+			boolean in = s.animId == UndeadKitConfig.ANIM_SHOULDER_IN;
+			float t = ease(age / 4f);
+			float w = fade(age, 10f);
+			float x = in ? Mth.lerp(t, -3.0f, -2.3f) : Mth.lerp(t, -2.3f, -3.0f);
+			set(main, w, x, -0.75f * sd, -0.2f * sd);
+			model.head.yRot -= 0.35f * sd * w;
+			return true;
+		}
+		return false;
 	}
 
 	/** Tap V, Reform: he jolts as the body slams back together -- arms flung out, chest and head thrown back -- and settles. */
@@ -243,12 +321,7 @@ public final class UndeadBoneSwordRender {
 	/** In his hand (from {@link UndeadRender#renderLayer}, the pose at the model), plus the Rib Cage Guard. */
 	static void thirdPerson(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s, float now) {
 		float age = now - s.animStart;
-		if (s.animId == UndeadState.ANIM_SWORD_GUARD && age >= 0f && age < UndeadBoneSword.GUARD_TICKS) {
-			pose.pushPose();
-			model.body.translateAndRotate(pose);
-			ribs(pose, buffers, light, age);
-			pose.popPose();
-		}
+		shoulderSword(pose, buffers, light, player, model, s);
 		if (!s.boneSword()) {
 			return;
 		}
@@ -265,6 +338,41 @@ public final class UndeadBoneSwordRender {
 		pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
 		held(pose, player, left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, left);
 		drawHeld(pose, buffers, light, player, s, age, now, new Vector3f(0f, -1f, 0f), false);
+		pose.popPose();
+	}
+
+	/** Where the shoulder sword sits on the body (model px, the body's frame: +y down, front -z) and how it is turned (degrees). */
+	static float SHOULDER_X = 4.4f, SHOULDER_Y = -1.6f, SHOULDER_Z = 0.3f, SHOULDER_ROT_Z = -45f, SHOULDER_ROT_Y = 0f, SHOULDER_TILT = 14f,
+			SHOULDER_SINK = 0f, SHOULDER_SCALE = 0.85f;
+
+	/**
+	 * The sword stuck in his off shoulder ({@link UndeadShoulderSword}): driven in from above at a slant, point down into the
+	 * shoulder, the hilt and the top of the blade standing up out of it, a little blood round where it went in. The real item
+	 * (its own model and enchantment glint).
+	 */
+	static void shoulderSword(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s) {
+		ItemStack sword = UndeadShoulderSword.stored(player);
+		if (sword.isEmpty() || s.broken(UndeadState.BODY)) {
+			return;
+		}
+		int off = Undead.otherArm(Undead.mainArm(player));
+		float side = off == UndeadState.LEFT_ARM ? 1f : -1f; // the left arm sits at +x on the model
+		pose.pushPose();
+		model.body.translateAndRotate(pose);
+		pose.translate(side * SHOULDER_X / 16f, SHOULDER_Y / 16f, SHOULDER_Z / 16f);
+		// a little blood where it went in
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
+		float top = -SHOULDER_Y; // the top of the shoulder, where it went in
+		box(vc, pose.last(), -1.3f, top - 0.25f, -1.2f, 1.3f, top + 0.25f, 1.2f, BLOOD, light);
+		box(vc, pose.last(), side * 1.0f - 0.25f, top, -0.3f, side * 1.0f + 0.25f, top + 2.4f, 0.2f, BLOOD_WET, light);
+		// the item, in his front plane: its point driven down and in through the top of the shoulder, the hilt leaning out and a little back
+		pose.mulPose(Axis.YP.rotationDegrees(side * SHOULDER_ROT_Y));
+		pose.mulPose(Axis.XP.rotationDegrees(SHOULDER_TILT));
+		pose.mulPose(Axis.ZP.rotationDegrees(SHOULDER_ROT_Z + side * 22f)); // the point down and in, the hilt out past the head
+		pose.translate(SHOULDER_SINK, SHOULDER_SINK, 0f); // pushed in along its own diagonal
+		pose.scale(SHOULDER_SCALE, SHOULDER_SCALE, SHOULDER_SCALE);
+		Minecraft.getInstance().getItemRenderer().renderStatic(sword, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, pose, buffers,
+				player.level(), player.getId());
 		pose.popPose();
 	}
 
@@ -309,6 +417,15 @@ public final class UndeadBoneSwordRender {
 					struggleFirstPerson(renderer, player, age, pose, buffers, light);
 				}
 				return true;
+			}
+			if (s.animId == UndeadKitConfig.ANIM_VORTEX_TWIST && age >= 0f && age < UndeadKitConfig.VORTEX_WINDUP + 1f) {
+				if (hand == InteractionHand.MAIN_HAND) {
+					twistFirstPerson(player, s, age, pose, buffers, light);
+				}
+				return true;
+			}
+			if (hand == InteractionHand.OFF_HAND) {
+				shoulderFirstPerson(player, partial, pose, buffers, light);
 			}
 			return false;
 		}
@@ -382,6 +499,56 @@ public final class UndeadBoneSwordRender {
 	 * The first-person struggle (picked from filmed sets): the off arm moved in and up a little and turned in toward the middle;
 	 * the sword hand moved across onto it, turned to grip it.
 	 */
+	/**
+	 * First person, Ten Twists: the twisted arm thrust out ahead into the middle of the view, ratcheting round with each wrench;
+	 * the other hand on its wrist, cranking.
+	 */
+	private static void twistFirstPerson(AbstractClientPlayer player, UndeadState s, float age, PoseStack pose, MultiBufferSource buffers, int light) {
+		HumanoidArm mainSide = player.getMainArm();
+		boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+		HumanoidArm armSide = useOff ? mainSide.getOpposite() : mainSide;
+		float sd = armSide == HumanoidArm.RIGHT ? 1f : -1f;
+		float r = ease(age / 2f);
+		float k = Mth.clamp(age / UndeadKitConfig.VORTEX_WINDUP, 0f, 1f);
+		float twists = k * UndeadKitConfig.VORTEX_TWISTS;
+		float step = twists - (float) Math.floor(twists);
+		float wrench = ((float) Math.floor(twists) + ease(step * 1.6f)) * 36f;
+		float jolt = Mth.sin(step * Mth.PI);
+		// (just the arm, thrust a little further out and shaking with each wrench; the red spiral round it is drawn in the world)
+		pose.pushPose();
+		pose.translate(-sd * 0.06f * r + Mth.sin(twists * Mth.TWO_PI) * 0.012f, 0.05f * r + 0.02f * jolt, -0.12f * r);
+		fpArm(player, pose, buffers, light, armSide, p -> {
+			p.mulPose(Axis.XP.rotationDegrees(-6f * r + jolt * 4f));
+			p.mulPose(Axis.ZP.rotationDegrees(-sd * (wrench % 36f) * 0.25f));
+		});
+		pose.popPose();
+	}
+
+	/**
+	 * First person, the sword in his shoulder: its hilt standing up out of the bottom corner of the view on the off side (where
+	 * the shoulder is), swaying a little with him. Drawn from the off hand's turn (vanilla then draws whatever that hand holds).
+	 */
+	private static void shoulderFirstPerson(AbstractClientPlayer player, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+		ItemStack sword = UndeadShoulderSword.stored(player);
+		if (sword.isEmpty() || !player.getOffhandItem().isEmpty()) {
+			return;
+		}
+		float sd = player.getMainArm() == HumanoidArm.RIGHT ? -1f : 1f; // the off side
+		float bob = Mth.sin((player.walkDist + partial) * 2.2f) * 0.012f;
+		pose.pushPose();
+		pose.translate(sd * FP_SHOULDER_X, FP_SHOULDER_Y + bob, FP_SHOULDER_Z);
+		pose.mulPose(Axis.ZP.rotationDegrees(sd * FP_SHOULDER_ROLL));
+		pose.mulPose(Axis.XP.rotationDegrees(FP_SHOULDER_PITCH));
+		pose.mulPose(Axis.ZP.rotationDegrees(-135f + (sd > 0 ? 0f : 0f)));
+		pose.scale(0.62f, 0.62f, 0.62f);
+		Minecraft.getInstance().getItemRenderer().renderStatic(sword, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, pose, buffers,
+				player.level(), player.getId());
+		pose.popPose();
+	}
+
+	/** The first-person shoulder hilt's place: off to the side, low, a little ahead. */
+	static float FP_SHOULDER_X = 0.62f, FP_SHOULDER_Y = -0.62f, FP_SHOULDER_Z = -0.62f, FP_SHOULDER_ROLL = 18f, FP_SHOULDER_PITCH = -20f;
+
 	private static final float STRUGGLE_OFF_SHIFT = 0.12f, STRUGGLE_OFF_LIFT = 0.08f, STRUGGLE_OFF_Y = 25f, STRUGGLE_OFF_X = -12f;
 	private static final float STRUGGLE_MAIN_SHIFT = 0.45f, STRUGGLE_MAIN_LIFT = 0.0f, STRUGGLE_MAIN_Y = 45f, STRUGGLE_MAIN_X = 10f, STRUGGLE_MAIN_Z = -20f;
 
@@ -414,58 +581,52 @@ public final class UndeadBoneSwordRender {
 		pose.popPose();
 	}
 
-	/** First person: each sword move's swing on top of the held pose (blended in and out over its length). */
+	/** First person: each sword skill's swing on top of the held pose (blended in and out over its length). */
 	private static void moveOffsets(PoseStack pose, int anim, float age, float sd) {
 		if (age < 0f) {
 			return;
 		}
 		switch (anim) {
-			case UndeadState.ANIM_SWORD_SLASH1, UndeadState.ANIM_SWORD_SLASH2, UndeadState.ANIM_SWORD_COUNTER -> {
-				if (age < 7f) {
-					float t = ease(age / 4f);
-					float w = fade(age, 7f);
-					float dir = anim == UndeadState.ANIM_SWORD_SLASH2 ? -1f : 1f;
-					pose.translate(-sd * dir * Mth.lerp(t, -0.15f, 0.3f) * w, 0.08f * w, -0.12f * w);
-					pose.mulPose(Axis.YP.rotationDegrees(sd * dir * Mth.lerp(t, -40f, 55f) * w));
-					pose.mulPose(Axis.ZP.rotationDegrees(sd * dir * Mth.lerp(t, -30f, 40f) * w));
-				}
-			}
-			case UndeadState.ANIM_SWORD_SLASH3, UndeadState.ANIM_SWORD_EDGE -> {
-				if (age < 10f) {
-					float t = ease(age / 6f);
-					float w = fade(age, 10f);
-					if (anim == UndeadState.ANIM_SWORD_EDGE) {
-						pose.translate(0f, 0.1f * w, -0.1f * w);
-						pose.mulPose(Axis.XP.rotationDegrees(Mth.lerp(t, 50f, -60f) * w)); // over the head and down
-					} else {
-						pose.translate(-sd * Mth.lerp(t, -0.2f, 0.45f) * w, 0.05f * w, -0.1f * w);
-						pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.lerp(t, -70f, 80f) * w)); // a wide flat sweep
-						pose.mulPose(Axis.ZP.rotationDegrees(sd * 60f * w));
-					}
-				}
-			}
-			case UndeadState.ANIM_SWORD_THRUST, UndeadState.ANIM_SWORD_DASH -> {
-				if (age < 10f) {
+			case UndeadKitConfig.ANIM_K_CRESCENT -> {
+				if (age < 9f) {
+					// a flat draw-cut across the view
 					float t = ease(age / 3f);
-					float w = fade(age, 10f);
-					pose.translate(-sd * 0.12f * w, 0.08f * w, -0.35f * t * w);
-					pose.mulPose(Axis.XP.rotationDegrees(-25f * w));
+					float w = fade(age, 9f);
+					pose.translate(-sd * Mth.lerp(t, -0.25f, 0.5f) * w, 0.06f * w, -0.15f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.lerp(t, -65f, 75f) * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * 70f * w));
 				}
 			}
-			case UndeadState.ANIM_SWORD_GUARD, UndeadState.ANIM_SWORD_PARRY -> {
-				float len = anim == UndeadState.ANIM_SWORD_GUARD ? UndeadBoneSword.GUARD_TICKS : UndeadBoneSword.PARRY_TICKS + 4f;
+			case UndeadKitConfig.ANIM_K_GREAT -> {
+				float wind = UndeadKitConfig.K_GREAT_WINDUP;
+				if (age < wind + 10f) {
+					// raised up out of view, then down through the middle
+					float up = age < wind ? ease(age / 4f) : 1f - ease((age - wind) / 2.5f);
+					float down = age < wind ? 0f : ease((age - wind) / 2.5f) * fade(age - wind, 10f);
+					pose.translate(-sd * 0.2f * (up + down), 0.35f * up - 0.1f * down, -0.15f * down);
+					pose.mulPose(Axis.XP.rotationDegrees(55f * up - 70f * down));
+				}
+			}
+			case UndeadKitConfig.ANIM_K_FLASH -> {
+				float len = UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY + 4f;
 				if (age < len) {
-					float w = Math.min(ease(age / 3f), fade(age, len));
-					// the blade held across in front
-					pose.translate(-sd * 0.3f * w, 0.1f * w, 0f);
-					pose.mulPose(Axis.ZP.rotationDegrees(sd * 45f * w));
+					// drawn low from the hip and out across, then held out to the side
+					float t = ease(age / 2f);
+					float w = Math.min(1f, (len - age) / 4f);
+					pose.translate(-sd * Mth.lerp(t, -0.15f, 0.55f) * w, Mth.lerp(t, -0.15f, 0.02f) * w, -0.1f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.lerp(t, -40f, 85f) * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * Mth.lerp(t, 10f, 80f) * w));
 				}
 			}
-			case UndeadState.ANIM_SWORD_SPLINTER -> {
-				if (age < 8f) {
-					float w = fade(age, 8f);
-					pose.mulPose(Axis.XP.rotationDegrees((-20f + Mth.sin(age * 3f) * 5f) * w));
-					pose.translate(0f, 0f, -0.15f * w);
+			case UndeadKitConfig.ANIM_K_WHIRL -> {
+				float len = UndeadKitConfig.K_WHIRL_TICKS + 3f;
+				if (age < len) {
+					float turn = Mth.clamp(age / (UndeadKitConfig.K_WHIRL_TICKS - 1f), 0f, 1f);
+					float ph = (1f - (1f - turn) * (1f - turn)) * Mth.TWO_PI * 2f;
+					float w = fade(age, len);
+					pose.translate(-sd * Mth.sin(ph) * 0.45f * w, 0.05f * w, -0.1f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.sin(ph) * 80f * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * 75f * w));
 				}
 			}
 			default -> {
@@ -549,9 +710,9 @@ public final class UndeadBoneSwordRender {
 	 * Where drops form on the blade, in sword space (on its blood: the tip, the three runs off the bottom edge, the two drops
 	 * under the guard) and how many ticks each takes to swell and fall.
 	 */
-	private static final float[][] DRIP_AT = { { 0f, 0.6f, TIP_Z + 0.78f, 0.4f }, { 0f, 1.88f, -4.2f, 1.6f }, { 0f, 1.63f, -9.8f, 1.1f },
-			{ 0f, 1.375f, -15.4f, 1.4f }, { 0f, 5.5f, -2.05f, 1.2f }, { 0.67f, 1.7f, -1.8f, 1.2f } };
-	private static final int[] DRIP_EVERY = { 47, 63, 55, 71, 52, 79 };
+	private static final float[][] DRIP_AT = { { 0f, -0.9f, TIP_Z + 1.2f, 0.5f }, { 0f, 0.62f, -8.5f, 1.2f }, { 0f, 0.45f, -16.5f, 0.9f },
+			{ 0f, 0.1f, -23.0f, 1.1f }, { 0f, 2.3f, -1.8f, 1.0f } };
+	private static final int[] DRIP_EVERY = { 47, 63, 55, 71, 79 };
 	private static final Map<UUID, int[]> DRIP_SEEN = new HashMap<>();
 
 	/**
@@ -581,7 +742,7 @@ public final class UndeadBoneSwordRender {
 			float c = (tt - cycle * period) / period; // 0 .. 1 through this drop's swelling
 			float[] a = DRIP_AT[i];
 			float len = a[3] + 1.9f * c * c; // the run's own length, then the drop swelling at its end
-			float w = 0.17f + 0.13f * c;
+			float w = 0.11f + 0.09f * c;
 			bead(vc, pose.last(), a[0], a[1], a[2], d, len, w, c, light);
 			if (cycle != seen[i]) {
 				boolean first = seen[i] == 0;
@@ -591,7 +752,7 @@ public final class UndeadBoneSwordRender {
 					float reach = a[3] + 1.9f;
 					Vector4f end = m.transform(new Vector4f((a[0] + d.x * reach) / 16f, (a[1] + d.y * reach) / 16f, (a[2] + d.z * reach) / 16f, 1f));
 					Vec3 at = firstPerson ? viewToWorld(end) : cameraRelative(end);
-					BloodFx.bladeDrip(at, player.getDeltaMovement(), 0.055f + 0.015f * (i % 3));
+					BloodFx.bladeDrip(at, player.getDeltaMovement(), 0.035f + 0.01f * (i % 3));
 				}
 			}
 		}
@@ -664,131 +825,104 @@ public final class UndeadBoneSwordRender {
 
 	// ---------------------------------------------------------------- the mesh
 
-	/** The whole sword in sword space ({@code light} for everything; {@code wet}: held, its drops drawn by {@link #drips}). */
-	static void mesh(PoseStack pose, MultiBufferSource buffers, int light, float now, boolean wet) {
-		// the blade: the arm's bone, drawn long (the vanilla skeleton's 2 x 12 x 2 arm bone, stretched to 19 px)
-		pose.pushPose();
-		pose.translate(0f, 0f, -5.8f / 16f);
-		pose.mulPose(Axis.XP.rotationDegrees(-90f));
-		pose.scale(0.8f, 1.6f, 1.0f);
-		VanillaSkeleton.draw(pose.last(), buffers.getBuffer(RenderType.entityCutoutNoCull(VanillaSkeleton.TEXTURE)), VanillaSkeleton.RIGHT_ARM, -2f, 10f,
-				light, OverlayTexture.NO_OVERLAY, -1);
-		pose.popPose();
+	/** The katana's cutting edge: near-white bone, sharpened thin. */
+	static final int EDGE = 0xF6F2E8;
+	/** Where the blade starts (the collar) and how far it bows toward the spine at the tip (px). */
+	static final float BLADE_Z0 = -2.6f, SORI = 1.7f;
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
-		PoseStack.Pose p = pose.last();
-		// the jagged bone edges, top and bottom, tapering to the point (alternate segments stand proud: splintered)
-		float z = -2.7f;
-		for (int k = 0; k < 9; k++) {
-			float len = 2.1f;
-			float taper = 1f - k / 10f;
-			float jag = (k % 2 == 0) ? 0.35f : 0f;
-			float jag2 = (k % 3 == 1) ? 0.3f : 0f;
-			int c = k % 2 == 0 ? BONE : BONE_SHADE;
-			box(vc, p, -0.32f, -1.0f - (1.2f * taper + jag), z - len, 0.32f, -0.95f, z, c, light);
-			box(vc, p, -0.32f, 0.95f, z - len, 0.32f, 1.0f + (0.95f * taper + jag2), z, k % 2 == 0 ? BONE_SHADE : BONE, light);
-			// a notch of darker bone where the segments meet
-			box(vc, p, -0.34f, -1.0f - 0.25f, z - 0.25f, 0.34f, -0.95f, z, BONE_DARK, light);
-			z -= len;
-		}
-		// the point
-		box(vc, p, -0.38f, -0.85f, -23.0f, 0.38f, 0.85f, -21.6f, BONE_SHADE, light);
-		box(vc, p, -0.26f, -0.45f, TIP_Z, 0.26f, 0.45f, -22.9f, BONE, light);
-		// blood: streaks along both flats (just proud of the bone), darker at their ends
-		float[][] streaks = { { 1, -3.2f, -9.5f, -0.25f, 0.25f }, { -1, -4.5f, -12.5f, 0.05f, 0.6f }, { 1, -11.5f, -16.5f, -0.75f, -0.3f },
-				{ -1, -14f, -20.5f, -0.4f, 0.05f }, { 1, -17.5f, -22.2f, 0.2f, 0.55f } };
-		for (float[] st : streaks) {
-			float x = st[0] * 0.82f;
-			float x0 = st[0] > 0 ? x - 0.05f : x - 0.06f, x1 = st[0] > 0 ? x + 0.06f : x + 0.05f;
-			box(vc, p, x0, st[3], st[2], x1, st[4], st[1], BLOOD, light);
-			box(vc, p, x0 - 0.01f, st[3] - 0.08f, st[1] - 0.8f, x1 + 0.01f, st[4] + 0.08f, st[1], BLOOD_WET, light);
-			box(vc, p, x0 - 0.01f, st[3] + 0.05f, st[2], x1 + 0.01f, st[4] - 0.05f, st[2] + 0.6f, BLOOD_DARK, light);
-		}
-		// runs of blood down the bottom edge, hanging off it
-		float[][] runs = { { -4.2f, 1.6f }, { -9.8f, 1.1f }, { -15.4f, 1.4f } };
-		for (float[] r : runs) {
-			float edge = 1.0f + 0.95f * (1f - (-r[0] - 2.7f) / 2.1f / 10f);
-			box(vc, p, -0.36f, edge - 0.2f, r[0] - 0.7f, 0.36f, edge + 0.15f, r[0] + 0.5f, BLOOD, light);
-			if (!wet) {
-				// (held, the run hangs toward the ground and drips: drips())
-				box(vc, p, -0.2f, edge, r[0] - 0.2f, 0.2f, edge + r[1], r[0] + 0.2f, BLOOD_WET, light);
-				box(vc, p, -0.28f, edge + r[1] - 0.1f, r[0] - 0.28f, 0.28f, edge + r[1] + 0.4f, r[0] + 0.28f, BLOOD_DARK, light);
-			}
-		}
-		// the tip: blood over the point and a drop that swells and falls
-		box(vc, p, -0.4f, -0.5f, -23.2f, 0.4f, 0.9f, -22.2f, BLOOD, light);
-		if (!wet) {
-			// (held, the drops swell and fall: drips(); thrown, one hangs off the point)
-			box(vc, p, -0.16f, 0.6f, TIP_Z + 0.6f, 0.16f, 1.7f, TIP_Z + 0.95f, BLOOD_WET, light);
-			box(vc, p, -0.24f, 1.6f, TIP_Z + 0.5f, 0.24f, 2.08f, TIP_Z + 1.05f, BLOOD_DARK, light);
-		}
-
-		// the crossguard: congealed blood, blobby, glossy, a few drops hanging under it
-		box(vc, p, -1.15f, -4.0f, -2.75f, 1.15f, 4.0f, -1.35f, BLOOD, light);
-		box(vc, p, -1.6f, -1.7f, -3.05f, 1.6f, 1.7f, -1.05f, BLOOD_DARK, light); // the middle swells round the blade
-		box(vc, p, -1.45f, -5.1f, -2.95f, 1.45f, -3.3f, -1.15f, BLOOD, light); // the two ends: lumps
-		box(vc, p, -1.45f, 3.3f, -2.95f, 1.45f, 5.1f, -1.15f, BLOOD, light);
-		box(vc, p, -1.2f, -5.6f, -2.7f, 1.2f, -4.9f, -1.4f, BLOOD_WET, light);
-		box(vc, p, -1.2f, 4.9f, -2.7f, 1.2f, 5.5f, -1.4f, BLOOD_WET, light);
-		box(vc, p, -1.0f, -2.4f, -3.2f, 1.0f, 2.4f, -2.9f, BLOOD_WET, light); // a glossy lip on the blade side
-		// the gloss: bright wet highlights on the top and the faces
-		box(vc, p, -0.5f, -5.68f, -2.4f, 0.3f, -5.55f, -1.7f, BLOOD_GLOSS, light);
-		box(vc, p, 1.46f, -4.6f, -2.5f, 1.52f, -3.6f, -2.0f, BLOOD_GLOSS, light);
-		box(vc, p, -1.52f, 3.7f, -2.6f, -1.46f, 4.5f, -2.1f, BLOOD_GLOSS, light);
-		box(vc, p, 1.61f, -0.9f, -2.7f, 1.67f, 0.4f, -2.3f, BLOOD_GLOSS, light);
-		box(vc, p, -1.67f, -0.2f, -2.5f, -1.61f, 0.9f, -2.1f, BLOOD_GLOSS, light);
-		if (!wet) {
-			// drops hanging from the guard (held, they hang toward the ground and fall: drips())
-			box(vc, p, -0.22f, 5.5f, -2.25f, 0.22f, 6.7f, -1.85f, BLOOD_WET, light);
-			box(vc, p, -0.3f, 6.5f, -2.32f, 0.3f, 7.05f, -1.78f, BLOOD_DARK, light);
-			box(vc, p, 0.5f, 1.7f, -2.0f, 0.85f, 2.9f, -1.6f, BLOOD_WET, light);
-			box(vc, p, 0.45f, 2.75f, -2.05f, 0.9f, 3.2f, -1.55f, BLOOD_DARK, light);
-		}
-
-		// the grip: the arm's skin wrapped round, torn, raw flesh between
-		box(vc, p, -0.85f, -0.85f, -1.4f, 0.85f, 0.85f, 3.0f, SKIN, light);
-		box(vc, p, -0.95f, -0.95f, -0.3f, 0.95f, 0.95f, 0.35f, FLESH, light);
-		box(vc, p, -0.95f, -0.95f, 1.5f, 0.95f, 0.95f, 2.0f, FLESH, light);
-		box(vc, p, -0.9f, 0.6f, 0.35f, 0.9f, 0.92f, 1.5f, SKIN_DARK, light); // a fold of skin
-		box(vc, p, 0.86f, -0.3f, 2.0f, 0.96f, 0.5f, 2.9f, BLOOD, light);
-		// the pommel: the knuckle end of the bone, flesh still clinging
-		box(vc, p, -1.05f, -1.05f, 3.0f, 1.05f, 1.05f, 4.1f, BONE_SHADE, light);
-		box(vc, p, -0.75f, -0.75f, 4.1f, 0.75f, 0.75f, 4.5f, BONE, light);
-		box(vc, p, -1.12f, 0.4f, 2.9f, 1.12f, 1.12f, 3.5f, FLESH, light);
+	/** How far the blade bows toward its spine (-y) at {@code u} (0 at the collar, 1 at the tip). */
+	static float curve(float u) {
+		return -SORI * u * u;
 	}
 
 	/**
-	 * Rib Cage Guard: curved ribs of bone springing up round his chest (the pose at the body: model px, +y down, front -z),
-	 * snapping out over the first ticks and crumbling back at the end.
+	 * The whole katana in sword space ({@code light} for everything; {@code wet}: held, its drops drawn by {@link #drips}). The blade
+	 * is built from short straight pieces stepping round its curve, each a stack of strips from the spine to the edge.
 	 */
-	static void ribs(PoseStack pose, MultiBufferSource buffers, int light, float age) {
-		float out = Mth.clamp(age / 4f, 0f, 1f);
-		float in = Mth.clamp((UndeadBoneSword.GUARD_TICKS - age) / 5f, 0f, 1f);
-		float k = Math.min(out * out * (3f - 2f * out), in);
-		if (k <= 0.01f) {
-			return;
-		}
+	static void mesh(PoseStack pose, MultiBufferSource buffers, int light, float now, boolean wet) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
 		PoseStack.Pose p = pose.last();
-		for (int r = 0; r < 6; r++) {
-			float y = -1f + r * 2.3f;
-			float rad = (8.5f - Math.abs(r - 2.5f) * 0.6f) * (0.5f + 0.5f * k);
-			int segs = 9;
-			for (int i = 0; i < segs; i++) {
-				float a0 = Mth.lerp(i / (float) segs, -1.25f, 1.25f) * k;
-				float a1 = Mth.lerp((i + 1) / (float) segs, -1.25f, 1.25f) * k;
-				float x0 = Mth.sin(a0) * rad, z0 = -Mth.cos(a0) * rad;
-				float x1 = Mth.sin(a1) * rad, z1 = -Mth.cos(a1) * rad;
-				float droop = (i - segs * 0.5f) * (i - segs * 0.5f) * 0.03f;
-				box(vc, p, Math.min(x0, x1) - 0.35f, y + droop - 0.45f, Math.min(z0, z1) - 0.35f, Math.max(x0, x1) + 0.35f, y + droop + 0.45f,
-						Math.max(z0, z1) + 0.35f, (i + r) % 3 == 0 ? BONE_SHADE : BONE, light);
+		float len = BLADE_Z0 - TIP_Z;
+		int n = 26;
+		float kissaki = 0.88f;
+		for (int i = 0; i < n; i++) {
+			float u0 = i / (float) n * kissaki, u1 = (i + 1) / (float) n * kissaki, um = (u0 + u1) * 0.5f;
+			float z0 = BLADE_Z0 - u0 * len, z1 = BLADE_Z0 - u1 * len;
+			float y = curve(um);
+			float spine = y - 0.9f + 0.14f * um, edge = y + 0.9f - 0.2f * um;
+			float th = 0.26f - 0.08f * um; // thinner toward the tip
+			// the spine (mune), the flat, the blood groove (hi) down it, the hamon (a wavy line of blood), the white edge
+			box(vc, p, -th, spine, z1, th, spine + 0.34f, z0, BONE_SHADE, light);
+			box(vc, p, -th * 0.82f, spine + 0.34f, z1, th * 0.82f, edge - 0.44f, z0, BONE, light);
+			if (um < 0.72f) {
+				box(vc, p, -th * 0.82f - 0.012f, spine + 0.44f, z1, th * 0.82f + 0.012f, spine + 0.64f, z0, BLOOD_DARK, light);
 			}
-			// blood where the rib broke out of him
-			box(vc, p, -0.7f, y - 0.6f, -2.6f, 0.7f, y + 0.6f, -2.0f, BLOOD, light);
+			float wave = Mth.sin(i * 1.35f) * 0.09f;
+			box(vc, p, -th * 0.7f, edge - 0.44f + wave, z1, th * 0.7f, edge - 0.21f, z0, i % 2 == 0 ? BLOOD_GLOSS : BLOOD_WET, light);
+			box(vc, p, -0.09f, edge - 0.21f, z1, 0.09f, edge, z0, EDGE, light);
 		}
-		// the sternum down the middle, in front
-		float zs = -8.6f * (0.5f + 0.5f * k);
-		box(vc, p, -0.7f, -1.4f, zs - 0.5f, 0.7f, 11.5f, zs + 0.5f, BONE_SHADE, light);
+		// the yokote: the line where the point begins
+		float yk = curve(kissaki), zk = BLADE_Z0 - kissaki * len;
+		box(vc, p, -0.21f, yk - 0.66f, zk - 0.08f, 0.21f, yk + 0.6f, zk + 0.08f, BONE_DARK, light);
+		// the point (kissaki): the edge sweeps up to meet the spine
+		int kn = 5;
+		for (int k = 0; k < kn; k++) {
+			float a0 = k / (float) kn, a1 = (k + 1) / (float) kn;
+			float u0 = kissaki + (1f - kissaki) * a0, u1 = kissaki + (1f - kissaki) * a1;
+			float z0 = BLADE_Z0 - u0 * len, z1 = BLADE_Z0 - u1 * len;
+			float y = curve((u0 + u1) * 0.5f);
+			float spine = y - 0.62f;
+			float depth = 1.3f * (1f - a1 * a1) + 0.18f;
+			float th = 0.18f * (1f - a0 * 0.6f);
+			box(vc, p, -th, spine, z1, th, spine + depth * 0.62f, z0, BONE, light);
+			box(vc, p, -0.08f, spine + depth * 0.62f, z1, 0.08f, spine + depth, z0, EDGE, light);
+			box(vc, p, -th - 0.01f, spine, z1, th + 0.01f, spine + 0.22f, z0, BONE_SHADE, light);
+		}
+		// fresh blood on the blade: runs down the flats from the collar, and a smear near the point
+		float[][] smears = { { 1, 0.02f, 0.22f, 0.15f }, { -1, 0.0f, 0.3f, -0.05f }, { 1, 0.38f, 0.52f, 0.05f }, { -1, 0.6f, 0.78f, 0.2f },
+				{ 1, 0.8f, 0.92f, -0.1f } };
+		for (float[] sm : smears) {
+			float zA = BLADE_Z0 - sm[1] * len, zB = BLADE_Z0 - sm[2] * len;
+			float y = curve((sm[1] + sm[2]) * 0.5f) + sm[3];
+			float x = sm[0] * 0.235f;
+			box(vc, p, Math.min(x, x + sm[0] * 0.03f) - 0.01f, y - 0.16f, zB, Math.max(x, x + sm[0] * 0.03f) + 0.01f, y + 0.16f, zA, BLOOD, light);
+			box(vc, p, Math.min(x, x + sm[0] * 0.03f) - 0.012f, y - 0.2f, zB - 0.01f, Math.max(x, x + sm[0] * 0.03f) + 0.012f, y + 0.2f, zB + 0.5f, BLOOD_DARK,
+					light);
+		}
+		if (!wet) {
+			// thrown: a drop hanging off the point
+			box(vc, p, -0.14f, 0.0f, TIP_Z + 0.5f, 0.14f, 1.0f, TIP_Z + 0.8f, BLOOD_WET, light);
+		}
+
+		// the collar (habaki) of congealed blood round the blade's root, glossy
+		box(vc, p, -0.44f, -0.86f, -3.5f, 0.44f, 0.86f, -2.4f, BLOOD, light);
+		box(vc, p, -0.46f, -0.6f, -3.3f, 0.46f, -0.2f, -2.6f, BLOOD_GLOSS, light);
+		box(vc, p, -0.5f, -1.0f, -2.4f, 0.5f, 1.0f, -2.2f, BONE_DARK, light); // a bone washer
+		// the guard (tsuba): an oval of bone, a rim, four small openings and a bead of blood
+		box(vc, p, -1.3f, -2.1f, -2.2f, 1.3f, 2.1f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -1.65f, -1.7f, -2.2f, 1.65f, 1.7f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -1.9f, -1.1f, -2.2f, 1.9f, 1.1f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -0.95f, -1.45f, -2.27f, 0.95f, 1.45f, -1.55f, BONE, light);
+		for (int sx = -1; sx <= 1; sx += 2) {
+			for (int sy = -1; sy <= 1; sy += 2) {
+				box(vc, p, sx * 1.25f - 0.22f, sy * 1.25f - 0.22f, -2.24f, sx * 1.25f + 0.22f, sy * 1.25f + 0.22f, -1.58f, BONE_DARK, light);
+			}
+		}
+		box(vc, p, -0.3f, 1.55f, -2.3f, 0.3f, 2.0f, -1.5f, BLOOD, light);
+		box(vc, p, -0.5f, -1.0f, -1.62f, 0.5f, 1.0f, -1.42f, BONE_DARK, light); // a bone washer
+		// the grip (tsuka): a collar, white ray-skin bone wrapped in dark red, crossed so diamonds of bone show between
+		box(vc, p, -0.74f, -1.0f, -1.42f, 0.74f, 1.0f, -0.8f, BONE_DARK, light);
+		box(vc, p, -0.62f, -0.88f, -0.8f, 0.62f, 0.88f, 6.6f, BONE, light);
+		for (int i = 0; i < 7; i++) {
+			float z = -0.62f + i * 1.04f;
+			box(vc, p, -0.69f, -0.95f, z, 0.69f, 0.95f, z + 0.6f, BLOOD_DARK, light);
+			box(vc, p, -0.7f, -0.25f, z + 0.12f, 0.7f, 0.25f, z + 0.48f, BLOOD, light); // the crossing on the flats
+		}
+		box(vc, p, 0.66f, -0.32f, 2.3f, 0.8f, 0.32f, 3.2f, BONE_SHADE, light); // the ornaments under the wrap
+		box(vc, p, -0.8f, -0.32f, 2.9f, -0.66f, 0.32f, 3.8f, BONE_SHADE, light);
+		// the end cap (kashira) of bone
+		box(vc, p, -0.76f, -1.02f, 6.6f, 0.76f, 1.02f, 7.4f, BONE_SHADE, light);
+		box(vc, p, -0.56f, -0.78f, 7.4f, 0.56f, 0.78f, 7.75f, BONE_DARK, light);
 	}
 
 	/** A shard of the Splinter Volley, pointing along +z (the pose at the shard's middle). */

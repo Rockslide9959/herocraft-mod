@@ -1,0 +1,100 @@
+	/** The katana's cutting edge: near-white bone, sharpened thin. */
+	static final int EDGE = 0xF6F2E8;
+	/** Where the blade starts (the collar) and how far it bows toward the spine at the tip (px). */
+	static final float BLADE_Z0 = -2.6f, SORI = 1.7f;
+
+	/** How far the blade bows toward its spine (-y) at {@code u} (0 at the collar, 1 at the tip). */
+	static float curve(float u) {
+		return -SORI * u * u;
+	}
+
+	/**
+	 * The whole katana in sword space ({@code light} for everything; {@code wet}: held, its drops drawn by {@link #drips}). The blade
+	 * is built from short straight pieces stepping round its curve, each a stack of strips from the spine to the edge.
+	 */
+	static void mesh(PoseStack pose, MultiBufferSource buffers, int light, float now, boolean wet) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
+		PoseStack.Pose p = pose.last();
+		float len = BLADE_Z0 - TIP_Z;
+		int n = 26;
+		float kissaki = 0.88f;
+		for (int i = 0; i < n; i++) {
+			float u0 = i / (float) n * kissaki, u1 = (i + 1) / (float) n * kissaki, um = (u0 + u1) * 0.5f;
+			float z0 = BLADE_Z0 - u0 * len, z1 = BLADE_Z0 - u1 * len;
+			float y = curve(um);
+			float spine = y - 0.72f + 0.12f * um, edge = y + 0.72f - 0.16f * um;
+			float th = 0.26f - 0.08f * um; // thinner toward the tip
+			// the spine (mune), the flat, the blood groove (hi) down it, the hamon (a wavy line of blood), the white edge
+			box(vc, p, -th, spine, z1, th, spine + 0.34f, z0, BONE_SHADE, light);
+			box(vc, p, -th * 0.82f, spine + 0.34f, z1, th * 0.82f, edge - 0.44f, z0, BONE, light);
+			if (um < 0.72f) {
+				box(vc, p, -th * 0.82f - 0.012f, spine + 0.44f, z1, th * 0.82f + 0.012f, spine + 0.64f, z0, BLOOD_DARK, light);
+			}
+			float wave = Mth.sin(i * 1.35f) * 0.09f;
+			box(vc, p, -th * 0.7f, edge - 0.44f + wave, z1, th * 0.7f, edge - 0.21f, z0, i % 2 == 0 ? BLOOD_GLOSS : BLOOD_WET, light);
+			box(vc, p, -0.09f, edge - 0.21f, z1, 0.09f, edge, z0, EDGE, light);
+		}
+		// the yokote: the line where the point begins
+		float yk = curve(kissaki), zk = BLADE_Z0 - kissaki * len;
+		box(vc, p, -0.21f, yk - 0.66f, zk - 0.08f, 0.21f, yk + 0.6f, zk + 0.08f, BONE_DARK, light);
+		// the point (kissaki): the edge sweeps up to meet the spine
+		int kn = 5;
+		for (int k = 0; k < kn; k++) {
+			float a0 = k / (float) kn, a1 = (k + 1) / (float) kn;
+			float u0 = kissaki + (1f - kissaki) * a0, u1 = kissaki + (1f - kissaki) * a1;
+			float z0 = BLADE_Z0 - u0 * len, z1 = BLADE_Z0 - u1 * len;
+			float y = curve((u0 + u1) * 0.5f);
+			float spine = y - 0.62f;
+			float depth = 1.3f * (1f - a1 * a1) + 0.18f;
+			float th = 0.18f * (1f - a0 * 0.6f);
+			box(vc, p, -th, spine, z1, th, spine + depth * 0.62f, z0, BONE, light);
+			box(vc, p, -0.08f, spine + depth * 0.62f, z1, 0.08f, spine + depth, z0, EDGE, light);
+			box(vc, p, -th - 0.01f, spine, z1, th + 0.01f, spine + 0.22f, z0, BONE_SHADE, light);
+		}
+		// fresh blood on the blade: runs down the flats from the collar, and a smear near the point
+		float[][] smears = { { 1, 0.02f, 0.22f, 0.15f }, { -1, 0.0f, 0.3f, -0.05f }, { 1, 0.38f, 0.52f, 0.05f }, { -1, 0.6f, 0.78f, 0.2f },
+				{ 1, 0.8f, 0.92f, -0.1f } };
+		for (float[] sm : smears) {
+			float zA = BLADE_Z0 - sm[1] * len, zB = BLADE_Z0 - sm[2] * len;
+			float y = curve((sm[1] + sm[2]) * 0.5f) + sm[3];
+			float x = sm[0] * 0.235f;
+			box(vc, p, Math.min(x, x + sm[0] * 0.03f) - 0.01f, y - 0.16f, zB, Math.max(x, x + sm[0] * 0.03f) + 0.01f, y + 0.16f, zA, BLOOD, light);
+			box(vc, p, Math.min(x, x + sm[0] * 0.03f) - 0.012f, y - 0.2f, zB - 0.01f, Math.max(x, x + sm[0] * 0.03f) + 0.012f, y + 0.2f, zB + 0.5f, BLOOD_DARK,
+					light);
+		}
+		if (!wet) {
+			// thrown: a drop hanging off the point
+			box(vc, p, -0.14f, 0.0f, TIP_Z + 0.5f, 0.14f, 1.0f, TIP_Z + 0.8f, BLOOD_WET, light);
+		}
+
+		// the collar (habaki) of congealed blood round the blade's root, glossy
+		box(vc, p, -0.44f, -0.86f, -3.5f, 0.44f, 0.86f, -2.4f, BLOOD, light);
+		box(vc, p, -0.46f, -0.6f, -3.3f, 0.46f, -0.2f, -2.6f, BLOOD_GLOSS, light);
+		box(vc, p, -0.5f, -1.0f, -2.4f, 0.5f, 1.0f, -2.2f, BONE_DARK, light); // a bone washer
+		// the guard (tsuba): an oval of bone, a rim, four small openings and a bead of blood
+		box(vc, p, -1.3f, -2.1f, -2.2f, 1.3f, 2.1f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -1.65f, -1.7f, -2.2f, 1.65f, 1.7f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -1.9f, -1.1f, -2.2f, 1.9f, 1.1f, -1.62f, BONE_SHADE, light);
+		box(vc, p, -0.95f, -1.45f, -2.27f, 0.95f, 1.45f, -1.55f, BONE, light);
+		for (int sx = -1; sx <= 1; sx += 2) {
+			for (int sy = -1; sy <= 1; sy += 2) {
+				box(vc, p, sx * 1.25f - 0.22f, sy * 1.25f - 0.22f, -2.24f, sx * 1.25f + 0.22f, sy * 1.25f + 0.22f, -1.58f, BONE_DARK, light);
+			}
+		}
+		box(vc, p, -0.3f, 1.55f, -2.3f, 0.3f, 2.0f, -1.5f, BLOOD, light);
+		box(vc, p, -0.5f, -1.0f, -1.62f, 0.5f, 1.0f, -1.42f, BONE_DARK, light); // a bone washer
+		// the grip (tsuka): a collar, white ray-skin bone wrapped in dark red, crossed so diamonds of bone show between
+		box(vc, p, -0.74f, -1.0f, -1.42f, 0.74f, 1.0f, -0.8f, BONE_DARK, light);
+		box(vc, p, -0.62f, -0.88f, -0.8f, 0.62f, 0.88f, 6.6f, BONE, light);
+		for (int i = 0; i < 7; i++) {
+			float z = -0.62f + i * 1.04f;
+			box(vc, p, -0.69f, -0.95f, z, 0.69f, 0.95f, z + 0.6f, BLOOD_DARK, light);
+			box(vc, p, -0.7f, -0.25f, z + 0.12f, 0.7f, 0.25f, z + 0.48f, BLOOD, light); // the crossing on the flats
+		}
+		box(vc, p, 0.66f, -0.32f, 2.3f, 0.8f, 0.32f, 3.2f, BONE_SHADE, light); // the ornaments under the wrap
+		box(vc, p, -0.8f, -0.32f, 2.9f, -0.66f, 0.32f, 3.8f, BONE_SHADE, light);
+		// the end cap (kashira) of bone
+		box(vc, p, -0.76f, -1.02f, 6.6f, 0.76f, 1.02f, 7.4f, BONE_SHADE, light);
+		box(vc, p, -0.56f, -0.78f, 7.4f, 0.56f, 0.78f, 7.75f, BONE_DARK, light);
+	}
+

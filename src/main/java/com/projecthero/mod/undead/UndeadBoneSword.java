@@ -1,19 +1,19 @@
 package com.projecthero.mod.undead;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.projecthero.mod.undead.data.UndeadState;
-import com.projecthero.mod.undead.entity.UndeadCloneEntity;
-import com.projecthero.mod.undead.entity.UndeadPartEntity;
 import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.AbilitySlot;
-import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.undead.data.UndeadState;
+import com.projecthero.mod.undead.entity.UndeadCloneEntity;
 
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 
@@ -31,104 +31,83 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3f;
 
 /**
- * v0.17.3 (user: "add an ability for shift+V where the player rips an arm off and uses it as a bone sword with the accents being
- * blood and the guard of the sword should be blood too"; "make the players moveset change when they are using the bone sword"):
- * Shift+V tears off his off arm and holds it in the main hand as a sword of bone with a crossguard of congealed blood. The arm
- * does not grow back while the sword is out ({@link UndeadState#boneSwordArm}, checked by {@code Undead.scheduleRegrow}); putting it
- * away (Shift+V, {@link UndeadConfig#BONE_SWORD_MAX}, losing the hand, death) bursts it into blood and bone and the arm regrows.
+ * v0.17.3 hold V (user: "Bone sword, make it look like a bone katana and give him his sword skill moves that he does in the anime
+ * and manga when in this mode please"): Kurikara, the bone katana. Hold V and he wrenches his off arm loose; it tears off and
+ * bursts in his grip, leaving a long, slender, slightly curved bone blade with a bone guard and a wrapped grip. The arm does not
+ * grow back while it is out ({@link UndeadState#boneSwordArm}, checked by {@code Undead.scheduleRegrow}); putting it away (V or
+ * Shift+V, {@link UndeadConfig#BONE_SWORD_MAX}, losing the hand, death) bursts it into blood and bone and the arm regrows.
  *
- * <p>While it is out his keys are the sword kit ({@link #idsOf}):
+ * <p>While it is out his keys are the katana's sword skills ({@link #idsOf}; X stays his own):
  * <pre>
- *   R      Bone Slash (a three-hit combo, the third a wide sweep)   Shift+R  Marrow Thrust (a lunging stab)
- *   G      Blood Edge Wave (a crescent of blood thrown forward)     Shift+G  Rib Cage Guard (ribs spring up: a block that reflects)
- *   X      Blood-jet Dash (dash along the aim, slicing through)
- *   Z      Bone Splinter Volley (shards in a cone)                  Shift+Z  Impale Throw (the sword thrown; it is gone after)
- *   V      Regeneration speed (as ever)                             Shift+V  put the sword away
- *   C      Parry (a short window; a melee hit in it is countered)
+ *   R      Crimson Crescent Moon (Kurenai Mikazuki): a red crescent slash thrown off the blade
+ *   G      Great Deep-Crimson Crescent Moon: two-handed from overhead, a huge crescent that tears the ground's length
+ *   Z      Crimson Flash: an iaido draw -- he blurs forward through everything in his path; the cuts open behind him and he
+ *          drinks the blood they draw
+ *   C      Blood Whirl: two full turns of a blood-coated blade, all round him
+ *   V / Shift+V   put it away
  * </pre>
  * Left click is a sword: {@link UndeadConfig#BONE_SWORD_DAMAGE}, a sweep and a longer reach.
+ *
+ * <p>Also the hub for the rest of the v0.17.3 kit's server side (its tick, session state and lifecycle):
+ * {@link UndeadVortex} (Z), {@link UndeadMeteor} (Shift+Z), {@link UndeadRibGuard} (Shift+V), {@link UndeadShoulderSword}.
  */
 public final class UndeadBoneSword {
 	public static final String BONE_SWORD = "bone_sword";
-	public static final String SLASH = "bone_slash";
-	public static final String THRUST = "marrow_thrust";
-	public static final String EDGE = "blood_edge_wave";
-	public static final String GUARD = "rib_cage_guard";
-	public static final String SPLINTER = "bone_splinter_volley";
-	public static final String IMPALE = "impale_throw";
-	public static final String DASH = "blood_jet_dash";
-	public static final String PARRY = "bone_parry";
-	/** v0.17.3: V while the sword is out (the HUD and move list name). */
+	/** V while the sword is out (the HUD and move list name). */
 	public static final String AWAY = "bone_sword_away";
+	public static final String K_CRESCENT = "katana_crescent_moon";
+	public static final String K_GREAT = "katana_great_crescent_moon";
+	public static final String K_FLASH = "crimson_flash";
+	public static final String K_WHIRL = "blood_whirl";
 
-	// ---------------------------------------------------------------- the kit's numbers
-	public static final float[] SLASH_DAMAGE = { 8f, 8f, 12f };
-	public static final double SLASH_REACH = 3.6;
-	public static final int SLASH_COOLDOWN = 7;
-	public static final int SLASH_FINISH_COOLDOWN = 14;
-	/** The next press within this long carries the combo on. */
-	public static final int COMBO_WINDOW = 30;
-	public static final float THRUST_DAMAGE = 14f;
-	public static final int THRUST_TICKS = 3;
-	public static final double THRUST_SPEED = 1.1;
-	public static final int THRUST_COOLDOWN = 60;
-	public static final float EDGE_DAMAGE = 12f;
-	public static final double EDGE_RANGE = 12.0;
-	public static final double EDGE_SPEED = 1.1;
-	public static final int EDGE_COOLDOWN = 100;
-	public static final int GUARD_TICKS = 30;
-	public static final int GUARD_COOLDOWN = 160;
-	/** v0.17.3: a fleck of bone (Rib Cage Guard blocks): small, so nothing big pops up in front of the camera. */
+	/** A fleck of bone (the ribs being hit): small, so nothing big pops up in front of the camera. */
 	public static final DustParticleOptions BONE_CHIP = new DustParticleOptions(new Vector3f(0.90f, 0.87f, 0.78f), 0.45f);
-	/** v0.17.3: a small fleck of blood (Rib Cage Guard blocks; {@link Undead#BLOOD} is too big that close to the camera). */
+	/** A small fleck of blood ({@link Undead#BLOOD} is too big that close to the camera). */
 	public static final DustParticleOptions BLOOD_FLECK = new DustParticleOptions(new Vector3f(0.72f, 0.03f, 0.06f), 0.5f);
-	public static final int SPLINTERS = 7;
-	public static final float SPLINTER_DAMAGE = 5f;
-	public static final double SPLINTER_SPEED = 2.2;
-	public static final int SPLINTER_COOLDOWN = 120;
-	public static final float IMPALE_DAMAGE = 18f;
-	public static final double IMPALE_SPEED = 2.0;
+	/** The thrown sword (old Impale Throw pieces still flying from a save) pins this long. */
 	public static final int IMPALE_PIN_TICKS = 40;
-	public static final float DASH_DAMAGE = 10f;
-	public static final int DASH_TICKS = 5;
-	public static final double DASH_SPEED = 1.5;
-	public static final int DASH_COOLDOWN = 50;
-	public static final int PARRY_TICKS = 12;
-	public static final float PARRY_COUNTER_DAMAGE = 14f;
-	public static final int PARRY_COOLDOWN = 60;
-	/** A landed parry leaves only this much of the cooldown. */
-	public static final int PARRY_REFUND_COOLDOWN = 10;
 
 	private static final ResourceLocation DAMAGE_ID = PowerToggles.id("undead_bone_sword_damage");
 	private static final ResourceLocation REACH_ID = PowerToggles.id("undead_bone_sword_reach");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("undead_bone_sword_speed");
 
-	/** A lunge (Marrow Thrust, Blood-jet Dash): along {@code dir} for {@code ticks}, hitting what it passes once each. */
-	private record Lunge(Vec3 dir, long start, int ticks, double speed, float damage, Set<Integer> hit) {
+	/** A crescent in flight (R small, G great): where from, which way, when it sets off, its size and its hit, who it cut. */
+	private record Wave(Vec3 from, Vec3 dir, long start, int delay, double speed, double range, double width, double height, float damage,
+			double knock, double lift, Set<Integer> hit) {
 	}
 
-	/** Blood Edge Wave: where it runs from, which way, since when and who it hit. */
-	private record Wave(Vec3 from, Vec3 dir, long start, Set<Integer> hit) {
+	/** Crimson Flash: when, from, to, who it passed through, whether the cuts have opened. */
+	private static final class Flash {
+		final long start;
+		final Vec3 from;
+		final Vec3 to;
+		final Set<Integer> passed = new HashSet<>();
+		boolean opened;
+
+		Flash(long start, Vec3 from, Vec3 to) {
+			this.start = start;
+			this.from = from;
+			this.to = to;
+		}
 	}
 
-	/** player -> {combo step, when}. */
-	private static final Map<UUID, long[]> COMBO = new ConcurrentHashMap<>();
-	private static final Map<UUID, Lunge> LUNGES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Wave> WAVES = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> GUARD_UNTIL = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> PARRY_UNTIL = new ConcurrentHashMap<>();
+	private static final Map<UUID, List<Wave>> WAVES = new ConcurrentHashMap<>();
+	private static final Map<UUID, Flash> FLASHES = new ConcurrentHashMap<>();
+	/** Blood Whirl: player -> when it started. */
+	private static final Map<UUID, Long> WHIRLS = new ConcurrentHashMap<>();
 
 	private UndeadBoneSword() {
 	}
@@ -142,27 +121,31 @@ public final class UndeadBoneSword {
 			}
 			return InteractionResult.PASS;
 		});
+		UndeadKit.initialize(); // v0.17.3: the rest of the kit (Z, Shift+Z, Shift+V, the shoulder sword)
 	}
 
 	static void clearSessionState() {
-		COMBO.clear();
-		LUNGES.clear();
 		WAVES.clear();
-		GUARD_UNTIL.clear();
-		PARRY_UNTIL.clear();
+		FLASHES.clear();
+		WHIRLS.clear();
+		UndeadKit.clearSessionState();
 	}
 
 	static void forget(UUID id) {
-		COMBO.remove(id);
-		LUNGES.remove(id);
-		WAVES.remove(id);
-		GUARD_UNTIL.remove(id);
-		PARRY_UNTIL.remove(id);
+		forgetSword(id);
+		UndeadKit.forget(id);
 	}
 
-	/** Death, a world change, leaving, the shatter: the sword bursts (the arm grows back) and every running sword move ends. */
+	private static void forgetSword(UUID id) {
+		WAVES.remove(id);
+		FLASHES.remove(id);
+		WHIRLS.remove(id);
+	}
+
+	/** Death, a world change, leaving, the shatter: the sword bursts (the arm grows back) and every running kit move ends. */
 	static void clear(ServerPlayer p) {
-		forget(p.getUUID());
+		forgetSword(p.getUUID());
+		UndeadKit.clear(p);
 		UndeadState s = Undead.peek(p);
 		if (s != null && s.boneSword()) {
 			putAway(p, true, false);
@@ -171,7 +154,7 @@ public final class UndeadBoneSword {
 
 	// ---------------------------------------------------------------- state
 
-	/** The Bone Sword is out (client-safe). */
+	/** The katana is out (client-safe). */
 	public static boolean held(Player p) {
 		UndeadState s = Undead.peek(p);
 		return s != null && s.hasPower && s.boneSword();
@@ -182,22 +165,7 @@ public final class UndeadBoneSword {
 		return Undead.otherArm(s.boneSwordArm());
 	}
 
-	public static boolean guarding(ServerPlayer p) {
-		Long u = GUARD_UNTIL.get(p.getUUID());
-		return u != null && p.level().getGameTime() < u;
-	}
-
-	/** Gametests: drop the Rib Cage Guard early. */
-	public static void forTestsEndGuard(ServerPlayer p) {
-		GUARD_UNTIL.remove(p.getUUID());
-	}
-
-	public static boolean parrying(ServerPlayer p) {
-		Long u = PARRY_UNTIL.get(p.getUUID());
-		return u != null && p.level().getGameTime() < u;
-	}
-
-	/** From {@code Undead.reconcile}: the sword's damage, reach and speed while it is out. */
+	/** From {@code Undead.reconcile}: the sword's damage, reach and speed while it is out (and the shoulder sword's). */
 	static void attributes(ServerPlayer p, UndeadState s) {
 		if (s != null && s.hasPower && s.boneSword()) {
 			PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, DAMAGE_ID, UndeadConfig.BONE_SWORD_DAMAGE - 1.0 - UndeadConfig.BLOODY_ARTS_MELEE,
@@ -209,90 +177,71 @@ public final class UndeadBoneSword {
 			PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, SPEED_ID);
 		}
+		UndeadShoulderSword.attributes(p);
 	}
 
 	// ---------------------------------------------------------------- keys
 
-	/** The move ids on a slot while the sword is out (plain, Shift); null when it is not out. */
+	/** The move ids on a slot while the sword is out (plain, Shift); null when it is not out or the slot stays his own (X). */
 	public static String[] idsOf(Player player, AbilitySlot slot) {
 		if (!held(player)) {
 			return null;
 		}
 		return switch (slot) {
-			case SLOT_1 -> new String[] { SLASH, THRUST };
-			case SLOT_2 -> new String[] { EDGE, GUARD };
-			case SLOT_3 -> new String[] { DASH };
-			case SLOT_4 -> new String[] { SPLINTER, IMPALE };
-			case SLOT_5 -> new String[] { AWAY, UndeadAbilities.REGEN };
-			case SLOT_6 -> new String[] { PARRY };
-			default -> new String[0];
+			case SLOT_1 -> new String[] { K_CRESCENT };
+			case SLOT_2 -> new String[] { K_GREAT };
+			case SLOT_4 -> new String[] { K_FLASH };
+			case SLOT_5 -> new String[] { AWAY, AWAY };
+			case SLOT_6 -> new String[] { K_WHIRL };
+			default -> null;
 		};
 	}
 
+	/** The HUD's full cooldown for every move of the v0.17.3 kit (Z, Shift+Z, V, Shift+V, the katana); -1 for anything else. */
 	public static int maxCooldown(String id) {
 		return switch (id) {
 			case BONE_SWORD -> UndeadConfig.BONE_SWORD_COOLDOWN;
-			case SLASH -> SLASH_FINISH_COOLDOWN;
-			case THRUST -> THRUST_COOLDOWN;
-			case EDGE -> EDGE_COOLDOWN;
-			case GUARD -> GUARD_COOLDOWN;
-			case SPLINTER -> SPLINTER_COOLDOWN;
-			case IMPALE -> UndeadConfig.BONE_SWORD_COOLDOWN;
-			case DASH -> DASH_COOLDOWN;
-			case PARRY -> PARRY_COOLDOWN;
+			case K_CRESCENT -> UndeadKitConfig.K_CRESCENT_COOLDOWN;
+			case K_GREAT -> UndeadKitConfig.K_GREAT_COOLDOWN;
+			case K_FLASH -> UndeadKitConfig.K_FLASH_COOLDOWN;
+			case K_WHIRL -> UndeadKitConfig.K_WHIRL_COOLDOWN;
+			case UndeadAbilities.VORTEX -> UndeadKitConfig.VORTEX_COOLDOWN;
+			case UndeadMeteor.ID -> UndeadKitConfig.METEOR_COOLDOWN;
+			case UndeadRibGuard.ID -> UndeadKitConfig.RIB_COOLDOWN;
 			default -> -1;
 		};
 	}
 
-	/** A key while the sword is out; true if the sword kit took it. V puts the sword away; Shift+V is the regeneration speed. */
+	/** A key while the sword is out; true if the sword kit took it (X is left to his own kit). V or Shift+V puts it away. */
 	static boolean handle(ServerPlayer p, AbilitySlot slot, boolean pressed, boolean shift) {
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
-					if (shift) {
-						thrust(p);
-					} else {
-						slash(p);
-					}
+					crescent(p);
 				}
 				return true;
 			}
 			case SLOT_2 -> {
 				if (pressed) {
-					if (shift) {
-						guard(p);
-					} else {
-						edgeWave(p);
-					}
-				}
-				return true;
-			}
-			case SLOT_3 -> {
-				if (pressed) {
-					dash(p);
+					greatCrescent(p);
 				}
 				return true;
 			}
 			case SLOT_4 -> {
 				if (pressed) {
-					if (shift) {
-						impale(p);
-					} else {
-						splinters(p);
-					}
+					flash(p);
 				}
 				return true;
 			}
 			case SLOT_5 -> {
-				// v0.17.3: V puts it away (Shift+V, Toggle Regen, is read before the sword kit: UndeadAbilityManager)
-				if (pressed && !shift) {
+				if (pressed) {
 					putAway(p, true, true);
 				}
 				return true;
 			}
 			case SLOT_6 -> {
 				if (pressed) {
-					parry(p);
+					whirl(p);
 				}
 				return true;
 			}
@@ -400,7 +349,6 @@ public final class UndeadBoneSword {
 		if (!canDraw(p, true)) {
 			return false;
 		}
-		UndeadState s = Undead.state(p);
 		long now = p.level().getGameTime();
 		int arm = Undead.otherArm(Undead.mainArm(p));
 		Vec3 at = UndeadParts.centre(p, arm);
@@ -411,7 +359,6 @@ public final class UndeadBoneSword {
 		n.animId = UndeadState.ANIM_SWORD_RIP;
 		n.animStart = now;
 		Undead.save(p, n);
-		COMBO.remove(p.getUUID());
 		Undead.reconcile(p);
 		ServerLevel level = level(p);
 		UndeadSfx.partBreak(level, at);
@@ -420,13 +367,13 @@ public final class UndeadBoneSword {
 		return true;
 	}
 
-	/** {@link UndeadConfig#BONE_SWORD_REVEAL} after the rip: the arm bursts in his grip and the sword is left. */
+	/** {@link UndeadConfig#BONE_SWORD_REVEAL} after the rip: the arm bursts in his grip and the katana is left. */
 	private static void reveal(ServerPlayer p, UndeadState s) {
 		ServerLevel level = level(p);
 		Vec3 at = UndeadAbilities.handOrigin(p, hand(s)).add(p.getLookAngle().scale(0.35));
 		UndeadSfx.bloodBurst(level, at, 0.8f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.75f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.6f, 0.5f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.8f, 0.75f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.4f, 0.5f);
 	}
 
 	/**
@@ -450,19 +397,19 @@ public final class UndeadBoneSword {
 			n.abilityReadyAt.put(BONE_SWORD, now + UndeadConfig.BONE_SWORD_COOLDOWN);
 		}
 		Undead.save(p, n);
-		forget(p.getUUID());
+		forgetSword(p.getUUID());
 		Undead.reconcile(p);
 		if (burst) {
 			ServerLevel level = level(p);
 			Vec3 at = UndeadAbilities.handOrigin(p, hand).add(p.getLookAngle().scale(0.4));
 			UndeadSfx.bloodBurst(level, at, 0.5f);
-			level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.7f, 1.2f);
 		}
 	}
 
 	// ---------------------------------------------------------------- left click
 
-	/** A melee hit with the sword (the damage itself is vanilla's, from {@link #attributes}): the sweep, blood and sound. */
+	/** A melee hit with the katana (the damage itself is vanilla's, from {@link #attributes}): the sweep, blood and sound. */
 	public static void melee(ServerPlayer p, LivingEntity target, float strength) {
 		ServerLevel level = level(p);
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
@@ -471,7 +418,7 @@ public final class UndeadBoneSword {
 		if (strength < 0.9f) {
 			return;
 		}
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.9f, 0.85f);
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.05f);
 		Vec3 f = flatLook(p);
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.getX() + f.x, p.getY() + p.getBbHeight() * 0.5, p.getZ() + f.z, 1, 0, 0, 0, 0);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(1.0, 0.25, 1.0),
@@ -481,7 +428,7 @@ public final class UndeadBoneSword {
 		}
 	}
 
-	// ---------------------------------------------------------------- the sword kit
+	// ---------------------------------------------------------------- the sword skills
 
 	private static boolean begin(ServerPlayer p, String id) {
 		if (!held(p) || !Undead.canAct(p)) {
@@ -502,201 +449,189 @@ public final class UndeadBoneSword {
 		long now = p.level().getGameTime();
 		UndeadState n = Undead.state(p).copy();
 		n.abilityReadyAt.put(id, now + ticks);
-		if (anim >= 0) {
-			n.animId = anim;
-			n.animStart = now;
-		}
+		n.animId = anim;
+		n.animStart = now;
 		Undead.save(p, n);
 	}
 
-	/** R: Bone Slash -- 8, 8, then a wide 12 sweep; the next press within {@link #COMBO_WINDOW} carries it on. */
-	public static void slash(ServerPlayer p) {
-		if (!begin(p, SLASH)) {
+	/** R: Crimson Crescent Moon -- a quick draw-cut that throws a red crescent {@link UndeadKitConfig#K_CRESCENT_RANGE} blocks. */
+	public static void crescent(ServerPlayer p) {
+		if (!begin(p, K_CRESCENT)) {
 			return;
 		}
-		long now = p.level().getGameTime();
-		long[] c = COMBO.get(p.getUUID());
-		int step = c != null && now - c[1] <= COMBO_WINDOW && now >= c[1] ? (int) ((c[0] + 1) % 3) : 0;
-		COMBO.put(p.getUUID(), new long[] { step, now });
-		boolean finish = step == 2;
-		cooldownAnim(p, SLASH, finish ? SLASH_FINISH_COOLDOWN : SLASH_COOLDOWN, UndeadState.ANIM_SWORD_SLASH1 + step);
-		double reach = SLASH_REACH + (finish ? 0.6 : 0.0);
-		Vec3 o = p.position().add(0, 1.0, 0);
-		for (LivingEntity e : arc(p, reach, finish ? -0.25 : 0.3)) {
-			UndeadAbilities.strike(p, e, o, SLASH_DAMAGE[step], finish ? 0.9 : 0.35, finish ? 0.15 : 0.0);
-		}
-		// the blood arc the blade leaves
-		Vec3 f = flatLook(p), r = UndeadParts.right(p);
-		double span = finish ? 1.9 : 1.1;
-		double tilt = step == 0 ? 0.5 : step == 1 ? -0.5 : 0.0;
-		for (int i = -6; i <= 6; i++) {
-			double a = i / 6.0 * span;
-			double side = step == 1 ? -1 : 1;
-			Vec3 at = o.add(f.scale(Math.cos(a) * 2.2)).add(r.scale(Math.sin(a) * 2.2 * side)).add(0, Math.sin(a) * tilt * 0.6 + 0.2, 0);
-			level(p).sendParticles(Undead.BLOOD, at.x, at.y, at.z, 1, 0.03, 0.03, 0.03, 0.0);
-		}
-		if (finish) {
-			level(p).sendParticles(ParticleTypes.SWEEP_ATTACK, o.x + f.x * 1.6, o.y, o.z + f.z * 1.6, 1, 0, 0, 0, 0);
-		}
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, finish ? 1.0f : 0.7f, finish ? 0.7f : 1.0f + step * 0.12f);
-		UndeadSfx.swordSwing(level(p), o, finish ? 1f : 0.6f);
+		cooldownAnim(p, K_CRESCENT, UndeadKitConfig.K_CRESCENT_COOLDOWN, UndeadKitConfig.ANIM_K_CRESCENT);
+		wave(p, new Wave(p.position().add(0, 1.0, 0), lungeDir(p), p.level().getGameTime(), 2, UndeadKitConfig.K_CRESCENT_SPEED,
+				UndeadKitConfig.K_CRESCENT_RANGE, UndeadKitConfig.K_CRESCENT_WIDTH, 0.9, UndeadKitConfig.K_CRESCENT_DAMAGE, 0.7, 0.15, new HashSet<>()));
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.55f, 0.75f);
+		UndeadSfx.swordSwing(level(p), p.getEyePosition(), 0.6f);
 	}
 
-	/** Shift+R: Marrow Thrust -- a lunge along the aim, the point first, through everything in the way. */
-	public static void thrust(ServerPlayer p) {
-		if (!begin(p, THRUST)) {
+	/** G: Great Deep-Crimson Crescent Moon -- overhead, two-handed, and a huge crescent tears {@link UndeadKitConfig#K_GREAT_RANGE} blocks out. */
+	public static void greatCrescent(ServerPlayer p) {
+		if (!begin(p, K_GREAT)) {
 			return;
 		}
-		cooldownAnim(p, THRUST, THRUST_COOLDOWN, UndeadState.ANIM_SWORD_THRUST);
-		Vec3 dir = lungeDir(p);
-		LUNGES.put(p.getUUID(), new Lunge(dir, p.level().getGameTime(), THRUST_TICKS, THRUST_SPEED, THRUST_DAMAGE, new HashSet<>()));
-		AbilityHelpers.launchSelf(p, dir.scale(THRUST_SPEED));
-		tickLunge(p, LUNGES.get(p.getUUID()), p.level().getGameTime()); // the first stab lands at once
-		UndeadSfx.swordSwing(level(p), p.getEyePosition(), 0.9f);
-		sound(p, SoundEvents.TRIDENT_THROW.value(), 0.8f, 0.7f);
+		cooldownAnim(p, K_GREAT, UndeadKitConfig.K_GREAT_COOLDOWN, UndeadKitConfig.ANIM_K_GREAT);
+		wave(p, new Wave(p.position().add(0, 0.2, 0), flatLook(p), p.level().getGameTime(), UndeadKitConfig.K_GREAT_WINDUP, UndeadKitConfig.K_GREAT_SPEED,
+				UndeadKitConfig.K_GREAT_RANGE, UndeadKitConfig.K_GREAT_WIDTH, UndeadKitConfig.K_GREAT_HEIGHT, UndeadKitConfig.K_GREAT_DAMAGE, 1.5, 0.5,
+				new HashSet<>()));
+		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.6f, 0.6f); // the grip settling for the overhead cut
 	}
 
-	/** X: Blood-jet Dash -- a jet of blood out of the stump throws him along the aim, slicing what he passes. */
-	public static void dash(ServerPlayer p) {
-		if (!begin(p, DASH)) {
-			return;
-		}
-		cooldownAnim(p, DASH, DASH_COOLDOWN, UndeadState.ANIM_SWORD_DASH);
-		Vec3 dir = lungeDir(p);
-		LUNGES.put(p.getUUID(), new Lunge(dir, p.level().getGameTime(), DASH_TICKS, DASH_SPEED, DASH_DAMAGE, new HashSet<>()));
-		AbilityHelpers.launchSelf(p, dir.scale(DASH_SPEED));
-		tickLunge(p, LUNGES.get(p.getUUID()), p.level().getGameTime());
-		UndeadSfx.jetStart(level(p), p.position().add(0, 1, 0));
-		UndeadSfx.swordSwing(level(p), p.getEyePosition(), 1f);
+	private static void wave(ServerPlayer p, Wave w) {
+		WAVES.computeIfAbsent(p.getUUID(), k -> new ArrayList<>()).add(w);
 	}
 
-	private static Vec3 lungeDir(ServerPlayer p) {
-		Vec3 look = p.getLookAngle();
-		// mostly along the ground: a steep look only tilts it
-		Vec3 d = new Vec3(look.x, Math.max(-0.35, Math.min(0.35, look.y)), look.z);
-		return d.lengthSqr() < 1.0e-4 ? flatLook(p) : d.normalize();
-	}
-
-	private static void tickLunge(ServerPlayer p, Lunge l, long now) {
-		long age = now - l.start();
-		if (age >= l.ticks()) {
-			LUNGES.remove(p.getUUID());
-			return;
+	/** One crescent's tick: its front runs on, cutting what it reaches once each. */
+	private static boolean tickWave(ServerPlayer p, Wave w, long now) {
+		long age = now - w.start() - w.delay();
+		ServerLevel level = level(p);
+		if (age == 0 && w.height() > 2.0) {
+			// the great one: the blade comes down
+			level.playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 0.5f);
+			level.playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.25f, 1.2f);
+			Vec3 f = w.from().add(w.dir().scale(1.5));
+			level.sendParticles(Undead.BLOOD_BIG, f.x, f.y + 0.3, f.z, 10, 0.6, 0.1, 0.6, 0.0);
 		}
-		if (age > 0) {
-			AbilityHelpers.launchSelf(p, l.dir().scale(l.speed()));
-		}
-		p.resetFallDistance();
-		Vec3 c = p.position().add(0, 1.0, 0);
-		Vec3 tip = c.add(l.dir().scale(1.4));
-		for (LivingEntity e : level(p).getEntitiesOfClass(LivingEntity.class, new AABB(c, tip).inflate(1.1),
-				e -> e != p && !(e instanceof UndeadCloneEntity) && HeroTargets.canHarm(p, e))) {
-			if (l.hit().add(e.getId())) {
-				UndeadAbilities.strike(p, e, c, l.damage(), 0.6, 0.12);
-				UndeadSfx.swordHit(level(p), e.position().add(0, e.getBbHeight() * 0.5, 0));
-			}
-		}
-		level(p).sendParticles(Undead.BLOOD, c.x - l.dir().x, c.y - 0.3, c.z - l.dir().z, 3, 0.15, 0.2, 0.15, 0.0);
-	}
-
-	/** G: Blood Edge Wave -- a swing that throws a crescent of blood {@link #EDGE_RANGE} blocks forward. */
-	public static void edgeWave(ServerPlayer p) {
-		if (!begin(p, EDGE)) {
-			return;
-		}
-		cooldownAnim(p, EDGE, EDGE_COOLDOWN, UndeadState.ANIM_SWORD_EDGE);
-		WAVES.put(p.getUUID(), new Wave(p.position().add(0, 1.0, 0), lungeDir(p), p.level().getGameTime(), new HashSet<>()));
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.1f, 0.6f);
-		UndeadSfx.spray(level(p), p.getEyePosition());
-	}
-
-	private static void tickWave(ServerPlayer p, Wave w, long now) {
-		long age = now - w.start() - 3; // the swing comes round first
 		if (age < 0) {
-			return;
+			return true;
 		}
-		double d = 1.0 + age * EDGE_SPEED;
-		if (d > EDGE_RANGE) {
-			WAVES.remove(p.getUUID());
-			return;
+		double d = 1.0 + age * w.speed();
+		if (d > w.range()) {
+			return false;
 		}
 		Vec3 front = w.from().add(w.dir().scale(d));
+		boolean great = w.height() > 2.0;
+		// the box: the crescent's full width across, its height up from the ground for the great one, round its middle for the small
+		AABB box = great ? new AABB(front.x - w.width(), front.y - 0.5, front.z - w.width(), front.x + w.width(), front.y + w.height(), front.z + w.width())
+				: new AABB(front, front).inflate(w.width() + 0.3, w.height(), w.width() + 0.3);
 		Vec3 side = new Vec3(-w.dir().z, 0, w.dir().x).normalize();
-		ServerLevel level = level(p);
-		double width = 1.6;
-		// (the crescent itself and the blood it rains are drawn client-side: UndeadSwordFx)
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(front, front).inflate(width + 0.4, 1.4, width + 0.4),
-				e -> e != p && !(e instanceof UndeadCloneEntity) && HeroTargets.canHarm(p, e))) {
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> e != p && !(e instanceof UndeadCloneEntity) && HeroTargets.canHarm(p, e))) {
+			// only what is actually across the crescent's line (not behind its horns)
+			Vec3 rel = e.position().subtract(front);
+			if (Math.abs(rel.dot(side)) > w.width() + e.getBbWidth() * 0.5 || Math.abs(rel.dot(w.dir())) > 1.6 + w.speed()) {
+				continue;
+			}
 			if (w.hit().add(e.getId())) {
-				UndeadAbilities.strike(p, e, front.subtract(w.dir()), EDGE_DAMAGE, 0.7, 0.15);
+				UndeadAbilities.strike(p, e, front.subtract(w.dir().scale(1.5)), w.damage(), w.knock(), w.lift());
 				UndeadSfx.swordHit(level, e.position().add(0, e.getBbHeight() * 0.5, 0));
 			}
 		}
+		if (great && age % 2 == 0) {
+			// the ground torn along its path
+			level.sendParticles(Undead.BLOOD, front.x, front.y + 0.2, front.z, 4, w.width() * 0.5, 0.05, 0.3, 0.0);
+			level.sendParticles(ParticleTypes.SWEEP_ATTACK, front.x, front.y + 1.0, front.z, 1, w.width() * 0.4, 0.3, 0.2, 0);
+		}
+		return true;
 	}
 
-	/** Shift+G: Rib Cage Guard -- bone ribs spring up round him: hits are blocked and projectiles thrown back for a moment. */
-	public static void guard(ServerPlayer p) {
-		if (!begin(p, GUARD)) {
+	/**
+	 * Z: Crimson Flash -- the iaido draw. He blurs {@link UndeadKitConfig#K_FLASH_DISTANCE} blocks forward along the ground in
+	 * {@link UndeadKitConfig#K_FLASH_TICKS} ticks (stopping short of a wall), the blade out and back in its grip; everything he
+	 * passed through is cut open {@link UndeadKitConfig#K_FLASH_DELAY} later, and each cut heals him.
+	 */
+	public static void flash(ServerPlayer p) {
+		if (!begin(p, K_FLASH)) {
 			return;
 		}
-		cooldownAnim(p, GUARD, GUARD_COOLDOWN, UndeadState.ANIM_SWORD_GUARD);
-		GUARD_UNTIL.put(p.getUUID(), p.level().getGameTime() + GUARD_TICKS);
-		sound(p, SoundEvents.SKELETON_STEP, 1.0f, 0.6f);
-		sound(p, SoundEvents.BONE_BLOCK_PLACE, 1.0f, 0.7f);
-		UndeadSfx.spray(level(p), p.position().add(0, 1, 0));
-	}
-
-	private static void tickGuard(ServerPlayer p) {
-		// incoming projectiles bounce back off the ribs, now his
-		Vec3 c = p.position().add(0, 1.0, 0);
-		for (Projectile pr : level(p).getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(2.6), pr -> pr.getOwner() != p
-				&& !(pr instanceof UndeadPartEntity))) {
-			Vec3 v = pr.getDeltaMovement();
-			if (v.lengthSqr() > 0.01 && v.dot(c.subtract(pr.position())) > 0) {
-				pr.setDeltaMovement(v.scale(-1.1));
-				pr.setOwner(p);
-				pr.hurtMarked = true;
-				level(p).playSound(null, pr.getX(), pr.getY(), pr.getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.3f);
+		cooldownAnim(p, K_FLASH, UndeadKitConfig.K_FLASH_COOLDOWN, UndeadKitConfig.ANIM_K_FLASH);
+		Vec3 dir = flatLook(p);
+		Vec3 from = p.position();
+		double dist = UndeadKitConfig.K_FLASH_DISTANCE;
+		// stop short of a wall (at the feet and at the chest)
+		for (double y : new double[] { 0.3, 1.2 }) {
+			Vec3 a = from.add(0, y, 0);
+			BlockHitResult bhr = p.level().clip(new ClipContext(a, a.add(dir.scale(dist + 0.6)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+			if (bhr.getType() != HitResult.Type.MISS) {
+				dist = Math.min(dist, Math.max(0.0, bhr.getLocation().distanceTo(a) - 0.6));
 			}
 		}
+		Vec3 to = from.add(dir.scale(dist));
+		FLASHES.put(p.getUUID(), new Flash(p.level().getGameTime(), from, to));
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, 1.4f);
+		UndeadSfx.swordSwing(level(p), p.getEyePosition(), 1f);
+		tickFlash(p, FLASHES.get(p.getUUID()), p.level().getGameTime());
 	}
 
-	/** Z: Bone Splinter Volley -- the blade sheds a cone of bone shards. */
-	public static void splinters(ServerPlayer p) {
-		if (!begin(p, SPLINTER)) {
-			return;
+	private static void tickFlash(ServerPlayer p, Flash f, long now) {
+		long age = now - f.start;
+		int ticks = UndeadKitConfig.K_FLASH_TICKS;
+		ServerLevel level = level(p);
+		if (age <= ticks) {
+			double k0 = Math.max(0, age - 1) / (double) ticks, k1 = Math.min(1.0, age / (double) ticks);
+			Vec3 a = f.from.lerp(f.to, k0), b = f.from.lerp(f.to, k1);
+			if (age > 0) {
+				p.teleportTo(b.x, b.y, b.z);
+				p.setDeltaMovement(f.to.subtract(f.from).normalize().scale(0.3));
+				p.hurtMarked = true;
+				p.resetFallDistance();
+			}
+			// who he passes through
+			AABB box = new AABB(a, b).inflate(UndeadKitConfig.K_FLASH_WIDTH, 1.0, UndeadKitConfig.K_FLASH_WIDTH).expandTowards(0, 1.0, 0);
+			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> e != p && !(e instanceof UndeadCloneEntity) && HeroTargets.canHarm(p, e))) {
+				f.passed.add(e.getId());
+			}
+			level.sendParticles(BLOOD_FLECK, b.x, b.y + 1.0, b.z, 6, 0.4, 0.3, 0.4, 0.0);
 		}
-		cooldownAnim(p, SPLINTER, SPLINTER_COOLDOWN, UndeadState.ANIM_SWORD_SPLINTER);
-		UndeadState s = Undead.state(p);
-		Vec3 from = UndeadAbilities.handOrigin(p, hand(s)).add(p.getLookAngle().scale(0.4));
-		Vec3 look = UndeadAbilities.aimDir(p, from);
-		Vec3 r = UndeadParts.right(p);
-		Vec3 up = r.cross(look).normalize();
-		for (int i = 0; i < SPLINTERS; i++) {
-			double a = (i - (SPLINTERS - 1) / 2.0) * 0.11;
-			double b = (p.getRandom().nextDouble() - 0.5) * 0.08;
-			Vec3 v = look.add(r.scale(a)).add(up.scale(b)).normalize().scale(SPLINTER_SPEED);
-			UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_SPLINTER, -1, from, v, SPLINTER_DAMAGE);
+		if (!f.opened && age >= ticks + UndeadKitConfig.K_FLASH_DELAY) {
+			f.opened = true;
+			int cut = 0;
+			for (int id : f.passed) {
+				if (level.getEntity(id) instanceof LivingEntity e && e.isAlive()
+						&& UndeadAbilities.strike(p, e, e.position().subtract(f.to.subtract(f.from).normalize()), UndeadKitConfig.K_FLASH_DAMAGE, 0.3, 0.1)) {
+					cut++;
+					Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
+					level.sendParticles(Undead.BLOOD_BIG, c.x, c.y, c.z, 8, 0.25, 0.3, 0.25, 0.0);
+					UndeadSfx.swordHit(level, c);
+				}
+			}
+			if (cut > 0) {
+				p.heal(UndeadKitConfig.K_FLASH_HEAL * cut);
+			}
+			// the blade clicks home in its grip
+			level.playSound(null, p.getX(), p.getY() + 1, p.getZ(), SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 0.4f, 1.6f);
+			FLASHES.remove(p.getUUID());
 		}
-		sound(p, SoundEvents.SKELETON_SHOOT, 1.0f, 0.7f);
-		level(p).playSound(null, from.x, from.y, from.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 0.8f, 1.6f);
 	}
 
-	/** Shift+Z: Impale Throw -- the sword thrown point first; it pins what it hits and is gone (the arm grows back). */
-	public static void impale(ServerPlayer p) {
-		if (!begin(p, IMPALE)) {
+	/** Gametests: where the Crimson Flash ends. */
+	public static Vec3 forTestsFlashEnd(ServerPlayer p) {
+		Flash f = FLASHES.get(p.getUUID());
+		return f == null ? null : f.to;
+	}
+
+	/** C: Blood Whirl -- two turns with the blade coated in blood: everything round him within {@link UndeadKitConfig#K_WHIRL_RADIUS}, twice. */
+	public static void whirl(ServerPlayer p) {
+		if (!begin(p, K_WHIRL)) {
 			return;
 		}
-		UndeadState s = Undead.state(p);
-		Vec3 from = UndeadAbilities.handOrigin(p, hand(s));
-		putAway(p, false, true);
-		UndeadState n = Undead.state(p).copy();
-		n.animId = UndeadState.ANIM_SWORD_IMPALE;
-		n.animStart = p.level().getGameTime();
-		Undead.save(p, n);
-		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_SWORD, -1, from, UndeadAbilities.aimDir(p, from).scale(IMPALE_SPEED), IMPALE_DAMAGE);
-		sound(p, SoundEvents.TRIDENT_THROW.value(), 1.0f, 0.6f);
-		UndeadSfx.launch(level(p), from);
+		cooldownAnim(p, K_WHIRL, UndeadKitConfig.K_WHIRL_COOLDOWN, UndeadKitConfig.ANIM_K_WHIRL);
+		WHIRLS.put(p.getUUID(), p.level().getGameTime());
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, 0.85f);
+		tickWhirl(p, p.level().getGameTime(), p.level().getGameTime());
+	}
+
+	private static void tickWhirl(ServerPlayer p, long start, long now) {
+		long age = now - start;
+		if (age > UndeadKitConfig.K_WHIRL_TICKS) {
+			WHIRLS.remove(p.getUUID());
+			return;
+		}
+		ServerLevel level = level(p);
+		if (age == UndeadKitConfig.K_WHIRL_HIT1 || age == UndeadKitConfig.K_WHIRL_HIT2) {
+			Vec3 c = p.position().add(0, 0.9, 0);
+			double r = UndeadKitConfig.K_WHIRL_RADIUS;
+			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(r, 1.6, r),
+					e -> e != p && !(e instanceof UndeadCloneEntity) && HeroTargets.canHarm(p, e))) {
+				double dx = e.getX() - p.getX(), dz = e.getZ() - p.getZ();
+				if (dx * dx + dz * dz <= (r + e.getBbWidth() * 0.5) * (r + e.getBbWidth() * 0.5)) {
+					UndeadAbilities.strike(p, e, p.position(), UndeadKitConfig.K_WHIRL_DAMAGE, age == UndeadKitConfig.K_WHIRL_HIT2 ? 1.0 : 0.4, 0.15);
+					UndeadSfx.swordHit(level, e.position().add(0, e.getBbHeight() * 0.5, 0));
+				}
+			}
+			UndeadSfx.swordSwing(level, c, 0.8f);
+			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.45f, age == UndeadKitConfig.K_WHIRL_HIT2 ? 0.7f : 0.95f);
+		}
 	}
 
 	/** The thrown sword hit {@code target}: it is pinned (a heavy slow and no jumping) for {@link #IMPALE_PIN_TICKS}. */
@@ -711,72 +646,14 @@ public final class UndeadBoneSword {
 		}
 	}
 
-	/** C: Parry -- for {@link #PARRY_TICKS} a hit from in front does nothing, and a melee hit is countered. */
-	public static void parry(ServerPlayer p) {
-		if (!begin(p, PARRY)) {
-			return;
-		}
-		cooldownAnim(p, PARRY, PARRY_COOLDOWN, UndeadState.ANIM_SWORD_PARRY);
-		PARRY_UNTIL.put(p.getUUID(), p.level().getGameTime() + PARRY_TICKS);
-		UndeadSfx.swordSwing(level(p), p.getEyePosition(), 0.5f);
-	}
-
-	/**
-	 * From {@code UndeadDamage.allowDamage}: false if the Rib Cage Guard or a parry stops the hit (a parried melee hit is
-	 * countered at once).
-	 */
-	public static boolean blocks(ServerPlayer p, DamageSource source) {
-		if (!held(p) && !guarding(p)) {
-			return false;
-		}
-		boolean guard = guarding(p);
-		boolean parry = parrying(p);
-		if (!guard && !parry) {
-			return false;
-		}
-		Vec3 from = source.getSourcePosition();
-		if (from != null && !guard) {
-			Vec3 to = from.subtract(p.position());
-			Vec3 look = flatLook(p);
-			if (new Vec3(to.x, 0, to.z).normalize().dot(look) < -0.1) {
-				return false; // the parry only covers what is in front
-			}
-		} else if (from == null && !guard) {
-			return false;
-		}
-		ServerLevel level = level(p);
-		Vec3 c = p.getEyePosition().add(flatLook(p).scale(0.6));
-		if (parry) {
-			Entity attacker = source.getEntity();
-			if (attacker instanceof LivingEntity le && source.getDirectEntity() == attacker && le != p) {
-				PARRY_UNTIL.remove(p.getUUID());
-				UndeadState n = Undead.state(p).copy();
-				long now = p.level().getGameTime();
-				n.abilityReadyAt.put(PARRY, now + PARRY_REFUND_COOLDOWN);
-				n.animId = UndeadState.ANIM_SWORD_COUNTER;
-				n.animStart = now;
-				Undead.save(p, n);
-				UndeadAbilities.strike(p, le, p.position(), PARRY_COUNTER_DAMAGE, 1.0, 0.2);
-				UndeadSfx.swordHit(level, le.position().add(0, le.getBbHeight() * 0.5, 0));
-				level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 1.8f);
-			}
-			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 8, 0.2, 0.2, 0.2, 0.2);
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.8f);
-		} else {
-			// v0.17.3: small bone chips and a drop off the ribs at his chest (vanilla's bone-meal item cracks were huge right in
-			// front of the camera in first person)
-			// (on the ribs themselves, just in front of the chest: below a first-person view looking ahead)
-			Vec3 chest = p.position().add(0, p.getBbHeight() * 0.58, 0).add(flatLook(p).scale(0.25));
-			level.sendParticles(BONE_CHIP, chest.x, chest.y, chest.z, 4, 0.16, 0.1, 0.16, 0.0);
-			level.sendParticles(BLOOD_FLECK, chest.x, chest.y, chest.z, 2, 0.14, 0.08, 0.14, 0.0);
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.6f, 0.7f);
-		}
-		return true;
+	/** From {@code UndeadDamage.allowDamage}: false if the Rib Cage Guard (Shift+V) stops the hit ({@link UndeadRibGuard#blocks}). */
+	public static boolean blocks(ServerPlayer p, DamageSource source, float amount) {
+		return UndeadRibGuard.blocks(p, source, amount);
 	}
 
 	// ---------------------------------------------------------------- tick
 
-	/** From {@link UndeadAbilities#tick}, every tick (also while re-forming). */
+	/** From {@link UndeadAbilities#tick}, every tick (also while re-forming): the katana, then the rest of the kit. */
 	static void tick(ServerPlayer p) {
 		UndeadState s = Undead.state(p);
 		long now = p.level().getGameTime();
@@ -784,28 +661,32 @@ public final class UndeadBoneSword {
 			int hand = hand(s);
 			if (s.reformUntil > now || s.broken(hand) || s.broken(UndeadState.BODY) || !s.broken(s.boneSwordArm())) {
 				putAway(p, true, false); // lost the hand (or the body), or the arm is somehow back
-				return;
-			}
-			if (now - s.boneSwordSince() >= UndeadConfig.BONE_SWORD_MAX) {
+			} else if (now - s.boneSwordSince() >= UndeadConfig.BONE_SWORD_MAX) {
 				putAway(p, true, true);
-				return;
-			}
-			if (s.animId == UndeadState.ANIM_SWORD_RIP && now - s.animStart == UndeadConfig.BONE_SWORD_REVEAL) {
+			} else if (s.animId == UndeadState.ANIM_SWORD_RIP && now - s.animStart == UndeadConfig.BONE_SWORD_REVEAL) {
 				reveal(p, s);
 			}
-			// (the drops off the blade's tip and guard are client-side: UndeadBoneSwordRender)
 		}
-		Lunge l = LUNGES.get(p.getUUID());
-		if (l != null) {
-			tickLunge(p, l, now);
+		List<Wave> waves = WAVES.get(p.getUUID());
+		if (waves != null) {
+			for (Iterator<Wave> it = waves.iterator(); it.hasNext();) {
+				if (!tickWave(p, it.next(), now)) {
+					it.remove();
+				}
+			}
+			if (waves.isEmpty()) {
+				WAVES.remove(p.getUUID());
+			}
 		}
-		Wave w = WAVES.get(p.getUUID());
+		Flash f = FLASHES.get(p.getUUID());
+		if (f != null) {
+			tickFlash(p, f, now);
+		}
+		Long w = WHIRLS.get(p.getUUID());
 		if (w != null) {
-			tickWave(p, w, now);
+			tickWhirl(p, w, now);
 		}
-		if (guarding(p)) {
-			tickGuard(p);
-		}
+		UndeadKit.tick(p);
 	}
 
 	// ---------------------------------------------------------------- helpers
@@ -824,20 +705,10 @@ public final class UndeadBoneSword {
 		return flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
 	}
 
-	/** What is in a frontal arc of {@code reach} blocks and {@code cos} half-angle. */
-	private static List<LivingEntity> arc(ServerPlayer p, double reach, double cos) {
-		Vec3 c = p.position().add(0, 0.9, 0);
-		Vec3 f = flatLook(p);
-		return level(p).getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(reach), e -> {
-			if (e == p || e instanceof UndeadCloneEntity || !HeroTargets.canHarm(p, e)) {
-				return false;
-			}
-			Vec3 at = e.position().add(0, e.getBbHeight() * 0.5, 0);
-			if (at.distanceToSqr(c) > (reach + e.getBbWidth() * 0.5) * (reach + e.getBbWidth() * 0.5)) {
-				return false;
-			}
-			Vec3 to = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
-			return to.lengthSqr() < 0.8 || to.normalize().dot(f) >= cos;
-		});
+	private static Vec3 lungeDir(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		// mostly along the ground: a steep look only tilts it
+		Vec3 d = new Vec3(look.x, Math.max(-0.35, Math.min(0.35, look.y)), look.z);
+		return d.lengthSqr() < 1.0e-4 ? flatLook(p) : d.normalize();
 	}
 }
