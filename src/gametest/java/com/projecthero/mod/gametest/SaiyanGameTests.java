@@ -219,4 +219,65 @@ public class SaiyanGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) <= 1.01, "the form's attack bonus is gone");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.3 (user): V charges (tap or hold), X / Shift+X
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aTapOfVChargesUntilFull(GameTestHelper helper) {
+		ServerPlayer p = saiyan(helper);
+		Saiyan.setKi(p, 90f);
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+		helper.assertTrue(Saiyan.charging(p), "a tap keeps charging with V up");
+		ticks(helper, p, 30, () -> {
+			helper.assertTrue(Saiyan.ki(p) >= SaiyanConfig.KI_MAX - 0.01f, "full: " + Saiyan.ki(p));
+			helper.assertTrue(!Saiyan.charging(p), "a tapped charge stops at full Ki");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aSecondTapOfVStopsTheCharge(GameTestHelper helper) {
+		ServerPlayer p = saiyan(helper);
+		Saiyan.setKi(p, 10f);
+		var slot = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, true);
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, false);
+		ticks(helper, p, 5, () -> {
+			helper.assertTrue(Saiyan.charging(p), "still charging");
+			com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, true);
+			helper.assertTrue(!Saiyan.charging(p), "the second tap stops it");
+			com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, false);
+			helper.assertTrue(!Saiyan.charging(p), "and letting go doesn't restart it");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void holdingVChargesUntilLetGo(GameTestHelper helper) {
+		ServerPlayer p = saiyan(helper);
+		Saiyan.setKi(p, 10f);
+		var slot = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, true);
+		ticks(helper, p, 15, () -> {
+			helper.assertTrue(Saiyan.charging(p), "held: charging");
+			com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, slot, false);
+			helper.assertTrue(!Saiyan.charging(p), "a hold stops on release");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void xIsKiDashAndShiftXIsInstantStep(GameTestHelper helper) {
+		String[] x = com.projecthero.mod.saiyan.SaiyanAbilityManager.idsOf(com.projecthero.mod.hero.AbilitySlot.SLOT_3);
+		helper.assertTrue(x.length == 2 && x[0].equals("ki_dash") && x[1].equals("instant_step"), "X: Ki Dash / Shift+X: Instant Step");
+		String[] v = com.projecthero.mod.saiyan.SaiyanAbilityManager.idsOf(com.projecthero.mod.hero.AbilitySlot.SLOT_5);
+		helper.assertTrue(v.length == 2 && v[0].equals("charge") && v[1].equals("power_down"), "V: charge / Shift+V: power down");
+		ServerPlayer p = saiyan(helper);
+		Saiyan.setKi(p, 50f);
+		Vec3 before = p.position();
+		com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
+		helper.assertTrue(Saiyan.ki(p) < 50f, "the dash spent Ki");
+		helper.succeed();
+	}
 }

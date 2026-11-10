@@ -96,8 +96,7 @@ public final class SaiyanHud {
 				}
 			}
 			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_7), Component.translatable("projecthero.saiyan.ability.form_wheel"), null));
-			rows.add(MoveListOverlay.Row.of("Hold " + SaiyanClient.CHARGE.getTranslatedKeyMessage().getString(),
-					Component.translatable("projecthero.saiyan.ability.charge"), null));
+			rows.add(MoveListOverlay.Row.of("2x Jump", Component.translatable("projecthero.saiyan.ability.flight"), null));
 			MoveListOverlay.draw(g, x0 + WIDTH, by - 6, rows);
 		}
 	}
@@ -117,8 +116,8 @@ public final class SaiyanHud {
 			float frac = Math.min(1f, cd / (float) Math.max(1, SaiyanAbilityManager.maxCooldown(shown)));
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, SaiyanAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, SaiyanAbilityManager.maxCooldown(other)));
-			boolean active = slot == AbilitySlot.SLOT_3 && s.flying;
-			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), !s.charging, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
+			boolean active = slot == AbilitySlot.SLOT_5 && s.charging;
+			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), true, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
 	}
 

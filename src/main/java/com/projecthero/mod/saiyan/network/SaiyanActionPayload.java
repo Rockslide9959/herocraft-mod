@@ -9,14 +9,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client to server (v0.17.3): Q held / let go (charge Ki), and a pick on the H form wheel ({@code arg} = the
- * {@code SaiyanForm} ordinal). The server re-checks everything.
+ * Client to server (v0.17.3): charge Ki on / off (the V key now goes through the ability slots; these stay for old
+ * clients), a pick on the H form wheel ({@code arg} = the {@code SaiyanForm} ordinal) and the double-tap-jump flight
+ * toggle. The server re-checks everything.
  */
 public record SaiyanActionPayload(Action action, int arg) implements CustomPacketPayload {
 	public enum Action {
 		CHARGE_START,
 		CHARGE_STOP,
-		PICK_FORM
+		PICK_FORM,
+		TOGGLE_FLIGHT
 	}
 
 	public static final CustomPacketPayload.Type<SaiyanActionPayload> TYPE =

@@ -230,7 +230,7 @@ public final class Saiyan {
 		save(player, n);
 	}
 
-	/** Q pressed / let go. */
+	/** Charge Ki on / off (V: a tap or a hold, {@link SaiyanAbilityManager}). */
 	public static void setCharging(ServerPlayer player, boolean on) {
 		SaiyanState s = state(player);
 		if (!s.hasPower || s.charging == on) {
@@ -584,6 +584,7 @@ public final class Saiyan {
 			reconcile(player);
 		}
 		SaiyanFlight.tick(player);
+		SaiyanAbilityManager.tick(player);
 		SaiyanMoves.tick(player);
 		if (changed || now % SaiyanConfig.SYNC_INTERVAL == 0) {
 			save(player, state(player).copy());

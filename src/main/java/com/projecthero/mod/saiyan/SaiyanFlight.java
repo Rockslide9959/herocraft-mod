@@ -17,11 +17,11 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3: the Saiyan's movement on X. <b>X</b> is the Ki Dash: a burst along the look, faster in the stronger forms
- * ({@link SaiyanForm#speedMult()}), 6 Ki. <b>Shift+X</b> is flight, built like the Kryptonian's: vanilla
+ * v0.17.3: the Saiyan's movement. <b>X</b> is the Ki Dash: a burst along the look, faster in the stronger forms
+ * ({@link SaiyanForm#speedMult()}), 6 Ki. <b>Double-tap jump</b> in the air is flight, built like the Kryptonian's: vanilla
  * {@code mayfly}/{@code flying} so the server never kicks a hovering player, the movement itself the client's shared
  * directional flight (W along the look, Sprint faster, a dead hover with no input). It costs 0.25 Ki a second and ends at
- * 0 Ki, on landing, or on Shift+X again.
+ * 0 Ki, on landing, or on another double-tap.
  */
 public final class SaiyanFlight {
 	public static final String DASH = "ki_dash";
@@ -85,7 +85,7 @@ public final class SaiyanFlight {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Shift+X: flight
+	// ---------------------------------------------------------------- double-tap jump: flight
 
 	public static void toggle(ServerPlayer player) {
 		if (isFlying(player)) {
@@ -170,6 +170,8 @@ public final class SaiyanFlight {
 		if (!player.getAbilities().flying || !player.getAbilities().mayfly) {
 			if (now - start >= SaiyanConfig.FLIGHT_LIFTOFF_GRACE && !player.getAbilities().flying && player.getAbilities().mayfly) {
 				stop(player); // the client dropped vanilla flight on its own (landed / double-tapped): follow it
+				// the same double-tap's toggle request may land after this: the cooldown keeps it from taking off again
+				Saiyan.startCooldown(player, FLIGHT, SaiyanConfig.FLIGHT_TOGGLE_COOLDOWN);
 				return;
 			}
 			grantAbilities(player);

@@ -45,6 +45,11 @@ public final class SaiyanMod {
 						Saiyan.setCharging(p, true);
 					}
 				}
+				case TOGGLE_FLIGHT -> {
+					if (!com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
+						SaiyanFlight.toggle(p);
+					}
+				}
 				case PICK_FORM -> {
 					if (!com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
 						Saiyan.transform(p, SaiyanForm.byOrdinal(payload.arg()));

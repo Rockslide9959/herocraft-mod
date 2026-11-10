@@ -1398,6 +1398,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.17.3 (user): the Saiyan -- double-tap jump in the air takes off / drops out of flight (server re-validates).
+		if (com.projecthero.mod.client.saiyan.SaiyanClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.saiyan.SaiyanClient.toggleFlight();
+			return;
+		}
+
 		// v0.17.1: the Silver Surfer -- double-tap jump in the air calls the board up under his feet / drops it (server re-validates).
 		if (!player.onGround() && com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
