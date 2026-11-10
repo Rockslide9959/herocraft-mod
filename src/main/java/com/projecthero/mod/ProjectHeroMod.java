@@ -83,6 +83,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.SpiderManConfig.load(); // v0.16.1: the Spider-Man revamp (web structures, the 18 moves)
 		ModAttachments.initialize();
 		ModItems.initialize();
+		com.projecthero.mod.saiyan.SaiyanSounds.initialize(); // v0.17.3: the Saiyan power's synthesised sounds
 		IronManItems.initialize();
 		com.projecthero.mod.ironman.ability.IronManMark9.initialize(); // v0.16.7 Era II: the Mk IX Inferno heat sink / bombs tick
 		com.projecthero.mod.ironman.ability.IronManCenturionBlades.initialize(); // v0.16.7 (user): the Mk VII blades' melee sweep
