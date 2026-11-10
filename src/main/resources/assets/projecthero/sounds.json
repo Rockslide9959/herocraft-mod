@@ -3360,23 +3360,28 @@
     "sounds": [
       {
         "name": "projecthero:undead/part_break1",
-        "attenuation_distance": 20
+        "attenuation_distance": 20,
+        "volume": 0.55
       },
       {
         "name": "projecthero:undead/part_break2",
-        "attenuation_distance": 20
+        "attenuation_distance": 20,
+        "volume": 0.55
       },
       {
         "name": "projecthero:undead/part_break3",
-        "attenuation_distance": 20
+        "attenuation_distance": 20,
+        "volume": 0.55
       },
       {
         "name": "projecthero:undead/part_break4",
-        "attenuation_distance": 20
+        "attenuation_distance": 20,
+        "volume": 0.55
       },
       {
         "name": "projecthero:undead/part_break5",
-        "attenuation_distance": 20
+        "attenuation_distance": 20,
+        "volume": 0.55
       }
     ]
   },
@@ -3385,19 +3390,23 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_burst1",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_burst2",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_burst3",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_burst4",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.35
       }
     ]
   },
@@ -3406,19 +3415,23 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_spray1",
-        "attenuation_distance": 16
+        "attenuation_distance": 16,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_spray2",
-        "attenuation_distance": 16
+        "attenuation_distance": 16,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_spray3",
-        "attenuation_distance": 16
+        "attenuation_distance": 16,
+        "volume": 0.35
       },
       {
         "name": "projecthero:undead/blood_spray4",
-        "attenuation_distance": 16
+        "attenuation_distance": 16,
+        "volume": 0.35
       }
     ]
   },
@@ -3427,34 +3440,39 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_drip1",
-        "attenuation_distance": 8
+        "attenuation_distance": 8,
+        "volume": 0.4
       },
       {
         "name": "projecthero:undead/blood_drip2",
-        "attenuation_distance": 8
+        "attenuation_distance": 8,
+        "volume": 0.4
       },
       {
         "name": "projecthero:undead/blood_drip3",
-        "attenuation_distance": 8
+        "attenuation_distance": 8,
+        "volume": 0.4
       },
       {
         "name": "projecthero:undead/blood_drip4",
-        "attenuation_distance": 8
+        "attenuation_distance": 8,
+        "volume": 0.4
       },
       {
         "name": "projecthero:undead/blood_drip5",
-        "attenuation_distance": 8
+        "attenuation_distance": 8,
+        "volume": 0.4
       },
       {
         "name": "minecraft:block/pointed_dripstone/drip_water3",
         "attenuation_distance": 8,
-        "volume": 0.4,
+        "volume": 0.16,
         "pitch": 0.62
       },
       {
         "name": "minecraft:block/pointed_dripstone/drip_water7",
         "attenuation_distance": 8,
-        "volume": 0.4,
+        "volume": 0.16,
         "pitch": 0.58
       }
     ]
@@ -3464,34 +3482,39 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_splat1",
-        "attenuation_distance": 10
+        "attenuation_distance": 10,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_splat2",
-        "attenuation_distance": 10
+        "attenuation_distance": 10,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_splat3",
-        "attenuation_distance": 10
+        "attenuation_distance": 10,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_splat4",
-        "attenuation_distance": 10
+        "attenuation_distance": 10,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_splat5",
-        "attenuation_distance": 10
+        "attenuation_distance": 10,
+        "volume": 0.45
       },
       {
         "name": "minecraft:block/mud/step4",
         "attenuation_distance": 10,
-        "volume": 0.4,
+        "volume": 0.18,
         "pitch": 1.35
       },
       {
         "name": "minecraft:block/honeyblock/step2",
         "attenuation_distance": 10,
-        "volume": 0.4,
+        "volume": 0.18,
         "pitch": 1.2
       }
     ]
@@ -3501,15 +3524,18 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_jet_loop1",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.5
       },
       {
         "name": "projecthero:undead/blood_jet_loop2",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.5
       },
       {
         "name": "projecthero:undead/blood_jet_loop3",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.5
       }
     ]
   },
@@ -3518,15 +3544,18 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_jet_start1",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_jet_start2",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_jet_start3",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       }
     ]
   },
@@ -3535,15 +3564,18 @@
     "sounds": [
       {
         "name": "projecthero:undead/blood_jet_stop1",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_jet_stop2",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       },
       {
         "name": "projecthero:undead/blood_jet_stop3",
-        "attenuation_distance": 24
+        "attenuation_distance": 24,
+        "volume": 0.45
       }
     ]
   },

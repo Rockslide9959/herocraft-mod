@@ -665,7 +665,7 @@ public final class Undead {
 		}
 		// v0.17.3 (user: "players shouldn't be able to hold items while not having an arm"): eating, drawing a bow, raising a
 		// shield ... with a hand that just came off stops
-		if (player.isUsingItem() && UndeadMod.handGone(player, player.getUsedItemHand())) {
+		if (player.isUsingItem() && UndeadMod.handsBusy(player, player.getUsedItemHand())) {
 			player.stopUsingItem();
 		}
 		// v0.17.3 (tester: "A way people can naturally pick up the head"): carried by another player while only a head; once his

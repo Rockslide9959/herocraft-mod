@@ -116,7 +116,7 @@ public final class UndeadBoneSword {
 		// left click with the sword out: a sword's sweep round the target, and a wet slash
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
 			if (!world.isClientSide() && player instanceof ServerPlayer sp && entity instanceof LivingEntity target && held(sp)
-					&& !UndeadMod.handGone(sp, hand)) {
+					&& !UndeadMod.attackBlocked(sp, hand)) {
 				melee(sp, target, sp.getAttackStrengthScale(0.5f));
 			}
 			return InteractionResult.PASS;

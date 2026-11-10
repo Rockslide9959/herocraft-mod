@@ -45,13 +45,15 @@ public final class UndeadMod {
 		UndeadDamage.initialize();
 		UndeadBoneSword.initialize(); // v0.17.3 Shift+V: the sword's melee sweep
 		// a missing hand can't hit or use anything (main arm), or hold anything (off arm)
-		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
-		AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
-		UseBlockCallback.EVENT.register((player, world, hand, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
-		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> handGone(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
+		// v0.17.3 (user: "when undead sword mode is active player shouldnt be able to hold items aswell"): with the Bone Sword out his
+		// hands hold the sword (and the torn-off arm's hand is gone) -- nothing held is used, and a hit only lands with an empty hand
+		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> attackBlocked(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
+		AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> attackBlocked(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> handsBusy(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> handsBusy(player, hand) ? InteractionResult.FAIL : InteractionResult.PASS);
 		// v0.17.3 (tester: "A way people can naturally pick up the head"): an empty hand picks up an Undead who is only a head
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> UndeadCarry.tryPickUp(player, hand, entity));
-		UseItemCallback.EVENT.register((player, world, hand) -> handGone(player, hand)
+		UseItemCallback.EVENT.register((player, world, hand) -> handsBusy(player, hand)
 				? InteractionResultHolder.fail(player.getItemInHand(hand)) : InteractionResultHolder.pass(player.getItemInHand(hand)));
 		ServerPlayerEvents.JOIN.register(Undead::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Undead.clearTransient(newPlayer));
@@ -79,6 +81,24 @@ public final class UndeadMod {
 			return false;
 		}
 		return hand == InteractionHand.MAIN_HAND ? Undead.mainHandMissing(player) : Undead.offHandMissing(player);
+	}
+
+	/** v0.17.3: that hand can't use anything -- it is gone, or the Bone Sword is out (his hands hold it). */
+	public static boolean handsBusy(Player player, InteractionHand hand) {
+		return handGone(player, hand) || swordOut(player);
+	}
+
+	/** v0.17.3: a hit with that hand is refused -- the hand is gone, or the Bone Sword is out and something else is in the hand. */
+	public static boolean attackBlocked(Player player, InteractionHand hand) {
+		return handGone(player, hand) || swordOut(player) && !player.getItemInHand(hand).isEmpty();
+	}
+
+	private static boolean swordOut(Player player) {
+		if (!Undead.hasPower(player) || player.isSpectator()) {
+			return false;
+		}
+		com.projecthero.mod.undead.data.UndeadState s = Undead.peek(player);
+		return s != null && s.boneSword();
 	}
 
 	public static void clearSessionState() {

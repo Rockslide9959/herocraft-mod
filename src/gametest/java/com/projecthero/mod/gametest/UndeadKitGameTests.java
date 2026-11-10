@@ -555,4 +555,21 @@ public class UndeadKitGameTests implements FabricGameTest {
 		helper.assertTrue(UndeadShoulderSword.weapon(p) == null, "the katana out: the katana is the weapon");
 		helper.succeed();
 	}
+
+	/** v0.17.3 (user: "when undead sword mode is active player shouldnt be able to hold items aswell"). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void swordModeHoldsNoItems(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(Items.BREAD));
+		helper.assertTrue(!com.projecthero.mod.undead.UndeadMod.handsBusy(p, net.minecraft.world.InteractionHand.MAIN_HAND), "no sword: the hand is free");
+		helper.assertTrue(UndeadBoneSword.draw(p) && UndeadBoneSword.held(p), "the katana is out");
+		for (net.minecraft.world.InteractionHand h : net.minecraft.world.InteractionHand.values()) {
+			helper.assertTrue(com.projecthero.mod.undead.UndeadMod.handsBusy(p, h), "nothing held can be used: " + h);
+		}
+		helper.assertTrue(com.projecthero.mod.undead.UndeadMod.attackBlocked(p, net.minecraft.world.InteractionHand.MAIN_HAND), "a hit with the diamond sword in hand is refused");
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		helper.assertTrue(!com.projecthero.mod.undead.UndeadMod.attackBlocked(p, net.minecraft.world.InteractionHand.MAIN_HAND), "an empty hand swings the katana");
+		helper.succeed();
+	}
 }
