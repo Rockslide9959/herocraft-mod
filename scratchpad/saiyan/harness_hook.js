@@ -1,0 +1,20 @@
+// TEMP: hook SaiyanFxHarness in (arg "on") or out (arg "off").
+const fs = require('fs');
+const on = process.argv[2] !== 'off';
+let f = 'src/client/resources/projecthero.client.mixins.json';
+let t = fs.readFileSync(f, 'utf8');
+const nl = t.includes('\r\n') ? '\r\n' : '\n';
+const anchor = '\t\t"AndyHeldItemMixin",';
+const mix = anchor + nl + '\t\t"SaiyanFxHarnessMixin",';
+if (on && !t.includes('SaiyanFxHarnessMixin')) t = t.replace(anchor, mix);
+if (!on) t = t.replace(mix, anchor);
+JSON.parse(t);
+fs.writeFileSync(f, t);
+f = 'src/client/java/com/projecthero/mod/client/ProjectHeroModClient.java';
+t = fs.readFileSync(f, 'utf8');
+const nl2 = t.includes('\r\n') ? '\r\n' : '\n';
+const hook = '\t\tModKeyBindings.initialize();' + nl2 + '\t\tSaiyanFxHarness.init(); // TEMP-HARNESS';
+if (on && !t.includes('SaiyanFxHarness')) t = t.replace('\t\tModKeyBindings.initialize();', hook);
+if (!on) t = t.replace(hook, '\t\tModKeyBindings.initialize();');
+fs.writeFileSync(f, t);
+console.log(on ? 'hooked' : 'unhooked');

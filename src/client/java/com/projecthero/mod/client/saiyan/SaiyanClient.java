@@ -35,6 +35,7 @@ public final class SaiyanClient {
 	public static void initialize() {
 		KeyBindingHelper.registerKeyBinding(CHARGE);
 		HudRenderCallback.EVENT.register(SaiyanHud::render);
+		SaiyanVisualsClient.initialize(); // the aura
 		ClientTickEvents.START_CLIENT_TICK.register(SaiyanClient::holdBackDrop);
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanLoopSounds::tick); // the aura and charge loops (SaiyanSounds)
