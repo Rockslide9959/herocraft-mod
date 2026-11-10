@@ -250,6 +250,7 @@
       "com.projecthero.mod.gametest.UndeadGameTests",
       "com.projecthero.mod.gametest.UndeadEjectGameTests",
       "com.projecthero.mod.gametest.UndeadBulletGameTests",
+      "com.projecthero.mod.gametest.UndeadKitGameTests",
       "com.projecthero.mod.gametest.SaiyanMovesGameTests",
       "com.projecthero.mod.gametest.UndeadSoundsGameTests",
       "com.projecthero.mod.gametest.UndeadRegenGameTests",

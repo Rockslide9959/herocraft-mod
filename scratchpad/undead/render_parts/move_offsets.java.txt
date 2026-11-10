@@ -1,0 +1,53 @@
+	/** First person: each sword skill's swing on top of the held pose (blended in and out over its length). */
+	private static void moveOffsets(PoseStack pose, int anim, float age, float sd) {
+		if (age < 0f) {
+			return;
+		}
+		switch (anim) {
+			case UndeadKitConfig.ANIM_K_CRESCENT -> {
+				if (age < 9f) {
+					// a flat draw-cut across the view
+					float t = ease(age / 3f);
+					float w = fade(age, 9f);
+					pose.translate(-sd * Mth.lerp(t, -0.25f, 0.5f) * w, 0.06f * w, -0.15f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.lerp(t, -65f, 75f) * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * 70f * w));
+				}
+			}
+			case UndeadKitConfig.ANIM_K_GREAT -> {
+				float wind = UndeadKitConfig.K_GREAT_WINDUP;
+				if (age < wind + 10f) {
+					// raised up out of view, then down through the middle
+					float up = age < wind ? ease(age / 4f) : 1f - ease((age - wind) / 2.5f);
+					float down = age < wind ? 0f : ease((age - wind) / 2.5f) * fade(age - wind, 10f);
+					pose.translate(-sd * 0.2f * (up + down), 0.35f * up - 0.1f * down, -0.15f * down);
+					pose.mulPose(Axis.XP.rotationDegrees(55f * up - 70f * down));
+				}
+			}
+			case UndeadKitConfig.ANIM_K_FLASH -> {
+				float len = UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY + 4f;
+				if (age < len) {
+					// drawn low from the hip and out across, then held out to the side
+					float t = ease(age / 2f);
+					float w = Math.min(1f, (len - age) / 4f);
+					pose.translate(-sd * Mth.lerp(t, -0.15f, 0.55f) * w, Mth.lerp(t, -0.15f, 0.02f) * w, -0.1f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.lerp(t, -40f, 85f) * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * Mth.lerp(t, 10f, 80f) * w));
+				}
+			}
+			case UndeadKitConfig.ANIM_K_WHIRL -> {
+				float len = UndeadKitConfig.K_WHIRL_TICKS + 3f;
+				if (age < len) {
+					float turn = Mth.clamp(age / (UndeadKitConfig.K_WHIRL_TICKS - 1f), 0f, 1f);
+					float ph = (1f - (1f - turn) * (1f - turn)) * Mth.TWO_PI * 2f;
+					float w = fade(age, len);
+					pose.translate(-sd * Mth.sin(ph) * 0.45f * w, 0.05f * w, -0.1f * w);
+					pose.mulPose(Axis.YP.rotationDegrees(sd * Mth.sin(ph) * 80f * w));
+					pose.mulPose(Axis.ZP.rotationDegrees(sd * 75f * w));
+				}
+			}
+			default -> {
+			}
+		}
+	}
+

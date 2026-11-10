@@ -1726,8 +1726,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.undead.body");
 			blank(lines);
 			boolean victorOn = com.projecthero.mod.undead.UndeadConfig.VICTOR_ENABLED; // v0.17.3: Victor is off for now
-			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit", "victor"}
-					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "suit"}) {
+			for (String section : victorOn ? new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "meteor", "shoulder_sword", "suit", "victor"}
+					: new String[]{"card", "parts", "missing", "regen", "headonly", "flight", "undead", "passives", "bone_sword", "meteor", "shoulder_sword", "suit"}) {
 				head(lines, "projecthero.guide.undead." + section);
 				para(lines, "projecthero.guide.undead." + section + ".body");
 				blank(lines);
@@ -1736,21 +1736,18 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Shift+R", "parts_bullet_hand" }, { "Hold R", "parts_bullet_arm" }, { "Hold G", "blood_spray" },
 					{ "Shift+G", "blood_whirlwind" }, { "X", "eject_feet" }, { "Shift+X", "combustion_punch" }, { "Hold X", "head_throw" }, { "Double-tap jump", "flight" },
 					{ "Z", "vortex_bullet" },
-					{ "Shift+Z", "parts_bullet_head" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : null },
+					{ "Shift + hold Z", "unluck_meteor" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", "rib_cage_guard" },
+					{ "Shift + right click", "shoulder_sword" },
 					{ "Hold C", "deadline" },
 					{ "Shift+C", "division_bullet" } }) {
-				if (row[1] == null) {
-					continue; // v0.17.3: Shift+V has no move of its own while Victor is off (Toggle Regen was removed)
-				}
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.undead.ability." + row[1] + ".desc");
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.undead.sword_controls"); // v0.17.3: the keys while the Bone Sword is out
-			for (String[] row : new String[][] { { "R", "bone_slash" }, { "Shift+R", "marrow_thrust" }, { "G", "blood_edge_wave" }, { "Shift+G", "rib_cage_guard" },
-					{ "X", "blood_jet_dash" }, { "Z", "bone_splinter_volley" }, { "Shift+Z", "impale_throw" }, { "C", "bone_parry" }, { "V", "bone_sword_away" },
-					{ "Shift+V", "regen_speed" } }) {
+			head(lines, "projecthero.guide.undead.sword_controls"); // v0.17.3: the keys while the katana is out
+			for (String[] row : new String[][] { { "R", "katana_crescent_moon" }, { "G", "katana_great_crescent_moon" }, { "Z", "crimson_flash" },
+					{ "C", "blood_whirl" }, { "V / Shift+V", "bone_sword_away" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.undead.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.undead.ability." + row[1] + ".desc");

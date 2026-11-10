@@ -1,0 +1,57 @@
+	/**
+	 * First person, Ten Twists: the twisted arm thrust out ahead into the middle of the view, ratcheting round with each wrench;
+	 * the other hand on its wrist, cranking.
+	 */
+	private static void twistFirstPerson(AbstractClientPlayer player, UndeadState s, float age, PoseStack pose, MultiBufferSource buffers, int light) {
+		HumanoidArm mainSide = player.getMainArm();
+		boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
+		HumanoidArm armSide = useOff ? mainSide.getOpposite() : mainSide;
+		float sd = armSide == HumanoidArm.RIGHT ? 1f : -1f;
+		float r = ease(age / 2f);
+		float k = Mth.clamp(age / UndeadKitConfig.VORTEX_WINDUP, 0f, 1f);
+		float twists = k * UndeadKitConfig.VORTEX_TWISTS;
+		float step = twists - (float) Math.floor(twists);
+		float wrench = ((float) Math.floor(twists) + ease(step * 1.6f)) * 36f;
+		float jolt = Mth.sin(step * Mth.PI);
+		pose.pushPose();
+		pose.translate(-sd * 0.22f * r, 0.06f * r + 0.015f * jolt, -0.1f * r);
+		fpArm(player, pose, buffers, light, armSide, p -> {
+			p.mulPose(Axis.YP.rotationDegrees(-sd * 18f * r));
+			p.mulPose(Axis.XP.rotationDegrees(-8f * r + jolt * 3f));
+			p.mulPose(Axis.ZP.rotationDegrees(-sd * wrench * 0.35f)); // the ratchet round its length
+		});
+		pose.popPose();
+		pose.pushPose();
+		pose.translate(sd * 0.3f * r + Mth.sin(twists * Mth.TWO_PI) * 0.02f, -0.02f * r, -0.05f * r);
+		fpArm(player, pose, buffers, light, armSide.getOpposite(), p -> {
+			p.mulPose(Axis.YP.rotationDegrees(sd * 40f * r));
+			p.mulPose(Axis.XP.rotationDegrees(6f * r + Mth.sin(twists * Mth.TWO_PI) * 6f));
+		});
+		pose.popPose();
+	}
+
+	/**
+	 * First person, the sword in his shoulder: its hilt standing up out of the bottom corner of the view on the off side (where
+	 * the shoulder is), swaying a little with him. Drawn from the off hand's turn (vanilla then draws whatever that hand holds).
+	 */
+	private static void shoulderFirstPerson(AbstractClientPlayer player, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+		ItemStack sword = UndeadShoulderSword.stored(player);
+		if (sword.isEmpty() || !player.getOffhandItem().isEmpty()) {
+			return;
+		}
+		float sd = player.getMainArm() == HumanoidArm.RIGHT ? -1f : 1f; // the off side
+		float bob = Mth.sin((player.walkDist + partial) * 2.2f) * 0.012f;
+		pose.pushPose();
+		pose.translate(sd * FP_SHOULDER_X, FP_SHOULDER_Y + bob, FP_SHOULDER_Z);
+		pose.mulPose(Axis.ZP.rotationDegrees(sd * FP_SHOULDER_ROLL));
+		pose.mulPose(Axis.XP.rotationDegrees(FP_SHOULDER_PITCH));
+		pose.mulPose(Axis.ZP.rotationDegrees(-135f + (sd > 0 ? 0f : 0f)));
+		pose.scale(0.62f, 0.62f, 0.62f);
+		Minecraft.getInstance().getItemRenderer().renderStatic(sword, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, pose, buffers,
+				player.level(), player.getId());
+		pose.popPose();
+	}
+
+	/** The first-person shoulder hilt's place: off to the side, low, a little ahead. */
+	static float FP_SHOULDER_X = 0.62f, FP_SHOULDER_Y = -0.62f, FP_SHOULDER_Z = -0.62f, FP_SHOULDER_ROLL = 18f, FP_SHOULDER_PITCH = -20f;
+

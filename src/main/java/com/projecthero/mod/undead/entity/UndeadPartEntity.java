@@ -404,13 +404,7 @@ public class UndeadPartEntity extends Projectile {
 		this.struck.add(le.getId());
 		Vec3 v = this.getDeltaMovement();
 		switch (this.style()) {
-			case STYLE_DRILL -> {
-				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.6, 0.15);
-				this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 1.0f, 0.6f);
-				if (this.struck.size() >= UndeadConfig.VORTEX_PIERCE) {
-					this.setDeltaMovement(v.scale(0.8));
-				}
-			}
+			case STYLE_DRILL -> com.projecthero.mod.undead.UndeadVortex.entityHit(p, this, le); // v0.17.3: bores through every creature on its line
 			case STYLE_PUNCH -> {
 				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, 1.5, 0.3);
 				this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.7f);

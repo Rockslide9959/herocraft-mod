@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.undead.Undead;
 import com.projecthero.mod.undead.UndeadBoneSword;
 import com.projecthero.mod.undead.UndeadConfig;
+import com.projecthero.mod.undead.UndeadKitConfig;
 import com.projecthero.mod.undead.UndeadParts;
 import com.projecthero.mod.undead.data.UndeadState;
 
@@ -30,21 +31,19 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * v0.17.3 (user: "Give the sword attacks actual vfx"): the Bone Sword kit's effects, client-side, started from the synced move
- * animation ({@link UndeadState#animId} / {@code animStart}) so every viewer sees them:
+ * v0.17.3: the bone katana's effects (hold V), client-side, started from the synced move animation ({@link UndeadState#animId}
+ * / {@code animStart}) so every viewer sees them:
  * <ul>
- * <li>Bone Slash (and the parry's counter): a crescent swoosh round him -- a curtain of blood with a white-hot leading edge,
- * sweeping across along the cut (forehand, backhand, then a wide flat finisher) and flinging drops off its head.</li>
- * <li>Marrow Thrust: a spear streak out along the aim, a bone-white core in a red sheath, and a shock ring at its tip.</li>
- * <li>Blood-jet Dash: a curtain of blood left along the path and the stump's jet.</li>
- * <li>Blood Edge Wave: a flying crescent of blood with a glowing edge, raining drops as it goes.</li>
- * <li>Rib Cage Guard: a ring bursting out along the ground, bone splinters and blood off the chest; bone crumbling at the end.</li>
- * <li>Bone Splinter Volley: a muzzle cone of bone dust and blood.</li>
- * <li>Impale Throw: an overhead swoosh.</li>
- * <li>Parry: a white star flash on the blade; a landed parry flares bigger, throws sparks and cuts back.</li>
+ * <li>Crimson Crescent Moon (R): the draw-cut's swoosh, then a red crescent with a white-hot edge flying out, raining drops.</li>
+ * <li>Great Deep-Crimson Crescent Moon (G): blood gathering on the raised blade, the overhead swoosh, then a towering crescent
+ * of blood running along the ground, its crest glowing, tearing a spray of blood up behind it.</li>
+ * <li>Crimson Flash (Z): a white-red streak along the path of the draw; when the cuts open, blood bursts out all along it.</li>
+ * <li>Blood Whirl (C): two rings of blood swept round him, flinging drops off their heads.</li>
  * </ul>
- * Also the hold-V draw (blood at the shoulder as the arm gives, the arm bursting round the blade) and Reform's flash of blood and flesh closing.
- * Drawn from {@link UndeadEffectsRenderer#render} after the entities; the drops are {@link BloodFx}'s.
+ * Also the hold-V draw (blood at the shoulder as the arm gives, the arm bursting round the blade) and Reform's flash of blood and
+ * flesh closing. The rest of the v0.17.3 kit's effects (Vortex Bullet, Unluck Meteor, Rib Cage Guard, the shoulder sword) are
+ * {@link UndeadKitFx}'s, run from here. Drawn from {@link UndeadEffectsRenderer#render} after the entities; the drops are
+ * {@link BloodFx}'s.
  */
 public final class UndeadSwordFx {
 	private static final RandomSource RND = RandomSource.create();
@@ -82,20 +81,21 @@ public final class UndeadSwordFx {
 	static void reset() {
 		LIVE.clear();
 		SEEN.clear();
+		UndeadKitFx.reset();
 	}
 
 	// ---------------------------------------------------------------- watching
 
-	/** From the client tick, for every Undead: a sword move that just started starts its effect; the draw's beats. */
+	/** From the client tick, for every Undead: a katana skill that just started starts its effect; the draw's beats. */
 	static void watch(Player player, UndeadState s, long now) {
 		Long seen = SEEN.put(player.getUUID(), s.animStart);
 		long age = now - s.animStart;
 		if (seen != null && seen != s.animStart && age < 6) {
 			int a = s.animId;
-			if (a >= UndeadState.ANIM_SWORD_SLASH1 && a <= UndeadState.ANIM_SWORD_COUNTER) {
+			if (a >= UndeadKitConfig.ANIM_K_CRESCENT && a <= UndeadKitConfig.ANIM_K_WHIRL) {
 				int hand = s.boneSword() ? UndeadBoneSword.hand(s) : Undead.mainArm(player);
-				LIVE.add(new Fx(a, s.animStart, player.getUUID(), player.position(), player.getLookAngle(), player.getYRot(),
-						hand == UndeadState.RIGHT_ARM ? 1f : -1f));
+				Vec3 look = player.getLookAngle();
+				LIVE.add(new Fx(a, s.animStart, player.getUUID(), player.position(), look, player.getYRot(), hand == UndeadState.RIGHT_ARM ? 1f : -1f));
 				started(player, s, a);
 			} else if (a == UndeadState.ANIM_REFORM) {
 				reformFlash(player, s);
@@ -111,6 +111,7 @@ public final class UndeadSwordFx {
 			BloodFx.eruption(at, new Vec3(0, 1, 0), player.getDeltaMovement(), 0.8f);
 			bone(at, new Vec3(0, 0.1, 0), 10, 0.18);
 		}
+		UndeadKitFx.watch(player, s, now);
 	}
 
 	/** Where a hand is, about where the held sword's grip is, {@code out} along the look. */
@@ -134,8 +135,8 @@ public final class UndeadSwordFx {
 	}
 
 	/**
-	 * v0.17.3: a Splinter Volley shard (or the thrown sword) spent where it hit -- small pale bone bits and a few drops, the mod's
-	 * own droplets (they fade out right in front of the camera) instead of vanilla's big item-crack particles.
+	 * A bone shard (an old Splinter Volley shard, or a thrown sword) spent where it hit -- small pale bone bits and a few drops,
+	 * the mod's own droplets instead of vanilla's big item-crack particles.
 	 */
 	public static void shardHit(Vec3 at, boolean sword) {
 		bone(at, new Vec3(0, 0.06, 0), sword ? 12 : 4, sword ? 0.12 : 0.08);
@@ -143,8 +144,8 @@ public final class UndeadSwordFx {
 	}
 
 	/**
-	 * v0.17.3 tap V, Reform: the regrowth's bone, flesh and skin compressed into one beat -- on every part that just closed, blood,
-	 * flesh and bone bits rush in from all round and vanish into it, with a puff of mist where it shut.
+	 * Tap V, Reform: the regrowth's bone, flesh and skin compressed into one beat -- on every part that just closed, blood, flesh
+	 * and bone bits rush in from all round and vanish into it, with a puff of mist where it shut.
 	 */
 	private static void reformFlash(Player p, UndeadState s) {
 		long mask = s.ex(UndeadState.X_REFORMED);
@@ -182,45 +183,18 @@ public final class UndeadSwordFx {
 		}
 	}
 
-	/** The first tick of a move: its one-off bursts. */
+	/** The first tick of a skill: its one-off bursts. */
 	private static void started(Player p, UndeadState s, int anim) {
 		Vec3 look = p.getLookAngle();
 		Vec3 carry = p.getDeltaMovement();
 		int hand = s.boneSword() ? UndeadBoneSword.hand(s) : Undead.mainArm(p);
 		switch (anim) {
-			case UndeadState.ANIM_SWORD_GUARD -> {
-				// the ribs burst out of his chest: blood and bone flung all round
-				Vec3 c = p.position().add(0, 1.15, 0);
-				for (int k = 0; k < 14; k++) {
-					double ang = k / 14.0 * Math.PI * 2;
-					Vec3 out = new Vec3(Math.cos(ang), 0.25, Math.sin(ang));
-					BloodFx.spurt(c.add(out.scale(0.3)), out, 2, 0.28, 0.25, carry);
-				}
-				bone(c, new Vec3(0, 0.12, 0), 14, 0.22);
-				BloodFx.mist(c, 4, 0.35f, carry);
-			}
-			case UndeadState.ANIM_SWORD_SPLINTER -> {
-				Vec3 at = hand(p, hand, 1.0);
-				BloodFx.spurt(at, look, 12, 0.55, 0.22, carry);
-				bone(at, look.scale(0.35), 12, 0.12);
-				BloodFx.mist(at.add(look.scale(0.4)), 3, 0.3f, carry);
-			}
-			case UndeadState.ANIM_SWORD_THRUST -> BloodFx.spurt(hand(p, hand, 1.4), look, 8, 0.6, 0.12, carry);
-			case UndeadState.ANIM_SWORD_COUNTER -> {
-				Vec3 at = p.getEyePosition().add(look.scale(0.9)).add(0, -0.3, 0);
-				for (int k = 0; k < 16; k++) {
-					// sparks off the blade
-					Vec3 v = new Vec3(RND.nextGaussian(), RND.nextGaussian() * 0.6 + 0.4, RND.nextGaussian()).normalize().scale(0.25 + RND.nextDouble() * 0.2);
-					BloodFx.drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.02f + RND.nextFloat() * 0.015f, RND.nextBoolean() ? 0xFFF6D8 : 0xFFD070, 8 + RND.nextInt(8), 2);
-				}
-				BloodFx.spurt(at.add(look.scale(0.6)), look, 10, 0.4, 0.4, carry);
-			}
-			case UndeadState.ANIM_SWORD_PARRY -> {
-				Vec3 at = p.getEyePosition().add(look.scale(0.9)).add(0, -0.3, 0);
-				for (int k = 0; k < 6; k++) {
-					Vec3 v = new Vec3(RND.nextGaussian(), RND.nextGaussian() * 0.5 + 0.3, RND.nextGaussian()).normalize().scale(0.15);
-					BloodFx.drop(at.x, at.y, at.z, v.x, v.y, v.z, 0.018f, 0xFFF6D8, 6 + RND.nextInt(5), 2);
-				}
+			case UndeadKitConfig.ANIM_K_CRESCENT -> BloodFx.spurt(hand(p, hand, 1.0), look, 6, 0.4, 0.3, carry);
+			case UndeadKitConfig.ANIM_K_FLASH -> {
+				// the draw: a flick of blood off the blade where he stood
+				Vec3 at = p.position().add(0, 1.0, 0);
+				BloodFx.spurt(at, look.scale(-1).add(0, 0.4, 0), 8, 0.3, 0.4, Vec3.ZERO);
+				BloodFx.mist(at, 2, 0.3f, Vec3.ZERO);
 			}
 			default -> {
 			}
@@ -256,9 +230,10 @@ public final class UndeadSwordFx {
 
 	// ---------------------------------------------------------------- ticking
 
-	/** From the client tick: each running effect's drops; the dash's path; the finished ones go. */
+	/** From the client tick: each running effect's drops; the flash's path; the finished ones go. Then the rest of the kit. */
 	static void tick(long now) {
 		Minecraft mc = Minecraft.getInstance();
+		UndeadKitFx.tick(now);
 		if (mc.level == null) {
 			LIVE.clear();
 			return;
@@ -272,48 +247,62 @@ public final class UndeadSwordFx {
 			}
 			Player p = mc.level.getPlayerByUUID(fx.who);
 			switch (fx.anim) {
-				case UndeadState.ANIM_SWORD_SLASH1, UndeadState.ANIM_SWORD_SLASH2, UndeadState.ANIM_SWORD_SLASH3, UndeadState.ANIM_SWORD_COUNTER -> {
-					if (p != null && age <= sweepTicks(fx.anim)) {
-						// drops flung off the head of the cut
-						Slash sl = slash(fx);
-						float a = sl.head(age + 0.5f);
-						Vec3 c = centre(p, 1f);
-						Vec3 at = sl.point(c, a, sl.radius);
-						Vec3 tangent = sl.point(c, a + sl.dir * 0.2f, sl.radius).subtract(at).normalize();
-						BloodFx.spurt(at, tangent.add(0, 0.25, 0), fx.anim == UndeadState.ANIM_SWORD_SLASH3 ? 6 : 4, 0.32, 0.18, p.getDeltaMovement());
+				case UndeadKitConfig.ANIM_K_CRESCENT, UndeadKitConfig.ANIM_K_GREAT -> {
+					boolean great = fx.anim == UndeadKitConfig.ANIM_K_GREAT;
+					float d = waveDistance(fx.anim, age + 0.5f);
+					if (great && age < UndeadKitConfig.K_GREAT_WINDUP && p != null) {
+						// blood gathering on the raised blade
+						Vec3 at = p.getEyePosition().add(0, 0.6 + age * 0.05, 0);
+						BloodFx.spurt(at, new Vec3(0, -1, 0), 2, 0.05, 0.6, p.getDeltaMovement());
+						BloodFx.mist(at, 1, 0.18f, p.getDeltaMovement());
 					}
-				}
-				case UndeadState.ANIM_SWORD_DASH -> {
-					if (p != null && age <= UndeadBoneSword.DASH_TICKS + 2) {
-						fx.trail.add(p.position());
-						// the stump's jet, blowing back along the path
-						UndeadState s = Undead.peek(p);
-						if (s != null && s.boneSword()) {
-							Vec3 st = shoulder(p, s.boneSwordArm());
-							BloodFx.jet(st, fx.look.scale(-1).add(0, 0.15, 0).normalize(), p.getDeltaMovement().scale(0.3), 1.6f);
-						}
-						BloodFx.spurt(p.position().add(0, 1.0, 0), fx.look.scale(-1).add(0, 0.4, 0), 3, 0.2, 0.4, Vec3.ZERO);
-					}
-				}
-				case UndeadState.ANIM_SWORD_EDGE -> {
-					float d = edgeDistance(age + 0.5f);
 					if (d >= 0f) {
-						Vec3 dir = flat(fx.look);
-						Vec3 side = new Vec3(-dir.z, 0, dir.x);
-						Vec3 front = fx.origin.add(0, 1.0, 0).add(dir.scale(d));
-						for (int k = 0; k < 5; k++) {
+						Vec3 dir = waveDir(fx);
+						Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+						Vec3 front = waveOrigin(fx).add(dir.scale(d));
+						int n = great ? 9 : 4;
+						double w = great ? UndeadKitConfig.K_GREAT_WIDTH : UndeadKitConfig.K_CRESCENT_WIDTH;
+						for (int k = 0; k < n; k++) {
 							double s = (RND.nextDouble() - 0.5) * 2;
-							Vec3 at = front.add(side.scale(s * 1.6)).add(dir.scale(-s * s * 0.9));
-							BloodFx.drop(at.x, at.y, at.z, dir.x * 0.25, -0.05, dir.z * 0.25, 0.025f + RND.nextFloat() * 0.03f, BloodFx.shade(RND.nextFloat()),
-									30 + RND.nextInt(10), 0);
+							Vec3 at;
+							if (great) {
+								double th = (s + 1) * 0.5 * Math.PI;
+								at = front.add(side.scale(Math.cos(th) * w)).add(0, Math.sin(th) * UndeadKitConfig.K_GREAT_HEIGHT, 0)
+										.add(dir.scale(-(1 - Math.sin(th)) * 1.2));
+							} else {
+								at = front.add(side.scale(s * w)).add(dir.scale(-s * s * 0.95));
+							}
+							BloodFx.drop(at.x, at.y, at.z, dir.x * 0.25 + (RND.nextDouble() - 0.5) * 0.1, great ? 0.1 + RND.nextDouble() * 0.15 : -0.05,
+									dir.z * 0.25 + (RND.nextDouble() - 0.5) * 0.1, 0.025f + RND.nextFloat() * 0.035f, BloodFx.shade(RND.nextFloat()),
+									26 + RND.nextInt(14), 0);
+						}
+						if (great && age % 2 == 0) {
+							BloodFx.mist(front.add(0, 0.3, 0), 1, 0.5f, Vec3.ZERO);
 						}
 					}
 				}
-				case UndeadState.ANIM_SWORD_GUARD -> {
-					if (p != null && age == UndeadBoneSword.GUARD_TICKS - 4) {
-						bone(p.position().add(0, 1.1, 0), new Vec3(0, 0.02, 0), 18, 0.12); // the ribs crumble
-					} else if (p != null && age < UndeadBoneSword.GUARD_TICKS && age % 5 == 0) {
-						BloodFx.drip(p.position().add(RND.nextGaussian() * 0.3, 1.0, RND.nextGaussian() * 0.3));
+				case UndeadKitConfig.ANIM_K_FLASH -> {
+					if (p != null && age <= UndeadKitConfig.K_FLASH_TICKS + 1) {
+						fx.trail.add(p.position());
+					}
+					if (age == UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY && fx.trail.size() >= 2) {
+						// the cuts open: blood bursts out all along the line
+						Vec3 a = fx.trail.get(0), b = fx.trail.get(fx.trail.size() - 1);
+						for (int k = 0; k <= 10; k++) {
+							Vec3 at = a.lerp(b, k / 10.0).add(0, 1.0, 0);
+							BloodFx.spurt(at, new Vec3(0, 1, 0), 4, 0.28, 0.8, Vec3.ZERO);
+						}
+						BloodFx.mist(a.lerp(b, 0.5).add(0, 1.0, 0), 3, 0.45f, Vec3.ZERO);
+					}
+				}
+				case UndeadKitConfig.ANIM_K_WHIRL -> {
+					if (p != null && age <= UndeadKitConfig.K_WHIRL_TICKS) {
+						// drops flung off the head of the ring
+						float a = whirlAngle(fx, age + 0.5f);
+						Vec3 c = p.position().add(0, 1.05, 0);
+						Vec3 out = new Vec3(Mth.cos(a), 0, Mth.sin(a));
+						Vec3 tangent = new Vec3(-Mth.sin(a), 0, Mth.cos(a)).scale(fx.side);
+						BloodFx.spurt(c.add(out.scale(2.3)), tangent.add(out.scale(0.5)).add(0, 0.2, 0), 5, 0.35, 0.2, p.getDeltaMovement());
 					}
 				}
 				default -> {
@@ -324,31 +313,53 @@ public final class UndeadSwordFx {
 
 	private static int life(int anim) {
 		return switch (anim) {
-			case UndeadState.ANIM_SWORD_EDGE -> 18;
-			case UndeadState.ANIM_SWORD_GUARD -> UndeadBoneSword.GUARD_TICKS + 2;
-			case UndeadState.ANIM_SWORD_DASH -> UndeadBoneSword.DASH_TICKS + 10;
+			case UndeadKitConfig.ANIM_K_CRESCENT -> 16;
+			case UndeadKitConfig.ANIM_K_GREAT -> UndeadKitConfig.K_GREAT_WINDUP + 24;
+			case UndeadKitConfig.ANIM_K_FLASH -> UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY + 12;
+			case UndeadKitConfig.ANIM_K_WHIRL -> UndeadKitConfig.K_WHIRL_TICKS + 6;
 			default -> 14;
 		};
 	}
 
-	/** How far the Edge Wave has run at {@code age} (as the server runs it: three ticks of swing, then 1.1 a tick); -1 before. */
-	private static float edgeDistance(float age) {
-		float a = age - 3f;
+	/** How far a crescent has run at {@code age} (as the server runs it); -1 before it sets off or once it is spent. */
+	private static float waveDistance(int anim, float age) {
+		boolean great = anim == UndeadKitConfig.ANIM_K_GREAT;
+		float a = age - (great ? UndeadKitConfig.K_GREAT_WINDUP : 2);
 		if (a < 0f) {
 			return -1f;
 		}
-		float d = 1f + a * (float) UndeadBoneSword.EDGE_SPEED;
-		return d > UndeadBoneSword.EDGE_RANGE ? -1f : d;
+		float d = 1f + a * (float) (great ? UndeadKitConfig.K_GREAT_SPEED : UndeadKitConfig.K_CRESCENT_SPEED);
+		return d > (great ? UndeadKitConfig.K_GREAT_RANGE : UndeadKitConfig.K_CRESCENT_RANGE) ? -1f : d;
+	}
+
+	private static Vec3 waveDir(Fx fx) {
+		if (fx.anim == UndeadKitConfig.ANIM_K_GREAT) {
+			return flat(fx.look);
+		}
+		Vec3 d = new Vec3(fx.look.x, Mth.clamp(fx.look.y, -0.35, 0.35), fx.look.z);
+		return d.lengthSqr() < 1.0e-4 ? flat(fx.look) : d.normalize();
+	}
+
+	private static Vec3 waveOrigin(Fx fx) {
+		return fx.origin.add(0, fx.anim == UndeadKitConfig.ANIM_K_GREAT ? 0.2 : 1.0, 0);
+	}
+
+	/** Blood Whirl: the ring's head at {@code age} (radians round him, from where he faced), two full turns. */
+	private static float whirlAngle(Fx fx, float age) {
+		float t = Mth.clamp(age / (UndeadKitConfig.K_WHIRL_TICKS - 1f), 0f, 1f);
+		float base = (fx.yaw + 90f) * Mth.DEG_TO_RAD; // his facing as an angle in x/z
+		return base + fx.side * (1f - (1f - t) * (1f - t)) * Mth.TWO_PI * 2f;
+	}
+
+	private static Vec3 flat(Vec3 v) {
+		Vec3 f = new Vec3(v.x, 0, v.z);
+		return f.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : f.normalize();
 	}
 
 	// ---------------------------------------------------------------- the slash geometry
 
-	private static int sweepTicks(int anim) {
-		return anim == UndeadState.ANIM_SWORD_SLASH3 ? 6 : anim == UndeadState.ANIM_SWORD_COUNTER ? 3 : 4;
-	}
-
-	/** One cut's arc: round the player, from one side to the other, tilted along the cut. */
-	private static final class Slash {
+	/** One cut's arc: round a centre, from one side to the other, tilted along the cut. */
+	static final class Slash {
 		Vec3 f, r, up;
 		float span, tilt, dir, radius, sweep;
 
@@ -364,59 +375,26 @@ public final class UndeadSwordFx {
 		}
 	}
 
-	private static Slash slash(Fx fx) {
+	private static Slash slashFrom(Fx fx, float span, float tilt, float radius, float sweep) {
 		Slash s = new Slash();
 		float yaw = fx.yaw * Mth.DEG_TO_RAD;
 		s.f = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
 		s.r = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
 		s.up = new Vec3(0, 1, 0);
-		// tip it a little with where he looked (a cut at something below him goes down)
 		double pitchY = Mth.clamp((float) fx.look.y, -0.6f, 0.6f);
 		s.f = s.f.add(0, pitchY * 0.8, 0).normalize();
-		s.sweep = sweepTicks(fx.anim);
-		switch (fx.anim) {
-			case UndeadState.ANIM_SWORD_SLASH2 -> {
-				s.span = 1.15f;
-				s.tilt = -0.55f;
-				s.dir = -fx.side;
-				s.radius = 2.1f;
-			}
-			case UndeadState.ANIM_SWORD_SLASH3 -> {
-				s.span = 1.95f;
-				s.tilt = 0.1f;
-				s.dir = fx.side;
-				s.radius = 2.6f;
-			}
-			case UndeadState.ANIM_SWORD_COUNTER -> {
-				s.span = 1.0f;
-				s.tilt = 0.9f;
-				s.dir = fx.side;
-				s.radius = 2.0f;
-			}
-			default -> {
-				s.span = 1.15f;
-				s.tilt = 0.6f;
-				s.dir = fx.side;
-				s.radius = 2.1f;
-			}
-		}
-		s.tilt *= fx.side;
+		s.span = span;
+		s.tilt = tilt * fx.side;
+		s.dir = fx.side;
+		s.radius = radius;
+		s.sweep = sweep;
 		return s;
-	}
-
-	/** The cut's centre: a little below his eyes (so it crosses the view in first person). */
-	private static Vec3 centre(Player p, float partial) {
-		return p.getEyePosition(partial).add(0, -0.25, 0);
-	}
-
-	private static Vec3 flat(Vec3 v) {
-		Vec3 f = new Vec3(v.x, 0, v.z);
-		return f.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : f.normalize();
 	}
 
 	// ---------------------------------------------------------------- drawing
 
 	static void render(WorldRenderContext context, PoseStack pose, Vec3 cam, float now) {
+		UndeadKitFx.render(context, pose, cam, now);
 		if (LIVE.isEmpty() || context.consumers() == null) {
 			return;
 		}
@@ -433,59 +411,41 @@ public final class UndeadSwordFx {
 			}
 			Player p = mc.level == null ? null : mc.level.getPlayerByUUID(fx.who);
 			switch (fx.anim) {
-				case UndeadState.ANIM_SWORD_SLASH1, UndeadState.ANIM_SWORD_SLASH2, UndeadState.ANIM_SWORD_SLASH3, UndeadState.ANIM_SWORD_COUNTER -> {
-					if (p != null) {
-						drawSlash(body, glow, buffers, m, slash(fx), centre(p, partial).subtract(cam), age, fx.anim == UndeadState.ANIM_SWORD_SLASH3 ? 1.1f : 0.85f);
+				case UndeadKitConfig.ANIM_K_CRESCENT -> {
+					if (p != null && age < 8f) {
+						// the draw-cut: a flat swoosh across in front
+						drawSlash(body, glow, buffers, m, slashFrom(fx, 1.3f, 0.25f, 2.0f, 3f), p.getEyePosition(partial).add(0, -0.3, 0).subtract(cam), age, 0.8f);
 					}
-					if (fx.anim == UndeadState.ANIM_SWORD_COUNTER && p != null) {
-						Vec3 at = p.getEyePosition(partial).add(fx.look.scale(0.9)).add(0, -0.3, 0).subtract(cam);
-						star(glow, buffers, m, context.camera().rotation(), at, age, 1.6f);
-					}
-				}
-				case UndeadState.ANIM_SWORD_PARRY -> {
-					if (p != null) {
-						Vec3 at = p.getEyePosition(partial).add(p.getViewVector(partial).scale(0.9)).add(0, -0.3, 0).subtract(cam);
-						star(glow, buffers, m, context.camera().rotation(), at, age, 0.8f);
-					}
-				}
-				case UndeadState.ANIM_SWORD_THRUST -> {
-					if (p != null) {
-						Vec3 from = hand(p, Undead.peek(p) != null && Undead.peek(p).boneSword() ? UndeadBoneSword.hand(Undead.peek(p)) : Undead.mainArm(p), 0.9);
-						from = from.add(p.getPosition(partial).subtract(p.position()));
-						drawThrust(body, glow, buffers, m, from.subtract(cam), fx.look, age);
+					float d = waveDistance(fx.anim, age);
+					if (d >= 0f) {
+						float fade = Mth.clamp((float) (UndeadKitConfig.K_CRESCENT_RANGE - d) / 2.5f, 0f, 1f) * Mth.clamp((d - 0.8f) / 0.8f, 0f, 1f);
+						Vec3 dir = waveDir(fx);
+						Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+						Vec3 up = side.cross(dir).normalize().scale(-1);
+						drawCrescent(body, glow, buffers, m, waveOrigin(fx).add(dir.scale(d)).subtract(cam), dir, side, up, (float) UndeadKitConfig.K_CRESCENT_WIDTH,
+								0.62f, fade);
 					}
 				}
-				case UndeadState.ANIM_SWORD_DASH -> drawDash(body, glow, buffers, m, fx, cam, age);
-				case UndeadState.ANIM_SWORD_EDGE -> drawEdge(body, glow, buffers, m, fx, cam, age);
-				case UndeadState.ANIM_SWORD_GUARD -> {
-					if (p != null) {
-						drawRing(body, glow, buffers, m, p.getPosition(partial).add(0, 0.05, 0).subtract(cam), age, 0.5f, 3.0f, 7f);
-					}
-				}
-				case UndeadState.ANIM_SWORD_SPLINTER -> {
-					if (p != null) {
-						UndeadState s = Undead.peek(p);
-						Vec3 from = hand(p, s != null && s.boneSword() ? UndeadBoneSword.hand(s) : Undead.mainArm(p), 0.9);
-						from = from.add(p.getPosition(partial).subtract(p.position()));
-						drawCone(body, glow, buffers, m, from.subtract(cam), fx.look, age);
-					}
-				}
-				case UndeadState.ANIM_SWORD_IMPALE -> {
-					if (p != null) {
-						Slash sl = new Slash();
-						float yaw = fx.yaw * Mth.DEG_TO_RAD;
-						Vec3 f = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
-						Vec3 r = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
-						// an overhead arc: the plane of forward and up, offset to the throwing side
-						sl.f = f;
-						sl.r = new Vec3(0, 1, 0).scale(-1);
-						sl.up = r;
-						sl.span = 1.3f;
-						sl.tilt = 0f;
+				case UndeadKitConfig.ANIM_K_GREAT -> {
+					if (p != null && age >= UndeadKitConfig.K_GREAT_WINDUP - 1 && age < UndeadKitConfig.K_GREAT_WINDUP + 8) {
+						// the overhead cut: a tall swoosh down in front, in the plane of forward and up
+						Slash sl = slashFrom(fx, 1.35f, 0f, 2.2f, 3f);
+						sl.f = flat(fx.look);
+						sl.r = new Vec3(0, -1, 0);
+						sl.up = new Vec3(-sl.f.z, 0, sl.f.x);
 						sl.dir = 1f;
-						sl.radius = 1.4f;
-						sl.sweep = 4f;
-						drawSlash(body, glow, buffers, m, sl, p.getEyePosition(partial).add(r.scale(0.35 * fx.side)).subtract(cam), age, 0.4f);
+						drawSlash(body, glow, buffers, m, sl, p.getPosition(partial).add(0, 1.5, 0).subtract(cam), age - (UndeadKitConfig.K_GREAT_WINDUP - 1), 1.1f);
+					}
+					float d = waveDistance(fx.anim, age);
+					if (d >= 0f) {
+						float fade = Mth.clamp((float) (UndeadKitConfig.K_GREAT_RANGE - d) / 4f, 0f, 1f) * Mth.clamp((d - 0.6f) / 1.2f, 0f, 1f);
+						drawGreat(body, glow, buffers, m, waveOrigin(fx).add(waveDir(fx).scale(d)).subtract(cam), waveDir(fx), fade, now);
+					}
+				}
+				case UndeadKitConfig.ANIM_K_FLASH -> drawFlash(body, glow, buffers, m, fx, cam, age);
+				case UndeadKitConfig.ANIM_K_WHIRL -> {
+					if (p != null) {
+						drawWhirl(body, glow, buffers, m, fx, p.getPosition(partial).add(0, 1.05, 0).subtract(cam), age);
 					}
 				}
 				default -> {
@@ -502,8 +462,10 @@ public final class UndeadSwordFx {
 	 * A cut's swoosh: a curtain of blood along the arc from its tail to its head, thickest and brightest at the head, a white-hot
 	 * line along its leading edge; after the sweep the tail catches the head up and it is gone.
 	 */
-	private static void drawSlash(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Slash sl, Vec3 c, float age,
-			float width) {
+	static void drawSlash(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Slash sl, Vec3 c, float age, float width) {
+		if (age < 0f) {
+			return;
+		}
 		float headA = sl.head(age);
 		float fade = Mth.clamp(1f - (age - sl.sweep) / 5f, 0f, 1f);
 		if (fade <= 0f) {
@@ -551,91 +513,34 @@ public final class UndeadSwordFx {
 		});
 	}
 
-	/** Marrow Thrust: a streak along the aim that shoots out and fades, and a shock ring at its tip. */
-	private static void drawThrust(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 from, Vec3 dir, float age) {
-		float len = 4.2f * Mth.clamp(age / 2f, 0f, 1f);
-		float fade = Mth.clamp(1f - (age - 3f) / 5f, 0f, 1f);
-		if (fade <= 0f || len <= 0.01f) {
+	/**
+	 * A flying crescent of blood: its middle at {@code front}, its horns swept back along {@code dir} to either {@code side}, its
+	 * thickness across {@code up}; dark at the back, bright red toward its glowing front edge.
+	 */
+	static void drawCrescent(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 front, Vec3 dir, Vec3 side, Vec3 up,
+			float width, float thick, float fade) {
+		if (fade <= 0.01f) {
 			return;
 		}
-		Vec3 d = dir.normalize();
-		Vec3 a = d.cross(Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
-		Vec3 b = d.cross(a).normalize();
-		Vec3 tip = from.add(d.scale(len));
-		float w = 0.22f * fade;
-		for (Vec3 s : new Vec3[] { a, b }) {
-			band(body, m, from.subtract(s.scale(w)), tip, tip, from.add(s.scale(w)), 0.6f, 0.03f, 0.05f, 0.85f * fade, 0.8f, 0.08f, 0.08f, 0.0f,
-					0.6f, 0.03f, 0.05f, 0.85f * fade, 0.8f, 0.08f, 0.08f, 0.0f);
-		}
-		final float ww = w * 0.45f;
-		glow.add(() -> {
-			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
-			for (Vec3 s : new Vec3[] { a, b }) {
-				band(add, m, from.subtract(s.scale(ww)), tip, tip, from.add(s.scale(ww)), 1f, 0.92f, 0.85f, fade, 1f, 0.6f, 0.5f, 0.2f * fade, 1f, 0.92f,
-						0.85f, fade, 1f, 0.6f, 0.5f, 0.2f * fade);
-			}
-		});
-		// the shock ring where the point stops
-		if (age >= 1.5f) {
-			float rt = Mth.clamp((age - 1.5f) / 6f, 0f, 1f);
-			ringAt(body, glow, buffers, m, from.add(d.scale(4.2f)), a, b, 0.2f + rt * 1.1f, 0.1f * (1f - rt) + 0.03f, (1f - rt) * 0.8f);
-		}
-	}
-
-	/** Blood-jet Dash: a curtain of blood along his path, fading behind him, a bright line through it at the blade's height. */
-	private static void drawDash(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Fx fx, Vec3 cam, float age) {
-		List<Vec3> t = fx.trail;
-		if (t.size() < 2) {
-			return;
-		}
-		List<Vec3[]> lines = new ArrayList<>();
-		for (int i = 0; i + 1 < t.size(); i++) {
-			float a0 = Mth.clamp(1f - (age - i) / 8f, 0f, 1f), a1 = Mth.clamp(1f - (age - i - 1) / 8f, 0f, 1f);
-			Vec3 p0 = t.get(i).subtract(cam), p1 = t.get(i + 1).subtract(cam);
-			band(body, m, p0.add(0, 0.35, 0), p1.add(0, 0.35, 0), p1.add(0, 1.55, 0), p0.add(0, 1.55, 0), 0.35f, 0.01f, 0.03f, 0.0f, 0.35f, 0.01f, 0.03f,
-					0.0f, 0.75f, 0.06f, 0.08f, 0.8f * a0, 0.75f, 0.06f, 0.08f, 0.8f * a1);
-			lines.add(new Vec3[] { p0.add(0, 1.05, 0), p1.add(0, 1.05, 0), new Vec3(a0, a1, 0) });
-		}
-		glow.add(() -> {
-			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
-			for (Vec3[] l : lines) {
-				float a0 = (float) l[2].x, a1 = (float) l[2].y;
-				band(add, m, l[0].add(0, -0.06, 0), l[1].add(0, -0.06, 0), l[1].add(0, 0.06, 0), l[0].add(0, 0.06, 0), 1f, 0.8f, 0.7f, a0, 1f, 0.8f, 0.7f,
-						a1, 1f, 0.8f, 0.7f, a0, 1f, 0.8f, 0.7f, a1);
-			}
-		});
-	}
-
-	/** Blood Edge Wave: a crescent of blood flying out, wide and flat, its front edge glowing, its horns swept back. */
-	private static void drawEdge(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Fx fx, Vec3 cam, float age) {
-		float d = edgeDistance(age);
-		if (d < 0f) {
-			return;
-		}
-		float fade = Mth.clamp((float) (UndeadBoneSword.EDGE_RANGE - d) / 2.5f, 0f, 1f) * Mth.clamp((d - 0.8f) / 0.8f, 0f, 1f);
-		Vec3 dir = flat(fx.look);
-		Vec3 side = new Vec3(-dir.z, 0, dir.x);
-		Vec3 front = fx.origin.add(0, 1.0, 0).add(dir.scale(d)).subtract(cam);
-		int n = 18;
-		float width = 1.75f;
+		int n = 22;
 		Vec3[] lo = new Vec3[n + 1], hi = new Vec3[n + 1], e0 = new Vec3[n + 1], e1 = new Vec3[n + 1];
 		for (int i = 0; i <= n; i++) {
 			float s = i / (float) n * 2f - 1f;
-			float th = 0.55f * (1f - s * s) + 0.04f;
-			Vec3 mid = front.add(side.scale(s * width)).add(dir.scale(-s * s * 0.95f));
-			lo[i] = mid.add(0, -th * 0.5, 0).add(dir.scale(-th * 0.6));
-			hi[i] = mid.add(0, th * 0.5, 0).add(dir.scale(-th * 0.6));
-			e0[i] = mid.add(0, -th * 0.18, 0);
-			e1[i] = mid.add(0, th * 0.18, 0);
+			float th = thick * (1f - s * s) + 0.04f;
+			Vec3 mid = front.add(side.scale(s * width)).add(dir.scale(-s * s * width * 0.55f));
+			Vec3 back = dir.scale(-th * 0.9);
+			lo[i] = mid.add(up.scale(-th * 0.5)).add(back);
+			hi[i] = mid.add(up.scale(th * 0.5)).add(back);
+			e0[i] = mid.add(up.scale(-th * 0.2));
+			e1[i] = mid.add(up.scale(th * 0.2));
 		}
 		for (int i = 0; i < n; i++) {
-			// the body: from the back (dark, thin) to the front edge (bright, thick)
-			band(body, m, lo[i], lo[i + 1], e0[i + 1], e0[i], 0.4f, 0.01f, 0.03f, 0.75f * fade, 0.4f, 0.01f, 0.03f, 0.75f * fade, 0.85f, 0.08f, 0.1f,
-					0.95f * fade, 0.85f, 0.08f, 0.1f, 0.95f * fade);
-			band(body, m, e1[i], e1[i + 1], hi[i + 1], hi[i], 0.85f, 0.08f, 0.1f, 0.95f * fade, 0.85f, 0.08f, 0.1f, 0.95f * fade, 0.4f, 0.01f, 0.03f,
-					0.75f * fade, 0.4f, 0.01f, 0.03f, 0.75f * fade);
-			band(body, m, e0[i], e0[i + 1], e1[i + 1], e1[i], 0.85f, 0.08f, 0.1f, 0.95f * fade, 0.85f, 0.08f, 0.1f, 0.95f * fade, 0.85f, 0.08f, 0.1f,
-					0.95f * fade, 0.85f, 0.08f, 0.1f, 0.95f * fade);
+			band(body, m, lo[i], lo[i + 1], e0[i + 1], e0[i], 0.38f, 0.0f, 0.03f, 0.7f * fade, 0.38f, 0.0f, 0.03f, 0.7f * fade, 0.9f, 0.06f, 0.08f,
+					0.95f * fade, 0.9f, 0.06f, 0.08f, 0.95f * fade);
+			band(body, m, e1[i], e1[i + 1], hi[i + 1], hi[i], 0.9f, 0.06f, 0.08f, 0.95f * fade, 0.9f, 0.06f, 0.08f, 0.95f * fade, 0.38f, 0.0f, 0.03f,
+					0.7f * fade, 0.38f, 0.0f, 0.03f, 0.7f * fade);
+			band(body, m, e0[i], e0[i + 1], e1[i + 1], e1[i], 0.95f, 0.1f, 0.1f, 0.95f * fade, 0.95f, 0.1f, 0.1f, 0.95f * fade, 0.95f, 0.1f, 0.1f,
+					0.95f * fade, 0.95f, 0.1f, 0.1f, 0.95f * fade);
 		}
 		glow.add(() -> {
 			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
@@ -643,27 +548,129 @@ public final class UndeadSwordFx {
 				float s0 = i / (float) n * 2f - 1f, s1 = (i + 1) / (float) n * 2f - 1f;
 				float a0 = (1f - s0 * s0) * fade, a1 = (1f - s1 * s1) * fade;
 				Vec3 f0 = e0[i].add(e1[i]).scale(0.5).add(dir.scale(0.05)), f1 = e0[i + 1].add(e1[i + 1]).scale(0.5).add(dir.scale(0.05));
-				band(add, m, f0.add(0, -0.07, 0), f1.add(0, -0.07, 0), f1.add(0, 0.07, 0), f0.add(0, 0.07, 0), 1f, 0.75f, 0.65f, a0, 1f, 0.75f, 0.65f, a1,
-						1f, 0.75f, 0.65f, a0, 1f, 0.75f, 0.65f, a1);
+				Vec3 u0 = up.scale(0.09 * thick / 0.6), u1 = u0;
+				band(add, m, f0.subtract(u0), f1.subtract(u1), f1.add(u1), f0.add(u0), 1f, 0.7f, 0.6f, a0, 1f, 0.7f, 0.6f, a1, 1f, 0.7f, 0.6f, a0, 1f,
+						0.7f, 0.6f, a1);
 			}
 		});
 	}
 
-	/** Rib Cage Guard: a ring of blood and bone dust bursting out along the ground. */
-	private static void drawRing(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 c, float age, float r0, float r1,
-			float len) {
-		float t = Mth.clamp(age / len, 0f, 1f);
-		if (t >= 1f) {
+	/**
+	 * The Great Deep-Crimson Crescent Moon in flight: an upright crescent of blood standing on the ground at {@code base}, arching
+	 * from one side over the top to the other, its feet trailing back; the front face bright red, a glowing crest along its
+	 * outer edge, a darker inner rim, a churning ripple through it.
+	 */
+	private static void drawGreat(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 base, Vec3 dir, float fade,
+			float now) {
+		if (fade <= 0.01f) {
 			return;
 		}
-		float e = 1f - (1f - t) * (1f - t);
-		ringAt(body, glow, buffers, m, c, new Vec3(1, 0, 0), new Vec3(0, 0, 1), Mth.lerp(e, r0, r1), 0.35f * (1f - t) + 0.05f, 1f - t);
+		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+		float w = (float) UndeadKitConfig.K_GREAT_WIDTH, h = (float) UndeadKitConfig.K_GREAT_HEIGHT;
+		int n = 28;
+		Vec3[] in = new Vec3[n + 1], out = new Vec3[n + 1], crest = new Vec3[n + 1], backIn = new Vec3[n + 1];
+		for (int i = 0; i <= n; i++) {
+			float th = i / (float) n * Mth.PI;
+			float sn = Mth.sin(th), cs = Mth.cos(th);
+			float thick = 0.25f + 1.05f * sn; // fattest at the top
+			float ripple = Mth.sin(now * 0.6f + i * 0.7f) * 0.08f;
+			Vec3 trail = dir.scale(-(1f - sn) * 1.6f); // the feet sweep back
+			Vec3 radial = side.scale(cs).add(0, sn, 0);
+			Vec3 p = base.add(side.scale(cs * w)).add(0, sn * h, 0).add(trail);
+			out[i] = p.add(radial.scale(ripple));
+			in[i] = p.subtract(radial.scale(thick)).add(dir.scale(-0.5 * sn));
+			crest[i] = p.add(radial.scale(0.12f + ripple)).add(dir.scale(0.08));
+			backIn[i] = in[i].add(dir.scale(-0.6));
+		}
+		for (int i = 0; i < n; i++) {
+			// the face: bright at the outer edge, dark toward the inner
+			band(body, m, out[i], out[i + 1], in[i + 1], in[i], 0.92f, 0.08f, 0.09f, 0.95f * fade, 0.92f, 0.08f, 0.09f, 0.95f * fade, 0.42f, 0.0f, 0.03f,
+					0.85f * fade, 0.42f, 0.0f, 0.03f, 0.85f * fade);
+			// a darker body behind it, so it has depth seen from the side
+			band(body, m, in[i], in[i + 1], backIn[i + 1], backIn[i], 0.42f, 0.0f, 0.03f, 0.85f * fade, 0.42f, 0.0f, 0.03f, 0.85f * fade, 0.25f, 0.0f,
+					0.02f, 0.0f, 0.25f, 0.0f, 0.02f, 0.0f);
+		}
+		glow.add(() -> {
+			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
+			for (int i = 0; i < n; i++) {
+				float t0 = i / (float) n, t1 = (i + 1) / (float) n;
+				float a0 = (0.35f + 0.65f * Mth.sin(t0 * Mth.PI)) * fade, a1 = (0.35f + 0.65f * Mth.sin(t1 * Mth.PI)) * fade;
+				band(add, m, out[i], out[i + 1], crest[i + 1], crest[i], 1f, 0.55f, 0.45f, a0, 1f, 0.55f, 0.45f, a1, 1f, 0.9f, 0.82f, a0, 1f, 0.9f, 0.82f, a1);
+			}
+		});
+	}
+
+	/** Crimson Flash: a bright line at the blade's height along the draw, fading; it flares red as the cuts open. */
+	private static void drawFlash(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Fx fx, Vec3 cam, float age) {
+		List<Vec3> t = fx.trail;
+		if (t.size() < 2) {
+			return;
+		}
+		Vec3 a = t.get(0).subtract(cam).add(0, 1.0, 0), b = t.get(t.size() - 1).subtract(cam).add(0, 1.0, 0);
+		float open = UndeadKitConfig.K_FLASH_TICKS + UndeadKitConfig.K_FLASH_DELAY;
+		float line = Mth.clamp(1f - (age - open) / 6f, 0f, 1f);
+		if (line <= 0f) {
+			return;
+		}
+		float flare = age >= open ? Mth.clamp(1f - (age - open) / 4f, 0f, 1f) : 0f;
+		Vec3 d = b.subtract(a);
+		Vec3 sideV = new Vec3(-d.z, 0, d.x);
+		sideV = sideV.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : sideV.normalize();
+		final Vec3 sv = sideV;
+		// the afterimage: a thin vertical sheet of red mist along the path
+		float sheet = 0.55f * line;
+		band(body, m, a.add(0, -0.6, 0), b.add(0, -0.6, 0), b.add(0, 0.6, 0), a.add(0, 0.6, 0), 0.5f, 0.02f, 0.04f, 0f, 0.5f, 0.02f, 0.04f, 0f, 0.7f,
+				0.04f, 0.06f, sheet * 0.4f, 0.7f, 0.04f, 0.06f, sheet * 0.4f);
+		glow.add(() -> {
+			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
+			double w = 0.035 + 0.12 * flare;
+			for (Vec3 o : new Vec3[] { new Vec3(0, w, 0), sv.scale(w) }) {
+				band(add, m, a.subtract(o), b.subtract(o), b.add(o), a.add(o), 1f, 0.9f - 0.6f * flare, 0.85f - 0.65f * flare, line, 1f, 0.9f - 0.6f * flare,
+						0.85f - 0.65f * flare, line, 1f, 0.9f - 0.6f * flare, 0.85f - 0.65f * flare, line, 1f, 0.9f - 0.6f * flare, 0.85f - 0.65f * flare, line);
+			}
+		});
+	}
+
+	/** Blood Whirl: a ring of blood swept round him twice, its head bright, its tail thinning out behind. */
+	private static void drawWhirl(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Fx fx, Vec3 c, float age) {
+		if (age > UndeadKitConfig.K_WHIRL_TICKS + 4) {
+			return;
+		}
+		float fade = Mth.clamp(1f - (age - UndeadKitConfig.K_WHIRL_TICKS) / 4f, 0f, 1f);
+		float head = whirlAngle(fx, age);
+		float tail = 3.2f * fade;
+		int n = 30;
+		float r = 2.3f;
+		Vec3[] lo = new Vec3[n + 1], hi = new Vec3[n + 1], e = new Vec3[n + 1];
+		float[] u = new float[n + 1];
+		for (int i = 0; i <= n; i++) {
+			float k = i / (float) n;
+			float ang = head - fx.side * tail * (1f - k);
+			Vec3 out = new Vec3(Mth.cos(ang), 0, Mth.sin(ang));
+			float w = 0.15f + 0.6f * k * k;
+			float wob = Mth.sin(ang * 2f) * 0.12f;
+			lo[i] = c.add(out.scale(r - w * 0.4)).add(0, -w * 0.5 + wob, 0);
+			hi[i] = c.add(out.scale(r + w * 0.25)).add(0, w * 0.5 + wob, 0);
+			e[i] = c.add(out.scale(r + w * 0.15)).add(0, w * 0.2 + wob, 0);
+			u[i] = k;
+		}
+		for (int i = 0; i < n; i++) {
+			float a0 = u[i] * fade, a1 = u[i + 1] * fade;
+			band(body, m, lo[i], lo[i + 1], hi[i + 1], hi[i], 0.35f, 0.0f, 0.03f, 0.85f * a0, 0.35f, 0.0f, 0.03f, 0.85f * a1, 0.88f, 0.08f, 0.1f,
+					0.95f * a0, 0.88f, 0.08f, 0.1f, 0.95f * a1);
+		}
+		glow.add(() -> {
+			VertexConsumer add = buffers.getBuffer(RenderType.lightning());
+			for (int i = 0; i < n; i++) {
+				float a0 = u[i] * u[i] * fade, a1 = u[i + 1] * u[i + 1] * fade;
+				band(add, m, e[i], e[i + 1], hi[i + 1], hi[i], 1f, 0.5f, 0.4f, a0, 1f, 0.5f, 0.4f, a1, 1f, 0.9f, 0.8f, a0, 1f, 0.9f, 0.8f, a1);
+			}
+		});
 	}
 
 	/** A flat ring in the plane of {@code a} and {@code b} round {@code c}: dark red, a pale glowing inner rim. */
-	private static void ringAt(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 c, Vec3 a, Vec3 b, float r, float w,
-			float alpha) {
-		int n = 28;
+	static void ringAt(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 c, Vec3 a, Vec3 b, float r, float w, float alpha) {
+		int n = 32;
 		Vec3[] in = new Vec3[n + 1], out = new Vec3[n + 1];
 		for (int i = 0; i <= n; i++) {
 			float ang = i / (float) n * Mth.TWO_PI;
@@ -684,29 +691,8 @@ public final class UndeadSwordFx {
 		});
 	}
 
-	/** Bone Splinter Volley: a short muzzle cone of bone-white dust and blood out of the blade. */
-	private static void drawCone(VertexConsumer body, List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Vec3 from, Vec3 dir, float age) {
-		float t = Mth.clamp(age / 5f, 0f, 1f);
-		if (t >= 1f) {
-			return;
-		}
-		Vec3 d = dir.normalize();
-		Vec3 a = d.cross(Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
-		Vec3 b = d.cross(a).normalize();
-		float len = 0.6f + 1.4f * t, rad = 0.12f + 0.5f * t;
-		ringAt(body, glow, buffers, m, from.add(d.scale(len)), a, b, rad, rad * 0.5f, (1f - t));
-		int n = 10;
-		for (int i = 0; i < n; i++) {
-			float g0 = i / (float) n * Mth.TWO_PI, g1 = (i + 1) / (float) n * Mth.TWO_PI;
-			Vec3 r0 = a.scale(Mth.cos(g0) * rad).add(b.scale(Mth.sin(g0) * rad)), r1 = a.scale(Mth.cos(g1) * rad).add(b.scale(Mth.sin(g1) * rad));
-			Vec3 tip = from.add(d.scale(len));
-			band(body, m, from, from, tip.add(r1), tip.add(r0), 0.95f, 0.88f, 0.75f, 0.7f * (1f - t), 0.95f, 0.88f, 0.75f, 0.7f * (1f - t), 0.7f, 0.05f,
-					0.07f, 0f, 0.7f, 0.05f, 0.07f, 0f);
-		}
-	}
-
-	/** A four-pointed star flash facing the camera: the parry's ring of steel, here of bone. */
-	private static void star(List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Quaternionf face, Vec3 at, float age, float size) {
+	/** A four-pointed star flash facing the camera. */
+	static void star(List<Runnable> glow, MultiBufferSource buffers, Matrix4f m, Quaternionf face, Vec3 at, float age, float size) {
 		float t = age / 7f;
 		if (t >= 1f) {
 			return;
@@ -738,8 +724,8 @@ public final class UndeadSwordFx {
 	 * A quad p0 p1 p2 p3 (p0-p1 one edge, p3-p2 the other), double-sided, each corner its own colour: (r,g,b,a) at p0, p1, then
 	 * p2's and p3's as {@code c2}/{@code c3} -- given as (edge A at p0, p1), (edge B at p3, p2).
 	 */
-	private static void band(VertexConsumer vc, Matrix4f m, Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, float r0, float g0, float b0, float a0, float r1,
-			float g1, float b1, float a1, float r3, float g3, float b3, float a3, float r2, float g2, float b2, float a2) {
+	static void band(VertexConsumer vc, Matrix4f m, Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, float r0, float g0, float b0, float a0, float r1, float g1,
+			float b1, float a1, float r3, float g3, float b3, float a3, float r2, float g2, float b2, float a2) {
 		v(vc, m, p0, r0, g0, b0, a0);
 		v(vc, m, p1, r1, g1, b1, a1);
 		v(vc, m, p2, r2, g2, b2, a2);
@@ -748,6 +734,11 @@ public final class UndeadSwordFx {
 		v(vc, m, p2, r2, g2, b2, a2);
 		v(vc, m, p1, r1, g1, b1, a1);
 		v(vc, m, p0, r0, g0, b0, a0);
+	}
+
+	/** One colour for a whole quad. */
+	static void quad(VertexConsumer vc, Matrix4f m, Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, float r, float g, float b, float a) {
+		band(vc, m, p0, p1, p2, p3, r, g, b, a, r, g, b, a, r, g, b, a, r, g, b, a);
 	}
 
 	private static void v(VertexConsumer vc, Matrix4f m, Vec3 p, float r, float g, float b, float a) {

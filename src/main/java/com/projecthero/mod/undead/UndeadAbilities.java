@@ -460,24 +460,12 @@ public final class UndeadAbilities {
 
 	// ---------------------------------------------------------------- Z: launched parts
 
+	/**
+	 * v0.17.3 Z: Ten Twists -- Vortex Bullet (reworked): the ten-twist wind-up, then the drill that bores through every creature on
+	 * a 30-block line and bursts where it stops. See {@link UndeadVortex}.
+	 */
 	public static void vortexBullet(ServerPlayer p) {
-		if (!begin(p, VORTEX)) {
-			return;
-		}
-		int arm = pickArm(p); // v0.17.3: left and right in turn, like the other thrown parts
-		if (arm < 0) {
-			return;
-		}
-		cooldown(p, VORTEX, UndeadConfig.VORTEX_COOLDOWN);
-		anim(p, UndeadState.ANIM_VORTEX);
-		Undead.breakPart(p, arm, UndeadState.KIND_LAUNCHED);
-		Vec3 r = UndeadParts.right(p);
-		double side = arm == UndeadState.RIGHT_ARM ? 1 : -1;
-		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.4));
-		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_DRILL, arm, from, aimDir(p, from).scale(UndeadConfig.VORTEX_SPEED), UndeadConfig.VORTEX_DAMAGE);
-		sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 1.0f, 1.2f);
-		sound(p, SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, 0.8f, 0.5f);
-		level(p).sendParticles(Undead.BLOOD, from.x, from.y, from.z, 5, 0.1, 0.1, 0.1, 0.0);
+		UndeadVortex.start(p);
 	}
 
 	public static void headBullet(ServerPlayer p) {

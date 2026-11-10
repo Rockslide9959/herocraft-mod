@@ -21,9 +21,10 @@ import net.minecraft.world.entity.player.Player;
  *   G (2)  hold: Blood Spray         Shift+G  Blood Whirlwind          (Victor: Dead Blade)
  *   X (3)  tap: Eject Feet           Shift+X  Combustion Punch
  *          hold 2 s: Head Throw (UndeadHeadThrow: start at 2 s, tickHeld while held, release on let-go, cancel if cut short)
- *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  tap: Reform               Shift+V  (free: the Regen Menu and Toggle Regen were removed in v0.17.3)
- *          hold 2 s: Bone Sword (UndeadBoneSword: he struggles the arm off; the keys turn into the sword kit while it is out)
+ *   Z (4)  Ten Twists: Vortex Bullet (UndeadVortex)   Shift + hold Z 5 s: Unluck Meteor (UndeadMeteor; let go early: cancelled)
+ *   V (5)  tap: Reform               Shift+V  Rib Cage Guard (UndeadRibGuard: while held, up to 4 s; a tap keeps it up 4 s)
+ *          hold 2 s: the bone katana (UndeadBoneSword: he struggles the arm off; R / G / Z / C turn into its sword skills while
+ *          it is out, V or Shift+V puts it away)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: UndeadConfig.VICTOR_ENABLED)
  *   C (6)  hold: Deadline            Shift+C  Division Bullet          (Victor: Dead Road)
  *   double-tap jump in the air: the flight (UndeadFlight.toggle, from UndeadFlightPayload: doubleJump)
@@ -108,12 +109,6 @@ public final class UndeadAbilityManager {
 		}
 		boolean shift = player.isShiftKeyDown();
 		boolean victor = Undead.victor(player);
-		// v0.17.3 (user: "remove the regen menu from this power please"): Shift+V no longer toggles auto-regrowth or opens the
-		// Regen Menu -- regrowth is always automatic. A Shift+V press does nothing here (and starts no V hold).
-		if (slot == AbilitySlot.SLOT_5 && pressed && shift) {
-			V_HELD.remove(player.getUUID());
-			return;
-		}
 		if (Undead.state(player).boneSword() && UndeadBoneSword.handle(player, slot, pressed, shift)) {
 			// v0.17.3: the Bone Sword's own kit while it is out; nothing half-held from before carries over
 			R_HELD.remove(player.getUUID());
@@ -179,12 +174,16 @@ public final class UndeadAbilityManager {
 				}
 			}
 			case SLOT_4 -> {
+				// v0.17.3 kit: Z is Ten Twists -- Vortex Bullet (the wind-up runs in UndeadVortex.tick); Shift + hold Z charges the
+				// Unluck Meteor (UndeadMeteor.tick calls it down at 5 s, still held); let go before that and it is cancelled
 				if (pressed) {
 					if (shift) {
-						UndeadAbilities.headBullet(player);
+						UndeadMeteor.startCharge(player);
 					} else {
 						UndeadAbilities.vortexBullet(player);
 					}
+				} else {
+					UndeadMeteor.cancel(player);
 				}
 			}
 			case SLOT_5 -> {
@@ -192,9 +191,14 @@ public final class UndeadAbilityManager {
 				// move on regular V"): Shift+V cycles the regeneration speed; a plain tap is Reform (on release; it replaced Tear Off); held, he
 				// reaches over and struggles his off arm loose (tickV) and at BONE_SWORD_HOLD it tears off as the Bone Sword.
 				// Pull the Card (UndeadAbilities.pullCard) has no key while UndeadConfig.VICTOR_ENABLED is false.
-				if (pressed) {
+				// v0.17.3 kit: Shift+V is the Rib Cage Guard (up while held, at most 4 s; a tap leaves it up the whole 4 s)
+				if (pressed && shift) {
+					V_HELD.remove(player.getUUID());
+					UndeadRibGuard.raise(player);
+				} else if (pressed) {
 					V_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L, 0L });
 				} else {
+					UndeadRibGuard.release(player);
 					long[] held = V_HELD.remove(player.getUUID());
 					if (held != null && held[1] == 0L) {
 						Undead.reform(player); // a tap
@@ -379,9 +383,9 @@ public final class UndeadAbilityManager {
 			case SLOT_1 -> victor ? new String[] { UndeadAbilities.VULCAN, UndeadAbilities.DIVISION } : new String[] { UndeadAbilities.PARTS_BULLET, UndeadAbilities.PARTS_BULLET_HAND };
 			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadBloodMoves.SPRAY, UndeadBloodMoves.WHIRL };
 			case SLOT_3 -> new String[] { UndeadLaunch.EJECT_FEET, UndeadLaunch.COMBUSTION };
-			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadAbilities.HEAD_BULLET };
-			// v0.17.3: tap V Reform (hold V, the Bone Sword, is the third: boneSwordHoldId); Shift+V is free since Toggle Regen went
-			case SLOT_5 -> UndeadConfig.VICTOR_ENABLED ? new String[] { UndeadAbilities.REFORM, UndeadAbilities.CARD } : new String[] { UndeadAbilities.REFORM };
+			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadMeteor.ID }; // v0.17.3 kit: Shift + hold Z, Unluck Meteor
+			// v0.17.3 kit: tap V Reform, Shift+V Rib Cage Guard (hold V, the katana, is the third: boneSwordHoldId)
+			case SLOT_5 -> new String[] { UndeadAbilities.REFORM, UndeadRibGuard.ID };
 			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadBloodMoves.DEADLINE, UndeadAbilities.DIVISION }; // Shift+C: Division Bullet
 			default -> new String[0];
 		};

@@ -12,10 +12,10 @@ public final class UndeadRegenMods {
 	}
 
 	public static float delayMult(Player p) {
-		return 1f;
+		return UndeadShoulderSword.has(p) ? UndeadKitConfig.SHOULDER_REGEN_MULT : 1f;
 	}
 
 	public static float durationMult(Player p) {
-		return 1f;
+		return UndeadShoulderSword.has(p) ? UndeadKitConfig.SHOULDER_REGEN_MULT : 1f;
 	}
 }

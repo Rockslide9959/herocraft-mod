@@ -158,6 +158,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadClient.initialize(); // v0.17.3
+		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, form wheel, Ki charge key
 		com.projecthero.mod.client.saiyan.fx.SaiyanFxClient.initialize(); // v0.17.3: the Saiyan moves' effects
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3

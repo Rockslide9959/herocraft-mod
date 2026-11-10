@@ -1,0 +1,56 @@
+	static void thirdPerson(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s, float now) {
+		float age = now - s.animStart;
+		shoulderSword(pose, buffers, light, player, model, s);
+		if (!s.boneSword()) {
+			return;
+		}
+		int hand = UndeadBoneSword.hand(s);
+		if (s.broken(hand)) {
+			return;
+		}
+		boolean left = hand == UndeadState.LEFT_ARM;
+		pose.pushPose();
+		// exactly as ItemInHandLayer places a held item
+		model.translateToHand(left ? HumanoidArm.LEFT : HumanoidArm.RIGHT, pose);
+		pose.mulPose(Axis.XP.rotationDegrees(-90f));
+		pose.mulPose(Axis.YP.rotationDegrees(180f));
+		pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+		held(pose, player, left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, left);
+		drawHeld(pose, buffers, light, player, s, age, now, new Vector3f(0f, -1f, 0f), false);
+		pose.popPose();
+	}
+
+	/** Where the shoulder sword sits on the body (model px, the body's frame: +y down, front -z) and how it is turned (degrees). */
+	static float SHOULDER_X = 3.4f, SHOULDER_Y = -0.6f, SHOULDER_Z = 0.4f, SHOULDER_ROT_Z = -150f, SHOULDER_ROT_Y = 90f, SHOULDER_TILT = 18f,
+			SHOULDER_SINK = 0.18f, SHOULDER_SCALE = 0.85f;
+
+	/**
+	 * The sword stuck in his off shoulder ({@link UndeadShoulderSword}): driven in from above at a slant, point down into the
+	 * shoulder, the hilt and the top of the blade standing up out of it, a little blood round where it went in. The real item
+	 * (its own model and enchantment glint).
+	 */
+	static void shoulderSword(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s) {
+		ItemStack sword = UndeadShoulderSword.stored(player);
+		if (sword.isEmpty() || s.broken(UndeadState.BODY)) {
+			return;
+		}
+		int off = Undead.otherArm(Undead.mainArm(player));
+		float side = off == UndeadState.LEFT_ARM ? 1f : -1f; // the left arm sits at +x on the model
+		pose.pushPose();
+		model.body.translateAndRotate(pose);
+		pose.translate(side * SHOULDER_X / 16f, SHOULDER_Y / 16f, SHOULDER_Z / 16f);
+		// a little blood where it went in
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
+		box(vc, pose.last(), -1.3f, -0.15f, -1.2f, 1.3f, 0.35f, 1.2f, BLOOD, light);
+		box(vc, pose.last(), side * 1.0f - 0.25f, 0.2f, -0.3f, side * 1.0f + 0.25f, 2.6f, 0.2f, BLOOD_WET, light);
+		// the item: its blade's diagonal turned to point down into the shoulder, leaning out and back
+		pose.mulPose(Axis.YP.rotationDegrees(side * SHOULDER_ROT_Y));
+		pose.mulPose(Axis.XP.rotationDegrees(SHOULDER_TILT));
+		pose.mulPose(Axis.ZP.rotationDegrees(SHOULDER_ROT_Z));
+		pose.translate(SHOULDER_SINK, SHOULDER_SINK, 0f); // pushed in along its own diagonal
+		pose.scale(SHOULDER_SCALE, SHOULDER_SCALE, SHOULDER_SCALE);
+		Minecraft.getInstance().getItemRenderer().renderStatic(sword, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, pose, buffers,
+				player.level(), player.getId());
+		pose.popPose();
+	}
+

@@ -390,7 +390,8 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.assertTrue(!Undead.victor(p) && Undead.state(p).victorUntil == 0L, "pulling the card does nothing");
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
 		helper.assertTrue(UndeadAbilities.REFORM.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[0])
-				&& com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v).length == 1, "V is Reform; Shift+V has nothing (Toggle Regen went)");
+				&& com.projecthero.mod.undead.UndeadRibGuard.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[1]),
+				"V is Reform, Shift+V the Rib Cage Guard");
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Undead.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(UndeadAbilities.PARTS_BULLET.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
@@ -502,10 +503,10 @@ public class UndeadGameTests implements FabricGameTest {
 				"a sword's damage: " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) - baseReach - UndeadConfig.BONE_SWORD_REACH_BONUS) < 0.01, "longer reach");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_SPEED) - UndeadConfig.BONE_SWORD_ATTACK_SPEED) < 0.01, "a sword's speed");
-		helper.assertTrue(UndeadBoneSword.SLASH.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
-				&& UndeadBoneSword.DASH.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_3)[0])
-				&& UndeadBoneSword.PARRY.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0]),
-				"the keys are the sword kit");
+		helper.assertTrue(UndeadBoneSword.K_CRESCENT.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
+				&& UndeadBoneSword.K_WHIRL.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6)[0])
+				&& UndeadBoneSword.K_FLASH.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4)[0]),
+				"the keys are the katana's skills");
 		helper.onEachTick(() -> Undead.tick(p));
 		helper.runAfterDelay(30, () -> {
 			UndeadState s = Undead.state(p);
@@ -646,68 +647,6 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void theSwordKitMovesHit(GameTestHelper helper) {
-		ServerPlayer p = swordsman(helper);
-		Zombie z = zombie(helper, 2, 4);
-		// R: the combo, the third a sweep
-		UndeadBoneSword.slash(p);
-		float h1 = z.getHealth();
-		helper.assertTrue(h1 < 200f, "Bone Slash hits");
-		edit(p, n -> n.abilityReadyAt.remove(UndeadBoneSword.SLASH));
-		z.invulnerableTime = 0;
-		UndeadBoneSword.slash(p);
-		edit(p, n -> n.abilityReadyAt.remove(UndeadBoneSword.SLASH));
-		z.invulnerableTime = 0;
-		UndeadBoneSword.slash(p);
-		helper.assertTrue(Undead.state(p).animId == UndeadState.ANIM_SWORD_SLASH3, "the third cut is the sweep");
-		helper.assertTrue(Undead.cooldownRemaining(p, UndeadBoneSword.SLASH) > UndeadBoneSword.SLASH_COOLDOWN, "with the longer wait after it");
-		// Shift+R and X: lunges that cut what they pass
-		float h2 = z.getHealth();
-		z.invulnerableTime = 0;
-		UndeadBoneSword.thrust(p);
-		helper.assertTrue(z.getHealth() < h2, "Marrow Thrust hits");
-		// Z: shards; Shift+G: the guard blocks; C: a parried hit is countered
-		UndeadBoneSword.splinters(p);
-		AABB box = new AABB(p.blockPosition()).inflate(5);
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, UndeadPartEntity::isSplinter).size() == UndeadBoneSword.SPLINTERS,
-				"seven bone shards");
-		UndeadBoneSword.guard(p);
-		helper.assertTrue(UndeadBoneSword.guarding(p), "the ribs are up");
-		float hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
-		helper.assertTrue(p.getHealth() == hp, "the guard blocks a hit");
-		UndeadBoneSword.forTestsEndGuard(p);
-		UndeadBoneSword.parry(p);
-		float zh = z.getHealth();
-		z.invulnerableTime = 0;
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
-		helper.assertTrue(p.getHealth() == hp, "a parried hit does nothing");
-		helper.assertTrue(z.getHealth() < zh, "and is countered");
-		// G: the wave runs out and hits
-		Zombie far = zombie(helper, 2, 9);
-		UndeadBoneSword.edgeWave(p);
-		helper.onEachTick(() -> Undead.tick(p));
-		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(far.getHealth() < 200f, "Blood Edge Wave reaches 7 blocks out");
-			// X: the dash
-			z.invulnerableTime = 0;
-			float hz = z.getHealth();
-			UndeadBoneSword.dash(p);
-			helper.assertTrue(z.getHealth() < hz || Undead.cooldownRemaining(p, UndeadBoneSword.DASH) > 0, "Blood-jet Dash runs");
-			// Shift+Z: the sword is thrown, which ends it
-			p.setXRot(-85f);
-			UndeadBoneSword.impale(p);
-			helper.assertTrue(!UndeadBoneSword.held(p), "Impale Throw ends the sword");
-			helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, new AABB(p.blockPosition()).inflate(5), UndeadPartEntity::isSword).size() == 1,
-					"and the sword flies");
-			helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, new AABB(p.blockPosition()).inflate(8), e -> true).forEach(e -> e.discard());
-			helper.succeed();
-		});
-	}
-
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theThrownSwordPins(GameTestHelper helper) {
 		ServerPlayer p = swordsman(helper);
@@ -731,14 +670,12 @@ public class UndeadGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void vortexBulletLaunchesTheArmAndHeadBulletTheHead(GameTestHelper helper) {
+	public void aOneArmMoveUsesTheOtherArmAndHeadBulletTheHead(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		int arm = Undead.mainArm(p);
-		UndeadAbilities.vortexBullet(p);
-		helper.assertTrue(Undead.missing(p, arm) && Undead.state(p).kind(arm) == UndeadState.KIND_LAUNCHED, "the arm is gone, as the projectile");
+		Undead.breakPart(p, arm, UndeadState.KIND_LAUNCHED);
+		helper.assertTrue(Undead.missing(p, arm) && Undead.state(p).kind(arm) == UndeadState.KIND_LAUNCHED, "the arm is gone, thrown off");
 		AABB box = new AABB(p.blockPosition()).inflate(4);
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.bodyPart() == arm).size() == 1, "the drill flies");
-		edit(p, n -> n.abilityReadyAt.clear());
 		UndeadAbilities.partsBullet(p);
 		// v0.17.3: a one-arm move falls back to the other arm -- the finger comes from the hand he still has
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.isFinger()).size() == 1, "the other hand shoots instead");
