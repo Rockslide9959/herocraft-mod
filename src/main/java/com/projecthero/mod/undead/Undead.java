@@ -37,15 +37,17 @@ import org.joml.Vector3f;
  * ({@link UndeadParts}); a part at 0 HP breaks ({@link #breakPart}) -- every client bursts it into one cube per skin texel --
  * and is gone until it regrows. v0.17.3 (user: "build our undead power the same way theyve built theirs ... the regeneration to
  * work the same ... at the same speed"): the regrowth is NBC Heroes' Regenerative Segmentation -- ten segments (the six parts
- * plus the hands and feet), each growing one frame a tick ({@link UndeadConfig#FRAMES}: about a second a part) in NBC's order
- * (the body once the head has 4 frames, the limbs once the body has 7, each hand / foot once its limb has 5), free, starting
- * at once. Shift+V turns auto-regrowth off (Toggle Regen); the Regen Menu ({@link UndeadRegenMenu}) grows segments a stage at a
- * time (bone, flesh, skin) or strips them. He gets about however what is left lets him ({@link UndeadStages}); worn armour falls
- * off the parts it sat on ({@link UndeadArmour}).
+ * plus the hands and feet), each growing one frame a tick ({@link UndeadConfig#FRAMES}: about a second a part), free, always
+ * automatic. v0.17.3 core regen rework: a lost segment waits {@link UndeadConfig#REGROW_DELAY} (1.5 s) before it starts, and a
+ * child never starts before its parent has grown out to where it attaches ({@link #needs}: a hand once its arm's bone has
+ * reached the wrist, the legs once the body's has reached the hips ...); {@link UndeadRegenMods} stretches the delay and the
+ * regrowth. He gets about however what is left lets him ({@link UndeadStages}); worn armour falls off the parts it sat on
+ * ({@link UndeadArmour}); a hand he doesn't have can't hold or use anything ({@link #handMissing}).
  *
  * <h2>Vanilla health</h2>
- * Vanilla health stays the player's real life pool and takes every hit as usual. The part system runs beside it and only
- * decides what breaks. Health reaching zero is the Undead passive ({@link #shatter}): the body bursts apart except the head,
+ * Vanilla health stays the player's real life pool and takes every hit as usual; it comes back
+ * {@link UndeadConfig#HEAL_AMOUNT} every {@link UndeadConfig#HEAL_INTERVAL} ticks, always. The part system runs beside it and
+ * only decides what breaks. Health reaching zero is the Undead passive ({@link #shatter}): the body bursts apart except the head,
  * health is refilled, and the rest grows back from the head by the staged regrowth. Only {@code /kill}, the void and other
  * {@code BYPASSES_INVULNERABILITY} damage really kill.
  */
@@ -65,8 +67,6 @@ public final class Undead {
 
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
-	/** v0.17.3 Regen Menu "Regenerate Whole Body": everything grows back even with auto-regrowth off, until he is whole. */
-	private static final java.util.Set<UUID> GROW_ALL = ConcurrentHashMap.newKeySet();
 	/** The stage last reconciled (the speed and jump modifiers follow it). */
 	private static final Map<UUID, Integer> LAST_STAGE = new ConcurrentHashMap<>();
 
@@ -76,9 +76,7 @@ public final class Undead {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
-		GROW_ALL.clear();
 		UndeadArmour.clearSessionState();
-		UndeadRegenMenu.clearSessionState();
 		LAST_STAGE.clear();
 		UndeadAbilities.clearSessionState();
 		UndeadAbilityManager.clearSessionState();
@@ -89,9 +87,7 @@ public final class Undead {
 	static void forget(UUID id) {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
-		GROW_ALL.remove(id);
 		UndeadArmour.forget(id);
-		UndeadRegenMenu.forget(id);
 		LAST_STAGE.remove(id);
 		UndeadAbilities.forget(id);
 		UndeadAbilityManager.forget(id);
@@ -131,6 +127,33 @@ public final class Undead {
 
 	public static boolean offArmMissing(Player player) {
 		return missing(player, otherArm(mainArm(player)));
+	}
+
+	/**
+	 * v0.17.3 (user: "players shouldn't be able to hold items while not having an arm for the respective arm"): the hand at the
+	 * end of {@code arm} ({@link UndeadState#RIGHT_ARM} / {@link UndeadState#LEFT_ARM}) is not there -- the arm or its hand
+	 * segment gone or still regrowing, or the finger shots have eaten up past the wrist. Client-safe. Nothing can be held, used or
+	 * swung in that hand (the item stays in its slot, not drawn: {@link UndeadMod#handGone}).
+	 */
+	public static boolean handMissing(Player player, int arm) {
+		UndeadState s = peek(player);
+		if (s == null || !s.hasPower) {
+			return false;
+		}
+		if (s.broken(arm) || s.broken(UndeadState.extremity(arm))) {
+			return true;
+		}
+		return s.eaten(arm, player.level().getGameTime()) > UndeadConfig.HAND_ROWS / 12f + 0.001f;
+	}
+
+	/** The hand holding the main-hand item is not there ({@link #handMissing}). */
+	public static boolean mainHandMissing(Player player) {
+		return handMissing(player, mainArm(player));
+	}
+
+	/** The hand holding the offhand item is not there ({@link #handMissing}). */
+	public static boolean offHandMissing(Player player) {
+		return handMissing(player, otherArm(mainArm(player)));
 	}
 
 	public static int mainArm(Player player) {
@@ -255,7 +278,7 @@ public final class Undead {
 			}
 			n.kinds = 0;
 			n.reformUntil = 0L;
-			n.flags = s.flags & UndeadState.FLAG_REGEN_OFF; // v0.17.3: auto-regrowth off stays off
+			n.flags = 0;
 			clearExtra(n);
 			save(player, n);
 			reconcile(player);
@@ -364,10 +387,10 @@ public final class Undead {
 				n.partHp.set(i, 0f);
 			}
 		}
-		if (n.broken(UndeadState.HEAD)) {
-			// the head was already off (launched or burst): it re-forms first, then the rest (whatever auto-regrowth is set to)
-			long start = now + 2;
-			n.setTimes(UndeadState.HEAD, n.brokenAt(UndeadState.HEAD), start, start + UndeadConfig.FRAMES[UndeadState.HEAD]);
+		if (n.broken(UndeadState.HEAD) && n.regrowStart(UndeadState.HEAD) <= 0L) {
+			// the head was already off (launched or burst): it re-forms first (after the usual delay from when it went), then the rest
+			long start = Math.max(now + 2, n.brokenAt(UndeadState.HEAD) + regrowDelay(player));
+			n.setTimes(UndeadState.HEAD, n.brokenAt(UndeadState.HEAD), start, start + regrowTicks(player, UndeadState.HEAD));
 		}
 		n.reformUntil = now + UndeadConfig.REFORM_GRACE;
 		n.flags = 0;
@@ -406,25 +429,7 @@ public final class Undead {
 		reconcile(player);
 	}
 
-	// ---------------------------------------------------------------- Shift+V: Toggle Regen
-
-	/**
-	 * v0.17.3 Shift+V (NBC's Toggle Regen): auto-regrowth on or off. Off, nothing starts growing back on its own (a segment
-	 * already growing finishes); the Regen Menu grows segments a stage at a time. Healing his health and parts goes on either way.
-	 */
-	public static void toggleRegen(ServerPlayer player) {
-		UndeadState n = state(player).copy();
-		boolean off = !n.flag(UndeadState.FLAG_REGEN_OFF);
-		n.setFlag(UndeadState.FLAG_REGEN_OFF, off);
-		save(player, n);
-		if (!off) {
-			GROW_ALL.remove(player.getUUID());
-		}
-		LAST_MESSAGE.remove(player.getUUID());
-		say(player, off ? "message.projecthero.undead.regen_auto_off" : "message.projecthero.undead.regen_auto_on", ChatFormatting.RED);
-		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
-				0.8f, off ? 0.6f : 1.2f);
-	}
+	// ---------------------------------------------------------------- regrowth helpers
 
 	static boolean regrowingAny(UndeadState s, long now) {
 		for (int i = 0; i < UndeadState.SEGS; i++) {
@@ -451,25 +456,13 @@ public final class Undead {
 		reconcile(player);
 	}
 
-	/** v0.17.3: auto-regrowth off (Shift+V, Toggle Regen) or back on. */
-	public static void setRegenOff(ServerPlayer player, boolean off) {
-		UndeadState n = state(player).copy();
-		n.setFlag(UndeadState.FLAG_REGEN_OFF, off);
-		save(player, n);
-	}
-
-	public static boolean regenOff(Player player) {
-		UndeadState s = peek(player);
-		return s != null && s.flag(UndeadState.FLAG_REGEN_OFF);
-	}
-
 	// ---------------------------------------------------------------- tap V: Reform
 
 	/**
 	 * v0.17.3 tap V (user: ripping off your arm is useless, V should be another utility): Reform -- he forces his body back
 	 * together at once. Every part that is gone or regrowing is whole on the spot (the finger-shot bites and burnt hands and feet
 	 * too), he heals {@link UndeadConfig#REFORM_HEAL}, and the fire and every harmful effect on him go. Free (v0.17.3: the
-	 * regrowth is free now); works with auto-regrowth off (a deliberate choice). Not while the Bone
+	 * regrowth is free now). Not while the Bone
 	 * Sword is out (V puts it away then, {@link UndeadBoneSword#handle}). {@link UndeadConfig#REFORM_COOLDOWN}.
 	 */
 	public static boolean reform(ServerPlayer player) {
@@ -597,11 +590,12 @@ public final class Undead {
 		}
 		UndeadState n = null;
 		boolean whole = false;
-		// v0.17.3 NBC's Regen_Loop: every segment that may grow (its parent far enough along, auto-regrowth on) starts at once
-		// and grows one frame a tick to whole; nothing starts mid-flight (the hands and feet wait for the landing)
-		// (and nothing while a launch is still in the air: the left-behind parts stay until he lands)
+		// v0.17.3 the regrowth loop: every lost segment waits REGROW_DELAY (1.5 s, times UndeadRegenMods.delayMult) from when it
+		// went, and for the segment it grows from to have grown out to where it attaches (needs); then it grows to whole over
+		// FRAMES ticks (times UndeadRegenMods.durationMult). Always automatic. Nothing starts mid-flight (the hands and feet wait
+		// for the landing), nor while a launch is still in the air.
 		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player);
-		boolean auto = !s.flag(UndeadState.FLAG_REGEN_OFF) || GROW_ALL.contains(player.getUUID());
+		int delay = regrowDelay(player);
 		for (int i = 0; i < UndeadState.SEGS; i++) {
 			UndeadState cur = n != null ? n : s;
 			if (!cur.broken(i)) {
@@ -609,22 +603,15 @@ public final class Undead {
 			}
 			long st = cur.regrowStart(i), end = cur.regrowEnd(i);
 			if (st <= 0L) {
-				if (flying || !auto || !mayStart(cur, i, now)) {
+				if (flying || !mayStart(cur, i, now, delay)) {
 					continue;
 				}
 				if (n == null) {
 					n = s.copy();
 				}
-				n.setTimes(i, cur.brokenAt(i), now, now + UndeadConfig.FRAMES[i]);
+				n.setTimes(i, cur.brokenAt(i), now, now + regrowTicks(player, i));
 				startedRegrowing(player, i, cur.kind(i));
-			} else if (auto && end - st < UndeadConfig.FRAMES[i]) {
-				// auto-regrowth on (or Regenerate Whole Body): a segment the menu held at a stage grows on to whole, from where it is
-				if (n == null) {
-					n = s.copy();
-				}
-				long from = now - Math.min(now - st, end - st);
-				n.setTimes(i, cur.brokenAt(i), from, from + UndeadConfig.FRAMES[i]);
-			} else if (end - st >= UndeadConfig.FRAMES[i] && now >= end) {
+			} else if (now >= end) {
 				if (n == null) {
 					n = s.copy();
 				}
@@ -634,14 +621,10 @@ public final class Undead {
 					n.partHp.set(i, UndeadConfig.PART_HP[i]);
 				}
 				whole = true;
-				// v0.17.3 Undead sounds: the wet snap of a finished part is client-side (UndeadSounds.regrowth -> undead.regrow.finish)
+				// v0.17.3: the fizz of a finished part is client-side (UndeadSounds.watch)
 			}
 		}
-		if (GROW_ALL.contains(player.getUUID()) && !(n != null ? n : s).anyBroken()) {
-			GROW_ALL.remove(player.getUUID());
-		}
 		UndeadState cur = n != null ? n : s;
-		// the bites the finger shots took		UndeadState cur = n != null ? n : s;
 		// the bites the finger shots took have grown back: forget them
 		for (int arm = UndeadState.RIGHT_ARM; arm <= UndeadState.LEFT_ARM; arm++) {
 			if (cur.eaten0(arm) > 0f && cur.eatenRegrow(arm, now) >= 1f) {
@@ -662,7 +645,7 @@ public final class Undead {
 			n.setEx(UndeadState.X_BURN_TICKS, 0L);
 			n.setEx(UndeadState.X_BURN_SEG, 0L);
 		}
-		// parts knit back between fights, and his health comes back (v0.17.3: one rate now, free)
+		// parts knit back between fights (v0.17.3: one rate now, free)
 		if (now % 10 == 0 && now - cur.lastHitAt > UndeadConfig.KNIT_DELAY) {
 			for (int i = 0; i < UndeadState.PARTS; i++) {
 				if (!cur.broken(i) && cur.hp(i) < UndeadConfig.PART_HP[i]) {
@@ -674,8 +657,14 @@ public final class Undead {
 				}
 			}
 		}
-		if (now % 10 == 0 && now - cur.lastHitAt > UndeadConfig.HEAL_DELAY && player.getHealth() < player.getMaxHealth() && player.isAlive()) {
-			player.heal(Math.min(UndeadConfig.HEAL_PER_SECOND * 0.5f, player.getMaxHealth() - player.getHealth()));
+		// v0.17.3 (user: "Players should regenerate 1 hp every 5 ticks with this ability"): always, hits don't pause it
+		if (now % UndeadConfig.HEAL_INTERVAL == 0 && player.isAlive() && player.getHealth() < player.getMaxHealth()) {
+			player.heal(Math.min(UndeadConfig.HEAL_AMOUNT, player.getMaxHealth() - player.getHealth()));
+		}
+		// v0.17.3 (user: "players shouldn't be able to hold items while not having an arm"): eating, drawing a bow, raising a
+		// shield ... with a hand that just came off stops
+		if (player.isUsingItem() && UndeadMod.handGone(player, player.getUsedItemHand())) {
+			player.stopUsingItem();
 		}
 		// v0.17.3 (tester: "A way people can naturally pick up the head"): carried by another player while only a head; once his
 		// body is back he climbs down
@@ -718,12 +707,18 @@ public final class Undead {
 		UndeadArmour.tick(player);
 	}
 
-	/**
-	 * NBC's order: a broken segment may start growing once the one it grows from ({@link UndeadState#parentOf}) has enough frames
-	 * ({@link UndeadConfig#BODY_NEEDS_HEAD} ...), or is whole. Not the arm (and hand) that is the Bone Sword in his hand, nor an arm
-	 * used up by finger shots until he has stopped shooting for {@link UndeadConfig#EATEN_REGROW_WAIT}.
-	 */
+	/** {@link #mayStart(UndeadState, int, long, int)} with the plain {@link UndeadConfig#REGROW_DELAY}. */
 	public static boolean mayStart(UndeadState s, int seg, long now) {
+		return mayStart(s, seg, now, UndeadConfig.REGROW_DELAY);
+	}
+
+	/**
+	 * May a broken segment start growing back at {@code now}? Once {@code delay} ticks have passed since it went
+	 * ({@link UndeadConfig#REGROW_DELAY}, user: 1.5 s) and the one it grows from ({@link UndeadState#parentOf}) has grown out to where
+	 * it attaches ({@link #mayShow}). Not the arm (and hand) that is the Bone Sword in his hand, nor an arm used up by finger shots
+	 * until he has stopped shooting for {@link UndeadConfig#EATEN_REGROW_WAIT}.
+	 */
+	public static boolean mayStart(UndeadState s, int seg, long now, int delay) {
 		int sword = s.boneSwordArm();
 		if (sword >= 0 && UndeadState.limbOf(seg) == sword) {
 			return false; // v0.17.3: it grows back once the sword is put away
@@ -731,42 +726,62 @@ public final class Undead {
 		if (s.kind(seg) == UndeadState.KIND_SPENT && now < s.ex(UndeadState.X_LAST_SHOT) + UndeadConfig.EATEN_REGROW_WAIT) {
 			return false;
 		}
-		int parent = UndeadState.parentOf(seg);
-		return parent < 0 || s.frame(parent, now) >= needs(seg);
+		if (now < s.brokenAt(seg) + delay) {
+			return false;
+		}
+		return mayShow(s, seg, now);
 	}
 
-	/** The frames {@code seg}'s parent must have before it starts (NBC's numbers). */
+	/**
+	 * v0.17.3 (user: "it looks like the hand is materializing midair instead of regrowing from the arm"): the segment
+	 * {@code seg} grows from has grown out to where {@code seg} attaches ({@link #needs} frames, or whole), so {@code seg} may grow
+	 * and be drawn. The server only starts a segment when this holds ({@link #mayStart}); the renderers check it again before
+	 * drawing a growing segment, so even a late sync never shows a hand floating past a half-grown arm. Client-safe.
+	 */
+	public static boolean mayShow(UndeadState s, int seg, float now) {
+		int parent = UndeadState.parentOf(seg);
+		return parent < 0 || !s.broken(parent) || s.frame(parent, now) >= needs(seg);
+	}
+
+	/** The frames {@code seg}'s parent must have before it starts: its bone front at the joint ({@link UndeadConfig#HAND_NEEDS_ARM} ...). */
 	public static int needs(int seg) {
 		return switch (seg) {
 			case UndeadState.HEAD -> 0;
 			case UndeadState.BODY -> UndeadConfig.BODY_NEEDS_HEAD;
-			case UndeadState.RIGHT_ARM, UndeadState.LEFT_ARM, UndeadState.RIGHT_LEG, UndeadState.LEFT_LEG -> UndeadConfig.LIMB_NEEDS_BODY;
+			case UndeadState.RIGHT_ARM, UndeadState.LEFT_ARM -> UndeadConfig.LIMB_NEEDS_BODY;
+			case UndeadState.RIGHT_LEG, UndeadState.LEFT_LEG -> UndeadConfig.LEG_NEEDS_BODY;
 			case UndeadState.RIGHT_HAND, UndeadState.LEFT_HAND -> UndeadConfig.HAND_NEEDS_ARM;
 			default -> UndeadConfig.FOOT_NEEDS_LEG;
 		};
 	}
 
-	/** Regen Menu: Regenerate Whole Body -- everything grows back now, auto-regrowth on or off. */
-	static void growAll(ServerPlayer player) {
-		GROW_ALL.add(player.getUUID());
+	/** Ticks a lost segment waits before its regrowth may start: {@link UndeadConfig#REGROW_DELAY} times {@link UndeadRegenMods#delayMult}. */
+	public static int regrowDelay(Player player) {
+		return Math.max(0, Math.round(UndeadConfig.REGROW_DELAY * UndeadRegenMods.delayMult(player)));
+	}
+
+	/** Ticks a segment's regrowth takes: its {@link UndeadConfig#FRAMES} times {@link UndeadRegenMods#durationMult}. */
+	public static int regrowTicks(Player player, int seg) {
+		return Math.max(1, Math.round(UndeadConfig.FRAMES[seg] * UndeadRegenMods.durationMult(player)));
 	}
 
 	static void startedRegrowing(ServerPlayer player, int part, int kind) {
-		// v0.17.3 Undead sounds: the regrowth itself is heard client-side (UndeadSounds: bone, muscle, skin beds)
-		if (kind == UndeadState.KIND_LAUNCHED) {
-			// a piece left standing where he was (the Leg / Head Launch) bursts as its replacement grows. NOT a thrown one (the
-			// stretch punch's arm, the Vortex Bullet, the Parts Bullet Head): since the NBC regrowth a launched arm or head starts
-			// growing back the very next tick, so bursting it here deleted the arm a tick after it left the shoulder -- nothing
-			// flew and nothing was hit. A thrown piece bursts when the part is whole again (UndeadPartEntity#tick).
-			dropLaunched(player, part, true);
-		}
+		// v0.17.3: the regrowth is heard client-side (UndeadSounds: a soft fizz). A piece left behind where it came off
+		// (UndeadPartEntity#leaveBehind) runs its own stand / fall / dissolve and is not touched here; a thrown one (the stretch
+		// punch's arm, the Vortex Bullet, the Parts Bullet Head) bursts when the part is whole again (UndeadPartEntity#tick).
 	}
 
-	/** The launched pieces of {@code part} lying about burst ({@code leftBehindOnly}: only the X launches' standing pieces). */
+	/**
+	 * The thrown pieces of {@code part} lying about burst. Pieces left behind ({@link UndeadPartEntity#isLeftBehind}) are never
+	 * cut short: they stand, fall and dissolve on their own. ({@code leftBehindOnly} is kept for the callers; with it nothing goes.)
+	 */
 	static void dropLaunched(ServerPlayer player, int part, boolean leftBehindOnly) {
+		if (leftBehindOnly) {
+			return;
+		}
 		ServerLevel level = (ServerLevel) player.level();
 		for (UndeadPartEntity e : level.getEntitiesOfClass(UndeadPartEntity.class, new AABB(player.blockPosition()).inflate(256.0),
-				e -> e.ownerIs(player) && e.bodyPart() == part && (!leftBehindOnly || e.isLeftBehind()))) {
+				e -> e.ownerIs(player) && e.bodyPart() == part && !e.isLeftBehind())) {
 			e.discard();
 		}
 	}

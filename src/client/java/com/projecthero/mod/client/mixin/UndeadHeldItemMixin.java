@@ -24,7 +24,7 @@ public abstract class UndeadHeldItemMixin {
 	private void projecthero$undeadNoHand(LivingEntity entity, ItemStack stack, ItemDisplayContext context, HumanoidArm arm, PoseStack pose,
 			MultiBufferSource buffers, int light, CallbackInfo ci) {
 		int part = arm == HumanoidArm.RIGHT ? UndeadState.RIGHT_ARM : UndeadState.LEFT_ARM;
-		if (entity instanceof Player p && Undead.missing(p, part)) {
+		if (entity instanceof Player p && Undead.handMissing(p, part)) { // v0.17.3: the arm, or just its hand
 			ci.cancel();
 			return;
 		}

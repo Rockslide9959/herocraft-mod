@@ -9,15 +9,17 @@ public final class UndeadConfig {
 	/** Part HP: head, body, right arm, left arm, right leg, left leg. */
 	public static final float[] PART_HP = { 8f, 14f, 8f, 8f, 8f, 8f };
 	/**
-	 * v0.17.3 (user: regrowth free and fast like NBC Heroes' Regenerative Segmentation): one speed, so the healing has one rate
-	 * too (the old Fast numbers): a hurt part starts knitting {@link #KNIT_DELAY} after the last hit at {@link #KNIT_PER_SECOND}
-	 * HP a second, and his health comes back {@link #HEAL_DELAY} after the last hit at {@link #HEAL_PER_SECOND} a second (on top
-	 * of vanilla's food healing). Free: no hunger.
+	 * v0.17.3 (user: regrowth free and fast like NBC Heroes' Regenerative Segmentation): a hurt part starts knitting
+	 * {@link #KNIT_DELAY} after the last hit at {@link #KNIT_PER_SECOND} HP a second. Free: no hunger.
 	 */
 	public static final int KNIT_DELAY = 40;
 	public static final float KNIT_PER_SECOND = 2.5f;
-	public static final int HEAL_DELAY = 30;
-	public static final float HEAL_PER_SECOND = 1.5f;
+	/**
+	 * v0.17.3 (user: "Players should regenerate 1 hp every 5 ticks with this ability"): {@link #HEAL_AMOUNT} health every
+	 * {@link #HEAL_INTERVAL} ticks, always, while he has the power and is alive (on top of vanilla's food healing; hits don't pause it).
+	 */
+	public static final int HEAL_INTERVAL = 5;
+	public static final float HEAL_AMOUNT = 1f;
 	/** An explosion lands this share of its damage on every part. */
 	public static final float BLAST_SHARE = 0.55f;
 
@@ -35,26 +37,28 @@ public final class UndeadConfig {
 	 */
 	public static final int[] FLESH_FRAME = { 10, 13, 11, 11, 12, 12, 7, 7, 5, 5 };
 	/**
-	 * NBC's order, checked every tick: a segment may start growing only once the one it grows from has this many frames (or is
-	 * whole): the body waits for the head to reach 4, the arms and legs for the body to reach 7, each hand for its arm to reach 5,
-	 * each foot for its leg to reach 5. The head grows from nothing.
+	 * v0.17.3 (user: "make the delay before a lost body part starts to regenerate 1,5 seconds please"): a lost segment waits this
+	 * long after it broke before its regrowth may start (times {@code UndeadRegenMods.delayMult}); its regrowth then takes
+	 * {@link #FRAMES} ticks (times {@code UndeadRegenMods.durationMult}).
+	 */
+	public static final int REGROW_DELAY = 30;
+	/**
+	 * The order, checked every tick: a segment may start growing only once the one it grows from has this many frames (or is
+	 * whole). v0.17.3 (user: "sometimes the hand will start regrowing at the same time as the arm so it looks like the hand is
+	 * materializing midair"): a child never shows before its parent has grown out to where it attaches -- the parent's bone
+	 * front has to reach the joint, which is the last bone frame ({@link #FLESH_FRAME} - 1): each hand waits for its arm to reach
+	 * 10, each foot for its leg to reach 11, the legs for the body to reach 12 (the hips, its far end). The arms hang off the top
+	 * of the body (rows 0-4 of 12), so they wait for the body to reach 7 (its bone front past the shoulder); the body hangs off
+	 * the head's neck face (its first row), so it waits for the head to reach 4. The head grows from nothing.
 	 */
 	public static final int BODY_NEEDS_HEAD = 4;
 	public static final int LIMB_NEEDS_BODY = 7;
-	public static final int HAND_NEEDS_ARM = 5;
-	public static final int FOOT_NEEDS_LEG = 5;
+	public static final int LEG_NEEDS_BODY = 12;
+	public static final int HAND_NEEDS_ARM = 10;
+	public static final int FOOT_NEEDS_LEG = 11;
 	/**
-	 * The Regen Menu's steps (NBC's segmentation): with auto-regrowth off, each press of a segment's button grows it to its next
-	 * target -- the end of the bone stage, then the end of the flesh stage, then whole. Frames, by segment.
-	 */
-	public static final int[][] MENU_TARGETS = { { 4, 10, 17 }, { 7, 13, 20 }, { 5, 11, 18 }, { 5, 11, 18 }, { 5, 12, 20 }, { 5, 12, 20 },
-			{ 3, 7, 12 }, { 3, 7, 12 }, { 2, 5, 11 }, { 2, 5, 11 } };
-	/** Regenerate Whole Body (Shift in the Regen Menu) is held this long. */
-	public static final int WHOLE_BODY_HOLD = 40;
-	/**
-	 * The three layers of the 3D look, as {start, length} shares of a segment's frames: the bone pushes out over the bone stage,
-	 * the muscle builds round it and is in by the flesh stage, the skin closes over in the flesh stage. A segment held at a stage
-	 * by the Regen Menu shows that stage.
+	 * The three layers of the 3D look (harness-only now), as {start, length} shares of a segment's frames: the bone pushes out over
+	 * the bone stage, the muscle builds round it and is in by the flesh stage, the skin closes over in the flesh stage.
 	 */
 	public static final float[] LAYER_BONE = { 0f, 0.45f };
 	public static final float[] LAYER_MUSCLE = { 0.25f, 0.35f };

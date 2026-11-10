@@ -173,12 +173,12 @@ public final class UndeadRender {
 				// the wet stump face, until the skin has crept over the joint
 				stump(pose, buffers, light, model, i, slim, bodyGone);
 			}
-			if (p > 0f) {
-				// (p >= 1: the server has not cleared it yet -- drawn whole)
+			if (p > 0f && Undead.mayShow(s, i, now)) {
+				// (p >= 1: the server has not cleared it yet -- drawn whole). v0.17.3: never ahead of what it grows from (mayShow:
+				// the server orders it already; this keeps a late sync from showing a limb past a half-grown body)
 				pose.pushPose();
 				part(model, i).translateAndRotate(pose);
-				int end = UndeadState.extremity(i);
-				UndeadRegrow.drawPart(pose, buffers, light, tex, slim, i, Math.min(1f, p), end < 0 ? 0f : s.regrowth(end, now));
+				UndeadRegrow.drawPart(pose, buffers, light, tex, slim, i, Math.min(1f, p), endRegrowth(s, i, now));
 				pose.popPose();
 			}
 		}
@@ -256,6 +256,15 @@ public final class UndeadRender {
 	}
 
 	// ---------------------------------------------------------------- the regrowth
+
+	/**
+	 * The regrowth (0..1) of the hand / foot at the end of a regrowing arm / leg {@code part}, for {@link UndeadRegrow#drawPart}: 0
+	 * until the limb has grown out to the wrist / ankle ({@link Undead#mayShow}) -- so a hand never shows floating past its arm.
+	 */
+	public static float endRegrowth(UndeadState s, int part, float now) {
+		int end = UndeadState.extremity(part);
+		return end < 0 || !Undead.mayShow(s, end, now) ? 0f : s.regrowth(end, now);
+	}
 
 	/** A part re-forming, in its own space (the pose already at the part), {@code p} 0..1 ({@link UndeadRegrow}). */
 	public static void regrow(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {

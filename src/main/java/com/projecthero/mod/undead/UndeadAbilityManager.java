@@ -22,9 +22,8 @@ import net.minecraft.world.entity.player.Player;
  *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
  *          hold 1 s: Head Launch
  *   Z (4)  Ten Twists: Vortex Bullet Shift+Z  Parts Bullet Head
- *   V (5)  tap: Reform               Shift+V  Toggle Regen (auto-regrowth on / off)
+ *   V (5)  tap: Reform               Shift+V  (free: the Regen Menu and Toggle Regen were removed in v0.17.3)
  *          hold 2 s: Bone Sword (UndeadBoneSword: he struggles the arm off; the keys turn into the sword kit while it is out)
- *          Shift + hold V: the Regen Menu (UndeadRegenMenu: the keys grow / strip his ten segments while it is open)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: UndeadConfig.VICTOR_ENABLED)
  *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
  * </pre>
@@ -45,10 +44,6 @@ public final class UndeadAbilityManager {
 	 * said why), 1 once the sword is drawn}. A release before {@link UndeadConfig#BONE_SWORD_TAP} is a tap: Reform.
 	 */
 	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
-	/** v0.17.3: Shift+V held down: {when it went down, 1 once the hold opened / closed the Regen Menu}. A shorter press: Toggle Regen. */
-	private static final Map<UUID, long[]> SV_HELD = new ConcurrentHashMap<>();
-	/** Shift + V held this long opens (or closes) the Regen Menu. */
-	public static final int MENU_HOLD = 10;
 
 	private UndeadAbilityManager() {
 	}
@@ -58,7 +53,6 @@ public final class UndeadAbilityManager {
 		R_HELD.clear();
 		X_HELD.clear();
 		V_HELD.clear();
-		SV_HELD.clear();
 		UndeadLaunch.clearSessionState();
 	}
 
@@ -67,7 +61,6 @@ public final class UndeadAbilityManager {
 		R_HELD.remove(id);
 		X_HELD.remove(id);
 		V_HELD.remove(id);
-		SV_HELD.remove(id);
 		UndeadLaunch.forget(id);
 	}
 
@@ -102,21 +95,10 @@ public final class UndeadAbilityManager {
 		}
 		boolean shift = player.isShiftKeyDown();
 		boolean victor = Undead.victor(player);
-		// v0.17.3: Shift+V -- a tap toggles auto-regrowth, a hold opens / closes the Regen Menu (read before anything else)
-		if (slot == AbilitySlot.SLOT_5 && (pressed ? shift : SV_HELD.containsKey(player.getUUID()))) {
-			if (pressed) {
-				V_HELD.remove(player.getUUID());
-				SV_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L });
-			} else {
-				long[] held = SV_HELD.remove(player.getUUID());
-				if (held != null && held[1] == 0L && Undead.canAct(player)) {
-					Undead.toggleRegen(player);
-				}
-			}
-			return;
-		}
-		if (UndeadRegenMenu.open(player)) {
-			UndeadRegenMenu.handle(player, slot, pressed, shift);
+		// v0.17.3 (user: "remove the regen menu from this power please"): Shift+V no longer toggles auto-regrowth or opens the
+		// Regen Menu -- regrowth is always automatic. A Shift+V press does nothing here (and starts no V hold).
+		if (slot == AbilitySlot.SLOT_5 && pressed && shift) {
+			V_HELD.remove(player.getUUID());
 			return;
 		}
 		if (Undead.state(player).boneSword() && UndeadBoneSword.handle(player, slot, pressed, shift)) {
@@ -225,8 +207,6 @@ public final class UndeadAbilityManager {
 	static void tickHold(ServerPlayer player) {
 		tickX(player);
 		tickV(player);
-		tickShiftV(player);
-		UndeadRegenMenu.tick(player);
 		UndeadLaunch.tick(player);
 		Long down = R_HELD.get(player.getUUID());
 		var s = Undead.state(player);
@@ -275,29 +255,6 @@ public final class UndeadAbilityManager {
 		}
 	}
 
-	/** Shift+V held {@link #MENU_HOLD}: the Regen Menu opens (or closes); the release then does nothing. */
-	private static void tickShiftV(ServerPlayer player) {
-		long[] v = SV_HELD.get(player.getUUID());
-		if (v == null || v[1] != 0L) {
-			return;
-		}
-		if (player.level().getGameTime() - v[0] >= MENU_HOLD) {
-			v[1] = 1L;
-			if (Undead.canAct(player)) {
-				UndeadRegenMenu.toggle(player);
-			}
-		}
-	}
-
-	/** Gametests: Shift+V has been down for {@code ticks}, and the hold ticks. */
-	public static void forTestsHoldShiftV(ServerPlayer player, int ticks) {
-		long[] v = SV_HELD.get(player.getUUID());
-		if (v != null) {
-			v[0] = player.level().getGameTime() - ticks;
-		}
-		tickShiftV(player);
-	}
-
 	/** Gametests: V has been down for {@code ticks} (the press moved back in time), and the hold ticks. */
 	public static void forTestsHoldV(ServerPlayer player, int ticks) {
 		long[] v = V_HELD.get(player.getUUID());
@@ -333,10 +290,6 @@ public final class UndeadAbilityManager {
 
 	/** The move ids on a slot (plain, Shift), for the HUD; Victor's kit while he is Victor. */
 	public static String[] idsOf(Player player, AbilitySlot slot) {
-		if (UndeadRegenMenu.open(player)) {
-			String[] menu = UndeadRegenMenu.idsOf(slot);
-			return menu != null ? menu : new String[0]; // v0.17.3: the Regen Menu's buttons while it is open
-		}
 		String[] sword = UndeadBoneSword.idsOf(player, slot);
 		if (sword != null) {
 			return sword; // v0.17.3: the Bone Sword kit while it is out
@@ -347,8 +300,8 @@ public final class UndeadAbilityManager {
 			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadAbilities.CRESCENT, UndeadAbilities.GREAT_CRESCENT };
 			case SLOT_3 -> new String[] { UndeadLaunch.LEG_LAUNCH, UndeadAbilities.PROPULSION };
 			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadAbilities.HEAD_BULLET };
-			// v0.17.3: tap V Reform, Shift+V Toggle Regen (hold V, the Bone Sword, is the third: boneSwordHoldId)
-			case SLOT_5 -> new String[] { UndeadAbilities.REFORM, UndeadConfig.VICTOR_ENABLED ? UndeadAbilities.CARD : UndeadAbilities.REGEN };
+			// v0.17.3: tap V Reform (hold V, the Bone Sword, is the third: boneSwordHoldId); Shift+V is free since Toggle Regen went
+			case SLOT_5 -> UndeadConfig.VICTOR_ENABLED ? new String[] { UndeadAbilities.REFORM, UndeadAbilities.CARD } : new String[] { UndeadAbilities.REFORM };
 			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadAbilities.DEAD_LINE, UndeadAbilities.QUARDEAD };
 			default -> new String[0];
 		};

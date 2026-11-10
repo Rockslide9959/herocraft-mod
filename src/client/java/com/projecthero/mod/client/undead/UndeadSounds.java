@@ -16,6 +16,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -23,17 +24,15 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3: Undead's client sounds -- the regrowth (looping beds per layer plus random accents, a wet snap when the part is
- * whole), the blood jets, the boost burn, the punch wind-up, and one-shot helpers for client-side effects.
+ * v0.17.3: Undead's client sounds -- the regrowth fizz, the blood jets, the boost burn, the punch wind-up, and one-shot helpers
+ * for client-side effects.
  *
  * <h2>Regrowth</h2>
- * {@link #regrowth} is fed every tick (or frame) for each regrowing part with the three layer fractions: the bone loop
- * plays while the bone grows, the muscle bed while the muscle grows, the skin while the skin grows, each fading in and out
- * at its layer's ends, pitched up by its progress and by how fast it is going; cracks, squelches and stretches land at
- * random at a rate that follows the same; {@link UndeadSoundEvents#REGROW_FINISH} plays once when the skin reaches 1. If the
- * feed stops the loops fade out by themselves within half a second. A part that breaks again (the bone fraction drops back)
- * starts over. Without a renderer that knows the real fractions, {@link #watch} estimates them from the synced regrowth
- * times ({@link #layers}).
+ * v0.17.3 (user: "make the regeneration sound effects the steam fizz sound please instead of the gross sounds it has now"): a
+ * regrowing segment hisses softly -- vanilla's {@code random/fizz} ({@link SoundEvents#FIRE_EXTINGUISH}) every few ticks, quiet,
+ * at a pitch of its own (a heavier part lower, the hands and feet higher and quieter), several segments at once sharing the level
+ * instead of stacking up; when it is whole it gives one slightly stronger, lower fizz. {@link #watch} drives it from the synced
+ * regrowth times.
  *
  * <h2>Loops</h2>
  * {@link #jet}, {@link #burn} and {@link #punchCharge} are sticky: {@code on} starts the loop (once), {@code off} fades it
@@ -41,31 +40,21 @@ import net.minecraft.world.phys.Vec3;
  * on disconnect ({@link #reset}).
  */
 public final class UndeadSounds {
-	/**
-	 * The layer windows as fractions of the whole regrowth (Normal is ~8.5 s: bone 0-3 s, muscle 2-6 s, skin 4-8.5 s). The
-	 * regeneration speed only stretches the whole, so the fractions hold at every speed.
-	 */
-	public static final float BONE_START = 0f, BONE_END = 3f / 8.5f;
-	public static final float MUSCLE_START = 2f / 8.5f, MUSCLE_END = 6f / 8.5f;
-	public static final float SKIN_START = 4f / 8.5f, SKIN_END = 1f;
-	/** Layer rates at Normal (fraction per second): a faster layer sounds a little higher and busier. */
-	private static final float[] NOMINAL_RATE = { 1f / 3f, 1f / 4f, 1f / 4.5f };
-	/** A heavier part sounds lower. */
+	/** A heavier part sounds lower (head, body, arms, legs, hands, feet). */
 	private static final float[] PART_PITCH = { 1.04f, 0.86f, 1.06f, 1.06f, 0.96f, 0.96f, 1.22f, 1.22f, 1.12f, 1.12f };
-	/** v0.17.3: per segment loudness -- the hands and feet (segments 6-9) are small: quieter, fewer accents. */
-	private static final float[] SEG_GAIN = { 1f, 1f, 1f, 1f, 1f, 1f, 0.45f, 0.45f, 0.45f, 0.45f };
+	/** v0.17.3: per segment loudness -- the hands and feet (segments 6-9) are small: quieter. */
+	private static final float[] SEG_GAIN = { 1f, 1f, 1f, 1f, 1f, 1f, 0.6f, 0.6f, 0.6f, 0.6f };
 	/** Height of each part's centre above the feet. */
 	private static final double[] PART_Y = { 1.65, 1.1, 1.25, 1.25, 0.45, 0.45, 0.75, 0.75, 0.1, 0.1 };
 	/**
-	 * Loop levels. Since the v2 regrowth sounds (no more boiling-water bubbles / fizz) the loops are sparse events over
-	 * near-silence, so they sit under the accents: the accents carry the sound, the loops fill the gaps between them.
+	 * The hiss while a segment grows: one fizz every {@link #HISS_EVERY} + 0..{@link #HISS_JITTER} ticks at {@link #HISS_VOLUME}
+	 * (the user dislikes loud sounds) and {@link #HISS_PITCH} times the part's pitch; the fizz as it completes is a little
+	 * stronger and lower ({@link #DONE_VOLUME}, {@link #DONE_PITCH}).
 	 */
-	private static final float[] BASE_VOLUME = { 0.45f, 0.4f, 0.32f };
-	/** Accent rates per second at full layer volume (bone cracks, flesh squelches, skin stretches); kept sparse. */
-	private static final float[] ACCENT_RATE = { 2.4f, 1.2f, 0.7f };
-	/** Accent volume range (min, spread). */
-	private static final float ACCENT_VOLUME = 0.45f, ACCENT_VOLUME_SPREAD = 0.3f;
-	/** Regrowth sounds only for Undeads this close to the camera (the beds are audible ~12 blocks). */
+	static final int HISS_EVERY = 5, HISS_JITTER = 4;
+	static final float HISS_VOLUME = 0.12f, HISS_PITCH = 1.35f;
+	static final float DONE_VOLUME = 0.26f, DONE_PITCH = 1.05f;
+	/** Regrowth sounds only for Undeads this close to the camera. */
 	private static final double RANGE = 20.0;
 
 	private static final Map<UUID, Voices> VOICES = new HashMap<>();
@@ -85,21 +74,8 @@ public final class UndeadSounds {
 	// ================================================================ regrowth
 
 	/**
-	 * The three layer fractions (bone, muscle, skin, each 0..1) for a part whose whole regrowth is {@code p} (0..1) through,
-	 * from {@link #BONE_START}..{@link #SKIN_END}.
-	 */
-	public static float[] layers(float p) {
-		return new float[] { window(p, BONE_START, BONE_END), window(p, MUSCLE_START, MUSCLE_END), window(p, SKIN_START, SKIN_END) };
-	}
-
-	private static float window(float p, float a, float b) {
-		return Mth.clamp((p - a) / (b - a), 0f, 1f);
-	}
-
-	/**
-	 * The estimator path: for one Undead, feeds {@link #regrowth} from the synced regrowth times for every regrowing part, ends a
-	 * regrowth the server just finished (the snap), restarts a part that broke again; and drives the jet loop from the
-	 * synced propelling flag. Call once per client tick per Undead in view.
+	 * For one Undead (once per client tick while in view): every segment regrowing hisses softly, and fizzes once when it is
+	 * whole again; drives the jet loop from the synced propelling flag.
 	 */
 	public static void watch(Player player, UndeadState s, long now) {
 		Minecraft mc = Minecraft.getInstance();
@@ -111,128 +87,57 @@ public final class UndeadSounds {
 		v.autoJet = s.hasPower && s.flag(UndeadState.FLAG_PROPELLING) && player.isAlive();
 		updateJet(player, v);
 		boolean near = mc.player != null && player.distanceToSqr(mc.player) <= RANGE * RANGE;
+		int growing = 0;
+		for (int i = 0; i < UndeadState.SEGS; i++) {
+			if (s.broken(i) && s.regrowStart(i) > 0L && now >= s.regrowStart(i)) {
+				growing++;
+			}
+		}
+		// several parts at once (the Undead re-form): they share the level instead of stacking up
+		float crowd = 1f / (float) Math.sqrt(Math.max(1, growing));
 		for (int i = 0; i < UndeadState.SEGS; i++) {
 			PartVoice pv = v.parts[i];
 			if (!near) {
-				if (pv != null) {
-					pv.release();
-					v.parts[i] = null;
-				}
+				v.parts[i] = null;
 				continue;
 			}
 			if (s.broken(i)) {
 				long start = s.regrowStart(i);
 				if (start > 0L && now >= start) {
-					float[] l = layers(s.regrowth(i, now));
-					regrowth(player, i, l[0], l[1], l[2]);
-				} else if (pv != null && pv.lastBone > 0f) {
-					partBroken(player, i); // gone again before it finished (or waiting to start over)
+					if (pv == null) {
+						pv = v.parts[i] = new PartVoice();
+						pv.nextAt = ticks + RANDOM.nextInt(3); // segments that start together don't hiss in lockstep
+					}
+					if (s.regrowth(i, now) >= 0.999f) {
+						finished(player, i, pv); // (the server clears it on its next tick)
+					} else if (ticks >= pv.nextAt) {
+						pv.nextAt = ticks + HISS_EVERY + RANDOM.nextInt(HISS_JITTER + 1);
+						local(player, PART_Y[i], SoundEvents.FIRE_EXTINGUISH, HISS_VOLUME * SEG_GAIN[i] * crowd * (0.85f + 0.3f * RANDOM.nextFloat()),
+								HISS_PITCH * PART_PITCH[i] * (0.94f + 0.12f * RANDOM.nextFloat()));
+					}
+				} else {
+					v.parts[i] = null; // gone, still waiting for its regrowth to start (or gone again before it finished)
 				}
-			} else if (pv != null && !pv.finished && pv.lastSkin > 0.3f) {
-				regrowth(player, i, 1f, 1f, 1f); // the server finished it between our samples: the snap
+			} else if (pv != null) {
+				finished(player, i, pv); // the server finished it between our samples
+				v.parts[i] = null;
 			}
 		}
 	}
 
-	/**
-	 * One regrowing part's progress: {@code boneFrac}, {@code muscleFrac}, {@code skinFrac} 0..1 (call every tick or frame
-	 * while it regrows; the loops fade out by themselves if the calls stop).
-	 */
-	public static void regrowth(Player player, int part, float boneFrac, float muscleFrac, float skinFrac) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || player == null || part < 0 || part >= UndeadState.SEGS) {
+	/** A segment is whole again: one stronger, lower fizz (once). */
+	private static void finished(Player player, int part, PartVoice pv) {
+		if (pv.finished) {
 			return;
 		}
-		Voices v = VOICES.computeIfAbsent(player.getUUID(), k -> new Voices());
-		v.lastWatched = ticks;
-		PartVoice pv = v.parts[part];
-		if (pv == null) {
-			pv = v.parts[part] = new PartVoice();
-		}
-		float[] f = { Mth.clamp(boneFrac, 0f, 1f), Mth.clamp(muscleFrac, 0f, 1f), Mth.clamp(skinFrac, 0f, 1f) };
-		// broke again: the bone went back, or a finished part is growing anew
-		if (pv.lastBone >= 0f && (f[0] < pv.lastBone - 0.2f || (pv.finished && f[2] < 0.9f))) {
-			pv.release();
-			pv = v.parts[part] = new PartVoice();
-		}
-		// rates and accents step at most every 40 ms, however often this is called (per tick or per frame)
-		long nanos = System.nanoTime();
-		float dt = pv.lastNanos == 0L ? 0f : Math.min(0.25f, (nanos - pv.lastNanos) / 1.0e9f);
-		float[] last = { pv.lastBone, pv.lastMuscle, pv.lastSkin };
-		float step = 0f;
-		if (pv.lastNanos == 0L) {
-			pv.lastNanos = nanos;
-			System.arraycopy(f, 0, pv.ref, 0, 3);
-		} else if (dt >= 0.04f) {
-			step = dt;
-			pv.lastNanos = nanos;
-			for (int k = 0; k < 3; k++) {
-				if (f[k] > 0f && f[k] < 1f && f[k] > pv.ref[k]) {
-					float rate = Mth.clamp((f[k] - pv.ref[k]) / dt / NOMINAL_RATE[k], 0.4f, 3f);
-					pv.rate[k] += (rate - pv.rate[k]) * 0.3f;
-				}
-			}
-			System.arraycopy(f, 0, pv.ref, 0, 3);
-		}
-		double y = PART_Y[part];
-		float partPitch = PART_PITCH[part];
-		float gain = SEG_GAIN[part];
-		// several parts at once (the Undead re-form): the beds share the level instead of stacking up
-		pv.lastFedTick = ticks;
-		int growing = 0;
-		for (PartVoice o : v.parts) {
-			if (o != null && !o.finished && ticks - o.lastFedTick <= 2) {
-				growing++;
-			}
-		}
-		float crowd = 1f / (float) Math.sqrt(Math.max(1, growing));
-		SoundEvent[] beds = { UndeadSoundEvents.REGROW_BONE_PUSH, UndeadSoundEvents.REGROW_MUSCLE, UndeadSoundEvents.REGROW_SKIN };
-		SoundEvent[] accents = { UndeadSoundEvents.REGROW_BONE_CRACK, UndeadSoundEvents.REGROW_SQUELCH, UndeadSoundEvents.REGROW_SKIN_STRETCH };
-		for (int k = 0; k < 3; k++) {
-			float e = f[k] > 0f && f[k] < 1f ? Math.min(1f, f[k] / 0.08f) * Math.min(1f, (1f - f[k]) / 0.12f) : 0f;
-			float speed = pv.rate[k];
-			float vol = BASE_VOLUME[k] * gain * e * crowd * (0.85f + 0.15f * Math.min(2f, speed));
-			float pitch = partPitch * (0.9f + 0.2f * f[k]) * (0.94f + 0.06f * speed);
-			Loop loop = pv.beds[k];
-			if (vol > 0.001f) {
-				if (loop == null || loop.isStopped()) {
-					loop = pv.beds[k] = new Loop(beds[k], player, y, 0.25f);
-					loop.feed(vol, pitch);
-					mc.getSoundManager().play(loop);
-				} else {
-					loop.feed(vol, pitch);
-				}
-				// accents, Poisson at a rate that follows the layer
-				if (step > 0f && RANDOM.nextFloat() < ACCENT_RATE[k] * gain * e * crowd * Math.min(2.2f, speed) * step) {
-					local(player, y, accents[k], gain * (ACCENT_VOLUME + ACCENT_VOLUME_SPREAD * RANDOM.nextFloat()), partPitch * (0.9f + 0.2f * RANDOM.nextFloat()));
-				}
-			} else if (loop != null) {
-				loop.feed(0f, pitch);
-			}
-			// a layer starting: a crack for the bone, a thick squelch as the flesh begins
-			if (last[k] <= 0f && f[k] > 0f && f[k] < 0.5f) {
-				if (k == 0) {
-					local(player, y, UndeadSoundEvents.REGROW_BONE_CRACK, 0.75f * gain, partPitch * 0.9f);
-				} else if (k == 1) {
-					local(player, y, UndeadSoundEvents.REGROW_SQUELCH, 0.8f * gain, partPitch * 0.85f);
-				}
-			}
-		}
-		if (!pv.finished && f[2] >= 0.999f && pv.lastSkin >= 0f) {
-			pv.finished = true;
-			local(player, y, UndeadSoundEvents.REGROW_FINISH, 0.8f * gain, partPitch * (0.95f + 0.1f * RANDOM.nextFloat()));
-			pv.fadeBeds();
-		}
-		pv.lastBone = f[0];
-		pv.lastMuscle = f[1];
-		pv.lastSkin = f[2];
+		pv.finished = true;
+		local(player, PART_Y[part], SoundEvents.FIRE_EXTINGUISH, DONE_VOLUME * SEG_GAIN[part], DONE_PITCH * PART_PITCH[part] * (0.95f + 0.1f * RANDOM.nextFloat()));
 	}
 
-	/** The part just broke (again): any regrowth sound for it stops at once and the next regrowth starts fresh. */
+	/** The part just broke (again): its regrowth sound starts fresh next time. */
 	public static void partBroken(Player player, int part) {
 		Voices v = player == null ? null : VOICES.get(player.getUUID());
-		if (v != null && part >= 0 && part < UndeadState.SEGS && v.parts[part] != null) {
-			v.parts[part].release();
+		if (v != null && part >= 0 && part < UndeadState.SEGS) {
 			v.parts[part] = null;
 		}
 	}
@@ -443,12 +348,7 @@ public final class UndeadSounds {
 		}
 
 		void releaseAll() {
-			for (int i = 0; i < parts.length; i++) {
-				if (parts[i] != null) {
-					parts[i].release();
-					parts[i] = null;
-				}
-			}
+			java.util.Arrays.fill(parts, null);
 			if (jet != null) {
 				jet.release();
 				jet = null;
@@ -464,30 +364,10 @@ public final class UndeadSounds {
 		}
 	}
 
+	/** One regrowing segment's fizz: when it hisses next, and whether its completion fizz has played. */
 	private static final class PartVoice {
-		final Loop[] beds = new Loop[3];
-		final float[] rate = { 1f, 1f, 1f };
-		final float[] ref = new float[3];
-		float lastBone = -1f, lastMuscle = -1f, lastSkin = -1f;
-		long lastNanos, lastFedTick;
+		long nextAt;
 		boolean finished;
-
-		void fadeBeds() {
-			for (Loop l : beds) {
-				if (l != null) {
-					l.feed(0f, l.getPitch());
-				}
-			}
-		}
-
-		void release() {
-			for (int k = 0; k < beds.length; k++) {
-				if (beds[k] != null) {
-					beds[k].release();
-					beds[k] = null;
-				}
-			}
-		}
 	}
 
 	/**

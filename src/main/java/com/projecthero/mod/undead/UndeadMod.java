@@ -28,7 +28,7 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.3: one entry point for the whole Undead power, called once from {@code ProjectHeroMod.onInitialize}: the card, the
  * flying pieces and clones, the damage rules, the missing-hand rules and the lifecycle hooks; plus
- * {@code /projecthero power tune undead (break <part|all> | restore | regen <slow|normal|burst>)}. The per-player tick runs
+ * {@code /projecthero power tune undead (break <part|all> | restore)}. The per-player tick runs
  * from {@code AbilityRouter.serverTick}; static state is dropped by {@code ServerStateReset} through
  * {@link #clearSessionState}.
  */
@@ -67,12 +67,18 @@ public final class UndeadMod {
 		});
 	}
 
-	/** The hand used is on an arm Undead doesn't have right now. */
+	/**
+	 * The hand used is one Undead doesn't have right now: its arm or the hand itself gone or still regrowing, or eaten past the
+	 * wrist ({@link Undead#handMissing}; the main hand follows the player's main arm). v0.17.3 (user: "players shouldn't be able to
+	 * hold items while not having an arm for the respective arm"): the item stays in its slot, but it can't be used, swung, placed or
+	 * attacked with (the callbacks above), anything already in use stops ({@link Undead#tick}), and it isn't drawn in that hand
+	 * (UndeadHeldItemMixin, UndeadFirstPersonItemMixin).
+	 */
 	public static boolean handGone(Player player, InteractionHand hand) {
 		if (!Undead.hasPower(player) || player.isSpectator()) {
 			return false;
 		}
-		return hand == InteractionHand.MAIN_HAND ? Undead.mainArmMissing(player) : Undead.offArmMissing(player);
+		return hand == InteractionHand.MAIN_HAND ? Undead.mainHandMissing(player) : Undead.offHandMissing(player);
 	}
 
 	public static void clearSessionState() {
@@ -116,16 +122,7 @@ public final class UndeadMod {
 					Undead.restore(player);
 					c.getSource().sendSuccess(() -> Component.literal("Every part regrown"), false);
 					return 1;
-				}))
-				// v0.17.3: one speed now -- /undead regen on|off is auto-regrowth (Shift+V, Toggle Regen)
-				.then(Commands.literal("regen")
-						.then(Commands.literal("on").executes(c -> {
-							Undead.setRegenOff(c.getSource().getPlayerOrException(), false);
-							return 1;
-						}))
-						.then(Commands.literal("off").executes(c -> {
-							Undead.setRegenOff(c.getSource().getPlayerOrException(), true);
-							return 1;
-						})));
+				}));
+		// (v0.17.3: "regen on|off" went with Toggle Regen: regrowth is always automatic)
 	}
 }

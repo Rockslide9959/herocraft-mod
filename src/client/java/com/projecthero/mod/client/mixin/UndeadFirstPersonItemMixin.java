@@ -36,12 +36,22 @@ public abstract class UndeadFirstPersonItemMixin {
 		}
 		HumanoidArm side = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
 		int part = side == HumanoidArm.RIGHT ? UndeadState.RIGHT_ARM : UndeadState.LEFT_ARM;
-		if (!s.broken(part)) {
+		// v0.17.3 (user: "players shouldn't be able to hold items while not having an arm"): the arm, or just its hand, is not
+		// there (gone, regrowing, eaten past the wrist): nothing is held in it -- the item isn't drawn
+		if (!Undead.handMissing(player, part)) {
 			return;
 		}
 		float p = s.regrowth(part, player.level().getGameTime() + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
-		if (p <= 0f || !stack.isEmpty() || hand != InteractionHand.MAIN_HAND) {
+		if (hand != InteractionHand.MAIN_HAND || (s.broken(part) && p <= 0f)) {
+			ci.cancel(); // no arm to show yet (and an empty off hand is never drawn)
+			return;
+		}
+		if (!stack.isEmpty()) {
+			// the item stays in the slot, but the view shows the bare arm (its cut / regrowing end drawn by UndeadFirstPersonArmMixin)
 			ci.cancel();
+			pose.pushPose();
+			((UndeadItemInHandInvoker) (Object) this).projecthero$renderPlayerArm(pose, buffers, light, equip, swing, side);
+			pose.popPose();
 		}
 	}
 }

@@ -18,10 +18,10 @@ import com.projecthero.mod.undead.UndeadConfig;
  * Index {@link #HEAD}..{@link #LEFT_LEG} are the six parts with HP ({@link #partHp}). v0.17.3 (NBC Heroes' Regenerative
  * Segmentation): the regrowth runs on ten SEGMENTS -- the six parts (an arm or leg is the limb down to the wrist / ankle)
  * plus {@link #RIGHT_HAND}, {@link #LEFT_HAND}, {@link #RIGHT_FOOT}, {@link #LEFT_FOOT}. Each segment has three times in
- * {@link #partTimes}: when it broke (0 = whole), when its regrowth started (0 = not growing) and when it stops: it grows one
- * frame a tick from the start, so {@code end - start} is the frame it grows to ({@link UndeadConfig#FRAMES} = whole, fewer =
- * held at a stage by the Regen Menu). Clients draw the segment hidden from the break until it starts, then re-forming (bone,
- * then flesh, then skin). How it went ({@link #kind}) decides the look:
+ * {@link #partTimes}: when it broke (0 = whole), when its regrowth started (0 = not growing) and when it is whole again: it
+ * grows evenly from the start to the end through its {@link UndeadConfig#FRAMES} (one frame a tick at the normal speed;
+ * {@code UndeadRegenMods.durationMult} stretches {@code end - start}). Clients draw the segment hidden from the break until it
+ * starts, then re-forming (bone, then flesh, then skin). How it went ({@link #kind}) decides the look:
  * {@link #KIND_BURST} bursts into the skin's pixels, {@link #KIND_LAUNCHED} left as a projectile, {@link #KIND_SHATTER}
  * went in the Undead shatter, {@link #KIND_SPENT} was used up by finger shots and {@link #KIND_BURNT} burnt away in a boost.
  *
@@ -101,15 +101,11 @@ public final class UndeadState {
 	public static final int FLAG_PUNCH = 32;
 	/** The last one-arm move (finger shot, punch) used the off arm (the main one was gone or used up). */
 	public static final int FLAG_OFF_ARM = 64;
-	/**
-	 * v0.17.3 Shift+V, Toggle Regen (NBC's Halt): auto-regrowth off -- nothing starts growing back on its own (a segment already
-	 * growing finishes); the Regen Menu grows segments a stage at a time.
-	 */
-	public static final int FLAG_REGEN_OFF = 128;
+	// 128 was Toggle Regen (auto-regrowth off) and 512 the Regen Menu, both removed in v0.17.3 (user: "remove the regen menu from
+	// this power please"): regrowth is always automatic. LEGACY_FLAGS clears them from an old save; don't reuse those bits.
+	private static final int LEGACY_FLAGS = 128 | 512;
 	/** v0.17.3 (tester: "Alternation between left and right hands"): the next one-arm move comes from the off arm (the last used the main one). */
 	public static final int FLAG_NEXT_OFF = 256;
-	/** v0.17.3: the Regen Menu is open (the ability keys grow / strip segments instead of the moves). */
-	public static final int FLAG_REGEN_MENU = 512;
 
 	// ---------------------------------------------------------------- the extra slots ({@link #extra})
 	/** When the hands / feet (and anything half burnt) started growing back after a flight (0: not). */
@@ -177,7 +173,7 @@ public final class UndeadState {
 		this.animStart = animStart;
 		this.reformUntil = reformUntil;
 		this.slowRegenUntil = slowRegenUntil;
-		this.flags = flags;
+		this.flags = flags & ~LEGACY_FLAGS;
 		this.holdStart = holdStart;
 		this.lastHitAt = lastHitAt;
 		this.extra = new ArrayList<>(extra);
@@ -245,8 +241,8 @@ public final class UndeadState {
 	}
 
 	/**
-	 * The frame a segment is at (0 = gone .. {@link UndeadConfig#FRAMES} = whole): one a tick from its start, up to the frame it
-	 * grows to ({@code end - start}). Fractional between ticks (the renderers pass the partial tick).
+	 * The frame a segment is at (0 = gone .. {@link UndeadConfig#FRAMES} = whole): evenly from its start to its end, one a tick at
+	 * the normal speed. Fractional between ticks (the renderers pass the partial tick).
 	 */
 	public float frame(int seg, float now) {
 		if (!broken(seg)) {
@@ -256,13 +252,8 @@ public final class UndeadState {
 		if (start <= 0L || now < start) {
 			return 0f;
 		}
-		return Math.min(now - start, (float) (regrowEnd(seg) - start));
-	}
-
-	/** The frame a growing segment stops at ({@code end - start}; 0 when it is not growing). */
-	public int targetFrame(int seg) {
-		long start = regrowStart(seg);
-		return !broken(seg) ? UndeadConfig.FRAMES[seg] : start <= 0L ? 0 : (int) (regrowEnd(seg) - start);
+		long len = Math.max(1L, regrowEnd(seg) - start);
+		return Math.min(1f, (now - start) / len) * UndeadConfig.FRAMES[seg];
 	}
 
 	/** 0 while the segment is gone, rising to 1 as it re-forms (frame / its full frames); 1 when whole. */

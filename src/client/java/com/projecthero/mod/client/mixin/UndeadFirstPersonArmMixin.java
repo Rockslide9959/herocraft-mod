@@ -43,14 +43,14 @@ public abstract class UndeadFirstPersonArmMixin {
 			return;
 		}
 		float p = s.regrowth(part, now);
-		if (p <= 0f) {
+		if (p <= 0f || !Undead.mayShow(s, part, now)) {
 			return;
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		int end = UndeadState.extremity(part); // v0.17.3: the hand grows from the wrist as its own segment
+		// v0.17.3: the hand grows from the wrist as its own segment, and only once the arm has grown out to it
 		com.projecthero.mod.client.undead.UndeadRegrow.drawPart(pose, buffers, light, player.getSkin().texture(), UndeadRender.slim(player), part, Math.min(1f, p),
-				end < 0 ? 0f : s.regrowth(end, now));
+				UndeadRender.endRegrowth(s, part, now));
 		pose.popPose();
 	}
 }

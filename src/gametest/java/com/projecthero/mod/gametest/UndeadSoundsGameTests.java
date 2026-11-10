@@ -41,7 +41,8 @@ public class UndeadSoundsGameTests implements FabricGameTest {
 	public void everyUndeadSoundIsRegisteredDefinedAndSubtitled(GameTestHelper h) {
 		JsonObject sounds = read("/assets/projecthero/sounds.json");
 		JsonObject lang = read("/assets/projecthero/lang/en_us.json");
-		h.assertTrue(UndeadSoundEvents.ALL.length >= 22, "the whole Undead sound set is listed");
+		// (v0.17.3: the seven undead.regrow.* events went -- the regrowth fizzes with vanilla's random/fizz now)
+		h.assertTrue(UndeadSoundEvents.ALL.length >= 15, "the whole Undead sound set is listed");
 		Set<String> registered = new HashSet<>();
 		for (SoundEvent ev : UndeadSoundEvents.ALL) {
 			h.assertTrue(ev != null, "an Undead sound is null (class-init order?)");

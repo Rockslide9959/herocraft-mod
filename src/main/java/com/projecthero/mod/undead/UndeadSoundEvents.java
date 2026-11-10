@@ -15,21 +15,7 @@ import net.minecraft.sounds.SoundEvent;
  * {@link UndeadSfx}, the client loops and accents through {@code client.undead.UndeadSounds}.
  */
 public final class UndeadSoundEvents {
-	// ---- regrowth (client: UndeadSounds.regrowth) -- loops are 3 s seamless beds, the rest one-shot accents
-	/** Loop: bone pushing out of the stump -- a hard stick-slip grind with small cracks. */
-	public static final SoundEvent REGROW_BONE_PUSH = register("undead.regrow.bone_push");
-	/** Accent: a small sharp bone crack while the bone grows. */
-	public static final SoundEvent REGROW_BONE_CRACK = register("undead.regrow.bone_crack");
-	/** Loop: the muscle knitting -- a wet churn of bubbles, squelch formants and low sinew creaks. */
-	public static final SoundEvent REGROW_MUSCLE = register("undead.regrow.muscle");
-	/** Accent: one squelch of flesh closing while the muscle grows. */
-	public static final SoundEvent REGROW_SQUELCH = register("undead.regrow.squelch");
-	/** Loop: the skin closing over -- tacky micro-crackle, a faint tight creak. */
-	public static final SoundEvent REGROW_SKIN = register("undead.regrow.skin");
-	/** Accent: the skin pulling tight. */
-	public static final SoundEvent REGROW_SKIN_STRETCH = register("undead.regrow.skin_stretch");
-	/** The part whole again: a wet snap and settle. */
-	public static final SoundEvent REGROW_FINISH = register("undead.regrow.finish");
+	// (v0.17.3: the regrowth sounds are vanilla's random/fizz now -- client UndeadSounds.watch; no events of our own)
 	// ---- breaks and blood
 	public static final SoundEvent PART_BREAK = register("undead.part.break");
 	public static final SoundEvent BLOOD_BURST = register("undead.blood.burst");
@@ -53,8 +39,7 @@ public final class UndeadSoundEvents {
 	public static final SoundEvent PUNCH_FIRE = register("undead.punch.fire");
 
 	/** Every Undead sound (the gametest checks each is registered, defined in sounds.json and subtitled). */
-	public static final SoundEvent[] ALL = { REGROW_BONE_PUSH, REGROW_BONE_CRACK, REGROW_MUSCLE, REGROW_SQUELCH, REGROW_SKIN,
-			REGROW_SKIN_STRETCH, REGROW_FINISH, PART_BREAK, BLOOD_BURST, BLOOD_SPRAY, BLOOD_DRIP, BLOOD_SPLAT, BLOOD_JET_LOOP,
+	public static final SoundEvent[] ALL = { PART_BREAK, BLOOD_BURST, BLOOD_SPRAY, BLOOD_DRIP, BLOOD_SPLAT, BLOOD_JET_LOOP,
 			BLOOD_JET_START, BLOOD_JET_STOP, BOOST_BURN_LOOP, HEAD_ROLL, LAUNCH_WHOOSH, BULLET_PARTS, BULLET_CRIMSON, PUNCH_STRETCH,
 			PUNCH_FIRE };
 

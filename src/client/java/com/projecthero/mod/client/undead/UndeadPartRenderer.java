@@ -175,8 +175,11 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 	}
 
 	/**
-	 * v0.17.3: a part left behind by a Leg / Head Launch -- drawn exactly where it was on his standing body (the entity sits at his
-	 * feet), still for a moment, then toppling over about the feet: a leg splays back and out to its side, the body falls back.
+	 * v0.17.3 ({@link UndeadPartEntity#leaveBehind}): a piece left behind where it came off -- drawn exactly where that slice sat
+	 * on his standing body (the entity is at his feet). For {@link UndeadPartEntity#LEFT_STAND} it stands perfectly still; over
+	 * {@link UndeadPartEntity#LEFT_FALL} it tips over about its lowest point while dropping to the ground (a leg splays back and
+	 * out to its side, an arm falls out to its side, the body and head fall back), with a small bounce as it lands; then it erodes
+	 * away pixel by pixel over {@link UndeadPartEntity#LEFT_DISSOLVE} ({@link UndeadRegrowStepped#remnant}).
 	 */
 	private void leftBehind(UndeadPartEntity e, float partial, PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim,
 			Vec3 cam) {
@@ -184,37 +187,44 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		if (part < 0) {
 			return;
 		}
-		boolean leg = e.style() == UndeadPartEntity.STYLE_LEFT_LEG;
-		float age = e.tickCount + partial;
-		float wait = leg ? 3f : 5f;
-		float len = leg ? 7f : 9f;
-		float t = Mth.clamp((age - wait) / len, 0f, 1f);
+		float age = e.leftAge(partial);
+		float dissolve = UndeadPartEntity.dissolveProgress(age);
+		if (dissolve >= 1f) {
+			return;
+		}
+		float from = e.fromRow(), to = e.toRow();
+		boolean leg = part == UndeadState.RIGHT_LEG || part == UndeadState.LEFT_LEG;
+		boolean arm = part == UndeadState.RIGHT_ARM || part == UndeadState.LEFT_ARM;
+		boolean legless = e.style() == UndeadPartEntity.STYLE_LEFT_BODY_LEGLESS;
+		float t = UndeadPartEntity.fallProgress(age);
 		float fall = t * t; // speeds up like a real topple
-		float settle = t >= 1f ? Mth.sin(Mth.clamp((age - wait - len) / 4f, 0f, 1f) * Mth.PI) * 4f : 0f; // a small bounce on landing
+		float land = UndeadPartEntity.LEFT_STAND + UndeadPartEntity.LEFT_FALL;
+		float settle = t >= 1f ? Mth.sin(Mth.clamp((age - land) / 4f, 0f, 1f) * Mth.PI) * 4f : 0f; // a small bounce on landing
+		Matrix4f stand = UndeadRender.standing(Vec3.ZERO, 180f, slim, part);
+		// the slice's lowest point (its far end; the neck for the head): what it tips about, and how high it has to drop
+		float[] b = UndeadTexels.box(part, slim);
+		float lowY = part == UndeadState.HEAD ? b[1] + b[4] - from : b[1] + to;
+		org.joml.Vector3f low = stand.transformPosition(new org.joml.Vector3f((b[0] + b[3] * 0.5f) / 16f, lowY / 16f, (b[2] + b[5] * 0.5f) / 16f));
+		float sit = legless ? -0.70f : 0f; // no legs under it: the body sits on the ground
+		float drop = Math.max(0f, low.y + sit) * fall;
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(180f - e.getYRot()));
-		if (e.style() == UndeadPartEntity.STYLE_LEFT_BODY_LEGLESS) {
-			pose.translate(0f, -0.70f, 0f); // no legs under it: the body sits on the ground
-		}
+		pose.translate(0f, sit - drop, 0f);
+		pose.translate(low.x, low.y, low.z);
 		// in this frame +z is behind him and +x is his right
-		pose.mulPose(Axis.XP.rotationDegrees((leg ? 70f : 84f) * fall - settle));
 		if (leg) {
-			float out = part == UndeadState.RIGHT_LEG ? -1f : 1f;
-			pose.mulPose(Axis.ZP.rotationDegrees(out * 24f * fall));
+			pose.mulPose(Axis.XP.rotationDegrees(70f * fall - settle));
+			pose.mulPose(Axis.ZP.rotationDegrees((part == UndeadState.RIGHT_LEG ? -1f : 1f) * 24f * fall));
+		} else if (arm) {
+			float side = part == UndeadState.RIGHT_ARM ? -1f : 1f;
+			pose.mulPose(Axis.ZP.rotationDegrees(side * (86f * fall - settle)));
+			pose.mulPose(Axis.XP.rotationDegrees(12f * fall));
+		} else {
+			pose.mulPose(Axis.XP.rotationDegrees(84f * fall - settle));
 		}
-		pose.mulPose(UndeadRender.standing(Vec3.ZERO, 180f, slim, part));
-		PlayerModel<Player> model = slim ? this.slimModel : this.wide;
-		ModelPart base = UndeadRender.part(model, part);
-		ModelPart over = UndeadRender.overlay(model, part);
-		base.resetPose();
-		over.resetPose();
-		base.x = base.y = base.z = 0f;
-		over.x = over.y = over.z = 0f;
-		base.visible = true;
-		over.visible = true;
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
-		base.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
-		over.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+		pose.translate(-low.x, -low.y, -low.z);
+		pose.mulPose(stand);
+		UndeadRegrowStepped.remnant(pose, buffers, light, tex, slim, part, from, to, dissolve);
 		LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, part));
 		pose.popPose();
 	}
@@ -266,6 +276,9 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 	static void removed(UndeadPartEntity e) {
 		Last last = LAST.remove(e.getId());
 		TRAVEL.remove(e.getId());
+		if (e.isLeftBehind()) {
+			return; // v0.17.3: it has already dissolved away (leaveBehind): nothing bursts
+		}
 		if (e.isSplinter() || e.isSword()) {
 			// bone bits and blood
 			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);

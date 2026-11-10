@@ -42,6 +42,7 @@ public final class UndeadAbilities {
 	public static final String PROPULSION = "blood_propulsion";
 	public static final String VORTEX = "vortex_bullet";
 	public static final String HEAD_BULLET = "parts_bullet_head";
+	/** The old Shift+V Toggle Regen id (removed in v0.17.3: regrowth is always automatic); only the Bone Sword's key list still names it. */
 	public static final String REGEN = "regen_speed";
 	/** v0.17.3 tap V: the body snapped back together ({@link Undead#reform}). */
 	public static final String REFORM = "reform";
@@ -88,10 +89,10 @@ public final class UndeadAbilities {
 		WAVES.remove(id);
 		VULCANS.remove(id);
 		UndeadState s = Undead.peek(p);
-		if (s != null && (s.flags & ~UndeadState.FLAG_REGEN_OFF) != 0) {
+		if (s != null && s.flags != 0) {
 			UndeadState n = s.copy();
 			// (v0.17.3: the hands and feet are segments of their own now: they grow back by the regrowth once he has landed)
-			n.flags = s.flags & UndeadState.FLAG_REGEN_OFF; // auto-regrowth off stays off
+			n.flags = 0;
 			Undead.save(p, n);
 		}
 	}

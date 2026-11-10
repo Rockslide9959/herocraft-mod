@@ -133,27 +133,17 @@ public final class UndeadHud {
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.undead.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
 		}
-		// v0.17.3: auto-regrowth on or off (Shift+V, Toggle Regen); the Regen Menu open says so in gold
-		boolean off = s.flag(UndeadState.FLAG_REGEN_OFF);
-		Component mode = Component.translatable(off ? "projecthero.undead.regen.manual" : "projecthero.undead.regen.auto");
-		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.undead.regen", mode).getString(), textW), x0,
-				ty + 11, off ? VanillaHud.RED : VanillaHud.GREY, true);
-		if (s.flag(UndeadState.FLAG_REGEN_MENU) && s.reformUntil <= now) {
-			g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.undead.menu").getString(), textW), x0, ty - 11,
-					VanillaHud.GOLD, true);
-		}
+		// (v0.17.3: the "Regen: Auto / Manual" line and the Regen Menu tag went with the Regen Menu: regrowth is always automatic)
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = UndeadAbilityManager.idsOf(p, slot);
 				if (ids.length > 0) {
-					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out); in the
-					// Regen Menu "Hold: Regenerate Whole Body"
-					boolean menu = s.flag(UndeadState.FLAG_REGEN_MENU);
-					Component extra = slot == AbilitySlot.SLOT_5 && (menu || !s.boneSword())
+					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out)
+					Component extra = slot == AbilitySlot.SLOT_5 && !s.boneSword()
 							? Component.translatable("hud.projecthero.undead.hold", Component.translatable("projecthero.undead.ability."
-									+ (menu ? com.projecthero.mod.undead.UndeadRegenMenu.WHOLE : UndeadBoneSword.BONE_SWORD)))
+									+ UndeadBoneSword.BONE_SWORD))
 							: null;
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.undead.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.undead.ability." + ids[1]) : null, extra));

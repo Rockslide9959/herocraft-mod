@@ -21,7 +21,10 @@ import org.joml.Matrix4f;
  * <li><b>bone</b>: the part's own surface, full size, painted in a bone-and-blood pattern (ivory bone, dark blood streaks,
  * pale sinew), revealed frame by frame from the joint outward behind a ragged line (a procedural mask, re-cut every frame);
  * the open end is capped with a cross-section (marrow, bone ring, raw red flesh);</li>
- * <li><b>flesh</b>: the part in the player's own skin, raw and red, the red fading frame by frame;</li>
+ * <li><b>muscle and skin</b> (v0.17.3, user: "the muscle needs to also appear randomly pixel by pixel and after 60% of the
+ * muscle is on the arm skin can start appearing randomly pixel by pixel"): muscle lands on the bone texel by texel in a
+ * scattered order ({@link #MUSCLE_END}); once {@link #SKIN_AFTER_MUSCLE} of it is in, the skin lands texel by texel in its own
+ * scattered order, only on texels that already have muscle, until the whole part is skin;</li>
  * <li><b>skin</b>: the part as it was.</li>
  * </ol>
  * Frames are whole steps (one frame a tick at full speed), so the change from frame to frame is visible, not smooth. The
@@ -111,10 +114,17 @@ public final class UndeadRegrowStepped {
 			skin(pose, buffers, light, tex, slim, part, from, to, 1f);
 			return;
 		}
-		if (frame > seg.boneEnd) {
-			// flesh: the part in the player's own skin, raw red fading out over the flesh frames
-			float t = (frame - seg.boneEnd) / (float) (seg.frames - seg.boneEnd);
-			skin(pose, buffers, light, tex, slim, part, from, to, t);
+		float f = p * seg.frames;
+		if (f > seg.boneEnd) {
+			// v0.17.3 (user: "the muscle needs to also appear randomly pixel by pixel and after 60% of the muscle is on the arm skin
+			// can start appearing randomly pixel by pixel"): over the whole bone, muscle lands texel by texel in a scattered order
+			// from the end of the bone stage to MUSCLE_END of the regrowth; once SKIN_AFTER_MUSCLE of it is in, the skin lands texel
+			// by texel too (its own order), only ever on a texel that already has its muscle, to the end. Smooth in p.
+			float muscleEnd = Math.max(seg.boneEnd + 1f, MUSCLE_END * seg.frames);
+			float muscle = (f - seg.boneEnd) / (muscleEnd - seg.boneEnd);
+			float skinStart = seg.boneEnd + SKIN_AFTER_MUSCLE * (muscleEnd - seg.boneEnd);
+			float skin = (f - skinStart) / Math.max(0.5f, seg.frames - skinStart);
+			muscleAndSkin(pose, buffers, light, tex, slim, part, from, to, muscle, skin);
 			return;
 		}
 		// bone: revealed from the joint outward, a ragged line re-cut every frame
@@ -129,6 +139,108 @@ public final class UndeadRegrowStepped {
 
 	// ---------------------------------------------------------------- the layers
 
+	/** The muscle stage ends at this share of a segment's frames (it starts at the end of the bone stage). */
+	static final float MUSCLE_END = 0.82f;
+	/** The skin starts landing once this share of the muscle is in. */
+	static final float SKIN_AFTER_MUSCLE = 0.6f;
+
+	/** When a base texel's muscle lands (0..1 through the muscle stage; the same every frame and for every viewer). */
+	static float muscleAt(UndeadTexels.Texel base) {
+		return UndeadTexels.hash(base.u, base.v, 3, 0x3A5CL);
+	}
+
+	/** When a base texel's skin lands (0..1 through the skin stage; a different scatter from the muscle's). */
+	static float skinAt(UndeadTexels.Texel base) {
+		return UndeadTexels.hash(base.u, base.v, 5, 0x5EEDL);
+	}
+
+	/**
+	 * The muscle-and-skin stage of rows [from, to): {@code muscle} and {@code skin} run 0..1 (clamped). Each base texel is bone
+	 * until its muscle lands ({@link #muscleAt} below {@code muscle}), then raw muscle until its skin lands ({@link #skinAt} below
+	 * {@code skin} -- and never before its muscle), then the player's skin. An overlay (hat / sleeve) texel shows with the skin of
+	 * the base texel under it (the overlay list mirrors the base list, index for index).
+	 */
+	private static void muscleAndSkin(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float from,
+			float to, float muscle, float skin) {
+		muscle = Math.max(0f, Math.min(1f, muscle));
+		skin = Math.max(0f, Math.min(1f, skin));
+		PoseStack.Pose last = pose.last();
+		float h = height(part);
+		List<UndeadTexels.Texel> texels = UndeadTexels.of(part, slim);
+		int n = texels.size() / 2; // base texels first, then the overlay ones in the same order
+		// the skin (translucent, culled: exactly as the vanilla model draws it, so the hand-over at the end is seamless)
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
+		for (int i = 0; i < texels.size(); i++) {
+			UndeadTexels.Texel t = texels.get(i);
+			UndeadTexels.Texel base = i < n ? t : texels.get(i - n);
+			if (muscleAt(base) < muscle && skinAt(base) < skin && in(base, row(part, slim, base, h), from, to, h) && SkinPixels.shows(tex, t.u, t.v)) {
+				float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
+				quad(vc, last, t, 0f, u0, v0, u1, v1, 255, 255, 255, light);
+			}
+		}
+		if (muscle >= 1f && skin >= 1f) {
+			return;
+		}
+		// the muscle and the bone still showing (a second pass: fetching another render type's buffer ends the one before)
+		VertexConsumer flat = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
+		long seed = 7310L + part * 53L, boneSeed = 5150L + part * 37L;
+		for (int i = 0; i < n; i++) {
+			UndeadTexels.Texel t = texels.get(i);
+			boolean hasMuscle = muscleAt(t) < muscle;
+			if ((hasMuscle && skinAt(t) < skin) || !in(t, row(part, slim, t, h), from, to, h)) {
+				continue;
+			}
+			int rgb;
+			if (hasMuscle) {
+				// muscle fibres run along the part: a streaky noise picks the shade, a few pale strands of sinew
+				float fibre = UndeadTexels.noise(t.x * 1.6f + 0.7f, t.y * 0.25f, t.z * 1.6f + 2.9f, seed);
+				rgb = fibre > 0.74f ? SINEW : FLESH_FILM[Math.min(FLESH_FILM.length - 2, (int) (fibre * (FLESH_FILM.length - 1)))];
+			} else {
+				rgb = pattern(t, boneSeed); // still the bone it grew from
+			}
+			quad(flat, last, t, hasMuscle ? 0f : 0.01f, WU0, WV0, WU1, WV1, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, light);
+		}
+	}
+
+	/**
+	 * v0.17.3 (UndeadPartEntity#leaveBehind): rows [from, to) of a part as a piece lying apart from the body, eroding away:
+	 * {@code dissolve} 0 = whole, 1 = gone -- every skin texel shrinks to nothing over its own short window, in a scattered order,
+	 * so the piece wears away pixel by pixel (nothing bursts or falls). A slice end that is not the part's own end (a cut) is a raw
+	 * cross-section that erodes the same way.
+	 */
+	public static void remnant(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float from, float to,
+			float dissolve) {
+		float h = height(part);
+		PoseStack.Pose last = pose.last();
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
+		for (UndeadTexels.Texel t : UndeadTexels.of(part, slim)) {
+			if (!in(t, row(part, slim, t, h), from, to, h) || !SkinPixels.shows(tex, t.u, t.v)) {
+				continue;
+			}
+			float s = erode(UndeadTexels.hash(t.u, t.v, t.overlay ? 1 : 0, 0xD155L), dissolve);
+			if (s <= 0f) {
+				continue;
+			}
+			float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
+			quad(vc, last, t, 0f, -Math.min(t.ha, t.hb) * (1f - s), u0, v0, u1, v1, 255, 255, 255, light);
+		}
+		if (from > 0.01f) {
+			cap(pose, buffers, light, slim, part, from, false, dissolve);
+		}
+		if (to < h - 0.01f) {
+			cap(pose, buffers, light, slim, part, to, false, dissolve);
+		}
+	}
+
+	/** How much of a pixel is left (1 whole .. 0 gone) at {@code dissolve}, for a pixel whose turn is {@code h} (0..1). */
+	static float erode(float h, float dissolve) {
+		if (dissolve <= 0f) {
+			return 1f;
+		}
+		float k = Math.max(0f, Math.min(1f, (dissolve - h * 0.7f) / 0.3f));
+		return 1f - k * k;
+	}
+
 	/** The part's skin texels in rows [from, to); {@code ripe} 1 = as it is, 0 = raw red flesh. */
 	private static void skin(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float from, float to,
 			float ripe) {
@@ -138,7 +250,11 @@ public final class UndeadRegrowStepped {
 		List<UndeadTexels.Texel> texels = UndeadTexels.of(part, slim);
 		// raw flesh sits a hair proud and swollen, settling as it ripens
 		float out = ripe >= 1f ? 0f : 0.06f * (1f - ripe);
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
+		// v0.17.3 (user: "sometimes the limb flashes when its fully regrown"): drawn as the vanilla player model draws its skin --
+		// translucent and back-face culled. Cutout without culling showed the inside walls of the sleeve / jacket layer through its
+		// see-through pixels and made half-transparent overlay pixels solid, so the part changed look the moment the vanilla
+		// model took over.
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
 		int r = 255, g = (int) (105 + 150 * ripe), b = (int) (100 + 155 * ripe);
 		for (UndeadTexels.Texel t : texels) {
 			if (in(t, row(part, slim, t, h), from, to, h) && SkinPixels.shows(tex, t.u, t.v)) {
@@ -212,6 +328,11 @@ public final class UndeadRegrowStepped {
 	 * to the edge, a dark rim. Glowing embers while it burns.
 	 */
 	private static void cap(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float at, boolean embers) {
+		cap(pose, buffers, light, slim, part, at, embers, 0f);
+	}
+
+	/** The same, each 1 px cell eroded by {@code dissolve} (0 = whole, 1 = gone; {@link #erode}). */
+	private static void cap(PoseStack pose, MultiBufferSource buffers, int light, boolean slim, int part, float at, boolean embers, float dissolve) {
 		float[] box = UndeadTexels.box(part, slim);
 		float h = height(part);
 		if (at >= h - 0.01f) {
@@ -242,7 +363,15 @@ public final class UndeadRegrowStepped {
 					rgb = r > 0.95f ? CAP_RIM : CAP_FLESH;
 				}
 				float x0 = box[0] + x, z0 = box[2] + z;
-				UndeadRegrow.flatBox(vc, last, x0 + 0.02f, y - 0.06f, z0 + 0.02f, x0 + 0.98f, y + 0.06f, z0 + 0.98f, rgb, l);
+				float inset = 0.02f;
+				if (dissolve > 0f) {
+					float s = erode(UndeadTexels.hash(x, Math.round(at), z, 0xCA9L + part), dissolve);
+					if (s <= 0f) {
+						continue;
+					}
+					inset = 0.02f + 0.48f * (1f - s);
+				}
+				UndeadRegrow.flatBox(vc, last, x0 + inset, y - 0.06f, z0 + inset, x0 + 1f - inset, y + 0.06f, z0 + 1f - inset, rgb, l);
 			}
 		}
 	}
@@ -285,11 +414,21 @@ public final class UndeadRegrowStepped {
 		return row >= from && row < to;
 	}
 
+	/**
+	 * True if a texel square's corners (UndeadRender#cornersPublic: one fixed order per plane) wind clockwise seen from outside, so
+	 * they go in reversed: with back-face culling (the translucent skin, like the vanilla model) only the outside face shows.
+	 */
+	static boolean backwards(UndeadTexels.Texel t) {
+		return t.plane == 0 ? t.nx > 0f : t.plane == 1 ? t.ny > 0f : t.nz < 0f;
+	}
+
 	/** One flat-coloured square with alpha on the palette's white texel. */
 	private static void quadA(VertexConsumer vc, PoseStack.Pose pose, UndeadTexels.Texel t, float out, int r, int g, int b, int a, int light) {
 		float[][] p = UndeadRender.cornersPublic(t, out, 0f);
 		Matrix4f m = pose.pose();
-		for (int i = 0; i < 4; i++) {
+		boolean flip = backwards(t);
+		for (int k = 0; k < 4; k++) {
+			int i = flip ? (4 - k) % 4 : k;
 			vc.addVertex(m, p[i][0] / 16f, p[i][1] / 16f, p[i][2] / 16f).setColor(r, g, b, a).setUv((i == 1 || i == 2) ? WU1 : WU0, (i >= 2) ? WV1 : WV0)
 					.setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, t.nx, t.ny, t.nz);
 		}
@@ -298,9 +437,17 @@ public final class UndeadRegrowStepped {
 	/** One texel square, {@code out} px proud, tinted {@code r g b}. */
 	private static void quad(VertexConsumer vc, PoseStack.Pose pose, UndeadTexels.Texel t, float out, float u0, float v0, float u1, float v1, int r, int g,
 			int b, int light) {
-		float[][] p = UndeadRender.cornersPublic(t, out, 0f);
+		quad(vc, pose, t, out, 0f, u0, v0, u1, v1, r, g, b, light);
+	}
+
+	/** The same, the square grown by {@code grow} px on every side (negative: shrunk about its centre). */
+	private static void quad(VertexConsumer vc, PoseStack.Pose pose, UndeadTexels.Texel t, float out, float grow, float u0, float v0, float u1, float v1,
+			int r, int g, int b, int light) {
+		float[][] p = UndeadRender.cornersPublic(t, out, grow);
 		Matrix4f m = pose.pose();
-		for (int i = 0; i < 4; i++) {
+		boolean flip = backwards(t);
+		for (int k = 0; k < 4; k++) {
+			int i = flip ? (4 - k) % 4 : k;
 			float uu = (i == 1 || i == 2) ? u1 : u0;
 			float vv = (i >= 2) ? v1 : v0;
 			vc.addVertex(m, p[i][0] / 16f, p[i][1] / 16f, p[i][2] / 16f).setColor(r, g, b, 255).setUv(uu, vv)

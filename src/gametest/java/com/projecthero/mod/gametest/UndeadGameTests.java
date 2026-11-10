@@ -160,84 +160,10 @@ public class UndeadGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- v0.17.3: NBC Heroes' Regenerative Segmentation
 
-	/** A lost arm (and its hand) grows back at once, one frame a tick: the arm in 18, the hand from the arm's 5th frame in 12. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void segmentsRegrowAtNbcSpeed(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
-		helper.assertTrue(Undead.missing(p, UndeadState.LEFT_HAND), "the hand goes with the arm");
-		long[] armStart = { 0L }, handStart = { 0L };
-		helper.onEachTick(() -> {
-			Undead.tick(p);
-			UndeadState s = Undead.state(p);
-			long now = helper.getLevel().getGameTime();
-			if (armStart[0] == 0L) {
-				armStart[0] = s.regrowStart(UndeadState.LEFT_ARM);
-				helper.assertTrue(armStart[0] == now, "the arm starts at once (no wait), free");
-				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_ARM) - armStart[0] == 18, "an arm is 18 frames");
-			}
-			if (handStart[0] == 0L && s.regrowStart(UndeadState.LEFT_HAND) > 0L) {
-				handStart[0] = s.regrowStart(UndeadState.LEFT_HAND);
-				helper.assertTrue(handStart[0] == armStart[0] + UndeadConfig.HAND_NEEDS_ARM, "the hand starts once the arm has 5 frames: " + (handStart[0] - armStart[0]));
-				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_HAND) - handStart[0] == 12, "a hand is 12 frames");
-			}
-			if (now == armStart[0] + 6) {
-				helper.assertTrue(s.stage(UndeadState.LEFT_ARM, now) == UndeadState.STAGE_BONE, "frame 6 of the arm: bone");
-			}
-			if (now == armStart[0] + 12) {
-				helper.assertTrue(s.stage(UndeadState.LEFT_ARM, now) == UndeadState.STAGE_FLESH, "frame 12: flesh");
-			}
-			if (!s.broken(UndeadState.LEFT_ARM) && !s.broken(UndeadState.LEFT_HAND)) {
-				helper.assertTrue(now - armStart[0] <= 18 + 2 && now - handStart[0] <= 12 + 2, "whole on time: " + (now - armStart[0]));
-				helper.assertTrue(p.getFoodData().getFoodLevel() == 20, "and it cost no food");
-				helper.succeed();
-			}
-		});
-	}
-
-	/** From just a head, NBC's order: the body at once, arms and legs at the body's 7th frame, hands and feet at their limbs' 5th. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void theBodyGrowsBackInNbcOrder(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		Undead.shatter(p);
-		long[] body = { 0L };
-		java.util.Set<Integer> seenStages = new java.util.LinkedHashSet<>();
-		helper.onEachTick(() -> {
-			Undead.tick(p);
-			UndeadState s = Undead.state(p);
-			long now = helper.getLevel().getGameTime();
-			seenStages.add(com.projecthero.mod.undead.UndeadStages.stage(s, now));
-			if (body[0] == 0L) {
-				body[0] = s.regrowStart(UndeadState.BODY);
-				helper.assertTrue(body[0] == now, "the head is whole: the body starts at once");
-				helper.assertTrue(s.regrowStart(UndeadState.RIGHT_ARM) == 0L && s.regrowStart(UndeadState.RIGHT_LEG) == 0L, "the limbs wait");
-				return;
-			}
-			if (now == body[0] + UndeadConfig.LIMB_NEEDS_BODY + 1) {
-				for (int limb = UndeadState.RIGHT_ARM; limb <= UndeadState.LEFT_LEG; limb++) {
-					helper.assertTrue(s.regrowStart(limb) == body[0] + UndeadConfig.LIMB_NEEDS_BODY, "limb " + limb + " starts at the body's 7th frame: "
-							+ (s.regrowStart(limb) - body[0]));
-				}
-				helper.assertTrue(s.regrowStart(UndeadState.RIGHT_HAND) == 0L && s.regrowStart(UndeadState.RIGHT_FOOT) == 0L, "hands and feet wait");
-			}
-			if (now == body[0] + UndeadConfig.LIMB_NEEDS_BODY + UndeadConfig.HAND_NEEDS_ARM + 1) {
-				helper.assertTrue(s.regrowStart(UndeadState.LEFT_HAND) == body[0] + 12 && s.regrowStart(UndeadState.LEFT_FOOT) == body[0] + 12,
-						"hands and feet at their limbs' 5th frame");
-			}
-			if (!s.anyBroken()) {
-				helper.assertTrue(now - body[0] <= 27 + 2, "whole from a head in about 1.4 s (the legs, 7 + 20 frames): " + (now - body[0]));
-				helper.assertTrue(seenStages.contains(com.projecthero.mod.undead.UndeadStages.CRAWL), "he lay on the growing torso: " + seenStages);
-				helper.assertTrue(com.projecthero.mod.undead.UndeadStages.stage(s, now) == com.projecthero.mod.undead.UndeadStages.NORMAL, "and walks");
-				helper.succeed();
-			}
-		});
-	}
-
 	/** Any way of losing legs gives the stage: one leg a limp, both the hand walk. */
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theStagesFollowTheParts(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
-		Undead.setRegenOff(p, true);
 		Undead.breakPart(p, UndeadState.RIGHT_LEG, UndeadState.KIND_BURST);
 		helper.assertTrue(Undead.stage(p) == com.projecthero.mod.undead.UndeadStages.LIMP, "one leg gone: a limp");
 		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
@@ -245,89 +171,10 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** Shift+V: a tap toggles auto-regrowth; held, it opens the Regen Menu (and the release toggles nothing). */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void shiftVTogglesRegenAndHoldOpensTheMenu(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		var v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
-		p.setShiftKeyDown(true);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, true);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, false);
-		helper.assertTrue(Undead.regenOff(p), "a tap: auto-regrowth off");
-		helper.assertTrue(!com.projecthero.mod.undead.UndeadRegenMenu.open(p), "the menu stays shut");
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, true);
-		com.projecthero.mod.undead.UndeadAbilityManager.forTestsHoldShiftV(p, com.projecthero.mod.undead.UndeadAbilityManager.MENU_HOLD);
-		helper.assertTrue(com.projecthero.mod.undead.UndeadRegenMenu.open(p), "held: the Regen Menu opens");
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, false);
-		helper.assertTrue(Undead.regenOff(p), "the release after the hold toggles nothing");
-		helper.assertTrue(com.projecthero.mod.undead.UndeadRegenMenu.segId(UndeadState.RIGHT_ARM)
-				.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0]), "R is the right arm's button");
-		p.setShiftKeyDown(false);
-		Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
-		helper.assertTrue(Undead.state(p).targetFrame(UndeadState.RIGHT_ARM) == UndeadConfig.MENU_TARGETS[UndeadState.RIGHT_ARM][0], "R grew the right arm a stage");
-		p.setShiftKeyDown(true);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, false);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, true);
-		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, false);
-		helper.assertTrue(!Undead.regenOff(p), "a Shift+V tap in the menu turns auto-regrowth back on");
-		p.setShiftKeyDown(false);
-		helper.succeed();
-	}
-
-	/** Auto-regrowth off: nothing grows on its own; the Regen Menu grows a part a stage at a time, or strips a whole one. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void theRegenMenuGrowsAStageAtATime(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		Undead.setRegenOff(p, true);
-		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
-		int[] t = { 0 };
-		helper.onEachTick(() -> {
-			Undead.tick(p);
-			t[0]++;
-			UndeadState s = Undead.state(p);
-			long now = helper.getLevel().getGameTime();
-			switch (t[0]) {
-				case 30 -> {
-					helper.assertTrue(s.broken(UndeadState.LEFT_ARM) && s.regrowStart(UndeadState.LEFT_ARM) == 0L, "off: nothing grows on its own");
-					com.projecthero.mod.undead.UndeadRegenMenu.press(p, UndeadState.LEFT_HAND);
-					helper.assertTrue(Undead.state(p).regrowStart(UndeadState.LEFT_HAND) == 0L, "the hand can't grow before the arm");
-					com.projecthero.mod.undead.UndeadRegenMenu.press(p, UndeadState.LEFT_ARM);
-				}
-				case 45 -> {
-					helper.assertTrue(s.broken(UndeadState.LEFT_ARM) && Math.abs(s.frame(UndeadState.LEFT_ARM, now) - 5f) < 0.01f, "held at the end of the bone stage");
-					helper.assertTrue(s.stage(UndeadState.LEFT_ARM, now) == UndeadState.STAGE_BONE, "bone");
-					com.projecthero.mod.undead.UndeadRegenMenu.press(p, UndeadState.LEFT_ARM);
-				}
-				case 60 -> {
-					helper.assertTrue(s.stage(UndeadState.LEFT_ARM, now) == UndeadState.STAGE_FLESH && Math.abs(s.frame(UndeadState.LEFT_ARM, now) - 11f) < 0.01f,
-							"then held at the end of the flesh stage: " + s.frame(UndeadState.LEFT_ARM, now));
-					com.projecthero.mod.undead.UndeadRegenMenu.press(p, UndeadState.LEFT_ARM);
-				}
-				case 80 -> {
-					helper.assertTrue(!s.broken(UndeadState.LEFT_ARM), "then whole");
-					helper.assertTrue(s.broken(UndeadState.LEFT_HAND), "the hand still waits for its own presses");
-					com.projecthero.mod.undead.UndeadRegenMenu.press(p, UndeadState.LEFT_ARM); // a whole part: stripped
-				}
-				case 81 -> {
-					helper.assertTrue(s.broken(UndeadState.LEFT_ARM) && s.broken(UndeadState.LEFT_HAND), "a press on a whole part strips it (and its hand)");
-					com.projecthero.mod.undead.UndeadRegenMenu.whole(p);
-				}
-				default -> {
-				}
-			}
-			if (t[0] > 81 && !s.anyBroken()) {
-				helper.assertTrue(t[0] <= 81 + 18 + 2, "Regenerate Whole Body grows everything back, auto-regrowth off or not: " + t[0]);
-				helper.succeed();
-			}
-		});
-	}
-
 	/** User: "if the players torso gets destroyed their armour falls off ... if leg gets destroyed remove leggings, if feet ... boots". */
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void armourFallsOffTheLostParts(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
-		Undead.setRegenOff(p, true);
 		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(net.minecraft.world.item.Items.IRON_CHESTPLATE));
 		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(net.minecraft.world.item.Items.IRON_LEGGINGS));
 		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(net.minecraft.world.item.Items.IRON_BOOTS));
@@ -382,62 +229,6 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.assertTrue(com.projecthero.mod.undead.UndeadArmour.lostPads(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)) == 0, "repaired: the pad is back");
 		helper.assertTrue(penalty.getAsDouble() == 0.0, "and the armour");
 		helper.succeed();
-	}
-
-	/** Auto-regrowth off keeps a lost part gone until it is turned back on; the state (and old saves) load. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void regenOffKeepsPartsGoneAndIsSaved(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		Undead.toggleRegen(p);
-		helper.assertTrue(Undead.regenOff(p), "Shift+V: off");
-		UndeadState s0 = Undead.state(p);
-		net.minecraft.nbt.Tag tag = UndeadState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s0).getOrThrow();
-		UndeadState back = UndeadState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
-		helper.assertTrue(back.flag(UndeadState.FLAG_REGEN_OFF), "saved and loaded");
-		net.minecraft.nbt.CompoundTag old = ((net.minecraft.nbt.CompoundTag) tag).copy();
-		net.minecraft.nbt.ListTag six = new net.minecraft.nbt.ListTag();
-		for (int i = 0; i < 18; i++) {
-			six.add(net.minecraft.nbt.LongTag.valueOf(0L));
-		}
-		old.put("part_times", six); // a save from before the hands and feet were segments
-		old.putInt("regen_style", 2);
-		UndeadState fromOld = UndeadState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, old).getOrThrow();
-		helper.assertTrue(fromOld.hasPower && fromOld.partTimes.size() == UndeadState.SEGS * 3, "an old save still loads, the new segments whole");
-		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
-		int[] t = { 0 };
-		helper.onEachTick(() -> {
-			Undead.tick(p);
-			t[0]++;
-			if (t[0] == 60) {
-				helper.assertTrue(Undead.missing(p, UndeadState.LEFT_ARM) && Undead.state(p).regrowStart(UndeadState.LEFT_ARM) == 0L, "off: still gone after 3 s");
-				Undead.toggleRegen(p);
-			}
-			if (t[0] > 60 && !Undead.state(p).anyBroken()) {
-				helper.assertTrue(t[0] <= 60 + 18 + 12 + 2, "on again: back in about a second: " + (t[0] - 60));
-				Undead.clearTransient(p);
-				helper.succeed();
-			}
-		});
-	}
-
-	/** One healing rate now (the old Fast): his health comes back on its own a short while after a hit, free. */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void woundsHealOnTheirOwn(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		p.setHealth(6f);
-		p.getFoodData().setFoodLevel(20);
-		p.getFoodData().setSaturation(0f); // no vanilla saturation healing in the way
-		edit(p, s -> s.lastHitAt = helper.getLevel().getGameTime());
-		int[] t = { 0 };
-		helper.onEachTick(() -> {
-			t[0]++;
-			Undead.tick(p);
-			if (t[0] == 100) {
-				helper.assertTrue(p.getHealth() >= 10f, "1.5 health a second after 1.5 s: " + p.getHealth());
-				helper.assertTrue(p.getFoodData().getFoodLevel() == 20 && p.getFoodData().getExhaustionLevel() < 0.01f, "free");
-				helper.succeed();
-			}
-		});
 	}
 
 	// ---------------------------------------------------------------- v0.17.3 tester fixes
@@ -727,8 +518,8 @@ public class UndeadGameTests implements FabricGameTest {
 				helper.assertTrue(p.isAlive() && p.getHealth() >= health, "burning never hurts him");
 				com.projecthero.mod.undead.UndeadFlight.stop(p);
 			}
-			if (ticks[0] == body + 4) {
-				helper.assertTrue(Undead.state(p).regrowStart(UndeadState.BODY) > 0L, "landed: the head-only regrowth is planned");
+			if (ticks[0] == body + 4 + UndeadConfig.REGROW_DELAY) {
+				helper.assertTrue(Undead.state(p).regrowStart(UndeadState.BODY) > 0L, "landed: the head-only regrowth starts (after the 1.5 s delay)");
 				helper.succeed();
 			}
 		});
@@ -744,7 +535,7 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.assertTrue(!Undead.victor(p) && Undead.state(p).victorUntil == 0L, "pulling the card does nothing");
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
 		helper.assertTrue(UndeadAbilities.REFORM.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[0])
-				&& UndeadAbilities.REGEN.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[1]), "V is Reform, Shift+V the speed");
+				&& com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v).length == 1, "V is Reform; Shift+V has nothing (Toggle Regen went)");
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Undead.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(UndeadAbilities.PARTS_BULLET.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
@@ -820,13 +611,14 @@ public class UndeadGameTests implements FabricGameTest {
 			arm[0] = Undead.mainArm(p);
 			helper.assertTrue(Undead.missing(p, arm[0]) && thrown.get().size() == 1, "the arm was thrown");
 		});
+		helper.runAfterDelay(release + UndeadConfig.REGROW_DELAY + 2, () -> helper.assertTrue(Undead.state(p).regrowStart(arm[0]) > 0L,
+				"it is growing back (after the 1.5 s delay)"));
 		helper.runAfterDelay(release + 5, () -> {
-			helper.assertTrue(Undead.state(p).regrowStart(arm[0]) > 0L, "it is already growing back (NBC: at once)");
 			java.util.List<UndeadPartEntity> a = thrown.get();
 			helper.assertTrue(a.size() == 1, "and the thrown arm is still flying");
 			helper.assertTrue(a.get(0).position().distanceTo(p.getEyePosition()) > 2.5, "away from the shoulder: " + a.get(0).position().distanceTo(p.getEyePosition()));
 		});
-		helper.runAfterDelay(release + UndeadConfig.FRAMES[UndeadState.RIGHT_ARM] + 4, () -> {
+		helper.runAfterDelay(release + UndeadConfig.REGROW_DELAY + UndeadConfig.FRAMES[UndeadState.RIGHT_ARM] + 4, () -> {
 			helper.assertTrue(!Undead.missing(p, arm[0]), "the arm has grown back");
 			helper.assertTrue(thrown.get().isEmpty(), "and the thrown one burst once it was whole");
 			helper.succeed();
@@ -950,15 +742,13 @@ public class UndeadGameTests implements FabricGameTest {
 	public void reformHasACooldownWorksWithRegenOffAndNotWithTheSword(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		feed(p, 20, 20f);
-		Undead.setRegenOff(p, true);
 		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
-		helper.assertTrue(Undead.reform(p) && !Undead.missing(p, UndeadState.LEFT_LEG), "regeneration Off: Reform still works");
+		helper.assertTrue(Undead.reform(p) && !Undead.missing(p, UndeadState.LEFT_LEG), "Reform closes it at once");
 		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
 		helper.assertTrue(!Undead.reform(p) && Undead.missing(p, UndeadState.LEFT_LEG), "cooling down");
 		edit(p, n -> n.abilityReadyAt.put(UndeadAbilities.REFORM, helper.getLevel().getGameTime()));
 		helper.assertTrue(Undead.reform(p) && !Undead.missing(p, UndeadState.LEFT_LEG), "ready again");
 		// the sword out: V puts it away and Reform does nothing
-		Undead.setRegenOff(p, false);
 		edit(p, n -> n.abilityReadyAt.clear());
 		helper.assertTrue(UndeadBoneSword.draw(p), "the sword is drawn");
 		int off = Undead.otherArm(Undead.mainArm(p));

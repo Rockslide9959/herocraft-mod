@@ -36,6 +36,31 @@ import net.minecraft.world.phys.Vec3;
  * first hit; the arm drills through up to {@link UndeadConfig#VORTEX_PIERCE} and sticks in the wall it reaches; the head knocks
  * into its target, drops and lies there. A launched arm or head lasts until the part regrows on his body (then it bursts into
  * pixels) and never more than {@link UndeadConfig#SEVERED_LIFE}. Never saved.
+ *
+ * <h2>Pieces left behind: {@link #leaveBehind}</h2>
+ * v0.17.3 (user: "When player ejects a body part make the old limbs stay in place, 0.5 seconds later the limb falls over, 0.5
+ * seconds later the part dissolves quickly over the course of 1 second"). A piece of his body that comes off and is NOT thrown --
+ * the X launches' legs / body, an ejected limb, the end of a limb that bursts off in flight -- is spawned with
+ * <pre>
+ *   UndeadPartEntity.leaveBehind(ServerPlayer owner, int part, float fromRow, float toRow, Vec3 at)
+ * </pre>
+ * <ul>
+ * <li>{@code part}: {@link UndeadState#HEAD}..{@link UndeadState#LEFT_LEG} (the six parts: a hand / foot is the end slice of its
+ * arm / leg, rows 8..12 -- {@code UndeadState.limbOf(seg)}).</li>
+ * <li>{@code fromRow}..{@code toRow}: which slice of the part, in model px rows from its joint, 0..12 for an arm / leg / the body
+ * (shoulder / hip / neck down to the hand / foot / hips), 0..8 for the head (neck up). {@code 0, 12} (head {@code 0, 8}) is the
+ * whole part; {@code 6, 12} half a forearm and the hand; {@code 8, 12} the hand / foot alone ({@code UndeadConfig.HAND_ROWS} = 4).
+ * A cut face (a slice end that is not the part's own end) shows a raw cross-section.</li>
+ * <li>{@code at}: the owner's FEET position at the moment it came off (normally {@code owner.position()}); the piece is drawn
+ * exactly where that part sits on a standing body there, facing the owner's body yaw ({@code owner.yBodyRot}).</li>
+ * </ul>
+ * Its life is fixed ({@link #LEFT_STAND}, {@link #LEFT_FALL}, {@link #LEFT_DISSOLVE}): it stands perfectly still where it came
+ * off for 0.5 s; then it tips over and drops to the ground (0.5 s, falling with gravity if it came off in the air) -- a leg splays
+ * back and out, an arm falls out to its side, the body and head fall back; then it erodes away texel by texel over 1 s (each skin
+ * pixel shrinking to nothing in a scattered order -- no burst, no falling pixels) and is gone. It never hits anything, is never
+ * cut short by the part regrowing on his body, and doesn't burst when it goes. The caller still breaks the part on his body
+ * ({@code Undead.breakPart}). The old {@link #drop} (the X launches' {@link #STYLE_LEFT_LEG} / {@link #STYLE_LEFT_BODY} /
+ * {@link #STYLE_LEFT_BODY_LEGLESS}) runs the same life.
  */
 public class UndeadPartEntity extends Projectile {
 	public static final int STYLE_FINGER = 0;
@@ -57,6 +82,16 @@ public class UndeadPartEntity extends Projectile {
 	/** v0.17.3 Bone Sword: a bone shard of the Splinter Volley (spent on the first hit), and the sword thrown by Impale Throw. */
 	public static final int STYLE_SPLINTER = 10;
 	public static final int STYLE_SWORD = 11;
+	/** v0.17.3: any piece (or slice) left behind where it came off ({@link #leaveBehind}). */
+	public static final int STYLE_LEFT_PART = 12;
+
+	/** A left-behind piece stands still this long where it came off (ticks: 0.5 s), ... */
+	public static final int LEFT_STAND = 10;
+	/** ... then tips over and drops to the ground over this long (0.5 s), ... */
+	public static final int LEFT_FALL = 10;
+	/** ... then erodes away pixel by pixel over this long (1 s) and is gone. */
+	public static final int LEFT_DISSOLVE = 20;
+	public static final int LEFT_LIFE = LEFT_STAND + LEFT_FALL + LEFT_DISSOLVE;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<UndeadPartEntity> clientRemoval = e -> {
@@ -65,6 +100,9 @@ public class UndeadPartEntity extends Projectile {
 	private static final EntityDataAccessor<Integer> STYLE = SynchedEntityData.defineId(UndeadPartEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> PART = SynchedEntityData.defineId(UndeadPartEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Boolean> STUCK = SynchedEntityData.defineId(UndeadPartEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.17.3: the slice of the part a left-behind piece is (rows from the joint; -1 = to the part's own end). */
+	private static final EntityDataAccessor<Float> FROM_ROW = SynchedEntityData.defineId(UndeadPartEntity.class, EntityDataSerializers.FLOAT);
+	private static final EntityDataAccessor<Float> TO_ROW = SynchedEntityData.defineId(UndeadPartEntity.class, EntityDataSerializers.FLOAT);
 
 	private final Set<Integer> struck = new HashSet<>();
 	private int life;
@@ -91,25 +129,77 @@ public class UndeadPartEntity extends Projectile {
 		return e;
 	}
 
-	/** A part left standing at {@code at} (his feet), facing {@code bodyYaw}; it falls and rests under gravity. */
+	/**
+	 * A part left standing at {@code at} (his feet), facing {@code bodyYaw}. A left-behind style ({@link #STYLE_LEFT_LEG} ...)
+	 * runs the stand / fall / dissolve life of {@link #leaveBehind} (and ignores {@code velocity}: it stays exactly where it came
+	 * off); anything else falls and rests under gravity.
+	 */
 	public static UndeadPartEntity drop(ServerPlayer owner, int part, int style, Vec3 at, float bodyYaw, Vec3 velocity) {
 		UndeadPartEntity e = new UndeadPartEntity(UndeadEntityTypes.PART, owner.level());
 		e.setOwner(owner);
 		e.entityData.set(STYLE, style);
 		e.entityData.set(PART, part);
 		e.falling = true;
-		e.setNoGravity(false);
 		e.moveTo(at.x, at.y, at.z, bodyYaw, 0f);
-		e.setDeltaMovement(velocity);
+		if (e.isLeftBehind()) {
+			e.setDeltaMovement(Vec3.ZERO); // v0.17.3 (user): "make the old limbs stay in place"
+		} else {
+			e.setNoGravity(false);
+			e.setDeltaMovement(velocity);
+		}
 		owner.level().addFreshEntity(e);
 		return e;
 	}
 
+	/**
+	 * v0.17.3: a piece of {@code owner}'s body left behind where it came off -- see the class javadoc. {@code part} is
+	 * {@link UndeadState#HEAD}..{@link UndeadState#LEFT_LEG}; {@code fromRow}..{@code toRow} the slice of it (rows from its joint,
+	 * 0..12, the head 0..8; clamped); {@code at} the owner's feet when it came off. It stands {@link #LEFT_STAND}, falls over
+	 * {@link #LEFT_FALL}, dissolves over {@link #LEFT_DISSOLVE} and is gone. Breaking the part on his body is the caller's job.
+	 */
+	public static UndeadPartEntity leaveBehind(ServerPlayer owner, int part, float fromRow, float toRow, Vec3 at) {
+		if (part < UndeadState.HEAD || part > UndeadState.LEFT_LEG) {
+			throw new IllegalArgumentException("not a part: " + part);
+		}
+		float h = part == UndeadState.HEAD ? 8f : 12f;
+		float from = Mth.clamp(fromRow, 0f, h), to = Mth.clamp(toRow, 0f, h);
+		UndeadPartEntity e = drop(owner, part, STYLE_LEFT_PART, at, owner.yBodyRot, Vec3.ZERO);
+		e.entityData.set(FROM_ROW, Math.min(from, to));
+		e.entityData.set(TO_ROW, Math.max(from, to));
+		return e;
+	}
+
 	public boolean isLeftBehind() {
-		// v0.17.3: only the X launches' pieces (6-8) -- the thrown arm (9) used to fall in here and was drawn standing upright as
-		// if still on the body, so it flew through the air vertical
+		// v0.17.3: only the pieces left where they came off (6-8, 12) -- the thrown arm (9) used to fall in here and was drawn
+		// standing upright as if still on the body, so it flew through the air vertical
 		int s = this.style();
-		return s >= STYLE_LEFT_LEG && s <= STYLE_LEFT_BODY_LEGLESS;
+		return s >= STYLE_LEFT_LEG && s <= STYLE_LEFT_BODY_LEGLESS || s == STYLE_LEFT_PART;
+	}
+
+	/** The first row of the slice a left-behind piece is (rows from the part's joint). */
+	public float fromRow() {
+		return this.entityData.get(FROM_ROW);
+	}
+
+	/** The row the slice ends at (the part's own end for a whole part: 12, the head 8). */
+	public float toRow() {
+		float to = this.entityData.get(TO_ROW);
+		return to < 0f ? (this.bodyPart() == UndeadState.HEAD ? 8f : 12f) : to;
+	}
+
+	/** Ticks since a left-behind piece came off (client and server; {@code partial} for the frame). */
+	public float leftAge(float partial) {
+		return this.tickCount + partial;
+	}
+
+	/** 0..1 through the topple ({@link #LEFT_STAND} .. + {@link #LEFT_FALL}). */
+	public static float fallProgress(float age) {
+		return Mth.clamp((age - LEFT_STAND) / LEFT_FALL, 0f, 1f);
+	}
+
+	/** 0..1 through the dissolve (the last {@link #LEFT_DISSOLVE} ticks). */
+	public static float dissolveProgress(float age) {
+		return Mth.clamp((age - LEFT_STAND - LEFT_FALL) / LEFT_DISSOLVE, 0f, 1f);
 	}
 
 	public boolean isSplinter() {
@@ -125,6 +215,8 @@ public class UndeadPartEntity extends Projectile {
 		builder.define(STYLE, STYLE_FINGER);
 		builder.define(PART, -1);
 		builder.define(STUCK, false);
+		builder.define(FROM_ROW, 0f);
+		builder.define(TO_ROW, -1f);
 	}
 
 	public int style() {
@@ -162,7 +254,8 @@ public class UndeadPartEntity extends Projectile {
 
 	private int maxLife() {
 		return switch (this.style()) {
-			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH -> UndeadConfig.SEVERED_LIFE;
+			case STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_LEFT_PART -> LEFT_LIFE;
+			case STYLE_DRILL, STYLE_HEAD, STYLE_PUNCH -> UndeadConfig.SEVERED_LIFE;
 			case STYLE_CRIMSON, STYLE_SWORD -> 60;
 			default -> 40;
 		};
@@ -173,13 +266,28 @@ public class UndeadPartEntity extends Projectile {
 		super.tick();
 		if (this.level().isClientSide) {
 			Vec3 v = this.getDeltaMovement();
-			if (!this.stuck()) {
+			if (!this.stuck() && !this.isLeftBehind()) { // (a left-behind piece only moves by the server's updates)
 				this.setPos(this.getX() + v.x, this.getY() + v.y, this.getZ() + v.z);
 			}
 			return;
 		}
 		if (++this.life > this.maxLife() || !(this.getOwner() instanceof ServerPlayer owner) || owner.level() != this.level()) {
 			this.discard();
+			return;
+		}
+		if (this.isLeftBehind()) {
+			// v0.17.3 (leaveBehind): perfectly still for LEFT_STAND, then down to the ground under gravity while it tips over
+			// (the topple itself is drawn), then it dissolves where it lies; the regrowth on his body never cuts it short
+			if (this.life <= LEFT_STAND) {
+				this.setDeltaMovement(Vec3.ZERO);
+				return;
+			}
+			Vec3 v = this.getDeltaMovement();
+			if (!this.onGround()) {
+				this.move(MoverType.SELF, new Vec3(0, Math.max(-1.5, v.y - 0.08), 0));
+				this.setDeltaMovement(new Vec3(0, this.onGround() ? 0 : Math.max(-1.5, v.y - 0.08), 0));
+				this.hurtMarked = true;
+			}
 			return;
 		}
 		if (this.bodyPart() >= 0 && !Undead.missing(owner, this.bodyPart())) {

@@ -8,7 +8,7 @@ import net.minecraft.world.entity.EntityDimensions;
  * v0.17.3 (user: the rolling head and the staged regrowth): how Undead gets about with what he has left. Worked out on both
  * sides purely from which parts are there, gone or still growing ({@link UndeadState} part times, already synced) -- no
  * packets -- so it is the same whatever took the parts (a shatter, a boost, a launch, a hit). From only a head the regrowth
- * (v0.17.3 NBC order: the torso once the head is there, the arms and legs once the torso has {@link UndeadConfig#LIMB_NEEDS_BODY} frames) runs through them in
+ * (v0.17.3 NBC order: the torso once the head is there, the arms once the torso has {@link UndeadConfig#LIMB_NEEDS_BODY} frames, the legs once it has {@link UndeadConfig#LEG_NEEDS_BODY}) runs through them in
  * order:
  * <pre>
  *   ROLL      just the head, nothing growing yet: a rolling head          0.5 x 0.5 box, eyes at 0.25   speed x0.32
@@ -69,7 +69,7 @@ public final class UndeadStages {
 		}
 		boolean body = s.has(UndeadState.BODY, now);
 		float legP = Math.max(growth(s, UndeadState.RIGHT_LEG, now), growth(s, UndeadState.LEFT_LEG, now));
-		if (legP > 0f && (body || s.frame(UndeadState.BODY, now) >= UndeadConfig.LIMB_NEEDS_BODY)) {
+		if (legP > 0f && (body || s.frame(UndeadState.BODY, now) >= UndeadConfig.LEG_NEEDS_BODY)) {
 			return legP >= LEG_STAND ? WOBBLE : SHUFFLE;
 		}
 		if (usable(s, UndeadState.RIGHT_ARM, now) && usable(s, UndeadState.LEFT_ARM, now) && (body || s.regrowth(UndeadState.BODY, now) > 0.5f)) {

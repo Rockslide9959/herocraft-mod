@@ -38,17 +38,11 @@ public final class UndeadSfx {
 	}
 
 	/**
-	 * Reform (tap V): the whole regrowth in one beat -- the bone crack and wet squelch of the regrowth under its finishing snap
-	 * ({@code parts}: something was actually closed; without, only a soft squelch as the wounds knit).
+	 * Reform (tap V): the whole regrowth in one beat -- v0.17.3 (user: the regeneration sounds are the steam fizz now): a fizz
+	 * a little stronger than a part finishing ({@code parts}: something was actually closed; without, a soft one as the wounds knit).
 	 */
 	public static void reform(Level level, Vec3 at, boolean parts) {
-		if (parts) {
-			play(level, at, UndeadSoundEvents.REGROW_BONE_CRACK, 0.8f, 1.2f);
-			play(level, at, UndeadSoundEvents.REGROW_SQUELCH, 0.9f, 1.1f);
-			play(level, at, UndeadSoundEvents.REGROW_FINISH, 1.0f, 1.0f);
-		} else {
-			play(level, at, UndeadSoundEvents.REGROW_SQUELCH, 0.6f, 1.3f);
-		}
+		play(level, at, net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, parts ? 0.4f : 0.2f, parts ? 0.95f : 1.3f);
 	}
 
 	/** A big splash of blood; {@code size} 0..1 (bigger is louder and lower). */
