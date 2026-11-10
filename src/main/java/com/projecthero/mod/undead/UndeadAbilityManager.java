@@ -16,8 +16,8 @@ import net.minecraft.world.entity.player.Player;
  * when {@link #hasContext} is true. Shift is read server-side. H stays the power selector; N is not his.
  *
  * <pre>
- *   R (1)  tap: Parts Bullet         Shift+R  Crimson Bullet          (Victor: Dead Vulcan / Division Bullet)
- *          hold: Stretch Punch (the arm draws back past PUNCH_HOLD_TICKS, thrown on release)
+ *   R (1)  tap: Parts Bullet: Finger Shift+R  Parts Bullet: Hand      (Victor: Dead Vulcan / Division Bullet)
+ *          hold 1 s: Parts Bullet: Arm (the arm draws back from ARM_WINDUP_SHOW and flies at ARM_HOLD, still held)
  *   G (2)  Crimson Crescent Moon     Shift+G  Great Deep-Crimson Crescent Moon   (Victor: Dead Blade)
  *   X (3)  tap: Leg Launch           Shift + hold X  Blood Propulsion (flight)
  *          hold 1 s: Head Launch
@@ -26,15 +26,18 @@ import net.minecraft.world.entity.player.Player;
  *          hold 2 s: Bone Sword (UndeadBoneSword: he struggles the arm off; the keys turn into the sword kit while it is out)
  *          Shift + hold V: the Regen Menu (UndeadRegenMenu: the keys grow / strip his ten segments while it is open)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: UndeadConfig.VICTOR_ENABLED)
- *   C (6)  Dead Line (hold, a beam)  Shift+C  Dead Quardead           (Victor: Dead Road)
+ *   C (6)  Dead Line (hold, a beam)  Shift+C  Division Bullet         (Victor: Dead Road)
  * </pre>
  */
 public final class UndeadAbilityManager {
 	static final int REPEAT_WINDOW = 25;
 
 	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
-	/** A plain R held down (not Victor): when it went down. Tap = Parts Bullet on release; hold = the stretch punch. */
-	private static final Map<UUID, Long> R_HELD = new ConcurrentHashMap<>();
+	/**
+	 * A plain R held down (not Victor): {when it went down, 1 once the arm has flown, 1 once the wind-up was tried}. Let go
+	 * before the arm flew = a tap: Parts Bullet: Finger; held {@link UndeadBulletConfig#ARM_HOLD} = Parts Bullet: Arm.
+	 */
+	private static final Map<UUID, long[]> R_HELD = new ConcurrentHashMap<>();
 	/**
 	 * X held down: {when it went down, 1 if Shift was down then (flight), 1 once the hold has fired (flight started / Head
 	 * Launch), 1 once the Head Launch wind-up shows}.
@@ -60,6 +63,7 @@ public final class UndeadAbilityManager {
 		V_HELD.clear();
 		SV_HELD.clear();
 		UndeadLaunch.clearSessionState();
+		UndeadHeadThrow.clearSessionState(); // v0.17.3
 	}
 
 	static void forget(UUID id) {
@@ -69,6 +73,7 @@ public final class UndeadAbilityManager {
 		V_HELD.remove(id);
 		SV_HELD.remove(id);
 		UndeadLaunch.forget(id);
+		UndeadHeadThrow.forget(id); // v0.17.3
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -130,19 +135,14 @@ public final class UndeadAbilityManager {
 		}
 		switch (slot) {
 			case SLOT_1 -> {
+				// v0.17.3 (user): tap R Parts Bullet: Finger (on release), Shift+R Parts Bullet: Hand (on press), hold R a second
+				// Parts Bullet: Arm (fired by tickHold at ARM_HOLD while still held). No cooldowns -- one shot per press, never a
+				// stream from a held key (the release after the arm flew does nothing).
 				if (!pressed) {
-					Long down = R_HELD.remove(player.getUUID());
-					if (down != null) {
-						long held = player.level().getGameTime() - down;
-						if (Undead.state(player).flag(com.projecthero.mod.undead.data.UndeadState.FLAG_PUNCH)) {
-							if (held >= UndeadConfig.PUNCH_MIN_HOLD) {
-								UndeadAbilities.throwPunch(player);
-							} else {
-								UndeadAbilities.cancelPunch(player);
-							}
-						} else {
-							UndeadAbilities.partsBullet(player); // a tap
-						}
+					long[] held = R_HELD.remove(player.getUUID());
+					if (held != null && held[1] == 0L) {
+						UndeadAbilities.cancelPunch(player); // let go before the arm flew: the wind-up drops ...
+						UndeadAbilities.partsBullet(player); // ... and it is a tap
 					}
 				} else if (victor) {
 					if (shift) {
@@ -151,9 +151,9 @@ public final class UndeadAbilityManager {
 						UndeadAbilities.vulcan(player);
 					}
 				} else if (shift) {
-					UndeadAbilities.crimsonBullet(player);
+					UndeadAbilities.handBullet(player);
 				} else {
-					R_HELD.put(player.getUUID(), player.level().getGameTime());
+					R_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L, 0L });
 				}
 			}
 			case SLOT_2 -> {
@@ -209,7 +209,7 @@ public final class UndeadAbilityManager {
 				if (!pressed) {
 					UndeadAbilities.stopDeadLine(player);
 				} else if (shift) {
-					UndeadAbilities.quardead(player);
+					UndeadAbilities.division(player); // v0.17.3: Division Bullet (replaced Dead Quardead)
 				} else if (victor) {
 					UndeadAbilities.deadRoad(player);
 				} else {
@@ -221,27 +221,55 @@ public final class UndeadAbilityManager {
 		}
 	}
 
-	/** From {@link Undead#tick}: a plain R held past {@link UndeadConfig#PUNCH_HOLD_TICKS} draws the arm back for the punch. */
+	/**
+	 * From {@link Undead#tick}: a plain R held past {@link UndeadBulletConfig#ARM_WINDUP_SHOW} draws the arm back, and at
+	 * {@link UndeadBulletConfig#ARM_HOLD} (one second) the arm flies -- Parts Bullet: Arm, on the spot, still held.
+	 */
 	static void tickHold(ServerPlayer player) {
 		tickX(player);
 		tickV(player);
 		tickShiftV(player);
 		UndeadRegenMenu.tick(player);
 		UndeadLaunch.tick(player);
-		Long down = R_HELD.get(player.getUUID());
+		UndeadHeadThrow.tick(player); // v0.17.3: the Head Throw's aim and flight
+		tickR(player);
+	}
+
+	/** R held: the arm's wind-up from {@link UndeadBulletConfig#ARM_WINDUP_SHOW}, the throw at {@link UndeadBulletConfig#ARM_HOLD}. */
+	private static void tickR(ServerPlayer player) {
+		long[] r = R_HELD.get(player.getUUID());
 		var s = Undead.state(player);
-		if (down == null) {
-			if (s.flag(com.projecthero.mod.undead.data.UndeadState.FLAG_PUNCH)) {
+		boolean winding = s.flag(com.projecthero.mod.undead.data.UndeadState.FLAG_PUNCH);
+		if (r == null || r[1] != 0L) {
+			if (winding) {
 				UndeadAbilities.cancelPunch(player); // the release went missing (a screen opened)
 			}
 			return;
 		}
-		if (!s.flag(com.projecthero.mod.undead.data.UndeadState.FLAG_PUNCH) && player.level().getGameTime() - down == UndeadConfig.PUNCH_HOLD_TICKS) {
-			UndeadAbilities.startPunch(player);
+		long held = player.level().getGameTime() - r[0];
+		if (r[2] == 0L && held >= UndeadBulletConfig.ARM_WINDUP_SHOW) {
+			r[2] = 1L;
+			winding = UndeadAbilities.startPunch(player);
 		}
-		if (s.flag(com.projecthero.mod.undead.data.UndeadState.FLAG_PUNCH) && Undead.shootingArm(player) < 0) {
-			UndeadAbilities.cancelPunch(player);
+		if (winding && Undead.shootingArm(player) < 0) {
+			UndeadAbilities.cancelPunch(player); // the arm was lost meanwhile
+			winding = false;
 		}
+		if (held >= UndeadBulletConfig.ARM_HOLD) {
+			r[1] = 1L; // spoken for: the release does nothing now
+			if (winding) {
+				UndeadAbilities.throwPunch(player);
+			}
+		}
+	}
+
+	/** Gametests: R has been down for {@code ticks} (the press moved back in time), and the hold ticks. */
+	public static void forTestsHoldR(ServerPlayer player, int ticks) {
+		long[] r = R_HELD.get(player.getUUID());
+		if (r != null) {
+			r[0] = player.level().getGameTime() - ticks;
+		}
+		tickR(player);
 	}
 
 	/**
@@ -343,13 +371,13 @@ public final class UndeadAbilityManager {
 		}
 		boolean victor = Undead.victor(player);
 		return switch (slot) {
-			case SLOT_1 -> victor ? new String[] { UndeadAbilities.VULCAN, UndeadAbilities.DIVISION } : new String[] { UndeadAbilities.PARTS_BULLET, UndeadAbilities.CRIMSON_BULLET };
+			case SLOT_1 -> victor ? new String[] { UndeadAbilities.VULCAN, UndeadAbilities.DIVISION } : new String[] { UndeadAbilities.PARTS_BULLET, UndeadAbilities.PARTS_BULLET_HAND };
 			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadAbilities.CRESCENT, UndeadAbilities.GREAT_CRESCENT };
 			case SLOT_3 -> new String[] { UndeadLaunch.LEG_LAUNCH, UndeadAbilities.PROPULSION };
 			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadAbilities.HEAD_BULLET };
 			// v0.17.3: tap V Reform, Shift+V Toggle Regen (hold V, the Bone Sword, is the third: boneSwordHoldId)
 			case SLOT_5 -> new String[] { UndeadAbilities.REFORM, UndeadConfig.VICTOR_ENABLED ? UndeadAbilities.CARD : UndeadAbilities.REGEN };
-			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadAbilities.DEAD_LINE, UndeadAbilities.QUARDEAD };
+			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadAbilities.DEAD_LINE, UndeadAbilities.DIVISION };
 			default -> new String[0];
 		};
 	}
@@ -360,9 +388,8 @@ public final class UndeadAbilityManager {
 			return sword;
 		}
 		return switch (id) {
-			case UndeadAbilities.PARTS_BULLET -> UndeadConfig.PARTS_BULLET_COOLDOWN;
-			case UndeadAbilities.PUNCH -> UndeadConfig.PUNCH_COOLDOWN;
-			case UndeadAbilities.CRIMSON_BULLET -> UndeadConfig.CRIMSON_COOLDOWN;
+			case UndeadAbilities.PARTS_BULLET, UndeadAbilities.PARTS_BULLET_HAND, UndeadAbilities.PUNCH -> 0; // v0.17.3: no cooldowns
+			case UndeadAbilities.HEAD_THROW -> UndeadBulletConfig.HEAD_THROW_COOLDOWN;
 			case UndeadAbilities.CRESCENT -> UndeadConfig.CRESCENT_COOLDOWN;
 			case UndeadAbilities.GREAT_CRESCENT -> UndeadConfig.GREAT_CRESCENT_COOLDOWN;
 			case UndeadAbilities.PROPULSION -> UndeadConfig.PROPULSION_COOLDOWN;
@@ -373,9 +400,8 @@ public final class UndeadAbilityManager {
 			case UndeadAbilities.CARD -> UndeadConfig.VICTOR_COOLDOWN;
 			case UndeadAbilities.REFORM -> UndeadConfig.REFORM_COOLDOWN;
 			case UndeadAbilities.DEAD_LINE -> UndeadConfig.DEAD_LINE_COOLDOWN;
-			case UndeadAbilities.QUARDEAD -> UndeadConfig.QUARDEAD_COOLDOWN;
 			case UndeadAbilities.VULCAN -> UndeadConfig.VULCAN_COOLDOWN;
-			case UndeadAbilities.DIVISION -> UndeadConfig.DIVISION_COOLDOWN;
+			case UndeadAbilities.DIVISION -> UndeadBulletConfig.DIVISION_COOLDOWN;
 			case UndeadAbilities.DEAD_BLADE -> UndeadConfig.DEAD_BLADE_COOLDOWN;
 			case UndeadAbilities.DEAD_ROAD -> UndeadConfig.DEAD_ROAD_COOLDOWN;
 			default -> 0;

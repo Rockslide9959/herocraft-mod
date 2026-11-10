@@ -153,6 +153,7 @@
 		"UndeadBodyRotationMixin",
 		"UndeadFlightTravelMixin",
 		"UndeadBoostInputMixin",
+		"UndeadHeadThrowInputMixin",
 		"UndeadItemInHandInvoker",
 		"UndeadCameraMixin",
 		"UndeadLaunchFovMixin",

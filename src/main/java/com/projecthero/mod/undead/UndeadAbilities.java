@@ -35,8 +35,10 @@ import net.minecraft.world.phys.Vec3;
  * {@link #tick}; every map here is dropped by {@link #clear}, {@link #forget} and {@link #clearSessionState}.
  */
 public final class UndeadAbilities {
+	/** v0.17.3: tap R, Parts Bullet: Finger. */
 	public static final String PARTS_BULLET = "parts_bullet";
-	public static final String CRIMSON_BULLET = "crimson_bullet";
+	/** v0.17.3: Shift+R, Parts Bullet: Hand (replaced the Crimson Bullet). */
+	public static final String PARTS_BULLET_HAND = "parts_bullet_hand";
 	public static final String CRESCENT = "crimson_crescent_moon";
 	public static final String GREAT_CRESCENT = "great_crescent_moon";
 	public static final String PROPULSION = "blood_propulsion";
@@ -47,13 +49,15 @@ public final class UndeadAbilities {
 	public static final String REFORM = "reform";
 	public static final String CARD = "pull_the_card";
 	public static final String DEAD_LINE = "dead_line";
-	public static final String QUARDEAD = "dead_quardead";
 	public static final String VULCAN = "dead_vulcan";
+	/** v0.17.3: Shift+C, Division Bullet (replaced Dead Quardead): a finger that grows into a guard-dog copy of him. */
 	public static final String DIVISION = "division_bullet";
 	public static final String DEAD_BLADE = "dead_blade";
 	public static final String DEAD_ROAD = "dead_road";
-	/** v0.17.3: hold R -- the arm drawn back and thrown off the body. */
-	public static final String PUNCH = "stretch_punch";
+	/** v0.17.3: hold R, Parts Bullet: Arm -- the arm drawn back and thrown off the body. */
+	public static final String PUNCH = "parts_bullet_arm";
+	/** v0.17.3: hold X, the Head Throw ({@link UndeadHeadThrow}). */
+	public static final String HEAD_THROW = "head_throw";
 
 	/** Great Deep-Crimson Crescent Moon: where the waves run from, which way, since when, and who they hit. */
 	private record Waves(Vec3 from, Vec3 dir, long start, Set<Integer> hit) {
@@ -85,6 +89,7 @@ public final class UndeadAbilities {
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
 		UndeadBoneSword.clear(p);
+		UndeadHeadThrow.clear(p); // v0.17.3: the aim's root comes off
 		WAVES.remove(id);
 		VULCANS.remove(id);
 		UndeadState s = Undead.peek(p);
@@ -244,14 +249,26 @@ public final class UndeadAbilities {
 		}).toList();
 	}
 
-	// ---------------------------------------------------------------- R: fingers and the stretch punch
+	// ---------------------------------------------------------------- R: Parts Bullet -- Finger, Hand, Arm
 
 	/**
 	 * The arm a one-arm move uses (the main one, else the other: {@link Undead#shootingArm}); remembered in
 	 * {@link UndeadState#FLAG_OFF_ARM} so every viewer poses the right one. -1 (and a dull click) with neither.
 	 */
 	private static int pickArm(ServerPlayer p) {
+		return pickArm(p, false);
+	}
+
+	/**
+	 * v0.17.3: {@link #pickArm}, and with {@code needHand} the arm must have its hand too (the finger and hand bullets come off
+	 * it): left and right still take turns, and a hand that is off (growing back) passes the shot to the other one.
+	 */
+	private static int pickArm(ServerPlayer p, boolean needHand) {
 		int arm = Undead.shootingArm(p);
+		if (needHand && arm >= 0 && !handReady(p, arm)) {
+			int other = Undead.otherArm(arm);
+			arm = Undead.state(p).armReady(other, p.level().getGameTime()) && handReady(p, other) ? other : -1;
+		}
 		if (arm < 0) {
 			Undead.say(p, "message.projecthero.undead.no_arm", ChatFormatting.GRAY);
 			sound(p, SoundEvents.DISPENSER_FAIL, 0.6f, 1.4f);
@@ -264,65 +281,59 @@ public final class UndeadAbilities {
 		return arm;
 	}
 
-	/**
-	 * v0.17.3 (user): every finger shot takes a bite out of the arm, from the fingertips up ({@code amount} of it, see
-	 * {@link UndeadConfig#PARTS_EAT}); it adds up shot after shot, and a used-up arm is gone ({@link UndeadState#KIND_SPENT}). It
-	 * only starts to grow back {@link UndeadConfig#EATEN_REGROW_WAIT} after the last shot.
-	 */
-	public static void eat(ServerPlayer p, int arm, float amount) {
-		long now = p.level().getGameTime();
-		UndeadState n = Undead.state(p).copy();
-		float c = Math.min(1f, n.eaten(arm, now) + amount);
-		n.setEx(UndeadState.X_LAST_SHOT, now);
-		boolean spent = c >= 0.999f;
-		n.setEx(arm == UndeadState.RIGHT_ARM ? UndeadState.X_EATEN_R : UndeadState.X_EATEN_L, spent ? 0L : Math.round(c * 1000f));
-		// the other arm's bite waits as well: "after not shooting for 2 seconds"
-		int other = Undead.otherArm(arm);
-		float co = n.eaten(other, now);
-		n.setEx(other == UndeadState.RIGHT_ARM ? UndeadState.X_EATEN_R : UndeadState.X_EATEN_L, Math.round(co * 1000f));
-		Undead.save(p, n);
-		if (spent) {
-			Undead.breakPart(p, arm, UndeadState.KIND_SPENT);
-		}
+	/** That arm's hand is on it, whole. */
+	private static boolean handReady(ServerPlayer p, int arm) {
+		return !Undead.state(p).broken(UndeadState.extremity(arm));
 	}
 
+	/**
+	 * v0.17.3 tap R (user: "Parts Bullet: Finger, shoots a piece of the players hand dealing 7 damage, no cooldown, 60 block
+	 * range"): one fingertip a tap, straight at the crosshair, left and right hands in turn. Nothing is used up any more (the old
+	 * bite out of the arm is gone): the key itself is the limit -- one shot a tap, never a stream while held.
+	 */
 	public static void partsBullet(ServerPlayer p) {
 		if (!begin(p, PARTS_BULLET)) {
 			return;
 		}
-		int arm = pickArm(p);
+		int arm = pickArm(p, true);
 		if (arm < 0) {
 			return;
 		}
-		if (UndeadConfig.PARTS_BULLET_COOLDOWN > 0) {
-			cooldown(p, PARTS_BULLET, UndeadConfig.PARTS_BULLET_COOLDOWN);
-		}
 		anim(p, UndeadState.ANIM_FINGER);
 		Vec3 h = handOrigin(p, arm);
-		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_FINGER, -1, h, aimDir(p, h).scale(UndeadConfig.FINGER_SPEED), UndeadConfig.PARTS_BULLET_DAMAGE);
-		eat(p, arm, UndeadConfig.PARTS_EAT);
+		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_FINGER, -1, h, aimDir(p, h).scale(UndeadBulletConfig.FINGER_SPEED), UndeadBulletConfig.FINGER_DAMAGE);
 		UndeadSfx.partsBullet(level(p), h); // v0.17.3 Undead sounds
 		level(p).sendParticles(Undead.BLOOD, h.x, h.y, h.z, 3, 0.03, 0.03, 0.03, 0.0);
 	}
 
-	public static void crimsonBullet(ServerPlayer p) {
-		if (!begin(p, CRIMSON_BULLET)) {
+	/**
+	 * v0.17.3 Shift+R (user: "Parts Bullet: Hand, shoots a larger piece of the players hand dealing 12 damage, no cooldown, 60
+	 * block range"): the whole hand comes off at the wrist and flies fingers first ({@link UndeadPartEntity#STYLE_HAND}); the hand
+	 * segment is gone (launched) and grows straight back. No cooldown: a hand has to be there to fire it, so the two hands take
+	 * turns while the other regrows.
+	 */
+	public static void handBullet(ServerPlayer p) {
+		if (!begin(p, PARTS_BULLET_HAND)) {
 			return;
 		}
-		int arm = pickArm(p);
+		int arm = pickArm(p, true);
 		if (arm < 0) {
 			return;
 		}
-		cooldown(p, CRIMSON_BULLET, UndeadConfig.CRIMSON_COOLDOWN);
-		anim(p, UndeadState.ANIM_CRIMSON);
+		int hand = UndeadState.extremity(arm);
+		anim(p, UndeadState.ANIM_FINGER);
 		Vec3 h = handOrigin(p, arm);
-		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_CRIMSON, -1, h, aimDir(p, h).scale(UndeadConfig.FINGER_SPEED * 1.2), UndeadConfig.CRIMSON_DAMAGE);
-		eat(p, arm, UndeadConfig.CRIMSON_EAT);
-		UndeadSfx.crimsonBullet(level(p), h); // v0.17.3 Undead sounds
-		level(p).sendParticles(Undead.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
+		Undead.breakPart(p, hand, UndeadState.KIND_LAUNCHED);
+		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_HAND, hand, h, aimDir(p, h).scale(UndeadBulletConfig.HAND_SPEED), UndeadBulletConfig.HAND_DAMAGE);
+		UndeadSfx.punchFire(level(p), h);
+		UndeadSfx.partsBullet(level(p), h);
+		level(p).sendParticles(Undead.BLOOD, h.x, h.y, h.z, 3, 0.04, 0.04, 0.04, 0.0); // (small: it is right under his own eyes)
 	}
 
-	/** Hold R past {@link UndeadConfig#PUNCH_HOLD_TICKS}: the arm draws back. False if it can't (cooldown, no arm). */
+	/**
+	 * Hold R past {@link UndeadBulletConfig#ARM_WINDUP_SHOW}: the arm draws back (it flies at {@link UndeadBulletConfig#ARM_HOLD}).
+	 * False if it can't (no arm).
+	 */
 	public static boolean startPunch(ServerPlayer p) {
 		if (Undead.cooldownRemaining(p, PUNCH) > 0 || !Undead.canAct(p) || Undead.shootingArm(p) < 0) {
 			return false;
@@ -347,8 +358,9 @@ public final class UndeadAbilities {
 	}
 
 	/**
-	 * Let go of a charged R: the whole arm flies off his body fist first ({@link UndeadPartEntity#STYLE_PUNCH}), 20 damage. That
-	 * arm is gone (launched) and grows back as usual.
+	 * v0.17.3 hold R a second (user: "Parts Bullet: Arm, shoots an entire arm dealing 20 damage, no cooldown, 60 block range"):
+	 * the whole arm flies off his body fist first ({@link UndeadPartEntity#STYLE_PUNCH}) at the crosshair. That arm is gone
+	 * (launched) and grows back as usual. Fired from the hold itself the moment it reaches {@link UndeadBulletConfig#ARM_HOLD}.
 	 */
 	public static void throwPunch(ServerPlayer p) {
 		UndeadState s = Undead.state(p);
@@ -363,14 +375,13 @@ public final class UndeadAbilities {
 				return;
 			}
 		}
-		cooldown(p, PUNCH, UndeadConfig.PUNCH_COOLDOWN);
 		anim(p, UndeadState.ANIM_PUNCH);
 		Undead.breakPart(p, arm, UndeadState.KIND_LAUNCHED);
 		Vec3 r = UndeadParts.right(p);
 		double side = arm == UndeadState.RIGHT_ARM ? 1 : -1;
 		Vec3 from = p.getEyePosition().add(r.scale(0.36 * side)).add(0, -0.3, 0).add(p.getLookAngle().scale(0.5));
 		// v0.17.3: at what the crosshair is on (from the shoulder, not parallel to the look), fist first along the flight
-		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_PUNCH, arm, from, aimDir(p, from).scale(UndeadConfig.PUNCH_SPEED), UndeadConfig.PUNCH_DAMAGE);
+		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_PUNCH, arm, from, aimDir(p, from).scale(UndeadBulletConfig.ARM_SPEED), UndeadBulletConfig.ARM_DAMAGE);
 		UndeadSfx.punchFire(level(p), from);
 		UndeadSfx.launch(level(p), from);
 		level(p).sendParticles(Undead.BLOOD_BIG, from.x, from.y, from.z, 6, 0.1, 0.1, 0.1, 0.0);
@@ -535,7 +546,7 @@ public final class UndeadAbilities {
 		Undead.say(p, "message.projecthero.undead.victor", ChatFormatting.DARK_RED);
 	}
 
-	// ---------------------------------------------------------------- C: Dead Line (beam), Dead Quardead
+	// ---------------------------------------------------------------- C: Dead Line (beam); Shift+C, the Division Bullet, is with Victor's kit
 
 	public static void startDeadLine(ServerPlayer p) {
 		if (!begin(p, DEAD_LINE) || !hand(p)) {
@@ -607,25 +618,6 @@ public final class UndeadAbilities {
 		}
 	}
 
-	public static void quardead(ServerPlayer p) {
-		if (!begin(p, QUARDEAD)) {
-			return;
-		}
-		cooldown(p, QUARDEAD, UndeadConfig.QUARDEAD_COOLDOWN);
-		anim(p, UndeadState.ANIM_QUARDEAD);
-		Vec3 f = flatLook(p);
-		Vec3 r = UndeadParts.right(p);
-		Vec3[] at = { p.position().add(r.scale(1.3)), p.position().add(r.scale(-1.3)), p.position().add(f.scale(-1.4)) };
-		float dmg = UndeadConfig.CLONE_DAMAGE * (Undead.victor(p) ? UndeadConfig.VICTOR_DAMAGE : 1f);
-		int[] tints = { UndeadCloneEntity.TINT_SKIN, UndeadCloneEntity.TINT_BLOOD, UndeadCloneEntity.TINT_BONE };
-		for (int i = 0; i < 3; i++) {
-			UndeadCloneEntity.spawn(p, at[i].x, p.getY(), at[i].z, tints[i], UndeadConfig.QUARDEAD_TICKS, dmg);
-			level(p).sendParticles(Undead.BLOOD, at[i].x, p.getY() + 1, at[i].z, 5, 0.3, 0.6, 0.3, 0.0);
-		}
-		sound(p, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
-		sound(p, SoundEvents.SKELETON_AMBIENT, 0.8f, 0.8f);
-	}
-
 	// ---------------------------------------------------------------- Victor's kit
 
 	public static void vulcan(ServerPlayer p) {
@@ -658,27 +650,38 @@ public final class UndeadAbilities {
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 0.6f, 1.8f + p.getRandom().nextFloat() * 0.2f);
 	}
 
+	/**
+	 * v0.17.3 Shift+C, Division Bullet (user: "player shoots out a finger and a clone appears where the finger lands, the clone
+	 * lives for 20 seconds and acts as a dog ... 10 second cooldown"): one finger at the crosshair (straight, 60 blocks); where it
+	 * lands -- a block, a creature, or the end of its range -- it grows into a copy of him ({@link UndeadCloneEntity}). Also
+	 * Victor's Shift+R while {@link UndeadConfig#VICTOR_ENABLED} (off).
+	 */
 	public static void division(ServerPlayer p) {
-		if (!begin(p, DIVISION) || !hand(p)) {
+		if (!begin(p, DIVISION)) {
 			return;
 		}
-		cooldown(p, DIVISION, UndeadConfig.DIVISION_COOLDOWN);
-		anim(p, UndeadState.ANIM_DIVISION);
-		Vec3 look = p.getLookAngle();
-		Vec3 r = UndeadParts.right(p);
-		for (int i = -1; i <= 1; i++) {
-			Vec3 v = look.add(r.scale(i * 0.12)).normalize().scale(UndeadConfig.FINGER_SPEED * 0.8);
-			UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_DIVISION, -1, handOrigin(p), v, UndeadConfig.PARTS_BULLET_DAMAGE);
+		int arm = pickArm(p, true);
+		if (arm < 0) {
+			return;
 		}
-		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 1.0f);
+		cooldown(p, DIVISION, UndeadBulletConfig.DIVISION_COOLDOWN);
+		anim(p, UndeadState.ANIM_DIVISION);
+		Vec3 h = handOrigin(p, arm);
+		UndeadPartEntity.shoot(p, UndeadPartEntity.STYLE_DIVISION, -1, h, aimDir(p, h).scale(UndeadBulletConfig.DIVISION_SPEED),
+				UndeadBulletConfig.DIVISION_FINGER_DAMAGE);
+		UndeadSfx.partsBullet(level(p), h);
+		sound(p, SoundEvents.SLIME_SQUISH_SMALL, 0.8f, 1.2f);
+		level(p).sendParticles(Undead.BLOOD, h.x, h.y, h.z, 4, 0.04, 0.04, 0.04, 0.0);
 	}
 
-	/** A Division Bullet finger grows into a short-lived self where it lands. */
-	public static void divisionClone(ServerPlayer p, Vec3 at) {
-		UndeadCloneEntity.spawn(p, at.x, at.y, at.z, UndeadCloneEntity.TINT_BLOOD, UndeadConfig.DIVISION_CLONE_TICKS,
-				UndeadConfig.CLONE_DAMAGE * UndeadConfig.VICTOR_DAMAGE);
-		level(p).sendParticles(Undead.BLOOD, at.x, at.y + 1, at.z, 5, 0.3, 0.6, 0.3, 0.0);
+	/** A Division Bullet finger grows into a guard-dog self where it lands (null if it could not be placed). */
+	public static UndeadCloneEntity divisionClone(ServerPlayer p, Vec3 at) {
+		UndeadCloneEntity c = UndeadCloneEntity.spawn(p, at.x, at.y, at.z, UndeadBulletConfig.CLONE_LIFE, UndeadBulletConfig.CLONE_DAMAGE);
+		level(p).sendParticles(Undead.BLOOD, at.x, at.y + 1, at.z, 14, 0.3, 0.6, 0.3, 0.0);
+		level(p).sendParticles(Undead.BLOOD_BIG, at.x, at.y + 0.6, at.z, 6, 0.25, 0.4, 0.25, 0.0);
 		p.level().playSound(null, at.x, at.y, at.z, SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.7f);
+		UndeadSfx.bloodBurst(p.level(), at.add(0, 1, 0), 0.8f);
+		return c;
 	}
 
 	public static void deadBlade(ServerPlayer p) {

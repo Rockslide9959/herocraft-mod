@@ -97,32 +97,16 @@ public final class UndeadConfig {
 	public static final float HEADBUTT_DAMAGE = 8f;
 	public static final int HEADBUTT_COOLDOWN = 40;
 
-	// ---------------------------------------------------------------- R: fingers and the stretch punch
-	// v0.17.3 (tester: "have it be a spammy moveset with weak abilities (DPS)"): every hit a little lighter, the cooldowns shorter
-	public static final float PARTS_BULLET_DAMAGE = 6f;
+	// ---------------------------------------------------------------- R: the Parts Bullets (v0.17.3 rework: UndeadBulletConfig)
+	/** Dead Vulcan's (Victor's) finger speed; the R bullets' own numbers are in {@link UndeadBulletConfig}. */
 	public static final double FINGER_SPEED = 2.6;
-	/** v0.17.3 (user: "remove the cooldown on parts bullet please"): none -- only the key (one shot a tap) and the arm it eats limit it. */
-	public static final int PARTS_BULLET_COOLDOWN = 0;
 	/** The finger shots and the thrown arm fly at what the crosshair is on, up to this far (beyond it: straight along the look). */
 	public static final double AIM_RANGE = 64.0;
-	public static final float CRIMSON_DAMAGE = 10f;
-	public static final int CRIMSON_COOLDOWN = 15;
 	/**
-	 * Each finger shot takes a bite out of the shooting arm, from the fingertips up: a Parts Bullet 1/12 (about twelve shots
-	 * use up a whole arm), a Crimson Bullet four times that. A used-up arm is gone (the other arm shoots); what is gone starts
-	 * to grow back after {@link #EATEN_REGROW_WAIT} without a shot.
+	 * (The old finger shots' bite out of the arm: no move takes one any more since the v0.17.3 bullet rework, but an old save's
+	 * bite still waits this long to grow back.)
 	 */
-	public static final float PARTS_EAT = 1f / 12f;
-	public static final float CRIMSON_EAT = 4f / 12f;
 	public static final int EATEN_REGROW_WAIT = 40;
-	/** Hold R: past {@link #PUNCH_HOLD_TICKS} the arm draws back (a shorter tap is a Parts Bullet, fired on release). */
-	public static final int PUNCH_HOLD_TICKS = 7;
-	/** Let go at least this long after pressing to throw the punch (earlier: the wind-up is dropped, nothing fires). */
-	public static final int PUNCH_MIN_HOLD = 14;
-	/** Parts Bullet: Arm (tester: "Nerf arm throw, i think 20 is a bit much"). */
-	public static final float PUNCH_DAMAGE = 14f;
-	public static final int PUNCH_COOLDOWN = 15;
-	public static final double PUNCH_SPEED = 2.2;
 
 	// ---------------------------------------------------------------- G
 	public static final float CRESCENT_DAMAGE = 11f;
@@ -246,9 +230,6 @@ public final class UndeadConfig {
 	public static final int DEAD_LINE_HIT_EVERY = 4;
 	public static final int DEAD_LINE_MAX = 100;
 	public static final int DEAD_LINE_COOLDOWN = 50;
-	public static final int QUARDEAD_TICKS = 300;
-	public static final float CLONE_DAMAGE = 5f;
-	public static final int QUARDEAD_COOLDOWN = 800;
 
 	// ---------------------------------------------------------------- Victor's kit
 	public static final int VULCAN_SHOTS = 10;
@@ -261,8 +242,6 @@ public final class UndeadConfig {
 	public static final float DEAD_ROAD_DAMAGE = 7f;
 	public static final int DEAD_ROAD_TICKS = 50;
 	public static final int DEAD_ROAD_COOLDOWN = 240;
-	public static final int DIVISION_CLONE_TICKS = 160;
-	public static final int DIVISION_COOLDOWN = 400;
 
 	/** A boss takes at most this share of its max health from one hit. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;

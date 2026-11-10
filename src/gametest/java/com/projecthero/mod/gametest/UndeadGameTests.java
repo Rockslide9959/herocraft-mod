@@ -482,18 +482,13 @@ public class UndeadGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void shotsAlternateHands(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
-		long now = helper.getLevel().getGameTime();
+		// v0.17.3: the finger shots no longer bite the arm; the hand each one came from is FLAG_OFF_ARM (what every viewer poses)
 		UndeadAbilities.partsBullet(p);
-		UndeadState s = Undead.state(p);
-		boolean firstLeft = s.eaten(UndeadState.LEFT_ARM, now) > 0f;
-		helper.assertTrue(firstLeft != (s.eaten(UndeadState.RIGHT_ARM, now) > 0f), "one hand fired first");
+		boolean firstOff = Undead.state(p).flag(UndeadState.FLAG_OFF_ARM);
 		UndeadAbilities.partsBullet(p);
-		s = Undead.state(p);
-		helper.assertTrue(s.eaten(UndeadState.LEFT_ARM, now) > 0f && s.eaten(UndeadState.RIGHT_ARM, now) > 0f, "the second shot came from the other hand");
+		helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_OFF_ARM) != firstOff, "the second shot came from the other hand");
 		UndeadAbilities.partsBullet(p);
-		s = Undead.state(p);
-		int arm = firstLeft ? UndeadState.LEFT_ARM : UndeadState.RIGHT_ARM;
-		helper.assertTrue(Math.abs(s.eaten(arm, now) - 2f * UndeadConfig.PARTS_EAT) < 1.0e-3f, "and the third from the first again: " + s.eaten(arm, now));
+		helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_OFF_ARM) == firstOff, "and the third from the first again");
 		// with one arm gone, the other fires every time
 		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
 		helper.assertTrue(Undead.shootingArm(p) == UndeadState.RIGHT_ARM, "one arm left: always that one");
@@ -560,71 +555,13 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** Tester: the clones -- the bones self has its own skeleton texture (the blank white one is gone). */
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theBoneCloneHasASkeletonTexture(GameTestHelper helper) {
-		helper.assertTrue(UndeadGameTests.class.getResource("/assets/projecthero/textures/entity/undead/bone_clone.png") != null, "bone_clone.png ships");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- R: finger shots eat the arm, the stretch punch
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void fingerShotNumbers(GameTestHelper helper) {
-		helper.assertTrue(UndeadConfig.PARTS_BULLET_COOLDOWN == 0, "Parts Bullet: no cooldown");
-		helper.assertTrue(com.projecthero.mod.undead.UndeadAbilityManager.maxCooldown(UndeadAbilities.PARTS_BULLET) == 0, "and the HUD shows none");
-		helper.assertTrue(UndeadConfig.CRIMSON_DAMAGE == 10f && UndeadConfig.CRIMSON_COOLDOWN == 15, "Crimson Bullet: 10 damage, 0.75 s");
-		helper.assertTrue(UndeadConfig.PUNCH_DAMAGE == 14f && UndeadConfig.PUNCH_COOLDOWN == 15, "Parts Bullet: Arm: 14 damage (tester: 20 is a bit much), 0.75 s");
-		helper.assertTrue(UndeadConfig.HEAD_BULLET_DAMAGE > UndeadConfig.PUNCH_DAMAGE, "the head hits harder than the arm");
-		helper.assertTrue(Math.abs(UndeadConfig.CRIMSON_EAT - 4f * UndeadConfig.PARTS_EAT) < 1.0e-5f, "a Crimson Bullet takes four times the bite");
-		helper.assertTrue(UndeadConfig.EATEN_REGROW_WAIT == 40, "regrowth waits 2 s without a shot");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void fingerShotsEatTheArmAndItWaitsToRegrow(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		p.setXRot(-85f);
-		int arm = Undead.mainArm(p);
-		UndeadAbilities.partsBullet(p);
-		float one = Undead.state(p).eaten(arm, helper.getLevel().getGameTime());
-		helper.assertTrue(Math.abs(one - UndeadConfig.PARTS_EAT) < 0.002f, "one shot takes a twelfth: " + one);
-		edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(UndeadState.FLAG_NEXT_OFF, false); });
-		UndeadAbilities.partsBullet(p);
-		edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(UndeadState.FLAG_NEXT_OFF, false); });
-		UndeadAbilities.crimsonBullet(p);
-		float six = Undead.state(p).eaten(arm, helper.getLevel().getGameTime());
-		helper.assertTrue(Math.abs(six - 6f / 12f) < 0.003f, "two Parts and a Crimson: half the arm: " + six);
-		long shot = helper.getLevel().getGameTime();
-		helper.onEachTick(() -> Undead.tick(p));
-		helper.runAfterDelay(UndeadConfig.EATEN_REGROW_WAIT - 4, () -> helper.assertTrue(
-				Math.abs(Undead.state(p).eaten(arm, helper.getLevel().getGameTime()) - six) < 0.001f, "nothing grows back before 2 s"));
-		helper.runAfterDelay(UndeadConfig.EATEN_REGROW_WAIT + 2, () -> helper.assertTrue(Undead.state(p).eatenRegrow(arm, helper.getLevel().getGameTime()) > 0f,
-				"it starts growing back after 2 s without a shot (" + (helper.getLevel().getGameTime() - shot) + " ticks)"));
-		helper.runAfterDelay(UndeadConfig.EATEN_REGROW_WAIT + 4, () -> {
-			// shooting again stops it and the bite carries on from what is still gone
-			edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(UndeadState.FLAG_NEXT_OFF, false); });
-			UndeadAbilities.partsBullet(p);
-			UndeadState s = Undead.state(p);
-			helper.assertTrue(s.eatenRegrow(arm, helper.getLevel().getGameTime()) == 0f, "a new shot restarts the wait");
-			// eat the rest: the arm is used up and gone, and the other arm shoots
-			for (int i = 0; i < 8 && !Undead.missing(p, arm); i++) {
-				edit(p, n -> { n.abilityReadyAt.clear(); n.setFlag(UndeadState.FLAG_NEXT_OFF, false); });
-				UndeadAbilities.crimsonBullet(p);
-			}
-			helper.assertTrue(Undead.missing(p, arm) && Undead.state(p).kind(arm) == UndeadState.KIND_SPENT, "a used-up arm is gone");
-			helper.assertTrue(Undead.shootingArm(p) == Undead.otherArm(arm), "the other arm shoots now");
-			helper.succeed();
-		});
-	}
-
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void noArmsNoShot(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST);
 		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
 		UndeadAbilities.partsBullet(p);
-		UndeadAbilities.crimsonBullet(p);
+		UndeadAbilities.handBullet(p);
 		AABB box = new AABB(p.blockPosition()).inflate(4);
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> true).isEmpty(), "nothing fires with no arms");
 		helper.assertTrue(!UndeadAbilities.startPunch(p), "and no punch winds up");
@@ -640,15 +577,18 @@ public class UndeadGameTests implements FabricGameTest {
 		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
 		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, r, true);
 		helper.onEachTick(() -> Undead.tick(p));
-		helper.runAfterDelay(UndeadConfig.PUNCH_HOLD_TICKS + 3, () -> helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_PUNCH), "held: the arm draws back"));
-		helper.runAfterDelay(UndeadConfig.PUNCH_MIN_HOLD + 4, () -> {
-			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, r, false);
+		helper.runAfterDelay(com.projecthero.mod.undead.UndeadBulletConfig.ARM_WINDUP_SHOW + 3, () -> helper.assertTrue(Undead.state(p).flag(UndeadState.FLAG_PUNCH),
+				"held: the arm draws back"));
+		// v0.17.3: the arm flies at one second, still held (no release needed)
+		helper.runAfterDelay(com.projecthero.mod.undead.UndeadBulletConfig.ARM_HOLD + 2, () -> {
 			int other = Undead.otherArm(main);
 			helper.assertTrue(Undead.missing(p, other) && Undead.state(p).kind(other) == UndeadState.KIND_LAUNCHED, "the other arm was thrown");
-			AABB box = new AABB(p.blockPosition()).inflate(6);
+			AABB box = new AABB(p.blockPosition()).inflate(12);
 			helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_PUNCH && e.bodyPart() == other)
 					.size() == 1, "it flies as the punch");
-			helper.assertTrue(Undead.cooldownRemaining(p, UndeadAbilities.PUNCH) > 0, "1 s cooldown");
+			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, r, false);
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.isFinger()).isEmpty(), "letting go after it flew fires nothing");
+			helper.assertTrue(Undead.cooldownRemaining(p, UndeadAbilities.PUNCH) == 0, "no cooldown");
 			helper.succeed();
 		});
 	}
@@ -807,14 +747,18 @@ public class UndeadGameTests implements FabricGameTest {
 		// a tick after leaving the shoulder, nothing flew and nothing was hit. Held R through the key flow, his tick running,
 		// thrown straight up (open sky): it must keep flying while the arm regrows, and burst once the arm is whole.
 		ServerPlayer p = undead(helper);
-		p.setXRot(-85f);
+		// v0.17.3: fired straight up from above the barrier-roofed test area: open air for its whole 60 blocks, and it stays over the test's own (ticking) chunk
+		Vec3 high = helper.absoluteVec(new Vec3(2.5, 40.0, 2.5));
+		p.moveTo(high.x, high.y, high.z, 0f, 0f);
+		p.setXRot(-89f);
 		com.projecthero.mod.hero.AbilitySlot r = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
 		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, r, true);
 		helper.onEachTick(() -> Undead.tick(p));
 		int[] arm = { -1 };
 		java.util.function.Supplier<java.util.List<UndeadPartEntity>> thrown = () -> helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class,
-				new AABB(p.blockPosition()).inflate(64), e -> e.style() == UndeadPartEntity.STYLE_PUNCH && e.bodyPart() == arm[0]);
-		int release = UndeadConfig.PUNCH_MIN_HOLD + 2;
+				new AABB(p.blockPosition()).inflate(64), e -> e.ownerIs(p) && e.style() == UndeadPartEntity.STYLE_PUNCH && e.bodyPart() == arm[0]);
+		// v0.17.3: it flies at one second of holding; a thrown piece now keeps flying until it lands, hits or gives out (60 blocks)
+		int release = com.projecthero.mod.undead.UndeadBulletConfig.ARM_HOLD + 1;
 		helper.runAfterDelay(release, () -> {
 			com.projecthero.mod.undead.UndeadAbilityManager.handle(p, r, false);
 			arm[0] = Undead.mainArm(p);
@@ -826,10 +770,10 @@ public class UndeadGameTests implements FabricGameTest {
 			helper.assertTrue(a.size() == 1, "and the thrown arm is still flying");
 			helper.assertTrue(a.get(0).position().distanceTo(p.getEyePosition()) > 2.5, "away from the shoulder: " + a.get(0).position().distanceTo(p.getEyePosition()));
 		});
-		helper.runAfterDelay(release + UndeadConfig.FRAMES[UndeadState.RIGHT_ARM] + 4, () -> {
+		helper.runAfterDelay(release + UndeadConfig.FRAMES[UndeadState.RIGHT_ARM] + 2, () -> {
 			helper.assertTrue(!Undead.missing(p, arm[0]), "the arm has grown back");
-			helper.assertTrue(thrown.get().isEmpty(), "and the thrown one burst once it was whole");
-			helper.succeed();
+			helper.assertTrue(thrown.get().size() == 1, "and the thrown one is still in the air even so");
+			helper.succeed(); // (its 60-block range: UndeadBulletGameTests.bulletsGiveOutAt60Blocks)
 		});
 	}
 
@@ -1070,15 +1014,15 @@ public class UndeadGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void fingerAndCrimsonBulletsFly(GameTestHelper helper) {
+	public void fingerAndHandBulletsFly(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		UndeadAbilities.partsBullet(p);
 		AABB box = new AABB(p.blockPosition()).inflate(4);
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_FINGER).size() == 1,
 				"a finger flies");
-		UndeadAbilities.crimsonBullet(p);
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_CRIMSON).size() == 1,
-				"a crimson bullet flies");
+		UndeadAbilities.handBullet(p);
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_HAND).size() == 1,
+				"a hand flies");
 		helper.succeed();
 	}
 
@@ -1100,19 +1044,6 @@ public class UndeadGameTests implements FabricGameTest {
 		Undead.reconcile(p);
 		helper.assertTrue(p.hasEffect(MobEffects.BLINDNESS), "and he is blind");
 		helper.assertTrue(com.projecthero.mod.undead.UndeadMod.handGone(p, InteractionHand.MAIN_HAND), "the missing hand can't be used");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void quardeadSplitsIntoThreeClones(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		UndeadAbilities.quardead(p);
-		AABB box = new AABB(p.blockPosition()).inflate(4);
-		var clones = helper.getLevel().getEntitiesOfClass(UndeadCloneEntity.class, box, e -> true);
-		helper.assertTrue(clones.size() == 3, "three copies: " + clones.size());
-		helper.assertTrue(clones.stream().map(UndeadCloneEntity::tint).distinct().count() == 3, "skin, blood and bones");
-		helper.assertTrue(!com.projecthero.mod.combat.HeroTargets.canHarm(p, clones.get(0)), "his own moves pass through them");
-		clones.forEach(e -> e.discard());
 		helper.succeed();
 	}
 
@@ -1160,8 +1091,8 @@ public class UndeadGameTests implements FabricGameTest {
 		UndeadAbilities.vulcan(p);
 		UndeadAbilities.division(p);
 		AABB box = new AABB(p.blockPosition()).inflate(6);
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_DIVISION).size() == 3,
-				"three Division fingers");
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(UndeadPartEntity.class, box, e -> e.style() == UndeadPartEntity.STYLE_DIVISION).size() == 1,
+				"a Division finger (v0.17.3: one, the Shift+C move)");
 		UndeadAbilities.divisionClone(p, p.position());
 		helper.assertTrue(!helper.getLevel().getEntitiesOfClass(UndeadCloneEntity.class, box, e -> true).isEmpty(), "a finger grows into a copy");
 		helper.onEachTick(() -> Undead.tick(p));

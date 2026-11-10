@@ -51,6 +51,8 @@ public final class UndeadClient {
 		EntityRendererRegistry.register(UndeadEntityTypes.CLONE, UndeadCloneRenderer::new);
 		UndeadPartEntity.clientRemoval = UndeadPartRenderer::removed;
 		UndeadCloneEntity.clientRemoval = UndeadCloneRenderer::removed;
+		WorldRenderEvents.AFTER_ENTITIES.register(UndeadHeadThrowRender::render); // v0.17.3 hold X: the trajectory line
+		ClientTickEvents.START_CLIENT_TICK.register(UndeadHeadThrowRender::tick); // v0.17.3: right click mid-throw
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
 		ClientTickEvents.END_CLIENT_TICK.register(UndeadClient::tick);
 		UndeadSounds.initialize(); // v0.17.3 Undead sounds: regrowth beds + accents, jets, burn, punch

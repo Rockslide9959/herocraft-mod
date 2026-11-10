@@ -1,0 +1,468 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.UndeadAbilities;
+import com.projecthero.mod.undead.UndeadHeadThrow;
+import com.projecthero.mod.undead.data.UndeadState;
+import com.projecthero.mod.undead.entity.UndeadCloneEntity;
+import com.projecthero.mod.undead.entity.UndeadPartEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films Undead's R bullets, the Head Throw and the Division Bullet. Enabled by run/undeadbullet.flag. */
+public final class UndeadBulletHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static volatile String logTag;
+	private static final String PREFIX = System.getProperty("undeadbullet.prefix", "ub");
+	private static final String ONLY = System.getProperty("undeadbullet.only", "");
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	/** The pitch that throws the head through the hole (worked out on the server). */
+	private static volatile float gapPitch = -10f;
+	/** The held head is 0.45 to his right: turned this much left the throw lines up on the hole straight ahead. */
+	private static final float GAP_YAW = -3.2f;
+
+	private UndeadBulletHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadbullet.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadBulletHarness::tick);
+		ServerTickEvents.END_SERVER_TICK.register(UndeadBulletHarness::serverLog);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadbullet-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void serverLog(MinecraftServer srv) {
+		String tag = logTag;
+		if (tag == null || srv.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
+		ServerPlayer p = srv.getPlayerList().getPlayers().get(0);
+		UndeadState s = Undead.state(p);
+		long now = p.level().getGameTime();
+		if (now % 2 != 0) {
+			return;
+		}
+		System.out.println(String.format("[SHOT] %s S t=%d pos=(%.2f,%.2f,%.2f) v=(%.2f,%.2f,%.2f) anim=%d aim=%b fly=%b hold=%b body=%s bodyStart=%d bb=%.2f",
+				tag, now, p.getX(), p.getY(), p.getZ(), p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, s.animId,
+				UndeadHeadThrow.aiming(p), UndeadHeadThrow.flying(p), UndeadHeadThrow.holdsRegen(p), s.broken(UndeadState.BODY) ? "gone" : "whole",
+				s.regrowStart(UndeadState.BODY), p.getBbHeight()));
+		for (UndeadPartEntity e : p.serverLevel().getEntitiesOfClass(UndeadPartEntity.class, p.getBoundingBox().inflate(80), e -> !e.isLeftBehind())) {
+			System.out.println(String.format("[SHOT] %s S   part style=%d part=%d pos=(%.2f,%.2f,%.2f) age=%d", tag, e.style(), e.bodyPart(), e.getX(), e.getY(),
+					e.getZ(), e.tickCount));
+		}
+		for (Zombie z : p.serverLevel().getEntitiesOfClass(Zombie.class, p.getBoundingBox().inflate(80))) {
+			System.out.println(String.format("[SHOT] %s S   zombie hp=%.1f pos=(%.2f,%.2f,%.2f)", tag, z.getHealth(), z.getX(), z.getY(), z.getZ()));
+		}
+		for (UndeadCloneEntity c : p.serverLevel().getEntitiesOfClass(UndeadCloneEntity.class, p.getBoundingBox().inflate(80))) {
+			System.out.println(String.format("[SHOT] %s S   clone hp=%.1f life=%d target=%s pos=(%.2f,%.2f,%.2f)", tag, c.getHealth(), c.lifeLeft(),
+					c.getTarget() == null ? "-" : c.getTarget().getType().toShortString(), c.getX(), c.getY(), c.getZ()));
+		}
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadBulletHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("%s_%s_%03d.png", PREFIX, recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+					logTag = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("UB_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			logTag = name;
+			System.out.println("[HARNESS] recording " + name);
+		});
+	}
+
+	private static void reset(ServerPlayer p) {
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, p.getBoundingBox().inflate(120),
+				e -> e instanceof UndeadPartEntity || e instanceof Zombie || e instanceof UndeadCloneEntity).forEach(e -> e.discard());
+		UndeadHeadThrow.cancel(p);
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.flags = 0;
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.getFoodData().setFoodLevel(20);
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static Zombie zombie(ServerPlayer p, Vec3 at, boolean ai) {
+		Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+		if (z != null) {
+			z.moveTo(at.x, at.y, at.z, 180f, 0f);
+			z.setNoAi(!ai);
+			z.setPersistenceRequired();
+			z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+			z.setYHeadRot(180f);
+			z.setYBodyRot(180f);
+			p.serverLevel().addFreshEntity(z);
+		}
+		return z;
+	}
+
+	private static void look(Minecraft mc, float yaw, float pitch) {
+		if (mc.player != null) {
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = yaw;
+			mc.player.xRotO = pitch;
+		}
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 look, java.util.function.Consumer<ServerPlayer> setup, float pitch) {
+		at(t, () -> {
+			base = origin.add(index * 60, 0, 0);
+			mc.options.setCameraType(type);
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				reset(p);
+				if (setup != null) {
+					setup.accept(p);
+				}
+			});
+		});
+		at(t + 6, () -> look(mc, 0f, pitch));
+		at(t + 12, () -> look(mc, 0f, pitch));
+	}
+
+	private static void pressR(int t, int hold) {
+		at(t, () -> ModKeyBindings.ABILITY_1.setDown(true));
+		at(t + hold, () -> ModKeyBindings.ABILITY_1.setDown(false));
+	}
+
+	private static boolean want(String name) {
+		return ONLY.isEmpty() || ONLY.contains(name);
+	}
+
+	/** A 5 wide, 4 high stone wall {@code dz} ahead of the base with a 1x1 hole at {@code holeY} above the floor, in the middle. */
+	private static void wall(ServerPlayer p, int dz, int holeY) {
+		BlockPos b = BlockPos.containing(base);
+		for (int x = -3; x <= 3; x++) {
+			for (int y = 0; y < WALL_H; y++) {
+				if (x != 0 || y != holeY) {
+					p.serverLevel().setBlockAndUpdate(b.offset(x, y, dz), Blocks.STONE.defaultBlockState());
+				}
+			}
+		}
+	}
+
+	private static void clearWall(ServerPlayer p, int dz) {
+		BlockPos b = BlockPos.containing(base);
+		for (int x = -3; x <= 3; x++) {
+			for (int y = 0; y < WALL_H; y++) {
+				p.serverLevel().setBlockAndUpdate(b.offset(x, y, dz), Blocks.AIR.defaultBlockState());
+			}
+		}
+	}
+
+	/** Searches the pitch whose predicted arc goes through the hole (not over the wall) and lands past it. */
+	private static void findGapPitch(ServerPlayer p, int dz) {
+		float best = -10f;
+		double bestZ = -1;
+		double wallMid = Math.floor(base.z) + dz + 0.5;
+		for (float pitch = -40f; pitch <= 20f; pitch += 0.25f) {
+			p.setXRot(pitch);
+			p.setYRot(GAP_YAW);
+			p.xRotO = pitch;
+			Vec3 start = UndeadHeadThrow.heldHeadPos(p, 1f);
+			Vec3 vel = UndeadHeadThrow.throwVelocity(p, 1f);
+			List<Vec3> pts = UndeadHeadThrow.predict(p.level(), start, vel, 120, new boolean[1]);
+			boolean crossedLow = false;
+			for (int i = 1; i < pts.size(); i++) {
+				if (pts.get(i - 1).z < wallMid && pts.get(i).z >= wallMid) {
+					crossedLow = pts.get(i).y < base.y + WALL_H - 0.5;
+				}
+			}
+			Vec3 end = pts.get(pts.size() - 1);
+			double past = end.z - (Math.floor(base.z) + dz + 1);
+			if (crossedLow && past > 1.0 && (bestZ < 0 || past > bestZ)) {
+				bestZ = past;
+				best = pitch;
+			}
+		}
+		gapPitch = best;
+		System.out.println("[HARNESS] gap pitch " + best + " lands " + bestZ + " past the wall");
+	}
+
+	private static final int WALL_H = 7;
+
+	private static void fov(Minecraft mc, int t, int fov) {
+		at(t, () -> mc.options.fov().set(fov));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Undead.grant(p);
+		}));
+		t += 110; // (the "UNDEAD" title from the grant fades first)
+		int idx = 1;
+		java.util.function.Consumer<ServerPlayer> farZombie = p -> zombie(p, base.add(0, 0, 26), false);
+		// the bullets: first person, zoomed in (FOV 30) so the zombie 30 blocks off is big enough to see the hits
+		if (want("finger")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, farZombie, 1.0f);
+			fov(mc, t + 2, 30);
+			record(t + 18, "finger", 50);
+			pressR(t + 22, 2);
+			pressR(t + 32, 2);
+			pressR(t + 42, 2);
+			t += 80;
+		}
+		if (want("hand")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, farZombie, 1.0f);
+			record(t + 18, "hand", 50);
+			at(t + 22, () -> server(mc, UndeadAbilities::handBullet));
+			at(t + 38, () -> server(mc, UndeadAbilities::handBullet));
+			t += 80;
+		}
+		if (want("arm")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, farZombie, 1.0f);
+			record(t + 18, "arm", 60);
+			pressR(t + 22, 24);
+			fov(mc, t + 85, 70);
+			t += 90;
+		}
+		// the same three from the side, the whole 30 blocks in view
+		if (want("side")) {
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-17, 3.5, 15), new Vec3(0, 1.4, 15), farZombie, 1.0f);
+			record(t + 18, "side", 120);
+			pressR(t + 22, 2);
+			at(t + 50, () -> server(mc, UndeadAbilities::handBullet));
+			pressR(t + 75, 24);
+			t += 150;
+		}
+		if (want("aim")) {
+			// the rip, then the aim with the trajectory line, from behind
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, null, null, null, -12f);
+			record(t + 16, "aim", 110);
+			for (int k = 0; k <= 40; k++) {
+				int held = k;
+				at(t + 18 + k, () -> server(mc, p -> UndeadHeadThrow.windUp(p, held)));
+			}
+			at(t + 59, () -> server(mc, UndeadHeadThrow::start));
+			for (int k = 0; k < 66; k++) {
+				int kk = k;
+				at(t + 60 + k, () -> {
+					look(mc, (float) Math.sin(kk * 0.06) * 25f, -12f - (float) Math.sin(kk * 0.04) * 10f);
+					server(mc, UndeadHeadThrow::tickHeld);
+				});
+			}
+			at(t + 128, () -> server(mc, UndeadHeadThrow::cancel));
+			t += 140;
+		}
+		if (want("aimside")) {
+			// the pose, front three-quarter from his left (the throwing arm is his right), close
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(3.0, 2.2, 2.6), new Vec3(0, 1.5, 0), null, -12f);
+			record(t + 16, "aimside", 80);
+			for (int k = 0; k <= 40; k++) {
+				int held = k;
+				at(t + 18 + k, () -> server(mc, p -> UndeadHeadThrow.windUp(p, held)));
+			}
+			at(t + 59, () -> server(mc, UndeadHeadThrow::start));
+			at(t + 94, () -> server(mc, UndeadHeadThrow::cancel));
+			t += 110;
+		}
+		if (want("aimfp")) {
+			// first person: what he sees while aiming -- the line and its landing ring
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, null, -15f);
+			record(t + 16, "aimfp", 60);
+			at(t + 18, () -> server(mc, UndeadHeadThrow::start));
+			for (int k = 0; k < 40; k++) {
+				int kk = k;
+				at(t + 19 + k, () -> look(mc, (float) Math.sin(kk * 0.08) * 20f, -15f + (float) Math.sin(kk * 0.05) * 12f));
+			}
+			at(t + 74, () -> server(mc, UndeadHeadThrow::cancel));
+			t += 85;
+		}
+		int dz = 8;
+		if (want("gap")) {
+			// thrown through a 1-block hole 8 blocks ahead, regrowing on the other side: from behind, the camera with the head
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, null, null, p -> {
+				wall(p, dz, 2);
+				findGapPitch(p, dz);
+			}, -12f);
+			at(t + 14, () -> look(mc, GAP_YAW, gapPitch));
+			at(t + 18, () -> look(mc, GAP_YAW, gapPitch));
+			record(t + 20, "gap", 150);
+			at(t + 22, () -> server(mc, UndeadHeadThrow::start));
+			for (int k = 0; k < 30; k++) {
+				at(t + 23 + k, () -> look(mc, GAP_YAW, gapPitch));
+			}
+			at(t + 54, () -> server(mc, UndeadHeadThrow::release));
+			at(t + 175, () -> server(mc, p -> clearWall(p, dz)));
+			t += 185;
+		}
+		if (want("gapside")) {
+			// the same from beyond the wall, looking back at the hole: the head pops through and the body grows back here
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(4.5, 3.2, 15.5), new Vec3(0, 1.8, 9.5), p -> {
+				wall(p, dz, 2);
+				findGapPitch(p, dz);
+			}, -12f);
+			at(t + 14, () -> look(mc, GAP_YAW, gapPitch));
+			at(t + 18, () -> look(mc, GAP_YAW, gapPitch));
+			record(t + 20, "gapside", 140);
+			at(t + 22, () -> server(mc, UndeadHeadThrow::start));
+			for (int k = 0; k < 30; k++) {
+				at(t + 23 + k, () -> look(mc, GAP_YAW, gapPitch));
+			}
+			at(t + 54, () -> server(mc, UndeadHeadThrow::release));
+			at(t + 165, () -> server(mc, p -> clearWall(p, dz)));
+			t += 175;
+		}
+		if (want("clone")) {
+			// a zombie walks up and hits him; then the Division Bullet, and the clone goes for the zombie
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-6, 2.6, 2.5), new Vec3(0, 1.0, 2.5), p -> {
+				Zombie z = zombie(p, base.add(0.5, 0, 3), true);
+				if (z != null) {
+					z.setTarget(p);
+				}
+			}, 25f);
+			record(t + 16, "clone", 220);
+			at(t + 50, () -> server(mc, UndeadAbilities::division));
+			t += 245;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

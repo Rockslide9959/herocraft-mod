@@ -600,7 +600,7 @@ public final class Undead {
 		// v0.17.3 NBC's Regen_Loop: every segment that may grow (its parent far enough along, auto-regrowth on) starts at once
 		// and grows one frame a tick to whole; nothing starts mid-flight (the hands and feet wait for the landing)
 		// (and nothing while a launch is still in the air: the left-behind parts stay until he lands)
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player);
+		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player) || UndeadHeadThrow.holdsRegen(player); // v0.17.3: a thrown head grows nothing until it touches a block (or right click)
 		boolean auto = !s.flag(UndeadState.FLAG_REGEN_OFF) || GROW_ALL.contains(player.getUUID());
 		for (int i = 0; i < UndeadState.SEGS; i++) {
 			UndeadState cur = n != null ? n : s;

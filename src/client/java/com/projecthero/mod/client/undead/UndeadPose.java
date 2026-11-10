@@ -19,6 +19,7 @@ public final class UndeadPose {
 	}
 
 	public static void apply(Player player, HumanoidModel<?> model) {
+		UndeadHeadThrowRender.resetModel(model); // v0.17.3: the head moved into a hand for the last player drawn goes back
 		UndeadState s = Undead.peek(player);
 		if (s == null || !s.hasPower || player.level() == null) {
 			return;
@@ -38,6 +39,9 @@ public final class UndeadPose {
 		}
 		if (stage(player, s, model, main, off, now, partial)) {
 			return;
+		}
+		if (UndeadHeadThrowRender.pose(player, s, model, now)) {
+			return; // v0.17.3 hold X: wrenching the head off, then holding it back to throw
 		}
 		if (UndeadBoneSwordRender.pose(player, s, model, now)) {
 			return; // v0.17.3: the Bone Sword held, its rip / put-away and the sword moves

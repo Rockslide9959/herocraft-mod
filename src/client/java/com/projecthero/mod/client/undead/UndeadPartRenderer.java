@@ -69,7 +69,7 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		float ry = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		float rx = Mth.lerp(partial, e.xRotO, e.getXRot());
 		pose.translate(0, e.getBbHeight() * 0.5, 0);
-		boolean along = e.style() == UndeadPartEntity.STYLE_PUNCH || e.isSword() || e.isSplinter();
+		boolean along = e.style() == UndeadPartEntity.STYLE_PUNCH || e.isSword() || e.isSplinter() || e.isHand();
 		if (along) {
 			// v0.17.3: aligned to where it is going (yaw and pitch from the motion, eased frame to frame); once it lies on the
 			// ground it settles flat
@@ -96,6 +96,12 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 			}
 			LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, -1));
 			pose.popPose();
+			return;
+		}
+		if (e.isHand()) {
+			hand(e, pose, buffers, light, tex, slim, age, cam);
+			pose.popPose();
+			super.render(e, yaw, partial, pose, buffers, light);
 			return;
 		}
 		PlayerModel<Player> model = slim ? this.slimModel : this.wide;
@@ -219,6 +225,58 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		pose.popPose();
 	}
 
+	/** The rows of the arm that are the hand (model px in the arm's own space: the arm runs -2..10). */
+	static final float HAND_TOP = 6f, HAND_BOTTOM = 10f;
+
+	/**
+	 * v0.17.3 Shift+R, Parts Bullet: Hand: the hand's own skin texels (the last four rows of the arm, sleeve layer too), fingers
+	 * first along the flight with a slight roll, a raw flesh face at the wrist where it tore off. The pose is already turned to
+	 * the travel direction (+z ahead).
+	 */
+	private void hand(UndeadPartEntity e, PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, float age, Vec3 cam) {
+		int seg = e.bodyPart();
+		int arm = seg == UndeadState.LEFT_HAND ? UndeadState.LEFT_ARM : UndeadState.RIGHT_ARM;
+		if (e.inFlight()) {
+			pose.mulPose(Axis.ZP.rotationDegrees(age * 18f));
+		}
+		pose.mulPose(Axis.XP.rotationDegrees(-90f));
+		pose.scale(-1f, -1f, 1f);
+		pose.scale(0.9375f, 0.9375f, 0.9375f);
+		float[] b = UndeadTexels.box(arm, slim);
+		pose.translate(-(b[0] + b[3] * 0.5f) / 16f, -(HAND_TOP + HAND_BOTTOM) * 0.5f / 16f, -(b[2] + b[5] * 0.5f) / 16f);
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
+		PoseStack.Pose last = pose.last();
+		for (UndeadTexels.Texel t : UndeadTexels.of(arm, slim)) {
+			if (t.y < HAND_TOP || t.y > HAND_BOTTOM + 1.5f) {
+				continue;
+			}
+			float[][] p = UndeadRender.cornersPublic(t, 0f, 0f);
+			float u0 = (t.u + 0.04f) / 64f, v0 = (t.v + 0.04f) / 64f, u1 = (t.u + 0.96f) / 64f, v1 = (t.v + 0.96f) / 64f;
+			Matrix4f m = last.pose();
+			for (int i = 0; i < 4; i++) {
+				float uu = (i == 1 || i == 2) ? u1 : u0;
+				float vv = (i >= 2) ? v1 : v0;
+				vc.addVertex(m, p[i][0] / 16f, Math.max(HAND_TOP - (t.overlay ? 0.25f : 0f), p[i][1]) / 16f, p[i][2] / 16f).setColor(255, 255, 255, 255)
+						.setUv(uu, vv).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(last, t.nx, t.ny, t.nz);
+			}
+		}
+		// the torn wrist: a raw face across the top of the hand
+		VertexConsumer flesh = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.FLESH));
+		Matrix4f m = last.pose();
+		float x0 = b[0] / 16f, x1 = (b[0] + b[3]) / 16f, z0 = b[2] / 16f, z1 = (b[2] + b[5]) / 16f, y = (HAND_TOP + 0.02f) / 16f;
+		float[][] q = { { x0, z0, 0, 0 }, { x1, z0, 1, 0 }, { x1, z1, 1, 1 }, { x0, z1, 0, 1 } };
+		for (float[] v : q) {
+			flesh.addVertex(m, v[0], y, v[1]).setColor(255, 255, 255, 255).setUv(v[2], v[3]).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
+					.setNormal(last, 0, -1, 0);
+		}
+		for (int i = q.length - 1; i >= 0; i--) {
+			float[] v = q[i];
+			flesh.addVertex(m, v[0], y, v[1]).setColor(255, 255, 255, 255).setUv(v[2], v[3]).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
+					.setNormal(last, 0, 1, 0);
+		}
+		LAST.put(e.getId(), new Last(new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose()), tex, slim, -2 - arm));
+	}
+
 	/** A fingertip: a 1x1x2.5 px stub of the hand's skin (red-hot for the Crimson Bullet). */
 	private void finger(UndeadPartEntity e, PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, float age) {
 		int u = slim ? 48 : 49, v = 18;
@@ -276,6 +334,12 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		}
 		Player owner = owner(e);
 		ResourceLocation tex = owner != null ? UndeadRender.skin(owner) : net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture();
+		if (e.isHand()) {
+			// v0.17.3: a spent hand crumbles into a handful of its own skin's pixels
+			boolean left = e.bodyPart() == UndeadState.LEFT_HAND;
+			PixelCubes.sprinkle(tex, left ? 37 : 45, left ? 62 : 30, e.position().add(0, e.getBbHeight() * 0.5, 0), 10, 0xFFFFFFFF);
+			return;
+		}
 		if (e.isFinger()) {
 			PixelCubes.sprinkle(tex, owner != null && UndeadRender.slim(owner) ? 48 : 49, 18, e.position(), e.style() == UndeadPartEntity.STYLE_CRIMSON ? 8 : 4,
 					e.style() == UndeadPartEntity.STYLE_FINGER ? 0xFFFFFFFF : 0xFFFF7070);

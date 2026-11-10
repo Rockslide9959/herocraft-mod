@@ -57,6 +57,8 @@ public class UndeadPartEntity extends Projectile {
 	/** v0.17.3 Bone Sword: a bone shard of the Splinter Volley (spent on the first hit), and the sword thrown by Impale Throw. */
 	public static final int STYLE_SPLINTER = 10;
 	public static final int STYLE_SWORD = 11;
+	/** v0.17.3 (user): Shift+R, Parts Bullet: Hand -- the whole hand fired off the wrist, fingers first; it drops where it hits. */
+	public static final int STYLE_HAND = 12;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<UndeadPartEntity> clientRemoval = e -> {
@@ -70,6 +72,8 @@ public class UndeadPartEntity extends Projectile {
 	private int life;
 	private float damage;
 	private boolean falling;
+	/** v0.17.3 R bullets / Division Bullet: where it was fired from (it is gone {@code UndeadBulletConfig.RANGE} blocks on). */
+	private Vec3 firedFrom;
 
 	public UndeadPartEntity(EntityType<? extends UndeadPartEntity> type, Level level) {
 		super(type, level);
@@ -87,8 +91,32 @@ public class UndeadPartEntity extends Projectile {
 		e.moveTo(from.x, from.y - e.getBbHeight() * 0.5, from.z, 0f, 0f);
 		e.setDeltaMovement(velocity);
 		e.faceVelocity(velocity);
+		e.firedFrom = from;
 		owner.level().addFreshEntity(e);
 		return e;
+	}
+
+	/** v0.17.3 (user: "60 block range"): the R bullets and the Division Bullet's finger fly straight and give out this far on. */
+	public boolean isRangedBullet() {
+		int s = this.style();
+		return s == STYLE_FINGER || s == STYLE_HAND || s == STYLE_PUNCH || s == STYLE_DIVISION;
+	}
+
+	public boolean isHand() {
+		return this.style() == STYLE_HAND;
+	}
+
+	/** Still flying (not dropped, lying or stuck). */
+	public boolean inFlight() {
+		return !this.falling && !this.stuck();
+	}
+
+	/** v0.17.3: past its range -- a Division finger still grows its clone where it gave out; anything else is just gone. */
+	private void outOfRange() {
+		if (this.style() == STYLE_DIVISION && this.getOwner() instanceof ServerPlayer p) {
+			UndeadAbilities.divisionClone(p, this.position());
+		}
+		this.discard();
 	}
 
 	/** A part left standing at {@code at} (his feet), facing {@code bodyYaw}; it falls and rests under gravity. */
@@ -162,7 +190,7 @@ public class UndeadPartEntity extends Projectile {
 
 	private int maxLife() {
 		return switch (this.style()) {
-			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH -> UndeadConfig.SEVERED_LIFE;
+			case STYLE_DRILL, STYLE_HEAD, STYLE_LEFT_LEG, STYLE_LEFT_BODY, STYLE_LEFT_BODY_LEGLESS, STYLE_PUNCH, STYLE_HAND -> UndeadConfig.SEVERED_LIFE;
 			case STYLE_CRIMSON, STYLE_SWORD -> 60;
 			default -> 40;
 		};
@@ -182,8 +210,9 @@ public class UndeadPartEntity extends Projectile {
 			this.discard();
 			return;
 		}
-		if (this.bodyPart() >= 0 && !Undead.missing(owner, this.bodyPart())) {
-			this.discard(); // regrown (or the power ended)
+		if (this.bodyPart() >= 0 && !Undead.missing(owner, this.bodyPart()) && !this.inFlight()) {
+			// regrown (or the power ended); v0.17.3: a thrown piece still in the air keeps flying until it lands or hits
+			this.discard();
 			return;
 		}
 		if (this.stuck()) {
@@ -223,11 +252,17 @@ public class UndeadPartEntity extends Projectile {
 			}
 		} else if (this.style() == STYLE_SWORD && this.level() instanceof ServerLevel level && this.life % 2 == 0) {
 			level.sendParticles(Undead.BLOOD, this.getX(), this.getY() + this.getBbHeight() * 0.5, this.getZ(), 1, 0.05, 0.05, 0.05, 0.0);
-		} else if (this.style() == STYLE_CRIMSON && this.level() instanceof ServerLevel level) {
-			level.sendParticles(Undead.BLOOD_BIG, this.getX(), this.getY(), this.getZ(), 2, 0.05, 0.05, 0.05, 0.0);
+		} else if (this.style() == STYLE_HAND && this.life > 2 && this.level() instanceof ServerLevel level) {
+			// blood from the wrist end, trailing
+			Vec3 back = v.normalize().scale(-0.2);
+			level.sendParticles(Undead.BLOOD, this.getX() + back.x, this.getY() + this.getBbHeight() * 0.5 + back.y, this.getZ() + back.z, 2, 0.03, 0.03, 0.03, 0.0);
 		}
 		this.setPos(this.getX() + v.x, this.getY() + v.y, this.getZ() + v.z);
 		this.faceVelocity(v);
+		if (this.firedFrom != null && this.isRangedBullet()
+				&& this.position().distanceToSqr(this.firedFrom) > com.projecthero.mod.undead.UndeadBulletConfig.RANGE * com.projecthero.mod.undead.UndeadBulletConfig.RANGE) {
+			this.outOfRange();
+		}
 	}
 
 	@Override
@@ -260,6 +295,15 @@ public class UndeadPartEntity extends Projectile {
 				this.setNoGravity(false);
 				this.setDeltaMovement(v.scale(-0.15).add(0, 0.2, 0));
 			}
+			case STYLE_HAND -> {
+				// v0.17.3 Parts Bullet: Hand -- a fist-sized slug: a solid knock, then it drops and lies there until it regrows
+				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.9, 0.15);
+				com.projecthero.mod.undead.UndeadSfx.splat(this.level(), this.position());
+				this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.9f, 0.8f);
+				this.falling = true;
+				this.setNoGravity(false);
+				this.setDeltaMovement(v.scale(-0.12).add(0, 0.18, 0));
+			}
 			case STYLE_HEAD -> {
 				com.projecthero.mod.undead.UndeadLaunch.headHit(p, le, this.position().subtract(v), this.damage); // shared with the Head Launch (sound in it)
 				this.falling = true;
@@ -272,7 +316,13 @@ public class UndeadPartEntity extends Projectile {
 			}
 			case STYLE_DIVISION -> {
 				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.3, 0.0);
-				UndeadAbilities.divisionClone(p, this.position());
+				// v0.17.3: the clone grows just short of what was hit, on its own side, and goes straight for it
+				Vec3 back = v.lengthSqr() > 1.0e-6 ? v.normalize().scale(-(le.getBbWidth() * 0.5 + 0.6)) : Vec3.ZERO;
+				Vec3 at = new Vec3(le.getX() + back.x, le.getY(), le.getZ() + back.z);
+				UndeadCloneEntity clone = UndeadAbilities.divisionClone(p, at);
+				if (clone != null) {
+					clone.setTarget(le);
+				}
 				this.discard();
 			}
 			case STYLE_SWORD -> {
@@ -304,7 +354,7 @@ public class UndeadPartEntity extends Projectile {
 				this.entityData.set(STUCK, true);
 				this.level().playSound(null, at.x, at.y, at.z, SoundEvents.TRIDENT_HIT_GROUND, SoundSource.PLAYERS, 1.0f, 0.8f);
 			}
-			case STYLE_HEAD, STYLE_PUNCH -> {
+			case STYLE_HEAD, STYLE_PUNCH, STYLE_HAND -> {
 				this.falling = true;
 				this.setNoGravity(false);
 				Vec3 v = this.getDeltaMovement();
@@ -322,7 +372,11 @@ public class UndeadPartEntity extends Projectile {
 			}
 			case STYLE_DIVISION -> {
 				if (this.getOwner() instanceof ServerPlayer p) {
-					UndeadAbilities.divisionClone(p, at.add(0, 0.1, 0));
+					// v0.17.3: on top of what it hit; against a wall or ceiling, half a block out from it (and it drops to the floor)
+					net.minecraft.core.Direction face = result.getDirection();
+					Vec3 spot = face == net.minecraft.core.Direction.UP ? at
+							: at.add(face.getStepX() * 0.5, face == net.minecraft.core.Direction.DOWN ? -1.9 : 0.0, face.getStepZ() * 0.5);
+					UndeadAbilities.divisionClone(p, spot);
 				}
 				this.discard();
 			}
