@@ -30,7 +30,7 @@ const add = {
 };
 const lines = [];
 for (const [k, v] of Object.entries(add)) {
-  if (k in j) throw new Error('duplicate key ' + k);
+  if (k in j) { console.log('kept existing ' + k + ': ' + JSON.stringify(j[k])); continue; } // never a second copy
   lines.push('  ' + JSON.stringify(k) + ': ' + JSON.stringify(v) + ',');
 }
 const anchor = t.lastIndexOf('\n}');

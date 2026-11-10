@@ -88,12 +88,10 @@ public final class AndyAbilities {
 		WAVES.remove(id);
 		VULCANS.remove(id);
 		AndyState s = Andy.peek(p);
-		if (s != null && s.flags != 0) {
+		if (s != null && (s.flags & ~AndyState.FLAG_REGEN_OFF) != 0) {
 			AndyState n = s.copy();
-			if (s.flag(AndyState.FLAG_PROPELLING)) {
-				n.setEx(AndyState.X_CUT_REGROW, p.level().getGameTime()); // the hands and feet grow back
-			}
-			n.flags = 0;
+			// (v0.17.3: the hands and feet are segments of their own now: they grow back by the regrowth once he has landed)
+			n.flags = s.flags & AndyState.FLAG_REGEN_OFF; // auto-regrowth off stays off
 			Andy.save(p, n);
 		}
 	}
@@ -320,9 +318,6 @@ public final class AndyAbilities {
 		Vec3 h = handOrigin(p, arm);
 		AndyPartEntity.shoot(p, AndyPartEntity.STYLE_CRIMSON, -1, h, aimDir(p, h).scale(AndyConfig.FINGER_SPEED * 1.2), AndyConfig.CRIMSON_DAMAGE);
 		eat(p, arm, AndyConfig.CRIMSON_EAT);
-		AndyState n = Andy.state(p).copy();
-		n.slowRegenUntil = p.level().getGameTime() + AndyConfig.CRIMSON_SLOW_TICKS;
-		Andy.save(p, n);
 		AndySfx.crimsonBullet(level(p), h); // v0.17.3 Andy sounds
 		level(p).sendParticles(Andy.BLOOD, h.x, h.y, h.z, 6, 0.1, 0.1, 0.1, 0.0);
 	}

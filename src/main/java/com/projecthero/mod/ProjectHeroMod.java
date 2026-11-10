@@ -167,6 +167,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.initialize();
 		com.projecthero.mod.blackpanther.BlackPantherMod.initialize(); // v0.17.3
 		com.projecthero.mod.andy.AndyMod.initialize(); // v0.17.3
+		com.projecthero.mod.saiyan.SaiyanMod.initialize(); // v0.17.3
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.moves.SaiyanMoves.initialize(); // v0.17.3: the Saiyan's moves
 		// v0.16.5: the Mannequin (player-shaped armour stand) and the ten-suit Wardrobe

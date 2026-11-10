@@ -48,12 +48,40 @@ public final class AndyRegrow {
 	private AndyRegrow() {
 	}
 
-	/** A whole part growing back, {@code p} 0..1. */
+	/** A whole part growing back, {@code p} 0..1 (an arm / leg with its hand / foot not started). */
 	public static void draw(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
+		drawPart(pose, buffers, light, tex, slim, part, p, 0f);
+	}
+
+	/**
+	 * v0.17.3 (NBC's segments) -- THE dispatch point for a broken part regrowing, in the part's own space: {@code p} is the
+	 * segment's own progress (frame / its frames, {@code AndyState#regrowth}); for an arm or leg {@code endP} is its hand's /
+	 * foot's ({@code AndyState#extremity}), which grows from the wrist / ankle once the limb has
+	 * {@code AndyConfig#HAND_NEEDS_ARM} frames. The stage of each is {@code AndyState#stage}. Both looks branch from here.
+	 */
+	public static void drawPart(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p,
+			float endP) {
 		if (part >= AndyState.RIGHT_ARM) {
-			limb(pose, buffers, light, tex, slim, part, p, 0f, false);
+			limb(pose, buffers, light, tex, slim, part, p, 0f, AndyCuts.WRIST, false, false);
+			if (endP > 0f) {
+				limb(pose, buffers, light, tex, slim, part, endP, AndyCuts.WRIST, 12f, false, false);
+			}
 		} else {
 			boneAndFlesh(pose, buffers, light, tex, slim, part, p);
+		}
+	}
+
+	/**
+	 * v0.17.3 -- the dispatch point for a part that is there but missing its end ({@link AndyCuts}: the hand / foot segment gone
+	 * or regrowing, a stage half burnt, a bitten arm), in the part's own space: cut at {@code cut.rows()}, growing back from
+	 * there by {@code cut.q()}.
+	 */
+	public static void drawEnd(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, AndyCuts.Cut cut) {
+		if (part == AndyState.BODY) {
+			float rows = cut.rows() + (12f - cut.rows()) * ease(Math.min(1f, cut.q()));
+			bodyCut(pose, buffers, light, tex, slim, Math.min(12.5f, rows), cut.embers());
+		} else {
+			limb(pose, buffers, light, tex, slim, part, cut.q(), cut.rows(), cut.embers());
 		}
 	}
 
@@ -191,20 +219,37 @@ public final class AndyRegrow {
 	 */
 	static void limb(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, float from,
 			boolean embers) {
-		if (AndyRegrowStyle.stepped()) { // v0.17.3: the stepped look, picked per viewer (/andystyle)
-			AndyRegrowStepped.limb(pose, buffers, light, tex, slim, part, p, from, embers);
+		limb(pose, buffers, light, tex, slim, part, p, from, 12f, embers, true);
+	}
+
+	/**
+	 * The same, growing only rows {@code from}..{@code to} (v0.17.3, NBC's segments: an arm grows to the wrist, its hand from the
+	 * wrist). {@code aboveWhole}: the rows above {@code from} are drawn as whole skin (a cut); false, they are left to another
+	 * drawing (the limb still growing above its hand). Short of the end ({@code to} < 12) the bottom stays an open, red end.
+	 */
+	static void limb(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p, float from,
+			float to, boolean embers, boolean aboveWhole) {
+		if (AndyRegrowStyle.stepped()) { // v0.17.3: the stepped look, picked per viewer (/andystyle); the same segments
+			if (aboveWhole && to >= 11.99f) {
+				AndyRegrowStepped.limb(pose, buffers, light, tex, slim, part, p, from, embers);
+			} else {
+				AndyRegrowStepped.segment(pose, buffers, light, tex, slim, part, p, from, to, AndyRegrowStepped.limbSeg(part, from), embers);
+			}
 			return;
 		}
 		Limb lb = Limb.of(part, slim);
+		boolean bounded = to < lb.h - 0.01f;
 		float qb = AndyConfig.layer(AndyConfig.LAYER_BONE, p);
 		float qm = AndyConfig.layer(AndyConfig.LAYER_MUSCLE, p);
 		float qs = AndyConfig.layer(AndyConfig.LAYER_SKIN, p);
-		float fb = from + Math.max(0f, BONE_REACH - from) * qb * qb * (3f - 2f * qb);
+		float reach = bounded ? Math.min(BONE_REACH, to - 0.05f) : BONE_REACH;
+		float fb = from + Math.max(0f, reach - from) * qb * qb * (3f - 2f * qb);
 		// v0.17.3 (user: "make the regrowth start inwards and regenerate outwards ... the muscle first builds from the bone out
 		// and then gets covered by skin"): the muscle thickens outward from the bone's surface, every row at once (the rows
 		// near the joint a little ahead), and the skin only closes over rows whose muscle is full thickness
-		float span = Math.max(1f, lb.h - from);
-		float fs = from + (lb.end - from) * qs;
+		float span = Math.max(1f, (bounded ? to : lb.h) - from);
+		float endTo = bounded ? to + 1.6f : lb.end;
+		float fs = from + (endTo - from) * qs;
 		if (qm < 1f) {
 			float fullRow = from + span * (qm * (1f + MUSCLE_LAG + MUSCLE_STRANDS) - 1f - MUSCLE_STRANDS) / MUSCLE_LAG;
 			fs = Math.min(fs, Math.max(from, fullRow - 0.3f));
@@ -214,6 +259,9 @@ public final class AndyRegrow {
 		List<AndyTexels.Texel> texels = AndyTexels.of(part, slim);
 		for (int i = 0; i < texels.size(); i++) {
 			float key = lb.texelAt[i];
+			if ((key < from && !aboveWhole) || (bounded && key >= to)) {
+				continue; // another drawing's (the limb above), or past this one's end (the hand / foot below)
+			}
 			float g = key < from ? 1f : (fs - key) / LIMB_SETTLE;
 			if (g <= 0f) {
 				continue;
@@ -223,7 +271,7 @@ public final class AndyRegrow {
 				popIn(skin, last, t, light, g);
 			}
 		}
-		if (fs >= lb.done) {
+		if (!bounded && fs >= lb.done) {
 			return; // closed over
 		}
 		if (fb > from + 0.05f) {
@@ -242,6 +290,11 @@ public final class AndyRegrow {
 			float key = lb.fleshKey[i];
 			boolean face = from > 0f && key < from; // the cut face itself
 			int row = (i / lb.w) % lb.h;
+			if ((face && !aboveWhole) || (bounded && row + 0.5f > to)) {
+				continue; // the limb above draws its own end; past this one's end
+			}
+			// short of the end the skin never closes over the last ragged rows: they are the open, red end
+			boolean openEnd = bounded && skinAt >= to;
 			float mr = 0f;
 			if (!face) {
 				if (!building || row + 0.5f > fb) {
@@ -255,7 +308,7 @@ public final class AndyRegrow {
 				}
 			}
 			float cap = lb.capAt[i];
-			if (fs > skinAt + LIMB_SETTLE && (Float.isNaN(cap) || fs > cap + LIMB_SETTLE)) {
+			if (!openEnd && fs > skinAt + LIMB_SETTLE && (Float.isNaN(cap) || fs > cap + LIMB_SETTLE)) {
 				continue; // the skin has closed over it
 			}
 			// v0.17.3 (user: "remove the gaps in between the pixels so that the muscle doesnt poke out"): every cell fills its own

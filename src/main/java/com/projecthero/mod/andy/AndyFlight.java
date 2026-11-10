@@ -23,8 +23,10 @@ import net.minecraft.world.phys.Vec3;
  * along the look at exactly {@link #speed} a tick); the server sets the same velocity, keeps the fall distance at nothing and
  * the "flying is not enabled" kick away ({@code AndyFlightKickMixin}).
  *
- * <p>The hands and feet are a look only (the arm and leg parts stay whole); what the boost burns is really broken (kind
- * {@link AndyState#KIND_BURNT}), the stage in progress drawn shortened by {@link AndyState#X_BURN_TICKS}.
+ * <p>v0.17.3: the hands and feet are segments of their own ({@link AndyState#RIGHT_HAND} ...): taking off breaks them (no burst:
+ * the jets are the look) and they grow back by the regrowth once he lands. What the boost burns is really broken (kind
+ * {@link AndyState#KIND_BURNT}), the stage in progress drawn shortened by {@link AndyState#X_BURN_TICKS}; a stage only part
+ * burnt when he lands is lost whole (it regrows in about a second).
  */
 public final class AndyFlight {
 	private AndyFlight() {
@@ -70,6 +72,9 @@ public final class AndyFlight {
 		n.setEx(AndyState.X_BURN_TICKS, 0L);
 		n.setEx(AndyState.X_BURN_SEG, 0L);
 		Andy.save(p, n);
+		for (int end = AndyState.RIGHT_HAND; end <= AndyState.LEFT_FOOT; end++) {
+			Andy.breakPart(p, end, AndyState.KIND_SPENT); // the hands and feet burst off (the jets are the look)
+		}
 		// the jets' start / loop / stop are client-side (AndySounds.jet, from the synced flag); the hands and feet bursting off:
 		AndySfx.bloodBurst(p.level(), p.position().add(0, 0.6, 0), 1.2f);
 		return true;
@@ -85,9 +90,22 @@ public final class AndyFlight {
 		AndyState n = s.copy();
 		n.setFlag(AndyState.FLAG_PROPELLING, false);
 		n.setFlag(AndyState.FLAG_BOOST, false);
-		n.setEx(AndyState.X_CUT_REGROW, now);
+		n.setEx(AndyState.X_CUT_REGROW, 0L);
 		n.abilityReadyAt.put(AndyAbilities.PROPULSION, now + AndyConfig.PROPULSION_COOLDOWN);
+		// a stage only part burnt is lost whole: it grows back with the hands and feet
+		int[] half = new int[AndyState.PARTS];
+		int halves = 0;
+		for (int part = AndyState.BODY; part < AndyState.PARTS; part++) {
+			if (burnt(s, part) > 0f) {
+				half[halves++] = part;
+			}
+		}
+		n.setEx(AndyState.X_BURN_TICKS, 0L);
+		n.setEx(AndyState.X_BURN_SEG, 0L);
 		Andy.save(p, n);
+		for (int k = 0; k < halves; k++) {
+			Andy.breakPart(p, half[k], AndyState.KIND_BURNT);
+		}
 		p.resetFallDistance();
 	}
 
@@ -136,15 +154,6 @@ public final class AndyFlight {
 			}
 		}
 		return 0f;
-	}
-
-	/** How long the hands, feet and any half-burnt stage take to grow back after a landing. */
-	public static float cutRegrowTicks(AndyState s) {
-		float missing = AndyConfig.HAND_ROWS / 12f;
-		for (int part = AndyState.BODY; part < AndyState.PARTS; part++) {
-			missing = Math.max(missing, burnt(s, part));
-		}
-		return AndyConfig.cutRegrowTicks(s.regenSpeed, missing);
 	}
 
 	// ---------------------------------------------------------------- tick

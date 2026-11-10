@@ -141,6 +141,11 @@ public final class HeroPackGuide {
 	}
 
 	/** Black Panther (v0.17.3). */
+	/** The Saiyan (v0.17.3). */
+	public static Chapter saiyanChapter() {
+		return chapters().get(CH_SAIYAN);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -575,7 +580,8 @@ public final class HeroPackGuide {
 	private static final int CH_BEAM_CLASH = CH_BLACK_PANTHER + 1; // 65, v0.17.3
 	private static final int CH_RYUKO = CH_BEAM_CLASH + 1; // 66, v0.17.3
 	private static final int CH_ANDY = CH_RYUKO + 1; // 67, v0.17.3
-	private static final int CHAPTER_POWER_BASE = CH_ANDY + 1; // 68
+	private static final int CH_SAIYAN = CH_ANDY + 1; // 68, v0.17.3
+	private static final int CHAPTER_POWER_BASE = CH_SAIYAN + 1; // 69
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1730,7 +1736,7 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "G", "crimson_crescent_moon" },
 					{ "Shift+G", "great_crescent_moon" }, { "X", "leg_launch" }, { "Hold X", "head_launch" }, { "Shift + hold X", "blood_propulsion" },
 					{ "Z", "vortex_bullet" },
-					{ "Shift+Z", "parts_bullet_head" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : "regen_speed" },
+					{ "Shift+Z", "parts_bullet_head" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : "regen_speed" }, { "Shift + hold V", "regen_menu" },
 					{ "C", "dead_line" },
 					{ "Shift+C", "dead_quardead" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
@@ -1758,6 +1764,29 @@ public final class HeroPackGuide {
 			}
 			head(lines, "projecthero.guide.andy.commands");
 			para(lines, "projecthero.guide.andy.commands.body");
+		}));
+
+		// v0.17.3: the Saiyan (CH_SAIYAN)
+		out.add(chapter("projecthero.guide.saiyan", lines -> {
+			lines.add(Component.translatable("projecthero.guide.saiyan.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.saiyan.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "ki", "forms", "mastery", "instinct", "overdrive", "flight"}) {
+				head(lines, "projecthero.guide.saiyan." + section);
+				para(lines, "projecthero.guide.saiyan." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.saiyan.controls");
+			for (String[] row : new String[][] { { "Left click", "combo" }, { "R", "feint" }, { "G", "ki_beam" }, { "Shift+G", "spirit_orb" },
+					{ "Z", "barrage" }, { "Shift+Z", "sky_combo" }, { "X", "ki_dash" }, { "Shift+X", "flight" }, { "C", "dragon_rush" },
+					{ "V", "instant_step" }, { "Shift+V", "power_down" }, { "H", "form_wheel" }, { "Hold Q", "charge" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.saiyan.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.saiyan.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.saiyan.commands");
+			para(lines, "projecthero.guide.saiyan.commands.body");
 		}));
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1913,6 +1942,7 @@ public final class HeroPackGuide {
 		icon(CH_RYUKO, "dragon_choker"); // v0.17.3
 		icon(CH_BLACK_PANTHER, "heart_shaped_herb"); // v0.17.3
 		icon(CH_ANDY, "undead_card"); // v0.17.3
+		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
@@ -2014,6 +2044,7 @@ public final class HeroPackGuide {
 		}
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.andy"), 2, CH_ANDY)); // v0.17.3
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.saiyan"), 2, CH_SAIYAN)); // v0.17.3
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));

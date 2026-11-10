@@ -18,7 +18,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
-/** v0.17.3: worn armour is not drawn on a part Andy doesn't have. */
+/** v0.17.3: worn armour is not drawn on a part Andy doesn't have, nor a shoulder pad torn off with an arm ({@code AndyArmour}). */
 @Mixin(HumanoidArmorLayer.class)
 public abstract class AndyArmorPartsMixin {
 	@Unique
@@ -45,6 +45,16 @@ public abstract class AndyArmorPartsMixin {
 				if (i == AndyState.HEAD) {
 					model.hat.visible = false;
 				}
+			}
+		}
+		// v0.17.3 (user: "if an arm gets destroyed that shoulder pad doesnt grow back"): a torn-off pad is not drawn
+		if (slot == EquipmentSlot.CHEST) {
+			int pads = com.projecthero.mod.andy.AndyArmour.wornLostPads(p);
+			if ((pads & com.projecthero.mod.andy.AndyArmour.PAD_RIGHT) != 0) {
+				model.rightArm.visible = false;
+			}
+			if ((pads & com.projecthero.mod.andy.AndyArmour.PAD_LEFT) != 0) {
+				model.leftArm.visible = false;
 			}
 		}
 	}
