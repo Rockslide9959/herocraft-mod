@@ -117,18 +117,15 @@ public final class AndyMod {
 					c.getSource().sendSuccess(() -> Component.literal("Every part regrown"), false);
 					return 1;
 				}))
+				// v0.17.3: one speed now -- /andy regen on|off is auto-regrowth (Shift+V, Toggle Regen)
 				.then(Commands.literal("regen")
-												.then(Commands.literal("normal").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_NORMAL)))
-						.then(Commands.literal("fast").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_FAST)))
-						.then(Commands.literal("burst").executes(c -> setSpeed(c.getSource(), AndyConfig.SPEED_BURST)))
+						.then(Commands.literal("on").executes(c -> {
+							Andy.setRegenOff(c.getSource().getPlayerOrException(), false);
+							return 1;
+						}))
 						.then(Commands.literal("off").executes(c -> {
 							Andy.setRegenOff(c.getSource().getPlayerOrException(), true);
 							return 1;
 						})));
-	}
-
-	private static int setSpeed(CommandSourceStack source, int speed) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-		Andy.setSpeed(source.getPlayerOrException(), speed);
-		return 1;
 	}
 }

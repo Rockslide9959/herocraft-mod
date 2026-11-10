@@ -8,75 +8,57 @@ public final class AndyConfig {
 	// ---------------------------------------------------------------- the body
 	/** Part HP: head, body, right arm, left arm, right leg, left leg. */
 	public static final float[] PART_HP = { 8f, 14f, 8f, 8f, 8f, 8f };
-	/** A part that has not been hit for this long knits back at {@link #PART_KNIT} HP a second. */
-	public static final int KNIT_DELAY = 100;
-	public static final float PART_KNIT = 1.0f;
 	/**
-	 * v0.17.3 (tester: "Fast regen doesnt feel fast enough when being hurt and damaged by mobs"): the regen speed drives the
-	 * healing too, per speed {starved, Normal, Fast, Burst}: how long after the last hit a hurt part starts knitting and how much
-	 * HP a second it knits, and how long after the last hit his health starts coming back and how much a second (on top of
-	 * vanilla's own food healing; each point healed costs {@link #HEAL_EXHAUSTION} food exhaustion). Off and empty-stomach: none.
+	 * v0.17.3 (user: regrowth free and fast like NBC Heroes' Regenerative Segmentation): one speed, so the healing has one rate
+	 * too (the old Fast numbers): a hurt part starts knitting {@link #KNIT_DELAY} after the last hit at {@link #KNIT_PER_SECOND}
+	 * HP a second, and his health comes back {@link #HEAL_DELAY} after the last hit at {@link #HEAL_PER_SECOND} a second (on top
+	 * of vanilla's food healing). Free: no hunger.
 	 */
-	public static final int[] KNIT_DELAY_BY_SPEED = { 200, 100, 40, 16 };
-	public static final float[] KNIT_PER_SECOND = { 0.5f, 1.0f, 2.5f, 5.0f };
-	public static final int[] HEAL_DELAY = { 120, 80, 30, 12 };
-	public static final float[] HEAL_PER_SECOND = { 0f, 0.5f, 1.5f, 3.0f };
-	public static final float HEAL_EXHAUSTION = 0.5f;
+	public static final int KNIT_DELAY = 40;
+	public static final float KNIT_PER_SECOND = 2.5f;
+	public static final int HEAL_DELAY = 30;
+	public static final float HEAL_PER_SECOND = 1.5f;
 	/** An explosion lands this share of its damage on every part. */
 	public static final float BLAST_SHARE = 0.55f;
 
-	// ---------------------------------------------------------------- regeneration (Normal, Fast or Burst on V; half Normal while starving)
-	// v0.17.3 (user: "the regen is slow but player can press V to speed it up at the cost of losing hunger a lot faster"):
-	// V cycles Normal, Fast and Burst. SPEED_SLOW is never picked (an old save may still hold it); its numbers are the starved rate.
-	public static final int SPEED_SLOW = 0;
-	public static final int SPEED_NORMAL = 1;
-	public static final int SPEED_FAST = 2;
-	public static final int SPEED_BURST = 3;
-	public static final int SPEEDS = 4;
-	/** How long a broken part stays gone before it starts to regrow (starving: {@link #starvedDelay}). */
-	public static final int[] REGROW_DELAY = { 100, 50, 14, 6 };
+	// ---------------------------------------------------------------- regeneration (NBC Heroes' Regenerative Segmentation)
 	/**
-	 * How long the regrowth itself takes (v0.17.3, user: "regrowth should be slower"): at Normal 170 ticks = 8.5 s. Fast and
-	 * Burst scale the whole thing, the gaps between the layers included. The Slow slot is the starved rate.
+	 * v0.17.3 (user: "can we build our andy power the same way theyve built theirs? ... the regeneration to work the same ... at
+	 * the same speed"): ten segments ({@code AndyState}: head, body, both arms down to the wrist, both legs down to the ankle,
+	 * both hands, both feet), each growing one FRAME a tick from 0 (gone) to its full count, starting the tick it may, free.
+	 * Frames to whole, by segment (NBC's: head 17, body 20, arm 18, legs 20, hand 12, feet 11).
 	 */
-	public static final int[] REGROW_TICKS = { 340, 170, 68, 34 };
+	public static final int[] FRAMES = { 17, 20, 18, 18, 20, 20, 12, 12, 11, 11 };
 	/**
-	 * v0.17.3 (user: "make it so that you need hunger/saturation in order to regrow otherwise you regenerate 50% slower than
-	 * normal speed"): a part whose food share ({@link #partFood}) could not be paid in full when it started regrows at half the
-	 * NORMAL speed, whatever the mode: a whole limb in this many ticks (the torso {@link #TORSO_FACTOR} times that); its wait
-	 * before starting doubles from Normal's too ({@code Andy.payForPart}).
+	 * The first frame of the flesh stage, by segment: below it the segment is bone, from it to {@link #FRAMES} flesh, at
+	 * {@link #FRAMES} skin (NBC's stage boundaries: head 10, body 13, arm 11, legs 12, hand 7, feet 5).
 	 */
-	public static final int STARVED_TICKS = 2 * 170;
-
-	/** The wait before a regrowth starts while starving: twice Normal's. */
-	public static int starvedDelay() {
-		return 2 * REGROW_DELAY[SPEED_NORMAL];
-	}
+	public static final int[] FLESH_FRAME = { 10, 13, 11, 11, 12, 12, 7, 7, 5, 5 };
 	/**
-	 * The three layers of a regrowth, as {start, length} shares of {@link #REGROW_TICKS} (user: "the bone starts pushing out and
-	 * then 2 seconds after the muscle starts rebuilding and then 2 seconds after that the skin starts building on"). At Normal
-	 * (170 ticks): the bone pushes out over 0-3 s, the muscle builds over 2-6 s, the skin over 4-8.5 s -- the part is usable
-	 * the moment the skin closes.
+	 * NBC's order, checked every tick: a segment may start growing only once the one it grows from has this many frames (or is
+	 * whole): the body waits for the head to reach 4, the arms and legs for the body to reach 7, each hand for its arm to reach 5,
+	 * each foot for its leg to reach 5. The head grows from nothing.
 	 */
-	public static final float[] LAYER_BONE = { 0f, 60f / 170f };
-	public static final float[] LAYER_MUSCLE = { 40f / 170f, 80f / 170f };
-	public static final float[] LAYER_SKIN = { 80f / 170f, 90f / 170f };
+	public static final int BODY_NEEDS_HEAD = 4;
+	public static final int LIMB_NEEDS_BODY = 7;
+	public static final int HAND_NEEDS_ARM = 5;
+	public static final int FOOT_NEEDS_LEG = 5;
 	/**
-	 * v0.17.3 (user: "Slow mode: regenerating your entire body should drain an amount equal to half the hunger bar, Fast mode ...
-	 * 75% of the hunger bar, Burst Mode ... the full hunger bar"): food points a WHOLE body (the body and all four limbs) costs to
-	 * regrow, per speed {Slow (unused), Normal, Fast, Burst} (user: "lets go back to flat values"): each part pays a fifth of it
-	 * up front, the moment it starts regrowing, out of the saturation first, then the hunger bar. The bar is 20 points.
+	 * The Regen Menu's steps (NBC's segmentation): with auto-regrowth off, each press of a segment's button grows it to its next
+	 * target -- the end of the bone stage, then the end of the flesh stage, then whole. Frames, by segment.
 	 */
-	public static final float[] WHOLE_BODY_FOOD = { 10f, 10f, 15f, 20f };
-	public static final int BODY_SHARES = 5;
-
-	/** Food points one part costs to regrow at {@code speed}. */
-	public static float partFood(int speed) {
-		return WHOLE_BODY_FOOD[Math.floorMod(speed, SPEEDS)] / BODY_SHARES;
-	}
-	/** Crimson Bullet: the regeneration delay is multiplied by this for {@link #CRIMSON_SLOW_TICKS}. */
-	public static final float CRIMSON_SLOW_FACTOR = 2.5f;
-	public static final int CRIMSON_SLOW_TICKS = 300;
+	public static final int[][] MENU_TARGETS = { { 4, 10, 17 }, { 7, 13, 20 }, { 5, 11, 18 }, { 5, 11, 18 }, { 5, 12, 20 }, { 5, 12, 20 },
+			{ 3, 7, 12 }, { 3, 7, 12 }, { 2, 5, 11 }, { 2, 5, 11 } };
+	/** Regenerate Whole Body (Shift in the Regen Menu) is held this long. */
+	public static final int WHOLE_BODY_HOLD = 40;
+	/**
+	 * The three layers of the 3D look, as {start, length} shares of a segment's frames: the bone pushes out over the bone stage,
+	 * the muscle builds round it and is in by the flesh stage, the skin closes over in the flesh stage. A segment held at a stage
+	 * by the Regen Menu shows that stage.
+	 */
+	public static final float[] LAYER_BONE = { 0f, 0.45f };
+	public static final float[] LAYER_MUSCLE = { 0.25f, 0.35f };
+	public static final float[] LAYER_SKIN = { 0.6f, 0.4f };
 
 	/** 0..1 through one layer at regrowth progress {@code p}. */
 	public static float layer(float[] layer, float p) {
@@ -88,50 +70,13 @@ public final class AndyConfig {
 	}
 
 	/**
-	 * A part that only lost its end (the hands and feet after a flight, the bit of an arm the finger shots used up) regrows
-	 * the same three layers over this share of a whole part's time: the share of it that is missing, at least
-	 * {@link #CUT_MIN_SHARE}.
+	 * The bit of an arm the finger shots used up grows back like an arm segment (one frame a tick) over the share of its frames
+	 * that is missing, at least {@link #CUT_MIN_SHARE}.
 	 */
 	public static final float CUT_MIN_SHARE = 0.35f;
 
-	public static float cutRegrowTicks(int speed, float missing) {
-		return REGROW_TICKS[Math.floorMod(speed, SPEEDS)] * Math.max(CUT_MIN_SHARE, Math.min(1f, missing));
-	}
-
-	// ---------------------------------------------------------------- the order a broken body grows back in
-	/**
-	 * v0.17.3 (user: "torso until theres space for arms and then both arms at the same time and then once torso is done both
-	 * legs at the same time ... like how it would work as if you actually had healing powers"): whenever the torso is gone it
-	 * comes back first, from the neck down (spine and ribcage, then the muscle, then the skin; shoulders first, hips last), and
-	 * the limbs grow out of it as there is something to grow from:
-	 * <ol>
-	 *   <li>once its regrowth passes {@link #SHOULDER_SHARE} (the bone is down past the shoulders, the first muscle is on the
-	 *   upper chest) BOTH arms start together;</li>
-	 *   <li>once it passes {@link #HIP_SHARE} (1: the torso is whole, hips and all) BOTH legs start together.</li>
-	 * </ol>
-	 * A limb lost while the torso is whole regrows at once, in parallel with anything else. The torso, the biggest part, takes
-	 * {@link #TORSO_FACTOR} times a limb's time. From only a head at Normal: a 1 s wait, the torso 1-12.9 s, both arms
-	 * 4.8-13.3 s, both legs 12.9-21.4 s: walking again after about 21 s (Fast 8.6 s, Burst 4.3 s).
-	 */
-	public static final float TORSO_FACTOR = 1.4f;
-	public static final float SHOULDER_SHARE = 0.32f;
-	public static final float HIP_SHARE = 1.0f;
-	/** With only the head left, the torso starts after this (by speed; starving: twice Normal's). */
-	public static final int[] STAGE_DELAY = { 40, 20, 8, 4 };
-
-	/** How long {@code part}'s regrowth takes at {@code speed} (the torso is bigger than a limb). */
-	public static int regrowTicks(int part, int speed) {
-		int t = REGROW_TICKS[Math.floorMod(speed, SPEEDS)];
-		return part == com.projecthero.mod.andy.data.AndyState.BODY ? Math.round(t * TORSO_FACTOR) : t;
-	}
-
-	/** The share of the torso's regrowth a part waits for while the torso is gone: arms the shoulders, legs the hips, the head all. */
-	public static float torsoShareFor(int part) {
-		return switch (part) {
-			case com.projecthero.mod.andy.data.AndyState.RIGHT_ARM, com.projecthero.mod.andy.data.AndyState.LEFT_ARM -> SHOULDER_SHARE;
-			case com.projecthero.mod.andy.data.AndyState.RIGHT_LEG, com.projecthero.mod.andy.data.AndyState.LEFT_LEG -> HIP_SHARE;
-			default -> 1f;
-		};
+	public static float cutRegrowTicks(float missing) {
+		return FRAMES[com.projecthero.mod.andy.data.AndyState.RIGHT_ARM] * Math.max(CUT_MIN_SHARE, Math.min(1f, missing));
 	}
 
 	// ---------------------------------------------------------------- Undead
@@ -226,9 +171,6 @@ public final class AndyConfig {
 	public static final double LEG_LAUNCH_DASH_SPEED = 2.0;
 	public static final double HEAD_LAUNCH_DASH_SPEED = 2.5;
 
-	/** v0.17.3 (user: passive auto-eat): he eats from his inventory once his food falls below this (food + saturation, points). */
-	public static final int AUTO_EAT_BELOW = 14;
-	public static final int AUTO_EAT_EVERY = 40; // Iron Man's 2 s
 	/** The arc is pushed for at most this long (it normally ends on landing first). */
 	public static final int LEG_LAUNCH_MAX = 30;
 	public static final int HEAD_LAUNCH_MAX = 60;
@@ -277,12 +219,10 @@ public final class AndyConfig {
 	/**
 	 * v0.17.3 (user: ripping off your arm is useless, V should be another utility): Reform -- he forces his body back together at
 	 * once. Every part that is missing or regrowing is whole on the spot, he heals {@link #REFORM_HEAL} and the fire and harmful
-	 * effects on him go. It costs the food the regrowth still owed at his speed ({@link #partFood} a part not yet paid for) plus
-	 * {@link #REFORM_FOOD}, saturation first. Works with regeneration Off too (it is a deliberate choice).
+	 * effects on him go. Free (v0.17.3: regrowth is free, like NBC's); it works with auto-regrowth off too.
 	 */
 	public static final int REFORM_COOLDOWN = 400;
 	public static final float REFORM_HEAL = 6f;
-	public static final float REFORM_FOOD = 4f;
 	/** How long the snap-together pose and flash last. */
 	public static final int REFORM_ANIM = 8;
 

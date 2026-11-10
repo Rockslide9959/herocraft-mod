@@ -284,15 +284,9 @@ public final class AndyBoneSword {
 				return true;
 			}
 			case SLOT_5 -> {
-				// v0.17.3: V puts it away, Shift+V is still the regeneration speed
-				if (pressed) {
-					if (shift) {
-						if (Andy.canAct(p)) {
-							Andy.cycleSpeed(p);
-						}
-					} else {
-						putAway(p, true, true);
-					}
+				// v0.17.3: V puts it away (Shift+V, Toggle Regen, is read before the sword kit: AndyAbilityManager)
+				if (pressed && !shift) {
+					putAway(p, true, true);
 				}
 				return true;
 			}

@@ -47,9 +47,14 @@ public final class AndyHud {
 	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5). */
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
 			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
-	/** The little body: x, y, w, h (in HUD px) of head, body, right arm, left arm, right leg, left leg -- seen from the front. */
-	private static final int[][] FIGURE = { { 4, 0, 8, 8 }, { 4, 8, 8, 12 }, { 0, 8, 4, 12 }, { 12, 8, 4, 12 }, { 4, 20, 4, 12 }, { 8, 20, 4, 12 } };
-	private static final String[] SPEEDS = { "slow", "normal", "fast", "burst" };
+	/**
+	 * The little body: x, y, w, h (in HUD px) of the ten segments, seen from the front -- head, body, right arm, left arm, right
+	 * leg, left leg (each down to the wrist / ankle), right hand, left hand, right foot, left foot.
+	 */
+	private static final int[][] FIGURE = { { 4, 0, 8, 8 }, { 4, 8, 8, 12 }, { 0, 8, 4, 8 }, { 12, 8, 4, 8 }, { 4, 20, 4, 8 }, { 8, 20, 4, 8 },
+			{ 0, 16, 4, 4 }, { 12, 16, 4, 4 }, { 4, 28, 4, 4 }, { 8, 28, 4, 4 } };
+	/** A regrowing segment's fill: bone, then flesh, then skin (NBC's stages). */
+	private static final int BONE = 0xFFE4DCC4, FLESH = 0xFFA11E26, SKIN = 0xFFFFD8D0;
 
 	private AndyHud() {
 	}
@@ -101,21 +106,18 @@ public final class AndyHud {
 					((int) Math.ceil((s.victorUntil - now) / 20f)) + "s", VanillaHud.RED);
 			by -= 11;
 		}
-		float regrow = -1f;
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		// v0.17.3 (NBC's segments): the whole body's regrowth, frames grown of frames gone
+		float grown = 0f, gone = 0f;
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			if (s.broken(i)) {
-				regrow = Math.max(regrow, s.regrowth(i, now));
+				grown += s.frame(i, now);
+				gone += AndyConfig.FRAMES[i];
 			}
 		}
-		// v0.17.3: a part that could not pay its food regrows at half Normal (Andy.payForPart): the number turns red and the
-		// speed line says why
-		boolean starved = false;
-		for (int i = 0; i < AndyState.PARTS; i++) {
-			starved |= s.regrowth(i, now) < 1f && Andy.starvedRegrowth(s, i);
-		}
-		if (regrow >= 0f) {
+		if (gone > 0f) {
+			float regrow = grown / gone;
 			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.andy.regrowth"), regrow, REGROWTH,
-					Math.round(regrow * 100f) + "%", starved ? VanillaHud.RED : VanillaHud.WHITE);
+					Math.round(regrow * 100f) + "%", VanillaHud.WHITE);
 			by -= 11;
 		}
 
@@ -131,23 +133,27 @@ public final class AndyHud {
 		if (s.reformUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.andy.reforming"), x0, ty - 11, VanillaHud.GOLD, true);
 		}
-		// v0.17.3: Off (Shift+V) and an empty stomach (nothing grows back) say so
+		// v0.17.3: auto-regrowth on or off (Shift+V, Toggle Regen); the Regen Menu open says so in gold
 		boolean off = s.flag(AndyState.FLAG_REGEN_OFF);
-		starved |= !off && Andy.emptyStomach(p);
-		Component speed = off ? Component.translatable("projecthero.andy.speed.off")
-				: starved ? Component.translatable(Andy.emptyStomach(p) ? "projecthero.andy.speed.empty" : "projecthero.andy.speed.starving")
-				: Component.translatable("projecthero.andy.speed." + SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, s.regenSpeed))]);
-		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", speed).getString(), textW), x0,
-				ty + 11, starved ? VanillaHud.RED : VanillaHud.GREY, true);
+		Component mode = Component.translatable(off ? "projecthero.andy.regen.manual" : "projecthero.andy.regen.auto");
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.regen", mode).getString(), textW), x0,
+				ty + 11, off ? VanillaHud.RED : VanillaHud.GREY, true);
+		if (s.flag(AndyState.FLAG_REGEN_MENU) && s.reformUntil <= now) {
+			g.drawString(mc.font, mc.font.plainSubstrByWidth(Component.translatable("hud.projecthero.andy.menu").getString(), textW), x0, ty - 11,
+					VanillaHud.GOLD, true);
+		}
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = AndyAbilityManager.idsOf(p, slot);
 				if (ids.length > 0) {
-					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out)
-					Component extra = slot == AbilitySlot.SLOT_5 && !s.boneSword()
-							? Component.translatable("hud.projecthero.andy.hold", Component.translatable("projecthero.andy.ability." + AndyBoneSword.BONE_SWORD))
+					// v0.17.3: V's third move is held, not shifted: "Hold: Bone Sword" (when the sword is not already out); in the
+					// Regen Menu "Hold: Regenerate Whole Body"
+					boolean menu = s.flag(AndyState.FLAG_REGEN_MENU);
+					Component extra = slot == AbilitySlot.SLOT_5 && (menu || !s.boneSword())
+							? Component.translatable("hud.projecthero.andy.hold", Component.translatable("projecthero.andy.ability."
+									+ (menu ? com.projecthero.mod.andy.AndyRegenMenu.WHOLE : AndyBoneSword.BONE_SWORD)))
 							: null;
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.andy.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.andy.ability." + ids[1]) : null, extra));
@@ -157,29 +163,35 @@ public final class AndyHud {
 		}
 	}
 
-	/** The little body with a 1-px dark frame behind it, like an item in a slot. */
+	/**
+	 * The little body with a 1-px dark frame behind it, like an item in a slot: the ten segments, each whole (shaded by its
+	 * part's HP), gone (dark) or regrowing -- filling from the joint outward in the colour of its stage (bone, flesh, skin).
+	 */
 	private static void figure(GuiGraphics g, AndyState s, float now, boolean victor, int fx, int fy) {
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			int[] f = FIGURE[i];
 			int px = fx + f[0], py = fy + f[1];
 			g.fill(px - 1, py - 1, px + f[2] + 1, py + f[3] + 1, 0xFF1A1A1A);
 		}
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			int[] f = FIGURE[i];
 			int px = fx + f[0], py = fy + f[1];
 			if (!s.broken(i)) {
-				g.fill(px, py, px + f[2], py + f[3], partColour(s.hp(i) / AndyConfig.PART_HP[i], victor));
+				int hpPart = AndyState.limbOf(i);
+				g.fill(px, py, px + f[2], py + f[3], partColour(s.hp(hpPart) / AndyConfig.PART_HP[hpPart], victor));
 				g.fill(px, py, px + f[2], py + 1, 0x40FFFFFF); // a lit top edge, like the inventory's slot shading
 			} else {
 				g.fill(px, py, px + f[2], py + f[3], 0xFF3A0A0A);
 				float r = s.regrowth(i, now);
 				if (r > 0f) {
-					int h = Math.round(f[3] * r);
+					int h = Math.max(1, Math.round(f[3] * r));
+					int stage = s.stage(i, now);
+					int c = stage == AndyState.STAGE_BONE ? BONE : stage == AndyState.STAGE_FLESH ? FLESH : SKIN;
 					// from the joint outward: legs and arms fill downward, the head upward
 					if (i == AndyState.HEAD) {
-						g.fill(px, py + f[3] - h, px + f[2], py + f[3], 0xFFFFD8D0);
+						g.fill(px, py + f[3] - h, px + f[2], py + f[3], c);
 					} else {
-						g.fill(px, py, px + f[2], py + h, 0xFFFFD8D0);
+						g.fill(px, py, px + f[2], py + h, c);
 					}
 				}
 			}
