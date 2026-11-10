@@ -105,8 +105,7 @@ public final class SaiyanDamage {
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.sendParticles(Saiyan.dust(SaiyanForm.INSTINCT.auraColor, 1.4f), c.x, c.y, c.z, 10, 0.3, 0.6, 0.3, 0.0);
 		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 4, 0.2, 0.4, 0.2, 0.02);
-		// TODO(sounds): SaiyanSounds instinct dodge -- placeholder vanilla sound
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.4f, 1.9f);
+		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.INSTINCT_DODGE, SoundSource.PLAYERS, 0.7f, 1.0f);
 	}
 
 	private static void reissue(LivingEntity target, DamageSource source, float amount) {

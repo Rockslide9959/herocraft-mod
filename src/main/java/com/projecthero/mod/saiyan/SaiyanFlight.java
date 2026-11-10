@@ -81,8 +81,7 @@ public final class SaiyanFlight {
 		Vec3 c = player.position().add(0, 0.9, 0);
 		level.sendParticles(Saiyan.dust(f.auraColor, 1.5f), c.x, c.y, c.z, 12, 0.3, 0.5, 0.3, 0.0);
 		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y - 0.6, c.z, 6, 0.3, 0.1, 0.3, 0.05);
-		// TODO(sounds): SaiyanSounds dash -- placeholder vanilla sound
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 1.6f);
+		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.7f, 1.0f);
 		return true;
 	}
 
@@ -119,8 +118,7 @@ public final class SaiyanFlight {
 		Vec3 c = player.position();
 		level.sendParticles(Saiyan.dust(Saiyan.form(player).auraColor, 1.6f), c.x, c.y + 0.5, c.z, 14, 0.4, 0.3, 0.4, 0.0);
 		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 10, 0.4, 0.1, 0.4, 0.05);
-		// TODO(sounds): SaiyanSounds take-off -- placeholder vanilla sound
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.3f, 1.8f);
+		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.45f, 0.8f); // the take-off: a softer, lower dash
 	}
 
 	private static void grantAbilities(ServerPlayer player) {

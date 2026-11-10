@@ -245,8 +245,8 @@ public final class Saiyan {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		if (on) {
-			// TODO(sounds): SaiyanSounds charge loop -- placeholder vanilla sound
-			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.6f, 1.5f);
+			// the power-up swell; the loop that follows while Q is held is the client's (SaiyanLoopSounds)
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.7f, 1.0f);
 		}
 	}
 
@@ -269,8 +269,7 @@ public final class Saiyan {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
-		// TODO(sounds): SaiyanSounds awaken -- placeholder vanilla sounds
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.6f, 1.6f);
+		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 1.1f);
 		level.sendParticles(dust(SaiyanForm.SSJ.auraColor, 2.0f), c.x, c.y, c.z, 30, 0.5, 0.9, 0.5, 0.0);
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
 				Component.translatable("message.projecthero.saiyan.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
@@ -408,8 +407,7 @@ public final class Saiyan {
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		// TODO(sounds): SaiyanSounds power down -- placeholder vanilla sound
-		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.7f, 1.4f);
+		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.POWER_DOWN, SoundSource.PLAYERS, 0.8f, 1.0f);
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.4, 0.6, 0.4, 0.02);
 		return true;
 	}
@@ -424,9 +422,11 @@ public final class Saiyan {
 			double a = Math.PI * 2 * i / 20.0;
 			level.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * 1.2, c.y + 0.1, c.z + Math.sin(a) * 1.2, 1, 0.0, 0.0, 0.0, 0.05);
 		}
-		// TODO(sounds): SaiyanSounds transform per form -- placeholder vanilla sounds
-		level.playSound(null, c.x, c.y + 1.0, c.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.5f, 1.8f);
-		level.playSound(null, c.x, c.y + 1.0, c.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.8f, 0.6f);
+		// one burst for every form, pitched up a little the higher the form; Super Saiyan 2's lightning crackles on top
+		level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 0.95f + f.ordinal() * 0.02f);
+		if (f == SaiyanForm.SSJ2) {
+			level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.SSJ2_SPARK, SoundSource.PLAYERS, 0.7f, 1.0f);
+		}
 	}
 
 	static DustParticleOptions dust(int argb, float size) {
@@ -445,7 +445,7 @@ public final class Saiyan {
 		SaiyanFlight.stop(player);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.0f, 0.7f);
+		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.EXHAUSTED, SoundSource.PLAYERS, 0.8f, 1.0f);
 		level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.2, player.getZ(), 12, 0.3, 0.4, 0.3, 0.01);
 		player.displayClientMessage(Component.translatable("message.projecthero.saiyan.exhausted_now").withStyle(ChatFormatting.RED), true);
 	}

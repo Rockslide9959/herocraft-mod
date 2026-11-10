@@ -37,7 +37,11 @@ public final class SaiyanClient {
 		HudRenderCallback.EVENT.register(SaiyanHud::render);
 		ClientTickEvents.START_CLIENT_TICK.register(SaiyanClient::holdBackDrop);
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanClient::tick);
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> chargeSent = false);
+		ClientTickEvents.END_CLIENT_TICK.register(SaiyanLoopSounds::tick); // the aura and charge loops (SaiyanSounds)
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			chargeSent = false;
+			SaiyanLoopSounds.reset();
+		});
 	}
 
 	/** H (not sneaking) as a Saiyan: the form wheel. Shift+H still falls through to the power wheel. */

@@ -198,6 +198,13 @@ public class SaiyanGameTests implements FabricGameTest {
 		ServerPlayer p = saiyan(helper);
 		Saiyan.unlockAll(p);
 		edit(p, s -> s.form = SaiyanForm.BLUE.ordinal());
+		try { // a fresh mock player is spawn-protected
+			java.lang.reflect.Field fld = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			fld.setAccessible(true);
+			fld.setInt(p, 0);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
 		p.invulnerableTime = 0;
 		p.setHealth(p.getMaxHealth());
 		float before = p.getHealth();
