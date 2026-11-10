@@ -35,10 +35,13 @@ import org.joml.Vector3f;
  * <h2>A body made of pixels</h2>
  * Six parts (head, body, both arms, both legs), each with its own HP. Every hit is placed on a part by where it lands
  * ({@link AndyParts}); a part at 0 HP breaks ({@link #breakPart}) -- every client bursts it into one cube per skin texel --
- * and is gone until it regrows: after {@link AndyConfig#REGROW_DELAY} it grows back from the joint outward over
- * {@link AndyConfig#REGROW_TICKS} (the bone pushes out, the muscle builds round it, the skin closes over), costing hunger. A
- * tap of V cycles the speed (Normal / Fast / Burst; starving, half Normal). With only the head left everything grows back in a set order
- * ({@link #planHeadOnly}) and he gets about however that lets him ({@link AndyStages}).
+ * and is gone until it regrows. v0.17.3 (user: "build our andy power the same way theyve built theirs ... the regeneration to
+ * work the same ... at the same speed"): the regrowth is NBC Heroes' Regenerative Segmentation -- ten segments (the six parts
+ * plus the hands and feet), each growing one frame a tick ({@link AndyConfig#FRAMES}: about a second a part) in NBC's order
+ * (the body once the head has 4 frames, the limbs once the body has 7, each hand / foot once its limb has 5), free, starting
+ * at once. Shift+V turns auto-regrowth off (Toggle Regen); the Regen Menu ({@link AndyRegenMenu}) grows segments a stage at a
+ * time (bone, flesh, skin) or strips them. He gets about however what is left lets him ({@link AndyStages}); worn armour falls
+ * off the parts it sat on ({@link AndyArmour}).
  *
  * <h2>Vanilla health</h2>
  * Vanilla health stays the player's real life pool and takes every hit as usual. The part system runs beside it and only
@@ -62,8 +65,8 @@ public final class Andy {
 
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
-	/** Food points a regrowth still owes the hunger bar, below one whole point (taken with the next part). */
-	private static final Map<UUID, Float> FOOD_OWED = new ConcurrentHashMap<>();
+	/** v0.17.3 Regen Menu "Regenerate Whole Body": everything grows back even with auto-regrowth off, until he is whole. */
+	private static final java.util.Set<UUID> GROW_ALL = ConcurrentHashMap.newKeySet();
 	/** The stage last reconciled (the speed and jump modifiers follow it). */
 	private static final Map<UUID, Integer> LAST_STAGE = new ConcurrentHashMap<>();
 
@@ -73,8 +76,9 @@ public final class Andy {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
-		AndyAutoEat.clearSessionState();
-		FOOD_OWED.clear();
+		GROW_ALL.clear();
+		AndyArmour.clearSessionState();
+		AndyRegenMenu.clearSessionState();
 		LAST_STAGE.clear();
 		AndyAbilities.clearSessionState();
 		AndyAbilityManager.clearSessionState();
@@ -85,8 +89,9 @@ public final class Andy {
 	static void forget(UUID id) {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
-		AndyAutoEat.forget(id);
-		FOOD_OWED.remove(id);
+		GROW_ALL.remove(id);
+		AndyArmour.forget(id);
+		AndyRegenMenu.forget(id);
 		LAST_STAGE.remove(id);
 		AndyAbilities.forget(id);
 		AndyAbilityManager.forget(id);
@@ -181,11 +186,6 @@ public final class Andy {
 		return s != null && s.hasPower && s.reformUntil > player.level().getGameTime();
 	}
 
-	public static int regenSpeed(Player player) {
-		AndyState s = peek(player);
-		return s == null ? AndyConfig.SPEED_NORMAL : s.regenSpeed;
-	}
-
 	public static int cooldownRemaining(Player player, String abilityId) {
 		AndyState s = peek(player);
 		if (s == null) {
@@ -250,12 +250,12 @@ public final class Andy {
 		if (s != null && s.hasPower && (s.anyBroken() || s.reformUntil > 0L || s.flags != 0 || s.extra.stream().anyMatch(v -> v != 0L))) {
 			AndyState n = s.copy();
 			n.partHp = AndyState.full();
-			for (int i = 0; i < AndyState.PARTS; i++) {
+			for (int i = 0; i < AndyState.SEGS; i++) {
 				n.setTimes(i, 0L, 0L, 0L);
 			}
 			n.kinds = 0;
 			n.reformUntil = 0L;
-			n.flags = s.flags & AndyState.FLAG_REGEN_OFF; // v0.17.3: Off stays Off
+			n.flags = s.flags & AndyState.FLAG_REGEN_OFF; // v0.17.3: auto-regrowth off stays off
 			clearExtra(n);
 			save(player, n);
 			reconcile(player);
@@ -303,14 +303,22 @@ public final class Andy {
 	 */
 	public static void breakPart(ServerPlayer player, int part, int kind) {
 		AndyState s = state(player);
-		if (!s.hasPower || s.broken(part)) {
+		if (!s.hasPower || (s.broken(part) && s.regrowStart(part) <= 0L)) {
 			return;
 		}
 		long now = Math.max(1L, player.level().getGameTime());
 		AndyState n = s.copy();
-		n.partHp.set(part, 0f);
+		if (part < AndyState.PARTS) {
+			n.partHp.set(part, 0f);
+		}
 		n.setTimes(part, now, 0L, 0L);
 		n.setKind(part, kind);
+		// v0.17.3 (NBC's segments): a limb takes its hand / foot with it
+		int end = AndyState.extremity(part);
+		if (end >= 0 && !(n.broken(end) && n.regrowStart(end) <= 0L)) {
+			n.setTimes(end, now, 0L, 0L);
+			n.setKind(end, kind);
+		}
 		if (part == AndyState.RIGHT_ARM || part == AndyState.LEFT_ARM) {
 			// whatever bite the finger shots took goes with the arm
 			n.setEx(part == AndyState.RIGHT_ARM ? AndyState.X_EATEN_R : AndyState.X_EATEN_L, 0L);
@@ -322,8 +330,9 @@ public final class Andy {
 		}
 		save(player, n);
 		reconcile(player);
+		AndyArmour.partLost(player, part, kind); // v0.17.3 (user): the armour on it falls off / the shoulder pad goes
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = AndyParts.centre(player, part);
+		Vec3 c = AndyParts.centre(player, AndyState.limbOf(part));
 		if (kind == AndyState.KIND_BURST) {
 			AndySfx.partBreak(level, c); // v0.17.3 Andy sounds: wet tear + crunch, a spurt of blood
 			level.sendParticles(BLOOD, c.x, c.y, c.z, 3, 0.1, 0.1, 0.1, 0.0);
@@ -346,17 +355,19 @@ public final class Andy {
 		AndyAbilities.clear(player);
 		long now = Math.max(1L, player.level().getGameTime());
 		AndyState n = state(player).copy();
-		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
+		for (int i = AndyState.BODY; i < AndyState.SEGS; i++) {
 			if (!n.broken(i) || n.kind(i) != AndyState.KIND_LAUNCHED) {
 				n.setKind(i, AndyState.KIND_SHATTER);
 			}
 			n.setTimes(i, n.broken(i) ? n.brokenAt(i) : now, 0L, 0L);
-			n.partHp.set(i, 0f);
+			if (i < AndyState.PARTS) {
+				n.partHp.set(i, 0f);
+			}
 		}
 		if (n.broken(AndyState.HEAD)) {
-			// the head was already off (launched or burst): it re-forms first, then the rest
+			// the head was already off (launched or burst): it re-forms first, then the rest (whatever auto-regrowth is set to)
 			long start = now + 2;
-			n.setTimes(AndyState.HEAD, n.brokenAt(AndyState.HEAD), start, start + 14);
+			n.setTimes(AndyState.HEAD, n.brokenAt(AndyState.HEAD), start, start + AndyConfig.FRAMES[AndyState.HEAD]);
 		}
 		n.reformUntil = now + AndyConfig.REFORM_GRACE;
 		n.flags = 0;
@@ -371,6 +382,9 @@ public final class Andy {
 		player.setDeltaMovement(Vec3.ZERO);
 		player.hurtMarked = true;
 		reconcile(player);
+		for (int i = AndyState.BODY; i < AndyState.SEGS; i++) {
+			AndyArmour.partLost(player, i, AndyState.KIND_SHATTER);
+		}
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		AndySfx.shatter(level, c); // v0.17.3 Andy sounds: the whole body bursts
@@ -382,7 +396,7 @@ public final class Andy {
 	public static void restore(ServerPlayer player) {
 		AndyState n = state(player).copy();
 		n.partHp = AndyState.full();
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			n.setTimes(i, 0L, 0L, 0L);
 		}
 		n.kinds = 0;
@@ -392,42 +406,33 @@ public final class Andy {
 		reconcile(player);
 	}
 
-	// ---------------------------------------------------------------- V: the speed
+	// ---------------------------------------------------------------- Shift+V: Toggle Regen
 
-	public static void cycleSpeed(ServerPlayer player) {
+	/**
+	 * v0.17.3 Shift+V (NBC's Toggle Regen): auto-regrowth on or off. Off, nothing starts growing back on its own (a segment
+	 * already growing finishes); the Regen Menu grows segments a stage at a time. Healing his health and parts goes on either way.
+	 */
+	public static void toggleRegen(ServerPlayer player) {
 		AndyState n = state(player).copy();
-		// Shift+V: Normal -> Fast -> Burst -> Off (v0.17.3, tester: "the option to choose not to regenerate") -> Normal
-		if (n.flag(AndyState.FLAG_REGEN_OFF)) {
-			n.setFlag(AndyState.FLAG_REGEN_OFF, false);
-			n.regenSpeed = AndyConfig.SPEED_NORMAL;
-		} else if (n.regenSpeed >= AndyConfig.SPEED_BURST) {
-			n.setFlag(AndyState.FLAG_REGEN_OFF, true);
-		} else {
-			n.regenSpeed = n.regenSpeed + 1;
-		}
+		boolean off = !n.flag(AndyState.FLAG_REGEN_OFF);
+		n.setFlag(AndyState.FLAG_REGEN_OFF, off);
 		save(player, n);
-		String[] names = { "slow", "normal", "fast", "burst" };
+		if (!off) {
+			GROW_ALL.remove(player.getUUID());
+		}
 		LAST_MESSAGE.remove(player.getUUID());
-		String name = n.flag(AndyState.FLAG_REGEN_OFF) ? "off" : names[n.regenSpeed];
-		say(player, "message.projecthero.andy.speed", ChatFormatting.RED, Component.translatable("projecthero.andy.speed." + name));
+		say(player, off ? "message.projecthero.andy.regen_auto_off" : "message.projecthero.andy.regen_auto_on", ChatFormatting.RED);
 		player.level().playSound(null, player.getX(), player.getY() + 1, player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
-				0.8f, 0.7f + 0.3f * n.regenSpeed);
+				0.8f, off ? 0.6f : 1.2f);
 	}
 
 	static boolean regrowingAny(AndyState s, long now) {
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			if (s.broken(i) && s.regrowStart(i) > 0L && s.regrowStart(i) <= now && now < s.regrowEnd(i)) {
 				return true;
 			}
 		}
 		return false;
-	}
-
-	public static void setSpeed(ServerPlayer player, int speed) {
-		AndyState n = state(player).copy();
-		n.regenSpeed = Math.floorMod(speed, AndyConfig.SPEEDS);
-		n.setFlag(AndyState.FLAG_REGEN_OFF, false);
-		save(player, n);
 	}
 
 	/** v0.17.3: a lost part put straight back (the thrown head picked up): whole at once, nothing to regrow or pay. */
@@ -439,12 +444,14 @@ public final class Andy {
 		AndyState n = s.copy();
 		n.setTimes(part, 0L, 0L, 0L);
 		n.setKind(part, AndyState.KIND_NONE);
-		n.partHp.set(part, AndyConfig.PART_HP[part]);
+		if (part < AndyState.PARTS) {
+			n.partHp.set(part, AndyConfig.PART_HP[part]);
+		}
 		save(player, n);
 		reconcile(player);
 	}
 
-	/** v0.17.3: regeneration Off (or back on at the current speed). */
+	/** v0.17.3: auto-regrowth off (Shift+V, Toggle Regen) or back on. */
 	public static void setRegenOff(ServerPlayer player, boolean off) {
 		AndyState n = state(player).copy();
 		n.setFlag(AndyState.FLAG_REGEN_OFF, off);
@@ -459,32 +466,10 @@ public final class Andy {
 	// ---------------------------------------------------------------- tap V: Reform
 
 	/**
-	 * What Reform costs right now: {@link AndyConfig#partFood} at his speed for every part still to be paid for (gone and not
-	 * started regrowing yet; a part already growing has paid, and the head is free) plus {@link AndyConfig#REFORM_FOOD}.
-	 */
-	public static float reformCost(ServerPlayer player) {
-		AndyState s = state(player);
-		long now = player.level().getGameTime();
-		int unpaid = 0;
-		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
-			if (s.broken(i) && (s.regrowStart(i) <= 0L || s.regrowStart(i) > now)) {
-				unpaid++;
-			}
-		}
-		return unpaid * AndyConfig.partFood(s.regenSpeed) + AndyConfig.REFORM_FOOD;
-	}
-
-	/** Enough saturation and hunger together for {@code cost} (creative always). */
-	static boolean canAfford(ServerPlayer player, float cost) {
-		return player.getAbilities().instabuild
-				|| player.getFoodData().getSaturationLevel() + player.getFoodData().getFoodLevel() >= cost - 1.0e-4f;
-	}
-
-	/**
 	 * v0.17.3 tap V (user: ripping off your arm is useless, V should be another utility): Reform -- he forces his body back
 	 * together at once. Every part that is gone or regrowing is whole on the spot (the finger-shot bites and burnt hands and feet
-	 * too), he heals {@link AndyConfig#REFORM_HEAL}, and the fire and every harmful effect on him go. Costs {@link #reformCost},
-	 * saturation first; without enough food it fails. Works with regeneration Off (a deliberate choice). Not while the Bone
+	 * too), he heals {@link AndyConfig#REFORM_HEAL}, and the fire and every harmful effect on him go. Free (v0.17.3: the
+	 * regrowth is free now); works with auto-regrowth off (a deliberate choice). Not while the Bone
 	 * Sword is out (V puts it away then, {@link AndyBoneSword#handle}). {@link AndyConfig#REFORM_COOLDOWN}.
 	 */
 	public static boolean reform(ServerPlayer player) {
@@ -502,24 +487,18 @@ public final class Andy {
 					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
 			return false;
 		}
-		float cost = reformCost(player);
 		ServerLevel level = (ServerLevel) player.level();
-		if (!canAfford(player, cost)) {
-			LAST_MESSAGE.remove(player.getUUID());
-			say(player, "message.projecthero.andy.reform_no_food", ChatFormatting.GRAY, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cost)));
-			level.playSound(null, player.getX(), player.getEyeY(), player.getZ(), SoundEvents.DISPENSER_FAIL, SoundSource.PLAYERS, 0.6f, 1.4f);
-			return false;
-		}
-		payFood(player, cost);
 		long now = Math.max(1L, level.getGameTime());
 		AndyState n = s.copy();
 		long mask = 0L;
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			if (n.broken(i)) {
-				mask |= 1L << i;
+				mask |= 1L << AndyState.limbOf(i);
 				n.setTimes(i, 0L, 0L, 0L);
 				n.setKind(i, AndyState.KIND_NONE);
-				n.partHp.set(i, AndyConfig.PART_HP[i]);
+				if (i < AndyState.PARTS) {
+					n.partHp.set(i, AndyConfig.PART_HP[i]);
+				}
 			}
 		}
 		n.setEx(AndyState.X_EATEN_R, 0L);
@@ -616,77 +595,53 @@ public final class Andy {
 		if (prev != null && prev == now) {
 			return;
 		}
-		// v0.17.3 (user: "remove the players passive auto feeding since this armour will do it for him"): only Andy's Suit's
-		// chestplate feeds him
-		if (com.projecthero.mod.andy.item.AndySuitItem.feedsHim(player)) {
-			AndyAutoEat.tick(player);
-		}
 		AndyState n = null;
 		boolean whole = false;
-		// nothing starts growing back mid-flight: the hands, feet and whatever burnt off wait for the landing
-		boolean flying = s.flag(AndyState.FLAG_PROPELLING);
-		boolean halted = regrowthHalted(player, s);
-		if (!flying && !halted && needsHeadOnlyPlan(s)) {
-			n = s.copy();
-			planHeadOnly(player, n, now);
-		}
-		for (int i = 0; i < AndyState.PARTS; i++) {
+		// v0.17.3 NBC's Regen_Loop: every segment that may grow (its parent far enough along, auto-regrowth on) starts at once
+		// and grows one frame a tick to whole; nothing starts mid-flight (the hands and feet wait for the landing)
+		// (and nothing while a launch is still in the air: the left-behind parts stay until he lands)
+		boolean flying = s.flag(AndyState.FLAG_PROPELLING) || AndyLaunch.flying(player);
+		boolean auto = !s.flag(AndyState.FLAG_REGEN_OFF) || GROW_ALL.contains(player.getUUID());
+		for (int i = 0; i < AndyState.SEGS; i++) {
 			AndyState cur = n != null ? n : s;
 			if (!cur.broken(i)) {
 				continue;
 			}
-			boolean growing = cur.regrowStart(i) > 0L && cur.regrowStart(i) < now;
-			if (halted && i != AndyState.HEAD && (s.flag(AndyState.FLAG_REGEN_OFF) || !growing)) {
-				// v0.17.3 Off: nothing grows back -- what was growing (or planned) falls away again and waits. An empty stomach:
-				// nothing new starts (a part already growing, paid for, finishes). The head still comes back: it is free.
-				if (cur.regrowStart(i) > 0L) {
-					if (n == null) {
-						n = s.copy();
-					}
-					n.setTimes(i, cur.brokenAt(i), 0L, 0L);
-					if (cur.regrowStart(i) <= now) {
-						Vec3 c = AndyParts.centre(player, i);
-						((ServerLevel) player.level()).sendParticles(BLOOD, c.x, c.y, c.z, 6, 0.15, 0.2, 0.15, 0.0);
-					}
-				}
-				continue;
-			}
-			if (cur.regrowStart(i) <= 0L) {
-				if (flying) {
+			long st = cur.regrowStart(i), end = cur.regrowEnd(i);
+			if (st <= 0L) {
+				if (flying || !auto || !mayStart(cur, i, now)) {
 					continue;
 				}
-				long start = scheduleRegrow(player, cur, i, now);
-				if (start > 0L) {
-					if (n == null) {
-						n = s.copy();
-					}
-					// paid up front: at the chosen speed; not paid in full, at half Normal
-					boolean paid = payForPart(player, cur.regenSpeed);
-					n.setTimes(i, cur.brokenAt(i), now, now + (paid ? AndyConfig.regrowTicks(i, cur.regenSpeed) : starvedTicks(i)));
-					startedRegrowing(player, i, cur.kind(i));
+				if (n == null) {
+					n = s.copy();
 				}
-			} else if (cur.regrowStart(i) == now && cur.regrowEnd(i) > now) {
-				// a planned (head-only) part starting: it pays its share now (the head re-forming after a shatter is free)
-				if (i != AndyState.HEAD && !payForPart(player, cur.regenSpeed)) {
-					if (n == null) {
-						n = s.copy();
-					}
-					n.setTimes(i, cur.brokenAt(i), now, now + starvedTicks(i));
+				n.setTimes(i, cur.brokenAt(i), now, now + AndyConfig.FRAMES[i]);
+				startedRegrowing(player, i, cur.kind(i));
+			} else if (auto && end - st < AndyConfig.FRAMES[i]) {
+				// auto-regrowth on (or Regenerate Whole Body): a segment the menu held at a stage grows on to whole, from where it is
+				if (n == null) {
+					n = s.copy();
 				}
-				startedRegrowing(player, i, cur.kind(i)); // its left-behind piece goes
-			} else if (cur.regrowEnd(i) > 0L && now >= cur.regrowEnd(i)) {
+				long from = now - Math.min(now - st, end - st);
+				n.setTimes(i, cur.brokenAt(i), from, from + AndyConfig.FRAMES[i]);
+			} else if (end - st >= AndyConfig.FRAMES[i] && now >= end) {
 				if (n == null) {
 					n = s.copy();
 				}
 				n.setTimes(i, 0L, 0L, 0L);
 				n.setKind(i, AndyState.KIND_NONE);
-				n.partHp.set(i, AndyConfig.PART_HP[i]);
+				if (i < AndyState.PARTS) {
+					n.partHp.set(i, AndyConfig.PART_HP[i]);
+				}
 				whole = true;
 				// v0.17.3 Andy sounds: the wet snap of a finished part is client-side (AndySounds.regrowth -> andy.regrow.finish)
 			}
 		}
-		n = alignToTorso(s, n, now); // an unpaid torso grows slower: the planned limbs follow its marks
+		if (GROW_ALL.contains(player.getUUID()) && !(n != null ? n : s).anyBroken()) {
+			GROW_ALL.remove(player.getUUID());
+		}
 		AndyState cur = n != null ? n : s;
+		// the bites the finger shots took		AndyState cur = n != null ? n : s;
 		// the bites the finger shots took have grown back: forget them
 		for (int arm = AndyState.RIGHT_ARM; arm <= AndyState.LEFT_ARM; arm++) {
 			if (cur.eaten0(arm) > 0f && cur.eatenRegrow(arm, now) >= 1f) {
@@ -697,8 +652,8 @@ public final class Andy {
 				n.setEx(arm == AndyState.RIGHT_ARM ? AndyState.X_EATEN_R : AndyState.X_EATEN_L, 0L);
 			}
 		}
-		// the hands and feet (and anything half burnt) have grown back after the flight
-		if (!flying && cur.ex(AndyState.X_CUT_REGROW) > 0L && now >= cur.ex(AndyState.X_CUT_REGROW) + AndyFlight.cutRegrowTicks(cur)) {
+		// (an old save's flight-cut regrowth: the hands and feet are segments of their own now)
+		if (!flying && cur.ex(AndyState.X_CUT_REGROW) > 0L) {
 			if (n == null) {
 				n = s.copy();
 				cur = n;
@@ -707,28 +662,20 @@ public final class Andy {
 			n.setEx(AndyState.X_BURN_TICKS, 0L);
 			n.setEx(AndyState.X_BURN_SEG, 0L);
 		}
-		// parts knit back slowly between fights
-		// v0.17.3 (tester: "Fast regen doesnt feel fast enough when being hurt"): the speed sets how soon after a hit and how
-		// fast hurt parts knit and his health comes back
-		int hs = healSpeed(player, cur);
-		if (hs >= 0 && now % 10 == 0 && now - cur.lastHitAt > AndyConfig.KNIT_DELAY_BY_SPEED[hs]) {
+		// parts knit back between fights, and his health comes back (v0.17.3: one rate now, free)
+		if (now % 10 == 0 && now - cur.lastHitAt > AndyConfig.KNIT_DELAY) {
 			for (int i = 0; i < AndyState.PARTS; i++) {
 				if (!cur.broken(i) && cur.hp(i) < AndyConfig.PART_HP[i]) {
 					if (n == null) {
 						n = s.copy();
 						cur = n;
 					}
-					n.partHp.set(i, Math.min(AndyConfig.PART_HP[i], n.hp(i) + AndyConfig.KNIT_PER_SECOND[hs] * 0.5f));
+					n.partHp.set(i, Math.min(AndyConfig.PART_HP[i], n.hp(i) + AndyConfig.KNIT_PER_SECOND * 0.5f));
 				}
 			}
 		}
-		if (hs >= 0 && now % 10 == 0 && now - cur.lastHitAt > AndyConfig.HEAL_DELAY[hs] && AndyConfig.HEAL_PER_SECOND[hs] > 0f
-				&& player.getHealth() < player.getMaxHealth() && player.isAlive()) {
-			float amount = Math.min(AndyConfig.HEAL_PER_SECOND[hs] * 0.5f, player.getMaxHealth() - player.getHealth());
-			player.heal(amount);
-			if (!player.getAbilities().instabuild) {
-				player.causeFoodExhaustion(amount * AndyConfig.HEAL_EXHAUSTION);
-			}
+		if (now % 10 == 0 && now - cur.lastHitAt > AndyConfig.HEAL_DELAY && player.getHealth() < player.getMaxHealth() && player.isAlive()) {
+			player.heal(Math.min(AndyConfig.HEAL_PER_SECOND * 0.5f, player.getMaxHealth() - player.getHealth()));
 		}
 		// v0.17.3 (tester: "A way people can naturally pick up the head"): carried by another player while only a head; once his
 		// body is back he climbs down
@@ -768,195 +715,43 @@ public final class Andy {
 		AndyAbilityManager.tickHold(player);
 		AndyAbilities.tick(player);
 		AndyFlight.tick(player);
+		AndyArmour.tick(player);
 	}
 
-	/** Only the head is left and nothing of the rest has been planned to grow back yet. */
-	public static boolean needsHeadOnlyPlan(AndyState s) {
-		if (s.broken(AndyState.HEAD)) {
+	/**
+	 * NBC's order: a broken segment may start growing once the one it grows from ({@link AndyState#parentOf}) has enough frames
+	 * ({@link AndyConfig#BODY_NEEDS_HEAD} ...), or is whole. Not the arm (and hand) that is the Bone Sword in his hand, nor an arm
+	 * used up by finger shots until he has stopped shooting for {@link AndyConfig#EATEN_REGROW_WAIT}.
+	 */
+	public static boolean mayStart(AndyState s, int seg, long now) {
+		int sword = s.boneSwordArm();
+		if (sword >= 0 && AndyState.limbOf(seg) == sword) {
+			return false; // v0.17.3: it grows back once the sword is put away
+		}
+		if (s.kind(seg) == AndyState.KIND_SPENT && now < s.ex(AndyState.X_LAST_SHOT) + AndyConfig.EATEN_REGROW_WAIT) {
 			return false;
 		}
-		for (int i = AndyState.BODY; i < AndyState.PARTS; i++) {
-			if (!s.broken(i) || s.regrowStart(i) > 0L) {
-				return false;
-			}
-		}
-		return true;
+		int parent = AndyState.parentOf(seg);
+		return parent < 0 || s.frame(parent, now) >= needs(seg);
 	}
 
-	/**
-	 * v0.17.3 (user: "torso until theres space for arms and then both arms at the same time and then once torso is done both
-	 * legs at the same time"): with only the head left, every part is planned at once by the same rule as {@link #scheduleRegrow}
-	 * (numbers in {@link AndyConfig}): the torso starts, from the neck down; both arms start together once it passes the
-	 * shoulders ({@link AndyConfig#SHOULDER_SHARE}); both legs together once it is done ({@link AndyConfig#HIP_SHARE}). The
-	 * clients and the box ({@link AndyStages}) read the stages straight off these times. Each part pays its food as it starts;
-	 * one that can not grows at half Normal (and {@link #alignToTorso} keeps the planned limbs on the torso's marks).
-	 */
-	static void planHeadOnly(ServerPlayer player, AndyState n, long now) {
-		int speed = Math.floorMod(n.regenSpeed, AndyConfig.SPEEDS);
-		long delay = canPay(player, speed) ? AndyConfig.STAGE_DELAY[speed] : 2L * AndyConfig.STAGE_DELAY[AndyConfig.SPEED_NORMAL];
-		if (n.slowRegenUntil > now) {
-			delay = (long) (delay * AndyConfig.CRIMSON_SLOW_FACTOR);
-		}
-		long[][] plan = headOnlyPlan(speed, now + delay);
-		int main = mainArm(player);
-		int leg = mainLeg(player);
-		int[] order = { AndyState.BODY, main, otherArm(main), leg, leg == AndyState.RIGHT_LEG ? AndyState.LEFT_LEG : AndyState.RIGHT_LEG };
-		for (int k = 0; k < order.length; k++) {
-			n.setTimes(order[k], n.brokenAt(order[k]), plan[k][0], plan[k][1]);
-		}
-		player.level().playSound(null, player.getX(), player.getEyeY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6f, 0.9f);
+	/** The frames {@code seg}'s parent must have before it starts (NBC's numbers). */
+	public static int needs(int seg) {
+		return switch (seg) {
+			case AndyState.HEAD -> 0;
+			case AndyState.BODY -> AndyConfig.BODY_NEEDS_HEAD;
+			case AndyState.RIGHT_ARM, AndyState.LEFT_ARM, AndyState.RIGHT_LEG, AndyState.LEFT_LEG -> AndyConfig.LIMB_NEEDS_BODY;
+			case AndyState.RIGHT_HAND, AndyState.LEFT_HAND -> AndyConfig.HAND_NEEDS_ARM;
+			default -> AndyConfig.FOOT_NEEDS_LEG;
+		};
 	}
 
-	/**
-	 * The head-only plan from {@code start} at {@code speed}: {start, end} for the body, the main arm, the other arm, the
-	 * main-side leg and the other leg, in that order (the two arms share their times, and so do the two legs).
-	 */
-	public static long[][] headOnlyPlan(int speed, long start) {
-		long torso = AndyConfig.regrowTicks(AndyState.BODY, speed);
-		int limb = AndyConfig.regrowTicks(AndyState.RIGHT_ARM, speed);
-		long bodyEnd = start + torso;
-		long arms = torsoMark(start, bodyEnd, AndyConfig.SHOULDER_SHARE);
-		long legs = torsoMark(start, bodyEnd, AndyConfig.HIP_SHARE);
-		return new long[][] { { start, bodyEnd }, { arms, arms + limb }, { arms, arms + limb }, { legs, legs + limb }, { legs, legs + limb } };
+	/** Regen Menu: Regenerate Whole Body -- everything grows back now, auto-regrowth on or off. */
+	static void growAll(ServerPlayer player) {
+		GROW_ALL.add(player.getUUID());
 	}
 
-	/** The tick at which a torso regrowing over [{@code start}, {@code end}) passes {@code share}. */
-	public static long torsoMark(long start, long end, float share) {
-		return start + (long) Math.ceil(share * (end - start));
-	}
-
-	/** The torso is regrowing and has passed {@code share} (a share of 1 is never "passed": the torso must be whole). */
-	public static boolean torsoPast(AndyState s, float share, long now) {
-		long st = s.regrowStart(AndyState.BODY);
-		return share < 1f && st > 0L && now >= torsoMark(st, s.regrowEnd(AndyState.BODY), share);
-	}
-
-	/**
-	 * When a broken part may start regrowing, or 0 if not yet. With the torso gone the limbs wait for something to grow from:
-	 * the arms for the shoulders ({@link AndyConfig#SHOULDER_SHARE} of the torso's regrowth), the legs (and a head) for the
-	 * whole torso. With the torso there they go after their own delay, all in parallel.
-	 */
-	private static long scheduleRegrow(ServerPlayer player, AndyState s, int part, long now) {
-		if (s.boneSwordArm() == part) {
-			return 0L; // v0.17.3: the arm is the Bone Sword in his hand -- it grows back (and is paid for) once the sword is put away
-		}
-		if (part != AndyState.BODY && s.broken(AndyState.BODY) && !torsoPast(s, AndyConfig.torsoShareFor(part), now)) {
-			return 0L;
-		}
-		if (s.kind(part) == AndyState.KIND_SPENT && now < s.ex(AndyState.X_LAST_SHOT) + AndyConfig.EATEN_REGROW_WAIT) {
-			return 0L; // an arm used up by finger shots waits until he stops shooting
-		}
-		float delay = canPay(player, s.regenSpeed) ? AndyConfig.REGROW_DELAY[Math.floorMod(s.regenSpeed, AndyConfig.SPEEDS)] : AndyConfig.starvedDelay();
-		if (s.slowRegenUntil > now) {
-			delay *= AndyConfig.CRIMSON_SLOW_FACTOR;
-		}
-		return now >= s.brokenAt(part) + (long) delay ? now : 0L;
-	}
-
-	/**
-	 * v0.17.3 (user: "lets go back to flat values, regenerating drains saturation first and then hunger. normal mode: Full body
-	 * regen drains 10 food energy, Fast mode: 15, Burst mode: 20"): every part pays its share ({@link AndyConfig#partFood}: Normal
-	 * 2, Fast 3, Burst 4) the moment it starts regrowing, out of the saturation first, then the hunger bar. True if it was paid
-	 * in full; if not, whatever there was is taken and the part regrows at half Normal ({@link #starvedTicks}, user: "you need
-	 * hunger/saturation in order to regrow otherwise you regenerate 50% slower than normal speed"). Creative pays nothing.
-	 */
-	static boolean payForPart(ServerPlayer player, int speed) {
-		return payFood(player, AndyConfig.partFood(speed));
-	}
-
-	/**
-	 * Takes {@code share} food points, out of the saturation first, then the hunger bar (whole points; a fraction left over is
-	 * owed to the next payment). True if it was paid in full. Creative pays nothing.
-	 */
-	static boolean payFood(ServerPlayer player, float share) {
-		if (player.getAbilities().instabuild) {
-			return true;
-		}
-		var food = player.getFoodData();
-		float sat = food.getSaturationLevel();
-		float fromSat = Math.min(sat, share);
-		food.setSaturation(sat - fromSat);
-		float rest = share - fromSat;
-		if (rest <= 1.0e-4f) {
-			return true;
-		}
-		// the bar goes in whole points: a part of a point left over is owed to the next part
-		float owed = FOOD_OWED.getOrDefault(player.getUUID(), 0f) + rest;
-		int whole = (int) Math.floor(owed + 1.0e-4f);
-		int have = food.getFoodLevel();
-		food.setFoodLevel(Math.max(0, have - whole));
-		FOOD_OWED.put(player.getUUID(), Math.max(0f, owed - whole));
-		return have >= whole;
-	}
-
-	/**
-	 * v0.17.3: nothing but the head grows back right now -- regeneration set to Off (Shift+V, tester: "the option to choose not
-	 * to regenerate"), or a completely empty stomach, no hunger and no saturation left (tester: "Make regeneration slow to
-	 * impossible when completely starving, leaving only the head until you eat"). Low but not empty still regrows, at half Normal.
-	 */
-	public static boolean regrowthHalted(ServerPlayer player, AndyState s) {
-		return s.flag(AndyState.FLAG_REGEN_OFF) || emptyStomach(player);
-	}
-
-	/** No hunger and no saturation at all (creative never). */
-	public static boolean emptyStomach(Player player) {
-		return !player.getAbilities().instabuild && player.getFoodData().getFoodLevel() <= 0 && player.getFoodData().getSaturationLevel() <= 0f;
-	}
-
-	/** The speed slot that drives his healing: his speed, the starved slot when he can't pay, -1 when it is halted. */
-	static int healSpeed(ServerPlayer player, AndyState s) {
-		if (regrowthHalted(player, s)) {
-			return -1;
-		}
-		return canPay(player, s.regenSpeed) ? Math.floorMod(s.regenSpeed, AndyConfig.SPEEDS) : AndyConfig.SPEED_SLOW;
-	}
-
-	/** Enough food for a part's share right now (otherwise the wait doubles and it will grow at half Normal). */
-	static boolean canPay(ServerPlayer player, int speed) {
-		return player.getAbilities().instabuild
-				|| player.getFoodData().getSaturationLevel() + player.getFoodData().getFoodLevel() >= AndyConfig.partFood(speed) - 1.0e-4f;
-	}
-
-	/** A part's regrowth time when it could not be paid for: half the Normal speed, whatever the mode. */
-	public static int starvedTicks(int part) {
-		return 2 * AndyConfig.regrowTicks(part, AndyConfig.SPEED_NORMAL);
-	}
-
-	/** The part is regrowing at the unpaid, half-Normal rate (client-safe: read off the synced times). */
-	public static boolean starvedRegrowth(AndyState s, int part) {
-		long st = s.regrowStart(part), end = s.regrowEnd(part);
-		return s.broken(part) && st > 0L && end - st >= starvedTicks(part) && end - st > AndyConfig.regrowTicks(part, s.regenSpeed);
-	}
-
-	/**
-	 * Planned limbs (not started yet) follow the torso's marks when it grows at half Normal (not paid for): the arms start at
-	 * the shoulders, the legs when it is done.
-	 */
-	private static AndyState alignToTorso(AndyState s, AndyState n, long now) {
-		AndyState cur = n != null ? n : s;
-		long bs = cur.regrowStart(AndyState.BODY), be = cur.regrowEnd(AndyState.BODY);
-		if (!cur.broken(AndyState.BODY) || bs <= 0L) {
-			return n;
-		}
-		for (int i = AndyState.RIGHT_ARM; i < AndyState.PARTS; i++) {
-			long st = cur.regrowStart(i);
-			if (!cur.broken(i) || st <= now) {
-				continue; // started already, or not planned
-			}
-			long want = Math.max(now + 1L, torsoMark(bs, be, AndyConfig.torsoShareFor(i)));
-			if (want != st) {
-				long len = cur.regrowEnd(i) - st;
-				if (n == null) {
-					n = s.copy();
-					cur = n;
-				}
-				n.setTimes(i, cur.brokenAt(i), want, want + len);
-			}
-		}
-		return n;
-	}
-
-	private static void startedRegrowing(ServerPlayer player, int part, int kind) {
+	static void startedRegrowing(ServerPlayer player, int part, int kind) {
 		// v0.17.3 Andy sounds: the regrowth itself is heard client-side (AndySounds: bone, muscle, skin beds)
 		if (kind == AndyState.KIND_LAUNCHED) {
 			// the launched part (still lying about, or stuck in a wall) bursts as its replacement grows

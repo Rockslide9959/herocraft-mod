@@ -48,7 +48,9 @@ public abstract class AndyFirstPersonArmMixin {
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		AndyRender.regrow(pose, buffers, light, player.getSkin().texture(), AndyRender.slim(player), part, Math.min(1f, p));
+		int end = AndyState.extremity(part); // v0.17.3: the hand grows from the wrist as its own segment
+		com.projecthero.mod.client.andy.AndyRegrow.drawPart(pose, buffers, light, player.getSkin().texture(), AndyRender.slim(player), part, Math.min(1f, p),
+				end < 0 ? 0f : s.regrowth(end, now));
 		pose.popPose();
 	}
 }

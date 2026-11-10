@@ -1,0 +1,12 @@
+Andy -- NBC Heroes-style regeneration (v0.17.3). Filmed with scratchpad/andy/NbcHarness.v0173.java.txt (854x480, crops zoomed).
+
+from_head_3d_real_speed.mp4 / from_head_st_real_speed.mp4 - shatter, then the whole body grows back from the head at the real
+  speed (one frame a tick): body at once, arms + legs at the body's 7th frame, hands + feet at their limbs' 5th, whole in ~1.4 s.
+  3D look and stepped look.
+from_head_*_quarter_speed.mp4, from_head_both_looks_quarter_speed.mp4 - the same frames at 5 fps (4x slower), side by side.
+from_head_3d_sheet.png / from_head_st_sheet.png - every 2nd frame of the first 48.
+hand_segment_both_looks.png - the arm whole, the right hand segment held at frames 0, 3, 6, 8, 10, 11 of 12 (top 3D, bottom
+  stepped): open cut at the wrist, bone, flesh, skin.
+armour_falls_off.png - iron armour on; the right arm lost (the pad goes with it); the arm back, the pad still gone; a leg lost
+  (leggings and boots drop); the torso lost (the chestplate drops).
+armour_regrow_real_speed.mp4 - auto-regrowth back on after that: the body regrows (the dropped armour stays on the ground).

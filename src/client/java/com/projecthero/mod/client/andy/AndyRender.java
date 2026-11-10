@@ -177,7 +177,8 @@ public final class AndyRender {
 				// (p >= 1: the server has not cleared it yet -- drawn whole)
 				pose.pushPose();
 				part(model, i).translateAndRotate(pose);
-				regrow(pose, buffers, light, tex, slim, i, Math.min(1f, p));
+				int end = AndyState.extremity(i);
+				AndyRegrow.drawPart(pose, buffers, light, tex, slim, i, Math.min(1f, p), end < 0 ? 0f : s.regrowth(end, now));
 				pose.popPose();
 			}
 		}
@@ -263,12 +264,7 @@ public final class AndyRender {
 
 	/** A part missing its end ({@link AndyCuts}), in its own space: cut, or growing back from the cut. */
 	public static void drawCut(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, AndyCuts.Cut cut) {
-		if (part == AndyState.BODY) {
-			float rows = cut.rows() + (12f - cut.rows()) * AndyRegrow.ease(Math.min(1f, cut.q()));
-			AndyRegrow.bodyCut(pose, buffers, light, tex, slim, Math.min(12.5f, rows), cut.embers());
-		} else {
-			AndyRegrow.limb(pose, buffers, light, tex, slim, part, cut.q(), cut.rows(), cut.embers());
-		}
+		AndyRegrow.drawEnd(pose, buffers, light, tex, slim, part, cut);
 	}
 
 	/** The four corners of a texel's square, {@code out} px along its normal, grown by {@code grow} px. */

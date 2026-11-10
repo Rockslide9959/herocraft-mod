@@ -8,7 +8,7 @@ import net.minecraft.world.entity.EntityDimensions;
  * v0.17.3 (user: the rolling head and the staged regrowth): how Andy gets about with what he has left. Worked out on both
  * sides purely from which parts are there, gone or still growing ({@link AndyState} part times, already synced) -- no
  * packets -- so it is the same whatever took the parts (a shatter, a boost, a launch, a hit). From only a head the regrowth
- * (torso first, both arms on the shoulders, both legs on the hips: {@link AndyConfig#SHOULDER_SHARE}) runs through them in
+ * (v0.17.3 NBC order: the torso once the head is there, the arms and legs once the torso has {@link AndyConfig#LIMB_NEEDS_BODY} frames) runs through them in
  * order:
  * <pre>
  *   ROLL      just the head, nothing growing yet: a rolling head          0.5 x 0.5 box, eyes at 0.25   speed x0.32
@@ -69,7 +69,7 @@ public final class AndyStages {
 		}
 		boolean body = s.has(AndyState.BODY, now);
 		float legP = Math.max(growth(s, AndyState.RIGHT_LEG, now), growth(s, AndyState.LEFT_LEG, now));
-		if (legP > 0f && (body || s.regrowth(AndyState.BODY, now) >= AndyConfig.HIP_SHARE - 0.05f)) {
+		if (legP > 0f && (body || s.frame(AndyState.BODY, now) >= AndyConfig.LIMB_NEEDS_BODY)) {
 			return legP >= LEG_STAND ? WOBBLE : SHUFFLE;
 		}
 		if (usable(s, AndyState.RIGHT_ARM, now) && usable(s, AndyState.LEFT_ARM, now) && (body || s.regrowth(AndyState.BODY, now) > 0.5f)) {

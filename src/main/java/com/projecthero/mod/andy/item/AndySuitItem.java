@@ -24,7 +24,7 @@ import net.minecraft.world.level.Level;
  * v0.17.3 (user: "Add this skin as Andy's self healing suit, make this suit regenerate durability slowly and auto feed him ...
  * give it iron level armour protection"): one piece of Andy's Suit. Iron-level (2 / 6 / 5 / 2, iron durability, iron
  * enchantability, repaired with iron). Worn, every piece knits {@link #REPAIR_AMOUNT} durability every {@link #REPAIR_EVERY}
- * ticks, never past whole. The chestplate feeds an Andy who wears it ({@link #feedsHim}, {@code AndyAutoEat}). Drawn from the
+ * ticks, never past whole (v0.17.3: it no longer feeds him -- the regrowth is free). Drawn from the
  * user's skin ({@link #texture}) by the skin-costume path ({@code QuirkCostume}); the vanilla armour model is never drawn.
  */
 public class AndySuitItem extends ArmorItem {
@@ -50,10 +50,6 @@ public class AndySuitItem extends ArmorItem {
 		return wornIn(e, EquipmentSlot.HEAD) || wornIn(e, EquipmentSlot.CHEST) || wornIn(e, EquipmentSlot.LEGS) || wornIn(e, EquipmentSlot.FEET);
 	}
 
-	/** The suit's chestplate feeds him: worn, by a player with the Andy power. */
-	public static boolean feedsHim(Player p) {
-		return wornIn(p, EquipmentSlot.CHEST) && Andy.hasPower(p);
-	}
 
 	@Override
 	public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
@@ -85,8 +81,5 @@ public class AndySuitItem extends ArmorItem {
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.andy_suit.tooltip").withStyle(ChatFormatting.GRAY));
-		if (this.getType() == Type.CHESTPLATE) {
-			tooltip.add(Component.translatable("item.projecthero.andy_suit_chestplate.tooltip").withStyle(ChatFormatting.DARK_RED));
-		}
 	}
 }
