@@ -84,6 +84,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternSniperPayload.TYPE, GreenLanternSniperPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playC2S().register(UndeadFlightPayload.TYPE, UndeadFlightPayload.CODEC); // v0.17.3
+		PayloadTypeRegistry.playC2S().register(UndeadHeadThrowPayload.TYPE, UndeadHeadThrowPayload.CODEC); // v0.17.3: right click mid-throw
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternCuePayload.TYPE, GreenLanternCuePayload.CODEC); // v0.17.1 combos + ring voice
 		PayloadTypeRegistry.playS2C().register(GreenLanternConstructHealthPayload.TYPE, GreenLanternConstructHealthPayload.CODEC); // v0.17.1
@@ -376,6 +377,9 @@ public final class ModNetworking {
 		// v0.17.3: Undead double-tapped jump in the air -- the blood-jet flight on / off.
 		ServerPlayNetworking.registerGlobalReceiver(UndeadFlightPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.undead.UndeadAbilityManager.doubleJump(context.player()));
+		// v0.17.3: Undead right-clicked while his thrown head is in the air -- the body grows back now.
+		ServerPlayNetworking.registerGlobalReceiver(UndeadHeadThrowPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.undead.UndeadHeadThrow.regrowNow(context.player()));
 
 		// v0.16.1: Green Lantern Sniper Rifle construct -- attack charges / fires, right-click scopes.
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternSniperPayload.TYPE, (payload, context) -> {

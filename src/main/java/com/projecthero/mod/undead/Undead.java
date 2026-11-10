@@ -596,7 +596,7 @@ public final class Undead {
 		// went, and for the segment it grows from to have grown out to where it attaches (needs); then it grows to whole over
 		// FRAMES ticks (times UndeadRegenMods.durationMult). Always automatic. Nothing starts mid-flight (the hands and feet wait
 		// for the landing), nor while a launch is still in the air.
-		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player);
+		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player) || UndeadHeadThrow.holdsRegen(player); // a thrown head grows nothing until it touches a block (or right-click)
 		int delay = regrowDelay(player);
 		for (int i = 0; i < UndeadState.SEGS; i++) {
 			UndeadState cur = n != null ? n : s;

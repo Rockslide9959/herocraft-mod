@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.undead.data.UndeadState;
 import com.projecthero.mod.undead.entity.UndeadCloneEntity;
 
@@ -19,25 +18,21 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 import org.joml.Matrix4f;
 
 /**
- * v0.17.3: one of Undead's split-off selves (Dead Quardead, Division Bullet): a player model in the owner's own skin, tinted
- * fleshy (skin), red (blood) or drawn in bone (bones), a little see-through. Remembers its pose so it bursts from where it
- * stood.
+ * v0.17.3: the Division Bullet's clone (user: "clones just look exactly the same as the player themself"): a player model in the
+ * owner's own skin -- wide or slim, hat and jacket layers and all -- untinted and solid, walking, looking and swinging like a
+ * player. Remembers its pose so it bursts into pixels from where it stood.
  */
 public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
-	public static final ResourceLocation BONE = ProjectHeroMod.id("textures/entity/undead/bone.png");
-
-	record Last(Matrix4f[] parts, ResourceLocation tex, boolean slim, int tint) {
+	record Last(Matrix4f[] parts, ResourceLocation tex, boolean slim) {
 	}
 
 	static final Map<Integer, Last> LAST = new ConcurrentHashMap<>();
@@ -52,6 +47,7 @@ public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
 		this.slimModel = new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER_SLIM), true);
 	}
 
+	/** The owner's skin (his default skin while he is out of sight). */
 	static PlayerSkin skinOf(UndeadCloneEntity e) {
 		UUID owner = e.getOwnerUUID();
 		if (owner != null && Minecraft.getInstance().level != null && Minecraft.getInstance().level.getPlayerByUUID(owner) instanceof AbstractClientPlayer p) {
@@ -60,34 +56,11 @@ public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
 		return DefaultPlayerSkin.get(owner != null ? owner : e.getUUID());
 	}
 
-	static int tint(UndeadCloneEntity e) {
-		return switch (e.tint()) {
-			case UndeadCloneEntity.TINT_BLOOD -> 0xE8E83A3A;
-			case UndeadCloneEntity.TINT_BONE -> 0xFFFFFFFF;
-			default -> 0xFFFFEAE2; // his own skin, a touch raw
-		};
-	}
-
-	/**
-	 * v0.17.3 (tester: "Not sure if this was intentional or not for the cloning power" -- a blank-faced skin copy and a plain
-	 * white one): the skin self is drawn solid in the owner's real skin, hat and jacket layers and all, like the player himself;
-	 * the bones self is a real skeleton ({@link #BONE_CLONE}: skull, ribs, limb bones, see-through between them); the blood self
-	 * stays a red, half-clear copy.
-	 */
-	static RenderType renderType(UndeadCloneEntity e, ResourceLocation tex) {
-		return switch (e.tint()) {
-			case UndeadCloneEntity.TINT_BLOOD -> RenderType.entityTranslucent(tex);
-			default -> RenderType.entityCutoutNoCull(tex);
-		};
-	}
-
-	public static final ResourceLocation BONE_CLONE = ProjectHeroMod.id("textures/entity/undead/bone_clone.png");
-
 	@Override
 	public void render(UndeadCloneEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		PlayerSkin skin = skinOf(e);
 		boolean slim = skin.model() == PlayerSkin.Model.SLIM;
-		ResourceLocation tex = e.tint() == UndeadCloneEntity.TINT_BONE ? BONE_CLONE : skin.texture();
+		ResourceLocation tex = skin.texture();
 		PlayerModel<UndeadCloneEntity> model = slim ? this.slimModel : this.wide;
 		pose.pushPose();
 		float bodyYaw = Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot);
@@ -101,12 +74,14 @@ public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
 		model.attackTime = e.getAttackAnim(partial);
 		model.riding = false;
 		model.young = false;
+		model.crouching = false;
 		float speed = e.walkAnimation.speed(partial);
 		float pos = e.walkAnimation.position(partial);
 		model.prepareMobModel(e, pos, speed, partial);
 		model.setupAnim(e, pos, speed, e.tickCount + partial, headYaw, pitch);
 		int overlay = LivingEntityRenderer.getOverlayCoords(e, 0f);
-		model.renderToBuffer(pose, buffers.getBuffer(renderType(e, tex)), light, overlay, tint(e));
+		// translucent like the vanilla player's own layer pass, so the hat / jacket layers' clear texels stay clear
+		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, 0xFFFFFFFF);
 		Vec3 cam = this.entityRenderDispatcher.camera.getPosition();
 		Matrix4f[] parts = new Matrix4f[UndeadState.PARTS];
 		for (int i = 0; i < UndeadState.PARTS; i++) {
@@ -115,7 +90,7 @@ public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
 			parts[i] = new Matrix4f().translation((float) cam.x, (float) cam.y, (float) cam.z).mul(pose.last().pose());
 			pose.popPose();
 		}
-		LAST.put(e.getId(), new Last(parts, tex, slim, tint(e) | 0xFF000000));
+		LAST.put(e.getId(), new Last(parts, tex, slim));
 		pose.popPose();
 		super.render(e, yaw, partial, pose, buffers, light);
 	}
@@ -132,15 +107,11 @@ public class UndeadCloneRenderer extends EntityRenderer<UndeadCloneEntity> {
 			return;
 		}
 		for (int i = 0; i < UndeadState.PARTS; i++) {
-			PixelCubes.burst(last.tex(), last.slim(), i, last.parts()[i], Vec3.ZERO, last.tint(), 0.9f);
+			PixelCubes.burst(last.tex(), last.slim(), i, last.parts()[i], Vec3.ZERO, 0xFFFFFFFF, 0.9f);
 		}
 	}
 
 	static void forgetAll() {
 		LAST.clear();
-	}
-
-	static boolean known(Player p) {
-		return p != null;
 	}
 }

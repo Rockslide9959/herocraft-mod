@@ -1733,12 +1733,12 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.undead.controls");
-			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Hold R", "stretch_punch" }, { "Shift+R", "crimson_bullet" }, { "Hold G", "blood_spray" },
-					{ "Shift+G", "blood_whirlwind" }, { "X", "eject_feet" }, { "Shift+X", "combustion_punch" }, { "Double-tap jump", "flight" },
+			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Shift+R", "parts_bullet_hand" }, { "Hold R", "parts_bullet_arm" }, { "Hold G", "blood_spray" },
+					{ "Shift+G", "blood_whirlwind" }, { "X", "eject_feet" }, { "Shift+X", "combustion_punch" }, { "Hold X", "head_throw" }, { "Double-tap jump", "flight" },
 					{ "Z", "vortex_bullet" },
 					{ "Shift+Z", "parts_bullet_head" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", victorOn ? "pull_the_card" : null },
 					{ "Hold C", "deadline" },
-					{ "Shift+C", "dead_quardead" } }) {
+					{ "Shift+C", "division_bullet" } }) {
 				if (row[1] == null) {
 					continue; // v0.17.3: Shift+V has no move of its own while Victor is off (Toggle Regen was removed)
 				}

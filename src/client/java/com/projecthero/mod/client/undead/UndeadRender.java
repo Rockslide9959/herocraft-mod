@@ -209,6 +209,7 @@ public final class UndeadRender {
 			}
 		}
 		renderHeld(pose, buffers, light, player, model, s, now);
+		UndeadHeadThrowRender.layer(pose, buffers, light, player, model, s); // v0.17.3 hold X: the raw neck while the head is held back
 		UndeadBoneSwordRender.thirdPerson(pose, buffers, light, player, model, s, now); // v0.17.3 Shift+V
 		if (victor) {
 			float pulse = 0.55f + 0.45f * Mth.sin(now * 0.25f);
