@@ -14,7 +14,7 @@ import net.minecraft.sounds.SoundEvent;
  * lasts); everything else is a one-shot. Registration only: the power's code plays them.
  */
 public final class SaiyanSounds {
-	/** Holding Q: a rising power-up swell (one-shot, ~2 s), then {@link #KI_CHARGE_LOOP} while it is held. */
+	/** Holding Q: the power-up burst (one-shot, ~1.6 s, from the user's clip), then {@link #KI_CHARGE_LOOP} while it is held. */
 	public static final SoundEvent KI_CHARGE_START = register("saiyan_ki_charge_start");
 	public static final SoundEvent KI_CHARGE_LOOP = register("saiyan_ki_charge_loop");
 	/** Quiet aura hums for the forms: gold (SSJ 1-3), blue (Blue / Overdrive), red (God), silver (Instinct). Loops. */
