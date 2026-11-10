@@ -247,6 +247,7 @@
       "com.projecthero.mod.gametest.BeamClashGameTests",
       "com.projecthero.mod.gametest.RyukoGameTests",
       "com.projecthero.mod.gametest.AndyGameTests",
+      "com.projecthero.mod.gametest.SaiyanMovesGameTests",
       "com.projecthero.mod.gametest.AndySoundsGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
