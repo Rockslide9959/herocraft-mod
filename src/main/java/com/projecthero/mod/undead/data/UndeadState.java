@@ -300,6 +300,18 @@ public final class UndeadState {
 		};
 	}
 
+	/**
+	 * v0.17.3 (user: "the arm regenerates and then only after that the hand regenerates ... please fix that"): the arm / leg
+	 * {@code limb} and its hand / foot are growing back as ONE sweep -- started together, ending together
+	 * ({@code Undead#tick}) -- so the whole limb is drawn as one growth from the shoulder / hip out to the fingertips / toes, the
+	 * hand simply the last stretch of the same front. False for the head and body, and for a hand / foot growing alone.
+	 */
+	public boolean sweeping(int limb) {
+		int end = extremity(limb);
+		return end >= 0 && broken(limb) && broken(end) && regrowStart(limb) > 0L && regrowStart(end) == regrowStart(limb)
+				&& regrowEnd(end) == regrowEnd(limb);
+	}
+
 	/** The arm or leg a hand or foot grows from (the segment itself for the six parts). */
 	public static int limbOf(int seg) {
 		return switch (seg) {

@@ -28,9 +28,11 @@ public final class UndeadBulletConfig {
 	// ---------------------------------------------------------------- hold X: Head Throw
 	/**
 	 * The thrown head flies a ballistic arc: this speed along the look at release, minus {@link #HEAD_GRAVITY} a tick, no drag.
-	 * At 45 degrees over flat ground that is v^2 / g = 25 blocks ("throws their head around 25 blocks").
+	 * v0.17.3 (user: "Make the player able to throw their head up to 30 blocks please"): at 45 degrees over flat ground, let go
+	 * from behind the shoulder (1.9 up), the tick-by-tick arc lands about 30 blocks out (about 29 from the same height; the old
+	 * 1.118 gave about 25). {@link UndeadHeadThrow#predict} -- the trajectory line -- runs the same steps.
 	 */
-	public static final double HEAD_SPEED = 1.118;
+	public static final double HEAD_SPEED = 1.18;
 	public static final double HEAD_GRAVITY = 0.05;
 	/** The scripted arc lets go after this long at most (it normally ends on touching a block first). */
 	public static final int HEAD_MAX_FLIGHT = 120;

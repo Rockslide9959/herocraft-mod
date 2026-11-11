@@ -80,6 +80,10 @@ public final class UndeadClient {
 		UndeadCloneEntity.clientRemoval = UndeadCloneRenderer::removed;
 		WorldRenderEvents.AFTER_ENTITIES.register(UndeadHeadThrowRender::render); // v0.17.3 hold X: the trajectory line
 		ClientTickEvents.START_CLIENT_TICK.register(UndeadHeadThrowRender::tick); // v0.17.3: right click mid-throw
+		// v0.17.3 (user: "let the player see their third person body while their head is disconnected"): the full-body first
+		// person view, in place (the camera is the head)
+		com.projecthero.mod.client.fpbody.FirstPersonBody.registerInPlace(UndeadHeadThrowRender::headView);
+		com.projecthero.mod.client.fpbody.FirstPersonBody.registerLensRadius(UndeadHeadThrowRender::lensRadius);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
 		ClientTickEvents.END_CLIENT_TICK.register(UndeadClient::tick);
 		UndeadSounds.initialize(); // v0.17.3 Undead sounds: regrowth beds + accents, jets, burn, punch

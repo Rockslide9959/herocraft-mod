@@ -67,8 +67,67 @@ public final class FirstPersonBody {
 		SEQUENCES.add(sequenceRunning);
 	}
 
+	private static final List<Predicate<AbstractClientPlayer>> IN_PLACE = new CopyOnWriteArrayList<>();
+
+	/**
+	 * v0.17.3 (Undead's detached head): a view whose camera is not at the body's eyes at all (moved to wherever the head is), so
+	 * the body is drawn exactly where it stands -- no set-back ({@link #offset} is zero while one of these runs). Also counts as
+	 * a running sequence.
+	 */
+	public static void registerInPlace(Predicate<AbstractClientPlayer> running) {
+		IN_PLACE.add(running);
+	}
+
+	private static final List<java.util.function.ToDoubleFunction<AbstractClientPlayer>> LENS = new CopyOnWriteArrayList<>();
+
+	/**
+	 * v0.17.3: how far round the lens (blocks) the body is culled this frame, beyond the usual {@link CullingBufferSource#NEAR}
+	 * (Undead's thrown head: the body grows back right round the camera, so a wider bubble keeps it off the lens). 0: the usual.
+	 */
+	public static void registerLensRadius(java.util.function.ToDoubleFunction<AbstractClientPlayer> radius) {
+		LENS.add(radius);
+	}
+
+	private static float lens = CullingBufferSource.NEAR;
+
+	/** The lens bubble (blocks) for the body being drawn now: {@link CullingBufferSource#NEAR} or wider ({@link #registerLensRadius}). */
+	static float lensRadius() {
+		return lens;
+	}
+
+	private static float computeLens() {
+		float r = CullingBufferSource.NEAR;
+		LocalPlayer p = Minecraft.getInstance().player;
+		if (p != null) {
+			for (java.util.function.ToDoubleFunction<AbstractClientPlayer> f : LENS) {
+				try {
+					r = Math.max(r, (float) f.applyAsDouble(p));
+				} catch (RuntimeException e) {
+					ProjectHeroMod.LOGGER.debug("first-person body lens radius failed", e);
+				}
+			}
+		}
+		return r;
+	}
+
+	private static boolean test(List<Predicate<AbstractClientPlayer>> list, AbstractClientPlayer player) {
+		for (Predicate<AbstractClientPlayer> p : list) {
+			try {
+				if (p.test(player)) {
+					return true;
+				}
+			} catch (RuntimeException e) {
+				ProjectHeroMod.LOGGER.debug("first-person body predicate failed", e);
+			}
+		}
+		return false;
+	}
+
 	/** Is any registered sequence running on {@code player}? */
 	public static boolean sequenceRunning(AbstractClientPlayer player) {
+		if (test(IN_PLACE, player)) {
+			return true;
+		}
 		for (Predicate<AbstractClientPlayer> p : SEQUENCES) {
 			try {
 				if (p.test(player)) {
@@ -121,6 +180,7 @@ public final class FirstPersonBody {
 	public static void begin(Entity entity, CullingBufferSource source) {
 		rendering = entity;
 		renderingSource = source;
+		lens = computeLens();
 	}
 
 	public static void end() {
@@ -208,6 +268,9 @@ public final class FirstPersonBody {
 		if (entity instanceof net.minecraft.world.entity.LivingEntity le && (le.isFallFlying() || le.isVisuallySwimming()
 				|| le.isSleeping())) {
 			return Vec3.ZERO;
+		}
+		if (entity instanceof AbstractClientPlayer acp && test(IN_PLACE, acp)) {
+			return Vec3.ZERO; // the camera is somewhere else (Undead's detached head): the body where it really stands
 		}
 		float pitch = Mth.clamp(entity.getViewXRot(partialTick), 0f, 90f);
 		double lookDown = Mth.clamp((pitch - 20f) / 60f, 0f, 1f);

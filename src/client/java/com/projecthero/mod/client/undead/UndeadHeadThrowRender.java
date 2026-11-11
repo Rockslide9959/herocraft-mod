@@ -7,6 +7,7 @@ import java.util.WeakHashMap;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import com.projecthero.mod.undead.Undead;
 import com.projecthero.mod.undead.UndeadBulletConfig;
 import com.projecthero.mod.undead.UndeadHeadThrow;
@@ -18,10 +19,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -77,12 +82,22 @@ public final class UndeadHeadThrowRender {
 	 * The struggle: both hands clamped on the sides of the head, wrenching it -- twists side to side that get bigger and quicker,
 	 * the head lifting off the neck as it gives, the shoulders hunched and shaking.
 	 */
-	private static void rip(HumanoidModel<?> model, float age) {
-		float span = UndeadBulletConfig.HEAD_RIP_HOLD - UndeadBulletConfig.HEAD_RIP_SHOW;
-		float k = Mth.clamp(age / span, 0f, 1f);
-		float in = Mth.clamp(age / 4f, 0f, 1f);
+	/** 0..1 through the struggle ({@code age} ticks into it): how hard he is wrenching. */
+	static float ripK(float age) {
+		return Mth.clamp(age / (UndeadBulletConfig.HEAD_RIP_HOLD - UndeadBulletConfig.HEAD_RIP_SHOW), 0f, 1f);
+	}
+
+	/** The head's twist (radians) at {@code age}: side-to-side jerks growing bigger and quicker. Shared by the pose and the view. */
+	static float ripJerk(float age) {
+		float k = ripK(age);
 		float rate = 0.55f + 0.9f * k;
-		float jerk = Mth.sin(age * rate) * (0.15f + 0.45f * k) + Mth.sin(age * 2.7f) * 0.05f * k;
+		return Mth.sin(age * rate) * (0.15f + 0.45f * k) + Mth.sin(age * 2.7f) * 0.05f * k;
+	}
+
+	private static void rip(HumanoidModel<?> model, float age) {
+		float k = ripK(age);
+		float in = Mth.clamp(age / 4f, 0f, 1f);
+		float jerk = ripJerk(age);
 		float shake = Mth.sin(age * 5.3f) * 0.04f * (0.3f + k);
 		model.head.yRot = Mth.lerp(in, model.head.yRot, jerk);
 		model.head.xRot = Mth.lerp(in, model.head.xRot, -0.2f * k + shake);
@@ -161,6 +176,206 @@ public final class UndeadHeadThrowRender {
 		for (float[] v : p) {
 			vc.addVertex(m, v[0] / 16f, y / 16f, v[1] / 16f).setColor(255, 255, 255, 255).setUv(v[2], v[3]).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(light).setNormal(pose.last(), 0, -1, 0);
+		}
+	}
+
+	// ---------------------------------------------------------------- first person: the rip, the head's own view
+
+	/**
+	 * The vanilla bare right arm's shoulder and fist in the hand renderer's camera space ({@code renderPlayerArm} at rest; x is
+	 * mirrored for the left). The rip's hands are that same arm moved as a rigid body so its fist lands where the head is gripped.
+	 */
+	private static final Vector3f VANILLA_SHOULDER = new Vector3f(0.504f, -0.819f, -0.663f), VANILLA_FIST = new Vector3f(0.735f, -0.479f, -1.138f);
+
+	/**
+	 * v0.17.3 (user: "in first person ... the player should see the hands and arm pulling the head off"): while he struggles to
+	 * tear his head off (hold X), both hands and forearms come up from the bottom corners into view and clamp the sides of his
+	 * head -- the edges of the view -- wrenching at it: they shake harder and pull up as it gives, while the view itself twists
+	 * with the head ({@link #shakeAngles}; the hands are counter-turned so they stay clamped on while the world wrenches round).
+	 * From {@link UndeadFirstPerson#arms}: true if this took the hands over (only the main hand's call draws both).
+	 */
+	static boolean firstPersonRip(ItemInHandRenderer renderer, AbstractClientPlayer player, UndeadState s, float now, InteractionHand hand, PoseStack pose,
+			MultiBufferSource buffers, int light) {
+		if (s.animId != UndeadHeadThrow.ANIM_RIP) {
+			return false;
+		}
+		if (hand != InteractionHand.MAIN_HAND) {
+			return true;
+		}
+		float age = Math.max(0f, now - s.animStart);
+		float k = ripK(age);
+		float jerk = ripJerk(age);
+		float in = Mth.clamp(age / 5f, 0f, 1f);
+		float e = in * in * (3f - 2f * in);
+		float[] sh = shakeAngles(player, s, now);
+		pose.pushPose();
+		// the hands hold the head the camera is in: undo the view's twist so they stay put on screen
+		pose.mulPose(Axis.YP.rotationDegrees(-sh[2]));
+		pose.mulPose(Axis.XP.rotationDegrees(-sh[1]));
+		pose.mulPose(Axis.ZP.rotationDegrees(-sh[0]));
+		for (HumanoidArm side : HumanoidArm.values()) {
+			int arm = side == HumanoidArm.RIGHT ? UndeadState.RIGHT_ARM : UndeadState.LEFT_ARM;
+			if (s.broken(arm)) {
+				continue;
+			}
+			float sd = side == HumanoidArm.RIGHT ? 1f : -1f;
+			float tremble = Mth.sin(now * 5.3f + sd * 1.7f) * 0.007f * (0.3f + k);
+			// rising from below the view to the sides of the head; the two hands twist it against each other (one up, one down)
+			// and pull up harder as it gives
+			Vector3f fist = new Vector3f(GRIP_X * sd + tremble, GRIP_Y - 0.55f * (1f - e) + 0.035f * k * k + jerk * 0.05f * sd, GRIP_Z);
+			Vector3f along = new Vector3f(-0.25f * sd, 0.9f, -0.2f);
+			along.rotateZ(jerk * 0.18f).normalize();
+			rigidArm(renderer, pose, buffers, light, side, fist, along, GRIP_TWIST * sd + tremble * 40f);
+		}
+		pose.popPose();
+		return true;
+	}
+
+	/** Where the rip's fists grip (camera space): out at the sides of the view at about eye height, close. */
+	static final float GRIP_X = 0.17f, GRIP_Y = -0.03f, GRIP_Z = -0.36f;
+	/** The fists turned about the forearm (degrees) so the palms face in, onto the head. */
+	static final float GRIP_TWIST = 70f;
+
+	/** The vanilla bare arm moved as one piece: its fist to {@code fist}, its shoulder-to-fist line along {@code along}, turned {@code twist} degrees about it. */
+	private static void rigidArm(ItemInHandRenderer renderer, PoseStack pose, MultiBufferSource buffers, int light, HumanoidArm side, Vector3f fist, Vector3f along,
+			float twist) {
+		float sd = side == HumanoidArm.RIGHT ? 1f : -1f;
+		Vector3f vFist = new Vector3f(VANILLA_FIST.x * sd, VANILLA_FIST.y, VANILLA_FIST.z);
+		Vector3f vAxis = new Vector3f(VANILLA_FIST).sub(VANILLA_SHOULDER).mul(sd, 1f, 1f).normalize();
+		Quaternionf q = new Quaternionf().rotationAxis(twist * Mth.DEG_TO_RAD, along.x, along.y, along.z).mul(new Quaternionf().rotationTo(vAxis, along));
+		pose.pushPose();
+		pose.translate(fist.x, fist.y, fist.z);
+		pose.mulPose(q);
+		pose.translate(-vFist.x, -vFist.y, -vFist.z);
+		((com.projecthero.mod.client.mixin.UndeadItemInHandInvoker) renderer).projecthero$renderPlayerArm(pose, buffers, light, 0f, 0f, side);
+		pose.popPose();
+	}
+
+	/**
+	 * The view's twist this frame for the local player, {roll, pitch, yaw} in degrees: while he wrenches at his head it jerks and
+	 * twists with the head (growing with the struggle); the moment it tears off a sharp jolt that dies away.
+	 */
+	static float[] shakeAngles(Player p, UndeadState s, float now) {
+		if (s == null || !s.hasPower) {
+			return new float[3];
+		}
+		float age = Math.max(0f, now - s.animStart);
+		if (s.animId == UndeadHeadThrow.ANIM_RIP) {
+			float k = ripK(age);
+			float in = Mth.clamp(age / 4f, 0f, 1f);
+			float jerk = ripJerk(age) * Mth.RAD_TO_DEG;
+			float judder = (Mth.sin(age * 5.3f) * 0.9f + Mth.sin(age * 8.9f) * 0.5f) * (0.3f + k);
+			return new float[] { (jerk * 0.3f + judder * 0.6f) * in, (-5f * k + judder * 0.7f) * in, jerk * 0.35f * in };
+		}
+		if (s.animId == UndeadHeadThrow.ANIM_AIM && age < TEAR_JOLT) {
+			float d = 1f - age / TEAR_JOLT;
+			d *= d;
+			return new float[] { 9f * d * Mth.sin(age * 2.4f), -12f * d * Mth.cos(age * 1.9f), 5f * d * Mth.sin(age * 3.1f) };
+		}
+		return new float[3];
+	}
+
+	/** Ticks the tear-off jolt of the view lasts. */
+	static final float TEAR_JOLT = 9f;
+
+	/** From {@link UndeadFirstPerson#shake} (the world and hand views): the rip's twist and the tear-off jolt, first person only. */
+	public static void shake(PoseStack pose, float partial) {
+		Minecraft mc = Minecraft.getInstance();
+		Player p = mc.player;
+		if (p == null || mc.level == null || !mc.options.getCameraType().isFirstPerson() || mc.getCameraEntity() != p) {
+			return;
+		}
+		float[] a = shakeAngles(p, Undead.peek(p), mc.level.getGameTime() + partial);
+		if (a[0] == 0f && a[1] == 0f && a[2] == 0f) {
+			return;
+		}
+		pose.mulPose(Axis.ZP.rotationDegrees(a[0]));
+		pose.mulPose(Axis.XP.rotationDegrees(a[1]));
+		pose.mulPose(Axis.YP.rotationDegrees(a[2]));
+	}
+
+	/** Ticks the first-person camera takes to swing from the eyes out to the held head once it is off. */
+	static final float CAMERA_SWING = 6f;
+
+	/**
+	 * v0.17.3 (user: "once they do their perspective should match where the head is so their head should be slightly off center
+	 * with the body"): where the local player's first-person camera goes ({@code eye}: vanilla's), or null to leave it. Tearing
+	 * at it, the view lifts as the neck stretches; once it is off and held back behind the shoulder, the camera swings out to the
+	 * held head ({@link UndeadHeadThrow#heldHeadPos}): an off-centre view from the head, behind and beside his own body (drawn in
+	 * full meanwhile: {@link #headView}). In the air the player is the head, so vanilla's camera already follows it.
+	 */
+	public static Vec3 cameraPos(Player p, float partial, Vec3 eye) {
+		UndeadState s = Undead.peek(p);
+		if (s == null || !s.hasPower || p.level() == null) {
+			return null;
+		}
+		float now = p.level().getGameTime() + partial;
+		float age = Math.max(0f, now - s.animStart);
+		if (s.animId == UndeadHeadThrow.ANIM_RIP) {
+			float k = ripK(age);
+			float in = Mth.clamp(age / 4f, 0f, 1f);
+			return eye.add(0, in * (0.4f + 2.2f * k * k) / 16f * 0.9375f, 0); // the model's head lift, in blocks
+		}
+		if (s.animId != UndeadHeadThrow.ANIM_AIM || s.broken(UndeadState.HEAD) || s.broken(UndeadState.BODY)) {
+			return null;
+		}
+		float f = Mth.clamp(age / CAMERA_SWING, 0f, 1f);
+		f = f * f * (3f - 2f * f);
+		Vec3 lifted = eye.add(0, 2.6f / 16f * 0.9375f, 0);
+		// the held head's middle, eased a touch back and up (where its eyes look out past his shoulder), so his own back,
+		// shoulder and pointing arm read as a body rather than one shoulder pressed against the lens
+		float yaw = Mth.rotLerp(partial, p.yRotO, p.getYRot());
+		Vec3 flat = Vec3.directionFromRotation(0f, yaw);
+		Vec3 head = UndeadHeadThrow.heldHeadPos(p, partial).add(flat.scale(-HEAD_VIEW_BACK)).add(0, HEAD_VIEW_UP, 0);
+		return lifted.lerp(head, f);
+	}
+
+	/** How far behind and above the held head's middle the aiming camera sits (blocks): about where its eyes are, cupped back. */
+	static final double HEAD_VIEW_BACK = 0.3, HEAD_VIEW_UP = 0.12;
+
+	/**
+	 * The full-body view's lens bubble (blocks) for {@code FirstPersonBody}: a thrown head grows its body back right round the
+	 * camera (and leaves the old one just under it as it flies off), so everything within {@link #THROWN_LENS} of the lens is kept off
+	 * it; the rest of the body -- the torso stretching away, the limbs -- shows. 0 otherwise (the usual bubble).
+	 */
+	public static double lensRadius(AbstractClientPlayer p) {
+		UndeadState s = Undead.peek(p);
+		return s != null && s.hasPower && s.animId != UndeadHeadThrow.ANIM_AIM && headView(p) ? THROWN_LENS : 0.0;
+	}
+
+	static final double THROWN_LENS = 0.6;
+
+	/** The local player was thrown as a head and the body has not all grown back yet (see {@link #headView}). */
+	private static boolean thrownView;
+
+	/**
+	 * v0.17.3 (user: "also let the player see their third person body while their head is disconnected please"): the local
+	 * player's own body is drawn in first person (the full-body view, {@code FirstPersonBody}, in place: the camera is the head)
+	 * while the head is off -- held back to throw, in the air, and after it lands until the body has grown back round it. The
+	 * head itself (in his hand, or the one he is) is culled from the lens as in every full-body view.
+	 */
+	public static boolean headView(AbstractClientPlayer p) {
+		if (p != Minecraft.getInstance().player) {
+			return false;
+		}
+		UndeadState s = Undead.peek(p);
+		if (s == null || !s.hasPower) {
+			return false;
+		}
+		if (s.animId == UndeadHeadThrow.ANIM_AIM && !s.broken(UndeadState.HEAD) && !s.broken(UndeadState.BODY)) {
+			return true;
+		}
+		return s.animId == UndeadHeadThrow.ANIM_THROWN || thrownView && s.anyBroken() && !s.broken(UndeadState.HEAD);
+	}
+
+	private static void watchThrown(Player p) {
+		UndeadState s = p == null ? null : Undead.peek(p);
+		if (s == null || !s.hasPower || s.broken(UndeadState.HEAD)) {
+			thrownView = false;
+		} else if (s.animId == UndeadHeadThrow.ANIM_THROWN) {
+			thrownView = true;
+		} else if (thrownView && !s.anyBroken()) {
+			thrownView = false;
 		}
 	}
 
@@ -266,6 +481,7 @@ public final class UndeadHeadThrowRender {
 	/** Start of every client tick: right click while the thrown head is still in the air grows the body back now. */
 	static void tick(Minecraft mc) {
 		Player p = mc.player;
+		watchThrown(p);
 		if (p == null || mc.screen != null || !UndeadHeadThrow.awaitingRegrowth(p) || !Undead.hasPower(p)) {
 			sent = false;
 			return;

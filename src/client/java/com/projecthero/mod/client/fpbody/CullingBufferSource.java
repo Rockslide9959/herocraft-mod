@@ -117,7 +117,8 @@ public final class CullingBufferSource implements MultiBufferSource {
 	 */
 	static boolean inHead(float cx, float cy, float cz, float nx, float ny, float nz) {
 		// right at the lens (the camera is the origin of the world pass's camera-relative space): shoulders, a raised arm
-		if (cx * cx + cy * cy + cz * cz < NEAR * NEAR) {
+		float near = FirstPersonBody.lensRadius();
+		if (cx * cx + cy * cy + cz * cz < near * near) {
 			return true;
 		}
 		Matrix4f inv = FirstPersonBody.headInverse();

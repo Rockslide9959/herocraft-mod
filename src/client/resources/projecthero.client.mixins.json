@@ -153,6 +153,7 @@
 		"UndeadHeadThrowInputMixin",
 		"UndeadItemInHandInvoker",
 		"UndeadCameraMixin",
+		"UndeadHeadCameraMixin",
 		"UndeadLaunchFovMixin",
 		"UndeadBoostInputMixin",
 		"BeamClashParticleMixin",

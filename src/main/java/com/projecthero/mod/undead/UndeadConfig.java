@@ -43,6 +43,27 @@ public final class UndeadConfig {
 	 */
 	public static final int REGROW_DELAY = 30;
 	/**
+	 * v0.17.3 (user: "make it take 1 full second to regenerate a limb completely"): the ticks a lost arm + hand (or leg + foot)
+	 * takes from the start of its regrowth to fully skinned -- ONE sweep from the shoulder / hip out to the fingertips / toes
+	 * (user: "it doesnt regenerate all at once, please fix that"): the hand / foot starts with its limb and grows as the last
+	 * stretch of the same front ({@code UndeadState#sweeping}). Times {@code UndeadRegenMods.durationMult}.
+	 */
+	public static final int LIMB_SWEEP_TICKS = 20;
+	/**
+	 * Ticks to whole by segment, at the normal speed ({@code Undead#regrowTicks}). The arms and legs are {@link #LIMB_SWEEP_TICKS}
+	 * (their hand / foot included); the head and body keep their old share of a limb's regrowth (the old one-frame-a-tick limb
+	 * with its hand took 22 ticks, so 20/22 of their {@link #FRAMES}: head 17 -> 15, body 20 -> 18), and so does a hand / foot
+	 * that grows back alone (12 -> 11, 11 -> 10). An arm / leg growing without its end (its hand still on) takes the wrist's share
+	 * of the sweep ({@link #limbAloneTicks}).
+	 */
+	public static final int[] REGROW_TICKS = { 15, 18, LIMB_SWEEP_TICKS, LIMB_SWEEP_TICKS, LIMB_SWEEP_TICKS, LIMB_SWEEP_TICKS, 11, 11, 10, 10 };
+
+	/** An arm / leg growing back to the wrist / ankle only (its hand / foot still there): that share of the sweep. */
+	public static int limbAloneTicks() {
+		return Math.round(LIMB_SWEEP_TICKS * (12f - HAND_ROWS) / 12f);
+	}
+
+	/**
 	 * The order, checked every tick: a segment may start growing only once the one it grows from has this many frames (or is
 	 * whole). v0.17.3 (user: "sometimes the hand will start regrowing at the same time as the arm so it looks like the hand is
 	 * materializing midair"): a child never shows before its parent has grown out to where it attaches -- the parent's bone

@@ -83,7 +83,7 @@ public class UndeadRegenGameTests implements FabricGameTest {
 	public void aLostPartWaitsASecondAndAHalf(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		helper.assertTrue(UndeadConfig.REGROW_DELAY == 30, "30 ticks");
-		helper.assertTrue(Undead.regrowDelay(p) == 30 && Undead.regrowTicks(p, UndeadState.LEFT_ARM) == UndeadConfig.FRAMES[UndeadState.LEFT_ARM],
+		helper.assertTrue(Undead.regrowDelay(p) == 30 && Undead.regrowTicks(p, UndeadState.LEFT_ARM) == UndeadConfig.LIMB_SWEEP_TICKS,
 				"no slow-downs: the plain numbers");
 		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
 		long broke = Undead.state(p).brokenAt(UndeadState.LEFT_LEG);
@@ -97,12 +97,13 @@ public class UndeadRegenGameTests implements FabricGameTest {
 			}
 			if (now == broke + UndeadConfig.REGROW_DELAY) {
 				helper.assertTrue(s.regrowStart(UndeadState.LEFT_LEG) == broke + UndeadConfig.REGROW_DELAY, "starts at 1.5 s");
-				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_LEG) - s.regrowStart(UndeadState.LEFT_LEG) == UndeadConfig.FRAMES[UndeadState.LEFT_LEG],
-						"a leg takes its 20 frames");
+				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_LEG) - s.regrowStart(UndeadState.LEFT_LEG) == UndeadConfig.LIMB_SWEEP_TICKS,
+						"a leg (with its foot) takes 1 s");
+				helper.assertTrue(s.regrowStart(UndeadState.LEFT_FOOT) == s.regrowStart(UndeadState.LEFT_LEG), "the foot starts with the leg");
 			}
 			if (!s.broken(UndeadState.LEFT_LEG) && !s.broken(UndeadState.LEFT_FOOT)) {
-				// leg: 30 + 20; the foot from the leg's 11th frame: 30 + 11 + 11
-				helper.assertTrue(now - broke <= UndeadConfig.REGROW_DELAY + 22 + 2, "whole about 2.6 s after it went: " + (now - broke));
+				// v0.17.3 one sweep: leg and foot together, 30 + 20 (the delay, then exactly one second)
+				helper.assertTrue(now - broke == UndeadConfig.REGROW_DELAY + UndeadConfig.LIMB_SWEEP_TICKS, "whole 2.5 s after it went: " + (now - broke));
 				helper.succeed();
 			}
 		});
@@ -139,7 +140,8 @@ public class UndeadRegenGameTests implements FabricGameTest {
 				int parent = UndeadState.parentOf(i);
 				float pf = s.frame(parent, st);
 				helper.assertTrue(st >= s.brokenAt(i) + UndeadConfig.REGROW_DELAY, "segment " + i + " waited the 1.5 s");
-				helper.assertTrue(!s.broken(parent) || pf >= Undead.needs(i) - 0.001f,
+				// (v0.17.3: a hand / foot starts WITH its arm / leg, as one sweep -- drawn as the last stretch of the limb's front)
+				helper.assertTrue(!s.broken(parent) || pf >= Undead.needs(i) - 0.001f || i >= UndeadState.PARTS && s.sweeping(parent),
 						"segment " + i + " started with its parent at frame " + pf + " (needs " + Undead.needs(i) + ")");
 				helper.assertTrue(Undead.mayShow(s, i, st), "and may be drawn from its first frame");
 			}
@@ -173,6 +175,79 @@ public class UndeadRegenGameTests implements FabricGameTest {
 			Undead.tick(p);
 			if (helper.getLevel().getGameTime() == broke + UndeadConfig.REGROW_DELAY + 1) {
 				helper.assertTrue(Undead.state(p).regrowStart(UndeadState.RIGHT_HAND) == broke + UndeadConfig.REGROW_DELAY, "the arm is whole: straight after the delay");
+				helper.succeed();
+			}
+		});
+	}
+
+	/**
+	 * User: "the arm regenerates and then only after that the hand regenerates, it doesnt regenerate all at once, please fix that"
+	 * and "make it take 1 full second to regenerate a limb completely": a lost arm + hand (and leg + foot) start together, grow as
+	 * one sweep (the same progress every tick, 1/20 a tick) and are whole together exactly 20 ticks after the start.
+	 */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aLostLimbAndItsEndRegrowAsOneSweepInOneSecond(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		helper.assertTrue(UndeadConfig.LIMB_SWEEP_TICKS == 20, "one second");
+		Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST);
+		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
+		UndeadState b = Undead.state(p);
+		helper.assertTrue(b.broken(UndeadState.RIGHT_HAND) && b.broken(UndeadState.LEFT_FOOT), "the hand and foot go with them");
+		int[] limbs = { UndeadState.RIGHT_ARM, UndeadState.LEFT_LEG };
+		long[] start = { 0L };
+		float[] last = new float[2];
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			UndeadState s = Undead.state(p);
+			long now = helper.getLevel().getGameTime();
+			if (start[0] == 0L) {
+				if (s.regrowStart(UndeadState.RIGHT_ARM) <= 0L) {
+					helper.assertTrue(s.regrowStart(UndeadState.RIGHT_HAND) <= 0L, "the hand never starts before its arm");
+					return;
+				}
+				start[0] = s.regrowStart(UndeadState.RIGHT_ARM);
+				for (int limb : limbs) {
+					int end = UndeadState.extremity(limb);
+					helper.assertTrue(s.regrowStart(end) == s.regrowStart(limb), "segment " + end + " starts with its limb, not after it");
+					helper.assertTrue(s.regrowEnd(end) == s.regrowEnd(limb) && s.regrowEnd(limb) - s.regrowStart(limb) == UndeadConfig.LIMB_SWEEP_TICKS,
+							"and both end together, 20 ticks on");
+					helper.assertTrue(s.sweeping(limb) && Undead.mayShow(s, end, now), "one sweep, drawn with its limb");
+				}
+			}
+			long age = now - start[0];
+			if (age < UndeadConfig.LIMB_SWEEP_TICKS) {
+				for (int k = 0; k < limbs.length; k++) {
+					int limb = limbs[k], end = UndeadState.extremity(limb);
+					float pl = s.regrowth(limb, now), pe = s.regrowth(end, now);
+					helper.assertTrue(Math.abs(pl - pe) < 1e-4f, "the hand / foot is the same growth as its limb: " + pl + " vs " + pe);
+					if (age > 0) {
+						helper.assertTrue(Math.abs(pl - last[k] - 1f / UndeadConfig.LIMB_SWEEP_TICKS) < 1e-4f, "1/20 of the limb a tick: " + (pl - last[k]));
+					}
+					last[k] = pl;
+					helper.assertTrue(s.broken(limb) && s.broken(end), "still growing at " + age);
+				}
+				return;
+			}
+			helper.assertTrue(age == UndeadConfig.LIMB_SWEEP_TICKS, "whole on the 20th tick: " + age);
+			for (int limb : limbs) {
+				helper.assertTrue(!s.broken(limb) && !s.broken(UndeadState.extremity(limb)), "segment " + limb + " and its end whole together");
+			}
+			helper.succeed();
+		});
+	}
+
+	/** A hand lost on its own still grows back on its own (its own, shorter time; no sweep). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void aHandAloneStillGrowsAlone(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		Undead.breakPart(p, UndeadState.LEFT_HAND, UndeadState.KIND_BURST);
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			UndeadState s = Undead.state(p);
+			if (s.regrowStart(UndeadState.LEFT_HAND) > 0L) {
+				helper.assertTrue(!s.broken(UndeadState.LEFT_ARM) && !s.sweeping(UndeadState.LEFT_ARM), "no sweep: the arm is whole");
+				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_HAND) - s.regrowStart(UndeadState.LEFT_HAND) == UndeadConfig.REGROW_TICKS[UndeadState.LEFT_HAND]
+						&& UndeadConfig.REGROW_TICKS[UndeadState.LEFT_HAND] < UndeadConfig.LIMB_SWEEP_TICKS, "its own, shorter time");
 				helper.succeed();
 			}
 		});

@@ -41,7 +41,8 @@ import org.joml.Vector3f;
  * automatic. v0.17.3 core regen rework: a lost segment waits {@link UndeadConfig#REGROW_DELAY} (1.5 s) before it starts, and a
  * child never starts before its parent has grown out to where it attaches ({@link #needs}: a hand once its arm's bone has
  * reached the wrist, the legs once the body's has reached the hips ...); {@link UndeadRegenMods} stretches the delay and the
- * regrowth. He gets about however what is left lets him ({@link UndeadStages}); worn armour falls off the parts it sat on
+ * regrowth. v0.17.3 one-sweep limbs: a lost arm + hand (leg + foot) regrows as one growth, both starting and ending together over
+ * {@link UndeadConfig#LIMB_SWEEP_TICKS} (1 s), the hand the last stretch of the same front ({@link UndeadState#sweeping}). He gets about however what is left lets him ({@link UndeadStages}); worn armour falls off the parts it sat on
  * ({@link UndeadArmour}); a hand he doesn't have can't hold or use anything ({@link #handMissing}).
  *
  * <h2>Vanilla health</h2>
@@ -611,8 +612,19 @@ public final class Undead {
 				if (n == null) {
 					n = s.copy();
 				}
-				n.setTimes(i, cur.brokenAt(i), now, now + regrowTicks(player, i));
+				// v0.17.3 (user: "it doesnt regenerate all at once, please fix that"): a lost arm / leg takes its lost hand / foot
+				// along -- both start now and end together, one sweep of LIMB_SWEEP_TICKS from the shoulder / hip to the fingertips /
+				// toes (the drawing shows the hand only as the front reaches the wrist: UndeadState#sweeping)
+				int tip = UndeadState.extremity(i);
+				boolean sweep = tip >= 0 && cur.broken(tip) && cur.regrowStart(tip) <= 0L;
+				long len = tip >= 0 && !sweep ? Math.max(1, Math.round(UndeadConfig.limbAloneTicks() * UndeadRegenMods.durationMult(player)))
+						: regrowTicks(player, i);
+				n.setTimes(i, cur.brokenAt(i), now, now + len);
 				startedRegrowing(player, i, cur.kind(i));
+				if (sweep) {
+					n.setTimes(tip, cur.brokenAt(tip), now, now + len);
+					startedRegrowing(player, tip, cur.kind(tip));
+				}
 			} else if (now >= end) {
 				if (n == null) {
 					n = s.copy();
@@ -742,6 +754,9 @@ public final class Undead {
 	 */
 	public static boolean mayShow(UndeadState s, int seg, float now) {
 		int parent = UndeadState.parentOf(seg);
+		if (seg >= UndeadState.PARTS && s.sweeping(parent)) {
+			return true; // one sweep with its limb: drawn as the last stretch of the limb's own front (never ahead of it)
+		}
 		return parent < 0 || !s.broken(parent) || s.frame(parent, now) >= needs(seg);
 	}
 
@@ -762,9 +777,12 @@ public final class Undead {
 		return Math.max(0, Math.round(UndeadConfig.REGROW_DELAY * UndeadRegenMods.delayMult(player)));
 	}
 
-	/** Ticks a segment's regrowth takes: its {@link UndeadConfig#FRAMES} times {@link UndeadRegenMods#durationMult}. */
+	/**
+	 * Ticks a segment's regrowth takes: its {@link UndeadConfig#REGROW_TICKS} times {@link UndeadRegenMods#durationMult} -- for an
+	 * arm / leg the whole one-sweep limb with its hand / foot ({@link UndeadConfig#LIMB_SWEEP_TICKS}, user: 1 s).
+	 */
 	public static int regrowTicks(Player player, int seg) {
-		return Math.max(1, Math.round(UndeadConfig.FRAMES[seg] * UndeadRegenMods.durationMult(player)));
+		return Math.max(1, Math.round(UndeadConfig.REGROW_TICKS[seg] * UndeadRegenMods.durationMult(player)));
 	}
 
 	static void startedRegrowing(ServerPlayer player, int part, int kind) {

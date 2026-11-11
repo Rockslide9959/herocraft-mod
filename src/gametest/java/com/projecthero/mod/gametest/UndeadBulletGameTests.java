@@ -85,14 +85,15 @@ public class UndeadBulletGameTests implements FabricGameTest {
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadAbilities.DIVISION) == 200, "Division Bullet: 10 s");
 		helper.assertTrue(UndeadBulletConfig.CLONE_LIFE == 400 && UndeadBulletConfig.CLONE_DAMAGE == 8f && UndeadBulletConfig.CLONE_HEALTH == 30f,
 				"clone: 20 s, 8 a hit, 30 HP");
-		// the head's arc: 45 degrees over flat ground lands about 25 blocks away
+		// v0.17.3 (user: "Make the player able to throw their head up to 30 blocks please"): 45 degrees over flat ground, let go
+		// from behind the shoulder (the held head's middle 1.9 up, landing with it a quarter block up), lands about 30 blocks out
 		Vec3 pos = Vec3.ZERO;
 		Vec3 v = new Vec3(0, 1, 1).normalize().scale(UndeadBulletConfig.HEAD_SPEED);
-		for (int t = 0; t < 200 && (t == 0 || pos.y > 0); t++) {
+		for (int t = 0; t < 200 && (t == 0 || pos.y > 0.25 - 1.9); t++) {
 			pos = pos.add(v);
 			v = UndeadHeadThrow.step(v);
 		}
-		helper.assertTrue(pos.z > 23 && pos.z < 27, "the head flies about 25 blocks: " + pos.z);
+		helper.assertTrue(pos.z > 29 && pos.z < 32, "the head flies about 30 blocks: " + pos.z);
 		helper.succeed();
 	}
 
@@ -283,6 +284,42 @@ public class UndeadBulletGameTests implements FabricGameTest {
 		helper.assertTrue(!UndeadHeadThrow.flying(p), "a release without an aim throws nothing");
 		Undead.breakPart(p, UndeadState.BODY, UndeadState.KIND_BURST);
 		helper.assertTrue(!UndeadHeadThrow.start(p), "no body, no throw");
+		helper.succeed();
+	}
+
+	/**
+	 * User: "Make the player able to throw their head up to 30 blocks please": aimed 45 degrees up, the trajectory line (the
+	 * flight's own steps, {@link UndeadHeadThrow#predict}) from the held head comes down to the height of his feet about 30 blocks
+	 * out, and every point of it is the flight's tick-by-tick arc. (In open sky well above the test, so nothing is in the way.)
+	 */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aFortyFiveDegreeThrowLandsAboutThirtyBlocksOut(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		p.setYRot(0f);
+		p.setXRot(-45f);
+		Vec3 lift = new Vec3(0, 90, 0);
+		Vec3 start = UndeadHeadThrow.heldHeadPos(p, 1f).add(lift);
+		Vec3 vel = UndeadHeadThrow.throwVelocity(p, 1f);
+		helper.assertTrue(Math.abs(vel.length() - UndeadBulletConfig.HEAD_SPEED) < 1e-6, "thrown at HEAD_SPEED");
+		List<Vec3> line = UndeadHeadThrow.predict(helper.getLevel(), start, vel, UndeadBulletConfig.HEAD_PREDICT_TICKS, new boolean[1]);
+		// the line's points are the flight's ticks: start, then pos += vel, vel = step(vel)
+		Vec3 pos = start, v = vel;
+		for (int t = 1; t < Math.min(line.size(), 12); t++) {
+			pos = pos.add(v);
+			v = UndeadHeadThrow.step(v);
+			helper.assertTrue(line.get(t).distanceTo(pos) < 1e-6, "the line is the flight's own arc at tick " + t);
+		}
+		double ground = p.getY() + lift.y + UndeadHeadThrow.HEAD_SIZE * 0.5; // the head's middle when its box sits on the floor he stands on
+		Vec3 down = null;
+		for (Vec3 q : line.subList(1, line.size())) {
+			if (q.y <= ground) {
+				down = q;
+				break;
+			}
+		}
+		helper.assertTrue(down != null, "the line comes back down");
+		double dist = Math.sqrt((down.x - p.getX()) * (down.x - p.getX()) + (down.z - p.getZ()) * (down.z - p.getZ()));
+		helper.assertTrue(dist > 29.0 && dist < 32.0, "lands about 30 blocks out: " + dist);
 		helper.succeed();
 	}
 

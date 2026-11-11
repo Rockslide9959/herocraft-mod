@@ -1,0 +1,397 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.UndeadHeadThrow;
+import com.projecthero.mod.undead.data.UndeadState;
+import com.projecthero.mod.undead.entity.UndeadPartEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the one-sweep limb regrowth, the 30-block head throw and the head's own view. Enabled by run/undeadregen2.flag. */
+public final class UndeadRegenV2Harness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static volatile String logTag;
+	private static final String ONLY = System.getProperty("undeadregen2.only", "riprip");
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private UndeadRegenV2Harness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadregen2.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadRegenV2Harness::tick);
+		ServerTickEvents.END_SERVER_TICK.register(UndeadRegenV2Harness::serverLog);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadregen2-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String name) {
+		return ONLY.isEmpty() || ONLY.contains(name);
+	}
+
+	private static void serverLog(MinecraftServer srv) {
+		String tag = logTag;
+		if (tag == null || srv.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
+		ServerPlayer p = srv.getPlayerList().getPlayers().get(0);
+		UndeadState s = Undead.state(p);
+		long now = p.level().getGameTime();
+		StringBuilder b = new StringBuilder(String.format("[REGEN2] %s t=%d pos=%.2f,%.2f,%.2f anim=%d fly=%s", tag, now, p.getX() - base.x, p.getY() - base.y,
+				p.getZ() - base.z, s.animId, UndeadHeadThrow.flying(p)));
+		for (int i = 0; i < UndeadState.SEGS; i++) {
+			if (s.broken(i)) {
+				b.append(String.format(" s%d:st%d p%.2f", i, s.regrowStart(i) == 0 ? -1 : now - s.regrowStart(i), s.regrowth(i, now)));
+			}
+		}
+		System.out.println(b);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadRegenV2Harness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("u2_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+					logTag = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("U2_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			logTag = name;
+			System.out.println("[HARNESS] recording " + name);
+		});
+	}
+
+	private static void reset(ServerPlayer p) {
+		p.serverLevel().getEntitiesOfClass(UndeadPartEntity.class, p.getBoundingBox().inflate(120)).forEach(e -> e.discard());
+		UndeadHeadThrow.cancel(p);
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.flags = 0;
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.setHealth(p.getMaxHealth());
+		p.refreshDimensions();
+	}
+
+	private static void look(Minecraft mc, float yaw, float pitch) {
+		if (mc.player != null) {
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = yaw;
+			mc.player.xRotO = pitch;
+		}
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 lookAt, float pitch, java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 70, 0, 0);
+			mc.options.setCameraType(type);
+			camPos = cam == null ? null : base.add(cam);
+			camLook = lookAt == null ? null : base.add(lookAt);
+			server(mc, p -> {
+				reset(p);
+				setup.accept(p);
+			});
+		});
+		at(t + 6, () -> look(mc, 0f, pitch));
+	}
+
+	private static void rate(Minecraft mc, int t, float tps) {
+		at(t, () -> server(mc, p -> p.server.tickRateManager().setTickRate(tps)));
+	}
+
+	private static void serverAt(Minecraft mc, int t, java.util.function.Consumer<ServerPlayer> fn) {
+		at(t, () -> server(mc, fn));
+	}
+
+	/** Distance posts every 5 blocks along +z, 3 blocks to the left of the path: gold at 10/20, a diamond at 30. */
+	private static void posts(ServerPlayer p) {
+		BlockPos b = BlockPos.containing(base);
+		for (int z = 5; z <= 35; z += 5) {
+			var st = z == 30 ? Blocks.DIAMOND_BLOCK.defaultBlockState() : z % 10 == 0 ? Blocks.GOLD_BLOCK.defaultBlockState() : Blocks.WHITE_WOOL.defaultBlockState();
+			p.serverLevel().setBlockAndUpdate(b.offset(3, 0, z), st);
+			p.serverLevel().setBlockAndUpdate(b.offset(3, 1, z), st);
+			if (z == 30) {
+				p.serverLevel().setBlockAndUpdate(b.offset(3, 2, z), st);
+			}
+		}
+	}
+
+	/** The hold-X rip from {@code t} (40 ticks of wind-up), then the head comes off. Returns the tick the aim starts. */
+	private static int rip(Minecraft mc, int t) {
+		for (int k = 0; k <= 40; k++) {
+			int held = k;
+			serverAt(mc, t + k, p -> UndeadHeadThrow.windUp(p, held));
+		}
+		serverAt(mc, t + 41, UndeadHeadThrow::start);
+		return t + 41;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.CREATIVE);
+			Undead.grant(p);
+			reset(p);
+		}));
+		at(t + 1, () -> mc.options.framerateLimit().set(30));
+		t += 100; // (the grant title fades first)
+		int idx = 1;
+		Vec3 sideCam = new Vec3(-2.2, 1.35, 0.3), sideLook = new Vec3(-0.35, 1.0, 0);
+		if (want("arm")) {
+			// A: arm + hand at real speed, side view (from his right)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, sideCam, sideLook, 0f, p -> {
+			});
+			serverAt(mc, t + 20, p -> Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST));
+			record(t + 46, "arm_real", 30); // the 1.5 s delay is cut: from just before the start to whole
+			t += 90;
+			// B: the same slowed 4x (5 tps; one frame every client tick)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, sideCam, sideLook, 0f, p -> {
+			});
+			serverAt(mc, t + 20, p -> Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST));
+			rate(mc, t + 46, 5f);
+			record(t + 47, "arm_slow4", 100);
+			rate(mc, t + 150, 20f);
+			t += 170;
+		}
+		if (want("leg")) {
+			// C: leg + foot (his left), side view from his left, real speed then the same 4x slower
+			Vec3 legCam = new Vec3(2.2, 0.9, 0.3), legLook = new Vec3(0.2, 0.55, 0);
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, legCam, legLook, 0f, p -> {
+			});
+			serverAt(mc, t + 20, p -> Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST));
+			record(t + 46, "leg_real", 30);
+			t += 90;
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, legCam, legLook, 0f, p -> {
+			});
+			serverAt(mc, t + 20, p -> Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST));
+			rate(mc, t + 46, 5f);
+			record(t + 47, "leg_slow4", 100);
+			rate(mc, t + 150, 20f);
+			t += 170;
+		}
+		if (want("riprip")) {
+			// D: first person: the rip (hands up on the head, the view wrenching), the tear, the camera out to the held head, the aim
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 5f, p -> posts(p));
+			at(t + 1, () -> {
+				mc.options.hideGui = false; // (F1 hides the first-person hands too)
+				mc.gui.getChat().clearMessages(false);
+				mc.gui.clear();
+				mc.getToasts().clear();
+			});
+			at(t + 139, () -> mc.options.hideGui = true);
+			record(t + 16, "fp_rip_aim", 130);
+			int aim = rip(mc, t + 20);
+			for (int k = 0; k < 70; k++) {
+				int kk = k;
+				at(aim + 1 + k, () -> {
+					look(mc, (float) Math.sin(kk * 0.05) * -30f, 5f - (float) Math.sin(kk * 0.045) * 30f);
+					server(mc, UndeadHeadThrow::tickHeld);
+				});
+			}
+			serverAt(mc, aim + 75, UndeadHeadThrow::cancel);
+			t += 140;
+		}
+		if (want("body")) {
+			// E: first person from the held head, turned to look at his own headless body, then looking down at it
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 10f, p -> {
+			});
+			int aim = t + 18;
+			serverAt(mc, aim, UndeadHeadThrow::start);
+			record(aim + 2, "fp_head_body", 90);
+			for (int k = 0; k < 90; k++) {
+				int kk = k;
+				at(aim + 1 + k, () -> {
+					float u = Math.min(1f, kk / 40f);
+					look(mc, -70f * u, 10f + 35f * u);
+				});
+			}
+			serverAt(mc, aim + 95, UndeadHeadThrow::cancel);
+			t += 125;
+			// F: after a short throw, from the head on the ground: looking back at the body it left and the new one growing round it
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 0f, p -> {
+			});
+			int a2 = t + 18;
+			serverAt(mc, a2, UndeadHeadThrow::start);
+			for (int k = 0; k < 10; k++) {
+				at(a2 + 1 + k, () -> look(mc, 0f, -5f));
+			}
+			serverAt(mc, a2 + 12, UndeadHeadThrow::release);
+			record(a2 + 10, "fp_head_after", 110);
+			for (int k = 0; k < 100; k++) {
+				int kk = k;
+				at(a2 + 14 + k, () -> look(mc, kk < 25 ? -5f : Math.min(180f, (kk - 25) * 8f), kk < 25 ? -5f : Math.min(55f, (kk - 25) * 3f)));
+			}
+			t += 140;
+		}
+		if (want("throw")) {
+			// G: 45 degrees up, the line out to its ring by the 30-block diamond post, then the throw and landing, from the side
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-26, 9, 16), new Vec3(0, 3.5, 16), -45f, p -> posts(p));
+			int aim = t + 18;
+			serverAt(mc, aim, UndeadHeadThrow::start);
+			for (int k = 0; k < 40; k++) {
+				at(aim + 1 + k, () -> look(mc, 0f, -45f));
+			}
+			record(aim + 10, "throw_side", 100);
+			serverAt(mc, aim + 40, p -> {
+				Vec3 st = UndeadHeadThrow.heldHeadPos(p, 1f);
+				var pts = UndeadHeadThrow.predict(p.level(), st, UndeadHeadThrow.throwVelocity(p, 1f), 120, new boolean[1]);
+				Vec3 end = pts.get(pts.size() - 1);
+				System.out.println(String.format("[HARNESS] predicted landing dz=%.2f dx=%.2f (pitch %.1f)", end.z - base.z, end.x - base.x, p.getXRot()));
+				UndeadHeadThrow.release(p);
+			});
+			t += 130;
+			// H: the same from behind him, over the shoulder: the dotted arc out to the ring
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, null, null, -45f, p -> posts(p));
+			int a3 = t + 18;
+			serverAt(mc, a3, UndeadHeadThrow::start);
+			for (int k = 0; k < 40; k++) {
+				int kk = k;
+				at(a3 + 1 + k, () -> look(mc, 0f, -45f + (kk > 20 ? (kk - 20) * 0.6f : 0f) * 0f));
+			}
+			record(a3 + 10, "throw_back", 80);
+			serverAt(mc, a3 + 40, UndeadHeadThrow::release);
+			t += 110;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}
