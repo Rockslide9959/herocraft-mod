@@ -1,0 +1,44 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.SsjHairHarness;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): orbits the third-person camera round the player for SsjHairHarness. */
+@Mixin(Camera.class)
+public abstract class SsjHairHarnessCamMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$ssjHairHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Float yaw = SsjHairHarness.orbitYaw;
+		if (yaw == null || !detached || Minecraft.getInstance().player == null) {
+			return;
+		}
+		Vec3 p = Minecraft.getInstance().player.getPosition(partialTick);
+		double a = Math.toRadians(yaw + SsjHairHarness.orbitSpin * partialTick);
+		double r = SsjHairHarness.orbitRadius;
+		Vec3 target = p.add(0, SsjHairHarness.lookHeight, 0);
+		// yaw 0 = in front of a player facing south (+z)
+		Vec3 pos = target.add(Math.sin(a) * r, SsjHairHarness.orbitHeight, Math.cos(a) * r);
+		Vec3 d = target.subtract(pos);
+		float cy = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float cp = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(cy, cp);
+		setPosition(pos);
+	}
+}
