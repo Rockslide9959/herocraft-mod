@@ -135,7 +135,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		}
 	}
 
-	/** v0.17.3 PREVIEW: the SSJ hair model hides the wearer's own hat layer (off unless SsjHairRenderer.PREVIEW is set). */
+	/** v0.17.3: a Super Saiyan's hair hides the wearer's own hat layer. */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$ssjHairHidesHat(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw,
 			float headPitch, CallbackInfo ci) {

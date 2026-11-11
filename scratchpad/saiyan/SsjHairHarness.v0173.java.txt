@@ -6,7 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import com.projecthero.mod.client.saiyan.hair.SsjHairRenderer;
+
+
+import com.projecthero.mod.client.saiyan.SaiyanFx;
+import com.projecthero.mod.saiyan.SaiyanForm;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -129,7 +132,7 @@ public final class SsjHairHarness {
 			mc.options.bobView().set(false);
 			mc.options.particles().set(net.minecraft.client.ParticleStatus.MINIMAL);
 			skin = steve();
-			SsjHairRenderer.PREVIEW = true;
+			com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.SSJ, false);
 			server(mc, p -> {
 				ServerLevel level = p.serverLevel();
 				level.setDayTime(6000L);
@@ -259,16 +262,52 @@ public final class SsjHairHarness {
 				t += 10;
 			}
 			// the hat layer on, for comparison: the preview off
-			at(t, () -> SsjHairRenderer.PREVIEW = false);
+			at(t, () -> com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.BASE, false));
 			cam(t, 0f, 0.05f, 2.6f, 0f, 1.95f);
 			still(t + 6, "front_nohair");
-			at(t + 8, () -> SsjHairRenderer.PREVIEW = true);
+			at(t + 8, () -> com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.SSJ, false));
 			t += 12;
 		}
 		if (want("turn")) {
 			cam(t, 0f, 0.1f, 2.7f, 1.5f, 1.95f);
 			record(t + 1, "turntable", 240);
 			t += 245;
+		}
+		if (want("game")) {
+			// in game: Base -> Super Saiyan (the hair grows in with the burst), then down and up again close, charging, first person
+			at(t, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.BASE, false));
+			cam(t, 25f, 0.3f, 4.2f, 0f, 1.5f);
+			at(t + 15, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.SSJ, true));
+			record(t + 5, "transform", 70);
+			t += 80;
+			cam(t, 20f, 0.15f, 2.8f, 0f, 1.85f);
+			at(t + 5, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.BASE, true));
+			at(t + 30, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.SSJ, true));
+			record(t + 1, "transform_close", 60);
+			t += 65;
+			at(t, () -> SaiyanFx.debugCharging(mc.player, true));
+			cam(t, 0f, 0.3f, 4.0f, 2f, 1.4f);
+			record(t + 5, "charge_orbit", 90);
+			at(t + 96, () -> SaiyanFx.debugCharging(mc.player, false));
+			t += 100;
+			at(t, () -> {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+				mc.player.setXRot(0f);
+			});
+			still(t + 10, "fp_level");
+			at(t + 12, () -> mc.player.setXRot(-60f));
+			still(t + 20, "fp_up");
+			at(t + 22, () -> SaiyanFx.debugCharging(mc.player, true));
+			still(t + 40, "fp_charge");
+			at(t + 42, () -> {
+				SaiyanFx.debugCharging(mc.player, false);
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+				mc.player.setXRot(0f);
+			});
+			t += 46;
 		}
 		if (want("head")) {
 			cam(t, 30f, 0.2f, 3.0f, 0f, 1.9f);

@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.3: the Saiyan moves' server side -- damage (times the form), Ki costs, gating (the orb in base form only, Dragon Rush
- * from Super Saiyan 3), cooldowns, and the Ki Beam joining a beam clash. The form and Ki come from
+ * in Super Saiyan), cooldowns, and the Ki Beam joining a beam clash. The form and Ki come from
  * {@link SaiyanMoves#overrideForTest} so these don't depend on the core. Mock players are not ticked by the server, so tests
  * over time drive {@link SaiyanMoves#tick}.
  */
@@ -83,11 +83,11 @@ public class SaiyanMovesGameTests implements FabricGameTest {
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void damageScalesWithTheForm(GameTestHelper helper) {
-		ServerPlayer p = saiyan(helper, SaiyanForm.BLUE, 100f);
+		ServerPlayer p = saiyan(helper, SaiyanForm.SSJ, 100f);
 		Zombie z = target(helper, 2.0);
 		SaiyanMoves.press(p, SaiyanMoves.COMBO, true);
-		float want = SaiyanMoveConfig.COMBO_HIT_DAMAGE * SaiyanForm.BLUE.damageMult();
-		helper.assertTrue(near(taken(z), want), "Blue's first hit: " + taken(z) + ", not " + want);
+		float want = SaiyanMoveConfig.COMBO_HIT_DAMAGE * SaiyanForm.SSJ.damageMult();
+		helper.assertTrue(near(taken(z), want), "Super Saiyan's first hit: " + taken(z) + ", not " + want);
 		helper.succeed();
 	}
 
@@ -240,19 +240,19 @@ public class SaiyanMovesGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void dragonRushNeedsSuperSaiyanThree(GameTestHelper helper) {
-		ServerPlayer weak = saiyan(helper, SaiyanForm.SSJ2, 100f);
+	public void dragonRushNeedsSuperSaiyan(GameTestHelper helper) {
+		ServerPlayer weak = saiyan(helper, SaiyanForm.BASE, 100f);
 		SaiyanMoves.press(weak, SaiyanMoves.DRAGON_RUSH, true);
-		helper.assertTrue(SaiyanMoves.running(weak) == null, "not in Super Saiyan 2");
+		helper.assertTrue(SaiyanMoves.running(weak) == null, "not in Base");
 		SaiyanMoves.overrideForTest(weak, null, 0f);
-		ServerPlayer p = saiyan(helper, SaiyanForm.SSJ3, 100f);
+		ServerPlayer p = saiyan(helper, SaiyanForm.SSJ, 100f);
 		Zombie z = target(helper, 2.0);
 		helper.onEachTick(() -> SaiyanMoves.tick(p));
 		SaiyanMoves.press(p, SaiyanMoves.DRAGON_RUSH, true);
-		helper.assertTrue(SaiyanMoves.DRAGON_RUSH.equals(SaiyanMoves.running(p)), "Super Saiyan 3 can");
+		helper.assertTrue(SaiyanMoves.DRAGON_RUSH.equals(SaiyanMoves.running(p)), "Super Saiyan can");
 		helper.assertTrue(near(SaiyanMoves.kiOf(p), 100f - SaiyanMoveConfig.RUSH_KI), "30 Ki");
 		helper.runAfterDelay(SaiyanMoveConfig.RUSH_WINDUP + SaiyanMoveConfig.RUSH_TICKS + 2, () -> {
-			float want = SaiyanMoveConfig.RUSH_DAMAGE * SaiyanForm.SSJ3.damageMult();
+			float want = SaiyanMoveConfig.RUSH_DAMAGE * SaiyanForm.SSJ.damageMult();
 			helper.assertTrue(taken(z) >= want - 0.05f && taken(z) <= want + 1.5f, "the rush lands once: " + taken(z) + ", not " + want);
 			helper.assertTrue(SaiyanMoves.cooldownRemaining(p, SaiyanMoves.DRAGON_RUSH) > 0, "on cooldown");
 			helper.succeed();

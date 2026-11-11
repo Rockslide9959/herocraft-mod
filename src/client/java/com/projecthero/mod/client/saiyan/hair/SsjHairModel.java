@@ -6,7 +6,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 /**
- * v0.17.3 (PREVIEW, not shipped): Goku's Super Saiyan hair as real curved geometry, built once into a list of quads.
+ * v0.17.3: Goku's Super Saiyan hair as real curved geometry, built once into a list of quads (drawn by {@link SsjHairRenderer}).
  *
  * <p>Every lock is a swept solid: a flattened six-sided ring (broad one way, thin the other) carried along a cubic bezier
  * spine, swelling a little past the root and narrowing to a sharp tip. The colours are baked anime cel shading in head

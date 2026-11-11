@@ -2,7 +2,7 @@ package com.projecthero.mod.saiyan.moves;
 
 /**
  * v0.17.3: the Saiyan moves' numbers. Damage is base-form damage; every hit is multiplied by the form's
- * {@code SaiyanForm.damageMult()} (Base 1.0 .. Blue 2.3, Overdrive 2.7). Ticks unless named otherwise (20 a second).
+ * {@code SaiyanForm.damageMult()} (Base 1.0, Super Saiyan 1.35). Ticks unless named otherwise (20 a second).
  *
  * <p>Scale: a Kryptonian punches for 32 and barrages 3/12, so base-form Saiyan moves sit at roughly 40-60% of that and only
  * the top forms (x2.3-2.7) reach and pass it. Bosses take at most {@link #BOSS_MAX_FRACTION} of their max health a hit.
@@ -83,7 +83,7 @@ public final class SaiyanMoveConfig {
 	/** No one in reach: a short cooldown so a whiff is not free spam. */
 	public static final int SKY_WHIFF_COOLDOWN = 20;
 
-	// C: Dragon Rush -- a wind-up, then a rushing punch, Super Saiyan 3 and up
+	// C: Dragon Rush -- a wind-up, then a rushing punch, in Super Saiyan
 	public static final int RUSH_WINDUP = 14;
 	public static final int RUSH_TICKS = 10;
 	public static final double RUSH_SPEED = 2.2;

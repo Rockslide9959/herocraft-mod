@@ -1,20 +1,18 @@
 package com.projecthero.mod.saiyan;
 
 /**
- * v0.17.3: the Saiyan's forms, in unlock order. Shared by the server (stats, Ki, mastery), the moves ({@link #damageMult()})
- * and the client (hair and aura colours, form names). Numbers are on the mod's damage scale: Base is a little above a plain
- * player and well under a full Kryptonian (+14 attack, 80% damage reduction); Blue and Instinct sit near the top.
+ * v0.17.3: the Saiyan's forms. Shared by the server (stats, Ki), the moves ({@link #damageMult()}) and the client (hair and
+ * aura colours, form names). Numbers are on the mod's damage scale: Base is a little above a plain player and well under a
+ * full Kryptonian (+14 attack, 80% damage reduction).
+ *
+ * <p>Only {@link #BASE} and {@link #SSJ} are in play (user, v0.17.3: "only super saiyan for now"). The later entries stay only
+ * so the form ordinals in old saves still parse; {@link #playableOrSsj()} turns them into Super Saiyan, and nothing can
+ * transform into them.
  *
  * <pre>
- *   form            attack  health  damage taken  speed  moves x  Ki drain/s  cost   unlock
- *   Base             +4      +4       -10%         x1.10   1.00      -        0     -
- *   Super Saiyan     +8      +8       -25%         x1.20   1.35      -       15     always
- *   Super Saiyan 2   +11     +12      -35%         x1.28   1.65      1.0     20     2 min in SSJ
- *   Super Saiyan 3   +14     +12      -40%         x1.32   1.95      3.0     30     3 min in SSJ2
- *   God              +14     +16      -50%         x1.35   2.10      1.2     30     3 min in SSJ3   (+1 HP / 4 s)
- *   Blue             +17     +20      -60%         x1.40   2.50      2.0     40     4 min in God    (+1 HP / 4 s)
- *   Blue Overdrive   +21     +20      -60%         x1.50   3.00      4.0     20     2 min in Blue; only from Blue; -1 HP / s
- *   Instinct         +18     +20      -55%         x1.50   2.80      1.0     30     Blue unlocked; only at 35% HP or less; 35% dodge
+ *   form            attack  health  damage taken  speed  moves x  Ki drain/s  cost
+ *   Base             +4      +4       -10%         x1.10   1.00      -        0
+ *   Super Saiyan     +8      +8       -25%         x1.20   1.35      -       15
  * </pre>
  */
 public enum SaiyanForm {
@@ -77,28 +75,17 @@ public enum SaiyanForm {
 		return kiDrainPerSecond / 20f;
 	}
 
-	/** The form before it in the mastery chain (time in that form unlocks this one); null for Base, Super Saiyan and Instinct. */
-	public SaiyanForm masteredFrom() {
-		return switch (this) {
-			case SSJ2 -> SSJ;
-			case SSJ3 -> SSJ2;
-			case GOD -> SSJ3;
-			case BLUE -> GOD;
-			case BLUE_OVERDRIVE -> BLUE;
-			default -> null;
-		};
+	/** The forms a player can be in, in wheel order. */
+	public static final SaiyanForm[] PLAYABLE = { BASE, SSJ };
+
+	/** Base or Super Saiyan. */
+	public boolean playable() {
+		return this == BASE || this == SSJ;
 	}
 
-	/** Ticks spent in {@link #masteredFrom()} to unlock this form (0 = no time needed). */
-	public int masteryTicks() {
-		return switch (this) {
-			case SSJ2 -> SaiyanConfig.MASTERY_SSJ2;
-			case SSJ3 -> SaiyanConfig.MASTERY_SSJ3;
-			case GOD -> SaiyanConfig.MASTERY_GOD;
-			case BLUE -> SaiyanConfig.MASTERY_BLUE;
-			case BLUE_OVERDRIVE -> SaiyanConfig.MASTERY_OVERDRIVE;
-			default -> 0;
-		};
+	/** This form if it's in play, otherwise Super Saiyan (an old save left in a removed form). */
+	public SaiyanForm playableOrSsj() {
+		return playable() ? this : SSJ;
 	}
 
 	/** Lang key of the form's name. */

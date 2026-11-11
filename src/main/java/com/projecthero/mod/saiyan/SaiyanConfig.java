@@ -25,26 +25,7 @@ public final class SaiyanConfig {
 	/** How long the transformation burst plays (for the client's animation and the server's particles). */
 	public static final int TRANSFORM_BURST_TICKS = 16;
 
-	/** Mastery: time in the previous form to unlock the next (the gamerule projectheroSaiyanAllForms unlocks them all). */
-	public static final int MASTERY_SSJ2 = 2 * MIN;
-	public static final int MASTERY_SSJ3 = 3 * MIN;
-	public static final int MASTERY_GOD = 3 * MIN;
-	public static final int MASTERY_BLUE = 4 * MIN;
-	public static final int MASTERY_OVERDRIVE = 2 * MIN;
-
-	/** Instinct: only at this share of max health or less, and with this much Ki. */
-	public static final float INSTINCT_HEALTH = 0.35f;
-	public static final float INSTINCT_KI = 30f;
-	/** Instinct: the chance a hit from something is sidestepped, and how soon after another. */
-	public static final float INSTINCT_DODGE_CHANCE = 0.35f;
-	public static final int INSTINCT_DODGE_COOLDOWN = 10;
-
-	/** Blue Overdrive burns 1 HP a second; at this much health or less it drops back to Blue on its own. */
-	public static final float OVERDRIVE_SELF_DAMAGE = 1.0f;
-	public static final int OVERDRIVE_SELF_DAMAGE_INTERVAL = S;
-	public static final float OVERDRIVE_FLOOR = 2.0f;
-
-	/** God and Blue heal 1 HP every 4 seconds. */
+	/** A regenerating form heals 1 HP every 4 seconds (neither Base nor Super Saiyan does). */
 	public static final float REGEN_AMOUNT = 1.0f;
 	public static final int REGEN_INTERVAL = 4 * S;
 

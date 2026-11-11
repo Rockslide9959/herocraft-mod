@@ -21,8 +21,8 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 Saiyan (Wave 1, the core): the grants, Ki (charge, spend, drain), form gating and mastery, Blue Overdrive's burn,
- * Instinct's low-health gate, the revert at 0 Ki. Mock players are not ticked by the server, so tests over time drive
+ * v0.17.3 Saiyan (Wave 1, the core): the grants, Ki (charge, spend), Base and Super Saiyan only (the other forms unreachable,
+ * old saves mapped to Super Saiyan), the revert at 0 Ki. Mock players are not ticked by the server, so tests over time drive
  * {@link Saiyan#tick} themselves (one call per game tick, the clock moved by the helper).
  */
 public class SaiyanGameTests implements FabricGameTest {
@@ -101,86 +101,56 @@ public class SaiyanGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void ssj2DrainsKiAndBaseDoesNot(GameTestHelper helper) {
+	public void superSaiyanCostsKiButDoesNotDrainIt(GameTestHelper helper) {
 		ServerPlayer p = saiyan(helper);
-		Saiyan.unlockAll(p);
 		helper.assertTrue(Saiyan.transform(p, SaiyanForm.SSJ), "into Super Saiyan");
 		helper.assertTrue(Math.abs(Saiyan.ki(p) - (SaiyanConfig.KI_MAX - SaiyanForm.SSJ.cost)) < 0.01f, "the form's cost was paid");
-		edit(p, s -> {
-			s.form = SaiyanForm.SSJ2.ordinal();
-			s.ki = 50f;
-		});
+		edit(p, s -> s.ki = 50f);
 		ticks(helper, p, 40, () -> {
-			float expected = 50f - SaiyanForm.SSJ2.kiDrainPerTick() * 40;
-			helper.assertTrue(Math.abs(Saiyan.ki(p) - expected) < 0.2f, "Super Saiyan 2 drains 1 Ki a second: " + Saiyan.ki(p));
-			helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > 1.0 + SaiyanForm.SSJ.attackBonus, "and hits harder than SSJ");
+			helper.assertTrue(Saiyan.ki(p) >= 50f - 0.01f, "Super Saiyan doesn't drain Ki: " + Saiyan.ki(p));
+			helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1.0 + SaiyanForm.SSJ.attackBonus - 0.01, "and hits harder");
 			helper.succeed();
 		});
 	}
 
+	/** v0.17.3 (user): "only super saiyan for now" -- the later forms can't be reached at all. */
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void formsAreGatedByMastery(GameTestHelper helper) {
+	public void onlyBaseAndSuperSaiyanAreInPlay(GameTestHelper helper) {
 		ServerPlayer p = saiyan(helper);
+		helper.assertTrue(java.util.Arrays.equals(SaiyanForm.PLAYABLE, new SaiyanForm[] { SaiyanForm.BASE, SaiyanForm.SSJ }), "Base and SSJ");
 		helper.assertTrue(Saiyan.unlocked(p, SaiyanForm.SSJ), "Super Saiyan is open from the start");
-		helper.assertTrue(!Saiyan.unlocked(p, SaiyanForm.SSJ2), "Super Saiyan 2 is locked");
-		helper.assertTrue(!Saiyan.transform(p, SaiyanForm.SSJ2), "and refused");
+		for (SaiyanForm f : SaiyanForm.values()) {
+			if (f.playable()) {
+				continue;
+			}
+			helper.assertTrue(!Saiyan.unlocked(p, f), f + " is not available");
+			helper.assertTrue(Saiyan.refusal(p, f) != null, f + " is refused");
+			helper.assertTrue(!Saiyan.transform(p, f), "and can't be entered: " + f);
+		}
 		helper.assertTrue(Saiyan.form(p) == SaiyanForm.BASE, "still Base");
-		helper.assertTrue(Saiyan.transform(p, SaiyanForm.SSJ), "SSJ works");
-		// almost mastered: one more tick in SSJ unlocks SSJ2
-		edit(p, s -> s.mastery.set(SaiyanForm.SSJ.ordinal(), SaiyanConfig.MASTERY_SSJ2 - 1));
-		ticks(helper, p, 1, () -> {
-			helper.assertTrue(Saiyan.unlocked(p, SaiyanForm.SSJ2), "time in SSJ unlocked SSJ2");
-			helper.assertTrue(!Saiyan.unlocked(p, SaiyanForm.SSJ3), "but not SSJ3");
-			helper.assertTrue(Saiyan.transform(p, SaiyanForm.SSJ2) || Saiyan.state(p).lastTransformAt == p.level().getGameTime(),
-					"SSJ2 can be entered (the transform cooldown aside)");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void overdriveOnlyFromBlueAndItBurns(GameTestHelper helper) {
-		ServerPlayer p = saiyan(helper);
-		Saiyan.unlockAll(p);
-		helper.assertTrue(Saiyan.refusal(p, SaiyanForm.BLUE_OVERDRIVE) != null, "Overdrive is refused outside Blue");
-		edit(p, s -> {
-			s.form = SaiyanForm.BLUE.ordinal();
-			s.lastTransformAt = p.level().getGameTime() - 100;
-		});
-		helper.assertTrue(Saiyan.transform(p, SaiyanForm.BLUE_OVERDRIVE), "from Blue it works");
-		p.setHealth(p.getMaxHealth());
-		float before = p.getHealth();
-		ticks(helper, p, SaiyanConfig.OVERDRIVE_SELF_DAMAGE_INTERVAL + 1, () -> {
-			helper.assertTrue(p.getHealth() < before, "Overdrive burns health: " + before + " -> " + p.getHealth());
-			p.setHealth(SaiyanConfig.OVERDRIVE_FLOOR + 0.5f);
-			Saiyan.overdriveBurn(p);
-			helper.assertTrue(Saiyan.form(p) == SaiyanForm.BLUE, "near the floor it drops back to Blue instead of killing");
-			helper.assertTrue(p.isAlive(), "alive");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void instinctNeedsLowHealth(GameTestHelper helper) {
-		ServerPlayer p = saiyan(helper);
-		Saiyan.unlockAll(p);
-		p.setHealth(p.getMaxHealth());
-		helper.assertTrue(!Saiyan.transform(p, SaiyanForm.INSTINCT), "refused at full health");
-		helper.assertTrue(Saiyan.form(p) == SaiyanForm.BASE, "still Base");
-		p.setHealth(p.getMaxHealth() * SaiyanConfig.INSTINCT_HEALTH - 0.5f);
-		Saiyan.setKi(p, SaiyanConfig.INSTINCT_KI - 5f);
-		helper.assertTrue(!Saiyan.transform(p, SaiyanForm.INSTINCT), "refused without 30 Ki");
-		Saiyan.setKi(p, SaiyanConfig.KI_MAX);
-		helper.assertTrue(Saiyan.transform(p, SaiyanForm.INSTINCT), "low health and Ki: Instinct awakens");
 		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void anOldSaveInARemovedFormLoadsAsSuperSaiyan(GameTestHelper helper) {
+		ServerPlayer p = saiyan(helper);
+		edit(p, s -> s.form = SaiyanForm.BLUE.ordinal());
+		helper.assertTrue(Saiyan.form(p) == SaiyanForm.SSJ, "a save left in Blue reads as Super Saiyan");
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 1.0 + SaiyanForm.BLUE.attackBonus - 0.01, "with Super Saiyan's stats");
+		ticks(helper, p, 1, () -> {
+			helper.assertTrue(Saiyan.state(p).form == SaiyanForm.SSJ.ordinal(), "and is stored as Super Saiyan after a tick");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void zeroKiRevertsAndExhausts(GameTestHelper helper) {
 		ServerPlayer p = saiyan(helper);
-		Saiyan.unlockAll(p);
+		// Super Saiyan doesn't drain Ki by itself any more: flying does
 		edit(p, s -> {
-			s.form = SaiyanForm.SSJ3.ordinal();
-			s.ki = SaiyanForm.SSJ3.kiDrainPerTick() * 2.5f;
+			s.form = SaiyanForm.SSJ.ordinal();
+			s.flying = true;
+			s.ki = SaiyanConfig.KI_FLIGHT_PER_TICK * 2.5f;
 		});
 		double before = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
 		ticks(helper, p, 4, () -> {
@@ -194,10 +164,9 @@ public class SaiyanGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void formsCutDamageAndPowerDownWorks(GameTestHelper helper) {
+	public void superSaiyanCutsDamageAndPowerDownWorks(GameTestHelper helper) {
 		ServerPlayer p = saiyan(helper);
-		Saiyan.unlockAll(p);
-		edit(p, s -> s.form = SaiyanForm.BLUE.ordinal());
+		helper.assertTrue(Saiyan.transform(p, SaiyanForm.SSJ), "into Super Saiyan");
 		try { // a fresh mock player is spawn-protected
 			java.lang.reflect.Field fld = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
 			fld.setAccessible(true);
@@ -210,7 +179,7 @@ public class SaiyanGameTests implements FabricGameTest {
 		float before = p.getHealth();
 		p.hurt(p.damageSources().generic(), 10f);
 		float taken = before - p.getHealth();
-		helper.assertTrue(taken > 0f && taken < 10f * (1f - SaiyanForm.BLUE.damageReduction) + 0.5f, "Blue takes 60% less: " + taken);
+		helper.assertTrue(taken > 0f && taken < 10f * (1f - SaiyanForm.SSJ.damageReduction) + 0.5f, "Super Saiyan takes 25% less: " + taken);
 		helper.assertTrue(Saiyan.powerDown(p), "Shift+V powers down");
 		helper.assertTrue(Saiyan.form(p) == SaiyanForm.BASE, "Base");
 		helper.assertTrue(Saiyan.transformingTicks(p) == 0, "the burst clock restarted");
@@ -219,6 +188,7 @@ public class SaiyanGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) <= 1.01, "the form's attack bonus is gone");
 		helper.succeed();
 	}
+
 
 	// ---------------------------------------------------------------- v0.17.3 (user): V charges (tap or hold), X / Shift+X
 
