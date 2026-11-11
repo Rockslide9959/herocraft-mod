@@ -38,7 +38,7 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   62-74    up the arm to the shoulder, the last of the skin swallowed            v 214.2-214.8
  *   74-84    a glowing trace streaking across the chest                           v 214.8-215.3
  *   84-92    the round eye opening on the face, filling the frame                 v 215.3-215.7
- *   92-132   from below: the black body, circuits closing over it, up to the eye  v 215.7-217.7   (black field, pale lime dots)
+ *   92-132   from below: the black body, circuits closing over it, up to the eye  v 215.7-217.7   (show green, black dots)
  *   132-138  WHITE FLASH -- the body changes under it (133)                         v 217.7-218.0
  *   138-164  Upgrade from low, the white thinning onto the streaming green         v 218.0-219.3
  *   164-168  a green-white flash out                                               v 219.3-219.5
@@ -55,11 +55,11 @@ public final class UpgradeShow extends ShowSequenceClient {
 	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
 	/** The Mechamorph black, the circuit lime, its glow. */
 	private static final int SHELL = 0xFF0E120C, LIME = 0xFFC4FF4A, GLOW = 0x3E6A10;
-	private static final int DARK_IN = 0x3E6216, DARK_MID = 0x1C300A, DARK_OUT = 0x040702, BAR = 0xD2FF6A;
+	private static final int BAR = 0xD2FF6A;
 	private static final int FLOW_IN = 0xB6FF8C, FLOW_MID = 0x46D63A, FLOW_OUT = 0x167A12, FLOW_RAY = 0x2A9A22, FLOW_DOT = 0x0F5A0C;
 
-	private static final KirbyDots.Style PALE_DOTS = KirbyDots.Style.show().rgb(0xB6DA88).clear(0.35f),
-			EDGE_DOTS = KirbyDots.Style.show().bands(1).rgb(0x9CC07A).clear(0.6f), FLOW_DOTS = KirbyDots.Style.show().bands(2).rgb(FLOW_DOT).clear(0.55f)
+	private static final KirbyDots.Style PALE_DOTS = KirbyDots.Style.show().clear(0.35f),
+			EDGE_DOTS = KirbyDots.Style.show().bands(1).clear(0.6f), FLOW_DOTS = KirbyDots.Style.show().bands(2).rgb(FLOW_DOT).clear(0.55f)
 					.flow(2.2f).angle(80f).alpha(170);
 
 	private static final float W = CameraTrack.W;
@@ -318,14 +318,14 @@ public final class UpgradeShow extends ShowSequenceClient {
 		} else if (t < FOREARM_AT) {
 			st.gradient(0xF2FFE0, 0x8CEB5C, 0x3DB52C);
 		} else if (t < BELOW_AT) {
-			st.gradient(DARK_IN, DARK_MID, DARK_OUT);
+			st.showBackground();
 			if (t >= HAND_AT && t < SHOULDER_AT) {
 				KirbyDots.draw(st, st.shotSeed(shot), inShot, EDGE_DOTS);
 			}
 			// blurred lime bars racing past (the circuits seen right up close)
 			bars(st, t, shot, t >= EYE_AT ? 2 : 5, 1f);
 		} else if (t < WHITE_AT) {
-			st.gradient(0x101A08, 0x060A04, 0x000000);
+			st.showBackground();
 			KirbyDots.draw(st, st.shotSeed(shot), inShot, PALE_DOTS);
 		} else {
 			// the streaming green behind Upgrade
