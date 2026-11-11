@@ -21,7 +21,7 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li>{@link #track} / {@link #camera}: the holder's scripted camera, until {@link #worldAt} (then their own view again);</li>
  *   <li>{@link #fov}: the holder's field of view;</li>
- *   <li>{@link #pose}: the body's pose (after the vanilla / watch poses; rigid limbs -- the model has no elbows or knees);</li>
+ *   <li>{@link #pose}: the body's pose (after the vanilla / watch poses; rigid limbs, or bent at the elbows / knees with {@link BentLimbs#bend});</li>
  *   <li>{@link #bulge}: part scales (from the model mixin, after the scales are reset);</li>
  *   <li>{@link #renderBody}: extra geometry on the body (swelling lumps), from the watch layer, everyone sees it;</li>
  *   <li>{@link #renderWorldFx}: glows in the world round the body, everyone sees it (the holder's are drawn over the stage);</li>

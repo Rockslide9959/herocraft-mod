@@ -87,6 +87,8 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 		}
 		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
 		AlienParts.on(pose, model.leftArm, () -> {
+			// v0.17.3: on a show transformation's bent forearm (nothing changes when the arm is straight)
+			com.projecthero.mod.client.omnitrix.sequence.BentLimbs.toForearm(pose, com.projecthero.mod.client.omnitrix.sequence.BentLimbs.LEFT_ARM, slim);
 			OmnitrixSequenceClient.noteWrist(p, pose); // v0.17.2: the long transformation's close-up and dial light
 			OmnitrixWatch.render(pose, buffers, light, p, partial, slim, false);
 		});

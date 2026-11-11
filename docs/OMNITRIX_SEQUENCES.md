@@ -5,7 +5,8 @@ A left-click is still the quick slap. Four Arms was the first one (v0.17.2). Fro
 of classes on a shared framework, so several aliens can be built in parallel without two branches touching the same lines.
 
 **The user's posing brief:** "make the posing and everything look exactly like how it looks in the show, try to be as expressive as
-you can without bending the limbs". Limb parts stay rigid: there are no elbow or knee bends yet (a bent-limb version may come later).
+you can without bending the limbs". Limb parts stay rigid in those: no elbow or knee bends. **v0.17.3: Four Arms was remade with bent limbs** (user: "you may bend the
+limbs ... dont break the body or make limbs detatch"), through `BentLimbs` (below); the other aliens are still rigid.
 Get the expression from whole-limb angles, the head, the body's lean, part scales (`bulge`), the camera and the stage.
 
 ## Files
@@ -106,13 +107,23 @@ Every hook gets `t`: ticks since the slap, with the partial tick. The dispatcher
 | `track()` / `camera(p, t, partial)` | none | The holder's scripted camera (`CameraTrack` keys), until `worldAt` |
 | `cameraScale(p, t)` | 1 before the change, height/1.8 after | How the camera keys grow with the alien |
 | `fov(t)` | 62 | Field of view (punch-ins, slow pushes) |
-| `pose(p, model, t)` | nothing | The body's pose, run after the vanilla and watch poses. Rigid limbs. Copy sleeves/pants/hat at the end |
+| `pose(p, model, t)` | nothing | The body's pose, run after the vanilla and watch poses. Rigid limbs, or bent with `BentLimbs.bend` (below). Copy sleeves/pants/hat at the end |
 | `bulge(p, model, t)` | nothing | Part scales (`xScale` and so on), after the model resets them |
 | `renderBody(pose, buffers, p, model, t)` | nothing | Extra geometry on the human body (e.g. `SwellLumps`). Everyone sees it |
 | `renderWorldFx(pose, buffers, cam, p, t, partial)` | nothing | World glows round the body (`ShowShots.dialLight`, `bodyGlow`). Everyone sees it |
 | `drawStage(st, t)` | nothing | The holder's cartoon background. The body is drawn again over it, so the world never shows |
 | `drawOverlay(st, t)` | nothing | The holder's full-screen flashes, over everything, for the whole sequence |
 | `burstAt()` | `worldAt - 11` | When the usual green burst plays in the world for everyone |
+
+### Bent limbs (`BentLimbs`, v0.17.3)
+
+From `pose()`, `BentLimbs.bend(limb, flex, twist)` bends an elbow or knee for that render only (`RIGHT_ARM`, `LEFT_ARM`, `RIGHT_LEG`,
+`LEFT_LEG`). Flex + is the natural way (forearm forward, shin back); twist turns the whole limb about its long axis, which picks the way
+the elbow or knee points. The model's limb parts (skin, sleeves/pants, an alien's skin) are drawn through `JointedLimbs`' hook with a true
+mitre: the cut edge sits on the bend's bisecting plane at full depth, so the halves share their joint vertices (no gap, no pinch, the skin
+continues), the axis slides inward on a deep bend so the inner side never turns inside out, and past ~105 degrees the outer corner gets a
+flat chamfer cap. Extra limbs use `BentLimbs.cube(...)` + `drawPart(...)` (Four Arms' lower pair); things riding a forearm (the watch,
+lumps) use `BentLimbs.toForearm(pose, limb, slim)` inside the arm's bone space. `FourArmsShow.POSE` is a keyframed pose track to copy.
 
 ### Camera keys (`CameraTrack`)
 

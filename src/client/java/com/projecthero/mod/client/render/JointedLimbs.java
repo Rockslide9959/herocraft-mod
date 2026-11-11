@@ -76,7 +76,32 @@ public final class JointedLimbs {
 		clear();
 	}
 
+	/**
+	 * v0.17.3: draws a bent limb part's cubes instead of {@link #drawCubes}' own geometry (the Omnitrix show transformations' true
+	 * mitred joints, {@code client/omnitrix/sequence/BentLimbs}).
+	 */
+	public interface CubeDrawer {
+		void draw(int limb, List<ModelPart.Cube> cubes, java.util.function.Function<ModelPart.Cube, ModelPart.Polygon[]> polys, PoseStack.Pose pose,
+				VertexConsumer out, int light, int overlay, int colour);
+	}
+
+	/** v0.17.3: set for one player's render only (cleared with the joints); null = the default geometry. */
+	private static CubeDrawer drawer;
+
+	/** v0.17.3: a custom joint geometry for the rest of this player's render (inside a render only). */
+	public static void setDrawer(CubeDrawer d) {
+		if (rendering) {
+			drawer = d;
+		}
+	}
+
+	/** v0.17.3: the custom joint geometry set for this render, or null. */
+	public static CubeDrawer drawer() {
+		return rendering ? drawer : null;
+	}
+
 	private static void clear() {
+		drawer = null;
 		anyJoint = false;
 		for (int i = 0; i < 4; i++) {
 			JOINT[i] = null;
@@ -218,6 +243,10 @@ public final class JointedLimbs {
 	 */
 	public static void drawCubes(int limb, List<ModelPart.Cube> cubes, java.util.function.Function<ModelPart.Cube, ModelPart.Polygon[]> polys,
 			PoseStack.Pose pose, VertexConsumer out, int light, int overlay, int colour) {
+		if (drawer != null) {
+			drawer.draw(limb, cubes, polys, pose, out, light, overlay, colour);
+			return;
+		}
 		Quaternionf full = joint(limb);
 		Quaternionf half = half(full);
 		ModelPart.Cube first = cubes.get(0);
