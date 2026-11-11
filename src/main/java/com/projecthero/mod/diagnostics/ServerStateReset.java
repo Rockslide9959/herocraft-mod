@@ -81,6 +81,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.galactus.orbit.GalactusRaidStatics.clear(); // v0.17.2 Galactus raid v2 (debris, cutscene holds, orbit rules)
 		com.projecthero.mod.omnitrix.OmnitrixMod.clearSessionState(); // v0.17.1
 		com.projecthero.mod.saiyan.moves.SaiyanMoves.clearSessionState(); // v0.17.3
+		com.projecthero.mod.saiyan.kit.SaiyanKit.clearSessionState(); // v0.17.3 Saiyan revamp: the move kit (shots hold worlds)
 		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.clearSessionState(); // v0.17.1
 		// Moon Knight Phase 3-4 (R / X / G / Z static maps)
 		com.projecthero.mod.moonknight.ability.MoonKnightCombat.clearSessionState();
