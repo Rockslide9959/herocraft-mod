@@ -8,15 +8,13 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 
 /**
- * v0.17.3: the Saiyan's client side -- the HUD, the H form wheel and the double-tap-jump flight request. Charging Ki is
- * the V ability key now (tap or hold, server-side in {@code SaiyanAbilityManager}); the old Q binding is gone (it shared
- * Q with vanilla Drop, and a key can only drive one binding, so it never reached the server). Aura is drawn elsewhere
- * ({@code client.saiyan.aura}).
+ * v0.17.3 Saiyan revamp: the Saiyan's client side -- the HUD, H (Super Saiyan once the Rage bar is full; the server says why not
+ * otherwise) and the double-tap-jump flight request. V (charge Ki / Kaioken) and the moves go through the ability slots. The aura
+ * and hair are drawn elsewhere ({@code client.saiyan.aura}, {@code client.saiyan.hair}).
  */
 public final class SaiyanClient {
 	private SaiyanClient() {
@@ -29,13 +27,13 @@ public final class SaiyanClient {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SaiyanLoopSounds.reset());
 	}
 
-	/** H (not sneaking) as a Saiyan: the form wheel. Shift+H still falls through to the power wheel. */
+	/** H (not sneaking) as a Saiyan: transform. Shift+H still falls through to the power wheel. */
 	public static boolean ownsH(LocalPlayer player) {
 		return player != null && Saiyan.hasPower(player) && !Screen.hasShiftDown();
 	}
 
 	public static void pressH() {
-		Minecraft.getInstance().setScreen(new SaiyanFormWheelScreen());
+		ClientPlayNetworking.send(new SaiyanActionPayload(SaiyanActionPayload.Action.TRANSFORM, 0));
 	}
 
 	/** Double-tap jump in the air as a Saiyan: take off / drop out of flight (the server re-checks). */

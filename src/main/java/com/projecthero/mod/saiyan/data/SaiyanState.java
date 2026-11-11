@@ -1,94 +1,100 @@
 package com.projecthero.mod.saiyan.data;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.projecthero.mod.saiyan.SaiyanForm;
 
 /**
- * v0.17.3: the whole Saiyan power for one player in one attachment ({@code projecthero:saiyan_state}): persistent,
- * {@code copyOnDeath} and synced to every client (the hair and aura follow {@link #form}). Only {@code Saiyan} changes it.
- * The Ki bar and the mastery clocks tick in place on the server and are re-sent every few ticks; everything else is saved
- * through a {@link #copy()} at once.
+ * v0.17.3 Saiyan revamp: the whole Saiyan core for one player in one attachment ({@code projecthero:saiyan_state}): persistent,
+ * {@code copyOnDeath} and synced to every client (the hair, the aura and the HUD read it). Only {@code Saiyan} changes it. The
+ * Ki and Rage bars tick in place on the server and are re-sent every few ticks; everything else is saved through a
+ * {@link #copy()} at once. All times are game times (0 = never / none).
+ *
+ * <p>Old saves (the first Saiyan build: form, mastery, ...) load fine: the codec ignores the fields it no longer knows, and the
+ * player starts the new core in Base.
  */
 public final class SaiyanState {
 	public boolean hasPower;
-	/** {@link SaiyanForm} ordinal. */
-	public int form;
 	public float ki;
-	/** Q is held. */
+	/** 0..100; at 100 H transforms into Super Saiyan. */
+	public float rage;
+	/** V: charging Ki. */
 	public boolean charging;
-	/** Shift+X flight is on. */
+	/** Double-tap jump flight is on. */
 	public boolean flying;
-	/** Game time the current form was entered (the transformation burst plays from here). */
+	/** Super Saiyan is on until {@link #ssjUntil}. */
+	public boolean ssj;
+	/** When the current form began (the transformation burst plays from here). */
 	public long formSince;
-	/** Game time of the last transformation (the cooldown). */
-	public long lastTransformAt;
-	/** Ki ran out: no transforming, and slowed, until this game time. */
-	public long exhaustedUntil;
-	/** Ticks spent in each form, by ordinal. */
-	public List<Integer> mastery;
-	/** Forms unlocked by mastery, a bit per ordinal (Base and Super Saiyan always are). */
-	public int unlocked;
-	/** The core's own cooldowns (the Ki Dash, the flight toggle). The moves keep theirs in {@code SaiyanMoves}. */
+	public long ssjUntil;
+	/** After Super Saiyan ends: no transforming until this time. */
+	public long ssjLockUntil;
+	/** Kaioken is on since this time (0 = off). */
+	public long kaiokenSince;
+	public long kaiokenReadyAt;
+	/** Shift+V went down at this time (the 3 s Kaioken wind-up; 0 = not held). */
+	public long kaiokenHoldAt;
+	/** Zenkai Boost: +50% damage until this time; the next one not before {@link #zenkaiReadyAt}. */
+	public long zenkaiUntil;
+	public long zenkaiReadyAt;
+	/** Fighting a significantly stronger enemy: the bonus lasts until this time. */
+	public long strongFoeUntil;
+	/** The core's own cooldowns (the flight toggle). The moves keep theirs in {@code SaiyanKit}. */
 	public Map<String, Long> abilityReadyAt;
-	/** Instinct's next possible dodge. */
-	public long dodgeReadyAt;
 
 	public SaiyanState() {
-		this(false, 0, 0f, false, false, 0L, 0L, 0L, new ArrayList<>(), 0, new HashMap<>(), 0L);
+		this(false, 0f, 0f, false, false, false, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, new HashMap<>());
 	}
 
-	public SaiyanState(boolean hasPower, int form, float ki, boolean charging, boolean flying, long formSince, long lastTransformAt,
-			long exhaustedUntil, List<Integer> mastery, int unlocked, Map<String, Long> abilityReadyAt, long dodgeReadyAt) {
+	public SaiyanState(boolean hasPower, float ki, float rage, boolean charging, boolean flying, boolean ssj, long formSince, long ssjUntil,
+			long ssjLockUntil, long kaiokenSince, long kaiokenReadyAt, long kaiokenHoldAt, long zenkaiUntil, long zenkaiReadyAt,
+			long strongFoeUntil, Map<String, Long> abilityReadyAt) {
 		this.hasPower = hasPower;
-		this.form = form;
 		this.ki = ki;
+		this.rage = rage;
 		this.charging = charging;
 		this.flying = flying;
+		this.ssj = ssj;
 		this.formSince = formSince;
-		this.lastTransformAt = lastTransformAt;
-		this.exhaustedUntil = exhaustedUntil;
-		this.mastery = new ArrayList<>(mastery);
-		while (this.mastery.size() < SaiyanForm.values().length) {
-			this.mastery.add(0);
-		}
-		this.unlocked = unlocked;
+		this.ssjUntil = ssjUntil;
+		this.ssjLockUntil = ssjLockUntil;
+		this.kaiokenSince = kaiokenSince;
+		this.kaiokenReadyAt = kaiokenReadyAt;
+		this.kaiokenHoldAt = kaiokenHoldAt;
+		this.zenkaiUntil = zenkaiUntil;
+		this.zenkaiReadyAt = zenkaiReadyAt;
+		this.strongFoeUntil = strongFoeUntil;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
-		this.dodgeReadyAt = dodgeReadyAt;
 	}
 
 	public SaiyanState copy() {
-		return new SaiyanState(hasPower, form, ki, charging, flying, formSince, lastTransformAt, exhaustedUntil, mastery, unlocked,
-				abilityReadyAt, dodgeReadyAt);
+		return new SaiyanState(hasPower, ki, rage, charging, flying, ssj, formSince, ssjUntil, ssjLockUntil, kaiokenSince, kaiokenReadyAt,
+				kaiokenHoldAt, zenkaiUntil, zenkaiReadyAt, strongFoeUntil, abilityReadyAt);
 	}
 
-	/** v0.17.3: only Base and Super Saiyan are in play; a save left in a removed form loads as Super Saiyan. */
-	public SaiyanForm form() {
-		return SaiyanForm.byOrdinal(form).playableOrSsj();
-	}
-
-	public int masteryOf(SaiyanForm f) {
-		return f.ordinal() < mastery.size() ? mastery.get(f.ordinal()) : 0;
+	public boolean kaioken() {
+		return kaiokenSince > 0L;
 	}
 
 	public static final Codec<SaiyanState> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
-			Codec.INT.optionalFieldOf("form", 0).forGetter(s -> s.form),
 			Codec.FLOAT.optionalFieldOf("ki", 0f).forGetter(s -> s.ki),
+			Codec.FLOAT.optionalFieldOf("rage", 0f).forGetter(s -> s.rage),
 			Codec.BOOL.optionalFieldOf("charging", false).forGetter(s -> s.charging),
 			Codec.BOOL.optionalFieldOf("flying", false).forGetter(s -> s.flying),
+			Codec.BOOL.optionalFieldOf("ssj", false).forGetter(s -> s.ssj),
 			Codec.LONG.optionalFieldOf("form_since", 0L).forGetter(s -> s.formSince),
-			Codec.LONG.optionalFieldOf("last_transform_at", 0L).forGetter(s -> s.lastTransformAt),
-			Codec.LONG.optionalFieldOf("exhausted_until", 0L).forGetter(s -> s.exhaustedUntil),
-			Codec.INT.listOf().optionalFieldOf("mastery", List.of()).forGetter(s -> s.mastery),
-			Codec.INT.optionalFieldOf("unlocked", 0).forGetter(s -> s.unlocked),
+			Codec.LONG.optionalFieldOf("ssj_until", 0L).forGetter(s -> s.ssjUntil),
+			Codec.LONG.optionalFieldOf("ssj_lock_until", 0L).forGetter(s -> s.ssjLockUntil),
+			Codec.LONG.optionalFieldOf("kaioken_since", 0L).forGetter(s -> s.kaiokenSince),
+			Codec.LONG.optionalFieldOf("kaioken_ready_at", 0L).forGetter(s -> s.kaiokenReadyAt),
+			Codec.LONG.optionalFieldOf("kaioken_hold_at", 0L).forGetter(s -> s.kaiokenHoldAt),
+			Codec.LONG.optionalFieldOf("zenkai_until", 0L).forGetter(s -> s.zenkaiUntil),
+			Codec.LONG.optionalFieldOf("zenkai_ready_at", 0L).forGetter(s -> s.zenkaiReadyAt),
+			Codec.LONG.optionalFieldOf("strong_foe_until", 0L).forGetter(s -> s.strongFoeUntil),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Codec.LONG.optionalFieldOf("dodge_ready_at", 0L).forGetter(s -> s.dodgeReadyAt)
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
 	).apply(i, SaiyanState::new));
 }

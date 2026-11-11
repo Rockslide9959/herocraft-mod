@@ -153,9 +153,9 @@ public final class DirectionalFlight {
 			var ks = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
 			return DirectionalFlightModel.kryptonian(sprint, ks != null && ks.flightBoost);
 		}
-		// v0.17.3: the Saiyan's Shift+X flight -- Kryptonian handling, 18 b/s cruise, 36 sprinting, x the form's speed (55 at most)
+		// v0.17.3: the Saiyan's double-tap-jump flight -- Kryptonian handling, 18 b/s cruise, 36 sprinting, x1.2 in Super Saiyan (55 at most)
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
-			double mult = com.projecthero.mod.saiyan.Saiyan.form(player).speedMult();
+			double mult = com.projecthero.mod.saiyan.Saiyan.flightSpeedMult(player);
 			double bps = Math.min(com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_MAX_BPS, (sprint ? com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_SPRINT_BPS
 					: com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_CRUISE_BPS) * mult);
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
