@@ -169,6 +169,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.undead.UndeadMod.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.initialize(); // v0.17.3
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
+		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)
 		// v0.16.5: the Mannequin (player-shaped armour stand) and the ten-suit Wardrobe
 		com.projecthero.mod.wardrobe.WardrobeMod.initialize();
 		// v0.14.11: the Flash Suit and the Flash Ring (H packs the suit into the ring and lets it out again)

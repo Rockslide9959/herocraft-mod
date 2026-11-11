@@ -218,6 +218,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.blackpanther.BlackPantherMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.undead.UndeadMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.clearSessionState(); // v0.17.3
+		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.clearSessionState(); // v0.17.3: casters, thrown bombs, craters (hold levels)
 		com.projecthero.mod.beamclash.BeamClash.clearSessionState(); // v0.17.3
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks

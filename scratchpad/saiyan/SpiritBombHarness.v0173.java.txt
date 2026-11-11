@@ -1,0 +1,335 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.saiyan.Saiyan;
+import com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb;
+import com.projecthero.mod.saiyan.kit.SpiritBombState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Sheep;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films the Spirit Bomb -- the rise, the charge (time-lapse), the throw, the impact and crater, a
+ * first-person charge. Calls SaiyanSpiritBomb.press directly. Enabled by run/spiritbomb.flag. Frames: run/screenshots/sb_*.
+ */
+public final class SpiritBombHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static int recEvery = 1;
+	private static int recTick;
+	private static Vec3 origin;
+	private static int top;
+
+	/** Camera: a fixed world spot looking at a world point (null = the normal camera). */
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	/** Orbit round camLook at this radius / height, spinning (deg per tick); used when orbitSpin != 0. */
+	public static volatile float orbitYaw, orbitSpin, orbitRadius, orbitHeight;
+
+	private SpiritBombHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("spiritbomb.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SpiritBombHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "spiritbomb-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SpiritBombHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_MOBGRIEFING).set(true, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, 0, Math.floor(p.getZ()) + 0.5);
+				build(level);
+				Saiyan.grant(p);
+				System.out.println("[HARNESS] built, origin " + origin + " top " + top);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (camLook != null && orbitSpin != 0f) {
+				orbitYaw += orbitSpin;
+			}
+			if (recording != null) {
+				if (recTick++ % recEvery == 0) {
+					String name = String.format("sb_%s_%03d.png", recording, recFrame++);
+					Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+					});
+				}
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	/** A deep slab of ground (17 blocks: stone, dirt, grass) round the spawn, with a few trees and sheep. */
+	private static void build(ServerLevel level) {
+		int ox = (int) Math.floor(origin.x), oz = (int) Math.floor(origin.z);
+		int base = level.getMinBuildHeight() + 1;
+		top = base + 16;
+		BlockState stone = Blocks.STONE.defaultBlockState(), dirt = Blocks.DIRT.defaultBlockState(), grass = Blocks.GRASS_BLOCK.defaultBlockState();
+		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+		for (int x = -50; x <= 50; x++) {
+			for (int z = -55; z <= 50; z++) {
+				for (int y = base; y <= top; y++) {
+					m.set(ox + x, y, oz + z);
+					level.setBlock(m, y == top ? grass : y >= top - 3 ? dirt : stone, Block.UPDATE_CLIENTS);
+				}
+			}
+		}
+		int[][] trees = { { -9, 8 }, { 10, 12 }, { -6, 22 }, { 7, 25 }, { 14, 4 }, { -14, 16 }, { 2, 30 } };
+		for (int[] t : trees) {
+			for (int y = 1; y <= 5; y++) {
+				level.setBlock(new BlockPos(ox + t[0], top + y, oz + t[1]), Blocks.OAK_LOG.defaultBlockState(), Block.UPDATE_CLIENTS);
+			}
+			for (int dx = -2; dx <= 2; dx++) {
+				for (int dz = -2; dz <= 2; dz++) {
+					for (int dy = 4; dy <= 6; dy++) {
+						BlockPos lp = new BlockPos(ox + t[0] + dx, top + dy, oz + t[1] + dz);
+						if (level.getBlockState(lp).isAir() && (Math.abs(dx) + Math.abs(dz) < 4 || dy == 4)) {
+							level.setBlock(lp, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), Block.UPDATE_CLIENTS);
+						}
+					}
+				}
+			}
+		}
+		for (int i = 0; i < 6; i++) {
+			Sheep s = EntityType.SHEEP.create(level);
+			if (s != null) {
+				s.moveTo(ox + 0.5 + (i - 3) * 3, top + 1, oz + 14.5 + (i % 2) * 3, 0f, 0f);
+				s.setNoAi(true);
+				level.addFreshEntity(s);
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks, int every) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recTick = 0;
+			recEvery = every;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void still(int t, String name) {
+		at(t, () -> Screenshot.grab(Minecraft.getInstance().gameDirectory, "sb_still_" + name + ".png", Minecraft.getInstance().getMainRenderTarget(), c -> {
+		}));
+	}
+
+	private static Vec3 rel(double x, double y, double z) {
+		return new Vec3(origin.x + x, top + y, origin.z + z);
+	}
+
+	private static void cam(int t, double px, double py, double pz, double lx, double ly, double lz) {
+		at(t, () -> {
+			orbitSpin = 0f;
+			camPos = rel(px, py, pz);
+			camLook = rel(lx, ly, lz);
+		});
+	}
+
+	/** A fixed camera placed relative to where the player is when it fires (feet + offsets). */
+	private static void camNear(Minecraft mc, int t, double px, double py, double pz, double lx, double ly, double lz) {
+		at(t, () -> {
+			Vec3 f = mc.player.position();
+			orbitSpin = 0f;
+			camPos = f.add(px, py, pz);
+			camLook = f.add(lx, ly, lz);
+		});
+	}
+
+	private static void orbit(int t, double lx, double ly, double lz, float yaw, float radius, float height, float spin) {
+		at(t, () -> {
+			camLook = rel(lx, ly, lz);
+			orbitYaw = yaw;
+			orbitRadius = radius;
+			orbitHeight = height;
+			orbitSpin = spin;
+			camPos = camLook;
+		});
+	}
+
+	private static void look(Minecraft mc, int t, float yaw, float pitch) {
+		at(t, () -> {
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.setYHeadRot(yaw);
+			mc.player.yBodyRot = yaw;
+		});
+	}
+
+	private static void place(Minecraft mc, int t, double x, double z, float yaw) {
+		at(t, () -> server(mc, p -> {
+			p.setDeltaMovement(Vec3.ZERO);
+			Vec3 at = rel(x, 1, z);
+			p.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, 0f);
+		}));
+	}
+
+	private static void press(Minecraft mc, int t, boolean down) {
+		at(t, () -> server(mc, p -> SaiyanSpiritBomb.press(p, down)));
+	}
+
+	private static void script(Minecraft mc) {
+		// the rise
+		place(mc, 40, 0.5, -24.5, 0f);
+		look(mc, 45, 0f, 0f);
+		at(54, () -> System.out.println("[HARNESS] player at " + mc.player.position() + " want " + rel(0.5, 1, -24.5)));
+		camNear(mc, 55, 6.5, 2.0, 7.5, 0, 5.5, 0);
+		record(60, "rise", 44, 1);
+		press(mc, 70, true);
+		// the pose up close as the charge begins
+		camNear(mc, 104, 2.8, 0.6, 3.6, 0, 1.6, 0);
+		still(112, "pose_front");
+		camNear(mc, 113, -3.4, 1.8, -2.0, 0, 2.0, 0);
+		still(120, "pose_back");
+		// the charge: 10 s, filmed at 2x
+		cam(122, 48, 20, 8, 0.5, 24, -20);
+		record(123, "charge", 180, 2);
+		// the throw at a spot 40 blocks ahead, and the impact
+		look(mc, 300, 0f, 18f);
+		cam(304, 62, 24, -6, 0.5, 12, -4);
+		record(305, "throw", 50, 1);
+		press(mc, 310, false);
+		at(352, () -> mc.options.hideGui = false); // the flash is a HUD overlay
+		record(345, "impact", 130, 1);
+		at(476, () -> mc.options.hideGui = true);
+		// the crater from above, slowly round
+		orbit(478, 0.5, -4, 14, 200f, 34f, 30f, 1.2f);
+		record(485, "crater", 100, 1);
+		still(590, "crater_top");
+		// first person, looking up at a charge
+		at(595, () -> server(mc, p -> {
+			p.setAttached(SpiritBombState.TYPE, SpiritBombState.NONE);
+			p.setHealth(p.getMaxHealth());
+		}));
+		place(mc, 597, -30.5, -42.5, 0f);
+		at(600, () -> {
+			camPos = null;
+			camLook = null;
+			orbitSpin = 0f;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+		});
+		look(mc, 601, 0f, -5f);
+		press(mc, 606, true);
+		record(604, "fp_charge", 160, 1);
+		for (int i = 0; i <= 20; i++) {
+			look(mc, 640 + i, 0f, -5f - 2.6f * i);
+		}
+		at(770, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

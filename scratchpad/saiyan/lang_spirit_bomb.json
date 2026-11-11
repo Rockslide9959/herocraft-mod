@@ -1,0 +1,7 @@
+{
+  "message.projecthero.saiyan.spirit_bomb.cooldown": "Spirit Bomb ready in %ss",
+  "message.projecthero.saiyan.spirit_bomb.no_ki": "Not enough Ki for the Spirit Bomb",
+  "message.projecthero.saiyan.spirit_bomb.stalled": "Out of Ki: the Spirit Bomb stops growing",
+  "message.projecthero.saiyan.spirit_bomb.fizzle": "The Spirit Bomb fizzles out",
+  "message.projecthero.saiyan.spirit_bomb.too_small": "Too little energy gathered"
+}
