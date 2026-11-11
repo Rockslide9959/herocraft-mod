@@ -54,5 +54,9 @@ public class WildmuttModel<T extends GeoAnimatable> extends GeoModel<T> {
 			look.setRotX(Mth.clamp(data.headPitch(), -40f, 40f) * 0.55f * Mth.DEG_TO_RAD);
 			look.setRotY(Mth.clamp(data.netHeadYaw(), -60f, 60f) * 0.6f * Mth.DEG_TO_RAD);
 		});
+		// v0.17.3: the show transformation's poses while it plays (WildmuttShow)
+		if (e instanceof Player p) {
+			com.projecthero.mod.client.omnitrix.sequence.WildmuttShow.poseBones(p, name -> getBone(name).orElse(null));
+		}
 	}
 }
