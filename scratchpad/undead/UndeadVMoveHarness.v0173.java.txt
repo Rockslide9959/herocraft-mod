@@ -1,0 +1,320 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.UndeadAbilityManager;
+import com.projecthero.mod.undead.UndeadBoneSword;
+import com.projecthero.mod.undead.data.UndeadState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the v0.17.3 Undead tap-V Rib Shotgun (and Shift + hold V Reform). Enabled by run/undeadvmove.flag. */
+public final class UndeadVMoveHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static String only;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private UndeadVMoveHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadvmove.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("undeadvmove.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadVMoveHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadvmove-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadVMoveHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				String name = String.format("vm_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("VM_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(), mc.screen);
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static Mob dummy(ServerPlayer p, Vec3 at, float yaw, boolean ai) {
+		Mob m = EntityType.ZOMBIE.create(p.serverLevel());
+		m.setNoAi(!ai);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+		m.setHealth(400);
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void reset(ServerPlayer p, float pitch) {
+		if (Undead.state(p).boneSword()) {
+			UndeadBoneSword.putAway(p, false, false);
+		}
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, p.getBoundingBox().inflate(128),
+				e -> e instanceof net.minecraft.world.entity.item.ItemEntity || e instanceof com.projecthero.mod.undead.entity.UndeadPartEntity)
+				.forEach(e -> e.discard());
+		p.removeAllEffects();
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setShiftKeyDown(false);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, pitch);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 look, float pitch, boolean gui,
+			java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 60, 0, 0);
+			mc.options.setCameraType(type);
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+			mc.options.hideGui = !gui;
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				clearDummies();
+				reset(p, pitch);
+			});
+		});
+		// (the setup a few ticks after the teleport: zombies spawned into a chunk not loaded yet are lost)
+		at(t + 8, () -> server(mc, setup));
+	}
+
+	/** V pressed / let go (Shift read on the press; it is let go again straight after so he does not crouch). */
+	private static void key(Minecraft mc, int t, boolean shift, boolean down) {
+		at(t, () -> server(mc, p -> {
+			p.setShiftKeyDown(shift);
+			UndeadAbilityManager.handle(p, AbilitySlot.SLOT_5, down);
+			p.setShiftKeyDown(false);
+		}));
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Undead.grant(p);
+			reset(p, 0f);
+		}));
+		t += 30;
+		int idx = 1;
+		if (want("tp")) {
+			// third person, three-quarter front: the chest torn open, the ribs out, the hole closing again
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-2.2, 1.75, 2.6), new Vec3(0.0, 1.2, 0.3), 0f, false, p -> {
+				dummy(p, base.add(1.5, 0, 9.0), 180f, false);
+				dummy(p, base.add(-0.5, 0, 10.0), 180f, false);
+			});
+			record(t + 25, "tp", 80);
+			key(mc, t + 30, false, true);
+			key(mc, t + 31, false, false);
+			t += 115;
+			// third person, side on: the spread flying into a few zombies
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-6.5, 2.2, 3.0), new Vec3(0.0, 1.1, 3.6), 0f, false, p -> {
+				dummy(p, base.add(0.3, 0, 5.5), 180f, false);
+				dummy(p, base.add(-0.9, 0, 7.0), 180f, false);
+				dummy(p, base.add(1.0, 0, 8.0), 180f, false);
+			});
+			record(t + 25, "tp_side", 45);
+			key(mc, t + 30, false, true);
+			key(mc, t + 31, false, false);
+			t += 80;
+		}
+		if (want("fp")) {
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 3f, true, p -> {
+				dummy(p, base.add(0.4, 0, 5.0), 180f, false);
+				dummy(p, base.add(-1.3, 0, 7.0), 180f, false);
+				dummy(p, base.add(1.6, 0, 8.5), 180f, false);
+			});
+			record(t + 25, "fp", 55);
+			key(mc, t + 30, false, true);
+			key(mc, t + 31, false, false);
+			t += 90;
+		}
+		if (want("group")) {
+			// a pack of zombies coming at him (AI on), seen from behind and above; one blast into them
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-3.0, 3.6, -4.0), new Vec3(0.2, 1.0, 5.0), 4f, false, p -> {
+				double[][] at = { { 0.0, 4.5 }, { -1.1, 5.2 }, { 1.2, 5.0 }, { -0.5, 6.4 }, { 0.8, 6.6 }, { -1.6, 7.2 }, { 1.7, 7.5 } };
+				for (double[] a : at) {
+					dummy(p, base.add(a[0], 0, a[1]), 180f, true);
+				}
+			});
+			record(t + 20, "group", 60);
+			key(mc, t + 26, false, true);
+			key(mc, t + 27, false, false);
+			t += 95;
+		}
+		if (want("reform")) {
+			// Shift + hold V: arms and a leg gone, he hugs himself together (the V box filling), and re-forms at one second
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-2.4, 1.8, 2.8), new Vec3(0.0, 1.0, 0.3), 0f, true, p -> {
+				Undead.breakPart(p, Undead.otherArm(Undead.mainArm(p)), UndeadState.KIND_BURST);
+				Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
+			});
+			record(t + 10, "reform", 45);
+			key(mc, t + 15, true, true);
+			key(mc, t + 45, true, false);
+			t += 70;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

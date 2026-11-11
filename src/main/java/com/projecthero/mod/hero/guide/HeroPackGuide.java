@@ -1737,7 +1737,7 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "parts_bullet" }, { "Shift+R", "parts_bullet_hand" }, { "Hold R", "parts_bullet_arm" }, { "Hold G", "blood_spray" },
 					{ "Shift+G", "blood_whirlwind" }, { "X", "eject_feet" }, { "Shift+X", "combustion_punch" }, { "Hold X", "head_throw" }, { "Double-tap jump", "flight" },
 					{ "Z", "vortex_bullet" },
-					{ "Shift + hold Z", "unluck_meteor" }, { "V", "reform" }, { "Hold V", "bone_sword" }, { "Shift+V", "rib_cage_guard" },
+					{ "Shift + hold Z", "unluck_meteor" }, { "V", "rib_shotgun" }, { "Shift+V", "rib_cage_guard" }, { "Hold V", "bone_sword" }, { "Shift + hold V", "reform" },
 					{ "Shift + right click", "shoulder_sword" },
 					{ "Hold C", "deadline" },
 					{ "Shift+C", "division_bullet" } }) {

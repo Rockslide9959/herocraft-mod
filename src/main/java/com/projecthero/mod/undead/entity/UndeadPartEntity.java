@@ -103,6 +103,16 @@ public class UndeadPartEntity extends Projectile {
 	public static final int STYLE_EJECT_TORSO = 15;
 	/** v0.17.3 (user): Shift+R, Parts Bullet: Hand -- the whole hand fired off the wrist, fingers first; it drops where it hits. */
 	public static final int STYLE_HAND = 16;
+	/**
+	 * v0.17.3 tap V, Rib Shotgun ({@link com.projecthero.mod.undead.UndeadRibShot}): one of his ribs fired out of his chest as a bone
+	 * spike. Spent on the first creature it hits; in a block it sticks for
+	 * {@link com.projecthero.mod.undead.UndeadKitConfig#RIB_SHOT_EMBED} ticks and crumbles; gone past
+	 * {@link com.projecthero.mod.undead.UndeadKitConfig#RIB_SHOT_RANGE} blocks.
+	 */
+	public static final int STYLE_RIB = 17;
+
+	/** A rib spike's longest life: its flight (well under) and then its time stuck in a block. */
+	private static final int RIB_LIFE = 20 + com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_EMBED;
 
 	/** Set by the client: bursts the piece into pixels as it disappears. */
 	public static Consumer<UndeadPartEntity> clientRemoval = e -> {
@@ -253,6 +263,10 @@ public class UndeadPartEntity extends Projectile {
 		return this.style() == STYLE_SWORD;
 	}
 
+	public boolean isRib() {
+		return this.style() == STYLE_RIB;
+	}
+
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(STYLE, STYLE_FINGER);
@@ -301,6 +315,7 @@ public class UndeadPartEntity extends Projectile {
 			case STYLE_DRILL, STYLE_HEAD, STYLE_PUNCH, STYLE_HAND -> UndeadConfig.SEVERED_LIFE;
 			case STYLE_EJECT_END, STYLE_EJECT_TORSO -> com.projecthero.mod.undead.UndeadEjectConfig.PIECE_LIFE;
 			case STYLE_CRIMSON, STYLE_SWORD -> 60;
+			case STYLE_RIB -> RIB_LIFE;
 			default -> 40;
 		};
 	}
@@ -386,6 +401,10 @@ public class UndeadPartEntity extends Projectile {
 				&& this.position().distanceToSqr(this.firedFrom) > com.projecthero.mod.undead.UndeadBulletConfig.RANGE * com.projecthero.mod.undead.UndeadBulletConfig.RANGE) {
 			this.outOfRange();
 		}
+		if (this.firedFrom != null && this.isRib() && this.position().distanceToSqr(this.firedFrom) > com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_RANGE
+				* com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_RANGE) {
+			this.discard(); // v0.17.3 Rib Shotgun: its reach (the client crumbles it)
+		}
 	}
 
 	@Override
@@ -442,6 +461,13 @@ public class UndeadPartEntity extends Projectile {
 				}
 				this.discard();
 			}
+			case STYLE_RIB -> {
+				// v0.17.3 Rib Shotgun: a bone spike -- a solid knock, a little shove, and it is spent
+				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_KNOCK,
+						com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_LIFT);
+				com.projecthero.mod.undead.UndeadRibShot.impact(p, this.position().add(0, this.getBbHeight() * 0.5, 0), true);
+				this.discard();
+			}
 			case STYLE_SWORD -> {
 				// Impale Throw: run through and pinned; the sword bursts into blood and bone
 				UndeadAbilities.strike(p, le, this.position().subtract(v), this.damage, 0.2, 0.0);
@@ -477,6 +503,17 @@ public class UndeadPartEntity extends Projectile {
 				Vec3 v = this.getDeltaMovement();
 				this.setDeltaMovement(v.scale(-0.2).add(0, 0.15, 0));
 				com.projecthero.mod.undead.UndeadSfx.headRoll(this.level(), at, (float) Math.min(1.0, v.length())); // v0.17.3 Undead sounds
+			}
+			case STYLE_RIB -> {
+				// v0.17.3 Rib Shotgun: driven a little way into the block, stuck there a moment, then it crumbles (the life runs out)
+				Vec3 v = this.getDeltaMovement().normalize();
+				this.setPos(at.x - v.x * 0.05, at.y - v.y * 0.05 - this.getBbHeight() * 0.5, at.z - v.z * 0.05);
+				this.setDeltaMovement(Vec3.ZERO);
+				this.entityData.set(STUCK, true);
+				this.life = Math.max(this.life, RIB_LIFE - com.projecthero.mod.undead.UndeadKitConfig.RIB_SHOT_EMBED);
+				if (this.getOwner() instanceof ServerPlayer p) {
+					com.projecthero.mod.undead.UndeadRibShot.impact(p, at, false);
+				}
 			}
 			case STYLE_SWORD -> {
 				// stuck in the wall a moment, then it crumbles (the life runs out)

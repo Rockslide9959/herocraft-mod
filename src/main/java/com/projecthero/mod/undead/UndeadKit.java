@@ -39,6 +39,7 @@ public final class UndeadKit {
 		UndeadVortex.clearSessionState();
 		UndeadMeteor.clearSessionState();
 		UndeadRibGuard.clearSessionState();
+		UndeadRibShot.clearSessionState();
 		SENT_WEAR.clear();
 	}
 
@@ -46,6 +47,7 @@ public final class UndeadKit {
 		UndeadVortex.forget(id);
 		UndeadMeteor.forget(id);
 		UndeadRibGuard.forget(id);
+		UndeadRibShot.forget(id);
 		SENT_WEAR.remove(id);
 	}
 
@@ -54,6 +56,7 @@ public final class UndeadKit {
 		UndeadVortex.cancel(p);
 		UndeadMeteor.cancel(p);
 		UndeadRibGuard.forTestsLower(p);
+		UndeadRibShot.cancel(p);
 		UndeadVortex.forget(p.getUUID());
 	}
 
@@ -62,6 +65,7 @@ public final class UndeadKit {
 		UndeadVortex.tick(p);
 		UndeadMeteor.tick(p);
 		UndeadRibGuard.tick(p);
+		UndeadRibShot.tick(p);
 	}
 
 	/** Every server tick: the meteors landing; every player's shoulder sword (also once the power is gone). */

@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.undead.data.UndeadState;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -22,9 +23,10 @@ import net.minecraft.world.entity.player.Player;
  *   X (3)  tap: Eject Feet           Shift+X  Combustion Punch
  *          hold 2 s: Head Throw (UndeadHeadThrow: start at 2 s, tickHeld while held, release on let-go, cancel if cut short)
  *   Z (4)  Ten Twists: Vortex Bullet (UndeadVortex)   Shift + hold Z 5 s: Unluck Meteor (UndeadMeteor; let go early: cancelled)
- *   V (5)  tap: Reform               Shift+V  Rib Cage Guard (UndeadRibGuard: while held, up to 4 s; a tap keeps it up 4 s)
+ *   V (5)  tap: Rib Shotgun (UndeadRibShot, on the release)   Shift+V tap: Rib Cage Guard (UndeadRibGuard: up 4 s, on the release)
  *          hold 2 s: the bone katana (UndeadBoneSword: he struggles the arm off; R / G / Z / C turn into its sword skills while
  *          it is out, V or Shift+V puts it away)
+ *          Shift + hold 1 s: Reform (gathering from REFORM_TAP, Reform at REFORM_HOLD, still held; let go between: nothing)
  *   (Victor -- Pull the Card and the kit in brackets -- is off: UndeadConfig.VICTOR_ENABLED)
  *   C (6)  hold: Deadline            Shift+C  Division Bullet          (Victor: Dead Road)
  *   double-tap jump in the air: the flight (UndeadFlight.toggle, from UndeadFlightPayload: doubleJump)
@@ -50,6 +52,11 @@ public final class UndeadAbilityManager {
 	 * said why), 1 once the sword is drawn}. A release before {@link UndeadConfig#BONE_SWORD_TAP} is a tap: Reform.
 	 */
 	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
+	/**
+	 * v0.17.3: Shift+V held down: {when it went down, 0 still a tap / 1 gathering for Reform / 2 spoken for (Reform done, or it
+	 * could not and said why)}. Let go while 0: the Rib Cage Guard; at {@link UndeadKitConfig#REFORM_HOLD}: Reform.
+	 */
+	private static final Map<UUID, long[]> SHIFT_V_HELD = new ConcurrentHashMap<>();
 	/** v0.17.3: a plain X held this long is the Head Throw (2 s). */
 	public static final int HEAD_THROW_HOLD = 40;
 
@@ -61,6 +68,7 @@ public final class UndeadAbilityManager {
 		R_HELD.clear();
 		X_HELD.clear();
 		V_HELD.clear();
+		SHIFT_V_HELD.clear();
 		UndeadLaunch.clearSessionState();
 		UndeadEject.clearSessionState();
 		UndeadBloodMoves.clearSessionState();
@@ -72,6 +80,7 @@ public final class UndeadAbilityManager {
 		R_HELD.remove(id);
 		X_HELD.remove(id);
 		V_HELD.remove(id);
+		SHIFT_V_HELD.remove(id);
 		UndeadLaunch.forget(id);
 		UndeadEject.forget(id);
 		UndeadBloodMoves.forget(id);
@@ -113,6 +122,7 @@ public final class UndeadAbilityManager {
 			// v0.17.3: the Bone Sword's own kit while it is out; nothing half-held from before carries over
 			R_HELD.remove(player.getUUID());
 			V_HELD.remove(player.getUUID());
+			SHIFT_V_HELD.remove(player.getUUID());
 			dropHeld(player);
 			return;
 		}
@@ -192,16 +202,31 @@ public final class UndeadAbilityManager {
 				// reaches over and struggles his off arm loose (tickV) and at BONE_SWORD_HOLD it tears off as the Bone Sword.
 				// Pull the Card (UndeadAbilities.pullCard) has no key while UndeadConfig.VICTOR_ENABLED is false.
 				// v0.17.3 kit: Shift+V is the Rib Cage Guard (up while held, at most 4 s; a tap leaves it up the whole 4 s)
+				// v0.17.3 (user: "a new combat V move"): tap V is the Rib Shotgun now and Reform moved to Shift + hold V (a second,
+				// so it is never set off by accident). Which of the three a press is, is settled by how long it is held, and each
+				// is decided once: a plain V let go before BONE_SWORD_TAP fires the ribs (past it the katana struggle owns the
+				// press); a Shift+V let go before REFORM_TAP raises the guard (it then stays up its 4 s -- the hold is Reform's
+				// now), past it he gathers himself and at REFORM_HOLD he re-forms; let go in between and nothing happens. Whether
+				// the press was shifted is read on the press only, so letting go of Shift mid-hold changes nothing.
+				long now = player.level().getGameTime();
 				if (pressed && shift) {
 					V_HELD.remove(player.getUUID());
-					UndeadRibGuard.raise(player);
+					SHIFT_V_HELD.put(player.getUUID(), new long[] { now, 0L });
 				} else if (pressed) {
-					V_HELD.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L, 0L });
+					SHIFT_V_HELD.remove(player.getUUID());
+					V_HELD.put(player.getUUID(), new long[] { now, 0L, 0L });
 				} else {
-					UndeadRibGuard.release(player);
+					long[] sv = SHIFT_V_HELD.remove(player.getUUID());
+					if (sv != null) {
+						if (sv[1] == 0L) {
+							UndeadRibGuard.raise(player); // a tap
+						} else if (sv[1] == 1L) {
+							endGather(player); // let go before Reform: nothing
+						}
+					}
 					long[] held = V_HELD.remove(player.getUUID());
 					if (held != null && held[1] == 0L) {
-						Undead.reform(player); // a tap
+						UndeadRibShot.start(player); // a tap
 					} else if (held != null && held[2] == 0L) {
 						UndeadBoneSword.cancelStruggle(player); // let go before it came off
 					}
@@ -234,6 +259,7 @@ public final class UndeadAbilityManager {
 		UndeadBloodMoves.tick(player);
 		tickX(player);
 		tickV(player);
+		tickShiftV(player);
 		UndeadLaunch.tick(player);
 		UndeadHeadThrow.tick(player); // v0.17.3: the Head Throw's aim and flight
 		tickR(player);
@@ -317,6 +343,75 @@ public final class UndeadAbilityManager {
 	}
 
 	/**
+	 * v0.17.3 Shift+V held: from {@link UndeadKitConfig#REFORM_TAP} he gathers himself (or, if he can't re-form now, says why
+	 * once and the rest of the hold does nothing); at {@link UndeadKitConfig#REFORM_HOLD} he re-forms ({@link Undead#reform}).
+	 */
+	private static void tickShiftV(ServerPlayer player) {
+		long[] v = SHIFT_V_HELD.get(player.getUUID());
+		if (v == null || v[1] == 2L) {
+			return;
+		}
+		long held = player.level().getGameTime() - v[0];
+		if (v[1] == 0L) {
+			if (held < UndeadKitConfig.REFORM_TAP) {
+				return;
+			}
+			if (!mayGather(player)) {
+				v[1] = 2L; // it could not (and said why)
+				return;
+			}
+			v[1] = 1L;
+			UndeadState n = Undead.state(player).copy();
+			n.animId = UndeadKitConfig.ANIM_REFORM_GATHER;
+			n.animStart = player.level().getGameTime() - held + UndeadKitConfig.REFORM_TAP;
+			Undead.save(player, n);
+		}
+		if (Undead.state(player).animId != UndeadKitConfig.ANIM_REFORM_GATHER) {
+			v[1] = 2L; // broken off (another move, the shatter)
+			return;
+		}
+		if (held >= UndeadKitConfig.REFORM_HOLD) {
+			v[1] = 2L;
+			endGather(player);
+			Undead.reform(player);
+		}
+	}
+
+	/** Shift+V held past a tap: may he gather himself for Reform? Says why not (the cooldown, the re-forming grace). */
+	private static boolean mayGather(ServerPlayer player) {
+		if (!Undead.canAct(player)) {
+			return false;
+		}
+		int cd = Undead.cooldownRemaining(player, UndeadAbilities.REFORM);
+		if (cd > 0) {
+			Undead.say(player, "message.projecthero.undead.cooldown", net.minecraft.ChatFormatting.GRAY,
+					net.minecraft.network.chat.Component.translatable("projecthero.undead.ability." + UndeadAbilities.REFORM),
+					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
+			return false;
+		}
+		return true;
+	}
+
+	/** The gathering pose ends (Reform is about to set its own, or he let go). */
+	private static void endGather(ServerPlayer player) {
+		UndeadState s = Undead.state(player);
+		if (s.animId == UndeadKitConfig.ANIM_REFORM_GATHER) {
+			UndeadState n = s.copy();
+			n.animId = UndeadState.ANIM_NONE;
+			Undead.save(player, n);
+		}
+	}
+
+	/** Gametests: Shift+V has been down for {@code ticks} (the press moved back in time), and the hold ticks. */
+	public static void forTestsHoldShiftV(ServerPlayer player, int ticks) {
+		long[] v = SHIFT_V_HELD.get(player.getUUID());
+		if (v != null) {
+			v[0] = player.level().getGameTime() - ticks;
+		}
+		tickShiftV(player);
+	}
+
+	/**
 	 * X held: at {@link #HEAD_THROW_HOLD} the Head Throw starts ({@link UndeadHeadThrow#start}); every tick after that it is
 	 * still held, {@link UndeadHeadThrow#tickHeld}. Shattered mid-hold: {@link UndeadHeadThrow#cancel}.
 	 */
@@ -384,8 +479,9 @@ public final class UndeadAbilityManager {
 			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadBloodMoves.SPRAY, UndeadBloodMoves.WHIRL };
 			case SLOT_3 -> new String[] { UndeadLaunch.EJECT_FEET, UndeadLaunch.COMBUSTION };
 			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadMeteor.ID }; // v0.17.3 kit: Shift + hold Z, Unluck Meteor
-			// v0.17.3 kit: tap V Reform, Shift+V Rib Cage Guard (hold V, the katana, is the third: boneSwordHoldId)
-			case SLOT_5 -> new String[] { UndeadAbilities.REFORM, UndeadRibGuard.ID };
+			// v0.17.3: tap V Rib Shotgun, Shift+V Rib Cage Guard (hold V, the katana, and Shift + hold V, Reform, are the ALT
+			// list's extra line: UndeadHud)
+			case SLOT_5 -> new String[] { UndeadRibShot.ID, UndeadRibGuard.ID };
 			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadBloodMoves.DEADLINE, UndeadAbilities.DIVISION }; // Shift+C: Division Bullet
 			default -> new String[0];
 		};
@@ -411,6 +507,7 @@ public final class UndeadAbilityManager {
 			case UndeadAbilities.HEAD_BULLET -> UndeadConfig.HEAD_BULLET_COOLDOWN;
 			case UndeadAbilities.CARD -> UndeadConfig.VICTOR_COOLDOWN;
 			case UndeadAbilities.REFORM -> UndeadConfig.REFORM_COOLDOWN;
+			case UndeadRibShot.ID -> UndeadKitConfig.RIB_SHOT_COOLDOWN;
 			case UndeadAbilities.DEAD_LINE -> UndeadConfig.DEAD_LINE_COOLDOWN;
 			case UndeadAbilities.VULCAN -> UndeadConfig.VULCAN_COOLDOWN;
 			case UndeadAbilities.DIVISION -> UndeadBulletConfig.DIVISION_COOLDOWN;

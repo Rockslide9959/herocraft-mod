@@ -183,8 +183,8 @@ public class UndeadRegenGameTests implements FabricGameTest {
 	public void theRegenMenuAndToggleRegenAreGone(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		// v0.17.3 merge: V is Reform and Shift+V is now the Rib Cage Guard (the kit), not Toggle Regen / the Regen Menu
-		helper.assertTrue(UndeadAbilities.REFORM.equals(UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5)[0])
-				&& com.projecthero.mod.undead.UndeadRibGuard.ID.equals(UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5)[1]), "V: Reform; Shift+V: Rib Cage Guard");
+		helper.assertTrue(com.projecthero.mod.undead.UndeadRibShot.ID.equals(UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5)[0])
+				&& com.projecthero.mod.undead.UndeadRibGuard.ID.equals(UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5)[1]), "V: Rib Shotgun; Shift+V: Rib Cage Guard");
 		// an old save with Toggle Regen off and the menu open: both bits dropped on load
 		UndeadState s0 = Undead.state(p).copy();
 		s0.flags = 128 | 512 | UndeadState.FLAG_NEXT_OFF;

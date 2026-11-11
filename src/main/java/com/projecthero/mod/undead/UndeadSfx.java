@@ -17,7 +17,7 @@ public final class UndeadSfx {
 	private UndeadSfx() {
 	}
 
-	private static void play(Level level, Vec3 at, SoundEvent ev, float volume, float pitch) {
+	static void play(Level level, Vec3 at, SoundEvent ev, float volume, float pitch) {
 		if (level == null || level.isClientSide || at == null) {
 			return;
 		}
