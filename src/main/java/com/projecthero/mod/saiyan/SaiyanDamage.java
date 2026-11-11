@@ -42,6 +42,8 @@ public final class SaiyanDamage {
 			}
 			if (entity instanceof LivingEntity) {
 				SaiyanAbilityManager.attack(sp);
+				// the combo hit is the whole punch: no vanilla swing damage on top of it
+				return InteractionResult.FAIL;
 			}
 			return InteractionResult.PASS;
 		});

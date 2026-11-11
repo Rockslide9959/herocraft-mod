@@ -81,9 +81,15 @@ public class SaiyanGameTests implements FabricGameTest {
 	}
 
 	/** Runs {@code ticks} Saiyan ticks, one per game tick ({@code each} before every one), then {@code then}. */
+	// One onEachTick per test, registered by the first ticks() call. Later calls (including ones made from inside a
+	// callback) only join the queue: onEachTick fills the test's tick map, and adding to it while the ticker walks it
+	// crashes the gametest server.
+	private static final java.util.Map<GameTestHelper, java.util.List<Runnable>> TICKERS = new java.util.WeakHashMap<>();
+
 	private static void ticks(GameTestHelper helper, ServerPlayer p, int ticks, Runnable each, Runnable then) {
 		int[] left = { ticks };
-		helper.onEachTick(() -> {
+		Runnable[] self = new Runnable[1];
+		self[0] = () -> {
 			if (left[0] > 0) {
 				if (each != null) {
 					each.run();
@@ -94,7 +100,19 @@ public class SaiyanGameTests implements FabricGameTest {
 					then.run();
 				}
 			}
-		});
+		};
+		java.util.List<Runnable> list = TICKERS.get(helper);
+		if (list == null) {
+			java.util.List<Runnable> fresh = new java.util.ArrayList<>();
+			TICKERS.put(helper, fresh);
+			helper.onEachTick(() -> {
+				for (Runnable r : new java.util.ArrayList<>(fresh)) {
+					r.run();
+				}
+			});
+			list = fresh;
+		}
+		list.add(self[0]);
 	}
 
 	private static boolean near(double a, double b) {

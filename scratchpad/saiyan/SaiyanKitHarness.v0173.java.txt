@@ -1,0 +1,381 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.saiyan.Saiyan;
+import com.projecthero.mod.saiyan.kit.SaiyanKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films every move of the v0.17.3 Saiyan move kit by calling SaiyanKit.press directly (the core's
+ * key routing may not be on the branch). Enabled by run/saiyankit.flag (its text filters scenes). Frames: run/screenshots/sk_*.
+ * Hook in/out with scratchpad/saiyan/kit_harness_hook.js; films with scratchpad/saiyan/kit_films.sh.
+ */
+public final class SaiyanKitHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	/** Camera: orbit round the player at this yaw (deg, 0 = in front), height and radius; null yaw = normal camera. */
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private SaiyanKitHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("saiyankit.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("saiyankit.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SaiyanKitHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "saiyankit-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SaiyanKitHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.removeAllEffects();
+				Saiyan.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("sk_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SK_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot, facing south with {@code pitch}; the old dummies gone, the kit's cooldowns cleared. */
+	private static void reset(Minecraft mc, int t, float pitch) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(48))) {
+				h.discard();
+			}
+			p.removeAllEffects();
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			SaiyanKit.resetForTest(p);
+		}));
+	}
+
+	/** A still training dummy (a husk: no sunburn) {@code dx}/{@code dz} from the spot. It can be knocked about, not walk. */
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(280);
+			h.setHealth(280);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void press(Minecraft mc, int t, String id, boolean down) {
+		at(t, () -> server(mc, p -> SaiyanKit.press(p, id, down)));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void firstPerson(Minecraft mc, int t, boolean on) {
+		at(t, () -> {
+			if (on) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			}
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("combo")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 2.2);
+			cam(t + 1, 70f, 0.6f, 4.2f, 0f, 1.2f);
+			record(t + 6, "combo", 48);
+			for (int i = 0; i < 5; i++) {
+				press(mc, t + 10 + i * 6, SaiyanKit.COMBO, true);
+			}
+			t += 58;
+		}
+		if (want("combo_fp")) {
+			reset(mc, t, 5f);
+			dummy(mc, t + 1, 0, 2.2);
+			firstPerson(mc, t + 1, true);
+			record(t + 6, "combo_fp", 44);
+			for (int i = 0; i < 5; i++) {
+				press(mc, t + 10 + i * 6, SaiyanKit.COMBO, true);
+			}
+			firstPerson(mc, t + 52, false);
+			t += 56;
+		}
+		if (want("martial")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 2.2);
+			cam(t + 1, 80f, 1.2f, 7.5f, 0f, 2.6f);
+			record(t + 5, "martial", 55);
+			press(mc, t + 10, SaiyanKit.MARTIAL, true);
+			t += 64;
+		}
+		if (want("ki_blast")) {
+			reset(mc, t, 2f);
+			dummy(mc, t + 1, 0, 8);
+			dummy(mc, t + 1, 1.2, 9);
+			cam(t + 1, 125f, 0.8f, 4.5f, 0f, 1.4f);
+			record(t + 5, "ki_blast", 50);
+			press(mc, t + 8, SaiyanKit.KI_BLAST, true);
+			press(mc, t + 38, SaiyanKit.KI_BLAST, false);
+			t += 58;
+		}
+		if (want("ki_blast_fp")) {
+			reset(mc, t, 2f);
+			dummy(mc, t + 1, 0, 8);
+			firstPerson(mc, t + 1, true);
+			record(t + 5, "ki_blast_fp", 42);
+			press(mc, t + 8, SaiyanKit.KI_BLAST, true);
+			press(mc, t + 34, SaiyanKit.KI_BLAST, false);
+			firstPerson(mc, t + 48, false);
+			t += 52;
+		}
+		if (want("beam")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 11);
+			cam(t + 1, 58f, 0.9f, 6.0f, 0f, 1.3f);
+			record(t + 5, "beam", 95);
+			press(mc, t + 8, SaiyanKit.BEAM, true);
+			press(mc, t + 54, SaiyanKit.BEAM, false);
+			t += 104;
+		}
+		if (want("beam_fp")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 11);
+			firstPerson(mc, t + 1, true);
+			record(t + 5, "beam_fp", 75);
+			press(mc, t + 8, SaiyanKit.BEAM, true);
+			press(mc, t + 40, SaiyanKit.BEAM, false);
+			firstPerson(mc, t + 82, false);
+			t += 86;
+		}
+		if (want("strong")) {
+			reset(mc, t, 3f);
+			dummy(mc, t + 1, 0, 10);
+			cam(t + 1, 95f, 2.0f, 7.0f, 0f, 1.6f);
+			record(t + 5, "strong", 36);
+			press(mc, t + 10, SaiyanKit.STRONG, true);
+			t += 46;
+		}
+		if (want("dash")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 95f, 0.8f, 7.0f, 0f, 1.2f);
+			record(t + 4, "dash", 30);
+			press(mc, t + 8, SaiyanKit.DASH, true);
+			t += 38;
+		}
+		if (want("rush")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 3);
+			dummy(mc, t + 1, 0.4, 6.5);
+			dummy(mc, t + 1, -0.4, 10);
+			cam(t + 1, 95f, 1.5f, 9.0f, 0f, 1.2f);
+			record(t + 4, "rush", 36);
+			press(mc, t + 8, SaiyanKit.RUSH, true);
+			t += 46;
+		}
+		if (want("aoe")) {
+			reset(mc, t, 0f);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI * 2 / 6 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 3.5, Math.cos(a) * 3.5);
+			}
+			cam(t + 1, 30f, 3.5f, 9.0f, 0f, 0.8f);
+			record(t + 4, "aoe", 40);
+			press(mc, t + 10, SaiyanKit.AOE, true);
+			t += 48;
+		}
+		if (want("aoe2")) {
+			reset(mc, t, 12f);
+			dummy(mc, t + 1, 0, 8);
+			dummy(mc, t + 1, 1.5, 9);
+			dummy(mc, t + 1, -1.5, 7.5);
+			cam(t + 1, 115f, 3.0f, 10.0f, 0f, 2.5f);
+			record(t + 4, "aoe2", 55);
+			press(mc, t + 8, SaiyanKit.AOE2, true);
+			t += 64;
+		}
+		if (want("utility2")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 4);
+			dummy(mc, t + 1, 1.5, 4.5);
+			cam(t + 1, 35f, 0.4f, 4.0f, 0f, 1.5f);
+			record(t + 4, "utility2", 36);
+			press(mc, t + 12, SaiyanKit.UTILITY2, true);
+			t += 44;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
