@@ -3886,5 +3886,111 @@
         "name": "projecthero:saiyan/exhausted"
       }
     ]
+  },
+  "gyro_ball_throw": {
+    "subtitle": "subtitles.projecthero.gyro_ball_throw",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_ball_throw"
+      }
+    ]
+  },
+  "gyro_ball_spin_loop": {
+    "subtitle": "subtitles.projecthero.gyro_ball_spin_loop",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_ball_spin_loop",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "gyro_ball_hit": {
+    "subtitle": "subtitles.projecthero.gyro_ball_hit",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_ball_hit"
+      }
+    ]
+  },
+  "gyro_ball_catch": {
+    "subtitle": "subtitles.projecthero.gyro_ball_catch",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_ball_catch"
+      }
+    ]
+  },
+  "gyro_body_spin": {
+    "subtitle": "subtitles.projecthero.gyro_body_spin",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_body_spin"
+      }
+    ]
+  },
+  "gyro_golden_charge_loop": {
+    "subtitle": "subtitles.projecthero.gyro_golden_charge_loop",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_golden_charge_loop",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "gyro_golden_release": {
+    "subtitle": "subtitles.projecthero.gyro_golden_release",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_golden_release"
+      }
+    ]
+  },
+  "gyro_ball_breaker": {
+    "subtitle": "subtitles.projecthero.gyro_ball_breaker",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_ball_breaker"
+      }
+    ]
+  },
+  "gyro_scan": {
+    "subtitle": "subtitles.projecthero.gyro_scan",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_scan"
+      }
+    ]
+  },
+  "gyro_quake": {
+    "subtitle": "subtitles.projecthero.gyro_quake",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_quake"
+      }
+    ]
+  },
+  "gyro_heal": {
+    "subtitle": "subtitles.projecthero.gyro_heal",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_heal"
+      }
+    ]
+  },
+  "gyro_leap": {
+    "subtitle": "subtitles.projecthero.gyro_leap",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_leap"
+      }
+    ]
+  },
+  "gyro_whistle": {
+    "subtitle": "subtitles.projecthero.gyro_whistle",
+    "sounds": [
+      {
+        "name": "projecthero:gyro/gyro_whistle"
+      }
+    ]
   }
 }

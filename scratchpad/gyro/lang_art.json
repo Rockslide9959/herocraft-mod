@@ -1,0 +1,16 @@
+{
+  "item.projecthero.zeppeli_steel_balls": "Zeppeli Steel Balls",
+  "subtitles.projecthero.gyro_ball_throw": "Steel Ball thrown",
+  "subtitles.projecthero.gyro_ball_spin_loop": "Steel Ball whirs",
+  "subtitles.projecthero.gyro_ball_hit": "Steel Ball strikes",
+  "subtitles.projecthero.gyro_ball_catch": "Steel Ball caught",
+  "subtitles.projecthero.gyro_body_spin": "Body twists with the Spin",
+  "subtitles.projecthero.gyro_golden_charge_loop": "Golden Spin charges",
+  "subtitles.projecthero.gyro_golden_release": "Golden Spin released",
+  "subtitles.projecthero.gyro_ball_breaker": "Ball Breaker strikes",
+  "subtitles.projecthero.gyro_scan": "Steel Ball hums",
+  "subtitles.projecthero.gyro_quake": "Spin Quake slams",
+  "subtitles.projecthero.gyro_heal": "Healing Spin",
+  "subtitles.projecthero.gyro_leap": "Spin Leap",
+  "subtitles.projecthero.gyro_whistle": "Gyro whistles"
+}
