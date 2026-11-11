@@ -168,6 +168,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.blackpanther.BlackPantherMod.initialize(); // v0.17.3
 		com.projecthero.mod.undead.UndeadMod.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.initialize(); // v0.17.3
+		com.projecthero.mod.gyro.GyroSounds.initialize(); // v0.17.3 Gyro Zeppeli
+		com.projecthero.mod.gyro.GyroItems.initialize();
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)
 		com.projecthero.mod.saiyan.kit.SaiyanKit.initialize(); // v0.17.3 Saiyan revamp: the move kit (packet + its tick)

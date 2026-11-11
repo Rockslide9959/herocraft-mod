@@ -1,0 +1,261 @@
+package com.projecthero.mod.client.gyro;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import com.projecthero.mod.client.gyro.model.SteelBallRender;
+import com.projecthero.mod.gyro.GyroItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.3 Zeppeli Steel Ball model previews. Enabled by run/steelball.flag. */
+// TEMP-HARNESS
+public final class SteelBallHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static Vec3 origin;
+	/** what the render hook draws: 0 nothing, 1 sheet, 2 turntable normal, 3 turntable golden, 4 fast spin, 5 hand size, 6 refs view */
+	private static int mode;
+	private static float spin;
+	private static float spinStep;
+	private static int frame;
+	private static String prefix = "";
+	private static int t0 = -1;
+
+	private SteelBallHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("steelball.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SteelBallHarness::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			if (mode == 0 || origin == null) {
+				return;
+			}
+			Vec3 cam = ctx.camera().getPosition();
+			PoseStack pose = ctx.matrixStack();
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			float s = spin + spinStep * pt;
+			int light = LightTexture.FULL_SKY;
+			switch (mode) {
+			case 1 -> {
+				float[][] views = { { 0, 0 }, { 35, -20 }, { 90, 0 }, { 180, 15 }, { -60, 50 } };
+				for (int k = 0; k < 5; k++) {
+					for (int row = 0; row < 2; row++) {
+						draw(pose, ctx, cam, origin.add(-2.0 + k * 1.0, 2.05 - row * 0.95, 0), 0.4f, views[k][1], views[k][0], row == 1, light);
+					}
+				}
+			}
+			case 2, 3, 4 -> draw(pose, ctx, cam, origin.add(0, 1.6, 0), 0.75f, 18f, s, mode == 3, light);
+			case 5 -> {
+				// hand / belt size, from close and from a few blocks
+				draw(pose, ctx, cam, origin.add(-0.22, 1.55, 2.35), 0.11f, 15f, s, false, light);
+				draw(pose, ctx, cam, origin.add(0.10, 1.52, 2.35), 0.11f, 15f, s + 120f, true, light);
+				draw(pose, ctx, cam, origin.add(-0.6, 1.5, 0), 0.11f, 0f, s, false, light);
+				draw(pose, ctx, cam, origin.add(0.6, 1.5, 0), 0.11f, 0f, s, true, light);
+			}
+			case 6 -> draw(pose, ctx, cam, origin.add(0, 1.6, 0), 0.75f, 12f, -22f + s, false, light);
+			default -> {
+			}
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "steelball-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void draw(PoseStack pose, net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext ctx, Vec3 cam, Vec3 at,
+			float radius, float pitch, float spinDeg, boolean golden, int light) {
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		pose.mulPose(Axis.XP.rotationDegrees(pitch));
+		SteelBallRender.render(pose, ctx.consumers(), light, radius, spinDeg, golden);
+		pose.popPose();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, "v0173_steelball_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SteelBallHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		spin += spinStep;
+		if (inWorld == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(50);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, Math.floor(p.getY()), Math.floor(p.getZ()) + 0.5);
+				BlockPos o = BlockPos.containing(origin);
+				for (int x = -8; x <= 8; x++) {
+					for (int y = 0; y <= 7; y++) {
+						l.setBlock(o.offset(x, y, -3), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 3);
+					}
+					for (int z = -3; z <= 6; z++) {
+						l.setBlock(o.offset(x, -1, z), Blocks.SMOOTH_STONE.defaultBlockState(), 3);
+					}
+				}
+				p.setGameMode(GameType.SPECTATOR);
+				p.getInventory().clearContent();
+			});
+			t0 = inWorld + 20;
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		int t = inWorld - t0;
+		Vec3 o = origin;
+		if (t == 0) {
+			server(mc, p -> camera(p, o.add(0, 1.6, 4.4), o.add(0, 1.6, 0)));
+			mode = 1;
+			spinStep = 0;
+			spin = 0;
+		}
+		if (t == 30) {
+			shot("sheet_all");
+		}
+		if (t == 35) {
+			server(mc, p -> camera(p, o.add(0, 1.65, 2.6), o.add(0, 1.6, 0)));
+			mode = 2;
+			spin = 0;
+			spinStep = 6f;
+			frame = 0;
+			prefix = "tt_normal_";
+		}
+		if (t == 36) {
+			spin = 0;
+		}
+		if ((mode == 2 || mode == 3 || mode == 4) && t >= 40) {
+			shot(prefix + String.format("%03d", frame++));
+		}
+		if (t == 100) {
+			mode = 3;
+			spin = 0;
+			frame = 0;
+			prefix = "tt_golden_";
+		}
+		if (t == 160) {
+			mode = 4;
+			spinStep = 47f;
+			frame = 0;
+			prefix = "tt_fast_";
+		}
+		if (t == 200) {
+			mode = 5;
+			spinStep = 0;
+			spin = 30;
+			server(mc, p -> camera(p, o.add(0, 1.6, 3.1), o.add(0, 1.5, 0)));
+		}
+		if (t == 225) {
+			shot("hand_size");
+		}
+		if (t == 230) {
+			mode = 6;
+			spin = 0;
+			server(mc, p -> camera(p, o.add(0, 1.6, 2.6), o.add(0, 1.6, 0)));
+		}
+		if (t == 250) {
+			shot("refs_view");
+		}
+		if (t == 255) {
+			// the item icon in the hotbar
+			mode = 0;
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				p.setGameMode(GameType.CREATIVE);
+				p.getInventory().clearContent();
+				p.getInventory().setItem(0, new ItemStack(GyroItems.ZEPPELI_STEEL_BALLS));
+				p.getInventory().selected = 0;
+			});
+		}
+		if (t == 280) {
+			shot("item_hotbar");
+		}
+		if (t == 290) {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
