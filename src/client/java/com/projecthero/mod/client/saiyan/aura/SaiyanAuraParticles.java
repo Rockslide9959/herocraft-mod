@@ -146,10 +146,7 @@ public final class SaiyanAuraParticles {
 		}
 		// first person: the drawn aura is never round the camera -- a few sparks low at the edges of the view, by the hands
 		if (firstPerson && (charging ? r.nextInt(2) == 0 : (f != SaiyanForm.BASE && r.nextInt(7) == 0))) {
-			int col = f == SaiyanForm.BASE ? 0xEAF2FF : f == SaiyanForm.GOD ? 0xFF3048 : f.auraColor & 0xFFFFFF;
-			if (f == SaiyanForm.BLUE_OVERDRIVE && r.nextBoolean()) {
-				col = 0x55D4FF;
-			}
+			int col = f == SaiyanForm.BASE ? 0xEAF2FF : SaiyanForm.SSJ.auraColor & 0xFFFFFF;
 			Vec3 eye = p.getEyePosition();
 			Vec3 look = p.getViewVector(1f);
 			Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
