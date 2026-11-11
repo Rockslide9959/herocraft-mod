@@ -11966,5 +11966,10 @@
   "projecthero.omnitrix.arctiguana.reptile_agility": "Reptile Agility",
   "projecthero.omnitrix.arctiguana.reptile_agility.desc": "Quick, springy and light on your feet; short falls don't hurt.",
   "projecthero.omnitrix.arctiguana.heat_weakness": "Heat",
-  "projecthero.omnitrix.arctiguana.heat_weakness.desc": "Fire and lava hurt you half again."
+  "projecthero.omnitrix.arctiguana.heat_weakness.desc": "Fire and lava hurt you half again.",
+  "message.projecthero.saiyan.spirit_bomb.cooldown": "Spirit Bomb ready in %ss",
+  "message.projecthero.saiyan.spirit_bomb.no_ki": "Not enough Ki for the Spirit Bomb",
+  "message.projecthero.saiyan.spirit_bomb.stalled": "Out of Ki: the Spirit Bomb stops growing",
+  "message.projecthero.saiyan.spirit_bomb.fizzle": "The Spirit Bomb fizzles out",
+  "message.projecthero.saiyan.spirit_bomb.too_small": "Too little energy gathered"
 }
