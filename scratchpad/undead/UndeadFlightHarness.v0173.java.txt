@@ -1,0 +1,361 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.UndeadFlight;
+import com.projecthero.mod.undead.data.UndeadState;
+import com.projecthero.mod.undead.entity.UndeadPartEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films Undead's flight speeds and the right-click boost burn through the real keys (double-tap
+ * jump, W, sprint, right click). Enabled by run/undeadflight.flag; {@code -Dundeadflight.only=name,name} films just those scenes.
+ * Logs the client's measured speed every tick ([FL] lines).
+ */
+public final class UndeadFlightHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static Vec3 lastPos;
+	private static final String ONLY = System.getProperty("undeadflight.only", "");
+
+	/** Fixed third-person camera (world), or a follow cam (offsets from the player's interpolated position) when follow != null. */
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	public static volatile Vec3 followCam;
+	public static volatile Vec3 followLook;
+	/** Turn per tick while circling (degrees), 0 = straight. */
+	private static float turn;
+
+	private UndeadFlightHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadflight.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadFlightHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadflight-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadFlightHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			if (turn != 0f && mc.player != null) {
+				aim(mc, mc.player.getYRot() + turn, mc.player.getXRot());
+			}
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (mc.player != null) {
+				Vec3 pos = mc.player.position();
+				if (recording != null && lastPos != null) {
+					double h = Math.sqrt(Math.pow(pos.x - lastPos.x, 2) + Math.pow(pos.z - lastPos.z, 2));
+					double d = pos.distanceTo(lastPos);
+					UndeadState s = Undead.peek(mc.player);
+					System.out.println(String.format("[FL] %s f=%d speed=%.2f b/s (horiz %.2f) fly=%b boost=%b burn=%.3f head=%b legs=%b arms=%b body=%b y=%.1f",
+							recording, recFrame, d * 20, h * 20, UndeadFlight.isFlying(mc.player), s != null && s.flag(UndeadState.FLAG_BOOST),
+							s == null ? 0f : UndeadFlight.burnProgress(s), s != null && s.headOnly(mc.level.getGameTime()),
+							s != null && s.broken(UndeadState.RIGHT_LEG), s != null && s.broken(UndeadState.RIGHT_ARM), s != null && s.broken(UndeadState.BODY), pos.y));
+				}
+				lastPos = pos;
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("fl_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("UF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			System.out.println("[HARNESS] recording " + name);
+		});
+	}
+
+	private static void reset(ServerPlayer p) {
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, p.getBoundingBox().inflate(80), e -> e instanceof UndeadPartEntity)
+				.forEach(e -> e.discard());
+		UndeadFlight.stop(p);
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		n.flags = 0;
+		n.setEx(UndeadState.X_BURN_TICKS, 0L);
+		n.setEx(UndeadState.X_BURN_SEG, 0L);
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(net.minecraft.world.item.Items.BREAD)); // right click must not eat it
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.getFoodData().setFoodLevel(10);
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 160, 0, 0);
+			mc.options.setCameraType(type);
+			followCam = null;
+			camPos = null;
+			camLook = null;
+			turn = 0f;
+			releaseAll(mc);
+			mc.gui.getChat().clearMessages(false);
+			mc.gui.clear();
+			server(mc, p -> {
+				reset(p);
+				if (setup != null) {
+					setup.accept(p);
+				}
+			});
+		});
+		at(t + 6, () -> aim(mc, 0f, 0f));
+	}
+
+	private static void aim(Minecraft mc, float yaw, float pitch) {
+		if (mc.player != null) {
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = yaw;
+			mc.player.xRotO = pitch;
+		}
+	}
+
+	private static void releaseAll(Minecraft mc) {
+		for (KeyMapping k : ModKeyBindings.ABILITY_SLOTS) {
+			k.setDown(false);
+		}
+		mc.options.keyShift.setDown(false);
+		mc.options.keyJump.setDown(false);
+		mc.options.keyUp.setDown(false);
+		mc.options.keySprint.setDown(false);
+		mc.options.keyUse.setDown(false);
+	}
+
+	private static void key(int t, KeyMapping k, int hold, String name) {
+		at(t, () -> {
+			System.out.println("[HARNESS] " + name + " down");
+			k.setDown(true);
+		});
+		at(t + hold, () -> {
+			System.out.println("[HARNESS] " + name + " up");
+			k.setDown(false);
+		});
+	}
+
+	private static void hold(int from, int to, KeyMapping k) {
+		at(from, () -> k.setDown(true));
+		at(to, () -> k.setDown(false));
+	}
+
+	private static boolean want(String name) {
+		if (ONLY.isEmpty()) {
+			return true;
+		}
+		for (String s : ONLY.split(",")) {
+			if (s.equals(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The real double-tap of jump (the first press jumps off the ground, the second, in the air, takes off), then a short rise. */
+	private static void takeOff(Minecraft m, int t, int rise) {
+		key(t, m.options.keyJump, 2, "jump");
+		key(t + 5, m.options.keyJump, 2, "jump");
+		key(t + 14, m.options.keyJump, rise, "jump(rise)");
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Undead.grant(p);
+		}));
+		t += 40;
+		int idx = 1;
+		Minecraft m = mc;
+
+		if (want("cruise_sprint_tp")) {
+			// 10 b/s cruising (W), then 20 b/s sprinting, side-on follow cam
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, null);
+			at(t + 8, () -> {
+				followCam = new Vec3(-6, 1.6, 2);
+				followLook = new Vec3(0, 0.8, 1.5);
+			});
+			takeOff(m, t + 12, 14);
+			record(t + 10, "cruise_sprint_tp", 150);
+			hold(t + 40, t + 160, m.options.keyUp);
+			hold(t + 95, t + 160, m.options.keySprint);
+			at(t + 40, () -> turn = 1.5f);
+			t += 180;
+		}
+		if (want("boost_tp")) {
+			// hold right click: 32 b/s along the look, the legs, arms and body burning away over 10 s; then a head at 25 b/s
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, null);
+			at(t + 8, () -> {
+				followCam = new Vec3(-3.2, 1.0, 1.2);
+				followLook = new Vec3(0, 0.9, 0.4);
+			});
+			takeOff(m, t + 12, 14);
+			record(t + 30, "boost_tp", 270);
+			at(t + 38, () -> turn = 3.5f); // circling, to stay inside the loaded chunks
+			hold(t + 40, t + 280, m.options.keyUse);
+			t += 310;
+		}
+		if (want("boost_fp")) {
+			scene(m, t, idx++, CameraType.FIRST_PERSON, null);
+			takeOff(m, t + 12, 14);
+			record(t + 30, "boost_fp", 275);
+			at(t + 38, () -> turn = 3.0f);
+			hold(t + 40, t + 290, m.options.keyUse);
+			// the landing with right click still held: nothing is eaten (the held click stays dead until let go)
+			hold(t + 245, t + 305, m.options.keyShift);
+			t += 320;
+		}
+		if (want("head_tp")) {
+			// already burnt down to a head: cruising, sprinting and boosting are all 25 b/s
+			scene(m, t, idx++, CameraType.THIRD_PERSON_BACK, null);
+			at(t + 8, () -> {
+				followCam = new Vec3(-2.6, 0.6, 1.0);
+				followLook = new Vec3(0, 0.2, 0.3);
+			});
+			takeOff(m, t + 12, 14);
+			at(t + 34, () -> server(m, p -> {
+				UndeadFlight.setBoost(p, true);
+				for (int i = 0; i < 200; i++) {
+					UndeadFlight.burnTick(p);
+				}
+				UndeadFlight.setBoost(p, false);
+			}));
+			record(t + 40, "head_tp", 150);
+			at(t + 50, () -> turn = 2.5f);
+			hold(t + 50, t + 90, m.options.keyUp);
+			hold(t + 95, t + 135, m.options.keyUp);
+			hold(t + 95, t + 135, m.options.keySprint);
+			hold(t + 140, t + 185, m.options.keyUse);
+			t += 200;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

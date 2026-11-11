@@ -2,6 +2,7 @@ package com.projecthero.mod.client.undead;
 
 import com.projecthero.mod.undead.UndeadConfig;
 import com.projecthero.mod.undead.UndeadEjectConfig;
+import com.projecthero.mod.undead.UndeadFlight;
 import com.projecthero.mod.undead.data.UndeadState;
 
 /**
@@ -29,11 +30,21 @@ public final class UndeadCuts {
 			return null;
 		}
 		long ejected = s.ex(UndeadState.X_EJECTED);
+		// v0.17.3 flight boost: the stage burning away (legs, arms, body) eaten back from its end; the edge glows while boosting
+		float burnt = UndeadFlight.burnt(s, part);
+		boolean burning = burnt > 0f && s.flag(UndeadState.FLAG_PROPELLING) && s.flag(UndeadState.FLAG_BOOST);
 		if (part == UndeadState.BODY) {
+			if (burnt > 0f) {
+				return new Cut(12f * (1f - burnt), 0f, burning);
+			}
 			return (ejected & (1L << UndeadState.BODY)) != 0L ? new Cut(UndeadEjectConfig.COMBUSTION_BODY_ROWS, 0f, false) : null;
 		}
 		int end = UndeadState.extremity(part);
 		boolean endGone = end >= 0 && s.broken(end);
+		if (burnt > 0f) {
+			float from = endGone && (ejected & (1L << end)) != 0L ? UndeadEjectConfig.EJECT_ROWS : endGone ? WRIST : 12f;
+			return new Cut(from * (1f - burnt), 0f, burning);
+		}
 		if (endGone && (ejected & (1L << end)) != 0L) {
 			// blown off with half the forearm / calf: cut there, growing back from there with the hand / foot's own frames
 			return new Cut(UndeadEjectConfig.EJECT_ROWS, s.regrowth(end, now), false);

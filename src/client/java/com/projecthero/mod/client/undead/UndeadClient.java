@@ -33,8 +33,37 @@ public final class UndeadClient {
 	private static final Map<UUID, long[]> SEEN_CUTS = new HashMap<>();
 	/** Other players: the stage their box was last refreshed for. */
 	private static final Map<UUID, Integer> SEEN_STAGE = new HashMap<>();
+	/** v0.17.3: the flight boost (right click held while flying) as last told to the server. */
+	private static boolean boostSent;
 
 	private UndeadClient() {
+	}
+
+	/** The local player is holding the flight boost right now (read by DirectionalFlight so the speed changes without a round trip). */
+	public static boolean boostHeld() {
+		return boostSent;
+	}
+
+	/**
+	 * Right click is still held from a boost whose flight has ended (a landing mid-boost): it keeps doing nothing until it is let
+	 * go, so the held click doesn't turn into eating / placing the moment he touches down ({@code UndeadBoostInputMixin}).
+	 */
+	public static boolean useLatched() {
+		return useLatch;
+	}
+
+	private static boolean useLatch;
+
+	/** The local player's right click while flying is the boost: sent on the edges (the server re-checks). */
+	private static void boost(Minecraft mc) {
+		boolean down = mc.player != null && mc.options.keyUse.isDown();
+		boolean flying = mc.player != null && com.projecthero.mod.undead.UndeadFlight.isFlying(mc.player);
+		useLatch = down && (useLatch || flying);
+		boolean want = mc.player != null && mc.screen == null && down && flying;
+		if (want != boostSent && mc.getConnection() != null) {
+			boostSent = want;
+			net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.projecthero.mod.network.UndeadBoostPayload(want));
+		}
 	}
 
 	public static void initialize() {
@@ -60,6 +89,8 @@ public final class UndeadClient {
 		SEEN.clear();
 		SEEN_CUTS.clear();
 		SEEN_STAGE.clear();
+		boostSent = false;
+		useLatch = false;
 		UndeadBloodMovesFx.reset();
 		BloodFx.reset();
 		UndeadMotion.reset();
@@ -84,6 +115,7 @@ public final class UndeadClient {
 		PixelCubes.tick();
 		BloodFx.tick();
 		UndeadFirstPerson.tick(mc.player == null ? null : Undead.peek(mc.player));
+		boost(mc); // v0.17.3: right click held while flying
 		long now = mc.level.getGameTime();
 		java.util.Set<UUID> present = new java.util.HashSet<>();
 		for (Player player : mc.level.players()) {
@@ -108,6 +140,8 @@ public final class UndeadClient {
 						burst(player, i, kind == UndeadState.KIND_SHATTER ? 1.5f : 1f);
 					} else if (at > 0L && now - at < 20L && kind == UndeadState.KIND_LAUNCHED) {
 						UndeadBlood.stumpSpurt(player, i, 1.2f); // thrown off: the stump spurts
+					} else if (at > 0L && now - at < 20L && kind == UndeadState.KIND_BURNT) {
+						UndeadBlood.burntThrough(player, i); // v0.17.3 boost: the last of it crumbles to embers and ash
 					}
 				}
 			}
