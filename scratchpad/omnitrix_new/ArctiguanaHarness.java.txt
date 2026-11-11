@@ -1,0 +1,389 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.AlienKit;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.arctiguana.ArctiguanaKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): Arctiguana -- a turntable, close-ups, and every move filmed as its own
+ * frame run ({@code <alien>_<move>_NNN.png} in run/screenshots). Enabled by run/arctiguana.flag.
+ */
+public final class ArctiguanaHarness {
+	/** The camera (ArctiguanaHarnessCameraMixin): offset from the player (or from camAbs), looking at the player + camTarget (or camAbs). */
+	public static volatile Vec3 camOffset, camTarget = new Vec3(0, 1.05, 0);
+	public static volatile Supplier<Vec3> camAbs;
+
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static Vec3 home;
+	private static final List<Mob> MOBS = new ArrayList<>();
+
+	/** One scripted step: its frames' name (null: not filmed), its length, what happens on its first tick (server), and per tick. */
+	private record Step(String name, int ticks, Consumer<ServerPlayer> start, Runnable clientStart, PerTick each) {
+	}
+
+	@FunctionalInterface
+	private interface PerTick {
+		void at(int t, ServerPlayer p);
+	}
+
+	private static final List<Step> STEPS = new ArrayList<>();
+	private static int stepIndex = -1, stepTick, frame;
+
+	private ArctiguanaHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("arctiguana.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ArctiguanaHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "arctiguana-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+		script();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends AlienKit> T kit(String id) {
+		return (T) Aliens.kit(id);
+	}
+
+	private static void ready(ServerPlayer p, String id) {
+		AlienKit k = Aliens.kit(id);
+		for (var m : k.moves()) {
+			k.cooldown(p, m.id(), 0);
+		}
+	}
+
+	private static void clearMobs() {
+		for (Mob m : MOBS) {
+			m.discard();
+		}
+		MOBS.clear();
+	}
+
+	private static Zombie zombie(ServerPlayer p, double dx, double dz) {
+		Zombie m = EntityType.ZOMBIE.create(p.serverLevel());
+		m.moveTo(home.x + dx, home.y, home.z + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+		m.setHealth(500);
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(m);
+		MOBS.add(m);
+		return m;
+	}
+
+	private static void face(ServerPlayer p, Vec3 at) {
+		Vec3 d = at.subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static void home(ServerPlayer p) {
+		p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+		p.setYRot(0f);
+		p.setXRot(0f);
+		p.setYHeadRot(0f);
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static Vec3 chest(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.6, 0);
+	}
+
+	private static void cam(double x, double y, double z, double tx, double ty, double tz) {
+		camAbs = null;
+		camTarget = new Vec3(tx, ty, tz);
+		camOffset = new Vec3(x, y, z);
+	}
+
+	/** The usual move camera: from his front-right, looking a little ahead of him. */
+	private static Runnable side() {
+		return () -> cam(4.2, 2.2, 3.6, 0, 1.0, 2.2);
+	}
+
+	private static void add(String name, int ticks, Consumer<ServerPlayer> start, Runnable clientStart, PerTick each) {
+		STEPS.add(new Step(name, ticks, start, clientStart, each));
+	}
+
+	private static void add(String name, int ticks, Consumer<ServerPlayer> start, Runnable clientStart) {
+		add(name, ticks, start, clientStart, null);
+	}
+
+	/** Becomes {@code id}: back to human (no recharge), then the dial and the slap; a 20-tick settle. */
+	private static void become(String id) {
+		add(null, 30, p -> {
+			clearMobs();
+			if (Omnitrix.transformed(p)) {
+				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			}
+			Omnitrix.setRecharge(p, 0);
+			Omnitrix.noGlitch(p);
+			Aliens.discover(p, id, true);
+			home(p);
+			Omnitrix.activate(p);
+			Omnitrix.select(p, id);
+		}, () -> camOffset = null);
+		add(null, 40, p -> {
+			Omnitrix.select(p, id);
+			System.out.println("[HARNESS] transform " + id + "=" + Omnitrix.transform(p));
+			Omnitrix.setTimeLeft(p, 20 * 600);
+			home(p);
+		}, () -> cam(0, 1.4, 3.0, 0, 1.0, 0));
+	}
+
+	/** A turntable: the camera goes once round him (5 degrees a tick). */
+	private static void turntable(String alien, double dist, double height) {
+		add(alien + "_turntable", 72, p -> home(p), null, (t, p) -> {
+			double a = Math.toRadians(t * 5.0);
+			camAbs = null;
+			camTarget = new Vec3(0, height * 0.75, 0);
+			camOffset = new Vec3(Math.sin(a) * dist, height, Math.cos(a) * dist);
+		});
+	}
+
+	private static void script() {
+		// ================================================================= Arctiguana
+		become(ArctiguanaKit.ID);
+		turntable("arctiguana", 3.2, 1.3);
+		add("arctiguana_badge", 10, p -> home(p), () -> {
+			camAbs = () -> Minecraft.getInstance().player.position().add(0.36, 0.72, 0.0);
+			camOffset = new Vec3(0.9, 0.15, 0.25);
+		});
+		add("arctiguana_ice_breath", 50, p -> {
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+			Zombie a = zombie(p, 0.6, 3.5);
+			zombie(p, -0.8, 5.5);
+			face(p, chest(a));
+			kit(ArctiguanaKit.ID).press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
+		}, side());
+		add("arctiguana_ice_shard_spit", 30, p -> {
+			clearMobs();
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+			Zombie a = zombie(p, 0, 6);
+			a.setTicksFrozen(200);
+			face(p, chest(a));
+			((ArctiguanaKit) kit(ArctiguanaKit.ID)).spit(p);
+		}, side(), (t, p) -> {
+			if (t == 12) {
+				ready(p, ArctiguanaKit.ID);
+				((ArctiguanaKit) kit(ArctiguanaKit.ID)).spit(p);
+			}
+		});
+		add("arctiguana_deep_freeze", 50, p -> {
+			clearMobs();
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+			zombie(p, 3, 1);
+			zombie(p, -3, 2);
+			zombie(p, 1, -3.5);
+			zombie(p, 0.5, 4);
+		}, () -> cam(5.5, 4.0, 5.5, 0, 0.8, 0), (t, p) -> {
+			if (t == 6) {
+				((ArctiguanaKit) kit(ArctiguanaKit.ID)).deepFreeze(p);
+			}
+		});
+		add("arctiguana_ice_slide", 36, p -> {
+			clearMobs();
+			p.connection.teleport(home.x, home.y, home.z - 6, 0f, 0f);
+			ready(p, ArctiguanaKit.ID);
+			zombie(p, 0.3, 0);
+		}, () -> {
+			camAbs = () -> new Vec3(home.x, home.y + 0.8, home.z);
+			camOffset = new Vec3(6.5, 2.5, 0.5);
+		}, (t, p) -> {
+			if (t == 4) {
+				((ArctiguanaKit) kit(ArctiguanaKit.ID)).slide(p);
+			}
+		});
+		add("arctiguana_tail_whip", 26, p -> {
+			clearMobs();
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+			zombie(p, 2.2, 0.5);
+			zombie(p, -2.2, -0.5);
+		}, () -> cam(3.5, 2.6, 4.0, 0, 0.9, 0), (t, p) -> {
+			if (t == 4) {
+				((ArctiguanaKit) kit(ArctiguanaKit.ID)).tailWhip(p);
+			}
+		});
+		add("arctiguana_frost_armour", 40, p -> {
+			clearMobs();
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+		}, () -> cam(2.4, 1.6, 2.8, 0, 1.0, 0), (t, p) -> {
+			if (t == 4) {
+				((ArctiguanaKit) kit(ArctiguanaKit.ID)).frostArmour(p);
+			}
+		});
+		add("arctiguana_claws", 20, p -> {
+			home(p);
+			Zombie a = zombie(p, 0, 1.8);
+			face(p, chest(a));
+			kit(ArctiguanaKit.ID).onAttack(p, a);
+			p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+		}, side());
+		add("arctiguana_frost_wall", 175, p -> {
+			clearMobs();
+			home(p);
+			ready(p, ArctiguanaKit.ID);
+			zombie(p, 0, 6);
+			((ArctiguanaKit) kit(ArctiguanaKit.ID)).frostWall(p);
+		}, () -> cam(5.0, 2.6, -1.5, 0, 1.0, 2.0));
+
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 200 == 0) {
+				System.out.println("[HARNESS] waiting " + waitTicks + " screen=" + mc.screen + " overlay=" + mc.getOverlay() + " created=" + createdWorld);
+			}
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ArctiguanaHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.getWindow().setWindowed(854, 480);
+		}
+		if (t == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+			});
+		}
+		if (t < 110) {
+			return;
+		}
+		if (stepIndex < 0 || stepTick >= STEPS.get(stepIndex).ticks) {
+			stepIndex++;
+			stepTick = 0;
+			frame = 0;
+			if (stepIndex >= STEPS.size()) {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+				return;
+			}
+			Step s = STEPS.get(stepIndex);
+			System.out.println("[HARNESS] step " + s.name);
+			if (s.clientStart != null) {
+				s.clientStart.run();
+			}
+			if (s.start != null) {
+				server(mc, s.start);
+			}
+		}
+		Step s = STEPS.get(stepIndex);
+		int st = stepTick++;
+		if (s.each != null) {
+			server(mc, p -> s.each.at(st, p));
+		}
+		// keep his body square to his facing for the turntables and stills
+		if (s.name != null && (s.name.endsWith("turntable") || s.name.endsWith("badge") || s.name.endsWith("jaw"))) {
+			mc.player.yBodyRot = mc.player.getYRot();
+			mc.player.yBodyRotO = mc.player.getYRot();
+		}
+		if (s.name != null && st >= 1) {
+			shot(mc, String.format("%s_%03d", s.name, frame++));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("NA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
