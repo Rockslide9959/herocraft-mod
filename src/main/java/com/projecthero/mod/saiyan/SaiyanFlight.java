@@ -5,32 +5,26 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.saiyan.data.SaiyanState;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3: the Saiyan's movement. <b>X</b> is the Ki Dash: a burst along the look, faster in the stronger forms
- * ({@link SaiyanForm#speedMult()}), 6 Ki. <b>Double-tap jump</b> in the air is flight, built like the Kryptonian's: vanilla
- * {@code mayfly}/{@code flying} so the server never kicks a hovering player, the movement itself the client's shared
- * directional flight (W along the look, Sprint faster, a dead hover with no input). It costs 0.25 Ki a second and ends at
- * 0 Ki, on landing, or on another double-tap.
+ * v0.17.3 Saiyan revamp: the Saiyan's flight. <b>Double-tap jump</b> in the air, built like the Kryptonian's: vanilla
+ * {@code mayfly}/{@code flying} so the server never kicks a hovering player, the movement itself the client's shared directional
+ * flight (W along the look, Sprint faster, a dead hover with no input; Super Saiyan 20% faster). It costs 0.5 Ki a second (and
+ * no Ki comes back while airborne) and ends at 0 Ki, on landing, or on another double-tap. The dash is the kit's (X).
  */
 public final class SaiyanFlight {
-	public static final String DASH = "ki_dash";
 	public static final String FLIGHT = "flight";
 
 	private static final Map<UUID, Long> STARTED = new ConcurrentHashMap<>();
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
-	/** No fall damage until this game time (after a dash). */
-	private static final Map<UUID, Long> SAFE_UNTIL = new ConcurrentHashMap<>();
 
 	private SaiyanFlight() {
 	}
@@ -38,51 +32,19 @@ public final class SaiyanFlight {
 	static void clearSessionState() {
 		STARTED.clear();
 		LAST_POS.clear();
-		SAFE_UNTIL.clear();
 	}
 
 	static void forget(UUID id) {
 		STARTED.remove(id);
 		LAST_POS.remove(id);
-		SAFE_UNTIL.remove(id);
 	}
 
 	static boolean fallSafe(ServerPlayer player) {
-		Long until = SAFE_UNTIL.get(player.getUUID());
-		return isFlying(player) || (until != null && player.level().getGameTime() <= until);
+		return isFlying(player);
 	}
 
 	static boolean isFlying(ServerPlayer player) {
 		return Saiyan.isFlying(player);
-	}
-
-	// ---------------------------------------------------------------- X: the Ki Dash
-
-	public static boolean dash(ServerPlayer player) {
-		if (!SaiyanAbilityManager.canAct(player)) {
-			return false;
-		}
-		int cd = Saiyan.cooldownRemaining(player, DASH);
-		if (cd > 0) {
-			return false;
-		}
-		if (!Saiyan.spendKi(player, SaiyanConfig.DASH_COST)) {
-			return false;
-		}
-		SaiyanForm f = Saiyan.form(player);
-		Saiyan.startCooldown(player, DASH, SaiyanConfig.DASH_COOLDOWN);
-		Vec3 look = player.getLookAngle();
-		double speed = SaiyanConfig.DASH_SPEED * f.speedMult();
-		Vec3 v = new Vec3(look.x * speed, Math.max(-0.4, look.y * speed * 0.6) + (player.onGround() ? 0.2 : 0.0), look.z * speed);
-		AbilityHelpers.launchSelf(player, v);
-		player.resetFallDistance();
-		SAFE_UNTIL.put(player.getUUID(), player.level().getGameTime() + SaiyanConfig.DASH_FALL_GRACE);
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 0.9, 0);
-		level.sendParticles(Saiyan.dust(f.auraColor, 1.5f), c.x, c.y, c.z, 12, 0.3, 0.5, 0.3, 0.0);
-		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y - 0.6, c.z, 6, 0.3, 0.1, 0.3, 0.05);
-		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.7f, 1.0f);
-		return true;
 	}
 
 	// ---------------------------------------------------------------- double-tap jump: flight
@@ -150,10 +112,6 @@ public final class SaiyanFlight {
 	static void tick(ServerPlayer player) {
 		Vec3 pos = player.position();
 		Vec3 last = LAST_POS.put(player.getUUID(), pos);
-		Long safe = SAFE_UNTIL.get(player.getUUID());
-		if (safe != null && player.level().getGameTime() > safe) {
-			SAFE_UNTIL.remove(player.getUUID());
-		}
 		if (!isFlying(player)) {
 			return;
 		}

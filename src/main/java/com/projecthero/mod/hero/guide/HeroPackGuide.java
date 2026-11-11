@@ -141,6 +141,14 @@ public final class HeroPackGuide {
 	}
 
 	/** Black Panther (v0.17.3). */
+	/**
+	 * v0.17.3 Saiyan revamp: the Saiyan chapter's control rows {key, ability id}; each shows
+	 * {@code projecthero.saiyan.ability.<id>} and its {@code .desc} (the kit's moves and the core's own).
+	 */
+	public static final String[][] SAIYAN_CONTROLS = { { "R", "combo" }, { "Shift+R", "martial" }, { "G", "ki_blast" }, { "Shift+G", "beam" },
+			{ "Z", "strong" }, { "Shift+Z", "spirit_bomb" }, { "X", "dash" }, { "Shift+X", "rush" }, { "C", "aoe" }, { "Shift+C", "aoe2" },
+			{ "V", "charge" }, { "Shift+V", "utility2" }, { "Shift+hold V", "kaioken" }, { "H", "super_saiyan" }, { "2x Jump", "flight" } };
+
 	/** The Saiyan (v0.17.3). */
 	public static Chapter saiyanChapter() {
 		return chapters().get(CH_SAIYAN);
@@ -1772,15 +1780,14 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.saiyan.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.saiyan.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "ki", "forms", "flight"}) { // v0.17.3: Base and Super Saiyan only
+			// v0.17.3 revamp: the core (traits, Ki, Rage / Super Saiyan, Kaioken, Zenkai, a stronger foe, flight), then every key
+			for (String section : new String[]{"getting", "traits", "ki", "rage", "kaioken", "zenkai", "strong", "flight"}) {
 				head(lines, "projecthero.guide.saiyan." + section);
 				para(lines, "projecthero.guide.saiyan." + section + ".body");
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.saiyan.controls");
-			for (String[] row : new String[][] { { "Left click", "combo" }, { "R", "feint" }, { "G", "ki_beam" }, { "Shift+G", "spirit_orb" },
-					{ "Z", "barrage" }, { "Shift+Z", "sky_combo" }, { "X", "ki_dash" }, { "Shift+X", "flight" }, { "C", "dragon_rush" },
-					{ "V", "instant_step" }, { "Shift+V", "power_down" }, { "H", "form_wheel" }, { "Hold Q", "charge" } }) {
+			for (String[] row : SAIYAN_CONTROLS) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.saiyan.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.saiyan.ability." + row[1] + ".desc");

@@ -10,6 +10,7 @@
 		"LivingEntityKryptoniteHealMixin",
 		"SpeedsterHungerMixin",
 		"UndeadPassiveHungerMixin",
+		"SaiyanHungerMixin",
 		"StandTimeStopServerLevelMixin",
 		"StandTimeStopLevelMixin",
 		"StandMiningMixin",

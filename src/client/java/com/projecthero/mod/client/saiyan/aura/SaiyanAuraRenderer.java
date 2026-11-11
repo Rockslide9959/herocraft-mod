@@ -36,7 +36,8 @@ import net.minecraft.world.entity.player.Player;
  * ground (the floating debris is {@link SaiyanAuraParticles}). A Base charge is the same flame in white.</li>
  * <li>The transformation ({@link SaiyanFx#transformingTicks}): a flash with star rays, a pillar of light, a shockwave ring.</li>
  * </ul>
- * Only Base and Super Saiyan are in play; any other form (an old save, the debug override) draws as Super Saiyan.
+ * <li>Kaioken (v0.17.3 revamp): the flame turns crimson -- in Base a steady red aura, in any form the palette eased to red.</li>
+ * Only Base and Super Saiyan are in play.
  * Everything is procedural from (time, a per-player seed): no per-frame allocation. Model space: block units, +y DOWN, the feet
  * at y = {@link #FEET}, the top of the head at y = -0.5, scaled by the player model's 15/16.
  */
@@ -76,9 +77,10 @@ public final class SaiyanAuraRenderer {
 	 */
 	static void tickLevel(Player p, float groundDist, float daylight) {
 		float target = SaiyanFx.charging(p) ? 1f : 0f;
+		float kk = SaiyanFx.kaioken(p) ? 1f : 0f;
 		float[] s = LEVEL.get(p.getId());
 		if (s == null) {
-			s = new float[] { target, target, groundDist, stamp, daylight };
+			s = new float[] { target, target, groundDist, stamp, daylight, kk, kk };
 			LEVEL.put(p.getId(), s);
 		}
 		s[0] = s[1];
@@ -86,6 +88,9 @@ public final class SaiyanAuraRenderer {
 		s[2] = groundDist;
 		s[3] = stamp;
 		s[4] += (daylight - s[4]) * 0.1f;
+		// Kaioken's red eases in fast and fades out slower
+		s[5] = s[6];
+		s[6] += (kk - s[6]) * (kk > s[6] ? 0.3f : 0.12f);
 	}
 
 	/** End of a client tick: forgets players that stopped being Saiyans or left. */
@@ -105,7 +110,7 @@ public final class SaiyanAuraRenderer {
 	/** Still easing out (a Base charge just let go). */
 	static boolean tracked(int entityId) {
 		float[] s = LEVEL.get(entityId);
-		return s != null && s[1] > 0.02f;
+		return s != null && (s[1] > 0.02f || s[6] > 0.02f);
 	}
 
 
@@ -114,6 +119,10 @@ public final class SaiyanAuraRenderer {
 	/** {wash (alpha-blended, saturated), glow (additive, = the form's aura colour), core (white-hot)}. */
 	private static final int[] BASE_PAL = { 0xB8CCF0, 0xE6EEFF, 0xFFFFFF };
 	private static final int[] SSJ_PAL = { 0xFFC400, rgb(SaiyanForm.SSJ.auraColor), 0xFFF6D0 };
+	/** Kaioken: a crimson wash, a red glow, a hot pink-white core. */
+	private static final int[] KAIOKEN_PAL = { 0xE0101A, 0xFF2A2A, 0xFFD0C8 };
+	/** Scratch palette for the eased mix (render thread only). */
+	private static final int[] MIX_PAL = new int[3];
 
 	private static int rgb(int argb) {
 		return argb & 0xFFFFFF;
@@ -133,7 +142,8 @@ public final class SaiyanAuraRenderer {
 		float charge = lv != null ? Mth.lerp(partial, lv[0], lv[1]) : (SaiyanFx.charging(player) ? 1f : 0f);
 		float groundDist = lv != null ? lv[2] : (player.onGround() ? 0f : -1f);
 		float daylight = lv != null ? lv[4] : 1f;
-		if (base && charge < 0.02f) {
+		float kaioken = lv != null ? Mth.lerp(partial, lv[5], lv[6]) : (SaiyanFx.kaioken(player) ? 1f : 0f);
+		if (base && charge < 0.02f && kaioken < 0.02f) {
 			return;
 		}
 		Matrix4f m = pose.last().pose();
@@ -143,9 +153,17 @@ public final class SaiyanAuraRenderer {
 		float bt = burst ? tt + partial : 999f;
 		float flare = burst ? Mth.clamp(1f - bt / 26f, 0f, 1f) : 0f;
 		int[] pal = base ? BASE_PAL : SSJ_PAL;
+		if (kaioken > 0.01f) {
+			for (int i = 0; i < 3; i++) {
+				MIX_PAL[i] = mix(pal[i], KAIOKEN_PAL[i], Math.min(1f, kaioken));
+			}
+			pal = MIX_PAL;
+		}
 
-		// power: 0.42 idle in a form, 1 charging; a fresh transformation flares it up
-		float power = base ? charge : Mth.lerp(charge, 0.42f, 1f);
+		// power: 0.42 idle in a form (Kaioken's flame in Base: 0.5), 1 charging; a fresh transformation flares it up
+		float idle = base ? 0.5f * kaioken : 0.42f;
+		float power = Mth.lerp(charge, idle, 1f);
+		power *= 1f + 0.05f * kaioken * Mth.sin(ageInTicks * 0.9f); // Kaioken's restless flicker
 		power = Math.max(power, flare * 1.15f);
 		power *= 1f + 0.07f * charge * Mth.sin(time * 0.45f); // the charge's gentle pulse
 		float speed = 1f + 0.8f * charge;
