@@ -285,6 +285,7 @@
       "com.projecthero.mod.gametest.OmnitrixBuzzshockGameTests",
       "com.projecthero.mod.gametest.OmnitrixFeedbackGameTests",
       "com.projecthero.mod.gametest.OmnitrixSnareohGameTests",
+      "com.projecthero.mod.gametest.OmnitrixShockRockGameTests",
       "com.projecthero.mod.gametest.OmnitrixAutoGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalibrationGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalChipGameTests",

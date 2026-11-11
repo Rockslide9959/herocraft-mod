@@ -332,8 +332,8 @@ public final class OmnitrixInfo {
 			"way_big", "wildvine", "ditto",
 			// v0.17.2: Upchuck U+E018, Buzzshock U+E019, Feedback U+E01A
 			"upchuck", "buzzshock", "feedback",
-			// v0.17.3: Snare-oh U+E01B
-			"snare_oh");
+			// v0.17.3: the new aliens, U+E01B..U+E020 (Snare-oh, Eye Guy, Frankenstrike, Arctiguana, Benwolf, Shock Rock)
+			"snare_oh", "eye_guy", "frankenstrike", "arctiguana", "benwolf", "shock_rock");
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());
