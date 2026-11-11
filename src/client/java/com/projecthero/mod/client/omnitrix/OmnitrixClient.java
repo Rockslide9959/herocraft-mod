@@ -61,6 +61,7 @@ public final class OmnitrixClient {
 		com.projecthero.mod.client.omnitrix.alien.SnareohClient.register(); // v0.17.3
 		com.projecthero.mod.client.omnitrix.alien.ShockRockClient.register(); // v0.17.3
 		com.projecthero.mod.client.omnitrix.alien.FrankenstrikeClient.register(); // v0.17.3
+		com.projecthero.mod.client.omnitrix.alien.EyeGuyClient.register(); // v0.17.3
 		// v0.17.2: the Recalibrated Omnitrix's ten
 		com.projecthero.mod.client.omnitrix.alien.SwampfireClient.register();
 		com.projecthero.mod.client.omnitrix.alien.EchoEchoClient.register();
