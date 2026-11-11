@@ -61,6 +61,25 @@ public final class SsjHairModel {
 		LOCKS.add(new Lock(p0, p1, p2, p3, w, d, X, 0.12f, 0.45f));
 	}
 
+	/** v2: a big flame lock -- a fat leaf, narrower at the root, widest about 40% along, then the sharp tip. */
+	private static void flame(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float w, float d, Vector3f broad) {
+		LOCKS.add(new Lock(p0, p1, p2, p3, w, d, broad, FLAME_BELLY, 1f));
+	}
+
+	private static void flames(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float w, float d, Vector3f broad) {
+		flame(p0, p1, p2, p3, w, d, broad);
+		// the mirror isn't exact: drawn hair is never symmetric, and a perfect mirror reads as a lotus / pinecone. Alternate
+		// pairs nudge the mirrored lock's tip a little higher or lower and longer or shorter.
+		float s = (pairs++ % 2 == 0) ? 1f : -1f;
+		Vector3f q3 = mx(p3).add(0, 0.7f * s, -0.4f * s), q2 = mx(p2).add(0, 0.35f * s, -0.2f * s);
+		flame(mx(p0), mx(p1), q2, q3, w * (1f - 0.06f * s), d, mx(broad));
+	}
+
+	private static int pairs;
+
+	/** Marks a flame lock (any belly at or above this uses the leaf profile in {@link #taper}). */
+	private static final float FLAME_BELLY = 2.0f;
+
 	/** A lock and its mirror across the face's centre line. */
 	private static void pair(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float w, float d, Vector3f broad) {
 		lock(p0, p1, p2, p3, w, d, broad);
@@ -72,27 +91,34 @@ public final class SsjHairModel {
 	}
 
 	static {
-		// --- the crown: the big flames sweeping up and back, tallest in the middle, fanning out and shorter to the sides
-		lock(v(0, 7.4f, 0.2f), v(0, 13f, 0.6f), v(0, 17.6f, -0.8f), v(0, 19.6f, -3.6f), 2.6f, 1.5f, X);
-		pair(v(2.1f, 7.4f, 0.5f), v(2.7f, 12f, 0.8f), v(4.2f, 15.2f, -0.6f), v(6.1f, 16.6f, -3.0f), 2.35f, 1.35f, X);
-		pair(v(3.4f, 7, 0.8f), v(4.7f, 10.6f, 1.0f), v(6.7f, 12.8f, 0), v(8.7f, 13.7f, -1.8f), 2.2f, 1.25f, X);
+		// v2 (user's turnaround sheets): the whole mass is a flame blown up and back. The front and crown locks rise UP and
+		// sweep BACK; the back and nape locks leave the back of the head and curl UP and FORWARD to meet them, so the outline
+		// is a teardrop peaking above and behind the crown (PEAK). Every big lock is a fat leaf: widest about 40% along.
+		// --- the crown: tallest in the middle, fanning out and shorter to the sides
+		flame(v(0, 7.4f, 0.4f), v(0, 13f, 0.4f), v(0, 17.2f, -2.0f), v(0, 19.8f, -6.0f), 2.3f, 1.7f, X);
+		flames(v(2.2f, 7.4f, 0.5f), v(2.9f, 12.4f, 0.5f), v(4.1f, 15.8f, -1.6f), v(5.2f, 18.0f, -4.6f), 2.1f, 1.5f, X);
+		flames(v(3.5f, 7, 0.8f), v(4.9f, 10.8f, 0.8f), v(6.6f, 13.2f, -0.6f), v(8.2f, 14.6f, -3.0f), 2.0f, 1.35f, X);
 		// temples: flaring out sideways and up
-		pair(v(3.8f, 5.9f, 2), v(5.5f, 7.0f, 2.2f), v(7.4f, 8.0f, 1.6f), v(9.2f, 10.2f, 0.4f), 1.9f, 1.1f, Y);
-		// behind the temples, out, up and back
-		pair(v(3.9f, 6.4f, -0.8f), v(5.6f, 8.3f, -1), v(7.3f, 10.1f, -2.2f), v(8.5f, 12f, -3.8f), 1.85f, 1.1f, Y);
+		flames(v(3.8f, 5.9f, 2), v(5.5f, 7.0f, 2.2f), v(7.4f, 8.0f, 1.6f), v(9.2f, 10.2f, 0.4f), 1.7f, 1.1f, Y);
+		// behind the temples: out, up and back
+		flames(v(3.9f, 6.2f, -0.8f), v(5.8f, 8.0f, -1.4f), v(7.6f, 10.2f, -3.0f), v(8.6f, 12.8f, -5.0f), 1.8f, 1.25f, Y);
 		// --- the front row: rising straight up from the hairline behind the fringe
 		// (their bases come forward over the fringe's roots, so the bangs seem to fall from under them)
 		lock(v(-0.4f, 7.7f, 4.0f), v(-0.4f, 10.4f, 5.0f), v(-0.2f, 12.4f, 2.8f), v(0.2f, 13.6f, 0.4f), 2.5f, 1.45f, X);
 		pair(v(2.5f, 7.7f, 3.8f), v(2.8f, 10.2f, 4.7f), v(3.5f, 11.6f, 2.6f), v(4.5f, 12.5f, 0.4f), 2.4f, 1.35f, X);
-		// --- behind the tallest: fills the mass over the crown
-		pair(v(1.2f, 7.6f, -1), v(1.4f, 12f, -1.6f), v(2.4f, 14.8f, -4.2f), v(3.4f, 15.6f, -7), 2.0f, 1.25f, X);
-		// --- the back: up and back over the back of the head
-		lock(v(0, 7.1f, -2.5f), v(0, 10.6f, -3.6f), v(0, 12.4f, -7), v(0, 12.9f, -10.2f), 2.6f, 1.5f, X);
-		pair(v(2.5f, 7, -2.5f), v(3.2f, 10, -3.8f), v(4.6f, 11.3f, -6.6f), v(6, 11.5f, -9.2f), 2.4f, 1.4f, X);
-		pair(v(3.5f, 5.5f, -3), v(5.2f, 7, -4.2f), v(7, 7.6f, -6), v(8.4f, 8.7f, -7.6f), 2.1f, 1.3f, Y);
-		// nape: flaring down and back
-		lock(v(0, 4.6f, -3.7f), v(0, 3.9f, -6), v(0, 2.7f, -7.6f), v(0, 1.0f, -9.4f), 2.4f, 1.35f, X);
-		pair(v(2.4f, 4.3f, -3.7f), v(3, 3.5f, -5.6f), v(4, 2.3f, -7), v(5, 0.7f, -8.4f), 2.1f, 1.2f, X);
+		// --- behind the tallest, filling the crown toward the peak
+		flames(v(1.3f, 7.7f, -1.2f), v(1.6f, 12.4f, -2.6f), v(2.3f, 15.8f, -5.4f), v(2.8f, 17.8f, -8.4f), 2.0f, 1.45f, X);
+		// --- the back, upper row: back off the top of the back of the head, then UP, tips leaning forward toward the peak
+		flame(v(0, 7.0f, -2.8f), v(0, 10.0f, -5.4f), v(0, 12.6f, -8.4f), v(0, 16.2f, -10.0f), 2.4f, 1.7f, X);
+		flames(v(2.7f, 6.8f, -2.8f), v(4.0f, 9.2f, -5.2f), v(5.6f, 11.4f, -7.6f), v(6.8f, 14.2f, -9.0f), 2.2f, 1.55f, v(1, -0.5f, 0));
+		// --- the back, middle row: further back, then up
+		flame(v(0, 5.0f, -3.8f), v(0, 6.0f, -6.8f), v(0, 8.0f, -9.8f), v(0, 11.4f, -11.6f), 2.3f, 1.6f, X);
+		flames(v(2.8f, 5.0f, -3.8f), v(4.0f, 6.2f, -6.2f), v(5.6f, 8.6f, -8.0f), v(7.0f, 11.6f, -9.0f), 2.1f, 1.5f, v(1, -0.6f, 0));
+		flames(v(4.0f, 5.4f, -2.6f), v(6.2f, 6.4f, -3.8f), v(8.4f, 7.4f, -4.8f), v(10.4f, 8.8f, -5.4f), 1.8f, 1.2f, v(0.3f, -1, 0));
+		// --- the nape: back and a little down, the tips curling up
+		flame(v(0, 3.4f, -3.8f), v(0, 2.6f, -5.8f), v(0, 1.6f, -7.2f), v(0, 0.4f, -8.6f), 1.7f, 1.2f, X);
+		flames(v(2.6f, 3.0f, -3.8f), v(3.6f, 2.2f, -5.4f), v(4.5f, 1.4f, -6.6f), v(5.4f, 0.8f, -7.8f), 1.6f, 1.1f, v(1, 0.6f, 0));
+		flames(v(3.6f, 3.2f, -2.8f), v(4.4f, 2.3f, -4.0f), v(4.9f, 1.9f, -5.0f), v(5.2f, 1.3f, -6.0f), 1.2f, 0.8f, v(0.3f, -1, 0));
 		// sideburns: flat locks down in front of the ears
 		pair(v(4.1f, 6.8f, 2.4f), v(4.5f, 5.8f, 2.9f), v(4.6f, 4.7f, 3.0f), v(4.45f, 3.4f, 2.6f), 1.35f, 0.6f, Z);
 		// --- the fringe: thick clumped locks hooking down over the forehead, the longest front-left (the viewer's left)
@@ -149,6 +175,10 @@ public final class SsjHairModel {
 
 	/** Width along the lock: full at the root, a slight belly, then a sharp flame tip. */
 	private static float taper(float t, float belly) {
+		if (belly >= FLAME_BELLY) {
+			// v2 leaf: ~68% at the root, full width about 40% along, then a sharp tip (normalised so the peak is 1)
+			return (float) (Math.pow(1 - t, 1.15) * (0.62 + 2.0 * t) / 0.81);
+		}
 		return (float) (Math.pow(1 - t, 0.8) * (1 + belly * Math.sin(Math.PI * t)));
 	}
 
@@ -291,13 +321,15 @@ public final class SsjHairModel {
 		// top
 		out.add(quad(v(-S, TOP, S), v(S, TOP, S), v(S, TOP, -S), v(-S, TOP, -S), top, top, top, top));
 		// back, down to the nape
-		out.add(quad(v(-S, TOP, -S), v(S, TOP, -S), v(S, 1.8f, -S), v(-S, 1.8f, -S), back, back, ROOT, ROOT));
+		out.add(quad(v(-S, TOP, -S), v(S, TOP, -S), v(S, 0.6f, -S), v(-S, 0.6f, -S), back, back, ROOT, ROOT));
 		// the hairline band across the top of the forehead
 		out.add(quad(v(-S, TOP, S), v(-S, 7.3f, S), v(S, 7.3f, S), v(S, TOP, S), top, side, side, top));
-		// sides: down to the temple at the front, sloping to the nape at the back
+		// sides (v2: down to ear level, so the skin's own painted hair doesn't show under the cap): the temple at the front,
+		// the ear in the middle, the nape at the back
 		for (int sx = -1; sx <= 1; sx += 2) {
 			float x = S * sx;
-			out.add(quad(v(x, TOP, S), v(x, TOP, -S), v(x, 1.8f, -S), v(x, 4.6f, S), side, side, ROOT, side));
+			out.add(quad(v(x, TOP, S), v(x, TOP, 0), v(x, 2.6f, 0), v(x, 4.6f, S), side, side, ROOT, side));
+			out.add(quad(v(x, TOP, 0), v(x, TOP, -S), v(x, 0.6f, -S), v(x, 2.6f, 0), side, side, ROOT, ROOT));
 		}
 	}
 

@@ -21,7 +21,7 @@ public class SsjHairPreview {
 			mesh = mesh.subList(0, Integer.parseInt(a[1]));
 		}
 		System.out.println("quads " + mesh.size());
-		float[][] views = { { 0, 0, 13, 0.82f }, { 40, 10, 13, 0.82f }, { 90, 0, 13, 0.82f }, { 180, 8, 13, 0.82f }, { 30, 55, 13, 0.82f }, { 0, 0, 34, 1.25f } };
+		float[][] views = { { 0, 0, 13, 0.82f }, { 40, 10, 13, 0.82f }, { 90, 0, 13, 0.82f }, { 180, 8, 13, 0.82f }, { 145, 30, 13, 0.82f }, { 0, 0, 34, 1.25f } };
 		BufferedImage out = new BufferedImage(W * views.length, H, BufferedImage.TYPE_INT_RGB);
 		for (int v = 0; v < views.length; v++) {
 			SCALE = views[v][2];
