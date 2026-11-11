@@ -191,7 +191,7 @@ public final class UndeadSounds {
 			if (v.burn == null || v.burn.isStopped()) {
 				v.burn = new Loop(UndeadSoundEvents.BOOST_BURN_LOOP, player, 1.0, 0.15f);
 				v.burn.sticky = true;
-				v.burn.feed(0.7f, 1.0f);
+				v.burn.feed(0.35f, 1.0f); // (v0.17.3: a quiet sizzle under the jets, not a roar)
 				Minecraft.getInstance().getSoundManager().play(v.burn);
 			}
 		} else if (v.burn != null) {

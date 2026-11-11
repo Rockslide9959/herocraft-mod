@@ -179,6 +179,16 @@ public final class BloodFx {
 		}
 	}
 
+	/** Charred flesh shades: soot black to scorched brown, for the flecks off the boost's burning edge. */
+	private static final int[] CHAR = { 0x1A1412, 0x2A1E1A, 0x3A2620, 0x4E2E22 };
+
+	/** v0.17.3 flight boost: one fleck of char off a burning edge -- trails back in the wake and falls (no splat). */
+	public static void charFleck(Vec3 at, Vec3 carry) {
+		drop(at.x + (RND.nextDouble() - 0.5) * 0.2, at.y + (RND.nextDouble() - 0.5) * 0.2, at.z + (RND.nextDouble() - 0.5) * 0.2,
+				carry.x * 0.6 + (RND.nextDouble() - 0.5) * 0.06, carry.y * 0.6 + RND.nextDouble() * 0.03, carry.z * 0.6 + (RND.nextDouble() - 0.5) * 0.06,
+				0.02f + RND.nextFloat() * 0.02f, CHAR[RND.nextInt(CHAR.length)], 14 + RND.nextInt(12), 3);
+	}
+
 	// ---------------------------------------------------------------- arterial spray (v0.17.3 blood flight, UndeadJets)
 
 	/** Flesh shades: torn muscle and fat, for the bits the boost's burn and the take-off throw off. */

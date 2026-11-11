@@ -261,7 +261,9 @@ public final class UndeadKitFx {
 	private static void shoulderKey(Minecraft mc) {
 		Player p = mc.player;
 		boolean down = p != null && mc.screen == null && mc.options.keyUse.isDown();
-		if (down && !useWasDown && p.isShiftKeyDown() && Undead.hasPower(p) && !UndeadBoneSword.held(p) && mc.getConnection() != null) {
+		// (not while flying: right click is the boost there, and his hands are blown off)
+		if (down && !useWasDown && p.isShiftKeyDown() && Undead.hasPower(p) && !UndeadBoneSword.held(p) && mc.getConnection() != null
+				&& !com.projecthero.mod.undead.UndeadFlight.isFlying(p)) {
 			ItemStack main = p.getMainHandItem();
 			if (UndeadShoulderSword.isSword(main) || (main.isEmpty() && UndeadShoulderSword.has(p))) {
 				ClientPlayNetworking.send(new UndeadKitNet.ShoulderSword());

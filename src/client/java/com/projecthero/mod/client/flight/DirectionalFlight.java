@@ -160,10 +160,14 @@ public final class DirectionalFlight {
 					: com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_CRUISE_BPS) * mult);
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
-		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 18 b/s cruise, 36 sprinting
+		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held
+		// is the boost, 32 b/s along the look as the body burns away; just a head 25 b/s (UndeadFlight.bps)
 		if (com.projecthero.mod.undead.UndeadFlight.isFlying(player)) {
-			double bps = sprint ? com.projecthero.mod.undead.UndeadEjectConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.undead.UndeadEjectConfig.FLIGHT_CRUISE_BPS;
-			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+			com.projecthero.mod.undead.data.UndeadState us = com.projecthero.mod.undead.Undead.peek(player);
+			boolean boost = com.projecthero.mod.client.undead.UndeadClient.boostHeld() || com.projecthero.mod.undead.UndeadFlight.boosting(player);
+			double bps = com.projecthero.mod.undead.UndeadFlight.bps(us, player.level().getGameTime(), sprint, boost);
+			Tune t = DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+			return boost ? t.withForcedForward(bps / 20.0) : t; // (boosting: driven along the look, no key needed)
 		}
 		// v0.15.13: Nova flight -- 20 b/s, 40 sprinting
 		if (com.projecthero.mod.nova.Nova.isFlying(player)) {

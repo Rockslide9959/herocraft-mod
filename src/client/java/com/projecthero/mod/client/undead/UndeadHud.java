@@ -106,6 +106,17 @@ public final class UndeadHud {
 					((int) Math.ceil((s.victorUntil - now) / 20f)) + "s", VanillaHud.RED);
 			by -= 11;
 		}
+		// v0.17.3 flight boost: how much of the body the boost has burnt away (10 s of boosting to just a head), orange while burning
+		if (s.flag(UndeadState.FLAG_PROPELLING)) {
+			float burn = com.projecthero.mod.undead.UndeadFlight.burnProgress(s);
+			boolean boosting = s.flag(UndeadState.FLAG_BOOST) || UndeadClient.boostHeld();
+			if (boosting || burn > 0f) {
+				boolean head = s.headOnly(now);
+				VanillaHud.meter(g, x0, by, WIDTH, Component.translatable(head ? "hud.projecthero.undead.burn_head" : "hud.projecthero.undead.burn"), burn,
+						boosting && !head ? 0xFF8C2A : 0xB8360C, Math.round(burn * 100f) + "%", boosting && !head ? VanillaHud.GOLD : VanillaHud.WHITE);
+				by -= 11;
+			}
+		}
 		// v0.17.3 (NBC's segments): the whole body's regrowth, frames grown of frames gone
 		float grown = 0f, gone = 0f;
 		for (int i = 0; i < UndeadState.SEGS; i++) {
@@ -158,6 +169,7 @@ public final class UndeadHud {
 			}
 			if (!s.boneSword()) {
 				rows.add(MoveListOverlay.Row.of("2x Jump", Component.translatable("projecthero.undead.ability.flight"), null));
+				rows.add(MoveListOverlay.Row.of("Hold RMB", Component.translatable("projecthero.undead.ability.boost"), null)); // v0.17.3: in flight
 				rows.add(MoveListOverlay.Row.of("Shift+RMB", Component.translatable("projecthero.undead.ability.shoulder_sword"), null));
 			}
 			MoveListOverlay.draw(g, x0 + WIDTH, fy - 4, rows);

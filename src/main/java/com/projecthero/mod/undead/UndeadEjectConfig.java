@@ -21,9 +21,23 @@ public final class UndeadEjectConfig {
 	public static final int PIECE_FADE = 20;
 
 	// ---------------------------------------------------------------- double-tap jump: the flight
-	/** Blocks a second on the shared directional flight: cruising, sprinting (the Saiyan's numbers). */
-	public static final double FLIGHT_CRUISE_BPS = 18.0;
-	public static final double FLIGHT_SPRINT_BPS = 36.0;
+	/**
+	 * Blocks a second on the shared directional flight (v0.17.3, user: "Make the flight 10 blocks per second cruise and 20 blocks
+	 * per second sprint, if player holds right click they should still be able to boost, while boosting they move at 32 blocks per
+	 * second ... and when theyre just a head the player moves at 25 blocks per second"): cruising, sprinting, boosting (right click
+	 * held: along the look, the body burning away) and just a head (boosting or not).
+	 */
+	public static final double FLIGHT_CRUISE_BPS = 10.0;
+	public static final double FLIGHT_SPRINT_BPS = 20.0;
+	public static final double FLIGHT_BOOST_BPS = 32.0;
+	public static final double FLIGHT_HEAD_BPS = 25.0;
+	/**
+	 * The boost burn (user: "it takes 10 second for their body to fully burn away"): 200 ticks of boosting in all, added up over
+	 * every boost of a flight, from a whole body down to the head -- both legs, then both arms, then the body, this many ticks
+	 * each. A stage whose parts are already gone is skipped.
+	 */
+	public static final int BURN_TOTAL_TICKS = 200;
+	public static final int[] BURN_STAGE_TICKS = { 67, 67, 66 };
 	/** A second double-tap within this long of the first does nothing (one double-tap is one toggle). */
 	public static final int FLIGHT_TOGGLE_COOLDOWN = 10;
 	/** Ticks after take-off during which the vanilla flying flag may still be catching up on the client. */

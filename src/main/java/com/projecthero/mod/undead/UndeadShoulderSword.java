@@ -96,7 +96,8 @@ public final class UndeadShoulderSword {
 	 * hand pulls the one there out. True if anything moved.
 	 */
 	public static boolean interact(ServerPlayer p) {
-		if (!Undead.hasPower(p) || !p.isAlive() || p.isSpectator() || !p.isShiftKeyDown() || UndeadBoneSword.held(p)) {
+		if (!Undead.hasPower(p) || !p.isAlive() || p.isSpectator() || !p.isShiftKeyDown() || UndeadBoneSword.held(p)
+				|| UndeadFlight.isFlying(p)) { // (v0.17.3: in flight right click is the boost and the hands are blown off)
 			return false;
 		}
 		ItemStack hand = p.getMainHandItem();

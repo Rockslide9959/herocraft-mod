@@ -149,18 +149,7 @@ public class UndeadEjectGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theFlightNumbersAreTheSharedDirectionalOnes(GameTestHelper helper) {
-		helper.assertTrue(UndeadEjectConfig.FLIGHT_CRUISE_BPS == 18.0 && UndeadEjectConfig.FLIGHT_SPRINT_BPS == 36.0, "18 b/s cruise, 36 sprinting");
-		boolean boost = true;
-		try {
-			UndeadFlight.class.getMethod("setBoost", ServerPlayer.class, boolean.class);
-		} catch (NoSuchMethodException e) {
-			boost = false;
-		}
-		helper.assertTrue(!boost, "the old right-click boost is gone");
-		helper.succeed();
-	}
+	// (v0.17.3: the flight's speeds and the right-click boost burn are UndeadFlightGameTests)
 
 	// ---------------------------------------------------------------- G: Blood Spray
 
