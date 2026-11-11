@@ -90,35 +90,68 @@ public final class SsjHairModel {
 		return v(-p.x, p.y, p.z);
 	}
 
+	/**
+	 * v3 (user's notes on v2): one flame, not a sunburst. A single big centre lock rises from the crown to the APEX (above
+	 * and a little behind the head); every lock of the outer layer round it -- crown ring, temples, back rows, nape -- leaves
+	 * the scalp, bows outward a little and then aims UP at that same apex, stopping short of it by its own reach. The locks
+	 * overlap and nest, so the side reads as one continuous mass with a sawtooth top, and the back and nape locks curve
+	 * inward toward the middle instead of poking out.
+	 */
+	private static final Vector3f APEX = v(0, 19.8f, -9.0f);
+	/** Where the bow is measured from (roughly the middle of the head). */
+	private static final Vector3f CORE = v(0, 4.5f, -0.6f);
+
+	/**
+	 * A lock of the outer layer: root on the scalp, tip {@code reach} of the way to the apex (its x spread out by
+	 * {@code spread} so the front still fans a little), bowing outward by {@code bow}. Mirrored when x != 0.
+	 */
+	private static void aim(Vector3f root, float reach, float spread, float bow, float w, float d) {
+		aimOne(root, reach, spread, bow, w, d, 0f);
+		if (Math.abs(root.x) > 0.01f) {
+			// not an exact mirror: alternate pairs end a touch higher / lower so it never reads as a pinecone
+			float s = (pairs++ % 2 == 0) ? 1f : -1f;
+			aimOne(mx(root), reach + 0.04f * s, spread, bow, w * (1f - 0.05f * s), d, 0.4f * s);
+		}
+	}
+
+	private static void aimOne(Vector3f r, float reach, float spread, float bow, float w, float d, float lift) {
+		// lower locks end a little further back than the line to the apex, so their tips step out along the back edge as a sawtooth
+		float step = r.z < -1.5f ? (1f - reach) * 3.2f : 0f;
+		Vector3f t = v(r.x * spread, r.y + (APEX.y - r.y) * reach + lift, r.z + (APEX.z - r.z) * reach - step);
+		Vector3f out = new Vector3f(r).sub(CORE);
+		out.y = Math.max(out.y, 0f) * 0.6f; // mostly sideways / backward, a little up
+		out.normalize();
+		float len = new Vector3f(t).sub(r).length();
+		Vector3f p1 = new Vector3f(r).add(new Vector3f(out).mul(len * (0.22f + bow))).add(0, len * 0.14f, 0);
+		Vector3f p2 = new Vector3f(r).lerp(t, 0.68f).add(new Vector3f(out).mul(len * bow * 0.5f));
+		// the broad side lies round the head (tangential), its convex edge toward the back
+		Vector3f broad = Math.abs(r.x) + Math.abs(r.z) < 0.5f ? new Vector3f(X) : v(r.z, 0, -r.x).normalize();
+		if (Math.abs(r.x) < 0.01f) {
+			broad = new Vector3f(X);
+		}
+		flame(new Vector3f(r), p1, p2, t, w, d, broad);
+	}
+
 	static {
-		// v2 (user's turnaround sheets): the whole mass is a flame blown up and back. The front and crown locks rise UP and
-		// sweep BACK; the back and nape locks leave the back of the head and curl UP and FORWARD to meet them, so the outline
-		// is a teardrop peaking above and behind the crown (PEAK). Every big lock is a fat leaf: widest about 40% along.
-		// --- the crown: tallest in the middle, fanning out and shorter to the sides
-		flame(v(0, 7.4f, 0.4f), v(0, 13f, 0.4f), v(0, 17.2f, -2.0f), v(0, 19.8f, -6.0f), 2.3f, 1.7f, X);
-		flames(v(2.2f, 7.4f, 0.5f), v(2.9f, 12.4f, 0.5f), v(4.1f, 15.8f, -1.6f), v(5.2f, 18.0f, -4.6f), 2.1f, 1.5f, X);
-		flames(v(3.5f, 7, 0.8f), v(4.9f, 10.8f, 0.8f), v(6.6f, 13.2f, -0.6f), v(8.2f, 14.6f, -3.0f), 2.0f, 1.35f, X);
-		// temples: flaring out sideways and up
-		flames(v(3.8f, 5.9f, 2), v(5.5f, 7.0f, 2.2f), v(7.4f, 8.0f, 1.6f), v(9.2f, 10.2f, 0.4f), 1.7f, 1.1f, Y);
-		// behind the temples: out, up and back
-		flames(v(3.9f, 6.2f, -0.8f), v(5.8f, 8.0f, -1.4f), v(7.6f, 10.2f, -3.0f), v(8.6f, 12.8f, -5.0f), 1.8f, 1.25f, Y);
+		// --- THE big centre lock: the biggest and thickest, from the crown up and slightly back to the apex
+		flame(v(0, 7.8f, -0.4f), v(0, 13.2f, -0.2f), v(0, 17.6f, -2.4f), new Vector3f(APEX), 3.4f, 2.4f, X);
+		// --- the crown ring round it
+		aim(v(2.2f, 7.7f, 0.9f), 0.76f, 2.9f, 0.12f, 2.6f, 1.8f); // front-side
+		aim(v(3.5f, 7.0f, -1.0f), 0.60f, 2.3f, 0.16f, 2.5f, 1.75f); // side
+		aim(v(2.4f, 7.3f, -3.0f), 0.74f, 1.9f, 0.24f, 2.5f, 1.75f); // back-side
+		aim(v(0, 7.3f, -3.3f), 0.80f, 1f, 0.26f, 2.7f, 1.9f); // back
+		// --- the lower ring
+		aim(v(3.9f, 5.8f, 1.6f), 0.46f, 1.85f, 0.10f, 1.9f, 1.3f); // temple (a small flare only)
+		aim(v(4.1f, 5.2f, -1.8f), 0.52f, 1.7f, 0.20f, 2.2f, 1.5f); // behind the temple
+		aim(v(2.8f, 5.0f, -4.0f), 0.56f, 1.55f, 0.30f, 2.7f, 1.8f); // back
+		aim(v(0, 4.8f, -4.1f), 0.60f, 1f, 0.32f, 2.9f, 1.9f);
+		// --- the nape: up the back of the head, curving in toward the middle
+		aim(v(2.2f, 2.6f, -4.0f), 0.44f, 1.3f, 0.28f, 2.3f, 1.55f);
+		aim(v(0, 2.4f, -4.1f), 0.46f, 1f, 0.30f, 2.4f, 1.65f);
 		// --- the front row: rising straight up from the hairline behind the fringe
 		// (their bases come forward over the fringe's roots, so the bangs seem to fall from under them)
 		lock(v(-0.4f, 7.7f, 4.0f), v(-0.4f, 10.4f, 5.0f), v(-0.2f, 12.4f, 2.8f), v(0.2f, 13.6f, 0.4f), 2.5f, 1.45f, X);
 		pair(v(2.5f, 7.7f, 3.8f), v(2.8f, 10.2f, 4.7f), v(3.5f, 11.6f, 2.6f), v(4.5f, 12.5f, 0.4f), 2.4f, 1.35f, X);
-		// --- behind the tallest, filling the crown toward the peak
-		flames(v(1.3f, 7.7f, -1.2f), v(1.6f, 12.4f, -2.6f), v(2.3f, 15.8f, -5.4f), v(2.8f, 17.8f, -8.4f), 2.0f, 1.45f, X);
-		// --- the back, upper row: back off the top of the back of the head, then UP, tips leaning forward toward the peak
-		flame(v(0, 7.0f, -2.8f), v(0, 10.0f, -5.4f), v(0, 12.6f, -8.4f), v(0, 16.2f, -10.0f), 2.4f, 1.7f, X);
-		flames(v(2.7f, 6.8f, -2.8f), v(4.0f, 9.2f, -5.2f), v(5.6f, 11.4f, -7.6f), v(6.8f, 14.2f, -9.0f), 2.2f, 1.55f, v(1, -0.5f, 0));
-		// --- the back, middle row: further back, then up
-		flame(v(0, 5.0f, -3.8f), v(0, 6.0f, -6.8f), v(0, 8.0f, -9.8f), v(0, 11.4f, -11.6f), 2.3f, 1.6f, X);
-		flames(v(2.8f, 5.0f, -3.8f), v(4.0f, 6.2f, -6.2f), v(5.6f, 8.6f, -8.0f), v(7.0f, 11.6f, -9.0f), 2.1f, 1.5f, v(1, -0.6f, 0));
-		flames(v(4.0f, 5.4f, -2.6f), v(6.2f, 6.4f, -3.8f), v(8.4f, 7.4f, -4.8f), v(10.4f, 8.8f, -5.4f), 1.8f, 1.2f, v(0.3f, -1, 0));
-		// --- the nape: back and a little down, the tips curling up
-		flame(v(0, 3.4f, -3.8f), v(0, 2.6f, -5.8f), v(0, 1.6f, -7.2f), v(0, 0.4f, -8.6f), 1.7f, 1.2f, X);
-		flames(v(2.6f, 3.0f, -3.8f), v(3.6f, 2.2f, -5.4f), v(4.5f, 1.4f, -6.6f), v(5.4f, 0.8f, -7.8f), 1.6f, 1.1f, v(1, 0.6f, 0));
-		flames(v(3.6f, 3.2f, -2.8f), v(4.4f, 2.3f, -4.0f), v(4.9f, 1.9f, -5.0f), v(5.2f, 1.3f, -6.0f), 1.2f, 0.8f, v(0.3f, -1, 0));
 		// sideburns: flat locks down in front of the ears
 		pair(v(4.1f, 6.8f, 2.4f), v(4.5f, 5.8f, 2.9f), v(4.6f, 4.7f, 3.0f), v(4.45f, 3.4f, 2.6f), 1.35f, 0.6f, Z);
 		// --- the fringe: thick clumped locks hooking down over the forehead, the longest front-left (the viewer's left)
@@ -177,7 +210,7 @@ public final class SsjHairModel {
 	private static float taper(float t, float belly) {
 		if (belly >= FLAME_BELLY) {
 			// v2 leaf: ~68% at the root, full width about 40% along, then a sharp tip (normalised so the peak is 1)
-			return (float) (Math.pow(1 - t, 1.15) * (0.62 + 2.0 * t) / 0.81);
+			return (float) (Math.pow(1 - t, 1.5) * (0.4 + 2.6 * t) / 0.691);
 		}
 		return (float) (Math.pow(1 - t, 0.8) * (1 + belly * Math.sin(Math.PI * t)));
 	}
@@ -204,13 +237,17 @@ public final class SsjHairModel {
 			Vector3f n = new Vector3f(tan).cross(b).normalize();
 			float k = taper(t, l.belly);
 			float w = 0.04f + (l.width - 0.04f) * k, d = 0.03f + (l.thick - 0.03f) * k;
+			// v3: a flame lock's outline is lopsided like the drawn ones -- its +broad edge bows out (the leaf curve), the
+			// other edge runs nearly straight from the root to the tip
+			float wm = l.belly >= FLAME_BELLY ? 0.04f + (l.width - 0.04f) * 0.78f * (float) Math.pow(1 - t, 1.05) : w;
 			axis[i] = c;
 			for (int s = 0; s < SIDES; s++) {
 				double a = Math.toRadians(ANG[s]);
-				rings[i][s] = new Vector3f(c).add(new Vector3f(b).mul((float) Math.cos(a) * w)).add(new Vector3f(n).mul((float) Math.sin(a) * d));
+				float ws = Math.cos(a) > 0 ? w : wm;
+				rings[i][s] = new Vector3f(c).add(new Vector3f(b).mul((float) Math.cos(a) * ws)).add(new Vector3f(n).mul((float) Math.sin(a) * d));
 				// the outline hull: a constant rim, carried a little past the tip so the point is outlined too
 				Vector3f cc = i == SEGMENTS ? new Vector3f(c).add(new Vector3f(tan).mul(LINE_W)) : c;
-				hull[i][s] = new Vector3f(cc).add(new Vector3f(b).mul((float) Math.cos(a) * (w + LINE_W)))
+				hull[i][s] = new Vector3f(cc).add(new Vector3f(b).mul((float) Math.cos(a) * (ws + LINE_W)))
 						.add(new Vector3f(n).mul((float) Math.sin(a) * (d + LINE_W)));
 			}
 		}
