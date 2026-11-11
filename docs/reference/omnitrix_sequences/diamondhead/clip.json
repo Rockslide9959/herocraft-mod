@@ -1,0 +1,10 @@
+{
+  "alien": "diamondhead",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 61.95,
+  "end": 77.9,
+  "ticks": 319,
+  "mapping": "tick = (videoSecond - 61.95) * 20",
+  "sound": "omnitrix/diamondhead_sequence.ogg",
+  "measuredLufs": -15.7
+}

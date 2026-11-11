@@ -1,0 +1,10 @@
+{
+  "alien": "ghostfreak",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 231,
+  "end": 243.1,
+  "ticks": 242,
+  "mapping": "tick = (videoSecond - 231) * 20",
+  "sound": "omnitrix/ghostfreak_sequence.ogg",
+  "measuredLufs": -19.5
+}

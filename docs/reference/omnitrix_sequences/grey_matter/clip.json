@@ -1,0 +1,10 @@
+{
+  "alien": "grey_matter",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 111.1,
+  "end": 123.8,
+  "ticks": 254,
+  "mapping": "tick = (videoSecond - 111.1) * 20",
+  "sound": "omnitrix/grey_matter_sequence.ogg",
+  "measuredLufs": -15
+}

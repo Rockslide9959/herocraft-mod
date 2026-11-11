@@ -41,3 +41,5 @@ replay_*.log
 
 # stray decompiled/cached class files (javap scratch output)
 *.class
+# v0.17.3: show-transformation reference frames (scratchpad/omnitrix_seq/cut_clip.js regenerates them)
+docs/reference/omnitrix_sequences/*/f_*.jpg

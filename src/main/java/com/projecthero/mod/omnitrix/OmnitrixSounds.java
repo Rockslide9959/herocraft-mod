@@ -122,6 +122,35 @@ public final class OmnitrixSounds {
 	public static final Cue FOUR_ARMS_SEQUENCE = OmnitrixSfx.cue("omnitrix_four_arms_sequence")
 			.layer(FOUR_ARMS_SEQUENCE_SOUND, 0.75f, 1.0f)
 			.jitter(0.0f).gap(4);
+	/**
+	 * v0.17.3 (user: show-accurate transformation sequences for every original alien): the aliens whose show transformation can be
+	 * built, in the compilation video's order. Each one's soundtrack ({@code sounds/omnitrix/<id>_sequence.ogg}, cut by
+	 * {@code scratchpad/omnitrix_seq/cut_clip.js}), its sounds.json entry and subtitle are registered here up front, so the agents building
+	 * the sequences in parallel never touch this file; {@code ShowSequences} looks for a {@code <Pascal>Sequence} class for each.
+	 */
+	public static final java.util.List<String> SEQUENCE_ALIENS = java.util.List.of("heatblast", "wildmutt", "diamondhead", "xlr8", "grey_matter", "four_arms", "stinkfly", "ripjaws", "upgrade", "ghostfreak", "cannonbolt", "wildvine");
+	private static final java.util.Map<String, SoundEvent> SEQUENCE_SOUNDS = new java.util.HashMap<>();
+	private static final java.util.Map<String, Cue> SEQUENCE_CUES = new java.util.HashMap<>();
+	static {
+		for (String id : SEQUENCE_ALIENS) {
+			boolean fa = id.equals("four_arms");
+			SoundEvent e = fa ? FOUR_ARMS_SEQUENCE_SOUND : register("omnitrix_" + id + "_sequence");
+			SEQUENCE_SOUNDS.put(id, e);
+			// no jitter: each sequence is cut to its soundtrack
+			SEQUENCE_CUES.put(id, fa ? FOUR_ARMS_SEQUENCE : OmnitrixSfx.cue("omnitrix_" + id + "_sequence").layer(e, 0.75f, 1.0f).jitter(0.0f).gap(4));
+		}
+	}
+
+	/** A show alien's sequence soundtrack (null for an alien outside {@link #SEQUENCE_ALIENS}). */
+	public static SoundEvent sequenceSound(String alienId) {
+		return SEQUENCE_SOUNDS.get(alienId);
+	}
+
+	/** A show alien's sequence soundtrack as a Cue (null for an alien outside {@link #SEQUENCE_ALIENS}). */
+	public static Cue sequenceCue(String alienId) {
+		return SEQUENCE_CUES.get(alienId);
+	}
+
 	/** The user's power-down: five beeps, then the power dying (no jitter: the beeps / revert are timed to it). */
 	public static final Cue POWER_DOWN_USER = OmnitrixSfx.cue("omnitrix_power_down_user")
 			.layer(USER_POWER_DOWN, 0.7f, 1.0f)

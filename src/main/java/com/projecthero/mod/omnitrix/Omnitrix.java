@@ -987,7 +987,7 @@ public final class Omnitrix {
 		n.endsAt = now + (n.readyAt(RECAL) == 1L ? batteryTicks(s, now) : OmnitrixConfig.TRANSFORM_TICKS);
 		if (s.timers.containsKey(OmnitrixLongTransform.TIMER)) {
 			// v0.17.2: mid long transformation -- the 3 minutes start when it has finished
-			n.endsAt += Math.max(0L, OmnitrixLongTransform.TOTAL - (now - s.readyAt(OmnitrixLongTransform.TIMER)));
+			n.endsAt += Math.max(0L, OmnitrixLongTransform.total(s) - (now - s.readyAt(OmnitrixLongTransform.TIMER)));
 		}
 		n.animId = ANIM_TRANSFORM;
 		n.animStart = now;

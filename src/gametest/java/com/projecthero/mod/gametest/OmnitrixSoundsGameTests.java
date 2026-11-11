@@ -50,7 +50,9 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 			// v0.17.2: the user's Recalibrated Omnitrix recordings
 			"recal_prime", "recal_transform", "recal_detransform", "recal_dial_turn", "recal_master_control",
 			// v0.17.2: the Recalibration Chip's four, cut from the user's video
-			"recal_chip_click", "recal_chip_press", "recal_chip_pulse", "recal_chip_reform");
+			"recal_chip_click", "recal_chip_press", "recal_chip_pulse", "recal_chip_reform",
+			// v0.17.3: the show transformations' soundtracks, cut from the compilation video (scratchpad/omnitrix_seq/cut_clip.js)
+			"heatblast_sequence", "wildmutt_sequence", "diamondhead_sequence", "xlr8_sequence", "grey_matter_sequence", "stinkfly_sequence", "ripjaws_sequence", "upgrade_sequence", "ghostfreak_sequence", "cannonbolt_sequence", "wildvine_sequence");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {

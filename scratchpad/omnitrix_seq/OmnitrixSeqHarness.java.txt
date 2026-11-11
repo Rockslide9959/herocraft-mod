@@ -1,0 +1,245 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped; docs/OMNITRIX_SEQUENCES.md): films any alien's show transformation one game tick per screenshot.
+ * Installed by {@code node scratchpad/omnitrix_seq/harness.js install}, enabled by {@code run/omnitrix_seq.flag} (JSON):
+ * <pre>
+ *   {"alien":"four_arms", "mode":"self", "from":0, "to":261, "tag":"four_arms_self", "seed":424242}
+ * </pre>
+ * mode "self" = the holder's scripted camera (what the player sees); "watch" = a bystander's third-person front view (the scripted
+ * camera off). The server's ticks are frozen and stepped one at a time, and the client sequence is pinned to the same tick
+ * ({@code OmnitrixSequenceClient.freezeAt}), so tick N is exactly frame N -- run it twice and the frames match. Frames land in
+ * {@code run/screenshots/seq_<tag>_NNN.png}; {@code film.js} turns them into MP4s and side-by-sides.
+ */
+public final class OmnitrixSeqHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static String alien = "four_arms", mode = "self", tag = null;
+	private static int from = 0, to = -1;
+	private static long seed = 424242L;
+	/** Server facts, written on the server thread. */
+	private static volatile long serverAge = -999;
+	private static volatile boolean slapped;
+	/** The server tick of the slap (kept after the sequence ends and its timer is gone). */
+	private static volatile long startTick = Long.MIN_VALUE;
+	private static int frame = -1, phase, phaseTicks, retries;
+
+	private OmnitrixSeqHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("omnitrix_seq.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			JsonObject o = JsonParser.parseString(Files.readString(flag)).getAsJsonObject();
+			alien = o.has("alien") ? o.get("alien").getAsString() : alien;
+			mode = o.has("mode") ? o.get("mode").getAsString() : mode;
+			from = o.has("from") ? o.get("from").getAsInt() : from;
+			to = o.has("to") ? o.get("to").getAsInt() : to;
+			seed = o.has("seed") ? o.get("seed").getAsLong() : seed;
+			tag = o.has("tag") ? o.get("tag").getAsString() : null;
+		} catch (Exception e) {
+			System.out.println("[HARNESS] bad flag: " + e);
+		}
+		if (tag == null) {
+			tag = alien + "_" + mode;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixSeqHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-seq-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	/** Reads the server's sequence age (ticks since the slap) into {@link #serverAge}. */
+	private static void readAge(ServerPlayer p) {
+		var s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
+		Long start = s.timers.get(com.projecthero.mod.omnitrix.OmnitrixLongTransform.TIMER);
+		if (start != null && startTick == Long.MIN_VALUE) {
+			startTick = start;
+			slapped = true;
+		}
+		serverAge = startTick == Long.MIN_VALUE ? -999 : p.serverLevel().getGameTime() - startTick;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixSeqHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 80) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType("watch".equals(mode) ? CameraType.THIRD_PERSON_FRONT : CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.seedOverride = seed;
+			com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.bystander = "watch".equals(mode);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 10f);
+				com.projecthero.mod.omnitrix.Omnitrix.grant(p);
+				com.projecthero.mod.omnitrix.Omnitrix.noGlitch(p);
+			});
+		}
+		if (inWorldTicks == 120) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.activate(p));
+		}
+		if (inWorldTicks == 145) {
+			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.select(p, alien));
+		}
+		if (inWorldTicks == 160) {
+			// freeze the world's ticks first, so the slap lands on tick 0 and nothing moves until it is stepped
+			server(mc, p -> {
+				p.server.tickRateManager().setFrozen(true);
+				com.projecthero.mod.omnitrix.Omnitrix.slap(p, true);
+				readAge(p);
+			});
+		}
+		if (inWorldTicks <= 162) {
+			return;
+		}
+		if (!slapped) {
+			// the slap was queued (the dial still rising): let a tick through and look again
+			if (inWorldTicks % 6 == 0) {
+				if (++retries > 40) {
+					System.out.println("[HARNESS] no sequence started for " + alien + " (OmnitrixLongTransform.has? registered?)");
+					Runtime.getRuntime().halt(2);
+				}
+				server(mc, p -> {
+					p.server.tickRateManager().stepGameIfPaused(1);
+				});
+			}
+			server(mc, OmnitrixSeqHarness::readAge);
+			return;
+		}
+		if (to < 0) {
+			to = com.projecthero.mod.omnitrix.OmnitrixLongTransform.total(mc.player) + 6;
+		}
+		if (frame < 0) {
+			frame = Math.max(from, (int) Math.max(0, serverAge));
+			phase = 0;
+			phaseTicks = 0;
+		}
+		phaseTicks++;
+		switch (phase) {
+			case 0 -> {
+				// step the server up to this frame's tick
+				final int want = frame;
+				server(mc, p -> {
+					readAge(p);
+					long behind = want - serverAge;
+					if (behind > 0) {
+						p.server.tickRateManager().stepGameIfPaused((int) behind);
+					}
+				});
+				phase = 1;
+				phaseTicks = 0;
+			}
+			case 1 -> {
+				server(mc, OmnitrixSeqHarness::readAge);
+				// wait for the steps to run and reach the client
+				if (phaseTicks >= 4 && serverAge >= frame) {
+					com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.freezeAt = frame;
+					phase = 2;
+					phaseTicks = 0;
+				} else if (phaseTicks > 60) {
+					System.out.println("[HARNESS] stuck at frame " + frame + " (server age " + serverAge + ")");
+					phase = 0;
+				}
+			}
+			case 2 -> {
+				// two rendered frames at the pinned tick, then the shot
+				if (phaseTicks >= 3) {
+					Screenshot.grab(mc.gameDirectory, String.format("seq_%s_%03d.png", tag, frame), mc.getMainRenderTarget(), m -> {
+					});
+					frame++;
+					phase = frame > to ? 3 : 0;
+					phaseTicks = 0;
+				}
+			}
+			default -> {
+				if (phaseTicks == 10) {
+					com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.freezeAt = -1f;
+					server(mc, p -> p.server.tickRateManager().setFrozen(false));
+				}
+				if (phaseTicks > 30) {
+					System.out.println("[HARNESS] done " + tag + " " + from + ".." + to);
+					Runtime.getRuntime().halt(0);
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SEQ_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -386,7 +386,7 @@ public final class FourArmsClient implements AlienClientKit {
 		lowerLeft.zRot = move == null ? base[5] : Mth.lerp(mw, base[5], move[5]);
 		// v0.17.2: the long transformation -- the second pair splits out of the first (from inside the upper arms, sliding down to the
 		// ribs) and takes the beats' poses
-		float[] seq = com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.lowerArms(p, model, partial);
+		float[] seq = com.projecthero.mod.client.omnitrix.sequence.FourArmsShow.lowerArms(p, model, partial);
 		if (seq != null) {
 			lowerRight.x = seq[0];
 			lowerRight.y = seq[1];
@@ -406,7 +406,7 @@ public final class FourArmsClient implements AlienClientKit {
 			lowerRight.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 			lowerLeft.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 			if (seq != null) {
-				com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.renderSplitGlow(pose, buffers, p, new ModelPart[] { lowerRight, lowerLeft }, partial);
+				com.projecthero.mod.client.omnitrix.sequence.FourArmsShow.renderSplitGlow(pose, buffers, p, new ModelPart[] { lowerRight, lowerLeft }, partial);
 			}
 		});
 		// the Boulder Rip's chunk of ground, held in all four hands on its way up

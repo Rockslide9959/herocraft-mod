@@ -7,6 +7,9 @@ import com.projecthero.mod.omnitrix.OmnitrixConfig;
 import com.projecthero.mod.omnitrix.OmnitrixLongTransform;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
+import com.projecthero.mod.omnitrix.OmnitrixSounds;
+import com.projecthero.mod.omnitrix.sequence.ShowSequence;
+import com.projecthero.mod.omnitrix.sequence.ShowSequences;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -25,6 +28,11 @@ import net.minecraft.world.phys.Vec3;
  * ticked by the server and game time does not move inside a test's tick, so the sequence clock is wound on by hand.
  */
 public class OmnitrixLongTransformGameTests implements FabricGameTest {
+	/** v0.17.3: Four Arms' sequence, on the per-alien framework. */
+	private static ShowSequence fourArms() {
+		return ShowSequences.get(Aliens.FOUR_ARMS.id());
+	}
+
 	private static ServerPlayer raised(GameTestHelper helper, String alien) {
 		for (int x = 0; x <= 7; x++) {
 			for (int z = 0; z <= 7; z++) {
@@ -63,7 +71,7 @@ public class OmnitrixLongTransformGameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, AbilitySlot.SLOT_1.number(), true);
 		AbilityRouter.handleInput(p, AbilitySlot.SLOT_1.number(), false);
 		helper.assertTrue(Omnitrix.state(p).selecting, "keys are ignored while it plays");
-		wind(p, OmnitrixLongTransform.TRANSFORM_AT - 10);
+		wind(p, fourArms().transformAt() - 10);
 		helper.assertFalse(Omnitrix.state(p).transformed(), "still human through the swelling");
 		wind(p, 11);
 		OmnitrixState s = Omnitrix.state(p);
@@ -71,7 +79,7 @@ public class OmnitrixLongTransformGameTests implements FabricGameTest {
 		helper.assertTrue(OmnitrixLongTransform.playing(p), "the sequence plays on after the change");
 		long left = s.endsAt - helper.getLevel().getGameTime();
 		helper.assertTrue(left > OmnitrixConfig.TRANSFORM_TICKS, "the 3 minutes start at the end of the sequence (" + left + ")");
-		wind(p, OmnitrixLongTransform.TOTAL);
+		wind(p, fourArms().total());
 		helper.assertFalse(OmnitrixLongTransform.playing(p), "over");
 		helper.assertFalse(OmnitrixLongTransform.rooted(p), "free to move");
 		helper.assertTrue(Omnitrix.state(p).transformed(), "and still Four Arms");
@@ -99,9 +107,39 @@ public class OmnitrixLongTransformGameTests implements FabricGameTest {
 		ServerPlayer p = raised(helper, Aliens.FOUR_ARMS.id());
 		helper.assertTrue(Omnitrix.slap(p, false), "the left-click slaps");
 		helper.assertFalse(OmnitrixLongTransform.playing(p), "the left-click is the quick transformation");
-		ServerPlayer q = raised(helper, Aliens.HEATBLAST.id());
-		helper.assertTrue(Omnitrix.slap(q, true), "a right-click on Heatblast slaps");
-		helper.assertFalse(OmnitrixLongTransform.playing(q), "Heatblast has no long transformation yet: the quick one");
+		// v0.17.3: an alien with no show sequence gets the quick one on a right-click too (the first on the dial without one, if any)
+		String quick = null;
+		for (var a : Aliens.playable(p)) {
+			if (!OmnitrixLongTransform.has(a.id())) {
+				quick = a.id();
+				break;
+			}
+		}
+		if (quick != null) {
+			ServerPlayer q = raised(helper, quick);
+			helper.assertTrue(Omnitrix.slap(q, true), "a right-click on " + quick + " slaps");
+			helper.assertFalse(OmnitrixLongTransform.playing(q), quick + " has no long transformation: the quick one");
+		}
+		helper.assertFalse(OmnitrixLongTransform.has(Aliens.DITTO.id()), "Ditto has no show sequence");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.17.3: every show sequence registered on the framework is well formed -- its alien exists, the change comes after the skip
+	 * point and before the end, and its soundtrack is registered (the per-alien agents' safety net).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void everyShowSequenceIsWellFormed(GameTestHelper helper) {
+		helper.assertTrue(ShowSequences.has(Aliens.FOUR_ARMS.id()), "Four Arms' sequence is registered");
+		for (ShowSequence s : ShowSequences.all()) {
+			String id = s.alienId();
+			helper.assertTrue(Aliens.byId(id) != null, id + ": a declared alien");
+			helper.assertTrue(s.skipFrom() >= 0 && s.skipFrom() < s.transformAt(), id + ": skippable before the change");
+			helper.assertTrue(s.transformAt() < s.total(), id + ": the change comes before the end");
+			helper.assertTrue(s.total() > 20 && s.total() <= 30 * 20, id + ": between 1 and 30 seconds (" + s.total() + ")");
+			helper.assertTrue(s.sound() != null && s.cue() != null, id + ": a soundtrack (OmnitrixSounds.SEQUENCE_ALIENS)");
+			helper.assertTrue(OmnitrixSounds.SEQUENCE_ALIENS.contains(id) || s.sound() != null, id + ": sound registered");
+		}
 		helper.succeed();
 	}
 }
