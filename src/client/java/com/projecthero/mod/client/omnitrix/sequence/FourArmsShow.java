@@ -53,7 +53,8 @@ public final class FourArmsShow extends ShowSequenceClient {
 	static final int TRANSFORM_AT = 95;
 
 	/** Colours: the olive stage, the green ray burst. */
-	private static final int OLIVE_IN = 0xA9CB63, OLIVE_MID = 0x86AE48, OLIVE_OUT = 0x4C7524;
+	// v0.17.3: the shared show green (Stage.SHOW_*) -- every sequence uses the same background now
+	private static final int OLIVE_IN = Stage.SHOW_IN, OLIVE_MID = Stage.SHOW_MID, OLIVE_OUT = Stage.SHOW_OUT;
 	private static final int BURST_IN = 0x9CF77A, BURST_MID = 0x3FD33A, BURST_OUT = 0x1D8A18, BURST_RAY = 0x15641A, BURST_DOT = 0x0D3F0B;
 
 	/** The Kirby dots: the olive field's streams; the stance's (a wider clear middle round the whole body); the burst's, dark green. */

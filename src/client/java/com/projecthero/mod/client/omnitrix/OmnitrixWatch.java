@@ -276,6 +276,11 @@ public final class OmnitrixWatch {
 		float slap = OmnitrixHands.slapClock(p, s, partial);
 		float lift = LIFT * ph[1] * (recal ? OmnitrixModel.RECAL_LIFT_SCALE : 1f); // v0.17.2: the recalibrated dial pops up a little less
 		lift = OmnitrixHands.slapLift(lift, slap); // slammed in as the right palm lands
+		// v0.17.3 (user: "after the player slams down the omnitrix keep the watch dial down, for some reason it pops back up"): through a
+		// show sequence the watch is still "raised" until the body changes, so the quick slap's hold ran out -- hold it down to the end
+		if (com.projecthero.mod.omnitrix.OmnitrixLongTransform.playing(p) && slap >= OmnitrixHands.SLAP_HIT - 0.6f) {
+			lift = -0.12f;
+		}
 		float[] sp = s.transformed() ? new float[] { 0f, 1f } : spin(p, s, partial);
 		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
 		float auto = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, p.level().getGameTime(), partial);

@@ -23,6 +23,17 @@ import net.minecraft.util.Mth;
  * flashes over everything.
  */
 public final class Stage {
+	/**
+	 * v0.17.3 (user: "make the background for all the transformations the same green please"): THE show background green, used by every
+	 * alien's sequence for its Kirby-dot field ({@link #showBackground}) -- centre, middle and edge of the gradient.
+	 */
+	public static final int SHOW_IN = 0xA6E25A, SHOW_MID = 0x6DBF2A, SHOW_OUT = 0x2E6F12;
+
+	/** The shared show-green background gradient (every sequence's Kirby-dot shots use this). */
+	public void showBackground() {
+		gradient(SHOW_IN, SHOW_MID, SHOW_OUT);
+	}
+
 	public final MultiBufferSource.BufferSource bs;
 	public final PoseStack pose;
 	public final Camera cam;
