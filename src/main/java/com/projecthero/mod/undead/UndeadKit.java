@@ -38,7 +38,7 @@ public final class UndeadKit {
 	static void clearSessionState() {
 		UndeadVortex.clearSessionState();
 		UndeadMeteor.clearSessionState();
-		UndeadRibGuard.clearSessionState();
+		UndeadSpineWhip.clearSessionState();
 		UndeadRibShot.clearSessionState();
 		SENT_WEAR.clear();
 	}
@@ -46,16 +46,16 @@ public final class UndeadKit {
 	static void forget(UUID id) {
 		UndeadVortex.forget(id);
 		UndeadMeteor.forget(id);
-		UndeadRibGuard.forget(id);
+		UndeadSpineWhip.forget(id);
 		UndeadRibShot.forget(id);
 		SENT_WEAR.remove(id);
 	}
 
-	/** Death, a world change, leaving: the twists, the charge and the guard end (the meteor already falling still lands). */
+	/** Death, a world change, leaving: the twists, the charge, the rib shot and the spine whip end (the meteor already falling still lands). */
 	static void clear(ServerPlayer p) {
 		UndeadVortex.cancel(p);
 		UndeadMeteor.cancel(p);
-		UndeadRibGuard.forTestsLower(p);
+		UndeadSpineWhip.cancel(p);
 		UndeadRibShot.cancel(p);
 		UndeadVortex.forget(p.getUUID());
 	}
@@ -64,7 +64,7 @@ public final class UndeadKit {
 	static void tick(ServerPlayer p) {
 		UndeadVortex.tick(p);
 		UndeadMeteor.tick(p);
-		UndeadRibGuard.tick(p);
+		UndeadSpineWhip.tick(p);
 		UndeadRibShot.tick(p);
 	}
 

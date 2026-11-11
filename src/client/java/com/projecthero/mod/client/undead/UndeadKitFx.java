@@ -43,7 +43,8 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * v0.17.3 Undead kit: the client side of Z, Shift+Z, Shift+V and the shoulder sword, for every viewer.
+ * v0.17.3 Undead kit: the client side of Z, Shift+Z and the shoulder sword, for every viewer (V and Shift+V: {@link UndeadRibShotFx},
+ * {@link UndeadSpineWhipFx}, fed from here).
  * <ul>
  * <li>Ten Twists (Z): blood wrung out of the arm and a tightening red spiral round it as it is wrenched round; a wind spiral
  * and blood trailing the drill; a ring of blood blown out where it stops.</li>
@@ -51,8 +52,6 @@ import org.joml.Vector3f;
  * the spot he is looking at and a glowing ring on the ground there, growing with the charge; then the meteor -- a glowing rock
  * in a tail of fire -- streaking down, and the impact: a white flash, a fireball, a shockwave rolling out over the ground and
  * a scorch mark that slowly fades.</li>
- * <li>Rib Cage Guard (Shift+V): his ribs sprung out in front of him as a cage of bone, blood at their roots; a flash where
- * something hits them.</li>
  * <li>The shoulder sword: blood as it goes in or comes out; Shift + right click is sent to the server from here.</li>
  * </ul>
  * Fed by {@link UndeadSwordFx} (watch, tick, render) and the {@link UndeadKitNet.Fx} packet.
@@ -62,8 +61,6 @@ public final class UndeadKitFx {
 
 	/** player -> client game time the meteor charge was first seen. */
 	private static final Map<UUID, Long> CHARGE = new HashMap<>();
-	/** player -> {when the ribs went up, when they started folding back (0 while up)}. */
-	private static final Map<UUID, long[]> RIBS = new HashMap<>();
 	private static final Map<UUID, Long> SEEN_ANIM = new HashMap<>();
 
 	private record Meteor(Vec3 from, Vec3 to, long start, int ticks) {
@@ -87,13 +84,13 @@ public final class UndeadKitFx {
 
 	static void reset() {
 		CHARGE.clear();
-		RIBS.clear();
 		SEEN_ANIM.clear();
 		METEORS.clear();
 		BURSTS.clear();
 		darkUntil = 0L;
 		useWasDown = false;
 		UndeadRibShotFx.reset(); // v0.17.3 tap V
+		UndeadSpineWhipFx.reset(); // v0.17.3 tap Shift+V
 	}
 
 	private static long now() {
@@ -118,7 +115,8 @@ public final class UndeadKitFx {
 				}
 				BloodFx.embers(t.add(0, 1, 0), new Vec3(0, 0.3, 0), 30);
 			}
-			case UndeadKitNet.VORTEX_BURST, UndeadKitNet.RIB_BLOCK -> BURSTS.add(new Burst(fx.kind(), fx.a(), fx.b(), now));
+			case UndeadKitNet.VORTEX_BURST -> BURSTS.add(new Burst(fx.kind(), fx.a(), fx.b(), now));
+			case UndeadKitNet.SPINE_SNAG -> UndeadSpineWhipFx.onSnag(fx); // v0.17.3 tap Shift+V
 			case UndeadKitNet.VORTEX_FIRE -> {
 				BURSTS.add(new Burst(fx.kind(), fx.a(), fx.b(), now));
 				if (!nearView(fx.a())) {
@@ -134,21 +132,12 @@ public final class UndeadKitFx {
 
 	static void watch(Player p, UndeadState s, long now) {
 		UndeadRibShotFx.watch(p, s, now); // v0.17.3 tap V: Rib Shotgun
+		UndeadSpineWhipFx.watch(p, s, now); // v0.17.3 tap Shift+V: Spine Whip
 		UUID id = p.getUUID();
 		if (s.flag(UndeadKitConfig.FLAG_METEOR_CHARGE)) {
 			CHARGE.putIfAbsent(id, now);
 		} else {
 			CHARGE.remove(id);
-		}
-		long[] r = RIBS.get(id);
-		if (s.flag(UndeadKitConfig.FLAG_RIB_GUARD)) {
-			if (r == null || r[1] != 0L) {
-				RIBS.put(id, new long[] { now, 0L });
-			}
-		} else if (r != null && r[1] == 0L) {
-			r[1] = now;
-		} else if (r != null && now - r[1] > 8) {
-			RIBS.remove(id);
 		}
 		Long seen = SEEN_ANIM.put(id, s.animStart);
 		long age = now - s.animStart;
@@ -171,21 +160,6 @@ public final class UndeadKitFx {
 		return Mth.clamp((now() - start + partial) / UndeadKitConfig.METEOR_CHARGE, 0f, 1f);
 	}
 
-	/** Rib Cage Guard: how far out the ribs are (0..1), 0 when not up. */
-	public static float ribs(Player p, float partial) {
-		long[] r = RIBS.get(p.getUUID());
-		if (r == null) {
-			return 0f;
-		}
-		float t = now() + partial;
-		float out = Mth.clamp((t - r[0]) / 4f, 0f, 1f);
-		out = out * out * (3f - 2f * out);
-		if (r[1] != 0L) {
-			out = Math.min(out, Mth.clamp(1f - (t - r[1]) / 5f, 0f, 1f));
-		}
-		return out;
-	}
-
 	// ---------------------------------------------------------------- ticking
 
 	static void tick(long now) {
@@ -196,6 +170,7 @@ public final class UndeadKitFx {
 		}
 		shoulderKey(mc);
 		UndeadRibShotFx.tick(now); // v0.17.3 tap V: Rib Shotgun
+		UndeadSpineWhipFx.tick(now); // v0.17.3 tap Shift+V: Spine Whip
 		BURSTS.removeIf(b -> now - b.start() > (b.kind() == UndeadKitNet.METEOR_IMPACT ? 220 : 20));
 		for (Iterator<Meteor> it = METEORS.iterator(); it.hasNext();) {
 			Meteor m = it.next();
@@ -342,11 +317,6 @@ public final class UndeadKitFx {
 					drawTwist(glow, buffers, m, p, arm, partial, cam, age);
 				}
 			}
-			// (v0.17.3 tap V: the Rib Shotgun's wind-up springs the same ribs half out before they fly)
-			float ribs = Math.max(ribs(p, partial), UndeadRibShotFx.opening(p, partial));
-			if (ribs > 0.01f) {
-				solid.add(() -> drawRibs(pose, buffers, p, partial, cam, ribs, now));
-			}
 		}
 		if (dark > 0.01f) {
 			drawDarkSky(body, m, dark);
@@ -394,7 +364,6 @@ public final class UndeadKitFx {
 								1f - t);
 					}
 				}
-				case UndeadKitNet.RIB_BLOCK -> UndeadSwordFx.star(glow, buffers, m, context.camera().rotation(), b.at().subtract(cam), age * 1.4f, 0.7f);
 				default -> {
 				}
 			}
@@ -405,6 +374,7 @@ public final class UndeadKitFx {
 		for (Runnable r : solid) {
 			r.run();
 		}
+		UndeadSpineWhipFx.render(pose, buffers, cam, partial, now); // v0.17.3 tap Shift+V: the whip
 	}
 
 	/** The sky darkening red round the viewer: an inside-out dome far out (terrain in front of it hides it: only the sky dims). */
@@ -691,54 +661,5 @@ public final class UndeadKitFx {
 				UndeadSwordFx.quad(vc, m, c.add(sph(r, a0, p0)), c.add(sph(r, a1, p0)), c.add(sph(r, a1, p1)), c.add(sph(r, a0, p1)), cr, cg, cb, al);
 			}
 		}
-	}
-
-	/**
-	 * Rib Cage Guard: his ribs sprung out of his chest in front of him -- six a side, curving out and back in toward the front, a
-	 * gap down the middle -- grown out by {@code k}; blood where they leave him. World space, so the viewer sees it in first
-	 * person too.
-	 */
-	private static void drawRibs(PoseStack pose, MultiBufferSource buffers, Player p, float partial, Vec3 cam, float k, float now) {
-		Minecraft mc = Minecraft.getInstance();
-		Vec3 chest = p.getPosition(partial).add(0, p.getBbHeight() * 0.62, 0);
-		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(chest));
-		pose.pushPose();
-		pose.translate(chest.x - cam.x, chest.y - cam.y, chest.z - cam.z);
-		pose.mulPose(Axis.YP.rotationDegrees(-p.getViewYRot(partial)));
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(UndeadRender.PALETTE));
-		PoseStack.Pose pp = pose.last();
-		int segs = 9;
-		for (int side = -1; side <= 1; side += 2) {
-			for (int r = 0; r < 6; r++) {
-				float y = 6f - r * 2.6f; // px, top rib first
-				float reach = (0.75f + 0.25f * (1f - Math.abs(r - 2.5f) / 2.5f)) * k;
-				float px = 0, pz = 0;
-				for (int i = 0; i <= segs; i++) {
-					float t = i / (float) segs * reach;
-					float x = side * (3.5f + 9.5f * Mth.sin(Mth.PI * t) - 1.5f * t);
-					float zz = 1.5f + 13f * t;
-					float yy = y - 2.2f * t * t; // they droop a little toward their tips
-					float th = 0.75f - 0.3f * t / Math.max(0.01f, reach);
-					if (i > 0) {
-						int col = (i + r) % 3 == 0 ? UndeadBoneSwordRender.BONE_SHADE : UndeadBoneSwordRender.BONE;
-						UndeadBoneSwordRender.box(vc, pp, Math.min(px, x) - th, yy - th, Math.min(pz, zz) - th, Math.max(px, x) + th, yy + th, Math.max(pz, zz) + th,
-								col, light);
-					}
-					px = x;
-					pz = zz;
-				}
-				// a knob of bone at the tip, and blood where the rib leaves his chest
-				UndeadBoneSwordRender.box(vc, pp, px - 0.7f, y - 2.2f * reach * reach - 0.7f, pz - 0.7f, px + 0.7f, y - 2.2f * reach * reach + 0.7f, pz + 0.7f,
-						UndeadBoneSwordRender.BONE_DARK, light);
-				UndeadBoneSwordRender.box(vc, pp, side * 3.5f - 0.9f, y - 0.8f, 0.8f, side * 3.5f + 0.9f, y + 0.8f, 2.6f, UndeadBoneSwordRender.BLOOD, light);
-			}
-		}
-		// the split sternum, pushed out in front
-		float sz = 1.5f + 3f * k;
-		for (int side = -1; side <= 1; side += 2) {
-			UndeadBoneSwordRender.box(vc, pp, side * 1.4f - 0.6f, -8f, sz - 0.6f, side * 1.4f + 0.6f, 7f, sz + 0.6f, UndeadBoneSwordRender.BONE_SHADE, light);
-			UndeadBoneSwordRender.box(vc, pp, side * 1.4f - 0.65f, -2f, sz - 0.65f, side * 1.4f + 0.65f, 1f, sz + 0.65f, UndeadBoneSwordRender.BLOOD_WET, light);
-		}
-		pose.popPose();
 	}
 }

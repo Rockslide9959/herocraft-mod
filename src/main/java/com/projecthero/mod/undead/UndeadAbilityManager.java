@@ -23,7 +23,7 @@ import net.minecraft.world.entity.player.Player;
  *   X (3)  tap: Eject Feet           Shift+X  Combustion Punch
  *          hold 2 s: Head Throw (UndeadHeadThrow: start at 2 s, tickHeld while held, release on let-go, cancel if cut short)
  *   Z (4)  Ten Twists: Vortex Bullet (UndeadVortex)   Shift + hold Z 5 s: Unluck Meteor (UndeadMeteor; let go early: cancelled)
- *   V (5)  tap: Rib Shotgun (UndeadRibShot, on the release)   Shift+V tap: Rib Cage Guard (UndeadRibGuard: up 4 s, on the release)
+ *   V (5)  tap: Rib Shotgun (UndeadRibShot, on the release)   Shift+V tap: Spine Whip (UndeadSpineWhip, on the release)
  *          hold 2 s: the bone katana (UndeadBoneSword: he struggles the arm off; R / G / Z / C turn into its sword skills while
  *          it is out, V or Shift+V puts it away)
  *          Shift + hold 1 s: Reform (gathering from REFORM_TAP, Reform at REFORM_HOLD, still held; let go between: nothing)
@@ -54,7 +54,7 @@ public final class UndeadAbilityManager {
 	private static final Map<UUID, long[]> V_HELD = new ConcurrentHashMap<>();
 	/**
 	 * v0.17.3: Shift+V held down: {when it went down, 0 still a tap / 1 gathering for Reform / 2 spoken for (Reform done, or it
-	 * could not and said why)}. Let go while 0: the Rib Cage Guard; at {@link UndeadKitConfig#REFORM_HOLD}: Reform.
+	 * could not and said why)}. Let go while 0: the Spine Whip; at {@link UndeadKitConfig#REFORM_HOLD}: Reform.
 	 */
 	private static final Map<UUID, long[]> SHIFT_V_HELD = new ConcurrentHashMap<>();
 	/** v0.17.3: a plain X held this long is the Head Throw (2 s). */
@@ -201,13 +201,12 @@ public final class UndeadAbilityManager {
 				// move on regular V"): Shift+V cycles the regeneration speed; a plain tap is Reform (on release; it replaced Tear Off); held, he
 				// reaches over and struggles his off arm loose (tickV) and at BONE_SWORD_HOLD it tears off as the Bone Sword.
 				// Pull the Card (UndeadAbilities.pullCard) has no key while UndeadConfig.VICTOR_ENABLED is false.
-				// v0.17.3 kit: Shift+V is the Rib Cage Guard (up while held, at most 4 s; a tap leaves it up the whole 4 s)
 				// v0.17.3 (user: "a new combat V move"): tap V is the Rib Shotgun now and Reform moved to Shift + hold V (a second,
-				// so it is never set off by accident). Which of the three a press is, is settled by how long it is held, and each
-				// is decided once: a plain V let go before BONE_SWORD_TAP fires the ribs (past it the katana struggle owns the
-				// press); a Shift+V let go before REFORM_TAP raises the guard (it then stays up its 4 s -- the hold is Reform's
-				// now), past it he gathers himself and at REFORM_HOLD he re-forms; let go in between and nothing happens. Whether
-				// the press was shifted is read on the press only, so letting go of Shift mid-hold changes nothing.
+				// so it is never set off by accident); tap Shift+V is the Spine Whip (it replaced the Rib Cage Guard). Which of the
+				// four a press is, is settled by how long it is held, and each is decided once: a plain V let go before
+				// BONE_SWORD_TAP fires the ribs (past it the katana struggle owns the press); a Shift+V let go before REFORM_TAP
+				// lashes the Spine Whip, past it he gathers himself and at REFORM_HOLD he re-forms; let go in between and nothing
+				// happens. Whether the press was shifted is read on the press only, so letting go of Shift mid-hold changes nothing.
 				long now = player.level().getGameTime();
 				if (pressed && shift) {
 					V_HELD.remove(player.getUUID());
@@ -219,7 +218,7 @@ public final class UndeadAbilityManager {
 					long[] sv = SHIFT_V_HELD.remove(player.getUUID());
 					if (sv != null) {
 						if (sv[1] == 0L) {
-							UndeadRibGuard.raise(player); // a tap
+							UndeadSpineWhip.start(player); // a tap
 						} else if (sv[1] == 1L) {
 							endGather(player); // let go before Reform: nothing
 						}
@@ -479,9 +478,9 @@ public final class UndeadAbilityManager {
 			case SLOT_2 -> new String[] { victor ? UndeadAbilities.DEAD_BLADE : UndeadBloodMoves.SPRAY, UndeadBloodMoves.WHIRL };
 			case SLOT_3 -> new String[] { UndeadLaunch.EJECT_FEET, UndeadLaunch.COMBUSTION };
 			case SLOT_4 -> new String[] { UndeadAbilities.VORTEX, UndeadMeteor.ID }; // v0.17.3 kit: Shift + hold Z, Unluck Meteor
-			// v0.17.3: tap V Rib Shotgun, Shift+V Rib Cage Guard (hold V, the katana, and Shift + hold V, Reform, are the ALT
+			// v0.17.3: tap V Rib Shotgun, Shift+V Spine Whip (hold V, the katana, and Shift + hold V, Reform, are the ALT
 			// list's extra line: UndeadHud)
-			case SLOT_5 -> new String[] { UndeadRibShot.ID, UndeadRibGuard.ID };
+			case SLOT_5 -> new String[] { UndeadRibShot.ID, UndeadSpineWhip.ID };
 			case SLOT_6 -> new String[] { victor ? UndeadAbilities.DEAD_ROAD : UndeadBloodMoves.DEADLINE, UndeadAbilities.DIVISION }; // Shift+C: Division Bullet
 			default -> new String[0];
 		};
@@ -508,6 +507,7 @@ public final class UndeadAbilityManager {
 			case UndeadAbilities.CARD -> UndeadConfig.VICTOR_COOLDOWN;
 			case UndeadAbilities.REFORM -> UndeadConfig.REFORM_COOLDOWN;
 			case UndeadRibShot.ID -> UndeadKitConfig.RIB_SHOT_COOLDOWN;
+			case UndeadSpineWhip.ID -> UndeadKitConfig.SPINE_COOLDOWN;
 			case UndeadAbilities.DEAD_LINE -> UndeadConfig.DEAD_LINE_COOLDOWN;
 			case UndeadAbilities.VULCAN -> UndeadConfig.VULCAN_COOLDOWN;
 			case UndeadAbilities.DIVISION -> UndeadBulletConfig.DIVISION_COOLDOWN;

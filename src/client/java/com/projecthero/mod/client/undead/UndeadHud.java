@@ -159,7 +159,7 @@ public final class UndeadHud {
 					Component extra = held == null ? null
 							: Component.translatable("hud.projecthero.undead.hold", Component.translatable("projecthero.undead.ability." + held));
 					if (extra != null && slot == AbilitySlot.SLOT_5) {
-						// v0.17.3: V's fourth input -- Shift + hold V, Reform (tap V is the Rib Shotgun now)
+						// v0.17.3: V's fourth input -- Shift + hold V, Reform (tap V is the Rib Shotgun, tap Shift+V the Spine Whip)
 						extra = extra.copy().append("   ").append(Component.translatable("hud.projecthero.undead.shift_hold",
 								Component.translatable("projecthero.undead.ability." + com.projecthero.mod.undead.UndeadAbilities.REFORM)));
 					}

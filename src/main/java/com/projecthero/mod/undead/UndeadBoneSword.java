@@ -62,7 +62,7 @@ import org.joml.Vector3f;
  * Left click is a sword: {@link UndeadConfig#BONE_SWORD_DAMAGE}, a sweep and a longer reach.
  *
  * <p>Also the hub for the rest of the v0.17.3 kit's server side (its tick, session state and lifecycle):
- * {@link UndeadVortex} (Z), {@link UndeadMeteor} (Shift+Z), {@link UndeadRibGuard} (Shift+V), {@link UndeadShoulderSword}.
+ * {@link UndeadVortex} (Z), {@link UndeadMeteor} (Shift+Z), {@link UndeadSpineWhip} (Shift+V), {@link UndeadShoulderSword}.
  */
 public final class UndeadBoneSword {
 	public static final String BONE_SWORD = "bone_sword";
@@ -207,7 +207,7 @@ public final class UndeadBoneSword {
 			case K_WHIRL -> UndeadKitConfig.K_WHIRL_COOLDOWN;
 			case UndeadAbilities.VORTEX -> UndeadKitConfig.VORTEX_COOLDOWN;
 			case UndeadMeteor.ID -> UndeadKitConfig.METEOR_COOLDOWN;
-			case UndeadRibGuard.ID -> UndeadKitConfig.RIB_COOLDOWN;
+			case UndeadSpineWhip.ID -> UndeadKitConfig.SPINE_COOLDOWN;
 			default -> -1;
 		};
 	}
@@ -644,11 +644,6 @@ public final class UndeadBoneSword {
 		} else {
 			target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, IMPALE_PIN_TICKS / 2, 1, false, true), p);
 		}
-	}
-
-	/** From {@code UndeadDamage.allowDamage}: false if the Rib Cage Guard (Shift+V) stops the hit ({@link UndeadRibGuard#blocks}). */
-	public static boolean blocks(ServerPlayer p, DamageSource source, float amount) {
-		return UndeadRibGuard.blocks(p, source, amount);
 	}
 
 	// ---------------------------------------------------------------- tick
