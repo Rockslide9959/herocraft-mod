@@ -195,20 +195,16 @@ public final class BenwolfClient implements AlienClientKit {
 	/** The muzzle's centre line on the face (head-bone pixels): its middle height and where it meets the face. */
 	private static final float CY = -2.4f, FACE = -4.0f, TIP = -7.4f, HALF_W = 2.3f, HALF_H = 1.95f;
 
-	/** The muzzle -- four quarters that split open by {@code open} -- and the two ears. */
+	/** The four-way jaw: it grows out of his face and splits open by {@code open} (nothing while it is shut). */
 	private static void head(PoseStack pose, MultiBufferSource buffers, int light, float open) {
 		// fetched again before every box: the skin and the flat colour share the immediate buffer, and switching ends the other
 		java.util.function.Supplier<VertexConsumer> skin = () -> buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
-		// the ears: tall pointed tufts on top of the head, black fur with grey inside
-		for (int sx = -1; sx <= 1; sx += 2) {
-			pose.pushPose();
-			pose.translate(sx * 2.6f / 16f, -8f / 16f, 0.5f / 16f);
-			pose.mulPose(Axis.ZP.rotationDegrees(sx * 14f));
-			box(pose, skin.get(), -1.3f, -3.2f, -0.8f, 1.3f, 0.2f, 0.8f, FUR, light);
-			box(pose, skin.get(), -0.8f, -4.6f, -0.6f, 0.8f, -3.0f, 0.6f, FUR, light);
-			box(pose, skin.get(), -0.7f, -3.0f, -0.95f, 0.7f, -0.4f, -0.75f, GREY, light);
-			pose.popPose();
+		// v0.17.3 (user: "remove the snout and ears from blitzwolfer"): no ears, and no snout while the mouth is shut -- his face is the
+		// skin's own; the four-way jaw only grows out of his face as it opens for a howl
+		if (open <= 0.02f) {
+			return;
 		}
+		final float TIP = FACE + (BenwolfClient.TIP - FACE) * Math.min(1f, open * 1.6f);
 		float ang = open * 72f;
 		java.util.function.Supplier<VertexConsumer> flat = () -> PyroDraw.solidBuffer(buffers);
 		if (open > 0.02f) {
