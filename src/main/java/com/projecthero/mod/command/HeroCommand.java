@@ -403,7 +403,7 @@ public final class HeroCommand {
 		String name = target.getGameProfile().getName();
 		if (!revokeHeroTier(target, hero)) {
 			c.getSource().sendFailure(Component.literal(
-					"Unknown Hero-Tier power (undead, black_panther, saiyan, thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, super_soldier, kryptonian, nova, ghost_rider, stand, cyborg, blue_beetle, falcon, ladybug, cat_noir, rena_rouge, hawk_moth, carapace, pegasus, viperion, multimouse, queen_bee, quirk_<id>, symbiote)"));
+					"Unknown Hero-Tier power (undead, black_panther, saiyan, gyro, thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, super_soldier, kryptonian, nova, ghost_rider, stand, cyborg, blue_beetle, falcon, ladybug, cat_noir, rena_rouge, hawk_moth, carapace, pegasus, viperion, multimouse, queen_bee, quirk_<id>, symbiote)"));
 			return 0;
 		}
 		c.getSource().sendSuccess(() -> Component.literal("Revoked " + hero + " from " + name), true);
@@ -437,6 +437,7 @@ public final class HeroCommand {
 			case "black_panther" -> com.projecthero.mod.blackpanther.BlackPanther.revoke(target); // v0.17.3
 			case "undead" -> com.projecthero.mod.undead.Undead.revoke(target); // v0.17.3
 			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.revoke(target); // v0.17.3
+			case "gyro" -> com.projecthero.mod.gyro.Gyro.revoke(target); // v0.17.3
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				// v0.16.6: only if they hold THAT Kwami (no jewel comes back)
 				if (com.projecthero.mod.hero.HeroTiers.holdsHero(target, hero)) {

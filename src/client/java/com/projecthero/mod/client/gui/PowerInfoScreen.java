@@ -436,6 +436,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.saiyan.Saiyan.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.saiyanChapter(); // v0.17.3
 		}
+		if (com.projecthero.mod.gyro.Gyro.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.gyroChapter(); // v0.17.3
+		}
 		if (com.projecthero.mod.blackpanther.BlackPanther.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.blackPantherChapter(); // v0.17.3
 		}

@@ -1108,6 +1108,7 @@ public final class SquadScreen extends Screen {
 				case "black_panther": return 0xFF9A4CFF; // v0.17.3
 				case "undead": return 0xFFC0101A; // v0.17.3
 				case "saiyan": return 0xFFFFD84A; // v0.17.3: Super Saiyan gold
+				case "gyro": return 0xFF4FB86A; // v0.17.3: steel-ball green
 				case "falcon": return 0xFFE8283C; // v0.17.1
 				case "ladybug": return 0xFFE0242C; // v0.16.6
 				case "cat_noir": return 0xFF7EE23A; // v0.16.6

@@ -154,6 +154,19 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SAIYAN);
 	}
 
+	/**
+	 * v0.17.3 Gyro Zeppeli: the chapter's control rows {key, ability id}; each shows {@code projecthero.gyro.ability.<id>} and its
+	 * {@code .desc}.
+	 */
+	public static final String[][] GYRO_CONTROLS = { { "R", "steel_ball" }, { "Shift+R", "twin_balls" }, { "G", "spin_touch" },
+			{ "Shift+hold G", "golden_spin" }, { "Z", "scan" }, { "Shift+hold Z", "ball_breaker" }, { "X", "spin_leap" },
+			{ "Shift+X", "valkyrie" }, { "C", "spin_quake" }, { "Shift+C", "spin_shield" }, { "V", "healing_spin" }, { "Shift+V", "face_spin" } };
+
+	/** Gyro Zeppeli, the Spin (v0.17.3). */
+	public static Chapter gyroChapter() {
+		return chapters().get(CH_GYRO);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -589,7 +602,8 @@ public final class HeroPackGuide {
 	private static final int CH_RYUKO = CH_BEAM_CLASH + 1; // 66, v0.17.3
 	private static final int CH_UNDEAD = CH_RYUKO + 1; // 67, v0.17.3
 	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
-	private static final int CHAPTER_POWER_BASE = CH_SAIYAN + 1; // 69
+	private static final int CH_GYRO = CH_SAIYAN + 1; // 69, v0.17.3: Gyro Zeppeli (the Spin)
+	private static final int CHAPTER_POWER_BASE = CH_GYRO + 1; // 70
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1797,6 +1811,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.saiyan.commands.body");
 		}));
 
+		// v0.17.3: Gyro Zeppeli, the Spin (CH_GYRO)
+		out.add(chapter("projecthero.guide.gyro", lines -> {
+			lines.add(Component.translatable("projecthero.guide.gyro.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.gyro.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "traits", "spin", "balls", "golden", "riding", "valkyrie"}) {
+				head(lines, "projecthero.guide.gyro." + section);
+				para(lines, "projecthero.guide.gyro." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.gyro.controls");
+			for (String[] row : GYRO_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.gyro.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.gyro.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.gyro.commands");
+			para(lines, "projecthero.guide.gyro.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -1953,6 +1988,7 @@ public final class HeroPackGuide {
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
+		icon(CH_GYRO, "zeppeli_steel_balls"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2051,6 +2087,7 @@ public final class HeroPackGuide {
 			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
 		}
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.gyro"), 2, CH_GYRO)); // v0.17.3: next to Stands
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.undead"), 2, CH_UNDEAD)); // v0.17.3
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.saiyan"), 2, CH_SAIYAN)); // v0.17.3
 		sub(other, "projecthero.guide.sub.mutations");
