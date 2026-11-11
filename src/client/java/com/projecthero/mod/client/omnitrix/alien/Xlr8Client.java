@@ -198,7 +198,9 @@ public final class Xlr8Client implements AlienClientKit {
 	 * 1 = down (the helmet's visor), sliding between over {@link #VISOR_SLIDE} ticks from the moment Xlr8Kit#visorDown flips.
 	 */
 	static float visor(AbstractClientPlayer p, float partial) {
-		boolean down = Xlr8Kit.visorDown(p);
+		// v0.17.3: the show transformation drops the visor in its face close-up
+		Boolean show = com.projecthero.mod.client.omnitrix.sequence.Xlr8Show.visorDown(p, partial);
+		boolean down = show != null ? show : Xlr8Kit.visorDown(p);
 		float now = p.tickCount + partial;
 		float[] v = VISOR.computeIfAbsent(p.getUUID(), k -> new float[] { down ? 1f : 0f, -100f });
 		if ((v[0] > 0.5f) != down) {
@@ -265,7 +267,8 @@ public final class Xlr8Client implements AlienClientKit {
 		}
 		// (every cutout draw is done: fetching another buffer type ends the previous one)
 		// the green eyes glow: the skin's own eye pixels drawn again full-bright (the visor's faint eyes when it is down)
-		boolean down = Xlr8Kit.visorDown(p);
+		Boolean show = com.projecthero.mod.client.omnitrix.sequence.Xlr8Show.visorDown(p, partial);
+		boolean down = show != null ? show : Xlr8Kit.visorDown(p);
 		VertexConsumer eyes = buffers.getBuffer(RenderType.eyes(down ? MASK_EYES : EYES));
 		model.head.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 		model.hat.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
