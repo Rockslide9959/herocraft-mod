@@ -1,0 +1,330 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.saiyan.SaiyanFx;
+import com.projecthero.mod.saiyan.SaiyanForm;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the Saiyan aura v2 (jagged flame). Enabled by run/saiyanfx.flag (its text filters scenes). */
+public final class SaiyanFxHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	/** Camera: orbit round the player at this yaw (deg, 0 = in front), height and radius; null yaw = normal camera. */
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private SaiyanFxHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("saiyanfx.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("saiyanfx.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SaiyanFxHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_200_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "saiyanfx-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SaiyanFxHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.removeAllEffects();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			if ((inWorldTicks - t0) % 5 == 0) {
+				// no potion swirls on the test player
+				server(mc, p -> {
+					if (!p.getActiveEffects().isEmpty()) {
+						if (inWorldTicks - t0 < 50) {
+							System.out.println("[HARNESS] effects " + p.getActiveEffects());
+						}
+						p.removeAllEffects();
+					}
+				});
+			}
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("sa_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void still(int t, String name) {
+		at(t, () -> {
+			Screenshot.grab(Minecraft.getInstance().gameDirectory, "sa_still_" + name + ".png", Minecraft.getInstance().getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] still " + name);
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot, standing still facing south. */
+	private static void reset(Minecraft mc, int t) {
+		at(t, () -> server(mc, p -> {
+			p.removeAllEffects();
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+		}));
+	}
+
+	private static void time(Minecraft mc, int t, long dayTime) {
+		at(t, () -> server(mc, p -> p.serverLevel().setDayTime(dayTime)));
+	}
+
+	private static void form(Minecraft mc, int t, SaiyanForm f, boolean burst) {
+		at(t, () -> SaiyanFx.debugForm(mc.player, f, burst));
+	}
+
+	private static void charge(Minecraft mc, int t, boolean on) {
+		at(t, () -> SaiyanFx.debugCharging(mc.player, on));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		reset(mc, t);
+		t += 20;
+		// stills: SSJ idle straight on (for the sketch comparison), SSJ charging, Base charging
+		if (want("stills")) {
+			form(mc, t, SaiyanForm.SSJ, false);
+			charge(mc, t, false);
+			cam(t + 1, 0f, 0.0f, 5.2f, 0f, 1.3f);
+			still(t + 40, "front_idle");
+			still(t + 47, "front_idle2");
+			charge(mc, t + 50, true);
+			still(t + 85, "front_charge");
+			charge(mc, t + 88, false);
+			form(mc, t + 90, SaiyanForm.BASE, false);
+			charge(mc, t + 90, true);
+			still(t + 125, "front_base_charge");
+			charge(mc, t + 128, false);
+			t += 140;
+		}
+		// SSJ idle, straight on
+		if (want("front")) {
+			form(mc, t, SaiyanForm.SSJ, false);
+			charge(mc, t, false);
+			cam(t + 1, 0f, 0.0f, 5.2f, 0f, 1.3f);
+			record(t + 10, "ssj_idle_front", 100);
+			t += 115;
+		}
+		// SSJ idle, the camera going round
+		if (want("orbit")) {
+			form(mc, t, SaiyanForm.SSJ, false);
+			charge(mc, t, false);
+			cam(t + 1, 0f, 0.4f, 5.0f, 3f, 1.3f);
+			record(t + 5, "ssj_idle_orbit", 120);
+			t += 130;
+		}
+		// SSJ charging: swells in, holds, settles out
+		if (want("charge")) {
+			form(mc, t, SaiyanForm.SSJ, false);
+			charge(mc, t, false);
+			cam(t + 1, 20f, 0.2f, 5.6f, 0f, 1.4f);
+			charge(mc, t + 20, true);
+			record(t + 10, "ssj_charge", 130);
+			charge(mc, t + 110, false);
+			t += 145;
+		}
+		// Base charging (white)
+		if (want("basecharge")) {
+			form(mc, t, SaiyanForm.BASE, false);
+			charge(mc, t, false);
+			cam(t + 1, -20f, 0.2f, 5.4f, 0f, 1.4f);
+			charge(mc, t + 15, true);
+			record(t + 5, "base_charge", 110);
+			charge(mc, t + 90, false);
+			t += 120;
+		}
+		// the transformation (Base -> SSJ), to check the burst still plays
+		if (want("burst")) {
+			form(mc, t, SaiyanForm.BASE, false);
+			charge(mc, t, false);
+			cam(t + 1, 15f, 0.8f, 7.5f, 0f, 1.4f);
+			form(mc, t + 10, SaiyanForm.SSJ, true);
+			record(t + 4, "transform", 60);
+			t += 70;
+		}
+		// night: SSJ idle, then charging, slow orbit
+		if (want("night")) {
+			time(mc, t, 18000L);
+			form(mc, t + 2, SaiyanForm.SSJ, false);
+			charge(mc, t + 2, false);
+			cam(t + 3, 25f, 0.3f, 5.2f, 1.5f, 1.3f);
+			charge(mc, t + 70, true);
+			record(t + 12, "night", 140);
+			charge(mc, t + 154, false);
+			time(mc, t + 156, 6000L);
+			t += 160;
+		}
+		// first person while charging (SSJ, then Base)
+		if (want("fp")) {
+			form(mc, t, SaiyanForm.SSJ, false);
+			at(t + 1, () -> {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+				server(mc, p -> p.setXRot(10f));
+			});
+			charge(mc, t + 4, true);
+			record(t + 10, "fp_charge", 90);
+			at(t + 50, () -> server(mc, p -> p.setXRot(-35f)));
+			form(mc, t + 75, SaiyanForm.BASE, false);
+			charge(mc, t + 102, false);
+			at(t + 104, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			});
+			t += 108;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

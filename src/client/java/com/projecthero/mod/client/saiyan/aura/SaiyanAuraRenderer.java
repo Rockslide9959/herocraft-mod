@@ -17,19 +17,22 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.3: the Saiyan aura, drawn from the player render layer in the model's space (so never round the camera in first
- * person). Anime style: a flame-shaped teardrop of light round the body.
+ * person). Dragon Ball style: a tall jagged flame of light round the body.
  * <ul>
- * <li><b>Envelope</b>: a teardrop sheet that always turns to face the viewer (round the vertical axis), set through the body's
- * centre: the body hides the middle, so what shows is a halo hugging the silhouette. Its sides ripple with waves running UP,
- * its tip flickers, its rim is the brightest part. Drawn twice: an alpha-blended wash of the aura colour (keeps the colour
- * against a bright sky) under an additive glow; a fainter copy in front of the body washes light over it.</li>
- * <li><b>Licks</b>: flame tongues born low on the sides that rise, stretch, lean in over the head and fade past the tip.</li>
- * <li>While charging: bigger and brighter with a slow pulse, fast rising streaks, embers, a glow on the ground (the floating
- * debris is {@link SaiyanAuraParticles}).</li>
- * <li>SSJ2 / SSJ3: soft camera-facing lightning arcs crawling over the body (SSJ3 more).</li>
- * <li>Instinct: no flame -- a thin silver shimmer hugging the body with twinkling glints.</li>
+ * <li><b>Flame</b> (after the user's sketch and the reference clip in docs/reference/saiyan_aura/): a sheet that always turns
+ * to face the viewer (round the vertical axis), set through the body's centre. Its body line is an egg / bonfire -- narrow at
+ * the feet, widest round the chest, curving in to a point above the head -- bristling with sharp thorns: splayed almost flat
+ * at the feet, pointing up-and-out round the body, straight up near the top, under a tall centre spike. The thorns travel UP
+ * the sides (new ones grow out of the feet, the top ones fold into the crown) and "boil" -- each jumps to a new length and
+ * angle every few ticks, like a hand-drawn aura. The outline is the brightest part, over a thick glowing rim band; the
+ * middle is nearly clear so the body stays visible. Drawn as an alpha-blended wash of the aura colour (keeps the colour
+ * against a bright sky) under an additive glow, plus a faint copy in front of the body that washes light over it.</li>
+ * <li><b>Licks</b>: loose flame tongues peeling off the upper outline, and thin streaks rising inside the flame.</li>
+ * <li>While charging (V): taller, wider, faster and brighter with a slow pulse, fast rising streaks, embers, a glow on the
+ * ground (the floating debris is {@link SaiyanAuraParticles}). A Base charge is the same flame in white.</li>
  * <li>The transformation ({@link SaiyanFx#transformingTicks}): a flash with star rays, a pillar of light, a shockwave ring.</li>
  * </ul>
+ * Only Base and Super Saiyan are in play; any other form (an old save, the debug override) draws as Super Saiyan.
  * Everything is procedural from (time, a per-player seed): no per-frame allocation. Model space: block units, +y DOWN, the feet
  * at y = {@link #FEET}, the top of the head at y = -0.5, scaled by the player model's 15/16.
  */
@@ -37,6 +40,8 @@ public final class SaiyanAuraRenderer {
 	static final float FEET = 1.501f;
 	private static final float HEAD_TOP = -0.5f;
 	private static final float MODEL_SCALE = 0.9375f;
+	/** Feet to the top of the head, in model units. */
+	private static final float HEAD_H = FEET - HEAD_TOP;
 
 	/** Entities are being drawn for the world (not a GUI preview such as the inventory's player). Set by SaiyanVisualsClient. */
 	public static boolean inWorld;
@@ -95,30 +100,12 @@ public final class SaiyanAuraRenderer {
 		return s != null && s[1] > 0.02f;
 	}
 
+
 	// ---------------------------------------------------------------- colours
 
-	/** Per form: {wash (alpha-blended, saturated), glow (additive, = the form's aura colour), core (white-hot), lightning}. */
-	private static int[] palette(SaiyanForm f) {
-		return switch (f) {
-			case BASE -> BASE_PAL;
-			case SSJ, SSJ3 -> SSJ_PAL;
-			case SSJ2 -> SSJ2_PAL;
-			case GOD -> GOD_PAL;
-			case BLUE -> BLUE_PAL;
-			case BLUE_OVERDRIVE -> OVERDRIVE_PAL;
-			case INSTINCT -> INSTINCT_PAL;
-		};
-	}
-
-	private static final int[] BASE_PAL = { 0xB8CCF0, 0xE6EEFF, 0xFFFFFF, 0xDDEEFF };
-	private static final int[] SSJ_PAL = { 0xFF8E00, rgb(SaiyanForm.SSJ.auraColor), 0xFFF6D0, 0xD8F4FF };
-	private static final int[] SSJ2_PAL = { 0xFF9800, rgb(SaiyanForm.SSJ2.auraColor), 0xFFF8DC, 0xCCF2FF };
-	/** God: the form's red-orange pushed to crimson. */
-	private static final int[] GOD_PAL = { 0xB80424, mix(rgb(SaiyanForm.GOD.auraColor), 0xFF1030, 0.6f), 0xFF9C88, 0xFFD0D0 };
-	private static final int[] BLUE_PAL = { 0x0078F0, rgb(SaiyanForm.BLUE.auraColor), 0xE2FAFF, 0xE0F8FF };
-	/** Overdrive: a blue body inside a red rim -- this table is the red; the inner layer is Blue's. */
-	private static final int[] OVERDRIVE_PAL = { 0xD80A18, rgb(SaiyanForm.BLUE_OVERDRIVE.auraColor), 0xFFD8D8, 0xFFB8B8 };
-	private static final int[] INSTINCT_PAL = { 0x9AA8C4, rgb(SaiyanForm.INSTINCT.auraColor), 0xFFFFFF, 0xFFFFFF };
+	/** {wash (alpha-blended, saturated), glow (additive, = the form's aura colour), core (white-hot)}. */
+	private static final int[] BASE_PAL = { 0xB8CCF0, 0xE6EEFF, 0xFFFFFF };
+	private static final int[] SSJ_PAL = { 0xFFC400, rgb(SaiyanForm.SSJ.auraColor), 0xFFF6D0 };
 
 	private static int rgb(int argb) {
 		return argb & 0xFFFFFF;
@@ -130,14 +117,15 @@ public final class SaiyanAuraRenderer {
 		if (!inWorld) {
 			return;
 		}
-		SaiyanForm form = SaiyanFx.form(player);
+		SaiyanForm form = SaiyanFx.form(player).playableOrSsj();
+		boolean base = form == SaiyanForm.BASE;
 		int tt = SaiyanFx.transformingTicks(player);
-		boolean burst = tt < 30 && form != SaiyanForm.BASE; // powering down to Base has no flash
+		boolean burst = tt < 30 && !base; // powering down to Base has no flash
 		float[] lv = LEVEL.get(player.getId());
 		float charge = lv != null ? Mth.lerp(partial, lv[0], lv[1]) : (SaiyanFx.charging(player) ? 1f : 0f);
 		float groundDist = lv != null ? lv[2] : (player.onGround() ? 0f : -1f);
 		float daylight = lv != null ? lv[4] : 1f;
-		if (form == SaiyanForm.BASE && charge < 0.02f) {
+		if (base && charge < 0.02f) {
 			return;
 		}
 		Matrix4f m = pose.last().pose();
@@ -146,98 +134,60 @@ public final class SaiyanAuraRenderer {
 		long seed = player.getId() * 0x9E3779B97F4A7C15L;
 		float bt = burst ? tt + partial : 999f;
 		float flare = burst ? Mth.clamp(1f - bt / 26f, 0f, 1f) : 0f;
-		int[] pal = palette(form);
-		boolean instinct = form == SaiyanForm.INSTINCT;
-		boolean base = form == SaiyanForm.BASE;
+		int[] pal = base ? BASE_PAL : SSJ_PAL;
 
 		// power: 0.42 idle in a form, 1 charging; a fresh transformation flares it up
 		float power = base ? charge : Mth.lerp(charge, 0.42f, 1f);
 		power = Math.max(power, flare * 1.15f);
 		power *= 1f + 0.07f * charge * Mth.sin(time * 0.45f); // the charge's gentle pulse
-		float speed = 1f + 0.6f * charge;
+		float speed = 1f + 0.8f * charge;
 
-		float halfW = 0.6f + 0.26f * power;
-		float top = HEAD_TOP - (0.3f + 1.0f * power);
-		float washA = 0.16f + 0.12f * power;
-		float rimA = 0.22f + 0.22f * power;
-		boolean overdrive = form == SaiyanForm.BLUE_OVERDRIVE;
-		// Overdrive: a blue flame inside a red rim
-		int[] body = overdrive ? BLUE_PAL : pal;
-		int lickCount = Math.round(10 + 14 * power);
+		// the flame's size, in model units: half width at the feet and at the widest (the chest), the body line's height (feet
+		// to where the sides meet; the centre spike rises above it) and the thorns' length
+		float footW = 0.45f + 0.12f * power;
+		float halfW = 0.78f + 0.3f * power;
+		float height = HEAD_H + 0.5f + 0.85f * power;
+		float jut = 0.4f + 0.16f * power;
+		float top = FEET - height;
+
+		int rimCol = mix(pal[1], pal[2], 0.25f);
+		int innerCol = mix(pal[1], pal[2], 0.15f);
 
 		// ---- pass 1: the alpha-blended wash (colour that survives daylight)
 		VertexConsumer tint = buffers.getBuffer(SaiyanAuraRenderType.TINT);
 		alphaMul = 1f + 0.5f * daylight;
-		if (instinct) {
-			envStreak = 0.3f;
-			envTipFade = 0f;
-			envelope(tint, m, time, seed, 0.5f + 0.1f * power, FEET, HEAD_TOP - 0.25f - 0.3f * power, 0f, pal[0], pal[0], 0.02f, 0.2f, 0.07f,
-					0.03f, 0.5f, 0.05f);
-		} else {
-			envStreak = 0.55f;
-			envTipFade = 0f;
-			if (overdrive) {
-				envelope(tint, m, time, seed + 2, halfW * 1.08f, FEET, top - 0.15f, 0f, pal[0], pal[0], 0f, washA * 1.5f, 0.05f, 0.08f, speed,
-						0.14f);
-			}
-			envelope(tint, m, time, seed, halfW, FEET, top, 0f, body[0], body[0], washA * 0.75f, washA * 1.8f, 0.06f, 0.07f, speed, 0.12f);
-			licks(tint, m, time, seed + 11, lickCount, halfW, FEET, top, overdrive ? pal[0] : body[0], body[0],
-					0.34f * Math.min(1f, power + 0.25f), speed, 0.05f, 1f);
-		}
+		flame(tint, m, time, seed, speed, footW, halfW, height, jut, 0f, pal[0], pal[0], 0.5f + 0.2f * power, 0.36f + 0.12f * power,
+				0.06f + 0.03f * power, 0f, 0f);
 
 		// ---- pass 2: the additive glow
 		VertexConsumer glow = buffers.getBuffer(SaiyanAuraRenderType.GLOW);
 		// by day additive light washes out to white against the sky: less of it, and more of the coloured wash under it
 		alphaMul = 1f - 0.5f * daylight;
-		if (instinct) {
-			instinctShimmer(glow, m, time, seed, power, pal);
-		} else {
-			int rimCol = body[1];
-			int innerCol = mix(body[1], body[2], 0.25f);
-			envStreak = 0.6f;
-			envTipFade = 0.7f;
-			if (overdrive) {
-				envelope(glow, m, time, seed + 2, halfW * 1.08f, FEET, top - 0.15f, 0f, 0xFF2020, 0xFF3A30, 0.02f, rimA * 1.2f, 0.05f, 0.08f,
-						speed, 0.14f);
-			}
-			// the main glow and its bright rim, behind the body
-			envelope(glow, m, time, seed, halfW, FEET, top, 0f, innerCol, rimCol, 0.05f + 0.07f * power, rimA, 0.06f, 0.07f, speed, 0.12f);
-			// the white-hot inner layer, tighter and lower, flickering faster
-			envTipFade = 0.3f;
-			envelope(glow, m, time * 1.4f, seed + 5, halfW * 0.78f, FEET, Mth.lerp(0.5f, FEET, top), 0f, body[2], body[2],
-					0.04f + 0.06f * power, 0.12f + 0.18f * power, 0.08f, 0.05f, speed, 0.08f);
-			// a faint wash in front, so the body stands inside the light
-			envStreak = 0.8f;
-			envelope(glow, m, time, seed + 3, halfW * 0.92f, FEET, top + 0.2f, 0.42f, innerCol, rimCol, 0.03f + 0.05f * power,
-					0.06f + 0.07f * power, 0.1f, 0.06f, speed, 0.1f);
-			// the flame tongues licking up the outline, white-hot at the root, the aura colour at the tip
-			licks(glow, m, time, seed + 11, lickCount, halfW, FEET, top, overdrive ? 0xFF3030 : rimCol, mix(rimCol, body[2], 0.5f),
-					0.3f + 0.25f * power, speed, 0.05f, 1f);
-			// a second, thinner set in front of the body
-			licks(glow, m, time, seed + 23, Math.round(3 + 6 * power), halfW * 0.8f, FEET, top + 0.15f, rimCol, body[2],
-					0.12f + 0.16f * power, speed, 0.4f, 0.7f);
-			embers(glow, m, time, seed + 31, Math.round(3 + 12 * charge + 6 * flare), halfW, top, body[2], overdrive ? 0xFF4040 : rimCol, 0.8f);
-		}
-		envStreak = 0f;
-		envTipFade = 0f;
-		alphaMul = 1f - 0.25f * daylight; // the streaks, ground glow, lightning and burst stay strong by day
+		// the main flame: a bright outline over a thick glowing rim band, nearly clear in the middle; behind the body
+		flame(glow, m, time, seed, speed, footW, halfW, height, jut, 0f, pal[1], rimCol, 0.6f + 0.3f * power, 0.34f + 0.16f * power,
+				0.04f + 0.04f * power, 0f, 0.3f);
+		// a faint copy in front (the same thorns), so the body stands inside the light
+		flame(glow, m, time, seed, speed, footW * 0.93f, halfW * 0.93f, height * 0.96f, jut * 0.93f, 0.42f, innerCol, rimCol,
+				0.1f + 0.1f * power, 0.05f + 0.05f * power, 0.015f + 0.02f * power, 0f, 0.5f);
+		// thin flame streaks rising inside (behind and in front of the body), and a few loose tongues off the crown
+		licks(glow, m, time, seed + 17, Math.round(5 + 8 * power), 0.0f, 0.45f, 0.15f, 0.75f, 0.95f, pal[1], innerCol,
+				0.16f + 0.16f * power, speed * 1.3f, 0.03f, 0.7f);
+		licks(glow, m, time, seed + 23, Math.round(2 + 5 * power), 0.0f, 0.4f, 0.1f, 0.6f, 0.85f, pal[1], innerCol, 0.08f + 0.1f * power,
+				speed * 1.3f, 0.4f, 0.55f);
+		licks(glow, m, time, seed + 11, Math.round(2 + 4 * power), 0.7f, 0.92f, 0.5f, 0.9f, 1.25f, rimCol, pal[1], 0.22f + 0.2f * power,
+				speed, 0.05f, 0.8f);
+		embers(glow, m, time, seed + 31, Math.round(3 + 12 * charge + 6 * flare), halfW, top, pal[2], rimCol, 0.8f);
+		alphaMul = 1f - 0.25f * daylight; // the streaks, ground glow and burst stay strong by day
 		if (charge > 0.02f) {
-			streaks(glow, m, time, seed + 41, Math.round(12 * charge), halfW, top, instinct ? 0xFFFFFF : pal[2], 0.55f * charge);
+			streaks(glow, m, time, seed + 41, Math.round(12 * charge), halfW, top, pal[2], 0.55f * charge);
 		}
 		if (groundDist >= 0f && groundDist < 3f) {
 			float gy = FEET + groundDist / MODEL_SCALE - 0.03f;
 			float fade = 1f - groundDist / 3f;
-			float ga = (0.08f + 0.32f * charge + 0.35f * flare) * fade * (instinct ? 0.5f : 1f);
+			float ga = (0.08f + 0.32f * charge + 0.35f * flare) * fade;
 			if (ga > 0.01f) {
-				groundGlow(glow, m, time, gy, base ? pal[1] : (form == SaiyanForm.BLUE_OVERDRIVE ? 0xFF3A30 : pal[1]), pal[2], ga,
-						(0.9f + 0.7f * charge) * (1f + 0.04f * Mth.sin(time * 0.9f)));
+				groundGlow(glow, m, time, gy, pal[1], pal[2], ga, (0.9f + 0.7f * charge) * (1f + 0.04f * Mth.sin(time * 0.9f)));
 			}
-		}
-		if (form == SaiyanForm.SSJ2 || form == SaiyanForm.SSJ3) {
-			int bolts = form == SaiyanForm.SSJ3 ? 4 + Math.round(5 * charge) : 2 + Math.round(4 * charge);
-			lightning(glow, m, seed, time, bolts, pal[3], form == SaiyanForm.SSJ3 ? 0.6f : 0.5f);
-		} else if (form == SaiyanForm.BLUE_OVERDRIVE && charge > 0.3f) {
-			lightning(glow, m, seed, time, 3, 0xFF6060, 0.4f);
 		}
 		if (burst) {
 			burst(glow, m, bt, pal, groundDist >= 0f && groundDist < 4f ? FEET + groundDist / MODEL_SCALE - 0.04f : Float.NaN, seed);
@@ -266,114 +216,217 @@ public final class SaiyanAuraRenderer {
 		rz = -fx;
 	}
 
-	// ---------------------------------------------------------------- the envelope
+	// ---------------------------------------------------------------- the jagged flame
 
-	/** The teardrop's half width (0..1) at height v (0 = bottom, 1 = tip): round bottom, widest low, tapering to a point. */
-	private static float shape(float v) {
-		if (v <= 0f || v >= 1f) {
-			return 0f;
-		}
-		final float widest = 0.3f;
-		if (v < widest) {
-			float k = (widest - v) / widest;
-			return 0.35f + 0.65f * Mth.sqrt(1f - k * k);
-		}
-		float t = (v - widest) / (1f - widest);
-		float c = Mth.cos(t * Mth.HALF_PI);
-		return c * (0.85f + 0.15f * c);
-	}
-
-	private static final float[] ENV_V = { 0f, 0.04f, 0.09f, 0.15f, 0.21f, 0.28f, 0.35f, 0.42f, 0.49f, 0.56f, 0.63f, 0.69f, 0.75f, 0.8f,
-			0.85f, 0.89f, 0.925f, 0.955f, 0.98f, 1f };
-	private static final float[] ENV_U = { 0f, 0.12f, 0.24f, 0.36f, 0.47f, 0.57f, 0.66f, 0.74f, 0.81f, 0.87f, 0.92f, 0.955f, 0.98f, 1f };
-	/** How much of the flowing streak texture the next envelope gets (0 smooth .. 1 strong). */
-	private static float envStreak;
-	/** How much the next envelope dims toward its tip (additive layers pile up there and wash out to white). */
-	private static float envTipFade;
-	/** Scratch rows for the envelope grid (render thread only). */
-	private static final float[] ROW_X = new float[ENV_U.length * 2 - 1], ROW_Y = new float[ROW_X.length], ROW_A = new float[ROW_X.length];
-	private static final int[] ROW_C = new int[ROW_X.length];
-	private static final float[] PREV_X = new float[ROW_X.length], PREV_Y = new float[ROW_X.length], PREV_A = new float[ROW_X.length];
-	private static final int[] PREV_C = new int[ROW_X.length];
+	/** Thorns up each side (from the feet to the tip). */
+	private static final float LOBES = 7f;
+	private static final int MAX_PTS = 192;
+	/** The current flame's body (render thread only): half width at the feet, at the widest, and its height. */
+	private static float fFoot, fHalf, fHeight;
+	/** The outline, in the viewer-facing plane: x (right), h (height above the feet, model units). Scratch, render thread only. */
+	private static final float[] OX = new float[MAX_PTS], OH = new float[MAX_PTS];
+	private static final float[] SX = new float[MAX_PTS / 2], SH = new float[MAX_PTS / 2];
+	private static int outN;
+	/** The rows drawn from the outline inward: just outside, the line, inside the rim band, half way, the middle. */
+	private static final int ROWS = 5;
+	private static final float[][] RX = new float[ROWS][MAX_PTS], RH = new float[ROWS][MAX_PTS], RA = new float[ROWS][MAX_PTS];
+	private static final int[][] RC = new int[ROWS][MAX_PTS];
 
 	/**
-	 * A teardrop sheet facing the viewer, {@code depth} toward the camera from the body's centre. Alpha {@code aIn} inside rising to
-	 * {@code aRim} along a rim {@code rim} wide (in the normalised grid) and to 0 at the very edge, colour from {@code colIn} to
-	 * {@code colRim}. {@code wobble}: how much the sides ripple (waves running up them); {@code flick}: how much the tip jumps.
+	 * The smooth body under the thorns: its half width at height h. An egg / bonfire: {@link #fFoot} at the feet, swelling to
+	 * {@link #fHalf} round the chest (45% up), then curving in to a point at the top.
 	 */
-	private static void envelope(VertexConsumer vc, Matrix4f m, float time, long seed, float halfW, float bottomY, float topY, float depth,
-			int colIn, int colRim, float aIn, float aRim, float rim, float wobble, float speed, float flick) {
+	private static float body(float h) {
+		float u = h / fHeight;
+		if (u <= 0f) {
+			return fFoot;
+		}
+		if (u >= 1f) {
+			return 0f;
+		}
+		if (u < 0.45f) {
+			float s = u / 0.45f;
+			return fFoot + (fHalf - fFoot) * s * s * (3f - 2f * s);
+		}
+		float t = (u - 0.45f) / 0.55f;
+		return fHalf * (float) Math.pow(1f - t, 1.1f) * (1f + 1.1f * t);
+	}
+
+	private static float smooth(float a, float b, float x) {
+		float t = Mth.clamp((x - a) / (b - a), 0f, 1f);
+		return t * t * (3f - 2f * t);
+	}
+
+	/**
+	 * A jagged flame facing the viewer, {@code depth} toward the camera from the body's centre: the outline (see the class
+	 * comment) at alpha {@code aEdge} in {@code colRim} -- the brightest part -- with a soft glow just outside, a thick rim band
+	 * at {@code aRim} just inside, then {@code aFill} half way in and {@code aCore} in the middle ({@code colIn}), so the middle
+	 * is nearly clear. {@code tipFade}: how much it dims toward the tip (additive layers pile up there and wash out to white).
+	 */
+	private static void flame(VertexConsumer vc, Matrix4f m, float time, long seed, float speed, float foot, float half, float height,
+			float jut, float depth, int colIn, int colRim, float aEdge, float aRim, float aFill, float aCore, float tipFade) {
+		fFoot = foot;
+		fHalf = half;
+		fHeight = height;
 		float h0 = hash(seed) * 6.283f, h1 = hash(seed + 1) * 6.283f;
 		float ts = time * speed;
-		// the tip jumps up and down like a flame and leans a little side to side
-		float tipY = topY - flick * (0.5f + 0.5f * Mth.sin(ts * 0.37f + h0) * Mth.sin(ts * 0.23f + h1));
-		float sway = 0.06f * Mth.sin(ts * 0.11f + h1);
-		int n = ROW_X.length;
-		int mid = ENV_U.length - 1;
-		for (int r = 0; r < ENV_V.length; r++) {
-			float v = ENV_V[r];
-			float y = Mth.lerp(v, bottomY, tipY);
-			float sh = shape(v);
-			// waves running up each side (independently), stronger higher up
-			float wl = 1f + wobble * v * (0.65f * Mth.sin(v * 9f - ts * 0.42f + h0) + 0.35f * Mth.sin(v * 17f - ts * 0.71f + h1));
-			float wr = 1f + wobble * v * (0.65f * Mth.sin(v * 9.5f - ts * 0.40f + h1 + 2f) + 0.35f * Mth.sin(v * 16f - ts * 0.75f + h0 + 1f));
-			float lean = sway * v * v;
-			for (int j = 0; j < n; j++) {
-				int k = j - mid; // -mid..mid
-				float u = (k < 0 ? -1f : 1f) * ENV_U[Math.abs(k)];
-				float x = u * halfW * sh * (u < 0 ? wl : wr) + lean;
-				// distance to the edge, in the grid: the sides, the tip, and a long soft fade at the bottom (no ground line)
-				float s = Math.min(1f - Math.abs(u), Math.min((1f - v) * 1.6f, v * 1.4f));
-				float a, rimness;
-				if (s < rim) {
-					float e = s / rim;
-					a = aRim * e * e * (3f - 2f * e);
-					rimness = 1f;
-				} else {
-					rimness = (float) Math.exp(-(s - rim) / (rim * 1.8f));
-					a = aIn + (aRim - aIn) * rimness;
-				}
-				// the bottom never reaches full strength (the feet sit in it)
-				a *= Math.min(1f, v * 5f + 0.1f);
-				// flowing streaks: vertical bands of light that wander and stream upward, so it reads as flame, not glass
-				if (envStreak > 0f) {
-					float band = 0.5f + 0.5f * Mth.sin(u * 11f + h0 + 1.8f * Mth.sin(v * 3.1f - ts * 0.21f + u * 2f));
-					float flow = 0.5f + 0.5f * Mth.sin(v * 11f - ts * 0.85f + u * 5f + h1);
-					float k2 = band * (0.45f + 0.55f * flow);
-					a *= 1f - envStreak * (1f - k2) * (s < rim * 2f ? 0.55f : 1f);
-				}
-				if (envTipFade > 0f && v > 0.7f) {
-					a *= 1f - envTipFade * Math.min(1f, (v - 0.7f) / 0.3f);
-				}
-				ROW_X[j] = x;
-				ROW_Y[j] = y;
-				ROW_A[j] = a;
-				ROW_C[j] = mix(colIn, colRim, rimness);
+		// the whole flame leans a little side to side
+		float lean = 0.06f * Mth.sin(ts * 0.11f + h1);
+		outline(time, seed, speed, jut, lean);
+		int n = outN;
+		float fan = fHeight * 0.55f;
+		float top = fHeight + jut * 1.6f;
+		for (int i = 0; i < n; i++) {
+			float px = OX[i], ph = OH[i];
+			float sh = Mth.clamp(ph, 0f, fan);
+			float sx = lean * (sh / fHeight) * (sh / fHeight);
+			float dx = px - sx, dh = ph - sh;
+			float dist = Mth.sqrt(dx * dx + dh * dh);
+			if (dist < 1e-4f) {
+				dx = 0f;
+				dh = 1f;
+				dist = 1e-4f;
 			}
-			if (r > 0) {
-				for (int j = 0; j < n - 1; j++) {
-					pv(vc, m, PREV_X[j], PREV_Y[j], depth, PREV_C[j], PREV_A[j]);
-					pv(vc, m, PREV_X[j + 1], PREV_Y[j + 1], depth, PREV_C[j + 1], PREV_A[j + 1]);
-					pv(vc, m, ROW_X[j + 1], ROW_Y[j + 1], depth, ROW_C[j + 1], ROW_A[j + 1]);
-					pv(vc, m, ROW_X[j], ROW_Y[j], depth, ROW_C[j], ROW_A[j]);
-				}
-			}
-			System.arraycopy(ROW_X, 0, PREV_X, 0, n);
-			System.arraycopy(ROW_Y, 0, PREV_Y, 0, n);
-			System.arraycopy(ROW_A, 0, PREV_A, 0, n);
-			System.arraycopy(ROW_C, 0, PREV_C, 0, n);
+			float ux = dx / dist, uh = dh / dist;
+			// the bottom fades a little (the feet sit in it); light runs up the outline
+			float bottom = 0.35f + 0.65f * smooth(-0.1f, 0.4f, ph);
+			float tip = 1f - tipFade * smooth(0.6f, 1f, ph / top);
+			float k = bottom * tip;
+			float run = 0.8f + 0.2f * Mth.sin(ph * 7f - ts * 0.9f + h0);
+			float k1 = Math.min(0.4f, 0.15f / dist);
+			set(0, i, px + ux * 0.12f, ph + uh * 0.12f, colRim, 0f);
+			set(1, i, px, ph, colRim, aEdge * k * run);
+			set(2, i, Mth.lerp(k1, px, sx), Mth.lerp(k1, ph, sh), mix(colRim, colIn, 0.6f), aRim * k);
+			set(3, i, Mth.lerp(0.55f, px, sx), Mth.lerp(0.55f, ph, sh), colIn, aFill * k);
+			set(4, i, sx, sh, colIn, aCore * k);
 		}
+		for (int i = 0; i < n - 1; i++) {
+			for (int r = 0; r < ROWS - 1; r++) {
+				pv(vc, m, RX[r][i], FEET - RH[r][i], depth, RC[r][i], RA[r][i]);
+				pv(vc, m, RX[r][i + 1], FEET - RH[r][i + 1], depth, RC[r][i + 1], RA[r][i + 1]);
+				pv(vc, m, RX[r + 1][i + 1], FEET - RH[r + 1][i + 1], depth, RC[r + 1][i + 1], RA[r + 1][i + 1]);
+				pv(vc, m, RX[r + 1][i], FEET - RH[r + 1][i], depth, RC[r + 1][i], RA[r + 1][i]);
+			}
+		}
+	}
+
+	private static void set(int r, int i, float x, float h, int c, float a) {
+		RX[r][i] = x;
+		RH[r][i] = h;
+		RC[r][i] = c;
+		RA[r][i] = a;
+	}
+
+	/**
+	 * Builds the outline into {@link #OX}/{@link #OH}: up the left side from the feet, the tall centre spike, then down the
+	 * right side. Each side is {@link #LOBES} sharp thorns standing on the body line: thorn k rises from a notch at
+	 * {@code (k - q0) / LOBES} of the height to its tip and back down to the next notch, both edges bowed in a little so the
+	 * tip is sharp. The thorns splay out almost flat at the feet, point up-and-out round the body and straight up near the top.
+	 * q0 falls with time, so the thorns travel UP: a new one grows out of the feet, the top one folds into the crown. Each
+	 * thorn also "boils" -- its length and angle jump to new values every few ticks, like a hand-drawn aura.
+	 */
+	private static void outline(float time, long seed, float speed, float jut, float lean) {
+		outN = 0;
+		float rate = 0.085f * speed;
+		long boil = (long) Math.floor(time * speed / 2.5f);
+		for (int sd = 0; sd < 2; sd++) {
+			float side = sd == 0 ? -1f : 1f;
+			// the right side runs half a thorn out of step with the left, so the two never mirror
+			float q0 = -time * rate + (sd == 0 ? 0f : 0.5f + 0.2f * hash(seed + 3));
+			float q1 = q0 + LOBES;
+			int sn = 0;
+			for (int k = Mth.floor(q0); k < q1; k++) {
+				float pS = Math.max(0f, q0 - k), pE = Math.min(1f, q1 - k);
+				if (pE <= pS) {
+					continue;
+				}
+				long ls = seed * 31L + k * 7919L + sd * 104729L;
+				float la = hash(ls), lb = hash(ls + 1), bo = hash(ls + boil * 15485863L), bt = hash(ls + boil * 32452843L + 7);
+				float uA = Math.max(0f, (k - q0) / LOBES), uB = Math.min(1f, (k + 1 - q0) / LOBES), uT = Mth.clamp((k + 0.5f - q0) / LOBES, 0f, 1f);
+				float ax = basex(side, uA, lean), ah = uA * fHeight;
+				float bx = basex(side, uB, lean), bh = uB * fHeight;
+				// the tip: from the body line at mid-thorn, along a direction that turns from flat-out (feet) to straight up (top)
+				float ang = Mth.lerp(smooth(0f, 1f, uT), 0.12f, 1.45f) + (bt - 0.5f) * 0.22f + 0.07f * Mth.sin(time * 0.3f + lb * 6.283f);
+				float len = jut * (0.75f + 0.5f * la) * (0.82f + 0.36f * bo) * (0.6f + 0.4f * smooth(0f, 0.35f, uT));
+				float tx = basex(side, uT, lean) + side * Mth.cos(ang) * len, th = uT * fHeight + Mth.sin(ang) * len;
+				// the points: where it starts (cut off at the feet), the notch, half way up the near edge, the tip, half way down the
+				// far edge, where it ends (cut off at the crown); the next notch belongs to the next thorn
+				if (pS > 1e-4f) {
+					sn = thornPoint(sn, pS, ax, ah, tx, th, bx, bh, side, k, q0, lean);
+				}
+				for (int j = 0; j <= 4; j++) {
+					float p = j * 0.25f;
+					boolean afterStart = p > pS + 1e-4f || (j == 0 && pS <= 1e-4f);
+					boolean beforeEnd = p < pE - 1e-4f || (j == 4 && pE >= 1f && k + 1 >= q1);
+					if (afterStart && beforeEnd) {
+						sn = thornPoint(sn, p, ax, ah, tx, th, bx, bh, side, k, q0, lean);
+					}
+				}
+				if (pE < 1f - 1e-4f) {
+					sn = thornPoint(sn, pE, ax, ah, tx, th, bx, bh, side, k, q0, lean);
+				}
+			}
+			if (sd == 0) {
+				System.arraycopy(SX, 0, OX, outN, sn);
+				System.arraycopy(SH, 0, OH, outN, sn);
+				outN += sn;
+				// the tall centre spike
+				float bo = hash(seed + boil * 49979687L);
+				OX[outN] = lean + 0.06f * Mth.sin(time * 0.37f + bo);
+				OH[outN] = fHeight + jut * (1.25f + 0.35f * bo);
+				outN++;
+			} else {
+				for (int i = sn - 1; i >= 0; i--) {
+					OX[outN] = SX[i];
+					OH[outN] = SH[i];
+					outN++;
+				}
+			}
+		}
+	}
+
+	private static int thornPoint(int sn, float p, float ax, float ah, float tx, float th, float bx, float bh, float side, int k, float q0,
+			float lean) {
+		if (sn >= SX.length) {
+			return sn;
+		}
+		SX[sn] = thornX(p, ax, ah, tx, th, bx, bh, side, k, q0, lean, true);
+		SH[sn] = thornX(p, ax, ah, tx, th, bx, bh, side, k, q0, lean, false);
+		return sn + 1;
+	}
+
+	/** A point on a thorn's outline at {@code p} (0 notch, 0.5 tip, 1 next notch), edges bowed in toward the body line. */
+	private static float thornX(float p, float ax, float ah, float tx, float th, float bx, float bh, float side, int k, float q0, float lean,
+			boolean wantX) {
+		float t, ex, eh;
+		if (p <= 0.5f) {
+			t = p / 0.5f;
+			ex = Mth.lerp(t, ax, tx);
+			eh = Mth.lerp(t, ah, th);
+		} else {
+			t = (1f - p) / 0.5f;
+			ex = Mth.lerp(t, bx, tx);
+			eh = Mth.lerp(t, bh, th);
+		}
+		float u = Mth.clamp((k + p - q0) / LOBES, 0f, 1f);
+		float bow = 0.28f * Mth.sin(Mth.PI * t) * (t < 1f ? 1f : 0f);
+		return wantX ? Mth.lerp(bow, ex, basex(side, u, lean)) : Mth.lerp(bow, eh, u * fHeight);
+	}
+
+	/** The body line at {@code u} (0..1) up a side. */
+	private static float basex(float side, float u, float lean) {
+		return side * body(u * fHeight) + lean * u * u;
 	}
 
 	// ---------------------------------------------------------------- flame licks
 
 	/**
-	 * {@code count} flame tongues facing the viewer: each born low on a side of the teardrop, rising past the tip while it
-	 * stretches, leans in toward the middle and fades; colour from {@code colBase} (root) to {@code colTip}.
+	 * {@code count} flame tongues facing the viewer: each born between {@code vMin} and {@code vMax} of the flame's height, at
+	 * {@code uMin}..{@code uMax} of its half width there, rising to {@code vEnd} while it stretches and fades; low ones lean out,
+	 * high ones lean in over the top. Colour from {@code colBase} (root) to {@code colTip}. Uses the last {@link #flame}'s size.
 	 */
-	private static void licks(VertexConsumer vc, Matrix4f m, float time, long seed, int count, float halfW, float bottomY, float topY,
-			int colTip, int colBase, float alpha, float speed, float depth, float size) {
-		float span = bottomY - topY;
+	private static void licks(VertexConsumer vc, Matrix4f m, float time, long seed, int count, float vMin, float vMax, float uMin, float uMax,
+			float vEnd, int colTip, int colBase, float alpha, float speed, float depth, float size) {
 		for (int i = 0; i < count; i++) {
 			float h0 = hash(seed + i * 977L), h1 = hash(seed + i * 131L + 5), h2 = hash(seed + i * 71L + 9), h3 = hash(seed + i * 313L + 2);
 			float period = (15f + 10f * h0) / speed;
@@ -383,19 +436,18 @@ public final class SaiyanAuraRenderer {
 			// every cycle re-rolls where it is born, so the pattern never repeats visibly
 			float r0 = hash(seed + i * 977L + cycle * 7919L), r1 = hash(seed + i * 131L + cycle * 104729L);
 			float side = ((i + cycle) & 1) == 0 ? -1f : 1f;
-			float v0 = 0.12f + 0.5f * r0;
-			float v = v0 + ph * (1.15f - v0);
-			// most ride the outline (so their points break the teardrop's edge), a few lick up the inside
-			float u = side * (r1 < 0.25f ? 0.4f + 1.6f * r1 : 0.78f + 0.3f * r1) * (1f - 0.45f * ph);
-			float y = bottomY - span * v;
-			float x = u * halfW * Math.max(shape(Math.min(v, 0.97f)), 0.12f);
-			float len = size * (0.4f + 0.5f * h2) * (0.55f + 0.9f * Mth.sin(Mth.PI * ph)) * (0.7f + 0.3f * span / 3f);
-			float w = size * (0.09f + 0.08f * h3) * (1f - 0.45f * ph);
+			float v0 = Mth.lerp(r0, vMin, vMax);
+			float v = v0 + ph * (vEnd - v0);
+			float h = v * fHeight;
+			float x = side * Mth.lerp(r1, uMin, uMax) * Math.max(body(Math.min(h, fHeight * 0.97f)), 0.1f);
+			float y = FEET - h;
+			float len = size * (0.35f + 0.4f * h2) * (0.55f + 0.9f * Mth.sin(Mth.PI * ph)) * (fHeight / 2.8f);
+			float w = size * (0.07f + 0.06f * h3) * (1f - 0.45f * ph);
 			float a = alpha * (float) Math.pow(Mth.sin(Mth.PI * ph), 0.8f);
 			if (a < 0.005f) {
 				continue;
 			}
-			float lean = -side * len * (0.18f + 0.25f * ph) + 0.04f * Mth.sin(time * 0.3f + h0 * 6.283f);
+			float lean = side * len * (0.25f - 0.55f * Math.min(v, 1f)) + 0.04f * Mth.sin(time * 0.3f + h0 * 6.283f);
 			tongue(vc, m, x, y, x + lean, y - len, w, depth, colBase, colTip, a);
 		}
 	}
@@ -536,148 +588,6 @@ public final class SaiyanAuraRenderer {
 		v(vc, m, s1 * r, y, c1 * r, col, a);
 		v(vc, m, s1 * ro, y, c1 * ro, col, 0f);
 		v(vc, m, s0 * ro, y, c0 * ro, col, 0f);
-	}
-
-	// ---------------------------------------------------------------- Instinct
-
-	/** Ultra Instinct: no flame. A thin silver rim hugging the body that breathes, slow wisps, and twinkling glints. */
-	private static void instinctShimmer(VertexConsumer vc, Matrix4f m, float time, long seed, float power, int[] pal) {
-		float breathe = 0.5f + 0.5f * Mth.sin(time * 0.12f);
-		float hw = 0.5f + 0.1f * power + 0.02f * breathe;
-		float top = HEAD_TOP - 0.25f - 0.3f * power;
-		envelope(vc, m, time, seed, hw, FEET, top, 0f, pal[1], pal[2], 0.015f, 0.22f + 0.12f * breathe + 0.15f * power, 0.05f, 0.03f, 0.5f,
-				0.04f);
-		envelope(vc, m, time * 0.8f, seed + 9, hw * 1.12f, FEET, top - 0.1f, 0f, pal[0], pal[1], 0f, 0.07f + 0.05f * power, 0.08f, 0.05f, 0.5f,
-				0.06f);
-		licks(vc, m, time * 0.55f, seed + 13, 5, hw, FEET, top, pal[2], pal[1], 0.12f + 0.12f * power, 0.6f, 0.05f, 0.8f);
-		// glints: four-point stars that pop in and out round the body
-		int n = 6 + Math.round(6 * power);
-		for (int i = 0; i < n; i++) {
-			float h0 = hash(seed + i * 29L), h1 = hash(seed + i * 31L + 7);
-			float period = 22f + 16f * h0;
-			float ph = time / period + h1;
-			int cycle = (int) Math.floor(ph);
-			ph -= cycle;
-			float r0 = hash(seed + i * 29L + cycle * 7919L), r1 = hash(seed + i * 31L + cycle * 104729L), r2 = hash(seed + i * 37L + cycle * 31L);
-			float x = (r0 * 2f - 1f) * (hw + 0.15f);
-			float y = top + 0.2f + r1 * (FEET - top - 0.3f) - ph * 0.3f;
-			float d = (r2 - 0.5f) * 1.0f;
-			float pop = (float) Math.pow(Mth.sin(Mth.PI * ph), 3f);
-			float s = 0.1f + 0.08f * r2;
-			star(vc, m, x, y, d, s * pop, 0xFFFFFF, 0.9f * pop);
-		}
-	}
-
-	/** A four-point star (two crossed soft spikes) in the viewer-facing plane. */
-	private static void star(VertexConsumer vc, Matrix4f m, float x, float y, float d, float s, int col, float a) {
-		if (a < 0.01f) {
-			return;
-		}
-		float t = s * 0.14f;
-		for (int dir = 0; dir < 2; dir++) {
-			float ax = dir == 0 ? s : 0f, ay = dir == 0 ? 0f : s;
-			float bx = dir == 0 ? 0f : t, by = dir == 0 ? t : 0f;
-			pv(vc, m, x - ax, y - ay, d, col, 0f);
-			pv(vc, m, x - bx, y - by, d, col, 0f);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x - ax, y - ay, d, col, 0f);
-			pv(vc, m, x + bx, y + by, d, col, 0f);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x + ax, y + ay, d, col, 0f);
-			pv(vc, m, x - bx, y - by, d, col, 0f);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x + ax, y + ay, d, col, 0f);
-			pv(vc, m, x + bx, y + by, d, col, 0f);
-			pv(vc, m, x, y, d, col, a);
-			pv(vc, m, x, y, d, col, a);
-		}
-	}
-
-	// ---------------------------------------------------------------- lightning
-
-	/**
-	 * SSJ2 / SSJ3 lightning: jagged arcs crawling over the body with a fork, re-rolled every 3 ticks and only lit for part of
-	 * each window (they crackle). Each segment is a camera-facing ribbon: a thin white-hot core inside a soft coloured glow.
-	 */
-	private static void lightning(VertexConsumer vc, Matrix4f m, long seed, float time, int count, int col, float reach) {
-		long window = (long) Math.floor(time / 3f);
-		float inWin = time / 3f - window;
-		for (int b = 0; b < count; b++) {
-			long s = seed * 7919L + window * 104729L + b * 15485863L;
-			float on = hash(s);
-			if (on < 0.3f || inWin > 0.35f + 0.6f * hash(s + 99)) {
-				continue; // not every bolt every window, and each is lit only part of its window
-			}
-			float x = (hash(s + 1) - 0.5f) * 0.8f;
-			float y = -0.55f + hash(s + 2) * 1.9f;
-			float z = (hash(s + 3) - 0.5f) * 0.5f;
-			float dx = hash(s + 4) - 0.5f, dy = (hash(s + 5) - 0.5f) * 1.4f, dz = hash(s + 6) - 0.5f;
-			float dl = Mth.sqrt(dx * dx + dy * dy + dz * dz) + 1e-4f;
-			dx /= dl;
-			dy /= dl;
-			dz /= dl;
-			int segs = 6 + (int) (hash(s + 7) * 4);
-			float step = reach / segs * 1.6f;
-			int fork = 2 + (int) (hash(s + 8) * 3);
-			float fxp = 0, fyp = 0, fzp = 0;
-			for (int k = 0; k < segs; k++) {
-				float nx = x + (dx + (hash(s + 10 + k) - 0.5f) * 1.6f) * step;
-				float ny = y + (dy + (hash(s + 30 + k) - 0.5f) * 1.6f) * step;
-				float nz = z + (dz + (hash(s + 50 + k) - 0.5f) * 1.6f) * step;
-				float taper = 1f - k / (float) segs * 0.6f;
-				ribbon(vc, m, x, y, z, nx, ny, nz, 0.075f * taper, col, 0.32f * taper);
-				ribbon(vc, m, x, y, z, nx, ny, nz, 0.016f * taper, 0xFFFFFF, 0.95f * taper);
-				if (k == fork) {
-					fxp = nx;
-					fyp = ny;
-					fzp = nz;
-				}
-				x = nx;
-				y = ny;
-				z = nz;
-			}
-			// the fork: a short thinner branch off one of the joints
-			x = fxp;
-			y = fyp;
-			z = fzp;
-			for (int k = 0; k < 3; k++) {
-				float nx = x + (hash(s + 70 + k) - 0.5f) * step * 2f;
-				float ny = y + (hash(s + 80 + k) - 0.5f) * step * 2f;
-				float nz = z + (hash(s + 90 + k) - 0.5f) * step * 2f;
-				ribbon(vc, m, x, y, z, nx, ny, nz, 0.045f, col, 0.22f);
-				ribbon(vc, m, x, y, z, nx, ny, nz, 0.01f, 0xFFFFFF, 0.8f);
-				x = nx;
-				y = ny;
-				z = nz;
-			}
-		}
-	}
-
-	/** A segment as a ribbon turned to face the camera: bright along its centre line, fading to nothing at both sides. */
-	private static void ribbon(VertexConsumer vc, Matrix4f m, float x0, float y0, float z0, float x1, float y1, float z1, float w, int col,
-			float a) {
-		float dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
-		float cx = camX - (x0 + x1) * 0.5f, cy = camY - (y0 + y1) * 0.5f, cz = camZ - (z0 + z1) * 0.5f;
-		// side = dir x toCam
-		float sx = dy * cz - dz * cy, sy = dz * cx - dx * cz, sz = dx * cy - dy * cx;
-		float sl = Mth.sqrt(sx * sx + sy * sy + sz * sz);
-		if (sl < 1e-6f) {
-			return;
-		}
-		sx *= w / sl;
-		sy *= w / sl;
-		sz *= w / sl;
-		v(vc, m, x0 - sx, y0 - sy, z0 - sz, col, 0f);
-		v(vc, m, x0, y0, z0, col, a);
-		v(vc, m, x1, y1, z1, col, a);
-		v(vc, m, x1 - sx, y1 - sy, z1 - sz, col, 0f);
-		v(vc, m, x0, y0, z0, col, a);
-		v(vc, m, x0 + sx, y0 + sy, z0 + sz, col, 0f);
-		v(vc, m, x1 + sx, y1 + sy, z1 + sz, col, 0f);
-		v(vc, m, x1, y1, z1, col, a);
 	}
 
 	// ---------------------------------------------------------------- the transformation burst
