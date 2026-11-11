@@ -15,13 +15,13 @@ if [ -f sh_turntable_000.png ]; then
 	"$FF" -hide_banner -loglevel error -y -start_number 0 -i "sh_turntable_%03d.png" -vf "select='not(mod(n\,$((count / 16))))',crop=ih:ih,scale=300:300,tile=8x2" -frames:v 1 "$OUT/${P}_turntable_sheet.png"
 fi
 args=""; filt=""; k=0
-for v in front threequarter side2 back topthreequarter; do
+for v in front threequarter side2 back topthreequarter top; do
 	args="$args -i sh_still_$v.png"
 	lab=$v; [ $v = side2 ] && lab=side; [ $v = topthreequarter ] && lab='top 3/4 (back)'
 	filt="$filt[$k]crop=ih:ih,scale=480:480,drawtext=$LBL:text='$lab'[v$k];"
 	k=$((k + 1))
 done
-"$FF" -hide_banner -loglevel error -y $args -filter_complex "$filt[v0][v1][v2][v3][v4]hstack=inputs=5" -frames:v 1 "$OUT/${P}_lineup.png"
+"$FF" -hide_banner -loglevel error -y $args -filter_complex "$filt[v0][v1][v2][v3][v4][v5]hstack=inputs=6" -frames:v 1 "$OUT/${P}_lineup.png"
 # compare: top row = side (ours, then the Z close-up and the Super turnaround side), bottom row = back (ours, Super back,
 # Z back, Blue back-3/4 for the radiating layout)
 "$FF" -hide_banner -loglevel error -y -i sh_still_side2.png -i sh_still_back.png -i "$REF/goku_ssj_turnaround_z.png" \

@@ -140,6 +140,11 @@ public final class SsjHairModel {
 		aim(v(3.5f, 7.0f, -1.0f), 0.60f, 2.3f, 0.16f, 2.5f, 1.75f); // side
 		aim(v(2.4f, 7.3f, -3.0f), 0.74f, 1.9f, 0.24f, 2.5f, 1.75f); // back-side
 		aim(v(0, 7.3f, -3.3f), 0.80f, 1f, 0.26f, 2.7f, 1.9f); // back
+		// v4: fillers under the seams between the centre lock and the ring, so no daylight shows between their lower halves
+		// from any angle (only the tips stand apart)
+		aim(v(1.2f, 7.8f, 0.3f), 0.90f, 2.1f, 0.08f, 2.7f, 1.9f); // front, beside the centre
+		aim(v(1.3f, 7.6f, -2.0f), 0.90f, 1.7f, 0.14f, 2.7f, 1.9f); // back, beside the centre
+		aim(v(3.1f, 7.2f, -2.1f), 0.70f, 2.0f, 0.20f, 2.5f, 1.75f); // between the side and back-side
 		// --- the lower ring
 		aim(v(3.9f, 5.8f, 1.6f), 0.46f, 1.85f, 0.10f, 1.9f, 1.3f); // temple (a small flare only)
 		aim(v(4.1f, 5.2f, -1.8f), 0.52f, 1.7f, 0.20f, 2.2f, 1.5f); // behind the temple

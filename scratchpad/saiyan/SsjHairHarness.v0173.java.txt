@@ -251,7 +251,7 @@ public final class SsjHairHarness {
 		t += 20;
 		if (want("stills")) {
 			Object[][] views = { { "front", 0f, 0.05f, 2.6f, 1.95f }, { "threequarter", 40f, 0.25f, 2.6f, 1.95f }, { "side", 90f, 0.05f, 2.6f, 1.95f },
-					{ "back", 180f, 0.15f, 3.3f, 2.05f }, { "closeup", 0f, -0.05f, 1.35f, 1.78f }, { "high", 30f, 1.4f, 2.6f, 1.95f }, { "side2", 270f, 0.05f, 3.3f, 2.05f }, { "topthreequarter", 145f, 1.7f, 3.3f, 2.05f },
+					{ "back", 180f, 0.15f, 3.3f, 2.05f }, { "closeup", 0f, -0.05f, 1.35f, 1.78f }, { "high", 30f, 1.4f, 2.6f, 1.95f }, { "side2", 270f, 0.05f, 3.3f, 2.05f }, { "topthreequarter", 145f, 1.7f, 3.3f, 2.05f }, { "top", 0f, 3.2f, 0.35f, 2.0f },
 					{ "body", 30f, 0.4f, 6.5f, 1.25f } };
 			for (Object[] v : views) {
 				cam(t, (Float) v[1], (Float) v[2], (Float) v[3], 0f, (Float) v[4]);
