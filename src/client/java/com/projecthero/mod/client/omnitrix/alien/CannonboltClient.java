@@ -12,6 +12,7 @@ import com.projecthero.mod.client.omnitrix.AlienClients;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson;
+import com.projecthero.mod.client.omnitrix.sequence.CannonboltShow;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -165,6 +166,10 @@ public final class CannonboltClient implements AlienClientKit {
 		if (round(p)) {
 			return true;
 		}
+		// v0.17.3: his show transformation curls him into the ball and out again
+		if (CannonboltShow.ball(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false)) != null) {
+			return true;
+		}
 		Roll r = ROLLS.get(p);
 		return r != null && (r.curl > 0f || r.curlO > 0f); // still unfurling
 	}
@@ -227,6 +232,22 @@ public final class CannonboltClient implements AlienClientKit {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null && mc.player.getVehicle() == p && mc.options.getCameraType().isFirstPerson()) {
 			return; // a mate riding inside looks out through him
+		}
+		float[] show = CannonboltShow.ball(p, partial);
+		if (show != null) {
+			// v0.17.3: the show transformation's ball -- {curl, roll, heading, tilt} from the sequence
+			pose.pushPose();
+			pose.translate(0, OUTER, 0);
+			pose.mulPose(Axis.YP.rotationDegrees(show[2]));
+			pose.mulPose(Axis.ZP.rotation(show[3]));
+			if (show[0] >= 0.999f) {
+				pose.mulPose(Axis.XP.rotation(show[1]));
+				shell(pose, buffers, -2f, light);
+			} else {
+				drawCurl(p, pose, buffers, show[0], show[1], light);
+			}
+			pose.popPose();
+			return;
 		}
 		int flags = Omnitrix.state(p).kitFlags;
 		float radius = OUTER; // every curl, in Ball Mode or mid-move, is the same 2-block ball

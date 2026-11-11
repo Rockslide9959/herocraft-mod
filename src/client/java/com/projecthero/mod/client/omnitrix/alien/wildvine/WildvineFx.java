@@ -590,7 +590,9 @@ public final class WildvineFx {
 		model.body.translateAndRotate(pose);
 		for (int i = 0; i < BACK_PODS.length; i++) {
 			float[] b = BACK_PODS[i];
-			float g = podGrowth(i, stock, next);
+			// v0.17.3: his show transformation sprouts them one by one
+			float shown = com.projecthero.mod.client.omnitrix.sequence.WildvineShow.pods(p, partial, i);
+			float g = shown >= 0f ? shown : podGrowth(i, stock, next);
 			if (g < 0.04f) {
 				continue;
 			}
