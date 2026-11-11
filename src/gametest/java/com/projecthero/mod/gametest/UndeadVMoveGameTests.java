@@ -10,8 +10,8 @@ import com.projecthero.mod.undead.UndeadAbilityManager;
 import com.projecthero.mod.undead.UndeadBoneSword;
 import com.projecthero.mod.undead.UndeadConfig;
 import com.projecthero.mod.undead.UndeadKitConfig;
-import com.projecthero.mod.undead.UndeadRibGuard;
 import com.projecthero.mod.undead.UndeadRibShot;
+import com.projecthero.mod.undead.UndeadSpineWhip;
 import com.projecthero.mod.undead.data.UndeadState;
 import com.projecthero.mod.undead.entity.UndeadPartEntity;
 
@@ -33,7 +33,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.3 (user: "a new combat V move for the undead ability"): tap V is the Rib Shotgun ({@link UndeadRibShot}), Shift+V tapped
- * the Rib Cage Guard, hold V the katana, Shift + hold V Reform. The move's numbers (spread, damage, range, embedding, cooldown,
+ * the Spine Whip ({@link UndeadSpineWhip}, user: "give shift+V another combat ability that isnt the rib cage shield"), hold V the
+ * katana, Shift + hold V Reform. The move's numbers (spread, damage, range, embedding, cooldown,
  * cancelling) and -- the point of most of these -- that the four V inputs never set each other off. Mock players are not ticked
  * by the server, so tests over time drive {@link Undead#tick}.
  */
@@ -99,10 +100,10 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		p.setShiftKeyDown(false);
 	}
 
-	/** Nothing from V happened: no shot, no guard, no Reform, no katana. */
+	/** Nothing from V happened: no shot, no whip, no Reform, no katana. */
 	private static void assertNothing(GameTestHelper helper, ServerPlayer p, String why) {
 		helper.assertTrue(!UndeadRibShot.windingUp(p) && Undead.cooldownRemaining(p, UndeadRibShot.ID) == 0, why + ": no Rib Shotgun");
-		helper.assertTrue(!UndeadRibGuard.up(p), why + ": no Rib Cage Guard");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && Undead.cooldownRemaining(p, UndeadSpineWhip.ID) == 0, why + ": no Spine Whip");
 		helper.assertTrue(Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, why + ": no Reform");
 		helper.assertTrue(!UndeadBoneSword.held(p), why + ": no katana");
 	}
@@ -110,10 +111,14 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- the HUD
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theVSlotShowsTheRibShotgunAndTheGuard(GameTestHelper helper) {
+	public void theVSlotShowsTheRibShotgunAndTheSpineWhip(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		String[] ids = UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5);
-		helper.assertTrue(ids.length == 2 && UndeadRibShot.ID.equals(ids[0]) && UndeadRibGuard.ID.equals(ids[1]), "V: Rib Shotgun, Shift+V: Rib Cage Guard");
+		helper.assertTrue(ids.length == 2 && UndeadRibShot.ID.equals(ids[0]) && UndeadSpineWhip.ID.equals(ids[1]), "V: Rib Shotgun, Shift+V: Spine Whip");
+		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadSpineWhip.ID) == UndeadKitConfig.SPINE_COOLDOWN, "the HUD knows the whip's 7 s cooldown");
+		helper.assertTrue(UndeadKitConfig.SPINE_COOLDOWN == 140 && UndeadKitConfig.SPINE_DAMAGE == 14f && UndeadKitConfig.SPINE_RANGE == 7.0,
+				"the whip's numbers: 7 s, 14 damage, 7 blocks");
+		helper.assertTrue(UndeadKitConfig.REFORM_TAP <= 6, "the whip fires on a quick tap only (well before Reform's hold)");
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadRibShot.ID) == UndeadKitConfig.RIB_SHOT_COOLDOWN, "the HUD knows its 6 s cooldown");
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadAbilities.REFORM) == UndeadConfig.REFORM_COOLDOWN, "and Reform's");
 		helper.assertTrue(UndeadKitConfig.RIB_SHOT_COOLDOWN == 120 && UndeadKitConfig.RIB_SHOT_COUNT == 7 && UndeadKitConfig.RIB_SHOT_DAMAGE == 6f
@@ -132,8 +137,8 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		press(p, false, false);
 		helper.assertTrue(UndeadRibShot.windingUp(p) && Undead.state(p).animId == UndeadKitConfig.ANIM_RIB_SHOT, "a tap: he tears his chest open");
 		helper.assertTrue(ribs(helper, p).isEmpty(), "no ribs fly yet");
-		helper.assertTrue(!UndeadRibGuard.up(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0 && !UndeadBoneSword.held(p),
-				"no guard, no Reform, no katana");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0 && !UndeadBoneSword.held(p),
+				"no whip, no Reform, no katana");
 		int[] t = { 0 };
 		helper.onEachTick(() -> {
 			Undead.tick(p);
@@ -342,23 +347,187 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 40, batch = "undead_vmove_guard")
-	public void firedWithTheGuardUpTheGuardsRibsGoToo(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
+	// ---------------------------------------------------------------- tap Shift+V: Spine Whip
+
+	private static void tapShiftV(ServerPlayer p) {
 		press(p, true, true);
 		press(p, true, false);
-		helper.assertTrue(UndeadRibGuard.up(p), "the guard is up");
-		press(p, false, true);
-		press(p, false, false);
-		helper.assertTrue(UndeadRibShot.windingUp(p), "the shot starts with it up");
+		p.setShiftKeyDown(false);
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "undead_vmove_whip")
+	public void spineWhipTearsThenLashesTheWholeArcInFront(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		// (he stands at x 2.5, z 0.5 looking +z; his left is +x) one well to each side, one far out ahead (snagged), one behind
+		Zombie left = zombie(helper, new Vec3(5.5, 2.0, 3.0));
+		Zombie right = zombie(helper, new Vec3(0.3, 2.0, 2.5));
+		Zombie ahead = zombie(helper, new Vec3(2.5, 2.0, 6.5));
+		Zombie behind = zombie(helper, new Vec3(2.5, 2.0, -2.5));
+		tapShiftV(p);
+		helper.assertTrue(UndeadSpineWhip.windingUp(p), "a tap: he reaches back for his spine");
+		helper.assertTrue(Undead.cooldownRemaining(p, UndeadSpineWhip.ID) == 0, "no cooldown until it lashes");
 		int[] t = { 0 };
 		helper.onEachTick(() -> {
 			Undead.tick(p);
 			t[0]++;
-			if (t[0] == UndeadKitConfig.RIB_SHOT_WINDUP + 1) {
-				helper.assertTrue(ribs(helper, p).size() == UndeadKitConfig.RIB_SHOT_COUNT, "the ribs fly");
-				helper.assertTrue(!UndeadRibGuard.up(p) && Undead.cooldownRemaining(p, UndeadRibGuard.ID) > 0, "the guard folded (its cooldown runs)");
-				clean(helper, p);
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP - 1) {
+				helper.assertTrue(left.getHealth() == 200f && right.getHealth() == 200f && ahead.getHealth() == 200f, "nothing hit while he tears it out");
+			}
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 1) {
+				helper.assertTrue(!UndeadSpineWhip.active(p), "the lash is over");
+				float dl = dealt(left), dr = dealt(right), da = dealt(ahead);
+				helper.assertTrue(Math.abs(dl - UndeadKitConfig.SPINE_DAMAGE) < 0.6f, "the one off to his left: 14: " + dl);
+				helper.assertTrue(Math.abs(dr - UndeadKitConfig.SPINE_DAMAGE) < 0.6f, "the one off to his right: 14: " + dr);
+				helper.assertTrue(Math.abs(da - UndeadKitConfig.SPINE_DAMAGE) < 0.6f, "the snagged one ahead: 14 too: " + da);
+				helper.assertTrue(behind.getHealth() == 200f, "nothing behind him");
+				helper.assertTrue(p.getHealth() == p.getMaxHealth(), "the whip never hits him");
+				int cd = Undead.cooldownRemaining(p, UndeadSpineWhip.ID);
+				helper.assertTrue(cd > UndeadKitConfig.SPINE_COOLDOWN - UndeadKitConfig.SPINE_SWEEP - 3 && cd <= UndeadKitConfig.SPINE_COOLDOWN,
+						"7 s cooldown from the lash: " + cd);
+				helper.assertTrue(!Undead.missing(p, UndeadState.BODY), "the torso is not taken off (his chestplate stays on)");
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "undead_vmove_whip_order")
+	public void theLashSweepsFromTheWhipHandSideAcross(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		p.setMainArm(net.minecraft.world.entity.HumanoidArm.RIGHT);
+		// right-handed: it starts on his right (-x) and sweeps to his left (+x)
+		Zombie right = zombie(helper, new Vec3(0.5, 2.0, 1.4));
+		Zombie left = zombie(helper, new Vec3(4.5, 2.0, 1.4));
+		tapShiftV(p);
+		int[] t = { 0 };
+		int[] rightAt = { -1 }, leftAt = { -1 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			if (rightAt[0] < 0 && right.getHealth() < 200f) {
+				rightAt[0] = t[0];
+			}
+			if (leftAt[0] < 0 && left.getHealth() < 200f) {
+				leftAt[0] = t[0];
+			}
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 1) {
+				helper.assertTrue(rightAt[0] > 0 && leftAt[0] > 0, "both hit: " + rightAt[0] + " / " + leftAt[0]);
+				helper.assertTrue(rightAt[0] < leftAt[0], "the right one first, the left one as it comes across: " + rightAt[0] + " / " + leftAt[0]);
+				helper.assertTrue(rightAt[0] >= UndeadKitConfig.SPINE_WINDUP, "not before the lash");
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "undead_vmove_whip_snag")
+	public void theTipSnagsTheOneAtTheCrosshairAndYanksItIn(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		Zombie ahead = zombie(helper, new Vec3(2.5, 2.0, 6.5));
+		ahead.setNoGravity(false);
+		ahead.setNoAi(false); // (a no-AI mob is never moved by its velocity)
+		ahead.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
+		ahead.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0);
+		Zombie aside = zombie(helper, new Vec3(5.5, 2.0, 3.0));
+		aside.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0);
+		double startAhead = ahead.position().subtract(p.position()).horizontalDistance();
+		double startAside = aside.position().subtract(p.position()).horizontalDistance();
+		tapShiftV(p);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 1) {
+				helper.assertTrue(dealt(ahead) > 0f && dealt(aside) > 0f, "both hit");
+				Vec3 toHim = p.position().subtract(ahead.position());
+				Vec3 v = ahead.getDeltaMovement();
+				double moved = startAhead - ahead.position().subtract(p.position()).horizontalDistance();
+				helper.assertTrue(moved > 0.3 || v.x * toHim.x + v.z * toHim.z > 0.1, "the snagged one comes toward him: moved " + moved + " v " + v);
+				double away = aside.position().subtract(p.position()).horizontalDistance() - startAside;
+				Vec3 va = aside.getDeltaMovement();
+				Vec3 out = aside.position().subtract(p.position());
+				helper.assertTrue(away > 0.05 || va.x * out.x + va.z * out.z > 0.05, "the other is knocked away: " + away + " v " + va);
+			}
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 12) {
+				double d = ahead.position().subtract(p.position()).horizontalDistance();
+				helper.assertTrue(d < startAhead - 1.5, "yanked well in: " + startAhead + " -> " + d);
+				helper.assertTrue(d > 0.5, "landing in front of him, not through him: " + d);
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "undead_vmove_whip_reach")
+	public void theWhipReachesSevenBlocksAndNoFurther(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		// one dead ahead near the far end of the reach (the test's walls keep anything further out of sight)
+		Zombie in = zombie(helper, new Vec3(2.5, 2.0, 7.2)); // 6.7 out (plus its width)
+		tapShiftV(p);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 1) {
+				helper.assertTrue(dealt(in) > 0f, "6.7 blocks out: in reach");
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void spineWhipHasACooldownAndNeedsTheTorsoAndAnArm(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		edit(p, n -> n.abilityReadyAt.put(UndeadSpineWhip.ID, helper.getLevel().getGameTime() + 60));
+		tapShiftV(p);
+		helper.assertTrue(!UndeadSpineWhip.active(p), "cooling down: nothing");
+		edit(p, n -> n.abilityReadyAt.clear());
+		Undead.breakPart(p, UndeadState.BODY, UndeadState.KIND_BURST);
+		helper.assertTrue(!UndeadSpineWhip.start(p), "no torso, no spine");
+		Undead.restore(p);
+		Undead.breakPart(p, UndeadState.RIGHT_ARM, UndeadState.KIND_BURST);
+		Undead.breakPart(p, UndeadState.LEFT_ARM, UndeadState.KIND_BURST);
+		helper.assertTrue(!UndeadSpineWhip.start(p), "no arms, nothing to hold it with");
+		Undead.restore(p);
+		helper.assertTrue(UndeadSpineWhip.start(p) && !UndeadSpineWhip.start(p), "one at a time");
+		helper.assertTrue(!UndeadRibShot.start(p), "and no rib shot in the middle of it");
+		UndeadSpineWhip.forTestsCancel(p);
+		helper.assertTrue(UndeadBoneSword.draw(p), "the katana is out");
+		helper.assertTrue(!UndeadSpineWhip.start(p), "not with the katana out");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void losingTheTorsoMidTearEndsTheWhipFree(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		Zombie z = zombie(helper, new Vec3(2.5, 2.0, 3.5));
+		helper.assertTrue(UndeadSpineWhip.start(p), "it starts");
+		Undead.breakPart(p, UndeadState.BODY, UndeadState.KIND_BURST);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 2) {
+				helper.assertTrue(!UndeadSpineWhip.active(p) && z.getHealth() == 200f, "nothing lashes");
+				helper.assertTrue(Undead.cooldownRemaining(p, UndeadSpineWhip.ID) == 0, "and it costs no cooldown");
+				helper.succeed();
+			}
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "undead_vmove_whip_wall")
+	public void theWhipDoesNotCutThroughAWall(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		for (int x = 0; x <= 5; x++) {
+			for (int y = 1; y <= 4; y++) {
+				helper.setBlock(new BlockPos(x, y, 3), Blocks.STONE);
+			}
+		}
+		Zombie walled = zombie(helper, new Vec3(2.5, 2.0, 5.5));
+		tapShiftV(p);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			if (t[0] == UndeadKitConfig.SPINE_WINDUP + UndeadKitConfig.SPINE_SWEEP + 1) {
+				helper.assertTrue(walled.getHealth() == 200f, "behind a wall: untouched");
 				helper.succeed();
 			}
 		});
@@ -367,21 +536,21 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- the four V inputs never misfire into each other
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void shiftVTappedIsOnlyTheGuard(GameTestHelper helper) {
+	public void shiftVTappedIsOnlyTheSpineWhip(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
 		press(p, true, true);
 		assertNothing(helper, p, "Shift+V just pressed");
 		press(p, true, false);
-		helper.assertTrue(UndeadRibGuard.up(p), "a Shift+V tap: the guard");
+		helper.assertTrue(UndeadSpineWhip.windingUp(p) && Undead.state(p).animId == UndeadKitConfig.ANIM_SPINE_WHIP, "a Shift+V tap: the whip");
 		helper.assertTrue(!UndeadRibShot.windingUp(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0 && Undead.missing(p, UndeadState.LEFT_LEG),
 				"not the shot, not Reform");
-		UndeadRibGuard.forTestsLower(p);
+		UndeadSpineWhip.forTestsCancel(p);
 		edit(p, n -> n.abilityReadyAt.clear());
-		// let go of Shift before V: still the guard (the press decided)
+		// let go of Shift before V: still the whip (the press decided)
 		press(p, true, true);
 		press(p, false, false);
-		helper.assertTrue(UndeadRibGuard.up(p) && !UndeadRibShot.windingUp(p), "Shift let go first: still the guard");
+		helper.assertTrue(UndeadSpineWhip.windingUp(p) && !UndeadRibShot.windingUp(p), "Shift let go first: still the whip");
 		clean(helper, p);
 		helper.succeed();
 	}
@@ -392,7 +561,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		press(p, false, true);
 		press(p, true, false); // Shift went down after V
 		helper.assertTrue(UndeadRibShot.windingUp(p), "a V tap is the shot");
-		helper.assertTrue(!UndeadRibGuard.up(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, "never the guard or Reform");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, "never the whip or Reform");
 		clean(helper, p);
 		helper.succeed();
 	}
@@ -404,7 +573,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		press(p, true, true);
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_TAP + 2);
 		helper.assertTrue(Undead.state(p).animId == UndeadKitConfig.ANIM_REFORM_GATHER, "past a tap he gathers himself");
-		helper.assertTrue(!UndeadRibGuard.up(p) && Undead.missing(p, UndeadState.LEFT_LEG), "no guard, nothing re-formed yet");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && Undead.missing(p, UndeadState.LEFT_LEG), "no whip, nothing re-formed yet");
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_HOLD - 2);
 		helper.assertTrue(Undead.missing(p, UndeadState.LEFT_LEG), "not before the second is up");
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_HOLD);
@@ -413,7 +582,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		helper.assertTrue(Undead.state(p).animId == UndeadState.ANIM_REFORM, "its snap-together animation");
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_HOLD + 30);
 		press(p, true, false);
-		helper.assertTrue(!UndeadRibGuard.up(p) && !UndeadRibShot.windingUp(p) && !UndeadBoneSword.held(p), "letting go after: no guard, no shot, no katana");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && !UndeadRibShot.windingUp(p) && !UndeadBoneSword.held(p), "letting go after: no whip, no shot, no katana");
 		clean(helper, p);
 		helper.succeed();
 	}
@@ -441,7 +610,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		helper.assertTrue(Undead.state(p).animId != UndeadKitConfig.ANIM_REFORM_GATHER, "no gathering while Reform cools down");
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_HOLD + 2);
 		press(p, true, false);
-		helper.assertTrue(!UndeadRibGuard.up(p) && !UndeadRibShot.windingUp(p), "and the let-go is not a guard or a shot");
+		helper.assertTrue(!UndeadSpineWhip.active(p) && !UndeadRibShot.windingUp(p), "and the let-go is not a whip or a shot");
 		clean(helper, p);
 		helper.succeed();
 	}
@@ -462,7 +631,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		UndeadAbilityManager.forTestsHoldV(p, UndeadConfig.BONE_SWORD_HOLD + 1);
 		press(p, false, false);
 		helper.assertTrue(UndeadBoneSword.held(p), "held 2 s: the katana");
-		helper.assertTrue(!UndeadRibShot.windingUp(p) && Undead.cooldownRemaining(p, UndeadRibShot.ID) == 0 && !UndeadRibGuard.up(p)
+		helper.assertTrue(!UndeadRibShot.windingUp(p) && Undead.cooldownRemaining(p, UndeadRibShot.ID) == 0 && !UndeadSpineWhip.active(p)
 				&& Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, "and nothing else");
 		// with the katana out, tapping V puts it away -- it does not fire the ribs
 		press(p, false, true);
@@ -480,7 +649,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		UndeadAbilityManager.forTestsHoldShiftV(p, UndeadKitConfig.REFORM_HOLD + 2);
 		press(p, true, false);
 		helper.assertTrue(!UndeadBoneSword.held(p), "Shift+V puts it away");
-		helper.assertTrue(Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0 && !UndeadRibGuard.up(p), "no Reform, no guard with it");
+		helper.assertTrue(Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0 && !UndeadSpineWhip.active(p), "no Reform, no whip with it");
 		clean(helper, p);
 		helper.succeed();
 	}

@@ -52,7 +52,7 @@ import org.joml.Vector4f;
  * display transforms, first and third person), drawn in his hand ({@link #thirdPerson}), in first person ({@link #firstPerson})
  * and as a thrown sword ({@link #mesh}, from {@link UndeadPartRenderer}). Also the hold-V draw -- reaching over, struggling,
  * the arm torn off and gripped until it bursts round the blade --, each sword skill's pose, the v0.17.3 kit's poses (Ten Twists,
- * the Unluck Meteor, the Rib Cage Guard) and the sword stuck in his shoulder ({@link #shoulderSword}).
+ * the Unluck Meteor, the Rib Shotgun) and the sword stuck in his shoulder ({@link #shoulderSword}).
  */
 public final class UndeadBoneSwordRender {
 	// colours
@@ -217,7 +217,7 @@ public final class UndeadBoneSwordRender {
 	/**
 	 * The v0.17.3 kit's poses with the katana not out: Ten Twists (the arm thrust out and wrenched round by the other hand, then
 	 * the follow-through as it flies), the Unluck Meteor (both arms raised to the sky, trembling as it builds; then one thrown
-	 * down at the target), the Rib Cage Guard (both hands hauling the ribs open), the shoulder sword going in and out. True if
+	 * down at the target), the Spine Whip ({@link UndeadSpineWhipFx#pose}), the shoulder sword going in and out. True if
 	 * one set the pose.
 	 */
 	private static boolean kitPose(Player player, UndeadState s, net.minecraft.client.model.HumanoidModel<?> model, float now, float age, ModelPart main,
@@ -225,6 +225,9 @@ public final class UndeadBoneSwordRender {
 		float partial = now - (float) Math.floor(now);
 		if (ribShotPose(s, model, now, age)) {
 			return true; // v0.17.3 tap V (Rib Shotgun) / Shift + hold V (gathering for Reform)
+		}
+		if (UndeadSpineWhipFx.pose(player, s, model, age)) {
+			return true; // v0.17.3 tap Shift+V (Spine Whip)
 		}
 		if (s.animId == UndeadKitConfig.ANIM_VORTEX_TWIST && age >= 0f && age < UndeadKitConfig.VORTEX_WINDUP + 1f) {
 			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
@@ -272,14 +275,6 @@ public final class UndeadBoneSwordRender {
 			model.body.xRot += 0.2f * t * w;
 			return true;
 		}
-		float ribs = UndeadKitFx.ribs(player, partial);
-		if (ribs > 0.01f) {
-			// both hands at his chest, hauling the ribs apart
-			set(model.rightArm, ribs, -1.15f, -0.55f, 0.35f);
-			set(model.leftArm, ribs, -1.15f, 0.55f, -0.35f);
-			model.body.xRot -= 0.1f * ribs;
-			return true;
-		}
 		if ((s.animId == UndeadKitConfig.ANIM_SHOULDER_IN || s.animId == UndeadKitConfig.ANIM_SHOULDER_OUT) && age >= 0f && age < 10f) {
 			// the hand across to the other shoulder: driving it down in, or wrenching it up out
 			boolean in = s.animId == UndeadKitConfig.ANIM_SHOULDER_IN;
@@ -309,11 +304,11 @@ public final class UndeadBoneSwordRender {
 		if (s.animId == UndeadKitConfig.ANIM_RIB_SHOT) {
 			float w = UndeadKitConfig.RIB_SHOT_WINDUP;
 			if (age < w) {
-				float grab = ease(age / (w * 0.5f)), pull = ease((age - w * 0.5f) / (w * 0.5f));
+				float grab = ease(age / (w * 0.3f)), pull = ease((age - w * 0.3f) / (w * 0.35f)); // (hauled wide open before the shot)
 				float tremble = Mth.sin(age * 4.1f) * 0.04f * grab;
 				// in to the breastbone ...
-				set(model.rightArm, grab, Mth.lerp(pull, -1.3f, -1.05f) + tremble, Mth.lerp(pull, -0.72f, 0.3f), Mth.lerp(pull, 0f, 0.45f));
-				set(model.leftArm, grab, Mth.lerp(pull, -1.3f, -1.05f) - tremble, Mth.lerp(pull, 0.72f, -0.3f), Mth.lerp(pull, 0f, -0.45f));
+				set(model.rightArm, grab, Mth.lerp(pull, -1.3f, -0.75f) + tremble, Mth.lerp(pull, -0.72f, 0.55f), Mth.lerp(pull, 0f, 0.7f));
+				set(model.leftArm, grab, Mth.lerp(pull, -1.3f, -0.75f) - tremble, Mth.lerp(pull, 0.72f, -0.55f), Mth.lerp(pull, 0f, -0.7f));
 				// ... and wrenched apart, the chest pushed out into it
 				model.body.xRot -= 0.1f * pull;
 				model.head.xRot += 0.12f * grab;
@@ -406,10 +401,11 @@ public final class UndeadBoneSwordRender {
 
 	// ---------------------------------------------------------------- where it is drawn
 
-	/** In his hand (from {@link UndeadRender#renderLayer}, the pose at the model), plus the Rib Cage Guard. */
+	/** In his hand (from {@link UndeadRender#renderLayer}, the pose at the model), plus the Rib Shotgun's and Spine Whip's wounds. */
 	static void thirdPerson(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s, float now) {
 		float age = now - s.animStart;
 		UndeadRibShotFx.wound(pose, buffers, light, player, model, s, now); // v0.17.3 tap V: the hole the Rib Shotgun tore
+		UndeadSpineWhipFx.backWound(pose, buffers, light, player, model, s, now); // v0.17.3 tap Shift+V: the split in his back
 		shoulderSword(pose, buffers, light, player, model, s);
 		if (!s.boneSword()) {
 			return;
@@ -565,6 +561,9 @@ public final class UndeadBoneSwordRender {
 					ribShotFirstPerson(player, age, pose, buffers, light); // v0.17.3 tap V: both hands, low in the view
 				}
 				return true;
+			}
+			if (UndeadSpineWhipFx.firstPerson(player, s, age, hand == InteractionHand.MAIN_HAND ? pose : null, buffers, light)) {
+				return true; // v0.17.3 tap Shift+V: the whip hand (drawn on the main hand's call)
 			}
 			float draw = shoulderDraw(player, partial);
 			if (hand == InteractionHand.OFF_HAND) {
@@ -767,7 +766,7 @@ public final class UndeadBoneSwordRender {
 	 * Vanilla's {@code renderPlayerArm} (an empty hand in first person) with {@code custom} turned in at its shoulder (after its
 	 * first placement, before it lays the arm out), so an arm can reach about from where it sits.
 	 */
-	private static void fpArm(AbstractClientPlayer player, PoseStack pose, MultiBufferSource buffers, int light, HumanoidArm side,
+	static void fpArm(AbstractClientPlayer player, PoseStack pose, MultiBufferSource buffers, int light, HumanoidArm side,
 			java.util.function.Consumer<PoseStack> custom) {
 		Object r = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(player);
 		if (!(r instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer pr)) {

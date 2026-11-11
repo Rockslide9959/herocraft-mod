@@ -10,7 +10,7 @@ import com.projecthero.mod.undead.UndeadKitConfig;
 import com.projecthero.mod.undead.UndeadLaunch;
 import com.projecthero.mod.undead.UndeadMeteor;
 import com.projecthero.mod.undead.UndeadRegenMods;
-import com.projecthero.mod.undead.UndeadRibGuard;
+import com.projecthero.mod.undead.UndeadSpineWhip;
 import com.projecthero.mod.undead.UndeadShoulderSword;
 import com.projecthero.mod.undead.UndeadVortex;
 import com.projecthero.mod.undead.data.UndeadState;
@@ -28,7 +28,6 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
-import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -236,68 +235,6 @@ public class UndeadKitGameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- Shift+V: Rib Cage Guard
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void ribCageGuardBlocksTheFrontAndBitesBack(GameTestHelper helper) {
-		ServerPlayer p = undead(helper);
-		helper.assertTrue(UndeadAbilityManager.idsOf(p, AbilitySlot.SLOT_5)[1].equals(UndeadRibGuard.ID), "Shift+V on the HUD");
-		Zombie front = zombie(helper, new Vec3(2.5, 2.0, 4.0));
-		Zombie behind = zombie(helper, new Vec3(2.5, 2.0, 1.0));
-		press(p, AbilitySlot.SLOT_5, true, true);
-		helper.assertTrue(!UndeadRibGuard.up(p), "not yet on the press: a hold would be Reform's");
-		press(p, AbilitySlot.SLOT_5, true, false);
-		helper.assertTrue(UndeadRibGuard.up(p) && Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "a Shift+V tap: the ribs are up");
-		helper.assertTrue(!UndeadBoneSword.held(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, "not the sword, not Reform");
-		float hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().mobAttack(front), 8f);
-		float lost = hp - p.getHealth();
-		helper.assertTrue(Math.abs(lost - 8f * UndeadKitConfig.RIB_MELEE_SHARE) < 0.05f, "a melee hit from the front: 75% blocked: lost " + lost);
-		helper.assertTrue(200f - front.getHealth() >= UndeadKitConfig.RIB_THORNS - 2.1f, "and the attacker is bitten");
-		Arrow arrow = new Arrow(helper.getLevel(), p.getX(), p.getEyeY() - 0.5, p.getZ() + 2.0, new ItemStack(Items.ARROW), null);
-		hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().arrow(arrow, null), 6f);
-		helper.assertTrue(p.getHealth() == hp, "an arrow from the front is stopped");
-		// an arrow in flight toward him stops dead on the bone
-		arrow.setDeltaMovement(0, 0, -1.2);
-		helper.getLevel().addFreshEntity(arrow);
-		Undead.tick(p);
-		helper.assertTrue(arrow.getDeltaMovement().z > -0.3, "the flying arrow is stopped: " + arrow.getDeltaMovement());
-		arrow.discard();
-		hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().mobAttack(behind), 6f);
-		helper.assertTrue(hp - p.getHealth() > 5.5f, "from behind: the full hit");
-		UndeadRibGuard.forTestsLower(p);
-		helper.assertTrue(!UndeadRibGuard.up(p) && Undead.cooldownRemaining(p, UndeadRibGuard.ID) == UndeadKitConfig.RIB_COOLDOWN, "down: 12 s cooldown");
-		p.setShiftKeyDown(false);
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void ribCageGuardFromATapStaysUpFourSeconds(GameTestHelper helper) {
-		// v0.17.3: the guard is a Shift+V tap now (the hold is Reform's), and a tap has always kept it up the whole 4 s
-		ServerPlayer p = undead(helper);
-		press(p, AbilitySlot.SLOT_5, true, true);
-		press(p, AbilitySlot.SLOT_5, true, false);
-		p.setShiftKeyDown(false);
-		int[] t = { 0 };
-		helper.onEachTick(() -> {
-			Undead.tick(p);
-			t[0]++;
-			if (t[0] == UndeadKitConfig.RIB_TICKS - 5) {
-				helper.assertTrue(UndeadRibGuard.up(p), "still up near the end");
-			}
-			if (t[0] == UndeadKitConfig.RIB_TICKS + 3) {
-				helper.assertTrue(!UndeadRibGuard.up(p) && !Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "down after its 4 s");
-				helper.assertTrue(Undead.cooldownRemaining(p, UndeadRibGuard.ID) > 0, "cooling down");
-				helper.succeed();
-			}
-		});
-	}
-
 	// ---------------------------------------------------------------- hold V: the bone katana's skills
 
 	private static ServerPlayer swordsman(GameTestHelper helper) {
@@ -319,7 +256,7 @@ public class UndeadKitGameTests implements FabricGameTest {
 		}
 		press(p, AbilitySlot.SLOT_5, true, true);
 		press(p, AbilitySlot.SLOT_5, true, false);
-		helper.assertTrue(!UndeadBoneSword.held(p) && !UndeadRibGuard.up(p), "Shift+V puts it away (no Rib Cage Guard with it)");
+		helper.assertTrue(!UndeadBoneSword.held(p) && !UndeadSpineWhip.active(p), "Shift+V puts it away (no Spine Whip with it)");
 		edit(p, n -> n.abilityReadyAt.clear());
 		Undead.restore(p);
 		helper.assertTrue(UndeadBoneSword.draw(p), "drawn again");

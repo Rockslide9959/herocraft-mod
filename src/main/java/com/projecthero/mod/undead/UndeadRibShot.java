@@ -27,8 +27,7 @@ import net.minecraft.world.phys.Vec3;
  * him back a little. The hole in his chest is drawn (every viewer, from the animation: {@code client.undead.UndeadRibShotFx}) and
  * closes like a regrowing part -- {@link UndeadConfig#REGROW_DELAY}, then bone, flesh and skin over the body's
  * {@code UndeadConfig.FRAMES} -- without taking the torso off (which would drop his chestplate every few seconds).
- * {@link UndeadKitConfig#RIB_SHOT_COOLDOWN} from the shot. Fired with the Rib Cage Guard up, the guard's ribs go too (it folds,
- * its cooldown starts).
+ * {@link UndeadKitConfig#RIB_SHOT_COOLDOWN} from the shot.
  *
  * <p>Static state is dropped by {@link #clearSessionState} / {@link #forget} (from {@link UndeadKit}).
  */
@@ -63,7 +62,7 @@ public final class UndeadRibShot {
 			return false;
 		}
 		UndeadState s = Undead.state(p);
-		if (s.boneSword()) {
+		if (s.boneSword() || UndeadSpineWhip.active(p)) {
 			return false;
 		}
 		int cd = Undead.cooldownRemaining(p, ID);
@@ -125,9 +124,6 @@ public final class UndeadRibShot {
 	private static void fire(ServerPlayer p) {
 		ServerLevel level = (ServerLevel) p.level();
 		long now = level.getGameTime();
-		if (UndeadRibGuard.up(p)) {
-			UndeadRibGuard.forTestsLower(p); // the guard's ribs are the ones that fly
-		}
 		Vec3 from = chest(p);
 		Vec3 f = aim(p, from);
 		Vec3 right = f.cross(new Vec3(0, 1, 0));

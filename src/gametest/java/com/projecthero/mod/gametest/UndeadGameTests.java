@@ -390,8 +390,8 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.assertTrue(!Undead.victor(p) && Undead.state(p).victorUntil == 0L, "pulling the card does nothing");
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
 		helper.assertTrue(com.projecthero.mod.undead.UndeadRibShot.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[0])
-				&& com.projecthero.mod.undead.UndeadRibGuard.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[1]),
-				"V is the Rib Shotgun, Shift+V the Rib Cage Guard");
+				&& com.projecthero.mod.undead.UndeadSpineWhip.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[1]),
+				"V is the Rib Shotgun, Shift+V the Spine Whip");
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Undead.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(UndeadAbilities.PARTS_BULLET.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])

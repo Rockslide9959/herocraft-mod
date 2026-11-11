@@ -26,8 +26,8 @@ public final class UndeadKitNet {
 	public static final int METEOR_FALL = 3;
 	/** a = where it landed. */
 	public static final int METEOR_IMPACT = 4;
-	/** a = the ribs' middle, b = which way they face. */
-	public static final int RIB_BLOCK = 5;
+	/** v0.17.3 Spine Whip: a = where the tip snagged a creature, b = the whipper's feet, extra = the snagged entity's id. */
+	public static final int SPINE_SNAG = 6;
 
 	/** How far away the effects are sent. */
 	private static final double RANGE = 160.0;

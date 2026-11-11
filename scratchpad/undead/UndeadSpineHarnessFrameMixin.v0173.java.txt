@@ -1,0 +1,17 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Minecraft;
+
+/** TEMP-HARNESS (not shipped): grabs UndeadSpineHarness frames once each frame is finished. */
+@Mixin(Minecraft.class)
+public abstract class UndeadSpineHarnessFrameMixin {
+	@Inject(method = "runTick", at = @At("TAIL"))
+	private void projecthero$undeadSpineHarnessFrame(boolean renderLevel, CallbackInfo ci) {
+		com.projecthero.mod.client.UndeadSpineHarness.frame();
+	}
+}

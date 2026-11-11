@@ -2,7 +2,7 @@ package com.projecthero.mod.undead;
 
 /**
  * v0.17.3 Undead kit rework: the numbers for Z (Ten Twists: Vortex Bullet), Shift+Z (Unluck Meteor), V (Reform, numbers in
- * {@link UndeadConfig}), Shift+V (Rib Cage Guard), hold V (the bone katana Kurikara and its sword skills) and the shoulder sword.
+ * {@link UndeadConfig}), Shift+V (Spine Whip), hold V (the bone katana Kurikara and its sword skills) and the shoulder sword.
  * Ticks unless named otherwise. The animation ids and state flags here are this kit's own (kept well clear of the ones in
  * {@code UndeadState}).
  */
@@ -22,6 +22,8 @@ public final class UndeadKitConfig {
 	public static final int ANIM_RIB_SHOT = 123;
 	/** Shift + hold V past {@link #REFORM_TAP}: gathering himself for Reform (it fires at {@link #REFORM_HOLD}). */
 	public static final int ANIM_REFORM_GATHER = 124;
+	/** Tap Shift+V: Spine Whip -- the spine torn out (to {@link #SPINE_WINDUP}), the lash, the whip let go and crumbling. */
+	public static final int ANIM_SPINE_WHIP = 125;
 	/** The katana's skills (hold V). */
 	public static final int ANIM_K_CRESCENT = 130;
 	public static final int ANIM_K_GREAT = 131;
@@ -31,8 +33,6 @@ public final class UndeadKitConfig {
 	public static final int ANIM_SHOULDER_IN = 136;
 	public static final int ANIM_SHOULDER_OUT = 137;
 
-	/** Shift+V: the Rib Cage Guard is up (UndeadState.flags; a high bit, clear of the shared ones). */
-	public static final int FLAG_RIB_GUARD = 1 << 24;
 	/** Shift+Z held: the Unluck Meteor is charging. */
 	public static final int FLAG_METEOR_CHARGE = 1 << 25;
 
@@ -101,24 +101,39 @@ public final class UndeadKitConfig {
 
 	// ---------------------------------------------------------------- Shift + hold V: Reform (numbers in UndeadConfig)
 
-	/** Shift+V let go before this is a tap: the Rib Cage Guard. From here on he gathers himself for Reform ... */
+	/** Shift+V let go before this is a tap: the Spine Whip. From here on he gathers himself for Reform ... */
 	public static final int REFORM_TAP = 6;
 	/** ... which happens once Shift+V has been held this long (still held). Let go between the two: nothing. */
 	public static final int REFORM_HOLD = 20;
 
-	// ---------------------------------------------------------------- Shift+V: Rib Cage Guard
+	// ---------------------------------------------------------------- tap Shift+V: Spine Whip
 
-	/** The longest it stays up (held); a quick tap keeps it up this long too. */
-	public static final int RIB_TICKS = 80;
-	/** Let go of Shift+V before this: it was a tap, and the guard stays up its full time. */
-	public static final int RIB_TAP = 6;
-	/** What a frontal melee hit still does (75% blocked). */
-	public static final float RIB_MELEE_SHARE = 0.25f;
-	/** Who hits the ribs (melee) takes this back. */
-	public static final float RIB_THORNS = 4f;
-	/** How wide "in front" is: the cosine of the half-angle. */
-	public static final double RIB_FRONT_COS = 0.1;
-	public static final int RIB_COOLDOWN = 240;
+	/** He reaches back and tears his spine out through his back this long before the lash. */
+	public static final int SPINE_WINDUP = 7;
+	/** The lash: across the whole arc in this many ticks. */
+	public static final int SPINE_SWEEP = 4;
+	/** After the lash (client only): the whip goes slack, he lets go and it crumbles. */
+	public static final int SPINE_AFTER = 14;
+	/** The arc's half-angle in degrees (a 150 degree sweep in front of him). */
+	public static final double SPINE_ARC = 75.0;
+	/** How far out the whip reaches (blocks, flat). */
+	public static final double SPINE_RANGE = 7.0;
+	/** The height band it hits, from his chest down / up (blocks). */
+	public static final double SPINE_BELOW = 2.0, SPINE_ABOVE = 1.5;
+	public static final float SPINE_DAMAGE = 14f;
+	/** The shove out from him, the lift, and the push along the swing (blocks a tick). */
+	public static final double SPINE_KNOCK = 1.0;
+	public static final double SPINE_LIFT = 0.25;
+	public static final double SPINE_SWEEP_PUSH = 0.35;
+	/** The tip snags the one creature nearest his crosshair inside this cone (degrees), at least this far out ... */
+	public static final double SPINE_SNAG_CONE = 35.0;
+	public static final double SPINE_SNAG_MIN = 2.5;
+	/** ... and yanks it in to land about this far in front of him: speed per block of distance, capped, and a lift. */
+	public static final double SPINE_YANK_TO = 1.8;
+	public static final double SPINE_YANK_PER_BLOCK = 0.16;
+	public static final double SPINE_YANK_MAX = 1.3;
+	public static final double SPINE_YANK_LIFT = 0.38;
+	public static final int SPINE_COOLDOWN = 140;
 
 	// ---------------------------------------------------------------- hold V: the bone katana's skills
 

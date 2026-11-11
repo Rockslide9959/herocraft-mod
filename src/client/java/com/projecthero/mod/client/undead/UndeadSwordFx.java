@@ -41,7 +41,7 @@ import org.joml.Vector3f;
  * <li>Blood Whirl (C): two rings of blood swept round him, flinging drops off their heads.</li>
  * </ul>
  * Also the hold-V draw (blood at the shoulder as the arm gives, the arm bursting round the blade) and Reform's flash of blood and
- * flesh closing. The rest of the v0.17.3 kit's effects (Vortex Bullet, Unluck Meteor, Rib Cage Guard, the shoulder sword) are
+ * flesh closing. The rest of the v0.17.3 kit's effects (Vortex Bullet, Unluck Meteor, Rib Shotgun, Spine Whip, the shoulder sword) are
  * {@link UndeadKitFx}'s, run from here. Drawn from {@link UndeadEffectsRenderer#render} after the entities; the drops are
  * {@link BloodFx}'s.
  */

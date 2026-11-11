@@ -1,0 +1,392 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.undead.BloodFx;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.undead.Undead;
+import com.projecthero.mod.undead.UndeadAbilityManager;
+import com.projecthero.mod.undead.UndeadBoneSword;
+import com.projecthero.mod.undead.UndeadKitConfig;
+import com.projecthero.mod.undead.data.UndeadState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films the v0.17.3 Undead rib cage (tap V, Rib Shotgun) and the Spine Whip (tap Shift+V). Enabled by
+ * run/undeadspine.flag (its text: the scenes to film, empty = all). Frames are grabbed every render frame (from
+ * UndeadSpineHarnessFrameMixin at the end of Minecraft.runTick) whenever game time has moved on by a step, so a slowed tick rate
+ * gives smooth slow motion.
+ */
+public final class UndeadSpineHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static float recStep = 1f;
+	private static double lastGrab = -1e9;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static String only;
+	/** The rib close-up: hold the Rib Shotgun's wind-up open (server side), orbit the camera. */
+	private static boolean freezeRibs;
+	private static int orbitTick = -1;
+	private static int orbitLen;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private UndeadSpineHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("undeadspine.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("undeadspine.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UndeadSpineHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "undeadspine-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	/** Every render frame (end of Minecraft.runTick): a frame for the recording once game time moved on by its step. */
+	public static void frame() {
+		Minecraft mc = Minecraft.getInstance();
+		if (recording == null || mc.level == null) {
+			return;
+		}
+		double t = mc.level.getGameTime() + mc.getTimer().getGameTimeDeltaPartialTick(true);
+		if (t - lastGrab < recStep - 1.0e-3) {
+			return;
+		}
+		lastGrab = lastGrab < -1e8 ? t : lastGrab + recStep * Math.floor((t - lastGrab) / recStep + 1.0e-6);
+		String name = String.format("sp_%s_%03d.png", recording, recFrame++);
+		Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UndeadSpineHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (freezeRibs) {
+				BloodFx.reset(); // (the held-open wind-up would keep spurting)
+				server(mc, p -> {
+					UndeadState n = Undead.state(p).copy();
+					n.animId = UndeadKitConfig.ANIM_RIB_SHOT;
+					n.animStart = p.level().getGameTime() - 4;
+					p.setAttached(ModAttachments.UNDEAD_STATE, n);
+				});
+			}
+			if (orbitTick >= 0 && base != null) {
+				// round him at chest height, starting in front
+				double a = (orbitTick++ / (double) orbitLen) * Math.PI * 2;
+				double rad = 1.55;
+				Vec3 c = base.add(0, 1.15, 0);
+				camPos = c.add(-Math.sin(a) * rad, 0.18, Math.cos(a) * rad);
+				camLook = c;
+				if (orbitTick > orbitLen) {
+					orbitTick = -1;
+				}
+			}
+			if (recording != null && inWorldTicks - t0 >= recUntil) {
+				System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+				recording = null;
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(), mc.screen);
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static Mob dummy(ServerPlayer p, Vec3 at, float yaw, boolean ai) {
+		Mob m = EntityType.ZOMBIE.create(p.serverLevel());
+		m.setNoAi(!ai);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+		m.setHealth(400);
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	/** A mob that stands still (AI on, so knockback moves it, but no walking). */
+	private static Mob frozen(Mob m) {
+		m.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
+		return m;
+	}
+
+	/** Records {@code ticks} game ticks from {@code start}, one frame every {@code step} ticks of game time, at tick rate {@code rate}. */
+	private static void record(Minecraft mc, int start, String name, int ticks, float rate, float step) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			recStep = step;
+			lastGrab = -1e9;
+			server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+		});
+		at(start + ticks, () -> server(mc, p -> p.server.tickRateManager().setTickRate(20f)));
+	}
+
+	private static void reset(ServerPlayer p, float pitch) {
+		if (Undead.state(p).boneSword()) {
+			UndeadBoneSword.putAway(p, false, false);
+		}
+		p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, p.getBoundingBox().inflate(128),
+				e -> e instanceof net.minecraft.world.entity.item.ItemEntity || e instanceof com.projecthero.mod.undead.entity.UndeadPartEntity)
+				.forEach(e -> e.discard());
+		p.removeAllEffects();
+		Undead.restore(p);
+		UndeadState n = Undead.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.animId = 0;
+		p.setAttached(ModAttachments.UNDEAD_STATE, n);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.setShiftKeyDown(false);
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, pitch);
+		p.setYHeadRot(0f);
+		p.yBodyRot = 0f;
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void scene(Minecraft mc, int t, int index, CameraType type, Vec3 cam, Vec3 look, float pitch, boolean gui,
+			java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 60, 0, 0);
+			mc.options.setCameraType(type);
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+			mc.options.hideGui = !gui;
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				clearDummies();
+				reset(p, pitch);
+			});
+		});
+		at(t + 8, () -> server(mc, setup));
+	}
+
+	/** V pressed / let go (Shift read on the press; let go again straight after so he does not crouch). */
+	private static void key(Minecraft mc, int t, boolean shift, boolean down) {
+		at(t, () -> server(mc, p -> {
+			p.setShiftKeyDown(shift);
+			UndeadAbilityManager.handle(p, AbilitySlot.SLOT_5, down);
+			p.setShiftKeyDown(false);
+		}));
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || java.util.Arrays.asList(only.split("[ ,]+")).contains(name);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Undead.grant(p);
+			reset(p, 0f);
+		}));
+		t += 30;
+		int idx = 1;
+		if (want("ribs")) {
+			// the rib cage close-up: the wind-up held open, the camera going once round him
+			final int len = 90;
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(0, 1.3, 1.55), new Vec3(0, 1.15, 0), 0f, false, p -> {
+			});
+			at(t + 10, () -> freezeRibs = true);
+			at(t + 30, () -> {
+				orbitLen = len;
+				orbitTick = 0;
+			});
+			record(mc, t + 30, "ribs", len, 20f, 1f);
+			at(t + 30 + len + 1, () -> {
+				freezeRibs = false;
+				server(mc, p -> reset(p, 0f));
+			});
+			t += len + 50;
+		}
+		if (want("shot")) {
+			// third person, three-quarter front: the chest torn open, the ribs out, the shot, the hole closing (half speed)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-2.2, 1.75, 2.6), new Vec3(0.0, 1.2, 0.3), 0f, false, p -> {
+				dummy(p, base.add(1.5, 0, 9.0), 180f, false);
+				dummy(p, base.add(-0.5, 0, 10.0), 180f, false);
+			});
+			record(mc, t + 25, "shot", 75, 10f, 0.5f);
+			key(mc, t + 30, false, true);
+			key(mc, t + 31, false, false);
+			t += 110;
+		}
+		if (want("whip_tp")) {
+			// third person, front three-quarter, a little above: the tear, the lash across three zombies (quarter speed)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(0.0, 6.5, 9.5), new Vec3(0.0, 0.8, 1.5), 0f, false, p -> {
+				frozen(dummy(p, base.add(-3.0, 0, 3.6), 135f, true));
+				frozen(dummy(p, base.add(0.3, 0, 5.5), 180f, true));
+				frozen(dummy(p, base.add(3.3, 0, 3.4), 225f, true));
+			});
+			record(mc, t + 25, "whip_tp", 34, 5f, 0.25f);
+			key(mc, t + 30, true, true);
+			key(mc, t + 31, true, false);
+			t += 75;
+		}
+		if (want("whip_back")) {
+			// from behind and to the side, close: the spine hauled out of his back, the split in it (quarter speed)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(2.0, 2.0, -2.4), new Vec3(0.0, 1.3, 0.4), 0f, false, p -> {
+			});
+			record(mc, t + 25, "whip_back", 40, 5f, 0.25f);
+			key(mc, t + 30, true, true);
+			key(mc, t + 31, true, false);
+			t += 80;
+		}
+		if (want("whip_fp")) {
+			// first person, the HUD on: three zombies ahead (half speed)
+			scene(mc, t, idx++, CameraType.FIRST_PERSON, null, null, 6f, true, p -> {
+				dummy(p, base.add(-2.6, 0, 3.8), 150f, false);
+				dummy(p, base.add(0.2, 0, 5.2), 180f, false);
+				dummy(p, base.add(2.8, 0, 3.6), 210f, false);
+			});
+			record(mc, t + 25, "whip_fp", 34, 10f, 0.5f);
+			key(mc, t + 30, true, true);
+			key(mc, t + 31, true, false);
+			t += 75;
+		}
+		if (want("whip_group")) {
+			// a pack of zombies coming at him (AI on), seen from behind and above; one lash through them (half speed)
+			scene(mc, t, idx++, CameraType.THIRD_PERSON_BACK, new Vec3(-2.6, 4.6, -4.2), new Vec3(0.2, 0.8, 3.2), 4f, false, p -> {
+				double[][] at = { { 0.0, 4.6 }, { -2.0, 3.6 }, { 2.1, 3.8 }, { -3.4, 2.6 }, { 3.3, 2.4 }, { -1.0, 5.6 }, { 1.2, 5.8 } };
+				for (double[] a : at) {
+					dummy(p, base.add(a[0], 0, a[1]), 180f, true);
+				}
+			});
+			record(mc, t + 20, "whip_group", 50, 10f, 0.5f);
+			key(mc, t + 24, true, true);
+			key(mc, t + 25, true, false);
+			t += 85;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
