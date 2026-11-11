@@ -389,9 +389,9 @@ public class UndeadGameTests implements FabricGameTest {
 		UndeadAbilities.pullCard(p);
 		helper.assertTrue(!Undead.victor(p) && Undead.state(p).victorUntil == 0L, "pulling the card does nothing");
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
-		helper.assertTrue(UndeadAbilities.REFORM.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[0])
+		helper.assertTrue(com.projecthero.mod.undead.UndeadRibShot.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[0])
 				&& com.projecthero.mod.undead.UndeadRibGuard.ID.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, v)[1]),
-				"V is Reform, Shift+V the Rib Cage Guard");
+				"V is the Rib Shotgun, Shift+V the Rib Cage Guard");
 		edit(p, n -> n.victorUntil = helper.getLevel().getGameTime() + 400);
 		helper.assertTrue(!Undead.victor(p), "an old save with the card out is not Victor");
 		helper.assertTrue(UndeadAbilities.PARTS_BULLET.equals(com.projecthero.mod.undead.UndeadAbilityManager.idsOf(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1)[0])
@@ -557,7 +557,7 @@ public class UndeadGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- tap V: Reform (replaced Tear Off)
+	// ---------------------------------------------------------------- Shift + hold V: Reform (was tap V; tap V is the Rib Shotgun now)
 
 	private static void feed(ServerPlayer p, int food, float saturation) {
 		p.getFoodData().setFoodLevel(food);
@@ -565,7 +565,7 @@ public class UndeadGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void tapVReformFinishesEveryPartAndCleanses(GameTestHelper helper) {
+	public void shiftHoldVReformFinishesEveryPartAndCleanses(GameTestHelper helper) {
 		ServerPlayer p = undead(helper);
 		feed(p, 20, 5f);
 		long now = helper.getLevel().getGameTime();
@@ -579,8 +579,11 @@ public class UndeadGameTests implements FabricGameTest {
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.WITHER, 200, 1));
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 0));
 		com.projecthero.mod.hero.AbilitySlot v = com.projecthero.mod.hero.AbilitySlot.SLOT_5;
+		p.setShiftKeyDown(true);
 		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, true);
+		com.projecthero.mod.undead.UndeadAbilityManager.forTestsHoldShiftV(p, com.projecthero.mod.undead.UndeadKitConfig.REFORM_HOLD);
 		com.projecthero.mod.undead.UndeadAbilityManager.handle(p, v, false);
+		p.setShiftKeyDown(false);
 		UndeadState s = Undead.state(p);
 		for (int i = 0; i < UndeadState.PARTS; i++) {
 			helper.assertTrue(!s.broken(i) && Math.abs(s.hp(i) - UndeadConfig.PART_HP[i]) < 0.01f, "part " + i + " is whole");

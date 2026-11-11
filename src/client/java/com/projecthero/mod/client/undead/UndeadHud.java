@@ -147,6 +147,11 @@ public final class UndeadHud {
 							: slot == AbilitySlot.SLOT_5 ? UndeadBoneSword.BONE_SWORD : null;
 					Component extra = held == null ? null
 							: Component.translatable("hud.projecthero.undead.hold", Component.translatable("projecthero.undead.ability." + held));
+					if (extra != null && slot == AbilitySlot.SLOT_5) {
+						// v0.17.3: V's fourth input -- Shift + hold V, Reform (tap V is the Rib Shotgun now)
+						extra = extra.copy().append("   ").append(Component.translatable("hud.projecthero.undead.shift_hold",
+								Component.translatable("projecthero.undead.ability." + com.projecthero.mod.undead.UndeadAbilities.REFORM)));
+					}
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.undead.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.undead.ability." + ids[1]) : null, extra));
 				}
@@ -221,6 +226,15 @@ public final class UndeadHud {
 				int top = iy + 16 - Math.round(16f * give);
 				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, iy + 16, 0x90C01020);
 				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, Math.min(iy + 16, top + 1), 0xFFFF4040);
+			}
+			if (slot == AbilitySlot.SLOT_5 && s.animId == com.projecthero.mod.undead.UndeadKitConfig.ANIM_REFORM_GATHER && !s.boneSword()) {
+				// v0.17.3 Shift + hold V: Reform gathering -- a pale fill rising up the box until he re-forms
+				float k = Mth.clamp((now - s.animStart) / (com.projecthero.mod.undead.UndeadKitConfig.REFORM_HOLD - com.projecthero.mod.undead.UndeadKitConfig.REFORM_TAP),
+						0f, 1f);
+				int ix = x0 + 3 + i * VanillaHud.SLOT, iy = y0 + 3;
+				int top = iy + 16 - Math.round(16f * k);
+				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, iy + 16, 0x90E8D8B0);
+				g.fill(net.minecraft.client.renderer.RenderType.guiOverlay(), ix, top, ix + 16, Math.min(iy + 16, top + 1), 0xFFFFF4D0);
 			}
 		}
 	}

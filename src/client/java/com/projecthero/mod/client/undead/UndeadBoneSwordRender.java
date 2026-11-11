@@ -223,6 +223,9 @@ public final class UndeadBoneSwordRender {
 	private static boolean kitPose(Player player, UndeadState s, net.minecraft.client.model.HumanoidModel<?> model, float now, float age, ModelPart main,
 			ModelPart off, float sd, float aim) {
 		float partial = now - (float) Math.floor(now);
+		if (ribShotPose(s, model, now, age)) {
+			return true; // v0.17.3 tap V (Rib Shotgun) / Shift + hold V (gathering for Reform)
+		}
 		if (s.animId == UndeadKitConfig.ANIM_VORTEX_TWIST && age >= 0f && age < UndeadKitConfig.VORTEX_WINDUP + 1f) {
 			boolean useOff = s.flag(UndeadState.FLAG_OFF_ARM);
 			ModelPart arm = useOff ? off : main, other = useOff ? main : off;
@@ -285,6 +288,57 @@ public final class UndeadBoneSwordRender {
 			float x = in ? Mth.lerp(t, -3.0f, -2.3f) : Mth.lerp(t, -2.3f, -3.0f);
 			set(main, w, x, -0.75f * sd, -0.2f * sd);
 			model.head.yRot -= 0.35f * sd * w;
+			return true;
+		}
+		return false;
+	}
+
+	/** How long the Rib Shotgun's recoil pose lasts after the ribs fly. */
+	static final float RIB_SHOT_AFTER = 14f;
+
+	/**
+	 * v0.17.3 tap V, Rib Shotgun: both hands dig into the middle of his chest and haul it open (the chest thrust out), then as
+	 * the ribs burst out the arms are flung wide and back and the blast rocks him back, settling over {@link #RIB_SHOT_AFTER}.
+	 * Shift + hold V, gathering himself for Reform: arms wrapped tight round his chest, hunched over it, trembling harder as it
+	 * builds. True if one set the pose.
+	 */
+	private static boolean ribShotPose(UndeadState s, net.minecraft.client.model.HumanoidModel<?> model, float now, float age) {
+		if (age < 0f) {
+			return false;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_RIB_SHOT) {
+			float w = UndeadKitConfig.RIB_SHOT_WINDUP;
+			if (age < w) {
+				float grab = ease(age / (w * 0.5f)), pull = ease((age - w * 0.5f) / (w * 0.5f));
+				float tremble = Mth.sin(age * 4.1f) * 0.04f * grab;
+				// in to the breastbone ...
+				set(model.rightArm, grab, Mth.lerp(pull, -1.3f, -1.05f) + tremble, Mth.lerp(pull, -0.72f, 0.3f), Mth.lerp(pull, 0f, 0.45f));
+				set(model.leftArm, grab, Mth.lerp(pull, -1.3f, -1.05f) - tremble, Mth.lerp(pull, 0.72f, -0.3f), Mth.lerp(pull, 0f, -0.45f));
+				// ... and wrenched apart, the chest pushed out into it
+				model.body.xRot -= 0.1f * pull;
+				model.head.xRot += 0.12f * grab;
+				return true;
+			}
+			float b = age - w;
+			if (b < RIB_SHOT_AFTER) {
+				float fling = ease(b / 1.5f) * (1f - ease((b - 4f) / (RIB_SHOT_AFTER - 4f)));
+				set(model.rightArm, fling, -0.55f, 0.35f, 1.3f);
+				set(model.leftArm, fling, -0.55f, -0.35f, -1.3f);
+				float rock = Mth.sin(Mth.clamp(b / RIB_SHOT_AFTER, 0f, 1f) * Mth.PI) * (b < 2f ? b / 2f : 1f);
+				model.body.xRot -= 0.2f * rock;
+				model.head.xRot -= 0.18f * rock;
+				return true;
+			}
+			return false;
+		}
+		if (s.animId == UndeadKitConfig.ANIM_REFORM_GATHER) {
+			float k = Mth.clamp(age / (UndeadKitConfig.REFORM_HOLD - UndeadKitConfig.REFORM_TAP), 0f, 1f);
+			float e = ease(age / 3f);
+			float shake = Mth.sin(now * 3.3f) * (0.02f + 0.06f * k);
+			set(model.rightArm, e, -1.2f + shake, -0.85f, 0.15f);
+			set(model.leftArm, e, -1.05f - shake, 0.85f, -0.15f);
+			model.body.xRot += (0.12f + 0.1f * k) * e;
+			model.head.xRot += 0.3f * e;
 			return true;
 		}
 		return false;
@@ -355,6 +409,7 @@ public final class UndeadBoneSwordRender {
 	/** In his hand (from {@link UndeadRender#renderLayer}, the pose at the model), plus the Rib Cage Guard. */
 	static void thirdPerson(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, UndeadState s, float now) {
 		float age = now - s.animStart;
+		UndeadRibShotFx.wound(pose, buffers, light, player, model, s, now); // v0.17.3 tap V: the hole the Rib Shotgun tore
 		shoulderSword(pose, buffers, light, player, model, s);
 		if (!s.boneSword()) {
 			return;
@@ -505,6 +560,12 @@ public final class UndeadBoneSwordRender {
 				}
 				return true;
 			}
+			if (s.animId == UndeadKitConfig.ANIM_RIB_SHOT && age >= 0f && age < UndeadKitConfig.RIB_SHOT_WINDUP + RIB_SHOT_AFTER) {
+				if (hand == InteractionHand.MAIN_HAND) {
+					ribShotFirstPerson(player, age, pose, buffers, light); // v0.17.3 tap V: both hands, low in the view
+				}
+				return true;
+			}
 			float draw = shoulderDraw(player, partial);
 			if (hand == InteractionHand.OFF_HAND) {
 				if (!swordDrawn(draw)) {
@@ -612,6 +673,42 @@ public final class UndeadBoneSwordRender {
 		});
 		pose.popPose();
 	}
+
+	/**
+	 * First person, Rib Shotgun: both hands come up out of the bottom corners and dig in at the bottom middle of the view (his
+	 * chest, below the crosshair), wrench apart, then are flung out and down off the sides as the ribs burst out, and come back.
+	 * Kept low throughout so the view ahead (where the spikes go) stays clear.
+	 */
+	private static void ribShotFirstPerson(AbstractClientPlayer player, float age, PoseStack pose, MultiBufferSource buffers, int light) {
+		float w = UndeadKitConfig.RIB_SHOT_WINDUP;
+		float grab, pull, fling;
+		if (age < w) {
+			grab = ease(age / (w * 0.5f));
+			pull = ease((age - w * 0.5f) / (w * 0.5f));
+			fling = 0f;
+		} else {
+			float b = age - w;
+			grab = 1f - ease(b / 3f);
+			pull = 1f - ease(b / 3f);
+			fling = ease(b / 1.5f) * (1f - ease((b - 3f) / (RIB_SHOT_AFTER - 3f)));
+		}
+		float tremble = age < w ? Mth.sin(age * 4.1f) * 0.012f * grab : 0f;
+		for (HumanoidArm side : HumanoidArm.values()) {
+			float f = side == HumanoidArm.RIGHT ? 1f : -1f;
+			pose.pushPose();
+			pose.translate(f * (-FP_RIB_IN * grab + FP_RIB_APART * pull + FP_RIB_OUT * fling) + tremble, FP_RIB_LIFT * grab - FP_RIB_DROP * fling, 0f);
+			fpArm(player, pose, buffers, light, side, p -> {
+				p.mulPose(Axis.YP.rotationDegrees(f * (FP_RIB_TURN * grab - 12f * pull)));
+				p.mulPose(Axis.XP.rotationDegrees(FP_RIB_PITCH * grab));
+				p.mulPose(Axis.ZP.rotationDegrees(-f * 35f * fling));
+			});
+			pose.popPose();
+		}
+	}
+
+	/** The first-person rib shot's hands: in toward the middle, lifted a little, turned in; apart; flung out and down. */
+	static float FP_RIB_IN = 0.3f, FP_RIB_APART = 0.12f, FP_RIB_OUT = 0.35f, FP_RIB_LIFT = 0.04f, FP_RIB_DROP = 0.3f, FP_RIB_TURN = 28f,
+			FP_RIB_PITCH = 8f;
 
 	/**
 	 * First person, the sword in his shoulder: its hilt standing up out of the bottom corner of the view on the off side (where

@@ -93,6 +93,7 @@ public final class UndeadKitFx {
 		BURSTS.clear();
 		darkUntil = 0L;
 		useWasDown = false;
+		UndeadRibShotFx.reset(); // v0.17.3 tap V
 	}
 
 	private static long now() {
@@ -132,6 +133,7 @@ public final class UndeadKitFx {
 	// ---------------------------------------------------------------- watching
 
 	static void watch(Player p, UndeadState s, long now) {
+		UndeadRibShotFx.watch(p, s, now); // v0.17.3 tap V: Rib Shotgun
 		UUID id = p.getUUID();
 		if (s.flag(UndeadKitConfig.FLAG_METEOR_CHARGE)) {
 			CHARGE.putIfAbsent(id, now);
@@ -193,6 +195,7 @@ public final class UndeadKitFx {
 			return;
 		}
 		shoulderKey(mc);
+		UndeadRibShotFx.tick(now); // v0.17.3 tap V: Rib Shotgun
 		BURSTS.removeIf(b -> now - b.start() > (b.kind() == UndeadKitNet.METEOR_IMPACT ? 220 : 20));
 		for (Iterator<Meteor> it = METEORS.iterator(); it.hasNext();) {
 			Meteor m = it.next();
@@ -337,7 +340,8 @@ public final class UndeadKitFx {
 					drawTwist(glow, buffers, m, p, arm, partial, cam, age);
 				}
 			}
-			float ribs = ribs(p, partial);
+			// (v0.17.3 tap V: the Rib Shotgun's wind-up springs the same ribs half out before they fly)
+			float ribs = Math.max(ribs(p, partial), UndeadRibShotFx.opening(p, partial));
 			if (ribs > 0.01f) {
 				solid.add(() -> drawRibs(pose, buffers, p, partial, cam, ribs, now));
 			}

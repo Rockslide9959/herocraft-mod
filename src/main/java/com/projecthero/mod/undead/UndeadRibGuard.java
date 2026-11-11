@@ -24,6 +24,10 @@ import net.minecraft.world.phys.Vec3;
  * front of him as a curved shield of bone, for as long as Shift+V is held (up to {@link UndeadKitConfig#RIB_TICKS}; a quick tap
  * keeps it up the whole time). From the front it stops projectiles dead and takes 75% off melee hits, and whoever hits it takes
  * {@link UndeadKitConfig#RIB_THORNS} back. {@link UndeadKitConfig#RIB_COOLDOWN} once it comes down.
+ *
+ * <p>v0.17.3 (Reform moved to Shift + hold V): the manager raises it on a Shift+V TAP (let go before
+ * {@link UndeadKitConfig#REFORM_TAP}) and never calls {@link #release}, so it always stays up its full
+ * {@link UndeadKitConfig#RIB_TICKS}; holding Shift+V is Reform's now. ({@link #release} is kept for a hold-style caller.)
  */
 public final class UndeadRibGuard {
 	public static final String ID = "rib_cage_guard";

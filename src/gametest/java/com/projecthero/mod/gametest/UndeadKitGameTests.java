@@ -245,7 +245,9 @@ public class UndeadKitGameTests implements FabricGameTest {
 		Zombie front = zombie(helper, new Vec3(2.5, 2.0, 4.0));
 		Zombie behind = zombie(helper, new Vec3(2.5, 2.0, 1.0));
 		press(p, AbilitySlot.SLOT_5, true, true);
-		helper.assertTrue(UndeadRibGuard.up(p) && Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "Shift+V: the ribs are up");
+		helper.assertTrue(!UndeadRibGuard.up(p), "not yet on the press: a hold would be Reform's");
+		press(p, AbilitySlot.SLOT_5, true, false);
+		helper.assertTrue(UndeadRibGuard.up(p) && Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "a Shift+V tap: the ribs are up");
 		helper.assertTrue(!UndeadBoneSword.held(p) && Undead.cooldownRemaining(p, UndeadAbilities.REFORM) == 0, "not the sword, not Reform");
 		float hp = p.getHealth();
 		p.invulnerableTime = 0;
@@ -268,8 +270,6 @@ public class UndeadKitGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().mobAttack(behind), 6f);
 		helper.assertTrue(hp - p.getHealth() > 5.5f, "from behind: the full hit");
-		press(p, AbilitySlot.SLOT_5, true, false);
-		helper.assertTrue(UndeadRibGuard.up(p), "a quick tap leaves it up");
 		UndeadRibGuard.forTestsLower(p);
 		helper.assertTrue(!UndeadRibGuard.up(p) && Undead.cooldownRemaining(p, UndeadRibGuard.ID) == UndeadKitConfig.RIB_COOLDOWN, "down: 12 s cooldown");
 		p.setShiftKeyDown(false);
@@ -277,32 +277,22 @@ public class UndeadKitGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void ribCageGuardIsUpWhileHeldUpToFourSeconds(GameTestHelper helper) {
+	public void ribCageGuardFromATapStaysUpFourSeconds(GameTestHelper helper) {
+		// v0.17.3: the guard is a Shift+V tap now (the hold is Reform's), and a tap has always kept it up the whole 4 s
 		ServerPlayer p = undead(helper);
 		press(p, AbilitySlot.SLOT_5, true, true);
+		press(p, AbilitySlot.SLOT_5, true, false);
 		p.setShiftKeyDown(false);
 		int[] t = { 0 };
 		helper.onEachTick(() -> {
 			Undead.tick(p);
 			t[0]++;
-			if (t[0] == 20) {
-				helper.assertTrue(UndeadRibGuard.up(p), "held: up");
-				press(p, AbilitySlot.SLOT_5, true, false);
-				p.setShiftKeyDown(false);
-				helper.assertTrue(!UndeadRibGuard.up(p), "a hold let go: down");
+			if (t[0] == UndeadKitConfig.RIB_TICKS - 5) {
+				helper.assertTrue(UndeadRibGuard.up(p), "still up near the end");
 			}
-			if (t[0] == 21) {
-				helper.assertTrue(!Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD) && Undead.cooldownRemaining(p, UndeadRibGuard.ID) > 0, "folded away, cooling down");
-				edit(p, n -> n.abilityReadyAt.clear());
-				press(p, AbilitySlot.SLOT_5, true, true); // and held on
-				p.setShiftKeyDown(false);
-				helper.assertTrue(UndeadRibGuard.up(p), "up again");
-			}
-			if (t[0] == 21 + UndeadKitConfig.RIB_TICKS - 5) {
-				helper.assertTrue(UndeadRibGuard.up(p), "still held: still up");
-			}
-			if (t[0] == 21 + UndeadKitConfig.RIB_TICKS + 3) {
-				helper.assertTrue(!UndeadRibGuard.up(p) && !Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "4 s is the most");
+			if (t[0] == UndeadKitConfig.RIB_TICKS + 3) {
+				helper.assertTrue(!UndeadRibGuard.up(p) && !Undead.state(p).flag(UndeadKitConfig.FLAG_RIB_GUARD), "down after its 4 s");
+				helper.assertTrue(Undead.cooldownRemaining(p, UndeadRibGuard.ID) > 0, "cooling down");
 				helper.succeed();
 			}
 		});

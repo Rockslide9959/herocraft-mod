@@ -18,6 +18,10 @@ public final class UndeadKitConfig {
 	public static final int ANIM_VORTEX_FIRE = 121;
 	/** Shift+Z let go at full charge: the arm thrown down at the target as the meteor is called. */
 	public static final int ANIM_METEOR_CALL = 122;
+	/** Tap V: Rib Shotgun -- the chest torn open (to {@link #RIB_SHOT_WINDUP}), the ribs fired, the recoil. */
+	public static final int ANIM_RIB_SHOT = 123;
+	/** Shift + hold V past {@link #REFORM_TAP}: gathering himself for Reform (it fires at {@link #REFORM_HOLD}). */
+	public static final int ANIM_REFORM_GATHER = 124;
 	/** The katana's skills (hold V). */
 	public static final int ANIM_K_CRESCENT = 130;
 	public static final int ANIM_K_GREAT = 131;
@@ -75,6 +79,32 @@ public final class UndeadKitConfig {
 	public static final double METEOR_SHAKE_RADIUS = 48.0;
 	/** The caster's speed while charging (a multiplier added: -0.6 = 40% of normal). */
 	public static final double METEOR_CHARGE_SLOW = -0.6;
+
+	// ---------------------------------------------------------------- tap V: Rib Shotgun
+
+	/** He tears his chest open this long before the ribs fly. */
+	public static final int RIB_SHOT_WINDUP = 6;
+	public static final int RIB_SHOT_COUNT = 7;
+	/** The cone's half-angle in degrees (a 30 degree spread). */
+	public static final double RIB_SHOT_CONE = 15.0;
+	public static final float RIB_SHOT_DAMAGE = 6f;
+	/** Blocks a tick (40 b/s): across the range in half a second. */
+	public static final double RIB_SHOT_SPEED = 2.0;
+	public static final double RIB_SHOT_RANGE = 20.0;
+	public static final double RIB_SHOT_KNOCK = 0.35;
+	public static final double RIB_SHOT_LIFT = 0.06;
+	/** A spike that hits a block sticks in it this long, then crumbles. */
+	public static final int RIB_SHOT_EMBED = 30;
+	/** The blast's kick back on him (blocks a tick). */
+	public static final double RIB_SHOT_RECOIL = 0.22;
+	public static final int RIB_SHOT_COOLDOWN = 120;
+
+	// ---------------------------------------------------------------- Shift + hold V: Reform (numbers in UndeadConfig)
+
+	/** Shift+V let go before this is a tap: the Rib Cage Guard. From here on he gathers himself for Reform ... */
+	public static final int REFORM_TAP = 6;
+	/** ... which happens once Shift+V has been held this long (still held). Let go between the two: nothing. */
+	public static final int REFORM_HOLD = 20;
 
 	// ---------------------------------------------------------------- Shift+V: Rib Cage Guard
 

@@ -74,7 +74,7 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		float ry = Mth.rotLerp(partial, e.yRotO, e.getYRot());
 		float rx = Mth.lerp(partial, e.xRotO, e.getXRot());
 		pose.translate(0, e.getBbHeight() * 0.5, 0);
-		boolean along = e.style() == UndeadPartEntity.STYLE_PUNCH || e.isSword() || e.isSplinter() || e.isHand();
+		boolean along = e.style() == UndeadPartEntity.STYLE_PUNCH || e.isSword() || e.isSplinter() || e.isHand() || e.isRib();
 		if (along) {
 			// v0.17.3: aligned to where it is going (yaw and pitch from the motion, eased frame to frame); once it lies on the
 			// ground it settles flat
@@ -89,8 +89,10 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 			pose.popPose();
 			return;
 		}
-		if (e.isSplinter() || e.isSword()) {
-			if (e.isSplinter()) {
+		if (e.isSplinter() || e.isSword() || e.isRib()) {
+			if (e.isRib()) {
+				UndeadRibShotFx.spike(pose, buffers, light); // v0.17.3 tap V: a rib fired out of his chest
+			} else if (e.isSplinter()) {
 				UndeadBoneSwordRender.splinter(pose, buffers, light);
 			} else {
 				// the thrown Bone Sword, point first: sword space has the blade toward -z and +y down
@@ -342,7 +344,7 @@ public class UndeadPartRenderer extends EntityRenderer<UndeadPartEntity> {
 		if (e.isLeftBehind()) {
 			return; // v0.17.3: it has already dissolved away (leaveBehind): nothing bursts
 		}
-		if (e.isSplinter() || e.isSword()) {
+		if (e.isSplinter() || e.isSword() || e.isRib()) {
 			// bone bits and blood
 			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
 			if (Minecraft.getInstance().level != null) {
