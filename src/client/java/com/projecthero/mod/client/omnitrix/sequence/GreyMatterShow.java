@@ -79,14 +79,14 @@ public final class GreyMatterShow extends ShowSequenceClient {
 			{ 98.01f, 0.95f, -125f, 1.55f, 1.62f, -0.08f, 0f },
 			{ FACE_AT, 0.95f, -105f, 1.65f, 1.75f, -0.05f, 0f },
 			// the face, close, from his left front
-			{ FACE_AT + 0.01f, 1.6f, -28f, 1.8f, 1.9f, 0f, 0.05f },
-			{ NAPE_AT, 1.45f, -14f, 1.82f, 1.9f, 0f, 0.05f },
+			{ FACE_AT + 0.01f, 1.25f, -28f, 1.8f, 1.9f, 0f, 0.05f },
+			{ NAPE_AT, 1.15f, -14f, 1.82f, 1.9f, 0f, 0.05f },
 			// the back of his head, from below behind
 			{ NAPE_AT + 0.01f, 1.8f, 176f, 1.45f, 1.85f, 0f, 0f },
 			{ 146f, 1.7f, 172f, 1.5f, 1.85f, 0f, 0f },
 			{ FRONT2_AT, 1.6f, 60f, 1.75f, 1.88f, 0f, 0f },
 			// the face from the front, a little low, pulling back to the full body
-			{ FRONT2_AT + 0.01f, 1.6f, 2f, 1.72f, 1.88f, 0f, 0f },
+			{ FRONT2_AT + 0.01f, 1.25f, 2f, 1.72f, 1.88f, 0f, 0f },
 			{ STANCE_AT, 2.1f, 0f, 1.55f, 1.65f, 0f, 0f },
 			{ 190f, 3.3f, 0f, 1.1f, 1.05f, 0f, 0f },
 			// the leap, low in front
