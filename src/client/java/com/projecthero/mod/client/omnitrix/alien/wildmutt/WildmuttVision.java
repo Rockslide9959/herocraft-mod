@@ -43,7 +43,9 @@ public final class WildmuttVision {
 
 	/** Whether this client is Wildmutt, looking through his own head. */
 	public static boolean active(Minecraft mc) {
-		return mc.player != null && mc.getCameraEntity() == mc.player && AlienKit.activeKit(mc.player) instanceof WildmuttKit;
+		// v0.17.3: not while the show transformation plays (its stage and flashes would be blacked out)
+		return mc.player != null && mc.getCameraEntity() == mc.player && AlienKit.activeKit(mc.player) instanceof WildmuttKit
+				&& com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.age(mc.player, 0f, com.projecthero.mod.omnitrix.alien.Aliens.WILDMUTT.id()) < 0f;
 	}
 
 	static void render(WorldRenderContext context) {
