@@ -15,7 +15,7 @@ for (const f of files) {
     if (f.endsWith('OmnitrixInfo.java')) {
       return '\t\t\t// v0.17.3: the new aliens, U+E01B..U+E020 (Snare-oh, Eye Guy, Frankenstrike, Arctiguana, Benwolf, Shock Rock)' + nl + '\t\t\t' + FULL + ');' + nl;
     }
-    if (f.endsWith('Aliens.java') && /^\s*"[a-z_]+"\); \/\/ v0\.17\.3/m.test(a)) {
+    if (f.endsWith('Aliens.java') && /"\); \/\/ v0\.17\.3/.test(a)) {
       const ids = (a + b).match(/"[a-z_]+"/g);
       return '\t\t\t' + [...new Set(ids)].join(', ') + '); // v0.17.3' + nl;
     }
