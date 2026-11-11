@@ -54,7 +54,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li>{@code spirit_orb} (Shift+G): a long, rooted charge, a giant ball thrown overhead; base form only.</li>
  *   <li>{@code barrage} (Z): rapid punches and a knockback finisher.</li>
  *   <li>{@code sky_combo} (Shift+Z): kick them up, chase, two kicks in the air, smash them down.</li>
- *   <li>{@code dragon_rush} (C): a wind-up, then a rushing punch; Super Saiyan 3 and up.</li>
+ *   <li>{@code dragon_rush} (C): a wind-up, then a rushing punch; Super Saiyan only.</li>
  *   <li>{@code instant_step} (V): teleport to where he looks, behind a creature he looks at.</li>
  * </ul>
  * Every map here is dropped by {@link #clearSessionState} and {@link #forget}.
@@ -927,9 +927,9 @@ public final class SaiyanMoves {
 
 	// ---------------------------------------------------------------- C: Dragon Rush
 
-	/** Dragon Rush needs Super Saiyan 3 or a stronger form. */
+	/** Dragon Rush needs Super Saiyan (v0.17.3: it used to need Super Saiyan 3, a form no longer in play). */
 	public static boolean rushAllowed(SaiyanForm f) {
-		return f.ordinal() >= SaiyanForm.SSJ3.ordinal();
+		return f != SaiyanForm.BASE;
 	}
 
 	private static void rushStart(ServerPlayer p) {

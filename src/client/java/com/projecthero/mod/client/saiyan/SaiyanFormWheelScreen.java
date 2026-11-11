@@ -7,7 +7,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.gui.PowerWheelScreen;
 import com.projecthero.mod.saiyan.Saiyan;
-import com.projecthero.mod.saiyan.SaiyanConfig;
 import com.projecthero.mod.saiyan.SaiyanForm;
 import com.projecthero.mod.saiyan.network.SaiyanActionPayload;
 
@@ -23,9 +22,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3: the Saiyan form wheel. Holding H opens it -- every form round the ring, each segment edged in its aura colour; a
- * locked form is dark with a lock-grey rim, one that can't be entered right now (Overdrive outside Blue, Instinct above 35%
- * health, too little Ki) is dimmed. Clicking a form sends the pick (the server re-checks); letting go of H (or Escape)
+ * v0.17.3: the Saiyan form wheel. Holding H opens it -- Base and Super Saiyan as the two halves of the ring, each edged in its
+ * aura colour; one that can't be entered right now (exhausted, too little Ki) is dimmed. Clicking a form sends the pick (the server re-checks); letting go of H (or Escape)
  * closes it without one. Drawn with the power wheel's ring geometry ({@link PowerWheelScreen#band}), like the alien wheel.
  */
 public final class SaiyanFormWheelScreen extends Screen {
@@ -41,9 +39,10 @@ public final class SaiyanFormWheelScreen extends Screen {
 	private static final int DEAD_ZONE = 24;
 	private static final float OPEN_TICKS = 3f;
 
-	private final SaiyanForm[] forms = SaiyanForm.values();
+	/** v0.17.3: only the forms in play (Base and Super Saiyan): two halves. */
+	private final SaiyanForm[] forms = SaiyanForm.PLAYABLE;
 	private int hovered = -1;
-	private final float[] hoverAnim = new float[SaiyanForm.values().length];
+	private final float[] hoverAnim = new float[SaiyanForm.PLAYABLE.length];
 	private long lastFrameNanos = 0L;
 	private int ticksOpen = 0;
 	private boolean held = false;
@@ -114,13 +113,7 @@ public final class SaiyanFormWheelScreen extends Screen {
 		if (Saiyan.exhausted(p)) {
 			return "screen.projecthero.saiyan.exhausted";
 		}
-		if (f == SaiyanForm.BLUE_OVERDRIVE && now != SaiyanForm.BLUE) {
-			return "screen.projecthero.saiyan.from_blue";
-		}
-		if (f == SaiyanForm.INSTINCT && p.getHealth() > p.getMaxHealth() * SaiyanConfig.INSTINCT_HEALTH) {
-			return "screen.projecthero.saiyan.low_hp";
-		}
-		if (!p.getAbilities().instabuild && Saiyan.ki(p) + 1.0e-3f < Math.max(f.cost, f == SaiyanForm.INSTINCT ? SaiyanConfig.INSTINCT_KI : 0f)) {
+		if (!p.getAbilities().instabuild && Saiyan.ki(p) + 1.0e-3f < f.cost) {
 			return "screen.projecthero.saiyan.no_ki";
 		}
 		return null;

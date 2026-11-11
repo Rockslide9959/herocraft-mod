@@ -10,8 +10,6 @@ import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.saiyan.data.SaiyanState;
 import com.projecthero.mod.saiyan.moves.SaiyanMoves;
 
-import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
-import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -20,12 +18,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3f;
@@ -35,19 +31,15 @@ import org.joml.Vector3f;
  * {@link SaiyanState}. The moves live in {@code saiyan.moves.SaiyanMoves}, the hair and aura on the client.
  *
  * <h2>Ki</h2>
- * 0..100. Hold Q to charge it (12 a second; you stand and can't attack). Transforming costs Ki, and from Super Saiyan 2 up
- * every form drains it. At 0 you drop back to Base, exhausted for 5 seconds (slowed, no transforming). Base and Super Saiyan
- * trickle it back on their own. Flight costs a little.
+ * 0..100. Hold Q to charge it (12 a second; you stand and can't attack). Transforming costs Ki. At 0 you drop back to Base,
+ * exhausted for 5 seconds (slowed, no transforming). Base and Super Saiyan trickle it back on their own. Flight costs a little.
  *
  * <h2>Forms</h2>
- * {@link SaiyanForm}: H opens the form wheel. Each form unlocks by time spent in the one before it (mastery), or all at once
- * with the gamerule {@code projectheroSaiyanAllForms}. Blue Overdrive only from Blue; Instinct only at 35% health or less.
- * Shift+V powers down.
+ * Base and Super Saiyan only ({@link SaiyanForm#PLAYABLE}; user, v0.17.3: "only super saiyan for now"). H opens the form
+ * wheel; Super Saiyan is open from the start. Shift+V powers down.
  */
 public final class Saiyan {
 	public static final String KEY = "saiyan";
-	public static final String RULE_ALL_FORMS = "projectheroSaiyanAllForms";
-	public static GameRules.Key<GameRules.BooleanValue> ALL_FORMS;
 
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("saiyan_attack");
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("saiyan_health");
@@ -59,10 +51,6 @@ public final class Saiyan {
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 
 	private Saiyan() {
-	}
-
-	static void registerRules() {
-		ALL_FORMS = GameRuleRegistry.register(RULE_ALL_FORMS, GameRules.Category.PLAYER, GameRuleFactory.createBooleanRule(false));
 	}
 
 	public static void clearSessionState() {
@@ -145,37 +133,10 @@ public final class Saiyan {
 		return d < 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, d);
 	}
 
-	/** The form is unlocked (by mastery or the gamerule). Server: reads the gamerule; client: the synced mask only. */
+	/** The form can be used: Base and Super Saiyan, for anyone with the power. The removed forms never are. */
 	public static boolean unlocked(Player player, SaiyanForm f) {
 		SaiyanState s = peek(player);
-		if (s == null || !s.hasPower) {
-			return false;
-		}
-		if (f == SaiyanForm.BASE || f == SaiyanForm.SSJ) {
-			return true;
-		}
-		if (player.level() instanceof ServerLevel level && ALL_FORMS != null && level.getGameRules().getBoolean(ALL_FORMS)) {
-			return true;
-		}
-		return (s.unlocked & (1 << f.ordinal())) != 0;
-	}
-
-	/** How far the next locked form along the chain has got, 0..1, and which form that is (null = everything unlocked). */
-	public static SaiyanForm nextLocked(Player player) {
-		for (SaiyanForm f : SaiyanForm.values()) {
-			if (f.masteredFrom() != null && !unlocked(player, f)) {
-				return f;
-			}
-		}
-		return null;
-	}
-
-	public static float masteryProgress(Player player, SaiyanForm target) {
-		SaiyanState s = peek(player);
-		if (s == null || target == null || target.masteredFrom() == null || target.masteryTicks() <= 0) {
-			return 1f;
-		}
-		return Math.min(1f, s.masteryOf(target.masteredFrom()) / (float) target.masteryTicks());
+		return s != null && s.hasPower && f.playable();
 	}
 
 	public static int cooldownRemaining(Player player, String id) {
@@ -347,17 +308,6 @@ public final class Saiyan {
 		if (now - s.lastTransformAt < SaiyanConfig.TRANSFORM_COOLDOWN && now >= s.lastTransformAt) {
 			return "message.projecthero.saiyan.too_soon";
 		}
-		if (target == SaiyanForm.BLUE_OVERDRIVE && s.form() != SaiyanForm.BLUE) {
-			return "message.projecthero.saiyan.overdrive_from_blue";
-		}
-		if (target == SaiyanForm.INSTINCT) {
-			if (player.getHealth() > player.getMaxHealth() * SaiyanConfig.INSTINCT_HEALTH) {
-				return "message.projecthero.saiyan.instinct_health";
-			}
-			if (s.ki < SaiyanConfig.INSTINCT_KI && !player.getAbilities().instabuild) {
-				return "message.projecthero.saiyan.instinct_ki";
-			}
-		}
 		if (s.ki + 1.0e-3f < target.cost && !player.getAbilities().instabuild) {
 			return "message.projecthero.saiyan.no_ki";
 		}
@@ -419,11 +369,7 @@ public final class Saiyan {
 	private static void burst(ServerPlayer player, SaiyanForm f) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position();
-		// one burst for every form, pitched up a little the higher the form; Super Saiyan 2's lightning crackles on top
 		level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 0.95f + f.ordinal() * 0.02f);
-		if (f == SaiyanForm.SSJ2) {
-			level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.SSJ2_SPARK, SoundSource.PLAYERS, 0.7f, 1.0f);
-		}
 	}
 
 	static DustParticleOptions dust(int argb, float size) {
@@ -445,43 +391,6 @@ public final class Saiyan {
 		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.EXHAUSTED, SoundSource.PLAYERS, 0.8f, 1.0f);
 		level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.2, player.getZ(), 12, 0.3, 0.4, 0.3, 0.01);
 		player.displayClientMessage(Component.translatable("message.projecthero.saiyan.exhausted_now").withStyle(ChatFormatting.RED), true);
-	}
-
-	/** Unlocks every form whose mastery is met; tells the player. */
-	private static void checkUnlocks(ServerPlayer player, SaiyanState s) {
-		if (ALL_FORMS != null && ((ServerLevel) player.level()).getGameRules().getBoolean(ALL_FORMS)) {
-			s.unlocked |= (1 << SaiyanForm.values().length) - 1; // the gamerule: every form (synced, so the wheel shows them open)
-			return;
-		}
-		for (SaiyanForm f : SaiyanForm.values()) {
-			int bit = 1 << f.ordinal();
-			if ((s.unlocked & bit) != 0) {
-				continue;
-			}
-			boolean met;
-			if (f == SaiyanForm.INSTINCT) {
-				met = (s.unlocked & (1 << SaiyanForm.BLUE.ordinal())) != 0;
-			} else if (f.masteredFrom() == null) {
-				continue;
-			} else {
-				met = s.masteryOf(f.masteredFrom()) >= f.masteryTicks();
-			}
-			if (met) {
-				s.unlocked |= bit;
-				player.displayClientMessage(Component.translatable("message.projecthero.saiyan.unlocked", Component.translatable(f.nameKey()))
-						.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-				player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 0.8f);
-			}
-		}
-	}
-
-	/** {@code /projecthero power tune saiyan unlock_all}: every form, by mask (independent of the gamerule). */
-	public static void unlockAll(ServerPlayer player) {
-		SaiyanState n = state(player).copy();
-		for (SaiyanForm f : SaiyanForm.values()) {
-			n.unlocked |= 1 << f.ordinal();
-		}
-		save(player, n);
 	}
 
 	// ---------------------------------------------------------------- stats
@@ -531,15 +440,10 @@ public final class Saiyan {
 			return;
 		}
 		SaiyanForm f = s.form();
-		boolean changed = false;
-		// mastery: time in the current form (the unlock check runs every second, and every tick in a form)
-		if (f != SaiyanForm.BASE && player.isAlive()) {
-			s.mastery.set(f.ordinal(), s.masteryOf(f) + 1);
-		}
-		if (f != SaiyanForm.BASE || now % 20 == 0) {
-			int before = s.unlocked;
-			checkUnlocks(player, s);
-			changed = before != s.unlocked;
+		// an old save left in a form that's no longer in play (it already reads as Super Saiyan): store it as Super Saiyan
+		boolean changed = s.form != f.ordinal();
+		if (changed) {
+			s.form = f.ordinal();
 		}
 		// Ki
 		float ki = s.ki;
@@ -565,12 +469,6 @@ public final class Saiyan {
 			SaiyanFlight.stop(player);
 			s = state(player);
 		}
-		// Blue Overdrive burns; God and Blue heal
-		if (f == SaiyanForm.BLUE_OVERDRIVE && !creative && (now - s.formSince) > 0 && (now - s.formSince) % SaiyanConfig.OVERDRIVE_SELF_DAMAGE_INTERVAL == 0) {
-			overdriveBurn(player);
-			s = state(player);
-			f = s.form();
-		}
 		if (f.regenerates && player.isAlive() && now % SaiyanConfig.REGEN_INTERVAL == 0 && player.getHealth() < player.getMaxHealth()) {
 			player.heal(SaiyanConfig.REGEN_AMOUNT);
 		}
@@ -586,23 +484,6 @@ public final class Saiyan {
 		if (changed || now % SaiyanConfig.SYNC_INTERVAL == 0) {
 			save(player, state(player).copy());
 		}
-	}
-
-	/** Overdrive's cost: 1 HP; at the floor it drops back to Blue by itself. */
-	public static void overdriveBurn(ServerPlayer player) {
-		float h = player.getHealth();
-		if (h <= SaiyanConfig.OVERDRIVE_FLOOR + SaiyanConfig.OVERDRIVE_SELF_DAMAGE) {
-			SaiyanState n = state(player).copy();
-			n.form = SaiyanForm.BLUE.ordinal();
-			n.formSince = player.level().getGameTime();
-			save(player, n);
-			reconcile(player);
-			player.displayClientMessage(Component.translatable("message.projecthero.saiyan.overdrive_drop").withStyle(ChatFormatting.RED), true);
-			return;
-		}
-		player.setHealth(h - SaiyanConfig.OVERDRIVE_SELF_DAMAGE);
-		ServerLevel level = (ServerLevel) player.level();
-		level.sendParticles(dust(0xFFFF2A2A, 1.4f), player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.35, 0.6, 0.35, 0.0);
 	}
 
 	/** The charge's look is the client's aura (bigger flame, ground glow, floating debris: {@code client.saiyan.aura}); nothing to send. */

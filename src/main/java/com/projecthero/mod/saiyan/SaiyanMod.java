@@ -29,7 +29,6 @@ public final class SaiyanMod {
 	}
 
 	public static void initialize() {
-		Saiyan.registerRules();
 		SaiyanItems.initialize();
 		SaiyanDamage.initialize();
 		PayloadTypeRegistry.playC2S().register(SaiyanActionPayload.TYPE, SaiyanActionPayload.CODEC);
@@ -92,20 +91,10 @@ public final class SaiyanMod {
 									c.getSource().sendSuccess(() -> Component.literal("Ki set to " + Math.round(v)), false);
 									return 1;
 								})))
-				.then(Commands.literal("unlock_all").executes(c -> {
-					ServerPlayer player = c.getSource().getPlayerOrException();
-					if (!Saiyan.hasPower(player)) {
-						c.getSource().sendFailure(Component.literal("You are not a Saiyan"));
-						return 0;
-					}
-					Saiyan.unlockAll(player);
-					c.getSource().sendSuccess(() -> Component.literal("Every Saiyan form unlocked"), false);
-					return 1;
-				}))
 				.then(Commands.literal("form")
 						.then(Commands.argument("name", StringArgumentType.word())
 								.suggests((c, b) -> {
-									for (SaiyanForm f : SaiyanForm.values()) {
+									for (SaiyanForm f : SaiyanForm.PLAYABLE) {
 										b.suggest(f.key);
 									}
 									return b.buildFuture();
@@ -113,7 +102,7 @@ public final class SaiyanMod {
 								.executes(c -> {
 									ServerPlayer player = c.getSource().getPlayerOrException();
 									SaiyanForm f = SaiyanForm.byKey(StringArgumentType.getString(c, "name"));
-									if (!Saiyan.hasPower(player) || f == null) {
+									if (!Saiyan.hasPower(player) || f == null || !f.playable()) {
 										c.getSource().sendFailure(Component.literal("Not a Saiyan, or no such form"));
 										return 0;
 									}

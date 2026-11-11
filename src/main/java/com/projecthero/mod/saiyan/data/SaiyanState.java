@@ -67,8 +67,9 @@ public final class SaiyanState {
 				abilityReadyAt, dodgeReadyAt);
 	}
 
+	/** v0.17.3: only Base and Super Saiyan are in play; a save left in a removed form loads as Super Saiyan. */
 	public SaiyanForm form() {
-		return SaiyanForm.byOrdinal(form);
+		return SaiyanForm.byOrdinal(form).playableOrSsj();
 	}
 
 	public int masteryOf(SaiyanForm f) {

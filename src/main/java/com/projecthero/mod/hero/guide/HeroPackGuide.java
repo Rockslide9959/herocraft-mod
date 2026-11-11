@@ -1772,7 +1772,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.saiyan.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.saiyan.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "ki", "forms", "mastery", "instinct", "overdrive", "flight"}) {
+			for (String section : new String[]{"getting", "ki", "forms", "flight"}) { // v0.17.3: Base and Super Saiyan only
 				head(lines, "projecthero.guide.saiyan." + section);
 				para(lines, "projecthero.guide.saiyan." + section + ".body");
 				blank(lines);

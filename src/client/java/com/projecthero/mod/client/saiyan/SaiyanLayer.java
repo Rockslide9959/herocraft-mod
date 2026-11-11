@@ -22,5 +22,7 @@ public class SaiyanLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 			return;
 		}
 		SaiyanAuraRenderer.render(pose, buffers, player, partialTick, ageInTicks);
+		// v0.17.3: a Super Saiyan's golden hair
+		com.projecthero.mod.client.saiyan.hair.SsjHairRenderer.render(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks);
 	}
 }

@@ -1,0 +1,21 @@
+// TEMP: hook SsjHairHarness in (arg "on") or out (arg "off"). Run from the worktree root.
+const fs = require('fs');
+const on = process.argv[2] !== 'off';
+let f = 'src/client/resources/projecthero.client.mixins.json';
+let t = fs.readFileSync(f, 'utf8');
+const nl = t.includes('\r\n') ? '\r\n' : '\n';
+const anchor = '\t\t"AlienXHallCameraMixin",';
+const mix = anchor + nl + '\t\t"SsjHairHarnessCamMixin",' + nl + '\t\t"SsjHairHarnessSkinMixin",';
+if (!t.includes(anchor)) throw new Error('no mixin anchor');
+if (on && !t.includes('SsjHairHarnessCamMixin')) t = t.replace(anchor, mix);
+if (!on) t = t.replace(mix, anchor);
+JSON.parse(t);
+fs.writeFileSync(f, t);
+f = 'src/client/java/com/projecthero/mod/client/ProjectHeroModClient.java';
+t = fs.readFileSync(f, 'utf8');
+const nl2 = t.includes('\r\n') ? '\r\n' : '\n';
+const hook = '\t\tModKeyBindings.initialize();' + nl2 + '\t\tSsjHairHarness.init(); // TEMP-HARNESS';
+if (on && !t.includes('SsjHairHarness')) t = t.replace('\t\tModKeyBindings.initialize();', hook);
+if (!on) t = t.replace(hook, '\t\tModKeyBindings.initialize();');
+fs.writeFileSync(f, t);
+console.log(on ? 'hooked' : 'unhooked');

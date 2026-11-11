@@ -22,8 +22,7 @@ import net.minecraft.network.chat.Component;
 /**
  * v0.17.3: the Saiyan HUD, bottom-right, drawn from the game's own pieces ({@link VanillaHud}) like Undead's and the Omnitrix's:
  * <pre>
- *   Super Saiyan 2                        the form, in its hair colour (red while exhausted)
- *   Mastery  [boss bar ====---]  SSJ3     time toward the next form (gone once all are unlocked)
+ *   Super Saiyan                          the form, in its hair colour (red while exhausted)
  *   Ki       [boss bar =======-]  82      the Ki bar (pulses while charging)
  *   +----+----+----+----+----+----+       R G Z X C V: the shown move's cooldown as the item sweep, the Shift move's as a
  *   | R  | G  | Z  | X  | C  | V  |       durability bar; yellow while Shift shows the Shift moves; frame on X while flying
@@ -73,13 +72,6 @@ public final class SaiyanHud {
 		VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.saiyan.ki"), ki, kiColour & 0xFFFFFF,
 				String.valueOf(Math.round(s.ki)), ki < 0.15f ? VanillaHud.RED : VanillaHud.WHITE);
 		by -= 11;
-		SaiyanForm next = Saiyan.nextLocked(p);
-		if (next != null && next != SaiyanForm.INSTINCT) {
-			float m = Saiyan.masteryProgress(p, next);
-			VanillaHud.meter(g, x0, by, WIDTH, Component.translatable("hud.projecthero.saiyan.mastery"), m, 0xA060FF,
-					Component.translatable(next.nameKey() + ".short").getString(), VanillaHud.GREY);
-			by -= 11;
-		}
 		boolean exhausted = s.exhaustedUntil > now;
 		Component title = exhausted ? Component.translatable("hud.projecthero.saiyan.exhausted")
 				: Component.translatable(f.nameKey());

@@ -1,0 +1,329 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+
+
+import com.projecthero.mod.client.saiyan.SaiyanFx;
+import com.projecthero.mod.saiyan.SaiyanForm;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the SSJ hair preview on Steve. Enabled by run/ssjhair.flag (its text filters scenes). */
+public final class SsjHairHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+	private static int headAnimFrom = -1, headAnimTo = -1;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0f;
+	public static volatile float orbitRadius = 2.4f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.9f;
+	public static volatile PlayerSkin skin;
+
+	private SsjHairHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("ssjhair.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("ssjhair.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SsjHairHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "ssjhair-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static PlayerSkin steve() {
+		for (int i = 0; i < 4000; i++) {
+			PlayerSkin s = DefaultPlayerSkin.get(new UUID(i * 7919L, i * 104729L + 1));
+			if (s.texture().getPath().contains("wide/steve")) {
+				return s;
+			}
+		}
+		return DefaultPlayerSkin.get(UUID.randomUUID());
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SsjHairHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(30);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.particles().set(net.minecraft.client.ParticleStatus.MINIMAL);
+			skin = steve();
+			com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.SSJ, false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			int now = inWorldTicks - t0;
+			if (now % 3 == 0) {
+				// no potion swirls on the test player
+				server(mc, p -> {
+					if (!p.getActiveEffects().isEmpty()) {
+						p.removeAllEffects();
+					}
+				});
+			}
+			Runnable r = AT.remove(now);
+			if (r != null) {
+				r.run();
+			}
+			if (now >= headAnimFrom && now < headAnimTo && mc.player != null) {
+				float k = (now - headAnimFrom) / 20f;
+				float yaw = 45f * (float) Math.sin(k * 1.4f);
+				float pitch = 28f * (float) Math.sin(k * 2.1f);
+				mc.player.setYRot(yaw);
+				mc.player.setYHeadRot(yaw);
+				mc.player.yBodyRot = 0f;
+				mc.player.setXRot(pitch);
+			} else if (now == headAnimTo && mc.player != null) {
+				mc.player.setYRot(0f);
+				mc.player.setYHeadRot(0f);
+				mc.player.setXRot(0f);
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("sh_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (now >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void still(int t, String name) {
+		at(t, () -> {
+			Screenshot.grab(Minecraft.getInstance().gameDirectory, "sh_still_" + name + ".png", Minecraft.getInstance().getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] still " + name);
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void reset(Minecraft mc, int t) {
+		at(t, () -> {
+			server(mc, p -> {
+				p.removeAllEffects();
+				p.getAbilities().flying = false;
+				p.onUpdateAbilities();
+				p.setDeltaMovement(Vec3.ZERO);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				p.setYHeadRot(0f);
+				p.yBodyRot = 0f;
+			});
+			if (mc.player != null) {
+				mc.player.setYRot(0f);
+				mc.player.setYHeadRot(0f);
+				mc.player.yBodyRot = 0f;
+				mc.player.setXRot(0f);
+			}
+		});
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		reset(mc, t);
+		t += 20;
+		if (want("stills")) {
+			Object[][] views = { { "front", 0f, 0.05f, 2.6f, 1.95f }, { "threequarter", 40f, 0.25f, 2.6f, 1.95f }, { "side", 90f, 0.05f, 2.6f, 1.95f },
+					{ "back", 180f, 0.15f, 3.3f, 2.05f }, { "closeup", 0f, -0.05f, 1.35f, 1.78f }, { "high", 30f, 1.4f, 2.6f, 1.95f }, { "side2", 270f, 0.05f, 3.3f, 2.05f }, { "topthreequarter", 145f, 1.7f, 3.3f, 2.05f }, { "top", 0f, 3.2f, 0.35f, 2.0f },
+					{ "body", 30f, 0.4f, 6.5f, 1.25f } };
+			for (Object[] v : views) {
+				cam(t, (Float) v[1], (Float) v[2], (Float) v[3], 0f, (Float) v[4]);
+				still(t + 6, (String) v[0]);
+				t += 10;
+			}
+			// the hat layer on, for comparison: the preview off
+			at(t, () -> com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.BASE, false));
+			cam(t, 0f, 0.05f, 2.6f, 0f, 1.95f);
+			still(t + 6, "front_nohair");
+			at(t + 8, () -> com.projecthero.mod.client.saiyan.SaiyanFx.debugForm(mc.player, com.projecthero.mod.saiyan.SaiyanForm.SSJ, false));
+			t += 12;
+		}
+		if (want("turn")) {
+			cam(t, 0f, 0.1f, 2.7f, 1.5f, 1.95f);
+			record(t + 1, "turntable", 240);
+			t += 245;
+		}
+		if (want("game")) {
+			// in game: Base -> Super Saiyan (the hair grows in with the burst), then down and up again close, charging, first person
+			at(t, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.BASE, false));
+			cam(t, 25f, 0.3f, 4.2f, 0f, 1.5f);
+			at(t + 15, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.SSJ, true));
+			record(t + 5, "transform", 70);
+			t += 80;
+			cam(t, 20f, 0.15f, 2.8f, 0f, 1.85f);
+			at(t + 5, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.BASE, true));
+			at(t + 30, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.SSJ, true));
+			record(t + 1, "transform_close", 60);
+			t += 65;
+			at(t, () -> SaiyanFx.debugCharging(mc.player, true));
+			cam(t, 0f, 0.3f, 4.0f, 2f, 1.4f);
+			record(t + 5, "charge_orbit", 90);
+			at(t + 96, () -> SaiyanFx.debugCharging(mc.player, false));
+			t += 100;
+			at(t, () -> {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+				mc.player.setXRot(0f);
+			});
+			still(t + 10, "fp_level");
+			at(t + 12, () -> mc.player.setXRot(-60f));
+			still(t + 20, "fp_up");
+			at(t + 22, () -> SaiyanFx.debugCharging(mc.player, true));
+			still(t + 40, "fp_charge");
+			at(t + 42, () -> {
+				SaiyanFx.debugCharging(mc.player, false);
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+				mc.player.setXRot(0f);
+			});
+			t += 46;
+		}
+		if (want("head")) {
+			cam(t, 30f, 0.2f, 3.0f, 0f, 1.9f);
+			final int from = t + 2;
+			at(t, () -> {
+				headAnimFrom = from;
+				headAnimTo = from + 100;
+			});
+			record(from, "headturn", 100);
+			t += 106;
+			reset(mc, t);
+			t += 4;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
