@@ -45,7 +45,7 @@ public class GyroMarkLayer<T extends LivingEntity, M extends EntityModel<T>> ext
 		if (m.spun(now) || m.locked(now)) {
 			float t = ageInTicks * 0.045f;
 			getParentModel().renderToBuffer(pose, buffers.getBuffer(RenderType.energySwirl(SWIRL, (t * 1.6f) % 1f, (t * -0.9f) % 1f)),
-					LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFB08A30);
+					LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFF6E5622); // (dim: energySwirl is additive)
 		}
 	}
 }

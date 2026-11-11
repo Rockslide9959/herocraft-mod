@@ -79,12 +79,16 @@ function gyroSkin(slim) {
       return SKIN;
     }
     if (y === 4) return (x === 0 || x === 7) ? HAIR_D : (x === 3 || x === 4) ? SKIN_D : SKIN;
-    if (y === 5) return (x === 0 || x === 7) ? SKIN_D : (x >= 2 && x <= 5) ? MOUTH : SKIN;
-    if (y === 6) {
-      // the gold grill: "GO GO" read as gold teeth with dark letter notches
+    if (y === 5) {
+      // the wide grin: upper gold teeth ("GO!GO!" -- dark notches between the letters)
       if (x === 0 || x === 7) return SKIN_D;
-      if (x >= 1 && x <= 6) return (x === 2 || x === 5) ? GOLD_D : GOLD;
-      return SKIN;
+      if (x === 1 || x === 6) return MOUTH;
+      return x === 3 || x === 5 ? GOLD_D : GOLD;
+    }
+    if (y === 6) {
+      if (x === 0 || x === 7) return SKIN_D;
+      if (x === 1 || x === 6) return SKIN_D;
+      return (x === 2 || x === 5) ? MOUTH : shade(GOLD, 0.85); // lower teeth, the corners dark
     }
     return (x === 0 || x === 7) ? SKIN_D : (x >= 2 && x <= 5) ? SKIN_D : SKIN; // chin
   });
