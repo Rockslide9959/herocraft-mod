@@ -120,7 +120,7 @@ public final class OmnitrixTransformFx {
 			// second green flash
 			Long seq = OmnitrixSequenceClient.start(s);
 			if (seq != null && kind == TRANSFORM) {
-				start = seq + OmnitrixSequenceClient.BURST_AT;
+				start = seq + OmnitrixSequenceClient.burstAt(p);
 			}
 			if (kind >= 0 && now >= start && now - start < duration(kind)) {
 				Fx old = LIVE.get(p.getId());

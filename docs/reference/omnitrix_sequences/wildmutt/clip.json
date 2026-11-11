@@ -1,0 +1,10 @@
+{
+  "alien": "wildmutt",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 31.1,
+  "end": 48.6,
+  "ticks": 350,
+  "mapping": "tick = (videoSecond - 31.1) * 20",
+  "sound": "omnitrix/wildmutt_sequence.ogg",
+  "measuredLufs": -16.9
+}

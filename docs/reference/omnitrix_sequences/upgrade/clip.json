@@ -1,0 +1,10 @@
+{
+  "alien": "upgrade",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 211.1,
+  "end": 220.1,
+  "ticks": 180,
+  "mapping": "tick = (videoSecond - 211.1) * 20",
+  "sound": "omnitrix/upgrade_sequence.ogg",
+  "measuredLufs": -17.8
+}

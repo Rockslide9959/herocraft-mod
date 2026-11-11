@@ -1,0 +1,10 @@
+{
+  "alien": "four_arms",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 132.585,
+  "end": 145.635,
+  "ticks": 261,
+  "mapping": "tick = (videoSecond - 132.585) * 20",
+  "sound": null,
+  "measuredLufs": null
+}

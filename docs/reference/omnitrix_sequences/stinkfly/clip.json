@@ -1,0 +1,10 @@
+{
+  "alien": "stinkfly",
+  "video": "EVERY-ALIEN-TRANSFORMATIONS-SnapYT.App.mp4",
+  "start": 160.7,
+  "end": 176.8,
+  "ticks": 322,
+  "mapping": "tick = (videoSecond - 160.7) * 20",
+  "sound": "omnitrix/stinkfly_sequence.ogg",
+  "measuredLufs": -17.4
+}

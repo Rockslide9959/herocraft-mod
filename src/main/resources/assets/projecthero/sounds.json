@@ -24,6 +24,105 @@
       }
     ]
   },
+  "omnitrix_heatblast_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_heatblast_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_wildmutt_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_wildmutt_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildmutt_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_diamondhead_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_diamondhead_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/diamondhead_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_xlr8_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_xlr8_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_grey_matter_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_grey_matter_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_stinkfly_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_stinkfly_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_ripjaws_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_ripjaws_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_upgrade_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_upgrade_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_ghostfreak_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_ghostfreak_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_cannonbolt_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_cannonbolt_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/cannonbolt_sequence",
+        "stream": true
+      }
+    ]
+  },
+  "omnitrix_wildvine_sequence": {
+    "subtitle": "subtitles.projecthero.omnitrix_wildvine_sequence",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_sequence",
+        "stream": true
+      }
+    ]
+  },
   "omnitrix_transform_user": {
     "subtitle": "subtitles.projecthero.omnitrix_transform_user",
     "sounds": [
