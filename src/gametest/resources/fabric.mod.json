@@ -289,6 +289,7 @@
       "com.projecthero.mod.gametest.OmnitrixFrankenstrikeGameTests",
       "com.projecthero.mod.gametest.OmnitrixEyeGuyGameTests",
       "com.projecthero.mod.gametest.OmnitrixBenwolfGameTests",
+      "com.projecthero.mod.gametest.OmnitrixArctiguanaGameTests",
       "com.projecthero.mod.gametest.OmnitrixAutoGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalibrationGameTests",
       "com.projecthero.mod.gametest.OmnitrixRecalChipGameTests",

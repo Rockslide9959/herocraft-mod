@@ -72,6 +72,8 @@ public final class Aliens {
 	public static final Alien EYE_GUY = declare("eye_guy", 0xE8C84A);
 	// v0.17.3 (user: "make aliens based on their abilities and stuff they do in the show"): Benwolf, a hidden prototype alien
 	public static final Alien BENWOLF = declare("benwolf", 0xC7D0E9);
+	// v0.17.3 (user: "make aliens based on their abilities and stuff they do in the show")
+	public static final Alien ARCTIGUANA = declare("arctiguana", 0x48CFFA);
 
 	// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force), in the show's order
 	public static final Alien SWAMPFIRE = declareRecal("swampfire", 0x3FA34D);
@@ -131,7 +133,7 @@ public final class Aliens {
 	 * an id here and it joins the draw.
 	 */
 	private static final java.util.Set<String> HIDDEN = java.util.Set.of("cannonbolt", "wildvine", "ditto", "way_big", "upchuck", "buzzshock", "feedback",
-			"snare_oh", "frankenstrike", "shock_rock", "eye_guy", "benwolf"); // v0.17.3
+			"snare_oh", "frankenstrike", "shock_rock", "eye_guy", "benwolf", "arctiguana"); // v0.17.3
 	/**
 	 * v0.17.2: hidden aliens no mistransform finds -- only their unlock item (Way Big: the To'kustar Shard, the Abyssal Behemoth's
 	 * drop).

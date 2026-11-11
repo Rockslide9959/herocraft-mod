@@ -31,6 +31,7 @@
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/shock_rock.png", "height": 9, "ascent": 8, "chars": ["\uE020"] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/frankenstrike.png", "height": 9, "ascent": 8, "chars": ["\uE01D"] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/eye_guy.png", "height": 9, "ascent": 8, "chars": ["\uE01C"] },
-    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/benwolf.png", "height": 9, "ascent": 8, "chars": ["\uE01F"] }
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/benwolf.png", "height": 9, "ascent": 8, "chars": ["\uE01F"] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/arctiguana.png", "height": 9, "ascent": 8, "chars": ["\uE01E"] }
   ]
 }
