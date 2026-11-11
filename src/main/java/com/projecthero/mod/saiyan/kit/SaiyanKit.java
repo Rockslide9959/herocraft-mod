@@ -522,7 +522,10 @@ public final class SaiyanKit {
 			return false;
 		}
 		float d = Math.max(0.5f, base);
-		if (!AbilityHelpers.hurtBurst(p, t, p.level().damageSources().playerAttack(p), d)) {
+		float before = t.getHealth() + t.getAbsorptionAmount();
+		boolean dealt = AbilityHelpers.hurtBurst(p, t, p.level().damageSources().playerAttack(p), d);
+		// the core's SaiyanDamage cancels a Saiyan's hit and re-issues it scaled, so hurt() reports false although it landed
+		if (!dealt && !(t.getHealth() + t.getAbsorptionAmount() < before - 1.0e-4f) && t.isAlive()) {
 			return false;
 		}
 		if (!isBoss(t)) {

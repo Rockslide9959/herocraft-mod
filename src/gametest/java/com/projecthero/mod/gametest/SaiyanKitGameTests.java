@@ -345,6 +345,25 @@ public class SaiyanKitGameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void aRealSaiyansHitsCountAsLandedThroughTheCoresReissue(GameTestHelper helper) {
+		// the core's SaiyanDamage cancels and re-issues every hit a Saiyan deals; the kit must still see it land
+		ServerPlayer p = saiyan(helper, SaiyanForm.BASE, 100f);
+		com.projecthero.mod.saiyan.Saiyan.grant(p);
+		Zombie z = target(helper, 2.0);
+		double[] maxVz = { 0 };
+		helper.onEachTick(() -> {
+			SaiyanKit.tick(p);
+			maxVz[0] = Math.max(maxVz[0], z.getDeltaMovement().z);
+		});
+		SaiyanKit.press(p, SaiyanKit.RUSH, true);
+		helper.runAfterDelay(SaiyanKitConfig.RUSH_TICKS + 3, () -> {
+			helper.assertTrue(taken(z) >= SaiyanKitConfig.RUSH_DAMAGE - 0.05f, "the rush hurt it: " + f(taken(z)));
+			helper.assertTrue(maxVz[0] > 1.0, "and it counted as struck, so the finisher knocked it on: " + maxVz[0]);
+			helper.succeed();
+		});
+	}
+
 	// ---------------------------------------------------------------- C: Explosive Wave / Shift+C: Ki Rain
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
