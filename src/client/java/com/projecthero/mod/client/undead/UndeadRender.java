@@ -263,6 +263,9 @@ public final class UndeadRender {
 	 * until the limb has grown out to the wrist / ankle ({@link Undead#mayShow}) -- so a hand never shows floating past its arm.
 	 */
 	public static float endRegrowth(UndeadState s, int part, float now) {
+		if (s.sweeping(part)) {
+			return UndeadRegrow.SWEEP; // v0.17.3: arm + hand as one growth, drawn in one sweep
+		}
 		int end = UndeadState.extremity(part);
 		return end < 0 || !Undead.mayShow(s, end, now) ? 0f : s.regrowth(end, now);
 	}

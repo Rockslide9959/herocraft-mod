@@ -98,7 +98,7 @@ public class UndeadEjectGameTests implements FabricGameTest {
 		helper.assertTrue(Undead.state(p).regrowStart(UndeadState.RIGHT_HAND) <= 0L, "nothing regrows while the move holds");
 		UndeadEject.release(p, UndeadEject.Hold.SPRAY);
 		helper.onEachTick(() -> Undead.tick(p));
-		helper.runAfterDelay(com.projecthero.mod.undead.UndeadConfig.REGROW_DELAY + com.projecthero.mod.undead.UndeadConfig.FRAMES[UndeadState.RIGHT_HAND] + 8, () -> { // (after the 1.5 s regrowth delay)
+		helper.runAfterDelay(com.projecthero.mod.undead.UndeadConfig.REGROW_DELAY + com.projecthero.mod.undead.UndeadConfig.REGROW_TICKS[UndeadState.RIGHT_HAND] + 8, () -> { // (after the 1.5 s regrowth delay)
 			UndeadState n = Undead.state(p);
 			helper.assertTrue(!n.broken(UndeadState.RIGHT_HAND) && !n.broken(UndeadState.LEFT_HAND), "the hands grow back once it lets go");
 			helper.assertTrue(!ejected(n, UndeadState.RIGHT_HAND), "and the mark is forgotten");

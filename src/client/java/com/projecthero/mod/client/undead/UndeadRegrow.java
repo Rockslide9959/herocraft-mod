@@ -48,6 +48,9 @@ public final class UndeadRegrow {
 	private UndeadRegrow() {
 	}
 
+	/** {@link #drawPart}'s {@code endP} for an arm / leg growing as one sweep with its hand / foot ({@code UndeadState#sweeping}). */
+	public static final float SWEEP = -1f;
+
 	/** A whole part growing back, {@code p} 0..1 (an arm / leg with its hand / foot not started). */
 	public static void draw(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p) {
 		drawPart(pose, buffers, light, tex, slim, part, p, 0f);
@@ -61,6 +64,14 @@ public final class UndeadRegrow {
 	 */
 	public static void drawPart(PoseStack pose, MultiBufferSource buffers, int light, ResourceLocation tex, boolean slim, int part, float p,
 			float endP) {
+		if (part >= UndeadState.RIGHT_ARM && endP == SWEEP) {
+			// v0.17.3 (user: "it doesnt regenerate all at once, please fix that"): the arm and its hand growing as ONE limb, all 12
+			// rows from the shoulder to the fingertips on one set of fronts -- the bone pushes out to the fingertips, the muscle
+			// builds behind it, the skin closes over from the shoulder down, the hand the last stretch of each. Nothing of the
+			// hand shows before the bone tip reaches the wrist (the muscle and skin only build where the bone already is).
+			limb(pose, buffers, light, tex, slim, part, p, 0f, 12f, false, true);
+			return;
+		}
 		if (part >= UndeadState.RIGHT_ARM) {
 			limb(pose, buffers, light, tex, slim, part, p, 0f, UndeadCuts.WRIST, false, false);
 			if (endP > 0f) {

@@ -63,6 +63,9 @@ public final class UndeadFirstPerson {
 			return false;
 		}
 		float now = player.level().getGameTime() + partial;
+		if (UndeadHeadThrowRender.firstPersonRip(renderer, player, s, now, hand, pose, buffers, light)) {
+			return true; // v0.17.3 hold X: both hands up on his head, wrenching it off
+		}
 		boolean flying = s.flag(UndeadState.FLAG_PROPELLING);
 		int stage = UndeadStages.stage(s, now);
 		boolean punch = s.flag(UndeadState.FLAG_PUNCH);

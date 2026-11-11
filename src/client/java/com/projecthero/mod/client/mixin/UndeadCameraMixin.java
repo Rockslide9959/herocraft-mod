@@ -20,6 +20,12 @@ public abstract class UndeadCameraMixin {
 		return useSetting ? fov * UndeadFirstPerson.fovScale(partial) : fov;
 	}
 
+	/** v0.17.3 hold X: the view wrenched with the head, the jolt as it tears off (at HEAD: vanilla returns early when not hurt). */
+	@Inject(method = "bobHurt", at = @At("HEAD"))
+	private void projecthero$undeadHeadShake(PoseStack pose, float partial, CallbackInfo ci) {
+		com.projecthero.mod.client.undead.UndeadHeadThrowRender.shake(pose, partial);
+	}
+
 	@Inject(method = "bobHurt", at = @At("TAIL"))
 	private void projecthero$undeadBoostShake(PoseStack pose, float partial, CallbackInfo ci) {
 		UndeadFirstPerson.shake(pose, partial);

@@ -478,7 +478,7 @@ public class UndeadGameTests implements FabricGameTest {
 			helper.assertTrue(a.size() == 1, "and the thrown arm is still flying");
 			helper.assertTrue(a.get(0).position().distanceTo(p.getEyePosition()) > 2.5, "away from the shoulder: " + a.get(0).position().distanceTo(p.getEyePosition()));
 		});
-		helper.runAfterDelay(release + UndeadConfig.REGROW_DELAY + UndeadConfig.FRAMES[UndeadState.RIGHT_ARM] + 4, () -> {
+		helper.runAfterDelay(release + UndeadConfig.REGROW_DELAY + UndeadConfig.LIMB_SWEEP_TICKS + 4, () -> {
 			helper.assertTrue(!Undead.missing(p, arm[0]), "the arm has grown back");
 			helper.succeed(); // (by now the arm has flown past its 60-block range: UndeadBulletGameTests.bulletsGiveOutAt60Blocks)
 		});
