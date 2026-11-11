@@ -1,0 +1,281 @@
+package com.projecthero.mod.client.omnitrix.sequence;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.HipBend;
+import com.projecthero.mod.client.omnitrix.AlienParts;
+import com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+
+import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.env;
+import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.rot;
+import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
+
+/**
+ * v0.17.3 (user: "create transformation sequence for all the aliens that are in this video ... please make the posing and everything
+ * look exactly like how it looks in the show, try to be as expressive as you can without bending the limbs"): Ghostfreak's
+ * transformation from the show, shot for shot, cut to its own soundtrack. Compilation video second {@code v} is tick
+ * {@code (v - 231.00) * 20}. The beats (ticks after the right-click):
+ * <pre>
+ *   0-6      the slap, from high above (Ben looking up into it)              v 231.00-231.30
+ *   6-24     FULL GREEN FLASH                                                 v 231.3-232.2
+ *   24-32    Ben's upper body coming out of the green, grinning             v 232.2-232.6   (green field, black Kirby dots)
+ *   32-38    the face, from a little below, the grin widening               v 232.6-232.9
+ *   38-46    right in on the face, the eyes wide, the skin going pale       v 232.9-233.3
+ *   42-52    a black ring swallowing his left eye; the camera dives in      v 233.1-233.6
+ *   49-58    BLACK -- the body changes inside it (52)                         v 233.45-233.9
+ *   58-64    striped dots on the show green, a grey dome rising           v 233.9-234.2
+ *   64-84    right on the grey skin, the black seam down it                 v 234.2-235.2
+ *   84-112   the purple eye opens in the middle of the frame                v 235.2-236.6
+ *   112-130  pulling back round the head, from below                        v 236.6-237.5
+ *   130-152  in profile, rearing up, the claws curling by his face          v 237.5-238.6
+ *   152-166  WHITE FLASH                                                      v 238.6-239.3
+ *   166-218  laid out in the air, claws spread, the tail streaming,         v 239.3-241.9
+ *            on the green ray burst (black dots at the edges)
+ *   218-230  FULL GREEN FLASH                                                 v 241.9-242.5
+ *   230-242  back in the world, the green fading off                        v 242.5-243.1
+ * </pre>
+ * The pale wash and the black eye are drawn on the human face, the poses on the body, so everyone nearby sees them; flat-colour boxes,
+ * no particles.
+ */
+public final class GhostfreakShow extends ShowSequenceClient {
+	static final float SLAP_END = 6f, BEN_AT = 24f, FACE_AT = 32f, CLOSE_AT = 38f, RING_AT = 42f, DIVE_AT = 46f, BLACK_AT = 49f, DOME_AT = 58f,
+			SKIN_AT = 64f, EYE_AT = 84f, ROUND_AT = 112f, REAR_AT = 130f, WHITE_AT = 152f, FLOAT_AT = 166f, GREEN2_AT = 218f, WORLD_AT = 230f;
+	static final int TRANSFORM_AT = 52;
+
+	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
+
+	private static final int BURST_IN = 0x8CFF5A, BURST_MID = 0x2ED81E, BURST_OUT = 0x0A6A08, BURST_RAY = 0x063A06;
+
+	private static final KirbyDots.Style DOTS = KirbyDots.Style.show(), STRIPES = KirbyDots.Style.show().bands(4).width(1.6f).density(1.4f).clear(0.15f)
+			.angle(35f).spread(6f), BURST_DOTS = KirbyDots.Style.show().bands(1).clear(0.75f).rim(1.4f).flow(1.4f);
+
+	private static final float W = CameraTrack.W;
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(new float[][] {
+			// the slap, from high above and in front, Ben looking up into it
+			{ 0f, 1.15f, 14f, 2.05f, 1.35f, 0f, 0.1f },
+			{ 6f, 1.05f, 14f, 2.0f, 1.35f, 0f, 0.1f } }, ShowShots.dialCloseUp(6.01f, BEN_AT),
+			new float[][] {
+					// the upper body, a little below and in front
+					{ 24.01f, 1.05f, 12f, 1.25f, 1.42f, 0f, 0f },
+					{ 32f, 0.92f, 8f, 1.28f, 1.44f, 0f, 0f },
+					// the face, from a little below
+					{ 32.01f, 1.0f, -10f, 1.5f, 1.63f, 0f, 0f },
+					{ 38f, 0.9f, -8f, 1.52f, 1.64f, 0f, 0f },
+					// right in on the face
+					{ 38.01f, 0.62f, 4f, 1.66f, 1.67f, -0.04f, 0f },
+					{ 46f, 0.52f, 2f, 1.67f, 1.68f, -0.06f, 0f },
+					// diving into his left eye
+					{ 46.01f, 0.46f, -4f, 1.66f, 1.66f, -0.12f, 0.12f },
+					{ 52f, 0.3f, -4f, 1.66f, 1.66f, -0.12f, 0.12f },
+					{ 52.01f, 0.6f, 0f, 1.5f, 1.8f, 0f, 0f },
+					// the grey dome rising into the frame, from below
+					{ 58f, 0.6f, 0f, 1.5f, 1.8f, 0f, 0f },
+					{ 58.01f, 0.5f, 12f, 1.42f, 1.86f, 0f, 0f },
+					{ 64f, 0.44f, 10f, 1.48f, 1.84f, 0f, 0f },
+					// right on the skin
+					{ 64.01f, 0.24f, 22f, 1.76f, 1.78f, 0.02f, 0f },
+					{ 84f, 0.2f, 8f, 1.74f, 1.76f, 0.02f, 0f },
+					// the eye, pulling back off it
+					{ 84.01f, 0.5f, 0f, 1.64f, 1.64f, -0.1f, 0f },
+					{ 112f, 0.62f, 12f, 1.64f, 1.64f, -0.1f, 0f },
+					// round the head, from below
+					{ 112.01f, 0.5f, 34f, 1.42f, 1.7f, 0f, 0f },
+					{ 130f, 0.68f, 52f, 1.38f, 1.7f, 0f, 0f },
+					// in profile, rearing
+					{ 130.01f, 0.78f, 84f, 1.5f, 1.66f, 0f, -0.05f },
+					{ 152f, 0.86f, 78f, 1.5f, 1.68f, 0f, -0.05f },
+					// laid out in the air, from his left and a little above
+					{ 152.01f, 1.85f, -96f, 1.6f, 1.3f, 0f, 0.1f },
+					{ 230f, 1.75f, -92f, 1.6f, 1.3f, 0f, 0.1f } }));
+
+	public GhostfreakShow() {
+		super(Aliens.GHOSTFREAK.id());
+	}
+
+	@Override
+	public float worldAt() {
+		return WORLD_AT;
+	}
+
+	@Override
+	public int burstAt() {
+		return 220;
+	}
+
+	@Override
+	public CameraTrack track() {
+		return TRACK;
+	}
+
+	@Override
+	public double fov(float t) {
+		double fov = 62;
+		if (t >= DIVE_AT && t < DOME_AT) {
+			fov -= 22 * smooth((t - DIVE_AT) / 7f);
+		} else if (t >= FLOAT_AT && t < WORLD_AT) {
+			fov -= 4 * smooth((t - FLOAT_AT) / 40f);
+		}
+		return fov;
+	}
+
+	// ================================================================ the poses
+
+	@Override
+	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
+		m.head.yRot = 0f;
+		if (t < TRANSFORM_AT) {
+			if (t < BEN_AT) {
+				// the slap: looking up into the camera above him, the free hand flung out to the side
+				m.head.xRot = -0.7f;
+				rot(m.rightArm, smooth((t - 2f) / 3f), -0.5f, 0f, 1.1f);
+			} else if (t >= BEN_AT) {
+				// the grin: the chin down, leaning into the camera, the hands up and spread like claws already
+				float w = smooth((t - BEN_AT) / 5f);
+				float wild = smooth((t - CLOSE_AT) / 8f);
+				rot(m.rightArm, w, -1.25f + 0.05f * Mth.sin(t * 3.1f), 0.35f, 0.45f);
+				rot(m.leftArm, w, -1.1f + 0.05f * Mth.sin(t * 2.7f), -0.3f, -0.4f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.22f - 0.12f * wild + 0.04f * Mth.sin(t * 2.2f));
+				m.head.zRot = 0.08f * w + 0.05f * wild * Mth.sin(t * 1.7f);
+				HipBend.pitch(m, w, 0.12f);
+			}
+		} else if (t < REAR_AT) {
+			// hanging still while the camera crawls over him, the claws drifting up
+			float w = smooth((t - DOME_AT) / 8f);
+			rot(m.rightArm, 1f, -1.0f + 0.08f * Mth.sin(t * 0.12f), 0.2f, 0.35f);
+			rot(m.leftArm, 1f, -1.0f + 0.08f * Mth.sin(t * 0.12f + 1.4f), -0.2f, -0.35f);
+			m.head.xRot = -0.2f * w;
+		} else if (t < WHITE_AT) {
+			// rearing up in profile, head thrown back, the claws curling up past his face
+			float w = smooth((t - REAR_AT) / 8f);
+			rot(m.rightArm, w, -2.55f + 0.08f * Mth.sin(t * 0.4f), 0.3f, 0.2f);
+			rot(m.leftArm, w, -1.85f + 0.08f * Mth.sin(t * 0.4f + 1f), -0.25f, -0.35f);
+			m.head.xRot = Mth.lerp(w, m.head.xRot, -0.45f);
+			HipBend.pitch(m, w, -0.18f);
+		} else {
+			// laid out in the air, head first: one claw reaching up ahead, the other swept down his side, the tail streaming behind
+			float w = t < FLOAT_AT ? 1f : smooth((t - WHITE_AT) / 6f);
+			float drift = Mth.sin(t * 0.09f);
+			HipBend.pitch(m, w, 0.95f + 0.04f * drift);
+			float flat = Mth.sin(0.95f) * w;
+			// lifted off the hips so he hangs in the air on his tail
+			m.body.y -= flat * 5f;
+			m.head.y -= flat * 5f;
+			m.rightArm.y -= flat * 5f;
+			m.leftArm.y -= flat * 5f;
+			rot(m.rightArm, w, -2.0f + 0.06f * drift, 0.2f, 0.45f);
+			rot(m.leftArm, w, 0.85f - 0.06f * drift, 0f, -0.5f);
+			m.head.xRot = Mth.lerp(w, m.head.xRot, -0.7f);
+		}
+		if (m instanceof PlayerModel<?> pm) {
+			pm.rightSleeve.copyFrom(m.rightArm);
+			pm.leftSleeve.copyFrom(m.leftArm);
+			pm.jacket.copyFrom(m.body);
+		}
+		m.hat.copyFrom(m.head);
+	}
+
+	// ================================================================ the pale face and the black eye
+
+	@Override
+	public void renderBody(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, PlayerModel<?> model, float t) {
+		if (t < FACE_AT || t >= TRANSFORM_AT) {
+			return;
+		}
+		int light = LightTexture.FULL_BRIGHT;
+		// the face draining pale (translucent: the grin still shows)
+		float pale = smooth((t - FACE_AT - 2f) / 12f);
+		if (pale > 0f) {
+			VertexConsumer wash = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+			int a = Math.round(120 * pale);
+			AlienParts.on(pose, model.head, () -> AlienParts.box(pose, wash, -4.6f, -8.6f, -4.6f, 4.6f, 0.6f, 4.6f, 0f, 0f, 1f, 1f, (a << 24) | 0xF0E8E0,
+					light));
+		}
+		// a black ring round his left eye, swelling until it swallows the face
+		float ring = smooth((t - RING_AT) / 4f), swallow = smooth((t - DIVE_AT) / 6f);
+		if (ring > 0f) {
+			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE));
+			float r = 1.5f * ring + 5f * swallow;
+			AlienParts.on(pose, model.head, () -> {
+				disc(pose, solid, 2f, -4.3f, -4.7f, r, 0xFF050505, light);
+				if (swallow < 0.4f) {
+					// the eye still glaring in the middle of it
+					disc(pose, solid, 2f, -4.3f, -4.75f, 0.75f * ring, 0xFFF4F4E8, light);
+					disc(pose, solid, 2f, -4.3f, -4.8f, 0.4f * ring, 0xFF9CC21E, light);
+				}
+			});
+		}
+	}
+
+	/** A flat round disc facing forward (-z): a stack of boxes. */
+	private static void disc(PoseStack pose, VertexConsumer vc, float cx, float cy, float z, float r, int argb, int light) {
+		int n = 6;
+		for (int i = 0; i < n; i++) {
+			float a = (i + 0.5f) / n * Mth.HALF_PI;
+			float hx = Mth.cos(a) * r, hy = Mth.sin(a) * r;
+			AlienParts.box(pose, vc, cx - hx, cy - hy, z - 0.02f, cx + hx, cy + hy, z, 0f, 0f, 1f, 1f, argb, light);
+		}
+	}
+
+	@Override
+	public void renderWorldFx(PoseStack pose, MultiBufferSource buffers, Camera cam, Player p, float t, float partial) {
+		ShowShots.dialLight(pose, buffers, cam, p, t, OmnitrixSequenceClient.seed(p), 3f, 24f);
+	}
+
+	// ================================================================ the holder's screen
+
+	@Override
+	public void drawStage(Stage st, float t) {
+		int shot = TRACK.shot(t);
+		float inShot = t - TRACK.shotStart(t);
+		if (t < SLAP_END) {
+			// the tiled corridor floor below him
+			st.gradient(0xB8B49C, 0x9A967E, 0x6E6A56);
+		} else if (t < BEN_AT) {
+			st.gradient(0xF2FFE0, 0x7CEB4C, 0x2DB51C);
+		} else if (t < FACE_AT) {
+			st.showBackground();
+			KirbyDots.draw(st, st.shotSeed(shot), inShot, DOTS);
+		} else if (t < CLOSE_AT) {
+			st.showBackground();
+			KirbyDots.draw(st, st.shotSeed(shot), inShot, DOTS);
+		} else if (t < DOME_AT) {
+			// right in on the face: only skin in the frame
+			st.gradient(0xF6C69A, 0xE8AE80, 0xC88A60);
+		} else if (t < WHITE_AT) {
+			// the show green, crossed by broad stripes of dots
+			st.showBackground();
+			KirbyDots.draw(st, st.shotSeed(shot), inShot, STRIPES);
+		} else {
+			st.gradient(BURST_IN, BURST_MID, BURST_OUT);
+			st.rays(st.seed, t - WHITE_AT, BURST_RAY, 18);
+			KirbyDots.draw(st, st.shotSeed(shot) + 5, t - WHITE_AT, BURST_DOTS);
+		}
+	}
+
+	@Override
+	public void drawOverlay(Stage st, float t) {
+		ShowShots.slapFlash(st, t, 4.5f);
+		ShowShots.flash(st, t, ShowShots.FLASH_GREEN, 10f, 1f, BEN_AT - 2f, 8f, 1f);
+		// into the black of the eye, out of it onto the dome
+		float black = env(t, BLACK_AT, 2f, DOME_AT - 1f, 2f);
+		if (black > 0f) {
+			st.fill(0x000000, black);
+		}
+		// the white flash, thinning onto the green burst
+		ShowShots.flash(st, t, 0xFFFEF2, WHITE_AT, 1f, 163f, 14f, 1f);
+		ShowShots.greenOut(st, t, GREEN2_AT, WORLD_AT, total());
+	}
+}

@@ -159,8 +159,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
-		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, form wheel, Ki charge key
-		com.projecthero.mod.client.saiyan.fx.SaiyanFxClient.initialize(); // v0.17.3: the Saiyan moves' effects
+		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
@@ -924,7 +923,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.16.5: H as Cyborg -- combat / civilian form (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.cyborg.CyborgClient.pressH();
 			} else if (client.player != null && com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(client.player)) {
-				// v0.17.3: H as a Saiyan -- the form wheel (hold H, click a form; Shift+H still opens the power wheel).
+				// v0.17.3: H as a Saiyan -- Super Saiyan once the Rage bar is full (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.saiyan.SaiyanClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(client.player)) {
 				// v0.17.3: H as Black Panther -- the suit out of the necklace / back in (Shift+H still opens the power wheel).

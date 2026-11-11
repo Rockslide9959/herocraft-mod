@@ -16,10 +16,9 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.3: the Saiyan's looping sounds, for every Saiyan in earshot (the server plays only the one-shots): the aura hum of
- * the form (gold for the Super Saiyans, red for God and Blue Overdrive's red aura, blue for Blue, silver for Instinct; none
- * in Base) and the charge loop while Q is held (after the power-up swell, about 1.5 s in). Each follows its player and fades
- * out when its state ends.
+ * v0.17.3: the Saiyan's looping sounds, for every Saiyan in earshot (the server plays only the one-shots): the aura hum (gold
+ * in Super Saiyan, red under Kaioken, none in a plain Base) and the charge loop while V charges (after the power-up swell,
+ * about 1.5 s in). Each follows its player and fades out when its state ends.
  */
 public final class SaiyanLoopSounds {
 	private static final float AURA_VOLUME = 0.35f;
@@ -43,15 +42,12 @@ public final class SaiyanLoopSounds {
 		CHARGE_TICKS.clear();
 	}
 
-	/** The aura hum for a form, or null for none. */
-	static SoundEvent auraOf(SaiyanForm f) {
-		return switch (f) {
-			case SSJ, SSJ2, SSJ3 -> SaiyanSounds.AURA_LOOP_GOLD;
-			case GOD, BLUE_OVERDRIVE -> SaiyanSounds.AURA_LOOP_RED;
-			case BLUE -> SaiyanSounds.AURA_LOOP_BLUE;
-			case INSTINCT -> SaiyanSounds.AURA_LOOP_SILVER;
-			default -> null;
-		};
+	/** The aura hum: red under Kaioken, gold in Super Saiyan, none in a plain Base. */
+	static SoundEvent auraOf(Player p) {
+		if (Saiyan.kaioken(p)) {
+			return SaiyanSounds.AURA_LOOP_RED;
+		}
+		return Saiyan.form(p) == SaiyanForm.SSJ ? SaiyanSounds.AURA_LOOP_GOLD : null;
 	}
 
 	public static void tick(Minecraft mc) {
@@ -69,13 +65,13 @@ public final class SaiyanLoopSounds {
 				continue;
 			}
 			UUID id = p.getUUID();
-			SoundEvent aura = auraOf(Saiyan.form(p));
+			SoundEvent aura = auraOf(p);
 			Loop a = AURA.get(id);
 			if (aura != null && (a == null || a.event != aura)) {
 				if (a != null) {
 					a.end();
 				}
-				Loop n = new Loop(p, aura, AURA_VOLUME, () -> auraOf(Saiyan.form(p)) == aura);
+				Loop n = new Loop(p, aura, AURA_VOLUME, () -> auraOf(p) == aura);
 				AURA.put(id, n);
 				mc.getSoundManager().play(n);
 			}
