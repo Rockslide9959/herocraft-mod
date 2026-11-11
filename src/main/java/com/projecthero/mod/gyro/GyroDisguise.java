@@ -46,7 +46,8 @@ public final class GyroDisguise {
 
 	private static boolean hunts(Mob mob, Player player) {
 		return mob.getTarget() == player
-				|| mob.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).map(t -> t == player).orElse(false);
+				|| (mob.getBrain().hasMemoryValue(MemoryModuleType.ATTACK_TARGET) // (getMemory throws for an unregistered memory)
+						&& mob.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).map(t -> t == player).orElse(false));
 	}
 
 	/** May {@code mob} target the (possibly disguised) {@code player}? */

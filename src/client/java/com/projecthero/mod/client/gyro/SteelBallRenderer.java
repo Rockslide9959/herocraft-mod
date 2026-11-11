@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class SteelBallRenderer extends EntityRenderer<SteelBallEntity> {
 	/** A thrown ball's radius (a touch bigger than in the hand, so it reads in flight). */
-	public static final float RADIUS = 0.16f;
+	public static final float RADIUS = 0.2f;
 
 	public SteelBallRenderer(EntityRendererProvider.Context ctx) {
 		super(ctx);

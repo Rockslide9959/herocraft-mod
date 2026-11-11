@@ -116,7 +116,7 @@ public final class GyroMoves {
 	}
 
 	/** The first creature he may harm along his aim within {@code range}, walls in the way. */
-	static LivingEntity aimed(ServerPlayer p, double range) {
+	public static LivingEntity aimed(ServerPlayer p, double range) {
 		Vec3 eye = p.getEyePosition();
 		Vec3 end = eye.add(p.getViewVector(1f).scale(range));
 		BlockHitResult block = p.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
@@ -363,7 +363,7 @@ public final class GyroMoves {
 	}
 
 	/** The squadmate he's aiming at within 16 blocks, else himself. */
-	static LivingEntity healTarget(ServerPlayer p) {
+	public static LivingEntity healTarget(ServerPlayer p) {
 		Vec3 eye = p.getEyePosition();
 		Vec3 end = eye.add(p.getViewVector(1f).scale(GyroConfig.HEAL_AIM_RANGE));
 		BlockHitResult block = p.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
@@ -463,12 +463,16 @@ public final class GyroMoves {
 	/** For the tests: how many creatures the last Golden Spin's line held. */
 	public static int lastGoldenHits;
 
+	/** For the tests: why the last Ball Breaker release failed. */
+	public static String lastRefusal = "";
+
 	/**
 	 * Shift+Z released: only a Perfect Spin calls Ball Breaker out of the ball -- it strikes the creature he aims at for 60 (through
 	 * armour) and ages it. A release that isn't Perfect fails and costs {@link GyroConfig#BREAKER_FAIL_COST}.
 	 */
 	static boolean ballBreaker(ServerPlayer p, boolean perfect) {
 		if (!perfect) {
+			lastRefusal = "not perfect";
 			Gyro.spendSpin(p, Math.min(GyroConfig.BREAKER_FAIL_COST, Gyro.state(p).spin));
 			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.gyro.breaker_failed")
 					.withStyle(ChatFormatting.RED), true);
@@ -476,11 +480,13 @@ public final class GyroMoves {
 		}
 		int i = Gyro.readyBall(p);
 		if (i < 0 || !Gyro.hasSpin(p, GyroConfig.BREAKER_COST)) {
+			lastRefusal = "ball " + i + " spin " + Gyro.state(p).spin;
 			Gyro.say(p, i < 0 ? "message.projecthero.gyro.ball_out" : "message.projecthero.gyro.no_spin", ChatFormatting.GRAY);
 			return false;
 		}
 		LivingEntity t = aimed(p, GyroConfig.BREAKER_RANGE);
 		if (t == null) {
+			lastRefusal = "no target";
 			Gyro.say(p, "message.projecthero.gyro.no_target", ChatFormatting.GRAY);
 			return false;
 		}

@@ -138,10 +138,17 @@ public final class GyroValkyrie {
 		horse.setCustomName(Component.translatable("entity.projecthero.valkyrie"));
 		horse.addTag(GyroConfig.VALKYRIE_TAG);
 		horse.setPersistenceRequired();
-		level.addFreshEntity(horse);
+		// remember her BEFORE she joins the world: onLoad sends away any Valkyrie that isn't the owner's current one
 		GyroState n = Gyro.state(player).copy();
+		String previous = n.valkyrie;
 		n.valkyrie = horse.getUUID().toString();
 		Gyro.save(player, n);
+		if (!level.addFreshEntity(horse)) {
+			GyroState back = Gyro.state(player).copy();
+			back.valkyrie = previous;
+			Gyro.save(player, back);
+			return null;
+		}
 		return horse;
 	}
 
