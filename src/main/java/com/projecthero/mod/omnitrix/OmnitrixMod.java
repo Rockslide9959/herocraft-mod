@@ -62,6 +62,7 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.shockrock.ShockRockKit.register(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.frankenstrike.FrankenstrikeKit.register(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.eyeguy.EyeGuyKit.register(); // v0.17.3
+		com.projecthero.mod.omnitrix.alien.benwolf.BenwolfKit.register(); // v0.17.3
 		// v0.17.2: the Recalibrated Omnitrix's ten (Ben 10: Alien Force)
 		com.projecthero.mod.omnitrix.alien.swampfire.SwampfireKit.register();
 		com.projecthero.mod.omnitrix.alien.echoecho.EchoEchoKit.register();
@@ -243,5 +244,6 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.shockrock.ShockRockKit.clearSessionState(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.frankenstrike.FrankenstrikeKit.clearSessionState(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.eyeguy.EyeGuyKit.clearSessionState(); // v0.17.3
+		com.projecthero.mod.omnitrix.alien.benwolf.BenwolfKit.clearSessionState(); // v0.17.3
 	}
 }
