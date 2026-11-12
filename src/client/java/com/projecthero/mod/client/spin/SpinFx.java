@@ -189,7 +189,11 @@ public final class SpinFx {
 	}
 
 	private static void trail(Minecraft mc, SteelBallEntity ball) {
-		Vec3 v = ball.getDeltaMovement();
+		// the real step it just took (follows a curve), else its velocity
+		Vec3 v = ball.position().subtract(ball.xo, ball.yo, ball.zo);
+		if (v.lengthSqr() < 1.0e-4 || v.lengthSqr() > 9.0) {
+			v = ball.getDeltaMovement();
+		}
 		if (v.lengthSqr() < 1.0e-4) {
 			return;
 		}

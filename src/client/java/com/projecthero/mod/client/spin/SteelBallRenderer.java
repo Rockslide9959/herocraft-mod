@@ -31,9 +31,8 @@ public final class SteelBallRenderer extends EntityRenderer<SteelBallEntity> {
 		pose.pushPose();
 		pose.translate(0f, e.getBbHeight() * 0.5f, 0f);
 		// spin about the direction of flight: tip the ball's Y axis onto the velocity
-		Vec3 v = e.getDeltaMovement();
-		if (v.lengthSqr() > 1.0e-5) {
-			Vec3 d = v.normalize();
+		Vec3 d = e.flightDir(partial); // blended across the tick, so a curving ball turns smoothly
+		if (d.lengthSqr() > 1.0e-5) {
 			float fy = (float) (Mth.atan2(d.x, d.z) * Mth.RAD_TO_DEG);
 			float fp = (float) (Math.acos(Mth.clamp(d.y, -1.0, 1.0)) * Mth.RAD_TO_DEG);
 			pose.mulPose(Axis.YP.rotationDegrees(fy));

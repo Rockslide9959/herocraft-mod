@@ -1,0 +1,4 @@
+{
+  "projecthero.spin.ability.steel_ball.desc": "Throw one ball up to 30 blocks. On its way out it curves after your aim: look where you want it to go, and flick your crosshair onto a creature to bend it in (the turn can't be too sharp). It hits for 10 damage and spins its body for 3 seconds: it staggers about and can't aim. The ball always flies back to your hand. 15 Spin.",
+  "projecthero.spin.ability.twin_balls.desc": "Throw both balls at once. They curve in from either side onto where you aim, and keep following your crosshair on the way out. 10 damage each, and both come back. 30 Spin."
+}

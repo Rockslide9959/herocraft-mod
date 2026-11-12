@@ -211,6 +211,134 @@ public class SpinGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- curving after the look
+	// These need more room than the 8x8 barrier box, so they run high above it (open sky, nothing to hit but the targets),
+	// with the targets floating (no AI, no gravity) and fire-proof (daylight would add burn damage).
+
+	private static final double SKY = 80.0;
+
+	private static ServerPlayer skySpin(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 1.5, 1.5);
+		Vec3 at = helper.absoluteVec(new Vec3(1.5, SKY, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing +z, level
+		p.setNoGravity(true);
+		helper.assertTrue(Spin.grant(p), "the grant works");
+		return p;
+	}
+
+	private static <T extends LivingEntity> T floating(T e) {
+		e.setNoGravity(true);
+		if (e instanceof net.minecraft.world.entity.Mob m) {
+			m.setNoAi(true);
+		}
+		e.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.FIRE_RESISTANCE, 1000));
+		return e;
+	}
+
+	/** {@code dist} blocks from the player's spot, {@code deg} degrees to his left of straight ahead (+z). */
+	private static Vec3 skyAt(double dist, double deg) {
+		double r = Math.toRadians(deg);
+		return new Vec3(1.5 + dist * Math.sin(r), SKY, 1.5 + dist * Math.cos(r));
+	}
+
+	private static SteelBallEntity ballOf(GameTestHelper helper, ServerPlayer p) {
+		var balls = helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(40), b -> b.getOwner() == p);
+		return balls.isEmpty() ? null : balls.get(0);
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ballCurvesOntoAMobHeTurnsToFace(GameTestHelper helper) {
+		ServerPlayer p = skySpin(helper);
+		Zombie z = floating(zombie(helper, skyAt(14, 30).x, skyAt(14, 30).z, 100));
+		z.moveTo(helper.absoluteVec(skyAt(14, 30)));
+		float before = z.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead, 7 blocks wide of the zombie");
+		boolean[] locked = { false };
+		helper.onEachTick(() -> {
+			SteelBallEntity b = ballOf(helper, p);
+			if (b != null && b.homing() == z) {
+				locked[0] = true;
+			}
+		});
+		helper.runAfterDelay(2, () -> look(p, z)); // the flick: 30 degrees onto the zombie
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(locked[0], "the ball homed onto the zombie under the crosshair");
+			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "it curved in and hit: lost " + (before - z.getHealth()));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ballWontCurveOntoAMobBehindIt(GameTestHelper helper) {
+		ServerPlayer p = skySpin(helper);
+		// 60 degrees off and close to him: once the ball is 18 blocks out, it would need a turn of over 160 degrees
+		Zombie z = floating(zombie(helper, 1.5, 1.5, 100));
+		z.moveTo(helper.absoluteVec(skyAt(5, 60)));
+		float before = z.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead");
+		boolean[] locked = { false };
+		float[] turned = { 0f };
+		helper.onEachTick(() -> {
+			SteelBallEntity b = ballOf(helper, p);
+			if (b != null) {
+				locked[0] |= b.homing() == z;
+				turned[0] = Math.max(turned[0], b.turned());
+			}
+		});
+		helper.runAfterDelay(15, () -> look(p, z));
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(!locked[0], "never homed: the curve it needs is far too sharp");
+			helper.assertTrue(turned[0] <= SpinConfig.CURVE_MAX_TOTAL_DEG + 0.5f, "and it never turned more than 120, turned " + turned[0]);
+			helper.assertTrue(z.getHealth() == before, "missed, lost " + (before - z.getHealth()));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void ballNeverHomesOnSquadmatesOrTheirPets(GameTestHelper helper) {
+		ServerPlayer p = skySpin(helper);
+		ServerPlayer mate = mock(helper, 1.5, 1.5);
+		mate.setNoGravity(true);
+		mate.moveTo(helper.absoluteVec(skyAt(10, 25)));
+		Wolf wolf = floating(helper.spawnWithNoFreeWill(EntityType.WOLF, new Vec3(1.5, 2.0, 1.5)));
+		wolf.moveTo(helper.absoluteVec(skyAt(12, 25)));
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("SpinCurve" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		wolf.tame(mate);
+		float m0 = mate.getHealth(), w0 = wolf.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws");
+		boolean[] bad = { false };
+		helper.onEachTick(() -> {
+			SteelBallEntity b = ballOf(helper, p);
+			if (b != null && (b.homing() == mate || b.homing() == wolf)) {
+				bad[0] = true;
+			}
+		});
+		helper.runAfterDelay(2, () -> look(p, mate));
+		helper.runAfterDelay(14, () -> look(p, wolf));
+		helper.runAfterDelay(40, () -> {
+			try {
+				helper.assertTrue(!bad[0], "the ball never homed onto the squadmate or their wolf");
+				helper.assertTrue(mate.getHealth() == m0 && wolf.getHealth() == w0, "both untouched");
+			} finally {
+				squads.disband(squad);
+			}
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void turnNeededMatchesTheTurningCircle(GameTestHelper helper) {
+		Vec3 o = Vec3.ZERO, fwd = new Vec3(0, 0, 1);
+		helper.assertTrue(Math.abs(SteelBallEntity.turnNeeded(o, fwd, new Vec3(0, 0, 10), 5)) < 1.0e-6, "dead ahead: no turn");
+		helper.assertTrue(SteelBallEntity.turnNeeded(o, fwd, new Vec3(3, 0, 1), 5) < 0, "inside the turning circle: can't reach");
+		double side = SteelBallEntity.turnNeeded(o, fwd, new Vec3(15, 0, 0), 5); // 90 degrees off, outside the circle
+		helper.assertTrue(side > Math.toRadians(90) && side < Math.toRadians(180), "a target square to the side needs more than 90, got "
+				+ Math.toDegrees(side));
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- the Golden Rectangle
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
