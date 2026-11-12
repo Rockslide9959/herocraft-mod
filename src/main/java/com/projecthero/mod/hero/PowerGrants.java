@@ -28,6 +28,7 @@ public final class PowerGrants {
 			"beast_boy", // v0.17.3: Beast Boy
 			"shazam", // v0.17.3: Shazam
 			"doctor_fate", // v0.17.3: Doctor Fate
+			"vision", // v0.17.3: Vision
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
@@ -75,6 +76,7 @@ public final class PowerGrants {
 			"beast_boy", // v0.17.3: only the green ocelot's bite or the Sakutia Serum
 			"shazam", // v0.17.3: only Wizard Shazam (a thunderstorm visitor near villages)
 			"doctor_fate", // v0.17.3: only the Helmet of Fate (the Tomb of Nabu)
+			"vision", // v0.17.3: only the Mind Stone in the Synthezoid Cradle
 			"speed_force_speedster", // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
 			"omnitrix", // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
 			"stand_star_platinum"); // v0.17.2: only the Stand Arrow awakens a Stand
@@ -264,6 +266,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.doctorfate.DoctorFate.grant(target);
 				return new Result(ok, Component.literal(ok ? name + " now serves Nabu (Doctor Fate)" : name + " already wears the Helmet of Fate"));
 			}
+			case "vision" -> { // v0.17.3
+				boolean ok = com.projecthero.mod.vision.Vision.grant(target);
+				return new Result(ok, Component.literal(ok ? "Made " + name + " Vision" : name + " is already Vision"));
+			}
 			case "undead" -> {
 				boolean ok = com.projecthero.mod.undead.Undead.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " the Undead (Undead)" : name + " is already the Undead"));
@@ -374,6 +380,7 @@ public final class PowerGrants {
 			case "beast_boy" -> com.projecthero.mod.beastboy.BeastBoy.revoke(target); // v0.17.3
 			case "shazam" -> com.projecthero.mod.shazam.Shazam.revoke(target); // v0.17.3
 			case "doctor_fate" -> com.projecthero.mod.doctorfate.DoctorFate.revoke(target); // v0.17.3
+			case "vision" -> com.projecthero.mod.vision.Vision.revoke(target); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.revoke(target); // v0.17.1
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				if (HeroTiers.holdsHero(target, hero)) {

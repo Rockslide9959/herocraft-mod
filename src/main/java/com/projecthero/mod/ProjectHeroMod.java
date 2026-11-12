@@ -177,6 +177,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.beastboy.BeastBoyMod.initialize(); // v0.17.3: Beast Boy -- serum, green ocelot, form health, payloads
 		com.projecthero.mod.shazam.ShazamMod.initialize(); // v0.17.3: Shazam -- the word, the Wizard, damage, flight payload
 		com.projecthero.mod.doctorfate.DoctorFateMod.initialize(); // v0.17.3: Doctor Fate -- items, Tomb of Nabu, damage, payloads
+		com.projecthero.mod.vision.VisionMod.initialize(); // v0.17.3: Vision -- the Synthezoid Cradle, damage, flight payload
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)
 		com.projecthero.mod.saiyan.kit.SaiyanKit.initialize(); // v0.17.3 Saiyan revamp: the move kit (packet + its tick)

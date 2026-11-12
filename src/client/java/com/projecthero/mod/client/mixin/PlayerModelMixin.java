@@ -62,7 +62,8 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 				|| com.projecthero.mod.client.blackpanther.BlackPantherRender.hidesSkinOverlay(player) // v0.17.3
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.falcon.FalconRender.hidesSkinOverlay(player) // v0.17.1
-				|| com.projecthero.mod.client.doctorfate.FateSuitLayer.hidesSkinOverlay(player)) { // v0.17.3 the DCEU skin suit
+				|| com.projecthero.mod.client.doctorfate.FateSuitLayer.hidesSkinOverlay(player) // v0.17.3 the DCEU skin suit
+				|| com.projecthero.mod.client.vision.VisionSuitLayer.hidesSkinOverlay(player)) { // v0.17.3 Vision (not under the whole Human Hologram)
 			model.hat.visible = false;
 			model.jacket.visible = false;
 			model.leftSleeve.visible = false;

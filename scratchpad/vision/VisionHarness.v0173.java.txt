@@ -1,0 +1,469 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.vision.Vision;
+import com.projecthero.mod.vision.VisionAbilityManager;
+import com.projecthero.mod.vision.VisionFlight;
+import com.projecthero.mod.vision.VisionMoves;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): Vision on a wide (Steve, the local player) and a slim (Alex, a fake) wearer. Stills from four sides
+ * with the cape, the Human Hologram building / whole, Intangibility (half inside a wall), Diamond Density, the Mind Stone Beam,
+ * Unleashed, the Solar Lance, the HUD; films of the hologram, Phase Dash, the Density Dive (through a target, then a meteor drop) and
+ * flight. Enabled by run/visionshots.flag. Frames: run/screenshots/vis_*.
+ */
+public final class VisionHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static boolean walk;
+
+	/** Skins by player UUID (read by VisionHarnessSkinMixin). */
+	public static final Map<UUID, PlayerSkin> SKINS = new HashMap<>();
+	/** Camera: orbit round {@link #focus} (or the local player when null). */
+	public static volatile Float orbitYaw;
+	public static volatile Vec3 focus;
+	public static volatile float orbitHeight = 0.2f;
+	public static volatile float orbitRadius = 2.6f;
+	public static volatile float lookHeight = 1.0f;
+
+	private VisionHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("visionshots.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(VisionHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "vision-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static UUID uuidFor(String path) {
+		for (long i = 1; i < 20000; i++) {
+			UUID u = new UUID(0x5A5A0000L, i);
+			if (DefaultPlayerSkin.get(u).texture().getPath().contains(path)) {
+				return u;
+			}
+		}
+		throw new IllegalStateException("no uuid for " + path);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<MinecraftServer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				try {
+					fn.accept(srv);
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error: " + e);
+					e.printStackTrace();
+				}
+			});
+		}
+	}
+
+	private static ServerPlayer me(MinecraftServer srv) {
+		return srv.getPlayerList().getPlayer(Minecraft.getInstance().player.getUUID());
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(VisionHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.fovEffectScale().set(0.0);
+			SKINS.put(mc.player.getUUID(), DefaultPlayerSkin.get(uuidFor("wide/steve")));
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (walk) {
+				mc.options.keyUp.setDown(true);
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("vis_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("VIS_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> Screenshot.grab(Minecraft.getInstance().gameDirectory, "vis_still_" + name + ".png",
+				Minecraft.getInstance().getMainRenderTarget(), c -> {
+				}));
+	}
+
+	private static void cam(int t, Vec3 at, Float yaw, float height, float radius, float look) {
+		at(t, () -> {
+			focus = at;
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			lookHeight = look;
+		});
+	}
+
+	private static ServerPlayer fake(ServerLevel level, UUID id, String name, Vec3 at) {
+		GameProfile profile = new GameProfile(id, name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.CREATIVE);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		return f;
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw) {
+		place(p, at, yaw, 0f);
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw, float pitch) {
+		p.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, pitch);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.yBodyRotO = yaw;
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static Mob target(ServerLevel level, Vec3 at) {
+		Mob m = EntityType.HUSK.create(level);
+		m.moveTo(at.x, at.y, at.z, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
+		m.setHealth(1000f);
+		level.addFreshEntity(m);
+		return m;
+	}
+
+	private static final double SPACING = 8.0;
+
+	private static void script(Minecraft mc) {
+		UUID alex = uuidFor("slim/alex");
+		ServerPlayer[] fakes = new ServerPlayer[1];
+		Mob[] husk = new Mob[1];
+		// set now (the camera calls below read it while the script is built); the server places everyone from it
+		origin = new Vec3(Math.floor(mc.player.getX()) + 0.5, mc.player.getY(), Math.floor(mc.player.getZ()) + 0.5);
+		at(5, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			ServerLevel level = p.serverLevel();
+			level.setDayTime(6000L);
+			level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, srv);
+			p.setGameMode(GameType.CREATIVE);
+			System.out.println("[HARNESS] me granted=" + Vision.grant(p));
+			fakes[0] = fake(level, alex, "Alex", origin.add(30, 0, 0));
+			System.out.println("[HARNESS] alex granted=" + Vision.grant(fakes[0]));
+		}));
+		at(60, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			place(p, origin, 0f);
+			place(fakes[0], origin.add(SPACING, 0, 0), 0f);
+			p.heal(100f);
+		}));
+		int t = 80;
+		String[] who = { "steve_wide", "alex_slim" };
+		String[] sides = { "front", "right", "back", "left" };
+		float[] yaws = { 0f, 270f, 180f, 90f };
+		for (int i = 0; i < 2; i++) {
+			for (int s = 0; s < 4; s++) {
+				final int fi = i;
+				cam(t, null, yaws[s], 0.3f, 2.4f, 1.0f);
+				at(t, () -> focus = origin.add(SPACING * fi, 0, 0));
+				if (i > 0) {
+					at(t + 1, () -> server(mc, srv -> place(fakes[0], origin.add(SPACING, 0, 0), 0f)));
+				}
+				shot(t + 6, who[i] + "_" + sides[s]);
+				t += 8;
+			}
+		}
+		// both side by side, front and back
+		at(t, () -> server(mc, srv -> {
+			place(me(srv), origin, 0f);
+			place(fakes[0], origin.add(1.6, 0, 0), 0f);
+		}));
+		cam(t, origin.add(0.8, 0, 0), 15f, 0.6f, 4.5f, 1.0f);
+		shot(t + 6, "pair_front");
+		at(t + 8, () -> orbitYaw = 200f);
+		shot(t + 14, "pair_back");
+		t += 20;
+
+		// ---- the Human Hologram: building, whole, draining (film + stills)
+		cam(t, origin, 20f, 0.3f, 2.6f, 1.0f);
+		record(t + 2, "hologram", 50);
+		at(t + 6, () -> server(mc, srv -> Vision.toggleHologram(me(srv))));
+		shot(t + 11, "hologram_building");
+		shot(t + 26, "hologram_on_front");
+		at(t + 28, () -> orbitYaw = 200f);
+		shot(t + 32, "hologram_on_back");
+		at(t + 34, () -> orbitYaw = 20f);
+		at(t + 36, () -> server(mc, srv -> Vision.toggleHologram(me(srv))));
+		shot(t + 44, "hologram_draining");
+		t += 60;
+
+		// ---- Intangibility: in the open, then half inside a stone wall
+		at(t, () -> server(mc, srv -> Vision.toggleIntangible(me(srv))));
+		cam(t, origin, 30f, 0.3f, 2.6f, 1.0f);
+		shot(t + 8, "intangible");
+		at(t + 10, () -> server(mc, srv -> {
+			ServerLevel level = me(srv).serverLevel();
+			for (int x = -2; x <= 2; x++) {
+				for (int y = 0; y < 3; y++) {
+					level.setBlockAndUpdate(BlockPos.containing(origin.add(x, y, 1)), Blocks.STONE_BRICKS.defaultBlockState());
+				}
+			}
+			place(me(srv), origin.add(0, 0, 0.75), 0f);
+		}));
+		cam(t + 10, origin.add(0, 0, 0.75), 235f, 0.4f, 3.2f, 1.0f);
+		shot(t + 18, "intangible_in_wall");
+		at(t + 20, () -> server(mc, srv -> {
+			place(me(srv), origin.add(0, 0, -1.5), 0f);
+		}));
+		at(t + 24, () -> server(mc, srv -> {
+			Vision.toggleIntangible(me(srv));
+			ServerLevel level = me(srv).serverLevel();
+			for (int x = -2; x <= 2; x++) {
+				for (int y = 0; y < 3; y++) {
+					level.setBlockAndUpdate(BlockPos.containing(origin.add(x, y, 1)), Blocks.AIR.defaultBlockState());
+				}
+			}
+			place(me(srv), origin, 0f);
+		}));
+		t += 30;
+
+		// ---- Diamond Density
+		at(t, () -> server(mc, srv -> Vision.toggleDensity(me(srv))));
+		cam(t, origin, 20f, 0.3f, 2.6f, 1.0f);
+		shot(t + 8, "diamond_density");
+		at(t + 10, () -> server(mc, srv -> Vision.toggleDensity(me(srv))));
+		t += 14;
+
+		// ---- the beam, the lance, Unleashed (at a husk 7 blocks south)
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			husk[0] = target(p.serverLevel(), origin.add(0, 0, 7));
+			place(p, origin, 0f);
+			Vision.clearCooldowns(p);
+		}));
+		at(t + 4, () -> server(mc, srv -> VisionMoves.startHold(me(srv), VisionAbilityManager.BEAM)));
+		cam(t + 4, origin.add(0, 0, 3.5), 270f, 0.8f, 5.5f, 1.2f);
+		shot(t + 12, "beam_side");
+		cam(t + 14, null, 160f, 0.6f, 3.0f, 1.4f);
+		shot(t + 20, "beam_behind");
+		at(t + 22, () -> server(mc, srv -> VisionMoves.release(me(srv), VisionAbilityManager.BEAM)));
+		t += 26;
+		at(t, () -> server(mc, srv -> {
+			Vision.clearCooldowns(me(srv));
+			VisionMoves.use(me(srv), VisionAbilityManager.LANCE);
+		}));
+		cam(t, origin, 330f, 0.2f, 2.2f, 1.5f);
+		shot(t + 8, "lance_charge");
+		cam(t + 10, origin.add(0, 0, 3.5), 270f, 0.8f, 5.5f, 1.2f);
+		shot(t + 14, "lance_fired");
+		t += 20;
+		at(t, () -> server(mc, srv -> {
+			Vision.clearCooldowns(me(srv));
+			Vision.setEnergy(me(srv), 100f);
+			VisionMoves.use(me(srv), VisionAbilityManager.UNLEASH);
+		}));
+		cam(t, origin.add(0, 0, 4.0), 280f, 1.2f, 7.5f, 1.5f);
+		shot(t + 14, "unleashed_side");
+		cam(t + 16, null, 150f, 0.8f, 3.4f, 1.8f);
+		shot(t + 24, "unleashed_behind");
+		t += 70;
+
+		// ---- the HUD (Shift moves shown in a second shot)
+		at(t, () -> {
+			mc.options.hideGui = false;
+			orbitYaw = 160f;
+			focus = null;
+			orbitHeight = 0.6f;
+			orbitRadius = 3.0f;
+		});
+		at(t + 1, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			p.setGameMode(GameType.SURVIVAL);
+			Vision.setEnergy(p, 64f);
+			Vision.toggleIntangible(p);
+		}));
+		shot(t + 8, "hud");
+		at(t + 9, () -> com.projecthero.mod.client.vision.VisionHud.forceShift = true);
+		shot(t + 12, "hud_shift");
+		at(t + 14, () -> {
+			com.projecthero.mod.client.vision.VisionHud.forceShift = false;
+			mc.options.hideGui = true;
+		});
+		at(t + 14, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			Vision.toggleIntangible(p);
+			Vision.clearCooldowns(p);
+			Vision.setEnergy(p, 100f);
+		}));
+		t += 20;
+
+		// ---- films: Phase Dash through the husk, the Density Dive through it, a meteor drop, flight
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			husk[0].teleportTo(origin.x, origin.y, origin.z + 5);
+			place(p, origin.add(0, 0, -1), 0f);
+		}));
+		cam(t + 2, origin.add(0, 0, 5), 270f, 0.8f, 8.0f, 1.0f);
+		record(t + 4, "phase_dash", 30);
+		at(t + 10, () -> server(mc, srv -> VisionMoves.use(me(srv), VisionAbilityManager.DASH)));
+		t += 40;
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			husk[0].teleportTo(origin.x, origin.y, origin.z + 8);
+			place(p, origin, 0f, 8f);
+			Vision.clearCooldowns(p);
+		}));
+		cam(t + 2, origin.add(0, 0, 6), 270f, 1.0f, 9.0f, 1.0f);
+		record(t + 4, "density_dive", 36);
+		at(t + 10, () -> server(mc, srv -> VisionMoves.use(me(srv), VisionAbilityManager.DIVE)));
+		t += 46;
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			husk[0].teleportTo(origin.x + 2, origin.y, origin.z + 30);
+			place(p, origin.add(0, 14, 0), 90f, 0f);
+			VisionFlight.start(p);
+			Vision.clearCooldowns(p);
+		}));
+		cam(t + 2, origin.add(0, 6, 0), 0f, 1.0f, 13.0f, 1.0f);
+		record(t + 6, "meteor_drop", 44);
+		at(t + 14, () -> server(mc, srv -> VisionMoves.use(me(srv), VisionAbilityManager.DIVE)));
+		t += 54;
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			place(p, origin.add(0, 5, 0), 0f);
+			VisionFlight.start(p);
+		}));
+		at(t + 4, () -> {
+			focus = null;
+			orbitYaw = 135f;
+			orbitHeight = 0.5f;
+			orbitRadius = 3.0f;
+		});
+		at(t + 20, () -> walk = true);
+		record(t + 6, "flight", 70);
+		at(t + 78, () -> {
+			walk = false;
+			mc.options.keyUp.setDown(false);
+		});
+		t += 84;
+		// first person: the suited arm
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			VisionFlight.stop(p);
+			place(p, origin.add(3, 0, 3), 0f, 20f);
+		}));
+		at(t + 4, () -> {
+			orbitYaw = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		shot(t + 12, "first_person");
+		at(t + 20, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

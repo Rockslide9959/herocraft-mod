@@ -233,6 +233,16 @@ public final class HeroPackGuide {
 		return chapters().get(CH_DOCTOR_FATE);
 	}
 
+	/** v0.17.3 Vision: the chapter's control rows {key, ability id}; each shows {@code projecthero.vision.ability.<id>} and its {@code .desc}. */
+	public static final String[][] VISION_CONTROLS = { { "2x Space", "flight" }, { "Hold R", "mind_beam" }, { "Shift+R", "solar_lance" },
+			{ "G", "density_punch" }, { "Shift+G", "phase_strike" }, { "Z", "mind_pulse" }, { "Shift+Z", "unleashed" }, { "X", "phase_dash" },
+			{ "Shift+X", "density_dive" }, { "C", "grip" }, { "Shift+C", "diamond_density" }, { "V", "hologram" }, { "Shift+V", "intangibility" } };
+
+	/** Vision (v0.17.3). */
+	public static Chapter visionChapter() {
+		return chapters().get(CH_VISION);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -674,7 +684,8 @@ public final class HeroPackGuide {
 	private static final int CH_BEAST_BOY = CH_RAVEN + 1; // 72, v0.17.3: Beast Boy
 	private static final int CH_SHAZAM = CH_BEAST_BOY + 1; // 73, v0.17.3: Shazam
 	private static final int CH_DOCTOR_FATE = CH_SHAZAM + 1; // 74, v0.17.3: Doctor Fate
-	private static final int CHAPTER_POWER_BASE = CH_DOCTOR_FATE + 1; // 75
+	private static final int CH_VISION = CH_DOCTOR_FATE + 1; // 75, v0.17.3: Vision (Marvel)
+	private static final int CHAPTER_POWER_BASE = CH_VISION + 1; // 76
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -2014,6 +2025,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.doctor_fate.commands.body");
 		}));
 
+		// v0.17.3: Vision (CH_VISION)
+		out.add(chapter("projecthero.guide.vision", lines -> {
+			lines.add(Component.translatable("projecthero.guide.vision.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.vision.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "body", "energy", "hologram", "phasing"}) {
+				head(lines, "projecthero.guide.vision." + section + "_head");
+				para(lines, "projecthero.guide.vision." + section + "_text");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.vision.controls");
+			for (String[] row : VISION_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.vision.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.vision.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.vision.commands");
+			para(lines, "projecthero.guide.vision.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2175,6 +2207,7 @@ public final class HeroPackGuide {
 		icon(CH_RAVEN, "book_of_azarath"); // v0.17.3
 		icon(CH_BEAST_BOY, "sakutia_serum"); // v0.17.3
 		icon(CH_DOCTOR_FATE, "helmet_of_fate"); // v0.17.3
+		icon(CH_VISION, "mind_stone"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2229,6 +2262,7 @@ public final class HeroPackGuide {
 		link(marvel, "projecthero.guide.nova", CH_NOVA);
 		link(marvel, "projecthero.guide.falcon", CH_FALCON); // v0.17.1
 		link(marvel, "projecthero.guide.black_panther", CH_BLACK_PANTHER); // v0.17.3
+		link(marvel, "projecthero.guide.vision", CH_VISION); // v0.17.3
 		link(marvel, "projecthero.guide.silver_surfer", CH_SILVER_SURFER); // v0.17.1
 
 		List<IndexEntry> dc = map.get(Category.DC);

@@ -67,6 +67,9 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		if (com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)) {
 			return GENERIC; // v0.17.3: Doctor Fate hovers upright, cloak billowing
 		}
+		if (com.projecthero.mod.vision.Vision.isFlying(player)) {
+			return KRYPTONIAN; // v0.17.3: Vision flies like the Kryptonian, cape streaming
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return GREEN_LANTERN;
 		}

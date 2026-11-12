@@ -264,6 +264,7 @@
       "com.projecthero.mod.gametest.BeastBoyGameTests",
       "com.projecthero.mod.gametest.ShazamGameTests",
       "com.projecthero.mod.gametest.DoctorFateGameTests",
+      "com.projecthero.mod.gametest.VisionGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",

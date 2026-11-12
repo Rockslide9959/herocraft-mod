@@ -1,0 +1,31 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/iron_block",
+    "base": "minecraft:block/iron_block",
+    "trim": "minecraft:block/gold_block",
+    "bed": "minecraft:block/red_terracotta",
+    "body": "minecraft:block/oxidized_copper",
+    "glass": "minecraft:block/glass",
+    "light": "minecraft:block/glowstone"
+  },
+  "elements": [
+    { "from": [0, 0, 0], "to": [16, 5, 16], "faces": {
+      "down": { "texture": "#base" }, "up": { "texture": "#base" },
+      "north": { "texture": "#base" }, "south": { "texture": "#base" }, "west": { "texture": "#base" }, "east": { "texture": "#base" } } },
+    { "from": [0, 5, 0], "to": [16, 6, 16], "faces": {
+      "up": { "texture": "#trim" },
+      "north": { "texture": "#trim" }, "south": { "texture": "#trim" }, "west": { "texture": "#trim" }, "east": { "texture": "#trim" } } },
+    { "from": [2, 6, 2], "to": [14, 7, 14], "faces": {
+      "up": { "texture": "#bed" },
+      "north": { "texture": "#bed" }, "south": { "texture": "#bed" }, "west": { "texture": "#bed" }, "east": { "texture": "#bed" } } },
+    { "from": [5, 7, 3], "to": [11, 9, 13], "faces": {
+      "up": { "texture": "#body" },
+      "north": { "texture": "#body" }, "south": { "texture": "#body" }, "west": { "texture": "#body" }, "east": { "texture": "#body" } } },
+    { "from": [7, 9, 4], "to": [9, 9.5, 6], "faces": {
+      "up": { "texture": "#light" }, "north": { "texture": "#light" } } },
+    { "from": [1, 6, 1], "to": [15, 11, 15], "faces": {
+      "up": { "texture": "#glass" },
+      "north": { "texture": "#glass" }, "south": { "texture": "#glass" }, "west": { "texture": "#glass" }, "east": { "texture": "#glass" } } }
+  ]
+}

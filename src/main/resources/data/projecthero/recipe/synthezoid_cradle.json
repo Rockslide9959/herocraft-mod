@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "VCV",
+    "III"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "V": {
+      "item": "projecthero:vibranium_plating"
+    },
+    "C": {
+      "item": "projecthero:ultron_core"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "projecthero:synthezoid_cradle",
+    "count": 1
+  }
+}

@@ -163,6 +163,11 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint ? com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_SPRINT_BPS
 					: com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_CRUISE_BPS) / 20.0);
 		}
+		// v0.17.3: Vision's double-tap-Space flight -- Kryptonian handling, 20 b/s cruise, 36 sprinting
+		if (com.projecthero.mod.vision.Vision.isFlying(player)) {
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint ? com.projecthero.mod.vision.VisionConfig.FLIGHT_SPRINT_BPS
+					: com.projecthero.mod.vision.VisionConfig.FLIGHT_CRUISE_BPS) / 20.0);
+		}
 		// v0.17.3: the Saiyan's double-tap-jump flight -- Kryptonian handling, 18 b/s cruise, 36 sprinting, x1.2 in Super Saiyan (55 at most)
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
 			double mult = com.projecthero.mod.saiyan.Saiyan.flightSpeedMult(player);

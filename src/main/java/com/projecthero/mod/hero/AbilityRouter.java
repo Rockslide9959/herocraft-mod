@@ -264,6 +264,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.doctorfate.DoctorFateAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.3: Vision, on the same terms
+		if (com.projecthero.mod.vision.VisionAbilityManager.hasContext(player)) {
+			com.projecthero.mod.vision.VisionAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.17.3: Black Panther, on the same terms
 		if (com.projecthero.mod.blackpanther.BlackPantherAbilityManager.hasContext(player)) {
 			com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(player, slot, pressed);
@@ -460,6 +465,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.beastboy.BeastBoy.tick(player); // v0.17.3: Beast Boy -- stamina, the form, the fever and the ocelot's bite
 		com.projecthero.mod.shazam.Shazam.tick(player); // v0.17.3: Shazam -- passives, the Lightning bar, the moves, flight, family time
 		com.projecthero.mod.doctorfate.DoctorFate.tick(player); // v0.17.3: Doctor Fate -- Dominion, the helmet, Possession, bargains, spells
+		com.projecthero.mod.vision.Vision.tick(player); // v0.17.3: Vision -- the Mind Stone bar, the body, the toggles, flight, the moves
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);
