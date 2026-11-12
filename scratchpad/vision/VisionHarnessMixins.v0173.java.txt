@@ -1,0 +1,67 @@
+=== VisionHarnessCamMixin.java
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.VisionHarness;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): orbits the third-person camera for VisionHarness. */
+@Mixin(Camera.class)
+public abstract class VisionHarnessCamMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$visionHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Float yaw = VisionHarness.orbitYaw;
+		if (yaw == null || !detached || Minecraft.getInstance().player == null) {
+			return;
+		}
+		Vec3 f = VisionHarness.focus;
+		Vec3 p = f != null ? f : Minecraft.getInstance().player.getPosition(partialTick);
+		double a = Math.toRadians(yaw);
+		double r = VisionHarness.orbitRadius;
+		Vec3 target = p.add(0, VisionHarness.lookHeight, 0);
+		Vec3 pos = target.add(Math.sin(a) * r, VisionHarness.orbitHeight, Math.cos(a) * r);
+		Vec3 d = target.subtract(pos);
+		setRotation((float) Math.toDegrees(Math.atan2(-d.x, d.z)), (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
+		setPosition(pos);
+	}
+}
+=== VisionHarnessSkinMixin.java
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.projecthero.mod.client.VisionHarness;
+
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+
+/** TEMP-HARNESS (not shipped): picks each player's skin for VisionHarness. */
+@Mixin(AbstractClientPlayer.class)
+public abstract class VisionHarnessSkinMixin {
+	@Inject(method = "getSkin", at = @At("HEAD"), cancellable = true)
+	private void projecthero$visionHarnessSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+		PlayerSkin s = VisionHarness.SKINS.get(((AbstractClientPlayer) (Object) this).getUUID());
+		if (s != null) {
+			cir.setReturnValue(s);
+		}
+	}
+}

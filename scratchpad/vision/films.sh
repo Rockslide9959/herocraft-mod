@@ -1,0 +1,22 @@
+#!/bin/sh
+# VisionHarness output -> docs/screenshots/v0173/vision/: stills, four-side sheets, and an MP4 + frame sheet per film.
+# Run from the worktree root after the harness run (frames in run/screenshots/vis_*).
+FF="/c/Users/ethan/AppData/Local/Medal/recorder-2643.3040.1/ffmpeg7.exe"
+OUT="$PWD/docs/screenshots/v0173/vision"
+mkdir -p "$OUT"
+cd run/screenshots || exit 1
+[ -f arial.ttf ] || cp /c/Windows/Fonts/arial.ttf arial.ttf
+for f in vis_still_*.png; do cp "$f" "$OUT/${f#vis_still_}"; done
+for who in steve_wide alex_slim; do
+	[ -f "vis_still_${who}_front.png" ] || continue
+	"$FF" -hide_banner -loglevel error -y -i "vis_still_${who}_front.png" -i "vis_still_${who}_right.png" -i "vis_still_${who}_back.png" -i "vis_still_${who}_left.png" \
+		-filter_complex "[0]crop=300:400:277:40[a];[1]crop=300:400:277:40[b];[2]crop=300:400:277:40[c];[3]crop=300:400:277:40[d];[a][b][c][d]hstack=inputs=4,scale=1600:-1:flags=neighbor" "$OUT/sheet_${who}.png"
+done
+for n in hologram phase_dash density_dive meteor_drop flight; do
+	[ -f "vis_${n}_000.png" ] || continue
+	"$FF" -hide_banner -loglevel error -y -framerate 20 -start_number 0 -i "vis_${n}_%03d.png" -c:v libx264 -pix_fmt yuv420p -crf 20 "$OUT/$n.mp4"
+	count=$(ls vis_${n}_[0-9]*.png | wc -l)
+	every=$(( (count + 19) / 20 ))
+	"$FF" -hide_banner -loglevel error -y -start_number 0 -i "vis_${n}_%03d.png" -vf "select='not(mod(n\,$every))',scale=384:216,drawtext=fontfile=arial.ttf:text='%{n}':x=4:y=4:fontsize=16:fontcolor=yellow:box=1:boxcolor=black@0.5,tile=5x4" -frames:v 1 "$OUT/${n}_sheet.png"
+	echo "$n ($count frames)"
+done

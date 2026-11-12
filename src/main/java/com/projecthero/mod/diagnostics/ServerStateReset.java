@@ -224,6 +224,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.beastboy.BeastBoyMod.clearSessionState(); // v0.17.3: Beast Boy -- bleeds, fears, holds, fed ocelots, flight
 		com.projecthero.mod.shazam.ShazamMod.clearSessionState(); // v0.17.3: Shazam -- move sessions (lifted / flying entity ids), flight
 		com.projecthero.mod.doctorfate.DoctorFateMod.clearSessionState(); // v0.17.3: Doctor Fate -- chains, storms, wards, whispers, possession
+		com.projecthero.mod.vision.VisionMod.clearSessionState(); // v0.17.3: Vision -- gripped / thrown / punched creatures, dive targets, flight
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.clearSessionState(); // v0.17.3: casters, thrown bombs, craters (hold levels)
 		com.projecthero.mod.beamclash.BeamClash.clearSessionState(); // v0.17.3
 		com.projecthero.mod.hulk.Hulk.clearSessionState();

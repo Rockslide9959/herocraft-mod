@@ -129,6 +129,7 @@ public final class ModCreativeTab {
 				com.projecthero.mod.raven.RavenItems.addToCreativeTab(output);
 				com.projecthero.mod.beastboy.BeastBoyItems.addToCreativeTab(output); // v0.17.3 Beast Boy: the Sakutia Serum
 				com.projecthero.mod.doctorfate.DoctorFateItems.addToCreativeTab(output); // v0.17.3: Doctor Fate
+				com.projecthero.mod.vision.VisionCradle.addToCreativeTab(output); // v0.17.3: Vision -- the Synthezoid Cradle
 				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit
 				com.projecthero.mod.falcon.item.FalconItems.addToCreativeTab(output);
 				// v0.17.1 the Omnitrix: the watch, the Meteor Scanner, the Plumber Alloy, the Containment Core and Pod

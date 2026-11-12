@@ -136,7 +136,10 @@
 		"GreenLanternMechSeatMixin",
 		"BeastBoyBodyMixin",
 		"BeastBoyRideMixin",
-		"ShazamCourageMixin"
+		"ShazamCourageMixin",
+		"VisionPhaseCollideMixin",
+		"VisionPhaseMoveCheckMixin",
+		"VisionProjectilePassMixin"
 	],
 	"client": [],
 	"server": [],

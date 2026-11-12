@@ -274,7 +274,9 @@
 		"FateInputMixin",
 		"FateMouseMixin",
 		"FateSightGlowMixin",
-		"FateSightColorMixin"
+		"FateSightColorMixin",
+		"VisionPhaseClientMixin",
+		"VisionFirstPersonArmMixin"
 	],
 	"client": [],
 	"server": [],
