@@ -160,6 +160,12 @@ public final class DirectionalFlight {
 					: com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_CRUISE_BPS) * mult);
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
+		// v0.17.3: Starfire's double-tap-Space flight -- Kryptonian handling, 16 b/s cruise, 32 sprinting; Joy up to x1.4, Fury down to x0.7
+		if (com.projecthero.mod.starfire.Starfire.isFlying(player)) {
+			double bps = (sprint ? com.projecthero.mod.starfire.StarfireConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.starfire.StarfireConfig.FLIGHT_CRUISE_BPS)
+					* com.projecthero.mod.starfire.Starfire.flightSpeedMult(player);
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held
 		// is the boost, 32 b/s along the look as the body burns away; just a head 25 b/s (UndeadFlight.bps)
 		if (com.projecthero.mod.undead.UndeadFlight.isFlying(player)) {

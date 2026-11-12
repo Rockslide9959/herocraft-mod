@@ -56,6 +56,9 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
 			return KRYPTONIAN; // v0.17.3: the Saiyan banks and leans like the Kryptonian
 		}
+		if (com.projecthero.mod.starfire.Starfire.isFlying(player)) {
+			return KRYPTONIAN; // v0.17.3: Starfire too
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return GREEN_LANTERN;
 		}

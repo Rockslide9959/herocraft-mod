@@ -239,6 +239,7 @@ public class OmnitrixMeteorEntity extends Entity {
 			podPlaced = true;
 			BlockPos bottom = struck.below(depthAt(0) - 1);
 			OmnitrixPodEntity.place(level, Vec3.atBottomCenterOf(bottom));
+			com.projecthero.mod.starfire.StarfireLearning.onMeteorCrater(level, bottom); // v0.17.3: a Tamaranean Starstone, 1 in 3
 		}
 		if (carved >= COLUMNS.size()) {
 			discard();

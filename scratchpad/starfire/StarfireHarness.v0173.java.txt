@@ -1,0 +1,456 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.starfire.Starfire;
+import com.projecthero.mod.starfire.StarfireAbilityManager;
+import com.projecthero.mod.starfire.StarfireFlight;
+import com.projecthero.mod.starfire.StarfireMoves;
+import com.projecthero.mod.starfire.item.StarfireItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films every Starfire move by calling StarfireMoves directly. Enabled by run/starfire.flag (its text
+ * filters scenes). Frames: run/screenshots/sf_*. Hook in/out with scratchpad/starfire/harness_hook.js; films with
+ * scratchpad/starfire/films.sh.
+ */
+public final class StarfireHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private StarfireHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("starfire.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("starfire.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(StarfireHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "starfire-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(StarfireHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				Starfire.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("sf_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot facing south; dummies gone; full bar, the needle in the middle, no cooldowns, landed. */
+	private static void reset(Minecraft mc, int t, float pitch) {
+		at(t, () -> {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(64))) {
+				h.discard();
+			}
+			p.removeAllEffects();
+			Starfire.clearTransient(p);
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			p.setHealth(p.getMaxHealth());
+			Starfire.clearCooldowns(p);
+			Starfire.setStarbolt(p, 100f);
+			Starfire.setMood(p, 0f);
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+			h.setHealth(400);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		at(t, () -> server(mc, p -> StarfireMoves.use(p, id)));
+	}
+
+	private static void hold(Minecraft mc, int t, String id, int ticks) {
+		at(t, () -> server(mc, p -> StarfireMoves.startHold(p, id)));
+		at(t + ticks, () -> server(mc, p -> StarfireMoves.release(p, id)));
+	}
+
+	private static void mood(Minecraft mc, int t, float v) {
+		at(t, () -> server(mc, p -> Starfire.setMood(p, v)));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void firstPerson(Minecraft mc, int t, boolean on) {
+		at(t, () -> {
+			if (on) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			}
+		});
+	}
+
+	private static void suit(Minecraft mc, int t, boolean on) {
+		at(t, () -> server(mc, p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, on ? new ItemStack(StarfireItems.SUIT_CHESTPLATE) : ItemStack.EMPTY);
+			p.setItemSlot(EquipmentSlot.LEGS, on ? new ItemStack(StarfireItems.SUIT_LEGGINGS) : ItemStack.EMPTY);
+			p.setItemSlot(EquipmentSlot.FEET, on ? new ItemStack(StarfireItems.SUIT_BOOTS) : ItemStack.EMPTY);
+		}));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("costume")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			cam(t + 1, 0f, 0.1f, 2.6f, 6f, 1.0f);
+			record(t + 6, "costume", 60);
+			t += 70;
+		}
+		if (want("glow")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			cam(t + 1, 20f, 0.2f, 1.6f, 0f, 1.6f);
+			record(t + 4, "glow", 40);
+			mood(mc, t + 20, 100f);
+			t += 48;
+		}
+		if (want("hud")) {
+			reset(mc, t, 0f);
+			mood(mc, t + 1, 45f);
+			firstPerson(mc, t + 1, true);
+			record(t + 4, "hud", 36);
+			use(mc, t + 10, StarfireAbilityManager.STARBOLT);
+			use(mc, t + 16, StarfireAbilityManager.STARBOLT);
+			mood(mc, t + 20, -60f);
+			firstPerson(mc, t + 42, false);
+			t += 46;
+		}
+		if (want("starbolt")) {
+			reset(mc, t, 2f);
+			suit(mc, t + 1, true);
+			dummy(mc, t + 1, 0, 9);
+			cam(t + 1, 115f, 0.8f, 5.5f, 0f, 1.3f);
+			record(t + 4, "starbolt", 50);
+			for (int k = 0; k < 6; k++) {
+				use(mc, t + 8 + k * 5, StarfireAbilityManager.STARBOLT);
+			}
+			t += 58;
+		}
+		if (want("star_burst")) {
+			reset(mc, t, 2f);
+			suit(mc, t + 1, true);
+			dummy(mc, t + 1, 0, 10);
+			dummy(mc, t + 1, 1.5, 11);
+			cam(t + 1, 125f, 1.0f, 5.0f, 0f, 1.4f);
+			record(t + 4, "star_burst", 70);
+			hold(mc, t + 8, StarfireAbilityManager.STAR_BURST, 42);
+			t += 78;
+		}
+		if (want("eye_beams")) {
+			reset(mc, t, 4f);
+			suit(mc, t + 1, true);
+			dummy(mc, t + 1, 0, 8);
+			cam(t + 1, 120f, 0.6f, 4.5f, 0f, 1.6f);
+			record(t + 4, "eye_beams", 50);
+			hold(mc, t + 8, StarfireAbilityManager.EYE_BEAMS, 40);
+			t += 58;
+		}
+		if (want("barrage")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			for (int i = 0; i < 5; i++) {
+				dummy(mc, t + 1, (i - 2) * 3.0, 11 + Math.abs(i - 2));
+			}
+			cam(t + 1, 150f, 3.0f, 6.5f, 0f, 1.2f);
+			record(t + 4, "barrage", 56);
+			use(mc, t + 8, StarfireAbilityManager.BARRAGE);
+			t += 64;
+		}
+		if (want("supernova")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI * 2 / 6 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 6, Math.cos(a) * 6);
+			}
+			mood(mc, t + 2, 100f);
+			cam(t + 1, 30f, 4.0f, 16.0f, 0f, 2.5f);
+			record(t + 4, "supernova", 90);
+			use(mc, t + 10, StarfireAbilityManager.SUPERNOVA);
+			t += 98;
+		}
+		if (want("star_dash")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			cam(t + 1, 90f, 1.5f, 12.0f, 0f, 1.2f);
+			record(t + 4, "star_dash", 36);
+			use(mc, t + 10, StarfireAbilityManager.STAR_DASH);
+			t += 44;
+		}
+		if (want("comet_dive")) {
+			reset(mc, t, 25f);
+			suit(mc, t + 1, true);
+			for (int i = 0; i < 3; i++) {
+				dummy(mc, t + 1, (i - 1) * 1.6, 12);
+			}
+			cam(t + 1, 95f, 3.0f, 16.0f, 0f, 3.0f);
+			record(t + 4, "comet_dive", 56);
+			use(mc, t + 8, StarfireAbilityManager.COMET_DIVE);
+			t += 64;
+		}
+		if (want("flight")) {
+			reset(mc, t, -10f);
+			suit(mc, t + 1, true);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 4, origin.z, 0f, -10f);
+				StarfireFlight.start(p);
+				Starfire.setMood(p, -40f);
+			}));
+			cam(t + 3, 140f, 0.8f, 4.5f, 0f, 1.0f);
+			at(t + 8, () -> {
+				mc.options.keyUp.setDown(true);
+				mc.options.keySprint.setDown(true);
+			});
+			record(t + 6, "flight", 70);
+			at(t + 76, () -> {
+				mc.options.keyUp.setDown(false);
+				mc.options.keySprint.setDown(false);
+			});
+			t += 80;
+		}
+		if (want("ground_pound")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			for (int i = 0; i < 5; i++) {
+				double a = i * Math.PI * 2 / 5 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 3.5, Math.cos(a) * 3.5);
+			}
+			at(t + 3, () -> server(mc, p -> p.teleportTo(p.serverLevel(), origin.x, origin.y + 5, origin.z, 0f, 0f)));
+			cam(t + 1, 35f, 3.0f, 10.0f, 0f, 1.0f);
+			record(t + 4, "ground_pound", 40);
+			use(mc, t + 6, StarfireAbilityManager.GROUND_POUND);
+			t += 48;
+		}
+		if (want("charge")) {
+			reset(mc, t, 0f);
+			suit(mc, t + 1, true);
+			dummy(mc, t + 1, 0, 3);
+			at(t + 1, () -> server(mc, p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y < 4; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 9), Blocks.STONE_BRICKS.defaultBlockState());
+					}
+				}
+			}));
+			cam(t + 1, 90f, 1.2f, 8.0f, 0f, 1.0f);
+			record(t + 4, "charge", 36);
+			use(mc, t + 8, StarfireAbilityManager.CHARGE);
+			at(t + 42, () -> server(mc, p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y < 4; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 9), Blocks.AIR.defaultBlockState());
+					}
+				}
+			}));
+			t += 46;
+		}
+		if (want("grab")) {
+			reset(mc, t, 10f);
+			suit(mc, t + 1, true);
+			dummy(mc, t + 1, 0, 2.5);
+			cam(t + 1, 100f, 1.0f, 7.0f, 0f, 1.4f);
+			record(t + 4, "grab", 60);
+			use(mc, t + 8, StarfireAbilityManager.GRAB);
+			at(t + 12, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), p.getX(), p.getY() + 3, p.getZ(), 0f, -10f);
+				StarfireFlight.start(p);
+			}));
+			use(mc, t + 34, StarfireAbilityManager.GRAB);
+			t += 68;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
