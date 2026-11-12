@@ -236,9 +236,9 @@ public class SpinGameTests implements FabricGameTest {
 		ItemStack b0 = p.getMainHandItem(), b1 = p.getOffhandItem();
 		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 		p.getInventory().setItem(9, b0); // in the backpack, not in hand
-		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.STEEL_BALL) && !SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_TOUCH),
+		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_TOUCH) && !SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SCAN),
 				"one-ball moves are greyed with no ball in the main hand (the off hand doesn't count)");
-		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R does nothing (no ball is lost, so no recall either)");
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.STEEL_BALL), "...except R, which throws the off-hand ball");
 		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.SPIN_QUAKE) && !SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN),
 				"nor C, nor Shift+G");
 		helper.assertTrue(Math.abs(Spin.spin(p) - SpinConfig.SPIN_MAX) < 0.01f, "nothing paid");
@@ -550,26 +550,31 @@ public class SpinGameTests implements FabricGameTest {
 		b.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
 		look(p, a);
 		float[] b1 = new float[1];
-		// a plain release (the armour has had a tick to count)
+		float[] a0 = new float[1];
+		// a plain release (not Perfect): just an ordinary Steel Ball throw (user, 2026-11-12)
 		helper.runAfterDelay(3, () -> {
-			float a0 = a.getHealth(), b0 = b.getHealth();
+			a0[0] = a.getHealth();
 			helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "Shift+G starts the rectangle");
 			helper.assertTrue(Spin.charging(p) == SpinState.CHARGE_GOLDEN && Spin.chargeTarget(p) == t, "charging, 30 ticks to close");
 			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.GOLDEN_SPIN), "released at once: still fires, not Perfect");
-			helper.assertTrue(SpinMoves.lastGoldenHits == 2, "the line pierces both zombies, got " + SpinMoves.lastGoldenHits);
-			helper.assertTrue(near(ratio(a0, a, SpinConfig.GOLDEN_DAMAGE)), "35 to the first, lost " + (a0 - a.getHealth()));
-			helper.assertTrue(b0 - b.getHealth() < SpinConfig.GOLDEN_DAMAGE * 0.9f, "armour softens a plain Golden Spin, lost " + (b0 - b.getHealth()));
-			helper.assertTrue(Math.abs(Spin.spin(p) - 50f) < 0.01f && SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.GOLDEN_SPIN) > 0,
-					"50 Spin and the 12 s cooldown");
+			helper.assertTrue(SpinMoves.lastGoldenHits == 0, "no piercing golden line, got " + SpinMoves.lastGoldenHits);
+			SteelBallEntity ball = helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(10)).stream().findFirst().orElse(null);
+			helper.assertTrue(ball != null && ball.mode() == SteelBallEntity.MODE_HIT && !ball.golden(), "the ball went as a plain R throw");
+			helper.assertTrue(Math.abs(Spin.spin(p) - (100f - SpinConfig.BALL_COST)) < 0.01f, "paid like R: 15 Spin, got " + Spin.spin(p));
+			helper.assertTrue(SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.GOLDEN_SPIN) == 0, "no Golden Spin cooldown");
+		});
+		helper.runAfterDelay(12, () -> {
+			helper.assertTrue(near(ratio(a0[0], a, SpinConfig.BALL_DAMAGE)), "the same 10 as R to the first zombie, lost " + (a0[0] - a.getHealth()));
 			// get ready for the Perfect one: the ball home, the bar full, no cooldown
 			helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(60)).forEach(SteelBallEntity::discard);
 			Spin.clearCooldowns(p);
 			Spin.setSpin(p, 100f);
+			look(p, a);
 			b1[0] = b.getHealth();
-			helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "charging again");
+			helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "charging again (" + Spin.readyBall(p) + ")");
 		});
 		// released right on the close: a Perfect Spin, through the armour
-		helper.runAfterDelay(3 + t, () -> {
+		helper.runAfterDelay(12 + t, () -> {
 			b.invulnerableTime = 0;
 			look(p, b);
 			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.GOLDEN_SPIN), "released on the close");
@@ -619,11 +624,30 @@ public class SpinGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(t + SpinConfig.BREAKER_STRIKE_DELAY + 4, () -> {
 			helper.assertTrue(!SpinMoves.strikePending(p), "it struck");
-			helper.assertTrue(near(ratio(before[0], z, SpinConfig.BREAKER_DAMAGE)), "60 damage, lost " + (before[0] - z.getHealth()));
+			helper.assertTrue(near(ratio(before[0], z, SpinConfig.BREAKER_DAMAGE)), "100 damage, lost " + (before[0] - z.getHealth()));
 			helper.assertTrue(SpinMarks.aged(z) && z.hasEffect(MobEffects.WITHER) && z.hasEffect(MobEffects.WEAKNESS)
 					&& z.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2, "aged: Weakness II, Slowness III, Wither");
+			// the aging's bites scale with the strike: vanilla Wither I's own tick is cancelled, the bite deals 1 x 100/60
+			z.invulnerableTime = 0;
+			float h0 = z.getHealth();
+			z.hurt(z.damageSources().wither(), 1f);
+			helper.assertTrue(z.getHealth() == h0, "the Wither effect's own tick does nothing while aged, lost " + (h0 - z.getHealth()));
+			z.invulnerableTime = 0;
+			SpinMarks.bite(z);
+			helper.assertTrue(near(ratio(h0, z, SpinConfig.AGING_BITE_DAMAGE)), "an aging bite: 1.67, lost " + (h0 - z.getHealth()));
 			helper.succeed();
 		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void ballBreakerIsAHundredAndItsBitesScale(GameTestHelper helper) {
+		helper.assertTrue(SpinConfig.BREAKER_DAMAGE == 100f, "Ball Breaker strikes for 100, got " + SpinConfig.BREAKER_DAMAGE);
+		float scale = SpinConfig.BREAKER_DAMAGE / 60f; // the old strike was 60
+		helper.assertTrue(Math.abs(SpinConfig.AGING_BITE_DAMAGE - 1f * scale) < 1.0e-4f, "each bite x100/60 (1 -> 1.67), got " + SpinConfig.AGING_BITE_DAMAGE);
+		int bites = SpinConfig.AGING_TICKS / SpinConfig.AGING_BITE_EVERY;
+		helper.assertTrue(bites == 5 && Math.abs(bites * SpinConfig.AGING_BITE_DAMAGE - 5f * scale) < 1.0e-3f,
+				"5 bites over 10 s: 5 -> 8.33 in all");
+		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- the other moves
@@ -680,6 +704,89 @@ public class SpinGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void offHandBallIsThrownWhenTheMainHandHasNone(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ItemStack b0 = p.getMainHandItem();
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.getInventory().setItem(9, b0); // in the backpack: not lost, so R doesn't recall
+		Zombie z = zombie(helper, 5.5, 1.5, 100);
+		look(p, z);
+		float before = z.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R with only an off-hand ball throws it");
+		helper.assertTrue(p.getOffhandItem().isEmpty() && (Spin.state(p).thrown & 2) != 0, "ball 1 left the off hand");
+		helper.assertTrue(Math.abs(Spin.spin(p) - (100f - SpinConfig.BALL_COST)) < 0.01f, "15 Spin, like any R");
+		helper.runAfterDelay(15, () -> helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "10 damage, lost " + (before - z.getHealth())));
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(Spin.state(p).thrown == 0 && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1, "it came back into the off hand");
+			helper.assertTrue(p.getMainHandItem().isEmpty(), "the main hand stays empty");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void valkyrieReCallRunsTheSameHorseNoSecond(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "the first call brings Valkyrie");
+		AbstractHorse h = SpinValkyrie.find(p);
+		helper.assertTrue(h != null && SpinValkyrie.countLoaded(p) == 1, "one Valkyrie");
+		ticker(helper, p);
+		AbstractHorse[] seen = new AbstractHorse[1];
+		helper.runAfterDelay(SpinConfig.VALKYRIE_GALLOP_TICKS + 5, () -> {
+			helper.assertTrue(p.getVehicle() == h, "he's in the saddle");
+			p.stopRiding();
+			h.teleportTo(p.getX() + 4, p.getY(), p.getZ() + 4);
+			Spin.clearCooldowns(p);
+			// a Shift+X tap while she is out: press (the hold starts), release (the call)
+			p.setShiftKeyDown(true);
+			SpinAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+			helper.assertTrue(SpinAbilityManager.valkyrieHoldTicks(p) >= 0 && !SpinValkyrie.galloping(p), "the press only starts the hold");
+			p.setShiftKeyDown(false);
+			SpinAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+			seen[0] = SpinValkyrie.find(p);
+			helper.assertTrue(seen[0] == h, "the tap called the same horse");
+			helper.assertTrue(SpinValkyrie.countLoaded(p) == 1, "no second Valkyrie, got " + SpinValkyrie.countLoaded(p));
+			helper.assertTrue(SpinValkyrie.galloping(p), "she runs to him");
+		});
+		helper.runAfterDelay(2 * SpinConfig.VALKYRIE_GALLOP_TICKS + 15, () -> {
+			helper.assertTrue(p.getVehicle() == h, "she reached him and he mounted");
+			helper.assertTrue(SpinValkyrie.countLoaded(p) == 1 && SpinValkyrie.find(p) == h, "still only the one Valkyrie");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void holdShiftXSendsValkyrieAwayAndCallWaitsTenSeconds(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "Valkyrie comes");
+		AbstractHorse h = SpinValkyrie.find(p);
+		helper.assertTrue(h != null, "she's out");
+		Spin.clearCooldowns(p);
+		ticker(helper, p);
+		p.setShiftKeyDown(true);
+		SpinAbilityManager.handle(p, AbilitySlot.SLOT_3, true); // held down from here on
+		helper.runAfterDelay(SpinConfig.VALKYRIE_DISMISS_HOLD / 2, () -> {
+			helper.assertTrue(SpinValkyrie.find(p) == h && SpinAbilityManager.valkyrieHoldTicks(p) > 0, "half a second in: still holding, she's still his");
+		});
+		helper.runAfterDelay(SpinConfig.VALKYRIE_DISMISS_HOLD + 3, () -> {
+			helper.assertTrue(SpinValkyrie.find(p) == null, "held 1 s: she's no longer his Valkyrie");
+			helper.assertTrue(p.getVehicle() == null, "he's not on her");
+			int cd = SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.VALKYRIE);
+			helper.assertTrue(cd > SpinConfig.VALKYRIE_DISMISS_COOLDOWN - 10 && cd <= SpinConfig.VALKYRIE_DISMISS_COOLDOWN,
+					"Call Valkyrie waits 10 s, got " + cd);
+			helper.assertTrue(SpinAbilityManager.maxCooldown(p, SpinAbilityManager.VALKYRIE) == SpinConfig.VALKYRIE_DISMISS_COOLDOWN, "the HUD shows a 10 s cooldown");
+			p.setShiftKeyDown(false);
+			SpinAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+			helper.assertTrue(SpinValkyrie.find(p) == null && !SpinValkyrie.galloping(p), "letting go after the dismissal calls nobody");
+			helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "a tap during the cooldown does nothing");
+			helper.assertTrue(SpinValkyrie.countLoaded(p) == 0, "and no new horse came");
+		});
+		helper.runAfterDelay(SpinConfig.VALKYRIE_DISMISS_HOLD + SpinConfig.VALKYRIE_LEAVE_TICKS + 10, () -> {
+			helper.assertTrue(h.isRemoved() && !SpinValkyrie.leaving(p), "she ran off and is gone");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 160)
 	public void valkyrieComesAndHasADeathCooldown(GameTestHelper helper) {
 		ServerPlayer p = spin(helper);
 		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "Shift+X whistles");
