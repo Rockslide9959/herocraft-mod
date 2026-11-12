@@ -299,12 +299,41 @@ public final class SpinBalls {
 				Spin.say(p, "message.projecthero.spin.ball_respawned", ChatFormatting.GOLD);
 			}
 		}
+		// a thrown ball that stopped ticking (it flew into a chunk that doesn't tick entities) or vanished without being removed
+		// would never come back: catch it now
+		if (p.tickCount % 10 == 0 && Spin.state(p).thrown != 0) {
+			settleStuckBalls(p);
+		}
 		// where his balls are, while he has them
 		if (p.tickCount % 10 == 0) {
 			for (int i = 0; i < SpinConfig.BALLS; i++) {
 				if (inInventory(p, i)) {
 					seen(p.getUUID(), i, p.level().dimension(), p.getEyePosition());
 				}
+			}
+		}
+	}
+
+	/**
+	 * His thrown balls: one sitting where entities don't tick is caught at once (its {@code remove} hands the item back); a ball
+	 * marked out with no entity anywhere near him is given back.
+	 */
+	public static void settleStuckBalls(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		int found = 0;
+		for (SteelBallEntity ball : level.getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(SpinConfig.STUCK_BALL_SEARCH),
+				b -> b.getOwner() == p && !b.isRemoved())) {
+			if (!level.isPositionEntityTicking(ball.blockPosition())) {
+				ball.discard();
+				continue;
+			}
+			found |= 1 << ball.index();
+		}
+		int lost = Spin.state(p).thrown & ~found;
+		for (int i = 0; i < SpinConfig.BALLS; i++) {
+			if ((lost & (1 << i)) != 0) {
+				Spin.setThrown(p, i, false);
+				giveBack(p, i, InteractionHand.MAIN_HAND);
 			}
 		}
 	}
@@ -409,12 +438,16 @@ public final class SpinBalls {
 				if (seen != null && seen.dim() == level.dimension() && seen.pos().distanceTo(p.position()) < SpinConfig.RECALL_RANGE) {
 					from = seen.pos();
 				} else {
-					Vec3 look = p.getViewVector(1f);
-					from = p.getEyePosition().add(look.x * -6, 8, look.z * -6);
+					from = p.getEyePosition().add(0, 8, 0); // straight above him: always in his own (ticking) chunk
 				}
 				SpinState n = Spin.state(p).copy();
 				n.bumpGen(i); // the copy in the chest (or wherever) is no longer his ball
 				Spin.save(p, n);
+			}
+			// the flight starts no further than RECALL_FLIGHT_MAX away (toward where it was), so it is in entity-ticking range
+			Vec3 eye = p.getEyePosition();
+			if (from.distanceTo(eye) > SpinConfig.RECALL_FLIGHT_MAX) {
+				from = eye.add(from.subtract(eye).normalize().scale(SpinConfig.RECALL_FLIGHT_MAX));
 			}
 			SteelBallEntity.recall(p, i, from, InteractionHand.MAIN_HAND);
 		}
