@@ -148,6 +148,11 @@ public final class DirectionalFlight {
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return DirectionalFlightModel.greenLantern(flyingSpeed, sprint, player.input.shiftKeyDown && sprint);
 		}
+		// v0.17.3: Beast Boy's flying forms (hawk, pterodactyl, bat, fly) -- Kryptonian handling at the form's own speed
+		if (com.projecthero.mod.beastboy.BeastBoy.isFlying(player)) {
+			double bps = com.projecthero.mod.beastboy.BeastBoyForms.flightBps(com.projecthero.mod.beastboy.BeastBoy.form(player), sprint);
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// Kryptonian flight -- X is Flight Boost
 		if (Kryptonian.isFlying(player)) {
 			var ks = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);

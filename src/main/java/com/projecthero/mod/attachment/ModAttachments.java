@@ -1019,6 +1019,20 @@ public final class ModAttachments {
 							.initializer(com.projecthero.mod.raven.data.RavenState::new)
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.raven.data.RavenState.CODEC),
 									AttachmentSyncPredicate.all()));
+	/** v0.17.3: Beast Boy -- the power, the form, its health pool, Morph Stamina, the chain, the animating move, timers. */
+	public static final AttachmentType<com.projecthero.mod.beastboy.data.BeastBoyState> BEAST_BOY_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("beast_boy_state"),
+					builder -> builder.persistent(com.projecthero.mod.beastboy.data.BeastBoyState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.beastboy.data.BeastBoyState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.beastboy.data.BeastBoyState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/** v0.17.3: Beast Boy -- this ocelot is the green (Sakutia) one. Saved; synced to all (drawn green). */
+	public static final AttachmentType<Boolean> SAKUTIA_OCELOT =
+			AttachmentRegistry.create(ProjectHeroMod.id("sakutia_ocelot"),
+					builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
+							.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
