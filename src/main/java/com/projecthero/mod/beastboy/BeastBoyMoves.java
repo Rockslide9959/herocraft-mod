@@ -769,7 +769,7 @@ public final class BeastBoyMoves {
 
 	/** The Beast's landing (from {@code BeastBoy.formTick}). */
 	static void leapSlam(ServerPlayer p) {
-		BeastBoy.animate(p, "slam", 10);
+		BeastBoy.animate(p, "smash", 10);
 		for (LivingEntity e : around(p, 3.0)) {
 			if (BeastBoy.hit(p, e, BeastBoyConfig.BEAST_SLAM * BeastBoy.chainMult(BeastBoyConfig.CHAIN_MAX))) {
 				knock(e, p, 0.8, 0.5);

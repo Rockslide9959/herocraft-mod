@@ -42,8 +42,8 @@ import net.minecraft.world.entity.animal.PolarBear;
  * </pre>
  */
 public final class BeastBodyRenderer {
-	/** Beast Boy green, the tint passed to the art. */
-	public static final int TINT = 0xFF58C83C;
+	/** The art paints its own greens: white keeps them; a red-dominant tint is the hurt flash (BeastFormArt). */
+	public static final int TINT = 0xFFFFFFFF, HURT_TINT = 0xFFFF5050;
 
 	/** A vanilla stand-in: the mob, its scale and a lift (blocks, before scaling). */
 	private record Spec(EntityType<?> type, float scale, float lift) {
@@ -91,7 +91,7 @@ public final class BeastBodyRenderer {
 			float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
 			pose.pushPose();
 			pose.mulPose(Axis.YP.rotationDegrees(-bodyYaw)); // +Z forward (BeastFormArt's contract)
-			boolean drawn = BeastFormArt.render(form, p, partial, pose, buffers, light, move, prog, TINT);
+			boolean drawn = BeastFormArt.render(form, p, partial, pose, buffers, light, move, prog, tint(p));
 			pose.popPose();
 			if (drawn) {
 				return;
@@ -110,7 +110,7 @@ public final class BeastBodyRenderer {
 		pose.scale(-1f, -1f, 1f);
 		pose.scale(0.9375f, 0.9375f, 0.9375f);
 		pose.translate(0f, -1.501f, 0f);
-		boolean drawn = BeastFormArt.renderQuickMorph(form, p, partial, pose, buffers, light, prog, TINT);
+		boolean drawn = BeastFormArt.renderQuickMorph(form, p, partial, pose, buffers, light, prog, tint(p));
 		pose.popPose();
 		if (drawn) {
 			return false; // the art drew its part: the player is drawn as usual underneath
@@ -118,6 +118,10 @@ public final class BeastBodyRenderer {
 		String move = BeastBoy.move(p);
 		fallback(form, p, partial, pose, buffers, light, move, move == null ? prog : BeastBoy.moveProgress(p, partial));
 		return true; // the fallback replaced him for the flash
+	}
+
+	private static int tint(AbstractClientPlayer p) {
+		return p.hurtTime > 0 ? HURT_TINT : TINT;
 	}
 
 	private static Entity dummy(EntityType<?> type) {
