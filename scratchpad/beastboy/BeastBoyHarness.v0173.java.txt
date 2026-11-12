@@ -1,0 +1,433 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.beastboy.BeastBoy;
+import com.projecthero.mod.beastboy.BeastBoyAbilityManager;
+import com.projecthero.mod.beastboy.BeastBoyLearning;
+import com.projecthero.mod.beastboy.BeastBoyMoves;
+import com.projecthero.mod.beastboy.BeastForm;
+import com.projecthero.mod.client.beastboy.BeastBoyHud;
+import com.projecthero.mod.client.beastboy.BeastWheelScreen;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Ocelot;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films Beast Boy (the forms, the wheel, the context morph, the chain, the HUD, the Beast, the green
+ * ocelot) by calling the power's API directly. Enabled by run/beastboy.flag (its text filters scenes). Frames:
+ * run/screenshots/bb_*. Hook in/out with scratchpad/beastboy/harness_hook.js; films with scratchpad/beastboy/films.sh.
+ */
+public final class BeastBoyHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.0f;
+
+	private BeastBoyHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("beastboy.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("beastboy.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BeastBoyHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "bb-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BeastBoyHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				BeastBoy.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("bb_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BB_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void keys(Minecraft mc, int t, boolean walk, boolean sprint) {
+		at(t, () -> {
+			mc.options.keyUp.setDown(walk);
+			mc.options.keySprint.setDown(sprint);
+			if (mc.player != null) {
+				mc.player.setSprinting(sprint);
+			}
+		});
+	}
+
+	/** Back to the spot facing south; dummies gone; human, full stamina, no cooldowns. */
+	private static void reset(Minecraft mc, int t, float pitch) {
+		at(t, () -> {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(64))) {
+				h.discard();
+			}
+			for (Ocelot o : level.getEntitiesOfClass(Ocelot.class, new AABB(origin, origin).inflate(64))) {
+				o.discard();
+			}
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			BeastBoy.setForm(p, BeastForm.HUMAN);
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			p.setHealth(p.getMaxHealth());
+			BeastBoy.clearTransient(p);
+			BeastBoy.clearCooldowns(p);
+			BeastBoy.setStamina(p, 100f);
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(280);
+			h.setHealth(280);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		at(t, () -> server(mc, p -> BeastBoyMoves.use(p, id)));
+	}
+
+	private static void form(Minecraft mc, int t, BeastForm f, boolean air) {
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), origin.x, origin.y + (air ? 2.5 : 0), origin.z, 0f, air ? 10f : 0f);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			BeastBoy.setForm(p, f);
+			if (air) {
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+			}
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void gui(Minecraft mc, int t, boolean firstPerson, boolean hud) {
+		at(t, () -> {
+			if (firstPerson) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			}
+			mc.options.hideGui = !hud;
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("human")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 20f, 0.2f, 2.6f, 5f, 1.1f);
+			record(t + 4, "human", 50);
+			t += 58;
+		}
+		if (want("tinted")) {
+			// the vanilla-model forms, each walking a few steps
+			BeastForm[] fs = { BeastForm.CHEETAH, BeastForm.WOLF, BeastForm.BEAR, BeastForm.HAWK, BeastForm.BAT, BeastForm.DOLPHIN };
+			reset(mc, t, 0f);
+			record(t + 4, "tinted", fs.length * 26);
+			int k = t + 2;
+			for (BeastForm f : fs) {
+				boolean air = f == BeastForm.HAWK || f == BeastForm.BAT;
+				form(mc, k, f, air);
+				cam(k, 70f, 0.4f, 1.8f + f.height * 1.4f, 0.8f, f.height * 0.5f);
+				keys(mc, k + 3, f != BeastForm.DOLPHIN, false);
+				keys(mc, k + 24, false, false);
+				k += 26;
+			}
+			t = k + 6;
+		}
+		if (want("fallback")) {
+			BeastForm[] fs = { BeastForm.TREX, BeastForm.GORILLA, BeastForm.RHINO, BeastForm.ELEPHANT, BeastForm.PTERODACTYL, BeastForm.SHARK,
+					BeastForm.OCTOPUS, BeastForm.WHALE, BeastForm.MOUSE, BeastForm.FLY, BeastForm.BEAST };
+			reset(mc, t, 0f);
+			record(t + 4, "fallback", fs.length * 22);
+			int k = t + 2;
+			for (BeastForm f : fs) {
+				boolean air = f == BeastForm.PTERODACTYL || f == BeastForm.FLY;
+				form(mc, k, f, air);
+				cam(k, 60f, 0.5f + f.height * 0.2f, 1.6f + Math.max(f.height, f.width) * 1.6f, 0.8f, f.height * 0.5f);
+				keys(mc, k + 3, true, false);
+				keys(mc, k + 20, false, false);
+				k += 22;
+			}
+			t = k + 6;
+		}
+		if (want("wheel")) {
+			reset(mc, t, 0f);
+			gui(mc, t + 1, true, true);
+			at(t + 3, () -> {
+				BeastWheelScreen.stayOpen = true;
+				BeastWheelScreen.forceHover = -1;
+				mc.setScreen(new BeastWheelScreen());
+			});
+			record(t + 6, "wheel", 50);
+			for (int i = 0; i < 13; i++) {
+				final int h = i;
+				at(t + 10 + i * 3, () -> BeastWheelScreen.forceHover = h);
+			}
+			at(t + 52, () -> BeastWheelScreen.forceHover = -1);
+			at(t + 58, () -> {
+				BeastWheelScreen.stayOpen = false;
+				mc.setScreen(null);
+			});
+			gui(mc, t + 60, false, false);
+			t += 64;
+		}
+		if (want("context")) {
+			reset(mc, t, 0f);
+			gui(mc, t + 1, false, true);
+			cam(t + 1, 120f, 1.0f, 5.0f, 0f, 0.8f);
+			record(t + 4, "context", 90);
+			use(mc, t + 8, BeastBoyAbilityManager.CONTEXT_MORPH); // the cheetah on the ground
+			keys(mc, t + 10, true, true);
+			at(t + 40, () -> server(mc, p -> {
+				p.setOnGround(false);
+				com.projecthero.mod.hero.power.AbilityHelpers.launchSelf(p, new Vec3(0, 0.9, 0.4));
+			}));
+			use(mc, t + 44, BeastBoyAbilityManager.CONTEXT_MORPH); // back to human mid-air
+			use(mc, t + 46, BeastBoyAbilityManager.CONTEXT_MORPH); // ...and the hawk
+			keys(mc, t + 50, true, false);
+			use(mc, t + 84, BeastBoyAbilityManager.CONTEXT_MORPH);
+			keys(mc, t + 84, false, false);
+			t += 98;
+		}
+		if (want("chain")) {
+			reset(mc, t, 5f);
+			for (int i = 0; i < 3; i++) {
+				dummy(mc, t + 1, -1.2 + i * 1.2, 2.4);
+			}
+			gui(mc, t + 1, false, true);
+			cam(t + 1, 75f, 1.2f, 5.5f, 0f, 1.0f);
+			record(t + 4, "chain", 90);
+			use(mc, t + 8, BeastBoyAbilityManager.GORILLA_SMASH);
+			use(mc, t + 24, BeastBoyAbilityManager.SNAKE_STRIKE);
+			use(mc, t + 40, BeastBoyAbilityManager.ELEPHANT_STOMP);
+			use(mc, t + 56, BeastBoyAbilityManager.POUNCE);
+			use(mc, t + 72, BeastBoyAbilityManager.TREX_ROAR);
+			t += 98;
+		}
+		if (want("hud")) {
+			reset(mc, t, 0f);
+			at(t + 1, () -> server(mc, p -> BeastBoy.setForm(p, BeastForm.WOLF)));
+			gui(mc, t + 1, true, true);
+			at(t + 4, () -> BeastBoyHud.forceShift = false);
+			record(t + 6, "hud", 40);
+			at(t + 16, () -> server(mc, p -> BeastBoy.absorb(p, 12f, p.damageSources().generic())));
+			at(t + 26, () -> BeastBoyHud.forceShift = true);
+			at(t + 46, () -> BeastBoyHud.forceShift = false);
+			gui(mc, t + 48, false, false);
+			t += 52;
+		}
+		if (want("beast")) {
+			reset(mc, t, 5f);
+			dummy(mc, t + 1, 0, 2.8);
+			gui(mc, t + 1, false, true);
+			cam(t + 1, 65f, 1.0f, 6.0f, 0f, 1.4f);
+			record(t + 4, "beast", 60);
+			use(mc, t + 8, BeastBoyAbilityManager.THE_BEAST);
+			use(mc, t + 34, "beast_swipe");
+			use(mc, t + 50, "beast_roar");
+			t += 70;
+		}
+		if (want("ocelot")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				BeastBoy.revoke(p);
+				Ocelot o = BeastBoyLearning.spawnGreen(p);
+				if (o != null) {
+					o.setNoAi(true);
+					o.moveTo(origin.x + 1.0, origin.y, origin.z + 2.0, 200f, 0f);
+				}
+				Ocelot plain = EntityType.OCELOT.create(p.serverLevel());
+				if (plain != null) {
+					plain.addTag(BeastBoyLearning.CHECKED_TAG);
+					plain.setNoAi(true);
+					plain.moveTo(origin.x - 1.0, origin.y, origin.z + 2.0, 160f, 0f);
+					p.serverLevel().addFreshEntity(plain);
+				}
+			}));
+			cam(t + 3, 0f, 0.8f, 4.6f, 0f, 0.4f);
+			at(t + 3, () -> lookHeight = 0.4f);
+			record(t + 8, "ocelot", 20);
+			t += 32;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
