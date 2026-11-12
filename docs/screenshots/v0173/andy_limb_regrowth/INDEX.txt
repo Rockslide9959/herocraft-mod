@@ -1,5 +1,0 @@
-﻿Andy limb regrowth, Bone and flesh (the new default style), v0.17.3. Normal speed (46 ticks); films are 10 fps, one frame per game tick (half speed). Every MP4 has a contact sheet PNG of the same name.
-01_arm_regrowth.mp4 / .png - right arm, side 3/4 close-up: skin cap at the shoulder, ragged dark red flesh band riding the front, the vanilla skeleton arm bone poking out below and swallowed, last a flesh cap at the hand closes over.
-02_leg_regrowth.mp4 / .png - left leg, side 3/4 close-up: flesh ring at the hip with the thin bone below, skin creeps down from the hip over the flesh band, small dark red cap at the foot disappears last.
-03_first_person_arm.mp4 / .png - first person (GUI on so the hand draws): the right arm regrows in view the same way, bone first, then the flesh band, then skin. The floating coloured cubes are the burst pixels from the break.
-hud.png - full-screen frame (854x480, GUI scale 3) with the new Andy HUD while the right arm regrows: the Regrowth boss bar reads 39%.

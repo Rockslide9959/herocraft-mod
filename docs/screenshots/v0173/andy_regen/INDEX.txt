@@ -1,9 +1,0 @@
-Andy regeneration styles (v0.17.3). Every MP4 has a contact sheet PNG of the same name. Films are 10 fps, one frame per game tick, Slow speed (72 ticks) unless said.
-01_streaming_no_orange.mp4 - FINAL - before vs after, the same shot: left the old build (orange/white glowing frontier line and flash), right the new one (no glow, no flash; cubes, stump cap and sounds kept). Sheet: before row on top, after row below.
-02_build_in_place_arm.mp4 - FINAL - Build in place, right arm: nothing flies; texels appear in their own place in uneven patches spreading from the shoulder, popping in small and dark and settling. The inside shows dark flesh through the gaps.
-03_build_in_place_head.mp4 - FINAL - Build in place, head: patches grow up from the neck, with a few islands further up that spread and join.
-04_bone_and_flesh_arm.mp4 - FINAL - Bone and flesh, right arm: a thin voxel bone (humerus, elbow, radius and ulna, finger bones) pushes out of the shoulder, dark red muscle wraps round and fills the arm out, then the skin closes over from the shoulder.
-05_bone_and_flesh_head.mp4 - FINAL - Bone and flesh, head: neck bone, then a voxel skull with sockets, nose and teeth grows up from the neck, flesh covers it, then the skin closes over from the neck.
-06_streaming_arm.mp4 - FINAL - Streaming (no orange), right arm, close shot with the Steve skin.
-07_build_in_place_arm_burst_speed.mp4 - FINAL - Build in place at Burst speed (26 ticks): same style, the speed setting still sets the time.
-08_bone_and_flesh_leg.mp4 - FINAL (older test skin) - Bone and flesh, left leg: hip, femur, kneecap, tibia and fibula, foot, then flesh and skin.
