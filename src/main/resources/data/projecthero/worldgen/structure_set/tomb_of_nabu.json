@@ -1,0 +1,12 @@
+{
+  "structures": [
+    { "structure": "projecthero:tomb_of_nabu", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1940110713,
+    "spacing": 64,
+    "separation": 24,
+    "frequency": 0.5
+  }
+}

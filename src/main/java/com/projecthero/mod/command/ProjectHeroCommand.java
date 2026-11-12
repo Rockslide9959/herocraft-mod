@@ -60,6 +60,9 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.spin.SpinMod.command()) // v0.17.3
 				.then(com.projecthero.mod.starfire.StarfireMod.command()) // v0.17.3
 				.then(com.projecthero.mod.raven.RavenMod.command()) // v0.17.3: Raven
+				.then(com.projecthero.mod.beastboy.BeastBoyMod.command()) // v0.17.3
+				.then(com.projecthero.mod.shazam.ShazamMod.command()) // v0.17.3
+				.then(com.projecthero.mod.doctorfate.DoctorFateMod.command()) // v0.17.3
 				.then(com.projecthero.mod.miraculous.MiraculousCommand.build())
 				.then(com.projecthero.mod.quirk.QuirkCommand.build())
 				// v0.17.2 (user: "the greenlantern rank command doesnt work"): it was never registered -- rank 1-5, energy, status, dismiss

@@ -173,6 +173,9 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spin.SpinMod.initialize(); // v0.17.3: the Spin (the Spin) -- the ball, loot, damage, payload
 		com.projecthero.mod.starfire.StarfireMod.initialize(); // v0.17.3: Starfire -- items, Starstone, damage, flight payload
 		com.projecthero.mod.raven.RavenMod.initialize(); // v0.17.3: Raven (Teen Titans) -- items, entities, loot, damage, payloads
+		com.projecthero.mod.beastboy.BeastBoyMod.initialize(); // v0.17.3: Beast Boy -- serum, green ocelot, form health, payloads
+		com.projecthero.mod.shazam.ShazamMod.initialize(); // v0.17.3: Shazam -- the word, the Wizard, damage, flight payload
+		com.projecthero.mod.doctorfate.DoctorFateMod.initialize(); // v0.17.3: Doctor Fate -- items, Tomb of Nabu, damage, payloads
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)
 		com.projecthero.mod.saiyan.kit.SaiyanKit.initialize(); // v0.17.3 Saiyan revamp: the move kit (packet + its tick)

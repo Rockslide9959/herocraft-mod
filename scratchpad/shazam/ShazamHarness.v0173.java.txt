@@ -1,0 +1,468 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.shazam.Shazam;
+import com.projecthero.mod.shazam.ShazamAbilityManager;
+import com.projecthero.mod.shazam.ShazamFlight;
+import com.projecthero.mod.shazam.ShazamMoves;
+import com.projecthero.mod.shazam.ShazamWizards;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films Shazam -- the word typed in real chat, the suit, flight, every move, the Wizard. Enabled by
+ * run/shazam.flag (its text filters scenes). Frames: run/screenshots/sz_*. Hook in/out with scratchpad/shazam/harness_hook.js; films
+ * with scratchpad/shazam/films.sh.
+ */
+public final class ShazamHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+	private static boolean flyForward;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private ShazamHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("shazam.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("shazam.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ShazamHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "shazam-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ShazamHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				Shazam.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (flyForward) {
+				mc.options.keyUp.setDown(true);
+				mc.options.keySprint.setDown(true);
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("sz_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SZ_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot facing south; dummies gone; transformed (or not), full bar, no cooldowns. */
+	private static void reset(Minecraft mc, int t, float pitch, boolean transformed) {
+		at(t, () -> {
+			flyForward = false;
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(64))) {
+				h.discard();
+			}
+			for (var w : level.getEntitiesOfClass(com.projecthero.mod.shazam.entity.WizardShazamEntity.class, new AABB(origin, origin).inflate(64))) {
+				w.discard();
+			}
+			ShazamFlight.stop(p);
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			Shazam.clearCooldowns(p);
+			if (Shazam.transformed(p) != transformed) {
+				Shazam.speak(p);
+				Shazam.clearCooldowns(p);
+			}
+			Shazam.clearTransient(p);
+			Shazam.setLightning(p, 100f);
+			p.setHealth(p.getMaxHealth());
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+			h.setHealth(400);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		at(t, () -> server(mc, p -> ShazamMoves.use(p, id)));
+	}
+
+	private static void aimAt(Minecraft mc, int t, double dx, double dy, double dz) {
+		at(t, () -> server(mc, p -> {
+			p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, origin.add(dx, dy, dz));
+			p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void gui(Minecraft mc, int t, boolean on) {
+		at(t, () -> mc.options.hideGui = !on);
+	}
+
+	private static void firstPerson(Minecraft mc, int t, boolean on) {
+		at(t, () -> {
+			if (on) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			}
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("word")) {
+			// typed in REAL chat: the message is swallowed, the lightning answers, "SHAZAM!" for everyone near
+			reset(mc, t, 0f, false);
+			dummy(mc, t + 1, 1.8, 1.2);
+			cam(t + 1, 150f, 0.6f, 5.0f, 0f, 1.1f);
+			gui(mc, t + 2, true);
+			record(t + 4, "word", 60);
+			at(t + 14, () -> mc.player.connection.sendChat("SHAZAM!"));
+			gui(mc, t + 66, false);
+			t += 70;
+		}
+		if (want("back")) {
+			reset(mc, t, 0f, true);
+			cam(t + 1, 210f, 0.6f, 5.0f, 0f, 1.1f);
+			gui(mc, t + 2, true);
+			record(t + 4, "back", 50);
+			at(t + 14, () -> mc.player.connection.sendChat("shazam."));
+			gui(mc, t + 56, false);
+			t += 60;
+		}
+		if (want("suit")) {
+			reset(mc, t, 0f, true);
+			cam(t + 1, 0f, 0.1f, 2.6f, 6f, 1.1f);
+			record(t + 4, "suit", 60);
+			t += 68;
+		}
+		if (want("hud")) {
+			reset(mc, t, 0f, true);
+			firstPerson(mc, t + 1, true);
+			record(t + 4, "hud", 30);
+			use(mc, t + 10, ShazamAbilityManager.LIGHTNING_HAND);
+			firstPerson(mc, t + 36, false);
+			t += 40;
+		}
+		if (want("flight")) {
+			reset(mc, t, -10f, true);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 4, origin.z, 0f, -10f);
+				ShazamFlight.toggle(p);
+			}));
+			at(t + 6, () -> flyForward = true);
+			cam(t + 3, 120f, 1.0f, 5.0f, 0f, 1.0f);
+			record(t + 8, "flight", 60);
+			at(t + 70, () -> {
+				flyForward = false;
+				mc.options.keyUp.setDown(false);
+				mc.options.keySprint.setDown(false);
+			});
+			t += 74;
+		}
+		if (want("lightning_hand")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 7);
+			dummy(mc, t + 1, 2.5, 9);
+			dummy(mc, t + 1, -2.5, 10);
+			aimAt(mc, t + 2, 0, 1.2, 7);
+			cam(t + 3, 140f, 1.5f, 6.0f, 0f, 1.2f);
+			record(t + 4, "lightning_hand", 36);
+			use(mc, t + 10, ShazamAbilityManager.LIGHTNING_HAND);
+			use(mc, t + 26, ShazamAbilityManager.LIGHTNING_HAND);
+			t += 44;
+		}
+		if (want("call_lightning")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 1, 12);
+			aimAt(mc, t + 2, 1, 1.0, 12);
+			cam(t + 3, 150f, 2.0f, 8.0f, 0f, 1.5f);
+			record(t + 4, "call_lightning", 40);
+			use(mc, t + 10, ShazamAbilityManager.CALL_LIGHTNING);
+			t += 48;
+		}
+		if (want("hercules_punch")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 2.2);
+			aimAt(mc, t + 2, 0, 1.2, 2.2);
+			cam(t + 3, 90f, 1.0f, 7.0f, 0f, 1.2f);
+			record(t + 4, "hercules_punch", 45);
+			use(mc, t + 10, ShazamAbilityManager.HERCULES_PUNCH);
+			t += 52;
+		}
+		if (want("atlas_lift")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 2.5);
+			aimAt(mc, t + 2, 0, 1.0, 2.5);
+			cam(t + 3, 100f, 1.0f, 6.0f, 0f, 1.6f);
+			record(t + 4, "atlas_lift", 60);
+			use(mc, t + 10, ShazamAbilityManager.ATLAS_LIFT);
+			aimAt(mc, t + 28, 0, 6, 12);
+			use(mc, t + 40, ShazamAbilityManager.ATLAS_LIFT);
+			t += 68;
+		}
+		if (want("zeus_storm")) {
+			reset(mc, t, 0f, true);
+			for (int i = 0; i < 5; i++) {
+				double a = i * Math.PI * 2 / 5 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 6, Math.cos(a) * 6);
+			}
+			cam(t + 3, 30f, 5.0f, 12.0f, 0f, 1.0f);
+			record(t + 4, "zeus_storm", 70);
+			use(mc, t + 8, ShazamAbilityManager.ZEUS_STORM);
+			t += 78;
+		}
+		if (want("eternity")) {
+			reset(mc, t, 0f, true);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI * 2 / 6;
+				dummy(mc, t + 1, Math.sin(a) * 5, Math.cos(a) * 5);
+			}
+			cam(t + 3, 30f, 4.0f, 14.0f, 0f, 2.0f);
+			gui(mc, t + 3, true);
+			record(t + 4, "eternity", 110);
+			use(mc, t + 8, ShazamAbilityManager.ETERNITY_STRIKE);
+			gui(mc, t + 116, false);
+			t += 120;
+		}
+		if (want("dash")) {
+			reset(mc, t, 0f, true);
+			cam(t + 3, 90f, 1.5f, 10.0f, 0f, 1.0f);
+			record(t + 4, "dash", 30);
+			use(mc, t + 10, ShazamAbilityManager.MERCURY_DASH);
+			t += 38;
+		}
+		if (want("tackle")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 12);
+			aimAt(mc, t + 2, 0, 1.0, 12);
+			cam(t + 3, 95f, 2.0f, 12.0f, 0f, 1.0f);
+			record(t + 4, "tackle", 40);
+			use(mc, t + 10, ShazamAbilityManager.THUNDER_TACKLE);
+			t += 48;
+		}
+		if (want("thunderclap")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 4);
+			dummy(mc, t + 1, 2, 5);
+			dummy(mc, t + 1, -2, 5);
+			cam(t + 3, 120f, 2.0f, 8.0f, 0f, 1.0f);
+			record(t + 4, "thunderclap", 40);
+			use(mc, t + 10, ShazamAbilityManager.THUNDERCLAP);
+			t += 48;
+		}
+		if (want("stand")) {
+			reset(mc, t, 0f, true);
+			cam(t + 3, 30f, 1.0f, 4.5f, 0f, 1.1f);
+			record(t + 4, "stand", 36);
+			use(mc, t + 8, ShazamAbilityManager.ACHILLES_STAND);
+			t += 44;
+		}
+		if (want("wisdom")) {
+			reset(mc, t, 0f, true);
+			dummy(mc, t + 1, 0, 5);
+			dummy(mc, t + 1, 3, 7);
+			firstPerson(mc, t + 2, true);
+			aimAt(mc, t + 2, 0, 1.0, 5);
+			record(t + 4, "wisdom", 30);
+			use(mc, t + 6, ShazamAbilityManager.WISDOM);
+			firstPerson(mc, t + 36, false);
+			t += 40;
+		}
+		if (want("wizard")) {
+			reset(mc, t, 0f, false);
+			at(t + 1, () -> server(mc, p -> {
+				Shazam.revoke(p);
+				var w = com.projecthero.mod.shazam.entity.ShazamEntities.WIZARD.create(p.serverLevel());
+				w.moveTo(origin.x, origin.y, origin.z + 3, 180f, 0f);
+				w.setYHeadRot(180f);
+				w.setSummoned(true);
+				p.serverLevel().addFreshEntity(w);
+			}));
+			cam(t + 2, 160f, 0.3f, 4.5f, 0f, 1.5f);
+			gui(mc, t + 2, true);
+			record(t + 4, "wizard", 70);
+			at(t + 40, () -> server(mc, p -> {
+				var ws = p.serverLevel().getEntitiesOfClass(com.projecthero.mod.shazam.entity.WizardShazamEntity.class, p.getBoundingBox().inflate(8));
+				if (!ws.isEmpty()) {
+					ShazamWizards.judge(ws.get(0), p);
+				}
+			}));
+			gui(mc, t + 76, false);
+			t += 80;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

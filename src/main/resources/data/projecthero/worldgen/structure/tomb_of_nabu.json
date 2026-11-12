@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:tomb_of_nabu",
+  "biomes": "#projecthero:has_structure/tomb_of_nabu",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

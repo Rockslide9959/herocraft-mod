@@ -148,10 +148,20 @@ public final class DirectionalFlight {
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return DirectionalFlightModel.greenLantern(flyingSpeed, sprint, player.input.shiftKeyDown && sprint);
 		}
+		// v0.17.3: Beast Boy's flying forms (hawk, pterodactyl, bat, fly) -- Kryptonian handling at the form's own speed
+		if (com.projecthero.mod.beastboy.BeastBoy.isFlying(player)) {
+			double bps = com.projecthero.mod.beastboy.BeastBoyForms.flightBps(com.projecthero.mod.beastboy.BeastBoy.form(player), sprint);
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// Kryptonian flight -- X is Flight Boost
 		if (Kryptonian.isFlying(player)) {
 			var ks = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
 			return DirectionalFlightModel.kryptonian(sprint, ks != null && ks.flightBoost);
+		}
+		// v0.17.3: Doctor Fate's golden-ankh hover flight (double-tap Space) -- Kryptonian handling, 14 b/s cruise, 28 sprinting
+		if (com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)) {
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint ? com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_SPRINT_BPS
+					: com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_CRUISE_BPS) / 20.0);
 		}
 		// v0.17.3: the Saiyan's double-tap-jump flight -- Kryptonian handling, 18 b/s cruise, 36 sprinting, x1.2 in Super Saiyan (55 at most)
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
@@ -173,6 +183,11 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.raven.Raven.isFlying(player)) {
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint
 					? com.projecthero.mod.raven.RavenConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.raven.RavenConfig.FLIGHT_CRUISE_BPS) / 20.0);
+		}
+		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting
+		if (com.projecthero.mod.shazam.Shazam.isFlying(player)) {
+			double bps = sprint ? com.projecthero.mod.shazam.ShazamConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.shazam.ShazamConfig.FLIGHT_CRUISE_BPS;
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
 		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held
 		// is the boost, 32 b/s along the look as the body burns away; just a head 25 b/s (UndeadFlight.bps)

@@ -221,6 +221,9 @@ public final class ServerStateReset {
 		com.projecthero.mod.spin.SpinMod.clearSessionState(); // v0.17.3: Spin -- marked creatures, Valkyrie calls, strikes, witnesses
 		com.projecthero.mod.starfire.StarfireMod.clearSessionState(); // v0.17.3: Starfire -- runs (grabbed / carried creatures), bolts, homing bolts, lights
 		com.projecthero.mod.raven.RavenMod.clearSessionState(); // v0.17.3: Raven -- holds, thrown/lifted creatures, debris, pending block restores
+		com.projecthero.mod.beastboy.BeastBoyMod.clearSessionState(); // v0.17.3: Beast Boy -- bleeds, fears, holds, fed ocelots, flight
+		com.projecthero.mod.shazam.ShazamMod.clearSessionState(); // v0.17.3: Shazam -- move sessions (lifted / flying entity ids), flight
+		com.projecthero.mod.doctorfate.DoctorFateMod.clearSessionState(); // v0.17.3: Doctor Fate -- chains, storms, wards, whispers, possession
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.clearSessionState(); // v0.17.3: casters, thrown bombs, craters (hold levels)
 		com.projecthero.mod.beamclash.BeamClash.clearSessionState(); // v0.17.3
 		com.projecthero.mod.hulk.Hulk.clearSessionState();

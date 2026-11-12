@@ -264,7 +264,17 @@
 		"ErasureGogglesGlowMixin",
 		"GreenLanternMechCameraMixin",
 		"GreenLanternMechHandsMixin",
-		"GreenLanternMechGuiMixin"
+		"GreenLanternMechGuiMixin",
+		"BeastBoyPlayerRendererMixin",
+		"BeastBoyHandsMixin",
+		"BeastBoyOcelotMixin",
+		"BeastBoyPolarBearAccessor",
+		"BeastBoyIronGolemAccessor",
+		"ShazamBoltSoundMixin",
+		"FateInputMixin",
+		"FateMouseMixin",
+		"FateSightGlowMixin",
+		"FateSightColorMixin"
 	],
 	"client": [],
 	"server": [],

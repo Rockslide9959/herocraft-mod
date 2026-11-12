@@ -163,6 +163,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.spin.SpinClient.initialize(); // v0.17.3: the Spin -- HUD, Golden Rectangle, balls, effects
 		com.projecthero.mod.client.starfire.StarfireClient.initialize(); // v0.17.3: Starfire -- HUD gauge, glow overlays, eye beams, bolts, fx
 		com.projecthero.mod.client.raven.RavenClient.initialize(); // v0.17.3: Raven -- HUD, aura, cloak, soul-self, debris, effects
+		com.projecthero.mod.client.beastboy.BeastBoyClient.initialize(); // v0.17.3: Beast Boy -- HUD, wheel, tint, senses
+		com.projecthero.mod.client.shazam.ShazamClient.initialize(); // v0.17.3: Shazam -- suit, cape, HUD, Wisdom, the Wizard
+		com.projecthero.mod.client.doctorfate.DoctorFateClient.initialize(); // v0.17.3: Doctor Fate -- HUD, suit, Avatar, bargains, possession
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -1400,6 +1403,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.17.3: Shazam -- double-tap Space in the air while transformed takes off / drops out of flight (server re-validates).
+		// Ahead of the other heroes: a Shazam Family member's own power steps aside while the borrowed lightning is on.
+		if (com.projecthero.mod.client.shazam.ShazamClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.shazam.ShazamClient.toggleFlight();
+			return;
+		}
+
 		// v0.17.3 (user): the Saiyan -- double-tap jump in the air takes off / drops out of flight (server re-validates).
 		if (com.projecthero.mod.client.saiyan.SaiyanClient.wantsFlightToggle(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
@@ -1417,6 +1428,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (com.projecthero.mod.client.raven.RavenClient.wantsFlightToggle(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			com.projecthero.mod.client.raven.RavenClient.toggleFlight();
+			return;
+		}
+
+		// v0.17.3: Doctor Fate -- double-tap Space in the air with the helmet on (server re-validates)
+		if (com.projecthero.mod.client.doctorfate.DoctorFateClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.doctorfate.DoctorFateClient.toggleFlight();
 			return;
 		}
 
