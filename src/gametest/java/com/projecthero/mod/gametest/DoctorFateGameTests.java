@@ -274,13 +274,17 @@ public class DoctorFateGameTests implements FabricGameTest {
 		Villager v = helper.spawnWithNoFreeWill(EntityType.VILLAGER, new Vec3(2.5, 2.0, 2.5));
 		Zombie weak = zombie(helper, 5.5, 2.5, 20.0);
 		Zombie strong = zombie(helper, 2.5, 5.5, 100.0);
-		helper.assertTrue(DoctorFatePossession.target(p) == strong, "Nabu picks the strongest hostile");
+		// (in a batch a neighbouring test can hold an even stronger hostile in range, so only check it is never the villager or the weak one)
+		var picked = DoctorFatePossession.target(p);
+		helper.assertTrue(picked != null && picked != v && picked != weak && picked.getMaxHealth() >= strong.getMaxHealth(), "Nabu picks the strongest hostile");
 		DoctorFate.setDominion(p, 100f);
 		DoctorFatePossession.tickForTest(p);
 		float before = strong.getHealth();
 		DoctorFatePossession.castNow(p, strong); // the first in turn: Ankh Bolt
 		ratio(helper, before - strong.getHealth(), DoctorFateConfig.BOLT_DAMAGE * DoctorFateConfig.POSSESSION_DAMAGE_MULT, "Nabu's bolt (huge damage)");
 		helper.assertTrue(v.getHealth() >= v.getMaxHealth() && weak.isAlive(), "the villager untouched");
+		DoctorFate.setDominion(p, 0f);
+		p.discard(); // a possessed mock player left in the world would keep casting at the next test's mobs
 		helper.succeed();
 	}
 
