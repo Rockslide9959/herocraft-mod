@@ -138,7 +138,7 @@ public final class Starfire {
 	/** Full Fury: the eyes blaze and Supernova unlocks. Client-safe. */
 	public static boolean fullFury(Player player) {
 		StarfireState s = peek(player);
-		return s != null && s.hasPower && s.mood >= StarfireConfig.MOOD_MAX - 1.0e-3f;
+		return s != null && s.hasPower && s.mood >= StarfireConfig.FURY_FULL;
 	}
 
 	public static boolean beaming(Player player) {

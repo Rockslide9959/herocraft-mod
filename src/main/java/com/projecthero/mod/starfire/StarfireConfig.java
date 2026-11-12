@@ -35,6 +35,8 @@ public final class StarfireConfig {
 
 	// ---------------------------------------------------------------- the Joy / Fury gauge
 	public static final float MOOD_MAX = 100f;
+	/** "Full Fury" (the eyes blaze, Supernova unlocks) from here: a little slack, so the sun's Joy doesn't knock her off it at once. */
+	public static final float FURY_FULL = 95f;
 	/** Joy per second while flying / in direct sun / with a squadmate in 16 blocks. */
 	public static final float JOY_FLYING = 3f;
 	public static final float JOY_SUN = 2f;

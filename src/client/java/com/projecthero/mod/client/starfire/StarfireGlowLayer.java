@@ -69,7 +69,7 @@ public class StarfireGlowLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 		PlayerModel<AbstractClientPlayer> model = getParentModel();
 		VertexConsumer vc = buffers.getBuffer(RenderType.eyes(MutationRender.WHITE));
 		float t = ageInTicks + partialTick;
-		boolean fury = s.mood >= StarfireConfig.MOOD_MAX - 0.5f;
+		boolean fury = s.mood >= StarfireConfig.FURY_FULL;
 		// the eyes
 		pose.pushPose();
 		model.head.translateAndRotate(pose);

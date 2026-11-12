@@ -297,6 +297,7 @@ public final class StarfireHarness {
 		if (want("hud")) {
 			reset(mc, t, 0f);
 			mood(mc, t + 1, 45f);
+			at(t + 2, () -> mc.gui.getChat().clearMessages(false));
 			firstPerson(mc, t + 1, true);
 			record(t + 4, "hud", 36);
 			use(mc, t + 10, StarfireAbilityManager.STARBOLT);
@@ -354,7 +355,7 @@ public final class StarfireHarness {
 				dummy(mc, t + 1, Math.sin(a) * 6, Math.cos(a) * 6);
 			}
 			mood(mc, t + 2, 100f);
-			cam(t + 1, 30f, 4.0f, 16.0f, 0f, 2.5f);
+			cam(t + 1, 30f, 2.5f, 11.0f, 0f, 2.0f);
 			record(t + 4, "supernova", 90);
 			use(mc, t + 10, StarfireAbilityManager.SUPERNOVA);
 			t += 98;
@@ -368,7 +369,7 @@ public final class StarfireHarness {
 			t += 44;
 		}
 		if (want("comet_dive")) {
-			reset(mc, t, 25f);
+			reset(mc, t, 42f);
 			suit(mc, t + 1, true);
 			for (int i = 0; i < 3; i++) {
 				dummy(mc, t + 1, (i - 1) * 1.6, 12);

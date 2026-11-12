@@ -91,8 +91,8 @@ public final class StarfireHud {
 		// the Joy / Fury Gauge
 		by -= 14;
 		moodGauge(g, font, x0, by, WIDTH, s, mc.level.getGameTime() + partial);
-		// the title
-		by -= 11;
+		// the title (clear of the Gauge's label line)
+		by -= 15;
 		String title = Component.translatable("hud.projecthero.starfire.title").getString();
 		g.drawString(font, font.plainSubstrByWidth(title, WIDTH), x0, by - 2, PURPLE_TEXT, true);
 		// status tags, wrapped to the HUD's width (bottom line first, upward)
@@ -163,7 +163,7 @@ public final class StarfireHud {
 		String joy = Component.translatable("hud.projecthero.starfire.joy").getString();
 		String fury = Component.translatable("hud.projecthero.starfire.fury").getString();
 		int pct = Math.round(Math.abs(s.mood));
-		boolean full = s.mood >= StarfireConfig.MOOD_MAX - 0.5f;
+		boolean full = s.mood >= StarfireConfig.FURY_FULL;
 		String reading = s.mood < -0.5f ? joy + " " + pct + "%" : s.mood > 0.5f ? (full ? fury.toUpperCase() + "!" : fury + " " + pct + "%") : "-";
 		int readingCol = s.mood < -0.5f ? GREEN_TEXT : s.mood > 0.5f ? FURY_TEXT : VanillaHud.GREY;
 		if (full && ((int) (time / 4) % 2 == 0)) {
