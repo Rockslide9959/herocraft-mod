@@ -1,0 +1,276 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import com.projecthero.mod.client.spin.model.BallBreakerModel;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films the two Ball Breaker model candidates side by side (A = BallBreakerModel, B =
+ * BallBreakerSkinFigure). Enabled by run/bb.flag. Frames: run/screenshots/bb_*. Hook in/out with
+ * scratchpad/spin/ball_breaker_harness_hook.js; films with scratchpad/spin/ball_breaker_films.sh.
+ */
+public final class BallBreakerHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static Vec3 origin;
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static boolean faceOnly;
+
+	// scene state read by the renderer
+	private static volatile float yawA, yawB;
+	private static volatile float alpha = 1f, glow, strike;
+	/** 0 = both side by side, 1 = A alone close, 2 = B alone close. */
+	private static volatile int mode = -1;
+
+	private BallBreakerHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("bb.flag"))) {
+			return;
+		}
+		try {
+			faceOnly = Files.readString(Path.of("bb.flag")).contains("face");
+		} catch (Exception e) {
+			faceOnly = false;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BallBreakerHarness::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(BallBreakerHarness::render);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "bb-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BallBreakerHarness::createWorld);
+			}
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 80) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SPECTATOR);
+				BlockPos b = p.blockPosition();
+				// a pale backdrop wall and floor so the lime reads
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -14; z <= 3; z++) {
+						level.setBlockAndUpdate(b.offset(x, -1, z), Blocks.SMOOTH_STONE.defaultBlockState());
+					}
+					for (int y = 0; y <= 12; y++) {
+						level.setBlockAndUpdate(b.offset(x, y, -9), Blocks.WHITE_CONCRETE.defaultBlockState());
+					}
+				}
+				origin = new Vec3(b.getX() + 0.5, b.getY(), b.getZ() + 0.5);
+				p.teleportTo(level, origin.x, origin.y, origin.z, 180f, 0f);
+			});
+			t0 = inWorldTicks;
+		}
+		if (t0 < 0) {
+			return;
+		}
+		int t = inWorldTicks - t0;
+		if (faceOnly && t >= 25) {
+			t += 395; // straight to the face close-ups
+		}
+		script(mc, t);
+		if (recording != null) {
+			String name = String.format("bb_%s_%03d.png", recording, recFrame++);
+			Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+			});
+			if (t >= recUntil) {
+				System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+				recording = null;
+			}
+		}
+	}
+
+	private static void rec(int t, int start, String name, int ticks) {
+		if (t == start) {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks - 1;
+		}
+	}
+
+	private static void still(int t, int at, String name) {
+		rec(t, at, name, 1);
+	}
+
+	private static void script(Minecraft mc, int t) {
+		if (t == 30) {
+			mode = 0;
+		}
+		// side-by-side stills (yaw 0 = facing the camera)
+		float[] yaws = { 0f, -35f, -90f, 180f };
+		String[] names = { "front", "threequarter", "side", "back" };
+		for (int i = 0; i < 4; i++) {
+			if (t == 40 + i * 10) {
+				yawA = yawB = yaws[i];
+			}
+			still(t, 45 + i * 10, "pair_" + names[i]);
+		}
+		// turntable, 6 s
+		if (t >= 90 && t < 210) {
+			yawA = yawB = (t - 90) * 3f;
+		}
+		rec(t, 90, "turntable", 120);
+		// golden glow, fade, strike (front three-quarter)
+		if (t >= 220 && t < 300) {
+			int k = t - 220;
+			yawA = yawB = -25f;
+			glow = k < 20 ? k / 20f : (k < 60 ? 1f : 1f - (k - 60) / 20f);
+			strike = k < 25 ? 0f : (k < 35 ? (k - 25) / 10f : (k < 55 ? 1f : Math.max(0f, 1f - (k - 55) / 10f)));
+			alpha = k < 60 ? 1f : 1f - (k - 60) / 22f;
+		}
+		rec(t, 220, "fx", 80);
+		if (t == 302) {
+			alpha = 1f;
+			glow = 0f;
+			strike = 0f;
+		}
+		// close-ups, A then B
+		for (int m = 1; m <= 2; m++) {
+			int base = 300 + (m - 1) * 60;
+			if (t == base + 5) {
+				mode = m;
+			}
+			for (int i = 0; i < 4; i++) {
+				if (t == base + 8 + i * 10) {
+					yawA = yawB = yaws[i];
+				}
+				still(t, base + 13 + i * 10, (m == 1 ? "a_" : "b_") + names[i]);
+			}
+		}
+		// face close-ups of A (front, three-quarter each way, side)
+		float[] fy = { 0f, -30f, 30f, -70f };
+		String[] fn = { "front", "threequarter", "threequarter_r", "side" };
+		for (int i = 0; i < 4; i++) {
+			if (t == 420) {
+				mode = 3;
+			}
+			if (t == 423 + i * 10) {
+				yawA = fy[i];
+			}
+			still(t, 428 + i * 10, "face_" + fn[i]);
+		}
+		if (t == 470) {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		}
+	}
+
+	private static void render(WorldRenderContext ctx) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mode < 0 || origin == null || mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+			return;
+		}
+		PoseStack pose = ctx.matrixStack();
+		MultiBufferSource buffers = ctx.consumers();
+		Vec3 cam = ctx.camera().getPosition();
+		float time = mc.level.getGameTime() + ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(origin.add(0, 1, -3)));
+		if (mode == 0) {
+			draw(pose, buffers, cam, origin.add(-1.45, 0.35, -3.9), yawA, true, light, time);
+			draw(pose, buffers, cam, origin.add(1.45, 0.35, -3.9), yawB, false, light, time);
+		} else if (mode == 3) {
+			// the head at eye height, 1.5 blocks away (no bob: time frozen at 0 for crisp stills)
+			draw(pose, buffers, cam, origin.add(0, -0.62, -1.55), yawA, true, light, 0f);
+		} else {
+			draw(pose, buffers, cam, origin.add(0, 0.35, -2.9), mode == 1 ? yawA : yawB, mode == 1, light, time);
+		}
+	}
+
+	private static void draw(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 at, float yaw, boolean a, int light, float time) {
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		// (Candidate B, the PlanetMinecraft skin figure, was dropped when the user picked A)
+		if (a) {
+			BallBreakerModel.render(pose, buffers, light, alpha, glow, strike, time);
+		}
+		pose.popPose();
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

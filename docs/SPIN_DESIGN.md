@@ -51,10 +51,23 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
   ribbon arcs behind the orbiting balls. Spun creatures: a rendered gold swirl. Spin Quake: a spinning shock ring (block dust kept).
 - Steel balls: green metal sphere, a raised hexagon plate on each side, curved grooves wrapping round, glossy highlights
   (see the references). Spiralling golden trail in flight; twisting skin rings on spun targets; gold rectangle + spiral flash on
-  Golden Spin; a pale, armour-plated Ball Breaker figure rushing out of the ball.
+  Golden Spin; the lime, stud-covered Ball Breaker figure rushing out of the ball (see "Ball Breaker look" below).
 - Sounds from the user's clip (quiet). The ids are fixed in `SpinSounds`.
 
 ## Shared contract (two build agents)
 - `spin/SpinSounds.java`: the sound ids (ART supplies OGGs + `sounds.json`; POWER plays them).
 - `client/spin/model/SteelBallRender.render(pose, buffers, light, radius, spinDeg, golden)`: ART implements; POWER calls it everywhere a
   ball is drawn.
+
+## Ball Breaker look (2026-11-12)
+The user picked the custom model out of two candidates (the other, a borrowed PlanetMinecraft skin, was dropped) and asked for the face
+to match the references. Shift+Z now draws it in `SpinFx.renderBreaker` (solid, growing out of the ball, golden glow on the burst and
+the strike, faint golden afterimages, fades at the end).
+- **Model:** `client/spin/model/BallBreakerModel` (procedural ellipsoids/frustums/boxes in a bone hierarchy, floating crouch,
+  `strike` 0..1 drives the right hand forward) + `textures/entity/spin/power/ball_breaker_model.png` (swatch atlas from
+  `scratchpad/spin/gen_ball_breaker_model_tex.js`). Our own work, no licence issue.
+- **Face:** smooth lime egg dome; a raised face shield outlined by a dark seam (rounded top, U-shaped bottom) over a dark recessed jaw;
+  seven magenta oval studs on thin silver stems running down the shield (All-Star Battle render; the manga's pink bulbs on stalks).
+- References: the user's `docs/reference/spin/ball_breaker_face_34.png` / `_35.png` and the jojowiki Ball Breaker page.
+- Films: `docs/screenshots/v0173/spin/ball_breaker_*`. Harness: `scratchpad/spin/ball_breaker_harness_hook.js` +
+  `BallBreakerHarness.v0173.java.txt` (write `face` into `run/bb.flag` for only the face close-ups); films: `ball_breaker_films.sh`.

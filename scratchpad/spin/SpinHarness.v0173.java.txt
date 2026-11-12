@@ -347,10 +347,19 @@ public final class SpinHarness {
 			t += 60;
 		}
 		if (want("ball_breaker")) {
+			// from just behind the target's shoulder: the figure rushes at the camera, face first
 			reset(mc, t, 2f);
-			dummy(mc, t + 1, 0, 7);
-			cam(t + 1, 70f, 1.2f, 7.0f, 0f, 1.4f);
+			dummy(mc, t + 1, 0.6, 5);
+			cam(t + 1, 38f, 0.7f, 7.0f, 0f, 1.7f);
 			record(t + 4, "ball_breaker", 75);
+			charge(mc, t + 8, SpinAbilityManager.BALL_BREAKER, 30);
+			t += 82;
+		}
+		if (want("breaker_side")) {
+			reset(mc, t, 2f);
+			dummy(mc, t + 1, 0, 4.5);
+			cam(t + 1, 75f, 0.9f, 4.8f, 0f, 1.6f);
+			record(t + 4, "breaker_side", 75);
 			charge(mc, t + 8, SpinAbilityManager.BALL_BREAKER, 30);
 			t += 82;
 		}
