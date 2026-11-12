@@ -21,12 +21,18 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.3 Doctor Fate's look on every player wearing the Helmet of Fate (the state is synced, so every viewer sees it): the
- * blue-and-gold outfit over the skin (a player model a hair larger, wide or slim to match), the golden Helmet of Fate over the head
- * (a 10-pixel dome with the T-shaped eye slit, side fins and a crest -- the face is hidden), and the Amulet of Anubis on the chest.
- * The Cloak of Destiny is {@link FateCloakLayer}. V's 1 s animation fades the outfit in and lowers the helmet onto the head.
+ * v0.17.3 Doctor Fate's look on every player wearing the Helmet of Fate (the state is synced, so every viewer sees it): the user's
+ * chosen DCEU skin (JMCT, PlanetMinecraft -- see docs/reference/doctorfate/SOURCE.txt) drawn as a second skin a hair over the
+ * wearer's, wide or slim to match their model ({@code scratchpad/doctorfate/build_fate_skin.js} makes both). Its head IS the Helmet
+ * of Fate: the helmet's side openings are cut out of the texture so the wearer's own skin shows there, and the wearer's outer layer
+ * is hidden while the suit is on ({@link #hidesSkinOverlay}) so nothing pokes through. The cape painted on the skin's back was taken
+ * off; the cloth Cloak of Destiny is {@link FateCloakLayer}. V's 1 s animation fades the suit in and lowers the helmet onto the head.
+ *
+ * <p>The old separate helmet / amulet model ({@link #helmetModel}) is no longer drawn on the player (it clashed with the skin's own
+ * helmet and chest emblem); the Avatar of Order ({@link FateWorldRender}) still wears it.
  */
 public class FateSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	public static final ResourceLocation SUIT = ProjectHeroMod.id("textures/entity/doctor_fate/suit.png");
@@ -88,23 +94,31 @@ public class FateSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		m.rightSleeve.copyFrom(m.rightArm);
 		m.leftPants.copyFrom(m.leftLeg);
 		m.rightPants.copyFrom(m.rightLeg);
-		m.head.visible = false; // the helmet covers it
-		m.hat.visible = false;
 		int alpha = Math.round(255 * Math.min(1f, shown * 1.4f));
 		int colour = (alpha << 24) | 0xFFFFFF;
-		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(slimArms ? SUIT_SLIM : SUIT)), light, OverlayTexture.NO_OVERLAY, colour);
+		var vc = buffers.getBuffer(RenderType.entityTranslucent(slimArms ? SUIT_SLIM : SUIT));
+		// the body, arms and legs (the head and hat are drawn on their own below)
+		m.head.visible = false;
+		m.hat.visible = false;
+		m.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
 		m.head.visible = true;
 		m.hat.visible = true;
-
-		ModelPart root = helmetModel();
-		ModelPart helmet = root.getChild("helmet");
-		ModelPart amulet = root.getChild("amulet");
-		helmet.copyFrom(parent.head);
-		helmet.y -= (1f - shown) * 12f; // lowered onto the head over the 1 s
-		amulet.copyFrom(parent.body);
+		// the helmet: the skin's head + hat layer, lowered onto the head over V's 1 s
+		float lift = (1f - shown) * 12f;
+		m.head.y -= lift;
+		m.hat.copyFrom(m.head);
 		int hc = (Math.round(255 * shown) << 24) | 0xFFFFFF;
-		var vc = buffers.getBuffer(RenderType.entityTranslucent(HELMET));
-		helmet.render(pose, vc, light, OverlayTexture.NO_OVERLAY, hc);
-		amulet.render(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
+		m.head.render(pose, vc, light, OverlayTexture.NO_OVERLAY, hc);
+		m.hat.render(pose, vc, light, OverlayTexture.NO_OVERLAY, hc);
+		m.head.y += lift;
+		m.hat.copyFrom(m.head);
+	}
+
+	/**
+	 * The wearer's own outer skin layer (hat / hair, jacket, sleeves, trousers) is hidden while the suit is mostly on: it would
+	 * poke through the suit drawn a hair over the base skin. Their base skin still shows through the helmet's side openings.
+	 */
+	public static boolean hidesSkinOverlay(Player player) {
+		return DoctorFate.possessed(player) || DoctorFate.helmetShown(player, 0f) > 0.3f;
 	}
 }
