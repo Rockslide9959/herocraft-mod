@@ -1908,7 +1908,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.starfire.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.starfire.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "traits", "starbolt", "mood", "flight", "costume", "titans"}) {
+			for (String section : new String[]{"getting", "traits", "starbolt", "mood", "flight", "titans"}) {
 				head(lines, "projecthero.guide.starfire." + section);
 				para(lines, "projecthero.guide.starfire." + section + ".body");
 				blank(lines);
@@ -1929,7 +1929,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.raven.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.raven.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "cloak", "titans"}) {
+			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "titans"}) {
 				head(lines, "projecthero.guide.raven." + section);
 				para(lines, "projecthero.guide.raven." + section + ".body");
 				blank(lines);

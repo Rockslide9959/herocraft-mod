@@ -123,9 +123,9 @@ public final class ModCreativeTab {
 				com.projecthero.mod.saiyan.item.SaiyanItems.addToCreativeTab(output);
 				// v0.17.3 the Spin: the Zeppeli Steel Balls
 				com.projecthero.mod.spin.SpinItems.addToCreativeTab(output);
-				// v0.17.3 Starfire: the Tamaranean Starstone and her costume
+				// v0.17.3 Starfire: the Tamaranean Starstone
 				com.projecthero.mod.starfire.item.StarfireItems.addToCreativeTab(output);
-				// v0.17.3 Raven: the Book of Azarath and Raven's Cloak
+				// v0.17.3 Raven: the Book of Azarath
 				com.projecthero.mod.raven.RavenItems.addToCreativeTab(output);
 				com.projecthero.mod.beastboy.BeastBoyItems.addToCreativeTab(output); // v0.17.3 Beast Boy: the Sakutia Serum
 				com.projecthero.mod.doctorfate.DoctorFateItems.addToCreativeTab(output); // v0.17.3: Doctor Fate

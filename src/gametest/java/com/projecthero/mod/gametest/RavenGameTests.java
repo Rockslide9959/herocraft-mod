@@ -29,7 +29,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
@@ -43,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.3 Raven (Teen Titans): the book and the grant, the passives, both bars, the leak and Rage, every move's damage / cost / effect,
  * flight and meditation, the shield, Trigon's Wrath, the block rules (energy copies with mob griefing off, real blocks restored with
- * it on) and the cloak's colours. Mock players are not ticked by the server, so tests over time drive {@link Raven#tick} themselves
+ * it on). Mock players are not ticked by the server, so tests over time drive {@link Raven#tick} themselves
  * (one onEachTick per test, registered at the start; every check is a runAfterDelay registered at the start too). Mob hits are asserted
  * as ratios of the expected damage. Gamerule / time changes are made and undone inside one tick.
  */
@@ -608,7 +607,7 @@ public class RavenGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- keys, cloak
+	// ---------------------------------------------------------------- keys
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void keysFollowTheHouseRules(GameTestHelper helper) {
@@ -620,22 +619,6 @@ public class RavenGameTests implements FabricGameTest {
 			moves += RavenAbilityManager.idsOf(s).length;
 		}
 		helper.assertTrue(moves == 12, "twelve moves on six keys, got " + moves);
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void cloakColourFollowsComposure(GameTestHelper helper) {
-		ServerPlayer p = raven(helper, 1.5, 1.5);
-		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(RavenItems.CLOAK));
-		helper.assertTrue(RavenItems.wearsCloak(p), "worn");
-		helper.assertTrue(RavenItems.cloakColour(p) == RavenItems.CLOAK_WHITE, "very calm: white");
-		Raven.setComposure(p, 60f);
-		helper.assertTrue(RavenItems.cloakColour(p) == RavenItems.CLOAK_BLUE, "blue");
-		Raven.setComposure(p, 5f);
-		helper.assertTrue(RavenItems.cloakColour(p) == RavenItems.CLOAK_RED, "Rage: dark red");
-		ServerPlayer other = mock(helper, 5.5, 5.5);
-		other.setItemSlot(EquipmentSlot.CHEST, new ItemStack(RavenItems.CLOAK));
-		helper.assertTrue(RavenItems.cloakColour(other) == RavenItems.CLOAK_BLUE, "anyone else's is blue");
 		helper.succeed();
 	}
 }
