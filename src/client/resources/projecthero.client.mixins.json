@@ -262,7 +262,11 @@
 		"ErasureGogglesGlowMixin",
 		"GreenLanternMechCameraMixin",
 		"GreenLanternMechHandsMixin",
-		"GreenLanternMechGuiMixin"
+		"GreenLanternMechGuiMixin",
+		"FateInputMixin",
+		"FateMouseMixin",
+		"FateSightGlowMixin",
+		"FateSightColorMixin"
 	],
 	"client": [],
 	"server": [],

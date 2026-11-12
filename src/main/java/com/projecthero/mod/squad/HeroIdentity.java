@@ -87,6 +87,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.spin.Spin.hasPower(player)) {
 			return "projecthero.squad.identity.spin"; // v0.17.3
 		}
+		if (com.projecthero.mod.doctorfate.DoctorFate.hasPower(player)) {
+			return "projecthero.squad.identity.doctor_fate"; // v0.17.3
+		}
 		if (com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {
 			return "projecthero.squad.identity.black_panther"; // v0.17.3
 		}

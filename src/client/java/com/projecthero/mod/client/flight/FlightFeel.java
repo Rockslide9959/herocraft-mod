@@ -56,6 +56,9 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
 			return KRYPTONIAN; // v0.17.3: the Saiyan banks and leans like the Kryptonian
 		}
+		if (com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)) {
+			return GENERIC; // v0.17.3: Doctor Fate hovers upright, cloak billowing
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return GREEN_LANTERN;
 		}

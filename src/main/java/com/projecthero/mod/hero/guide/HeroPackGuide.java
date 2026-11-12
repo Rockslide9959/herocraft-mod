@@ -167,6 +167,19 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SPIN);
 	}
 
+	/**
+	 * v0.17.3 Doctor Fate: the chapter's control rows {key, ability id}; each shows {@code projecthero.doctor_fate.ability.<id>} and
+	 * its {@code .desc}.
+	 */
+	public static final String[][] DOCTOR_FATE_CONTROLS = { { "2x Space", "flight" }, { "R", "ankh_bolt" }, { "Shift+R", "golden_chains" },
+			{ "Hold G", "ankh_shield" }, { "Shift+G", "banishment" }, { "Z", "glyph_storm" }, { "Shift+Z", "avatar_of_order" }, { "X", "ankh_step" },
+			{ "Shift+X", "gate_drop" }, { "C", "order_blast" }, { "Shift+C", "ward_of_order" }, { "V", "helmet" }, { "Shift+V", "sight_of_nabu" } };
+
+	/** Doctor Fate (v0.17.3). */
+	public static Chapter doctorFateChapter() {
+		return chapters().get(CH_DOCTOR_FATE);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -603,7 +616,8 @@ public final class HeroPackGuide {
 	private static final int CH_UNDEAD = CH_RYUKO + 1; // 67, v0.17.3
 	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
 	private static final int CH_SPIN = CH_SAIYAN + 1; // 69, v0.17.3: the Spin (the Spin)
-	private static final int CHAPTER_POWER_BASE = CH_SPIN + 1; // 70
+	private static final int CH_DOCTOR_FATE = CH_SPIN + 1; // 70, v0.17.3: Doctor Fate
+	private static final int CHAPTER_POWER_BASE = CH_DOCTOR_FATE + 1; // 71
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1832,6 +1846,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.spin.commands.body");
 		}));
 
+		// v0.17.3: Doctor Fate (CH_DOCTOR_FATE)
+		out.add(chapter("projecthero.guide.doctor_fate", lines -> {
+			lines.add(Component.translatable("projecthero.guide.doctor_fate.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.doctor_fate.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "helmet", "dominion", "tiers", "possession", "bargains", "fair"}) {
+				head(lines, "projecthero.guide.doctor_fate." + section);
+				para(lines, "projecthero.guide.doctor_fate." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.doctor_fate.controls");
+			for (String[] row : DOCTOR_FATE_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.doctor_fate.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.doctor_fate.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.doctor_fate.commands");
+			para(lines, "projecthero.guide.doctor_fate.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -1989,6 +2024,7 @@ public final class HeroPackGuide {
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SPIN, "zeppeli_steel_balls"); // v0.17.3
+		icon(CH_DOCTOR_FATE, "helmet_of_fate"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2051,6 +2087,7 @@ public final class HeroPackGuide {
 		link(dc, "projecthero.guide.cyborg", CH_CYBORG);
 		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
 		link(dc, "projecthero.guide.speed_force_speedster", CH_SPEED_FORCE); // v0.17.1
+		link(dc, "projecthero.guide.doctor_fate", CH_DOCTOR_FATE); // v0.17.3
 		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

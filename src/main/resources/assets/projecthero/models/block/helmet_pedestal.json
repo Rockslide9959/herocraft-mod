@@ -1,0 +1,21 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/chiseled_sandstone",
+    "base": "minecraft:block/chiseled_sandstone",
+    "top": "minecraft:block/cut_sandstone",
+    "column": "minecraft:block/smooth_sandstone",
+    "gold": "minecraft:block/gold_block"
+  },
+  "elements": [
+    { "from": [2, 0, 2], "to": [14, 2, 14], "faces": {
+      "down": { "texture": "#top" }, "up": { "texture": "#top" },
+      "north": { "texture": "#base" }, "south": { "texture": "#base" }, "west": { "texture": "#base" }, "east": { "texture": "#base" } } },
+    { "from": [4, 2, 4], "to": [12, 11, 12], "faces": {
+      "north": { "texture": "#column" }, "south": { "texture": "#column" }, "west": { "texture": "#column" }, "east": { "texture": "#column" } } },
+    { "from": [6, 5, 11.9], "to": [10, 9, 12.1], "faces": { "south": { "texture": "#gold" } } },
+    { "from": [3, 11, 3], "to": [13, 13, 13], "faces": {
+      "down": { "texture": "#top" }, "up": { "texture": "#gold" },
+      "north": { "texture": "#top" }, "south": { "texture": "#top" }, "west": { "texture": "#top" }, "east": { "texture": "#top" } } }
+  ]
+}

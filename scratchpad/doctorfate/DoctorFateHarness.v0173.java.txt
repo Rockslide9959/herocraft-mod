@@ -1,0 +1,473 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.doctorfate.FateBargainScreen;
+import com.projecthero.mod.client.doctorfate.FateServeScreen;
+import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateAbilityManager;
+import com.projecthero.mod.doctorfate.DoctorFateBargains;
+import com.projecthero.mod.doctorfate.DoctorFateFlight;
+import com.projecthero.mod.doctorfate.DoctorFateItems;
+import com.projecthero.mod.doctorfate.DoctorFatePossession;
+import com.projecthero.mod.doctorfate.DoctorFateSpells;
+import com.projecthero.mod.doctorfate.data.FateState;
+import com.projecthero.mod.hero.AbilitySlot;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.3 Doctor Fate screenshots and clips. Enabled by run/doctorfate.flag. */
+// TEMP-HARNESS
+public final class DoctorFateHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static Vec3 origin;
+	private static int t0 = -1;
+	private static String clip;
+	private static int frame;
+	private static int every = 1;
+	private static BlockPos pedestal;
+
+	private DoctorFateHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("doctorfate.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DoctorFateHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "doctorfate-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] server step failed: " + e);
+						e.printStackTrace(System.out);
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, "df_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void cam(Vec3 rel, Vec3 lookRel) {
+		camPos = origin.add(rel);
+		camLook = origin.add(lookRel);
+	}
+
+	private static void face(ServerPlayer p, Vec3 target) {
+		Vec3 eye = p.getEyePosition();
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), p.getX(), p.getY(), p.getZ(), yaw, pit);
+	}
+
+	private static Husk husk(ServerLevel l, Vec3 at) {
+		Husk h = EntityType.HUSK.create(l);
+		h.moveTo(at.x, at.y, at.z, 180f, 0f);
+		h.setNoAi(true);
+		h.setPersistenceRequired();
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200.0);
+		h.setHealth(200f);
+		l.addFreshEntity(h);
+		return h;
+	}
+
+	private static void husks(ServerPlayer p) {
+		ServerLevel l = p.serverLevel();
+		l.getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(40)).forEach(h -> h.discard());
+		husk(l, origin.add(0, 0, 7));
+		husk(l, origin.add(-2.5, 0, 9));
+		husk(l, origin.add(2.5, 0, 9));
+	}
+
+	private static Husk nearest(ServerPlayer p, Vec3 rel) {
+		Vec3 at = origin.add(rel);
+		return p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(40)).stream()
+				.min(java.util.Comparator.comparingDouble(h -> h.position().distanceToSqr(at))).orElse(null);
+	}
+
+	private static void cast(Minecraft mc, Vec3 targetRel, String id) {
+		server(mc, p -> {
+			DoctorFate.clearCooldowns(p);
+			if (targetRel != null) {
+				face(p, origin.add(targetRel).add(0, 1.0, 0));
+			}
+			DoctorFateSpells.testOverride = false;
+			DoctorFateSpells.use(p, id);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(DoctorFateHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		if (inWorld == 60) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, Math.floor(p.getY()), Math.floor(p.getZ()) + 0.5);
+				BlockPos o = BlockPos.containing(origin);
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -8; z <= 16; z++) {
+						l.setBlock(o.offset(x, -1, z), (x + z) % 7 == 0 ? Blocks.CHISELED_SANDSTONE.defaultBlockState() : Blocks.SMOOTH_SANDSTONE.defaultBlockState(), 3);
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.getInventory().clearContent();
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 1, false, false));
+				DoctorFate.grant(p);
+				DoctorFate.setDominion(p, 6f);
+				p.teleportTo(l, origin.x, origin.y, origin.z, 0f, 0f);
+			});
+			t0 = inWorld + 40;
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		int t = inWorld - t0;
+		if (clip != null && t % every == 0) {
+			frame++;
+			shot(clip + "_" + String.format("%04d", frame));
+		}
+		// ---- the helmet
+		if (t == 0) {
+			cam(new Vec3(2.0, 1.7, 3.6), new Vec3(0, 1.3, 0));
+		}
+		if (t == 8) {
+			shot("01_helmet_off");
+		}
+		if (t == 12) {
+			server(mc, p -> DoctorFateSpells.use(p, DoctorFateAbilityManager.HELMET));
+			startClip("helmet_on", 1);
+		}
+		if (t == 40) {
+			stopClip();
+		}
+		if (t == 46) {
+			shot("02_helmet_front");
+		}
+		if (t == 48) {
+			cam(new Vec3(1.6, 1.9, -3.4), new Vec3(0, 1.2, 0));
+		}
+		if (t == 56) {
+			shot("03_helmet_back_cloak");
+		}
+		if (t == 58) {
+			cam(new Vec3(0.9, 1.85, 1.3), new Vec3(0, 1.65, 0));
+		}
+		if (t == 66) {
+			shot("04_helmet_closeup");
+		}
+		// ---- the Dominion Gauge
+		if (t == 70) {
+			cam(new Vec3(2.0, 1.7, 3.6), new Vec3(0, 1.3, 0));
+			server(mc, p -> DoctorFate.setDominion(p, 32f));
+		}
+		if (t == 76) {
+			shot("05_gauge_override");
+		}
+		if (t == 78) {
+			server(mc, p -> DoctorFate.setDominion(p, 61f));
+		}
+		if (t == 84) {
+			shot("06_gauge_pull");
+		}
+		if (t == 86) {
+			server(mc, p -> DoctorFate.setDominion(p, 88f));
+		}
+		if (t == 92) {
+			shot("07_gauge_taking_hold");
+		}
+		// ---- bargains and the serve screen
+		if (t == 96) {
+			server(mc, p -> {
+				DoctorFate.setDominion(p, 20f);
+				DoctorFateBargains.offer(p, FateState.Bargain.DEATHS_DOOR);
+			});
+		}
+		if (t == 104) {
+			shot("08_bargain_deaths_door");
+		}
+		if (t == 106 || t == 120 || t == 134) {
+			if (mc.screen instanceof FateBargainScreen s) {
+				s.onClose();
+			}
+		}
+		if (t == 110) {
+			server(mc, p -> DoctorFateBargains.offer(p, FateState.Bargain.ORDERS_COMMAND));
+		}
+		if (t == 118) {
+			shot("09_bargain_orders_command");
+		}
+		if (t == 124) {
+			server(mc, p -> DoctorFateBargains.offer(p, FateState.Bargain.FORBIDDEN));
+		}
+		if (t == 132) {
+			shot("10_bargain_forbidden");
+		}
+		if (t == 138) {
+			mc.setScreen(new FateServeScreen(BlockPos.ZERO, true));
+		}
+		if (t == 144) {
+			shot("11_serve_screen");
+		}
+		if (t == 146 && mc.screen instanceof FateServeScreen s) {
+			s.onClose();
+		}
+		// ---- spells
+		if (t == 150) {
+			server(mc, p -> {
+				husks(p);
+				DoctorFate.setDominion(p, 10f);
+				face(p, origin.add(0, 1, 7));
+			});
+			cam(new Vec3(4.5, 2.6, -3.0), new Vec3(0, 1.0, 5.0));
+		}
+		if (t == 158) {
+			startClip("spells", 1);
+			cast(mc, new Vec3(0, 0, 7), DoctorFateAbilityManager.ANKH_BOLT);
+		}
+		if (t == 172) {
+			cast(mc, new Vec3(0, 0, 7), DoctorFateAbilityManager.GOLDEN_CHAINS);
+		}
+		if (t == 188) {
+			cast(mc, new Vec3(0, 0, 7), DoctorFateAbilityManager.ORDER_BLAST);
+		}
+		if (t == 204) {
+			cast(mc, new Vec3(0, -1, 8.5), DoctorFateAbilityManager.GLYPH_STORM);
+		}
+		if (t == 236) {
+			cast(mc, null, DoctorFateAbilityManager.WARD);
+		}
+		if (t == 256) {
+			server(mc, p -> {
+				face(p, origin.add(0, 1.6, 7));
+				DoctorFateSpells.raiseShieldForTest(p);
+			});
+		}
+		if (t == 262) {
+			shot("12_ankh_shield");
+		}
+		if (t == 274) {
+			server(mc, p -> com.projecthero.mod.doctorfate.DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_2, false));
+		}
+		if (t == 278) {
+			cast(mc, new Vec3(-2.5, 0, 9), DoctorFateAbilityManager.GATE_DROP);
+		}
+		if (t == 304) {
+			cast(mc, new Vec3(0, 0, 7), DoctorFateAbilityManager.ANKH_STEP);
+		}
+		if (t == 318) {
+			cast(mc, new Vec3(2.5, 0, 9), DoctorFateAbilityManager.SIGHT);
+		}
+		if (t == 330) {
+			cast(mc, new Vec3(2.5, 0, 9), DoctorFateAbilityManager.BANISHMENT);
+		}
+		if (t == 346) {
+			stopClip();
+		}
+		// ---- the Avatar of Order
+		if (t == 350) {
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				husks(p);
+				DoctorFate.clearCooldowns(p);
+				DoctorFateBargains.offer(p, FateState.Bargain.FORBIDDEN);
+				DoctorFateBargains.answer(p, FateState.Bargain.FORBIDDEN, true);
+				face(p, origin.add(0, 0, 8));
+			});
+			cam(new Vec3(22, 12, -22), new Vec3(0, 13, -2));
+			startClip("avatar", 2);
+		}
+		if (t == 378 || t == 396 || t == 414) {
+			server(mc, p -> com.projecthero.mod.doctorfate.DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_1, true));
+		}
+		if (t == 386) {
+			shot("13_avatar_of_order");
+		}
+		if (t == 430) {
+			stopClip();
+			server(mc, p -> {
+				FateState n = DoctorFate.state(p).copy();
+				n.avatarUntil = 0L;
+				DoctorFate.save(p, n);
+			});
+		}
+		// ---- flight
+		if (t == 436) {
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 4, origin.z, 30f, 0f);
+				DoctorFateFlight.start(p);
+			});
+			cam(new Vec3(4.5, 5.2, 2.0), new Vec3(0, 4.8, 0));
+		}
+		if (t == 446) {
+			shot("14_flight_hover");
+		}
+		// ---- Possession
+		if (t == 452) {
+			server(mc, p -> {
+				husks(p);
+				DoctorFate.setHelmet(p, true);
+				DoctorFate.setDominion(p, 100f);
+			});
+			cam(new Vec3(9, 7, -7), new Vec3(0, 3, 5));
+			startClip("possession", 2);
+		}
+		if (t == 490) {
+			shot("15_possession");
+		}
+		if (t == 560) {
+			stopClip();
+			server(mc, p -> {
+				if (DoctorFate.possessed(p)) {
+					DoctorFatePossession.end(p);
+				}
+			});
+		}
+		// ---- the Tomb of Nabu
+		if (t == 580) {
+			server(mc, p -> {
+				p.setGameMode(GameType.SPECTATOR);
+				BlockPos at = BlockPos.containing(origin.add(80, 0, 0));
+				p.server.getCommands().performPrefixedCommand(p.server.createCommandSourceStack().withSuppressedOutput(),
+						"place structure projecthero:tomb_of_nabu " + at.getX() + " " + at.getY() + " " + at.getZ());
+				p.teleportTo(p.serverLevel(), at.getX(), at.getY() + 20, at.getZ(), 0f, 0f);
+			});
+		}
+		if (t == 620) {
+			server(mc, p -> {
+				BlockPos c = BlockPos.containing(origin.add(80, 0, 0));
+				for (BlockPos q : BlockPos.betweenClosed(c.offset(-30, -20, -40), c.offset(30, 10, 30))) {
+					if (p.serverLevel().getBlockState(q).is(DoctorFateItems.HELMET_PEDESTAL)) {
+						pedestal = q.immutable();
+						break;
+					}
+				}
+				System.out.println("[HARNESS] pedestal " + pedestal);
+			});
+		}
+		if (t == 626 && pedestal != null) {
+			Vec3 pc = Vec3.atBottomCenterOf(pedestal);
+			Vec3 pyramid = pc.add(0, 8, 16);
+			camPos = pyramid.add(15, 7, 18);
+			camLook = pyramid.add(0, 2, 0);
+			server(mc, p -> p.teleportTo(p.serverLevel(), pyramid.x + 15, pyramid.y + 7, pyramid.z + 18, 0f, 0f));
+		}
+		if (t == 640) {
+			shot("16_tomb_outside");
+		}
+		if (t == 644 && pedestal != null) {
+			Vec3 pc = Vec3.atBottomCenterOf(pedestal);
+			camPos = pc.add(1.8, 2.6, 6.2);
+			camLook = pc.add(0, 0.9, 0);
+			server(mc, p -> p.teleportTo(p.serverLevel(), pc.x + 1.8, pc.y + 1.0, pc.z + 6.2, 180f, 0f));
+		}
+		if (t == 660) {
+			shot("17_tomb_chamber");
+		}
+		if (t == 664 && pedestal != null) {
+			Vec3 pc = Vec3.atBottomCenterOf(pedestal);
+			camPos = pc.add(0.6, 1.7, 1.6);
+			camLook = pc.add(0, 1.1, 0);
+		}
+		if (t == 676) {
+			shot("18_tomb_pedestal");
+		}
+		if (t == 690) {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		}
+	}
+
+	private static void startClip(String name, int step) {
+		clip = name;
+		frame = 0;
+		every = step;
+	}
+
+	private static void stopClip() {
+		clip = null;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

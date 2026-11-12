@@ -153,6 +153,11 @@ public final class DirectionalFlight {
 			var ks = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
 			return DirectionalFlightModel.kryptonian(sprint, ks != null && ks.flightBoost);
 		}
+		// v0.17.3: Doctor Fate's golden-ankh hover flight (double-tap Space) -- Kryptonian handling, 14 b/s cruise, 28 sprinting
+		if (com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)) {
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint ? com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_SPRINT_BPS
+					: com.projecthero.mod.doctorfate.DoctorFateConfig.FLIGHT_CRUISE_BPS) / 20.0);
+		}
 		// v0.17.3: the Saiyan's double-tap-jump flight -- Kryptonian handling, 18 b/s cruise, 36 sprinting, x1.2 in Super Saiyan (55 at most)
 		if (com.projecthero.mod.saiyan.Saiyan.isFlying(player)) {
 			double mult = com.projecthero.mod.saiyan.Saiyan.flightSpeedMult(player);

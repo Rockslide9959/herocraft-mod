@@ -144,7 +144,9 @@ public final class FlightPoseHelper {
 				// v0.17.1: the Falcon's jet flight (flat out while the jets burn)
 				|| com.projecthero.mod.falcon.Falcon.flying(player)
 				// v0.17.3: the Saiyan's Shift+X flight
-				|| com.projecthero.mod.saiyan.Saiyan.isFlying(player);
+				|| com.projecthero.mod.saiyan.Saiyan.isFlying(player)
+				// v0.17.3: Doctor Fate's hover flight
+				|| com.projecthero.mod.doctorfate.DoctorFate.isFlying(player);
 		// (v0.17.2: Heatblast's Fire Jet lean is gone with the Fire Jet -- he surfs his Rock Ride in his own stance, HeatblastClient)
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
