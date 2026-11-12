@@ -3,7 +3,7 @@
 //   spin_wide.png / spin_slim.png  -- Spin's 64x64 player skin (hat, blond hair, green eyes, "GO!GO!" gold teeth,
 //                                     teal coat over a dark shirt, belt with two steel-ball pouches, boots)
 //   spin_hat.png                   -- 32x32 texture for the hat's brim + crown geometry (SpinLayer)
-//   ball_breaker.png               -- 64x64 skin of the pale, armour-plated Ball Breaker figure
+//   (ball_breaker.png, the old pale figure skin, is retired: see gen_ball_breaker_model_tex.js)
 //   spin_swirl.png                 -- 64x64 tileable golden spiral stripes (the twisting skin of a spun creature)
 //   aged_cracks.png                -- 64x64 grey wash with dark cracks (Ball Breaker's aging)
 // Usage: node scratchpad/spin/gen_spin_textures.js
@@ -298,6 +298,6 @@ function save(name, im) { png.write(path.join(OUT, name), im.w, im.h, im.px); co
 save('spin_wide.png', spinSkin(false));
 save('spin_slim.png', spinSkin(true));
 save('spin_hat.png', hatTex());
-save('ball_breaker.png', breakerSkin());
+// ball_breaker.png retired 2026-11-12: Ball Breaker is the custom BallBreakerModel now (gen_ball_breaker_model_tex.js)
 save('spin_swirl.png', swirlTex());
 save('aged_cracks.png', cracksTex());

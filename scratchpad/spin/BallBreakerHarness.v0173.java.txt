@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.projecthero.mod.client.spin.model.BallBreakerModel;
-import com.projecthero.mod.client.spin.model.BallBreakerSkinFigure;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -46,6 +45,7 @@ public final class BallBreakerHarness {
 	private static String recording;
 	private static int recFrame;
 	private static int recUntil;
+	private static boolean faceOnly;
 
 	// scene state read by the renderer
 	private static volatile float yawA, yawB;
@@ -59,6 +59,11 @@ public final class BallBreakerHarness {
 	public static void init() {
 		if (!Files.exists(Path.of("bb.flag"))) {
 			return;
+		}
+		try {
+			faceOnly = Files.readString(Path.of("bb.flag")).contains("face");
+		} catch (Exception e) {
+			faceOnly = false;
 		}
 		ClientTickEvents.END_CLIENT_TICK.register(BallBreakerHarness::tick);
 		WorldRenderEvents.AFTER_ENTITIES.register(BallBreakerHarness::render);
@@ -137,6 +142,9 @@ public final class BallBreakerHarness {
 			return;
 		}
 		int t = inWorldTicks - t0;
+		if (faceOnly && t >= 25) {
+			t += 395; // straight to the face close-ups
+		}
 		script(mc, t);
 		if (recording != null) {
 			String name = String.format("bb_%s_%03d.png", recording, recFrame++);
@@ -206,7 +214,19 @@ public final class BallBreakerHarness {
 				still(t, base + 13 + i * 10, (m == 1 ? "a_" : "b_") + names[i]);
 			}
 		}
-		if (t == 430) {
+		// face close-ups of A (front, three-quarter each way, side)
+		float[] fy = { 0f, -30f, 30f, -70f };
+		String[] fn = { "front", "threequarter", "threequarter_r", "side" };
+		for (int i = 0; i < 4; i++) {
+			if (t == 420) {
+				mode = 3;
+			}
+			if (t == 423 + i * 10) {
+				yawA = fy[i];
+			}
+			still(t, 428 + i * 10, "face_" + fn[i]);
+		}
+		if (t == 470) {
 			System.out.println("[HARNESS] done");
 			mc.stop();
 		}
@@ -225,6 +245,9 @@ public final class BallBreakerHarness {
 		if (mode == 0) {
 			draw(pose, buffers, cam, origin.add(-1.45, 0.35, -3.9), yawA, true, light, time);
 			draw(pose, buffers, cam, origin.add(1.45, 0.35, -3.9), yawB, false, light, time);
+		} else if (mode == 3) {
+			// the head at eye height, 1.5 blocks away (no bob: time frozen at 0 for crisp stills)
+			draw(pose, buffers, cam, origin.add(0, -0.62, -1.55), yawA, true, light, 0f);
 		} else {
 			draw(pose, buffers, cam, origin.add(0, 0.35, -2.9), mode == 1 ? yawA : yawB, mode == 1, light, time);
 		}
@@ -234,13 +257,9 @@ public final class BallBreakerHarness {
 		pose.pushPose();
 		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
 		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		// (Candidate B, the PlanetMinecraft skin figure, was dropped when the user picked A)
 		if (a) {
 			BallBreakerModel.render(pose, buffers, light, alpha, glow, strike, time);
-		} else {
-			// the crouched player model is short: scale it to stand as tall as A
-			pose.translate(0f, 0.25f, 0f);
-			pose.scale(1.6f, 1.6f, 1.6f);
-			BallBreakerSkinFigure.render(pose, buffers, light, alpha, glow, strike, time);
 		}
 		pose.popPose();
 	}

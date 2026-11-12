@@ -12,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.spin.model.BallBreakerModel;
 import com.projecthero.mod.client.spin.model.SteelBallRender;
 import com.projecthero.mod.spin.Spin;
 import com.projecthero.mod.spin.SpinConfig;
@@ -27,16 +27,11 @@ import com.projecthero.mod.spin.network.SpinFxPayload;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.model.geom.ModelLayers;
-import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -51,7 +46,8 @@ import org.joml.Vector3f;
  * <ul>
  *   <li>From {@link SpinFxPayload}: Scan's ball spinning on the ground and its gold outlines (the scanner's alone,
  *   {@link #scanned}), the Golden Spin's line (a gold beam wound with a spiral; brighter on a Perfect Spin), Ball Breaker -- the
- *   pale armoured figure that grows out of the ball, rushes the target and strikes -- the Spin Quake's ring, and the HUD's
+ *   lime, stud-covered figure ({@link BallBreakerModel}) that grows out of the ball, rushes the target and strikes -- the Spin
+ *   Quake's ring, and the HUD's
  *   Perfect / miss flash ({@link #perfectFlash}).</li>
  *   <li>From the synced state: both balls orbiting a Spin Shield, and the golden rings twisting round every spun creature.</li>
  *   <li>Per tick: the thrown balls' spiralling trail, a spun player's view drifting (his own client only), the loop sounds.</li>
@@ -59,7 +55,6 @@ import org.joml.Vector3f;
  * Every ball drawn here goes through the shared {@link SteelBallRender}.
  */
 public final class SpinFx {
-	public static final ResourceLocation BREAKER_TEX = ProjectHeroMod.id("textures/entity/spin/power/ball_breaker.png");
 	public static final int GOLD = 0xFFC83A;
 
 	private record ScanBall(Vec3 pos, long start, int ticks) {
@@ -85,8 +80,6 @@ public final class SpinFx {
 	/** The HUD's flash: game time of the last release and whether it was Perfect. */
 	public static long perfectFlashAt = -1000L;
 	public static boolean perfectFlash;
-
-	private static PlayerModel<AbstractClientPlayer> figure;
 
 	private SpinFx() {
 	}
@@ -355,9 +348,6 @@ public final class SpinFx {
 		if (age < 0) {
 			return;
 		}
-		if (figure == null) {
-			figure = new PlayerModel<>(mc.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);
-		}
 		Entity target = mc.level.getEntity(b.target);
 		Vec3 to = target != null ? target.position() : b.to.subtract(0, 0.9, 0);
 		Vec3 from = b.from.subtract(0, 1.1, 0);
@@ -381,44 +371,16 @@ public final class SpinFx {
 			}
 			float ge = 1f - (1f - Math.max(0f, rush - back)) * (1f - Math.max(0f, rush - back));
 			Vec3 gp = ghost == 0 ? pos : from.lerp(stop, ge);
-			float alpha = fade * (ghost == 0 ? 0.78f : 0.3f / ghost);
+			// the figure itself is solid (it only fades at the end); the afterimages are faint and golden
+			float alpha = fade * (ghost == 0 ? 1f : 0.3f / ghost);
+			float glow = ghost == 0 ? 0.8f * Math.max(1f - age / 8f, strike * (1f - 0.5f * strike) * 1.6f) : 1f;
 			pose.pushPose();
 			pose.translate(gp.x - cam.x, gp.y - cam.y, gp.z - cam.z);
 			pose.mulPose(Axis.YP.rotationDegrees(-yaw));
-			float sc = 1.3f * grow;
-			pose.scale(-sc, -sc, sc);
-			pose.translate(0f, -1.501f, 0f);
-			poseFigure(age, strike);
-			int a = Mth.clamp((int) (alpha * 255), 0, 255);
-			figure.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(BREAKER_TEX)), LightTexture.FULL_BRIGHT,
-					OverlayTexture.NO_OVERLAY, (a << 24) | 0xFFFFFF);
+			pose.scale(grow, grow, grow);
+			BallBreakerModel.render(pose, buffers, LightTexture.FULL_BRIGHT, alpha, glow, strike, time);
 			pose.popPose();
 		}
-	}
-
-	private static void poseFigure(float age, float strike) {
-		PlayerModel<AbstractClientPlayer> f = figure;
-		f.head.setRotation(0, 0, 0);
-		f.body.setRotation(0, 0, 0);
-		f.rightArm.setRotation(0, 0, 0);
-		f.leftArm.setRotation(0, 0, 0);
-		f.rightLeg.setRotation(0, 0, 0);
-		f.leftLeg.setRotation(0, 0, 0);
-		// the rush: leaning in, arms back; the strike: the right fist driven forward, the left pulled back
-		f.body.xRot = 0.35f;
-		f.head.xRot = -0.2f;
-		f.rightLeg.xRot = -0.5f;
-		f.leftLeg.xRot = 0.6f;
-		f.rightArm.xRot = Mth.lerp(strike, 0.9f, -1.65f);
-		f.rightArm.zRot = Mth.lerp(strike, 0.2f, 0.05f);
-		f.leftArm.xRot = Mth.lerp(strike, 0.9f, 0.7f);
-		f.leftArm.zRot = -0.25f;
-		f.hat.copyFrom(f.head);
-		f.jacket.copyFrom(f.body);
-		f.rightSleeve.copyFrom(f.rightArm);
-		f.leftSleeve.copyFrom(f.leftArm);
-		f.rightPants.copyFrom(f.rightLeg);
-		f.leftPants.copyFrom(f.leftLeg);
 	}
 
 	// ---------------------------------------------------------------- primitives (both windings: seen from either side)

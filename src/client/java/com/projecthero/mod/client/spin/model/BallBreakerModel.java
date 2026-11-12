@@ -15,10 +15,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3 the Spin -- Ball Breaker, <b>Candidate A</b> (a custom model; PREVIEW ONLY, not wired into the Ball Breaker move).
+ * v0.17.3 the Spin -- the Ball Breaker figure (the user's pick of two candidates, 2026-11-12), drawn by {@code SpinFx.renderBreaker}
+ * when the Shift+Z ultimate bursts out of the ball.
  *
  * <p>Built from the manga / All-Star Battle look: a tall, slim, glossy lime figure floating in a forward-leaning crouch, arms spread with
- * open clawed hands; a rounded dome helmet (wider at the top) with a squarish faceplate and two pale stalks with pink bulbs; the two big
+ * open clawed hands; a smooth egg-shaped dome helmet whose front is a raised, outlined face shield (rounded on top, U-shaped below, over
+ * a dark recessed jaw band) set with magenta oval studs on thin silver stems running down to its lower edge; the two big
  * flat <b>discs</b> either side of the head (lime on top, dark underneath); raised magenta oval <b>studs</b> all over; a silver
  * <b>zigzag</b> trim across the chest and segmented abdomen plates; a dark grey <b>ribbed hose</b> down the outer side of every limb with
  * the lime plates over it; long-fingered hands; long shins ending in <b>pointed, spiked boots</b> with blade-like toe, heel and side flares.
@@ -35,10 +37,15 @@ public final class BallBreakerModel {
 
 	// swatches (keep in sync with the generator)
 	static final int S_ROUND = 0, S_PANEL = 1, S_RIB = 2, S_STUD = 3, S_SILVER = 4, S_FACE = 5, S_DISC_TOP = 6, S_DISC_UNDER = 7, S_DARK = 8,
-			S_CLAW = 9, S_ROUND_DK = 10, S_STALK = 11, S_BULB = 12, S_GLOW = 13, S_RIM = 14, S_VISOR = 15;
+			S_CLAW = 9, S_ROUND_DK = 10, S_STEM = 11, S_GLOW = 13, S_RIM = 14;
 
-	/** Draw the manga's two stalks with pink bulbs on top of the helmet (the All-Star Battle render has none). */
-	public static boolean stalks = true;
+	// the helmet (in the head's 1.2x space): an egg from the chin (y 0.3) widening to y HEAD_YD, then a dome HEAD_DOME tall
+	private static final float HEAD_RX0 = 2.0f, HEAD_RZ0 = 2.2f, HEAD_RX1 = 2.75f, HEAD_RZ1 = 2.85f, HEAD_YD = 5.2f, HEAD_DOME = 2.9f;
+	// the face shield: half-width in radians round the front; top and U-shaped bottom edges by t = -1..1 across it
+	private static final float FACE_W = 1.05f;
+	/** Face studs as (t across -1..1, fraction down the shield), laid out after the All-Star Battle render / the manga. */
+	private static final float[][] FACE_STUDS = { { -0.6f, 0.2f }, { -0.1f, 0.1f }, { 0.48f, 0.13f }, { 0.86f, 0.3f }, { -0.42f, 0.44f },
+			{ 0.18f, 0.36f }, { 0.62f, 0.52f } };
 
 	// the draw state of the pass in progress
 	private static VertexConsumer vc;
@@ -153,7 +160,7 @@ public final class BallBreakerModel {
 		// ribcage: a frustum widening to the shoulders, a dark back/neck, round shoulder pads
 		taper(pose, 0f, 0f, 0f, 3.0f, 2.2f, 0f, 6.0f, 4.4f, 2.9f, 16, S_ROUND, true);
 		ellipsoid(pose, 0f, 5.8f, 0f, 4.3f, 1.2f, 2.8f, 14, 6, S_ROUND, 0f, 1f);
-		taper(pose, 0f, 5.6f, 0.2f, 1.25f, 1.15f, 0f, 7.0f, 1.15f, 1.05f, 8, S_DARK, false);
+		taper(pose, 0f, 5.6f, 0.2f, 1.25f, 1.15f, 0f, 1.4f, 1.15f, 1.05f, 8, S_DARK, false);
 		// the silver zigzag trim across the chest (a W of strips following the curve), and a darker band under it
 		float[] zx = { -4.0f, -3.0f, -2.0f, -1.0f, 0f, 1.0f, 2.0f, 3.0f, 4.0f };
 		for (int i = 0; i < zx.length - 1; i++) {
@@ -189,37 +196,22 @@ public final class BallBreakerModel {
 		// the helmet: an egg, narrow at the chin, widest near the top, a smooth dome (big: about half the shoulder span)
 		pose.pushPose();
 		pose.scale(1.2f, 1.2f, 1.2f);
-		taper(pose, 0f, 0.3f, 0f, 2.0f, 2.2f, 0f, 4.9f, 2.75f, 2.85f, 16, S_ROUND, false);
-		ellipsoid(pose, 0f, 0.3f, 0f, 2.0f, 0.7f, 2.2f, 16, 4, S_ROUND, 0.5f, 1f);
-		ellipsoid(pose, 0f, 5.2f, 0f, 2.75f, 2.9f, 2.85f, 16, 8, S_ROUND, 0f, 0.5f);
-		// the tall squarish faceplate on the front, with slats, an eye band and a central ridge
-		box(pose, -1.35f, 0.8f, 1.75f, 1.35f, 4.7f, 2.62f, S_FACE);
-		box(pose, -1.2f, 3.2f, 2.55f, 1.2f, 3.85f, 2.72f, S_VISOR);
-		box(pose, -0.16f, 1.0f, 2.55f, 0.16f, 4.6f, 2.8f, S_SILVER);
-		// faceplate studs (two pairs, as in the concept sketch), studs over the brow, a ring round the dome, a crown ring
-		stud(pose, -0.75f, 1.9f, 2.62f, 0f, 0.42f, 0.62f);
-		stud(pose, 0.75f, 1.9f, 2.62f, 0f, 0.42f, 0.62f);
-		stud(pose, -0.75f, 5.25f, 2.78f, 0f, 0.45f, 0.62f);
-		stud(pose, 0.75f, 5.25f, 2.78f, 0f, 0.45f, 0.62f);
-		for (int i = 0; i < 10; i++) {
-			float ang = (i + 0.5f) / 10f * Mth.TWO_PI;
-			stud(pose, Mth.sin(ang) * 2.55f, 6.25f, Mth.cos(ang) * 2.65f, ang, 0.5f, 0.75f);
-		}
-		for (int i = 0; i < 6; i++) {
-			float ang = i / 6f * Mth.TWO_PI + 0.3f;
-			stud(pose, Mth.sin(ang) * 1.55f, 7.55f, Mth.cos(ang) * 1.6f, ang, 0.42f, 0.6f);
-		}
-		// the stalks with pink bulbs (manga)
-		if (stalks) {
-			for (int s = -1; s <= 1; s += 2) {
-				pose.pushPose();
-				pose.translate(s * 0.85f, 7.8f, 0.3f);
-				pose.mulPose(Axis.ZP.rotation(-s * 0.22f));
-				pose.mulPose(Axis.XP.rotation(0.12f + Mth.sin(time * 0.17f + s) * 0.05f));
-				taper(pose, 0f, 0f, 0f, 0.28f, 0.28f, 0f, 2.2f, 0.18f, 0.18f, 6, S_STALK, false);
-				ellipsoid(pose, 0f, 2.55f, 0f, 0.55f, 0.65f, 0.55f, 8, 6, S_BULB, 0f, 1f);
-				pose.popPose();
-			}
+		// a dark recessed jaw band under the face, then the smooth lime shell and its dome
+		ellipsoid(pose, 0f, 0.3f, 0f, HEAD_RX0 * 0.92f, 0.7f, HEAD_RZ0 * 0.92f, 16, 4, S_DARK, 0.5f, 1f);
+		taper(pose, 0f, 0.3f, 0f, HEAD_RX0 * 0.92f, HEAD_RZ0 * 0.92f, 0f, 0.9f, headRx(1.2f) * 0.93f, headRz(1.2f) * 0.93f, 16, S_DARK, false);
+		taper(pose, 0f, 1.1f, 0f, headRx(1.1f), headRz(1.1f), 0f, HEAD_YD - 1.1f, HEAD_RX1, HEAD_RZ1, 16, S_ROUND, false);
+		ellipsoid(pose, 0f, 1.1f, 0f, headRx(1.1f), 0.35f, headRz(1.1f), 16, 2, S_ROUND, 0.5f, 1f);
+		ellipsoid(pose, 0f, HEAD_YD, 0f, HEAD_RX1, HEAD_DOME, HEAD_RZ1, 18, 9, S_ROUND, 0f, 0.5f);
+		// the face: a smooth, slightly raised shield over the front of the dome, outlined by a dark seam, rounded on top and U-shaped
+		// underneath, with magenta oval studs set across it, each on a thin silver stem running down to the shield's lower edge
+		facePanel(pose);
+		for (float[] st : FACE_STUDS) {
+			float th = st[0] * FACE_W;
+			float y = faceTop(st[0]) + (faceBottom(st[0]) - faceTop(st[0])) * st[1];
+			stem(pose, th, y - 0.2f, faceBottom(st[0]) + 0.12f);
+			float rx = headRx(y), rz = headRz(y);
+			float lift = 0.12f;
+			stud(pose, Mth.sin(th) * (rx + lift), y, Mth.cos(th) * (rz + lift), (float) Math.atan2(Mth.sin(th) / rx, Mth.cos(th) / rz), 0.5f, 0.68f);
 		}
 		// the two big discs either side of the top of the helmet, tucked under the dome's edge, tipped forward so their lime tops
 		// face the front, outer edges dipping a little
@@ -234,7 +226,87 @@ public final class BallBreakerModel {
 		pose.popPose();
 	}
 
-	/** A saucer: rim band, lime top with a raised hub ring, dark underside. Centre at the origin, faces +Y. */
+	private static float headR(float y, float r0, float r1) {
+		if (y <= 0.3f) {
+			return r0;
+		}
+		if (y <= HEAD_YD) {
+			return Mth.lerp((y - 0.3f) / (HEAD_YD - 0.3f), r0, r1);
+		}
+		float k = (y - HEAD_YD) / HEAD_DOME;
+		return r1 * Mth.sqrt(Math.max(0f, 1f - k * k));
+	}
+
+	private static float headRx(float y) {
+		return headR(y, HEAD_RX0, HEAD_RX1);
+	}
+
+	private static float headRz(float y) {
+		return headR(y, HEAD_RZ0, HEAD_RZ1);
+	}
+
+	private static float faceTop(float t) {
+		return 6.5f - 0.95f * t * t;
+	}
+
+	private static float faceBottom(float t) {
+		return 1.4f + 1.35f * t * t;
+	}
+
+	/** A point on the helmet at angle {@code th} (0 = front) and height y, lifted {@code lift} off the shell. */
+	private static float[] onHead(float th, float y, float lift) {
+		float rx = headRx(y), rz = headRz(y);
+		return new float[] { Mth.sin(th) * (rx + lift), y, Mth.cos(th) * (rz + lift) };
+	}
+
+	/** The face shield: a patch of the helmet shell lifted a little, mapped edge to edge onto the outlined S_FACE swatch. */
+	private static void facePanel(PoseStack pose) {
+		PoseStack.Pose p = pose.last();
+		int nu = 14, nv = 12;
+		for (int i = 0; i < nu; i++) {
+			for (int j = 0; j < nv; j++) {
+				float t0 = -1f + 2f * i / nu, t1 = -1f + 2f * (i + 1) / nu;
+				float f0 = j / (float) nv, f1 = (j + 1) / (float) nv;
+				faceVert(p, t0, f0);
+				faceVert(p, t0, f1);
+				faceVert(p, t1, f1);
+				faceVert(p, t1, f0);
+			}
+		}
+	}
+
+	private static void faceVert(PoseStack.Pose p, float t, float f) {
+		float th = t * FACE_W;
+		float y = Mth.lerp(f, faceTop(t), faceBottom(t));
+		float[] q = onHead(th, y, 0.09f);
+		float rx = headRx(y), rz = headRz(y);
+		float ny = y > HEAD_YD ? 1.3f * (y - HEAD_YD) / HEAD_DOME : 0.08f;
+		vert(p, q[0], q[1], q[2], (t + 1f) * 0.5f, f, S_FACE, Mth.sin(th) / rx * 2.6f, ny, Mth.cos(th) / rz * 2.6f);
+	}
+
+	/** A thin silver stem down the face from y0 to y1 at angle th, following the shell. */
+	private static void stem(PoseStack pose, float th, float y0, float y1) {
+		int seg = Math.max(1, Math.round((y0 - y1) / 0.45f));
+		for (int i = 0; i < seg; i++) {
+			float ya = Mth.lerp(i / (float) seg, y0, y1), yb = Mth.lerp((i + 1) / (float) seg, y0, y1);
+			float[] a0 = onHead(th, ya, 0.13f), b0 = onHead(th, yb, 0.13f);
+			// in the frame turned to face along th, the segment only moves in y and outward (radius)
+			float dy = b0[1] - a0[1];
+			float dr = (float) (Math.hypot(b0[0], b0[2]) - Math.hypot(a0[0], a0[2]));
+			float l = Mth.sqrt(dy * dy + dr * dr);
+			if (l < 1.0e-4f) {
+				continue;
+			}
+			pose.pushPose();
+			pose.translate((a0[0] + b0[0]) * 0.5f, (a0[1] + b0[1]) * 0.5f, (a0[2] + b0[2]) * 0.5f);
+			pose.mulPose(Axis.YP.rotation(th));
+			pose.mulPose(new Quaternionf().rotationTo(0f, 1f, 0f, 0f, dy / l, dr / l));
+			box(pose, -0.08f, -l * 0.6f, -0.06f, 0.08f, l * 0.6f, 0.06f, S_STEM);
+			pose.popPose();
+		}
+	}
+
+	/** A saucer: rim band, lime top, dark underside. Centre at the origin, faces +Y. */
 	private static void disc(PoseStack pose, float rad, float th) {
 		int n = 28;
 		taper(pose, 0f, -th * 0.5f, 0f, rad * 0.94f, rad * 0.94f, 0f, th * 0.55f, rad, rad, n, S_RIM, false);

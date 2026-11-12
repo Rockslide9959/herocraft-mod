@@ -37,7 +37,7 @@ const GREY = [hex(0x141614), hex(0x2E322D), hex(0x80857D), hex(0x575B54), hex(0x
 const PINK = [hex(0x3A0618), hex(0x7C0F3E), hex(0xE2367E), hex(0xB3205E), hex(0xFFB2D4)];
 const SILVER = [hex(0x2A2E30), hex(0x7C8488), hex(0xE6ECEE), hex(0xB8C0C4), hex(0xFFFFFF)];
 
-const S = { ROUND: 0, PANEL: 1, RIB: 2, STUD: 3, SILVER: 4, FACE: 5, DISC_TOP: 6, DISC_UNDER: 7, DARK: 8, CLAW: 9, ROUND_DK: 10, STALK: 11, BULB: 12, GLOW: 13, RIM: 14, VISOR: 15 };
+const S = { ROUND: 0, PANEL: 1, RIB: 2, STUD: 3, SILVER: 4, FACE: 5, DISC_TOP: 6, DISC_UNDER: 7, DARK: 8, CLAW: 9, ROUND_DK: 10, STALK: 11, BULB: 12, GLOW: 13, RIM: 14 };
 
 // light of a round part at (u round, v down): lit from the front-left and above, dark at the sides / back (toon rim)
 function roundLight(u, v) {
@@ -113,21 +113,20 @@ swatch(S.SILVER, (u, v, x, y) => {
   return ramp(SILVER, l);
 });
 
-// FACE: the squarish faceplate: recessed deep green with inked vertical slits and a lit rim
+// FACE: the smooth face shield (u across it, v top -> bottom of its U): glossy lime, brightest upper-left of centre with a soft
+// vertical gloss, falling to deep green at the sides and the bottom, outlined by a dark inked seam with a thin lit lip inside it
+// (as in the All-Star Battle render, where the shield reads as a smooth rounded mask)
 swatch(S.FACE, (u, v, x, y) => {
-  if (x === 0 || y === 0 || x === 31 || y === 31) return LIME[0];
-  if (x < 3 || y < 3) return LIME[3];
-  if (x > 28 || y > 28) return LIME[1];
-  const slit = [10, 15, 16, 21].includes(x) && y > 8;
-  if (slit) return hex(0x0A1404);
-  const l = 0.5 - v * 0.3 + (x > 15 && x < 17 ? 0.25 : 0);
-  return ramp(LIME_DK, l + 0.2);
-});
-// VISOR: the eye band across the faceplate (dark glossy slit with a cold highlight)
-swatch(S.VISOR, (u, v, x, y) => {
-  if (y < 4 || y > 27) return hex(0x0A1404);
-  if (Math.abs(y - 11) < 2 && x > 4 && x < 27) return hex(0xD8FF8A);
-  return mix(hex(0x1E3608), hex(0x0A1404), v);
+  const e = Math.min(x, 31 - x, y, 31 - y);
+  if (e === 0 || e === 1) return LIME[0];
+  if (e === 2) return (y > 26 || x > 26) ? LIME[1] : LIME[3];
+  const dx = (u - 0.42) * 1.6, dy = (v - 0.3) * 1.1;
+  let l = 0.98 - (dx * dx + dy * dy) * 0.95;
+  if (Math.abs(u - 0.33) < 0.03 && v > 0.12 && v < 0.7) l = 1;   // the gloss streak
+  if (v > 0.82) l = Math.min(l, 0.42);                            // the lower edge rolls under into shadow
+  let c = ramp(LIME, Math.max(0, Math.min(1, l)));
+  if (l < 0.38 && (x + y) % 4 === 0) c = mix(c, LIME[0], 0.45);
+  return mix(c, LIME[1], (rnd(x, y, 11) - 0.5) * 0.06);
 });
 
 // DISC_TOP: the saucer tops: planar u, v (centre 0.5, 0.5); bright lime dish with a lit ring and an inked rim
@@ -171,10 +170,10 @@ swatch(S.CLAW, (u, v, x, y) => {
   return c;
 });
 
-// STALK: pale cream stalks
+// STALK: the pale silver stems the face studs sit on (smooth, no banding along their length)
 swatch(S.STALK, (u, v, x, y) => {
   const l = roundLight(u, 0.3);
-  return mix(hex(0x8C9478), hex(0xF8FBEA), Math.min(1, 0.2 + l));
+  return mix(hex(0x6E7A76), hex(0xF4F8F2), Math.min(1, 0.15 + l));
 });
 
 // GLOW: soft white, for the additive golden-glow pass (tinted by vertex colour)
