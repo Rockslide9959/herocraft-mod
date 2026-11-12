@@ -73,6 +73,7 @@ public final class HeroTiers {
 				|| com.projecthero.mod.raven.Raven.hasPower(player) // v0.17.3: Raven (Teen Titans)
 				|| com.projecthero.mod.beastboy.BeastBoy.hasPower(player) // v0.17.3: Beast Boy
 				|| com.projecthero.mod.shazam.Shazam.hasPower(player) // v0.17.3: Shazam
+				|| com.projecthero.mod.doctorfate.DoctorFate.hasPower(player) // v0.17.3: Doctor Fate
 				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player) // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
 				|| com.projecthero.mod.quirk.Quirks.hasPower(player) // v0.16.7: the seven Quirks
 				|| com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1: the Omnitrix
@@ -121,6 +122,7 @@ public final class HeroTiers {
 			"raven", // v0.17.3: Raven (Teen Titans)
 			"beast_boy", // v0.17.3: Beast Boy
 			"shazam", // v0.17.3: Shazam
+			"doctor_fate", // v0.17.3: Doctor Fate
 			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
 			"stand_star_platinum", // v0.17.2: a JoJo Stand (Star Platinum first)
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko",
@@ -159,6 +161,7 @@ public final class HeroTiers {
 			case "raven" -> com.projecthero.mod.raven.Raven.hasPower(player); // v0.17.3
 			case "beast_boy" -> com.projecthero.mod.beastboy.BeastBoy.hasPower(player); // v0.17.3
 			case "shazam" -> com.projecthero.mod.shazam.Shazam.hasPower(player); // v0.17.3
+			case "doctor_fate" -> com.projecthero.mod.doctorfate.DoctorFate.hasPower(player); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1
 			// v0.16.6: the three Miraculous heroes share one state; each key is "holds that Kwami"
 			case "ladybug" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.TIKKI);
@@ -306,6 +309,12 @@ public final class HeroTiers {
 			case "shazam" -> { // v0.17.3
 				if (com.projecthero.mod.shazam.Shazam.hasPower(player)) {
 					com.projecthero.mod.shazam.Shazam.revoke(player);
+				}
+			}
+
+			case "doctor_fate" -> { // v0.17.3
+				if (com.projecthero.mod.doctorfate.DoctorFate.hasPower(player)) {
+					com.projecthero.mod.doctorfate.DoctorFate.revoke(player);
 				}
 			}
 			case "black_panther" -> {
@@ -668,6 +677,10 @@ public final class HeroTiers {
 		}
 
 		if (!excludeHeroKeys.contains("shazam") && com.projecthero.mod.shazam.Shazam.hasPower(player)) {
+			return true; // v0.17.3
+		}
+
+		if (!excludeHeroKeys.contains("doctor_fate") && com.projecthero.mod.doctorfate.DoctorFate.hasPower(player)) {
 			return true; // v0.17.3
 		}
 		if (!excludeHeroKeys.contains("black_panther") && com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {

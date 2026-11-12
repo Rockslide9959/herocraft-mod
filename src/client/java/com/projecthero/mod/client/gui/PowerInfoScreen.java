@@ -452,6 +452,10 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.shazam.Shazam.canSpeak(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.shazamChapter(); // v0.17.3 (the family too)
 		}
+
+		if (com.projecthero.mod.doctorfate.DoctorFate.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.doctorFateChapter(); // v0.17.3
+		}
 		if (com.projecthero.mod.blackpanther.BlackPanther.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.blackPantherChapter(); // v0.17.3
 		}

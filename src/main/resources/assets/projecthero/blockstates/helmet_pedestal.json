@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "has_helmet=false": { "model": "projecthero:block/helmet_pedestal" },
+    "has_helmet=true": { "model": "projecthero:block/helmet_pedestal_with_helmet" }
+  }
+}

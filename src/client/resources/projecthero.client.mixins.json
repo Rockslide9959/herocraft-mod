@@ -270,7 +270,11 @@
 		"BeastBoyOcelotMixin",
 		"BeastBoyPolarBearAccessor",
 		"BeastBoyIronGolemAccessor",
-		"ShazamBoltSoundMixin"
+		"ShazamBoltSoundMixin",
+		"FateInputMixin",
+		"FateMouseMixin",
+		"FateSightGlowMixin",
+		"FateSightColorMixin"
 	],
 	"client": [],
 	"server": [],
