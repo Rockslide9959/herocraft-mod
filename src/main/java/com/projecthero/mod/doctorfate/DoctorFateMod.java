@@ -5,7 +5,6 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.projecthero.mod.doctorfate.data.FateAttachments;
-import com.projecthero.mod.doctorfate.data.FateState;
 import com.projecthero.mod.doctorfate.network.FateActionPayload;
 import com.projecthero.mod.doctorfate.network.FateBargainPayload;
 import com.projecthero.mod.doctorfate.network.FateFxPayload;
@@ -185,8 +184,4 @@ public final class DoctorFateMod {
 		return player;
 	}
 
-	/** Unused helper kept for the tests: the kinds. */
-	public static int kindDeathsDoor() {
-		return FateState.Bargain.DEATHS_DOOR;
-	}
 }

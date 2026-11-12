@@ -707,7 +707,7 @@ public final class DoctorFateSpells {
 			double spread = k * 0.35;
 			level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.4f), c.x, c.y, c.z, 6 + k, spread, spread, spread, 0.0);
 		}
-		level.sendParticles(ParticleTypes.SONIC_BOOM, eye.x + dir.x * 2, eye.y + dir.y * 2, eye.z + dir.z * 2, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.FLASH, eye.x + dir.x * 2, eye.y + dir.y * 2, eye.z + dir.z * 2, 1, 0, 0, 0, 0);
 		DoctorFate.sound(level, eye, SoundEvents.EVOKER_CAST_SPELL, 0.5f, 0.7f);
 		return true;
 	}

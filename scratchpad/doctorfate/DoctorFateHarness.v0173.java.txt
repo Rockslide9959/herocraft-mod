@@ -55,6 +55,15 @@ public final class DoctorFateHarness {
 	private static int frame;
 	private static int every = 1;
 	private static BlockPos pedestal;
+	private static final boolean LATE = readLate();
+
+	private static boolean readLate() {
+		try {
+			return Files.readString(Path.of("doctorfate.flag")).contains("late");
+		} catch (Exception e) {
+			return false;
+		}
+	}
 
 	private DoctorFateHarness() {
 	}
@@ -118,8 +127,8 @@ public final class DoctorFateHarness {
 		h.moveTo(at.x, at.y, at.z, 180f, 0f);
 		h.setNoAi(true);
 		h.setPersistenceRequired();
-		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200.0);
-		h.setHealth(200f);
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100.0);
+		h.setHealth(100f);
 		l.addFreshEntity(h);
 		return h;
 	}
@@ -190,12 +199,12 @@ public final class DoctorFateHarness {
 				DoctorFate.setDominion(p, 6f);
 				p.teleportTo(l, origin.x, origin.y, origin.z, 0f, 0f);
 			});
-			t0 = inWorld + 40;
+			t0 = inWorld + 150;
 		}
 		if (t0 < 0 || inWorld < t0) {
 			return;
 		}
-		int t = inWorld - t0;
+		int t = inWorld - t0 + (LATE ? 348 : 0);
 		if (clip != null && t % every == 0) {
 			frame++;
 			shot(clip + "_" + String.format("%04d", frame));
@@ -345,10 +354,15 @@ public final class DoctorFateHarness {
 				DoctorFate.clearCooldowns(p);
 				DoctorFateBargains.offer(p, FateState.Bargain.FORBIDDEN);
 				DoctorFateBargains.answer(p, FateState.Bargain.FORBIDDEN, true);
+				DoctorFate.setHelmet(p, true);
+				DoctorFate.setDominion(p, 40f);
 				face(p, origin.add(0, 0, 8));
 			});
-			cam(new Vec3(22, 12, -22), new Vec3(0, 13, -2));
+			cam(new Vec3(38, 16, 34), new Vec3(0, 17, -6));
 			startClip("avatar", 2);
+		}
+		if (t == 352 || t == 356) {
+			mc.setScreen(null);
 		}
 		if (t == 378 || t == 396 || t == 414) {
 			server(mc, p -> com.projecthero.mod.doctorfate.DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_1, true));
@@ -367,6 +381,8 @@ public final class DoctorFateHarness {
 		// ---- flight
 		if (t == 436) {
 			server(mc, p -> {
+				DoctorFate.setDominion(p, 30f);
+				DoctorFate.setHelmet(p, true);
 				p.teleportTo(p.serverLevel(), origin.x, origin.y + 4, origin.z, 30f, 0f);
 				DoctorFateFlight.start(p);
 			});
@@ -401,24 +417,36 @@ public final class DoctorFateHarness {
 			server(mc, p -> {
 				p.setGameMode(GameType.SPECTATOR);
 				BlockPos at = BlockPos.containing(origin.add(80, 0, 0));
-				p.server.getCommands().performPrefixedCommand(p.server.createCommandSourceStack().withSuppressedOutput(),
-						"place structure projecthero:tomb_of_nabu " + at.getX() + " " + at.getY() + " " + at.getZ());
 				p.teleportTo(p.serverLevel(), at.getX(), at.getY() + 20, at.getZ(), 0f, 0f);
 			});
 		}
-		if (t == 620) {
+		if (t == 604) {
+			server(mc, p -> {
+				BlockPos at = BlockPos.containing(origin.add(80, 0, 0));
+				// the flat world is too shallow for the chamber (8 down): raise a sand mound and build the tomb on it
+				ServerLevel l = p.serverLevel();
+				int top = at.getY() + 30;
+				for (BlockPos q : BlockPos.betweenClosed(at.offset(-12, 0, -26), at.offset(12, 29, 12))) {
+					l.setBlock(q, Blocks.SAND.defaultBlockState(), 2);
+				}
+				com.projecthero.mod.doctorfate.worldgen.TombOfNabuPiece piece = new com.projecthero.mod.doctorfate.worldgen.TombOfNabuPiece(at.getX(), top, at.getZ());
+				piece.postProcess(l, l.structureManager(), l.getChunkSource().getGenerator(), l.random, piece.getBoundingBox(), new net.minecraft.world.level.ChunkPos(at), at);
+				System.out.println("[HARNESS] tomb built at " + at.getX() + " " + top + " " + at.getZ());
+			});
+		}
+		if (t == 624) {
 			server(mc, p -> {
 				BlockPos c = BlockPos.containing(origin.add(80, 0, 0));
-				for (BlockPos q : BlockPos.betweenClosed(c.offset(-30, -20, -40), c.offset(30, 10, 30))) {
+				for (BlockPos q : BlockPos.betweenClosed(c.offset(-48, -40, -60), c.offset(48, 30, 48))) {
 					if (p.serverLevel().getBlockState(q).is(DoctorFateItems.HELMET_PEDESTAL)) {
 						pedestal = q.immutable();
 						break;
 					}
 				}
-				System.out.println("[HARNESS] pedestal " + pedestal);
+				System.out.println("[HARNESS] pedestal " + pedestal + " player " + p.blockPosition() + " gold@c " + p.serverLevel().getBlockState(c));
 			});
 		}
-		if (t == 626 && pedestal != null) {
+		if (t == 630 && pedestal != null) {
 			Vec3 pc = Vec3.atBottomCenterOf(pedestal);
 			Vec3 pyramid = pc.add(0, 8, 16);
 			camPos = pyramid.add(15, 7, 18);

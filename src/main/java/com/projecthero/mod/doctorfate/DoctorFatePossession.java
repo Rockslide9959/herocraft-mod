@@ -87,10 +87,8 @@ public final class DoctorFatePossession {
 		ServerLevel level = (ServerLevel) p.level();
 		level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 2.0f), p.getX(), p.getY() + 1, p.getZ(), 60, 0.6, 1.2, 0.6, 0.0);
 		DoctorFate.sound(level, p.position(), SoundEvents.ELDER_GUARDIAN_CURSE, 0.35f, 0.7f);
-		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
-				Component.translatable("message.projecthero.doctor_fate.possessed_title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
-		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
-				Component.translatable("message.projecthero.doctor_fate.possessed_subtitle").withStyle(ChatFormatting.YELLOW)));
+		// (no title: the HUD's own "Nabu holds you" panel says it, with the time left and the struggle hint)
+		p.displayClientMessage(Component.translatable("message.projecthero.doctor_fate.possessed_subtitle").withStyle(ChatFormatting.GOLD), false);
 	}
 
 	/** A Space press while possessed: 0.5 s off (at most one every 2 ticks). True if it counted. */

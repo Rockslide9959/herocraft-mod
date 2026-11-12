@@ -18,7 +18,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
@@ -137,8 +136,4 @@ public final class DoctorFateItems {
 		}
 	}
 
-	/** Husk attributes for the guardians, a bit tougher. */
-	static net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder guardianAttributes() {
-		return Husk.createAttributes();
-	}
 }

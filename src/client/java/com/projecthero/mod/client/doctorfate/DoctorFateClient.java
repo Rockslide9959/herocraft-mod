@@ -173,6 +173,10 @@ public final class DoctorFateClient {
 		}
 		FateFx.tick(mc);
 		if (localPossessed()) {
+			if (mc.screen instanceof FateBargainScreen) {
+				mc.setScreen(null); // the server dropped the offer when Nabu took over
+			}
+			queuedBargain = null;
 			p.setYRot(pYaw);
 			p.setXRot(Mth.clamp(pPitch, -90f, 90f));
 			p.setYHeadRot(pYaw);

@@ -4,7 +4,7 @@
     "particle": "minecraft:block/chiseled_sandstone",
     "base": "minecraft:block/chiseled_sandstone",
     "top": "minecraft:block/cut_sandstone",
-    "column": "minecraft:block/smooth_sandstone",
+    "column": "minecraft:block/sandstone_top",
     "gold": "minecraft:block/gold_block"
   },
   "elements": [
