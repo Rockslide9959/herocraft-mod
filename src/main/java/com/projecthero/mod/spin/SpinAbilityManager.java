@@ -20,7 +20,7 @@ import net.minecraft.world.entity.player.Player;
  *   R  Steel Ball        Shift+R  Twin Balls
  *   G  Spin Touch        Shift+G  Golden Spin (hold: the Golden Rectangle)
  *   Z  Scan              Shift+Z  Ball Breaker (hold: needs a Perfect Spin)
- *   X  Spin Leap         Shift+X  Valkyrie
+ *   X  Spin Leap         Shift+X  Valkyrie (tap: call her; hold 1 s while she is out: send her away)
  *   C  Spin Quake        Shift+C  Spin Shield
  *   V  Healing Spin      Shift+V  Face Spin
  * </pre>
@@ -42,16 +42,29 @@ public final class SpinAbilityManager {
 
 	/** The move id each held slot's press went to (so its release reaches the same move). */
 	private static final Map<UUID, String[]> HELD = new ConcurrentHashMap<>();
+	/**
+	 * Shift+X pressed while Valkyrie is out: the game time it went down. A release before {@link SpinConfig#VALKYRIE_DISMISS_HOLD}
+	 * is the call; held that long, she is sent away ({@link #tick}). UUID-keyed, no worlds.
+	 */
+	private static final Map<UUID, Long> VALKYRIE_HOLD = new ConcurrentHashMap<>();
 
 	private SpinAbilityManager() {
 	}
 
 	static void clearSessionState() {
 		HELD.clear();
+		VALKYRIE_HOLD.clear();
 	}
 
 	static void forget(UUID id) {
 		HELD.remove(id);
+		VALKYRIE_HOLD.remove(id);
+	}
+
+	/** Ticks Shift+X has been held toward sending Valkyrie away (-1 = not holding). For the tests. */
+	public static int valkyrieHoldTicks(ServerPlayer player) {
+		Long at = VALKYRIE_HOLD.get(player.getUUID());
+		return at == null ? -1 : (int) Math.max(0L, Spin.now(player) - at);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -69,7 +82,26 @@ public final class SpinAbilityManager {
 	}
 
 	static void tick(ServerPlayer player) {
-		// nothing per tick: the holds time out in SpinMoves
+		// (the Golden Rectangle holds time out in SpinMoves.) Shift+X held while Valkyrie is out: the bar, then she is sent away
+		Long at = VALKYRIE_HOLD.get(player.getUUID());
+		if (at == null) {
+			return;
+		}
+		int held = (int) Math.max(0L, Spin.now(player) - at);
+		if (!player.isAlive() || SpinValkyrie.find(player) == null) {
+			VALKYRIE_HOLD.remove(player.getUUID());
+			return;
+		}
+		if (held >= SpinConfig.VALKYRIE_DISMISS_HOLD) {
+			VALKYRIE_HOLD.remove(player.getUUID());
+			String[] slots = HELD.get(player.getUUID());
+			if (slots != null) {
+				slots[AbilitySlot.SLOT_3.ordinal()] = null; // the release does nothing now
+			}
+			SpinValkyrie.dismiss(player);
+			return;
+		}
+		SpinValkyrie.showDismissProgress(player, held);
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
@@ -81,7 +113,12 @@ public final class SpinAbilityManager {
 		if (!pressed) {
 			String id = held[i];
 			held[i] = null;
-			if (id != null && isHold(id)) {
+			if (VALKYRIE.equals(id)) {
+				// let go before the dismiss filled: a tap, the call
+				if (VALKYRIE_HOLD.remove(player.getUUID()) != null) {
+					SpinMoves.use(player, VALKYRIE);
+				}
+			} else if (id != null && isHold(id)) {
 				SpinMoves.releaseCharge(player, id);
 			}
 			return;
@@ -98,6 +135,12 @@ public final class SpinAbilityManager {
 			if (SpinMoves.startCharge(player, id)) {
 				held[i] = id;
 			}
+			return;
+		}
+		if (VALKYRIE.equals(id) && SpinValkyrie.find(player) != null) {
+			// she is out: a tap calls her (on the release), a 1 s hold sends her away
+			held[i] = id;
+			VALKYRIE_HOLD.put(player.getUUID(), Spin.now(player));
 			return;
 		}
 		SpinMoves.use(player, id);
@@ -161,7 +204,10 @@ public final class SpinAbilityManager {
 	public static boolean ballsAllow(Player player, String id) {
 		return switch (ballsNeeded(id)) {
 			case 0 -> true;
-			case 1 -> Spin.readyBall(player) >= 0;
+			case 1 -> Spin.readyBall(player) >= 0
+					// R throws the off-hand ball when the main hand has none (user, 2026-11-12)
+					|| (STEEL_BALL.equals(id) && Spin.hasPower(player)
+							&& SpinBalls.inHand(player, net.minecraft.world.InteractionHand.OFF_HAND) >= 0);
 			default -> Spin.ballsReady(player) >= 2;
 		};
 	}
@@ -183,7 +229,9 @@ public final class SpinAbilityManager {
 			case SCAN -> SpinConfig.SCAN_COOLDOWN;
 			case BALL_BREAKER -> SpinConfig.BREAKER_COOLDOWN;
 			case SPIN_LEAP -> SpinConfig.LEAP_COOLDOWN;
-			case VALKYRIE -> Spin.valkyrieCooldown(player) > 0 ? SpinConfig.VALKYRIE_DEAD_COOLDOWN : SpinConfig.VALKYRIE_WHISTLE_COOLDOWN;
+			case VALKYRIE -> Spin.valkyrieCooldown(player) > 0 ? SpinConfig.VALKYRIE_DEAD_COOLDOWN
+					: Spin.cooldownRemaining(player, id) > SpinConfig.VALKYRIE_WHISTLE_COOLDOWN ? SpinConfig.VALKYRIE_DISMISS_COOLDOWN
+					: SpinConfig.VALKYRIE_WHISTLE_COOLDOWN;
 			case SPIN_QUAKE -> SpinConfig.QUAKE_COOLDOWN;
 			case SPIN_SHIELD -> SpinConfig.SHIELD_COOLDOWN;
 			case HEALING_SPIN -> SpinConfig.HEAL_COOLDOWN;

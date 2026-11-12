@@ -31,14 +31,14 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 ## Keys (H = power selector only; no N ability)
 | Key | Move | Spec |
 |---|---|---|
-| R | Steel Ball | throw one ball, 30 blocks, 10 dmg, returns; target spins 3 s (skin twists, stumbles off course, can't aim). 15 Spin |
+| R | Steel Ball | throw one ball (main hand, else the off-hand ball), 30 blocks, 10 dmg, returns; target spins 3 s (skin twists, stumbles off course, can't aim). 15 Spin |
 | Shift+R | Twin Balls | both balls, 2 x 10, curving in from either side. 30 Spin |
 | G | Spin Touch | melee: joints lock, can't move 2 s; a player drops their main-hand item. 20 Spin |
-| Shift+G (hold) | Golden Spin | Golden Rectangle charge; 35 dmg (70 Perfect), pierces blocks and creatures in a line. 50 Spin, 12 s cd |
+| Shift+G (hold) | Golden Spin | Golden Rectangle charge; Perfect: 70, pierces blocks and creatures in a line. 50 Spin, 12 s cd |
 | Z | Scan | ball spins on the ground; creatures/players within 40 blocks glow through walls 8 s. 15 Spin |
-| Shift+Z (hold) | Ball Breaker | needs a Perfect Spin; the figure bursts out and strikes: 60 dmg + aging (Weakness II, Slowness III, Wither 10 s; skin greys and cracks). 100 Spin, 3 min cd |
+| Shift+Z (hold) | Ball Breaker | needs a Perfect Spin; the figure bursts out and strikes: 100 dmg (was 60) + aging (Weakness II, Slowness III, Wither 10 s whose bites scale x5/3: 1.67 every 2 s, 8.33 total; skin greys and cracks). 100 Spin, 3 min cd |
 | **X** | **Spin Leap** | spin your leg muscles: ~12 blocks forward, 5 up, no fall damage after. 10 Spin |
-| **Shift+X** | **Valkyrie** | whistle: your horse Valkyrie gallops to you and you mount. Tamed, very fast, armoured, comes when called. 60 s cd if she dies |
+| **Shift+X** | **Valkyrie** | tap: whistle -- no horse out: she gallops in and you mount; already out: the same horse runs to you (stuck/far: brought to you), never a second. Hold 1 s while out: she runs off and despawns, call on 10 s cd. 60 s cd if she dies |
 | C | Spin Quake | ball hammers the ground: 14 dmg within 6 blocks, knockdown + slow 2 s. 25 Spin |
 | Shift+C | Spin Shield | both balls orbit you 4 s, knock away arrows/bullets/fireballs, hit anything close for 4 a tick. 30 Spin |
 | V | Healing Spin | tap: heal self 6 hearts over 3 s, clear poison/slowness; aim at a squadmate to heal them. 25 Spin, 15 s cd |
@@ -71,3 +71,7 @@ the strike, faint golden afterimages, fades at the end).
 - References: the user's `docs/reference/spin/ball_breaker_face_34.png` / `_35.png` and the jojowiki Ball Breaker page.
 - Films: `docs/screenshots/v0173/spin/ball_breaker_*`. Harness: `scratchpad/spin/ball_breaker_harness_hook.js` +
   `BallBreakerHarness.v0173.java.txt` (write `face` into `run/bb.flag` for only the face close-ups); films: `ball_breaker_films.sh`.
+
+## Round 2026-11-12 (user)
+- Not-Perfect Golden Spin = a plain R throw (10 dmg, 15 Spin, R cooldown, no Golden cooldown).
+- Held balls sit just under each fist (`models/item/steel_ball.json`, third person [0,-1.5,-2.3], first person lowered 2.2 -> 0.6). Screenshots: `docs/screenshots/v0173/spin_round/`.

@@ -69,7 +69,14 @@ public final class SpinMarks {
 		e.hurtMarked = true;
 	}
 
-	/** Ball Breaker's aging: Weakness II, Slowness III, Wither, and the grey cracked look. */
+	/** True while {@link #tick} deals an aging bite (so {@link SpinDamage} lets that one wither hit through). */
+	static final ThreadLocal<Boolean> BITING = ThreadLocal.withInitial(() -> false);
+
+	/**
+	 * Ball Breaker's aging: Weakness II, Slowness III, Wither, and the grey cracked look. The Wither is the look (black hearts, the
+	 * icon); while aged, its own ticks are cancelled and {@link #tick} bites for {@link SpinConfig#AGING_BITE_DAMAGE} every
+	 * {@link SpinConfig#AGING_BITE_EVERY} ticks instead (scaled with the strike's 100).
+	 */
 	public static void age(LivingEntity e, int ticks) {
 		set(e, mark(e).withAged(now(e) + ticks));
 		e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, ticks, 1));
@@ -155,10 +162,26 @@ public final class SpinMarks {
 				mob.getNavigation().stop();
 			}
 		}
+		if (m.aged(now)) {
+			long left = m.agedUntil() - now;
+			if ((left + SpinConfig.AGING_BITE_EVERY / 2) % SpinConfig.AGING_BITE_EVERY == 0L) {
+				bite(e);
+			}
+		}
 		if (m.healing(now) && e.getHealth() < e.getMaxHealth()) {
 			e.heal(m.healPerTick());
 		}
 		return true;
+	}
+
+	/** One aging bite: {@link SpinConfig#AGING_BITE_DAMAGE} as wither damage. Public for the tests. */
+	public static void bite(LivingEntity e) {
+		BITING.set(true);
+		try {
+			e.hurt(e.damageSources().wither(), SpinConfig.AGING_BITE_DAMAGE);
+		} finally {
+			BITING.set(false);
+		}
 	}
 
 	/** Is {@code player} spun (his client drifts his view)? Client-safe. */

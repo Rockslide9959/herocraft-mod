@@ -80,6 +80,7 @@ public final class Spin {
 		SpinMoves.forget(id);
 		SpinDisguise.forget(id);
 		SpinBalls.forget(id);
+		SpinValkyrie.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)

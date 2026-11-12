@@ -33,6 +33,10 @@ public final class SpinDamage {
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		// Ball Breaker's aging: the Wither effect is only the look; SpinMarks' bites (scaled with the strike) are the damage
+		if (source.is(DamageTypes.WITHER) && !SpinMarks.BITING.get() && SpinMarks.aged(entity)) {
+			return false;
+		}
 		if (REENTRANT.get() || amount <= 0f || !(entity instanceof ServerPlayer victim) || !Spin.hasPower(victim)) {
 			return true;
 		}

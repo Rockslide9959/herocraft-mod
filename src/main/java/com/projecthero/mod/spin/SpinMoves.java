@@ -176,19 +176,32 @@ public final class SpinMoves {
 		};
 	}
 
-	/** R: one ball, 30 blocks out and back. */
+	/**
+	 * R: one ball, 30 blocks out and back. The main-hand ball, or (user, 2026-11-12) the off-hand one when the main hand has none:
+	 * it leaves the off hand and the catch puts it back there.
+	 */
 	static boolean steelBall(ServerPlayer p) {
-		int i = Spin.readyBall(p);
+		net.minecraft.world.InteractionHand hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+		int i = SpinBalls.inHand(p, hand);
+		if (i < 0) {
+			hand = net.minecraft.world.InteractionHand.OFF_HAND;
+			i = SpinBalls.inHand(p, hand);
+		}
 		if (i < 0) {
 			return false;
 		}
+		throwBall(p, i, hand);
+		pay(p, SpinAbilityManager.STEEL_BALL, SpinConfig.BALL_COST, SpinConfig.BALL_COOLDOWN);
+		return true;
+	}
+
+	/** The plain R throw of ball {@code i} from {@code hand} (no payment): 10 damage, curving after the look, back to the same hand. */
+	private static void throwBall(ServerPlayer p, int i, net.minecraft.world.InteractionHand hand) {
 		Vec3 look = p.getViewVector(1f);
-		SteelBallEntity.launch(p, i, SteelBallEntity.MODE_HIT, look.scale(SpinConfig.BALL_SPEED),
+		SteelBallEntity.launch(p, i, hand, SteelBallEntity.MODE_HIT, look.scale(SpinConfig.BALL_SPEED),
 				p.getEyePosition().add(look.scale(SpinConfig.BALL_RANGE)), false, SpinConfig.BALL_RANGE, false);
 		Spin.sound(p, SpinSounds.BALL_THROW, 0.7f, 1.0f);
-		pay(p, SpinAbilityManager.STEEL_BALL, SpinConfig.BALL_COST, SpinConfig.BALL_COOLDOWN);
-		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
-		return true;
+		p.swing(hand, true);
 	}
 
 	/** Shift+R: both balls, curving in from either side onto the aim point. */
@@ -440,9 +453,23 @@ public final class SpinMoves {
 		return move == SpinState.CHARGE_BREAKER ? ballBreaker(p, perfect) : goldenSpin(p, perfect);
 	}
 
-	/** Shift+G released: 35 damage (70 and through armour on a Perfect Spin) to everything on a 40-block line, walls or not. */
+	/**
+	 * Shift+G released. A Perfect Spin: 70 through armour to everything on a 40-block line, walls or not. Not Perfect (user,
+	 * 2026-11-12): the ball just goes as a plain Steel Ball throw (10 damage, curving), paid like R (15 Spin, R's cooldown, no
+	 * Golden Spin cooldown).
+	 */
 	static boolean goldenSpin(ServerPlayer p, boolean perfect) {
 		int i = Spin.readyBall(p);
+		if (!perfect) {
+			if (i < 0 || !Spin.hasSpin(p, SpinConfig.BALL_COST)) {
+				Spin.say(p, i < 0 ? "message.projecthero.spin.need_ball" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
+				return false;
+			}
+			throwBall(p, i, net.minecraft.world.InteractionHand.MAIN_HAND);
+			pay(p, SpinAbilityManager.STEEL_BALL, SpinConfig.BALL_COST, SpinConfig.BALL_COOLDOWN);
+			lastGoldenHits = 0;
+			return true;
+		}
 		if (i < 0 || !Spin.hasSpin(p, SpinConfig.GOLDEN_COST)) {
 			Spin.say(p, i < 0 ? "message.projecthero.spin.need_ball" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
 			return false;

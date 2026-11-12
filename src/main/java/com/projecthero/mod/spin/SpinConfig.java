@@ -134,7 +134,8 @@ public final class SpinConfig {
 	public static final int SCAN_COOLDOWN = 8 * 20;
 
 	// ---------------------------------------------------------------- Shift+Z (hold)
-	public static final float BREAKER_DAMAGE = 60f;
+	/** 100 (user, 2026-11-12; was 60). */
+	public static final float BREAKER_DAMAGE = 100f;
 	public static final float BREAKER_COST = 100f;
 	public static final int BREAKER_COOLDOWN = 3 * 60 * 20;
 	public static final double BREAKER_RANGE = 30.0;
@@ -144,6 +145,13 @@ public final class SpinConfig {
 	public static final int BREAKER_STRIKE_DELAY = 10;
 	/** Aging: Weakness II, Slowness III, Wither for 10 s. */
 	public static final int AGING_TICKS = 10 * 20;
+	/**
+	 * The aging's withering bites ({@link SpinMarks}): one every 2 s while aged, like vanilla Wither I, but scaled with the strike
+	 * (60 -> 100, x5/3): 1 -> 1.67 a bite, 5 -> 8.33 over the 10 s. The Wither effect itself is shown, not dealt (amplifier kept 0
+	 * for the black hearts; its own damage is cancelled in {@link SpinDamage}).
+	 */
+	public static final float AGING_BITE_DAMAGE = 1f * (BREAKER_DAMAGE / 60f);
+	public static final int AGING_BITE_EVERY = 40;
 
 	// ---------------------------------------------------------------- X
 	public static final float LEAP_COST = 10f;
@@ -161,10 +169,21 @@ public final class SpinConfig {
 	public static final double VALKYRIE_SPEED = 0.42;
 	public static final double VALKYRIE_HEALTH = 40.0;
 	public static final double VALKYRIE_JUMP = 1.0;
-	/** Further than this (or in another dimension) she is brought round behind you first. */
-	public static final double VALKYRIE_FETCH_DISTANCE = 32.0;
-	/** She gallops in for at most this long, then you are put in the saddle anyway. */
-	public static final int VALKYRIE_GALLOP_TICKS = 50;
+	/** Further than this she is brought round behind you first (another dimension: a fresh Valkyrie comes, the old one leaves). */
+	public static final double VALKYRIE_FETCH_DISTANCE = 48.0;
+	/** Her path-finding reach while she runs to you (vanilla horses only plan ~16 blocks ahead). */
+	public static final double VALKYRIE_FOLLOW_RANGE = 64.0;
+	/** She runs in for at most this long, then she is brought next to you and you are put in the saddle anyway. */
+	public static final int VALKYRIE_GALLOP_TICKS = 100;
+	/** Stuck: no block closer in this long, and she is brought next to you. */
+	public static final int VALKYRIE_STUCK_TICKS = 30;
+	/** Hold Shift+X this long (while she is out) to send her away. */
+	public static final int VALKYRIE_DISMISS_HOLD = 20;
+	/** Sent away: Call Valkyrie waits 10 s. */
+	public static final int VALKYRIE_DISMISS_COOLDOWN = 10 * 20;
+	/** Sent away, she runs off for this long (sooner once out of his sight and 16+ blocks off), then is gone. */
+	public static final int VALKYRIE_LEAVE_TICKS = 40;
+	public static final String VALKYRIE_LEAVING_TAG = "projecthero_valkyrie_leaving";
 	public static final String VALKYRIE_TAG = "projecthero_valkyrie";
 
 	// ---------------------------------------------------------------- C
