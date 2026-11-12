@@ -1648,7 +1648,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.cyborg.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.cyborg.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "forms", "core", "passives"}) {
+			for (String section : new String[]{"origin", "forms", "core", "passives", "titans"}) {
 				head(lines, "projecthero.guide.cyborg." + section);
 				para(lines, "projecthero.guide.cyborg." + section + ".body");
 				blank(lines);
@@ -1908,7 +1908,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.starfire.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.starfire.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "traits", "starbolt", "mood", "flight", "costume"}) {
+			for (String section : new String[]{"getting", "traits", "starbolt", "mood", "flight", "costume", "titans"}) {
 				head(lines, "projecthero.guide.starfire." + section);
 				para(lines, "projecthero.guide.starfire." + section + ".body");
 				blank(lines);
@@ -1929,7 +1929,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.raven.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.raven.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "cloak"}) {
+			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "cloak", "titans"}) {
 				head(lines, "projecthero.guide.raven." + section);
 				para(lines, "projecthero.guide.raven." + section + ".body");
 				blank(lines);
@@ -1950,7 +1950,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.beast_boy.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.beast_boy.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "forms", "health", "stamina", "chain", "instincts"}) {
+			for (String section : new String[]{"getting", "forms", "health", "stamina", "chain", "instincts", "titans"}) {
 				head(lines, "projecthero.guide.beast_boy." + section);
 				para(lines, "projecthero.guide.beast_boy." + section + ".body");
 				blank(lines);

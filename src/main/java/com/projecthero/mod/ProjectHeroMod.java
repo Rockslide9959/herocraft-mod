@@ -172,6 +172,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spin.SpinItems.initialize();
 		com.projecthero.mod.spin.SpinMod.initialize(); // v0.17.3: the Spin (the Spin) -- the ball, loot, damage, payload
 		com.projecthero.mod.starfire.StarfireMod.initialize(); // v0.17.3: Starfire -- items, Starstone, damage, flight payload
+		com.projecthero.mod.titans.TitansTogether.initialize(); // v0.17.3: Titans Together (squad bonus)
 		com.projecthero.mod.raven.RavenMod.initialize(); // v0.17.3: Raven (Teen Titans) -- items, entities, loot, damage, payloads
 		com.projecthero.mod.beastboy.BeastBoyMod.initialize(); // v0.17.3: Beast Boy -- serum, green ocelot, form health, payloads
 		com.projecthero.mod.shazam.ShazamMod.initialize(); // v0.17.3: Shazam -- the word, the Wizard, damage, flight payload
@@ -593,6 +594,7 @@ public class ProjectHeroMod implements ModInitializer {
 		TickWatchdog.run("FirearmManager.serverTick", () -> com.projecthero.mod.firearm.FirearmManager.serverTick(player));
 		TickWatchdog.run("PunisherWeaponAbilities.tick", () -> com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.tick(player)); // v0.15.18
 		TickWatchdog.run("Squads.serverTick", () -> com.projecthero.mod.squad.Squads.serverTick(player));
+		TickWatchdog.run("TitansTogether.tick", () -> com.projecthero.mod.titans.TitansTogether.tick(player)); // v0.17.3
 	}
 
 	/**

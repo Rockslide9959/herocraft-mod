@@ -368,6 +368,7 @@ public final class Cyborg {
 			return; // water stops the core charging
 		}
 		float rate = Boolean.TRUE.equals(NEAR_REDSTONE.get(player.getUUID())) ? CyborgConfig.CORE_REGEN_REDSTONE : CyborgConfig.CORE_REGEN;
+		rate *= com.projecthero.mod.titans.TitansTogether.regenMult(player); // v0.17.3: Titans Together +20%
 		float cur = Float.isNaN(s.core) ? 0f : s.core;
 		float next = Math.min(CyborgConfig.CORE_MAX, cur + rate / 4f);
 		if (next != s.core) {

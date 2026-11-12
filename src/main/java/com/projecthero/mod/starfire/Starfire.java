@@ -527,7 +527,7 @@ public final class Starfire {
 
 	/** The Starbolt bar: refilled by the sun (in place; re-sent every few ticks). */
 	static void tickBar(ServerPlayer player, StarfireState s, long now) {
-		float per = regenPerSecond(sun(player));
+		float per = regenPerSecond(sun(player)) * com.projecthero.mod.titans.TitansTogether.regenMult(player); // v0.17.3: Titans Together +20%
 		s.starbolt = Math.min(StarfireConfig.STARBOLT_MAX, s.starbolt + per / 20f);
 	}
 

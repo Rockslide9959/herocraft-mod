@@ -12641,5 +12641,14 @@
   "projecthero.guide.doctor_fate.fair.body": "Possession never attacks squadmates. On a server you can't be possessed inside spawn protection. Banishment never deletes bosses or players.",
   "projecthero.guide.doctor_fate.controls": "Controls",
   "projecthero.guide.doctor_fate.commands": "Commands",
-  "projecthero.guide.doctor_fate.commands.body": "Operators: /projecthero power tune doctor_fate dominion <0-100>, cooldowns (also clears the helmet lockout), possess, bargain <1 death's door | 2 Order's command | 3 forbidden>."
+  "projecthero.guide.doctor_fate.commands.body": "Operators: /projecthero power tune doctor_fate dominion <0-100>, cooldowns (also clears the helmet lockout), possess, bargain <1 death's door | 2 Order's command | 3 forbidden>.",
+  "projecthero.titans_together.badge": "T",
+  "projecthero.guide.starfire.titans": "Titans Together",
+  "projecthero.guide.starfire.titans.body": "Within 32 blocks of a squadmate who is also a Titan (Starfire, Beast Boy, Raven or Cyborg), you hit 10% harder and your Starbolt bar refills 20% faster. A red-and-gold T next to the hotbar shows it's on.",
+  "projecthero.guide.raven.titans": "Titans Together",
+  "projecthero.guide.raven.titans.body": "Within 32 blocks of a squadmate who is also a Titan (Starfire, Beast Boy, Raven or Cyborg), you hit 10% harder and Dark Energy refills 20% faster. A red-and-gold T next to the hotbar shows it's on.",
+  "projecthero.guide.beast_boy.titans": "Titans Together",
+  "projecthero.guide.beast_boy.titans.body": "Within 32 blocks of a squadmate who is also a Titan (Starfire, Beast Boy, Raven or Cyborg), you hit 10% harder and Morph Stamina refills 20% faster. A red-and-gold T next to the hotbar shows it's on.",
+  "projecthero.guide.cyborg.titans": "Titans Together",
+  "projecthero.guide.cyborg.titans.body": "Within 32 blocks of a squadmate who is also a Titan (Starfire, Beast Boy, Raven or Cyborg), you hit 10% harder and your core charges 20% faster. A red-and-gold T next to the hotbar shows it's on."
 }

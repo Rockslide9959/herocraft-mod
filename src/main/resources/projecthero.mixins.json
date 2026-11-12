@@ -52,6 +52,7 @@
 		"LivingEntityEffectMixin",
 		"LivingEntityFrostMixin",
 		"LivingEntityPunisherMarkMixin",
+		"TitansTogetherDamageMixin",
 		"LivingEntityThorStormMixin",
 		"LivingEntityUltronDamageMixin",
 		"LivingEntityRepulsorFlightMixin",

@@ -162,6 +162,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight
 		com.projecthero.mod.client.spin.SpinClient.initialize(); // v0.17.3: the Spin -- HUD, Golden Rectangle, balls, effects
 		com.projecthero.mod.client.starfire.StarfireClient.initialize(); // v0.17.3: Starfire -- HUD gauge, glow overlays, eye beams, bolts, fx
+		com.projecthero.mod.client.titans.TitansTogetherHud.initialize(); // v0.17.3: the Titans Together badge
 		com.projecthero.mod.client.raven.RavenClient.initialize(); // v0.17.3: Raven -- HUD, aura, cloak, soul-self, debris, effects
 		com.projecthero.mod.client.beastboy.BeastBoyClient.initialize(); // v0.17.3: Beast Boy -- HUD, wheel, tint, senses
 		com.projecthero.mod.client.shazam.ShazamClient.initialize(); // v0.17.3: Shazam -- suit, cape, HUD, Wisdom, the Wizard

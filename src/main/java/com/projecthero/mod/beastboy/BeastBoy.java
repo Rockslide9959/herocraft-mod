@@ -685,7 +685,7 @@ public final class BeastBoy {
 		BeastForm f = BeastForm.byId(s.form);
 		// Morph Stamina (in place; re-sent every few ticks)
 		if (f == BeastForm.HUMAN) {
-			s.stamina = Math.min(BeastBoyConfig.STAMINA_MAX, s.stamina + BeastBoyConfig.STAMINA_REGEN_PER_TICK);
+			s.stamina = Math.min(BeastBoyConfig.STAMINA_MAX, s.stamina + BeastBoyConfig.STAMINA_REGEN_PER_TICK * com.projecthero.mod.titans.TitansTogether.regenMult(player));
 		} else if (!player.getAbilities().instabuild) {
 			s.stamina = Math.max(0f, s.stamina - BeastBoyForms.drainPerTick(f));
 		}

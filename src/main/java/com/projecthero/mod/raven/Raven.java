@@ -422,7 +422,7 @@ public final class Raven {
 		boolean wrath = s.wrathUntil > now;
 		// Dark Energy (in place; re-sent every few ticks)
 		if (!s.shield && s.tkTarget < 0) {
-			s.energy = Math.min(RavenConfig.ENERGY_MAX, s.energy + RavenConfig.ENERGY_REGEN_PER_TICK
+			s.energy = Math.min(RavenConfig.ENERGY_MAX, s.energy + RavenConfig.ENERGY_REGEN_PER_TICK * com.projecthero.mod.titans.TitansTogether.regenMult(player) // v0.17.3: Titans Together
 					+ (s.meditating ? RavenConfig.MEDITATE_ENERGY_PER_TICK : 0f));
 		}
 		// Composure
