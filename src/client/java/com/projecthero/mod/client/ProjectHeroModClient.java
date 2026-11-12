@@ -918,6 +918,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.nova.NovaClient.ownsH(client.player)) {
 				// v0.15.13: H as Nova -- the Nova Corps uniform on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.nova.NovaClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.doctorfate.DoctorFateClient.ownsH(client.player)) {
+				// v0.17.3 (user: "like the Nova ability"): H as Doctor Fate -- the Helmet of Fate on / off (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.doctorfate.DoctorFateClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.miraculous.MiraculousClient.ownsH(client.player)) {
 				// v0.16.6: H as a Miraculous holder -- transform / detransform (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.miraculous.MiraculousClient.pressH();

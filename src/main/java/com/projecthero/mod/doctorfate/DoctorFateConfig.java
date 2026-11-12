@@ -105,6 +105,9 @@ public final class DoctorFateConfig {
 	public static final int SIGHT_TICKS = 10 * 20;
 	public static final double SIGHT_RANGE = 64.0;
 	public static final int HELMET_COOLDOWN = 20;
+	/** Shift+V Amulet of Anubis: Dominion it takes off, and its cooldown (2 min). */
+	public static final float AMULET_DOMINION_CUT = 10f;
+	public static final int AMULET_COOLDOWN = 2 * 60 * 20;
 	public static final double AIM_RANGE = 24.0;
 
 	// ---- Kent Nelson's own magic (helmet off): weak R, G and X only

@@ -202,8 +202,7 @@ public final class DoctorFateHud {
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, DoctorFateAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, DoctorFateAbilityManager.maxCooldown(other)));
 			boolean usable = DoctorFateAbilityManager.usable(p, shown);
-			boolean active = (slot == AbilitySlot.SLOT_2 && DoctorFate.shieldUp(p)) || (slot == AbilitySlot.SLOT_5 && DoctorFate.wearsHelmet(p))
-					|| (slot == AbilitySlot.SLOT_4 && DoctorFate.avatarActive(p));
+			boolean active = (slot == AbilitySlot.SLOT_2 && DoctorFate.shieldUp(p)) || (slot == AbilitySlot.SLOT_4 && DoctorFate.avatarActive(p));
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
 	}

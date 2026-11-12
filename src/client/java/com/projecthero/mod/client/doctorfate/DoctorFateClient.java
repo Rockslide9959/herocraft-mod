@@ -37,8 +37,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Taking hold</b> (75+): now and then the movement keys go dead for a moment.</li>
  *   <li><b>Possession</b>: the server's stream drives the body (the Ghostfreak pattern); Space presses are sent as struggles.</li>
  * </ul>
- * H stays the power selector and N does nothing: every move goes through the ability slots. Flight is double-tap Space
- * ({@code ProjectHeroModClient.handleDoubleJump} asks {@link #wantsFlightToggle}).
+ * H puts the Helmet of Fate on / takes it off (user, v0.17.3: "like the Nova ability"; {@code ProjectHeroModClient} asks
+ * {@link #ownsH}, Shift+H still opens the power wheel) and N does nothing: every other move goes through the ability slots. Flight
+ * is double-tap Space ({@code ProjectHeroModClient.handleDoubleJump} asks {@link #wantsFlightToggle}).
  */
 public final class DoctorFateClient {
 	private static long possessUntil;
@@ -65,7 +66,7 @@ public final class DoctorFateClient {
 		WorldRenderEvents.AFTER_ENTITIES.register(FateWorldRender::render);
 		ClientPlayNetworking.registerGlobalReceiver(FateBargainPayload.TYPE, (payload, context) -> openBargain(payload));
 		ClientPlayNetworking.registerGlobalReceiver(FateServePayload.TYPE,
-				(payload, context) -> Minecraft.getInstance().setScreen(new FateServeScreen(payload.pos(), payload.fromHand())));
+				(payload, context) -> Minecraft.getInstance().setScreen(new FateServeScreen(payload.pos())));
 		ClientPlayNetworking.registerGlobalReceiver(FateFxPayload.TYPE, (payload, context) -> FateFx.receive(payload));
 		ClientPlayNetworking.registerGlobalReceiver(FatePossessPayload.TYPE, (payload, context) -> {
 			possessUntil = payload.until();
@@ -104,6 +105,16 @@ public final class DoctorFateClient {
 	public static boolean localPossessed() {
 		Minecraft mc = Minecraft.getInstance();
 		return possessUntil > 0L && mc.player != null && System.currentTimeMillis() - lastPossessMs < 500L;
+	}
+
+	/** Whether plain H belongs to Doctor Fate for this player (he serves Nabu), like Nova's. */
+	public static boolean ownsH(LocalPlayer player) {
+		return player != null && DoctorFate.hasPower(player);
+	}
+
+	/** H: the helmet on / off (the server checks Possession and the lockout and says why when it refuses). */
+	public static void pressH() {
+		ClientPlayNetworking.send(FateActionPayload.of(FateActionPayload.Action.TOGGLE_HELMET));
 	}
 
 	public static boolean wantsFlightToggle(LocalPlayer player) {

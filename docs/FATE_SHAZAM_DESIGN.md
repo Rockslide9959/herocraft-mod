@@ -19,8 +19,11 @@ between more power and more control.
 **Getting it:** the **Helmet of Fate** in a new small structure, the **Tomb of Nabu**, a sandstone burial chamber under rare
 desert pyramids, guarded by mummy-skinned husks. Picking it up opens Nabu's offer: "Will you serve Order?" with **Accept** or
 **Refuse**. Refusing leaves the helmet on its pedestal (another player can take it). Random serums never give it.
+v0.17.3 (user): the helmet is **not an item** ("make it similar to the Nova ability"): using the pedestal opens the offer,
+Accept grants the power and empties the pedestal, and from then on **H** puts the helmet on / takes it off. This overrides the
+house "H = selector only" rule for Doctor Fate, as Nova does; Shift+H still opens the power wheel.
 
-**Two states (V puts the helmet on or takes it off):**
+**Two states (H puts the helmet on or takes it off):**
 - **Without the helmet (Kent Nelson's own magic):** weak versions of R, G and X only, normal health. Nabu's Dominion drains.
   The Amulet of Anubis lets you see Nabu's bar.
 - **Wearing the Helmet:**
@@ -70,8 +73,9 @@ ignoring one counts as refusing.
 | Shift+X | Gate Drop | open a portal under the target and its exit 15 blocks above it: it falls (fall damage) and you blink beside where it lands. +5 |
 | C | Order Blast | cone of golden force, 14 dmg, big knockback. +4 |
 | Shift+C | Ward of Order | 6-block golden glyph circle for 10 s: hostile projectiles and potions inside fizzle, squadmates in it take 30% less damage. +10 |
-| V | Helmet | put the helmet on / take it off (1 s animation; can't take it off during Possession) |
-| Shift+V | Sight of Nabu | 10 s: every creature within 64 blocks glows (Chaos red, Order gold, neutral white) and you see their health. +6 |
+| H | Helmet | put the helmet on / take it off (1 s animation; can't take it off during Possession, won't go on for 60 s after one). Not an item: part of the power. Shift+H still opens the power wheel |
+| V | Sight of Nabu | 10 s: every creature within 64 blocks glows (Chaos red, Order gold, neutral white) and you see their health. +6 |
+| Shift+V | Amulet of Anubis | (v0.17.3, replaced the V helmet toggle) Kent grips the amulet and steadies his mind: Dominion -10, helmet on or off. 2 min cd |
 
 **Fair-play rules:** Possession never attacks squadmates. On a server you can't be possessed while inside spawn protection.
 Dominion is saved per player.

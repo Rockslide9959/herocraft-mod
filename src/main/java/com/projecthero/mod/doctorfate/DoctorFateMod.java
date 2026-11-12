@@ -28,7 +28,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -77,7 +76,8 @@ public final class DoctorFateMod {
 		DoctorFate.clearSessionState();
 	}
 
-	static void onAction(ServerPlayer p, FateActionPayload payload) {
+	/** A {@link FateActionPayload} from the client (public for the gametests, which drive H through it). */
+	public static void onAction(ServerPlayer p, FateActionPayload payload) {
 		switch (payload.action()) {
 			case TOGGLE_FLIGHT -> {
 				if (DoctorFate.hasPower(p)) {
@@ -91,44 +91,39 @@ public final class DoctorFateMod {
 			}
 			case BARGAIN_ACCEPT -> DoctorFateBargains.answer(p, payload.arg(), true);
 			case BARGAIN_REFUSE -> DoctorFateBargains.answer(p, payload.arg(), false);
-			case SERVE_ACCEPT -> serve(p, payload.pos(), payload.arg() == 1, true);
-			case SERVE_REFUSE -> serve(p, payload.pos(), payload.arg() == 1, false);
+			case SERVE_ACCEPT -> serve(p, payload.pos(), true);
+			case SERVE_REFUSE -> serve(p, payload.pos(), false);
+			case TOGGLE_HELMET -> {
+				// v0.17.3 (user: "like the Nova ability"): H puts the helmet on / takes it off
+				if (DoctorFate.hasPower(p) && !com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
+					DoctorFate.pressH(p);
+				}
+			}
 		}
 	}
 
-	/** "Will you serve Order?" answered: from the Tomb pedestal at {@code pos}, or a Helmet of Fate in his hand. */
-	public static boolean serve(ServerPlayer p, BlockPos pos, boolean fromHand, boolean accept) {
+	/**
+	 * "Will you serve Order?" answered at the Tomb pedestal at {@code pos}. Accepting grants the power (the helmet is part of it, not
+	 * an item: H wears it) and empties the pedestal; refusing leaves the helmet there for another player.
+	 */
+	public static boolean serve(ServerPlayer p, BlockPos pos, boolean accept) {
 		if (DoctorFate.hasPower(p)) {
 			return false;
 		}
-		BlockState st = null;
-		if (!fromHand) {
-			st = p.level().getBlockState(pos);
-			if (!(st.getBlock() instanceof HelmetPedestalBlock) || !st.getValue(HelmetPedestalBlock.HAS_HELMET)
-					|| p.distanceToSqr(pos.getCenter()) > 64.0) {
-				return false;
-			}
-		} else if (!DoctorFateItems.isHelmet(p.getItemInHand(InteractionHand.MAIN_HAND)) && !DoctorFateItems.isHelmet(p.getItemInHand(InteractionHand.OFF_HAND))) {
+		BlockState st = p.level().getBlockState(pos);
+		if (!(st.getBlock() instanceof HelmetPedestalBlock) || !st.getValue(HelmetPedestalBlock.HAS_HELMET)
+				|| p.distanceToSqr(pos.getCenter()) > 64.0) {
 			return false;
 		}
 		if (!accept) {
-			p.displayClientMessage(Component.translatable(fromHand ? "message.projecthero.doctor_fate.refuse_hand"
-					: "message.projecthero.doctor_fate.refuse_pedestal").withStyle(ChatFormatting.GOLD), false);
+			p.displayClientMessage(Component.translatable("message.projecthero.doctor_fate.refuse_pedestal").withStyle(ChatFormatting.GOLD), false);
 			return false;
 		}
-		if (!fromHand) {
-			// the helmet leaves the pedestal for his inventory first, so the grant finds it there
-			net.minecraft.world.item.ItemStack helmet = new net.minecraft.world.item.ItemStack(DoctorFateItems.HELMET_OF_FATE);
-			if (!DoctorFate.grant(p)) {
-				return false;
-			}
-			if (!DoctorFate.carriesHelmet(p) && !p.getInventory().add(helmet)) {
-				p.drop(helmet, false, false);
-			}
-			p.level().setBlock(pos, st.setValue(HelmetPedestalBlock.HAS_HELMET, false), 3);
-			return true;
+		if (!DoctorFate.grant(p)) {
+			return false;
 		}
-		return DoctorFate.grant(p);
+		p.level().setBlock(pos, st.setValue(HelmetPedestalBlock.HAS_HELMET, false), 3);
+		return true;
 	}
 
 	/** {@code /projecthero power tune doctor_fate ...} (op only). */

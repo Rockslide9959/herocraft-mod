@@ -21,9 +21,10 @@ import net.minecraft.world.entity.player.Player;
  *   X  Ankh Step        Shift+X  Gate Drop
  *   Z  Glyph Storm      Shift+Z  Avatar of Order (asks Nabu first)
  *   C  Order Blast      Shift+C  Ward of Order
- *   V  Helmet           Shift+V  Sight of Nabu
+ *   V  Sight of Nabu    Shift+V  Amulet of Anubis
  * </pre>
- * H stays the power selector and N does nothing. Flight is double-tap Space. While the Avatar of Order stands, R, Z and C (and
+ * H is the helmet (user, v0.17.3: "like the Nova ability"; its own payload, {@link DoctorFate#pressH}, never routed here); Shift+H
+ * still opens the power wheel and N does nothing. Flight is double-tap Space. While the Avatar of Order stands, R, Z and C (and
  * their Shift moves) are its hand slams instead. While possessed nothing he presses counts (Space struggles, client side).
  */
 public final class DoctorFateAbilityManager {
@@ -37,8 +38,11 @@ public final class DoctorFateAbilityManager {
 	public static final String AVATAR = "avatar_of_order";
 	public static final String ORDER_BLAST = "order_blast";
 	public static final String WARD = "ward_of_order";
+	/** H (not a slot): the helmet on / off. Kept as an id for its 1 s cooldown. */
 	public static final String HELMET = "helmet";
 	public static final String SIGHT = "sight_of_nabu";
+	/** Shift+V: Kent grips the Amulet of Anubis and steadies his mind (-10 Dominion, helmet on or off). */
+	public static final String AMULET = "amulet_of_anubis";
 
 	private static final Map<UUID, String[]> HELD = new ConcurrentHashMap<>();
 
@@ -113,7 +117,7 @@ public final class DoctorFateAbilityManager {
 			case SLOT_2 -> shift ? BANISHMENT : ANKH_SHIELD;
 			case SLOT_3 -> shift ? GATE_DROP : ANKH_STEP;
 			case SLOT_4 -> shift ? AVATAR : GLYPH_STORM;
-			case SLOT_5 -> shift ? SIGHT : HELMET;
+			case SLOT_5 -> shift ? AMULET : SIGHT;
 			case SLOT_6 -> shift ? WARD : ORDER_BLAST;
 			default -> null;
 		};
@@ -124,9 +128,9 @@ public final class DoctorFateAbilityManager {
 		return a == null ? new String[0] : new String[] { a, moveFor(slot, true) };
 	}
 
-	/** Kent Nelson's own magic works without the helmet: R, G, X (weaker) and V. Everything else needs it. */
+	/** Kent Nelson's own magic works without the helmet: R, G, X (weaker), the Amulet (Shift+V) and H. Everything else needs it. */
 	public static boolean needsHelmet(String id) {
-		return !(ANKH_BOLT.equals(id) || ANKH_SHIELD.equals(id) || ANKH_STEP.equals(id) || HELMET.equals(id));
+		return !(ANKH_BOLT.equals(id) || ANKH_SHIELD.equals(id) || ANKH_STEP.equals(id) || AMULET.equals(id) || HELMET.equals(id));
 	}
 
 	/** Attack spells Nabu may swap for his own (Override). */
@@ -178,6 +182,7 @@ public final class DoctorFateAbilityManager {
 			case WARD -> DoctorFateConfig.WARD_COOLDOWN;
 			case HELMET -> DoctorFateConfig.HELMET_COOLDOWN;
 			case SIGHT -> DoctorFateConfig.SIGHT_COOLDOWN;
+			case AMULET -> DoctorFateConfig.AMULET_COOLDOWN;
 			default -> 1;
 		};
 	}

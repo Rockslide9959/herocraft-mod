@@ -14,8 +14,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
- * v0.17.3 Doctor Fate: Nabu's question when you take up the Helmet of Fate -- "Will you serve Order?" with <b>Accept</b> and
- * <b>Refuse</b>. Refusing leaves the helmet where it was (on its pedestal for someone else). Text wraps to the panel.
+ * v0.17.3 Doctor Fate: Nabu's question when you use the Tomb pedestal the Helmet of Fate rests on -- "Will you serve Order?" with
+ * <b>Accept</b> (the Doctor Fate power; H wears the helmet) and <b>Refuse</b> (it stays on its pedestal for someone else). Text
+ * wraps to the panel.
  */
 public class FateServeScreen extends Screen {
 	private static final int PANEL_W = 240;
@@ -23,14 +24,12 @@ public class FateServeScreen extends Screen {
 	private static final int EDGE = 0xFFE0B040;
 
 	private final BlockPos pos;
-	private final boolean fromHand;
 	private boolean answered;
 	private int panelH = 150;
 
-	public FateServeScreen(BlockPos pos, boolean fromHand) {
+	public FateServeScreen(BlockPos pos) {
 		super(Component.translatable("screen.projecthero.doctor_fate.serve.title"));
 		this.pos = pos;
-		this.fromHand = fromHand;
 	}
 
 	private List<FormattedCharSequence> body() {
@@ -53,7 +52,7 @@ public class FateServeScreen extends Screen {
 		if (!answered) {
 			answered = true;
 			ClientPlayNetworking.send(new FateActionPayload(accept ? FateActionPayload.Action.SERVE_ACCEPT : FateActionPayload.Action.SERVE_REFUSE,
-					fromHand ? 1 : 0, pos));
+					0, pos));
 		}
 		super.onClose();
 	}

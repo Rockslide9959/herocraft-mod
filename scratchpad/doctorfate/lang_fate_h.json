@@ -1,0 +1,14 @@
+{
+  "message.projecthero.doctor_fate.acquired": "Nabu accepts you. The Helmet of Fate is part of you now.",
+  "message.projecthero.doctor_fate.acquired_hint": "Press H to put the helmet on or take it off (Shift+H still opens the power wheel). Watch the Dominion gauge: the longer you wear it, the more Nabu takes over. Double-tap Space to fly with it on. The Guidebook (DC) explains everything.",
+  "message.projecthero.doctor_fate.needs_helmet": "That takes the Helmet of Fate. Press H to put it on.",
+  "message.projecthero.doctor_fate.amulet": "The Amulet of Anubis steadies you. Nabu's grip loosens.",
+  "message.projecthero.doctor_fate.amulet_quiet": "Nabu is already quiet.",
+  "projecthero.doctor_fate.ability.helmet": "Helmet",
+  "projecthero.doctor_fate.ability.helmet.desc": "Put the Helmet of Fate on or take it off (1 s). It's part of the power, not an item. You can't take it off during a Possession, and it won't go back on for 60 s after one.",
+  "projecthero.doctor_fate.ability.amulet_of_anubis": "Amulet of Anubis",
+  "projecthero.doctor_fate.ability.amulet_of_anubis.desc": "Grip the Amulet of Anubis and steady your mind: Dominion -10. Works with the helmet on or off. 2 min cooldown.",
+  "projecthero.guide.doctor_fate.getting.body": "Find the Tomb of Nabu: a small weathered sandstone pyramid in the desert (rare) with a burial chamber beneath it, guarded by mummy-wrapped Tomb Guardians. Use the pedestal at the back and Nabu asks \"Will you serve Order?\". Accept and you serve him: the Doctor Fate power replaces your Primary power and the helmet leaves the pedestal. It isn't an item: press H to wear it. Refuse and it stays on the pedestal for someone else. Random serums never give it.",
+  "projecthero.guide.doctor_fate.helmet": "Two states (H)",
+  "projecthero.guide.doctor_fate.helmet.body": "Press H to put the helmet on or take it off (1 s). It's part of the power, not an item, and Shift+H still opens the power wheel. Without the helmet you have Kent Nelson's own magic: weak R, G and X, the Amulet of Anubis (Shift+V), normal health, and Dominion drains. Wearing it: 40 health, 30% damage resistance, flight (double-tap Space), immunity to Wither and Poison, and every spell at full strength. You also wear the golden helmet, the Cloak of Destiny and the Amulet of Anubis. The amulet lets you see Nabu's gauge even with the helmet off."
+}

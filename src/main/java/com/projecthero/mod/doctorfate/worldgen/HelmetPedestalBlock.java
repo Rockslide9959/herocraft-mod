@@ -22,8 +22,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * v0.17.3 Doctor Fate: the Tomb of Nabu's pedestal. While {@link #HAS_HELMET} the golden Helmet of Fate rests on it; using it
- * opens Nabu's "Will you serve Order?" (Accept / Refuse, {@code FateServeScreen}). Accepting takes the helmet (the pedestal goes
- * empty); refusing leaves it there for someone else. Unbreakable, like the tomb's other holy parts.
+ * opens Nabu's "Will you serve Order?" (Accept / Refuse, {@code FateServeScreen}). Accepting grants the Doctor Fate power and the
+ * helmet leaves the pedestal (it's no item: H wears it from then on); refusing leaves it there for someone else. Unbreakable, like
+ * the tomb's other holy parts.
  */
 public class HelmetPedestalBlock extends Block {
 	public static final MapCodec<HelmetPedestalBlock> CODEC = simpleCodec(HelmetPedestalBlock::new);
@@ -63,7 +64,7 @@ public class HelmetPedestalBlock extends Block {
 			sp.displayClientMessage(Component.translatable("message.projecthero.doctor_fate.already").withStyle(ChatFormatting.GOLD), true);
 			return InteractionResult.CONSUME;
 		}
-		DoctorFate.send(sp, new FateServePayload(pos, false));
+		DoctorFate.send(sp, new FateServePayload(pos));
 		return InteractionResult.CONSUME;
 	}
 }

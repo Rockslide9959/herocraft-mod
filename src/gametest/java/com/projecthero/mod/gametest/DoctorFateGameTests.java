@@ -1,5 +1,6 @@
 package com.projecthero.mod.gametest;
 
+import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.doctorfate.DoctorFate;
 import com.projecthero.mod.doctorfate.DoctorFateAbilityManager;
 import com.projecthero.mod.doctorfate.DoctorFateBargains;
@@ -11,6 +12,7 @@ import com.projecthero.mod.doctorfate.DoctorFatePossession;
 import com.projecthero.mod.doctorfate.DoctorFateSpells;
 import com.projecthero.mod.doctorfate.data.FateAttachments;
 import com.projecthero.mod.doctorfate.data.FateState;
+import com.projecthero.mod.doctorfate.network.FateActionPayload;
 import com.projecthero.mod.doctorfate.worldgen.HelmetPedestalBlock;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.PowerGrants;
@@ -19,6 +21,7 @@ import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -101,17 +104,45 @@ public class DoctorFateGameTests implements FabricGameTest {
 		BlockPos rel = new BlockPos(3, 2, 3);
 		helper.setBlock(rel, DoctorFateItems.HELMET_PEDESTAL.defaultBlockState().setValue(HelmetPedestalBlock.HAS_HELMET, true));
 		BlockPos pos = helper.absolutePos(rel);
-		helper.assertTrue(!DoctorFateMod.serve(b, pos, false, false), "refusing grants nothing");
+		helper.assertTrue(!DoctorFateMod.serve(b, pos, false), "refusing grants nothing");
+		helper.assertTrue(!DoctorFate.hasPower(b), "refused: no power");
 		helper.assertTrue(helper.getLevel().getBlockState(pos).getValue(HelmetPedestalBlock.HAS_HELMET), "refusing leaves the helmet on its pedestal");
-		helper.assertTrue(DoctorFateMod.serve(a, pos, false, true), "accepting serves Order");
+		helper.assertTrue(DoctorFateMod.serve(a, pos, true), "accepting serves Order");
 		helper.assertTrue(DoctorFate.hasPower(a) && HeroTiers.holdsHero(a, DoctorFate.KEY), "Doctor Fate is a Hero-Tier power");
 		helper.assertTrue(!com.projecthero.mod.kryptonian.Kryptonian.hasPower(a), "it replaced the Kryptonian (one Primary)");
 		helper.assertTrue(!helper.getLevel().getBlockState(pos).getValue(HelmetPedestalBlock.HAS_HELMET), "the pedestal is empty now");
-		helper.assertTrue(DoctorFate.carriesHelmet(a), "he carries the Helmet of Fate");
-		helper.assertTrue(!DoctorFateMod.serve(b, pos, false, true) && !DoctorFate.hasPower(b), "an empty pedestal offers nothing");
+		for (int i = 0; i < a.getInventory().getContainerSize(); i++) {
+			ItemStack st = a.getInventory().getItem(i);
+			helper.assertTrue(st.isEmpty() || !BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().contains("helmet_of_fate"),
+					"no helmet item lands in his inventory (H wears it)");
+		}
+		helper.assertTrue(!DoctorFate.wearsHelmet(a), "he doesn't wear it until he presses H");
+		helper.assertTrue(!DoctorFateMod.serve(b, pos, true) && !DoctorFate.hasPower(b), "an empty pedestal offers nothing");
 		helper.assertTrue(PowerGrants.NOT_FROM_SERUMS.contains(DoctorFate.KEY), "random serums never give it");
 		DoctorFate.revoke(a);
 		helper.assertTrue(!DoctorFate.hasPower(a), "revoked");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theHelmetOfFateIsNoItem(GameTestHelper helper) {
+		helper.assertTrue(!BuiltInRegistries.ITEM.containsKey(ProjectHeroMod.id("helmet_of_fate")), "no helmet_of_fate item is registered");
+		// an old test world's saved stack: an unknown id now, dropped on load instead of crashing
+		net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+		tag.putString("id", "projecthero:helmet_of_fate");
+		tag.putInt("count", 1);
+		helper.assertTrue(ItemStack.parseOptional(helper.getLevel().registryAccess(), tag).isEmpty(), "an old saved helmet loads as nothing");
+		ServerPlayer p = mock(helper, 1.5, 1.5);
+		net.minecraft.nbt.ListTag inv = new net.minecraft.nbt.ListTag();
+		net.minecraft.nbt.CompoundTag slot = tag.copy();
+		slot.putByte("Slot", (byte) 0);
+		inv.add(slot);
+		p.getInventory().load(inv);
+		helper.assertTrue(p.getInventory().getItem(0).isEmpty(), "an inventory holding one loads without it");
+		// V is no longer the helmet: Sight of Nabu, and Shift+V the Amulet of Anubis
+		helper.assertTrue(DoctorFateAbilityManager.SIGHT.equals(DoctorFateAbilityManager.moveFor(com.projecthero.mod.hero.AbilitySlot.SLOT_5, false))
+				&& DoctorFateAbilityManager.AMULET.equals(DoctorFateAbilityManager.moveFor(com.projecthero.mod.hero.AbilitySlot.SLOT_5, true)),
+				"V = Sight of Nabu, Shift+V = Amulet of Anubis");
 		helper.succeed();
 	}
 
@@ -119,7 +150,8 @@ public class DoctorFateGameTests implements FabricGameTest {
 	public void helmetTakesASecondAndGivesFortyHealthAndResistance(GameTestHelper helper) {
 		ServerPlayer p = fate(helper, false);
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "normal health without the helmet");
-		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.HELMET), "V starts putting it on");
+		DoctorFateMod.onAction(p, FateActionPayload.of(FateActionPayload.Action.TOGGLE_HELMET));
+		helper.assertTrue(DoctorFate.state(p).helmetChangeAt > 0L && DoctorFate.state(p).helmetGoingOn, "H starts putting it on");
 		helper.assertTrue(!DoctorFate.wearsHelmet(p), "not on yet (1 s)");
 		helper.onEachTick(() -> DoctorFate.tick(p));
 		helper.runAfterDelay(DoctorFateConfig.HELMET_ANIM_TICKS + 3, () -> {
@@ -136,8 +168,14 @@ public class DoctorFateGameTests implements FabricGameTest {
 			helper.assertTrue(!p.hasEffect(MobEffects.WITHER) && !p.hasEffect(MobEffects.POISON), "immune to Wither and Poison with the helmet on");
 			p.getInventory().clearContent();
 		});
-		helper.runAfterDelay(DoctorFateConfig.HELMET_ANIM_TICKS + 20, () -> {
-			helper.assertTrue(!DoctorFate.wearsHelmet(p), "the helmet comes off once it leaves the inventory");
+		helper.runAfterDelay(DoctorFateConfig.HELMET_ANIM_TICKS + 10, () -> {
+			helper.assertTrue(DoctorFate.wearsHelmet(p), "an empty inventory changes nothing: the helmet is part of the power");
+			DoctorFateMod.onAction(p, FateActionPayload.of(FateActionPayload.Action.TOGGLE_HELMET));
+			helper.assertTrue(DoctorFate.state(p).helmetChangeAt > 0L && !DoctorFate.state(p).helmetGoingOn, "H again takes it off");
+		});
+		helper.runAfterDelay(2 * DoctorFateConfig.HELMET_ANIM_TICKS + 14, () -> {
+			helper.assertTrue(!DoctorFate.wearsHelmet(p), "off after the 1 s animation");
+			helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "back to normal health, got " + p.getMaxHealth());
 			helper.succeed();
 		});
 	}
@@ -255,7 +293,7 @@ public class DoctorFateGameTests implements FabricGameTest {
 		helper.assertTrue(DoctorFate.possessed(p), "100 Dominion with the helmet on: Possession");
 		helper.assertTrue(DoctorFate.possessionTicksLeft(p) == DoctorFateConfig.POSSESSION_TICKS, "15 s");
 		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.ANKH_BOLT), "his own keys do nothing");
-		helper.assertTrue(!DoctorFate.toggleHelmet(p), "the helmet can't come off");
+		helper.assertTrue(!DoctorFate.pressH(p) && DoctorFate.wearsHelmet(p), "H can't take the helmet off");
 		int before = DoctorFate.possessionTicksLeft(p);
 		helper.assertTrue(DoctorFatePossession.struggle(p), "Space struggles");
 		helper.assertTrue(before - DoctorFate.possessionTicksLeft(p) == DoctorFateConfig.STRUGGLE_TICKS, "each press takes 0.5 s off");
@@ -264,7 +302,11 @@ public class DoctorFateGameTests implements FabricGameTest {
 		helper.assertTrue(!DoctorFate.possessed(p) && !DoctorFate.wearsHelmet(p), "afterwards the helmet falls off");
 		helper.assertTrue(DoctorFate.lockoutTicksLeft(p) == DoctorFateConfig.LOCKOUT_TICKS, "60 s lockout");
 		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - DoctorFateConfig.AFTER_POSSESSION_DOMINION) < 0.01f, "Dominion settles at 70");
-		helper.assertTrue(!DoctorFate.toggleHelmet(p), "it won't go back on during the lockout");
+		helper.assertTrue(!DoctorFate.pressH(p) && DoctorFate.state(p).helmetChangeAt == 0L, "H won't put it back on during the lockout");
+		DoctorFate.clearCooldowns(p); // clears the lockout too
+		helper.assertTrue(DoctorFate.pressH(p), "after the lockout H puts it on again");
+		DoctorFate.setDominion(p, 0f);
+		p.discard(); // a possessed mock player left in the world would keep casting at the next test's mobs
 		helper.succeed();
 	}
 
@@ -479,6 +521,24 @@ public class DoctorFateGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().mobAttack(front), 6f);
 		helper.assertTrue(Math.abs(p.getHealth() - 30f) < 0.01f, "everything from the front is blocked, health " + p.getHealth());
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void amuletOfAnubisQuietsNabuWithOrWithoutTheHelmet(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, false);
+		DoctorFate.setDominion(p, 30f);
+		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.AMULET), "Shift+V works without the helmet");
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - (30f - DoctorFateConfig.AMULET_DOMINION_CUT)) < 0.01f, "-10 Dominion, got " + DoctorFate.dominion(p));
+		helper.assertTrue(DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.AMULET) > 0, "2 min cooldown");
+		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.AMULET), "not again while it cools down");
+		DoctorFate.clearCooldowns(p);
+		DoctorFate.setHelmet(p, true);
+		DoctorFate.setDominion(p, 5f);
+		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.AMULET) && DoctorFate.dominion(p) <= 0.01f, "with the helmet on too, never below 0");
+		DoctorFate.clearCooldowns(p);
+		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.AMULET), "nothing to quiet at 0 Dominion");
+		helper.assertTrue(DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.AMULET) == 0, "and no cooldown spent");
 		helper.succeed();
 	}
 }

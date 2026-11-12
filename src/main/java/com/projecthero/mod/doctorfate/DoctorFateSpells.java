@@ -107,11 +107,7 @@ public final class DoctorFateSpells {
 		}
 		switch (id) {
 			case DoctorFateAbilityManager.HELMET -> {
-				if (DoctorFate.toggleHelmet(p)) {
-					DoctorFate.startCooldown(p, id, DoctorFateConfig.HELMET_COOLDOWN);
-					return true;
-				}
-				return false;
+				return helmetKey(p);
 			}
 			case DoctorFateAbilityManager.AVATAR -> {
 				return DoctorFateBargains.offerForbidden(p); // asks Nabu first, every time
@@ -120,6 +116,21 @@ public final class DoctorFateSpells {
 				return cast(p, id);
 			}
 		}
+	}
+
+	/**
+	 * H (v0.17.3, user: "like the Nova ability"): the helmet on / off with its 1 s animation and a 1 s cooldown. During a Possession
+	 * it says Nabu won't let go; in the lockout after one it says how long is left ({@link DoctorFate#toggleHelmet}).
+	 */
+	public static boolean helmetKey(ServerPlayer p) {
+		if (!DoctorFate.hasPower(p) || DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.HELMET) > 0) {
+			return false;
+		}
+		if (DoctorFate.toggleHelmet(p)) {
+			DoctorFate.startCooldown(p, DoctorFateAbilityManager.HELMET, DoctorFateConfig.HELMET_COOLDOWN);
+			return true;
+		}
+		return false;
 	}
 
 	/** A spell from a key, with Nabu's Override: 1 in 6 attack spells come out as his pick (25+ Dominion, helmet on). */
@@ -169,6 +180,7 @@ public final class DoctorFateSpells {
 			case DoctorFateAbilityManager.ORDER_BLAST -> castBlast(p, aimDir(p, forced), mult, nabu);
 			case DoctorFateAbilityManager.WARD -> castWard(p);
 			case DoctorFateAbilityManager.SIGHT -> castSight(p);
+			case DoctorFateAbilityManager.AMULET -> castAmulet(p);
 			default -> false;
 		};
 	}
@@ -746,7 +758,23 @@ public final class DoctorFateSpells {
 		return false;
 	}
 
-	// ---------------------------------------------------------------- Shift+V: Sight of Nabu
+	// ---------------------------------------------------------------- Shift+V: Amulet of Anubis
+
+	/** Kent grips the Amulet of Anubis: -10 Dominion (helmet on or off). Nothing (and no cooldown) when Nabu is already quiet. */
+	static boolean castAmulet(ServerPlayer p) {
+		if (DoctorFate.dominion(p) <= 0f) {
+			DoctorFate.say(p, "message.projecthero.doctor_fate.amulet_quiet", ChatFormatting.GRAY);
+			return false;
+		}
+		DoctorFate.addDominion(p, -DoctorFateConfig.AMULET_DOMINION_CUT);
+		DoctorFate.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.7f, 0.9f);
+		ServerLevel level = (ServerLevel) p.level();
+		level.sendParticles(DoctorFate.dust(DoctorFate.BLUE, 1.0f), p.getX(), p.getY() + 1.2, p.getZ(), 14, 0.3, 0.3, 0.3, 0.0);
+		DoctorFate.say(p, "message.projecthero.doctor_fate.amulet", ChatFormatting.BLUE);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- V: Sight of Nabu
 
 	static boolean castSight(ServerPlayer p) {
 		ServerLevel level = (ServerLevel) p.level();

@@ -9,8 +9,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server (v0.17.3 Doctor Fate): the double-tap-Space flight toggle, a Space press while possessed (struggle), the answer
- * to one of Nabu's bargains ({@code arg} = the bargain kind) and the answer to "Will you serve Order?" ({@code pos} = the pedestal,
- * or {@link BlockPos#ZERO} with {@code arg} 1 for a helmet held in the hand). The server re-checks everything.
+ * to one of Nabu's bargains ({@code arg} = the bargain kind), the answer to "Will you serve Order?" ({@code pos} = the Tomb
+ * pedestal) and H (the Helmet of Fate on / off, like Nova's suit). The server re-checks everything.
  */
 public record FateActionPayload(Action action, int arg, BlockPos pos) implements CustomPacketPayload {
 	public enum Action {
@@ -19,7 +19,9 @@ public record FateActionPayload(Action action, int arg, BlockPos pos) implements
 		BARGAIN_ACCEPT,
 		BARGAIN_REFUSE,
 		SERVE_ACCEPT,
-		SERVE_REFUSE
+		SERVE_REFUSE,
+		/** v0.17.3 (user: "make it similar to Nova"): H puts the Helmet of Fate on / takes it off. */
+		TOGGLE_HELMET
 	}
 
 	public static final CustomPacketPayload.Type<FateActionPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("doctor_fate_action"));

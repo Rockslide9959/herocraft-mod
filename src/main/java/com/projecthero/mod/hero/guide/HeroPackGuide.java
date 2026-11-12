@@ -224,9 +224,9 @@ public final class HeroPackGuide {
 	 * v0.17.3 Doctor Fate: the chapter's control rows {key, ability id}; each shows {@code projecthero.doctor_fate.ability.<id>} and
 	 * its {@code .desc}.
 	 */
-	public static final String[][] DOCTOR_FATE_CONTROLS = { { "2x Space", "flight" }, { "R", "ankh_bolt" }, { "Shift+R", "golden_chains" },
+	public static final String[][] DOCTOR_FATE_CONTROLS = { { "H", "helmet" }, { "2x Space", "flight" }, { "R", "ankh_bolt" }, { "Shift+R", "golden_chains" },
 			{ "Hold G", "ankh_shield" }, { "Shift+G", "banishment" }, { "Z", "glyph_storm" }, { "Shift+Z", "avatar_of_order" }, { "X", "ankh_step" },
-			{ "Shift+X", "gate_drop" }, { "C", "order_blast" }, { "Shift+C", "ward_of_order" }, { "V", "helmet" }, { "Shift+V", "sight_of_nabu" } };
+			{ "Shift+X", "gate_drop" }, { "C", "order_blast" }, { "Shift+C", "ward_of_order" }, { "V", "sight_of_nabu" }, { "Shift+V", "amulet_of_anubis" } };
 
 	/** Doctor Fate (v0.17.3). */
 	public static Chapter doctorFateChapter() {
@@ -2174,7 +2174,7 @@ public final class HeroPackGuide {
 		icon(CH_STARFIRE, "tamaranean_starstone"); // v0.17.3
 		icon(CH_RAVEN, "book_of_azarath"); // v0.17.3
 		icon(CH_BEAST_BOY, "sakutia_serum"); // v0.17.3
-		icon(CH_DOCTOR_FATE, "helmet_of_fate"); // v0.17.3
+		icon(CH_DOCTOR_FATE, "helmet_pedestal"); // v0.17.3 (the helmet is no item any more)
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");

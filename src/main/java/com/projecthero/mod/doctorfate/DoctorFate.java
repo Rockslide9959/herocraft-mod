@@ -22,7 +22,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3f;
@@ -35,7 +34,7 @@ import org.joml.Vector3f;
  *
  * <ul>
  *   <li><b>Helmet off</b> (Kent's own magic): weak R, G and X, normal health, Dominion drains.</li>
- *   <li><b>Helmet on</b> (V, 1 s): 40 health, 30% damage resistance, flight (double-tap Space), Wither and Poison immunity, every
+ *   <li><b>Helmet on</b> (H, 1 s; the helmet is part of the power, not an item): 40 health, 30% damage resistance, flight (double-tap Space), Wither and Poison immunity, every
  *   spell at full strength, Dominion rising.</li>
  * </ul>
  */
@@ -198,20 +197,6 @@ public final class DoctorFate {
 		save(player, n);
 	}
 
-	/** Carries a Helmet of Fate (anywhere in the inventory, or on the head). */
-	public static boolean carriesHelmet(Player player) {
-		if (player.getAbilities().instabuild) {
-			return true;
-		}
-		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-			ItemStack st = player.getInventory().getItem(i);
-			if (DoctorFateItems.isHelmet(st)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
 		long now = now(player);
 		Long last = LAST_MESSAGE.get(player.getUUID());
@@ -274,12 +259,6 @@ public final class DoctorFate {
 		s.hasPower = true;
 		s.dominion = old.dominion; // Dominion is saved per player: Nabu remembers
 		save(player, s);
-		if (!carriesHelmet(player)) {
-			ItemStack helmet = new ItemStack(DoctorFateItems.HELMET_OF_FATE);
-			if (!player.getInventory().add(helmet)) {
-				player.drop(helmet, false, false);
-			}
-		}
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
@@ -351,7 +330,15 @@ public final class DoctorFate {
 
 	// ---------------------------------------------------------------- the helmet
 
-	/** V: put the helmet on / take it off (1 s). Refused during Possession, the lockout, or without the helmet. */
+	/**
+	 * H (v0.17.3, user: "like the Nova ability"): put the helmet on / take it off (1 s). The helmet is part of the power, not an item.
+	 * Refused during Possession (it can't come off) and during the 60 s lockout after one (it won't go on).
+	 */
+	public static boolean pressH(ServerPlayer player) {
+		return DoctorFateSpells.helmetKey(player);
+	}
+
+	/** The helmet toggle itself (no cooldown check; {@link #pressH} adds the 1 s cooldown). */
 	public static boolean toggleHelmet(ServerPlayer player) {
 		FateState s = state(player);
 		if (!s.hasPower || s.helmetChangeAt > 0L) {
@@ -366,10 +353,6 @@ public final class DoctorFate {
 			int lock = lockoutTicksLeft(player);
 			if (lock > 0) {
 				say(player, "message.projecthero.doctor_fate.lockout", ChatFormatting.GOLD, (lock + 19) / 20);
-				return false;
-			}
-			if (!carriesHelmet(player)) {
-				say(player, "message.projecthero.doctor_fate.no_helmet", ChatFormatting.GRAY);
 				return false;
 			}
 		}
@@ -433,11 +416,6 @@ public final class DoctorFate {
 		// the 1 s helmet animation
 		if (s.helmetChangeAt > 0L && now - s.helmetChangeAt >= DoctorFateConfig.HELMET_ANIM_TICKS) {
 			setHelmet(player, s.helmetGoingOn);
-			s = state(player);
-		}
-		// the helmet came out of the inventory (dropped, stored): it comes off
-		if (s.helmetOn && !possessed(player) && player.tickCount % 10 == 0 && !carriesHelmet(player)) {
-			setHelmet(player, false);
 			s = state(player);
 		}
 		// Dominion: rises slowly with the helmet on, falls with it off (in place; re-sent every few ticks)

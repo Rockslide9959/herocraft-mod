@@ -1,14 +1,12 @@
 package com.projecthero.mod.doctorfate;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.doctorfate.network.FateServePayload;
 import com.projecthero.mod.doctorfate.worldgen.HelmetPedestalBlock;
 import com.projecthero.mod.doctorfate.worldgen.TombGuardian;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -34,15 +32,15 @@ import net.minecraft.world.level.material.MapColor;
 /**
  * v0.17.3 Doctor Fate: the power's items, block and mob.
  * <ul>
- *   <li><b>Helmet of Fate</b>: carried to wear (V puts it on, while it's in the inventory). Right-click: Nabu asks "Will you serve
- *   Order?" if you don't serve him yet, else it's the same as V.</li>
  *   <li><b>Ankh Charm</b>: Order's command reward. Right-click to quiet Nabu (-25 Dominion).</li>
  *   <li><b>Helmet Pedestal</b>: the Tomb of Nabu's altar the helmet rests on ({@link HelmetPedestalBlock}).</li>
  *   <li><b>Tomb Guardian</b>: the mummy-wrapped husks guarding the tomb ({@link TombGuardian}).</li>
  * </ul>
+ * The Helmet of Fate is no item (user, v0.17.3: "make it similar to the Nova ability"): accepting Nabu's offer at the pedestal grants
+ * the power and H puts the helmet on / takes it off. A {@code projecthero:helmet_of_fate} stack saved in an old test world is an
+ * unknown id now, which vanilla drops with a log line when it loads (the gametests check that).
  */
 public final class DoctorFateItems {
-	public static Item HELMET_OF_FATE;
 	public static Item ANKH_CHARM;
 	public static Block HELMET_PEDESTAL;
 	public static Item HELMET_PEDESTAL_ITEM;
@@ -52,11 +50,9 @@ public final class DoctorFateItems {
 	}
 
 	public static void initialize() {
-		if (HELMET_OF_FATE != null) {
+		if (ANKH_CHARM != null) {
 			return;
 		}
-		HELMET_OF_FATE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("helmet_of_fate"),
-				new HelmetOfFateItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
 		ANKH_CHARM = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("ankh_charm"),
 				new AnkhCharmItem(new Item.Properties().stacksTo(16).rarity(Rarity.RARE)));
 		HELMET_PEDESTAL = Registry.register(BuiltInRegistries.BLOCK, ProjectHeroMod.id("helmet_pedestal"),
@@ -70,40 +66,8 @@ public final class DoctorFateItems {
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
-		output.accept(HELMET_OF_FATE);
 		output.accept(ANKH_CHARM);
 		output.accept(HELMET_PEDESTAL_ITEM);
-	}
-
-	public static boolean isHelmet(ItemStack stack) {
-		return HELMET_OF_FATE != null && !stack.isEmpty() && stack.is(HELMET_OF_FATE);
-	}
-
-	/** The golden Helmet of Fate. */
-	public static class HelmetOfFateItem extends Item {
-		public HelmetOfFateItem(Properties properties) {
-			super(properties);
-		}
-
-		@Override
-		public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-			ItemStack stack = player.getItemInHand(hand);
-			if (level.isClientSide()) {
-				return InteractionResultHolder.success(stack);
-			}
-			ServerPlayer sp = (ServerPlayer) player;
-			if (!DoctorFate.hasPower(sp)) {
-				DoctorFate.send(sp, new FateServePayload(BlockPos.ZERO, true));
-			} else {
-				DoctorFateSpells.use(sp, DoctorFateAbilityManager.HELMET);
-			}
-			return InteractionResultHolder.consume(stack);
-		}
-
-		@Override
-		public void appendHoverText(ItemStack stack, TooltipContext context, java.util.List<Component> tooltip, TooltipFlag flag) {
-			tooltip.add(Component.translatable("item.projecthero.helmet_of_fate.tip").withStyle(ChatFormatting.GOLD));
-		}
 	}
 
 	/** Order's command reward: quiets Nabu. */

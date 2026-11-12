@@ -217,7 +217,7 @@ public final class DoctorFateHarness {
 			shot("01_helmet_off");
 		}
 		if (t == 12) {
-			server(mc, p -> DoctorFateSpells.use(p, DoctorFateAbilityManager.HELMET));
+			server(mc, p -> DoctorFate.pressH(p)); // H (the helmet is no item)
 			startClip("helmet_on", 1);
 		}
 		if (t == 40) {
