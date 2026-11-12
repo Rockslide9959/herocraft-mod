@@ -10,9 +10,11 @@ for f in gy_*_000.png; do
 	[ -f "$f" ] || continue
 	n=${f%_000.png}
 	n=${n#gy_}
-	"$FF" -hide_banner -loglevel error -y -framerate 20 -start_number 0 -i "gy_${n}_%03d.png" -c:v libx264 -pix_fmt yuv420p -crf 20 "$OUT/power_$n.mp4"
+	# "sh films.sh raw": the MP4 is named after the scene (curve_*, hold_*, vfx_*), else power_<scene>
+	if [ "$1" = "raw" ]; then base="$n"; else base="power_$n"; fi
+	"$FF" -hide_banner -loglevel error -y -framerate 20 -start_number 0 -i "gy_${n}_%03d.png" -c:v libx264 -pix_fmt yuv420p -crf 20 "$OUT/$base.mp4"
 	count=$(ls gy_${n}_[0-9]*.png | wc -l)
 	every=$(( (count + 19) / 20 ))
-	"$FF" -hide_banner -loglevel error -y -start_number 0 -i "gy_${n}_%03d.png" -vf "select='not(mod(n\,$every))',scale=384:216,drawtext=fontfile=arial.ttf:text='%{n}':x=4:y=4:fontsize=16:fontcolor=yellow:box=1:boxcolor=black@0.5,tile=5x4" -frames:v 1 "$OUT/power_${n}_sheet.png"
+	"$FF" -hide_banner -loglevel error -y -start_number 0 -i "gy_${n}_%03d.png" -vf "select='not(mod(n\,$every))',scale=384:216,drawtext=fontfile=arial.ttf:text='%{n}':x=4:y=4:fontsize=16:fontcolor=yellow:box=1:boxcolor=black@0.5,tile=5x4" -frames:v 1 "$OUT/${base}_sheet.png"
 	echo "$n ($count frames)"
 done

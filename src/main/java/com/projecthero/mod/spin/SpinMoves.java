@@ -333,8 +333,7 @@ public final class SpinMoves {
 		if (!floor.isAir()) {
 			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor), c.x, c.y + 0.1, c.z, 80, 2.5, 0.1, 2.5, 0.2);
 		}
-		level.sendParticles(Spin.dust(Spin.GOLD, 1.5f), c.x, c.y + 0.2, c.z, 40, 3.0, 0.1, 3.0, 0.0);
-		fx(p, SpinFxPayload.at(SpinFxPayload.QUAKE, c, 12));
+		fx(p, SpinFxPayload.at(SpinFxPayload.QUAKE, c, 12)); // the spinning shock ring (rendered; the block dust stays)
 		level.playSound(null, c.x, c.y, c.z, SpinSounds.QUAKE, SoundSource.PLAYERS, 0.9f, 1.0f);
 		pay(p, SpinAbilityManager.SPIN_QUAKE, SpinConfig.QUAKE_COST, SpinConfig.QUAKE_COOLDOWN);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
@@ -466,7 +465,7 @@ public final class SpinMoves {
 		}
 		SteelBallEntity.launch(p, i, SteelBallEntity.MODE_PIERCE, look.scale(SpinConfig.BALL_SPEED * 1.8), end, false,
 				SpinConfig.GOLDEN_RANGE, true);
-		fx(p, new SpinFxPayload(SpinFxPayload.GOLDEN_LINE, -1, Spin.handPos(p), end, 14, perfect, new int[0]));
+		fx(p, new SpinFxPayload(SpinFxPayload.GOLDEN_LINE, -1, Spin.handPos(p), end, 10, perfect, new int[0])); // fades over 0.5 s
 		Spin.sound(p, SpinSounds.GOLDEN_RELEASE, perfect ? 1.0f : 0.8f, perfect ? 1.25f : 1.0f);
 		if (perfect) {
 			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.spin.perfect").withStyle(ChatFormatting.GOLD,

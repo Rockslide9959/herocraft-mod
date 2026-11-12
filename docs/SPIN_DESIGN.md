@@ -45,6 +45,10 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 | Shift+V | Face Spin | disguise 20 s: name tag hidden, mobs that haven't seen you attack ignore you. 20 Spin |
 
 ## Visuals and sound
+- **VFX trails (2026-11-12, user: "replace the spin particles with a spin vfx trail").** `client/spin/SpinTrails`: one render type
+  (`RenderType.lightning()`, additive). Thrown balls: a tapering ribbon through their last 14 positions with 3 helix strands turning
+  with the ball (green-white; gold for Golden Spin / Ball Breaker). Golden Spin: a gold spiral ribbon fading over 0.5 s. Spin Shield:
+  ribbon arcs behind the orbiting balls. Spun creatures: a rendered gold swirl. Spin Quake: a spinning shock ring (block dust kept).
 - Steel balls: green metal sphere, a raised hexagon plate on each side, curved grooves wrapping round, glossy highlights
   (see the references). Spiralling golden trail in flight; twisting skin rings on spun targets; gold rectangle + spiral flash on
   Golden Spin; a pale, armour-plated Ball Breaker figure rushing out of the ball.

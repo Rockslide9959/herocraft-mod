@@ -1,0 +1,202 @@
+	// ---- v0.17.3 round 2/3 scenes: curving balls, held balls, VFX trails (spliced in by harness_hook.js ... curve) ----
+
+	/** Client-side flick: turn his view onto origin + (dx, dy, dz) over {@code ticks} ticks (the server takes the client's look). */
+	private static void turnTo(Minecraft mc, int t, int ticks, double dx, double dy, double dz) {
+		float[] from = new float[2];
+		for (int k = 0; k <= ticks + 30; k++) { // (then held there, in case anything resets the view)
+			int kk = k;
+			at(t + k, () -> {
+				var me = mc.player;
+				if (me == null) {
+					return;
+				}
+				if (kk == 0) {
+					from[0] = me.getYRot();
+					from[1] = me.getXRot();
+				}
+				Vec3 eye = me.getEyePosition();
+				Vec3 d = origin.add(dx, dy, dz).subtract(eye);
+				float ty = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+				float tp = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+				float f = ticks == 0 ? 1f : Math.min(1f, kk / (float) ticks);
+				f = f * f * (3 - 2 * f);
+				float yaw = from[0] + net.minecraft.util.Mth.wrapDegrees(ty - from[0]) * f;
+				float pitch = from[1] + (tp - from[1]) * f;
+				me.setYRot(yaw);
+				me.setXRot(pitch);
+				me.setYHeadRot(yaw);
+			});
+		}
+	}
+
+	/** Everything back: fresh balls in both hands. */
+	private static void freshBalls(Minecraft mc, int t) {
+		at(t, () -> server(mc, p -> com.projecthero.mod.spin.SpinBalls.replace(p)));
+	}
+
+	private static void night(Minecraft mc, int t, boolean on) {
+		at(t, () -> server(mc, p -> p.serverLevel().setDayTime(on ? 18000L : 6000L)));
+	}
+
+	private static void clean(Minecraft mc, int t) {
+		at(t, () -> {
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// 1. the flick: thrown straight, then the view snaps 30 degrees onto a husk 14 blocks off -- the ball curves in
+		if (want("curve_hit_fp")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 7.0, 12.1);
+			firstPerson(mc, t + 2, true);
+			record(t + 4, "curve_hit_fp", 40);
+			use(mc, t + 8, SpinAbilityManager.STEEL_BALL);
+			turnTo(mc, t + 9, 3, 7.0, 1.0, 12.1);
+			firstPerson(mc, t + 46, false);
+			t += 50;
+		}
+		if (want("curve_hit_side")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 7.0, 12.1);
+			cam(t + 1, 200f, 12f, 6f, 0f, 0.0f);
+			record(t + 4, "curve_hit_side", 40);
+			use(mc, t + 8, SpinAbilityManager.STEEL_BALL);
+			turnTo(mc, t + 9, 3, 7.0, 1.0, 12.1);
+			t += 50;
+		}
+		// 2. too sharp: the husk is close and 60 degrees off; he only looks at it once the ball is 18 blocks out -- no curve onto it
+		if (want("curve_miss_fp")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 4.3, 2.5);
+			firstPerson(mc, t + 2, true);
+			record(t + 4, "curve_miss_fp", 50);
+			use(mc, t + 8, SpinAbilityManager.STEEL_BALL);
+			turnTo(mc, t + 23, 3, 4.3, 1.0, 2.5);
+			firstPerson(mc, t + 56, false);
+			t += 60;
+		}
+		if (want("curve_miss_side")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 4.3, 2.5);
+			cam(t + 1, 200f, 12f, 6f, 0f, 0.0f);
+			record(t + 4, "curve_miss_side", 50);
+			use(mc, t + 8, SpinAbilityManager.STEEL_BALL);
+			turnTo(mc, t + 23, 3, 4.3, 1.0, 2.5);
+			t += 60;
+		}
+		// 3. holding the balls
+		if (want("hold_fp")) {
+			reset(mc, t, 10f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			firstPerson(mc, t + 2, true);
+			record(t + 6, "hold_fp", 40);
+			firstPerson(mc, t + 48, false);
+			t += 52;
+		}
+		if (want("hold_tp")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			cam(t + 1, 0f, 0.2f, 2.6f, 4.5f, 1.0f);
+			record(t + 4, "hold_tp", 80);
+			t += 88;
+		}
+		// 4. a throw and the return into the same hand
+		if (want("hold_throw")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 0, 6);
+			cam(t + 1, 95f, 0.5f, 3.4f, 0f, 1.3f);
+			record(t + 4, "hold_throw", 50);
+			use(mc, t + 10, SpinAbilityManager.STEEL_BALL);
+			t += 68;
+		}
+		// 5. Twin Balls with one in each hand
+		if (want("hold_twin")) {
+			reset(mc, t, 2f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 0, 10);
+			cam(t + 1, 160f, 1.6f, 4.5f, 0f, 1.1f);
+			record(t + 4, "hold_twin", 60);
+			use(mc, t + 12, SpinAbilityManager.TWIN_BALLS);
+			t += 68;
+		}
+		// 6. VFX: the trails at night, the Golden Spin line, the Shield's arcs, the Quake's ring, a spun husk's swirl
+		if (want("vfx_night_curve")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			night(mc, t + 1, true);
+			dummy(mc, t + 1, 5.0, 13.0);
+			cam(t + 1, 200f, 9f, 5f, 0f, 0.0f);
+			record(t + 4, "vfx_night_curve", 50);
+			use(mc, t + 8, SpinAbilityManager.STEEL_BALL);
+			turnTo(mc, t + 9, 3, 5.0, 1.0, 13.0);
+			night(mc, t + 56, false);
+			t += 60;
+		}
+		if (want("vfx_golden")) {
+			reset(mc, t, 2f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 0, 9);
+			cam(t + 1, 115f, 1.5f, 6.5f, 0f, 1.3f);
+			record(t + 4, "vfx_golden", 50);
+			charge(mc, t + 8, SpinAbilityManager.GOLDEN_SPIN, 30);
+			t += 58;
+		}
+		if (want("vfx_shield")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			cam(t + 1, 70f, 1.6f, 4.5f, 0f, 1.1f);
+			record(t + 4, "vfx_shield", 60);
+			use(mc, t + 8, SpinAbilityManager.SPIN_SHIELD);
+			t += 68;
+		}
+		if (want("vfx_quake")) {
+			reset(mc, t, 0f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			cam(t + 1, 30f, 4.5f, 8.0f, 0f, 0.6f);
+			record(t + 4, "vfx_quake", 30);
+			use(mc, t + 8, SpinAbilityManager.SPIN_QUAKE);
+			t += 38;
+		}
+		if (want("vfx_spun")) {
+			reset(mc, t, 2f);
+			freshBalls(mc, t + 1);
+			clean(mc, t + 3);
+			dummy(mc, t + 1, 0, 4);
+			cam(t + 1, 120f, 0.8f, 4.0f, 0f, 1.2f);
+			record(t + 4, "vfx_spun", 50);
+			use(mc, t + 6, SpinAbilityManager.STEEL_BALL);
+			at(t + 12, () -> server(mc, p -> {
+				for (Husk h : p.serverLevel().getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(10))) {
+					com.projecthero.mod.spin.SpinMarks.spin(h, 80);
+				}
+			}));
+			t += 58;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

@@ -100,6 +100,7 @@ public final class SpinFx {
 		BALL_SOUNDS.clear();
 		CHARGE_SOUNDS.clear();
 		perfectFlashAt = -1000L;
+		SpinTrails.reset();
 	}
 
 	static void receive(SpinFxPayload p) {
@@ -147,10 +148,10 @@ public final class SpinFx {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		// the thrown balls' spiralling trail and their whirr
+		// the thrown balls' trail points (drawn as ribbons in render) and their whirr
+		SpinTrails.tick(mc);
 		for (Entity e : mc.level.entitiesForRendering()) {
 			if (e instanceof SteelBallEntity ball) {
-				trail(mc, ball);
 				if (BALL_SOUNDS.add(ball.getId())) {
 					int id = ball.getId();
 					mc.getSoundManager().play(new SpinLoopSound(SpinSounds.BALL_SPIN_LOOP, ball, 0.35f, () -> {
@@ -188,33 +189,6 @@ public final class SpinFx {
 		QUAKES.removeIf(q -> now > q.start + q.life);
 	}
 
-	private static void trail(Minecraft mc, SteelBallEntity ball) {
-		// the real step it just took (follows a curve), else its velocity
-		Vec3 v = ball.position().subtract(ball.xo, ball.yo, ball.zo);
-		if (v.lengthSqr() < 1.0e-4 || v.lengthSqr() > 9.0) {
-			v = ball.getDeltaMovement();
-		}
-		if (v.lengthSqr() < 1.0e-4) {
-			return;
-		}
-		Vec3 d = v.normalize();
-		Vec3 up = Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
-		Vec3 u = d.cross(up).normalize();
-		Vec3 w = d.cross(u).normalize();
-		Vec3 c = ball.position().add(0, ball.getBbHeight() * 0.5, 0);
-		float a = ball.tickCount * 1.1f;
-		boolean golden = ball.golden();
-		DustParticleOptions dust = new DustParticleOptions(golden ? new Vector3f(1f, 0.82f, 0.25f) : new Vector3f(1f, 0.86f, 0.42f), golden ? 0.9f : 0.6f);
-		for (int k = 0; k < 2; k++) {
-			for (int step = 0; step < 2; step++) {
-				float ang = a + k * Mth.PI + step * 0.55f;
-				Vec3 back = c.subtract(v.scale(step * 0.5));
-				Vec3 p = back.add(u.scale(Mth.cos(ang) * 0.22)).add(w.scale(Mth.sin(ang) * 0.22));
-				mc.level.addParticle(dust, p.x, p.y, p.z, 0, 0, 0);
-			}
-		}
-	}
-
 	// ---------------------------------------------------------------- the world
 
 	static void render(WorldRenderContext ctx) {
@@ -228,6 +202,10 @@ public final class SpinFx {
 		float partial = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
 		long now = mc.level.getGameTime();
 		float time = now + partial;
+		Matrix4f view = pose.last().pose();
+
+		// the thrown balls' spinning ribbon trails
+		SpinTrails.renderBalls(mc, buffers, view, cam, partial, time);
 
 		// Spin Shield: both balls orbit their thrower
 		for (Player pl : mc.level.players()) {
@@ -244,11 +222,8 @@ public final class SpinFx {
 				pose.translate(x - cam.x, y - cam.y, z - cam.z);
 				SteelBallRender.render(pose, buffers, LightTexture.FULL_BRIGHT, 0.14f, (time * 60f) % 360f, false);
 				pose.popPose();
+				SpinTrails.arc(buffers, view, cam, c, 1.35f, ang, i, time); // a short ribbon arc behind each ball
 			}
-			pose.pushPose();
-			pose.translate(c.x - cam.x, c.y - cam.y, c.z - cam.z);
-			ring(buffers.getBuffer(RenderType.debugQuads()), pose.last().pose(), 1.28f, 1.42f, 1f, 0.82f, 0.3f, 0.25f);
-			pose.popPose();
 		}
 
 		// Scan: the ball spinning on the ground, a pulse ring every half second
@@ -273,7 +248,7 @@ public final class SpinFx {
 				continue;
 			}
 			float fade = 1f - age / l.life;
-			goldenLine(buffers.getBuffer(RenderType.debugQuads()), pose, cam, l, time, fade);
+			SpinTrails.spiralLine(buffers, view, cam, l.a, l.b, time, fade * fade, l.perfect);
 		}
 
 		// Spin Quake: a gold ring racing out
@@ -284,10 +259,7 @@ public final class SpinFx {
 			}
 			float t = age / q.life;
 			float r = (float) SpinConfig.QUAKE_RADIUS * (1f - (1f - t) * (1f - t));
-			pose.pushPose();
-			pose.translate(q.c.x - cam.x, q.c.y + 0.08 - cam.y, q.c.z - cam.z);
-			ring(buffers.getBuffer(RenderType.debugQuads()), pose.last().pose(), Math.max(0.1f, r - 0.9f), r, 1f, 0.78f, 0.25f, 0.8f * (1f - t));
-			pose.popPose();
+			SpinTrails.shockRing(buffers, view, cam, q.c.add(0, 0.08, 0), Math.max(0.3f, r), Math.min(0.9f, Math.max(0.2f, r)), time, 0.75f * (1f - t));
 		}
 
 		// Ball Breaker
@@ -310,46 +282,7 @@ public final class SpinFx {
 			Vec3 c = le.getPosition(partial);
 			float h = le.getBbHeight();
 			float r = le.getBbWidth() * 0.72f + 0.12f;
-			for (int k = 0; k < 3; k++) {
-				pose.pushPose();
-				pose.translate(c.x - cam.x, c.y + h * (0.22f + 0.3f * k) - cam.y, c.z - cam.z);
-				pose.mulPose(Axis.YP.rotationDegrees(time * 24f + k * 50f));
-				pose.mulPose(Axis.XP.rotationDegrees(Mth.sin(time * 0.35f + k * 2.1f) * 22f));
-				ring(buffers.getBuffer(RenderType.debugQuads()), pose.last().pose(), r, r + 0.06f, 1f, 0.8f, 0.28f, 0.75f);
-				pose.popPose();
-			}
-		}
-	}
-
-	private static void goldenLine(VertexConsumer vc, PoseStack pose, Vec3 cam, Line l, float time, float fade) {
-		Vec3 a = l.a.subtract(cam), b = l.b.subtract(cam);
-		Vec3 dir = b.subtract(a);
-		double len = dir.length();
-		if (len < 1.0e-3) {
-			return;
-		}
-		Vec3 d = dir.scale(1.0 / len);
-		Vec3 mid = a.add(b).scale(0.5);
-		Vec3 side = d.cross(mid.normalize()).normalize();
-		Matrix4f m = pose.last().pose();
-		float w = l.perfect ? 0.22f : 0.14f;
-		float alpha = (l.perfect ? 0.95f : 0.7f) * fade;
-		quad(vc, m, a.add(side.scale(w)), b.add(side.scale(w)), b.subtract(side.scale(w)), a.subtract(side.scale(w)), 1f, 0.85f, 0.3f, alpha);
-		quad(vc, m, a.add(side.scale(w * 0.35)), b.add(side.scale(w * 0.35)), b.subtract(side.scale(w * 0.35)), a.subtract(side.scale(w * 0.35)),
-				1f, 0.98f, 0.8f, alpha);
-		// the spiral wound round the line
-		Vec3 up = Math.abs(d.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
-		Vec3 u = d.cross(up).normalize();
-		Vec3 v = d.cross(u).normalize();
-		int steps = (int) Math.min(240, len * 6);
-		float radius = l.perfect ? 0.42f : 0.3f;
-		for (int i = 0; i < steps; i++) {
-			double s = i / (double) steps * len;
-			float ang = (float) (s * 2.4 - time * 0.9);
-			Vec3 p = a.add(d.scale(s)).add(u.scale(Mth.cos(ang) * radius)).add(v.scale(Mth.sin(ang) * radius));
-			float q = 0.045f;
-			quad(vc, m, p.add(side.scale(q)).add(d.scale(q)), p.add(side.scale(q)).subtract(d.scale(q)), p.subtract(side.scale(q)).subtract(d.scale(q)),
-					p.subtract(side.scale(q)).add(d.scale(q)), 1f, 0.9f, 0.45f, alpha);
+			SpinTrails.swirl(buffers, view, cam, c, h, r, time); // a rendered swirl twisting round the body
 		}
 	}
 
