@@ -49,6 +49,15 @@ import net.minecraft.world.phys.Vec3;
  */
 public class RavenGameTests implements FabricGameTest {
 	private static ServerPlayer mock(GameTestHelper helper, double x, double z) {
+		// a solid floor right under y = 2: without it the creatures (ticked) drop to the structure's floor while the mock player
+		// (not ticked) floats, and bolts / the soul-self fly over their heads
+		for (int fx = 0; fx < 8; fx++) {
+			for (int fz = 0; fz < 8; fz++) {
+				if (helper.getBlockState(new BlockPos(fx, 1, fz)).isAir()) {
+					helper.setBlock(new BlockPos(fx, 1, fz), Blocks.STONE);
+				}
+			}
+		}
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		Vec3 at = helper.absoluteVec(new Vec3(x, 2.0, z));
@@ -81,6 +90,16 @@ public class RavenGameTests implements FabricGameTest {
 
 	private static Zombie zombie(GameTestHelper helper, double x, double z, double maxHealth) {
 		Zombie zb = helper.spawnWithNoFreeWill(EntityType.HUSK, new Vec3(x, 2.0, z)); // a husk: it never burns in the sun
+		zb.setBaby(false); // spawning can roll a baby (a smaller box the bolt passes over) or a chicken jockey
+		if (zb.getVehicle() != null) {
+			net.minecraft.world.entity.Entity mount = zb.getVehicle();
+			zb.stopRiding();
+			mount.discard();
+		}
+		zb.moveTo(helper.absoluteVec(new Vec3(x, 2.0, z)));
+		// a hurt zombie can call reinforcements (more likely on Hard, which other tests leave on): a new zombie in a bolt's path
+		zb.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE).removeModifiers(); // (spawning adds a random bonus)
+		zb.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE).setBaseValue(0.0);
 		zb.getAttribute(Attributes.MAX_HEALTH).setBaseValue(maxHealth);
 		zb.setHealth((float) maxHealth);
 		return zb;
@@ -313,7 +332,7 @@ public class RavenGameTests implements FabricGameTest {
 		helper.runAfterDelay(RavenConfig.GRASP_HOLD_TICKS + 4, helper::succeed);
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60, batch = "raven_soul_alone") // alone: it flies 25 blocks into other tests
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100, batch = "raven_soul_alone") // alone: it flies 25 blocks into other tests
 	public void soulSelfEngulfsEverythingItPasses(GameTestHelper helper) {
 		ServerPlayer p = raven(helper, 1.5, 0.5);
 		Zombie a = zombie(helper, 1.5, 3.5, 100);
@@ -328,19 +347,24 @@ public class RavenGameTests implements FabricGameTest {
 				helper.getLevel().setChunkForced(cx, cz, true);
 			}
 		}
-		helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.SOUL_SELF), "Shift+G");
-		helper.assertTrue(Math.abs(Raven.energy(p) - (100f - RavenConfig.SOUL_COST)) < 0.01f, "35 Dark Energy");
-		helper.assertTrue(Raven.cooldownRemaining(p, RavenAbilityManager.SOUL_SELF) == RavenConfig.SOUL_COOLDOWN, "8 s cooldown");
-		helper.runAfterDelay(12, () -> {
-			helper.assertTrue(near(ratio(ba, a, RavenConfig.SOUL_DAMAGE)) && near(ratio(bb, b, RavenConfig.SOUL_DAMAGE)),
-					"16 to each, lost " + (ba - a.getHealth()) + " / " + (bb - b.getHealth()));
-			helper.assertTrue(a.hasEffect(MobEffects.BLINDNESS) && a.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "Blindness and Slowness");
-			helper.assertTrue(!helper.getLevel().getEntitiesOfClass(SoulSelfEntity.class, p.getBoundingBox().inflate(40)).isEmpty(),
-					"the raven is still flying out");
+		// cast only after the forced chunks have loaded (on a busy machine they load a few ticks late, and the raven froze there)
+		SoulSelfEntity[] soul = { null };
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.SOUL_SELF), "Shift+G");
+			helper.assertTrue(Math.abs(Raven.energy(p) - (100f - RavenConfig.SOUL_COST)) < 0.01f, "35 Dark Energy");
+			helper.assertTrue(Raven.cooldownRemaining(p, RavenAbilityManager.SOUL_SELF) == RavenConfig.SOUL_COOLDOWN, "8 s cooldown");
+			var found = helper.getLevel().getEntitiesOfClass(SoulSelfEntity.class, p.getBoundingBox().inflate(8));
+			helper.assertTrue(found.size() == 1, "one raven flies out");
+			soul[0] = found.get(0);
 		});
-		helper.runAfterDelay(45, () -> {
-			helper.assertTrue(helper.getLevel().getEntitiesOfClass(SoulSelfEntity.class, p.getBoundingBox().inflate(60)).isEmpty(),
-					"and it dissolves after 25 blocks");
+		helper.runAfterDelay(32, () -> {
+			helper.assertTrue(near(ratio(ba, a, RavenConfig.SOUL_DAMAGE)) && near(ratio(bb, b, RavenConfig.SOUL_DAMAGE)),
+					"16 to each, lost " + (ba - a.getHealth()) + " / " + (bb - b.getHealth()) );
+			helper.assertTrue(a.hasEffect(MobEffects.BLINDNESS) && a.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "Blindness and Slowness");
+			helper.assertTrue(soul[0].isAlive(), "the raven is still flying out");
+		});
+		helper.runAfterDelay(70, () -> {
+			helper.assertTrue(soul[0].isRemoved(), "and it dissolves after 25 blocks (fade " + soul[0].fade() + ", " + soul[0].position().distanceTo(p.position()) + " out)");
 			for (long c : forced) {
 				helper.getLevel().setChunkForced(net.minecraft.world.level.ChunkPos.getX(c), net.minecraft.world.level.ChunkPos.getZ(c), false);
 			}
