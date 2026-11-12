@@ -70,6 +70,7 @@ public final class Spin {
 		SpinMarks.clearSessionState();
 		SpinValkyrie.clearSessionState();
 		SpinDisguise.clearSessionState();
+		SpinBalls.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -78,6 +79,7 @@ public final class Spin {
 		SpinAbilityManager.forget(id);
 		SpinMoves.forget(id);
 		SpinDisguise.forget(id);
+		SpinBalls.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -113,26 +115,19 @@ public final class Spin {
 		return player.getVehicle() instanceof AbstractHorse;
 	}
 
-	/** Ball {@code i} is in his hand right now. Client-safe. */
+	/** Ball {@code i}'s item is in one of his hands right now. Client-safe. */
 	public static boolean ballReady(Player player, int i) {
-		SpinState s = peek(player);
-		return s != null && s.hasPower && s.ballReady(i, now(player));
+		return hasPower(player) && SpinBalls.ballInHand(player, i);
 	}
 
-	/** How many balls are in hand. Client-safe. */
+	/** How many hands hold one of his balls (0..2). Client-safe. */
 	public static int ballsReady(Player player) {
-		SpinState s = peek(player);
-		return s == null || !s.hasPower ? 0 : s.ballsReady(now(player));
+		return hasPower(player) ? SpinBalls.handsHolding(player) : 0;
 	}
 
-	/** The first ball in hand (-1 = none). */
+	/** The ball in his main hand (-1 = none): the one R, G, Shift+G, Z, Shift+Z, C, V and Shift+V use. */
 	public static int readyBall(Player player) {
-		for (int i = 0; i < SpinConfig.BALLS; i++) {
-			if (ballReady(player, i)) {
-				return i;
-			}
-		}
-		return -1;
+		return hasPower(player) ? SpinBalls.inHand(player, net.minecraft.world.InteractionHand.MAIN_HAND) : -1;
 	}
 
 	public static boolean disguised(Player player) {
@@ -277,6 +272,20 @@ public final class Spin {
 		save(player, n);
 	}
 
+	/** Scan / Quake / Shield: ball {@code i} leaves {@code hand} for {@code ticks}, then {@link SpinBalls#tick} gives it back there. */
+	static void takeBusy(ServerPlayer player, int i, int ticks, net.minecraft.world.InteractionHand hand) {
+		SpinBalls.take(player, hand);
+		SpinState n = state(player).copy();
+		n.setBusy(i, now(player) + ticks);
+		n.owed |= 1 << i;
+		if (hand == net.minecraft.world.InteractionHand.OFF_HAND) {
+			n.owed |= 1 << (i + 2);
+		} else {
+			n.owed &= ~(1 << (i + 2));
+		}
+		save(player, n);
+	}
+
 	// ---------------------------------------------------------------- hits
 
 	/** The hand a ball flies back to: a little in front of his right shoulder. */
@@ -324,7 +333,10 @@ public final class Spin {
 		s.hasPower = true;
 		s.spin = SpinConfig.SPIN_MAX;
 		s.valkyrie = old.valkyrie; // she remembers him
+		s.gen0 = old.gen0 + 1; // any ball item left over from an earlier time is stale
+		s.gen1 = old.gen1 + 1;
 		save(player, s);
+		SpinBalls.giveBoth(player); // his two Steel Balls: main hand and off hand when free
 		reconcile(player);
 		player.setHealth(player.getMaxHealth());
 		ServerLevel level = (ServerLevel) player.level();
@@ -342,9 +354,12 @@ public final class Spin {
 
 	public static void revoke(ServerPlayer player) {
 		SpinMoves.recallBalls(player);
+		SpinBalls.removeAll(player);
 		SpinState old = state(player);
 		SpinState n = new SpinState();
 		n.valkyrie = old.valkyrie;
+		n.gen0 = old.gen0; // kept, so balls left in chests stay stale
+		n.gen1 = old.gen1;
 		save(player, n);
 		reconcile(player);
 		forget(player.getUUID());
@@ -356,8 +371,17 @@ public final class Spin {
 		if (s == null || !s.hasPower) {
 			return;
 		}
-		SpinMoves.recallBalls(player);
+		SpinMoves.recallBalls(player); // (each thrown ball returns to his hand as it goes)
+		// a ball still marked out with no entity (a restart lost it) or held by Scan / Quake / Shield comes back now
+		SpinState cur = state(player);
+		for (int i = 0; i < SpinConfig.BALLS; i++) {
+			if ((cur.thrown & (1 << i)) != 0 || (cur.owed & (1 << i)) != 0) {
+				boolean off = (cur.owed & (1 << i)) != 0 && (cur.owed & (1 << (i + 2))) != 0;
+				SpinBalls.giveBack(player, i, off ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
+		}
 		SpinState n = state(player).copy();
+		n.owed = 0;
 		n.chargeStart = 0L;
 		n.chargeMove = SpinState.CHARGE_NONE;
 		n.thrown = 0;
@@ -386,6 +410,7 @@ public final class Spin {
 		n.spin = SpinConfig.SPIN_MAX;
 		n.disguiseUntil = 0L;
 		save(player, n);
+		SpinBalls.ensure(player); // the balls are kept on death
 		reconcile(player);
 	}
 
@@ -440,6 +465,7 @@ public final class Spin {
 		}
 		SpinAbilityManager.tick(player);
 		SpinMoves.tick(player);
+		SpinBalls.tick(player);
 		SpinDisguise.tick(player);
 		SpinValkyrie.tick(player);
 		if (now % SpinConfig.SYNC_INTERVAL == 0) {

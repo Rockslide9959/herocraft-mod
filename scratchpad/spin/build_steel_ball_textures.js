@@ -337,6 +337,25 @@ const BIG = { W: 512, H: 256, px: big }, SMALL = { W: 256, H: 128, px: small }, 
 	png.write(path.join(TEX, 'item/zeppeli_steel_balls.png'), S, S, o2);
 }
 
+// v0.17.3 round 2: item/steel_ball.png, the single held ball's inventory icon (32x32, one ball turned to show the hexagon plate)
+{
+	const S = 32, cv = new Float32Array(S * S * 4);
+	drawBall(cv, S, S, 16.0, 16.0, 13.0, SMALL, ENV, 25, 12, false);
+	const out = toBuf(cv);
+	const o2 = Buffer.from(out);
+	for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+		const i = (y * S + x) * 4;
+		if (out[i + 3] > 100) { o2[i + 3] = 255; continue; }
+		let near = false;
+		for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+			const xx = x + dx, yy = y + dy;
+			if (xx >= 0 && yy >= 0 && xx < S && yy < S && out[(yy * S + xx) * 4 + 3] > 100) near = true;
+		}
+		o2.set(near || out[i + 3] > 0 ? [10, 32, 8, 255] : [0, 0, 0, 0], i);
+	}
+	png.write(path.join(TEX, 'item/steel_ball.png'), S, S, o2);
+}
+
 // optional preview sheet (software): several angles, normal + golden
 const pi = process.argv.indexOf('--preview');
 if (pi > 0) {

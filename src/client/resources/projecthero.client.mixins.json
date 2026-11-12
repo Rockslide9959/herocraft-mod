@@ -131,7 +131,6 @@
 		"FalconFirstPersonArmMixin",
 		"FalconFovMixin",
 		"SilverSurferSkinMixin",
-		"SpinSkinMixin",
 		"SpinNameTagMixin",
 		"SpinScanGlowMixin",
 		"SpinScanColorMixin",

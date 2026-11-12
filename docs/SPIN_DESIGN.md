@@ -16,6 +16,14 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 - 20 health (no extra hearts, user 2026-11-12), passive Regeneration I, +15% speed, +4 melee, 15% damage resistance. No skin change.
 - **Spin bar** (100), refills 4/s. Moves cost Spin.
 - **Two returning balls.** They always fly back. While a ball is out, moves that need it are greyed out.
+- **Curving (2026-11-12).** An outgoing R / Shift+R ball bends after the thrower's look (capped turn rate, 120 degrees total, no
+  steering when he looks away) and homes onto a creature under the crosshair only if the curve can reach it. Golden Spin stays straight.
+  Numbers: `SpinConfig.CURVE_*`.
+- **The balls are items (2026-11-12, user's pick).** Two `projecthero:steel_ball` items bound to their owner (`SpinBalls.BallId`:
+  owner, index, generation). One in the main hand for R, G, Shift+G, Shift+Z, Z, C, V, Shift+V; one in each hand for Shift+R and
+  Shift+C; none for X / Shift+X. Throwing empties the hand; the catch refills the same hand (else a free slot, else the hand,
+  dropping what's there). Scan / Quake / Shield take them out while they run. Kept on death, owner-only pickup, R with an empty
+  main hand recalls a dropped / chested ball, a destroyed ball respawns after 30 s. The old automatic hand / belt balls are gone.
 - **Golden Rectangle.** Holding a Golden Spin move shrinks a gold rectangle onto the crosshair; release while it lines up = **Perfect
   Spin** (double damage, ignores armour).
 - **Riding:** on a horse every Spin move hits 30% harder and Golden Spin charges twice as fast.
@@ -37,6 +45,10 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 | Shift+V | Face Spin | disguise 20 s: name tag hidden, mobs that haven't seen you attack ignore you. 20 Spin |
 
 ## Visuals and sound
+- **VFX trails (2026-11-12, user: "replace the spin particles with a spin vfx trail").** `client/spin/SpinTrails`: one render type
+  (`RenderType.lightning()`, additive). Thrown balls: a tapering ribbon through their last 14 positions with 3 helix strands turning
+  with the ball (green-white; gold for Golden Spin / Ball Breaker). Golden Spin: a gold spiral ribbon fading over 0.5 s. Spin Shield:
+  ribbon arcs behind the orbiting balls. Spun creatures: a rendered gold swirl. Spin Quake: a spinning shock ring (block dust kept).
 - Steel balls: green metal sphere, a raised hexagon plate on each side, curved grooves wrapping round, glossy highlights
   (see the references). Spiralling golden trail in flight; twisting skin rings on spun targets; gold rectangle + spiral flash on
   Golden Spin; the lime, stud-covered Ball Breaker figure rushing out of the ball (see "Ball Breaker look" below).

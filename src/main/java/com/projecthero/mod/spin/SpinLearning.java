@@ -85,11 +85,23 @@ public final class SpinLearning {
 			player.displayClientMessage(Component.translatable("message.projecthero.spin.already").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
+		// the loot item turns into his two Steel Balls: it leaves the hand first, so ball 0 lands where it was
+		ItemStack loot = player.getItemInHand(hand).copy();
+		player.setItemInHand(hand, ItemStack.EMPTY);
 		if (!Spin.grant(player)) {
+			player.setItemInHand(hand, loot);
 			return false;
 		}
-		if (!player.getAbilities().instabuild) {
-			player.getItemInHand(hand).shrink(1);
+		if (player.getAbilities().instabuild) {
+			loot.setCount(1); // creative keeps the loot item
+			if (!player.getInventory().add(loot)) {
+				player.drop(loot, false, false);
+			}
+		} else if (loot.getCount() > 1) {
+			loot.shrink(1);
+			if (!player.getInventory().add(loot)) {
+				player.drop(loot, false, false);
+			}
 		}
 		return true;
 	}

@@ -50,6 +50,43 @@ public final class SpinConfig {
 	/** Twin Balls: how hard the balls steer back onto the aim point each tick. */
 	public static final double TWIN_STEER = 0.22;
 
+	// ---------------------------------------------------------------- the ball items
+	/** A destroyed ball (lava, the void) reappears in his inventory after 30 s. */
+	public static final int BALL_RESPAWN_TICKS = 30 * 20;
+	/** R with an empty main hand recalls a dropped ball lying within this range (further off, or in a chest, it is remade). */
+	public static final double RECALL_RANGE = 96.0;
+
+	// ---------------------------------------------------------------- curving after the look (R / Shift+R, outbound only)
+	/** With no creature to home on, the ball bends toward the crosshair line at most this much a tick. */
+	public static final double CURVE_LOOK_TURN_DEG = 6.0;
+	/** ...easing in: each tick it turns this share of the angle still to go (capped by the line above). */
+	public static final double CURVE_EASE = 0.6;
+	/** Homing onto a creature under the crosshair: the sharpest turn a tick (turning circle ~6.9 blocks at 24 blocks/s). */
+	public static final double CURVE_HOMING_TURN_DEG = 10.0;
+	/** Twin Balls swoop harder (they start 28 degrees off to either side). */
+	public static final double TWIN_TURN_DEG = 12.0;
+	/** The most an R ball may turn over its whole flight out. */
+	public static final double CURVE_MAX_TOTAL_DEG = 120.0;
+	/** Twin Balls get this much on top for their own swoop in. */
+	public static final double TWIN_SWOOP_DEG = 60.0;
+	/** No steering while the thrower looks further than this from the ball (turning round never drags it back). */
+	public static final double CURVE_LOOK_CONE_DEG = 70.0;
+	/** ...except while the ball is still this close to his eyes (it starts at the hand, off to the side). */
+	public static final double CURVE_NEAR = 3.0;
+	/** A look goal more than this off the ball's heading is ignored (no U-turns). */
+	public static final double CURVE_GIVE_UP_DEG = 100.0;
+	/** The look goal: the point on the crosshair line this far beyond the ball's own distance. */
+	public static final double CURVE_LEAD = 5.0;
+	/** A creature counts as "aimed at" within this cone of the crosshair, or the cone of its body plus {@link #CURVE_AIM_SLACK}. */
+	public static final double CURVE_AIM_CONE_DEG = 4.0;
+	public static final double CURVE_AIM_SLACK = 0.6;
+	/** A creature already homed on keeps the lock this much further off the crosshair (no flicker at the edge). */
+	public static final double CURVE_KEEP_EXTRA_DEG = 4.0;
+	/** Homing only onto creatures it reaches within this much turn. */
+	public static final double CURVE_MAX_HOMING_TURN_DEG = 90.0;
+	/** The reach check plans with this share of the real turn rate (a safety margin, so a planned curve always lands). */
+	public static final double CURVE_REACH_MARGIN = 0.85;
+
 	// ---------------------------------------------------------------- R / Shift+R
 	public static final float BALL_DAMAGE = 10f;
 	public static final float BALL_COST = 15f;

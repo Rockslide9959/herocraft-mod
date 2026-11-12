@@ -154,9 +154,16 @@ public final class SpinAbilityManager {
 		};
 	}
 
-	/** Usable right now as far as the balls go (the HUD's grey-out). Client-safe. */
+	/**
+	 * Usable right now as far as the balls go (the HUD's grey-out): one of his balls in the main hand for a one-ball move, one in each
+	 * hand for Twin Balls and Spin Shield. Client-safe.
+	 */
 	public static boolean ballsAllow(Player player, String id) {
-		return Spin.ballsReady(player) >= ballsNeeded(id);
+		return switch (ballsNeeded(id)) {
+			case 0 -> true;
+			case 1 -> Spin.readyBall(player) >= 0;
+			default -> Spin.ballsReady(player) >= 2;
+		};
 	}
 
 	/** Ticks left on {@code id}'s cooldown. Client-safe. */

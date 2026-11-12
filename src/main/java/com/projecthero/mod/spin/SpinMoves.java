@@ -80,7 +80,8 @@ public final class SpinMoves {
 			return false;
 		}
 		if (!SpinAbilityManager.ballsAllow(p, id)) {
-			Spin.say(p, "message.projecthero.spin.ball_out", ChatFormatting.GRAY);
+			Spin.say(p, SpinAbilityManager.ballsNeeded(id) >= 2 ? "message.projecthero.spin.need_balls" : "message.projecthero.spin.need_ball",
+					ChatFormatting.GRAY);
 			return false;
 		}
 		if (!Spin.hasSpin(p, SpinAbilityManager.cost(id))) {
@@ -150,7 +151,14 @@ public final class SpinMoves {
 
 	/** A tap move (everything but the two holds). True if it went. */
 	public static boolean use(ServerPlayer p, String id) {
-		if (Spin.charging(p) != SpinState.CHARGE_NONE || !ready(p, id)) {
+		if (Spin.charging(p) != SpinState.CHARGE_NONE) {
+			return false;
+		}
+		// R with no ball in the main hand: call back a ball that was dropped or left somewhere
+		if (SpinAbilityManager.STEEL_BALL.equals(id) && Spin.readyBall(p) < 0 && p.getMainHandItem().isEmpty() && SpinBalls.recall(p)) {
+			return true;
+		}
+		if (!ready(p, id)) {
 			return false;
 		}
 		return switch (id) {
@@ -188,10 +196,16 @@ public final class SpinMoves {
 		Vec3 look = p.getViewVector(1f);
 		Vec3 aim = aimPoint(p, SpinConfig.BALL_RANGE);
 		Vec3 side = right(p).scale(SpinConfig.TWIN_SIDE_SPEED);
-		for (int i = 0; i < SpinConfig.BALLS; i++) {
-			Vec3 v = look.scale(SpinConfig.BALL_SPEED * 0.85).add(i == 0 ? side : side.scale(-1));
-			SteelBallEntity.launch(p, i, SteelBallEntity.MODE_HIT, v, aim, true, SpinConfig.BALL_RANGE, false);
+		int main = SpinBalls.inHand(p, net.minecraft.world.InteractionHand.MAIN_HAND);
+		int off = SpinBalls.inHand(p, net.minecraft.world.InteractionHand.OFF_HAND);
+		if (main < 0 || off < 0) {
+			return false;
 		}
+		// the main-hand ball swings out to the right, the off-hand one to the left
+		SteelBallEntity.launch(p, main, net.minecraft.world.InteractionHand.MAIN_HAND, SteelBallEntity.MODE_HIT,
+				look.scale(SpinConfig.BALL_SPEED * 0.85).add(side), aim, true, SpinConfig.BALL_RANGE, false);
+		SteelBallEntity.launch(p, off, net.minecraft.world.InteractionHand.OFF_HAND, SteelBallEntity.MODE_HIT,
+				look.scale(SpinConfig.BALL_SPEED * 0.85).subtract(side), aim, true, SpinConfig.BALL_RANGE, false);
 		Spin.sound(p, SpinSounds.BALL_THROW, 0.8f, 0.9f);
 		pay(p, SpinAbilityManager.TWIN_BALLS, SpinConfig.TWIN_COST, SpinConfig.TWIN_COOLDOWN);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
@@ -241,7 +255,7 @@ public final class SpinMoves {
 		if (down.getType() != HitResult.Type.MISS) {
 			spot = down.getLocation();
 		}
-		Spin.setBusy(p, i, SpinConfig.SCAN_BALL_TICKS);
+		Spin.takeBusy(p, i, SpinConfig.SCAN_BALL_TICKS, net.minecraft.world.InteractionHand.MAIN_HAND);
 		List<LivingEntity> found = p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(SpinConfig.SCAN_RADIUS),
 				e -> e != p && e.isAlive() && e.distanceToSqr(p) <= SpinConfig.SCAN_RADIUS * SpinConfig.SCAN_RADIUS);
 		int[] ids = new int[found.size()];
@@ -300,7 +314,7 @@ public final class SpinMoves {
 		if (i < 0) {
 			return false;
 		}
-		Spin.setBusy(p, i, SpinConfig.QUAKE_BALL_TICKS);
+		Spin.takeBusy(p, i, SpinConfig.QUAKE_BALL_TICKS, net.minecraft.world.InteractionHand.MAIN_HAND);
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = p.position();
 		for (LivingEntity t : HeroTargets.harmable(level, p, p.getBoundingBox().inflate(SpinConfig.QUAKE_RADIUS, 2.0, SpinConfig.QUAKE_RADIUS))) {
@@ -319,8 +333,7 @@ public final class SpinMoves {
 		if (!floor.isAir()) {
 			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor), c.x, c.y + 0.1, c.z, 80, 2.5, 0.1, 2.5, 0.2);
 		}
-		level.sendParticles(Spin.dust(Spin.GOLD, 1.5f), c.x, c.y + 0.2, c.z, 40, 3.0, 0.1, 3.0, 0.0);
-		fx(p, SpinFxPayload.at(SpinFxPayload.QUAKE, c, 12));
+		fx(p, SpinFxPayload.at(SpinFxPayload.QUAKE, c, 12)); // the spinning shock ring (rendered; the block dust stays)
 		level.playSound(null, c.x, c.y, c.z, SpinSounds.QUAKE, SoundSource.PLAYERS, 0.9f, 1.0f);
 		pay(p, SpinAbilityManager.SPIN_QUAKE, SpinConfig.QUAKE_COST, SpinConfig.QUAKE_COOLDOWN);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
@@ -329,9 +342,13 @@ public final class SpinMoves {
 
 	/** Shift+C: both balls orbit him for 4 s. */
 	static boolean spinShield(ServerPlayer p) {
-		for (int i = 0; i < SpinConfig.BALLS; i++) {
-			Spin.setBusy(p, i, SpinConfig.SHIELD_TICKS);
+		int main = SpinBalls.inHand(p, net.minecraft.world.InteractionHand.MAIN_HAND);
+		int off = SpinBalls.inHand(p, net.minecraft.world.InteractionHand.OFF_HAND);
+		if (main < 0 || off < 0) {
+			return false;
 		}
+		Spin.takeBusy(p, main, SpinConfig.SHIELD_TICKS, net.minecraft.world.InteractionHand.MAIN_HAND);
+		Spin.takeBusy(p, off, SpinConfig.SHIELD_TICKS, net.minecraft.world.InteractionHand.OFF_HAND);
 		SpinState n = Spin.state(p).copy();
 		n.shieldUntil = Spin.now(p) + SpinConfig.SHIELD_TICKS;
 		Spin.save(p, n);
@@ -427,7 +444,7 @@ public final class SpinMoves {
 	static boolean goldenSpin(ServerPlayer p, boolean perfect) {
 		int i = Spin.readyBall(p);
 		if (i < 0 || !Spin.hasSpin(p, SpinConfig.GOLDEN_COST)) {
-			Spin.say(p, i < 0 ? "message.projecthero.spin.ball_out" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
+			Spin.say(p, i < 0 ? "message.projecthero.spin.need_ball" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
 			return false;
 		}
 		Vec3 eye = p.getEyePosition();
@@ -448,7 +465,7 @@ public final class SpinMoves {
 		}
 		SteelBallEntity.launch(p, i, SteelBallEntity.MODE_PIERCE, look.scale(SpinConfig.BALL_SPEED * 1.8), end, false,
 				SpinConfig.GOLDEN_RANGE, true);
-		fx(p, new SpinFxPayload(SpinFxPayload.GOLDEN_LINE, -1, Spin.handPos(p), end, 14, perfect, new int[0]));
+		fx(p, new SpinFxPayload(SpinFxPayload.GOLDEN_LINE, -1, Spin.handPos(p), end, 10, perfect, new int[0])); // fades over 0.5 s
 		Spin.sound(p, SpinSounds.GOLDEN_RELEASE, perfect ? 1.0f : 0.8f, perfect ? 1.25f : 1.0f);
 		if (perfect) {
 			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.spin.perfect").withStyle(ChatFormatting.GOLD,
@@ -481,7 +498,7 @@ public final class SpinMoves {
 		int i = Spin.readyBall(p);
 		if (i < 0 || !Spin.hasSpin(p, SpinConfig.BREAKER_COST)) {
 			lastRefusal = "ball " + i + " spin " + Spin.state(p).spin;
-			Spin.say(p, i < 0 ? "message.projecthero.spin.ball_out" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
+			Spin.say(p, i < 0 ? "message.projecthero.spin.need_ball" : "message.projecthero.spin.no_spin", ChatFormatting.GRAY);
 			return false;
 		}
 		LivingEntity t = aimed(p, SpinConfig.BREAKER_RANGE);
@@ -519,7 +536,7 @@ public final class SpinMoves {
 		// a hold held too long goes on its own (never Perfect); losing the ball cancels it
 		if (s.chargeStart > 0L) {
 			int target = s.chargeTicks > 0 ? s.chargeTicks : Spin.chargeTicksFor(p);
-			if (Spin.ballsReady(p) < 1) {
+			if (Spin.readyBall(p) < 0) { // the ball left his main hand
 				SpinState n = s.copy();
 				n.chargeStart = 0L;
 				n.chargeMove = SpinState.CHARGE_NONE;
