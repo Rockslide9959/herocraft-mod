@@ -1,0 +1,427 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.3 Green Lantern flight outline. Frames into run/screenshots/glo_*.png. Enabled by run/gloutline.flag. */
+public final class GlOutlineHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+
+	static ServerPlayer flier;
+	static Vec3 origin;
+	static int pathT = -1;
+	static boolean looping;
+	static Vec3 vel = Vec3.ZERO;
+	static float yaw, pitch;
+	static boolean sprint;
+	static double cruise = 0.5;
+	/** Chase camera offset in the flier's frame: right, up, forward; null = no chase. */
+	static double[] cam;
+
+	private GlOutlineHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("gloutline.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GlOutlineHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "glo-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "glo_" + name + ".png", mc.getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GlOutlineHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.getWindow().setWindowed(960, 540);
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SPECTATOR);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY() + 14, Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				if ((inWorldTicks - t0) % 2 == 0) {
+					Screenshot.grab(mc.gameDirectory, String.format("glo_film_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+					});
+				}
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+			server(mc, GlOutlineHarness::fly);
+			chase(mc);
+		}
+	}
+
+	static final int PATH = 200;
+
+	/** Straight steady cruise (looping = false), or the film path: cruise, sprint, a turn, climb and dive. */
+	private static void fly(ServerPlayer camP) {
+		if (flier == null || pathT < 0) {
+			return;
+		}
+		int t = pathT++;
+		double speed = cruise;
+		if (looping) {
+			sprint = false;
+			if (t < 15) {
+				speed = 0.0;
+			} else if (t < 50) {
+				speed = 0.8;
+			} else if (t < 130) {
+				speed = 1.6;
+				sprint = true;
+			} else if (t < 175) {
+				speed = 0.8;
+			} else {
+				speed = 0.0;
+			}
+			if (t >= 75 && t < 100) {
+				yaw += 4.5f;
+			}
+			if (t >= 102 && t < 115) {
+				pitch = Math.max(-30f, pitch - 4f);
+			} else if (t >= 115 && t < 130) {
+				pitch = Math.min(28f, pitch + 5f);
+			} else if (t >= 130) {
+				pitch *= 0.8f;
+			}
+		}
+		flier.setSprinting(sprint);
+		flier.setAttached(ModAttachments.GREEN_LANTERN_BOOSTING, sprint);
+		Vec3 look = Vec3.directionFromRotation(pitch, yaw);
+		vel = vel.add(look.scale(speed).subtract(vel).scale(0.2));
+		flier.move(MoverType.SELF, vel);
+		flier.setDeltaMovement(vel);
+		flier.setYRot(yaw);
+		flier.setXRot(pitch);
+		flier.setYHeadRot(yaw);
+		flier.yBodyRot = yaw;
+		flier.hurtMarked = true;
+		if (!flier.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
+			flier.setAttached(ModAttachments.GREEN_LANTERN_FLYING, true);
+		}
+		flier.getAbilities().flying = true;
+		flier.resetFallDistance();
+	}
+
+	/** The chase camera: the local spectator placed off the flier as the client sees it. */
+	private static void chase(Minecraft mc) {
+		net.minecraft.world.entity.player.Player r = null;
+		for (net.minecraft.world.entity.player.Player pl : mc.level.players()) {
+			if (pl != mc.player && "Lantern".equals(pl.getGameProfile().getName())) {
+				r = pl;
+			}
+		}
+		if (r == null || cam == null) {
+			return;
+		}
+		double yr = Math.toRadians(r.getYHeadRot());
+		Vec3 fwd = new Vec3(-Math.sin(yr), 0, Math.cos(yr));
+		Vec3 right = new Vec3(-Math.cos(yr), 0, -Math.sin(yr));
+		Vec3 eye = r.position().add(right.scale(cam[0])).add(0, cam[1], 0).add(fwd.scale(cam[2]));
+		Vec3 target = r.position().add(0, 0.6, 0).add(fwd.scale(0.3));
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float y = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		mc.player.setPos(eye.x, eye.y - mc.player.getEyeHeight(), eye.z);
+		mc.player.xo = mc.player.getX();
+		mc.player.yo = mc.player.getY();
+		mc.player.zo = mc.player.getZ();
+		mc.player.setYRot(y);
+		mc.player.setXRot(pit);
+		mc.player.yRotO = y;
+		mc.player.xRotO = pit;
+		mc.player.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static void makeLantern(ServerPlayer f, boolean suited) {
+		GreenLantern.bond(f);
+		GreenLanternState s = GreenLantern.state(f).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		s.suited = suited;
+		s.suitAnimStartTick = -100000L;
+		GreenLantern.save(f, s);
+		if (suited) {
+			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.equip(f);
+		}
+		if (f.getGameProfile().getName().equals("Lantern")) {
+			java.util.List<com.mojang.datafixers.util.Pair<net.minecraft.world.entity.EquipmentSlot, net.minecraft.world.item.ItemStack>> eq = new java.util.ArrayList<>();
+			for (var slot : net.minecraft.world.entity.EquipmentSlot.values()) {
+				eq.add(com.mojang.datafixers.util.Pair.of(slot, f.getItemBySlot(slot).copy()));
+			}
+			f.serverLevel().getChunkSource().broadcast(f, new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(f.getId(), eq));
+		}
+	}
+
+	static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			flier = fake(p, "Lantern", origin);
+			flier.setNoGravity(true);
+			makeLantern(flier, false);
+			flier.getInventory().clearContent();
+		}));
+		t += 20;
+		at(t, () -> {
+			yaw = 0f;
+			pitch = 0f;
+			pathT = 0;
+		});
+		t += 40;
+		// views: name, right, up, forward
+		Object[][] views = { { "side", -3.4, 0.5, 0.2 }, { "front", 0.0, 0.9, 3.6 }, { "threequarter", -2.5, 1.0, 2.5 },
+				{ "back", 1.6, 1.4, -3.2 } };
+		String[] times = { "day", "night" };
+		long[] dayTimes = { 6000L, 18000L };
+		for (int suit = 0; suit < 2; suit++) {
+			final boolean suited = suit == 1;
+			at(t, () -> server(mc, p -> {
+				if (!suited) {
+					com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(flier);
+				}
+				makeLantern(flier, suited);
+			}));
+			t += 15;
+			for (int d = 0; d < 2; d++) {
+				final long dt = dayTimes[d];
+				at(t, () -> server(mc, p -> p.serverLevel().setDayTime(dt)));
+				for (Object[] v : views) {
+					final double[] c = { (Double) v[1], (Double) v[2], (Double) v[3] };
+					at(t, () -> cam = c);
+					shot(t + 6, (suited ? "suit_" : "skin_") + times[d] + "_" + v[0]);
+					t += 9;
+				}
+			}
+			// boost (sprint) close 3/4
+			at(t, () -> {
+				sprint = true;
+				cam = new double[] { -2.5, 1.0, 2.5 };
+			});
+			shot(t + 15, (suited ? "suit_" : "skin_") + "night_threequarter_boost");
+			at(t + 17, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+			shot(t + 21, (suited ? "suit_" : "skin_") + "day_threequarter_boost");
+			at(t + 22, () -> sprint = false);
+			t += 30;
+			// further away (thickness at range)
+			at(t, () -> cam = new double[] { -9.0, 2.0, 7.0 });
+			shot(t + 6, (suited ? "suit_" : "skin_") + "day_far");
+			t += 10;
+		}
+		// a skin-based suit style (slim rig)
+		at(t, () -> server(mc, p -> {
+			GreenLanternState s = GreenLantern.state(flier).copy();
+			s.suitStyle = 4;
+			GreenLantern.save(flier, s);
+			p.serverLevel().setDayTime(6000L);
+			cam = new double[] { -2.5, 1.0, 2.5 };
+		}));
+		shot(t + 8, "style5_day_threequarter");
+		at(t + 9, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+		at(t + 9, () -> cam = new double[] { -3.4, 0.5, 0.2 });
+		shot(t + 16, "style5_night_side");
+		at(t + 17, () -> server(mc, p -> {
+			GreenLanternState s = GreenLantern.state(flier).copy();
+			s.suitStyle = 0;
+			GreenLantern.save(flier, s);
+		}));
+		t += 22;
+		// the film: suited, day then night
+		for (int d = 0; d < 2; d++) {
+			final long dt = d == 0 ? 6000L : 18000L;
+			final String nm = d == 0 ? "day" : "night";
+			at(t, () -> server(mc, p -> {
+				p.serverLevel().setDayTime(dt);
+			}));
+			at(t + 1, () -> {
+				looping = true;
+				yaw = 0f;
+				pitch = 0f;
+				vel = Vec3.ZERO;
+				pathT = 0;
+				cam = new double[] { -1.8, 1.0, -2.8 };
+			});
+			final int start = t + 3;
+			at(start, () -> {
+				recording = nm;
+				recFrame = 0;
+				recUntil = start + PATH;
+			});
+			t += PATH + 10;
+		}
+		// the local player as a flying Lantern: first person (hand visible, GUI on), third person, inventory paper doll
+		at(t, () -> {
+			cam = null;
+			looping = false;
+			cruise = 0.0;
+		});
+		at(t, () -> server(mc, p -> {
+			p.serverLevel().setDayTime(6000L);
+			p.setGameMode(GameType.CREATIVE);
+			p.teleportTo(p.serverLevel(), origin.x + 30, origin.y, origin.z, 30f, 10f);
+			makeLantern(p, true);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.setAttached(ModAttachments.GREEN_LANTERN_FLYING, true);
+		}));
+		at(t + 2, () -> mc.options.hideGui = false);
+		shot(t + 30, "self_firstperson");
+		at(t + 32, () -> server(mc, p -> p.teleportTo(p.serverLevel(), origin.x + 30, origin.y, origin.z, 30f, 60f)));
+		shot(t + 40, "self_firstperson_lookdown");
+		at(t + 42, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		at(t + 42, () -> server(mc, p -> p.teleportTo(p.serverLevel(), origin.x + 30, origin.y, origin.z, 30f, 10f)));
+		shot(t + 52, "self_thirdperson");
+		at(t + 54, () -> {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> p.setGameMode(GameType.SURVIVAL));
+		});
+		at(t + 56, () -> {
+			mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+		});
+		shot(t + 62, "self_inventory");
+		at(t + 64, () -> mc.setScreen(new com.projecthero.mod.client.gui.GreenLanternSuitScreen()));
+		shot(t + 74, "self_suitscreen");
+		at(t + 84, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GLO_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.nameUUIDFromBytes(("harness-" + name).getBytes()), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.CREATIVE);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		return f;
+	}
+}
