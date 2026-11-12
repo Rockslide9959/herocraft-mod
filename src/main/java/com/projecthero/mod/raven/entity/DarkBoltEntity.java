@@ -50,7 +50,10 @@ public class DarkBoltEntity extends Projectile {
 	public static DarkBoltEntity fire(ServerPlayer owner, Vec3 dir, float damage) {
 		DarkBoltEntity bolt = new DarkBoltEntity(RavenEntities.DARK_BOLT, owner.level());
 		bolt.setOwner(owner);
-		Vec3 from = owner.getEyePosition().add(0, -0.15, 0).add(dir.scale(0.6));
+		// from her right hand, not her eyes (the glow would fill a first-person view)
+		float yaw = owner.getYRot() * ((float) Math.PI / 180f);
+		Vec3 right = new Vec3(-Math.cos(yaw), 0, -Math.sin(yaw));
+		Vec3 from = owner.getEyePosition().add(0, -0.35, 0).add(right.scale(0.4)).add(dir.scale(0.9));
 		bolt.setPos(from.x, from.y - 0.2, from.z);
 		bolt.start = bolt.position();
 		bolt.damage = damage;

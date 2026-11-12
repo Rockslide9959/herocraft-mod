@@ -1,0 +1,488 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.raven.Raven;
+import com.projecthero.mod.raven.RavenAbilityManager;
+import com.projecthero.mod.raven.RavenFlight;
+import com.projecthero.mod.raven.RavenItems;
+import com.projecthero.mod.raven.RavenMoves;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films every Raven move by calling RavenMoves directly. Enabled by run/raven.flag (its text filters
+ * scenes). Frames: run/screenshots/rv_*. Hook in/out with scratchpad/raven/harness_hook.js; films with scratchpad/raven/films.sh.
+ */
+public final class RavenHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private RavenHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("raven.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("raven.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(RavenHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "raven-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(RavenHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(13500L); // dusk: her dark energy reads against the sky
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				Raven.grant(p);
+				p.getAbilities().invulnerable = true; // the dummies have AI now
+				p.onUpdateAbilities();
+				p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(RavenItems.CLOAK));
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("rv_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("RV_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot facing south; dummies gone; full bars, calm, no cooldowns, nothing running. */
+	private static void reset(Minecraft mc, int t, float pitch) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(48))) {
+				h.discard();
+			}
+			level.setBlockAndUpdate(BlockPos.containing(origin.x, origin.y, origin.z + 4), Blocks.AIR.defaultBlockState()); // tk_block's block
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			Raven.clearTransient(p);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			p.setHealth(p.getMaxHealth());
+			Raven.clearCooldowns(p);
+			Raven.setEnergy(p, 100f);
+			Raven.setComposure(p, 70f);
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(280);
+			h.setHealth(280);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(false); // (a NoAI mob ignores velocity: telekinesis could not move it)
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		at(t, () -> server(mc, p -> RavenMoves.use(p, id)));
+	}
+
+	private static void hold(Minecraft mc, int t, String id, int ticks) {
+		at(t, () -> server(mc, p -> RavenMoves.startHold(p, id)));
+		at(t + ticks, () -> server(mc, p -> RavenMoves.release(p, id)));
+	}
+
+	private static void yaw(Minecraft mc, int t, float yaw, float pitch) {
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), p.getX(), p.getY(), p.getZ(), yaw, pitch);
+			p.setYHeadRot(yaw);
+			p.yBodyRot = yaw;
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void firstPerson(Minecraft mc, int t, boolean on) {
+		at(t, () -> {
+			if (on) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			}
+		});
+	}
+
+	private static void key(Minecraft mc, int t, net.minecraft.client.KeyMapping k, boolean down) {
+		at(t, () -> k.setDown(down));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("cloak")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> Raven.setComposure(p, 100f)));
+			cam(t + 1, 0f, 0.2f, 2.6f, 4f, 1.2f);
+			record(t + 4, "cloak", 90);
+			at(t + 34, () -> server(mc, p -> Raven.setComposure(p, 60f)));
+			at(t + 64, () -> server(mc, p -> Raven.setComposure(p, 5f)));
+			t += 98;
+		}
+		if (want("hud")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> Raven.setComposure(p, 22f)));
+			firstPerson(mc, t + 1, true);
+			record(t + 4, "hud", 30);
+			use(mc, t + 10, RavenAbilityManager.DARK_BOLT);
+			use(mc, t + 18, RavenAbilityManager.SHADOW_DASH);
+			firstPerson(mc, t + 36, false);
+			t += 40;
+		}
+		if (want("dark_bolt")) {
+			reset(mc, t, 2f);
+			dummy(mc, t + 1, 0, 7);
+			dummy(mc, t + 1, 0.3, 11);
+			cam(t + 1, 110f, 0.8f, 6.0f, 0f, 1.3f);
+			record(t + 4, "dark_bolt", 30);
+			use(mc, t + 8, RavenAbilityManager.DARK_BOLT);
+			use(mc, t + 18, RavenAbilityManager.DARK_BOLT);
+			t += 38;
+		}
+		if (want("telekinesis")) {
+			reset(mc, t, 10f);
+			dummy(mc, t + 1, 0, 6);
+			cam(t + 1, 100f, 1.2f, 8.0f, 0f, 2.0f);
+			record(t + 4, "telekinesis", 60);
+			hold(mc, t + 8, RavenAbilityManager.TELEKINESIS, 34);
+			for (int i = 0; i < 24; i++) {
+				float pitch = 10f - i * 1.6f;
+				yaw(mc, t + 12 + i, -i * 2.5f, pitch);
+			}
+			t += 68;
+		}
+		if (want("tk_block")) {
+			reset(mc, t, 30f);
+			at(t + 1, () -> server(mc, p -> p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.x, origin.y, origin.z + 4),
+					Blocks.MOSSY_COBBLESTONE.defaultBlockState())));
+			dummy(mc, t + 1, -3, 9);
+			cam(t + 1, 120f, 1.5f, 7.0f, 0f, 1.6f);
+			record(t + 4, "tk_block", 56);
+			hold(mc, t + 8, RavenAbilityManager.TELEKINESIS, 32);
+			for (int i = 0; i < 20; i++) {
+				yaw(mc, t + 12 + i, i * 1.0f, 30f - i * 2.2f);
+			}
+			t += 64;
+		}
+		if (want("shadow_grasp")) {
+			reset(mc, t, 8f);
+			dummy(mc, t + 1, 0, 6);
+			cam(t + 1, 115f, 1.4f, 7.0f, 0f, 1.3f);
+			record(t + 4, "shadow_grasp", 56);
+			use(mc, t + 8, RavenAbilityManager.SHADOW_GRASP);
+			t += 64;
+		}
+		if (want("soul_self")) {
+			reset(mc, t, 0f);
+			dummy(mc, t + 1, 0, 7);
+			dummy(mc, t + 1, 1, 13);
+			cam(t + 1, 125f, 2.5f, 9.0f, 0f, 1.5f);
+			record(t + 4, "soul_self", 46);
+			use(mc, t + 8, RavenAbilityManager.SOUL_SELF);
+			t += 54;
+		}
+		if (want("soul_close")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 160f, 1.0f, 4.0f, 0f, 1.6f);
+			record(t + 4, "soul_close", 24);
+			use(mc, t + 6, RavenAbilityManager.SOUL_SELF);
+			t += 32;
+		}
+		if (want("dark_shield")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 40f, 1.5f, 8.0f, 0f, 1.2f);
+			record(t + 4, "dark_shield", 56);
+			hold(mc, t + 6, RavenAbilityManager.DARK_SHIELD, 50);
+			for (int k = 0; k < 4; k++) {
+				final double a = k * 1.4 + 0.4;
+				at(t + 14 + k * 8, () -> server(mc, p -> {
+					Arrow arrow = new Arrow(EntityType.ARROW, p.serverLevel());
+					arrow.moveTo(p.getX() + Math.sin(a) * 9, p.getY() + 1.2, p.getZ() + Math.cos(a) * 9);
+					Vec3 v = p.position().add(0, 1.0, 0).subtract(arrow.position()).normalize().scale(1.6);
+					arrow.setDeltaMovement(v);
+					p.serverLevel().addFreshEntity(arrow);
+				}));
+			}
+			t += 64;
+		}
+		if (want("wrath")) {
+			reset(mc, t, 0f);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI * 2 / 6 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 7, Math.cos(a) * 7);
+			}
+			at(t + 2, () -> server(mc, p -> Raven.setComposure(p, 5f)));
+			cam(t + 1, 30f, 4.0f, 16.0f, 0.5f, 3.0f);
+			record(t + 4, "wrath", 70);
+			use(mc, t + 10, RavenAbilityManager.TRIGONS_WRATH);
+			at(t + 80, () -> server(mc, p -> Raven.clearTransient(p)));
+			t += 84;
+		}
+		if (want("wrath_face")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> Raven.setComposure(p, 5f)));
+			use(mc, t + 4, RavenAbilityManager.TRIGONS_WRATH);
+			cam(t + 1, 0f, 0.0f, 9.0f, 0f, 4.5f);
+			record(t + 8, "wrath_face", 20);
+			at(t + 30, () -> server(mc, p -> Raven.clearTransient(p)));
+			t += 34;
+		}
+		if (want("shadow_dash")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 90f, 1.5f, 10.0f, 0f, 1.0f);
+			record(t + 4, "shadow_dash", 30);
+			use(mc, t + 8, RavenAbilityManager.SHADOW_DASH);
+			t += 38;
+		}
+		if (want("shadow_step")) {
+			reset(mc, t, 2f);
+			dummy(mc, t + 1, 0, 10);
+			cam(t + 1, 95f, 2.0f, 11.0f, 0f, 1.0f);
+			record(t + 4, "shadow_step", 40);
+			use(mc, t + 8, RavenAbilityManager.SHADOW_STEP);
+			t += 48;
+		}
+		if (want("wave")) {
+			reset(mc, t, 0f);
+			for (int i = 0; i < 5; i++) {
+				double a = i * Math.PI * 2 / 5 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 4.5, Math.cos(a) * 4.5);
+			}
+			cam(t + 1, 30f, 3.0f, 11.0f, 0f, 1.5f);
+			record(t + 4, "wave", 50);
+			use(mc, t + 8, RavenAbilityManager.TELEKINETIC_WAVE);
+			t += 58;
+		}
+		if (want("debris")) {
+			reset(mc, t, 4f);
+			dummy(mc, t + 1, 0, 10);
+			cam(t + 1, 140f, 2.5f, 8.0f, 0f, 1.5f);
+			record(t + 4, "debris", 80);
+			use(mc, t + 8, RavenAbilityManager.DEBRIS_STORM);
+			for (int k = 0; k < 3; k++) {
+				at(t + 40 + k * 10, () -> server(mc, p -> RavenMoves.fireDebris(p)));
+			}
+			t += 88;
+		}
+		if (want("heal")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> p.setHealth(8f)));
+			cam(t + 1, 30f, 0.6f, 4.0f, 0f, 1.2f);
+			record(t + 4, "heal", 30);
+			use(mc, t + 8, RavenAbilityManager.EMPATH_HEAL);
+			t += 38;
+		}
+		if (want("meditate")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				Raven.setComposure(p, 30f);
+				Raven.setEnergy(p, 20f);
+			}));
+			cam(t + 1, 20f, 0.4f, 3.6f, 2f, 1.3f);
+			hold(mc, t + 6, RavenAbilityManager.MEDITATE, 70);
+			firstPerson(mc, t + 4, false);
+			record(t + 4, "meditate", 70);
+			t += 80;
+		}
+		if (want("meditate_hud")) {
+			reset(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				Raven.setComposure(p, 30f);
+				Raven.setEnergy(p, 20f);
+			}));
+			firstPerson(mc, t + 1, true);
+			hold(mc, t + 4, RavenAbilityManager.MEDITATE, 40);
+			record(t + 6, "meditate_hud", 36);
+			firstPerson(mc, t + 46, false);
+			t += 50;
+		}
+		if (want("flight")) {
+			reset(mc, t, 0f);
+			cam(t + 1, 70f, 1.0f, 6.0f, 0f, 1.2f);
+			at(t + 4, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), p.getX(), p.getY() + 1.5, p.getZ(), 0f, 0f);
+				RavenFlight.toggle(p);
+			}));
+			record(t + 6, "flight", 80);
+			key(mc, t + 8, mc.options.keyJump, true);
+			key(mc, t + 22, mc.options.keyJump, false);
+			key(mc, t + 26, mc.options.keyUp, true);
+			key(mc, t + 70, mc.options.keyUp, false);
+			at(t + 88, () -> server(mc, p -> RavenFlight.stop(p)));
+			t += 92;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

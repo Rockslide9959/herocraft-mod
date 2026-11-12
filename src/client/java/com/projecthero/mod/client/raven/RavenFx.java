@@ -83,7 +83,7 @@ public final class RavenFx {
 			if (!casting && rnd.nextInt(3) != 0) {
 				continue;
 			}
-			if (firstPerson && !casting) {
+			if (firstPerson && (!casting || rnd.nextInt(3) != 0)) {
 				continue;
 			}
 			float yaw = Mth.lerp(1f, pl.yBodyRotO, pl.yBodyRot) * Mth.DEG_TO_RAD;
@@ -95,7 +95,7 @@ public final class RavenFx {
 				Vec3 h = pl.position().add(right.scale(0.38 * side * sc)).add(fwd.scale((casting ? 0.25 : 0.05) * sc)).add(0, handY, 0);
 				if (firstPerson) {
 					Vec3 look = pl.getViewVector(1f);
-					h = pl.getEyePosition().add(look.scale(0.7)).add(right.scale(0.35 * side)).add(0, -0.35, 0);
+					h = pl.getEyePosition().add(look.scale(0.9)).add(right.scale(0.55 * side)).add(0, -0.7, 0);
 				}
 				mc.level.addParticle(voidDust, h.x + (rnd.nextDouble() - 0.5) * 0.15, h.y + (rnd.nextDouble() - 0.5) * 0.15,
 						h.z + (rnd.nextDouble() - 0.5) * 0.15, 0, 0.02, 0);
