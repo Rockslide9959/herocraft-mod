@@ -236,6 +236,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.spin.SpinAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.3: Raven (Teen Titans), on the same terms
+		if (com.projecthero.mod.raven.RavenAbilityManager.hasContext(player)) {
+			com.projecthero.mod.raven.RavenAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.17.3: Black Panther, on the same terms
 		if (com.projecthero.mod.blackpanther.BlackPantherAbilityManager.hasContext(player)) {
 			com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(player, slot, pressed);
@@ -427,6 +432,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.undead.Undead.tick(player); // v0.17.3
 		com.projecthero.mod.saiyan.Saiyan.tick(player); // v0.17.3: Ki, the form, mastery, flight
 		com.projecthero.mod.spin.Spin.tick(player); // v0.17.3: the Spin bar, the holds, Ball Breaker, Spin Shield, Valkyrie
+		com.projecthero.mod.raven.Raven.tick(player); // v0.17.3: Raven -- Dark Energy, Composure, the leak, flight, the running moves
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

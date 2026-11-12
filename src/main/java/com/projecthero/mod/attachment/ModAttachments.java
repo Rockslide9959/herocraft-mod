@@ -1002,6 +1002,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spin.data.SpinMark.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.3: Raven (Teen Titans) -- the power, Dark Energy, Composure, flight, meditation, the shield, Trigon's Wrath, timers. */
+	public static final AttachmentType<com.projecthero.mod.raven.data.RavenState> RAVEN_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("raven_state"),
+					builder -> builder.persistent(com.projecthero.mod.raven.data.RavenState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.raven.data.RavenState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.raven.data.RavenState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),

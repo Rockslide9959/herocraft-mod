@@ -134,6 +134,7 @@
 		"SpinNameTagMixin",
 		"SpinScanGlowMixin",
 		"SpinScanColorMixin",
+		"RavenPoseMixin",
 		"SilverSurferPoseMixin",
 		"SilverSurferStatueMixin",
 		"SilverSurferGlowMixin",

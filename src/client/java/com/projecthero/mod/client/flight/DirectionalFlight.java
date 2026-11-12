@@ -160,6 +160,14 @@ public final class DirectionalFlight {
 					: com.projecthero.mod.saiyan.SaiyanConfig.FLIGHT_CRUISE_BPS) * mult);
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
+		// v0.17.3: Raven -- meditating floats her perfectly still; her double-tap-Space levitation is calm (9 b/s, 16 sprinting)
+		if (com.projecthero.mod.raven.Raven.meditating(player)) {
+			return com.projecthero.mod.client.raven.RavenClient.still();
+		}
+		if (com.projecthero.mod.raven.Raven.isFlying(player)) {
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint
+					? com.projecthero.mod.raven.RavenConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.raven.RavenConfig.FLIGHT_CRUISE_BPS) / 20.0);
+		}
 		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held
 		// is the boost, 32 b/s along the look as the body burns away; just a head 25 b/s (UndeadFlight.bps)
 		if (com.projecthero.mod.undead.UndeadFlight.isFlying(player)) {

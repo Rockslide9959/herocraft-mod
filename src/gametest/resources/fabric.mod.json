@@ -258,6 +258,7 @@
       "com.projecthero.mod.gametest.UndeadRegenGameTests",
       "com.projecthero.mod.gametest.SaiyanKitGameTests",
       "com.projecthero.mod.gametest.SpinGameTests",
+      "com.projecthero.mod.gametest.RavenGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",
