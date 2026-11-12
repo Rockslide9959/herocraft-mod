@@ -1,0 +1,416 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.shazam.Shazam;
+import com.projecthero.mod.shazam.ShazamAbilityManager;
+import com.projecthero.mod.shazam.ShazamFlight;
+import com.projecthero.mod.shazam.ShazamMoves;
+import com.projecthero.mod.shazam.ShazamWizards;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films the reworked Wizard Shazam -- stills from every side, day and night, idle/turn, appear and grant. Enabled by
+ * run/wizard.flag (its text filters scenes). Frames: run/screenshots/sz_*. Hook in/out with scratchpad/shazam/harness_hook.js; films
+ * with scratchpad/shazam/films.sh.
+ */
+public final class WizardHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+	private static boolean flyForward;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+	public static volatile Vec3 orbitCenter;
+
+	private WizardHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("wizard.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("wizard.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WizardHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "wizard-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WizardHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				Shazam.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (flyForward) {
+				mc.options.keyUp.setDown(true);
+				mc.options.keySprint.setDown(true);
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("wz_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SZ_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** Back to the spot facing south; dummies gone; transformed (or not), full bar, no cooldowns. */
+	private static void reset(Minecraft mc, int t, float pitch, boolean transformed) {
+		at(t, () -> {
+			flyForward = false;
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(64))) {
+				h.discard();
+			}
+			for (var w : level.getEntitiesOfClass(com.projecthero.mod.shazam.entity.WizardShazamEntity.class, new AABB(origin, origin).inflate(64))) {
+				w.discard();
+			}
+			ShazamFlight.stop(p);
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setXRot(pitch);
+			Shazam.clearCooldowns(p);
+			if (Shazam.transformed(p) != transformed) {
+				Shazam.speak(p);
+				Shazam.clearCooldowns(p);
+			}
+			Shazam.clearTransient(p);
+			Shazam.setLightning(p, 100f);
+			p.setHealth(p.getMaxHealth());
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+			h.setHealth(400);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		at(t, () -> server(mc, p -> ShazamMoves.use(p, id)));
+	}
+
+	private static void aimAt(Minecraft mc, int t, double dx, double dy, double dz) {
+		at(t, () -> server(mc, p -> {
+			p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, origin.add(dx, dy, dz));
+			p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void gui(Minecraft mc, int t, boolean on) {
+		at(t, () -> mc.options.hideGui = !on);
+	}
+
+	private static void firstPerson(Minecraft mc, int t, boolean on) {
+		at(t, () -> {
+			if (on) {
+				orbitYaw = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+			} else {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+			}
+		});
+	}
+
+	private static Vec3 wizPos() {
+		return origin.add(0, 0, 4);
+	}
+
+	/** A fresh Wizard 4 blocks south of the spot, facing north; a bolt if {@code arrive}. */
+	private static void wizard(Minecraft mc, int t, boolean arrive) {
+		at(t, () -> server(mc, p -> {
+			Shazam.revoke(p);
+			var w = com.projecthero.mod.shazam.entity.ShazamEntities.WIZARD.create(p.serverLevel());
+			Vec3 c = wizPos();
+			w.moveTo(c.x, c.y, c.z, 180f, 0f);
+			w.setYHeadRot(180f);
+			w.yBodyRot = 180f;
+			w.setSummoned(true);
+			p.serverLevel().addFreshEntity(w);
+			if (arrive) {
+				Shazam.bolt(p.serverLevel(), w.position());
+			}
+		}));
+	}
+
+	private static void place(Minecraft mc, int t, double dx, double dz, float yaw, boolean visible) {
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), origin.x + dx, origin.y, origin.z + dz, yaw, 0f);
+			p.setYHeadRot(yaw);
+			p.yBodyRot = yaw;
+			if (!visible) {
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.INVISIBILITY, 100000, 0, false, false));
+			} else {
+				p.removeEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY);
+			}
+		}));
+	}
+
+	private static void time(Minecraft mc, int t, long dayTime) {
+		at(t, () -> server(mc, p -> p.serverLevel().setDayTime(dayTime)));
+	}
+
+	private static void still(int t, String name, float yaw, float height, float radius, float look) {
+		at(t, () -> {
+			orbitCenter = wizPos();
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = 0f;
+			lookHeight = look;
+		});
+		record(t + 3, name, 1);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("stills")) {
+			for (int night = 0; night < 2; night++) {
+				String n = night == 0 ? "day" : "night";
+				reset(mc, t, 0f, false);
+				time(mc, t, night == 0 ? 6000L : 18000L);
+				place(mc, t + 1, 0, 0, 0f, false);
+				wizard(mc, t + 2, false);
+				still(t + 30, "still_front_" + n, 180f, 0.3f, 3.8f, 1.25f);
+				still(t + 36, "still_34_" + n, 140f, 0.6f, 3.8f, 1.25f);
+				still(t + 42, "still_side_" + n, 90f, 0.3f, 3.8f, 1.25f);
+				still(t + 48, "still_back_" + n, 0f, 0.6f, 3.8f, 1.25f);
+				still(t + 54, "still_back34_" + n, 320f, 0.6f, 3.8f, 1.25f);
+				still(t + 60, "still_face_" + n, 178f, 0.05f, 1.5f, 1.6f);
+				still(t + 66, "still_staff_" + n, 205f, 0.0f, 1.6f, 2.3f);
+				place(mc, t + 70, 1.4, 4, 180f, true);
+				still(t + 80, "still_scale_" + n, 165f, 0.4f, 4.6f, 1.2f);
+				t += 92;
+			}
+			time(mc, t, 6000L);
+		}
+		if (want("idle")) {
+			reset(mc, t, 0f, false);
+			wizard(mc, t + 2, false);
+			place(mc, t + 1, -3, 1.5, 0f, true);
+			at(t + 3, () -> {
+				orbitCenter = wizPos();
+				orbitYaw = 165f;
+				orbitHeight = 2.6f;
+				orbitRadius = 5.6f;
+				orbitSpin = 0f;
+				lookHeight = 1.15f;
+			});
+			record(t + 20, "idle", 140);
+			for (int i = 0; i <= 120; i += 2) {
+				double a = Math.toRadians(-75 + 150 * i / 120.0);
+				place(mc, t + 30 + i, Math.sin(a) * 2.4, 4 - Math.cos(a) * 2.4, (float) (-Math.toDegrees(a)), true);
+			}
+			t += 166;
+		}
+		if (want("orbit")) {
+			reset(mc, t, 0f, false);
+			place(mc, t + 1, 0, -2, 0f, false);
+			wizard(mc, t + 2, false);
+			at(t + 3, () -> {
+				orbitCenter = wizPos();
+				orbitYaw = 180f;
+				orbitHeight = 0.6f;
+				orbitRadius = 4.2f;
+				orbitSpin = 3f;
+				lookHeight = 1.25f;
+			});
+			record(t + 20, "orbit", 120);
+			t += 146;
+		}
+		if (want("grant")) {
+			reset(mc, t, 0f, false);
+			place(mc, t + 1, 0, 1.2, 0f, true);
+			at(t + 1, () -> server(mc, p -> Shazam.revoke(p)));
+			at(t + 3, () -> {
+				orbitCenter = wizPos();
+				orbitYaw = 120f;
+				orbitHeight = 0.9f;
+				orbitRadius = 6.0f;
+				orbitSpin = 0f;
+				lookHeight = 1.2f;
+			});
+			gui(mc, t + 3, true);
+			record(t + 6, "grant", 110);
+			wizard(mc, t + 14, true);
+			at(t + 80, () -> server(mc, p -> {
+				var ws = p.serverLevel().getEntitiesOfClass(com.projecthero.mod.shazam.entity.WizardShazamEntity.class, p.getBoundingBox().inflate(8));
+				if (!ws.isEmpty()) {
+					ShazamWizards.judge(ws.get(0), p);
+				}
+			}));
+			gui(mc, t + 118, false);
+			t += 122;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

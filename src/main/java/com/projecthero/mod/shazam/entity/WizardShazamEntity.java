@@ -22,8 +22,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * v0.17.3 Shazam: <b>Wizard Shazam</b>, the last of the Council of Wizards. A very rare visitor near villages in a thunderstorm
- * ({@link ShazamWizards#trySpawn}): an old man in white and red robes with a long white beard (the player model in his own skin),
- * standing still and watching. Right-click him and he judges whether you are pure of heart ({@link ShazamWizards#judge}). He can't
+ * ({@link ShazamWizards#trySpawn}): an old man in rust and deep red robes with long grey hair and beard, leaning on a glowing staff
+ * (the player model in his own skin, dressed and posed by the client's WizardShazamLayer/WizardShazamModel), standing still and watching. Right-click him and he judges whether you are pure of heart ({@link ShazamWizards#judge}). He can't
  * be hurt, isn't saved, and fades in a flash of lightning when his work is done, the storm passes or five minutes go by.
  */
 public class WizardShazamEntity extends PathfinderMob {
@@ -85,6 +85,11 @@ public class WizardShazamEntity extends PathfinderMob {
 			if (life >= ShazamConfig.WIZARD_LIFETIME || (life > 200 && !server.isThundering() && !summoned)) {
 				ShazamWizards.fade(this);
 			}
+		} else if (tickCount < 40 && random.nextInt(tickCount < 15 ? 1 : 3) == 0) {
+			// arriving: faint sparks crawl over him for a couple of seconds, thinning out (client only, quiet)
+			double a = random.nextDouble() * Math.PI * 2, r = 0.45 + random.nextDouble() * 0.35;
+			level().addParticle(ParticleTypes.ELECTRIC_SPARK, getX() + Math.cos(a) * r, getY() + 0.2 + random.nextDouble() * 1.9,
+					getZ() + Math.sin(a) * r, 0, 0.02, 0);
 		}
 	}
 

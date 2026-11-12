@@ -255,7 +255,7 @@ suit(true, false).save('shazam_suit_slim.png');
 suit(false, true).save('shazam_suit_family.png');
 suit(true, true).save('shazam_suit_family_slim.png');
 cape().save('shazam_cape.png');
-wizard().save('wizard_shazam.png');
+// wizard_shazam.png now comes from gen_wizard_textures.js (the reworked Wizard)
 
 // a preview sheet (8x) of the champion suit and the Wizard side by side
 function preview() {
