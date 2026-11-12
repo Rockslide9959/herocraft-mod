@@ -1,0 +1,17 @@
+{
+  "parent": "builtin/entity",
+  "gui_light": "front",
+  "textures": {
+    "particle": "projecthero:item/steel_ball"
+  },
+  "display": {
+    "gui": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 0, 0 ], "scale": [ 1, 1, 1 ] },
+    "ground": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 2, 0 ], "scale": [ 0.6, 0.6, 0.6 ] },
+    "fixed": { "rotation": [ 0, 180, 0 ], "translation": [ 0, 0, 0 ], "scale": [ 1, 1, 1 ] },
+    "head": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 10, 0 ], "scale": [ 1, 1, 1 ] },
+    "thirdperson_righthand": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 1.5, 2.2 ], "scale": [ 0.5, 0.5, 0.5 ] },
+    "thirdperson_lefthand": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 1.5, 2.2 ], "scale": [ 0.5, 0.5, 0.5 ] },
+    "firstperson_righthand": { "rotation": [ 0, -20, 0 ], "translation": [ 0.5, 2.5, 0 ], "scale": [ 0.5, 0.5, 0.5 ] },
+    "firstperson_lefthand": { "rotation": [ 0, -20, 0 ], "translation": [ 0.5, 2.5, 0 ], "scale": [ 0.5, 0.5, 0.5 ] }
+  }
+}

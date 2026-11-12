@@ -50,6 +50,12 @@ public final class SpinConfig {
 	/** Twin Balls: how hard the balls steer back onto the aim point each tick. */
 	public static final double TWIN_STEER = 0.22;
 
+	// ---------------------------------------------------------------- the ball items
+	/** A destroyed ball (lava, the void) reappears in his inventory after 30 s. */
+	public static final int BALL_RESPAWN_TICKS = 30 * 20;
+	/** R with an empty main hand recalls a dropped ball lying within this range (further off, or in a chest, it is remade). */
+	public static final double RECALL_RANGE = 96.0;
+
 	// ---------------------------------------------------------------- curving after the look (R / Shift+R, outbound only)
 	/** With no creature to home on, the ball bends toward the crosshair line at most this much a tick. */
 	public static final double CURVE_LOOK_TURN_DEG = 6.0;

@@ -38,6 +38,17 @@ public final class SpinState {
 	public long valkyrieDeadUntil;
 	/** Move id -> game time it is ready again. */
 	public Map<String, Long> abilityReadyAt;
+	/**
+	 * The Steel Ball items (v0.17.3 round 2). Bit i: ball i was taken out of his hands by Scan / Quake / Shield and is owed back when
+	 * it is no longer busy; bit i + 2: it came from the off hand.
+	 */
+	public int owed;
+	/** Ball 0 / 1's generation: a ball item whose generation is older is a stale copy (replaced, respawned) and vanishes. */
+	public int gen0;
+	public int gen1;
+	/** Ball 0 / 1 was destroyed (lava, the void): a new one appears in his inventory at this time (0 = none). */
+	public long respawn0;
+	public long respawn1;
 
 	public static final int CHARGE_NONE = 0;
 	public static final int CHARGE_GOLDEN = 1;
@@ -65,9 +76,62 @@ public final class SpinState {
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 	}
 
+	public SpinState(boolean hasPower, float spin, int thrown, long busy0, long busy1, long chargeStart, int chargeMove, int chargeTicks,
+			long shieldUntil, long disguiseUntil, long leapUntil, String valkyrie, long valkyrieDeadUntil, Map<String, Long> abilityReadyAt,
+			Balls balls) {
+		this(hasPower, spin, thrown, busy0, busy1, chargeStart, chargeMove, chargeTicks, shieldUntil, disguiseUntil, leapUntil, valkyrie,
+				valkyrieDeadUntil, abilityReadyAt);
+		this.owed = balls.owed();
+		this.gen0 = balls.gen0();
+		this.gen1 = balls.gen1();
+		this.respawn0 = balls.respawn0();
+		this.respawn1 = balls.respawn1();
+	}
+
 	public SpinState copy() {
 		return new SpinState(hasPower, spin, thrown, busy0, busy1, chargeStart, chargeMove, chargeTicks, shieldUntil, disguiseUntil, leapUntil,
-				valkyrie, valkyrieDeadUntil, abilityReadyAt);
+				valkyrie, valkyrieDeadUntil, abilityReadyAt, balls());
+	}
+
+	/** The ball-item bookkeeping as one value (saved as one field). */
+	public Balls balls() {
+		return new Balls(owed, gen0, gen1, respawn0, respawn1);
+	}
+
+	public int gen(int ball) {
+		return ball == 0 ? gen0 : gen1;
+	}
+
+	public void bumpGen(int ball) {
+		if (ball == 0) {
+			gen0++;
+		} else {
+			gen1++;
+		}
+	}
+
+	public long respawn(int ball) {
+		return ball == 0 ? respawn0 : respawn1;
+	}
+
+	public void setRespawn(int ball, long at) {
+		if (ball == 0) {
+			respawn0 = at;
+		} else {
+			respawn1 = at;
+		}
+	}
+
+	/** The ball-item bookkeeping (see the fields). */
+	public record Balls(int owed, int gen0, int gen1, long respawn0, long respawn1) {
+		public static final Balls NONE = new Balls(0, 0, 0, 0L, 0L);
+		public static final Codec<Balls> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.INT.optionalFieldOf("owed", 0).forGetter(Balls::owed),
+				Codec.INT.optionalFieldOf("gen0", 0).forGetter(Balls::gen0),
+				Codec.INT.optionalFieldOf("gen1", 0).forGetter(Balls::gen1),
+				Codec.LONG.optionalFieldOf("respawn0", 0L).forGetter(Balls::respawn0),
+				Codec.LONG.optionalFieldOf("respawn1", 0L).forGetter(Balls::respawn1)
+		).apply(i, Balls::new));
 	}
 
 	public long busy(int ball) {
@@ -113,6 +177,7 @@ public final class SpinState {
 			Codec.STRING.optionalFieldOf("valkyrie", "").forGetter(s -> s.valkyrie),
 			Codec.LONG.optionalFieldOf("valkyrie_dead_until", 0L).forGetter(s -> s.valkyrieDeadUntil),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			Balls.CODEC.optionalFieldOf("balls", Balls.NONE).forGetter(SpinState::balls)
 	).apply(i, SpinState::new));
 }

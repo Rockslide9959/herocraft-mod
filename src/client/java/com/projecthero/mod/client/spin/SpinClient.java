@@ -15,9 +15,9 @@ import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
  * v0.17.3 the Spin (the Spin): the client side, called once from {@code ProjectHeroModClient}: the HUD and the Golden Rectangle,
- * the thrown ball's renderer, the hat-and-balls layer on players, the spun / aged layer on every creature, the effects payload and
- * the world-render effects, and the per-tick trail, view drift and loop sounds. His skin, name tag and Scan outlines are mixins
- * ({@code SpinSkinMixin}, {@code SpinNameTagMixin}, {@code SpinScanGlowMixin}, {@code SpinScanColorMixin}). H stays the power
+ * the thrown ball's renderer, the held Steel Ball item's 3D renderer, the spun / aged layer on every creature, the effects payload and
+ * the world-render effects, and the per-tick trail, view drift and loop sounds. His name tag and Scan outlines are mixins
+ * ({@code SpinNameTagMixin}, {@code SpinScanGlowMixin}, {@code SpinScanColorMixin}). H stays the power
  * selector and N does nothing for him, so there is no key handling here: every move goes through the ability slots.
  */
 public final class SpinClient {
@@ -28,10 +28,10 @@ public final class SpinClient {
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(SpinHud::render);
 		EntityRendererRegistry.register(SpinEntities.STEEL_BALL, SteelBallRenderer::new);
+		// v0.17.3 round 2: the balls are items he holds, drawn as the 3D ball (no automatic hand / belt balls any more)
+		net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry.INSTANCE.register(
+				com.projecthero.mod.spin.SpinItems.STEEL_BALL, new SteelBallItemRenderer());
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
-			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
-				helper.register(new SpinLayer(playerRenderer));
-			}
 			helper.register(new SpinMarkLayer(entityRenderer));
 		});
 		ClientPlayNetworking.registerGlobalReceiver(SpinFxPayload.TYPE, (payload, context) -> SpinFx.receive(payload));

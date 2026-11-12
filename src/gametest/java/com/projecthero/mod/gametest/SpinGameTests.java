@@ -3,6 +3,7 @@ package com.projecthero.mod.gametest;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.spin.Spin;
 import com.projecthero.mod.spin.SpinAbilityManager;
+import com.projecthero.mod.spin.SpinBalls;
 import com.projecthero.mod.spin.SpinConfig;
 import com.projecthero.mod.spin.SpinDamage;
 import com.projecthero.mod.spin.SpinDisguise;
@@ -109,15 +110,29 @@ public class SpinGameTests implements FabricGameTest {
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
 		helper.assertTrue(SpinLearning.learn(p, InteractionHand.MAIN_HAND), "right-click learns the Spin");
 		helper.assertTrue(Spin.hasPower(p) && HeroTiers.holdsHero(p, Spin.KEY), "Spin is a Hero-Tier power");
-		helper.assertTrue(p.getMainHandItem().isEmpty(), "the balls are spent");
+		helper.assertTrue(!SpinLearning.isBalls(p.getMainHandItem()), "the loot item is spent");
+		helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0 && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1,
+				"it became his two Steel Balls: ball 0 in the main hand, ball 1 in the off hand");
+		helper.assertTrue(p.getMainHandItem().is(SpinItems.STEEL_BALL) && SpinBalls.id(p.getMainHandItem()).owner().equals(p.getUUID()),
+				"a real steel_ball item, bound to him");
 		helper.assertTrue(!com.projecthero.mod.kryptonian.Kryptonian.hasPower(p), "it replaced the Kryptonian (one Primary)");
 		helper.assertTrue(!PowerGrants.missingHeroTiers(p).contains(Spin.KEY) && PowerGrants.NOT_FROM_SERUMS.contains(Spin.KEY),
 				"random serums never give it");
-		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
-		helper.assertTrue(!SpinLearning.learn(p, InteractionHand.MAIN_HAND) && !p.getMainHandItem().isEmpty(), "a second set does nothing");
 		helper.assertTrue(Spin.spin(p) == SpinConfig.SPIN_MAX && Spin.ballsReady(p) == 2, "a full bar and both balls to start");
+		p.getInventory().add(new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
+		int slot = p.getInventory().findSlotMatchingItem(new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
+		ItemStack second = p.getInventory().getItem(slot);
+		ItemStack ball0 = p.getMainHandItem();
+		p.setItemInHand(InteractionHand.MAIN_HAND, second);
+		p.getInventory().setItem(slot, ball0);
+		helper.assertTrue(!SpinLearning.learn(p, InteractionHand.MAIN_HAND) && SpinLearning.isBalls(p.getMainHandItem()), "a second set does nothing");
 		Spin.revoke(p);
 		helper.assertTrue(!Spin.hasPower(p), "revoked");
+		boolean anyBall = false;
+		for (int k = 0; k < p.getInventory().getContainerSize(); k++) {
+			anyBall |= p.getInventory().getItem(k).is(SpinItems.STEEL_BALL);
+		}
+		helper.assertTrue(!anyBall, "revoking took both balls away");
 		helper.succeed();
 	}
 
@@ -184,7 +199,8 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(Spin.ballsReady(p) == 1 && (Spin.state(p).thrown & 1) != 0, "ball 0 is out");
 		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.TWIN_BALLS)
 				&& !SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_SHIELD), "two-ball moves are greyed while it's out");
-		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SCAN), "one-ball moves still have the other ball");
+		helper.assertTrue(p.getMainHandItem().isEmpty() && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1, "the throw emptied the main hand");
+		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SCAN), "one-ball moves need a ball in the main hand");
 		helper.runAfterDelay(15, () -> {
 			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "10 damage, lost " + (before - z.getHealth()));
 			helper.assertTrue(SpinMarks.spun(z), "the target spins");
@@ -193,6 +209,7 @@ public class SpinGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(80, () -> {
 			helper.assertTrue(Spin.ballsReady(p) == 2 && Spin.state(p).thrown == 0, "the ball came back to the hand");
+			helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0, "into the same (main) hand");
 			helper.assertTrue(helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(40)).isEmpty(), "no ball left out");
 			helper.succeed();
 		});
@@ -209,6 +226,106 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_LEAP), "Spin Leap needs no ball");
 		helper.assertTrue(Math.abs(Spin.spin(p) - 70f) < 0.01f, "refused moves cost nothing");
 		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the balls are items he holds
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void movesNeedTheBallsInHand(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ItemStack b0 = p.getMainHandItem(), b1 = p.getOffhandItem();
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		p.getInventory().setItem(9, b0); // in the backpack, not in hand
+		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.STEEL_BALL) && !SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_TOUCH),
+				"one-ball moves are greyed with no ball in the main hand (the off hand doesn't count)");
+		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R does nothing (no ball is lost, so no recall either)");
+		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.SPIN_QUAKE) && !SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN),
+				"nor C, nor Shift+G");
+		helper.assertTrue(Math.abs(Spin.spin(p) - SpinConfig.SPIN_MAX) < 0.01f, "nothing paid");
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_LEAP) && SpinAbilityManager.ballsAllow(p, SpinAbilityManager.VALKYRIE),
+				"Spin Leap and Valkyrie need no ball");
+		// one ball in the main hand only: two-ball moves still refuse
+		p.getInventory().setItem(9, ItemStack.EMPTY);
+		p.setItemInHand(InteractionHand.MAIN_HAND, b0);
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		p.getInventory().setItem(10, b1);
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.STEEL_BALL), "a ball in the main hand: R is fine");
+		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.TWIN_BALLS) && !SpinMoves.use(p, SpinAbilityManager.SPIN_SHIELD),
+				"Twin Balls and Spin Shield need a ball in each hand");
+		// someone else's ball is no use
+		ServerPlayer other = mock(helper, 4.5, 4.5);
+		Spin.grant(other);
+		p.setItemInHand(InteractionHand.OFF_HAND, other.getOffhandItem().copy());
+		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.TWIN_BALLS), "another player's ball doesn't count");
+		p.setItemInHand(InteractionHand.OFF_HAND, b1);
+		p.getInventory().setItem(10, ItemStack.EMPTY);
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.TWIN_BALLS), "his own two: Twin Balls is ready");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void twinThrowEmptiesBothHandsAndRefillsThem(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.TWIN_BALLS), "Shift+R");
+		helper.assertTrue(p.getMainHandItem().isEmpty() && p.getOffhandItem().isEmpty(), "both hands emptied: the balls really left");
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIRT)); // he picks something up meanwhile
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(Spin.state(p).thrown == 0, "both came back");
+			helper.assertTrue(SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1, "ball 1 went back into the (empty) off hand");
+			helper.assertTrue(p.getMainHandItem().is(Items.DIRT) && SpinBalls.inInventory(p, 0), "ball 0 found the main hand full: a free slot");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void droppedBallOwnerOnlyAndRecalled(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ServerPlayer stranger = mock(helper, 5.5, 5.5);
+		ItemStack b0 = p.getMainHandItem().copy();
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		Vec3 at = helper.absoluteVec(new Vec3(5.5, 2.0, 5.5));
+		net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(), at.x, at.y, at.z, b0);
+		drop.setNoPickUpDelay();
+		helper.getLevel().addFreshEntity(drop);
+		drop.playerTouch(stranger);
+		helper.assertTrue(drop.isAlive() && !drop.getItem().isEmpty(), "nobody but the owner picks it up");
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R with an empty main hand recalls it");
+		helper.assertTrue(drop.isRemoved() && Spin.state(p).thrown == 1, "it lifted off the ground and is flying home");
+		// the other ball "left in a chest": gone from his inventory without a trace
+		ItemStack inChest = p.getOffhandItem().copy();
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0, "the dropped ball is back in his main hand");
+			p.getInventory().setItem(9, p.getMainHandItem());
+			p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R again: the chest ball is recalled too");
+			helper.assertTrue(SpinBalls.stale(helper.getLevel().getServer(), inChest), "the copy in the chest is no longer his ball");
+		});
+		helper.runAfterDelay(100, () -> {
+			helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 1, "the chest ball flew into his main hand");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void destroyedBallComesBack(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ItemStack b1 = p.getOffhandItem().copy();
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 4.5));
+		net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(), at.x, at.y, at.z, b1);
+		helper.getLevel().addFreshEntity(drop);
+		helper.runAfterDelay(2, () -> drop.kill()); // lava, the void, /kill: it's gone with the ball inside
+		helper.runAfterDelay(5, () -> {
+			long due = Spin.state(p).respawn(1);
+			helper.assertTrue(due > 0L && due - helper.getLevel().getGameTime() > SpinConfig.BALL_RESPAWN_TICKS - 10,
+					"a new ball is due in 30 s, due " + due);
+			edit(p, s -> s.respawn1 = 1L); // skip the wait
+			Spin.tick(p);
+			helper.assertTrue(SpinBalls.inInventory(p, 1), "ball 1 is back in his inventory");
+			helper.assertTrue(SpinBalls.stale(helper.getLevel().getServer(), b1), "and the old one would be stale");
+			helper.succeed();
+		});
 	}
 
 	// ---------------------------------------------------------------- curving after the look
@@ -452,7 +569,10 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(near(ratio(q0, near, SpinConfig.QUAKE_DAMAGE)) && near.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "14 damage, slowed");
 		helper.assertTrue(Math.abs(Spin.spin(p) - 75f) < 0.01f && Spin.ballsReady(p) == 1, "25 Spin; the ball is busy a moment");
 		Spin.setSpin(p, 100f);
+		helper.assertTrue(p.getMainHandItem().isEmpty(), "the Quake took the ball out of his hand");
 		edit(p, s -> { s.busy0 = 0L; s.busy1 = 0L; });
+		Spin.tick(p);
+		helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0, "and gave it back once done");
 		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SCAN), "Z scans");
 		helper.assertTrue(SpinMoves.lastScan >= 1 && Math.abs(Spin.spin(p) - 85f) < 0.01f, "it found the zombie; 15 Spin");
 		helper.assertTrue(Spin.ballsReady(p) == 1, "the ball spins on the ground meanwhile");

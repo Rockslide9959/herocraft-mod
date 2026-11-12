@@ -97,7 +97,7 @@ public final class SpinHud {
 		g.drawString(font, font.plainSubstrByWidth(title, WIDTH - 22), x0, by - 2, GOLD_TEXT, true);
 		for (int i = 0; i < 2; i++) {
 			int bx = x0 + WIDTH - 18 + i * 10;
-			ballIcon(g, bx, by - 2, s.ballReady(i, now));
+			ballIcon(g, bx, by - 2, Spin.ballReady(p, i)); // filled while that ball is in one of his hands
 		}
 		// status tags, wrapped to the HUD's width (bottom line first, upward)
 		List<Tag> tags = new ArrayList<>();

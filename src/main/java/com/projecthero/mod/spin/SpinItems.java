@@ -15,6 +15,8 @@ import net.minecraft.world.item.Rarity;
  */
 public final class SpinItems {
 	public static Item ZEPPELI_STEEL_BALLS;
+	/** v0.17.3 round 2: one of his two Steel Balls, bound to him ({@link SpinBalls}). Never in the creative tab (it needs an owner). */
+	public static Item STEEL_BALL;
 
 	private SpinItems() {
 	}
@@ -23,8 +25,11 @@ public final class SpinItems {
 		if (ZEPPELI_STEEL_BALLS != null) {
 			return;
 		}
+		SpinBalls.bootstrap();
 		ZEPPELI_STEEL_BALLS = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("zeppeli_steel_balls"),
 				new Item(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
+		STEEL_BALL = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("steel_ball"),
+				new SteelBallItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {

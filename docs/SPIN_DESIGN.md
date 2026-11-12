@@ -16,6 +16,14 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 - 20 health (no extra hearts, user 2026-11-12), passive Regeneration I, +15% speed, +4 melee, 15% damage resistance. No skin change.
 - **Spin bar** (100), refills 4/s. Moves cost Spin.
 - **Two returning balls.** They always fly back. While a ball is out, moves that need it are greyed out.
+- **Curving (2026-11-12).** An outgoing R / Shift+R ball bends after the thrower's look (capped turn rate, 120 degrees total, no
+  steering when he looks away) and homes onto a creature under the crosshair only if the curve can reach it. Golden Spin stays straight.
+  Numbers: `SpinConfig.CURVE_*`.
+- **The balls are items (2026-11-12, user's pick).** Two `projecthero:steel_ball` items bound to their owner (`SpinBalls.BallId`:
+  owner, index, generation). One in the main hand for R, G, Shift+G, Shift+Z, Z, C, V, Shift+V; one in each hand for Shift+R and
+  Shift+C; none for X / Shift+X. Throwing empties the hand; the catch refills the same hand (else a free slot, else the hand,
+  dropping what's there). Scan / Quake / Shield take them out while they run. Kept on death, owner-only pickup, R with an empty
+  main hand recalls a dropped / chested ball, a destroyed ball respawns after 30 s. The old automatic hand / belt balls are gone.
 - **Golden Rectangle.** Holding a Golden Spin move shrinks a gold rectangle onto the crosshair; release while it lines up = **Perfect
   Spin** (double damage, ignores armour).
 - **Riding:** on a horse every Spin move hits 30% harder and Golden Spin charges twice as fast.

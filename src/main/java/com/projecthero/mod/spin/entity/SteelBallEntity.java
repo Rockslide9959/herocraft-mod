@@ -13,6 +13,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -53,6 +54,7 @@ public class SteelBallEntity extends Projectile {
 	private double range = SpinConfig.BALL_RANGE;
 	private int returnTicks;
 	private boolean caught;
+	private InteractionHand hand = InteractionHand.MAIN_HAND;
 	/** R / Shift+R: the ball bends after the thrower's look on its way out (see {@link #curve}). */
 	private boolean curving;
 	/** Twin Balls: the distance to the aim point at the throw (they swoop in onto the crosshair line that far out). */
@@ -78,7 +80,17 @@ public class SteelBallEntity extends Projectile {
 	 */
 	public static SteelBallEntity launch(ServerPlayer owner, int index, byte mode, Vec3 velocity, Vec3 aim, boolean steer, double range,
 			boolean golden) {
+		return launch(owner, index, InteractionHand.MAIN_HAND, mode, velocity, aim, steer, range, golden);
+	}
+
+	/** As above, thrown from {@code hand}: the ball item leaves that hand, and the catch puts it back there. */
+	public static SteelBallEntity launch(ServerPlayer owner, int index, InteractionHand hand, byte mode, Vec3 velocity, Vec3 aim, boolean steer,
+			double range, boolean golden) {
+		if (com.projecthero.mod.spin.SpinBalls.inHand(owner, hand) == index) {
+			owner.setItemInHand(hand, net.minecraft.world.item.ItemStack.EMPTY);
+		}
 		SteelBallEntity ball = new SteelBallEntity(SpinEntities.STEEL_BALL, owner.level());
+		ball.hand = hand;
 		ball.setOwner(owner);
 		Vec3 from = Spin.handPos(owner);
 		ball.moveTo(from.x, from.y - 0.15, from.z, owner.getYRot(), 0f);
@@ -92,6 +104,22 @@ public class SteelBallEntity extends Projectile {
 		ball.entityData.set(INDEX, (byte) index);
 		ball.entityData.set(MODE, mode);
 		ball.entityData.set(GOLDEN, golden);
+		owner.level().addFreshEntity(ball);
+		Spin.setThrown(owner, index, true);
+		return ball;
+	}
+
+	/** The recall: ball {@code index} lifts off at {@code from} (where it lay, or was last seen) and flies home into {@code hand}. */
+	public static SteelBallEntity recall(ServerPlayer owner, int index, Vec3 from, InteractionHand hand) {
+		SteelBallEntity ball = new SteelBallEntity(SpinEntities.STEEL_BALL, owner.level());
+		ball.hand = hand;
+		ball.setOwner(owner);
+		ball.moveTo(from.x, from.y, from.z, owner.getYRot(), 0f);
+		ball.start = ball.position();
+		ball.entityData.set(INDEX, (byte) index);
+		ball.entityData.set(MODE, MODE_HIT);
+		ball.entityData.set(RETURNING, true);
+		ball.setDeltaMovement(Spin.handPos(owner).subtract(from).normalize().scale(0.5));
 		owner.level().addFreshEntity(ball);
 		Spin.setThrown(owner, index, true);
 		return ball;
@@ -393,12 +421,25 @@ public class SteelBallEntity extends Projectile {
 		discard();
 	}
 
+	/**
+	 * However it goes (caught, recalled at a death or a world change, its chunk unloading), the ball item goes back into the hand it
+	 * was thrown from (or a free slot, see {@link com.projecthero.mod.spin.SpinBalls#giveBack}).
+	 */
 	@Override
 	public void remove(RemovalReason reason) {
 		super.remove(reason);
 		if (!level().isClientSide() && getOwner() instanceof ServerPlayer p) {
+			boolean wasOut = Spin.hasPower(p) && (Spin.state(p).thrown & (1 << index())) != 0;
 			Spin.setThrown(p, index(), false);
+			if (wasOut && !p.isRemoved()) {
+				com.projecthero.mod.spin.SpinBalls.giveBack(p, index(), hand);
+			}
 		}
+	}
+
+	/** The hand it was thrown from (and goes back to). */
+	public InteractionHand hand() {
+		return hand;
 	}
 
 	@Override

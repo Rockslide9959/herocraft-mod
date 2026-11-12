@@ -47,6 +47,11 @@ public final class SpinMod {
 			}
 		});
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> SpinValkyrie.onLoad(entity));
+		ServerEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
+			if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) {
+				SpinBalls.onItemEntityGone(item); // a destroyed ball comes back after 30 s
+			}
+		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> Spin.clearTransient(player));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			Spin.clearTransient(handler.getPlayer());
@@ -74,6 +79,15 @@ public final class SpinMod {
 									c.getSource().sendSuccess(() -> Component.literal("Spin set to " + Math.round(v)), false);
 									return 1;
 								})))
+				.then(Commands.literal("balls").executes(c -> {
+					ServerPlayer player = spin(c.getSource());
+					if (player == null) {
+						return 0;
+					}
+					SpinBalls.replace(player);
+					c.getSource().sendSuccess(() -> Component.literal("Gave you a new pair of Steel Balls (any older ones are gone)"), false);
+					return 1;
+				}))
 				.then(Commands.literal("cooldowns").executes(c -> {
 					ServerPlayer player = spin(c.getSource());
 					if (player == null) {

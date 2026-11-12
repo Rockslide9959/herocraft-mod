@@ -36,6 +36,7 @@
 		"EntityWebCollisionMixin",
 		"WebBlockSpiderMixin",
 		"ItemEntityMixin",
+		"SpinBallItemEntityMixin",
 		"ItemEntityPickupAccessor",
 		"IronManArmorSlotMixin",
 		"ItemStackMixin",
