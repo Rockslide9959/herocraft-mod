@@ -177,6 +177,20 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SPIN);
 	}
 
+	/**
+	 * v0.17.3 Raven: the chapter's control rows {key, ability id}; each shows {@code projecthero.raven.ability.<id>} and its
+	 * {@code .desc}.
+	 */
+	public static final String[][] RAVEN_CONTROLS = { { "R", "dark_bolt" }, { "Shift+hold R", "telekinesis" }, { "G", "shadow_grasp" },
+			{ "Shift+G", "soul_self" }, { "Hold Z", "dark_shield" }, { "Shift+Z", "trigons_wrath" }, { "X", "shadow_dash" },
+			{ "Shift+X", "shadow_step" }, { "C", "telekinetic_wave" }, { "Shift+C", "debris_storm" }, { "V", "empath_heal" },
+			{ "Shift+hold V", "meditate" }, { "2x Space", "flight" } };
+
+	/** Raven (v0.17.3). */
+	public static Chapter ravenChapter() {
+		return chapters().get(CH_RAVEN);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -614,7 +628,8 @@ public final class HeroPackGuide {
 	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
 	private static final int CH_SPIN = CH_SAIYAN + 1; // 69, v0.17.3: the Spin (the Spin)
 	private static final int CH_STARFIRE = CH_SPIN + 1; // 70, v0.17.3: Starfire (Teen Titans)
-	private static final int CHAPTER_POWER_BASE = CH_STARFIRE + 1; // 71
+	private static final int CH_RAVEN = CH_STARFIRE + 1; // 71, v0.17.3: Raven (Teen Titans)
+	private static final int CHAPTER_POWER_BASE = CH_RAVEN + 1; // 72
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1864,6 +1879,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.starfire.commands.body");
 		}));
 
+		// v0.17.3: Raven (CH_RAVEN)
+		out.add(chapter("projecthero.guide.raven", lines -> {
+			lines.add(Component.translatable("projecthero.guide.raven.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.raven.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "cloak"}) {
+				head(lines, "projecthero.guide.raven." + section);
+				para(lines, "projecthero.guide.raven." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.raven.controls");
+			for (String[] row : RAVEN_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.raven.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.raven.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.raven.commands");
+			para(lines, "projecthero.guide.raven.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2022,6 +2058,7 @@ public final class HeroPackGuide {
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SPIN, "zeppeli_steel_balls"); // v0.17.3
 		icon(CH_STARFIRE, "tamaranean_starstone"); // v0.17.3
+		icon(CH_RAVEN, "book_of_azarath"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2085,6 +2122,7 @@ public final class HeroPackGuide {
 		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
 		link(dc, "projecthero.guide.speed_force_speedster", CH_SPEED_FORCE); // v0.17.1
 		link(dc, "projecthero.guide.starfire", CH_STARFIRE); // v0.17.3: Teen Titans
+		link(dc, "projecthero.guide.raven", CH_RAVEN); // v0.17.3: Teen Titans
 		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

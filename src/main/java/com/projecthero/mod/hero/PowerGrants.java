@@ -24,6 +24,7 @@ public final class PowerGrants {
 			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "black_panther", "undead", "saiyan",
 			"spin", // v0.17.3: the Spin (the Spin)
 			"starfire", // v0.17.3: Starfire
+			"raven", // v0.17.3: Raven (Teen Titans)
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
@@ -67,6 +68,7 @@ public final class PowerGrants {
 			"undead", // v0.17.3: only the Undead Card
 			"spin", // v0.17.3: only the Zeppeli Steel Balls (found in pyramids and trail ruins)
 			"starfire", // v0.17.3: only the Tamaranean Starstone (End Cities, meteor craters)
+			"raven", // v0.17.3: only the Book of Azarath, read at night
 			"speed_force_speedster", // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
 			"omnitrix", // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
 			"stand_star_platinum"); // v0.17.2: only the Stand Arrow awakens a Stand
@@ -237,6 +239,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.spin.Spin.grant(target);
 				return new Result(ok, Component.literal(ok ? "Taught " + name + " the Spin" : name + " already knows the Spin"));
 			}
+			case "raven" -> { // v0.17.3
+				boolean ok = com.projecthero.mod.raven.Raven.grant(target);
+				return new Result(ok, Component.literal(ok ? "Made " + name + " Raven" : name + " is already Raven"));
+			}
 			case "undead" -> {
 				boolean ok = com.projecthero.mod.undead.Undead.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " the Undead (Undead)" : name + " is already the Undead"));
@@ -343,6 +349,7 @@ public final class PowerGrants {
 			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.revoke(target); // v0.17.3
 			case "spin" -> com.projecthero.mod.spin.Spin.revoke(target); // v0.17.3
 			case "starfire" -> com.projecthero.mod.starfire.Starfire.revoke(target); // v0.17.3
+			case "raven" -> com.projecthero.mod.raven.Raven.revoke(target); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.revoke(target); // v0.17.1
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				if (HeroTiers.holdsHero(target, hero)) {

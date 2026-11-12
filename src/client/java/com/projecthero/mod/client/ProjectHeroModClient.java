@@ -162,6 +162,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight
 		com.projecthero.mod.client.spin.SpinClient.initialize(); // v0.17.3: the Spin -- HUD, Golden Rectangle, balls, effects
 		com.projecthero.mod.client.starfire.StarfireClient.initialize(); // v0.17.3: Starfire -- HUD gauge, glow overlays, eye beams, bolts, fx
+		com.projecthero.mod.client.raven.RavenClient.initialize(); // v0.17.3: Raven -- HUD, aura, cloak, soul-self, debris, effects
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -1410,6 +1411,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (com.projecthero.mod.client.starfire.StarfireClient.wantsFlightToggle(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			com.projecthero.mod.client.starfire.StarfireClient.toggleFlight();
+			return;
+		}
+		// v0.17.3: Raven -- double-tap Space in the air takes off / lands (calm levitation; the server re-validates)
+		if (com.projecthero.mod.client.raven.RavenClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.raven.RavenClient.toggleFlight();
 			return;
 		}
 

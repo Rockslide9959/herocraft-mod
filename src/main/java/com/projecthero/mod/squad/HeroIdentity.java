@@ -87,6 +87,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.starfire.Starfire.hasPower(player)) {
 			return "projecthero.squad.identity.starfire"; // v0.17.3
 		}
+		if (com.projecthero.mod.raven.Raven.hasPower(player)) {
+			return "projecthero.squad.identity.raven"; // v0.17.3
+		}
 		if (com.projecthero.mod.spin.Spin.hasPower(player)) {
 			return "projecthero.squad.identity.spin"; // v0.17.3
 		}
