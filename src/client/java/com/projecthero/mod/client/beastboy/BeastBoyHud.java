@@ -204,7 +204,7 @@ public final class BeastBoyHud {
 		}
 		int x = g.guiWidth() / 2 - 91;
 		int w = 81;
-		int y = g.guiHeight() - 39 - 10 - (p.getArmorValue() > 0 ? 10 : 0) - 9;
+		int y = g.guiHeight() - 39 - 10 - (p.getArmorValue() > 0 ? 10 : 0) - 29; // clear of the action-bar message
 		float frac = Math.max(0f, Math.min(1f, s.formHp / form.formHealth));
 		int colour = frac > 0.5f ? 0xFF58C83C : frac > 0.25f ? 0xFFE0C040 : 0xFFE04A3A;
 		g.fill(x - 1, y - 1, x + w + 1, y + 8, 0xFF0A0A0A);
@@ -226,7 +226,7 @@ public final class BeastBoyHud {
 		}
 		Font font = mc.font;
 		int x = g.guiWidth() / 2 - 91;
-		int y = g.guiHeight() - 39 - 10 - (p.getArmorValue() > 0 ? 10 : 0) - 9;
+		int y = g.guiHeight() - 39 - 10 - (p.getArmorValue() > 0 ? 10 : 0) - 29; // clear of the action-bar message
 		int w = 81;
 		float frac = 1f - left / (float) BeastBoyConfig.FEVER_TICKS;
 		g.fill(x - 1, y - 1, x + w + 1, y + 8, 0xFF0A0A0A);

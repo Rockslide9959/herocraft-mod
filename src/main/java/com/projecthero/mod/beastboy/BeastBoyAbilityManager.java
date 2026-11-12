@@ -167,7 +167,7 @@ public final class BeastBoyAbilityManager {
 			case ELEPHANT_STOMP -> BeastBoyConfig.STOMP_COOLDOWN;
 			case OCTOPUS_GRAB -> BeastBoyConfig.OCTO_COOLDOWN;
 			case ANIMAL_SENSES -> BeastBoyConfig.SENSES_COOLDOWN;
-			case CONTEXT_MORPH, FLY_MORPH -> 10;
+			case CONTEXT_MORPH, FLY_MORPH -> 4;
 			case "trex_bite" -> BeastBoyConfig.TREX_BITE_CD;
 			case "trex_tail" -> BeastBoyConfig.TREX_TAIL_CD;
 			case "trex_roar" -> BeastBoyConfig.TREX_ROAR_CD;

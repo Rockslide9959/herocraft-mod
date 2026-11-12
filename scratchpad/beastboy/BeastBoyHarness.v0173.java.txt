@@ -125,6 +125,7 @@ public final class BeastBoyHarness {
 		inWorldTicks++;
 		if (inWorldTicks == 100) {
 			mc.options.hideGui = true;
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
 			mc.options.fov().set(70);
 			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 			mc.options.bobView().set(false);
@@ -257,6 +258,11 @@ public final class BeastBoyHarness {
 			p.setYHeadRot(0f);
 			p.yBodyRot = 0f;
 			BeastBoy.setForm(p, f);
+			if (f == BeastForm.BEAST) {
+				var n = BeastBoy.state(p).copy();
+				n.timers = n.timers.withBeast(p.level().getGameTime() + 400);
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.BEAST_BOY_STATE, n);
+			}
 			if (air) {
 				p.getAbilities().flying = true;
 				p.onUpdateAbilities();
@@ -359,8 +365,8 @@ public final class BeastBoyHarness {
 				com.projecthero.mod.hero.power.AbilityHelpers.launchSelf(p, new Vec3(0, 0.9, 0.4));
 			}));
 			use(mc, t + 44, BeastBoyAbilityManager.CONTEXT_MORPH); // back to human mid-air
-			use(mc, t + 46, BeastBoyAbilityManager.CONTEXT_MORPH); // ...and the hawk
-			keys(mc, t + 50, true, false);
+			use(mc, t + 50, BeastBoyAbilityManager.CONTEXT_MORPH); // ...and the hawk
+			keys(mc, t + 52, true, false);
 			use(mc, t + 84, BeastBoyAbilityManager.CONTEXT_MORPH);
 			keys(mc, t + 84, false, false);
 			t += 98;
