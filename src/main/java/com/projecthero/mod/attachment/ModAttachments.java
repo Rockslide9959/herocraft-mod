@@ -995,6 +995,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spin.data.SpinState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.3: Shazam -- the champion, the transformation, the Lightning bar, the family, the Wizard's judgement. */
+	public static final AttachmentType<com.projecthero.mod.shazam.data.ShazamState> SHAZAM_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("shazam_state"),
+					builder -> builder.persistent(com.projecthero.mod.shazam.data.ShazamState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.shazam.data.ShazamState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.shazam.data.ShazamState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.17.3: the Spin -- what the Spin is doing to a creature (spun, locked, aged, healing). Not saved; synced to all. */
 	public static final AttachmentType<com.projecthero.mod.spin.data.SpinMark> SPIN_MARK =
 			AttachmentRegistry.create(ProjectHeroMod.id("spin_mark"),

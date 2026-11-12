@@ -134,7 +134,8 @@
 		"SecondChanceSpawnMixin",
 		"GreenLanternMechSeatMixin",
 		"BeastBoyBodyMixin",
-		"BeastBoyRideMixin"
+		"BeastBoyRideMixin",
+		"ShazamCourageMixin"
 	],
 	"client": [],
 	"server": [],

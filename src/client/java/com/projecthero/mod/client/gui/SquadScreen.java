@@ -1112,6 +1112,7 @@ public final class SquadScreen extends Screen {
 				case "spin": return 0xFF4FB86A; // v0.17.3: steel-ball green
 				case "raven": return 0xFF7A3CC8; // v0.17.3: Azarath violet
 				case "beast_boy": return 0xFF58C83C; // v0.17.3: Sakutia green
+				case "shazam": return 0xFFC8141E; // v0.17.3: Shazam red
 				case "falcon": return 0xFFE8283C; // v0.17.1
 				case "ladybug": return 0xFFE0242C; // v0.16.6
 				case "cat_noir": return 0xFF7EE23A; // v0.16.6

@@ -125,6 +125,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// v0.17.3: Shazam -- while transformed (the champion or a Shazam Family member) the six keys are his lightning
+		if (com.projecthero.mod.shazam.ShazamAbilityManager.hasContext(player)) {
+			com.projecthero.mod.shazam.ShazamAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// Call Armour (Special-Mode key, unarmoured) always wins for a Tony Stark player who is NOT
 		// holding Mjolnir -- "I'm not in my suit and I pressed the suit key" is unambiguous, and it must
 		// work regardless of whether the player also has Thor's context or an experimental power, and
@@ -446,6 +452,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.starfire.Starfire.tick(player); // v0.17.3: the Starbolt bar, Joy/Fury, flight, the running moves
 		com.projecthero.mod.raven.Raven.tick(player); // v0.17.3: Raven -- Dark Energy, Composure, the leak, flight, the running moves
 		com.projecthero.mod.beastboy.BeastBoy.tick(player); // v0.17.3: Beast Boy -- stamina, the form, the fever and the ocelot's bite
+		com.projecthero.mod.shazam.Shazam.tick(player); // v0.17.3: Shazam -- passives, the Lightning bar, the moves, flight, family time
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

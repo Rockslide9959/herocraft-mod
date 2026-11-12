@@ -164,6 +164,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.starfire.StarfireClient.initialize(); // v0.17.3: Starfire -- HUD gauge, glow overlays, eye beams, bolts, fx
 		com.projecthero.mod.client.raven.RavenClient.initialize(); // v0.17.3: Raven -- HUD, aura, cloak, soul-self, debris, effects
 		com.projecthero.mod.client.beastboy.BeastBoyClient.initialize(); // v0.17.3: Beast Boy -- HUD, wheel, tint, senses
+		com.projecthero.mod.client.shazam.ShazamClient.initialize(); // v0.17.3: Shazam -- suit, cape, HUD, Wisdom, the Wizard
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -1398,6 +1399,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.kryptonian.network.KryptonianActionPayload(
 					com.projecthero.mod.kryptonian.network.KryptonianActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.17.3: Shazam -- double-tap Space in the air while transformed takes off / drops out of flight (server re-validates).
+		// Ahead of the other heroes: a Shazam Family member's own power steps aside while the borrowed lightning is on.
+		if (com.projecthero.mod.client.shazam.ShazamClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.shazam.ShazamClient.toggleFlight();
 			return;
 		}
 

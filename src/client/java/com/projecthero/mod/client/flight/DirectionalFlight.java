@@ -179,6 +179,11 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint
 					? com.projecthero.mod.raven.RavenConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.raven.RavenConfig.FLIGHT_CRUISE_BPS) / 20.0);
 		}
+		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting
+		if (com.projecthero.mod.shazam.Shazam.isFlying(player)) {
+			double bps = sprint ? com.projecthero.mod.shazam.ShazamConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.shazam.ShazamConfig.FLIGHT_CRUISE_BPS;
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held
 		// is the boost, 32 b/s along the look as the body burns away; just a head 25 b/s (UndeadFlight.bps)
 		if (com.projecthero.mod.undead.UndeadFlight.isFlying(player)) {

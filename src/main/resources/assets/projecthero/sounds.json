@@ -3992,5 +3992,20 @@
         "name": "projecthero:spin/spin_whistle"
       }
     ]
+  },
+  "shazam_word": {
+    "subtitle": "subtitles.projecthero.shazam_word",
+    "sounds": [
+      { "name": "minecraft:ambient/weather/thunder1", "volume": 0.6 },
+      { "name": "minecraft:ambient/weather/thunder2", "volume": 0.6 },
+      { "name": "minecraft:ambient/weather/thunder3", "volume": 0.6 }
+    ]
+  },
+  "shazam_crackle": {
+    "subtitle": "subtitles.projecthero.shazam_crackle",
+    "sounds": [
+      { "name": "minecraft:random/fizz", "volume": 0.4, "pitch": 1.6 },
+      { "name": "minecraft:random/fizz", "volume": 0.4, "pitch": 1.9 }
+    ]
   }
 }

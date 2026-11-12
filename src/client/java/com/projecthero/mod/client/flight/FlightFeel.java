@@ -59,6 +59,10 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		if (com.projecthero.mod.starfire.Starfire.isFlying(player)) {
 			return KRYPTONIAN; // v0.17.3: Starfire too
 		}
+
+		if (com.projecthero.mod.shazam.Shazam.isFlying(player)) {
+			return KRYPTONIAN; // v0.17.3: Shazam flies like the Kryptonian
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return GREEN_LANTERN;
 		}

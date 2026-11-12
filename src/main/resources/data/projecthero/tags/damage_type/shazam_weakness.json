@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:magic",
+    "minecraft:indirect_magic",
+    { "id": "projecthero:fate_magic", "required": false },
+    { "id": "projecthero:raven_magic", "required": false },
+    { "id": "projecthero:doctor_fate", "required": false },
+    { "id": "projecthero:raven", "required": false }
+  ]
+}
