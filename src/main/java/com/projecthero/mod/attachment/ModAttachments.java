@@ -1002,6 +1002,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spin.data.SpinMark.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.3: Starfire -- the power, the Starbolt bar, the Joy/Fury needle, flight, beams, holds, timers. */
+	public static final AttachmentType<com.projecthero.mod.starfire.data.StarfireState> STARFIRE_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("starfire_state"),
+					builder -> builder.persistent(com.projecthero.mod.starfire.data.StarfireState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.starfire.data.StarfireState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.starfire.data.StarfireState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),
