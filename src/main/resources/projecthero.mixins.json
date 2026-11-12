@@ -132,7 +132,9 @@
 		"ErasureExposedMixin",
 		"OverhaulExplosionMixin",
 		"SecondChanceSpawnMixin",
-		"GreenLanternMechSeatMixin"
+		"GreenLanternMechSeatMixin",
+		"BeastBoyBodyMixin",
+		"BeastBoyRideMixin"
 	],
 	"client": [],
 	"server": [],

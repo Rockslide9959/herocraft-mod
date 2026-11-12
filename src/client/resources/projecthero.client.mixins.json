@@ -262,7 +262,12 @@
 		"ErasureGogglesGlowMixin",
 		"GreenLanternMechCameraMixin",
 		"GreenLanternMechHandsMixin",
-		"GreenLanternMechGuiMixin"
+		"GreenLanternMechGuiMixin",
+		"BeastBoyPlayerRendererMixin",
+		"BeastBoyHandsMixin",
+		"BeastBoyOcelotMixin",
+		"BeastBoyPolarBearAccessor",
+		"BeastBoyIronGolemAccessor"
 	],
 	"client": [],
 	"server": [],

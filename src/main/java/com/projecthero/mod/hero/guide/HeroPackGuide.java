@@ -167,6 +167,24 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SPIN);
 	}
 
+	/**
+	 * v0.17.3 Beast Boy: the chapter's control rows {key, ability id}; each shows {@code projecthero.beast_boy.ability.<id>} and its
+	 * {@code .desc}.
+	 */
+	public static final String[][] BEAST_BOY_CONTROLS = { { "R", "ram" }, { "Shift+R", "pounce" }, { "G", "gorilla_smash" },
+			{ "Shift+G", "snake_strike" }, { "Z", "trex_roar_quick" }, { "Shift+Z", "the_beast" }, { "X", "context_morph" },
+			{ "Shift+X", "fly_morph" }, { "C", "elephant_stomp_quick" }, { "Shift+C", "octopus_grab" }, { "Hold V", "animal_wheel" },
+			{ "Shift+V", "animal_senses" } };
+
+	/** v0.17.3 Beast Boy: the wheel's forms and the keys they bring, one row each ({@code projecthero.guide.beast_boy.form.<id>}). */
+	public static final String[] BEAST_BOY_FORMS = { "trex", "gorilla", "rhino", "elephant", "wolf", "bear", "pterodactyl", "hawk", "bat",
+			"shark", "octopus", "whale", "mouse", "beast" };
+
+	/** Beast Boy (v0.17.3). */
+	public static Chapter beastBoyChapter() {
+		return chapters().get(CH_BEAST_BOY);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -603,7 +621,8 @@ public final class HeroPackGuide {
 	private static final int CH_UNDEAD = CH_RYUKO + 1; // 67, v0.17.3
 	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
 	private static final int CH_SPIN = CH_SAIYAN + 1; // 69, v0.17.3: the Spin (the Spin)
-	private static final int CHAPTER_POWER_BASE = CH_SPIN + 1; // 70
+	private static final int CH_BEAST_BOY = CH_SPIN + 1; // 70, v0.17.3: Beast Boy
+	private static final int CHAPTER_POWER_BASE = CH_BEAST_BOY + 1; // 71
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1832,6 +1851,33 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.spin.commands.body");
 		}));
 
+		// v0.17.3: Beast Boy (CH_BEAST_BOY)
+		out.add(chapter("projecthero.guide.beast_boy", lines -> {
+			lines.add(Component.translatable("projecthero.guide.beast_boy.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.beast_boy.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "forms", "health", "stamina", "chain", "instincts"}) {
+				head(lines, "projecthero.guide.beast_boy." + section);
+				para(lines, "projecthero.guide.beast_boy." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.beast_boy.controls");
+			for (String[] row : BEAST_BOY_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.beast_boy.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.beast_boy.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.beast_boy.wheel");
+			for (String form : BEAST_BOY_FORMS) {
+				lines.add(Component.literal(" ").append(Component.translatable("projecthero.beast_boy.form." + form).withStyle(ChatFormatting.GREEN)));
+				para(lines, "projecthero.guide.beast_boy.form." + form);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.beast_boy.commands");
+			para(lines, "projecthero.guide.beast_boy.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -1989,6 +2035,7 @@ public final class HeroPackGuide {
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SPIN, "zeppeli_steel_balls"); // v0.17.3
+		icon(CH_BEAST_BOY, "sakutia_serum"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2051,6 +2098,7 @@ public final class HeroPackGuide {
 		link(dc, "projecthero.guide.cyborg", CH_CYBORG);
 		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
 		link(dc, "projecthero.guide.speed_force_speedster", CH_SPEED_FORCE); // v0.17.1
+		link(dc, "projecthero.guide.beast_boy", CH_BEAST_BOY); // v0.17.3
 		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

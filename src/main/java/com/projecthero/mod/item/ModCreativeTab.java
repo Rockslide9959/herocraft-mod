@@ -123,6 +123,7 @@ public final class ModCreativeTab {
 				com.projecthero.mod.saiyan.item.SaiyanItems.addToCreativeTab(output);
 				// v0.17.3 the Spin: the Zeppeli Steel Balls
 				com.projecthero.mod.spin.SpinItems.addToCreativeTab(output);
+				com.projecthero.mod.beastboy.BeastBoyItems.addToCreativeTab(output); // v0.17.3 Beast Boy: the Sakutia Serum
 				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit
 				com.projecthero.mod.falcon.item.FalconItems.addToCreativeTab(output);
 				// v0.17.1 the Omnitrix: the watch, the Meteor Scanner, the Plumber Alloy, the Containment Core and Pod

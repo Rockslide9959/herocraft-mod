@@ -171,6 +171,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spin.SpinSounds.initialize(); // v0.17.3 the Spin
 		com.projecthero.mod.spin.SpinItems.initialize();
 		com.projecthero.mod.spin.SpinMod.initialize(); // v0.17.3: the Spin (the Spin) -- the ball, loot, damage, payload
+		com.projecthero.mod.beastboy.BeastBoyMod.initialize(); // v0.17.3: Beast Boy -- serum, green ocelot, form health, payloads
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)
 		com.projecthero.mod.saiyan.kit.SaiyanKit.initialize(); // v0.17.3 Saiyan revamp: the move kit (packet + its tick)
