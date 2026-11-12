@@ -62,6 +62,7 @@ public class RavenGameTests implements FabricGameTest {
 		p.setGameMode(GameType.SURVIVAL);
 		Vec3 at = helper.absoluteVec(new Vec3(x, 2.0, z));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f);
+		p.setYHeadRot(0f); // a living entity looks along its head, which a mock player never turns by itself
 		try { // a fresh mock player is spawn-protected
 			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
 			f.setAccessible(true);
@@ -233,13 +234,18 @@ public class RavenGameTests implements FabricGameTest {
 		Zombie first = zombie(helper, 1.5, 3.5, 100);
 		Zombie second = zombie(helper, 1.5, 5.5, 100);
 		Zombie third = zombie(helper, 1.5, 6.6, 100);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 8f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 8f); p.setYHeadRot(0f); // (moves aim along the head yaw)
 		float b1 = first.getHealth(), b2 = second.getHealth(), b3 = third.getHealth();
 		helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.DARK_BOLT), "R fires");
 		helper.assertTrue(Math.abs(Raven.energy(p) - (100f - RavenConfig.BOLT_COST)) < 0.01f, "8 Dark Energy");
+		DarkBoltEntity bolt = helper.getLevel().getEntitiesOfClass(DarkBoltEntity.class, p.getBoundingBox().inflate(4)).get(0);
+		StringBuilder trace = new StringBuilder(); // (what the bolt did, for a failure message)
+		helper.onEachTick(() -> trace.append(String.format(" [%.2f %.2f %.2f%s h%d s%.1f]", bolt.getX() - p.getX(), bolt.getY() - p.getY(), bolt.getZ() - p.getZ(),
+				bolt.isRemoved() ? " gone" : "", bolt.hits, second.getHealth())));
 		helper.runAfterDelay(12, () -> {
 			helper.assertTrue(near(ratio(b1, first, RavenConfig.BOLT_DAMAGE)), "8 to the first, lost " + (b1 - first.getHealth()));
-			helper.assertTrue(near(ratio(b2, second, RavenConfig.BOLT_DAMAGE)), "it passed through into the second, lost " + (b2 - second.getHealth()));
+			helper.assertTrue(near(ratio(b2, second, RavenConfig.BOLT_DAMAGE)), "it passed through into the second, lost " + (b2 - second.getHealth()) + "; second at " + second.position().subtract(p.position())
+					+ ", first at " + first.position().subtract(p.position()) + ", near it: " + helper.getLevel().getEntities(second, second.getBoundingBox().inflate(2.5)).stream().map(e -> e.getType().toShortString()).toList() + trace);
 			helper.assertTrue(third.getHealth() == b3, "and stopped there");
 			helper.assertTrue(helper.getLevel().getEntitiesOfClass(DarkBoltEntity.class, p.getBoundingBox().inflate(30)).isEmpty(), "the bolt is gone");
 			helper.succeed();
@@ -260,7 +266,7 @@ public class RavenGameTests implements FabricGameTest {
 		helper.runAfterDelay(5, () -> e5[0] = Raven.energy(p));
 		helper.runAfterDelay(15, () -> {
 			helper.assertTrue(Raven.energy(p) < e5[0] - 1.5f, "the hold drains 4 a second (" + e5[0] + " -> " + Raven.energy(p) + ")");
-			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 60f); // throw it down at the floor
+			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 60f); p.setYHeadRot(0f); // (moves aim along the head yaw) // throw it down at the floor
 			RavenMoves.release(p, RavenAbilityManager.TELEKINESIS);
 			helper.assertTrue(RavenMoves.held(p) == null && Raven.state(p).tkTarget == -1, "released");
 		});
@@ -337,14 +343,16 @@ public class RavenGameTests implements FabricGameTest {
 		ServerPlayer p = raven(helper, 1.5, 0.5);
 		Zombie a = zombie(helper, 1.5, 3.5, 100);
 		Zombie b = zombie(helper, 1.5, 6.0, 100);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); p.setYHeadRot(0f); // (moves aim along the head yaw)
 		float ba = a.getHealth(), bb = b.getHealth();
 		// it flies 25 blocks: keep the chunks along its path ticking
 		java.util.Set<Long> forced = new java.util.HashSet<>();
 		for (int d = 0; d <= 32; d += 4) {
-			int cx = ((int) Math.floor(p.getX())) >> 4, cz = ((int) Math.floor(p.getZ() + d)) >> 4;
-			if (forced.add(net.minecraft.world.level.ChunkPos.asLong(cx, cz))) {
-				helper.getLevel().setChunkForced(cx, cz, true);
+			for (int dx = -3; dx <= 3; dx += 3) { // (its path can sit just across a chunk line in x)
+				int cx = ((int) Math.floor(p.getX() + dx)) >> 4, cz = ((int) Math.floor(p.getZ() + d)) >> 4;
+				if (forced.add(net.minecraft.world.level.ChunkPos.asLong(cx, cz))) {
+					helper.getLevel().setChunkForced(cx, cz, true);
+				}
 			}
 		}
 		// cast only after the forced chunks have loaded (on a busy machine they load a few ticks late, and the raven froze there)
@@ -411,14 +419,24 @@ public class RavenGameTests implements FabricGameTest {
 		ticker(helper, p);
 		helper.assertTrue(!RavenMoves.use(p, RavenAbilityManager.TRIGONS_WRATH), "refused while calm");
 		Raven.setComposure(p, 5f);
-		float before = z.getHealth();
 		helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.TRIGONS_WRATH), "Shift+Z in Rage");
 		helper.assertTrue(Raven.inWrath(p) && Math.abs(p.getScale() - RavenConfig.WRATH_SCALE) < 0.01f, "a giant: 3x, scale " + p.getScale());
 		helper.assertTrue(Raven.cooldownRemaining(p, RavenAbilityManager.TRIGONS_WRATH) == RavenConfig.WRATH_COOLDOWN, "3 minute cooldown");
+		StringBuilder hp = new StringBuilder(); // (each hit it takes, for a failure message)
+		float[] last = { z.getHealth() };
+		helper.onEachTick(() -> {
+			if (z.getHealth() != last[0]) {
+				hp.append(String.format(" [t%d -%.1f %s y%.1f]", helper.getTick(), last[0] - z.getHealth(),
+						z.getLastDamageSource() == null ? "?" : z.getLastDamageSource().getMsgId(), z.getY() - p.getY()));
+				last[0] = z.getHealth();
+			}
+		});
+		float[] preSlam = { 0f };
+		helper.runAfterDelay(RavenConfig.WRATH_SLAMS[0], () -> preSlam[0] = z.getHealth()); // (only the slam: anything else on the field is not ours)
 		helper.runAfterDelay(RavenConfig.WRATH_SLAMS[0] + RavenConfig.WRATH_LIFT_TICKS + 12, () -> {
-			float lost = before - z.getHealth();
+			float lost = preSlam[0] - z.getHealth();
 			helper.assertTrue(lost >= RavenConfig.WRATH_DAMAGE * 0.85f && lost <= RavenConfig.WRATH_DAMAGE * 1.15f + 2f,
-					"the first grab-and-slam: 30, lost " + lost);
+					"the first grab-and-slam: 30, lost " + lost + hp);
 		});
 		helper.runAfterDelay(RavenConfig.WRATH_TICKS + 3, () -> {
 			helper.assertTrue(!Raven.inWrath(p) && Math.abs(p.getScale() - 1.0) < 0.01f, "back to size");
@@ -432,7 +450,7 @@ public class RavenGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 30)
 	public void shadowDashStreaksAndCantBeHurt(GameTestHelper helper) {
 		ServerPlayer p = raven(helper, 1.5, 0.5);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); // along the room
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); p.setYHeadRot(0f); // (moves aim along the head yaw) // along the room
 		ticker(helper, p);
 		Vec3 from = p.position();
 		helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.SHADOW_DASH), "X");
@@ -535,7 +553,7 @@ public class RavenGameTests implements FabricGameTest {
 		ServerPlayer p = raven(helper, 1.5, 1.5);
 		p.setHealth(10f);
 		p.addEffect(new MobEffectInstance(MobEffects.POISON, 200, 0));
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 180f, 0f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 180f, 0f); p.setYHeadRot(180f); // (moves aim along the head yaw)
 		helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.EMPATH_HEAL), "V with no one aimed at");
 		helper.assertTrue(Math.abs(p.getHealth() - 14f) < 0.01f && !p.hasEffect(MobEffects.POISON), "heals 4 and cures, health " + p.getHealth());
 		helper.assertTrue(Raven.cooldownRemaining(p, RavenAbilityManager.EMPATH_HEAL) == RavenConfig.HEAL_COOLDOWN, "10 s cooldown");
@@ -547,7 +565,7 @@ public class RavenGameTests implements FabricGameTest {
 		var squad = squads.create("RavenTestSquad" + helper.getLevel().getGameTime(), p.getUUID());
 		squads.addMember(squad, mate.getUUID());
 		try {
-			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
+			p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f); p.setYHeadRot(0f); // (moves aim along the head yaw)
 			look(p, mate);
 			helper.assertTrue(RavenMoves.healTarget(p) == mate, "aimed at the squadmate");
 			helper.assertTrue(RavenMoves.use(p, RavenAbilityManager.EMPATH_HEAL), "V on them");

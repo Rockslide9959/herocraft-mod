@@ -155,6 +155,11 @@ public final class Raven {
 		return hasPower(player) && (composure(player) < RavenConfig.RAGE_BELOW || inWrath(player));
 	}
 
+	/** Alias of {@link #rage} (Doctor Fate's DoctorFateChaos looks this name up by reflection: Raven at Rage counts as Chaos). */
+	public static boolean inRage(Player player) {
+		return rage(player);
+	}
+
 	/** The white casting eyes. Client-safe. */
 	public static boolean casting(Player player) {
 		RavenState s = peek(player);

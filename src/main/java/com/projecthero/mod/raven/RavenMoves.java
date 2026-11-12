@@ -885,7 +885,7 @@ public final class RavenMoves {
 				level.sendParticles(Raven.dust(l.wrath ? Raven.RED : Raven.VOID, 1.8f), c.x, c.y + 0.2, c.z, 20, 0.6, 0.1, 0.6, 0.0);
 				level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.2, c.z, 1, 0, 0, 0, 0);
 				level.playSound(null, c.x, c.y, c.z, l.wrath ? RavenSounds.WRATH_SLAM : RavenSounds.SLAM, SoundSource.PLAYERS, 0.3f, 0.8f);
-				if (l.wrath && l.e instanceof ServerPlayer victim) {
+				if (l.wrath && l.e instanceof ServerPlayer victim && !com.projecthero.mod.shazam.Shazam.fearImmune(victim)) { // the fear (Shazam's courage shrugs it off)
 					victim.addEffect(new MobEffectInstance(MobEffects.DARKNESS, RavenConfig.WRATH_FEAR_TICKS, 0), p);
 					victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, RavenConfig.WRATH_FEAR_TICKS, 1), p);
 					victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, RavenConfig.WRATH_FEAR_TICKS, 1), p);
@@ -901,7 +901,7 @@ public final class RavenMoves {
 
 	/** The top of the ground under {@code e} (its feet land there), at most 24 blocks down. */
 	private static double groundBelow(ServerLevel level, Entity e) {
-		Vec3 from = e.position();
+		Vec3 from = e.position().add(0, 0.5, 0); // (from the feet a ray can slip past the block it stands on and find the one below)
 		BlockHitResult hit = level.clip(new ClipContext(from, from.add(0, -24, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, e));
 		return hit.getType() == HitResult.Type.MISS ? from.y : hit.getLocation().y;
 	}
