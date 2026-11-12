@@ -55,6 +55,10 @@ public final class SpinConfig {
 	public static final int BALL_RESPAWN_TICKS = 30 * 20;
 	/** R with an empty main hand recalls a dropped ball lying within this range (further off, or in a chest, it is remade). */
 	public static final double RECALL_RANGE = 96.0;
+	/** A recalled ball starts its flight home at most this far from him (so it is where entities tick). */
+	public static final double RECALL_FLIGHT_MAX = 24.0;
+	/** How far round him a thrown ball is looked for when checking for a stuck or lost one. */
+	public static final double STUCK_BALL_SEARCH = 96.0;
 
 	// ---------------------------------------------------------------- curving after the look (R / Shift+R, outbound only)
 	/** With no creature to home on, the ball bends toward the crosshair line at most this much a tick. */

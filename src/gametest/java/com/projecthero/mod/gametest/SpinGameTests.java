@@ -307,6 +307,16 @@ public class SpinGameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aBallMarkedOutWithNoEntityIsGivenBack(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		edit(p, s -> s.thrown = 1); // "out", but its entity is gone (or stuck where nothing ticks)
+		SpinBalls.settleStuckBalls(p);
+		helper.assertTrue(Spin.state(p).thrown == 0 && SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0, "the ball is back in his hand");
+		helper.succeed();
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
 	public void destroyedBallComesBack(GameTestHelper helper) {
 		ServerPlayer p = spin(helper);
@@ -332,11 +342,60 @@ public class SpinGameTests implements FabricGameTest {
 	// These need more room than the 8x8 barrier box, so they run high above it (open sky, nothing to hit but the targets),
 	// with the targets floating (no AI, no gravity) and fire-proof (daylight would add burn damage).
 
-	private static final double SKY = 80.0;
+	/**
+	 * Each sky test flies at its own height (set by {@link #skySpin}, read straight after it in the same setup): in a batch their
+	 * structures sit side by side, and a ball flying 14 blocks would otherwise reach a neighbour's zombie or wolf first.
+	 */
+	private static double sky = 80.0;
 
-	private static ServerPlayer skySpin(GameTestHelper helper) {
+	/**
+	 * The gametest server only ticks entities in the chunks under each test's structure, so a ball or target more than a few blocks
+	 * outside the 8x8 box may sit in a chunk that never ticks (it depends on where the batch lays the test out). Force-load the
+	 * chunks round the test. They are not released: a neighbouring test may rely on one of them, and the test world is thrown away.
+	 */
+	private static void forceSky(GameTestHelper helper) {
+		Vec3 c = helper.absoluteVec(new Vec3(1.5, sky, 1.5));
+		int cx = ((int) Math.floor(c.x)) >> 4, cz = ((int) Math.floor(c.z)) >> 4;
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				helper.getLevel().setChunkForced(cx + dx, cz + dz, true);
+			}
+		}
+	}
+
+	/**
+	 * Runs {@code steps} (tick offset -> action) once every chunk round the sky test ticks entities (forcing them may have to load
+	 * them first, which takes a while under a full batch: a ball flying into a chunk that isn't ticking yet just stops). Offsets
+	 * count from that moment. One onEachTick, registered at the start.
+	 */
+	private static void skySteps(GameTestHelper helper, java.util.Map<Integer, Runnable> steps) {
+		Vec3 c = helper.absoluteVec(new Vec3(1.5, sky, 1.5));
+		int[] tick = { 0 }, start = { -1 };
+		helper.onEachTick(() -> {
+			tick[0]++;
+			if (start[0] < 0) {
+				for (int dx = -32; dx <= 32; dx += 16) {
+					for (int dz = -32; dz <= 32; dz += 16) {
+						if (!helper.getLevel().isPositionEntityTicking(net.minecraft.core.BlockPos.containing(c.x + dx, c.y, c.z + dz))) {
+							helper.assertTrue(tick[0] < 150, "the chunks round the test never started ticking");
+							return;
+						}
+					}
+				}
+				start[0] = tick[0];
+			}
+			Runnable r = steps.get(tick[0] - start[0]);
+			if (r != null) {
+				r.run();
+			}
+		});
+	}
+
+	private static ServerPlayer skySpin(GameTestHelper helper, double height) {
+		sky = height;
+		forceSky(helper);
 		ServerPlayer p = mock(helper, 1.5, 1.5);
-		Vec3 at = helper.absoluteVec(new Vec3(1.5, SKY, 1.5));
+		Vec3 at = helper.absoluteVec(new Vec3(1.5, sky, 1.5));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing +z, level
 		p.setNoGravity(true);
 		helper.assertTrue(Spin.grant(p), "the grant works");
@@ -355,7 +414,7 @@ public class SpinGameTests implements FabricGameTest {
 	/** {@code dist} blocks from the player's spot, {@code deg} degrees to his left of straight ahead (+z). */
 	private static Vec3 skyAt(double dist, double deg) {
 		double r = Math.toRadians(deg);
-		return new Vec3(1.5 + dist * Math.sin(r), SKY, 1.5 + dist * Math.cos(r));
+		return new Vec3(1.5 + dist * Math.sin(r), sky, 1.5 + dist * Math.cos(r));
 	}
 
 	private static SteelBallEntity ballOf(GameTestHelper helper, ServerPlayer p) {
@@ -363,36 +422,49 @@ public class SpinGameTests implements FabricGameTest {
 		return balls.isEmpty() ? null : balls.get(0);
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 250)
 	public void ballCurvesOntoAMobHeTurnsToFace(GameTestHelper helper) {
-		ServerPlayer p = skySpin(helper);
+		ServerPlayer p = skySpin(helper, 80.0);
 		Zombie z = floating(zombie(helper, skyAt(14, 30).x, skyAt(14, 30).z, 100));
 		z.moveTo(helper.absoluteVec(skyAt(14, 30)));
 		float before = z.getHealth();
-		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead, 7 blocks wide of the zombie");
 		boolean[] locked = { false };
+		double[] closest = { 999 };
+		int[] ticksSeen = { 0 };
+		StringBuilder trace = new StringBuilder();
 		helper.onEachTick(() -> {
 			SteelBallEntity b = ballOf(helper, p);
 			if (b != null && b.homing() == z) {
 				locked[0] = true;
 			}
+			if (b != null) {
+				ticksSeen[0]++;
+				closest[0] = Math.min(closest[0], b.position().distanceTo(z.getBoundingBox().getCenter()));
+				if (trace.length() < 400) {
+					Vec3 r = b.position().subtract(p.position());
+					trace.append(String.format("[%d %.1f,%.1f,%.1f%s]", b.tickCount, r.x, r.y, r.z, b.returning() ? "R" : ""));
+				}
+			}
 		});
-		helper.runAfterDelay(2, () -> look(p, z)); // the flick: 30 degrees onto the zombie
-		helper.runAfterDelay(30, () -> {
+		skySteps(helper, java.util.Map.of(
+				0, () -> helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead, 7 blocks wide of the zombie"),
+				2, () -> look(p, z), // the flick: 30 degrees onto the zombie
+				30, () -> {
 			helper.assertTrue(locked[0], "the ball homed onto the zombie under the crosshair");
-			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "it curved in and hit: lost " + (before - z.getHealth()));
+			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "it curved in and hit: lost " + (before - z.getHealth())
+					+ " (zombie removed " + z.isRemoved() + " alive " + z.isAlive() + " hurtTime " + z.invulnerableTime + "; ball seen " + ticksSeen[0]
+					+ " ticks, closest " + String.format("%.2f", closest[0]) + "; zombie at " + z.position().subtract(p.position()) + " " + trace + ")");
 			helper.succeed();
-		});
+		}));
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 250)
 	public void ballWontCurveOntoAMobBehindIt(GameTestHelper helper) {
-		ServerPlayer p = skySpin(helper);
+		ServerPlayer p = skySpin(helper, 110.0);
 		// 60 degrees off and close to him: once the ball is 18 blocks out, it would need a turn of over 160 degrees
 		Zombie z = floating(zombie(helper, 1.5, 1.5, 100));
 		z.moveTo(helper.absoluteVec(skyAt(5, 60)));
 		float before = z.getHealth();
-		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead");
 		boolean[] locked = { false };
 		float[] turned = { 0f };
 		helper.onEachTick(() -> {
@@ -402,18 +474,20 @@ public class SpinGameTests implements FabricGameTest {
 				turned[0] = Math.max(turned[0], b.turned());
 			}
 		});
-		helper.runAfterDelay(15, () -> look(p, z));
-		helper.runAfterDelay(45, () -> {
+		skySteps(helper, java.util.Map.of(
+				0, () -> helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws straight ahead"),
+				15, () -> look(p, z),
+				45, () -> {
 			helper.assertTrue(!locked[0], "never homed: the curve it needs is far too sharp");
 			helper.assertTrue(turned[0] <= SpinConfig.CURVE_MAX_TOTAL_DEG + 0.5f, "and it never turned more than 120, turned " + turned[0]);
 			helper.assertTrue(z.getHealth() == before, "missed, lost " + (before - z.getHealth()));
 			helper.succeed();
-		});
+		}));
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 250)
 	public void ballNeverHomesOnSquadmatesOrTheirPets(GameTestHelper helper) {
-		ServerPlayer p = skySpin(helper);
+		ServerPlayer p = skySpin(helper, 140.0);
 		ServerPlayer mate = mock(helper, 1.5, 1.5);
 		mate.setNoGravity(true);
 		mate.moveTo(helper.absoluteVec(skyAt(10, 25)));
@@ -424,7 +498,6 @@ public class SpinGameTests implements FabricGameTest {
 		squads.addMember(squad, mate.getUUID());
 		wolf.tame(mate);
 		float m0 = mate.getHealth(), w0 = wolf.getHealth();
-		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws");
 		boolean[] bad = { false };
 		helper.onEachTick(() -> {
 			SteelBallEntity b = ballOf(helper, p);
@@ -432,9 +505,11 @@ public class SpinGameTests implements FabricGameTest {
 				bad[0] = true;
 			}
 		});
-		helper.runAfterDelay(2, () -> look(p, mate));
-		helper.runAfterDelay(14, () -> look(p, wolf));
-		helper.runAfterDelay(40, () -> {
+		skySteps(helper, java.util.Map.of(
+				0, () -> helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws"),
+				2, () -> look(p, mate),
+				14, () -> look(p, wolf),
+				40, () -> {
 			try {
 				helper.assertTrue(!bad[0], "the ball never homed onto the squadmate or their wolf");
 				helper.assertTrue(mate.getHealth() == m0 && wolf.getHealth() == w0, "both untouched");
@@ -442,7 +517,7 @@ public class SpinGameTests implements FabricGameTest {
 				squads.disband(squad);
 			}
 			helper.succeed();
-		});
+		}));
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
