@@ -1,0 +1,352 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.shazam.Shazam;
+import com.projecthero.mod.shazam.ShazamFlight;
+import com.projecthero.mod.shazam.data.ShazamState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): the Shazam suit from the user's skin on different wearers. The local player is a wide champion
+ * (Steve); fakes: a slim champion (Alex), a wide family member (Zuri), a slim family member (Noor). Stills from four sides, a
+ * walking + flying film. Enabled by run/shazamskin.flag. Frames: run/screenshots/szs_*.
+ */
+public final class ShazamSkinHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static boolean walk;
+
+	/** Skins by player UUID (read by ShazamSkinHarnessSkinMixin). */
+	public static final Map<UUID, PlayerSkin> SKINS = new HashMap<>();
+	/** Camera: orbit round {@link #focus} (or the local player when null). */
+	public static volatile Float orbitYaw;
+	public static volatile Vec3 focus;
+	public static volatile float orbitHeight = 0.2f;
+	public static volatile float orbitRadius = 2.6f;
+	public static volatile float lookHeight = 1.0f;
+
+	private ShazamSkinHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("shazamskin.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ShazamSkinHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "shazamskin-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	/** A UUID whose default skin is {@code path} (e.g. "slim/alex"). */
+	private static UUID uuidFor(String path) {
+		for (long i = 1; i < 20000; i++) {
+			UUID u = new UUID(0x5A5A0000L, i);
+			if (DefaultPlayerSkin.get(u).texture().getPath().contains(path)) {
+				return u;
+			}
+		}
+		throw new IllegalStateException("no uuid for " + path);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<MinecraftServer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				try {
+					fn.accept(srv);
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error: " + e);
+					e.printStackTrace();
+				}
+			});
+		}
+	}
+
+	private static ServerPlayer me(MinecraftServer srv) {
+		return srv.getPlayerList().getPlayer(Minecraft.getInstance().player.getUUID());
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ShazamSkinHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.fovEffectScale().set(0.0);
+			SKINS.put(mc.player.getUUID(), DefaultPlayerSkin.get(uuidFor("wide/steve")));
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (walk) {
+				mc.options.keyUp.setDown(true);
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("szs_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SZS_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> Screenshot.grab(Minecraft.getInstance().gameDirectory, "szs_still_" + name + ".png",
+				Minecraft.getInstance().getMainRenderTarget(), c -> {
+				}));
+	}
+
+	private static void cam(int t, Vec3 at, Float yaw, float height, float radius, float look) {
+		at(t, () -> {
+			focus = at;
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			lookHeight = look;
+		});
+	}
+
+	private static ServerPlayer fake(ServerLevel level, UUID id, String name, Vec3 at) {
+		GameProfile profile = new GameProfile(id, name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.CREATIVE); // no lightning / fall damage to worry about
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		return f;
+	}
+
+	private static void makeFamily(ServerPlayer champion, ServerPlayer mate) throws Exception {
+		ShazamState mn = Shazam.state(mate).copy();
+		mn.familyUntil = mate.level().getGameTime() + 20 * 600;
+		mn.familyChampion = champion.getUUID().toString();
+		var save = Shazam.class.getDeclaredMethod("save", ServerPlayer.class, ShazamState.class);
+		save.setAccessible(true);
+		save.invoke(null, mate, mn);
+		Shazam.reconcile(mate);
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw) {
+		p.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, 0f);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.yBodyRotO = yaw;
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static final double SPACING = 8.0;
+
+	private static void script(Minecraft mc) {
+		UUID alex = uuidFor("slim/alex"), zuri = uuidFor("wide/zuri"), noor = uuidFor("slim/noor");
+		ServerPlayer[] fakes = new ServerPlayer[3];
+		at(5, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			ServerLevel level = p.serverLevel();
+			level.setDayTime(6000L);
+			level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, srv);
+			p.setGameMode(GameType.CREATIVE);
+			origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			Shazam.grant(p);
+			fakes[0] = fake(level, alex, "Alex", origin.add(30, 0, 0));
+			fakes[1] = fake(level, zuri, "Zuri", origin.add(-30, 0, 0));
+			fakes[2] = fake(level, noor, "Noor", origin.add(0, 0, 30));
+			boolean granted = Shazam.grant(fakes[0]);
+			System.out.println("[HARNESS] slim champion granted=" + granted);
+		}));
+		at(10, () -> server(mc, srv -> {
+			try {
+				ServerPlayer p = me(srv);
+				Shazam.speak(p);
+				makeFamily(p, fakes[1]);
+				makeFamily(p, fakes[2]);
+				for (ServerPlayer f : fakes) {
+					System.out.println("[HARNESS] speak " + f.getGameProfile().getName() + " -> " + Shazam.speak(f));
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}));
+		// line up facing south (+z, toward the camera at yaw 0), clear of each other
+		at(70, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			place(p, origin, 0f);
+			for (int i = 0; i < 3; i++) {
+				place(fakes[i], origin.add(SPACING * (i + 1), 0, 0), 0f);
+			}
+			p.heal(100f);
+		}));
+		int t = 90;
+		String[] who = { "steve_wide_champion", "alex_slim_champion", "zuri_wide_family", "noor_slim_family" };
+		String[] sides = { "front", "right", "back", "left" };
+		float[] yaws = { 0f, 270f, 180f, 90f };
+		for (int i = 0; i < 4; i++) {
+			for (int s = 0; s < 4; s++) {
+				final int fi = i;
+				cam(t, null, yaws[s], 0.3f, 2.4f, 1.0f);
+				at(t, () -> {
+					focus = origin.add(SPACING * fi, 0, 0);
+				});
+				if (i > 0) { // keep the fake facing south
+					at(t + 1, () -> server(mc, srv -> place(fakes[fi - 1], origin.add(SPACING * fi, 0, 0), 0f)));
+				}
+				shot(t + 6, who[i] + "_" + sides[s]);
+				t += 8;
+			}
+		}
+		// group shot: side by side
+		at(t, () -> server(mc, srv -> {
+			place(me(srv), origin, 0f);
+			for (int i = 0; i < 3; i++) {
+				place(fakes[i], origin.add(1.6 * (i + 1), 0, 0), 0f);
+			}
+		}));
+		at(t, () -> {
+			focus = origin.add(1.6 * 1.5, 0, 0);
+			orbitYaw = 15f;
+			orbitHeight = 0.8f;
+			orbitRadius = 6.0f;
+			lookHeight = 1.0f;
+		});
+		shot(t + 6, "group_front");
+		at(t + 8, () -> orbitYaw = 200f);
+		shot(t + 14, "group_back");
+		t += 20;
+		// the films: the local player walks, then flies (the camera follows him)
+		at(t, () -> server(mc, srv -> {
+			for (ServerPlayer f : fakes) {
+				place(f, origin.add(0, 0, -40), 0f);
+			}
+			ServerPlayer p = me(srv);
+			p.setGameMode(GameType.SURVIVAL);
+			place(p, origin, 0f);
+		}));
+		at(t + 2, () -> {
+			focus = null;
+			orbitYaw = 120f;
+			orbitHeight = 0.4f;
+			orbitRadius = 2.8f;
+			lookHeight = 1.0f;
+			walk = true;
+		});
+		record(t + 4, "walk", 60);
+		at(t + 66, () -> {
+			walk = false;
+			mc.options.keyUp.setDown(false);
+		});
+		t += 70;
+		at(t, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			place(p, origin.add(0, 4, 0), 0f);
+			ShazamFlight.toggle(p);
+		}));
+		at(t + 4, () -> {
+			orbitYaw = 135f;
+			orbitHeight = 0.5f;
+			orbitRadius = 2.8f;
+		});
+		at(t + 24, () -> walk = true); // hover first, then fly forward (no sprint, so the camera keeps up)
+		record(t + 6, "fly", 72);
+		at(t + 80, () -> {
+			walk = false;
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(t + 90, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

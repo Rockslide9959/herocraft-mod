@@ -20,10 +20,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * v0.17.3 Shazam: the suit, drawn over the wearer's own skin while transformed (every viewer: the state is synced). Red, the gold
- * lightning bolt on the chest, the gold sash, cuffs and boots; a Shazam Family member's has gold trim. The head is left alone (his
- * own face). The suit's model sits just outside the skin, and its outer layer outside the wearer's jacket / sleeves / trousers, so
- * nothing of the skin's second layer pokes through. Wide and slim arms follow the wearer's skin. The short cape is
+ * v0.17.3 Shazam: the suit, drawn over the wearer's own skin while transformed (every viewer: the state is synced). The textures are
+ * the user's chosen skin ("Shazam (Justice League)" by outofspace2, PlanetMinecraft; licence to check before a public release) with
+ * its face, hair, neck, hands and painted cape made transparent, so the wearer's own head and skin show
+ * ({@code scratchpad/shazam/make_shazam_suit.js}); a Shazam Family member's adds gold piping. The head is left alone (his own face). The suit's model sits just outside the skin; the wearer's jacket / sleeve / trouser layers are hidden while it's on
+ * ({@link #hidesSkinOverlay}), so nothing of the skin's second layer pokes through. Wide and slim arms follow the wearer's skin. The short cape is
  * {@link ShazamCapeLayer}.
  */
 public class ShazamSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
@@ -69,6 +70,14 @@ public class ShazamSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		boolean family = Shazam.isFamily(player);
 		ResourceLocation tex = family ? (slimArms ? FAMILY_SLIM : FAMILY) : (slimArms ? SUIT_SLIM : SUIT);
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, OverlayTexture.NO_OVERLAY);
+	}
+
+	/**
+	 * From {@code PlayerModelMixin}: while the suit is on, the wearer's jacket / sleeve / trouser layers are hidden (the suit's own
+	 * outer layer is mostly clear now, so they would poke through it); the hat layer stays, it's his own head.
+	 */
+	public static boolean hidesSkinOverlay(net.minecraft.world.entity.player.Player player) {
+		return !player.isInvisible() && Shazam.transformed(player);
 	}
 
 	/** Copies the wearer's pose onto the suit model; the head stays the wearer's own. */
