@@ -273,11 +273,12 @@ function sideBlock() {
 	return im;
 }
 
-save(suit(false, false), 'entity/doctor_fate/suit.png');
-save(suit(true, false), 'entity/doctor_fate/suit_slim.png');
+// v0.17.3: suit.png, suit_slim.png and cloak.png now come from the user's chosen DCEU skin -- build_fate_skin.js writes them
+// save(suit(false, false), 'entity/doctor_fate/suit.png');
+// save(suit(true, false), 'entity/doctor_fate/suit_slim.png');
 save(suit(false, true), 'entity/doctor_fate/avatar.png');
 save(helmet(), 'entity/doctor_fate/helmet.png');
-save(cloak(), 'entity/doctor_fate/cloak.png');
+// save(cloak(), 'entity/doctor_fate/cloak.png');
 save(mummy(), 'entity/tomb_guardian.png');
 save(icon(HELMET_ICON, PAL), 'item/helmet_of_fate.png');
 save(icon(ANKH_ICON, PAL), 'item/ankh_charm.png');

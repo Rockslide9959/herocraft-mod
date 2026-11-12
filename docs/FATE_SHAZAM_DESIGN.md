@@ -28,6 +28,13 @@ desert pyramids, guarded by mummy-skinned husks. Picking it up opens Nabu's offe
   - Every spell is at full strength.
   - Look: the golden helmet, Cloak of Destiny and amulet appear. They're a suit layer over your skin, and your face is
     hidden by the helmet.
+  - v0.17.3 (user): the suit is the DCEU Doctor Fate skin by **JMCT** on PlanetMinecraft
+    (https://www.planetminecraft.com/skin/doctor-fate-dceu/, original in `docs/reference/doctorfate/`, see `SOURCE.txt`).
+    **No licence is stated on the page: check it with the author / credit them before a public release.**
+    `scratchpad/doctorfate/build_fate_skin.js` makes `suit_slim.png` (the skin is slim) and a wide `suit.png` from it, cuts out
+    the helmet's side openings so your own skin shows there, takes the painted cape off the back and paints the cloth
+    Cloak of Destiny (`cloak.png`) in the skin's colours. The skin's head is the helmet; the old separate helmet model is now
+    only worn by the Avatar of Order. Your own outer skin layer is hidden while the suit is on.
 
 **Dominion (Nabu's control, a Gauge with Order gold creeping over your colour)** rises while you wear the helmet (slowly),
 with every spell (bigger spells raise it more) and every time you accept one of Nabu's bargains. It falls with the helmet

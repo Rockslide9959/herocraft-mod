@@ -1,0 +1,316 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateFlight;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.3 Doctor Fate's DCEU skin suit on a WIDE and a SLIM player (two fake players with default
+ * skins of each model), front / sides / back / helmet close-ups, then a walk and a flight clip for the cloak. Enabled by
+ * run/doctorfateskin.flag; uses DoctorFateHarnessCameraMixin pointed at this class. Shots: run/screenshots/dfs_*.png.
+ */
+// TEMP-HARNESS
+public final class DoctorFateSkinHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static Vec3 origin;
+	private static int t0 = -1;
+	private static String clip;
+	private static int frame;
+	private static volatile ServerPlayer wide;
+	private static volatile ServerPlayer slim;
+	private static volatile Vec3 wPos;
+	private static volatile Vec3 sPos;
+
+	private DoctorFateSkinHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("doctorfateskin.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DoctorFateSkinHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "dfskin-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				try {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] server step failed: " + e);
+					e.printStackTrace(System.out);
+				}
+			});
+		}
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, "dfs_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void cam(Vec3 at, Vec3 rel, Vec3 lookRel) {
+		camPos = at.add(rel);
+		camLook = at.add(lookRel);
+	}
+
+	private static java.util.UUID skinUuid(boolean slimModel) {
+		for (int i = 0; i < 5000; i++) {
+			java.util.UUID id = java.util.UUID.randomUUID();
+			boolean s = net.minecraft.client.resources.DefaultPlayerSkin.get(id).model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+			if (s == slimModel) {
+				return id;
+			}
+		}
+		return java.util.UUID.randomUUID();
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, java.util.UUID id) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(id, name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		place(f, at, 0f);
+		return f;
+	}
+
+	private static void place(ServerPlayer f, Vec3 at, float yaw) {
+		f.teleportTo(f.serverLevel(), at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+	}
+
+	/** Each tick: keep the fakes where the script wants them (their own physics doesn't run). */
+	private static void hold(Minecraft mc) {
+		server(mc, p -> {
+			if (wide != null && wPos != null) {
+				place(wide, wPos, 0f);
+			}
+			if (slim != null && sPos != null) {
+				place(slim, sPos, 0f);
+			}
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(DoctorFateSkinHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		if (inWorld == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(50);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, Math.floor(p.getY()), Math.floor(p.getZ()) + 0.5);
+				BlockPos o = BlockPos.containing(origin);
+				for (int x = -12; x <= 12; x++) {
+					for (int z = -10; z <= 140; z++) {
+						l.setBlock(o.offset(x, -1, z), (x + z) % 7 == 0 ? Blocks.CHISELED_SANDSTONE.defaultBlockState() : Blocks.SMOOTH_SANDSTONE.defaultBlockState(), 3);
+					}
+				}
+				p.setGameMode(GameType.CREATIVE);
+				p.getInventory().clearContent();
+				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 100000, 0, false, false));
+				p.teleportTo(l, origin.x, origin.y, origin.z - 6, 0f, 0f);
+				wPos = origin.add(-3, 0, 0);
+				sPos = origin.add(3, 0, 0);
+				wide = fake(p, "Wide", wPos, skinUuid(false));
+				slim = fake(p, "Slim", sPos, skinUuid(true));
+				for (ServerPlayer f : new ServerPlayer[] { wide, slim }) {
+					f.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+					DoctorFate.grant(f);
+					DoctorFate.setHelmet(f, true);
+				}
+			});
+			t0 = inWorld + 100;
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		int t = inWorld - t0;
+		if (t < 200) {
+			hold(mc);
+		}
+		if (clip != null) {
+			frame++;
+			shot(clip + "_" + String.format("%04d", frame));
+		}
+		// the fakes' body yaw drifts on the client (it follows the head loosely): pin it to face +z
+		for (net.minecraft.world.entity.player.Player o : mc.level.players()) {
+			if (o != mc.player) {
+				o.yBodyRot = o.yBodyRotO = 0f;
+				o.yHeadRot = o.yHeadRotO = 0f;
+				o.setYRot(0f);
+				o.yRotO = 0f;
+			}
+		}
+		Vec3 W = origin.add(-3, 0, 0), S = origin.add(3, 0, 0);
+		// both, front
+		if (t == 0) cam(origin, new Vec3(0, 1.3, 7.5), new Vec3(0, 1.0, 0));
+		if (t == 6) shot("00_both_front");
+		if (t == 8) cam(origin, new Vec3(0, 1.5, -7.5), new Vec3(0, 1.0, 0));
+		if (t == 14) shot("00_both_back");
+		// each player: front, its left side (+x), its right side (-x), back, back three-quarter, helmet close-ups both sides
+		String[] names = { "wide", "slim" };
+		Vec3[] at = { W, S };
+		for (int k = 0; k < 2; k++) {
+			int b = 20 + k * 70;
+			Vec3 a = at[k];
+			String n = names[k];
+			if (t == b) cam(a, new Vec3(0.3, 1.25, 2.6), new Vec3(0, 1.0, 0));
+			if (t == b + 6) shot(n + "_1_front");
+			if (t == b + 8) cam(a, new Vec3(2.4, 1.25, 0.1), new Vec3(0, 1.0, 0));
+			if (t == b + 14) shot(n + "_2_left_side");
+			if (t == b + 16) cam(a, new Vec3(-2.4, 1.25, 0.1), new Vec3(0, 1.0, 0));
+			if (t == b + 22) shot(n + "_3_right_side");
+			if (t == b + 24) cam(a, new Vec3(-0.3, 1.35, -2.6), new Vec3(0, 1.0, 0));
+			if (t == b + 30) shot(n + "_4_back_cape");
+			if (t == b + 32) cam(a, new Vec3(1.6, 1.6, -1.9), new Vec3(0, 1.0, 0));
+			if (t == b + 38) shot(n + "_5_back_three_quarter");
+			if (t == b + 40) cam(a, new Vec3(0.85, 1.72, -0.05), new Vec3(0, 1.62, 0));
+			if (t == b + 46) shot(n + "_6_helmet_left_closeup");
+			if (t == b + 48) cam(a, new Vec3(-0.85, 1.72, -0.05), new Vec3(0, 1.62, 0));
+			if (t == b + 54) shot(n + "_7_helmet_right_closeup");
+			if (t == b + 56) cam(a, new Vec3(0.55, 1.95, 0.75), new Vec3(0, 1.6, 0));
+			if (t == b + 62) shot(n + "_8_helmet_top_front");
+		}
+		// ---- walk (t 200..260): both walk forward (+z) at a walking pace; the camera follows from behind and the side
+		if (t == 200) {
+			clip = "walk";
+			frame = 0;
+		}
+		if (t >= 200 && t < 260) {
+			double d = (t - 200) * 0.2;
+			Vec3 w = W.add(0, 0, d), s = S.add(0, 0, d);
+			server(mc, p -> {
+				place(wide, w, 0f);
+				place(slim, s, 0f);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + d - 6, 0f, 0f);
+			});
+			cam(origin.add(0, 0, d), new Vec3(-4.6, 1.9, -3.6), new Vec3(-0.8, 1.0, 1.0));
+		}
+		if (t == 230) {
+			// mid-walk, back view
+		}
+		if (t == 260) {
+			clip = null;
+			server(mc, p -> {
+				for (ServerPlayer f : new ServerPlayer[] { wide, slim }) {
+					DoctorFateFlight.start(f);
+				}
+			});
+		}
+		// ---- flight (t 266..326): rise, then cruise forward fast; the cloak streams out behind
+		if (t == 266) {
+			clip = "fly";
+			frame = 0;
+		}
+		if (t >= 262 && t < 350) {
+			int u = t - 262;
+			double up = Math.min(3.0, u * 0.15);
+			// accelerate to 0.5 blocks / tick and hold it
+			double fwd = 12;
+			for (int i = 0; i < u; i++) {
+				fwd += Math.min(0.5, Math.max(0, i - 10) * 0.025);
+			}
+			Vec3 w = W.add(0, up, fwd), s = S.add(0, up, fwd);
+			server(mc, p -> {
+				place(wide, w, 0f);
+				place(slim, s, 0f);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, w.z - 6, 0f, 0f);
+			});
+			Vec3 mid = origin.add(0, up, fwd);
+			if (t < 328) {
+				cam(mid, new Vec3(-5.2, 1.7, -4.2), new Vec3(-0.8, 0.8, 1.5));
+			} else if (t < 338) {
+				cam(mid, new Vec3(-4.4, 2.1, -4.4), new Vec3(-3.0, 0.8, 0)); // behind the wide one, cloak lifted
+			} else {
+				cam(mid, new Vec3(4.4, 2.1, -4.4), new Vec3(3.0, 0.8, 0));
+			}
+			if (t == 334) shot("wide_9_back_cape_flying");
+			if (t == 344) shot("slim_9_back_cape_flying");
+		}
+		if (t == 326) {
+			clip = null;
+		}
+		if (t == 352) {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DFS_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
