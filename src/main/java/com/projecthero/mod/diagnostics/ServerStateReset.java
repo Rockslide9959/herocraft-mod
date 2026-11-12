@@ -219,6 +219,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.undead.UndeadMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.spin.SpinMod.clearSessionState(); // v0.17.3: Spin -- marked creatures, Valkyrie calls, strikes, witnesses
+		com.projecthero.mod.shazam.ShazamMod.clearSessionState(); // v0.17.3: Shazam -- move sessions (lifted / flying entity ids), flight
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.clearSessionState(); // v0.17.3: casters, thrown bombs, craters (hold levels)
 		com.projecthero.mod.beamclash.BeamClash.clearSessionState(); // v0.17.3
 		com.projecthero.mod.hulk.Hulk.clearSessionState();

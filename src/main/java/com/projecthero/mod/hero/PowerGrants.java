@@ -23,6 +23,7 @@ public final class PowerGrants {
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
 			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "black_panther", "undead", "saiyan",
 			"spin", // v0.17.3: the Spin (the Spin)
+			"shazam", // v0.17.3: Shazam
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
@@ -65,6 +66,7 @@ public final class PowerGrants {
 			"black_panther", // v0.17.3: only the Heart-Shaped Herb Soup
 			"undead", // v0.17.3: only the Undead Card
 			"spin", // v0.17.3: only the Zeppeli Steel Balls (found in pyramids and trail ruins)
+			"shazam", // v0.17.3: only Wizard Shazam (a thunderstorm visitor near villages)
 			"speed_force_speedster", // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
 			"omnitrix", // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
 			"stand_star_platinum"); // v0.17.2: only the Stand Arrow awakens a Stand
@@ -231,6 +233,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.spin.Spin.grant(target);
 				return new Result(ok, Component.literal(ok ? "Taught " + name + " the Spin" : name + " already knows the Spin"));
 			}
+			case "shazam" -> { // v0.17.3
+				boolean ok = com.projecthero.mod.shazam.Shazam.grant(target);
+				return new Result(ok, Component.literal(ok ? "Made " + name + " Shazam's champion" : name + " is already Shazam"));
+			}
 			case "undead" -> {
 				boolean ok = com.projecthero.mod.undead.Undead.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " the Undead (Undead)" : name + " is already the Undead"));
@@ -336,6 +342,7 @@ public final class PowerGrants {
 			case "undead" -> com.projecthero.mod.undead.Undead.revoke(target); // v0.17.3
 			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.revoke(target); // v0.17.3
 			case "spin" -> com.projecthero.mod.spin.Spin.revoke(target); // v0.17.3
+			case "shazam" -> com.projecthero.mod.shazam.Shazam.revoke(target); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.revoke(target); // v0.17.1
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				if (HeroTiers.holdsHero(target, hero)) {

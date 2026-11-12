@@ -262,7 +262,8 @@
 		"ErasureGogglesGlowMixin",
 		"GreenLanternMechCameraMixin",
 		"GreenLanternMechHandsMixin",
-		"GreenLanternMechGuiMixin"
+		"GreenLanternMechGuiMixin",
+		"ShazamBoltSoundMixin"
 	],
 	"client": [],
 	"server": [],

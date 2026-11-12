@@ -438,6 +438,7 @@ public final class HeroCommand {
 			case "undead" -> com.projecthero.mod.undead.Undead.revoke(target); // v0.17.3
 			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.revoke(target); // v0.17.3
 			case "spin" -> com.projecthero.mod.spin.Spin.revoke(target); // v0.17.3
+			case "shazam" -> com.projecthero.mod.shazam.Shazam.revoke(target); // v0.17.3
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
 				// v0.16.6: only if they hold THAT Kwami (no jewel comes back)
 				if (com.projecthero.mod.hero.HeroTiers.holdsHero(target, hero)) {

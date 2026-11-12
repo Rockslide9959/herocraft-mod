@@ -132,7 +132,8 @@
 		"ErasureExposedMixin",
 		"OverhaulExplosionMixin",
 		"SecondChanceSpawnMixin",
-		"GreenLanternMechSeatMixin"
+		"GreenLanternMechSeatMixin",
+		"ShazamCourageMixin"
 	],
 	"client": [],
 	"server": [],

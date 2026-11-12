@@ -161,6 +161,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight
 		com.projecthero.mod.client.spin.SpinClient.initialize(); // v0.17.3: the Spin -- HUD, Golden Rectangle, balls, effects
+		com.projecthero.mod.client.shazam.ShazamClient.initialize(); // v0.17.3: Shazam -- suit, cape, HUD, Wisdom, the Wizard
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -1395,6 +1396,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.kryptonian.network.KryptonianActionPayload(
 					com.projecthero.mod.kryptonian.network.KryptonianActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.17.3: Shazam -- double-tap Space in the air while transformed takes off / drops out of flight (server re-validates).
+		// Ahead of the other heroes: a Shazam Family member's own power steps aside while the borrowed lightning is on.
+		if (com.projecthero.mod.client.shazam.ShazamClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.shazam.ShazamClient.toggleFlight();
 			return;
 		}
 

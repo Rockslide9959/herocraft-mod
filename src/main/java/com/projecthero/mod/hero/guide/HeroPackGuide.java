@@ -167,6 +167,17 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SPIN);
 	}
 
+	/** v0.17.3 Shazam: the chapter's control rows {key, ability id} ({@code projecthero.shazam.ability.<id>} and its {@code .desc}). */
+	public static final String[][] SHAZAM_CONTROLS = { { "Chat", "word" }, { "Double Space", "flight" }, { "R", "lightning_hand" },
+			{ "Shift+R", "call_lightning" }, { "G", "hercules_punch" }, { "Shift+G", "atlas_lift" }, { "Z", "zeus_storm" },
+			{ "Shift+Z", "eternity_strike" }, { "X", "mercury_dash" }, { "Shift+X", "thunder_tackle" }, { "C", "thunderclap" },
+			{ "Shift+C", "achilles_stand" }, { "V", "wisdom" }, { "Shift+V", "share_power" } };
+
+	/** Shazam (v0.17.3). */
+	public static Chapter shazamChapter() {
+		return chapters().get(CH_SHAZAM);
+	}
+
 	public static Chapter blackPantherChapter() {
 		return chapters().get(CH_BLACK_PANTHER);
 	}
@@ -603,7 +614,8 @@ public final class HeroPackGuide {
 	private static final int CH_UNDEAD = CH_RYUKO + 1; // 67, v0.17.3
 	private static final int CH_SAIYAN = CH_UNDEAD + 1; // 68, v0.17.3
 	private static final int CH_SPIN = CH_SAIYAN + 1; // 69, v0.17.3: the Spin (the Spin)
-	private static final int CHAPTER_POWER_BASE = CH_SPIN + 1; // 70
+	private static final int CH_SHAZAM = CH_SPIN + 1; // 70, v0.17.3: Shazam
+	private static final int CHAPTER_POWER_BASE = CH_SHAZAM + 1; // 71
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1832,6 +1844,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.spin.commands.body");
 		}));
 
+		// v0.17.3: Shazam (CH_SHAZAM)
+		out.add(chapter("projecthero.guide.shazam", lines -> {
+			lines.add(Component.translatable("projecthero.guide.shazam.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.shazam.body");
+			blank(lines);
+			for (String section : new String[]{"getting", "word", "traits", "lightning", "family"}) {
+				head(lines, "projecthero.guide.shazam." + section);
+				para(lines, "projecthero.guide.shazam." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.shazam.controls");
+			for (String[] row : SHAZAM_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.shazam.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.shazam.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.shazam.commands");
+			para(lines, "projecthero.guide.shazam.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2051,6 +2084,7 @@ public final class HeroPackGuide {
 		link(dc, "projecthero.guide.cyborg", CH_CYBORG);
 		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
 		link(dc, "projecthero.guide.speed_force_speedster", CH_SPEED_FORCE); // v0.17.1
+		link(dc, "projecthero.guide.shazam", CH_SHAZAM); // v0.17.3
 		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {
