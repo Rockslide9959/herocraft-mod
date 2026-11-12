@@ -12058,7 +12058,7 @@
   "projecthero.spin.ability.scan": "Scan",
   "projecthero.spin.ability.scan.desc": "Set the ball in your main hand spinning on the ground. For 8 seconds every creature and player within 40 blocks glows gold through walls, for you alone. The ball hops back into your hand after 2 seconds. 15 Spin.",
   "projecthero.spin.ability.ball_breaker": "Ball Breaker",
-  "projecthero.spin.ability.ball_breaker.desc": "Hold to charge like the Golden Spin. Only a Perfect Spin works: a pale armoured figure bursts out of the ball and strikes the creature you aim at (30 blocks) for 60 damage through armour, then ages it: Weakness II, Slowness III and Wither for 10 seconds. A release that isn't Perfect fails and costs 20 Spin. 100 Spin, 3 min cooldown.",
+  "projecthero.spin.ability.ball_breaker.desc": "Hold to charge like the Golden Spin. Only a Perfect Spin works: Ball Breaker, a lime armoured figure studded with magenta gems and crowned with two great discs, bursts out of the ball and strikes the creature you aim at (30 blocks) for 60 damage through armour, then ages it: Weakness II, Slowness III and Wither for 10 seconds. A release that isn't Perfect fails and costs 20 Spin. 100 Spin, 3 min cooldown.",
   "projecthero.spin.ability.spin_leap": "Spin Leap",
   "projecthero.spin.ability.spin_leap.desc": "Spin your leg muscles and leap about 12 blocks forward and 5 up. No fall damage when you land. On a horse, the horse leaps. 10 Spin.",
   "projecthero.spin.ability.valkyrie": "Valkyrie",
