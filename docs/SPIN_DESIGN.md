@@ -46,3 +46,17 @@ sound clip: "take the sfx from this video"). The clip is a fan-made sound; note 
 - `spin/SpinSounds.java`: the sound ids (ART supplies OGGs + `sounds.json`; POWER plays them).
 - `client/spin/model/SteelBallRender.render(pose, buffers, light, radius, spinDeg, golden)`: ART implements; POWER calls it everywhere a
   ball is drawn.
+
+## Ball Breaker look: candidates (2026-11-12, preview only, NOT wired)
+The user asked for Ball Breaker to match the manga look and will pick one. The live Shift+Z effect still draws the old pale
+`ball_breaker.png` figure in `SpinFx.renderBreaker`.
+- **A, custom model:** `client/spin/model/BallBreakerModel` (procedural ellipsoids/frustums/boxes in a bone hierarchy, floating crouch,
+  `strike` 0..1 drives the right hand forward, optional golden glow and fade) + `textures/entity/spin/power/ball_breaker_model.png`
+  (swatch atlas from `scratchpad/spin/gen_ball_breaker_model_tex.js`). Our own work, no licence issue.
+- **B, PlanetMinecraft skin:** `client/spin/model/BallBreakerSkinFigure` (slim player model, same crouch) +
+  `textures/entity/spin/power/ball_breaker_pmc.png`. Source: "Ball Breaker" by **Kiryutojo**,
+  https://www.planetminecraft.com/skin/ball-breaker-6348233/ (Alex/slim arms, uploaded 2024-07-22). **No licence is stated on the page**
+  (PMC default = all rights reserved): get the author's permission, or drop it, before a public release.
+- References used: the jojowiki Ball Breaker page (All-Star Battle render, manga infobox, ASB colour alts, concept sketches).
+- Previews: `docs/screenshots/v0173/spin/ball_breaker_candidates.mp4`, `ball_breaker_candidates_sheet.png`, `ball_breaker_vs_refs.png`.
+  Harness: `scratchpad/spin/ball_breaker_harness_hook.js` + `BallBreakerHarness.v0173.java.txt`; films: `ball_breaker_films.sh`.
