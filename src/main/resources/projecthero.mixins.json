@@ -59,7 +59,7 @@
 		"MeleeAttackGoalAccessor",
 		"MobMindLockMixin",
 		"MoonKnightVanishTargetMixin",
-		"GyroMobTargetMixin",
+		"SpinMobTargetMixin",
 		"ElasticShapeShiftTargetMixin",
 		"MoonKnightGlideEdgeMixin",
 		"MobSymbioteMixin",

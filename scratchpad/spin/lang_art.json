@@ -1,0 +1,16 @@
+{
+  "item.projecthero.zeppeli_steel_balls": "Zeppeli Steel Balls",
+  "subtitles.projecthero.spin_ball_throw": "Steel Ball thrown",
+  "subtitles.projecthero.spin_ball_spin_loop": "Steel Ball whirs",
+  "subtitles.projecthero.spin_ball_hit": "Steel Ball strikes",
+  "subtitles.projecthero.spin_ball_catch": "Steel Ball caught",
+  "subtitles.projecthero.spin_body_spin": "Body twists with the Spin",
+  "subtitles.projecthero.spin_golden_charge_loop": "Golden Spin charges",
+  "subtitles.projecthero.spin_golden_release": "Golden Spin released",
+  "subtitles.projecthero.spin_ball_breaker": "Ball Breaker strikes",
+  "subtitles.projecthero.spin_scan": "Steel Ball hums",
+  "subtitles.projecthero.spin_quake": "Spin Quake slams",
+  "subtitles.projecthero.spin_heal": "Healing Spin",
+  "subtitles.projecthero.spin_leap": "Spin Leap",
+  "subtitles.projecthero.spin_whistle": "Spin whistles"
+}

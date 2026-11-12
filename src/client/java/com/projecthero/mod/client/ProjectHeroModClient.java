@@ -160,7 +160,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.undead.UndeadClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight
-		com.projecthero.mod.client.gyro.GyroClient.initialize(); // v0.17.3: Gyro Zeppeli -- HUD, Golden Rectangle, balls, effects
+		com.projecthero.mod.client.spin.SpinClient.initialize(); // v0.17.3: the Spin -- HUD, Golden Rectangle, balls, effects
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -999,11 +999,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				pressUtility(7);
 			} else if (powerWheelAvailable(client)) {
 				client.setScreen(new PowerWheelScreen());
-			} else if (client.player != null) {
-				// v0.14.12: the wheel is for the experimental powers only -- Hero-Tier powers and Super Speed have none
-				client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-						"message.projecthero.power_wheel.none").withStyle(net.minecraft.ChatFormatting.GRAY), true);
 			}
+			// v0.17.3 (user): when H has nothing to do it does nothing -- no "No power wheel" message for any power
 		}
 		if (!down && powerSelectWasDown && client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 				&& !com.projecthero.mod.titanshifter.TitanShifter.phase(client.player).insideForm()) {

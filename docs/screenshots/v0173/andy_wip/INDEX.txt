@@ -1,0 +1,26 @@
+﻿Andy (Undead Unluck) -- films. Frames every 2 ticks, MP4s play in real time (10 fps). Default skins on the stand-in (Steve etc.).
+Final set = the _v2 files plus the unsuffixed files that have no _v2.
+
+01_arm_break_v2                    left arm bursts, one texel-sized cube per skin texel, tumbles, settles at the feet, fades; flesh stump with bone   final
+02_regeneration_v2                 the arm re-forms from the shoulder down: cubes stream out of the stump, click in, glowing frontier line            final
+03_head_regrow_v2                  after Parts Bullet Head: headless body, the dropped head bursts as a new one grows from the neck                  final
+04_undead_shatter_v2               lethal damage: everything but the head shatters; body, then arms, then legs re-form from it                      final
+05_Z_shift_head_bullet             Shift+Z: the head flies, hits a zombie, drops and lies there                                                      final
+06_R_parts_bullet_v2               R: a fingertip bullet (tiny at this distance)                                                                     final
+07_shiftR_crimson_bullet_v2        Shift+R: heavy red-hot finger shot                                                                                final
+08_G_crimson_crescent_moon_v2      G: Kurikara drawn out of the forearm in one slash                                                                 final
+09_shiftG_great_crescent_moon_v2   Shift+G: sword overhead and down, three crimson blood waves run forward                                          final
+10_X_blood_propulsion              X (hold): flying on blood jets from the wrists                                                                    final (older camera)
+11_shiftX_repair_glide_v2          Shift+X: spinning slide                                                                                           final
+12_Z_vortex_bullet_v2              Z: main arm twisted off and fired as a drill (fast; the arm hits the zombie within 3 ticks)                       final
+13_C_dead_line_v2                  C (hold): pressurised blood jet from the fingertip (beam-clash aware)                                            final
+14_shiftC_dead_quardead_v2         Shift+C: skin, blood and bone copies split off and fight                                                         final
+15_shiftV_pull_the_card_victor     Shift+V: the card leaves the forehead, Victor's red haze                                                         final
+16_victor_R_dead_vulcan_v2         Victor R: rapid finger bullets                                                                                    final
+17_victor_G_dead_blade_v2          Victor G: solid blood claymore swing                                                                              final
+18_victor_C_dead_road_v2           Victor C: thick spiral blood blast                                                                                final
+19_victor_shiftR_division_bullet_v2 Victor Shift+R: fingers grow into short-lived blood copies                                                      final
+20_first_person_missing_arm        first person: main arm gone (torch still in the off hand)                                                        final
+21_first_person_regen              first person: the arm regrowing                                                                                   final
+22_card_on_forehead                the Undead Card above the left eye                                                                                final
+Unsuffixed 01-04 and 06-19 without _v2 are older passes (superseded).

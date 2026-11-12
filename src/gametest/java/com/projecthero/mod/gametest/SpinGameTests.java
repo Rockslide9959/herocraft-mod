@@ -1,0 +1,463 @@
+package com.projecthero.mod.gametest;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.spin.Spin;
+import com.projecthero.mod.spin.SpinAbilityManager;
+import com.projecthero.mod.spin.SpinConfig;
+import com.projecthero.mod.spin.SpinDamage;
+import com.projecthero.mod.spin.SpinDisguise;
+import com.projecthero.mod.spin.SpinItems;
+import com.projecthero.mod.spin.SpinLearning;
+import com.projecthero.mod.spin.SpinMarks;
+import com.projecthero.mod.spin.SpinMoves;
+import com.projecthero.mod.spin.SpinValkyrie;
+import com.projecthero.mod.spin.data.SpinState;
+import com.projecthero.mod.spin.entity.SteelBallEntity;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.hero.PowerGrants;
+
+import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+
+import net.minecraft.commands.arguments.EntityAnchorArgument;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.animal.horse.AbstractHorse;
+import net.minecraft.world.entity.animal.horse.Horse;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * v0.17.3 the Spin (the Spin): the item and the grant, the stats, the Spin bar, every move's damage and cost, the balls going out
+ * and coming back (and the moves greyed meanwhile), the Golden Rectangle's Perfect Spin, Ball Breaker needing one, Valkyrie, Healing
+ * Spin, Face Spin and squad safety. Mock players are not ticked by the server, so tests over time drive {@link Spin#tick} themselves
+ * (one onEachTick per test, registered at the start; every check is a runAfterDelay registered at the start too). Mob hits are
+ * asserted as ratios of the expected damage.
+ */
+public class SpinGameTests implements FabricGameTest {
+	private static ServerPlayer mock(GameTestHelper helper, double x, double z) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		Vec3 at = helper.absoluteVec(new Vec3(x, 2.0, z));
+		p.moveTo(at.x, at.y, at.z, 0f, 0f);
+		try { // a fresh mock player is spawn-protected
+			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			f.setAccessible(true);
+			f.setInt(p, 0);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		return p;
+	}
+
+	private static ServerPlayer spin(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 1.5, 1.5);
+		helper.assertTrue(Spin.grant(p), "the grant works");
+		return p;
+	}
+
+	private static void edit(ServerPlayer p, java.util.function.Consumer<SpinState> change) {
+		SpinState n = Spin.state(p).copy();
+		change.accept(n);
+		p.setAttached(ModAttachments.SPIN_STATE, n);
+	}
+
+	private static Zombie zombie(GameTestHelper helper, double x, double z, double maxHealth) {
+		Zombie zb = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, new Vec3(x, 2.0, z));
+		zb.getAttribute(Attributes.MAX_HEALTH).setBaseValue(maxHealth);
+		zb.setHealth((float) maxHealth);
+		return zb;
+	}
+
+	private static void look(ServerPlayer p, LivingEntity at) {
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, at.position().add(0, at.getBbHeight() * 0.55, 0));
+	}
+
+	/** Lost health as a share of what was expected (1.0 = exactly). */
+	private static float ratio(float before, LivingEntity e, float expected) {
+		return (before - e.getHealth()) / expected;
+	}
+
+	private static boolean near(float ratio) {
+		return ratio > 0.85f && ratio < 1.15f;
+	}
+
+	/** Spin.tick for {@code p} once a game tick for the whole test (registered once, at the start). */
+	private static void ticker(GameTestHelper helper, ServerPlayer p) {
+		helper.onEachTick(() -> Spin.tick(p));
+	}
+
+	// ---------------------------------------------------------------- the power
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void steelBallsTeachTheSpinAsTheOnePrimary(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 1.5, 1.5);
+		com.projecthero.mod.kryptonian.Kryptonian.grant(p);
+		helper.assertTrue(SpinLearning.item() == SpinItems.ZEPPELI_STEEL_BALLS, "the right-click hook finds ART's item by id");
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
+		helper.assertTrue(SpinLearning.learn(p, InteractionHand.MAIN_HAND), "right-click learns the Spin");
+		helper.assertTrue(Spin.hasPower(p) && HeroTiers.holdsHero(p, Spin.KEY), "Spin is a Hero-Tier power");
+		helper.assertTrue(p.getMainHandItem().isEmpty(), "the balls are spent");
+		helper.assertTrue(!com.projecthero.mod.kryptonian.Kryptonian.hasPower(p), "it replaced the Kryptonian (one Primary)");
+		helper.assertTrue(!PowerGrants.missingHeroTiers(p).contains(Spin.KEY) && PowerGrants.NOT_FROM_SERUMS.contains(Spin.KEY),
+				"random serums never give it");
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(SpinItems.ZEPPELI_STEEL_BALLS));
+		helper.assertTrue(!SpinLearning.learn(p, InteractionHand.MAIN_HAND) && !p.getMainHandItem().isEmpty(), "a second set does nothing");
+		helper.assertTrue(Spin.spin(p) == SpinConfig.SPIN_MAX && Spin.ballsReady(p) == 2, "a full bar and both balls to start");
+		Spin.revoke(p);
+		helper.assertTrue(!Spin.hasPower(p), "revoked");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void passiveRegenerationOne(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		p.setHealth(10f);
+		helper.onEachTick(() -> Spin.tick(p));
+		helper.runAfterDelay(SpinConfig.REGEN_EVERY_TICKS * 2 + 2, () -> {
+			float gained = p.getHealth() - 10f;
+			helper.assertTrue(gained >= 1.5f && gained <= 3.5f, "Regeneration I: about 1 health per 2.5 s, gained " + gained);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void statsAndDamageResistance(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "no extra hearts (20), got " + p.getMaxHealth());
+		double speedBase = p.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue();
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speedBase * 1.15) < 1.0e-4, "+15% speed");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (p.getAttribute(Attributes.ATTACK_DAMAGE).getBaseValue() + 4)) < 1.0e-4,
+				"+4 melee");
+		p.setHealth(20f);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().magic(), 10f);
+		helper.assertTrue(Math.abs(p.getHealth() - (20f - 8.5f)) < 0.05f, "15% off a hit (10 -> 8.5), health " + p.getHealth());
+		Spin.revoke(p);
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "still 20 without the power");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void spinBarRefillsFourASecond(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Spin.setSpin(p, 10f);
+		float[] last = { -1f };
+		boolean[] ok = { true };
+		helper.onEachTick(() -> {
+			Spin.tick(p);
+			float now = Spin.spin(p);
+			if (last[0] >= 0f && now < SpinConfig.SPIN_MAX && Math.abs(now - last[0] - SpinConfig.SPIN_REGEN_PER_TICK) > 1.0e-3f) {
+				ok[0] = false;
+			}
+			last[0] = now;
+		});
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(ok[0], "every tick adds exactly 0.2 Spin (4 a second)");
+			helper.assertTrue(Spin.spin(p) > 10f && Spin.spin(p) <= SpinConfig.SPIN_MAX, "and it's filling");
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- the balls
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void steelBallHitsSpinsAndComesBack(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 5.5, 1.5, 100);
+		look(p, z);
+		float before = z.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws");
+		helper.assertTrue(Math.abs(Spin.spin(p) - (100f - SpinConfig.BALL_COST)) < 0.01f, "15 Spin");
+		helper.assertTrue(Spin.ballsReady(p) == 1 && (Spin.state(p).thrown & 1) != 0, "ball 0 is out");
+		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.TWIN_BALLS)
+				&& !SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_SHIELD), "two-ball moves are greyed while it's out");
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SCAN), "one-ball moves still have the other ball");
+		helper.runAfterDelay(15, () -> {
+			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "10 damage, lost " + (before - z.getHealth()));
+			helper.assertTrue(SpinMarks.spun(z), "the target spins");
+			z.setTarget(p);
+			helper.assertTrue(z.getTarget() == null, "a spun mob can't aim (no target)");
+		});
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(Spin.ballsReady(p) == 2 && Spin.state(p).thrown == 0, "the ball came back to the hand");
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(40)).isEmpty(), "no ball left out");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void twinBallsTakeBothAndGreyTheRest(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.TWIN_BALLS), "Shift+R throws both");
+		helper.assertTrue(Math.abs(Spin.spin(p) - (100f - SpinConfig.TWIN_COST)) < 0.01f, "30 Spin");
+		helper.assertTrue(Spin.state(p).thrown == 3 && Spin.ballsReady(p) == 0, "both balls are out");
+		helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R is refused with no ball in hand");
+		helper.assertTrue(!SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "and so is the Golden Spin");
+		helper.assertTrue(SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SPIN_LEAP), "Spin Leap needs no ball");
+		helper.assertTrue(Math.abs(Spin.spin(p) - 70f) < 0.01f, "refused moves cost nothing");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the Golden Rectangle
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void perfectSpinWindowAndGoldenSpinDamage(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		int t = SpinConfig.GOLDEN_CHARGE_TICKS;
+		helper.assertTrue(Spin.isPerfect(t, t) && Spin.isPerfect(t - SpinConfig.PERFECT_WINDOW, t) && Spin.isPerfect(t + SpinConfig.PERFECT_WINDOW, t),
+				"the window is the close +-3 ticks");
+		helper.assertTrue(!Spin.isPerfect(t - SpinConfig.PERFECT_WINDOW - 1, t) && !Spin.isPerfect(t + SpinConfig.PERFECT_WINDOW + 1, t), "outside it isn't");
+		Zombie a = zombie(helper, 4.5, 1.5, 200);
+		Zombie b = zombie(helper, 6.5, 1.5, 200);
+		a.setNoAi(true);
+		b.setNoAi(true); // knocked-back zombies wandered off the line now and then
+		b.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+		b.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+		b.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS));
+		b.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+		look(p, a);
+		float[] b1 = new float[1];
+		// a plain release (the armour has had a tick to count)
+		helper.runAfterDelay(3, () -> {
+			float a0 = a.getHealth(), b0 = b.getHealth();
+			helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "Shift+G starts the rectangle");
+			helper.assertTrue(Spin.charging(p) == SpinState.CHARGE_GOLDEN && Spin.chargeTarget(p) == t, "charging, 30 ticks to close");
+			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.GOLDEN_SPIN), "released at once: still fires, not Perfect");
+			helper.assertTrue(SpinMoves.lastGoldenHits == 2, "the line pierces both zombies, got " + SpinMoves.lastGoldenHits);
+			helper.assertTrue(near(ratio(a0, a, SpinConfig.GOLDEN_DAMAGE)), "35 to the first, lost " + (a0 - a.getHealth()));
+			helper.assertTrue(b0 - b.getHealth() < SpinConfig.GOLDEN_DAMAGE * 0.9f, "armour softens a plain Golden Spin, lost " + (b0 - b.getHealth()));
+			helper.assertTrue(Math.abs(Spin.spin(p) - 50f) < 0.01f && SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.GOLDEN_SPIN) > 0,
+					"50 Spin and the 12 s cooldown");
+			// get ready for the Perfect one: the ball home, the bar full, no cooldown
+			helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(60)).forEach(SteelBallEntity::discard);
+			Spin.clearCooldowns(p);
+			Spin.setSpin(p, 100f);
+			b1[0] = b.getHealth();
+			helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.GOLDEN_SPIN), "charging again");
+		});
+		// released right on the close: a Perfect Spin, through the armour
+		helper.runAfterDelay(3 + t, () -> {
+			b.invulnerableTime = 0;
+			look(p, b);
+			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.GOLDEN_SPIN), "released on the close");
+			helper.assertTrue(near(ratio(b1[0], b, SpinConfig.GOLDEN_PERFECT_DAMAGE)), "Perfect: 70 straight through diamond, lost " + (b1[0] - b.getHealth()));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void ridingHitsHarderAndClosesTwiceAsFast(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Horse h = helper.spawnWithNoFreeWill(EntityType.HORSE, new Vec3(1.5, 2.0, 1.5));
+		p.startRiding(h, true);
+		helper.assertTrue(Spin.riding(p), "on a horse");
+		helper.assertTrue(Spin.chargeTicksFor(p) == SpinConfig.GOLDEN_CHARGE_TICKS / 2, "the rectangle closes twice as fast");
+		Zombie z = zombie(helper, 1.5, 4.5, 100);
+		float before = z.getHealth();
+		helper.assertTrue(Spin.hit(p, z, 10f, false), "a Spin hit lands");
+		helper.assertTrue(near(ratio(before, z, 13f)), "+30% riding (13), lost " + (before - z.getHealth()));
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void ballBreakerNeedsAPerfectSpin(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 5.5, 1.5, 200);
+		look(p, z);
+		int t = SpinConfig.GOLDEN_CHARGE_TICKS;
+		// not Perfect (let go at once): it fails, 20 Spin, no cooldown
+		helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.BALL_BREAKER), "Shift+Z starts the rectangle (full bar)");
+		helper.assertTrue(!SpinMoves.releaseCharge(p, SpinAbilityManager.BALL_BREAKER), "not Perfect: Ball Breaker won't come out");
+		helper.assertTrue(!SpinMoves.strikePending(p) && Math.abs(Spin.spin(p) - 80f) < 0.01f, "the miss costs 20");
+		helper.assertTrue(SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.BALL_BREAKER) == 0, "and no cooldown");
+		helper.assertTrue(!SpinMoves.startCharge(p, SpinAbilityManager.BALL_BREAKER), "under 100 Spin it can't even start");
+		// Perfect: charge now, let go on the close
+		Spin.setSpin(p, 100f);
+		helper.assertTrue(SpinMoves.startCharge(p, SpinAbilityManager.BALL_BREAKER), "again at 100");
+		float[] before = new float[1];
+		ticker(helper, p);
+		helper.runAfterDelay(t, () -> {
+			look(p, z); // (it may have settled onto the floor meanwhile)
+			helper.assertTrue(SpinMoves.aimed(p, SpinConfig.BREAKER_RANGE) == z, "he's aiming at the zombie");
+			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.BALL_BREAKER), "Perfect: Ball Breaker bursts out (" + SpinMoves.lastRefusal + ")");
+			helper.assertTrue(SpinMoves.strikePending(p) && Spin.spin(p) < 0.01f, "100 Spin, the figure on its way");
+			helper.assertTrue(SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.BALL_BREAKER) > SpinConfig.BREAKER_COOLDOWN - 5, "3 min cooldown");
+			before[0] = z.getHealth();
+		});
+		helper.runAfterDelay(t + SpinConfig.BREAKER_STRIKE_DELAY + 4, () -> {
+			helper.assertTrue(!SpinMoves.strikePending(p), "it struck");
+			helper.assertTrue(near(ratio(before[0], z, SpinConfig.BREAKER_DAMAGE)), "60 damage, lost " + (before[0] - z.getHealth()));
+			helper.assertTrue(SpinMarks.aged(z) && z.hasEffect(MobEffects.WITHER) && z.hasEffect(MobEffects.WEAKNESS)
+					&& z.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2, "aged: Weakness II, Slowness III, Wither");
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- the other moves
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void touchQuakeScanLeapCostsAndDamage(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie near = zombie(helper, 1.5, 3.5, 100);
+		look(p, near);
+		float n0 = near.getHealth();
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_TOUCH), "G touches");
+		helper.assertTrue(near(ratio(n0, near, SpinConfig.TOUCH_DAMAGE)) && SpinMarks.locked(near), "6 damage and its joints lock");
+		helper.assertTrue(Math.abs(Spin.spin(p) - 80f) < 0.01f, "20 Spin");
+		Spin.setSpin(p, 100f);
+		float q0 = near.getHealth();
+		near.invulnerableTime = 0;
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_QUAKE), "C quakes");
+		helper.assertTrue(near(ratio(q0, near, SpinConfig.QUAKE_DAMAGE)) && near.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "14 damage, slowed");
+		helper.assertTrue(Math.abs(Spin.spin(p) - 75f) < 0.01f && Spin.ballsReady(p) == 1, "25 Spin; the ball is busy a moment");
+		Spin.setSpin(p, 100f);
+		edit(p, s -> { s.busy0 = 0L; s.busy1 = 0L; });
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SCAN), "Z scans");
+		helper.assertTrue(SpinMoves.lastScan >= 1 && Math.abs(Spin.spin(p) - 85f) < 0.01f, "it found the zombie; 15 Spin");
+		helper.assertTrue(Spin.ballsReady(p) == 1, "the ball spins on the ground meanwhile");
+		Spin.setSpin(p, 100f);
+		p.setYRot(0f);
+		p.setXRot(0f);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_LEAP), "X leaps");
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(Math.abs(v.y - SpinConfig.LEAP_UP) < 1.0e-3 && Math.abs(Math.hypot(v.x, v.z) - SpinConfig.LEAP_FORWARD) < 1.0e-3,
+				"forward and up");
+		helper.assertTrue(Math.abs(Spin.spin(p) - 90f) < 0.01f, "10 Spin");
+		helper.assertTrue(!SpinDamage.allowDamage(p, p.damageSources().fall(), 10f), "no fall damage after the leap");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void spinShieldDeflectsArrows(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_SHIELD), "Shift+C");
+		helper.assertTrue(Spin.shielding(p) && Spin.ballsReady(p) == 0 && Math.abs(Spin.spin(p) - 70f) < 0.01f, "both balls orbit; 30 Spin");
+		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
+		arrow.moveTo(p.getX() + 2.0, p.getY() + 1.0, p.getZ());
+		arrow.setDeltaMovement(-1.5, 0, 0);
+		helper.getLevel().addFreshEntity(arrow);
+		int before = SpinMoves.deflected;
+		Spin.tick(p);
+		helper.assertTrue(SpinMoves.deflected == before + 1 && arrow.getDeltaMovement().x > 0 && arrow.getOwner() == p,
+				"the arrow is knocked back out, and it's his now");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void valkyrieComesAndHasADeathCooldown(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "Shift+X whistles");
+		AbstractHorse h = SpinValkyrie.find(p);
+		helper.assertTrue(h != null, "Valkyrie is in the world (state " + Spin.state(p).valkyrie + ")");
+		helper.assertTrue(h.isTamed() && p.getUUID().equals(h.getOwnerUUID()) && SpinValkyrie.isValkyrie(h), "Valkyrie, tamed to him: tamed "
+				+ h.isTamed() + " owner " + h.getOwnerUUID() + " tags " + h.getTags());
+		helper.assertTrue(h.isSaddled() && h.getBodyArmorItem().is(Items.DIAMOND_HORSE_ARMOR), "saddled and armoured");
+		helper.assertTrue(Math.abs(h.getAttributeValue(Attributes.MOVEMENT_SPEED) - SpinConfig.VALKYRIE_SPEED) < 1.0e-4, "very fast");
+		helper.assertTrue(SpinValkyrie.galloping(p), "she gallops in");
+		ticker(helper, p);
+		helper.runAfterDelay(SpinConfig.VALKYRIE_GALLOP_TICKS + 5, () -> {
+			helper.assertTrue(p.getVehicle() == h, "he's in the saddle");
+			p.stopRiding();
+			h.kill();
+		});
+		helper.runAfterDelay(SpinConfig.VALKYRIE_GALLOP_TICKS + 8, () -> {
+			helper.assertTrue(Spin.valkyrieCooldown(p) > SpinConfig.VALKYRIE_DEAD_COOLDOWN - 20, "her death starts the 60 s cooldown");
+			helper.assertTrue(!SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "no whistling her back yet");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void healingSpinHealsSelfAndSquadmate(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ServerPlayer mate = mock(helper, 1.5, 4.5);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("SpinHeal" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		p.setHealth(6f); // 20 max: room for the full 12
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.POISON, 200));
+		p.setXRot(90f); // looking at the floor: nobody to heal but himself
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.HEALING_SPIN), "V heals");
+		helper.assertTrue(!p.hasEffect(MobEffects.POISON), "poison cleared");
+		helper.assertTrue(Math.abs(Spin.spin(p) - 75f) < 0.01f && SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.HEALING_SPIN) > 0,
+				"25 Spin, 15 s cooldown");
+		mate.setHealth(6f);
+		look(p, mate);
+		helper.assertTrue(SpinMoves.healTarget(p) == mate, "aimed at a squadmate: the heal goes to them");
+		helper.runAfterDelay(SpinConfig.HEAL_TICKS + 5, () -> {
+			helper.assertTrue(p.getHealth() - (6f + SpinConfig.HEAL_TOTAL) > -0.6f && p.getHealth() - (6f + SpinConfig.HEAL_TOTAL) < 2.6f, "6 hearts over 3 s, health " + p.getHealth());
+			squads.disband(squad);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void squadmatesAndTheirPetsAreNeverHurt(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ServerPlayer mate = mock(helper, 3.5, 1.5);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("SpinSafe" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		try {
+			Wolf wolf = helper.spawnWithNoFreeWill(EntityType.WOLF, new Vec3(1.5, 2.0, 3.5));
+			wolf.tame(mate);
+			Zombie z = zombie(helper, 3.5, 3.5, 100);
+			float m0 = mate.getHealth(), w0 = wolf.getHealth(), z0 = z.getHealth();
+			helper.assertTrue(!Spin.hit(p, mate, 20f, true) && !Spin.hit(p, wolf, 20f, false), "a Spin hit never lands on a squadmate or their pet");
+			helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_QUAKE), "C quakes with them all in range");
+			helper.assertTrue(mate.getHealth() == m0 && wolf.getHealth() == w0, "the squadmate and the wolf are untouched");
+			helper.assertTrue(near(ratio(z0, z, SpinConfig.QUAKE_DAMAGE)), "the zombie isn't");
+		} finally {
+			squads.disband(squad);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void faceSpinHidesHimFromMobsThatHaventSeenHimAttack(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 5.5, 1.5, 100);
+		z.setTarget(p);
+		helper.assertTrue(z.getTarget() == p, "hunting him");
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.FACE_SPIN), "Shift+V");
+		helper.assertTrue(Spin.disguised(p) && Math.abs(Spin.spin(p) - 80f) < 0.01f, "disguised, 20 Spin");
+		helper.assertTrue(z.getTarget() == null, "the zombie lost him");
+		z.setTarget(p);
+		helper.assertTrue(z.getTarget() == null, "and can't take him as a target");
+		z.invulnerableTime = 0;
+		z.hurt(p.damageSources().playerAttack(p), 2f);
+		helper.assertTrue(SpinDisguise.isWitness(p, z), "struck: it saw him attack");
+		z.setTarget(p);
+		helper.assertTrue(z.getTarget() == p, "a witness may come for him");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void keysRouteToTheSpinAndHAndNDoNothing(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinAbilityManager.moveFor(AbilitySlot.SLOT_3, false).equals(SpinAbilityManager.SPIN_LEAP)
+				&& SpinAbilityManager.moveFor(AbilitySlot.SLOT_3, true).equals(SpinAbilityManager.VALKYRIE), "X = Spin Leap, Shift+X = Valkyrie");
+		helper.assertTrue(SpinAbilityManager.moveFor(AbilitySlot.SLOT_7, false) == null && SpinAbilityManager.moveFor(AbilitySlot.SLOT_8, true) == null,
+				"no H or N ability");
+		p.setShiftKeyDown(true);
+		SpinAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
+		helper.assertTrue(Spin.charging(p) == SpinState.CHARGE_GOLDEN, "Shift+G held charges");
+		p.setShiftKeyDown(false);
+		SpinAbilityManager.handle(p, AbilitySlot.SLOT_2, false);
+		helper.assertTrue(Spin.charging(p) == SpinState.CHARGE_NONE, "letting go fires (even after letting go of Shift)");
+		helper.succeed();
+	}
+}

@@ -986,20 +986,20 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.saiyan.data.SaiyanState.CODEC),
 									AttachmentSyncPredicate.all()));
 
-	/** v0.17.3: Gyro Zeppeli (the Spin) -- the power, the Spin bar, the two balls, the holds, Valkyrie, timers. */
-	public static final AttachmentType<com.projecthero.mod.gyro.data.GyroState> GYRO_STATE =
-			AttachmentRegistry.create(ProjectHeroMod.id("gyro_state"),
-					builder -> builder.persistent(com.projecthero.mod.gyro.data.GyroState.CODEC)
+	/** v0.17.3: the Spin (the Spin) -- the power, the Spin bar, the two balls, the holds, Valkyrie, timers. */
+	public static final AttachmentType<com.projecthero.mod.spin.data.SpinState> SPIN_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("spin_state"),
+					builder -> builder.persistent(com.projecthero.mod.spin.data.SpinState.CODEC)
 							.copyOnDeath()
-							.initializer(com.projecthero.mod.gyro.data.GyroState::new)
-							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.gyro.data.GyroState.CODEC),
+							.initializer(com.projecthero.mod.spin.data.SpinState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spin.data.SpinState.CODEC),
 									AttachmentSyncPredicate.all()));
 
-	/** v0.17.3: Gyro Zeppeli -- what the Spin is doing to a creature (spun, locked, aged, healing). Not saved; synced to all. */
-	public static final AttachmentType<com.projecthero.mod.gyro.data.GyroMark> GYRO_MARK =
-			AttachmentRegistry.create(ProjectHeroMod.id("gyro_mark"),
-					builder -> builder.initializer(() -> com.projecthero.mod.gyro.data.GyroMark.NONE)
-							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.gyro.data.GyroMark.CODEC),
+	/** v0.17.3: the Spin -- what the Spin is doing to a creature (spun, locked, aged, healing). Not saved; synced to all. */
+	public static final AttachmentType<com.projecthero.mod.spin.data.SpinMark> SPIN_MARK =
+			AttachmentRegistry.create(ProjectHeroMod.id("spin_mark"),
+					builder -> builder.initializer(() -> com.projecthero.mod.spin.data.SpinMark.NONE)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spin.data.SpinMark.CODEC),
 									AttachmentSyncPredicate.all()));
 
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */

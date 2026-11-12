@@ -3887,109 +3887,109 @@
       }
     ]
   },
-  "gyro_ball_throw": {
-    "subtitle": "subtitles.projecthero.gyro_ball_throw",
+  "spin_ball_throw": {
+    "subtitle": "subtitles.projecthero.spin_ball_throw",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_ball_throw"
+        "name": "projecthero:spin/spin_ball_throw"
       }
     ]
   },
-  "gyro_ball_spin_loop": {
-    "subtitle": "subtitles.projecthero.gyro_ball_spin_loop",
+  "spin_ball_spin_loop": {
+    "subtitle": "subtitles.projecthero.spin_ball_spin_loop",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_ball_spin_loop",
+        "name": "projecthero:spin/spin_ball_spin_loop",
         "attenuation_distance": 24
       }
     ]
   },
-  "gyro_ball_hit": {
-    "subtitle": "subtitles.projecthero.gyro_ball_hit",
+  "spin_ball_hit": {
+    "subtitle": "subtitles.projecthero.spin_ball_hit",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_ball_hit"
+        "name": "projecthero:spin/spin_ball_hit"
       }
     ]
   },
-  "gyro_ball_catch": {
-    "subtitle": "subtitles.projecthero.gyro_ball_catch",
+  "spin_ball_catch": {
+    "subtitle": "subtitles.projecthero.spin_ball_catch",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_ball_catch"
+        "name": "projecthero:spin/spin_ball_catch"
       }
     ]
   },
-  "gyro_body_spin": {
-    "subtitle": "subtitles.projecthero.gyro_body_spin",
+  "spin_body_spin": {
+    "subtitle": "subtitles.projecthero.spin_body_spin",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_body_spin"
+        "name": "projecthero:spin/spin_body_spin"
       }
     ]
   },
-  "gyro_golden_charge_loop": {
-    "subtitle": "subtitles.projecthero.gyro_golden_charge_loop",
+  "spin_golden_charge_loop": {
+    "subtitle": "subtitles.projecthero.spin_golden_charge_loop",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_golden_charge_loop",
+        "name": "projecthero:spin/spin_golden_charge_loop",
         "attenuation_distance": 24
       }
     ]
   },
-  "gyro_golden_release": {
-    "subtitle": "subtitles.projecthero.gyro_golden_release",
+  "spin_golden_release": {
+    "subtitle": "subtitles.projecthero.spin_golden_release",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_golden_release"
+        "name": "projecthero:spin/spin_golden_release"
       }
     ]
   },
-  "gyro_ball_breaker": {
-    "subtitle": "subtitles.projecthero.gyro_ball_breaker",
+  "spin_ball_breaker": {
+    "subtitle": "subtitles.projecthero.spin_ball_breaker",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_ball_breaker"
+        "name": "projecthero:spin/spin_ball_breaker"
       }
     ]
   },
-  "gyro_scan": {
-    "subtitle": "subtitles.projecthero.gyro_scan",
+  "spin_scan": {
+    "subtitle": "subtitles.projecthero.spin_scan",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_scan"
+        "name": "projecthero:spin/spin_scan"
       }
     ]
   },
-  "gyro_quake": {
-    "subtitle": "subtitles.projecthero.gyro_quake",
+  "spin_quake": {
+    "subtitle": "subtitles.projecthero.spin_quake",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_quake"
+        "name": "projecthero:spin/spin_quake"
       }
     ]
   },
-  "gyro_heal": {
-    "subtitle": "subtitles.projecthero.gyro_heal",
+  "spin_heal": {
+    "subtitle": "subtitles.projecthero.spin_heal",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_heal"
+        "name": "projecthero:spin/spin_heal"
       }
     ]
   },
-  "gyro_leap": {
-    "subtitle": "subtitles.projecthero.gyro_leap",
+  "spin_leap": {
+    "subtitle": "subtitles.projecthero.spin_leap",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_leap"
+        "name": "projecthero:spin/spin_leap"
       }
     ]
   },
-  "gyro_whistle": {
-    "subtitle": "subtitles.projecthero.gyro_whistle",
+  "spin_whistle": {
+    "subtitle": "subtitles.projecthero.spin_whistle",
     "sounds": [
       {
-        "name": "projecthero:gyro/gyro_whistle"
+        "name": "projecthero:spin/spin_whistle"
       }
     ]
   }

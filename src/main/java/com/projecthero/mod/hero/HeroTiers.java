@@ -68,7 +68,7 @@ public final class HeroTiers {
 				|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(player) // v0.17.3
 				|| com.projecthero.mod.undead.Undead.hasPower(player) // v0.17.3
 				|| com.projecthero.mod.saiyan.Saiyan.hasPower(player) // v0.17.3
-				|| com.projecthero.mod.gyro.Gyro.hasPower(player) // v0.17.3: Gyro Zeppeli (the Spin)
+				|| com.projecthero.mod.spin.Spin.hasPower(player) // v0.17.3: the Spin (the Spin)
 				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player) // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
 				|| com.projecthero.mod.quirk.Quirks.hasPower(player) // v0.16.7: the seven Quirks
 				|| com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1: the Omnitrix
@@ -112,7 +112,7 @@ public final class HeroTiers {
 			"black_panther", // v0.17.3
 			"undead", // v0.17.3: Undead Unluck
 			"saiyan", // v0.17.3
-			"gyro", // v0.17.3: Gyro Zeppeli (the Spin)
+			"spin", // v0.17.3: the Spin (the Spin)
 			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
 			"stand_star_platinum", // v0.17.2: a JoJo Stand (Star Platinum first)
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko",
@@ -146,7 +146,7 @@ public final class HeroTiers {
 			case "black_panther" -> com.projecthero.mod.blackpanther.BlackPanther.hasPower(player); // v0.17.3
 			case "undead" -> com.projecthero.mod.undead.Undead.hasPower(player); // v0.17.3
 			case "saiyan" -> com.projecthero.mod.saiyan.Saiyan.hasPower(player); // v0.17.3
-			case "gyro" -> com.projecthero.mod.gyro.Gyro.hasPower(player); // v0.17.3
+			case "spin" -> com.projecthero.mod.spin.Spin.hasPower(player); // v0.17.3
 			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1
 			// v0.16.6: the three Miraculous heroes share one state; each key is "holds that Kwami"
 			case "ladybug" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.TIKKI);
@@ -269,9 +269,9 @@ public final class HeroTiers {
 					com.projecthero.mod.saiyan.Saiyan.revoke(player);
 				}
 			}
-			case "gyro" -> { // v0.17.3
-				if (com.projecthero.mod.gyro.Gyro.hasPower(player)) {
-					com.projecthero.mod.gyro.Gyro.revoke(player);
+			case "spin" -> { // v0.17.3
+				if (com.projecthero.mod.spin.Spin.hasPower(player)) {
+					com.projecthero.mod.spin.Spin.revoke(player);
 				}
 			}
 			case "black_panther" -> {
@@ -619,7 +619,7 @@ public final class HeroTiers {
 		if (!excludeHeroKeys.contains("saiyan") && com.projecthero.mod.saiyan.Saiyan.hasPower(player)) {
 			return true; // v0.17.3
 		}
-		if (!excludeHeroKeys.contains("gyro") && com.projecthero.mod.gyro.Gyro.hasPower(player)) {
+		if (!excludeHeroKeys.contains("spin") && com.projecthero.mod.spin.Spin.hasPower(player)) {
 			return true; // v0.17.3
 		}
 		if (!excludeHeroKeys.contains("black_panther") && com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {

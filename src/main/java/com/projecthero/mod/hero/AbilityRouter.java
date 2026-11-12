@@ -231,9 +231,9 @@ public final class AbilityRouter {
 			com.projecthero.mod.saiyan.SaiyanAbilityManager.handle(player, slot, pressed);
 			return;
 		}
-		// v0.17.3: Gyro Zeppeli (the Spin), on the same terms
-		if (com.projecthero.mod.gyro.GyroAbilityManager.hasContext(player)) {
-			com.projecthero.mod.gyro.GyroAbilityManager.handle(player, slot, pressed);
+		// v0.17.3: the Spin (the Spin), on the same terms
+		if (com.projecthero.mod.spin.SpinAbilityManager.hasContext(player)) {
+			com.projecthero.mod.spin.SpinAbilityManager.handle(player, slot, pressed);
 			return;
 		}
 		// v0.17.3: Black Panther, on the same terms
@@ -426,7 +426,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.blackpanther.BlackPanther.tick(player); // v0.17.3
 		com.projecthero.mod.undead.Undead.tick(player); // v0.17.3
 		com.projecthero.mod.saiyan.Saiyan.tick(player); // v0.17.3: Ki, the form, mastery, flight
-		com.projecthero.mod.gyro.Gyro.tick(player); // v0.17.3: the Spin bar, the holds, Ball Breaker, Spin Shield, Valkyrie
+		com.projecthero.mod.spin.Spin.tick(player); // v0.17.3: the Spin bar, the holds, Ball Breaker, Spin Shield, Valkyrie
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);
