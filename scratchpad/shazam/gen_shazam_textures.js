@@ -32,7 +32,8 @@ class Img {
 	constructor(w, h) { this.w = w; this.h = h; this.d = Buffer.alloc(w * h * 4); }
 	set(x, y, c, a = 255) { if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = (y * this.w + x) * 4; this.d[i] = clamp(c[0]); this.d[i + 1] = clamp(c[1]); this.d[i + 2] = clamp(c[2]); this.d[i + 3] = a; }
 	get(x, y) { const i = (y * this.w + x) * 4; return [this.d[i], this.d[i + 1], this.d[i + 2], this.d[i + 3]]; }
-	save(name) { fs.writeFileSync(path.join(OUT, name), encode(this.w, this.h, this.d)); }
+	// the suit and cape now come from the user's skin (make_shazam_suit.js): this script only writes the Wizard
+	save(name) { if (/^shazam_(suit|cape)/.test(name)) return; fs.writeFileSync(path.join(OUT, name), encode(this.w, this.h, this.d)); }
 }
 const shade = (c, f) => [c[0] * f, c[1] * f, c[2] * f];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];

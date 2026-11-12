@@ -1,0 +1,67 @@
+=== ShazamSkinHarnessCamMixin.java
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.ShazamSkinHarness;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): orbits the third-person camera for ShazamSkinHarness. */
+@Mixin(Camera.class)
+public abstract class ShazamSkinHarnessCamMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$shazamSkinHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Float yaw = ShazamSkinHarness.orbitYaw;
+		if (yaw == null || !detached || Minecraft.getInstance().player == null) {
+			return;
+		}
+		Vec3 f = ShazamSkinHarness.focus;
+		Vec3 p = f != null ? f : Minecraft.getInstance().player.getPosition(partialTick);
+		double a = Math.toRadians(yaw);
+		double r = ShazamSkinHarness.orbitRadius;
+		Vec3 target = p.add(0, ShazamSkinHarness.lookHeight, 0);
+		Vec3 pos = target.add(Math.sin(a) * r, ShazamSkinHarness.orbitHeight, Math.cos(a) * r);
+		Vec3 d = target.subtract(pos);
+		setRotation((float) Math.toDegrees(Math.atan2(-d.x, d.z)), (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
+		setPosition(pos);
+	}
+}
+=== ShazamSkinHarnessSkinMixin.java
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.projecthero.mod.client.ShazamSkinHarness;
+
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+
+/** TEMP-HARNESS (not shipped): picks each player's skin for ShazamSkinHarness. */
+@Mixin(AbstractClientPlayer.class)
+public abstract class ShazamSkinHarnessSkinMixin {
+	@Inject(method = "getSkin", at = @At("HEAD"), cancellable = true)
+	private void projecthero$shazamSkinHarnessSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+		PlayerSkin s = ShazamSkinHarness.SKINS.get(((AbstractClientPlayer) (Object) this).getUUID());
+		if (s != null) {
+			cir.setReturnValue(s);
+		}
+	}
+}

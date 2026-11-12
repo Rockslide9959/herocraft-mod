@@ -104,6 +104,13 @@ in a lightning flash and won't return for 5 days. Random serums never give it.
 **Look:** human form is your normal skin. Transformed you get the Shazam suit as a layer over your skin: red, a gold
 lightning-bolt chest, gold sash and cuffs, and a short white cape with gold trim. You also get 0.1 blocks taller.
 
+**Suit skin (2026-11-12, the user's pick):** the suit is the PlanetMinecraft skin "Shazam (Justice League)" by outofspace2
+(https://www.planetminecraft.com/skin/shazam-justice-league/, wide model), kept untouched in
+`docs/reference/shazam/` with `SOURCE.txt`. **No licence is stated: check with / credit the author before a public release.**
+`scratchpad/shazam/make_shazam_suit.js` builds the suit from it: head, hair, neck and hands made transparent (your own head and
+skin show), the painted cape taken off (it's a cape model on `FlowingCapeLayer` now, restyled to match, hanging to the belt),
+a slim-arm version, and a Family version with gold piping.
+
 **Passives (transformed only)**
 - **Stamina of Atlas:** 50 health, 35% damage resistance, no hunger drain.
 - **Strength of Hercules:** +10 melee.
