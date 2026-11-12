@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.greenlantern;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.flight.BodyGlow;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -13,8 +12,11 @@ import net.minecraft.client.renderer.MultiBufferSource;
 /**
  * v0.15.15 playtest (user: "the glow is supposed to warp around the players body like an outer layer of the players
  * body, make it really transparent"): while in Ring Flight, a Green Lantern wears a thin skin of green light -- the shared
- * {@link BodyGlow} in {@link BodyGlow#GREEN_LANTERN}, faded in / out with flight ({@link GreenLanternFlightFx}), a touch
+ * {@code BodyGlow} in its GREEN_LANTERN palette, faded in / out with flight ({@link GreenLanternFlightFx}), a touch
  * brighter sprint-flying. Drawn from {@code PowerRingLayer}. Replaces the old ellipsoid aura.
+ *
+ * <p>v0.17.3 (user: "a bright green thin layer ... that only covers the outside of his body"): now a thin neon outline round
+ * his silhouette instead, {@link GreenLanternOutline}; same fade, same suit-screen switch, thicker and hotter boosting.
  */
 public final class GreenLanternFlightGlow {
 	private GreenLanternFlightGlow() {
@@ -29,6 +31,6 @@ public final class GreenLanternFlightGlow {
 		}
 		float k = GreenLanternFlightFx.auraStrength(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		float boost = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BOOSTING, false) || player.isSprinting() ? 1f : 0f;
-		BodyGlow.render(pose, buffers, player, model, ageInTicks, k, boost, BodyGlow.GREEN_LANTERN, false);
+		GreenLanternOutline.render(pose, buffers, player, model, k, boost, false);
 	}
 }
