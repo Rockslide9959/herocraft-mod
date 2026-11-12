@@ -4,7 +4,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.raven.Raven;
-import com.projecthero.mod.raven.RavenItems;
 
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -25,8 +24,8 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>White glowing eyes</b> while she casts (a move a moment ago, a hold, the shield, meditating).</li>
  *   <li><b>Four red eyes</b> at Rage (Composure under 10) and through Trigon's Wrath.</li>
  *   <li><b>Trigon's Wrath</b>: a shadow shell over the whole (3x scaled) body -- a giant cloaked shadow with the red eyes burning.</li>
- *   <li><b>The hood</b> of Raven's Cloak (the costume item; the cape itself is {@link RavenCloakLayer}), the colour following her
- *   Composure, with the red chakra gem on the brow. In the Wrath the hood and cape come anyway, black.</li>
+ *   <li><b>The black hood</b> of Trigon's Wrath (the cape is {@link RavenCloakLayer}). The craftable Raven's Cloak costume that
+ *   also drew a hood was removed on 2026-11-12.</li>
  * </ul>
  */
 public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
@@ -56,11 +55,11 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 					(a << 24) | 0xFFFFFF);
 			pose.popPose();
 		}
-		boolean hooded = (RavenItems.wearsCloak(player) || wrath) && player.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
+		boolean hooded = wrath && player.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
 		if (hooded) {
 			pose.pushPose();
 			m.head.translateAndRotate(pose);
-			hood(pose, buffers, wrath ? 0xFF0E0810 : RavenCloakLayer.colour(player), light, wrath);
+			hood(pose, buffers, 0xFF0E0810, light);
 			pose.popPose();
 		}
 		if (!raven) {
@@ -123,9 +122,9 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 
 	/**
 	 * The hood, in head space (pixels): a shell round the head, open at the face, with a peak at the back. Front band over the brow and
-	 * the two sides framing the face; the red chakra gem on the brow (not in the Wrath).
+	 * the two sides framing the face. Only Trigon's Wrath draws it now.
 	 */
-	private static void hood(PoseStack pose, MultiBufferSource buffers, int argb, int light, boolean wrath) {
+	private static void hood(PoseStack pose, MultiBufferSource buffers, int argb, int light) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(RavenDraw.WHITE));
 		PoseStack.Pose last = pose.last();
 		float o = 4.7f, top = -9.0f, bottom = 0.6f;
@@ -145,11 +144,6 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 				new Vec3(3.6, bottom, -o + 0.2));
 		// the shadowed inside of the opening
 		box(vc, last, light, inner, new Vec3(-3.3, -7.2, -o + 0.05), new Vec3(3.3, -7.2, -o + 0.05), new Vec3(3.3, -6.6, -4.2), new Vec3(-3.3, -6.6, -4.2));
-		if (!wrath) {
-			// the chakra gem
-			box(vc, last, LightTexture.FULL_BRIGHT, 0xFFD01828, new Vec3(-0.5, -6.6, -4.12), new Vec3(0, -7.1, -4.12), new Vec3(0.5, -6.6, -4.12),
-					new Vec3(0, -6.1, -4.12));
-		}
 	}
 
 	private static void box(VertexConsumer vc, PoseStack.Pose pose, int light, int argb, Vec3 a, Vec3 b, Vec3 c, Vec3 d) {

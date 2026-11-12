@@ -188,10 +188,6 @@ public final class QuirkCostume {
 
 	/** The worn suit piece's texture in this slot (null: no Quirk suit there, or no texture). */
 	private static @Nullable Tex worn(LivingEntity entity, EquipmentSlot slot) {
-		// v0.17.3: Starfire's costume too
-		if (com.projecthero.mod.starfire.item.StarfireSuitItem.wornIn(entity, slot)) {
-			return tex(com.projecthero.mod.starfire.item.StarfireSuitItem.texture(slim(entity)));
-		}
 		// v0.17.3: Undead's Suit is drawn the same way, from its own skin
 		if (com.projecthero.mod.undead.item.UndeadSuitItem.wornIn(entity, slot)) {
 			return tex(com.projecthero.mod.undead.item.UndeadSuitItem.texture(slim(entity)));
@@ -339,8 +335,7 @@ public final class QuirkCostume {
 			return;
 		}
 		boolean bird = birdHead(entity);
-		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)
-				&& !com.projecthero.mod.starfire.item.StarfireSuitItem.anyWorn(entity)) {
+		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)) {
 			return;
 		}
 		beginUndead(entity);

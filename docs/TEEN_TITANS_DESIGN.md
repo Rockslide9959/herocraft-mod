@@ -7,8 +7,8 @@ cosmetic); Beast Boy is gained from both the green ocelot bite and the Sakutia S
 
 Drawn from the 2003 Teen Titans show, Teen Titans Go!, the New Teen Titans / Titans comics and the Titans live-action show.
 All three are Hero-Tier **Primary** powers in the Guidebook's **DC** section. Keys follow the house rules: H = power selector
-only, no N ability, X = movement, V = utility/mode, the rest attack. No skin changes (glow overlays only); a craftable costume
-for each, worn like the other user-model suits.
+only, no N ability, X = movement, V = utility/mode, the rest attack. No skin changes (glow overlays only). (The craftable
+Starfire costume and Raven's Cloak were built, then **removed by the user on 2026-11-12**: see "Costumes removed" below.)
 
 **Titans Together (shared passive):** within 32 blocks of a squadmate who has Starfire, Beast Boy, Raven or Cyborg, every
 Titan gets +10% damage and +20% bar refill, and a small Titans "T" shows next to the HUD bar.
@@ -121,8 +121,8 @@ because her emotions leak out as power and Trigon's red-eyed side breaks through
 **Getting it:** the **Book of Azarath**, rare in ancient city and stronghold library chests. Read it at night: you hear
 "Azarath Metrion Zinthos" and the power settles in.
 
-**Look:** your skin plus a dark aura overlay (black energy wisps from the hands, white glowing eyes while casting). The
-costume item gives the cloak: blue by default, white at high Composure, and a dark red tint when Rage is high.
+**Look:** your skin plus a dark aura overlay (black energy wisps from the hands, white glowing eyes while casting). No
+costume item (Raven's Cloak was removed on 2026-11-12); only Trigon's Wrath draws a black hood and cape.
 
 **Passives**
 - 20 health, 10% damage resistance, slow fall always on (not while flying).
@@ -160,3 +160,12 @@ Four parallel worktree agents: STARFIRE, RAVEN, BEASTBOY-POWER, BEASTBOY-ART. Co
 master): `beastboy/BeastForm` (form ids, sizes, health, art flag) and `client/beastboy/BeastFormArt.render(...)` (ART fills it,
 POWER only calls it and falls back when it returns false). Titans Together is added after the merges. Lang text goes into
 `scratchpad/<feature>/lang_*.json` fragments merged key by key.
+
+## Costumes removed (2026-11-12)
+The user asked for the Starfire and Raven suits to be removed. Gone: the Starfire Top / Skirt / Boots (`starfire_suit_*`,
+`StarfireSuitItem`, its skin-costume hook in `QuirkCostume` / `QuirkSuitArmourMixin`) and Raven's Cloak (`raven_cloak`, its
+recipe, armour layer, the blue / white / red Composure-coloured hood and cape), with their recipes, textures, creative tab
+entries, Guidebook sections and lang keys. Kept: Starfire's glowing eyes, fists and flame hair; Raven's wisps, white casting eyes,
+four red Rage eyes, Soul-Self and the Trigon's Wrath shadow (its black hood and cape now come from the Wrath alone,
+`RavenCloakLayer` / `RavenAuraLayer`). Saved copies of the removed items load as air (vanilla warns once); no mod state referenced
+them. The old generator scripts stay in `scratchpad/starfire/` and `scratchpad/raven/` for reference.
