@@ -86,7 +86,7 @@ public class SoulSelfRenderer extends EntityRenderer<SoulSelfEntity> {
 		pose.mulPose(Axis.YP.rotationDegrees(-Mth.rotLerp(partial, e.yRotO, e.getYRot())));
 		pose.mulPose(Axis.XP.rotationDegrees(Mth.clamp(Mth.lerp(partial, e.xRotO, e.getXRot()), -60f, 60f)));
 		// it swells a little as it lunges out, then shrinks away
-		float grow = SCALE * (0.6f + 0.4f * fade) * (1f + 0.08f * (1f - Math.abs(beat)));
+		float grow = SCALE * e.size() * (0.6f + 0.4f * fade) * (1f + 0.08f * (1f - Math.abs(beat))); // (half again in Demonic Ascension)
 		pose.scale(grow, grow, grow);
 		int a = Math.round(235 * fade);
 		root.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(TEXTURE)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,

@@ -10,9 +10,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.3 tester round ("Raven bubble doesn't show the player model"): in first person, inside the Dark Shield, nothing of her
- * showed -- just two wisps floating in the dome. Now, bare-handed, both arms rise into view, palms out, holding the dome up (what
- * everyone else sees in third person, {@code RavenPoseMixin}). Fed to the shared first-person arm poser
+ * v0.17.3 Raven, first person: bare-handed, both arms rise into view, palms out, as the Soul Shield snaps up and while the Dark
+ * Energy Wave gathers (what everyone else sees in third person, {@code RavenPoseMixin}). Fed to the shared first-person arm poser
  * ({@link QuirkFirstPersonPose#current}). Local player only: the blend is a single float, not per-entity state.
  */
 public final class RavenFirstPerson {
@@ -29,7 +28,10 @@ public final class RavenFirstPerson {
 		long now = System.nanoTime();
 		float dt = lastNanos == 0L ? 0f : Math.min(0.1f, (now - lastNanos) / 1.0e9f);
 		lastNanos = now;
-		boolean up = Raven.shielding(p) && !Raven.inShadow(p);
+		var s = Raven.peek(p);
+		long gt = p.level().getGameTime();
+		boolean guardUp = s != null && s.guardUntil > gt && gt - (s.guardUntil - com.projecthero.mod.raven.RavenConfig.GUARD_TICKS) < 14;
+		boolean up = (guardUp || RavenFx.running(com.projecthero.mod.raven.network.RavenFxPayload.CHARGE, p.getId(), gt)) && !Raven.inShadow(p);
 		blend = Mth.clamp(blend + (up ? dt * 6f : -dt * 6f), 0f, 1f);
 		if (blend <= 0f) {
 			return null;

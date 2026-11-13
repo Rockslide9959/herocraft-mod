@@ -37,18 +37,23 @@ import org.joml.Vector3f;
  * {@link RavenFlight}'s; the emotional leak is {@link RavenLeak}'s.
  *
  * <ul>
- *   <li><b>Passives</b>: 20 health, 10% damage resistance ({@link RavenDamage}), slow fall whenever she isn't flying.</li>
- *   <li><b>Dark Energy</b> (the Slab, 0..100) pays for the moves, 5 a second back.</li>
- *   <li><b>Composure</b> (the Hairline under it): 100 is calm. Being hurt, big moves and hostile mobs around for a long time push it
- *   toward Rage; it comes back slowly when things are quiet and fast while meditating. Under 30 her emotions leak, under 10 is Rage
- *   (four red eyes, Trigon's Wrath).</li>
+ *   <li><b>Passives</b>: 30 health, 10% damage resistance ({@link RavenDamage}), slow fall whenever she isn't flying; Demonic
+ *   Heritage (30% less magic and supernatural damage), Dark Empathy (a kill gives back a heart and 5 Dark Energy), Mystical
+ *   Awareness (hostiles within 24 blocks glow through walls for 2 s every 8 s, on her own screen: {@link RavenAwareness}).</li>
+ *   <li><b>Dark Energy</b> (the Slab, 0..100) pays for every move and spell, 5 a second back (10 in Demonic Ascension).</li>
+ *   <li><b>Composure</b> (the Hairline under it): 100 is calm. Being hurt, casting and hostile mobs around for a long time push it
+ *   down; it comes back slowly when things are quiet, fast while meditating, and Soul Restoration calms it. Under 40 she is
+ *   <b>Unsettled</b> (spells +20%, bolts drift, 1 in 8 wheel spells misfire, her emotions leak); under 10 is <b>Rage</b> (four red
+ *   eyes, spells +40%, shields absorb half, Trigon's Wrath).</li>
  * </ul>
+ * The revamp's spec is {@code docs/RAVEN_REVAMP_DESIGN.md}; the wheel spells are {@link RavenSpells}'.
  */
 public final class Raven {
 	public static final String KEY = "raven";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("raven_health");
 	private static final ResourceLocation SCALE_ID = PowerToggles.id("raven_wrath_scale");
+	private static final ResourceLocation SPEED_ID = PowerToggles.id("raven_ascension_speed");
 
 	/** Dark energy colours (dust). */
 	public static final int VOID = 0x1A0A26;
@@ -74,6 +79,7 @@ public final class Raven {
 		RavenMoves.clearSessionState();
 		RavenFlight.clearSessionState();
 		RavenRestore.clearSessionState();
+		RavenSpells.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -84,6 +90,7 @@ public final class Raven {
 		RavenAbilityManager.forget(id);
 		RavenMoves.forget(id);
 		RavenFlight.forget(id);
+		RavenSpells.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -129,9 +136,32 @@ public final class Raven {
 		return s != null && s.hasPower && s.meditating;
 	}
 
-	public static boolean shielding(Player player) {
+	/** The Soul Shield (G) is up. Client-safe. */
+	public static boolean guarding(Player player) {
 		RavenState s = peek(player);
-		return s != null && s.hasPower && s.shield;
+		return s != null && s.hasPower && s.guardUntil > now(player) && s.guardHp > 0f;
+	}
+
+	/** Demonic Ascension is running. Client-safe. */
+	public static boolean ascended(Player player) {
+		RavenState s = peek(player);
+		return s != null && s.hasPower && s.ascendUntil > now(player);
+	}
+
+	public static int ascendTicksLeft(Player player) {
+		RavenState s = peek(player);
+		return s == null || !s.hasPower ? 0 : (int) Math.max(0L, s.ascendUntil - now(player));
+	}
+
+	/** Shadow Veil is running. Client-safe. */
+	public static boolean veiled(Player player) {
+		RavenState s = peek(player);
+		return s != null && s.hasPower && s.veilUntil > now(player);
+	}
+
+	public static RavenSpell selectedSpell(Player player) {
+		RavenState s = peek(player);
+		return RavenSpell.of(s == null ? 0 : s.spell);
 	}
 
 	/** Trigon's Wrath is running. Client-safe. */
@@ -145,9 +175,18 @@ public final class Raven {
 		return s == null || !s.hasPower ? 0 : (int) Math.max(0L, s.wrathUntil - now(player));
 	}
 
-	/** Under 30 Composure: her emotions leak. Client-safe. */
-	public static boolean leaking(Player player) {
-		return hasPower(player) && composure(player) < RavenConfig.LEAK_BELOW;
+	/** Composure's three tiers. */
+	public enum Tier {
+		CALM, UNSETTLED, RAGE
+	}
+
+	/** Under 40 Composure (Rage included): Unsettled -- spells +20% but wild, her emotions leak. Client-safe. */
+	public static boolean unsettled(Player player) {
+		return hasPower(player) && (composure(player) < RavenConfig.UNSETTLED_BELOW || inWrath(player));
+	}
+
+	public static Tier tier(Player player) {
+		return rage(player) ? Tier.RAGE : unsettled(player) ? Tier.UNSETTLED : Tier.CALM;
 	}
 
 	/** Under 10 Composure (or in the Wrath): Rage -- four red eyes, Shift+Z unlocked. Client-safe. */
@@ -163,7 +202,7 @@ public final class Raven {
 	/** The white casting eyes. Client-safe. */
 	public static boolean casting(Player player) {
 		RavenState s = peek(player);
-		return s != null && s.hasPower && (s.castUntil > now(player) || s.meditating || s.tkTarget >= 0 || s.shield);
+		return s != null && s.hasPower && (s.castUntil > now(player) || s.meditating || s.tkTarget >= 0 || s.ascendUntil > now(player));
 	}
 
 	/** A streak of shadow (Shadow Dash, sunk for Shadow Step): no damage taken, the body hidden. Client-safe. */
@@ -278,16 +317,36 @@ public final class Raven {
 
 	// ---------------------------------------------------------------- hits
 
-	/** Every Raven bolt's multiplier right now: +25% while her emotions leak. */
-	public static float boltMult(Player player) {
-		return leaking(player) ? RavenConfig.LEAK_BOLT_BONUS : 1f;
+	/** Composure's damage multiplier: +40% at Rage, +20% Unsettled. */
+	public static float composureMult(Player player) {
+		return rage(player) ? RavenConfig.RAGE_MULT : unsettled(player) ? RavenConfig.UNSETTLED_MULT : 1f;
+	}
+
+	/** Every Raven move and spell's damage multiplier right now: Composure's times Demonic Ascension's +35%. */
+	public static float spellMult(Player player) {
+		return composureMult(player) * (ascended(player) ? RavenConfig.ASCEND_POWER : 1f);
+	}
+
+	/** What her shields can absorb, as a share: half at Rage. */
+	public static float shieldMult(Player player) {
+		return rage(player) ? RavenConfig.RAGE_SHIELD_MULT : 1f;
+	}
+
+	/** Dark Energy cost multiplier: -25% in Demonic Ascension. */
+	public static float costMult(Player player) {
+		return ascended(player) ? RavenConfig.ASCEND_COST_MULT : 1f;
 	}
 
 	/**
-	 * A Raven move hits {@code target} for {@code amount}. Always the player's own damage (the squad veto and boss threat see her).
-	 * False when the target can't be harmed (a squadmate, their pet, PvP off) or nothing landed.
+	 * A Raven move hits {@code target} for {@code amount} times {@link #spellMult}. Always the player's own damage (the squad veto and
+	 * boss threat see her). False when the target can't be harmed (a squadmate, their pet, PvP off) or nothing landed.
 	 */
 	public static boolean hit(ServerPlayer player, LivingEntity target, float amount) {
+		return hitRaw(player, target, amount * spellMult(player));
+	}
+
+	/** {@link #hit} without the multipliers (Trigon's Wrath: its 30 is its 30). */
+	public static boolean hitRaw(ServerPlayer player, LivingEntity target, float amount) {
 		if (target == null || target == player || !HeroTargets.canHarm(player, target)) {
 			return false;
 		}
@@ -343,26 +402,48 @@ public final class Raven {
 		forget(player.getUUID());
 	}
 
-	/** Death, a new world, leaving: the holds, the shield, the flight, the debris and the Wrath end. */
+	/** Death, a new world, leaving: the holds, the shields, the flight, the debris, the Veil, Ascension and the Wrath end. */
 	public static void clearTransient(ServerPlayer player) {
 		RavenState s = peek(player);
 		if (s == null || !s.hasPower) {
 			return;
 		}
+		boolean veiled = s.veilUntil > 0L;
 		RavenMoves.endAll(player);
+		RavenSpells.endAll(player);
 		RavenFlight.stop(player);
 		RavenFlight.stopMeditation(player);
 		RavenState n = state(player).copy();
 		n.flying = false;
 		n.meditating = false;
-		n.shield = false;
-		n.shieldHp = 0f;
 		n.wrathUntil = 0L;
 		n.shadowUntil = 0L;
 		n.tkTarget = -1;
 		n.debris = 0;
+		n.ascendUntil = 0L;
+		n.guardUntil = 0L;
+		n.guardHp = 0f;
+		n.veilUntil = 0L;
 		save(player, n);
+		if (veiled) {
+			RavenSpells.unveil(player);
+		}
 		reconcile(player);
+	}
+
+	/** Dark Empathy: she killed something -- a heart and 5 Dark Energy back. */
+	public static void onKill(ServerPlayer player, LivingEntity victim) {
+		if (!hasPower(player) || victim == player || !player.isAlive()) {
+			return;
+		}
+		player.heal(RavenConfig.EMPATHY_HEAL);
+		RavenState n = state(player).copy();
+		n.energy = Math.min(RavenConfig.ENERGY_MAX, n.energy + RavenConfig.EMPATHY_ENERGY);
+		save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 from = victim.position().add(0, victim.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.SCULK_SOUL, from.x, from.y, from.z, 3, 0.2, 0.3, 0.2, 0.02);
+		level.sendParticles(dust(VIOLET, 0.9f), player.getX(), player.getY() + 1.0, player.getZ(), 8, 0.3, 0.5, 0.3, 0.0);
 	}
 
 	public static void onPlayerJoin(ServerPlayer player) {
@@ -391,10 +472,16 @@ public final class Raven {
 		if (s == null || !s.hasPower) {
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
 			PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
 			return;
+		}
+		if (s.ascendUntil > now(player)) {
+			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, RavenConfig.ASCEND_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 		}
 		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, RavenConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		if (s.wrathUntil > now(player)) {
@@ -421,8 +508,9 @@ public final class Raven {
 		}
 		boolean wrath = s.wrathUntil > now;
 		// Dark Energy (in place; re-sent every few ticks)
-		if (!s.shield && s.tkTarget < 0) {
-			s.energy = Math.min(RavenConfig.ENERGY_MAX, s.energy + RavenConfig.ENERGY_REGEN_PER_TICK * com.projecthero.mod.titans.TitansTogether.regenMult(player) // v0.17.3: Titans Together
+		if (s.tkTarget < 0) {
+			float regen = s.ascendUntil > now ? RavenConfig.ASCEND_REGEN_PER_TICK : RavenConfig.ENERGY_REGEN_PER_TICK;
+			s.energy = Math.min(RavenConfig.ENERGY_MAX, s.energy + regen * com.projecthero.mod.titans.TitansTogether.regenMult(player) // v0.17.3: Titans Together
 					+ (s.meditating ? RavenConfig.MEDITATE_ENERGY_PER_TICK : 0f));
 		}
 		// Composure
@@ -458,12 +546,17 @@ public final class Raven {
 		if (s.wrathUntil > 0L && !wrath) {
 			RavenMoves.endWrath(player);
 		}
+		// Demonic Ascension runs out
+		if (s.ascendUntil > 0L && s.ascendUntil <= now) {
+			RavenMoves.endAscension(player);
+		}
 		if (player.tickCount % 20 == 0) {
 			reconcile(player);
 		}
 		RavenFlight.tick(player);
 		RavenMoves.tick(player);
-		if (state(player).composure < RavenConfig.LEAK_BELOW) {
+		RavenSpells.tick(player);
+		if (state(player).composure < RavenConfig.UNSETTLED_BELOW) {
 			RavenLeak.tick(player);
 		}
 		if (now % RavenConfig.SYNC_INTERVAL == 0) {

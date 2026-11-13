@@ -23,6 +23,8 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li><b>White glowing eyes</b> while she casts (a move a moment ago, a hold, the shield, meditating).</li>
  *   <li><b>Four red eyes</b> at Rage (Composure under 10) and through Trigon's Wrath.</li>
+ *   <li><b>Demonic Ascension</b>: the white eyes, and a slow purple energy swirl round the body, arms and legs -- never the head,
+ *   so nothing smears over the face.</li>
  *   <li><b>Trigon's Wrath</b>: a shadow shell over the whole (3x scaled) body -- a giant cloaked shadow with the red eyes burning.</li>
  *   <li><b>The black hood</b> of Trigon's Wrath (the cape is {@link RavenCloakLayer}). The craftable Raven's Cloak costume that
  *   also drew a hood was removed on 2026-11-12.</li>
@@ -31,6 +33,7 @@ import net.minecraft.world.phys.Vec3;
 public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	private static final ResourceLocation SHADOW = ProjectHeroMod.id("textures/entity/raven/shadow.png");
 	private static final float PX = 1f / 16f;
+	private static final ResourceLocation SWIRL = ResourceLocation.withDefaultNamespace("textures/entity/creeper/creeper_armor.png");
 
 	public RavenAuraLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
@@ -64,6 +67,20 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		}
 		if (!raven) {
 			return;
+		}
+		if (Raven.ascended(player) && !wrath) {
+			// the aura: an energy swirl (the charged creeper's, tinted her violet) over everything but the head
+			float t = ageInTicks * 0.008f;
+			VertexConsumer swirl = buffers.getBuffer(RenderType.energySwirl(SWIRL, t % 1f, (t * 0.6f) % 1f));
+			int col = (0x90 << 24) | 0x9A4CF0;
+			pose.pushPose();
+			pose.scale(1.06f, 1.03f, 1.06f);
+			m.body.render(pose, swirl, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
+			m.rightArm.render(pose, swirl, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
+			m.leftArm.render(pose, swirl, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
+			m.rightLeg.render(pose, swirl, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
+			m.leftLeg.render(pose, swirl, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, col);
+			pose.popPose();
 		}
 		boolean rage = Raven.rage(player);
 		boolean casting = Raven.casting(player);

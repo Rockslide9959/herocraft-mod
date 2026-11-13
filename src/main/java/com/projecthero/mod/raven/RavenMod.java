@@ -51,12 +51,25 @@ public final class RavenMod {
 				switch (payload.action()) {
 					case TOGGLE_FLIGHT -> RavenFlight.toggle(p);
 					case FIRE_DEBRIS -> RavenMoves.fireDebris(p);
+					case CAST_SPELL -> {
+						if (p.isAlive() && !p.isSpectator()) {
+							RavenSpells.castSelected(p);
+						}
+					}
+					case PICK_SPELL -> RavenSpells.select(p, payload.arg());
 				}
 			});
 		});
-		// meditating: no attacking
-		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
-				Raven.meditating(player) && !player.isSpectator() ? InteractionResult.FAIL : InteractionResult.PASS);
+		// meditating: no attacking; a swing ends Shadow Veil
+		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (Raven.meditating(player) && !player.isSpectator()) {
+				return InteractionResult.FAIL;
+			}
+			if (player instanceof ServerPlayer sp && Raven.veiled(sp)) {
+				RavenSpells.breakVeil(sp);
+			}
+			return InteractionResult.PASS;
+		});
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) ->
 				Raven.meditating(player) && !player.isSpectator() ? InteractionResult.FAIL : InteractionResult.PASS);
 		ServerTickEvents.END_SERVER_TICK.register(RavenRestore::tick);
@@ -66,6 +79,9 @@ public final class RavenMod {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p && Raven.hasPower(p)) {
 				Raven.clearTransient(p);
+			}
+			if (source.getEntity() instanceof ServerPlayer killer && killer != entity && Raven.hasPower(killer)) {
+				Raven.onKill(killer, entity); // Dark Empathy
 			}
 		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> Raven.clearTransient(player));
