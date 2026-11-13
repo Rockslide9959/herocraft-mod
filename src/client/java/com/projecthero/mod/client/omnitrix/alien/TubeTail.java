@@ -229,6 +229,12 @@ final class TubeTail {
 	 */
 	void renderScripted(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<AbstractClientPlayer> model, float downRoot, float downTip,
 			float sway, float wave, float phase) {
+		renderScripted(pose, buffers, light, model, downRoot, downTip, sway, wave, phase, 1f);
+	}
+
+	/** v0.17.3 (XLR8's final pose): as above, every link {@code stretch} times its usual length (a longer tail for one shot). */
+	void renderScripted(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<AbstractClientPlayer> model, float downRoot, float downTip,
+			float sway, float wave, float phase, float stretch) {
 		PoseStack bp = new PoseStack();
 		model.body.translateAndRotate(bp);
 		Matrix4f m = bp.last().pose();
@@ -238,7 +244,7 @@ final class TubeTail {
 		Vector3f side = m.transformDirection(new Vector3f(1f, 0f, 0f)).normalize();
 		Vector3f[] q = new Vector3f[N];
 		q[0] = root;
-		float len = (float) LEN / MODEL_SCALE;
+		float len = (float) LEN / MODEL_SCALE * stretch;
 		for (int i = 1; i < N; i++) {
 			float f = (i - 1) / (float) (N - 2);
 			float a = Mth.lerp(f, downRoot, downTip) * Mth.DEG_TO_RAD;

@@ -117,9 +117,10 @@ public final class WildmuttShow extends ShowSequenceClient {
 					// the lunge
 					{ 262.01f, 2.4f, 18f, 0.3f, 0.6f, 0f, 0.5f },
 					{ 268f, 1.7f, 12f, 0.3f, 0.6f, 0f, 0.6f },
-					// the roar on the slope, side on and low
-					{ 268.01f, 3.2f, -72f, 0.55f, 1.15f, 0f, 0.25f },
-					{ 338f, 2.95f, -70f, 0.55f, 1.15f, 0f, 0.25f } }))
+					// the roar on the slope, low (final-pose rework: three-quarters front from his right, so he faces the right of frame
+					// turned toward the camera with both front paws showing, like the show's; it was side-on from his left)
+					{ 268.01f, 2.85f, 38f, 0.5f, 1.05f, 0f, 0.3f },
+					{ 338f, 2.65f, 34f, 0.5f, 1.08f, 0f, 0.3f } }))
 			.shake(LUNGE_AT, WHITE_AT, 0.02f, 6f).shake(285f, GREEN_AT, 0.01f, 40f);
 
 	public WildmuttShow() {
@@ -285,16 +286,19 @@ public final class WildmuttShow extends ShowSequenceClient {
 			thighR = thighL = Mth.lerp(w, 8f, -22f);
 			shinR = shinL = Mth.lerp(w, -8f, 10f);
 		} else {
-			// on the slope, sitting back on the haunches, the front legs planted straight, the head flung up roaring at the sky
+			// on the slope, sitting back on the haunches, the front paws planted out ahead, the head tipped back roaring up at the sky
+			// (final-pose rework, the show's t 310: the snout up at about 60 degrees, not straight up; the jaw wide open; the front legs
+			// reaching forward onto the slope, not hanging straight)
 			float w = smooth((t - ROAR_AT) / 6f);
 			float roar = 0.5f + 0.5f * Mth.sin((t - ROAR_AT) * 0.12f);
 			pitch = 22f * w;
 			drop = 5.5f * w;
 			chest = 6f * w;
-			neck = 34f * w;
-			head = (24f + 6f * roar) * w;
-			jaw = -(30f + 14f * roar) * w - 3f * Mth.sin(t * 2.4f);
-			armR = armL = 5f * w;
+			neck = 22f * w;
+			head = (12f + 6f * roar) * w;
+			jaw = -(40f + 10f * roar) * w - 3f * Mth.sin(t * 2.4f);
+			armR = armL = 16f * w;
+			foreR = foreL = 8f * w;
 			thighR = thighL = 30f * w;
 			shinR = shinL = -34f * w;
 		}
@@ -589,8 +593,8 @@ public final class WildmuttShow extends ShowSequenceClient {
 		} else if (t < HEAD_AT) {
 			st.fill(0x080404, 1f);
 		} else {
-			// the roar: olive and black, the pale slope underfoot
-			st.showBackground();
+			// the roar: the show's pale khaki sky with black blobs (final-pose rework; it was the green swirl), the pale slope underfoot
+			st.gradient(0xCCC7A0, 0xB4AE8A, 0x7E7A60);
 			KirbyDots.draw(st, st.shotSeed(TRACK.shot(t)), t - ROAR_AT, ROAR_DOTS);
 			VertexConsumer vc = st.flat();
 			PoseStack.Pose p = st.last();
@@ -598,6 +602,8 @@ public final class WildmuttShow extends ShowSequenceClient {
 			st.put(vc, p, -1.5f, -1.5f, 0xB8B088, 1f);
 			st.put(vc, p, 1.5f, -1.5f, 0xB8B088, 1f);
 			st.put(vc, p, 1.5f, -0.92f, 0xE2DCB4, 1f);
+			// the slope's ink edge against the pale sky
+			Shards.line(st, vc, p, -1.5f, -0.28f, 1.5f, -0.92f, 0.005f, 0x4A4632, 0.85f);
 			for (int i = 0; i < 7; i++) {
 				float y0 = -0.42f - i * 0.11f;
 				Shards.line(st, vc, p, -1.2f + i * 0.08f, y0, -0.2f + i * 0.12f, y0 - 0.22f, 0.004f, 0x8A845E, 0.6f);

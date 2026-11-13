@@ -41,6 +41,7 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   92-132   from below: the black body, circuits closing over it, up to the eye  v 215.7-217.7   (show green, black dots)
  *   132-138  WHITE FLASH -- the body changes under it (133)                         v 217.7-218.0
  *   138-164  Upgrade from low, the white thinning onto the streaming green         v 218.0-219.3
+ *            (slanted over to his left; the fists swing at the lens from 155)
  *   164-168  a green-white flash out                                               v 219.3-219.5
  *   168-180  back in the world (the show cuts straight to the scene)               v 219.5-220.1
  * </pre>
@@ -51,6 +52,8 @@ public final class UpgradeShow extends ShowSequenceClient {
 	static final float SLAP_END = 6f, DIAL_AT = 26f, FOREARM_AT = 33f, HAND_AT = 48f, SHOULDER_AT = 62f, CHEST_AT = 74f, EYE_AT = 84f, BELOW_AT = 92f,
 			WHITE_AT = 132f, REVEAL_AT = 138f, OUT_AT = 164f, WORLD_AT = 168f;
 	static final int TRANSFORM_AT = 133;
+	/** Final-pose rework: the stance's slant over to his left (radians, as {@code body.zRot}) and when the fists swing at the lens. */
+	static final float STANCE_TILT = 0.3f, SWING_AT = 155f;
 
 	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
 	/** The Mechamorph black, the circuit lime, its glow. */
@@ -93,9 +96,10 @@ public final class UpgradeShow extends ShowSequenceClient {
 					{ 118f, 0.56f, -10f, 1.08f, 1.6f, 0f, 0f },
 					{ 118.01f, 0.46f, 24f, 1.28f, 1.66f, 0f, 0f },
 					{ 132f, 0.4f, 30f, 1.3f, 1.66f, 0f, 0f },
-					// Upgrade, from low and in front
-					{ 132.01f, 1.2f, 0f, 0.35f, 1.3f, 0f, 0f },
-					{ 168f, 1.25f, 0f, 0.3f, 1.15f, 0f, 0f } }));
+					// Upgrade, from low and in front (final-pose rework: a touch closer and looking higher, so the slanted body's head sits
+					// up at the top right and the swung fists fill the lower corners; it drifted down to the waist)
+					{ 132.01f, 1.15f, 0f, 0.32f, 1.32f, 0f, 0f },
+					{ 168f, 1.08f, 0f, 0.3f, 1.3f, 0f, 0f } }));
 
 	public UpgradeShow() {
 		super(Aliens.UPGRADE.id());
@@ -170,16 +174,25 @@ public final class UpgradeShow extends ShowSequenceClient {
 			}
 		} else {
 			// Upgrade's stance: low and wide, the knees soft and out, the arms hanging out from his sides with the elbows bowed, a slow
-			// liquid sway
+			// liquid sway. Final-pose rework (the show's t 162): the whole body slants over to his left about the hips (head up at the
+			// right of frame), and near the end of the shot both fists swing forward at the low camera so they fill the foreground --
+			// the right one low and out to the left of frame, the left one out to the right (it stood square and symmetrical)
 			float breathe = Mth.sin(t * 0.3f) * 0.05f;
+			// (eased back out once the holder is in the world, so the bystanders' view doesn't snap when the sequence ends)
+			float settle = 1f - smooth((t - WORLD_AT) / 8f);
+			float tilt = STANCE_TILT * smooth((t - REVEAL_AT) / 8f) * settle;
+			float swing = smooth((t - SWING_AT) / 5f) * settle;
 			ShowBody.reset(m, 1.5f);
-			ShowBody.lean(m, 0.08f);
-			rot(m.rightArm, 1f, -0.15f, 0f, 0.75f + breathe);
-			rot(m.leftArm, 1f, -0.15f, 0f, -0.75f - breathe);
+			ShowBody.tilt(m, tilt);
+			ShowBody.lean(m, Mth.lerp(swing, 0.08f, -0.06f));
+			// (the arms and head roll with the tilted chest: tilt() added it, rot() at weight 1 sets them absolutely, so it is added back)
+			rot(m.rightArm, 1f, Mth.lerp(swing, -0.15f, -0.95f), Mth.lerp(swing, 0f, 0.12f), Mth.lerp(swing, 0.75f, 0.3f) + breathe + tilt);
+			rot(m.leftArm, 1f, Mth.lerp(swing, -0.15f, -0.72f), Mth.lerp(swing, 0f, -0.1f), Mth.lerp(swing, -0.75f, -1.3f) - breathe + tilt);
 			rot(m.rightLeg, 1f, -0.12f, 0f, 0.32f);
 			rot(m.leftLeg, 1f, -0.12f, 0f, -0.32f);
-			rot(m.head, 1f, Mth.lerp(smooth((t - REVEAL_AT) / 14f), -0.25f, 0.05f), 0f, 0f);
-			ShowBody.bend(0.75f + breathe, -1.57f, 0.75f - breathe, 1.57f, 0.32f, 1.57f, 0.32f, -1.57f);
+			rot(m.head, 1f, Mth.lerp(smooth((t - REVEAL_AT) / 14f), -0.25f, 0.05f), 0f, tilt * 1.3f);
+			ShowBody.bend(Mth.lerp(swing, 0.75f, 0.35f) + breathe, Mth.lerp(swing, -1.57f, 0f), Mth.lerp(swing, 0.75f, 0.3f) - breathe,
+					Mth.lerp(swing, 1.57f, 0f), 0.32f, 1.57f, 0.32f, -1.57f);
 		}
 		ShowBody.layers(m);
 	}

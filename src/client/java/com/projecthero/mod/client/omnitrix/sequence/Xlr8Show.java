@@ -48,7 +48,8 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   160-176 the face, front: the visor slides down over it (166-172)
  *   176-190 full body, front: the low crouch, claws out, tail up
  *   188-196 WHITE FLASH
- *   194-222 side-on: the sprinter's lean, on the green ray burst with a black shadow streak
+ *   194-222 side-on, facing right: the dash -- leaning forward, arms swung back, a wide planted stride, the tail rising out
+ *           behind; on the green ray burst with a black shadow streak (final-pose rework)
  *   220-236 FULL GREEN FLASH, then the world, the green fading off by 259
  * </pre>
  * Everything is flat-colour quads (no particles). Limbs stay rigid: the expression is in whole-limb angles, the lean and the camera.
@@ -104,9 +105,10 @@ public final class Xlr8Show extends ShowSequenceClient {
 					// full body, the crouch, drifting round to his right
 					{ 176.01f, 1.9f, 10f, 0.42f, 0.78f, 0f, 0f },
 					{ 192f, 1.8f, 26f, 0.45f, 0.78f, 0f, 0f },
-					// side-on, the sprinter's lean
-					{ 192.01f, 2.1f, 48f, 0.95f, 0.8f, 0f, 0.05f },
-					{ WORLD_AT, 1.95f, 42f, 0.95f, 0.8f, 0f, 0.05f } }))
+					// side-on, the dash (final-pose rework: from his right, so he faces the right of frame in profile like the show's;
+					// from three-quarters he read as turned to the camera and leaning away), a little low
+					{ 192.01f, 2.2f, 80f, 0.78f, 0.82f, 0f, 0.1f },
+					{ WORLD_AT, 2.05f, 77f, 0.78f, 0.82f, 0f, 0.1f } }))
 			.linear(TAIL_AT, CHEST_AT).linear(WHIP2_AT, HEAD_AT);
 
 	public Xlr8Show() {
@@ -175,11 +177,13 @@ public final class Xlr8Show extends ShowSequenceClient {
 			.legs(-0.72f, 0f, 0.52f, 1.45f, 0.85f)
 			.at(181f).hold()
 			.at(RUN_AT - 0.5f).rArm(-1.4f, 0.4f, 0.75f, 1.7f, 0.6f).lArm(-0.5f, -0.25f, -1.15f, 1.35f, -0.6f).drop(3.5f).head(-0.55f, -0.12f, 0.05f)
-			// ---- the sprint (a cut): pitched forward, the front knee driven up, the back shin kicked up behind, claws forward
-			.at(RUN_AT).drop(1.6f).lean(0.62f).head(-0.78f, 0.1f, 0f)
-			.rArm(-0.75f, 0f, 0.25f, 1.25f, 0.3f).lArm(0.45f, 0f, -0.3f, 1.35f, -0.3f)
-			.rLeg(-0.9f, 0f, 0.14f, 1.25f, 0.1f).lLeg(0.85f, 0f, -0.12f, 1.35f, -0.1f)
-			.at(206f).rArm(-0.85f, 0f, 0.27f, 1.35f, 0.3f).lArm(0.5f, 0f, -0.32f, 1.45f, -0.3f).rLeg(-0.98f, 0f, 0.14f, 1.32f, 0.1f).lLeg(0.92f, 0f, -0.12f, 1.42f, -0.1f)
+			// ---- the dash (a cut; final-pose rework, the show's t 215): pitched forward, the chin up so the visor looks ahead; both arms
+			// swung back with the elbows high behind him and the forearms folded forward (the blades flared); a wide planted stride, the
+			// front foot under the hips on a bent knee, the back leg reaching far behind (it was a running knee-up, claws forward)
+			.at(RUN_AT).drop(2.1f).lean(0.62f).head(-0.8f, -0.08f, 0f)
+			.rArm(1.25f, 0f, 0.2f, 2.2f, 0.15f).lArm(0.9f, 0f, -0.25f, 1.6f, -0.15f)
+			.rLeg(-0.6f, 0f, 0.14f, 1.2f, 0.1f).lLeg(0.55f, 0f, -0.12f, 0.3f, -0.1f)
+			.at(206f).rArm(1.32f, 0f, 0.22f, 2.3f, 0.15f).lArm(0.95f, 0f, -0.27f, 1.68f, -0.15f).rLeg(-0.62f, 0f, 0.14f, 1.24f, 0.1f).lLeg(0.58f, 0f, -0.12f, 0.32f, -0.1f)
 			.at(GREEN2_AT + 4f).hold()
 			// eased to standing under the green flash
 			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.05f, 0f, 0f);
@@ -226,17 +230,28 @@ public final class Xlr8Show extends ShowSequenceClient {
 		m.leftLeg.x = 1.9f;
 		m.rightLeg.y = m.leftLeg.y = 12f + drop;
 		m.rightLeg.z = m.leftLeg.z = 0f;
+		// final-pose rework: an optional sideways tilt about the hips and a waist twist from the track's spare channels (ShowBody.TILT
+		// / TWIST, as ShowBody.apply reads them; 0 in every track that doesn't set them, so those poses are unchanged)
+		float tilt = k[ShowBody.TILT], twist = k[ShowBody.TWIST];
+		if (tilt != 0f) {
+			ShowBody.tilt(m, tilt);
+			m.rightArm.y += k[FourArmsShow.SHRUG];
+			m.leftArm.y += k[FourArmsShow.SHRUG];
+		}
+		if (twist != 0f) {
+			ShowBody.twist(m, twist);
+		}
 		HipBend.pitch(m, 1f, k[FourArmsShow.LEAN]);
 		m.head.xRot = k[FourArmsShow.HX];
-		m.head.yRot = k[FourArmsShow.HY];
-		m.head.zRot = k[FourArmsShow.HZ];
+		m.head.yRot = k[FourArmsShow.HY] + twist;
+		m.head.zRot = k[FourArmsShow.HZ] + tilt;
 		int ra = FourArmsShow.RA, la = FourArmsShow.LA, rl = FourArmsShow.RL, ll = FourArmsShow.LL;
 		m.rightArm.xRot = k[ra];
-		m.rightArm.yRot = k[ra + 1];
-		m.rightArm.zRot = k[ra + 2] + breathe;
+		m.rightArm.yRot = k[ra + 1] + twist;
+		m.rightArm.zRot = k[ra + 2] + breathe + tilt;
 		m.leftArm.xRot = k[la];
-		m.leftArm.yRot = k[la + 1];
-		m.leftArm.zRot = k[la + 2] - breathe;
+		m.leftArm.yRot = k[la + 1] + twist;
+		m.leftArm.zRot = k[la + 2] - breathe + tilt;
 		m.rightLeg.xRot = k[rl];
 		m.rightLeg.yRot = k[rl + 1];
 		m.rightLeg.zRot = k[rl + 2];
@@ -284,8 +299,10 @@ public final class Xlr8Show extends ShowSequenceClient {
 			// up behind him and curling over, the show's crouch
 			return new float[] { 8f, -58f, -0.3f, 0.14f, ph };
 		}
-		// the sprint: streaming flat out behind (the back faces up as he leans), rippling in the wind
-		return new float[] { 34f, 28f, 0.08f, 0.28f, t * 0.9f };
+		// the dash: streaming out behind and rising (the back faces up as he leans: ~18 degrees above level at the root, ~33 at the
+		// tip), rippling in the wind (final-pose rework: it was flat and, from three-quarters, foreshortened; side-on its full length
+		// shows, about the show's 0.9 of his height); the sixth value stretches its links a little
+		return new float[] { 18f, 2f, 0.06f, 0.2f, t * 0.9f, 1.12f };
 	}
 
 	private static void copyLayers(HumanoidModel<?> m) {

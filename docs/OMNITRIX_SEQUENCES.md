@@ -249,6 +249,36 @@ Films: `docs/screenshots/v0173/omnitrix_sequences/<alien>_v1b_vs_show.mp4` (+ `_
   the forearm, with curling fingers, round fingertip pads and a thumb; the arm thrown at the camera; the frog crouch with the knees out
   and the feet apart; the leap with bent legs. The body's twist and tilt keep the shoulders on.
 
+### Final-pose rework: Heatblast, Cannonbolt, Wildmutt, Ghostfreak, XLR8, Upgrade (v0.17.3)
+
+User: "rework all the final poses to match the show." Compared in `docs/screenshots/v0173/omnitrix_final_poses/` (ours vs show, `NOTES.md`).
+Only the last shot of each changed (its keys, camera and stage); earlier shots and the timing are untouched. The show's final poses are
+wide, uneven power stances from a low or tilted camera; ours were upright, square and symmetric.
+
+- **Sideways tilt in the human-body tracks.** `Xlr8Show.apply` (XLR8, Ghostfreak, Stinkfly) now reads the track's spare channels as
+  `ShowBody.TILT` (a sideways tilt about the hips) and `ShowBody.TWIST`, like `ShowBody.apply`; 0 in a track that doesn't set them, so
+  those poses are unchanged. Heatblast's own track has no spare channel: `HeatblastShow.stanceRoll(t)` tilts the stance the same way.
+  Tilt + leans the top of the body toward the alien's left (the right of frame from in front); the arms and head roll with the chest.
+- **Heatblast**: leans back and over to his left; the raised left fist is out to the side at head height (upper arm near level, elbow
+  flex 1.0; it was folded in beside the face at 1.85); the right fist low, out and toward the lens; the camera pulled back and nearly
+  square on (knees to crown). From the guard on the fist flares shrink to a white shell just over the hand with a thin haze.
+- **Cannonbolt**: a squat (thighs forward, shins bent back near vertical, the right knee a little higher; they were splayed straight
+  to the corners), the arms higher and wider in the V, the camera lower. New: `CannonboltShow.renderAlien` (from
+  `CannonboltClient.renderExtras`) puts the show's yellow shell domes on his arms from the moment he opens out of the ball: a big one by
+  each shoulder, a smaller one on each bent forearm, facing the front and straddling the arm's upper edge so they fan over the V.
+- **Wildmutt**: the camera three-quarters front from his right (he faces the right of frame); the snout up at about 60 degrees (neck
+  22, head 12-18; it was straight up), the jaw wide, the front paws reaching forward onto the slope. The roar's stage is the show's pale
+  khaki sky with black blobs (it was the green swirl), with an ink edge on the slope.
+- **Ghostfreak**: front on and close, slanted (`TILT` 0.42) with the head up at the right and the tail sweeping off low to the left
+  (`tailShape`'s optional sixth value, a steady sideways swing read by `GhostfreakTail`); the right claw raised out to the side, the left
+  hanging. New: `GhostfreakShow.renderAlien` (from `GhostfreakClient.renderExtras`) draws the open black front widening from under the
+  badge to the hem and three long pale fingers with dark tips on each hand, through the float.
+- **XLR8**: side-on from his right (facing right, visor down); both arms swung back, elbows high, forearms folded forward; a wide planted
+  stride (front foot under the hips, back leg far behind); the tail rising out behind (18 -> 33 degrees above level), its links
+  stretched 1.12x through `TubeTail.renderScripted`'s new `stretch` overload (the old signature still calls it with 1).
+- **Upgrade**: the body slants over to his left (`ShowBody.tilt` 0.3) from the reveal; from tick 155 the fists swing forward at the
+  low camera (right one low and out left, left one out right, elbows soft) so they fill the foreground; both ease out after the world cut.
+
 ### Camera keys (`CameraTrack`)
 
 Each key is `{ tick, distance, angle, camera height, look height, look right, look forward }`, in a 1.8-block human's blocks

@@ -42,8 +42,9 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   112-130  pulling back round the head, from below                        v 236.6-237.5
  *   130-152  in profile, rearing up, the claws curling by his face          v 237.5-238.6
  *   152-166  WHITE FLASH                                                      v 238.6-239.3
- *   166-218  laid out in the air, claws spread, the tail streaming,         v 239.3-241.9
- *            on the green ray burst (black dots at the edges)
+ *   166-218  floating front on, slanted up to the right, the open black     v 239.3-241.9
+ *            front and both claws to the camera, the tail sweeping off low
+ *            to the left; on the green ray burst (final-pose rework)
  *   218-230  FULL GREEN FLASH                                                 v 241.9-242.5
  *   230-242  back in the world, the green fading off                        v 242.5-243.1
  * </pre>
@@ -97,10 +98,10 @@ public final class GhostfreakShow extends ShowSequenceClient {
 					// in profile, rearing
 					{ 130.01f, 1.22f, 80f, 1.42f, 1.55f, 0f, 0f },
 					{ 152f, 1.12f, 72f, 1.45f, 1.58f, 0f, 0f },
-					// laid out in the air, from three-quarters round to his right (he faces the right of frame, the tail streaming off to the left;
-					// side-on, his far arm read as a block floating off the body)
-					{ 152.01f, 2.25f, 50f, 1.55f, 1.12f, 0f, 0f },
-					{ 230f, 2.1f, 44f, 1.55f, 1.12f, 0f, 0f } }));
+					// floating, nearly front on from a little to his right and a little below (final-pose rework: closer, so he fills the
+					// frame like the show's, the open front and both claws to the camera; it was small, from three-quarters round)
+					{ 152.01f, 1.72f, 12f, 0.95f, 1.1f, 0f, 0f },
+					{ 230f, 1.6f, 10f, 0.95f, 1.12f, 0f, 0f } }));
 
 	public GhostfreakShow() {
 		super(Aliens.GHOSTFREAK.id());
@@ -150,13 +151,15 @@ public final class GhostfreakShow extends ShowSequenceClient {
 			.rArm(-2.35f, 0.2f, 0.22f, 1.6f, 0.45f).lArm(-1.45f, -0.3f, -0.4f, 1.45f, -0.5f)
 			.at(141f).lean(-0.22f).head(-0.68f, 0f, 0.05f).rArm(-2.55f, 0.25f, 0.28f, 1.95f, 0.55f).lArm(-1.7f, -0.3f, -0.45f, 1.75f, -0.6f)
 			.at(WHITE_AT - 0.5f).hold()
-			// ---- laid out in the air (a cut, under the white): pitched forward, lifted, one claw reaching up ahead, splayed;
-			// the other bent down by his side; the tail streaming out behind
-			.at(WHITE_AT).drop(-3f).lean(0.6f).head(-0.62f, 0f, 0f)
-			.rArm(-1.8f, 0.15f, 0.35f, 0.85f, 0.5f).lArm(-0.3f, 0f, -0.42f, 1.35f, -0.45f)
-			.at(192f).rArm(-1.92f, 0.15f, 0.42f, 1.0f, 0.55f).lArm(-0.42f, 0f, -0.5f, 1.45f, -0.45f).head(-0.7f, 0f, 0.04f)
+			// ---- floating (a cut, under the white; final-pose rework, the show's t 205): lifted, the open front to the camera,
+			// slanted over to his left about the hips (ShowBody.TILT: head up at the right of frame, the tail sweeping off low to the
+			// left), leaning back a touch, chin up; the right claw raised out to the side on a bent elbow (forearm up, fingers
+			// splayed), the left claw hanging low by his side; it was pitched forward and laid out, seen from three-quarters
+			.at(WHITE_AT).drop(-3f).lean(-0.1f).set(ShowBody.TILT, 0.42f).head(-0.3f, 0f, 0f)
+			.rArm(-0.5f, 0.1f, 0.8f, 1.3f, 1.4f).lArm(-0.25f, 0f, -0.9f, 0.6f, -0.4f)
+			.at(192f).rArm(-0.55f, 0.1f, 0.86f, 1.42f, 1.4f).lArm(-0.3f, 0f, -0.95f, 0.66f, -0.4f).head(-0.34f, 0f, 0.03f)
 			.at(GREEN2_AT + 2f).hold()
-			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f);
+			.at(WORLD_AT).hold().drop(0f).lean(0f).set(ShowBody.TILT, 0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f);
 
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
@@ -211,8 +214,57 @@ public final class GhostfreakShow extends ShowSequenceClient {
 			// swept forward under him as he rears back
 			return new float[] { 22f, 62f, 16f, t * 0.26f, 0.08f };
 		}
-		// streaming out behind, the wisp rippling down its length (the show's S-curve)
-		return new float[] { 46f, 74f, 30f, t * 0.32f, 0.12f };
+		// final-pose rework: sweeping off low to his right (the left of frame) and curling up and back at the tip, the wisp rippling
+		// down its length (the show's S-curve); the sixth value is a steady swing out to his left (-: his right), growing to the tip
+		return new float[] { 10f, 105f, 16f, t * 0.3f, 0.08f, -1.2f };
+	}
+
+	// ================================================================ the float's open front and claws (GhostfreakClient)
+
+	/**
+	 * Final-pose rework: from {@code GhostfreakClient.renderExtras}, through the float (the white flash to the world): the show draws
+	 * him as one sheet with its open black front to the camera and long clawed hands. A black opening down the front of his body,
+	 * narrow under the badge and widening to the hem, and three long pale fingers with dark tips on each hand (riding the bent
+	 * forearm), splayed. Everyone nearby sees them.
+	 */
+	public static void renderAlien(PoseStack pose, MultiBufferSource buffers, int light, Player p, PlayerModel<?> model, float partial) {
+		float t = OmnitrixSequenceClient.age(p, partial, Aliens.GHOSTFREAK.id());
+		if (t < WHITE_AT || t >= WORLD_AT) {
+			return;
+		}
+		float g = ShowMath.pop(t - WHITE_AT, 4f);
+		if (g <= 0.02f) {
+			return;
+		}
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE));
+		// the open front: strips widening from under the badge (y 5.8) to the hem, over the jacket layer
+		AlienParts.on(pose, model.body, () -> {
+			int n = 6;
+			for (int i = 0; i < n; i++) {
+				float y0 = 5.8f + i * (12.1f - 5.8f) / n, y1 = 5.8f + (i + 1) * (12.1f - 5.8f) / n;
+				float hw = Mth.lerp((i + 0.5f) / n, 0.9f, 3.4f) * g;
+				AlienParts.box(pose, vc, -hw, y0, -2.42f, hw, y1, -2.3f, 0f, 0f, 1f, 1f, 0xFF07070A, light);
+			}
+		});
+		for (int side = 0; side < 2; side++) {
+			boolean right = side == 0;
+			float xc = right ? -1f : 1f;
+			int limb = right ? BentLimbs.RIGHT_ARM : BentLimbs.LEFT_ARM;
+			AlienParts.on(pose, right ? model.rightArm : model.leftArm, () -> {
+				BentLimbs.toForearm(pose, limb, false);
+				for (int f = -1; f <= 1; f++) {
+					pose.pushPose();
+					pose.translate((xc + f * 1.3f) / 16f, 9.7f / 16f, 0f);
+					// splayed out from the hand, curling a little forward
+					pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(f * 14f));
+					pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-14f));
+					float len = (f == 0 ? 3.6f : 3.1f) * g;
+					AlienParts.box(pose, vc, -0.45f, 0f, -0.45f, 0.45f, len, 0.45f, 0f, 0f, 1f, 1f, 0xFFDAD6CE, light);
+					AlienParts.box(pose, vc, -0.32f, len, -0.32f, 0.32f, len + 0.9f * g, 0.32f, 0f, 0f, 1f, 1f, 0xFF26242C, light);
+					pose.popPose();
+				}
+			});
+		}
 	}
 
 	// ================================================================ the pale face and the black eye

@@ -141,6 +141,13 @@ public final class CannonboltClient implements AlienClientKit {
 	}
 
 	@Override
+	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
+			float age) {
+		// v0.17.3 final-pose rework: the show's yellow shell domes over his arms in the transformation's stance
+		CannonboltShow.renderAlien(pose, buffers, light, p, model, partial);
+	}
+
+	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
 			case CannonboltKit.ANIM_BASH -> FP_BASH;
