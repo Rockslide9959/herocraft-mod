@@ -4,138 +4,110 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.cyborg.Cyborg;
 import com.projecthero.mod.cyborg.CyborgAbilityManager;
 import com.projecthero.mod.cyborg.CyborgConfig;
 import com.projecthero.mod.cyborg.data.CyborgState;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
-
 /**
- * v0.16.5: the Cyborg HUD (bottom-right), in the mono style of the reworked powers:
+ * v0.17.3: the Cyborg HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
  * <pre>
- *   Cyborg
- *   _______________________   Hairline bars: the Power Core (blue), the Sonic Cannon charge and the Defense Matrix
- *   [R] [G] [Z] [X] [C] [V]   (only while they run); the six keys with their cooldowns
+ *   CYBORG
+ *   Matrix [Hairline =====---]  40      the Defense Matrix's pool, only while it is up
+ *   Cannon [Hairline =======-]  70%     the Sonic Cannon charge, only while it charges
+ *   Core   [Hairline ========]  84      the Power Core (blue), in the Hairline style it always had
+ *   +----+----+----+----+----+----+     R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
+ *   | R  | G  | Z  | X  | C  | V  |     bar; lit while the cannon charges / the saw spins / the jet dash / the scan / the
+ *   +----+----+----+----+----+----+     matrix runs; yellow while Shift shows the Shift moves
  * </pre>
- * While the Scan runs, the creature under the crosshair gets a readout under the crosshair: its name, health and armour.
+ * While the Scan runs, the creature under the crosshair gets a readout under the crosshair (unchanged): name, health, armour.
  * Shown only in combat form. Hold Left-Alt for the move names.
  */
 public final class CyborgHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int BAR_H = 3;
-	private static final int BAR_STEP = 5;
-
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int BORDER_ACTIVE = 0xFF5CC8FF;
-	private static final int KEY = 0xFFB4B4B4;
 	private static final int NAME = 0xFFE2E2E2;
-	private static final int BAR_BG = 0xAA0C0C0C;
-	private static final int COOLDOWN = 0xB0000000;
-
 	private static final int CORE = 0xFF4FB8FF;
 	private static final int CHARGE = 0xFFE8F8FF;
 	private static final int MATRIX = 0xFF8FD8FF;
 	private static final int SCAN = 0xFF5CC8FF;
-
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
-
-	private record Bar(float ratio, int color) {
-	}
 
 	private CyborgHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.options.hideGui || !Cyborg.combat(mc.player)) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.level == null || mc.options.hideGui || !Cyborg.combat(p)) {
 			return;
 		}
-		CyborgState s = mc.player.getAttachedOrElse(ModAttachments.CYBORG_STATE, null);
+		CyborgState s = p.getAttachedOrElse(ModAttachments.CYBORG_STATE, null);
 		if (s == null) {
 			return;
 		}
-		var exp = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		var exp = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
-
-		List<Bar> bars = new ArrayList<>();
-		bars.add(new Bar(s.core / CyborgConfig.CORE_MAX, CORE));
-		if (s.chargeStart != 0L) {
-			bars.add(new Bar((now - s.chargeStart) / (float) CyborgConfig.CANNON_CHARGE_TICKS, CHARGE));
-		}
-		if (s.shieldUntil > now && s.shieldHp > 0f) {
-			bars.add(new Bar(s.shieldHp / CyborgConfig.MATRIX_HP, MATRIX));
-		}
-		int by = y0 - 2 - BAR_H;
-		for (Bar b : bars) {
-			float r = Math.max(0f, Math.min(1f, b.ratio()));
-			g.fill(x0, by, x0 + totalW, by + BAR_H, BAR_BG);
-			g.fill(x0, by, x0 + Math.round(totalW * r), by + BAR_H, b.color());
-			by -= BAR_STEP;
-		}
-		g.drawString(mc.font, Component.translatable("hud.projecthero.cyborg.title"), x0, by - 7, NAME, false);
-
-		// v0.16.6: Left-Alt -> the shared move list, stacked above the title
-		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
-			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : SLOTS) {
-				String[] ids = CyborgAbilityManager.idsOf(slot);
-				if (ids.length > 0) {
-					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot),
-							Component.translatable("projecthero.cyborg.ability." + ids[0]),
-							ids.length > 1 ? Component.translatable("projecthero.cyborg.ability." + ids[1]) : null));
-				}
-			}
-			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
-		}
-		for (int i = 0; i < SLOTS.length; i++) {
-			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
+		boolean shift = p.isShiftKeyDown();
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
 			String[] ids = CyborgAbilityManager.idsOf(slot);
-			int cd = 0;
-			int max = 1;
-			for (String id : ids) {
-				int c = Cyborg.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, CyborgAbilityManager.maxCooldown(id));
-				}
+			if (ids.length == 0) {
+				continue;
 			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = Cyborg.cooldownRemaining(p, shown);
+			float frac = cd / (float) Math.max(1, CyborgAbilityManager.maxCooldown(shown));
+			float otherFrac = other == null ? 0f : Cyborg.cooldownRemaining(p, other) / (float) Math.max(1, CyborgAbilityManager.maxCooldown(other));
 			boolean active = (slot == AbilitySlot.SLOT_1 && s.chargeStart != 0L)
 					|| (slot == AbilitySlot.SLOT_2 && s.fx.sawUntil > now)
 					|| (slot == AbilitySlot.SLOT_3 && s.fx.jetDashUntil > now)
 					|| (slot == AbilitySlot.SLOT_4 && s.scanUntil > now)
 					|| (slot == AbilitySlot.SLOT_6 && s.shieldUntil > now && s.shieldHp > 0f);
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
+			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
 
-		// the Scan readout under the crosshair
+		st.meter(Component.translatable("hud.projecthero.cyborg.core"), s.core / CyborgConfig.CORE_MAX, CORE, String.valueOf(Math.round(s.core)), CORE,
+				MutationMeters.Style.HAIRLINE);
+		if (s.chargeStart != 0L) {
+			float f = Mth.clamp((now - s.chargeStart) / (float) CyborgConfig.CANNON_CHARGE_TICKS, 0f, 1f);
+			st.meter(Component.translatable("hud.projecthero.cyborg.charge"), f, CHARGE, Math.round(f * 100) + "%", CHARGE, MutationMeters.Style.HAIRLINE);
+		}
+		if (s.shieldUntil > now && s.shieldHp > 0f) {
+			st.meter(Component.translatable("hud.projecthero.cyborg.matrix"), s.shieldHp / CyborgConfig.MATRIX_HP, MATRIX,
+					String.valueOf(Math.round(s.shieldHp)), MATRIX, MutationMeters.Style.HAIRLINE);
+		}
+		st.title(Component.translatable("hud.projecthero.cyborg.title"), NAME);
+
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				String[] ids = CyborgAbilityManager.idsOf(slot);
+				if (ids.length > 0) {
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.cyborg.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.cyborg.ability." + ids[1]) : null));
+				}
+			}
+			st.moveList(rows);
+		}
+
+		// the Scan readout under the crosshair (kept as it was)
 		if (s.scanUntil > now && mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY
 				&& ((EntityHitResult) mc.hitResult).getEntity() instanceof LivingEntity t) {
 			int cx = g.guiWidth() / 2;
@@ -148,10 +120,5 @@ public final class CyborgHud {
 			g.drawCenteredString(mc.font, name, cx, cy + 2, SCAN);
 			g.drawCenteredString(mc.font, stats, cx, cy + 12, 0xFFE2E2E2);
 		}
-	}
-
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 }

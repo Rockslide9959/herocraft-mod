@@ -4,139 +4,102 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.ghostrider.GhostRider;
 import com.projecthero.mod.ghostrider.GhostRiderAbilityManager;
 import com.projecthero.mod.ghostrider.GhostRiderConfig;
 import com.projecthero.mod.ghostrider.data.GhostRiderState;
 import com.projecthero.mod.ghostrider.entity.HellCycleEntity;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
-
 /**
- * v0.16.5: the Ghost Rider HUD (bottom-right), in the black-and-gray "mono" style of the reworked powers:
+ * v0.17.3: the Ghost Rider HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
  * <pre>
- *   Ghost Rider
- *   _______________________   Hairline bars (3 px, no border, no text), bottom-up: Hellfire (orange), Vengeance (red)
- *   _______________________
- *   [R] [G] [Z] [X] [C] [V]   the six keys; each box shows the longer cooldown of its plain and Shift move and
- *                             lights up while that key's move runs (blast, spin, bike, stare, rush, shield)
+ *   bound till dawn                           red status tag after a cheated death
+ *   GHOST RIDER
+ *   Vengeance [Hairline ====---]  40          Vengeance (red)
+ *   Hellfire  [Hairline ======-]  84          Hellfire (orange); both in the Hairline style they always had
+ *   +----+----+----+----+----+----+           R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the
+ *   | R  | G  | Z  | X  | C  | V  |           durability bar; lit while that key's move runs (blast, spin, bike, stare, rush,
+ *   +----+----+----+----+----+----+           shield); yellow while Shift shows the Shift moves
  * </pre>
- * No H / N boxes: H is the change. Hold Left-Alt for the move names. v0.16.5 (user): shown whenever you have the power, transformed or not (the human moves still
- * use the keys and their cooldowns). v0.16.5 rework: after a cheated death a short red "bound till dawn" sits right of the title.
+ * No H / N boxes: H is the change. Shown whenever you have the power, transformed or not (the human moves still use the keys).
+ * Hold Left-Alt for the move names.
  */
 public final class GhostRiderHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int BAR_H = 3;
-	private static final int BAR_STEP = 5;
-
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int BORDER_ACTIVE = 0xFFFF9A3C;
-	private static final int KEY = 0xFFB4B4B4;
 	private static final int NAME = 0xFFE2E2E2;
-	private static final int BAR_BG = 0xAA0C0C0C;
-	private static final int COOLDOWN = 0xB0000000;
-
 	private static final int HELLFIRE = 0xFFFF7A1A;
 	private static final int VENGEANCE = 0xFFC81E1E;
-
-	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5). */
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
-
-	private record Bar(float ratio, int color) {
-	}
+	private static final int VENGEANCE_TEXT = 0xFFFF5050;
 
 	private GhostRiderHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.options.hideGui || !GhostRider.hasPower(mc.player)) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.level == null || mc.options.hideGui || !GhostRider.hasPower(p)) {
 			return;
 		}
-		GhostRiderState s = mc.player.getAttachedOrElse(ModAttachments.GHOST_RIDER_STATE, null);
+		GhostRiderState s = p.getAttachedOrElse(ModAttachments.GHOST_RIDER_STATE, null);
 		if (s == null) {
 			return;
 		}
-		var exp = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		var exp = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
-
-		List<Bar> bars = new ArrayList<>();
-		bars.add(new Bar(s.hellfire / GhostRiderConfig.HELLFIRE_MAX, HELLFIRE));
-		bars.add(new Bar(s.vengeance / GhostRiderConfig.VENGEANCE_MAX, VENGEANCE));
-		int by = y0 - 2 - BAR_H;
-		for (Bar b : bars) {
-			float r = Math.max(0f, Math.min(1f, b.ratio()));
-			g.fill(x0, by, x0 + totalW, by + BAR_H, BAR_BG);
-			g.fill(x0, by, x0 + Math.round(totalW * r), by + BAR_H, b.color());
-			by -= BAR_STEP;
-		}
-		g.drawString(mc.font, Component.translatable("hud.projecthero.ghost_rider.title"), x0, by - 7, NAME, false);
-		if (s.dayLockUntil > 0L) {
-			Component bound = Component.translatable("hud.projecthero.ghost_rider.bound");
-			g.drawString(mc.font, bound, x0 + totalW - mc.font.width(bound), by - 7, VENGEANCE, false);
-		}
-
-		// v0.16.6: Left-Alt -> the shared move list, stacked above the title
-		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
-			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : SLOTS) {
-				String[] ids = GhostRiderAbilityManager.idsOf(slot);
-				if (ids.length > 0) {
-					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot),
-							Component.translatable("projecthero.ghost_rider.ability." + ids[0]),
-							ids.length > 1 ? Component.translatable("projecthero.ghost_rider.ability." + ids[1]) : null));
-				}
-			}
-			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
-		}
-		for (int i = 0; i < SLOTS.length; i++) {
-			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
+		boolean shift = p.isShiftKeyDown();
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
 			String[] ids = GhostRiderAbilityManager.idsOf(slot);
-			int cd = 0;
-			int max = 1;
-			for (String id : ids) {
-				int c = GhostRider.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, GhostRiderAbilityManager.maxCooldown(id));
-				}
+			if (ids.length == 0) {
+				continue;
 			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = GhostRider.cooldownRemaining(p, shown);
+			float frac = cd / (float) Math.max(1, GhostRiderAbilityManager.maxCooldown(shown));
+			float otherFrac = other == null ? 0f
+					: GhostRider.cooldownRemaining(p, other) / (float) Math.max(1, GhostRiderAbilityManager.maxCooldown(other));
 			boolean active = (slot == AbilitySlot.SLOT_1 && s.blasting)
 					|| (slot == AbilitySlot.SLOT_2 && s.spinUntil > now)
-					|| (slot == AbilitySlot.SLOT_3 && mc.player.getVehicle() instanceof HellCycleEntity)
+					|| (slot == AbilitySlot.SLOT_3 && p.getVehicle() instanceof HellCycleEntity)
 					|| (slot == AbilitySlot.SLOT_4 && s.stareTarget != -1)
 					|| (slot == AbilitySlot.SLOT_5 && s.rushing)
 					|| (slot == AbilitySlot.SLOT_6 && s.shieldUntil > now);
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
+			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
-	}
 
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
+		st.meter(Component.translatable("hud.projecthero.ghost_rider.hellfire"), s.hellfire / GhostRiderConfig.HELLFIRE_MAX, HELLFIRE,
+				String.valueOf(Math.round(s.hellfire)), HELLFIRE, MutationMeters.Style.HAIRLINE);
+		st.meter(Component.translatable("hud.projecthero.ghost_rider.vengeance"), s.vengeance / GhostRiderConfig.VENGEANCE_MAX, VENGEANCE,
+				String.valueOf(Math.round(s.vengeance)), VENGEANCE_TEXT, MutationMeters.Style.HAIRLINE);
+		st.title(Component.translatable("hud.projecthero.ghost_rider.title"), NAME);
+		if (s.dayLockUntil > 0L) {
+			st.tags(List.of(new VanillaHud.Tag(Component.translatable("hud.projecthero.ghost_rider.bound").getString(), VENGEANCE_TEXT)));
+		}
+
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				String[] ids = GhostRiderAbilityManager.idsOf(slot);
+				if (ids.length > 0) {
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.ghost_rider.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.ghost_rider.ability." + ids[1]) : null));
+				}
+			}
+			st.moveList(rows);
+		}
 	}
 }

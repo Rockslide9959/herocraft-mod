@@ -8,52 +8,49 @@ import com.projecthero.mod.blackpanther.BlackPanther;
 import com.projecthero.mod.blackpanther.BlackPantherAbilityManager;
 import com.projecthero.mod.blackpanther.BlackPantherConfig;
 import com.projecthero.mod.blackpanther.data.BlackPantherState;
-import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3: the Black Panther HUD (bottom-right), mono style: the Kinetic hairline, the stance and Senses timers, the six keys.
- * Also the Ancestral Plane: a purple sky over the whole screen for the ten seconds after the soup.
+ * v0.17.3: the Black Panther HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
+ * <pre>
+ *   BLACK PANTHER
+ *   Absorb  [Hairline ====---]  60%    what the suit can still absorb, only while absorbing
+ *   Kinetic [Hairline ======-]  84     the Kinetic charge (purple), in the Hairline style it always had
+ *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
+ *   | R  | G  | Z  | X  | C  | V  |    bar; V lit while stalking / Senses run, C while absorbing; yellow while Shift shows the
+ *   +----+----+----+----+----+----+    Shift moves
+ * </pre>
+ * Kept as they were: the hold-H necklace bar over the hotbar, and the Ancestral Plane (a purple sky over the whole screen for
+ * the ten seconds after the soup).
  */
 public final class BlackPantherHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
 	private static final int BAR_H = 3;
-	private static final int BAR_STEP = 5;
-
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int BORDER_ACTIVE = 0xFFA05CFF;
-	private static final int KEY = 0xFFB4B4B4;
 	private static final int NAME = 0xFFE2E2E2;
 	private static final int BAR_BG = 0xAA0C0C0C;
-	private static final int COOLDOWN = 0xB0000000;
 	private static final int KINETIC = 0xFF9A4CFF;
+	private static final int KINETIC_TEXT = 0xFFC08CFF;
 	private static final int ABSORB = 0xFFD9B8FF;
-
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
-
-	private record Bar(float ratio, int color) {
-	}
 
 	private BlackPantherHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.level == null) {
 			return;
 		}
-		BlackPantherState s = mc.player.getAttachedOrElse(ModAttachments.BLACK_PANTHER_STATE, null);
+		BlackPantherState s = p.getAttachedOrElse(ModAttachments.BLACK_PANTHER_STATE, null);
 		if (s == null) {
 			return;
 		}
@@ -66,7 +63,7 @@ public final class BlackPantherHud {
 		}
 		float hold = BlackPantherClient.holdProgress();
 		if (hold > 0.1f) {
-			// holding H: a thin bar over the hotbar fills toward the necklace coming off (or going back on)
+			// holding H: a thin bar over the hotbar fills toward the necklace coming off (or going back on) -- kept as it was
 			int w = 82;
 			int x = g.guiWidth() / 2 - w / 2;
 			int y = g.guiHeight() - 62;
@@ -78,32 +75,40 @@ public final class BlackPantherHud {
 		if (!s.suited) {
 			return;
 		}
-		var exp = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		var exp = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
-		long now = mc.level.getGameTime();
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
+		boolean shift = p.isShiftKeyDown();
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			String[] ids = BlackPantherAbilityManager.idsOf(slot);
+			if (ids.length == 0) {
+				continue;
+			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = BlackPanther.cooldownRemaining(p, shown);
+			float frac = cd / (float) Math.max(1, BlackPantherAbilityManager.maxCooldown(shown));
+			float otherFrac = other == null ? 0f
+					: BlackPanther.cooldownRemaining(p, other) / (float) Math.max(1, BlackPantherAbilityManager.maxCooldown(other));
+			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.senses)) || (slot == AbilitySlot.SLOT_6 && s.absorbing);
+			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
+		}
 
-		List<Bar> bars = new ArrayList<>();
-		bars.add(new Bar(s.kinetic / BlackPantherConfig.KINETIC_MAX, KINETIC));
+		st.meter(Component.translatable("hud.projecthero.black_panther.kinetic"), s.kinetic / BlackPantherConfig.KINETIC_MAX, KINETIC,
+				String.valueOf(Math.round(s.kinetic)), KINETIC_TEXT, MutationMeters.Style.HAIRLINE);
 		if (s.absorbing) {
-			bars.add(new Bar(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, ABSORB));
+			float left = Mth.clamp(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, 0f, 1f);
+			st.meter(Component.translatable("hud.projecthero.black_panther.absorb"), left, ABSORB, Math.round(left * 100) + "%", ABSORB,
+					MutationMeters.Style.HAIRLINE);
 		}
-		int by = y0 - 2 - BAR_H;
-		for (Bar b : bars) {
-			float r = Math.max(0f, Math.min(1f, b.ratio()));
-			g.fill(x0, by, x0 + totalW, by + BAR_H, BAR_BG);
-			g.fill(x0, by, x0 + Math.round(totalW * r), by + BAR_H, b.color());
-			by -= BAR_STEP;
-		}
-		g.drawString(mc.font, Component.translatable("hud.projecthero.black_panther.title"), x0, by - 7, NAME, false);
+		st.title(Component.translatable("hud.projecthero.black_panther.title"), NAME);
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : SLOTS) {
+			for (AbilitySlot slot : VanillaHud.ORDER) {
 				String[] ids = BlackPantherAbilityManager.idsOf(slot);
 				if (ids.length > 0) {
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.black_panther.ability." + ids[0]),
@@ -115,29 +120,7 @@ public final class BlackPantherHud {
 					Component.translatable("projecthero.black_panther.ability.mask")));
 			rows.add(MoveListOverlay.Row.of("Hold " + MoveListOverlay.key(AbilitySlot.SLOT_7),
 					Component.translatable("projecthero.black_panther.ability.necklace"), null));
-			MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
-		}
-		for (int i = 0; i < SLOTS.length; i++) {
-			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
-			int cd = 0;
-			int max = 1;
-			for (String id : BlackPantherAbilityManager.idsOf(slot)) {
-				int c = BlackPanther.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, BlackPantherAbilityManager.maxCooldown(id));
-				}
-			}
-			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.senses)) || (slot == AbilitySlot.SLOT_6 && s.absorbing);
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
+			st.moveList(rows);
 		}
 	}
 
@@ -160,10 +143,5 @@ public final class BlackPantherHud {
 			int sa = Math.round(fade * (110 + 145 * twinkle));
 			g.fill(x, y, x + 1 + i % 2, y + 1 + i % 2, (sa << 24) | 0xE9D8FF);
 		}
-	}
-
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 }
