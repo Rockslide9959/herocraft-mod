@@ -10,46 +10,44 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import org.lwjgl.glfw.GLFW;
 
 /**
- * The six-slot HeroPack ability HUD (spec section 9). Compact by default: a row of six boxes near the
- * lower-right showing the slot key, cooldown shading + remaining seconds, and an ACTIVE edge for
- * toggled abilities. Hold Left Alt to expand and show full ability names.
+ * The HeroPack ability HUD for the 27 mutation powers (spec section 9).
  *
- * <p>Underneath the row, one bar per meter that is currently <em>in play</em> — draining, filling, or
- * counting down. A meter sitting full and idle is not drawn, and a charge gauge that has been spent or
- * cancelled disappears the same tick. The whole HUD is pushed up to make room for however many bars are
- * showing. Each bar is labelled with the ability it belongs to.
+ * <p>v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): drawn from
+ * the game's own pieces on the shared bottom-right column ({@link VanillaHud.Stack}), like the newest powers:
+ * <pre>
+ *   Shadow Strength: 120%                   per-power lines (Super Speed's packed-suit durability, Shadow Strength, Density)
+ *   Super Speed - Speed                     the power's name (grey for the black-and-gray powers) + its decor
+ *   Charged Punch [Hairline ====--]         "above" bars (charge-ups, running moves): Hairline meter rows
+ *   Psi [boss bar ==========---]  64%       the registered / allow-listed meters, each in its own bar style
+ *   +--+--+--+--+--+--+--+--+               R G Z X C V (+ H N for a power that has Utility moves): the item-cooldown sweep and
+ *   |R |G |Z |X |C |V |H |N |               seconds; a running toggle gets the selection frame; a hold move fills its key; a Shift
+ *   +--+--+--+--+--+--+--+--+               move with its own cooldown shows as the durability bar (its seconds in yellow)
+ * </pre>
+ * Hold Left Alt for the move list.
  *
- * <p>What counts as a meter at all is an explicit allow-list ({@code KIND}); everything else a power
- * stores in its resource map is bookkeeping and is never drawn. See {@link #collectMeters}.
+ * <p>What counts as a meter at all is an explicit allow-list ({@code KIND}); everything else a power stores in its resource map
+ * is bookkeeping and is never drawn. See {@link #collectMeters}.
  *
  * <p>Only rendered for experimental-power context. Thor keeps its own {@code ThorHud} (Storm Energy).
  */
 public final class AbilityHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int BAR_ROW_H = 16;
-
-	private static final int COLOR_BOX_BG = 0xC0101018;
-	private static final int COLOR_BORDER = 0xFF2E2E44;
-	private static final int COLOR_BORDER_ACTIVE = 0xFF66E0A0;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-	private static final int COLOR_KEY = 0xFFB8C0E0;
-
 	/**
 	 * v0.17.1: the top of what this HUD drew last frame (the power name / header line over the key row), GUI pixels --
 	 * the Flash Suit visor keeps its speed dial above it.
 	 */
 	public static int lastTop = Integer.MAX_VALUE;
+
+	/** The longest cooldown seen on each key since it last came off cooldown (the sweep's scale). */
+	private static final int[] SEEN_MAX = new int[8];
 
 	private AbilityHud() {
 	}
@@ -76,196 +74,85 @@ public final class AbilityHud {
 
 		// v0.16.7 (user): only the SELECTED power's bars -- with several elemental powers stacked, every other power's
 		// always-on fuel bar (Earth, Water...) piled up under the selected one. (v0.9.3 gathered every owned power's.)
-		long meterTime = client.level != null ? client.level.getGameTime() : 0L;
-		List<Meter> meters = new ArrayList<>(collectMeters(state, power, meterTime));
+		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
+		List<Meter> meters = new ArrayList<>(collectMeters(state, power, gameTime));
 		meters.sort((a, b) -> a.label.getString().compareToIgnoreCase(b.label.getString()));
 
-		int screenW = graphics.guiWidth();
-		int screenH = graphics.guiHeight();
-		// 6, or 8 with the H / N utility slots (v0.13.22), or 0 for a passive-only power (v0.14.5)
+		// 6, or 8 with the H / N utility slots (v0.13.22), or 0 for a passive-only power (v0.14.5).
+		// v0.14.7: the H / N boxes only for a power that has H -- an N-only power (Super Speed's Speed Carry) shows just its six
+		// core keys, and H stays the power wheel. v0.17.3: kept on the new strip -- these mutations' Utility moves really are
+		// on H / N (ProjectHeroModClient: plain H / N, or Alt+H / Alt+N, send slots 7 / 8 when the selected mutation has them).
 		int slots = power.abilities().size();
-		// v0.14.7: the H / N boxes only for a power that has H -- an N-only power (Super Speed's Speed Carry) shows
-		// just its six core keys, and H stays the power wheel
 		if (slots > 6 && !power.hasSlot(AbilitySlot.SLOT_7)) {
 			slots = 6;
 		}
-		// A passive-only power still lays out as wide as a six-key row so its name + bars have room.
-		int layoutSlots = Math.max(6, slots);
-		int totalW = layoutSlots * BOX + (layoutSlots - 1) * GAP + (slots > 6 ? UTILITY_GAP : 0);
-		int x0 = screenW - MARGIN - totalW;
-		// v0.14.5: registered meters flagged "above" are drawn as Hairline bars over the key row instead.
+		List<AbilitySlot> order = new ArrayList<>();
+		if (slots > 0) {
+			for (AbilitySlot s : VanillaHud.ORDER) {
+				order.add(s);
+			}
+			if (slots > 6) {
+				order.add(AbilitySlot.SLOT_7);
+				order.add(AbilitySlot.SLOT_8);
+			}
+		}
+		VanillaHud.Stack stack = VanillaHud.Stack.bottomRight(graphics, order.size());
+		boolean shift = player.isShiftKeyDown();
+		boolean mono = AbilityHudExtras.isMono(power.key());
+
+		// ---- the key strip
+		stack.keys(order.size());
+		for (int i = 0; i < order.size(); i++) {
+			AbilitySlot slot = order.get(i);
+			if (!power.hasSlot(slot)) {
+				continue;
+			}
+			drawKey(stack, i, slot, power, state, gameTime, shift, client);
+		}
+
+		// ---- meters above the keys: the persistent ones nearest the keys, then the "above" Hairline rows
+		// v0.14.5: registered meters flagged "above" were drawn as Hairline bars over the key row -- now Hairline meter rows.
 		List<AbilityHudExtras.AboveBar> above = new ArrayList<>();
 		for (java.util.Iterator<Meter> it = meters.iterator(); it.hasNext();) {
 			Meter m = it.next();
 			if (m.above) {
-				above.add(new AbilityHudExtras.AboveBar(m.label.getString(), Math.max(0f, Math.min(1f, m.value / m.max)),
-						m.color, m.textColor));
+				above.add(new AbilityHudExtras.AboveBar(m.label.getString() + (m.valueText.isEmpty() ? "" : "  " + m.valueText),
+						Math.max(0f, Math.min(1f, m.value / m.max)), m.color, m.textColor));
 				it.remove();
 			}
 		}
-		above.addAll(AbilityHudExtras.above(power.key(), client, state, meterTime));
-		int slabs = (int) meters.stream().filter(m -> m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB).count();
-		int barsBlock = meters.isEmpty() ? 0 : meters.size() * BAR_ROW_H + slabs * 2 + 4;
-		int y0 = screenH - MARGIN - (slots == 0 ? 0 : BOX) - barsBlock;
-
-		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
-		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
-
-		// v0.14.5: black-and-gray theme for the powers that ask for it.
-		boolean mono = AbilityHudExtras.isMono(power.key());
-		int boxBg = mono ? MONO_BOX_BG : COLOR_BOX_BG;
-		int borderIdle = mono ? MONO_BORDER : COLOR_BORDER;
-		int borderActive = mono ? MONO_BORDER_ACTIVE : COLOR_BORDER_ACTIVE;
-		int keyColor = mono ? MONO_KEY : COLOR_KEY;
-		int labelColor = mono ? MONO_LABEL : 0xFF9AA6D0;
-		int barBg = mono ? MONO_BAR_BG : 0xAA101018;
-
-		// Hairline bars above the key row, bottom-up.
-		int aboveH = above.size() * ABOVE_ROW_H;
-		for (int k = 0; k < above.size(); k++) {
+		above.addAll(AbilityHudExtras.above(power.key(), client, state, gameTime));
+		for (int k = meters.size() - 1; k >= 0; k--) { // drawn bottom-up, so they read alphabetically top-down
+			Meter m = meters.get(k);
+			float ratio = Math.max(0.0f, Math.min(1.0f, m.value / m.max));
+			stack.meter(m.label, ratio, m.color, m.valueText, m.textColor != 0 ? m.textColor : VanillaHud.WHITE, m.style);
+		}
+		for (int k = above.size() - 1; k >= 0; k--) {
 			AbilityHudExtras.AboveBar b = above.get(k);
-			int by = y0 - 5 - k * ABOVE_ROW_H;
-			graphics.fill(x0, by, x0 + totalW, by + 3, barBg);
-			graphics.fill(x0, by, x0 + Math.round(totalW * Math.max(0f, Math.min(1f, b.ratio()))), by + 3, b.fill());
-			graphics.drawString(client.font, b.label(), x0, by - 9, b.textColor() != 0 ? b.textColor() : labelColor, false);
+			String[] lv = splitLabel(b.label());
+			stack.meter(Component.literal(lv[0]), Math.max(0f, Math.min(1f, b.ratio())), b.fill(), lv[1],
+					b.textColor() != 0 ? b.textColor() : VanillaHud.WHITE, MutationMeters.Style.HAIRLINE);
 		}
 
-		// Power name above the row (and above any Hairline bars).
-		int nameY = y0 - 10 - aboveH;
+		// ---- the power's name (v0.14.5: grey for the black-and-gray powers) and the power's decor right of it
 		Component powerName = Component.translatable(power.nameKey());
-		// v0.17.1: a long name ("Plant Manipulation / Chlorokinesis") never runs off the right edge of the screen
-		int nameRoom = screenW - x0 - 2;
-		if (client.font.width(powerName) > nameRoom) {
-			powerName = Component.literal(client.font.plainSubstrByWidth(powerName.getString(), nameRoom - client.font.width("...")) + "...");
-		}
-		graphics.drawString(client.font, powerName, x0, nameY, mono ? MONO_NAME : 0xFFD8D8F0);
+		stack.title(powerName, mono ? VanillaHud.GREY : VanillaHud.WHITE);
+		int nameY = stack.top();
 		AbilityHudExtras.Decor decor = AbilityHudExtras.decor(power.key());
 		if (decor != null) {
-			decor.draw(graphics, client, state, x0 + client.font.width(powerName) + 6, nameY);
+			int nameW = Math.min(stack.width, client.font.width(powerName));
+			decor.draw(graphics, client, state, stack.x0 + nameW + 6, nameY);
 		}
-		// v0.14.16: a per-power line just above the power name (Super Speed: the packed Flash Suit's durability)
+
+		// ---- per-power lines above the name
+		// v0.14.16: Super Speed's packed Flash Suit durability (draws nothing when there is none: its row is kept free)
 		AbilityHudExtras.Decor header = AbilityHudExtras.header(power.key());
 		if (header != null) {
-			header.draw(graphics, client, state, x0, nameY - 10);
+			stack.reserve(10);
+			header.draw(graphics, client, state, stack.x0, stack.top());
 		}
-		lastTop = nameY - (header != null ? 12 : 2);
-
-		for (int i = 0; i < slots; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			Ability ability = power.ability(slot);
-			int x = x0 + i * (BOX + GAP) + (slot.isUtility() ? UTILITY_GAP : 0);
-
-			// v0.17.1: a HOLD key may light its box too, while its own toggle mode runs (Chlorokinesis' Verdant Form / Glide)
-			boolean toggled = (ability.activation() == AbilityActivation.TOGGLE || ability.activation() == AbilityActivation.HOLD)
-					&& state.activeToggles.contains(power.key() + "/" + ability.id());
-			Long readyAt = state.abilityReadyAt.get(power.key() + "/" + ability.id());
-			int cdRemain = readyAt == null ? 0 : (int) Math.max(0L, readyAt - gameTime);
-			// v0.14.5: Super Strength's Shift+G (Thunderclap) and Shift+V (Rip & Hurl) keep their own cooldowns in
-			// the clap_cd / rip_cd resources (ticks) -- the G / V box shows whichever of the two moves is longer.
-			if (power.key().equals("power_01_super_strength")
-					&& (slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_5)) {
-				String extra = slot == AbilitySlot.SLOT_2 ? "clap_cd" : "rip_cd";
-				int alt = Math.round(state.resources.getOrDefault("power_01_super_strength/" + extra, 0.0f));
-				if (alt > cdRemain) {
-					cdRemain = alt;
-				}
-			}
-			// v0.14.7: Super Speed's Shift+R / Shift+G / Shift+X (Mach Punch, Speed Vortex, Speed Sweep) keep absolute
-			// ready-at times in their own resources -- the R / G / X box shows the longer of the two waits.
-			// v0.17.1: so do Shift+Z Lightning Throw (Z box) and Shift+V Afterimage Decoys (V box).
-			String speedExtra = !power.key().equals("power_04_super_speed") ? null : switch (slot) {
-				case SLOT_1 -> "mach_ready";
-				case SLOT_2 -> "vortex_ready";
-				case SLOT_3 -> "sweep_ready";
-				case SLOT_4 -> "lightning_ready";
-				case SLOT_5 -> "decoy_ready";
-				default -> null;
-			};
-			// v0.17.1 (user): the Shift move's wait is no longer folded into the box -- it gets its own bar (drawn below)
-			int speedShiftLeft = 0;
-			if (speedExtra != null) {
-				float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + speedExtra, 0.0f);
-				speedShiftLeft = (int) Math.max(0L, (long) readyAtAlt - gameTime);
-			}
-
-			graphics.fill(x, y0, x + BOX, y0 + BOX, boxBg);
-			int border = toggled ? borderActive : borderIdle;
-			graphics.renderOutline(x, y0, BOX, BOX, border);
-
-			graphics.drawString(client.font, keyLabel(i), x + 2, y0 + 2, slot.isUtility() ? COLOR_KEY_UTILITY : keyColor, false);
-
-			// v0.16.6: a key with a hold move fills up while it is held (full = the hold move fires)
-			float hold = holdProgress(i, power.key(), ability.id(), gameTime);
-			if (hold > 0f) {
-				int h = Math.round((BOX - 2) * hold);
-				graphics.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, hold >= 1f ? 0xC0FFE27A : 0x80FFE27A);
-			}
-
-			if (cdRemain > 0) {
-				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
-				String secs = String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cdRemain / 20.0f));
-				graphics.drawCenteredString(client.font, secs, x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			// v0.17.1 (user): Super Speed's Shift moves -- a thin bar along the bottom of the box that refills as the Shift
-			// move cools down (bright once ready), with its seconds in the corner while it waits
-			if (speedExtra != null) {
-				int full = speedShiftCooldown(speedExtra);
-				float ready = full <= 0 ? 1f : 1f - Math.min(1f, speedShiftLeft / (float) full);
-				graphics.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0101010);
-				graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
-						ready >= 1f ? 0xFFFFE04A : 0xFF9C7A1E);
-				if (speedShiftLeft > 0) {
-					String s = String.valueOf((speedShiftLeft + 19) / 20);
-					graphics.pose().pushPose();
-					graphics.pose().translate(x + BOX - 1 - client.font.width(s) * 0.5f, y0 + 2, 0);
-					graphics.pose().scale(0.5f, 0.5f, 1f);
-					graphics.drawString(client.font, s, 0, 0, 0xFFFFE04A, true);
-					graphics.pose().popPose();
-				}
-			}
-			// v0.17.1: the same Shift strip for any power that registers one (ShiftStrips: a countdown in ticks + its full)
-			String strip = speedExtra == null ? com.projecthero.mod.hero.visual.ShiftStrips.get(power.key(), slot) : null;
-			if (strip != null) {
-				int left = Math.round(state.resources.getOrDefault(power.key() + "/" + strip, 0.0f));
-				float full = state.resources.getOrDefault(power.key() + "/" + strip + "_full", 0.0f);
-				float ready = full <= 0.5f ? 1f : 1f - Math.min(1f, left / full);
-				graphics.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0101010);
-				graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
-						ready >= 1f ? 0xFF8CF06A : 0xFF3E7A2A);
-				if (left > 0) {
-					String s = String.valueOf((left + 19) / 20);
-					graphics.pose().pushPose();
-					graphics.pose().translate(x + BOX - 1 - client.font.width(s) * 0.5f, y0 + 2, 0);
-					graphics.pose().scale(0.5f, 0.5f, 1f);
-					graphics.drawString(client.font, s, 0, 0, 0xFF8CF06A, true);
-					graphics.pose().popPose();
-				}
-			}
-
-		}
-		if (expanded && slots > 0) {
-			// v0.16.6: the shared move list -- each key's move with its Shift move (read from the move descriptions,
-			// the only place the mutations name them), stacked above the power name / header line
-			List<String> descKeys = new ArrayList<>();
-			for (Ability a : power.abilities()) {
-				descKeys.add(a.descKey());
-			}
-			List<MoveListOverlay.Row> rows = new ArrayList<>();
-			for (int i = 0; i < slots; i++) {
-				Ability ability = power.ability(AbilitySlot.byNumber(i + 1));
-				// v0.16.6: and its hold move, when it has one (HoldTap)
-				Component holdMove = com.projecthero.mod.hero.HoldTap.hasHold(power.key(), ability.id())
-						? Component.translatable("hud.projecthero.move_list.hold", Component.translatable(ability.nameKey() + ".hold")) : null;
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(ability.nameKey()),
-						MoveListOverlay.shiftFromDescs(i, descKeys), holdMove));
-			}
-			boolean extraLine = header != null || power.key().equals("power_19_shadow_manipulation")
-					|| power.key().equals("power_18_density_manipulation");
-			MoveListOverlay.draw(graphics, x0 + totalW, extraLine ? nameY - 10 : nameY, rows);
-		}
-
 		if (power.key().equals("power_19_shadow_manipulation")) {
-			renderShadowLevel(graphics, client, x0, nameY - 10);
+			shadowLevel(stack, client);
 		}
 		if (power.key().equals("power_18_density_manipulation")) {
 			float d = state.resources.getOrDefault("power_18_density_manipulation/density", 100.0f);
@@ -274,76 +161,144 @@ public final class AbilityHud {
 			}
 			boolean anchored = state.resources.getOrDefault("power_18_density_manipulation/anchor_until", 0.0f) > gameTime;
 			Component line = Component.literal("Density: " + Math.round(d) + "%" + (anchored ? "  [ANCHOR]" : ""));
-			int col = d < 100 ? 0xFF7FD0FF : (d > 100 ? 0xFFFFB24A : 0xFFD8D8F0);
-			graphics.drawString(client.font, line, x0, nameY - 10, col);
+			int col = d < 100 ? 0xFF7FD0FF : (d > 100 ? 0xFFFFB24A : VanillaHud.WHITE);
+			stack.line(line, col);
 		}
+		lastTop = stack.top() - 2;
 
-		int bw = totalW;
-		int barY = y0 + (slots == 0 ? 0 : BOX) + 4;
-		for (Meter m : meters) {
-			float ratio = Math.max(0.0f, Math.min(1.0f, m.value / m.max));
-			if (m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB) {
-				// Slab: a thick 7 px bar
-				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 7, borderIdle);
-				graphics.fill(x0, barY, x0 + bw, barY + 6, barBg);
-				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 6, m.color);
-				graphics.drawString(client.font, m.label, x0, barY + 7, m.textColor != 0 ? m.textColor : labelColor, false);
-				barY += BAR_ROW_H + 2;
-				continue;
+		// ---- Left Alt: the shared move list -- each key's move with its Shift move (read from the move descriptions, the only
+		// place the mutations name them) and its hold move (HoldTap)
+		if (MoveListOverlay.held() && !order.isEmpty()) {
+			List<String> descKeys = new ArrayList<>();
+			for (Ability a : power.abilities()) {
+				descKeys.add(a.descKey());
 			}
-			if (m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.GAUGE) {
-				// Gauge: ten separate cells
-				int cells = 10;
-				int cw = (bw - (cells - 1)) / cells;
-				int lit = (int) Math.ceil(ratio * cells - 1e-4);
-				for (int c = 0; c < cells; c++) {
-					int cx = x0 + c * (cw + 1);
-					graphics.fill(cx, barY, cx + cw, barY + 4, c < lit ? m.color : barBg);
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : order) {
+				if (!power.hasSlot(slot)) {
+					continue;
 				}
-			} else if (m.hairline) {
-				// v0.13.11: a Hairline bar -- 3 px, no border (Pyrokinesis)
-				graphics.fill(x0, barY + 1, x0 + bw, barY + 4, barBg);
-				graphics.fill(x0, barY + 1, x0 + Math.round(bw * ratio), barY + 4, m.color);
-			} else {
-				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 5, borderIdle);
-				graphics.fill(x0, barY, x0 + bw, barY + 4, barBg);
-				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 4, m.color);
+				Ability ability = power.ability(slot);
+				Component holdMove = com.projecthero.mod.hero.HoldTap.hasHold(power.key(), ability.id())
+						? Component.translatable("hud.projecthero.move_list.hold", Component.translatable(ability.nameKey() + ".hold")) : null;
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot.ordinal()), Component.translatable(ability.nameKey()),
+						MoveListOverlay.shiftFromDescs(slot.ordinal(), descKeys), holdMove));
 			}
-			graphics.drawString(client.font, m.label, x0, barY + 5, m.textColor != 0 ? m.textColor : labelColor, false);
-			barY += BAR_ROW_H;
+			stack.moveList(rows);
 		}
 	}
 
-	/** {@code hairline}: drawn as a borderless 3 px Hairline bar instead of the bordered Meter bar. */
-	private record Meter(Component label, float value, float max, int color, boolean hairline,
-			com.projecthero.mod.hero.visual.MutationMeters.Style style, boolean above, int textColor) {
-		Meter(Component label, float value, float max, int color, boolean hairline) {
-			this(label, value, max, color, hairline, hairline ? com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE
-					: com.projecthero.mod.hero.visual.MutationMeters.Style.METER, false, 0);
+	/** One key of the strip: its cooldown, toggle, hold fill and (for Super Speed / ShiftStrips) its Shift move's cooldown. */
+	private static void drawKey(VanillaHud.Stack stack, int i, AbilitySlot slot, Power power, ExperimentalState state, long gameTime,
+			boolean shift, Minecraft client) {
+		Ability ability = power.ability(slot);
+		int idx = slot.ordinal();
+		// v0.17.1: a HOLD key may light its box too, while its own toggle mode runs (Chlorokinesis' Verdant Form / Glide)
+		boolean toggled = (ability.activation() == AbilityActivation.TOGGLE || ability.activation() == AbilityActivation.HOLD)
+				&& state.activeToggles.contains(power.key() + "/" + ability.id());
+		Long readyAt = state.abilityReadyAt.get(power.key() + "/" + ability.id());
+		int cdRemain = readyAt == null ? 0 : (int) Math.max(0L, readyAt - gameTime);
+		// v0.14.5: Super Strength's Shift+G (Thunderclap) and Shift+V (Rip & Hurl) keep their own cooldowns in the clap_cd /
+		// rip_cd resources (ticks) -- the G / V key shows whichever of the two moves is longer.
+		if (power.key().equals("power_01_super_strength") && (slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_5)) {
+			String extra = slot == AbilitySlot.SLOT_2 ? "clap_cd" : "rip_cd";
+			int alt = Math.round(state.resources.getOrDefault("power_01_super_strength/" + extra, 0.0f));
+			if (alt > cdRemain) {
+				cdRemain = alt;
+			}
+		}
+		// the Shift move's own cooldown, when the power keeps one for this key: ticks left and the full length
+		int shiftLeft = 0;
+		float shiftFull = 0f;
+		boolean hasShift = false;
+		// v0.14.7: Super Speed's Shift+R / Shift+G / Shift+X (Mach Punch, Speed Vortex, Speed Sweep) keep absolute ready-at
+		// times in their own resources; v0.17.1: so do Shift+Z Lightning Throw and Shift+V Afterimage Decoys.
+		String speedExtra = !power.key().equals("power_04_super_speed") ? null : switch (slot) {
+			case SLOT_1 -> "mach_ready";
+			case SLOT_2 -> "vortex_ready";
+			case SLOT_3 -> "sweep_ready";
+			case SLOT_4 -> "lightning_ready";
+			case SLOT_5 -> "decoy_ready";
+			default -> null;
+		};
+		if (speedExtra != null) {
+			float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + speedExtra, 0.0f);
+			shiftLeft = (int) Math.max(0L, (long) readyAtAlt - gameTime);
+			shiftFull = speedShiftCooldown(speedExtra);
+			hasShift = true;
+		} else {
+			// v0.17.1: the same for any power that registers a Shift strip (ShiftStrips: a countdown in ticks + its full)
+			String strip = com.projecthero.mod.hero.visual.ShiftStrips.get(power.key(), slot);
+			if (strip != null) {
+				shiftLeft = Math.round(state.resources.getOrDefault(power.key() + "/" + strip, 0.0f));
+				shiftFull = state.resources.getOrDefault(power.key() + "/" + strip + "_full", 0.0f);
+				hasShift = true;
+			}
+		}
+		if (cdRemain <= 0) {
+			SEEN_MAX[idx] = 0;
+		} else if (cdRemain > SEEN_MAX[idx]) {
+			SEEN_MAX[idx] = cdRemain;
+		}
+		float plainFrac = cdRemain <= 0 ? 0f : Math.min(1f, cdRemain / (float) Math.max(1, SEEN_MAX[idx]));
+		float shiftFrac = shiftLeft <= 0 ? 0f : shiftFull <= 0.5f ? 1f : Math.min(1f, shiftLeft / shiftFull);
+		// v0.17.1 (user): the Shift move's wait is not folded into the key -- while Shift is held the key shows the Shift move
+		// (yellow letter, its sweep and seconds) and the plain move's wait becomes the durability bar
+		boolean showShift = hasShift && shift;
+		float cooldown = showShift ? shiftFrac : plainFrac;
+		int seconds = VanillaHud.seconds(showShift ? shiftLeft : cdRemain);
+		float other = hasShift ? (showShift ? plainFrac : shiftFrac) : 0f;
+		stack.slot(i, VanillaHud.keyLabel(slot), true, showShift, cooldown, seconds, other, toggled);
+		if (hasShift && !showShift && cdRemain <= 0 && shiftLeft > 0) {
+			// the plain move is ready but its Shift move still waits: the Shift move's seconds, in yellow, where a stack count sits
+			String n = String.valueOf(VanillaHud.seconds(shiftLeft));
+			int ix = stack.stripX() + 3 + i * VanillaHud.SLOT, iy = stack.stripY() + 3;
+			graphicsPush(stack, n, ix + 17 - client.font.width(n), iy + 9, VanillaHud.YELLOW);
+		}
+		// v0.16.6: a key with a hold move fills up while it is held (full = the hold move fires)
+		stack.hold(i, holdProgress(idx, power.key(), ability.id(), gameTime));
+	}
+
+	/** Shadowed text above the slot contents (the stack-count layer). */
+	private static void graphicsPush(VanillaHud.Stack stack, String text, int x, int y, int colour) {
+		stack.g.pose().pushPose();
+		stack.g.pose().translate(0f, 0f, 200f);
+		stack.g.drawString(stack.font, text, x, y, colour, true);
+		stack.g.pose().popPose();
+	}
+
+	/**
+	 * An "above" bar's label split into the row's label and its value: "Charged Punch -- RELEASE" -> "Charged Punch" +
+	 * "RELEASE", "Maximum Effort  12s" -> "Maximum Effort" + "12s".
+	 */
+	private static String[] splitLabel(String label) {
+		int dash = label.indexOf(" — ");
+		if (dash > 0) {
+			return new String[] { label.substring(0, dash).trim(), label.substring(dash + 3).trim() };
+		}
+		int gap = label.indexOf("  ");
+		if (gap > 0) {
+			return new String[] { label.substring(0, gap).trim(), label.substring(gap).trim() };
+		}
+		return new String[] { label, "" };
+	}
+
+	/**
+	 * A meter row. {@code style}: the user's bar style (Slab / Meter / Gauge / Hairline); {@code above}: drawn with the "above"
+	 * Hairline rows (charge-ups, running moves); {@code textColor}: the value's colour (0 = white); {@code valueText}: the
+	 * value right of the bar (may be empty).
+	 */
+	private record Meter(Component label, float value, float max, int color, MutationMeters.Style style, boolean above, int textColor,
+			String valueText) {
+		Meter(Component label, float value, float max, int color, boolean hairline, String valueText, int textColor) {
+			this(label, value, max, color, hairline ? MutationMeters.Style.HAIRLINE : MutationMeters.Style.METER, false, textColor, valueText);
 		}
 	}
 
-	/** v0.14.5 black-and-gray theme ({@link AbilityHudExtras#mono}). */
-	private static final int MONO_BOX_BG = 0xD0080808;
-	private static final int MONO_BORDER = 0xFF4A4A4A;
-	private static final int MONO_BORDER_ACTIVE = 0xFFC8C8C8;
-	private static final int MONO_KEY = 0xFFB4B4B4;
-	private static final int MONO_NAME = 0xFFE2E2E2;
-	private static final int MONO_LABEL = 0xFF9A9A9A;
-	private static final int MONO_BAR_BG = 0xAA0C0C0C;
-	/** One Hairline bar above the keys: 9 px label + 3 px bar. */
-	private static final int ABOVE_ROW_H = 13;
-
-	/** v0.13.22: a small gap sets the two utility boxes (H / N) apart from the six core keys. */
-	private static final int UTILITY_GAP = 4;
-	private static final int COLOR_KEY_UTILITY = 0xFFE0C890;
-
-	/** The key actually bound to slot {@code i} (tracks rebinds; H / N are the Utility 1 / 2 keys). */
 	/** v0.16.6: game time each ability key went down (plain, no Sneak), or -1. */
 	private static final long[] HOLD_DOWN_SINCE = { -1, -1, -1, -1, -1, -1, -1, -1 };
 
-	/** 0..1 of the way to a key's hold move (0 = not held / no hold move / a Shift press). */
-	/** v0.17.1: the full length of a Super Speed Shift move's cooldown (the HUD bar's scale). */
+	/** v0.17.1: the full length of a Super Speed Shift move's cooldown (the durability bar's scale). */
 	private static int speedShiftCooldown(String readyKey) {
 		int base = switch (readyKey) {
 			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.MACH_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.MACH_CD;
@@ -356,6 +311,7 @@ public final class AbilityHud {
 		return com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(base);
 	}
 
+	/** 0..1 of the way to a key's hold move (0 = not held / no hold move / a Shift press). */
 	private static float holdProgress(int i, String powerKey, String abilityId, long gameTime) {
 		if (i >= HOLD_DOWN_SINCE.length || i >= com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS.length) {
 			return 0f;
@@ -374,19 +330,11 @@ public final class AbilityHud {
 		return Math.min(1f, (gameTime - HOLD_DOWN_SINCE[i]) / (float) com.projecthero.mod.hero.HoldTap.HOLD_TICKS);
 	}
 
-	private static String keyLabel(int i) {
-		net.minecraft.client.KeyMapping km = i < 6 ? com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i]
-				: i == 6 ? com.projecthero.mod.client.ModKeyBindings.POWER_SELECT
-				: com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM;
-		String text = km.getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
-	}
-
 	/** v0.13.11: powers whose bars are all Hairline bars. */
 	private static final java.util.Set<String> HAIRLINE_POWERS = java.util.Set.of("power_08_pyrokinesis");
 
-	/** Shadow Manipulation's ambient-light strength indicator, shown above the ability row. */
-	private static void renderShadowLevel(GuiGraphics g, Minecraft client, int x, int y) {
+	/** Shadow Manipulation's ambient-light strength line, above the power name. */
+	private static void shadowLevel(VanillaHud.Stack stack, Minecraft client) {
 		if (client.player == null || client.level == null) {
 			return;
 		}
@@ -394,7 +342,7 @@ public final class AbilityHud {
 				client.level, client.player.blockPosition());
 		int pct = Math.round(tier * 100);
 		int color = tier >= 1.3f ? 0xFFB98CFF : tier >= 1.0f ? 0xFF9AA6D0 : tier >= 0.75f ? 0xFFE8C98A : 0xFFFFC24A;
-		g.drawString(client.font, "Shadow Strength: " + pct + "%", x, y, color, false);
+		stack.line(Component.literal("Shadow Strength: " + pct + "%"), color);
 	}
 
 	/**
@@ -440,11 +388,10 @@ public final class AbilityHud {
 					case BUILD, TIMER -> v > 0.5f;
 				};
 				if (visible) {
-					String text = spec.label() + (spec.showValue()
-							? "  " + Math.round(Math.max(0f, Math.min(1f, v / spec.max())) * 100) + "%" : "");
-					out.add(new Meter(Component.literal(text), v, spec.max(), spec.color(),
-							spec.style() == com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE || spec.above(),
-						spec.style(), spec.above(), spec.textColor()));
+					String valueText = spec.showValue() ? Math.round(Math.max(0f, Math.min(1f, v / spec.max())) * 100) + "%" : "";
+					// v0.14.5: an "above" meter is a Hairline row with the charge-ups (v0.17.3: the vanilla Hairline cut)
+					out.add(new Meter(Component.literal(spec.label()), v, spec.max(), spec.color(),
+							spec.above() ? MutationMeters.Style.HAIRLINE : spec.style(), spec.above(), spec.textColor(), valueText));
 				}
 				continue;
 			}
@@ -485,19 +432,29 @@ public final class AbilityHud {
 				default -> 0xFF6FA8FF;
 			};
 			Component text = label(power, name);
+			String valueText = "";
+			int valueColour = 0;
+			// v0.17.3: a hold-to-charge meter ("Stretch Punch -- charging") shows its name and how far it has charged
+			if (name.endsWith("_charge") && !name.equals("static_charge") && !name.equals("blade_charge")) {
+				String[] lv = splitLabel(text.getString());
+				text = Component.literal(lv[0]);
+				valueText = Math.round(Math.max(0f, Math.min(1f, value / max)) * 100) + "%";
+			}
 			// Telekinesis' Psi burnout is the one meter state that is a hard lockout rather than a
 			// shortage, so it gets its own red bar and label instead of just reading as "empty".
 			if (name.equals("psi") && state.resources.getOrDefault(prefix + "burnout_until", 0.0f) > gameTime) {
 				color = 0xFFE05252;
-				text = Component.literal("Psi — BURNED OUT");
+				text = Component.literal("Psi");
+				valueText = "BURNED OUT";
+				valueColour = VanillaHud.RED;
 			}
 			// v0.10.21: Energy Absorption's bar is always on screen -- show the exact percentage next
 			// to the label rather than leaving the player to eyeball the fill.
 			if (name.equals("energy")) {
-				text = Component.literal("Energy: "
-						+ String.format(java.util.Locale.ROOT, "%.2f", value / max * 100.0f) + "%");
+				text = Component.literal("Energy");
+				valueText = String.format(java.util.Locale.ROOT, "%.2f", value / max * 100.0f) + "%";
 			}
-			out.add(new Meter(text, value, max, color, HAIRLINE_POWERS.contains(power.key())));
+			out.add(new Meter(text, value, max, color, HAIRLINE_POWERS.contains(power.key()), valueText, valueColour));
 		}
 		return out;
 	}
