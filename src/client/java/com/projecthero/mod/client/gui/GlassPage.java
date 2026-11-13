@@ -77,6 +77,29 @@ public final class GlassPage {
 		return body.size() * LINE_H + 4;
 	}
 
+	/** The F1 state from before the page opened (null = not hidden by the page). */
+	private Boolean hudWas;
+
+	/**
+	 * While an I menu is open the HUD (hotbar, hearts, every power's corner HUD) is put away like F1 does, so only the world shows
+	 * through the see-through panel and no HUD text runs under the page. Call from init (safe to call again); {@link #restoreHud}
+	 * from the screen's removed().
+	 */
+	public void hideHud() {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (hudWas == null) {
+			hudWas = mc.options.hideGui;
+			mc.options.hideGui = true;
+		}
+	}
+
+	public void restoreHud() {
+		if (hudWas != null) {
+			net.minecraft.client.Minecraft.getInstance().options.hideGui = hudWas;
+			hudWas = null;
+		}
+	}
+
 	public VanillaMenu.Scroll scroll() {
 		return scroll;
 	}

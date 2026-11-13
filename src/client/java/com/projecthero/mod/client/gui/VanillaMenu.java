@@ -325,6 +325,11 @@ public final class VanillaMenu {
 			return this;
 		}
 
+		/** Tests / harnesses: the bar's grab zone (x, width) and the thumb's top and height, screen pixels. */
+		public int[] barGeometry() {
+			return new int[] { trackX, trackW, thumbY(), thumbH() };
+		}
+
 		/** Over the content or the bar: where the mouse wheel scrolls this view. */
 		public boolean over(double mx, double my) {
 			return inView(mx, my) || overTrack(mx, my);

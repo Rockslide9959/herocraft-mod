@@ -77,6 +77,7 @@ public final class OmnitrixInfoScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
 		page.layout(this.width, this.height);
+		page.hideHud();
 		page.scroll().set(0);
 		rebuild();
 	}
@@ -251,6 +252,12 @@ public final class OmnitrixInfoScreen extends Screen {
 	/** Scrolls to the first line containing {@code text} (case-insensitive); false if none. */
 	public boolean scrollTo(String text) {
 		return page.scrollTo(text);
+	}
+
+	@Override
+	public void removed() {
+		page.restoreHud();
+		super.removed();
 	}
 
 	@Override

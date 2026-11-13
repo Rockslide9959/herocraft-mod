@@ -83,6 +83,7 @@ public final class PowerInfoScreen extends Screen {
 		}
 
 		page.layout(this.width, this.height);
+		page.hideHud();
 		page.scroll().set(0);
 		buildBody();
 	}
@@ -577,6 +578,11 @@ public final class PowerInfoScreen extends Screen {
 		return page.scrollTo(text);
 	}
 
+	/** Harness / tests: the page (its scroll and bar). */
+	public GlassPage page() {
+		return page;
+	}
+
 	/** Harness / tests: 0..1 of the way down. */
 	public void scrollFraction(float f) {
 		page.scroll().setFraction(f);
@@ -592,6 +598,12 @@ public final class PowerInfoScreen extends Screen {
 		super.render(g, mouseX, mouseY, partial);
 		g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
 		page.render(g, this.font, this.heading, mouseX, mouseY);
+	}
+
+	@Override
+	public void removed() {
+		page.restoreHud();
+		super.removed();
 	}
 
 	@Override

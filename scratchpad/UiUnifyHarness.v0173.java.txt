@@ -1,0 +1,364 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.gui.HeroPackGuideScreen;
+import com.projecthero.mod.client.gui.PowerInfoScreen;
+import com.projecthero.mod.client.gui.VanillaMenu;
+import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.hero.PowerGrants;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.UniquePowers;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.3 UI unify -- HUD shots of migrated powers, I menu shots (top / middle / end), and frame runs of
+ * wheel scrolling + scroll-bar dragging in the I menu and the Guidebook. Enabled by run/ui_unify.flag. Copy to
+ * src/client/java/com/projecthero/mod/client/UiUnifyHarness.java, call UiUnifyHarness.init() first in onInitializeClient.
+ * Shots land in run/screenshots/ui_*.png, video frames in run/screenshots/uivid_*.png.
+ */
+// TEMP-HARNESS
+public final class UiUnifyHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	/** The simulated mouse, drawn as a cursor over screens (-1 = hidden). */
+	private static double cx = -1, cy = -1;
+	private static int frame;
+
+	private UiUnifyHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("ui_unify.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(UiUnifyHarness::tick);
+		ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> ScreenEvents.afterRender(screen).register((s, g, mx, my, d) -> {
+			if (cx < 0) {
+				return;
+			}
+			int x = (int) Math.round(cx), y = (int) Math.round(cy);
+			g.pose().pushPose();
+			g.pose().translate(0, 0, 500);
+			// a small arrow cursor
+			for (int i = 0; i < 9; i++) {
+				g.fill(x, y + i, x + Math.max(1, i * 6 / 9 + 1), y + i + 1, 0xFF000000);
+			}
+			for (int i = 1; i < 8; i++) {
+				g.fill(x + 1, y + i, x + Math.max(2, i * 6 / 9), y + i + 1, 0xFFFFFFFF);
+			}
+			g.pose().popPose();
+		}));
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "ui-unify-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "ui_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void vframe() {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, String.format("uivid_%04d.png", frame++), mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(UiUnifyHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.teleportTo(level, p.getX(), p.getY(), p.getZ(), 200f, 5f);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("UIU_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void hero(Minecraft mc, String key) {
+		server(mc, p -> UniquePowers.forced(() -> {
+			HeroTiers.wipeAll(p);
+			for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
+					EquipmentSlot.MAINHAND }) {
+				p.setItemSlot(s, ItemStack.EMPTY);
+			}
+			if (key.startsWith("power_")) {
+				PowerGrants.grantExperimental(p, Powers.byKey(key));
+			} else {
+				var r = PowerGrants.grantHero(p, key);
+				System.out.println("[HARNESS] grant " + key + ": " + r);
+			}
+			switch (key) {
+				case "thor" -> p.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR));
+				case "iron_man" -> {
+					p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", ArmorItem.Type.HELMET)));
+					p.setItemSlot(EquipmentSlot.CHEST,
+							new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", ArmorItem.Type.CHESTPLATE)));
+					p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", ArmorItem.Type.LEGGINGS)));
+					p.setItemSlot(EquipmentSlot.FEET, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", ArmorItem.Type.BOOTS)));
+				}
+				case "ladybug" -> com.projecthero.mod.miraculous.Miraculous.transform(p);
+				default -> {
+				}
+			}
+			return null;
+		}));
+		at(0, () -> {
+		});
+	}
+
+	private static void clearTitles(Minecraft mc) {
+		server(mc, p -> p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true)));
+		mc.gui.clear();
+	}
+
+	private static void info(Minecraft mc) {
+		mc.setScreen(mc.player != null && com.projecthero.mod.client.gui.IronManSuitInfoScreen.wornSuit(mc.player) != null
+				? new com.projecthero.mod.client.gui.IronManSuitInfoScreen() : PowerInfoScreen.create());
+	}
+
+	private static void frac(Minecraft mc, float f) {
+		Screen s = mc.screen;
+		if (s instanceof PowerInfoScreen p) {
+			p.scrollFraction(f);
+		} else if (s instanceof com.projecthero.mod.client.gui.OmnitrixInfoScreen o) {
+			o.scrollFraction(f);
+		} else if (s instanceof com.projecthero.mod.client.gui.IronManSuitInfoScreen i) {
+			i.scrollFraction(f);
+		}
+	}
+
+	private static final String[] HUDS = { "hulk", "kryptonian", "nova", "ghost_rider", "black_panther", "falcon", "silver_surfer", "super_soldier",
+			"punisher", "moon_knight", "titan_shifter", "wolverine", "max_steel", "green_lantern", "speed_force_speedster", "symbiote", "spider_man",
+			"thor", "cyborg", "blue_beetle", "iron_man", "quirk_explosion", "ladybug", "power_08_pyrokinesis", "omnitrix", "all_might" };
+	private static final java.util.Set<String> MENUS = java.util.Set.of("hulk", "kryptonian", "green_lantern", "iron_man", "omnitrix", "ladybug",
+			"quirk_explosion", "power_08_pyrokinesis", "spider_man", "speed_force_speedster");
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		for (String key : HUDS) {
+			final String k = key;
+			at(t, () -> hero(mc, k));
+			at(t + 50, () -> clearTitles(mc));
+			shot(t + 60, "hud_" + k);
+			at(t + 61, () -> {
+				com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = false;
+			});
+			t += 64;
+			if (MENUS.contains(k)) {
+				at(t, () -> info(mc));
+				shot(t + 5, "imenu_" + k + "_top");
+				at(t + 6, () -> frac(mc, 0.5f));
+				shot(t + 9, "imenu_" + k + "_mid");
+				at(t + 10, () -> frac(mc, 1f));
+				shot(t + 13, "imenu_" + k + "_end");
+				at(t + 14, () -> mc.setScreen(null));
+				t += 18;
+			}
+		}
+		// ---------------------------------------------------------------- the I menu: wheel, then drag the bar (frames)
+		at(t, () -> hero(mc, "hulk"));
+		at(t + 50, () -> clearTitles(mc));
+		t += 55;
+		at(t, () -> info(mc));
+		t += 4;
+		t = scrollFilm(mc, t, () -> mc.screen instanceof PowerInfoScreen p ? p.page().scroll() : null);
+		at(t, () -> mc.setScreen(null));
+		t += 4;
+		// ---------------------------------------------------------------- the Guidebook (Marvel category list)
+		at(t, () -> {
+			HeroPackGuideScreen g = new HeroPackGuideScreen();
+			mc.setScreen(g);
+			try {
+				var m = HeroPackGuideScreen.class.getDeclaredMethod("openCategory", com.projecthero.mod.hero.guide.HeroPackGuide.Category.class);
+				m.setAccessible(true);
+				m.invoke(g, com.projecthero.mod.hero.guide.HeroPackGuide.Category.MARVEL);
+			} catch (Exception e) {
+				System.out.println("[HARNESS] guide: " + e);
+			}
+		});
+		shot(t + 4, "guide_top");
+		t += 6;
+		t = scrollFilm(mc, t, () -> {
+			try {
+				var f = HeroPackGuideScreen.class.getDeclaredField("scroll");
+				f.setAccessible(true);
+				return mc.screen instanceof HeroPackGuideScreen g ? (VanillaMenu.Scroll) f.get(g) : null;
+			} catch (Exception e) {
+				return null;
+			}
+		});
+		shot(t + 2, "guide_end");
+		at(t + 6, () -> {
+			System.out.println("[HARNESS] DONE frames=" + frame);
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	/** Wheel down 8 notches, wheel up 3, then grab the thumb and drag it to the top, to the bottom and to the middle -- a frame a tick. */
+	private static int scrollFilm(Minecraft mc, int t, java.util.function.Supplier<VanillaMenu.Scroll> bar) {
+		final int[] grab = new int[2];
+		int start = t;
+		// park the cursor over the page
+		at(t, () -> {
+			cx = mc.getWindow().getGuiScaledWidth() / 2.0;
+			cy = mc.getWindow().getGuiScaledHeight() / 2.0;
+		});
+		for (int i = 0; i < 160; i++) {
+			final int k = i;
+			at(t + i, () -> {
+				Screen s = mc.screen;
+				VanillaMenu.Scroll sc = bar.get();
+				if (s == null || sc == null) {
+					return;
+				}
+				int[] geo = sc.barGeometry(); // trackX, trackW, thumbY, thumbH
+				double barX = geo[0] + geo[1] / 2.0;
+				if (k >= 5 && k < 45 && k % 5 == 0) {
+					s.mouseScrolled(cx, cy, 0, -1); // wheel down (anywhere over the page)
+				} else if (k >= 50 && k < 65 && k % 5 == 0) {
+					s.mouseScrolled(cx, cy, 0, 1); // and back up
+				} else if (k >= 70 && k < 78) {
+					// glide the cursor onto the thumb
+					double f = (k - 69) / 8.0;
+					cx = cx + (barX - cx) * f;
+					cy = cy + (geo[2] + geo[3] / 2.0 - cy) * f;
+				} else if (k == 78) {
+					grab[0] = (int) cy;
+					s.mouseClicked(cx, cy, 0);
+				} else if (k > 78 && k <= 150) {
+					// drag: up to the top, down to the bottom, back to the middle
+					int top = sc.viewY0(), bot = sc.viewY1();
+					double target;
+					if (k <= 96) {
+						target = grab[0] + (top - grab[0]) * ((k - 78) / 18.0);
+					} else if (k <= 130) {
+						target = top + (bot - top) * ((k - 96) / 34.0);
+					} else {
+						target = bot + ((top + bot) / 2.0 - bot) * ((k - 130) / 20.0);
+					}
+					double dy = target - cy;
+					cy = target;
+					s.mouseDragged(cx, cy, 0, 0, dy);
+				} else if (k == 152) {
+					s.mouseReleased(cx, cy, 0);
+				}
+			});
+			// the frame after this tick's input has rendered
+			at(t + i + 1, UiUnifyHarness::vframe);
+		}
+		at(t + 161, () -> {
+			cx = -1;
+			cy = -1;
+			System.out.println("[HARNESS] film " + start + " frames now " + frame);
+		});
+		return t + 163;
+	}
+}

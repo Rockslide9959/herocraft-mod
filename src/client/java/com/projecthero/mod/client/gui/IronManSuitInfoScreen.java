@@ -52,6 +52,7 @@ public class IronManSuitInfoScreen extends Screen {
 	@Override
 	protected void init() {
 		page.layout(this.width, this.height);
+		page.hideHud();
 		page.scroll().set(0);
 		addRenderableWidget(net.minecraft.client.gui.components.Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
@@ -232,6 +233,12 @@ public class IronManSuitInfoScreen extends Screen {
 			return true;
 		}
 		return super.keyPressed(key, scan, modifiers);
+	}
+
+	@Override
+	public void removed() {
+		page.restoreHud();
+		super.removed();
 	}
 
 	@Override
