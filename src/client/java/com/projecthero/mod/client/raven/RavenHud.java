@@ -3,6 +3,7 @@ package com.projecthero.mod.client.raven;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.gui.IronManGui;
 import com.projecthero.mod.client.gui.MoveListOverlay;
@@ -11,6 +12,8 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.raven.Raven;
 import com.projecthero.mod.raven.RavenAbilityManager;
 import com.projecthero.mod.raven.RavenConfig;
+import com.projecthero.mod.raven.RavenMoves;
+import com.projecthero.mod.raven.RavenSpell;
 import com.projecthero.mod.raven.data.RavenState;
 
 import net.minecraft.client.DeltaTracker;
@@ -22,15 +25,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3 Raven HUD, bottom-right, from the game's own pieces ({@link VanillaHud}) like the other recent powers:
+ * v0.17.3 Raven HUD (revamp), bottom-right, from the game's own pieces ({@link VanillaHud}) like the other recent powers:
  * <pre>
- *   Meditating  Shield 32  Debris 6         status tags (wrap onto more lines when they don't fit)
- *   Raven                       RAGE        the title; "Leaking" / "RAGE" / "Wrath 0:12" on the right
- *   [ Dark Energy  74          ]            the <b>Slab</b>: violet, the number inside
- *   ---------------------                   the <b>Hairline</b> under it: Composure (white calm, blue, orange leaking, red Rage)
- *   +----+----+----+----+----+----+         R G Z X C V: cooldowns; greyed when she can't pay / Shift+Z without Rage;
- *   | R  | G  | Z  | X  | C  | V  |         yellow while Shift shows the Shift moves
- *   +----+----+----+----+----+----+
+ *   Ascension 0:12  Soul Shield 24  Debris 6    status tags (wrap onto more lines when they don't fit)
+ *   Raven                        Unsettled      the title; the Composure tier on the right (Calm / Unsettled / RAGE / Wrath 0:12)
+ *   [ Dark Energy  74          ]                the <b>Slab</b>: violet, the number inside
+ *   ---------------------                       the <b>Hairline</b> under it: Composure (white calm, blue, orange Unsettled, red Rage)
+ *   +----+----+----+----+----+----+             R G Z X C V: cooldowns; greyed when she can't pay / Shift+Z without Rage;
+ *   | R  | G  | Z  | X  | C  |icon|             yellow while Shift shows the Shift moves. The V box shows the picked spell's icon
+ *   +----+----+----+----+----+----+             (and its cooldown); Shift shows Meditate there.
  * </pre>
  * Hold Left-Alt for the move list. Every text is cut to the HUD's width (no sprawl).
  */
@@ -42,6 +45,7 @@ public final class RavenHud {
 	private static final int TITLE = 0xFFB98CF0;
 	private static final int ENERGY = 0xFF7A3CC8;
 	private static final int TAG = 0xFFC8B0F0;
+	private static final int ASCEND = 0xFFE6D2FF;
 
 	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
 	public static volatile boolean forceShift;
@@ -62,7 +66,7 @@ public final class RavenHud {
 		if (composure < RavenConfig.RAGE_BELOW) {
 			return (now / 4) % 2 == 0 ? 0xFFFF2030 : 0xFFB01020;
 		}
-		if (composure < RavenConfig.LEAK_BELOW) {
+		if (composure < RavenConfig.UNSETTLED_BELOW) {
 			return 0xFFE07A3A;
 		}
 		if (composure >= 90f) {
@@ -102,38 +106,55 @@ public final class RavenHud {
 		int sy = hy - 12;
 		float energy = s.energy / RavenConfig.ENERGY_MAX;
 		String label = Component.translatable("hud.projecthero.raven.energy").getString() + "  " + Math.round(s.energy);
-		IronManGui.slab(g, font, x0, sy, WIDTH, energy, energy < 0.15f ? 0xFFB03050 : ENERGY, label);
-		// the title line
+		IronManGui.slab(g, font, x0, sy, WIDTH, energy, energy < 0.15f ? 0xFFB03050 : Raven.ascended(p) ? 0xFF9A5CE8 : ENERGY, label);
+		// the title line, with the Composure tier on the right
 		int ty = sy - 11;
 		String title = Component.translatable("hud.projecthero.raven.title").getString();
-		String mood = null;
-		int moodColour = 0xFFFFFFFF;
+		String mood;
+		int moodColour;
 		if (Raven.inWrath(p)) {
 			mood = Component.translatable("hud.projecthero.raven.wrath").getString() + " " + clock(Raven.wrathTicksLeft(p));
 			moodColour = 0xFFFF3040;
-		} else if (s.composure < RavenConfig.RAGE_BELOW) {
-			mood = Component.translatable("hud.projecthero.raven.rage").getString();
-			moodColour = composureColour(s.composure, now);
-		} else if (s.composure < RavenConfig.LEAK_BELOW) {
-			mood = Component.translatable("hud.projecthero.raven.leaking").getString();
-			moodColour = 0xFFE07A3A;
+		} else {
+			switch (Raven.tier(p)) {
+				case RAGE -> {
+					mood = Component.translatable("hud.projecthero.raven.rage").getString();
+					moodColour = composureColour(s.composure, now);
+				}
+				case UNSETTLED -> {
+					mood = Component.translatable("hud.projecthero.raven.unsettled").getString();
+					moodColour = 0xFFE07A3A;
+				}
+				default -> {
+					mood = Component.translatable("hud.projecthero.raven.calm").getString();
+					moodColour = 0xFF9AA8D8;
+				}
+			}
 		}
-		int moodW = mood == null ? 0 : Math.min(font.width(mood), WIDTH / 2);
+		int moodW = Math.min(font.width(mood), WIDTH / 2);
 		g.drawString(font, font.plainSubstrByWidth(title, WIDTH - moodW - 6), x0, ty, TITLE, true);
-		if (mood != null) {
-			String m = font.plainSubstrByWidth(mood, WIDTH / 2);
-			g.drawString(font, m, x0 + WIDTH - font.width(m), ty, moodColour, true);
-		}
+		String m = font.plainSubstrByWidth(mood, WIDTH / 2);
+		g.drawString(font, m, x0 + WIDTH - font.width(m), ty, moodColour, true);
 		// status tags, wrapped to the HUD's width (bottom line first, upward)
 		List<Tag> tags = new ArrayList<>();
+		if (Raven.ascended(p)) {
+			int pulse = (now / 5) % 2 == 0 ? ASCEND : 0xFFC9A6FF;
+			tags.add(new Tag(Component.translatable("hud.projecthero.raven.ascension").getString() + " " + clock(Raven.ascendTicksLeft(p)), pulse));
+		}
 		if (s.meditating) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.raven.meditating").getString(), 0xFFEDEBFF));
 		}
 		if (s.flying) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.raven.flying").getString(), TAG));
 		}
-		if (s.shield) {
-			tags.add(new Tag(Component.translatable("hud.projecthero.raven.shield").getString() + " " + Math.round(s.shieldHp), TAG));
+		if (Raven.guarding(p)) {
+			tags.add(new Tag(Component.translatable("hud.projecthero.raven.soul_shield").getString() + " " + Math.round(s.guardHp), TAG));
+		}
+		if (Raven.veiled(p)) {
+			tags.add(new Tag(Component.translatable("hud.projecthero.raven.veiled").getString() + " " + clock((int) Math.max(0, s.veilUntil - now)), TAG));
+		}
+		if (RavenMoves.soulOut(p)) {
+			tags.add(new Tag(Component.translatable("hud.projecthero.raven.soul_out").getString(), TAG));
 		}
 		if (s.debris > 0) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.raven.debris").getString() + " " + s.debris, TAG));
@@ -175,8 +196,7 @@ public final class RavenHud {
 				if (ids.length == 0) {
 					continue;
 				}
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.raven.ability." + ids[0]),
-						ids.length > 1 ? Component.translatable("projecthero.raven.ability." + ids[1]) : null));
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), name(p, ids[0]), ids.length > 1 ? name(p, ids[1]) : null));
 			}
 			MoveListOverlay.draw(g, x0 + WIDTH, top - 4, rows);
 		}
@@ -192,6 +212,14 @@ public final class RavenHud {
 		}
 	}
 
+	/** A slot id's name for the move list (V: "Cast: <picked spell>"). */
+	private static Component name(LocalPlayer p, String id) {
+		if (RavenAbilityManager.CAST_SPELL.equals(id)) {
+			return Component.translatable("projecthero.raven.ability.cast_spell.named", Component.translatable(Raven.selectedSpell(p).langKey()));
+		}
+		return Component.translatable("projecthero.raven.ability." + id);
+	}
+
 	private static void keys(GuiGraphics g, LocalPlayer p, RavenState s, int x0, int y0) {
 		boolean shift = forceShift || p.isShiftKeyDown();
 		VanillaHud.strip(g, x0, y0, SLOTS.length);
@@ -204,20 +232,40 @@ public final class RavenHud {
 			String shown = ids[shift && ids.length > 1 ? 1 : 0];
 			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
 			int cd = RavenAbilityManager.cooldownRemaining(p, shown);
-			float frac = Math.min(1f, cd / (float) Math.max(1, RavenAbilityManager.maxCooldown(shown)));
+			float frac = Math.min(1f, cd / (float) Math.max(1, RavenAbilityManager.maxCooldown(p, shown)));
 			float otherFrac = other == null ? 0f
-					: Math.min(1f, RavenAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, RavenAbilityManager.maxCooldown(other)));
+					: Math.min(1f, RavenAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, RavenAbilityManager.maxCooldown(p, other)));
 			boolean usable = !s.meditating && RavenAbilityManager.allowed(p, shown)
 					&& (p.getAbilities().instabuild || s.energy + 1.0e-3f >= RavenAbilityManager.costNow(p, shown));
 			if (RavenAbilityManager.MEDITATE.equals(shown)) {
 				usable = !Raven.inWrath(p);
 			}
-			boolean active = (RavenAbilityManager.DARK_SHIELD.equals(shown) && s.shield)
+			boolean active = (RavenAbilityManager.SOUL_SHIELD.equals(shown) && Raven.guarding(p))
 					|| (RavenAbilityManager.MEDITATE.equals(shown) && s.meditating)
 					|| (RavenAbilityManager.TELEKINESIS.equals(shown) && s.tkTarget >= 0)
-					|| (RavenAbilityManager.DEBRIS_STORM.equals(shown) && s.debris > 0)
+					|| (RavenAbilityManager.SOUL_SELF.equals(shown) && RavenMoves.soulOut(p))
+					|| (RavenAbilityManager.ASCENSION.equals(shown) && Raven.ascended(p))
+					|| (RavenAbilityManager.CAST_SPELL.equals(shown) && s.debris > 0 && Raven.selectedSpell(p) == RavenSpell.DEBRIS_STORM)
 					|| (RavenAbilityManager.TRIGONS_WRATH.equals(shown) && Raven.inWrath(p));
-			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
+			boolean spell = RavenAbilityManager.CAST_SPELL.equals(shown);
+			if (spell) {
+				// the picked spell's icon under the cooldown sweep, the key letter small in the corner
+				int ix = x0 + 3 + i * VanillaHud.SLOT, iy = y0 + 3;
+				RenderSystem.enableBlend();
+				float tint = usable ? 1f : 0.45f;
+				g.setColor(tint, tint, tint, 1f);
+				g.blit(RavenSpellWheelScreen.ICONS, ix, iy, Raven.selectedSpell(p).ordinal() * 16, 0, 16, 16, 16 * RavenSpell.count(), 16);
+				g.setColor(1f, 1f, 1f, 1f);
+				VanillaHud.slot(g, x0, y0, i, "", usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
+				String k = keyLabel(slot);
+				g.pose().pushPose();
+				g.pose().translate(ix - 1, iy - 1, 210f);
+				g.pose().scale(0.6f, 0.6f, 1f);
+				g.drawString(Minecraft.getInstance().font, k, 0, 0, usable ? 0xFFFFFFFF : 0xFF777777, true);
+				g.pose().popPose();
+			} else {
+				VanillaHud.slot(g, x0, y0, i, keyLabel(slot), usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
+			}
 		}
 	}
 

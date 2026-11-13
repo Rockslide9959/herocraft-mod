@@ -12,31 +12,35 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.3 Raven: bridges the universal ability slots to her moves. {@link com.projecthero.mod.hero.AbilityRouter} hands her the
- * slots when {@link #hasContext} is true. Shift is read server-side; a key's release goes to the same move its press did.
+ * v0.17.3 Raven (revamp, {@code docs/RAVEN_REVAMP_DESIGN.md}): bridges the universal ability slots to her moves.
+ * {@link com.projecthero.mod.hero.AbilityRouter} hands her the slots when {@link #hasContext} is true. Shift is read server-side; a
+ * key's release goes to the same move its press did.
  *
  * <pre>
- *   R  Dark Bolt          Shift+R  Telekinesis (hold)
- *   G  Shadow Grasp       Shift+G  Soul-Self
- *   Z  Dark Shield (hold) Shift+Z  Trigon's Wrath (Rage only)
- *   X  Shadow Dash        Shift+X  Shadow Step Strike
- *   C  Telekinetic Wave   Shift+C  Debris Storm (again: fire one)
- *   V  Empath Heal        Shift+V  Meditate (hold)
+ *   R  Dark Bolt            Shift+R  Telekinesis (hold)
+ *   G  Soul Shield          Shift+G  Soul-Self (steer; again = teleport to it)
+ *   Z  Telekinetic Crush    Shift+Z  Trigon's Wrath (Rage only)
+ *   X  Shadow Dash          Shift+X  Shadow Step Strike
+ *   C  Dark Energy Wave     Shift+C  Demonic Ascension
+ *   V  tap: cast the picked spell / hold: the Spell Wheel     Shift+V  Meditate (hold)
  * </pre>
- * Flight is double-tap Space ({@link RavenFlight}). H stays the power selector and N does nothing for her.
+ * Plain V is the client's: it times the press, opens the wheel on a hold and sends a cast ({@code RavenActionPayload}) on a tap, so
+ * the server ignores the slot itself. Flight is double-tap Space ({@link RavenFlight}). H stays the power selector and N does
+ * nothing for her.
  */
 public final class RavenAbilityManager {
 	public static final String DARK_BOLT = "dark_bolt";
 	public static final String TELEKINESIS = "telekinesis";
-	public static final String SHADOW_GRASP = "shadow_grasp";
+	public static final String SOUL_SHIELD = "soul_shield";
 	public static final String SOUL_SELF = "soul_self";
-	public static final String DARK_SHIELD = "dark_shield";
+	public static final String TELEKINETIC_CRUSH = "telekinetic_crush";
 	public static final String TRIGONS_WRATH = "trigons_wrath";
 	public static final String SHADOW_DASH = "shadow_dash";
 	public static final String SHADOW_STEP = "shadow_step";
-	public static final String TELEKINETIC_WAVE = "telekinetic_wave";
-	public static final String DEBRIS_STORM = "debris_storm";
-	public static final String EMPATH_HEAL = "empath_heal";
+	public static final String ENERGY_WAVE = "energy_wave";
+	public static final String ASCENSION = "demonic_ascension";
+	/** V: tap casts the picked spell, hold opens the wheel (client side). */
+	public static final String CAST_SPELL = "cast_spell";
 	public static final String MEDITATE = "meditate";
 
 	/** The move id each held slot's press went to (so its release reaches the same move). */
@@ -85,8 +89,8 @@ public final class RavenAbilityManager {
 			return;
 		}
 		String id = moveFor(slot, player.isShiftKeyDown());
-		if (id == null) {
-			return;
+		if (id == null || CAST_SPELL.equals(id)) {
+			return; // plain V is timed on the client (tap = cast, hold = wheel)
 		}
 		if (isHold(id)) {
 			if (RavenMoves.startHold(player, id)) {
@@ -97,20 +101,20 @@ public final class RavenAbilityManager {
 		RavenMoves.use(player, id);
 	}
 
-	/** Shift+R, Z and Shift+V are held. */
+	/** Shift+R and Shift+V are held. */
 	public static boolean isHold(String id) {
-		return TELEKINESIS.equals(id) || DARK_SHIELD.equals(id) || MEDITATE.equals(id);
+		return TELEKINESIS.equals(id) || MEDITATE.equals(id);
 	}
 
 	/** The move a key sends. */
 	public static String moveFor(AbilitySlot slot, boolean shift) {
 		return switch (slot) {
 			case SLOT_1 -> shift ? TELEKINESIS : DARK_BOLT;
-			case SLOT_2 -> shift ? SOUL_SELF : SHADOW_GRASP;
+			case SLOT_2 -> shift ? SOUL_SELF : SOUL_SHIELD;
 			case SLOT_3 -> shift ? SHADOW_STEP : SHADOW_DASH;
-			case SLOT_4 -> shift ? TRIGONS_WRATH : DARK_SHIELD;
-			case SLOT_5 -> shift ? MEDITATE : EMPATH_HEAL;
-			case SLOT_6 -> shift ? DEBRIS_STORM : TELEKINETIC_WAVE;
+			case SLOT_4 -> shift ? TRIGONS_WRATH : TELEKINETIC_CRUSH;
+			case SLOT_5 -> shift ? MEDITATE : CAST_SPELL;
+			case SLOT_6 -> shift ? ASCENSION : ENERGY_WAVE;
 			default -> null;
 		};
 	}
@@ -121,43 +125,52 @@ public final class RavenAbilityManager {
 		return a == null ? new String[0] : new String[] { a, moveFor(slot, true) };
 	}
 
-	/** Dark Energy a move costs up front (the HUD greys a move she can't pay for). */
+	/** Dark Energy a move costs up front, before Demonic Ascension's discount (the HUD greys a move she can't pay for). */
 	public static float cost(String id) {
 		return switch (id) {
 			case DARK_BOLT -> RavenConfig.BOLT_COST;
 			case TELEKINESIS -> RavenConfig.TK_COST;
-			case SHADOW_GRASP -> RavenConfig.GRASP_COST;
+			case SOUL_SHIELD -> RavenConfig.GUARD_COST;
 			case SOUL_SELF -> RavenConfig.SOUL_COST;
-			case DARK_SHIELD -> 1f;
+			case TELEKINETIC_CRUSH -> RavenConfig.CRUSH_COST;
 			case SHADOW_DASH -> RavenConfig.DASH_COST;
 			case SHADOW_STEP -> RavenConfig.STEP_COST;
-			case TELEKINETIC_WAVE -> RavenConfig.WAVE_COST;
-			case DEBRIS_STORM -> RavenConfig.DEBRIS_COST;
-			case EMPATH_HEAL -> RavenConfig.HEAL_COST;
-			default -> 0f;
+			case ENERGY_WAVE -> RavenConfig.WAVE_COST;
+			case ASCENSION -> RavenConfig.ASCEND_COST;
+			default -> {
+				RavenSpell spell = RavenSpell.byId(id);
+				yield spell == null ? 0f : spell.cost;
+			}
 		};
 	}
 
-	/** Usable apart from energy and cooldown: Trigon's Wrath needs Rage; Debris Storm is free while blocks orbit. Client-safe. */
+	/** Usable apart from energy and cooldown: Trigon's Wrath needs Rage. Client-safe. */
 	public static boolean allowed(Player player, String id) {
 		if (TRIGONS_WRATH.equals(id)) {
 			return Raven.rage(player) && !Raven.inWrath(player);
 		}
+		if (ASCENSION.equals(id)) {
+			return !Raven.ascended(player);
+		}
 		return true;
 	}
 
-	/** Energy actually needed right now (Debris Storm costs nothing to fire what's already orbiting). Client-safe. */
+	/** Energy actually needed right now: Demonic Ascension's -25%, and the second presses that are free. Client-safe. */
 	public static float costNow(Player player, String id) {
-		if (DEBRIS_STORM.equals(id)) {
-			var s = Raven.peek(player);
-			if (s != null && s.debris > 0) {
-				return 0f;
-			}
+		if (CAST_SPELL.equals(id)) {
+			return RavenSpells.costNow(player, Raven.selectedSpell(player));
 		}
-		return cost(id);
+		if (SOUL_SELF.equals(id) && RavenMoves.soulOut(player)) {
+			return 0f; // the second press teleports to it
+		}
+		return cost(id) * Raven.costMult(player);
 	}
 
+	/** The cooldown a slot's id shows: V shows the picked spell's. Client-safe. */
 	public static int cooldownRemaining(Player player, String id) {
+		if (CAST_SPELL.equals(id)) {
+			return Raven.cooldownRemaining(player, Raven.selectedSpell(player).id);
+		}
 		return Raven.cooldownRemaining(player, id);
 	}
 
@@ -165,16 +178,23 @@ public final class RavenAbilityManager {
 		return switch (id) {
 			case DARK_BOLT -> RavenConfig.BOLT_COOLDOWN;
 			case TELEKINESIS -> RavenConfig.TK_COOLDOWN;
-			case SHADOW_GRASP -> RavenConfig.GRASP_COOLDOWN;
+			case SOUL_SHIELD -> RavenConfig.GUARD_COOLDOWN;
 			case SOUL_SELF -> RavenConfig.SOUL_COOLDOWN;
-			case DARK_SHIELD -> RavenConfig.SHIELD_BROKEN_COOLDOWN;
+			case TELEKINETIC_CRUSH -> RavenConfig.CRUSH_COOLDOWN;
 			case TRIGONS_WRATH -> RavenConfig.WRATH_COOLDOWN;
 			case SHADOW_DASH -> RavenConfig.DASH_COOLDOWN;
 			case SHADOW_STEP -> RavenConfig.STEP_COOLDOWN;
-			case TELEKINETIC_WAVE -> RavenConfig.WAVE_COOLDOWN;
-			case DEBRIS_STORM -> RavenConfig.DEBRIS_COOLDOWN;
-			case EMPATH_HEAL -> RavenConfig.HEAL_COOLDOWN;
-			default -> 1;
+			case ENERGY_WAVE -> RavenConfig.WAVE_COOLDOWN;
+			case ASCENSION -> RavenConfig.ASCEND_COOLDOWN;
+			default -> {
+				RavenSpell spell = RavenSpell.byId(id);
+				yield spell == null ? 1 : spell.cooldown;
+			}
 		};
+	}
+
+	/** {@link #maxCooldown} for a slot id (V: the picked spell's). Client-safe. */
+	public static int maxCooldown(Player player, String id) {
+		return CAST_SPELL.equals(id) ? Raven.selectedSpell(player).cooldown : maxCooldown(id);
 	}
 }

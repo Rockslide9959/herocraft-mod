@@ -6,12 +6,18 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Evoker;
+import net.minecraft.world.entity.monster.Vex;
+import net.minecraft.world.entity.monster.Witch;
 
 /**
- * v0.17.3 Raven: the hits she takes. Nothing touches her while she is a streak of shadow (Shadow Dash, sunk for Shadow Step); the Dark
- * Shield soaks hits first (40 per raise); what gets through is 10% lighter. Every hit that lands pushes her Composure toward Rage.
- * A changed hit is cancelled and re-issued behind a re-entrancy guard, vanilla's difficulty scaling undone first (as the Spin's).
+ * v0.17.3 Raven: the hits she takes (revamp). Nothing touches her while she is a streak of shadow (Shadow Dash, sunk for Shadow
+ * Step); the Soul Shield soaks hits first; what gets through is 10% lighter, 30% more for magic and the supernatural (Demonic
+ * Heritage), and lighter again inside an Astral Sanctuary. A squadmate standing in her sanctuary takes lighter hits too. Every hit
+ * that lands pushes her Composure down, stops a healing channel and can break a Soul Detonation. A changed hit is cancelled and
+ * re-issued behind a re-entrancy guard, vanilla's difficulty scaling undone first.
  */
 public final class RavenDamage {
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
@@ -24,16 +30,36 @@ public final class RavenDamage {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, dealt, blocked) -> {
 			if (dealt > 0f && entity instanceof ServerPlayer p && Raven.hasPower(p)) {
 				Raven.onHurt(p, dealt);
+				RavenSpells.onHurt(p, source, dealt);
 			}
 		});
 	}
 
+	/** Demonic Heritage: magic and the supernatural (potions, evoker fangs, witches, vexes, the Warden's boom, wither, lightning). */
+	public static boolean supernatural(DamageSource source) {
+		if (source.is(DamageTypeTags.WITCH_RESISTANT_TO) || source.is(DamageTypes.LIGHTNING_BOLT) || source.is(DamageTypes.WITHER)
+				|| source.is(DamageTypes.WITHER_SKULL) || source.is(DamageTypes.DRAGON_BREATH) || source.is(DamageTypes.SONIC_BOOM)) {
+			return true;
+		}
+		Entity by = source.getEntity();
+		return by instanceof Witch || by instanceof Evoker || by instanceof Vex;
+	}
+
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REENTRANT.get() || amount <= 0f || !(entity instanceof ServerPlayer victim) || !Raven.hasPower(victim)) {
+		if (REENTRANT.get() || amount <= 0f || !(entity instanceof ServerPlayer victim)) {
 			return true;
 		}
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
+		}
+		if (!Raven.hasPower(victim)) {
+			// a squadmate in a Raven's Astral Sanctuary
+			float r = RavenSpells.sanctuaryReduction(victim);
+			if (r <= 0f || victim.invulnerableTime > 10) {
+				return true;
+			}
+			reissue(victim, source, amount * (1f - r), true);
+			return false;
 		}
 		if (Raven.inShadow(victim)) {
 			return false;
@@ -42,16 +68,19 @@ public final class RavenDamage {
 			return true; // vanilla will ignore this hit anyway
 		}
 		float left = amount;
-		if (Raven.shielding(victim) && !source.is(DamageTypeTags.IS_FALL) && !source.is(DamageTypeTags.IS_DROWNING)
+		if (Raven.guarding(victim) && !source.is(DamageTypeTags.IS_FALL) && !source.is(DamageTypeTags.IS_DROWNING)
 				&& !source.is(DamageTypes.STARVE)) {
-			left = RavenMoves.shieldAbsorb(victim, amount);
+			left = RavenMoves.guardAbsorb(victim, source, amount);
 			if (left <= 0f) {
 				return false;
 			}
-			reissue(victim, source, left * (1f - RavenConfig.DAMAGE_RESIST), true);
-			return false;
 		}
-		reissue(victim, source, left * (1f - RavenConfig.DAMAGE_RESIST), true);
+		float mult = 1f - RavenConfig.DAMAGE_RESIST;
+		if (supernatural(source)) {
+			mult *= 1f - RavenConfig.HERITAGE_RESIST;
+		}
+		mult *= 1f - RavenSpells.sanctuaryReduction(victim);
+		reissue(victim, source, left * mult, true);
 		return false;
 	}
 

@@ -19,7 +19,9 @@ import net.minecraft.world.entity.player.Player;
  *   <li><b>Meditating</b>: floating cross-legged, hands resting out over the knees, a slow breathing bob of the head.</li>
  *   <li><b>Levitating</b> (double-tap Space flight): upright and calm, legs together and trailing a little, arms held a touch out from
  *   the sides, drifting -- not the superhero lean.</li>
- *   <li><b>Casting</b> a held move (Telekinesis, the shield): the right hand / both hands raised toward the target.</li>
+ *   <li><b>Casting</b>: Telekinesis and Soul Devour's beam raise the right hand toward the target; the Soul Shield snapping up and
+ *   the Dark Energy Wave's charge push both hands forward; Soul Restoration's channel spreads the arms, palms up; Demonic Ascension
+ *   holds the arms a little out from the sides.</li>
  *   <li><b>A streak of shadow</b> (Shadow Dash, sunk for Shadow Step): the body is hidden (the visibility is reset by vanilla every
  *   frame, so this never leaks onto another player).</li>
  * </ul>
@@ -77,10 +79,32 @@ public abstract class RavenPoseMixin<T extends LivingEntity> {
 			m.rightArm.zRot = 0f;
 			posed = true;
 		}
-		if (s.shield) {
-			m.rightArm.xRot = m.leftArm.xRot = -1.35f;
-			m.rightArm.yRot = -0.5f;
-			m.leftArm.yRot = 0.5f;
+		long now = player.level().getGameTime();
+		if (Raven.ascended(player) && !s.meditating) {
+			m.rightArm.zRot = 0.45f + breathe * 0.05f;
+			m.leftArm.zRot = -0.45f - breathe * 0.05f;
+			m.rightArm.xRot = Math.min(m.rightArm.xRot, 0.05f);
+			m.leftArm.xRot = Math.min(m.leftArm.xRot, 0.05f);
+			posed = true;
+		}
+		if (com.projecthero.mod.client.raven.RavenFx.running(com.projecthero.mod.raven.network.RavenFxPayload.CHANNEL, player.getId(), now)) {
+			m.rightArm.xRot = m.leftArm.xRot = -0.35f;
+			m.rightArm.yRot = m.leftArm.yRot = 0f;
+			m.rightArm.zRot = 1.05f + breathe * 0.05f;
+			m.leftArm.zRot = -1.05f - breathe * 0.05f;
+			posed = true;
+		}
+		if (com.projecthero.mod.client.raven.RavenFx.running(com.projecthero.mod.raven.network.RavenFxPayload.BEAM, player.getId(), now)) {
+			m.rightArm.xRot = -Mth.HALF_PI + headPitch * Mth.DEG_TO_RAD;
+			m.rightArm.yRot = m.head.yRot - 0.1f;
+			m.rightArm.zRot = 0f;
+			posed = true;
+		}
+		boolean guardUp = s.guardUntil > now && now - (s.guardUntil - com.projecthero.mod.raven.RavenConfig.GUARD_TICKS) < 12;
+		if (guardUp || com.projecthero.mod.client.raven.RavenFx.running(com.projecthero.mod.raven.network.RavenFxPayload.CHARGE, player.getId(), now)) {
+			m.rightArm.xRot = m.leftArm.xRot = -1.35f + headPitch * Mth.DEG_TO_RAD * 0.5f;
+			m.rightArm.yRot = -0.35f;
+			m.leftArm.yRot = 0.35f;
 			m.rightArm.zRot = m.leftArm.zRot = 0f;
 			posed = true;
 		}

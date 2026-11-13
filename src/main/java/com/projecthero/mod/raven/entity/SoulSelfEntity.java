@@ -27,18 +27,24 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 Raven, Shift+G: her <b>soul-self</b> -- one big raven of black and violet energy with white eyes (not the Dark Shadow quirk's
- * clawed shadow). It flies out along her look for {@link RavenConfig#SOUL_RANGE} blocks through walls and creatures, and engulfs
- * every creature it passes once: {@link RavenConfig#SOUL_DAMAGE} damage, Blindness and Slowness. Then it dissolves back to her. The
- * client draws it ({@code SoulSelfRenderer}: the raven model, wings beating, the eyes full-bright).
+ * v0.17.3 Raven, Shift+G: her <b>soul-self</b> -- one big raven of black and violet energy with white eyes. Revamp: she <b>steers</b>
+ * it with her look for {@link RavenConfig#SOUL_STEER_TICKS} (through walls and creatures, never more than
+ * {@link RavenConfig#SOUL_LEASH} from her), and it engulfs every creature it touches once: {@link RavenConfig#SOUL_DAMAGE},
+ * Blindness and Slowness. Then it flies home to her and dissolves -- unless she presses Shift+G again and steps through into its
+ * place ({@code RavenMoves.soulTeleport}). In Demonic Ascension it is half again as big and strong. The client draws it
+ * ({@code SoulSelfRenderer}).
  */
 public class SoulSelfEntity extends Entity {
 	/** Synced: ticks it has been dissolving (0 = flying). */
 	private static final EntityDataAccessor<Integer> FADE = SynchedEntityData.defineId(SoulSelfEntity.class, EntityDataSerializers.INT);
+	/** Synced: the owner's entity id (the client's "is it out" check). */
+	private static final EntityDataAccessor<Integer> OWNER = SynchedEntityData.defineId(SoulSelfEntity.class, EntityDataSerializers.INT);
+	/** Synced: the size (1, or 1.5 in Demonic Ascension). */
+	private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(SoulSelfEntity.class, EntityDataSerializers.FLOAT);
+	/** Synced: flying home. */
+	private static final EntityDataAccessor<Boolean> HOMING = SynchedEntityData.defineId(SoulSelfEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private UUID ownerId;
-	private Vec3 dir = new Vec3(0, 0, 1);
-	private double travelled;
 	private final Set<Integer> engulfed = new HashSet<>();
 	/** For the tests: creatures engulfed so far. */
 	public int hits;
@@ -48,13 +54,15 @@ public class SoulSelfEntity extends Entity {
 		this.noPhysics = true;
 	}
 
-	public static SoulSelfEntity release(ServerPlayer owner) {
+	public static SoulSelfEntity release(ServerPlayer owner, boolean ascended) {
 		SoulSelfEntity soul = new SoulSelfEntity(RavenEntities.SOUL_SELF, owner.level());
 		soul.ownerId = owner.getUUID();
-		soul.dir = owner.getViewVector(1f).normalize();
-		Vec3 at = owner.getEyePosition().add(soul.dir.scale(0.8)).add(0, -0.75, 0);
+		soul.entityData.set(OWNER, owner.getId());
+		soul.entityData.set(SIZE, ascended ? RavenConfig.SOUL_ASCENDED_MULT : 1f);
+		Vec3 dir = owner.getViewVector(1f).normalize();
+		Vec3 at = owner.getEyePosition().add(dir.scale(0.8)).add(0, -0.75, 0);
 		soul.moveTo(at.x, at.y, at.z, owner.getYRot(), owner.getXRot());
-		soul.setDeltaMovement(soul.dir.scale(RavenConfig.SOUL_SPEED));
+		soul.setDeltaMovement(dir.scale(RavenConfig.SOUL_SPEED));
 		owner.level().addFreshEntity(soul);
 		return soul;
 	}
@@ -62,10 +70,33 @@ public class SoulSelfEntity extends Entity {
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(FADE, 0);
+		builder.define(OWNER, -1);
+		builder.define(SIZE, 1f);
+		builder.define(HOMING, false);
 	}
 
 	public int fade() {
 		return entityData.get(FADE);
+	}
+
+	public int ownerId() {
+		return entityData.get(OWNER);
+	}
+
+	public float size() {
+		return entityData.get(SIZE);
+	}
+
+	public boolean homing() {
+		return entityData.get(HOMING);
+	}
+
+	/** She stepped through: it dissolves where it is. */
+	public void dissolve() {
+		if (fade() == 0) {
+			entityData.set(FADE, 1);
+			setDeltaMovement(Vec3.ZERO);
+		}
 	}
 
 	@Override
@@ -78,15 +109,17 @@ public class SoulSelfEntity extends Entity {
 		super.tick();
 		if (level().isClientSide()) {
 			Vec3 c = position().add(0, 0.75, 0);
+			float s = size();
 			for (int i = 0; i < 2; i++) {
-				level().addParticle(ParticleTypes.SQUID_INK, c.x + (random.nextDouble() - 0.5) * 2.4, c.y + (random.nextDouble() - 0.5) * 0.8,
-						c.z + (random.nextDouble() - 0.5) * 2.4, 0, 0, 0);
+				level().addParticle(ParticleTypes.SQUID_INK, c.x + (random.nextDouble() - 0.5) * 2.4 * s, c.y + (random.nextDouble() - 0.5) * 0.8 * s,
+						c.z + (random.nextDouble() - 0.5) * 2.4 * s, 0, 0, 0);
 			}
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
 		ServerPlayer owner = ownerId == null ? null : level.getServer().getPlayerList().getPlayer(ownerId);
-		if (owner == null || owner.level() != level || tickCount > 80) {
+		int maxLife = RavenConfig.SOUL_STEER_TICKS + 80;
+		if (owner == null || owner.level() != level || !owner.isAlive() || tickCount > maxLife) {
 			discard();
 			return;
 		}
@@ -98,16 +131,45 @@ public class SoulSelfEntity extends Entity {
 			}
 			return;
 		}
-		Vec3 step = dir.scale(RavenConfig.SOUL_SPEED);
+		Vec3 step;
+		if (tickCount <= RavenConfig.SOUL_STEER_TICKS) {
+			// steered: along her look, kept on its leash
+			Vec3 dir = owner.getViewVector(1f).normalize();
+			step = dir.scale(RavenConfig.SOUL_SPEED * (size() > 1f ? 1.15 : 1.0));
+			Vec3 next = position().add(step);
+			if (next.distanceTo(owner.position()) > RavenConfig.SOUL_LEASH) {
+				Vec3 out = next.subtract(owner.position()).normalize();
+				step = step.subtract(out.scale(step.dot(out))); // slide round the edge of the leash
+			}
+			setYRot(owner.getYRot());
+			setXRot(owner.getXRot());
+		} else {
+			// home to her
+			if (!homing()) {
+				entityData.set(HOMING, true);
+			}
+			Vec3 home = owner.position().add(0, 0.6, 0);
+			Vec3 to = home.subtract(position());
+			if (to.length() < 1.6) {
+				dissolve();
+				return;
+			}
+			step = to.normalize().scale(Math.min(to.length(), RavenConfig.SOUL_RETURN_SPEED));
+			float yaw = (float) (Mth.atan2(step.z, step.x) * Mth.RAD_TO_DEG) - 90f;
+			setYRot(yaw);
+			setXRot((float) (-Mth.atan2(step.y, step.horizontalDistance()) * Mth.RAD_TO_DEG));
+		}
 		Vec3 next = position().add(step);
 		setPos(next.x, next.y, next.z);
 		setDeltaMovement(step);
-		travelled += RavenConfig.SOUL_SPEED;
 		Vec3 c = position().add(0, 0.75, 0);
-		for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(RavenConfig.SOUL_RADIUS - 1.0),
+		float s = size();
+		double reach = RavenConfig.SOUL_RADIUS * s - 1.0;
+		float damage = RavenConfig.SOUL_DAMAGE * (s > 1f ? RavenConfig.SOUL_ASCENDED_MULT / com.projecthero.mod.raven.RavenConfig.ASCEND_POWER : 1f);
+		for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(reach),
 				e -> e.isAlive() && e != owner && !engulfed.contains(e.getId()) && HeroTargets.canHarm(owner, e))) {
 			engulfed.add(t.getId());
-			if (Raven.hit(owner, t, RavenConfig.SOUL_DAMAGE)) {
+			if (Raven.hit(owner, t, damage)) {
 				hits++;
 				t.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, RavenConfig.SOUL_EFFECT_TICKS, 0), owner);
 				t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, RavenConfig.SOUL_EFFECT_TICKS, 2), owner);
@@ -119,11 +181,10 @@ public class SoulSelfEntity extends Entity {
 			}
 		}
 		if (tickCount % 2 == 0) {
-			level.sendParticles(Raven.dust(Raven.VIOLET, 1.3f), c.x, c.y, c.z, 3, 0.9, 0.3, 0.9, 0.0);
+			level.sendParticles(Raven.dust(Raven.VIOLET, 1.3f), c.x, c.y, c.z, 3, 0.9 * s, 0.3 * s, 0.9 * s, 0.0);
 		}
-		if (travelled >= RavenConfig.SOUL_RANGE) {
-			entityData.set(FADE, 1);
-			setDeltaMovement(Vec3.ZERO);
+		if (tickCount % 16 == 0) {
+			level.playSound(null, c.x, c.y, c.z, RavenSounds.FLIGHT, SoundSource.PLAYERS, 0.3f, 0.5f);
 		}
 	}
 

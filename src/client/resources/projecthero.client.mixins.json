@@ -275,6 +275,7 @@
 		"FateInputMixin",
 		"FateMouseMixin",
 		"FateSightGlowMixin",
+		"RavenAwarenessGlowMixin",
 		"FateSightColorMixin",
 		"VisionPhaseClientMixin",
 		"VisionFirstPersonArmMixin",

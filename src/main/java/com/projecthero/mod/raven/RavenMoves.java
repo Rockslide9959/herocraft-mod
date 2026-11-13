@@ -1,9 +1,11 @@
 package com.projecthero.mod.raven;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -25,7 +27,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -43,10 +46,11 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 Raven: every move ({@code docs/TEEN_TITANS_DESIGN.md}, the Raven section). {@link RavenAbilityManager} routes the keys here;
- * the running parts (the telekinetic hold, thrown creatures, the Grasp's claws, the Wave's lift, the Dash and the Step, the orbiting
- * debris, the shield, the Wrath's tentacles, the chant) tick in {@link #tick}. All of it is per player in maps that hold entities,
- * cleared by {@link #clearSessionState} (from {@code ServerStateReset}).
+ * v0.17.3 Raven: the main keys ({@code docs/RAVEN_REVAMP_DESIGN.md}). {@link RavenAbilityManager} routes the keys here; the wheel
+ * spells are {@link RavenSpells}' (which borrows the debris and the pins from here). The running parts (the telekinetic hold,
+ * thrown creatures, pins, Telekinetic Crush's and the Wrath's lifts, the Dash and the Step, the orbiting debris, the Soul Shield, the
+ * charged wave, the soul-self, the Wrath's tentacles, the chant) tick in {@link #tick}. All of it is per player in maps that hold
+ * entities, cleared by {@link #clearSessionState} (from {@code ServerStateReset}).
  */
 public final class RavenMoves {
 	private RavenMoves() {
@@ -72,11 +76,11 @@ public final class RavenMoves {
 		}
 	}
 
-	/** The Grasp's claws holding a creature in place. */
+	/** Claws (or a stun) holding a creature in place. */
 	private record Pin(LivingEntity e, Vec3 at, long until) {
 	}
 
-	/** A creature in the Wave's (or the Wrath's) grip: up, held, slammed. */
+	/** A creature in Telekinetic Crush's (or the Wrath's) grip: up, held, slammed. */
 	private static final class Lift {
 		final LivingEntity e;
 		final double baseY;
@@ -86,11 +90,12 @@ public final class RavenMoves {
 		final float damage;
 		final double height;
 		final boolean wrath;
+		final int stun;
 		long slamAt = -1L;
 		double groundY;
 		boolean done;
 
-		Lift(LivingEntity e, long start, int rise, int hold, double height, float damage, boolean wrath) {
+		Lift(LivingEntity e, long start, int rise, int hold, double height, float damage, boolean wrath, int stun) {
 			this.e = e;
 			this.baseY = e.getY();
 			this.start = start;
@@ -99,6 +104,7 @@ public final class RavenMoves {
 			this.height = height;
 			this.damage = damage;
 			this.wrath = wrath;
+			this.stun = stun;
 		}
 	}
 
@@ -106,6 +112,21 @@ public final class RavenMoves {
 	}
 
 	private record Step(LivingEntity target, long at) {
+	}
+
+	/** Dark Energy Wave: the charge, then the front rolling out. */
+	private static final class Wave {
+		final Vec3 origin;
+		final Vec3 dir;
+		final long start;
+		final Set<Integer> struck = new HashSet<>();
+		double lastFront;
+
+		Wave(Vec3 origin, Vec3 dir, long start) {
+			this.origin = origin;
+			this.dir = dir;
+			this.start = start;
+		}
 	}
 
 	private static final Map<UUID, Hold> HOLDS = new ConcurrentHashMap<>();
@@ -117,6 +138,13 @@ public final class RavenMoves {
 	private static final Map<UUID, List<RavenDebrisEntity>> DEBRIS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> DEBRIS_UNTIL = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> WRATH_START = new ConcurrentHashMap<>();
+	/** Soul Shield: damage soaked this raise (20+ and it bursts when it ends). */
+	private static final Map<UUID, Float> GUARD_SOAK = new ConcurrentHashMap<>();
+	/** Dark Energy Wave: fires at this time. */
+	private static final Map<UUID, Long> CHARGES = new ConcurrentHashMap<>();
+	private static final Map<UUID, Wave> WAVES = new ConcurrentHashMap<>();
+	/** The soul-self she is steering. */
+	private static final Map<UUID, SoulSelfEntity> SOULS = new ConcurrentHashMap<>();
 
 	static void clearSessionState() {
 		HOLDS.clear();
@@ -128,6 +156,10 @@ public final class RavenMoves {
 		DEBRIS.clear();
 		DEBRIS_UNTIL.clear();
 		WRATH_START.clear();
+		GUARD_SOAK.clear();
+		CHARGES.clear();
+		WAVES.clear();
+		SOULS.clear();
 	}
 
 	static void forget(UUID id) {
@@ -140,9 +172,13 @@ public final class RavenMoves {
 		DEBRIS.remove(id);
 		DEBRIS_UNTIL.remove(id);
 		WRATH_START.remove(id);
+		GUARD_SOAK.remove(id);
+		CHARGES.remove(id);
+		WAVES.remove(id);
+		SOULS.remove(id);
 	}
 
-	/** Death, a new world, a revoke: everything running ends (held things drop, debris shatters). */
+	/** Death, a new world, a revoke: everything running ends (held things drop, debris shatters, the soul fades). */
 	static void endAll(ServerPlayer p) {
 		UUID id = p.getUUID();
 		Hold h = HOLDS.remove(id);
@@ -157,6 +193,10 @@ public final class RavenMoves {
 				}
 			}
 		}
+		SoulSelfEntity soul = SOULS.remove(id);
+		if (soul != null && soul.isAlive()) {
+			soul.discard();
+		}
 		THROWN.remove(id);
 		PINS.remove(id);
 		LIFTS.remove(id);
@@ -164,41 +204,55 @@ public final class RavenMoves {
 		STEPS.remove(id);
 		DEBRIS_UNTIL.remove(id);
 		WRATH_START.remove(id);
+		GUARD_SOAK.remove(id);
+		CHARGES.remove(id);
+		WAVES.remove(id);
 	}
 
 	// ---------------------------------------------------------------- shared
 
-	private static boolean ready(ServerPlayer p, String id) {
+	static boolean ready(ServerPlayer p, String id) {
 		if (Raven.meditating(p) && !RavenAbilityManager.MEDITATE.equals(id)) {
 			Raven.say(p, "message.projecthero.raven.meditating", ChatFormatting.GRAY);
 			return false;
 		}
 		int cd = Raven.cooldownRemaining(p, id);
 		if (cd > 0) {
-			Raven.say(p, "message.projecthero.raven.cooldown", ChatFormatting.GRAY, Component.translatable("projecthero.raven.ability." + id),
-					(cd + 19) / 20);
+			RavenSpell spell = RavenSpell.byId(id);
+			Raven.say(p, "message.projecthero.raven.cooldown", ChatFormatting.GRAY,
+					Component.translatable(spell != null ? spell.langKey() : "projecthero.raven.ability." + id), (cd + 19) / 20);
 			return false;
 		}
 		if (!RavenAbilityManager.allowed(p, id)) {
-			Raven.say(p, "message.projecthero.raven.need_rage", ChatFormatting.DARK_RED);
+			Raven.say(p, RavenAbilityManager.TRIGONS_WRATH.equals(id) ? "message.projecthero.raven.need_rage"
+					: "message.projecthero.raven.already_ascended", ChatFormatting.DARK_RED);
 			return false;
 		}
-		if (!Raven.hasEnergy(p, RavenAbilityManager.costNow(p, id))) {
+		RavenSpell spell = RavenSpell.byId(id);
+		float cost = spell != null ? RavenSpells.costNow(p, spell) : RavenAbilityManager.costNow(p, id);
+		if (!Raven.hasEnergy(p, cost)) {
 			Raven.say(p, "message.projecthero.raven.no_energy", ChatFormatting.GRAY);
 			return false;
 		}
 		return true;
 	}
 
-	private static void pay(ServerPlayer p, String id, float cost, int cooldown) {
-		Raven.spendEnergy(p, cost);
+	/**
+	 * Pays for a move: its Dark Energy (Demonic Ascension's discount applied), its cooldown, the white eyes. {@code attack}: an attack
+	 * ends Shadow Veil.
+	 */
+	static void pay(ServerPlayer p, String id, float cost, int cooldown, boolean attack) {
+		Raven.spendEnergy(p, cost * Raven.costMult(p));
 		if (cooldown > 0) {
 			Raven.startCooldown(p, id, cooldown);
 		}
 		Raven.cast(p);
+		if (attack) {
+			RavenSpells.breakVeil(p);
+		}
 	}
 
-	static void fx(ServerPlayer p, RavenFxPayload payload) {
+	public static void fx(ServerPlayer p, RavenFxPayload payload) {
 		for (ServerPlayer viewer : PlayerLookup.tracking(p)) {
 			if (viewer != p && ServerPlayNetworking.canSend(viewer, RavenFxPayload.TYPE)) {
 				ServerPlayNetworking.send(viewer, payload);
@@ -235,6 +289,18 @@ public final class RavenMoves {
 		return block.getType() != HitResult.Type.MISS ? block.getLocation() : end;
 	}
 
+	/** {@link #aimPoint} dropped onto the ground under it (at most 8 blocks down): where a spell on the ground goes. */
+	static Vec3 groundAim(ServerPlayer p, double range) {
+		Vec3 at = aimPoint(p, range);
+		LivingEntity t = aimed(p, range);
+		if (t != null) {
+			return t.position();
+		}
+		Vec3 from = at.add(0, 0.5, 0);
+		BlockHitResult down = p.level().clip(new ClipContext(from, from.add(0, -8, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		return down.getType() == HitResult.Type.MISS ? at : down.getLocation();
+	}
+
 	private static void sound(ServerPlayer p, net.minecraft.sounds.SoundEvent s, float volume, float pitch) {
 		Raven.sound(p, s, volume, pitch);
 	}
@@ -242,64 +308,297 @@ public final class RavenMoves {
 	// ---------------------------------------------------------------- taps
 
 	public static boolean use(ServerPlayer p, String id) {
-		// Shift+C with debris already orbiting fires one (free, no cooldown check)
-		if (RavenAbilityManager.DEBRIS_STORM.equals(id) && debrisCount(p) > 0 && !Raven.meditating(p)) {
-			return fireDebris(p);
+		// Shift+G with the soul-self out: step through to it (free, no cooldown check)
+		if (RavenAbilityManager.SOUL_SELF.equals(id) && soulOut(p) && !Raven.meditating(p)) {
+			return soulTeleport(p);
 		}
 		if (!ready(p, id)) {
 			return false;
 		}
 		return switch (id) {
 			case RavenAbilityManager.DARK_BOLT -> darkBolt(p);
-			case RavenAbilityManager.SHADOW_GRASP -> shadowGrasp(p);
+			case RavenAbilityManager.SOUL_SHIELD -> soulShield(p);
 			case RavenAbilityManager.SOUL_SELF -> soulSelf(p);
+			case RavenAbilityManager.TELEKINETIC_CRUSH -> telekineticCrush(p);
 			case RavenAbilityManager.TRIGONS_WRATH -> trigonsWrath(p);
 			case RavenAbilityManager.SHADOW_DASH -> shadowDash(p);
 			case RavenAbilityManager.SHADOW_STEP -> shadowStep(p);
-			case RavenAbilityManager.TELEKINETIC_WAVE -> telekineticWave(p);
-			case RavenAbilityManager.DEBRIS_STORM -> debrisStorm(p);
-			case RavenAbilityManager.EMPATH_HEAL -> empathHeal(p);
+			case RavenAbilityManager.ENERGY_WAVE -> energyWave(p);
+			case RavenAbilityManager.ASCENSION -> demonicAscension(p);
 			default -> false;
 		};
 	}
 
-	/** R: a bolt of black energy (passes through one creature). */
+	/** R: a bolt of black energy that bursts in a small purple pop where it lands. Unsettled, it drifts off her aim. */
 	static boolean darkBolt(ServerPlayer p) {
-		DarkBoltEntity.fire(p, p.getViewVector(1f), RavenConfig.BOLT_DAMAGE * Raven.boltMult(p));
+		Vec3 dir = p.getViewVector(1f);
+		if (Raven.unsettled(p)) {
+			dir = drift(p, dir);
+		}
+		DarkBoltEntity.fire(p, dir, RavenConfig.BOLT_DAMAGE);
 		sound(p, RavenSounds.BOLT, 0.35f, 1.5f);
-		pay(p, RavenAbilityManager.DARK_BOLT, RavenConfig.BOLT_COST, RavenConfig.BOLT_COOLDOWN);
+		pay(p, RavenAbilityManager.DARK_BOLT, RavenConfig.BOLT_COST, RavenConfig.BOLT_COOLDOWN, true);
 		Raven.unsettle(p, RavenConfig.BOLT_COMPOSURE);
 		return true;
 	}
 
-	/** G: claws rise under the creature she looks at and hold it for 2 s. */
-	static boolean shadowGrasp(ServerPlayer p) {
-		LivingEntity t = aimed(p, RavenConfig.GRASP_RANGE);
-		if (t == null) {
-			Raven.say(p, "message.projecthero.raven.no_target", ChatFormatting.GRAY);
-			return false;
-		}
+	/** {@code dir} turned a random few degrees (at most {@link RavenConfig#DRIFT_DEGREES}). */
+	static Vec3 drift(ServerPlayer p, Vec3 dir) {
+		double max = Math.toRadians(RavenConfig.DRIFT_DEGREES);
+		double yaw = (p.getRandom().nextDouble() * 2 - 1) * max;
+		double pitch = (p.getRandom().nextDouble() * 2 - 1) * max;
+		return dir.yRot((float) yaw).xRot((float) pitch).normalize();
+	}
+
+	// ---------------------------------------------------------------- G: Soul Shield
+
+	/** G: a close purple barrier for 5 s: soaks 30 (50 ascended, half at Rage), reflects projectiles, shoves melee attackers. */
+	static boolean soulShield(ServerPlayer p) {
 		long now = Raven.now(p);
-		Raven.hit(p, t, RavenConfig.GRASP_DAMAGE);
-		if (!Raven.isBoss(t)) {
-			PINS.computeIfAbsent(p.getUUID(), k -> new ArrayList<>()).add(new Pin(t, t.position(), now + RavenConfig.GRASP_HOLD_TICKS));
-		}
-		fx(p, new RavenFxPayload(RavenFxPayload.CLAWS, t.getId(), t.position(), new Vec3(t.getBbWidth(), t.getBbHeight(), 0),
-				RavenConfig.GRASP_HOLD_TICKS));
-		p.level().playSound(null, t.getX(), t.getY(), t.getZ(), RavenSounds.CLAWS, SoundSource.PLAYERS, 0.5f, 0.6f);
-		pay(p, RavenAbilityManager.SHADOW_GRASP, RavenConfig.GRASP_COST, RavenConfig.GRASP_COOLDOWN);
-		Raven.unsettle(p, RavenConfig.GRASP_COMPOSURE);
+		float absorb = (Raven.ascended(p) ? RavenConfig.GUARD_ABSORB_ASCENDED : RavenConfig.GUARD_ABSORB) * Raven.shieldMult(p);
+		RavenState n = Raven.state(p).copy();
+		n.guardUntil = now + RavenConfig.GUARD_TICKS;
+		n.guardHp = absorb;
+		Raven.save(p, n);
+		GUARD_SOAK.put(p.getUUID(), 0f);
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 c = p.position().add(0, 1.0, 0);
+		fx(p, new RavenFxPayload(RavenFxPayload.GUARD_UP, p.getId(), c, Vec3.ZERO, 12));
+		level.sendParticles(Raven.dust(Raven.VIOLET, 1.2f), c.x, c.y, c.z, 24, 0.7, 0.9, 0.7, 0.0);
+		sound(p, RavenSounds.SHIELD_UP, 0.35f, 1.4f);
+		sound(p, RavenSounds.GUARD_HUM, 0.5f, 0.7f);
+		pay(p, RavenAbilityManager.SOUL_SHIELD, RavenConfig.GUARD_COST, RavenConfig.GUARD_COOLDOWN, false);
 		return true;
 	}
 
-	/** Shift+G: the raven soul-self flies out along her look. */
+	/**
+	 * The Soul Shield takes a hit first: returns what gets through. A melee attacker standing close is knocked back off it.
+	 */
+	static float guardAbsorb(ServerPlayer p, DamageSource source, float amount) {
+		RavenState s = Raven.state(p);
+		if (s.guardUntil <= Raven.now(p) || s.guardHp <= 0f || amount <= 0f) {
+			return amount;
+		}
+		float soak = Math.min(amount, s.guardHp);
+		RavenState n = s.copy();
+		n.guardHp = s.guardHp - soak;
+		Raven.save(p, n);
+		GUARD_SOAK.merge(p.getUUID(), soak, Float::sum);
+		ServerLevel level = (ServerLevel) p.level();
+		Entity direct = source.getDirectEntity();
+		if (direct instanceof LivingEntity attacker && direct == source.getEntity() && attacker != p && attacker.distanceTo(p) < 5.0
+				&& !Raven.isBoss(attacker)) {
+			Vec3 away = attacker.position().subtract(p.position()).multiply(1, 0, 1);
+			away = away.lengthSqr() < 1.0e-4 ? p.getViewVector(1f).multiply(1, 0, 1) : away;
+			away = away.normalize().scale(RavenConfig.GUARD_KNOCKBACK);
+			attacker.push(away.x, 0.35, away.z);
+			attacker.hurtMarked = true;
+		}
+		Vec3 at = direct != null ? direct.position().add(0, direct.getBbHeight() * 0.5, 0) : p.position().add(0, 1.0, 0);
+		level.sendParticles(Raven.dust(Raven.VIOLET, 1.4f), at.x, at.y, at.z, 10, 0.2, 0.2, 0.2, 0.0);
+		sound(p, RavenSounds.SHIELD_HIT, 0.4f, 0.8f);
+		if (n.guardHp <= 0.01f) {
+			endGuard(p, true);
+		}
+		return amount - soak;
+	}
+
+	/** The Soul Shield ends (ran out or broke): it bursts if it soaked 20 or more. */
+	static void endGuard(ServerPlayer p, boolean broken) {
+		RavenState s = Raven.state(p);
+		if (s.guardUntil <= 0L && s.guardHp <= 0f) {
+			return;
+		}
+		RavenState n = s.copy();
+		n.guardUntil = 0L;
+		n.guardHp = 0f;
+		Raven.save(p, n);
+		float soaked = GUARD_SOAK.getOrDefault(p.getUUID(), 0f);
+		GUARD_SOAK.remove(p.getUUID());
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 c = p.position().add(0, 1.0, 0);
+		if (soaked + 1.0e-3f >= RavenConfig.GUARD_BURST_AT) {
+			double r = RavenConfig.GUARD_BURST_RADIUS;
+			for (LivingEntity t : HeroTargets.harmable(level, p, p.getBoundingBox().inflate(r))) {
+				if (t.distanceTo(p) <= r + t.getBbWidth() * 0.5) {
+					Raven.hit(p, t, RavenConfig.GUARD_BURST_DAMAGE);
+					Vec3 away = t.position().subtract(p.position()).multiply(1, 0, 1);
+					if (away.lengthSqr() > 1.0e-4 && !Raven.isBoss(t)) {
+						away = away.normalize();
+						t.push(away.x * 0.8, 0.3, away.z * 0.8);
+						t.hurtMarked = true;
+					}
+				}
+			}
+			fx(p, new RavenFxPayload(RavenFxPayload.BURST, p.getId(), c, new Vec3(r, 0, 0), 12));
+			level.sendParticles(Raven.dust(Raven.VIOLET, 1.8f), c.x, c.y, c.z, 40, 1.4, 0.8, 1.4, 0.0);
+			level.playSound(null, c.x, c.y, c.z, RavenSounds.BURST, SoundSource.PLAYERS, 0.45f, 0.7f);
+			bursts++;
+		} else {
+			level.sendParticles(Raven.dust(Raven.VIOLET, 1.0f), c.x, c.y, c.z, 16, 0.6, 0.8, 0.6, 0.0);
+			if (broken) {
+				sound(p, RavenSounds.SHIELD_BREAK, 0.4f, 0.7f);
+			}
+		}
+	}
+
+	/** For the tests: Soul Shield bursts so far, and projectiles it reflected. */
+	public static int bursts;
+	public static int reflected;
+
+	private static void guardTick(ServerPlayer p, long now, ServerLevel level) {
+		RavenState s = Raven.state(p);
+		if (s.guardUntil <= 0L) {
+			return;
+		}
+		if (now >= s.guardUntil || s.guardHp <= 0f) {
+			endGuard(p, false);
+			return;
+		}
+		double r = RavenConfig.GUARD_RADIUS * p.getScale() + 1.0;
+		Vec3 c = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(r + 2.0),
+				e -> e.position().distanceTo(c) <= r && !(e instanceof DarkBoltEntity) && !e.getTags().contains(REFLECTED))) {
+			Entity owner = proj.getOwner();
+			if (owner == p || (owner != null && Squads.areAllies(p, owner))) {
+				continue;
+			}
+			Vec3 v = proj.getDeltaMovement();
+			if (v.lengthSqr() < 0.01) {
+				continue; // stuck in the ground
+			}
+			// back where it came from, and now it's hers
+			Vec3 back = owner != null ? owner.position().add(0, owner.getBbHeight() * 0.6, 0).subtract(proj.position()).normalize().scale(v.length())
+					: v.scale(-1);
+			proj.setDeltaMovement(back);
+			proj.setOwner(p);
+			proj.addTag(REFLECTED);
+			proj.hasImpulse = true;
+			proj.hurtMarked = true;
+			Vec3 at = proj.position();
+			level.sendParticles(Raven.dust(Raven.VIOLET, 1.4f), at.x, at.y, at.z, 10, 0.15, 0.15, 0.15, 0.0);
+			level.playSound(null, at.x, at.y, at.z, RavenSounds.SHIELD_HIT, SoundSource.PLAYERS, 0.4f, 1.3f);
+			reflected++;
+		}
+	}
+
+	private static final String REFLECTED = "projecthero_raven_reflected";
+
+	// ---------------------------------------------------------------- Shift+G: Soul-Self
+
+	/** Shift+G: her raven soul flies out and she steers it with her look for 5 s; Shift+G again steps through to it. */
 	static boolean soulSelf(ServerPlayer p) {
-		SoulSelfEntity.release(p);
+		SoulSelfEntity old = SOULS.remove(p.getUUID());
+		if (old != null && old.isAlive()) {
+			old.discard();
+		}
+		SoulSelfEntity soul = SoulSelfEntity.release(p, Raven.ascended(p));
+		SOULS.put(p.getUUID(), soul);
 		sound(p, RavenSounds.SOUL, 0.5f, 0.6f);
-		pay(p, RavenAbilityManager.SOUL_SELF, RavenConfig.SOUL_COST, RavenConfig.SOUL_COOLDOWN);
+		pay(p, RavenAbilityManager.SOUL_SELF, RavenConfig.SOUL_COST, RavenConfig.SOUL_COOLDOWN, true);
 		Raven.unsettle(p, RavenConfig.SOUL_COMPOSURE);
 		return true;
 	}
+
+	/** Her soul-self is out (steering or flying home), so Shift+G would step through to it. Client-safe. */
+	public static boolean soulOut(Player p) {
+		if (p instanceof ServerPlayer) {
+			SoulSelfEntity s = SOULS.get(p.getUUID());
+			return s != null && s.isAlive() && s.fade() == 0;
+		}
+		return !p.level().getEntitiesOfClass(SoulSelfEntity.class, p.getBoundingBox().inflate(RavenConfig.SOUL_LEASH + 8),
+				e -> e.ownerId() == p.getId() && e.fade() == 0).isEmpty();
+	}
+
+	/** For the tests and the harness: the soul she is steering (null = none). */
+	public static SoulSelfEntity soul(ServerPlayer p) {
+		SoulSelfEntity s = SOULS.get(p.getUUID());
+		return s != null && s.isAlive() ? s : null;
+	}
+
+	/** Shift+G again: she steps through into her soul-self's place (if there is room for her there). */
+	static boolean soulTeleport(ServerPlayer p) {
+		SoulSelfEntity soul = SOULS.get(p.getUUID());
+		if (soul == null || !soul.isAlive()) {
+			return false;
+		}
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 spot = roomAt(p, soul.position());
+		if (spot == null) {
+			Raven.say(p, "message.projecthero.raven.no_room", ChatFormatting.GRAY);
+			return false;
+		}
+		Vec3 from = p.position();
+		RavenSpells.endChannel(p);
+		endHold(p, false);
+		p.teleportTo(level, spot.x, spot.y, spot.z, java.util.Set.of(), p.getYRot(), p.getXRot());
+		p.resetFallDistance();
+		p.setDeltaMovement(Vec3.ZERO);
+		p.hurtMarked = true;
+		soul.dissolve();
+		SOULS.remove(p.getUUID());
+		fx(p, new RavenFxPayload(RavenFxPayload.STREAK, p.getId(), from.add(0, 1.0, 0), spot.add(0, 1.0, 0), 14));
+		Raven.darkPuff(level, from.add(0, 1.0, 0), 24, 0.6);
+		Raven.darkPuff(level, spot.add(0, 1.0, 0), 30, 0.7);
+		level.playSound(null, spot.x, spot.y, spot.z, RavenSounds.DASH, SoundSource.PLAYERS, 0.4f, 0.55f);
+		Raven.cast(p);
+		return true;
+	}
+
+	/**
+	 * A spot near {@code at} where she fits, or null: right there, a little down, then up to 8 blocks up (a soul-self steered into
+	 * the ground lets her out on the surface above it).
+	 */
+	static Vec3 roomAt(ServerPlayer p, Vec3 at) {
+		ServerLevel level = (ServerLevel) p.level();
+		for (double dy : new double[] { 0, 0.5, 1.0, -0.5, 1.5, -1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0 }) {
+			Vec3 spot = at.add(0, dy, 0);
+			if (level.noCollision(p, p.getBoundingBox().move(spot.subtract(p.position())))) {
+				return spot;
+			}
+		}
+		return null;
+	}
+
+	// ---------------------------------------------------------------- Z: Telekinetic Crush
+
+	/** Z: up to 6 creatures in front of her go up, hang for 2 s, and are slammed down (14, a 1 s stun). Bosses only take the hit. */
+	static boolean telekineticCrush(ServerPlayer p) {
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getViewVector(1f);
+		List<LivingEntity> found = new ArrayList<>();
+		for (LivingEntity t : HeroTargets.harmable(level, p, p.getBoundingBox().inflate(RavenConfig.CRUSH_RANGE))) {
+			Vec3 to = t.position().add(0, t.getBbHeight() * 0.5, 0).subtract(eye);
+			double d = to.length();
+			if (d > RavenConfig.CRUSH_RANGE + t.getBbWidth() * 0.5 || (d > 1.5 && to.normalize().dot(look) < RavenConfig.CRUSH_CONE)
+					|| !p.hasLineOfSight(t)) {
+				continue;
+			}
+			found.add(t);
+		}
+		if (found.isEmpty()) {
+			Raven.say(p, "message.projecthero.raven.no_target", ChatFormatting.GRAY);
+			return false;
+		}
+		found.sort((a, b) -> Double.compare(a.distanceToSqr(p), b.distanceToSqr(p)));
+		long now = Raven.now(p);
+		List<Lift> lifts = LIFTS.computeIfAbsent(p.getUUID(), k -> new ArrayList<>());
+		Vec3 hand = p.getEyePosition().add(0, -0.4, 0).add(look.scale(0.6));
+		for (int i = 0; i < Math.min(RavenConfig.CRUSH_MAX, found.size()); i++) {
+			LivingEntity t = found.get(i);
+			lifts.add(new Lift(t, now, RavenConfig.CRUSH_RISE_TICKS, RavenConfig.CRUSH_HOLD_TICKS, RavenConfig.CRUSH_LIFT, RavenConfig.CRUSH_DAMAGE,
+					false, RavenConfig.CRUSH_STUN_TICKS));
+			fx(p, new RavenFxPayload(RavenFxPayload.TENTACLE, t.getId(), hand, new Vec3(1, 0, 0), RavenConfig.CRUSH_RISE_TICKS + RavenConfig.CRUSH_HOLD_TICKS));
+		}
+		sound(p, RavenSounds.GRAB, 0.4f, 0.6f);
+		sound(p, RavenSounds.WAVE, 0.35f, 0.6f);
+		pay(p, RavenAbilityManager.TELEKINETIC_CRUSH, RavenConfig.CRUSH_COST, RavenConfig.CRUSH_COOLDOWN, true);
+		Raven.unsettle(p, RavenConfig.CRUSH_COMPOSURE);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- Shift+Z: Trigon's Wrath
 
 	/** Shift+Z (Rage only): Trigon's side breaks through -- a giant cloaked shadow for 15 s. */
 	static boolean trigonsWrath(ServerPlayer p) {
@@ -309,7 +608,6 @@ public final class RavenMoves {
 		RavenState n = Raven.state(p).copy();
 		n.wrathUntil = now + RavenConfig.WRATH_TICKS;
 		n.composure = 0f;
-		n.shield = false;
 		Raven.save(p, n);
 		WRATH_START.put(p.getUUID(), now);
 		Raven.reconcile(p);
@@ -318,7 +616,7 @@ public final class RavenMoves {
 		level.playSound(null, c.x, c.y, c.z, RavenSounds.WRATH, SoundSource.PLAYERS, 0.5f, 0.7f);
 		Raven.darkPuff(level, c, 80, 1.6);
 		level.sendParticles(Raven.dust(Raven.RED, 2.0f), c.x, c.y + 1.0, c.z, 30, 1.2, 1.5, 1.2, 0.0);
-		pay(p, RavenAbilityManager.TRIGONS_WRATH, 0f, RavenConfig.WRATH_COOLDOWN);
+		pay(p, RavenAbilityManager.TRIGONS_WRATH, 0f, RavenConfig.WRATH_COOLDOWN, true);
 		p.displayClientMessage(Component.translatable("message.projecthero.raven.wrath").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 		return true;
 	}
@@ -337,12 +635,13 @@ public final class RavenMoves {
 		p.displayClientMessage(Component.translatable("message.projecthero.raven.drained").withStyle(ChatFormatting.GRAY), true);
 	}
 
+	// ---------------------------------------------------------------- X / Shift+X
+
 	/** X: a streak of shadow 10 blocks along her look, through creatures, taking no damage. */
 	static boolean shadowDash(ServerPlayer p) {
 		Vec3 from = p.position();
 		Vec3 look = p.getViewVector(1f);
 		Vec3 to = from;
-		// walk out along the look until something solid is in the way
 		for (double d = 0.5; d <= RavenConfig.DASH_DISTANCE + 1.0e-6; d += 0.5) {
 			Vec3 at = from.add(look.scale(d));
 			if (!p.level().noCollision(p, p.getBoundingBox().move(at.subtract(from)))) {
@@ -357,7 +656,7 @@ public final class RavenMoves {
 		Raven.save(p, n);
 		fx(p, new RavenFxPayload(RavenFxPayload.STREAK, p.getId(), from.add(0, 1.0, 0), to.add(0, 1.0, 0), 14));
 		sound(p, RavenSounds.DASH, 0.3f, 0.6f);
-		pay(p, RavenAbilityManager.SHADOW_DASH, RavenConfig.DASH_COST, RavenConfig.DASH_COOLDOWN);
+		pay(p, RavenAbilityManager.SHADOW_DASH, RavenConfig.DASH_COST, RavenConfig.DASH_COOLDOWN, false);
 		return true;
 	}
 
@@ -375,30 +674,150 @@ public final class RavenMoves {
 		Raven.save(p, n);
 		fx(p, new RavenFxPayload(RavenFxPayload.SINK, p.getId(), p.position(), Vec3.ZERO, RavenConfig.STEP_SINK_TICKS + 4));
 		sound(p, RavenSounds.DASH, 0.3f, 0.5f);
-		pay(p, RavenAbilityManager.SHADOW_STEP, RavenConfig.STEP_COST, RavenConfig.STEP_COOLDOWN);
+		pay(p, RavenAbilityManager.SHADOW_STEP, RavenConfig.STEP_COST, RavenConfig.STEP_COOLDOWN, true);
 		Raven.unsettle(p, RavenConfig.STEP_COMPOSURE);
 		return true;
 	}
 
-	/** C: everything within 8 blocks goes up 4 blocks, hangs for a second, and is slammed down. */
-	static boolean telekineticWave(ServerPlayer p) {
+	// ---------------------------------------------------------------- C / Shift+C
+
+	/** C: 0.6 s gathering dark energy, then a wide wave rolls 12 blocks out ahead of her. */
+	static boolean energyWave(ServerPlayer p) {
 		long now = Raven.now(p);
-		List<Lift> lifts = LIFTS.computeIfAbsent(p.getUUID(), k -> new ArrayList<>());
-		for (LivingEntity t : HeroTargets.harmable(p.level(), p, p.getBoundingBox().inflate(RavenConfig.WAVE_RADIUS))) {
-			if (t.distanceTo(p) > RavenConfig.WAVE_RADIUS + 0.5) {
-				continue;
-			}
-			lifts.add(new Lift(t, now, RavenConfig.WAVE_RISE_TICKS, RavenConfig.WAVE_HOLD_TICKS, RavenConfig.WAVE_LIFT, RavenConfig.WAVE_DAMAGE, false));
-		}
-		fx(p, new RavenFxPayload(RavenFxPayload.WAVE, p.getId(), p.position().add(0, 0.1, 0), new Vec3(RavenConfig.WAVE_RADIUS, 0, 0), 16));
-		sound(p, RavenSounds.WAVE, 0.4f, 0.7f);
-		pay(p, RavenAbilityManager.TELEKINETIC_WAVE, RavenConfig.WAVE_COST, RavenConfig.WAVE_COOLDOWN);
+		CHARGES.put(p.getUUID(), now + RavenConfig.WAVE_CHARGE_TICKS);
+		fx(p, new RavenFxPayload(RavenFxPayload.CHARGE, p.getId(), p.position(), Vec3.ZERO, RavenConfig.WAVE_CHARGE_TICKS));
+		sound(p, RavenSounds.CHARGE, 0.4f, 0.6f);
+		pay(p, RavenAbilityManager.ENERGY_WAVE, RavenConfig.WAVE_COST, RavenConfig.WAVE_COOLDOWN, true);
 		Raven.unsettle(p, RavenConfig.WAVE_COMPOSURE);
+		RavenState n = Raven.state(p).copy();
+		n.castUntil = now + RavenConfig.WAVE_CHARGE_TICKS + 20;
+		Raven.save(p, n);
 		return true;
 	}
 
-	/** Shift+C: tear up 8 nearby blocks into an orbit (energy copies with mob griefing off). */
-	static boolean debrisStorm(ServerPlayer p) {
+	/** For the tests: the wave is still gathering. */
+	public static boolean charging(ServerPlayer p) {
+		return CHARGES.containsKey(p.getUUID());
+	}
+
+	private static void waveTick(ServerPlayer p, long now, ServerLevel level) {
+		Long due = CHARGES.get(p.getUUID());
+		if (due != null) {
+			if (now < due) {
+				if (p.tickCount % 2 == 0) {
+					Vec3 hand = p.getEyePosition().add(0, -0.45, 0).add(p.getViewVector(1f).scale(0.7));
+					level.sendParticles(Raven.dust(Raven.VOID, 1.3f), hand.x, hand.y, hand.z, 4, 0.5, 0.5, 0.5, 0.0);
+					level.sendParticles(ParticleTypes.REVERSE_PORTAL, hand.x, hand.y, hand.z, 3, 0.6, 0.6, 0.6, 0.05);
+				}
+			} else {
+				CHARGES.remove(p.getUUID());
+				Vec3 dir = p.getViewVector(1f).multiply(1, 0, 1);
+				dir = dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : dir.normalize();
+				Vec3 origin = p.position().add(dir.scale(0.6));
+				WAVES.put(p.getUUID(), new Wave(origin, dir, now));
+				int life = (int) Math.ceil(RavenConfig.WAVE_RANGE / RavenConfig.WAVE_SPEED);
+				fx(p, new RavenFxPayload(RavenFxPayload.WAVE_FRONT, p.getId(), origin, dir, life));
+				level.playSound(null, origin.x, origin.y, origin.z, RavenSounds.WAVE_FIRE, SoundSource.PLAYERS, 0.5f, 0.55f);
+				level.playSound(null, origin.x, origin.y, origin.z, RavenSounds.WAVE, SoundSource.PLAYERS, 0.4f, 0.5f);
+			}
+		}
+		Wave w = WAVES.get(p.getUUID());
+		if (w == null) {
+			return;
+		}
+		double front = Math.min(RavenConfig.WAVE_RANGE, (now - w.start + 1) * RavenConfig.WAVE_SPEED);
+		AABB box = new AABB(w.origin, w.origin).inflate(RavenConfig.WAVE_RANGE + 1, 3, RavenConfig.WAVE_RANGE + 1);
+		for (LivingEntity t : HeroTargets.harmable(level, p, box)) {
+			if (w.struck.contains(t.getId()) || !inWave(w, t.position(), front, t.getBbWidth())) {
+				continue;
+			}
+			w.struck.add(t.getId());
+			Raven.hit(p, t, RavenConfig.WAVE_DAMAGE);
+			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, RavenConfig.WAVE_SLOW_TICKS, 1), p);
+			if (!Raven.isBoss(t)) {
+				Vec3 k = w.dir.scale(RavenConfig.WAVE_KNOCKBACK);
+				t.push(k.x, 0.4, k.z);
+				t.hurtMarked = true;
+			}
+			Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
+			level.sendParticles(Raven.dust(Raven.VOID, 1.6f), c.x, c.y, c.z, 14, 0.4, 0.5, 0.4, 0.0);
+		}
+		if (RavenRestore.griefing(level)) {
+			breakFragile(level, w, w.lastFront, front);
+		}
+		w.lastFront = front;
+		if (front >= RavenConfig.WAVE_RANGE) {
+			WAVES.remove(p.getUUID());
+		}
+	}
+
+	/** {@code pos} is inside the wave's widening fan, out to {@code front}. */
+	private static boolean inWave(Wave w, Vec3 pos, double front, double width) {
+		Vec3 rel = pos.subtract(w.origin);
+		if (Math.abs(rel.y) > 3.0) {
+			return false;
+		}
+		Vec3 flat = rel.multiply(1, 0, 1);
+		double along = flat.dot(w.dir);
+		if (along < -0.8 || along > front + width * 0.5) {
+			return false;
+		}
+		double side = flat.subtract(w.dir.scale(along)).length();
+		double half = 1.5 + (RavenConfig.WAVE_HALF_WIDTH - 1.5) * Math.max(0, along) / RavenConfig.WAVE_RANGE;
+		return side <= half + width * 0.5;
+	}
+
+	/** Mob griefing on: glass and leaves the front rolls through shatter. */
+	private static void breakFragile(ServerLevel level, Wave w, double from, double to) {
+		BlockPos o = BlockPos.containing(w.origin);
+		int r = (int) Math.ceil(RavenConfig.WAVE_RANGE) + 1;
+		for (BlockPos pos : BlockPos.betweenClosed(o.offset(-r, 0, -r), o.offset(r, 3, r))) {
+			Vec3 c = Vec3.atBottomCenterOf(pos);
+			Vec3 flat = c.subtract(w.origin).multiply(1, 0, 1);
+			double along = flat.dot(w.dir);
+			if (along <= from || along > to) {
+				continue;
+			}
+			BlockState st = level.getBlockState(pos);
+			if ((RavenLeak.fragile(st) || st.is(BlockTags.LEAVES)) && inWave(w, c, to, 1.0)) {
+				level.destroyBlock(pos, false);
+			}
+		}
+	}
+
+	/** Shift+C: Demonic Ascension -- 15 s of white eyes, a purple aura, stronger, cheaper, faster spells. Costs her calm. */
+	static boolean demonicAscension(ServerPlayer p) {
+		long now = Raven.now(p);
+		pay(p, RavenAbilityManager.ASCENSION, RavenConfig.ASCEND_COST, RavenConfig.ASCEND_COOLDOWN, false);
+		RavenState n = Raven.state(p).copy();
+		n.ascendUntil = now + RavenConfig.ASCEND_TICKS;
+		Raven.save(p, n);
+		Raven.unsettle(p, RavenConfig.ASCEND_COMPOSURE);
+		Raven.reconcile(p);
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 c = p.position().add(0, 1.0, 0);
+		fx(p, new RavenFxPayload(RavenFxPayload.ASCEND, p.getId(), p.position(), Vec3.ZERO, 24));
+		level.sendParticles(Raven.dust(Raven.VIOLET, 1.8f), c.x, c.y, c.z, 50, 0.6, 1.0, 0.6, 0.0);
+		level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y, c.z, 40, 0.5, 1.0, 0.5, 0.15);
+		level.playSound(null, c.x, c.y, c.z, RavenSounds.ASCEND, SoundSource.PLAYERS, 0.45f, 0.6f);
+		level.playSound(null, c.x, c.y, c.z, RavenSounds.CHANT, SoundSource.PLAYERS, 0.5f, 0.45f);
+		p.displayClientMessage(Component.translatable("message.projecthero.raven.ascended").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), true);
+		return true;
+	}
+
+	static void endAscension(ServerPlayer p) {
+		RavenState n = Raven.state(p).copy();
+		n.ascendUntil = 0L;
+		Raven.save(p, n);
+		Raven.reconcile(p);
+		Raven.darkPuff((ServerLevel) p.level(), p.position().add(0, 1.0, 0), 20, 0.6);
+		Raven.say(p, "message.projecthero.raven.ascension_ends", ChatFormatting.GRAY);
+	}
+
+	// ---------------------------------------------------------------- debris (the Debris Storm spell)
+
+	/** Debris Storm: tear up 8 nearby blocks into an orbit (energy copies with mob griefing off). False if nothing is loose. */
+	static boolean tearUpDebris(ServerPlayer p) {
 		ServerLevel level = (ServerLevel) p.level();
 		boolean real = RavenRestore.griefing(level);
 		BlockPos feet = p.blockPosition();
@@ -412,7 +831,7 @@ public final class RavenMoves {
 					}
 					BlockPos pos = feet.offset(dx, dy, dz);
 					if (dx * dx + dz * dz > r * r || !level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty()) {
-						continue; // only blocks with open air above them (the surface)
+						continue;
 					}
 					if (real ? RavenRestore.liftable(level, pos) : copyable(level, pos)) {
 						found.add(pos);
@@ -443,18 +862,17 @@ public final class RavenMoves {
 		syncDebris(p);
 		sound(p, RavenSounds.DEBRIS, 0.5f, 0.6f);
 		sound(p, RavenSounds.GRAB, 0.3f, 0.6f);
-		pay(p, RavenAbilityManager.DEBRIS_STORM, RavenConfig.DEBRIS_COST, RavenConfig.DEBRIS_COOLDOWN);
 		Raven.unsettle(p, RavenConfig.DEBRIS_COMPOSURE);
 		return true;
 	}
 
 	/** A block her energy can copy (any solid full block, mob griefing off). */
-	private static boolean copyable(ServerLevel level, BlockPos pos) {
+	static boolean copyable(ServerLevel level, BlockPos pos) {
 		BlockState s = level.getBlockState(pos);
 		return !s.isAir() && s.getFluidState().isEmpty() && s.isCollisionShapeFullBlock(level, pos);
 	}
 
-	/** Fires one orbiting block at her aim (Shift+C again, or a left click). */
+	/** Fires one orbiting block at her aim (V again with Debris Storm picked, or a left click). */
 	public static boolean fireDebris(ServerPlayer p) {
 		List<RavenDebrisEntity> list = DEBRIS.get(p.getUUID());
 		if (list == null) {
@@ -479,9 +897,10 @@ public final class RavenMoves {
 		}
 		list.remove(best);
 		Vec3 from = best.position().add(0, 0.49, 0);
-		best.throwAlong(aim.subtract(from), RavenConfig.DEBRIS_SPEED, RavenConfig.DEBRIS_DAMAGE);
+		best.throwAlong(aim.subtract(from), RavenConfig.DEBRIS_SPEED, RavenConfig.DEBRIS_DAMAGE * Raven.spellMult(p));
 		sound(p, RavenSounds.THROW, 0.3f, 1.2f);
 		Raven.cast(p);
+		RavenSpells.breakVeil(p);
 		syncDebris(p);
 		return true;
 	}
@@ -509,47 +928,24 @@ public final class RavenMoves {
 		}
 	}
 
-	/** V: take a squadmate's pain (aimed), or heal herself and shake off what ails her. */
-	static boolean empathHeal(ServerPlayer p) {
-		LivingEntity mate = healTarget(p);
-		ServerLevel level = (ServerLevel) p.level();
-		if (mate != null) {
-			float missing = mate.getMaxHealth() - mate.getHealth();
-			float take = Math.min(RavenConfig.HEAL_TAKE_MAX, (float) Math.ceil(missing / 2f));
-			take = Math.min(take, Math.max(0f, p.getHealth() - 1f));
-			if (take <= 0f) {
-				Raven.say(p, missing <= 0f ? "message.projecthero.raven.heal_full" : "message.projecthero.raven.heal_too_weak", ChatFormatting.GRAY);
-				return false;
-			}
-			p.setHealth(p.getHealth() - take);
-			p.hurtMarked = true;
-			mate.heal(take * 2f);
-			Vec3 a = p.position().add(0, 1.1, 0);
-			Vec3 b = mate.position().add(0, mate.getBbHeight() * 0.6, 0);
-			fx(p, new RavenFxPayload(RavenFxPayload.HEAL, mate.getId(), a, b, 20));
-			level.sendParticles(ParticleTypes.END_ROD, b.x, b.y, b.z, 10, 0.3, 0.4, 0.3, 0.02);
-			level.sendParticles(Raven.dust(Raven.VOID, 1.0f), a.x, a.y, a.z, 10, 0.3, 0.4, 0.3, 0.0);
-			if (mate instanceof ServerPlayer mp) {
-				mp.displayClientMessage(Component.translatable("message.projecthero.raven.healed_by", p.getDisplayName())
-						.withStyle(ChatFormatting.LIGHT_PURPLE), true);
-			}
-			p.displayClientMessage(Component.translatable("message.projecthero.raven.heal_mate", mate.getDisplayName(), Math.round(take))
-					.withStyle(ChatFormatting.LIGHT_PURPLE), true);
-		} else {
-			p.heal(RavenConfig.HEAL_SELF);
-			List<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> bad = new ArrayList<>();
-			for (MobEffectInstance e : p.getActiveEffects()) {
-				if (e.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
-					bad.add(e.getEffect());
-				}
-			}
-			bad.forEach(p::removeEffect);
-			Vec3 c = p.position().add(0, 1.0, 0);
-			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 12, 0.3, 0.5, 0.3, 0.02);
+	/** Holds {@code t} where it is for {@code ticks} (the Shadow Binding's claws, the Crush's stun). */
+	static void pin(ServerPlayer p, LivingEntity t, int ticks) {
+		PINS.computeIfAbsent(p.getUUID(), k -> new ArrayList<>()).add(new Pin(t, t.position(), Raven.now(p) + ticks));
+	}
+
+	/** For the tests: {@code t} is pinned by her right now. */
+	public static boolean pinned(ServerPlayer p, LivingEntity t) {
+		List<Pin> pins = PINS.get(p.getUUID());
+		if (pins == null) {
+			return false;
 		}
-		sound(p, RavenSounds.HEAL, 0.4f, 1.3f);
-		pay(p, RavenAbilityManager.EMPATH_HEAL, RavenConfig.HEAL_COST, RavenConfig.HEAL_COOLDOWN);
-		return true;
+		long now = Raven.now(p);
+		for (Pin pin : pins) {
+			if (pin.e == t && now < pin.until) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The squadmate she's aiming at within 16 blocks (null = none). */
@@ -574,21 +970,13 @@ public final class RavenMoves {
 				return false;
 			}
 			endHold(p, false);
+			RavenSpells.endChannel(p);
 			RavenFlight.startMeditation(p);
 			sound(p, RavenSounds.CHANT, 0.3f, 0.6f);
 			return true;
 		}
 		if (!ready(p, id)) {
 			return false;
-		}
-		if (RavenAbilityManager.DARK_SHIELD.equals(id)) {
-			RavenState n = Raven.state(p).copy();
-			n.shield = true;
-			n.shieldHp = RavenConfig.SHIELD_ABSORB;
-			Raven.save(p, n);
-			Raven.cast(p);
-			sound(p, RavenSounds.SHIELD_UP, 0.35f, 1.6f);
-			return true;
 		}
 		if (RavenAbilityManager.TELEKINESIS.equals(id)) {
 			return grab(p);
@@ -599,44 +987,10 @@ public final class RavenMoves {
 	public static void release(ServerPlayer p, String id) {
 		switch (id) {
 			case RavenAbilityManager.MEDITATE -> RavenFlight.stopMeditation(p);
-			case RavenAbilityManager.DARK_SHIELD -> dropShield(p, false);
 			case RavenAbilityManager.TELEKINESIS -> endHold(p, true);
 			default -> {
 			}
 		}
-	}
-
-	static void dropShield(ServerPlayer p, boolean broken) {
-		RavenState s = Raven.state(p);
-		if (!s.shield) {
-			return;
-		}
-		RavenState n = s.copy();
-		n.shield = false;
-		n.shieldHp = 0f;
-		Raven.save(p, n);
-		if (broken) {
-			Raven.startCooldown(p, RavenAbilityManager.DARK_SHIELD, RavenConfig.SHIELD_BROKEN_COOLDOWN);
-			sound(p, RavenSounds.SHIELD_BREAK, 0.4f, 0.6f);
-			Raven.darkPuff((ServerLevel) p.level(), p.position().add(0, 1.0, 0), 30, 1.5);
-		}
-	}
-
-	/** The dome takes a hit first: returns what gets through to her. */
-	static float shieldAbsorb(ServerPlayer p, float amount) {
-		RavenState s = Raven.state(p);
-		if (!s.shield || amount <= 0f) {
-			return amount;
-		}
-		float soak = Math.min(amount, s.shieldHp);
-		RavenState n = s.copy();
-		n.shieldHp = s.shieldHp - soak;
-		Raven.save(p, n);
-		sound(p, RavenSounds.SHIELD_HIT, 0.4f, 0.8f);
-		if (n.shieldHp <= 0.01f) {
-			dropShield(p, true);
-		}
-		return amount - soak;
 	}
 
 	/** Shift+R down: wrap what she looks at -- a creature, an item, or a block -- in black energy. */
@@ -677,13 +1031,14 @@ public final class RavenMoves {
 		h.dist = Math.max(RavenConfig.TK_MIN_HOLD, Math.min(RavenConfig.TK_MAX_HOLD, eye.distanceTo(target.position())));
 		h.start = Raven.now(p);
 		HOLDS.put(p.getUUID(), h);
-		Raven.spendEnergy(p, RavenConfig.TK_COST);
+		Raven.spendEnergy(p, RavenConfig.TK_COST * Raven.costMult(p));
 		RavenState n = Raven.state(p).copy();
 		n.tkTarget = target.getId();
 		Raven.save(p, n);
 		Raven.cast(p);
 		if (target instanceof LivingEntity) {
 			Raven.unsettle(p, RavenConfig.TK_COMPOSURE);
+			RavenSpells.breakVeil(p);
 		}
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
 		Raven.darkPuff(level, c, 16, 0.5);
@@ -711,7 +1066,7 @@ public final class RavenMoves {
 		Vec3 look = p.getViewVector(1f);
 		if (t instanceof RavenDebrisEntity d) {
 			if (throwIt) {
-				d.throwAlong(look, RavenConfig.TK_THROW_SPEED, RavenConfig.TK_THROW_DAMAGE);
+				d.throwAlong(look, RavenConfig.TK_THROW_SPEED, RavenConfig.TK_THROW_DAMAGE * Raven.spellMult(p));
 			} else {
 				d.throwAlong(new Vec3(0, -1, 0), 0.2, RavenConfig.TK_THROW_DAMAGE);
 			}
@@ -767,7 +1122,7 @@ public final class RavenMoves {
 				THROWN.remove(id);
 			}
 		}
-		// the Grasp's pins
+		// pins (claws, stuns)
 		List<Pin> pins = PINS.get(id);
 		if (pins != null) {
 			pins.removeIf(pin -> !pin.e.isAlive() || now >= pin.until);
@@ -786,13 +1141,26 @@ public final class RavenMoves {
 		dashTick(p, now);
 		stepTick(p, now, level);
 		debrisTick(p, now);
-		shieldTick(p, level);
+		guardTick(p, now, level);
+		waveTick(p, now, level);
 		wrathTick(p, now, level);
+		SoulSelfEntity soul = SOULS.get(id);
+		if (soul != null && (!soul.isAlive() || soul.fade() > 0)) {
+			SOULS.remove(id);
+		}
 		// the soft chant while meditating (its words are on her HUD)
 		RavenState s = Raven.state(p);
 		if (s.meditating && p.tickCount % 30 == 0) {
 			int line = (int) ((now / 30) % 3);
 			p.level().playSound(null, p.getX(), p.getY(), p.getZ(), RavenSounds.CHANT, SoundSource.PLAYERS, 0.2f, 0.5f + line * 0.08f);
+		}
+		// Demonic Ascension: the aura's motes off her cloak
+		if (s.ascendUntil > now && p.tickCount % 3 == 0) {
+			Vec3 c = p.position().add(0, 0.9, 0);
+			level.sendParticles(Raven.dust(Raven.VIOLET, 1.0f), c.x, c.y, c.z, 2, 0.35, 0.6, 0.35, 0.0);
+			if (p.tickCount % 9 == 0) {
+				level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y - 0.6, c.z, 2, 0.3, 0.1, 0.3, 0.02);
+			}
 		}
 	}
 
@@ -810,7 +1178,7 @@ public final class RavenMoves {
 			return;
 		}
 		if (!creative) {
-			s.energy = Math.max(0f, s.energy - RavenConfig.TK_DRAIN_PER_TICK);
+			s.energy = Math.max(0f, s.energy - RavenConfig.TK_DRAIN_PER_TICK * Raven.costMult(p));
 		}
 		Vec3 point = p.getEyePosition().add(p.getViewVector(1f).scale(h.dist));
 		if (t instanceof RavenDebrisEntity d) {
@@ -880,10 +1248,24 @@ public final class RavenMoves {
 					l.e.hurtMarked = true;
 				}
 				l.e.resetFallDistance();
-				Raven.hit(p, l.e, l.damage);
+				if (l.wrath) {
+					Raven.hitRaw(p, l.e, l.damage);
+				} else {
+					Raven.hit(p, l.e, l.damage);
+				}
+				if (l.stun > 0) {
+					l.e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, l.stun, 6), p);
+					l.e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, l.stun, 2), p);
+					if (!boss) {
+						pin(p, l.e, l.stun);
+					}
+				}
 				Vec3 c = l.e.position();
 				level.sendParticles(Raven.dust(l.wrath ? Raven.RED : Raven.VOID, 1.8f), c.x, c.y + 0.2, c.z, 20, 0.6, 0.1, 0.6, 0.0);
 				level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.2, c.z, 1, 0, 0, 0, 0);
+				if (!l.wrath) {
+					fx(p, new RavenFxPayload(RavenFxPayload.WAVE, l.e.getId(), c.add(0, 0.05, 0), new Vec3(1.8, 0, 0), 10));
+				}
 				level.playSound(null, c.x, c.y, c.z, l.wrath ? RavenSounds.WRATH_SLAM : RavenSounds.SLAM, SoundSource.PLAYERS, 0.3f, 0.8f);
 				if (l.wrath && l.e instanceof ServerPlayer victim && !com.projecthero.mod.shazam.Shazam.fearImmune(victim)) { // the fear (Shazam's courage shrugs it off)
 					victim.addEffect(new MobEffectInstance(MobEffects.DARKNESS, RavenConfig.WRATH_FEAR_TICKS, 0), p);
@@ -899,9 +1281,15 @@ public final class RavenMoves {
 		}
 	}
 
+	/** For the tests: creatures in her grip right now (Crush or the Wrath). */
+	public static int lifting(ServerPlayer p) {
+		List<Lift> lifts = LIFTS.get(p.getUUID());
+		return lifts == null ? 0 : lifts.size();
+	}
+
 	/** The top of the ground under {@code e} (its feet land there), at most 24 blocks down. */
 	private static double groundBelow(ServerLevel level, Entity e) {
-		Vec3 from = e.position().add(0, 0.5, 0); // (from the feet a ray can slip past the block it stands on and find the one below)
+		Vec3 from = e.position().add(0, 0.5, 0);
 		BlockHitResult hit = level.clip(new ClipContext(from, from.add(0, -24, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, e));
 		return hit.getType() == HitResult.Type.MISS ? from.y : hit.getLocation().y;
 	}
@@ -939,7 +1327,6 @@ public final class RavenMoves {
 		if (!t.isAlive() || t.level() != p.level() || t.distanceTo(p) > RavenConfig.STEP_RANGE + 6) {
 			return;
 		}
-		// erupt just behind it (from her side), on the ground
 		Vec3 away = t.position().subtract(p.position()).multiply(1, 0, 1);
 		Vec3 dir = away.lengthSqr() < 1.0e-4 ? p.getViewVector(1f).multiply(1, 0, 1).normalize() : away.normalize();
 		Vec3 spot = t.position().add(dir.scale(t.getBbWidth() * 0.5 + 0.9));
@@ -988,38 +1375,6 @@ public final class RavenMoves {
 		}
 	}
 
-	private static void shieldTick(ServerPlayer p, ServerLevel level) {
-		RavenState s = Raven.state(p);
-		if (!s.shield) {
-			return;
-		}
-		if (!p.getAbilities().instabuild) {
-			s.energy = Math.max(0f, s.energy - RavenConfig.SHIELD_DRAIN_PER_TICK);
-			if (s.energy <= 0f) {
-				dropShield(p, false);
-				Raven.say(p, "message.projecthero.raven.no_energy", ChatFormatting.GRAY);
-				return;
-			}
-		}
-		double r = RavenConfig.SHIELD_RADIUS * p.getScale();
-		Vec3 c = p.position().add(0, 1.0, 0);
-		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(r + 1.0),
-				e -> e.position().distanceTo(c) <= r + 0.5 && !(e instanceof DarkBoltEntity))) {
-			Entity owner = proj.getOwner();
-			if (owner == p || (owner != null && Squads.areAllies(p, owner))) {
-				continue;
-			}
-			Vec3 at = proj.position();
-			level.sendParticles(Raven.dust(Raven.VIOLET, 1.4f), at.x, at.y, at.z, 8, 0.15, 0.15, 0.15, 0.0);
-			level.playSound(null, at.x, at.y, at.z, RavenSounds.SHIELD_HIT, SoundSource.PLAYERS, 0.35f, 1.0f);
-			proj.discard();
-			absorbed++;
-		}
-	}
-
-	/** For the tests: projectiles swallowed by Dark Shields so far. */
-	public static int absorbed;
-
 	private static void wrathTick(ServerPlayer p, long now, ServerLevel level) {
 		Long start = WRATH_START.get(p.getUUID());
 		if (start == null) {
@@ -1041,7 +1396,7 @@ public final class RavenMoves {
 				if (t.distanceTo(p) > r + p.getBbWidth()) {
 					continue;
 				}
-				lifts.add(new Lift(t, now, 6, RavenConfig.WRATH_LIFT_TICKS - 6, 3.0, RavenConfig.WRATH_DAMAGE, true));
+				lifts.add(new Lift(t, now, 6, RavenConfig.WRATH_LIFT_TICKS - 6, 3.0, RavenConfig.WRATH_DAMAGE, true, 0));
 				fx(p, new RavenFxPayload(RavenFxPayload.TENTACLE, t.getId(), from, Vec3.ZERO, RavenConfig.WRATH_LIFT_TICKS + 8));
 			}
 			level.playSound(null, p.getX(), p.getY(), p.getZ(), RavenSounds.WRATH_SLAM, SoundSource.PLAYERS, 0.35f, 0.6f);

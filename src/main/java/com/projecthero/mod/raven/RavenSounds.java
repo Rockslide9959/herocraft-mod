@@ -32,4 +32,16 @@ public final class RavenSounds {
 	public static final SoundEvent HEAL = SoundEvents.BEACON_POWER_SELECT;
 	public static final SoundEvent CRACK = SoundEvents.GLASS_BREAK;
 	public static final SoundEvent FLIGHT = SoundEvents.PHANTOM_FLAP;
+	// v0.17.3 revamp
+	public static final SoundEvent GUARD_HUM = SoundEvents.BEACON_AMBIENT;
+	public static final SoundEvent BURST = SoundEvents.EVOKER_CAST_SPELL;
+	public static final SoundEvent CHARGE = SoundEvents.EVOKER_PREPARE_SUMMON;
+	public static final SoundEvent WAVE_FIRE = SoundEvents.WARDEN_SONIC_BOOM;
+	public static final SoundEvent ASCEND = SoundEvents.WITHER_SPAWN;
+	public static final SoundEvent VORTEX = SoundEvents.PORTAL_AMBIENT;
+	public static final SoundEvent DETONATE_CHARGE = SoundEvents.ILLUSIONER_PREPARE_BLINDNESS;
+	public static final SoundEvent DETONATE = SoundEvents.GENERIC_EXPLODE.value();
+	public static final SoundEvent DEVOUR = SoundEvents.SCULK_SHRIEKER_SHRIEK;
+	public static final SoundEvent RIFT = SoundEvents.PORTAL_TRIGGER;
+	public static final SoundEvent VEIL = SoundEvents.ILLUSIONER_MIRROR_MOVE;
 }

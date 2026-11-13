@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 Raven: the <b>emotional leak</b>. Under {@link RavenConfig#LEAK_BELOW} Composure, now and then (about every 5 s) her power
+ * v0.17.3 Raven: the <b>emotional leak</b>. Under {@link RavenConfig#UNSETTLED_BELOW} Composure (Unsettled), now and then (about every 5 s) her power
  * slips out: a pane of glass or a lamp nearby cracks, or a creature near her is shoved away. Glass and lamps only really break with the
  * {@code mobGriefing} gamerule on; with it off the crack is cosmetic (the shatter, the sound, nothing changes). Never block entities.
  */

@@ -121,6 +121,13 @@ swatches; the rhino got armour-plate shells, a bigger raised head and horns that
 
 ## Raven -- daughter of Trigon
 
+> **Superseded (2026-11-13): Raven was revamped.** The current kit -- 30 health, Composure tiers (Unsettled under 40, Rage
+> under 10), Demonic Heritage / Dark Empathy / Mystical Awareness, the new main keys (Soul Shield, steerable Soul-Self,
+> Telekinetic Crush, Dark Energy Wave, Demonic Ascension) and the ten-spell **Spell Wheel** on V -- is specified in
+> [`RAVEN_REVAMP_DESIGN.md`](RAVEN_REVAMP_DESIGN.md) and built in `raven/RavenMoves`, `raven/RavenSpells`. The section below is
+> the original 2026-11-12 kit, kept for history (Dark Shield, Shadow Grasp, Telekinetic Wave and Empath Heal no longer exist as
+> keys; three of them became wheel spells).
+
 **Source:** an Azarathian empath whose dark energy lifts and throws anything ("Azarath Metrion Zinthos"). She
 phases through shadow, sends out her raven-shaped soul-self, shields, heals by taking others' pain, and must stay calm,
 because her emotions leak out as power and Trigon's red-eyed side breaks through when she loses control.

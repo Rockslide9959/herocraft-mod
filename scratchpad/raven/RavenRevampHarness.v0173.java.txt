@@ -1,0 +1,636 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.raven.RavenHud;
+import com.projecthero.mod.client.raven.RavenSpellWheelScreen;
+import com.projecthero.mod.raven.Raven;
+import com.projecthero.mod.raven.RavenAbilityManager;
+import com.projecthero.mod.raven.RavenMoves;
+import com.projecthero.mod.raven.RavenRestore;
+import com.projecthero.mod.raven.RavenSpell;
+import com.projecthero.mod.raven.RavenSpells;
+import com.projecthero.mod.raven.data.RavenState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): the v0.17.3 Raven revamp proof -- the wheel, the HUD, every main move and every spell. Enabled by
+ * run/ravenrevamp.flag (its text filters scenes). Frames: run/screenshots/rr_*. Hook in/out with
+ * scratchpad/raven/revamp_hook.js; films with scratchpad/raven/revamp_films.sh.
+ */
+public final class RavenRevampHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private RavenRevampHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("ravenrevamp.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("ravenrevamp.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(RavenRevampHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "ravenrevamp-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(RavenRevampHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				p.getAbilities().invulnerable = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("rr_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("RR_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	/** A fresh Raven at the origin facing +z, full and calm, nothing left over from the last scene. */
+	private static void raven(Minecraft mc, int t, float pitch, float composure) {
+		at(t, com.projecthero.mod.client.raven.RavenFx::reset); // nothing left over from the last scene's effects
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			AABB box = new AABB(origin, origin).inflate(48);
+			for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> e instanceof Husk || e instanceof ItemEntity || e instanceof Arrow)) {
+				e.discard();
+			}
+			RavenRestore.restoreAll();
+			if (!Raven.hasPower(p)) {
+				Raven.grant(p);
+			}
+			Raven.clearTransient(p);
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			p.setHealth(p.getMaxHealth());
+			Raven.clearCooldowns(p);
+			Raven.setEnergy(p, 100f);
+			Raven.setComposure(p, composure);
+		}));
+	}
+
+	private static void husk(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(300);
+			h.setHealth(300);
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			h.setBaby(false);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void act(Minecraft mc, int t, Consumer<ServerPlayer> fn) {
+		at(t, () -> server(mc, fn));
+	}
+
+	private static void use(Minecraft mc, int t, String id) {
+		act(mc, t, p -> {
+			Raven.clearCooldowns(p);
+			Raven.setEnergy(p, 100f);
+			boolean ok = RavenMoves.use(p, id);
+			System.out.println("[HARNESS] use " + id + " -> " + ok);
+		});
+	}
+
+	private static void spell(Minecraft mc, int t, RavenSpell s) {
+		act(mc, t, p -> {
+			Raven.clearCooldowns(p);
+			Raven.setEnergy(p, 100f);
+			RavenSpells.select(p, s.ordinal());
+			boolean ok = RavenSpells.cast(p, s, false);
+			System.out.println("[HARNESS] spell " + s.id + " -> " + ok);
+		});
+	}
+
+	/** The client player's look (the client owns it in single player), turned smoothly from one to the other. */
+	private static void turn(Minecraft mc, int t, int ticks, float yaw0, float yaw1, float pitch0, float pitch1) {
+		for (int i = 0; i <= ticks; i++) {
+			float k = i / (float) ticks;
+			float yaw = yaw0 + (yaw1 - yaw0) * k, pitch = pitch0 + (pitch1 - pitch0) * k;
+			at(t + i, () -> {
+				if (mc.player != null) {
+					mc.player.setYRot(yaw);
+					mc.player.setXRot(pitch);
+					mc.player.setYHeadRot(yaw);
+					mc.player.yBodyRot = yaw;
+				}
+			});
+		}
+	}
+
+	/** The client player looks at a spot (offset from the origin). */
+	private static void lookAt(Minecraft mc, int t, double dx, double dy, double dz) {
+		at(t, () -> {
+			if (mc.player != null) {
+				mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, origin.add(dx, dy, dz));
+				mc.player.yBodyRot = mc.player.getYRot();
+			}
+		});
+	}
+
+	private static void arrowAt(Minecraft mc, int t, double fromDx, double fromDz) {
+		act(mc, t, p -> {
+			ServerLevel level = p.serverLevel();
+			Arrow a = new Arrow(EntityType.ARROW, level);
+			Husk owner = level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(20)).stream().findFirst().orElse(null);
+			a.setOwner(owner);
+			Vec3 from = origin.add(fromDx, 1.4, fromDz);
+			a.setPos(from.x, from.y, from.z);
+			Vec3 to = p.position().add(0, 1.0, 0).subtract(from).normalize().scale(1.2);
+			a.setDeltaMovement(to);
+			level.addFreshEntity(a);
+		});
+	}
+
+	private static void view(Minecraft mc, int t, boolean gui) {
+		at(t, () -> {
+			mc.options.hideGui = !gui;
+			clean(mc);
+		});
+	}
+
+	/** No chat, title, toast or tutorial over the HUD shots. */
+	private static void clean(Minecraft mc) {
+		mc.gui.getChat().clearMessages(false);
+		mc.gui.clear();
+		mc.getToasts().clear();
+		mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+	}
+
+	private static int scene(Minecraft mc, int t, String name, int len, java.util.function.IntConsumer body) {
+		if (!want(name)) {
+			return t;
+		}
+		body.accept(t);
+		return t + len;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// ------------------------------------------------ the wheel and the HUD
+		t = scene(mc, t, "wheel", 34, s -> {
+			raven(mc, s, 0f, 70f);
+			cam(s + 1, 160f, 0.3f, 3.0f, 0f, 1.2f);
+			view(mc, s + 2, true);
+			at(s + 3, () -> {
+				RavenSpellWheelScreen.stayOpen = true;
+				RavenSpellWheelScreen.forceHover = 3;
+				mc.setScreen(new RavenSpellWheelScreen());
+			});
+			record(s + 8, "wheel", 4);
+			at(s + 14, () -> RavenSpellWheelScreen.forceHover = 8);
+			record(s + 18, "wheel_utility", 4);
+			at(s + 26, () -> {
+				RavenSpellWheelScreen.stayOpen = false;
+				RavenSpellWheelScreen.forceHover = -1;
+				mc.setScreen(null);
+			});
+			view(mc, s + 28, false);
+		});
+		t = scene(mc, t, "hud", 60, s -> {
+			raven(mc, s, 0f, 30f);
+			cam(s + 1, 160f, 0.3f, 3.2f, 0f, 1.2f);
+			view(mc, s + 2, true);
+			act(mc, s + 3, p -> {
+				RavenSpells.select(p, RavenSpell.SOUL_DEVOUR.ordinal());
+				RavenMoves.use(p, RavenAbilityManager.ASCENSION);
+				RavenMoves.use(p, RavenAbilityManager.SOUL_SHIELD);
+				Raven.setComposure(p, 30f);
+				Raven.setEnergy(p, 64f);
+			});
+			record(s + 8, "hud_unsettled", 4);
+			act(mc, s + 16, p -> {
+				Raven.clearTransient(p);
+				Raven.setComposure(p, 5f);
+				RavenSpells.select(p, RavenSpell.ASTRAL_SANCTUARY.ordinal());
+				RavenSpells.cast(p, RavenSpell.ASTRAL_SANCTUARY, false); // (its cooldown shows in the V box)
+			});
+			record(s + 22, "hud_rage", 4);
+			act(mc, s + 30, p -> {
+				Raven.setComposure(p, 95f);
+				RavenSpells.select(p, RavenSpell.SHADOW_VEIL.ordinal());
+			});
+			at(s + 31, () -> RavenHud.forceShift = true);
+			record(s + 36, "hud_calm_shift", 4);
+			at(s + 44, () -> RavenHud.forceShift = false);
+			view(mc, s + 46, false);
+		});
+		// ------------------------------------------------ main keys
+		t = scene(mc, t, "bolt", 40, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 6.0);
+			husk(mc, s + 1, 1.3, 6.3);
+			husk(mc, s + 1, -1.2, 6.6);
+			cam(s + 2, 125f, 0.8f, 4.5f, 0f, 1.1f);
+			lookAt(mc, s + 3, 0.0, 1.2, 6.0);
+			use(mc, s + 6, RavenAbilityManager.DARK_BOLT);
+			lookAt(mc, s + 15, -1.2, 1.2, 6.6);
+			use(mc, s + 16, RavenAbilityManager.DARK_BOLT);
+			use(mc, s + 24, RavenAbilityManager.DARK_BOLT);
+			record(s + 5, "bolt", 32);
+		});
+		t = scene(mc, t, "shield", 60, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 9.0);
+			husk(mc, s + 1, 2.0, 2.0);
+			cam(s + 2, 110f, 0.6f, 4.0f, 0.8f, 1.0f);
+			use(mc, s + 4, RavenAbilityManager.SOUL_SHIELD);
+			act(mc, s + 5, p -> {
+				p.getAbilities().invulnerable = false;
+				p.onUpdateAbilities();
+			});
+			arrowAt(mc, s + 10, 0.0, 9.0);
+			arrowAt(mc, s + 18, -3.0, 8.0);
+			act(mc, s + 26, p -> {
+				p.invulnerableTime = 0;
+				p.hurt(p.damageSources().magic(), 12f);
+			});
+			act(mc, s + 34, p -> {
+				p.invulnerableTime = 0;
+				p.hurt(p.damageSources().magic(), 12f);
+			});
+			act(mc, s + 42, p -> {
+				p.invulnerableTime = 0;
+				p.hurt(p.damageSources().magic(), 10f); // breaks it: 20+ soaked, so it bursts
+			});
+			act(mc, s + 56, p -> {
+				p.getAbilities().invulnerable = true;
+				p.onUpdateAbilities();
+			});
+			record(s + 3, "shield", 54);
+		});
+		t = scene(mc, t, "soul", 80, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 5.0);
+			husk(mc, s + 1, 3.5, 8.0);
+			husk(mc, s + 1, 7.0, 7.0);
+			cam(s + 2, 200f, 3.0f, 7.0f, 0f, 1.0f);
+			turn(mc, s + 3, 2, 0f, 0f, -2f, -2f);
+			use(mc, s + 6, RavenAbilityManager.SOUL_SELF);
+			turn(mc, s + 14, 30, 0f, -60f, -2f, 0f);
+			at(s + 50, () -> System.out.println("[HARNESS] soul step"));
+			act(mc, s + 52, p -> System.out.println("[HARNESS] step through -> " + RavenMoves.use(p, RavenAbilityManager.SOUL_SELF)));
+			record(s + 5, "soul", 66);
+		});
+		t = scene(mc, t, "crush", 64, s -> {
+			raven(mc, s, 10f, 70f);
+			husk(mc, s + 1, -1.5, 4.5);
+			husk(mc, s + 1, 1.5, 4.5);
+			husk(mc, s + 1, 0.0, 6.5);
+			cam(s + 2, 125f, 0.8f, 4.6f, 0f, 1.5f);
+			use(mc, s + 6, RavenAbilityManager.TELEKINETIC_CRUSH);
+			record(s + 5, "crush", 56);
+		});
+		t = scene(mc, t, "wave", 44, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 6.0);
+			husk(mc, s + 1, -2.5, 9.0);
+			husk(mc, s + 1, 3.0, 10.0);
+			cam(s + 2, 135f, 2.5f, 7.0f, 0f, 1.0f);
+			use(mc, s + 6, RavenAbilityManager.ENERGY_WAVE);
+			record(s + 5, "wave", 36);
+		});
+		t = scene(mc, t, "dash_step", 50, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 4.0, 14.0);
+			cam(s + 2, 100f, 1.5f, 8.0f, 0f, 1.0f);
+			use(mc, s + 6, RavenAbilityManager.SHADOW_DASH);
+			lookAt(mc, s + 18, 4.0, 1.0, 14.0);
+			use(mc, s + 20, RavenAbilityManager.SHADOW_STEP);
+			record(s + 5, "dash_step", 42);
+		});
+		t = scene(mc, t, "ascend", 70, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 7.0);
+			cam(s + 2, 20f, 0.4f, 3.4f, 1.2f, 1.2f);
+			use(mc, s + 6, RavenAbilityManager.ASCENSION);
+			lookAt(mc, s + 36, 0.0, 1.2, 7.0);
+			act(mc, s + 38, p -> RavenMoves.use(p, RavenAbilityManager.DARK_BOLT));
+			act(mc, s + 48, p -> {
+				Raven.clearCooldowns(p);
+				RavenMoves.use(p, RavenAbilityManager.SOUL_SHIELD);
+			});
+			record(s + 4, "ascend", 62);
+			act(mc, s + 68, Raven::clearTransient);
+		});
+		t = scene(mc, t, "wrath", 80, s -> {
+			raven(mc, s, 0f, 5f);
+			husk(mc, s + 1, 0.0, 6.0);
+			husk(mc, s + 1, 5.0, 3.0);
+			husk(mc, s + 1, -5.0, 4.0);
+			husk(mc, s + 1, -3.0, -5.0);
+			cam(s + 2, 150f, 4.0f, 13.0f, 0.6f, 3.0f);
+			use(mc, s + 6, RavenAbilityManager.TRIGONS_WRATH);
+			record(s + 5, "wrath", 72);
+			act(mc, s + 78, Raven::clearTransient);
+		});
+		// ------------------------------------------------ spells
+		t = scene(mc, t, "vortex", 96, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 3.0, 7.0);
+			husk(mc, s + 1, -3.5, 8.0);
+			husk(mc, s + 1, 1.0, 11.0);
+			cam(s + 2, 135f, 3.0f, 8.0f, 0f, 1.0f);
+			lookAt(mc, s + 3, 0.0, 0.0, 8.0);
+			spell(mc, s + 6, RavenSpell.VOID_VORTEX);
+			record(s + 5, "vortex", 90);
+		});
+		t = scene(mc, t, "binding", 56, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 7.0);
+			husk(mc, s + 1, 2.0, 8.5);
+			husk(mc, s + 1, -2.0, 6.0);
+			cam(s + 2, 140f, 2.0f, 6.5f, 0f, 1.0f);
+			lookAt(mc, s + 3, 0.0, 0.0, 7.0);
+			spell(mc, s + 6, RavenSpell.SHADOW_BINDING);
+			record(s + 5, "binding", 50);
+		});
+		t = scene(mc, t, "detonation", 52, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 2.0, 3.0);
+			husk(mc, s + 1, -3.0, 2.0);
+			husk(mc, s + 1, 1.0, -4.5);
+			cam(s + 2, 140f, 3.5f, 8.0f, 0.5f, 1.0f);
+			spell(mc, s + 6, RavenSpell.SOUL_DETONATION);
+			record(s + 5, "detonation", 46);
+		});
+		t = scene(mc, t, "devour", 72, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 7.0);
+			act(mc, s + 2, p -> p.setHealth(12f));
+			cam(s + 2, 105f, 1.0f, 5.0f, 0f, 1.3f);
+			lookAt(mc, s + 3, 0.0, 1.2, 7.0);
+			spell(mc, s + 6, RavenSpell.SOUL_DEVOUR);
+			record(s + 5, "devour", 66);
+		});
+		t = scene(mc, t, "debris", 64, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 9.0);
+			cam(s + 2, 140f, 2.0f, 6.0f, 0f, 1.2f);
+			spell(mc, s + 6, RavenSpell.DEBRIS_STORM);
+			lookAt(mc, s + 24, 0.0, 1.2, 9.0);
+			act(mc, s + 26, p -> RavenSpells.cast(p, RavenSpell.DEBRIS_STORM, false));
+			act(mc, s + 32, p -> RavenSpells.cast(p, RavenSpell.DEBRIS_STORM, false));
+			act(mc, s + 38, p -> RavenSpells.cast(p, RavenSpell.DEBRIS_STORM, false));
+			record(s + 5, "debris", 56);
+			act(mc, s + 62, p -> {
+				Raven.clearTransient(p);
+				RavenRestore.restoreAll();
+			});
+		});
+		t = scene(mc, t, "rift", 44, s -> {
+			raven(mc, s, 0f, 70f);
+			act(mc, s + 1, p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.add(x, y, 4)), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState());
+					}
+				}
+			});
+			cam(s + 2, 55f, 1.5f, 6.5f, 0f, 1.0f);
+			spell(mc, s + 8, RavenSpell.DIMENSIONAL_RIFT);
+			record(s + 6, "rift", 34);
+			act(mc, s + 42, p -> {
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.add(x, y, 4)), Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		});
+		t = scene(mc, t, "restoration", 72, s -> {
+			raven(mc, s, 0f, 25f);
+			act(mc, s + 2, p -> {
+				p.setHealth(8f);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.POISON, 200, 0));
+			});
+			cam(s + 2, 30f, 0.6f, 3.5f, 1.0f, 1.0f);
+			turn(mc, s + 3, 1, 180f, 180f, 0f, 0f);
+			spell(mc, s + 6, RavenSpell.SOUL_RESTORATION);
+			record(s + 5, "restoration", 66);
+		});
+		t = scene(mc, t, "pull", 44, s -> {
+			raven(mc, s, 0f, 70f);
+			act(mc, s + 1, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setBlockAndUpdate(BlockPos.containing(origin.add(0, 0, 5)), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR));
+				level.setBlockAndUpdate(BlockPos.containing(origin.add(0, -1, 5)), Blocks.REDSTONE_LAMP.defaultBlockState());
+				for (int i = 0; i < 6; i++) {
+					double a = i * Math.PI / 3;
+					ItemEntity it = new ItemEntity(level, origin.x + Math.cos(a) * 8, origin.y + 0.3, origin.z + 4 + Math.sin(a) * 6,
+							new ItemStack(i % 2 == 0 ? Items.DIAMOND : Items.AMETHYST_SHARD));
+					it.setPickUpDelay(100);
+					level.addFreshEntity(it);
+				}
+			});
+			cam(s + 2, 140f, 2.5f, 7.0f, 0f, 1.0f);
+			lookAt(mc, s + 3, 0.0, 0.1, 5.0);
+			spell(mc, s + 8, RavenSpell.TELEKINETIC_PULL);
+			record(s + 6, "pull", 36);
+			act(mc, s + 43, p -> {
+				p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.add(0, 0, 5)), Blocks.AIR.defaultBlockState());
+				p.serverLevel().setBlockAndUpdate(BlockPos.containing(origin.add(0, -1, 5)), Blocks.GRASS_BLOCK.defaultBlockState());
+			});
+		});
+		t = scene(mc, t, "sanctuary", 70, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 2.0, 2.5);
+			husk(mc, s + 1, -3.0, 1.0);
+			husk(mc, s + 1, 0.0, 9.0);
+			cam(s + 2, 140f, 5.0f, 11.0f, 0.4f, 1.0f);
+			spell(mc, s + 6, RavenSpell.ASTRAL_SANCTUARY);
+			arrowAt(mc, s + 22, 0.0, 9.0);
+			arrowAt(mc, s + 30, 6.0, 7.0);
+			record(s + 5, "sanctuary", 62);
+		});
+		t = scene(mc, t, "veil", 48, s -> {
+			raven(mc, s, 0f, 70f);
+			husk(mc, s + 1, 0.0, 6.0);
+			cam(s + 2, 130f, 0.8f, 4.0f, 0f, 1.0f);
+			spell(mc, s + 6, RavenSpell.SHADOW_VEIL);
+			lookAt(mc, s + 28, 0.0, 1.2, 6.0);
+			act(mc, s + 30, p -> RavenMoves.use(p, RavenAbilityManager.DARK_BOLT)); // an attack ends it
+			record(s + 5, "veil", 40);
+		});
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

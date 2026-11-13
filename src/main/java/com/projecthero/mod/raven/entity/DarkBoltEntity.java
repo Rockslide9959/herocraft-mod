@@ -29,16 +29,16 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.3 Raven, R: a bolt of black energy. Straight and fast ({@link RavenConfig#BOLT_SPEED}); it passes through the first creature
- * it hits ({@link RavenConfig#BOLT_PIERCE}) and stops in the next one or the first wall. The server moves it; the client draws a black
- * core in a violet glow ({@code DarkBoltRenderer}) with a wispy trail.
+ * v0.17.3 Raven, R: a bolt of black energy. Straight and fast ({@link RavenConfig#BOLT_SPEED}); it stops in the first creature or
+ * wall and bursts there in a small purple pop ({@link RavenConfig#BOLT_BURST_DAMAGE} to every other creature within
+ * {@link RavenConfig#BOLT_BURST_RADIUS}). The server moves it; the client draws a black core in a violet glow
+ * ({@code DarkBoltRenderer}) with a wispy trail.
  */
 public class DarkBoltEntity extends Projectile {
 	private Vec3 start = Vec3.ZERO;
 	private float damage = RavenConfig.BOLT_DAMAGE;
-	private int pierceLeft = RavenConfig.BOLT_PIERCE;
 	private final Set<Integer> struck = new HashSet<>();
-	/** For the tests: creatures this bolt has hit. */
+	/** For the tests: creatures this bolt has hit (the burst included). */
 	public int hits;
 
 	public DarkBoltEntity(EntityType<? extends DarkBoltEntity> type, Level level) {
@@ -106,26 +106,20 @@ public class DarkBoltEntity extends Projectile {
 		}
 		Vec3 f = from;
 		along.sort(Comparator.comparingDouble(e -> e.distanceToSqr(f)));
-		for (LivingEntity t : along) {
+		if (!along.isEmpty()) {
+			LivingEntity t = along.get(0);
 			struck.add(t.getId());
 			if (Raven.hit(owner, t, damage)) {
 				hits++;
-				Vec3 c = t.position().add(0, t.getBbHeight() * 0.6, 0);
-				level.sendParticles(Raven.dust(Raven.VOID, 1.5f), c.x, c.y, c.z, 12, 0.25, 0.3, 0.25, 0.0);
-				level.sendParticles(Raven.dust(Raven.VIOLET, 1.0f), c.x, c.y, c.z, 8, 0.3, 0.3, 0.3, 0.0);
-				level.playSound(null, c.x, c.y, c.z, RavenSounds.BOLT_HIT, SoundSource.PLAYERS, 0.45f, 0.6f);
 			}
-			if (pierceLeft <= 0) {
-				discard();
-				return;
-			}
-			pierceLeft--;
+			burst(level, owner, t.position().add(0, t.getBbHeight() * 0.6, 0), t);
+			discard();
+			return;
 		}
 		if (wall) {
 			Vec3 c = block.getLocation();
-			level.sendParticles(Raven.dust(Raven.VOID, 1.4f), c.x, c.y, c.z, 10, 0.2, 0.2, 0.2, 0.0);
 			level.sendParticles(ParticleTypes.SMOKE, c.x, c.y, c.z, 4, 0.1, 0.1, 0.1, 0.01);
-			level.playSound(null, c.x, c.y, c.z, RavenSounds.BOLT_HIT, SoundSource.PLAYERS, 0.3f, 0.5f);
+			burst(level, owner, c, null);
 			discard();
 			return;
 		}
@@ -133,5 +127,24 @@ public class DarkBoltEntity extends Projectile {
 		if (to.distanceToSqr(start) > RavenConfig.BOLT_RANGE * RavenConfig.BOLT_RANGE) {
 			discard();
 		}
+	}
+
+	/** The purple pop where it lands: {@link RavenConfig#BOLT_BURST_DAMAGE} to every other creature within reach. */
+	private void burst(ServerLevel level, ServerPlayer owner, Vec3 c, LivingEntity struckFirst) {
+		double r = RavenConfig.BOLT_BURST_RADIUS;
+		for (LivingEntity o : HeroTargets.harmable(level, owner, new net.minecraft.world.phys.AABB(c, c).inflate(r))) {
+			if (o == struckFirst || o.position().add(0, o.getBbHeight() * 0.5, 0).distanceTo(c) > r + o.getBbWidth() * 0.5) {
+				continue;
+			}
+			if (Raven.hit(owner, o, RavenConfig.BOLT_BURST_DAMAGE)) {
+				hits++;
+			}
+		}
+		level.sendParticles(Raven.dust(Raven.VOID, 1.5f), c.x, c.y, c.z, 14, 0.3, 0.3, 0.3, 0.0);
+		level.sendParticles(Raven.dust(Raven.VIOLET, 1.3f), c.x, c.y, c.z, 18, r * 0.35, r * 0.35, r * 0.35, 0.0);
+		level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y, c.z, 10, 0.2, 0.2, 0.2, 0.25);
+		level.playSound(null, c.x, c.y, c.z, RavenSounds.BOLT_HIT, SoundSource.PLAYERS, 0.45f, 0.6f);
+		com.projecthero.mod.raven.RavenMoves.fx(owner, new com.projecthero.mod.raven.network.RavenFxPayload(
+				com.projecthero.mod.raven.network.RavenFxPayload.BURST, owner.getId(), c, new Vec3(r, 0, 0), 8));
 	}
 }

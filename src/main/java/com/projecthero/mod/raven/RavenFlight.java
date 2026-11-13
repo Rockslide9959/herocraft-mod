@@ -104,7 +104,6 @@ public final class RavenFlight {
 	static void startMeditation(ServerPlayer player) {
 		RavenState n = Raven.state(player).copy();
 		n.meditating = true;
-		n.shield = false;
 		Raven.save(player, n);
 		player.removeEffect(MobEffects.SLOW_FALLING);
 		if (player.onGround() && player.level().noCollision(player, player.getBoundingBox().move(0, RavenConfig.MEDITATE_FLOAT, 0))) {
