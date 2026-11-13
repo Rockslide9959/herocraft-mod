@@ -112,12 +112,31 @@ public final class Aliens {
 
 	/** Every alien on the prototype's dial, in order. */
 	public static List<Alien> all() {
-		return Collections.unmodifiableList(new ArrayList<>(ALL.values()));
+		return Collections.unmodifiableList(shown(ALL.values()));
+	}
+
+	/** v0.17.3: {@code aliens} without the ones a release switch holds back ({@link #heldBack}). */
+	private static List<Alien> shown(java.util.Collection<Alien> aliens) {
+		List<Alien> out = new ArrayList<>();
+		for (Alien a : aliens) {
+			if (!heldBack(a.id())) {
+				out.add(a);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * v0.17.3: {@code id} is held back from this release ({@code OmnitrixFeature.heldBack}, the new prototype aliens): never on a dial,
+	 * in a roster, found or transformed into.
+	 */
+	public static boolean heldBack(String id) {
+		return com.projecthero.mod.omnitrix.OmnitrixFeature.heldBack(id);
 	}
 
 	/** v0.17.2: every alien on the Recalibrated Omnitrix's dial, in order. */
 	public static List<Alien> recalibrated() {
-		return Collections.unmodifiableList(new ArrayList<>(RECAL.values()));
+		return Collections.unmodifiableList(shown(RECAL.values()));
 	}
 
 	/** v0.17.2: the dial of the watch {@code p} wears (the prototype's for a player without the recalibrated one). */
@@ -157,6 +176,9 @@ public final class Aliens {
 
 	/** {@code p} may dial {@code id}: never hidden, or found already (client-safe: the synced state). */
 	public static boolean found(net.minecraft.world.entity.player.Player p, String id) {
+		if (heldBack(id)) {
+			return false; // v0.17.3: held back from this release, found or not
+		}
 		return !HIDDEN.contains(id) || com.projecthero.mod.omnitrix.Omnitrix.state(p).readyAt(foundKey(id)) == 1L;
 	}
 
@@ -176,7 +198,7 @@ public final class Aliens {
 	 * is filtered out here -- one line.
 	 */
 	private static boolean byMistransform(String id) {
-		return HIDDEN.contains(id) && !ITEM_ONLY.contains(id);
+		return HIDDEN.contains(id) && !ITEM_ONLY.contains(id) && !heldBack(id);
 	}
 
 	/**
@@ -242,7 +264,7 @@ public final class Aliens {
 	public static List<Alien> dial(boolean recal) {
 		List<Alien> out = new ArrayList<>();
 		for (Alien a : recal ? RECAL.values() : ALL.values()) {
-			if (KITS.containsKey(a.id())) {
+			if (KITS.containsKey(a.id()) && !heldBack(a.id())) {
 				out.add(a);
 			}
 		}
@@ -271,14 +293,14 @@ public final class Aliens {
 	}
 
 	public static boolean playable(String id) {
-		return kit(id) != null;
+		return kit(id) != null && !heldBack(id);
 	}
 
 	/** The playable aliens, in dial order. */
 	public static List<Alien> playable() {
 		List<Alien> out = new ArrayList<>();
 		for (Alien a : ALL.values()) {
-			if (KITS.containsKey(a.id())) {
+			if (KITS.containsKey(a.id()) && !heldBack(a.id())) {
 				out.add(a);
 			}
 		}

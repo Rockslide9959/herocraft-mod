@@ -1,5 +1,16 @@
 # Omnitrix show transformations (v0.17.3)
 
+> **Held back from the v0.17.3 release** (user: "I want to exclude the new Ben 10 aliens and all the transformation scenes from this
+> update"). The release switch is `OmnitrixFeature.SHOW_SEQUENCES` (`false`), read through `OmnitrixFeature.showSequences()` /
+> `sequenceAllowed(id)`. While it is off, `ShowSequences.get/has/byHash` answer only for `OmnitrixFeature.SHIPPED_SEQUENCES`
+> (`four_arms`: its right-click long transformation already shipped in v0.17.2, so released players keep it), and a right-click on
+> any other alien is the normal quick slap with the normal transform sound, as in v0.17.2. Everything below stays in the code.
+> **To ship them:** set `SHOW_SEQUENCES = true` (one line). To hold Four Arms back too, empty `SHIPPED_SEQUENCES` (and reword the
+> "right-click: the full show transformation" hints in `en_us.json`). The gametest server turns the switch on by default
+> (`fabric-api.gametest`), so the sequence tests keep running; `OmnitrixHoldBackGameTests` checks the off state.
+> The six new prototype aliens (Snare-oh, Shock Rock, Frankenstrike, Eye Guy, Benwolf, Arctiguana) are held back the same way by
+> `OmnitrixFeature.PROTOTYPE_ALIENS_0173`.
+
 A right-click on the raised dial plays the alien's transformation from the show, shot for shot and cut to the show's own audio.
 A left-click is still the quick slap. Four Arms was the first one (v0.17.2). From v0.17.3 every alien's sequence is its own pair
 of classes on a shared framework, so several aliens can be built in parallel without two branches touching the same lines.

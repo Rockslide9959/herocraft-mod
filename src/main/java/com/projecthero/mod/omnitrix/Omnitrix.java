@@ -970,7 +970,7 @@ public final class Omnitrix {
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
 		}
-		AlienKit kit = Aliens.kit(s.selected);
+		AlienKit kit = Aliens.heldBack(s.selected) ? null : Aliens.kit(s.selected); // v0.17.3: a held-back alien is "coming soon"
 		if (kit == null) {
 			Aliens.Alien a = Aliens.byId(s.selected);
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.coming_soon",
@@ -1408,6 +1408,14 @@ public final class Omnitrix {
 			return;
 		}
 		long now = p.level().getGameTime();
+		// v0.17.3: a world that already had him in a held-back alien (OmnitrixFeature) turns him back; the dial falls back on the next raise
+		if (s.transformed() && Aliens.heldBack(s.active)) {
+			revert(p, Reason.REVOKE);
+			s = state(p);
+			if (!s.hasPower) {
+				return;
+			}
+		}
 		// v0.17.1: the shake-off is over -- the slow comes off
 		if (!latching(p) && latchSlowed(p)) {
 			latchLock(p, false);

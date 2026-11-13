@@ -318,7 +318,8 @@
       "com.projecthero.mod.gametest.OmnitrixSpidermonkeyGameTests",
       "com.projecthero.mod.gametest.OmnitrixGoopGameTests",
       "com.projecthero.mod.gametest.OmnitrixAlienXGameTests",
-      "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests"
+      "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests",
+      "com.projecthero.mod.gametest.OmnitrixHoldBackGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],
