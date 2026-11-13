@@ -483,8 +483,8 @@ public final class GhostfreakKit extends AlienKit {
 		if (now % 4 == 0 && !hidden(p)) {
 			l.sendParticles(WISP, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.15, 0.1, 0.15, 0.0);
 		}
-		// the sun burns an Ectonurite (not while he hides inside a host)
-		if (now % 20 == 0 && !flag(p, F_POSSESS) && !flag(p, F_TRUE) && inSunlight(p)) {
+		// the sun burns an Ectonurite (not while he hides inside a host, nor during the show transformation)
+		if (now % 20 == 0 && !flag(p, F_POSSESS) && !flag(p, F_TRUE) && inSunlight(p) && !com.projecthero.mod.omnitrix.OmnitrixLongTransform.playing(p)) { // v0.17.3 (user): no burn during the show transformation
 			p.hurt(p.damageSources().inFire(), SUN_DAMAGE);
 			l.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.2, p.getZ(), 8, 0.3, 0.5, 0.3, 0.01);
 			if (now % 200 == 0) {
