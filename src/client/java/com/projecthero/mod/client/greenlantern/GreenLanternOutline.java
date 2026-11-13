@@ -47,9 +47,9 @@ public final class GreenLanternOutline {
 	private static final int LINE = 0x3DFF2E;
 	private static final int LINE_BOOST = 0x6BFF4F;
 	/** The line's width past the worn silhouette, model px, close up (+ {@link #WIDTH_PER_BLOCK} per block of distance). */
-	private static final float WIDTH = 0.3f;
-	private static final float WIDTH_PER_BLOCK = 0.03f;
-	private static final float WIDTH_MAX = 1.6f;
+	private static final float WIDTH = 0.18f; // v0.17.3 (user: "a bit thick"): was 0.3
+	private static final float WIDTH_PER_BLOCK = 0.018f; // was 0.03
+	private static final float WIDTH_MAX = 1.0f; // was 1.6
 	/** Each vertex goes this far further from the camera along its view ray (blocks). */
 	private static final float PUSH = 0.5f;
 
@@ -92,7 +92,7 @@ public final class GreenLanternOutline {
 		// the faint additive bloom first (wider), then the flat line over it
 		for (int pass = 0; pass < 2; pass++) {
 			VertexConsumer vc = buffers.getBuffer(pass == 0 ? Types.HALO : Types.LINE);
-			float w = pass == 0 ? width * 2.0f : width;
+			float w = pass == 0 ? width * 1.6f : width; // halo was 2x
 			float a = pass == 0 ? strength * (0.25f + 0.1f * boost) : strength;
 			part(vc, pose, model.head, -4, -8, -4, 4, 0, 4, head + w, rgb, a, push);
 			part(vc, pose, model.body, -4, 0, -2, 4, 12, 2, body + w, rgb, a, push);
