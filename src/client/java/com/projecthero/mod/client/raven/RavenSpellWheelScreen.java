@@ -30,9 +30,11 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.3 Raven revamp: the <b>Spell Wheel</b>. Hold V (a tap casts the picked spell instead, {@code RavenClient}): the ten spells
  * round a black ring in Azarath violet (the power wheel's ring geometry, {@link PowerWheelScreen#band}), combat spells on the right
- * half, utility on the left. Each slice shows the spell's icon, name, a few words of what it does, its Dark Energy cost and its
- * cooldown; the one pointed at is described in full under the wheel (wrapped). Point and let go of V to pick it (a click picks
- * too); let go over the centre, or Escape, to keep the old pick. The game keeps running.
+ * half, utility on the left. Each slice shows only the spell's icon and name (wrapped to the slice) with a cooldown sweep; the one
+ * pointed at (or the current pick) gets its name, Dark Energy cost, cooldown and a few words in the centre circle, and its full
+ * description in a wrapped panel beside or under the wheel (whichever leaves the bigger wheel), sized so nothing is ever clipped
+ * and nothing overlaps the ring. The HUD is put away while it's open, like the I menus. Point and let go of V to pick (a click
+ * picks too); let go over the centre, or Escape, to keep the old pick. The game keeps running.
  */
 public final class RavenSpellWheelScreen extends Screen {
 	public static final ResourceLocation ICONS = ProjectHeroMod.id("textures/gui/raven/spells.png");
@@ -46,12 +48,18 @@ public final class RavenSpellWheelScreen extends Screen {
 	private static final int VIOLET = 0xFFA66CF0;
 	private static final int VIOLET_DIM = 0xFF4A2A72;
 	private static final int CENTRE_FILL = 0xF0060409;
+	private static final int PANEL = 0xC8080510;
 	private static final int TEXT = 0xFFE4D8FF;
 	private static final int TEXT_DIM = 0xFF9A8CB4;
 	private static final int COST = 0xFFB98CF0;
 	private static final int COOL = 0xFFFF8A8A;
 	private static final int DEAD_ZONE = 22;
 	private static final float OPEN_TICKS = 3f;
+	/** Screen margin, and the gap between the wheel and the description panel. */
+	private static final int MARGIN = 6;
+	private static final int PAD = 6;
+	private static final float HINT_SCALE = 0.75f;
+	private static final float MAX_OUTER = 140f;
 
 	private final RavenSpell[] spells = RavenSpell.values();
 	private int hovered = -1;
@@ -60,10 +68,22 @@ public final class RavenSpellWheelScreen extends Screen {
 	private int ticksOpen = 0;
 	private boolean held = false;
 	private boolean picked = false;
+	/** The F1 state from before the wheel opened (null = not hidden by the wheel). */
+	private Boolean hudWas;
+	private Layout layout;
 	/** Set only by the client screenshot harness: the wheel ignores the V key (stays open until closed). */
 	public static volatile boolean stayOpen;
 	/** Set only by the client screenshot harness: hover this slice (-1 = the mouse decides). */
 	public static volatile int forceHover = -1;
+
+	/**
+	 * Where everything goes for this screen size: the wheel's centre and outer radius, and the description panel (its box, the
+	 * wrap width and scale of the description, and the hint lines at its foot). Worked out once per size from the longest
+	 * description, so the wheel never jumps while you point around.
+	 */
+	private record Layout(float cx, float cy, float outer, int px, int py, int pw, int ph, float descScale, int descWrap,
+			List<FormattedCharSequence> hint) {
+	}
 
 	public RavenSpellWheelScreen() {
 		super(Component.translatable("screen.projecthero.raven.wheel"));
@@ -71,6 +91,25 @@ public final class RavenSpellWheelScreen extends Screen {
 
 	private static InputConstants.Key key() {
 		return KeyBindingHelper.getBoundKeyOf(ModKeyBindings.ABILITY_SLOTS[AbilitySlot.SLOT_5.ordinal()]);
+	}
+
+	@Override
+	protected void init() {
+		layout = null;
+		// the HUD (hotbar, the Raven corner HUD) is put away like F1 does while the wheel is open, so nothing runs under it
+		if (hudWas == null && this.minecraft != null) {
+			hudWas = this.minecraft.options.hideGui;
+			this.minecraft.options.hideGui = true;
+		}
+	}
+
+	@Override
+	public void removed() {
+		if (hudWas != null) {
+			Minecraft.getInstance().options.hideGui = hudWas;
+			hudWas = null;
+		}
+		super.removed();
 	}
 
 	@Override
@@ -130,6 +169,162 @@ public final class RavenSpellWheelScreen extends Screen {
 		g.fillGradient(0, 0, this.width, this.height, fade(DIM_TOP, open), fade(DIM_BOTTOM, open));
 	}
 
+	// ------------------------------------------------------------------ layout
+
+	private static float liftFor(float outer) {
+		return Math.max(4f, outer * 0.05f);
+	}
+
+	/** How far the ring reaches past the centre, a hovered (lifted) slice and the rim included. */
+	private static float reach(float outer) {
+		return outer + liftFor(outer) * 1.5f + 3f;
+	}
+
+	/** The biggest outer radius whose ring reaches no further than {@code r}. */
+	private static float outerFor(float r) {
+		return Math.max(40f, Math.min(MAX_OUTER, Math.min((r - 3f) / 1.075f, r - 9f)));
+	}
+
+	/** The most lines any spell's description needs at this wrap width. */
+	private int maxDescLines(int wrap) {
+		int most = 1;
+		for (RavenSpell sp : spells) {
+			most = Math.max(most, this.font.split(Component.translatable(sp.langKey() + ".desc"), wrap).size());
+		}
+		return most;
+	}
+
+	private static int headH() {
+		return 13;
+	}
+
+	private static int hintH(int lines) {
+		return Math.round(lines * 10 * HINT_SCALE);
+	}
+
+	/** Panel height for a panel {@code innerW} wide whose description is drawn at {@code ds}. */
+	private int panelHeight(int innerW, float ds, int hintLines) {
+		int lines = maxDescLines(Math.max(20, (int) Math.floor(innerW / ds)));
+		return PAD + headH() + (int) Math.ceil(lines * 10 * ds) + 8 + hintH(hintLines) + PAD - 2;
+	}
+
+	/** The biggest description scale (1 down to 0.4) whose panel fits in {@code maxH}; the smallest if none does. */
+	private float fitScale(int innerW, int maxH, int hintLines) {
+		for (float ds = 1f; ds >= 0.4f - 1e-4f; ds -= 0.05f) {
+			if (panelHeight(innerW, ds, hintLines) <= maxH) {
+				return ds;
+			}
+		}
+		return 0.4f;
+	}
+
+	private List<FormattedCharSequence> hintLines(int innerW) {
+		return this.font.split(Component.translatable("screen.projecthero.raven.wheel.hint"), Math.max(20, (int) Math.floor(innerW / HINT_SCALE)));
+	}
+
+	/**
+	 * Two candidates: the panel beside the wheel (right of it), or under it. Each is sized so the whole description fits; the one
+	 * that leaves the bigger wheel wins (under, on a tie).
+	 */
+	private Layout layout() {
+		if (layout != null) {
+			return layout;
+		}
+		int w = this.width, h = this.height;
+		// --- beside
+		float outerS = outerFor((h - 2f * MARGIN) / 2f);
+		int pwS = Math.min(260, Math.round(w - 2 * reach(outerS) - 3 * MARGIN));
+		if (pwS < 150) {
+			pwS = Math.min(150, w - 3 * MARGIN - 80);
+			outerS = outerFor((w - 3f * MARGIN - pwS) / 2f);
+		}
+		List<FormattedCharSequence> hintS = hintLines(pwS - 2 * PAD);
+		float dsS = fitScale(pwS - 2 * PAD, h - 2 * MARGIN, hintS.size());
+		int phS = panelHeight(pwS - 2 * PAD, dsS, hintS.size());
+		// --- under: the panel may take up to half the height, the description shrinking a little before it gets taller
+		int pwB = Math.min(340, w - 2 * MARGIN);
+		List<FormattedCharSequence> hintB = hintLines(pwB - 2 * PAD);
+		float dsB = fitScale(pwB - 2 * PAD, Math.round(h * 0.42f), hintB.size());
+		int phB = panelHeight(pwB - 2 * PAD, dsB, hintB.size());
+		float outerB = outerFor(Math.min(w / 2f - MARGIN, (h - 3f * MARGIN - phB) / 2f));
+
+		if (outerS > outerB + 2f && pwS >= 120) {
+			float span = 2 * reach(outerS);
+			float groupW = span + MARGIN + pwS;
+			float left = Math.max(MARGIN, (w - groupW) / 2f);
+			float cx = left + span / 2f;
+			float cy = h / 2f;
+			int px = Math.round(left + span + MARGIN);
+			int py = Mth.clamp(Math.round(cy - phS / 2f), MARGIN, Math.max(MARGIN, h - MARGIN - phS));
+			layout = new Layout(cx, cy, outerS, px, py, pwS, phS, dsS, Math.max(20, (int) Math.floor((pwS - 2 * PAD) / dsS)), hintS);
+		} else {
+			float span = 2 * reach(outerB);
+			float groupH = span + MARGIN + phB;
+			float top = Math.max(MARGIN, (h - groupH) / 2f);
+			float cx = w / 2f;
+			float cy = top + span / 2f;
+			int py = Math.round(top + span + MARGIN);
+			int px = Math.round(cx - pwB / 2f);
+			layout = new Layout(cx, cy, outerB, px, py, pwB, phB, dsB, Math.max(20, (int) Math.floor((pwB - 2 * PAD) / dsB)), hintB);
+		}
+		return layout;
+	}
+
+	// ------------------------------------------------------------------ text helpers
+
+	/**
+	 * Wraps {@code text} to {@code maxW} at the biggest scale from {@code maxScale} down to {@code minScale} that needs no more than
+	 * {@code maxLines} lines with every line inside {@code maxW}. Writes the scale into {@code scaleOut[0]}.
+	 */
+	private List<FormattedCharSequence> fit(Component text, float maxW, float maxScale, float minScale, int maxLines, float[] scaleOut) {
+		for (float sc = maxScale; sc >= minScale - 1e-4f; sc -= 0.05f) {
+			List<FormattedCharSequence> ls = this.font.split(text, Math.max(8, (int) Math.floor(maxW / sc)));
+			if (ls.size() <= maxLines && widest(ls) * sc <= maxW + 0.5f && wordsFit(text, maxW, sc)) {
+				scaleOut[0] = sc;
+				return ls;
+			}
+		}
+		scaleOut[0] = minScale;
+		return this.font.split(text, Math.max(8, (int) Math.floor(maxW / minScale)));
+	}
+
+	private int widest(List<FormattedCharSequence> ls) {
+		int w = 0;
+		for (FormattedCharSequence l : ls) {
+			w = Math.max(w, this.font.width(l));
+		}
+		return w;
+	}
+
+	/** No single word wider than {@code maxW} at this scale (the font's wrapper would break it mid-word). */
+	private boolean wordsFit(Component text, float maxW, float sc) {
+		for (String word : text.getString().split("\\s+")) {
+			if (this.font.width(word) * sc > maxW + 0.5f) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static float linesH(int n, float sc) {
+		return n <= 0 ? 0f : (n * 10f - 1f) * sc;
+	}
+
+	/** Draws the lines centred on {@code x} from {@code y}; returns their height. */
+	private float drawCentred(GuiGraphics g, List<FormattedCharSequence> ls, float sc, float x, float y, int color, boolean shadow) {
+		for (int i = 0; i < ls.size(); i++) {
+			FormattedCharSequence line = ls.get(i);
+			g.pose().pushPose();
+			g.pose().translate(x, y + i * 10f * sc, 0);
+			g.pose().scale(sc, sc, 1f);
+			g.drawString(this.font, line, Math.round(-this.font.width(line) / 2f), 0, color, shadow);
+			g.pose().popPose();
+		}
+		return linesH(ls.size(), sc);
+	}
+
+	// ------------------------------------------------------------------ render
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		super.render(g, mouseX, mouseY, partialTick);
@@ -137,14 +332,13 @@ public final class RavenSpellWheelScreen extends Screen {
 		if (mc.player == null) {
 			return;
 		}
+		Layout lay = layout();
 		int n = spells.length;
 		float open = openEase(partialTick);
-		// sized to leave room for the hint above and three lines of description below, even in a small window
-		float outer = Math.max(80f, Math.min(138f, Math.min(this.width * 0.38f, (this.height - 92) / 2f)));
-		float inner = outer * 0.40f;
-		float lift = Math.max(4f, outer * 0.05f);
-		float cx = this.width / 2f;
-		float cy = Math.max(outer + lift + 18f, this.height / 2f - 20f);
+		float outer = lay.outer();
+		float inner = outer * 0.44f;
+		float lift = liftFor(outer);
+		float cx = lay.cx(), cy = lay.cy();
 		RavenSpell cur = Raven.selectedSpell(mc.player);
 
 		hovered = -1;
@@ -182,15 +376,20 @@ public final class RavenSpellWheelScreen extends Screen {
 		for (int j = 0; j < n; j++) {
 			float he = smooth(hoverAnim[j]);
 			RavenSpell sp = spells[j];
-			boolean cooling = Raven.cooldownRemaining(mc.player, sp.id) > 0;
+			int cd = Raven.cooldownRemaining(mc.player, sp.id);
 			double mid = -Math.PI / 2 + j * seg;
 			double e0 = mid - seg / 2, e1 = mid + seg / 2;
 			float r0 = inner + lift * he * 0.6f;
 			float r1 = outer + lift * he * 1.4f;
 			int base = sp.combat ? (j % 2 == 0 ? SEG_FILL : SEG_FILL_ALT) : (j % 2 == 0 ? SEG_FILL_UTILITY : SEG_FILL_ALT);
-			int fill = lerp(base, cooling ? 0xF8302040 : SEG_FILL_HOVER, he);
+			int fill = lerp(base, cd > 0 ? 0xF8302040 : SEG_FILL_HOVER, he);
 			int edge = lerp(sp == cur ? VIOLET : VIOLET_DIM, 0xFFFFFFFF, he);
 			PowerWheelScreen.band(vc, m, cx, cy, r0, r1, e0, e1, gap, fade(fill, open));
+			if (cd > 0) {
+				// cooldown shading: a dark sweep from the inner edge outwards, shrinking as the spell comes back
+				float frac = Mth.clamp(cd / (float) Math.max(1, sp.cooldown), 0.08f, 1f);
+				PowerWheelScreen.band(vc, m, cx, cy, r0, r0 + (r1 - r0) * frac, e0, e1, gap, fade(0xA0000000, open));
+			}
 			PowerWheelScreen.band(vc, m, cx, cy, r1 - 1f, r1, e0, e1, gap, fade(edge, open));
 			PowerWheelScreen.band(vc, m, cx, cy, r0, r0 + 1f, e0, e1, gap, fade(edge, open));
 			PowerWheelScreen.side(vc, m, cx, cy, r0, r1, e0, gap, 1f, fade(edge, open));
@@ -204,95 +403,146 @@ public final class RavenSpellWheelScreen extends Screen {
 		PowerWheelScreen.sector(vc, m, cx, cy, disc - 2f, disc, 0, Math.PI * 2, fade(VIOLET_DIM, open));
 		g.flush();
 
-		// each slice: icon, name, a few words, cost and cooldown
+		// each slice: just the icon and the name, wrapped to the slice (the details go in the middle)
+		float[] sc = new float[1];
+		float iconBase = outer >= 120f ? 1.25f : outer >= 85f ? 1.0f : 0.8f;
+		float nameMax = outer >= 125f ? 1.0f : 0.85f;
+		int alpha = Math.round(255 * open);
+		// one name size for every slice (the size the longest name needs at rest), so the ring reads evenly
+		// (the stack sits a little outward of the middle of the ring, where the slice is wider; widths are taken a little
+		// further in, where a top slice's name sits)
+		float restR = inner + (outer - inner) * 0.56f;
+		float restW = Math.min((restR - 10f) * (float) seg - gap * 2f, outer - inner) - 6f;
+		float nameS = nameMax;
+		for (RavenSpell sp : spells) {
+			fit(Component.translatable(sp.langKey()), restW, nameMax, 0.5f, 2, sc);
+			nameS = Math.min(nameS, sc[0]);
+		}
 		for (int j = 0; j < n; j++) {
 			float he = smooth(hoverAnim[j]);
 			RavenSpell sp = spells[j];
 			double mid = -Math.PI / 2 + j * seg;
-			float r = (inner + outer) / 2f + lift * he;
+			float r = restR + lift * he;
 			float fx = cx + (float) Math.cos(mid) * r, fy = cy + (float) Math.sin(mid) * r;
-			float maxW = (float) (r * seg) - 6f;
+			// the narrower of the slice's width at this radius and its depth, so the text stays inside at any angle
+			float maxW = Math.min((r - 10f) * (float) seg - gap * 2f, outer - inner) - 6f;
 			int cd = Raven.cooldownRemaining(mc.player, sp.id);
-			// the icon
-			float iconScale = (outer >= 110f ? 1.25f : 1.0f) * (1f + 0.12f * he);
-			int alpha = Math.round(255 * open);
+			float iconScale = iconBase * (1f + 0.08f * he);
+			List<FormattedCharSequence> name = this.font.split(Component.translatable(sp.langKey()), Math.max(8, (int) Math.floor(maxW / nameS)));
+			float iconH = 16f * iconScale;
+			float total = iconH + 2f + linesH(name.size(), nameS);
+			float top = fy - total / 2f;
 			g.pose().pushPose();
-			g.pose().translate(fx, fy - 16f * iconScale + 1f, 0);
+			g.pose().translate(fx, top + iconH / 2f, 0);
 			g.pose().scale(iconScale, iconScale, 1f);
 			com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-			g.setColor(cd > 0 ? 0.55f : 1f, cd > 0 ? 0.55f : 1f, cd > 0 ? 0.6f : 1f, alpha / 255f);
+			g.setColor(cd > 0 ? 0.5f : 1f, cd > 0 ? 0.5f : 1f, cd > 0 ? 0.55f : 1f, alpha / 255f);
 			g.blit(ICONS, -8, -8, sp.ordinal() * 16, 0, 16, 16, 16 * RavenSpell.count(), 16);
 			g.setColor(1f, 1f, 1f, 1f);
-			g.pose().popPose();
-			// the name
-			Component name = Component.translatable(sp.langKey());
-			float fit = Math.min(0.9f, maxW / Math.max(1, this.font.width(name))) * (0.92f + 0.08f * he);
-			g.pose().pushPose();
-			g.pose().translate(fx, fy - 2f, 0);
-			g.pose().scale(fit, fit, 1f);
-			int col = sp == cur ? 0xFFD8B8FF : lerp(TEXT, 0xFFFFFFFF, he);
-			g.drawString(this.font, name, Math.round(-this.font.width(name) / 2f), 0, fade(col, open), true);
-			g.pose().popPose();
-			// a few words of what it does (wrapped to two lines at most)
-			float ws = 0.55f;
-			List<FormattedCharSequence> words = this.font.split(Component.translatable(sp.langKey() + ".short"), Math.max(10, Math.round(maxW / ws)));
-			float y = fy + 7f;
-			for (int li = 0; li < Math.min(2, words.size()); li++) {
-				FormattedCharSequence line = words.get(li);
+			if (cd > 0) {
+				// seconds left in the icon's corner, like an item count
+				String secs = ((cd + 19) / 20) + "s";
 				g.pose().pushPose();
-				g.pose().translate(fx, y, 0);
-				g.pose().scale(ws, ws, 1f);
-				g.drawString(this.font, line, Math.round(-this.font.width(line) / 2f), 0, fade(TEXT_DIM, open), false);
+				g.pose().translate(8f, 8f, 0);
+				g.pose().scale(0.6f, 0.6f, 1f);
+				g.drawString(this.font, secs, -this.font.width(secs), -8, fade(COOL, open), true);
 				g.pose().popPose();
-				y += 5.5f;
 			}
-			// cost and cooldown
-			String costText = Math.round(RavenSpells.costNow(mc.player, sp)) + "";
-			String cdText = cd > 0 ? "  " + ((cd + 19) / 20) + "s" : "  " + (sp.cooldown / 20) + "s cd";
-			String meta = costText + cdText;
-			float msc = Math.min(0.62f, maxW / Math.max(1, this.font.width(meta)));
-			g.pose().pushPose();
-			g.pose().translate(fx, y + 1f, 0);
-			g.pose().scale(msc, msc, 1f);
-			int mx = Math.round(-this.font.width(meta) / 2f);
-			g.drawString(this.font, costText, mx, 0, fade(COST, open), false);
-			g.drawString(this.font, cdText, mx + this.font.width(costText), 0, fade(cd > 0 ? COOL : TEXT_DIM, open), false);
 			g.pose().popPose();
+			int col = sp == cur ? 0xFFD8B8FF : cd > 0 ? TEXT_DIM : TEXT;
+			drawCentred(g, name, nameS, fx, top + iconH + 2f, fade(lerp(col, 0xFFFFFFFF, he), open), true);
 		}
-		// the centre: the pointed-at spell (or the current pick), its group
+
+		// the centre: the pointed-at spell (or the current pick): its name, cost, cooldown and a few words
 		RavenSpell shown = hovered >= 0 ? spells[hovered] : cur;
-		Component label = Component.translatable(shown.langKey());
-		float lf = Math.min(1f, (disc * 2f - 10f) / Math.max(1, this.font.width(label)));
-		g.pose().pushPose();
-		g.pose().translate(cx, cy, 0);
-		g.pose().scale(lf, lf, 1f);
-		g.drawString(this.font, label, Math.round(-this.font.width(label) / 2f), -10, fade(VIOLET, open), true);
-		g.pose().popPose();
-		Component group = Component.translatable(hovered >= 0 ? (shown.combat ? "screen.projecthero.raven.wheel.combat" : "screen.projecthero.raven.wheel.utility")
-				: "screen.projecthero.raven.wheel.current");
-		float gf = Math.min(0.75f, (disc * 2f - 10f) / Math.max(1, this.font.width(group)));
-		g.pose().pushPose();
-		g.pose().translate(cx, cy + 2f, 0);
-		g.pose().scale(gf, gf, 1f);
-		g.drawString(this.font, group, Math.round(-this.font.width(group) / 2f), 0, fade(TEXT_DIM, open), false);
-		g.pose().popPose();
+		int cd = Raven.cooldownRemaining(mc.player, shown.id);
+		float cw = disc * 1.5f;
+		List<FormattedCharSequence> tag = centre ? fit(Component.translatable("screen.projecthero.raven.wheel.current"), cw, 0.65f, 0.5f, 1, sc) : List.of();
+		float tagS = sc[0];
+		List<FormattedCharSequence> nm = fit(Component.translatable(shown.langKey()), cw, 1f, 0.55f, 2, sc);
+		float nmS = sc[0];
+		List<FormattedCharSequence> cost = fit(Component.translatable("screen.projecthero.raven.wheel.cost", Math.round(RavenSpells.costNow(mc.player, shown))),
+				cw, 0.7f, 0.45f, 1, sc);
+		float costS = sc[0];
+		Component cdText = cd > 0 ? Component.translatable("screen.projecthero.raven.wheel.cooling", (cd + 19) / 20)
+				: Component.translatable("screen.projecthero.raven.wheel.cooldown", shown.cooldown / 20);
+		List<FormattedCharSequence> cool = fit(cdText, cw, 0.7f, 0.45f, 1, sc);
+		float coolS = sc[0];
+		List<FormattedCharSequence> few = fit(Component.translatable(shown.langKey() + ".short"), cw, 0.7f, 0.45f, 2, sc);
+		float fewS = sc[0];
+		float stack = linesH(tag.size(), tagS) + (tag.isEmpty() ? 0f : 2f) + linesH(nm.size(), nmS) + 3f + linesH(1, costS) + 1f
+				+ linesH(1, coolS) + 3f + linesH(few.size(), fewS);
+		if (stack > disc * 1.45f) {
+			// too tall for a small centre: the few words go (the full description is in the panel anyway)
+			stack -= 3f + linesH(few.size(), fewS);
+			few = List.of();
+		}
+		float y = cy - stack / 2f;
+		if (!tag.isEmpty()) {
+			y += drawCentred(g, tag, tagS, cx, y, fade(TEXT_DIM, open), false) + 2f;
+		}
+		y += drawCentred(g, nm, nmS, cx, y, fade(VIOLET, open), true) + 3f;
+		y += drawCentred(g, cost, costS, cx, y, fade(COST, open), false) + 1f;
+		y += drawCentred(g, cool, coolS, cx, y, fade(cd > 0 ? COOL : TEXT_DIM, open), false) + 3f;
+		if (!few.isEmpty()) {
+			drawCentred(g, few, fewS, cx, y, fade(TEXT, open), false);
+		}
 		g.pose().popPose();
 
-		// the full description of the pointed-at spell, wrapped under the wheel
-		int boxW = Math.min(300, this.width - 24);
-		int ty = Math.round(cy + outer + lift + 8);
-		List<FormattedCharSequence> desc = this.font.split(Component.translatable(shown.langKey() + ".desc"), boxW);
-		int lines = Math.min(desc.size(), Math.max(1, (this.height - 14 - ty) / 10));
-		if (lines > 0) {
-			g.fill(Math.round(cx - boxW / 2f) - 4, ty - 3, Math.round(cx + boxW / 2f) + 4, ty + lines * 10 + 1, fade(0xB0080510, open));
+		renderPanel(g, lay, shown, open);
+	}
+
+	/** The description panel: the spell's name and group, its full description (wrapped, never clipped) and the hint at the foot. */
+	private void renderPanel(GuiGraphics g, Layout lay, RavenSpell shown, float open) {
+		int px = lay.px(), py = lay.py(), pw = lay.pw();
+		int innerW = pw - 2 * PAD;
+		float ds = lay.descScale();
+		List<FormattedCharSequence> desc = this.font.split(Component.translatable(shown.langKey() + ".desc"), lay.descWrap());
+		List<FormattedCharSequence> hint = lay.hint();
+		// the box hugs this spell's description (its top stays put; the layout reserved room for the longest one)
+		int ph = Math.min(lay.ph(), PAD + headH() + (int) Math.ceil(desc.size() * 10 * ds) + 8 + hintH(hint.size()) + PAD - 2);
+		g.fill(px, py, px + pw, py + ph, fade(PANEL, open));
+		g.renderOutline(px, py, pw, ph, fade(VIOLET_DIM, open));
+		int x0 = px + PAD;
+		int y = py + PAD;
+		// heading: the name, and the group on the right when there's room for both
+		Component name = Component.translatable(shown.langKey());
+		Component group = Component.translatable(shown.combat ? "screen.projecthero.raven.wheel.combat" : "screen.projecthero.raven.wheel.utility");
+		int nameW = this.font.width(name);
+		float groupW = this.font.width(group) * HINT_SCALE;
+		boolean showGroup = nameW + groupW + 8 <= innerW;
+		float ns = Math.min(1f, innerW / (float) Math.max(1, nameW));
+		g.pose().pushPose();
+		g.pose().translate(x0, y, 0);
+		g.pose().scale(ns, ns, 1f);
+		g.drawString(this.font, name, 0, 0, fade(VIOLET, open), true);
+		g.pose().popPose();
+		if (showGroup) {
+			g.pose().pushPose();
+			g.pose().translate(px + pw - PAD - groupW, y + 2f, 0);
+			g.pose().scale(HINT_SCALE, HINT_SCALE, 1f);
+			g.drawString(this.font, group, 0, 0, fade(TEXT_DIM, open), false);
+			g.pose().popPose();
 		}
-		for (int i = 0; i < lines; i++) {
-			FormattedCharSequence line = desc.get(i);
-			g.drawString(this.font, line, Math.round(cx - this.font.width(line) / 2f), ty + i * 10, fade(TEXT, open), false);
+		y += headH();
+		// the full description
+		for (int i = 0; i < desc.size(); i++) {
+			g.pose().pushPose();
+			g.pose().translate(x0, y + i * 10f * ds, 0);
+			g.pose().scale(ds, ds, 1f);
+			g.drawString(this.font, desc.get(i), 0, 0, fade(TEXT, open), false);
+			g.pose().popPose();
 		}
-		Component hint = Component.translatable("screen.projecthero.raven.wheel.hint");
-		String h = this.font.plainSubstrByWidth(hint.getString(), this.width - 16);
-		g.drawString(this.font, h, Math.round(cx - this.font.width(h) / 2f), 6, fade(TEXT_DIM, open), false);
+		// the hint, at the foot under a rule
+		int hy =py + ph - PAD + 2 - hintH(hint.size());
+		g.fill(x0, hy - 5, px + pw - PAD, hy - 4, fade(VIOLET_DIM, open));
+		for (int i = 0; i < hint.size(); i++) {
+			g.pose().pushPose();
+			g.pose().translate(x0, hy + i * 10f * HINT_SCALE, 0);
+			g.pose().scale(HINT_SCALE, HINT_SCALE, 1f);
+			g.drawString(this.font, hint.get(i), 0, 0, fade(TEXT_DIM, open), false);
+			g.pose().popPose();
+		}
 	}
 
 	private float openEase(float partial) {
