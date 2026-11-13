@@ -1,0 +1,361 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.flight.landing.HeroLanding;
+import com.projecthero.mod.flight.landing.HeroLandingStyle;
+import com.projecthero.mod.saiyan.Saiyan;
+import com.projecthero.mod.saiyan.SaiyanConfig;
+import com.projecthero.mod.saiyan.SaiyanUltraInstinct;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films the Saiyan landing, tail and Ultra Instinct dodge. Enabled by run/miscfix.flag. */
+public final class MiscFixesHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static boolean armedLanding;
+	private static boolean attacking;
+	private static int attackT;
+	private static String only;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private MiscFixesHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("miscfix.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("miscfix.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(MiscFixesHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "miscfix-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String n) {
+		return only == null || only.isEmpty() || only.contains(n);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MiscFixesHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				Saiyan.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (armedLanding) {
+				server(mc, p -> {
+					if (armedLanding && p.onGround() && p.getY() < base.y + 0.5) {
+						armedLanding = false;
+						HeroLanding.trigger(p, HeroLandingStyle.SAIYAN, 1f);
+					}
+				});
+			}
+			if (attacking) {
+				attackT++;
+				final int k = attackT;
+				server(mc, p -> {
+					if (dummies.isEmpty()) {
+						return;
+					}
+					Mob z = dummies.get(0);
+					z.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, p.getEyePosition());
+					if (k % 14 == 11 || k % 14 == 4) {
+						p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f); // back to the mark between attacks (keeps him in frame)
+					}
+					if (k % 14 == 0) {
+						z.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+						p.invulnerableTime = 0;
+						p.hurt(p.damageSources().mobAttack(z), 4f);
+					}
+					if (k % 14 == 7 && dummies.size() > 1) {
+						Mob s = dummies.get(1);
+						Arrow a = new Arrow(EntityType.ARROW, p.serverLevel());
+						a.setOwner(s);
+						Vec3 from = s.getEyePosition();
+						a.setPos(from.x, from.y, from.z);
+						a.setDeltaMovement(p.position().add(0, 1.0, 0).subtract(from).normalize().scale(1.6));
+						p.serverLevel().addFreshEntity(a);
+					}
+					if (p.getHealth() < 10f) {
+						p.setHealth(p.getMaxHealth());
+					}
+					Saiyan.setKi(p, SaiyanConfig.KI_MAX);
+				});
+			}
+			if (recording != null) {
+				String name = String.format("mf_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static Mob dummy(ServerPlayer p, EntityType<? extends Mob> type, Vec3 at, float yaw) {
+		Mob m = type.create(p.serverLevel());
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+		m.setHealth(1000);
+		m.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 100000, 0, false, false));
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void reset(ServerPlayer p, float yaw) {
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.keyUp.setDown(false);
+		mc.options.keyShift.setDown(false);
+		attacking = false;
+		armedLanding = false;
+		SaiyanUltraInstinct.forceRoll(null);
+		p.clearFire();
+		p.removeAllEffects();
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, yaw, 0f);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.setHealth(p.getMaxHealth());
+		if (Saiyan.ssj(p)) {
+			Saiyan.forceEndSsj(p);
+		}
+		Saiyan.clearLockout(p);
+		SaiyanUltraInstinct.clearLockout(p);
+		Saiyan.setKi(p, SaiyanConfig.KI_MAX);
+	}
+
+	private static void scene(Minecraft mc, int t, int index, Vec3 cam, Vec3 look, float yaw, java.util.function.Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 40, 0, 0);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				clearDummies();
+				reset(p, yaw);
+				setup.accept(p);
+			});
+		});
+	}
+
+	private static void ssj(ServerPlayer p) {
+		Saiyan.setRage(p, SaiyanConfig.RAGE_MAX);
+		Saiyan.transform(p);
+	}
+
+	private static void drop(Minecraft mc, int t, double height) {
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), base.x, base.y + height, base.z, p.getYRot(), 0f);
+			p.setDeltaMovement(0, -1.2, 0);
+			p.hurtMarked = true;
+			armedLanding = true;
+		}));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> base = origin));
+		t += 30;
+		int idx = 1;
+		Vec3 side = new Vec3(4.6, 1.9, 1.2);
+		Vec3 sideLook = new Vec3(0, 0.6, 0.6);
+		if (want("landing")) {
+			scene(mc, t, idx++, side, sideLook, 0f, p -> {
+			});
+			drop(mc, t + 10, 12);
+			record(t + 10, "landing_base", 50);
+			t += 70;
+			scene(mc, t, idx++, side, sideLook, 0f, MiscFixesHarness::ssj);
+			drop(mc, t + 30, 12);
+			record(t + 30, "landing_ssj", 50);
+			t += 90;
+		}
+		if (want("tail")) {
+			// a rear three-quarter view: idle sway, crouch wrap, stand, transform (brown -> gold), Kaioken-free
+			Vec3 back = new Vec3(1.4, 1.7, -2.1);
+			Vec3 backLook = new Vec3(0, 0.9, 0);
+			scene(mc, t, idx++, back, backLook, 0f, p -> {
+			});
+			record(t + 10, "tail", 200);
+			at(t + 50, () -> mc.options.keyShift.setDown(true));
+			at(t + 90, () -> mc.options.keyShift.setDown(false));
+			at(t + 110, () -> server(mc, MiscFixesHarness::ssj));
+			at(t + 160, () -> server(mc, p -> {
+				SaiyanUltraInstinct.unlock(p);
+				Saiyan.setKi(p, SaiyanConfig.KI_MAX);
+				SaiyanUltraInstinct.enter(p);
+			}));
+			t += 230;
+			// running: the tail streams back
+			scene(mc, t, idx++, new Vec3(3.2, 1.6, 2.5), new Vec3(0, 0.9, 3.0), 0f, p -> {
+			});
+			at(t + 10, () -> mc.options.keyUp.setDown(true));
+			record(t + 10, "tail_run", 40);
+			at(t + 50, () -> mc.options.keyUp.setDown(false));
+			t += 70;
+		}
+		if (want("ultra")) {
+			scene(mc, t, idx++, new Vec3(0.6, 2.3, -4.2), new Vec3(0, 1.0, 1.5), 0f, p -> {
+				SaiyanUltraInstinct.unlock(p);
+				ssj(p);
+				Saiyan.setKi(p, SaiyanConfig.KI_MAX);
+				SaiyanUltraInstinct.enter(p);
+				SaiyanUltraInstinct.forceRoll(0f);
+				dummy(p, EntityType.ZOMBIE, base.add(0, 0, 1.6), 180f);
+				dummy(p, EntityType.SKELETON, base.add(0, 0, 9), 180f);
+			});
+			at(t + 20, () -> {
+				attacking = true;
+				attackT = 0;
+			});
+			record(t + 20, "ultra", 120);
+			t += 150;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
