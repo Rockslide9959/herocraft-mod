@@ -237,7 +237,87 @@ public final class VisionHarness {
 
 	private static final double SPACING = 8.0;
 
+	private static void fill(ServerLevel level, Vec3 o, int x0, int x1, int y0, int y1, int z0, int z1,
+			net.minecraft.world.level.block.state.BlockState st) {
+		for (int x = x0; x <= x1; x++) {
+			for (int y = y0; y <= y1; y++) {
+				for (int z = z0; z <= z1; z++) {
+					level.setBlockAndUpdate(BlockPos.containing(o.add(x, y, z)), st);
+				}
+			}
+		}
+	}
+
+	/**
+	 * phasesight.flag: first-person stills from inside a 1-thick and a 9-thick stone wall while Intangible, before (fix switched off
+	 * via VisionHud.phaseSightOff) and after. Out: vis_still_phase_sight_*.png.
+	 */
+	private static void phaseSightScript(Minecraft mc) {
+		origin = new Vec3(Math.floor(mc.player.getX()) + 0.5, mc.player.getY(), Math.floor(mc.player.getZ()) + 0.5);
+		Vec3 thick = origin.add(40, 0, 0);
+		at(1, () -> {
+			orbitYaw = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(5, () -> server(mc, srv -> {
+			ServerPlayer p = me(srv);
+			ServerLevel level = p.serverLevel();
+			level.setDayTime(6000L);
+			level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, srv);
+			level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, srv);
+			p.setGameMode(GameType.CREATIVE);
+			System.out.println("[HARNESS] me granted=" + Vision.grant(p));
+			// scene A: a 1-thick stone wall, wool pillars 6 blocks beyond it
+			fill(level, origin, -6, 6, 0, 4, 2, 2, Blocks.STONE.defaultBlockState());
+			fill(level, origin, -3, -3, 0, 3, 8, 8, Blocks.RED_WOOL.defaultBlockState());
+			fill(level, origin, 0, 0, 0, 3, 8, 8, Blocks.LIME_WOOL.defaultBlockState());
+			fill(level, origin, 3, 3, 0, 3, 8, 8, Blocks.BLUE_WOOL.defaultBlockState());
+			// scene B: a 9-thick stone block, pillars beyond it
+			fill(level, thick, -6, 6, 0, 6, 2, 10, Blocks.STONE.defaultBlockState());
+			fill(level, thick, -3, -3, 0, 3, 15, 15, Blocks.RED_WOOL.defaultBlockState());
+			fill(level, thick, 0, 0, 0, 3, 15, 15, Blocks.LIME_WOOL.defaultBlockState());
+			fill(level, thick, 3, 3, 0, 3, 15, 15, Blocks.BLUE_WOOL.defaultBlockState());
+		}));
+		String[] names = { "thin", "thick" };
+		Vec3[] inside = { origin.add(0, 0, 2), thick.add(0, 0, 6) };
+		int t = 40;
+		for (int i = 0; i < 2; i++) {
+			final Vec3 in = inside[i];
+			final Vec3 out = in.add(0, 0, -6 - (i * 4));
+			for (int pass = 0; pass < 2; pass++) {
+				final boolean before = pass == 0;
+				final String tag = (before ? "before_" : "after_") + names[i];
+				at(t, () -> {
+					com.projecthero.mod.client.vision.VisionHud.phaseSightOff = before;
+					server(mc, srv -> place(me(srv), out, 0f, 0f));
+				});
+				at(t + 6, () -> server(mc, srv -> {
+					ServerPlayer p = me(srv);
+					Vision.setEnergy(p, 100f);
+					if (!Vision.intangible(p)) {
+						Vision.toggleIntangible(p);
+					}
+					place(p, in, 0f, 0f);
+				}));
+				shot(t + 26, "phase_sight_" + tag);
+				at(t + 27, () -> server(mc, srv -> place(me(srv), in, 40f, 10f)));
+				shot(t + 40, "phase_sight_" + tag + "_turned");
+				t += 46;
+			}
+		}
+		at(t, () -> server(mc, srv -> place(me(srv), origin.add(0, 0, -4), 0f, 0f)));
+		at(t + 6, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+
 	private static void script(Minecraft mc) {
+		if (Files.exists(Path.of("phasesight.flag"))) {
+			phaseSightScript(mc);
+			return;
+		}
 		UUID alex = uuidFor("slim/alex");
 		ServerPlayer[] fakes = new ServerPlayer[1];
 		Mob[] husk = new Mob[1];

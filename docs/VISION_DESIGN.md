@@ -94,6 +94,10 @@ Hold Left-Alt for the move list (the shared overlay).
   server's "moved wrongly" check waved through) so it's robust in Minecraft's collision; suffocation damage is cancelled while
   phased; leaving the phase inside a block is refused, and an empty bar inside one pushes him out to the nearest free 2-high
   space (searching 6 blocks).
+- **Phasing sight**: with his head inside a wall he sees normally -- no in-wall block texture over the screen
+  (`VisionPhaseSightMixin`), and smart culling is switched off the way vanilla does for a spectator inside a solid block
+  (`VisionPhaseCullMixin`, also covers Silver Surfer's Molecular Phase), so the world around him doesn't black out. A faint
+  pulsing gold glow at the screen edges (first person, only while his eyes are in a block) tells him he's inside something.
 - **The hologram doesn't drop on a move** (unlike Cyborg's): the user asked that powers still work with it on.
 - **Mind Stone Unleashed** roots him in the air (no movement, he can look around to sweep it) and can't be cast while intangible.
 - **Phase Strike's armour-ignoring damage** is indirect magic damage credited to him (so boss threat and squad rules see it).

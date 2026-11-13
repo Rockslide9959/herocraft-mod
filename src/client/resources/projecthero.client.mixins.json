@@ -276,7 +276,9 @@
 		"FateSightGlowMixin",
 		"FateSightColorMixin",
 		"VisionPhaseClientMixin",
-		"VisionFirstPersonArmMixin"
+		"VisionFirstPersonArmMixin",
+		"VisionPhaseSightMixin",
+		"VisionPhaseCullMixin"
 	],
 	"client": [],
 	"server": [],

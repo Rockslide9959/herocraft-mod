@@ -17,6 +17,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -43,6 +45,16 @@ public final class VisionHud {
 
 	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
 	public static volatile boolean forceShift;
+	/** Set only by the client screenshot harness: phasing sight off, for "before" shots. */
+	public static volatile boolean phaseSightOff;
+
+	/**
+	 * Phasing sight is on for this player: Vision's Intangibility wall-phasing (no in-wall overlay, spectator-style culling, the
+	 * gold edge glow).
+	 */
+	public static boolean phaseSight(net.minecraft.world.entity.player.Player player) {
+		return !phaseSightOff && Vision.wallPhasing(player);
+	}
 
 	private VisionHud() {
 	}
@@ -50,10 +62,48 @@ public final class VisionHud {
 	private record Tag(String text, int colour) {
 	}
 
+	/**
+	 * Phasing sight: while his head is inside a wall he is phasing through (the in-wall overlay and culling are lifted by
+	 * {@code VisionPhaseSightMixin} / {@code VisionPhaseCullMixin}), a faint gold glow fades in from the screen edges so he knows
+	 * he's inside something. First person only.
+	 */
+	private static void phaseTint(GuiGraphics g, Minecraft mc, LocalPlayer p) {
+		if (!phaseSight(p) || !mc.options.getCameraType().isFirstPerson()) {
+			return;
+		}
+		BlockPos eye = BlockPos.containing(p.getEyePosition());
+		BlockState in = mc.level.getBlockState(eye);
+		if (!in.isViewBlocking(mc.level, eye)) {
+			return;
+		}
+		int w = g.guiWidth();
+		int h = g.guiHeight();
+		int band = Math.max(8, Math.min(w, h) / 7);
+		int steps = 12;
+		float pulse = 0.85f + 0.15f * Mth.sin(p.tickCount * 0.12f);
+		for (int i = 0; i < steps; i++) {
+			int a = Math.round(70 * pulse * (1f - i / (float) steps) * (1f - i / (float) steps));
+			if (a <= 0) {
+				continue;
+			}
+			int c = (a << 24) | 0xFFC83C;
+			int t0 = band * i / steps;
+			int t1 = band * (i + 1) / steps;
+			g.fill(0, t0, w, t1, c); // top
+			g.fill(0, h - t1, w, h - t0, c); // bottom
+			g.fill(t0, t1, t1, h - t1, c); // left (between the top and bottom strips already drawn)
+			g.fill(w - t1, t1, w - t0, h - t1, c); // right
+		}
+	}
+
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
-		if (p == null || mc.level == null || mc.options.hideGui) {
+		if (p == null || mc.level == null) {
+			return;
+		}
+		phaseTint(g, mc, p);
+		if (mc.options.hideGui) {
 			return;
 		}
 		VisionState s = Vision.peek(p);
