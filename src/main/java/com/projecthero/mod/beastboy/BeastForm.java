@@ -9,7 +9,7 @@ package com.projecthero.mod.beastboy;
 public enum BeastForm {
 	HUMAN(0.6f, 1.8f, 0f, false),
 	// context morphs (X / Shift+X)
-	CHEETAH(0.6f, 0.7f, 20f, false), // vanilla ocelot, tinted
+	CHEETAH(0.6f, 0.7f, 20f, true), // hq round: custom blocky art (was the tinted vanilla ocelot)
 	HAWK(0.5f, 0.5f, 15f, true), // HQ round: custom art (was the tinted vanilla parrot)
 	DOLPHIN(0.9f, 0.6f, 25f, true), // HQ round: custom blocky dolphin (was the tinted vanilla dolphin)
 	FLY(0.2f, 0.2f, 2f, true),
@@ -19,7 +19,7 @@ public enum BeastForm {
 	RHINO(1.3f, 1.5f, 50f, true),
 	ELEPHANT(1.8f, 2.6f, 70f, true),
 	WOLF(0.6f, 0.85f, 30f, true), // fix round: custom art (was the tinted vanilla wolf); sits when crouching
-	BEAR(1.4f, 1.4f, 50f, false), // vanilla polar bear, tinted
+	BEAR(1.4f, 1.4f, 50f, true), // hq round: custom blocky art (was the tinted vanilla polar bear)
 	PTERODACTYL(1.2f, 1.0f, 40f, true),
 	BAT(0.5f, 0.9f, 10f, true), // HQ round: custom art (was the tinted vanilla bat)
 	SHARK(1.2f, 0.8f, 40f, true),
@@ -30,7 +30,7 @@ public enum BeastForm {
 	BEAST(1.0f, 2.6f, 60f, true),
 	// split-second quick-morph shapes (human-form attacks); drawn as partial/full flashes
 	SNAKE(0.6f, 0.4f, 0f, true),
-	TIGER(0.7f, 0.9f, 0f, false); // vanilla ocelot scaled up, tinted
+	TIGER(0.7f, 0.9f, 0f, true); // hq round: custom blocky art, the whole tiger for the pounce (was the tinted vanilla ocelot)
 
 	public final float width;
 	public final float height;
