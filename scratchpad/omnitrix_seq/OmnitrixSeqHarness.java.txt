@@ -148,7 +148,8 @@ public final class OmnitrixSeqHarness {
 			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.activate(p));
 		}
 		if (inWorldTicks == 145) {
-			server(mc, p -> com.projecthero.mod.omnitrix.Omnitrix.select(p, alien));
+			// hidden aliens (Cannonbolt, Wildvine) must be discovered first or select() refuses and the default alien plays
+			server(mc, p -> { com.projecthero.mod.omnitrix.alien.Aliens.discover(p, alien, true); com.projecthero.mod.omnitrix.Omnitrix.select(p, alien); });
 		}
 		if (inWorldTicks == 160) {
 			// freeze the world's ticks first, so the slap lands on tick 0 and nothing moves until it is stepped

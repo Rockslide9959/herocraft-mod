@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
-import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.rot;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
 
 /**
@@ -122,109 +121,96 @@ public final class WildvineShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"): one
+	 * keyframed pose track ({@link FourArmsShow.Track}: Catmull-Rom through the keys, held where the show holds, snapped on the cuts),
+	 * posed through {@link ShowBody} (the hunch, twist and lean turn about the hips with the shoulders following, so the arms never float
+	 * off), with bent elbows and knees ({@link BentLimbs}): the fright with the shoulders up, the hands clutching his head, and the show's
+	 * spider-legged crouch with the knees splayed high and out. The whip-cracking arm stretches ({@link #bulge}).
+	 */
+	private static final float[] DIAL = { -0.78f, 0.05f, -0.12f, 1.62f, 1.18f };
+	static final FourArmsShow.Track POSE = ShowBody.track()
+			// ---- the slap, from above the dial
+			.at(0f).lArm(DIAL[0], DIAL[1], DIAL[2], DIAL[3], DIAL[4]).rArm(-0.9f, -0.5f, 0.2f, 1.4f, 0.3f).head(0.3f, 0f, 0f)
+			.at(2f).rArm(-1.25f, -0.55f, 0.1f, 0.6f, 0f)
+			// ---- the fright: head back and over, shoulders up round the neck, the hand pulled up to his chest
+			.at(FACE_AT + 5f).head(-0.12f, 0f, 0.12f).lean(-0.1f).shrug(-0.8f).rArm(-1.0f, -0.4f, 0.15f, 1.25f, 0.3f).lArm(-0.45f, 0.1f, -0.2f, 1.3f, 1.1f)
+			.at(36f).hold().head(-0.14f, 0f, 0.14f)
+			// ---- the arms dropped, hands open; then set and frowning, the fists closing
+			.at(TILT_AT + 4f).head(0.05f, 0f, 0f).lean(0f).shrug(0f).lArm(-0.3f, 0f, -0.25f, 0.35f, 0f).rArm(-0.15f, 0f, 0.3f, 0.3f, 0f)
+			.at(FACE2_AT + 5f).head(0.22f, 0f, -0.06f).lean(0.08f).lArm(-0.35f, 0f, -0.3f, 0.6f, -0.3f).rArm(-0.3f, 0f, 0.32f, 0.6f, 0.3f)
+			.at(TRANSFORM_AT).hold()
+			// ---- Wildvine: loose, the arms hanging, swaying
+			.at(TRANSFORM_AT + 0.01f).head(0.1f, 0f, 0f).lean(0f).arms(0.05f, 0f, 0.18f, 0.25f, 0.2f).legs(0f, 0f, 0.06f, 0.15f, 0.2f)
+			.at(PROFILE_AT).hold()
+			// the head bowing in profile as the pods sprout
+			.at(155f).head(0.25f, 0f, 0f).lean(0.15f).arms(0f, 0f, 0.25f, 0.5f, 0.4f)
+			.at(ABOVE_AT - 0.01f).hold()
+			// ---- from above: hunched right over, his back to the sky
+			.at(ABOVE_AT).head(0.5f, 0f, 0f).lean(0.45f).arms(-0.4f, 0f, 0.4f, 0.9f, 0.5f).legs(-0.15f, 0f, 0.3f, 0.4f, 1.57f)
+			.at(CHEST_AT).hold()
+			// ---- the hands come up round his sides (never through the lens) and clutch the top of his head
+			.at(CHEST_AT + 0.01f).head(0.3f, 0f, 0f).lean(0.1f).arms(-0.8f, 0f, 1.2f, 1.3f, 1.2f)
+			.at(CHEST_AT + 8f).head(0.1f, 0f, 0f).lean(-0.05f).arms(-2.5f, -0.3f, 0.45f, 0.95f, -0.6f)
+			.at(VFACE_AT).hold()
+			// ---- the roar: the arms flung out wide behind it, elbows bent, the head thrown back
+			.at(VFACE_AT + 5f).head(0.05f, 0f, 0f).lean(0.12f).arms(-0.6f, 0f, 1.35f, 0.6f, 1.2f)
+			.at(VFACE_AT + 9f).head(-0.28f, 0f, 0f)
+			.at(WIDE_AT - 0.01f).hold()
+			// ---- the whole body: the right arm cracking out like a whip and sweeping round, the left drawn back; spider legs splayed
+			.at(WIDE_AT).drop(5f).lean(0.3f).split(-0.35f).head(-0.15f, 0f, 0f).rArm(-1.55f, 1.25f, 0.25f, 0.1f, 0f).lArm(0.6f, 0f, -0.5f, 0.9f, -0.6f)
+			.rLeg(-0.45f, 0f, 1.35f, 1.3f, 1.57f).lLeg(-0.1f, 0f, -1.4f, 1.4f, -1.57f)
+			.at(WIDE_AT + 4f).hold()
+			.at(CLAWS_AT - 2f).split(0.25f).rArm(-1.55f, -0.3f, 0.25f, 0.15f, 0f)
+			// ---- the crouch, both clawed hands raised, elbows bent
+			.at(CLAWS_AT + 5f).split(0f).head(-0.2f, 0f, 0f).rArm(-1.0f, 0.2f, 1.3f, 1.25f, 1.3f).lArm(-0.85f, -0.2f, -1.4f, 1.15f, -1.3f)
+			.at(BURST_AT - 0.01f).hold()
+			// ---- the last stance, low at his right: claws forward, the legs splayed out like roots, knees high
+			.at(BURST_AT).drop(5.5f).lean(0.32f).head(-0.25f, 0f, 0f).rArm(-1.35f, 0.15f, 0.75f, 1.1f, 0.9f).lArm(-1.15f, -0.1f, -0.9f, 1.2f, -0.8f)
+			.legs(-0.3f, 0f, 1.5f, 1.45f, 1.57f)
+			.at(WORLD_AT).hold()
+			// eased to standing under the green out
+			.at(WORLD_AT + 12f).hold().drop(0f).lean(0f).split(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0f, 0f).legs(0f, 0f, 0.04f, 0f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
-		m.head.yRot = 0f;
+		float[] k = POSE.sample(t);
+		ShowBody.apply(m, k, true);
 		if (t < TRANSFORM_AT) {
-			human(m, t);
+			if (t >= FACE_AT && t < TILT_AT) {
+				// the fright's shudder
+				m.head.xRot += Mth.sin(t * 2.6f) * 0.03f * smooth((t - FACE_AT) / 5f);
+			} else if (t >= TILT_AT) {
+				float tremble = Mth.sin(t * 3.1f) * 0.03f;
+				m.leftArm.xRot += tremble;
+				m.rightArm.zRot += tremble;
+			}
 		} else {
-			wildvine(m, t);
+			// the plant's slow sway, all through
+			float sway = Mth.sin(t * 0.21f) * 0.07f;
+			m.rightArm.zRot += sway;
+			m.leftArm.zRot -= sway;
+			if (t < ABOVE_AT) {
+				m.head.zRot += sway * 0.5f;
+			}
 		}
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.jacket.copyFrom(m.body);
-			pm.rightPants.copyFrom(m.rightLeg);
-			pm.leftPants.copyFrom(m.leftLeg);
-		}
-		m.hat.copyFrom(m.head);
+		ShowBody.layers(m);
 	}
 
-	/** Ben: the slap, the fright (head back, shrinking from it), then set and frowning as the leaves come up. */
-	private static void human(HumanoidModel<?> m, float t) {
-		if (t < TILT_AT) {
-			float slap = smooth(t / 2f);
-			rot(m.rightArm, slap, -1.25f, -0.55f, 0.1f);
-			float fear = smooth((t - FACE_AT) / 5f);
-			float shudder = Mth.sin(t * 2.6f) * 0.03f * fear;
-			m.head.xRot = Mth.lerp(fear, m.head.xRot, -0.12f + shudder);
-			m.head.zRot = Mth.lerp(fear, m.head.zRot, 0.12f);
-			m.body.xRot = Mth.lerp(fear, m.body.xRot, -0.1f);
+	/** The whip: the right arm stretches out long as it cracks across, and snaps back as it sweeps round. */
+	@Override
+	public void bulge(Player p, HumanoidModel<?> m, float t) {
+		float stretch = ShowMath.env(t, WIDE_AT + 0.5f, 3f, CLAWS_AT - 6f, 6f);
+		if (stretch <= 0f) {
 			return;
 		}
-		// the arms dropped, hands open; the head down, glaring
-		float w = smooth((t - TILT_AT) / 4f);
-		float tremble = Mth.sin(t * 3.1f) * 0.03f;
-		rot(m.leftArm, w, -0.3f + tremble, 0f, -0.25f);
-		rot(m.rightArm, w, -0.15f, 0f, 0.3f + tremble);
-		float set = smooth((t - FACE2_AT) / 5f);
-		m.head.xRot = Mth.lerp(w, m.head.xRot, Mth.lerp(set, 0.05f, 0.22f));
-		m.head.zRot = Mth.lerp(w, m.head.zRot, Mth.lerp(set, 0f, -0.06f));
-		m.body.xRot = Mth.lerp(w, m.body.xRot, 0.08f * set);
-	}
-
-	/** Wildvine: loose and swaying, hunched over his pods, the roar, the whip of an arm, the crouch with claws up. */
-	private static void wildvine(HumanoidModel<?> m, float t) {
-		float sway = Mth.sin(t * 0.21f) * 0.07f;
-		if (t < ABOVE_AT) {
-			rot(m.rightArm, 1f, 0.05f, 0f, 0.18f + sway);
-			rot(m.leftArm, 1f, 0.05f, 0f, -0.18f - sway);
-			m.head.xRot = 0.1f + 0.15f * smooth((t - PROFILE_AT) / 25f);
-			m.head.zRot = sway * 0.5f;
-			m.body.xRot = 0.15f * smooth((t - PROFILE_AT) / 25f);
-		} else if (t < CHEST_AT) {
-			// hunched, his back to the sky
-			rot(m.rightArm, 1f, -0.4f, 0f, 0.4f);
-			rot(m.leftArm, 1f, -0.4f, 0f, -0.4f);
-			m.head.xRot = 0.5f;
-			m.body.xRot = 0.45f;
-		} else if (t < VFACE_AT) {
-			// the hands come up and in, over the head
-			float w = smooth((t - CHEST_AT) / 8f);
-			rot(m.rightArm, w, -2.5f, -0.3f, 0.45f + sway);
-			rot(m.leftArm, w, -2.5f, 0.3f, -0.45f - sway);
-			m.head.xRot = Mth.lerp(w, 0.5f, 0.1f);
-			m.body.xRot = Mth.lerp(w, 0.45f, -0.05f);
-		} else if (t < WIDE_AT) {
-			// the roar: head thrust forward, arms flung out wide behind it
-			float w = smooth((t - VFACE_AT) / 5f);
-			float roar = smooth((t - VFACE_AT - 8f) / 4f);
-			rot(m.rightArm, w, -0.6f, 0f, 1.35f + sway);
-			rot(m.leftArm, w, -0.6f, 0f, -1.35f - sway);
-			m.head.xRot = Mth.lerp(roar, 0.05f, -0.28f);
-			m.body.xRot = 0.12f;
-		} else if (t < CLAWS_AT) {
-			// the arm cracking out like a whip: the right flung out to the side and swept round, the left pulled back
-			float w = smooth((t - WIDE_AT) / 3f);
-			float sweep = smooth((t - WIDE_AT - 4f) / 12f);
-			rot(m.rightArm, w, -1.55f, Mth.lerp(sweep, -1.1f, 0.5f), 0.25f);
-			rot(m.leftArm, w, 0.6f, 0f, -0.5f);
-			legsWide(m, w, 0.62f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, 0.3f);
-			m.body.yRot = Mth.lerp(sweep, -0.35f, 0.25f) * w;
-			m.head.xRot = -0.15f;
-		} else if (t < BURST_AT) {
-			// the crouch, both clawed hands raised
-			float w = smooth((t - CLAWS_AT) / 5f);
-			rot(m.rightArm, w, -1.85f + sway, 0.2f, 0.95f);
-			rot(m.leftArm, w, -1.6f - sway, -0.2f, -1.1f);
-			legsWide(m, 1f, 0.62f);
-			m.body.xRot = 0.3f;
-			m.body.yRot = Mth.lerp(w, 0.25f, 0f);
-			m.head.xRot = -0.2f;
-		} else {
-			// the last stance: low, claws forward, legs splayed like roots
-			rot(m.rightArm, 1f, -1.35f + sway, 0.15f, 0.55f);
-			rot(m.leftArm, 1f, -1.15f - sway, -0.1f, -0.7f);
-			legsWide(m, 1f, 0.68f);
-			m.body.xRot = 0.32f;
-			m.head.xRot = -0.25f;
+		float y = 1f + 0.9f * stretch, xz = 1f - 0.18f * stretch;
+		m.rightArm.yScale = y;
+		m.rightArm.xScale = m.rightArm.zScale = xz;
+		if (m instanceof PlayerModel<?> pm) {
+			pm.rightSleeve.yScale = y;
+			pm.rightSleeve.xScale = pm.rightSleeve.zScale = xz;
 		}
-	}
-
-	private static void legsWide(HumanoidModel<?> m, float w, float out) {
-		rot(m.rightLeg, w, -0.15f, 0f, out);
-		rot(m.leftLeg, w, 0.1f, 0f, -out);
 	}
 
 	// ================================================================ the pods (WildvineFx)
@@ -268,6 +254,11 @@ public final class WildvineShow extends ShowSequenceClient {
 		} else {
 			st.gradient(BURST_IN, BURST_MID, BURST_OUT);
 			st.rays(st.seed + 9, t - BURST_AT, BURST_RAY, 16);
+			// v0.17.3 touch-up: the show's long black shadow streak out behind him, down to the bottom right, under the dots
+			float sw = smooth((t - BURST_AT) / 5f);
+			if (sw > 0f) {
+				Xlr8Show.quad(st, st.flat(), st.last(), -0.05f, -0.42f, 0.12f, -0.3f, 1.7f, -0.45f, 1.7f, -1.4f, 0x020702, 0.9f * sw);
+			}
 			KirbyDots.draw(st, st.shotSeed(shot) + 5, t - BURST_AT, BURST_DOTS);
 		}
 	}

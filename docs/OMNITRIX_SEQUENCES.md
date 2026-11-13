@@ -202,6 +202,53 @@ poses please." Shot lists and timing kept. Films: `<alien>_v1b_vs_show.mp4` (+ `
   close-up drawn (screwed shut on pale mint). Wildmutt: smaller lumps sunk into the skin with red veins ahead of them; spiky fur tufts.
 - None of the three uses `HeatblastShow`'s helpers any more (`Plates`, `copyLayers`, `line`), so they don't depend on that file.
 
+### Keeping the body joined (`ShowBody`, v0.17.3 touch-up)
+
+Setting `body.xRot / yRot / zRot` directly swings the torso about the **neck**, so the shoulders and hips stay put: the arms float off
+the shoulders and the torso slides off the legs. That was the main "limbs detach" bug in the v1 Cannonbolt, Wildvine, Upgrade and Grey
+Matter shows. `ShowBody` (package-private, used by those four) turns the torso without breaking it:
+
+- `reset(m, drop)`: rest pivots, the body `drop` px lower (a crouch), every rotation zeroed.
+- `tilt(m, roll)` (sideways, about the hips), `twist(m, yaw)` (at the waist, the shoulders swing round), `lean(m, pitch)` (`HipBend`).
+- `apply(m, k, bend)`: poses everything from one sample of a `FourArmsShow.Track` (the Four Arms keyframe track, reused). The track's
+  spare channels are the waist twist (`split(...)` = `ShowBody.TWIST`) and the tilt (`set(ShowBody.TILT, v)`).
+- `layers(m)`: sleeves, pants, jacket, hat.
+
+**Knee and elbow rule of thumb** (BentLimbs' flex/twist with a limb swung out sideways by `zRot = a`): twist `1.57` (mirrored for the
+left) turns the bend toward the body's midline. For a leg, knee flex `≈ a` then brings the shin back to **vertical**: a squat with the
+feet apart (Cannonbolt `a = 0.7`, Grey Matter's frog crouch `a = 1.0`). With `a ≈ 1.5` (the thigh out level) the shin hangs straight
+down: Wildvine's spider legs. A plain big knee flex with twist `1.3` and a small `zRot` gives a diamond (knees out, feet together), which
+reads wrong. For an arm out sideways, twist `+1.57` (right) bends the forearm **up** (a flex), twist `-1.57` bends it down toward the hip
+(Upgrade's bowed arms). Drop the body about `6 * (1 - cos a)` px to keep the feet on the ground.
+
+**Things riding a bent forearm** go through `BentLimbs.toForearm` inside the arm's bone space: Cannonbolt's swelling hand lumps and Grey
+Matter's grey hands do. Upgrade's black shell is one box per bone, so his arms stay straight until the change.
+
+**Hidden aliens in the harness:** `Omnitrix.select` refuses a hidden alien (Cannonbolt, Wildvine) that isn't discovered, and the default
+alien (Heatblast) plays instead; the harness now calls `Aliens.discover(p, alien, true)` first. Pass the `to` tick explicitly
+(`harness.js flag cannonbolt self 0 272`): the default end is read before the sequence starts.
+
+#### v1b touch-ups (Cannonbolt, Wildvine, Upgrade, Grey Matter)
+
+Films: `docs/screenshots/v0173/omnitrix_sequences/<alien>_v1b_vs_show.mp4` (+ `_sheet.jpg`) and `<alien>_v1b_sequence.mp4` (ours alone,
+2x nearest-neighbour).
+
+- **Cannonbolt**: the slap hand goes up sideways by his head (it pointed at the camera); the swelling hand is lifted out to the side on a
+  bent elbow so his face shows past it, its lumps riding the forearm; in the belly shots the arms are forced out round the belly with the
+  forearms hugging its sides (they stuck straight out of its middle); under the shell the arms are tucked in, forearms up (they poked
+  at the lens as rigid slabs in the profile and chest shots); the stance is the show's squat, legs apart with vertical shins, arms flung
+  up and out (was a straight-limbed T). New: dark and gold **spin streaks** over the ball while it spins hard, thinning as it slows; the
+  stance camera is closer, like the show's.
+- **Wildvine**: one pose track. The fright pulls his shoulders up; the hunch over the pods bends at the hips (the torso no longer slides
+  off the legs); his hands come up round his sides to clutch his head (they swept through the lens); the roar's arms bend; the whip arm
+  stretches long as it cracks (`bulge`, sleeve too); the crouches use spider legs (thighs out level, shins straight down), the claws out
+  to the sides. New: the show's black shadow streak behind the last stance.
+- **Upgrade**: the slap hand goes up open beside his head like the show's first frame; the seizing arch and shudder turn about the hips;
+  the eye opens as a thin ring from a small one (it was a solid blob at first); the stance is low with bowed elbows and soft knees.
+- **Grey Matter**: one pose track. The slap hand up; the new hands held up palms out on bent elbows (they were on straight arms), riding
+  the forearm, with curling fingers, round fingertip pads and a thumb; the arm thrown at the camera; the frog crouch with the knees out
+  and the feet apart; the leap with bent legs. The body's twist and tilt keep the shoulders on.
+
 ### Camera keys (`CameraTrack`)
 
 Each key is `{ tick, distance, angle, camera height, look height, look right, look forward }`, in a 1.8-block human's blocks

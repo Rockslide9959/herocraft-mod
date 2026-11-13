@@ -14,13 +14,13 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.env;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.pop;
-import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.rot;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
 
 /**
@@ -130,127 +130,133 @@ public final class GreyMatterShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"): one
+	 * keyframed pose track ({@link FourArmsShow.Track}: Catmull-Rom through the keys, held where the show holds), posed through
+	 * {@link ShowBody} so the torso turns about the hips with the shoulders following, and the elbows and knees bend ({@link BentLimbs}):
+	 * the slap hand up by his head, the new hands held up palms out, the frog crouch with the knees out, and the leap.
+	 */
+	private static final float[] DIAL = { -0.78f, 0.05f, -0.12f, 1.62f, 1.18f };
+	static final FourArmsShow.Track POSE = ShowBody.track()
+			// ---- the slap: the dial arm across the belly; the right hand flung up by his head, then slapping down
+			.at(0f).head(0.04f, 0.05f, 0.1f).lArm(DIAL[0], DIAL[1], DIAL[2], DIAL[3], DIAL[4]).rArm(-0.35f, 0f, 1.1f, 1.9f, 0.6f)
+			.legs(0f, 0f, 0.05f, 0.08f, 0f)
+			.at(2f).rArm(-0.4f, 0f, 2.6f, 0.45f, 1.5f).head(0.02f, 0.05f, 0.08f)
+			.at(4f).hold().rArm(-0.5f, 0f, 0.5f, 2.2f, -0.25f).head(0.08f, 0f, -0.12f)
+			.at(6.5f).rArm(-1.0f, -0.6f, 0.2f, 0.95f, 0.35f).head(0.3f, 0f, 0f)
+			.at(18f).hold()
+			// ---- the new hands held up and out, palms forward, looking from one to the other
+			.at(FRONT_AT).head(0.08f, 0f, 0f).rArm(-0.55f, 0.3f, 0.85f, 1.35f, 1.1f).lArm(-0.55f, -0.3f, -0.85f, 1.35f, -1.1f).legs(0f, 0f, 0.1f, 0.15f, 0.3f)
+			.at(40f).head(0.05f, -0.28f, 0.05f).rArm(-0.95f, 0.2f, 0.6f, 1.5f, 1.0f).lArm(-0.45f, -0.3f, -0.95f, 1.1f, -1.2f)
+			.at(52f).head(0.05f, 0.28f, -0.05f).rArm(-0.45f, 0.3f, 0.95f, 1.1f, 1.2f).lArm(-0.95f, -0.2f, -0.55f, 1.5f, -1.0f)
+			.at(REACH_AT).hold().head(0.05f, 0.1f, 0f)
+			// ---- the left hand thrown at the camera, the other swung back; the grin
+			.at(65f).head(-0.05f, -0.3f, 0.05f).split(-0.25f).lArm(-1.55f, 0.35f, -0.15f, 0.15f, 0f).rArm(0.45f, 0f, 0.4f, 0.7f, 0.3f)
+			.at(76f).hold().lArm(-1.45f, 0.4f, -0.2f, 0.25f, 0f)
+			// ---- the arms out wide as the camera swings round behind him
+			.at(82f).head(0.1f, 0f, 0f).split(0f).arms(0f, 0f, 1.35f, 0.4f, 1.0f)
+			.at(TRANSFORM_AT).hold()
+			// ---- Grey Matter's back: the arms still out, the new head bowed
+			.at(TRANSFORM_AT + 0.01f).head(0.25f, 0f, 0f).arms(0f, 0f, 1.2f, 0.5f, 1.0f).legs(0f, 0f, 0.15f, 0.15f, 1.57f)
+			.at(NECK_AT + 4f).hold()
+			// ---- the face: the arms down, loose (the head rocks on top, below)
+			.at(FACE_AT).head(-0.15f, 0f, 0f).arms(0f, 0f, 0.4f, 0.35f, 0.3f)
+			.at(NAPE_AT).hold().arms(0.1f, 0f, 0.35f, 0.3f, 0.3f).head(-0.1f, 0f, 0f)
+			.at(FRONT2_AT).head(-0.05f, 0f, 0f)
+			// ---- the face, front: the hands rising, the knees starting to spread
+			.at(164f).arms(-0.35f, 0f, 0.55f, 0.9f, 0.6f).legs(0f, 0f, 0.35f, 0.35f, 1.57f).drop(0.5f)
+			// ---- the frog crouch: knees out, a lean in, the hands spread low and wide, chin up
+			.at(STANCE_AT + 4f).drop(3f).lean(0.3f).head(-0.28f, 0f, 0f).arms(-0.55f, 0f, 0.85f, 0.85f, 0.3f).legs(-0.35f, 0f, 1.0f, 1.1f, 1.57f)
+			.at(LEAP_AT - 6f).hold()
+			// ---- the leap: one arm flung up and out, the other reaching at the camera, the legs kicked out bent, the body tipped over
+			.at(LEAP_AT).drop(2f).lean(0.2f).set(ShowBody.TILT, 0.12f).head(-0.25f, -0.15f, 0.22f)
+			.rArm(-0.5f, 0f, 2.15f, 0.25f, 1.2f).lArm(-1.25f, -0.2f, -0.45f, 0.25f, 0f)
+			.rLeg(-0.6f, 0f, 1.1f, 1.3f, 1.57f).lLeg(0.1f, 0f, -1.0f, 1.1f, -1.57f)
+			.at(GREEN2_AT + 6f).hold()
+			// eased to standing under the green out
+			.at(WORLD_AT + 10f).hold().drop(0f).lean(0f).set(ShowBody.TILT, 0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0f, 0f).legs(0f, 0f, 0.04f, 0f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
+		float[] k = POSE.sample(t);
+		ShowBody.apply(m, k, true);
 		float flex = Mth.sin(t * 0.55f);
-		if (t < TRANSFORM_AT) {
-			if (t < FRONT_AT - 6f) {
-				m.hat.copyFrom(m.head);
-				return;
-			}
-			if (t < REACH_AT) {
-				// the new hands held up and out to the sides, looking from one to the other, flexing
-				float w = smooth((t - FRONT_AT + 6f) / 10f);
-				rot(m.rightArm, w, -0.75f + 0.06f * flex, 0.3f, 0.75f);
-				rot(m.leftArm, w, -0.75f - 0.06f * flex, -0.3f, -0.75f);
-				rot(m.head, w, 0.08f, 0.25f * Mth.sin(t * 0.12f), 0f);
-			} else if (t < SWING_AT) {
-				// one arm thrown straight at the camera (his left), the other swung back, the grin
-				float w = smooth((t - REACH_AT) / 4f);
-				rot(m.leftArm, w, -1.55f, 0.35f, -0.15f);
-				rot(m.rightArm, w, 0.45f, 0f, 0.35f);
-				rot(m.head, w, -0.05f, -0.3f, 0.05f);
-				m.body.yRot = Mth.lerp(w, m.body.yRot, -0.2f);
-			} else {
-				// arms out wide as the camera comes round behind
-				float w = smooth((t - SWING_AT) / 4f);
-				rot(m.leftArm, w, 0f, 0f, -1.35f);
-				rot(m.rightArm, w, 0f, 0f, 1.35f);
-				rot(m.head, w, 0.1f, 0f, 0f);
-			}
-			copyLayers(m);
-			return;
-		}
-		if (t < FACE_AT) {
-			// his back: the arms still out, the head (just grown) bowed
-			rot(m.leftArm, 1f, 0f, 0f, -1.2f);
-			rot(m.rightArm, 1f, 0f, 0f, 1.2f);
-			rot(m.head, 1f, 0.25f, 0f, 0f);
-		} else if (t < NAPE_AT) {
-			// the face: the head rocking from side to side, chin up, the grin
+		if (t >= FRONT_AT && t < REACH_AT) {
+			// the fingers working: the arms flex a little as he stares at the hands
+			m.rightArm.xRot += 0.06f * flex;
+			m.leftArm.xRot -= 0.06f * flex;
+		} else if (t >= FACE_AT && t < NAPE_AT) {
+			// the face: the head rocking from side to side, the grin
 			float rock = Mth.sin((t - FACE_AT) * 0.24f);
-			rot(m.head, 1f, -0.15f, 0.2f * rock, 0.28f * rock);
-			rot(m.leftArm, 1f, 0f, 0f, -0.4f);
-			rot(m.rightArm, 1f, 0f, 0f, 0.4f);
-		} else if (t < FRONT2_AT) {
+			m.head.yRot += 0.2f * rock;
+			m.head.zRot += 0.28f * rock;
+		} else if (t >= NAPE_AT && t < FRONT2_AT) {
 			// from behind: the head turning to look back over his shoulder
-			float turn = smooth((t - 140f) / 10f);
-			rot(m.head, 1f, -0.1f, -0.9f * turn, 0f);
-			rot(m.leftArm, 1f, 0.1f, 0f, -0.35f);
-			rot(m.rightArm, 1f, 0.1f, 0f, 0.35f);
-		} else if (t < STANCE_AT + 4f) {
-			// the face, front: steady, the hands rising
-			float w = smooth((t - FRONT2_AT) / 16f);
-			rot(m.head, 1f, -0.05f, 0f, 0f);
-			rot(m.leftArm, w, -0.35f, 0f, -0.55f);
-			rot(m.rightArm, w, -0.35f, 0f, 0.55f);
-			rot(m.rightLeg, w, 0f, 0f, 0.3f);
-			rot(m.leftLeg, w, 0f, 0f, -0.3f);
-		} else if (t < LEAP_AT - 4f) {
-			// the wide stance: legs planted wide, a lean in, the hands spread low and out, fingers flexing
-			float w = smooth((t - STANCE_AT - 4f) / 4f);
-			rot(m.leftArm, w, -0.35f + 0.05f * flex, 0f, -0.75f);
-			rot(m.rightArm, w, -0.35f - 0.05f * flex, 0f, 0.75f);
-			rot(m.rightLeg, 1f, -0.1f, 0f, 0.45f);
-			rot(m.leftLeg, 1f, 0.1f, 0f, -0.45f);
-			rot(m.head, 1f, -0.12f, 0f, 0f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, 0.18f);
-		} else {
-			// the leap: one arm flung up and out, the other reaching down at the camera, legs splayed, the body tipped over
-			float w = smooth((t - LEAP_AT + 4f) / 4f);
-			float drift = 0.03f * Mth.sin(t * 0.3f);
-			rot(m.rightArm, w, -0.5f, 0f, 2.15f + drift);
-			rot(m.leftArm, w, -1.05f, -0.2f, -0.55f - drift);
-			rot(m.rightLeg, w, -0.35f, 0f, 0.85f);
-			rot(m.leftLeg, w, 0.25f, 0f, -0.6f);
-			rot(m.head, w, -0.2f, -0.15f, 0.25f);
-			m.body.zRot = Mth.lerp(w, m.body.zRot, 0.12f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, 0.15f);
+			m.head.yRot -= 0.9f * smooth((t - 140f) / 10f);
+		} else if (t >= STANCE_AT && t < LEAP_AT) {
+			m.rightArm.xRot -= 0.05f * flex;
+			m.leftArm.xRot += 0.05f * flex;
+		} else if (t >= LEAP_AT) {
+			m.rightArm.zRot += 0.03f * Mth.sin(t * 0.3f);
 		}
-		copyLayers(m);
-	}
-
-	private static void copyLayers(HumanoidModel<?> m) {
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.rightPants.copyFrom(m.rightLeg);
-			pm.leftPants.copyFrom(m.leftLeg);
-			pm.jacket.copyFrom(m.body);
-		}
-		m.hat.copyFrom(m.head);
+		ShowBody.layers(m);
 	}
 
 	// ================================================================ the grey hands (on the human body)
 
-	/** Before the change: Ben's hands swell into big grey Galvan hands, popping up springily (left first, the watch hand). */
+	/**
+	 * Before the change: Ben's hands swell into big grey Galvan hands, popping up springily (left first, the watch hand). v0.17.3
+	 * touch-up: they ride the bent forearm ({@link BentLimbs#toForearm}), the three long fingers splay and curl with the flexing, and a
+	 * thumb sticks out to the side, the way the show draws them.
+	 */
 	@Override
 	public void renderBody(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, PlayerModel<?> model, float t) {
 		if (t < HANDS_AT - 2f || t >= TRANSFORM_AT) {
 			return;
 		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(GM_SKIN));
+		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
 		// the grey of the side of Grey Matter's own head (his skin's hands are the same grey)
 		float u0 = 1f / 64f, v0 = 10f / 64f, u1 = 5f / 64f, v1 = 14f / 64f;
+		int light = LightTexture.FULL_BRIGHT;
 		for (int side = 0; side < 2; side++) {
 			float g = pop(t - HANDS_AT - side * 3f, 8f);
 			if (g <= 0.02f) {
 				continue;
 			}
+			int s = side;
 			float wig = 0.15f * Mth.sin(t * 0.9f + side * 2f);
 			float grow = 0.7f + 1.1f * g;
 			// the arm's box: right -3..1, left -1..3 (px); the hand fills its last 4 px, swollen
 			float cx = side == 0 ? 1f : -1f;
 			float y0 = 7.6f - 1.2f * g, y1 = 11f + 1.6f * g + wig;
-			AlienParts.on(pose, side == 0 ? model.leftArm : model.rightArm, () -> AlienParts.box(pose, vc, cx - 2f * grow, y0, -2f * grow, cx + 2f * grow, y1,
-					2f * grow, u0, v0, u1, v1, 0xFFFFFFFF, LightTexture.FULL_BRIGHT));
-			// three thick finger stubs splayed out of the bottom
-			for (int f = -1; f <= 1; f++) {
-				float fx = cx + f * 1.5f * grow, fz = -0.6f * grow;
-				float len = (2.4f + 0.6f * f * f) * g * (1f + 0.2f * Mth.sin(t * 0.8f + f + side));
-				AlienParts.on(pose, side == 0 ? model.leftArm : model.rightArm, () -> AlienParts.box(pose, vc, fx - 0.55f, y1 - 0.2f, fz - 0.55f, fx + 0.55f,
-						y1 + len, fz + 0.55f, u0, v0, u1, v1, 0xFFFFFFFF, LightTexture.FULL_BRIGHT));
-			}
+			// which way is out from the body (the thumb's side): -x for the right arm, +x for the left
+			float out = side == 0 ? 1f : -1f;
+			AlienParts.on(pose, side == 0 ? model.leftArm : model.rightArm, () -> {
+				BentLimbs.toForearm(pose, s == 0 ? BentLimbs.LEFT_ARM : BentLimbs.RIGHT_ARM, slim);
+				// the palm, a little flatter front to back than it is wide
+				AlienParts.box(pose, vc, cx - 2f * grow, y0, -1.6f * grow, cx + 2f * grow, y1, 1.6f * grow, u0, v0, u1, v1, 0xFFFFFFFF, light);
+				// three long fingers, splayed out of the bottom and curling forward with the flex
+				for (int f = -1; f <= 1; f++) {
+					float fx = cx + f * 1.45f * grow, fz = -0.4f * grow;
+					float len = (2.8f + 0.5f * f * f) * g * (1f + 0.15f * Mth.sin(t * 0.8f + f + s));
+					float curl = 0.25f + 0.2f * Mth.sin(t * 0.55f + f * 0.9f + s * 2f);
+					pose.pushPose();
+					pose.translate(fx / 16f, (y1 - 0.3f) / 16f, fz / 16f);
+					pose.mulPose(com.mojang.math.Axis.ZP.rotation(f * 0.22f));
+					pose.mulPose(com.mojang.math.Axis.XP.rotation(curl));
+					AlienParts.box(pose, vc, -0.6f, 0f, -0.6f, 0.6f, len, 0.6f, u0, v0, u1, v1, 0xFFFFFFFF, light);
+					// the round fingertip pad
+					AlienParts.box(pose, vc, -0.8f, len - 0.4f, -0.8f, 0.8f, len + 0.7f, 0.8f, u0, v0, u1, v1, 0xFFFFFFFF, light);
+					pose.popPose();
+				}
+				// the thumb, out to the side and down
+				pose.pushPose();
+				pose.translate((cx + out * 2f * grow) / 16f, (y0 + 1.5f * grow) / 16f, -0.3f * grow / 16f);
+				pose.mulPose(com.mojang.math.Axis.ZP.rotation(-out * 0.9f));
+				AlienParts.box(pose, vc, -0.6f, 0f, -0.6f, 0.6f, 2.4f * g, 0.6f, u0, v0, u1, v1, 0xFFFFFFFF, light);
+				pose.popPose();
+			});
 		}
 	}
 
