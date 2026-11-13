@@ -65,6 +65,9 @@ public final class BeastFormArt {
 		if (form == null || s == null) {
 			return false;
 		}
+		if (com.projecthero.mod.client.beastboy.model.BigAnimals.render(form, s, pose, buffers, light, tint)) {
+			return true; // HQ round: blocky rhino / elephant / gorilla / Beast with their own textures
+		}
 		BeastMesh.Body body = bodyOf(form, s);
 		if (body == null) {
 			return false;

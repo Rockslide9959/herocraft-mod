@@ -1,159 +1,158 @@
 package com.projecthero.mod.client.beastboy.model;
 
-import static com.projecthero.mod.client.beastboy.model.BeastMesh.*;
-
-import org.joml.Matrix4f;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3 Beast Boy's gorilla (2 blocks tall knuckle-walking): huge shoulders and forearms, short legs, dark green fur with a lighter
- * chest, face, hands and feet. Moves: smash, grab / throw, punch / strike, roar / chest_beat.
+ * v0.17.3 Beast Boy's gorilla (2 blocks tall upright), HQ round: a blocky Minecraft-style model ({@link GorillaGeo}, texture
+ * {@code gorilla.png}): a wedge torso (pelvis, pot belly, deep chest, wide shoulders, a hump behind the head, a lighter "silver" saddle,
+ * bare chest), a head with a sagittal crest, heavy brow, deep-set eyes, broad nostrils, muzzle and a jaw with canines; huge arms
+ * (deltoid, upper arm, thick forearm, hair tufts at the elbow and down the forearm) ending in knuckle-walking hands; short legs with
+ * hand-like feet. The torso leans forward and the arms reach the ground by IK, so the knuckles plant and roll. Idle: breathing,
+ * looking round, blinks, a shift of weight. Moves: chest_beat / beat / roar (rears up, slaps the chest, hoots), smash (both fists up,
+ * slam), grab / throw (reach, grip, lift overhead, hurl), punch / strike (jab with a shoulder twist).
  */
 public final class GorillaModel {
+	private static final BigBox.Lazy RIG = new BigBox.Lazy(GorillaGeo::layer, GorillaGeo.TREE, "gorilla");
+	private static final float TAU = BigRig.TAU;
+	/** Upright-frame offsets (from the hip pivot) of the shoulders and the chest. */
+	private static final float SH_Y = 15f, SH_Z = 0.5f, UPPER = 11.5f, FORE = 10f;
+
 	private GorillaModel() {
 	}
 
+	/** Unused: {@link BigAnimals} draws the gorilla before BeastFormArt's mesh switch is reached (kept so that switch needs no edit). */
 	public static void draw(PoseStack pose, BeastPose s) {
-		float t = s.age;
-		float amt = s.walkAmt;
-		float ph = s.walkPos * 0.55f;
-		float smash = s.is("smash") ? s.prog : -1f;
-		float beat = s.isAny("roar", "chest_beat", "beat") ? s.env(s.move, 0.15f, 0.2f) : 0f;
-		float grabK = s.isAny("grab", "throw") ? s.env(s.move, 0.3f, 0.3f) : 0f;
-		float punch = s.isAny("strike", "punch") ? Mth.sin(s.prog * Mth.PI) : 0f;
-
-		// stance: knuckle-walk (pitched forward) -> upright for smash / chest beat
-		float rear = beat;
-		float slamPitch = 0f;
-		if (smash >= 0f) {
-			if (smash < 0.45f) {
-				rear = BeastPose.smooth(smash / 0.45f);
-			} else if (smash < 0.6f) {
-				rear = 1f - BeastPose.smooth((smash - 0.45f) / 0.15f) * 1.3f;
-				slamPitch = 0f;
-			} else {
-				rear = -0.3f * (1f - BeastPose.smooth((smash - 0.6f) / 0.4f));
-			}
-		}
-		float bob = -Math.abs(Mth.sin(ph)) * 1.0f * amt + Mth.sin(t * 0.1f) * 0.25f;
-		float pitch = Mth.lerp(rear, 0.78f, 0.08f) + slamPitch + grabK * 0.1f;
-		float hipY = 13f + bob + rear * 1.5f;
-		Matrix4f body = Rig.mat(0f, hipY, -3f, Mth.sin(ph) * 0.08f * amt + punch * 0.25f, pitch, Mth.sin(ph) * 0.05f * amt);
-
-		// ---- legs
-		for (int side = -1; side <= 1; side += 2) {
-			float[] st = Rig.step(ph + (side > 0 ? Mth.PI : 0f), 4.5f * amt, 3f * amt);
-			float[] hip = Rig.tp(body, side * 4.2f, 0f, 0f);
-			float[] foot = v(side * 5f, 1.2f + st[1], -2f + st[0] + rear * 1.5f);
-			float[] knee = ik(hip, foot, 7.5f, 7f, v(side * 0.4f, 0f, 1f));
-			Rig.limb(pose, hip, knee, foot, 3.8f, 2.8f, 2.3f, FUR_BACK, v(side, 0.3f, 0f));
-			ellipsoid(pose, foot[0], foot[1] - 0.2f, foot[2] + 1.2f, 2.2f, 1.2f, 3.6f, FACE);
-			for (int k = 0; k < 3; k++) {
-				ellipsoid(pose, foot[0] + (k - 1) * 1.2f * side, foot[1] - 0.3f, foot[2] + 4.4f, 0.6f, 0.6f, 0.8f, 8, 5, FACE, 0f, 1f);
-			}
-		}
-
-		// ---- arms (IK; hands knuckle on the ground ahead unless a move moves them)
-		for (int side = -1; side <= 1; side += 2) {
-			float[] st = Rig.step(ph + (side > 0 ? 0f : Mth.PI), 6f * amt, 4f * amt);
-			float[] sh = Rig.tp(body, side * 9.5f, 13.5f, 0.5f);
-			float[] hand = v(side * 10.5f, 1.8f + st[1], 9f + st[0]);
-			if (smash >= 0f) {
-				float[] up = v(side * 5f, 40f, 2f), down = v(side * 5.5f, 1.8f, 15f);
-				if (smash < 0.45f) {
-					hand = lerp(hand, up, BeastPose.smooth(smash / 0.45f));
-				} else if (smash < 0.6f) {
-					hand = lerp(up, down, BeastPose.smooth((smash - 0.45f) / 0.15f));
-				} else {
-					hand = lerp(down, v(side * 10.5f, 1.8f, 9f), BeastPose.smooth((smash - 0.6f) / 0.4f));
-				}
-			}
-			if (beat > 0f) {
-				float hit = Mth.sin(t * 1.4f + (side > 0 ? 0f : Mth.PI));
-				float[] chest = v(side * 3.5f, 23.5f, 9.5f + Math.max(0f, hit) * 3.5f);
-				hand = lerp(hand, chest, beat);
-			}
-			if (grabK > 0f && side < 0) {
-				float reach = s.is("throw") ? (s.prog < 0.5f ? 0f : 1f) : 1f;
-				float[] tgt = s.is("throw") && s.prog < 0.55f ? v(-5f, 36f, -2f) : v(-4f, 18f, 24f * reach);
-				hand = lerp(hand, tgt, grabK);
-			}
-			if (punch > 0f && side < 0) {
-				hand = lerp(hand, v(-4f, 20f, 26f), punch);
-			}
-			float[] elbow = ik(sh, hand, 10.5f, 10f, v(side * 0.6f, 0.1f, -1f));
-			Rig.limb(pose, sh, elbow, hand, 4.4f, 2.9f, 2.3f, FUR_BACK, v(side, 0.3f, 0f));
-			// fix round: biceps and a hairy forearm so the arms read as muscle, not tubes
-			float[] bi = lerp(sh, elbow, 0.42f);
-			ellipsoid(pose, bi[0], bi[1], bi[2], 3.7f, 3.9f, 3.7f, 12, 8, FUR_BACK_V, 0f, 1f);
-			float[] fd0 = norm(sub(hand, elbow), v(0f, -1f, 0f));
-			for (int k = 0; k < 3; k++) {
-				float[] q = lerp(elbow, hand, 0.15f + k * 0.22f);
-				cone(pose, q[0], q[1], q[2] - 2.2f, fd0[0] * 0.6f, fd0[1] * 0.6f - 0.3f, -0.8f, 2.4f, 1.2f, 0.9f, MANE);
-			}
-			// forearm bulk
-			float[] fm = lerp(elbow, hand, 0.35f);
-			ellipsoid(pose, fm[0], fm[1], fm[2], 3.3f, 3.6f, 3.3f, 10, 7, FUR_BACK_V, 0f, 1f);
-			// fist with knuckles
-			ellipsoid(pose, hand[0], hand[1], hand[2], 2.6f, 2.0f, 2.7f, FACE);
-			for (int k = 0; k < 4; k++) {
-				ellipsoid(pose, hand[0] + (k - 1.5f) * 1.1f, hand[1] - 1.2f, hand[2] + 1.6f, 0.65f, 0.7f, 0.75f, 8, 5, FACE, 0f, 1f);
-			}
-		}
-
-		// ---- torso (body space, upright coordinates: +Y up the spine)
-		Rig.push(pose, body);
-		float br = 1f + Mth.sin(t * 0.1f) * 0.03f + beat * 0.04f;
-		ellipsoid(pose, 0f, 1.5f, -0.5f, 6.2f, 5.5f, 5.4f, FUR_BACK_V);
-		ellipsoid(pose, 0f, 7f, 0.5f, 6.8f * br, 6.5f, 5.8f * br, FUR_BACK_V);
-		ellipsoid(pose, 0f, 7f, 3.4f, 4.6f, 5f, 3.2f, FUR_LT);
-		ellipsoid(pose, 0f, 13f, 0f, 9.4f * br, 6.8f, 6.8f * br, FUR_BACK_V);
-		for (int side = -1; side <= 1; side += 2) {
-			ellipsoid(pose, side * 3.4f, 12.4f, 4.6f, 3.8f, 3.4f, 2.4f, FUR_LT);
-			ellipsoid(pose, side * 8.6f, 13.8f, 0.3f, 4.2f, 4.2f, 4.4f, FUR_BACK_V);
-		}
-		// the shoulder hump
-		ellipsoid(pose, 0f, 17f, -1.5f, 7f, 4f, 5f, FUR_BACK_V);
-
-		// head (kept level, looking ahead)
-		float hy = s.yaw(0.7f) * 0.8f;
-		float hp = -pitch + 0.15f + s.pitch(0.5f) * 0.5f;
-		boneYXZ(pose, 0f, 17.5f, 3.5f, hy, hp, 0f);
-		float jaw = Math.max(beat * (0.4f + 0.3f * Mth.sin(t * 0.9f)), smash > 0.4f && smash < 0.7f ? 0.7f : 0f);
-		head(pose, jaw);
-		pose.popPose();
-		pose.popPose();
 	}
 
-	/** The gorilla head (pivot at the neck, +Z forward). Also used by nothing else yet but kept public for previews. */
-	public static void head(PoseStack pose, float jaw) {
-		ellipsoid(pose, 0f, 2.6f, 0f, 4.4f, 4.5f, 4.3f, FUR_BACK_V);
-		ellipsoid(pose, 0f, 6f, -1.2f, 1.7f, 2.4f, 3.4f, FUR);
-		// brow ridge, face, muzzle
-		ellipsoid(pose, 0f, 4f, 3.4f, 4.1f, 1.4f, 1.9f, SKIN_DK);
-		ellipsoid(pose, 0f, 2f, 3.2f, 3.4f, 2.6f, 2.0f, FACE);
-		ellipsoid(pose, 0f, 0.6f, 4.3f, 3.2f, 2.3f, 2.4f, FACE);
-		for (int s = -1; s <= 1; s += 2) {
-			eye(pose, s * 1.55f, 2.9f, 4.6f, 0.85f, s * 0.25f, 0.1f, EYE);
-			ellipsoid(pose, s * 0.95f, 1.5f, 6.4f, 0.75f, 0.55f, 0.45f, 8, 5, DARK, 0f, 1f);
-			ellipsoid(pose, s * 4.3f, 2.6f, 0.2f, 0.7f, 1.2f, 1.1f, 8, 6, FACE, 0f, 1f);
+	public static void render(BeastPose s, PoseStack pose, MultiBufferSource buffers, int light, int tint, float flash) {
+		BigBox.Rig r = RIG.get();
+		r.reset();
+		pose(r, s);
+		BigBox.render(r, pose, buffers, light, tint, flash);
+	}
+
+	static void pose(BigBox.Rig r, BeastPose s) {
+		float t = s.age;
+		float amt = s.walkAmt;
+		float cyc = s.walkPos * 0.085f;
+		float breathe = Mth.sin(t * 0.1f);
+		float beat = s.isAny("chest_beat", "beat", "roar") ? s.env(s.move, 0.18f, 0.2f) : 0f;
+		float smash = s.is("smash") ? s.prog : -1f;
+		float grab = s.isAny("grab", "throw") ? s.prog : -1f;
+		float punch = s.isAny("punch", "strike") ? s.prog : -1f;
+
+		// ---- stance: knuckle-walk lean -> upright for the chest beat and the smash wind-up
+		float upright = beat;
+		float slam = 0f;
+		if (smash >= 0f) {
+			upright = smash < 0.4f ? BigRig.easeOut(smash / 0.4f) * 0.8f : (smash < 0.55f ? 0.8f - BigRig.easeIn((smash - 0.4f) / 0.15f) * 1.15f : -0.35f);
+			if (smash >= 0.55f) {
+				upright = -0.35f * (1f - BigRig.smooth((smash - 0.55f) / 0.45f));
+				slam = BigRig.wobble((smash - 0.55f) * 10f, 3.4f, 0.9f);
+			}
 		}
-		// nose bridge
-		ellipsoid(pose, 0f, 2.3f, 5.6f, 1.6f, 1.2f, 1.0f, 10, 6, FACE, 0f, 1f);
-		// lower jaw with canines
-		bone(pose, 0f, -0.4f, 2f, jaw * 0.7f, 0f, 0f);
-		ellipsoid(pose, 0f, -1.2f, 2.4f, 3f, 1.5f, 2.6f, FACE);
-		ellipsoid(pose, 0f, -0.3f, 2.6f, 2.4f, 0.6f, 2.0f, 10, 6, MOUTH, 0f, 0.5f);
-		for (int s = -1; s <= 1; s += 2) {
-			cone(pose, s * 1.6f, -0.2f, 4.2f, 0f, 1f, 0.1f, 1.3f, 0.35f, 0.35f, TOOTH);
+		float P = Mth.lerp(upright, 0.72f, 0.12f) + Mth.sin(cyc * TAU * 2f) * 0.03f * amt + breathe * 0.015f;
+		float lift = upright * 2.6f;
+		float down = BigRig.dip(cyc) * 0.8f * amt + Math.abs(slam) * 0.8f - breathe * 0.15f - lift;
+		float roll = Mth.sin(cyc * TAU) * 0.07f * amt + Mth.sin(t * 0.029f) * 0.02f * (1f - amt);
+		float yaw = Mth.sin(cyc * TAU) * 0.07f * amt;
+		float twist = 0f;
+		if (punch >= 0f) {
+			twist = Mth.sin(BigRig.ph(punch, 0f, 0.8f) * Mth.PI) * 0.35f;
 		}
-		pose.popPose();
-		for (int s = -1; s <= 1; s += 2) {
-			cone(pose, s * 1.6f, -0.2f, 4.6f, 0f, -1f, 0.1f, 1.3f, 0.35f, 0.35f, TOOTH);
+		ModelPart body = r.p("body");
+		body.y += down;
+		body.xRot += P;
+		body.zRot += roll;
+		body.yRot += -yaw - twist;
+		float hipY = 14f - down;
+
+		// ---- legs (knees forward), IK to the feet
+		for (int k = 0; k < 2; k++) {
+			String sd = k == 0 ? "L" : "R";
+			float[] g = BigRig.gait(cyc + (k == 0 ? 0f : 0.5f), 0.6f);
+			float fz = g[0] * 6f * amt + upright * 1f;
+			float fy = 2.5f + g[1] * 2.2f * amt;
+			float[] a = BigAnimals.ik(fz + 1.2f, fy - hipY, 5.5f, 6f, false);
+			r.p("leg" + sd).y += down;
+			r.p("leg" + sd).xRot += a[0];
+			r.p("shin" + sd).xRot += a[1] - a[0];
+			r.p("foot" + sd).xRot += -a[1] + g[1] * amt * 0.3f;
 		}
-		ellipsoid(pose, 0f, -0.3f, 3.2f, 2.4f, 0.5f, 2.0f, 10, 6, MOUTH, 0.5f, 1f);
+
+		// ---- arms: IK to the knuckles on the ground ahead (gait: arms half a beat after the legs of the same side)
+		float[] sh = BigAnimals.pitchPt(P, SH_Y, SH_Z);
+		float shY = hipY + sh[0], shZ = -3f + sh[1];
+		for (int k = 0; k < 2; k++) {
+			float sgn = k == 0 ? 1f : -1f;
+			String sd = k == 0 ? "L" : "R";
+			float[] g = BigRig.gait(cyc + (k == 0 ? 0.25f : 0.75f), 0.58f);
+			float hz = 12f + g[0] * 8f * amt + yaw * sgn * 6f;
+			float hy = 7f + g[1] * 3f * amt;
+			float[] a = BigAnimals.ik(hz - shZ, hy - shY, UPPER, FORE, true);
+			ModelPart arm = r.p("arm" + sd), fore = r.p("fore" + sd), hand = r.p("hand" + sd);
+			float au = a[0], al = a[1];
+			float hx = -al + g[1] * amt * 0.4f;
+			float out = -sgn * 0.08f;
+			// chest beat: cupped hands slap the chest in turn
+			if (beat > 0f) {
+				float hit = Math.max(0f, Mth.sin(t * 1.5f + k * Mth.PI));
+				au = Mth.lerp(beat, au, -1.1f - hit * 0.25f);
+				al = Mth.lerp(beat, al, -2.7f + hit * 0.15f);
+				hx = Mth.lerp(beat, hx, -0.3f);
+				out = Mth.lerp(beat, out, -sgn * (0.35f + hit * 0.2f));
+			}
+			if (smash >= 0f) {
+				float upK = smash < 0.4f ? BigRig.easeOut(smash / 0.4f) : (smash < 0.55f ? 1f - BigRig.easeIn((smash - 0.4f) / 0.15f) : 0f);
+				float hitK = smash >= 0.45f && smash < 0.75f ? 1f - BigRig.smooth((smash - 0.55f) / 0.2f) : 0f;
+				au = Mth.lerp(upK, au, -3.0f);
+				al = Mth.lerp(upK, al, -3.2f);
+				au = Mth.lerp(hitK * (1f - upK), au, -0.95f);
+				al = Mth.lerp(hitK * (1f - upK), al, -1.1f);
+				hx = Mth.lerp(Math.max(upK, hitK), hx, 0f);
+				out = Mth.lerp(upK, out, sgn * 0.12f);
+			}
+			if (grab >= 0f && k == 1) {
+				float reach = BigRig.smooth(grab / 0.3f) * (1f - BigRig.ph(grab, 0.35f, 0.5f));
+				float over = BigRig.smooth(BigRig.ph(grab, 0.35f, 0.62f)) * (1f - BigRig.ph(grab, 0.62f, 0.75f));
+				float hurl = BigRig.bump(grab, 0.62f, 0.95f);
+				au = Mth.lerp(reach, au, -1.45f);
+				al = Mth.lerp(reach, al, -1.55f);
+				au = Mth.lerp(over, au, -3.1f);
+				al = Mth.lerp(over, al, -2.4f);
+				au = Mth.lerp(hurl, au, -1.7f);
+				al = Mth.lerp(hurl, al, -1.7f);
+				hx = Mth.lerp(Math.max(reach, Math.max(over, hurl)), hx, BigRig.ph(grab, 0.25f, 0.35f) * 0.9f * (1f - hurl));
+			}
+			if (punch >= 0f && k == 1) {
+				float jab = BigRig.bump(punch, 0.15f, 0.85f);
+				float cock = BigRig.bump(punch, 0f, 0.3f);
+				au = Mth.lerp(Math.max(jab, cock), au, jab > cock ? -1.6f : -0.6f);
+				al = Mth.lerp(Math.max(jab, cock), al, jab > cock ? -1.62f : -2.4f);
+				hx = Mth.lerp(jab, hx, 0f);
+			}
+			arm.xRot += au - P;
+			arm.zRot += out;
+			fore.xRot += al - au;
+			hand.xRot += hx;
+			hand.zRot += sgn * 0.05f;
+		}
+
+		// ---- head: kept level and looking; hoots with the chest beat
+		ModelPart head = r.p("head");
+		float hoot = beat * (0.55f + 0.25f * Mth.sin(t * 0.9f));
+		head.xRot += -P + 0.12f + s.pitch(0.6f) * 0.5f - beat * 0.35f + Mth.cos(cyc * TAU * 2f - 0.6f) * 0.04f * amt;
+		head.yRot += -(s.yaw(0.7f) * 0.8f + Mth.sin(t * 0.019f) * 0.12f * (1f - amt) * (1f - beat)) + yaw * 0.8f + twist * 0.6f;
+		head.zRot += -roll * 0.5f;
+		float jaw = Math.max(hoot, smash >= 0.4f && smash < 0.75f ? 0.6f : 0f);
+		jaw = Math.max(jaw, grab >= 0.6f && grab < 0.9f ? 0.45f : 0f);
+		r.p("jaw").xRot += jaw * 0.7f;
+		float bl = BigRig.blink(t, 0.83f);
+		r.p("eyeL").yScale = 1f - 0.85f * bl;
+		r.p("eyeR").yScale = 1f - 0.85f * bl;
 	}
 }
