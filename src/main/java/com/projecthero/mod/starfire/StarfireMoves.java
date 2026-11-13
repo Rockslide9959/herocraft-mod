@@ -194,6 +194,7 @@ public final class StarfireMoves {
 		}
 		Run r = run(p);
 		r.hand = -r.hand;
+		Starfire.setAnimBit(p, StarfireState.ANIM_RIGHT_HAND, r.hand > 0); // which arm throws, for every viewer's pose
 		fireBolt(p, Starfire.handPos(p, r.hand), aim(p, Starfire.handPos(p, r.hand)), boltDamage(p), StarfireConfig.BOLT_BLAST_RADIUS, false, false);
 		Starfire.startCooldown(p, StarfireAbilityManager.STARBOLT, StarfireConfig.BOLT_COOLDOWN);
 		Starfire.sound(p, SoundEvents.FIRECHARGE_USE, 0.22f, 1.7f + p.getRandom().nextFloat() * 0.2f);
@@ -352,6 +353,7 @@ public final class StarfireMoves {
 		}
 		r.grabbed = target;
 		r.grabStart = Starfire.now(p);
+		Starfire.setAnimBit(p, StarfireState.ANIM_CARRYING, true);
 		Starfire.sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.5f, 0.8f);
 		return true;
 	}
@@ -395,6 +397,7 @@ public final class StarfireMoves {
 	static void hurl(ServerPlayer p, Run r) {
 		LivingEntity t = r.grabbed;
 		r.grabbed = null;
+		Starfire.setAnimBit(p, StarfireState.ANIM_CARRYING, false);
 		if (t == null || !t.isAlive()) {
 			return;
 		}
@@ -411,6 +414,9 @@ public final class StarfireMoves {
 	private static void dropGrabbed(ServerPlayer p, Run r, boolean cooldown) {
 		LivingEntity t = r.grabbed;
 		r.grabbed = null;
+		if (t != null) {
+			Starfire.setAnimBit(p, StarfireState.ANIM_CARRYING, false);
+		}
 		if (t != null && t.isAlive()) {
 			t.setDeltaMovement(Vec3.ZERO);
 			t.hurtMarked = true;

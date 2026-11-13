@@ -275,6 +275,31 @@ public class StarfireGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.3 animation round: the synced animation bits (which hand threw, the carry) that every viewer's poses read. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void animationBitsFollowTheHandsAndTheCarry(GameTestHelper helper) {
+		ServerPlayer p = starfire(helper);
+		Starfire.setStarbolt(p, 100f);
+		helper.assertTrue(StarfireMoves.use(p, StarfireAbilityManager.STARBOLT), "R throws");
+		boolean first = (Starfire.state(p).anim & StarfireState.ANIM_RIGHT_HAND) != 0;
+		Starfire.clearCooldowns(p);
+		helper.assertTrue(StarfireMoves.use(p, StarfireAbilityManager.STARBOLT), "R throws again");
+		boolean second = (Starfire.state(p).anim & StarfireState.ANIM_RIGHT_HAND) != 0;
+		helper.assertTrue(first != second, "the throwing hand alternates and is synced");
+		helper.assertTrue(close(Starfire.starbolt(p), 100f - 2 * StarfireConfig.BOLT_COST), "still 5 Starbolt a throw");
+		helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(8)).forEach(AlienProjectileEntity::discard);
+		Zombie z = zombie(helper, 1.5, 3.5, 20);
+		look(p, z);
+		helper.assertTrue(StarfireMoves.use(p, StarfireAbilityManager.GRAB), "G grabs");
+		helper.assertTrue((Starfire.state(p).anim & StarfireState.ANIM_CARRYING) != 0, "the carry is synced");
+		StarfireMoves.use(p, StarfireAbilityManager.GRAB);
+		helper.assertTrue((Starfire.state(p).anim & StarfireState.ANIM_CARRYING) == 0, "and cleared on the hurl");
+		StarfireState copy = StarfireState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+				StarfireState.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, Starfire.state(p)).getOrThrow()).getOrThrow();
+		helper.assertTrue(copy.anim == Starfire.state(p).anim && copy.hasPower, "the bits round-trip through the codec");
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- G / Shift+G
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)

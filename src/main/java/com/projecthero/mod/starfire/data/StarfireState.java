@@ -39,18 +39,26 @@ public final class StarfireState {
 	public Map<String, Long> abilityReadyAt;
 	/** Villagers she has kissed: villager UUID -> the day she last got a gift from them. */
 	public Map<String, Long> villagers;
+	/**
+	 * Animation bits for every viewer's body poses ({@code client.starfire.StarfirePose}): {@link #ANIM_RIGHT_HAND} = the last starbolt
+	 * left her right hand (else her left), {@link #ANIM_CARRYING} = Tamaranean Grab is holding a creature. Not gameplay.
+	 */
+	public int anim;
 
 	public static final int CHARGE_NONE = 0;
 	public static final int CHARGE_BURST = 1;
 	public static final int CHARGE_NOVA = 2;
 
+	public static final int ANIM_RIGHT_HAND = 1;
+	public static final int ANIM_CARRYING = 2;
+
 	public StarfireState() {
-		this(false, 0f, 0f, false, false, false, 0, 0L, 0L, 0L, 0L, "", 0L, new HashMap<>(), new HashMap<>());
+		this(false, 0f, 0f, false, false, false, 0, 0L, 0L, 0L, 0L, "", 0L, new HashMap<>(), new HashMap<>(), 0);
 	}
 
 	public StarfireState(boolean hasPower, float starbolt, float mood, boolean flying, boolean beams, boolean radiance, int chargeMove,
 			long chargeStart, long novaAt, long diveUntil, long dashUntil, String bondWith, long bondUntil, Map<String, Long> abilityReadyAt,
-			Map<String, Long> villagers) {
+			Map<String, Long> villagers, int anim) {
 		this.hasPower = hasPower;
 		this.starbolt = starbolt;
 		this.mood = mood;
@@ -66,11 +74,12 @@ public final class StarfireState {
 		this.bondUntil = bondUntil;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.villagers = new HashMap<>(villagers);
+		this.anim = anim;
 	}
 
 	public StarfireState copy() {
 		return new StarfireState(hasPower, starbolt, mood, flying, beams, radiance, chargeMove, chargeStart, novaAt, diveUntil, dashUntil,
-				bondWith, bondUntil, abilityReadyAt, villagers);
+				bondWith, bondUntil, abilityReadyAt, villagers, anim);
 	}
 
 	/** 0..1: how much Joy the needle shows. */
@@ -100,6 +109,7 @@ public final class StarfireState {
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("villagers", Map.of())
-					.forGetter(s -> new HashMap<>(s.villagers))
+					.forGetter(s -> new HashMap<>(s.villagers)),
+			Codec.INT.optionalFieldOf("anim", 0).forGetter(s -> s.anim)
 	).apply(i, StarfireState::new));
 }
