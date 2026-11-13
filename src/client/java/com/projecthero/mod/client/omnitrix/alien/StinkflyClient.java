@@ -179,6 +179,11 @@ public final class StinkflyClient implements AlienClientKit {
 	}
 
 	private static float openAmount(AbstractClientPlayer p, float partial) {
+		// v0.17.3: the show transformation opens the wings itself (the flying flag is off through it)
+		Float show = com.projecthero.mod.client.omnitrix.sequence.StinkflyShow.wingOpen(p, partial);
+		if (show != null) {
+			return show;
+		}
 		float[] o = OPEN.get(p);
 		if (o == null) {
 			return flying(p) ? 1f : 0f;

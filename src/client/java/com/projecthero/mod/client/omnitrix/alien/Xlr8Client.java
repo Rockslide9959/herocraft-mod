@@ -231,7 +231,13 @@ public final class Xlr8Client implements AlienClientKit {
 		// the skin's now)
 		// v0.17.2 (user: "give xlr8 his tail back ... i just wanted you to edit his skin to remove the tail"): the 3D tail is back,
 		// the painted one stays out of the skin; TAIL moves it with him
-		TAIL.render(pose, buffers, light, p, model, partial);
+		// v0.17.3: during the show transformation the sequence scripts the tail's shape (Xlr8Show.tailShape)
+		float[] shape = com.projecthero.mod.client.omnitrix.sequence.Xlr8Show.tailShape(p, partial);
+		if (shape != null) {
+			TAIL.renderScripted(pose, buffers, light, model, shape[0], shape[1], shape[2], shape[3], shape[4]);
+		} else {
+			TAIL.render(pose, buffers, light, p, model, partial);
+		}
 		// (no ball-foot discs: the user removed his ball feet in v0.17.1)
 		float vis = visor(p, partial);
 		if (vis > 0.001f && vis < 1f) {

@@ -134,7 +134,7 @@ public final class OmnitrixSeqHarness {
 			com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient.bystander = "watch".equals(mode);
 			server(mc, p -> {
 				ServerLevel level = p.serverLevel();
-				level.setDayTime(6000L);
+				level.setDayTime("ghostfreak".equals(alien) ? 18000L : 6000L); // night for Ghostfreak: the sun burns him (red hurt flashes)
 				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
 				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
 				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
