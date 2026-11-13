@@ -18,12 +18,18 @@ size, a second slow golden wave, a rising aura column, sparks, the transform-bur
 
 ## Tail
 
-`client/saiyan/SaiyanTailRenderer` (drawn from `SaiyanLayer`, so never in first person). 7 tapering segments from the lower back
-(body space (0, 10.6, 2.05) px), each 2.15 px, half-width 1.05 -> 0.62 px with a fuller tip; cel-shaded core + translucent fur
-shell (x1.3, tip x1.5), alternating bands. Hangs back ~38 deg below horizontal and curls up toward the tip; sways (two slow
-sines, phase-shifted per segment); streams back when running (less droop and curl), leans against strafing, lifts when falling.
-Crouching eases it into a wrap round the waist (an ellipse 5 x 3 px outside the body). Colour eases over ~1 s:
+User (round 2): "make it smooth and round like Spider-Monkey's tail and give it the same reaction rules".
+`client/saiyan/SaiyanTailRenderer` (drawn from `SaiyanLayer`, so never in first person; ticked for every Saiyan in view from
+`SaiyanVisualsClient`). Physics = Spidermonkey's spring chain, now shared as `client/render/SpringTail`: 7 world-space links
+(Spidermonkey's lengths x0.9, about 17 px) from the lower back (body bone (0, 10.6, 2.0) px), springing toward the shared
+`MONKEY_IDLE` / `MONKEY_WALK` rest shapes (low out behind, curling up into a hook; trailing and swaying with the walk cycle when
+moving, slow idle sway standing), lagging and swinging on turns, loose and streaming when falling fast, gliding or flying
+(Spidermonkey's web-swing rule), kept 3.1 px behind the back and legs and out of blocks. Crouching leans the root with the body
+(Spidermonkey's rule; the old waist wrap is gone). Mesh = `client/render/TubeMesh`: a Catmull-Rom curve through the links,
+4 samples per link, 10-sided rings with real normals, rounded tip; radius 1.1 px at the root -> 0.6 px -> a fuller 0.82 px tip,
+plus a soft fixed fur mottle in the vertex colours and a lighter tip tuft (no translucent shell: it read as a grey outline). Colour eases over ~1 s:
 Base brown `#6B4423`, Super Saiyan gold `#FFCF3A`, Ultra Instinct silver `#CDD6E2`, Kaioken red `#C0352C`; transformed tails glow.
+Footage: `docs/screenshots/v0173/saiyan_tail_v2/`.
 
 ## Hair (stashed)
 

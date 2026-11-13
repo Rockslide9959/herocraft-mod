@@ -27,6 +27,8 @@ public final class SaiyanVisualsClient {
 		WorldRenderEvents.START.register(ctx -> SaiyanAuraRenderer.inWorld = true);
 		WorldRenderEvents.END.register(ctx -> SaiyanAuraRenderer.inWorld = false);
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanAuraParticles::tick);
+		// v0.17.3: the tail's spring chain (Spidermonkey's rules) for every Saiyan in view; pruned, cleared with the level
+		ClientTickEvents.END_CLIENT_TICK.register(SaiyanTailRenderer::tick);
 		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
 			SaiyanFx.clearAll();
 			SaiyanAuraParticles.clear();

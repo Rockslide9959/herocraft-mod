@@ -4,18 +4,22 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.projecthero.mod.client.render.SpringTail;
+import com.projecthero.mod.client.render.TubeMesh;
 import com.projecthero.mod.saiyan.Saiyan;
 import com.projecthero.mod.saiyan.SaiyanForm;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -23,37 +27,55 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.3 (user: "Give Saiyans a brown monkey tail that changes colour when they transform"): a furry monkey tail on every
- * Saiyan, for every viewer. {@link #SEGMENTS} tapering segments from the lower back (the body's back face, belt height) that
- * hang back and curl up at the tip, sway gently at rest, stream back when he runs, lean against a strafe and lift as he falls.
- * Crouching wraps it round the waist (eased in and out). The colour follows the form, eased over about a second: brown in Base,
- * gold as a Super Saiyan, silver in Ultra Instinct, red under Kaioken; a transformed tail glows (light 13+).
+ * Saiyan, for every viewer.
  *
- * <p>Drawn from {@code SaiyanLayer} (a render layer: never in first person; nobody's own view sees it) in the body part's space,
- * so it follows the body's bend and lean for both the wide and the slim model (their bodies are the same). Fur: each segment is
- * a cel-shaded core plus a soft translucent shell 1.3x its size, with alternating light / dark bands and a fluffy tip.
- * The per-player ease values are client-only floats keyed by UUID (no world or entity is held), dropped on disconnect.
+ * <p>v0.17.3 rework (user: "For the Saiyan tail please make it smooth and round like Spider-Monkey's tail and give it the same
+ * reaction rules please"): the tail is now Spidermonkey's spring chain ({@link SpringTail}, shared code) -- 7 links in world space,
+ * ticked on the client for every Saiyan in view, the same idle / walk rest shapes (low out behind, curling up into a hook; trailing
+ * and swaying with the walk cycle when he moves, a slow idle sway standing), the same lag and swing when he turns or moves, loose and
+ * streaming behind him when he falls fast, glides or flies, kept behind his back and legs and out of blocks. Crouching leans the root
+ * with the body (Spidermonkey's rule; the old waist wrap is gone). Drawn as a smooth round tube ({@link TubeMesh}: a curve through
+ * the links, 10-sided rings with real normals, a rounded tip) that tapers from the lower back to a slightly fuller fluffy tip,
+ * with a soft fur mottle in its colours.
+ *
+ * <p>The colour follows the form, eased over about a second: brown in Base, gold as a Super Saiyan, silver in Ultra Instinct, red
+ * under Kaioken; a transformed tail glows (light 13+). Drawn from {@code SaiyanLayer} (never in first person), in the model's space,
+ * for the wide and slim models alike (their bodies are the same). The per-player state is client-only vectors and floats keyed by
+ * UUID (no world or entity is held), pruned each tick and dropped on disconnect.
  */
 public final class SaiyanTailRenderer {
 	private static final ResourceLocation WHITE = ResourceLocation.fromNamespaceAndPath("projecthero", "textures/entity/saiyan/white.png");
 	public static final int SEGMENTS = 7;
-	/** Segment length and half-widths, model pixels. */
-	private static final float SEG_LEN = 2.15f;
-	private static final float R_BASE = 1.05f;
-	private static final float R_END = 0.62f;
+	/** Link lengths in model pixels, base to tip: Spidermonkey's, x0.9 (about 17 px of tail). */
+	private static final float[] LEN = { 2.97f, 2.88f, 2.7f, 2.52f, 2.25f, 1.98f, 1.71f };
+	/** The root on the body bone (pixels): the lower back, belt height, on the back face. */
+	private static final float ROOT_Y = 10.6f, ROOT_Z = 2.0f;
+	/** No link nearer his front than this (pixels, model z): the back face (z 2) plus the tube's radius. */
+	private static final float BEHIND = 3.1f;
+	/** Tube radius (pixels): at the root, the thinnest point (just before the tip) and the fluffy tip. */
+	private static final float R_ROOT = 1.1f, R_NECK = 0.6f, R_TIP = 0.82f;
 	/** The tail's colours by form (RGB). */
 	public static final int BROWN = 0x6B4423;
 	public static final int GOLD = 0xFFCF3A;
 	public static final int SILVER = 0xCDD6E2;
 	public static final int KAIOKEN = 0xC0352C;
 
-	/** Per player: {r, g, b, crouch wrap 0..1, last age}. */
-	private static final Map<UUID, float[]> EASE = new ConcurrentHashMap<>();
+	private static final class State {
+		final SpringTail tail = new SpringTail(LEN);
+		/** The eased colour (r, g, b) and the age it was last eased at. */
+		final float[] col = new float[4];
+		boolean colInit;
+	}
+
+	private static final Map<UUID, State> STATES = new ConcurrentHashMap<>();
+	/** Only for the rest shape (its link lengths), never ticked. */
+	private static final SpringTail SHAPE = new SpringTail(LEN);
 
 	private SaiyanTailRenderer() {
 	}
 
 	public static void reset() {
-		EASE.clear();
+		STATES.clear();
 	}
 
 	/** The colour the tail is heading for. */
@@ -69,146 +91,119 @@ public final class SaiyanTailRenderer {
 		return Saiyan.hasPower(p) && !p.isInvisible() && !p.isSpectator();
 	}
 
+	// ---------------------------------------------------------------- the tick
+
+	/** Every client tick: each Saiyan's tail in view steps, everyone else's state is dropped. */
+	public static void tick(Minecraft mc) {
+		if (mc.level == null) {
+			if (!STATES.isEmpty()) {
+				STATES.clear();
+			}
+			return;
+		}
+		for (AbstractClientPlayer p : mc.level.players()) {
+			if (shows(p)) {
+				tick(p);
+			}
+		}
+		if (!STATES.isEmpty()) {
+			STATES.keySet().removeIf(id -> {
+				Player p = mc.level.getPlayerByUUID(id);
+				return p == null || !shows(p);
+			});
+		}
+	}
+
+	private static void tick(AbstractClientPlayer p) {
+		State st = STATES.computeIfAbsent(p.getUUID(), id -> new State());
+		float yaw = p.yBodyRot;
+		Vec3 base = SpringTail.base(p, 1f);
+		Vec3 rm = SpringTail.rootModel(p, ROOT_Y, ROOT_Z);
+		float walk = SpringTail.walk(p);
+		float phase = SpringTail.phase(p);
+		float age = p.tickCount;
+		// Spidermonkey's loose rule (falling fast, gliding; his web swings -> the Saiyan's flight): streaming behind him
+		boolean loose = p.getDeltaMovement().y < -0.6 || p.isFallFlying() || Saiyan.isFlying(p);
+		st.tail.tick(p, yaw, base, rm, SpringTail.MONKEY_IDLE, false, loose, loose ? 0.07f : 0.32f,
+				(i, parentModel) -> SpringTail.restDir(SpringTail.MONKEY_IDLE, SpringTail.MONKEY_WALK, i, SEGMENTS, walk, phase, age),
+				(i, m) -> SpringTail.keepBehind(m, BEHIND));
+	}
+
+	// ---------------------------------------------------------------- drawing
+
+	/** Tube radius (pixels) at {@code t} (0 = root .. 1 = tip): tapering, then filling out into the fluffy tip. */
+	static float radius(float t) {
+		if (t < 0.78f) {
+			float k = t / 0.78f;
+			k = k * k * (3f - 2f * k);
+			return Mth.lerp(k, R_ROOT, R_NECK);
+		}
+		float k = (t - 0.78f) / 0.22f;
+		return Mth.lerp(Mth.sin(k * Mth.HALF_PI), R_NECK, R_TIP);
+	}
+
 	/** From SaiyanLayer. */
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, Player player, PlayerModel<?> model, float partial,
 			float age) {
 		if (!shows(player) || !model.body.visible) {
 			return;
 		}
+		State st = STATES.computeIfAbsent(player.getUUID(), k -> new State());
 		int target = targetColour(player);
-		float[] e = EASE.computeIfAbsent(player.getUUID(), k -> new float[] { ((target >> 16) & 255) / 255f, ((target >> 8) & 255) / 255f,
-				(target & 255) / 255f, player.isCrouching() ? 1f : 0f, age });
-		float dt = Mth.clamp(age - e[4], 0f, 10f);
-		e[4] = age;
-		float kc = 1f - (float) Math.pow(0.9, dt); // colour: ~1 s to settle
-		e[0] += (((target >> 16) & 255) / 255f - e[0]) * kc;
-		e[1] += (((target >> 8) & 255) / 255f - e[1]) * kc;
-		e[2] += ((target & 255) / 255f - e[2]) * kc;
-		float kw = 1f - (float) Math.pow(0.78, dt);
-		e[3] += ((player.isCrouching() ? 1f : 0f) - e[3]) * kw;
-		float wrap = e[3] * e[3] * (3f - 2f * e[3]);
+		float[] e = st.col;
+		float tr = ((target >> 16) & 255) / 255f, tg = ((target >> 8) & 255) / 255f, tb = (target & 255) / 255f;
+		if (!st.colInit) {
+			e[0] = tr;
+			e[1] = tg;
+			e[2] = tb;
+			e[3] = age;
+			st.colInit = true;
+		}
+		float dt = Mth.clamp(age - e[3], 0f, 10f);
+		e[3] = age;
+		float kc = 1f - (float) Math.pow(0.9, dt); // ~1 s to settle
+		e[0] += (tr - e[0]) * kc;
+		e[1] += (tg - e[1]) * kc;
+		e[2] += (tb - e[2]) * kc;
 		boolean glows = target != BROWN;
 		int lit = glows ? LightTexture.pack(Math.max(LightTexture.block(light), 13), Math.max(LightTexture.sky(light), 13)) : light;
 
-		Vec3[] pts = points(player, partial, age, wrap);
-		pose.pushPose();
-		model.body.translateAndRotate(pose);
+		// the root on the body bone (it leans and drops with the crouch), then the simulated links in this render's model space;
+		// a pose the chain does not know (a leaning flight, a spin) keeps the links, moved onto the drawn root
+		ModelPart body = model.body;
+		Matrix4f bone = new Matrix4f().translate(body.x / 16f, body.y / 16f, body.z / 16f).rotateZYX(body.zRot, body.yRot, body.xRot);
+		Vector3f root = bone.transformPosition(new Vector3f(0, ROOT_Y / 16f, ROOT_Z / 16f));
+		Vector3f[] pts = new Vector3f[SEGMENTS + 1];
+		if (!st.tail.modelPoints(pose, root, partial, pts, 1.5f, true)) {
+			// not in the level (the inventory screen) or not ticked yet: the idle curl
+			SHAPE.restPoints(root, SpringTail.MONKEY_IDLE, pts);
+		}
+		float cr = e[0], cg = e[1], cb = e[2];
 		PoseStack.Pose last = pose.last();
-		VertexConsumer core = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE));
-		for (int i = 0; i < SEGMENTS; i++) {
-			float band = i % 2 == 0 ? 1f : 0.88f;
-			if (i == SEGMENTS - 1) {
-				band = 1.08f; // the fluffy tip, a shade lighter
-			}
-			box(core, last, pts[i], pts[i + 1], radius(i), radius(i + 1), e, band, 255, lit, i == 0, i == SEGMENTS - 1);
-		}
-		VertexConsumer fur = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
-		for (int i = 0; i < SEGMENTS; i++) {
-			float s = i == SEGMENTS - 1 ? 1.5f : 1.3f;
-			box(fur, last, pts[i], pts[i + 1], radius(i) * s, radius(i + 1) * s, e, 1.1f, 80, lit, i == 0, i == SEGMENTS - 1);
-		}
-		pose.popPose();
+		// smooth and round; the fur is a soft mottle in the vertex colours (fixed per spot, so it never flickers), the tip tuft lighter.
+		// (A translucent fur shell was tried: against the sky it read as a grey outline, not fur.)
+		TubeMesh.draw(last, buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE)), pts, 4, 10, 0.6f / 16f, t -> radius(t) / 16f,
+				(t, side) -> argb(255, cr, cg, cb, 0.92f + 0.16f * tuft(t) + fur(t, side)), lit);
 	}
 
-	/** Half-width at joint {@code j} (0 = the root): tapering, the tip a little fuller. */
-	static float radius(int j) {
-		float t = j / (float) SEGMENTS;
-		float r = Mth.lerp(t, R_BASE, R_END);
-		return j >= SEGMENTS - 1 ? r * 1.2f : r;
+	/** 0 along the tail, rising to 1 over the tip. */
+	private static float tuft(float t) {
+		return Mth.clamp((t - 0.78f) / 0.22f, 0f, 1f);
 	}
 
-	/**
-	 * The {@link #SEGMENTS}+1 joints in body-model pixels (x right, y DOWN, z BACK): the free tail (hang, curl, sway, movement)
-	 * blended into the waist wrap by {@code wrap}.
-	 */
-	static Vec3[] points(Player p, float partial, float age, float wrap) {
-		Vec3[] out = new Vec3[SEGMENTS + 1];
-		Vec3 root = new Vec3(0, 10.6, 2.05);
-		// movement in the body's frame: forward speed, sideways, vertical
-		Vec3 v = p.getDeltaMovement();
-		float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
-		float fwd = (float) (-v.x * Math.sin(yaw) + v.z * Math.cos(yaw));
-		float side = (float) (v.x * Math.cos(yaw) + v.z * Math.sin(yaw));
-		float run = Mth.clamp(Math.abs(fwd) * 4f, 0f, 1f);
-		float fall = Mth.clamp((float) -v.y * 2f, -0.5f, 1f);
-		float t = age;
-		// pitch: angle below the horizontal (positive = down, as y is down); yaw: to the right (+x)
-		float pitch = (38f - 26f * run - 20f * fall) * Mth.DEG_TO_RAD;
-		float yawA = Mth.clamp(-side * 60f, -25f, 25f) * Mth.DEG_TO_RAD;
-		float amp = (9f + 5f * Mth.sin(t * 0.031f)) * (1f - 0.5f * run);
-		Vec3 at = root;
-		out[0] = root;
-		for (int i = 0; i < SEGMENTS; i++) {
-			float k = i / (float) (SEGMENTS - 1);
-			// the curl: each joint bends up, more toward the tip; a running tail curls less
-			pitch -= (10f + 9f * k) * (1f - 0.55f * run) * Mth.DEG_TO_RAD;
-			pitch += Mth.sin(t * 0.09f - i * 0.55f) * 3.0f * Mth.DEG_TO_RAD;
-			yawA += Mth.sin(t * 0.11f - i * 0.7f) * amp * (0.35f + 0.65f * k) * Mth.DEG_TO_RAD / 2.2f;
-			Vec3 d = new Vec3(Mth.sin(yawA) * Mth.cos(pitch), Mth.sin(pitch), Mth.cos(yawA) * Mth.cos(pitch));
-			at = at.add(d.scale(SEG_LEN));
-			out[i + 1] = at;
-		}
-		if (wrap > 0.001f) {
-			// crouched: round the waist from the back, to his right, round the front and back along the left (ellipse outside the body)
-			double rx = 5.0, rz = 3.0, y = 11.2;
-			double span = Math.toRadians(320.0);
-			for (int i = 0; i <= SEGMENTS; i++) {
-				double phi = Math.PI / 2 - span * i / SEGMENTS + Math.sin(t * 0.05) * 0.03 * i;
-				Vec3 w = new Vec3(Math.cos(phi) * rx, y + (i == 0 ? -0.4 : 0.0) + i * 0.08, Math.sin(phi) * rz);
-				if (i == 0) {
-					w = new Vec3(0, 10.6, 2.05).lerp(w, 0.5);
-				}
-				out[i] = out[i].lerp(w, wrap);
-			}
-		}
-		return out;
+	/** A gentle fixed mottle (+-0.06) for a vertex at {@code t} along the tail, {@code side} round it. */
+	private static float fur(float t, float side) {
+		int h = Math.round(t * 64f) * 73856093 ^ Math.round(side * 10f) % 10 * 19349663;
+		h ^= h >>> 13;
+		h *= 0x5bd1e995;
+		h ^= h >>> 15;
+		return ((h & 1023) / 1023f - 0.5f) * 0.12f;
 	}
 
-	/** A tapered box from {@code a} to {@code b} (pixels), slightly overlapping its neighbours so the bends have no gaps. */
-	private static void box(VertexConsumer vc, PoseStack.Pose last, Vec3 a, Vec3 b, float ra, float rb, float[] col, float band, int alpha,
-			int lit, boolean capStart, boolean capEnd) {
-		Vec3 d = b.subtract(a);
-		double len = d.length();
-		if (len < 1.0e-4) {
-			return;
-		}
-		Vec3 dir = d.scale(1.0 / len);
-		a = a.subtract(dir.scale(0.3));
-		b = b.add(dir.scale(0.3));
-		Vec3 ref = Math.abs(dir.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, -1, 0);
-		Vec3 u = dir.cross(ref).normalize();
-		Vec3 w = dir.cross(u).normalize();
-		Vec3[] ca = corners(a, u, w, ra);
-		Vec3[] cb = corners(b, u, w, rb);
-		for (int f = 0; f < 4; f++) {
-			int g = (f + 1) % 4;
-			Vec3 n = ca[f].add(ca[g]).scale(0.5).subtract(a).normalize();
-			quad(vc, last, ca[f], ca[g], cb[g], cb[f], n, col, band, alpha, lit);
-		}
-		if (capStart) {
-			quad(vc, last, ca[3], ca[2], ca[1], ca[0], dir.scale(-1), col, band, alpha, lit);
-		}
-		if (capEnd) {
-			quad(vc, last, cb[0], cb[1], cb[2], cb[3], dir, col, band, alpha, lit);
-		}
-	}
-
-	private static Vec3[] corners(Vec3 c, Vec3 u, Vec3 w, float r) {
-		return new Vec3[] { c.add(u.scale(r)).add(w.scale(r)), c.add(u.scale(-r)).add(w.scale(r)), c.add(u.scale(-r)).add(w.scale(-r)),
-				c.add(u.scale(r)).add(w.scale(-r)) };
-	}
-
-	private static void quad(VertexConsumer vc, PoseStack.Pose last, Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, Vec3 n, float[] col, float band,
-			int alpha, int lit) {
-		// baked cel shading: faces turned up (model -y) bright, down dark
-		float shade = Mth.clamp((float) (0.8 - 0.25 * n.y), 0.55f, 1.05f) * band;
-		int r = Mth.clamp((int) (col[0] * shade * 255f), 0, 255);
-		int g = Mth.clamp((int) (col[1] * shade * 255f), 0, 255);
-		int bl = Mth.clamp((int) (col[2] * shade * 255f), 0, 255);
-		Vector3f nn = new Vector3f(0f, -1f, 0f);
-		for (Vec3 p : new Vec3[] { p0, p1, p2, p3 }) {
-			vc.addVertex(last.pose(), (float) p.x / 16f, (float) p.y / 16f, (float) p.z / 16f).setColor(r, g, bl, alpha).setUv(0.5f, 0.5f)
-					.setOverlay(OverlayTexture.NO_OVERLAY).setLight(lit).setNormal(last, nn.x, nn.y, nn.z);
-		}
+	private static int argb(int a, float r, float g, float b, float shade) {
+		int ri = Mth.clamp((int) (r * shade * 255f), 0, 255);
+		int gi = Mth.clamp((int) (g * shade * 255f), 0, 255);
+		int bi = Mth.clamp((int) (b * shade * 255f), 0, 255);
+		return a << 24 | ri << 16 | gi << 8 | bi;
 	}
 }

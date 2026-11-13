@@ -1,0 +1,313 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.saiyan.SaiyanFx;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.spidermonkey.SpidermonkeyKit;
+import com.projecthero.mod.saiyan.Saiyan;
+import com.projecthero.mod.saiyan.SaiyanConfig;
+import com.projecthero.mod.saiyan.SaiyanForm;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films the v0.17.3 Saiyan tail v2 (idle, turning, running, jumping/falling, crouching, colours) and
+ * Spidermonkey's tail with the same cameras. Enabled by run/miscfix.flag (its text filters scenes).
+ */
+public final class MiscFixesHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static String only;
+	private static float turnRate;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	/** When set, camPos / camLook are offsets from the player (the camera rides along). */
+	public static volatile boolean camFollow;
+
+	private MiscFixesHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("miscfix.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("miscfix.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(MiscFixesHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "miscfix-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String n) {
+		return only == null || only.isEmpty() || only.contains(n);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MiscFixesHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				Saiyan.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (turnRate != 0f && mc.player != null) {
+				mc.player.setYRot(mc.player.getYRot() + turnRate);
+				mc.player.setYHeadRot(mc.player.getYRot());
+			}
+			if (recording != null) {
+				String name = String.format("mf_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void keys(Minecraft mc, boolean up, boolean sprint, boolean shift, boolean jump) {
+		mc.options.keyUp.setDown(up);
+		mc.options.keySprint.setDown(sprint);
+		mc.options.keyShift.setDown(shift);
+		mc.options.keyJump.setDown(jump);
+		if (mc.player != null) {
+			mc.player.setSprinting(sprint);
+		}
+	}
+
+	private static void reset(ServerPlayer p, float yaw) {
+		Minecraft mc = Minecraft.getInstance();
+		keys(mc, false, false, false, false);
+		turnRate = 0f;
+		p.clearFire();
+		p.removeAllEffects();
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, yaw, 0f);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.setHealth(p.getMaxHealth());
+		if (Saiyan.hasPower(p)) {
+			if (Saiyan.ssj(p)) {
+				Saiyan.forceEndSsj(p);
+			}
+			Saiyan.clearLockout(p);
+			Saiyan.setKi(p, SaiyanConfig.KI_MAX);
+		}
+	}
+
+	/** A scene at a fresh spot; {@code follow}: the camera rides along with the player. */
+	private static void scene(Minecraft mc, int t, int index, Vec3 cam, Vec3 look, boolean follow, float yaw) {
+		at(t, () -> {
+			base = origin.add(index * 40, 0, 0);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			camFollow = follow;
+			camPos = cam == null ? null : follow ? cam : base.add(cam);
+			camLook = look == null ? null : follow ? look : base.add(look);
+			if (mc.player != null) {
+				SaiyanFx.debugClear(mc.player);
+			}
+			server(mc, p -> reset(p, yaw));
+		});
+	}
+
+	/** The tail clips; {@code pre} names them (sm_ for Spidermonkey). */
+	private static int tailClips(Minecraft mc, int t, int idx, String pre, boolean colours) {
+		// close side view (he faces +z, the tail is behind him at -z), close rear three-quarter view
+		Vec3 side = new Vec3(0.95, 0.9, -0.45);
+		Vec3 sideLook = new Vec3(0, 0.8, -0.45);
+		Vec3 rear = new Vec3(0.75, 1.05, -1.2);
+		Vec3 rearLook = new Vec3(0, 0.78, -0.4);
+		// idle sway
+		scene(mc, t, idx++, side, sideLook, true, 0f);
+		record(t + 20, pre + "idle", 70);
+		t += 100;
+		// turning on the spot: the tail lags and swings round
+		scene(mc, t, idx++, rear, rearLook, false, 0f);
+		at(t + 25, () -> turnRate = 9f);
+		at(t + 45, () -> turnRate = -9f);
+		at(t + 75, () -> turnRate = 9f);
+		at(t + 90, () -> turnRate = 0f);
+		record(t + 20, pre + "turn", 100);
+		t += 130;
+		// running (sprint), camera alongside
+		scene(mc, t, idx++, new Vec3(1.15, 0.92, -0.45), new Vec3(0, 0.8, -0.45), true, 0f);
+		at(t + 15, () -> keys(mc, true, true, false, false));
+		at(t + 75, () -> keys(mc, false, false, false, false));
+		record(t + 10, pre + "run", 95);
+		t += 120;
+		// jumping (three hops while running) then a fall from 10 blocks
+		scene(mc, t, idx++, new Vec3(1.35, 1.0, -0.45), new Vec3(0, 0.85, -0.45), true, 0f);
+		at(t + 15, () -> keys(mc, true, false, false, true));
+		at(t + 55, () -> keys(mc, false, false, false, false));
+		at(t + 70, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), base.x + 8, base.y + 10, base.z, 0f, 0f);
+			p.setDeltaMovement(0, 0, 0);
+			p.hurtMarked = true;
+		}));
+		record(t + 10, pre + "jumpfall", 100);
+		t += 130;
+		// crouching and standing again
+		scene(mc, t, idx++, side, sideLook, true, 0f);
+		at(t + 30, () -> keys(mc, false, false, true, false));
+		at(t + 70, () -> keys(mc, false, false, false, false));
+		at(t + 90, () -> keys(mc, false, false, true, false));
+		at(t + 105, () -> keys(mc, true, false, true, false));
+		at(t + 130, () -> keys(mc, false, false, false, false));
+		record(t + 20, pre + "crouch", 125);
+		t += 160;
+		if (colours) {
+			// brown -> gold -> silver -> red -> brown (the client's form override: the colour rules only)
+			scene(mc, t, idx++, rear, rearLook, true, 0f);
+			at(t + 40, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.SSJ, false));
+			at(t + 80, () -> SaiyanFx.debugForm(mc.player, SaiyanForm.ULTRA, false));
+			at(t + 120, () -> {
+				SaiyanFx.debugForm(mc.player, SaiyanForm.BASE, false);
+				SaiyanFx.debugKaioken(mc.player, true);
+			});
+			at(t + 160, () -> SaiyanFx.debugClear(mc.player));
+			record(t + 20, pre + "colours", 175);
+			t += 210;
+		}
+		return t;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> base = origin));
+		t += 30;
+		if (want("tail")) {
+			t = tailClips(mc, t, 1, "tail_", true);
+		}
+		if (want("spidermonkey")) {
+			at(t, () -> server(mc, p -> {
+				Omnitrix.grant(p, true);
+				Omnitrix.select(p, SpidermonkeyKit.ID);
+				Omnitrix.transform(p);
+			}));
+			t += 80;
+			t = tailClips(mc, t, 20, "sm_", false);
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
