@@ -58,7 +58,7 @@ public final class DoctorFateConfig {
 	public static final float BOLT_DOMINION = 1f;
 	public static final int BOLT_COOLDOWN = 10;
 	public static final double BOLT_RANGE = 32.0;
-	public static final float CHAINS_DAMAGE = 6f;
+	public static final float CHAINS_DAMAGE = 8f; // v0.17.3 moves pass: was 6
 	public static final float CHAINS_DOMINION = 3f;
 	public static final int CHAINS_COOLDOWN = 5 * 20;
 	public static final int CHAINS_BIND_TICKS = 3 * 20;
@@ -71,11 +71,11 @@ public final class DoctorFateConfig {
 	public static final double BANISH_THROW = 40.0;
 	/** A creature at least this strong (max health) is thrown, not banished. */
 	public static final float BANISH_STRONG_HEALTH = 60f;
-	public static final float GLYPH_DAMAGE = 4f;
+	public static final float GLYPH_DAMAGE = 5f; // v0.17.3 moves pass: was 4
 	public static final float GLYPH_DOMINION = 8f;
 	public static final int GLYPH_COOLDOWN = 12 * 20;
 	public static final int GLYPH_TICKS = 3 * 20;
-	public static final int GLYPH_HIT_EVERY = 10;
+	public static final int GLYPH_HIT_EVERY = 8; // v0.17.3 moves pass: was 10 (6 hits -> 7)
 	public static final double GLYPH_RADIUS = 7.0;
 	public static final int AVATAR_TICKS = 12 * 20;
 	public static final int AVATAR_COOLDOWN = 3 * 60 * 20;
@@ -86,7 +86,7 @@ public final class DoctorFateConfig {
 	/** The Avatar of Order (and the Forbidden spell bargain) leaves Dominion at least here. */
 	public static final float FORBIDDEN_DOMINION = 90f;
 	public static final double STEP_DISTANCE = 12.0;
-	public static final int STEP_COOLDOWN = 3 * 20;
+	public static final int STEP_COOLDOWN = 2 * 20; // v0.17.3 moves pass: was 3 s
 	public static final float GATE_DOMINION = 5f;
 	public static final int GATE_COOLDOWN = 8 * 20;
 	public static final double GATE_LIFT = 15.0;
@@ -109,6 +109,31 @@ public final class DoctorFateConfig {
 	public static final float AMULET_DOMINION_CUT = 10f;
 	public static final int AMULET_COOLDOWN = 2 * 60 * 20;
 	public static final double AIM_RANGE = 24.0;
+	/** v0.17.3 moves pass: a targeted spell (Chains, Banishment, Gate Drop) that misses the crosshair takes the creature nearest the look ray within this many degrees. */
+	public static final double AIM_ASSIST_DEG = 7.0;
+	/** v0.17.3 moves pass: Gate Drop hurls the creature down at this speed (blocks / tick; was a 0.2 drift), so the fall is quick. */
+	public static final double GATE_DROP_SPEED = 1.1;
+	/** v0.17.3 moves pass: creatures in a Glyph Storm are slowed (Slowness I, refreshed each hit). */
+	public static final int GLYPH_SLOW_TICKS = 20;
+
+	// ---- the Tower of Fate mindscape (v0.17.3, hold Shift+V)
+	/** Hold Shift+V this long to go into the Tower (a shorter press is the Amulet). */
+	public static final int MIND_HOLD_TICKS = 20;
+	/** Blessing of Order: spells deal x1.3 for 30 s, for +15 Dominion, every 3 min (helmet on). */
+	public static final float MIND_BLESSING_MULT = 1.3f;
+	public static final int MIND_BLESSING_TICKS = 30 * 20;
+	public static final float MIND_BLESSING_DOMINION = 15f;
+	public static final int MIND_BLESSING_COOLDOWN = 3 * 60 * 20;
+	/** Silence: 60 s with no Override, Pull, lag or whispers; spells' Dominion x1.5; refused from Taking hold; every 5 min. */
+	public static final int MIND_SILENCE_TICKS = 60 * 20;
+	public static final float MIND_SILENCE_COST_MULT = 1.5f;
+	public static final int MIND_SILENCE_COOLDOWN = 5 * 60 * 20;
+	/** Debt: -25 Dominion now, 35 collected 10 minutes later; not below 10 Dominion; settled early it costs 30. */
+	public static final float MIND_DEBT_CUT = 25f;
+	public static final float MIND_DEBT_OWED = 35f;
+	public static final int MIND_DEBT_TICKS = 10 * 60 * 20;
+	public static final float MIND_DEBT_MIN = 10f;
+	public static final float MIND_REPAY_DISCOUNT = 5f;
 
 	// ---- Kent Nelson's own magic (helmet off): weak R, G and X only
 	public static final float WEAK_BOLT_DAMAGE = 5f;

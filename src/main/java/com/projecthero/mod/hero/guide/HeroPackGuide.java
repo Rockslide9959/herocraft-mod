@@ -226,7 +226,7 @@ public final class HeroPackGuide {
 	 */
 	public static final String[][] DOCTOR_FATE_CONTROLS = { { "H", "helmet" }, { "2x Space", "flight" }, { "R", "ankh_bolt" }, { "Shift+R", "golden_chains" },
 			{ "Hold G", "ankh_shield" }, { "Shift+G", "banishment" }, { "Z", "glyph_storm" }, { "Shift+Z", "avatar_of_order" }, { "X", "ankh_step" },
-			{ "Shift+X", "gate_drop" }, { "C", "order_blast" }, { "Shift+C", "ward_of_order" }, { "V", "sight_of_nabu" }, { "Shift+V", "amulet_of_anubis" } };
+			{ "Shift+X", "gate_drop" }, { "C", "order_blast" }, { "Shift+C", "ward_of_order" }, { "V", "sight_of_nabu" }, { "Shift+V", "amulet_of_anubis" }, { "Hold Shift+V", "mindscape" } };
 
 	/** Doctor Fate (v0.17.3). */
 	public static Chapter doctorFateChapter() {
@@ -1988,7 +1988,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.shazam.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.shazam.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "word", "traits", "lightning", "family"}) {
+			for (String section : new String[]{"getting", "word", "traits", "lightning", "family", "landing"}) {
 				head(lines, "projecthero.guide.shazam." + section);
 				para(lines, "projecthero.guide.shazam." + section + ".body");
 				blank(lines);
@@ -2009,7 +2009,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.doctor_fate.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.doctor_fate.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "helmet", "dominion", "tiers", "possession", "bargains", "fair"}) {
+			for (String section : new String[]{"getting", "helmet", "dominion", "tiers", "possession", "bargains", "mindscape", "landing", "fair"}) {
 				head(lines, "projecthero.guide.doctor_fate." + section);
 				para(lines, "projecthero.guide.doctor_fate." + section + ".body");
 				blank(lines);

@@ -7,6 +7,7 @@ import com.projecthero.mod.doctorfate.DoctorFateBargains;
 import com.projecthero.mod.doctorfate.DoctorFateConfig;
 import com.projecthero.mod.doctorfate.DoctorFateDominion;
 import com.projecthero.mod.doctorfate.DoctorFateItems;
+import com.projecthero.mod.doctorfate.DoctorFateMindscape;
 import com.projecthero.mod.doctorfate.DoctorFateMod;
 import com.projecthero.mod.doctorfate.DoctorFatePossession;
 import com.projecthero.mod.doctorfate.DoctorFateSpells;
@@ -274,6 +275,9 @@ public class DoctorFateGameTests implements FabricGameTest {
 		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.BANISHMENT) && v.isAlive(), "and Banishment fizzles on him");
 		// Override: Nabu's pick -- Golden Chains on the most chaotic creature near
 		Husk h = helper.spawnWithNoFreeWill(EntityType.HUSK, new Vec3(5.5, 2.0, 5.5));
+		// v0.17.3: the strongest creature of Chaos within 24 blocks, so a neighbouring test's mob is never Nabu's pick instead
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0);
+		h.setHealth(1000f);
 		DoctorFate.clearCooldowns(p);
 		DoctorFateSpells.testOverride = true;
 		DoctorFateSpells.use(p, DoctorFateAbilityManager.ANKH_BOLT);
@@ -453,13 +457,24 @@ public class DoctorFateGameTests implements FabricGameTest {
 		a.setHealth(100f);
 		a.getAttribute(Attributes.ARMOR).setBaseValue(0.0);
 		helper.assertTrue(DoctorFateSpells.castGlyphStormForTest(p, a.position()), "the storm");
+		// v0.17.3: the storm's own hits on this husk are counted, so a neighbouring test's area move (Nabu possessing a mock
+		// player, Eternity Strike) can't make the damage steps lie; each hit is checked as it lands
+		int[] hits = { 0 };
+		boolean[] badStep = { false };
+		DoctorFateSpells.stormHitListener = (e, dealt) -> {
+			if (e == a) {
+				hits[0]++;
+				if (Math.abs(dealt - DoctorFateConfig.GLYPH_DAMAGE) > DoctorFateConfig.GLYPH_DAMAGE * 0.25f) {
+					badStep[0] = true;
+				}
+			}
+		};
 		helper.runAfterDelay(DoctorFateConfig.GLYPH_TICKS + 5, () -> {
-			float lost = 100f - a.getHealth();
-			int hits = DoctorFateConfig.GLYPH_TICKS / DoctorFateConfig.GLYPH_HIT_EVERY;
-			helper.assertTrue(lost >= DoctorFateConfig.GLYPH_DAMAGE * 0.75f && lost <= DoctorFateConfig.GLYPH_DAMAGE * (hits + 1) * 1.25f,
-					"4 damage per hit, lost " + lost);
-			helper.assertTrue(Math.abs(lost / DoctorFateConfig.GLYPH_DAMAGE - Math.round(lost / DoctorFateConfig.GLYPH_DAMAGE)) < 0.3f,
-					"in steps of 4, lost " + lost);
+			DoctorFateSpells.stormHitListener = null;
+			int expected = DoctorFateConfig.GLYPH_TICKS / DoctorFateConfig.GLYPH_HIT_EVERY;
+			helper.assertTrue(!a.isAlive() || (hits[0] >= expected - 1 && hits[0] <= expected + 1), "about " + expected + " hits, got " + hits[0]);
+			helper.assertTrue(!badStep[0], "each hit about " + DoctorFateConfig.GLYPH_DAMAGE + " damage");
+			helper.assertTrue(a.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) || !a.isAlive(), "slowed by the blades");
 			helper.succeed();
 		});
 	}
@@ -539,6 +554,201 @@ public class DoctorFateGameTests implements FabricGameTest {
 		DoctorFate.clearCooldowns(p);
 		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.AMULET), "nothing to quiet at 0 Dominion");
 		helper.assertTrue(DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.AMULET) == 0, "and no cooldown spent");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.3 the Tower of Fate mindscape
+
+	private static void done(ServerPlayer p) {
+		DoctorFateMindscape.close(p);
+		DoctorFate.setDominion(p, 0f);
+		p.discard();
+	}
+
+	/** A Shift+V tap is still the Amulet; held for a second it opens the Tower of Fate instead (and spends no Amulet). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void shiftVTapIsTheAmuletHoldOpensTheTower(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		DoctorFate.setDominion(p, 30f);
+		p.setShiftKeyDown(true);
+		DoctorFateAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		DoctorFateAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - (30f - DoctorFateConfig.AMULET_DOMINION_CUT)) < 0.05f, "a tap is the Amulet, Dominion "
+				+ DoctorFate.dominion(p));
+		helper.assertTrue(!DoctorFateMindscape.isOpen(p), "and no Tower");
+		DoctorFate.clearCooldowns(p);
+		DoctorFate.setDominion(p, 30f);
+		DoctorFateAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		helper.assertTrue(DoctorFateAbilityManager.holdingAmulet(p), "holding");
+		helper.onEachTick(() -> DoctorFate.tick(p));
+		helper.runAfterDelay(DoctorFateConfig.MIND_HOLD_TICKS + 4, () -> {
+			helper.assertTrue(DoctorFateMindscape.isOpen(p), "held a second: the Tower of Fate opens");
+			DoctorFateAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+			helper.assertTrue(DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.AMULET) == 0 && DoctorFate.dominion(p) >= 29.9f,
+					"letting go afterwards spends no Amulet, Dominion " + DoctorFate.dominion(p));
+			done(p);
+			helper.succeed();
+		});
+	}
+
+	/** Blessing: +15 Dominion, spells hit 30% harder; asked again it's cooling. Only from an open Tower; needs the helmet. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void mindscapeBlessingCostsDominionAndBoostsSpells(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, false);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.BLESSING) == null, "nothing without an open Tower");
+		helper.assertTrue(DoctorFateMindscape.open(p), "the Tower opens");
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.BLESSING) == DoctorFateMindscape.Reply.BLESS_NEEDS_HELMET,
+				"the Blessing needs the helmet");
+		DoctorFate.setHelmet(p, true);
+		DoctorFate.setDominion(p, 10f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.BLESSING) == DoctorFateMindscape.Reply.BLESSED, "blessed");
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - (10f + DoctorFateConfig.MIND_BLESSING_DOMINION)) < 0.05f, "+15 Dominion, got "
+				+ DoctorFate.dominion(p));
+		helper.assertTrue(DoctorFateMindscape.blessed(p), "the Blessing runs");
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.BLESSING) == DoctorFateMindscape.Reply.COOLING, "not twice");
+		Zombie a = zombie(helper, 1.5, 4.5, 100.0);
+		look(p, a);
+		DoctorFateSpells.testOverride = false;
+		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.ANKH_BOLT), "bolt");
+		ratio(helper, 100f - a.getHealth(), DoctorFateConfig.BOLT_DAMAGE * DoctorFateConfig.MIND_BLESSING_MULT, "a blessed Ankh Bolt");
+		helper.assertTrue(100f - a.getHealth() > DoctorFateConfig.BOLT_DAMAGE * 1.15f, "more than a plain bolt, dealt " + (100f - a.getHealth()));
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.LEAVE) == DoctorFateMindscape.Reply.FAREWELL
+				&& !DoctorFateMindscape.isOpen(p), "leaving closes the Tower");
+		DoctorFateSpells.testOverride = null;
+		done(p);
+		helper.succeed();
+	}
+
+	/** Silence: refused from Taking hold; granted below, it stops the Override and every spell's Dominion counts x1.5. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void mindscapeSilenceStopsTheOverrideButCostsMore(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		helper.assertTrue(DoctorFateMindscape.open(p), "open");
+		DoctorFate.setDominion(p, 80f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.SILENCE) == DoctorFateMindscape.Reply.SILENCE_REFUSED,
+				"refused at Taking hold");
+		helper.assertTrue(!DoctorFateMindscape.silenced(p), "still loud");
+		DoctorFate.setDominion(p, 30f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.SILENCE) == DoctorFateMindscape.Reply.SILENCED, "silenced");
+		helper.assertTrue(DoctorFateMindscape.silenced(p), "the Silence runs");
+		Zombie a = zombie(helper, 1.5, 4.5, 100.0);
+		look(p, a);
+		DoctorFateSpells.testOverride = true; // would force Nabu's pick...
+		float before = DoctorFate.dominion(p);
+		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.ANKH_BOLT), "bolt");
+		helper.assertTrue(DoctorFateSpells.testOverride != null, "...but the Override was never rolled");
+		DoctorFateSpells.testOverride = null;
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - before - DoctorFateConfig.BOLT_DOMINION * DoctorFateConfig.MIND_SILENCE_COST_MULT) < 0.05f,
+				"the bolt's Dominion counts x1.5, gained " + (DoctorFate.dominion(p) - before));
+		done(p);
+		helper.succeed();
+	}
+
+	/** Debt: -25 now, 35 collected when it comes due; one at a time; settled early it costs 30; nothing to trade below 10. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void mindscapeDebtTradesTheFutureForNow(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		helper.assertTrue(DoctorFateMindscape.open(p), "open");
+		DoctorFate.setDominion(p, 5f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.DEBT) == DoctorFateMindscape.Reply.DEBT_NOTHING,
+				"nothing to trade at 5");
+		DoctorFate.setDominion(p, 40f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.DEBT) == DoctorFateMindscape.Reply.DEBT_MADE, "the debt");
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - (40f - DoctorFateConfig.MIND_DEBT_CUT)) < 0.05f, "-25 now, got " + DoctorFate.dominion(p));
+		helper.assertTrue(Math.abs(DoctorFateMindscape.debt(p) - DoctorFateConfig.MIND_DEBT_OWED) < 0.05f, "35 owed");
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.DEBT) == DoctorFateMindscape.Reply.DEBT_OWED, "one at a time");
+		// it comes due
+		edit(p, s -> s.mind = s.mind.withDebt(s.mind.debt(), DoctorFate.now(p)));
+		float before = DoctorFate.dominion(p);
+		DoctorFate.tick(p);
+		helper.assertTrue(DoctorFateMindscape.debt(p) == 0f, "collected");
+		helper.assertTrue(DoctorFate.dominion(p) - before >= DoctorFateConfig.MIND_DEBT_OWED - 0.05f, "+35 when due, gained "
+				+ (DoctorFate.dominion(p) - before));
+		// settled early instead
+		DoctorFate.setDominion(p, 40f);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.DEBT) == DoctorFateMindscape.Reply.DEBT_MADE, "a second debt");
+		float mid = DoctorFate.dominion(p);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.REPAY) == DoctorFateMindscape.Reply.REPAID, "repaid");
+		helper.assertTrue(Math.abs(DoctorFate.dominion(p) - mid - (DoctorFateConfig.MIND_DEBT_OWED - DoctorFateConfig.MIND_REPAY_DISCOUNT)) < 0.05f,
+				"settling early costs 30, paid " + (DoctorFate.dominion(p) - mid));
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.REPAY) == DoctorFateMindscape.Reply.NO_DEBT, "no debt left");
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.STATUS) == DoctorFateMindscape.Reply.STATUS, "the status talk is free");
+		done(p);
+		helper.succeed();
+	}
+
+	/** Possessed, the Tower closes and won't open. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void noTowerWhilePossessed(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		edit(p, s -> s.possessedUntil = DoctorFate.now(p) + 100);
+		helper.assertTrue(!DoctorFateMindscape.open(p), "Nabu has the body: no Tower");
+		edit(p, s -> s.possessedUntil = 0L);
+		helper.assertTrue(DoctorFateMindscape.open(p), "free again: it opens");
+		edit(p, s -> s.possessedUntil = DoctorFate.now(p) + 100);
+		helper.assertTrue(DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.STATUS) == null && !DoctorFateMindscape.isOpen(p),
+				"taken mid-talk: the Tower closes");
+		edit(p, s -> s.possessedUntil = 0L);
+		done(p);
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.3 the landing
+
+	/** A fast touchdown out of the helmet's flight is a hero landing in the golden-ankh style; a gentle one is not. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void fateFlightLandsInTheGoldenAnkhStyle(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		Vec3 fast = new Vec3(0.0, -0.9, 0.0);
+		for (int i = 0; i < 4; i++) {
+			helper.runAfterDelay(i, () -> {
+				edit(p, s -> s.flying = true);
+				p.setOnGround(false);
+				p.setKnownMovement(fast);
+				com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			});
+		}
+		helper.runAfterDelay(4, () -> {
+			p.setOnGround(true);
+			com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			var a = com.projecthero.mod.flight.landing.HeroLanding.active(p);
+			helper.assertTrue(a != null && a.style() == com.projecthero.mod.flight.landing.HeroLandingStyle.DOCTOR_FATE,
+					"a fast touchdown out of Fate's flight is a Doctor Fate hero landing, got " + (a == null ? "none" : a.style()));
+			helper.assertTrue(com.projecthero.mod.flight.landing.HeroLanding.fallSafe(p), "no fall damage");
+			com.projecthero.mod.flight.landing.HeroLanding.end(p);
+			com.projecthero.mod.flight.landing.HeroLanding.forget(p);
+		});
+		for (int i = 5; i < 9; i++) {
+			helper.runAfterDelay(i, () -> {
+				edit(p, s -> s.flying = true);
+				p.setOnGround(false);
+				p.setKnownMovement(new Vec3(0.05, -0.2, 0.0));
+				com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			});
+		}
+		helper.runAfterDelay(9, () -> {
+			p.setOnGround(true);
+			com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			helper.assertTrue(!com.projecthero.mod.flight.landing.HeroLanding.landing(p), "a gentle touchdown just lands");
+			com.projecthero.mod.flight.landing.HeroLanding.forget(p);
+			edit(p, s -> s.flying = false);
+			done(p);
+			helper.succeed();
+		});
+	}
+
+	/** The aim assist: a near miss still finds the creature for Golden Chains. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void chainsForgiveANearMiss(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		Zombie a = zombie(helper, 1.5, 5.5, 100.0);
+		look(p, a);
+		p.setYRot(p.getYRot() + 4f); // a few degrees off
+		DoctorFateSpells.testOverride = false;
+		helper.assertTrue(DoctorFateSpells.use(p, DoctorFateAbilityManager.GOLDEN_CHAINS), "the chains still find it");
+		helper.assertTrue(DoctorFateSpells.isBound(a), "bound");
+		DoctorFateSpells.testOverride = null;
+		done(p);
 		helper.succeed();
 	}
 }

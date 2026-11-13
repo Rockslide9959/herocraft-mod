@@ -542,4 +542,81 @@ public class ShazamGameTests implements FabricGameTest {
 		helper.assertTrue(w2.isRemoved(), "his work is done");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.3 effects pass: the landing, the dash fix
+
+	/** A fast touchdown out of his flight is a hero landing in the lightning-crack style; a gentle one is not. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void shazamFlightLandsInTheLightningCrackStyle(GameTestHelper helper) {
+		ServerPlayer p = shazam(helper, 3.5, 3.5);
+		helper.assertTrue(com.projecthero.mod.flight.landing.HeroLandingStyle.byId(com.projecthero.mod.flight.landing.HeroLandingStyle.SHAZAM.id)
+				== com.projecthero.mod.flight.landing.HeroLandingStyle.SHAZAM, "the style id round-trips");
+		Vec3 fast = new Vec3(0.0, -0.9, 0.0);
+		for (int i = 0; i < 4; i++) {
+			helper.runAfterDelay(i, () -> {
+				edit(p, s -> s.flying = true);
+				p.setOnGround(false);
+				p.setKnownMovement(fast);
+				com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			});
+		}
+		helper.runAfterDelay(4, () -> {
+			p.setOnGround(true);
+			com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			var a = com.projecthero.mod.flight.landing.HeroLanding.active(p);
+			helper.assertTrue(a != null && a.style() == com.projecthero.mod.flight.landing.HeroLandingStyle.SHAZAM,
+					"a fast touchdown out of Shazam's flight is a Shazam hero landing, got " + (a == null ? "none" : a.style()));
+			com.projecthero.mod.flight.landing.HeroLanding.end(p);
+			// a gentle one is not
+			edit(p, s -> s.flying = true);
+			p.setOnGround(false);
+			p.setKnownMovement(new Vec3(0.05, -0.2, 0.0));
+		});
+		for (int i = 5; i < 9; i++) {
+			helper.runAfterDelay(i, () -> {
+				p.setOnGround(false);
+				p.setKnownMovement(new Vec3(0.05, -0.2, 0.0));
+				com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			});
+		}
+		helper.runAfterDelay(9, () -> {
+			p.setOnGround(true);
+			com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			helper.assertTrue(!com.projecthero.mod.flight.landing.HeroLanding.landing(p), "a gentle touchdown just lands");
+			com.projecthero.mod.flight.landing.HeroLanding.forget(p);
+			p.discard();
+			helper.succeed();
+		});
+	}
+
+	/** Mercury Dash looking a little down while standing used to run into the floor and do nothing; now it dashes along the ground. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void mercuryDashLookingSlightlyDownStillDashes(GameTestHelper helper) {
+		ServerPlayer p = shazam(helper, 1.5, 1.5);
+		for (int i = 0; i < 200 && p.level().noCollision(p, p.getBoundingBox().move(0, -0.05, 0)); i++) {
+			p.teleportTo(p.getX(), p.getY() - 0.05, p.getZ()); // stand him right on the floor
+		}
+		p.setOnGround(true);
+		p.setYRot(0f);
+		p.setXRot(20f);
+		Vec3 from = p.position();
+		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.MERCURY_DASH), "the dash goes off");
+		double moved = p.position().distanceTo(from);
+		helper.assertTrue(moved >= 2.0, "it moved him along the ground, moved " + moved);
+		helper.assertTrue(Math.abs(p.getY() - from.y) < 0.6, "and stayed on the ground, dy " + (p.getY() - from.y) + " onGround " + p.onGround() + " look " + p.getViewVector(1f));
+		p.discard();
+		helper.succeed();
+	}
+
+	/** His moves' bolts are no LightningBolt entities any more (the geometry is client side), so they never burn or refill his bar. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void shazamBoltsSpawnNoVanillaLightning(GameTestHelper helper) {
+		ServerPlayer p = shazam(helper, 3.5, 3.5);
+		Shazam.bolt(helper.getLevel(), p.position());
+		Shazam.bigBolt(helper.getLevel(), p.position());
+		int bolts = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.LightningBolt.class, p.getBoundingBox().inflate(8)).size();
+		helper.assertTrue(bolts == 0, "no vanilla bolts, found " + bolts);
+		p.discard();
+		helper.succeed();
+	}
 }

@@ -21,7 +21,11 @@ public record FateActionPayload(Action action, int arg, BlockPos pos) implements
 		SERVE_ACCEPT,
 		SERVE_REFUSE,
 		/** v0.17.3 (user: "make it similar to Nova"): H puts the Helmet of Fate on / takes it off. */
-		TOGGLE_HELMET
+		TOGGLE_HELMET,
+		/** v0.17.3 the Tower of Fate mindscape: a dialogue choice ({@code arg} = {@code DoctorFateMindscape.Choice} ordinal). */
+		MIND_CHOICE,
+		/** v0.17.3 the mindscape screen closed. */
+		MIND_CLOSE
 	}
 
 	public static final CustomPacketPayload.Type<FateActionPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("doctor_fate_action"));

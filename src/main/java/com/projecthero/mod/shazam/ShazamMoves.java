@@ -169,18 +169,9 @@ public final class ShazamMoves {
 
 	/** A jagged lightning arc from {@code a} to {@code b}. */
 	static void arc(ServerLevel level, Vec3 a, Vec3 b) {
-		Vec3 d = b.subtract(a);
-		int steps = Math.max(4, (int) (d.length() * 2.5));
-		net.minecraft.util.RandomSource r = level.random;
-		for (int i = 0; i <= steps; i++) {
-			double t = i / (double) steps;
-			double j = (i == 0 || i == steps) ? 0 : 0.25;
-			Vec3 at = a.add(d.scale(t)).add((r.nextDouble() - 0.5) * j, (r.nextDouble() - 0.5) * j, (r.nextDouble() - 0.5) * j);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-			if (i % 2 == 0) {
-				level.sendParticles(Shazam.dust(Shazam.BOLT_WHITE, 0.8f), at.x, at.y, at.z, 1, 0, 0, 0, 0);
-			}
-		}
+		// v0.17.3 effects pass: real branching bolt geometry on every client near (was a line of spark particles)
+		ShazamFx.arc(level, a, b, 1f);
+		level.playSound(null, b.x, b.y, b.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.25f, 1.7f + level.random.nextFloat() * 0.2f);
 	}
 
 	private static Vec3 hand(ServerPlayer p) {
@@ -430,14 +421,16 @@ public final class ShazamMoves {
 			p.hurtMarked = true;
 			p.resetFallDistance();
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 1.0, c.z, 4, 0.4, 0.8, 0.4, 0.05);
+			if (age == 0) { // v0.17.3 effects pass: he rises wrapped in crackling gold
+				ShazamFx.send(level, com.projecthero.mod.shazam.network.ShazamFxPayload.AURA, c, c, 1f, ShazamConfig.ETERNITY_RISE_TICKS + 10, p.getId());
+			}
 			return;
 		}
 		if (!s.eternityBolted) {
 			s.eternityBolted = true;
-			// the huge bolt hits him: three at once, harmless to him
-			for (int i = 0; i < 3; i++) {
-				Shazam.bolt(level, c.add((i - 1) * 0.3, 0, (i - 1) * 0.3));
-			}
+			// the huge bolt hits him (harmless to him): v0.17.3 one thick double-forked bolt with rolling thunder
+			Shazam.bigBolt(level, c);
+			Shazam.bolt(level, c.add(0.4, 0, -0.3));
 			level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1, c.z, 2, 0, 0, 0, 0);
 			level.sendParticles(Shazam.dust(Shazam.GOLD, 2.0f), c.x, c.y + 1, c.z, 40, 0.6, 1.2, 0.6, 0.0);
 			p.setDeltaMovement(0, 0, 0);
@@ -479,6 +472,13 @@ public final class ShazamMoves {
 			double a = i * Math.PI / 2;
 			Shazam.bolt(level, c.add(Math.cos(a) * 5, 0, Math.sin(a) * 5));
 		}
+		// v0.17.3 effects pass: bolts race out along the ground, the ground cracks with light, a big shock ring
+		ShazamFx.burst(level, c, 3f);
+		ShazamFx.send(level, com.projecthero.mod.shazam.network.ShazamFxPayload.CRACK, c.add(0, 0.05, 0), p.getLookAngle(), (float) r, 40, -1);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, c).colours(0xFFFFFF, 0xFFC93A).size((float) r * 2.2f).thickness(0.7f).life(16)
+				.ease(com.projecthero.mod.quirk.fx.QuirkFx.Ease.OUT_EXPO).ground().spawn();
+		com.projecthero.mod.quirk.fx.QuirkCamera.shakeAround(level, c, 30, 0.8f, 16);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.6f, 0.8f);
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 0.5, c.z, 80, 4.0, 0.5, 4.0, 0.3);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 0.7f);
@@ -517,6 +517,18 @@ public final class ShazamMoves {
 	/** The farthest point along his look, up to {@code distance}, his body fits at (blocks stop him). */
 	static Vec3 dashTo(ServerPlayer p, double distance) {
 		Vec3 look = p.getViewVector(1f);
+		Vec3 best = sweep(p, look, distance);
+		// v0.17.3: looking a little down while standing used to run the dash into the floor at once (nothing happened); then dash flat
+		if (best.distanceToSqr(p.position()) < 1.0 && Math.abs(look.y) < 0.85) {
+			Vec3 flat = new Vec3(look.x, 0, look.z);
+			if (flat.lengthSqr() > 1.0e-4) {
+				best = sweep(p, flat.normalize(), distance);
+			}
+		}
+		return best;
+	}
+
+	private static Vec3 sweep(ServerPlayer p, Vec3 look, double distance) {
 		Vec3 from = p.position();
 		AABB box = p.getBoundingBox();
 		Vec3 best = from;
@@ -532,15 +544,18 @@ public final class ShazamMoves {
 
 	/** The red blur and its crackle trail from {@code a} to {@code b}. */
 	static void blur(ServerLevel level, Vec3 a, Vec3 b, double height) {
+		// v0.17.3 effects pass: red streaks and fading after-images with crackle along the path (clients' geometry), a little dust
+		ShazamFx.send(level, com.projecthero.mod.shazam.network.ShazamFxPayload.BLUR, a, b, 1f, 14, -1);
 		Vec3 d = b.subtract(a);
-		int steps = Math.max(2, (int) (d.length() * 3));
+		int steps = Math.max(2, (int) (d.length()));
 		for (int i = 0; i <= steps; i++) {
 			Vec3 at = a.add(d.scale(i / (double) steps)).add(0, height * 0.5, 0);
-			level.sendParticles(Shazam.dust(Shazam.RED, 1.6f), at.x, at.y, at.z, 2, 0.15, height * 0.3, 0.15, 0.0);
+			level.sendParticles(Shazam.dust(Shazam.RED, 1.2f), at.x, at.y, at.z, 1, 0.15, height * 0.3, 0.15, 0.0);
 			if (i % 3 == 0) {
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 1, 0.2, 0.3, 0.2, 0.02);
 			}
 		}
+		level.playSound(null, b.x, b.y, b.z, SoundEvents.TRIDENT_RIPTIDE_1.value(), SoundSource.PLAYERS, 0.35f, 1.6f);
 	}
 
 	// ================================================================ Shift+X: Thunder Tackle
@@ -582,6 +597,8 @@ public final class ShazamMoves {
 		blur(level, from, p.position(), p.getBbHeight());
 		Shazam.hit(p, target, ShazamConfig.TACKLE_DAMAGE, true);
 		Shazam.bolt(level, ground);
+		ShazamFx.burst(level, ground, 1.5f); // v0.17.3 effects pass: the lightning burst races out along the ground
+		com.projecthero.mod.quirk.fx.QuirkCamera.shakeAround(level, ground, 16, 0.45f, 10);
 		level.sendParticles(ParticleTypes.EXPLOSION, ground.x, ground.y + 0.3, ground.z, 2, 0.4, 0.1, 0.4, 0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, ground.x, ground.y + 0.5, ground.z, 30, 1.0, 0.4, 1.0, 0.2);
 		Shazam.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.4f, 1.2f);
@@ -633,17 +650,20 @@ public final class ShazamMoves {
 				}
 			}
 		}
-		// the shockwave: rings of cloud and sparks out along the cone
+		// the shockwave: v0.17.3 effects pass -- rings of force racing down the cone, sparking at the rim (clients' geometry),
+		// with a little cloud and spark left behind
 		Vec3 eye = p.getEyePosition();
-		for (int i = 1; i <= 8; i++) {
+		ShazamFx.send(level, com.projecthero.mod.shazam.network.ShazamFxPayload.CLAP, eye.add(0, -0.3, 0).add(look.scale(0.5)), look,
+				(float) ShazamConfig.CLAP_RANGE, 12, -1);
+		for (int i = 2; i <= 8; i += 2) {
 			Vec3 at = eye.add(look.scale(i));
-			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 3 + i, i * 0.15, i * 0.15, i * 0.15, 0.02);
-			if (i % 2 == 0) {
-				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 3, i * 0.15, i * 0.15, i * 0.15, 0.05);
-			}
+			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 2 + i / 2, i * 0.15, i * 0.15, i * 0.15, 0.02);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 2, i * 0.15, i * 0.15, i * 0.15, 0.05);
 		}
 		level.sendParticles(ParticleTypes.SONIC_BOOM, eye.x + look.x, eye.y + look.y, eye.z + look.z, 1, 0, 0, 0, 0);
 		Shazam.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.4f, 1.6f);
+		Shazam.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.25f, 1.8f);
+		com.projecthero.mod.quirk.fx.QuirkCamera.fovPunch(p, 0.06f, 6);
 		Shazam.sound(p, ShazamSounds.WORD, 0.3f, 1.6f);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		Shazam.startCooldown(p, ShazamAbilityManager.THUNDERCLAP, ShazamConfig.CLAP_COOLDOWN);
@@ -662,6 +682,10 @@ public final class ShazamMoves {
 		taunt(p);
 		Vec3 c = p.position();
 		p.serverLevel().sendParticles(Shazam.dust(Shazam.GOLD, 1.5f), c.x, c.y + 1, c.z, 30, 0.8, 1.0, 0.8, 0.0);
+		// v0.17.3 effects pass: the golden aura of Achilles for the whole stand (rising rings, a soft shell, arcs crawling over him)
+		ShazamFx.send(p.serverLevel(), com.projecthero.mod.shazam.network.ShazamFxPayload.AURA, c, c, 1f, ShazamConfig.STAND_TICKS, p.getId());
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(p.serverLevel(), c).colours(0xFFF6D0, 0xFFC93A).size(5f).thickness(0.35f).life(12)
+				.ease(com.projecthero.mod.quirk.fx.QuirkFx.Ease.OUT_EXPO).ground().spawn();
 		Shazam.sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 0.7f);
 		Shazam.sound(p, SoundEvents.RAVAGER_ROAR, 0.4f, 1.5f);
 		Shazam.startCooldown(p, ShazamAbilityManager.ACHILLES_STAND, ShazamConfig.STAND_COOLDOWN);

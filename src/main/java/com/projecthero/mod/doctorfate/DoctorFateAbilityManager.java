@@ -45,16 +45,20 @@ public final class DoctorFateAbilityManager {
 	public static final String AMULET = "amulet_of_anubis";
 
 	private static final Map<UUID, String[]> HELD = new ConcurrentHashMap<>();
+	/** v0.17.3: when Shift+V went down (held {@link DoctorFateConfig#MIND_HOLD_TICKS} = the Tower of Fate mindscape). */
+	private static final Map<UUID, Long> AMULET_HELD_SINCE = new ConcurrentHashMap<>();
 
 	private DoctorFateAbilityManager() {
 	}
 
 	static void clearSessionState() {
 		HELD.clear();
+		AMULET_HELD_SINCE.clear();
 	}
 
 	static void forget(UUID id) {
 		HELD.remove(id);
+		AMULET_HELD_SINCE.remove(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -71,7 +75,43 @@ public final class DoctorFateAbilityManager {
 	}
 
 	static void tick(ServerPlayer player) {
-		// the shield's hold times out in DoctorFateSpells
+		// the shield's hold times out in DoctorFateSpells; Shift+V held long enough opens the Tower of Fate
+		Long since = AMULET_HELD_SINCE.get(player.getUUID());
+		if (since == null) {
+			return;
+		}
+		long held = player.level().getGameTime() - since;
+		if (DoctorFate.possessed(player) || !player.isAlive()) {
+			AMULET_HELD_SINCE.remove(player.getUUID());
+			clearHeld(player, AMULET);
+			return;
+		}
+		if (held % 4 == 0 && player.level() instanceof net.minecraft.server.level.ServerLevel level) {
+			float f = Math.min(1f, held / (float) DoctorFateConfig.MIND_HOLD_TICKS);
+			level.sendParticles(DoctorFate.dust(DoctorFate.BLUE, 0.6f + f), player.getX(), player.getY() + 1.25, player.getZ(), 2 + (int) (4 * f),
+					0.25 * (1 - f) + 0.05, 0.2, 0.25 * (1 - f) + 0.05, 0.0);
+		}
+		if (held >= DoctorFateConfig.MIND_HOLD_TICKS) {
+			AMULET_HELD_SINCE.remove(player.getUUID());
+			clearHeld(player, AMULET); // the release does nothing now
+			DoctorFateMindscape.open(player);
+		}
+	}
+
+	private static void clearHeld(ServerPlayer player, String id) {
+		String[] held = HELD.get(player.getUUID());
+		if (held != null) {
+			for (int i = 0; i < held.length; i++) {
+				if (id.equals(held[i])) {
+					held[i] = null;
+				}
+			}
+		}
+	}
+
+	/** Shift+V is being held toward the mindscape (tests). */
+	public static boolean holdingAmulet(ServerPlayer player) {
+		return AMULET_HELD_SINCE.containsKey(player.getUUID());
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
@@ -85,6 +125,8 @@ public final class DoctorFateAbilityManager {
 			held[i] = null;
 			if (ANKH_SHIELD.equals(id)) {
 				DoctorFateSpells.lowerShield(player);
+			} else if (AMULET.equals(id) && AMULET_HELD_SINCE.remove(player.getUUID()) != null) {
+				DoctorFateSpells.use(player, AMULET); // a tap: the Amulet of Anubis itself
 			}
 			return;
 		}
@@ -106,6 +148,12 @@ public final class DoctorFateAbilityManager {
 			if (DoctorFateSpells.raiseShield(player)) {
 				held[i] = id;
 			}
+			return;
+		}
+		// v0.17.3: Shift+V tapped = the Amulet (on release); held 1 s = the Tower of Fate mindscape (tick)
+		if (AMULET.equals(id)) {
+			held[i] = id;
+			AMULET_HELD_SINCE.put(player.getUUID(), player.level().getGameTime());
 			return;
 		}
 		DoctorFateSpells.use(player, id);

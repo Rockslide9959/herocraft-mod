@@ -15,6 +15,11 @@ public record FateFxPayload(int kind, int entity, int ticks, int[] data) impleme
 	public static final int SIGHT_NEUTRAL = 0;
 	public static final int SIGHT_CHAOS = 1;
 	public static final int SIGHT_ORDER = 2;
+	/**
+	 * v0.17.3 the Tower of Fate mindscape: Nabu's answer; {@code data} = {reply ordinal, a, b, tier}
+	 * ({@code DoctorFateMindscape.Reply}). A GREETING opens the screen.
+	 */
+	public static final int MIND_REPLY = 1;
 
 	public static final CustomPacketPayload.Type<FateFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("doctor_fate_fx"));
 

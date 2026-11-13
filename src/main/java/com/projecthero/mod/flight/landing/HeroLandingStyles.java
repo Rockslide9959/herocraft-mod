@@ -51,6 +51,8 @@ final class HeroLandingStyles {
 				p -> HeatblastKit.ID.equals(Omnitrix.active(p)) && (Omnitrix.state(p).kitFlags & HeatblastKit.F_RIDING) != 0);
 		HeroLanding.register(HeroLandingStyle.HAWK_MOTH, HawkMothKit::flying);
 		HeroLanding.register(HeroLandingStyle.MOON_KNIGHT, MoonKnightCape::isGliding);
+		HeroLanding.register(HeroLandingStyle.DOCTOR_FATE, com.projecthero.mod.doctorfate.DoctorFate::isFlying); // v0.17.3
+		HeroLanding.register(HeroLandingStyle.SHAZAM, com.projecthero.mod.shazam.Shazam::isFlying); // v0.17.3
 		// the mutations: the element flights first, then the plain Flight power (they all ride its hero-flight flag)
 		HeroLanding.register(HeroLandingStyle.PYRO, PyrokinesisHandlers::jetting);
 		HeroLanding.register(HeroLandingStyle.CRYO, CryoHoldMoves::winged);

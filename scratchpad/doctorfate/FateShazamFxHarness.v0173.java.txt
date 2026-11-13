@@ -1,0 +1,556 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateAbilityManager;
+import com.projecthero.mod.doctorfate.DoctorFateBargains;
+import com.projecthero.mod.doctorfate.DoctorFateSpells;
+import com.projecthero.mod.doctorfate.data.FateState;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.shazam.Shazam;
+import com.projecthero.mod.shazam.ShazamAbilityManager;
+import com.projecthero.mod.shazam.ShazamMoves;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.3 Doctor Fate + Shazam effects pass -- films every spell / move, the landings and the
+ * mindscape, before and after. Enabled by run/fxharness.flag; its text filters scenes (empty = all) and a word "tag=xyz" names
+ * the frames fx_xyz_<scene>_NNN.png. New-code calls go through reflection so the same file runs on the old code (the before shots).
+ */
+// TEMP-HARNESS
+public final class FateShazamFxHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only = "";
+	private static String tag = "x";
+
+	private FateShazamFxHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("fxharness.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("fxharness.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		for (String w : only.split("\\s+")) {
+			if (w.startsWith("tag=")) {
+				tag = w.substring(4);
+			}
+		}
+		only = only.replaceAll("tag=\\S+", "").trim();
+		ClientTickEvents.END_CLIENT_TICK.register(FateShazamFxHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "fx-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] server step failed: " + e);
+						e.printStackTrace(System.out);
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(FateShazamFxHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		if (inWorld == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(13500L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, Math.floor(p.getY()), Math.floor(p.getZ()) + 0.5);
+				BlockPos o = BlockPos.containing(origin);
+				for (int x = -16; x <= 16; x++) {
+					for (int z = -10; z <= 18; z++) {
+						l.setBlock(o.offset(x, -1, z), (x + z) % 7 == 0 ? Blocks.CHISELED_SANDSTONE.defaultBlockState() : Blocks.SMOOTH_SANDSTONE.defaultBlockState(), 3);
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.getInventory().clearContent();
+			});
+			t0 = inWorld + 20;
+			script(mc);
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		Runnable r = AT.remove(inWorld - t0);
+		if (r != null) {
+			r.run();
+		}
+		if (recording != null) {
+			Screenshot.grab(mc.gameDirectory, String.format("fx_%s_%s_%03d.png", tag, recording, recFrame++), mc.getMainRenderTarget(), c -> {
+			});
+			if (inWorld - t0 >= recUntil) {
+				System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+				recording = null;
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FX_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only.isEmpty() || only.contains(name);
+	}
+
+	private static void cam(int t, double x, double y, double z, double lx, double ly, double lz) {
+		at(t, () -> {
+			camPos = origin.add(x, y, z);
+			camLook = origin.add(lx, ly, lz);
+		});
+	}
+
+	private static void face(ServerPlayer p, Vec3 target) {
+		Vec3 eye = p.getEyePosition();
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), p.getX(), p.getY(), p.getZ(), yaw, pit);
+	}
+
+	private static void clear(ServerPlayer p) {
+		ServerLevel l = p.serverLevel();
+		for (var e : l.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new AABB(origin, origin).inflate(64))) {
+			e.discard();
+		}
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz, float hp) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
+			h.setHealth(hp);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	/** Fate: back to the spot, helmet on, Dominion 10, cooldowns clear. */
+	private static void fate(Minecraft mc, int t) {
+		at(t, () -> server(mc, p -> {
+			clear(p);
+			if (Shazam.transformed(p)) {
+				Shazam.forceUntransform(p);
+			}
+			if (!DoctorFate.hasPower(p)) {
+				DoctorFate.grant(p);
+			}
+			DoctorFate.clearTransient(p);
+			DoctorFate.setHelmet(p, true);
+			DoctorFate.setDominion(p, 10f);
+			DoctorFate.clearCooldowns(p);
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+			p.setHealth(p.getMaxHealth());
+		}));
+	}
+
+	private static void cast(Minecraft mc, int t, double tx, double ty, double tz, String id) {
+		at(t, () -> server(mc, p -> {
+			DoctorFate.clearCooldowns(p);
+			face(p, origin.add(tx, ty, tz));
+			DoctorFateSpells.testOverride = false;
+			DoctorFateSpells.use(p, id);
+		}));
+	}
+
+	/** Shazam: back to the spot, transformed, full bar. */
+	private static void shazam(Minecraft mc, int t, boolean transformed) {
+		at(t, () -> server(mc, p -> {
+			clear(p);
+			if (DoctorFate.hasPower(p)) {
+				DoctorFate.setDominion(p, 0f);
+				DoctorFate.revoke(p);
+			}
+			if (!Shazam.hasPower(p)) {
+				Shazam.grant(p);
+			}
+			p.setDeltaMovement(Vec3.ZERO);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			Shazam.clearCooldowns(p);
+			if (Shazam.transformed(p) != transformed) {
+				if (transformed) {
+					Shazam.speak(p);
+				} else {
+					Shazam.forceUntransform(p);
+				}
+				Shazam.clearCooldowns(p);
+			}
+			Shazam.clearTransient(p);
+			Shazam.setLightning(p, 100f);
+			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+			p.setHealth(p.getMaxHealth());
+		}));
+	}
+
+	private static void move(Minecraft mc, int t, double tx, double ty, double tz, String id) {
+		at(t, () -> server(mc, p -> {
+			face(p, origin.add(tx, ty, tz));
+			ShazamMoves.use(p, id);
+		}));
+	}
+
+	/** A hero landing in the named style (new code; skipped on the old). */
+	private static void land(Minecraft mc, int t, String style) {
+		at(t, () -> server(mc, p -> {
+			try {
+				var s = com.projecthero.mod.flight.landing.HeroLandingStyle.valueOf(style);
+				com.projecthero.mod.flight.landing.HeroLanding.trigger(p, s, 0.9f);
+			} catch (IllegalArgumentException e) {
+				System.out.println("[HARNESS] no landing style " + style);
+			}
+		}));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ======================================== Doctor Fate
+		if (want("f_bolt")) {
+			fate(mc, t);
+			dummy(mc, t + 1, 0, 9, 200);
+			dummy(mc, t + 1, 0.3, 12, 200);
+			cam(t + 2, 6.5, 3.2, 3.5, -0.5, 1.2, 5.5);
+			record(t + 6, "f_bolt", 34);
+			cast(mc, t + 10, 0, 1, 9, DoctorFateAbilityManager.ANKH_BOLT);
+			cast(mc, t + 24, 0, 1, 9, DoctorFateAbilityManager.ANKH_BOLT);
+			t += 44;
+		}
+		if (want("f_chains")) {
+			fate(mc, t);
+			dummy(mc, t + 1, 0, 6, 200);
+			cam(t + 2, 4.5, 2.6, 2.0, 0, 1.0, 5.5);
+			record(t + 6, "f_chains", 46);
+			cast(mc, t + 10, 0, 1, 6, DoctorFateAbilityManager.GOLDEN_CHAINS);
+			t += 56;
+		}
+		if (want("f_shield")) {
+			fate(mc, t);
+			cam(t + 2, 2.6, 2.2, 3.4, 0, 1.4, 0.8);
+			record(t + 6, "f_shield", 24);
+			at(t + 8, () -> server(mc, p -> DoctorFateSpells.raiseShieldForTest(p)));
+			at(t + 30, () -> server(mc, p -> DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_2, false)));
+			t += 34;
+		}
+		if (want("f_banish")) {
+			fate(mc, t);
+			dummy(mc, t + 1, 0, 6, 20);
+			cam(t + 2, 4.5, 3.2, 1.0, 0, 0.6, 6);
+			record(t + 6, "f_banish", 36);
+			cast(mc, t + 10, 0, 1, 6, DoctorFateAbilityManager.BANISHMENT);
+			t += 46;
+		}
+		if (want("f_storm")) {
+			fate(mc, t);
+			for (int i = 0; i < 4; i++) {
+				dummy(mc, t + 1, -3 + i * 2, 9 + (i % 2), 400);
+			}
+			cam(t + 2, 11, 5.5, 0, 0, 2.5, 9);
+			record(t + 6, "f_storm", 76);
+			cast(mc, t + 10, 0, 0, 9.5, DoctorFateAbilityManager.GLYPH_STORM);
+			t += 86;
+		}
+		if (want("f_step")) {
+			fate(mc, t);
+			cam(t + 2, 7, 2.5, 5, 0, 1.2, 5);
+			record(t + 6, "f_step", 26);
+			cast(mc, t + 10, 0, 1.6, 12, DoctorFateAbilityManager.ANKH_STEP);
+			t += 36;
+		}
+		if (want("f_gate")) {
+			fate(mc, t);
+			dummy(mc, t + 1, 0, 7, 100);
+			cam(t + 2, 8.5, 4.5, 0.5, 0, 5, 7);
+			record(t + 6, "f_gate", 50);
+			cast(mc, t + 10, 0, 1, 7, DoctorFateAbilityManager.GATE_DROP);
+			t += 60;
+		}
+		if (want("f_blast")) {
+			fate(mc, t);
+			dummy(mc, t + 1, 0, 4, 400);
+			dummy(mc, t + 1, 1.8, 5.5, 400);
+			dummy(mc, t + 1, -1.8, 5.5, 400);
+			cam(t + 2, 6, 3, -1, 0, 1.2, 4);
+			record(t + 6, "f_blast", 30);
+			cast(mc, t + 10, 0, 1.3, 4, DoctorFateAbilityManager.ORDER_BLAST);
+			t += 40;
+		}
+		if (want("f_ward")) {
+			fate(mc, t);
+			cam(t + 2, 7, 5, -6, 0, 0.5, 0);
+			record(t + 6, "f_ward", 46);
+			cast(mc, t + 10, 0, 1, 5, DoctorFateAbilityManager.WARD);
+			t += 56;
+		}
+		if (want("f_avatar")) {
+			fate(mc, t);
+			for (int i = 0; i < 3; i++) {
+				dummy(mc, t + 1, -2.5 + i * 2.5, 12, 400);
+			}
+			at(t + 2, () -> server(mc, p -> {
+				face(p, origin.add(0, 0, 12));
+				DoctorFateBargains.offer(p, FateState.Bargain.FORBIDDEN);
+				DoctorFateBargains.answer(p, FateState.Bargain.FORBIDDEN, true);
+			}));
+			at(t + 4, () -> mc.setScreen(null));
+			at(t + 8, () -> mc.setScreen(null));
+			cam(t + 3, 13, 3, 20, 0, 16, -7);
+			record(t + 6, "f_avatar", 80);
+			at(t + 34, () -> server(mc, p -> DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_1, true)));
+			at(t + 56, () -> server(mc, p -> DoctorFateAbilityManager.handle(p, AbilitySlot.SLOT_1, true)));
+			at(t + 90, () -> server(mc, p -> {
+				FateState n = DoctorFate.state(p).copy();
+				n.avatarUntil = 0L;
+				DoctorFate.save(p, n);
+			}));
+			t += 94;
+		}
+		if (want("f_landing")) {
+			fate(mc, t);
+			cam(t + 2, 3.2, 2.0, 4.2, 0, 0.6, 0);
+			record(t + 6, "f_landing", 40);
+			land(mc, t + 10, "DOCTOR_FATE");
+			t += 50;
+		}
+		if (want("f_mind")) {
+			fate(mc, t);
+			at(t + 2, () -> server(mc, p -> DoctorFate.setDominion(p, 42f)));
+			at(t + 6, () -> {
+				mc.options.hideGui = false;
+				try {
+					Class.forName("com.projecthero.mod.client.doctorfate.FateMindscapeScreen").getMethod("harnessOpen").invoke(null);
+				} catch (Exception e) {
+					System.out.println("[HARNESS] no mindscape " + e);
+				}
+			});
+			record(t + 8, "f_mind", 120);
+			for (int[] step : new int[][] { { 50, 1 }, { 90, 3 } }) {
+				at(t + step[0], () -> {
+					try {
+						Class.forName("com.projecthero.mod.client.doctorfate.FateMindscapeScreen").getMethod("harnessChoose", int.class).invoke(null, step[1]);
+					} catch (Exception e) {
+						System.out.println("[HARNESS] no mindscape " + e);
+					}
+				});
+			}
+			at(t + 130, () -> {
+				mc.setScreen(null);
+				mc.options.hideGui = true;
+			});
+			t += 134;
+		}
+		// ======================================== Shazam
+		if (want("s_word")) {
+			shazam(mc, t, false);
+			dummy(mc, t + 1, 1.8, 1.2, 400);
+			cam(t + 2, 5.5, 2.5, 8.0, 0, 4.0, 0);
+			record(t + 6, "s_word", 40);
+			at(t + 12, () -> server(mc, p -> com.projecthero.mod.shazam.ShazamMod.onChat(p, "SHAZAM!"))); // chat is hidden for filming, so straight to the server
+			t += 50;
+		}
+		if (want("s_charged")) {
+			shazam(mc, t, true);
+			cam(t + 2, 0.9, 1.6, 2.0, 0, 1.2, 0);
+			record(t + 6, "s_charged", 24);
+			t += 34;
+		}
+		if (want("s_hand")) {
+			shazam(mc, t, true);
+			dummy(mc, t + 1, 0, 7, 400);
+			dummy(mc, t + 1, 2.5, 9, 400);
+			dummy(mc, t + 1, -2.5, 10, 400);
+			cam(t + 2, 6, 3, 1, 0, 1.2, 6);
+			record(t + 6, "s_hand", 34);
+			move(mc, t + 10, 0, 1.2, 7, ShazamAbilityManager.LIGHTNING_HAND);
+			at(t + 24, () -> server(mc, p -> Shazam.clearCooldowns(p)));
+			move(mc, t + 25, 0, 1.2, 7, ShazamAbilityManager.LIGHTNING_HAND);
+			t += 44;
+		}
+		if (want("s_call")) {
+			shazam(mc, t, true);
+			dummy(mc, t + 1, 1, 12, 400);
+			cam(t + 2, 9, 4, 3, 0, 4, 10);
+			record(t + 6, "s_call", 34);
+			move(mc, t + 10, 1, 1, 12, ShazamAbilityManager.CALL_LIGHTNING);
+			t += 44;
+		}
+		if (want("s_storm")) {
+			shazam(mc, t, true);
+			for (int i = 0; i < 5; i++) {
+				double a = i * Math.PI * 2 / 5 + 0.3;
+				dummy(mc, t + 1, Math.sin(a) * 6, Math.cos(a) * 6, 400);
+			}
+			cam(t + 2, 10, 7, -9, 0, 2, 0);
+			record(t + 6, "s_storm", 70);
+			move(mc, t + 8, 0, 1, 6, ShazamAbilityManager.ZEUS_STORM);
+			t += 80;
+		}
+		if (want("s_eternity")) {
+			shazam(mc, t, true);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI * 2 / 6;
+				dummy(mc, t + 1, Math.sin(a) * 5, Math.cos(a) * 5, 400);
+			}
+			cam(t + 2, 14, 7, -10, 0, 5, 0);
+			record(t + 6, "s_eternity", 100);
+			move(mc, t + 8, 0, 1, 6, ShazamAbilityManager.ETERNITY_STRIKE);
+			t += 110;
+		}
+		if (want("s_dash")) {
+			shazam(mc, t, true);
+			cam(t + 2, 9, 3, 6, 0, 1, 6);
+			record(t + 6, "s_dash", 26);
+			move(mc, t + 10, 0, 1.6, 12, ShazamAbilityManager.MERCURY_DASH);
+			t += 36;
+		}
+		if (want("s_tackle")) {
+			shazam(mc, t, true);
+			dummy(mc, t + 1, 0, 12, 400);
+			cam(t + 2, 9, 3, 7, 0, 1, 9);
+			record(t + 6, "s_tackle", 30);
+			move(mc, t + 10, 0, 1, 12, ShazamAbilityManager.THUNDER_TACKLE);
+			t += 40;
+		}
+		if (want("s_clap")) {
+			shazam(mc, t, true);
+			dummy(mc, t + 1, 0, 4, 400);
+			dummy(mc, t + 1, 2, 5, 400);
+			dummy(mc, t + 1, -2, 5, 400);
+			cam(t + 2, 6, 3, -1, 0, 1.2, 4);
+			record(t + 6, "s_clap", 26);
+			move(mc, t + 10, 0, 1.4, 6, ShazamAbilityManager.THUNDERCLAP);
+			t += 36;
+		}
+		if (want("s_stand")) {
+			shazam(mc, t, true);
+			cam(t + 2, 3.5, 1.8, 3.5, 0, 1.1, 0);
+			record(t + 6, "s_stand", 40);
+			move(mc, t + 8, 0, 1.6, 6, ShazamAbilityManager.ACHILLES_STAND);
+			t += 50;
+		}
+		if (want("s_landing")) {
+			shazam(mc, t, true);
+			cam(t + 2, 3.2, 2.0, 4.2, 0, 0.6, 0);
+			record(t + 6, "s_landing", 40);
+			land(mc, t + 10, "SHAZAM");
+			t += 50;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		});
+	}
+}

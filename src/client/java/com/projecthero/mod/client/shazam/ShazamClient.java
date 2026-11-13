@@ -35,6 +35,11 @@ public final class ShazamClient {
 		HudRenderCallback.EVENT.register(ShazamHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(ShazamWisdom::render);
 		EntityRendererRegistry.register(ShazamEntities.WIZARD, WizardShazamRenderer::new);
+		// v0.17.3 effects pass: his lightning as branching bolt geometry
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.shazam.network.ShazamFxPayload.TYPE,
+				(payload, context) -> ShazamBoltFx.receive(payload));
+		WorldRenderEvents.AFTER_ENTITIES.register(ShazamBoltFx::render);
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ShazamBoltFx.reset());
 	}
 
 	/** Double-tap Space in the air while transformed: take off / drop out of flight (the server re-checks). */

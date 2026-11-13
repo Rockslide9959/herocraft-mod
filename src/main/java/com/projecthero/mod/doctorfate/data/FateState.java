@@ -36,14 +36,16 @@ public final class FateState {
 	public Map<String, Long> abilityReadyAt;
 	/** Bargains: refusals today (and which day that was), the pending offer, Order's command. */
 	public Bargain bargain;
+	/** v0.17.3 the Tower of Fate mindscape: the Blessing, the Silence, the Debt ({@code DoctorFateMindscape}). */
+	public Mind mind = Mind.NONE;
 
 	public FateState() {
-		this(false, false, 0f, 0L, false, 0L, 0L, false, false, 0L, 0L, 0L, new HashMap<>(), Bargain.NONE);
+		this(false, false, 0f, 0L, false, 0L, 0L, false, false, 0L, 0L, 0L, new HashMap<>(), Bargain.NONE, Mind.NONE);
 	}
 
 	public FateState(boolean hasPower, boolean helmetOn, float dominion, long helmetChangeAt, boolean helmetGoingOn, long lockoutUntil,
 			long possessedUntil, boolean flying, boolean shieldUp, long shieldSince, long avatarUntil, long avatarSlamAt,
-			Map<String, Long> abilityReadyAt, Bargain bargain) {
+			Map<String, Long> abilityReadyAt, Bargain bargain, Mind mind) {
 		this.hasPower = hasPower;
 		this.helmetOn = helmetOn;
 		this.dominion = dominion;
@@ -58,11 +60,44 @@ public final class FateState {
 		this.avatarSlamAt = avatarSlamAt;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.bargain = bargain == null ? Bargain.NONE : bargain;
+		this.mind = mind == null ? Mind.NONE : mind;
 	}
 
 	public FateState copy() {
 		return new FateState(hasPower, helmetOn, dominion, helmetChangeAt, helmetGoingOn, lockoutUntil, possessedUntil, flying, shieldUp,
-				shieldSince, avatarUntil, avatarSlamAt, abilityReadyAt, bargain);
+				shieldSince, avatarUntil, avatarSlamAt, abilityReadyAt, bargain, mind);
+	}
+
+	/**
+	 * v0.17.3 what was agreed with Nabu in the Tower of Fate: the Blessing of Order and the Silence run until these times; the Debt
+	 * ({@code debt} Dominion) comes due at {@code debtDueAt}; {@code visits} counts trips to the Tower.
+	 */
+	public record Mind(long blessingUntil, long silenceUntil, float debt, long debtDueAt, int visits) {
+		public static final Mind NONE = new Mind(0L, 0L, 0f, 0L, 0);
+
+		public static final Codec<Mind> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.LONG.optionalFieldOf("blessing_until", 0L).forGetter(Mind::blessingUntil),
+				Codec.LONG.optionalFieldOf("silence_until", 0L).forGetter(Mind::silenceUntil),
+				Codec.FLOAT.optionalFieldOf("debt", 0f).forGetter(Mind::debt),
+				Codec.LONG.optionalFieldOf("debt_due_at", 0L).forGetter(Mind::debtDueAt),
+				Codec.INT.optionalFieldOf("visits", 0).forGetter(Mind::visits)
+		).apply(i, Mind::new));
+
+		public Mind withBlessing(long until) {
+			return new Mind(until, silenceUntil, debt, debtDueAt, visits);
+		}
+
+		public Mind withSilence(long until) {
+			return new Mind(blessingUntil, until, debt, debtDueAt, visits);
+		}
+
+		public Mind withDebt(float amount, long due) {
+			return new Mind(blessingUntil, silenceUntil, amount, due, visits);
+		}
+
+		public Mind withVisits(int n) {
+			return new Mind(blessingUntil, silenceUntil, debt, debtDueAt, n);
+		}
 	}
 
 	/**
@@ -130,6 +165,7 @@ public final class FateState {
 			Codec.LONG.optionalFieldOf("avatar_slam_at", 0L).forGetter(s -> s.avatarSlamAt),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Bargain.CODEC.optionalFieldOf("bargain", Bargain.NONE).forGetter(s -> s.bargain)
+			Bargain.CODEC.optionalFieldOf("bargain", Bargain.NONE).forGetter(s -> s.bargain),
+			Mind.CODEC.optionalFieldOf("mind", Mind.NONE).forGetter(s -> s.mind)
 	).apply(i, FateState::new));
 }

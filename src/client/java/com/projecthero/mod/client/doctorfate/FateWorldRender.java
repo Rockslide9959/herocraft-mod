@@ -54,6 +54,7 @@ public final class FateWorldRender {
 		PoseStack pose = ctx.matrixStack();
 		Vec3 cam = ctx.camera().getPosition();
 		MultiBufferSource buffers = ctx.consumers();
+		FateSpellFxClient.render(ctx); // v0.17.3 effects pass: every spell's golden geometry
 		for (Player p : mc.level.players()) {
 			FateState s = DoctorFate.peek(p);
 			if (s == null || !s.hasPower || p.isInvisible()) {
@@ -148,25 +149,20 @@ public final class FateWorldRender {
 		Vec3 right = new Vec3(-flat.z, 0, flat.x);
 		Vec3 up = new Vec3(0, 1, 0);
 		Vec3 c = p.getEyePosition(partial).add(look.scale(1.3)).add(0, -0.25, 0);
-		float size = full ? 1.25f : 0.85f;
-		float pulse = 0.75f + 0.15f * Mth.sin((p.tickCount + partial) * 0.4f);
-		pose.pushPose();
-		pose.translate(-cam.x, -cam.y, -cam.z);
-		Matrix4f m = pose.last().pose();
-		VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
-		float a = (full ? 0.75f : 0.5f) * pulse;
-		// the loop
-		int n = 16;
-		for (int k = 0; k < n; k++) {
-			double a0 = k * Math.PI * 2 / n, a1 = (k + 1) * Math.PI * 2 / n;
-			Vec3 p0 = c.add(up.scale(size * (0.55 + Math.sin(a0) * 0.32))).add(right.scale(Math.cos(a0) * size * 0.26));
-			Vec3 p1 = c.add(up.scale(size * (0.55 + Math.sin(a1) * 0.32))).add(right.scale(Math.cos(a1) * size * 0.26));
-			bar(vc, m, p0, p1, flat, size * 0.07f, a);
+		float time = p.tickCount + partial;
+		float pulse = 0.8f + 0.2f * Mth.sin(time * 0.4f);
+		float a = (full ? 0.95f : 0.6f) * pulse;
+		// v0.17.3 effects pass: a glowing ankh inside a turning ring of hieroglyphs, over a faint disc of light
+		double s = full ? 1.9 : 1.25;
+		Vec3 heart = c.add(up.scale(s * 0.05));
+		FateGlyphs.begin(buffers.getBuffer(RenderType.lightning()), pose.last().pose(), cam);
+		FateGlyphs.disc(heart, right, up, s * 0.72, s * 0.72, 28, 0xFFC93A, 0.12f * a);
+		FateGlyphs.ankh(c, right, up, s, s * 0.045, 0xFFC93A, a);
+		FateGlyphs.ring(heart, right, up, s * 0.72, s * 0.018, 36, 0xFFC93A, a * 0.85f, true);
+		if (full) {
+			FateGlyphs.band(heart, right, up, s * 0.84, 10, s * 0.12, s * 0.008, time * 0.03, 0xFFC93A, a * 0.75f, 5);
+			FateGlyphs.ring(heart, right, up, s * 0.95, s * 0.012, 40, 0xFFC93A, a * 0.6f, true);
 		}
-		// the bar and the stem
-		bar(vc, m, c.add(up.scale(size * 0.15)).add(right.scale(-size * 0.5)), c.add(up.scale(size * 0.15)).add(right.scale(size * 0.5)), flat, size * 0.08f, a);
-		bar(vc, m, c.add(up.scale(size * 0.2)), c.add(up.scale(-size * 0.95)), flat, size * 0.08f, a);
-		pose.popPose();
 	}
 
 	/** A flat glowing bar from {@code a} to {@code b}, facing {@code normal}, both sides. */

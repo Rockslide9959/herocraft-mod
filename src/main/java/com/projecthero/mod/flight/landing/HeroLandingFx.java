@@ -117,6 +117,8 @@ public final class HeroLandingFx {
 			case NOVA -> nova(p, level, feet, s);
 			case SILVER_SURFER -> surfer(p, level, feet, s);
 			case MAX_STEEL -> maxSteel(p, level, feet, s);
+			case DOCTOR_FATE -> com.projecthero.mod.doctorfate.DoctorFateFx.landing(p, level, feet, s, yaw); // v0.17.3
+			case SHAZAM -> com.projecthero.mod.shazam.ShazamFx.landing(p, level, feet, s, yaw); // v0.17.3
 			default -> element(p, level, feet, style, s, yaw);
 		}
 	}

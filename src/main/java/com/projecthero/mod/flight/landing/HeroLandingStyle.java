@@ -46,7 +46,11 @@ public enum HeroLandingStyle {
 	/** Hawk Moth's Swarm Flight: the swarm settles, purple light. */
 	HAWK_MOTH(17, Pose.WINGS, 0xF0D8FF, 0x8A3AD8, Element.SHADOW, 14, 4),
 	/** Moon Knight's Cape Glide: the cape folds round him, moon-white. */
-	MOON_KNIGHT(18, Pose.WINGS, 0xFFFFFF, 0xC8D4E8, Element.WIND, 16, 4);
+	MOON_KNIGHT(18, Pose.WINGS, 0xFFFFFF, 0xC8D4E8, Element.WIND, 16, 4),
+	/** v0.17.3 Doctor Fate: a golden ankh shockwave (ids 24/25 leave room for the landings built alongside). */
+	DOCTOR_FATE(24, Pose.FIST, 0xFFF4C8, 0xFFB020, Element.IMPACT, 18, 4),
+	/** v0.17.3 Shazam: a lightning-crack ground slam. */
+	SHAZAM(25, Pose.FIST, 0xFFFFFF, 0xFFC93A, Element.THUNDER, 18, 4);
 
 	/** How the body lands (client: {@code HeroLandingPose}). */
 	public enum Pose {
