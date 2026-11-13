@@ -1,6 +1,14 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
@@ -90,19 +98,68 @@ public final class VanillaHud {
 	 * {@code colour}) and the value right-aligned, all in shadowed text.
 	 */
 	public static void meter(GuiGraphics g, int x0, int by, int width, Component label, float frac, int colour, String value, int valueColour) {
+		meter(g, x0, by, width, label, frac, colour, value, valueColour, MutationMeters.Style.METER);
+	}
+
+	/**
+	 * v0.17.3: a meter row in one of the user's bar styles, kept on the vanilla look: <b>Meter</b> the plain boss bar,
+	 * <b>Gauge</b> the boss bar with its ten notches, <b>Hairline</b> a 3-px cut of the boss bar, <b>Slab</b> the boss bar in a
+	 * 1-px black frame (7 px tall).
+	 */
+	public static void meter(GuiGraphics g, int x0, int by, int width, Component label, float frac, int colour, String value, int valueColour,
+			MutationMeters.Style style) {
 		Minecraft mc = Minecraft.getInstance();
 		int labelW = mc.font.width(label);
 		int valueW = Math.max(mc.font.width("0:00"), mc.font.width(value));
 		int barX = x0 + labelW + 4;
 		int barW = Math.max(20, width - labelW - 4 - valueW - 3);
 		g.drawString(mc.font, label, x0, by - 2, WHITE, true);
-		String c = bossColour(colour);
-		bar(g, ResourceLocation.withDefaultNamespace("boss_bar/" + c + "_background"), barX, by - 1, barW, barW);
-		int fill = Math.round(barW * Mth.clamp(frac, 0f, 1f));
-		if (fill > 0) {
-			bar(g, ResourceLocation.withDefaultNamespace("boss_bar/" + c + "_progress"), barX, by - 1, barW, fill);
-		}
+		bar(g, barX, by - 1, barW, frac, colour, style);
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), by - 2, valueColour, true);
+	}
+
+	/** A bare boss bar (no label) {@code w} wide, its top at {@code y}, in the plain Meter style. */
+	public static void bar(GuiGraphics g, int x, int y, int w, float frac, int colour) {
+		bar(g, x, y, w, frac, colour, MutationMeters.Style.METER);
+	}
+
+	/** A bare boss bar (no label) {@code w} wide, its top at {@code y} (the 5-px bar; a Slab's frame sits 1 px outside it). */
+	public static void bar(GuiGraphics g, int x, int y, int w, float frac, int colour, MutationMeters.Style style) {
+		String c = bossColour(colour);
+		int fill = Math.round(w * Mth.clamp(frac, 0f, 1f));
+		ResourceLocation bg = ResourceLocation.withDefaultNamespace("boss_bar/" + c + "_background");
+		ResourceLocation fg = ResourceLocation.withDefaultNamespace("boss_bar/" + c + "_progress");
+		if (style == MutationMeters.Style.HAIRLINE) {
+			// the boss bar's middle three rows
+			hairline(g, bg, x, y + 1, w, w);
+			if (fill > 0) {
+				hairline(g, fg, x, y + 1, w, fill);
+			}
+			return;
+		}
+		if (style == MutationMeters.Style.SLAB) {
+			g.fill(x - 1, y - 1, x + w + 1, y + 6, 0xFF000000);
+		}
+		bar(g, bg, x, y, w, w);
+		if (fill > 0) {
+			bar(g, fg, x, y, w, fill);
+		}
+		if (style == MutationMeters.Style.GAUGE) {
+			bar(g, ResourceLocation.withDefaultNamespace("boss_bar/notched_10_background"), x, y, w, w);
+			if (fill > 0) {
+				bar(g, ResourceLocation.withDefaultNamespace("boss_bar/notched_10_progress"), x, y, w, fill);
+			}
+		}
+	}
+
+	private static void hairline(GuiGraphics g, ResourceLocation sprite, int x, int y, int w, int shown) {
+		int body = Math.min(shown, w - 2);
+		if (body > 0) {
+			g.blitSprite(sprite, 182, 5, 0, 1, x, y, body, 3);
+		}
+		if (shown > w - 2) {
+			g.blitSprite(sprite, 182, 5, 180, 1, x + w - 2, y, shown - (w - 2), 3);
+		}
 	}
 
 	/** A boss-bar sprite {@code w} wide (its left part and its 2-px right end, so the end caps stay crisp), cut off at {@code shown}. */
@@ -148,5 +205,240 @@ public final class VanillaHud {
 			return "purple";
 		}
 		return "pink";
+	}
+
+	// ---------------------------------------------------------------- v0.17.3: the shared layout (every power's HUD)
+
+	/** The key order of the newest powers' strips: R G Z X C V (the keyboard's own Z X C V order). */
+	public static final AbilitySlot[] ORDER = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3, AbilitySlot.SLOT_6,
+			AbilitySlot.SLOT_5 };
+
+	/** The key bound to {@code slot} (follows rebinds), at most two characters, as the strip shows it. */
+	public static String keyLabel(AbilitySlot slot) {
+		net.minecraft.client.KeyMapping km = slot.ordinal() < 6 ? ModKeyBindings.ABILITY_SLOTS[slot.ordinal()]
+				: slot == AbilitySlot.SLOT_7 ? ModKeyBindings.POWER_SELECT : ModKeyBindings.MAX_STEEL_TRANSFORM;
+		String text = km.getTranslatedKeyMessage().getString();
+		return text.length() > 2 ? text.substring(0, 2) : text;
+	}
+
+	/** Seconds shown in a slot for {@code ticks} of cooldown left (0 = none). */
+	public static int seconds(int ticks) {
+		return ticks > 0 ? (ticks + 19) / 20 : 0;
+	}
+
+	/** A coloured status word for {@link Stack#tags}. */
+	public record Tag(String text, int colour) {
+	}
+
+	/**
+	 * v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): the placement
+	 * the newest powers use, shared so every HUD sits and stacks the same way. Bottom-right, 4 px from the edges (41 px up on a
+	 * narrow window, clear of the hotbar and food bar), as wide as a six-key strip; the key strip at the bottom, then meter rows,
+	 * the title and status tags stacking upward from it. {@link #top()} is the top of everything drawn so far.
+	 * <pre>
+	 *   Flying  Shield                     tags()   (wrap to the width, first tags on the top line)
+	 *   TITLE                              title()
+	 *   Energy [boss bar =====---]  64     meter()  (each 14 px above the last)
+	 *   +--+--+--+--+--+--+                keys()   then slot(i, ...) for each key
+	 * </pre>
+	 */
+	public static final class Stack {
+		public final GuiGraphics g;
+		public final Font font;
+		/** Left edge and width of the HUD column. */
+		public final int x0, width;
+		/** The bottom edge the column stands on. */
+		public final int bottom;
+		private int stripY = Integer.MIN_VALUE;
+		/** Top of the last thing drawn, and what it was (so the next row keeps the newest powers' spacing). */
+		private int top;
+		private int last; // 0 nothing, 1 strip, 2 meter, 3 text
+
+		private Stack(GuiGraphics g, int x0, int width, int bottom) {
+			this.g = g;
+			this.font = Minecraft.getInstance().font;
+			this.x0 = x0;
+			this.width = width;
+			this.bottom = bottom;
+			this.top = bottom;
+		}
+
+		/** The bottom-right column for a strip of up to {@code slots} keys (never narrower than six). */
+		public static Stack bottomRight(GuiGraphics g, int slots) {
+			int w = VanillaHud.width(Math.max(6, slots));
+			int x0 = g.guiWidth() - 4 - w;
+			int bottom = g.guiHeight() - 4;
+			if (x0 < g.guiWidth() / 2 + 91 + 2) {
+				bottom = g.guiHeight() - 41; // a narrow window: clear of the hotbar and food bar
+			}
+			return new Stack(g, x0, w, bottom);
+		}
+
+		/** The key strip ({@code slots} keys) at the bottom of the column; then call {@link #slot} for each key. */
+		public Stack keys(int slots) {
+			if (slots <= 0) {
+				return this;
+			}
+			stripY = bottom - HEIGHT;
+			strip(g, x0, stripY, slots);
+			top = stripY;
+			last = 1;
+			return this;
+		}
+
+		/** Key {@code i} of the strip (see {@link VanillaHud#slot}). */
+		public Stack slot(int i, String label, boolean usable, boolean shifted, float cooldown, int seconds, float other, boolean active) {
+			VanillaHud.slot(g, x0, stripY, i, label, usable, shifted, cooldown, seconds, other, active);
+			return this;
+		}
+
+		/** Key {@code i} with a hold / charge fill rising from the bottom of its cell (0..1, brighter once full). */
+		public Stack hold(int i, float progress) {
+			if (progress <= 0f) {
+				return this;
+			}
+			int ix = x0 + 3 + i * SLOT, iy = stripY + 3;
+			int h = Math.round(16f * Mth.clamp(progress, 0f, 1f));
+			g.fill(RenderType.guiOverlay(), ix, iy + 16 - h, ix + 16, iy + 16, progress >= 1f ? 0x90FFD24A : 0x60FFD24A);
+			return this;
+		}
+
+		/** The strip's top-left (for a power's own extras on a key). */
+		public int stripX() {
+			return x0;
+		}
+
+		public int stripY() {
+			return stripY;
+		}
+
+		private int barY() {
+			return switch (last) {
+				case 0 -> top - 7;
+				case 1 -> top - 8;
+				case 2 -> top - 12;
+				default -> top - 10;
+			};
+		}
+
+		private int textY() {
+			return switch (last) {
+				case 0 -> top - 9;
+				case 1 -> top - 11;
+				case 2 -> top - 12;
+				default -> top - 10;
+			};
+		}
+
+		/** A Meter-style row: label, boss bar, value. */
+		public Stack meter(Component label, float frac, int colour, String value, int valueColour) {
+			return meter(label, frac, colour, value, valueColour, MutationMeters.Style.METER);
+		}
+
+		/** A meter row in one of the user's bar styles (Slab / Meter / Gauge / Hairline). */
+		public Stack meter(Component label, float frac, int colour, String value, int valueColour, MutationMeters.Style style) {
+			int by = barY();
+			VanillaHud.meter(g, x0, by, width, fit(label, value), frac, colour, value, valueColour, style);
+			top = by - 2;
+			last = 2;
+			return this;
+		}
+
+		/** A full-width boss bar without a label (a charge-up, a secondary bar). */
+		public Stack bar(float frac, int colour) {
+			int by = last == 2 ? top - 7 : barY() + 2;
+			VanillaHud.bar(g, x0, by, width, frac, colour);
+			top = by - 1;
+			last = 2;
+			return this;
+		}
+
+		/** The label cut so the value and a 20-px bar still fit beside it. */
+		private Component fit(Component label, String value) {
+			int room = width - Math.max(font.width("0:00"), font.width(value)) - 3 - 4 - 20;
+			if (font.width(label) <= room) {
+				return label;
+			}
+			return Component.literal(font.plainSubstrByWidth(label.getString(), room - font.width(".")) + ".");
+		}
+
+		/** The power's name line (cut to the width). */
+		public Stack title(Component text, int colour) {
+			return line(text, colour);
+		}
+
+		/** A plain text line, cut to the column's width (left aligned, shadowed). */
+		public Stack line(Component text, int colour) {
+			int y = textY();
+			String s = text.getString();
+			g.drawString(font, font.width(s) > width ? font.plainSubstrByWidth(s, width) : s, x0, y, colour, true);
+			top = y;
+			last = 3;
+			return this;
+		}
+
+		/** A text line, word-wrapped onto as many lines as it needs. */
+		public Stack wrapped(Component text, int colour) {
+			List<net.minecraft.util.FormattedCharSequence> lines = font.split(text, width);
+			for (int i = lines.size() - 1; i >= 0; i--) {
+				int y = textY();
+				g.drawString(font, lines.get(i), x0, y, colour, true);
+				top = y;
+				last = 3;
+			}
+			return this;
+		}
+
+		/** Status words, wrapped to the column's width, the first tags on the top line. */
+		public Stack tags(List<Tag> tags) {
+			if (tags.isEmpty()) {
+				return this;
+			}
+			List<List<Tag>> lines = new ArrayList<>();
+			List<Tag> line = new ArrayList<>();
+			int w = 0;
+			for (Tag t : tags) {
+				String text = font.plainSubstrByWidth(t.text(), width);
+				int tw = font.width(text);
+				if (!line.isEmpty() && w + 6 + tw > width) {
+					lines.add(line);
+					line = new ArrayList<>();
+					w = 0;
+				}
+				line.add(new Tag(text, t.colour()));
+				w += (line.size() > 1 ? 6 : 0) + tw;
+			}
+			lines.add(line);
+			for (int i = lines.size() - 1; i >= 0; i--) {
+				int y = textY();
+				int x = x0;
+				for (Tag t : lines.get(i)) {
+					g.drawString(font, t.text(), x, y, t.colour(), true);
+					x += font.width(t.text()) + 6;
+				}
+				top = y;
+				last = 3;
+			}
+			return this;
+		}
+
+		/** Leaves {@code px} of room above what is drawn (a power's own row drawn by hand from {@link #top()} - px). */
+		public Stack reserve(int px) {
+			top -= px;
+			last = 3;
+			return this;
+		}
+
+		/** Top of everything drawn so far. */
+		public int top() {
+			return top;
+		}
+
+		/** The Left-Alt move list, stacked above the column (draws only while Left-Alt is held). */
+		public void moveList(List<MoveListOverlay.Row> rows) {
+			if (MoveListOverlay.held() && !rows.isEmpty()) {
+				MoveListOverlay.draw(g, x0 + width, top - 4, rows);
+			}
+		}
 	}
 }
