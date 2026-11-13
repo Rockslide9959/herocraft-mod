@@ -1,9 +1,11 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
-import com.projecthero.mod.spider.SpiderAbilities;
-import com.projecthero.mod.spider.SpiderMan;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities;
 import com.projecthero.mod.symbiote.SymbioteHunger;
 import com.projecthero.mod.symbiote.SymbioteHostType;
@@ -19,50 +21,30 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Symbiote HUD: drawn only while the black suit is actually worn ({@link SymbioteState#active}),
- * built to match {@link MaxSteelHud} / {@link SpiderHud}'s visual language (the same boxed keybind
- * row with cooldown shading) rather than inventing a third look.
+ * The Symbiote HUD: drawn only while the black suit is actually worn ({@link SymbioteState#active}). v0.17.3 (user: "I really
+ * like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): on the shared Minecraft-style look.
  *
- * <p>Which row it draws depends on {@link SymbioteHostType#of}:
+ * <p>Which block it draws depends on {@link SymbioteHostType#of}:
  * <ul>
- *   <li><b>Normal host</b> -- the six {@code SymbioteAbilityManager} abilities in the same bottom-right corner
- *       every other power's row uses, with cooldowns read straight off the synced
- *       {@link SymbioteState#abilityCooldowns}, and the Hairline Biomass bar under them.</li>
- *   <li><b>Black Suit Spider-Man</b> and <b>Agent Venom</b> -- v0.13.21: one shared "hero host" panel
- *       ({@link #renderHeroHostPanel}), stacked directly above that hero's own six-box row (never beside it, where
- *       it ran into the hunger bar at large GUI scales). A bold title; the three extras' boxes, each with a
- *       little sneak chevron, draining their cooldown like the Hulk / All Might boxes do; the Symbiote revive
- *       timer (or Agent Venom's live Unleashed timer) left of them; and a Hairline underneath that fills as the
- *       revive recharges. Hold Left Alt for each extra's full name.</li>
+ *   <li><b>Normal host</b> -- the bottom-right column ({@link VanillaHud.Stack}): the six {@code SymbioteAbilityManager} keys
+ *       (R G Z X C V, cooldowns read straight off the synced {@link SymbioteState#abilityCooldowns}; Shift+G's Spike Fan on
+ *       G's durability bar; Z fills while Onslaught charges; the blade / shield / thorns / grab light their key), the Biomass
+ *       bar (the user's Hairline style, with the recovery tick while it is spent), the title.</li>
+ *   <li><b>Black Suit Spider-Man</b> -- the Hunger bar (Hairline, Bonded / Overdrive ticks) and its tier / revive / Take Over
+ *       words ride on {@link SpiderHud}'s column ({@link #blackSuitRows}).</li>
+ *   <li><b>Agent Venom</b> -- a small block stacked above the Punisher's HUD: the title, the revive bar (Hairline), and a
+ *       three-key strip for the Sneak extras (yellow keys: they are Shift moves), the V key framed while Symbiote Unleashed
+ *       runs.</li>
  * </ul>
  */
 public final class SymbioteHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int HAIRLINE = 3;
-	/** The hero-host panel is as wide as the hero row it sits on. */
-	private static final int PANEL_W = 6 * BOX + 5 * GAP;
-	/** Title line + boxes + hairline: the panel's full height. */
-	private static final int PANEL_H = 11 + BOX + 3 + HAIRLINE;
-	/** Gap between the hero-host panel and whatever it stacks on. */
-	private static final int PANEL_GAP = 4;
-
-	private static final int COLOR_BOX_BG = 0xC00A0A0C;
-	private static final int COLOR_BORDER = 0xFF2A2A32;
-	private static final int COLOR_BORDER_ACTIVE = 0xFF8A5FE0;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-	private static final int COLOR_KEY = 0xFFCFC8E8;
-	private static final int COLOR_KEY_DIM = 0xFF7E7A8E;
-	private static final int COLOR_LABEL = 0xFFB090F0;
-	private static final int COLOR_MUTED = 0xFF9A96A8;
-	private static final int COLOR_BAR_BG = 0x80000000;
-
 	/** Black Suit Spider-Man's accent (the Symbiote's purple) and Agent Venom's (the suit's bone white). */
 	private static final int ACCENT_BLACK_SUIT = 0xFF9A6CF0;
 	private static final int ACCENT_AGENT_VENOM = 0xFFE4E6F0;
+	private static final int COLOR_LABEL = 0xFFB090F0;
+	private static final int COLOR_PURPLE = 0xFF8A5FE0;
 
-	/** Slot order 1..6 -> the Normal host ability id shown in that box (matches {@code AbilitySlot}). */
+	/** Slot ordinal (R G X Z V C) -> the Normal host ability id on that key (matches {@code AbilitySlot}). */
 	private static final String[] NORMAL_SLOT_ABILITIES = {
 			"tendril_strike", "spike_shot", "leap", "barrage", "blade", "spikes"
 	};
@@ -74,11 +56,34 @@ public final class SymbioteHud {
 			SymbioteAgentVenomAbilities.CD_SWING, SymbioteAgentVenomAbilities.CD_SNATCH,
 			SymbioteAgentVenomAbilities.CD_UNLEASHED
 	};
+	/** Shift+G's Spike Fan cooldown is drawn against this (10 s). */
+	private static final int SPIKE_FAN_DISPLAY = 200;
+
+	/** Set only by a client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
+
+	/** SpiderHud drew the Black Suit rows on its own column this frame (it renders before this HUD). */
+	private static boolean blackSuitDrawn;
+	/** The top of the Punisher's HUD this frame, when PunisherHud reports it ({@link #anchorAgentVenom}), else MIN_VALUE. */
+	private static int punisherTop = Integer.MIN_VALUE;
 
 	private SymbioteHud() {
 	}
 
+	/**
+	 * v0.17.3: the Punisher's HUD reports the top of its column each frame (PunisherHud renders before this HUD), so the
+	 * Agent Venom block stacks right above it. Without a report it sits where the old Punisher row left room.
+	 */
+	public static void anchorAgentVenom(int top) {
+		punisherTop = top;
+	}
+
 	public static void render(GuiGraphics g, DeltaTracker delta) {
+		boolean spiderDrew = blackSuitDrawn;
+		blackSuitDrawn = false;
+		int anchor = punisherTop;
+		punisherTop = Integer.MIN_VALUE;
+		lastAnchor = anchor;
 		Minecraft mc = Minecraft.getInstance();
 		Player player = mc.player;
 		if (player == null || mc.options.hideGui) {
@@ -89,7 +94,7 @@ public final class SymbioteHud {
 			return;
 		}
 
-		// A fresh wild bond that has not settled yet: show the takeover progress, nothing else.
+		// A fresh wild bond that has not settled yet: show the takeover progress (centre screen), nothing else.
 		SymbioteVitals vitals = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, new SymbioteVitals());
 		long gameNow = mc.level != null ? mc.level.getGameTime() : 0L;
 		if (vitals.bondingUntil > gameNow) {
@@ -100,9 +105,9 @@ public final class SymbioteHud {
 			int y = g.guiHeight() / 2 + 30;
 			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.symbiote.bonding")
 					.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), g.guiWidth() / 2, y - 12, 0xFFB090F0);
-			g.fill(x - 1, y - 1, x + w + 1, y + 5, COLOR_BORDER);
+			g.fill(x - 1, y - 1, x + w + 1, y + 5, 0xFF2A2A32);
 			g.fill(x, y, x + w, y + 4, 0xAA100018);
-			g.fill(x, y, x + Math.round(w * frac), y + 4, 0xFF8A5FE0);
+			g.fill(x, y, x + Math.round(w * frac), y + 4, COLOR_PURPLE);
 			return;
 		}
 
@@ -111,140 +116,114 @@ public final class SymbioteHud {
 			return;
 		}
 		long now = mc.level != null ? mc.level.getGameTime() : 0L;
-		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		if (type == SymbioteHostType.AGENT_VENOM) {
-			renderAgentVenom(g, mc, player, vitals, now, expanded);
+			renderAgentVenom(g, mc, player, vitals, now, anchor);
 		} else if (type == SymbioteHostType.SPIDER_MAN) {
-			renderBlackSuit(g, mc, player, vitals, now, expanded);
+			if (!spiderDrew) {
+				// Spider-Man's column is not on screen (a mutation owns the keys, Mjolnir in hand, ...): the rows stand alone
+				VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6);
+				List<VanillaHud.Tag> tags = new ArrayList<>();
+				blackSuitRows(st, player, now, tags);
+				blackSuitDrawn = false; // only SpiderHud's call counts as "drawn on its column"
+				st.title(Component.translatable("hud.projecthero.symbiote.black_suit"), ACCENT_BLACK_SUIT);
+				st.tags(tags);
+			}
 		} else {
-			renderNormalHostRow(g, mc, s, vitals, now, expanded);
+			renderNormalHost(g, player, s, vitals, now);
 		}
 	}
 
 	/**
-	 * v0.13.19 layout (bottom-right, top to bottom):
-	 * <pre>
-	 *   [R][G][X][Z][V][C]      the six ability boxes, labelled with the keys actually bound
-	 *   Symbiote
-	 *   Biomass 85%
-	 *   ------------------      Hairline Biomass bar
-	 * </pre>
-	 * The blade and shield have no time limit any more (they feed on Biomass), so their old charge bars are gone.
-	 * v0.13.21: while the bar is spent a white tick marks the {@link SymbioteVitalsManager#RECOVER_FRACTION} it has
-	 * to climb back to before the abilities -- and the suit -- come back.
+	 * v0.13.19 Normal host, v0.17.3 on the Minecraft-style column. The blade and shield have no time limit (they feed on
+	 * Biomass); while the bar is spent a white tick marks the {@link SymbioteVitalsManager#RECOVER_FRACTION} it has to climb
+	 * back to before the abilities -- and the suit -- come back.
 	 */
-	private static void renderNormalHostRow(GuiGraphics g, Minecraft mc, SymbioteState s, SymbioteVitals v,
-			long now, boolean expanded) {
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int barY = g.guiHeight() - MARGIN - HAIRLINE;
-		int biomassY = barY - 11;
-		int titleY = biomassY - 10;
-		int y0 = titleY - 3 - BOX;
-
+	private static void renderNormalHost(GuiGraphics g, Player player, SymbioteState s, SymbioteVitals v, long now) {
+		boolean shift = forceShift || player.isShiftKeyDown();
 		boolean charging = s.onslaughtChargeStart >= 0;
 		float chargeFrac = charging ? Math.min(1.0f, (now - s.onslaughtChargeStart) / 60.0f) : 0.0f;
+		int spikeFan = (int) Math.max(0L, v.spikeConeReadyAt - now);
+		float spikeFanFrac = Math.min(1.0f, spikeFan / (float) SPIKE_FAN_DISPLAY);
 
-		for (int i = 0; i < 6; i++) {
-			int x = x0 + i * (BOX + GAP);
-			boolean active = (i == 3 && charging) || (i == 4 && (v.bladeActive || s.shieldHeld))
-					|| (i == 5 && (v.thornsMode || s.tendrilGrabHeld));
-
-			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? COLOR_BORDER_ACTIVE : COLOR_BORDER);
-			g.drawString(mc.font, boundKey(i), x + 2, y0 + 2, COLOR_KEY, false);
-
-			if (i == 3 && charging) {
-				int fill = Math.round((BOX - 2) * chargeFrac);
-				g.fill(x + 1, y0 + BOX - 1 - fill, x + BOX - 1, y0 + BOX - 1, 0xCC8A5FE0);
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			int o = slot.ordinal();
+			boolean active = (o == 3 && charging) || (o == 4 && (v.bladeActive || s.shieldHeld))
+					|| (o == 5 && (v.thornsMode || s.tendrilGrabHeld));
+			int cd = o < s.abilityCooldowns.size() ? (int) Math.max(0L, s.abilityCooldowns.get(o) - now) : 0;
+			float cdFrac = VanillaHudExtras.frac("symbiote/" + o, cd);
+			float shown = cdFrac, other = 0f;
+			int secs = VanillaHud.seconds(cd);
+			if (o == 1) {
+				// Shift+G's Spike Fan runs its own cooldown
+				if (shift) {
+					shown = spikeFanFrac;
+					secs = VanillaHud.seconds(spikeFan);
+					other = cdFrac;
+				} else {
+					other = spikeFanFrac;
+				}
 			}
-
-			int cd = (int) Math.max(0L, s.abilityCooldowns.get(i) - now);
-			if (cd > 0) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
-				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
-						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			// Shift+G's Spike Fan runs its own cooldown: a thin strip along the bottom of the G box
-			if (i == 1 && v.spikeConeReadyAt > now) {
-				float left = Math.min(1.0f, (v.spikeConeReadyAt - now) / 200.0f);
-				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * left), y0 + BOX - 1, 0xFF8A5FE0);
-			}
-			if (v.broken) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0xB0400000);
+			st.slot(i, VanillaHud.keyLabel(slot), !v.broken, shift, shown, secs, other, active);
+			if (o == 3 && charging) {
+				st.hold(i, chargeFrac);
 			}
 		}
-		if (expanded) {
-			// v0.16.6: the shared move list (each key: plain move + Shift move), stacked above the boxes
-			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
-			for (int i = 0; i < 6; i++) {
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i),
-						Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[i]),
-						Component.translatable("projecthero.symbiote.ability." + NORMAL_SHIFT_ABILITIES[i])));
-			}
-			MoveListOverlay.draw(g, x0 + totalW, y0, rows);
-		}
 
-		g.drawString(mc.font, Component.translatable("entity.projecthero.symbiote")
-				.withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), x0, titleY, COLOR_LABEL, false);
-
+		// Biomass (Hairline, as before)
 		float ratio = Math.max(0.0f, Math.min(1.0f, v.hp / SymbioteVitalsManager.MAX_HP));
-		int pct = Math.round(ratio * 100.0f);
-		Component label = v.broken
-				? Component.translatable("hud.projecthero.symbiote.hp_broken").withStyle(ChatFormatting.RED)
-				: Component.translatable("hud.projecthero.symbiote.biomass", pct);
-		g.drawString(mc.font, label, x0, biomassY, v.broken ? 0xFFFF6060 : COLOR_LABEL, false);
-
-		int fill = v.broken ? 0xFFC03030 : (ratio < 0.35f ? 0xFFE0A030 : 0xFF8A5FE0);
+		int fill = v.broken ? 0xFFC03030 : (ratio < 0.35f ? 0xFFE0A030 : COLOR_PURPLE);
+		int valueColour = v.broken ? VanillaHud.RED : COLOR_LABEL;
 		if (v.bladeActive || s.shieldHeld) {
-			// feeding the blade / shield: the bar breathes so you can see it is being spent
-			fill = ((now / 6L) % 2L == 0L) ? fill : 0xFFB38AF5;
+			// feeding the blade / shield: the value breathes so you can see it is being spent
+			valueColour = ((now / 6L) % 2L == 0L) ? valueColour : VanillaHud.WHITE;
 		}
-		g.fill(x0, barY, x0 + totalW, barY + HAIRLINE, COLOR_BAR_BG);
-		g.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + HAIRLINE, fill);
+		Component label = Component.translatable("hud.projecthero.symbiote.hp");
+		String value = Math.round(ratio * 100.0f) + "%";
+		st.meter(label, ratio, fill, value, valueColour, MutationMeters.Style.HAIRLINE);
 		if (v.broken) {
-			int mark = x0 + Math.round(totalW * SymbioteVitalsManager.RECOVER_FRACTION);
-			g.fill(mark, barY - 1, mark + 1, barY + HAIRLINE + 1, 0xFFFFFFFF);
+			VanillaHudExtras.tick(st, label, value, SymbioteVitalsManager.RECOVER_FRACTION);
 		}
-	}
-
-	/** The key actually bound to ability slot {@code i} (0-based), so a rebind shows up on the HUD. */
-	private static String boundKey(int i) {
-		String k = com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
-		return k.length() > 2 ? k.substring(0, 2).toUpperCase(java.util.Locale.ROOT) : k.toUpperCase(java.util.Locale.ROOT);
+		st.title(Component.translatable("entity.projecthero.symbiote"), COLOR_LABEL);
+		List<VanillaHud.Tag> tags = new ArrayList<>();
+		if (v.broken) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hp_broken").getString(), VanillaHud.RED));
+		}
+		st.tags(tags);
+		if (MoveListOverlay.held()) {
+			// v0.16.6: the shared move list (each key: plain move + Shift move)
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				int o = slot.ordinal();
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
+						Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[o]),
+						Component.translatable("projecthero.symbiote.ability." + NORMAL_SHIFT_ABILITIES[o])));
+			}
+			st.moveList(rows);
+		}
 	}
 
 	// ---------------- the hero hosts (v0.13.21) ----------------
 
 	/**
-	 * How far {@link SpiderHud} has to lift its Web Blossom charge bar to clear the Black Suit panel -- 0 whenever
-	 * the panel is not drawn.
+	 * Black Suit Spider-Man (v0.16.2; v0.17.3 on the Minecraft-style column): adds the Hunger bar (Hairline, the Bonded (30)
+	 * and Overdrive (80) thresholds ticked) to {@code s}, and the suit's words to {@code tags}: "Black Suit", the tier, the
+	 * Symbiote revive (time / Ready / Hungry) and Take Over / Crash / "Won't let go". Nothing when the black suit is not
+	 * worn. Called by {@link SpiderHud} (and by {@link #render} when Spider-Man's column is not on screen).
 	 */
-	public static int blackSuitPanelLift(Player player) {
+	static void blackSuitRows(VanillaHud.Stack st, Player player, long now, List<VanillaHud.Tag> tags) {
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-		boolean drawn = s != null && s.hasSymbiote && s.active && SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
-		return drawn ? PANEL_H + PANEL_GAP : 0;
-	}
-
-	/**
-	 * Black Suit Spider-Man (v0.16.2): the Hunger panel, stacked right on top of {@link SpiderHud}'s six boxes (its
-	 * symbiote moves live in those boxes now, purple-bordered):
-	 * <pre>
-	 *   Black Suit                      Revive 12:34
-	 *   OVERDRIVE                       (Take Over 7s / Crash 5s / Hold V: Take Over)
-	 *   Hunger 86%
-	 *   ----------|----------------|----   Hairline Hunger bar, ticks at Bonded (30) and Overdrive (80)
-	 * </pre>
-	 */
-	private static void renderBlackSuit(GuiGraphics g, Minecraft mc, Player player, SymbioteVitals v, long now,
-			boolean expanded) {
-		int bottom = g.guiHeight() - MARGIN - BOX - SpiderHud.BOTTOM_STACK - PANEL_GAP;
-		int x0 = g.guiWidth() - MARGIN - PANEL_W;
-		int barY = bottom - HAIRLINE;
-		int y0 = barY - 3 - BOX;
-		int titleY = y0 - 11;
-
+		boolean worn = s != null && s.hasSymbiote && s.active && SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
+		if (!worn) {
+			return;
+		}
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, new SymbioteVitals());
+		if (v.bondingUntil > now) {
+			return;
+		}
+		blackSuitDrawn = true;
 		SymbioteHunger.Tier tier = SymbioteHunger.tier(player);
 		float hunger = SymbioteHunger.get(player);
 		int colour = switch (tier) {
@@ -253,150 +232,122 @@ public final class SymbioteHud {
 			case OVERDRIVE -> 0xFFE04060;
 			case TAKEOVER -> (now / 4) % 2 == 0 ? 0xFFFF3050 : 0xFFB01830;
 		};
+		Component label = Component.translatable("hud.projecthero.vanilla.symbiote.hunger");
+		String value = Math.round(hunger) + "%";
+		st.meter(label, hunger / SymbioteHunger.MAX, colour, value, VanillaHud.WHITE, MutationMeters.Style.HAIRLINE);
+		for (float t : new float[] { SymbioteHunger.BONDED, SymbioteHunger.OVERDRIVE }) {
+			VanillaHudExtras.tick(st, label, value, t / SymbioteHunger.MAX);
+		}
 
-		g.drawString(mc.font, Component.translatable("hud.projecthero.symbiote.black_suit").withStyle(ChatFormatting.BOLD),
-				x0, titleY, ACCENT_BLACK_SUIT, true);
+		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.black_suit").getString(), ACCENT_BLACK_SUIT));
+		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hunger.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
+				.getString(), colour));
 		long reviveLeft = Math.max(0L, v.resurrectReadyAt - now);
 		boolean fedEnough = hunger >= SymbioteHunger.RESURRECT_MIN || tier == SymbioteHunger.Tier.TAKEOVER;
 		Component reviveValue = reviveLeft > 0L ? Component.literal(clock(reviveLeft))
 				: Component.translatable(fedEnough ? "hud.projecthero.symbiote.revive_ready"
 						: "hud.projecthero.symbiote.black_suit.revive_hungry");
-		Component tierName = Component.translatable("hud.projecthero.symbiote.hunger.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
-				.withStyle(ChatFormatting.BOLD);
-		g.drawString(mc.font, tierName, x0, y0 + 1, colour, true);
-		// the revive sits right of the tier, on its line; it drops its "Revive" label rather than ever touching it
-		Component revive = Component.translatable("hud.projecthero.symbiote.black_suit.revive", reviveValue);
-		if (mc.font.width(tierName) + 6 + mc.font.width(revive) > PANEL_W) {
-			revive = reviveValue;
-		}
-		g.drawString(mc.font, revive, x0 + PANEL_W - mc.font.width(revive), y0 + 1,
-				reviveLeft <= 0L && fedEnough ? ACCENT_BLACK_SUIT : COLOR_MUTED, true);
-		g.drawString(mc.font, Component.translatable("hud.projecthero.symbiote.hunger", Math.round(hunger)), x0, y0 + 11,
-				0xFFFFFFFF, true);
+		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.black_suit.revive", reviveValue).getString(),
+				reviveLeft <= 0L && fedEnough ? ACCENT_BLACK_SUIT : VanillaHud.GREY));
 
-		Component status = null;
-		int statusColour = COLOR_MUTED;
 		long end = SymbioteHunger.takeoverEnd(player);
 		if (tier == SymbioteHunger.Tier.TAKEOVER) {
-			status = Component.translatable("hud.projecthero.symbiote.hunger.takeover_left", (end - now + 19) / 20);
-			statusColour = colour;
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hunger.takeover_left", (end - now + 19) / 20).getString(),
+					colour));
 		} else if (SymbioteHunger.crashing(player)) {
-			status = Component.translatable("hud.projecthero.symbiote.hunger.crash_left",
-					(end + SymbioteHunger.CRASH_TICKS - now + 19) / 20);
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hunger.crash_left",
+					(end + SymbioteHunger.CRASH_TICKS - now + 19) / 20).getString(), VanillaHud.GREY));
 		} else if (hunger >= SymbioteHunger.MAX) {
-			status = Component.translatable("hud.projecthero.symbiote.hunger.takeover_ready",
-					String.valueOf(com.projecthero.mod.hero.AbilitySlot.byNumber(5).defaultKey()));
-			statusColour = (now / 6) % 2 == 0 ? 0xFFFF3050 : 0xFFFFFFFF;
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hunger.takeover_ready",
+					VanillaHud.keyLabel(AbilitySlot.SLOT_5)).getString(), (now / 6) % 2 == 0 ? 0xFFFF3050 : VanillaHud.WHITE));
 		} else if (tier == SymbioteHunger.Tier.OVERDRIVE) {
-			status = Component.translatable("hud.projecthero.symbiote.hunger.locked");
-			statusColour = 0xFFE04060;
-		}
-		if (status != null) {
-			g.drawString(mc.font, status, x0 + PANEL_W - mc.font.width(status), y0 + 11, statusColour, true);
-		}
-
-		// the Hairline Hunger bar, with the Bonded / Overdrive thresholds ticked in
-		g.fill(x0, barY, x0 + PANEL_W, barY + HAIRLINE, COLOR_BAR_BG);
-		g.fill(x0, barY, x0 + Math.round(PANEL_W * hunger / SymbioteHunger.MAX), barY + HAIRLINE, colour);
-		for (float t : new float[] {SymbioteHunger.BONDED, SymbioteHunger.OVERDRIVE}) {
-			int tx = x0 + Math.round(PANEL_W * t / SymbioteHunger.MAX);
-			g.fill(tx, barY - 1, tx + 1, barY + HAIRLINE + 1, 0xFFFFFFFF);
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hunger.locked").getString(), 0xFFE04060));
 		}
 	}
 
 	/**
-	 * Agent Venom: the panel stacks above the Punisher's six-box row, clear of the key letters PunisherHud draws
-	 * 9 px above it. The V box glows while Symbiote Unleashed is running, and the "Sneak +" cue becomes its timer.
+	 * Agent Venom (v0.17.3 on the Minecraft-style look): a block stacked above the Punisher's HUD, as wide as the column:
+	 * <pre>
+	 *   AGENT VENOM                           title
+	 *   Revive [Hairline =======---]  12:34   the Symbiote revive recharging
+	 *   +--+--+--+  Unleashed 8s              the three Sneak extras (Z X V, yellow: Shift moves); V framed while Symbiote
+	 *   | Z| X| V|                            Unleashed runs, with its seconds left
+	 *   +--+--+--+
+	 * </pre>
 	 */
-	private static void renderAgentVenom(GuiGraphics g, Minecraft mc, Player player, SymbioteVitals v, long now,
-			boolean expanded) {
+	private static void renderAgentVenom(GuiGraphics g, Minecraft mc, Player player, SymbioteVitals v, long now, int anchor) {
 		String[] abilities = SymbioteAgentVenomAbilities.ABILITIES;
 		AbilitySlot[] keyedOn = SymbioteAgentVenomAbilities.KEYED_ON;
-		int punisherY = g.guiHeight() - BOX - MARGIN - 26; // PunisherHud's row
 		int n = abilities.length;
-		char[] keys = new char[n];
 		int[] cds = new int[n];
-		int[] active = new int[n];
-		Component[] names = new Component[n];
 		for (int i = 0; i < n; i++) {
-			keys[i] = keyedOn[i].defaultKey();
 			cds[i] = com.projecthero.mod.punisher.Punisher.cooldownRemaining(player, abilities[i]);
-			names[i] = Component.translatable("projecthero.agent_venom.ability." + abilities[i]);
 		}
 		// Unleashed's cooldown starts on activation, so its first UNLEASHED_TICKS are the power itself running
 		int unleashedLeft = cds[2] - (SymbioteAgentVenomAbilities.CD_UNLEASHED - SymbioteAgentVenomAbilities.UNLEASHED_TICKS);
-		Component status = null;
-		if (unleashedLeft > 0) {
-			active[2] = unleashedLeft;
-			status = Component.translatable("hud.projecthero.agent_venom.unleashed");
-		}
-		renderHeroHostPanel(g, mc, player, v, now, punisherY - 9 - PANEL_GAP,
-				Component.translatable("hud.projecthero.agent_venom.title"), ACCENT_AGENT_VENOM,
-				keys, cds, AGENT_VENOM_COOLDOWNS, active, names, status, expanded);
-	}
 
-	/**
-	 * The shared hero-host panel, {@link #PANEL_W} wide and right-aligned, its bottom edge at {@code bottom}:
-	 * <pre>
-	 *   Black Suit                                  title
-	 *   Revive           [X^][Z^][C^]               Symbiote revive (or a live status) / the three Sneak extras
-	 *   12:34                                       (^ = the little sneak chevron in each box)
-	 *   ------------------------------------        Hairline: the revive recharging
-	 * </pre>
-	 *
-	 * @param active ticks each box's ability is still running for (0 = not running)
-	 * @param status replaces the revive readout while something is running, or null
-	 */
-	private static void renderHeroHostPanel(GuiGraphics g, Minecraft mc, Player player, SymbioteVitals v, long now,
-			int bottom, Component title, int accent, char[] keys, int[] cds, int[] maxCds, int[] active,
-			Component[] names, Component status, boolean expanded) {
-		int x0 = g.guiWidth() - MARGIN - PANEL_W;
-		int barY = bottom - HAIRLINE;
-		int y0 = barY - 3 - BOX;
-		int titleY = y0 - 11;
-
-		// ---- title
-		g.drawString(mc.font, title.copy().withStyle(ChatFormatting.BOLD), x0, titleY, accent, true);
-
-		// ---- the extras, right-aligned under the title
-		int n = keys.length;
-		int rowW = n * BOX + (n - 1) * GAP;
-		int bx0 = x0 + PANEL_W - rowW;
-		int runningTicks = 0;
+		int width = VanillaHud.width(6);
+		int x0 = g.guiWidth() - 4 - width;
+		int bottom = agentVenomBottom(g, anchor);
+		int stripY = bottom - VanillaHud.HEIGHT;
+		// the extras in R G Z X C V order
+		Integer[] order = new Integer[n];
 		for (int i = 0; i < n; i++) {
-			drawHostBox(g, mc, bx0 + i * (BOX + GAP), y0, keys[i], cds[i], maxCds[i], active[i], accent);
-			runningTicks = Math.max(runningTicks, active[i]);
+			order[i] = i;
 		}
-
-		// ---- left of the boxes, two lines: the Symbiote revive (Revive / 12:34 or Ready), or -- while an extra
-		// is running -- what is running and for how long
+		java.util.Arrays.sort(order, java.util.Comparator.comparingInt(i -> orderIndex(keyedOn[i])));
+		VanillaHud.strip(g, x0, stripY, n);
+		for (int k = 0; k < n; k++) {
+			int i = order[k];
+			boolean running = i == 2 && unleashedLeft > 0;
+			int cd = cds[i];
+			float frac = running || cd <= 0 ? 0f : Math.min(1f, cd / (float) Math.max(1, AGENT_VENOM_COOLDOWNS[i]));
+			VanillaHud.slot(g, x0, stripY, k, VanillaHud.keyLabel(keyedOn[i]), true, true, frac,
+					VanillaHud.seconds(running ? unleashedLeft : cd), 0f, running);
+		}
+		if (unleashedLeft > 0) {
+			String status = Component.translatable("hud.projecthero.agent_venom.unleashed").getString() + " " + VanillaHud.seconds(unleashedLeft) + "s";
+			int sx = x0 + VanillaHud.width(n) + 4;
+			g.drawString(mc.font, mc.font.plainSubstrByWidth(status, x0 + width - sx), sx, stripY + 7, ACCENT_AGENT_VENOM, true);
+		}
+		// the revive bar (Hairline)
 		long reviveLeft = Math.max(0L, v.resurrectReadyAt - now);
-		if (status != null && runningTicks > 0) {
-			g.drawString(mc.font, status, x0, y0 + 1, accent, true);
-			g.drawString(mc.font, (runningTicks + 19) / 20 + "s", x0, y0 + 11, 0xFFFFFFFF, true);
-		} else {
-			g.drawString(mc.font, Component.translatable("hud.projecthero.symbiote.revive"), x0, y0 + 1, COLOR_MUTED, true);
-			Component when = reviveLeft <= 0L
-					? Component.translatable("hud.projecthero.symbiote.revive_ready")
-					: Component.literal(clock(reviveLeft));
-			g.drawString(mc.font, when, x0, y0 + 11, reviveLeft <= 0L ? accent : 0xFFFFFFFF, true);
-		}
-
-		// ---- the revive hairline
 		int total = SymbioteVitalsManager.resurrectCooldownFor(player);
 		float frac = reviveLeft <= 0L ? 1.0f : 1.0f - Math.min(1.0f, reviveLeft / (float) Math.max(1, total));
-		g.fill(x0, barY, x0 + PANEL_W, barY + HAIRLINE, COLOR_BAR_BG);
-		g.fill(x0, barY, x0 + Math.round(PANEL_W * frac), barY + HAIRLINE, reviveLeft <= 0L ? accent : dim(accent));
-
+		String value = reviveLeft <= 0L ? Component.translatable("hud.projecthero.symbiote.revive_ready").getString() : clock(reviveLeft);
+		int by = stripY - 8;
+		VanillaHud.meter(g, x0, by, width, Component.translatable("hud.projecthero.symbiote.revive"), frac, ACCENT_AGENT_VENOM, value,
+				reviveLeft <= 0L ? ACCENT_AGENT_VENOM : VanillaHud.WHITE, MutationMeters.Style.HAIRLINE);
+		String title = Component.translatable("hud.projecthero.agent_venom.title").getString();
+		g.drawString(mc.font, mc.font.plainSubstrByWidth(title, width), x0, by - 14, ACCENT_AGENT_VENOM, true);
 		// v0.16.6: no list of its own -- Left-Alt's shared move list (PunisherHud) names these as the keys' Shift moves,
-		// stacked above this panel (agentVenomPanelTop)
+		// stacked above this block (agentVenomPanelTop)
 	}
 
-	/** v0.16.6: the top of the Agent Venom panel (its title line), so the Punisher's move list can stack above it. */
-	static int agentVenomPanelTop(GuiGraphics g) {
-		int punisherY = g.guiHeight() - BOX - MARGIN - 26; // PunisherHud's row, as renderAgentVenom places it
-		return punisherY - 9 - PANEL_GAP - HAIRLINE - 3 - BOX - 11;
+	/** The bottom edge of the Agent Venom block: above the Punisher's reported column top, else where its old row left room. */
+	private static int agentVenomBottom(GuiGraphics g, int anchor) {
+		if (anchor != Integer.MIN_VALUE) {
+			return anchor - 4;
+		}
+		return g.guiHeight() - 20 - 4 - 26 - 9 - 4; // PunisherHud's old row, its key letters 9 px above it, a 4-px gap
 	}
+
+	private static int orderIndex(AbilitySlot slot) {
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			if (VanillaHud.ORDER[i] == slot) {
+				return i;
+			}
+		}
+		return VanillaHud.ORDER.length;
+	}
+
+	/** v0.16.6: the top of the Agent Venom block (its title line), so the Punisher's move list can stack above it. */
+	static int agentVenomPanelTop(GuiGraphics g) {
+		return agentVenomBottom(g, lastAnchor) - VanillaHud.HEIGHT - 8 - 14;
+	}
+
+	/** Last frame's anchor (for {@link #agentVenomPanelTop}, which PunisherHud calls before this frame's report reaches us). */
+	private static int lastAnchor = Integer.MIN_VALUE;
 
 	/** v0.16.6: Agent Venom's Sneak extras by the Punisher key each rides on (null = that key keeps the Punisher's own). */
 	static Component agentVenomShift(AbilitySlot slot) {
@@ -406,40 +357,6 @@ public final class SymbioteHud {
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * One hero-host box, in the house style: the key top-left, a dark overlay that drains away with the cooldown
-	 * and the seconds left on it; while the ability is running it is tinted with the accent instead, with the
-	 * seconds it has left. A ready box wears a dimmed accent border.
-	 */
-	private static void drawHostBox(GuiGraphics g, Minecraft mc, int x, int y, char key, int cd, int maxCd,
-			int active, int accent) {
-		boolean running = active > 0;
-		g.fill(x, y, x + BOX, y + BOX, COLOR_BOX_BG);
-		if (running) {
-			g.fill(x + 1, y + 1, x + BOX - 1, y + BOX - 1, (accent & 0x00FFFFFF) | 0x50000000);
-		}
-		g.renderOutline(x, y, BOX, BOX, running ? accent : (cd > 0 ? COLOR_BORDER : dim(accent)));
-		g.drawString(mc.font, String.valueOf(key), x + 2, y + 2, cd > 0 && !running ? COLOR_KEY_DIM : COLOR_KEY, false);
-		// the sneak chevron, top-right: these extras are all Sneak + that key
-		int chevron = cd > 0 && !running ? COLOR_KEY_DIM : accent;
-		g.fill(x + BOX - 5, y + 2, x + BOX - 4, y + 3, chevron);
-		g.fill(x + BOX - 6, y + 3, x + BOX - 3, y + 4, chevron);
-		g.fill(x + BOX - 7, y + 4, x + BOX - 6, y + 5, chevron);
-		g.fill(x + BOX - 3, y + 4, x + BOX - 2, y + 5, chevron);
-		if (running) {
-			g.drawCenteredString(mc.font, String.valueOf((active + 19) / 20), x + BOX / 2 + 2, y + 10, 0xFFFFFFFF);
-		} else if (cd > 0) {
-			int h = maxCd > 0 ? Math.round((BOX - 2) * Math.min(1.0f, cd / (float) maxCd)) : BOX - 2;
-			g.fill(x + 1, y + BOX - 1 - h, x + BOX - 1, y + BOX - 1, COLOR_COOLDOWN);
-			g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2 + 2, y + 10, 0xFFFFFFFF);
-		}
-	}
-
-	/** Half-brightness version of an opaque colour. */
-	private static int dim(int argb) {
-		return 0xFF000000 | ((argb >> 1) & 0x7F7F7F);
 	}
 
 	/** Ticks as m:ss. */

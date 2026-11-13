@@ -12,47 +12,37 @@ import com.projecthero.mod.spider.SpiderWebReserve;
 import com.projecthero.mod.spider.data.SpiderManState;
 import com.projecthero.mod.spider.data.SpiderMoveState;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The Spider-Man HUD (v0.16.1): six key boxes (R G X Z V C) showing each key's tap move and its cooldown, with two thin
- * bars along the bottom of every box for that key's Shift move (blue) and hold move (red); hold Left Alt for every
- * key's three move names. Under the row: "Spider-Man", the Web Reserve, and a status line for Weave Mode / the
- * tightrope's anchor A / a charging move. Also the Spider-Sense danger markers and (v0.16.1) the web-alarm arrow
- * pointing at whatever just touched one of his webs.
+ * The Spider-Man HUD. v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the
+ * powers"): the corner block is now the shared Minecraft-style column ({@link VanillaHud.Stack}), bottom-right:
+ * <pre>
+ *   Weave: 2/4 anchors -- let go of C        status line (wrapped)
+ *   Wall Crawl: ON  Sounds: OFF  ...          tags (+ the Black Suit's tier / revive / Take Over words)
+ *   SPIDER-MAN                                title
+ *   Hunger [Hairline ===|=====|==]  86%       Black Suit only (SymbioteHud.blackSuitRows)
+ *   Blossom [Meter =====----]  60%            while V charges Web Blossom
+ *   Web [Meter ==========-]  92%              Web Reserve
+ *   +--+--+--+--+--+--+                       R G Z X C V: tap move (Shift move while Shift is held) sweep + seconds, the other
+ *   | R| G| Z| X| C| V|                       on the durability bar, the hold move on the thin top bar; purple corner = a key
+ *   +--+--+--+--+--+--+                       the black suit swapped; selection frame = a running stance
+ * </pre>
+ * Hold Left Alt for every key's three move names. The stealth eye sits left of the strip. Also the Spider-Sense danger
+ * markers, the Web Pin cue and (v0.16.1) the web-alarm arrow, round the crosshair as before.
  */
 public final class SpiderHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	/** Height of the label stack under the key row (name, web %, bar, status) -- also lifts the whole HUD. */
-	static final int BOTTOM_STACK = 48; // package-private (v0.13.21): SymbioteHud stacks the Black Suit panel on it
-
-	private static final int COLOR_BOX_BG = 0xC0180C10;
-	private static final int COLOR_BORDER = 0xFF4A1E28;
-	/** v0.16.2: the border of a box the black suit has swapped for symbiote moves. */
+	/** v0.16.2: the mark on a key the black suit has swapped for symbiote moves. */
 	private static final int COLOR_SYMBIOTE = 0xFF9A6CF0;
-	private static final int COLOR_ACTIVE = 0xFFFF6070;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-	private static final int COLOR_KEY = 0xFFE8B0B8;
 	private static final int COLOR_WEB = 0xFFE8E8F4;
 	private static final int COLOR_WEB_TEXT = 0xFFE8E8F4;
 	private static final int COLOR_WEB_LOW = 0xFFFF7A3C;
-	private static final int BAR_TRACK = 0xC0101018;
-	private static final int SHIFT_COOLING = 0xFF4E6A8C;
-	private static final int SHIFT_READY = 0xFFA8D2FF;
-	private static final int HOLD_COOLING = 0xFF8C3A46;
-	private static final int HOLD_READY = 0xFFFF8A96;
-	/** Widest an Alt-panel line may be before it wraps (TooltipWrap rule: UI text never sprawls). */
-	private static final int NAMES_WIDTH = 190;
 
 	// ---- Spider-Sense warning (v0.6.17; v0.6.19: one marker per kind, held until the danger passes) ----
 	private static final int WARN_KINDS = 7;
@@ -319,7 +309,6 @@ public final class SpiderHud {
 		renderWarning(graphics, client, player);
 		renderAlarm(graphics, client, player, partial);
 		renderPinCue(graphics, client, player);
-		renderBlossomCharge(graphics, client, player);
 		// Mirrors SpiderManAbilityManager.hasContext: a mutation selected in the wheel owns the slots.
 		ExperimentalState experimental = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (experimental != null && !experimental.activePower.isEmpty()) {
@@ -331,68 +320,83 @@ public final class SpiderHud {
 
 		SpiderMoveState move = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, new SpiderMoveState());
 		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
-		int screenW = graphics.guiWidth();
-		int screenH = graphics.guiHeight();
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = screenW - MARGIN - totalW;
-		int y0 = screenH - MARGIN - BOX - BOTTOM_STACK;
-		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
+		boolean shift = forceShift || player.isShiftKeyDown();
 
-		for (int i = 0; i < 6; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			int x = x0 + i * (BOX + GAP);
-			// v0.16.2: the black suit swaps some of these for symbiote moves -- their boxes wear a purple border
-			String tap = SpiderMoves.idFor(player, i, 0);
-			boolean swapped = !tap.equals(SpiderMoves.TAP[i]) || !SpiderMoves.idFor(player, i, 1).equals(SpiderMoves.SHIFT[i])
-					|| !SpiderMoves.idFor(player, i, 2).equals(SpiderMoves.HOLD[i]);
-			int cd = SpiderMan.abilityCooldownRemaining(player, tap);
-			int max = Math.max(1, SpiderMoves.maxCooldown(tap));
-			graphics.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			graphics.renderOutline(x, y0, BOX, BOX, active(move, i, state) ? COLOR_ACTIVE : swapped ? COLOR_SYMBIOTE : COLOR_BORDER);
-			if (cd > 0) {
-				int h = (int) (BOX * Math.min(1f, cd / (float) max));
-				graphics.fill(x + 1, y0 + BOX - h, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
-				graphics.drawCenteredString(client.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + 5, 0xFFFFFFFF);
-			} else {
-				graphics.drawString(client.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 5, COLOR_KEY, true);
+		// v0.17.3: the Minecraft-style key strip, R G Z X C V. The slot shows the tap move (the Shift move while Shift is held):
+		// its cooldown sweep + seconds; the other of the two on the durability bar; the hold move's cooldown on the thin bar
+		// along the top of the cell. A running stance lights the selection frame; a key the black suit has swapped for a
+		// symbiote move carries a purple corner mark; R / V fill while Impact Web / Web Blossom charge.
+		VanillaHud.Stack s = VanillaHud.Stack.bottomRight(graphics, 6).keys(6);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			int o = slot.ordinal();
+			String tap = SpiderMoves.idFor(player, o, 0);
+			String sh = SpiderMoves.idFor(player, o, 1);
+			String hold = SpiderMoves.idFor(player, o, 2);
+			boolean swapped = !tap.equals(SpiderMoves.TAP[o]) || !sh.equals(SpiderMoves.SHIFT[o]) || !hold.equals(SpiderMoves.HOLD[o]);
+			String shown = shift ? sh : tap;
+			int cd = SpiderMan.abilityCooldownRemaining(player, shown);
+			s.slot(i, VanillaHud.keyLabel(slot), true, shift, cdFrac(player, shown), VanillaHud.seconds(cd),
+					cdFrac(player, shift ? tap : sh), active(move, o, state));
+			VanillaHudExtras.topBar(s, i, cdFrac(player, hold));
+			if (swapped) {
+				VanillaHudExtras.corner(s, i, COLOR_SYMBIOTE);
 			}
-			bar(graphics, player, SpiderMoves.idFor(player, i, 1), x, y0 + BOX - 5, SHIFT_COOLING, SHIFT_READY);
-			bar(graphics, player, SpiderMoves.idFor(player, i, 2), x, y0 + BOX - 3, HOLD_COOLING, HOLD_READY);
+			if (o == 0 && move.has(SpiderMoveState.FLAG_CHARGING_IMPACT)) {
+				s.hold(i, Math.min(1f, (gameTime - move.chargeStart) / (float) Math.max(1, SpiderManConfig.moves().impactChargeTicks)));
+			}
+			if (o == 4) {
+				int blossom = player.getAttachedOrElse(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
+				if (blossom > 0) {
+					s.hold(i, Math.min(1f, blossom / (float) com.projecthero.mod.spider.SpiderAbilities.blossomChargeTicks(false)));
+				}
+			}
 		}
-		stealthEye(graphics, player, x0 - 15, y0 + BOX / 2 - 3);
-		if (expanded) {
-			renderNames(graphics, player, x0 + totalW, y0 - SymbioteHud.blackSuitPanelLift(player)); // above the Black Suit panel too
-		}
+		stealthEye(graphics, player, s.stripX() - 15, s.stripY() + VanillaHud.HEIGHT / 2 - 3);
 
 		// Web Reserve. The ceiling doubles once bonded with a Symbiote (v0.9.10).
 		float webMax = SpiderWebReserve.maxFor(player);
 		float ratio = Math.max(0.0f, Math.min(1.0f, state.webReserve / webMax));
-		int nameY = y0 + BOX + 3;
-		graphics.drawString(client.font, Component.translatable("projecthero.spider_man.name")
-				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), x0, nameY, 0xFFFF6070);
-		// v0.16.1: Shift+N muted his notification sounds -- a small marker on the name line
-		if (com.projecthero.mod.spider.SpiderMoves.soundsOff(player)) {
-			Component muted = Component.translatable("hud.projecthero.spider_man.sounds_off");
-			graphics.drawString(client.font, muted, x0 + totalW - client.font.width(muted), nameY, 0xFFB0A0A0, false);
+		s.meter(Component.translatable("hud.projecthero.vanilla.spider_man.web"), ratio, ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB,
+				(int) Math.ceil(ratio * 100.0f) + "%", ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB_TEXT);
+		// the Web Blossom buildup while V is held
+		int blossom = player.getAttachedOrElse(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
+		if (blossom > 0) {
+			float b = Math.min(1.0f, blossom / (float) com.projecthero.mod.spider.SpiderAbilities.blossomChargeTicks(false));
+			s.meter(Component.translatable("hud.projecthero.vanilla.spider_man.blossom"), b, b >= 1f ? 0xFFFF6070 : COLOR_WEB,
+					Math.round(b * 100f) + "%", b >= 1f ? 0xFFFFF0A0 : VanillaHud.WHITE);
 		}
-		int webY = nameY + 10;
-		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
-				(int) Math.ceil(ratio * 100.0f)), x0, webY, COLOR_WEB_TEXT, false);
-		// v0.16.1: the N wall-crawl switch, right-aligned on the Web line
-		boolean crawlOn = !player.getAttachedOrElse(ModAttachments.SPIDER_WALL_CRAWL_OFF, false);
-		Component crawl = Component.translatable(crawlOn ? "hud.projecthero.spider_man.wall_crawl_on" : "hud.projecthero.spider_man.wall_crawl_off");
-		graphics.drawString(client.font, crawl, x0 + totalW - client.font.width(crawl), webY, crawlOn ? 0xFFA8E0A8 : 0xFFB0A0A0, false);
-		int barY = webY + 10;
-		graphics.fill(x0, barY, x0 + totalW, barY + 3, 0xAA180C10);
-		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 3, ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB);
+		// v0.16.2 Black Suit: the Hunger bar and its status words ride on this column
+		List<VanillaHud.Tag> suitTags = new java.util.ArrayList<>();
+		SymbioteHud.blackSuitRows(s, player, gameTime, suitTags);
 
+		s.title(Component.translatable("projecthero.spider_man.name"), 0xFFFF6070);
+		List<VanillaHud.Tag> tags = new java.util.ArrayList<>();
+		// v0.16.1: the N wall-crawl switch, and Shift+N's muted notification sounds
+		boolean crawlOn = !player.getAttachedOrElse(ModAttachments.SPIDER_WALL_CRAWL_OFF, false);
+		tags.add(new VanillaHud.Tag(Component.translatable(crawlOn ? "hud.projecthero.spider_man.wall_crawl_on"
+				: "hud.projecthero.spider_man.wall_crawl_off").getString(), crawlOn ? VanillaHud.GREEN : VanillaHud.GREY));
+		if (com.projecthero.mod.spider.SpiderMoves.soundsOff(player)) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.spider_man.sounds_off").getString(), VanillaHud.GREY));
+		}
+		tags.addAll(suitTags);
+		s.tags(tags);
 		Component status = status(move, gameTime);
 		if (status != null) {
-			List<FormattedCharSequence> rows = client.font.split(status, totalW);
-			for (int r = 0; r < Math.min(2, rows.size()); r++) {
-				graphics.drawString(client.font, rows.get(r), x0, barY + 6 + r * 9, 0xFFFFE0A0, false);
-			}
+			s.wrapped(status, VanillaHud.YELLOW);
 		}
+		if (MoveListOverlay.held()) {
+			s.moveList(names(player)); // v0.16.6: the shared move list, above everything
+		}
+	}
+
+	/** Set only by a client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
+
+	/** 0..1 of move {@code id}'s cooldown still to run. */
+	private static float cdFrac(Player player, String id) {
+		int cd = SpiderMan.abilityCooldownRemaining(player, id);
+		return cd <= 0 ? 0f : Math.min(1f, cd / (float) Math.max(1, SpiderMoves.maxCooldown(id)));
 	}
 
 	/**
@@ -445,30 +449,21 @@ public final class SpiderHud {
 		};
 	}
 
-	/** A Shift / hold cooldown bar along the bottom of a box: refills, bright once ready. */
-	private static void bar(GuiGraphics g, Player player, String id, int x, int y, int cooling, int ready) {
-		int cd = SpiderMan.abilityCooldownRemaining(player, id);
-		int max = Math.max(1, SpiderMoves.maxCooldown(id));
-		float f = cd <= 0 ? 1f : 1f - Math.min(1f, cd / (float) max);
-		g.fill(x + 1, y, x + BOX - 1, y + 2, BAR_TRACK);
-		g.fill(x + 1, y, x + 1 + Math.round((BOX - 2) * f), y + 2, f >= 1f ? ready : cooling);
-	}
-
-	/** Alt held: every key's tap / Shift / hold names, wrapped, stacked above-left of the row. */
-	/** v0.16.6: Left-Alt -> the shared move list (tap move, Shift move, then the hold move), stacked above the boxes. */
-	private static void renderNames(GuiGraphics g, Player player, int right, int top) {
-		java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+	/** v0.16.6: Left-Alt -> the shared move list (tap move, Shift move, then the hold move); v0.17.3: in R G Z X C V order. */
+	private static List<MoveListOverlay.Row> names(Player player) {
+		List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
 		String hold = Component.translatable("projecthero.guide.spider_man.how.hold").getString();
 		hold = hold.isEmpty() ? hold : Character.toUpperCase(hold.charAt(0)) + hold.substring(1);
-		for (int i = 0; i < 6; i++) {
-			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i),
+		for (AbilitySlot slot : VanillaHud.ORDER) {
+			int i = slot.ordinal();
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
 					Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 0)),
 					Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 1)),
 					Component.literal(hold + ": ").append(
 							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 2)))));
 		}
 		rows.add(MoveListOverlay.Row.of("", Component.translatable("hud.projecthero.spider_man.traversal_hint"), null));
-		MoveListOverlay.draw(g, right, top, rows);
+		return rows;
 	}
 
 	/** Weave Mode / anchor A / charging status for the line under the Web Reserve, or null. */
@@ -497,25 +492,6 @@ public final class SpiderHud {
 			return Component.translatable("hud.projecthero.spider_man.status.hanging");
 		}
 		return null;
-	}
-
-	/** The Web Blossom buildup bar, drawn while V is held. Sits above the key row. */
-	private static void renderBlossomCharge(GuiGraphics g, Minecraft client, Player player) {
-		int ticks = player.getAttachedOrElse(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
-		if (ticks <= 0) {
-			return;
-		}
-		float ratio = Math.min(1.0f, ticks / (float) com.projecthero.mod.spider.SpiderAbilities.blossomChargeTicks(false));
-		boolean full = ratio >= 1.0f;
-		int w = 6 * BOX + 5 * GAP;
-		int h = 3;
-		int x = g.guiWidth() - MARGIN - w;
-		int boxesY = g.guiHeight() - MARGIN - BOX - BOTTOM_STACK;
-		int y = boxesY - 14 - h - SymbioteHud.blackSuitPanelLift(player);
-		g.drawCenteredString(client.font, Component.translatable("hud.projecthero.spider_man.web_blossom"),
-				x + w / 2, y - 10, full ? 0xFFFFF0A0 : 0xFFE8E8F4);
-		g.fill(x, y, x + w, y + h, 0xC0180C10);
-		g.fill(x, y, x + Math.round(w * ratio), y + h, full ? 0xFFFF6070 : COLOR_WEB);
 	}
 
 	private static boolean wearingIronMan(Player player) {
