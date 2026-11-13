@@ -319,6 +319,15 @@ public final class StarfireAnimHarness {
 			record(t + 6, "bolt_ground", 80);
 			t += 90;
 		}
+		if (want("hands_glow_after_move")) {
+			// v0.17.3: idle (no glow), one starbolt at t+40 (hands glow ~1 s), then idle again (glow off)
+			starfire(mc, t, 0, 0f, false);
+			mob(mc, t + 1, EntityType.HUSK, 0, 0, 9);
+			cam(t + 2, -55f, 0.25f, 2.8f, 0f, 1.2f);
+			use(mc, t + 40, StarfireAbilityManager.STARBOLT);
+			record(t + 10, "hands_glow_after_move", 90);
+			t += 105;
+		}
 		if (want("bolt_air")) {
 			starfire(mc, t, 3, 0f, true);
 			mob(mc, t + 1, EntityType.HUSK, 0, 3, 9);
