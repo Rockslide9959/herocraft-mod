@@ -8,6 +8,7 @@ import com.projecthero.mod.client.beastboy.model.BeastModel;
 import com.projecthero.mod.client.beastboy.model.BeastPose;
 import com.projecthero.mod.client.beastboy.model.ElephantModel;
 import com.projecthero.mod.client.beastboy.model.GorillaModel;
+import com.projecthero.mod.client.beastboy.model.LandArt;
 import com.projecthero.mod.client.beastboy.model.OctopusModel;
 import com.projecthero.mod.client.beastboy.model.PteroModel;
 import com.projecthero.mod.client.beastboy.model.QuickMorphs;
@@ -16,7 +17,6 @@ import com.projecthero.mod.client.beastboy.model.SharkModel;
 import com.projecthero.mod.client.beastboy.model.SmallModels;
 import com.projecthero.mod.client.beastboy.model.TRexModel;
 import com.projecthero.mod.client.beastboy.model.WhaleModel;
-import com.projecthero.mod.client.beastboy.model.WolfModel;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -65,6 +65,10 @@ public final class BeastFormArt {
 		if (form == null || s == null) {
 			return false;
 		}
+		// hq round: the land mammals are blocky box models with their own textures
+		if (LandArt.handles(form)) {
+			return LandArt.render(form, s, pose, buffers, light, tint);
+		}
 		BeastMesh.Body body = bodyOf(form, s);
 		if (body == null) {
 			return false;
@@ -96,7 +100,6 @@ public final class BeastFormArt {
 			case FLY -> p -> SmallModels.fly(p, s);
 			case BEAST -> p -> BeastModel.draw(p, s);
 			case SNAKE -> p -> SmallModels.snake(p, s);
-			case WOLF -> p -> WolfModel.draw(p, s);
 			default -> null;
 		};
 	}

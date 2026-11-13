@@ -103,6 +103,18 @@ public final class BeastBodyRenderer {
 	/** The human-form quick morph: the art's partial animal on his body, else the whole fallback animal for the half second. */
 	public static boolean renderQuick(BeastForm form, AbstractClientPlayer p, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		float prog = BeastBoy.quickProgress(p, partial);
+		if (form == BeastForm.TIGER && form.customArt) {
+			// hq round: the tiger pounce flashes the whole custom tiger in his place
+			String mv = BeastBoy.move(p);
+			float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
+			pose.pushPose();
+			pose.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+			boolean drawn = BeastFormArt.render(form, p, partial, pose, buffers, light, mv, mv == null ? prog : BeastBoy.moveProgress(p, partial), tint(p));
+			pose.popPose();
+			if (drawn) {
+				return true;
+			}
+		}
 		pose.pushPose();
 		float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
 		// the player model root: what LivingEntityRenderer sets up before drawing the model
@@ -143,6 +155,7 @@ public final class BeastBodyRenderer {
 	public static void clear() {
 		DUMMIES.clear();
 		com.projecthero.mod.client.beastboy.model.BeastPose.clearSmoothing();
+		com.projecthero.mod.client.beastboy.model.LandRig.clear();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

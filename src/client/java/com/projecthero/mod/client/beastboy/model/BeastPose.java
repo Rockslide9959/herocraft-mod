@@ -27,6 +27,12 @@ public final class BeastPose {
 	 * a damped swing against the body's turns). Set by {@link #of} from the per-player smoothing below, or directly by a preview.
 	 */
 	public float sit, tailLag;
+	/**
+	 * Hq round: horizontal speed (blocks a tick, from the position change; picks walk / trot / gallop), the vanilla attack swing 0..1
+	 * (left click) and the entity id (for per-player smoothing; -1 in previews).
+	 */
+	public float speed, attack;
+	public int entityId = -1;
 
 	/** Per-player smoothing (entity id -> {sit, tail lag, last body yaw, last time s}); client render thread only. */
 	private static final Map<Integer, float[]> SMOOTH = new HashMap<>();
@@ -52,6 +58,9 @@ public final class BeastPose {
 		s.vy = (float) player.getDeltaMovement().y;
 		s.move = move;
 		s.prog = Mth.clamp(prog, 0f, 1f);
+		s.speed = (float) Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
+		s.attack = player.getAttackAnim(pt);
+		s.entityId = player.getId();
 		smooth(s, player, body);
 		return s;
 	}
