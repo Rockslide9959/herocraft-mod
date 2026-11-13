@@ -6,7 +6,7 @@ of classes on a shared framework, so several aliens can be built in parallel wit
 
 **The user's posing brief:** "make the posing and everything look exactly like how it looks in the show, try to be as expressive as
 you can without bending the limbs". Limb parts stay rigid in those: no elbow or knee bends. **v0.17.3: Four Arms was remade with bent limbs** (user: "you may bend the
-limbs ... dont break the body or make limbs detatch"), through `BentLimbs` (below); the other aliens are still rigid.
+limbs ... dont break the body or make limbs detatch"), through `BentLimbs` (below); Wildmutt, Diamondhead and Ripjaws bend too since their v1b touch-ups (below).
 Get the expression from whole-limb angles, the head, the body's lean, part scales (`bulge`), the camera and the stage.
 
 ## Files
@@ -28,6 +28,8 @@ Get the expression from whole-limb angles, the head, the body's lean, part scale
 | `client/omnitrix/sequence/SwellLumps.java` | Springy swelling lumps on body bones, with an additive glow | shared helper |
 | `client/omnitrix/sequence/ShowMath.java` | smooth / pop / env / hash / rot / colour maths | shared helper |
 | `client/omnitrix/sequence/FourArmsShow.java` | The worked example | Four Arms |
+| `client/omnitrix/sequence/LimbKeys.java` | v1b: a keyframed whole-body pose track for a humanoid show body (head, lean about the hips, yaw, drop, shrug, arms and legs with elbow / knee flex and twist through `BentLimbs`) | shared helper (Wildmutt, Diamondhead, Ripjaws) |
+| `client/omnitrix/sequence/Shards.java` | v1b: cel-shaded facets lying on a part's surface (crystal, scales, fur tufts), skins over a limb that bend with its mitred joint (`sleeve`), drawing on a bent forearm (`onLimb`), a stage line | shared helper (Wildmutt, Diamondhead, Ripjaws) |
 | `scratchpad/omnitrix_seq/` | `cut_clip.js`, `OmnitrixSeqHarness.java.txt`, `harness.js`, `film.js` | tools |
 
 The soundtracks of all 12 show aliens are **already registered**: the `<id>_sequence.ogg` files are cut, and `OmnitrixSounds`
@@ -124,6 +126,39 @@ mitre: the cut edge sits on the bend's bisecting plane at full depth, so the hal
 continues), the axis slides inward on a deep bend so the inner side never turns inside out, and past ~105 degrees the outer corner gets a
 flat chamfer cap. Extra limbs use `BentLimbs.cube(...)` + `drawPart(...)` (Four Arms' lower pair); things riding a forearm (the watch,
 lumps) use `BentLimbs.toForearm(pose, limb, slim)` inside the arm's bone space. `FourArmsShow.POSE` is a keyframed pose track to copy.
+
+### v1b touch-ups: Wildmutt, Diamondhead, Ripjaws (v0.17.3)
+
+User: "do touch ups on the v1s for the others, make sure their limbs don't go weird or detach from the body and touch up the effects and
+poses please." Shot lists and timing kept. Films: `<alien>_v1b_vs_show.mp4` (+ `_sheet.jpg`) and `<alien>_v1b_sequence.mp4` (ours alone, 2x).
+
+- **One pose track per human body** (`LimbKeys`, like `FourArmsShow.POSE`). The v1 poses were per-beat `rot(part, w, ...)` blends from
+  whatever the model held, so inside one shot the body snapped back to the vanilla pose at every beat change. A track can't: every frame
+  is sampled from the same keys (hold keys ease, keys under 0.05 apart cut). Start a show's track at its first cut; before it the vanilla
+  and raised-watch pose run as usual.
+- **Lean about the hips.** Setting `body.xRot` alone swings the torso's bottom off the legs (vanilla pivots it at the neck). v1 Diamondhead's
+  stance, Ripjaws' stance and Wildmutt's hunch all did that. `LimbKeys.apply` leans through `HipBend` and moves the head and shoulders with
+  it. Keep the track's roll (`body.zRot`) tiny for the same reason.
+- **Bent elbows and knees** (`BentLimbs`): Diamondhead's crossed forearms, flex and stance; Ripjaws' clawed arms and stance; Wildmutt's claws
+  at the face and the hunch's hanging arms. Twist: + turns a left arm's front face inward and a right arm's outward. Crossed forearms in
+  front of the chest: upper arms forward (xRot about -1.1), flex about 1.85, twist inward about 1.45.
+- **Anything on a limb bends with it.** Skins over a limb are one box drawn through `BentLimbs.draw` with the limb's joint (`Shards.sleeve`:
+  Diamondhead's crystal sheath, Ripjaws' grey skin), so they mitre with it. Lumps, facets, veins, fingers and fur below the elbow go through
+  `Shards.onLimb` (`BentLimbs.toForearm` when y is below the joint: y 4 for arms, 6 for legs, bone px).
+- **Facets, not cubes** (`Shards.draw`): a low four-sided pyramid on a diamond base lying on the face it grows from, in three flat shades. v1
+  used Heatblast's rock plates (boxes tilted off the skin at random), which read as loose cubes floating round the arm and face.
+- **One vertex buffer at a time.** `buffers.getBuffer(type)` ends the buffer fetched before it, so writing to an older one throws
+  `IllegalStateException: Not building!` (it crashed the first Wildmutt film). Fetch, draw everything of that type, then fetch the next.
+- **Wildmutt (GeckoLib)** pitches about his hip joint (geo y 17.5, z 10: `root` rotX plus posY / posZ = P - R*P), not the root's origin under
+  his belly, which sank the hind feet and floated the front paws when he reared and roared. `poseBones` takes each limb's world angle and
+  subtracts its parent's, so the hind legs stand straight while he rears, fold into a sit on the slope (hips down 5.5 px, thighs +30, shins
+  -34) and the paws stay flat. The idle clip keys every bone's rotation and the root's position, so nothing sticks after the sequence.
+- **Per alien.** Diamondhead: the crystal is a sheath growing over the arm, edged and studded with facets; face facets lie flat on the cheek
+  and hair; the profile camera pulled back to three-quarters (v1 was a flat green wall); the eye's facets are cel-shaded; the shoulder spikes
+  are tall facets. Ripjaws: the arm runs across the frame; webbed, splayed, clawed fingers; scale chevrons and a jagged skin edge; gill slits
+  on the side of the neck (v1's stood off the shoulders like bars); triangular teeth; a smooth tapering lure; a lighter face wash; the eye
+  close-up drawn (screwed shut on pale mint). Wildmutt: smaller lumps sunk into the skin with red veins ahead of them; spiky fur tufts.
+- None of the three uses `HeatblastShow`'s helpers any more (`Plates`, `copyLayers`, `line`), so they don't depend on that file.
 
 ### Camera keys (`CameraTrack`)
 
