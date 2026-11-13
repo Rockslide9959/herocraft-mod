@@ -245,6 +245,7 @@
       "com.projecthero.mod.gametest.BlueBeetleGameTests",
       "com.projecthero.mod.gametest.BlackPantherGameTests",
       "com.projecthero.mod.gametest.SaiyanGameTests",
+      "com.projecthero.mod.gametest.SaiyanUltraInstinctGameTests",
       "com.projecthero.mod.gametest.BeamClashGameTests",
       "com.projecthero.mod.gametest.RyukoGameTests",
       "com.projecthero.mod.gametest.UndeadGameTests",

@@ -10,7 +10,7 @@ public final class UndeadConfig {
 	public static final float[] PART_HP = { 8f, 14f, 8f, 8f, 8f, 8f };
 	/**
 	 * v0.17.3 (user: regrowth free and fast like NBC Heroes' Regenerative Segmentation): a hurt part starts knitting
-	 * {@link #KNIT_DELAY} after the last hit at {@link #KNIT_PER_SECOND} HP a second. Free: no hunger.
+	 * {@link #KNIT_DELAY} after the last hit at {@link #KNIT_PER_SECOND} HP a second, times {@code UndeadRegenMods.hungerMult} (tester note: hunger slows it).
 	 */
 	public static final int KNIT_DELAY = 40;
 	public static final float KNIT_PER_SECOND = 2.5f;

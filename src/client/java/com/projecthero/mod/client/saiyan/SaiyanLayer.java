@@ -22,7 +22,8 @@ public class SaiyanLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 			return;
 		}
 		SaiyanAuraRenderer.render(pose, buffers, player, partialTick, ageInTicks);
-		// v0.17.3: a Super Saiyan's golden hair
-		com.projecthero.mod.client.saiyan.hair.SsjHairRenderer.render(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks);
+		// v0.17.3 (user: "remove the Super Saiyan hair from the mod for now, keep it stashed"): the hair lives in
+		// scratchpad/saiyan_hair_stash/ until it comes back. The monkey tail instead (user: "give Saiyans a brown monkey tail")
+		SaiyanTailRenderer.render(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks);
 	}
 }

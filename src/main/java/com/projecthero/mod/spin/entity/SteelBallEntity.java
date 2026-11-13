@@ -191,7 +191,7 @@ public class SteelBallEntity extends Projectile {
 			Vec3 next = pos.add(v);
 			setDeltaMovement(v);
 			if (mode() == MODE_HIT) {
-				HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
+				HitResult hit = sweep(pos, v);
 				if (hit.getType() == HitResult.Type.ENTITY) {
 					onHitEntity((EntityHitResult) hit);
 					setPos(hit.getLocation());
@@ -227,6 +227,55 @@ public class SteelBallEntity extends Projectile {
 		Vec3 step = to.normalize().scale(Math.min(speed, dist));
 		setDeltaMovement(step);
 		setPos(pos.add(step));
+	}
+
+	// ---------------------------------------------------------------- the hit test
+
+	/**
+	 * v0.17.3 tester note ("improve the ball hitbox"): this tick's whole path, from the ball's centre at {@code pos} along
+	 * {@code v}, swept against the blocks and then against every creature's box grown by {@link SpinConfig#BALL_HIT_MARGIN} -- so
+	 * a fast ball can never step over a mob between two ticks, and a near miss counts. A creature the ball starts inside is hit
+	 * at once. The thrower (and anyone {@link #canHitEntity} refuses) is never hit. The nearest creature before the first block
+	 * wins; with none, the block hit (or a miss).
+	 */
+	public HitResult sweep(Vec3 pos, Vec3 v) {
+		double lift = getBbHeight() * 0.5;
+		Vec3 from = pos.add(0, lift, 0);
+		Vec3 to = from.add(v);
+		BlockHitResult block = level().clip(new net.minecraft.world.level.ClipContext(from, to, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+				net.minecraft.world.level.ClipContext.Fluid.NONE, this));
+		Vec3 end = block.getType() == HitResult.Type.MISS ? to : block.getLocation();
+		double m = SpinConfig.BALL_HIT_MARGIN;
+		net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(from, end).inflate(m + 2.0);
+		Entity best = null;
+		Vec3 bestAt = null;
+		double bestD = Double.MAX_VALUE;
+		for (Entity e : level().getEntities(this, area, this::canHitEntity)) {
+			net.minecraft.world.phys.AABB box = e.getBoundingBox().inflate(m);
+			Vec3 at;
+			if (box.contains(from)) {
+				at = from;
+			} else {
+				java.util.Optional<Vec3> c = box.clip(from, end);
+				if (c.isEmpty()) {
+					continue;
+				}
+				at = c.get();
+			}
+			double d = from.distanceToSqr(at);
+			if (d < bestD) {
+				bestD = d;
+				best = e;
+				bestAt = at;
+			}
+		}
+		if (best != null) {
+			return new EntityHitResult(best, bestAt.subtract(0, lift, 0));
+		}
+		if (block.getType() != HitResult.Type.MISS) {
+			return new BlockHitResult(block.getLocation().subtract(0, lift, 0), block.getDirection(), block.getBlockPos(), block.isInside());
+		}
+		return BlockHitResult.miss(to.subtract(0, lift, 0), net.minecraft.core.Direction.getNearest(v.x, v.y, v.z), net.minecraft.core.BlockPos.containing(to));
 	}
 
 	// ---------------------------------------------------------------- curving after the look

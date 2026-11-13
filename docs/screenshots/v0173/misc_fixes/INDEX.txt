@@ -1,0 +1,6 @@
+v0.17.3 misc fixes (MiscFixesHarness, scratchpad/MiscFixesHarness.v0173.java.txt; encoded by scratchpad/misc_fixes_films.sh)
+saiyan_landing_base.mp4 / _sheet.png  Saiyan hero landing, Base (white-gold Ki burst, crater, dust)
+saiyan_landing_ssj.mp4 / _sheet.png   the same as a Super Saiyan (bigger gold burst, second wave, aura column)
+saiyan_tail.mp4 / _sheet.png          the monkey tail: idle sway, crouch wrap round the waist, stand, Super Saiyan (brown -> gold), Ultra Instinct (-> silver)
+saiyan_tail_run.mp4 / _sheet.png      running: the tail streams back
+saiyan_ultra.mp4 / _sheet.png         Ultra Instinct auto-dodge: a zombie punch every 0.7 s and skeleton arrows, sidestepped with a silver afterimage (roll forced to 0 for the film; he is put back on his mark between attacks)

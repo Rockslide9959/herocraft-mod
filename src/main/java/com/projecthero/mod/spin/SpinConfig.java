@@ -43,6 +43,11 @@ public final class SpinConfig {
 	public static final double BALL_RETURN_SPEED = 1.5;
 	/** Caught when it comes this close to the hand. */
 	public static final double BALL_CATCH_DISTANCE = 1.4;
+	/**
+	 * v0.17.3 tester note ("improve the ball hitbox"): a creature's box is grown by this much on every side when the ball's
+	 * path is tested against it (vanilla projectiles use 0.3), so a ball that grazes a mob hits it.
+	 */
+	public static final double BALL_HIT_MARGIN = 0.45;
 	/** A ball that somehow never comes back is caught anyway after this long. */
 	public static final int BALL_MAX_LIFE = 200;
 	/** Twin Balls: the sideways speed each ball starts with, so they curve in from either side. */

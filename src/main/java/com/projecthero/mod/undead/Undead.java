@@ -599,12 +599,23 @@ public final class Undead {
 		// for the landing), nor while a launch is still in the air.
 		boolean flying = s.flag(UndeadState.FLAG_PROPELLING) || UndeadLaunch.flying(player) || UndeadHeadThrow.holdsRegen(player); // a thrown head grows nothing until it touches a block (or right-click)
 		int delay = regrowDelay(player);
+		// v0.17.3 tester note: hunger slows the regrowth (UndeadRegenMods); at 0 food nothing starts and a growing part holds still
+		boolean starving = UndeadRegenMods.starving(player);
 		for (int i = 0; i < UndeadState.SEGS; i++) {
 			UndeadState cur = n != null ? n : s;
 			if (!cur.broken(i)) {
 				continue;
 			}
 			long st = cur.regrowStart(i), end = cur.regrowEnd(i);
+			if (starving) {
+				if (st > 0L && now < end) {
+					if (n == null) {
+						n = s.copy();
+					}
+					n.setTimes(i, cur.brokenAt(i), st + 1, end + 1);
+				}
+				continue;
+			}
 			if (st <= 0L) {
 				if (flying || !mayStart(cur, i, now, delay)) {
 					continue;
@@ -660,20 +671,22 @@ public final class Undead {
 			n.setEx(UndeadState.X_BURN_SEG, 0L);
 		}
 		// parts knit back between fights (v0.17.3: one rate now, free)
-		if (now % 10 == 0 && now - cur.lastHitAt > UndeadConfig.KNIT_DELAY) {
+		float hunger = UndeadRegenMods.hungerMult(player);
+		if (hunger > 0f && now % 10 == 0 && now - cur.lastHitAt > UndeadConfig.KNIT_DELAY) {
 			for (int i = 0; i < UndeadState.PARTS; i++) {
 				if (!cur.broken(i) && cur.hp(i) < UndeadConfig.PART_HP[i]) {
 					if (n == null) {
 						n = s.copy();
 						cur = n;
 					}
-					n.partHp.set(i, Math.min(UndeadConfig.PART_HP[i], n.hp(i) + UndeadConfig.KNIT_PER_SECOND * 0.5f));
+					n.partHp.set(i, Math.min(UndeadConfig.PART_HP[i], n.hp(i) + UndeadConfig.KNIT_PER_SECOND * 0.5f * hunger));
 				}
 			}
 		}
 		// v0.17.3 (user: "Players should regenerate 1 hp every 5 ticks with this ability"): always, hits don't pause it
-		if (now % UndeadConfig.HEAL_INTERVAL == 0 && player.isAlive() && player.getHealth() < player.getMaxHealth()) {
-			player.heal(Math.min(UndeadConfig.HEAL_AMOUNT, player.getMaxHealth() - player.getHealth()));
+		// (v0.17.3 tester note: times the hunger speed -- 1 HP a step at 18+ food, 0.25 at 6 and below, none at 0)
+		if (hunger > 0f && now % UndeadConfig.HEAL_INTERVAL == 0 && player.isAlive() && player.getHealth() < player.getMaxHealth()) {
+			player.heal(Math.min(UndeadConfig.HEAL_AMOUNT * hunger, player.getMaxHealth() - player.getHealth()));
 		}
 		// v0.17.3 (user: "players shouldn't be able to hold items while not having an arm"): eating, drawing a bow, raising a
 		// shield ... with a hand that just came off stops

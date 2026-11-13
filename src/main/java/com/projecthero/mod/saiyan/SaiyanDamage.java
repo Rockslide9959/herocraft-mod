@@ -66,6 +66,10 @@ public final class SaiyanDamage {
 			victim.resetFallDistance();
 			return false;
 		}
+		// v0.17.3 the secret Ultra Instinct: the body sidesteps melee and projectiles on its own
+		if (victim != null && SaiyanUltraInstinct.tryDodge(victim, source)) {
+			return false;
+		}
 		float mult = 1f;
 		if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Saiyan.hasPower(attacker)) {
 			mult *= Saiyan.damageMult(attacker, melee(source, attacker));

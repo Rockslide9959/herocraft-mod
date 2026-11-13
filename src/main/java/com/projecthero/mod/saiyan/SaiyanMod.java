@@ -120,6 +120,24 @@ public final class SaiyanMod {
 						return 1;
 					}
 					return Saiyan.startKaioken(player) ? 1 : 0;
+				}))
+				// v0.17.3 (op, testing the secret form; not in the Guidebook): unlock Ultra Instinct and enter it now
+				.then(Commands.literal("ultra").executes(c -> {
+					ServerPlayer player = saiyan(c.getSource());
+					if (player == null) {
+						return 0;
+					}
+					if (!SaiyanUltraInstinct.unlocked(player)) {
+						SaiyanUltraInstinct.unlock(player);
+					}
+					SaiyanUltraInstinct.clearLockout(player);
+					if (!Saiyan.ssj(player)) {
+						Saiyan.clearLockout(player);
+						Saiyan.setRage(player, SaiyanConfig.RAGE_MAX);
+						Saiyan.transform(player);
+					}
+					Saiyan.setKi(player, SaiyanConfig.KI_MAX);
+					return SaiyanUltraInstinct.enter(player) ? 1 : 0;
 				}));
 	}
 

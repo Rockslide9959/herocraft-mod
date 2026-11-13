@@ -7,7 +7,9 @@ package com.projecthero.mod.saiyan;
  */
 public enum SaiyanForm {
 	BASE("base", 0xFF1C1A1A, 0xFFEFF4FF),
-	SSJ("ssj", 0xFFFFD84A, 0xFFFFE066);
+	SSJ("ssj", 0xFFFFD84A, 0xFFFFE066),
+	/** v0.17.3 the secret Ultra Instinct ({@link SaiyanUltraInstinct}): silver. Only from Super Saiyan. */
+	ULTRA("ultra", 0xFFD8DEE8, 0xFFE8F0FF);
 
 	/** Lang name ({@code projecthero.saiyan.form.<key>}). */
 	public final String key;

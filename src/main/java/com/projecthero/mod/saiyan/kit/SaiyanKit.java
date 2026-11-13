@@ -507,9 +507,14 @@ public final class SaiyanKit {
 		fx(p, SaiyanKitFxPayload.IMPACT, t.getId(), c, p.getLookAngle(), size, kiColor(form(p)), 0);
 	}
 
-	/** The Ki colour of the form: blasts, the beam, impacts (Base a deep sky blue, Super Saiyan paler and brighter). */
+	/** The Ki colour of the form: blasts, the beam, impacts (Base a deep sky blue, Super Saiyan paler and brighter, Ultra Instinct silver). */
 	public static int kiColor(SaiyanForm f) {
-		return f == SaiyanForm.BASE ? 0x4FB6FF : 0x8FE0FF;
+		return f == SaiyanForm.BASE ? 0x4FB6FF : f == SaiyanForm.ULTRA ? 0xDCE6F5 : 0x8FE0FF;
+	}
+
+	/** v0.17.3 Ultra Instinct's auto-dodge: an afterimage left at {@code from} and a streak to {@code to}, for every viewer. */
+	public static void ghost(ServerPlayer p, Vec3 from, Vec3 to, int rgb) {
+		fx(p, SaiyanKitFxPayload.GHOST, p.getId(), from, to, p.getYRot(), rgb, 0);
 	}
 
 	static boolean isBoss(LivingEntity t) {

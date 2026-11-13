@@ -117,6 +117,7 @@ public final class HeroLandingFx {
 			case NOVA -> nova(p, level, feet, s);
 			case SILVER_SURFER -> surfer(p, level, feet, s);
 			case MAX_STEEL -> maxSteel(p, level, feet, s);
+			case SAIYAN -> com.projecthero.mod.saiyan.SaiyanLanding.play(p, level, feet, s, yaw);
 			default -> element(p, level, feet, style, s, yaw);
 		}
 	}

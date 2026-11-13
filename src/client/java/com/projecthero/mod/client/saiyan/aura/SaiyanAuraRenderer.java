@@ -119,6 +119,8 @@ public final class SaiyanAuraRenderer {
 	/** {wash (alpha-blended, saturated), glow (additive, = the form's aura colour), core (white-hot)}. */
 	private static final int[] BASE_PAL = { 0xB8CCF0, 0xE6EEFF, 0xFFFFFF };
 	private static final int[] SSJ_PAL = { 0xFFC400, rgb(SaiyanForm.SSJ.auraColor), 0xFFF6D0 };
+	/** v0.17.3 Ultra Instinct: a cool blue-grey wash, a silver glow, a white core. */
+	private static final int[] UI_PAL = { 0x8C9CB8, rgb(SaiyanForm.ULTRA.auraColor), 0xFFFFFF };
 	/** Kaioken: a crimson wash, a red glow, a hot pink-white core. */
 	private static final int[] KAIOKEN_PAL = { 0xE0101A, 0xFF2A2A, 0xFFD0C8 };
 	/** Scratch palette for the eased mix (render thread only). */
@@ -152,7 +154,7 @@ public final class SaiyanAuraRenderer {
 		long seed = player.getId() * 0x9E3779B97F4A7C15L;
 		float bt = burst ? tt + partial : 999f;
 		float flare = burst ? Mth.clamp(1f - bt / 26f, 0f, 1f) : 0f;
-		int[] pal = base ? BASE_PAL : SSJ_PAL;
+		int[] pal = base ? BASE_PAL : form == SaiyanForm.ULTRA ? UI_PAL : SSJ_PAL;
 		if (kaioken > 0.01f) {
 			for (int i = 0; i < 3; i++) {
 				MIX_PAL[i] = mix(pal[i], KAIOKEN_PAL[i], Math.min(1f, kaioken));
