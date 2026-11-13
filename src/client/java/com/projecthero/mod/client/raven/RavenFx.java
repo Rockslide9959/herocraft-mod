@@ -44,11 +44,14 @@ public final class RavenFx {
 	private static final int LILAC_GLOW = 0x90B48CF0;
 	private static final int RED_GLOW = 0xA0E01830;
 	private static final int SHADOW = 0xC00A0410;
+	/** A see-through violet drawn as shadow (not light), so it shows by day too. */
+	private static final int SOLID_VIOLET = 0xD07A3CD8;
 
 	private RavenFx() {
 	}
 
-	static synchronized void reset() {
+	/** Clears every running effect (disconnect; the film harness between scenes). */
+	public static synchronized void reset() {
 		ACTIVE.clear();
 	}
 
@@ -399,7 +402,7 @@ public final class RavenFx {
 		float k = Mth.clamp(age / f.ticks, 0f, 1f);
 		float fade = 1f - k;
 		double r = RavenConfig.GUARD_RADIUS * (1.8 - 0.8 * Math.sqrt(k));
-		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.SEAM), pose, c.subtract(cam), r, 8, 16, RavenDraw.fade(0x50A070F0, fade), true);
+		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.SEAM), pose, c.subtract(cam), r, 8, 16, RavenDraw.fade(0x26A070F0, fade), true);
 		Vec3 feet = (e != null ? e.getPosition(partial) : f.a.subtract(0, 1, 0)).add(0, 0.04, 0).subtract(cam);
 		double rr = 0.5 + 2.2 * k;
 		RavenDraw.ring(RavenDraw.glow(buffers), pose, feet, rr - 0.18, rr, 32, RavenDraw.fade(LILAC_GLOW, fade), true);
@@ -415,8 +418,8 @@ public final class RavenFx {
 		float fade = 1f - k;
 		double r = f.b.x * (0.25 + 0.75 * (1 - (1 - k) * (1 - k)));
 		Vec3 c = f.a.subtract(cam);
-		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.VEIL), pose, c, r * 0.8, 8, 14, RavenDraw.fade(0xB00A0410, fade * fade), true);
-		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.SEAM), pose, c, r, 8, 14, RavenDraw.fade(wild ? 0x60C04070 : 0x608040D0, fade), true);
+		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.VEIL), pose, c, r * 0.75, 8, 14, RavenDraw.fade(0xA0100620, fade * fade), true);
+		RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.SEAM), pose, c, r, 8, 14, RavenDraw.fade(wild ? 0x30C04070 : 0x266A30C0, fade), true);
 		RandomSource rnd = RandomSource.create(f.seed);
 		int spikes = 7 + (int) Math.min(8, f.b.x * 2);
 		for (int i = 0; i < spikes; i++) {
@@ -473,40 +476,47 @@ public final class RavenFx {
 		}
 		Vec3 dir = f.b;
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
-		double half = 1.5 + (RavenConfig.WAVE_HALF_WIDTH - 1.5) * front / RavenConfig.WAVE_RANGE;
-		int n = 14;
+		int n = 16;
 		for (int layer = 0; layer < 3; layer++) {
-			double back = layer * 0.7;
+			double back = layer * 0.8;
 			double d = Math.max(0.3, front - back);
 			double hw = 1.5 + (RavenConfig.WAVE_HALF_WIDTH - 1.5) * d / RavenConfig.WAVE_RANGE;
-			Vec3[] bottom = new Vec3[n + 1], top = new Vec3[n + 1];
+			Vec3[] bottom = new Vec3[n + 1], mid = new Vec3[n + 1], top = new Vec3[n + 1];
 			for (int i = 0; i <= n; i++) {
 				double u = i / (double) n * 2 - 1; // -1 .. 1 across
 				double bow = (1 - u * u) * 0.9; // the middle leads
-				double hh = (1.9 - Math.abs(u) * 0.9) * (1 - layer * 0.25) * (0.9 + 0.1 * Math.sin(time * 0.6 + u * 5));
-				Vec3 base = f.a.add(dir.scale(d + bow)).add(side.scale(u * hw)).add(0, 0.05, 0);
+				double hh = (2.5 - Math.abs(u) * 1.3) * (1 - layer * 0.28) * (0.88 + 0.12 * Math.sin(time * 0.7 + u * 6 + layer));
+				Vec3 base = f.a.add(dir.scale(d + bow)).add(side.scale(u * hw)).add(0, 0.04, 0);
 				bottom[i] = base.subtract(cam);
-				top[i] = base.add(dir.scale(-0.3)).add(0, hh, 0).subtract(cam);
+				// it curls forward over the top, like a breaking wave
+				mid[i] = base.add(dir.scale(-0.35)).add(0, hh * 0.6, 0).subtract(cam);
+				top[i] = base.add(dir.scale(0.15)).add(0, hh, 0).subtract(cam);
 			}
 			float a = fade * (1f - layer * 0.3f);
 			for (int i = 0; i < n; i++) {
-				RavenDraw.quad(RavenDraw.shadow(buffers), pose, bottom[i], bottom[i + 1], top[i + 1], top[i], RavenDraw.fade(layer == 0 ? 0xD00A0410 : 0x900A0410, a));
+				RavenDraw.quad(RavenDraw.shadow(buffers), pose, bottom[i], bottom[i + 1], mid[i + 1], mid[i], RavenDraw.fade(layer == 0 ? 0xE80A0410 : 0xA00A0410, a));
+				RavenDraw.quad(RavenDraw.shadow(buffers), pose, mid[i], mid[i + 1], top[i + 1], top[i], RavenDraw.fade(layer == 0 ? 0xB0201040 : 0x70201040, a));
 			}
 			if (layer == 0) {
 				List<Vec3> crest = new ArrayList<>();
 				for (Vec3 t : top) {
 					crest.add(t);
 				}
-				RavenDraw.ribbon(RavenDraw.glow(buffers), pose, crest, 0.35, 0.35, RavenDraw.fade(LILAC_GLOW, a), RavenDraw.fade(LILAC_GLOW, a), true);
+				RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, crest, 0.22, 0.22, RavenDraw.fade(SOLID_VIOLET, a), RavenDraw.fade(SOLID_VIOLET, a), false);
+				RavenDraw.ribbon(RavenDraw.glow(buffers), pose, crest, 0.4, 0.4, RavenDraw.fade(LILAC_GLOW, a), RavenDraw.fade(LILAC_GLOW, a), true);
 			}
 		}
-		// the trail behind it
+		// the scorched fan it leaves on the ground behind it (flat quads, darker toward the front)
 		Vec3 o = f.a.add(0, 0.03, 0);
-		List<Vec3> trail = new ArrayList<>();
-		for (int i = 0; i <= 8; i++) {
-			trail.add(o.add(dir.scale(front * i / 8.0)).subtract(cam));
+		int segs = 8;
+		for (int i = 0; i < segs; i++) {
+			double d0 = front * i / segs, d1 = front * (i + 1) / segs;
+			double h0 = 1.5 + (RavenConfig.WAVE_HALF_WIDTH - 1.5) * d0 / RavenConfig.WAVE_RANGE;
+			double h1 = 1.5 + (RavenConfig.WAVE_HALF_WIDTH - 1.5) * d1 / RavenConfig.WAVE_RANGE;
+			Vec3 a0 = o.add(dir.scale(d0)).add(side.scale(h0)).subtract(cam), b0 = o.add(dir.scale(d1)).add(side.scale(h1)).subtract(cam);
+			Vec3 c0 = o.add(dir.scale(d1)).add(side.scale(-h1)).subtract(cam), e0 = o.add(dir.scale(d0)).add(side.scale(-h0)).subtract(cam);
+			RavenDraw.quad(RavenDraw.shadow(buffers), pose, a0, b0, c0, e0, RavenDraw.fade(0x900A0410, fade * (0.25f + 0.6f * (i + 1) / segs)));
 		}
-		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, trail, 2.6, half * 2, RavenDraw.fade(0x500A0410, fade), RavenDraw.fade(0x800A0410, fade), false);
 	}
 
 	/** Demonic Ascension's eruption: a violet shockwave and pillars of dark light rising round her. */
@@ -604,7 +614,8 @@ public final class RavenFx {
 			double ang = i * Math.PI * 2 / 24;
 			ring.add(c.add(right.scale(Math.cos(ang) * r)).add(up.scale(Math.sin(ang) * r)));
 		}
-		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, ring, 0.12, 0.12, 0xE00A0410, 0xE00A0410, false);
+		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, ring, 0.14, 0.14, 0xE00A0410, 0xE00A0410, false);
+		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, ring, 0.07, 0.07, RavenDraw.fade(SOLID_VIOLET, beat), RavenDraw.fade(SOLID_VIOLET, beat), false);
 		RavenDraw.ribbon(RavenDraw.glow(buffers), pose, ring, 0.07, 0.07, RavenDraw.fade(LILAC_GLOW, beat), RavenDraw.fade(LILAC_GLOW, beat), true);
 		for (int i = 0; i < 3; i++) {
 			double ang = time * 0.15 + i * Math.PI * 2 / 3;
@@ -643,6 +654,9 @@ public final class RavenFx {
 		}
 		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, core, 0.16, 0.3, 0xE0080208, 0xF0080208, false);
 		RavenDraw.ribbon(RavenDraw.glow(buffers), pose, core, 0.32, 0.5, RavenDraw.fade(VIOLET_GLOW, 0.4f), RavenDraw.fade(VIOLET_GLOW, 0.6f), true);
+		// (a solid violet layer under the glow: additive light alone vanishes against a daylight sky)
+		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, strand, 0.06, 0.08, SOLID_VIOLET, SOLID_VIOLET, false);
+		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, strand2, 0.05, 0.07, RavenDraw.fade(SOLID_VIOLET, 0.8f), RavenDraw.fade(SOLID_VIOLET, 0.8f), false);
 		RavenDraw.ribbon(RavenDraw.glow(buffers), pose, strand, 0.05, 0.07, RavenDraw.fade(LILAC_GLOW, 0.9f), RavenDraw.fade(LILAC_GLOW, 0.6f), true);
 		RavenDraw.ribbon(RavenDraw.glow(buffers), pose, strand2, 0.04, 0.06, RavenDraw.fade(VIOLET_GLOW, 0.8f), RavenDraw.fade(VIOLET_GLOW, 0.5f), true);
 		// the grip round the victim
@@ -684,6 +698,7 @@ public final class RavenFx {
 		}
 		List<Vec3> edge = new ArrayList<>(List.of(rim));
 		edge.add(rim[0]);
+		RavenDraw.ribbon(RavenDraw.shadow(buffers), pose, edge, 0.16, 0.16, RavenDraw.fade(SOLID_VIOLET, k), RavenDraw.fade(SOLID_VIOLET, k), false);
 		RavenDraw.ribbon(RavenDraw.glow(buffers), pose, edge, 0.22, 0.22, RavenDraw.fade(LILAC_GLOW, k), RavenDraw.fade(LILAC_GLOW, k), true);
 	}
 

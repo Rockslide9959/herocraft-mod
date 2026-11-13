@@ -545,10 +545,13 @@ public final class RavenMoves {
 		return true;
 	}
 
-	/** A spot near {@code at} where she fits (a few blocks up, then down), or null. */
+	/**
+	 * A spot near {@code at} where she fits, or null: right there, a little down, then up to 8 blocks up (a soul-self steered into
+	 * the ground lets her out on the surface above it).
+	 */
 	static Vec3 roomAt(ServerPlayer p, Vec3 at) {
 		ServerLevel level = (ServerLevel) p.level();
-		for (double dy : new double[] { 0, 0.5, 1.0, -0.5, 1.5, -1.0, 2.0, 3.0 }) {
+		for (double dy : new double[] { 0, 0.5, 1.0, -0.5, 1.5, -1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0 }) {
 			Vec3 spot = at.add(0, dy, 0);
 			if (level.noCollision(p, p.getBoundingBox().move(spot.subtract(p.position())))) {
 				return spot;

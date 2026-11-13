@@ -139,11 +139,12 @@ public final class RavenSpellWheelScreen extends Screen {
 		}
 		int n = spells.length;
 		float open = openEase(partialTick);
-		float outer = Math.max(84f, Math.min(138f, Math.min(this.width * 0.38f, (this.height - 64) / 2f)));
+		// sized to leave room for the hint above and three lines of description below, even in a small window
+		float outer = Math.max(80f, Math.min(138f, Math.min(this.width * 0.38f, (this.height - 92) / 2f)));
 		float inner = outer * 0.40f;
 		float lift = Math.max(4f, outer * 0.05f);
 		float cx = this.width / 2f;
-		float cy = this.height / 2f - 14f;
+		float cy = Math.max(outer + lift + 18f, this.height / 2f - 20f);
 		RavenSpell cur = Raven.selectedSpell(mc.player);
 
 		hovered = -1;
