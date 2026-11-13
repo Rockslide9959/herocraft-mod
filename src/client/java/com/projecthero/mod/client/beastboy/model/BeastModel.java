@@ -57,7 +57,7 @@ public final class BeastModel {
 			float[] knee = ik(hip, ankle, 9.8f, 9f, v(0f, 0.1f, 1f));
 			float[] th = lerp(hip, knee, 0.4f);
 			ellipsoid(pose, th[0], th[1], th[2], 3.8f, 4.4f, 4.2f, FUR);
-			Rig.limb4(pose, hip, knee, ankle, foot, 4.2f, 2.8f, 1.8f, 1.6f, FUR, v(0f, 0f, 1f));
+			Rig.limb4(pose, hip, knee, ankle, foot, 4.2f, 2.8f, 1.8f, 1.6f, FUR_BACK, v(side, 0.3f, 0f));
 			// paw with claws
 			ellipsoid(pose, foot[0], foot[1] + 0.6f, foot[2] + 1.2f, 2f, 1.1f, 2.8f, FUR_LT);
 			for (int k = -1; k <= 1; k++) {
@@ -93,7 +93,9 @@ public final class BeastModel {
 				hand = lerp(hand, arc, Math.min(1f, env * 1.6f));
 			}
 			float[] elbow = ik(sh, hand, 11f, 10.5f, v(side * 0.5f, -0.2f, -1f));
-			Rig.limb(pose, sh, elbow, hand, 4f, 3.4f, 2.6f, FUR, null);
+			Rig.limb(pose, sh, elbow, hand, 4.4f, 2.8f, 2.4f, FUR_BACK, v(side, 0.3f, 0f));
+			float[] bi = lerp(sh, elbow, 0.42f);
+			ellipsoid(pose, bi[0], bi[1], bi[2], 3.6f, 3.8f, 3.6f, 12, 8, FUR_BACK_V, 0f, 1f); // fix round: biceps
 			float[] fm = lerp(elbow, hand, 0.3f);
 			ellipsoid(pose, fm[0], fm[1], fm[2], 3.2f, 3.2f, 3.2f, 10, 7, FUR, 0f, 1f);
 			// hand and claws (curled toward the front)
@@ -111,12 +113,12 @@ public final class BeastModel {
 		Rig.push(pose, body);
 		float br = 1f + breathe * 0.035f + roar * 0.05f;
 		ellipsoid(pose, 0f, 1.2f, -0.5f, 5.6f, 4.8f, 4.6f, FUR);
-		ellipsoid(pose, 0f, 7f, 0.8f, 6.4f * br, 6.2f, 5.2f * br, FUR);
+		ellipsoid(pose, 0f, 7f, 0.8f, 6.4f * br, 6.2f, 5.2f * br, FUR_BACK_V);
 		ellipsoid(pose, 0f, 7.5f, 3.6f, 4.2f, 5f, 2.8f, FUR_LT);
-		ellipsoid(pose, 0f, 13.5f, 0.8f, 9f * br, 7f, 6.6f * br, FUR);
+		ellipsoid(pose, 0f, 13.5f, 0.8f, 9f * br, 7f, 6.6f * br, FUR_BACK_V);
 		ellipsoid(pose, 0f, 13f, 4.6f, 6f, 5.4f, 3.2f, FUR_LT);
 		for (int side = -1; side <= 1; side += 2) {
-			ellipsoid(pose, side * 7.6f, 16f, 0f, 4.6f, 4.4f, 4.8f, FUR);
+			ellipsoid(pose, side * 7.6f, 16f, 0f, 4.6f, 4.4f, 4.8f, FUR_BACK_V);
 			ellipsoid(pose, side * 2.6f, 10f, 5.4f, 2.4f, 1.8f, 1.4f, FUR_LT);
 		}
 		// the mane: a shaggy collar and tufts down the back and over the shoulders

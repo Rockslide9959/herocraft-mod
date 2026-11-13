@@ -99,7 +99,17 @@ public final class TRexModel {
 				float[] q = lerp(spine[i], spine[i + 1], f);
 				float hh = Mth.lerp(f, h[i], h[i + 1]);
 				ellipsoid(pose, q[0], q[1] + hh * 0.93f, q[2], 0.9f, 1.0f, 1.6f, 8, 5, SKIN_DK, 0f, 1f);
+				// fix round: two rows of low osteoderm scutes either side of the ridge
+				for (int sd = -1; sd <= 1; sd += 2) {
+					cone(pose, q[0] + sd * hh * 0.32f, q[1] + hh * 0.86f, q[2], sd * 0.35f, 1f, -0.2f, 1.2f, 0.9f, 1.1f, SKIN_DK);
+				}
 			}
+		}
+		// fix round: pale belly scute bands under the chest and belly
+		for (int i = o - 1; i < o + 3; i++) {
+			float[] q = lerp(spine[i], spine[i + 1], 0.5f);
+			float hh = (h[i] + h[i + 1]) * 0.5f, ww = (w[i] + w[i + 1]) * 0.5f;
+			ellipsoid(pose, q[0], q[1] - hh * 0.9f, q[2], ww * 0.55f, hh * 0.14f, 1.3f, 12, 5, WRINKLE_LT, 0.45f, 1f);
 		}
 
 		// tiny arms
@@ -139,8 +149,14 @@ public final class TRexModel {
 		for (int s = -1; s <= 1; s += 2) {
 			ellipsoidR(pose, s * 4.4f, 8.2f, 8.8f, 2.2f, 1.3f, 3.4f, s * 0.2f, 0f, 0f, SKIN_DK);
 			ellipsoid(pose, s * 5.6f, 2.2f, 5.5f, 2.6f, 3.4f, 4f, COUNTER_V);
-			eye(pose, s * 5.2f, 6.4f, 8.6f, 1.55f, s * 0.95f, 0.05f, EYE);
-			ellipsoid(pose, s * 1.7f, 6.3f, 20.6f, 0.75f, 0.5f, 0.7f, 8, 5, DARK, 0f, 1f);
+			eye(pose, s * 5.2f, 6.4f, 8.6f, 1.55f, s * 0.95f, 0.05f, EYE_SLIT);
+			ellipsoid(pose, s * 1.6f, 5.0f, 20.0f, 0.65f, 0.4f, 0.55f, 8, 5, NOSE, 0f, 1f);
+			// fix round: a horn boss behind each eye, a ridge of bumps down the snout, (fix round)
+			cone(pose, s * 5.0f, 8.6f, 6.4f, s * 0.35f, 1f, -0.3f, 1.8f, 1.1f, 1.3f, SKIN_DK);
+			for (int i = 0; i < 4; i++) {
+				float bz = 11.5f + i * 2.0f, bt = (bz - 12.5f) / 9f;
+				ellipsoid(pose, s * 1.6f, 3f + 4.6f * Mth.sqrt(Math.max(0f, 1f - bt * bt)) - 0.25f, bz, 0.6f, 0.45f, 0.85f, 8, 5, SKIN_DK, 0f, 1f);
+			}
 		}
 		// stripes over the crown
 		for (int i = 0; i < 3; i++) {

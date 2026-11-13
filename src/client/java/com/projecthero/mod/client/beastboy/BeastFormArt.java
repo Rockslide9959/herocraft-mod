@@ -16,6 +16,7 @@ import com.projecthero.mod.client.beastboy.model.SharkModel;
 import com.projecthero.mod.client.beastboy.model.SmallModels;
 import com.projecthero.mod.client.beastboy.model.TRexModel;
 import com.projecthero.mod.client.beastboy.model.WhaleModel;
+import com.projecthero.mod.client.beastboy.model.WolfModel;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -95,6 +96,7 @@ public final class BeastFormArt {
 			case FLY -> p -> SmallModels.fly(p, s);
 			case BEAST -> p -> BeastModel.draw(p, s);
 			case SNAKE -> p -> SmallModels.snake(p, s);
+			case WOLF -> p -> WolfModel.draw(p, s);
 			default -> null;
 		};
 	}

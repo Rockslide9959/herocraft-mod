@@ -1,0 +1,381 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import com.projecthero.mod.beastboy.BeastForm;
+import com.projecthero.mod.client.beastboy.BeastBodyRenderer;
+import com.projecthero.mod.client.beastboy.BeastFormArt;
+import com.projecthero.mod.client.beastboy.model.BeastPose;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.3 Beast Boy fix round: stills of every form (front three-quarter, side, back) through the real
+ * render paths (custom art via BeastFormArt, vanilla stand-ins via BeastBodyRenderer), a wolf run-then-sit sequence, and a line-up.
+ * Enabled by run/beastfix.flag (its text filters shots by substring, comma-separated; empty = all). Frames go to
+ * $BEASTART_OUT/screenshots (default run/screenshots) as bf_<shot>_<frame>.png.
+ * Hook: copy to src/client/java/com/projecthero/mod/client/BeastFixHarness.java and call BeastFixHarness.init() after
+ * ModKeyBindings.initialize() in ProjectHeroModClient (remove both when done).
+ */
+public final class BeastFixHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, t0 = -1;
+	private static Vec3 origin;
+	private static File outDir;
+	private static String filter = "";
+
+	record Shot(String name, String kind, BeastForm form, float yaw, int frames) {
+	}
+
+	private static final List<Shot> SHOTS = new ArrayList<>();
+	private static int shotIdx = -1, shotTick;
+	private static volatile Shot cur;
+	private static volatile int curFrame;
+	/** Wolf sequence state (simulated per frame like BeastPose's smoothing). */
+	private static float seqSit, seqWalk;
+
+	private static final BeastForm[] FORMS = { BeastForm.WOLF, BeastForm.RHINO, BeastForm.TREX, BeastForm.GORILLA, BeastForm.ELEPHANT,
+			BeastForm.PTERODACTYL, BeastForm.SHARK, BeastForm.OCTOPUS, BeastForm.WHALE, BeastForm.MOUSE, BeastForm.FLY, BeastForm.BEAST,
+			BeastForm.SNAKE, BeastForm.CHEETAH, BeastForm.TIGER, BeastForm.HAWK, BeastForm.DOLPHIN, BeastForm.BEAR, BeastForm.BAT };
+
+	private BeastFixHarness() {
+	}
+
+	static float length(BeastForm f) {
+		return switch (f) {
+			case TREX -> 4.8f;
+			case GORILLA -> 1.8f;
+			case RHINO -> 2.8f;
+			case ELEPHANT -> 3.2f;
+			case PTERODACTYL -> 4.2f;
+			case SHARK -> 3.2f;
+			case OCTOPUS -> 2.0f;
+			case WHALE -> 8.2f;
+			case MOUSE -> 0.7f;
+			case FLY -> 0.3f;
+			case BEAST -> 1.8f;
+			case SNAKE -> 1.1f;
+			case WOLF -> 1.35f;
+			case BEAR -> 2.0f;
+			case DOLPHIN -> 1.6f;
+			case CHEETAH, TIGER -> 1.4f;
+			default -> 1f;
+		};
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("beastfix.flag"))) {
+			return;
+		}
+		try {
+			filter = Files.readString(Path.of("beastfix.flag")).trim();
+		} catch (Exception e) {
+			filter = "";
+		}
+		String out = System.getenv("BEASTART_OUT");
+		outDir = out != null ? new File(out) : Minecraft.getInstance().gameDirectory;
+		buildShots();
+		ClientTickEvents.END_CLIENT_TICK.register(BeastFixHarness::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(BeastFixHarness::render);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "beastfix-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void add(String name, String kind, BeastForm f, float yaw, int frames) {
+		boolean ok = filter.isEmpty();
+		for (String part : filter.split(",")) {
+			if (!part.isBlank() && name.contains(part.trim())) {
+				ok = true;
+			}
+		}
+		if (ok) {
+			SHOTS.add(new Shot(name, kind, f, yaw, frames));
+		}
+	}
+
+	private static void buildShots() {
+		add("lineup", "lineup", null, 0f, 1);
+		for (BeastForm f : FORMS) {
+			add("f34_" + f, "still", f, 35f, 1);
+			add("side_" + f, "still", f, 90f, 1);
+			add("back_" + f, "still", f, 160f, 1);
+			if (f.customArt) {
+				add("walk_" + f, "walk", f, 50f, 24);
+			}
+		}
+		add("wolfsit_f34", "sitstill", BeastForm.WOLF, 35f, 1);
+		add("wolfsit_side", "sitstill", BeastForm.WOLF, 90f, 1);
+		add("wolfseq", "wolfseq", BeastForm.WOLF, 70f, 130);
+		add("wolfhowl", "move:howl", BeastForm.WOLF, 60f, 30);
+		add("wolfbite", "move:bite", BeastForm.WOLF, 60f, 20);
+		add("rhinocharge", "move:charge", BeastForm.RHINO, 50f, 26);
+		System.out.println("[HARNESS] shots=" + SHOTS.size());
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BeastFixHarness::createWorld);
+			}
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				BlockPos b = p.blockPosition();
+				for (int x = -30; x <= 30; x++) {
+					for (int z = -40; z <= 6; z++) {
+						level.setBlockAndUpdate(b.offset(x, -1, z), (x + z & 1) == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.MOSS_BLOCK.defaultBlockState());
+					}
+				}
+				origin = new Vec3(b.getX() + 0.5, b.getY(), b.getZ() + 0.5);
+			});
+		}
+		if (inWorldTicks == 100) {
+			t0 = inWorldTicks;
+		}
+		if (t0 < 0 || origin == null) {
+			return;
+		}
+		if (shotIdx < 0 || shotTick >= cur.frames() + 6) {
+			shotIdx++;
+			if (shotIdx >= SHOTS.size()) {
+				System.out.println("[HARNESS] done");
+				mc.stop();
+				return;
+			}
+			cur = SHOTS.get(shotIdx);
+			shotTick = 0;
+			seqSit = 0f;
+			seqWalk = 1f;
+			placeCamera(mc, cur);
+		}
+		mc.player.getAbilities().flying = true;
+		curFrame = Math.max(0, shotTick - 6);
+		if (cur.kind().equals("wolfseq") && shotTick >= 6) {
+			// run 40 frames, slow to a stop over 10, crouch: sit for 50, stand up (crouch released) for the rest
+			int fr = curFrame;
+			seqWalk = fr < 40 ? 1f : Math.max(0f, 1f - (fr - 40) / 10f);
+			boolean crouch = fr >= 52 && fr < 100;
+			float target = crouch ? Mth.clamp(1f - seqWalk * 2.5f, 0f, 1f) : 0f;
+			seqSit += (target - seqSit) * (1f - (float) Math.exp(-0.05f * 8f));
+		}
+		if (shotTick >= 6) {
+			String name = String.format("bf_%s_%03d.png", cur.name(), curFrame);
+			Screenshot.grab(outDir, name, mc.getMainRenderTarget(), c -> {
+			});
+		}
+		shotTick++;
+	}
+
+	private static Vec3 stage() {
+		return origin.add(0, 0, -6);
+	}
+
+	private static void placeCamera(Minecraft mc, Shot s) {
+		Vec3 st = stage();
+		float dist, eye, mid;
+		if (s.kind().equals("lineup")) {
+			dist = 13f;
+			eye = 4.0f;
+			mid = 1.6f;
+		} else {
+			BeastForm f = s.form();
+			float size = Math.max(length(f), Math.max(f.height, f.width));
+			if (f == BeastForm.PTERODACTYL) {
+				size = 3.0f;
+			}
+			dist = size * 1.0f + 0.7f;
+			if (f == BeastForm.FLY) {
+				dist = 0.5f;
+			} else if (f == BeastForm.MOUSE) {
+				dist = 0.95f;
+			} else if (f == BeastForm.SNAKE) {
+				dist = 1.4f;
+			} else if (f == BeastForm.WOLF) {
+				dist = 2.3f;
+			}
+			mid = f.height * 0.45f;
+			eye = f.height * 0.5f + dist * 0.25f;
+		}
+		float pitch = (float) Math.toDegrees(Math.atan2(eye - mid, dist));
+		Vec3 cam = new Vec3(st.x, st.y + eye - 1.62, st.z + dist);
+		server(mc, p -> {
+			p.teleportTo(p.serverLevel(), cam.x, cam.y, cam.z, 180f, pitch);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		});
+	}
+
+	private static BeastPose poseFor(Shot s, float time, int frame) {
+		BeastPose b = new BeastPose();
+		b.age = time;
+		BeastForm f = s.form();
+		b.inWater = f == BeastForm.SHARK || f == BeastForm.WHALE;
+		b.airborne = f == BeastForm.PTERODACTYL || f == BeastForm.FLY;
+		switch (s.kind()) {
+			case "walk" -> {
+				b.walkAmt = 1f;
+				b.walkPos = time * (f == BeastForm.MOUSE || f == BeastForm.FLY ? 1.2f : 0.9f);
+			}
+			case "sitstill" -> b.sit = 1f;
+			case "wolfseq" -> {
+				b.walkAmt = seqWalk;
+				b.walkPos = time * 1.1f;
+				b.sit = seqSit;
+			}
+			default -> {
+				if (s.kind().startsWith("move:")) {
+					b.move = s.kind().substring(5);
+					b.prog = Math.min(1f, frame / (float) (s.frames() - 4));
+				}
+			}
+		}
+		return b;
+	}
+
+	private static void render(WorldRenderContext ctx) {
+		Minecraft mc = Minecraft.getInstance();
+		Shot s = cur;
+		if (s == null || origin == null || mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+			return;
+		}
+		PoseStack pose = ctx.matrixStack();
+		MultiBufferSource buffers = ctx.consumers();
+		Vec3 cam = ctx.camera().getPosition();
+		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		float time = shotTick + pt;
+		Vec3 st = stage();
+		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(st.add(0, 1, 2)));
+		if (s.kind().equals("lineup")) {
+			BeastForm[] order = { BeastForm.WOLF, BeastForm.GORILLA, BeastForm.BEAST, BeastForm.RHINO, BeastForm.ELEPHANT, BeastForm.TREX, BeastForm.OCTOPUS,
+					BeastForm.SHARK, BeastForm.PTERODACTYL };
+			float[] xs = { -10.6f, -8.8f, -6.8f, -4.0f, -0.6f, 3.4f, 6.4f, 8.6f, 11.4f };
+			for (int i = 0; i < order.length; i++) {
+				BeastPose b = new BeastPose();
+				b.age = time;
+				b.inWater = order[i] == BeastForm.SHARK;
+				drawArt(order[i], b, pose, buffers, cam, st.add(xs[i], 0, order[i] == BeastForm.TREX ? -2 : 0), 40f, light);
+			}
+			return;
+		}
+		BeastForm f = s.form();
+		if (f.customArt) {
+			drawArt(f, poseFor(s, time, curFrame), pose, buffers, cam, st, s.yaw(), light);
+		} else {
+			drawFallback(mc, f, pose, buffers, cam, st, s.yaw(), pt, light);
+		}
+	}
+
+	private static void drawArt(BeastForm f, BeastPose b, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 at, float yaw, int light) {
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		BeastFormArt.renderPose(f, b, pose, buffers, light, 0xFFFFFFFF);
+		pose.popPose();
+	}
+
+	/** A vanilla stand-in through the real renderer, with the player's rotations swapped for the shot's yaw meanwhile. */
+	private static void drawFallback(Minecraft mc, BeastForm f, PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 at, float yawFromCamera, float pt,
+			int light) {
+		var p = mc.player;
+		float by = p.yBodyRot, byo = p.yBodyRotO, hy = p.yHeadRot, hyo = p.yHeadRotO, xr = p.getXRot(), xro = p.xRotO;
+		float yaw = -yawFromCamera;
+		p.yBodyRot = p.yBodyRotO = p.yHeadRot = p.yHeadRotO = yaw;
+		p.setXRot(0f);
+		p.xRotO = 0f;
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		BeastBodyRenderer.render(f, p, pt, pose, buffers, light);
+		pose.popPose();
+		p.yBodyRot = by;
+		p.yBodyRotO = byo;
+		p.yHeadRot = hy;
+		p.yHeadRotO = hyo;
+		p.setXRot(xr);
+		p.xRotO = xro;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

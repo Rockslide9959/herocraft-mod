@@ -66,6 +66,12 @@ jungle temple chests. Random serums never give it.
 **Look:** human form keeps your skin with a green tint overlay. Animals are **green-tinted vanilla mob models** where one
 fits (wolf, ocelot as cheetah, parrot scaled up as hawk, polar bear, dolphin, bat, goat, silverfish as mouse). Custom bodies
 only where vanilla has none: T-Rex, gorilla, rhino, elephant, pterodactyl, octopus, the Beast.
+Fix round (tester notes): the wolf is now custom art too (`WolfModel`: damped tail sway, sits while crouching via
+`BeastPose.sit`); the shared atlas got softer countershaded greens (dark back, cream belly) plus FUR_BACK / PLATE / NOSE
+swatches; the rhino got armour-plate shells, a bigger raised head and horns that show from behind.
+
+**Vegetarian:** Beast Boy can't eat meat or fish in any form (`BeastBoyDiet`: the `c:foods/*meat*` / `*fish*` tags,
+`#minecraft:meat`, `#minecraft:fishes`, plus rabbit stew, rotten flesh, spider eye), refused at use time with a message.
 
 **Passives**
 - 20 health in human form. **Every animal form has its own health** (shown as a Slab bar over your hearts). When the form's

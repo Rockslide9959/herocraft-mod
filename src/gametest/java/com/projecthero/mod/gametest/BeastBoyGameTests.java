@@ -4,6 +4,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.beastboy.BeastBoy;
 import com.projecthero.mod.beastboy.BeastBoyAbilityManager;
 import com.projecthero.mod.beastboy.BeastBoyConfig;
+import com.projecthero.mod.beastboy.BeastBoyDiet;
 import com.projecthero.mod.beastboy.BeastBoyForms;
 import com.projecthero.mod.beastboy.BeastBoyItems;
 import com.projecthero.mod.beastboy.BeastBoyLearning;
@@ -27,7 +28,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Ocelot;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
@@ -364,6 +368,47 @@ public class BeastBoyGameTests implements FabricGameTest {
 		helper.assertTrue(BeastBoyForms.harmless(BeastForm.FLY), "it can't attack");
 		resetChain(p);
 		helper.assertTrue(BeastBoyMoves.use(p, BeastBoyAbilityManager.FLY_MORPH) && BeastBoy.form(p) == BeastForm.HUMAN, "Shift+X again: human");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- vegetarian
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void beastBoyNeverEatsMeatOrFishInAnyForm(GameTestHelper helper) {
+		for (Item meat : new Item[] { Items.BEEF, Items.COOKED_BEEF, Items.PORKCHOP, Items.COOKED_PORKCHOP, Items.CHICKEN, Items.COOKED_CHICKEN,
+				Items.MUTTON, Items.COOKED_MUTTON, Items.RABBIT, Items.COOKED_RABBIT, Items.RABBIT_STEW, Items.ROTTEN_FLESH, Items.COD,
+				Items.COOKED_COD, Items.SALMON, Items.COOKED_SALMON, Items.TROPICAL_FISH, Items.PUFFERFISH }) {
+			helper.assertTrue(BeastBoyDiet.isMeat(new ItemStack(meat)), meat + " counts as meat");
+		}
+		for (Item veg : new Item[] { Items.BREAD, Items.APPLE, Items.CARROT, Items.BAKED_POTATO, Items.MUSHROOM_STEW, Items.BEETROOT_SOUP,
+				Items.GOLDEN_APPLE, Items.COOKIE, Items.PUMPKIN_PIE, Items.SWEET_BERRIES }) {
+			helper.assertTrue(!BeastBoyDiet.isMeat(new ItemStack(veg)), veg + " is vegetarian");
+		}
+		ServerPlayer p = bb(helper);
+		p.getFoodData().setFoodLevel(6);
+		// human form: steak and salmon refused, bread eaten
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COOKED_BEEF, 4));
+		InteractionResult r = p.gameMode.useItem(p, p.serverLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND);
+		helper.assertTrue(!r.consumesAction() && !p.isUsingItem(), "human Beast Boy won't start eating steak: " + r);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.SALMON, 4));
+		r = p.gameMode.useItem(p, p.serverLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND);
+		helper.assertTrue(!r.consumesAction() && !p.isUsingItem(), "or salmon: " + r);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 4));
+		r = p.gameMode.useItem(p, p.serverLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND);
+		helper.assertTrue(r.consumesAction() && p.isUsingItem(), "but bread is fine: " + r);
+		p.stopUsingItem();
+		// an animal form: still no meat
+		helper.assertTrue(BeastBoyAbilityManager.pick(p, BeastForm.WOLF), "a wolf now");
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.CHICKEN, 4));
+		r = p.gameMode.useItem(p, p.serverLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND);
+		helper.assertTrue(!r.consumesAction() && !p.isUsingItem() && BeastBoyDiet.refuses(p, p.getMainHandItem()), "the wolf won't eat chicken either");
+		// someone without the power eats steak as usual
+		ServerPlayer other = mock(helper, 2.0, 6.0);
+		other.getFoodData().setFoodLevel(6);
+		other.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COOKED_BEEF, 4));
+		helper.assertTrue(!BeastBoyDiet.refuses(other, other.getMainHandItem()), "the rule is Beast Boy's alone");
+		r = other.gameMode.useItem(other, other.serverLevel(), other.getMainHandItem(), InteractionHand.MAIN_HAND);
+		helper.assertTrue(r.consumesAction() && other.isUsingItem(), "a normal player starts eating steak: " + r);
 		helper.succeed();
 	}
 }
