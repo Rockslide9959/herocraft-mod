@@ -8,36 +8,36 @@ import com.projecthero.mod.bluebeetle.BlueBeetle;
 import com.projecthero.mod.bluebeetle.BlueBeetleAbilityManager;
 import com.projecthero.mod.bluebeetle.BlueBeetleConfig;
 import com.projecthero.mod.bluebeetle.data.BlueBeetleState;
-import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.Mth;
 
 /**
- * v0.16.5: the Blue Beetle HUD (bottom-right), mono style: hairline bars for Scarab Energy (blue; red while Khaji-Da is
- * unleashed, with its timer above), the Mega Cannon charge, and the Adaptation timer; a small "Adapted: fire" chip; the
- * six keys (lit while their move runs). v0.16.5 rework: no blue screen flash on the bonding (user: no blue glow).
+ * v0.17.3: the Blue Beetle HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
+ * <pre>
+ *   Adapted: fire                             status tag while an Adaptation runs
+ *   BLUE BEETLE                               the title ("Khaji-Da has control" in red while unleashed)
+ *   Adapt    [Hairline ===---]  12s           the Adaptation timer, only while it runs
+ *   Cannon   [Hairline =====-]  70%           the Mega Cannon charge, only while it charges
+ *   Shield   [Hairline ======]  30            the held shield's pool, only while it is up
+ *   Khaji-Da [Hairline ====--]  8s            the unleash timer, only while Khaji-Da is unleashed
+ *   Scarab   [Hairline ======]  84            Scarab Energy (blue; dim while it refills slowly; full and red while unleashed)
+ *   +----+----+----+----+----+----+           R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the
+ *   | R  | G  | Z  | X  | C  | V  |           durability bar; lit while that key's move runs
+ *   +----+----+----+----+----+----+
+ * </pre>
+ * Hairline was the style of every bar here before. v0.16.5 rework: no blue screen flash on the bonding (user: no blue glow).
  */
 public final class BlueBeetleHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int BAR_H = 3;
-	private static final int BAR_STEP = 5;
-
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int BORDER_ACTIVE = 0xFF3E8BFF;
-	private static final int KEY = 0xFFB4B4B4;
 	private static final int NAME = 0xFFE2E2E2;
-	private static final int BAR_BG = 0xAA0C0C0C;
-	private static final int COOLDOWN = 0xB0000000;
-
 	private static final int ENERGY = 0xFF2E7BFF;
 	private static final int ENERGY_SLOW = 0xFF1E3E80;
 	private static final int UNLEASHED = 0xFFFF3A2E;
@@ -45,21 +45,16 @@ public final class BlueBeetleHud {
 	private static final int ADAPT = 0xFF7FD4FF;
 	private static final int SHIELD = 0xFF9FD8FF;
 
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
-
-	private record Bar(float ratio, int color) {
-	}
-
 	private BlueBeetleHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || !BlueBeetle.hasPower(mc.player)) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.level == null || !BlueBeetle.hasPower(p)) {
 			return;
 		}
-		BlueBeetleState s = mc.player.getAttachedOrElse(ModAttachments.BLUE_BEETLE_STATE, null);
+		BlueBeetleState s = p.getAttachedOrElse(ModAttachments.BLUE_BEETLE_STATE, null);
 		if (s == null) {
 			return;
 		}
@@ -67,88 +62,78 @@ public final class BlueBeetleHud {
 		if (mc.options.hideGui || !s.suited) {
 			return;
 		}
-		var exp = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		var exp = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
 		boolean unleashed = s.unleashedUntil > now;
-
-		List<Bar> bars = new ArrayList<>();
-		bars.add(new Bar(unleashed ? 1f : s.energy / BlueBeetleConfig.ENERGY_MAX, unleashed ? UNLEASHED : s.slowRegenUntil > now ? ENERGY_SLOW : ENERGY));
-		if (unleashed) {
-			bars.add(new Bar((s.unleashedUntil - now) / (float) BlueBeetleConfig.UNLEASH_TICKS, UNLEASHED));
-		}
-		if (s.fx.shield) {
-			bars.add(new Bar(s.fx.shieldHp / BlueBeetleConfig.SHIELD_HP, SHIELD)); // the held shield's pool
-		}
-		if (s.fx.chargeStart != 0L) {
-			bars.add(new Bar((now - s.fx.chargeStart) / (float) BlueBeetleConfig.CANNON_CHARGE_TICKS, CHARGE));
-		}
-		if (s.adaptUntil > now && !s.adaptType.isEmpty()) {
-			bars.add(new Bar((s.adaptUntil - now) / (float) BlueBeetleConfig.ADAPT_TICKS, ADAPT));
-		}
-		int by = y0 - 2 - BAR_H;
-		for (Bar b : bars) {
-			float r = Math.max(0f, Math.min(1f, b.ratio()));
-			g.fill(x0, by, x0 + totalW, by + BAR_H, BAR_BG);
-			g.fill(x0, by, x0 + Math.round(totalW * r), by + BAR_H, b.color());
-			by -= BAR_STEP;
-		}
-		g.drawString(mc.font, Component.translatable(unleashed ? "hud.projecthero.blue_beetle.unleashed" : "hud.projecthero.blue_beetle.title"), x0,
-				by - 7, unleashed ? UNLEASHED : NAME, false);
-		if (s.adaptUntil > now && !s.adaptType.isEmpty()) {
-			Component chip = Component.translatable("hud.projecthero.blue_beetle.adapted", s.adaptType.replace('_', ' '));
-			g.drawString(mc.font, chip, x0 + totalW - mc.font.width(chip), by - 7, ADAPT, false);
-		}
-
-		// v0.16.6: Left-Alt -> the shared move list, stacked above the title
-		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
-			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : SLOTS) {
-				String[] ids = BlueBeetleAbilityManager.idsOf(slot);
-				if (ids.length > 0) {
-					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot),
-							Component.translatable("projecthero.blue_beetle.ability." + ids[0]),
-							ids.length > 1 ? Component.translatable("projecthero.blue_beetle.ability." + ids[1]) : null));
-				}
-			}
-			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
-		}
-		for (int i = 0; i < SLOTS.length; i++) {
-			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
+		boolean shift = p.isShiftKeyDown();
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
 			String[] ids = BlueBeetleAbilityManager.idsOf(slot);
-			int cd = 0;
-			int max = 1;
-			for (String id : ids) {
-				int c = BlueBeetle.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, BlueBeetleAbilityManager.maxCooldown(id));
-				}
+			if (ids.length == 0) {
+				continue;
 			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = BlueBeetle.cooldownRemaining(p, shown);
+			float frac = cd / (float) Math.max(1, BlueBeetleAbilityManager.maxCooldown(shown));
+			float otherFrac = other == null ? 0f
+					: BlueBeetle.cooldownRemaining(p, other) / (float) Math.max(1, BlueBeetleAbilityManager.maxCooldown(other));
 			boolean active = (slot == AbilitySlot.SLOT_1 && (s.fx.chargeStart != 0L || s.fx.blasting))
 					|| (slot == AbilitySlot.SLOT_2 && s.fx.grabTarget != -1)
 					|| (slot == AbilitySlot.SLOT_3 && s.fx.bubbleTarget != -1)
 					|| (slot == AbilitySlot.SLOT_4 && s.fx.spikeStart != 0L)
 					|| (slot == AbilitySlot.SLOT_5 && (s.fx.shield || s.camo))
 					|| (slot == AbilitySlot.SLOT_6 && (s.fx.blade || unleashed));
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
+		}
+
+		int energyColour = unleashed ? UNLEASHED : s.slowRegenUntil > now ? ENERGY_SLOW : ENERGY;
+		st.meter(Component.translatable("hud.projecthero.blue_beetle.energy"), unleashed ? 1f : s.energy / BlueBeetleConfig.ENERGY_MAX, energyColour,
+				String.valueOf(Math.round(unleashed ? BlueBeetleConfig.ENERGY_MAX : s.energy)), unleashed ? UNLEASHED : ENERGY_TEXT,
+				MutationMeters.Style.HAIRLINE);
+		if (unleashed) {
+			long left = s.unleashedUntil - now;
+			st.meter(Component.translatable("hud.projecthero.blue_beetle.unleash"), left / (float) BlueBeetleConfig.UNLEASH_TICKS, UNLEASHED,
+					VanillaHud.seconds((int) left) + "s", UNLEASHED, MutationMeters.Style.HAIRLINE);
+		}
+		if (s.fx.shield) {
+			st.meter(Component.translatable("hud.projecthero.blue_beetle.shield"), s.fx.shieldHp / BlueBeetleConfig.SHIELD_HP, SHIELD,
+					String.valueOf(Math.round(s.fx.shieldHp)), SHIELD, MutationMeters.Style.HAIRLINE);
+		}
+		if (s.fx.chargeStart != 0L) {
+			float f = Mth.clamp((now - s.fx.chargeStart) / (float) BlueBeetleConfig.CANNON_CHARGE_TICKS, 0f, 1f);
+			st.meter(Component.translatable("hud.projecthero.blue_beetle.charge"), f, CHARGE, Math.round(f * 100) + "%", CHARGE,
+					MutationMeters.Style.HAIRLINE);
+		}
+		boolean adapting = s.adaptUntil > now && !s.adaptType.isEmpty();
+		if (adapting) {
+			long left = s.adaptUntil - now;
+			st.meter(Component.translatable("hud.projecthero.blue_beetle.adapt"), left / (float) BlueBeetleConfig.ADAPT_TICKS, ADAPT,
+					VanillaHud.seconds((int) left) + "s", ADAPT, MutationMeters.Style.HAIRLINE);
+		}
+		st.title(Component.translatable(unleashed ? "hud.projecthero.blue_beetle.unleashed" : "hud.projecthero.blue_beetle.title"),
+				unleashed ? UNLEASHED : NAME);
+		if (adapting) {
+			st.tags(List.of(new VanillaHud.Tag(
+					Component.translatable("hud.projecthero.blue_beetle.adapted", s.adaptType.replace('_', ' ')).getString(), ADAPT)));
+		}
+
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				String[] ids = BlueBeetleAbilityManager.idsOf(slot);
+				if (ids.length > 0) {
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.blue_beetle.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.blue_beetle.ability." + ids[1]) : null));
+				}
 			}
+			st.moveList(rows);
 		}
 	}
 
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
-	}
+	/** The energy number: a lighter blue than the bar so it reads on any background. */
+	private static final int ENERGY_TEXT = 0xFF6EA8FF;
 }

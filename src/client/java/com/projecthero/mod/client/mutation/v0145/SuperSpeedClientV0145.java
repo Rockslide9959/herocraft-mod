@@ -91,7 +91,13 @@ public final class SuperSpeedClientV0145 {
 			if (state.resources.getOrDefault(SuperSpeedHandlers.KEY + "/carry_id", 0f) > 0.5f) {
 				text += " - Carrying";
 			}
-			g.drawString(client.font, "- " + text, x, y, color);
+			// v0.17.3: shadowed like the vanilla HUD's text, and cut at the screen's 4-px margin (the column's right edge)
+			String line = "- " + text;
+			int room = g.guiWidth() - 4 - x;
+			if (room <= 0) {
+				return;
+			}
+			g.drawString(client.font, client.font.plainSubstrByWidth(line, room), x, y, color, true);
 		});
 		// v0.14.16: while the Flash Suit is packed in the worn Flash Ring, its overall durability sits just above the HUD
 		AbilityHudExtras.registerHeader(SuperSpeedHandlers.KEY, (g, client, state, x, y) -> {
@@ -100,8 +106,9 @@ public final class SuperSpeedClientV0145 {
 				return;
 			}
 			int color = pct <= 25 ? 0xFFFF4040 : pct <= 50 ? 0xFFFFD83A : 0xFFC8C8C8;
-			g.drawString(client.font, net.minecraft.network.chat.Component.translatable("hud.projecthero.flash_suit_durability", pct),
-					x, y, color, false);
+			// v0.17.3: a shadowed line on the vanilla-style HUD column, cut to the screen's 4-px margin
+			String line = net.minecraft.network.chat.Component.translatable("hud.projecthero.flash_suit_durability", pct).getString();
+			g.drawString(client.font, client.font.plainSubstrByWidth(line, Math.max(0, g.guiWidth() - 4 - x)), x, y, color, true);
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(SuperSpeedClientV0145::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedRunPose::tick);

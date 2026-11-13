@@ -146,9 +146,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	private Tab tab = lastTab;
 	private String selectedId = lastSelected;
 	private float scroll;
-	private float scrollTarget;
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll) for the grid (eased into {@link #scroll}) and the detail column. */
+	private final VanillaMenu.Scroll gridBar = new VanillaMenu.Scroll(1, 1).glass(5);
+	private final VanillaMenu.Scroll detailBar = new VanillaMenu.Scroll(12, 1).glass(5);
 	private int contentHeight;
-	private float detailScroll;
 	private int detailContentHeight;
 	private long openedAt;
 	private long lastFrame;
@@ -252,7 +253,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	private void select(Entry e) {
 		selectedId = e == null ? null : e.id();
 		lastSelected = selectedId;
-		detailScroll = 0f;
+		detailBar.jump(0);
+		detailBar.content(0); // until the new card's detail is laid out
 		if (e != null) {
 			sound(SoundEvents.AMETHYST_BLOCK_CHIME, 1.6f, 0.8f);
 		}
@@ -262,7 +264,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		if (t != tab) {
 			tab = t;
 			lastTab = t;
-			scroll = scrollTarget = 0f;
+			gridBar.jump(0);
+			scroll = 0f;
 			sound(SoundEvents.UI_BUTTON_CLICK.value(), 1.5f, 0.35f);
 		}
 	}
@@ -278,8 +281,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	}
 
 	private void clampScroll() {
-		int max = Math.max(0, contentHeight - (gridBottom - gridY));
-		scrollTarget = Mth.clamp(scrollTarget, 0f, max);
+		gridBar.layout(gridX - 3, gridY, gridX + gridW, gridBottom, gridX + gridW);
+		gridBar.content(contentHeight);
 	}
 
 	// ---------------------------------------------------------------- hit tests
@@ -392,10 +395,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			return;
 		}
-		scroll += (scrollTarget - scroll) * Math.min(1f, dt * 16f);
-		if (Math.abs(scrollTarget - scroll) < 0.3f) {
-			scroll = scrollTarget;
-		}
+		clampScroll();
+		scroll = (float) gridBar.eased();
 
 		g.pose().pushPose();
 		float k = 0.94f + 0.06f * ease;
@@ -664,13 +665,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		if (contentHeight - scroll > track + 0.5f) {
 			g.fillGradient(gridX - 3, gridBottom - 8, gridX + gridW + 3, gridBottom, 0x00030C06, 0xD0030C06);
 		}
-		if (contentHeight > track) {
-			int knob = Math.max(12, track * track / contentHeight);
-			int ky = gridY + Math.round((track - knob) * (scroll / Math.max(1f, contentHeight - track)));
-			int sx = gridX + gridW + 1;
-			g.fill(sx, gridY, sx + 2, gridBottom, 0x3035F075);
-			g.fill(sx, ky, sx + 2, ky + knob, 0xD035F075);
-		}
+		gridBar.renderGlass(g, 0xFF35F075, mouseX, mouseY);
 	}
 
 	private void drawCard(GuiGraphics g, GreenLanternState s, Entry e, int x, int y, float h, boolean sel, long now) {
@@ -750,7 +745,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		boolean buttons = detailButtonsShown();
 		int clipBottom = y0 + h - (buttons ? 22 : 2);
 		g.enableScissor(x + 1, y0 + 1, x + w - 1, clipBottom);
-		int top = y0 + 5 - Math.round(detailScroll);
+		int top = y0 + 5 - detailBar.offset();
 		int y = top;
 		// icon in a glowing frame, name beside it
 		int fx = x + 6;
@@ -821,17 +816,12 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 				y += 10;
 			}
 		}
-		detailContentHeight = y + Math.round(detailScroll) - top + 4;
+		detailContentHeight = y + detailBar.offset() - top + 4;
 		g.disableScissor();
 		int viewH = clipBottom - (y0 + 1);
-		if (detailContentHeight > viewH) {
-			detailScroll = Mth.clamp(detailScroll, 0f, detailContentHeight - viewH);
-			int knob = Math.max(10, viewH * viewH / detailContentHeight);
-			int ky = y0 + 1 + Math.round((viewH - knob) * (detailScroll / Math.max(1f, detailContentHeight - viewH)));
-			g.fill(x + w - 3, ky, x + w - 1, ky + knob, 0xA035F075);
-		} else {
-			detailScroll = 0f;
-		}
+		detailBar.layout(x + 1, y0 + 1, x + w - 5, clipBottom, x + w - 5);
+		detailBar.content(detailContentHeight);
+		detailBar.renderGlass(g, 0xFF35F075, mouseX, mouseY);
 		if (buttons) {
 			int by = gridBottom - 18;
 			int bw = (w - 14) / 2;
@@ -1322,6 +1312,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		// v0.17.3: the grid's and the detail column's scroll bars (grab and drag, or click the track to page)
+		if (gridBar.mouseClicked(mouseX, mouseY, button) || detailBar.mouseClicked(mouseX, mouseY, button)) {
+			return true;
+		}
 		Entry onCard = cardAt(mouseX, mouseY);
 		if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			Tab t = tabAt(mouseX, mouseY);
@@ -1383,6 +1377,9 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		if (gridBar.mouseDragged(mouseX, mouseY, button) || detailBar.mouseDragged(mouseX, mouseY, button)) {
+			return true;
+		}
 		if (pressing != null && !dragging && button == GLFW.GLFW_MOUSE_BUTTON_LEFT
 				&& Math.hypot(mouseX - pressX, mouseY - pressY) > DRAG_START) {
 			dragging = true;
@@ -1393,6 +1390,9 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (gridBar.mouseReleased(button) | detailBar.mouseReleased(button)) {
+			return true;
+		}
 		if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && pressing != null) {
 			Entry e = pressing;
 			pressing = null;
@@ -1414,7 +1414,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (overDetail(mouseX, mouseY)) {
-			detailScroll = Math.max(0f, detailScroll - (float) scrollY * 12f);
+			detailBar.mouseScrolled(scrollY);
 			return true;
 		}
 		if (tabAt(mouseX, mouseY) != null) {
@@ -1422,8 +1422,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			setTab(Tab.values()[(tab.ordinal() + (scrollY < 0 ? 1 : n - 1)) % n]);
 			return true;
 		}
-		scrollTarget -= (float) scrollY * pitch;
 		clampScroll();
+		gridBar.by(Math.round(-(float) scrollY * pitch));
 		return true;
 	}
 }

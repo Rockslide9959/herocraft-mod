@@ -78,8 +78,9 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 	private long lastDragMs;
 	private long lastFrameMs;
 	private boolean showInfo;
-	private int infoScroll;
-	private int infoScrollMax;
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll) for the View-more modal and the suit list: wheel, drag, click to page. */
+	private final VanillaMenu.Scroll infoBar = new VanillaMenu.Scroll(12, 1).glass(7);
+	private final VanillaMenu.Scroll listBar = new VanillaMenu.Scroll(IronManUiLayout.FAB_LIST_ROW_H, IronManUiLayout.FAB_LIST_ROW_H).glass(5);
 	private List<Component> pendingTip;
 
 	public StarkWorkbenchScreen(StarkFabricatorMenu menu, Inventory inv, Component title) {
@@ -317,15 +318,13 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 				g.drawString(font, line, rx + 14, ty + i * 9, textCol, false);
 			}
 		}
-		if (list.size() > visible) {
-			int top = y + IronManUiLayout.FAB_LIST_ROW_Y;
-			int h = visible * IronManUiLayout.FAB_LIST_ROW_H;
-			int tx = x + IronManUiLayout.FAB_LIST_X + IronManUiLayout.FAB_LIST_W - 3;
-			g.fill(tx, top, tx + 1, top + h, 0xFF14202C);
-			int th = Math.max(8, h * visible / list.size());
-			int ty = top + (h - th) * listScroll / Math.max(1, list.size() - visible);
-			g.fill(tx, ty, tx + 1, ty + th, IronManGui.CYAN_DIM);
-		}
+		int top = y + IronManUiLayout.FAB_LIST_ROW_Y;
+		int h = visible * IronManUiLayout.FAB_LIST_ROW_H;
+		int tx = x + IronManUiLayout.FAB_LIST_X + IronManUiLayout.FAB_LIST_W - 3;
+		listBar.layout(x + IronManUiLayout.FAB_LIST_X, top, tx - 2, top + h, tx - 2);
+		listBar.content(list.size() * IronManUiLayout.FAB_LIST_ROW_H);
+		listBar.set(listScroll * IronManUiLayout.FAB_LIST_ROW_H);
+		listBar.renderGlass(g, IronManGui.CYAN_DIM, mx, my);
 	}
 
 	private static String toString(FormattedCharSequence seq) {
@@ -910,10 +909,10 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 			lines.addAll(font.split(c, w - 18));
 		}
 		int contentH = lines.size() * 10;
-		infoScrollMax = Math.max(0, contentH - visible);
-		infoScroll = Math.max(0, Math.min(infoScroll, infoScrollMax));
+		infoBar.layout(rx, top, rx + w - 7, bot, rx + w - 7);
+		infoBar.content(contentH);
 		g.enableScissor(rx, top, rx + w, bot);
-		int yy = top - infoScroll;
+		int yy = top - infoBar.offset();
 		for (FormattedCharSequence c : lines) {
 			if (yy + 10 >= top && yy <= bot) {
 				g.drawString(font, c, rx + 7, yy, IronManGui.TEXT, false);
@@ -921,13 +920,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 			yy += 10;
 		}
 		g.disableScissor();
-		if (infoScrollMax > 0) {
-			int trackX = rx + w - 5;
-			g.fill(trackX, top, trackX + 2, bot, 0xFF1A2230);
-			int thumbH = Math.max(14, visible * visible / contentH);
-			int thumbY = top + (visible - thumbH) * infoScroll / infoScrollMax;
-			g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, IronManGui.CYAN_DIM);
-		}
+		infoBar.renderGlass(g, IronManGui.CYAN_DIM, -1, -1);
 		pose.popPose();
 	}
 
@@ -970,7 +963,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
 		if (showInfo) {
-			infoScroll = Math.max(0, Math.min(infoScrollMax, infoScroll - (int) Math.round(dy * 12)));
+			infoBar.mouseScrolled(dy);
 			return true;
 		}
 		if (new Rect(IronManUiLayout.FAB_LIST_X, IronManUiLayout.FAB_LIST_Y, IronManUiLayout.FAB_LIST_W, IronManUiLayout.FAB_LIST_H)
@@ -984,8 +977,15 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (showInfo) {
+			if (infoBar.mouseClicked(mx, my, button)) {
+				return true;
+			}
 			showInfo = false;
-			infoScroll = 0;
+			infoBar.jump(0);
+			return true;
+		}
+		if (listBar.mouseClicked(mx, my, button)) {
+			listScroll = listBar.offset() / IronManUiLayout.FAB_LIST_ROW_H;
 			return true;
 		}
 		int x = leftPos;
@@ -1031,7 +1031,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 				}
 				if (in(IronManUiLayout.fabMore(), mx, my, x, y) && browseSuit != null) {
 					showInfo = true;
-					infoScroll = 0;
+					infoBar.jump(0);
 					return true;
 				}
 				if (in(IronManUiLayout.fabBuild(), mx, my, x, y)) {
@@ -1068,6 +1068,13 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 
 	@Override
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		if (infoBar.mouseDragged(mx, my, button)) {
+			return true;
+		}
+		if (listBar.mouseDragged(mx, my, button)) {
+			listScroll = listBar.offset() / IronManUiLayout.FAB_LIST_ROW_H;
+			return true;
+		}
 		if (dragging && button == 0) {
 			yaw += (float) dx * 2.5f;
 			lastDragMs = Util.getMillis();
@@ -1078,6 +1085,9 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 
 	@Override
 	public boolean mouseReleased(double mx, double my, int button) {
+		if (infoBar.mouseReleased(button) | listBar.mouseReleased(button)) {
+			return true;
+		}
 		if (dragging && button == 0) {
 			dragging = false;
 			lastDragMs = Util.getMillis();

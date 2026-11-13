@@ -72,6 +72,16 @@ public final class StarkGantryScreen extends Screen {
 		return height - 30;
 	}
 
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll) driving {@link #scroll}: wheel, a draggable bar, click to page. */
+	private final VanillaMenu.Scroll bar = new VanillaMenu.Scroll(20, 1).glass(7);
+
+	private void syncBar() {
+		int px = panelX(), pw = panelW();
+		bar.layout(px, LIST_TOP, px + pw, listBottom(), px + pw + 1);
+		bar.content(maxScroll() + (listBottom() - LIST_TOP));
+		bar.set(scroll);
+	}
+
 	private int maxScroll() {
 		int content = menu.entries().size() * (ROW_H + ROW_GAP);
 		return Math.max(0, content - (listBottom() - LIST_TOP));
@@ -195,15 +205,8 @@ public final class StarkGantryScreen extends Screen {
 			renderEntry(g, entries.get(i), px, y, pw, hot || i == focused, secs + i * 0.7f);
 		}
 		g.disableScissor();
-		int max = maxScroll();
-		if (max > 0) {
-			int gx = px + pw + 3;
-			int view = listBottom() - LIST_TOP;
-			g.fill(gx, LIST_TOP, gx + 2, listBottom(), 0x80202A36);
-			int thumb = Math.max(12, view * view / (view + max));
-			int ty = LIST_TOP + (view - thumb) * scroll / max;
-			g.fill(gx, ty, gx + 2, ty + thumb, IronManGui.CYAN_DIM);
-		}
+		syncBar();
+		bar.renderGlass(g, IronManGui.CYAN_DIM, mouseX, mouseY);
 	}
 
 	private void renderEntry(GuiGraphics g, StarkGantryMenuPayload.Entry e, int x, int y, int w, boolean hot, float secs) {
@@ -283,6 +286,13 @@ public final class StarkGantryScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
+		if (listing()) {
+			syncBar();
+			if (bar.mouseClicked(mx, my, button)) {
+				scroll = bar.offset();
+				return true;
+			}
+		}
 		if (button == 0 && listing() && hovered >= 0 && hovered < menu.entries().size()) {
 			pick(menu.entries().get(hovered));
 			return true;
@@ -292,8 +302,25 @@ public final class StarkGantryScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-		scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) Math.round(dy * 20)));
+		syncBar();
+		bar.mouseScrolled(dy);
+		scroll = bar.offset();
 		return true;
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		if (bar.mouseDragged(mx, my, button)) {
+			scroll = bar.offset();
+			return true;
+		}
+		return super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = bar.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
 	}
 
 	@Override

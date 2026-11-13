@@ -1,12 +1,15 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.CooldownState;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.power.StormEnergy;
 import com.projecthero.mod.power.ThorAbility;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -14,47 +17,47 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Thor HUD (v0.6.22 rework). Built to mirror {@link SpiderHud} -- the same six ability boxes in
- * the same bottom-right corner, the same cooldown shading, the same hold-{@code ALT}-for-names, and a
- * resource meter beneath -- just recoloured for a storm god (deep blue panels, gold trim) instead of
- * Spider-Man's reds. Drawn while the player is holding Mjolnir or is bound to a hammer (v0.12.32).
+ * The Thor HUD. v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"):
+ * moved onto the shared Minecraft-style column ({@link VanillaHud.Stack}), bottom-right like the newest powers:
+ * <pre>
+ *   Storm-Charged +30%                 status tags
+ *   THOR                               title
+ *   Combo  [Meter ===----]  2/4        dual-wield combo steps (Mjolnir + Stormbreaker), the Twin Thunder recharge
+ *   Wrath  [Hairline =====---]  60%    God of Thunder's Wrath buildup while Z is held
+ *   Storm  [Hairline ========-]  84%   Storm Energy (the user's Hairline style, as before)
+ *   +--+--+--+--+--+--+                R G Z X C V: cooldown sweep + seconds; Shift+G's Thunder Field and Shift+V's Thunderclap
+ *   | R| G| Z| X| C| V|                on the durability bar (shown in the slot while Shift is held); Z fills while Wrath charges
+ *   +--+--+--+--+--+--+
+ * </pre>
+ * Drawn while the player is holding Mjolnir or is bound to a hammer (v0.12.32). Hold Left-Alt for the move list.
  */
 public final class ThorHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-
-	private static final int COLOR_BOX_BG = 0xC00A1526;
-	private static final int COLOR_BORDER = 0xFF2E4A6E;
-	private static final int COLOR_BORDER_ACTIVE = 0xFFF2C24E;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-	private static final int COLOR_KEY = 0xFFE8D9B0;
-	/** v0.13.5: brightened -- the old 0xFF6FA8FF read as washed-out/pale against the dark HUD backing. */
+	/** v0.13.5: the Storm Energy bar's blue (brightened), and its low colour. */
 	private static final int COLOR_ENERGY = 0xFF1E96FF;
 	private static final int COLOR_ENERGY_LOW = 0xFF4C4C88;
-	private static final int COLOR_NAME = 0xFFCFE0FF;
-	/** v0.13.5: the Storm Energy label's own colour -- a dark, pale (desaturated) blue, distinct from
-	 * the brighter, saturated {@link #COLOR_ENERGY} the bar itself uses. */
-	private static final int COLOR_ENERGY_LABEL = 0xFF6E85AA;
+	private static final int COLOR_ENERGY_TEXT = 0xFF8FC8FF;
+	private static final int COLOR_GOLD = 0xFFF2C24E;
+	private static final int COLOR_STORM = 0xFF9FD8FF;
 
-	/** Height of a "hairline" bar -- a thin fill line with no border box, used for Storm Energy and
-	 * the Wrath charge meter so neither one competes visually with the ability-key row above it. */
-	private static final int HAIRLINE_HEIGHT = 2;
-	private static final int COLOR_HAIRLINE_BG = 0x80000000;
-
-	/** Slot order 1..6 -> {@code (ability id, cooldown key or null)}. Matches {@code ThorAbilityAdapter}.
-	 * Slot 5 (V) shows Hammer Volley -- its plain-key action; Shift+V's Thunderclap shares the key but
-	 * not the HUD box, same as every other Shift-variant ability in the mod. */
+	/** Slot ordinal (R G X Z V C) -> the plain-key ability id. Matches {@code ThorAbilityAdapter}. */
 	private static final String[] SLOT_NAME_KEYS = {
 			"call_mjolnir", "lightning_strike", "lightning_beam",
 			"god_of_thunders_wrath", "hammer_volley", "chain_lightning"
 	};
-	/** v0.16.6: each key's Shift move (ThorAbilityAdapter), null where it has none -- for the move list. */
+	/** v0.16.6: each key's Shift move (ThorAbilityAdapter), null where it has none. */
 	private static final String[] SLOT_SHIFT_KEYS = { null, "thunder_field", null, null, "thunderclap", null };
 	private static final ThorAbility[] SLOT_COOLDOWNS = {
 			ThorAbility.CALL_HAMMER, ThorAbility.LIGHTNING_STRIKE, null,
 			ThorAbility.GOD_OF_THUNDER, ThorAbility.HAMMER_VOLLEY, ThorAbility.CHAIN_LIGHTNING
 	};
+	/** The Shift move's cooldown on each key (Shift+G Thunder Field, Shift+V Thunderclap). */
+	private static final ThorAbility[] SLOT_SHIFT_COOLDOWNS = { null, ThorAbility.THUNDER_FIELD, null, null, ThorAbility.THUNDERCLAP, null };
+
+	/** Ticks the player must hold Z to charge God of Thunder's Wrath (mirrors {@code ThorPowers}). */
+	private static final int WRATH_CHARGE_TICKS = 5 * 20;
+
+	/** Set only by a client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
 
 	private ThorHud() {
 	}
@@ -76,166 +79,79 @@ public final class ThorHud {
 
 		if (holdingMjolnir || bound) {
 			renderKit(graphics, client, player);
-			renderWrathCharge(graphics, client, player);
-			renderStatusRow(graphics, client, player);
 		}
-		// v0.13.4: the hammerless-flight countdown text was removed per user request -- the grace
-		// period itself (ModAttachments.HAMMERLESS_FLIGHT_TICKS) is unchanged, it just no longer has an
-		// on-screen readout.
+		// v0.13.4: the hammerless-flight countdown text was removed per user request.
 	}
 
-	private static void renderKit(GuiGraphics graphics, Minecraft client, Player player) {
+	private static void renderKit(GuiGraphics g, Minecraft client, Player player) {
 		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
 		CooldownState cooldowns = player.getAttachedOrElse(ModAttachments.COOLDOWNS, null);
+		boolean shift = forceShift || player.isShiftKeyDown();
+		int wrath = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
 
-		int screenW = graphics.guiWidth();
-		int screenH = graphics.guiHeight();
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = screenW - MARGIN - totalW;
-		// v0.13.4: dropped the "Ability Keys" label that used to sit just above this row (per user
-		// request) -- y0 is kept as-is rather than closing the gap, since renderWrathCharge positions
-		// itself relative to this exact same offset (see its own boxesY) and the two must stay in sync.
-		int y0 = screenH - MARGIN - BOX - 20;
-
-		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
-
-		for (int i = 0; i < 6; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			int x = x0 + i * (BOX + GAP);
-
-			ThorAbility cd = SLOT_COOLDOWNS[i];
-			int cdRemain = (cd != null && cooldowns != null) ? cooldowns.remainingTicks(cd, gameTime) : 0;
-
-			graphics.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			graphics.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
-			graphics.drawString(client.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, COLOR_KEY, false);
-
-			if (cdRemain > 0) {
-				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
-				graphics.drawCenteredString(client.font,
-						String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cdRemain / 20.0f)),
-						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			// v0.16.1: Shift+G's Thunder Field shares the G box -- its cooldown is the thin amber bar along the bottom
-			if (i == 1 && cooldowns != null) {
-				int field = cooldowns.remainingTicks(ThorAbility.THUNDER_FIELD, gameTime);
-				if (field > 0) {
-					float left = Math.min(1f, field / (float) FIELD_COOLDOWN_DISPLAY);
-					graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * left), y0 + BOX - 1, COLOR_FIELD_CD);
-				}
+		VanillaHud.Stack s = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			int o = slot.ordinal();
+			boolean hasShift = SLOT_SHIFT_KEYS[o] != null;
+			ThorAbility shown = shift && hasShift ? SLOT_SHIFT_COOLDOWNS[o] : SLOT_COOLDOWNS[o];
+			ThorAbility other = hasShift ? (shift ? SLOT_COOLDOWNS[o] : SLOT_SHIFT_COOLDOWNS[o]) : null;
+			int left = remaining(cooldowns, shown, gameTime);
+			int otherLeft = remaining(cooldowns, other, gameTime);
+			s.slot(i, VanillaHud.keyLabel(slot), true, shift && hasShift, frac(shown, left), VanillaHud.seconds(left),
+					frac(other, otherLeft), false);
+			if (slot == AbilitySlot.SLOT_4 && wrath > 0) {
+				s.hold(i, Math.min(1f, wrath / (float) WRATH_CHARGE_TICKS));
 			}
 		}
-		if (expanded) {
-			// v0.16.6: the shared move list (G: Shift = Thunder Field, V: Shift = Thunderclap), stacked above the status
-			// row and the Wrath charge bar
-			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
-			for (int i = 0; i < 6; i++) {
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[i]),
-						SLOT_SHIFT_KEYS[i] == null ? null : Component.translatable("projecthero.thor.ability." + SLOT_SHIFT_KEYS[i])));
-			}
-			boolean dual = com.projecthero.mod.power.WeaponCombo.isDualWielding(player);
-			boolean storm = com.projecthero.mod.power.ThorVisuals.fx(player).stormPct() > 0;
-			int hudTop = dual || storm ? y0 - 12 : y0 - 2;
-			if ((dual && storm) || player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0) > 0) {
-				hudTop = y0 - 22;
-			}
-			MoveListOverlay.draw(graphics, x0 + totalW, hudTop, rows);
-		}
 
-		// Storm Energy: name + percentage above a thin hairline bar.
+		// Storm Energy (Hairline, as before)
 		float ratio = Math.max(0.0f, Math.min(1.0f, StormEnergy.get(player) / StormEnergy.MAX));
-		int percent = Math.round(ratio * 100.0f);
-		int labelY = y0 + BOX + 4;
-		graphics.drawString(client.font,
-				Component.translatable("hud.projecthero.thor.storm_energy", percent), x0, labelY, COLOR_ENERGY_LABEL, false);
-		int barY = labelY + client.font.lineHeight + 2;
-		hairlineBar(graphics, x0, barY, totalW, ratio, ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY);
-	}
-
-	/** A thin fill line with a faint backing strip and no border box -- deliberately lighter-weight
-	 * than the ability boxes above it so the resource meters read as secondary information. */
-	private static void hairlineBar(GuiGraphics graphics, int x, int y, int w, float ratio, int fillColor) {
-		graphics.fill(x, y, x + w, y + HAIRLINE_HEIGHT, COLOR_HAIRLINE_BG);
-		graphics.fill(x, y, x + Math.round(w * Math.max(0.0f, Math.min(1.0f, ratio))), y + HAIRLINE_HEIGHT, fillColor);
-	}
-
-	// ---------------- v0.16.1: the status row above the keys ----------------
-
-	private static final int COLOR_FIELD_CD = 0xFFE0A030;
-	private static final int COLOR_PIP_ON = 0xFFF2C24E;
-	private static final int COLOR_PIP_OFF = 0x80304A6E;
-	private static final int COLOR_PIP_COOLDOWN = 0xFF5A6A80;
-	private static final int COLOR_STORM = 0xFF9FD8FF;
-	/** The Thunder Field cooldown bar is drawn against this (the default 15 s). */
-	private static final int FIELD_COOLDOWN_DISPLAY = 300;
-
-	/**
-	 * Just above the six keys: on the left, while Mjolnir and Stormbreaker are both in hand, the dual-wield combo's four
-	 * steps as pips (gold up to the step landed; grey with the seconds left while the Twin Thunder Strike recharges);
-	 * on the right, "Storm-Charged +30%" while it thunders where he stands.
-	 */
-	private static void renderStatusRow(GuiGraphics graphics, Minecraft client, Player player) {
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = graphics.guiWidth() - MARGIN - totalW;
-		int y0 = graphics.guiHeight() - MARGIN - BOX - 20;
-		int rowY = y0 - 11;
-		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
-		int pipsRight = x0;
-		if (com.projecthero.mod.power.WeaponCombo.isDualWielding(player)) {
-			com.projecthero.mod.power.WeaponComboState s = com.projecthero.mod.power.WeaponCombo.state(player);
-			int step = s.weapon() == com.projecthero.mod.power.WeaponComboState.WEAPON_DUAL
-					? com.projecthero.mod.power.WeaponCombo.step(player) : 0;
-			CooldownState cds = player.getAttachedOrElse(ModAttachments.COOLDOWNS, null);
-			int twin = cds != null ? cds.remainingTicks(ThorAbility.TWIN_THUNDER, gameTime) : 0;
-			for (int i = 0; i < 4; i++) {
-				int px = x0 + 1 + i * 10;
-				int color = i < step ? COLOR_PIP_ON : twin > 0 ? COLOR_PIP_COOLDOWN : COLOR_PIP_OFF;
-				graphics.fill(px, rowY + 1, px + 5, rowY + 6, color);
-				graphics.renderOutline(px - 1, rowY, 7, 7, COLOR_BORDER);
-			}
-			pipsRight = x0 + 4 * 10;
-			if (twin > 0) {
-				String secs = String.format(java.util.Locale.ROOT, "%d", (int) Math.ceil(twin / 20.0f));
-				graphics.drawString(client.font, secs, pipsRight + 1, rowY, COLOR_PIP_COOLDOWN, false);
-				pipsRight += client.font.width(secs) + 2;
-			}
+		s.meter(Component.translatable("hud.projecthero.vanilla.thor.storm"), ratio, ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY,
+				Math.round(ratio * 100.0f) + "%", COLOR_ENERGY_TEXT, MutationMeters.Style.HAIRLINE);
+		// God of Thunder's Wrath buildup while Z is held (Hairline, as before; gold once full)
+		if (wrath > 0) {
+			float w = Math.min(1.0f, wrath / (float) WRATH_CHARGE_TICKS);
+			s.meter(Component.translatable("hud.projecthero.vanilla.thor.wrath"), w, w >= 1f ? COLOR_GOLD : COLOR_ENERGY,
+					Math.round(w * 100f) + "%", w >= 1f ? COLOR_GOLD : VanillaHud.WHITE, MutationMeters.Style.HAIRLINE);
 		}
+		// v0.16.1: the dual-wield combo's four steps, and the Twin Thunder Strike's recharge
+		if (com.projecthero.mod.power.WeaponCombo.isDualWielding(player)) {
+			com.projecthero.mod.power.WeaponComboState st = com.projecthero.mod.power.WeaponCombo.state(player);
+			int step = st.weapon() == com.projecthero.mod.power.WeaponComboState.WEAPON_DUAL
+					? com.projecthero.mod.power.WeaponCombo.step(player) : 0;
+			int twin = remaining(cooldowns, ThorAbility.TWIN_THUNDER, gameTime);
+			String value = twin > 0 ? VanillaHud.seconds(twin) + "s" : step + "/4";
+			s.meter(Component.translatable("hud.projecthero.vanilla.thor.combo"), step / 4f, COLOR_GOLD, value,
+					twin > 0 ? VanillaHud.GREY : COLOR_GOLD);
+		}
+
+		s.title(Component.translatable("hud.projecthero.vanilla.thor.title"), COLOR_GOLD);
+		List<VanillaHud.Tag> tags = new ArrayList<>();
 		int pct = com.projecthero.mod.power.ThorVisuals.fx(player).stormPct();
 		if (pct > 0) {
-			Component storm = Component.translatable("hud.projecthero.thor.storm_charged", pct);
-			int w = client.font.width(storm);
-			int x = x0 + totalW - w;
-			int y = x < pipsRight + 4 ? rowY - 10 : rowY; // never over the pips: a line higher if it would be
-			graphics.drawString(client.font, storm, x, y, COLOR_STORM, true);
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.thor.storm_charged", pct).getString(), COLOR_STORM));
+		}
+		s.tags(tags);
+
+		if (MoveListOverlay.held()) {
+			// v0.16.6: the shared move list (G: Shift = Thunder Field, V: Shift = Thunderclap)
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				int o = slot.ordinal();
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[o]),
+						SLOT_SHIFT_KEYS[o] == null ? null : Component.translatable("projecthero.thor.ability." + SLOT_SHIFT_KEYS[o])));
+			}
+			s.moveList(rows);
 		}
 	}
 
-	/** Ticks the player must hold Z to charge God of Thunder's Wrath (mirrors {@code ThorPowers}). */
-	private static final int WRATH_CHARGE_TICKS = 5 * 20;
+	private static int remaining(CooldownState cds, ThorAbility a, long now) {
+		return a != null && cds != null ? Math.max(0, cds.remainingTicks(a, now)) : 0;
+	}
 
-	/** Clearance between the Wrath charge bar and the ability box row below it -- generous on purpose
-	 * (v0.13.5: widened from the old 12px) so it reads as clearly sitting above the whole ability-key
-	 * HUD rather than crowding it. */
-	private static final int WRATH_CHARGE_CLEARANCE = 18;
-
-	/**
-	 * The 5-second buildup bar for God of Thunder's Wrath, drawn while the player is holding Z, above
-	 * the whole ability keybind row in the bottom-right corner. Fills left-to-right as a hairline bar
-	 * with no label -- the charging flash on the ability box itself already tells the player which key
-	 * this is.
-	 */
-	private static void renderWrathCharge(GuiGraphics graphics, Minecraft client, Player player) {
-		int ticks = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
-		if (ticks <= 0) {
-			return;
-		}
-		float ratio = Math.min(1.0f, ticks / (float) WRATH_CHARGE_TICKS);
-		int w = 6 * BOX + 5 * GAP;
-		int x = graphics.guiWidth() - MARGIN - w;
-		int boxesY = graphics.guiHeight() - MARGIN - BOX - 20;
-		int y = boxesY - WRATH_CHARGE_CLEARANCE - HAIRLINE_HEIGHT;
-		boolean full = ratio >= 1.0f;
-
-		hairlineBar(graphics, x, y, w, ratio, full ? COLOR_BORDER_ACTIVE : COLOR_ENERGY);
+	/** 0..1 of {@code a}'s cooldown still to run (its length learned from the first value seen). */
+	private static float frac(ThorAbility a, int left) {
+		return a == null ? 0f : VanillaHudExtras.frac("thor/" + a.name(), left);
 	}
 }

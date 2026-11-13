@@ -276,7 +276,98 @@ public final class VanillaMenu {
 		}
 
 		private boolean overTrack(double mx, double my) {
-			return mx >= trackX && mx < trackX + TRACK_W && my >= viewY0 && my < viewY1;
+			return mx >= trackX && mx < trackX + trackW && my >= viewY0 && my < viewY1;
+		}
+
+		private double shown;
+		private long lastFrame;
+
+		/**
+		 * v0.17.3: the offset to draw at this frame, eased toward the real one (a smooth-scrolling list); exact while the thumb is
+		 * dragged. Call once per frame.
+		 */
+		public double eased() {
+			long now = System.nanoTime();
+			double dt = lastFrame == 0 ? 0.016 : Math.min(0.1, (now - lastFrame) / 1.0e9);
+			lastFrame = now;
+			if (dragging) {
+				shown = offset;
+			} else {
+				shown += (offset - shown) * (1 - Math.exp(-dt * 16));
+				if (Math.abs(offset - shown) < 0.3) {
+					shown = offset;
+				}
+			}
+			shown = Mth.clamp(shown, 0, max());
+			return shown;
+		}
+
+		/** The eased offset as last computed by {@link #eased} (for hit tests between frames). */
+		public double shown() {
+			return shown;
+		}
+
+		/** Sets the offset with no easing (a new page / list). */
+		public void jump(int px) {
+			set(px);
+			shown = offset;
+		}
+
+		/** The track's hit width (the creative track's 14 px, or the glass bar's grab zone). */
+		private int trackW = TRACK_W;
+
+		/**
+		 * v0.17.3: the see-through I menu's slim bar -- a 3-px line on a faint track, drawn centred in a {@code hitW}-px grab zone
+		 * that starts at the layout's track x (so it is easy to catch with the mouse).
+		 */
+		public Scroll glass(int hitW) {
+			this.trackW = hitW;
+			return this;
+		}
+
+		/** Tests / harnesses: the bar's grab zone (x, width) and the thumb's top and height, screen pixels. */
+		public int[] barGeometry() {
+			return new int[] { trackX, trackW, thumbY(), thumbH() };
+		}
+
+		/** Over the content or the bar: where the mouse wheel scrolls this view. */
+		public boolean over(double mx, double my) {
+			return inView(mx, my) || overTrack(mx, my);
+		}
+
+		/** The wheel, only while the mouse is over this view or its bar (for screens with several scroll areas). */
+		public boolean mouseScrolled(double mx, double my, double dy) {
+			return over(mx, my) && mouseScrolled(dy);
+		}
+
+		/** Arrow keys (two lines), Page Up / Down, Home / End; false for any other key. */
+		public boolean keyPressed(int key, int line) {
+			int page = Math.max(line, viewHeight() - line);
+			switch (key) {
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> by(line * 2);
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> by(-line * 2);
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> by(page);
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> by(-page);
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> set(Integer.MAX_VALUE / 2);
+				case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> set(0);
+				default -> {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/** The glass bar: faint track, the thumb in {@code thumb} (brighter while hovered or dragged); nothing when it all fits. */
+		public void renderGlass(GuiGraphics g, int thumb, double mx, double my) {
+			if (max() == 0) {
+				return;
+			}
+			int x = trackX + (trackW - 3) / 2;
+			g.fill(x, viewY0, x + 3, viewY1, 0x40FFFFFF);
+			int ty = thumbY() - 1, th = thumbH() + 2;
+			boolean hot = dragging || (overTrack(mx, my) && my >= ty && my < ty + th);
+			int col = hot ? (thumb | 0xFF000000) : (thumb & 0x00FFFFFF) | 0xC0000000;
+			g.fill(x, Math.max(viewY0, ty), x + 3, Math.min(viewY1, ty + th), col);
 		}
 
 		public boolean mouseClicked(double mx, double my, int button) {
@@ -328,7 +419,7 @@ public final class VanillaMenu {
 
 		/** The recessed track and the scroller (the disabled sprite when everything fits), stretched to the thumb's length. */
 		public void render(GuiGraphics g) {
-			inset(g, trackX, viewY0, TRACK_W, viewHeight());
+			inset(g, trackX, viewY0, trackW, viewHeight());
 			boolean on = max() > 0;
 			int h = on ? thumbH() : 15;
 			int y = on ? thumbY() : innerTop();

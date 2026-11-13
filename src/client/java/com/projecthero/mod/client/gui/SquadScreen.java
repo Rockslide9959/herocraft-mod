@@ -127,10 +127,9 @@ public final class SquadScreen extends Screen {
 	// ---- animation state ----
 	private final Map<UUID, float[]> healthAnim = new HashMap<>(); // {shown, trail}
 	private long lastFrameMs = -1;
-	private float scrollTarget;
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll): wheel, drag the thumb, click the track to page, keys. */
+	private final VanillaMenu.Scroll scroll = new VanillaMenu.Scroll(24, 1).glass(SCROLLBAR_W + 4);
 	private float scrollShown;
-	private boolean draggingThumb;
-	private double dragGrabOffset;
 	private boolean showHelp;
 	private final List<HitBox> helpHitBoxes = new ArrayList<>();
 
@@ -152,7 +151,8 @@ public final class SquadScreen extends Screen {
 		}));
 		helpButton = addRenderableWidget(new FlatButton(helpButtonLabel(), b -> {
 			showHelp = !showHelp;
-			scrollTarget = scrollShown = 0;
+			scroll.jump(0);
+			scrollShown = 0;
 			b.setMessage(helpButtonLabel());
 		}));
 		closeButton = addRenderableWidget(new FlatButton(Component.translatable("gui.done"), b -> onClose()));
@@ -238,7 +238,8 @@ public final class SquadScreen extends Screen {
 		}
 
 		float maxScroll = Math.max(0, contentH - viewH);
-		scrollTarget = Mth.clamp(scrollTarget, 0, maxScroll);
+		scroll.layout(viewX, viewY, viewX + viewW, viewY + viewH, trackX() - 2);
+		scroll.content(contentH);
 		scrollShown = Mth.clamp(scrollShown, 0, maxScroll);
 
 		layoutButtons(squad);
@@ -737,15 +738,6 @@ public final class SquadScreen extends Screen {
 		}
 	}
 
-	private int thumbHeight() {
-		return Math.max(14, Math.round(viewH * (viewH / (float) contentH)));
-	}
-
-	private int thumbY() {
-		float max = Math.max(1, contentH - viewH);
-		return viewY + Math.round((viewH - thumbHeight()) * (scrollShown / max));
-	}
-
 	private int trackX() {
 		return panelX + panelW - PAD - SCROLLBAR_W;
 	}
@@ -754,12 +746,7 @@ public final class SquadScreen extends Screen {
 		if (!scrollable) {
 			return;
 		}
-		int tx = trackX();
-		g.fill(tx, viewY, tx + SCROLLBAR_W, viewY + viewH, 0x40000000);
-		int ty = thumbY();
-		int th = thumbHeight();
-		boolean hot = draggingThumb || (mouseX >= tx - 2 && mouseX < tx + SCROLLBAR_W + 2 && mouseY >= ty && mouseY < ty + th);
-		g.fill(tx, ty, tx + SCROLLBAR_W, ty + th, hot ? 0xFFC9D2EE : 0xFF5B6380);
+		scroll.renderGlass(g, 0xFFC9D2EE, mouseX, mouseY);
 	}
 
 	private void renderFooterHint(GuiGraphics g) {
@@ -806,6 +793,10 @@ public final class SquadScreen extends Screen {
 				return true;
 			}
 			default -> {
+				// Home / End (the shared scroll keys)
+				if ((keyCode == 268 || keyCode == 269) && scroll.keyPressed(keyCode, CARD_H + CARD_GAP)) {
+					return true;
+				}
 				return super.keyPressed(keyCode, scanCode, modifiers);
 			}
 		}
@@ -818,7 +809,7 @@ public final class SquadScreen extends Screen {
 	}
 
 	private void scrollBy(float amount) {
-		scrollTarget = Mth.clamp(scrollTarget + amount, 0, Math.max(0, contentH - viewH));
+		scroll.by(Math.round(amount));
 	}
 
 	@Override
@@ -829,20 +820,8 @@ public final class SquadScreen extends Screen {
 		if (button != 0) {
 			return false;
 		}
-		if (scrollable) {
-			int tx = trackX();
-			if (mouseX >= tx - 2 && mouseX < tx + SCROLLBAR_W + 2 && mouseY >= viewY && mouseY < viewY + viewH) {
-				int ty = thumbY();
-				int th = thumbHeight();
-				if (mouseY < ty || mouseY >= ty + th) {
-					// jump so the thumb centres on the click, then drag from there
-					setScrollFromThumb(mouseY - th / 2.0);
-					ty = thumbY();
-				}
-				draggingThumb = true;
-				dragGrabOffset = mouseY - ty;
-				return true;
-			}
+		if (scrollable && scroll.mouseClicked(mouseX, mouseY, button)) {
+			return true;
 		}
 		if (helpMode(SquadClient.get()) && this.minecraft != null) {
 			for (HitBox box : helpHitBoxes) {
@@ -857,8 +836,7 @@ public final class SquadScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (draggingThumb) {
-			setScrollFromThumb(mouseY - dragGrabOffset);
+		if (scroll.mouseDragged(mouseX, mouseY, button)) {
 			return true;
 		}
 		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -866,15 +844,8 @@ public final class SquadScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		draggingThumb = false;
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-
-	private void setScrollFromThumb(double thumbTop) {
-		int travel = viewH - thumbHeight();
-		float max = Math.max(0, contentH - viewH);
-		float t = travel <= 0 ? 0 : (float) Mth.clamp((thumbTop - viewY) / travel, 0.0, 1.0);
-		scrollTarget = scrollShown = t * max;
+		boolean was = scroll.mouseReleased(button);
+		return super.mouseReleased(mouseX, mouseY, button) || was;
 	}
 
 	// =====================================================================================================
@@ -902,10 +873,7 @@ public final class SquadScreen extends Screen {
 				s[1] += (s[0] - s[1]) * slow;
 			}
 		}
-		scrollShown += (scrollTarget - scrollShown) * (1.0f - (float) Math.exp(-18.0 * dt));
-		if (Math.abs(scrollTarget - scrollShown) < 0.25f) {
-			scrollShown = scrollTarget;
-		}
+		scrollShown = (float) scroll.eased();
 	}
 
 	// =====================================================================================================

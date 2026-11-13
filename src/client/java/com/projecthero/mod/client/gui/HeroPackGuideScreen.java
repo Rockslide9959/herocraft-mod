@@ -85,9 +85,13 @@ public final class HeroPackGuideScreen extends Screen {
 	private final Deque<Nav> history = new ArrayDeque<>();
 
 	// list scrolling (category + search), eased toward the target each frame
-	private double scrollTarget = 0;
+	/** v0.17.3: the shared scroll logic (wheel, a draggable bar, click to page, keys), eased each frame into {@link #scrollPos}. */
+	private final VanillaMenu.Scroll scroll = new VanillaMenu.Scroll(26, 1).glass(9);
 	private double scrollPos = 0;
-	private long lastFrameNanos = 0;
+	/** A saved list position, applied once init has laid the list out. */
+	private double pendingScroll = 0;
+	/** The mouse this frame (the scroll bar lights while hovered). */
+	private int lastMouseX, lastMouseY;
 
 	// search
 	private EditBox searchBox;
@@ -117,7 +121,7 @@ public final class HeroPackGuideScreen extends Screen {
 		this.category = s.category();
 		this.chapter = s.chapter();
 		this.spread = s.spread();
-		this.scrollTarget = this.scrollPos = s.scroll();
+		this.pendingScroll = s.scroll();
 		if (this.view == View.CHAPTER && (chapter < 0 || chapter >= HeroPackGuide.chapters().size())) {
 			this.view = View.HOME;
 		}
@@ -135,7 +139,7 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private Nav here() {
-		return new Nav(view, category, chapter, spread, scrollTarget);
+		return new Nav(view, category, chapter, spread, scroll.offset());
 	}
 
 	@Override
@@ -160,7 +164,8 @@ public final class HeroPackGuideScreen extends Screen {
 		if (view == View.CHAPTER) {
 			layoutChapter();
 		}
-		clampScroll();
+		jumpScroll(pendingScroll);
+		pendingScroll = 0;
 	}
 
 	// ---------------------------------------------------------------- navigation
@@ -171,7 +176,7 @@ public final class HeroPackGuideScreen extends Screen {
 		this.category = c;
 		this.chapter = ch;
 		this.spread = 0;
-		this.scrollTarget = this.scrollPos = 0;
+		jumpScroll(0);
 		if (v == View.CHAPTER) {
 			lastChapterRead = ch;
 			pendingLine = line;
@@ -190,7 +195,7 @@ public final class HeroPackGuideScreen extends Screen {
 	private void goHome() {
 		history.clear();
 		view = View.HOME;
-		scrollTarget = scrollPos = 0;
+		jumpScroll(0);
 		if (!query.isEmpty()) {
 			query = "";
 			searchBox.setValue("");
@@ -205,7 +210,7 @@ public final class HeroPackGuideScreen extends Screen {
 		if (history.isEmpty()) {
 			if (view != View.HOME) {
 				view = view == View.CHAPTER ? View.CATEGORY : View.HOME;
-				scrollTarget = scrollPos = 0;
+				jumpScroll(0);
 			}
 			return;
 		}
@@ -214,7 +219,7 @@ public final class HeroPackGuideScreen extends Screen {
 		category = n.category();
 		chapter = n.chapter();
 		spread = n.spread();
-		scrollTarget = scrollPos = n.scroll();
+		jumpScroll(n.scroll());
 		if (view == View.SEARCH && query.isEmpty()) {
 			back();
 			return;
@@ -242,7 +247,7 @@ public final class HeroPackGuideScreen extends Screen {
 			}
 			view = View.SEARCH;
 		}
-		scrollTarget = scrollPos = 0;
+		jumpScroll(0);
 	}
 
 	// ---------------------------------------------------------------- chapter layout
@@ -391,15 +396,15 @@ public final class HeroPackGuideScreen extends Screen {
 			}
 			case GLFW.GLFW_KEY_UP -> {
 				if (view == View.CATEGORY || view == View.SEARCH) {
-					scrollTarget -= 30;
-					clampScroll();
+					syncScroll();
+					scroll.by(-30);
 					return true;
 				}
 			}
 			case GLFW.GLFW_KEY_DOWN -> {
 				if (view == View.CATEGORY || view == View.SEARCH) {
-					scrollTarget += 30;
-					clampScroll();
+					syncScroll();
+					scroll.by(30);
 					return true;
 				}
 			}
@@ -450,6 +455,13 @@ public final class HeroPackGuideScreen extends Screen {
 		}
 		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			return false;
+		}
+		// v0.17.3: the list's scroll bar -- grab the thumb and drag, or click the track to page
+		if (view != View.CHAPTER) {
+			syncScroll();
+			if (scroll.mouseClicked(mx, my, button)) {
+				return true;
+			}
 		}
 		// header: back arrow and breadcrumbs
 		if (view != View.HOME && hit(mx, my, px + 6, py + 5, 14, 14)) {
@@ -528,17 +540,35 @@ public final class HeroPackGuideScreen extends Screen {
 			return true;
 		}
 		if (view == View.CATEGORY || view == View.SEARCH || view == View.HOME) {
-			scrollTarget -= dy * 26;
-			clampScroll();
-			return true;
+			syncScroll();
+			return scroll.mouseScrolled(dy);
 		}
 		return false;
 	}
 
-	private void clampScroll() {
-		double max = Math.max(0, contentHeight() - (listBottom() - listTop()));
-		scrollTarget = Math.max(0, Math.min(max, scrollTarget));
-		scrollPos = Math.max(0, Math.min(max, scrollPos));
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		return scroll.mouseDragged(mx, my, button) || super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = scroll.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
+	}
+
+	/** Points the scroll at the current list (its rows area, its content height, its bar beside / inside the right edge). */
+	private void syncScroll() {
+		// the Home tiles run the full width, so its bar sits in the panel margin; the lists leave room for it inside
+		int track = view == View.HOME ? bx + bw : bx + bw - 7;
+		scroll.layout(bx, listTop(), track, listBottom(), track);
+		scroll.content(contentHeight());
+	}
+
+	private void jumpScroll(double px) {
+		syncScroll();
+		scroll.jump((int) Math.round(px));
+		scrollPos = scroll.offset();
 	}
 
 	private int contentHeight() {
@@ -573,13 +603,10 @@ public final class HeroPackGuideScreen extends Screen {
 	@Override
 	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partial) {
 		super.renderBackground(g, mouseX, mouseY, partial);
-		long now = System.nanoTime();
-		double dt = lastFrameNanos == 0 ? 0.016 : Math.min(0.1, (now - lastFrameNanos) / 1.0e9);
-		lastFrameNanos = now;
-		scrollPos += (scrollTarget - scrollPos) * (1 - Math.exp(-dt * 16));
-		if (Math.abs(scrollTarget - scrollPos) < 0.3) {
-			scrollPos = scrollTarget;
-		}
+		syncScroll();
+		scrollPos = scroll.eased();
+		lastMouseX = mouseX;
+		lastMouseY = mouseY;
 
 		drawPanel(g);
 		drawHeader(g, mouseX, mouseY);
@@ -632,7 +659,7 @@ public final class HeroPackGuideScreen extends Screen {
 				history.clear();
 				history.push(new Nav(View.HOME, c, -1, 0, 0));
 				view = View.CATEGORY;
-				scrollTarget = scrollPos = 0;
+				jumpScroll(0);
 			} : null);
 		}
 		if (view == View.CHAPTER) {
@@ -889,6 +916,8 @@ public final class HeroPackGuideScreen extends Screen {
 			g.drawString(this.font, fit(s, bw - 30), bx + 22, y + 4, over ? GOLD : TEXT_DIM, false);
 		}
 		g.disableScissor();
+		// v0.17.3: Home scrolls on a small window too -- now with a bar to show it (and to drag)
+		drawScrollbar(g, by, by + bh, 1);
 	}
 
 	// ---- category
@@ -953,14 +982,7 @@ public final class HeroPackGuideScreen extends Screen {
 		if (sbW == 0) {
 			return;
 		}
-		int total = contentHeight();
-		int vis = bottom - top;
-		int x = bx + bw - 4;
-		g.fill(x, top, x + 3, bottom, 0x40FFFFFF);
-		int knob = Math.max(12, vis * vis / Math.max(1, total));
-		int max = Math.max(1, total - vis);
-		int ky = top + (int) ((vis - knob) * (scrollPos / max));
-		g.fill(x, ky, x + 3, ky + knob, this.view == View.SEARCH ? GOLD : category.colour);
+		scroll.renderGlass(g, this.view == View.SEARCH || this.view == View.HOME ? GOLD : category.colour, lastMouseX, lastMouseY);
 	}
 
 	private final Map<Integer, String> subtitles = new HashMap<>();

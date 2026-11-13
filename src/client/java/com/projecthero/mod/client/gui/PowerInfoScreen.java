@@ -28,11 +28,12 @@ import net.minecraft.util.FormattedCharSequence;
  * says so instead.
  */
 public final class PowerInfoScreen extends Screen {
-	private static final int LINE_H = 11;
+	private static final int LINE_H = GlassPage.LINE_H;
 
-	private final List<FormattedCharSequence> body = new ArrayList<>();
+	/** v0.17.3: the shared see-through page (panel, clipped text, a scroll bar that drags and follows the wheel). */
+	private final GlassPage page = new GlassPage();
+	private final List<FormattedCharSequence> body = page.lines();
 	private Component heading = Component.empty();
-	private int scroll = 0;
 	private int left;
 	private int right;
 	private int top;
@@ -81,12 +82,20 @@ public final class PowerInfoScreen extends Screen {
 					.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
 		}
 
+		page.layout(this.width, this.height);
+		page.hideHud();
+		page.scroll().set(0);
 		buildBody();
 	}
 
+	/** Rebuilds the lines; the scroll position is kept (re-clamped to the new length). */
 	private void buildBody() {
+		buildLines();
+		page.done();
+	}
+
+	private void buildLines() {
 		body.clear();
-		scroll = 0;
 		liveQuirk = false;
 
 		int wrapW = this.right - this.left;
@@ -343,11 +352,7 @@ public final class PowerInfoScreen extends Screen {
 	public void tick() {
 		super.tick();
 		if (liveQuirk && ++liveTicks % 10 == 0) {
-			int keep = scroll;
-			buildBody();
-			// v0.17.2: clamp with the same limit the wheel uses (this one was 4 px short, so a page scrolled to its end jumped
-			// back up every half second)
-			scroll = Math.min(keep, maxScroll());
+			buildBody(); // v0.17.3: the page keeps (and re-clamps) its scroll position itself
 		}
 	}
 
@@ -541,79 +546,64 @@ public final class PowerInfoScreen extends Screen {
 		}
 	}
 
-	private int maxScroll() {
-		return Math.max(0, body.size() * LINE_H - (bottom - top - 12) + 4);
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		return page.mouseClicked(mx, my, button) || super.mouseClicked(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		return page.mouseDragged(mx, my, button) || super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = page.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
 	}
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-		scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) (dy * 20)));
-		return true;
+		return page.mouseScrolled(dy) || super.mouseScrolled(mx, my, dx, dy);
 	}
 
 	/** v0.17.1: arrow keys / Page Up / Page Down / Home / End scroll the page too. */
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
-		int step = switch (key) {
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> LINE_H * 2;
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> -LINE_H * 2;
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> bottom - top - 24;
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> -(bottom - top - 24);
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> Integer.MAX_VALUE / 2;
-			case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> Integer.MIN_VALUE / 2;
-			default -> 0;
-		};
-		if (step != 0) {
-			scroll = Math.max(0, Math.min(maxScroll(), scroll + step));
-			return true;
-		}
-		return super.keyPressed(key, scan, mods);
+		return page.keyPressed(key) || super.keyPressed(key, scan, mods);
 	}
 
 	/** Harness / tests: scroll to the first line containing {@code text} (case-insensitive); false if none. */
 	public boolean scrollTo(String text) {
-		String want = text.toLowerCase(java.util.Locale.ROOT);
-		for (int i = 0; i < body.size(); i++) {
-			StringBuilder sb = new StringBuilder();
-			body.get(i).accept((idx, style, cp) -> {
-				sb.appendCodePoint(cp);
-				return true;
-			});
-			if (sb.toString().toLowerCase(java.util.Locale.ROOT).contains(want)) {
-				scroll = Math.max(0, Math.min(maxScroll(), i * LINE_H));
-				return true;
-			}
-		}
-		return false;
+		return page.scrollTo(text);
+	}
+
+	/** Harness / tests: the page (its scroll and bar). */
+	public GlassPage page() {
+		return page;
+	}
+
+	/** Harness / tests: 0..1 of the way down. */
+	public void scrollFraction(float f) {
+		page.scroll().setFraction(f);
+	}
+
+	/** Harness / tests: the scroll offset in pixels and its maximum. */
+	public int[] scrollState() {
+		return new int[] { page.scroll().offset(), page.scroll().max() };
 	}
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
 		super.render(g, mouseX, mouseY, partial);
 		g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
-		g.fill(left - 8, top - 6, right + 8, bottom + 6, 0x50000000);
+		page.render(g, this.font, this.heading, mouseX, mouseY);
+	}
 
-		g.drawString(this.font, this.heading, left, top - 2, 0xFFFFE08A);
-
-		g.enableScissor(left - 6, top + 12, right + 6, bottom);
-		int y = top + 12 - scroll;
-		for (FormattedCharSequence line : body) {
-			if (y > top && y < bottom) {
-				g.drawString(this.font, line, left, y, 0xFFD8D8E4, false);
-			}
-			y += LINE_H;
-		}
-		g.disableScissor();
-		// v0.17.1: a scrollbar when the page is longer than the panel
-		int max = maxScroll();
-		if (max > 0) {
-			int trackTop = top + 12;
-			int trackH = bottom - trackTop;
-			int thumbH = Math.max(12, trackH * trackH / (trackH + max));
-			int thumbY = trackTop + (int) ((trackH - thumbH) * (scroll / (float) max));
-			g.fill(right + 4, trackTop, right + 6, bottom, 0x40FFFFFF);
-			g.fill(right + 4, thumbY, right + 6, thumbY + thumbH, 0xC0FFD25A);
-		}
+	@Override
+	public void removed() {
+		page.restoreHud();
+		super.removed();
 	}
 
 	@Override

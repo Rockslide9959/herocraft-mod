@@ -1,7 +1,11 @@
 package com.projecthero.mod.client.supersoldier;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.supersoldier.SuperSoldier;
@@ -12,101 +16,74 @@ import com.projecthero.mod.supersoldier.data.SuperSoldierState;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
 /**
- * The Super Soldier HUD, in the black-and-gray "mono" style of the reworked powers' {@code AbilityHud}: the power name
- * and the key boxes in the order R G Z X V. Each box shows the longer of its two moves' cooldowns (plain and Shift); Z's
- * box is outlined white while Onslaught runs, V's while Tactical Focus runs. v0.14.9: no bars at all (the ultimate and
- * Tactical Focus hairlines are gone), and a sixth box, C (the shield throw), stacked on top of V, only while he holds a
- * shield -- or while a throw is still cooling down, so the timer does not vanish when the shield leaves his hand. The
- * five fixed boxes never move. No H / N boxes. Hold Left-Alt for the move names.
- *
+ * v0.17.3: the Super Soldier HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right).
+ * No bars (since v0.14.9), just the title and the keys:
  * <pre>
- *                       ([C])
- *   Super Soldier
- *   [R] [G] [Z] [X] [V]
+ *   SUPER SOLDIER
+ *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
+ *   | R  | G  | Z  | X  | C  | V  |    bar; Z lit while Onslaught runs, V while Tactical Focus runs; yellow while Shift shows the
+ *   +----+----+----+----+----+----+    Shift moves
  * </pre>
+ * C (the shield throw) used to be a box stacked on V only while he held a shield or a throw was cooling down; it now sits in its
+ * strip slot all the time and is greyed out when there is no shield in hand (its cooldown still shows, so the timer doesn't vanish
+ * when the shield leaves his hand). No H / N boxes. Hold Left-Alt for the move names.
  */
 public final class SuperSoldierHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-
-	private static final int MONO_BOX_BG = 0xD0080808;
-	private static final int MONO_BORDER = 0xFF4A4A4A;
-	private static final int MONO_BORDER_ACTIVE = 0xFFC8C8C8;
-	private static final int MONO_KEY = 0xFFB4B4B4;
-	private static final int MONO_NAME = 0xFFE2E2E2;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-
-	/** Boxes in draw order: R G Z X V, then C when it applies. */
-	private static final AbilitySlot[] ORDER = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 };
+	private static final int NAME = 0xFFE2E2E2;
 
 	private SuperSoldierHud() {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.options.hideGui || mc.level == null || !SuperSoldier.hasPower(mc.player)) {
+		LocalPlayer p = mc.player;
+		if (p == null || mc.options.hideGui || mc.level == null || !SuperSoldier.hasPower(p)) {
 			return;
 		}
-		ExperimentalState ex = mc.player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		ExperimentalState ex = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (ex != null && !ex.activePower.isEmpty()) {
 			return; // a selected mutation owns the keys (and draws its own HUD)
 		}
-		SuperSoldierState s = mc.player.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
+		SuperSoldierState s = p.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
 		if (s == null) {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		boolean showC = SuperSoldierAbilities.shieldHand(mc.player) != null
-				|| SuperSoldier.cooldownRemaining(mc.player, SuperSoldierAbilities.SHIELD_THROW) > 0;
-		int boxes = showC ? ORDER.length : ORDER.length - 1;
-		// the five fixed boxes never move; C sits on top of V (clear of the hotbar on small screens)
-		int baseW = 5 * BOX + 4 * GAP;
-		int x0 = g.guiWidth() - MARGIN - baseW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
+		boolean shield = SuperSoldierAbilities.shieldHand(p) != null;
+		boolean shift = p.isShiftKeyDown();
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			String[] ids = SuperSoldierAbilityManager.idsOf(slot);
+			if (ids.length == 0) {
+				continue;
+			}
+			String shown = ids[shift && ids.length > 1 ? 1 : 0];
+			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			int cd = SuperSoldier.cooldownRemaining(p, shown);
+			float frac = cd / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(shown));
+			float otherFrac = other == null ? 0f
+					: SuperSoldier.cooldownRemaining(p, other) / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(other));
+			boolean active = (slot == AbilitySlot.SLOT_4 && s.onslaughtUntil > now) || (slot == AbilitySlot.SLOT_5 && s.focusUntil > now);
+			boolean usable = slot != AbilitySlot.SLOT_6 || shield;
+			st.slot(i, VanillaHud.keyLabel(slot), usable, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
+		}
+		st.title(Component.translatable("hud.projecthero.super_soldier.title"), NAME);
 
-		g.drawString(mc.font, Component.translatable("hud.projecthero.super_soldier.title"), x0, y0 - 11, MONO_NAME);
-
-		// v0.16.6: Left-Alt -> the shared move list, stacked above the title (and above C when it is showing)
-		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
-			java.util.List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();
-			for (int n = 0; n < boxes; n++) {
-				String[] ids = SuperSoldierAbilityManager.idsOf(ORDER[n]);
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : VanillaHud.ORDER) {
+				String[] ids = SuperSoldierAbilityManager.idsOf(slot);
 				if (ids.length > 0) {
-					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(ORDER[n]), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.super_soldier.ability." + ids[1]) : null));
 				}
 			}
-			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + baseW, showC ? Math.min(y0 - 11, y0 - BOX - GAP) : y0 - 11, rows);
+			st.moveList(rows);
 		}
-		for (int n = 0; n < boxes; n++) {
-			int i = n;
-			AbilitySlot slot = ORDER[i];
-			int x = n < 5 ? x0 + n * (BOX + GAP) : x0 + 4 * (BOX + GAP);
-			int y = n < 5 ? y0 : y0 - BOX - GAP;
-			int cd = 0;
-			for (String id : SuperSoldierAbilityManager.idsOf(slot)) {
-				cd = Math.max(cd, SuperSoldier.cooldownRemaining(mc.player, id));
-			}
-			boolean active = (slot == AbilitySlot.SLOT_4 && s.onslaughtUntil > now) || (slot == AbilitySlot.SLOT_5 && s.focusUntil > now);
-			g.fill(x, y, x + BOX, y + BOX, MONO_BOX_BG);
-			g.renderOutline(x, y, BOX, BOX, active ? MONO_BORDER_ACTIVE : MONO_BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y + 2, MONO_KEY, false);
-			if (cd > 0) {
-				g.fill(x + 1, y + 1, x + BOX - 1, y + BOX - 1, COLOR_COOLDOWN);
-				String secs = String.valueOf((cd + 19) / 20);
-				g.drawCenteredString(mc.font, secs, x + BOX / 2, y + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-		}
-	}
-
-	/** The key actually bound to the slot (tracks rebinds). */
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.number() - 1].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 }
