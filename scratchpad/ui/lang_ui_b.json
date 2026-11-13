@@ -1,9 +1,0 @@
-{
-  "hud.projecthero.vanilla_hud.speed": "Speed",
-  "hud.projecthero.vanilla_hud.speed_best": "Best %s b/s",
-  "hud.projecthero.vanilla_hud.ring": "Ring",
-  "hud.projecthero.vanilla_hud.integrity": "Integrity",
-  "hud.projecthero.vanilla_hud.throttle": "Throttle",
-  "hud.projecthero.vanilla_hud.gl.death_save": "Death Save",
-  "hud.projecthero.vanilla_hud.gl.death_save_cd": "Death Save %ss"
-}

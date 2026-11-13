@@ -125,6 +125,7 @@ public final class PunisherHud {
 			st.wrapped(VigilanteTraining.objectivesSummary(s).withStyle(ChatFormatting.GRAY), VanillaHud.GREY);
 		}
 		lastTop = st.top();
+		SymbioteHud.anchorAgentVenom(st.top()); // the Agent Venom block stacks right above this column
 
 		if (MoveListOverlay.held()) {
 			// v0.16.6: the shared move list, stacked above the column (and above the Agent Venom panel while it is up)
