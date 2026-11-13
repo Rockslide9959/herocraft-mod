@@ -1,121 +1,138 @@
 package com.projecthero.mod.client.beastboy.model;
 
-import static com.projecthero.mod.client.beastboy.model.BeastMesh.*;
-
-import org.joml.Matrix4f;
+import java.util.Map;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.projecthero.mod.ProjectHeroMod;
 
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3 Beast Boy's shark (2.7 blocks long): a great-white shape, dark green back over a pale belly, tall dorsal fin, long pectoral
- * fins, crescent tail, gill slits, underslung toothy jaw. Swims with an S-wave down the body (faster when moving; it flops on land).
- * Moves: bite / strike (lunge and snap), charge.
+ * v0.17.3 Beast Boy's shark, HQ round: a blocky great white (about 3 blocks nose to tail) in his greens -- dark back over a jagged seam to
+ * a pale belly, gill slits, a stepped dorsal fin, swept pectorals, keeled tail stock and a tall crescent tail; a hinged lower jaw with
+ * rows of teeth top and bottom, eyes with a catch-light, blink lids and the white nictitating membrane that rolls up when it bites.
+ * Swims with a side-to-side wave running down head, body, tail and caudal fin (faster and wider with speed), bends and banks into
+ * turns, pitches with the swim; out of water it lies on its belly gasping and flops now and then.
+ * Moves: bite / strike (lunge, snout up, jaw wide, eyes roll white, snap, head shake).
  */
 public final class SharkModel {
+	public static final ResourceLocation TEX = ProjectHeroMod.id("textures/entity/beastboy/art/shark.png");
+	private static ModelPart root;
+	private static Map<String, ModelPart> P;
+
 	private SharkModel() {
 	}
 
-	public static void draw(PoseStack pose, BeastPose s) {
-		float t = s.age;
-		float amt = s.walkAmt;
-		boolean wet = s.inWater;
-		float bite = Math.max(s.env("bite", 0.2f, 0.3f), s.env("strike", 0.2f, 0.3f));
-		float speed = wet ? 0.18f + amt * 0.25f : 0.45f;
-		float amp = wet ? 1.3f + amt * 1.4f : 2.2f;
-		float phase = t * speed + s.walkPos * 0.3f;
-		float lunge = s.isAny("bite", "strike") ? Mth.sin(Mth.clamp(s.prog / 0.5f, 0f, 1f) * Mth.PI) * 3f : 0f;
-		float roll = wet ? 0f : 1.3f;
+	private static ModelPart p(String n) {
+		return P.get(n);
+	}
 
-		Matrix4f root = Rig.mat(0f, wet ? 6.5f + Mth.sin(t * 0.08f) * 0.4f : 5.5f, lunge, 0f, -bite * 0.12f + s.pitch(0.5f) * (wet ? 0.6f : 0f), roll);
-		Rig.push(pose, root);
+	public static void render(PoseStack pose, MultiBufferSource buffers, int light, int tint, float flash, BeastPose s, SwimRig.State st) {
+		if (root == null) {
+			root = SeaShapes.shark();
+			P = SeaShapes.sharkParts(root);
+		}
+		SeaArt.reset(root);
+		animate(s, st);
+		pose.pushPose();
+		SeaArt.toModel(pose);
+		SeaArt.draw(root, TEX, pose, buffers, light, tint, flash);
+		pose.popPose();
+	}
 
-		// spine with the swim wave (bigger toward the tail)
-		float[] zs = { 19f, 13f, 5f, -3f, -11f, -17f, -22f };
-		float[] w = { 1.8f, 4.6f, 6.4f, 6.2f, 4.2f, 2.3f, 1.2f };
-		float[] h = { 2.2f, 4.8f, 6.6f, 6.3f, 4.4f, 2.6f, 1.6f };
-		float[][] sp = new float[zs.length][];
-		for (int i = 0; i < zs.length; i++) {
-			float k = i / (float) (zs.length - 1);
-			float sway = Mth.sin(phase - k * 3.2f) * amp * (0.15f + k * k * 1.1f);
-			sp[i] = v(sway, (i == 0 ? -0.6f : 0f), zs[i]);
-		}
-		loft(pose, sp, w, h, 3, 16, SHARK, 0, null);
-		float headYaw = (float) Math.atan2(sp[0][0] - sp[1][0], sp[0][2] - sp[1][2]);
-		float tailYaw = (float) Math.atan2(sp[6][0] - sp[5][0], sp[6][2] - sp[5][2]);
+	static void animate(BeastPose s, SwimRig.State st) {
+		float t = st.time;
+		float wet = st.wetness;
+		float dry = 1f - wet;
+		float spd = st.speed01();
+		ModelPart body = p("body"), head = p("head"), jaw = p("jaw"), t1 = p("tail1"), t2 = p("tail2"), cd = p("caudal");
 
-		// head details: snout, eyes, gills, jaw
-		Rig.push(pose, Rig.mat(sp[1][0], sp[1][1], sp[1][2], headYaw, 0f, 0f));
-		ellipsoid(pose, 0f, 0.6f, 6.5f, 3.4f, 3.0f, 4.2f, COUNTER_V);
-		for (int sd = -1; sd <= 1; sd += 2) {
-			eye(pose, sd * 3.3f, 1.6f, 4.6f, 0.7f, sd * 1.3f, 0f, BLACK);
-			ellipsoid(pose, sd * 1.3f, -0.4f, 10.2f, 0.4f, 0.25f, 0.4f, 6, 4, DARK, 0f, 1f);
-			for (int g = 0; g < 4; g++) {
-				pose.pushPose();
-				pose.translate(sd * (5.2f - g * 0.15f), 0f, -2.5f - g * 1.5f);
-				pose.mulPose(com.mojang.math.Axis.YP.rotation(sd * 0.25f));
-				box(pose, -0.18f, -2.6f + g * 0.1f, -0.25f, 0.18f, 1.6f - g * 0.1f, 0.25f, DARK);
-				pose.popPose();
-			}
+		// ---- the swim wave: a side-to-side stroke travelling from the head to the tail fin
+		float phase = t * 5.0f + st.dist * 2.2f;
+		float amp = Mth.lerp(spd, 0.11f, 0.3f);
+		float bite = s.isAny("bite", "strike") ? s.prog : -1f;
+		float lunge = 0f, open = 0f, shake = 0f, roll = 0f;
+		if (bite >= 0f) {
+			lunge = bite < 0.4f ? SeaArt.smooth(bite / 0.4f) : 1f - SeaArt.smooth(SeaArt.span(bite, 0.55f, 1f));
+			open = bite < 0.35f ? SeaArt.smooth(bite / 0.35f) : 1f - SeaArt.smooth(SeaArt.span(bite, 0.35f, 0.45f));
+			float sh = SeaArt.span(bite, 0.45f, 0.88f);
+			shake = sh > 0f && sh < 1f ? Mth.sin(sh * 22f) * (1f - sh) : 0f;
+			roll = Mth.sin(SeaArt.span(bite, 0.15f, 0.75f) * Mth.PI);
+			amp += lunge * 0.22f;
+			phase += lunge * 6f;
 		}
-		// jaw: hinged at the back, opens down
-		float jaw = 0.05f + bite * 0.85f;
-		if (s.isAny("bite", "strike") && s.prog > 0.5f) {
-			jaw = Math.max(0.05f, 0.9f - (s.prog - 0.5f) / 0.12f * 0.9f);
-		}
-		// upper teeth row
-		for (int sd = -1; sd <= 1; sd += 2) {
-			for (int i = 0; i < 6; i++) {
-				float z = 3.8f + i * 1.1f;
-				float x = sd * (3.1f - i * 0.35f);
-				cone(pose, x, -2.2f + i * 0.12f, z, 0f, -1f, 0.15f, 1.3f, 0.35f, 0.25f, TOOTH);
-			}
-		}
-		ellipsoid(pose, 0f, -1.9f, 5.5f, 3.0f, 0.6f, 3.6f, 10, 4, MOUTH, 0.5f, 1f);
-		bone(pose, 0f, -2f, 1.5f, jaw * 0.75f, 0f, 0f);
-		ellipsoid(pose, 0f, -1.4f, 4.5f, 3.4f, 1.4f, 4.4f, COUNTER_V);
-		ellipsoid(pose, 0f, -0.3f, 4.6f, 2.8f, 0.6f, 3.6f, 10, 4, MOUTH, 0f, 0.5f);
-		for (int sd = -1; sd <= 1; sd += 2) {
-			for (int i = 0; i < 5; i++) {
-				float z = 3.2f + i * 1.15f;
-				cone(pose, sd * (2.8f - i * 0.38f), -0.4f, z, 0f, 1f, 0.1f, 1.1f, 0.3f, 0.22f, TOOTH);
-			}
-		}
-		pose.popPose();
-		pose.popPose();
+		float turnBend = Mth.clamp(st.turn * 0.22f, -0.35f, 0.35f) * wet;
+		float w1 = Mth.sin(phase - 0.9f), w2 = Mth.sin(phase - 1.8f), w3 = Mth.sin(phase - 2.7f);
 
-		// dorsal fin on the third ring
-		float[] d0 = sp[2], d1 = sp[3];
-		float[] db = lerp(d0, d1, 0.3f);
-		float dy = (float) Math.atan2(d0[0] - d1[0], d0[2] - d1[2]);
-		Rig.push(pose, Rig.mat(db[0], db[1], db[2], dy, 0f, 0f));
-		loft(pose, new float[][] { { 0f, 5.6f, 0f }, { 0f, 8.5f, -1.6f }, { 0f, 11.2f, -3.6f }, { 0f, 12.6f, -5.6f } }, new float[] { 0.7f, 0.55f, 0.35f, 0.1f },
-				new float[] { 4.2f, 3f, 1.8f, 0.3f }, 3, 8, FIN, 0, v(0f, 0f, 1f));
-		// pectoral fins
-		float pf = Mth.sin(t * 0.12f) * 0.1f;
-		for (int sd = -1; sd <= 1; sd += 2) {
-			loft(pose, new float[][] { { sd * 4.6f, -3.2f, 6.5f }, { sd * 8f, -5.2f + pf * sd, 4.5f }, { sd * 11.4f, -6.8f + pf * sd * 2f, 1.2f },
-					{ sd * 13.2f, -7.6f + pf * sd * 3f, -1.2f } }, new float[] { 3.6f, 2.8f, 1.6f, 0.3f }, new float[] { 0.7f, 0.5f, 0.35f, 0.1f }, 3, 8,
-					FIN, 0, v(0f, 1f, 0f));
+		// ---- land: lying on the belly, a flop every few seconds
+		float flop = 0f, flopSide = 1f;
+		if (dry > 0.01f) {
+			float per = 2.8f;
+			float ft = (t % per) / per;
+			int n = (int) Math.floor(t / per);
+			flopSide = (n % 2 == 0) ? 1f : -1f;
+			flop = ft < 0.32f ? Mth.sin(ft / 0.32f * Mth.PI) : 0f;
 		}
-		pose.popPose();
-		// small second dorsal + pelvic fins near the tail
-		float[] pb = lerp(sp[4], sp[5], 0.4f);
-		Rig.push(pose, Rig.mat(pb[0], pb[1], pb[2], tailYaw * 0.6f, 0f, 0f));
-		loft(pose, new float[][] { { 0f, 2.6f, 0f }, { 0f, 4f, -1.2f } }, new float[] { 0.4f, 0.1f }, new float[] { 1.4f, 0.2f }, 2, 6, FIN, 0, v(0f, 0f, 1f));
-		for (int sd = -1; sd <= 1; sd += 2) {
-			loft(pose, new float[][] { { sd * 2.4f, -2.6f, 1.5f }, { sd * 4.4f, -4f, -0.5f } }, new float[] { 1.6f, 0.2f }, new float[] { 0.4f, 0.1f }, 2, 6,
-					FIN, 0, v(0f, 1f, 0f));
+		float landAmp = 0.12f + flop * 0.55f;
+		float landPh = t * 13f;
+		amp = Mth.lerp(dry, amp, landAmp);
+		if (dry > 0.01f) {
+			w1 = Mth.lerp(dry, w1, Mth.sin(landPh - 0.6f));
+			w2 = Mth.lerp(dry, w2, Mth.sin(landPh - 1.2f));
+			w3 = Mth.lerp(dry, w3, Mth.sin(landPh - 1.8f));
 		}
-		pose.popPose();
-		// crescent tail fin
-		Rig.push(pose, Rig.mat(sp[6][0], sp[6][1], sp[6][2], tailYaw, 0f, 0f));
-		loft(pose, new float[][] { { 0f, 0f, 0.8f }, { 0f, 3.5f, -1.8f }, { 0f, 7.5f, -4.4f }, { 0f, 10.5f, -6.8f } }, new float[] { 0.7f, 0.5f, 0.35f, 0.1f },
-				new float[] { 2.6f, 2.0f, 1.3f, 0.2f }, 3, 8, FIN, 0, v(0f, 0f, 1f));
-		loft(pose, new float[][] { { 0f, 0f, 0.8f }, { 0f, -2.6f, -1.6f }, { 0f, -5.4f, -3.6f }, { 0f, -7.4f, -5.2f } }, new float[] { 0.7f, 0.5f, 0.35f, 0.1f },
-				new float[] { 2.4f, 1.8f, 1.1f, 0.2f }, 3, 8, FIN, 0, v(0f, 0f, 1f));
-		pose.popPose();
-		pose.popPose();
+
+		// whole body: pitch with the swim, bank into turns, lunge forward; on land roll onto one side and hop on a flop
+		float pitch = st.pitch * 0.85f * wet + s.pitch(0.5f) * 0.25f * wet;
+		body.xRot = pitch - lunge * 0.12f;
+		body.zRot = Mth.clamp(st.turn * 0.2f, -0.55f, 0.55f) * wet + dry * (0.22f * flopSide + flop * 0.25f * flopSide) + shake * 0.12f;
+		body.yRot = amp * 0.22f * Mth.sin(phase) + shake * 0.2f - s.yaw(0.6f) * 0.25f * wet;
+		body.z -= lunge * 6f;
+		body.y -= wet * Mth.sin(t * 1.6f) * 0.4f + dry * flop * 3.5f;
+		body.y += dry * 0.6f; // rest on the belly
+		float breathe = Mth.sin(t * 2.6f);
+		body.xScale = 1f + breathe * 0.012f;
+		body.yScale = 1f + breathe * 0.012f;
+
+		// head counters the body swing a little and looks where he looks
+		head.yRot = -amp * 0.25f * Mth.sin(phase + 0.4f) - turnBend * 0.55f - s.yaw(0.5f) * 0.35f * wet + shake * 0.45f;
+		head.xRot = -open * 0.32f - dry * flop * 0.25f + s.pitch(0.4f) * 0.25f * wet;
+
+		// tail segments
+		t1.yRot = amp * 0.55f * w1 + turnBend * 0.45f;
+		t2.yRot = amp * 0.85f * w2 + turnBend * 0.55f;
+		cd.yRot = amp * 1.15f * w3 + turnBend * 0.35f;
+		float tailLift = dry * flop * 0.3f;
+		t1.xRot = -pitch * 0.12f + tailLift;
+		t2.xRot = -pitch * 0.12f + tailLift * 0.8f;
+		cd.xRot = tailLift * 0.5f;
+
+		// jaw: gill-pumping in water, gasping on land, the bite
+		float gasp = dry * (0.12f + Math.max(0f, Mth.sin(t * 3.1f)) * 0.22f);
+		jaw.xRot = 0.03f + wet * (0.03f + Math.max(0f, breathe) * 0.04f) + gasp + open * 0.85f;
+
+		// fins: pectorals glide and trim, the inside fin lifts in a turn; flat on the ground on land
+		float trim = Mth.sin(phase * 0.5f) * 0.06f * wet;
+		ModelPart fl = p("finL"), fr = p("finR");
+		fl.zRot = trim - turnBend * 0.6f + dry * 0.18f + pitch * 0.2f;
+		fr.zRot = -trim - turnBend * 0.6f - dry * 0.18f - pitch * 0.2f;
+		fl.yRot = -0.08f * spd * wet;
+		fr.yRot = 0.08f * spd * wet;
+		p("finTipL").zRot = 0.08f * Mth.sin(phase * 0.5f - 0.6f) * wet;
+		p("finTipR").zRot = -0.08f * Mth.sin(phase * 0.5f - 0.6f) * wet;
+		p("dorsal").zRot = -amp * 0.15f * w1; // the fin flexes against the stroke
+
+		// eyes: an idle blink, the white membrane rolling up on the bite
+		float blink = SwimRig.blink(t, 3);
+		for (String sd : new String[] { "L", "R" }) {
+			ModelPart lid = p("lid" + sd), nic = p("nic" + sd);
+			lid.yScale = Math.max(0.01f, blink);
+			lid.visible = blink > 0.02f;
+			nic.yScale = Math.max(0.01f, roll);
+			nic.visible = roll > 0.02f;
+		}
 	}
 }

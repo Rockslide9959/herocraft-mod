@@ -1,0 +1,392 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import com.projecthero.mod.beastboy.BeastForm;
+import com.projecthero.mod.client.beastboy.BeastFormArt;
+import com.projecthero.mod.client.beastboy.model.BeastPose;
+import com.projecthero.mod.client.beastboy.model.SwimRig;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.3 Beast Boy HQ round, sea animals: turntables and circling swims inside a glass water tank, land
+ * shots on sand, the moves, and stills framed like the fix round's (grass) for before/after. Based on BeastFixHarness.
+ * Enabled by run/seafilm.flag (text = comma-separated shot-name filters; empty = all). Frames: $BEASTART_OUT/screenshots/sh_<shot>_<n>.png.
+ * Hook: scratchpad/beastboy/sea_harness_hook.js (copies this to client/SeaHarness.java and calls init() after ModKeyBindings.initialize()).
+ */
+public final class SeaHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, t0 = -1;
+	private static Vec3 origin;
+	private static File outDir;
+	private static String filter = "";
+
+	/** kind: still | turn | swim | land | move:<name>; where: tank | sand | grass. */
+	record Shot(String name, String kind, BeastForm form, float yaw, int frames, String where) {
+	}
+
+	private static final List<Shot> SHOTS = new ArrayList<>();
+	private static int shotIdx = -1, shotTick;
+	private static volatile Shot cur;
+	private static volatile int curFrame;
+	private static final BeastForm[] FORMS = { BeastForm.SHARK, BeastForm.DOLPHIN, BeastForm.OCTOPUS, BeastForm.WHALE };
+
+	private SeaHarness() {
+	}
+
+	static float length(BeastForm f) {
+		return switch (f) {
+			case SHARK -> 3.1f;
+			case OCTOPUS -> 1.9f;
+			case WHALE -> 7.6f;
+			case DOLPHIN -> 2.1f;
+			default -> 1f;
+		};
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("seafilm.flag"))) {
+			return;
+		}
+		try {
+			filter = Files.readString(Path.of("seafilm.flag")).trim();
+		} catch (Exception e) {
+			filter = "";
+		}
+		String out = System.getenv("BEASTART_OUT");
+		outDir = out != null ? new File(out) : Minecraft.getInstance().gameDirectory;
+		buildShots();
+		ClientTickEvents.END_CLIENT_TICK.register(SeaHarness::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(SeaHarness::render);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_200_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "seafilm-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void add(String name, String kind, BeastForm f, float yaw, int frames, String where) {
+		boolean ok = filter.isEmpty();
+		for (String part : filter.split(",")) {
+			if (!part.isBlank() && name.contains(part.trim())) {
+				ok = true;
+			}
+		}
+		if (ok) {
+			SHOTS.add(new Shot(name, kind, f, yaw, frames, where));
+		}
+	}
+
+	private static void buildShots() {
+		for (BeastForm f : FORMS) {
+			add("f34_" + f, "still", f, 35f, 1, "grass");
+			add("side_" + f, "still", f, 90f, 1, "grass");
+			add("tankf34_" + f, "still", f, 35f, 1, "tank");
+			add("turn_" + f, "turn", f, 0f, 60, "tank");
+			add("swim_" + f, "swim", f, 0f, 110, "tank");
+			add("land_" + f, "land", f, 60f, 70, "sand");
+		}
+		add("move_SHARK_bite", "move:bite", BeastForm.SHARK, 55f, 26, "tank");
+		add("move_OCTOPUS_grab", "move:grab", BeastForm.OCTOPUS, 30f, 32, "tank");
+		add("move_OCTOPUS_ink", "move:ink", BeastForm.OCTOPUS, 70f, 32, "tank");
+		add("move_OCTOPUS_strike", "move:strike", BeastForm.OCTOPUS, 40f, 22, "tank");
+		add("move_WHALE_slam", "move:slam", BeastForm.WHALE, 60f, 32, "tank");
+		add("move_DOLPHIN_morph", "move:morph_in", BeastForm.DOLPHIN, 50f, 24, "tank");
+		add("move_SHARK_morph", "move:morph_in", BeastForm.SHARK, 50f, 24, "tank");
+		// dry shots first, then soak underwater ~32 s (the player's water vision ramps up), then the tank shots
+		List<Shot> dryShots = new ArrayList<>(SHOTS.stream().filter(x -> !x.where().equals("tank")).toList());
+		List<Shot> tank = SHOTS.stream().filter(x -> x.where().equals("tank")).toList();
+		SHOTS.clear();
+		SHOTS.addAll(dryShots);
+		if (!tank.isEmpty()) {
+			SHOTS.add(new Shot("soak", "soak", BeastForm.SHARK, 0f, 640, "tank"));
+			SHOTS.addAll(tank);
+		}
+		System.out.println("[HARNESS] shots=" + SHOTS.size());
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SeaHarness::createWorld);
+			}
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 999999, 0, false, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, 999999, 0, false, false, false));
+				BlockPos b = p.blockPosition();
+				// grass (before/after stills), a glass tank of water, a sand beach
+				for (int x = -24; x <= 60; x++) {
+					for (int z = -44; z <= 14; z++) {
+						level.setBlockAndUpdate(b.offset(x, -1, z), x > 26 ? Blocks.SAND.defaultBlockState()
+								: ((x + z & 1) == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.MOSS_BLOCK.defaultBlockState()));
+					}
+				}
+				BlockPos tank = b.offset(-110, 0, 0);
+				for (int x = -18; x <= 18; x++) {
+					for (int z = -44; z <= 12; z++) {
+						level.setBlockAndUpdate(tank.offset(x, -1, z), (x + z & 3) == 0 ? Blocks.GRAVEL.defaultBlockState() : Blocks.SAND.defaultBlockState());
+						for (int y = 0; y <= 10; y++) {
+							boolean wall = x == -18 || x == 18 || z == -44 || z == 12;
+							level.setBlockAndUpdate(tank.offset(x, y, z), wall ? Blocks.GLASS.defaultBlockState()
+									: (y == 10 ? Blocks.AIR.defaultBlockState() : Blocks.WATER.defaultBlockState()));
+						}
+					}
+				}
+				for (int k = 0; k < 14; k++) { // a little sea grass and kelp for depth
+					int x = (k * 7) % 31 - 15, z = -40 + (k * 11) % 48;
+					level.setBlockAndUpdate(tank.offset(x, 0, z), Blocks.SEAGRASS.defaultBlockState());
+				}
+				origin = new Vec3(b.getX() + 0.5, b.getY(), b.getZ() + 0.5);
+			});
+		}
+		if (inWorldTicks == 100) {
+			t0 = inWorldTicks;
+		}
+		if (t0 < 0 || origin == null) {
+			return;
+		}
+		if (shotIdx < 0 || shotTick >= cur.frames() + 8) {
+			shotIdx++;
+			if (shotIdx >= SHOTS.size()) {
+				System.out.println("[HARNESS] done");
+				mc.stop();
+				return;
+			}
+			cur = SHOTS.get(shotIdx);
+			shotTick = 0;
+			placeCamera(mc, cur);
+		}
+		mc.player.getAbilities().flying = true;
+		curFrame = Math.max(0, shotTick - 8);
+		if (shotTick >= 8 && !cur.kind().equals("soak")) {
+			String name = String.format("sh_%s_%03d.png", cur.name(), curFrame);
+			Screenshot.grab(outDir, name, mc.getMainRenderTarget(), c -> {
+			});
+		}
+		shotTick++;
+	}
+
+	private static Vec3 stage(String where) {
+		return switch (where) {
+			case "tank" -> origin.add(-110, 2, -10);
+			case "sand" -> origin.add(40, 0, -6);
+			default -> origin.add(0, 0, -6);
+		};
+	}
+
+	private static float camDist(Shot s) {
+		BeastForm f = s.form();
+		float size = Math.max(length(f), Math.max(f.height, f.width));
+		float d = size * 1.0f + 0.9f;
+		if (s.where().equals("grass")) { // the fix round's framing, for before / after
+			float old = switch (f) { case SHARK -> 3.2f; case OCTOPUS -> 2.0f; case WHALE -> 8.2f; default -> 1.6f; };
+			return Math.max(old, Math.max(f.height, f.width)) + 0.7f;
+		}
+		if (s.kind().equals("swim")) {
+			d = swimRadius(f) * 0.55f + size * 1.1f + 2.5f - (f == BeastForm.WHALE ? 3.5f : 0f);
+		}
+		if (f == BeastForm.OCTOPUS && !s.kind().equals("swim")) {
+			d = 3.3f;
+		}
+		return d;
+	}
+
+	static float swimRadius(BeastForm f) {
+		return switch (f) {
+			case WHALE -> 5.0f;
+			case SHARK -> 3.4f;
+			case DOLPHIN -> 2.8f;
+			default -> 2.2f;
+		};
+	}
+
+	private static void placeCamera(Minecraft mc, Shot s) {
+		Vec3 st = stage(s.where());
+		float dist = camDist(s);
+		BeastForm f = s.form();
+		float mid = f.height * 0.45f;
+		float eye = f.height * 0.5f + dist * (s.kind().equals("swim") ? 0.3f : 0.25f);
+		if (s.where().equals("tank")) {
+			eye = Math.min(eye, 6.2f);
+		}
+		float pitch = (float) Math.toDegrees(Math.atan2(eye - mid, dist));
+		Vec3 cam = new Vec3(st.x, st.y + eye - 1.62, st.z + dist);
+		server(mc, p -> {
+			p.teleportTo(p.serverLevel(), cam.x, cam.y, cam.z, 180f, pitch);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		});
+	}
+
+	private static void render(WorldRenderContext ctx) {
+		Minecraft mc = Minecraft.getInstance();
+		Shot s = cur;
+		if (s == null || s.kind().equals("soak") || origin == null || mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+			return;
+		}
+		PoseStack pose = ctx.matrixStack();
+		MultiBufferSource buffers = ctx.consumers();
+		Vec3 cam = ctx.camera().getPosition();
+		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		float time = Math.max(0f, shotTick - 8 + pt);
+		Vec3 st = stage(s.where());
+		BeastForm f = s.form();
+		boolean wet = !s.where().equals("sand");
+		BeastPose b = new BeastPose();
+		b.age = time + 200f;
+		b.inWater = wet;
+		SwimRig.State rs = new SwimRig.State();
+		rs.time = b.age / 20f;
+		rs.wet = wet;
+		rs.wetness = wet ? 1f : 0f;
+		rs.ground = !wet;
+		float yaw = s.yaw();
+		Vec3 at = st;
+		switch (s.kind()) {
+			case "turn" -> yaw = time / s.frames() * 360f;
+			case "swim" -> {
+				// a loop round the stage at swim speed, gently rising and falling
+				float r = swimRadius(f);
+				float v = f == BeastForm.WHALE ? 0.2f : (f == BeastForm.OCTOPUS ? 0.14f : 0.28f);
+				// a wide flat loop across the view (side to side in front of the camera, turning at the ends)
+				float rx = r * 1.7f, rz = r * 0.55f;
+				float w = v / ((rx + rz) * 0.5f);
+				float a = time * w;
+				float bob = Mth.sin(a * 2f) * (f == BeastForm.WHALE ? 0.6f : 0.8f);
+				float dBob = Mth.cos(a * 2f) * 2f * w * (f == BeastForm.WHALE ? 0.6f : 0.8f);
+				at = st.add(Mth.sin(a) * rx, bob + (f == BeastForm.WHALE ? 1.2f : 1.4f), -Mth.cos(a) * rz);
+				float hx = Mth.cos(a) * rx, hz = Mth.sin(a) * rz;
+				float curv = (rx * rz) / (float) Math.pow(hx * hx + hz * hz, 1.5);
+				rs.turn = -v * curv * 20f; // heading +X then round toward +Z = turning right
+				yaw = (float) Math.toDegrees(Math.atan2(hx, hz));
+				rs.speed = v;
+				rs.dist = time * v;
+				rs.pitch = (float) -Math.atan2(dBob, v);
+				for (int k = 0; k < 40; k++) {
+					rs.time = (b.age - (40 - k) * 0.5f) / 20f;
+					rs.recordForPreview();
+				}
+				rs.time = b.age / 20f;
+			}
+			case "land" -> {
+				b.walkAmt = f == BeastForm.OCTOPUS ? (time < 35 ? 1f : 0f) : 0f;
+				b.walkPos = time * 0.9f;
+				rs.speed = 0.02f * b.walkAmt;
+			}
+			case "still" -> {
+				if (!s.where().equals("tank")) {
+					rs.wet = true;
+					rs.wetness = 1f;
+					rs.ground = false;
+					b.inWater = true;
+				}
+			}
+			default -> {
+				if (s.kind().startsWith("move:")) {
+					b.move = s.kind().substring(5);
+					b.prog = Math.min(1f, Math.max(0f, (time - 3f) / (s.frames() - 7f)));
+					if (time < 3f) {
+						b.move = null;
+					}
+				}
+			}
+		}
+		if (s.kind().equals("still") || s.kind().equals("turn") || s.kind().startsWith("move")) {
+			at = at.add(0, wet && s.where().equals("tank") ? (f == BeastForm.OCTOPUS ? 0.6f : 1.2f) : 0f, 0);
+		}
+		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(at.add(0, 1, 0)));
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		SwimRig.bind(rs);
+		BeastFormArt.renderPose(f, b, pose, buffers, light, 0xFFFFFFFF);
+		pose.popPose();
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
