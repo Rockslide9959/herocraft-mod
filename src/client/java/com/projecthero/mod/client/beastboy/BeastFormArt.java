@@ -6,14 +6,18 @@ import com.projecthero.mod.beastboy.BeastForm;
 import com.projecthero.mod.client.beastboy.model.BeastMesh;
 import com.projecthero.mod.client.beastboy.model.BeastModel;
 import com.projecthero.mod.client.beastboy.model.BeastPose;
+import com.projecthero.mod.client.beastboy.model.BatModel;
 import com.projecthero.mod.client.beastboy.model.ElephantModel;
+import com.projecthero.mod.client.beastboy.model.FlyModel;
 import com.projecthero.mod.client.beastboy.model.GorillaModel;
+import com.projecthero.mod.client.beastboy.model.HawkModel;
 import com.projecthero.mod.client.beastboy.model.OctopusModel;
 import com.projecthero.mod.client.beastboy.model.PteroModel;
 import com.projecthero.mod.client.beastboy.model.QuickMorphs;
 import com.projecthero.mod.client.beastboy.model.RhinoModel;
 import com.projecthero.mod.client.beastboy.model.SharkModel;
 import com.projecthero.mod.client.beastboy.model.SmallModels;
+import com.projecthero.mod.client.beastboy.model.SnakeModel;
 import com.projecthero.mod.client.beastboy.model.TRexModel;
 import com.projecthero.mod.client.beastboy.model.WhaleModel;
 import com.projecthero.mod.client.beastboy.model.WolfModel;
@@ -93,9 +97,11 @@ public final class BeastFormArt {
 			case OCTOPUS -> p -> OctopusModel.draw(p, s);
 			case WHALE -> p -> WhaleModel.draw(p, s);
 			case MOUSE -> p -> SmallModels.mouse(p, s);
-			case FLY -> p -> SmallModels.fly(p, s);
+			case FLY -> p -> FlyModel.draw(p, s); // HQ round: own class (was SmallModels.fly)
 			case BEAST -> p -> BeastModel.draw(p, s);
-			case SNAKE -> p -> SmallModels.snake(p, s);
+			case SNAKE -> p -> SnakeModel.draw(p, s); // HQ round: own class (was SmallModels.snake)
+			case HAWK -> p -> HawkModel.draw(p, s); // HQ round
+			case BAT -> p -> BatModel.draw(p, s); // HQ round
 			case WOLF -> p -> WolfModel.draw(p, s);
 			default -> null;
 		};

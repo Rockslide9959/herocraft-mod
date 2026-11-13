@@ -40,6 +40,9 @@ public final class BeastMesh {
 	private static int overlay = OverlayTexture.NO_OVERLAY;
 	private static int r = 255, g = 255, b = 255, a = 255;
 	private static int pass;
+	/** HQ round: the buffers and see-through flag of the draw in progress, so a body can switch atlases mid-pass ({@link #texture}). */
+	private static MultiBufferSource bufs;
+	private static boolean seeAll;
 
 	private BeastMesh() {
 	}
@@ -78,6 +81,8 @@ public final class BeastMesh {
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
 		boolean see = ta < 250;
+		bufs = buffers;
+		seeAll = see;
 		r = mr;
 		g = mg;
 		b = mb;
@@ -104,6 +109,23 @@ public final class BeastMesh {
 		}
 		pose.popPose();
 		vc = null;
+		bufs = null;
+	}
+
+	/**
+	 * HQ round: draws the rest of this pass of the current body from another atlas laid out on the same 8x8 swatch grid (any resolution).
+	 * The reserved swatches keep their meaning there: FLYWING see-through, GLOW the morph flash, EYE / EYE_SLIT / EYE_FIERCE unflashed.
+	 * Every pass starts on {@link #TEX} again, so a body calls this first thing.
+	 */
+	public static void texture(ResourceLocation tex) {
+		if (vc == null || bufs == null) {
+			return;
+		}
+		vc = bufs.getBuffer(switch (pass) {
+			case PASS_TRANSLUCENT -> RenderType.entityTranslucent(tex);
+			case PASS_GLOW -> RenderType.eyes(tex);
+			default -> seeAll ? RenderType.entityTranslucent(tex) : RenderType.entityCutoutNoCull(tex);
+		});
 	}
 
 	// ------------------------------------------------------------------------------------------------------------------ bones
@@ -408,6 +430,22 @@ public final class BeastMesh {
 			l = 1f;
 		}
 		vc.addVertex(p, x, y, z).setColor(r, g, b, a).setUv(tu, tv).setOverlay(overlay).setLight(light).setNormal(p, nx / l, ny / l, nz / l);
+	}
+
+	/**
+	 * HQ round (box models with their own UV layouts, see {@code Blocky}): whether the current pass draws a raw-UV part that is
+	 * see-through ({@code seeThrough}) or opaque. The morph flash draws the opaque ones.
+	 */
+	public static boolean drawsRaw(boolean seeThrough) {
+		if (vc == null) {
+			return false;
+		}
+		return pass == PASS_TRANSLUCENT ? seeThrough : !seeThrough;
+	}
+
+	/** HQ round: one vertex with raw atlas UVs (0..1) in the current draw's colour, light and overlay. */
+	public static void rawVertex(PoseStack.Pose p, float x, float y, float z, float u, float v, float nx, float ny, float nz) {
+		vc.addVertex(p, x, y, z).setColor(r, g, b, a).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(p, nx, ny, nz);
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------- vec math

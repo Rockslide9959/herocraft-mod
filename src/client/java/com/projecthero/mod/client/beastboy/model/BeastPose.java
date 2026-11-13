@@ -27,6 +27,8 @@ public final class BeastPose {
 	 * a damped swing against the body's turns). Set by {@link #of} from the per-player smoothing below, or directly by a preview.
 	 */
 	public float sit, tailLag;
+	/** HQ round: whose pose this is (smoothing keys for the flyers' and reptiles' own state); previews pick any id, -1 = none. */
+	public int entityId = -1;
 
 	/** Per-player smoothing (entity id -> {sit, tail lag, last body yaw, last time s}); client render thread only. */
 	private static final Map<Integer, float[]> SMOOTH = new HashMap<>();
@@ -35,10 +37,12 @@ public final class BeastPose {
 	/** Drops the smoothing state (leaving a world). */
 	public static void clearSmoothing() {
 		SMOOTH.clear();
+		MotionState.clear();
 	}
 
 	public static BeastPose of(AbstractClientPlayer player, float pt, String move, float prog) {
 		BeastPose s = new BeastPose();
+		s.entityId = player.getId();
 		s.walkPos = player.walkAnimation.position(pt);
 		s.walkAmt = Mth.clamp(player.walkAnimation.speed(pt), 0f, 1f);
 		s.age = player.tickCount + pt;
