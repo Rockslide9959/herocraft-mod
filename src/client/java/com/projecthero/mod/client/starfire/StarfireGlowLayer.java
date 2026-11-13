@@ -27,7 +27,7 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.3 Starfire's glow overlays, on her own body, every viewer. The power never changes the skin: these are emissive extras.
  * <ul>
- *   <li><b>Glowing hands</b> while a starbolt is ready (Starbolt to pay for one, R off cooldown): two soft additive shells fitted to
+ *   <li><b>Glowing hands</b> for 1 s after she uses a move (and while a Star Burst is gathered): two soft additive shells fitted to
  *   the hand end of each arm (wide or slim), their faces fading to nothing at the edges so the glow has no hard square outline.
  *   The same glow is drawn on the first-person arm ({@code StarfireFirstPersonArmMixin}).</li>
  * </ul>
@@ -78,9 +78,36 @@ public class StarfireGlowLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 	}
 
 	/** Is a starbolt ready (or a burst charging / the eye beams on)? Then her fists glow. */
+	/** v0.17.3 (user: "only make her hands glow for 1 second after using an ability"): how long the glow lasts after a move. */
+	private static final int GLOW_AFTER_MOVE = 20;
+	/** Per player: the sum of her move cooldown stamps last seen, and the game time it last went up (a move was used). */
+	private static final java.util.Map<java.util.UUID, long[]> LAST_MOVE = new java.util.HashMap<>();
+
+	/** Client tracker cleared on disconnect (UUIDs and numbers only). */
+	static void clear() {
+		LAST_MOVE.clear();
+	}
+
+	/** Her fists glow for 1 s after any move (a cooldown stamp moving forward), and while a Star Burst is gathered in her hands. */
 	static boolean handsGlow(AbstractClientPlayer player, StarfireState s) {
-		return s.starbolt >= Starfire.boltCost(player, StarfireConfig.BOLT_COST) && Starfire.cooldownRemaining(player, StarfireAbilityManager.STARBOLT) <= 0
-				|| s.chargeMove == StarfireState.CHARGE_BURST || s.beams;
+		if (s.chargeMove == StarfireState.CHARGE_BURST) {
+			return true;
+		}
+		long sum = 0;
+		for (Long v : s.abilityReadyAt.values()) {
+			sum += v == null ? 0 : v;
+		}
+		long now = player.level().getGameTime();
+		long[] last = LAST_MOVE.get(player.getUUID());
+		if (last == null) {
+			LAST_MOVE.put(player.getUUID(), new long[] { sum, Long.MIN_VALUE / 2 });
+			return false;
+		}
+		if (sum > last[0]) {
+			last[1] = now;
+		}
+		last[0] = sum;
+		return now - last[1] < GLOW_AFTER_MOVE;
 	}
 
 	/**

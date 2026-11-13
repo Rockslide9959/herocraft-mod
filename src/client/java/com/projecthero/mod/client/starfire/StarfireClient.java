@@ -42,7 +42,10 @@ public final class StarfireClient {
 		WorldRenderEvents.AFTER_ENTITIES.register(StarfireFx::render);
 		// v0.17.3 animation round: the move poses' per-player trackers (StarfirePose), dropped on leaving a world
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> StarfirePose.clientTick(mc.level));
-		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> StarfirePose.clear());
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			StarfirePose.clear();
+			StarfireGlowLayer.clear();
+		});
 	}
 
 	/** Double-tap Space in the air as Starfire: take off / land (the server re-checks). */
