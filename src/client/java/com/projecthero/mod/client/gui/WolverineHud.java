@@ -1,5 +1,8 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.wolverine.Wolverine;
@@ -7,53 +10,45 @@ import com.projecthero.mod.wolverine.WolverineAbilityManager;
 import com.projecthero.mod.wolverine.WolverineConfig;
 import com.projecthero.mod.wolverine.data.WolverineState;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 
 /**
- * The Wolverine HUD (v0.12.1): the six abilities with their keys + cooldowns, laid out exactly like
- * {@link PunisherHud} / {@link AbilityHud} (bottom-right; hold Left-Alt for the move names), plus the
- * "WOLVERINE" label with the claw state and a Rage timer. Only drawn while the player is Wolverine.
+ * The Wolverine HUD. v0.17.3: on the vanilla pieces ({@link VanillaHud.Stack}), bottom-right like the newest powers:
+ * <pre>
+ *   Claws: Deployed  RAGE 12s  Full HP to heal        status tags
+ *   WOLVERINE                                         title
+ *   Execution [==========]  READY                     while Z charges the Adamantium Execution
+ *   Skin      [=====|----]   45%                      Death Surge skin recovery (the half mark: debuffs gone past it)
+ *   Healing   [========--]   80%                      the Healing Factor pool
+ *   +--+--+--+--+--+--+                               R G Z X C V: the plain move (Shift: the Shift move) with its cooldown;
+ *                                                     the other move's cooldown is the durability bar. C (Berserker Rage) has
+ *                                                     no cooldown: its key fills with the rage meter, framed while it burns.
+ * </pre>
+ * Hold Left-Alt for the move names. Only drawn while the player is Wolverine.
  */
 public final class WolverineHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int COLOR_BOX_BG = 0xC0121212;
-	private static final int COLOR_BORDER = 0xFF3A3A3A;
-	private static final int COLOR_COOLDOWN = 0xB0000000;
-	private static final int COLOR_KEY = 0xFFD8D8D8;
-	private static final int COLOR_NAME = 0xFFE0E0E0;
-
 	private static final String[] NAME_KEYS = {
 			"projecthero.wolverine.ability.claw_slash", "projecthero.wolverine.ability.cross_slash",
 			"projecthero.wolverine.ability.claw_dash", "projecthero.wolverine.ability.berserker_plunge",
 			"projecthero.wolverine.ability.frenzy", "projecthero.wolverine.ability.berserker_rage"
 	};
 
-	/** v0.16.1: each key's Shift move, named under Alt and shown as a thin bar along the bottom of its box. */
+	/** v0.16.1: each key's Shift move (indexed by slot, R G X Z V C), named under Alt and shown as the durability bar. */
 	private static final String[] SHIFT_NAME_KEYS = {
 			"projecthero.wolverine.ability.rising_uppercut", "projecthero.wolverine.ability.whirlwind",
 			"projecthero.wolverine.ability.pounce", "projecthero.wolverine.ability.adamantium_execution",
 			"projecthero.wolverine.ability.bleed_flurry", "projecthero.wolverine.ability.feral_roar"
 	};
-	private static final int SHIFT_BAR_TRACK = 0xC0101820;
-	private static final int SHIFT_BAR_COOLING = 0xFF5A6E88;
-	private static final int SHIFT_BAR_READY = 0xFFB4DCFF;
 
 	private WolverineHud() {
 	}
 
-	/** The Shift move's own cooldown: a thin bar along the bottom of the box that refills, bright once ready. */
-	private static void shiftBar(GuiGraphics g, net.minecraft.client.player.LocalPlayer player, AbilitySlot slot, int x, int y0) {
-		int scd = Wolverine.cooldownRemaining(player, WolverineAbilityManager.shiftAbilityIdOf(slot));
-		int smax = Math.max(1, WolverineAbilityManager.shiftMaxCooldown(slot));
-		float ready = scd <= 0 ? 1f : 1f - Math.min(1f, scd / (float) smax);
-		g.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, SHIFT_BAR_TRACK);
-		g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ready >= 1f ? SHIFT_BAR_READY : SHIFT_BAR_COOLING);
+	private static float frac(int cd, int max) {
+		return cd <= 0 || max <= 0 ? 0f : Math.min(1f, cd / (float) max);
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
@@ -65,106 +60,78 @@ public final class WolverineHud {
 		if (s == null) {
 			return;
 		}
+		LocalPlayer player = mc.player;
 		long now = mc.level.getGameTime();
-		int totalW = BOX * 6 + GAP * 5;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - BOX - MARGIN - 26 - 24;
-		// v0.15.18: the skin-recovery readout (wrapped text + thin bar) pushes the whole panel up so nothing falls off the screen
-		float skin = Math.max(0f, Math.min(1f, s.skinRecovery));
-		boolean skinPaused = mc.player.getHealth() < mc.player.getMaxHealth();
-		java.util.List<net.minecraft.util.FormattedCharSequence> skinRows = s.skinRecovery < 1.0f
-				? mc.font.split(Component.translatable(skinPaused ? "hud.projecthero.wolverine.skin_paused" : "hud.projecthero.wolverine.skin",
-						(int) Math.floor(skin * 100.0f + 1.0e-3f)).withStyle(skinPaused ? ChatFormatting.RED : ChatFormatting.GOLD), totalW)
-				: java.util.List.of();
-		if (!skinRows.isEmpty()) {
-			y0 -= skinRows.size() * 9 + 6;
-		}
-		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
+		boolean shift = player.isShiftKeyDown();
 
-		for (int i = 0; i < 6; i++) {
-			int x = x0 + i * (BOX + GAP);
-			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			if (i == 5) {
-				// Berserker Rage has no cooldown: the box fills with the rage bar (or drains with the rage)
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			int pcd = Wolverine.cooldownRemaining(player, WolverineAbilityManager.abilityIdOf(slot));
+			int scd = Wolverine.cooldownRemaining(player, WolverineAbilityManager.shiftAbilityIdOf(slot));
+			float pFrac = frac(pcd, WolverineAbilityManager.maxCooldown(slot));
+			float sFrac = frac(scd, WolverineAbilityManager.shiftMaxCooldown(slot));
+			if (slot == AbilitySlot.SLOT_6) {
+				// Berserker Rage has no cooldown: the key fills with the rage meter (or drains with the rage)
 				boolean burning = s.rageUntil > now;
-				float frac = burning ? (s.rageUntil - now) / (float) WolverineConfig.RAGE_TICKS
-						: s.rageMeter / WolverineConfig.RAGE_BAR_MAX;
-				int h = (int) (BOX * Math.max(0f, Math.min(1f, frac)));
-				g.fill(x + 1, y0 + BOX - h, x + BOX - 1, y0 + BOX - 1, burning ? 0xA0FF3030 : (frac >= 1f ? 0xA0FF6A00 : 0x70A02020));
-				shiftBar(g, mc.player, slot, x, y0);
-				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, frac >= 1f || burning ? 0xFFFFFFFF : COLOR_KEY, true);
+				float rage = burning ? (s.rageUntil - now) / (float) WolverineConfig.RAGE_TICKS : s.rageMeter / WolverineConfig.RAGE_BAR_MAX;
+				st.slot(i, VanillaHud.keyLabel(slot), true, shift, shift ? sFrac : 0f, shift ? VanillaHud.seconds(scd) : 0,
+						shift ? 0f : sFrac, burning);
+				st.hold(i, Math.max(0f, Math.min(1f, rage)));
 				continue;
 			}
-			int cd = Wolverine.cooldownRemaining(mc.player, WolverineAbilityManager.abilityIdOf(slot));
-			int max = WolverineAbilityManager.maxCooldown(slot);
-			shiftBar(g, mc.player, slot, x, y0);
-			if (cd > 0 && max > 0) {
-				int h = (int) (BOX * Math.min(1f, cd / (float) max));
-				g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COLOR_COOLDOWN);
-				g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y0 + 6, 0xFFFFFFFF, true);
-			} else {
-				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, COLOR_KEY, true);
-			}
-		}
-		if (expanded) {
-			// v0.16.6: the shared move list (each key: plain move + Shift move), stacked above the boxes
-			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
-			for (int i = 0; i < 6; i++) {
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(NAME_KEYS[i]),
-						Component.translatable(SHIFT_NAME_KEYS[i])));
-			}
-			MoveListOverlay.draw(g, x0 + totalW, y0, rows);
+			st.slot(i, VanillaHud.keyLabel(slot), true, shift, shift ? sFrac : pFrac, VanillaHud.seconds(shift ? scd : pcd),
+					shift ? pFrac : sFrac, false);
 		}
 
-		int line = y0 + BOX + 2;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.title")
-				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, line, 0xFFFFAA00, true);
-		Component claws = Component.translatable(s.clawsOut ? "hud.projecthero.wolverine.claws_deployed"
-				: "hud.projecthero.wolverine.claws_retracted");
-		line += 10;
-		g.drawString(mc.font, claws, x0, line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
-		line += 10;
-		// v0.12.41: Healing Factor pool: "Healing Factor 80%", then the pool bar
+		// v0.12.41: the Healing Factor pool (v0.15.18: no Death Surge pixel or 30-cost tick any more)
 		float pool = Math.max(0f, Math.min(WolverineConfig.HEAL_POOL_MAX, s.healPool));
 		float pf = pool / WolverineConfig.HEAL_POOL_MAX;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.healing",
-				(int) Math.floor(pf * 100.0f + 1.0e-3f)).withStyle(pool <= 0f ? ChatFormatting.RED : ChatFormatting.GREEN),
-				x0, line, 0xFF55FF77, true);
-		line += 10;
-		// v0.15.18: no Death Surge pixel or 30-cost tick any more; the bar runs full width
-		int bx = x0;
-		int bw = totalW;
-		g.fill(bx, line, bx + bw, line + 3, COLOR_BOX_BG);
-		g.fill(bx, line, bx + (int) (bw * pf), line + 3, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A);
-		line += 6;
-		if (!skinRows.isEmpty()) {
-			// v0.15.18: Death Surge skin recovery -- only advances at full HP ("Full HP to heal" while paused)
-			for (var row : skinRows) {
-				g.drawString(mc.font, row, x0, line, 0xFFFFAA00, true);
-				line += 9;
-			}
-			line += 1;
-			g.fill(x0, line, x0 + totalW, line + 2, COLOR_BOX_BG);
-			g.fill(x0, line, x0 + (int) (totalW * skin), line + 2, skinPaused ? 0xFF8A5A40 : 0xFFE0A070);
-			int half = x0 + (int) (totalW * WolverineConfig.SURGE_DEBUFF_UNTIL);
-			g.fill(half, line, half + 1, line + 2, 0xFFFFFFFF); // past here the debuffs are gone
-			line += 5;
+		st.meter(Component.translatable("hud.projecthero.wolverine.healing_label"), pf, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A,
+				(int) Math.floor(pf * 100.0f + 1.0e-3f) + "%", pool <= 0f ? VanillaHud.RED : VanillaHud.GREEN);
+
+		// v0.15.18: Death Surge skin recovery -- only advances at full HP ("Full HP to heal" while paused)
+		boolean skinPaused = mc.player.getHealth() < mc.player.getMaxHealth();
+		if (s.skinRecovery < 1.0f) {
+			float skin = Math.max(0f, Math.min(1f, s.skinRecovery));
+			Component label = Component.translatable("hud.projecthero.wolverine.skin_label");
+			String value = (int) Math.floor(skin * 100.0f + 1.0e-3f) + "%";
+			st.meter(label, skin, skinPaused ? 0xFF8A5A40 : 0xFFE0A070, value, skinPaused ? VanillaHud.RED : VanillaHud.GOLD);
+			MeterMarks.marks(st, label, value, 0xFFFFFFFF, WolverineConfig.SURGE_DEBUFF_UNTIL); // past here the debuffs are gone
 		}
+
+		// the Adamantium Execution charge (hold Shift+Z)
+		boolean chargeReady = false;
 		if (s.chargeStartedAt != 0L) {
 			float frac = Math.min(1f, (now - s.chargeStartedAt) / (float) WolverineConfig.EXECUTION_CHARGE_TICKS);
-			g.drawString(mc.font, Component.translatable(frac >= 1f ? "hud.projecthero.wolverine.charge_ready"
-					: "hud.projecthero.wolverine.charging", (int) (frac * 100)).withStyle(ChatFormatting.GOLD), x0, line, 0xFFFFAA00, true);
-			line += 10;
-			g.fill(x0, line, x0 + totalW, line + 3, COLOR_BOX_BG);
-			g.fill(x0, line, x0 + (int) (totalW * frac), line + 3, frac >= 1f ? 0xFFFFD34A : 0xFFE08A00);
-			line += 6;
+			chargeReady = frac >= 1f;
+			st.meter(Component.translatable("hud.projecthero.wolverine.execution_label"), frac, frac >= 1f ? 0xFFFFD34A : 0xFFE08A00,
+					chargeReady ? Component.translatable("hud.projecthero.wolverine.ready_value").getString() : (int) (frac * 100) + "%",
+					VanillaHud.GOLD);
 		}
+
+		st.title(Component.translatable("hud.projecthero.wolverine.title"), VanillaHud.GOLD);
+		List<VanillaHud.Tag> tags = new ArrayList<>();
+		tags.add(new VanillaHud.Tag(Component.translatable(s.clawsOut ? "hud.projecthero.wolverine.claws_deployed"
+				: "hud.projecthero.wolverine.claws_retracted").getString(), s.clawsOut ? 0xFFE8E8E8 : 0xFF909090));
 		if (s.rageUntil > now) {
-			g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.rage",
-					(int) ((s.rageUntil - now + 19) / 20)).withStyle(ChatFormatting.RED), x0, line, 0xFFFF5555, true);
-			line += 10;
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.wolverine.rage", (int) ((s.rageUntil - now + 19) / 20)).getString(),
+					VanillaHud.RED));
 		}
+		if (s.skinRecovery < 1.0f && skinPaused) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.wolverine.skin_paused_tag").getString(), VanillaHud.RED));
+		}
+		st.tags(tags);
+		if (chargeReady) {
+			st.wrapped(Component.translatable("hud.projecthero.wolverine.charge_ready"), VanillaHud.GOLD); // "... release Z", wrapped
+		}
+
+		// v0.16.6: the shared move list (each key: plain move + Shift move), stacked above the column
+		List<MoveListOverlay.Row> rows = new ArrayList<>();
+		for (AbilitySlot slot : VanillaHud.ORDER) {
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable(NAME_KEYS[slot.index()]),
+					Component.translatable(SHIFT_NAME_KEYS[slot.index()])));
+		}
+		st.moveList(rows);
 	}
 }

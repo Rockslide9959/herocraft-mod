@@ -1,14 +1,17 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.maxsteel.MaxSteel;
 import com.projecthero.mod.maxsteel.MaxSteelConfig;
 import com.projecthero.mod.maxsteel.MaxSteelMode;
 import com.projecthero.mod.maxsteel.data.MaxSteelFx;
 import com.projecthero.mod.maxsteel.data.MaxSteelState;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,40 +19,32 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Max Steel HUD, v0.14.2 layout (bottom-right, top to bottom):
+ * The Max Steel HUD. v0.17.3: on the vanilla pieces ({@link VanillaHud.Stack}), bottom-right like the newest powers; Max Steel
+ * stays <b>blue</b> in every mode (every boss bar here is the blue one, white only when a charge is full):
  * <pre>
- *   [R][G][X][Z][V][C]                    ability keys -- cooldowns drain up from the bottom of each box
- *   MAX STEEL                    READY    title + IN COMBAT / READY / OVERLOAD
- *                         TURBO MODE  Strength   v0.14.3: only the mode he is in, lit blue
- *   T.U.R.B.O. 82%                         energy, then its <b>hairline</b> bar
- *   Turbo Cannon READY / Recharging 3.4s / Charging 45%, then its hairline bar
- *   (Turbo Blast 67% while R is held · Going Turbo / Powering Down while the suit forms)
+ *   READY  TURBO MODE Strength  LOCKED     tags: IN COMBAT / READY / OVERLOADED, the mode he is in, the cannon lock
+ *   MAX STEEL                               title
+ *   Going Turbo   [Hairline ======-]  64%   while the suit forms / retracts
+ *   Blast (2)     [Hairline ==|==|=-] 45%   while R is held (the stage notches)
+ *   Cannon        [Hairline ========] READY / 3.4s / 45% / FULL
+ *   T.U.R.B.O.    [Hairline =====|--]  82%  energy (the overload recovery mark while locked out)
+ *   +--+--+--+--+--+--+                     R G Z X C V: cooldowns; the Turbo Mode he is in lights its key; greyed while overloaded
  * </pre>
- * Every bar is a <b>Hairline</b> bar (3 px, no border, the label on the line above). Hold Left-Alt for the move names.
- * Unsuited, a compact version shows the title, "MODE Normal" (v0.14.4: no "press H" hint any more) and the energy,
- * which regenerates in Normal form too. While the suit forms straight into a Turbo Mode the mode row already shows it.
+ * Every bar is a <b>Hairline</b> bar, as before. Hold Left-Alt for the move names. Unsuited, a compact version shows the title,
+ * "MODE Normal" and the energy, which regenerates in Normal form too.
  *
  * <p>Also keeps the brief directional threat marker fed by
  * {@link com.projecthero.mod.network.MaxSteelWarningPayload} (see {@link #flashWarning}).
  */
 public final class MaxSteelHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-	private static final int HAIR = 3;
-
 	private static final int CYAN = 0xFF35E0F0;
 	private static final int LOW = 0xFFFF5A5A;
-	private static final int TRACK = 0x90071820;
-	private static final int BOX_BG = 0xC0071820;
-	private static final int BORDER = 0xFF1E5A66;
-	private static final int COOLDOWN = 0xB0000000;
-	private static final int KEY = 0xFFCFF4F8;
 	private static final int DIM = 0xFF6F8A90;
 	private static final int BLUE = 0xFF3FA8FF;
 	private static final int WHITE = 0xFFE8FFFF;
+	private static final MutationMeters.Style HAIRLINE = MutationMeters.Style.HAIRLINE;
 
-	/** Slot 1..6 -> the ability id whose cooldown that box shows (or null), and its full length. */
+	/** Slot 1..6 -> the ability id whose cooldown that key shows (or null), and its full length. */
 	private static final String[] SLOT_COOLDOWNS = {
 			"turbo_blast", "turbo_slam", "turbo_dash", null, "turbo_stealth", "turbo_cannon"
 	};
@@ -97,25 +92,16 @@ public final class MaxSteelHud {
 		float pt = delta.getGameTimeDeltaPartialTick(false);
 		float energy = Math.max(0f, Math.min(MaxSteelConfig.MAX_TURBO_ENERGY, s.turboEnergy));
 		boolean overloaded = s.lockoutUntil != 0L && energy < MaxSteelConfig.OVERLOAD_RECOVER_ENERGY;
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int right = x0 + totalW;
 
 		if (!s.transformed) {
-			// compact (v0.14.4): the title with "MODE Normal" beside it, then the pool -- it regenerates here too
-			int y = g.guiHeight() - MARGIN - 24;
-			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.title")
-					.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y, CYAN, true);
-			Component normalTag = Component.translatable("hud.projecthero.max_steel.mode_label_normal");
-			Component normal = Component.translatable("hud.projecthero.max_steel.mode_row.normal");
-			int nx = right - mc.font.width(normal);
-			g.drawString(mc.font, normalTag, nx - 4 - mc.font.width(normalTag), y, DIM, true);
-			g.drawString(mc.font, normal, nx, y, 0xFFE0E0E0, true);
-			y += 10;
-			energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
-			if (MoveListOverlay.held()) { // v0.16.6: the shared move list -- only H (Go Turbo) does anything out of the suit
-				MoveListOverlay.draw(g, right, y - 10, java.util.List.of(hRow()));
-			}
+			// compact (v0.14.4): the pool (it regenerates here too), the title, "MODE Normal"
+			VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6);
+			energyRow(st, energy, overloaded, now);
+			st.title(Component.translatable("hud.projecthero.max_steel.title"), CYAN);
+			st.tags(List.of(new VanillaHud.Tag(Component.translatable("hud.projecthero.max_steel.mode_label_normal").getString(), DIM),
+					new VanillaHud.Tag(Component.translatable("hud.projecthero.max_steel.mode_row.normal").getString(), 0xFFE0E0E0)));
+			// v0.16.6: the shared move list -- only H (Go Turbo) does anything out of the suit
+			st.moveList(List.of(hRow()));
 			return;
 		}
 
@@ -125,123 +111,88 @@ public final class MaxSteelHud {
 		}
 		boolean blastCharging = fx.blastChargeStart() != 0L && now - fx.blastChargeStart() >= 2;
 		boolean forming = s.transformDir != MaxSteelState.DIR_IDLE;
-		// height: boxes + title + modes + energy(label+bar) + cannon(label+bar) [+ blast] [+ forming]
-		int height = BOX + 2 + 10 + 11 + 10 + HAIR + 3 + 10 + HAIR + (blastCharging ? 3 + 10 + HAIR : 0) + (forming ? 3 + 10 + HAIR : 0);
-		int y0 = g.guiHeight() - MARGIN - height;
 		MaxSteelMode mode = MaxSteel.formMode(player); // v0.14.4: the target mode already, while suiting up into one
-		// v0.16.6: Left-Alt -> the shared move list (the six keys, then H), stacked above the key row
-		if (MoveListOverlay.held()) {
-			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
-			for (int i = 0; i < 6; i++) {
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable("projecthero.max_steel.ability." + SLOT_NAMES[i]), null));
-			}
-			rows.add(hRow());
-			MoveListOverlay.draw(g, right, y0, rows);
+
+		// ---- ability keys (R G Z X C V)
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
+			AbilitySlot slot = VanillaHud.ORDER[i];
+			int k = slot.index();
+			boolean active = SLOT_MODE[k] != null && SLOT_MODE[k] == mode;
+			int cd = SLOT_COOLDOWNS[k] != null && !overloaded ? MaxSteel.cooldownRemaining(player, SLOT_COOLDOWNS[k]) : 0;
+			st.slot(i, VanillaHud.keyLabel(slot), !overloaded, false, cd > 0 ? Math.min(1f, cd / (float) SLOT_MAX[k]) : 0f,
+					VanillaHud.seconds(cd), 0f, active);
 		}
-
-		// ---- ability keys
-		for (int i = 0; i < 6; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			int x = x0 + i * (BOX + GAP);
-			boolean active = SLOT_MODE[i] != null && SLOT_MODE[i] == mode;
-			int accent = active ? modeColour(mode) : BORDER;
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, accent);
-			if (active) {
-				g.fill(x + 1, y0 + BOX - 2, x + BOX - 1, y0 + BOX - 1, accent); // lit underline for the active mode
-			}
-			int cd = SLOT_COOLDOWNS[i] != null ? MaxSteel.cooldownRemaining(player, SLOT_COOLDOWNS[i]) : 0;
-			if (overloaded) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, DIM, true);
-			} else if (cd > 0) {
-				int h = (int) (BOX * Math.min(1f, cd / (float) SLOT_MAX[i]));
-				g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + 6, 0xFFFFFFFF);
-			} else {
-				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, active ? 0xFFFFFFFF : KEY, true);
-			}
-		}
-
-		// ---- title + status
-		int y = y0 + BOX + 2;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.title")
-				.withStyle(ChatFormatting.BOLD), x0, y, modeColour(mode), true);
-		Component status = overloaded
-				? Component.translatable("message.projecthero.max_steel.overloaded").withStyle(ChatFormatting.RED)
-				: Component.translatable(now < s.combatUntil
-						? "hud.projecthero.max_steel.in_combat" : "hud.projecthero.max_steel.ready")
-						.withStyle(now < s.combatUntil ? ChatFormatting.RED : ChatFormatting.GREEN);
-		g.drawString(mc.font, status, right - mc.font.width(status), y, 0xFFFFFFFF, true);
-		y += 10;
-
-		// ---- v0.14.3: only the Turbo Mode he is in right now (was all five with the active one lit)
-		Component modeTag = Component.translatable("hud.projecthero.max_steel.mode_label");
-		Component modeName = Component.translatable("hud.projecthero.max_steel.mode_row." + mode.lower())
-				.withStyle(ChatFormatting.BOLD);
-		int nameW = mc.font.width(modeName);
-		int mx = right - nameW;
-		g.drawString(mc.font, modeTag, mx - 4 - mc.font.width(modeTag), y, DIM, true);
-		g.drawString(mc.font, modeName, mx, y, modeColour(mode), true);
-		g.fill(mx, y + 9, mx + nameW, y + 10, modeColour(mode));
-		y += 11;
 
 		// ---- T.U.R.B.O. energy
-		energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
-		y += 10 + HAIR + 3;
+		energyRow(st, energy, overloaded, now);
 
 		// ---- Turbo Cannon: charging / recharging / ready
+		Component cannon = Component.translatable("hud.projecthero.max_steel.cannon_label");
 		int cannonCd = MaxSteel.cooldownRemaining(player, "turbo_cannon");
+		Boolean locked = null;
 		if (fx.cannonChargeStart() != 0L) {
 			float c = Math.min(1f, (now - fx.cannonChargeStart() + pt) / MaxSteelConfig.CANNON_MAX_CHARGE_TICKS);
-			boolean locked = fx.cannonTarget() >= 0;
-			Component label = Component.translatable(c >= 1f ? "hud.projecthero.max_steel.cannon_full"
-					: "hud.projecthero.max_steel.cannon_charging", pct(c));
-			g.drawString(mc.font, label, x0, y, c >= 1f ? WHITE : BLUE, true);
-			Component lock = Component.translatable(locked ? "hud.projecthero.max_steel.cannon_locked"
-					: "hud.projecthero.max_steel.cannon_free");
-			g.drawString(mc.font, lock, right - mc.font.width(lock), y, locked ? WHITE : DIM, true);
-			hairline(g, x0, y + 10, totalW, c, c >= 1f ? WHITE : BLUE);
+			locked = fx.cannonTarget() >= 0;
+			st.meter(cannon, c, c >= 1f ? WHITE : BLUE, c >= 1f ? Component.translatable("hud.projecthero.max_steel.full_value").getString()
+					: pct(c) + "%", c >= 1f ? WHITE : BLUE, HAIRLINE);
 		} else if (cannonCd > 0) {
 			float c = 1f - cannonCd / (float) MaxSteelConfig.CANNON_COOLDOWN_TICKS;
-			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.cannon_recharging",
-					String.format(java.util.Locale.ROOT, "%.1f", cannonCd / 20f)), x0, y, DIM, true);
-			hairline(g, x0, y + 10, totalW, c, 0xFF1F5A80);
+			st.meter(cannon, c, 0xFF1F5A80, String.format(java.util.Locale.ROOT, "%.1fs", cannonCd / 20f), DIM, HAIRLINE);
 		} else {
-			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.cannon_ready"), x0, y, BLUE, true);
-			hairline(g, x0, y + 10, totalW, 1f, BLUE);
+			st.meter(cannon, 1f, BLUE, Component.translatable("hud.projecthero.max_steel.ready").getString(), BLUE, HAIRLINE);
 		}
-		y += 10 + HAIR;
 
 		// ---- Turbo Blast charge (while R is held)
 		if (blastCharging) {
-			y += 3;
 			float c = Math.min(1f, (now - fx.blastChargeStart() + pt) / MaxSteelConfig.BLAST_MAX_CHARGE_TICKS);
 			int stage = 0;
-			for (float st : MaxSteelConfig.BLAST_STAGES) {
-				if (c >= st) {
+			for (float stp : MaxSteelConfig.BLAST_STAGES) {
+				if (c >= stp) {
 					stage++;
 				}
 			}
-			g.drawString(mc.font, Component.translatable(c >= 1f ? "hud.projecthero.max_steel.blast_full"
-					: "hud.projecthero.max_steel.blast_charging", pct(c), stage), x0, y, c >= 1f ? 0xFFFFFFFF : CYAN, true);
-			hairline(g, x0, y + 10, totalW, c, c >= 1f ? 0xFFE8FFFF : CYAN);
-			for (float st : MaxSteelConfig.BLAST_STAGES) {
-				int sx = x0 + Math.round(totalW * st) - 1;
-				g.fill(sx, y + 10, sx + 1, y + 10 + HAIR, 0xFF071820); // stage notches
-			}
-			y += 10 + HAIR;
+			Component label = Component.translatable("hud.projecthero.max_steel.blast_label", stage);
+			String value = c >= 1f ? Component.translatable("hud.projecthero.max_steel.full_value").getString() : pct(c) + "%";
+			st.meter(label, c, c >= 1f ? WHITE : CYAN, value, c >= 1f ? 0xFFFFFFFF : CYAN, HAIRLINE);
+			MeterMarks.marks(st, label, value, 0xFF071820, MaxSteelConfig.BLAST_STAGES); // stage notches
 		}
 
 		// ---- suit forming / retracting
 		if (forming) {
-			y += 3;
 			float p = Math.max(0f, Math.min(1f, (now - s.transformStartTick + pt) / Math.max(1, s.transformDurationTicks)));
 			boolean up = s.transformDir == MaxSteelState.DIR_SUITING_UP;
-			g.drawString(mc.font, Component.translatable(up ? "hud.projecthero.max_steel.going_turbo"
-					: "hud.projecthero.max_steel.powering_down", pct(p)), x0, y, 0xFFFFFFFF, true);
-			hairline(g, x0, y + 10, totalW, up ? p : 1f - p, CYAN);
+			st.meter(Component.translatable(up ? "hud.projecthero.max_steel.going_turbo_label" : "hud.projecthero.max_steel.powering_down_label"),
+					up ? p : 1f - p, CYAN, pct(p) + "%", VanillaHud.WHITE, HAIRLINE);
 		}
+
+		// ---- title + status tags
+		st.title(Component.translatable("hud.projecthero.max_steel.title"), modeColour(mode));
+		List<VanillaHud.Tag> tags = new ArrayList<>();
+		if (overloaded) {
+			tags.add(new VanillaHud.Tag(Component.translatable("message.projecthero.max_steel.overloaded").getString(), VanillaHud.RED));
+		} else {
+			boolean combat = now < s.combatUntil;
+			tags.add(new VanillaHud.Tag(Component.translatable(combat ? "hud.projecthero.max_steel.in_combat" : "hud.projecthero.max_steel.ready")
+					.getString(), combat ? VanillaHud.RED : VanillaHud.GREEN));
+		}
+		// v0.14.3: only the Turbo Mode he is in right now
+		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.max_steel.mode_label").getString(), DIM));
+		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.max_steel.mode_row." + mode.lower()).getString(), modeColour(mode)));
+		if (locked != null) {
+			tags.add(new VanillaHud.Tag(Component.translatable(locked ? "hud.projecthero.max_steel.cannon_locked"
+					: "hud.projecthero.max_steel.cannon_free").getString(), locked ? WHITE : DIM));
+		}
+		st.tags(tags);
+
+		// v0.16.6: Left-Alt -> the shared move list (the six keys, then H), stacked above the column
+		List<MoveListOverlay.Row> rows = new ArrayList<>();
+		for (AbilitySlot slot : VanillaHud.ORDER) {
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
+					Component.translatable("projecthero.max_steel.ability." + SLOT_NAMES[slot.index()]), null));
+		}
+		rows.add(hRow());
+		st.moveList(rows);
 
 		// directional threat marker
 		if (now < warningUntil) {
@@ -261,26 +212,19 @@ public final class MaxSteelHud {
 		return MoveListOverlay.Row.of(MoveListOverlay.key(6), Component.literal(text), null);
 	}
 
-	/** "T.U.R.B.O. 82%" then its hairline, with the overload recovery mark while locked out. */
-	private static void energyBar(GuiGraphics g, Minecraft mc, int x0, int y, int w, float energy, boolean overloaded, long now) {
+	/**
+	 * "T.U.R.B.O. [Hairline] 82%", the bar always blue (it blinks out while low / overloaded, the value turns red), with the
+	 * overload recovery mark while locked out.
+	 */
+	private static void energyRow(VanillaHud.Stack st, float energy, boolean overloaded, long now) {
 		float frac = energy / MaxSteelConfig.MAX_TURBO_ENERGY;
 		boolean low = energy < MaxSteelConfig.LOW_ENERGY_WARN;
 		boolean pulseOff = (low || overloaded) && (now % 10) < 4;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.turbo_pct", pct(frac)), x0, y,
-				low || overloaded ? LOW : 0xFFA8DDE6, true);
-		hairline(g, x0, y + 10, w, pulseOff ? 0f : frac, low ? LOW : CYAN);
+		Component label = Component.translatable("hud.projecthero.max_steel.turbo_label");
+		String value = pct(frac) + "%";
+		st.meter(label, pulseOff ? 0f : frac, CYAN, value, low || overloaded ? LOW : 0xFFA8DDE6, HAIRLINE);
 		if (overloaded) {
-			int mark = x0 + Math.round(w * (MaxSteelConfig.OVERLOAD_RECOVER_ENERGY / MaxSteelConfig.MAX_TURBO_ENERGY));
-			g.fill(mark, y + 9, mark + 1, y + 10 + HAIR + 1, 0xFFFFDD33);
-		}
-	}
-
-	/** A Hairline bar: 3 px, no border, no text -- a dim track and the fill. */
-	private static void hairline(GuiGraphics g, int x, int y, int w, float frac, int colour) {
-		g.fill(x, y, x + w, y + HAIR, TRACK);
-		int fw = Math.round(w * Math.max(0f, Math.min(1f, frac)));
-		if (fw > 0) {
-			g.fill(x, y, x + fw, y + HAIR, colour);
+			MeterMarks.marks(st, label, value, 0xFFFFDD33, MaxSteelConfig.OVERLOAD_RECOVER_ENERGY / MaxSteelConfig.MAX_TURBO_ENERGY);
 		}
 	}
 
