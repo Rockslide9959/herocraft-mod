@@ -67,7 +67,15 @@ public final class DoctorFateClient {
 		ClientPlayNetworking.registerGlobalReceiver(FateBargainPayload.TYPE, (payload, context) -> openBargain(payload));
 		ClientPlayNetworking.registerGlobalReceiver(FateServePayload.TYPE,
 				(payload, context) -> Minecraft.getInstance().setScreen(new FateServeScreen(payload.pos())));
-		ClientPlayNetworking.registerGlobalReceiver(FateFxPayload.TYPE, (payload, context) -> FateFx.receive(payload));
+		ClientPlayNetworking.registerGlobalReceiver(FateFxPayload.TYPE, (payload, context) -> {
+			if (payload.kind() == FateFxPayload.MIND_REPLY) {
+				FateMindscapeScreen.receive(payload.data()); // v0.17.3 the Tower of Fate mindscape
+			} else {
+				FateFx.receive(payload);
+			}
+		});
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.doctorfate.network.FateSpellFxPayload.TYPE,
+				(payload, context) -> FateSpellFxClient.receive(payload)); // v0.17.3 effects pass
 		ClientPlayNetworking.registerGlobalReceiver(FatePossessPayload.TYPE, (payload, context) -> {
 			possessUntil = payload.until();
 			lastPossessMs = System.currentTimeMillis();
@@ -88,6 +96,7 @@ public final class DoctorFateClient {
 		lagTicks = 0;
 		queuedBargain = null;
 		FateFx.reset();
+		FateSpellFxClient.reset();
 	}
 
 	/** A bargain opens at once, or as soon as whatever screen is open closes (if it's still in time). */
@@ -193,8 +202,8 @@ public final class DoctorFateClient {
 			p.setYHeadRot(pYaw);
 			return;
 		}
-		if (!DoctorFate.wearsHelmet(p)) {
-			lagTicks = 0;
+		if (!DoctorFate.wearsHelmet(p) || com.projecthero.mod.doctorfate.DoctorFateMindscape.silenced(p)) {
+			lagTicks = 0; // v0.17.3: the Silence from the Tower of Fate: no Pull, no lag
 			return;
 		}
 		float d = DoctorFate.dominion(p);

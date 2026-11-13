@@ -12,6 +12,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.doctorfate.data.FateState;
 import com.projecthero.mod.doctorfate.network.FateFxPayload;
+import com.projecthero.mod.doctorfate.network.FateSpellFxPayload;
 import com.projecthero.mod.squad.Squads;
 
 
@@ -62,6 +63,8 @@ public final class DoctorFateSpells {
 
 	/** Tests only: force the next Override roll (null = the 1-in-6 roll). */
 	public static volatile Boolean testOverride;
+	/** Tests only: told of each Glyph Storm hit that landed (the creature, the health it lost). */
+	public static volatile java.util.function.BiConsumer<LivingEntity, Float> stormHitListener;
 
 	private DoctorFateSpells() {
 	}
@@ -71,6 +74,7 @@ public final class DoctorFateSpells {
 		STORMS.clear();
 		WARDS.clear();
 		testOverride = null;
+		stormHitListener = null;
 	}
 
 	static void forget(UUID id) {
@@ -138,7 +142,8 @@ public final class DoctorFateSpells {
 		boolean full = DoctorFate.wearsHelmet(p);
 		String actual = id;
 		LivingEntity forced = null;
-		if (full && DoctorFateAbilityManager.overridable(id) && DoctorFate.dominion(p) >= DoctorFateConfig.TIER_OVERRIDE && rollOverride(p)) {
+		if (full && DoctorFateAbilityManager.overridable(id) && DoctorFate.dominion(p) >= DoctorFateConfig.TIER_OVERRIDE
+				&& !DoctorFateMindscape.silenced(p) && rollOverride(p)) {
 			DoctorFateDominion.Pick pick = DoctorFateDominion.nabuPick(p);
 			if (pick != null) {
 				actual = pick.id();
@@ -193,6 +198,9 @@ public final class DoctorFateSpells {
 		float d = DoctorFate.dominion(p);
 		int tier = DoctorFate.tier(d);
 		float gain = tier >= 2 ? dominion * DoctorFateConfig.PULL_DISCOUNT : dominion;
+		if (DoctorFateMindscape.silenced(p)) {
+			gain *= DoctorFateConfig.MIND_SILENCE_COST_MULT; // the Silence: "I will keep count"
+		}
 		DoctorFate.addDominion(p, gain);
 		if (tier >= 3 && !p.getAbilities().instabuild) {
 			float cost = dominion >= 8f ? DoctorFateConfig.HOLD_HEALTH_COST * 2f : DoctorFateConfig.HOLD_HEALTH_COST;
@@ -239,10 +247,38 @@ public final class DoctorFateSpells {
 		return out;
 	}
 
-	/** The creature under the crosshair (a forgiving ray), or null. */
+	/**
+	 * The creature under the crosshair (a forgiving ray), or null. v0.17.3 moves pass: when the ray misses, the creature nearest
+	 * the look ray within {@link DoctorFateConfig#AIM_ASSIST_DEG} degrees and in sight is taken (Chains, Banishment and Gate Drop
+	 * used to fizzle with "no target" on a near miss).
+	 */
 	static LivingEntity aim(ServerPlayer p, double range, boolean nabu) {
 		List<LivingEntity> hits = along(p, p.getEyePosition(), p.getLookAngle(), range, nabu);
-		return hits.isEmpty() ? null : hits.get(0);
+		if (!hits.isEmpty()) {
+			return hits.get(0);
+		}
+		return assist(p, range, nabu);
+	}
+
+	static LivingEntity assist(ServerPlayer p, double range, boolean nabu) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double cos = Math.cos(Math.toRadians(DoctorFateConfig.AIM_ASSIST_DEG));
+		LivingEntity best = null;
+		double bestDot = cos;
+		for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(range), e -> targetable(p, e, nabu))) {
+			Vec3 to = e.getBoundingBox().getCenter().subtract(eye);
+			double d = to.length();
+			if (d > range || d < 1.0e-3) {
+				continue;
+			}
+			double dot = to.scale(1.0 / d).dot(look);
+			if (dot > bestDot && p.hasLineOfSight(e)) {
+				bestDot = dot;
+				best = e;
+			}
+		}
+		return best;
 	}
 
 	static boolean targetable(ServerPlayer p, LivingEntity e, boolean nabu) {
@@ -267,8 +303,15 @@ public final class DoctorFateSpells {
 			return false;
 		}
 		float before = target.getHealth();
+		if (!nabu && DoctorFateMindscape.blessed(p)) {
+			amount *= DoctorFateConfig.MIND_BLESSING_MULT; // the Blessing of Order from the Tower of Fate
+		}
 		boolean landed = com.projecthero.mod.hero.power.AbilityHelpers.hurtBurst(p, target, p.damageSources().playerAttack(p), amount);
-		return landed || target.getHealth() < before;
+		boolean ok = landed || target.getHealth() < before;
+		if (ok) {
+			DoctorFateFx.hit(p, target); // v0.17.3 effects pass: hit feedback
+		}
+		return ok;
 	}
 
 	/** Would Nabu stop a spell on {@code target}? */
@@ -309,9 +352,15 @@ public final class DoctorFateSpells {
 				end = e.getBoundingBox().getCenter();
 			}
 		}
-		line(level, from, end, full ? 1.0f : 0.7f);
-		ankh(level, end, dir, full ? 0.6 : 0.4, false);
+		// v0.17.3 effects pass: a glowing beam with a spinning ankh racing down it, an ankh flaring where it ends
+		Vec3 start = from.add(dir.scale(0.6));
+		DoctorFateFx.send(level, com.projecthero.mod.doctorfate.network.FateSpellFxPayload.BOLT, start, end, full ? 1f : 0.7f, 10);
+		DoctorFateFx.send(level, com.projecthero.mod.doctorfate.network.FateSpellFxPayload.ANKH, end, dir.scale(-1), full ? 1.1f : 0.7f, 10);
+		sparse(level, start, end);
+		level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 4, 0.1, 0.1, 0.1, 0.06);
 		DoctorFate.sound(level, from, SoundEvents.ILLUSIONER_CAST_SPELL, 0.35f, full ? 1.4f : 1.7f);
+		DoctorFate.sound(level, from, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.5f, full ? 1.6f : 1.9f);
+		DoctorFate.sound(level, end, SoundEvents.AMETHYST_CLUSTER_BREAK, 0.5f, 1.2f);
 		return true;
 	}
 
@@ -332,19 +381,21 @@ public final class DoctorFateSpells {
 		BOUND.put(target.getUUID(), new Bind(p.level().dimension(), target.getUUID(), target.position(), now + ticks));
 		target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, ticks, 6, false, false));
 		ServerLevel level = (ServerLevel) p.level();
-		chains(level, target);
-		DoctorFate.sound(level, target.position(), SoundEvents.CHAIN_PLACE, 0.8f, 0.7f);
+		// v0.17.3 effects pass: linked golden chains rise from a binding rune circle and hold it
+		DoctorFateFx.send(level, com.projecthero.mod.doctorfate.network.FateSpellFxPayload.CHAINS, target.position(), Vec3.ZERO, 1.2f, ticks + 6,
+				target.getId(), DoctorFate.GOLD);
+		Vec3 c = target.getBoundingBox().getCenter();
+		level.sendParticles(DoctorFate.dust(DoctorFateFx.WHITE_GOLD, 1.0f), c.x, target.getY() + 0.1, c.z, 14, 0.8, 0.05, 0.8, 0.0);
+		DoctorFate.sound(level, target.position(), SoundEvents.CHAIN_PLACE, 0.9f, 0.7f);
+		DoctorFate.sound(level, target.position(), SoundEvents.CHAIN_BREAK, 0.6f, 0.6f);
+		DoctorFate.sound(level, target.position(), SoundEvents.RESPAWN_ANCHOR_CHARGE, 0.5f, 1.4f);
 		return true;
 	}
 
 	private static void chains(ServerLevel level, LivingEntity target) {
 		Vec3 c = target.getBoundingBox().getCenter();
-		double r = target.getBbWidth() * 0.5 + 1.2;
-		for (int k = 0; k < 4; k++) {
-			double a = k * Math.PI / 2 + Math.PI / 4;
-			Vec3 base = new Vec3(target.getX() + Math.cos(a) * r, target.getY(), target.getZ() + Math.sin(a) * r);
-			line(level, base, c, 0.7f);
-		}
+		level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 0.8f), c.x, c.y, c.z, 2, target.getBbWidth() * 0.5, target.getBbHeight() * 0.3,
+				target.getBbWidth() * 0.5, 0.0);
 	}
 
 	// ---------------------------------------------------------------- G: Ankh Shield (hold)
@@ -410,15 +461,17 @@ public final class DoctorFateSpells {
 				pr.setOwner(p);
 				pr.hurtMarked = true;
 				level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.0f), pr.getX(), pr.getY(), pr.getZ(), 6, 0.1, 0.1, 0.1, 0.0);
+				DoctorFateFx.send(level, FateSpellFxPayload.ANKH, pr.position(), p.getLookAngle().scale(-1), 0.6f, 7);
 				DoctorFate.sound(level, pr.position(), SoundEvents.SHIELD_BLOCK, 0.5f, 1.4f);
+				DoctorFate.sound(level, pr.position(), SoundEvents.AMETHYST_BLOCK_HIT, 0.8f, 1.6f);
 			} else {
 				pr.setDeltaMovement(Vec3.ZERO);
 				pr.hurtMarked = true;
 			}
 		}
-		if (now % 4 == 0) {
+		if (now % 4 == 0) { // the ankh itself is drawn by every client (FateWorldRender); a few motes drift off it
 			Vec3 front = p.getEyePosition().add(p.getLookAngle().scale(1.4)).add(0, -0.3, 0);
-			ankh(level, front, p.getLookAngle(), full ? 0.9 : 0.6, true);
+			level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 0.7f), front.x, front.y, front.z, 2, 0.4, 0.5, 0.4, 0.0);
 		}
 	}
 
@@ -440,6 +493,10 @@ public final class DoctorFateSpells {
 		}
 		gate(level, target.position(), target.getBbWidth() * 0.5 + 1.0);
 		DoctorFate.sound(level, target.position(), SoundEvents.ENDERMAN_TELEPORT, 0.6f, 0.6f);
+		DoctorFate.sound(level, target.position(), SoundEvents.BEACON_DEACTIVATE, 0.7f, 0.7f);
+		Vec3 tc = target.getBoundingBox().getCenter();
+		level.sendParticles(ParticleTypes.REVERSE_PORTAL, tc.x, tc.y, tc.z, 30, target.getBbWidth() * 0.4, target.getBbHeight() * 0.4,
+				target.getBbWidth() * 0.4, 0.05);
 		if (strong(target)) {
 			throwAway(p, target);
 		} else {
@@ -485,7 +542,9 @@ public final class DoctorFateSpells {
 		ServerLevel level = (ServerLevel) p.level();
 		STORMS.add(new Storm(level.dimension(), p.getUUID(), at, level.getGameTime() + DoctorFateConfig.GLYPH_TICKS, mult, nabu));
 		DoctorFate.sound(level, at, SoundEvents.EVOKER_PREPARE_ATTACK, 0.5f, 1.3f);
-		ring(level, at.add(0, 0.1, 0), DoctorFateConfig.GLYPH_RADIUS, 48);
+		DoctorFate.sound(level, at, SoundEvents.BEACON_ACTIVATE, 0.5f, 1.6f);
+		// v0.17.3 effects pass: a rune circle opens in the sky and rains hieroglyph blades onto a circle on the ground
+		DoctorFateFx.send(level, FateSpellFxPayload.STORM, at, Vec3.ZERO, (float) DoctorFateConfig.GLYPH_RADIUS, DoctorFateConfig.GLYPH_TICKS + 8);
 		return true;
 	}
 
@@ -502,19 +561,26 @@ public final class DoctorFateSpells {
 					continue;
 				}
 				long left = s.until - now;
-				for (int k = 0; k < 4; k++) { // golden hieroglyph blades falling
+				{ // the blades are the clients' geometry; a little gold dust where they strike
 					double a = level.random.nextDouble() * Math.PI * 2, r = Math.sqrt(level.random.nextDouble()) * DoctorFateConfig.GLYPH_RADIUS;
 					double x = s.center.x + Math.cos(a) * r, z = s.center.z + Math.sin(a) * r;
-					level.sendParticles(ParticleTypes.END_ROD, x, s.center.y + 7, z, 0, 0, -1, 0, 0.8);
-					level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.3f), x, s.center.y + 5, z, 2, 0.05, 0.6, 0.05, 0.0);
+					level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.0f), x, s.center.y + 0.2, z, 2, 0.15, 0.05, 0.15, 0.0);
 				}
 				if (left % DoctorFateConfig.GLYPH_HIT_EVERY == 0) {
 					AABB box = new AABB(s.center, s.center).inflate(DoctorFateConfig.GLYPH_RADIUS, 4, DoctorFateConfig.GLYPH_RADIUS);
 					for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
 							e -> horizontal(e.position(), s.center) <= DoctorFateConfig.GLYPH_RADIUS && targetable(owner, e, s.nabu) && autoTarget(owner, e))) {
-						hit(owner, e, DoctorFateConfig.GLYPH_DAMAGE * s.mult, s.nabu);
+						float hb = e.getHealth();
+						if (hit(owner, e, DoctorFateConfig.GLYPH_DAMAGE * s.mult, s.nabu)) {
+							e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, DoctorFateConfig.GLYPH_SLOW_TICKS, 0, false, false));
+							java.util.function.BiConsumer<LivingEntity, Float> l = stormHitListener;
+							if (l != null) {
+								l.accept(e, hb - e.getHealth());
+							}
+						}
 					}
-					DoctorFate.sound(level, s.center, SoundEvents.TRIDENT_HIT_GROUND, 0.25f, 1.6f);
+					DoctorFate.sound(level, s.center, SoundEvents.TRIDENT_HIT_GROUND, 0.3f, 1.6f);
+					DoctorFate.sound(level, s.center, SoundEvents.AMETHYST_CLUSTER_BREAK, 0.35f, 1.4f + level.random.nextFloat() * 0.3f);
 				}
 			}
 		}
@@ -531,10 +597,11 @@ public final class DoctorFateSpells {
 						pr -> horizontal(pr.position(), w.center) <= DoctorFateConfig.WARD_RADIUS && hostileProjectile(owner, pr))) {
 					level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.0f), pr.getX(), pr.getY(), pr.getZ(), 6, 0.15, 0.15, 0.15, 0.0);
 					level.sendParticles(ParticleTypes.SMOKE, pr.getX(), pr.getY(), pr.getZ(), 3, 0.1, 0.1, 0.1, 0.0);
+					DoctorFateFx.send(level, FateSpellFxPayload.ANKH, pr.position(), pr.getDeltaMovement().scale(-1), 0.5f, 7);
+					DoctorFate.sound(level, pr.position(), SoundEvents.FIRE_EXTINGUISH, 0.3f, 1.8f);
 					pr.discard();
 				}
-				if (level.getGameTime() % 5 == 0) {
-					ring(level, w.center.add(0, 0.1, 0), DoctorFateConfig.WARD_RADIUS, 40);
+				if (level.getGameTime() % 10 == 0) { // the circle itself is the clients' geometry
 					level.sendParticles(ParticleTypes.ENCHANT, w.center.x, w.center.y + 1, w.center.z, 6, 3.0, 0.3, 3.0, 0.4);
 				}
 			}
@@ -573,6 +640,12 @@ public final class DoctorFateSpells {
 		DoctorFate.sound(level, p.position(), SoundEvents.BEACON_ACTIVATE, 0.7f, 0.5f);
 		DoctorFate.sound(level, p.position(), SoundEvents.ELDER_GUARDIAN_CURSE, 0.25f, 1.6f);
 		level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 2.0f), p.getX(), p.getY() + 10, p.getZ(), 80, 3, 10, 3, 0.0);
+		// v0.17.3 effects pass: rings of light climb where the projection rises
+		double yr = Math.toRadians(p.getYRot());
+		Vec3 behind = p.position().add(Math.sin(yr) * 7.0, 0, -Math.cos(yr) * 7.0);
+		DoctorFateFx.send(level, FateSpellFxPayload.RISE, behind, Vec3.ZERO, 6f, 30);
+		DoctorFateFx.send(level, FateSpellFxPayload.SLAM, behind, p.getLookAngle(), 7f, 30);
+		com.projecthero.mod.quirk.fx.QuirkCamera.shakeAround(level, p.position(), 30, 0.4f, 16);
 	}
 
 	/** An attack key while the Avatar stands: its giant hand slams where he looks (40 damage, 8 blocks). */
@@ -603,8 +676,13 @@ public final class DoctorFateSpells {
 			}
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
-		ring(level, c.add(0, 0.2, 0), DoctorFateConfig.AVATAR_SLAM_RADIUS, 64);
-		DoctorFate.sound(level, c, SoundEvents.GENERIC_EXPLODE.value(), 0.45f, 0.6f);
+		// v0.17.3 effects pass: a huge rune circle and shock ring where the hand comes down
+		DoctorFateFx.send(level, FateSpellFxPayload.SLAM, c, p.getLookAngle(), (float) DoctorFateConfig.AVATAR_SLAM_RADIUS, 26);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, c).colours(0xFFF6D0, 0xFFB020).size((float) DoctorFateConfig.AVATAR_SLAM_RADIUS * 1.6f)
+				.thickness(0.6f).life(14).ease(com.projecthero.mod.quirk.fx.QuirkFx.Ease.OUT_EXPO).ground().spawn();
+		com.projecthero.mod.quirk.fx.QuirkCamera.shakeAround(level, c, 28, 0.6f, 12);
+		DoctorFate.sound(level, c, SoundEvents.GENERIC_EXPLODE.value(), 0.55f, 0.6f);
+		DoctorFate.sound(level, c, SoundEvents.BEACON_POWER_SELECT, 0.8f, 0.5f);
 		return true;
 	}
 
@@ -623,9 +701,18 @@ public final class DoctorFateSpells {
 	// ---------------------------------------------------------------- X: Ankh Step
 
 	static boolean castStep(ServerPlayer p, double distance) {
+		Vec3 look = p.getLookAngle();
+		if (castStep(p, distance, look)) {
+			return true;
+		}
+		// v0.17.3 moves pass: looking a little down while standing used to fail (every spot along the look was in the floor); step flat
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		return Math.abs(look.y) < 0.85 && flat.lengthSqr() > 1.0e-4 && castStep(p, distance, flat.normalize());
+	}
+
+	private static boolean castStep(ServerPlayer p, double distance, Vec3 dir) {
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 start = p.position();
-		Vec3 dir = p.getLookAngle();
 		Vec3 eye = p.getEyePosition();
 		HitResult hit = level.clip(new ClipContext(eye, eye.add(dir.scale(distance)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		double reach = hit.getType() == HitResult.Type.MISS ? distance : Math.max(0.0, hit.getLocation().distanceTo(eye) - 0.7);
@@ -641,10 +728,13 @@ public final class DoctorFateSpells {
 		if (dest == null) {
 			return false;
 		}
-		gate(level, start.add(0, 1, 0), 0.8);
+		// v0.17.3 effects pass: an upright ankh-ring portal at each end
+		portal(level, start.add(0, 1, 0), dir);
+		DoctorFate.sound(level, start, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.6f, 1.8f);
 		p.teleportTo(level, dest.x, dest.y, dest.z, p.getYRot(), p.getXRot());
 		p.resetFallDistance();
-		gate(level, dest.add(0, 1, 0), 0.8);
+		portal(level, dest.add(0, 1, 0), dir);
+		sparse(level, start.add(0, 1, 0), dest.add(0, 1, 0));
 		DoctorFate.sound(level, dest, SoundEvents.ENDERMAN_TELEPORT, 0.3f, 1.5f);
 		return true;
 	}
@@ -676,7 +766,7 @@ public final class DoctorFateSpells {
 		} else {
 			target.teleportTo(base.x, base.y + lift, base.z);
 		}
-		target.setDeltaMovement(0, -0.2, 0);
+		target.setDeltaMovement(0, -DoctorFateConfig.GATE_DROP_SPEED, 0); // v0.17.3 moves pass: hurled down (was a -0.2 drift)
 		target.hurtMarked = true;
 		gate(level, base.add(0, lift, 0), target.getBbWidth() * 0.5 + 0.8);
 		// he blinks beside where it lands
@@ -714,13 +804,18 @@ public final class DoctorFateSpells {
 				e.hurtMarked = true;
 			}
 		}
-		for (int k = 1; k <= 8; k++) { // the cone of golden force
+		// v0.17.3 effects pass: three rings of force race down the cone (glyphs on the first, an ankh at its mouth)
+		Vec3 mouth = eye.add(0, -0.25, 0);
+		DoctorFateFx.send(level, FateSpellFxPayload.CONE, mouth, dir, (float) DoctorFateConfig.BLAST_RANGE, 14);
+		for (int k = 2; k <= 8; k += 2) {
 			Vec3 c = eye.add(dir.scale(k));
-			double spread = k * 0.35;
-			level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.4f), c.x, c.y, c.z, 6 + k, spread, spread, spread, 0.0);
+			double spread = k * 0.3;
+			level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 1.1f), c.x, c.y, c.z, 2 + k / 2, spread, spread, spread, 0.0);
 		}
 		level.sendParticles(ParticleTypes.FLASH, eye.x + dir.x * 2, eye.y + dir.y * 2, eye.z + dir.z * 2, 1, 0, 0, 0, 0);
 		DoctorFate.sound(level, eye, SoundEvents.EVOKER_CAST_SPELL, 0.5f, 0.7f);
+		DoctorFate.sound(level, eye, SoundEvents.WARDEN_SONIC_BOOM, 0.25f, 1.7f);
+		com.projecthero.mod.quirk.fx.QuirkCamera.fovPunch(p, 0.05f, 6);
 		return true;
 	}
 
@@ -731,8 +826,10 @@ public final class DoctorFateSpells {
 		Vec3 at = p.position();
 		WARDS.removeIf(w -> w.owner.equals(p.getUUID()));
 		WARDS.add(new Ward(level.dimension(), p.getUUID(), at, level.getGameTime() + DoctorFateConfig.WARD_TICKS));
-		ring(level, at.add(0, 0.1, 0), DoctorFateConfig.WARD_RADIUS, 60);
+		// v0.17.3 effects pass: a turning rune circle with a low golden rim wall, for the ward's whole life
+		DoctorFateFx.send(level, FateSpellFxPayload.WARD, at, Vec3.ZERO, (float) DoctorFateConfig.WARD_RADIUS, DoctorFateConfig.WARD_TICKS);
 		DoctorFate.sound(level, at, SoundEvents.BEACON_POWER_SELECT, 0.5f, 0.8f);
+		DoctorFate.sound(level, at, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.8f, 0.7f);
 		return true;
 	}
 
@@ -770,6 +867,8 @@ public final class DoctorFateSpells {
 		DoctorFate.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.7f, 0.9f);
 		ServerLevel level = (ServerLevel) p.level();
 		level.sendParticles(DoctorFate.dust(DoctorFate.BLUE, 1.0f), p.getX(), p.getY() + 1.2, p.getZ(), 14, 0.3, 0.3, 0.3, 0.0);
+		DoctorFateFx.send(level, FateSpellFxPayload.ANKH, p.position().add(0, 1.2, 0).add(p.getLookAngle().multiply(0.5, 0, 0.5)), p.getLookAngle(),
+				0.7f, 12, -1, 0x5A86FF);
 		DoctorFate.say(p, "message.projecthero.doctor_fate.amulet", ChatFormatting.BLUE);
 		return true;
 	}
@@ -873,9 +972,27 @@ public final class DoctorFateSpells {
 
 	/** An ankh gate opening at {@code c}. */
 	static void gate(ServerLevel level, Vec3 c, double r) {
-		ring(level, c.add(0, 0.1, 0), r, 24);
-		ring(level, c.add(0, 0.1, 0), r * 0.6, 16);
-		level.sendParticles(ParticleTypes.PORTAL, c.x, c.y + 0.5, c.z, 20, r * 0.4, 0.5, r * 0.4, 0.3);
+		// v0.17.3 effects pass: a real ankh gate (rune band, counter-turning rings, a lying ankh, a pillar of light) on every client
+		DoctorFateFx.send(level, FateSpellFxPayload.GATE, c, Vec3.ZERO, (float) (r * 1.1 + 0.4), 26);
+		level.sendParticles(ParticleTypes.PORTAL, c.x, c.y + 0.5, c.z, 14, r * 0.4, 0.5, r * 0.4, 0.3);
+		level.sendParticles(DoctorFate.dust(DoctorFateFx.WHITE_GOLD, 1.0f), c.x, c.y + 0.6, c.z, 8, r * 0.3, 0.6, r * 0.3, 0.0);
+		DoctorFate.sound(level, c, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, 0.45f, 1.5f);
+	}
+
+	/** An upright ankh-ring portal facing {@code dir} (Ankh Step). */
+	static void portal(ServerLevel level, Vec3 c, Vec3 dir) {
+		DoctorFateFx.send(level, FateSpellFxPayload.PORTAL, c, dir, 1.0f, 14);
+		level.sendParticles(ParticleTypes.PORTAL, c.x, c.y, c.z, 12, 0.3, 0.6, 0.3, 0.4);
+	}
+
+	/** A few motes along a spell's path (the glowing geometry is the client's). */
+	static void sparse(ServerLevel level, Vec3 a, Vec3 b) {
+		Vec3 d = b.subtract(a);
+		int n = Math.max(1, (int) (d.length() / 1.5));
+		for (int i = 0; i <= n; i++) {
+			Vec3 c = a.add(d.scale(i / (double) n));
+			level.sendParticles(DoctorFate.dust(DoctorFate.GOLD, 0.7f), c.x, c.y, c.z, 1, 0.08, 0.08, 0.08, 0.0);
+		}
 	}
 
 	/** Tests: a Glyph Storm at {@code at}. */

@@ -49,8 +49,8 @@ public final class DoctorFateDominion {
 
 	static void tick(ServerPlayer p) {
 		FateState s = DoctorFate.state(p);
-		if (!s.helmetOn || DoctorFate.possessed(p)) {
-			return;
+		if (!s.helmetOn || DoctorFate.possessed(p) || DoctorFateMindscape.silenced(p)) {
+			return; // v0.17.3: the Silence bargained for in the Tower of Fate quiets the whispers too
 		}
 		long now = p.level().getGameTime();
 		Long next = NEXT_WHISPER.get(p.getUUID());
@@ -70,7 +70,7 @@ public final class DoctorFateDominion {
 
 	/** At Pull and up, his chat lines carry a gold "[Nabu]" tag. */
 	public static Component chatTag(ServerPlayer sender, Component message) {
-		if (!DoctorFate.wearsHelmet(sender) || DoctorFate.dominion(sender) < DoctorFateConfig.TIER_PULL) {
+		if (!DoctorFate.wearsHelmet(sender) || DoctorFate.dominion(sender) < DoctorFateConfig.TIER_PULL || DoctorFateMindscape.silenced(sender)) {
 			return message;
 		}
 		return Component.translatable("chat.projecthero.doctor_fate.nabu_tag").withStyle(ChatFormatting.GOLD).append(" ").append(message);

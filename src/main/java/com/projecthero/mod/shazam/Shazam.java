@@ -275,19 +275,17 @@ public final class Shazam {
 	}
 
 	/**
-	 * A real lightning bolt at {@code at}, for the look: {@code visualOnly} (so vanilla's own strike hurts and burns nothing) and named
-	 * {@link #BOLT_NAME} (so his clients play its thunder quietly). The move does its own damage.
+	 * A bolt from the sky onto {@code at}, for the look only (the move does its own damage). v0.17.3 effects pass: no longer a vanilla
+	 * {@code LightningBolt} entity but his own branching bolt geometry, ground flash, sky flash and thunder ({@link ShazamFx#sky}).
+	 * Being no entity, it never refills his own bar and never burns anything.
 	 */
-	public static LightningBolt bolt(ServerLevel level, Vec3 at) {
-		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
-		if (bolt == null) {
-			return null;
-		}
-		bolt.moveTo(at.x, at.y, at.z);
-		bolt.setVisualOnly(true);
-		bolt.setCustomName(Component.literal(BOLT_NAME));
-		level.addFreshEntity(bolt);
-		return bolt;
+	public static void bolt(ServerLevel level, Vec3 at) {
+		ShazamFx.sky(level, at, 1f);
+	}
+
+	/** A huge bolt (the transform, Eternity Strike): thicker, double-forked, with rolling thunder. */
+	public static void bigBolt(ServerLevel level, Vec3 at) {
+		ShazamFx.sky(level, at, 2f);
 	}
 
 	public static boolean isOurBolt(Entity e) {
@@ -355,7 +353,8 @@ public final class Shazam {
 	static void wordStrike(ServerPlayer player) {
 		ServerLevel level = player.serverLevel();
 		Vec3 c = player.position();
-		bolt(level, c);
+		bigBolt(level, c); // v0.17.3 effects pass: the huge branching bolt, then bolts racing out along the ground
+		ShazamFx.burst(level, c, 1.2f);
 		float dmg = ShazamConfig.WORD_BOLT_DAMAGE;
 		double r = ShazamConfig.WORD_BOLT_RADIUS;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(r),

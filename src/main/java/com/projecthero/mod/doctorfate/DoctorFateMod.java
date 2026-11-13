@@ -51,6 +51,8 @@ public final class DoctorFateMod {
 		PayloadTypeRegistry.playS2C().register(FateServePayload.TYPE, FateServePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FateFxPayload.TYPE, FateFxPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FatePossessPayload.TYPE, FatePossessPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.doctorfate.network.FateSpellFxPayload.TYPE,
+				com.projecthero.mod.doctorfate.network.FateSpellFxPayload.CODEC); // v0.17.3 effects pass
 		ServerPlayNetworking.registerGlobalReceiver(FateActionPayload.TYPE, (payload, context) -> onAction(context.player(), payload));
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			DoctorFateSpells.tickWorld(server);
@@ -99,6 +101,8 @@ public final class DoctorFateMod {
 					DoctorFate.pressH(p);
 				}
 			}
+			case MIND_CHOICE -> DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.byId(payload.arg()));
+			case MIND_CLOSE -> DoctorFateMindscape.close(p);
 		}
 	}
 

@@ -52,7 +52,11 @@ public enum HeroLandingStyle {
 	/** v0.17.3 Starfire: the fist into the ground in a green starbolt burst ({@code starfire.StarfireLanding}). */
 	STARFIRE(30, Pose.FIST, 0xEAFFD8, 0x3CFF3A, Element.COSMIC, 18, 4),
 	/** v0.17.3 Raven: kneeling as her shadow folds in, a dark soul-energy ring ({@code raven.RavenLanding}). */
-	RAVEN(31, Pose.WINGS, 0xE0C8FF, 0x6A2BD0, Element.SHADOW, 16, 4);
+	RAVEN(31, Pose.WINGS, 0xE0C8FF, 0x6A2BD0, Element.SHADOW, 16, 4),
+	/** v0.17.3 Doctor Fate: a golden ankh shockwave (ids 24/25 leave room for the landings built alongside). */
+	DOCTOR_FATE(24, Pose.FIST, 0xFFF4C8, 0xFFB020, Element.IMPACT, 18, 4),
+	/** v0.17.3 Shazam: a lightning-crack ground slam. */
+	SHAZAM(25, Pose.FIST, 0xFFFFFF, 0xFFC93A, Element.THUNDER, 18, 4);
 
 	/** How the body lands (client: {@code HeroLandingPose}). */
 	public enum Pose {

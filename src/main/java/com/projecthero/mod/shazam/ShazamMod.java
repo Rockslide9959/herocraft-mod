@@ -38,6 +38,8 @@ public final class ShazamMod {
 		ShazamEntities.initialize();
 		ShazamDamage.initialize();
 		PayloadTypeRegistry.playC2S().register(ShazamFlightPayload.TYPE, ShazamFlightPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.shazam.network.ShazamFxPayload.TYPE,
+				com.projecthero.mod.shazam.network.ShazamFxPayload.CODEC); // v0.17.3 effects pass
 		ServerPlayNetworking.registerGlobalReceiver(ShazamFlightPayload.TYPE, (payload, context) -> ShazamFlight.toggle(context.player()));
 		// the word: a chat message that is just "Shazam" is never posted -- the lightning answers instead
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {

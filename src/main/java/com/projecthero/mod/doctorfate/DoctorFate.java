@@ -62,6 +62,7 @@ public final class DoctorFate {
 		DoctorFateDominion.clearSessionState();
 		DoctorFatePossession.clearSessionState();
 		DoctorFateFlight.clearSessionState();
+		DoctorFateMindscape.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -73,6 +74,7 @@ public final class DoctorFate {
 		DoctorFateDominion.forget(id);
 		DoctorFatePossession.forget(id);
 		DoctorFateFlight.forget(id);
+		DoctorFateMindscape.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -310,6 +312,7 @@ public final class DoctorFate {
 		save(player, n);
 		DoctorFatePossession.release(player);
 		DoctorFateAbilityManager.forget(player.getUUID());
+		DoctorFateMindscape.close(player);
 		reconcile(player);
 	}
 
@@ -449,6 +452,7 @@ public final class DoctorFate {
 		DoctorFateDominion.tick(player);
 		DoctorFatePossession.tick(player);
 		DoctorFateBargains.tick(player);
+		DoctorFateMindscape.tick(player);
 		DoctorFateAbilityManager.tick(player);
 		DoctorFateSpells.tick(player);
 		DoctorFateFlight.tick(player);

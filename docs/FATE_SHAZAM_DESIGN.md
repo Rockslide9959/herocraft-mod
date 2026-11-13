@@ -75,7 +75,63 @@ ignoring one counts as refusing.
 | Shift+C | Ward of Order | 6-block golden glyph circle for 10 s: hostile projectiles and potions inside fizzle, squadmates in it take 30% less damage. +10 |
 | H | Helmet | put the helmet on / take it off (1 s animation; can't take it off during Possession, won't go on for 60 s after one). Not an item: part of the power. Shift+H still opens the power wheel |
 | V | Sight of Nabu | 10 s: every creature within 64 blocks glows (Chaos red, Order gold, neutral white) and you see their health. +6 |
-| Shift+V | Amulet of Anubis | (v0.17.3, replaced the V helmet toggle) Kent grips the amulet and steadies his mind: Dominion -10, helmet on or off. 2 min cd |
+| Shift+V | Amulet of Anubis | (v0.17.3, replaced the V helmet toggle) Kent grips the amulet and steadies his mind: Dominion -10, helmet on or off. 2 min cd. **Hold 1 s** = the Tower of Fate mindscape (below) |
+
+### v0.17.3 tester round (effects, moves, mindscape, landing)
+
+Tester: "needs more work on effects and moves. Maybe add a mindscape where you can speak directly to Nabu. Add a landing like
+Green Lantern and Kryptonian."
+
+**Effects pass.** Every spell now draws glowing golden geometry on every nearby client (`FateSpellFxPayload` ->
+`client.doctorfate.FateSpellFxClient`, built from `FateGlyphs`: additive light-lines, rings, discs, the ankh and nine
+hieroglyphs -- the Eye of Horus, djed, water, Ma'at's feather, was sceptre, sun disc, bird, scarab, house) instead of dust lines:
+- Ankh Bolt: a beam with a spinning ankh racing down it, rune rings left on its path, an ankh flaring at the end.
+- Golden Chains: linked chains rise from four anchors of a binding rune circle and follow the target for the whole bind.
+- Ankh Shield: the ankh inside a turning ring of hieroglyphs over a faint disc (was a plain bar outline).
+- Banishment / Gate Drop: a real ankh gate on the ground -- rune band, counter-turning rings, a lying ankh, a pillar of light --
+  opening and closing (at both ends for Gate Drop and the throw).
+- Glyph Storm: a rune circle opens 7 blocks up and rains hieroglyph blades (four a tick, each falling with a streak and flashing
+  where it lands) onto a circle on the ground.
+- Avatar of Order: rings of light climb as it rises; each slam leaves a huge rune circle, a shock ring and a camera shake.
+- Ankh Step: an upright ankh-ring portal irises open and shut at both ends.
+- Order Blast: three rings of force race down the cone (glyphs on the first), the edges flash, an ankh at its mouth; a FOV punch.
+- Ward of Order: a turning rune circle with an inscribed square, the ankh at its heart and a low golden rim wall, for all 10 s.
+- Sight / Amulet: an ankh flare (blue for the Amulet). Flight lift-off: a small flat ankh under him.
+- Hit feedback: every landed spell flashes a small ankh on the target with a bright amethyst chime; reflected / fizzled
+  projectiles flash too. Sounds layered on most spells (amethyst resonance, respawn-anchor charge, beacon, sonic boom).
+
+**Moves pass** (before -> after):
+- Golden Chains damage 6 -> 8.
+- Glyph Storm damage per hit 4 -> 5, a hit every 10 -> 8 ticks (6 -> 7 hits), and the blades slow (Slowness I, 1 s).
+- Ankh Step cooldown 3 s -> 2 s; looking a little down while standing used to fail outright (every spot along the look was in the
+  floor), now it steps along the ground.
+- Gate Drop: the creature is hurled down at 1.1 blocks/tick (was a 0.2 drift), so the fall lands in about a second.
+- Aim assist for the targeted spells (Chains, Banishment, Gate Drop): a near miss takes the creature nearest the look ray within
+  7 degrees, in sight, instead of "no target".
+
+**The Tower of Fate mindscape (new).** Trigger: **hold Shift+V for 1 s** (a tap is still the Amulet of Anubis, now on release;
+blue motes gather at the amulet while you hold). Kent's mind goes into the Tower of Fate: a gold-on-black screen -- starfield,
+the Tower in golden outline under a great faint ankh, hieroglyph columns drifting, and Nabu's helmet whose eyes burn while he
+speaks (`client.doctorfate.FateMindscapeScreen`, server `DoctorFateMindscape`). Nothing pauses (multiplayer-safe, and the body
+can still be hit); Possession breaks the vision. Nabu's greeting and his answer about your Dominion change with the tier.
+Choices, all checked by the server:
+
+| Choice | Effect |
+|---|---|
+| How strong is your hold on me? | Nabu tells you your Dominion and what the next tier does. Free. |
+| Lend me your strength (Blessing of Order) | Helmet on only: spells deal +30% for 30 s, for +15 Dominion. 3 min. |
+| Leave my mind be (Silence) | 60 s with no Override, no Pull, no lagging keys, no whispers, no chat tag -- but every spell's Dominion counts x1.5 ("I will keep count"). Refused from Taking hold (75) up. 5 min. |
+| Take my future, not my present (Debt) | Dominion -25 now; 10 minutes later he collects 35 (even with the helmet off, even mid-fight). One debt at a time; nothing to trade below 10. |
+| I will settle my debt now | Pay 30 now instead of 35 later. |
+| Lore (Lords of Order, the Helmet, Kent Nelson) | Text only. |
+
+Everything agreed is saved in `FateState.Mind` (Blessing / Silence end times, the Debt and when it's due) and shows as chips
+in the Tower. Picked because each choice trades control against power in a new direction: the Blessing is power for Dominion,
+the Silence is control for a higher spell price, the Debt is control now for more Dominion later.
+
+**Landing.** The shared hero landing (`flight.landing`): `HeroLandingStyle.DOCTOR_FATE` (id 24, fist pose) registered on his
+flight; `DoctorFateFx.landing` draws a golden ankh flaring flat on the ground, a rune ring racing out with a low rim wall, gold
+shock rings, a deep chime and a gold vignette.
 
 **Fair-play rules:** Possession never attacks squadmates. On a server you can't be possessed while inside spawn protection.
 Dominion is saved per player.
@@ -141,6 +197,34 @@ a slim-arm version, and a Family version with gold piping.
 | Shift+C | Achilles Stand | 4 s: you take no damage, every hostile within 16 blocks targets you (threat table), and squadmates take 30% less. 30, 30 s cd |
 | V | Wisdom of Solomon | 10 s: every creature's health, armour and weakness shows above it, and the best tool or weapon against the block or mob you look at is hinted |
 | Shift+V | **Share the Power** | aim at a squadmate (transformed): they join the **Shazam Family** for 10 minutes, so typing "Shazam" transforms *them* too (half your health and damage, same keys except Shift+Z, gold suit trim). Up to 5 family members. 10 min cd |
+
+### v0.17.3 tester round (effects, landing)
+
+Tester: "looks great, but needs a little work effect-wise. Add a landing like Green Lantern and Kryptonian."
+
+**Effects pass.** His lightning is now real branching bolt geometry on every nearby client (`ShazamFxPayload` ->
+`client.shazam.ShazamBoltFx`: midpoint-displaced bolts with forks, a white-hot core in a gold halo, re-shaped every two ticks so
+they flicker) instead of vanilla `LightningBolt` entities and spark lines. `Shazam.bolt` no longer spawns an entity at all (so
+it can't burn or refill his own bar); it draws the bolt, a ground flash, a scorch, sparks, a sky flash for anyone near, and
+layered thunder.
+- Lightning Hand: a forked arc to the target and each chain hop, with a crack.
+- Call the Lightning / Zeus Storm: a thick forked bolt out of the sky, a ground flash with ground-hugging forks, a shock ring.
+- The transform strike and Eternity Strike: a huge double-forked bolt with rolling thunder; the transform also sends bolts racing
+  out along the ground; Eternity rises wrapped in a crackling gold aura and the slam cracks the ground with light, with a huge
+  shock ring and a heavy shake.
+- Charged (Lightning bar 60%+, or during Zeus Storm / Eternity Strike): small arcs crackle round both hands and his eyes glow
+  (drawn in the suit layer, so every viewer sees it).
+- Mercury Dash: a red blur -- three streaks at shin, waist and shoulder height fading from the tail, red after-images along the
+  path, crackle, and a whoosh.
+- Thunder Tackle: bolts burst out along the ground where he slams the target down, with a shake.
+- Thunderclap: three jagged rings of force race down the cone, sparking at the rim, a FOV punch and a thunder crack.
+- Achilles Stand: a golden aura for the whole 4 s -- rings climbing his body, a soft shell, arcs crawling over him -- and a shock ring.
+- Fix found while filming: Mercury Dash (and the free Thunder Tackle dash) looking a little down while standing ran into the floor
+  and did nothing; now it dashes along the ground.
+
+**Landing.** `HeroLandingStyle.SHAZAM` (id 25, fist pose) registered on his flight; `ShazamFx.landing` is a lightning-crack ground
+slam: glowing cracks race out across the ground (white-hot, cooling to gold), sparks jump off them, a bolt answers from the sky on
+a hard landing, a scorch, a shock ring and a thunder crack.
 
 **Possible boss later:** **Black Adam**. He says "Shazam" too: when he's below half health, typing "Shazam" near him strikes
 *him* with lightning and turns him back into a mortal for 5 s. That's the classic trick.

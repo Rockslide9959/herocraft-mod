@@ -65,7 +65,8 @@ public final class DoctorFateFlight {
 		player.resetFallDistance();
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position();
-		DoctorFateSpells.ankh(level, c.add(0, 0.2, 0), player.getLookAngle(), 1.0, true);
+		// v0.17.3 effects pass: a small golden ankh flares under him as he lifts off
+		DoctorFateFx.send(level, com.projecthero.mod.doctorfate.network.FateSpellFxPayload.LANDING, c.add(0, 0.05, 0), player.getLookAngle(), 1.0f, 18);
 		DoctorFate.sound(level, c, SoundEvents.BEACON_POWER_SELECT, 0.3f, 1.9f);
 	}
 

@@ -120,6 +120,8 @@ public final class HeroLandingFx {
 			case SAIYAN -> com.projecthero.mod.saiyan.SaiyanLanding.play(p, level, feet, s, yaw);
 			case STARFIRE -> com.projecthero.mod.starfire.StarfireLanding.play(p, level, feet, s);
 			case RAVEN -> com.projecthero.mod.raven.RavenLanding.play(p, level, feet, s);
+			case DOCTOR_FATE -> com.projecthero.mod.doctorfate.DoctorFateFx.landing(p, level, feet, s, yaw); // v0.17.3
+			case SHAZAM -> com.projecthero.mod.shazam.ShazamFx.landing(p, level, feet, s, yaw); // v0.17.3
 			default -> element(p, level, feet, style, s, yaw);
 		}
 	}
