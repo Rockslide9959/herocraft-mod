@@ -178,13 +178,13 @@ public final class HeroPackGuide {
 	}
 
 	/**
-	 * v0.17.3 Raven: the chapter's control rows {key, ability id}; each shows {@code projecthero.raven.ability.<id>} and its
-	 * {@code .desc}.
+	 * v0.17.3 Raven (revamp, docs/RAVEN_REVAMP_DESIGN.md): the chapter's control rows {key, ability id}; each shows
+	 * {@code projecthero.raven.ability.<id>} and its {@code .desc}. The wheel's spells follow in their own section.
 	 */
-	public static final String[][] RAVEN_CONTROLS = { { "R", "dark_bolt" }, { "Shift+hold R", "telekinesis" }, { "G", "shadow_grasp" },
-			{ "Shift+G", "soul_self" }, { "Hold Z", "dark_shield" }, { "Shift+Z", "trigons_wrath" }, { "X", "shadow_dash" },
-			{ "Shift+X", "shadow_step" }, { "C", "telekinetic_wave" }, { "Shift+C", "debris_storm" }, { "V", "empath_heal" },
-			{ "Shift+hold V", "meditate" }, { "2x Space", "flight" } };
+	public static final String[][] RAVEN_CONTROLS = { { "R", "dark_bolt" }, { "Shift+hold R", "telekinesis" }, { "G", "soul_shield" },
+			{ "Shift+G", "soul_self" }, { "Z", "telekinetic_crush" }, { "Shift+Z", "trigons_wrath" }, { "X", "shadow_dash" },
+			{ "Shift+X", "shadow_step" }, { "C", "energy_wave" }, { "Shift+C", "demonic_ascension" }, { "Tap V", "cast_spell" },
+			{ "Hold V", "spell_wheel" }, { "Shift+hold V", "meditate" }, { "2x Space", "flight" } };
 
 	/** Raven (v0.17.3). */
 	public static Chapter ravenChapter() {
@@ -1940,7 +1940,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.raven.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.raven.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "traits", "energy", "composure", "look", "titans"}) {
+			for (String section : new String[]{"getting", "traits", "passives", "energy", "composure", "look", "titans"}) {
 				head(lines, "projecthero.guide.raven." + section);
 				para(lines, "projecthero.guide.raven." + section + ".body");
 				blank(lines);
@@ -1950,6 +1950,14 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.raven.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.raven.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.raven.wheel");
+			para(lines, "projecthero.guide.raven.wheel.body");
+			for (com.projecthero.mod.raven.RavenSpell spell : com.projecthero.mod.raven.RavenSpell.values()) {
+				lines.add(Component.literal(" " + (spell.combat ? "⚔" : "✦") + "  ").withStyle(ChatFormatting.LIGHT_PURPLE)
+						.append(Component.translatable(spell.langKey()).withStyle(ChatFormatting.WHITE)));
+				para(lines, spell.langKey() + ".desc");
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.raven.commands");

@@ -840,10 +840,15 @@ public final class RavenSpells {
 
 	// ---------------------------------------------------------------- hurt / tick
 
-	/** She was hurt for {@code dealt}: the healing channel stops, and 8+ while a Soul Detonation counts down breaks it. */
-	static void onHurt(ServerPlayer p, float dealt) {
-		if (CHANNELS.remove(p.getUUID()) != null) {
-			Raven.say(p, "message.projecthero.raven.channel_broken", ChatFormatting.GRAY);
+	/**
+	 * She was hurt for {@code dealt}: a hit (something struck her) stops the healing channel -- a poison or burn tick doesn't --
+	 * and 8+ of any damage while a Soul Detonation counts down breaks it.
+	 */
+	static void onHurt(ServerPlayer p, net.minecraft.world.damagesource.DamageSource source, float dealt) {
+		if (source.getEntity() != null || source.getDirectEntity() != null) {
+			if (CHANNELS.remove(p.getUUID()) != null) {
+				Raven.say(p, "message.projecthero.raven.channel_broken", ChatFormatting.GRAY);
+			}
 		}
 		Detonation d = DETONATIONS.get(p.getUUID());
 		if (d != null) {

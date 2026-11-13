@@ -30,7 +30,7 @@ public final class RavenDamage {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, dealt, blocked) -> {
 			if (dealt > 0f && entity instanceof ServerPlayer p && Raven.hasPower(p)) {
 				Raven.onHurt(p, dealt);
-				RavenSpells.onHurt(p, dealt);
+				RavenSpells.onHurt(p, source, dealt);
 			}
 		});
 	}

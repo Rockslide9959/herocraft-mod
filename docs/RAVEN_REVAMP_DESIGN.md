@@ -1,4 +1,12 @@
-# Raven revamp -- proposal (2026-11-13, not built yet)
+# Raven revamp -- approved and built (2026-11-13)
+
+Approved by the user ("Yes, build it") with the open choices below as picked. Built in `raven/RavenMoves` (main keys),
+`raven/RavenSpells` + `RavenSpell` (the wheel), `client/raven/RavenSpellWheelScreen`; numbers in `raven/RavenConfig`.
+Build decisions not spelled out below: Demonic Ascension costs 40 Dark Energy; "spells +X%" applies to every Raven move and
+spell (Trigon's Wrath keeps its flat 30); Shadow Binding's "4-block area" is a 4-block radius; Void Vortex hurts what is within
+3.5 blocks of its eye each second (it pulls from 7); Astral Sanctuary is a fixed dome where it was cast (Rage halves its 40% to
+20%); a misfire moves a spell cast at a spot (Vortex, Binding, Rift) up to 6 blocks, any other spell slips away as a small
+4-damage burst near her (paid for, half its cooldown); V held 5 ticks opens the wheel.
 
 Merges the current Raven kit (`docs/TEEN_TITANS_DESIGN.md`) with the user's ChatGPT moveset: the best moves from each, plus
 ChatGPT's **Spell Wheel**. House rules kept: H = power selector only, no N, **X = Shadow Dash, Shift+X = mobility attack**,
