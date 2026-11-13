@@ -211,6 +211,21 @@ public final class BeastBoy {
 		return Math.max(0f, Math.min(1f, (now(player) - s.anim.moveStart() + partial) / s.anim.moveTicks()));
 	}
 
+	/** Morph round: the form he left in the last form change (null when none). Client-safe. */
+	public static BeastForm morphFrom(Player player) {
+		BeastBoyState s = peek(player);
+		return s == null || !s.hasPower || s.morph.from() < 0 ? null : BeastForm.byId(s.morph.from());
+	}
+
+	/** Morph round: game ticks (with the partial tick) since the last form change; -1 when there was none. Client-safe. */
+	public static float morphAge(Player player, float partial) {
+		BeastBoyState s = peek(player);
+		if (s == null || !s.hasPower || s.morph.from() < 0 || s.morph.at() <= 0L) {
+			return -1f;
+		}
+		return now(player) - s.morph.at() + partial;
+	}
+
 	/** The human-form quick morph flashing right now (null when none). Client-safe. */
 	public static BeastForm quickForm(Player player) {
 		BeastBoyState s = peek(player);
@@ -235,11 +250,23 @@ public final class BeastBoy {
 		save(player, n);
 	}
 
+	/**
+	 * Morph round: the body-reshaping sound under every morph (layered vanilla: a wet stretch and a soft whoosh), pitched by the size of
+	 * the new body (big = lower).
+	 */
+	static void morphSound(ServerPlayer player, BeastForm form) {
+		float size = Math.max(form.width, form.height);
+		float pitch = (float) Math.max(0.6, Math.min(1.7, 1.45 - Math.log(Math.max(0.2, size) / 1.8) * 0.35));
+		sound(player, SoundEvents.HONEY_BLOCK_SLIDE, 0.55f, pitch);
+		sound(player, SoundEvents.ILLUSIONER_MIRROR_MOVE, 0.25f, pitch * 1.15f);
+	}
+
 	static void flashQuick(ServerPlayer player, BeastForm form) {
 		BeastBoyState n = state(player).copy();
 		n.anim = new BeastBoyState.Anim(form.ordinal(), now(player), BeastBoyConfig.QUICK_TICKS, n.anim.move(), n.anim.moveStart(),
 				n.anim.moveTicks());
 		save(player, n);
+		morphSound(player, form);
 	}
 
 	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
@@ -390,6 +417,9 @@ public final class BeastBoy {
 		n.form = form.ordinal();
 		n.formHp = form.formHealth;
 		n.anim = new BeastBoyState.Anim(0, 0L, 0, form == BeastForm.HUMAN ? "morph_out" : "morph_in", now(player), 8);
+		if (old != form) {
+			n.morph = new BeastBoyState.Morph(old.ordinal(), now(player)); // morph round: every client plays the transition from this
+		}
 		if (form != BeastForm.BEAST) {
 			n.timers = n.timers.withBeast(0L);
 		}
@@ -404,6 +434,7 @@ public final class BeastBoy {
 		reconcile(player);
 		puff(player);
 		sound(player, SoundEvents.SLIME_SQUISH_SMALL, 0.35f, 1.5f);
+		morphSound(player, form);
 		SoundEvent voice = voice(form);
 		if (voice != null) {
 			sound(player, voice, 0.3f, 1.0f);

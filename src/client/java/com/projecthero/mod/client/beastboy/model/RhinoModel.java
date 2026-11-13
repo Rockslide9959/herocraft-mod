@@ -20,11 +20,6 @@ public final class RhinoModel {
 	private RhinoModel() {
 	}
 
-	/** The fix-round head (shared atlas), still used by the human-form quick-morph ram. */
-	public static void head(PoseStack pose, float t) {
-		LegacyBigParts.rhinoHead(pose, t);
-	}
-
 	/** Unused: {@link BigAnimals} draws the rhino before BeastFormArt's mesh switch is reached (kept so that switch needs no edit). */
 	public static void draw(PoseStack pose, BeastPose s) {
 	}

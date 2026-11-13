@@ -25,16 +25,6 @@ public final class ElephantModel {
 	public static void draw(PoseStack pose, BeastPose s) {
 	}
 
-	/** The fix-round ear (shared atlas), still used by the human-form quick-morph stomp. */
-	public static void ear(PoseStack pose, int s, float flap, float k) {
-		LegacyBigParts.elephantEar(pose, s, flap, k);
-	}
-
-	/** The fix-round trunk (shared atlas), still used by the human-form quick-morph stomp. */
-	public static void trunk(PoseStack pose, float t, float amt, float trunkUp, float grab, float swing) {
-		LegacyBigParts.elephantTrunk(pose, t, amt, trunkUp, grab, swing);
-	}
-
 	public static void render(BeastPose s, PoseStack pose, MultiBufferSource buffers, int light, int tint, float flash) {
 		BigBox.Rig r = RIG.get();
 		r.reset();

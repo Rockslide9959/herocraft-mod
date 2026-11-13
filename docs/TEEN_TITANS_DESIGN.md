@@ -186,3 +186,20 @@ them. The old generator scripts stay in `scratchpad/starfire/` and `scratchpad/r
 - Landings: `HeroLandingStyle.STARFIRE` (id 30, fist, green starbolt burst: `StarfireLanding`) and `RAVEN` (id 31, wings kneel,
   dark soul ring: `RavenLanding`), registered on the shared `HeroLanding` detector. Raven's calm 9 b/s cruise is under the
   detector's fast-descent bar, so her landing needs a sprinting dive; Starfire lands from any dive.
+
+## Beast Boy morph round (2026-11-13)
+- **Every form change morphs** (human <-> animal, animal -> animal chains): 10 ticks (0.5 s), driven by the synced
+  `BeastBoyState.morph` (the form he left + game time), so every watching client plays it; stats and hitbox still switch at once.
+  Code in `client/beastboy/morph`: `MorphAnchors` (7 shared anchors per body: head, torso, front limbs L/R, hind limbs L/R, tail;
+  the player model's are exact, each animal's come from a family template fitted to its measured idle mesh), `MorphField` (every
+  vertex skinned to its own body's anchors and pushed through the anchors blended toward the other body, size blended
+  geometrically so whale <-> fly reads), `MorphBuffers` (bends any renderer's output: the vanilla player with armour, the box and
+  mesh animals), `BeastMorph` (timeline, glow, sparks, landing puff). Timeline: the old body reshapes (0-0.36), its parts shrink
+  into their roots (0.36-0.72) while the new body breaks out at 40% and swells (0.34-0.69); a squash at the start, a spring pop at
+  the end, skin green, green energy along the seams between parts.
+- **Quick morphs**: the tiger pounce and snake strike show the whole animal (full morph in over the first 3 ticks, out over the
+  last 3). The partials use the new blocky parts (`model/QuickMorphs`): gorilla arms (GorillaGeo), rhino head (RhinoGeo), T-Rex
+  head (TRexModel.quickHead), elephant head + legs (ElephantGeo), octopus arms (SeaShapes.octopus). His matching part swells,
+  hides while the animal part is out (attached to his model at the joint, following his pose; the gorilla arm also in first
+  person), and comes back. LegacyBigParts and the old smooth partials are gone.
+- Sound: a layered morph sound (honey-block slide + illusioner mirror move, pitched by body size) under every morph and quick morph.
