@@ -27,7 +27,6 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.3 Starfire's glow overlays, on her own body, every viewer. The power never changes the skin: these are emissive extras.
  * <ul>
- *   <li><b>Green eyes</b>, always: two glowing pixels on the face. At full Fury they blaze -- bigger, white-hot, flickering.</li>
  *   <li><b>Glowing hands</b> while a starbolt is ready (Starbolt to pay for one, R off cooldown): two soft additive shells fitted to
  *   the hand end of each arm (wide or slim), their faces fading to nothing at the edges so the glow has no hard square outline.
  *   The same glow is drawn on the first-person arm ({@code StarfireFirstPersonArmMixin}).</li>
@@ -114,18 +113,8 @@ public class StarfireGlowLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 		}
 		bake();
 		PlayerModel<AbstractClientPlayer> model = getParentModel();
-		VertexConsumer vc = buffers.getBuffer(RenderType.eyes(MutationRender.WHITE));
 		float t = ageInTicks + partialTick;
-		boolean fury = s.mood >= StarfireConfig.FURY_FULL;
-		// the eyes
-		pose.pushPose();
-		model.head.translateAndRotate(pose);
-		eyes.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, fury ? 0xFFE8FFD8 : 0xFF5CFF5A);
-		if (fury) {
-			int a = 150 + (int) (80 * (0.5f + 0.5f * Mth.sin(t * 0.9f)));
-			blaze.render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, (a << 24) | 0x3CFF3A);
-		}
-		pose.popPose();
+		// v0.17.3 (user: "remove the glowing eyes"): no eye glow any more, the hands only
 		// the hands
 		if (handsGlow(player, s)) {
 			for (int i = 0; i < 2; i++) {

@@ -172,7 +172,7 @@ POWER only calls it and falls back when it returns false). Titans Together is ad
 The user asked for the Starfire and Raven suits to be removed. Gone: the Starfire Top / Skirt / Boots (`starfire_suit_*`,
 `StarfireSuitItem`, its skin-costume hook in `QuirkCostume` / `QuirkSuitArmourMixin`) and Raven's Cloak (`raven_cloak`, its
 recipe, armour layer, the blue / white / red Composure-coloured hood and cape), with their recipes, textures, creative tab
-entries, Guidebook sections and lang keys. Kept: Starfire's glowing eyes and fists (the flame hair went on 2026-11-13); Raven's wisps, white casting eyes,
+entries, Guidebook sections and lang keys. Kept: Starfire's glowing fists (the flame hair went on 2026-11-13, the glowing eyes on 2026-11-13 too); Raven's wisps, white casting eyes,
 four red Rage eyes, Soul-Self and the Trigon's Wrath shadow (its black hood and cape now come from the Wrath alone,
 `RavenCloakLayer` / `RavenAuraLayer`). Saved copies of the removed items load as air (vanilla warns once); no mod state referenced
 them. The old generator scripts stay in `scratchpad/starfire/` and `scratchpad/raven/` for reference.
