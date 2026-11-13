@@ -80,6 +80,7 @@ public final class Saiyan {
 		LAST_RAGE_HIT.clear();
 		STREAK.clear();
 		SaiyanFlight.clearSessionState();
+		SaiyanUltraInstinct.clearSessionState();
 		SaiyanAbilityManager.clearSessionState();
 		SaiyanKit.clearSessionState();
 	}
@@ -92,6 +93,7 @@ public final class Saiyan {
 		LAST_RAGE_HIT.remove(id);
 		STREAK.remove(id);
 		SaiyanFlight.forget(id);
+		SaiyanUltraInstinct.forget(id);
 		SaiyanAbilityManager.forget(id);
 	}
 
@@ -124,9 +126,9 @@ public final class Saiyan {
 		return s != null && s.hasPower && s.ssj;
 	}
 
-	/** Base or Super Saiyan (the hair and aura). Client-safe. */
+	/** Base, Super Saiyan or (v0.17.3, secret) Ultra Instinct (the aura and tail). Client-safe. */
 	public static SaiyanForm form(Player player) {
-		return ssj(player) ? SaiyanForm.SSJ : SaiyanForm.BASE;
+		return !ssj(player) ? SaiyanForm.BASE : SaiyanUltraInstinct.active(player) ? SaiyanForm.ULTRA : SaiyanForm.SSJ;
 	}
 
 	/** Ticks of Super Saiyan left (0 when not transformed). Client-safe. */
@@ -242,6 +244,7 @@ public final class Saiyan {
 		if (melee && s.strongFoeUntil > now) {
 			m += SaiyanConfig.STRONG_MELEE;
 		}
+		m += SaiyanUltraInstinct.damageBonus(player); // v0.17.3 Ultra Instinct +25%, a counter +50% more
 		return m;
 	}
 
@@ -253,7 +256,7 @@ public final class Saiyan {
 	/** Ki regained per tick right now (not charging): 1/s, x2 in Super Saiyan, +10% against a stronger enemy, none in flight. */
 	public static float kiRegenPerTick(Player player) {
 		SaiyanState s = peek(player);
-		if (s == null || !s.hasPower || s.flying) {
+		if (s == null || !s.hasPower || s.flying || SaiyanUltraInstinct.active(player)) {
 			return 0f;
 		}
 		float r = SaiyanConfig.KI_REGEN_PER_TICK;
@@ -268,7 +271,7 @@ public final class Saiyan {
 
 	/** Flight speed multiplier (Super Saiyan flies 20% faster). Client-safe. */
 	public static double flightSpeedMult(Player player) {
-		return ssj(player) ? 1.0 + SaiyanConfig.SSJ_SPEED : 1.0;
+		return !ssj(player) ? 1.0 : 1.0 + SaiyanConfig.SSJ_SPEED + (SaiyanUltraInstinct.active(player) ? SaiyanUltraInstinct.SPEED : 0.0);
 	}
 
 	public static int cooldownRemaining(Player player, String id) {
@@ -385,6 +388,7 @@ public final class Saiyan {
 			noteFoe(player, attacker);
 		}
 		addRage(player, amount * SaiyanConfig.RAGE_PER_HP_LOST);
+		SaiyanUltraInstinct.onHurt(player);
 	}
 
 	/** He landed a hit on {@code target} ({@code melee}: a punch, not a Ki move). */
@@ -507,6 +511,7 @@ public final class Saiyan {
 		if (!hasPower(player)) {
 			return;
 		}
+		SaiyanUltraInstinct.onRespawn(player);
 		SaiyanState n = state(player).copy();
 		n.ssj = false;
 		n.ssjUntil = 0L;
@@ -545,6 +550,10 @@ public final class Saiyan {
 
 	/** H: Super Saiyan, if the Rage bar is full. True if he transformed. */
 	public static boolean transform(ServerPlayer player) {
+		// v0.17.3: H again as a Super Saiyan is the secret Ultra Instinct, once unlocked (else the usual "already" note)
+		if (hasPower(player) && state(player).ssj && player.isAlive()) {
+			return SaiyanUltraInstinct.enter(player);
+		}
 		String why = transformRefusal(player);
 		if (why != null) {
 			say(player, why, ChatFormatting.GRAY, (lockoutTicksLeft(player) + 19) / 20, Math.round(state(player).rage));
@@ -694,6 +703,7 @@ public final class Saiyan {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, KAIOKEN_SPEED_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, KAIOKEN_ATTACK_SPEED_ID);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, CHARGE_ID);
+			SaiyanUltraInstinct.reconcile(player, false);
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
@@ -712,6 +722,7 @@ public final class Saiyan {
 		toggle(player, s.kaioken(), Attributes.ATTACK_SPEED, KAIOKEN_ATTACK_SPEED_ID, SaiyanConfig.KAIOKEN_ATTACK_SPEED,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		toggle(player, s.charging, Attributes.MOVEMENT_SPEED, CHARGE_ID, SaiyanConfig.CHARGE_SLOW, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		SaiyanUltraInstinct.reconcile(player, true);
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());
 		}
@@ -740,8 +751,8 @@ public final class Saiyan {
 			return;
 		}
 		// Super Saiyan's 3 minutes
-		if (s.ssj && now >= s.ssjUntil) {
-			endSsj(player);
+		if (s.ssj && now >= s.ssjUntil && !SaiyanUltraInstinct.active(player)) {
+			endSsj(player); // (Ultra Instinct holds the form until it ends, then takes it along)
 		}
 		// Kaioken eats health: 1 HP every 1.5 s, never below 2 (it ends there)
 		s = state(player);
@@ -790,6 +801,8 @@ public final class Saiyan {
 		if (s.ki <= 0f && s.flying) {
 			SaiyanFlight.stop(player);
 		}
+		// v0.17.3 the secret Ultra Instinct: its unlock watch, or its Ki drain and end
+		SaiyanUltraInstinct.tick(player);
 		// Regeneration I (paused while Kaioken burns)
 		s = state(player);
 		if (!s.kaioken() && player.isAlive() && now % SaiyanConfig.REGEN_INTERVAL == 0 && player.getHealth() < player.getMaxHealth()) {

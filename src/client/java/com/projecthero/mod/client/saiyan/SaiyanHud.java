@@ -113,7 +113,14 @@ public final class SaiyanHud {
 		int titleColour;
 		String clock = null;
 		int clockColour = VanillaHud.WHITE;
-		if (s.ssj) {
+		int uiLeft = com.projecthero.mod.saiyan.SaiyanUltraInstinct.ticksLeft(p);
+		if (uiLeft > 0) {
+			// v0.17.3 the secret Ultra Instinct: silver, its own (short) clock
+			title = Component.translatable(SaiyanForm.ULTRA.nameKey()).getString();
+			titleColour = 0xFFE8F0FF;
+			clock = clock(uiLeft);
+			clockColour = uiLeft < 5 * 20 && pulse ? VanillaHud.RED : 0xFFE8F0FF;
+		} else if (s.ssj) {
 			title = Component.translatable(SaiyanForm.SSJ.nameKey()).getString();
 			titleColour = GOLD_TEXT;
 			int left = Saiyan.ssjTicksLeft(p);

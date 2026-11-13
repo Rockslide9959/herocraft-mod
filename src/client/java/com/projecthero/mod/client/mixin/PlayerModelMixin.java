@@ -147,14 +147,6 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		}
 	}
 
-	/** v0.17.3: a Super Saiyan's hair hides the wearer's own hat layer. */
-	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
-	private void projecthero$ssjHairHidesHat(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw,
-			float headPitch, CallbackInfo ci) {
-		if (entity instanceof Player player) {
-			com.projecthero.mod.client.saiyan.hair.SsjHairRenderer.hideHat(player, (PlayerModel<?>) (Object) this);
-		}
-	}
 
 	/**
 	 * True while an Iron Man helmet is worn but retracted by the H-key faceplate toggle

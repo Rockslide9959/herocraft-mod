@@ -47,7 +47,7 @@ public final class SaiyanLoopSounds {
 		if (Saiyan.kaioken(p)) {
 			return SaiyanSounds.AURA_LOOP_RED;
 		}
-		return Saiyan.form(p) == SaiyanForm.SSJ ? SaiyanSounds.AURA_LOOP_GOLD : null;
+		return Saiyan.form(p) != SaiyanForm.BASE ? SaiyanSounds.AURA_LOOP_GOLD : null; // (Ultra Instinct shares the hum)
 	}
 
 	public static void tick(Minecraft mc) {

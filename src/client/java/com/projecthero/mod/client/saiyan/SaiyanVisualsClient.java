@@ -30,6 +30,7 @@ public final class SaiyanVisualsClient {
 		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
 			SaiyanFx.clearAll();
 			SaiyanAuraParticles.clear();
+			SaiyanTailRenderer.reset();
 		});
 	}
 }

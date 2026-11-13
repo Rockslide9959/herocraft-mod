@@ -1877,7 +1877,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.saiyan.body");
 			blank(lines);
 			// v0.17.3 revamp: the core (traits, Ki, Rage / Super Saiyan, Kaioken, Zenkai, a stronger foe, flight), then every key
-			for (String section : new String[]{"getting", "traits", "ki", "rage", "kaioken", "zenkai", "strong", "flight"}) {
+			for (String section : new String[]{"getting", "traits", "ki", "rage", "kaioken", "zenkai", "strong", "flight", "landing", "tail", "calm"}) {
 				head(lines, "projecthero.guide.saiyan." + section);
 				para(lines, "projecthero.guide.saiyan." + section + ".body");
 				blank(lines);

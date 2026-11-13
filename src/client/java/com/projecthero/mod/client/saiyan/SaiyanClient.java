@@ -14,7 +14,7 @@ import net.minecraft.client.player.LocalPlayer;
 /**
  * v0.17.3 Saiyan revamp: the Saiyan's client side -- the HUD, H (Super Saiyan once the Rage bar is full; the server says why not
  * otherwise) and the double-tap-jump flight request. V (charge Ki / Kaioken) and the moves go through the ability slots. The aura
- * and hair are drawn elsewhere ({@code client.saiyan.aura}, {@code client.saiyan.hair}).
+ * and tail are drawn elsewhere ({@code client.saiyan.aura}, {@code SaiyanTailRenderer}).
  */
 public final class SaiyanClient {
 	private SaiyanClient() {
