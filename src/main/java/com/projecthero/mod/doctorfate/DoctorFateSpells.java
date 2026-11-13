@@ -64,7 +64,9 @@ public final class DoctorFateSpells {
 	/** Tests only: force the next Override roll (null = the 1-in-6 roll). */
 	public static volatile Boolean testOverride;
 	/** Tests only: told of each Glyph Storm hit that landed (the creature, the health it lost). */
-	public static volatile java.util.function.BiConsumer<LivingEntity, Float> stormHitListener;
+	/** Test hook: (storm owner, creature hit, damage dealt). */
+	public interface StormHit { void hit(ServerPlayer owner, LivingEntity e, float dealt); }
+	public static volatile StormHit stormHitListener;
 
 	private DoctorFateSpells() {
 	}
@@ -573,9 +575,9 @@ public final class DoctorFateSpells {
 						float hb = e.getHealth();
 						if (hit(owner, e, DoctorFateConfig.GLYPH_DAMAGE * s.mult, s.nabu)) {
 							e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, DoctorFateConfig.GLYPH_SLOW_TICKS, 0, false, false));
-							java.util.function.BiConsumer<LivingEntity, Float> l = stormHitListener;
+							StormHit l = stormHitListener;
 							if (l != null) {
-								l.accept(e, hb - e.getHealth());
+								l.hit(owner, e, hb - e.getHealth());
 							}
 						}
 					}
