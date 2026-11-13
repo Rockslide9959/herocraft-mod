@@ -890,4 +890,62 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(Spin.charging(p) == SpinState.CHARGE_NONE, "letting go fires (even after letting go of Shift)");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.3 tester note: the ball's hit box
+
+	/** A fast ball (3 blocks a tick, faster than a zombie is wide) thrown at a zombie 4.5 blocks off hits it: no tunnelling. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void aFastBallThrownAtAMobHitsIt(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 1.5, 6.0, 100);
+		look(p, z);
+		float before = z.getHealth();
+		float self = p.getHealth();
+		helper.runAfterDelay(1, () -> {
+			Vec3 from = Spin.handPos(p);
+			Vec3 at = z.getBoundingBox().getCenter();
+			SteelBallEntity.launch(p, 0, SteelBallEntity.MODE_HIT, at.subtract(from).normalize().scale(3.0), at, false, SpinConfig.BALL_RANGE, false);
+		});
+		helper.runAfterDelay(12, () -> {
+			helper.assertTrue(z.getHealth() < before, "the fast ball hit the zombie (health " + z.getHealth() + " of " + before + ")");
+			helper.assertTrue(p.getHealth() >= self, "it never hit the thrower");
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * The swept test itself, at every speed from a slow toss to 5 blocks a tick and offsets up to 0.65 blocks wide of the
+	 * zombie's middle (its half-width is 0.3, the margin 0.45): every path hits; a path 1.2 wide misses; the thrower is never hit.
+	 */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void ballSweepHitsGrazingAndFastPathsButNeverTheThrower(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 4.5, 4.5, 100);
+		Vec3 c = z.getBoundingBox().getCenter();
+		SteelBallEntity ball = new SteelBallEntity(com.projecthero.mod.spin.entity.SpinEntities.STEEL_BALL, helper.getLevel());
+		ball.setOwner(p);
+		int hits = 0;
+		int tries = 0;
+		for (double speed : new double[] { 0.6, 1.2, 2.5, 5.0 }) {
+			for (double off : new double[] { 0.0, 0.3, 0.5, 0.65 }) {
+				tries++;
+				// start 2 blocks short of the zombie along x, the path shifted sideways along z; the steps must cross it
+				Vec3 pos = c.add(-2.0, -0.15, off);
+				Vec3 v = new Vec3(speed, 0, 0);
+				boolean hit = false;
+				for (int t = 0; t < 12 && !hit; t++) {
+					hit = ball.sweep(pos, v) instanceof net.minecraft.world.phys.EntityHitResult e && e.getEntity() == z;
+					pos = pos.add(v);
+				}
+				hits += hit ? 1 : 0;
+			}
+		}
+		helper.assertTrue(hits == tries, "every grazing / fast path hits: " + hits + " of " + tries);
+		helper.assertTrue(!(ball.sweep(c.add(-2.0, -0.15, 1.2), new Vec3(4.0, 0, 0)) instanceof net.minecraft.world.phys.EntityHitResult),
+				"a path 1.2 blocks wide misses");
+		Vec3 pc = p.getBoundingBox().getCenter();
+		helper.assertTrue(!(ball.sweep(pc.add(-1.0, -0.15, 0), new Vec3(2.0, 0, 0)) instanceof net.minecraft.world.phys.EntityHitResult e2
+				&& e2.getEntity() == p), "the thrower is never hit");
+		helper.succeed();
+	}
 }

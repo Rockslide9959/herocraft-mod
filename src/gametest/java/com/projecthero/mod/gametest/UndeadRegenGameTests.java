@@ -13,6 +13,7 @@ import com.projecthero.mod.undead.UndeadAbilities;
 import com.projecthero.mod.undead.UndeadAbilityManager;
 import com.projecthero.mod.undead.UndeadConfig;
 import com.projecthero.mod.undead.UndeadMod;
+import com.projecthero.mod.undead.UndeadRegenMods;
 import com.projecthero.mod.undead.UndeadSoundEvents;
 import com.projecthero.mod.undead.UndeadStages;
 import com.projecthero.mod.undead.data.UndeadState;
@@ -375,5 +376,85 @@ public class UndeadRegenGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(UndeadRegenGameTests.class.getResource("/assets/projecthero/sounds/undead/regrow_finish1.ogg") == null, "the regrow takes are gone");
 		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.3 tester note: hunger slows the regen
+
+	/**
+	 * Tester: "Undead body is still regenerating at normal speed when hungry." Each heal step's size, at 20 / 12 / 6 / 0 food: 1 HP,
+	 * 0.625, 0.25, nothing (asserted on the step sizes, never elapsed totals). And the regrowth times stretch by the same factor.
+	 */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void hungerShrinksEachHealStep(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		int[] foods = { 20, 12, 6, 0 };
+		float[] expect = { 1f, 0.625f, 0.25f, 0f };
+		float[] step = new float[foods.length];
+		int[] t = { 0 };
+		float[] last = { 0f };
+		helper.onEachTick(() -> {
+			int phase = t[0] / 10;
+			if (phase >= foods.length) {
+				for (int i = 0; i < foods.length; i++) {
+					helper.assertTrue(Math.abs(step[i] - expect[i]) < 0.01f, "food " + foods[i] + ": a heal step of " + expect[i] + ", was " + step[i]);
+				}
+				helper.succeed();
+				return;
+			}
+			if (t[0] % 10 == 0) {
+				p.getFoodData().setFoodLevel(foods[phase]);
+				p.setHealth(4f);
+			}
+			last[0] = p.getHealth();
+			Undead.tick(p);
+			step[phase] = Math.max(step[phase], p.getHealth() - last[0]);
+			t[0]++;
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void hungerStretchesTheRegrowth(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		helper.assertTrue(UndeadRegenMods.hungerMult(18) == 1f && UndeadRegenMods.hungerMult(6) == 0.25f && UndeadRegenMods.hungerMult(3) == 0.25f
+				&& UndeadRegenMods.hungerMult(0) == 0f && Math.abs(UndeadRegenMods.hungerMult(12) - 0.625f) < 0.001f, "the hunger curve");
+		p.getFoodData().setFoodLevel(20);
+		int fullTicks = Undead.regrowTicks(p, UndeadState.LEFT_ARM);
+		int fullDelay = Undead.regrowDelay(p);
+		p.getFoodData().setFoodLevel(6);
+		helper.assertTrue(Undead.regrowTicks(p, UndeadState.LEFT_ARM) == fullTicks * 4, "hungry: a limb regrows 4x slower ("
+				+ Undead.regrowTicks(p, UndeadState.LEFT_ARM) + " vs " + fullTicks + ")");
+		helper.assertTrue(Undead.regrowDelay(p) == fullDelay * 4, "hungry: the wait is 4x longer");
+		p.getFoodData().setFoodLevel(12);
+		helper.assertTrue(Undead.regrowTicks(p, UndeadState.LEFT_ARM) == Math.round(fullTicks / 0.625f), "half-fed: 1.6x");
+		helper.succeed();
+	}
+
+	/** At 0 food nothing starts regrowing, and a part already growing holds still (its growth step is 0). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void starvingHoldsTheRegrowth(GameTestHelper helper) {
+		ServerPlayer p = undead(helper);
+		p.getFoodData().setFoodLevel(0);
+		Undead.breakPart(p, UndeadState.LEFT_LEG, UndeadState.KIND_BURST);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			Undead.tick(p);
+			t[0]++;
+			UndeadState s = Undead.state(p);
+			if (t[0] == UndeadConfig.REGROW_DELAY + 10) {
+				helper.assertTrue(s.regrowStart(UndeadState.LEFT_LEG) == 0L, "starving: the leg never starts");
+				p.getFoodData().setFoodLevel(20);
+			}
+			if (t[0] == UndeadConfig.REGROW_DELAY + 15) {
+				helper.assertTrue(s.regrowStart(UndeadState.LEFT_LEG) > 0L, "fed: it starts");
+				p.getFoodData().setFoodLevel(0);
+			}
+			if (t[0] == UndeadConfig.REGROW_DELAY + 25) {
+				long now = helper.getLevel().getGameTime();
+				helper.assertTrue(s.broken(UndeadState.LEFT_LEG) && s.regrowStart(UndeadState.LEFT_LEG) > 0L, "still growing, held");
+				helper.assertTrue(s.regrowEnd(UndeadState.LEFT_LEG) - now >= UndeadConfig.LIMB_SWEEP_TICKS - 6,
+						"held: its end keeps moving with the clock (left " + (s.regrowEnd(UndeadState.LEFT_LEG) - now) + ")");
+				helper.succeed();
+			}
+		});
 	}
 }
