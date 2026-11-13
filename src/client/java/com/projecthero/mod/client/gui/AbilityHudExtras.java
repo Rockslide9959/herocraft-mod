@@ -17,13 +17,14 @@ import net.minecraft.client.gui.GuiGraphics;
  * the HUD itself.
  *
  * <ul>
- *   <li>{@link #mono} -- the power's HUD is drawn in the black-and-gray theme (boxes, borders, key letters,
- *       power name, bar labels). Bar fills keep their own colours.</li>
+ *   <li>{@link #mono} -- the power's HUD is drawn in the black-and-gray theme. v0.17.3: on the vanilla-style HUD this
+ *       is the grey power name; bars keep their own colours.</li>
  *   <li>{@link #registerAbove} -- Hairline bars stacked <em>above</em> the ability-key row (charge-ups,
  *       running-move timers). A registered {@code MutationMeters.Spec} with {@code above = true} lands here
- *       too, without any client code.</li>
+ *       too, without any client code. v0.17.3: drawn as Hairline meter rows; a label "Name -- VALUE" or
+ *       "Name  VALUE" is split into the row's label and its right-hand value.</li>
  *   <li>{@link #registerDecor} -- free drawing on the power-name line, right of the name (e.g. Super
- *       Regeneration's revive-charge dots).</li>
+ *       Regeneration's revive-charge dots). Keep it short and shadowed, and stop at {@code guiWidth() - 4}.</li>
  * </ul>
  */
 public final class AbilityHudExtras {
