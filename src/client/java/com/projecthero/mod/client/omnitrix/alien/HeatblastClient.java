@@ -459,7 +459,16 @@ public final class HeatblastClient implements AlienClientKit {
 				|| (st.kitFlags & (HeatblastKit.F_RIDE_CHARGE | HeatblastKit.F_STREAM | HeatblastKit.F_MAGMA | HeatblastKit.F_SLAM)) != 0;
 		float relit = anim == HeatblastKit.ANIM_REIGNITE && ticks < 14f ? 1f + 0.8f * (1f - ticks / 14f) : 1f;
 		float nova = kit().novaCharge(p, partial);
-		headFire(pose, buffers, model.head, nova > 0f ? 1f + 0.6f * nova : big ? 1.4f * relit : 1f, age);
+		// v0.17.3: in the show transformation the head is dark until it bursts into flame, and the fists flare
+		float showFire = com.projecthero.mod.client.omnitrix.sequence.HeatblastShow.headFire(p, partial);
+		if (showFire < 0f) {
+			headFire(pose, buffers, model.head, nova > 0f ? 1f + 0.6f * nova : big ? 1.4f * relit : 1f, age);
+		} else {
+			if (showFire > 0.02f) {
+				headFire(pose, buffers, model.head, showFire, age);
+			}
+			com.projecthero.mod.client.omnitrix.sequence.HeatblastShow.renderAlien(pose, buffers, p, model, partial);
+		}
 		if (anim == HeatblastKit.ANIM_REIGNITE && ticks < 10f) {
 			// the flames burst back over his whole body
 			PyrokinesisClient.bodyFire(pose, buffers, age, 1.2f * (1f - ticks / 10f) + 0.2f);

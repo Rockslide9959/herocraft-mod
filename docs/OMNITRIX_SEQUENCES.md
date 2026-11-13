@@ -6,7 +6,7 @@ of classes on a shared framework, so several aliens can be built in parallel wit
 
 **The user's posing brief:** "make the posing and everything look exactly like how it looks in the show, try to be as expressive as
 you can without bending the limbs". Limb parts stay rigid in those: no elbow or knee bends. **v0.17.3: Four Arms was remade with bent limbs** (user: "you may bend the
-limbs ... dont break the body or make limbs detatch"), through `BentLimbs` (below); the other aliens are still rigid.
+limbs ... dont break the body or make limbs detatch"), through `BentLimbs` (below); **Heatblast got the same v2 remake** (below); the other aliens are still rigid.
 Get the expression from whole-limb angles, the head, the body's lean, part scales (`bulge`), the camera and the stage.
 
 ## Files
@@ -124,6 +124,23 @@ mitre: the cut edge sits on the bend's bisecting plane at full depth, so the hal
 continues), the axis slides inward on a deep bend so the inner side never turns inside out, and past ~105 degrees the outer corner gets a
 flat chamfer cap. Extra limbs use `BentLimbs.cube(...)` + `drawPart(...)` (Four Arms' lower pair); things riding a forearm (the watch,
 lumps) use `BentLimbs.toForearm(pose, limb, slim)` inside the arm's bone space. `FourArmsShow.POSE` is a keyframed pose track to copy.
+
+**Heatblast v2 (v0.17.3, user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses").**
+`HeatblastShow` was rebuilt the same way: its own copy of the pose track (`HeatblastShow.POSE`, 27 channels: head, lean, drop, shrug,
+then x/y/z/flex/twist per limb; bends eased straight by the end so nothing snaps when the sequence stops), re-matched shot by shot to the
+reference frames (beat table in its javadoc). Notes for the next remake:
+
+- **Rock skin** (`growRock`): plates on a jittered grid per bone face (`REGIONS`), erupting as a wave from an origin (the watch, then up
+  the arm, the chest, the jaw); molten orange as they bubble out, cooling to dark red. A greyscale plate texture with a white rim
+  (`heatblast/rock_plate.png`) is tinted per plate, so the rim reads as the show's pink edge lines. Arm plates below the elbow ride the
+  bent forearm (`toForearm`); the upper and lower halves overlap round the elbow so the stretched outer side of a bend stays covered.
+  `HeatblastShow.Plates` (Diamondhead's crystal, Wildmutt's fur) is unchanged.
+- **The alien's body hook**: `HeatblastClient.renderExtras` asks `HeatblastShow.headFire(p, partial)` (-1 = not playing) so the head
+  stays dark until it ignites at 127, and calls `HeatblastShow.renderAlien` for the white-hot fist flares (additive shells on the bent
+  forearm, not lit blocks) and the head glow.
+- **Stage buffers**: `st.flat()` and `st.dots()` share one immediate buffer source. Fetching one ends the other, so re-fetch
+  `st.flat()` after drawing any dots (a stale flat consumer throws "Not building!" and crashes the client).
+- Bystanders still see `HeatblastKit`'s ambient flame particle over the head before it ignites (server side, untouched).
 
 ### Camera keys (`CameraTrack`)
 
