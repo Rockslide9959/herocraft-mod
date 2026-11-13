@@ -9,6 +9,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.beastboy.BeastBoy;
 import com.projecthero.mod.beastboy.BeastForm;
 import com.projecthero.mod.client.beastboy.BeastBodyRenderer;
+import com.projecthero.mod.client.beastboy.morph.BeastMorph;
+import com.projecthero.mod.client.beastboy.morph.MorphBuffers;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -25,7 +27,12 @@ public abstract class BeastBoyPlayerRendererMixin {
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$beastBody(AbstractClientPlayer player, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light,
 			CallbackInfo ci) {
-		if (!BeastBoy.hasPower(player)) {
+		if (BeastMorph.humanPass() || !BeastBoy.hasPower(player)) {
+			return; // morph round: the morph is drawing his human body through this renderer
+		}
+		buffers = MorphBuffers.unwrap(buffers);
+		if (BeastMorph.render((PlayerRenderer) (Object) this, player, yaw, partial, pose, buffers, light)) {
+			ci.cancel(); // morph round: the transition (or a quick morph) drew him
 			return;
 		}
 		BeastForm form = BeastBoy.form(player);
@@ -40,6 +47,23 @@ public abstract class BeastBoyPlayerRendererMixin {
 		if (quick != null && !player.isInvisible() && BeastBodyRenderer.renderQuick(quick, player, partial, pose, buffers, light)) {
 			ci.cancel();
 		}
+	}
+
+	/** Morph round: a quick morph's human part swells, then hides while the animal part is out (after vanilla set the part visibility). */
+	@Inject(method = "setModelProperties", at = @At("TAIL"))
+	private void projecthero$quickParts(AbstractClientPlayer player, CallbackInfo ci) {
+		BeastMorph.adjustModel(((PlayerRenderer) (Object) this).getModel(), player);
+	}
+
+	/** Morph round: first person, the animal arm of an arm quick morph in place of his hand. */
+	@Inject(method = "renderRightHand", at = @At("TAIL"))
+	private void projecthero$quickRightHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
+		BeastMorph.renderHand(((PlayerRenderer) (Object) this).getModel(), player, pose, buffers, light, true);
+	}
+
+	@Inject(method = "renderLeftHand", at = @At("TAIL"))
+	private void projecthero$quickLeftHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
+		BeastMorph.renderHand(((PlayerRenderer) (Object) this).getModel(), player, pose, buffers, light, false);
 	}
 
 	@Inject(method = "renderRightHand", at = @At("HEAD"), cancellable = true)

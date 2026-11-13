@@ -140,22 +140,8 @@ public final class BeastFormArt {
 		if (form == null) {
 			return false;
 		}
-		float p = Math.max(0f, Math.min(1f, progress));
-		BeastMesh.Body body = switch (form) {
-			case GORILLA -> ps -> QuickMorphs.gorillaArms(ps, p, age);
-			case RHINO -> ps -> QuickMorphs.rhinoHead(ps, p, age);
-			case TREX -> ps -> QuickMorphs.trexHead(ps, p, age);
-			case SNAKE -> ps -> QuickMorphs.snake(ps, p, age);
-			case ELEPHANT -> ps -> QuickMorphs.elephant(ps, p, age);
-			case OCTOPUS -> ps -> QuickMorphs.tentacles(ps, p, age);
-			default -> null;
-		};
-		if (body == null || QuickMorphs.envelope(p) <= 0.01f) {
-			return false;
-		}
-		// a green flash as it pops in and out
-		float flash = Math.max(0f, 1f - Math.abs(p - 0.09f) / 0.09f) * 0.8f + Math.max(0f, 1f - Math.abs(p - 0.92f) / 0.08f) * 0.6f;
-		BeastMesh.draw(body, pose, buffers, light, tint, flash, false);
-		return true;
+		// morph round: the quick-morph partials are the new blocky animal parts attached to his player model (QuickMorphs, drawn from
+		// the player renderer); nothing is drawn at the feet any more
+		return false;
 	}
 }

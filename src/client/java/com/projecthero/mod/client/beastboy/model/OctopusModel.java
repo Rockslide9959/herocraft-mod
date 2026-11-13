@@ -207,20 +207,4 @@ public final class OctopusModel {
 			SeaArt.puff(ink, TEX, pose, buffers, light, x, y, z, sc, i * 1.1f + t * 0.5f, alpha, tint);
 		}
 	}
-
-	/** A single tentacle from {@code base} (for the quick-morph grab): heading yaw, curl 0..1 at the tip, reach 0..1. */
-	public static void tentacle(PoseStack pose, float[] base, float yaw, float pitch, float reach, float curl, float t, int seed) {
-		int n = 9;
-		float[] yb = new float[n], pb = new float[n];
-		for (int k = 0; k < n; k++) {
-			yb[k] = Mth.sin(t * 0.2f + seed + k * 0.4f) * 0.06f;
-			pb[k] = k > 4 ? 0.38f * curl : 0.02f;
-		}
-		float[][] pts = walk(base, yaw, pitch, 2.3f * reach, yb, pb);
-		float[] w = new float[n + 1];
-		for (int k = 0; k <= n; k++) {
-			w[k] = Mth.lerp(k / (float) n, 1.8f, 0.25f) * Math.max(0.3f, reach);
-		}
-		loft(pose, pts, w, w, 2, 10, TENTACLE, 2, v(0f, 1f, 0f));
-	}
 }

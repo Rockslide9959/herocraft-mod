@@ -86,7 +86,12 @@ public final class BeastBodyRenderer {
 	 */
 	public static void render(BeastForm form, AbstractClientPlayer p, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		String move = BeastBoy.move(p);
-		float prog = move == null ? 0f : BeastBoy.moveProgress(p, partial);
+		renderWith(form, p, partial, pose, buffers, light, move, move == null ? 0f : BeastBoy.moveProgress(p, partial));
+	}
+
+	/** Morph round: {@link #render} with the move given (the morph transition draws the old body moveless and drops the old pop-in). */
+	public static void renderWith(BeastForm form, AbstractClientPlayer p, float partial, PoseStack pose, MultiBufferSource buffers, int light,
+			String move, float prog) {
 		if (form.customArt) {
 			float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
 			pose.pushPose();

@@ -46,6 +46,7 @@ public final class BeastBoyClient {
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer pr) {
 				helper.register(new BeastTintLayer(pr));
+				helper.register(new BeastQuickLayer(pr)); // morph round: quick-morph animal parts on his model
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(BeastBoyFxPayload.TYPE, (payload, context) -> {
@@ -57,10 +58,12 @@ public final class BeastBoyClient {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			BeastGreen.clear();
 			BeastBodyRenderer.clear();
+			com.projecthero.mod.client.beastboy.morph.BeastMorph.clear();
 		});
 	}
 
 	private static void tick(Minecraft mc) {
+		com.projecthero.mod.client.beastboy.morph.BeastMorph.clientTick(mc); // morph round: sparks for everyone mid-morph
 		LocalPlayer p = mc.player;
 		if (p == null || mc.level == null) {
 			vWasDown = false;

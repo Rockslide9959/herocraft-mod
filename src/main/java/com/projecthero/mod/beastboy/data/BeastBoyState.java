@@ -27,6 +27,8 @@ public final class BeastBoyState {
 	public Map<String, Long> readyAt;
 	public Timers timers;
 	public Anim anim;
+	/** v0.17.3 morph round: the last form change (what he was, and when) -- every client plays the morph transition from it. */
+	public Morph morph;
 
 	/** The timed things. */
 	public record Timers(long beastUntil, long dazedUntil, long sensesUntil, long feverUntil, long chainAt, long leapAt) {
@@ -81,12 +83,24 @@ public final class BeastBoyState {
 		).apply(i, Anim::new));
 	}
 
+	/**
+	 * v0.17.3 morph round: the last form change -- the form he left ({@code from}, a BeastForm ordinal, -1 = none) at game time {@code at}.
+	 * Purely visual: the client blends the old body into the new one over the next half second.
+	 */
+	public record Morph(int from, long at) {
+		public static final Morph NONE = new Morph(-1, 0L);
+		public static final Codec<Morph> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.INT.optionalFieldOf("from", -1).forGetter(Morph::from),
+				Codec.LONG.optionalFieldOf("at", 0L).forGetter(Morph::at)
+		).apply(i, Morph::new));
+	}
+
 	public BeastBoyState() {
-		this(false, 0, 0f, 0f, 0, -1, Map.of(), Timers.NONE, Anim.NONE);
+		this(false, 0, 0f, 0f, 0, -1, Map.of(), Timers.NONE, Anim.NONE, Morph.NONE);
 	}
 
 	public BeastBoyState(boolean hasPower, int form, float formHp, float stamina, int chain, int chainForm, Map<String, Long> readyAt,
-			Timers timers, Anim anim) {
+			Timers timers, Anim anim, Morph morph) {
 		this.hasPower = hasPower;
 		this.form = form;
 		this.formHp = formHp;
@@ -96,10 +110,11 @@ public final class BeastBoyState {
 		this.readyAt = new HashMap<>(readyAt);
 		this.timers = timers == null ? Timers.NONE : timers;
 		this.anim = anim == null ? Anim.NONE : anim;
+		this.morph = morph == null ? Morph.NONE : morph;
 	}
 
 	public BeastBoyState copy() {
-		return new BeastBoyState(hasPower, form, formHp, stamina, chain, chainForm, readyAt, timers, anim);
+		return new BeastBoyState(hasPower, form, formHp, stamina, chain, chainForm, readyAt, timers, anim, morph);
 	}
 
 	public static final Codec<BeastBoyState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -111,6 +126,7 @@ public final class BeastBoyState {
 			Codec.INT.optionalFieldOf("chain_form", -1).forGetter(s -> s.chainForm),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ready_at", Map.of()).forGetter(s -> new HashMap<>(s.readyAt)),
 			Timers.CODEC.optionalFieldOf("timers", Timers.NONE).forGetter(s -> s.timers),
-			Anim.CODEC.optionalFieldOf("anim", Anim.NONE).forGetter(s -> s.anim)
+			Anim.CODEC.optionalFieldOf("anim", Anim.NONE).forGetter(s -> s.anim),
+			Morph.CODEC.optionalFieldOf("morph", Morph.NONE).forGetter(s -> s.morph)
 	).apply(i, BeastBoyState::new));
 }
