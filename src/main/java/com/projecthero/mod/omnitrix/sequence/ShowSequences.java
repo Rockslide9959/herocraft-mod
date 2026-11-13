@@ -57,9 +57,12 @@ public final class ShowSequences {
 		BY_ID.put(s.alienId(), s);
 	}
 
-	/** The sequence for {@code alienId}, or null. */
+	/**
+	 * The sequence for {@code alienId}, or null. v0.17.3: null too while the release switch holds the new show transformations back
+	 * ({@code OmnitrixFeature.sequenceAllowed}: off, only Four Arms' -- shipped in v0.17.2 -- answers), so the right-click is the quick slap.
+	 */
 	public static ShowSequence get(String alienId) {
-		return alienId == null ? null : BY_ID.get(alienId);
+		return alienId == null || !com.projecthero.mod.omnitrix.OmnitrixFeature.sequenceAllowed(alienId) ? null : BY_ID.get(alienId);
 	}
 
 	public static boolean has(String alienId) {
@@ -70,7 +73,7 @@ public final class ShowSequences {
 	public static ShowSequence byHash(long hash) {
 		for (ShowSequence s : BY_ID.values()) {
 			if (s.alienId().hashCode() == hash) {
-				return s;
+				return get(s.alienId()); // v0.17.3: through the release switch
 			}
 		}
 		return null;
