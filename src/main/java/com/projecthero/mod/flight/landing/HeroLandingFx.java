@@ -118,6 +118,8 @@ public final class HeroLandingFx {
 			case SILVER_SURFER -> surfer(p, level, feet, s);
 			case MAX_STEEL -> maxSteel(p, level, feet, s);
 			case SAIYAN -> com.projecthero.mod.saiyan.SaiyanLanding.play(p, level, feet, s, yaw);
+			case STARFIRE -> com.projecthero.mod.starfire.StarfireLanding.play(p, level, feet, s);
+			case RAVEN -> com.projecthero.mod.raven.RavenLanding.play(p, level, feet, s);
 			default -> element(p, level, feet, style, s, yaw);
 		}
 	}

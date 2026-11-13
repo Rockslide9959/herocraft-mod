@@ -503,4 +503,47 @@ public class StarfireGameTests implements FabricGameTest {
 		helper.assertTrue(Starfire.cooldownRemaining(p, StarfireAbilityManager.BARRAGE) > 0, "cooldowns stay");
 		helper.succeed();
 	}
+
+	/**
+	 * v0.17.3 tester round: Starfire's superhero landing. Mock players never move, so the descent is the "known movement" and ground
+	 * contact is setOnGround; HeroLanding.tick is driven directly (as HeroLandingGameTests does).
+	 */
+	private static void diveAndLand(GameTestHelper helper, ServerPlayer p, Vec3 motion, java.util.function.Consumer<ServerPlayer> then) {
+		for (int i = 0; i < 4; i++) {
+			helper.runAfterDelay(i, () -> {
+				p.setOnGround(false);
+				p.setKnownMovement(motion);
+				com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			});
+		}
+		helper.runAfterDelay(4, () -> {
+			p.setOnGround(true);
+			com.projecthero.mod.flight.landing.HeroLanding.tick(p);
+			then.accept(p);
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void diveLandsInTheStarfireStyle(GameTestHelper helper) {
+		ServerPlayer p = starfire(helper);
+		StarfireFlight.start(p);
+		helper.assertTrue(Starfire.isFlying(p), "precondition: flying");
+		diveAndLand(helper, p, new Vec3(0.0, -0.8, 0.0), q -> {
+			com.projecthero.mod.flight.landing.HeroLanding.Active a = com.projecthero.mod.flight.landing.HeroLanding.active(q);
+			helper.assertTrue(a != null, "a cruise-speed dive into the ground is a hero landing (and its effects ran without throwing)");
+			helper.assertTrue(a.style() == com.projecthero.mod.flight.landing.HeroLandingStyle.STARFIRE, "in her style, was " + a.style());
+			helper.assertTrue(a.style().pose == com.projecthero.mod.flight.landing.HeroLandingStyle.Pose.FIST, "fist into the ground");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void gentleTouchdownIsNoLanding(GameTestHelper helper) {
+		ServerPlayer p = starfire(helper);
+		StarfireFlight.start(p);
+		diveAndLand(helper, p, new Vec3(0.05, -0.2, 0.0), q -> {
+			helper.assertFalse(com.projecthero.mod.flight.landing.HeroLanding.landing(q), "settling down slowly just lands");
+			helper.succeed();
+		});
+	}
 }

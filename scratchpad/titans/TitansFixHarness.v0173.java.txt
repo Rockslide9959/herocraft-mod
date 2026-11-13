@@ -1,0 +1,411 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.flight.landing.HeroLanding;
+import com.projecthero.mod.raven.Raven;
+import com.projecthero.mod.raven.RavenAbilityManager;
+import com.projecthero.mod.raven.RavenFlight;
+import com.projecthero.mod.raven.RavenMoves;
+import com.projecthero.mod.starfire.Starfire;
+import com.projecthero.mod.starfire.StarfireFlight;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): the v0.17.3 Titans tester-round proof (Starfire no hair / hand glow, Raven bubble / look, both
+ * landings). Enabled by run/titansfix.flag (its text filters scenes). Frames: run/screenshots/tf_*. Hook in/out with
+ * scratchpad/titans/harness_hook.js; films with scratchpad/titans/films.sh.
+ */
+public final class TitansFixHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static String only;
+	private static volatile boolean releaseOnGround;
+
+	public static volatile Float orbitYaw;
+	public static volatile float orbitHeight = 0.15f;
+	public static volatile float orbitRadius = 2.0f;
+	public static volatile float orbitSpin = 0f;
+	public static volatile float lookHeight = 1.55f;
+
+	private TitansFixHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("titansfix.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("titansfix.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(TitansFixHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "titansfix-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(TitansFixHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				p.getAbilities().invulnerable = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (releaseOnGround && mc.player.onGround()) {
+			releaseOnGround = false;
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (orbitYaw != null && orbitSpin != 0f) {
+				orbitYaw = orbitYaw + orbitSpin;
+			}
+			if (recording != null) {
+				String name = String.format("tf_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("TF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void starfire(Minecraft mc, int t, float pitch) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(48))) {
+				h.discard();
+			}
+			if (!Starfire.hasPower(p)) {
+				Starfire.grant(p);
+			}
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			Starfire.clearTransient(p);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			Starfire.clearCooldowns(p);
+			Starfire.setStarbolt(p, 100f);
+			Starfire.setMood(p, 0f);
+		}));
+	}
+
+	private static void raven(Minecraft mc, int t, float pitch) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (Husk h : level.getEntitiesOfClass(Husk.class, new AABB(origin, origin).inflate(48))) {
+				h.discard();
+			}
+			if (!Raven.hasPower(p)) {
+				Raven.grant(p);
+			}
+			p.removeAllEffects();
+			p.setDeltaMovement(Vec3.ZERO);
+			Raven.clearTransient(p);
+			p.teleportTo(level, origin.x, origin.y, origin.z, 0f, pitch);
+			p.setYHeadRot(0f);
+			p.yBodyRot = 0f;
+			Raven.clearCooldowns(p);
+			Raven.setEnergy(p, 100f);
+			Raven.setComposure(p, 70f);
+		}));
+	}
+
+	private static void dummy(Minecraft mc, int t, double dx, double dz) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Husk h = EntityType.HUSK.create(level);
+			if (h == null) {
+				return;
+			}
+			h.moveTo(origin.x + dx, origin.y, origin.z + dz, 180f, 0f);
+			h.setYHeadRot(180f);
+			h.setPersistenceRequired();
+			h.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
+			h.setSilent(true);
+			h.setNoAi(true);
+			level.addFreshEntity(h);
+		}));
+	}
+
+	private static void cam(int t, Float yaw, float height, float radius, float spin, float look) {
+		at(t, () -> {
+			orbitYaw = yaw;
+			orbitHeight = height;
+			orbitRadius = radius;
+			orbitSpin = spin;
+			lookHeight = look;
+		});
+	}
+
+	private static void view(Minecraft mc, int t, CameraType type, boolean gui) {
+		at(t, () -> {
+			if (type == CameraType.FIRST_PERSON) {
+				orbitYaw = null;
+			}
+			mc.options.setCameraType(type);
+			mc.options.hideGui = !gui;
+		});
+	}
+
+	private static void keys(Minecraft mc, int t, boolean down) {
+		at(t, () -> {
+			mc.options.keyUp.setDown(down);
+			mc.options.keySprint.setDown(down);
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// ------------------------------------------------ Starfire
+		if (want("sf_flight")) {
+			starfire(mc, t, -10f);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 6, origin.z, 0f, -10f);
+				StarfireFlight.start(p);
+				Starfire.setMood(p, -40f);
+			}));
+			cam(t + 3, 140f, 0.6f, 4.0f, 0f, 1.0f);
+			keys(mc, t + 8, true);
+			record(t + 10, "sf_flight", 40);
+			keys(mc, t + 52, false);
+			at(t + 54, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				StarfireFlight.stop(p);
+			}));
+			t += 60;
+		}
+		if (want("sf_hover")) {
+			starfire(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 3, origin.z, 0f, 0f);
+				StarfireFlight.start(p);
+			}));
+			cam(t + 3, 150f, 0.3f, 3.0f, 2.5f, 1.4f);
+			record(t + 8, "sf_hover", 40);
+			at(t + 50, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				StarfireFlight.stop(p);
+			}));
+			t += 56;
+		}
+		if (want("sf_hands")) {
+			starfire(mc, t, 0f);
+			cam(t + 1, 25f, 0.1f, 2.4f, -1.0f, 1.0f);
+			record(t + 4, "sf_hands", 40);
+			t += 46;
+		}
+		if (want("sf_fp")) {
+			starfire(mc, t, 10f);
+			view(mc, t + 1, CameraType.FIRST_PERSON, true);
+			record(t + 4, "sf_fp", 20);
+			view(mc, t + 26, CameraType.THIRD_PERSON_BACK, false);
+			t += 28;
+		}
+		if (want("sf_landing")) {
+			starfire(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 14, origin.z, 0f, 89f);
+				StarfireFlight.start(p);
+			}));
+			cam(t + 3, 50f, 0.6f, 5.0f, 0f, 0.8f);
+			keys(mc, t + 6, true);
+			at(t + 9, () -> releaseOnGround = true);
+			record(t + 6, "sf_landing", 50);
+			at(t + 20, () -> server(mc, p -> System.out.println("[HARNESS] sf landing active=" + HeroLanding.landing(p) + " y=" + p.getY())));
+			at(t + 30, () -> server(mc, p -> System.out.println("[HARNESS] sf landing active=" + HeroLanding.landing(p) + " y=" + p.getY())));
+			t += 60;
+		}
+		// ------------------------------------------------ Raven
+		if (want("rv_dome_out")) {
+			raven(mc, t, 0f);
+			dummy(mc, t + 1, 1.6, 1.0);
+			cam(t + 1, 150f, 1.5f, 7.0f, 1.0f, 1.0f);
+			at(t + 3, () -> server(mc, p -> RavenMoves.startHold(p, RavenAbilityManager.DARK_SHIELD)));
+			record(t + 8, "rv_dome_out", 30);
+			t += 40;
+		}
+		if (want("rv_dome_in")) {
+			cam(t, 160f, 0.4f, 2.2f, 1.0f, 1.2f);
+			record(t + 2, "rv_dome_in", 30);
+			t += 34;
+		}
+		if (want("rv_dome_fp")) {
+			view(mc, t, CameraType.FIRST_PERSON, true);
+			record(t + 2, "rv_dome_fp", 12);
+			view(mc, t + 16, CameraType.THIRD_PERSON_BACK, false);
+			at(t + 17, () -> server(mc, p -> RavenMoves.release(p, RavenAbilityManager.DARK_SHIELD)));
+			t += 20;
+		}
+		if (want("rv_look")) {
+			raven(mc, t, 0f);
+			cam(t + 1, 20f, 0.0f, 1.9f, 0f, 1.5f);
+			record(t + 4, "rv_look", 20);
+			// casting: white eyes
+			at(t + 26, () -> server(mc, p -> RavenMoves.use(p, RavenAbilityManager.DARK_BOLT)));
+			record(t + 27, "rv_cast", 12);
+			// rage: the four red eyes
+			at(t + 42, () -> server(mc, p -> Raven.setComposure(p, 5f)));
+			record(t + 46, "rv_rage", 12);
+			at(t + 60, () -> server(mc, p -> Raven.setComposure(p, 70f)));
+			t += 64;
+		}
+		if (want("rv_fly")) {
+			raven(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 3, origin.z, 0f, 0f);
+				RavenFlight.toggle(p);
+			}));
+			cam(t + 3, 140f, 0.3f, 3.2f, 2f, 1.3f);
+			record(t + 8, "rv_fly", 40);
+			at(t + 50, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				RavenFlight.stop(p);
+			}));
+			t += 56;
+		}
+		if (want("rv_landing")) {
+			raven(mc, t, 0f);
+			at(t + 2, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 14, origin.z, 0f, 89f);
+				RavenFlight.toggle(p);
+			}));
+			cam(t + 3, 50f, 0.6f, 5.0f, 0f, 0.8f);
+			keys(mc, t + 6, true);
+			at(t + 9, () -> releaseOnGround = true);
+			record(t + 6, "rv_landing", 56);
+			at(t + 26, () -> server(mc, p -> System.out.println("[HARNESS] rv landing active=" + HeroLanding.landing(p) + " y=" + p.getY())));
+			at(t + 36, () -> server(mc, p -> System.out.println("[HARNESS] rv landing active=" + HeroLanding.landing(p) + " y=" + p.getY())));
+			t += 66;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

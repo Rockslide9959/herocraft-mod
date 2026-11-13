@@ -52,6 +52,8 @@ final class HeroLandingStyles {
 		HeroLanding.register(HeroLandingStyle.HAWK_MOTH, HawkMothKit::flying);
 		HeroLanding.register(HeroLandingStyle.MOON_KNIGHT, MoonKnightCape::isGliding);
 		HeroLanding.register(HeroLandingStyle.SAIYAN, com.projecthero.mod.saiyan.Saiyan::isFlying);
+		HeroLanding.register(HeroLandingStyle.STARFIRE, com.projecthero.mod.starfire.Starfire::isFlying);
+		HeroLanding.register(HeroLandingStyle.RAVEN, com.projecthero.mod.raven.Raven::isFlying);
 		// the mutations: the element flights first, then the plain Flight power (they all ride its hero-flight flag)
 		HeroLanding.register(HeroLandingStyle.PYRO, PyrokinesisHandlers::jetting);
 		HeroLanding.register(HeroLandingStyle.CRYO, CryoHoldMoves::winged);

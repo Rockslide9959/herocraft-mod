@@ -71,8 +71,10 @@ public final class RavenFx {
 			ACTIVE.removeIf(f -> now - f.start > f.ticks + 20 || now < f.start - 5);
 		}
 		RandomSource rnd = mc.level.random;
-		DustParticleOptions voidDust = new DustParticleOptions(new Vector3f(0.10f, 0.04f, 0.15f), 1.0f);
-		DustParticleOptions violet = new DustParticleOptions(new Vector3f(0.42f, 0.17f, 0.69f), 0.7f);
+		// v0.17.3 tester round ("model is a little strange"): the wisps were a dark cloud of 1.0-size dust plus smoke round each
+		// hand, every third tick even idle. Now: small dust, no smoke, a faint mote now and then at rest, a thin stream while casting.
+		DustParticleOptions voidDust = new DustParticleOptions(new Vector3f(0.16f, 0.07f, 0.24f), 0.55f);
+		DustParticleOptions violet = new DustParticleOptions(new Vector3f(0.48f, 0.22f, 0.78f), 0.5f);
 		for (Player pl : mc.level.players()) {
 			RavenState s = Raven.peek(pl);
 			if (s == null || !s.hasPower || pl.isInvisible() || pl.distanceToSqr(mc.cameraEntity == null ? pl : mc.cameraEntity) > 64 * 64) {
@@ -80,7 +82,10 @@ public final class RavenFx {
 			}
 			boolean casting = Raven.casting(pl);
 			boolean firstPerson = pl == mc.player && mc.options.getCameraType().isFirstPerson();
-			if (!casting && rnd.nextInt(3) != 0) {
+			if (!casting && rnd.nextInt(10) != 0) {
+				continue;
+			}
+			if (casting && rnd.nextInt(2) != 0) {
 				continue;
 			}
 			if (firstPerson && (!casting || rnd.nextInt(3) != 0)) {
@@ -94,16 +99,19 @@ public final class RavenFx {
 			for (int side = -1; side <= 1; side += 2) {
 				Vec3 h = pl.position().add(right.scale(0.38 * side * sc)).add(fwd.scale((casting ? 0.25 : 0.05) * sc)).add(0, handY, 0);
 				if (firstPerson) {
+					// v0.17.3 tester round: beside the first-person hands, sideways from where she LOOKS (it used the body's yaw, so
+					// with the head turned both wisps drifted into one spot ahead of her); higher while the shield's arms are up
 					Vec3 look = pl.getViewVector(1f);
-					h = pl.getEyePosition().add(look.scale(0.9)).add(right.scale(0.55 * side)).add(0, -0.7, 0);
+					float hy = pl.getYRot() * Mth.DEG_TO_RAD;
+					Vec3 side2 = new Vec3(-Mth.cos(hy), 0, -Mth.sin(hy));
+					h = s.shield ? pl.getEyePosition().add(look.scale(0.8)).add(side2.scale(0.38 * side)).add(0, -0.3, 0)
+							: pl.getEyePosition().add(look.scale(0.9)).add(side2.scale(0.55 * side)).add(0, -0.7, 0);
 				}
-				mc.level.addParticle(voidDust, h.x + (rnd.nextDouble() - 0.5) * 0.15, h.y + (rnd.nextDouble() - 0.5) * 0.15,
-						h.z + (rnd.nextDouble() - 0.5) * 0.15, 0, 0.02, 0);
 				if (casting && rnd.nextInt(2) == 0) {
 					mc.level.addParticle(violet, h.x, h.y, h.z, 0, 0.03, 0);
-				}
-				if (rnd.nextInt(6) == 0) {
-					mc.level.addParticle(ParticleTypes.SMOKE, h.x, h.y, h.z, 0, 0.015, 0);
+				} else {
+					mc.level.addParticle(voidDust, h.x + (rnd.nextDouble() - 0.5) * 0.08, h.y + (rnd.nextDouble() - 0.5) * 0.08,
+							h.z + (rnd.nextDouble() - 0.5) * 0.08, 0, 0.02, 0);
 				}
 			}
 			// the black energy round what she holds
@@ -146,13 +154,17 @@ public final class RavenFx {
 				Vec3 c = pl.getPosition(partial).add(0, 1.0 * pl.getScale(), 0).subtract(cam);
 				float pulse = 0.85f + 0.15f * Mth.sin(time * 0.25f);
 				float hp = Mth.clamp(s.shieldHp / RavenConfig.SHIELD_ABSORB, 0f, 1f);
-				RavenDraw.sphere(RavenDraw.shadow(buffers), last, c, r, 10, 20, RavenDraw.fade(0x5A12061E, pulse * (0.5f + 0.5f * hp)), false);
+				// v0.17.3 tester round ("Raven bubble doesn't show the player model"): no depth writes and no culling
+				// (RavenDomeRenderType), so the player and mobs inside always draw, whatever order the batches go in
+				RavenDraw.sphere(buffers.getBuffer(RavenDomeRenderType.VEIL), last, c, r, 10, 20,
+						RavenDraw.fade(0x5A12061E, pulse * (0.5f + 0.5f * hp)), true);
 				// the violet seams: latitude bands that crawl up the dome
 				for (int band = 0; band < 4; band++) {
 					double t = ((time * 0.02 + band / 4.0) % 1.0) * Math.PI - Math.PI / 2;
 					double rr = r * Math.cos(t);
 					Vec3 cc = c.add(0, r * Math.sin(t), 0);
-					RavenDraw.ring(RavenDraw.glow(buffers), last, cc, rr * 0.99, rr * 1.01 + 0.03, 32, RavenDraw.fade(VIOLET_GLOW, 0.6f * pulse), true);
+					RavenDraw.ring(buffers.getBuffer(RavenDomeRenderType.SEAM), last, cc, rr * 0.99, rr * 1.01 + 0.03, 32,
+							RavenDraw.fade(VIOLET_GLOW, 0.6f * pulse), true);
 				}
 			}
 			if (s.tkTarget >= 0) {

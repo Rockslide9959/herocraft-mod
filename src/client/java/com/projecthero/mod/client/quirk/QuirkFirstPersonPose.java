@@ -141,6 +141,10 @@ public final class QuirkFirstPersonPose {
 		if (landing != null) {
 			return landing;
 		}
+		Sample ravenShield = com.projecthero.mod.client.raven.RavenFirstPerson.shield(p, partial); // v0.17.3: Dark Shield arms
+		if (ravenShield != null) {
+			return ravenShield;
+		}
 		Quirk q = Quirks.quirk(p);
 		if (q == null || q.standalone) {
 			return null;
