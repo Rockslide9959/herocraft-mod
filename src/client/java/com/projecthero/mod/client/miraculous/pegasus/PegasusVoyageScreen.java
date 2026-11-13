@@ -65,6 +65,7 @@ public final class PegasusVoyageScreen extends Screen {
 	protected void init() {
 		int l = left(), t = top();
 		scroll = Mth.clamp(scroll, 0, Math.max(0, dests.size() - rows()));
+		syncBar();
 		for (int i = 0; i < rows() && i + scroll < dests.size(); i++) {
 			final int index = i + scroll;
 			PegasusVoyageMenuPayload.Dest d = dests.get(index);
@@ -89,15 +90,53 @@ public final class PegasusVoyageScreen extends Screen {
 		super.onClose();
 	}
 
-	@Override
-	public boolean mouseScrolled(double x, double y, double dx, double dy) {
-		int max = Math.max(0, dests.size() - rows());
-		int ns = Mth.clamp(scroll - (int) Math.signum(dy), 0, max);
+	/**
+	 * v0.17.3: the shared scroll logic (VanillaMenu.Scroll) in whole rows -- the wheel, a draggable bar beside the rows, a click on
+	 * the track to page, and the arrow / Page / Home / End keys; the destination buttons follow the first row shown.
+	 */
+	private final com.projecthero.mod.client.gui.VanillaMenu.Scroll bar = new com.projecthero.mod.client.gui.VanillaMenu.Scroll(ROW_H, ROW_H).glass(6);
+
+	private void syncBar() {
+		int l = left(), t = top();
+		bar.layout(l + 8, t + 56, l + PANEL_W - 8, t + 56 + rows() * ROW_H, l + PANEL_W - 8);
+		bar.content(dests.size() * ROW_H);
+		bar.set(scroll * ROW_H);
+	}
+
+	/** After the bar moved: the first row shown, and the buttons rebuilt for it. */
+	private boolean follow(boolean handled) {
+		int ns = Mth.clamp(bar.offset() / ROW_H, 0, Math.max(0, dests.size() - rows()));
 		if (ns != scroll) {
 			scroll = ns;
 			rebuildWidgets();
 		}
-		return true;
+		return handled;
+	}
+
+	@Override
+	public boolean mouseScrolled(double x, double y, double dx, double dy) {
+		return follow(bar.mouseScrolled(Math.signum(dy))) || super.mouseScrolled(x, y, dx, dy);
+	}
+
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		return follow(bar.mouseClicked(mx, my, button)) || super.mouseClicked(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		return follow(bar.mouseDragged(mx, my, button)) || super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = bar.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
+	}
+
+	@Override
+	public boolean keyPressed(int key, int scan, int mods) {
+		return follow(bar.keyPressed(key, ROW_H / 2)) || super.keyPressed(key, scan, mods);
 	}
 
 	private Component label(PegasusVoyageMenuPayload.Dest d) {
@@ -158,6 +197,7 @@ public final class PegasusVoyageScreen extends Screen {
 			String where = d.x() + ", " + d.y() + ", " + d.z() + (other ? "  (" + dimName(d.dim()) + ")" : "");
 			g.drawString(this.font, this.font.plainSubstrByWidth(where, textW), l + 14, ry + 13, other ? GOLD_DIM : MUTED, false);
 		}
+		bar.renderGlass(g, GOLD, mouseX, mouseY);
 		if (dests.size() > rows()) {
 			g.drawString(this.font, (scroll + 1) + "-" + Math.min(dests.size(), scroll + rows()) + " / " + dests.size(), l + 10, t + h - 20, MUTED, false);
 		}

@@ -156,6 +156,18 @@ public final class IronManSuitCallScreen extends Screen {
 		onClose();
 	}
 
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll) driving {@link #scroll}: wheel, a draggable bar, click to page. */
+	private final VanillaMenu.Scroll bar = new VanillaMenu.Scroll(20, 1).glass(7);
+
+	private void syncBar() {
+		int gx = IronManSuitCompare.card(0, width, 0).x() + IronManUiLayout.gridWidth(IronManSuitCompare.columns(width)) + 2;
+		gx = Math.min(gx, IronManSuitCompare.panel(width, height).x() - 3);
+		int x0 = Math.min(IronManSuitCompare.card(0, width, 0).x(), gx - 3);
+		bar.layout(x0, viewTop(), gx - 2, viewBottom(), gx - 2);
+		bar.content(IronManSuitCompare.maxScroll(cards.size(), width, height) + (viewBottom() - viewTop()));
+		bar.set(scroll);
+	}
+
 	private int viewTop() {
 		return IronManUiLayout.GRID_TOP;
 	}
@@ -199,17 +211,8 @@ public final class IronManSuitCallScreen extends Screen {
 		}
 		g.disableScissor();
 
-		int max = IronManSuitCompare.maxScroll(cards.size(), width, height);
-		if (max > 0) {
-			int gx = IronManSuitCompare.card(0, width, 0).x() + IronManUiLayout.gridWidth(IronManSuitCompare.columns(width)) + 2;
-			gx = Math.min(gx, IronManSuitCompare.panel(width, height).x() - 3);
-			int top = viewTop();
-			int view = viewBottom() - top;
-			g.fill(gx, top, gx + 2, top + view, 0x80202A36);
-			int thumb = Math.max(12, view * view / (view + max));
-			int ty = top + (view - thumb) * scroll / max;
-			g.fill(gx, ty, gx + 2, ty + thumb, IronManGui.CYAN_DIM);
-		}
+		syncBar();
+		bar.renderGlass(g, IronManGui.CYAN_DIM, mouseX, mouseY);
 		renderCompare(g);
 		// v0.15.1: with platform suits locked for want of the Stark Glasses, the hint line says so instead
 		boolean locked = anyLockedPlatformCard();
@@ -419,6 +422,13 @@ public final class IronManSuitCallScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
+		if (!cards.isEmpty()) {
+			syncBar();
+			if (bar.mouseClicked(mx, my, button)) {
+				scroll = bar.offset();
+				return true;
+			}
+		}
 		if (button == 0 && hovered >= 0 && hovered < cards.size()) {
 			Card hc = cards.get(hovered); // v0.14.29 agent E: Remote Pilot button (IronManDroneCardButton)
 			if (IronManDroneCardButton.click(IronManSuitCompare.card(hovered, width, scroll), hc.suitId, hc.available, hc.source, hc.energyFrac, mx, my)) {
@@ -437,9 +447,28 @@ public final class IronManSuitCallScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-		int max = IronManSuitCompare.maxScroll(cards.size(), width, height);
-		scroll = Math.max(0, Math.min(max, scroll - (int) Math.round(dy * 20)));
+		if (cards.isEmpty()) {
+			return true;
+		}
+		syncBar();
+		bar.mouseScrolled(dy);
+		scroll = bar.offset();
 		return true;
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		if (bar.mouseDragged(mx, my, button)) {
+			scroll = bar.offset();
+			return true;
+		}
+		return super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = bar.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
 	}
 
 	@Override

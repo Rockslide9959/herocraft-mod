@@ -28,9 +28,9 @@ import net.minecraft.world.item.ItemStack;
  * range, Mark III targeting, night vision, air supply). Read-only; Esc or I closes it.
  */
 public class IronManSuitInfoScreen extends Screen {
-	private static final int W = 300;
-	private final List<FormattedCharSequence> lines = new ArrayList<>();
-	private int scroll;
+	/** v0.17.3: the shared see-through page (like every power's I menu): clipped, a scroll bar that drags and follows the wheel. */
+	private final GlassPage page = new GlassPage();
+	private final List<FormattedCharSequence> lines = page.lines();
 
 	public IronManSuitInfoScreen() {
 		super(Component.translatable("screen.projecthero.ironman_info"));
@@ -51,6 +51,10 @@ public class IronManSuitInfoScreen extends Screen {
 
 	@Override
 	protected void init() {
+		page.layout(this.width, this.height);
+		page.scroll().set(0);
+		addRenderableWidget(net.minecraft.client.gui.components.Button.builder(Component.translatable("gui.done"), b -> onClose())
+				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
 		lines.clear();
 		Player p = Minecraft.getInstance().player;
 		IronManSuit suit = p == null ? null : wornSuit(p);
@@ -58,7 +62,7 @@ public class IronManSuitInfoScreen extends Screen {
 			return;
 		}
 		TonyStarkState st = p.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
-		int wrap = W - 16;
+		int wrap = page.wrapWidth();
 		int pieces = 0;
 		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
 			ItemStack s = p.getItemBySlot(slot);
@@ -158,6 +162,7 @@ public class IronManSuitInfoScreen extends Screen {
 		for (FormattedCharSequence l : font.split(Component.translatable("screen.projecthero.ironman_info.hint").withStyle(ChatFormatting.DARK_GRAY), wrap)) {
 			lines.add(l);
 		}
+		page.done();
 	}
 
 	private static String fmt(float v) {
@@ -185,35 +190,45 @@ public class IronManSuitInfoScreen extends Screen {
 		super.render(g, mouseX, mouseY, partial);
 		Player p = Minecraft.getInstance().player;
 		IronManSuit suit = p == null ? null : wornSuit(p);
-		int x = (width - W) / 2;
-		int top = 24;
-		int h = height - 48;
-		g.fill(x, top, x + W, top + h, 0xE0081018);
-		g.fill(x, top, x + W, top + 2, 0xFFB22222);
-		g.fill(x, top + h - 2, x + W, top + h, 0xFFE8B83A);
-		Component title = suit == null ? Component.translatable("screen.projecthero.ironman_info.none")
+		g.drawCenteredString(font, this.title, width / 2, 16, 0xFFFFFFFF);
+		Component heading = suit == null ? Component.translatable("screen.projecthero.ironman_info.none")
 				: Component.translatable(suit.nameKey()).withStyle(ChatFormatting.BOLD);
-		g.drawCenteredString(font, title, width / 2, top + 8, 0xFFFFC24A);
-		int y = top + 24 - scroll;
-		g.enableScissor(x, top + 20, x + W, top + h - 4);
-		for (FormattedCharSequence l : lines) {
-			g.drawString(font, l, x + 8, y, 0xFFFFFFFF, false);
-			y += 10;
-		}
-		g.disableScissor();
+		page.render(g, font, heading, mouseX, mouseY);
+	}
+
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		return page.mouseClicked(mx, my, button) || super.mouseClicked(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		return page.mouseDragged(mx, my, button) || super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = page.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
 	}
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double dx, double dy) {
-		int max = Math.max(0, lines.size() * 10 - (height - 48 - 30));
-		scroll = Math.max(0, Math.min(max, scroll - (int) (dy * 12)));
-		return true;
+		return page.mouseScrolled(dy) || super.mouseScrolled(mouseX, mouseY, dx, dy);
+	}
+
+	/** Harness / tests: 0..1 of the way down. */
+	public void scrollFraction(float f) {
+		page.scroll().setFraction(f);
 	}
 
 	@Override
 	public boolean keyPressed(int key, int scan, int modifiers) {
 		if (ModKeyBindings.POWER_INFO.matches(key, scan)) {
 			onClose();
+			return true;
+		}
+		if (page.keyPressed(key)) {
 			return true;
 		}
 		return super.keyPressed(key, scan, modifiers);

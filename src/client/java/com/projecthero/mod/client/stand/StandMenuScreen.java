@@ -43,7 +43,8 @@ public final class StandMenuScreen extends Screen {
 	private int pose = 1;
 	private boolean oraText = true;
 	private boolean autoFace = true;
-	private float scroll;
+	/** v0.17.3: the shared scroll logic (VanillaMenu.Scroll): wheel, a draggable bar, click the track to page, keys. */
+	private final com.projecthero.mod.client.gui.VanillaMenu.Scroll scroll = new com.projecthero.mod.client.gui.VanillaMenu.Scroll(12, 1).glass(8);
 	private List<FormattedCharSequence> listLines = List.of();
 	private List<Integer> listColours = List.of();
 
@@ -141,11 +142,42 @@ public final class StandMenuScreen extends Screen {
 		return (int) (listLines.size() * 10 * SMALL);
 	}
 
+	/** Points the scroll at the move list (its column, its height, the bar at the column's right edge). */
+	private void syncScroll() {
+		int left = (width - PANEL_W) / 2;
+		int top = (height - PANEL_H) / 2;
+		int rx = left + LEFT_W + 6;
+		scroll.layout(rx, top + LIST_TOP, rx + RIGHT_W - 12, top + LIST_BOTTOM, rx + RIGHT_W - 12);
+		scroll.content(listHeight());
+	}
+
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double dx, double dy) {
-		int max = Math.max(0, listHeight() - (LIST_BOTTOM - LIST_TOP));
-		scroll = Mth.clamp(scroll - (float) dy * 12f, 0f, max);
-		return true;
+		syncScroll();
+		return scroll.mouseScrolled(dy) || super.mouseScrolled(mouseX, mouseY, dx, dy);
+	}
+
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		syncScroll();
+		return scroll.mouseClicked(mx, my, button) || super.mouseClicked(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		return scroll.mouseDragged(mx, my, button) || super.mouseDragged(mx, my, button, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(double mx, double my, int button) {
+		boolean was = scroll.mouseReleased(button);
+		return super.mouseReleased(mx, my, button) || was;
+	}
+
+	@Override
+	public boolean keyPressed(int key, int scan, int mods) {
+		syncScroll();
+		return scroll.keyPressed(key, 10) || super.keyPressed(key, scan, mods);
 	}
 
 	@Override
@@ -180,21 +212,16 @@ public final class StandMenuScreen extends Screen {
 		int rx = left + LEFT_W + 6;
 		g.enableScissor(rx, top + LIST_TOP, rx + RIGHT_W - 12, top + LIST_BOTTOM);
 		g.pose().pushPose();
-		g.pose().translate(rx, top + LIST_TOP - scroll, 0);
+		syncScroll();
+		double shown = scroll.eased();
+		g.pose().translate(rx, top + LIST_TOP - (float) shown, 0);
 		g.pose().scale(SMALL, SMALL, 1f);
 		for (int i = 0; i < listLines.size(); i++) {
 			g.drawString(font, listLines.get(i), 0, i * 10, listColours.get(i), false);
 		}
 		g.pose().popPose();
 		g.disableScissor();
-		if (listHeight() > LIST_BOTTOM - LIST_TOP) {
-			int trackH = LIST_BOTTOM - LIST_TOP;
-			int barH = Math.max(12, trackH * trackH / listHeight());
-			int max = listHeight() - trackH;
-			int barY = top + LIST_TOP + (int) ((trackH - barH) * (scroll / Math.max(1f, max)));
-			g.fill(rx + RIGHT_W - 10, top + LIST_TOP, rx + RIGHT_W - 8, top + LIST_BOTTOM, 0x60FFFFFF);
-			g.fill(rx + RIGHT_W - 10, barY, rx + RIGHT_W - 8, barY + barH, 0xFFB07CFF);
-		}
+		scroll.renderGlass(g, 0xFFB07CFF, mouseX, mouseY);
 	}
 
 	/** A canon grade as bar segments: A 5 .. E 1 (anything else, "None" / "?", 0). */
