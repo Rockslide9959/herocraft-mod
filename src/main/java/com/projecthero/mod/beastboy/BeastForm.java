@@ -10,7 +10,7 @@ public enum BeastForm {
 	HUMAN(0.6f, 1.8f, 0f, false),
 	// context morphs (X / Shift+X)
 	CHEETAH(0.6f, 0.7f, 20f, false), // vanilla ocelot, tinted
-	HAWK(0.5f, 0.5f, 15f, false), // vanilla parrot scaled up, tinted
+	HAWK(0.5f, 0.5f, 15f, true), // HQ round: custom art (was the tinted vanilla parrot)
 	DOLPHIN(0.9f, 0.6f, 25f, false), // vanilla dolphin, tinted
 	FLY(0.2f, 0.2f, 2f, true),
 	// sustained forms (V wheel)
@@ -21,7 +21,7 @@ public enum BeastForm {
 	WOLF(0.6f, 0.85f, 30f, true), // fix round: custom art (was the tinted vanilla wolf); sits when crouching
 	BEAR(1.4f, 1.4f, 50f, false), // vanilla polar bear, tinted
 	PTERODACTYL(1.2f, 1.0f, 40f, true),
-	BAT(0.5f, 0.9f, 10f, false), // vanilla bat, tinted
+	BAT(0.5f, 0.9f, 10f, true), // HQ round: custom art (was the tinted vanilla bat)
 	SHARK(1.2f, 0.8f, 40f, true),
 	OCTOPUS(1.0f, 0.9f, 40f, true),
 	WHALE(3.5f, 2.2f, 120f, true),

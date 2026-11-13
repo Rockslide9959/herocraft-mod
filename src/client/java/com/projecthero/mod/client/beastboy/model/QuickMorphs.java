@@ -75,9 +75,8 @@ public final class QuickMorphs {
 		pose.scale(e * 0.85f, e * 0.85f, e * 0.85f);
 		pose.mulPose(com.mojang.math.Axis.YP.rotation(Mth.sin(t * 2.2f) * 0.05f));
 		pose.mulPose(com.mojang.math.Axis.XP.rotation(-0.35f));
-		ellipsoid(pose, 0f, 1f, -1f, 7f, 7.5f, 7f, COUNTER_V);
 		float jaw = BeastPose.smooth(Mth.clamp((p - 0.1f) / 0.2f, 0f, 1f)) * (p > 0.85f ? Math.max(0f, 1f - (p - 0.85f) / 0.15f) : 1f);
-		TRexModel.head(pose, jaw);
+		TRexModel.quickHead(pose, jaw, t); // HQ round: blocky head on its own atlas
 		pose.popPose();
 	}
 
@@ -93,7 +92,7 @@ public final class QuickMorphs {
 		s.prog = Mth.clamp((p - 0.15f) / 0.7f, 0f, 1f);
 		pose.pushPose();
 		pose.scale(2.4f * e, 2.4f * e, 2.4f * e);
-		SmallModels.snake(pose, s);
+		SnakeModel.draw(pose, s); // HQ round: own class
 		pose.popPose();
 	}
 
