@@ -2,7 +2,7 @@ package com.projecthero.mod.client.omnitrix.sequence;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.projecthero.mod.ProjectHeroMod;
+import com.mojang.math.Axis;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -15,27 +15,26 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.env;
+import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.hash;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.pop;
-import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.rot;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
 
 /**
  * v0.17.3 (user: "create transformation sequence for all the aliens that are in this video ... please make the posing and everything
- * look exactly like how it looks in the show, try to be as expressive as you can without bending the limbs"): Ripjaws' transformation
- * from the show, shot for shot, cut to its own soundtrack. Compilation video second {@code v} is tick {@code (v - 186.30) * 20}. The
- * beats (ticks after the right-click):
+ * look exactly like how it looks in the show"): Ripjaws' transformation from the show, shot for shot, cut to its own soundtrack.
+ * Compilation video second {@code v} is tick {@code (v - 186.30) * 20}. The beats (ticks after the right-click):
  * <pre>
  *   0-5      the slap (front medium shot, the dark room)                 v 186.30-186.55
  *   4-25     FULL GREEN FLASH                                             v 186.5-187.55
  *   25-32    the dial close-up: grey fish skin spreading off the watch    v 187.55-187.9   (the shared show green, black Kirby dots)
- *   32-52    along the outstretched arm, the hand going webbed            v 187.9-188.9
+ *   32-52    along the outstretched arm, the fingers splaying, webbing    v 187.9-188.9
  *   51-64    FULL GREEN FLASH, fading into...                             v 188.85-189.5
- *   60-72    ...the face, front, eyes screwed shut                        v 189.3-189.9 
+ *   60-72    ...the face, front, eyes screwed shut                        v 189.3-189.9
  *   72-74    a white-out flash                                            v 189.9-190.0
  *   74-90    the face again; the lure stalk shoots out of the forehead    v 190.0-190.8
  *   90-104   the head in profile (facing left), the lure arching over     v 190.8-191.5
@@ -44,7 +43,7 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   130-134  a white-out flash                                            v 192.8-193.0
  *   134-158  the head in profile (facing right): the cheeks swell         v 193.0-194.2
  *   158-174  the snout stretches, the teeth burst out                     v 194.2-195.0
- *   174-184  right in on the eye (pale green)                             v 195.0-195.5
+ *   174-184  right in on the eye, screwed shut, the skin gone pale mint   v 195.0-195.5
  *   184-196  WHITE FLASH -- the body changes under it (187)               v 195.5-196.1
  *   196-206  the cream fading off Ripjaws' face                           v 196.1-196.6
  *   206-232  from low, pulling back up the body, the arms spreading       v 196.6-197.9
@@ -54,7 +53,14 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *   284-296  back in the world, the green fading off                      v 200.5-201.1
  * </pre>
  * The fish skin, the lure, the swelling cheeks, gills, spine and teeth are drawn on the human body (everyone nearby sees them, with
- * the poses and the dial's light); everything is flat-colour boxes, no particles.
+ * the poses and the dial's light).
+ *
+ * <p><b>v1b touch-up</b> (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"):
+ * one keyframed pose track ({@link LimbKeys}) with bent elbows and knees, so the arms bend into claws (v1 held them out in a straight
+ * T) and the torso leans about its hips; the grey skin is drawn over the limbs with their mitred joints ({@link Shards#sleeve}), so it
+ * bends with them, with a jagged leading edge and the show's little scale chevrons; the hand splays into webbed fingers instead of a
+ * flat plate; the gills are slit lines on the side of the neck (v1's stood off the shoulders like bars); the teeth are triangles; the
+ * lure is a smooth tapering stalk; the eye close-up is drawn (a screwed-shut eye on pale mint skin).
  */
 public final class RipjawsShow extends ShowSequenceClient {
 	static final float SLAP_END = 5f, DIAL_AT = 25f, ARM_AT = 32f, GREEN2_AT = 51f, FACE_AT = 52f, NEG1_AT = 72f, LURE_AT = 74f, PROFILE_AT = 90f,
@@ -62,12 +68,11 @@ public final class RipjawsShow extends ShowSequenceClient {
 			RISE_AT = 208f, WHITE2_AT = 232f, STANCE_AT = 238f, GREEN3_AT = 268f, WORLD_AT = 284f;
 	static final int TRANSFORM_AT = 187;
 
-	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
-
 	/** Colours: the green ray burst (the Kirby-dot shots all use the shared show green, Stage.showBackground). */
 	private static final int BURST_IN = 0x9CF77A, BURST_MID = 0x3FD33A, BURST_OUT = 0x1D8A18, BURST_RAY = 0x15641A, BURST_DOT = 0x0D3F0B;
-	/** Ripjaws' grey-teal fish skin, the pale belly / cheek cream, the lure, the gill lines, the teeth. */
-	private static final int FISH = 0xFF9DB3AC, LURE = 0xFFE6DEC4, BULB = 0xFFF4F0DA, GILL = 0xFF3A3F36, TOOTH = 0xFFFFFFFF, CHEEK = 0xFFB4C4BC;
+	/** Ripjaws' grey-teal fish skin (and its light / dark), the pale webbing and cheek cream, the lure, the gill lines, the teeth. */
+	private static final int FISH = 0xFF9DB3AC, FISH_LIGHT = 0xBFD2CB, FISH_DARK = 0x768C85, WEB = 0xFFC9DAD3, LURE = 0xFFE6DEC4, BULB = 0xFFF4F0DA,
+			GILL = 0xFF3A3F36, TOOTH = 0xFFFFFFFF, CHEEK = 0xFFD8D4C0;
 
 	private static final KirbyDots.Style DOTS = KirbyDots.Style.show(), KHAKI_DOTS = KirbyDots.Style.show().clear(0.3f),
 			STANCE_DOTS = KirbyDots.Style.show().clear(0.45f), BURST_DOTS = KirbyDots.Style.show().bands(2).rgb(BURST_DOT).clear(0.5f).flow(1.6f);
@@ -79,8 +84,8 @@ public final class RipjawsShow extends ShowSequenceClient {
 					{ 25.01f, 0.5f, -40f, W, W, W, W },
 					{ 32f, 0.44f, -50f, W, W, W, W },
 					// along the outstretched arm, from under it, sliding toward the hand
-					{ 32.01f, 0.7f, -94f, 1.02f, 1.26f, -0.42f, 0.3f },
-					{ 52f, 0.58f, -80f, 1.04f, 1.26f, -0.5f, 0.56f },
+					{ 32.01f, 0.78f, -94f, 1.02f, 1.26f, -0.42f, 0.3f },
+					{ 52f, 0.66f, -80f, 1.04f, 1.26f, -0.5f, 0.56f },
 					// the face, front, close
 					{ 52.01f, 1.25f, 0f, 1.58f, 1.6f, 0f, 0f },
 					{ 74f, 1.15f, 0f, 1.58f, 1.6f, 0f, 0f },
@@ -89,17 +94,17 @@ public final class RipjawsShow extends ShowSequenceClient {
 					// the head in profile, facing left
 					{ 90.01f, 1.25f, -92f, 1.6f, 1.56f, 0f, 0.14f },
 					{ 104f, 1.05f, -98f, 1.56f, 1.52f, 0f, 0.1f },
-					// right in on the side of the neck
-					{ 104.01f, 0.62f, -100f, 1.42f, 1.42f, -0.18f, 0f },
-					{ 118f, 0.55f, -110f, 1.4f, 1.4f, -0.18f, 0f },
+					// right in on the side of the neck, under the ear, where the gills open
+					{ 104.01f, 0.62f, -98f, 1.5f, 1.53f, 0f, 0.02f },
+					{ 118f, 0.55f, -106f, 1.5f, 1.53f, 0f, 0.04f },
 					// from behind and below, the back of the neck and the spine
 					{ 118.01f, 1.05f, 168f, 1.12f, 1.5f, 0f, 0f },
 					{ 130f, 0.95f, 160f, 1.1f, 1.5f, 0f, 0f },
 					// the head in profile, facing right: the cheeks, the snout, the teeth
 					{ 130.01f, 1.05f, 78f, 1.6f, 1.58f, 0f, 0.04f },
 					{ 158f, 0.95f, 84f, 1.58f, 1.58f, 0f, 0.04f },
-					{ 158.01f, 1.0f, 88f, 1.42f, 1.5f, 0f, 0.12f },
-					{ 174f, 0.9f, 82f, 1.42f, 1.5f, 0f, 0.12f },
+					{ 158.01f, 1.0f, 70f, 1.5f, 1.52f, 0f, 0.12f },
+					{ 174f, 0.9f, 66f, 1.5f, 1.52f, 0f, 0.12f },
 					// right in on the eye
 					{ 174.01f, 0.45f, 28f, 1.68f, 1.67f, 0.1f, 0.2f },
 					{ 200f, 0.38f, 22f, 1.68f, 1.67f, 0.1f, 0.2f },
@@ -149,81 +154,61 @@ public final class RipjawsShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/** The whole body, matched to the video's frames (see the class beat table). */
+	static final LimbKeys POSE = new LimbKeys()
+			// ---- the watch arm thrown out straight, forward and to his left, fingers spread; the other arm braced at his side
+			.at(ARM_AT).lArm(-1.45f, -0.04f, -0.1f, 0.08f, 0f).rArm(0.15f, 0f, 0.22f, 0.45f, 0.1f).head(0.12f, -0.3f, 0f).lean(0.04f)
+			.legs(0f, 0f, 0.05f, 0.05f, 0f)
+			.at(GREEN2_AT).lArm(-1.5f, -0.06f, -0.12f, 0.12f, 0f)
+			.at(FACE_AT - 0.5f).hold()
+			// ---- the face: fists clenched, elbows bent and pulled in, shoulders hunched up round the neck, chin tucked
+			.at(FACE_AT).arms(0.12f, 0f, 0.26f, 0.55f, 0.15f).head(0.18f, 0f, 0f).shrug(-0.7f).lean(0.04f)
+			.at(PROFILE_AT - 0.5f).hold()
+			.at(PROFILE_AT).head(0.24f, 0f, 0f).shrug(-0.9f)
+			.at(NECK_AT - 0.5f).hold()
+			// ---- the gills and the spine: the head thrown back, the chest out, straining
+			.at(NECK_AT).head(-0.38f, 0f, 0f).lean(-0.1f).shrug(-1.1f).arms(0.18f, 0f, 0.36f, 0.75f, 0.25f)
+			.at(NEG2_AT - 0.5f).hold()
+			// ---- the cheeks, the snout: the head thrust forward, snarling
+			.at(NEG2_AT).head(0.12f, 0f, 0f).lean(0.1f).shrug(-0.5f).arms(0.1f, 0f, 0.3f, 0.65f, 0.2f)
+			.at(TRANSFORM_AT - 0.5f).hold()
+			// ---- Ripjaws: the head lifting, the jaw thrust out
+			.at(TRANSFORM_AT).head(-0.2f, 0f, 0f).arms(0.05f, 0f, 0.3f, 0.45f, 0.15f).lean(0f).shrug(0f)
+			.at(RISE_AT).hold()
+			// rising up: the arms spreading, elbows bent, claws open; the body twisting to his left
+			.at(WHITE2_AT).head(-0.05f, 0.25f, 0f).twist(0.18f, 0f).rArm(-0.4f, 0.15f, 1.15f, 0.95f, 0.9f).lArm(-0.55f, -0.1f, -1.0f, 1.05f, -0.9f)
+			.legs(-0.05f, 0f, 0.2f, 0.12f, 0.15f)
+			.at(WHITE2_AT + 3f).hold()
+			// ---- the stance: legs wide, his left leg forward and bent, claws out to both sides, the head toward the camera
+			.at(STANCE_AT - 2f).head(-0.08f, -0.3f, 0f).twist(0.3f, 0f).lean(0.1f).drop(0.9f)
+			.rArm(-0.45f, 0.1f, 1.1f, 1.1f, 0.6f).lArm(-0.55f, -0.1f, -0.78f, 0.9f, -0.5f)
+			.rLeg(0.22f, 0f, 0.36f, 0.25f, 0.2f).lLeg(-0.48f, 0f, -0.3f, 0.65f, -0.2f)
+			.at(GREEN3_AT).hold()
+			.at(WORLD_AT).head(0f, 0f, 0f).twist(0f, 0f).lean(0f).drop(0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.03f, 0f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
-		m.head.yRot = 0f;
+		if (t < ARM_AT || t >= WORLD_AT) {
+			return;
+		}
+		LimbKeys.apply(m, POSE.sample(t));
 		if (t < TRANSFORM_AT) {
+			// shivering as it changes; the lure jerks the head up as it shoots out
 			float shake = smooth((t - DIAL_AT) / 20f);
-			if (t >= ARM_AT && t < FACE_AT) {
-				// the watch arm thrown out straight, forward and to the left, the fingers spread; the other hand off the dial
-				float w = smooth((t - ARM_AT) / 4f);
-				rot(m.leftArm, w, -1.45f + 0.04f * Mth.sin(t * 3.1f), -0.38f, -0.1f);
-				m.leftArm.y = Mth.lerp(w, m.leftArm.y, 2f);
-				rot(m.rightArm, w, 0.2f, 0f, 0.18f);
-			} else if (t >= FACE_AT) {
-				// arms down and rigid, fists clenched, the whole body shivering as it changes
-				float w = smooth((t - FACE_AT) / 4f);
-				rot(m.leftArm, w, 0.1f + 0.04f * Mth.sin(t * 2.9f), 0f, -0.3f);
-				rot(m.rightArm, w, 0.1f + 0.04f * Mth.sin(t * 3.3f), 0f, 0.3f);
-				float hx, hz = 0.03f * Mth.sin(t * 2.3f);
-				if (t < PROFILE_AT) {
-					// screwed up against it, the chin tucked; the lure jerks the head up as it shoots out
-					hx = 0.18f - 0.22f * pop(t - LURE_AT - 4f, 5f);
-				} else if (t < NECK_AT) {
-					hx = 0.24f;
-				} else if (t < NEG2_AT) {
-					// the gills, the spine: the head thrown back
-					hx = -0.38f;
-				} else {
-					// the cheeks, the snout: the head thrust forward, snarling
-					hx = 0.12f + 0.05f * Mth.sin(t * 1.9f);
-				}
-				m.head.xRot = Mth.lerp(w, m.head.xRot, hx + 0.03f * Mth.sin(t * 2.7f));
-				m.head.zRot = hz;
-				m.body.xRot = Mth.lerp(w, m.body.xRot, t >= NECK_AT && t < NEG2_AT ? -0.1f : 0.04f);
-			}
-			if (shake > 0f) {
-				m.leftArm.zRot += 0.03f * shake * Mth.cos(t * 3.7f);
-				m.rightArm.zRot += 0.03f * shake * Mth.cos(t * 3.1f + 1f);
+			m.leftArm.zRot += 0.03f * shake * Mth.cos(t * 3.7f);
+			m.rightArm.zRot += 0.03f * shake * Mth.cos(t * 3.1f + 1f);
+			if (t < FACE_AT) {
+				m.leftArm.xRot += 0.04f * Mth.sin(t * 3.1f);
+			} else {
+				m.head.xRot += 0.03f * Mth.sin(t * 2.7f) - 0.22f * pop(t - LURE_AT - 4f, 5f) + (t >= NEG2_AT ? 0.05f * Mth.sin(t * 1.9f) : 0f);
+				m.head.zRot += 0.03f * Mth.sin(t * 2.3f);
 			}
 		} else {
 			float breathe = Mth.sin(t * 0.25f) * 0.04f;
-			if (t < RISE_AT) {
-				// the face: the head lifting, the jaw thrust out
-				rot(m.head, 1f, -0.2f, 0f, 0f);
-				rot(m.rightArm, 1f, 0.05f, 0f, 0.3f);
-				rot(m.leftArm, 1f, 0.05f, 0f, -0.3f);
-			} else if (t < WHITE2_AT) {
-				// rising up: the arms spreading wide, the body twisting to his left
-				float w = smooth((t - RISE_AT) / 20f);
-				rot(m.rightArm, 1f, Mth.lerp(w, 0f, -0.35f), 0f, Mth.lerp(w, 0.3f, 1.25f) + breathe);
-				rot(m.leftArm, 1f, Mth.lerp(w, 0f, -0.5f), 0f, Mth.lerp(w, -0.3f, -1.05f) - breathe);
-				rot(m.head, 1f, Mth.lerp(w, -0.2f, -0.05f), 0.25f * w, 0f);
-				m.body.yRot = 0.18f * w;
-				rot(m.rightLeg, w, -0.05f, 0f, 0.22f);
-				rot(m.leftLeg, w, 0.05f, 0f, -0.22f);
-			} else {
-				// the stance: legs wide, claws out to both sides, turned to his left, the head toward the camera
-				float w = smooth((t - WHITE2_AT) / 4f);
-				rot(m.rightArm, w, -0.3f + breathe, 0.15f, 1.15f);
-				rot(m.leftArm, w, -0.45f - breathe, -0.15f, -1.05f);
-				rot(m.rightLeg, w, -0.12f, 0f, 0.34f);
-				rot(m.leftLeg, w, 0.12f, 0f, -0.34f);
-				rot(m.head, w, -0.08f, -0.3f, 0f);
-				m.body.yRot = Mth.lerp(w, m.body.yRot, 0.3f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, 0.08f);
-			}
-			if (m instanceof PlayerModel<?> pm) {
-				pm.rightPants.copyFrom(m.rightLeg);
-				pm.leftPants.copyFrom(m.leftLeg);
-			}
+			m.rightArm.zRot += breathe;
+			m.leftArm.zRot -= breathe;
 		}
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.jacket.copyFrom(m.body);
-		}
-		m.hat.copyFrom(m.head);
+		LimbKeys.copyLayers(m);
 	}
 
 	/** The snout lengthening and the cheeks puffing out (head scales), before the change. */
@@ -248,8 +233,21 @@ public final class RipjawsShow extends ShowSequenceClient {
 			{ 1, 0f, 0.8f, 2.2f, 1.1f, 119 }, { 1, 0f, 3f, 2.2f, 1.0f, 121 }, { 1, 0f, 5.2f, 2.2f, 0.9f, 123 }, { 0, 0f, -1.6f, 4.3f, 1.1f, 120 },
 			{ 0, 0f, -4f, 4.3f, 1.0f, 122 },
 			// the cheeks puffing out
-			{ 0, 4.0f, -3.4f, -1.0f, 1.8f, 136 }, { 0, -4.0f, -3.4f, -1.0f, 1.8f, 136 }, { 0, 3.8f, -2.6f, -2.8f, 1.4f, 141 },
-			{ 0, -3.8f, -2.6f, -2.8f, 1.4f, 141 }, { 0, 3.4f, -3.0f, 1.0f, 1.4f, 146 }, { 0, -3.4f, -3.0f, 1.0f, 1.4f, 146 } };
+			{ 0, 3.9f, -2.6f, -1.6f, 2.1f, 136 }, { 0, -3.9f, -2.6f, -1.6f, 2.1f, 136 }, { 0, 3.7f, -2.2f, -3.0f, 1.6f, 141 },
+			{ 0, -3.7f, -2.2f, -3.0f, 1.6f, 141 }, { 0, 3.5f, -2.9f, 0.6f, 1.5f, 146 }, { 0, -3.5f, -2.9f, 0.6f, 1.5f, 146 } };
+
+	/** Scale chevrons on the watch arm (bone px): {face, y, across 0..1}. */
+	private static final float[][] CHEVRONS = chevrons();
+
+	private static float[][] chevrons() {
+		java.util.List<float[]> out = new java.util.ArrayList<>();
+		long seed = 0x5CA1E5L;
+		int[] faces = { Shards.PX, Shards.NZ, Shards.NX, Shards.PZ, Shards.TOP };
+		for (int i = 0; i < 22; i++) {
+			out.add(new float[] { faces[i % 4], -1f + 10.6f * hash(seed, i * 2), 0.2f + 0.6f * hash(seed, i * 2 + 1) });
+		}
+		return out.toArray(new float[0][]);
+	}
 
 	@Override
 	public void renderBody(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, PlayerModel<?> model, float t) {
@@ -257,42 +255,64 @@ public final class RipjawsShow extends ShowSequenceClient {
 			return;
 		}
 		int light = LightTexture.FULL_BRIGHT;
-		VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE));
-		// the watch arm: the grey fish skin creeping up from the hand to the shoulder, the hand webbing out
+		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
+		VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(Shards.WHITE));
+		float xMax = slim ? 2f : 3f;
+		// the watch arm: the grey fish skin creeping up from the hand to the shoulder, bent with the arm
 		float arm = smooth((t - DIAL_AT) / 24f);
 		if (arm > 0f) {
-			float y0 = Mth.lerp(arm, 10.4f, -2.4f);
-			AlienParts.on(pose, model.leftArm, () -> {
-				AlienParts.box(pose, solid, -1.35f, y0, -2.35f, 3.35f, 12.35f, 2.35f, 0f, 0f, 1f, 1f, FISH, light);
-				float web = smooth((t - 38f) / 10f);
-				if (web > 0f) {
-					// the webbed fingers: a flat fin past the hand, a few scale ridges
-					AlienParts.box(pose, solid, -1.9f - 1.2f * web, 9.5f, -0.4f, 3.9f + 1.2f * web, 12.4f + 2.2f * web, 0.4f, 0f, 0f, 1f, 1f, FISH, light);
+			float y0 = Mth.lerp(arm, 8.4f, -2.3f);
+			Shards.sleeve(pose, solid, model.leftArm, BentLimbs.LEFT_ARM, slim, y0 + 2f, 12.1f, 0.3f, FISH, light);
+			// its jagged leading edge
+			if (arm < 0.999f) {
+				int[] faces = { Shards.PX, Shards.NX, Shards.PZ, Shards.NZ };
+				for (int i = 0; i < 8; i++) {
+					int face = faces[i % 4];
+					float across = i < 4 ? 0.3f : 0.72f;
+					float[] xz = onFace(face, across, xMax, 0.3f);
+					float ang = 180f + (i % 2 == 0 ? 14f : -14f);
+					Shards.onLimb(pose, model.leftArm, BentLimbs.LEFT_ARM, slim, y0, () -> Shards.draw(pose, solid, face, xz[0], y0 + 0.4f, xz[1], 2.2f, 0.9f,
+							0.12f, ang, 0.9f, 1f, light, FISH_LIGHT, FISH & 0xFFFFFF, FISH_DARK));
 				}
-				for (int i = 0; i < 4; i++) {
-					float sy = 9f - i * 2.6f;
-					if (sy > y0 + 0.5f) {
-						AlienParts.box(pose, solid, 3.3f, sy, -1.2f + (i % 2) * 0.8f, 3.5f, sy + 0.25f, 0.2f + (i % 2) * 0.8f, 0f, 0f, 1f, 1f, GILL, light);
-					}
+			}
+			// the little scale chevrons the show draws on the skin
+			for (float[] c : CHEVRONS) {
+				if (c[1] < y0 + 1.2f || (int) c[0] == Shards.TOP) {
+					continue;
 				}
-			});
+				int face = (int) c[0];
+				float[] xz = onFace(face, c[2], xMax, 0.33f);
+				Shards.onLimb(pose, model.leftArm, BentLimbs.LEFT_ARM, slim, c[1], () -> {
+					Shards.draw(pose, solid, face, xz[0], c[1], xz[1], 1.1f, 0.12f, 0.03f, 35f, 0.5f, 1f, light, FISH_DARK, FISH_DARK, FISH_DARK);
+					Shards.draw(pose, solid, face, xz[0], c[1], xz[1], 1.1f, 0.12f, 0.03f, -35f, 0.5f, 1f, light, FISH_DARK, FISH_DARK, FISH_DARK);
+				});
+			}
+			// the fingers splaying out of the hand, webbed between
+			float web = smooth((t - 38f) / 10f);
+			if (web > 0f) {
+				Shards.onLimb(pose, model.leftArm, BentLimbs.LEFT_ARM, slim, 10f, () -> hand(pose, solid, web, xMax, light));
+			}
 		}
-		// the rest of the body going grey from the neck down (after the arm shot)
+		// the rest of the body going grey from the neck down (after the arm shot), bent with the right arm
 		float rest = smooth((t - 96f) / 20f);
 		if (rest > 0f) {
 			float y1 = Mth.lerp(rest, 0f, 12.35f);
 			AlienParts.on(pose, model.body, () -> AlienParts.box(pose, solid, -4.35f, -0.35f, -2.35f, 4.35f, y1, 2.35f, 0f, 0f, 1f, 1f, FISH, light));
-			AlienParts.on(pose, model.rightArm, () -> AlienParts.box(pose, solid, -3.35f, -2.35f, -2.35f, 1.35f, Mth.lerp(rest, -2f, 12.35f), 2.35f, 0f, 0f,
-					1f, 1f, FISH, light));
+			Shards.sleeve(pose, solid, model.rightArm, BentLimbs.RIGHT_ARM, slim, 0f, Mth.lerp(rest, 0f, 12.1f), 0.3f, FISH, light);
 		}
-		// the gills slicing open down the side of the neck
+		// the gills slicing open down the side of the neck, under the ear
 		float gills = smooth((t - NECK_AT - 2f) / 8f);
 		if (gills > 0f) {
-			AlienParts.on(pose, model.body, () -> {
-				for (int i = 0; i < 3; i++) {
-					float z = -1.2f + i * 1.1f, len = 4.2f * gills;
-					AlienParts.box(pose, solid, 4.36f, 0.2f + i * 0.5f, z, 4.5f, 0.2f + i * 0.5f + len, z + 0.3f, 0f, 0f, 1f, 1f, GILL, light);
-					AlienParts.box(pose, solid, -4.5f, 0.2f + i * 0.5f, z, -4.36f, 0.2f + i * 0.5f + len, z + 0.3f, 0f, 0f, 1f, 1f, GILL, light);
+			AlienParts.on(pose, model.head, () -> {
+				PoseStack.Pose last = pose.last();
+				for (int side = -1; side <= 1; side += 2) {
+					float x = side * 4.62f;
+					for (int i = 0; i < 3; i++) {
+						float z0 = -1.4f + i * 1.45f, yTop = -5.2f + i * 0.4f, len = 4.6f * gills;
+						// a slanted slit, sweeping back as it runs down
+						float[] a = { x, yTop, z0 }, b = { x, yTop, z0 + 0.6f }, c = { x, yTop + len, z0 + 0.6f + len * 0.42f }, d = { x, yTop + len, z0 + len * 0.42f };
+						Shards.quad(last, solid, a, b, c, d, GILL, light);
+					}
 				}
 			});
 		}
@@ -307,47 +327,51 @@ public final class RipjawsShow extends ShowSequenceClient {
 			int c = b[0] == 1 || b[3] > 4f ? FISH : CHEEK;
 			AlienParts.on(pose, bones[(int) b[0]], () -> SwellLumps.lump(pose, solid, b[1], b[2], b[3], r, c, light));
 		}
-		// the lure: a stalk shooting out of the forehead, arching forward and over to his right, a bulb on the end
+		// the lure: a smooth tapering stalk shooting out of the forehead, arching over, a bulb on the end
 		float lure = smooth((t - LURE_AT - 4f) / 7f);
 		if (lure > 0f) {
 			AlienParts.on(pose, model.head, () -> {
-				int n = 16;
+				int n = 30;
 				float sway = 0.6f * Mth.sin(t * 0.5f);
 				// out to his right over the front shot; swung round to arch forward over the face from the profile shots on
-				float fwd = t < PROFILE_AT ? 0f : 1f;
-				float x1 = Mth.lerp(fwd, -6.5f, 0.5f), y1 = Mth.lerp(fwd, -9.5f, -10.5f), z1 = Mth.lerp(fwd, -5.5f, -9f);
-				float x2 = Mth.lerp(fwd, -12.5f, 1f) + sway, y2 = Mth.lerp(fwd, -7.5f, -5.5f), z2 = Mth.lerp(fwd, -6.5f, -14f);
+				float fwd = t < PROFILE_AT + 0.01f ? 0f : 1f;
+				float x1 = Mth.lerp(fwd, -6.5f, 0.5f), y1 = Mth.lerp(fwd, -11.5f, -12.5f), z1 = Mth.lerp(fwd, -5.5f, -8f);
+				float x2 = Mth.lerp(fwd, -12.5f, 1f) + sway, y2 = Mth.lerp(fwd, -8.5f, -5.5f), z2 = Mth.lerp(fwd, -6.5f, -13f);
 				for (int i = 0; i <= n; i++) {
 					float s = lure * i / n;
 					float u = 1f - s;
 					float x = u * u * -0.5f + 2 * u * s * x1 + s * s * x2;
-					float y = u * u * -6.2f + 2 * u * s * y1 + s * s * y2;
-					float z = u * u * -4.2f + 2 * u * s * z1 + s * s * z2;
-					float r = 0.8f - 0.25f * s;
+					float y = u * u * -7.8f + 2 * u * s * y1 + s * s * y2;
+					float z = u * u * -4.3f + 2 * u * s * z1 + s * s * z2;
+					float r = 0.62f - 0.3f * s;
 					AlienParts.box(pose, solid, x - r, y - r, z - r, x + r, y + r, z + r, 0f, 0f, 1f, 1f, LURE, light);
 					if (i == n) {
-						float b = 1.6f * smooth((lure - 0.7f) / 0.3f);
-						SwellLumps.lump(pose, solid, x, y + 0.6f, z, b, BULB, light);
+						float b = 1.5f * smooth((lure - 0.7f) / 0.3f);
+						SwellLumps.lump(pose, solid, x, y + 0.7f, z, b, BULB, light);
 					}
 				}
 			});
 		}
-		// the teeth bursting out of the stretching mouth, along the front and both sides
+		// the teeth bursting out of the stretching mouth: big triangles along the front and both sides
 		float teeth = smooth((t - TEETH_AT - 2f) / 8f);
 		if (teeth > 0f) {
 			AlienParts.on(pose, model.head, () -> {
-				// big fangs hanging off the jaw line, a smaller row pushing up from below
-				for (int i = 0; i < 6; i++) {
-					float x = -3.3f + i * 1.32f, h = (2.8f + 0.8f * (i % 2)) * teeth;
-					AlienParts.box(pose, solid, x - 0.6f, -0.8f, -5.2f, x + 0.6f, -0.8f + h, -4.6f, 0f, 0f, 1f, 1f, TOOTH, light);
-				}
+				PoseStack.Pose last = pose.last();
 				// the dark slit of the mouth they burst out of
-				AlienParts.box(pose, solid, -4.95f, -1.5f, -5.25f, 4.95f, -0.7f, 1.2f, 0f, 0f, 1f, 1f, GILL, light);
+				AlienParts.box(pose, solid, -4.62f, -1.6f, -4.62f, 4.62f, -0.9f, 1.4f, 0f, 0f, 1f, 1f, GILL, light);
+				for (int i = 0; i < 5; i++) {
+					float x = -3.6f + i * 1.8f, h = (3.4f + 1.0f * (i % 2)) * teeth;
+					Shards.tri(last, solid, new float[] { x - 0.9f, -0.9f, -4.7f }, new float[] { x + 0.9f, -0.9f, -4.7f }, new float[] { x, -0.9f + h, -4.75f }, TOOTH,
+							light);
+				}
 				for (int side = -1; side <= 1; side += 2) {
+					float x = side * 4.7f;
 					for (int i = 0; i < 4; i++) {
-						float z = -3.6f + i * 1.3f, h = (3.0f - 0.35f * i) * teeth, x = side * 5.0f;
-						AlienParts.box(pose, solid, x - 0.35f, -0.8f, z - 0.6f, x + 0.35f, -0.8f + h, z + 0.6f, 0f, 0f, 1f, 1f, TOOTH, light);
-						AlienParts.box(pose, solid, x - 0.3f, 1.2f - h * 0.6f, z + 0.1f, x + 0.3f, 1.2f, z + 0.7f, 0f, 0f, 1f, 1f, TOOTH, light);
+						float z = -3.4f + i * 1.45f, h = (3.8f - 0.45f * i) * teeth;
+						// the upper row hanging down, the lower row pushing up between them
+						Shards.tri(last, solid, new float[] { x, -0.9f, z - 0.7f }, new float[] { x, -0.9f, z + 0.7f }, new float[] { x, -0.9f + h, z }, TOOTH, light);
+						Shards.tri(last, solid, new float[] { x, -1.6f, z }, new float[] { x, -1.6f, z + 1.3f }, new float[] { x, -1.6f - h * 0.55f, z + 0.65f }, TOOTH,
+								light);
 					}
 				}
 			});
@@ -355,10 +379,46 @@ public final class RipjawsShow extends ShowSequenceClient {
 		// the face greying over (translucent, so the screwed-up face still shows)
 		float face = smooth((t - LURE_AT) / 40f);
 		if (face > 0f) {
-			VertexConsumer wash = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
-			int a = Math.round(190 * face);
-			AlienParts.on(pose, model.head, () -> AlienParts.box(pose, wash, -4.6f, -8.6f, -4.6f, 4.6f, 0.6f, 4.6f, 0f, 0f, 1f, 1f, (a << 24) | 0xA8B4A8,
+			VertexConsumer wash = buffers.getBuffer(RenderType.entityTranslucent(Shards.WHITE));
+			int a = Math.round(150 * face);
+			AlienParts.on(pose, model.head, () -> AlienParts.box(pose, wash, -4.6f, -8.6f, -4.6f, 4.6f, 0.6f, 4.6f, 0f, 0f, 1f, 1f, (a << 24) | 0xC9CCBC,
 					light));
+		}
+	}
+
+	/** {x, z} of a point {@code across} (0..1) a left-arm face, {@code proud} px off the skin. */
+	private static float[] onFace(int face, float across, float xMax, float proud) {
+		return switch (face) {
+			case Shards.PX -> new float[] { xMax + proud, -2f + 4f * across };
+			case Shards.NX -> new float[] { -1f - proud, -2f + 4f * across };
+			case Shards.PZ -> new float[] { -1f + (xMax + 1f) * across, 2f + proud };
+			default -> new float[] { -1f + (xMax + 1f) * across, -2f - proud };
+		};
+	}
+
+	/** The hand (left arm bone px, its end at y 10): four fingers fanning out of it, the pale webbing stretched between them. */
+	private static void hand(PoseStack pose, VertexConsumer vc, float web, float xMax, int light) {
+		float cx = (xMax - 1f) * 0.5f, half = (xMax + 1f) * 0.5f;
+		float len = 2.4f * web;
+		float[][] tips = new float[4][];
+		for (int i = 0; i < 4; i++) {
+			float f = (i - 1.5f) / 1.5f;
+			float ang = f * 0.55f * web;
+			float bx = cx + f * half * 0.8f;
+			pose.pushPose();
+			pose.translate(bx / 16f, 9.9f / 16f, 0f);
+			pose.mulPose(Axis.ZP.rotation(-ang));
+			AlienParts.box(pose, vc, -0.42f, 0f, -0.45f, 0.42f, len, 0.45f, 0f, 0f, 1f, 1f, FISH, light);
+			// the claw tip
+			AlienParts.box(pose, vc, -0.3f, len, -0.3f, 0.3f, len + 0.7f * web, 0.3f, 0f, 0f, 1f, 1f, 0xFF2E3530, light);
+			pose.popPose();
+			tips[i] = new float[] { bx + Mth.sin(ang) * len * 0.85f, 9.9f + Mth.cos(ang) * len * 0.85f };
+		}
+		PoseStack.Pose last = pose.last();
+		for (int i = 0; i < 3; i++) {
+			float ax = cx + ((i - 1.5f) / 1.5f) * half * 0.8f, bx = cx + ((i + 1 - 1.5f) / 1.5f) * half * 0.8f;
+			float[] a = { ax, 9.9f, 0f }, b = { bx, 9.9f, 0f }, c = { tips[i + 1][0], tips[i + 1][1], 0f }, d = { tips[i][0], tips[i][1], 0f };
+			Shards.quad(last, vc, a, b, c, d, WEB, light);
 		}
 	}
 
@@ -408,8 +468,9 @@ public final class RipjawsShow extends ShowSequenceClient {
 		ShowShots.flash(st, t, ShowShots.FLASH_GREEN, 9f, 1f, DIAL_AT - 1f, 5f, 1f);
 		// the second full green flash, fading over the face
 		ShowShots.flash(st, t, ShowShots.FLASH_GREEN, GREEN2_AT, 2f, 61f, 10f, 1f);
-		// the eye's close-up washed pale mint
-		ShowShots.flash(st, t, 0xCFEBD0, EYE_AT, 1f, WHITE_AT, 1f, 0.4f);
+		if (t >= EYE_AT && t < WHITE_AT + 2f) {
+			eye(st, t);
+		}
 		// the two white-outs
 		ShowShots.flash(st, t, 0xF6F6EE, NEG1_AT, 0.5f, NEG1_AT + 1.5f, 1.5f, 0.85f);
 		ShowShots.flash(st, t, 0xF6F6EE, NEG2_AT, 0.5f, NEG2_AT + 2.5f, 1.5f, 0.85f);
@@ -421,5 +482,47 @@ public final class RipjawsShow extends ShowSequenceClient {
 		}
 		ShowShots.flash(st, t, 0xF8FFF4, WHITE2_AT, 1f, 235f, 5f, 0.95f);
 		ShowShots.greenOut(st, t, GREEN3_AT, WORLD_AT, total());
+	}
+
+	/**
+	 * v1b: right in on the eye (v1 was a blur of the head under a mint wash): pale mint skin, the eye screwed shut under a heavy dark
+	 * brow, squint creases fanning off it, the cream fin points of the new head at the left edge, pushing in.
+	 */
+	private static void eye(Stage st, float t) {
+		float u = t - EYE_AT;
+		VertexConsumer vc = st.flat();
+		PoseStack.Pose p = st.last();
+		float k = st.k();
+		float s = 1f + 0.015f * u;
+		float cx = 0.08f * k - 0.01f * u * k, cy = 0.02f;
+		st.gradient(0xD6EEDA, 0xBFE2C6, 0xA2CDAA);
+		// the fin points of the new head along the left edge
+		for (int i = 0; i < 4; i++) {
+			float y0 = -1.1f + i * 0.55f;
+			st.put(vc, p, -1.5f, y0, 0xEDE6C8, 1f);
+			st.put(vc, p, -1.5f, y0 + 0.5f, 0xEDE6C8, 1f);
+			st.put(vc, p, -0.95f * k + 0.05f * i, y0 + 0.62f, 0xF6F0D6, 1f);
+			st.put(vc, p, -1.5f, y0 + 0.5f, 0xEDE6C8, 1f);
+			Shards.line(st, vc, p, -1.5f, y0 + 0.5f, -0.95f * k + 0.05f * i, y0 + 0.62f, 0.006f, 0x8A9A8A, 0.9f);
+		}
+		// the brow: a thick dark stroke slanting down toward the nose
+		Shards.line(st, vc, p, cx - 0.62f * k * s, cy + 0.42f * s, cx + 0.38f * k * s, cy + 0.12f * s, 0.055f * s, 0x16201A, 1f);
+		Shards.line(st, vc, p, cx - 0.42f * k * s, cy + 0.5f * s, cx + 0.1f * k * s, cy + 0.34f * s, 0.02f * s, 0x16201A, 1f);
+		// the shut lid: a curved stroke, heavy in the middle
+		float[] lx = { -0.5f, -0.25f, 0.02f, 0.28f, 0.48f }, ly = { 0.02f, -0.06f, -0.08f, -0.04f, 0.06f };
+		for (int i = 0; i < 4; i++) {
+			float w = (i == 1 || i == 2 ? 0.032f : 0.022f) * s;
+			Shards.line(st, vc, p, cx + lx[i] * k * s, cy + ly[i] * s, cx + lx[i + 1] * k * s, cy + ly[i + 1] * s, w, 0x16201A, 1f);
+		}
+		// squint creases fanning out of the corners
+		for (int i = 0; i < 3; i++) {
+			float a = 0.25f + i * 0.28f;
+			Shards.line(st, vc, p, cx + 0.56f * k * s, cy + 0.04f * s, cx + (0.56f + 0.3f * Mth.cos(a)) * k * s, cy + (0.04f - 0.3f * Mth.sin(a)) * s,
+					0.008f * s, 0x3C4A40, 0.9f);
+			Shards.line(st, vc, p, cx - 0.56f * k * s, cy - 0.02f * s, cx - (0.56f + 0.26f * Mth.cos(a)) * k * s, cy - (0.02f + 0.26f * Mth.sin(a)) * s,
+					0.008f * s, 0x3C4A40, 0.9f);
+		}
+		// the white flash already rising
+		ShowShots.flash(st, t, 0xFFFFFC, WHITE_AT - 3f, 3f, WHITE_AT + 3f, 1f, 0.6f);
 	}
 }

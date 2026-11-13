@@ -4,7 +4,7 @@ import java.util.function.Function;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 
@@ -14,16 +14,16 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 import software.bernie.geckolib.cache.object.GeoBone;
 
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.env;
-import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.rot;
 import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
 
 /**
@@ -54,14 +54,19 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  * </pre>
  * Before the change the swelling and fur are on the human body; after it, {@code WildmuttModel} hands its bones to
  * {@link #poseBones} while this plays, so everyone sees the poses.
+ *
+ * <p><b>v1b touch-up</b> (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"):
+ * the human body runs on one keyframed pose track ({@link LimbKeys}) with bent elbows and knees, the hunch leans about the hips (v1
+ * swung the torso off the legs), the claws come up to the face; the swelling lumps are smaller and sunk into the skin (v1 piled
+ * whole cubes round the hand and face) with red veins crawling ahead of them; the fur bursts out in spiky cel-shaded tufts
+ * ({@link Shards}) that ride the bent forearms; Wildmutt himself pitches about his hips with every limb posed by its world angle, so
+ * rearing and the roar on the slope keep the hind feet planted and the front paws on the ground (v1 sank one end and floated the other).
  */
 public final class WildmuttShow extends ShowSequenceClient {
 	static final float SLAP_END = 6f, DIAL_AT = 25f, HAND_AT = 45f, ARM_AT = 66f, FACE_AT = 100f, ORANGE_AT = 128f, HUNCH_AT = 148f, SIDE_AT = 158f,
 			CLAW_AT = 166f, STREAK_AT = 178f, HEAD_AT = 188f, PAW_AT = 210f, BACK_AT = 238f, LOW_AT = 244f, REAR_AT = 250f, LUNGE_AT = 262f,
 			WHITE_AT = 268f, ROAR_AT = 270f, GREEN_AT = 322f, WORLD_AT = 338f;
 	static final int TRANSFORM_AT = 180;
-
-	private static final ResourceLocation FUR = ProjectHeroMod.id("textures/entity/omnitrix/sequence/wildmutt/fur.png");
 
 	private static final KirbyDots.Style DARK_DOTS = KirbyDots.Style.show().size(1.2f),
 			SPLOTCH_DOTS = KirbyDots.Style.show().bands(3).density(1.3f).size(1.5f).width(1.4f).rim(1.2f).clear(0.34f).flow(0.7f),
@@ -142,66 +147,60 @@ public final class WildmuttShow extends ShowSequenceClient {
 
 	// ================================================================ the human poses (before the change)
 
+	/** The human body before the change, matched to the video's frames (see the class beat table). */
+	static final LimbKeys POSE = new LimbKeys()
+			// ---- the watch arm held straight out in front, so the camera can run along it from above; the other fist clenched
+			.at(HAND_AT).lArm(-1.52f, 0.05f, 0f, 0.04f, 0f).rArm(0.05f, 0f, 0.15f, 0.35f, 0.1f).head(0.25f, 0f, 0f).legs(0f, 0f, 0.04f, 0.04f, 0f)
+			.at(FACE_AT - 0.5f).hold().rArm(0.1f, 0f, 0.2f, 0.55f, 0.15f).shrug(-0.5f)
+			// ---- the face: head tipped over to one side, straining, the shoulders up round the neck
+			.at(FACE_AT).head(-0.2f, 0.25f, 0.35f).arms(0.1f, 0f, 0.32f, 0.5f, 0.15f).shrug(-0.7f)
+			.at(ORANGE_AT).head(-0.26f, 0.3f, 0.44f).shrug(-1.1f).arms(0.14f, 0f, 0.36f, 0.75f, 0.2f)
+			.at(HUNCH_AT - 0.5f).hold()
+			// ---- hunched right over (about the hips: the torso stays on the legs), arms hanging, head hung, knees giving
+			.at(HUNCH_AT).lean(0.62f).head(0.55f, 0f, 0f).arms(-0.3f, -0.08f, 0.12f, 0.5f, 0.1f).shrug(-0.4f).legs(-0.12f, 0f, 0.08f, 0.32f, 0f).drop(0.5f)
+			.at(SIDE_AT).lean(0.72f).head(0.75f, 0f, 0f).arms(-0.22f, -0.06f, 0.1f, 0.4f, 0f)
+			.at(CLAW_AT - 0.5f).hold()
+			// ---- clawing up at the face, elbows high, head back screaming...
+			.at(CLAW_AT).lean(0.05f).head(-0.45f, 0f, 0f).rArm(-2.3f, -0.35f, 0.05f, 1.65f, -0.6f).lArm(-2.3f, 0.35f, -0.05f, 1.65f, 0.6f).shrug(-0.9f)
+			.legs(-0.05f, 0f, 0.1f, 0.2f, 0f).drop(0.3f)
+			.at(170.5f).hold()
+			// ...then the furry head drops and roars at the camera, the claws coming down in front
+			.at(173.5f).lean(0.34f).head(0.3f, 0f, 0f).arms(-1.15f, -0.18f, 0.25f, 1.15f, -0.35f).shrug(-0.3f)
+			.at(TRANSFORM_AT).hold();
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
-		if (t >= TRANSFORM_AT) {
+		if (t < HAND_AT || t >= TRANSFORM_AT) {
 			return;
 		}
-		m.head.yRot = 0f;
-		if (t >= HAND_AT && t < FACE_AT) {
-			// the watch arm held straight out in front, so the camera can run along it from above
-			rot(m.leftArm, 1f, -1.52f, 0.05f, 0f);
-		}
+		LimbKeys.apply(m, POSE.sample(t));
+		// the swelling: the whole body trembling, then heaving
 		float shake = smooth((t - HAND_AT) / 30f);
-		if (shake > 0f && t < FACE_AT) {
+		if (t < FACE_AT) {
 			m.leftArm.xRot += 0.05f * shake * Mth.sin(t * 2.9f);
 			m.leftArm.zRot += 0.04f * shake * Mth.cos(t * 3.7f);
 			m.rightArm.xRot += 0.04f * shake * Mth.sin(t * 3.3f + 1f);
+		} else if (t < HUNCH_AT) {
+			m.head.xRot += 0.05f * Mth.sin(t * 2.3f);
+		} else if (t < CLAW_AT) {
+			m.head.xRot += 0.05f * Mth.sin(t * 0.9f);
 		}
-		if (t >= FACE_AT && t < HUNCH_AT) {
-			// the face: head tipped over to one side, straining
-			float w = smooth((t - FACE_AT + 2f) / 6f);
-			rot(m.head, w, -0.2f + 0.05f * Mth.sin(t * 2.3f), 0.25f, 0.35f);
-			rot(m.leftArm, w, 0.1f, 0f, -0.35f);
-			rot(m.rightArm, w, 0.1f, 0f, 0.35f);
-		} else if (t >= HUNCH_AT && t < CLAW_AT) {
-			// hunched right over, the arms hanging, the head hung
-			float w = smooth((t - HUNCH_AT) / 4f);
-			float heave = 0.05f * Mth.sin(t * 0.9f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, 0.62f + heave);
-			rot(m.head, w, 0.75f, 0f, 0f);
-			rot(m.leftArm, w, -0.75f, 0.1f, -0.2f);
-			rot(m.rightArm, w, -0.75f, -0.1f, 0.2f);
-			// the body's lean pivots at the waist: the shoulders and the head follow it down and forward
-			float dz = Mth.sin(m.body.xRot) * 12f, dy = (1f - Mth.cos(m.body.xRot)) * 12f;
-			m.head.z -= dz * 0.9f;
-			m.head.y += dy * 0.9f;
-			m.leftArm.z -= dz * 0.8f;
-			m.rightArm.z -= dz * 0.8f;
-			m.leftArm.y += dy * 0.8f;
-			m.rightArm.y += dy * 0.8f;
-		} else if (t >= CLAW_AT) {
-			// clawing up at the face, head back screaming; then the furry head drops and roars at the camera
-			float w = smooth((t - CLAW_AT) / 2.5f);
-			float drop = smooth((t - 171f) / 3f);
-			rot(m.head, w, Mth.lerp(drop, -0.45f, 0.35f), 0f, 0f);
-			rot(m.leftArm, w, Mth.lerp(drop, -2.05f, -1.1f), Mth.lerp(drop, 0.45f, 0.1f), -0.1f);
-			rot(m.rightArm, w, Mth.lerp(drop, -2.05f, -1.1f), Mth.lerp(drop, -0.45f, -0.1f), 0.1f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, Mth.lerp(drop, 0.05f, 0.3f));
-			float b = m.body.xRot;
-			float dz = Mth.sin(b) * 12f, dy = (1f - Mth.cos(b)) * 12f;
-			m.head.z -= dz * 0.9f;
-			m.head.y += dy * 0.9f;
-			m.leftArm.z -= dz * 0.8f;
-			m.rightArm.z -= dz * 0.8f;
-		}
-		HeatblastShow.copyLayers(m);
+		LimbKeys.copyLayers(m);
 	}
+
+	// ================================================================ Wildmutt's bones (after the change)
+
+	/** Wildmutt's hip joint (geo px, y up, +z back): the body pitches about it, so the hind legs stay planted. */
+	private static final float HIP_Y = 17.5f, HIP_Z = 10f;
 
 	/**
 	 * After the change, from {@code WildmuttModel.setCustomAnimations}: Wildmutt's bones posed for the playing shot (absolute
 	 * rotations in degrees over whatever the idle clip set; {@code bone} looks one up by name, null if missing). Does nothing unless
 	 * this sequence is playing on {@code p}.
+	 *
+	 * <p>v1b: the body pitches about the hips, not the root's origin under the belly (v1 rearing and roaring sank the hind feet into
+	 * the ground and lifted the front paws off it). Every limb is posed by its angle in the world ("global" below) and turned into the
+	 * bone's own rotation by taking off its parents', so the hind legs stand straight or fold into a sit, and the paws stay flat.
 	 */
 	public static void poseBones(Player p, Function<String, GeoBone> bone) {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
@@ -209,8 +208,10 @@ public final class WildmuttShow extends ShowSequenceClient {
 		if (t < TRANSFORM_AT) {
 			return;
 		}
-		// {root, chest, neck, head, jaw, arm_r, forearm_r, arm_l, forearm_l} in degrees, root y (px)
-		float root = 0, chest = 0, neck = 0, head = 0, jaw = -6, armR = 0, foreR = 0, armL = 0, foreL = 0, rootY = 0, headY = 0;
+		// the body's pitch about the hips (+ nose up) and how far the hips drop (px); the chest / neck / head / jaw on top of it
+		float pitch = 0, drop = 0, chest = 0, neck = 0, head = 0, jaw = -6, headY = 0;
+		// limbs, world angles (degrees, + swings the far end forward): upper, middle, (the paw / foot stays flat unless set)
+		float armR = 0, foreR = 0, armL = 0, foreL = 0, pawR = 0, pawL = 0, thighR = 0, shinR = 0, thighL = 0, shinL = 0;
 		if (t < PAW_AT) {
 			// the head in profile: snarling, sniffing round
 			float u = t - HEAD_AT;
@@ -218,80 +219,112 @@ public final class WildmuttShow extends ShowSequenceClient {
 			head = -4f + 4f * Mth.sin(u * 0.35f);
 			headY = 10f * Mth.sin(u * 0.18f);
 			jaw = -10f - 8f * Math.abs(Mth.sin(u * 0.45f));
+			armR = armL = 4f;
 		} else if (t < BACK_AT) {
-			// a paw lifting, reaching and planting, then the other
+			// a paw lifting, reaching forward and planting, then the other; the chest dipping toward the lifted side
 			float u = (t - PAW_AT) / 14f;
 			float ph = u - (int) u;
 			float lift = Mth.sin(Mth.clamp(ph / 0.7f, 0f, 1f) * Mth.PI);
 			boolean right = ((int) u) % 2 == 0;
-			float a = 38f * lift, f = -40f * lift;
+			float a = 30f * lift + 6f, f = -38f * lift, pw = -14f * lift;
 			if (right) {
 				armR = a;
-				foreR = f;
+				foreR = a + f;
+				pawR = pw;
+				armL = -4f;
 			} else {
 				armL = a;
-				foreL = f;
+				foreL = a + f;
+				pawL = pw;
+				armR = -4f;
 			}
-			chest = -4f;
+			pitch = -3f;
+			chest = -2f;
 			neck = -10f;
+			jaw = -8f;
 		} else if (t < LOW_AT) {
-			chest = -4f;
+			pitch = -3f;
 			neck = -12f;
+			armR = armL = 4f;
 		} else if (t < REAR_AT) {
-			// the head low, prowling
-			chest = -8f;
+			// the head low, prowling: shoulders down between the front legs
+			pitch = -6f;
+			drop = 0.5f;
+			chest = -4f;
 			neck = -22f;
 			head = -6f;
-			jaw = -14f;
+			jaw = -16f;
+			armR = armL = 14f;
+			foreR = foreL = -6f;
 		} else if (t < LUNGE_AT) {
-			// rearing up, the claws raised
+			// rearing up on the hind legs, the front claws curled up in front of the chest
 			float w = smooth((t - REAR_AT) / 5f);
-			root = 38f * w;
-			rootY = 2f * w;
-			armR = 70f * w;
-			armL = 55f * w;
-			foreR = -35f * w;
-			foreL = -50f * w;
-			neck = 10f * w;
-			head = 12f * w;
-			jaw = -10f - 20f * w;
+			pitch = 44f * w;
+			drop = 0.8f * w;
+			neck = -8f * w;
+			head = 4f * w;
+			jaw = -10f - 22f * w;
+			armR = 80f * w;
+			armL = 66f * w;
+			foreR = 10f * w;
+			foreL = -4f * w;
+			pawR = pawL = -60f * w;
+			thighR = thighL = 8f * w;
+			shinR = shinL = -8f * w;
 		} else if (t < ROAR_AT) {
-			// dropping into a lunge
+			// dropping into a lunge, nose down, the front paws thrown forward
 			float w = smooth((t - LUNGE_AT) / 3f);
-			root = Mth.lerp(w, 38f, -10f);
-			rootY = Mth.lerp(w, 2f, -2.5f);
-			armR = armL = Mth.lerp(w, 60f, 30f);
-			foreR = foreL = -20f;
-			neck = 10f;
-			head = 18f;
-			jaw = -32f;
+			pitch = Mth.lerp(w, 44f, -12f);
+			drop = Mth.lerp(w, 0.8f, 1.5f);
+			neck = 8f;
+			head = 16f;
+			jaw = -34f;
+			armR = armL = Mth.lerp(w, 70f, 36f);
+			foreR = foreL = Mth.lerp(w, 0f, 22f);
+			pawR = pawL = 0f;
+			thighR = thighL = Mth.lerp(w, 8f, -22f);
+			shinR = shinL = Mth.lerp(w, -8f, 10f);
 		} else {
-			// on the slope, sitting back, head flung up, roaring at the sky
+			// on the slope, sitting back on the haunches, the front legs planted straight, the head flung up roaring at the sky
 			float w = smooth((t - ROAR_AT) / 6f);
 			float roar = 0.5f + 0.5f * Mth.sin((t - ROAR_AT) * 0.12f);
-			root = 22f * w;
-			rootY = -1f * w;
-			chest = 8f * w;
-			neck = 32f * w;
-			head = (26f + 6f * roar) * w;
+			pitch = 22f * w;
+			drop = 5.5f * w;
+			chest = 6f * w;
+			neck = 34f * w;
+			head = (24f + 6f * roar) * w;
 			jaw = -(30f + 14f * roar) * w - 3f * Mth.sin(t * 2.4f);
-			armR = armL = -22f * w;
-			foreR = foreL = 6f * w;
+			armR = armL = 5f * w;
+			thighR = thighL = 30f * w;
+			shinR = shinL = -34f * w;
 		}
-		set(bone.apply("root"), root, 0f);
+		// the body about the hips: the root's pitch, and the shift that keeps the hip joint where it was (then the drop)
+		float a = pitch * Mth.DEG_TO_RAD, c = Mth.cos(a), s = Mth.sin(a);
 		GeoBone r = bone.apply("root");
 		if (r != null) {
-			r.setPosY(rootY);
+			r.setRotX(a);
+			r.setRotY(0f);
+			r.setPosY(HIP_Y * (1f - c) + HIP_Z * s - drop);
+			r.setPosZ(HIP_Z * (1f - c) - HIP_Y * s);
 		}
 		set(bone.apply("chest"), chest, 0f);
 		set(bone.apply("neck"), neck, 0f);
 		set(bone.apply("look"), 0f, headY);
 		set(bone.apply("head"), head, 0f);
 		set(bone.apply("jaw"), jaw, 0f);
-		set(bone.apply("arm_r"), armR, 0f);
-		set(bone.apply("forearm_r"), foreR, 0f);
-		set(bone.apply("arm_l"), armL, 0f);
-		set(bone.apply("forearm_l"), foreL, 0f);
+		// the front legs hang from the chest (pitch + chest), the hind legs from the hips (pitch)
+		float base = pitch + chest;
+		limb(bone, "arm_r", "forearm_r", "paw_r", base, armR, foreR, pawR);
+		limb(bone, "arm_l", "forearm_l", "paw_l", base, armL, foreL, pawL);
+		limb(bone, "thigh_r", "shin_r", "foot_r", pitch, thighR, shinR, 0f);
+		limb(bone, "thigh_l", "shin_l", "foot_l", pitch, thighL, shinL, 0f);
+	}
+
+	/** A three-bone limb from world angles (degrees): each bone gets its world angle minus its parent's. */
+	private static void limb(Function<String, GeoBone> bone, String upper, String middle, String end, float parent, float gUpper, float gMiddle, float gEnd) {
+		set(bone.apply(upper), gUpper - parent, 0f);
+		set(bone.apply(middle), gMiddle - gUpper, 0f);
+		set(bone.apply(end), gEnd - gMiddle, 0f);
 	}
 
 	private static void set(GeoBone b, float xDeg, float yDeg) {
@@ -301,9 +334,9 @@ public final class WildmuttShow extends ShowSequenceClient {
 		}
 	}
 
-	// ================================================================ the swelling and the fur
+	// ================================================================ the swelling, the veins and the fur
 
-	/** Swelling lumps ({@link SwellLumps} rows): the hand round the dial, up the arm, the chest and the face. */
+	/** Swelling lumps {bone, x, y, z, half-size, erupt}: the hand round the dial, up the arm, the chest and the face. */
 	private static final float[][] LUMPS = lumps();
 
 	private static float[][] lumps() {
@@ -311,47 +344,204 @@ public final class WildmuttShow extends ShowSequenceClient {
 		long seed = 0x3A11D0L;
 		int n = 0;
 		// {bone, x0, x1, y0, y1, z0, z1, count, from, to, size}
-		float[][] spans = { { 0, -1, 3, 6, 11, -2, 2, 12, 46, 62, 1.5f }, { 0, -1, 3, -2, 6, -2, 2, 12, 64, 92, 1.8f }, { 1, 0, 4, 0, 9, -2, 2, 8, 88, 104, 2f },
-				{ 2, -4, 4, -8, 0, -4, 4, 14, 100, 124, 1.8f } };
-		for (float[] s : spans) {
-			for (int i = 0; i < (int) s[7]; i++, n++) {
-				float f = (i + ShowMath.hash(seed, n * 5)) / s[7];
-				float x = Mth.lerp(ShowMath.hash(seed, n * 5 + 1), s[1], s[2]);
+		float[][] spans = { { 0, -1, 3, 6, 10, -2, 2, 8, 46, 62, 0.85f }, { 0, -1, 3, -2, 6, -2, 2, 9, 64, 92, 1.0f }, { 1, 0, 4, 0, 9, -2, 2, 8, 88, 104, 1.3f },
+				{ 2, -4, 4, -8, 0, -4, 4, 14, 100, 124, 1.15f } };
+		for (float[] sp : spans) {
+			for (int i = 0; i < (int) sp[7]; i++, n++) {
+				float f = (i + ShowMath.hash(seed, n * 5)) / sp[7];
+				float x = Mth.lerp(ShowMath.hash(seed, n * 5 + 1), sp[1], sp[2]);
 				// along the arm, from the hand (y high) up toward the shoulder; on the head, from the jaw up
-				float y = s[0] == 0 ? Mth.lerp(f, s[4], s[3]) : Mth.lerp(f, s[4], s[3]);
-				float z = Mth.lerp(ShowMath.hash(seed, n * 5 + 2), s[5], s[6]);
-				// push it out onto the nearest side face
-				float cx = (s[1] + s[2]) / 2f, cz = (s[5] + s[6]) / 2f;
-				if (Math.abs(x - cx) / (s[2] - s[1]) > Math.abs(z - cz) / (s[6] - s[5])) {
-					x = x > cx ? s[2] : s[1];
+				float y = Mth.lerp(f, sp[4], sp[3]);
+				float z = Mth.lerp(ShowMath.hash(seed, n * 5 + 2), sp[5], sp[6]);
+				float size = sp[10] * (0.8f + 0.4f * ShowMath.hash(seed, n * 5 + 3));
+				// onto the nearest side face, sunk into it so it swells out of the skin (v1 stood whole cubes off it)
+				float cx = (sp[1] + sp[2]) / 2f, cz = (sp[5] + sp[6]) / 2f, sink = size * 0.4f;
+				if (Math.abs(x - cx) / (sp[2] - sp[1]) > Math.abs(z - cz) / (sp[6] - sp[5])) {
+					x = x > cx ? sp[2] - sink : sp[1] + sink;
 				} else {
-					z = z > cz ? s[6] : s[5];
+					z = z > cz ? sp[6] - sink : sp[5] + sink;
 				}
-				out.add(new float[] { s[0], x, y, z, s[10] * (0.8f + 0.4f * ShowMath.hash(seed, n * 5 + 3)), Mth.lerp(f, s[8], s[9]) });
+				out.add(new float[] { sp[0], x, y, z, size, Mth.lerp(f, sp[8], sp[9]) });
 			}
 		}
 		return out.toArray(new float[0][]);
 	}
 
-	/** The fur ({@link HeatblastShow.Plates}): the head, the arms out of the sleeves, the back of the neck. */
-	private static final float[][] FUR_PATCHES = { { 2, -4, 4, -8, 0, -4, 4, 44, 0, -4, 0, 136, 150, 1.25f, 0b11111 },
-			{ 0, -1, 3, 4, 12, -2, 2, 14, 1, 12, 0, 140, 156, 1.2f, 0b1111 }, { 3, -3, 1, 4, 12, -2, 2, 14, -1, 12, 0, 140, 156, 1.2f, 0b1111 },
-			{ 1, -4, 4, 0, 3, -2, 2, 8, 0, 0, 2, 142, 160, 1.3f, 0b1000 } };
-	private static final float[][] FUR_PLATES = HeatblastShow.Plates.gen(0x7F0A2L, FUR_PATCHES);
+	/** Red veins crawling up the watch arm and over the face: {bone (0 arm, 2 head), face, x0, y0, x1, y1 (in-face px), erupt}. */
+	private static final float[][] VEINS = veins();
+
+	private static float[][] veins() {
+		java.util.List<float[]> out = new java.util.ArrayList<>();
+		long seed = 0x7E1A5L;
+		int n = 0;
+		// arm: wandering lines up the front, top and outer faces, from the dial toward the shoulder
+		int[] armFaces = { Shards.NZ, Shards.PX, Shards.PZ, Shards.NX };
+		for (int v = 0; v < 6; v++) {
+			int face = armFaces[v % 4];
+			float a = 0.2f + 0.6f * ShowMath.hash(seed, n++), y = 9.6f;
+			for (int k = 0; k < 6; k++) {
+				float a2 = Mth.clamp(a + (ShowMath.hash(seed, n++) - 0.5f) * 0.5f, 0.08f, 0.92f), y2 = y - 1.4f - 0.8f * ShowMath.hash(seed, n++);
+				out.add(new float[] { 0, face, a, y, a2, y2, 48f + (9.6f - y) * 3.2f + v });
+				a = a2;
+				y = y2;
+			}
+		}
+		// face: veins fanning up the cheeks from the jaw
+		for (int v = 0; v < 5; v++) {
+			float a = 0.15f + 0.7f * ShowMath.hash(seed, n++), y = -0.5f;
+			for (int k = 0; k < 4; k++) {
+				float a2 = Mth.clamp(a + (ShowMath.hash(seed, n++) - 0.5f) * 0.3f, 0.05f, 0.95f), y2 = y - 1.3f - 0.6f * ShowMath.hash(seed, n++);
+				out.add(new float[] { 2, Shards.NZ, a, y, a2, y2, 102f + k * 3.5f + v });
+				a = a2;
+				y = y2;
+			}
+		}
+		return out.toArray(new float[0][]);
+	}
+
+	/** Fur tufts {bone (0 left arm, 1 body, 2 head, 3 right arm), face, x, y, z, angle, erupt}, bursting out at the orange flash. */
+	private static final float[][] FUR = fur();
+
+	private static float[][] fur() {
+		java.util.List<float[]> out = new java.util.ArrayList<>();
+		long seed = 0x7F0A2L;
+		int n = 0;
+		for (int i = 0; i < 46; i++, n += 4) {
+			float h1 = ShowMath.hash(seed, n), h2 = ShowMath.hash(seed, n + 1), h3 = ShowMath.hash(seed, n + 2);
+			int bone, face;
+			float x, y, z;
+			if (i < 24) {
+				// the head: all round, the top shaggiest
+				bone = 2;
+				int f = i % 6;
+				face = f < 2 ? Shards.TOP : f == 2 ? Shards.PX : f == 3 ? Shards.NX : f == 4 ? Shards.PZ : Shards.NZ;
+				x = face == Shards.PX ? 4.55f : face == Shards.NX ? -4.55f : -3.6f + 7.2f * h1;
+				z = face == Shards.PZ ? 4.55f : face == Shards.NZ ? -4.55f : -3.6f + 7.2f * h2;
+				y = face == Shards.TOP ? -8.55f : face == Shards.NZ ? -8f + 3f * h2 : -8f + 7f * h2;
+			} else if (i < 40) {
+				// the arms, out of the sleeves: outer and back faces, down to the wrist
+				bone = i < 32 ? 0 : 3;
+				boolean outer = i % 2 == 0;
+				face = outer ? (bone == 0 ? Shards.PX : Shards.NX) : Shards.PZ;
+				x = outer ? (bone == 0 ? 3.3f : -3.3f) : (bone == 0 ? 1f : -1f) + (h1 - 0.5f) * 2.6f;
+				z = outer ? -1.6f + 3.2f * h2 : 2.3f;
+				y = -1.4f + 10.8f * h3;
+			} else {
+				// the back of the neck, over the collar
+				bone = 1;
+				face = Shards.PZ;
+				x = -3.6f + 7.2f * h1;
+				y = 0.6f + 3f * h2;
+				z = 2.3f;
+			}
+			float erupt = (bone == 2 ? 134f : bone == 1 ? 142f : 138f) + 14f * h3;
+			out.add(new float[] { bone, face, x, y, z, (h1 - 0.5f) * 50f, erupt });
+		}
+		return out.toArray(new float[0][]);
+	}
+
+	private static final int FUR_LIGHT = 0xFFC060, FUR_MID = 0xF08A1E, FUR_DARK = 0xA8500E, VEIN = 0xB8201A;
 
 	@Override
 	public void renderBody(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, PlayerModel<?> model, float t) {
 		if (t < HAND_AT - 1f || t >= TRANSFORM_AT) {
 			return;
 		}
+		int light = LightTexture.FULL_BRIGHT;
+		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
+		float xMax = slim ? 2f : 3f;
 		ModelPart[] bones = { model.leftArm, model.body, model.head, model.rightArm };
+		int[] limbs = { BentLimbs.LEFT_ARM, -1, -1, BentLimbs.RIGHT_ARM };
 		if (t < HUNCH_AT) {
-			SwellLumps.render(pose, buffers, bones, LUMPS, t, 6f, SwellLumps.SWELL, SwellLumps.SWELL_GLOW);
+			// the lumps, then their glow (lumps below an elbow ride the forearm)
+			// (one buffer at a time: fetching another ends the one before)
+			for (int pass = 0; pass < 2; pass++) {
+				VertexConsumer vc = buffers.getBuffer(pass == 0 ? RenderType.entityCutoutNoCull(SwellLumps.SWELL) : RenderType.eyes(SwellLumps.SWELL_GLOW));
+				for (int i = 0; i < LUMPS.length; i++) {
+					float[] b = LUMPS[i];
+					float g = ShowMath.pop(t - b[5], 6f);
+					if (g <= 0.02f) {
+						continue;
+					}
+					float r = b[4] * g * (pass == 0 ? 1f : 1.18f) * (1f + 0.09f * Mth.sin(t * (0.8f + 0.05f * i) + i * 1.7f));
+					int bi = (int) b[0];
+					int c = pass == 0 ? 0xFFFFFFFF : ShowMath.grey(0.5f + 0.2f * Mth.sin(t * 1.3f + i));
+					Runnable draw = () -> SwellLumps.lump(pose, vc, b[1], b[2], b[3], r, c, light);
+					if (limbs[bi] >= 0) {
+						Shards.onLimb(pose, bones[bi], limbs[bi], slim, b[2], draw);
+					} else {
+						AlienParts.on(pose, bones[bi], draw);
+					}
+				}
+			}
+			// the red veins crawling under the skin
+			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(Shards.WHITE));
+			for (float[] v : VEINS) {
+				float g = smooth((t - v[6]) / 4f);
+				if (g <= 0.01f) {
+					continue;
+				}
+				int bi = (int) v[0], face = (int) v[1];
+				float[] a = facePoint(bi, face, v[2], v[3], xMax), e = facePoint(bi, face, v[4], Mth.lerp(g, v[3], v[5]), xMax);
+				Runnable draw = () -> vein(pose.last(), solid, face, a, e, light);
+				if (bi == 0) {
+					Shards.onLimb(pose, model.leftArm, BentLimbs.LEFT_ARM, slim, (v[3] + v[5]) * 0.5f, draw);
+				} else {
+					AlienParts.on(pose, model.head, draw);
+				}
+			}
 		}
 		if (t >= ORANGE_AT) {
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(FUR));
-			HeatblastShow.Plates.render(pose, vc, bones, FUR_PLATES, t, 5f, 0.6f);
+			// the fur bursting out in spiky tufts, hanging down and back
+			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(Shards.WHITE));
+			for (float[] f : FUR) {
+				float g = ShowMath.pop(t - f[6], 5f);
+				if (g <= 0.02f) {
+					continue;
+				}
+				int bi = (int) f[0], face = (int) f[1];
+				float len = bi == 2 ? 3.0f : 2.4f;
+				Runnable draw = () -> Shards.draw(pose, solid, face, f[2], f[3], f[4], len, 0.95f, 1.5f, f[5], 0.95f, g, light, FUR_LIGHT, FUR_MID, FUR_DARK);
+				if (limbs[bi] >= 0) {
+					Shards.onLimb(pose, bones[bi], limbs[bi], slim, f[3], draw);
+				} else {
+					AlienParts.on(pose, bones[bi], draw);
+				}
+			}
 		}
+	}
+
+	/** A point on one of the arm's / head's faces ({@code across} 0..1 over the face, {@code y} bone px), 0.3 px proud of the skin. */
+	private static float[] facePoint(int bone, int face, float across, float y, float xMax) {
+		if (bone == 2) {
+			return new float[] { -4f + 8f * across, y, -4.56f };
+		}
+		return switch (face) {
+			case Shards.PX -> new float[] { xMax + 0.32f, y, -2f + 4f * across };
+			case Shards.NX -> new float[] { -1.32f, y, -2f + 4f * across };
+			case Shards.PZ -> new float[] { -1f + (xMax + 1f) * across, y, 2.32f };
+			default -> new float[] { -1f + (xMax + 1f) * across, y, -2.32f };
+		};
+	}
+
+	/** A thin red line on a face from {@code a} to {@code b}. */
+	private static void vein(PoseStack.Pose p, VertexConsumer vc, int face, float[] a, float[] b, int light) {
+		float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+		// across the line, in the face's plane
+		float wx, wy, wz;
+		if (face == Shards.PX || face == Shards.NX) {
+			float l = Mth.sqrt(dy * dy + dz * dz) + 1e-4f;
+			wx = 0;
+			wy = -dz / l * 0.16f;
+			wz = dy / l * 0.16f;
+		} else {
+			float l = Mth.sqrt(dx * dx + dy * dy) + 1e-4f;
+			wx = -dy / l * 0.16f;
+			wy = dx / l * 0.16f;
+			wz = 0;
+		}
+		Shards.quad(p, vc, new float[] { a[0] - wx, a[1] - wy, a[2] - wz }, new float[] { a[0] + wx, a[1] + wy, a[2] + wz },
+				new float[] { b[0] + wx, b[1] + wy, b[2] + wz }, new float[] { b[0] - wx, b[1] - wy, b[2] - wz }, VEIN, light);
 	}
 
 	@Override
@@ -361,12 +551,14 @@ public final class WildmuttShow extends ShowSequenceClient {
 		}
 		// the swollen arm and head; the hybrid's head and shoulders bulking up
 		float throb = 1f + 0.05f * Mth.sin(t * 1.7f);
-		float arm = 1f + 0.3f * smooth((t - HAND_AT) / 40f) * throb;
-		float head = 1f + 0.12f * smooth((t - FACE_AT) / 20f) * throb + 0.18f * smooth((t - ORANGE_AT) / 20f);
+		float arm = 1f + 0.22f * smooth((t - HAND_AT) / 40f) * throb;
+		float head = 1f + 0.1f * smooth((t - FACE_AT) / 20f) * throb + 0.16f * smooth((t - ORANGE_AT) / 20f);
 		m.leftArm.xScale = m.leftArm.zScale = arm;
 		m.head.xScale = m.head.yScale = m.head.zScale = head;
 		m.hat.copyFrom(m.head);
-		m.leftArm.x += (arm - 1f) * 1.5f;
+		if (m instanceof PlayerModel<?> pm) {
+			pm.leftSleeve.copyFrom(m.leftArm);
+		}
 	}
 
 	@Override
@@ -408,7 +600,7 @@ public final class WildmuttShow extends ShowSequenceClient {
 			st.put(vc, p, 1.5f, -0.92f, 0xE2DCB4, 1f);
 			for (int i = 0; i < 7; i++) {
 				float y0 = -0.42f - i * 0.11f;
-				HeatblastShow.line(st, vc, p, -1.2f + i * 0.08f, y0, -0.2f + i * 0.12f, y0 - 0.22f, 0.004f, 0x8A845E, 0.6f);
+				Shards.line(st, vc, p, -1.2f + i * 0.08f, y0, -0.2f + i * 0.12f, y0 - 0.22f, 0.004f, 0x8A845E, 0.6f);
 			}
 		}
 	}
@@ -436,9 +628,9 @@ public final class WildmuttShow extends ShowSequenceClient {
 		st.radial(vc, p, 0xFFE07A, 0xFF8C1A, 0xB83A0A, a, a);
 		float u = t - ORANGE_AT;
 		float x = -0.9f + 0.09f * u;
-		HeatblastShow.line(st, vc, p, x - 0.5f, -1.2f, x + 0.3f, 1.2f, 0.16f, 0xFFF4C8, 0.55f * a);
-		HeatblastShow.line(st, vc, p, x - 0.5f, -1.2f, x + 0.3f, 1.2f, 0.05f, 0xFFFFFF, 0.8f * a);
-		HeatblastShow.line(st, vc, p, x + 0.4f, -1.2f, x + 1.2f, 1.2f, 0.035f, 0xC8280A, 0.6f * a);
+		Shards.line(st, vc, p, x - 0.5f, -1.2f, x + 0.3f, 1.2f, 0.16f, 0xFFF4C8, 0.55f * a);
+		Shards.line(st, vc, p, x - 0.5f, -1.2f, x + 0.3f, 1.2f, 0.05f, 0xFFFFFF, 0.8f * a);
+		Shards.line(st, vc, p, x + 0.4f, -1.2f, x + 1.2f, 1.2f, 0.035f, 0xC8280A, 0.6f * a);
 	}
 
 	/** Orange-yellow streaks tearing across black, then the orange of his hide. */
@@ -455,7 +647,7 @@ public final class WildmuttShow extends ShowSequenceClient {
 			float y = ShowMath.hash(seed, i + 20) * 2.4f - 1.2f;
 			float len = 0.3f + 0.4f * ShowMath.hash(seed, i + 60);
 			int c = i % 3 == 0 ? 0xFFF09A : i % 3 == 1 ? 0xFFB01E : 0xE86A10;
-			HeatblastShow.line(st, vc, p, x, y, x + len * 0.35f, y + len, 0.02f + 0.03f * ShowMath.hash(seed, i + 80), c, 0.9f * a);
+			Shards.line(st, vc, p, x, y, x + len * 0.35f, y + len, 0.02f + 0.03f * ShowMath.hash(seed, i + 80), c, 0.9f * a);
 		}
 		float hide = env(t, 185f, 2f, HEAD_AT, 2f);
 		if (hide > 0f) {
