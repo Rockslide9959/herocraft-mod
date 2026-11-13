@@ -441,14 +441,14 @@ public class OmnitrixGhostfreakGameTests implements FabricGameTest {
 	public void ghostfreakTrueFormPeelsBurstsLashesAndWrapsBack(GameTestHelper helper) {
 		ServerPlayer p = ghost(helper);
 		GhostfreakKit kit = kit();
-		Zombie z = zombie(helper, 3.5, 2, 4.5, 100f, false);
+		Zombie z = zombie(helper, 3.5, 2, 4.5, 140f, false); // v0.17.3: 140 -- the (night-boosted) burst takes ~86, leaving room for the lash; under 150 so it still flees
 		kit.press(p, AbilitySlot.SLOT_4, true);
 		helper.assertTrue(kit.flag(p, GhostfreakKit.F_TRUE) && !kit.trueFormOut(p), "Shift+Z: the skin starts to peel");
-		helper.assertTrue(z.getHealth() == 100f, "nothing yet during the peel");
+		helper.assertTrue(z.getHealth() == 140f, "nothing yet during the peel");
 		pump(helper, p);
 		helper.runAfterDelay(GhostfreakKit.PEEL_TICKS + 2, () -> {
 			helper.assertTrue(kit.trueFormOut(p), "the true form is out");
-			float burst = 100f - z.getHealth();
+			float burst = 140f - z.getHealth();
 			helper.assertTrue(burst >= GhostfreakKit.TRUE_BURST - 0.05f, "the reveal's terror burst: " + burst);
 			helper.assertTrue(GhostfreakKit.fleeing(p, z), "and it flees");
 			// no skin: a blow does it all
