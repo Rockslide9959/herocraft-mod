@@ -11,15 +11,14 @@ import com.projecthero.mod.client.beastboy.model.ElephantModel;
 import com.projecthero.mod.client.beastboy.model.FlyModel;
 import com.projecthero.mod.client.beastboy.model.GorillaModel;
 import com.projecthero.mod.client.beastboy.model.HawkModel;
-import com.projecthero.mod.client.beastboy.model.OctopusModel;
 import com.projecthero.mod.client.beastboy.model.PteroModel;
 import com.projecthero.mod.client.beastboy.model.QuickMorphs;
 import com.projecthero.mod.client.beastboy.model.RhinoModel;
-import com.projecthero.mod.client.beastboy.model.SharkModel;
+import com.projecthero.mod.client.beastboy.model.SeaArt;
 import com.projecthero.mod.client.beastboy.model.SmallModels;
 import com.projecthero.mod.client.beastboy.model.SnakeModel;
 import com.projecthero.mod.client.beastboy.model.TRexModel;
-import com.projecthero.mod.client.beastboy.model.WhaleModel;
+import com.projecthero.mod.client.beastboy.model.SwimRig;
 import com.projecthero.mod.client.beastboy.model.WolfModel;
 
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -58,6 +57,9 @@ public final class BeastFormArt {
 		if (form == null || !form.customArt || player == null) {
 			return false;
 		}
+		if (SeaArt.handles(form)) {
+			SwimRig.track(player, partialTick); // HQ round: the sea animals' per-player swim smoothing
+		}
 		return renderPose(form, BeastPose.of(player, partialTick, move, moveProgress), pose, buffers, light, tint);
 	}
 
@@ -68,6 +70,9 @@ public final class BeastFormArt {
 	public static boolean renderPose(BeastForm form, BeastPose s, PoseStack pose, MultiBufferSource buffers, int light, int tint) {
 		if (form == null || s == null) {
 			return false;
+		}
+		if (SeaArt.handles(form)) { // HQ round: shark, dolphin, whale, octopus are blocky ModelPart animals with their own textures
+			return SeaArt.render(form, s, pose, buffers, light, tint);
 		}
 		BeastMesh.Body body = bodyOf(form, s);
 		if (body == null) {
@@ -93,9 +98,6 @@ public final class BeastFormArt {
 			case RHINO -> p -> RhinoModel.draw(p, s);
 			case ELEPHANT -> p -> ElephantModel.draw(p, s);
 			case PTERODACTYL -> p -> PteroModel.draw(p, s);
-			case SHARK -> p -> SharkModel.draw(p, s);
-			case OCTOPUS -> p -> OctopusModel.draw(p, s);
-			case WHALE -> p -> WhaleModel.draw(p, s);
 			case MOUSE -> p -> SmallModels.mouse(p, s);
 			case FLY -> p -> FlyModel.draw(p, s); // HQ round: own class (was SmallModels.fly)
 			case BEAST -> p -> BeastModel.draw(p, s);

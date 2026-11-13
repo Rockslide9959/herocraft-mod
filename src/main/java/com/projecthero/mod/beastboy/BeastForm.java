@@ -11,7 +11,7 @@ public enum BeastForm {
 	// context morphs (X / Shift+X)
 	CHEETAH(0.6f, 0.7f, 20f, false), // vanilla ocelot, tinted
 	HAWK(0.5f, 0.5f, 15f, true), // HQ round: custom art (was the tinted vanilla parrot)
-	DOLPHIN(0.9f, 0.6f, 25f, false), // vanilla dolphin, tinted
+	DOLPHIN(0.9f, 0.6f, 25f, true), // HQ round: custom blocky dolphin (was the tinted vanilla dolphin)
 	FLY(0.2f, 0.2f, 2f, true),
 	// sustained forms (V wheel)
 	TREX(1.6f, 3.4f, 80f, true),

@@ -143,6 +143,7 @@ public final class BeastBodyRenderer {
 	public static void clear() {
 		DUMMIES.clear();
 		com.projecthero.mod.client.beastboy.model.BeastPose.clearSmoothing();
+		com.projecthero.mod.client.beastboy.model.SwimRig.clear();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
