@@ -25,7 +25,7 @@ final class CheetahModel extends QuadBeast {
 		float t = s.age;
 		int seed = seed(s, 5);
 		gait(s, 0.22f, 0.6f, 0.1f, 8f, 18f, 2.6f, 5.5f, 0f);
-		float breathe = Mth.sin(t * Mth.lerp(run, 0.15f, 0.6f));
+		float breathe = LandRig.breathe(s, run, 0.15f, 0.6f);
 		float swipe = s.move == null && s.attack > 0f ? s.attack : (s.isAny("swipe", "strike") ? s.prog : -1f);
 		float sw = swipe >= 0f ? Mth.sin(Math.min(1f, swipe) * Mth.PI) : 0f;
 

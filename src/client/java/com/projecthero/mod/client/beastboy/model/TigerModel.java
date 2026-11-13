@@ -35,7 +35,7 @@ final class TigerModel extends QuadBeast {
 		}
 		float still = Math.max(crouch, Math.max(leap, land));
 		gait(s, 0.15f, 0.36f, 0.085f, 9f, 16f, 3f, 6f, still);
-		float breathe = Mth.sin(t * Mth.lerp(run, 0.12f, 0.45f));
+		float breathe = LandRig.breathe(s, run, 0.12f, 0.45f);
 
 		// ---- body: a heavy roll at the walk; crouch low, stretch out in the air, absorb the landing
 		float roll = Mth.sin(cyc) * 0.05f * amt * (1f - gal);

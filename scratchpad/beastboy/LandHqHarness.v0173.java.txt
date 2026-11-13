@@ -20,6 +20,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
@@ -58,6 +59,32 @@ public final class LandHqHarness {
 	private static volatile Shot cur;
 	private static volatile int curFrame;
 	private static float seqSit, seqWalk;
+	// fix2: a vanilla-style stop: W held, released (friction 0.546 a tick), walk animation eased 0.4 a tick
+	private static float simV, simWs, simWsO, simPos;
+	private static RemotePlayer dummy;
+
+	/** Real per-tick walking speeds in each form (0.216 b/t * (1 + speed bonus)). */
+	static float walkReal(BeastForm f) {
+		return switch (f) {
+			case WOLF -> 0.313f;
+			case CHEETAH -> 0.56f;
+			case BEAR -> 0.248f;
+			case MOUSE -> 0.184f;
+			default -> 0.216f;
+		};
+	}
+
+	/** Face close-up: {eye height, eye forward, camera distance} (blocks). */
+	static float[] face(BeastForm f) {
+		return switch (f) {
+			case GORILLA -> new float[] { 1.72f, 1.05f, 1.35f };
+			case BEAST -> new float[] { 2.5f, 0.7f, 2.0f };
+			case RHINO -> new float[] { 1.15f, 1.2f, 2.3f };
+			case ELEPHANT -> new float[] { 2.1f, 1.6f, 3.2f };
+			case BEAR -> new float[] { 1.3f, 1.1f, 1.2f };
+			default -> new float[] { 0.7f, 0.5f, 1.0f };
+		};
+	}
 
 	private static final BeastForm[] FORMS = { BeastForm.WOLF, BeastForm.CHEETAH, BeastForm.TIGER, BeastForm.BEAR, BeastForm.MOUSE };
 
@@ -146,6 +173,20 @@ public final class LandHqHarness {
 		add("move_CHEETAH_swipe", "attack", BeastForm.CHEETAH, 50f, 20, null, 12);
 		add("move_MOUSE_bite", "move", BeastForm.MOUSE, 50f, 28, "bite", 20);
 		add("move_WOLF_morph_in", "move", BeastForm.WOLF, 40f, 26, "morph_in", 20);
+		if (filter.contains("fix2")) {
+			SHOTS.clear();
+			for (BeastForm f : FORMS) {
+				SHOTS.add(new Shot("fix2stop_" + f, "stop", f, 75f, 100, null, 0));
+			}
+			SHOTS.add(new Shot("fix2size_BEAR", "size", BeastForm.BEAR, 90f, 1, null, 0));
+			for (BeastForm f : new BeastForm[] { BeastForm.GORILLA, BeastForm.BEAST, BeastForm.RHINO, BeastForm.ELEPHANT, BeastForm.BEAR }) {
+				SHOTS.add(new Shot("fix2face_front_" + f, "face", f, 0f, 1, null, 0));
+				SHOTS.add(new Shot("fix2face_f34_" + f, "face", f, 35f, 1, null, 0));
+			}
+			for (BeastForm f : FORMS) {
+				SHOTS.add(new Shot("fix2f34_" + f, "still", f, 35f, 1, null, 0));
+			}
+		}
 		System.out.println("[HARNESS] shots=" + SHOTS.size());
 	}
 
@@ -219,6 +260,7 @@ public final class LandHqHarness {
 			shotTick = 0;
 			seqSit = 0f;
 			seqWalk = 1f;
+			simV = simWs = simWsO = simPos = 0f;
 			placeCamera(cur);
 		}
 		mc.player.getAbilities().flying = true;
@@ -229,6 +271,19 @@ public final class LandHqHarness {
 			boolean crouch = fr >= 42 && fr < 90;
 			float target = crouch ? Mth.clamp(1f - seqWalk * 2.5f, 0f, 1f) : 0f;
 			seqSit += (target - seqSit) * (1f - (float) Math.exp(-0.05f * 8f));
+		}
+		if (cur.kind().equals("stop") && shotTick >= 6) {
+			int fr = curFrame;
+			boolean hold = fr >= 10 && fr < 45;
+			float vs = walkReal(cur.form());
+			float acc = vs * (1f - 0.546f) / 0.546f;
+			simV = (simV + (hold ? acc : 0f)) * 0.546f;
+			if (simV < 0.003f) {
+				simV = 0f;
+			}
+			simWsO = simWs;
+			simWs += (Math.min(1f, simV * 4f) - simWs) * 0.4f;
+			simPos += simWs;
 		}
 		if (shotTick >= 6) {
 			Screenshot.grab(outDir, String.format("lh_%s_%03d.png", cur.name(), curFrame), mc.getMainRenderTarget(), c -> {
@@ -244,6 +299,17 @@ public final class LandHqHarness {
 	private static void placeCamera(Shot s) {
 		Vec3 st = stage();
 		BeastForm f = s.form();
+		if (s.kind().equals("size") || s.kind().equals("face")) {
+			float camEye = s.kind().equals("size") ? 1.0f : face(f)[0];
+			float camD = s.kind().equals("size") ? 3.6f : face(f)[2];
+			Vec3 c2 = new Vec3(st.x, st.y + camEye - 1.62, st.z + camD);
+			server(Minecraft.getInstance(), p -> {
+				p.teleportTo(p.serverLevel(), c2.x, c2.y, c2.z, 180f, s.kind().equals("size") ? 4f : 0f);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+			});
+			return;
+		}
 		float dist = size(f) * 0.78f + 0.35f;
 		if (f == BeastForm.MOUSE) {
 			dist = 0.58f;
@@ -282,6 +348,14 @@ public final class LandHqHarness {
 				b.walkPos = time;
 				b.sit = seqSit;
 			}
+			case "stop" -> {
+				float pt = frame - Mth.floor(frame);
+				b.entityId = 50000 + shotIdx;
+				b.age = 12000f + time;
+				b.walkAmt = Mth.clamp(Mth.lerp(pt, simWsO, simWs), 0f, 1f);
+				b.walkPos = simPos - simWs * (1f - pt);
+				b.speed = simV;
+			}
 			case "move" -> {
 				b.move = s.move();
 				b.prog = Math.min(1f, frame / (float) s.dur());
@@ -313,6 +387,22 @@ public final class LandHqHarness {
 		BeastPose b = poseFor(s, time, time);
 		pose.pushPose();
 		pose.translate(st.x - cam.x, st.y - cam.y, st.z - cam.z);
+		if (s.kind().equals("face")) {
+			float fz = face(s.form())[1];
+			float r = yaw * Mth.DEG_TO_RAD;
+			pose.translate(-fz * Mth.sin(r), 0f, -fz * Mth.cos(r));
+		}
+		if (s.kind().equals("size")) {
+			if (dummy == null) {
+				dummy = new RemotePlayer(mc.level, mc.player.getGameProfile());
+			}
+			dummy.setPos(st.x - 1.9, st.y, st.z);
+			dummy.setYRot(25f);
+			dummy.yRotO = 25f;
+			dummy.yBodyRot = dummy.yBodyRotO = dummy.yHeadRot = dummy.yHeadRotO = 25f;
+			mc.getEntityRenderDispatcher().render(dummy, -1.9, 0, 0, 25f, pt, pose, buffers, light);
+			pose.translate(0.6, 0, 0);
+		}
 		pose.mulPose(Axis.YP.rotationDegrees(yaw));
 		BeastFormArt.renderPose(s.form(), b, pose, buffers, light, 0xFFFFFFFF);
 		pose.popPose();

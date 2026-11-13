@@ -29,7 +29,7 @@ final class WolfModel extends QuadBeast {
 		float howl = s.env("howl", 0.18f, 0.22f);
 		float sit = BeastPose.smooth(Math.max(s.sit, howl * 0.95f));
 		gait(s, 0.2f, 0.38f, 0.105f, 7f, 13f, 2.4f, 4.6f, sit);
-		float breathe = Mth.sin(t * Mth.lerp(run, 0.16f, 0.55f));
+		float breathe = LandRig.breathe(s, run, 0.16f, 0.55f);
 
 		// ---- bite: anticipation (draw back, ears up), lunge with the jaws wide, snap, a shake, recover
 		float back = 0f, lunge = 0f, jawBite = 0f, shake = 0f;
@@ -102,12 +102,12 @@ final class WolfModel extends QuadBeast {
 	/** Hind legs; sitting brings the paw forward under the hip and lays the cannon bone flat behind it. */
 	private void sitHind(String id, float[] restPaw, float[] f, float sit) {
 		float[] foot = { restPaw[0], pawH + f[1], restPaw[2] + f[0] };
-		float[][] j = LandRig.hind(rest("thigh" + id), foot, len("shin" + id), len("meta" + id), len("hpaw" + id), 0.34f, f[2]);
+		float[][] j = LandRig.hind(rest("thigh" + id), foot, len("shin" + id), len("meta" + id), len("hpaw" + id), 0.34f, f[2], f[3]);
 		float[] hock = j[2];
 		if (sit > 0f) {
 			foot = lerp(foot, new float[] { restPaw[0] * 1.05f, pawH, restPaw[2] + 6.5f }, sit);
 			hock = lerp(hock, new float[] { restPaw[0] * 1.1f, pawH + 0.6f, restPaw[2] + 2.2f }, sit);
 		}
-		hindLegTo(id, hock, foot, f[2]);
+		hindLegTo(id, hock, foot, f[2], f[3]);
 	}
 }

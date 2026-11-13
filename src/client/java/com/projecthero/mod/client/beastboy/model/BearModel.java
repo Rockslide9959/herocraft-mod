@@ -33,7 +33,7 @@ final class BearModel extends QuadBeast {
 		}
 		float stand = Math.max(roar, rear * 0.35f);
 		gait(s, 0.12f, 0.3f, 0.085f, 12f, 20f, 4f, 7f, stand);
-		float breathe = Mth.sin(t * Mth.lerp(run, 0.1f, 0.4f));
+		float breathe = LandRig.breathe(s, run, 0.1f, 0.4f);
 
 		// ---- body: rolls with every step; rears up for the roar (onto the hind legs) and half-rears for the swipe
 		float roll = Mth.sin(cyc) * 0.06f * amt * (1f - gal);

@@ -19,7 +19,7 @@ public enum BeastForm {
 	RHINO(1.3f, 1.5f, 50f, true),
 	ELEPHANT(1.8f, 2.6f, 70f, true),
 	WOLF(0.6f, 0.85f, 30f, true), // fix round: custom art (was the tinted vanilla wolf); sits when crouching
-	BEAR(1.4f, 1.4f, 50f, true), // hq round: custom blocky art (was the tinted vanilla polar bear)
+	BEAR(1.5f, 1.7f, 50f, true), // hq round: custom blocky art (was the tinted vanilla polar bear); fix2: model 1.22x, box 1.4x1.4 -> 1.5x1.7
 	PTERODACTYL(1.2f, 1.0f, 40f, true),
 	BAT(0.5f, 0.9f, 10f, true), // HQ round: custom art (was the tinted vanilla bat)
 	SHARK(1.2f, 0.8f, 40f, true),

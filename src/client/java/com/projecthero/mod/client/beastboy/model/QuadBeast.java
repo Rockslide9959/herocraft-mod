@@ -51,27 +51,38 @@ abstract class QuadBeast extends BoxBeast {
 	/** A fore leg to its gait foot (+ offsets: {@code fwd} forward, {@code up} lifted), the paw folding in swing. */
 	void foreLeg(String id, float[] restPaw, float[] f, float fwd, float up) {
 		float[] foot = { restPaw[0], pawH + f[1] + up, restPaw[2] + f[0] + fwd };
-		foreLegTo(id, foot, f[2], 0f);
+		foreLegTo(id, foot, f[2], 0f, f.length > 3 ? f[3] : 1f);
 	}
 
 	/** A fore leg with its paw pivot at {@code foot}; {@code swing} -1 planted or 0..1; {@code curl} extra paw curl (toes down). */
 	void foreLegTo(String id, float[] foot, float swing, float curl) {
-		float[][] j = LandRig.fore(rest("upper" + id), foot, len("fore" + id), len("wrist" + id), len("paw" + id), swing);
+		foreLegTo(id, foot, swing, curl, 1f);
+	}
+
+	/** {@link #foreLegTo} with the swing fold scaled by {@code fold} (a gait foot's [3]). */
+	void foreLegTo(String id, float[] foot, float swing, float curl, float fold) {
+		float[][] j = LandRig.fore(rest("upper" + id), foot, len("fore" + id), len("wrist" + id), len("paw" + id), swing, fold);
 		aimLeg("upper" + id, "fore" + id, "wrist" + id, "paw" + id, j[2], j[3], false);
-		float fl = swing >= 0f ? Mth.sin(Math.min(1f, swing * 1.15f) * Mth.PI) : 0f;
+		float fl = swing >= 0f ? Mth.sin(Math.min(1f, swing * 1.15f) * Mth.PI) * fold : 0f;
 		level("paw" + id, fl * 1.1f + curl);
 	}
 
 	/** A hind leg to its gait foot (+ offsets). */
 	void hindLeg(String id, float[] restPaw, float[] f, float fwd, float up, float lean) {
 		float[] foot = { restPaw[0], pawH + f[1] + up, restPaw[2] + f[0] + fwd };
-		float[][] j = LandRig.hind(rest("thigh" + id), foot, len("shin" + id), len("meta" + id), len("hpaw" + id), lean, f[2]);
-		hindLegTo(id, j[2], foot, f[2]);
+		float fold = f.length > 3 ? f[3] : 1f;
+		float[][] j = LandRig.hind(rest("thigh" + id), foot, len("shin" + id), len("meta" + id), len("hpaw" + id), lean, f[2], fold);
+		hindLegTo(id, j[2], foot, f[2], fold);
 	}
 
 	void hindLegTo(String id, float[] hock, float[] foot, float swing) {
+		hindLegTo(id, hock, foot, swing, 1f);
+	}
+
+	/** {@link #hindLegTo} with the swing fold scaled by {@code fold} (a gait foot's [3]). */
+	void hindLegTo(String id, float[] hock, float[] foot, float swing, float fold) {
 		aimLeg("thigh" + id, "shin" + id, "meta" + id, "hpaw" + id, hock, foot, true);
-		float fl = swing >= 0f ? Mth.sin(swing * Mth.PI) : 0f;
+		float fl = swing >= 0f ? Mth.sin(swing * Mth.PI) * fold : 0f;
 		level("hpaw" + id, fl * 0.8f);
 	}
 

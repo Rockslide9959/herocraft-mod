@@ -58,28 +58,53 @@ public final class LandRig {
 	/** The phase offset of leg {@code leg} for a gait blend: run 0 = walk, 0.5 = trot, 1 = gallop (or trot when {@code gallop} is false). */
 	static float offset(int leg, float run, boolean gallop) {
 		if (!gallop) {
-			return Mth.lerp(BeastPose.smooth(run), WALK[leg], TROT[leg]);
+			return lerpPhase(BeastPose.smooth(run), WALK[leg], TROT[leg]);
 		}
 		if (run < 0.5f) {
-			return Mth.lerp(BeastPose.smooth(run * 2f), WALK[leg], TROT[leg]);
+			return lerpPhase(BeastPose.smooth(run * 2f), WALK[leg], TROT[leg]);
 		}
-		return Mth.lerp(BeastPose.smooth((run - 0.5f) * 2f), TROT[leg], GALLOP[leg]);
+		return lerpPhase(BeastPose.smooth((run - 0.5f) * 2f), TROT[leg], GALLOP[leg]);
+	}
+
+	/**
+	 * Fix2: blends two phase offsets the short way round the cycle. A plain lerp took the right fore leg 0.75 of a cycle backwards
+	 * between the walk (0.75) and the trot (0), so every walk <-> trot change (starting, stopping) made that leg scramble through an
+	 * extra step.
+	 */
+	private static float lerpPhase(float k, float a, float b) {
+		float d = b - a;
+		d -= Math.round(d);
+		return a + k * d;
+	}
+
+	/**
+	 * Fix2: a breathing wave whose rate blends {@code slow} -> {@code fast} with {@code run}. The phase is integrated per body (rate x
+	 * elapsed ticks), never {@code age * rate}: with the age in the thousands of ticks, any change of rate (stopping, starting) swept
+	 * that product through dozens of cycles a tick -- per-frame noise in the body height and chest that the near-straight leg IK
+	 * turned into the shake when he stopped walking.
+	 */
+	static float breathe(BeastPose s, float run, float slow, float fast) {
+		MotionState st = MotionState.of(s, 40);
+		float ph = st.advance(st.f[0], Mth.lerp(run, slow, fast), s.age);
+		st.f[0] = ph % Mth.TWO_PI;
+		return Mth.sin(ph);
 	}
 
 	/**
 	 * All four feet for a gait cycle {@code phase} (cycles): {forward, lift, swing} per leg (LF, RF, LH, RH). Duty factor, stride and
-	 * lift blend from the walk to the run values with {@code run}; everything scales with {@code amt} (0 = standing).
+	 * lift blend from the walk to the run values with {@code run}; everything scales with {@code amt} (0 = standing). Each foot also
+	 * carries [3] = how much the paw folds in its swing (fades out with {@code amt}, so a paw caught mid-swing as he stops lowers flat
+	 * smoothly instead of snapping flat when the walk amount runs out).
 	 */
 	static float[][] feet(float phase, float run, float amt, float strideWalk, float strideRun, float liftWalk, float liftRun, boolean gallop) {
 		float duty = Mth.lerp(run, 0.64f, gallop ? 0.36f : 0.45f);
 		float stride = Mth.lerp(run, strideWalk, strideRun) * amt;
 		float lift = Mth.lerp(run, liftWalk, liftRun) * Math.min(1f, amt * 1.5f);
+		float fold = BeastPose.smooth(amt / 0.35f);
 		float[][] out = new float[4][];
 		for (int leg = 0; leg < 4; leg++) {
-			out[leg] = foot(phase + offset(leg, run, gallop), duty, stride, lift);
-			if (amt < 0.02f) {
-				out[leg][2] = -1f;
-			}
+			float[] f = foot(phase + offset(leg, run, gallop), duty, stride, lift);
+			out[leg] = new float[] { f[0], f[1], amt < 0.02f ? -1f : f[2], fold };
 		}
 		return out;
 	}
@@ -102,7 +127,12 @@ public final class LandRig {
 
 	/** Hind leg (digitigrade): {hip, knee, hock, foot, toe tip} from the hip, the foot target and the bone lengths; the paw flexes in swing. */
 	static float[][] hind(float[] hip, float[] foot, float thigh, float shin, float meta, float metaLean, float swing) {
-		float flex = swing >= 0f ? Mth.sin(swing * Mth.PI) : 0f;
+		return hind(hip, foot, thigh, shin, meta, metaLean, swing, 1f);
+	}
+
+	/** {@link #hind} with the swing fold scaled by {@code fold} (a foot's [3]). */
+	static float[][] hind(float[] hip, float[] foot, float thigh, float shin, float meta, float metaLean, float swing, float fold) {
+		float flex = swing >= 0f ? Mth.sin(swing * Mth.PI) * fold : 0f;
 		// the cannon bone leans back from the paw; it folds further back while the leg swings
 		float a = metaLean + flex * 0.55f;
 		float[] hock = add(foot, v(0f, meta * Mth.cos(a), -meta * Mth.sin(a)));
@@ -113,7 +143,12 @@ public final class LandRig {
 
 	/** Fore leg: {shoulder, elbow, wrist, foot, toe tip}; the wrist folds the paw back and up during swing. */
 	static float[][] fore(float[] sh, float[] foot, float upper, float fore, float pastern, float swing) {
-		float flex = swing >= 0f ? Mth.sin(Math.min(1f, swing * 1.15f) * Mth.PI) : 0f;
+		return fore(sh, foot, upper, fore, pastern, swing, 1f);
+	}
+
+	/** {@link #fore} with the swing fold scaled by {@code fold} (a foot's [3]). */
+	static float[][] fore(float[] sh, float[] foot, float upper, float fore, float pastern, float swing, float fold) {
+		float flex = swing >= 0f ? Mth.sin(Math.min(1f, swing * 1.15f) * Mth.PI) * fold : 0f;
 		float[] wrist = add(foot, v(0f, pastern * 0.98f, -pastern * 0.18f));
 		// in swing the forearm lifts the wrist and the paw hangs folded behind it
 		wrist = add(wrist, v(0f, flex * pastern * 0.35f, flex * pastern * 0.3f));
