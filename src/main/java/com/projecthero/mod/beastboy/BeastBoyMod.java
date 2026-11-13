@@ -58,7 +58,8 @@ public final class BeastBoyMod {
 		// the fly and the mouse can't attack; no animal uses items or blocks
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
 				BeastBoyForms.harmless(BeastBoy.form(player)) ? InteractionResult.FAIL : InteractionResult.PASS);
-		UseItemCallback.EVENT.register((player, level, hand) -> BeastBoy.morphed(player)
+		// he's vegetarian in every form (checked first so the animals get the message too)
+		UseItemCallback.EVENT.register((player, level, hand) -> BeastBoyDiet.refuses(player, player.getItemInHand(hand)) || BeastBoy.morphed(player)
 				? InteractionResultHolder.fail(player.getItemInHand(hand)) : InteractionResultHolder.pass(player.getItemInHand(hand)));
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> BeastBoy.morphed(player) ? InteractionResult.FAIL : InteractionResult.PASS);
 		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {

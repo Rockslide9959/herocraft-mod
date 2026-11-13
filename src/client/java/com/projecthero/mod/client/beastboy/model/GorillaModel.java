@@ -49,7 +49,7 @@ public final class GorillaModel {
 			float[] hip = Rig.tp(body, side * 4.2f, 0f, 0f);
 			float[] foot = v(side * 5f, 1.2f + st[1], -2f + st[0] + rear * 1.5f);
 			float[] knee = ik(hip, foot, 7.5f, 7f, v(side * 0.4f, 0f, 1f));
-			Rig.limb(pose, hip, knee, foot, 3.6f, 3.0f, 2.4f, FUR, null);
+			Rig.limb(pose, hip, knee, foot, 3.8f, 2.8f, 2.3f, FUR_BACK, v(side, 0.3f, 0f));
 			ellipsoid(pose, foot[0], foot[1] - 0.2f, foot[2] + 1.2f, 2.2f, 1.2f, 3.6f, FACE);
 			for (int k = 0; k < 3; k++) {
 				ellipsoid(pose, foot[0] + (k - 1) * 1.2f * side, foot[1] - 0.3f, foot[2] + 4.4f, 0.6f, 0.6f, 0.8f, 8, 5, FACE, 0f, 1f);
@@ -85,10 +85,18 @@ public final class GorillaModel {
 				hand = lerp(hand, v(-4f, 20f, 26f), punch);
 			}
 			float[] elbow = ik(sh, hand, 10.5f, 10f, v(side * 0.6f, 0.1f, -1f));
-			Rig.limb(pose, sh, elbow, hand, 3.8f, 3.4f, 2.6f, FUR, null);
+			Rig.limb(pose, sh, elbow, hand, 4.4f, 2.9f, 2.3f, FUR_BACK, v(side, 0.3f, 0f));
+			// fix round: biceps and a hairy forearm so the arms read as muscle, not tubes
+			float[] bi = lerp(sh, elbow, 0.42f);
+			ellipsoid(pose, bi[0], bi[1], bi[2], 3.7f, 3.9f, 3.7f, 12, 8, FUR_BACK_V, 0f, 1f);
+			float[] fd0 = norm(sub(hand, elbow), v(0f, -1f, 0f));
+			for (int k = 0; k < 3; k++) {
+				float[] q = lerp(elbow, hand, 0.15f + k * 0.22f);
+				cone(pose, q[0], q[1], q[2] - 2.2f, fd0[0] * 0.6f, fd0[1] * 0.6f - 0.3f, -0.8f, 2.4f, 1.2f, 0.9f, MANE);
+			}
 			// forearm bulk
 			float[] fm = lerp(elbow, hand, 0.35f);
-			ellipsoid(pose, fm[0], fm[1], fm[2], 3.4f, 3.4f, 3.4f, 10, 7, FUR, 0f, 1f);
+			ellipsoid(pose, fm[0], fm[1], fm[2], 3.3f, 3.6f, 3.3f, 10, 7, FUR_BACK_V, 0f, 1f);
 			// fist with knuckles
 			ellipsoid(pose, hand[0], hand[1], hand[2], 2.6f, 2.0f, 2.7f, FACE);
 			for (int k = 0; k < 4; k++) {
@@ -99,16 +107,16 @@ public final class GorillaModel {
 		// ---- torso (body space, upright coordinates: +Y up the spine)
 		Rig.push(pose, body);
 		float br = 1f + Mth.sin(t * 0.1f) * 0.03f + beat * 0.04f;
-		ellipsoid(pose, 0f, 1.5f, -0.5f, 6.2f, 5.5f, 5.4f, FUR);
-		ellipsoid(pose, 0f, 7f, 0.5f, 6.8f * br, 6.5f, 5.8f * br, FUR);
+		ellipsoid(pose, 0f, 1.5f, -0.5f, 6.2f, 5.5f, 5.4f, FUR_BACK_V);
+		ellipsoid(pose, 0f, 7f, 0.5f, 6.8f * br, 6.5f, 5.8f * br, FUR_BACK_V);
 		ellipsoid(pose, 0f, 7f, 3.4f, 4.6f, 5f, 3.2f, FUR_LT);
-		ellipsoid(pose, 0f, 13f, 0f, 9.4f * br, 6.8f, 6.8f * br, FUR);
+		ellipsoid(pose, 0f, 13f, 0f, 9.4f * br, 6.8f, 6.8f * br, FUR_BACK_V);
 		for (int side = -1; side <= 1; side += 2) {
 			ellipsoid(pose, side * 3.4f, 12.4f, 4.6f, 3.8f, 3.4f, 2.4f, FUR_LT);
-			ellipsoid(pose, side * 8.6f, 13.8f, 0.3f, 4.2f, 4.2f, 4.4f, FUR);
+			ellipsoid(pose, side * 8.6f, 13.8f, 0.3f, 4.2f, 4.2f, 4.4f, FUR_BACK_V);
 		}
 		// the shoulder hump
-		ellipsoid(pose, 0f, 17f, -1.5f, 7f, 4f, 5f, FUR);
+		ellipsoid(pose, 0f, 17f, -1.5f, 7f, 4f, 5f, FUR_BACK_V);
 
 		// head (kept level, looking ahead)
 		float hy = s.yaw(0.7f) * 0.8f;
@@ -122,7 +130,7 @@ public final class GorillaModel {
 
 	/** The gorilla head (pivot at the neck, +Z forward). Also used by nothing else yet but kept public for previews. */
 	public static void head(PoseStack pose, float jaw) {
-		ellipsoid(pose, 0f, 2.6f, 0f, 4.4f, 4.5f, 4.3f, FUR);
+		ellipsoid(pose, 0f, 2.6f, 0f, 4.4f, 4.5f, 4.3f, FUR_BACK_V);
 		ellipsoid(pose, 0f, 6f, -1.2f, 1.7f, 2.4f, 3.4f, FUR);
 		// brow ridge, face, muzzle
 		ellipsoid(pose, 0f, 4f, 3.4f, 4.1f, 1.4f, 1.9f, SKIN_DK);

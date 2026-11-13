@@ -28,7 +28,9 @@ public final class BeastMesh {
 	public static final int SKIN = 0, SKIN_DK = 1, BELLY = 2, COUNTER = 3, COUNTER_V = 4, STRIPED = 5, STRIPED_V = 6, SCALES = 7, WRINKLE = 8,
 			WRINKLE_V = 9, FUR = 10, FUR_LT = 11, FACE = 12, DARK = 13, MOUTH = 14, TOOTH = 15, CLAW = 16, HORN = 17, EYE = 18, EYE_SLIT = 19,
 			EYE_FIERCE = 20, MEMBRANE = 21, FLYWING = 22, TENTACLE = 23, GROOVE = 24, SPOT = 25, SPOT_V = 26, INNER_EAR = 27, MANE = 28, COMPOUND = 29,
-			GLOW = 30, BLACK = 31, SCALES_V = 32, WRINKLE_LT = 33, SHARK = 34, FIN = 35;
+			GLOW = 30, BLACK = 31, SCALES_V = 32, WRINKLE_LT = 33, SHARK = 34, FIN = 35,
+			// fix round: countershaded fur (dark saddle, cream belly), rhino armour plates with fold lines, a glossy nose
+			FUR_BACK = 36, FUR_BACK_V = 37, PLATE = 38, PLATE_V = 39, NOSE = 40;
 
 	/** Passes: the opaque body, the see-through parts (fly wings), the additive morph flash. */
 	static final int PASS_OPAQUE = 0, PASS_TRANSLUCENT = 1, PASS_GLOW = 2;

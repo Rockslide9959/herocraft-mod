@@ -1,5 +1,9 @@
 package com.projecthero.mod.client.beastboy.model;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import net.minecraft.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.util.Mth;
 
@@ -18,6 +22,20 @@ public final class BeastPose {
 	public float vy;
 	public String move;
 	public float prog;
+	/**
+	 * Fix round: 0..1 how far into the sit pose (wolf: crouch to sit), eased over about a third of a second; and the tail's lag (radians,
+	 * a damped swing against the body's turns). Set by {@link #of} from the per-player smoothing below, or directly by a preview.
+	 */
+	public float sit, tailLag;
+
+	/** Per-player smoothing (entity id -> {sit, tail lag, last body yaw, last time s}); client render thread only. */
+	private static final Map<Integer, float[]> SMOOTH = new HashMap<>();
+	private static final long T0 = Util.getNanos();
+
+	/** Drops the smoothing state (leaving a world). */
+	public static void clearSmoothing() {
+		SMOOTH.clear();
+	}
 
 	public static BeastPose of(AbstractClientPlayer player, float pt, String move, float prog) {
 		BeastPose s = new BeastPose();
@@ -34,7 +52,28 @@ public final class BeastPose {
 		s.vy = (float) player.getDeltaMovement().y;
 		s.move = move;
 		s.prog = Mth.clamp(prog, 0f, 1f);
+		smooth(s, player, body);
 		return s;
+	}
+
+	/** Eases {@link #sit} toward crouching-and-still, and swings the tail lag against body turns, both frame-rate independent. */
+	private static void smooth(BeastPose s, AbstractClientPlayer player, float bodyYaw) {
+		if (SMOOTH.size() > 256) {
+			SMOOTH.clear();
+		}
+		float now = (Util.getNanos() - T0) / 1.0e9f;
+		float[] st = SMOOTH.computeIfAbsent(player.getId(), k -> new float[] { 0f, 0f, bodyYaw, now });
+		float dt = Mth.clamp(now - st[3], 0f, 0.1f);
+		st[3] = now;
+		// sit while crouching on the ground; walking while crouched stands him back up
+		float target = player.isShiftKeyDown() && player.onGround() ? Mth.clamp(1f - s.walkAmt * 2.5f, 0f, 1f) : 0f;
+		st[0] += (target - st[0]) * (1f - (float) Math.exp(-dt * 8f));
+		// tail lag: the body turns, the tail trails and settles (clamped, so a snap turn can't fling it)
+		float turn = Mth.wrapDegrees(bodyYaw - st[2]) * Mth.DEG_TO_RAD;
+		st[2] = bodyYaw;
+		st[1] = Mth.clamp((st[1] + turn * 0.6f) * (float) Math.exp(-dt * 3.5f), -0.45f, 0.45f);
+		s.sit = st[0];
+		s.tailLag = st[1];
 	}
 
 	public boolean is(String m) {

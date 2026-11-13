@@ -33,10 +33,11 @@ function swatch(k, fn) {
 }
 
 // Beast Boy greens
-const INK = hex(0x0F2A0C), DARK = hex(0x2A6420), BASE = hex(0x4FA83A), LIGHT = hex(0x76C553), BELLY = hex(0xB4DE7C), HI = hex(0xD9F3A6);
-const STRIPE = hex(0x2B6B22);
-const FUR_DK = hex(0x173F14), FUR = hex(0x2F7426), FUR_HI = hex(0x4E9B3C);
-const FUR_LT_DK = hex(0x3C8530), FUR_LT = hex(0x67B24C), FUR_LT_HI = hex(0x93D06D);
+// v0.17.3 fix round: softer, yellower greens with more value range (dark back, mid flanks, pale cream-green belly)
+const INK = hex(0x12301A), DARK = hex(0x2A6128), BASE = hex(0x58AD44), LIGHT = hex(0x8BCF63), BELLY = hex(0xCDE9A3), HI = hex(0xEAF8CF);
+const STRIPE = hex(0x2A5F25);
+const FUR_DK = hex(0x1E4A1C), FUR = hex(0x3A8231), FUR_HI = hex(0x5CA847);
+const FUR_LT_DK = hex(0x4E9440), FUR_LT = hex(0x7DC25D), FUR_LT_HI = hex(0xA6DA82);
 
 const S = {
   SKIN: 0, SKIN_DK: 1, BELLY: 2, COUNTER: 3, COUNTER_V: 4, STRIPED: 5, STRIPED_V: 6, SCALES: 7, WRINKLE: 8, WRINKLE_V: 9, FUR: 10, FUR_LT: 11,
@@ -50,9 +51,12 @@ function skin(x, y, base, s = 1) { const n = skinNoise(x, y, s); return n > 0 ? 
 // countershade: t = 0 at the back / top, 1 at the belly. Back slightly darker, a soft ink seam, pale belly.
 function counter(t, x, y, s = 1, edge = 0.6) {
   const n = (vnoise(x, y, s + 3, 8) - 0.5) * 0.07;
-  if (t < edge - 0.04 + n) return skin(x, y, mix(DARK, BASE, 0.55 + t * 0.75), s);
-  if (t < edge + n) return mix(BASE, INK, 0.35);
-  return mix(BELLY, HI, (t - edge) * 0.8 + (rnd(x, y, s) - 0.5) * 0.06);
+  const e = edge + n;
+  // back: a darker ridge lightening down the flanks toward the seam
+  const back = skin(x, y, t < 0.5 * e ? mix(DARK, BASE, 0.3 + (t / (0.5 * e)) * 0.7) : mix(BASE, LIGHT, ((t - 0.5 * e) / (0.5 * e)) * 0.6), s);
+  if (t < e - 0.07) return back;
+  if (t < e) { const k = (t - (e - 0.07)) / 0.07; return mix(mix(back, DARK, 0.22 * (1 - k)), BELLY, smooth(0.35, 1, k)); }
+  return mix(BELLY, HI, (t - e) * 0.9 + (rnd(x, y, s) - 0.5) * 0.05);
 }
 const tLoft = u => 1 - Math.abs(u - 0.5) * 2;   // loft u -> 0 top, 1 belly
 
@@ -95,11 +99,13 @@ swatch(S.SCALES_V, (u, v, x, y) => scales(v, u, v * 1.5, x, y, 8));
 
 // wrinkled hide (rhino, elephant): fainter countershade with crease lines across
 function wrinkle(t, x, y, s, base) {
-  let c = t < 0.68 ? skin(x, y, base, s) : mix(base, BELLY, 0.45 + (t - 0.68));
+  // countershaded hide: darker back, lighter flank, pale belly; faint creases (strong ones read as stripes on a big body)
+  const top = mix(base, DARK, 0.42), side = mix(base, LIGHT, 0.3);
+  let c = t < 0.66 ? skin(x, y, mix(top, side, t / 0.66), s) : mix(side, BELLY, Math.min(1, 0.25 + (t - 0.66) * 2.2));
   const line = Math.sin((y + vnoise(x, y, s, 8) * 7) * 0.6);
-  if (line > 0.93) c = mix(c, INK, 0.28);
-  else if (line > 0.75) c = mix(c, DARK, 0.12);
-  if (rnd(x, y, s + 4) > 0.94) c = mix(c, DARK, 0.25);
+  if (line > 0.965) c = mix(c, INK, 0.2);
+  else if (line > 0.86) c = mix(c, DARK, 0.08);
+  if (rnd(x, y, s + 4) > 0.95) c = mix(c, DARK, 0.15);
   return c;
 }
 swatch(S.WRINKLE, (u, v, x, y) => wrinkle(tLoft(u), x, y, 9, BASE));
@@ -111,10 +117,11 @@ function fur(x, y, dk, base, hi, s) {
   // soft clumps with short, staggered strands (no long stripes, so tubes don't read as cucumbers)
   const clump = vnoise(x, y, s + 2, 8);
   let c = clump > 0.5 ? mix(base, hi, (clump - 0.5) * 0.7) : mix(base, dk, (0.5 - clump) * 0.7);
-  const row = Math.floor((y + rnd(x, 0, s) * 6) / 6);
+  // fix round: shorter, fainter strands (the long high-contrast ones striped every limb tube)
+  const row = Math.floor((y + rnd(x, 0, s) * 3) / 3);
   const r = rnd(x, row, s + 5);
-  if (r > 0.82) c = mix(c, hi, 0.35);
-  else if (r < 0.14) c = mix(c, dk, 0.45);
+  if (r > 0.84) c = mix(c, hi, 0.2);
+  else if (r < 0.12) c = mix(c, dk, 0.24);
   return c;
 }
 swatch(S.FUR, (u, v, x, y) => fur(x, y, FUR_DK, FUR, FUR_HI, 12));
@@ -214,6 +221,37 @@ swatch(S.SHARK, (u, v, x, y) => {
 });
 // fins: darker toward the edge
 swatch(S.FIN, (u, v, x, y) => { const t = tLoft(u); let c = skin(x, y, mix(hex(0x2E7A3A), BASE, 0.4), 28); if (v > 0.8) c = mix(c, DARK, (v - 0.8) * 3); return t > 0.6 ? mix(c, BELLY, 0.35) : c; });
+
+// v0.17.3 fix round ------------------------------------------------------------------------------------------------
+// countershaded fur: dark saddle over the back, lighter flanks, cream-green belly, a ragged fur edge between
+function furCounter(t, x, y, s) {
+  t += (vnoise(x, y, s + 1, 4) - 0.5) * 0.14;
+  const dk = fur(x, y, FUR_DK, FUR, FUR_HI, s), lt = fur(x, y, FUR_LT_DK, FUR_LT, FUR_LT_HI, s + 1);
+  const bl = fur(x, y, mix(FUR_LT, BELLY, 0.45), mix(FUR_LT_HI, BELLY, 0.75), HI, s + 2);
+  const c = mix(dk, lt, smooth(0.12, 0.5, t));
+  return mix(c, bl, smooth(0.58, 0.74, t));
+}
+swatch(36, (u, v, x, y) => furCounter(tLoft(u), x, y, 40)); // FUR_BACK (loft)
+swatch(37, (u, v, x, y) => furCounter(v, x, y, 42));         // FUR_BACK_V (ellipsoid)
+// armour plates (rhino): countershaded hide with a dark fold line and a lit ridge at the start of every v-repeat
+function plate(t, v, x, y, s) {
+  let c = wrinkle(t, x, y, s, BASE);
+  const f = frac(v);
+  if (f < 0.07) c = mix(c, INK, 0.42);
+  else if (f < 0.2) c = mix(c, HI, 0.16 * (1 - (f - 0.07) / 0.13));
+  else if (f > 0.9) c = mix(c, DARK, 0.18 * (f - 0.9) / 0.1);
+  return c;
+}
+swatch(38, (u, v, x, y) => plate(tLoft(u), v, x, y, 44)); // PLATE (loft, use with a v repeat)
+// PLATE_V (ellipsoid shell drawn from the top pole down to v ~0.6): countershaded, a lit ridge then a dark lip at the shell's edge
+swatch(39, (u, v, x, y) => {
+  let c = wrinkle(v * 1.05, x, y, 45, BASE);
+  if (v > 0.555) c = mix(c, INK, 0.5);
+  else if (v > 0.47) c = mix(c, HI, 0.2 * (1 - Math.abs(v - 0.51) / 0.045));
+  return c;
+});
+// a glossy dark nose / pads
+swatch(40, (u, v, x, y) => { let c = mix(hex(0x101A12), hex(0x24352A), vnoise(x, y, 46, 4)); if (Math.hypot(u - 0.55, v - 0.3) < 0.12) c = mix(c, hex(0x8FA894), 0.6); return c; }); // NOSE
 
 png.write(OUT, W, H, px);
 console.log('wrote', OUT);
