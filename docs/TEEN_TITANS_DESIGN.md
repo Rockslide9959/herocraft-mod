@@ -32,7 +32,8 @@ Right-click it in daylight.
   - Fury builds when she is hit or a squadmate within 16 blocks is hurt. More Fury means starbolts up to +60% damage, but
     flight gets heavier (in the show her flight comes from joy).
   - At full Fury the eyes blaze and Shift+Z unlocks.
-- Glow overlay: green eyes always; glowing hands while a starbolt is ready; hair flicks into flame-like strands in flight.
+- Glow overlay: green eyes always; glowing hands while a starbolt is ready (soft shells fitted to the hand, first person too).
+  The flame hair was removed in the 2026-11-13 tester round (user: "I never wanted that").
 
 | Key | Move | Spec |
 |---|---|---|
@@ -165,7 +166,17 @@ POWER only calls it and falls back when it returns false). Titans Together is ad
 The user asked for the Starfire and Raven suits to be removed. Gone: the Starfire Top / Skirt / Boots (`starfire_suit_*`,
 `StarfireSuitItem`, its skin-costume hook in `QuirkCostume` / `QuirkSuitArmourMixin`) and Raven's Cloak (`raven_cloak`, its
 recipe, armour layer, the blue / white / red Composure-coloured hood and cape), with their recipes, textures, creative tab
-entries, Guidebook sections and lang keys. Kept: Starfire's glowing eyes, fists and flame hair; Raven's wisps, white casting eyes,
+entries, Guidebook sections and lang keys. Kept: Starfire's glowing eyes and fists (the flame hair went on 2026-11-13); Raven's wisps, white casting eyes,
 four red Rage eyes, Soul-Self and the Trigon's Wrath shadow (its black hood and cape now come from the Wrath alone,
 `RavenCloakLayer` / `RavenAuraLayer`). Saved copies of the removed items load as air (vanilla warns once); no mod state referenced
 them. The old generator scripts stay in `scratchpad/starfire/` and `scratchpad/raven/` for reference.
+
+## Tester round (2026-11-13)
+- Starfire: flame hair removed; hand glow refitted to the arm's hand cube (wide and slim, inner + outer additive shell with
+  faces fading at the edges, `textures/entity/starfire/hand_glow.png`) and drawn on the first-person arm too.
+- Raven: the Dark Shield dome draws without depth writes (`RavenDomeRenderType`), so the player and mobs inside always show
+  (with ImmediatelyFast batching, the old depth-writing dome could draw before the player's translucent skin and hide it).
+  Casting eyes lost their big additive halos, Rage eyes got tighter, dimmer ones; the hand wisps are smaller, no smoke, rarer at rest.
+- Landings: `HeroLandingStyle.STARFIRE` (id 30, fist, green starbolt burst: `StarfireLanding`) and `RAVEN` (id 31, wings kneel,
+  dark soul ring: `RavenLanding`), registered on the shared `HeroLanding` detector. Raven's calm 9 b/s cruise is under the
+  detector's fast-descent bar, so her landing needs a sprinting dive; Starfire lands from any dive.

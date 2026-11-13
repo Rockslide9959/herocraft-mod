@@ -84,18 +84,13 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 			eye(core, pose, 1.6f, 3.0f, -4.1f, -3.2f, z, red);
 			eye(core, pose, -2.6f, -1.2f, -5.6f, -4.8f, z, red);
 			eye(core, pose, 1.2f, 2.6f, -5.6f, -4.8f, z, red);
-			VertexConsumer halo = buffers.getBuffer(RenderType.lightning());
-			for (float[] e : new float[][] { { -3.0f, -1.6f, -4.1f, -3.2f }, { 1.6f, 3.0f, -4.1f, -3.2f }, { -2.6f, -1.2f, -5.6f, -4.8f },
-					{ 1.2f, 2.6f, -5.6f, -4.8f } }) {
-				haloQuad(halo, pose, e[0] - 0.6f, e[1] + 0.6f, e[2] - 0.6f, e[3] + 0.6f, z - 0.02f * PX, 0x90FF2020);
-			}
+			// v0.17.3 tester round: no additive halos any more (they read as pale streaks round the eyes)
 		} else {
-			int white = 0xFFF4F0FF;
+			// v0.17.3 tester round ("model is a little strange"): just the two white eye pixels, no halo -- the big
+			// additive halos read as white streaks over the face in the dark
+			int white = 0xFFFFFFFF;
 			eye(core, pose, -3.0f, -1.0f, -4.0f, -3.0f, z, white);
 			eye(core, pose, 1.0f, 3.0f, -4.0f, -3.0f, z, white);
-			VertexConsumer halo = buffers.getBuffer(RenderType.lightning());
-			haloQuad(halo, pose, -3.6f, -0.4f, -4.6f, -2.4f, z - 0.02f * PX, 0x70D8C8FF);
-			haloQuad(halo, pose, 0.4f, 3.6f, -4.6f, -2.4f, z - 0.02f * PX, 0x70D8C8FF);
 		}
 		pose.popPose();
 	}
@@ -108,15 +103,6 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		for (float[] p : pts) {
 			vc.addVertex(last, p[0] * PX, p[1] * PX, z).setColor(r, g, b, a).setUv(0.5f, 0.5f).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(LightTexture.FULL_BRIGHT).setNormal(last, 0f, 0f, -1f);
-		}
-	}
-
-	private static void haloQuad(VertexConsumer vc, PoseStack pose, float x0, float x1, float y0, float y1, float z, int argb) {
-		PoseStack.Pose last = pose.last();
-		int a = (argb >>> 24) & 0xFF, r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
-		float[][] pts = { { x0, y0 }, { x0, y1 }, { x1, y1 }, { x1, y0 } };
-		for (float[] p : pts) {
-			vc.addVertex(last, p[0] * PX, p[1] * PX, z).setColor(r, g, b, a);
 		}
 	}
 

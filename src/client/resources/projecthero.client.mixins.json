@@ -135,6 +135,7 @@
 		"SpinScanGlowMixin",
 		"SpinScanColorMixin",
 		"StarfireBondGlowMixin",
+		"StarfireFirstPersonArmMixin",
 		"RavenPoseMixin",
 		"SilverSurferPoseMixin",
 		"SilverSurferStatueMixin",

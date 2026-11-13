@@ -46,7 +46,11 @@ public enum HeroLandingStyle {
 	/** Hawk Moth's Swarm Flight: the swarm settles, purple light. */
 	HAWK_MOTH(17, Pose.WINGS, 0xF0D8FF, 0x8A3AD8, Element.SHADOW, 14, 4),
 	/** Moon Knight's Cape Glide: the cape folds round him, moon-white. */
-	MOON_KNIGHT(18, Pose.WINGS, 0xFFFFFF, 0xC8D4E8, Element.WIND, 16, 4);
+	MOON_KNIGHT(18, Pose.WINGS, 0xFFFFFF, 0xC8D4E8, Element.WIND, 16, 4),
+	/** v0.17.3 Starfire: the fist into the ground in a green starbolt burst ({@code starfire.StarfireLanding}). */
+	STARFIRE(30, Pose.FIST, 0xEAFFD8, 0x3CFF3A, Element.COSMIC, 18, 4),
+	/** v0.17.3 Raven: kneeling as her shadow folds in, a dark soul-energy ring ({@code raven.RavenLanding}). */
+	RAVEN(31, Pose.WINGS, 0xE0C8FF, 0x6A2BD0, Element.SHADOW, 16, 4);
 
 	/** How the body lands (client: {@code HeroLandingPose}). */
 	public enum Pose {
