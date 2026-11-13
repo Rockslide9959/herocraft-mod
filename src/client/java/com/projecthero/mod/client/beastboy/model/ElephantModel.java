@@ -1,131 +1,165 @@
 package com.projecthero.mod.client.beastboy.model;
 
-import static com.projecthero.mod.client.beastboy.model.BeastMesh.*;
-
-import org.joml.Matrix4f;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.3 Beast Boy's elephant (2.6 blocks tall): a big domed head with flapping ears, a long ringed trunk, tusks, column legs and a
- * tufted tail. Moves: stomp (rears and slams the front feet), spray (trunk up and forward), throw / grab (trunk sweep / reach).
+ * v0.17.3 Beast Boy's elephant (2.6 blocks tall), HQ round: a blocky Minecraft-style model ({@link ElephantGeo}, texture
+ * {@code elephant.png}): a big body with a shoulder mass, rump and belly, a domed head with a forehead bulge, big flat ears (veined
+ * pink-green inside) that fan, a seven-link ringed trunk with a nostril tip, three-link curved tusks, lidded eyes, column legs with fold
+ * rings and four toenails, a tufted tail. Gait: a slow four-beat amble with a heavy dip, roll and shoulder sway; the trunk swings with
+ * lag. Idle: ear fanning, trunk sway and curl, tail swish, blinks. Moves: stomp (rears, trumpets, slams), spray (trunk curls up over the
+ * head then whips forward and sprays), grab / throw (trunk reaches, curls round, lifts and tosses).
  */
 public final class ElephantModel {
+	private static final BigBox.Lazy RIG = new BigBox.Lazy(ElephantGeo::layer, ElephantGeo.TREE, "elephant");
+	private static final float TAU = BigRig.TAU;
+
 	private ElephantModel() {
 	}
 
+	/** Unused: {@link BigAnimals} draws the elephant before BeastFormArt's mesh switch is reached (kept so that switch needs no edit). */
 	public static void draw(PoseStack pose, BeastPose s) {
+	}
+
+	/** The fix-round ear (shared atlas), still used by the human-form quick-morph stomp. */
+	public static void ear(PoseStack pose, int s, float flap, float k) {
+		LegacyBigParts.elephantEar(pose, s, flap, k);
+	}
+
+	/** The fix-round trunk (shared atlas), still used by the human-form quick-morph stomp. */
+	public static void trunk(PoseStack pose, float t, float amt, float trunkUp, float grab, float swing) {
+		LegacyBigParts.elephantTrunk(pose, t, amt, trunkUp, grab, swing);
+	}
+
+	public static void render(BeastPose s, PoseStack pose, MultiBufferSource buffers, int light, int tint, float flash) {
+		BigBox.Rig r = RIG.get();
+		r.reset();
+		pose(r, s);
+		BigBox.render(r, pose, buffers, light, tint, flash);
+	}
+
+	static void pose(BigBox.Rig r, BeastPose s) {
 		float t = s.age;
 		float amt = s.walkAmt;
-		float ph = s.walkPos * 0.42f;
+		float cyc = s.walkPos * 0.075f;
+		float breathe = Mth.sin(t * 0.08f);
 		float stomp = s.is("stomp") ? s.prog : -1f;
+		float spray = s.is("spray") ? s.prog : -1f;
+		float grab = s.isAny("grab", "throw") ? s.prog : -1f;
 
-		float rear = 0f;
+		// ---- stomp: rear up on the hind legs, trumpet, slam down with a shudder
+		float rear = 0f, slam = 0f;
 		if (stomp >= 0f) {
-			rear = stomp < 0.5f ? BeastPose.smooth(stomp / 0.5f) : (stomp < 0.62f ? 1f - BeastPose.smooth((stomp - 0.5f) / 0.12f) : 0f);
+			rear = stomp < 0.45f ? BigRig.easeOut(stomp / 0.45f) : (stomp < 0.56f ? 1f - BigRig.easeIn((stomp - 0.45f) / 0.11f) : 0f);
+			slam = stomp >= 0.56f ? BigRig.wobble((stomp - 0.56f) * 12f, 3f, 0.8f) : 0f;
 		}
-		float bob = -Math.abs(Mth.sin(ph)) * 1.2f * amt + Mth.sin(t * 0.08f) * 0.3f;
-		float pitch = -rear * 0.42f + Mth.sin(ph * 2f) * 0.015f * amt;
-		// rear up around the hind hips
-		Matrix4f body = Rig.mat(0f, 26f + bob, -11f, Mth.sin(ph) * 0.03f * amt, pitch, Mth.sin(ph) * 0.03f * amt);
-		body.translate(0f, 0f, 11f);
+		float down = BigRig.dip(cyc - 0.06f) * 1.0f * amt - breathe * 0.25f + Math.abs(slam) * 1.4f;
+		float pitch = -rear * 0.48f + slam * 0.06f + Mth.sin(cyc * TAU * 2f) * 0.012f * amt;
+		float roll = Mth.sin(cyc * TAU) * 0.05f * amt + Mth.sin(t * 0.027f) * 0.012f * (1f - amt);
+		float yaw = Mth.sin(cyc * TAU) * 0.04f * amt;
+		ModelPart body = r.p("body");
+		body.y += down;
+		body.xRot += pitch;
+		body.zRot += roll;
+		body.yRot += -yaw;
 
-		float[][] hips = { { 8.4f, 0f, -11f }, { -8.4f, 0f, -11f }, { 8.8f, 0f, 9f }, { -8.8f, 0f, 9f } };
-		float[] phs = { 0f, Mth.PI, Mth.PI * 0.5f, Mth.PI * 1.5f };
+		// ---- legs: LF, RF, LH, RH, lateral sequence
+		String[] sd = { "L", "R" };
 		for (int i = 0; i < 4; i++) {
-			boolean front = hips[i][2] > 0;
-			float[] st = Rig.step(ph + phs[i], 6f * amt, 4f * amt);
-			float[] hip = Rig.tp(body, hips[i][0], hips[i][1], hips[i][2]);
-			float[] foot = v(hips[i][0], 2.4f + st[1], hips[i][2] + st[0]);
-			if (front && rear > 0f) {
-				foot = v(hips[i][0], hip[1] - 22f, hip[2] + 4f);
+			boolean front = i < 2;
+			float ph = front ? (i == 0 ? 0.25f : 0.75f) : (i == 2 ? 0f : 0.5f);
+			float[] g = BigRig.gait(cyc + ph, 0.65f);
+			ModelPart up = r.p((front ? "legF" : "legH") + sd[i % 2]);
+			ModelPart shin = r.p((front ? "shinF" : "shinH") + sd[i % 2]);
+			ModelPart foot = r.p((front ? "footF" : "footH") + sd[i % 2]);
+			if (front) {
+				up.xRot -= pitch;
+				up.y -= down * 0.6f;
+				if (rear > 0f) {
+					float near = i == 0 ? 1f : 0.75f;
+					up.xRot += -rear * 0.65f * near;
+					shin.xRot += rear * 0.9f * near;
+					foot.xRot += rear * 0.2f;
+				}
 			}
-			float[] knee = ik(hip, foot, 12.4f, 12f, v(0f, 0f, front ? 1f : -1f));
-			Rig.limb(pose, hip, knee, foot, 6.2f, 4.8f, 4.6f, WRINKLE, v(0f, 0f, 1f));
-			taper(pose, foot[0], foot[1] - 2.4f, foot[2], 5.0f, 5.0f, 3f, 4.6f, 4.6f, 14, WRINKLE_V, true);
-			for (int k = -1; k <= 1; k++) {
-				ellipsoid(pose, foot[0] + k * 2.2f, foot[1] - 1.4f, foot[2] + 4.4f - Math.abs(k) * 0.8f, 1.2f, 1f, 0.8f, 8, 5, HORN, 0f, 1f);
+			BigAnimals.leg(up, shin, foot, g[0] * amt, g[1] * amt, 0.27f, 0.75f, 1.6f);
+		}
+
+		// ---- head: follows the look, nods with the steps, up when rearing
+		ModelPart head = r.p("head");
+		float nod = Mth.cos(cyc * TAU * 2f - 0.7f) * 0.04f * amt;
+		head.xRot += 0.05f + s.pitch(0.6f) * 0.3f - rear * 0.25f - pitch * 0.5f + nod + breathe * 0.01f;
+		head.yRot += -(s.yaw(0.6f) * 0.7f + Mth.sin(t * 0.015f) * 0.08f * (1f - amt)) + yaw * 0.7f;
+		head.zRot += -roll * 0.5f;
+
+		// ---- ears: slow fanning, faster with the walk, flared wide on the rear and the spray
+		float sprayK = spray >= 0f ? BeastPose.envelope(spray, 0.15f, 0.2f) : 0f;
+		float flare = Math.max(rear, sprayK * 0.7f);
+		for (int k = 0; k < 2; k++) {
+			float sgn = k == 0 ? 1f : -1f;
+			float fan = 0.55f + Mth.sin(t * 0.11f + k * 0.5f) * 0.16f + Mth.sin(cyc * TAU + k * Mth.PI) * 0.12f * amt + flare * 0.8f;
+			ModelPart ear = r.p(k == 0 ? "earL" : "earR");
+			ear.yRot += sgn * fan;
+			ear.zRot += sgn * (-0.04f - flare * 0.15f + Mth.sin(t * 0.11f + k * 0.5f - 0.6f) * 0.03f);
+			r.p(k == 0 ? "eyeL" : "eyeR").yScale = 1f - 0.85f * BigRig.blink(t, 0.61f);
+		}
+
+		// ---- trunk: hangs with a forward curl at the tip, sways with lag; the moves bend it link by link
+		float[] tx = new float[7], tz = new float[7];
+		for (int i = 0; i < 7; i++) {
+			float lagT = t * 0.09f - i * 0.55f;
+			tx[i] = (i < 2 ? 0.05f : (i < 4 ? 0f : -0.16f)) + Mth.sin(lagT) * 0.04f + Mth.sin(cyc * TAU - i * 0.45f) * 0.07f * amt
+					+ Mth.sin(t * 0.21f - i * 0.4f) * 0.02f;
+			tz[i] = Mth.sin(t * 0.07f - i * 0.6f) * 0.06f + Mth.sin(cyc * TAU - i * 0.5f) * 0.05f * amt + s.tailLag * 0.25f;
+		}
+		float trunkUp = rear; // trumpet on the rear
+		if (spray >= 0f) {
+			// 0-0.3 curl up over the head (fill), 0.3-0.42 whip forward, hold and spray, then let go
+			float up = BigRig.smooth(spray / 0.3f);
+			float whip = BigRig.ph(spray, 0.3f, 0.42f);
+			float rel = BigRig.ph(spray, 0.82f, 1f);
+			for (int i = 0; i < 7; i++) {
+				float curl = i == 0 ? -0.75f : -0.48f;
+				float aim = i == 0 ? -1.45f : (i < 3 ? -0.12f : 0.02f);
+				float v = Mth.lerp(BigRig.easeOut(whip), curl * up, aim + Mth.sin(t * 1.6f - i) * 0.03f);
+				tx[i] = Mth.lerp(BigRig.smooth(rel), v, tx[i]);
+			}
+			trunkUp = 0f;
+		}
+		if (grab >= 0f) {
+			// 0-0.35 reach forward and low, 0.35-0.5 curl the tip round, 0.5-0.75 lift and toss up, then settle
+			float reach = BigRig.smooth(grab / 0.35f) * (1f - BigRig.ph(grab, 0.82f, 1f));
+			float curl = BigRig.smooth(BigRig.ph(grab, 0.33f, 0.5f)) * (1f - BigRig.ph(grab, 0.72f, 0.82f));
+			float lift = BigRig.back(BigRig.ph(grab, 0.48f, 0.72f)) * (1f - BigRig.ph(grab, 0.78f, 1f));
+			for (int i = 0; i < 7; i++) {
+				float v = tx[i];
+				v = Mth.lerp(reach, v, i == 0 ? -0.75f : -0.08f);
+				v += curl * (i >= 4 ? -0.85f : 0f);
+				v += lift * (i == 0 ? -1.2f : -0.22f);
+				tx[i] = v;
 			}
 		}
-
-		Rig.push(pose, body);
-		float br = 1f + Mth.sin(t * 0.08f) * 0.02f;
-		float[][] spine = { { 0f, 0f, -19f }, { 0f, 2f, -12f }, { 0f, 3f, -1f }, { 0f, 3.2f, 8f }, { 0f, 2f, 14f }, { 0f, 1f, 17f } };
-		float[] w = { 6f, 12.5f, 14f * br, 13.6f * br, 11f, 8f };
-		float[] h = { 6f, 12.5f, 13.8f * br, 13.6f * br, 11f, 9f };
-		loft(pose, spine, w, h, 3, 18, WRINKLE, 5, null);
-		ellipsoid(pose, 0f, 12f, 4f, 9f, 5f, 9f, WRINKLE_V);
-		// tail with a tuft
-		float tw = Mth.sin(t * 0.18f) * 0.5f;
-		float[][] tail = walk(v(0f, 4f, -19.5f), Mth.PI + tw * 0.2f, 1.2f, 3f, new float[] { tw * 0.15f, tw * 0.2f, tw * 0.2f }, new float[] { 0.08f, 0.05f, 0f });
-		loft(pose, tail, new float[] { 1.0f, 0.8f, 0.6f, 0.5f }, new float[] { 1.0f, 0.8f, 0.6f, 0.5f }, 2, 8, SKIN_DK, 0, null);
-		ellipsoid(pose, tail[3][0], tail[3][1] - 0.8f, tail[3][2], 0.9f, 1.8f, 0.9f, 8, 6, DARK, 0f, 1f);
-
-		float hy = s.yaw(0.5f) * 0.6f;
-		float hp = s.pitch(0.5f) * 0.3f - pitch * 0.4f - rear * 0.2f;
-		boneYXZ(pose, 0f, 3f, 16f, hy, hp, 0f);
-		float trunkUp = Math.max(rear, s.env("spray", 0.2f, 0.25f));
-		float grab = s.isAny("grab", "throw") ? s.env(s.move, 0.3f, 0.3f) : 0f;
-		float swing = s.is("throw") ? Mth.sin(s.prog * Mth.TWO_PI) : 0f;
-		head(pose, t, amt, trunkUp, grab, swing, rear);
-		pose.popPose();
-		pose.popPose();
-	}
-
-	/** The elephant head with ears, tusks and trunk (pivot at the neck, +Z forward). */
-	public static void head(PoseStack pose, float t, float amt, float trunkUp, float grab, float swing, float rear) {
-		ellipsoid(pose, 0f, 3f, 4f, 8.2f, 9f, 7.6f, WRINKLE_V);
-		ellipsoid(pose, 0f, 7.5f, 4f, 6.6f, 5f, 6f, WRINKLE_V);
-		ellipsoid(pose, 0f, -2f, 8.5f, 5.6f, 6f, 4.4f, WRINKLE_V);
-		for (int s = -1; s <= 1; s += 2) {
-			eye(pose, s * 6.2f, 3.4f, 8.2f, 1.05f, s * 0.95f, 0.05f, EYE);
-			ellipsoid(pose, s * 6.0f, 4.5f, 8.4f, 1.5f, 0.6f, 1.4f, 8, 5, WRINKLE_V, 0f, 1f);
-			// big ears flapping
-			float flap = Mth.sin(t * 0.12f + s * 0.4f) * 0.18f + amt * Mth.sin(t * 0.3f) * 0.1f + rear * 0.5f;
-			ear(pose, s, flap, 1f);
-			// tusks
-			horn(pose, new float[][] { { s * 3.4f, -4.5f, 9.6f }, { s * 3.9f, -8f, 12f }, { s * 3.6f, -9.4f, 15.6f }, { s * 2.8f, -8.6f, 18.4f } }, 1.3f, HORN);
+		if (trunkUp > 0f) {
+			for (int i = 0; i < 7; i++) {
+				tx[i] = Mth.lerp(trunkUp, tx[i], (i == 0 ? -0.9f : -0.42f) + Mth.sin(t * 1.3f - i) * 0.04f);
+			}
 		}
-		// mouth under the trunk
-		ellipsoid(pose, 0f, -6.8f, 8.6f, 2.8f, 1.6f, 2.6f, MOUTH);
-		ellipsoid(pose, 0f, -7.8f, 8.2f, 3f, 1.4f, 2.8f, WRINKLE_V);
-		trunk(pose, t, amt, trunkUp, grab, swing);
-	}
-
-	/**
-	 * One big ear hinged at the side of the head (s = +1 left), swung out to the side and back; flap opens it wider. The inner face
-	 * (pale) looks forward.
-	 */
-	public static void ear(PoseStack pose, int s, float flap, float k) {
-		boneYXZ(pose, s * 6.2f * k, 4f * k, 3.5f * k, -s * (1.05f - flap), 0f, s * 0.12f);
-		pose.scale(k, k, k);
-		ellipsoid(pose, 0f, -2f, -7.8f, 0.9f, 11f, 8.4f, 14, 9, WRINKLE_V, 0f, 1f);
-		ellipsoid(pose, s * 0.55f, -1.9f, -7.6f, 0.45f, 9.6f, 7.2f, 14, 9, INNER_EAR, 0f, 1f);
-		pose.popPose();
-	}
-
-	/** The trunk from its root on the face. trunkUp raises and curls it up (trumpet / spray), grab reaches it forward. */
-	public static void trunk(PoseStack pose, float t, float amt, float trunkUp, float grab, float swing) {
-		int n = 8;
-		float[] yb = new float[n], pb = new float[n];
-		for (int i = 0; i < n; i++) {
-			float sway = Mth.sin(t * 0.1f - i * 0.5f) * 0.05f + Mth.sin(t * 0.33f) * 0.03f * amt + swing * 0.12f;
-			yb[i] = sway;
-			// hanging: bends from forward to down, tip curls forward a little
-			float hang = i < 2 ? 0.25f : (i > 5 ? -0.22f : 0.06f);
-			float up = i < 3 ? -0.5f : (i > 5 ? -0.5f : -0.3f);
-			float reach = i < 2 ? -0.3f : (i > 5 ? 0.05f : -0.05f);
-			pb[i] = hang + trunkUp * (up - hang) + grab * (reach - hang) * (1f - trunkUp);
+		for (int i = 0; i < 7; i++) {
+			ModelPart seg = r.p("trunk" + (i + 1));
+			seg.xRot += tx[i];
+			seg.zRot += tz[i];
 		}
-		float[][] pts = walk(v(0f, -2.5f, 11.5f), 0f, 0.6f + -trunkUp * 0.6f, 3.2f, yb, pb);
-		float[] w = new float[n + 1];
-		for (int i = 0; i <= n; i++) {
-			w[i] = Mth.lerp(i / (float) n, 3.6f, 1.4f);
-		}
-		loft(pose, pts, w, w, 3, 12, WRINKLE, 2, v(0f, 0f, 1f));
-		float[] tip = pts[n];
-		ellipsoid(pose, tip[0], tip[1], tip[2], 1.6f, 1.6f, 1.6f, 10, 6, WRINKLE_LT, 0f, 1f);
+		r.p("jaw").xRot += Math.max(trunkUp, sprayK) * 0.3f + Math.max(0f, Mth.sin(t * 0.05f)) * 0.04f;
+
+		// ---- tail: swish and lag
+		float sw = Mth.sin(t * 0.12f) * 0.3f + Mth.sin(cyc * TAU) * 0.15f * amt + s.tailLag * 0.6f;
+		r.p("tail1").zRot += sw * 0.6f;
+		r.p("tail1").xRot += 0.1f + rear * 0.4f;
+		r.p("tail2").zRot += Mth.sin(t * 0.12f - 0.7f) * 0.25f;
+		r.p("tuft").zRot += Mth.sin(t * 0.12f - 1.4f) * 0.25f;
 	}
 }
