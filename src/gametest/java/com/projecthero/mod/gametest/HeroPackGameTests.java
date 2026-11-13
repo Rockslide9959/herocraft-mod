@@ -63,6 +63,20 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.3: a chapter with no icon (Shazam) fell into the Quirk branch and crashed the Guidebook (index 24 of 8). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyGuideChapterHasASafeIcon(GameTestHelper helper) {
+		int n = com.projecthero.mod.hero.guide.HeroPackGuide.chapters().size();
+		for (int i = 0; i < n; i++) {
+			try {
+				com.projecthero.mod.hero.guide.HeroPackGuide.iconOf(i);
+			} catch (RuntimeException e) {
+				helper.fail("chapter " + i + " icon throws " + e);
+			}
+		}
+		helper.succeed();
+	}
+
 	// ---------------- Thor still owns the six slots ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)

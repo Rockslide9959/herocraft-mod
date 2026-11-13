@@ -2138,7 +2138,7 @@ public final class HeroPackGuide {
 		if (id != null) {
 			return id;
 		}
-		if (chapterIndex >= CH_QUIRK_BASE && chapterIndex < CHAPTER_POWER_BASE) {
+		if (chapterIndex >= CH_QUIRK_BASE && chapterIndex < CH_VIPERION) { // only the Quirk chapters (v0.17.3: chapters added after them, like Shazam, crashed here)
 			return "projecthero:quirk_serum_" + com.projecthero.mod.quirk.Quirk.values()[chapterIndex - CH_QUIRK_BASE].id;
 		}
 		return null;
@@ -2206,6 +2206,7 @@ public final class HeroPackGuide {
 		icon(CH_STARFIRE, "tamaranean_starstone"); // v0.17.3
 		icon(CH_RAVEN, "book_of_azarath"); // v0.17.3
 		icon(CH_BEAST_BOY, "sakutia_serum"); // v0.17.3
+		icon(CH_SHAZAM, "minecraft:lightning_rod"); // v0.17.3 (no Shazam item)
 		icon(CH_DOCTOR_FATE, "helmet_pedestal"); // v0.17.3 (the helmet is no item any more)
 		icon(CH_VISION, "mind_stone"); // v0.17.3
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
