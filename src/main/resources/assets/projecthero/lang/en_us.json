@@ -12710,5 +12710,8 @@
   "projecthero.guide.vision.phasing_text": "Shift+V makes you intangible: no hit, arrow or fireball can touch you and you walk through walls, but you can't attack (only Phase Dash and your toggles work). You can't turn solid inside a wall. If your energy runs out inside one, you're pushed out to the nearest open space. Shift+C does the opposite: Diamond Density makes you so heavy that hits barely hurt and nothing knocks you back, but you're slow and can't fly.",
   "projecthero.guide.vision.controls": "Controls",
   "projecthero.guide.vision.commands": "Commands",
-  "projecthero.guide.vision.commands.body": "Operators: /projecthero power grant vision <player>, /projecthero power tune vision energy <0-100>, /projecthero power tune vision cooldowns."
+  "projecthero.guide.vision.commands.body": "Operators: /projecthero power grant vision <player>, /projecthero power tune vision energy <0-100>, /projecthero power tune vision cooldowns.",
+  "projecthero.guide.beast_boy.diet": "Vegetarian",
+  "projecthero.guide.beast_boy.diet.body": "Gar has been every animal there is, so he won't eat one. As Beast Boy you can't eat meat or fish of any kind, raw or cooked, in any form (human too): beef, pork, chicken, mutton, rabbit, rabbit stew, cod, salmon, tropical fish, pufferfish, rotten flesh, spider eyes, and meat or fish from other mods. Bread, fruit, vegetables, mushroom and beetroot stew, cake and golden apples are all fine.",
+  "message.projecthero.beast_boy.no_meat": "Beast Boy doesn't eat meat."
 }
