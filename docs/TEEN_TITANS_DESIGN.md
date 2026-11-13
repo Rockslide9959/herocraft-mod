@@ -193,3 +193,18 @@ them. The old generator scripts stay in `scratchpad/starfire/` and `scratchpad/r
 - Landings: `HeroLandingStyle.STARFIRE` (id 30, fist, green starbolt burst: `StarfireLanding`) and `RAVEN` (id 31, wings kneel,
   dark soul ring: `RavenLanding`), registered on the shared `HeroLanding` detector. Raven's calm 9 b/s cruise is under the
   detector's fast-descent bar, so her landing needs a sprinting dive; Starfire lands from any dive.
+
+## Starfire animation round (2026-11-13)
+
+User: "make her ability animations better". Every move got eased body keyframes (`client.starfire.StarfirePose`, hooked in
+`HumanoidModelMixin` after the flight pose, plus `FlightPoseHelper.lean` for whole-body leans) and first-person arms
+(`mixin.StarfireFirstPersonPoseMixin`, QuirkFirstPersonPose pattern). Driven by synced state only: each move starts at its
+cooldown stamp minus its cooldown; the new `StarfireState.anim` bits say which hand threw the last starbolt and whether Grab
+is carrying (no gameplay). Starbolt: overhand sweep from alternating hands, released ~1 tick after the press (the bolt spawns
+on the press, so the wind-up is short; its comet tail no longer reaches back past the hand and a flash blooms at the hand).
+Barrage: left-right jabs with the torso turning along the arc. Star Burst: hands cup the ball, palms drive out, recoil.
+Eye Beams: head and shoulders forward, fists back. Supernova: curled ball, then a star. Dash / Comet Dive laid along the
+path; Charge shoulder-first; Ground Pound fists overhead then a crouching slam (on the ground the slam pose lands ~2 ticks
+after the hit); Grab reach / carry / overhead hurl; Kiss lean-in with a heel kick; Radiance arms open. Flight: graceful
+hover, trailing cruise, swept-back speed pose, and a lean-back brake when she pulls up out of speed.
+Films: `docs/screenshots/v0173/starfire_anim/` (before/ = previous build).

@@ -55,13 +55,27 @@ public final class StarfireFx {
 		float s = e.size();
 		boolean burst = StarfireMovesKinds.BURST.equals(e.kind());
 		Vec3 v = e.getDeltaMovement();
+		// v0.17.3 animation round: the comet tail never reaches back past the hand it left (it grows out of the throw)
+		double travelled = (e.tickCount + partial) * v.length();
 		pose.pushPose();
 		pose.translate(0, s * 0.5, 0);
 		for (int k = 4; k >= 1; k--) {
+			if (k * 0.35 * v.length() > travelled + 0.3) {
+				continue;
+			}
 			pose.pushPose();
 			pose.translate(-v.x * k * 0.35, -v.y * k * 0.35, -v.z * k * 0.35);
 			glow(pose, buffers, s * (1.6f - k * 0.2f), Starfire.GREEN, 170 - k * 30);
 			pose.popPose();
+		}
+		// her own bolt seen from first person starts hand-sized and swells as it leaves the hand (it spawns half a block from her eye;
+		// the client does not know a projectile's owner, so this goes by how close the bolt still is to the camera)
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.options.getCameraType().isFirstPerson()) {
+			double near = e.getPosition(partial).add(0, s * 0.5, 0).distanceTo(mc.gameRenderer.getMainCamera().getPosition());
+			if (near < 2.5) {
+				s *= (float) Mth.clamp((near - 0.3) / 2.2, 0.3, 1.0);
+			}
 		}
 		float flick = 0.9f + 0.1f * Mth.sin((e.tickCount + partial) * 2.1f);
 		glow(pose, buffers, s * (burst ? 3.2f : 2.6f) * flick, Starfire.GREEN, 220);
@@ -90,6 +104,27 @@ public final class StarfireFx {
 			boolean self = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
 			Vec3 at = p.getPosition(partial);
 			long now = level.getGameTime();
+			// v0.17.3 animation round: the release flash at the throwing hand, peaking on the throw's release frame (StarfirePose)
+			for (int side = 1; side >= -1; side -= 2) {
+				float fl = StarfirePose.handFlash(p, side, partial);
+				if (fl > 0.01f) {
+					Vec3 hand = self ? p.getEyePosition(partial).add(0, -0.35, 0).add(p.getViewVector(partial).scale(1.6))
+							.add(rightOf(p, partial).scale(0.45 * side)) : handAt(p, side, partial);
+					float sz = self ? 0.08f + 0.06f * fl : 0.3f + 0.15f * fl;
+					at(pose, cam, hand, () -> {
+						glow(pose, buffers, sz * 2.2f, Starfire.GREEN, (int) (200 * fl));
+						glow(pose, buffers, sz, 0xF4FFF0, (int) (230 * fl));
+					});
+				}
+			}
+			float bf = StarfirePose.burstFlash(p, partial);
+			if (bf > 0.01f) {
+				Vec3 palms = p.getEyePosition(partial).add(0, self ? -0.3 : -0.45, 0).add(p.getViewVector(partial).scale(self ? 0.9 : 0.85));
+				at(pose, cam, palms, () -> {
+					glow(pose, buffers, 1.1f * bf, Starfire.GREEN, (int) (210 * bf));
+					glow(pose, buffers, 0.5f * bf, 0xFFFFFF, (int) (240 * bf));
+				});
+			}
 			// Star Burst: the ball between her hands
 			if (s.chargeMove == StarfireState.CHARGE_BURST && s.chargeStart > 0) {
 				float f = Mth.clamp((now - s.chargeStart + partial) / StarfireConfig.BURST_CHARGE_TICKS, 0f, 1f);
@@ -164,6 +199,17 @@ public final class StarfireFx {
 				});
 			}
 		}
+	}
+
+	/** Her body's right (horizontal). */
+	private static Vec3 rightOf(Player p, float partial) {
+		float yaw = Mth.lerp(partial, p.yRotO, p.getYRot()) * Mth.DEG_TO_RAD;
+		return new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
+	}
+
+	/** Where a thrown bolt leaves her hand: out along the look from that shoulder (the server spawns it at {@code Starfire.handPos}). */
+	private static Vec3 handAt(Player p, int side, float partial) {
+		return p.getEyePosition(partial).add(0, -0.45, 0).add(p.getViewVector(partial).scale(0.55)).add(rightOf(p, partial).scale(0.35 * side));
 	}
 
 	private static int i2c(int i) {

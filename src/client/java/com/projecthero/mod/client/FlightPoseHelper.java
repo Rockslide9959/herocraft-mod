@@ -401,6 +401,8 @@ public final class FlightPoseHelper {
 		PoseAnim anim = ANIMS.get(player.getUUID());
 		float boots = com.projecthero.mod.client.ironman.IronManFlightPose.bootsLean(player, partialTick);
 		float base = (anim == null ? 0.0f : Mth.lerp(partialTick, anim.leanPrev, anim.lean)) + boots;
+		// v0.17.3 animation round: Starfire's moves lean her body (laid along a dash, into a throw, the beams' thrust, the recoil)
+		base = com.projecthero.mod.client.starfire.StarfirePose.adjustLean(player, base, partialTick);
 		// v0.16.5 Flight rework: a Dive Bomb lies head-first along the dive, a dash / punch along its line
 		// v0.17.1: a superhero landing straightens the body out of the dive at once (its pose takes over)
 		return com.projecthero.mod.client.mutation.FlightClient.adjustLean(player, base, partialTick)

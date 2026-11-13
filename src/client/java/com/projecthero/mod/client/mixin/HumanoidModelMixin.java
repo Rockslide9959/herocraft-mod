@@ -455,6 +455,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.17.3 animation round: Starfire's move and flight poses (client.starfire.StarfirePose). After the flight pose so they win. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$starfirePose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.starfire.StarfirePose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/**
 	 * v0.14.4: Thor's move animations (Lightning Strike, Thunderclap, Chain Lightning, the throw, Hammer Volley, the
 	 * Beam, the Wrath charge and release, the suit-up). Declared after {@link #projecthero$flightPose} so a move made

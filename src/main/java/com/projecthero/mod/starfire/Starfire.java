@@ -215,6 +215,17 @@ public final class Starfire {
 		save(player, n);
 	}
 
+	/** v0.17.3 animation round: sets or clears one of the synced animation bits ({@link StarfireState#anim}); never gameplay. */
+	static void setAnimBit(ServerPlayer player, int bit, boolean on) {
+		StarfireState s = state(player);
+		int want = on ? (s.anim | bit) : (s.anim & ~bit);
+		if (want != s.anim) {
+			StarfireState n = s.copy();
+			n.anim = want;
+			save(player, n);
+		}
+	}
+
 	public static void clearCooldowns(ServerPlayer player) {
 		StarfireState n = state(player).copy();
 		n.abilityReadyAt.clear();
@@ -439,6 +450,7 @@ public final class Starfire {
 		n.chargeStart = 0L;
 		n.diveUntil = 0L;
 		n.dashUntil = 0L;
+		n.anim &= ~StarfireState.ANIM_CARRYING;
 		save(player, n);
 		StarfireMoves.forget(player.getUUID());
 		reconcile(player);
