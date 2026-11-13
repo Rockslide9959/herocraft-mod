@@ -274,7 +274,10 @@ const MATS = {
 // eye patterns, front = toward +Z (pupil and glint toward the front, a dark rim)
 function eyePx(p) {
   const o = p.opt;
-  const out = o.side > 0 ? 'left' : o.side < 0 ? 'right' : 'front';
+  // fix2: front-facing eyes (gorilla / Beast) paint the front face; they used to get the side face like the rhino / elephant eyes, so
+  // from the front they showed as plain skin
+  const frontEye = o.pattern === 'front' || o.pattern === 'front3';
+  const out = frontEye ? 'front' : o.side > 0 ? 'left' : o.side < 0 ? 'right' : 'front';
   if (p.face !== out) return MATS[o.skin || 'hide'](p);
   const pal = o.fierce
     ? { white: hex(0xF2FFE6), iris: hex(0xB8F05A), pupil: hex(0x0B140A), rim: hex(0x2B4A12), glint: hex(0xFFFFFF) }
@@ -294,6 +297,13 @@ function eyePx(p) {
     if (fi === W - 1) return p.fy === 0 ? pal.glint : pal.pupil;
     if (fi === W - 2) return p.fy === 0 ? pal.pupil : pal.iris;
     return p.fy === 0 ? pal.white : mix(pal.white, pal.rim, 0.25);
+  }
+  if (pattern === 'front3') { // fix2: a 3x2 front-facing eye (gorilla) that reads in pixel art: pale sclera both sides of a dark pupil column, a white glint
+    const i = o.side > 0 ? p.fx : W - 1 - p.fx; // 0 = inner (toward the nose)
+    const sclera = hex(0xDCE6C8), scleraLo = hex(0xB4C29E), pupil = hex(0x0A120A), iris = hex(0x3A2A18);
+    if (i === 1) return p.fy === 0 ? pupil : iris;
+    if (i === 0) return p.fy === 0 ? pal.glint : scleraLo;
+    return p.fy === 0 ? sclera : scleraLo;
   }
   if (pattern === 'front') { // a front-facing eye (gorilla / Beast): fx 0 = viewer's left; inner = toward x 0
     const inner = o.side > 0 ? p.fx === 0 : p.fx === W - 1;
@@ -531,7 +541,9 @@ function gorilla() {
     .box([1.2, 28.6, 6.6], [1, 1, 1], { mat: 'tooth' }).box([-2.2, 28.6, 6.6], [1, 1, 1], { mat: 'tooth' });
   for (const s of [1, -1]) {
     const L = LR(s);
-    B('eye' + L, 'head', [SX(s, 1.7), 33, 8]).box([X(s, 0.7, 2), 32, 7.4], [2, 2, 1], { mat: 'eye', side: s, pattern: 'front', skin: 'face' });
+    // fix2: the eyes were 2x2, set back under the brow and half behind the nose (unreadable); now 3x2, out beside the nose and flush
+    // with the brow / muzzle front so they show from the front and 3/4
+    B('eye' + L, 'head', [SX(s, 2.5), 33, 8.52]).box([X(s, 1, 3), 32, 8.02], [3, 2, 1], { mat: 'eye', side: s, pattern: 'front3', skin: 'face' });
     B('ear' + L, 'head', [SX(s, 4.5), 33, 2]).box([X(s, 4, 1), 32, 1], [1, 2, 2], { mat: 'face' });
     B('cheek' + L, 'head', [SX(s, 4), 31, 3]).box([X(s, 3.5, 1), 28, 2], [1, 5, 4], { mat: 'fringe', jag: 2, ft: { top: 0.2, front: [0.3, 0.4], back: [0.2, 0.3] }, sideZ: [0.2, 0.35] });
     B('arm' + L, 'body', [SX(s, 10), 29, -2.5])
@@ -587,7 +599,8 @@ function beast() {
     .box([-1.5, 34.4, 5.5], [3, 1, 5], { mat: 'tongue', inflate: -0.1 });
   for (const s of [1, -1]) {
     const L = LR(s);
-    B('eye' + L, 'head', [SX(s, 3.4), 39.5, 7]).box([X(s, 2.4, 2), 38.5, 6.6], [2, 2, 1], { mat: 'eye', side: s, pattern: 'front', fierce: true, skin: 'hide' });
+    // fix2: fully under the brow (its top row was hidden behind it) and flush with the brow front
+    B('eye' + L, 'head', [SX(s, 3.5), 39, 7.55]).box([X(s, 2.5, 2), 38, 7.05], [2, 2, 1], { mat: 'eye', side: s, pattern: 'front', fierce: true, skin: 'hide' });
     B('cheek' + L, 'head', [SX(s, 5), 36, 3]).box([X(s, 4, 2), 33, 0], [2, 6, 6], { mat: 'fringe', jag: 2, ft: { top: 0.2, front: [0.3, 0.45], back: [0.15, 0.3] }, sideZ: [0.15, 0.35] });
     const inner = p => { if (p.face === 'front' && p.fx > 0 && p.fx < p.fw - 1 && p.fy > 0) return MATS.inner(Object.assign({}, p, { opt: { innerDark: true } })); };
     B('ear' + L, 'head', [SX(s, 3.5), 41.5, 2], [-0.45, 0, s * 0.3])

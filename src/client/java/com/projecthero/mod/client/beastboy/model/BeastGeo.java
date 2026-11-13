@@ -75,8 +75,8 @@ final class BeastGeo {
 				.texOffs(0, 98).addBox(-1.5F, 0.6F, -6.5F, 3.0F, 1.0F, 5.0F, new CubeDeformation(-0.1F)),
 				PartPose.offsetAndRotation(0.0F, 1.0F, -2.0F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("eyeL", CubeListBuilder.create()
-				.texOffs(118, 98).addBox(-1.0F, -1.0F, -0.6F, 2.0F, 2.0F, 1.0F),
-				PartPose.offsetAndRotation(3.4F, -2.5F, -5.0F, 0.0F, 0.0F, 0.0F));
+				.texOffs(118, 98).addBox(-1.0F, -1.0F, -0.5F, 2.0F, 2.0F, 1.0F),
+				PartPose.offsetAndRotation(3.5F, -2.0F, -5.55F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("cheekL", CubeListBuilder.create()
 				.texOffs(80, 65).addBox(-1.0F, -3.0F, -3.0F, 2.0F, 6.0F, 6.0F),
 				PartPose.offsetAndRotation(5.0F, 1.0F, -1.0F, 0.0F, 0.0F, 0.0F));
@@ -122,8 +122,8 @@ final class BeastGeo {
 				.texOffs(98, 104).addBox(1.3F, 0.0F, -5.5F, 1.0F, 1.0F, 1.0F),
 				PartPose.offsetAndRotation(0.0F, 4.5F, 0.0F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("eyeR", CubeListBuilder.create()
-				.texOffs(6, 104).addBox(-1.0F, -1.0F, -0.6F, 2.0F, 2.0F, 1.0F),
-				PartPose.offsetAndRotation(-3.4F, -2.5F, -5.0F, 0.0F, 0.0F, 0.0F));
+				.texOffs(6, 104).addBox(-1.0F, -1.0F, -0.5F, 2.0F, 2.0F, 1.0F),
+				PartPose.offsetAndRotation(-3.5F, -2.0F, -5.55F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("cheekR", CubeListBuilder.create()
 				.texOffs(96, 65).addBox(-1.0F, -3.0F, -3.0F, 2.0F, 6.0F, 6.0F),
 				PartPose.offsetAndRotation(-5.0F, 1.0F, -1.0F, 0.0F, 0.0F, 0.0F));

@@ -63,12 +63,12 @@ final class GorillaGeo {
 				PartPose.offsetAndRotation(0.0F, -17.0F, -3.0F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("jaw", CubeListBuilder.create()
 				.texOffs(46, 73).addBox(-3.0F, 0.0F, -5.0F, 6.0F, 3.0F, 6.0F)
-				.texOffs(76, 90).addBox(1.2F, -0.6F, -4.6F, 1.0F, 1.0F, 1.0F)
-				.texOffs(80, 90).addBox(-2.2F, -0.6F, -4.6F, 1.0F, 1.0F, 1.0F),
+				.texOffs(80, 90).addBox(1.2F, -0.6F, -4.6F, 1.0F, 1.0F, 1.0F)
+				.texOffs(84, 90).addBox(-2.2F, -0.6F, -4.6F, 1.0F, 1.0F, 1.0F),
 				PartPose.offsetAndRotation(0.0F, 2.0F, -3.0F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("eyeL", CubeListBuilder.create()
-				.texOffs(64, 90).addBox(-1.0F, -1.0F, -0.4F, 2.0F, 2.0F, 1.0F),
-				PartPose.offsetAndRotation(1.7F, -2.0F, -8.0F, 0.0F, 0.0F, 0.0F));
+				.texOffs(64, 90).addBox(-1.5F, -1.0F, -0.5F, 3.0F, 2.0F, 1.0F),
+				PartPose.offsetAndRotation(2.5F, -2.0F, -8.52F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("earL", CubeListBuilder.create()
 				.texOffs(32, 90).addBox(-0.5F, -1.0F, -1.0F, 1.0F, 2.0F, 2.0F),
 				PartPose.offsetAndRotation(4.5F, -2.0F, -2.0F, 0.0F, 0.0F, 0.0F));
@@ -99,8 +99,8 @@ final class GorillaGeo {
 				.texOffs(18, 61).addBox(-2.5F, 0.5F, -6.0F, 5.0F, 2.0F, 8.0F),
 				PartPose.offsetAndRotation(0.0F, 6.0F, 0.0F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("eyeR", CubeListBuilder.create()
-				.texOffs(70, 90).addBox(-1.0F, -1.0F, -0.4F, 2.0F, 2.0F, 1.0F),
-				PartPose.offsetAndRotation(-1.7F, -2.0F, -8.0F, 0.0F, 0.0F, 0.0F));
+				.texOffs(72, 90).addBox(-1.5F, -1.0F, -0.5F, 3.0F, 2.0F, 1.0F),
+				PartPose.offsetAndRotation(-2.5F, -2.0F, -8.52F, 0.0F, 0.0F, 0.0F));
 		p_head.addOrReplaceChild("earR", CubeListBuilder.create()
 				.texOffs(44, 90).addBox(-0.5F, -1.0F, -1.0F, 1.0F, 2.0F, 2.0F),
 				PartPose.offsetAndRotation(-4.5F, -2.0F, -2.0F, 0.0F, 0.0F, 0.0F));

@@ -31,6 +31,14 @@ public final class LandArt {
 	private static BearModel bear;
 	private static MouseModel mouse;
 
+	/**
+	 * Fix2: whole-model scale per form (geometry, so the pixel art stays crisp). The bear is 22% bigger (about 1.7 blocks to the top of
+	 * the hump, 2.4 long), matching its 1.5 x 1.7 body box.
+	 */
+	static float size(BeastForm f) {
+		return f == BeastForm.BEAR ? 1.22f : 1f;
+	}
+
 	public static boolean handles(BeastForm f) {
 		return f == BeastForm.WOLF || f == BeastForm.CHEETAH || f == BeastForm.TIGER || f == BeastForm.BEAR || f == BeastForm.MOUSE;
 	}
@@ -87,7 +95,8 @@ public final class LandArt {
 			pose.scale(mo[0], mo[0], mo[0]);
 		}
 		// friendly (+Y up, +Z front) -> vanilla model space (Y down, front -Z); ModelPart divides by 16, so 0.5 makes 1 unit 1/32 block
-		pose.scale(0.5f, -0.5f, -0.5f);
+		float sc = 0.5f * size(form);
+		pose.scale(sc, -sc, -sc);
 		m.render(pose, buffers.getBuffer(a < 250 ? RenderType.entityTranslucent(tex) : RenderType.entityCutoutNoCull(tex)), light, overlay, color);
 		if (mo[1] > 0.003f) {
 			float k = Math.min(1f, mo[1]) * a / 255f;
