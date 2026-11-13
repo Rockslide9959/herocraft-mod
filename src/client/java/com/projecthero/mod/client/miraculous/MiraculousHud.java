@@ -2,7 +2,8 @@ package com.projecthero.mod.client.miraculous;
 
 import java.util.List;
 
-import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.miraculous.Kwami;
 import com.projecthero.mod.miraculous.KwamiKit;
@@ -16,54 +17,48 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
-
-import org.lwjgl.glfw.GLFW;
 
 /**
- * v0.16.6: the Miraculous HUD (bottom-right), in the black-and-gray "mono" style of the reworked powers (like
- * {@code GhostRiderHud}):
+ * v0.16.6: the Miraculous HUD (bottom-right). v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ...
+ * apply this to all the powers"): drawn from the game's own pieces on the shared column ({@link VanillaHud.Stack}):
  * <pre>
- *   Tikki is hungry -- feed her cookies        (when hungry; wrapped to the box row's width)
- *   Ladybug                                    the hero (v0.16.6: no mm:ss -- the spots below are the countdown)
- *   o o o o o                                  five jewel spots in the hero's colour, one blinks out per minute
- *   [R] [G] [Z] [X] [C] [V]                    the six keys (the longer cooldown of each key's plain and Shift move;
- *                                              lit while that key's move runs); dimmed while detransformed
+ *   Tikki is hungry -- feed her cookies        (when hungry / detransformed: wrapped to the column's width)
+ *   Ladybug                                    the hero (grey while detransformed)
+ *   Multitude [boss bar ======---]  3/5        a kit's own rows ({@link Panel#rows}: Multimouse, Viperion)
+ *   Spots [boss bar ==========]  5/5           the jewel's five spots: one blinks out per minute (the value flashes red)
+ *   +--+--+--+--+--+--+                        R G Z X C V: the shown move's cooldown (the Shift move's while Shift is held,
+ *   |R |G |Z |X |C |V |                        yellow keys), the other move's as the durability bar; the selection frame
+ *   +--+--+--+--+--+--+                        while that key's move runs; grey keys while detransformed
  * </pre>
- * Shown whenever the power is held. Detransformed and fed, a gray hint gives the transformation phrase. Hold Left-Alt
- * for the move names ({@code projecthero.miraculous.ability.<id>}). Also draws the short full-screen flash the holder
- * sees at the transformation's flash and on detransforming.
+ * Shown whenever the power is held. Hold Left-Alt for the move names ({@code projecthero.miraculous.ability.<id>}). Also draws
+ * the short full-screen flash the holder sees at the transformation's flash and on detransforming, and the Shift+N take-off bar.
  */
 public final class MiraculousHud {
-	private static final int BOX = 20;
-	private static final int GAP = 2;
-	private static final int MARGIN = 4;
-
-	private static final int BOX_BG = 0xD0080808;
-	private static final int BOX_BG_DIM = 0x80080808;
-	private static final int BORDER = 0xFF4A4A4A;
-	private static final int KEY = 0xFFB4B4B4;
-	private static final int KEY_DIM = 0xFF5A5A5A;
-	private static final int NAME = 0xFFE2E2E2;
-	private static final int HINT = 0xFF9A9A9A;
-	private static final int COOLDOWN = 0xB0000000;
-	private static final int SPOT_OFF = 0xFF2A2A2A;
-
 	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5). */
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
+	private static final AbilitySlot[] SLOTS = VanillaHud.ORDER;
+
+	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
 
 	private MiraculousHud() {
 	}
 
 	/**
 	 * v0.16.7 (user): a kit's own panel (Viperion's Second Chance), stacked right above the HUD's title -- the same width as
-	 * the six boxes, so it reads as part of the ability HUD. Height 0 = nothing to show.
+	 * the HUD column, so it reads as part of the ability HUD. Height 0 = nothing to show.
 	 */
 	public interface Panel {
 		int height(net.minecraft.client.player.LocalPlayer player);
 
 		void draw(GuiGraphics g, Minecraft mc, int x, int y, int width, float partial);
+
+		/**
+		 * v0.17.3: the panel as rows on the vanilla-style column (meter rows, tags) -- returns true when it drew itself this way
+		 * (then {@link #height} / {@link #draw} are not used). The rows sit between the jewel's spots and the hero's name.
+		 */
+		default boolean rows(VanillaHud.Stack stack, net.minecraft.client.player.LocalPlayer player, float partial) {
+			return false;
+		}
 	}
 
 	private static final List<Panel> PANELS = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -75,15 +70,14 @@ public final class MiraculousHud {
 	/** v0.16.7 (user): 0..1 while Shift+N is held to take the Miraculous off (set by the client key handler). */
 	public static volatile float takeOffProgress;
 
-	/** The take-off bar: centred above the hotbar, the label over it, filling in the Kwami's colour. */
+	/** The take-off bar: centred above the hotbar, the label over it, a boss bar filling in the Kwami's colour. */
 	private static void takeOffBar(GuiGraphics g, Minecraft mc, Kwami k, float progress) {
-		int w = 100, h = 5;
+		int w = 100;
 		int x = (g.guiWidth() - w) / 2;
 		int y = g.guiHeight() - 62;
-		net.minecraft.network.chat.Component label = net.minecraft.network.chat.Component.translatable("message.projecthero.miraculous.take_off_bar");
-		g.drawString(mc.font, label, (g.guiWidth() - mc.font.width(label)) / 2, y - 11, 0xFFFFFFFF, true);
-		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xC0000000);
-		g.fill(x, y, x + Math.round(w * Math.min(1f, progress)), y + h, 0xFF000000 | (k.color & 0xFFFFFF));
+		Component label = Component.translatable("message.projecthero.miraculous.take_off_bar");
+		g.drawString(mc.font, label, (g.guiWidth() - mc.font.width(label)) / 2, y - 11, VanillaHud.WHITE, true);
+		VanillaHud.bar(g, x, y, w, Math.min(1f, progress), k.color);
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
@@ -96,115 +90,95 @@ public final class MiraculousHud {
 		if (s == null || k == null) {
 			return;
 		}
+		float partial = delta.getGameTimeDeltaPartialTick(false);
 		if (takeOffProgress > 0f) {
 			takeOffBar(g, mc, k, takeOffProgress);
 		}
-		flash(g, mc, s, k, delta.getGameTimeDeltaPartialTick(false));
+		flash(g, mc, s, k, partial);
 		var exp = mc.player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
 		}
 		long now = mc.level.getGameTime();
 		boolean on = s.transformed;
+		boolean shift = forceShift || mc.player.isShiftKeyDown();
 		KwamiKit kit = MiraculousKits.of(k);
 		int accent = k.color;
-		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX;
+		VanillaHud.Stack stack = VanillaHud.Stack.bottomRight(g, SLOTS.length);
 
-		// the jewel's five spots
+		// the six keys
+		stack.keys(SLOTS.length);
+		for (int i = 0; i < SLOTS.length; i++) {
+			AbilitySlot slot = SLOTS[i];
+			String[] ids = kit.idsOf(slot);
+			if (ids.length == 0) {
+				continue;
+			}
+			boolean showShift = shift && ids.length > 1;
+			String shown = ids[showShift ? 1 : 0];
+			String other = ids.length > 1 ? ids[showShift ? 0 : 1] : null;
+			int cd = Miraculous.cooldownRemaining(mc.player, shown);
+			float frac = Math.min(1f, cd / (float) Math.max(1, kit.maxCooldown(shown)));
+			float otherFrac = other == null ? 0f
+					: Math.min(1f, Miraculous.cooldownRemaining(mc.player, other) / (float) Math.max(1, kit.maxCooldown(other)));
+			boolean active = on && kit.active(mc.player, slot);
+			stack.slot(i, VanillaHud.keyLabel(slot), on, showShift, frac, VanillaHud.seconds(cd), otherFrac, active);
+		}
+
+		// the jewel's five spots: a Spots row, one spot gone per minute of the countdown, the last one blinking
 		int left = Miraculous.countdownLeft(mc.player);
 		int spots = left > 0 ? (left + MiraculousConfig.COUNTDOWN_SPOT_TICKS - 1) / MiraculousConfig.COUNTDOWN_SPOT_TICKS : 5;
 		boolean blink = left > 0 && (left <= 200 ? (now / 4) % 2 == 0 : (left % MiraculousConfig.COUNTDOWN_SPOT_TICKS) < 100 && (now / 6) % 2 == 0);
-		int sy = y0 - 7;
-		for (int i = 0; i < 5; i++) {
-			int sx = x0 + i * 7;
-			int c = i < spots ? accent : SPOT_OFF;
-			if (i == spots - 1 && blink) {
-				c = SPOT_OFF;
+		float spotFrac = left > 0 ? Math.min(1f, left / (float) (5 * MiraculousConfig.COUNTDOWN_SPOT_TICKS)) : 1f;
+		int spotText = !on ? VanillaHud.GREY : blink ? VanillaHud.RED : VanillaHud.WHITE;
+		stack.meter(Component.translatable("hud.projecthero.miraculous.spots"), spotFrac, on ? accent : 0xAAAAAA, spots + "/5", spotText);
+
+		// v0.16.7 (user): a kit's own panel (Viperion's Second Chance, Multimouse's Multitude)
+		for (Panel panel : PANELS) {
+			if (panel.rows(stack, mc.player, partial)) {
+				continue;
 			}
-			if (!on && c != SPOT_OFF) {
-				c = (c & 0x00FFFFFF) | 0x70000000;
+			int h = panel.height(mc.player);
+			if (h > 0) {
+				stack.reserve(h + 4);
+				panel.draw(g, mc, stack.x0, stack.top(), stack.width, partial);
 			}
-			g.fill(sx + 1, sy, sx + 4, sy + 5, c);
-			g.fill(sx, sy + 1, sx + 5, sy + 4, c);
 		}
 
-		// title (v0.16.6, user: no mm:ss -- the five spots show the countdown)
-		int ty = sy - 11;
-		g.drawString(mc.font, Component.translatable("projecthero.hero_tier." + k.heroKey), x0, ty, on ? NAME : HINT, false);
+		// the hero (v0.16.6, user: no mm:ss -- the spots show the countdown)
+		stack.title(Component.translatable("projecthero.hero_tier." + k.heroKey), on ? VanillaHud.WHITE : VanillaHud.GREY);
 
-		// hungry / the phrase to say (wrapped to the row's width)
+		// hungry / the phrase to say (wrapped to the column's width)
 		Component note = null;
-		int noteColour = HINT;
+		int noteColour = VanillaHud.GREY;
 		int eatLeft = Miraculous.eatingSecondsLeft(mc.player);
 		if (eatLeft > 0) {
 			note = Component.translatable("hud.projecthero.miraculous.eating", Component.translatable("entity.projecthero.kwami." + k.id)); // v0.16.7 (user): no countdown
-			noteColour = 0xFF9BE57A;
+			noteColour = VanillaHud.GREEN;
 		} else if (!on && s.kwamiHidden) {
 			note = Component.translatable("hud.projecthero.miraculous.hidden", Component.translatable("entity.projecthero.kwami." + k.id));
 		} else if (s.hungry) {
 			note = Component.translatable("hud.projecthero.miraculous.hungry." + k.id);
-			noteColour = 0xFFFFB347;
+			noteColour = VanillaHud.GOLD;
 		} else if (!on) {
 			note = Component.translatable("hud.projecthero.miraculous.say", MiraculousPhrases.transformPhrase(k));
 		}
 		if (note != null) {
-			List<FormattedCharSequence> lines = mc.font.split(note, totalW);
-			int ny = ty - 2 - lines.size() * 9;
-			for (FormattedCharSequence line : lines) {
-				g.drawString(mc.font, line, x0, ny, noteColour, false);
-				ny += 9;
-			}
+			stack.wrapped(note, noteColour);
 		}
 
-		// v0.16.6: Left-Alt -> the shared move list, stacked above the whole HUD (title / note included)
-		int hudTop = ty;
-		if (note != null) {
-			hudTop = ty - 2 - mc.font.split(note, totalW).size() * 9;
-		}
-		for (Panel panel : PANELS) {
-			int h = panel.height(mc.player);
-			if (h > 0) {
-				hudTop -= h + 4;
-				panel.draw(g, mc, x0, hudTop, totalW, delta.getGameTimeDeltaPartialTick(false));
-			}
-		}
-		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
-			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the whole HUD
+		if (MoveListOverlay.held()) {
+			List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = kit.idsOf(slot);
 				if (ids.length == 0) {
 					continue;
 				}
-				rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(keyLabel(slot),
-						Component.translatable("projecthero.miraculous.ability." + ids[0]),
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.miraculous.ability." + ids[0]),
 						ids.length > 1 ? Component.translatable("projecthero.miraculous.ability." + ids[1]) : null));
 			}
-			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, hudTop, rows);
-		}
-		for (int i = 0; i < SLOTS.length; i++) {
-			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
-			String[] ids = kit.idsOf(slot);
-			int cd = 0;
-			int max = 1;
-			for (String id : ids) {
-				int c = Miraculous.cooldownRemaining(mc.player, id);
-				if (c > cd) {
-					cd = c;
-					max = Math.max(1, kit.maxCooldown(id));
-				}
-			}
-			boolean active = on && kit.active(mc.player, slot);
-			g.fill(x, y0, x + BOX, y0 + BOX, on ? BOX_BG : BOX_BG_DIM);
-			g.renderOutline(x, y0, BOX, BOX, active ? (accent | 0xFF000000) : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, on ? KEY : KEY_DIM, false);
-			if (cd > 0) {
-				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
+			stack.moveList(rows);
 		}
 	}
 
@@ -229,10 +203,5 @@ public final class MiraculousHud {
 		int gg = 255 - ((255 - ((rgb >> 8) & 0xFF)) / 3);
 		int b = 255 - ((255 - (rgb & 0xFF)) / 3);
 		g.fill(0, 0, g.guiWidth(), g.guiHeight(), (alpha << 24) | (r << 16) | (gg << 8) | b);
-	}
-
-	private static String keyLabel(AbilitySlot slot) {
-		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
-		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 }
