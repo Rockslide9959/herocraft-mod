@@ -343,6 +343,50 @@ public final class RavenRevampHarness {
 
 	private static void script(Minecraft mc) {
 		int t = 20;
+		// ------------------------------------------------ wheel v2 layout proof: window sizes and GUI scales (flag "wv2")
+		t = scene(mc, t, "wv2", 260, s -> {
+			raven(mc, s, 0f, 70f);
+			cam(s + 1, 160f, 0.3f, 3.0f, 0f, 1.2f);
+			view(mc, s + 2, true);
+			act(mc, s + 4, p -> {
+				Raven.setEnergy(p, 100f);
+				System.out.println("[HARNESS] veil " + RavenSpells.cast(p, RavenSpell.SHADOW_VEIL, false) + " pull "
+						+ RavenSpells.cast(p, RavenSpell.TELEKINETIC_PULL, false));
+				Raven.setEnergy(p, 100f);
+			});
+			int[][] cfg = { { 854, 480, 0 }, { 854, 480, 1 }, { 1920, 1080, 0 }, { 1920, 1080, 2 }, { 1920, 1080, 3 } };
+			String[] tagName = { "854x480_auto", "854x480_gui1", "1920x1080_auto", "1920x1080_gui2", "1920x1080_gui3" };
+			for (int i = 0; i < cfg.length; i++) {
+				int b = s + 10 + i * 40;
+				int[] c = cfg[i];
+				String nm = tagName[i];
+				at(b, () -> {
+					org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), c[0], c[1]);
+					mc.options.guiScale().set(c[2]);
+				});
+				at(b + 4, () -> {
+					mc.resizeDisplay();
+					RavenSpellWheelScreen.stayOpen = true;
+					RavenSpellWheelScreen.forceHover = 3;
+					if (!(mc.screen instanceof RavenSpellWheelScreen)) {
+						mc.setScreen(new RavenSpellWheelScreen());
+					}
+					System.out.println("[HARNESS] wv2 " + nm + " fb=" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight()
+							+ " gui=" + mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight());
+				});
+				record(b + 12, "wheel_v2_" + nm + "_combat", 2);
+				at(b + 18, () -> RavenSpellWheelScreen.forceHover = 8);
+				record(b + 26, "wheel_v2_" + nm + "_utility", 2);
+			}
+			at(s + 10 + cfg.length * 40, () -> {
+				RavenSpellWheelScreen.stayOpen = false;
+				RavenSpellWheelScreen.forceHover = -1;
+				mc.setScreen(null);
+				System.out.println("[HARNESS] wv2 hud after close hidden=" + mc.options.hideGui);
+				mc.options.guiScale().set(0);
+				org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+			});
+		});
 		// ------------------------------------------------ the wheel and the HUD
 		t = scene(mc, t, "wheel", 34, s -> {
 			raven(mc, s, 0f, 70f);
