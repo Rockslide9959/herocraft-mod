@@ -1,8 +1,12 @@
 package com.projecthero.mod.client.omnitrix.sequence;
 
+import java.util.List;
+import java.util.Map;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixLongTransform;
@@ -14,6 +18,7 @@ import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -96,8 +101,8 @@ public final class CannonboltShow extends ShowSequenceClient {
 					{ 160.01f, 3.3f, 0f, 1.0f, 0.92f, 0f, 0f },
 					{ 213f, 3.05f, 0f, 1.0f, 0.95f, 0f, 0f },
 					// the stance, from low in front
-					{ 213.01f, 2.15f, 0f, 0.45f, 1.18f, 0f, 0f },
-					{ 257f, 2.0f, 0f, 0.45f, 1.2f, 0f, 0f } }));
+					{ 213.01f, 1.8f, 0f, 0.4f, 1.22f, 0f, 0f },
+					{ 257f, 1.65f, 0f, 0.4f, 1.26f, 0f, 0f } }));
 
 	public CannonboltShow() {
 		super(Aliens.CANNONBOLT.id());
@@ -126,6 +131,12 @@ public final class CannonboltShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"): the
+	 * torso turns through {@link ShowBody} (about the hips, the shoulders following, so nothing floats off), and the elbows and knees
+	 * bend ({@link BentLimbs}): the raised slap hand, the swelling hand lifted up at his face, the arms forced round the belly, the arms
+	 * tucked under the shell, and the show's squat stance with the arms flung up and out.
+	 */
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < TRANSFORM_AT) {
@@ -133,25 +144,20 @@ public final class CannonboltShow extends ShowSequenceClient {
 		} else {
 			cannonbolt(m, t);
 		}
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.jacket.copyFrom(m.body);
-			pm.rightPants.copyFrom(m.rightLeg);
-			pm.leftPants.copyFrom(m.leftLeg);
-		}
-		m.hat.copyFrom(m.head);
+		ShowBody.layers(m);
 	}
 
-	/** Ben: the slap, staring at the swelling hand, the belly pushing his arms out, the head tipped back over it. */
+	/** Ben: the slap, the swelling hand lifted to his face, the belly pushing his arms out round it, the head tipped back over it. */
 	private static void human(HumanoidModel<?> m, float t) {
 		if (t < HAND_AT) {
-			// the right hand thrown up high, open, then brought down onto the dial
+			// the right hand thrown up by his head, open, the elbow bent; then brought down onto the dial
 			float up = smooth(t / 2f) * (1f - smooth((t - 4f) / 2.5f));
 			float down = smooth((t - 4f) / 2.5f) * (1f - smooth((t - 16f) / 8f));
-			m.rightArm.xRot = Mth.lerp(up, m.rightArm.xRot, -2.75f);
-			m.rightArm.zRot = Mth.lerp(up, m.rightArm.zRot, 0.35f);
+			m.rightArm.xRot = Mth.lerp(up, m.rightArm.xRot, -0.4f);
+			m.rightArm.yRot = Mth.lerp(up, m.rightArm.yRot, 0f);
+			m.rightArm.zRot = Mth.lerp(up, m.rightArm.zRot, 2.5f);
 			rot(m.rightArm, down, -1.25f, -0.55f, 0.1f);
+			BentLimbs.bend(BentLimbs.RIGHT_ARM, 0.6f * up + 0.4f * down, 1.4f * up);
 			m.head.xRot = Mth.lerp(smooth(t / 3f), m.head.xRot, 0.35f);
 			if (t >= FOREARM_AT) {
 				float shake = smooth((t - FOREARM_AT) / 6f);
@@ -161,46 +167,45 @@ public final class CannonboltShow extends ShowSequenceClient {
 			return;
 		}
 		float tremble = Mth.sin(t * 3.3f) * 0.04f;
-		if (t < BELLY_AT) {
-			// the swelling hand held out toward the camera, Ben staring down at it; the other arm flung back
-			float w = smooth((t - HAND_AT) / 6f);
-			rot(m.leftArm, w, -1.05f + tremble, 0.25f, -0.1f);
-			rot(m.rightArm, w, 0.35f, 0f, 0.55f + tremble);
-			rot(m.head, w, 0.45f, -0.35f, 0f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, -0.08f);
-			m.body.yRot = Mth.lerp(w, m.body.yRot, -0.12f);
-			return;
-		}
-		// the belly: arms forced out round it, head thrown back over the top
-		float w = smooth((t - BELLY_AT) / 10f);
-		rot(m.leftArm, w, -0.35f + tremble, 0f, -1.05f);
-		rot(m.rightArm, w, -0.35f - tremble, 0f, 1.05f);
-		rot(m.head, w, t < FACE_AT ? -0.25f : -0.15f, 0f, 0f);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, -0.12f);
-		m.body.yRot = Mth.lerp(w, m.body.yRot, 0f);
-		rot(m.rightLeg, w, 0f, 0f, 0.22f);
-		rot(m.leftLeg, w, 0f, 0f, -0.22f);
+		float h = smooth((t - HAND_AT) / 6f), b = smooth((t - BELLY_AT) / 10f);
+		// the swelling hand lifted up toward the camera, Ben staring at it; the other arm flung back
+		rot(m.leftArm, h, -0.75f + tremble, 0f, -0.45f);
+		rot(m.rightArm, h, 0.45f, 0f, 0.6f + tremble);
+		rot(m.head, h, 0.5f, -0.3f, 0.06f);
+		// the belly: the arms forced out round it, the forearms hugging its sides; the head thrown back over the top
+		rot(m.leftArm, b, -0.5f + tremble, 0.35f, -1.0f);
+		rot(m.rightArm, b, -0.5f - tremble, -0.35f, 1.0f);
+		rot(m.head, b, t < FACE_AT ? -0.3f : -0.18f, 0f, 0f);
+		rot(m.rightLeg, b, -0.1f, 0f, 0.25f);
+		rot(m.leftLeg, b, -0.1f, 0f, -0.25f);
+		ShowBody.twist(m, Mth.lerp(b, -0.12f * h, 0f));
+		ShowBody.lean(m, Mth.lerp(b, -0.08f * h, -0.12f));
+		BentLimbs.bend(BentLimbs.LEFT_ARM, Mth.lerp(b, 0.9f * h, 1.4f), Mth.lerp(b, 0.15f * h, 0f));
+		BentLimbs.bend(BentLimbs.RIGHT_ARM, Mth.lerp(b, 0.5f * h, 1.4f), 0f);
+		BentLimbs.bend(BentLimbs.RIGHT_LEG, 0.35f * b, 0.5f * b);
+		BentLimbs.bend(BentLimbs.LEFT_LEG, 0.35f * b, -0.5f * b);
 	}
 
-	/** Cannonbolt: hunched under his new shell, the face shots, then the arms-wide stance. */
+	/** Right arm {x, y, z, elbow, twist}, right leg {x, y, z, knee, twist}, head x, lean, drop (px): tucked under the shell, and the stance. */
+	private static final float[] TUCK = { -0.35f, 0.1f, 0.35f, 1.9f, -0.45f, -0.2f, 0f, 0.3f, 0.35f, 1.57f, -0.12f, 0.3f, 0.6f },
+			STANCE = { -0.5f, 0.15f, 1.8f, 0.5f, 1.57f, -0.3f, 0f, 0.7f, 0.75f, 1.57f, -0.32f, 0.22f, 2f };
+
+	/** Cannonbolt: hunched with his arms tucked in under the new shell (the face shots), then the squat stance, arms flung up and out. */
 	private static void cannonbolt(HumanoidModel<?> m, float t) {
 		float breathe = Mth.sin(t * 0.25f) * 0.04f;
-		if (t < OPEN_END) {
-			// hunched, arms forward and out under the shell
-			rot(m.rightArm, 1f, -0.7f, 0f, 0.55f + breathe);
-			rot(m.leftArm, 1f, -0.7f, 0f, -0.55f - breathe);
-			m.body.xRot = 0.22f;
-			rot(m.rightLeg, 1f, -0.1f, 0f, 0.15f);
-			rot(m.leftLeg, 1f, 0.1f, 0f, -0.15f);
-			return;
+		float s = t < OPEN_END ? 0f : smooth((t - OPEN_END) / 4f);
+		float[] k = new float[TUCK.length];
+		for (int i = 0; i < k.length; i++) {
+			k[i] = Mth.lerp(s, TUCK[i], STANCE[i]);
 		}
-		// the stance: arms flung wide, claws forward, legs planted wide
-		float w = smooth((t - OPEN_END) / 3f);
-		rot(m.rightArm, w, -0.45f, -0.15f, 1.3f + breathe);
-		rot(m.leftArm, w, -0.45f, 0.15f, -1.3f - breathe);
-		rot(m.rightLeg, w, -0.05f, 0f, 0.4f);
-		rot(m.leftLeg, w, -0.05f, 0f, -0.4f);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, 0.12f);
+		ShowBody.reset(m, k[12]);
+		ShowBody.lean(m, k[11]);
+		m.head.xRot = k[10] + breathe * 0.5f;
+		rot(m.rightArm, 1f, k[0], k[1], k[2] + breathe);
+		rot(m.leftArm, 1f, k[0], -k[1], -k[2] - breathe);
+		rot(m.rightLeg, 1f, k[5], k[6], k[7]);
+		rot(m.leftLeg, 1f, k[5], -k[6], -k[7]);
+		ShowBody.bend(k[3] + breathe, k[4], k[3] - breathe, -k[4], k[8], k[9], k[8], -k[9]);
 	}
 
 	@Override
@@ -226,6 +231,8 @@ public final class CannonboltShow extends ShowSequenceClient {
 	/** {bone (0 left arm, 1 body, 2 right arm), x, y, z (px), half-size (px), erupts at}: the hand ballooning, then the belly. */
 	private static final float[][] HAND = { { 0, 1f, 9.2f, 0f, 2.4f, 33 }, { 0, 1.4f, 8.6f, -1.2f, 2.6f, 37 }, { 0, 0.6f, 9.8f, 0.8f, 2.8f, 41 },
 			{ 0, 1f, 9.5f, 0f, 3.4f, 46 }, { 0, 1f, 7f, 0f, 2.8f, 50 }, { 0, 1f, 9.6f, -0.4f, 3.9f, 55 } };
+	/** A bone with no shape and no transform: lumps drawn in a pose already moved onto the forearm. */
+	private static final ModelPart[] HERE = { new ModelPart(List.of(), Map.of()) };
 	private static final float[][] BELLY = { { 1, 0f, 7.5f, -1.2f, 3.6f, 70 }, { 1, 0f, 6.5f, -1.4f, 4.4f, 75 }, { 1, 0f, 7f, -0.8f, 5f, 80 } };
 
 	@Override
@@ -234,7 +241,12 @@ public final class CannonboltShow extends ShowSequenceClient {
 			return;
 		}
 		ModelPart[] bones = { model.leftArm, model.body, model.rightArm };
-		SwellLumps.render(pose, buffers, bones, HAND, t, 7f, FLESH, null);
+		// the hand's lumps ride the bent forearm (they sit below the elbow)
+		boolean slim = p.getSkin().model() == PlayerSkin.Model.SLIM;
+		AlienParts.on(pose, model.leftArm, () -> {
+			BentLimbs.toForearm(pose, BentLimbs.LEFT_ARM, slim);
+			SwellLumps.render(pose, buffers, HERE, HAND, t, 7f, FLESH, null);
+		});
 		if (t >= BELLY_AT) {
 			SwellLumps.render(pose, buffers, bones, BELLY, t, 9f, SHIRT, null);
 		}
@@ -310,9 +322,61 @@ public final class CannonboltShow extends ShowSequenceClient {
 		// the orange dissolve the body changes under, thinning over the shell plates
 		ShowShots.flash(st, t, 0xD88A14, ORANGE_AT, 5f, TRANSFORM_AT + 2f, 12f, 0.92f);
 		ShowShots.flash(st, t, 0xD88A14, TRANSFORM_AT + 2f, 0.01f, PROFILE_AT - 2f, 3f, 0.35f);
+		spinStreaks(st, t);
 		// the white flash into the stance
 		ShowShots.flash(st, t, 0xFFFFFF, WHITE_AT, 1.5f, 215f, 11f, 1f);
 		ShowShots.greenOut(st, t, GREEN2_AT, WORLD_AT, total());
+	}
+
+	/**
+	 * v0.17.3 touch-up: the show's spinning ball is a blur of dark and gold streaks running round it with the spin. Drawn over the ball
+	 * (centred on screen, ~0.44 screen heights across at the ball shot's camera), thick while it spins hard, thinning out as it slows.
+	 */
+	private static void spinStreaks(Stage st, float t) {
+		if (t < BALL_AT + 1f || t >= SETTLE_AT + 2f) {
+			return;
+		}
+		float u = Mth.clamp((t - BALL_AT - 1f) / (SETTLE_AT + 2f - BALL_AT - 1f), 0f, 1f);
+		float speed = (1f - u) * (1f - u) * smooth((t - BALL_AT - 1f) / 3f);
+		if (speed < 0.03f) {
+			return;
+		}
+		float tilt = -0.55f * (1f - smooth((t - SETTLE_AT + 4f) / 6f));
+		VertexConsumer vc = st.flat();
+		PoseStack.Pose p = st.last();
+		float k = st.k(), r = 0.35f, cy = 0.01f;
+		// the surface runs top to bottom with the forward roll, tipped by the spin's tilt
+		float dx = -Mth.sin(tilt), dy = Mth.cos(tilt), px = dy, py = -dx;
+		for (int i = 0; i < 26; i++) {
+			long sd = 7700L + i * 13L;
+			float o = (ShowMath.hash(sd, 0) * 2f - 1f) * 0.85f * r;
+			float half = 0.9f * Mth.sqrt(Math.max(r * r - o * o, 0f));
+			// each streak is a lit run along its chord, sliding round with the spin
+			float len = 0.3f + 0.4f * ShowMath.hash(sd, 1);
+			float ph = (ShowMath.hash(sd, 2) + t * (0.08f + 0.05f * ShowMath.hash(sd, 3))) % 1f;
+			float s0 = -1f + 2f * ph - len, s1 = s0 + 2f * len;
+			s0 = Math.max(s0, -0.97f);
+			s1 = Math.min(s1, 0.97f);
+			if (s1 <= s0) {
+				continue;
+			}
+			boolean dark = i % 3 != 0;
+			int rgb = dark ? 0x3A2408 : 0xF6C850;
+			float th = (dark ? 0.007f : 0.005f) * (1f + ShowMath.hash(sd, 4));
+			float a = (dark ? 0.5f : 0.4f) * Math.min(1f, speed * 1.6f);
+			int n = 8;
+			for (int j = 0; j < n; j++) {
+				float sa = Mth.lerp(j / (float) n, s0, s1), sb = Mth.lerp((j + 1) / (float) n, s0, s1);
+				// bowed like a line of longitude on the ball
+				float ba = o * (1f - 0.18f * (1f - sa * sa)), bb = o * (1f - 0.18f * (1f - sb * sb));
+				float xa = px * ba + dx * sa * half, ya = cy + py * ba + dy * sa * half;
+				float xb = px * bb + dx * sb * half, yb = cy + py * bb + dy * sb * half;
+				st.put(vc, p, (xa - px * th) * k, ya - py * th, rgb, a);
+				st.put(vc, p, (xb - px * th) * k, yb - py * th, rgb, a);
+				st.put(vc, p, (xb + px * th) * k, yb + py * th, rgb, a);
+				st.put(vc, p, (xa + px * th) * k, ya + py * th, rgb, a);
+			}
+		}
 	}
 
 	/** A pointed almond (a cartoon eye) at {@code cx cy}, {@code w} half-width and {@code h} half-height in screen heights, turned. */

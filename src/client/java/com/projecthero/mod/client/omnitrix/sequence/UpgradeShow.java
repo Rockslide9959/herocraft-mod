@@ -130,10 +130,27 @@ public final class UpgradeShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"): the
+	 * slap hand goes up open by his head (elbow bent) the way the show opens; the seizing arch and its shudder now turn the torso about
+	 * the hips ({@link ShowBody}: the shoulders follow, nothing floats off the legs). The arms stay straight while the shell boxes close
+	 * over them (a box per bone). Upgrade's stance bends: elbows and knees soft and out, low and wide.
+	 */
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		m.head.yRot = 0f;
 		if (t < TRANSFORM_AT) {
+			if (t < FOREARM_AT) {
+				// the right hand thrown up open beside his head, then slapped down onto the dial
+				float up = smooth(t / 1.5f) * (1f - smooth((t - 3f) / 2.5f));
+				float down = smooth((t - 3f) / 2.5f) * (1f - smooth((t - 14f) / 8f));
+				m.rightArm.xRot = Mth.lerp(up, m.rightArm.xRot, -0.4f);
+				m.rightArm.yRot = Mth.lerp(up, m.rightArm.yRot, 0f);
+				m.rightArm.zRot = Mth.lerp(up, m.rightArm.zRot, 2.5f);
+				rot(m.rightArm, down, -1.25f, -0.55f, 0.1f);
+				BentLimbs.bend(BentLimbs.RIGHT_ARM, 0.6f * up + 0.4f * down, 1.4f * up);
+				m.head.xRot = Mth.lerp(smooth(t / 3f), m.head.xRot, 0.3f);
+			}
 			float shake = smooth((t - FOREARM_AT) / 30f);
 			if (t >= CHEST_AT) {
 				// the body seizing as the metal closes over it: arms forced down and out, the chest arched, the head thrown back
@@ -142,39 +159,29 @@ public final class UpgradeShow extends ShowSequenceClient {
 				rot(m.rightArm, w, 0.12f + 0.04f * Mth.sin(t * 2.9f), 0f, 0.55f);
 				float back = t < BELOW_AT ? 0f : smooth((t - BELOW_AT) / 10f);
 				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.1f - 0.3f * back + 0.04f * Mth.sin(t * 2.4f));
-				m.body.xRot = Mth.lerp(w, m.body.xRot, -0.06f - 0.08f * back);
+				ShowBody.lean(m, Mth.lerp(w, m.body.xRot, -0.06f - 0.1f * back));
 				rot(m.rightLeg, w, 0f, 0f, 0.12f);
 				rot(m.leftLeg, w, 0f, 0f, -0.12f);
-				if (m instanceof PlayerModel<?> pm) {
-					pm.rightPants.copyFrom(m.rightLeg);
-					pm.leftPants.copyFrom(m.leftLeg);
-				}
 			}
 			if (shake > 0f) {
 				m.leftArm.zRot += 0.035f * shake * Mth.cos(t * 3.7f);
 				m.rightArm.zRot += 0.035f * shake * Mth.cos(t * 3.1f + 1f);
-				m.body.zRot = 0.02f * shake * Mth.sin(t * 2.3f);
+				ShowBody.tilt(m, 0.02f * shake * Mth.sin(t * 2.3f));
 			}
 		} else {
-			// Upgrade's stance: legs wide, the arms hanging out from his sides, a slow liquid sway
+			// Upgrade's stance: low and wide, the knees soft and out, the arms hanging out from his sides with the elbows bowed, a slow
+			// liquid sway
 			float breathe = Mth.sin(t * 0.3f) * 0.05f;
-			rot(m.rightArm, 1f, -0.18f, 0f, 0.62f + breathe);
-			rot(m.leftArm, 1f, -0.18f, 0f, -0.62f - breathe);
-			rot(m.rightLeg, 1f, 0f, 0f, 0.26f);
-			rot(m.leftLeg, 1f, 0f, 0f, -0.26f);
+			ShowBody.reset(m, 1.5f);
+			ShowBody.lean(m, 0.08f);
+			rot(m.rightArm, 1f, -0.15f, 0f, 0.75f + breathe);
+			rot(m.leftArm, 1f, -0.15f, 0f, -0.75f - breathe);
+			rot(m.rightLeg, 1f, -0.12f, 0f, 0.32f);
+			rot(m.leftLeg, 1f, -0.12f, 0f, -0.32f);
 			rot(m.head, 1f, Mth.lerp(smooth((t - REVEAL_AT) / 14f), -0.25f, 0.05f), 0f, 0f);
-			m.body.xRot = 0.06f;
-			if (m instanceof PlayerModel<?> pm) {
-				pm.rightPants.copyFrom(m.rightLeg);
-				pm.leftPants.copyFrom(m.leftLeg);
-			}
+			ShowBody.bend(0.75f + breathe, -1.57f, 0.75f - breathe, 1.57f, 0.32f, 1.57f, 0.32f, -1.57f);
 		}
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.jacket.copyFrom(m.body);
-		}
-		m.hat.copyFrom(m.head);
+		ShowBody.layers(m);
 	}
 
 	// ================================================================ the black shell and its circuits
@@ -211,7 +218,7 @@ public final class UpgradeShow extends ShowSequenceClient {
 		// the round eye opening on the face
 		float eye = smooth((t - EYE_AT + 1f) / 5f);
 		if (eye > 0f) {
-			AlienParts.on(pose, model.head, () -> ring(pose, solid, 0f, -4.4f, -4.7f, 2.7f * eye, 0.75f, LIME, light));
+			AlienParts.on(pose, model.head, () -> ring(pose, solid, 0f, -4.4f, -4.7f, eyeR(eye), 0.6f * Math.min(1f, eye * 3f), LIME, light));
 		}
 		// the circuits' glow
 		VertexConsumer glow = buffers.getBuffer(RenderType.eyes(WHITE));
@@ -229,7 +236,7 @@ public final class UpgradeShow extends ShowSequenceClient {
 					1.1f));
 		}
 		if (eye > 0f) {
-			AlienParts.on(pose, model.head, () -> ring(pose, glow, 0f, -4.4f, -4.75f, 2.7f * eye, 1.6f, 0xFF5A9A20, LightTexture.FULL_BRIGHT));
+			AlienParts.on(pose, model.head, () -> ring(pose, glow, 0f, -4.4f, -4.75f, eyeR(eye), 1.2f * Math.min(1f, eye * 3f), 0xFF5A9A20, LightTexture.FULL_BRIGHT));
 		}
 	}
 
@@ -288,6 +295,11 @@ public final class UpgradeShow extends ShowSequenceClient {
 			case 2 -> AlienParts.box(pose, vc, b[0] - lift - 0.02f, va, ua, b[0] - lift, vb, ub, 0f, 0f, 1f, 1f, argb, light);
 			default -> AlienParts.box(pose, vc, b[3] + lift, va, ua, b[3] + lift + 0.02f, vb, ub, 0f, 0f, 1f, 1f, argb, light);
 		}
+	}
+
+	/** v0.17.3 touch-up: the eye opens as a thin ring growing out from a small one (it was a solid blob while small), like the show's. */
+	private static float eyeR(float eye) {
+		return 2.7f * (0.35f + 0.65f * eye);
 	}
 
 	/** A flat ring facing forward (-z) at {@code cx cy}, plane {@code z}: radius {@code r}, {@code w} thick. */
