@@ -116,6 +116,32 @@ public final class StinkflyShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"):
+	 * after the change Stinkfly runs on a keyframed pose track ({@link FourArmsShow.Track}) with bent elbows and knees
+	 * ({@link BentLimbs}), every part from its rest place ({@link Xlr8Show#apply}) -- the old T-pose became the show's insect
+	 * shape: the arms out with the forearms hanging off bent elbows, the legs drawn up and dangling from bent knees -- and his
+	 * wings open ({@link #wingOpen}) instead of staying folded down his back through the whole sequence.
+	 */
+	static final FourArmsShow.Track POSE = new FourArmsShow.Track()
+			// ---- low on the torso, glowing: the insect arms flung out, the legs kicking out, the wings bursting up behind
+			.at(TRANSFORM_AT).arms(-0.25f, 0f, 0.95f, 0.55f, -0.6f).legs(0f, 0f, 0.22f, 0.3f, 0.3f).head(-0.2f, 0f, 0f)
+			.at(153f).arms(-0.25f, 0f, 1.35f, 1.1f, -1.05f).legs(-0.2f, 0f, 0.36f, 0.8f, 0.5f).head(-0.3f, 0f, 0f)
+			.at(WINGS_AT + 6f).arms(-0.3f, 0f, 1.45f, 1.35f, -1.2f).legs(-0.28f, 0f, 0.4f, 0.95f, 0.55f).head(-0.34f, 0f, 0f)
+			.at(DARK_AT - 0.5f).hold()
+			// ---- the head close-ups: level, the arms easing in a little
+			.at(DARK_AT).arms(-0.25f, 0f, 1.3f, 1.2f, -1.15f).legs(-0.1f, 0f, 0.22f, 0.5f, 0.35f).head(0f, 0f, 0f)
+			.at(HOVER_AT - 0.5f).hold()
+			// ---- hovering (a cut): pitched forward a little and lifted; the upper arms out, forearms hanging off bent elbows, claws
+			// ready; the legs drawn up, the shins dangling off bent knees, a little apart
+			.at(HOVER_AT).drop(-2f).lean(0.2f).head(-0.42f, 0.1f, 0f)
+			.rArm(-0.2f, 0.15f, 1.45f, 1.35f, -1.25f).lArm(-0.28f, -0.15f, -1.4f, 1.42f, 1.3f)
+			.rLeg(-0.72f, 0f, 0.3f, 1.35f, 0.45f).lLeg(-0.5f, 0f, -0.26f, 1.15f, -0.4f)
+			.at(268f).rArm(-0.26f, 0.15f, 1.5f, 1.48f, -1.3f).lArm(-0.34f, -0.15f, -1.45f, 1.55f, 1.35f).head(-0.46f, 0.12f, 0f)
+			.rLeg(-0.8f, 0f, 0.32f, 1.45f, 0.45f).lLeg(-0.58f, 0f, -0.28f, 1.25f, -0.4f)
+			.at(GREEN2_AT + 4f).hold()
+			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.05f, 0f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < TRANSFORM_AT) {
@@ -129,39 +155,25 @@ public final class StinkflyShow extends ShowSequenceClient {
 			m.hat.copyFrom(m.head);
 			return;
 		}
-		float buzz = Mth.sin(t * 2.4f) * 0.02f;
-		if (t < DARK_AT) {
-			// the insect arms flung out, low and wide, trembling as the wings burst
-			float w = smooth((t - TRANSFORM_AT) / 6f);
-			rot(m.rightArm, w, -0.35f + buzz, 0f, 1.15f);
-			rot(m.leftArm, w, -0.35f - buzz, 0f, -1.15f);
-			rot(m.rightLeg, w, 0f, 0f, 0.25f);
-			rot(m.leftLeg, w, 0f, 0f, -0.25f);
-			rot(m.head, w, -0.25f, 0f, 0f);
-		} else if (t < HOVER_AT) {
-			// the head close-ups: level, straight at the camera
-			rot(m.head, 1f, 0f, 0f, 0f);
-			rot(m.rightArm, 1f, -0.3f, 0f, 0.9f);
-			rot(m.leftArm, 1f, -0.3f, 0f, -0.9f);
-		} else {
-			// hovering: head up, the arms out wide and forward, claws ready, legs dangling apart, the body tipped forward a little
-			float w = smooth((t - HOVER_AT) / 4f);
-			float bob = Mth.sin(t * 0.35f) * 0.04f;
-			rot(m.rightArm, w, -0.75f + bob, 0.2f, 1.0f);
-			rot(m.leftArm, w, -0.75f - bob, -0.2f, -1.0f);
-			rot(m.rightLeg, w, 0.25f + bob, 0f, 0.35f);
-			rot(m.leftLeg, w, 0.35f - bob, 0f, -0.3f);
-			rot(m.head, w, -0.4f, 0.1f, 0f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, 0.22f);
+		// the insect buzz: a fast small tremble in the limbs, slower bob of the legs while hovering
+		float buzz = Mth.sin(t * 2.4f) * 0.025f;
+		float paddle = t >= HOVER_AT ? 0.1f * Mth.sin(t * 0.3f) : 0f;
+		float[] k = POSE.sample(t);
+		k[FourArmsShow.RL + 3] += paddle;
+		k[FourArmsShow.LL + 3] -= paddle;
+		Xlr8Show.apply(m, k, buzz, buzz * 2f, t < WORLD_AT);
+	}
+
+	/**
+	 * v0.17.3 touch-up: how far open his wings are while the show plays (from {@code StinkflyClient}, in place of the flying
+	 * flag, which is off through the sequence): folded until they burst open in the torso shot, then spread. Null when not playing.
+	 */
+	public static Float wingOpen(Player p, float partial) {
+		float t = OmnitrixSequenceClient.age(p, partial, Aliens.STINKFLY.id());
+		if (t < 0f || t >= WORLD_AT) {
+			return null;
 		}
-		if (m instanceof PlayerModel<?> pm) {
-			pm.rightSleeve.copyFrom(m.rightArm);
-			pm.leftSleeve.copyFrom(m.leftArm);
-			pm.rightPants.copyFrom(m.rightLeg);
-			pm.leftPants.copyFrom(m.leftLeg);
-			pm.jacket.copyFrom(m.body);
-		}
-		m.hat.copyFrom(m.head);
+		return smooth((t - WINGS_AT) / 5f);
 	}
 
 	// ================================================================ the hand (on the human body)
@@ -216,6 +228,9 @@ public final class StinkflyShow extends ShowSequenceClient {
 				orbs(st, t);
 				KirbyDots.draw(st, st.shotSeed(shot), t - FACE_AT, FACE_DOTS);
 			} else {
+				if (t >= WINGS_AT - 2f) {
+					wingFlare(st, t);
+				}
 				KirbyDots.draw(st, st.shotSeed(shot), t - ARM_AT, DOTS);
 			}
 		} else if (t < BADGE_AT) {
@@ -234,6 +249,40 @@ public final class StinkflyShow extends ShowSequenceClient {
 			float w = smooth((t - HOVER_AT) / 4f);
 			Xlr8Show.quad(st, st.flat(), st.last(), -0.25f, -1.5f, 0.35f, -1.5f, 0.12f, -0.25f, -0.02f, -0.22f, 0x061004, 0.9f * w);
 			KirbyDots.draw(st, st.shotSeed(shot) + 5, t - HOVER_AT, BURST_DOTS);
+		}
+	}
+
+	/**
+	 * v0.17.3 touch-up: the wings bursting open behind him in the torso shot -- the show's jagged pale yellow-white flares
+	 * shooting up and out from behind his shoulders (behind the body: the stage), each a long tapering spike that grows out
+	 * fast and then hangs, shimmering, until the cut.
+	 */
+	private static void wingFlare(Stage st, float t) {
+		float g = pop(t - WINGS_AT + 1f, 7f);
+		if (g <= 0.01f) {
+			return;
+		}
+		VertexConsumer vc = st.flat();
+		PoseStack.Pose p = st.last();
+		float k = st.k();
+		// {angle from straight up (radians, + to the right), length, root half width}
+		float[][] spikes = { { -0.55f, 1.25f, 0.09f }, { 0.55f, 1.3f, 0.09f }, { -1.05f, 1.0f, 0.07f }, { 1.0f, 1.05f, 0.07f }, { -0.2f, 0.8f, 0.05f },
+				{ 0.25f, 0.85f, 0.05f }, { -1.45f, 0.75f, 0.05f }, { 1.4f, 0.7f, 0.05f } };
+		for (int i = 0; i < spikes.length; i++) {
+			float ang = spikes[i][0] + 0.03f * Mth.sin(t * 0.8f + i * 1.3f);
+			float len = spikes[i][1] * g * (0.95f + 0.05f * Mth.sin(t * 1.1f + i)), w = spikes[i][2];
+			float dx = Mth.sin(ang) * k, dy = Mth.cos(ang), nx = Mth.cos(ang) * k, ny = -Mth.sin(ang);
+			float ox = dx * 0.12f, oy = 0.12f + dy * 0.12f;
+			float tx = ox + dx * len, ty = oy + dy * len;
+			// a soft yellow fringe, then the white-hot core
+			st.put(vc, p, ox + nx * w * 1.8f, oy + ny * w * 1.8f, 0xE8F870, 0f);
+			st.put(vc, p, ox, oy, 0xF4FF9A, 0.75f);
+			st.put(vc, p, tx, ty, 0xF4FF9A, 0.0f);
+			st.put(vc, p, ox - nx * w * 1.8f, oy - ny * w * 1.8f, 0xE8F870, 0f);
+			st.put(vc, p, ox + nx * w, oy + ny * w, 0xFFFFF0, 0.95f);
+			st.put(vc, p, tx, ty, 0xFFFFF0, 0.5f);
+			st.put(vc, p, tx, ty, 0xFFFFF0, 0.5f);
+			st.put(vc, p, ox - nx * w, oy - ny * w, 0xFFFFF0, 0.95f);
 		}
 	}
 

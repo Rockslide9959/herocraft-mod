@@ -2,6 +2,7 @@ package com.projecthero.mod.client.omnitrix.sequence;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.projecthero.mod.client.HipBend;
 import com.projecthero.mod.client.omnitrix.OmnitrixSequenceClient;
 import com.projecthero.mod.client.omnitrix.OmnitrixTransformFx;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -87,8 +88,8 @@ public final class Xlr8Show extends ShowSequenceClient {
 					{ 118f, 1.05f, 4f, 0.12f, 0.42f, 0f, 0f },
 					{ 128f, 0.95f, 4f, 0.2f, 1.0f, 0f, 0f },
 					// the claws, close, from behind his left
-					{ 128.01f, 0.62f, -148f, 1.0f, 0.82f, -0.38f, 0.05f },
-					{ 136f, 0.55f, -156f, 0.95f, 0.8f, -0.38f, 0.05f },
+					{ 128.01f, 1.15f, -150f, 1.0f, 0.8f, -0.3f, 0.05f },
+					{ 136f, 1.02f, -158f, 0.95f, 0.78f, -0.32f, 0.05f },
 					// the tail whipping past: behind, low, swung round fast to the chest
 					{ 136.01f, 0.75f, 178f, 0.7f, 0.75f, 0f, -0.3f },
 					{ 141f, 0.7f, 100f, 0.8f, 0.95f, 0f, -0.1f },
@@ -101,11 +102,11 @@ public final class Xlr8Show extends ShowSequenceClient {
 					{ 160.01f, 0.62f, 0f, 1.62f, 1.72f, 0f, 0f },
 					{ 176f, 0.55f, 0f, 1.62f, 1.72f, 0f, 0f },
 					// full body, the crouch, drifting round to his right
-					{ 176.01f, 1.85f, 12f, 0.5f, 0.85f, 0f, 0f },
-					{ 192f, 1.75f, 30f, 0.55f, 0.85f, 0f, 0f },
+					{ 176.01f, 1.9f, 10f, 0.42f, 0.78f, 0f, 0f },
+					{ 192f, 1.8f, 26f, 0.45f, 0.78f, 0f, 0f },
 					// side-on, the sprinter's lean
-					{ 192.01f, 1.75f, 48f, 0.45f, 0.8f, 0f, 0.15f },
-					{ WORLD_AT, 1.65f, 44f, 0.45f, 0.8f, 0f, 0.15f } }))
+					{ 192.01f, 2.1f, 48f, 0.95f, 0.8f, 0f, 0.05f },
+					{ WORLD_AT, 1.95f, 42f, 0.95f, 0.8f, 0f, 0.05f } }))
 			.linear(TAIL_AT, CHEST_AT).linear(WHIP2_AT, HEAD_AT);
 
 	public Xlr8Show() {
@@ -149,6 +150,40 @@ public final class Xlr8Show extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"):
+	 * XLR8's body runs on a keyframed pose track ({@link FourArmsShow.Track}: Catmull-Rom between keys, holds, snaps on the cuts),
+	 * with bent elbows and knees ({@link BentLimbs}) -- the claws curl, the crouch sits deep on bent knees, the sprint drives one
+	 * knee up and kicks the other shin up behind, the way the show draws him. Channels as in {@code FourArmsShow}.
+	 */
+	static final FourArmsShow.Track POSE = new FourArmsShow.Track()
+			// ---- XLR8's eye (the change): standing easy
+			.at(TRANSFORM_AT).arms(0f, 0f, 0.12f, 0.2f, 0f).legs(0f, 0f, 0.06f, 0.06f, 0f)
+			// ---- the legs glowing: planted a little apart, knees soft, the claws hanging ready
+			.at(LEGS_AT - 0.5f).hold()
+			.at(LEGS_AT).arms(0.05f, 0f, 0.28f, 0.45f, 0.2f).legs(0f, 0f, 0.11f, 0.16f, 0.15f)
+			.at(CLAW_AT - 0.5f).hold().arms(0.08f, 0f, 0.32f, 0.6f, 0.3f)
+			// ---- the claws, close from behind: the arms swing back and out, the claws curling forward
+			.at(CLAW_AT).arms(0.3f, 0f, 0.48f, 0.85f, 0.45f).head(-0.08f, 0f, 0f).lean(-0.04f)
+			.at(TAIL_AT).arms(0.55f, 0f, 0.7f, 1.35f, 0.7f).head(-0.14f, 0f, 0f)
+			// ---- the tail whipping past, the chest, the face: chest out, the claws held low and wide, curled
+			.at(CHEST_AT).arms(0.42f, 0f, 0.6f, 1.15f, 0.55f).head(-0.1f, 0f, 0f).lean(-0.06f)
+			.at(CROUCH_AT - 0.5f).hold().arms(0.35f, 0f, 0.55f, 1.0f, 0.45f).head(-0.06f, 0f, 0f)
+			// ---- the low crouch (a cut): down on deep bent knees, knees out; one claw up by his face, the other out wide
+			.at(CROUCH_AT).drop(3.2f).lean(0.3f).head(-0.5f, -0.12f, 0.05f)
+			.rArm(-1.3f, 0.35f, 0.7f, 1.55f, 0.55f).lArm(-0.4f, -0.2f, -1.05f, 1.25f, -0.55f)
+			.legs(-0.72f, 0f, 0.52f, 1.45f, 0.85f)
+			.at(181f).hold()
+			.at(RUN_AT - 0.5f).rArm(-1.4f, 0.4f, 0.75f, 1.7f, 0.6f).lArm(-0.5f, -0.25f, -1.15f, 1.35f, -0.6f).drop(3.5f).head(-0.55f, -0.12f, 0.05f)
+			// ---- the sprint (a cut): pitched forward, the front knee driven up, the back shin kicked up behind, claws forward
+			.at(RUN_AT).drop(1.6f).lean(0.62f).head(-0.78f, 0.1f, 0f)
+			.rArm(-0.75f, 0f, 0.25f, 1.25f, 0.3f).lArm(0.45f, 0f, -0.3f, 1.35f, -0.3f)
+			.rLeg(-0.9f, 0f, 0.14f, 1.25f, 0.1f).lLeg(0.85f, 0f, -0.12f, 1.35f, -0.1f)
+			.at(206f).rArm(-0.85f, 0f, 0.27f, 1.35f, 0.3f).lArm(0.5f, 0f, -0.32f, 1.45f, -0.3f).rLeg(-0.98f, 0f, 0.14f, 1.32f, 0.1f).lLeg(0.92f, 0f, -0.12f, 1.42f, -0.1f)
+			.at(GREEN2_AT + 4f).hold()
+			// eased to standing under the green flash
+			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.05f, 0f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < TRANSFORM_AT) {
@@ -162,70 +197,95 @@ public final class Xlr8Show extends ShowSequenceClient {
 			m.hat.copyFrom(m.head);
 			return;
 		}
+		float[] k = POSE.sample(t);
+		// a restless twitch in the claws (he never quite holds still), a breath in the chest
 		float breathe = Mth.sin(t * 0.3f) * 0.03f;
-		if (t < LEGS_AT) {
-			// the eye shot: still, the head level
-			rot(m.head, 1f, 0.05f, 0f, 0f);
-			rot(m.rightArm, 1f, 0f, 0f, 0.12f);
-			rot(m.leftArm, 1f, 0f, 0f, -0.12f);
-			rot(m.rightLeg, 1f, 0f, 0f, 0.06f);
-			rot(m.leftLeg, 1f, 0f, 0f, -0.06f);
-		} else if (t < CLAW_AT) {
-			// standing, legs a little apart, as the glow sets into his legs
-			rot(m.rightLeg, 1f, 0f, 0f, 0.1f);
-			rot(m.leftLeg, 1f, 0f, 0f, -0.1f);
-			rot(m.rightArm, 1f, 0f, 0f, 0.25f + breathe);
-			rot(m.leftArm, 1f, 0f, 0f, -0.25f - breathe);
-			rot(m.head, 1f, 0f, 0f, 0f);
-		} else if (t < HEAD_AT) {
-			// the claws flex out low behind, the tail swings, the chest swells
-			float w = smooth((t - CLAW_AT) / 4f);
-			rot(m.leftArm, w, 0.35f, 0f, -0.55f - breathe);
-			rot(m.rightArm, w, 0.35f, 0f, 0.55f + breathe);
-			rot(m.rightLeg, 1f, 0f, 0f, 0.12f);
-			rot(m.leftLeg, 1f, 0f, 0f, -0.12f);
-			rot(m.head, w, -0.12f, 0f, 0f);
-			m.body.xRot = Mth.lerp(w, m.body.xRot, -0.05f);
-		} else if (t < CROUCH_AT) {
-			// the face: chin up, straight at the camera
-			rot(m.head, 1f, -0.06f, 0f, 0f);
-			rot(m.leftArm, 1f, 0.3f, 0f, -0.5f);
-			rot(m.rightArm, 1f, 0.3f, 0f, 0.5f);
-		} else if (t < RUN_AT) {
-			// the low crouch: down on spread legs, leaning in, the claws out wide and low, the head up
-			float w = smooth((t - CROUCH_AT) / 3f);
-			crouch(m, w, 0.42f);
-			rot(m.rightArm, w, -0.35f, 0.2f, 1.05f + breathe);
-			rot(m.leftArm, w, 0.25f, -0.2f, -0.95f - breathe);
-			rot(m.rightLeg, w, -0.3f, 0.15f, 0.42f);
-			rot(m.leftLeg, w, 0.15f, -0.15f, -0.42f);
-			rot(m.head, w, -0.45f, -0.1f, 0f);
-		} else {
-			// the sprinter's lean: everything pitched forward, one leg driving out in front, the other back, the arms swept behind
-			float w = smooth((t - RUN_AT) / 3f);
-			float drift = 0.02f * Mth.sin(t * 0.4f);
-			crouch(m, w, 0.62f);
-			rot(m.rightLeg, w, -1.0f, 0f, 0.2f);
-			rot(m.leftLeg, w, 0.75f, 0f, -0.25f);
-			rot(m.rightArm, w, 1.05f + drift, 0f, 0.35f);
-			rot(m.leftArm, w, 0.85f - drift, 0f, -0.45f);
-			rot(m.head, w, -0.7f, 0.15f, 0f);
+		float twitch = t >= CLAW_AT && t < CROUCH_AT ? 0.06f * Mth.sin(t * 1.3f) : 0f;
+		apply(m, k, breathe, twitch, t < WORLD_AT);
+	}
+
+	/**
+	 * A sampled pose track row onto the model, every part from its rest place (nothing left over from the kit's own poses): the
+	 * drop lowers the whole body (px), the lean bends it forward about the hips ({@link HipBend}, so the torso never leaves the
+	 * legs), then the head, the limbs, and the elbows and knees ({@link BentLimbs}).
+	 */
+	static void apply(HumanoidModel<?> m, float[] k, float breathe, float twitch, boolean bend) {
+		float drop = k[FourArmsShow.DROP];
+		m.body.xRot = m.body.yRot = m.body.zRot = 0f;
+		m.body.x = 0f;
+		m.body.y = drop;
+		m.body.z = 0f;
+		m.head.x = 0f;
+		m.head.y = drop;
+		m.head.z = 0f;
+		m.rightArm.x = -5f;
+		m.leftArm.x = 5f;
+		m.rightArm.y = m.leftArm.y = 2f + drop + k[FourArmsShow.SHRUG];
+		m.rightArm.z = m.leftArm.z = 0f;
+		m.rightLeg.x = -1.9f;
+		m.leftLeg.x = 1.9f;
+		m.rightLeg.y = m.leftLeg.y = 12f + drop;
+		m.rightLeg.z = m.leftLeg.z = 0f;
+		HipBend.pitch(m, 1f, k[FourArmsShow.LEAN]);
+		m.head.xRot = k[FourArmsShow.HX];
+		m.head.yRot = k[FourArmsShow.HY];
+		m.head.zRot = k[FourArmsShow.HZ];
+		int ra = FourArmsShow.RA, la = FourArmsShow.LA, rl = FourArmsShow.RL, ll = FourArmsShow.LL;
+		m.rightArm.xRot = k[ra];
+		m.rightArm.yRot = k[ra + 1];
+		m.rightArm.zRot = k[ra + 2] + breathe;
+		m.leftArm.xRot = k[la];
+		m.leftArm.yRot = k[la + 1];
+		m.leftArm.zRot = k[la + 2] - breathe;
+		m.rightLeg.xRot = k[rl];
+		m.rightLeg.yRot = k[rl + 1];
+		m.rightLeg.zRot = k[rl + 2];
+		m.leftLeg.xRot = k[ll];
+		m.leftLeg.yRot = k[ll + 1];
+		m.leftLeg.zRot = k[ll + 2];
+		if (bend) {
+			BentLimbs.bend(BentLimbs.RIGHT_ARM, k[ra + 3] + twitch, k[ra + 4]);
+			BentLimbs.bend(BentLimbs.LEFT_ARM, k[la + 3] - twitch, k[la + 4]);
+			BentLimbs.bend(BentLimbs.RIGHT_LEG, k[rl + 3], k[rl + 4]);
+			BentLimbs.bend(BentLimbs.LEFT_LEG, k[ll + 3], k[ll + 4]);
 		}
 		copyLayers(m);
 	}
 
-	/** A crouch by {@code w}: the body pitched forward {@code lean} on the hips, the head and arms down with it (vanilla's sneak). */
-	private static void crouch(HumanoidModel<?> m, float w, float lean) {
-		float k = lean / 0.5f;
-		m.body.xRot = Mth.lerp(w, m.body.xRot, lean);
-		m.body.y = Mth.lerp(w, m.body.y, 3.2f * k);
-		m.head.y = Mth.lerp(w, m.head.y, 4.2f * k);
-		m.rightArm.y = Mth.lerp(w, m.rightArm.y, 2f + 3.2f * k);
-		m.leftArm.y = Mth.lerp(w, m.leftArm.y, 2f + 3.2f * k);
-		m.rightLeg.y = Mth.lerp(w, m.rightLeg.y, 12.2f);
-		m.leftLeg.y = Mth.lerp(w, m.leftLeg.y, 12.2f);
-		m.rightLeg.z = Mth.lerp(w, m.rightLeg.z, 4f * k);
-		m.leftLeg.z = Mth.lerp(w, m.leftLeg.z, 4f * k);
+	/**
+	 * v0.17.3 touch-up: the tail's shape while the show plays (from {@code Xlr8Client}): {angle below his back at the root, at the
+	 * tip (degrees, negative curls up), sway out to his left, ripple, ripple phase}. Null when not playing (the world tail).
+	 * The holder's scripted camera counts as first person, which hid the world tail through the whole sequence.
+	 */
+	public static float[] tailShape(Player p, float partial) {
+		float t = OmnitrixSequenceClient.age(p, partial, Aliens.XLR8.id());
+		if (t < 0f || t >= WORLD_AT) {
+			return null;
+		}
+		float ph = t * 0.35f;
+		if (t < CLAW_AT) {
+			// hanging behind him, the tip lifting a little
+			return new float[] { 58f, 12f, 0f, 0.12f, ph };
+		}
+		if (t < TAIL_AT) {
+			// curling up behind as the claws flex
+			float w = smooth((t - CLAW_AT) / 5f);
+			return new float[] { Mth.lerp(w, 58f, 30f), Mth.lerp(w, 12f, -35f), 0.25f * w, 0.18f, ph };
+		}
+		if (t < CHEST_AT) {
+			// the whip: swung across behind him, right to left, fast through the middle of the shot
+			float w = smooth((t - TAIL_AT) / (CHEST_AT - TAIL_AT));
+			return new float[] { 22f, -18f, Mth.lerp(w, -1.25f, 1.25f), 0.3f, ph * 2f };
+		}
+		if (t < CROUCH_AT) {
+			return new float[] { 40f, -20f, 0.35f, 0.15f, ph };
+		}
+		if (t < RUN_AT) {
+			// up behind him and curling over, the show's crouch
+			return new float[] { 8f, -58f, -0.3f, 0.14f, ph };
+		}
+		// the sprint: streaming flat out behind (the back faces up as he leans), rippling in the wind
+		return new float[] { 34f, 28f, 0.08f, 0.28f, t * 0.9f };
 	}
 
 	private static void copyLayers(HumanoidModel<?> m) {
@@ -307,20 +367,65 @@ public final class Xlr8Show extends ShowSequenceClient {
 		} else {
 			st.gradient(BURST_IN, BURST_MID, BURST_OUT);
 			st.rays(st.seed, t - RUN_AT, BURST_RAY, 14);
-			shadowStreak(st, smooth((t - RUN_AT) / 4f));
+			shadowStreak(st, t, smooth((t - RUN_AT) / 4f));
+			speedLines(st, t - RUN_AT, smooth((t - RUN_AT - 2f) / 4f));
 			KirbyDots.draw(st, st.shotSeed(shot) + 5, t - RUN_AT, BURST_DOTS);
 		}
 	}
 
-	/** The final shot's black shadow streak, from behind him down to the bottom right corner. */
-	private static void shadowStreak(Stage st, float w) {
+	/**
+	 * The final shot's black shadow streak (v0.17.3 touch-up: it was a hard-edged plank floating off to one side): a long smear
+	 * that starts behind him, under his body, and widens out to the bottom-right corner (as the show draws it), its edges feathered;
+	 * it grows out over the first ticks of the shot.
+	 */
+	private static void shadowStreak(Stage st, float t, float w) {
 		if (w <= 0f) {
 			return;
 		}
 		VertexConsumer vc = st.flat();
 		PoseStack.Pose p = st.last();
-		quad(st, vc, p, 0.12f, -0.22f, 0.3f, -0.12f, 1.5f, -0.6f, 1.5f, -1.05f, 0x0A0F06, 0.95f * w);
-		
+		float reach = Mth.lerp(w, 0.2f, 1f);
+		// the spine of the smear: from just behind him (a little below the middle) to past the corner
+		float x0 = 0.02f, y0 = -0.12f, x1 = Mth.lerp(reach, x0, 1.7f), y1 = Mth.lerp(reach, y0, -1.25f);
+		float h0 = 0.05f, h1 = 0.42f, f0 = 0.06f, f1 = 0.32f;
+		int c = 0x081006;
+		// the solid core, then a feathered fringe either side (alpha to 0 at the outer edge)
+		quad(st, vc, p, x0, y0 + h0, x1, y1 + h1, x1, y1 - h1, x0, y0 - h0, c, 0.92f);
+		st.put(vc, p, x0, y0 + h0 + f0, c, 0f);
+		st.put(vc, p, x1, y1 + h1 + f1, c, 0f);
+		st.put(vc, p, x1, y1 + h1, c, 0.92f);
+		st.put(vc, p, x0, y0 + h0, c, 0.92f);
+		st.put(vc, p, x0, y0 - h0, c, 0.92f);
+		st.put(vc, p, x1, y1 - h1, c, 0.92f);
+		st.put(vc, p, x1, y1 - h1 - f1, c, 0f);
+		st.put(vc, p, x0, y0 - h0 - f0, c, 0f);
+	}
+
+	/** Pale speed lines racing past along the shadow streak (toward the bottom-right), a fresh set every few ticks. */
+	private static void speedLines(Stage st, float t, float w) {
+		if (w <= 0f) {
+			return;
+		}
+		VertexConsumer vc = st.flat();
+		PoseStack.Pose p = st.last();
+		long seed = st.seed;
+		// along the streak's direction (down-right), in screen units
+		float dx = 0.8f, dy = -0.6f;
+		for (int i = 0; i < 12; i++) {
+			float off = (ShowMath.hash(seed, i + 900) * 2f - 1f) * 1.1f;
+			float speed = 0.16f + 0.1f * ShowMath.hash(seed, i + 920);
+			float run = ((t * speed + ShowMath.hash(seed, i + 940) * 3f) % 3f) - 1.2f;
+			float len = 0.25f + 0.45f * ShowMath.hash(seed, i + 960), th = 0.004f + 0.007f * ShowMath.hash(seed, i + 980);
+			// perpendicular offset from the line through the middle, then running along it
+			float cx = -dy * off + dx * run, cy = dx * off + dy * run;
+			float ex = cx - dx * len, ey = cy - dy * len;
+			int col = i % 3 == 0 ? 0xF4FFE8 : 0xB8F7A0;
+			float a = 0.7f * w;
+			st.put(vc, p, cx - dy * th, cy + dx * th, col, a);
+			st.put(vc, p, ex - dy * th, ey + dx * th, col, 0f);
+			st.put(vc, p, ex + dy * th, ey - dx * th, col, 0f);
+			st.put(vc, p, cx + dy * th, cy - dx * th, col, a);
+		}
 	}
 
 	/** A flat four-corner shape in screen units. */
@@ -355,7 +460,11 @@ public final class Xlr8Show extends ShowSequenceClient {
 		ShowShots.greenOut(st, t, GREEN2_AT, WORLD_AT, total());
 	}
 
-	/** The face shot's pale light shafts, slanting in from the left over his face. */
+	/**
+	 * The face shot's warm light shafts, slanting in from the top left over his face (v0.17.3 touch-up: they were flat bars that
+	 * turned into grey slabs over the black dots). Now a fan of soft beams from a point off the top-left corner: each beam is
+	 * brightest down its middle and feathers to nothing at both edges and toward its end, with a warm wash where they cross the face.
+	 */
 	private static void lightShafts(Stage st, float t) {
 		float a = env(t, FACE_AT, 2f, EYE_AT + 4f, 6f);
 		if (a <= 0f) {
@@ -363,16 +472,26 @@ public final class Xlr8Show extends ShowSequenceClient {
 		}
 		VertexConsumer vc = st.flat();
 		PoseStack.Pose p = st.last();
-		float[][] shafts = { { 0.1f, 0.07f, 0.34f }, { -0.06f, 0.04f, 0.26f }, { 0.22f, 0.05f, 0.22f }, { -0.2f, 0.03f, 0.18f } };
-		for (int i = 0; i < shafts.length; i++) {
-			float y = shafts[i][0] + 0.02f * Mth.sin(t * 0.2f + i), h = shafts[i][1];
-			float al = shafts[i][2] * a;
-			// from the left edge, slanting a little down, fading out past the middle
-			st.put(vc, p, -1.2f, y + h, 0xFFFBE0, al);
-			st.put(vc, p, -1.2f, y - h, 0xFFFBE0, al);
-			st.put(vc, p, 0.35f, y - 0.16f - h * 2.2f, 0xFFFBE0, 0f);
-			st.put(vc, p, 0.35f, y - 0.16f + h * 2.2f, 0xFFFBE0, 0f);
+		float ox = -1.35f, oy = 0.95f;
+		// {angle below level (radians), half width at the far end, strength}
+		float[][] beams = { { 0.42f, 0.11f, 0.6f }, { 0.58f, 0.07f, 0.45f }, { 0.3f, 0.06f, 0.4f }, { 0.74f, 0.09f, 0.34f }, { 0.18f, 0.05f, 0.28f } };
+		int warm = 0xFFEC8A; // a saturated warm yellow: over the black dots it reads as gold light, not grey
+		for (int i = 0; i < beams.length; i++) {
+			float ang = beams[i][0] + 0.025f * Mth.sin(t * 0.15f + i * 1.7f);
+			float dx = Mth.cos(ang), dy = -Mth.sin(ang), len = 2.3f;
+			float nx = -dy, ny = dx; // perpendicular
+			float w = beams[i][1], al = beams[i][2] * a * (0.85f + 0.15f * Mth.sin(t * 0.4f + i));
+			float ex = ox + dx * len, ey = oy + dy * len;
+			// the two feathered halves: full down the middle line, zero at the edges and at the far end
+			for (int side = -1; side <= 1; side += 2) {
+				st.put(vc, p, ox, oy, warm, al);
+				st.put(vc, p, ex, ey, warm, 0f);
+				st.put(vc, p, ex + side * nx * w, ey + side * ny * w, warm, 0f);
+				st.put(vc, p, ox + side * nx * w * 0.15f, oy + side * ny * w * 0.15f, warm, 0f);
+			}
 		}
+		// the warm wash on the lit side of his face
+		st.radial(0xFFF6D8, 0xFFE8A0, 0xE8C060, 0.18f * a, 0f);
 	}
 
 	/** The eye close-up: the visor's black lines sliding in round the eye, the teal creeping in behind them. */

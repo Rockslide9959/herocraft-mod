@@ -95,11 +95,12 @@ public final class GhostfreakShow extends ShowSequenceClient {
 					{ 112.01f, 0.5f, 34f, 1.42f, 1.7f, 0f, 0f },
 					{ 130f, 0.68f, 52f, 1.38f, 1.7f, 0f, 0f },
 					// in profile, rearing
-					{ 130.01f, 0.78f, 84f, 1.5f, 1.66f, 0f, -0.05f },
-					{ 152f, 0.86f, 78f, 1.5f, 1.68f, 0f, -0.05f },
-					// laid out in the air, from his left and a little above
-					{ 152.01f, 1.85f, -96f, 1.6f, 1.3f, 0f, 0.1f },
-					{ 230f, 1.75f, -92f, 1.6f, 1.3f, 0f, 0.1f } }));
+					{ 130.01f, 1.22f, 80f, 1.42f, 1.55f, 0f, 0f },
+					{ 152f, 1.12f, 72f, 1.45f, 1.58f, 0f, 0f },
+					// laid out in the air, from three-quarters round to his right (he faces the right of frame, the tail streaming off to the left;
+					// side-on, his far arm read as a block floating off the body)
+					{ 152.01f, 2.25f, 50f, 1.55f, 1.12f, 0f, 0f },
+					{ 230f, 2.1f, 44f, 1.55f, 1.12f, 0f, 0f } }));
 
 	public GhostfreakShow() {
 		super(Aliens.GHOSTFREAK.id());
@@ -133,51 +134,56 @@ public final class GhostfreakShow extends ShowSequenceClient {
 
 	// ================================================================ the poses
 
+	/**
+	 * v0.17.3 touch-up (user: "make sure their limbs don't go weird or detach from the body and touch up the effects and poses"):
+	 * Ghostfreak's body runs on a keyframed pose track ({@link FourArmsShow.Track}) with bent elbows ({@link BentLimbs}), every
+	 * part from its rest place ({@link Xlr8Show#apply}): the old float pose lifted the torso, head and arms off their pivots by
+	 * hand, and in the last shot the arms hung apart from the body. He has no legs (the tail), so the leg channels stay at rest.
+	 */
+	static final FourArmsShow.Track POSE = new FourArmsShow.Track()
+			// ---- hanging still while the camera crawls over him, the claws drifting up, curled
+			.at(TRANSFORM_AT).arms(-0.35f, 0f, 0.3f, 0.95f, 0.45f).head(-0.12f, 0f, 0f)
+			.at(EYE_AT).arms(-0.5f, 0f, 0.36f, 1.15f, 0.5f).head(-0.18f, 0f, 0f)
+			.at(REAR_AT - 0.5f).hold().arms(-0.55f, 0f, 0.38f, 1.2f, 0.5f)
+			// ---- rearing up in profile (a cut): leaning back, head thrown back, the claws curling up past his face
+			.at(REAR_AT).lean(-0.16f).head(-0.55f, 0f, 0f)
+			.rArm(-2.35f, 0.2f, 0.22f, 1.6f, 0.45f).lArm(-1.45f, -0.3f, -0.4f, 1.45f, -0.5f)
+			.at(141f).lean(-0.22f).head(-0.68f, 0f, 0.05f).rArm(-2.55f, 0.25f, 0.28f, 1.95f, 0.55f).lArm(-1.7f, -0.3f, -0.45f, 1.75f, -0.6f)
+			.at(WHITE_AT - 0.5f).hold()
+			// ---- laid out in the air (a cut, under the white): pitched forward, lifted, one claw reaching up ahead, splayed;
+			// the other bent down by his side; the tail streaming out behind
+			.at(WHITE_AT).drop(-3f).lean(0.6f).head(-0.62f, 0f, 0f)
+			.rArm(-1.8f, 0.15f, 0.35f, 0.85f, 0.5f).lArm(-0.3f, 0f, -0.42f, 1.35f, -0.45f)
+			.at(192f).rArm(-1.92f, 0.15f, 0.42f, 1.0f, 0.55f).lArm(-0.42f, 0f, -0.5f, 1.45f, -0.45f).head(-0.7f, 0f, 0.04f)
+			.at(GREEN2_AT + 2f).hold()
+			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f);
+
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
-		m.head.yRot = 0f;
-		if (t < TRANSFORM_AT) {
-			if (t < BEN_AT) {
-				// the slap: looking up into the camera above him, the free hand flung out to the side
-				m.head.xRot = -0.7f;
-				rot(m.rightArm, smooth((t - 2f) / 3f), -0.5f, 0f, 1.1f);
-			} else if (t >= BEN_AT) {
-				// the grin: the chin down, leaning into the camera, the hands up and spread like claws already
-				float w = smooth((t - BEN_AT) / 5f);
-				float wild = smooth((t - CLOSE_AT) / 8f);
-				rot(m.rightArm, w, -1.25f + 0.05f * Mth.sin(t * 3.1f), 0.35f, 0.45f);
-				rot(m.leftArm, w, -1.1f + 0.05f * Mth.sin(t * 2.7f), -0.3f, -0.4f);
-				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.22f - 0.12f * wild + 0.04f * Mth.sin(t * 2.2f));
-				m.head.zRot = 0.08f * w + 0.05f * wild * Mth.sin(t * 1.7f);
-				HipBend.pitch(m, w, 0.12f);
-			}
-		} else if (t < REAR_AT) {
-			// hanging still while the camera crawls over him, the claws drifting up
-			float w = smooth((t - DOME_AT) / 8f);
-			rot(m.rightArm, 1f, -1.0f + 0.08f * Mth.sin(t * 0.12f), 0.2f, 0.35f);
-			rot(m.leftArm, 1f, -1.0f + 0.08f * Mth.sin(t * 0.12f + 1.4f), -0.2f, -0.35f);
-			m.head.xRot = -0.2f * w;
-		} else if (t < WHITE_AT) {
-			// rearing up in profile, head thrown back, the claws curling up past his face
-			float w = smooth((t - REAR_AT) / 8f);
-			rot(m.rightArm, w, -2.55f + 0.08f * Mth.sin(t * 0.4f), 0.3f, 0.2f);
-			rot(m.leftArm, w, -1.85f + 0.08f * Mth.sin(t * 0.4f + 1f), -0.25f, -0.35f);
-			m.head.xRot = Mth.lerp(w, m.head.xRot, -0.45f);
-			HipBend.pitch(m, w, -0.18f);
-		} else {
-			// laid out in the air, head first: one claw reaching up ahead, the other swept down his side, the tail streaming behind
-			float w = t < FLOAT_AT ? 1f : smooth((t - WHITE_AT) / 6f);
+		if (t >= TRANSFORM_AT) {
 			float drift = Mth.sin(t * 0.09f);
-			HipBend.pitch(m, w, 0.95f + 0.04f * drift);
-			float flat = Mth.sin(0.95f) * w;
-			// lifted off the hips so he hangs in the air on his tail
-			m.body.y -= flat * 5f;
-			m.head.y -= flat * 5f;
-			m.rightArm.y -= flat * 5f;
-			m.leftArm.y -= flat * 5f;
-			rot(m.rightArm, w, -2.0f + 0.06f * drift, 0.2f, 0.45f);
-			rot(m.leftArm, w, 0.85f - 0.06f * drift, 0f, -0.5f);
-			m.head.xRot = Mth.lerp(w, m.head.xRot, -0.7f);
+			Xlr8Show.apply(m, POSE.sample(t), 0.04f * drift, t >= FLOAT_AT ? 0.08f * Mth.sin(t * 0.21f) : 0.05f * Mth.sin(t * 0.12f), t < WORLD_AT);
+			return;
+		}
+		m.head.yRot = 0f;
+		if (t < BEN_AT) {
+			// the slap: looking up into the camera above him, the free hand flung out to the side, open, the elbow soft
+			m.head.xRot = -0.7f;
+			float w = smooth((t - 2f) / 3f);
+			rot(m.rightArm, w, -0.5f, 0f, 1.1f);
+			BentLimbs.bend(BentLimbs.RIGHT_ARM, 0.35f * w, 0.3f * w);
+		} else {
+			// the grin: the chin down, leaning into the camera, the hands up and spread like claws already (forearms up off bent
+			// elbows, so the hands frame the face instead of a straight arm poking at the lens)
+			float w = smooth((t - BEN_AT) / 5f);
+			float wild = smooth((t - CLOSE_AT) / 8f);
+			rot(m.rightArm, w, -1.05f + 0.05f * Mth.sin(t * 3.1f), 0.35f, 0.5f);
+			rot(m.leftArm, w, -0.95f + 0.05f * Mth.sin(t * 2.7f), -0.3f, -0.45f);
+			BentLimbs.bend(BentLimbs.RIGHT_ARM, (1.25f + 0.08f * Mth.sin(t * 2.3f)) * w, 0.55f * w);
+			BentLimbs.bend(BentLimbs.LEFT_ARM, (1.15f + 0.08f * Mth.sin(t * 2.0f)) * w, -0.5f * w);
+			m.head.xRot = Mth.lerp(w, m.head.xRot, 0.22f - 0.12f * wild + 0.04f * Mth.sin(t * 2.2f));
+			m.head.zRot = 0.08f * w + 0.05f * wild * Mth.sin(t * 1.7f);
+			HipBend.pitch(m, w, 0.12f);
 		}
 		if (m instanceof PlayerModel<?> pm) {
 			pm.rightSleeve.copyFrom(m.rightArm);
@@ -185,6 +191,28 @@ public final class GhostfreakShow extends ShowSequenceClient {
 			pm.jacket.copyFrom(m.body);
 		}
 		m.hat.copyFrom(m.head);
+	}
+
+	/**
+	 * v0.17.3 touch-up: the tail's shape while the show plays (from {@code GhostfreakTail}): {angle off his body's down axis toward
+	 * his back at the root, at the tip (degrees), ripple (degrees), ripple phase, side swing}. Null when not playing. The holder's
+	 * scripted camera counts as first person, which hid the world tail through the whole sequence.
+	 */
+	public static float[] tailShape(Player p, float partial) {
+		float t = OmnitrixSequenceClient.age(p, partial, Aliens.GHOSTFREAK.id());
+		if (t < TRANSFORM_AT || t >= WORLD_AT) {
+			return null;
+		}
+		if (t < REAR_AT) {
+			// hanging under him, curling back, a slow ripple
+			return new float[] { 14f, 42f, 14f, t * 0.2f, 0.1f };
+		}
+		if (t < WHITE_AT) {
+			// swept forward under him as he rears back
+			return new float[] { 22f, 62f, 16f, t * 0.26f, 0.08f };
+		}
+		// streaming out behind, the wisp rippling down its length (the show's S-curve)
+		return new float[] { 46f, 74f, 30f, t * 0.32f, 0.12f };
 	}
 
 	// ================================================================ the pale face and the black eye
@@ -232,6 +260,8 @@ public final class GhostfreakShow extends ShowSequenceClient {
 	@Override
 	public void renderWorldFx(PoseStack pose, MultiBufferSource buffers, Camera cam, Player p, float t, float partial) {
 		ShowShots.dialLight(pose, buffers, cam, p, t, OmnitrixSequenceClient.seed(p), 3f, 24f);
+		// v0.17.3 touch-up: a faint cold lilac haze round the new body as it floats (additive: dim colours, or it washes him out)
+		ShowShots.bodyGlow(pose, buffers, cam, p, t, partial, WHITE_AT + 4f, GREEN2_AT, 0x241E3A, 0x3E3858);
 	}
 
 	// ================================================================ the holder's screen
@@ -261,7 +291,41 @@ public final class GhostfreakShow extends ShowSequenceClient {
 		} else {
 			st.gradient(BURST_IN, BURST_MID, BURST_OUT);
 			st.rays(st.seed, t - WHITE_AT, BURST_RAY, 18);
+			wisps(st, t - WHITE_AT);
 			KirbyDots.draw(st, st.shotSeed(shot) + 5, t - WHITE_AT, BURST_DOTS);
+		}
+	}
+
+	/**
+	 * v0.17.3 touch-up: ghostly wisps on the burst behind him -- long pale ribbons curling slowly across the frame from the right
+	 * (where he is heading) off to the left, each tapering to nothing at both ends and rippling along its length.
+	 */
+	private static void wisps(Stage st, float t) {
+		float a = smooth(t / 10f);
+		if (a <= 0f) {
+			return;
+		}
+		VertexConsumer vc = st.flat();
+		PoseStack.Pose p = st.last();
+		long seed = st.seed;
+		int seg = 16;
+		for (int i = 0; i < 5; i++) {
+			float base = (ShowMath.hash(seed, i + 700) * 2f - 1f) * 0.7f;
+			float slope = -0.25f - 0.2f * ShowMath.hash(seed, i + 710);
+			float drift = (t * (0.012f + 0.01f * ShowMath.hash(seed, i + 720)) + ShowMath.hash(seed, i + 730)) % 1f;
+			float x0 = 1.4f - drift * 1.2f, len = 1.6f + 0.8f * ShowMath.hash(seed, i + 740), w = 0.02f + 0.025f * ShowMath.hash(seed, i + 750);
+			float ph = t * 0.12f + i * 2.1f;
+			float al = (0.16f + 0.12f * ShowMath.hash(seed, i + 760)) * a;
+			for (int s = 0; s < seg; s++) {
+				float f0 = s / (float) seg, f1 = (s + 1) / (float) seg;
+				float xa = x0 - f0 * len, xb = x0 - f1 * len;
+				float ya = base + slope * (xa - x0) * -0.4f + 0.09f * Mth.sin(f0 * 7f + ph), yb = base + slope * (xb - x0) * -0.4f + 0.09f * Mth.sin(f1 * 7f + ph);
+				float wa = w * Mth.sin(f0 * Mth.PI), wb = w * Mth.sin(f1 * Mth.PI);
+				st.put(vc, p, xa, ya + wa, 0xF4F0FF, al);
+				st.put(vc, p, xb, yb + wb, 0xF4F0FF, al);
+				st.put(vc, p, xb, yb - wb, 0xF4F0FF, al);
+				st.put(vc, p, xa, ya - wa, 0xF4F0FF, al);
+			}
 		}
 	}
 

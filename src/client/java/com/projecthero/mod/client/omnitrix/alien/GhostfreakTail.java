@@ -221,19 +221,33 @@ final class GhostfreakTail {
 		t.down = bp.last().pose().transformDirection(new Vector3f(0f, 1f, 0f)).normalize();
 		t.back = bp.last().pose().transformDirection(new Vector3f(0f, 0f, 1f)).normalize();
 		Minecraft mc = Minecraft.getInstance();
-		if (!t.started || (p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson())) {
-			return;
-		}
-		float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
-		Vec3 at = p.getPosition(partial);
 		Vector3f[] m = new Vector3f[N];
 		m[0] = root;
-		for (int i = 1; i < N; i++) {
-			Vec3 w = t.last[i].lerp(t.pos[i], partial);
-			m[i] = toModel(w.subtract(at), yaw);
+		// v0.17.3: the show transformation scripts the tail's shape (the holder's camera there counts as first person, which hid it)
+		float[] shape = com.projecthero.mod.client.omnitrix.sequence.GhostfreakShow.tailShape(p, partial);
+		if (shape != null) {
+			// {angle off his body's down axis toward his back at the root, at the tip (degrees), ripple (degrees), phase, side swing}
+			Vector3f side = bp.last().pose().transformDirection(new Vector3f(1f, 0f, 0f)).normalize();
+			for (int i = 1; i < N; i++) {
+				float k = (i - 1) / (float) (N - 2);
+				float a = (Mth.lerp(k, shape[0], shape[1]) + shape[2] * k * Mth.sin(shape[3] - i * 0.75f)) * Mth.DEG_TO_RAD;
+				float s = shape[4] * k * Mth.sin(shape[3] * 0.7f - i * 0.6f);
+				Vector3f d = new Vector3f(t.down).mul(Mth.cos(a)).add(new Vector3f(t.back).mul(Mth.sin(a))).add(new Vector3f(side).mul(s));
+				m[i] = new Vector3f(m[i - 1]).add(d.normalize().mul(LEN[i - 1]));
+			}
+		} else {
+			if (!t.started || (p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson())) {
+				return;
+			}
+			float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
+			Vec3 at = p.getPosition(partial);
+			for (int i = 1; i < N; i++) {
+				Vec3 w = t.last[i].lerp(t.pos[i], partial);
+				m[i] = toModel(w.subtract(at), yaw);
+			}
+			// this frame's body, not last tick's: the first link never lags off him
+			m[1] = new Vector3f(root).add(new Vector3f(t.down).mul(LEN[0]));
 		}
-		// this frame's body, not last tick's: the first link never lags off him
-		m[1] = new Vector3f(root).add(new Vector3f(t.down).mul(LEN[0]));
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(SHEET));
 		Vector3f up = new Vector3f(0f, 1f, 0f);
 		for (int i = 0; i < N - 1; i++) {

@@ -125,6 +125,31 @@ continues), the axis slides inward on a deep bend so the inner side never turns 
 flat chamfer cap. Extra limbs use `BentLimbs.cube(...)` + `drawPart(...)` (Four Arms' lower pair); things riding a forearm (the watch,
 lumps) use `BentLimbs.toForearm(pose, limb, slim)` inside the arm's bone space. `FourArmsShow.POSE` is a keyframed pose track to copy.
 
+### v1b touch-ups: Ghostfreak, XLR8, Stinkfly (v0.17.3)
+
+User: "do touch ups on the v1s for the others, make sure their limbs don't go weird or detach from the body and touch up the effects
+and poses". Same shot lists and timing as v1. Films: `<alien>_v1b_vs_show.mp4` + sheet, `<alien>_v1b_sequence.mp4` (ours, 2x).
+
+- **One pose path for all three.** After the change each body runs on a `FourArmsShow.Track` (reused as is: Catmull-Rom keys, holds,
+  snaps on cuts) applied by `Xlr8Show.apply(m, row, breathe, twitch, bend)`: every part from its rest place (nothing left over from the
+  kit's own idle/flight poses), the drop, the lean through `HipBend` (the torso never leaves the legs), then the head, limbs and
+  `BentLimbs` elbows/knees. Ghostfreak's v1 float pose had pushed the torso, head and arms up by hand on top of the kit's pose.
+- **Tails in the holder's view.** The holder's scripted camera counts as first person, and both world-simulated tails skip first person,
+  so neither tail was ever in the sequence. Now each sequence scripts its tail's shape for the run of the show:
+  `Xlr8Show.tailShape` -> `TubeTail.renderScripted` (hanging, curling up over the claws, the whip across the frame, curled over the
+  crouch, streaming flat in the sprint); `GhostfreakShow.tailShape` -> `GhostfreakTail.render` (hanging, swept under him as he rears,
+  an S-rippling wisp behind the float). Both lay the tail out on the body bone's axes from its usual root, so it stays on him.
+- **Stinkfly's wings** were folded for the whole sequence (they open on the flying flag). `StinkflyShow.wingOpen` drives
+  `StinkflyClient.openAmount` while it plays: folded until they burst open in the torso shot, spread from then on.
+- **Side-on shots.** A body leaning toward or away from a side-on camera shows its far arm as a block hanging off the torso (the
+  shoulder is hidden behind it). XLR8's sprint and Ghostfreak's float are framed from three-quarters front now.
+- **Effects.** XLR8: the face shot's light is a fan of feathered warm beams (the flat bars turned into grey slabs over the black dots),
+  the sprint's shadow is a feathered smear from behind him to the corner (it was a plank floating off to the side) with speed lines
+  along it. Ghostfreak: pale wisps curling across the burst, a faint lilac haze on the float. Stinkfly: yellow-white flares bursting up
+  behind him as the wings open.
+- **Gotcha (not fixed here, gameplay):** in daylight the sun burns Ghostfreak every second, sequence or not, so his show gets red hurt
+  flashes outdoors by day. The harness now films Ghostfreak at night (one line in `OmnitrixSeqHarness.java.txt`).
+
 ### Camera keys (`CameraTrack`)
 
 Each key is `{ tick, distance, angle, camera height, look height, look right, look forward }`, in a 1.8-block human's blocks

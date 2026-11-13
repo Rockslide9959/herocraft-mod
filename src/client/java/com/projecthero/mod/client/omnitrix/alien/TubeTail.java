@@ -219,6 +219,37 @@ final class TubeTail {
 		tube(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(sheet)), light, q);
 	}
 
+	/**
+	 * v0.17.3: a scripted shape instead of the world chain, for an Omnitrix show transformation (the holder's camera there counts
+	 * as first person, which hid the world tail, and the shots need the show's tail: hanging, curled up, streaming flat out).
+	 * Laid out from the root along the body bone's own back / down / side axes, so it stays on him however the pose leans.
+	 * Link {@code i}'s angle below his back runs from {@code downRoot} at the root to {@code downTip} at the tip (degrees,
+	 * negative curls up); {@code sway} swings it out to his left (radians, growing toward the tip) and {@code wave} adds a
+	 * travelling ripple of that size at {@code phase}.
+	 */
+	void renderScripted(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<AbstractClientPlayer> model, float downRoot, float downTip,
+			float sway, float wave, float phase) {
+		PoseStack bp = new PoseStack();
+		model.body.translateAndRotate(bp);
+		Matrix4f m = bp.last().pose();
+		Vector3f root = m.transformPosition(new Vector3f(0f, ROOT_Y / 16f, ROOT_Z / 16f));
+		Vector3f back = m.transformDirection(new Vector3f(0f, 0f, 1f)).normalize();
+		Vector3f down = m.transformDirection(new Vector3f(0f, 1f, 0f)).normalize();
+		Vector3f side = m.transformDirection(new Vector3f(1f, 0f, 0f)).normalize();
+		Vector3f[] q = new Vector3f[N];
+		q[0] = root;
+		float len = (float) LEN / MODEL_SCALE;
+		for (int i = 1; i < N; i++) {
+			float f = (i - 1) / (float) (N - 2);
+			float a = Mth.lerp(f, downRoot, downTip) * Mth.DEG_TO_RAD;
+			float s = sway * (0.3f + 0.7f * f) + wave * f * Mth.sin(phase - i * 0.7f);
+			Vector3f d = new Vector3f(back).mul(Mth.cos(a) * Mth.cos(s)).add(new Vector3f(down).mul(Mth.sin(a) * Mth.cos(s)))
+					.add(new Vector3f(side).mul(Mth.sin(s)));
+			q[i] = new Vector3f(q[i - 1]).add(d.normalize().mul(len));
+		}
+		tube(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(sheet)), light, q);
+	}
+
 	/** The chain as one round tube: a spline through its points, a ring every step turned smoothly from the last (the top stays on top). */
 	private void tube(PoseStack pose, VertexConsumer vc, int light, Vector3f[] q) {
 		int steps = (N - 1) * SUB;
