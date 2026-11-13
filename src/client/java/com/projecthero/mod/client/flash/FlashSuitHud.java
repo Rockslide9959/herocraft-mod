@@ -7,11 +7,14 @@ import java.util.function.BiConsumer;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.ModKeyBindings;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.client.speedforce.SpeedForceHud;
 import com.projecthero.mod.client.speedforce.SpeedForceHud.Palette;
 import com.projecthero.mod.flash.FlashSuit;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow;
 import com.projecthero.mod.speedforce.SpeedForceAbilities;
@@ -32,7 +35,6 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
@@ -55,18 +57,16 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Top-left</b> -- the bolt, THE FLASH and the mode (Speed Mode, Flash Time, Phasing, the Speed Force...).</li>
  *   <li><b>Top-centre</b> -- a heading strip (compass) with the status chips under it ({@link #statusChips}: Momentum
  *       Lock, Cruise, Ground-Stick, Surge, the sound barrier...). Pushed down under any boss bars.</li>
- *   <li><b>Top-right</b> -- the timers that are running ({@link #timers}: the charge, Flash Time, the portal, the Remnant,
- *       the drain, the Black Flash's power loss; Overdrive / Time Slow / exhaustion for a plain Speedster), under the
- *       status-effect icons.</li>
- *   <li><b>Left edge</b> -- the Speed Force meter, a curved lens-edge gauge (above the chat).</li>
  *   <li><b>Crosshair</b> -- two thin brackets in Speed Mode, and a target card (name, health, distance) for the mob you
  *       look at, up to 48 blocks.</li>
- *   <li><b>Right edge</b> -- the six key boxes stacked in a column (R G Z X C V -- never H or N), drawn by
- *       {@link SpeedForceHud#drawKeys}; Left Alt lists the moves to their left.</li>
- *   <li><b>Bottom-right corner</b> -- the speedometer dial beside the column (blocks a second, the momentum % in its gap,
- *       mph and the run's top speed over it; the outer ring is the speed up to your top speed with the sound barrier marked,
- *       the inner ring the momentum with the 25 / 60% tiers). A plain Speedster keeps the Super Speed key row (AbilityHud)
- *       and the dial sits above it.</li>
+ *   <li><b>Bottom-right column</b> (v0.17.3, the shared {@link VanillaHud.Stack} on the game's own pieces) -- the six keys
+ *       (R G Z X C V -- never H or N, {@link SpeedForceHud#slots}), the Speed Force meter over them, then the timers that are
+ *       running as Hairline rows ({@link #timers}: the charge, Flash Time, the portal, the Remnant, the drain, the Black
+ *       Flash's power loss; Overdrive / Time Slow / exhaustion for a plain Speedster). Left Alt lists the moves.</li>
+ *   <li><b>Over the column</b> -- the speedometer dial (blocks a second, the momentum % in its gap, mph and the run's top
+ *       speed over it; the outer ring is the speed up to your top speed with the sound barrier marked, the inner ring the
+ *       momentum with the 25 / 60% tiers). A plain Speedster keeps the Super Speed key row (AbilityHud); its timers and the
+ *       dial stack over it.</li>
  * </ul>
  * Nothing sits over the hotbar, the health / hunger bars or the action-bar line; the HUD hides with F1 and behind any
  * screen but the chat. New Speed Force info hooks in through {@link #addChipSource} / {@link #addTimerSource}.
@@ -230,46 +230,47 @@ public final class FlashSuitHud {
 			compassY += 6;
 		}
 		compassY = Math.min(compassY, sh / 3);
-		// the top-centre strip stays clear of the timer column top-right (and drops it below the chips on a narrow screen)
-		int timersLeft = sw - 8 - TIMER_W - 3;
-		int compassW = Mth.clamp(2 * (timersLeft - 36 - sw / 2), 96, 170);
+		// the top-centre strip stays clear of THE FLASH block top-left (about 130 px from the left edge)
+		int room = sw / 2 - 140;
+		int compassW = Mth.clamp(2 * (room - 36), 96, 170);
 		compass(g, font, sw / 2, compassY, compassW, p.getYRot(), pal);
 		List<Chip> chips = statusChips(mc, p, s, exp, now);
-		chips(g, font, sw / 2, compassY + 19, Math.max(96, 2 * (timersLeft - 4 - sw / 2)), chips);
-		int timersY = effectsBottom(p);
-		if (bosses > 0 && timersLeft < sw / 2 + 92) {
-			timersY = Math.max(timersY, compassY); // under the boss bars where they reach across
-		}
-		// the key column along the right edge (Speed Force Speedster; a plain Speedster keeps the Super Speed key row)
-		int colX = sw - 7 - 20;
-		int colTop = sf && !lost ? sh - 7 - SpeedForceHud.keysColumnHeight() : sh;
-		timersBlock(g, font, sw - 8, colX - 6, colTop, timersY, timers(p, s, exp, now));
-		if (sf && !lost) {
-			meterArc(g, font, sh, s, p, pal, now);
-		}
+		chips(g, font, sw / 2, compassY + 19, Math.max(96, 2 * room), chips);
 		crosshair(g, font, mc, sw / 2, sh / 2, s, pal, now);
 
-		// bottom-right: the speedometer dial, in the corner beside the key column (over a plain Speedster's key row)
-		int r = 29;
-		int dcx;
-		int dcy;
-		if (sf) {
-			dcx = colX - 9 - r;
-			dcy = sh - 11 - r;
-		} else {
-			int keysW = SpeedForceHud.keysWidth();
-			int abTop = com.projecthero.mod.client.gui.AbilityHud.lastTop;
-			int keysY = sh - 7 - SpeedForceHud.keysHeight();
-			dcx = sw - 7 - keysW / 2;
-			dcy = Math.min(keysY - 6, abTop == Integer.MAX_VALUE ? keysY - 6 : abTop - 4) - 4 - r;
-		}
-		dial(g, font, dcx, dcy, r, s, exp, pal, topBps, lost, now);
+		// v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): the keys,
+		// the Speed Force meter and the timers sit in the shared bottom-right column on the game's own pieces, the speedometer
+		// dial over them. A plain Speedster keeps the Super Speed key row (AbilityHud); its timers and the dial stack over it.
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6);
 		if (sf && !lost) {
-			// a red spine with a gold tip down the key column, then the boxes (Left Alt lists the moves to their left)
-			g.fill(colX - 3, colTop, colX - 2, sh - 7, alpha(FLASH_RED, 0.75f));
-			g.fill(colX - 3, colTop - 6, colX - 2, colTop, GOLD);
-			g.fill(colX - 3, colTop - 6, colX + 20, colTop - 5, GOLD);
-			SpeedForceHud.drawKeys(g, mc, p, s, now, pal, colX, colTop, colX - 6, sh - 7, true);
+			st.keys(6);
+			SpeedForceHud.slots(st, p, s, now, p.isShiftKeyDown());
+			// the Speed Force meter (was the curved gauge on the left lens edge), blinking red when low
+			float max = SpeedForceSpeedster.meterMax(p);
+			float frac = Mth.clamp(s.meter / max, 0f, 1f);
+			boolean drained = s.drained > 0;
+			boolean blink = frac < 0.2f && (now / 6) % 2 == 0;
+			int c = drained ? DIM : blink ? RED : 0xFF000000 | pal.light();
+			st.meter(Component.translatable("hud.projecthero.speed_force.meter"), frac, drained ? DIM : frac < 0.2f ? RED : 0xFF000000 | pal.light(),
+					String.format(Locale.ROOT, "%.0f", s.meter), c);
+		} else if (!sf) {
+			int abTop = com.projecthero.mod.client.gui.AbilityHud.lastTop;
+			if (abTop != Integer.MAX_VALUE && abTop < st.bottom) {
+				st.reserve(st.bottom - abTop); // over the Super Speed key row
+			}
+		}
+		// the timers that are running (Hairline rows, each in its own colour)
+		for (Timer t : timers(p, s, exp, now)) {
+			st.meter(t.label(), t.frac(), t.colour(), t.value().getString(), t.colour(), MutationMeters.Style.HAIRLINE);
+		}
+
+		// the speedometer dial over the column (blocks a second, the momentum, mph and the run's top speed over it)
+		int r = 29;
+		int dcx = st.x0 + st.width / 2;
+		int dcy = st.top() - 6 - r;
+		dial(g, font, dcx, dcy, r, s, exp, pal, topBps, lost, now);
+		if (sf && !lost && MoveListOverlay.held()) {
+			MoveListOverlay.draw(g, st.x0 + st.width, dcy - r - 28, SpeedForceHud.moveRows());
 		}
 	}
 
@@ -609,93 +610,6 @@ public final class FlashSuitHud {
 			src.accept(p, out);
 		}
 		return out;
-	}
-
-	private static final int TIMER_W = 118;
-
-	/** Right-aligned rows; a row that would reach the key column steps left of it ({@code narrowRight}). */
-	private static void timersBlock(GuiGraphics g, Font font, int fullRight, int narrowRight, int colTop, int y, List<Timer> rows) {
-		int w = TIMER_W;
-		for (Timer t : rows) {
-			int right = y + 15 > colTop - 8 ? narrowRight : fullRight;
-			int x = right - w;
-			g.fill(x - 3, y - 2, right + 2, y + 13, PLATE);
-			g.fill(right + 1, y - 2, right + 2, y + 13, t.colour());
-			String value = t.value().getString();
-			int vw = font.width(value);
-			String label = fit(font, t.label().getString().toUpperCase(Locale.ROOT), w - vw - 6);
-			g.drawString(font, label, x, y, t.colour(), false);
-			g.drawString(font, value, right - 2 - vw, y, WHITE, false);
-			g.fill(x, y + 9, right - 2, y + 11, 0xC0000000 | (FLASH_RED_DEEP & 0xFFFFFF));
-			g.fill(x, y + 9, x + Math.round((right - 2 - x) * Mth.clamp(t.frac(), 0f, 1f)), y + 11, t.colour());
-			y += 17;
-		}
-	}
-
-	/** Below the vanilla status-effect icons (top-right): beneficial at y 1, harmful at y 27. */
-	private static int effectsBottom(Player p) {
-		boolean good = false;
-		boolean bad = false;
-		for (MobEffectInstance e : p.getActiveEffects()) {
-			if (!e.showIcon()) {
-				continue;
-			}
-			if (e.getEffect().value().isBeneficial()) {
-				good = true;
-			} else {
-				bad = true;
-			}
-		}
-		return bad ? 58 : good ? 32 : 10;
-	}
-
-	// ---------------------------------------------------------------- left edge: the Speed Force meter
-
-	private static void meterArc(GuiGraphics g, Font font, int sh, SpeedForceState s, Player p, Palette pal, long now) {
-		float max = SpeedForceSpeedster.meterMax(p);
-		float frac = Mth.clamp(s.meter / max, 0f, 1f);
-		int topY = 44;
-		int bottomY = Math.min(sh / 2 + 40, sh - 136); // clear of the chat
-		int half = Math.min(54, (bottomY - topY) / 2);
-		if (half < 18) {
-			return;
-		}
-		int cy = topY + half;
-		float r = 86f;
-		float cx = 9f + r;
-		float a = (float) Math.asin(half / r);
-		int segs = Math.max(10, half * 2 / 4);
-		boolean drained = s.drained > 0;
-		boolean low = frac < 0.2f;
-		boolean blink = low && (now / 6) % 2 == 0;
-		for (int i = 0; i < segs; i++) {
-			float t = (i + 0.5f) / segs; // 0 = bottom
-			float ang = a - 2f * a * t;
-			int x = Math.round(cx - r * Mth.cos(ang));
-			int y = Math.round(cy + r * Mth.sin(ang));
-			boolean lit = t <= frac;
-			int c = !lit ? 0x90000000 | (pal.deep() & 0xFFFFFF)
-					: drained ? DIM : blink ? RED : lerpColour(0xFF000000 | pal.accent(), 0xFF000000 | pal.light(), t);
-			g.fill(x - 1, y - 1, x + 3, y + 2, c);
-			// the inner guide
-			int gx = Math.round(cx - (r - 6f) * Mth.cos(ang));
-			if (i % 2 == 0) {
-				g.fill(gx, y, gx + 1, y + 1, alpha(FLASH_RED, 0.55f));
-			}
-		}
-		// end caps
-		int capX = Math.round(cx - r * Mth.cos(a));
-		g.fill(capX - 2, cy - half - 3, capX + 6, cy - half - 2, GOLD);
-		g.fill(capX - 2, cy + half + 2, capX + 6, cy + half + 3, alpha(FLASH_RED, 0.9f));
-		// the value inside the curve
-		String v = String.format(Locale.ROOT, "%.0f", s.meter);
-		int tx = 19;
-		g.pose().pushPose();
-		g.pose().translate(tx, cy - 9, 0);
-		g.pose().scale(1.5f, 1.5f, 1f);
-		g.drawString(font, v, 0, 0, drained ? DIM : blink ? RED : 0xFF000000 | pal.light(), true);
-		g.pose().popPose();
-		g.drawString(font, fit(font, Component.translatable("hud.projecthero.flash_visor.meter").getString(), 70), tx, cy + 5, DIM, false);
 	}
 
 	// ---------------------------------------------------------------- crosshair: brackets + target card
