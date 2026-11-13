@@ -234,7 +234,8 @@ public final class Xlr8Client implements AlienClientKit {
 		// v0.17.3: during the show transformation the sequence scripts the tail's shape (Xlr8Show.tailShape)
 		float[] shape = com.projecthero.mod.client.omnitrix.sequence.Xlr8Show.tailShape(p, partial);
 		if (shape != null) {
-			TAIL.renderScripted(pose, buffers, light, model, shape[0], shape[1], shape[2], shape[3], shape[4]);
+			// (an optional sixth value stretches the links: the final pose's long tail)
+			TAIL.renderScripted(pose, buffers, light, model, shape[0], shape[1], shape[2], shape[3], shape[4], shape.length > 5 ? shape[5] : 1f);
 		} else {
 			TAIL.render(pose, buffers, light, p, model, partial);
 		}

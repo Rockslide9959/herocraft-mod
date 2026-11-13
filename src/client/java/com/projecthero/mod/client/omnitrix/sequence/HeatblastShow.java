@@ -57,8 +57,9 @@ import static com.projecthero.mod.client.omnitrix.sequence.ShowMath.smooth;
  *            together in front of the chest, elbows out (139.5)
  *   143-145  a cut round to his left: up into the guard
  *   145-152  WHITE FLASH, fading off the stance to 166
- *   150-190  the stance on the green ray burst: right fist driven forward and down, the left cocked up by his head (elbow out, forearm
- *            up), legs wide, the front knee bent; fists and head blazing
+ *   150-190  the stance on the green ray burst, low and nearly square on, knees to crown: leaning back and over to his left, the
+ *            right fist low, out and toward the lens, the left fist up out to the side at head height (upper arm near level,
+ *            forearm up), legs wide; flat white fists, the head blazing (final-pose rework)
  *   190      a hard cut back to the world (no green out in this one); the stance eases to standing for the bystanders
  * </pre>
  * The rock, the poses, the head fire and the flaring fists are on the body, so everyone nearby sees them; the eye, the streak and the
@@ -102,9 +103,10 @@ public final class HeatblastShow extends ShowSequenceClient {
 					// round to his left: the guard
 					{ 143.01f, 2.45f, -40f, 0.72f, 1.08f, 0f, 0f },
 					{ 150f, 2.4f, -34f, 0.72f, 1.06f, 0f, 0f },
-					// the stance, a little low, from his left front
-					{ 150.01f, 1.95f, -16f, 0.7f, 1.08f, 0f, 0f },
-					{ 190f, 1.85f, -13f, 0.72f, 1.08f, 0f, 0f } }))
+					// the stance, low and nearly square on (final-pose rework: pulled back so the raised fist out to the side and the
+					// wide legs fit, knees to crown like the show's frame; it was a tight waist-up crop from his left)
+					{ 150.01f, 2.5f, -7f, 0.6f, 1.1f, 0f, 0f },
+					{ 190f, 2.38f, -5f, 0.62f, 1.12f, 0f, 0f } }))
 			.linear(SMEAR_AT, CHEST_AT);
 
 	public HeatblastShow() {
@@ -285,10 +287,12 @@ public final class HeatblastShow extends ShowSequenceClient {
 			.at(GUARD_AT + 0.01f).head(-0.05f, 0.2f, 0f).lean(0.08f).drop(1.5f)
 			.lArm(-0.45f, 0f, -1.35f, 1.8f, -1.45f).rArm(-1.0f, -0.2f, 0.3f, 0.8f, 0.2f)
 			.legs(-0.1f, 0f, 0.3f, 0.45f, 0.6f)
-			// ---- the stance: right fist forward and down, the left cocked up by the head; legs wide, the front knee bent
-			.at(POSE_AT).hold().head(-0.08f, 0.18f, 0.04f).lean(0.1f).drop(1.6f)
-			.lArm(-0.4f, 0f, -1.4f, 1.85f, -1.5f).rArm(-0.82f, -0.3f, 0.3f, 0.45f, 0.25f)
-			.rLeg(-0.2f, 0f, 0.42f, 0.15f, 0.2f).lLeg(0.22f, 0f, -0.32f, 0.5f, -0.5f)
+			// ---- the stance (final-pose rework, matched to the show's t 185): leaning back and over to his left (STANCE_ROLL), chin
+			// up; the left upper arm out near level with the forearm up and out, so the fist is out to the side at head height (it was
+			// folded in beside the face); the right fist low, out to his right and forward toward the lens; legs wide, the left knee bent
+			.at(POSE_AT).hold().head(-0.2f, 0.12f, 0f).lean(-0.1f).drop(1.8f)
+			.lArm(-0.25f, 0f, -1.4f, 1.0f, -1.5f).rArm(-0.62f, 0f, 0.6f, 0.4f, 0.25f)
+			.rLeg(-0.15f, 0f, 0.5f, 0.12f, 0.2f).lLeg(0.18f, 0f, -0.36f, 0.5f, -0.5f)
 			.at(WORLD_AT).hold()
 			// eased to standing for the bystanders once the holder is back in the world
 			.at(199f).hold().head(0f, 0f, 0f).lean(0f).drop(0f).shrug(0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.03f, 0f, 0f);
@@ -319,16 +323,24 @@ public final class HeatblastShow extends ShowSequenceClient {
 		m.leftLeg.x = 1.9f;
 		m.rightLeg.y = m.leftLeg.y = 12f + drop;
 		m.rightLeg.z = m.leftLeg.z = 0f;
+		// final-pose rework: the stance's sideways lean over to his left, about the hips (ShowBody.tilt: the neck, head and
+		// shoulders follow, the arms roll with the chest, so nothing comes away from the body)
+		float roll = stanceRoll(t);
+		if (roll != 0f) {
+			ShowBody.tilt(m, roll);
+			m.rightArm.y += k[SHRUG];
+			m.leftArm.y += k[SHRUG];
+		}
 		HipBend.pitch(m, 1f, k[LEAN] + shake * 0.025f * Mth.sin(t * 2.3f));
 		m.head.xRot = k[HX] + breathe * 0.5f + shake * 0.04f * Mth.sin(t * 2.6f);
 		m.head.yRot = k[HY];
-		m.head.zRot = k[HZ];
+		m.head.zRot = k[HZ] + roll;
 		m.rightArm.xRot = k[RA] + 0.03f * shake * Mth.sin(t * 2.7f + 1f) - pump;
 		m.rightArm.yRot = k[RA + 1];
-		m.rightArm.zRot = k[RA + 2] + breathe;
+		m.rightArm.zRot = k[RA + 2] + breathe + roll;
 		m.leftArm.xRot = k[LA] + 0.05f * shake * Mth.sin(t * 3.1f);
 		m.leftArm.yRot = k[LA + 1];
-		m.leftArm.zRot = k[LA + 2] - breathe + 0.04f * shake * Mth.cos(t * 3.9f);
+		m.leftArm.zRot = k[LA + 2] - breathe + 0.04f * shake * Mth.cos(t * 3.9f) + roll;
 		m.rightLeg.xRot = k[RL];
 		m.rightLeg.yRot = k[RL + 1];
 		m.rightLeg.zRot = k[RL + 2];
@@ -341,6 +353,17 @@ public final class HeatblastShow extends ShowSequenceClient {
 		BentLimbs.bend(BentLimbs.RIGHT_LEG, k[RL + 3], k[RL + 4]);
 		BentLimbs.bend(BentLimbs.LEFT_LEG, k[LL + 3], k[LL + 4]);
 		copyLayers(m);
+	}
+
+	/** Final-pose rework: how far the stance leans over to his left (radians, as {@code body.zRot}; the show's body slants that way). */
+	static final float STANCE_ROLL = 0.15f;
+
+	/** The stance's sideways lean at {@code t}: in under the white flash after the guard, eased out with the stance for the bystanders. */
+	static float stanceRoll(float t) {
+		if (t < GUARD_AT + 1f || t >= 199f) {
+			return 0f;
+		}
+		return STANCE_ROLL * smooth((t - GUARD_AT - 1f) / 5f) * (1f - smooth((t - WORLD_AT) / 9f));
 	}
 
 	static void copyLayers(HumanoidModel<?> m) {
@@ -616,6 +639,9 @@ public final class HeatblastShow extends ShowSequenceClient {
 			return;
 		}
 		float heat = fistHeat(t) * (1f - smooth((t - 194f) / 6f));
+		// final-pose rework: from the guard on the fists are the show's flat white fists, a shell just over the hand with a thin haze
+		// (the flare's blazing blocks read far bigger than the show's)
+		float tight = smooth((t - GUARD_AT) / 6f);
 		if (heat > 0.02f) {
 			for (int side = 0; side < 2; side++) {
 				ModelPart arm = side == 0 ? model.rightArm : model.leftArm;
@@ -629,15 +655,16 @@ public final class HeatblastShow extends ShowSequenceClient {
 					// additive (eyes) shells: white-hot just over the hand, a warm haze round it -- light, not a lit block
 					VertexConsumer add = PyroDraw.additive(buffers);
 					float yc = 8.6f;
-					float r = 2.2f + 0.35f * heat + wob * 0.5f;
+					float r = Mth.lerp(tight, 2.2f + 0.35f * heat + wob * 0.5f, 2.08f + 0.12f * heat + wob * 0.2f);
 					AlienParts.box(pose, add, cx - r, yc - r * 0.8f, -r, cx + r, yc + r, r, 0f, 0f, 1f, 1f, ShowMath.grey(0.95f * Math.min(1f, heat)),
 							LightTexture.FULL_BRIGHT);
-					float r2 = r + 0.7f + 0.4f * heat + wob;
+					float r2 = r + Mth.lerp(tight, 0.7f + 0.4f * heat + wob, 0.3f + 0.12f * heat + wob * 0.3f);
 					AlienParts.box(pose, add, cx - r2, yc - r2 * 0.8f, -r2, cx + r2, yc + r2, r2, 0f, 0f, 1f, 1f,
-							ShowMath.scaleRgb(0xFFD890, 0.45f * Math.min(1f, heat)), LightTexture.FULL_BRIGHT);
+							ShowMath.scaleRgb(0xFFD890, Mth.lerp(tight, 0.45f, 0.3f) * Math.min(1f, heat)), LightTexture.FULL_BRIGHT);
 					Vec3 at = new Vec3(cx / 16f, yc / 16f, 0);
-					PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, 0.34f * heat + 0.08f, PyroDraw.dim(0xFFFFE6A0, 0.95f));
-					PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, 0.62f * heat + 0.1f, PyroDraw.dim(0xFFFF9030, 0.7f));
+					float g = Mth.lerp(tight, 1f, 0.5f);
+					PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, (0.34f * heat + 0.08f) * g, PyroDraw.dim(0xFFFFE6A0, 0.95f));
+					PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), at, (0.62f * heat + 0.1f) * g, PyroDraw.dim(0xFFFF9030, 0.7f));
 				});
 			}
 		}

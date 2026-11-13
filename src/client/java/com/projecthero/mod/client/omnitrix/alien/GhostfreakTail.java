@@ -231,7 +231,8 @@ final class GhostfreakTail {
 			for (int i = 1; i < N; i++) {
 				float k = (i - 1) / (float) (N - 2);
 				float a = (Mth.lerp(k, shape[0], shape[1]) + shape[2] * k * Mth.sin(shape[3] - i * 0.75f)) * Mth.DEG_TO_RAD;
-				float s = shape[4] * k * Mth.sin(shape[3] * 0.7f - i * 0.6f);
+				// (an optional sixth value: a steady swing out to his left, growing toward the tip -- the final pose's sweep)
+				float s = shape[4] * k * Mth.sin(shape[3] * 0.7f - i * 0.6f) + (shape.length > 5 ? shape[5] * k : 0f);
 				Vector3f d = new Vector3f(t.down).mul(Mth.cos(a)).add(new Vector3f(t.back).mul(Mth.sin(a))).add(new Vector3f(side).mul(s));
 				m[i] = new Vector3f(m[i - 1]).add(d.normalize().mul(LEN[i - 1]));
 			}

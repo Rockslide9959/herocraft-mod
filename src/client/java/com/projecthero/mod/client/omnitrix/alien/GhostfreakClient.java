@@ -222,6 +222,8 @@ public final class GhostfreakClient implements AlienClientKit {
 		// that the player is moving in and never go through blocks or the player unless the player is phasing"): a simulated rope
 		// that trails his motion, ripples, and keeps out of blocks and his body (GhostfreakTail), in the second skin's colours
 		GhostfreakTail.render(pose, buffers, light, p, model, partial, alpha);
+		// v0.17.3 final-pose rework: the show transformation's float -- the open black front and the long clawed fingers
+		com.projecthero.mod.client.omnitrix.sequence.GhostfreakShow.renderAlien(pose, buffers, light, p, model, partial);
 		// v0.17.2 True Form: the skin flaps, the striped body under them, the tentacles, the bone jaw
 		float open = trueOpen(p, partial);
 		if (open > 0.001f) {

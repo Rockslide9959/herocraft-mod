@@ -100,9 +100,10 @@ public final class CannonboltShow extends ShowSequenceClient {
 					// the ball, and it opening out
 					{ 160.01f, 3.3f, 0f, 1.0f, 0.92f, 0f, 0f },
 					{ 213f, 3.05f, 0f, 1.0f, 0.95f, 0f, 0f },
-					// the stance, from low in front
-					{ 213.01f, 1.8f, 0f, 0.4f, 1.22f, 0f, 0f },
-					{ 257f, 1.65f, 0f, 0.4f, 1.26f, 0f, 0f } }));
+					// the stance, from low in front (final-pose rework: lower and looking up more steeply, so he fills the frame from the
+					// clawed feet to the shell domes over his raised arms)
+					{ 213.01f, 1.75f, 0f, 0.28f, 1.16f, 0f, 0f },
+					{ 257f, 1.6f, 0f, 0.28f, 1.2f, 0f, 0f } }));
 
 	public CannonboltShow() {
 		super(Aliens.CANNONBOLT.id());
@@ -188,7 +189,12 @@ public final class CannonboltShow extends ShowSequenceClient {
 
 	/** Right arm {x, y, z, elbow, twist}, right leg {x, y, z, knee, twist}, head x, lean, drop (px): tucked under the shell, and the stance. */
 	private static final float[] TUCK = { -0.35f, 0.1f, 0.35f, 1.9f, -0.45f, -0.2f, 0f, 0.3f, 0.35f, 1.57f, -0.12f, 0.3f, 0.6f },
-			STANCE = { -0.5f, 0.15f, 1.8f, 0.5f, 1.57f, -0.3f, 0f, 0.7f, 0.75f, 1.57f, -0.32f, 0.22f, 2f };
+			// final-pose rework (the show's t 237): squat -- the thighs forward toward the camera and the shins bent back to near
+			// vertical (short, bent legs from the low camera; they were splayed straight out to the corners), knees a little out; the
+			// arms up a touch higher and wider in the V; leaning in over the knees
+			STANCE = { -0.45f, 0.15f, 1.95f, 0.55f, 1.57f, -0.75f, 0f, 0.28f, 1.0f, 0.35f, -0.3f, 0.25f, 2.2f };
+	/** Final-pose rework: the right knee comes up a little higher than the left (thigh, knee), the show's uneven squat. */
+	private static final float KNEE_UP_THIGH = -0.15f, KNEE_UP_BEND = 0.15f;
 
 	/** Cannonbolt: hunched with his arms tucked in under the new shell (the face shots), then the squat stance, arms flung up and out. */
 	private static void cannonbolt(HumanoidModel<?> m, float t) {
@@ -203,9 +209,9 @@ public final class CannonboltShow extends ShowSequenceClient {
 		m.head.xRot = k[10] + breathe * 0.5f;
 		rot(m.rightArm, 1f, k[0], k[1], k[2] + breathe);
 		rot(m.leftArm, 1f, k[0], -k[1], -k[2] - breathe);
-		rot(m.rightLeg, 1f, k[5], k[6], k[7]);
+		rot(m.rightLeg, 1f, k[5] + KNEE_UP_THIGH * s, k[6], k[7]);
 		rot(m.leftLeg, 1f, k[5], -k[6], -k[7]);
-		ShowBody.bend(k[3] + breathe, k[4], k[3] - breathe, -k[4], k[8], k[9], k[8], -k[9]);
+		ShowBody.bend(k[3] + breathe, k[4], k[3] - breathe, -k[4], k[8] + KNEE_UP_BEND * s, k[9], k[8], -k[9]);
 	}
 
 	@Override
@@ -249,6 +255,72 @@ public final class CannonboltShow extends ShowSequenceClient {
 		});
 		if (t >= BELLY_AT) {
 			SwellLumps.render(pose, buffers, bones, BELLY, t, 9f, SHIRT, null);
+		}
+	}
+
+	// ================================================================ the shell domes in the stance (CannonboltClient)
+
+	/** The show's shell plates: a yellow dome in a black rim, a lighter cap, a highlight. */
+	private static final int DOME_RIM = 0xFF1C1A14, DOME_GOLD = 0xFFE09A1A, DOME_CAP = 0xFFF0B83A, DOME_SHINE = 0xFFFFE7A0;
+
+	/**
+	 * Final-pose rework (the show fans big yellow shell domes across the top of the frame over his raised arms; his skin only paints
+	 * the plates, which read as grey arm blocks from the low camera): from {@code CannonboltClient.renderExtras}, while his sequence
+	 * has him open out of the ball and through the stance, a big dome on each upper arm by the shoulder and a smaller one on each
+	 * forearm, facing the front and straddling the arm's upper edge (bone -x on the raised right arm, +x on the left) so they fan out
+	 * over the V. The forearm ones ride the bent forearm ({@link BentLimbs#toForearm}; its twisted frame's +x faces the front on the
+	 * right arm, -x on the left). Everyone nearby sees them.
+	 */
+	public static void renderAlien(PoseStack pose, MultiBufferSource buffers, int light, Player p, PlayerModel<?> model, float partial) {
+		float t = OmnitrixSequenceClient.age(p, partial, Aliens.CANNONBOLT.id());
+		if (t < OPEN_END) {
+			return;
+		}
+		float g = ShowMath.pop(t - OPEN_END, 4f);
+		if (g <= 0.02f) {
+			return;
+		}
+		VertexConsumer vc = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(Shards.WHITE));
+		for (int side = 0; side < 2; side++) {
+			boolean right = side == 0;
+			float out = right ? -1f : 1f, xc = right ? -1f : 1f;
+			int limb = right ? BentLimbs.RIGHT_ARM : BentLimbs.LEFT_ARM;
+			ModelPart arm = right ? model.rightArm : model.leftArm;
+			// the big dome by the shoulder, in the arm's bone space
+			AlienParts.on(pose, arm, () -> {
+				pose.pushPose();
+				pose.translate((xc + out * 1.5f) / 16f, 1.2f / 16f, -2f / 16f);
+				dome(pose, vc, 3.3f * g, light);
+				pose.popPose();
+			});
+			// the smaller one on the forearm, toward the hand
+			AlienParts.on(pose, arm, () -> {
+				BentLimbs.toForearm(pose, limb, false);
+				pose.pushPose();
+				pose.translate((xc - out * 2f) / 16f, 7.4f / 16f, 0f);
+				pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(right ? -90f : 90f));
+				dome(pose, vc, 2.5f * g, light);
+				pose.popPose();
+			});
+		}
+	}
+
+	/** One dome facing -z at the origin, {@code r} px across its rim; it sinks 0.9 px into whatever it sits on. */
+	private static void dome(PoseStack pose, VertexConsumer vc, float r, int light) {
+		disc(pose, vc, r, -0.35f, 0.9f, DOME_RIM, light);
+		disc(pose, vc, r * 0.82f, -0.62f, 0f, DOME_GOLD, light);
+		disc(pose, vc, r * 0.55f, -0.88f, -0.5f, DOME_CAP, light);
+		float s = r * 0.16f;
+		AlienParts.box(pose, vc, -r * 0.42f - s, -r * 0.42f - s, -0.94f, -r * 0.42f + s, -r * 0.42f + s, -0.8f, 0f, 0f, 1f, 1f, DOME_SHINE, light);
+	}
+
+	/** A round slab facing -z (a stack of boxes), radius {@code r}, from {@code z0} to {@code z1}. */
+	private static void disc(PoseStack pose, VertexConsumer vc, float r, float z0, float z1, int argb, int light) {
+		int n = 5;
+		for (int i = 0; i < n; i++) {
+			float a = (i + 0.5f) / n * Mth.HALF_PI;
+			float hx = Mth.cos(a) * r, hy = Mth.sin(a) * r;
+			AlienParts.box(pose, vc, -hx, -hy, z0, hx, hy, z1, 0f, 0f, 1f, 1f, argb, light);
 		}
 	}
 
