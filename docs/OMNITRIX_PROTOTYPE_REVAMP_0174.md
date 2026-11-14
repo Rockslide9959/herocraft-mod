@@ -80,3 +80,33 @@ Removed: none, but **Ice Breath moved to Hold R** and **Ice Shard Spit to tap R*
 | Z | Deep Freeze: 17 within 6, frozen 3 s (20 s) | **Shatter** (new): every frozen creature within 12 blocks shatters: 14 each, the ice ends (12 s) | **Blizzard** (new): channel a snowstorm round you while held (8 blocks, up to 3 s): 2 every 0.5 s, slowed, frosted (24 s) |
 | V | Frost Armour: 10 s, 40% less damage, attackers frosted (20 s) | **Ice Decoy** (new): leave an ice statue of yourself; mobs within 16 target it for 5 s, and it bursts into frost (6 within 3) when broken or expired (18 s) | -- |
 | C | Tail Whip: 8 round you, knockback (1.5 s) | **Frozen Tail Spike** (new): an ice-coated tail thrust (4 blocks): 12, frosted (6 s) | -- |
+
+## As built (v0.17.4)
+
+Everything in the tables above is in, with the numbers and cooldowns as listed. A tap on a key that also has a hold fires when the key
+comes up (the framework holds it back for 0.4 s to tell the two apart), and every hold's cooldown starts when it ends. Changes from the
+spec, and the details the spec left open:
+
+- **Holds without a cooldown in the spec** (Energy Channel, Far Sight, Hunt Sprint, Ice Path) have none. Ice Path stops at 6 s; Energy
+  Channel, Far Sight and Hunt Sprint last as long as the key is held. Charged Bolt and Core Overload Burst go off by themselves if held
+  well past full (3.5 s and 5 s); Charged Slam at 3.5 s.
+- **Snare-oh:** Sand Coffin only counts creatures bound by *his* bandages (Bandage Bind, Mummy Wrap, Bandage Net), tracked per player.
+  Tether Throw refuses a boss ("too heavy") instead of whirling it; Bandage Slam slams a boss where it stands. The net is 5 x 3 blocks and
+  binds each creature at most once every 1.5 s. Recoil works with or without a wall behind him. The Cocoon also blocks every other key.
+- **Shock Rock:** the new moves cost no Energy (Overload's +35% applies to all of them). The Energy Dome turns back shots from outside at
+  its shell (for everyone inside) and cancels shots and blasts on him from outside; allies inside are covered against shots only.
+  Reflect also blocks blows from in front, like the Shield Construct.
+- **Frankenstrike:** Arc Stream drains 1 Charge every 5 ticks (4 a second) and stops when he runs dry; Tesla Field, Charged Slam,
+  Lightning Ride, Defibrillate and Static Armour refuse without enough Charge (no cooldown spent). Lightning Ride also stuns what it
+  passes through for half a second. Arc Stream reports to the beam-clash system.
+- **Eye Guy:** Sweeping Laser and Thermal Shock are held beams (they report to BeamClash every live tick; their renderers hide in a
+  clash). Thermal Shock's "caught the whole time" means hit by every pulse, at least 6 of them (1.5 s). Weak Spot also outlines the mark
+  through walls and applies to his punches. Hypno Gaze and Disorienting Howl share `AlienConfusion` (cleared by `ServerStateReset`).
+- **Benwolf:** Hunt Sprint steps up 1.1 blocks and blocks R, G, Z and C. Wall Bound needs a wall within reach (front, sides or back)
+  and its chain of 3 resets on landing. Scent Mark's trail is particles only he sees.
+- **Arctiguana:** Ice Breath's old 1.5 s cap is now the 3 s hold. Wall Cling makes the wall a ladder (press in to climb, Sneak to hold
+  still); Jump leaps off (client side) and the grip lets go once he is away from the wall. Ice Decoy is a real, motionless entity
+  (`projecthero:arctiguana_decoy`, 20 health, never saved) that hostile mobs within 16 are set on; it bursts when broken or after 5 s.
+- **Tests:** `OmnitrixPrototypeRevampGameTests` (Sand Coffin, Shatter, Cocoon, hold limits, Core Overload, Thermal Shock, Hypno Gaze).
+- **In game:** `docs/screenshots/v0174/prototype_aliens/` (a portrait and a short MP4 plus frame sheet per alien). The harness is
+  `scratchpad/ProtoRevampHarness.v0174.java.txt` (+ its camera mixin); it needs `run/protorevamp.flag` naming the frames folder.

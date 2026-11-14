@@ -1195,12 +1195,15 @@ public final class FrankenstrikeKit extends AlienKit {
 		Vec3 end = com.projecthero.mod.omnitrix.alien.jetray.RecalKitMath.beamEnd(p, look, RIDE_RANGE);
 		double dist = Math.max(0, end.distanceTo(eye) - 0.7);
 		Vec3 feet = null;
-		// back off along the line until his body fits
-		for (double d = dist; d >= 1.5; d -= 0.5) {
+		// back off along the line until his body fits (stepping up out of the ground when he aims down at it)
+		search: for (double d = dist; d >= 1.5; d -= 0.5) {
 			Vec3 at = eye.add(look.scale(d)).subtract(0, p.getEyeHeight(), 0);
-			if (l.noCollision(p, p.getBoundingBox().move(at.subtract(p.position())))) {
-				feet = at;
-				break;
+			for (double up = 0; up <= 1.5; up += 0.25) {
+				Vec3 q = at.add(0, up, 0);
+				if (l.noCollision(p, p.getBoundingBox().move(q.subtract(p.position())))) {
+					feet = q;
+					break search;
+				}
 			}
 		}
 		if (feet == null) {
