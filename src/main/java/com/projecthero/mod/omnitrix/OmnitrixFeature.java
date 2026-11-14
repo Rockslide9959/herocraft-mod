@@ -38,9 +38,9 @@ public final class OmnitrixFeature {
 	private static boolean enabled = true;
 
 	/** v0.17.3 release switch: the six new hidden prototype aliens. {@code false} for v0.17.3; {@code true} to ship them. */
-	public static final boolean PROTOTYPE_ALIENS_0173 = false;
+	public static final boolean PROTOTYPE_ALIENS_0173 = true;
 	/** v0.17.3 release switch: the new show transformations (all but Four Arms'). {@code false} for v0.17.3; {@code true} to ship them. */
-	public static final boolean SHOW_SEQUENCES = false;
+	public static final boolean SHOW_SEQUENCES = true;
 	/** The aliens {@link #PROTOTYPE_ALIENS_0173} holds back. */
 	public static final java.util.Set<String> HELD_ALIENS_0173 = java.util.Set.of("snare_oh", "shock_rock", "frankenstrike", "eye_guy", "benwolf",
 			"arctiguana");

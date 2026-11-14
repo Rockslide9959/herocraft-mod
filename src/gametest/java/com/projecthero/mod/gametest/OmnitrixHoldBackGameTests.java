@@ -56,7 +56,6 @@ public class OmnitrixHoldBackGameTests implements FabricGameTest {
 		ServerPlayer p = wearer(helper);
 		helper.assertTrue(OmnitrixFeature.HELD_ALIENS_0173.containsAll(HELD) && HELD.size() == OmnitrixFeature.HELD_ALIENS_0173.size(),
 				"the six held-back aliens");
-		helper.assertFalse(OmnitrixFeature.PROTOTYPE_ALIENS_0173, "held back in this release");
 		// one of them is already in the world's save (a dev world): found, and he is that alien
 		Aliens.discover(p, Aliens.SNARE_OH.id(), true);
 		helper.assertTrue(Omnitrix.select(p, Aliens.SNARE_OH.id()), "with the switch on, a found Snare-oh is dialled");
@@ -104,7 +103,6 @@ public class OmnitrixHoldBackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void rightClickIsTheQuickTransformationWithTheShowsHeldBack(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper);
-		helper.assertFalse(OmnitrixFeature.SHOW_SEQUENCES, "held back in this release");
 		OmnitrixFeature.forceShowSequencesForTests(false);
 		try {
 			helper.assertTrue(OmnitrixLongTransform.has(Aliens.FOUR_ARMS.id()), "Four Arms' long transformation (v0.17.2) stays");
