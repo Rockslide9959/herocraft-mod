@@ -80,13 +80,16 @@ public final class HeatblastShow extends ShowSequenceClient {
 
 	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(
 			// the slap, closer than the shared shot: waist up, a little low (the show's framing)
-			new float[][] { { 0f, 1.3f, 10f, 1.15f, 1.2f, 0f, 0.15f }, { SLAP_END, 1.12f, 8f, 1.15f, 1.18f, 0f, 0.15f } }, ShowShots.dialCloseUp(SLAP_END + 0.01f, ARM_AT),
+			// v0.17.4: from a little above, head to waist, the hands meeting low in the middle (the show's booth shot)
+			new float[][] { { 0f, 1.15f, 0f, 1.68f, 1.3f, -0.1f, 0.2f }, { SLAP_END, 1.05f, 0f, 1.66f, 1.28f, -0.1f, 0.2f } }, ShowShots.dialCloseUp(SLAP_END + 0.01f, ARM_AT),
 			new float[][] {
 					// in front of the forearm held across the chest: the hand, along to the elbow, up the upper arm to the shoulder
-					{ 38.01f, 0.5f, -8f, 1.3f, 1.27f, 0.06f, 0.3f },
-					{ 47f, 0.55f, -14f, 1.34f, 1.28f, -0.08f, 0.28f },
-					{ 55f, 0.62f, -24f, 1.46f, 1.36f, -0.24f, 0.16f },
-					{ 62f, 0.66f, -30f, 1.56f, 1.46f, -0.24f, 0.04f },
+					// v0.17.4: in tight and a little above, so the rock fills the frame and the face stays out of it (the show never
+					// shows the face here: only the forearm, then the white sleeve and the shoulder behind the rock)
+					{ 38.01f, 0.4f, -8f, 1.4f, 1.24f, 0.06f, 0.3f },
+					{ 47f, 0.42f, -14f, 1.42f, 1.24f, -0.06f, 0.28f },
+					{ 55f, 0.46f, -26f, 1.5f, 1.3f, -0.2f, 0.16f },
+					{ 62f, 0.5f, -34f, 1.56f, 1.36f, -0.24f, 0.06f },
 					// the face, low and close from his left front, pushing in to the cheek
 					{ 62.01f, 0.62f, -24f, 1.52f, 1.62f, -0.02f, 0f },
 					{ 72f, 0.52f, -34f, 1.54f, 1.6f, -0.04f, 0f },
@@ -95,18 +98,21 @@ public final class HeatblastShow extends ShowSequenceClient {
 					{ 83.01f, 0.4f, 0f, 1.6f, 1.62f, 0f, 0f },
 					{ 117.99f, 0.4f, 0f, 1.6f, 1.62f, 0f, 0f },
 					// the long pull-back off the chest symbol
-					{ 118.01f, 0.36f, 0f, 1.24f, 1.24f, 0f, 0f },
-					{ 124f, 0.72f, 0f, 1.24f, 1.28f, 0f, 0f },
-					{ 130f, 1.3f, -2f, 1.18f, 1.32f, 0f, 0f },
-					{ 137f, 1.85f, -5f, 1.02f, 1.24f, 0f, 0f },
-					{ 143f, 2.05f, -8f, 0.98f, 1.2f, 0f, 0f },
+					// v0.17.4: starts tighter on the symbol and ends wider (the show's pull-back ends on the whole torso and thighs with
+					// room round him, the fists low in the frame)
+					{ 118.01f, 0.3f, 0f, 1.24f, 1.24f, 0f, 0f },
+					{ 124f, 0.7f, 0f, 1.24f, 1.28f, 0f, 0f },
+					{ 130f, 1.4f, -2f, 1.2f, 1.32f, 0f, 0f },
+					{ 137f, 2.3f, -5f, 1.06f, 1.18f, 0f, 0f },
+					{ 143f, 2.6f, -8f, 1.0f, 1.14f, 0f, 0f },
 					// round to his left: the guard
 					{ 143.01f, 2.45f, -40f, 0.72f, 1.08f, 0f, 0f },
 					{ 150f, 2.4f, -34f, 0.72f, 1.06f, 0f, 0f },
 					// the stance, low and nearly square on (final-pose rework: pulled back so the raised fist out to the side and the
 					// wide legs fit, knees to crown like the show's frame; it was a tight waist-up crop from his left)
-					{ 150.01f, 2.5f, -7f, 0.6f, 1.1f, 0f, 0f },
-					{ 190f, 2.38f, -5f, 0.62f, 1.12f, 0f, 0f } }))
+					// v0.17.4: closer and lower (the show crops him at the thighs, head near the top), pushing in slowly
+					{ 150.01f, 2.15f, -6f, 0.55f, 1.18f, 0f, 0f },
+					{ 190f, 1.9f, -4f, 0.58f, 1.2f, 0f, 0f } }))
 			.linear(SMEAR_AT, CHEST_AT);
 
 	public HeatblastShow() {
@@ -128,6 +134,9 @@ public final class HeatblastShow extends ShowSequenceClient {
 		double fov = 62;
 		if (t >= DIAL_AT && t < ARM_AT) {
 			fov -= 8 * smooth((t - DIAL_AT) / 14f);
+		} else if (t >= ARM_AT && t < FACE_AT) {
+			// v0.17.4: a longer lens on the rock arm, so the face stays out of the shot
+			fov -= 6;
 		} else if (t >= FLAME_AT && t < FLAME_AT + 6f) {
 			// a jolt as the head ignites
 			fov -= 3 * Mth.sin(Mth.PI * (t - FLAME_AT) / 6f);
@@ -249,11 +258,13 @@ public final class HeatblastShow extends ShowSequenceClient {
 	/** The whole sequence's body, matched to the video's frames (see the class beat table). */
 	static final Track POSE = new Track()
 			// ---- the slap: the right arm flung up high, the left forearm thrust across with the dial up
-			.at(0f).head(0.08f, 0.1f, 0.12f).legs(0f, 0f, 0.06f, 0.1f, 0f)
-			.lArm(-0.95f, 0.05f, -0.1f, 1.55f, 1.15f).rArm(-0.4f, 0f, 2.3f, 0.9f, 1.4f)
+			// v0.17.4: the left forearm held out low in front of the belly (the show's hands meet low in the middle of the frame, not
+			// up at the chest); the right hand up by the shoulder, then slapping down on it
+			.at(0f).head(0.22f, 0.12f, 0.1f).legs(0f, 0f, 0.06f, 0.1f, 0f).lean(0.06f)
+			.lArm(-0.5f, 0.15f, -0.05f, 1.2f, 0.6f).rArm(-1.9f, -0.3f, 0.3f, 1.2f, 0.3f)
 			// slapping down on the dial
-			.at(2.5f).hold().rArm(-0.55f, 0f, 0.45f, 2.15f, -0.25f).head(0.2f, 0.05f, -0.05f)
-			.at(SLAP_END).rArm(-0.75f, -0.4f, 0.25f, 1.6f, 0.2f).head(0.3f, 0f, 0f)
+			.at(2.5f).hold().rArm(-0.55f, -0.2f, 0.05f, 1.3f, -0.7f).head(0.3f, 0.05f, -0.02f)
+			.at(SLAP_END).rArm(-0.6f, -0.2f, 0.05f, 1.25f, -0.7f).head(0.32f, 0f, 0f)
 			// ---- the dial close-up: the right hand lifting off the core
 			.at(20f).rArm(-0.8f, -0.55f, 0.2f, 1.2f, 0.3f).head(0.35f, 0f, 0f)
 			.at(34f).hold().rArm(-0.55f, -0.3f, 0.25f, 1.0f, 0.2f)
@@ -291,7 +302,8 @@ public final class HeatblastShow extends ShowSequenceClient {
 			// up; the left upper arm out near level with the forearm up and out, so the fist is out to the side at head height (it was
 			// folded in beside the face); the right fist low, out to his right and forward toward the lens; legs wide, the left knee bent
 			.at(POSE_AT).hold().head(-0.2f, 0.12f, 0f).lean(-0.1f).drop(1.8f)
-			.lArm(-0.25f, 0f, -1.4f, 1.0f, -1.5f).rArm(-0.62f, 0f, 0.6f, 0.4f, 0.25f)
+			// v0.17.4: the raised fist level with the head (forearm up more), the near fist low at the hip and out toward the lens
+			.lArm(-0.25f, 0f, -1.35f, 1.45f, -1.5f).rArm(-0.5f, 0f, 0.75f, 0.45f, 0.25f)
 			.rLeg(-0.15f, 0f, 0.5f, 0.12f, 0.2f).lLeg(0.18f, 0f, -0.36f, 0.5f, -0.5f)
 			.at(WORLD_AT).hold()
 			// eased to standing for the bystanders once the holder is back in the world
@@ -356,7 +368,7 @@ public final class HeatblastShow extends ShowSequenceClient {
 	}
 
 	/** Final-pose rework: how far the stance leans over to his left (radians, as {@code body.zRot}; the show's body slants that way). */
-	static final float STANCE_ROLL = 0.15f;
+	static final float STANCE_ROLL = 0.2f; // v0.17.4: 0.15 -> 0.2, the show's slant
 
 	/** The stance's sideways lean at {@code t}: in under the white flash after the guard, eased out with the stance for the bystanders. */
 	static float stanceRoll(float t) {

@@ -81,21 +81,28 @@ public final class FourArmsShow extends ShowSequenceClient {
 			BURST_DOTS = KirbyDots.Style.show().bands(2).rgb(BURST_DOT).clear(0.5f).flow(1.6f);
 
 	/** The camera (see {@link CameraTrack} for the key layout). */
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), ShowShots.dialCloseUp(5.01f, HAND_AT),
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(
+			// v0.17.4: the show's slap is chest-up and close, the raised hand at the top corner (the shared shot was full length)
+			new float[][] { { 0f, 1.12f, 8f, 1.5f, 1.38f, 0f, 0.15f }, { SLAP_END, 1.02f, 6f, 1.5f, 1.36f, 0f, 0.15f } },
+			ShowShots.dialCloseUp(5.01f, HAND_AT),
 			new float[][] {
-					// the hand swelling, from their left front, looking down the forearm across the belly, sliding up the arm
-					{ 29.01f, 0.66f, -45f, 1.25f, 1.13f, -0.02f, 0.26f },
+					// the hand swelling: v0.17.4 starts nearly square on and above, both fists round the dial (the show's frame), then
+					// slides round their left and up the forearm across the belly
+					{ 29.01f, 0.6f, -12f, 1.42f, 1.13f, -0.02f, 0.26f },
+					{ 38f, 0.62f, -26f, 1.36f, 1.14f, -0.02f, 0.26f },
 					{ 49f, 0.8f, -60f, 1.32f, 1.2f, 0.03f, 0.18f },
 					{ 74f, 0.95f, -78f, 1.55f, 1.36f, -0.2f, 0f },
 					// the face, from low on his left
 					{ 74.01f, 0.8f, -32f, 1.66f, 1.6f, -0.03f, 0f },
 					{ 101f, 0.7f, -28f, 1.68f, 1.62f, -0.03f, 0f },
 					// from behind, low, then orbiting round his left to the front (angles past 180 run on round: one continuous sweep)
-					{ 101.01f, 2.2f, 188f, 0.62f, 1.22f, 0f, 0f },
-					{ 112f, 2.05f, 205f, 0.64f, 1.24f, 0f, 0f },
-					{ 121f, 1.85f, 268f, 0.66f, 1.25f, 0f, 0f },
-					{ 125f, 1.65f, 338f, 0.55f, 1.24f, 0f, 0f },
-					{ 128f, 1.45f, 345f, 0.55f, 1.26f, 0f, 0f },
+					// v0.17.4: close and from above (the show's back shot fills the frame with the back and the arms spread across it;
+					// ours was a small figure from low behind), ending on his left front with all four arms reaching forward
+					{ 101.01f, 1.5f, 188f, 1.95f, 1.28f, 0f, 0f },
+					{ 112f, 1.42f, 205f, 1.9f, 1.28f, 0f, 0f },
+					{ 121f, 1.38f, 262f, 1.75f, 1.3f, 0f, 0f },
+					{ 125f, 1.32f, 296f, 1.62f, 1.3f, 0f, 0f },
+					{ 128f, 1.28f, 318f, 1.58f, 1.3f, 0f, 0f },
 					// the arms sweeping past the lens, the whip up to the head (the angle runs straight, so it sweeps)
 					{ 132f, 0.6f, 352f, 1.35f, 1.45f, 0f, 0f },
 					// the head from above the brow: bowed, glaring up
@@ -108,10 +115,12 @@ public final class FourArmsShow extends ShowSequenceClient {
 					{ 166.01f, 1.1f, 18f, 0.75f, 1.6f, 0f, 0f },
 					{ 177f, 1.0f, 22f, 0.72f, 1.58f, 0f, 0f },
 					// the full body from his right (he faces the right of frame): the wind-up and the lunge; turning toward us for the stance
-					{ 177.01f, 2.05f, 80f, 0.5f, 0.95f, 0f, 0f },
-					{ 191f, 2.1f, 76f, 0.52f, 0.98f, 0f, 0f },
-					{ 201f, 2.15f, 42f, 0.5f, 1.0f, 0f, 0f },
-					{ 249f, 2.05f, 38f, 0.52f, 1.02f, 0f, 0f } }))
+					// v0.17.4: closer for the wind-up and the lunge (he fills the frame's height in the show); pulled back for the
+					// stance so the feet stay in (they were cut off at the shins)
+					{ 177.01f, 1.4f, 80f, 0.6f, 1.0f, 0f, 0f },
+					{ 191f, 1.6f, 76f, 0.58f, 0.98f, 0f, 0f },
+					{ 201f, 2.3f, 40f, 0.55f, 0.92f, 0f, 0f },
+					{ 249f, 2.2f, 36f, 0.56f, 0.94f, 0f, 0f } }))
 			// the whip pan runs at speed through its middle key; the roar shakes the shot a little
 			.linear(WHIP_AT, HEAD_AT).shake(ROAR_AT + 4, TORSO_AT, 0.012f, 18f);
 
@@ -281,8 +290,9 @@ public final class FourArmsShow extends ShowSequenceClient {
 	static final Track POSE = new Track()
 			// ---- the slap: left forearm across the belly, the dial up; the right arm flung up, then slapping down
 			.at(0f).head(0.04f, 0.05f, 0.1f).legs(0f, 0f, 0.05f, 0.08f, 0f)
-			.lArm(-0.78f, 0.05f, -0.12f, 1.62f, 1.18f).rArm(-0.35f, 0f, 1.1f, 1.9f, 0.6f)
-			.at(2f).rArm(-0.4f, 0f, 2.6f, 0.45f, 1.5f).head(0.02f, 0.05f, 0.08f)
+			// v0.17.4: the right hand already up high from the first frame, as in the show (it rose out of the shoulder before)
+			.lArm(-0.78f, 0.05f, -0.12f, 1.62f, 1.18f).rArm(-0.4f, 0f, 2.45f, 0.6f, 1.5f)
+			.at(2.5f).rArm(-0.42f, 0f, 2.6f, 0.45f, 1.5f).head(0.02f, 0.05f, 0.08f)
 			.at(4f).hold().rArm(-0.5f, 0f, 0.5f, 2.2f, -0.25f).head(0.08f, 0f, -0.12f)
 			.at(6.5f).rArm(-1.0f, -0.6f, 0.2f, 0.95f, 0.35f).head(0.3f, 0f, 0f)
 			// ---- the dial close-up: the right hand lifting off the core
@@ -300,19 +310,22 @@ public final class FourArmsShow extends ShowSequenceClient {
 			.at(TRANSFORM_AT).head(0.35f, 0f, 0f).shrug(0f).lean(0.3f).drop(1f).split(0f)
 			.arms(-0.3f, 0.05f, 1.5f, 0.95f, 1.2f).lows(-0.3f, 0.05f, 1.5f, 0.95f, 1.2f).legs(-0.12f, 0f, 0.16f, 0.4f, 0.35f)
 			.at(104f).hold().split(0f)
+			// v0.17.4: all four flung wide across the frame, the forearms clawing forward (the show's back shot); they were folded
+			// up close beside the head, hidden behind the back
 			.at(110f).split(0.8f).head(0.22f, -0.2f, 0.08f).lean(0.36f)
-			.rArm(-0.55f, 0.1f, 1.0f, 1.25f, 0.6f).lArm(-1.45f, 0.2f, -0.6f, 1.4f, -0.3f)
-			.lowR(-0.2f, 0f, 1.2f, 0.55f, 0.9f).lowL(-0.5f, 0f, -1.05f, 0.75f, -0.9f)
+			.rArm(0.1f, 0.1f, 1.45f, 0.45f, 1.0f).lArm(-0.15f, 0.15f, -1.4f, 0.55f, -0.9f)
+			.lowR(0.2f, 0f, 1.1f, 0.5f, 0.9f).lowL(0.05f, 0f, -1.05f, 0.55f, -0.9f)
 			.at(117f).split(1f).head(0.25f, 0.1f, -0.05f)
-			.rArm(-0.75f, 0.2f, 1.12f, 1.5f, 0.8f).lArm(-1.3f, 0.3f, -0.78f, 1.55f, -0.5f)
-			.lowR(-0.5f, 0f, 1.0f, 0.95f, 0.7f).lowL(-0.75f, 0f, -0.9f, 1.05f, -0.7f)
+			.rArm(-0.05f, 0.2f, 1.4f, 0.7f, 0.9f).lArm(-0.3f, 0.25f, -1.35f, 0.75f, -0.8f)
+			.lowR(0.05f, 0f, 1.05f, 0.7f, 0.8f).lowL(-0.15f, 0f, -1.0f, 0.75f, -0.8f)
 			// round his left side: all four reaching forward
 			.at(121f).head(0.25f, 0.28f, 0f).lean(0.32f)
 			.rArm(-1.15f, -0.15f, 0.6f, 1.2f, 0.3f).lArm(-1.3f, 0.15f, -0.55f, 1.25f, -0.3f)
 			.lowR(-0.95f, -0.15f, 0.55f, 1.15f, 0.3f).lowL(-1.0f, 0.15f, -0.5f, 1.15f, -0.3f)
 			// the front, low: upper arms out level, forearms forward; the lower pair out under them; head down
+			// v0.17.4: still all reaching forward, the lower pair under the upper (the show's frame from his left front)
 			.at(125f).hold().head(0.32f, 0f, 0f).lean(0.3f).drop(1.5f)
-			.arms(-0.35f, 0.2f, 1.35f, 1.35f, -0.45f).lows(-0.45f, 0.1f, 0.85f, 1.25f, 0.2f).legs(-0.15f, 0f, 0.22f, 0.45f, 0.25f)
+			.arms(-1.2f, 0.1f, 0.75f, 1.0f, -0.2f).lows(-0.95f, 0.1f, 0.6f, 1.0f, 0.2f).legs(-0.15f, 0f, 0.22f, 0.45f, 0.25f)
 			.at(WHIP_AT).arms(-0.45f, 0.1f, 1.3f, 1.45f, -0.4f)
 			// the arms sweeping in past the lens
 			.at(133f).arms(-1.35f, -0.7f, 0.4f, 1.9f, 0.2f).lows(-0.9f, -0.45f, 0.4f, 1.6f, 0.2f)
