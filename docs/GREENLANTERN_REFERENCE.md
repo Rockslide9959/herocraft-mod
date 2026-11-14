@@ -1166,3 +1166,34 @@ stays the source of truth; `anims.js` holds the clips, `preview.js` the offline 
   `MechWeaponDraw.WHITE` is a green-white. Mech only -- every other construct keeps its near-white edge lines.
 
 Screenshots: `docs/screenshots/v0171/gl_gurren_*.png` (`gl_gurren_before_after.png`: the old mech on top, the new one below).
+
+## v0.17.4 -- Ring Flight: no walking arms, a real flight pose
+
+User: "when the player moves around his arms move as if hes walking ... make him put the arm with the ring in front of him when
+he sprint flies".
+
+- **Root cause (every flight, not just GL)**: vanilla `LivingEntityRenderer#render` feeds `walkAnimation.speed` (the limb-swing
+  amount) into `HumanoidModel#setupAnim`, and that number comes from horizontal speed whether or not the feet touch anything. The
+  flight poses only lerped part of the way off it: the generic hero pose in `HumanoidModelMixin#flightPose` pinned the arms by
+  `lean / 90`, so a 25-degree cruise kept ~72% of the walk swing (and a slow drift all of it); GL had no arm pose of its own.
+  Fixed at the source by `client/mixin/FlightWalkCycleMixin` (`@ModifyExpressionValue` on that `speed(F)F` call): the amount is
+  scaled by `1 - FlightPoseHelper#airborne`, an eased 0..1 "flying" weight (in at 0.3 a tick at take-off, out at 0.2 on
+  landing). Every layer, armour shell and GeckoLib suit gets the same scaled number. The swing position is untouched; the flight
+  feel (dangling / trailing legs) and every power pose still play on top.
+- `FlightPoseHelper#airborne` is on for every leaning flight (Thor with a weapon, HERO_FLYING mutations, Iron Man, Max Steel, GL,
+  Kryptonian, Nova, Cyborg, Blue Beetle, Falcon, Saiyan, Starfire, Shazam, Doctor Fate, Vision) while off the ground, plus
+  `otherFlight`: Repulsor Boots, Undead, Raven, Beast Boy, Hellflame, Hawk Moth's Swarm Flight, Queen Bee's copter, Jetray, and
+  -- for your own body only, since abilities are not synced to other clients -- any power flight built on vanilla flying
+  (Stinkfly, Ghostfreak, Cyborg's jets, timed self-flight...) outside creative / spectator. Pegasus's Sky Gallop runs on the air
+  on purpose (it sets its own legs) and is left out. `FlightPoseHelper.WALK_FIX_ENABLED` turns the fix off for comparison films.
+- **GL flight pose** (`client/greenlantern/GreenLanternFlightPose`): Hover (ring fist a little forward and out, free hand loose,
+  one leg ahead, slow drift), Cruise (both arms swept back, legs trailing), Sprint-flight (the ring arm -- always the right one,
+  `PowerRingLayer` draws the ring on `rightArm` -- thrust straight ahead along the flight, the free arm back along the side, legs
+  together). Blended by the new eased `FlightPoseHelper#cruise` / `#sprint` (0.16 a tick) and faded by `airborne` and the hero
+  landing. Called from the new `HumanoidModelMixin#greenLanternPose` injection, declared after the generic flight pose, with
+  `GreenLanternPose` (the moves) right after it -- which also fixes moves made mid-air, whose arms the generic hero pose used to
+  pin.
+- **First person** (`client/mixin/GreenLanternFirstPersonFlightMixin`): sprint-flying, the bare right arm moves in toward the
+  middle of the view, up and ahead, turned a little inward, by `GreenLanternFlightPose#sprintWeight`.
+- Guidebook: `projecthero.guide.green_lantern.flight.body` describes the three looks.
+- Screenshots / films: `docs/screenshots/v0174/green_lantern/`.

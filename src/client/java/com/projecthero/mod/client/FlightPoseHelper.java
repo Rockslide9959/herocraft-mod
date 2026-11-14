@@ -57,6 +57,8 @@ public final class FlightPoseHelper {
 
 	/** v0.17.3: the shared flight feel on (FlightFeel); off only for before / after comparison films. */
 	public static volatile boolean FEEL_ENABLED = true;
+	/** v0.17.4: the in-flight walk-cycle fix on ({@code FlightWalkCycleMixin}); off only for before / after comparison films. */
+	public static volatile boolean WALK_FIX_ENABLED = true;
 
 	private FlightPoseHelper() {
 	}
@@ -90,6 +92,15 @@ public final class FlightPoseHelper {
 		private float pacePrev;
 		/** The last feel flown with (kept while it fades out). */
 		private com.projecthero.mod.client.flight.FlightFeel tune = com.projecthero.mod.client.flight.FlightFeel.GENERIC;
+		/** v0.17.4: 0..1, eased: how airborne-flying he is (any power's flight) -- scales vanilla's walk cycle out. */
+		private float air;
+		private float airPrev;
+		/** v0.17.4: 0..1, eased: flying along forward (SLOW or FAST). */
+		private float cruise;
+		private float cruisePrev;
+		/** v0.17.4: 0..1, eased: sprint-flying ({@link Tier#FAST}). */
+		private float sprint;
+		private float sprintPrev;
 	}
 
 	/** Called once per client tick (see {@code ProjectHeroModClient}) for every player in the level. */
@@ -163,6 +174,16 @@ public final class FlightPoseHelper {
 		if (flying) {
 			anim.tier = tierFor(player, speed, forwardSpeed);
 		}
+		// v0.17.4 (user: "when the player moves around his arms move as if hes walking"): vanilla's walk cycle is driven by
+		// horizontal speed whether or not the feet touch anything, so every flight swung its arms (and legs) like a walk. Any
+		// power's flight -- the leaning ones above plus the ones with their own poses -- eases it out (FlightWalkCycleMixin).
+		boolean anyFlight = flying && !player.onGround() || otherFlight(player);
+		anim.airPrev = anim.air;
+		anim.cruisePrev = anim.cruise;
+		anim.sprintPrev = anim.sprint;
+		anim.air = approach(anim.air, anyFlight ? 1.0f : 0.0f, 0.002f, anyFlight ? 0.3f : 0.2f);
+		anim.cruise = approach(anim.cruise, flying && (anim.tier == Tier.SLOW || anim.tier == Tier.FAST) ? 1.0f : 0.0f, 0.002f, 0.16f);
+		anim.sprint = approach(anim.sprint, flying && anim.tier == Tier.FAST ? 1.0f : 0.0f, 0.002f, 0.16f);
 
 		// Mark 1 never does the sprint "superman" lean, per its own suit definition (spec "changes
 		// 12") -- checked via the target-synced Tony Stark state so this reads correctly for every
@@ -254,6 +275,48 @@ public final class FlightPoseHelper {
 		if (tune == null && Math.abs(anim.bank) < 0.05f) {
 			anim.bank = 0.0f;
 		}
+	}
+
+	/**
+	 * v0.17.4: the flights that don't drive the shared lean (they pose the body themselves) but still must not walk-cycle
+	 * their limbs in the air. Every read is client-safe (synced flags / state). Pegasus's Sky Gallop runs on the air on
+	 * purpose and sets its own legs, so it is not here.
+	 */
+	private static boolean otherFlight(Player player) {
+		if (player.onGround() || player.isPassenger()) {
+			return false;
+		}
+		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)
+				|| com.projecthero.mod.undead.UndeadFlight.isFlying(player)
+				|| com.projecthero.mod.raven.Raven.isFlying(player)
+				|| com.projecthero.mod.beastboy.BeastBoy.isFlying(player)
+				|| com.projecthero.mod.quirk.hellflame.Hellflame.flying(player)
+				|| com.projecthero.mod.miraculous.hawkmoth.HawkMothKit.flying(player)
+				|| com.projecthero.mod.miraculous.queenbee.QueenBee.copter(player)
+				|| com.projecthero.mod.omnitrix.alien.jetray.JetrayKit.flyingNow(player)) {
+			return true;
+		}
+		// a power flight built on vanilla flying (Stinkfly, Ghostfreak, Cyborg's jets, timed self-flight...): only the flier's
+		// own client knows the abilities, so this covers your own body in third person; other viewers rely on the flags above
+		return player.getAbilities().flying && !player.isCreative() && !player.isSpectator();
+	}
+
+	/** v0.17.4: 0..1, eased: how airborne-flying the player is (any power). Vanilla's walk cycle is scaled by 1 minus this. */
+	public static float airborne(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.airPrev, anim.air);
+	}
+
+	/** v0.17.4: 0..1, eased: flying along rather than hanging still (a leaning flight only). */
+	public static float cruise(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.cruisePrev, anim.cruise);
+	}
+
+	/** v0.17.4: 0..1, eased: sprint-flying (a leaning flight only). */
+	public static float sprint(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.sprintPrev, anim.sprint);
 	}
 
 	/** v0.17.3 flight feel: the bank (degrees, + = right side down), eased and interpolated; 0 with no feel. */
