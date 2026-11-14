@@ -23,6 +23,15 @@ public abstract class StinkflyFlightPoseMixin {
 			at = @At("TAIL"))
 	private void projecthero$stinkflyFlight(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks, float rotationYaw,
 			float partialTicks, float scale, CallbackInfo ci) {
+		// v0.17.4: Benwolf's Hunt Sprint -- pitched forward about the HIPS onto all fours, lifted / dropped so the lowest paw is on the ground
+		float[] wolf = com.projecthero.mod.client.omnitrix.alien.BenwolfSprint.bodyTilt(player, partialTicks);
+		if (wolf != null) {
+			float u = com.projecthero.mod.client.omnitrix.alien.BenwolfSprint.px(scale);
+			poseStack.translate(0.0f, (wolf[2] + wolf[1]) * u, 0.0f);
+			poseStack.mulPose(Axis.XP.rotationDegrees(-wolf[0]));
+			poseStack.translate(0.0f, -wolf[2] * u, 0.0f);
+			return;
+		}
 		float[] tilt = StinkflyClient.bodyTilt(player, partialTicks);
 		if (tilt == null) {
 			// v0.17.2 (user: "give jetray better flight animations too please"): Jetray's flight attitude, the same pivot

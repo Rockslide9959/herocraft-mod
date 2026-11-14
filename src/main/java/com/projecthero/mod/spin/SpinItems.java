@@ -30,9 +30,15 @@ public final class SpinItems {
 				new Item(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 		STEEL_BALL = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("steel_ball"),
 				new SteelBallItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+		// v0.17.4: Gyro's costume (GyroSuitItem)
+		GyroSuitItem.register();
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		output.accept(ZEPPELI_STEEL_BALLS);
+		output.accept(GyroSuitItem.HAT);
+		output.accept(GyroSuitItem.COAT);
+		output.accept(GyroSuitItem.TROUSERS);
+		output.accept(GyroSuitItem.BOOTS);
 	}
 }

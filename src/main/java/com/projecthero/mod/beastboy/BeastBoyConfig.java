@@ -100,5 +100,11 @@ public final class BeastBoyConfig {
 	// ---- passives
 	public static final float HEALTH = 20f;
 	public static final int NIGHT_VISION_TICKS = 260;
+	/**
+	 * v0.17.4: Regeneration II in every animal form (amplifier 1), topped up to {@link #FORM_REGEN_TICKS}; the form's own pool heals at
+	 * Regeneration II's rate, 1 health every 25 ticks.
+	 */
+	public static final int FORM_REGEN_AMPLIFIER = 1, FORM_REGEN_TICKS = 60;
+	public static final float FORM_REGEN_PER_TICK = 1f / 25f;
 	public static final int SYNC_INTERVAL = 5;
 }

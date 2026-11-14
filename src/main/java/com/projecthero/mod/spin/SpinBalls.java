@@ -111,13 +111,80 @@ public final class SpinBalls {
 		return s != null && s.hasPower && s.gen(id.index()) == id.gen();
 	}
 
-	/** The index of the own ball in {@code hand}, or -1. Client-safe. */
-	public static int inHand(Player p, InteractionHand hand) {
+	/** The index of the own ball really held in {@code hand}, or -1. Client-safe. */
+	public static int heldIndex(Player p, InteractionHand hand) {
 		ItemStack st = p.getItemInHand(hand);
 		return isOwn(p, st) ? id(st).index() : -1;
 	}
 
-	/** How many hands hold one of his balls (0..2). Client-safe. */
+	/**
+	 * The index of the ball {@code hand} works with, or -1. Client-safe. Normally the own ball held in it; v0.17.4 (user: "the player
+	 * doesn't have to hold the balls to throw them, they automatically equip"): in Gyro's suit ({@link GyroSuitItem#suitWorn}) a hand
+	 * without one takes a ball from the holsters -- one anywhere else in his inventory -- the main hand the lowest-numbered, the off hand
+	 * the other. Throwing it takes it from its slot ({@link #takeOut}) and the catch puts it back there ({@link #giveBack}).
+	 */
+	public static int inHand(Player p, InteractionHand hand) {
+		int main = heldIndex(p, InteractionHand.MAIN_HAND), off = heldIndex(p, InteractionHand.OFF_HAND);
+		int held = hand == InteractionHand.MAIN_HAND ? main : off;
+		if (held >= 0 || !GyroSuitItem.suitWorn(p)) {
+			return held;
+		}
+		int first = -1, second = -1;
+		for (int i = 0; i < SpinConfig.BALLS; i++) {
+			if (i != main && i != off && holstered(p, i)) {
+				if (first < 0) {
+					first = i;
+				} else if (second < 0) {
+					second = i;
+				}
+			}
+		}
+		if (hand == InteractionHand.MAIN_HAND) {
+			return first;
+		}
+		return main >= 0 ? first : second;
+	}
+
+	/** v0.17.4: owed-field bits -- ball i came off the holsters (it goes back there), ball i hangs on the belt (for every viewer). */
+	public static int fromHolsterBit(int i) {
+		return 1 << (4 + i);
+	}
+
+	public static int onBeltBit(int i) {
+		return 1 << (6 + i);
+	}
+
+	/**
+	 * v0.17.4: ball {@code i} is in his inventory but in neither hand (where the suit's holsters carry it). On a client, for anyone but
+	 * the local player (whose inventory is not sent), the synced belt bits answer.
+	 */
+	public static boolean holstered(Player p, int i) {
+		if (heldIndex(p, InteractionHand.MAIN_HAND) == i || heldIndex(p, InteractionHand.OFF_HAND) == i) {
+			return false;
+		}
+		if (p.level().isClientSide() && !isLocal(p)) {
+			SpinState s = Spin.peek(p);
+			return s != null && (s.owed & onBeltBit(i)) != 0;
+		}
+		return inInventory(p, i);
+	}
+
+	/** How many of his balls hang on the belt (0..2). Client-safe. */
+	public static int holsteredCount(Player p) {
+		int n = 0;
+		for (int i = 0; i < SpinConfig.BALLS; i++) {
+			if (holstered(p, i)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private static boolean isLocal(Player p) {
+		return p.isLocalPlayer();
+	}
+
+	/** How many hands hold one of his balls (0..2; in Gyro's suit the holstered balls count). Client-safe. */
 	public static int handsHolding(Player p) {
 		return (inHand(p, InteractionHand.MAIN_HAND) >= 0 ? 1 : 0) + (inHand(p, InteractionHand.OFF_HAND) >= 0 ? 1 : 0);
 	}
@@ -159,9 +226,30 @@ public final class SpinBalls {
 
 	// ---------------------------------------------------------------- taking and giving
 
-	/** Empties {@code hand} (the ball leaves it). */
-	static void take(ServerPlayer p, InteractionHand hand) {
-		p.setItemInHand(hand, ItemStack.EMPTY);
+	/**
+	 * Ball {@code index} leaves {@code hand} -- or, in Gyro's suit, its holster slot (v0.17.4: then it is marked to come back to the
+	 * holsters, not the hand). Whatever else the hand holds stays.
+	 */
+	public static void takeOut(ServerPlayer p, InteractionHand hand, int index) {
+		if (heldIndex(p, hand) == index) {
+			p.setItemInHand(hand, ItemStack.EMPTY);
+			SpinState n = Spin.state(p).copy();
+			n.owed &= ~fromHolsterBit(index);
+			Spin.save(p, n);
+			return;
+		}
+		Inventory inv = p.getInventory();
+		for (int k = 0; k < inv.getContainerSize(); k++) {
+			ItemStack st = inv.getItem(k);
+			if (isOwn(p, st) && id(st).index() == index) {
+				inv.setItem(k, ItemStack.EMPTY);
+				SpinState n = Spin.state(p).copy();
+				n.owed |= fromHolsterBit(index);
+				n.owed &= ~onBeltBit(index);
+				Spin.save(p, n);
+				return;
+			}
+		}
 	}
 
 	/**
@@ -173,6 +261,18 @@ public final class SpinBalls {
 			return;
 		}
 		ItemStack ball = stack(p, index);
+		// v0.17.4: a ball that came off the suit's holsters goes back onto them (a free inventory slot that isn't in his hand)
+		SpinState cur = Spin.state(p);
+		if ((cur.owed & fromHolsterBit(index)) != 0) {
+			SpinState n = cur.copy();
+			n.owed &= ~fromHolsterBit(index);
+			Spin.save(p, n);
+			int slot = holsterSlot(p);
+			if (slot >= 0) {
+				p.getInventory().setItem(slot, ball);
+				return;
+			}
+		}
 		if (p.getItemInHand(hand).isEmpty()) {
 			p.setItemInHand(hand, ball);
 			return;
@@ -185,6 +285,22 @@ public final class SpinBalls {
 		ItemStack old = p.getItemInHand(hand);
 		p.setItemInHand(hand, ball);
 		p.drop(old, false, false);
+	}
+
+	/** v0.17.4: a free slot for a holstered ball: the main inventory first, then the hotbar (never the selected slot), or -1. */
+	static int holsterSlot(ServerPlayer p) {
+		Inventory inv = p.getInventory();
+		for (int k = 9; k < 36; k++) {
+			if (inv.getItem(k).isEmpty()) {
+				return k;
+			}
+		}
+		for (int k = 0; k < 9; k++) {
+			if (k != inv.selected && inv.getItem(k).isEmpty()) {
+				return k;
+			}
+		}
+		return -1;
 	}
 
 	/** A new ball goes to him: {@code first} hand if empty, else the other hand, else a free slot, else at his feet. */
@@ -303,6 +419,21 @@ public final class SpinBalls {
 		// would never come back: catch it now
 		if (p.tickCount % 10 == 0 && Spin.state(p).thrown != 0) {
 			settleStuckBalls(p);
+		}
+		// v0.17.4: which balls hang on his belt, for every viewer (their copy of his inventory has only his hands)
+		if (p.tickCount % 5 == 0) {
+			int belt = 0;
+			for (int i = 0; i < SpinConfig.BALLS; i++) {
+				if (holstered(p, i)) {
+					belt |= onBeltBit(i);
+				}
+			}
+			SpinState cur = Spin.state(p);
+			if ((cur.owed & (onBeltBit(0) | onBeltBit(1))) != belt) {
+				SpinState n = cur.copy();
+				n.owed = (n.owed & ~(onBeltBit(0) | onBeltBit(1))) | belt;
+				Spin.save(p, n);
+			}
 		}
 		// where his balls are, while he has them
 		if (p.tickCount % 10 == 0) {

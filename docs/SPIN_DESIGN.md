@@ -75,3 +75,18 @@ the strike, faint golden afterimages, fades at the end).
 ## Round 2026-11-12 (user)
 - Not-Perfect Golden Spin = a plain R throw (10 dmg, 15 Spin, R cooldown, no Golden cooldown).
 - Held balls sit just under each fist (`models/item/steel_ball.json`, third person [0,-1.5,-2.3], first person lowered 2.2 -> 0.6). Screenshots: `docs/screenshots/v0173/spin_round/`.
+
+## Round 2026-11-14 (v0.17.4, user)
+- **Gyro's suit** (`spin/GyroSuitItem`): hat, coat, holster trousers, boots; leather-level, iron durability; crafted from leather + gold
+  nuggets (`scratchpad/spin/gen_gyro_suit_items.js` writes the icons, models, recipes). Drawn by the skin-costume path (`QuirkCostume`) from
+  `textures/entity/spin/gyro_suit_wide.png` / `_slim.png`. **Skin source:** the user's pick,
+  https://www.planetminecraft.com/skin/gyro-zeppeli-costume-steel-ball-run-anime-palette/ -- NOT downloaded yet (planetminecraft's
+  Cloudflare check refuses curl), so the PNGs are missing and the suit body draws nothing; author and licence unchecked: check both
+  before a public release.
+- **Suit = coat + trousers:** balls anywhere in the inventory work without holding them (`SpinBalls.inHand` falls back to the holsters),
+  the throw takes the ball from its slot and the catch puts it back in the inventory (`owed` bit 4+i); the hand keeps what it holds.
+- **Holsters** (`client/spin/SpinHolsterLayer`): two leather cups on the front of the belt while the trousers are on, a ball in each per
+  holstered ball (other viewers read `owed` bits 6+i, synced every 5 ticks).
+- **Spin bar refill** +30% in the suit, +30% on a horse; they add up (x1.6). HUD tag "Suit +30% Spin".
+- **Side-hold stance** (`client/spin/SpinHoldPose`): a held ball (or the suit's holster ready with an empty hand) hangs at the hip, arm
+  a little out; the stance fades over the throw swing. Shots: `docs/screenshots/v0174/misc_models/spin_*`.
