@@ -14,6 +14,7 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
@@ -78,15 +79,25 @@ public class FateSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 			return;
 		}
 		float shown = DoctorFate.possessed(player) ? 1f : DoctorFate.helmetShown(player, partialTick);
-		if (shown <= 0.01f) {
+		FateHelmetAnim a = FateHelmetAnim.of(player, partialTick);
+		if (shown <= 0.01f && !a.held() && !a.onHead()) {
 			return;
 		}
-		renderOn(pose, buffers, light, getParentModel(), player.getSkin().model() == PlayerSkin.Model.SLIM, shown);
+		renderOn(pose, buffers, light, getParentModel(), player.getSkin().model() == PlayerSkin.Model.SLIM, shown, a);
 	}
 
-	/** Draws the outfit, helmet and amulet posed like {@code parent}; {@code shown} 0..1 is V's animation. */
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** The suit as on a player wearing the helmet (the Avatar, harness shots). */
 	public static void renderOn(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slimArms, float shown) {
+		renderOn(pose, buffers, light, parent, slimArms, shown, shown > 0.01f ? FateHelmetAnim.WORN : FateHelmetAnim.NONE);
+	}
+
+	/**
+	 * Draws the outfit posed like {@code parent} at {@code shown} 0..1 opacity, and the helmet: on the head, or (v0.17.4, the put-on /
+	 * lift-off sequences) held in the hands at {@link FateHelmetAnim#hy} / {@link FateHelmetAnim#hz}.
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static void renderOn(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slimArms, float shown,
+			FateHelmetAnim anim) {
 		PlayerModel<AbstractClientPlayer> m = suitModel(slimArms);
 		((HumanoidModel) parent).copyPropertiesTo(m);
 		m.jacket.copyFrom(m.body);
@@ -100,18 +111,65 @@ public class FateSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		// the body, arms and legs (the head and hat are drawn on their own below)
 		m.head.visible = false;
 		m.hat.visible = false;
-		m.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
+		if (shown > 0.01f) {
+			m.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
+		}
 		m.head.visible = true;
 		m.hat.visible = true;
-		// the helmet: the skin's head + hat layer, lowered onto the head over V's 1 s
-		float lift = (1f - shown) * 12f;
-		m.head.y -= lift;
+		if (anim.onHead()) {
+			// the helmet: the skin's head + hat layer, on the head
+			m.head.render(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			m.hat.render(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			if (anim.glow() > 0.01f) {
+				sheen(pose, buffers, m.hat, anim.glow());
+			}
+		} else if (anim.held() && anim.alpha() > 0.01f) {
+			// v0.17.4: in the hands, upright and facing the way the body faces
+			float hx = m.head.x, hy = m.head.y, hz = m.head.z, rx = m.head.xRot, ry = m.head.yRot, rz = m.head.zRot;
+			m.head.xRot = 0f;
+			m.head.yRot = 0f;
+			m.head.zRot = 0f;
+			m.head.y = parent.head.y + anim.hy();
+			m.head.z = parent.head.z + anim.hz();
+			m.hat.copyFrom(m.head);
+			int ac = (Math.round(255 * Math.min(1f, anim.alpha())) << 24) | 0xFFFFFF;
+			m.head.render(pose, vc, light, OverlayTexture.NO_OVERLAY, ac);
+			m.hat.render(pose, vc, light, OverlayTexture.NO_OVERLAY, ac);
+			if (anim.glow() > 0.01f) {
+				sheen(pose, buffers, m.hat, anim.glow() * Math.min(1f, anim.alpha() + 0.3f));
+			}
+			m.head.x = hx;
+			m.head.y = hy;
+			m.head.z = hz;
+			m.head.xRot = rx;
+			m.head.yRot = ry;
+			m.head.zRot = rz;
+			m.hat.copyFrom(m.head);
+		}
+	}
+
+	/** A gold sheen over the helmet (forming in the hands, held high under the ankh, settling, turning to gold). */
+	static void sheen(PoseStack pose, MultiBufferSource buffers, ModelPart hat, float k) {
+		int g = Math.round(255 * Math.min(1f, k) * 0.7f);
+		int c = 0xFF000000 | (g << 16) | (Math.round(g * 0.78f) << 8) | Math.round(g * 0.25f);
+		hat.render(pose, buffers.getBuffer(RenderType.eyes(SUIT)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, c);
+	}
+
+	/** The helmet alone (the suit's head and hat layer) around the current pose origin, for the placed helmet and the summon. */
+	public static void renderHelmetAlone(PoseStack pose, MultiBufferSource buffers, int light, float alpha, float glow) {
+		PlayerModel<AbstractClientPlayer> m = suitModel(false);
+		m.head.resetPose();
+		m.head.xRot = 0f;
+		m.head.yRot = 0f;
+		m.head.zRot = 0f;
 		m.hat.copyFrom(m.head);
-		int hc = (Math.round(255 * shown) << 24) | 0xFFFFFF;
-		m.head.render(pose, vc, light, OverlayTexture.NO_OVERLAY, hc);
-		m.hat.render(pose, vc, light, OverlayTexture.NO_OVERLAY, hc);
-		m.head.y += lift;
-		m.hat.copyFrom(m.head);
+		var vc = buffers.getBuffer(RenderType.entityTranslucent(SUIT));
+		int ac = (Math.round(255 * Math.min(1f, Math.max(0f, alpha))) << 24) | 0xFFFFFF;
+		m.head.render(pose, vc, light, OverlayTexture.NO_OVERLAY, ac);
+		m.hat.render(pose, vc, light, OverlayTexture.NO_OVERLAY, ac);
+		if (glow > 0.01f) {
+			sheen(pose, buffers, m.hat, glow * alpha);
+		}
 	}
 
 	/**

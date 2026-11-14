@@ -1,0 +1,359 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateFlight;
+import com.projecthero.mod.doctorfate.DoctorFateHelmet;
+import com.projecthero.mod.doctorfate.helmet.FateHelmet;
+import com.projecthero.mod.doctorfate.helmet.FateHelmetEntity;
+import com.projecthero.mod.doctorfate.helmet.FateHelmetRegistry;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.4 Doctor Fate -- the helmet put-on / lift-off (third and first person), the placed helmet,
+ * the summon (flying in, and out of a portal) and the flight. Enabled by run/doctorfate4.flag. Frames go to
+ * run/screenshots/fx_df4_<scene>_NNN.png (sheets/MP4s: scratchpad/doctorfate/fx_films.sh df4 ...).
+ */
+// TEMP-HARNESS
+public final class DoctorFateHelmetHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static Vec3 origin;
+	private static int t0 = -1;
+	private static String clip;
+	private static int frame;
+	private static Vec3 follow;
+	private static Vec3 followLook;
+
+	private DoctorFateHelmetHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("doctorfate4.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DoctorFateHelmetHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "doctorfate4-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] server step failed: " + e);
+						e.printStackTrace(System.out);
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void cam(Vec3 rel, Vec3 lookRel) {
+		follow = null;
+		camPos = origin.add(rel);
+		camLook = origin.add(lookRel);
+	}
+
+	private static int slotOf(ServerPlayer p) {
+		for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+			if (FateHelmet.belongsTo(p.getInventory().getItem(i), p.getUUID())) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(DoctorFateHelmetHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		if (follow != null) {
+			Vec3 pp = mc.player.position();
+			camPos = pp.add(follow);
+			camLook = pp.add(followLook);
+		}
+		if (inWorld == 60) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, Math.floor(p.getY()), Math.floor(p.getZ()) + 0.5);
+				BlockPos o = BlockPos.containing(origin);
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -8; z <= 16; z++) {
+						l.setBlock(o.offset(x, -1, z), (x + z) % 7 == 0 ? Blocks.CHISELED_SANDSTONE.defaultBlockState() : Blocks.SMOOTH_SANDSTONE.defaultBlockState(), 3);
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.getInventory().clearContent();
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 1, false, false));
+				DoctorFate.grant(p);
+				DoctorFate.setHelmet(p, false);
+				DoctorFate.setDominion(p, 12f);
+				p.teleportTo(l, origin.x, origin.y, origin.z, 0f, 0f);
+			});
+			t0 = inWorld + 120;
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		int t = inWorld - t0;
+		if (clip != null) {
+			shot("fx_df4_" + clip + "_" + String.format("%03d", frame++));
+		}
+		// ---- put on, third person (Shift+right-click the item)
+		if (t == 0) {
+			cam(new Vec3(1.9, 1.75, 3.3), new Vec3(0, 1.35, 0));
+			server(mc, p -> p.getInventory().setItem(0, FateHelmet.stack(p, FateHelmetRegistry.get(p.server).generation(p.getUUID()))));
+		}
+		if (t == 4) {
+			shot("df4_00_item_in_hand");
+		}
+		if (t == 8) {
+			mc.options.hideGui = true;
+			startClip("equip_tp");
+			server(mc, p -> {
+				int s = slotOf(p);
+				if (s >= 0 && DoctorFateHelmet.wearFromItem(p, p.getInventory().getItem(s), InteractionHand.MAIN_HAND)) {
+					p.getInventory().setItem(s, ItemStack.EMPTY);
+				}
+			});
+		}
+		if (t == 44) {
+			stopClip();
+			mc.options.hideGui = false;
+		}
+		if (t == 47) {
+			shot("df4_01_worn_hud");
+		}
+		if (t == 50) {
+			mc.options.hideGui = true;
+		}
+		// ---- take off, third person (H)
+		if (t == 52) {
+			startClip("remove_tp");
+			server(mc, p -> DoctorFate.pressH(p));
+		}
+		if (t == 84) {
+			stopClip();
+		}
+		// ---- set down on a block
+		if (t == 86) {
+			mc.options.hideGui = false;
+		}
+		if (t == 116) {
+			mc.options.hideGui = true;
+		}
+		if (t == 88) {
+			server(mc, p -> {
+				int s = slotOf(p);
+				if (s >= 0) {
+					ItemStack st = p.getInventory().getItem(s);
+					Vec3 at = origin.add(-6, 0, 8);
+					FateHelmetEntity e = FateHelmetEntity.place(p.serverLevel(), at, st.get(FateHelmet.TAG), 0f, false);
+					p.serverLevel().addFreshEntity(e);
+					p.getInventory().setItem(s, ItemStack.EMPTY);
+				}
+				DoctorFate.clearCooldowns(p);
+			});
+			cam(new Vec3(-4.6, 1.2, 9.9), new Vec3(-6, 0.45, 8));
+		}
+		if (t == 104) {
+			shot("df4_02_placed_helmet");
+		}
+		if (t == 106) {
+			cam(new Vec3(-7.6, 0.9, 6.4), new Vec3(-6, 0.5, 8));
+		}
+		if (t == 114) {
+			shot("df4_03_placed_helmet_2");
+		}
+		// ---- summon: it flies to him out of where it lay
+		if (t == 118) {
+			cam(new Vec3(-9.4, 3.0, -0.8), new Vec3(-3, 1.2, 4));
+		}
+		if (t == 124) {
+			startClip("summon_fly");
+			server(mc, p -> DoctorFate.pressH(p));
+		}
+		if (t == 180) {
+			stopClip();
+		}
+		// ---- summon from nowhere (an unloaded chunk): out of a portal beside him
+		if (t == 184) {
+			server(mc, p -> {
+				DoctorFate.clearCooldowns(p);
+				DoctorFate.pressH(p);
+			});
+		}
+		if (t == 214) {
+			server(mc, p -> {
+				int s = slotOf(p);
+				if (s >= 0) {
+					p.getInventory().setItem(s, ItemStack.EMPTY); // pretend it's in a chunk far away
+				}
+				FateHelmetRegistry.get(p.server).note(p.getUUID(), FateHelmetRegistry.Where.PLACED, p.serverLevel(),
+						BlockPos.containing(origin).offset(30000, 0, 30000), UUID.randomUUID());
+				DoctorFate.clearCooldowns(p);
+			});
+			cam(new Vec3(-3.8, 2.2, 6.0), new Vec3(0, 2.3, 1.3));
+		}
+		if (t == 220) {
+			startClip("summon_portal");
+			server(mc, p -> DoctorFate.pressH(p));
+		}
+		if (t == 276) {
+			stopClip();
+		}
+		// ---- flight: hover, slow, fast
+		if (t == 280) {
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x, origin.y + 3, origin.z, 0f, 0f);
+				DoctorFateFlight.start(p);
+			});
+			follow = new Vec3(2.4, 1.1, 3.4);
+			followLook = new Vec3(0, 1.0, 0);
+		}
+		if (t == 292) {
+			startClip("flight_hover");
+		}
+		if (t == 352) {
+			stopClip();
+			startClip("flight_slow");
+			mc.options.keyUp.setDown(true);
+			follow = new Vec3(3.2, 0.9, 1.6);
+			followLook = new Vec3(0, 1.0, 0.6);
+		}
+		if (t == 392) {
+			stopClip();
+			startClip("flight_fast");
+			mc.options.keySprint.setDown(true);
+			mc.player.setSprinting(true);
+			follow = new Vec3(2.6, 0.9, -0.4);
+			followLook = new Vec3(0, 0.5, 1.0);
+		}
+		if (t == 432) {
+			stopClip();
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		}
+		// ---- first person: off and on
+		if (t == 440) {
+			follow = null;
+			camPos = null;
+			server(mc, p -> {
+				DoctorFateFlight.stop(p);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+				DoctorFate.clearCooldowns(p);
+			});
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+		}
+		if (t == 450) {
+			startClip("remove_fp");
+			server(mc, p -> DoctorFate.pressH(p));
+		}
+		if (t == 482) {
+			stopClip();
+			server(mc, p -> DoctorFate.clearCooldowns(p));
+		}
+		if (t == 486) {
+			startClip("equip_fp");
+			server(mc, p -> DoctorFate.pressH(p)); // from his own inventory: straight on
+		}
+		if (t == 524) {
+			stopClip();
+			shot("df4_04_fp_worn_hud");
+		}
+		if (t == 530) {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		}
+	}
+
+	private static void startClip(String name) {
+		clip = name;
+		frame = 0;
+	}
+
+	private static void stopClip() {
+		clip = null;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DF4_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

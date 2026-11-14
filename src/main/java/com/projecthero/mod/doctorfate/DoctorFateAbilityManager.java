@@ -145,6 +145,10 @@ public final class DoctorFateAbilityManager {
 			return;
 		}
 		if (ANKH_SHIELD.equals(id)) {
+			if (!DoctorFate.wearsHelmet(player)) {
+				DoctorFateSpells.use(player, id); // v0.17.4: no shield without the helmet (says so)
+				return;
+			}
 			if (DoctorFateSpells.raiseShield(player)) {
 				held[i] = id;
 			}
@@ -152,6 +156,10 @@ public final class DoctorFateAbilityManager {
 		}
 		// v0.17.3: Shift+V tapped = the Amulet (on release); held 1 s = the Tower of Fate mindscape (tick)
 		if (AMULET.equals(id)) {
+			if (!DoctorFate.wearsHelmet(player)) {
+				DoctorFateSpells.use(player, AMULET); // v0.17.4: says it needs the helmet (no Tower without Nabu's helmet either)
+				return;
+			}
 			held[i] = id;
 			AMULET_HELD_SINCE.put(player.getUUID(), player.level().getGameTime());
 			return;
@@ -176,9 +184,12 @@ public final class DoctorFateAbilityManager {
 		return a == null ? new String[0] : new String[] { a, moveFor(slot, true) };
 	}
 
-	/** Kent Nelson's own magic works without the helmet: R, G, X (weaker), the Amulet (Shift+V) and H. Everything else needs it. */
+	/**
+	 * v0.17.4 (user: "powers need the helmet"): every move needs the Helmet of Fate on (v0.17.3's weak R / G / X and the bare Amulet
+	 * are gone). Only H itself (take it off / summon it) works without it.
+	 */
 	public static boolean needsHelmet(String id) {
-		return !(ANKH_BOLT.equals(id) || ANKH_SHIELD.equals(id) || ANKH_STEP.equals(id) || AMULET.equals(id) || HELMET.equals(id));
+		return !HELMET.equals(id);
 	}
 
 	/** Attack spells Nabu may swap for his own (Override). */

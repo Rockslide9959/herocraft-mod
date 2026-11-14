@@ -68,6 +68,9 @@ public final class FateSpellFxClient {
 		if (mc.level == null) {
 			return;
 		}
+		if (p.kind() == FateSpellFxPayload.SUMMON) {
+			FateHelmetClient.receive(p); // v0.17.4: the helmet itself; its trail is drawn here
+		}
 		if (LIVE.size() > 160) {
 			LIVE.remove(0);
 		}
@@ -81,14 +84,22 @@ public final class FateSpellFxClient {
 
 	static void render(WorldRenderContext ctx) {
 		Minecraft mc = Minecraft.getInstance();
-		if (LIVE.isEmpty() || mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+		if (mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
 			return;
 		}
 		float partial = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
 		double now = mc.level.getGameTime() + partial;
 		PoseStack pose = ctx.matrixStack();
+		java.util.List<com.projecthero.mod.doctorfate.helmet.FateHelmetEntity> placed = mc.level.getEntitiesOfClass(
+				com.projecthero.mod.doctorfate.helmet.FateHelmetEntity.class, new net.minecraft.world.phys.AABB(ctx.camera().getBlockPosition()).inflate(48.0));
+		if (LIVE.isEmpty() && placed.isEmpty()) {
+			return;
+		}
 		pose.pushPose();
 		FateGlyphs.begin(ctx.consumers().getBuffer(RenderType.lightning()), pose.last().pose(), ctx.camera().getPosition());
+		for (com.projecthero.mod.doctorfate.helmet.FateHelmetEntity h : placed) {
+			placedHelmet(h, partial);
+		}
 		for (Iterator<Fx> it = LIVE.iterator(); it.hasNext();) {
 			Fx fx = it.next();
 			double age = now - fx.start;
@@ -138,6 +149,7 @@ public final class FateSpellFxClient {
 			case FateSpellFxPayload.SLAM -> slam(fx, t, life, size, col);
 			case FateSpellFxPayload.LANDING -> landing(fx, t, life, size, col);
 			case FateSpellFxPayload.RISE -> rise(fx, t, life, size, col);
+			case FateSpellFxPayload.SUMMON -> summon(mc, fx, t, life, col, partial);
 			default -> {
 			}
 		}
@@ -237,6 +249,65 @@ public final class FateSpellFxClient {
 			}
 		}
 		FateGlyphs.ankh(fx.pos, u, v, ry * 0.7, 0.03, col, a * 0.9f);
+	}
+
+	// ---------------------------------------------------------------- v0.17.4 the Helmet of Fate
+
+	/** The summoned helmet's golden trail along its arc, and a small turning ankh ring round it ({@link FateHelmetClient} draws it). */
+	private static void summon(Minecraft mc, Fx fx, float t, int life, int col, float partial) {
+		Entity e = mc.level.getEntity(fx.p.entity());
+		if (e == null) {
+			return;
+		}
+		Vec3 to = FateHelmetClient.catchPoint(e, partial);
+		double f = Mth.clamp(t / life, 0.0, 1.0);
+		float fade = Mth.clamp((life + 1 - t) / 3f, 0f, 1f);
+		Vec3 prev = null;
+		int n = 18;
+		for (int k = 0; k <= n; k++) {
+			double g = f - 0.35 * (1.0 - k / (double) n);
+			if (g < 0) {
+				continue;
+			}
+			Vec3 p = FateHelmetClient.pathPoint(fx.pos, to, g);
+			if (prev != null) {
+				float a = (float) (k / (double) n) * fade;
+				FateGlyphs.glowBeam(prev, p, 0.05 + 0.06 * k / n, col, a * 0.8f);
+				FateGlyphs.beam(prev, p, 0.02, com.projecthero.mod.doctorfate.DoctorFateFx.WHITE_GOLD, a);
+			}
+			prev = p;
+		}
+		if (f < 1.0) {
+			Vec3 at = FateHelmetClient.pathPoint(fx.pos, to, f);
+			Vec3 cam = FateGlyphs.camera();
+			Vec3[] b = FateGlyphs.basis(cam.subtract(at));
+			double spin = t * 0.35;
+			Vec3 u = b[0].scale(Math.cos(spin)).add(b[1].scale(Math.sin(spin)));
+			Vec3 v = b[1].scale(Math.cos(spin)).subtract(b[0].scale(Math.sin(spin)));
+			FateGlyphs.ring(at, u, v, 0.55, 0.025, 24, col, 0.8f * fade, true);
+			FateGlyphs.band(at, u, v, 0.72, 8, 0.12, 0.012, spin, col, 0.7f * fade, fx.seed);
+		} else {
+			// arrival: an ankh flares in his hands
+			float a = Mth.clamp(1f - (t - life) / 1f, 0f, 1f);
+			Vec3[] b = FateGlyphs.basis(e.getLookAngle());
+			FateGlyphs.ankh(to, b[0], b[1], 0.9, 0.04, col, a);
+		}
+	}
+
+	/** A helmet set down in the world: a flat golden ankh and a slow rune ring glowing on the ground under it. */
+	private static void placedHelmet(com.projecthero.mod.doctorfate.helmet.FateHelmetEntity h, float partial) {
+		if (h.falling()) {
+			return;
+		}
+		Vec3 c = h.getPosition(partial).add(0, 0.03, 0);
+		float t = h.tickCount + partial;
+		float pulse = 0.55f + 0.25f * Mth.sin(t * 0.12f);
+		double r = Math.toRadians(h.getYRot() + t * 0.6);
+		Vec3 fwd = new Vec3(-Math.sin(r), 0, Math.cos(r));
+		Vec3 side = new Vec3(Math.cos(r), 0, Math.sin(r));
+		FateGlyphs.ankh(c, side, fwd, 0.55, 0.025, com.projecthero.mod.doctorfate.DoctorFate.GOLD, 0.5f * pulse);
+		FateGlyphs.ring(c, side, fwd, 0.62, 0.018, 28, com.projecthero.mod.doctorfate.DoctorFate.GOLD, 0.45f * pulse, true);
+		FateGlyphs.band(c, side, fwd, 0.78, 10, 0.1, 0.01, t * 0.02, com.projecthero.mod.doctorfate.DoctorFate.GOLD, 0.35f * pulse, h.getId());
 	}
 
 	// ---------------------------------------------------------------- Golden Chains

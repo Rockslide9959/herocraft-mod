@@ -12,17 +12,33 @@ public final class DoctorFateConfig {
 	/** Wearing the helmet: 40 health (+20), 30% damage resistance. */
 	public static final double HELMET_HEALTH_BONUS = 20.0;
 	public static final float HELMET_RESIST = 0.30f;
-	/** V: the helmet takes 1 s to go on or come off. */
-	public static final int HELMET_ANIM_TICKS = 20;
+	/** v0.17.4 (user: "melee bonus +8"): wearing the helmet adds 8 attack damage (4 hearts) to every punch and weapon hit. */
+	public static final double HELMET_MELEE_BONUS = 8.0;
+	/** v0.17.4 (user): Regeneration I while the helmet is on (refreshed before it runs out, so it never stutters). */
+	public static final int HELMET_REGEN_TICKS = 219;
+	public static final int HELMET_REGEN_REFRESH_BELOW = 25;
+	/**
+	 * v0.17.4 the put-on sequence (1.5 s): the helmet forms in both hands at the chest (0-6), is raised overhead (6-14), held up
+	 * while the ankh flares behind it (14-20), lowered onto the head (20-27) and settles (27-30); the suit fades in from 20.
+	 */
+	public static final int HELMET_EQUIP_TICKS = 30;
+	/** v0.17.4 the lift-off (1.2 s): hands to the helmet (0-6), lifted overhead (6-14), brought down to the chest (14-20), gone to gold (20-24). */
+	public static final int HELMET_REMOVE_TICKS = 24;
+	/** v0.17.4 H with no helmet on: it flies to you (or out of an ankh portal) for this long before the put-on sequence starts. */
+	public static final int HELMET_SUMMON_TICKS = 20;
 	/** After a Possession the helmet can't go back on for 60 s. */
 	public static final int LOCKOUT_TICKS = 60 * 20;
 
 	// ---- Dominion
 	public static final float DOMINION_MAX = 100f;
-	/** Wearing the helmet: +0.15 a second (about 11 minutes from 0 to 100 on its own). */
-	public static final float WEAR_GAIN_PER_TICK = 0.15f / 20f;
-	/** Helmet off: -0.75 a second. */
-	public static final float OFF_DRAIN_PER_TICK = 0.75f / 20f;
+	/**
+	 * v0.17.4 retune (user: "about 2 minutes" of heavy use before Nabu starts taking over): wearing the helmet adds +0.06 a second
+	 * (about 28 minutes from 0 to 100 on its own, was 11). Every spell's Dominion is a tenth of v0.17.3's; see
+	 * {@code DoctorFateGameTests#heavyUseTakesAboutTwoMinutesToTakingHold} for the sum.
+	 */
+	public static final float WEAR_GAIN_PER_TICK = 0.06f / 20f;
+	/** Helmet off: -0.5 a second (v0.17.3: -0.75; 100 to 0 in 3 min 20 s). */
+	public static final float OFF_DRAIN_PER_TICK = 0.5f / 20f;
 	public static final float TIER_OVERRIDE = 25f;
 	public static final float TIER_PULL = 50f;
 	public static final float TIER_HOLD = 75f;
@@ -33,8 +49,10 @@ public final class DoctorFateConfig {
 	/** Pull: how far (deg a tick, at most) the aim drifts toward the nearest creature of Chaos within this many blocks. */
 	public static final float PULL_DEG_PER_TICK = 0.55f;
 	public static final double PULL_RANGE = 20.0;
-	/** Taking hold: each spell also costs this much health (twice for spells worth 8+ Dominion). */
+	/** Taking hold: each spell also costs this much health (twice for spells worth {@link #BIG_SPELL_DOMINION}+ Dominion). */
 	public static final float HOLD_HEALTH_COST = 1f;
+	/** v0.17.4: a "big" spell for Taking hold's health cost (Glyph Storm, Ward, Banishment; 8 before the tenfold retune). */
+	public static final float BIG_SPELL_DOMINION = 0.8f;
 	/** Whispers: one every 40-80 s while the helmet is on. */
 	public static final int WHISPER_MIN_TICKS = 40 * 20;
 	public static final int WHISPER_SPREAD_TICKS = 40 * 20;
@@ -55,24 +73,24 @@ public final class DoctorFateConfig {
 
 	// ---- spells (helmet on): damage, Dominion, cooldown
 	public static final float BOLT_DAMAGE = 10f;
-	public static final float BOLT_DOMINION = 1f;
+	public static final float BOLT_DOMINION = 0.1f; // v0.17.4 retune: every spell's Dominion is a tenth of v0.17.3's
 	public static final int BOLT_COOLDOWN = 10;
 	public static final double BOLT_RANGE = 32.0;
 	public static final float CHAINS_DAMAGE = 8f; // v0.17.3 moves pass: was 6
-	public static final float CHAINS_DOMINION = 3f;
+	public static final float CHAINS_DOMINION = 0.3f;
 	public static final int CHAINS_COOLDOWN = 5 * 20;
 	public static final int CHAINS_BIND_TICKS = 3 * 20;
 	public static final int CHAINS_BIND_BOSS_TICKS = 20;
-	/** Ankh Shield: +1 Dominion a second while held. */
-	public static final float SHIELD_DOMINION_PER_TICK = 1f / 20f;
+	/** Ankh Shield: +0.1 Dominion a second while held. */
+	public static final float SHIELD_DOMINION_PER_TICK = 0.1f / 20f;
 	public static final int SHIELD_COOLDOWN = 20;
-	public static final float BANISH_DOMINION = 12f;
+	public static final float BANISH_DOMINION = 1.2f;
 	public static final int BANISH_COOLDOWN = 20 * 20;
 	public static final double BANISH_THROW = 40.0;
 	/** A creature at least this strong (max health) is thrown, not banished. */
 	public static final float BANISH_STRONG_HEALTH = 60f;
 	public static final float GLYPH_DAMAGE = 5f; // v0.17.3 moves pass: was 4
-	public static final float GLYPH_DOMINION = 8f;
+	public static final float GLYPH_DOMINION = 0.8f;
 	public static final int GLYPH_COOLDOWN = 12 * 20;
 	public static final int GLYPH_TICKS = 3 * 20;
 	public static final int GLYPH_HIT_EVERY = 8; // v0.17.3 moves pass: was 10 (6 hits -> 7)
@@ -87,20 +105,20 @@ public final class DoctorFateConfig {
 	public static final float FORBIDDEN_DOMINION = 90f;
 	public static final double STEP_DISTANCE = 12.0;
 	public static final int STEP_COOLDOWN = 2 * 20; // v0.17.3 moves pass: was 3 s
-	public static final float GATE_DOMINION = 5f;
+	public static final float GATE_DOMINION = 0.5f;
 	public static final int GATE_COOLDOWN = 8 * 20;
 	public static final double GATE_LIFT = 15.0;
 	public static final float BLAST_DAMAGE = 14f;
-	public static final float BLAST_DOMINION = 4f;
+	public static final float BLAST_DOMINION = 0.4f;
 	public static final int BLAST_COOLDOWN = 5 * 20;
 	public static final double BLAST_RANGE = 8.0;
 	public static final double BLAST_KNOCKBACK = 2.2;
-	public static final float WARD_DOMINION = 10f;
+	public static final float WARD_DOMINION = 1.0f;
 	public static final int WARD_COOLDOWN = 30 * 20;
 	public static final int WARD_TICKS = 10 * 20;
 	public static final double WARD_RADIUS = 6.0;
 	public static final float WARD_RESIST = 0.30f;
-	public static final float SIGHT_DOMINION = 6f;
+	public static final float SIGHT_DOMINION = 0.6f;
 	public static final int SIGHT_COOLDOWN = 20 * 20;
 	public static final int SIGHT_TICKS = 10 * 20;
 	public static final double SIGHT_RANGE = 64.0;
@@ -135,7 +153,8 @@ public final class DoctorFateConfig {
 	public static final float MIND_DEBT_MIN = 10f;
 	public static final float MIND_REPAY_DISCOUNT = 5f;
 
-	// ---- Kent Nelson's own magic (helmet off): weak R, G and X only
+	// ---- Kent Nelson's own magic (v0.17.3, helmet off: weak R, G and X). v0.17.4 (user): no powers without the helmet; kept for the
+	// weak code paths, which nothing reaches now
 	public static final float WEAK_BOLT_DAMAGE = 5f;
 	public static final double WEAK_STEP_DISTANCE = 6.0;
 	public static final int WEAK_SHIELD_MAX_TICKS = 3 * 20;

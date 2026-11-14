@@ -36,9 +36,10 @@ import net.minecraft.world.level.material.MapColor;
  *   <li><b>Helmet Pedestal</b>: the Tomb of Nabu's altar the helmet rests on ({@link HelmetPedestalBlock}).</li>
  *   <li><b>Tomb Guardian</b>: the mummy-wrapped husks guarding the tomb ({@link TombGuardian}).</li>
  * </ul>
- * The Helmet of Fate is no item (user, v0.17.3: "make it similar to the Nova ability"): accepting Nabu's offer at the pedestal grants
- * the power and H puts the helmet on / takes it off. A {@code projecthero:helmet_of_fate} stack saved in an old test world is an
- * unknown id now, which vanilla drops with a log line when it loads (the gametests check that).
+ * v0.17.4 (user): the Helmet of Fate is an item again whenever it's off its owner's head ({@link com.projecthero.mod.doctorfate.helmet.FateHelmet}):
+ * accepting Nabu's offer at the pedestal grants the power and puts it on; H takes it off (giving the item) or summons it from anywhere.
+ * It isn't in the creative tab (every helmet belongs to one player; an unowned {@code /give}n one is claimed by the first Doctor
+ * Fate to wear it).
  */
 public final class DoctorFateItems {
 	public static Item ANKH_CHARM;
@@ -63,6 +64,7 @@ public final class DoctorFateItems {
 		TOMB_GUARDIAN = Registry.register(BuiltInRegistries.ENTITY_TYPE, ProjectHeroMod.id("tomb_guardian"),
 				EntityType.Builder.of(TombGuardian::new, MobCategory.MONSTER).sized(0.6f, 1.95f).clientTrackingRange(8).build("tomb_guardian"));
 		FabricDefaultAttributeRegistry.register(TOMB_GUARDIAN, TombGuardian.createAttributes());
+		com.projecthero.mod.doctorfate.helmet.FateHelmet.initialize(); // v0.17.4: the Helmet of Fate item, its placed entity and identity
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {

@@ -33,15 +33,18 @@ import org.joml.Vector3f;
  * {@link DoctorFatePossession}.
  *
  * <ul>
- *   <li><b>Helmet off</b> (Kent's own magic): weak R, G and X, normal health, Dominion drains.</li>
- *   <li><b>Helmet on</b> (H, 1 s; the helmet is part of the power, not an item): 40 health, 30% damage resistance, flight (double-tap Space), Wither and Poison immunity, every
- *   spell at full strength, Dominion rising.</li>
+ *   <li><b>Helmet off</b>: v0.17.4 (user) no Fate powers at all, normal health, Dominion drains. The helmet is the Helmet of Fate item
+ *   (or set down somewhere); H summons it from anywhere ({@link DoctorFateHelmet}).</li>
+ *   <li><b>Helmet on</b> (H or Shift+right-click the item, the put-on sequence): 40 health, 30% damage resistance, +8 melee,
+ *   Regeneration I, no armour, flight (double-tap Space), Wither and Poison immunity, every spell, Dominion rising.</li>
  * </ul>
  */
 public final class DoctorFate {
 	public static final String KEY = "doctor_fate";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("doctor_fate_health");
+	/** v0.17.4 (user: "melee bonus +8"): +8 attack damage while the helmet is on. */
+	private static final ResourceLocation MELEE_ID = PowerToggles.id("doctor_fate_melee");
 
 	public static final int GOLD = 0xFFC93A;
 	public static final int BLUE = 0x2A56C8;
@@ -63,6 +66,7 @@ public final class DoctorFate {
 		DoctorFatePossession.clearSessionState();
 		DoctorFateFlight.clearSessionState();
 		DoctorFateMindscape.clearSessionState();
+		DoctorFateHelmet.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -75,6 +79,7 @@ public final class DoctorFate {
 		DoctorFatePossession.forget(id);
 		DoctorFateFlight.forget(id);
 		DoctorFateMindscape.forget(id);
+		DoctorFateHelmet.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -106,17 +111,33 @@ public final class DoctorFate {
 		return s != null && s.hasPower && s.helmetOn;
 	}
 
-	/** 0..1 of the helmet showing (for the 1 s animation). Client-safe. */
+	/**
+	 * 0..1 of the suit showing. v0.17.4: during the put-on sequence it fades in while the helmet comes down onto the head (from tick
+	 * 20 of 30); during the lift-off it fades out as the helmet is lifted away (ticks 6-16 of 24); 0 while a summon is still flying
+	 * in. Client-safe.
+	 */
 	public static float helmetShown(Player player, float partial) {
 		FateState s = peek(player);
 		if (s == null || !s.hasPower) {
 			return 0f;
 		}
 		if (s.helmetChangeAt > 0L) {
-			float t = Math.min(1f, (now(player) - s.helmetChangeAt + partial) / DoctorFateConfig.HELMET_ANIM_TICKS);
-			return s.helmetGoingOn ? t : 1f - t;
+			float t = now(player) - s.helmetChangeAt + partial;
+			if (s.helmetGoingOn) {
+				return Math.max(0f, Math.min(1f, (t - 20f) / (DoctorFateConfig.HELMET_EQUIP_TICKS - 20f)));
+			}
+			return 1f - Math.max(0f, Math.min(1f, (t - 6f) / 10f));
 		}
 		return s.helmetOn ? 1f : 0f;
+	}
+
+	/** v0.17.4: ticks into the helmet's put-on / lift-off sequence (negative while a summon flies in; -1000 = none). Client-safe. */
+	public static float helmetSequenceAge(Player player, float partial) {
+		FateState s = peek(player);
+		if (s == null || !s.hasPower || s.helmetChangeAt <= 0L) {
+			return -1000f;
+		}
+		return now(player) - s.helmetChangeAt + partial;
 	}
 
 	public static float dominion(Player player) {
@@ -262,6 +283,9 @@ public final class DoctorFate {
 		s.dominion = old.dominion; // Dominion is saved per player: Nabu remembers
 		save(player, s);
 		reconcile(player);
+		// v0.17.4: Nabu's helmet goes straight onto the new host's head (the put-on sequence); a fresh generation retires any old copy
+		com.projecthero.mod.doctorfate.helmet.FateHelmetRegistry.get(player.server).bump(player.getUUID());
+		DoctorFateHelmet.beginEquip(player, now(player));
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.5f, 1.3f);
@@ -284,6 +308,9 @@ public final class DoctorFate {
 		n.dominion = old.dominion;
 		save(player, n);
 		reconcile(player);
+		if (old.hasPower) {
+			DoctorFateHelmet.retire(player); // v0.17.4: every Helmet of Fate copy he left anywhere goes
+		}
 		DoctorFatePossession.release(player);
 		forget(player.getUUID());
 	}
@@ -299,17 +326,28 @@ public final class DoctorFate {
 		n.shieldUp = false;
 		n.avatarUntil = 0L;
 		n.flying = false;
+		// v0.17.4: a sequence cut short finishes at once (a summon in flight lands on the head; a lift-off gives the item)
+		boolean giveItem = false;
 		if (n.helmetChangeAt > 0L) {
 			n.helmetOn = n.helmetGoingOn;
+			giveItem = !n.helmetGoingOn;
 			n.helmetChangeAt = 0L;
 		}
+		boolean fallOff = false;
 		if (n.possessedUntil > 0L) {
 			n.possessedUntil = 0L;
+			fallOff = n.helmetOn;
 			n.helmetOn = false;
 			n.lockoutUntil = now(player) + DoctorFateConfig.LOCKOUT_TICKS;
 		}
 		n.bargain = n.bargain.withPending(FateState.Bargain.NONE_KIND, 0L);
 		save(player, n);
+		if (giveItem) {
+			DoctorFateHelmet.giveBack(player);
+		}
+		if (fallOff) {
+			DoctorFateHelmet.fallOff(player);
+		}
 		DoctorFatePossession.release(player);
 		DoctorFateAbilityManager.forget(player.getUUID());
 		DoctorFateMindscape.close(player);
@@ -334,40 +372,12 @@ public final class DoctorFate {
 	// ---------------------------------------------------------------- the helmet
 
 	/**
-	 * H (v0.17.3, user: "like the Nova ability"): put the helmet on / take it off (1 s). The helmet is part of the power, not an item.
-	 * Refused during Possession (it can't come off) and during the 60 s lockout after one (it won't go on).
+	 * H. v0.17.4 (user): wearing it, H takes it off (the lift-off sequence, then the Helmet of Fate item); not wearing it, H summons it
+	 * from wherever it is and it goes on ({@link DoctorFateHelmet#pressH}). Refused during Possession (it can't come off); during the
+	 * 60 s lockout after one the summon lands in the inventory instead.
 	 */
 	public static boolean pressH(ServerPlayer player) {
-		return DoctorFateSpells.helmetKey(player);
-	}
-
-	/** The helmet toggle itself (no cooldown check; {@link #pressH} adds the 1 s cooldown). */
-	public static boolean toggleHelmet(ServerPlayer player) {
-		FateState s = state(player);
-		if (!s.hasPower || s.helmetChangeAt > 0L) {
-			return false;
-		}
-		if (possessed(player)) {
-			say(player, "message.projecthero.doctor_fate.cant_remove", ChatFormatting.GOLD);
-			return false;
-		}
-		boolean on = !s.helmetOn;
-		if (on) {
-			int lock = lockoutTicksLeft(player);
-			if (lock > 0) {
-				say(player, "message.projecthero.doctor_fate.lockout", ChatFormatting.GOLD, (lock + 19) / 20);
-				return false;
-			}
-		}
-		FateState n = s.copy();
-		n.helmetChangeAt = now(player);
-		n.helmetGoingOn = on;
-		n.shieldUp = false;
-		save(player, n);
-		sound(player, on ? SoundEvents.ARMOR_EQUIP_GOLD.value() : SoundEvents.ARMOR_EQUIP_GENERIC.value(), 0.6f, on ? 0.8f : 1.1f);
-		ServerLevel level = (ServerLevel) player.level();
-		level.sendParticles(dust(GOLD, 1.1f), player.getX(), player.getEyeY() + 0.2, player.getZ(), 12, 0.3, 0.3, 0.3, 0.0);
-		return true;
+		return DoctorFateHelmet.pressH(player);
 	}
 
 	/** The helmet on / off at once (the animation's end, the end of a Possession, the tests). */
@@ -396,8 +406,10 @@ public final class DoctorFate {
 		FateState s = peek(player);
 		if (s == null || !s.hasPower || !s.helmetOn) {
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
 		} else {
 			PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, DoctorFateConfig.HELMET_HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, DoctorFateConfig.HELMET_MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		}
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());
@@ -416,11 +428,19 @@ public final class DoctorFate {
 		if (prev != null && prev == now) {
 			return;
 		}
-		// the 1 s helmet animation
-		if (s.helmetChangeAt > 0L && now - s.helmetChangeAt >= DoctorFateConfig.HELMET_ANIM_TICKS) {
-			setHelmet(player, s.helmetGoingOn);
-			s = state(player);
+		// v0.17.4 the put-on / lift-off sequences finishing
+		if (s.helmetChangeAt > 0L) {
+			long age = now - s.helmetChangeAt;
+			if (s.helmetGoingOn && age >= DoctorFateConfig.HELMET_EQUIP_TICKS) {
+				DoctorFateHelmet.finishEquip(player);
+				s = state(player);
+			} else if (!s.helmetGoingOn && age >= DoctorFateConfig.HELMET_REMOVE_TICKS) {
+				DoctorFateHelmet.finishRemove(player);
+				s = state(player);
+			}
 		}
+		DoctorFateHelmet.tick(player, s, now);
+		s = state(player);
 		// Dominion: rises slowly with the helmet on, falls with it off (in place; re-sent every few ticks)
 		if (!possessed(player)) {
 			if (s.helmetOn) {
