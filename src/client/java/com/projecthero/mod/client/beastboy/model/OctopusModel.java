@@ -82,7 +82,10 @@ public final class OctopusModel {
 		float jet = Math.max(pulse * wet * (0.35f + spd * 0.65f), squeeze);
 
 		// body: hover and bob with the pulse; tip mantle-first when swimming; sit low on land
-		float tilt = wet * (1.15f * spd + st.pitch * 0.3f * spd);
+		// v0.17.4: swimming lays it out mantle-first along the swim (about level at a cruise), following the climb / dive; it was a
+		// fixed 40-65 degree lean whatever the direction, which read as a constant tilt. Upright when it hovers.
+		float go = SeaArt.smooth(Mth.clamp(st.speed / 0.17f, 0f, 1f));
+		float tilt = wet * go * Mth.clamp(1.35f + st.pitch, 0.25f, 2.6f);
 		head.xRot = tilt;
 		head.yRot = -s.yaw(0.6f) * 0.3f;
 		head.zRot = Mth.clamp(st.turn * 0.15f, -0.4f, 0.4f) * wet;

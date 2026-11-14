@@ -136,6 +136,7 @@
 		"GreenLanternMechSeatMixin",
 		"BeastBoyBodyMixin",
 		"BeastBoyRideMixin",
+		"BeastBoySwimTurnMixin",
 		"ShazamCourageMixin",
 		"VisionPhaseCollideMixin",
 		"VisionPhaseMoveCheckMixin",

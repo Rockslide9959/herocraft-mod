@@ -98,7 +98,7 @@ public final class WhaleModel {
 		// turning: heavy bank, the tail swings round
 		float bend = Mth.clamp(st.turn * 0.16f, -0.22f, 0.22f) * wet;
 		body.zRot = Mth.clamp(st.turn * 0.14f, -0.35f, 0.35f) * wet;
-		body.yRot = -s.yaw(0.5f) * 0.12f * wet;
+		body.yRot = 0f; // v0.17.4: the body follows the look itself now
 		t1.yRot = bend * 0.4f;
 		t2.yRot = bend * 0.5f;
 		t3.yRot = bend * 0.5f;

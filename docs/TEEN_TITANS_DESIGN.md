@@ -75,7 +75,7 @@ swatches; the rhino got armour-plate shells, a bigger raised head and horns that
 `#minecraft:meat`, `#minecraft:fishes`, plus rabbit stew, rotten flesh, spider eye), refused at use time with a message.
 
 **Passives**
-- 20 health in human form. **Every animal form has its own health** (shown as a Slab bar over your hearts). When the form's
+- 20 health in human form. **Every animal form has its own health** (shown as green hearts in place of his own since v0.17.4; was a Slab bar). When the form's
   health is gone you're knocked back to human and dazed 1 s, keeping your own hearts. That's what makes big forms tanky.
 - **Morph Stamina (Meter).** Big forms drain it, small forms are nearly free, and human form refills it. At zero you revert.
 - **Morph Chain.** Each quick-morph attack in human form flashes into a different animal for a split second. Hitting with
@@ -241,3 +241,32 @@ Films: `docs/screenshots/v0174/starfire/`.
   hides while the animal part is out (attached to his model at the joint, following his pose; the gorilla arm also in first
   person), and comes back. LegacyBigParts and the old smooth partials are gone.
 - Sound: a layered morph sound (honey-block slide + illusioner mirror move, pitched by body size) under every morph and quick morph.
+
+## Beast Boy hearts and swimming round (v0.17.4)
+- **Green hearts** (user: "make the animal hp bars that show up green hearts instead please, make it show up instead of the players
+  hearts when transformed"): the form-health Slab is gone. While he is an animal, vanilla's own heart row shows the form's health:
+  `BeastBoyHeartsMixin` wraps `Gui.renderPlayerHealth`'s `getHealth()` and `getAttributeValue(MAX_HEALTH)` (MixinExtras WrapOperation)
+  with the form's pool and maximum, and swaps the plain heart / container sprites in `Gui.renderHeart` for `hud/beast_heart/*` (9x9, own
+  palette, `scratchpad/beastboy/gen_green_hearts.js`). So the rows (the whale's 120 is six rows), half hearts, the low-health wobble, the
+  regeneration wave, the armour bar's lift and the hurt / heal blink all behave like vanilla (the pool's hits broadcast a damage event,
+  which sets the blink's invulnerability window). Poisoned / withered / frozen / absorption hearts keep their vanilla look.
+  Code: `client/beastboy/BeastHearts`.
+- **Sea-form shake and tilt, root causes:** (1) `SwimRig` took the speed and travel pitch from frame-to-frame changes of the interpolated
+  position over wall-clock time (noisy: frame pacing never lines up with the ticks) and made the pitch `atan2(-vertical, horizontal)`, so
+  the player's small up-and-down bob at the surface or while hovering, over almost no horizontal speed, swung the nose up to +-70 degrees
+  and back; (2) the models added the look pitch to the body pitch, so a hovering animal tilted whenever he looked up or down; (3) vanilla
+  turns the body toward the travel direction and only drags it after the head past 50-75 degrees, and the sea bodies are drawn along the
+  body yaw, so they jerked round; (4) vanilla player swimming bobs a player in and out at the surface, flipping the in-water state the
+  animation keys off.
+  Fixes: `SwimRig.track` runs on the game clock (the ticks' own steps `x - xo`, eased on `tickCount + partialTick`); the pitch follows the
+  swim only once he's really moving, stays shallow for mostly-vertical motion and at the surface; a leap keeps the swim pose; the body
+  pitch no longer adds the look pitch; `BeastBoySwimTurnMixin` (common, `tickHeadTurn`) eases the body toward the look in the water on
+  every side (the whale's rider seats hang off the body yaw, so they stay on its back). The octopus used to lean a fixed 40-65 degrees
+  whenever it moved; it now lies out mantle-first along the swim (about level at a cruise, following the climb / dive), upright at rest.
+- **Sea-form controls** (`client/beastboy/BeastSwim`, from `Player#travel` via `BeastBoySwimTravelMixin`, local player only): swim where
+  you look (W along the look, S backs off at 45%, A / D slide), Space / Sneak rise / sink, Sprint a burst (blocks a tick, cruise / sprint:
+  dolphin 0.26 / 0.48, shark 0.24 / 0.44, octopus 0.19 / 0.36, whale 0.18 / 0.30), the velocity eases (0.11 a tick speeding up, 0.075
+  gliding), no gravity or buoyancy in the water. At the surface a spring holds him with his eyes just out of the water (first person sees
+  over it, the fin / back shows; he can't look his way out of it, no bobbing), and a near-level look (under ~12 degrees down) keeps
+  cruising there: look further down or Sneak to dive; Space there leaps (12-tick cooldown); swimming into a ledge near the surface climbs out; server shoves (knockback, a
+  move's lunge) are adopted and eased out of.

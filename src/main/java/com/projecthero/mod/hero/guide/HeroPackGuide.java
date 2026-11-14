@@ -1969,7 +1969,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.beast_boy.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.beast_boy.body");
 			blank(lines);
-			for (String section : new String[]{"getting", "forms", "health", "stamina", "chain", "instincts", "diet", "titans"}) {
+			for (String section : new String[]{"getting", "forms", "swimming", "health", "stamina", "chain", "instincts", "diet", "titans"}) {
 				head(lines, "projecthero.guide.beast_boy." + section);
 				para(lines, "projecthero.guide.beast_boy." + section + ".body");
 				blank(lines);

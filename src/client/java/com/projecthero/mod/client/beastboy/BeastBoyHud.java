@@ -30,8 +30,8 @@ import net.minecraft.network.chat.Component;
  *   | R  | G  | Z  | X  | C  | V  |               the key does nothing in this form; yellow while Shift shows the Shift moves
  *   +----+----+----+----+----+----+
  * </pre>
- * In an animal form the form's own health is a <b>Slab</b> bar over his hearts (with the form's name and HP). Before the power,
- * the Sakutia fever counts down there instead. Hold Left-Alt for the move list.
+ * In an animal form the form's own health shows as green hearts in place of his own (v0.17.4, {@link BeastHearts}). Before the
+ * power, the Sakutia fever counts down over the hearts. Hold Left-Alt for the move list.
  */
 public final class BeastBoyHud {
 	private static final int MARGIN = 4;
@@ -75,7 +75,6 @@ public final class BeastBoyHud {
 		}
 		Font font = mc.font;
 		BeastForm form = BeastBoy.form(p);
-		formSlab(g, mc, p, s, form);
 
 		int x0 = g.guiWidth() - MARGIN - WIDTH;
 		int bottom = g.guiHeight() - MARGIN;
@@ -195,27 +194,6 @@ public final class BeastBoyHud {
 	private static String keyLabel(AbilitySlot slot) {
 		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
 		return text.length() > 2 ? text.substring(0, 2) : text;
-	}
-
-	/** The form's health: a Slab bar (7 px, bordered) just above the hearts and armour, with the form's name and HP over it. */
-	private static void formSlab(GuiGraphics g, Minecraft mc, LocalPlayer p, BeastBoyState s, BeastForm form) {
-		if (form == BeastForm.HUMAN || form.formHealth <= 0f || p.isCreative() || p.isSpectator()) {
-			return;
-		}
-		int x = g.guiWidth() / 2 - 91;
-		int w = 81;
-		int y = g.guiHeight() - 39 - 10 - (p.getArmorValue() > 0 ? 10 : 0) - 29; // clear of the action-bar message
-		float frac = Math.max(0f, Math.min(1f, s.formHp / form.formHealth));
-		int colour = frac > 0.5f ? 0xFF58C83C : frac > 0.25f ? 0xFFE0C040 : 0xFFE04A3A;
-		g.fill(x - 1, y - 1, x + w + 1, y + 8, 0xFF0A0A0A);
-		g.fill(x, y, x + w, y + 7, 0xFF2A2A2A);
-		g.fill(x, y, x + Math.round(w * frac), y + 7, colour);
-		g.fill(x, y, x + Math.round(w * frac), y + 1, 0x40FFFFFF);
-		Font font = mc.font;
-		String label = Component.translatable(BeastWheelScreen.formKey(form)).getString();
-		String hp = Math.round(s.formHp) + "/" + Math.round(form.formHealth);
-		g.drawString(font, font.plainSubstrByWidth(label, w - font.width(hp) - 4), x, y - 10, GREEN_TEXT, true);
-		g.drawString(font, hp, x + w - font.width(hp), y - 10, VanillaHud.WHITE, true);
 	}
 
 	/** Before the power: the Sakutia fever's countdown over the hearts. */
