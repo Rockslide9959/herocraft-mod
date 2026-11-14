@@ -16,6 +16,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *   <li>{@link #QUESTION}: open Nabu's challenge: question id, then the three answer ids in the order shown.</li>
  *   <li>{@link #VERDICT}: something happened the library should show: one of the {@code V_*} codes.</li>
  *   <li>{@link #END}: he's free (the camera flies into the screen).</li>
+ *   <li>{@link #WILL}: every tick of the willpower test (v0.17.4 round 2 rebuild): will x10000, velocity x100000, band centre
+ *   x10000, band half-width x10000, progress x10, progress needed x10, ticks out of the band in a row, ticks on the floor, lunge
+ *   telegraph ticks left (0 none), the hold state the server is using (0/1).</li>
  * </ul>
  */
 public record FateTrialPayload(int op, int[] data) implements CustomPacketPayload {
@@ -24,6 +27,7 @@ public record FateTrialPayload(int op, int[] data) implements CustomPacketPayloa
 	public static final int QUESTION = 2;
 	public static final int VERDICT = 3;
 	public static final int END = 4;
+	public static final int WILL = 5;
 
 	public static final int V_RIGHT = 0;
 	public static final int V_WRONG = 1;

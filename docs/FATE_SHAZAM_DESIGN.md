@@ -207,8 +207,8 @@ damage / remove slow fall"
      hold Nabu's tomes. Reading a tome the first time: anger +7. Unread books glow gold, found pages blue, tomes ember.
   2. *Challenges*: at the Eye, one challenge per page, 3 shuffled answers, only the page's argument is right. Right: anger -10.
      Wrong: anger +25, that page is torn away to another (unread) lectern and you're back in stage 1 (won challenges stay won).
-  3. *Will*: Space lifts your will, Nabu pushes it down (0.011/tick + more when angry), a band (±0.12) wanders; 200 ticks inside frees
-     you, 60 ticks outside in a row fails: anger +20, one won challenge re-opens (back to stage 2).
+  3. *Will*: rebuilt as hold-to-rise (see "Will test rebuild" below): progress 200 frees you; 5 s outside the band in a row or 2 s
+     on the floor fails: anger +20, one won challenge re-opens (back to stage 2).
   - *Wrath*: anger 100 = a new layout, every page and challenge lost, back to stage 1, anger 30, and the body lashes out at once.
   - Freed: the camera flies into the screen, a gold flash, and the old end of a Possession (helmet falls off as the entity, 60 s
     lockout, Dominion 70). **No Slow Falling** any more.
@@ -221,6 +221,34 @@ damage / remove slow fall"
   `possessedHeCantDieAndHitsTwiceAsHard`, `nabuAttacksAnyPlayerWhateverTheyveDone`, `deathsDoorHoldsDeathOffUntilHeChooses`,
   `noFallDamageWithTheHelmet`, the Possession test updated), `DoctorFateHelmetGameTests` (`summonFromADroppedItem` updated,
   `aDroppedHelmetLandsAsTheEntity`). Lang: `scratchpad/doctorfate/lang_fate_r2.json` via `merge_lang_r2.js`.
+
+#### Will test rebuild (v0.17.4, user: "the doctor fate space bar minigame to leave doesn't work very well, please improve it")
+
+The old test was tap-mashing (each press +0.075, presses within 2 ticks dropped, raw 2-tick sync, 3 s out = fail). Now it's a
+fishing-minigame **hold to rise**:
+- **Physics** (`DoctorFateWill`, shared by server and client): per tick `v = (v + (held ? 0.0052 : 0) - sink) * 0.9; will += v`,
+  `sink = 0.0024 + 0.00001 x anger`. Top speed held ~0.025/tick (whole Gauge in 2 s); falling ~0.022/tick calm, ~0.03 at 90 anger.
+  Floor and ceiling bounce at 30% of the speed.
+- **Input**: the client reads Space from the raw GLFW key state (`FateLibrary.held`, since mapped keys are released every tick in
+  the library) and sends `STRUGGLE` with `arg` 1/0 only when it changes. The server integrates every tick (authoritative).
+- **Sync and prediction**: a small `FateTrialPayload.WILL` packet every tick (will, velocity, band, half-width, progress, out/floor
+  ticks, lunge telegraph). The client steps the same physics from its own Space every tick and eases 30% toward the server's sample
+  (jumps if more than 0.2 off); band/half-width/progress are smoothed; everything is drawn interpolated by the partial tick.
+- **Band**: eased (smoothstep) drifts between random heights in 0.22-0.80, 50-90 ticks each (35% faster at full anger); half-width
+  0.15 calm to 0.10 at full anger. **Lunge**: first after 5-11 s, then every 8-14 s (40% sooner at full anger): the band stops and
+  flashes and the Eye flares for 0.5 s (bell), then it jumps at least 0.25 to the roomier side in 5 ticks.
+- **Progress**: +1/tick in the band, -0.5/tick outside (never reset), 200 needed. Fail: 100 ticks out in a row, or 40 ticks with the
+  will at or under 0.02.
+- **Feedback**: gold band, marker white with a glow inside / red outside, a progress frame filling both rails of the Gauge (closing
+  the top at 100%) and a percentage, a looping beacon hum rising in pitch with progress (loud inside, faint outside), a heartbeat
+  that speeds up plus a red screen edge and a shaking Gauge when slipping, Nabu's lines at 50% and 90%. Hint: "Hold Space to lift
+  your will, let go to sink. Stay in the gold band."
+- Tuning check (`scratchpad/doctorfate/will_sim.js`): a player reacting 200 ms late who anticipates a little frees himself in
+  ~11-13 s at any anger; one who reacts 400 ms late without anticipating mostly fails at high anger.
+- Tests: `holdingSpaceRaisesTheWillLettingGoSinksIt`, `willProgressDrainsAtHalfRateOutsideTheBand`,
+  `willFailsOnlyAfterFiveSecondsOutside`, `aSteadyHandOnSpaceWinsTheWill`, plus the two trial tests updated. Real-client harness
+  `scratchpad/doctorfate/DoctorFateWillHarness.v0174r2b.java.txt` presses Space via Win32 `PostMessage` (through GLFW's key state);
+  films in `docs/screenshots/v0174/doctor_fate_r2/will_*`.
 
 **Fair-play rules:** Possession never attacks squadmates. On a server you can't be possessed while inside spawn protection.
 Dominion is saved per player.

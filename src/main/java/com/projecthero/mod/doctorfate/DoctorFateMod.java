@@ -91,7 +91,7 @@ public final class DoctorFateMod {
 			}
 			case STRUGGLE -> {
 				if (DoctorFate.hasPower(p)) {
-					DoctorFatePossession.struggle(p);
+					DoctorFatePossession.struggle(p, payload.arg() != 0); // v0.17.4 round 2: the hold state (1 down, 0 up)
 				}
 			}
 			case BARGAIN_ACCEPT -> DoctorFateBargains.answer(p, payload.arg(), true);

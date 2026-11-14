@@ -111,16 +111,17 @@ public final class DoctorFatePossession {
 		DoctorFateNabuTrial.begin(p);
 	}
 
-	/** A Space press while possessed: the willpower test's push (nothing else). True if it counted. */
+	/**
+	 * Space held / let go while possessed: the willpower test's hold state (nothing else; v0.17.4 round 2 rebuild, the client sends it
+	 * when it changes). True if it counted.
+	 */
+	public static boolean struggle(ServerPlayer p, boolean down) {
+		return DoctorFate.possessed(p) && DoctorFateNabuTrial.hold(p, down);
+	}
+
+	/** Space held down (tests). */
 	public static boolean struggle(ServerPlayer p) {
-		if (!DoctorFate.possessed(p)) {
-			return false;
-		}
-		boolean ok = DoctorFateNabuTrial.push(p);
-		if (ok && p.level().getGameTime() % 3 == 0) {
-			((ServerLevel) p.level()).sendParticles(DoctorFate.dust(DoctorFate.BLUE, 1.0f), p.getX(), p.getY() + 1, p.getZ(), 2, 0.4, 0.6, 0.4, 0.0);
-		}
-		return ok;
+		return struggle(p, true);
 	}
 
 	/** Nabu lets go: the helmet falls off, 60 s lockout, Dominion 70. v0.17.4 round 2: no Slow Falling any more (no fall damage instead). */
