@@ -1,0 +1,26 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+
+/** TEMP-HARNESS (not shipped): forces the local player's skin model (Steve wide / Alex slim) for MiscModelsHarness. */
+@Mixin(AbstractClientPlayer.class)
+public abstract class MiscModelsHarnessSkinMixin {
+	@Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+	private void projecthero$harnessSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+		PlayerSkin.Model m = com.projecthero.mod.client.MiscModelsHarness.forceModel;
+		if (m == null) {
+			return;
+		}
+		PlayerSkin s = cir.getReturnValue();
+		ResourceLocation tex = ResourceLocation.withDefaultNamespace(m == PlayerSkin.Model.SLIM ? "textures/entity/player/slim/alex.png"
+				: "textures/entity/player/wide/steve.png");
+		cir.setReturnValue(new PlayerSkin(tex, null, s.capeTexture(), s.elytraTexture(), m, true));
+	}
+}

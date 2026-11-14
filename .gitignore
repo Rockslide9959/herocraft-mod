@@ -50,3 +50,6 @@ src/main/resources/assets/projecthero/sounds/saiyan/dbz/
 docs/screenshots/v0174/saiyan/*_sound.mp4
 # v0.17.4: side-by-sides and sheets that contain show frames (scratchpad/omnitrix_seq/compare.js, film.js --sbs)
 docs/screenshots/v0174/omnitrix_sequences/vs_show/
+
+# v0.17.4: originals of the borrowed Gyro suit skin (licence unchecked), kept by scratchpad/spin/fix_gyro_suit_skin.js
+scratchpad/spin/gyro_suit_before/
