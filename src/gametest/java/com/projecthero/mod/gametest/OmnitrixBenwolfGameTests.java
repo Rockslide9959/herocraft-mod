@@ -169,10 +169,13 @@ public class OmnitrixBenwolfGameTests implements FabricGameTest {
 			float h = z.getHealth(), h2 = z2.getHealth();
 			z.invulnerableTime = 0;
 			z2.invulnerableTime = 0;
-			int n = benwolf().focusedHowl(p);
-			helper.assertTrue(n == 2, "the beam goes through both: " + n);
-			near(helper, h - z.getHealth(), BenwolfKit.FOCUS_DAMAGE, "Focused Howl");
-			near(helper, h2 - z2.getHealth(), BenwolfKit.FOCUS_DAMAGE, "Focused Howl (through)");
+			// v0.17.4: Focused Howl is gone; Shift+G is the Disorienting Howl, all round him
+			helper.assertTrue(benwolf().move("focused_howl") == null, "Focused Howl is gone");
+			int n = benwolf().disorientingHowl(p);
+			helper.assertTrue(n == 2, "the warbling howl caught both: " + n);
+			near(helper, h - z.getHealth(), BenwolfKit.DISORIENT_DAMAGE, "Disorienting Howl");
+			near(helper, h2 - z2.getHealth(), BenwolfKit.DISORIENT_DAMAGE, "Disorienting Howl (the far one)");
+			helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.CONFUSION), "Nausea");
 			helper.succeed();
 		});
 	}

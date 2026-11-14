@@ -158,9 +158,10 @@ public class OmnitrixFrankenstrikeGameTests implements FabricGameTest {
 		helper.assertTrue(FrankenstrikeKit.SLAM.equals(k.moveOn(AbilitySlot.SLOT_2, false, false).id()), "G: Conductor Slam");
 		helper.assertTrue(FrankenstrikeKit.LEAP.equals(k.moveOn(AbilitySlot.SLOT_3, false, false).id()), "X: Electro Leap");
 		helper.assertTrue(FrankenstrikeKit.STORM.equals(k.moveOn(AbilitySlot.SLOT_4, false, false).id()), "Z: Overcharge Storm");
-		helper.assertTrue(FrankenstrikeKit.QUICK.equals(k.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V: Recharge (tap)");
+		helper.assertTrue(FrankenstrikeKit.ROD.equals(k.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V: Lightning Rod (v0.17.4: was Shift+V)");
 		helper.assertTrue(FrankenstrikeKit.RECHARGE.equals(k.moveOn(AbilitySlot.SLOT_5, false, true).id()), "hold V: Recharge");
-		helper.assertTrue(FrankenstrikeKit.ROD.equals(k.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V: Lightning Rod");
+		helper.assertTrue(FrankenstrikeKit.STATIC.equals(k.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V: Static Armour");
+		helper.assertTrue(k.move("quick_recharge") == null, "v0.17.4: Quick Recharge is gone");
 		helper.assertTrue(FrankenstrikeKit.GRAB.equals(k.moveOn(AbilitySlot.SLOT_6, false, false).id()), "C: Grab & Shock");
 		for (var m : k.moves()) {
 			helper.assertTrue(!m.onSlot() || m.slot().ordinal() <= AbilitySlot.SLOT_6.ordinal(), m.id() + " on R/G/X/Z/V/C only");
@@ -305,14 +306,12 @@ public class OmnitrixFrankenstrikeGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- V: Charge
 
-	/** Tap V +8; hold V +6 a second; Shift+V +50 and 8 round him; lightning is +50 and never hurts. */
+	/** Hold V +6 a second; V (v0.17.4: was Shift+V) +50 and 8 round him; lightning is +50 and never hurts. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void rechargeFillsTheChargeMeter(GameTestHelper helper) {
 		ServerPlayer p = franken(helper);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
 		helper.runAfterDelay(2, () -> {
-			tap(p, AbilitySlot.SLOT_5, false);
-			helper.assertTrue(FrankenstrikeKit.charge(p) == FrankenstrikeKit.QUICK_GAIN, "tap V: +8, got " + FrankenstrikeKit.charge(p));
 			kit().fill(p, 0);
 			helper.assertTrue(FrankenstrikeKit.rechargeRate(p) == 1, "plain stone, clear sky: x1");
 			kit().cooldown(p, FrankenstrikeKit.RECHARGE, 0);
@@ -323,8 +322,8 @@ public class OmnitrixFrankenstrikeGameTests implements FabricGameTest {
 				helper.assertTrue(c >= 9 && c <= 15, "about 6 a second for 2 s, got " + c);
 				helper.assertFalse(kit().flag(p, FrankenstrikeKit.F_RECHARGE), "the release ends it");
 				kit().fill(p, 0);
-				tap(p, AbilitySlot.SLOT_5, true);
-				helper.assertTrue(FrankenstrikeKit.charge(p) == FrankenstrikeKit.ROD_GAIN, "Shift+V: +50, got " + FrankenstrikeKit.charge(p));
+				tap(p, AbilitySlot.SLOT_5, false);
+				helper.assertTrue(FrankenstrikeKit.charge(p) == FrankenstrikeKit.ROD_GAIN, "V: +50, got " + FrankenstrikeKit.charge(p));
 				near(helper, 100f - z.getHealth(), FrankenstrikeKit.ROD_DAMAGE, "the Lightning Rod's burst");
 				kit().fill(p, 0);
 				helper.runAfterDelay(25, () -> {

@@ -105,12 +105,50 @@ public final class FrankenstrikeClient implements AlienClientKit {
 	private static final float[] RECHARGE_HOLD = f(0, -2.4f, 0, 0.7f, -2.4f, 0, -0.7f, -0.1f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.4f);
 	private static final float[][] RECHARGE = { QuirkKeyframes.rest(0), f(5, -2.4f, 0, 0.7f, -2.4f, 0, -0.7f, -0.1f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.4f) };
 	private static final float[][] RECHARGE_END = { f(0, -2.4f, 0, 0.7f, -2.4f, 0, -0.7f, -0.1f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.4f), QuirkKeyframes.rest(8) };
-	/** Quick Recharge: a fist raised and shaken. */
+	/** v0.17.4 Static Armour: a fist raised and shaken as the crackle spreads over him. */
 	private static final float[][] QUICK = { QuirkKeyframes.rest(0), f(3, -2.8f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.3f),
 			f(8, -2.8f, 0, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.3f), QuirkKeyframes.rest(13) };
 	/** Lightning Rod: braced, chest out, arms down and back as the bolt hits his electrodes. */
 	private static final float[][] ROD = { QuirkKeyframes.rest(0), f(2, 0.5f, 0, 0.6f, 0.5f, 0, -0.6f, -0.35f, 0, -0.2f, 0, 0.2f, 0.2f, 0, -0.2f, -0.6f),
 			f(12, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, -0.3f, 0, -0.2f, 0, 0.2f, 0.2f, 0, -0.2f, -0.5f), QuirkKeyframes.rest(20) };
+
+	// ---------------------------------------------------------------- v0.17.4 poses
+	/** Arc Stream (held): the right arm thrust out, fingers spread, the left braced across; the arm shudders with the current. */
+	private static final float[] ARC_HELD = f(0, -1.6f, 0.1f, 0, -0.5f, 0.5f, 0, 0.12f, -0.35f, -0.3f, 0, 0, 0.3f, 0, 0, 0);
+	private static final float[][] ARC = { QuirkKeyframes.rest(0), at(3, ARC_HELD), at(4000, ARC_HELD) };
+	/** Tesla Field: both fists driven down either side of him, planting the electrodes. */
+	private static final float[][] TESLA = { QuirkKeyframes.rest(0), f(3, -2.6f, 0, 0.6f, -2.6f, 0, -0.6f, -0.15f, 0, 0, 0, 0.15f, 0, 0, -0.15f, -0.2f),
+			f(6, 0.2f, 0, 0.7f, 0.2f, 0, -0.7f, 0.35f, 0, -0.4f, 0, 0.25f, 0.4f, 0, -0.25f, 0.2f), f(12, 0.15f, 0, 0.6f, 0.15f, 0, -0.6f, 0.3f, 0, -0.35f, 0, 0.2f, 0.35f, 0, -0.2f, 0.15f),
+			QuirkKeyframes.rest(18) };
+	/** Charged Slam (held): both fists raised high, the body arched back, winding up. */
+	private static final float[] CSLAM_HELD = f(0, -3.0f, 0.2f, 0, -3.0f, -0.2f, 0, -0.3f, 0, 0.15f, 0, 0.12f, -0.15f, 0, -0.12f, -0.35f);
+	private static final float[][] CSLAM = { QuirkKeyframes.rest(0), at(6, CSLAM_HELD), at(4000, CSLAM_HELD) };
+	/** Lightning Ride: arriving low out of the bolt, one hand down on the ground. */
+	private static final float[][] RIDE = { f(0, -0.6f, 0, 0.4f, 0.6f, 0, -0.6f, 0.6f, 0, -1.2f, 0, 0.1f, 0.5f, 0, -0.1f, 0.3f),
+			f(6, -0.5f, 0, 0.35f, 0.5f, 0, -0.5f, 0.5f, 0, -1.0f, 0, 0.1f, 0.4f, 0, -0.1f, 0.25f), QuirkKeyframes.rest(14) };
+	/** Defibrillate: both palms slapped to his chest, then thrown back as the jolt goes through him. */
+	private static final float[][] DEFIB = { QuirkKeyframes.rest(0), f(3, -1.4f, -0.8f, 0, -1.4f, 0.8f, 0, 0.2f, 0, -0.1f, 0, 0, 0.1f, 0, 0, 0.3f),
+			f(6, 0.5f, 0, 0.7f, 0.5f, 0, -0.7f, -0.4f, 0, 0.1f, 0, 0.15f, -0.1f, 0, -0.15f, -0.6f),
+			f(14, 0.4f, 0, 0.6f, 0.4f, 0, -0.6f, -0.3f, 0, 0.1f, 0, 0.15f, -0.1f, 0, -0.15f, -0.45f), QuirkKeyframes.rest(20) };
+	/** Monster Roar: hunched forward, arms flung back, head thrust out. */
+	private static final float[][] ROAR = { QuirkKeyframes.rest(0), f(3, -0.6f, 0, 0.3f, -0.6f, 0, -0.3f, -0.2f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.4f),
+			f(6, 0.8f, 0, 0.6f, 0.8f, 0, -0.6f, 0.35f, 0, -0.4f, 0, 0.2f, 0.4f, 0, -0.2f, 0.25f),
+			f(20, 0.7f, 0, 0.55f, 0.7f, 0, -0.55f, 0.3f, 0, -0.35f, 0, 0.2f, 0.35f, 0, -0.2f, 0.2f), QuirkKeyframes.rest(26) };
+
+	private static float[] at(float t, float[] frame) {
+		float[] o = frame.clone();
+		o[0] = t;
+		return o;
+	}
+
+	private static final FirstPersonClip FP_ARC = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -24, 8, 0, 0.06f, 0.14f, -0.42f),
+			FirstPersonClip.f(4000, -24, 8, 0, 0.06f, 0.14f, -0.42f));
+	private static final FirstPersonClip FP_CSLAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(6, -70, 10, 0, 0.05f, 0.55f, 0.0f),
+			FirstPersonClip.f(4000, -70, 10, 0, 0.05f, 0.55f, 0.0f)).both();
+	private static final FirstPersonClip FP_CHEST = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 10, -40, 0, -0.25f, -0.15f, 0.05f),
+			FirstPersonClip.f(6, 40, 0, 0, 0, -0.5f, 0.15f), FirstPersonClip.f(18, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_ROAR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(5, 40, 0, 0, 0, -0.5f, 0.15f),
+			FirstPersonClip.f(20, 40, 0, 0, 0, -0.5f, 0.15f), FirstPersonClip.f(26, 0, 0, 0, 0, 0, 0)).both();
 
 	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 20, -20, 0, -0.1f, -0.1f, 0.2f),
 			FirstPersonClip.f(4, -18, 12, 0, 0.1f, 0.12f, -0.5f), FirstPersonClip.f(9, -10, 8, 0, 0.06f, 0.06f, -0.3f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0));
@@ -181,6 +219,19 @@ public final class FrankenstrikeClient implements AlienClientKit {
 			m.leftArm.zRot -= Mth.sin(age * 1.3f) * 0.04f;
 			held = true;
 		}
+		if ((flags & FrankenstrikeKit.F_ARC) != 0) {
+			boolean on = QuirkKeyframes.play(m, ARC, Math.min(ticks, 3f), 1f);
+			m.rightArm.zRot += Mth.sin(age * 2.3f) * 0.05f;
+			m.rightArm.xRot += Mth.sin(age * 1.9f) * 0.04f;
+			return on;
+		}
+		if ((flags & FrankenstrikeKit.F_CSLAM) != 0) {
+			boolean on = QuirkKeyframes.play(m, CSLAM, Math.min(ticks, 6f), 1f);
+			float k = FrankenstrikeKit.slamCharge(p, 0f);
+			m.rightArm.zRot += Mth.sin(age * 2.1f) * 0.05f * k;
+			m.leftArm.zRot -= Mth.sin(age * 2.1f) * 0.05f * k;
+			return on;
+		}
 		if ((flags & FrankenstrikeKit.F_GRAB) != 0) {
 			if (animId == FrankenstrikeKit.ANIM_GRAB && ticks < 3f) {
 				return QuirkKeyframes.play(m, GRAB, ticks, 1f);
@@ -200,8 +251,12 @@ public final class FrankenstrikeClient implements AlienClientKit {
 			case FrankenstrikeKit.ANIM_STORM -> STORM;
 			case FrankenstrikeKit.ANIM_THROW -> THROW;
 			case FrankenstrikeKit.ANIM_RECHARGE_END -> RECHARGE_END;
-			case FrankenstrikeKit.ANIM_QUICK -> QUICK;
+			case FrankenstrikeKit.ANIM_STATIC -> QUICK;
 			case FrankenstrikeKit.ANIM_ROD -> ROD;
+			case FrankenstrikeKit.ANIM_TESLA -> TESLA;
+			case FrankenstrikeKit.ANIM_RIDE -> RIDE;
+			case FrankenstrikeKit.ANIM_DEFIB -> DEFIB;
+			case FrankenstrikeKit.ANIM_ROAR -> ROAR;
 			default -> null;
 		};
 		return clip != null && QuirkKeyframes.play(m, clip, ticks, 1f) || held;
@@ -214,7 +269,12 @@ public final class FrankenstrikeClient implements AlienClientKit {
 			case FrankenstrikeKit.ANIM_BOLT -> FP_BOLT;
 			case FrankenstrikeKit.ANIM_SLAM, FrankenstrikeKit.ANIM_LAND -> FP_SLAM;
 			case FrankenstrikeKit.ANIM_GRAB -> FP_GRAB;
-			case FrankenstrikeKit.ANIM_STORM, FrankenstrikeKit.ANIM_QUICK, FrankenstrikeKit.ANIM_ROD -> FP_UP;
+			case FrankenstrikeKit.ANIM_STORM, FrankenstrikeKit.ANIM_STATIC, FrankenstrikeKit.ANIM_ROD -> FP_UP;
+			case FrankenstrikeKit.ANIM_TESLA, FrankenstrikeKit.ANIM_RIDE -> FP_SLAM;
+			case FrankenstrikeKit.ANIM_ARC -> FP_ARC;
+			case FrankenstrikeKit.ANIM_CSLAM -> FP_CSLAM;
+			case FrankenstrikeKit.ANIM_DEFIB -> FP_CHEST;
+			case FrankenstrikeKit.ANIM_ROAR -> FP_ROAR;
 			default -> null;
 		};
 	}

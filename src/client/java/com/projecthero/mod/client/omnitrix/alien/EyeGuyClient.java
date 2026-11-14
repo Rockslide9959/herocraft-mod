@@ -94,6 +94,41 @@ public final class EyeGuyClient implements AlienClientKit {
 	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -14, 10, 0, 0.08f, 0.1f, -0.44f),
 			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
 
+	// ---------------------------------------------------------------- v0.17.4 poses
+	/** Sweeping Laser / Thermal Shock (held): braced, a hand at his brow (two for the Thermal Shock), the beam pouring from his eyes. */
+	private static final float[] SWEEP_HELD = f(0, -2.05f, -0.5f, 0, 0.3f, 0, -0.25f, 0.1f, 0, -0.3f, 0, 0, 0.3f, 0, 0, 0.1f);
+	private static final float[][] SWEEP = { QuirkKeyframes.rest(0), at(3, SWEEP_HELD), at(4000, SWEEP_HELD) };
+	private static final float[] THERMAL_HELD = f(0, -1.5f, -0.4f, 0.2f, -1.5f, 0.4f, -0.2f, 0.18f, 0, -0.35f, 0, 0.05f, 0.35f, 0, -0.05f, 0.05f);
+	private static final float[][] THERMAL = { QuirkKeyframes.rest(0), at(4, THERMAL_HELD), at(4000, THERMAL_HELD) };
+	/** The Thermal Shock shatter: arms thrown apart as the frozen-and-burnt creature cracks. */
+	private static final float[][] SHATTER = { at(0, THERMAL_HELD), f(3, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, -0.2f, 0, 0, 0, 0.1f, 0, 0, -0.1f, -0.2f), QuirkKeyframes.rest(10) };
+	/** Retreat Volley: hopping back, one arm out at what he is shooting. */
+	private static final float[][] RETREAT = { QuirkKeyframes.rest(0), f(2, -1.6f, 0.1f, 0, 0.6f, 0, -0.5f, -0.25f, 0, -0.7f, 0, 0, 0.2f, 0, 0, 0.1f),
+			f(9, -1.5f, 0.1f, 0, 0.5f, 0, -0.4f, -0.2f, 0, -0.5f, 0, 0, 0.1f, 0, 0, 0.05f), QuirkKeyframes.rest(14) };
+	/** Optic Lockdown: arms spread wide, chest out, every eye open. */
+	private static final float[][] LOCK = { QuirkKeyframes.rest(0), f(3, -0.4f, 0, 1.3f, -0.4f, 0, -1.3f, -0.25f, 0, -0.1f, 0, 0.15f, 0.1f, 0, -0.15f, -0.2f),
+			f(50, -0.35f, 0, 1.25f, -0.35f, 0, -1.25f, -0.2f, 0, -0.1f, 0, 0.15f, 0.1f, 0, -0.15f, -0.15f), QuirkKeyframes.rest(60) };
+	/** Weak Spot: a finger jabbed at it. */
+	private static final float[][] WEAK = { QuirkKeyframes.rest(0), f(2, -1.6f, 0.15f, 0, 0.3f, 0, -0.1f, 0.1f, -0.4f, -0.2f, 0, 0, 0.2f, 0, 0, 0.1f),
+			f(8, -1.55f, 0.15f, 0, 0.3f, 0, -0.1f, 0.08f, -0.35f, -0.15f, 0, 0, 0.15f, 0, 0, 0.1f), QuirkKeyframes.rest(14) };
+	/** Far Sight (held): a hand cupped round his eyes like a spyglass, leaning in. */
+	private static final float[] ZOOM_HELD = f(0, -2.3f, -0.6f, 0, -2.3f, 0.6f, 0, 0.15f, 0, 0, 0, 0, 0, 0, 0, 0.1f);
+	private static final float[][] ZOOM = { QuirkKeyframes.rest(0), at(4, ZOOM_HELD), at(4000, ZOOM_HELD) };
+	/** Hypno Gaze: leaning in, hands spread beside his face, swaying. */
+	private static final float[][] HYPNO = { QuirkKeyframes.rest(0), f(3, -1.9f, 0.6f, 0.5f, -1.9f, -0.6f, -0.5f, 0.25f, 0, -0.25f, 0, 0, 0.25f, 0, 0, 0.2f),
+			f(12, -1.8f, 0.5f, 0.6f, -1.8f, -0.5f, -0.6f, 0.2f, 0.15f, -0.2f, 0, 0, 0.2f, 0, 0, 0.15f), QuirkKeyframes.rest(18) };
+
+	private static float[] at(float t, float[] frame) {
+		float[] o = frame.clone();
+		o[0] = t;
+		return o;
+	}
+
+	private static final FirstPersonClip FP_HELD_BEAM = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -40, 30, 10, 0.02f, 0.36f, -0.1f),
+			FirstPersonClip.f(4000, -40, 30, 10, 0.02f, 0.36f, -0.1f));
+	private static final FirstPersonClip FP_POINT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -16, 8, 0, 0.06f, 0.12f, -0.46f),
+			FirstPersonClip.f(10, 0, 0, 0, 0, 0, 0));
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;
@@ -106,6 +141,9 @@ public final class EyeGuyClient implements AlienClientKit {
 
 	@Override
 	public boolean glows(LocalPlayer viewer, Entity e) {
+		if (EyeGuyKit.isEyeGuy(viewer) && EyeGuyKit.marked(viewer, e)) {
+			return true; // v0.17.4: his Weak Spot mark shows through anything
+		}
 		return EyeGuyKit.seeing(viewer) && e instanceof LivingEntity le && le.isAlive() && !(e instanceof ArmorStand) && e != viewer
 				&& e.distanceToSqr(viewer) <= EyeGuyKit.SIGHT_RANGE * EyeGuyKit.SIGHT_RANGE;
 	}
@@ -128,9 +166,14 @@ public final class EyeGuyClient implements AlienClientKit {
 			case EyeGuyKit.ANIM_MEGA -> EyeGuyKit.MEGA;
 			case EyeGuyKit.ANIM_FLASH -> EyeGuyKit.FLASH;
 			case EyeGuyKit.ANIM_SIGHT -> 0xC8FFB0;
+			case EyeGuyKit.ANIM_SWEEP, EyeGuyKit.ANIM_RETREAT, EyeGuyKit.ANIM_LOCK -> EyeGuyKit.LASER;
+			case EyeGuyKit.ANIM_THERMAL, EyeGuyKit.ANIM_SHATTER -> PyroDraw.lerpRgb(EyeGuyKit.ICE, EyeGuyKit.FIRE, 0.5f + 0.5f * Mth.sin((p.tickCount + partial) * 0.4f));
+			case EyeGuyKit.ANIM_HYPNO -> 0xC070FF;
+			case EyeGuyKit.ANIM_WEAK -> EyeGuyKit.FIRE;
 			default -> REST;
 		};
-		float k = t < 0f ? 0f : Mth.clamp(1f - (t - 4f) / 10f, 0f, 1f);
+		boolean steady = (s.kitFlags & (EyeGuyKit.F_SWEEP | EyeGuyKit.F_THERMAL | EyeGuyKit.F_LOCK)) != 0;
+		float k = steady ? 1f : t < 0f ? 0f : Mth.clamp(1f - (t - 4f) / 10f, 0f, 1f);
 		int c = PyroDraw.lerpRgb(REST, beam, k);
 		if (EyeGuyKit.seeing(p)) {
 			c = PyroDraw.lerpRgb(c, 0xD8FFC0, 0.35f + 0.1f * Mth.sin((p.tickCount + partial) * 0.3f));
@@ -146,7 +189,25 @@ public final class EyeGuyClient implements AlienClientKit {
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
+		int flags = Omnitrix.state(p).kitFlags;
+		if ((flags & EyeGuyKit.F_SWEEP) != 0) {
+			return QuirkKeyframes.play(m, SWEEP, Math.min(ticks, 3f), 1f);
+		}
+		if ((flags & EyeGuyKit.F_THERMAL) != 0) {
+			boolean on = QuirkKeyframes.play(m, THERMAL, Math.min(ticks, 4f), 1f);
+			m.rightArm.zRot += Mth.sin(age * 1.9f) * 0.03f; // the strain of holding both
+			m.leftArm.zRot -= Mth.sin(age * 1.9f) * 0.03f;
+			return on;
+		}
+		if ((flags & EyeGuyKit.F_ZOOM) != 0) {
+			return QuirkKeyframes.play(m, ZOOM, Math.min(ticks, 4f), 1f);
+		}
 		float[][] clip = switch (animId) {
+			case EyeGuyKit.ANIM_SHATTER -> SHATTER;
+			case EyeGuyKit.ANIM_RETREAT -> RETREAT;
+			case EyeGuyKit.ANIM_LOCK -> LOCK;
+			case EyeGuyKit.ANIM_WEAK -> WEAK;
+			case EyeGuyKit.ANIM_HYPNO -> HYPNO;
 			case EyeGuyKit.ANIM_LASER -> LASER;
 			case EyeGuyKit.ANIM_VOLLEY -> VOLLEY;
 			case EyeGuyKit.ANIM_FREEZE, EyeGuyKit.ANIM_FIRE -> BEAM;
@@ -167,6 +228,9 @@ public final class EyeGuyClient implements AlienClientKit {
 			case EyeGuyKit.ANIM_FREEZE, EyeGuyKit.ANIM_FIRE, EyeGuyKit.ANIM_SIGHT -> FP_BEAM;
 			case EyeGuyKit.ANIM_MEGA_CHARGE, EyeGuyKit.ANIM_FLASH, EyeGuyKit.ANIM_VOLLEY -> FP_WIDE;
 			case EyeGuyKit.ANIM_PUNCH -> FP_PUNCH;
+			case EyeGuyKit.ANIM_SWEEP, EyeGuyKit.ANIM_THERMAL, EyeGuyKit.ANIM_ZOOM -> FP_HELD_BEAM;
+			case EyeGuyKit.ANIM_LOCK, EyeGuyKit.ANIM_HYPNO, EyeGuyKit.ANIM_SHATTER -> FP_WIDE;
+			case EyeGuyKit.ANIM_WEAK, EyeGuyKit.ANIM_RETREAT -> FP_POINT;
 			default -> null;
 		};
 	}

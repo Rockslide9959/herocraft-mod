@@ -140,7 +140,7 @@ public class OmnitrixArctiguanaGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- Arctiguana
 
-	/** R: three gusts of the breath (3 each) freeze a zombie solid in the ice shell; Deep Freeze does 17 and freezes everything near. */
+	/** Hold R (v0.17.4): three gusts of the breath (3 each) freeze a zombie solid in the ice shell; Deep Freeze does 17 and freezes everything near. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void arctiguanaBreathFreezesSolidAndDeepFreezeHits17(GameTestHelper helper) {
 		ServerPlayer p = alien(helper, ArctiguanaKit.ID);
@@ -148,11 +148,13 @@ public class OmnitrixArctiguanaGameTests implements FabricGameTest {
 		Zombie far = zombie(helper, 7.5, 2, 1.5, 100f); // square to his side: out of the cone
 		helper.runAfterDelay(2, () -> {
 			lookAt(p, z);
-			tap(p, AbilitySlot.SLOT_1, false);
+			arctiguana().holdStart(p, AbilitySlot.SLOT_1);
 			helper.assertTrue(arctiguana().flag(p, ArctiguanaKit.F_BREATH), "breathing");
 		});
+		helper.runAfterDelay(2 + ArctiguanaKit.BREATH_TICKS - 2, () -> arctiguana().holdEnd(p, AbilitySlot.SLOT_1, ArctiguanaKit.BREATH_TICKS + 6)); // let go just before 1.5 s: 6 gusts
 		helper.runAfterDelay(2 + ArctiguanaKit.BREATH_TICKS + 2, () -> {
-			helper.assertFalse(arctiguana().flag(p, ArctiguanaKit.F_BREATH), "the breath is over after 1.5 s");
+			helper.assertFalse(arctiguana().flag(p, ArctiguanaKit.F_BREATH), "the breath stops when R comes up");
+			helper.assertTrue(arctiguana().cooldownLeft(p, ArctiguanaKit.BREATH) > 0, "and its cooldown runs from the release");
 			float lost = 100f - z.getHealth();
 			helper.assertTrue(lost >= 3f * 3 - 0.05f && lost <= 3f * 6 + 0.05f, "3 a gust, 6 gusts at most: " + lost);
 			helper.assertTrue(BigChillKit.shelled(z), "frozen solid in a block of ice");

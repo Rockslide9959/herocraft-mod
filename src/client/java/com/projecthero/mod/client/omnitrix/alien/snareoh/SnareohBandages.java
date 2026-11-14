@@ -14,6 +14,7 @@ import com.projecthero.mod.client.omnitrix.alien.brainstorm.BrainstormFx;
 import com.projecthero.mod.client.omnitrix.alien.SnareohClient;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.snareoh.SnareohKit;
+import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -340,11 +341,14 @@ public final class SnareohBandages {
 			}
 			int flags = Omnitrix.state(p).kitFlags;
 			boolean own = p == mc.player && mc.options.getCameraType().isFirstPerson();
-			if ((flags & SnareohKit.F_SPIN) != 0 && !own) {
+			if ((flags & (SnareohKit.F_SPIN | SnareohKit.F_WHIRL)) != 0 && !own) {
 				spinStrands(context.matrixStack(), context.consumers(), p, partial);
 			}
 			if ((flags & SnareohKit.F_SCATTER) != 0 && !own) {
 				swirl(context.matrixStack(), context.consumers(), p, partial);
+			}
+			if ((flags & SnareohKit.F_COCOON) != 0 && !own) {
+				cocoon(context.matrixStack(), context.consumers(), p, partial);
 			}
 		}
 	}
@@ -364,6 +368,28 @@ public final class SnareohBandages {
 				pts.add(c.add(Math.cos(a) * r, Mth.sin(age * 0.8f + s + k * 3f) * 0.18 * k - k * 0.2, Math.sin(a) * r));
 			}
 			band(pose, buffers, pts, WIDTH, 0xFFFFFFFF);
+		}
+	}
+
+	/** v0.17.4 Cocoon: two bandages wound tight round him from his feet to the top of his head, slowly drawing tighter. */
+	private static void cocoon(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer p, float partial) {
+		float age = p.tickCount + partial;
+		OmnitrixState s = Omnitrix.state(p);
+		float t = p.level().getGameTime() + partial - s.animStart;
+		float wind = s.animId == SnareohKit.ANIM_COCOON ? Mth.clamp(t / 8f, 0f, 1f) : 1f;
+		Vec3 c = p.getPosition(partial);
+		float h = p.getBbHeight() * wind;
+		double r = p.getBbWidth() * (0.62 - 0.04 * Mth.sin(age * 0.15f));
+		for (int strand = 0; strand < 2; strand++) {
+			List<Vec3> pts = new ArrayList<>();
+			int n = 48;
+			for (int i = 0; i <= n; i++) {
+				float k = i / (float) n;
+				double a = (strand * Math.PI) + k * Math.PI * 2 * 7 + age * 0.05;
+				double rr = r * (k > 0.85f ? 1.0 - (k - 0.85) * 2.5 : 1.0);
+				pts.add(c.add(Math.cos(a) * rr, 0.05 + k * h, Math.sin(a) * rr));
+			}
+			band(pose, buffers, pts, WIDTH * 1.6f, 0xFFFFFFFF);
 		}
 	}
 

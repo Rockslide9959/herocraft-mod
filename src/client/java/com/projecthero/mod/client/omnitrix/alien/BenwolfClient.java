@@ -77,8 +77,23 @@ public final class BenwolfClient implements AlienClientKit {
 	private static final float[] HOWL_HELD = g(0, 0.8f, 0, 0.9f, 0.8f, 0, -0.9f, -0.25f, 0, -0.3f, 0.35f, -0.15f, 0.15f);
 	private static final float[][] HOWL = { rest(0), g(2, 0.3f, 0, 0.5f, 0.3f, 0, -0.5f, 0.2f, 0, 0, 0, 0.3f, 0.2f), at(4, HOWL_HELD), at(12, HOWL_HELD), rest(18) };
 	/** Focused Howl: low and braced, the head driven forward along the beam, arms pinned back. */
-	private static final float[] FOCUS_HELD = g(0, 0.9f, 0, 0.3f, 0.9f, 0, -0.3f, 0.35f, 0, -0.45f, 0.45f, 0.25f, 0.45f);
-	private static final float[][] FOCUS = { rest(0), at(3, FOCUS_HELD), at(12, FOCUS_HELD), rest(18) };
+	/** v0.17.4 Disorienting Howl: crouched low, head swaying side to side as the howl wavers (the sway is added in {@link #pose}). */
+	private static final float[] DISORIENT_HELD = g(0, 0.7f, 0, 0.8f, 0.7f, 0, -0.8f, 0.3f, 0, -0.35f, 0.35f, 0.05f, 0.5f);
+	private static final float[][] DISORIENT = { rest(0), at(3, DISORIENT_HELD), at(20, DISORIENT_HELD), rest(26) };
+	/** v0.17.4 Wall Bound: a twisting kick off the wall, legs driving, arms flung up and back. */
+	private static final float[][] BOUND = { rest(0), g(2, 0.8f, 0, 0.5f, 0.8f, 0, -0.5f, 0.3f, 0.6f, -0.9f, 0.6f, -0.2f, 0.4f),
+			g(6, -2.4f, 0, 0.4f, -2.4f, 0, -0.4f, -0.2f, -0.3f, 0.5f, -0.4f, -0.3f, 0), g(14, -1.0f, 0, 0.4f, -1.0f, 0, -0.4f, 0.1f, 0, 0.2f, -0.2f, 0, 0), rest(20) };
+	/** v0.17.4 Hunt Sprint (held): down on all fours, body pitched forward, arms reaching for the ground (the gallop is added in {@link #pose}). */
+	private static final float[] SPRINT_HELD = g(0, -1.25f, 0, 0.1f, -1.25f, 0, -0.1f, 1.15f, 0, 0.35f, -0.35f, -1.0f, 0.5f);
+	/** v0.17.4 Moon Howl: head thrown back to the sky, chest out, arms spread low. */
+	private static final float[] MOON_HELD = g(0, 0.5f, 0, 0.7f, 0.5f, 0, -0.7f, -0.35f, 0, 0.05f, -0.05f, -0.9f, 0.1f);
+	private static final float[][] MOON = { rest(0), at(4, MOON_HELD), at(28, MOON_HELD), rest(34) };
+	/** v0.17.4 Scent Mark: head down and forward, sniffing, one hand pointing it out. */
+	private static final float[][] SCENT = { rest(0), g(3, -1.4f, 0.2f, 0, 0.2f, 0, -0.2f, 0.35f, -0.2f, -0.2f, 0.2f, 0.45f, 0.3f),
+			g(12, -1.35f, 0.2f, 0, 0.2f, 0, -0.2f, 0.3f, -0.15f, -0.2f, 0.2f, 0.35f, 0.25f), rest(18) };
+	/** v0.17.4 Maul: both claws up over his head, then driven down onto it. */
+	private static final float[][] MAUL = { rest(0), g(2, -2.8f, 0.2f, 0.2f, -2.8f, -0.2f, -0.2f, -0.25f, 0, 0.1f, -0.1f, -0.3f, 0),
+			g(5, -0.8f, 0, 0.2f, -0.8f, 0, -0.2f, 0.6f, 0, -0.5f, 0.5f, 0.3f, 0.8f), g(12, -0.7f, 0, 0.2f, -0.7f, 0, -0.2f, 0.5f, 0, -0.4f, 0.4f, 0.25f, 0.6f), rest(18) };
 	/** The Shockwave's charge: hunched over, arms drawn in, head down, gathering it (held while Z is). */
 	private static final float[] CHARGE_HELD = g(0, -0.5f, 0.6f, 0.2f, -0.5f, -0.6f, -0.2f, 0.45f, 0, -0.3f, 0.3f, 0.45f, 0.8f);
 	private static final float[][] CHARGE = { rest(0), at(6, CHARGE_HELD), at(4000, CHARGE_HELD) };
@@ -131,12 +146,28 @@ public final class BenwolfClient implements AlienClientKit {
 
 	@Override
 	public boolean glows(LocalPlayer viewer, Entity e) {
-		return BenwolfKit.senses(viewer, e);
+		return BenwolfKit.senses(viewer, e) || BenwolfKit.scented(viewer, e); // v0.17.4: his Scent Mark, at any range
 	}
+
+	private static final FirstPersonClip FP_SPRINT = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(4, 40, 0, 0, 0, -0.5f, 0.15f), fp(4000, 40, 0, 0, 0, -0.5f, 0.15f))
+			.both();
+	private static final FirstPersonClip FP_MAUL = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(2, -70, 10, 0, 0.05f, 0.55f, 0f), fp(5, 30, 0, 0, 0, -0.3f, -0.1f),
+			fp(14, 0, 0, 0, 0, 0, 0)).both();
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		int flags = Omnitrix.state(p).kitFlags;
+		if ((flags & BenwolfKit.F_SPRINT) != 0) {
+			QuirkKeyframes.apply(m, SPRINT_HELD, Mth.clamp(ticks / 4f, 0f, 1f));
+			// the gallop: forelegs and hind legs reaching and pushing in turn, quicker with his speed
+			float gait = age * (0.55f + p.walkAnimation.speed() * 0.35f);
+			float swing = Mth.sin(gait) * 0.55f * Mth.clamp(p.walkAnimation.speed() * 2f, 0.25f, 1f);
+			m.rightArm.xRot += swing;
+			m.leftArm.xRot += swing * 0.8f;
+			m.rightLeg.xRot -= swing;
+			m.leftLeg.xRot -= swing * 0.8f;
+			return true;
+		}
 		if ((flags & BenwolfKit.F_CHARGE) != 0) {
 			QuirkKeyframes.apply(m, CHARGE_HELD, Mth.clamp(ticks / 6f, 0f, 1f));
 			m.head.xRot += Mth.sin(age * 1.3f) * 0.03f; // the strain of it
@@ -147,7 +178,11 @@ public final class BenwolfClient implements AlienClientKit {
 			case BenwolfKit.ANIM_POUNCE -> (flags & BenwolfKit.F_POUNCE) != 0 ? POUNCE : null;
 			case BenwolfKit.ANIM_LAND -> LAND;
 			case BenwolfKit.ANIM_HOWL -> HOWL;
-			case BenwolfKit.ANIM_FOCUS -> FOCUS;
+			case BenwolfKit.ANIM_DISORIENT -> DISORIENT;
+			case BenwolfKit.ANIM_BOUND -> BOUND;
+			case BenwolfKit.ANIM_MOON -> MOON;
+			case BenwolfKit.ANIM_SCENT -> SCENT;
+			case BenwolfKit.ANIM_MAUL -> MAUL;
 			case BenwolfKit.ANIM_CHARGE -> null;
 			case BenwolfKit.ANIM_SHOCKWAVE -> SHOCKWAVE;
 			case BenwolfKit.ANIM_LEAP -> LEAP;
@@ -156,7 +191,12 @@ public final class BenwolfClient implements AlienClientKit {
 			case BenwolfKit.ANIM_PUNCH -> PUNCH;
 			default -> null;
 		};
-		return clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		boolean on = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		if (on && animId == BenwolfKit.ANIM_DISORIENT && ticks > 2f && ticks < 22f) {
+			m.head.yRot += Mth.sin(ticks * 0.9f) * 0.35f; // the howl wavers
+			m.body.yRot += Mth.sin(ticks * 0.9f) * 0.1f;
+		}
+		return on;
 	}
 
 	@Override
@@ -164,7 +204,11 @@ public final class BenwolfClient implements AlienClientKit {
 		return switch (animId) {
 			case BenwolfKit.ANIM_CLAW -> FP_CLAW;
 			case BenwolfKit.ANIM_POUNCE -> FP_POUNCE;
-			case BenwolfKit.ANIM_HOWL, BenwolfKit.ANIM_FOCUS -> FP_HOWL;
+			case BenwolfKit.ANIM_HOWL, BenwolfKit.ANIM_DISORIENT, BenwolfKit.ANIM_MOON -> FP_HOWL;
+			case BenwolfKit.ANIM_SPRINT -> FP_SPRINT;
+			case BenwolfKit.ANIM_MAUL -> FP_MAUL;
+			case BenwolfKit.ANIM_BOUND -> FP_LEAP;
+			case BenwolfKit.ANIM_SCENT -> FP_PUNCH;
 			case BenwolfKit.ANIM_CHARGE -> FP_CHARGE;
 			case BenwolfKit.ANIM_SHOCKWAVE -> FP_SHOCKWAVE;
 			case BenwolfKit.ANIM_LEAP -> FP_LEAP;
@@ -182,12 +226,13 @@ public final class BenwolfClient implements AlienClientKit {
 		OmnitrixState s = Omnitrix.state(p);
 		float t = p.level().getGameTime() + partial - s.animStart;
 		float open = BenwolfKit.jawOpen(p, t);
-		boolean howling = s.animId == BenwolfKit.ANIM_HOWL || s.animId == BenwolfKit.ANIM_FOCUS || s.animId == BenwolfKit.ANIM_SHOCKWAVE;
+		boolean howling = s.animId == BenwolfKit.ANIM_HOWL || s.animId == BenwolfKit.ANIM_DISORIENT || s.animId == BenwolfKit.ANIM_MOON
+				|| s.animId == BenwolfKit.ANIM_SHOCKWAVE;
 		boolean charging = (s.kitFlags & BenwolfKit.F_CHARGE) != 0;
 		AlienParts.on(pose, model.head, () -> {
 			head(pose, buffers, light, open);
 			if (open > 0.05f && (howling || charging)) {
-				sound(pose, buffers, open, t, age, howling && s.animId != BenwolfKit.ANIM_SHOCKWAVE, s.animId == BenwolfKit.ANIM_FOCUS, charging);
+				sound(pose, buffers, open, t, age, howling && s.animId != BenwolfKit.ANIM_SHOCKWAVE, false, charging);
 			}
 		});
 	}

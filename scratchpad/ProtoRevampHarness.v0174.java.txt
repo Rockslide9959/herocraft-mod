@@ -1,0 +1,430 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.AlienKit;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.arctiguana.ArctiguanaKit;
+import com.projecthero.mod.omnitrix.alien.benwolf.BenwolfKit;
+import com.projecthero.mod.omnitrix.alien.eyeguy.EyeGuyKit;
+import com.projecthero.mod.omnitrix.alien.frankenstrike.FrankenstrikeKit;
+import com.projecthero.mod.omnitrix.alien.shockrock.ShockRockKit;
+import com.projecthero.mod.omnitrix.alien.snareoh.SnareohKit;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.4): the six prototype aliens after their revamp -- a front three-quarter portrait of each, then a
+ * 10.5 s frame run of a few of his new moves. Enabled by run/protorevamp.flag; frames go to the folder named in it.
+ */
+public final class ProtoRevampHarness implements ClientModInitializer {
+	public static volatile Vec3 camPos, camLook;
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, frame;
+	private static Vec3 home;
+	private static File out;
+	private static final String[] ALIENS = { SnareohKit.ID, ShockRockKit.ID, FrankenstrikeKit.ID, EyeGuyKit.ID, BenwolfKit.ID, ArctiguanaKit.ID };
+	private static final int START = 100, SEG = 300, FILM_AT = 70, FILM_LEN = 210;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("protorevamp.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ProtoRevampHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "protorevamp-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <K extends AlienKit> K kit(String id) {
+		return (K) Aliens.kit(id);
+	}
+
+	private static void readyAll(ServerPlayer p, String id) {
+		AlienKit k = kit(id);
+		for (var m : k.moves()) {
+			k.cooldown(p, m.id(), 0);
+		}
+	}
+
+	/** Faces {@code p} at the point (dx, dy, dz) off home. */
+	private static void face(ServerPlayer p, double dx, double dy, double dz) {
+		Vec3 d = home.add(dx, dy, dz).subtract(p.getEyePosition());
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+		float pitch = (float) (-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180 / Math.PI);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static Mob mob(ServerPlayer p, EntityType<? extends Mob> type, double dx, double dz, float hp) {
+		Mob m = type.create(p.serverLevel());
+		m.moveTo(home.x + dx, home.y, home.z + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
+		m.setHealth(hp);
+		p.serverLevel().addFreshEntity(m);
+		return m;
+	}
+
+	private static void clear(ServerPlayer p) {
+		for (Entity e : p.serverLevel().getEntities(p, p.getBoundingBox().inflate(40))) {
+			if (!(e instanceof Player)) {
+				e.discard();
+			}
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ProtoRevampHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				for (String id : ALIENS) {
+					Aliens.discover(p, id, true);
+				}
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+		}
+		if (t < START) {
+			return;
+		}
+		int seg = (t - START) / SEG, s = (t - START) % SEG;
+		if (seg >= ALIENS.length) {
+			if (s == 5) {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			}
+			return;
+		}
+		String id = ALIENS[seg];
+		if (s == 0) {
+			camPos = null;
+			server(mc, p -> {
+				clear(p);
+				for (int y = 0; y < 3; y++) {
+					for (int z = -1; z <= 2; z++) {
+						p.serverLevel().setBlock(BlockPos.containing(home.x - 3, home.y + y, home.z + z), Blocks.AIR.defaultBlockState(), 3);
+					}
+				}
+				if (Omnitrix.state(p).transformed()) {
+					Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+				}
+				Omnitrix.setRecharge(p, 0);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+				Omnitrix.select(p, id);
+				System.out.println("[HARNESS] " + id + " transform=" + Omnitrix.transform(p));
+				p.setHealth(p.getMaxHealth());
+			});
+		}
+		if (s == 20) {
+			server(mc, p -> {
+				Omnitrix.setTimeLeft(p, 20 * 170);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		if (s == 30) {
+			// the portrait: front three-quarter, from his left-front
+			float sc = mc.player.getScale();
+			camPos = home.add(1.35 * sc, 1.45 * sc, 2.25 * sc);
+			camLook = home.add(0, 0.95 * sc, 0);
+		}
+		if (s == 48) {
+			shot(mc, id + "_portrait");
+		}
+		if (s == 52) {
+			server(mc, p -> {
+				readyAll(p, id);
+				mob(p, EntityType.HUSK, -1.6, 4.5, 140f);
+				mob(p, EntityType.HUSK, 1.7, 5.0, 140f);
+				mob(p, EntityType.HUSK, 0.0, 7.0, 140f);
+				face(p, 0, 1.2, 5.5);
+				if (id.equals(FrankenstrikeKit.ID)) {
+					FrankenstrikeKit k = kit(id);
+					k.fill(p, 100);
+				}
+				if (id.equals(BenwolfKit.ID)) {
+					for (int y = 0; y < 3; y++) {
+						for (int z = -1; z <= 2; z++) {
+							p.serverLevel().setBlock(BlockPos.containing(home.x - 3, home.y + y, home.z + z), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+						}
+					}
+				}
+			});
+		}
+		if (s == 60) {
+			camPos = home.add(4.6, 2.4, 0.6);
+			camLook = home.add(-0.3, 1.0, 3.2);
+		}
+		if (s >= FILM_AT && s < FILM_AT + FILM_LEN) {
+			Screenshot.grab(out, String.format("%s_f%03d.png", id, s - FILM_AT), mc.getMainRenderTarget(), m -> {
+			});
+			int f = s - FILM_AT;
+			film(mc, id, f);
+		}
+	}
+
+	/** The new moves, on cue: frame {@code f} (0..209) of {@code id}'s run. */
+	private static void film(Minecraft mc, String id, int f) {
+		switch (id) {
+			case SnareohKit.ID -> {
+				SnareohKit k = kit(id);
+				at(mc, f, 2, p -> k.startLash(p));
+				at(mc, f, 34, p -> k.endLash(p));
+				at(mc, f, 44, p -> {
+					face(p, 1.7, 1.0, 5.0);
+					k.bandageSlam(p);
+				});
+				at(mc, f, 72, p -> k.mummyWrap(p));
+				at(mc, f, 92, p -> System.out.println("[HARNESS] coffin=" + k.sandCoffin(p)));
+				at(mc, f, 112, p -> {
+					face(p, -1.6, 1.0, 4.5);
+					System.out.println("[HARNESS] tether=" + k.startTether(p));
+				});
+				at(mc, f, 148, p -> {
+					face(p, 2, 1.0, 10);
+					k.fling(p);
+				});
+				at(mc, f, 168, p -> {
+					face(p, 0, 1.0, 6);
+					k.bandageNet(p);
+				});
+				at(mc, f, 180, p -> k.startCocoon(p));
+				at(mc, f, 205, p -> k.endCocoon(p));
+			}
+			case ShockRockKit.ID -> {
+				ShockRockKit k = kit(id);
+				at(mc, f, 2, p -> k.startCharge(p));
+				at(mc, f, 34, p -> System.out.println("[HARNESS] charged=" + k.releaseCharge(p)));
+				at(mc, f, 50, p -> {
+					face(p, -1, 1.0, 5);
+					k.bladeWave(p);
+				});
+				at(mc, f, 70, p -> {
+					face(p, 1.7, 1.0, 5.0);
+					System.out.println("[HARNESS] lash=" + k.startLash(p));
+				});
+				at(mc, f, 100, p -> k.endLash(p));
+				at(mc, f, 112, p -> {
+					face(p, 0, 1.0, 5.5);
+					k.rockBarrage(p);
+				});
+				at(mc, f, 135, p -> k.energyDome(p));
+				at(mc, f, 160, p -> k.startCore(p));
+				at(mc, f, 198, p -> System.out.println("[HARNESS] core=" + k.releaseCore(p)));
+			}
+			case FrankenstrikeKit.ID -> {
+				FrankenstrikeKit k = kit(id);
+				at(mc, f, 2, p -> k.startArc(p));
+				at(mc, f, 10, p -> face(p, -0.8, 1.0, 5));
+				at(mc, f, 20, p -> face(p, 0.8, 1.0, 5));
+				at(mc, f, 38, p -> k.endArc(p));
+				at(mc, f, 46, p -> k.teslaField(p));
+				at(mc, f, 80, p -> k.startChargedSlam(p));
+				at(mc, f, 112, p -> System.out.println("[HARNESS] cslam=" + k.releaseChargedSlam(p)));
+				at(mc, f, 130, p -> {
+					face(p, 0, 1.0, 5.5);
+					k.monsterRoar(p);
+				});
+				at(mc, f, 156, p -> k.staticArmour(p));
+				at(mc, f, 170, p -> {
+					face(p, 0, 1.0, 10);
+					System.out.println("[HARNESS] ride=" + k.lightningRide(p));
+				});
+				at(mc, f, 192, p -> k.defibrillate(p));
+			}
+			case EyeGuyKit.ID -> {
+				EyeGuyKit k = kit(id);
+				at(mc, f, 2, p -> {
+					face(p, -2.5, 1.2, 5);
+					k.startSweep(p);
+				});
+				for (int i = 4; i < 40; i += 2) {
+					double x = -2.5 + (i - 4) * 5.0 / 36;
+					at(mc, f, i, p -> face(p, x, 1.2, 5));
+				}
+				at(mc, f, 42, p -> k.endSweep(p));
+				at(mc, f, 52, p -> {
+					face(p, 1.7, 1.0, 5.0);
+					k.startThermal(p);
+				});
+				at(mc, f, 96, p -> System.out.println("[HARNESS] shattered=" + k.endThermal(p)));
+				at(mc, f, 110, p -> System.out.println("[HARNESS] lock=" + k.opticLockdown(p)));
+				at(mc, f, 150, p -> {
+					face(p, 0, 1.0, 7);
+					k.weakSpot(p);
+				});
+				at(mc, f, 165, p -> {
+					face(p, -1.6, 1.0, 4.5);
+					k.hypnoGaze(p);
+				});
+				at(mc, f, 186, p -> {
+					face(p, 0, 1.0, 5.5);
+					k.retreatVolley(p);
+				});
+			}
+			case BenwolfKit.ID -> {
+				BenwolfKit k = kit(id);
+				at(mc, f, 2, p -> System.out.println("[HARNESS] disorient=" + k.disorientingHowl(p)));
+				at(mc, f, 36, p -> k.moonHowl(p));
+				at(mc, f, 72, p -> {
+					face(p, -1.6, 1.0, 4.5);
+					p.connection.teleport(home.x - 1.2, home.y, home.z + 2.4, p.getYRot(), p.getXRot());
+				});
+				at(mc, f, 74, p -> System.out.println("[HARNESS] maul=" + k.maul(p)));
+				at(mc, f, 96, p -> {
+					face(p, 0, 1.0, 7);
+					k.scentMark(p);
+				});
+				at(mc, f, 112, p -> {
+					p.connection.teleport(home.x, home.y, home.z - 3, 0f, 5f);
+					k.startSprint(p);
+				});
+				if (f >= 114 && f < 140) {
+					mc.options.keyUp.setDown(true);
+				}
+				at(mc, f, 140, p -> {
+					mc.execute(() -> mc.options.keyUp.setDown(false));
+					k.endSprint(p);
+				});
+				at(mc, f, 150, p -> p.connection.teleport(home.x - 2.15, home.y, home.z + 0.5, 90f, -10f));
+				at(mc, f, 156, p -> System.out.println("[HARNESS] bound=" + k.wallBound(p)));
+				at(mc, f, 182, p -> System.out.println("[HARNESS] bound2=" + k.wallBound(p)));
+			}
+			case ArctiguanaKit.ID -> {
+				ArctiguanaKit k = kit(id);
+				at(mc, f, 2, p -> k.shardFan(p));
+				at(mc, f, 22, p -> {
+					face(p, 0, 1.0, 5);
+					k.breath(p);
+				});
+				at(mc, f, 58, p -> k.stopBreath(p));
+				at(mc, f, 70, p -> System.out.println("[HARNESS] shatter=" + k.shatter(p)));
+				at(mc, f, 92, p -> {
+					face(p, 0, 1.0, 7);
+					k.icePillar(p);
+				});
+				at(mc, f, 116, p -> k.startBlizzard(p));
+				at(mc, f, 150, p -> k.endBlizzard(p));
+				at(mc, f, 160, p -> {
+					k.iceDecoy(p);
+					p.connection.teleport(home.x - 2.5, home.y, home.z + 1, 0f, 5f);
+				});
+				at(mc, f, 182, p -> {
+					face(p, -1.6, 1.0, 4.5);
+					k.tailSpike(p);
+				});
+			}
+			default -> {
+			}
+		}
+	}
+
+	private static void at(Minecraft mc, int f, int when, Consumer<ServerPlayer> fn) {
+		if (f == when) {
+			server(mc, fn);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true, new GameRules(),
+				WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	@SuppressWarnings("unused")
+	private static void unused(AbilitySlot s) {
+	}
+}

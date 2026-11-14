@@ -18,8 +18,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.3 Snare-oh (user: "make aliens based on their abilities and stuff they do in the show please"): a hidden prototype alien (glyph
  * U+E01B), his key layout, and his main numbers -- the whip, the bind (a root), the grapple's yank, Mummy Wrap round him, Unravel Spin's
- * three lashes, the flying hand dragging its catch back, Scatter's untouchable second and a half, and the Hollow Body / Dry Wrappings
- * damage changes.
+ * three lashes, Scatter's untouchable second and a half, and the Hollow Body / Dry Wrappings damage changes. v0.17.4: the revamped
+ * layout (the new moves' riskier logic is in {@code OmnitrixPrototypeRevampGameTests}).
  */
 public class OmnitrixSnareohGameTests extends OmnitrixSnareohTestBase {
 	private static SnareohKit kit() {
@@ -89,33 +89,24 @@ public class OmnitrixSnareohGameTests extends OmnitrixSnareohTestBase {
 		});
 	}
 
-	/** V: the hand flies out, catches the zombie (8) and drags it back to him. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void detachedHandDragsItsCatchBack(GameTestHelper helper) {
-		ServerPlayer p = alien(helper, SnareohKit.ID);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2, 7.5);
-		z.setHealth(z.getMaxHealth());
-		float[] h = new float[1];
-		double[] d0 = new double[1];
-		helper.runAfterDelay(2, () -> {
-			lookAt(p, z);
-			h[0] = z.getHealth();
-			d0[0] = z.distanceTo(p);
-			tap(p, AbilitySlot.SLOT_5, false);
-			helper.assertTrue(kit().flag(p, SnareohKit.F_HAND), "the hand is out");
-		});
-		boolean[] caught = new boolean[1];
-		helper.onEachTick(() -> caught[0] |= SnareohKit.handHolds(p) == z);
-		helper.runAfterDelay(40, () -> {
-			helper.assertTrue(h[0] - z.getHealth() > 4f, "8 (less the zombie's armour): " + (h[0] - z.getHealth()));
-			helper.assertTrue(z.distanceTo(p) < d0[0] - 2.5, "dragged in: " + d0[0] + " -> " + z.distanceTo(p));
-			helper.assertTrue(caught[0], "the hand caught the zombie");
-			helper.assertFalse(kit().flag(p, SnareohKit.F_HAND), "the hand is back");
-			helper.succeed();
-		});
+	/** v0.17.4: Detach is gone; X is the zip, Shift+X Recoil, hold X the swing (a real hold now), and the new holds are declared. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void revampedKeyLayout(GameTestHelper helper) {
+		SnareohKit k = kit();
+		helper.assertTrue(k.move("detach") == null, "Detach is gone");
+		helper.assertTrue(SnareohKit.ZIP.equals(k.moveOn(AbilitySlot.SLOT_3, false, false).id()), "X: Bandage Zip");
+		helper.assertTrue(SnareohKit.RECOIL.equals(k.moveOn(AbilitySlot.SLOT_3, true, false).id()), "Shift+X: Recoil");
+		helper.assertTrue(SnareohKit.SWING.equals(k.moveOn(AbilitySlot.SLOT_3, false, true).id()) && k.holdable(AbilitySlot.SLOT_3), "hold X: Bandage Swing");
+		helper.assertTrue(SnareohKit.SCATTER.equals(k.moveOn(AbilitySlot.SLOT_5, false, false).id()), "V: Scatter");
+		helper.assertTrue(SnareohKit.NET.equals(k.moveOn(AbilitySlot.SLOT_5, true, false).id()), "Shift+V: Bandage Net");
+		for (AbilitySlot s : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
+				AbilitySlot.SLOT_6 }) {
+			helper.assertTrue(k.moveOn(s, true, false) != null, "a Shift move on " + s);
+		}
+		helper.succeed();
 	}
 
-	/** Shift+V: scattered he takes nothing; Hollow Body halves an arrow; Dry Wrappings: fire x1.5. */
+	/** V (v0.17.4: was Shift+V): scattered he takes nothing; Hollow Body halves an arrow; Dry Wrappings: fire x1.5. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void scatterHollowBodyAndDryWrappings(GameTestHelper helper) {
 		ServerPlayer p = alien(helper, SnareohKit.ID);
@@ -126,7 +117,7 @@ public class OmnitrixSnareohGameTests extends OmnitrixSnareohTestBase {
 			near(helper, shot, 5f, 0.01f, "an arrow through his empty wrappings");
 			float fire = kit().incomingDamage(p, p.damageSources().inFire(), 4f);
 			near(helper, fire, 6f, 0.01f, "fire on dry bandages");
-			tap(p, AbilitySlot.SLOT_5, true);
+			tap(p, AbilitySlot.SLOT_5, false);
 			helper.assertTrue(SnareohKit.scattered(p), "scattered");
 			float hp = p.getHealth();
 			p.invulnerableTime = 0;

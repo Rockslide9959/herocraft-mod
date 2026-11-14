@@ -69,6 +69,7 @@ public final class FrankenstrikeFx {
 			if (!(pl instanceof AbstractClientPlayer p) || !FrankenstrikeKit.isFrankenstrike(p) || p.isInvisible()) {
 				continue;
 			}
+			teslaAndStatic(context, p, partial);
 			if (p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson()) {
 				continue;
 			}
@@ -117,8 +118,42 @@ public final class FrankenstrikeFx {
 	}
 
 	/** A bolt ending at the carrier: colour 0 = from the owner's hand, n = from entity n - 1. */
+	/**
+	 * v0.17.4: the Tesla Field -- a bolt crackling between the tops of its two electrodes, re-rolled every other tick -- and Static Armour,
+	 * short arcs jumping over his body.
+	 */
+	private static void teslaAndStatic(WorldRenderContext context, AbstractClientPlayer p, float partial) {
+		Vec3 cam = context.camera().getPosition();
+		double[] t = FrankenstrikeKit.tesla(p);
+		long tick = p.level().getGameTime();
+		if (t != null) {
+			Vec3[] el = FrankenstrikeKit.electrodes(new Vec3(t[0], t[1], t[2]), (float) t[3]);
+			Vec3 a = el[0].add(0, 1.5, 0).subtract(cam), b = el[1].add(0, 1.5, 0).subtract(cam);
+			com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx.bolt(context.matrixStack(), context.consumers(), a, b, 0.14f, FrankenstrikeKit.WHITE,
+					FrankenstrikeKit.COLOUR, 1f, tick / 2 * 13L + p.getId());
+			com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx.bolt(context.matrixStack(), context.consumers(), a.subtract(0, 0.6, 0), b.subtract(0, 0.6, 0), 0.08f,
+					FrankenstrikeKit.WHITE, FrankenstrikeKit.COLOUR, 0.6f, tick / 2 * 17L + p.getId());
+		}
+		if (FrankenstrikeKit.staticUp(p)) {
+			Vec3 base = p.getPosition(partial);
+			float s = p.getScale();
+			java.util.Random r = new java.util.Random(tick / 2 * 31L + p.getId());
+			for (int i = 0; i < 3; i++) {
+				double a0 = r.nextDouble() * Math.PI * 2, a1 = a0 + 0.6 + r.nextDouble();
+				double rad = 0.45 * s;
+				Vec3 from = base.add(Math.cos(a0) * rad, (0.3 + r.nextDouble() * 1.4) * s, Math.sin(a0) * rad);
+				Vec3 to = base.add(Math.cos(a1) * rad, (0.3 + r.nextDouble() * 1.4) * s, Math.sin(a1) * rad);
+				com.projecthero.mod.client.omnitrix.alien.jetray.RecalFx.bolt(context.matrixStack(), context.consumers(), from.subtract(cam), to.subtract(cam), 0.06f,
+						FrankenstrikeKit.WHITE, FrankenstrikeKit.COLOUR, 0.9f, r.nextLong());
+			}
+		}
+	}
+
 	private static void arc(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, boolean big) {
 		Minecraft mc = Minecraft.getInstance();
+		if (e.getOwner() != null && com.projecthero.mod.client.beamclash.BeamClashClient.hides(e.getOwner())) {
+			return; // v0.17.4: his Arc Stream is locked in a beam clash, and the clash draws it
+		}
 		Vec3 end = e.getPosition(partial);
 		Vec3 start = null;
 		int c = e.colour();
