@@ -53,3 +53,8 @@ docs/screenshots/v0174/omnitrix_sequences/vs_show/
 
 # v0.17.4: originals of the borrowed Gyro suit skin (licence unchecked), kept by scratchpad/spin/fix_gyro_suit_skin.js
 scratchpad/spin/gyro_suit_before/
+# v0.17.4: Gyro suit skin from PlanetMinecraft (licence unchecked) -- local builds only until the licence is checked
+src/main/resources/assets/projecthero/textures/entity/spin/gyro_suit_*.png
+src/main/resources/assets/projecthero/textures/entity/spin/gyro_cape.png
+docs/screenshots/v0174/misc_models/gyro/
+scratchpad/spin/gyro_suit_original.png
