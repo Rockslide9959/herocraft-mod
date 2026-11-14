@@ -39,6 +39,8 @@ public final class BlackPantherItems {
 	public static Item SOUP;
 	public static Item DAGGER;
 	public static Item KIMOYO_BEAD;
+	/** v0.17.4: the craftable suit. */
+	public static Item HABIT;
 
 	private BlackPantherItems() {
 	}
@@ -55,11 +57,14 @@ public final class BlackPantherItems {
 						.food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.6f).alwaysEdible().usingConvertsTo(Items.BOWL).build())));
 		DAGGER = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("vibranium_dagger"), new Item(new Item.Properties().stacksTo(1)));
 		KIMOYO_BEAD = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("kimoyo_bead"), new Item(new Item.Properties().stacksTo(1)));
+		HABIT = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("panther_habit"),
+				new PantherHabitItem(new Item.Properties().rarity(Rarity.EPIC).stacksTo(1).fireResistant()));
 		BiomeModifications.addFeature(BiomeSelectors.tag(BiomeTags.IS_JUNGLE), GenerationStep.Decoration.VEGETAL_DECORATION, HERB_FEATURE);
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		output.accept(HERB);
 		output.accept(SOUP);
+		output.accept(HABIT);
 	}
 }

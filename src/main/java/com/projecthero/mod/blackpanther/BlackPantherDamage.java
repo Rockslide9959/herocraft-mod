@@ -50,10 +50,12 @@ public final class BlackPantherDamage {
 
 	static void clearSessionState() {
 		LAST_SHOT.clear();
+		LAST_HURT.clear();
 	}
 
 	static void forget(UUID id) {
 		LAST_SHOT.remove(id);
+		LAST_HURT.remove(id);
 	}
 
 	public static LastShot lastShot(ServerPlayer player) {
@@ -65,22 +67,56 @@ public final class BlackPantherDamage {
 		return target instanceof net.minecraft.world.entity.player.Player ? BlackPantherConfig.STALK_BACKSTAB_PLAYER : BlackPantherConfig.STALK_BACKSTAB;
 	}
 
+	/** v0.17.4 Shadow Step (the unsuited Stalk): x2 on a creature, x1.5 on a player. */
+	public static float shadowFactor(LivingEntity target) {
+		return target instanceof net.minecraft.world.entity.player.Player ? BlackPantherConfig.SHADOW_BACKSTAB_PLAYER : BlackPantherConfig.SHADOW_BACKSTAB;
+	}
+
+	/** v0.17.4: the last time this Black Panther was hurt (Herb Vitality waits 5 s after it). */
+	public static long lastHurt(ServerPlayer player) {
+		Long t = LAST_HURT.get(player.getUUID());
+		return t == null ? Long.MIN_VALUE / 2 : t;
+	}
+
+	private static final Map<UUID, Long> LAST_HURT = new ConcurrentHashMap<>();
+
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		if (amount > 0.0f && entity instanceof ServerPlayer hurt && BlackPanther.hasPower(hurt)) {
+			LAST_HURT.put(hurt.getUUID(), hurt.level().getGameTime());
+		}
 		if (REENTRANT.get() || amount <= 0.0f) {
 			return true;
 		}
-		if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && BlackPanther.stalking(attacker)) {
-			boolean behind = behind(attacker, entity);
-			BlackPantherAbilities.endStalk(attacker);
-			if (behind) {
-				float tripled = BlackPantherCombat.capped(entity, amount * backstabFactor(entity));
-				ServerLevel level = (ServerLevel) attacker.level();
-				Vec3 c = entity.position().add(0, entity.getBbHeight() * 0.5, 0);
-				level.sendParticles(BlackPanther.PURPLE_BIG, c.x, c.y, c.z, 12, 0.3, 0.4, 0.3, 0.0);
-				level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.7f);
-				reissue(entity, source, tripled);
+		if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && BlackPanther.hasPower(attacker)) {
+			float factor = 1f;
+			if (BlackPanther.state(attacker).stalking) {
+				boolean suitedStalk = BlackPanther.suited(attacker);
+				boolean behind = behind(attacker, entity);
+				if (suitedStalk) {
+					BlackPantherAbilities.endStalk(attacker);
+				} else {
+					BlackPantherUnsuited.endShadow(attacker);
+				}
+				if (behind) {
+					factor *= suitedStalk ? backstabFactor(entity) : shadowFactor(entity);
+					ServerLevel level = (ServerLevel) attacker.level();
+					Vec3 c = entity.position().add(0, entity.getBbHeight() * 0.5, 0);
+					level.sendParticles(suitedStalk ? BlackPanther.PURPLE_BIG : net.minecraft.core.particles.ParticleTypes.CRIT, c.x, c.y, c.z, 12, 0.3, 0.4,
+							0.3, 0.0);
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.7f);
+				}
+			}
+			// v0.17.4 Kimoyo Scan: the marked creature takes more from him
+			if (!BlackPantherCombat.striking() && BlackPantherUnsuited.marked(attacker, entity)) { // (a move's own strike adds it itself)
+				factor *= BlackPantherConfig.SCAN_BONUS;
+			}
+			if (factor != 1f) {
+				reissue(entity, source, BlackPantherCombat.capped(entity, amount * factor));
 				return false;
 			}
+		}
+		if (entity instanceof ServerPlayer bare && BlackPanther.hasPower(bare) && !BlackPanther.suited(bare)) {
+			return allowBare(bare, source, amount);
 		}
 		if (!(entity instanceof ServerPlayer player) || !BlackPanther.suited(player)) {
 			return true;
@@ -121,6 +157,43 @@ public final class BlackPantherDamage {
 			BlackPanther.store(player, soak * BlackPantherConfig.KINETIC_PER_DAMAGE, false);
 			impact(player, 3);
 			reissue(player, source, amount - soak);
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * v0.17.4, out of the suit: Cat's Landing halves falls; a Backflip's evade makes the next hit miss; a raised Parry cuts a
+	 * frontal melee hit by 60%, or turns it wholly aside (and staggers the attacker) in its first 6 ticks.
+	 */
+	private static boolean allowBare(ServerPlayer player, DamageSource source, float amount) {
+		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return true;
+		}
+		if (source.is(DamageTypeTags.IS_FALL)) {
+			float left = amount * BlackPantherConfig.CAT_LANDING;
+			if (left < 0.5f) {
+				return false;
+			}
+			reissue(player, source, left);
+			return false;
+		}
+		if (player.invulnerableTime > 10) {
+			return true;
+		}
+		Entity attacker = source.getEntity();
+		if ((attacker != null || source.is(DamageTypeTags.IS_PROJECTILE)) && BlackPantherUnsuited.evade(player)) {
+			return false;
+		}
+		BlackPantherState s = BlackPanther.state(player);
+		boolean melee = attacker instanceof LivingEntity && source.getDirectEntity() == attacker && !source.is(DamageTypeTags.IS_PROJECTILE);
+		if (s.absorbing && melee && fromFront(player, source)) {
+			if (BlackPantherUnsuited.perfectParry(player, (LivingEntity) attacker)) {
+				return false;
+			}
+			ServerLevel level = (ServerLevel) player.level();
+			level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.2f);
+			reissue(player, source, amount * (1f - BlackPantherConfig.PARRY_REDUCTION));
 			return false;
 		}
 		return true;

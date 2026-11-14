@@ -46,6 +46,7 @@ public class BlackPantherGameTests implements FabricGameTest {
 			throw new IllegalStateException(e);
 		}
 		BlackPanther.grant(p);
+		BlackPanther.bindHabit(p); // v0.17.4: the suit is crafted
 		BlackPanther.suitUp(p);
 		var s = BlackPanther.state(p).copy();
 		s.suitChangeAt = p.level().getGameTime() - BlackPantherConfig.SUIT_UP_TICKS - 1;
@@ -168,6 +169,7 @@ public class BlackPantherGameTests implements FabricGameTest {
 	public void suitGivesArmourAndToughness(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);
 		BlackPanther.grant(p);
+		BlackPanther.bindHabit(p); // v0.17.4: the suit is crafted
 		double armour = p.getAttributeValue(Attributes.ARMOR);
 		double tough = p.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
 		BlackPanther.suitUp(p);
@@ -187,12 +189,15 @@ public class BlackPantherGameTests implements FabricGameTest {
 		BlackPanther.tick(p); // tickCount 0: the passives are applied
 		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED), "Speed I stays");
 		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.JUMP), "Jump Boost I stays");
-		helper.assertTrue(!p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION), "no night vision");
 		BlackPanther.suitUp(p);
 		helper.assertTrue(!BlackPanther.suited(p), "no suit without the necklace");
 		BlackPanther.setKinetic(p, 50f);
 		BlackPantherAbilities.pulse(p);
-		helper.assertTrue(BlackPanther.kinetic(p) == 50f, "no moves without the necklace");
+		helper.assertTrue(BlackPanther.kinetic(p) == 50f, "no suited moves without the necklace");
+		// v0.17.4: the unsuited kit still works with the necklace off
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.vault(p);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.VAULT) > 0,
+				"the unsuited moves stay with the necklace off");
 		BlackPanther.toggleNecklace(p);
 		helper.assertTrue(!BlackPanther.necklaceOff(p), "held again, it goes back on");
 		BlackPanther.suitUp(p);
@@ -375,5 +380,316 @@ public class BlackPantherGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < base, "the claws go too");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) < armour, "and the suit's armour");
 		helper.succeed();
+	}
+
+	// ================================================================ v0.17.4: the crafted suit, the two movesets, the passives
+
+	/** Spawn protection off, the power held, no suit yet. */
+	private static ServerPlayer bare(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		noSpawnProtection(p);
+		BlackPanther.grant(p);
+		return p;
+	}
+
+	private static void noSpawnProtection(ServerPlayer p) {
+		try {
+			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			f.setAccessible(true);
+			f.setInt(p, 0);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	/** The suit finished forming (no waiting out the 2 s change). */
+	private static void finishChange(ServerPlayer p) {
+		var s = BlackPanther.state(p).copy();
+		s.suitChangeAt = p.level().getGameTime() - BlackPantherConfig.SUIT_UP_TICKS - 1;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theSuitNeedsTheCraftedHabit(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		helper.assertTrue(!BlackPanther.hasHabit(p), "a new Black Panther has no suit");
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(!BlackPanther.suited(p), "H does nothing without the habit");
+		ItemStack habit = new ItemStack(BlackPantherItems.HABIT);
+		p.setItemInHand(InteractionHand.MAIN_HAND, habit);
+		habit.use(p.level(), p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(BlackPanther.hasHabit(p), "using the habit binds it to the necklace");
+		helper.assertTrue(p.getMainHandItem().isEmpty(), "the habit is used up");
+		ItemStack second = new ItemStack(BlackPantherItems.HABIT);
+		p.setItemInHand(InteractionHand.MAIN_HAND, second);
+		second.use(p.level(), p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(p.getMainHandItem().getCount() == 1, "a second habit is refused and kept");
+		BlackPanther.suitUp(p);
+		helper.assertTrue(BlackPanther.suited(p), "now H suits up");
+		ServerPlayer other = mock(helper);
+		ItemStack stray = new ItemStack(BlackPantherItems.HABIT);
+		other.setItemInHand(InteractionHand.MAIN_HAND, stray);
+		stray.use(other.level(), other, InteractionHand.MAIN_HAND);
+		helper.assertTrue(other.getMainHandItem().getCount() == 1, "only the Black Panther can wear it");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theHabitHasTwoRecipes(GameTestHelper helper) {
+		var recipes = helper.getLevel().getServer().getRecipeManager();
+		for (String id : new String[] { "panther_habit", "panther_habit_echo" }) {
+			var r = recipes.byKey(com.projecthero.mod.ProjectHeroMod.id(id));
+			helper.assertTrue(r.isPresent(), id + " loads");
+			helper.assertTrue(r.get().value().getResultItem(helper.getLevel().registryAccess()).is(BlackPantherItems.HABIT), id + " makes the habit");
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aPowerFromBeforeTheHabitKeepsItsSuit(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		var old = new com.projecthero.mod.blackpanther.data.BlackPantherState();
+		old.hasPower = true; // saved by 0.17.3: no habit, not migrated
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, old);
+		BlackPanther.onPlayerJoin(p);
+		helper.assertTrue(BlackPanther.hasHabit(p), "migrated: the habit is already in the necklace");
+		ServerPlayer fresh = bare(helper);
+		BlackPanther.onPlayerJoin(fresh);
+		helper.assertTrue(!BlackPanther.hasHabit(fresh), "a new power is not given one");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void losingThePowerHandsTheHabitBack(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		BlackPanther.bindHabit(p);
+		BlackPanther.revoke(p);
+		helper.assertTrue(p.getInventory().countItem(BlackPantherItems.HABIT) == 1, "the habit comes back out as the item");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theMovesetSwitchesOnSuitUpAndSuitOff(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		BlackPanther.bindHabit(p);
+		var R = com.projecthero.mod.hero.AbilitySlot.SLOT_1;
+		var X = com.projecthero.mod.hero.AbilitySlot.SLOT_3;
+		helper.assertTrue(!com.projecthero.mod.blackpanther.BlackPantherAbilityManager.idsOf(R, false)[0]
+				.equals(com.projecthero.mod.blackpanther.BlackPantherAbilityManager.idsOf(R, true)[0]), "two different kits on R");
+		// out of the suit: R is the Warrior's Combo
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, true);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, false);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.COMBO) > 0, "unsuited R: the combo");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.PULSE) == 0, "not the Kinetic Pulse");
+		// suit up: the same key is now the Kinetic Pulse
+		BlackPanther.suitUp(p);
+		finishChange(p);
+		BlackPanther.setKinetic(p, 50f);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, true);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, false);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.PULSE) > 0, "suited R: the Kinetic Pulse");
+		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 20f) < 0.01f, "it spent 30 Kinetic");
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, true);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, false);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.LEAP) > 0, "suited X: Panther Leap");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.VAULT) == 0, "not the Vault");
+		// suit off: back to the unsuited kit
+		BlackPanther.suitDown(p);
+		p.setDeltaMovement(Vec3.ZERO);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, true);
+		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, false);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.VAULT) > 0, "unsuited X: the Vault");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void suitingUpEndsTheUnsuitedToggles(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		BlackPanther.bindHabit(p);
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.toggleTracking(p);
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.raiseParry(p);
+		helper.assertTrue(BlackPanther.state(p).senses && BlackPanther.state(p).absorbing, "tracking and parry up");
+		BlackPanther.suitUp(p);
+		helper.assertTrue(!BlackPanther.state(p).senses && !BlackPanther.state(p).absorbing, "the suit ends them");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theHerbAddsMeleeAndHalvesFalls(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		noSpawnProtection(p);
+		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		BlackPanther.grant(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base - BlackPantherConfig.HERB_MELEE) < 1.0e-6, "+2 melee from the herb");
+		float before = p.getHealth();
+		p.hurt(p.damageSources().fall(), 10f);
+		float lost = before - p.getHealth();
+		helper.assertTrue(Math.abs(lost - 5f) < 0.05f, "Cat's Landing: a 10 fall does 5 out of the suit, lost " + lost);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void herbVitalityHealsOneStepAtATime(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		p.setHealth(10f);
+		float[] last = { p.getHealth() };
+		boolean[] stepped = { false };
+		helper.onEachTick(() -> {
+			BlackPanther.tick(p);
+			float h = p.getHealth();
+			if (h > last[0] + 0.01f) {
+				helper.assertTrue(Math.abs(h - last[0] - 1f) < 0.01f, "one health a step, got " + (h - last[0]));
+				stepped[0] = true;
+			}
+			last[0] = h;
+		});
+		helper.succeedWhen(() -> helper.assertTrue(stepped[0], "Herb Vitality has healed"));
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void vitalityWaitsAfterAHit(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(5, 2, 5));
+		p.hurt(p.damageSources().mobAttack(z), 2f);
+		helper.assertTrue(com.projecthero.mod.blackpanther.BlackPanther.state(p).hasPower, "power held");
+		helper.assertTrue(!BlackPanther.healing(p), "no healing right after a hit");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void nightEyesInTheDarkAndAlwaysInTheSuit(GameTestHelper helper) {
+		ServerPlayer p = suited(helper);
+		BlackPanther.tick(p);
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION), "the suit's lenses: night vision");
+		BlackPanther.suitDown(p);
+		// sealed in a stone box, out of the suit: the herb's Night Eyes come on once the light has settled
+		BlockPos c = new BlockPos(4, 2, 4);
+		for (int x = -1; x <= 1; x++) {
+			for (int y = -1; y <= 2; y++) {
+				for (int z = -1; z <= 1; z++) {
+					boolean inside = x == 0 && z == 0 && (y == 0 || y == 1);
+					helper.setBlock(c.offset(x, y, z), inside ? net.minecraft.world.level.block.Blocks.AIR : net.minecraft.world.level.block.Blocks.STONE);
+				}
+			}
+		}
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 4.5));
+		p.moveTo(at.x, at.y, at.z, 0f, 0f);
+		helper.onEachTick(() -> BlackPanther.tick(p));
+		helper.succeedWhen(() -> helper.assertTrue(BlackPanther.nightEyes(p) && p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION),
+				"Night Eyes in the dark"));
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void hunterInstinctCountsWhatHuntsHim(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(5, 2, 5));
+		helper.spawn(EntityType.ZOMBIE, new BlockPos(6, 2, 2)).setNoAi(true);
+		z.setTarget(p);
+		helper.assertTrue(com.projecthero.mod.blackpanther.BlackPantherUnsuited.hunters(p) == 1, "the one hunting him");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aPerfectParryTurnsTheHitAside(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4)); // yaw 0 faces south, +z
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.raiseParry(p);
+		float before = p.getHealth();
+		p.hurt(p.damageSources().mobAttack(z), 6f);
+		helper.assertTrue(p.getHealth() == before, "caught at once: no damage");
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "the attacker staggers");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aLateParryCutsTheHit(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		ServerPlayer control = mock(helper);
+		noSpawnProtection(control);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4));
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.raiseParry(p);
+		helper.runAfterDelay(BlackPantherConfig.PARRY_PERFECT_TICKS + 3, () -> {
+			float before = p.getHealth();
+			p.hurt(p.damageSources().mobAttack(z), 10f);
+			float lost = before - p.getHealth();
+			float cBefore = control.getHealth();
+			control.hurt(control.damageSources().mobAttack(z), 10f);
+			float plain = cBefore - control.getHealth();
+			helper.assertTrue(plain > 0f && Math.abs(lost / plain - (1f - BlackPantherConfig.PARRY_REDUCTION)) < 0.05f,
+					"60% cut: lost " + lost + " of " + plain);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aBackflipDodgesTheNextHit(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4));
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.backflip(p);
+		float before = p.getHealth();
+		p.hurt(p.damageSources().mobAttack(z), 6f);
+		helper.assertTrue(p.getHealth() == before, "the evade: it misses");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().mobAttack(z), 6f);
+		helper.assertTrue(p.getHealth() < before, "only the one hit");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void kimoyoScanMarksForMoreDamage(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie marked = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 5));
+		Zombie plain = helper.spawn(EntityType.ZOMBIE, new BlockPos(6, 2, 5));
+		marked.setNoAi(true);
+		plain.setNoAi(true);
+		// he looks straight at the first (it stands 2.5 blocks south of him)
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, marked.getEyePosition().add(0, -0.4, 0));
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.scan(p);
+		helper.assertTrue(com.projecthero.mod.blackpanther.BlackPantherUnsuited.marked(p, marked), "scanned");
+		helper.assertTrue(!com.projecthero.mod.blackpanther.BlackPantherUnsuited.marked(p, plain), "only the one aimed at");
+		float m0 = marked.getHealth(), p0 = plain.getHealth();
+		com.projecthero.mod.blackpanther.BlackPantherCombat.strike(p, marked, p.position(), 4f, 0, 0);
+		com.projecthero.mod.blackpanther.BlackPantherCombat.strike(p, plain, p.position(), 4f, 0, 0);
+		float ratio = (m0 - marked.getHealth()) / Math.max(0.01f, p0 - plain.getHealth());
+		helper.assertTrue(Math.abs(ratio - BlackPantherConfig.SCAN_BONUS) < 0.06f, "+25% on the marked one, ratio " + ratio);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void takedownSlamsAndDazes(GameTestHelper helper) {
+		ServerPlayer p = bare(helper);
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4));
+		z.setNoAi(true);
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z.getEyePosition().add(0, -0.4, 0));
+		float before = z.getHealth();
+		com.projecthero.mod.blackpanther.BlackPantherUnsuited.takedown(p);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.TAKEDOWN) > 0, "grabbed");
+		helper.onEachTick(() -> BlackPanther.tick(p));
+		helper.succeedWhen(() -> {
+			helper.assertTrue(z.getHealth() < before, "slammed");
+			helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "dazed");
+		});
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void silentPawsInTheSuitOnly(GameTestHelper helper) {
+		ServerPlayer p = suited(helper);
+		BlockPos sensorAt = new BlockPos(5, 2, 2);
+		helper.setBlock(sensorAt, net.minecraft.world.level.block.Blocks.SCULK_SENSOR);
+		int[] t = { 0 };
+		helper.onEachTick(() -> {
+			t[0]++;
+			if (t[0] == 40) {
+				helper.assertTrue(net.minecraft.world.level.block.SculkSensorBlock.getPhase(helper.getBlockState(sensorAt))
+						!= net.minecraft.world.level.block.state.properties.SculkSensorPhase.ACTIVE, "in the suit the sensor never hears him");
+				BlackPanther.suitDown(p);
+			}
+			p.gameEvent(net.minecraft.world.level.gameevent.GameEvent.STEP);
+		});
+		helper.succeedWhen(() -> {
+			helper.assertTrue(t[0] > 40, "the suited phase ran");
+			helper.assertTrue(net.minecraft.world.level.block.SculkSensorBlock.getPhase(helper.getBlockState(sensorAt))
+					== net.minecraft.world.level.block.state.properties.SculkSensorPhase.ACTIVE, "out of it, it does");
+		});
 	}
 }

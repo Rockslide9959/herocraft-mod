@@ -10,6 +10,7 @@ import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.power.PowerToggles;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -46,6 +47,7 @@ public final class BlackPanther {
 	private static final ResourceLocation ABSORB_ID = PowerToggles.id("black_panther_absorb");
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("black_panther_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("black_panther_toughness");
+	private static final ResourceLocation HERB_ID = PowerToggles.id("black_panther_herb");
 
 	public static final DustParticleOptions PURPLE = new DustParticleOptions(new Vector3f(0.62f, 0.25f, 1.0f), 1.2f);
 	public static final DustParticleOptions PURPLE_BIG = new DustParticleOptions(new Vector3f(0.72f, 0.4f, 1.0f), 2.2f);
@@ -54,6 +56,8 @@ public final class BlackPanther {
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
+	/** v0.17.4 Night Eyes: who has the darkness night vision on right now (it switches with a gap, so it never flickers). */
+	private static final Map<UUID, Boolean> NIGHT_EYES = new ConcurrentHashMap<>();
 
 	private BlackPanther() {
 	}
@@ -62,7 +66,9 @@ public final class BlackPanther {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
 		LAST_TOGGLE.clear();
+		NIGHT_EYES.clear();
 		BlackPantherAbilities.clearSessionState();
+		BlackPantherUnsuited.clearSessionState();
 		BlackPantherAbilityManager.clearSessionState();
 		BlackPantherDamage.clearSessionState();
 	}
@@ -123,6 +129,17 @@ public final class BlackPanther {
 	public static boolean necklaceOff(Player player) {
 		BlackPantherState s = peek(player);
 		return s != null && s.hasPower && s.necklaceOff;
+	}
+
+	/** v0.17.4: the crafted Panther Habit is in his necklace, so H can run the suit out. */
+	public static boolean hasHabit(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.habit;
+	}
+
+	/** v0.17.4 Night Eyes is on (the server's view; the client reads the night vision effect). */
+	public static boolean nightEyes(Player player) {
+		return Boolean.TRUE.equals(NIGHT_EYES.get(player.getUUID()));
 	}
 
 	public static float kinetic(Player player) {
@@ -233,6 +250,7 @@ public final class BlackPanther {
 		HeroTiers.claimPrimary(player, KEY);
 		BlackPantherState s = new BlackPantherState();
 		s.hasPower = true;
+		s.v174 = true; // v0.17.4: a new Black Panther starts without the suit; the Panther Habit is crafted
 		save(player, s);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
@@ -251,8 +269,17 @@ public final class BlackPanther {
 	}
 
 	public static void revoke(ServerPlayer player) {
+		boolean hadHabit = state(player).hasPower && state(player).habit;
 		BlackPantherAbilities.clear(player);
+		BlackPantherUnsuited.clear(player);
 		save(player, new BlackPantherState());
+		if (hadHabit) {
+			// v0.17.4: the crafted suit is not lost with the power -- it comes back out of the necklace as the item
+			net.minecraft.world.item.ItemStack habit = new net.minecraft.world.item.ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.HABIT);
+			if (!player.getInventory().add(habit)) {
+				player.drop(habit, false);
+			}
+		}
 		reconcile(player);
 		PowerToggles.clearEffect(player, MobEffects.MOVEMENT_SPEED);
 		PowerToggles.clearEffect(player, MobEffects.JUMP);
@@ -264,6 +291,8 @@ public final class BlackPanther {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
 		LAST_TOGGLE.remove(id);
+		NIGHT_EYES.remove(id);
+		BlackPantherUnsuited.forget(id);
 		BlackPantherAbilityManager.forget(id);
 		BlackPantherDamage.forget(id);
 	}
@@ -271,10 +300,54 @@ public final class BlackPanther {
 	/** Death, a new world, leaving: the running moves end. The power, the bar and the suit stay. */
 	public static void clearTransient(ServerPlayer player) {
 		BlackPantherAbilities.clear(player);
+		BlackPantherUnsuited.clear(player);
 	}
 
 	public static void onPlayerJoin(ServerPlayer player) {
+		migrate(player);
 		reconcile(player);
+	}
+
+	/**
+	 * v0.17.4: the suit became a crafted item (the Panther Habit). A Black Panther from 0.17.3 got the suit with the power, so
+	 * they keep it: their state is marked as already holding the habit.
+	 */
+	static void migrate(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (s.hasPower && !s.v174) {
+			BlackPantherState n = s.copy();
+			n.v174 = true;
+			n.habit = true;
+			save(player, n);
+		}
+	}
+
+	/**
+	 * v0.17.4: the Panther Habit goes into the necklace (using the item). False, with the reason said, when he is not the Black
+	 * Panther or the necklace already holds one (nothing is used up then).
+	 */
+	public static boolean bindHabit(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (!s.hasPower) {
+			say(player, "message.projecthero.black_panther.habit_no_power", ChatFormatting.GRAY);
+			return false;
+		}
+		if (s.habit) {
+			say(player, "message.projecthero.black_panther.habit_already", ChatFormatting.GRAY);
+			return false;
+		}
+		BlackPantherState n = s.copy();
+		n.habit = true;
+		n.v174 = true;
+		save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 neck = necklacePos(player);
+		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 0.7f);
+		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 0.8f, 1.6f);
+		level.sendParticles(PURPLE_BIG, neck.x, neck.y, neck.z, 24, 0.3, 0.25, 0.3, 0.0);
+		player.displayClientMessage(Component.translatable("message.projecthero.black_panther.habit_bound")
+				.withStyle(ChatFormatting.LIGHT_PURPLE), false);
+		return true;
 	}
 
 	public static void onPlayerRespawn(ServerPlayer player) {
@@ -302,6 +375,10 @@ public final class BlackPanther {
 			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
 			return;
 		}
+		if (!s.suited && !s.habit) {
+			say(player, "message.projecthero.black_panther.no_habit", ChatFormatting.GRAY);
+			return;
+		}
 		long now = player.level().getGameTime();
 		Long last = LAST_TOGGLE.get(player.getUUID());
 		if (last != null && now - last < BlackPantherConfig.TOGGLE_COOLDOWN && now >= last) {
@@ -324,9 +401,18 @@ public final class BlackPanther {
 			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
 			return;
 		}
+		if (!s.habit) {
+			say(player, "message.projecthero.black_panther.no_habit", ChatFormatting.GRAY);
+			return;
+		}
+		// v0.17.4: the unsuited kit's running moves and toggles end -- the suited kit takes the keys
+		BlackPantherUnsuited.clear(player);
 		long now = player.level().getGameTime();
-		BlackPantherState n = s.copy();
+		BlackPantherState n = state(player).copy();
 		n.suited = true;
+		n.senses = false;
+		n.stalking = false;
+		n.absorbing = false;
 		n.suitChangeAt = now;
 		n.animId = BlackPantherState.ANIM_SUIT_UP;
 		n.animStart = now;
@@ -356,6 +442,7 @@ public final class BlackPanther {
 			return;
 		}
 		BlackPantherAbilities.clear(player);
+		BlackPantherUnsuited.clear(player);
 		long now = player.level().getGameTime();
 		BlackPantherState n = state(player).copy();
 		n.suited = false;
@@ -464,6 +551,12 @@ public final class BlackPanther {
 	// ---------------------------------------------------------------- stats
 
 	public static void reconcile(ServerPlayer player) {
+		// v0.17.4 the herb's strength, suit on or off
+		if (hasPower(player)) {
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, HERB_ID, BlackPantherConfig.HERB_MELEE, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, HERB_ID);
+		}
 		if (clawsOut(player)) {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, BlackPantherConfig.SUIT_MELEE, AttributeModifier.Operation.ADD_VALUE);
 		} else {
@@ -476,7 +569,8 @@ public final class BlackPanther {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
 			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		}
-		if (absorbing(player)) {
+		BlackPantherState st = peek(player);
+		if (absorbing(player) || (st != null && st.hasPower && !st.suited && st.absorbing)) { // v0.17.4: Parry slows him too
 			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, ABSORB_ID, BlackPantherConfig.ABSORB_SLOW, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, ABSORB_ID);
@@ -503,6 +597,21 @@ public final class BlackPanther {
 		return true;
 	}
 
+	/** v0.17.4: may the unsuited kit (T'Challa without the suit) be used right now? Works with the necklace off too. */
+	static boolean canActBare(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return false;
+		}
+		return !s.suited;
+	}
+
+	/** v0.17.4: the moveset the keys run right now -- the suited kit once the suit is on (or forming), the unsuited one otherwise. */
+	public static boolean suitedKit(Player player) {
+		BlackPantherState s = peek(player);
+		return s != null && s.hasPower && s.suited;
+	}
+
 	// ---------------------------------------------------------------- tick
 
 	public static void tick(ServerPlayer player) {
@@ -522,19 +631,63 @@ public final class BlackPanther {
 			return;
 		}
 		if (player.tickCount % 20 == 0) {
+			if (!s.v174) {
+				migrate(player);
+			}
 			reconcile(player);
 		}
 		if (player.tickCount % 40 == 0) {
-			// the herb: Speed I and Jump Boost I, suit on or off, necklace on or off; the suit adds night vision
+			// the herb: Speed I and Jump Boost I, suit on or off, necklace on or off
 			PowerToggles.effect(player, MobEffects.MOVEMENT_SPEED, 0, false);
 			PowerToggles.effect(player, MobEffects.JUMP, 0, false);
-			if (s.suited) {
-				PowerToggles.effect(player, MobEffects.NIGHT_VISION, 0, false);
-			}
 		}
+		if (player.tickCount % 10 == 0) {
+			nightEyes(player, s);
+		}
+		vitality(player, now);
 		if (now % 5 == 0 && s.kinetic > 0f && now - s.lastFightAt > BlackPantherConfig.DRAIN_DELAY) {
 			setKinetic(player, s.kinetic - BlackPantherConfig.DRAIN / 4f);
 		}
 		BlackPantherAbilities.tick(player);
+		BlackPantherUnsuited.tick(player);
+	}
+
+	/**
+	 * v0.17.4 Night Eyes: the suit's lenses give night vision all the time; out of it, the herb gives it whenever it is dark
+	 * where he stands (on at light 6 or less, off again over 9, so it does not flicker at a torch's edge).
+	 */
+	private static void nightEyes(ServerPlayer player, BlackPantherState s) {
+		boolean on;
+		if (s.suited) {
+			on = true;
+		} else {
+			int light = player.level().getMaxLocalRawBrightness(BlockPos.containing(player.getEyePosition()));
+			boolean was = nightEyes(player);
+			on = was ? light <= BlackPantherConfig.NIGHT_EYES_BRIGHT : light <= BlackPantherConfig.NIGHT_EYES_DARK;
+		}
+		if (on) {
+			PowerToggles.effect(player, MobEffects.NIGHT_VISION, 0, false);
+			NIGHT_EYES.put(player.getUUID(), true);
+		} else if (nightEyes(player) || player.tickCount % 40 == 0) {
+			PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
+			NIGHT_EYES.remove(player.getUUID());
+		}
+	}
+
+	/** v0.17.4 Herb Vitality: 1 health every 3 s once he has gone 5 s without being hurt, suit on or off. */
+	private static void vitality(ServerPlayer player, long now) {
+		if (now % BlackPantherConfig.HEAL_EVERY != 0 || !player.isAlive() || player.getHealth() >= player.getMaxHealth()) {
+			return;
+		}
+		if (now - BlackPantherDamage.lastHurt(player) < BlackPantherConfig.HEAL_DELAY) {
+			return;
+		}
+		player.heal(1.0f);
+	}
+
+	/** v0.17.4: Herb Vitality is mending him right now (hurt, and it has been 5 s since the last hit). Server side. */
+	public static boolean healing(ServerPlayer player) {
+		return hasPower(player) && player.getHealth() < player.getMaxHealth()
+				&& player.level().getGameTime() - BlackPantherDamage.lastHurt(player) >= BlackPantherConfig.HEAL_DELAY;
 	}
 }

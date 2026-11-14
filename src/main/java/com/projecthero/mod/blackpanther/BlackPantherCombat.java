@@ -33,12 +33,29 @@ public final class BlackPantherCombat {
 		return isBoss(target) ? Math.min(damage, target.getMaxHealth() * BlackPantherConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 	}
 
+	private static final ThreadLocal<Boolean> STRIKING = ThreadLocal.withInitial(() -> false);
+
+	/** v0.17.4: a move's own strike is landing (it adds the Kimoyo Scan bonus itself, so the damage hook must not). */
+	static boolean striking() {
+		return STRIKING.get();
+	}
+
 	public static boolean strike(ServerPlayer owner, LivingEntity target, Vec3 origin, float damage, double knockback, double lift) {
 		if (!isTarget(owner, target)) {
 			return false;
 		}
 		boolean boss = isBoss(target);
-		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1.0f, capped(target, damage)))) {
+		if (BlackPantherUnsuited.marked(owner, target)) {
+			damage *= BlackPantherConfig.SCAN_BONUS;
+		}
+		boolean dealt;
+		STRIKING.set(true);
+		try {
+			dealt = AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1.0f, capped(target, damage)));
+		} finally {
+			STRIKING.set(false);
+		}
+		if (!dealt) {
 			return false;
 		}
 		if (!boss) {

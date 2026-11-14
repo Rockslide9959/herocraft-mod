@@ -1,0 +1,537 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.blackpanther.BlackPanther;
+import com.projecthero.mod.blackpanther.BlackPantherAbilities;
+import com.projecthero.mod.blackpanther.BlackPantherConfig;
+import com.projecthero.mod.blackpanther.BlackPantherUnsuited;
+import com.projecthero.mod.blackpanther.item.BlackPantherItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): films Black Panther v0.17.4 -- both movesets, the necklace, the claws, the recipe. Enabled by run/bp.flag. */
+public final class BlackPantherHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static String only;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private BlackPantherHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("bp.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("bp.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BlackPantherHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "bp-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String n) {
+		return only == null || only.isEmpty() || only.contains(n);
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BlackPantherHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				BlackPanther.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				String name = String.format("bp_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void shot(Minecraft mc, int t, String name) {
+		at(t, () -> Screenshot.grab(mc.gameDirectory, "bp_still_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		}));
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BP_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static Mob dummy(ServerPlayer p, EntityType<? extends Mob> type, Vec3 at, float yaw) {
+		Mob m = type.create(p.serverLevel());
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+		m.setHealth(1000);
+		m.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 100000, 0, false, false));
+		m.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void reset(ServerPlayer p, float yaw, boolean suited) {
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.keyShift.setDown(false);
+		p.clearFire();
+		p.getInventory().clearContent();
+		p.removeAllEffects();
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, yaw, 0f);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.setHealth(p.getMaxHealth());
+		var s = BlackPanther.state(p).copy();
+		s.abilityReadyAt.clear();
+		s.animId = 0;
+		s.habit = true;
+		s.necklaceOff = false;
+		s.clawsOut = false;
+		s.absorbing = false;
+		s.stalking = false;
+		s.senses = false;
+		if (suited) {
+			s.suited = true;
+			s.suitChangeAt = p.level().getGameTime() - 100;
+		} else {
+			s.suited = false;
+			s.suitChangeAt = p.level().getGameTime() - 100;
+		}
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+		BlackPanther.reconcile(p);
+	}
+
+	private static void scene(Minecraft mc, int t, int index, boolean suited, CameraType type, Vec3 cam, Vec3 look, float yaw,
+			Consumer<ServerPlayer> setup) {
+		at(t, () -> {
+			base = origin.add(index * 30, 0, 0);
+			mc.options.setCameraType(type);
+			mc.options.hideGui = type != CameraType.FIRST_PERSON;
+			camPos = cam == null ? null : base.add(cam);
+			camLook = look == null ? null : base.add(look);
+			server(mc, p -> {
+				clearDummies();
+				reset(p, yaw, suited);
+				setup.accept(p);
+			});
+		});
+	}
+
+	private static void look(ServerPlayer p, Mob m) {
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, m.getEyePosition().add(0, -0.3, 0));
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+	}
+
+	private static final Vec3 SIDE = new Vec3(3.0, 1.45, 1.2);
+	private static final Vec3 SIDE_LOOK = new Vec3(0, 1.0, 1.2);
+	private static final Vec3 WIDE = new Vec3(5.6, 2.2, 2.5);
+	private static final Vec3 WIDE_LOOK = new Vec3(0, 1.4, 2.5);
+
+	/** One filmed move: a scene, a beat, the move, and the recording. */
+	private static int move(Minecraft mc, int t, int[] idx, String name, boolean suited, Vec3 cam, Vec3 look, int len, Consumer<ServerPlayer> setup,
+			Consumer<ServerPlayer> act) {
+		if (!want(name)) {
+			return t;
+		}
+		scene(mc, t, idx[0]++, suited, CameraType.THIRD_PERSON_BACK, cam, look, 0f, setup);
+		at(t + 12, () -> server(mc, act));
+		record(t + 8, name, len);
+		return t + len + 20;
+	}
+
+	private static int fp(Minecraft mc, int t, int[] idx, String name, boolean suited, int len, Consumer<ServerPlayer> setup,
+			Consumer<ServerPlayer> act) {
+		if (!want(name)) {
+			return t;
+		}
+		scene(mc, t, idx[0]++, suited, CameraType.FIRST_PERSON, null, null, 0f, setup);
+		at(t + 12, () -> server(mc, act));
+		record(t + 8, name, len);
+		return t + len + 20;
+	}
+
+	private static Consumer<ServerPlayer> zombieAhead(double dist) {
+		return p -> dummy(p, EntityType.ZOMBIE, base.add(0, 0, dist), 180f);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> base = origin));
+		t += 30;
+		int[] idx = { 1 };
+
+		// ---------------------------------------------------------------- stills: the necklace, the claws, the HUD, the recipe
+		if (want("stills")) {
+			// the necklace, unsuited: front close-up and three-quarter
+			scene(mc, t, idx[0]++, false, CameraType.THIRD_PERSON_BACK, new Vec3(0, 1.42, 1.05), new Vec3(0, 1.28, 0), 0f, p -> {
+			});
+			shot(mc, t + 25, "necklace_front");
+			at(t + 30, () -> {
+				camPos = base.add(0.75, 1.5, 0.85);
+				camLook = base.add(0, 1.28, 0);
+			});
+			shot(mc, t + 40, "necklace_34");
+			t += 50;
+			// the necklace over the suit
+			scene(mc, t, idx[0]++, true, CameraType.THIRD_PERSON_BACK, new Vec3(0, 1.42, 1.05), new Vec3(0, 1.28, 0), 0f, p -> {
+			});
+			shot(mc, t + 25, "necklace_suit_front");
+			at(t + 30, () -> {
+				camPos = base.add(-0.75, 1.5, 0.85);
+				camLook = base.add(0, 1.28, 0);
+			});
+			shot(mc, t + 40, "necklace_suit_34");
+			at(t + 42, () -> {
+				camPos = base.add(0, 1.6, 2.4);
+				camLook = base.add(0, 1.0, 0);
+			});
+			shot(mc, t + 52, "suit_full");
+			t += 60;
+			// the claws: out, close on the right hand (his right is -x when facing +z), from the side and the front
+			scene(mc, t, idx[0]++, true, CameraType.THIRD_PERSON_BACK, new Vec3(-1.1, 0.95, 0.55), new Vec3(-0.36, 0.62, -0.05), 0f, p -> {
+				var s = BlackPanther.state(p).copy();
+				s.clawsOut = true;
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+			});
+			shot(mc, t + 25, "claws_side");
+			at(t + 28, () -> {
+				camPos = base.add(-0.3, 0.9, 1.0);
+				camLook = base.add(-0.36, 0.6, 0);
+			});
+			shot(mc, t + 36, "claws_front");
+			at(t + 38, () -> {
+				camPos = base.add(0, 1.1, 1.6);
+				camLook = base.add(0, 0.75, 0);
+			});
+			shot(mc, t + 46, "claws_both");
+			// a raised pose (Absorb Stance): the claws at the fingertips with the hands up
+			at(t + 48, () -> server(mc, BlackPantherAbilities::raiseStance));
+			at(t + 50, () -> {
+				camPos = base.add(-0.9, 1.5, 1.2);
+				camLook = base.add(0, 1.2, 0.3);
+			});
+			shot(mc, t + 60, "claws_raised");
+			at(t + 62, () -> server(mc, BlackPantherAbilities::lowerStance));
+			t += 70;
+			// first person: the claws on the hands
+			scene(mc, t, idx[0]++, true, CameraType.FIRST_PERSON, null, null, 0f, p -> {
+				var s = BlackPanther.state(p).copy();
+				s.clawsOut = true;
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+			});
+			shot(mc, t + 30, "claws_fp");
+			at(t + 32, () -> server(mc, BlackPantherAbilities::raiseStance));
+			shot(mc, t + 44, "claws_fp_stance");
+			at(t + 46, () -> server(mc, BlackPantherAbilities::lowerStance));
+			t += 60;
+			// the HUDs (and the move lists)
+			scene(mc, t, idx[0]++, false, CameraType.THIRD_PERSON_BACK, null, null, 0f, p -> {
+				p.setHealth(14f);
+			});
+			at(t + 5, () -> mc.options.hideGui = false);
+			shot(mc, t + 30, "hud_unsuited");
+			at(t + 32, () -> com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = true);
+			shot(mc, t + 40, "movelist_unsuited");
+			at(t + 42, () -> server(mc, p -> {
+				var s = BlackPanther.state(p).copy();
+				s.suited = true;
+				s.kinetic = 64f;
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+			}));
+			shot(mc, t + 55, "movelist_suited");
+			at(t + 57, () -> com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = false);
+			shot(mc, t + 65, "hud_suited");
+			t += 75;
+			// the recipe: a crafting table with both recipes laid out
+			for (int r = 0; r < 2; r++) {
+				final int which = r;
+				scene(mc, t, idx[0]++, false, CameraType.THIRD_PERSON_BACK, null, null, 0f, p -> {
+					BlockPos table = BlockPos.containing(base.add(0, 0, 1.5));
+					p.serverLevel().setBlockAndUpdate(table, Blocks.CRAFTING_TABLE.defaultBlockState());
+					p.openMenu(new SimpleMenuProvider((id, inv, pl) -> new CraftingMenu(id, inv, ContainerLevelAccess.create(p.serverLevel(), table)),
+							Component.translatable("container.crafting")));
+					ItemStack A = new ItemStack(Items.AMETHYST_SHARD), N = new ItemStack(Items.NETHERITE_INGOT), H = new ItemStack(BlackPantherItems.HERB);
+					ItemStack V = new ItemStack(com.projecthero.mod.ultron.contagion.item.ContagionItems.VIBRANIUM_INGOT), E = new ItemStack(Items.ECHO_SHARD);
+					ItemStack[] grid = which == 0 ? new ItemStack[] { A, N, A, V, H, V, A, V, A } : new ItemStack[] { E, N, E, A, H, A, E, N, E };
+					if (p.containerMenu instanceof CraftingMenu menu) {
+						for (int i = 0; i < 9; i++) {
+							menu.getSlot(1 + i).set(grid[i].copy());
+						}
+						menu.slotsChanged(null);
+					}
+				});
+				at(t + 5, () -> mc.options.hideGui = false);
+				shot(mc, t + 30, which == 0 ? "recipe_vibranium" : "recipe_echo");
+				at(t + 35, () -> server(mc, p -> p.closeContainer()));
+				t += 45;
+			}
+		}
+
+		// ---------------------------------------------------------------- the unsuited kit (third person)
+		t = move(mc, t, idx, "u_combo", false, SIDE, SIDE_LOOK, 30, zombieAhead(2.2), BlackPantherUnsuited::combo);
+		t = move(mc, t, idx, "u_sweep", false, SIDE, SIDE_LOOK, 24, p -> {
+			dummy(p, EntityType.ZOMBIE, base.add(1.6, 0, 1.0), 220f);
+			dummy(p, EntityType.ZOMBIE, base.add(-1.4, 0, 1.2), 140f);
+		}, BlackPantherUnsuited::sweep);
+		t = move(mc, t, idx, "u_takedown", false, SIDE, SIDE_LOOK, 30, zombieAhead(2.0), p -> {
+			look(p, dummies.get(0));
+			BlackPantherUnsuited.takedown(p);
+		});
+		t = move(mc, t, idx, "u_disarm", false, SIDE, SIDE_LOOK, 22, p -> {
+			Mob z = dummy(p, EntityType.ZOMBIE, base.add(0, 0, 2.0), 180f);
+			z.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+		}, p -> {
+			look(p, dummies.get(0));
+			BlackPantherUnsuited.disarm(p);
+		});
+		t = move(mc, t, idx, "u_vault", false, WIDE, WIDE_LOOK, 30, p -> {
+		}, BlackPantherUnsuited::vault);
+		t = move(mc, t, idx, "u_backflip", false, new Vec3(7.5, 2.4, -1.5), new Vec3(0, 1.4, -1.5), 30, zombieAhead(1.8), p -> {
+			BlackPantherUnsuited.backflip(p);
+		});
+		t = move(mc, t, idx, "u_knife", false, WIDE, WIDE_LOOK, 30, zombieAhead(7), p -> {
+			look(p, dummies.get(0));
+			BlackPantherUnsuited.knife(p);
+		});
+		t = move(mc, t, idx, "u_scan", false, WIDE, WIDE_LOOK, 30, zombieAhead(6), p -> {
+			look(p, dummies.get(0));
+			BlackPantherUnsuited.scan(p);
+		});
+		t = move(mc, t, idx, "u_parry", false, SIDE, SIDE_LOOK, 36, zombieAhead(1.8), p -> {
+			BlackPantherUnsuited.raiseParry(p);
+			dummies.get(0).swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			p.hurt(p.damageSources().mobAttack(dummies.get(0)), 4f);
+		});
+		at(t - 2, () -> server(mc, BlackPantherUnsuited::lowerParry));
+		t = move(mc, t, idx, "u_resolve", false, SIDE, SIDE_LOOK, 34, p -> {
+		}, BlackPantherUnsuited::resolve);
+		t = move(mc, t, idx, "u_tracking", false, new Vec3(3.0, 2.2, -3.0), new Vec3(0, 1.0, 3.0), 26, p -> {
+			Mob a = dummy(p, EntityType.ZOMBIE, base.add(-2, 0, 8), 180f);
+			dummy(p, EntityType.SKELETON, base.add(3, 0, 10), 180f);
+			a.setTarget(p);
+		}, BlackPantherUnsuited::toggleTracking);
+
+		// ---------------------------------------------------------------- the suited kit (third person)
+		t = move(mc, t, idx, "s_suit_up", false, new Vec3(0.4, 1.5, 2.6), new Vec3(0, 1.0, 0), 56, p -> {
+		}, BlackPanther::suitUp);
+		t = move(mc, t, idx, "s_claws", true, SIDE, SIDE_LOOK, 34, zombieAhead(2.2), BlackPantherAbilities::claws);
+		t = move(mc, t, idx, "s_pulse", true, SIDE, SIDE_LOOK, 26, p -> {
+			BlackPanther.setKinetic(p, 60f);
+			dummy(p, EntityType.ZOMBIE, base.add(1.6, 0, 1.6), 220f);
+		}, BlackPantherAbilities::pulse);
+		t = move(mc, t, idx, "s_overload", true, WIDE, WIDE_LOOK, 36, p -> {
+			BlackPanther.setKinetic(p, 100f);
+			dummy(p, EntityType.ZOMBIE, base.add(2.5, 0, 2.5), 220f);
+		}, BlackPantherAbilities::overload);
+		t = move(mc, t, idx, "s_pounce", true, new Vec3(8.5, 2.6, 4.5), new Vec3(0, 1.2, 4.5), 70, zombieAhead(8), p -> {
+			look(p, dummies.get(0));
+			BlackPantherAbilities.pounce(p);
+		});
+		t = move(mc, t, idx, "s_leap", true, new Vec3(12, 6, 3), new Vec3(0, 6, 3), 50, p -> {
+		}, BlackPantherAbilities::leap);
+		if (want("s_drop")) {
+			scene(mc, t, idx[0]++, true, CameraType.THIRD_PERSON_BACK, new Vec3(7, 3.5, 0), new Vec3(0, 2.5, 0), 0f, p -> {
+				dummy(p, EntityType.ZOMBIE, base.add(-0.3, 0, 2.3), 180f);
+			});
+			at(t + 10, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), base.x, base.y + 7, base.z, 0f, 0f);
+				p.setDeltaMovement(0, 0.2, 0);
+				p.hurtMarked = true;
+			}));
+			at(t + 14, () -> server(mc, BlackPantherAbilities::dropStrike));
+			record(t + 10, "s_drop", 40);
+			t += 60;
+		}
+		t = move(mc, t, idx, "s_dagger", true, WIDE, WIDE_LOOK, 34, p -> {
+			dummy(p, EntityType.ZOMBIE, base.add(0, 0, 7), 180f);
+			dummy(p, EntityType.ZOMBIE, base.add(3, 0, 9), 180f);
+		}, p -> {
+			look(p, dummies.get(0));
+			BlackPantherAbilities.dagger(p);
+		});
+		t = move(mc, t, idx, "s_flash", true, WIDE, WIDE_LOOK, 30, zombieAhead(6), p -> {
+			look(p, dummies.get(0));
+			BlackPantherAbilities.kimoyo(p);
+		});
+		t = move(mc, t, idx, "s_absorb", true, SIDE, SIDE_LOOK, 40, zombieAhead(1.8), BlackPantherAbilities::raiseStance);
+		at(t - 40, () -> server(mc, p -> {
+			if (!dummies.isEmpty()) {
+				dummies.get(0).swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+				p.hurt(p.damageSources().mobAttack(dummies.get(0)), 4f);
+			}
+		}));
+		at(t - 22, () -> server(mc, BlackPantherAbilities::lowerStance));
+		t = move(mc, t, idx, "s_return", true, WIDE, WIDE_LOOK, 26, p -> {
+			Mob sk = dummy(p, EntityType.SKELETON, base.add(0, 0, 8), 180f);
+			Arrow a = new Arrow(EntityType.ARROW, p.serverLevel());
+			a.setOwner(sk);
+			p.hurt(p.damageSources().arrow(a, sk), 6f);
+		}, BlackPantherAbilities::kineticReturn);
+
+		// ---------------------------------------------------------------- first person
+		t = fp(mc, t, idx, "fp_u_combo", false, 28, zombieAhead(2.2), BlackPantherUnsuited::combo);
+		t = fp(mc, t, idx, "fp_u_takedown", false, 26, zombieAhead(2.0), BlackPantherUnsuited::takedown);
+		t = fp(mc, t, idx, "fp_u_parry", false, 30, zombieAhead(1.8), p -> {
+			BlackPantherUnsuited.raiseParry(p);
+			p.hurt(p.damageSources().mobAttack(dummies.get(0)), 4f);
+		});
+		at(t - 4, () -> server(mc, BlackPantherUnsuited::lowerParry));
+		t = fp(mc, t, idx, "fp_u_resolve", false, 32, p -> {
+		}, BlackPantherUnsuited::resolve);
+		t = fp(mc, t, idx, "fp_s_claws", true, 32, zombieAhead(2.2), BlackPantherAbilities::claws);
+		t = fp(mc, t, idx, "fp_s_pulse", true, 24, p -> BlackPanther.setKinetic(p, 60f), BlackPantherAbilities::pulse);
+		t = fp(mc, t, idx, "fp_s_suit_up", false, 52, p -> {
+		}, BlackPanther::suitUp);
+
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

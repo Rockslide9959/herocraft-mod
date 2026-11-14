@@ -1,0 +1,18 @@
+Black Panther v0.17.4: crafted suit, two movesets, passives, animations, necklace and claws. Filmed with
+scratchpad/BlackPantherHarness.v0174.java.txt (20 fps, a frame a tick), encoded by scratchpad/bp_v0174_films.js.
+Each MP4 has a *_sheet.png frame sheet. The dev skin is random per run (the first run's stills are not kept); NoAI dummies
+do not get lifted or knocked about the way real mobs do.
+
+unsuited_moveset.mp4 / _sheet.png - T'Challa's whole kit back to back (u_* clips):
+  u_combo (R: jab, cross, spinning kick), u_sweep (Shift+R), u_takedown (G), u_disarm (Shift+G, the sword drops),
+  u_vault (X, front flip), u_backflip (Shift+X), u_knife (Z), u_scan (Shift+Z, gold outline), u_parry (C, perfect parry
+  + riposte), u_resolve (Shift+C), u_tracking (V, purple outlines + footprints, the hunting zombie red).
+suited_moveset.mp4 / _sheet.png - the suited kit (s_* clips): s_suit_up (H), s_claws (G), s_pulse (R), s_overload (Shift+R),
+  s_pounce (Shift+G, lunge, pin, strike), s_leap (X), s_drop (Shift+X with the landing pose), s_dagger (Z), s_flash (Shift+Z),
+  s_absorb (C), s_return (Shift+C).
+first_person.mp4 / _sheet.png - first-person clips (fp_*): combo, takedown, parry, resolve, claw combo, pulse, suit-up.
+
+Stills: necklace_front / necklace_34 (out of the suit), necklace_suit_front / necklace_suit_34, suit_full,
+claws_front / claws_side / claws_both / claws_raised (third person, claws at the fingertips), claws_fp / claws_fp_stance
+(first person), hud_unsuited / hud_suited (passive tags), movelist_unsuited / movelist_suited (Left-Alt),
+recipe_vibranium / recipe_echo (the two Panther Habit recipes in a crafting table).

@@ -14,13 +14,25 @@ import net.minecraft.resources.ResourceLocation;
  * Server to client, sent ONLY to the Black Panther using Panther Senses (v0.17.3): the creatures outlined purple for
  * {@code ticks}. Nothing is set on the entities, so nobody else sees the outlines (the v0.15.4 privacy rule).
  */
-public record PantherSensesPayload(List<Integer> ids, int ticks) implements CustomPacketPayload {
+public record PantherSensesPayload(List<Integer> ids, int ticks, int kind) implements CustomPacketPayload {
+	/** Panther Senses / Hunter's Tracking (purple). */
+	public static final int SENSES = 0;
+	/** v0.17.4 Hunter's Instinct: creatures hunting him (red). */
+	public static final int INSTINCT = 1;
+	/** v0.17.4 Kimoyo Scan: the marked creature (gold). */
+	public static final int MARK = 2;
+
+	public PantherSensesPayload(List<Integer> ids, int ticks) {
+		this(ids, ticks, SENSES);
+	}
+
 	public static final CustomPacketPayload.Type<PantherSensesPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "panther_senses"));
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, PantherSensesPayload> CODEC = StreamCodec.composite(
 			ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(512)), PantherSensesPayload::ids,
 			ByteBufCodecs.VAR_INT, PantherSensesPayload::ticks,
+			ByteBufCodecs.VAR_INT, PantherSensesPayload::kind,
 			PantherSensesPayload::new);
 
 	@Override

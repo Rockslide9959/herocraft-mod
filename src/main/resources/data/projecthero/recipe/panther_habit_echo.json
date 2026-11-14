@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "ENE",
+    "AHA",
+    "ENE"
+  ],
+  "key": {
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "H": {
+      "item": "projecthero:heart_shaped_herb"
+    }
+  },
+  "result": {
+    "id": "projecthero:panther_habit",
+    "count": 1
+  }
+}
