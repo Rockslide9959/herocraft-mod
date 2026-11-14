@@ -43,3 +43,5 @@ replay_*.log
 *.class
 # v0.17.3: show-transformation reference frames (scratchpad/omnitrix_seq/cut_clip.js regenerates them)
 docs/reference/omnitrix_sequences/*/f_*.jpg
+# v0.17.4: side-by-sides and sheets that contain show frames (scratchpad/omnitrix_seq/compare.js, film.js --sbs)
+docs/screenshots/v0174/omnitrix_sequences/vs_show/

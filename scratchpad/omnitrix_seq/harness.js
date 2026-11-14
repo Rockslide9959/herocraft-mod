@@ -1,7 +1,7 @@
 // Installs / removes the every-tick sequence harness, and writes its flag (docs/OMNITRIX_SEQUENCES.md).
 //
 //   node scratchpad/omnitrix_seq/harness.js install                 copy OmnitrixSeqHarness into src/client + hook it in
-//   node scratchpad/omnitrix_seq/harness.js flag <alien> [mode] [from] [to] [tag]
+//   node scratchpad/omnitrix_seq/harness.js flag <alien> [mode] [from] [to] [tag] [t1,t2,...]
 //                                                                     write run/omnitrix_seq.flag (mode self|watch)
 //   node scratchpad/omnitrix_seq/harness.js uninstall               remove the hook, the class and the flag (do this before committing)
 //
@@ -39,6 +39,8 @@ if (cmd === 'install') {
   if (!alien) throw new Error('flag <alien> [mode] [from] [to] [tag]');
   fs.mkdirSync(path.dirname(FLAG), { recursive: true });
   const o = { alien, mode, from: +from, to: +to, tag: tag || `${alien}_${mode}`, seed: 424242 };
+  // optional 6th argument: a comma list of ticks to film instead of the whole range (key-beat checks)
+  if (a[5]) o.ticks = a[5].split(',').map(Number);
   fs.writeFileSync(FLAG, JSON.stringify(o) + '\n');
   console.log('run/omnitrix_seq.flag =', JSON.stringify(o));
 } else {
