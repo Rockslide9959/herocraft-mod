@@ -253,8 +253,7 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.mutation.v0145.StrengthLandingPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.2: Max Steel armour up / power down / mode swap / Turbo Blast / Turbo Cannon
 			com.projecthero.mod.client.maxsteel.MaxSteelPose.apply(player, (HumanoidModel<?>) (Object) this);
-			// v0.14.3: Green Lantern moves, channels, the Oath, the shield and suit-up
-			com.projecthero.mod.client.greenlantern.GreenLanternPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// (v0.17.4: Green Lantern's poses moved to projecthero$greenLanternPose, after the flight pose)
 			// v0.16.1: Wolverine claw slashes (left-click combo) and the claw-ability poses
 			com.projecthero.mod.client.wolverine.WolverineClawPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.16.2: the Spider-Man mask coming off / going on (H) -- last, it plays over whatever else he is doing
@@ -335,6 +334,20 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.xRot = Mth.lerp(raise, this.leftLeg.xRot, 0.0f);
 		this.leftLeg.yRot = Mth.lerp(raise, this.leftLeg.yRot, 0.0f);
 		this.leftLeg.zRot = Mth.lerp(raise, this.leftLeg.zRot, 0.0f);
+	}
+
+	/**
+	 * v0.14.3: Green Lantern moves, channels, the Oath, the shield and suit-up. v0.17.4: after the generic flight pose, with
+	 * Ring Flight's own hover / cruise / sprint-flight limbs ({@code GreenLanternFlightPose}) first, so the flight pose no
+	 * longer pins the arms over a move made mid-air and every move still plays over the flight pose.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$greenLanternPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.greenlantern.GreenLanternFlightPose.apply(player, (HumanoidModel<?>) (Object) this, ageInTicks);
+			com.projecthero.mod.client.greenlantern.GreenLanternPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
 	}
 
 	/** v0.14.21: Iron Man's own flight limb poses, take-off crouch and superhero landing. After the generic flight pose. */
