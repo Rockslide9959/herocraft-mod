@@ -66,40 +66,48 @@ public final class DiamondheadShow extends ShowSequenceClient {
 			// under the flash: the usual slap framing
 			{ 0f, 1.6f, 10f, 1.3f, 1.15f, 0f, 0.15f },
 			// Ben from low in front, the watch forearm across his chest
-			{ 16f, 1.25f, -8f, 0.95f, 1.3f, -0.05f, 0.1f },
-			{ 36f, 1.0f, -18f, 1.0f, 1.34f, -0.06f, 0.1f },
-			// side on from his left: the arm thrust out forward across the frame, his head at the right (v1b: pulled back, the
-			// v1 camera stood beside the hand and saw the arm end-on)
-			{ 36.01f, 1.5f, -92f, 1.34f, 1.24f, -0.33f, 0.36f },
-			{ 50f, 1.3f, -95f, 1.32f, 1.24f, -0.33f, 0.46f },
-			// the hand close
-			{ 50.01f, 0.85f, -98f, 1.28f, 1.22f, -0.33f, 0.62f },
-			{ 68f, 0.75f, -104f, 1.28f, 1.22f, -0.33f, 0.68f },
+			// v0.17.4: Ben waist up, nearly level and square on, looking down at the hands at his chest (the show's frame; ours was
+			// from low, the head cut off at the top)
+			{ 16f, 1.2f, 6f, 1.55f, 1.52f, 0f, 0.1f },
+			{ 36f, 1.08f, 8f, 1.55f, 1.52f, 0f, 0.1f },
+			// v0.17.4: closer, the open hand coming at the lens big at the left and his face at the right (the show's frame; it
+			// was a small figure)
+			{ 36.01f, 1.15f, -92f, 1.4f, 1.4f, -0.33f, 0.36f },
+			{ 50f, 1.0f, -95f, 1.4f, 1.42f, -0.33f, 0.46f },
+			// the hand close (v0.17.4: closer, the hand filling more of the frame)
+			{ 50.01f, 0.68f, -98f, 1.4f, 1.4f, -0.33f, 0.62f },
+			{ 68f, 0.6f, -104f, 1.4f, 1.4f, -0.33f, 0.68f },
 			// the whip: off the hand into empty dots
 			{ 76f, 0.6f, -40f, 1.5f, 1.45f, -0.3f, 1.4f },
 			// the face, pushing in
-			{ 76.01f, 0.95f, -4f, 1.62f, 1.6f, 0f, 0f },
-			{ 104f, 0.62f, -6f, 1.62f, 1.62f, 0.04f, 0f },
-			{ 112f, 0.45f, -6f, 1.62f, 1.64f, 0.06f, 0f },
+			// (v0.17.4: square on and a little further, the whole face and hair in frame with the crystal on his left cheek; it
+			// was so close only half the face showed)
+			{ 76.01f, 1.15f, 0f, 1.64f, 1.6f, -0.03f, 0f },
+			{ 104f, 0.9f, 0f, 1.64f, 1.62f, -0.02f, 0f },
+			{ 112f, 0.7f, -2f, 1.64f, 1.64f, 0f, 0f },
 			// (under the eye)
 			{ 112.01f, 0.3f, -6f, 1.62f, 1.64f, 0.06f, 0f },
 			{ 137.5f, 0.3f, -6f, 1.62f, 1.64f, 0.06f, 0f },
 			// the head, three-quarter profile from his left (v1 was so close it showed only a flat green wall)
-			{ 137.51f, 0.95f, -52f, 1.62f, 1.64f, 0f, 0.02f },
-			{ 150f, 0.86f, -58f, 1.62f, 1.64f, 0f, 0.02f },
+			// (v0.17.4: closer -- the show fills the frame with the side of the head and the eye)
+			{ 137.51f, 0.62f, -52f, 1.64f, 1.66f, 0f, 0.02f },
+			{ 150f, 0.55f, -58f, 1.64f, 1.66f, 0f, 0.02f },
 			// low behind his left shoulder, looking up at the spikes
 			{ 150.01f, 0.75f, -150f, 1.2f, 1.62f, 0.15f, 0f },
 			{ 190f, 0.62f, -160f, 1.22f, 1.6f, 0.15f, 0f },
 			// the whip round to the front
 			{ 196f, 0.55f, -20f, 1.3f, 1.35f, 0f, 0f },
 			// the crossed forearms, then pulling back
-			{ 196.01f, 0.78f, 6f, 1.2f, 1.25f, 0f, 0f },
-			{ 208f, 1.15f, 8f, 1.0f, 1.3f, 0f, 0f },
-			{ 221f, 1.95f, -10f, 0.7f, 1.08f, 0f, 0f },
-			{ 240f, 2.05f, -14f, 0.7f, 1.05f, 0f, 0f },
-			// the stance on the burst, from his right front, low
-			{ 240.01f, 2.15f, 30f, 0.55f, 0.92f, 0f, 0f },
-			{ 287f, 2.0f, 28f, 0.55f, 0.92f, 0f, 0f } }).linear(68f, 76f).linear(190f, 196f);
+			// (v0.17.4: closer and lower at first -- the forearms fill the top of the frame, the Omnitrix under them)
+			{ 196.01f, 0.6f, 6f, 1.05f, 1.32f, 0f, 0f },
+			{ 208f, 0.95f, 8f, 0.95f, 1.3f, 0f, 0f },
+			// (v0.17.4: the pull-back ends much wider -- the show's flex is a small whole figure from low with dark space round it)
+			{ 221f, 2.7f, -10f, 0.6f, 1.0f, 0f, 0f },
+			{ 240f, 2.95f, -14f, 0.6f, 0.98f, 0f, 0f },
+			// the stance on the burst, low and nearly square on (v0.17.4: pulled back to the whole body, head near the top and
+			// the feet in; it was chest-up from his right)
+			{ 240.01f, 2.35f, 14f, 0.5f, 0.92f, 0f, 0f },
+			{ 287f, 2.2f, 12f, 0.5f, 0.94f, 0f, 0f } }).linear(68f, 76f).linear(190f, 196f);
 
 	public DiamondheadShow() {
 		super(Aliens.DIAMONDHEAD.id());
@@ -125,9 +133,10 @@ public final class DiamondheadShow extends ShowSequenceClient {
 			.at(30f).head(0.38f, 0.32f, 0.04f).lArm(-1.15f, 0.32f, 0.05f, 1.55f, 1.3f).rArm(-0.9f, -0.5f, 0.05f, 1.2f, -0.6f)
 			.at(OUT_AT - 0.5f).hold()
 			// ---- the arm flung out forward to his left, fingers spread; the other fist down at his side, braced
-			.at(OUT_AT + 0.01f).head(0.04f, 0.2f, 0f).lArm(-1.6f, 0.08f, -0.02f, 0.14f, 0f).rArm(-0.2f, 0f, 0.3f, 0.6f, 0.2f).lean(0.08f).shrug(-0.4f)
-			.at(HAND_AT).lArm(-1.55f, 0.1f, -0.02f, 0.22f, 0f)
-			.at(WHIP_AT).hold().lArm(-1.58f, 0.12f, -0.04f, 0.3f, 0f)
+			// (v0.17.4: flung a little above level, the head turned up to it, as in the show)
+			.at(OUT_AT + 0.01f).head(-0.15f, 0.25f, 0f).lArm(-1.8f, 0.1f, -0.03f, 0.14f, 0f).rArm(-0.2f, 0f, 0.3f, 0.6f, 0.2f).lean(0.04f).shrug(-0.4f)
+			.at(HAND_AT).lArm(-1.78f, 0.12f, -0.03f, 0.22f, 0f)
+			.at(WHIP_AT).hold().lArm(-1.8f, 0.14f, -0.04f, 0.3f, 0f)
 			// ---- the face: square to the camera, the brow down, the shoulders up round the neck
 			.at(FACE_AT - 2f).head(0.1f, 0.04f, 0.05f).arms(0.08f, 0f, 0.22f, 0.35f, 0.1f).lean(0f).shrug(-0.6f)
 			.at(EYE_AT).head(0.06f, 0.06f, 0.09f).shrug(-1.0f)
@@ -151,9 +160,11 @@ public final class DiamondheadShow extends ShowSequenceClient {
 			.at(WHITE_AT).hold().head(-0.22f, 0.2f, 0f).arms(-0.12f, 0.05f, 1.52f, 2.0f, 1.3f)
 			.at(POSE_AT - 0.5f).hold()
 			// ---- the stance: legs wide, the right knee forward and bent, fists out low, the right one driven at the camera
-			.at(POSE_AT).head(0.08f, 0.25f, 0f).lean(0.18f).drop(1.6f).twist(0.2f, 0f)
-			.rArm(-0.95f, 0.15f, 0.55f, 0.85f, 0.5f).lArm(-0.3f, -0.1f, -0.85f, 1.05f, -0.9f)
-			.rLeg(-0.55f, 0.1f, 0.28f, 0.8f, 0.25f).lLeg(0.35f, -0.1f, -0.32f, 0.22f, -0.2f)
+			// (v0.17.4: chest up and back, both fists out to the sides at the waist on bent elbows, like the show's frame; the right
+			// one was driven forward)
+			.at(POSE_AT).head(-0.1f, 0.2f, 0f).lean(-0.06f).drop(1.6f).twist(0.15f, 0f)
+			.rArm(-0.4f, 0.1f, 0.85f, 1.0f, 0.6f).lArm(-0.3f, -0.1f, -0.9f, 1.05f, -0.8f)
+			.rLeg(-0.5f, 0.1f, 0.45f, 0.8f, 0.4f).lLeg(0.3f, -0.1f, -0.5f, 0.25f, -0.3f)
 			.at(GREEN_AT).hold()
 			// eased to standing under the green flash
 			.at(WORLD_AT).head(0f, 0f, 0f).lean(0f).drop(0f).twist(0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.03f, 0f, 0f);

@@ -68,23 +68,24 @@ public final class CannonboltShow extends ShowSequenceClient {
 			BALL_DOTS = KirbyDots.Style.show().bands(3).angle(58f).spread(8f).density(1.7f).width(1.5f).size(1.15f).rim(1.3f).clear(0.38f),
 			BURST_DOTS = KirbyDots.Style.show().bands(2).rgb(BURST_DOT).clear(0.55f).flow(1.6f);
 
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(new float[][] { { 0f, 1.4f, 8f, 1.42f, 1.3f, 0f, 0.15f }, { SLAP_END, 1.25f, 8f, 1.42f, 1.3f, 0f, 0.15f } }, ShowShots.dialCloseUp(SLAP_END + 0.01f, DIAL_END),
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(new float[][] { { 0f, 1.75f, 8f, 1.4f, 1.22f, 0f, 0.15f }, { SLAP_END, 1.6f, 8f, 1.4f, 1.22f, 0f, 0.15f } }, ShowShots.dialCloseUp(SLAP_END + 0.01f, DIAL_END),
 			new float[][] {
 					// under the forearm, looking up along it
-					{ 28.01f, 0.42f, -62f, 0.82f, 1.14f, -0.12f, 0.42f },
-					{ 35f, 0.38f, -55f, 0.84f, 1.14f, -0.12f, 0.42f },
-					// low in front: the hand coming at the camera, his head up in the corner
-					{ 35.01f, 1.2f, 14f, 0.42f, 1.22f, -0.14f, 0.22f },
-					{ 66f, 1.05f, 10f, 0.42f, 1.24f, -0.12f, 0.22f },
-					// sinking under the belly
-					{ 76f, 1.0f, 4f, 0.18f, 1.08f, 0f, 0.1f },
-					{ 92f, 0.95f, 0f, 0.18f, 1.14f, 0f, 0.1f },
+					{ 28.01f, 0.34f, -62f, 0.78f, 1.02f, -0.12f, 0.42f },
+					{ 35f, 0.3f, -55f, 0.8f, 1.02f, -0.12f, 0.42f },
+					// low in front: the hand coming at the camera, his head up in the corner (v0.17.4: in close, the ballooning hand big in
+					// the foreground with his head small behind it, like the show's; it was a full-length shot)
+					{ 35.01f, 0.72f, 12f, 0.55f, 1.2f, -0.14f, 0.26f },
+					{ 66f, 0.62f, 8f, 0.55f, 1.22f, -0.12f, 0.26f },
+					// sinking under the belly (v0.17.4: the belly filling the frame)
+					{ 76f, 0.7f, 4f, 0.5f, 1.22f, 0f, 0.1f },
+					{ 92f, 0.64f, 0f, 0.5f, 1.26f, 0f, 0.1f },
 					// the face from below
 					{ 92.01f, 0.95f, 8f, 1.45f, 1.7f, 0f, 0.05f },
 					{ 95f, 0.9f, 8f, 1.45f, 1.7f, 0f, 0.05f },
 					// right on his eye
-					{ 95.01f, 0.34f, -8f, 1.7f, 1.69f, 0.07f, 0.2f },
-					{ 112f, 0.27f, -8f, 1.7f, 1.69f, 0.07f, 0.2f },
+					{ 95.01f, 0.22f, -8f, 1.7f, 1.69f, 0.13f, 0.2f },
+					{ 112f, 0.17f, -8f, 1.7f, 1.69f, 0.13f, 0.2f },
 					// the shell plates from behind, under the orange
 					{ 112.01f, 0.95f, 160f, 1.62f, 1.3f, 0f, 0f },
 					{ 126f, 0.82f, 140f, 1.55f, 1.32f, 0f, 0f },
@@ -92,14 +93,17 @@ public final class CannonboltShow extends ShowSequenceClient {
 					{ 126.01f, 0.95f, 78f, 1.3f, 1.45f, 0f, 0.1f },
 					{ 130f, 0.9f, 72f, 1.3f, 1.45f, 0f, 0.1f },
 					// the face on his chest and the badge, pushing in
-					{ 130.01f, 0.72f, 28f, 1.15f, 1.5f, 0.02f, 0.15f },
-					{ 154f, 0.4f, 22f, 1.32f, 1.6f, 0.05f, 0.2f },
+					{ 130.01f, 0.55f, 24f, 1.25f, 1.5f, 0.02f, 0.15f },
+					{ 154f, 0.34f, 20f, 1.36f, 1.6f, 0.05f, 0.2f },
 					// the plates closing
 					{ 154.01f, 1.4f, 30f, 1.3f, 1.0f, 0f, 0f },
 					{ 160f, 1.3f, 30f, 1.3f, 1.0f, 0f, 0f },
 					// the ball, and it opening out
 					{ 160.01f, 3.3f, 0f, 1.0f, 0.92f, 0f, 0f },
-					{ 213f, 3.05f, 0f, 1.0f, 0.95f, 0f, 0f },
+					// (v0.17.4: pushing in as he opens out, so the uncurling body stays as big as the ball, like the show's)
+					{ SETTLE_AT, 3.1f, 0f, 1.0f, 0.94f, 0f, 0f },
+					{ OPEN_END + 3f, 1.9f, 0f, 0.95f, 0.98f, 0f, 0f },
+					{ 213f, 1.8f, 0f, 0.95f, 1.0f, 0f, 0f },
 					// the stance, from low in front (final-pose rework: lower and looking up more steeply, so he fills the frame from the
 					// clawed feet to the shell domes over his raised arms)
 					{ 213.01f, 1.75f, 0f, 0.28f, 1.16f, 0f, 0f },
@@ -192,7 +196,8 @@ public final class CannonboltShow extends ShowSequenceClient {
 			// final-pose rework (the show's t 237): squat -- the thighs forward toward the camera and the shins bent back to near
 			// vertical (short, bent legs from the low camera; they were splayed straight out to the corners), knees a little out; the
 			// arms up a touch higher and wider in the V; leaning in over the knees
-			STANCE = { -0.45f, 0.15f, 1.95f, 0.55f, 1.57f, -0.75f, 0f, 0.28f, 1.0f, 0.35f, -0.3f, 0.25f, 2.2f };
+			// v0.17.4: the arms out near level along the shoulder line (the show's row of domes across the top of the frame), not a V
+			STANCE = { -0.35f, 0.1f, 1.45f, 0.45f, 1.57f, -0.75f, 0f, 0.28f, 1.0f, 0.35f, -0.3f, 0.25f, 2.2f };
 	/** Final-pose rework: the right knee comes up a little higher than the left (thigh, knee), the show's uneven squat. */
 	private static final float KNEE_UP_THIGH = -0.15f, KNEE_UP_BEND = 0.15f;
 

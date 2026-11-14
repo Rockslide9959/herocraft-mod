@@ -72,39 +72,47 @@ public final class WildmuttShow extends ShowSequenceClient {
 			SPLOTCH_DOTS = KirbyDots.Style.show().bands(3).density(1.3f).size(1.5f).width(1.4f).rim(1.2f).clear(0.34f).flow(0.7f),
 			ROAR_DOTS = KirbyDots.Style.show().bands(2).density(1.3f).size(1.6f).width(1.4f).rim(1.2f).clear(0.45f).angle(-25f).flow(0.5f);
 
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), ShowShots.dialCloseUp(SLAP_END + 0.01f, HAND_AT),
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(
+			// v0.17.4: waist up and close from his left front, the flung arm across the top (the shared slap shot was full length)
+			new float[][] { { 0f, 1.2f, -16f, 1.48f, 1.32f, 0f, 0.15f }, { SLAP_END, 1.1f, -14f, 1.46f, 1.3f, 0f, 0.15f } }, ShowShots.dialCloseUp(SLAP_END + 0.01f, HAND_AT),
 			new float[][] {
-					// the hand from above
+					// the hand from above (v0.17.4: straight down over the back of the hand, the dial in the middle and the fingers
+					// spread toward the top of the frame, as in the show; it was from the side, the strap filling the top)
 					{ 45.01f, 0.28f, -60f, 1.75f, 1.22f, -0.33f, 0.66f },
 					{ 66f, 0.26f, -70f, 1.75f, 1.22f, -0.33f, 0.62f },
-					// up the forearm to the shoulder, from above at his left
-					{ 66.01f, 0.42f, -84f, 1.8f, 1.22f, -0.33f, 0.5f },
-					{ 90f, 0.42f, -88f, 1.8f, 1.25f, -0.33f, 0.22f },
-					{ 100f, 0.45f, -95f, 1.82f, 1.3f, -0.33f, 0.04f },
-					// the face, tilted and close
-					{ 100.01f, 0.85f, -30f, 1.64f, 1.66f, -0.06f, 0f },
-					{ 128f, 0.62f, -22f, 1.66f, 1.68f, -0.06f, 0f },
+					// up the forearm to the shoulder (v0.17.4: lower and along the arm, the swelling flesh filling the frame and the
+					// sleeve behind it; it stayed over the watch strap)
+					{ 66.01f, 0.5f, -66f, 1.55f, 1.36f, -0.33f, 0.16f },
+					{ 90f, 0.48f, -74f, 1.6f, 1.4f, -0.3f, 0.06f },
+					{ 100f, 0.5f, -80f, 1.66f, 1.44f, -0.3f, 0.0f },
+					// the face, tilted and close (v0.17.4: closer)
+					{ 100.01f, 0.68f, -30f, 1.64f, 1.66f, -0.06f, 0f },
+					{ 128f, 0.5f, -22f, 1.66f, 1.68f, -0.06f, 0f },
 					// (under the orange)
 					{ 128.01f, 0.36f, -20f, 1.52f, 1.62f, -0.02f, 0f },
 					{ 148f, 0.36f, -20f, 1.52f, 1.62f, -0.02f, 0f },
 					// hunched, from behind and above
-					{ 148.01f, 1.25f, -145f, 1.75f, 1.15f, 0f, 0.05f },
-					{ 158f, 1.1f, -138f, 1.7f, 1.15f, 0f, 0.05f },
+					// (v0.17.4: these three are all closer -- the show fills the frame with the hunched back, then the head and
+					// shoulder, then the face and claws)
+					{ 148.01f, 0.9f, -145f, 1.8f, 1.2f, 0f, 0.1f },
+					{ 158f, 0.8f, -138f, 1.75f, 1.2f, 0f, 0.1f },
 					// side on, head hung
-					{ 158.01f, 1.0f, -82f, 1.25f, 1.3f, 0f, 0.15f },
-					{ 166f, 0.92f, -78f, 1.25f, 1.3f, 0f, 0.15f },
-					// from in front, low
-					{ 166.01f, 1.0f, 8f, 1.0f, 1.38f, 0f, 0.15f },
-					{ 178f, 0.75f, 4f, 1.05f, 1.4f, 0f, 0.15f },
+					{ 158.01f, 1.2f, -76f, 1.62f, 1.6f, 0f, 0.3f },
+					{ 166f, 1.12f, -72f, 1.62f, 1.6f, 0f, 0.3f },
+					// from in front, low, the head dropping into the lens
+					{ 166.01f, 0.9f, 10f, 1.2f, 1.45f, 0f, 0.15f },
+					{ 178f, 0.48f, 4f, 1.2f, 1.4f, 0f, 0.15f },
 					// (under the streaks)
 					{ 178.01f, 0.9f, 80f, 1.15f, 1.1f, 0f, 0.95f },
 					{ 188f, 0.9f, 80f, 1.15f, 1.1f, 0f, 0.95f },
 					// Wildmutt's head in profile
-					{ 188.01f, 1.75f, 80f, 1.15f, 0.95f, 0f, 0.65f },
-					{ 210f, 1.6f, 74f, 1.1f, 0.95f, 0f, 0.7f },
-					// low on the front paws
-					{ 210.01f, 1.35f, -62f, 0.2f, 0.32f, 0f, 0.6f },
-					{ 238f, 1.4f, -50f, 0.22f, 0.36f, 0f, 0.5f },
+					// (v0.17.4: in close, the head filling the right of the frame and a front leg at the bottom left, as the show)
+					{ 188.01f, 1.2f, 78f, 1.1f, 1.0f, 0f, 0.9f },
+					{ 210f, 1.08f, 72f, 1.05f, 1.0f, 0f, 0.95f },
+					// low on the front paws (v0.17.4: from his right and down at the paw, so the leg runs in from the top left and
+					// the claws point right and fill the frame; it was the whole front of him from his left)
+					{ 210.01f, 0.95f, 62f, 0.3f, 0.3f, 0f, 0.6f },
+					{ 238f, 0.88f, 54f, 0.3f, 0.32f, 0f, 0.55f },
 					// his back passing close
 					{ 238.01f, 0.85f, -110f, 1.75f, 1.3f, 0f, -0.2f },
 					{ 244f, 0.8f, -140f, 1.75f, 1.3f, 0f, -0.4f },
@@ -112,8 +120,9 @@ public final class WildmuttShow extends ShowSequenceClient {
 					{ 244.01f, 1.6f, 92f, 0.85f, 0.8f, 0f, 0.7f },
 					{ 250f, 1.5f, 88f, 0.85f, 0.8f, 0f, 0.7f },
 					// rearing up, from low in front
-					{ 250.01f, 2.3f, 12f, 0.35f, 1.35f, 0f, 0.3f },
-					{ 262f, 2.1f, 8f, 0.35f, 1.4f, 0f, 0.3f },
+					// (v0.17.4: closer, chest to head filling the frame from below)
+					{ 250.01f, 1.55f, 12f, 0.4f, 1.45f, 0f, 0.3f },
+					{ 262f, 1.4f, 8f, 0.4f, 1.5f, 0f, 0.3f },
 					// the lunge
 					{ 262.01f, 2.4f, 18f, 0.3f, 0.6f, 0f, 0.5f },
 					{ 268f, 1.7f, 12f, 0.3f, 0.6f, 0f, 0.6f },
@@ -150,6 +159,11 @@ public final class WildmuttShow extends ShowSequenceClient {
 
 	/** The human body before the change, matched to the video's frames (see the class beat table). */
 	static final LimbKeys POSE = new LimbKeys()
+			// ---- v0.17.4: the slap (the show's first frames): the watch forearm forward and low, the right arm flung wide out to the
+			// side, open, then slapping down on the dial
+			.at(0f).lArm(-0.95f, 0.3f, 0f, 0.95f, 1.0f).rArm(-0.15f, 0f, 1.55f, 0.35f, 1.4f).head(0.12f, -0.1f, 0.05f).legs(0f, 0f, 0.05f, 0.05f, 0f)
+			.at(3f).hold().rArm(-0.9f, -0.4f, 0.3f, 1.4f, 0.2f).head(0.25f, 0f, 0f)
+			.at(SLAP_END + 2f).hold()
 			// ---- the watch arm held straight out in front, so the camera can run along it from above; the other fist clenched
 			.at(HAND_AT).lArm(-1.52f, 0.05f, 0f, 0.04f, 0f).rArm(0.05f, 0f, 0.15f, 0.35f, 0.1f).head(0.25f, 0f, 0f).legs(0f, 0f, 0.04f, 0.04f, 0f)
 			.at(FACE_AT - 0.5f).hold().rArm(0.1f, 0f, 0.2f, 0.55f, 0.15f).shrug(-0.5f)
@@ -162,16 +176,18 @@ public final class WildmuttShow extends ShowSequenceClient {
 			.at(SIDE_AT).lean(0.72f).head(0.75f, 0f, 0f).arms(-0.22f, -0.06f, 0.1f, 0.4f, 0f)
 			.at(CLAW_AT - 0.5f).hold()
 			// ---- clawing up at the face, elbows high, head back screaming...
-			.at(CLAW_AT).lean(0.05f).head(-0.45f, 0f, 0f).rArm(-2.3f, -0.35f, 0.05f, 1.65f, -0.6f).lArm(-2.3f, 0.35f, -0.05f, 1.65f, 0.6f).shrug(-0.9f)
+			// (v0.17.4: the claws low at the chest, the face clear behind them, as the show; they were up over the head)
+			.at(CLAW_AT).lean(0.12f).head(-0.3f, 0f, 0.08f).rArm(-0.45f, -0.3f, 0.85f, 1.5f, -0.5f).lArm(-0.45f, 0.3f, -0.85f, 1.5f, 0.5f).shrug(-0.9f)
 			.legs(-0.05f, 0f, 0.1f, 0.2f, 0f).drop(0.3f)
 			.at(170.5f).hold()
 			// ...then the furry head drops and roars at the camera, the claws coming down in front
-			.at(173.5f).lean(0.34f).head(0.3f, 0f, 0f).arms(-1.15f, -0.18f, 0.25f, 1.15f, -0.35f).shrug(-0.3f)
+			// (v0.17.4: the claws drop low and wide, into the bottom corners, so the face fills the lens; they swung up into it)
+			.at(173.5f).lean(0.34f).head(0.3f, 0f, 0f).arms(-0.6f, -0.25f, 0.55f, 1.0f, -0.4f).shrug(-0.3f)
 			.at(TRANSFORM_AT).hold();
 
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
-		if (t < HAND_AT || t >= TRANSFORM_AT) {
+		if (t < 0f || t >= TRANSFORM_AT) {
 			return;
 		}
 		LimbKeys.apply(m, POSE.sample(t));

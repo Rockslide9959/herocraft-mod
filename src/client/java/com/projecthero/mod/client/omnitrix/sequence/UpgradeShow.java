@@ -53,7 +53,7 @@ public final class UpgradeShow extends ShowSequenceClient {
 			WHITE_AT = 132f, REVEAL_AT = 138f, OUT_AT = 164f, WORLD_AT = 168f;
 	static final int TRANSFORM_AT = 133;
 	/** Final-pose rework: the stance's slant over to his left (radians, as {@code body.zRot}) and when the fists swing at the lens. */
-	static final float STANCE_TILT = 0.3f, SWING_AT = 155f;
+	static final float STANCE_TILT = -0.08f, SWING_AT = 155f;
 
 	private static final ResourceLocation WHITE = ProjectHeroMod.id("textures/entity/mutation/white.png");
 	/** The Mechamorph black, the circuit lime, its glow. */
@@ -68,12 +68,13 @@ public final class UpgradeShow extends ShowSequenceClient {
 	private static final float W = CameraTrack.W;
 	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(new float[][] {
 			// the slap: in close on his face and the raised wrist
-			{ 0f, 1.15f, 14f, 1.45f, 1.38f, 0f, 0.15f },
-			{ 6f, 1.0f, 12f, 1.45f, 1.36f, 0f, 0.15f } }, ShowShots.dialCloseUp(6.01f, DIAL_AT),
+			// v0.17.4: chest up and a touch above, like the show's first frame (the head high, the watch arm across the chest below it)
+			{ 0f, 1.0f, 10f, 1.5f, 1.28f, 0f, 0.15f },
+			{ 6f, 0.9f, 8f, 1.48f, 1.26f, 0f, 0.15f } }, ShowShots.dialCloseUp(6.01f, DIAL_AT),
 			new float[][] {
-					// the dial, huge
-					{ 26.01f, 0.34f, 10f, W, W, W, W },
-					{ 33f, 0.27f, 0f, W, W, W, W },
+					// the dial, huge (v0.17.4: closer and square on, the face filling the frame like the show's)
+					{ 26.01f, 0.24f, 4f, W, W, W, W },
+					{ 33f, 0.19f, 0f, W, W, W, W },
 					// right in on the forearm, from the left
 					{ 33.01f, 0.24f, -70f, W, W, W, W },
 					{ 48f, 0.2f, -55f, W, W, W, W },
@@ -98,8 +99,10 @@ public final class UpgradeShow extends ShowSequenceClient {
 					{ 132f, 0.4f, 30f, 1.3f, 1.66f, 0f, 0f },
 					// Upgrade, from low and in front (final-pose rework: a touch closer and looking higher, so the slanted body's head sits
 					// up at the top right and the swung fists fill the lower corners; it drifted down to the waist)
-					{ 132.01f, 1.15f, 0f, 0.32f, 1.32f, 0f, 0f },
-					{ 168f, 1.08f, 0f, 0.3f, 1.3f, 0f, 0f } }));
+					// v0.17.4: close and low, looking up: the head at the top of the frame, the body widening down to the fists in the bottom
+					// corners (the show's t 145-162)
+					{ 132.01f, 1.05f, 4f, 0.5f, 1.2f, 0f, 0f },
+					{ 168f, 0.95f, 4f, 0.48f, 1.18f, 0f, 0f } }));
 
 	public UpgradeShow() {
 		super(Aliens.UPGRADE.id());
@@ -154,6 +157,8 @@ public final class UpgradeShow extends ShowSequenceClient {
 				rot(m.rightArm, down, -1.25f, -0.55f, 0.1f);
 				BentLimbs.bend(BentLimbs.RIGHT_ARM, 0.6f * up + 0.4f * down, 1.4f * up);
 				m.head.xRot = Mth.lerp(smooth(t / 3f), m.head.xRot, 0.3f);
+				// v0.17.4: the watch forearm held higher, across the chest under the face (the show's first frame)
+				m.leftArm.xRot -= 0.55f * (1f - smooth((t - 14f) / 8f));
 			}
 			float shake = smooth((t - FOREARM_AT) / 30f);
 			if (t >= CHEST_AT) {
@@ -186,12 +191,14 @@ public final class UpgradeShow extends ShowSequenceClient {
 			ShowBody.tilt(m, tilt);
 			ShowBody.lean(m, Mth.lerp(swing, 0.08f, -0.06f));
 			// (the arms and head roll with the tilted chest: tilt() added it, rot() at weight 1 sets them absolutely, so it is added back)
-			rot(m.rightArm, 1f, Mth.lerp(swing, -0.15f, -0.95f), Mth.lerp(swing, 0f, 0.12f), Mth.lerp(swing, 0.75f, 0.3f) + breathe + tilt);
-			rot(m.leftArm, 1f, Mth.lerp(swing, -0.15f, -0.72f), Mth.lerp(swing, 0f, -0.1f), Mth.lerp(swing, -0.75f, -1.3f) - breathe + tilt);
+			// v0.17.4 (matched to the show's t 145-162 from under him): both arms out and down from the sides, the bell of the white body,
+			// then both fists swinging forward and low into the bottom corners together (the left one had swung up to the top right)
+			rot(m.rightArm, 1f, Mth.lerp(swing, -0.05f, -0.5f), Mth.lerp(swing, 0f, 0.1f), Mth.lerp(swing, 0.38f, 0.42f) + breathe + tilt);
+			rot(m.leftArm, 1f, Mth.lerp(swing, -0.05f, -0.5f), Mth.lerp(swing, 0f, -0.1f), Mth.lerp(swing, -0.38f, -0.42f) - breathe + tilt);
 			rot(m.rightLeg, 1f, -0.12f, 0f, 0.32f);
 			rot(m.leftLeg, 1f, -0.12f, 0f, -0.32f);
 			rot(m.head, 1f, Mth.lerp(smooth((t - REVEAL_AT) / 14f), -0.25f, 0.05f), 0f, tilt * 1.3f);
-			ShowBody.bend(Mth.lerp(swing, 0.75f, 0.35f) + breathe, Mth.lerp(swing, -1.57f, 0f), Mth.lerp(swing, 0.75f, 0.3f) - breathe,
+			ShowBody.bend(Mth.lerp(swing, 0.4f, 0.3f) + breathe, Mth.lerp(swing, -1.57f, 0f), Mth.lerp(swing, 0.4f, 0.3f) - breathe,
 					Mth.lerp(swing, 1.57f, 0f), 0.32f, 1.57f, 0.32f, -1.57f);
 		}
 		ShowBody.layers(m);

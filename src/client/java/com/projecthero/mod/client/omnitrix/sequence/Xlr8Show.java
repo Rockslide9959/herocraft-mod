@@ -69,46 +69,50 @@ public final class Xlr8Show extends ShowSequenceClient {
 			CROUCH_DOTS = KirbyDots.Style.show().density(1.6f).rim(1.5f).bands(3).clear(0.45f),
 			BURST_DOTS = KirbyDots.Style.show().bands(2).rgb(BURST_DOT).clear(0.5f).flow(1.6f);
 
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), ShowShots.dialCloseUp(6.01f, ARM_AT),
+	// v0.17.4 (user: "make the camera angles and poses match up better with what shows in the transformation scenes"): every shot
+	// re-framed against the show's frames -- the slap waist up and low, the face from further round his left with the head bowed, the
+	// eyes and the legs, claws and badge much closer, the crouch from low on his right with a slant, the dash three-quarters front
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(slapClose(SLAP_END), ShowShots.dialCloseUp(6.01f, ARM_AT),
 			new float[][] {
 					// up the raised arm from the dial to the chest, from his left front, low
 					{ 30.01f, 0.55f, -62f, 1.0f, 1.12f, -0.05f, 0.3f },
 					{ 36f, 0.62f, -48f, 1.3f, 1.4f, -0.05f, 0.12f },
-					// the face, bowed, from his left front and a little above; the push in to the eye
-					{ 36.01f, 0.8f, -32f, 1.58f, 1.7f, 0f, 0.1f },
-					{ 52f, 0.62f, -30f, 1.6f, 1.72f, -0.02f, 0.12f },
-					{ 62f, 0.45f, -28f, 1.62f, 1.73f, -0.05f, 0.15f },
-					// the eye, very close
-					{ 62.01f, 0.22f, -24f, 1.7f, 1.72f, -0.08f, 0.24f },
-					{ 77f, 0.19f, -22f, 1.7f, 1.72f, -0.08f, 0.24f },
-					// XLR8's eye
-					{ 77.01f, 0.26f, -26f, 1.66f, 1.66f, -0.08f, 0.24f },
-					{ 98f, 0.24f, -24f, 1.66f, 1.66f, -0.08f, 0.24f },
-					// low in front: the legs, then the tilt up them
-					{ 98.01f, 1.15f, 6f, 0.12f, 0.38f, 0f, 0f },
-					{ 118f, 1.05f, 4f, 0.12f, 0.42f, 0f, 0f },
-					{ 128f, 0.95f, 4f, 0.2f, 1.0f, 0f, 0f },
-					// the claws, close, from behind his left
-					{ 128.01f, 1.15f, -150f, 1.0f, 0.8f, -0.3f, 0.05f },
-					{ 136f, 1.02f, -158f, 0.95f, 0.78f, -0.32f, 0.05f },
+					// the face, bowed, from round his left front (he faces the left of frame, the bowed head tipping that way); the push in
+					{ 36.01f, 0.74f, -38f, 1.56f, 1.64f, -0.03f, 0.1f },
+					{ 52f, 0.58f, -36f, 1.58f, 1.65f, -0.04f, 0.12f },
+					{ 62f, 0.42f, -32f, 1.6f, 1.66f, -0.05f, 0.14f },
+					// the eye, very close (the show's frame is all eye)
+					{ 62.01f, 0.17f, -24f, 1.66f, 1.65f, -0.08f, 0.24f },
+					{ 77f, 0.15f, -22f, 1.66f, 1.65f, -0.08f, 0.24f },
+					// XLR8's eye, filling the frame
+					{ 77.01f, 0.17f, -24f, 1.6f, 1.6f, -0.09f, 0.24f },
+					{ 98f, 0.15f, -22f, 1.6f, 1.6f, -0.09f, 0.24f },
+					// low in front and close: the glowing legs fill the frame, then the tilt up them
+					{ 98.01f, 0.72f, 8f, 0.16f, 0.4f, 0f, 0f },
+					{ 118f, 0.64f, 6f, 0.16f, 0.46f, 0f, 0f },
+					{ 128f, 0.6f, 4f, 0.26f, 0.95f, 0f, 0f },
+					// the claws, right in, from behind his left
+					{ 128.01f, 0.68f, -150f, 0.98f, 0.8f, -0.3f, 0.05f },
+					{ 136f, 0.58f, -158f, 0.95f, 0.78f, -0.32f, 0.05f },
 					// the tail whipping past: behind, low, swung round fast to the chest
-					{ 136.01f, 0.75f, 178f, 0.7f, 0.75f, 0f, -0.3f },
-					{ 141f, 0.7f, 100f, 0.8f, 0.95f, 0f, -0.1f },
-					{ 146f, 0.72f, 24f, 0.85f, 1.2f, 0f, 0f },
-					// low on the chest and the badge, tilting up
-					{ 146.01f, 0.78f, 26f, 0.8f, 1.22f, 0f, 0f },
-					{ 157f, 0.72f, 20f, 0.9f, 1.32f, 0f, 0f },
+					{ 136.01f, 0.62f, 178f, 0.7f, 0.75f, 0f, -0.3f },
+					{ 141f, 0.58f, 80f, 0.8f, 0.95f, 0f, -0.1f },
+					{ 146f, 0.55f, -20f, 0.8f, 1.2f, 0f, 0f },
+					// low on the chest and the badge, close from his left
+					{ 146.01f, 0.52f, -28f, 0.76f, 1.2f, 0f, 0f },
+					{ 157f, 0.48f, -22f, 0.86f, 1.3f, 0f, 0f },
 					// the whip up to the face
-					{ 160f, 0.45f, 4f, 1.55f, 1.62f, 0f, 0f },
-					{ 160.01f, 0.62f, 0f, 1.62f, 1.72f, 0f, 0f },
-					{ 176f, 0.55f, 0f, 1.62f, 1.72f, 0f, 0f },
-					// full body, the crouch, drifting round to his right
-					{ 176.01f, 1.9f, 10f, 0.42f, 0.78f, 0f, 0f },
-					{ 192f, 1.8f, 26f, 0.45f, 0.78f, 0f, 0f },
-					// side-on, the dash (final-pose rework: from his right, so he faces the right of frame in profile like the show's;
-					// from three-quarters he read as turned to the camera and leaning away), a little low
-					{ 192.01f, 2.2f, 80f, 0.78f, 0.82f, 0f, 0.1f },
-					{ WORLD_AT, 2.05f, 77f, 0.78f, 0.82f, 0f, 0.1f } }))
+					{ 160f, 0.45f, -4f, 1.55f, 1.62f, 0f, 0f },
+					// the face, front, the whole head in frame
+					{ 160.01f, 0.6f, 0f, 1.46f, 1.5f, 0f, 0f },
+					{ 176f, 0.55f, 0f, 1.46f, 1.5f, 0f, 0f },
+					// full body, the crouch, low from his right front (the show looks up at him, slanted)
+					{ 176.01f, 1.8f, -14f, 0.16f, 0.86f, 0f, 0f },
+					{ 192f, 1.72f, -4f, 0.18f, 0.86f, 0f, 0f },
+					// the dash, three-quarters front from his right and low (the show's frame: he comes at the lens, facing the right
+					// of frame, the tail streaming out to the left)
+					{ 192.01f, 2.2f, 48f, 0.36f, 0.86f, 0f, 0f },
+					{ WORLD_AT, 2.05f, 45f, 0.36f, 0.86f, 0f, 0f } }))
 			.linear(TAIL_AT, CHEST_AT).linear(WHIP2_AT, HEAD_AT);
 
 	public Xlr8Show() {
@@ -172,15 +176,17 @@ public final class Xlr8Show extends ShowSequenceClient {
 			.at(CHEST_AT).arms(0.42f, 0f, 0.6f, 1.15f, 0.55f).head(-0.1f, 0f, 0f).lean(-0.06f)
 			.at(CROUCH_AT - 0.5f).hold().arms(0.35f, 0f, 0.55f, 1.0f, 0.45f).head(-0.06f, 0f, 0f)
 			// ---- the low crouch (a cut): down on deep bent knees, knees out; one claw up by his face, the other out wide
-			.at(CROUCH_AT).drop(3.2f).lean(0.3f).head(-0.5f, -0.12f, 0.05f)
-			.rArm(-1.3f, 0.35f, 0.7f, 1.55f, 0.55f).lArm(-0.4f, -0.2f, -1.05f, 1.25f, -0.55f)
-			.legs(-0.72f, 0f, 0.52f, 1.45f, 0.85f)
+			// (v0.17.4: slanted over to his right like the show's frame, the knees splayed wider, the right claw reaching forward low)
+			.at(CROUCH_AT).drop(3.4f).lean(0.3f).head(-0.5f, -0.12f, 0.05f).set(ShowBody.TILT, -0.2f)
+			.rArm(-1.0f, 0.35f, 0.75f, 1.2f, 0.55f).lArm(-0.4f, -0.2f, -1.15f, 1.25f, -0.55f)
+			.legs(-0.72f, 0f, 0.62f, 1.45f, 0.85f)
 			.at(181f).hold()
 			.at(RUN_AT - 0.5f).rArm(-1.4f, 0.4f, 0.75f, 1.7f, 0.6f).lArm(-0.5f, -0.25f, -1.15f, 1.35f, -0.6f).drop(3.5f).head(-0.55f, -0.12f, 0.05f)
 			// ---- the dash (a cut; final-pose rework, the show's t 215): pitched forward, the chin up so the visor looks ahead; both arms
 			// swung back with the elbows high behind him and the forearms folded forward (the blades flared); a wide planted stride, the
 			// front foot under the hips on a bent knee, the back leg reaching far behind (it was a running knee-up, claws forward)
-			.at(RUN_AT).drop(2.1f).lean(0.62f).head(-0.8f, -0.08f, 0f)
+			// (v0.17.4: leaning a little less, seen three-quarters front now, so he reads as charging at the lens)
+			.at(RUN_AT).drop(2.1f).lean(0.5f).head(-0.7f, -0.08f, 0f).set(ShowBody.TILT, 0f)
 			.rArm(1.25f, 0f, 0.2f, 2.2f, 0.15f).lArm(0.9f, 0f, -0.25f, 1.6f, -0.15f)
 			.rLeg(-0.6f, 0f, 0.14f, 1.2f, 0.1f).lLeg(0.55f, 0f, -0.12f, 0.3f, -0.1f)
 			.at(206f).rArm(1.32f, 0f, 0.22f, 2.3f, 0.15f).lArm(0.95f, 0f, -0.27f, 1.68f, -0.15f).rLeg(-0.62f, 0f, 0.14f, 1.24f, 0.1f).lLeg(0.58f, 0f, -0.12f, 0.32f, -0.1f)
@@ -191,11 +197,13 @@ public final class Xlr8Show extends ShowSequenceClient {
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < TRANSFORM_AT) {
-			// the watch still up; through the face shot the head bows, calm, eyes shut, the light washing over him
+			slapArm(m, t, SLAP_END);
+			// the watch still up; through the face shot the head bows, calm, eyes shut, the light washing over him (v0.17.4: bowed
+			// deeper, the show's chin is nearly on his chest; the eye shot keeps the shallow bow its framing was set on)
 			float bow = smooth((t - FACE_AT + 2f) / 10f);
 			if (bow > 0f) {
 				float sway = 0.03f * Mth.sin(t * 0.35f);
-				rot(m.head, bow, (t < EYE_AT ? 0.18f : 0.08f) + sway, 0.12f, -0.08f);
+				rot(m.head, bow, (t < EYE_AT ? 0.32f : 0.08f) + sway, 0.12f, t < EYE_AT ? -0.14f : -0.08f);
 				m.body.xRot = Mth.lerp(bow, m.body.xRot, 0.05f);
 			}
 			m.hat.copyFrom(m.head);
@@ -206,6 +214,41 @@ public final class Xlr8Show extends ShowSequenceClient {
 		float breathe = Mth.sin(t * 0.3f) * 0.03f;
 		float twitch = t >= CLAW_AT && t < CROUCH_AT ? 0.06f * Mth.sin(t * 1.3f) : 0f;
 		apply(m, k, breathe, twitch, t < WORLD_AT);
+	}
+
+	/**
+	 * v0.17.4: the slap shot the way the show frames it (XLR8, Grey Matter, Stinkfly, Ripjaws): waist up from a little below, close
+	 * enough that the raised hand and the dial fill the frame (the shared {@link ShowShots#slapShot} is a full-length shot).
+	 */
+	static float[][] slapClose(float end) {
+		return new float[][] { { 0f, 1.22f, 10f, 1.12f, 1.3f, 0f, 0.12f }, { end, 1.06f, 8f, 1.12f, 1.28f, 0f, 0.12f } };
+	}
+
+	/** The slap hand's keys: {tick as a fraction of the slap, xRot, yRot, zRot, elbow flex, twist}. */
+	private static final float[][] SLAP_KEYS = { { 0f, -0.2f, 0f, 2.6f, 0.7f, 1.4f }, { 0.45f, -0.55f, 0f, 0.5f, 2.1f, -0.25f },
+			{ 1f, -0.75f, -0.4f, 0.25f, 1.6f, 0.2f } };
+
+	/**
+	 * v0.17.4: the slap itself on a human body that has no pose track before its change (XLR8, Stinkfly, Ripjaws): the right hand
+	 * flung up open beside the head, then slapping down onto the raised dial; it eases back into the vanilla raised-watch pose over the
+	 * four ticks after {@code end}. Runs after the vanilla and raised-watch poses.
+	 */
+	static void slapArm(HumanoidModel<?> m, float t, float end) {
+		if (t < 0f || t >= end + 4f) {
+			return;
+		}
+		float s = Mth.clamp(t / end, 0f, 1f);
+		int i = s < SLAP_KEYS[1][0] ? 0 : 1;
+		float[] a = SLAP_KEYS[i], b = SLAP_KEYS[i + 1];
+		float u = smooth((s - a[0]) / (b[0] - a[0]));
+		float w = 1f - smooth((t - end) / 4f);
+		m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, Mth.lerp(u, a[1], b[1]));
+		m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, Mth.lerp(u, a[2], b[2]));
+		m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, Mth.lerp(u, a[3], b[3]));
+		BentLimbs.bend(BentLimbs.RIGHT_ARM, w * Mth.lerp(u, a[4], b[4]), w * Mth.lerp(u, a[5], b[5]));
+		if (m instanceof PlayerModel<?> pm) {
+			pm.rightSleeve.copyFrom(m.rightArm);
+		}
 	}
 
 	/**

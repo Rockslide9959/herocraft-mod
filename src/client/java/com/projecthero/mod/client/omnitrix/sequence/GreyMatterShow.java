@@ -62,36 +62,40 @@ public final class GreyMatterShow extends ShowSequenceClient {
 			NEG_DOTS = KirbyDots.Style.show().density(1.5f).rim(1.5f).clear(0.36f).rgb(0x9DBE4E),
 			BURST_DOTS = KirbyDots.Style.show().bands(3).rgb(BURST_DOT).density(1.4f).clear(0.42f).flow(1.6f);
 
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), new float[][] {
-			// the green: framing him from the front, slightly right, pulling back as it fades
+	// v0.17.4 (user: "make the camera angles and poses match up better with what shows in the transformation scenes"): re-framed
+	// against the show -- the slap waist up; the new hands from his left front with Ben off to the right of frame and the hands big
+	// in front of him; the arm thrown across from his right; his back close as the camera comes round; every Grey Matter shot
+	// (face, nape, front, crouch, leap) much closer, the crouch from a little above like the show's
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(Xlr8Show.slapClose(SLAP_END), new float[][] {
+			// the green: framing him from the front, slightly right, coming round to his left front as it fades
 			{ 6.01f, 1.25f, 14f, 1.35f, 1.25f, 0f, 0f },
-			{ 28f, 1.35f, 12f, 1.35f, 1.22f, 0f, 0f },
-			{ 62f, 2.0f, 8f, 1.25f, 1.15f, 0f, 0f },
-			// his left front, the arm thrown at the camera
-			{ 62.01f, 1.55f, -34f, 1.4f, 1.3f, 0f, 0.1f },
-			{ 78f, 1.4f, -46f, 1.4f, 1.32f, 0f, 0.1f },
-			// swinging round behind him
-			{ 86f, 1.5f, -172f, 1.4f, 1.3f, 0f, 0f },
+			{ 28f, 1.3f, -16f, 1.32f, 1.22f, 0.45f, 0f },
+			{ 62f, 1.45f, -24f, 1.3f, 1.2f, 0.52f, 0f },
+			// his right front, the arm thrown across the frame
+			{ 62.01f, 1.3f, 55f, 1.42f, 1.32f, 0f, 0.1f },
+			{ 78f, 1.2f, 62f, 1.42f, 1.34f, 0f, 0.1f },
+			// swinging round behind him, close
+			{ 86f, 1.0f, 176f, 1.5f, 1.25f, 0f, 0f },
 			// his back, the badge close, whipping round
 			{ 86.01f, 0.95f, 172f, 1.32f, 1.3f, 0.06f, 0f },
 			{ 98f, 0.75f, 140f, 1.3f, 1.28f, 0.06f, 0f },
 			// the shoulder and neck, close, the head coming up
 			{ 98.01f, 0.95f, -125f, 1.55f, 1.62f, -0.08f, 0f },
 			{ FACE_AT, 0.95f, -105f, 1.65f, 1.75f, -0.05f, 0f },
-			// the face, close, from his left front
-			{ FACE_AT + 0.01f, 1.25f, -28f, 1.8f, 1.9f, 0f, 0.05f },
-			{ NAPE_AT, 1.15f, -14f, 1.82f, 1.9f, 0f, 0.05f },
-			// the back of his head, from below behind
-			{ NAPE_AT + 0.01f, 1.8f, 176f, 1.45f, 1.85f, 0f, 0f },
-			{ 146f, 1.7f, 172f, 1.5f, 1.85f, 0f, 0f },
-			{ FRONT2_AT, 1.6f, 60f, 1.75f, 1.88f, 0f, 0f },
-			// the face from the front, a little low, pulling back to the full body
-			{ FRONT2_AT + 0.01f, 1.25f, 2f, 1.72f, 1.88f, 0f, 0f },
-			{ STANCE_AT, 2.1f, 0f, 1.55f, 1.65f, 0f, 0f },
-			{ 190f, 3.3f, 0f, 1.1f, 1.05f, 0f, 0f },
-			// the leap, low in front
-			{ 190.01f, 2.3f, -14f, 0.6f, 1.05f, 0f, 0f },
-			{ WORLD_AT, 2.15f, -10f, 0.6f, 1.05f, 0f, 0f } })).linear(SWING_AT, BACK_AT).linear(146f, FRONT2_AT);
+			// the face, right in, nearly front on (the eyes and the grin fill the frame)
+			{ FACE_AT + 0.01f, 1.05f, -12f, 1.7f, 1.76f, 0f, 0.05f },
+			{ NAPE_AT, 0.98f, -6f, 1.72f, 1.77f, 0f, 0.05f },
+			// the back of his head, from below behind, close
+			{ NAPE_AT + 0.01f, 1.35f, 178f, 1.38f, 1.8f, 0f, 0f },
+			{ 146f, 1.28f, 174f, 1.42f, 1.8f, 0f, 0f },
+			{ FRONT2_AT, 1.25f, 60f, 1.7f, 1.85f, 0f, 0f },
+			// the face from the front, a little low, pulling back to the crouch seen from a little above
+			{ FRONT2_AT + 0.01f, 1.0f, 2f, 1.66f, 1.82f, 0f, 0f },
+			{ STANCE_AT, 1.45f, 0f, 1.5f, 1.5f, 0f, 0f },
+			{ 190f, 1.75f, 0f, 1.6f, 1.1f, 0f, 0f },
+			// the leap, low in front and close (he fills the frame, the hand reaching at the lens)
+			{ 190.01f, 1.85f, -10f, 0.75f, 1.25f, 0f, 0f },
+			{ WORLD_AT, 1.75f, -8f, 0.75f, 1.25f, 0f, 0f } })).linear(SWING_AT, BACK_AT).linear(146f, FRONT2_AT);
 
 	public GreyMatterShow() {
 		super(Aliens.GREY_MATTER.id());
@@ -146,18 +150,19 @@ public final class GreyMatterShow extends ShowSequenceClient {
 			.at(6.5f).rArm(-1.0f, -0.6f, 0.2f, 0.95f, 0.35f).head(0.3f, 0f, 0f)
 			.at(18f).hold()
 			// ---- the new hands held up and out, palms forward, looking from one to the other
-			.at(FRONT_AT).head(0.08f, 0f, 0f).rArm(-0.55f, 0.3f, 0.85f, 1.35f, 1.1f).lArm(-0.55f, -0.3f, -0.85f, 1.35f, -1.1f).legs(0f, 0f, 0.1f, 0.15f, 0.3f)
-			.at(40f).head(0.05f, -0.28f, 0.05f).rArm(-0.95f, 0.2f, 0.6f, 1.5f, 1.0f).lArm(-0.45f, -0.3f, -0.95f, 1.1f, -1.2f)
-			.at(52f).head(0.05f, 0.28f, -0.05f).rArm(-0.45f, 0.3f, 0.95f, 1.1f, 1.2f).lArm(-0.95f, -0.2f, -0.55f, 1.5f, -1.0f)
-			.at(REACH_AT).hold().head(0.05f, 0.1f, 0f)
-			// ---- the left hand thrown at the camera, the other swung back; the grin
-			.at(65f).head(-0.05f, -0.3f, 0.05f).split(-0.25f).lArm(-1.55f, 0.35f, -0.15f, 0.15f, 0f).rArm(0.45f, 0f, 0.4f, 0.7f, 0.3f)
-			.at(76f).hold().lArm(-1.45f, 0.4f, -0.2f, 0.25f, 0f)
-			// ---- the arms out wide as the camera swings round behind him
-			.at(82f).head(0.1f, 0f, 0f).split(0f).arms(0f, 0f, 1.35f, 0.4f, 1.0f)
+			// (v0.17.4: held further forward, toward the camera at his left front, the way the show's hands loom in front of him)
+			.at(FRONT_AT).head(0.12f, 0f, 0f).rArm(-0.9f, 0.3f, 0.6f, 1.25f, 1.1f).lArm(-0.9f, -0.3f, -0.6f, 1.25f, -1.1f).legs(0f, 0f, 0.1f, 0.15f, 0.3f)
+			.at(40f).head(0.15f, -0.28f, 0.05f).rArm(-1.15f, 0.2f, 0.45f, 1.4f, 1.0f).lArm(-0.8f, -0.3f, -0.75f, 1.1f, -1.2f)
+			.at(52f).head(0.15f, 0.28f, -0.05f).rArm(-0.8f, 0.3f, 0.75f, 1.1f, 1.2f).lArm(-1.15f, -0.2f, -0.45f, 1.4f, -1.0f)
+			.at(REACH_AT).hold().head(0.1f, 0.1f, 0f)
+			// ---- the right hand thrown across the frame at the camera (now at his right front), the other swung back; the grin
+			.at(65f).head(-0.05f, 0.25f, -0.05f).split(0.25f).rArm(-1.55f, -0.35f, 0.15f, 0.15f, 0f).lArm(0.45f, 0f, -0.4f, 0.7f, -0.3f)
+			.at(76f).hold().rArm(-1.45f, -0.4f, 0.2f, 0.25f, 0f)
+			// ---- the arms down and a little out as the camera swings round behind him (the show's back shot)
+			.at(82f).head(0.1f, 0f, 0f).split(0f).arms(0f, 0f, 0.45f, 0.5f, 1.0f)
 			.at(TRANSFORM_AT).hold()
-			// ---- Grey Matter's back: the arms still out, the new head bowed
-			.at(TRANSFORM_AT + 0.01f).head(0.25f, 0f, 0f).arms(0f, 0f, 1.2f, 0.5f, 1.0f).legs(0f, 0f, 0.15f, 0.15f, 1.57f)
+			// ---- Grey Matter's back: the arms a little out, the new head bowed
+			.at(TRANSFORM_AT + 0.01f).head(0.25f, 0f, 0f).arms(0f, 0f, 0.6f, 0.5f, 1.0f).legs(0f, 0f, 0.15f, 0.15f, 1.57f)
 			.at(NECK_AT + 4f).hold()
 			// ---- the face: the arms down, loose (the head rocks on top, below)
 			.at(FACE_AT).head(-0.15f, 0f, 0f).arms(0f, 0f, 0.4f, 0.35f, 0.3f)
@@ -166,10 +171,11 @@ public final class GreyMatterShow extends ShowSequenceClient {
 			// ---- the face, front: the hands rising, the knees starting to spread
 			.at(164f).arms(-0.35f, 0f, 0.55f, 0.9f, 0.6f).legs(0f, 0f, 0.35f, 0.35f, 1.57f).drop(0.5f)
 			// ---- the frog crouch: knees out, a lean in, the hands spread low and wide, chin up
-			.at(STANCE_AT + 4f).drop(3f).lean(0.3f).head(-0.28f, 0f, 0f).arms(-0.55f, 0f, 0.85f, 0.85f, 0.3f).legs(-0.35f, 0f, 1.0f, 1.1f, 1.57f)
+			// (v0.17.4: the hands reach forward at the camera, spread, as the show's do)
+			.at(STANCE_AT + 4f).drop(3f).lean(0.3f).head(-0.38f, 0f, 0f).arms(-0.95f, 0f, 0.7f, 0.55f, 0.3f).legs(-0.35f, 0f, 1.0f, 1.1f, 1.57f)
 			.at(LEAP_AT - 6f).hold()
 			// ---- the leap: one arm flung up and out, the other reaching at the camera, the legs kicked out bent, the body tipped over
-			.at(LEAP_AT).drop(2f).lean(0.2f).set(ShowBody.TILT, 0.12f).head(-0.25f, -0.15f, 0.22f)
+			.at(LEAP_AT).drop(2f).lean(0.2f).set(ShowBody.TILT, -0.2f).head(-0.25f, -0.15f, 0.22f)
 			.rArm(-0.5f, 0f, 2.15f, 0.25f, 1.2f).lArm(-1.25f, -0.2f, -0.45f, 0.25f, 0f)
 			.rLeg(-0.6f, 0f, 1.1f, 1.3f, 1.57f).lLeg(0.1f, 0f, -1.0f, 1.1f, -1.57f)
 			.at(GREEN2_AT + 6f).hold()
