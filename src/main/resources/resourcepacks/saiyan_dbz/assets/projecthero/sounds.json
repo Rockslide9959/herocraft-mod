@@ -22,7 +22,7 @@
     "subtitle": "subtitles.projecthero.saiyan_aura_loop_gold",
     "sounds": [
       {
-        "name": "projecthero:saiyan/dbz/cut_aura_loop"
+        "name": "projecthero:saiyan/dbz/cut_charge_loop"
       }
     ]
   },
@@ -31,7 +31,7 @@
     "subtitle": "subtitles.projecthero.saiyan_aura_loop_red",
     "sounds": [
       {
-        "name": "projecthero:saiyan/dbz/cut_aura_loop",
+        "name": "projecthero:saiyan/dbz/cut_charge_loop",
         "pitch": 0.88
       }
     ]

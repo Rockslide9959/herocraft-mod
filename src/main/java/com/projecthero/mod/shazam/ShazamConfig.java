@@ -37,7 +37,9 @@ public final class ShazamConfig {
 
 	// ---------------------------------------------------------------- the Lightning bar (Slab)
 	public static final float LIGHTNING_MAX = 100f;
-	/** Fills this much a second during a thunderstorm. */
+	/** v0.17.4 (user): fills 4 a second whenever he's transformed (the moves' costs still drain it). */
+	public static final float LIGHTNING_REGEN_PER_TICK = 4f / S;
+	/** Fills this much more a second during a thunderstorm (on top of the 4 a second). */
 	public static final float STORM_FILL_PER_TICK = 3f / S;
 	/** A lightning strike (not his own) within this range... */
 	public static final double STRIKE_NEAR = 24.0;

@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
  */
 public final class SaiyanDbzSounds {
 	/** One of the cuts: if it is in the jar, they all are (scratchpad/saiyan/dbz_cut.js makes them together). */
-	private static final String PROBE = "assets/projecthero/sounds/saiyan/dbz/cut_aura_loop.ogg";
+	private static final String PROBE = "assets/projecthero/sounds/saiyan/dbz/cut_charge_loop.ogg";
 
 	private static boolean active;
 

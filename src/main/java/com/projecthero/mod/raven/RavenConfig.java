@@ -228,8 +228,11 @@ public final class RavenConfig {
 	public static final float DEBRIS_COMPOSURE = 5f;
 
 	// spell: Dimensional Rift
-	public static final double RIFT_RANGE = 20.0;
+	/** v0.17.4: 100 blocks (was 20), cut short where the world isn't loaded. */
+	public static final double RIFT_RANGE = 100.0;
 	public static final int RIFT_STEP_TICKS = 8;
+	/** v0.17.4: how long the pair stays open after she steps through, for her squad to follow (one way, entry to exit). */
+	public static final int RIFT_OPEN_TICKS = 6 * 20;
 	public static final float RIFT_COST = 25f;
 	public static final int RIFT_COOLDOWN = 12 * 20;
 

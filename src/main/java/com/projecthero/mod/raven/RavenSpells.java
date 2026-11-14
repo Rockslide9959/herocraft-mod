@@ -77,7 +77,8 @@ public final class RavenSpells {
 	public record Sanctuary(UUID owner, Vec3 at, long until, float reduction) {
 	}
 
-	private record Rift(Vec3 to, long at) {
+	/** v0.17.4: {@code from} is the entry portal (feet level); after she steps through at {@code at} it stays open until {@code closes}. */
+	private record Rift(Vec3 from, Vec3 to, long at, long closes, boolean[] stepped) {
 	}
 
 	private record Pull(List<ItemEntity> items, long until) {
@@ -440,7 +441,10 @@ public final class RavenSpells {
 
 	// ---------------------------------------------------------------- utility spells
 
-	/** Dimensional Rift: a portal where she looks (20 blocks, through a wall if there's room behind it); she steps through. */
+	/**
+	 * Dimensional Rift: a portal where she looks (100 blocks since v0.17.4, through a wall if there's room behind it); she steps
+	 * through, and the pair stays open {@link RavenConfig#RIFT_OPEN_TICKS} more so her squadmates can walk in after her.
+	 */
 	static boolean dimensionalRift(ServerPlayer p, boolean misfire) {
 		Vec3 to = riftSpot(p);
 		if (to == null) {
@@ -456,10 +460,25 @@ public final class RavenSpells {
 		Vec3 look = p.getViewVector(1f).multiply(1, 0, 1);
 		look = look.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : look.normalize();
 		Vec3 here = p.position().add(look.scale(0.9)).add(0, 1.0, 0);
-		RIFTS.put(p.getUUID(), new Rift(to, Raven.now(p) + RavenConfig.RIFT_STEP_TICKS));
-		RavenMoves.fx(p, new RavenFxPayload(RavenFxPayload.RIFT, p.getId(), here, look, RavenConfig.RIFT_STEP_TICKS + 14));
-		RavenMoves.fx(p, new RavenFxPayload(RavenFxPayload.RIFT, p.getId(), to.add(0, 1.0, 0), look, RavenConfig.RIFT_STEP_TICKS + 14));
+		long now = Raven.now(p);
+		RIFTS.put(p.getUUID(), new Rift(here.subtract(0, 1.0, 0), to, now + RavenConfig.RIFT_STEP_TICKS,
+				now + RavenConfig.RIFT_STEP_TICKS + RavenConfig.RIFT_OPEN_TICKS, new boolean[1]));
+		int shown = RavenConfig.RIFT_STEP_TICKS + RavenConfig.RIFT_OPEN_TICKS + 6;
 		ServerLevel level = (ServerLevel) p.level();
+		// keep the far end loaded (and ticking) while the rift is open
+		BlockPos exit = BlockPos.containing(to);
+		level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(exit), 2, exit);
+		RavenMoves.fx(p, new RavenFxPayload(RavenFxPayload.RIFT, p.getId(), here, look, shown));
+		RavenFxPayload far = new RavenFxPayload(RavenFxPayload.RIFT, p.getId(), to.add(0, 1.0, 0), look, shown);
+		RavenMoves.fx(p, far);
+		// players already at the far end who don't track her yet see the exit too
+		java.util.Collection<ServerPlayer> trackers = net.fabricmc.fabric.api.networking.v1.PlayerLookup.tracking(p);
+		for (ServerPlayer viewer : net.fabricmc.fabric.api.networking.v1.PlayerLookup.around(level, to, 64.0)) {
+			if (viewer != p && !trackers.contains(viewer)
+					&& net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(viewer, RavenFxPayload.TYPE)) {
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(viewer, far);
+			}
+		}
 		level.playSound(null, here.x, here.y, here.z, RavenSounds.RIFT, SoundSource.PLAYERS, 0.45f, 0.7f);
 		level.playSound(null, to.x, to.y, to.z, RavenSounds.RIFT, SoundSource.PLAYERS, 0.45f, 0.7f);
 		pay(p, RavenSpell.DIMENSIONAL_RIFT);
@@ -471,7 +490,8 @@ public final class RavenSpells {
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getViewVector(1f);
-		Vec3 end = eye.add(look.scale(RavenConfig.RIFT_RANGE));
+		double range = loadedRange(level, eye, look, RavenConfig.RIFT_RANGE);
+		Vec3 end = eye.add(look.scale(range));
 		double eyeH = p.getEyeHeight();
 		BlockHitResult hit = level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		if (hit.getType() == HitResult.Type.MISS) {
@@ -484,7 +504,7 @@ public final class RavenSpells {
 		}
 		if (face != Direction.DOWN) {
 			// a wall: through it if there's room behind, within the range
-			for (double d = eye.distanceTo(at) + 0.5; d <= RavenConfig.RIFT_RANGE + 1.0e-6; d += 0.5) {
+			for (double d = eye.distanceTo(at) + 0.5; d <= range + 1.0e-6; d += 0.5) {
 				Vec3 feet = eye.add(look.scale(d)).subtract(0, eyeH, 0);
 				if (level.noCollision(p, p.getBoundingBox().move(feet.subtract(p.position())))) {
 					return feet;
@@ -496,24 +516,62 @@ public final class RavenSpells {
 		return RavenMoves.roomAt(p, back);
 	}
 
+	/**
+	 * How far along {@code look} the rift may reach: {@code max}, cut short (in 4-block steps) before the first chunk that isn't
+	 * loaded, so a 100-block cast never loads or generates terrain just to aim.
+	 */
+	static double loadedRange(ServerLevel level, Vec3 eye, Vec3 look, double max) {
+		for (double d = 0; d <= max; d += 4.0) {
+			Vec3 at = eye.add(look.scale(d));
+			if (!level.hasChunk(net.minecraft.core.SectionPos.blockToSectionCoord(at.x), net.minecraft.core.SectionPos.blockToSectionCoord(at.z))) {
+				return Math.max(0.0, d - 4.0);
+			}
+		}
+		return max;
+	}
+
 	private static void riftTick(ServerPlayer p, long now, ServerLevel level) {
 		Rift r = RIFTS.get(p.getUUID());
 		if (r == null || now < r.at) {
 			return;
 		}
-		RIFTS.remove(p.getUUID());
-		Vec3 spot = RavenMoves.roomAt(p, r.to);
+		if (!r.stepped[0]) {
+			r.stepped[0] = true;
+			stepThrough(p, r.to, level);
+		}
+		if (now >= r.closes) {
+			RIFTS.remove(p.getUUID());
+			return;
+		}
+		// v0.17.4: squadmates who walk into the entry portal come out of the exit (one way; anyone else just walks past it)
+		AABB mouth = new AABB(r.from.x - 0.75, r.from.y, r.from.z - 0.75, r.from.x + 0.75, r.from.y + 2.5, r.from.z + 0.75);
+		for (ServerPlayer mate : level.getEntitiesOfClass(ServerPlayer.class, mouth, m -> m != p && m.isAlive() && !m.isSpectator())) {
+			if (Squads.areAllies(p, mate)) {
+				stepThrough(mate, r.to, level);
+			}
+		}
+	}
+
+	/** Through the rift to {@code to} (the nearest spot there {@code who} fits): a dark puff behind, a portal flash in front. */
+	private static void stepThrough(ServerPlayer who, Vec3 to, ServerLevel level) {
+		Vec3 spot = RavenMoves.roomAt(who, to);
 		if (spot == null) {
 			return;
 		}
-		Vec3 from = p.position();
-		p.teleportTo(level, spot.x, spot.y, spot.z, java.util.Set.of(), p.getYRot(), p.getXRot());
-		p.resetFallDistance();
-		p.setDeltaMovement(Vec3.ZERO);
-		p.hurtMarked = true;
+		Vec3 from = who.position();
+		who.teleportTo(level, spot.x, spot.y, spot.z, java.util.Set.of(), who.getYRot(), who.getXRot());
+		who.resetFallDistance();
+		who.setDeltaMovement(Vec3.ZERO);
+		who.hurtMarked = true;
 		Raven.darkPuff(level, from.add(0, 1.0, 0), 16, 0.5);
 		level.sendParticles(ParticleTypes.REVERSE_PORTAL, spot.x, spot.y + 1.0, spot.z, 40, 0.4, 0.8, 0.4, 0.2);
 		level.playSound(null, spot.x, spot.y, spot.z, RavenSounds.DASH, SoundSource.PLAYERS, 0.4f, 0.6f);
+	}
+
+	/** For the tests: is her rift open (stepped through, still letting her squad follow)? */
+	public static boolean riftOpen(ServerPlayer p) {
+		Rift r = RIFTS.get(p.getUUID());
+		return r != null && r.stepped[0];
 	}
 
 	/** Soul Restoration: aimed at a squadmate, take their pain and heal them double; at no one, a 3 s channel heals her. */

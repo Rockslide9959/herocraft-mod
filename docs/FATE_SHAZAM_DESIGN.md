@@ -218,8 +218,9 @@ a slim-arm version, and a Family version with gold piping.
 - **Courage of Achilles:** immune to fear effects (Warden darkness, T-Rex roar, Raven's fear).
 - **Weakness:** magic damage (potions, evokers, witches, Doctor Fate, Raven) hurts you 50% more. In the comics magic is the
   champion's weakness.
-- **Lightning bar (Slab):** refilled to full by every transform bolt. It also fills during thunderstorms and when lightning
-  strikes near you.
+- **Lightning bar (a Minecraft boss bar on the VanillaHud.Stack column since v0.17.4; was a Slab):** fills 4 a second while
+  transformed (v0.17.4, `ShazamConfig.LIGHTNING_REGEN_PER_TICK`), +3 a second during thunderstorms, refilled to full by every
+  transform bolt, and topped up when lightning strikes near you.
 
 | Key | Move | Spec |
 |---|---|---|
@@ -252,8 +253,8 @@ layered thunder.
 - The transform strike and Eternity Strike: a huge double-forked bolt with rolling thunder; the transform also sends bolts racing
   out along the ground; Eternity rises wrapped in a crackling gold aura and the slam cracks the ground with light, with a huge
   shock ring and a heavy shake.
-- Charged (Lightning bar 60%+, or during Zeus Storm / Eternity Strike): small arcs crackle round both hands and his eyes glow
-  (drawn in the suit layer, so every viewer sees it).
+- ~~Charged: arcs round both hands and glowing eyes~~ -- removed in v0.17.4 (user: "remove the eye glow and the lightning
+  coming from the hands").
 - Mercury Dash: a red blur -- three streaks at shin, waist and shoulder height fading from the tail, red after-images along the
   path, crackle, and a whoosh.
 - Thunder Tackle: bolts burst out along the ground where he slams the target down, with a shake.

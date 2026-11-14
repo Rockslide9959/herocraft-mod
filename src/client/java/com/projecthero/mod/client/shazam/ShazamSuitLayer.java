@@ -71,10 +71,7 @@ public class ShazamSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		boolean family = Shazam.isFamily(player);
 		ResourceLocation tex = family ? (slimArms ? FAMILY_SLIM : FAMILY) : (slimArms ? SUIT_SLIM : SUIT);
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, OverlayTexture.NO_OVERLAY);
-		if (ShazamBoltFx.charged(player)) {
-			// v0.17.3 effects pass: charged -- arcs crackle round his hands and his eyes glow
-			ShazamBoltFx.charged(pose, buffers, getParentModel(), player, ageInTicks, slimArms);
-		}
+		// v0.17.4 (user): no glowing eyes and no arcs round his hands any more (v0.17.3 drew them while charged)
 	}
 
 	/**

@@ -528,6 +528,7 @@ public final class Shazam {
 			forceUntransform(player); // a stale transformation (the power was taken)
 			return;
 		}
+		boolean filled = false;
 		if (s.transformed) {
 			// Stamina of Atlas: no hunger drain
 			player.getFoodData().setExhaustion(0f);
@@ -535,9 +536,12 @@ public final class Shazam {
 			if (player.hasEffect(MobEffects.DARKNESS)) {
 				player.removeEffect(MobEffects.DARKNESS);
 			}
-			// the Lightning bar fills in a thunderstorm (in place; re-sent below)
-			if (player.level().isThundering()) {
-				s.lightning = Math.min(ShazamConfig.LIGHTNING_MAX, s.lightning + ShazamConfig.STORM_FILL_PER_TICK);
+			// the Lightning bar fills 4 a second (v0.17.4), faster in a thunderstorm (in place; re-sent below)
+			float before = s.lightning;
+			float fill = ShazamConfig.LIGHTNING_REGEN_PER_TICK + (player.level().isThundering() ? ShazamConfig.STORM_FILL_PER_TICK : 0f);
+			s.lightning = Math.min(ShazamConfig.LIGHTNING_MAX, s.lightning + fill);
+			if (s.lightning != before && (now % ShazamConfig.SYNC_INTERVAL == 0 || s.lightning >= ShazamConfig.LIGHTNING_MAX)) {
+				filled = true;
 			}
 			if (player.tickCount % 20 == 0) {
 				reconcile(player);
@@ -551,8 +555,8 @@ public final class Shazam {
 		if (s.hasPower && !s.family.isEmpty() && player.tickCount % 20 == 0) {
 			ShazamFamily.prune(player);
 		}
-		if (s.transformed && player.level().isThundering() && now % ShazamConfig.SYNC_INTERVAL == 0) {
-			// the storm fills the bar in place: re-send it now and then
+		if (filled && state(player).transformed) {
+			// the bar fills in place: re-send it now and then (and once it's full)
 			save(player, state(player).copy());
 		}
 	}

@@ -19,6 +19,9 @@ import net.minecraft.world.entity.player.Player;
  * v0.17.3: the Saiyan's looping sounds, for every Saiyan in earshot (the server plays only the one-shots): the aura hum (gold
  * in Super Saiyan, red under Kaioken, none in a plain Base) and the charge loop while V charges (after the power-up swell,
  * about 1.5 s in). Each follows its player and fades out when its state ends.
+ *
+ * <p>v0.17.4: with the Dragon Ball test clips the aura is the charge's own loop (user: "make it the same sound as the charging
+ * sfx"), so while the charge loop plays the aura fades out and comes back after -- one roar, never the same clip twice.
  */
 public final class SaiyanLoopSounds {
 	private static final float AURA_VOLUME = 0.35f;
@@ -67,11 +70,11 @@ public final class SaiyanLoopSounds {
 			UUID id = p.getUUID();
 			SoundEvent aura = auraOf(p);
 			Loop a = AURA.get(id);
-			if (aura != null && (a == null || a.event != aura)) {
+			if (aura != null && !CHARGE.containsKey(id) && (a == null || a.event != aura)) {
 				if (a != null) {
 					a.end();
 				}
-				Loop n = new Loop(p, aura, AURA_VOLUME, () -> auraOf(p) == aura);
+				Loop n = new Loop(p, aura, AURA_VOLUME, () -> auraOf(p) == aura && !CHARGE.containsKey(id));
 				AURA.put(id, n);
 				mc.getSoundManager().play(n);
 			}

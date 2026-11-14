@@ -49,8 +49,9 @@ const d = (n, o) => s('projecthero:saiyan/dbz/' + n, o);
 const DBZ = {
 	saiyan_ki_charge_start: [d('cut_charge_start')],
 	saiyan_ki_charge_loop: [d('cut_charge_loop')],
-	saiyan_aura_loop_gold: [d('cut_aura_loop')],
-	saiyan_aura_loop_red: [d('cut_aura_loop', { pitch: 0.88 })],
+	// v0.17.4 (user): "make it the same sound as the charging sfx" -- the aura loops the V charge's own loop
+	saiyan_aura_loop_gold: [d('cut_charge_loop')],
+	saiyan_aura_loop_red: [d('cut_charge_loop', { pitch: 0.88 })],
 	saiyan_transform_burst: [d('cut_transform_1', { attenuation_distance: 32 }), d('cut_transform_2', { attenuation_distance: 32 })],
 	saiyan_power_down: [d('cut_power_down')],
 	saiyan_ki_dash: [d('cut_dash_1'), d('cut_dash_2')],
