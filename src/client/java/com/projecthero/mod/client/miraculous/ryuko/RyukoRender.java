@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.miraculous.MiraculousSequenceClient;
@@ -263,64 +264,164 @@ public final class RyukoRender {
 		return buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
 	}
 
+	/** v0.17.4 sword / choker colours: the black silk wrap, the crimson ray-skin it shows through, the frosted hamon, the tsuba's iron. */
+	private static final int ITO = 0x141216, SAME = 0xB0202A, HAMON = 0xF6F9FC, IRON = 0x1E1B22, SHINOGI = 0xB9C3D2;
+
 	/**
-	 * The sword centred on the pose's origin -- the middle of the grip, where the fist closes -- the blade running along -z,
-	 * in model pixels (scaled 1/16 here): a red wrapped grip with gold bands and a pommel cap, a round gold guard, a slim
-	 * single-edged steel blade (its edge, +y, carries her element's colour) to a clipped katana point.
+	 * The sword centred on the pose's origin -- the middle of her fist -- the blade running along -z with its edge on +y (down in the
+	 * hand), in model pixels (scaled 1/16 here).
 	 *
-	 * <p>v0.17.3 (tester: the sword "is bugged as well"): the grip used to start AT the origin and run 4.4 px backwards, so
-	 * the hilt hung out of the bottom of her hand / through her forearm with the fist round the guard; it is centred now,
-	 * and the whole sword is a little shorter (16.5 px, a katana to her 32 px height).
+	 * <p>v0.17.4 (user: "Make the katana model look better please"): a real katana, 19.4 px long (a katana to her 32 px height). The fist
+	 * closes on the tsuka just behind the guard: a black silk wrap (tsuka-ito) whose crossings leave crimson ray-skin diamonds on all four
+	 * faces, gold menuki under the wrap on each side, a gold fuchi collar and kashira cap. Then the seppa washers, a round black iron
+	 * tsuba with a gold rim, the gold habaki, and a CURVED blade (10 degrees of sori over twelve links): steel faces, a darker spine
+	 * (mune) and ridge line (shinogi), a frosted wavy hamon along the edge with the edge itself glowing her element's colour, and a
+	 * proper kissaki whose edge sweeps up to the spine past the yokote line.
 	 */
 	public static void renderSword(PoseStack pose, MultiBufferSource buffers, int light, int elementRgb) {
 		VertexConsumer vc = boxes(buffers);
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		// the grip: z -2.3 .. +2.3, through the fist; the pommel cap behind it
-		QueenBeeRender.box(vc, pose, 0f, 0f, 0f, 0.4f, 0.5f, 2.3f, RED_D, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, -1.3f, 0.44f, 0.54f, 0.12f, GOLD, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, 1.3f, 0.44f, 0.54f, 0.12f, GOLD, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, 2.55f, 0.48f, 0.58f, 0.25f, GOLD, light);
-		// the guard (tsuba) and the collar in front of it
-		QueenBeeRender.box(vc, pose, 0f, 0f, -2.5f, 0.95f, 1.05f, 0.2f, GOLD, light);
-		QueenBeeRender.box(vc, pose, 0f, 0f, -2.85f, 0.3f, 0.6f, 0.15f, GOLD_L, light);
-		// the blade: z -3.0 .. -13.4, then the point
-		QueenBeeRender.box(vc, pose, 0f, -0.08f, -8.2f, 0.16f, 0.5f, 5.2f, STEEL, light);
-		QueenBeeRender.box(vc, pose, 0f, 0.5f, -8.2f, 0.1f, 0.12f, 5.2f, elementRgb, LightTexture.FULL_BRIGHT);
-		QueenBeeRender.box(vc, pose, 0f, 0.05f, -13.85f, 0.14f, 0.45f, 0.45f, STEEL_D, light);
-		QueenBeeRender.box(vc, pose, 0f, 0.2f, -14.45f, 0.1f, 0.25f, 0.2f, STEEL_D, light);
+		// ---- the tsuka (z +3.6 .. -1.6): the wrap, its diamonds, the menuki; the kashira behind and the fuchi in front
+		float hz0 = 3.6f, hz1 = -1.55f, hzc = (hz0 + hz1) * 0.5f, hhz = (hz0 - hz1) * 0.5f;
+		QueenBeeRender.box(vc, pose, 0f, 0f, hzc, 0.42f, 0.52f, hhz, ITO, light);
+		for (int i = 0; i < 6; i++) {
+			float z = hz0 - 0.5f - i * 0.84f;
+			for (int s = -1; s <= 1; s += 2) {
+				pose.pushPose(); // on the side faces: squares turned 45 degrees about x
+				pose.translate(s * 0.43f, 0f, z);
+				pose.mulPose(Axis.XP.rotationDegrees(45f));
+				QueenBeeRender.box(vc, pose, 0f, 0f, 0f, 0.03f, 0.22f, 0.22f, SAME, light);
+				pose.popPose();
+				pose.pushPose(); // on the top and bottom faces: turned about y
+				pose.translate(0f, s * 0.53f, z);
+				pose.mulPose(Axis.YP.rotationDegrees(45f));
+				QueenBeeRender.box(vc, pose, 0f, 0f, 0f, 0.21f, 0.03f, 0.21f, SAME, light);
+				pose.popPose();
+			}
+		}
+		QueenBeeRender.box(vc, pose, 0.47f, 0f, 1.25f, 0.05f, 0.2f, 0.55f, GOLD, light); // menuki
+		QueenBeeRender.box(vc, pose, -0.47f, 0f, 0.45f, 0.05f, 0.2f, 0.55f, GOLD, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, hz0 + 0.18f, 0.46f, 0.56f, 0.2f, GOLD, light); // kashira
+		QueenBeeRender.box(vc, pose, 0f, 0f, hz0 + 0.42f, 0.36f, 0.44f, 0.06f, RED_D, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, hz1 - 0.16f, 0.47f, 0.57f, 0.17f, GOLD, light); // fuchi
+		// ---- seppa, the round tsuba (a disc of four overlapping boxes; black iron in front of a slightly larger gold rim), seppa
+		QueenBeeRender.box(vc, pose, 0f, 0f, -1.92f, 0.62f, 0.72f, 0.05f, GOLD_L, light);
+		float tz = -2.12f;
+		disc(vc, pose, tz, 1.1f, 0.07f, GOLD, light);
+		disc(vc, pose, tz, 0.97f, 0.12f, IRON, light);
+		// two crimson inlays on each face of the tsuba (the dragon's colours)
+		for (int s = -1; s <= 1; s += 2) {
+			QueenBeeRender.box(vc, pose, s * 0.55f, -0.55f, tz, 0.16f, 0.16f, 0.14f, SAME, light);
+			QueenBeeRender.box(vc, pose, -s * 0.55f, 0.55f, tz, 0.16f, 0.16f, 0.14f, SAME, light);
+		}
+		QueenBeeRender.box(vc, pose, 0f, 0f, -2.32f, 0.5f, 0.66f, 0.05f, GOLD_L, light);
+		// ---- the habaki round the blade's root
+		QueenBeeRender.box(vc, pose, 0f, -0.02f, -2.7f, 0.17f, 0.58f, 0.33f, GOLD, light);
+		// ---- the blade: twelve links from z -2.4, each turned a little toward the spine (-y), the last becoming the kissaki
+		pose.pushPose();
+		pose.translate(0f, 0f, -2.4f);
+		final int N = 12;
+		final float LEN = 13.0f, L = LEN / N, SORI = 10f;
+		for (int i = 0; i < N; i++) {
+			float t = i / (float) (N - 1);
+			float h = Mth.lerp(t, 1.0f, 0.78f); // spine fixed at y -0.5, the edge at -0.5 + h
+			float spine = -0.5f, edge = spine + h;
+			if (i < N - 1) {
+				QueenBeeRender.box(vc, pose, 0f, spine + h * 0.5f, -L * 0.5f, 0.085f, h * 0.5f, L * 0.5f + 0.03f, STEEL, light);
+				QueenBeeRender.box(vc, pose, 0f, spine + 0.07f, -L * 0.5f, 0.1f, 0.07f, L * 0.5f + 0.03f, STEEL_D, light); // mune
+				QueenBeeRender.box(vc, pose, 0f, spine + h * 0.36f, -L * 0.5f, 0.092f, 0.025f, L * 0.5f + 0.03f, SHINOGI, light); // shinogi
+				// the hamon: a frosted band along the edge, its upper line rising and falling twice a link (gunome)
+				for (int k = 0; k < 2; k++) {
+					float hh = 0.27f + 0.07f * Mth.sin((i * 2 + k) * 1.9f);
+					QueenBeeRender.box(vc, pose, 0f, edge - hh * 0.5f, -L * (0.25f + 0.5f * k), 0.093f, hh * 0.5f, L * 0.25f + 0.02f, HAMON, light);
+				}
+				QueenBeeRender.box(vc, pose, 0f, edge - 0.035f, -L * 0.5f, 0.05f, 0.05f, L * 0.5f + 0.03f, elementRgb, LightTexture.FULL_BRIGHT);
+			} else {
+				// the kissaki: the yokote line, then steps whose edge sweeps up to meet the spine at the point
+				QueenBeeRender.box(vc, pose, 0f, spine + h * 0.5f, -0.04f, 0.095f, h * 0.5f, 0.04f, STEEL_D, light);
+				int steps = 6;
+				float sl = (L + 0.6f) / steps;
+				for (int j = 0; j < steps; j++) {
+					float f = 1f - (j + 0.5f) / steps;
+					float hj = h * (float) Math.sqrt(f) + 0.04f;
+					float z = -0.08f - sl * (j + 0.5f);
+					QueenBeeRender.box(vc, pose, 0f, spine + hj * 0.5f, z, 0.085f - 0.008f * j, hj * 0.5f, sl * 0.5f + 0.02f, STEEL, light);
+					QueenBeeRender.box(vc, pose, 0f, spine + hj - Math.min(0.2f, hj * 0.4f) * 0.5f, z, 0.088f - 0.008f * j, Math.min(0.2f, hj * 0.4f) * 0.5f,
+							sl * 0.5f + 0.02f, HAMON, light);
+					QueenBeeRender.box(vc, pose, 0f, spine + 0.06f, z, 0.095f - 0.008f * j, 0.06f, sl * 0.5f + 0.02f, STEEL_D, light);
+				}
+			}
+			pose.translate(0f, 0f, -L);
+			pose.mulPose(Axis.XP.rotationDegrees(-SORI / (N - 1)));
+		}
+		pose.popPose();
 		pose.popPose();
 	}
 
+	/** A round plate facing along z, radius {@code r} px: four overlapping boxes (wide, tall and two in between) round off a square. */
+	private static void disc(VertexConsumer vc, PoseStack pose, float z, float r, float hz, int rgb, int light) {
+		QueenBeeRender.box(vc, pose, 0f, 0f, z, r, r * 0.42f, hz, rgb, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, z, r * 0.42f, r, hz, rgb, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, z, r * 0.9f, r * 0.68f, hz, rgb, light);
+		QueenBeeRender.box(vc, pose, 0f, 0f, z, r * 0.68f, r * 0.9f, hz, rgb, light);
+	}
+
 	/**
-	 * The Dragon Choker round her collar, in the posed body's space (it follows the body: sneaking, turning). {@code on}: it
-	 * glows as the Kwami goes in.
+	 * The Dragon Choker at her throat, in the posed body's space (it follows the body: sneaking, turning). {@code on}: it glows as the
+	 * Kwami goes in.
 	 *
-	 * <p>v0.17.3 (tester: the choker "is bugged slightly"): it used to be two loose 8.1 px planks floating 0.4 px off the front
-	 * and back of the chest -- wider than the torso, nothing on the sides, the clasp hanging below them -- so from above it
-	 * read as a red strip lying across the chest rather than a band round the neck. Now a slim band wraps all four sides of
-	 * the collar flush over the skin's second layer (and the suit), with a small gold clasp at the throat.
+	 * <p>v0.17.4 (user: "make the choker/necklace model look better please"): no more square ring round the whole 8 x 4 collar. A block
+	 * body has no neck, so the band is a curved choker that hugs where her neck would be -- an arc of twelve short links round the front
+	 * of the throat, standing just proud of the chest at the middle and tucking into the collar at the sides -- deep red with gold piping
+	 * along both edges, and the Dragon Miraculous hanging from it: a gold bail and dragon-head cap, a red dragon ball held in four gold
+	 * claws, with a bright glint (glowing as the Kwami goes in).
 	 */
 	public static void renderChoker(PoseStack pose, MultiBufferSource buffers, int light, ModelPart body, boolean on) {
 		VertexConsumer vc = boxes(buffers);
 		pose.pushPose();
 		body.translateAndRotate(pose);
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		// transformed, a deeper red, so the band still reads against the red suit
-		int band = on ? RED_D : RED;
-		int bandBack = on ? 0x6E1218 : RED_D;
-		// the second layer (jacket / suit) sits 0.25 px proud of the 8 x 12 x 4 torso; the band 0.06 px over that, 0.12 thick
-		float g = 0.31f, th = 0.06f;
-		float y = 0.55f, hy = 0.45f; // y 0.1 .. 1.0, just under the chin
-		float fx = 4f + g, fz = 2f + g;
-		QueenBeeRender.box(vc, pose, 0f, y, -fz - th, fx + 2f * th, hy, th, band, light); // front
-		QueenBeeRender.box(vc, pose, 0f, y, fz + th, fx + 2f * th, hy, th, bandBack, light); // back
-		QueenBeeRender.box(vc, pose, -fx - th, y, 0f, th, hy, fz, bandBack, light); // sides
-		QueenBeeRender.box(vc, pose, fx + th, y, 0f, th, hy, fz, bandBack, light);
-		// the gold clasp at the throat, a dragon-red gem in it
-		float cz = -fz - 2f * th;
-		QueenBeeRender.box(vc, pose, 0f, y, cz - 0.08f, 0.75f, 0.62f, 0.08f, on ? GOLD_L : GOLD, on ? LightTexture.FULL_BRIGHT : light);
-		QueenBeeRender.box(vc, pose, 0f, y, cz - 0.2f, 0.32f, 0.3f, 0.05f, on ? 0xFF6A50 : RED_D, on ? LightTexture.FULL_BRIGHT : light);
+		int band = on ? 0x7E141C : RED_D, pipe = on ? GOLD_L : GOLD;
+		// the arc: an ellipse round the throat (x 3.1, z 2.78), y 0.2 .. 1.0 just under the chin; links from -78 to +78 degrees
+		float rx = 3.1f, rz = 2.78f, y = 0.6f;
+		int links = 12;
+		float a0 = -78f, a1 = 78f;
+		for (int i = 0; i < links; i++) {
+			float am = Mth.lerp((i + 0.5f) / links, a0, a1) * Mth.DEG_TO_RAD;
+			float aa = Mth.lerp(i / (float) links, a0, a1) * Mth.DEG_TO_RAD, ab = Mth.lerp((i + 1f) / links, a0, a1) * Mth.DEG_TO_RAD;
+			float xa = rx * Mth.sin(aa), za = -rz * Mth.cos(aa), xb = rx * Mth.sin(ab), zb = -rz * Mth.cos(ab);
+			float len = Mth.sqrt((xb - xa) * (xb - xa) + (zb - za) * (zb - za));
+			float yaw = (float) Math.atan2(zb - za, xb - xa);
+			// the front dips a little (a choker sits lower at the throat than at the sides)
+			float dip = 0.18f * Mth.cos(am);
+			pose.pushPose();
+			pose.translate(rx * Mth.sin(am), y + dip, -rz * Mth.cos(am));
+			pose.mulPose(Axis.YP.rotation(-yaw));
+			QueenBeeRender.box(vc, pose, 0f, 0f, 0f, len * 0.5f + 0.04f, 0.4f, 0.13f, band, light);
+			QueenBeeRender.box(vc, pose, 0f, -0.4f, 0f, len * 0.5f + 0.04f, 0.06f, 0.17f, pipe, light);
+			QueenBeeRender.box(vc, pose, 0f, 0.4f, 0f, len * 0.5f + 0.04f, 0.06f, 0.17f, pipe, light);
+			pose.popPose();
+		}
+		// the pendant, hanging from the middle of the band
+		float pz = -rz - 0.3f, top = y + 0.18f + 0.45f;
+		int glow = on ? LightTexture.FULL_BRIGHT : light;
+		QueenBeeRender.box(vc, pose, 0f, top + 0.2f, pz, 0.18f, 0.28f, 0.12f, pipe, light); // bail
+		QueenBeeRender.box(vc, pose, 0f, top + 0.58f, pz - 0.05f, 0.52f, 0.14f, 0.24f, pipe, light); // dragon-head cap
+		QueenBeeRender.box(vc, pose, 0f, top + 0.5f, pz - 0.32f, 0.2f, 0.1f, 0.06f, RED_D, light); // its brow gem
+		float cy = top + 1.45f, cz = pz - 0.15f, r = 0.72f;
+		int ball = on ? 0xFF4A3A : 0xD0262C, ballLit = on ? 0xFFB09A : 0xF0605A;
+		QueenBeeRender.box(vc, pose, 0f, cy, cz, r, r * 0.68f, r * 0.68f, ball, glow); // the dragon ball: a rounded cube of three boxes
+		QueenBeeRender.box(vc, pose, 0f, cy, cz, r * 0.68f, r, r * 0.68f, ball, glow);
+		QueenBeeRender.box(vc, pose, 0f, cy, cz, r * 0.68f, r * 0.68f, r, ball, glow);
+		QueenBeeRender.box(vc, pose, -0.24f, cy - 0.26f, cz - r - 0.01f, 0.14f, 0.14f, 0.02f, ballLit, glow); // the glint
+		QueenBeeRender.box(vc, pose, -0.34f, cy - 0.1f, cz - r - 0.01f, 0.06f, 0.1f, 0.02f, 0xFFF0E8, glow);
+		for (int sx = -1; sx <= 1; sx += 2) { // four gold claws gripping it
+			for (int sy = -1; sy <= 1; sy += 2) {
+				QueenBeeRender.box(vc, pose, sx * r * 0.78f, cy + sy * r * 0.62f, cz - r * 0.5f, 0.09f, 0.22f, 0.1f, pipe, light);
+				QueenBeeRender.box(vc, pose, sx * r * 0.55f, cy + sy * r * 0.82f, cz - r * 0.62f, 0.14f, 0.08f, 0.09f, pipe, light);
+			}
+		}
 		pose.popPose();
 	}
 }

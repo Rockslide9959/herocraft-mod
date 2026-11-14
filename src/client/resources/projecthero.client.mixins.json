@@ -21,6 +21,7 @@
 		"OmnitrixBodyTurnMixin",
 "OmnitrixPlayerRendererMixin",
 		"OmnitrixPoseMixin",
+		"SpinHoldPoseMixin",
 		"OmnitrixGlowMixin",
 		"RipjawsScentColorMixin",
 		"GreyMatterInsideRenderMixin",

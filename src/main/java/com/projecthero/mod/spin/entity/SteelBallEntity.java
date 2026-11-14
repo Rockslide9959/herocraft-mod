@@ -87,7 +87,8 @@ public class SteelBallEntity extends Projectile {
 	public static SteelBallEntity launch(ServerPlayer owner, int index, InteractionHand hand, byte mode, Vec3 velocity, Vec3 aim, boolean steer,
 			double range, boolean golden) {
 		if (com.projecthero.mod.spin.SpinBalls.inHand(owner, hand) == index) {
-			owner.setItemInHand(hand, net.minecraft.world.item.ItemStack.EMPTY);
+			// v0.17.4: out of the hand, or (Gyro's suit) off the holsters -- never what else the hand holds
+			com.projecthero.mod.spin.SpinBalls.takeOut(owner, hand, index);
 		}
 		SteelBallEntity ball = new SteelBallEntity(SpinEntities.STEEL_BALL, owner.level());
 		ball.hand = hand;

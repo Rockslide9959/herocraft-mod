@@ -411,4 +411,34 @@ public class BeastBoyGameTests implements FabricGameTest {
 		helper.assertTrue(r.consumesAction() && other.isUsingItem(), "a normal player starts eating steak: " + r);
 		helper.succeed();
 	}
+
+	/** v0.17.4: Regeneration II in every animal form; it heals the form's own pool at its rate, and goes as he turns human. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void animalFormsGetRegenerationTwoThatHealsTheFormPool(GameTestHelper helper) {
+		ServerPlayer p = bb(helper);
+		BeastBoy.tick(p);
+		helper.assertTrue(!p.hasEffect(MobEffects.REGENERATION), "no regeneration in human form");
+		helper.assertTrue(BeastBoyAbilityManager.pick(p, BeastForm.WOLF), "into the wolf");
+		BeastBoy.absorb(p, 10f, null);
+		float before = BeastBoy.formHp(p);
+		helper.assertTrue(Math.abs(before - 20f) < 0.01f, "10 off the wolf's 30 pool, left " + before);
+		helper.runAfterDelay(1, () -> {
+			BeastBoy.tick(p);
+			var regen = p.getEffect(MobEffects.REGENERATION);
+			helper.assertTrue(regen != null && regen.getAmplifier() == 1, "Regeneration II as a wolf: " + regen);
+			float step = BeastBoy.formHp(p) - before;
+			helper.assertTrue(Math.abs(step - BeastBoyConfig.FORM_REGEN_PER_TICK) < 1.0e-3f, "the pool heals " + BeastBoyConfig.FORM_REGEN_PER_TICK + " a tick, step " + step);
+			edit(p, s -> s.formHp = BeastForm.WOLF.formHealth - 0.01f);
+		});
+		helper.runAfterDelay(2, () -> {
+			BeastBoy.tick(p);
+			helper.assertTrue(BeastBoy.formHp(p) == BeastForm.WOLF.formHealth, "never past the form's max: " + BeastBoy.formHp(p));
+			BeastBoy.toHuman(p);
+		});
+		helper.runAfterDelay(3, () -> {
+			BeastBoy.tick(p);
+			helper.assertTrue(BeastBoy.form(p) == BeastForm.HUMAN && !p.hasEffect(MobEffects.REGENERATION), "human again: the regeneration is gone");
+			helper.succeed();
+		});
+	}
 }

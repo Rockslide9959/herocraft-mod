@@ -45,6 +45,13 @@ public final class BenwolfClient implements AlienClientKit {
 	/** Skin texels: the black fur, the grey of his muzzle and nose. */
 	private static final float[] FUR = AlienHorns.pixel(10, 9, 64), GREY = AlienHorns.pixel(11, 12, 64), FUR_EDGE = AlienHorns.pixel(8, 9, 64);
 	private static final int THROAT = 0xFF2A0A10, GUM = 0xFF6A1A22, FANG = 0xFFF2F0E2;
+	/** v0.17.4 the tail's texels: the grey fur of his back, the black of his mane at the root, a pale tip from his white stripes. */
+	private static final float[] TAIL_FUR = AlienHorns.pixel(31, 25, 64), TAIL_ROOT = AlienHorns.pixel(35, 20, 64), TAIL_TIP = AlienHorns.pixel(32, 28, 64);
+
+	@Override
+	public void tick(AbstractClientPlayer p) {
+		BenwolfSprint.tick(p);
+	}
 
 	public static void register() {
 		AlienClients.register(Aliens.BENWOLF.id(), new BenwolfClient());
@@ -83,8 +90,6 @@ public final class BenwolfClient implements AlienClientKit {
 	/** v0.17.4 Wall Bound: a twisting kick off the wall, legs driving, arms flung up and back. */
 	private static final float[][] BOUND = { rest(0), g(2, 0.8f, 0, 0.5f, 0.8f, 0, -0.5f, 0.3f, 0.6f, -0.9f, 0.6f, -0.2f, 0.4f),
 			g(6, -2.4f, 0, 0.4f, -2.4f, 0, -0.4f, -0.2f, -0.3f, 0.5f, -0.4f, -0.3f, 0), g(14, -1.0f, 0, 0.4f, -1.0f, 0, -0.4f, 0.1f, 0, 0.2f, -0.2f, 0, 0), rest(20) };
-	/** v0.17.4 Hunt Sprint (held): down on all fours, body pitched forward, arms reaching for the ground (the gallop is added in {@link #pose}). */
-	private static final float[] SPRINT_HELD = g(0, -1.25f, 0, 0.1f, -1.25f, 0, -0.1f, 1.15f, 0, 0.35f, -0.35f, -1.0f, 0.5f);
 	/** v0.17.4 Moon Howl: head thrown back to the sky, chest out, arms spread low. */
 	private static final float[] MOON_HELD = g(0, 0.5f, 0, 0.7f, 0.5f, 0, -0.7f, -0.35f, 0, 0.05f, -0.05f, -0.9f, 0.1f);
 	private static final float[][] MOON = { rest(0), at(4, MOON_HELD), at(28, MOON_HELD), rest(34) };
@@ -149,23 +154,32 @@ public final class BenwolfClient implements AlienClientKit {
 		return BenwolfKit.senses(viewer, e) || BenwolfKit.scented(viewer, e); // v0.17.4: his Scent Mark, at any range
 	}
 
-	private static final FirstPersonClip FP_SPRINT = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(4, 40, 0, 0, 0, -0.5f, 0.15f), fp(4000, 40, 0, 0, 0, -0.5f, 0.15f))
-			.both();
+	/**
+	 * v0.17.4: Hunt Sprint in first person -- both forepaws dropped low and pounding the ground in time with the gallop (a stride of
+	 * {@link #FP_STRIDE} ticks, his pace at full sprint): reaching forward and up, then driving down and back.
+	 */
+	private static final float FP_STRIDE = 6.6f;
+	private static final FirstPersonClip FP_SPRINT = sprintClip();
+
+	private static FirstPersonClip sprintClip() {
+		java.util.List<float[]> f = new java.util.ArrayList<>();
+		f.add(fp(0, 0, 0, 0, 0, 0, 0));
+		f.add(fp(4, 46, 0, 0, 0, -0.52f, 0.12f));
+		for (float t = 4f + FP_STRIDE * 0.5f; t < 4000f; t += FP_STRIDE) {
+			f.add(fp(t, 20, 6, 0, 0.02f, -0.3f, -0.14f)); // reaching ahead
+			f.add(fp(t + FP_STRIDE * 0.5f, 56, -4, 0, -0.02f, -0.54f, 0.16f)); // planted, pushing back
+		}
+		return FirstPersonClip.of(f.toArray(new float[0][])).both();
+	}
 	private static final FirstPersonClip FP_MAUL = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(2, -70, 10, 0, 0.05f, 0.55f, 0f), fp(5, 30, 0, 0, 0, -0.3f, -0.1f),
 			fp(14, 0, 0, 0, 0, 0, 0)).both();
 
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		int flags = Omnitrix.state(p).kitFlags;
-		if ((flags & BenwolfKit.F_SPRINT) != 0) {
-			QuirkKeyframes.apply(m, SPRINT_HELD, Mth.clamp(ticks / 4f, 0f, 1f));
-			// the gallop: forelegs and hind legs reaching and pushing in turn, quicker with his speed
-			float gait = age * (0.55f + p.walkAnimation.speed() * 0.35f);
-			float swing = Mth.sin(gait) * 0.55f * Mth.clamp(p.walkAnimation.speed() * 2f, 0.25f, 1f);
-			m.rightArm.xRot += swing;
-			m.leftArm.xRot += swing * 0.8f;
-			m.rightLeg.xRot -= swing;
-			m.leftLeg.xRot -= swing * 0.8f;
+		// v0.17.4 (user: "Blitzwolfer's hunt sprint doesn't look that good, his head goes up and his arms dont actually touch the ground"):
+		// a real four-legged gallop -- the whole body pitched about the hips, paws planted, head level (BenwolfSprint); it eases out too
+		if (BenwolfSprint.pose(p, m, age - p.tickCount)) {
 			return true;
 		}
 		if ((flags & BenwolfKit.F_CHARGE) != 0) {
@@ -229,6 +243,8 @@ public final class BenwolfClient implements AlienClientKit {
 		boolean howling = s.animId == BenwolfKit.ANIM_HOWL || s.animId == BenwolfKit.ANIM_DISORIENT || s.animId == BenwolfKit.ANIM_MOON
 				|| s.animId == BenwolfKit.ANIM_SHOCKWAVE;
 		boolean charging = (s.kitFlags & BenwolfKit.F_CHARGE) != 0;
+		// v0.17.4 (user: "give blitzwolfer a bushy wolf tail please"): the 3D tail (the one painted on his back is gone from the skin)
+		BenwolfSprint.renderTail(pose, buffers, light, p, model, partial, age, TAIL_FUR, TAIL_ROOT, TAIL_TIP);
 		AlienParts.on(pose, model.head, () -> {
 			head(pose, buffers, light, open);
 			if (open > 0.05f && (howling || charging)) {

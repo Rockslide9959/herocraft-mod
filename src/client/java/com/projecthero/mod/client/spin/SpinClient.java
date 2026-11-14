@@ -33,6 +33,10 @@ public final class SpinClient {
 				com.projecthero.mod.spin.SpinItems.STEEL_BALL, new SteelBallItemRenderer());
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			helper.register(new SpinMarkLayer(entityRenderer));
+			// v0.17.4: Gyro's holster trousers, with the balls he carries
+			if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer pr) {
+				helper.register(new SpinHolsterLayer(pr));
+			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(SpinFxPayload.TYPE, (payload, context) -> SpinFx.receive(payload));
 		WorldRenderEvents.AFTER_ENTITIES.register(SpinFx::render);

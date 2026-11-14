@@ -740,6 +740,8 @@ public final class BeastBoy {
 			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, BeastBoyConfig.NIGHT_VISION_TICKS, 0, true, false, false));
 		}
 		f = form(player);
+		// v0.17.4: Regeneration II in an animal form -- the effect, and the form's own pool healing at its rate (in place, synced below)
+		formRegen(player, state(player), f);
 		formTick(player, f, now);
 		if (player.tickCount % 20 == 0) {
 			reconcile(player);
@@ -748,6 +750,30 @@ public final class BeastBoy {
 		BeastBoyMoves.tick(player);
 		if (now % BeastBoyConfig.SYNC_INTERVAL == 0) {
 			save(player, state(player).copy());
+		}
+	}
+
+	/**
+	 * v0.17.4 (user: "Give beast boy regen 2 in his animal forms please"): Regeneration II while he is an animal (any form with its own
+	 * health), taken away as he turns human. Hits come off the form's pool, not his hearts, so the pool heals at Regeneration II's rate
+	 * too (1 health every 25 ticks, as a small step every tick).
+	 */
+	static void formRegen(ServerPlayer player, BeastBoyState s, BeastForm f) {
+		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
+		if (f == BeastForm.HUMAN || f.formHealth <= 0f) {
+			// only ours: an ambient Regeneration II no longer than ours (a potion or a golden apple is left alone)
+			if (regen != null && regen.isAmbient() && regen.getAmplifier() == BeastBoyConfig.FORM_REGEN_AMPLIFIER
+					&& regen.getDuration() <= BeastBoyConfig.FORM_REGEN_TICKS) {
+				player.removeEffect(MobEffects.REGENERATION);
+			}
+			return;
+		}
+		if (regen == null || (regen.getAmplifier() <= BeastBoyConfig.FORM_REGEN_AMPLIFIER && !regen.isInfiniteDuration()
+				&& regen.getDuration() < BeastBoyConfig.FORM_REGEN_TICKS - 20)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, BeastBoyConfig.FORM_REGEN_TICKS, BeastBoyConfig.FORM_REGEN_AMPLIFIER, true, false, true));
+		}
+		if (s.formHp > 0f && s.formHp < f.formHealth) {
+			s.formHp = Math.min(f.formHealth, s.formHp + BeastBoyConfig.FORM_REGEN_PER_TICK);
 		}
 	}
 

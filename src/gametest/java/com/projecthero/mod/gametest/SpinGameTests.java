@@ -228,6 +228,51 @@ public class SpinGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.4 Gyro's suit: with the coat and trousers on, a ball anywhere in the inventory works without holding it (the hand keeps
+	 * what it holds), the throw takes it from its slot and the catch puts it back in the inventory, not the hand; the Spin bar refills
+	 * 30% faster in the suit and 30% faster on a horse, adding up.
+	 */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void gyroSuitThrowsFromTheHolstersAndChargesFaster(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		ticker(helper, p);
+		helper.assertTrue(Math.abs(Spin.spinRegenMultiplier(p) - 1f) < 1.0e-4f, "plain refill without the suit");
+		// both balls into the inventory, a sword in the main hand
+		ItemStack b0 = p.getMainHandItem().copy(), b1 = p.getOffhandItem().copy();
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		p.getInventory().setItem(12, b0);
+		p.getInventory().setItem(13, b1);
+		helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) < 0, "no suit: an inventory ball is not ready");
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.spin.GyroSuitItem.COAT));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(com.projecthero.mod.spin.GyroSuitItem.TROUSERS));
+		helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) == 0 && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1,
+				"in the suit both holstered balls are ready");
+		helper.assertTrue(SpinBalls.holsteredCount(p) == 2 && Spin.ballsReady(p) == 2, "two on the belt");
+		helper.assertTrue(Math.abs(Spin.spinRegenMultiplier(p) - 1.3f) < 1.0e-4f, "+30% in the suit");
+		Zombie z = zombie(helper, 5.5, 1.5, 100);
+		look(p, z);
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R throws a holstered ball");
+		helper.assertTrue(p.getMainHandItem().is(Items.IRON_SWORD), "the sword stays in the hand");
+		helper.assertTrue(p.getInventory().getItem(12).isEmpty() && (Spin.state(p).thrown & 1) != 0, "ball 0 left its slot");
+		helper.assertTrue(SpinBalls.holsteredCount(p) == 1, "one left on the belt");
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(Spin.state(p).thrown == 0 && SpinBalls.inInventory(p, 0), "the ball came back");
+			helper.assertTrue(p.getMainHandItem().is(Items.IRON_SWORD) && SpinBalls.heldIndex(p, InteractionHand.MAIN_HAND) < 0,
+					"back onto the holsters, not into the hand");
+			helper.assertTrue(SpinBalls.holsteredCount(p) == 2, "both on the belt again");
+			Horse h = helper.spawnWithNoFreeWill(EntityType.HORSE, new Vec3(1.5, 2.0, 3.5));
+			p.startRiding(h, true);
+			helper.assertTrue(Math.abs(Spin.spinRegenMultiplier(p) - 1.6f) < 1.0e-4f, "suit and horse add up: +60%, got " + Spin.spinRegenMultiplier(p));
+			p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+			helper.assertTrue(Math.abs(Spin.spinRegenMultiplier(p) - 1.3f) < 1.0e-4f, "the horse alone: +30%");
+			helper.assertTrue(SpinBalls.inHand(p, InteractionHand.MAIN_HAND) < 0, "without the coat the holsters don't work");
+			p.stopRiding();
+			helper.succeed();
+		});
+	}
+
 	// ---------------------------------------------------------------- the balls are items he holds
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)

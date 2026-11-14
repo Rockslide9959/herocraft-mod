@@ -192,6 +192,10 @@ public final class QuirkCostume {
 		if (com.projecthero.mod.undead.item.UndeadSuitItem.wornIn(entity, slot)) {
 			return tex(com.projecthero.mod.undead.item.UndeadSuitItem.texture(slim(entity)));
 		}
+		// v0.17.4: Gyro's suit (the Spin), from its costume skin
+		if (com.projecthero.mod.spin.GyroSuitItem.wornIn(entity, slot)) {
+			return tex(com.projecthero.mod.spin.GyroSuitItem.texture(slim(entity)));
+		}
 		Quirk q = QuirkSuits.wornIn(entity, slot);
 		return q == null ? null : tex(q, slim(entity));
 	}
@@ -335,7 +339,8 @@ public final class QuirkCostume {
 			return;
 		}
 		boolean bird = birdHead(entity);
-		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)) {
+		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)
+				&& !com.projecthero.mod.spin.GyroSuitItem.anyWorn(entity)) {
 			return;
 		}
 		beginUndead(entity);

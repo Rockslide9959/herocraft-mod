@@ -97,12 +97,16 @@ public final class SpinHud {
 		g.drawString(font, font.plainSubstrByWidth(title, WIDTH - 22), x0, by - 2, GOLD_TEXT, true);
 		for (int i = 0; i < 2; i++) {
 			int bx = x0 + WIDTH - 18 + i * 10;
-			ballIcon(g, bx, by - 2, Spin.ballReady(p, i)); // filled while that ball is in one of his hands
+			ballIcon(g, bx, by - 2, Spin.ballReady(p, i)); // filled while that ball is in one of his hands (or, in Gyro's suit, on his belt)
 		}
 		// status tags, wrapped to the HUD's width (bottom line first, upward)
 		List<Tag> tags = new ArrayList<>();
 		if (Spin.riding(p)) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.spin.riding").getString(), GOLD_TEXT));
+		}
+		// v0.17.4: Gyro's suit -- the bar refills 30% faster (and the balls work from the holsters)
+		if (com.projecthero.mod.spin.GyroSuitItem.suitWorn(p)) {
+			tags.add(new Tag(Component.translatable("hud.projecthero.spin.suit").getString(), GREEN_TEXT));
 		}
 		if (Spin.disguised(p)) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.spin.disguised").getString() + " " + clock(Spin.disguiseTicksLeft(p)), GREEN_TEXT));

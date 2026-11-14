@@ -1,0 +1,518 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.miraculous.Kwami;
+import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.benwolf.BenwolfKit;
+import com.projecthero.mod.spin.GyroSuitItem;
+import com.projecthero.mod.spin.Spin;
+import com.projecthero.mod.spin.SpinAbilityManager;
+import com.projecthero.mod.spin.SpinBalls;
+import com.projecthero.mod.spin.SpinMoves;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.4 misc models): Benwolf's Hunt Sprint + tail, Ryuko's katana and choker, Gyro's suit holsters, the
+ * Spin HUD and the side-hold stance. Enabled by run/miscmodels.flag = "<out dir>|<phases: W R S>".
+ */
+public final class MiscModelsHarness implements ClientModInitializer {
+	public static volatile Vec3 camPos, camLook;
+	/** Follow mode: the camera at the player's (interpolated) position + this, looking at it + {@link #followLook}. */
+	public static volatile Vec3 follow, followLook;
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static Vec3 home;
+	private static File out;
+	private static String phases = "WRS";
+	private static final int START = 100, W_LEN = 320, R_LEN = 160, S_LEN = 260;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("miscmodels.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				phases = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(MiscModelsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "miscmodels-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void cam(double px, double py, double pz, double lx, double ly, double lz) {
+		follow = null;
+		camPos = home.add(px, py, pz);
+		camLook = home.add(lx, ly, lz);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MiscModelsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		if (t < START || home == null) {
+			return;
+		}
+		int s = t - START;
+		if (phases.contains("W")) {
+			if (s < W_LEN) {
+				benwolf(mc, s);
+				return;
+			}
+			s -= W_LEN;
+		}
+		if (phases.contains("R")) {
+			if (s < R_LEN) {
+				ryuko(mc, s);
+				return;
+			}
+			s -= R_LEN;
+		}
+		if (phases.contains("S")) {
+			if (s < S_LEN) {
+				spin(mc, s);
+				return;
+			}
+			s -= S_LEN;
+		}
+		if (s == 5) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	// ---------------------------------------------------------------- Benwolf
+
+	private static BenwolfKit wolf() {
+		return (BenwolfKit) Aliens.kit(BenwolfKit.ID);
+	}
+
+	private static void benwolf(Minecraft mc, int s) {
+		if (s == 0) {
+			server(mc, p -> {
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+				Aliens.discover(p, BenwolfKit.ID, true);
+				Omnitrix.setRecharge(p, 0);
+				Omnitrix.select(p, BenwolfKit.ID);
+				System.out.println("[HARNESS] benwolf transform=" + Omnitrix.transform(p));
+			});
+		}
+		if (s == 20) {
+			server(mc, p -> {
+				Omnitrix.setTimeLeft(p, 20 * 300);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		float sc = mc.player.getScale();
+		if (s == 30) {
+			cam(1.0 * sc, 1.25 * sc, 1.7 * sc, 0, 0.95 * sc, 0);
+		}
+		if (s == 45) {
+			shot(mc, "benwolf_tail_front34");
+		}
+		if (s == 50) {
+			cam(1.2 * sc, 1.3 * sc, -1.7 * sc, 0, 0.8 * sc, 0);
+		}
+		if (s == 65) {
+			shot(mc, "benwolf_tail_back34");
+		}
+		if (s == 70) {
+			cam(2.1 * sc, 1.0 * sc, 0, 0, 0.8 * sc, 0);
+		}
+		if (s == 85) {
+			shot(mc, "benwolf_tail_side");
+		}
+		if (s == 90) {
+			server(mc, p -> System.out.println("[HARNESS] sprint=" + wolf().startSprint(p)));
+		}
+		if (s == 100) {
+			cam(1.9 * sc, 0.75 * sc, 0.2, 0, 0.5 * sc, 0.2);
+		}
+		if (s == 110) {
+			shot(mc, "benwolf_sprint_stand_side");
+		}
+		if (s == 112) {
+			cam(1.2 * sc, 0.95 * sc, 1.6 * sc, 0, 0.5 * sc, 0.3);
+		}
+		if (s == 122) {
+			shot(mc, "benwolf_sprint_stand_front34");
+		}
+		if (s == 125) {
+			cam(-1.1 * sc, 1.15 * sc, -1.5 * sc, 0, 0.5 * sc, 0);
+		}
+		if (s == 132) {
+			shot(mc, "benwolf_sprint_stand_back34");
+		}
+		if (s == 133) {
+			server(mc, p -> p.connection.teleport(home.x, home.y, home.z - 2, 0f, 5f));
+			camPos = null;
+			follow = new Vec3(2.1 * sc, 0.7 * sc, 2.3);
+			followLook = new Vec3(0, 0.45 * sc, 2.3);
+		}
+		if (s >= 136 && s < 226) {
+			mc.options.keyUp.setDown(true);
+		}
+		if (s == 226) {
+			mc.options.keyUp.setDown(false);
+		}
+		if (s == 232) {
+			server(mc, p -> wolf().endSprint(p));
+		}
+		if (s >= 136 && s < 252) {
+			Screenshot.grab(out, String.format("benwolf_sprint_f%03d.png", s - 136), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (s == 255) {
+			follow = null;
+			camPos = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				p.connection.teleport(home.x, home.y, home.z - 2, 0f, 10f);
+				wolf().startSprint(p);
+			});
+		}
+		if (s >= 260 && s < 300) {
+			mc.options.keyUp.setDown(true);
+			Screenshot.grab(out, String.format("benwolf_fp_f%03d.png", s - 260), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (s == 300) {
+			mc.options.keyUp.setDown(false);
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				wolf().endSprint(p);
+				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+	}
+
+	// ---------------------------------------------------------------- Ryuko
+
+	private static void ryuko(Minecraft mc, int s) {
+		if (s == 0) {
+			server(mc, p -> {
+				Omnitrix.revoke(p);
+				System.out.println("[HARNESS] ryuko grant=" + Miraculous.grant(p, Kwami.LONGG));
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+			});
+		}
+		if (s == 10) {
+			cam(0.35, 1.5, 0.95, 0, 1.33, 0);
+		}
+		if (s == 25) {
+			shot(mc, "ryuko_choker_plain");
+		}
+		if (s == 30) {
+			server(mc, p -> {
+				Miraculous.transform(p);
+				long now = p.level().getGameTime();
+				Miraculous.edit(p, n -> n.formChangeAt = now - 200L);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 0f);
+			});
+		}
+		if (s == 50) {
+			cam(0.35, 1.5, 0.95, 0, 1.33, 0);
+		}
+		if (s == 62) {
+			shot(mc, "ryuko_choker_suit");
+		}
+		if (s == 65) {
+			cam(1.6, 1.4, 2.4, 0, 0.95, 0);
+		}
+		if (s == 80) {
+			shot(mc, "ryuko_full34");
+		}
+		if (s == 85) {
+			cam(-1.25, 1.05, 0.45, -0.3, 0.85, 0.35);
+		}
+		if (s == 100) {
+			shot(mc, "ryuko_katana_side");
+		}
+		if (s == 105) {
+			cam(-0.9, 1.5, 1.3, -0.3, 0.85, 0.4);
+		}
+		if (s == 113) {
+			shot(mc, "ryuko_katana_34");
+		}
+		if (s == 114) {
+			cam(-0.8, 1.05, 0.8, -0.33, 0.72, 0.3);
+		}
+		if (s == 122) {
+			shot(mc, "ryuko_katana_hilt_close");
+		}
+		if (s == 125) {
+			camPos = null;
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> p.connection.teleport(home.x, home.y, home.z, 0f, 15f));
+		}
+		if (s == 140) {
+			shot(mc, "ryuko_katana_fp");
+		}
+		if (s == 145) {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> Miraculous.detransform(p, false));
+		}
+	}
+
+	// ---------------------------------------------------------------- the Spin
+
+	private static void ballsToInventory(ServerPlayer p) {
+		for (InteractionHand h : InteractionHand.values()) {
+			ItemStack st = p.getItemInHand(h);
+			if (SpinBalls.heldIndex(p, h) >= 0) {
+				for (int k = 9; k < 36; k++) {
+					if (p.getInventory().getItem(k).isEmpty()) {
+						p.getInventory().setItem(k, st.copy());
+						break;
+					}
+				}
+				p.setItemInHand(h, ItemStack.EMPTY);
+			}
+		}
+	}
+
+	private static void log(ServerPlayer p, String what) {
+		System.out.println("[HARNESS] " + what + ": holstered=" + SpinBalls.holsteredCount(p) + " main=" + SpinBalls.inHand(p, InteractionHand.MAIN_HAND)
+				+ " off=" + SpinBalls.inHand(p, InteractionHand.OFF_HAND) + " heldMain=" + SpinBalls.heldIndex(p, InteractionHand.MAIN_HAND) + " thrown="
+				+ Spin.state(p).thrown + " spinRegenX=" + Spin.spinRegenMultiplier(p));
+	}
+
+	private static void spin(Minecraft mc, int s) {
+		if (s == 0) {
+			server(mc, p -> {
+				Omnitrix.revoke(p);
+				Miraculous.revoke(p);
+				System.out.println("[HARNESS] spin grant=" + Spin.grant(p));
+				p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(GyroSuitItem.HAT));
+				p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(GyroSuitItem.COAT));
+				p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(GyroSuitItem.TROUSERS));
+				p.setItemSlot(EquipmentSlot.FEET, new ItemStack(GyroSuitItem.BOOTS));
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		if (s == 10) {
+			server(mc, p -> {
+				ballsToInventory(p);
+				log(p, "suit on, balls in the inventory");
+			});
+		}
+		if (s == 20) {
+			cam(1.5, 1.35, 2.4, 0, 0.95, 0);
+		}
+		if (s == 35) {
+			shot(mc, "spin_suit_front34");
+		}
+		if (s == 40) {
+			cam(1.6, 1.4, -2.4, 0, 0.95, 0);
+		}
+		if (s == 55) {
+			shot(mc, "spin_suit_back34");
+		}
+		if (s == 60) {
+			cam(0.45, 0.85, 1.05, 0, 0.68, 0);
+		}
+		if (s == 75) {
+			shot(mc, "spin_holsters_close");
+		}
+		if (s == 80) {
+			camPos = null;
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		}
+		if (s == 95) {
+			shot(mc, "spin_hud");
+		}
+		if (s == 100) {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				// ball 0 into the main hand: the side stance; ball 1 stays on the belt
+				ballsToInventory(p);
+				var inv = p.getInventory();
+				for (int k = 0; k < inv.getContainerSize(); k++) {
+					if (SpinBalls.id(inv.getItem(k)) != null && SpinBalls.id(inv.getItem(k)).index() == 0) {
+						p.setItemInHand(InteractionHand.MAIN_HAND, inv.getItem(k).copy());
+						inv.setItem(k, ItemStack.EMPTY);
+						break;
+					}
+				}
+				log(p, "ball 0 in hand");
+			});
+			cam(0.2, 1.2, 2.6, 0, 0.85, 0);
+		}
+		if (s == 115) {
+			shot(mc, "spin_hold_side_front");
+		}
+		if (s == 118) {
+			cam(-1.9, 1.25, 1.6, 0, 0.85, 0);
+		}
+		if (s == 132) {
+			shot(mc, "spin_hold_side_34");
+		}
+		if (s == 140) {
+			server(mc, p -> System.out.println("[HARNESS] throw from hand=" + SpinMoves.use(p, SpinAbilityManager.STEEL_BALL)));
+		}
+		if (s >= 134 && s < 174) {
+			Screenshot.grab(out, String.format("spin_throw_f%03d.png", s - 134), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (s == 180) {
+			server(mc, p -> {
+				log(p, "after the hand throw");
+				ballsToInventory(p);
+				Spin.clearCooldowns(p);
+				log(p, "balls back on the belt");
+			});
+		}
+		if (s == 195) {
+			server(mc, p -> {
+				System.out.println("[HARNESS] throw from holster=" + SpinMoves.use(p, SpinAbilityManager.STEEL_BALL));
+				log(p, "just thrown from the holster");
+			});
+		}
+		if (s >= 188 && s < 228) {
+			Screenshot.grab(out, String.format("spin_holster_throw_f%03d.png", s - 188), mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (s == 235) {
+			server(mc, p -> log(p, "holster ball back"));
+			camPos = null;
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				var inv = p.getInventory();
+				for (int k = 0; k < inv.getContainerSize(); k++) {
+					if (SpinBalls.id(inv.getItem(k)) != null) {
+						p.setItemInHand(InteractionHand.MAIN_HAND, inv.getItem(k).copy());
+						inv.setItem(k, ItemStack.EMPTY);
+						break;
+					}
+				}
+			});
+		}
+		if (s == 250) {
+			shot(mc, "spin_hold_fp");
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	@SuppressWarnings("unused")
+	private static void unused(Entity e, Player p) {
+	}
+}

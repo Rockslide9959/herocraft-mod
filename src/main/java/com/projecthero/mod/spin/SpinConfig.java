@@ -25,6 +25,11 @@ public final class SpinConfig {
 	public static final float SPIN_MAX = 100f;
 	/** 4 Spin a second. */
 	public static final float SPIN_REGEN_PER_TICK = 4f / 20f;
+	/**
+	 * v0.17.4 (user: "make spin charge 30% faster when wearing the suit please and also when riding a horse"): the bar refills 30% faster in
+	 * Gyro's suit (GyroSuitItem#suitWorn) and 30% faster on a horse; the two add up (+60%, 6.4 a second, with both).
+	 */
+	public static final float SUIT_SPIN_REGEN_BONUS = 0.30f, RIDING_SPIN_REGEN_BONUS = 0.30f;
 	/** How often the bar is re-sent to the clients (it ticks in place on the server). */
 	public static final int SYNC_INTERVAL = 5;
 

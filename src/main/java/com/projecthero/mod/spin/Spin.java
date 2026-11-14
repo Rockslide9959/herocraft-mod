@@ -116,7 +116,15 @@ public final class Spin {
 		return player.getVehicle() instanceof AbstractHorse;
 	}
 
-	/** Ball {@code i}'s item is in one of his hands right now. Client-safe. */
+	/**
+	 * v0.17.4: how fast the Spin bar refills, x1 plain: +30% in Gyro's suit, +30% on a horse (they add up, x1.6 with both). Client-safe
+	 * (the HUD shows it).
+	 */
+	public static float spinRegenMultiplier(Player player) {
+		return 1f + (GyroSuitItem.suitWorn(player) ? SpinConfig.SUIT_SPIN_REGEN_BONUS : 0f) + (riding(player) ? SpinConfig.RIDING_SPIN_REGEN_BONUS : 0f);
+	}
+
+	/** Ball {@code i}'s item is in one of his hands right now (or, in Gyro's suit, ready on his belt). Client-safe. */
 	public static boolean ballReady(Player player, int i) {
 		return hasPower(player) && SpinBalls.ballInHand(player, i);
 	}
@@ -275,7 +283,7 @@ public final class Spin {
 
 	/** Scan / Quake / Shield: ball {@code i} leaves {@code hand} for {@code ticks}, then {@link SpinBalls#tick} gives it back there. */
 	static void takeBusy(ServerPlayer player, int i, int ticks, net.minecraft.world.InteractionHand hand) {
-		SpinBalls.take(player, hand);
+		SpinBalls.takeOut(player, hand, i);
 		SpinState n = state(player).copy();
 		n.setBusy(i, now(player) + ticks);
 		n.owed |= 1 << i;
@@ -449,7 +457,7 @@ public final class Spin {
 			return;
 		}
 		// the Spin bar (in place; re-sent every few ticks)
-		s.spin = Math.min(SpinConfig.SPIN_MAX, s.spin + SpinConfig.SPIN_REGEN_PER_TICK);
+		s.spin = Math.min(SpinConfig.SPIN_MAX, s.spin + SpinConfig.SPIN_REGEN_PER_TICK * spinRegenMultiplier(player));
 		// passive Regeneration I
 		if (now % SpinConfig.REGEN_EVERY_TICKS == 0L && player.isAlive() && player.getHealth() < player.getMaxHealth()) {
 			player.heal(1f);
