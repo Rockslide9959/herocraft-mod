@@ -14,7 +14,9 @@ import net.minecraft.client.MouseHandler;
 public abstract class FateMouseMixin {
 	@Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
 	private void projecthero$nabuHoldsTheView(double movementTime, CallbackInfo ci) {
-		if (DoctorFateClient.localPossessed()) {
+		// v0.17.4 (user: "i cant move my mouse in the [Nabu] mindscape"): in Nabu's library the mouse turns the walker there
+		// (MouseHandlerHulkMindMixin routes it to FateLibrary.turn), never the body Nabu is driving
+		if (DoctorFateClient.localPossessed() && !com.projecthero.mod.client.doctorfate.FateLibrary.showing()) {
 			ci.cancel();
 		}
 	}
