@@ -13,6 +13,7 @@
 		"SaiyanHungerMixin",
 		"StandTimeStopServerLevelMixin",
 		"StandTimeStopLevelMixin",
+		"StandTimeStopMoveMixin",
 		"StandMiningMixin",
 		"SpeedsterHungerMoveMixin",
 		"SuggestModIdsByPathMixin",

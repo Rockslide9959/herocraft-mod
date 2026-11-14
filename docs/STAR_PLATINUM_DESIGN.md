@@ -21,6 +21,34 @@ Numbers live in `StandConfig` (each marked with the user's words); the guidebook
 Sources: jojowiki.com (Star Platinum, Star Platinum: The World, Stand), ASBR / Eyes of Heaven / Heritage for the
 Future move lists, Roblox JoJo games (Project JoJo, Morioh High, A Universal Time), Roundabout mod wiki.
 
+## v0.17.4: who moves in stopped time, and the Stamina refill delay
+User: "players with super speed and star platinum and xlr8 can move during time stop, regular super speed can move at the
+speed of walking, xlr8 can move at the speed of regular player sprinting and same for speed force speedster, other star
+platinum users can move completely free and use abilities in time stop. make stand stamina only regenerate 1 second after
+not using stamina please".
+- `TimeStop.classify(player)` -> `Mobility`: FREE (another Star Platinum user), SPRINT (XLR8 worn right now, or a Speed Force
+  Speedster), WALK (the Super Speed mutation), FROZEN (anyone else). Best one wins. The caster is unchanged.
+- Server: `TimeStop.frozen` is false for any non-FROZEN player, so they tick. `TimeStop.capMove` (mixin
+  `StandTimeStopMoveMixin`, `Entity#move` with `MoverType.SELF`) cuts a WALK / SPRINT player's horizontal move and velocity
+  to 4.317 / 5.612 blocks a second (vanilla walk / sprint). Vertical movement (falling, jumping) is left alone.
+- Speedsters move only: `TimeStop.actionsLocked` refuses their ability keys (`AbilityRouter`, `StandAbilityManager`), attacks,
+  item use, entity / block use and block breaking, and their client holds back `handleKeybinds` (attack, use, inventory, hotbar).
+- A free Star Platinum user plays as if time ran: moves, keys, attacks, blocks. Their moves cost Stamina as usual (only the
+  caster's are free). Their hits on frozen creatures are queued like the caster's (`TimeStop.queue(attacker, ...)`, per attacker
+  and victim) WITHOUT the caster's +30%, and land on resume credited to them. Their projectiles fly 3 ticks then hang, like the
+  caster's; a creature they throw hangs too (it is frozen).
+- Sync: `TimeStopPayload.mobile` lists `entityId * 4 + Mobility` for every mobile player; the server re-sends when the list
+  changes (checked every 5 ticks). On the mobile player's own client their camera, movement and animations run (a speedster's
+  pace capped through `TimeStop.clientCap` -> `TimeStopClient.speedCap`). Every perceiving client (Stand users and mobile
+  players) shows them moving and the rest frozen. Only Stand users get the colour drain. A non-Stand, non-mobile player still
+  sees everything frozen, mobile players included, and the world jumps on resume.
+- Stamina: every drop of the bar (`Stands.save` sees it fall) restarts a 1 s wait (`StandConfig.STAMINA_REGEN_DELAY_TICKS`,
+  `Stands.regenWaiting`); the 3/s refill (0.75 every 5 ticks) only runs after it. Applies to the time-stop drain too.
+- Not handled: a mobile player riding a frozen mount stays put (the mount doesn't tick). Two attackers' queued hits on one player
+  are capped at 30% of max health each, not combined.
+- Tests: `StandTimeStopMobilityGameTests` (classification, frozen / actionsLocked, one self-move per cap as a step size, the free
+  user's queued hit without the bonus, the 1 s wait as refill steps).
+
 ## Stand framework (reused by every future Stand)
 - `com.projecthero.mod.stand`: a `StandType` registry, one `StandState` attachment (which Stand, summoned or not,
   Stamina, cooldowns, chosen pose), a `StandMove` record (same shape as the Omnitrix `AlienMove`),

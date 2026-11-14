@@ -17,7 +17,7 @@ import net.minecraft.client.Minecraft;
 public abstract class StandMinecraftMixin {
 	@Inject(method = "handleKeybinds", at = @At("HEAD"), cancellable = true)
 	private void projecthero$timeStopKeys(CallbackInfo ci) {
-		if (TimeStopClient.localFrozen()) {
+		if (TimeStopClient.localFrozen() || TimeStopClient.localLimited()) { // (v0.17.4: a speedster in it only moves)
 			ci.cancel();
 		}
 	}

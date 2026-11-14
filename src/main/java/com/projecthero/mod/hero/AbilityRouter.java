@@ -45,7 +45,7 @@ public final class AbilityRouter {
 		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
 		// v0.17.2: frozen in stopped time -- no power of any system takes a key press (releases pass so held moves end)
-		if (pressed && com.projecthero.mod.stand.TimeStop.frozen(player)) {
+		if (pressed && com.projecthero.mod.stand.TimeStop.actionsLocked(player)) { // (v0.17.4: and speedsters moving through it)
 			return;
 		}
 		// v0.16.7: Erased (Eraser Head) -- no power of any system takes a key press (releases pass so held moves end;

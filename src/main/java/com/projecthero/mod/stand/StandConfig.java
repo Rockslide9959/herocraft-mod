@@ -16,6 +16,8 @@ public final class StandConfig {
 	/** v0.17.3 (user: "after time stop ends stamina regenerates 50% slower for 20 seconds"). */
 	public static final float REGEN_SLOW_FACTOR = 0.5f;
 	public static final int REGEN_SLOW_TICKS = 20 * 20;
+	/** v0.17.4 (user: "make stand stamina only regenerate 1 second after not using stamina"): every spend restarts it. */
+	public static final int STAMINA_REGEN_DELAY_TICKS = 20;
 
 	/** Range C: how far Star Platinum reaches from you. */
 	public static final double REACH = 3.5;

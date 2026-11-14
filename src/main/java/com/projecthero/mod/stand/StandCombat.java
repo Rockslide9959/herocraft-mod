@@ -56,7 +56,7 @@ public final class StandCombat {
 		}
 		Stands.markCombat(owner);
 		if (TimeStop.shouldQueue(owner, target)) {
-			TimeStop.queue(target, dmg, boss ? Vec3.ZERO : knock);
+			TimeStop.queue(owner, target, dmg, boss ? Vec3.ZERO : knock);
 			impactFx(owner, target, false);
 			return true;
 		}

@@ -29,6 +29,7 @@ public final class StandClient {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.stand.network.StandFxPayload.TYPE,
 				(payload, context) -> StandFx.receive(payload));
 		WorldRenderEvents.END.register(TimeStopClient::render);
+		com.projecthero.mod.stand.TimeStop.clientCap = TimeStopClient::speedCap; // v0.17.4: a speedster's pace in a time stop
 		ClientPlayNetworking.registerGlobalReceiver(TimeStopPayload.TYPE, (payload, context) -> TimeStopClient.receive(payload));
 		// the N pose points down the look: a player standing still lets their body drift up to 50 degrees from it, so while posing it squares up
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {

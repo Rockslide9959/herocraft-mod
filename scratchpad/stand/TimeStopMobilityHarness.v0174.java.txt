@@ -1,0 +1,427 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.stand.TimeStopClient;
+import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Power;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.speedforce.SpeedForceSpeedster;
+import com.projecthero.mod.stand.StandType;
+import com.projecthero.mod.stand.Stands;
+import com.projecthero.mod.stand.StarPlatinum;
+import com.projecthero.mod.stand.TimeStop;
+import com.projecthero.mod.stand.data.StandState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): films v0.17.4 time-stop mobility. Enabled by run/tsmob.flag. Scenes: "stop" (the caster's view of
+ * five scripted players: frozen / Super Speed / XLR8 / Speed Force / a second Star Platinum user), "pov" (the local player is a
+ * Speed Force speedster inside a fake caster's stop), "stamina" (the bar holding 1 s after spends, then refilling).
+ */
+public final class TimeStopMobilityHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static Vec3 base;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static volatile Vec3 followOff;
+	private static volatile Vec3 followLook;
+
+	/** Server-side scripted runners: who, which way, how fast they try to go (blocks a tick), until which x. */
+	private record Runner(ServerPlayer p, double speed, double stopX, String name) {
+	}
+
+	private static final List<Runner> RUNNERS = new ArrayList<>();
+	private static volatile boolean running;
+	private static final Map<String, Double> LAST_X = new HashMap<>();
+	private static ServerPlayer fakeCaster;
+	private static Vec3 lastLocal;
+
+	private TimeStopMobilityHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("tsmob.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(TimeStopMobilityHarness::tick);
+		ServerTickEvents.END_SERVER_TICK.register(TimeStopMobilityHarness::serverTick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "tsmob-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	public static void updateCamera(Entity entity, float partial) {
+		Vec3 off = followOff;
+		if (off != null && entity != null) {
+			Vec3 at = entity.getPosition(partial);
+			camPos = at.add(off);
+			camLook = at.add(followLook);
+		}
+	}
+
+	private static void serverTick(MinecraftServer srv) {
+		if (srv.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
+		long now = srv.overworld().getGameTime();
+		if (running) {
+			StringBuilder b = new StringBuilder(String.format("[TSM] t=%d stop=%b", now, TimeStop.active()));
+			for (Runner r : RUNNERS) {
+				ServerPlayer p = r.p;
+				double x0 = p.getX();
+				// a real client would hold itself still; the fake one is held by the harness when the stop freezes it
+				if (!TimeStop.frozen(p) && p.getX() < r.stopX) {
+					p.setDeltaMovement(r.speed, 0, 0);
+					p.move(MoverType.SELF, new Vec3(r.speed, 0, 0));
+					p.setYRot(-90f);
+					p.setYHeadRot(-90f);
+					p.yBodyRot = -90f;
+					p.walkAnimation.update(1.0f, 0.4f);
+				}
+				b.append(String.format(" | %s %s dx=%.3f (%.1f b/s)", r.name, TimeStop.mobility(p), p.getX() - x0, (p.getX() - x0) * 20));
+			}
+			System.out.println(b);
+		}
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				for (ServerPlayer sp : srv.getPlayerList().getPlayers()) {
+					if (sp.getUUID().equals(mc.player.getUUID())) {
+						try {
+							fn.accept(sp);
+						} catch (Throwable e) {
+							System.out.println("[HARNESS] error: " + e);
+							e.printStackTrace();
+						}
+						return;
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(TimeStopMobilityHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			if (lastLocal != null && TimeStopClient.active()) {
+				Vec3 now = mc.player.position();
+				System.out.println(String.format("[TSM-CLIENT] local dxz=%.3f (%.1f b/s) frozen=%b limited=%b mobility=%s", now.subtract(lastLocal).horizontalDistance(),
+						now.subtract(lastLocal).horizontalDistance() * 20, TimeStopClient.localFrozen(), TimeStopClient.localLimited(), TimeStopClient.mobility(mc.player)));
+			}
+			lastLocal = mc.player.position();
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				Screenshot.grab(mc.gameDirectory, String.format("tsm_%s_%03d.png", recording, recFrame++), mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("TSM_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+			System.out.println("[HARNESS] recording " + name);
+		});
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void fullStamina(ServerPlayer p) {
+		StandState n = Stands.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.stamina = 100f;
+		n.regenSlowUntil = 0L;
+		p.setAttached(ModAttachments.STAND_STATE, n);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			base = origin;
+			p.setGameMode(GameType.SURVIVAL);
+			Stands.grant(p, StandType.STAR_PLATINUM);
+		}));
+		t += 130; // (the awakening title fades first)
+
+		// ---------------- scene 1: the caster watches five players try to run at 20 b/s through stopped time
+		final int s1 = t;
+		at(s1, () -> {
+			mc.gui.getChat().clearMessages(false);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			followOff = null;
+			camPos = origin.add(1, 8, -5);
+			camLook = origin.add(1, 0, 6.5);
+			server(mc, p -> {
+				Stands.summon(p);
+				fullStamina(p);
+				p.teleportTo(p.serverLevel(), origin.x - 10, origin.y, origin.z, 0f, 0f);
+				String[] names = { "Frozen", "SuperSpeed", "XLR8", "SpeedForce", "StarPlatinum2" };
+				double[] speed = { 0.2, 1.0, 1.0, 1.0, 0.45 };
+				RUNNERS.clear();
+				for (int i = 0; i < names.length; i++) {
+					ServerPlayer f = fake(p, names[i], origin.add(-8, 0, 2 + i * 2.2), -90f);
+					RUNNERS.add(new Runner(f, speed[i], i == 4 ? origin.x + 4.0 : origin.x + 16, names[i]));
+				}
+				Power ss = Powers.byKey(SuperSpeedHandlers.KEY);
+				ExperimentalPowers.grant(RUNNERS.get(1).p, ss);
+				ExperimentalPowers.setActive(RUNNERS.get(1).p, ss);
+				ServerPlayer x = RUNNERS.get(2).p;
+				System.out.println("[HARNESS] xlr8 " + (Omnitrix.grant(x) && Omnitrix.select(x, Aliens.XLR8.id()) && Omnitrix.transform(x)));
+				SpeedForceSpeedster.grant(RUNNERS.get(3).p);
+				ServerPlayer rival = RUNNERS.get(4).p;
+				Stands.grant(rival, StandType.STAR_PLATINUM);
+				Stands.summon(rival);
+				fullStamina(rival);
+				Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+				Vec3 zAt = origin.add(5.6, 0, 2 + 4 * 2.2);
+				z.moveTo(zAt.x, zAt.y, zAt.z, 90f, 0f);
+				z.setPersistenceRequired();
+				z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200);
+				z.setHealth(200f);
+				z.setNoAi(true);
+				p.serverLevel().addFreshEntity(z);
+				for (ServerPlayer f : new ServerPlayer[] { RUNNERS.get(0).p, RUNNERS.get(1).p, RUNNERS.get(2).p, RUNNERS.get(3).p, rival }) {
+					System.out.println("[HARNESS] " + f.getScoreboardName() + " classify=" + TimeStop.classify(f));
+				}
+			});
+		});
+		at(s1 + 8, () -> {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(0f);
+		});
+		at(s1 + 13, () -> {
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		});
+		record(s1 + 14, "stop", 175);
+		at(s1 + 20, () -> server(mc, p -> System.out.println("[HARNESS] begin " + TimeStop.begin(p))));
+		// time stops ~2 s later on the voice line; then everyone sets off
+		at(s1 + 66, () -> running = true);
+		at(s1 + 128, () -> server(mc, p -> {
+			ServerPlayer rival = RUNNERS.get(4).p;
+			rival.setYRot(-90f);
+			rival.setYHeadRot(-90f);
+			StarPlatinum.uppercut(rival);
+			System.out.println("[HARNESS] rival uppercut queued");
+		}));
+		at(s1 + 150, () -> server(mc, p -> TimeStop.endEarly(p)));
+		at(s1 + 166, () -> running = false);
+		t = s1 + 195;
+
+		// ---------------- scene 2: the speedster's own client inside someone else's stop
+		final int s2 = t;
+		at(s2, () -> server(mc, p -> {
+			for (Runner r : RUNNERS) {
+				r.p.server.getPlayerList().remove(r.p);
+			}
+			RUNNERS.clear();
+			p.serverLevel().getEntitiesOfClass(Zombie.class, p.getBoundingBox().inflate(80)).forEach(Entity::discard);
+			Stands.revoke(p);
+			SpeedForceSpeedster.grant(p);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + 40, 0f, 0f);
+			fakeCaster = fake(p, "TheCaster", origin.add(3, 0, 42), 0f);
+			Stands.grant(fakeCaster, StandType.STAR_PLATINUM);
+			Stands.summon(fakeCaster);
+			fullStamina(fakeCaster);
+			for (int i = 0; i < 6; i++) {
+				var cow = EntityType.COW.create(p.serverLevel());
+				cow.moveTo(origin.x - 4 + (i % 2) * 8, origin.y, origin.z + 46 + i * 2.5, 180f, 0f);
+				cow.setDeltaMovement(0.1, 0.35, 0);
+				p.serverLevel().addFreshEntity(cow);
+			}
+			System.out.println("[HARNESS] local classify=" + TimeStop.classify(p));
+		}));
+		at(s2 + 6, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			camPos = null;
+			camLook = null;
+			followOff = new Vec3(-5, 3, -3);
+			followLook = new Vec3(0, 1, 3);
+			mc.player.setYRot(0f);
+			mc.player.setXRot(0f);
+		});
+		at(s2 + 9, () -> {
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		});
+		record(s2 + 10, "pov", 110);
+		// a run first, at full speed
+		at(s2 + 12, () -> {
+			mc.options.keyUp.setDown(true);
+			mc.options.keySprint.setDown(true);
+		});
+		at(s2 + 30, () -> server(mc, p -> {
+			TimeStop.begin(fakeCaster);
+			TimeStop.skipWindup(p.server);
+			System.out.println("[HARNESS] fake caster stopped time");
+		}));
+		at(s2 + 32, () -> mc.player.setSprinting(true));
+		at(s2 + 100, () -> server(mc, p -> TimeStop.endEarly(fakeCaster)));
+		at(s2 + 116, () -> {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		t = s2 + 130;
+
+		// ---------------- scene 3: the Stamina bar waits 1 s after a spend, then refills
+		final int s3 = t;
+		at(s3, () -> server(mc, p -> {
+			p.server.getPlayerList().remove(fakeCaster);
+			SpeedForceSpeedster.revoke(p);
+			Stands.grant(p, StandType.STAR_PLATINUM);
+			Stands.summon(p);
+			fullStamina(p);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + 80, 0f, 0f);
+		}));
+		at(s3 + 6, () -> {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			followOff = null;
+			camPos = null;
+			camLook = null;
+		});
+		at(s3 + 9, () -> {
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		});
+		record(s3 + 10, "stamina", 110);
+		at(s3 + 16, () -> server(mc, p -> Stands.spendStamina(p, 40f)));
+		at(s3 + 30, () -> server(mc, p -> Stands.spendStamina(p, 20f)));
+		for (int i = 16; i < 120; i += 2) {
+			final int k = i;
+			at(s3 + i, () -> server(mc, p -> System.out.println(String.format("[TSM-ST] +%d st=%.2f waiting=%b", k, Stands.stamina(p), Stands.regenWaiting(p)))));
+		}
+		t = s3 + 130;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Minecraft.getInstance().stop();
+		});
+	}
+}

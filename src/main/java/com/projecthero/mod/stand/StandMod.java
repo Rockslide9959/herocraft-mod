@@ -72,21 +72,21 @@ public final class StandMod {
 			if (level.isClientSide() || !(player instanceof ServerPlayer sp)) {
 				return InteractionResult.PASS;
 			}
-			if (TimeStop.frozen(sp)) {
+			if (TimeStop.actionsLocked(sp)) {
 				return InteractionResult.FAIL;
 			}
 			return StarPlatinum.onAttack(sp, entity);
 		});
-		UseItemCallback.EVENT.register((player, level, hand) -> !level.isClientSide() && TimeStop.frozen(player)
+		UseItemCallback.EVENT.register((player, level, hand) -> !level.isClientSide() && TimeStop.actionsLocked(player)
 				? InteractionResultHolder.fail(player.getItemInHand(hand))
 				: InteractionResultHolder.pass(player.getItemInHand(hand)));
-		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> !level.isClientSide() && TimeStop.frozen(player)
+		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> !level.isClientSide() && TimeStop.actionsLocked(player)
 				? InteractionResult.FAIL : InteractionResult.PASS);
 		// inside the stop the caster can't open chests or use blocks either: it is for fighting and moving
-		UseBlockCallback.EVENT.register((player, level, hand, hit) -> !level.isClientSide() && (TimeStop.frozen(player) || TimeStop.isCaster(player))
+		UseBlockCallback.EVENT.register((player, level, hand, hit) -> !level.isClientSide() && (TimeStop.actionsLocked(player) || TimeStop.isCaster(player))
 				? InteractionResult.FAIL : InteractionResult.PASS);
 		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> level.isClientSide()
-				|| !(TimeStop.frozen(player) || TimeStop.isCaster(player)));
+				|| !(TimeStop.actionsLocked(player) || TimeStop.isCaster(player)));
 
 		ServerPlayerEvents.JOIN.register(Stands::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Stands.onPlayerRespawn(newPlayer));

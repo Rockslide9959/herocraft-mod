@@ -175,9 +175,12 @@ public class StandGameTests implements FabricGameTest {
 		Stands.setStamina(p, 50f);
 		helper.assertTrue(Math.abs(Stands.regenRate(p) - 3f) < 1.0e-4f, "3 a second: " + Stands.regenRate(p));
 		helper.onEachTick(() -> Stands.tick(p));
-		helper.runAfterDelay(20, () -> {
-			float st = Stands.stamina(p);
-			helper.assertTrue(st > 51.5f && st < 54.1f, "about 3 in a second: " + st);
+		// (v0.17.4: setting it to 50 counts as a spend, so the refill waits 1 s first: measure the second after that)
+		float[] from = { 0f };
+		helper.runAfterDelay(25, () -> from[0] = Stands.stamina(p));
+		helper.runAfterDelay(45, () -> {
+			float st = Stands.stamina(p) - from[0];
+			helper.assertTrue(st > 2.2f && st < 3.1f, "about 3 in a second: " + st);
 			edit(p, n -> n.regenSlowUntil = helper.getLevel().getGameTime() + 100);
 			helper.assertTrue(Math.abs(Stands.regenRate(p) - 1.5f) < 1.0e-4f, "half after a time stop: " + Stands.regenRate(p));
 			helper.succeed();
