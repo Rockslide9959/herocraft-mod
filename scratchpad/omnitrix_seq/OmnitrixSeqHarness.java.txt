@@ -40,6 +40,8 @@ public final class OmnitrixSeqHarness {
 	private static String alien = "four_arms", mode = "self", tag = null;
 	private static int from = 0, to = -1;
 	private static long seed = 424242L;
+	/** Optional: only these ticks are filmed (the flag's "ticks" array), for quick key-beat checks. */
+	private static int[] only = null;
 	/** Server facts, written on the server thread. */
 	private static volatile long serverAge = -999;
 	private static volatile boolean slapped;
@@ -63,6 +65,18 @@ public final class OmnitrixSeqHarness {
 			to = o.has("to") ? o.get("to").getAsInt() : to;
 			seed = o.has("seed") ? o.get("seed").getAsLong() : seed;
 			tag = o.has("tag") ? o.get("tag").getAsString() : null;
+			if (o.has("ticks")) {
+				var arr = o.getAsJsonArray("ticks");
+				only = new int[arr.size()];
+				for (int i = 0; i < only.length; i++) {
+					only[i] = arr.get(i).getAsInt();
+				}
+				java.util.Arrays.sort(only);
+				if (only.length > 0) {
+					from = only[0];
+					to = only[only.length - 1];
+				}
+			}
 		} catch (Exception e) {
 			System.out.println("[HARNESS] bad flag: " + e);
 		}
@@ -216,7 +230,7 @@ public final class OmnitrixSeqHarness {
 				if (phaseTicks >= 3) {
 					Screenshot.grab(mc.gameDirectory, String.format("seq_%s_%03d.png", tag, frame), mc.getMainRenderTarget(), m -> {
 					});
-					frame++;
+					frame = nextFrame(frame);
 					phase = frame > to ? 3 : 0;
 					phaseTicks = 0;
 				}
@@ -232,6 +246,18 @@ public final class OmnitrixSeqHarness {
 				}
 			}
 		}
+	}
+
+	private static int nextFrame(int f) {
+		if (only == null) {
+			return f + 1;
+		}
+		for (int v : only) {
+			if (v > f) {
+				return v;
+			}
+		}
+		return Integer.MAX_VALUE;
 	}
 
 	private static void createWorld() {

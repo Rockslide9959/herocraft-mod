@@ -46,3 +46,5 @@ docs/reference/omnitrix_sequences/*/f_*.jpg
 # v0.17.4: Dragon Ball show audio (user's clips) -- local test builds only, never committed (public repo). Swap for synthesised sound-alikes before a public release.
 docs/reference/dbz_sounds/
 src/main/resources/assets/projecthero/sounds/saiyan/dbz/
+# v0.17.4: side-by-sides and sheets that contain show frames (scratchpad/omnitrix_seq/compare.js, film.js --sbs)
+docs/screenshots/v0174/omnitrix_sequences/vs_show/
