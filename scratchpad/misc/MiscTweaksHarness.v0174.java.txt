@@ -108,6 +108,7 @@ public final class MiscTweaksHarness {
 	}
 
 	private static void shot(int t, String name) {
+		at(t - 2, () -> Minecraft.getInstance().gui.getChat().clearMessages(false));
 		at(t, () -> {
 			Minecraft mc = Minecraft.getInstance();
 			Screenshot.grab(mc.gameDirectory, "mt_" + name + ".png", mc.getMainRenderTarget(), m -> {
@@ -144,6 +145,8 @@ public final class MiscTweaksHarness {
 			mc.options.fov().set(70);
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
 			mc.options.bobView().set(false);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
 			server(mc, p -> {
 				ServerLevel level = p.serverLevel();
 				level.setDayTime(6000L);
@@ -153,8 +156,8 @@ public final class MiscTweaksHarness {
 				p.server.setDifficulty(Difficulty.PEACEFUL, true);
 				p.setGameMode(GameType.SURVIVAL);
 				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
-				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
 			});
+			origin = new Vec3(Math.floor(mc.player.getX()) + 0.5, Math.floor(mc.player.getY() + 0.01), Math.floor(mc.player.getZ()) + 0.5);
 			t0 = inWorldTicks;
 			script(mc);
 		}
