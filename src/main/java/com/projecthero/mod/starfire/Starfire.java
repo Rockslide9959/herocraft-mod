@@ -37,7 +37,7 @@ import org.joml.Vector3f;
  * flight {@link StarfireFlight}'s, the hits taken {@link StarfireDamage}'s.
  *
  * <ul>
- *   <li><b>Passives</b>: 30 health, +6 melee (punches knock back), 20% damage resistance, no fall damage, survives space.</li>
+ *   <li><b>Passives</b>: 20 health (v0.17.4, was 30), +6 melee (punches knock back), 20% damage resistance, no fall damage, survives space.</li>
  *   <li><b>Starbolt</b> (0..100) pays for the moves and the flight; sunlight refills it 3x faster, night and the dark slowly.</li>
  *   <li><b>Joy and Fury</b>: one needle. Joy (flying, sun, eating, squadmates) makes flight faster and cheaper; Fury (being hurt, a
  *   squadmate hurt) makes starbolts hit up to 60% harder and flight heavier. Full Fury unlocks Supernova.</li>
@@ -488,7 +488,12 @@ public final class Starfire {
 			}
 			return;
 		}
-		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, StarfireConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		// v0.17.4: 20 health, so no health modifier (clearing it also takes the old +10 off saved players)
+		if (StarfireConfig.HEALTH_BONUS > 0) {
+			PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, StarfireConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
+		}
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, StarfireConfig.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());

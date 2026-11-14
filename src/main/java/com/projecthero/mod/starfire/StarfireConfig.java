@@ -11,8 +11,8 @@ public final class StarfireConfig {
 	public static final int S = 20;
 
 	// ---------------------------------------------------------------- passives
-	/** 20 + 10 = 30 health. */
-	public static final double HEALTH_BONUS = 10.0;
+	/** v0.17.4 (user: "make her max hp 20 please"): no extra health, the normal 20. */
+	public static final double HEALTH_BONUS = 0.0;
 	/** Tamaranean strength: +6 melee. */
 	public static final double MELEE_BONUS = 6.0;
 	/** Her punches knock back this much harder (on top of vanilla's). */
