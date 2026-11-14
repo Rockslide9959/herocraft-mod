@@ -63,23 +63,8 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 		float aw = slim ? 3f : 4f;
 
 		// right arm: x -3..(aw-3), y -2..10, z -2..2 -- a pauldron and a gauntlet
-		part(pose, m.rightArm, () -> {
-			box(pose, vc, plate, light, -3.9f, -2.9f, -2.9f, aw - 2.1f, 3.2f, 2.9f);
-			box(pose, vc, trim, light, -4.3f, -2.4f, -1.6f, -3.6f, 1.8f, 1.6f);
-			box(pose, vc, plate, light, -3.7f, 5.2f, -2.7f, aw - 2.3f, 10.6f, 2.7f);
-			// spike limbs: stone thorns jut from the gauntlet and the shoulder
-			spike(pose, vc, spike, light, -3.8f, 7.5f, 0f, -1.5f, 0.15f, 3.2f);
-			spike(pose, vc, spike, light, -3.6f, 9.6f, -1.2f, -1.4f, 0.4f, 2.4f);
-			spike(pose, vc, spike, light, -2.5f, -3f, 0f, -0.4f, -1.4f, 2.6f);
-		});
-		part(pose, m.leftArm, () -> {
-			box(pose, vc, plate, light, -aw + 2.1f, -2.9f, -2.9f, 3.9f, 3.2f, 2.9f);
-			box(pose, vc, trim, light, 3.6f, -2.4f, -1.6f, 4.3f, 1.8f, 1.6f);
-			box(pose, vc, plate, light, -aw + 2.3f, 5.2f, -2.7f, 3.7f, 10.6f, 2.7f);
-			spike(pose, vc, spike, light, 3.8f, 7.5f, 0f, 1.5f, 0.15f, 3.2f);
-			spike(pose, vc, spike, light, 3.6f, 9.6f, -1.2f, 1.4f, 0.4f, 2.4f);
-			spike(pose, vc, spike, light, 2.5f, -3f, 0f, 0.4f, -1.4f, 2.6f);
-		});
+		part(pose, m.rightArm, () -> armPlates(pose, vc, plate, trim, spike, light, true, aw));
+		part(pose, m.leftArm, () -> armPlates(pose, vc, plate, trim, spike, light, false, aw));
 		part(pose, m.body, () -> {
 			// breastplate, its ridge, the back hump
 			box(pose, vc, plate, light, -4.7f, -0.6f, -2.9f, 4.7f, 7.4f, 2.9f);
@@ -142,19 +127,79 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 		tg = 0.34f;
 		tb = 0.48f;
 		try {
-			part(pose, m.rightArm, () -> {
-				box(pose, vc, s, light, -3.35f, 6.4f, -2.35f, aw - 2.65f, 10.35f, 2.35f);
-				box(pose, vc, s, light, -3.6f, 5.6f, -2.6f, aw - 2.4f, 6.6f, 2.6f);
-			});
-			part(pose, m.leftArm, () -> {
-				box(pose, vc, s, light, -aw + 2.65f, 6.4f, -2.35f, 3.35f, 10.35f, 2.35f);
-				box(pose, vc, s, light, -aw + 2.4f, 5.6f, -2.6f, 3.6f, 6.6f, 2.6f);
-			});
+			part(pose, m.rightArm, () -> gloveArm(pose, vc, s, light, true, aw));
+			part(pose, m.leftArm, () -> gloveArm(pose, vc, s, light, false, aw));
 		} finally {
 			tr = 0.92f;
 			tg = 0.9f;
 			tb = 0.9f;
 		}
+	}
+
+	/** One arm's pauldron, gauntlet and thorns, in that arm's own space (third person and the first-person arm). */
+	private static void armPlates(PoseStack pose, VertexConsumer vc, TextureAtlasSprite plate, TextureAtlasSprite trim, TextureAtlasSprite spike,
+			int light, boolean right, float aw) {
+		if (right) {
+			box(pose, vc, plate, light, -3.9f, -2.9f, -2.9f, aw - 2.1f, 3.2f, 2.9f);
+			box(pose, vc, trim, light, -4.3f, -2.4f, -1.6f, -3.6f, 1.8f, 1.6f);
+			box(pose, vc, plate, light, -3.7f, 5.2f, -2.7f, aw - 2.3f, 10.6f, 2.7f);
+			// spike limbs: stone thorns jut from the gauntlet and the shoulder
+			spike(pose, vc, spike, light, -3.8f, 7.5f, 0f, -1.5f, 0.15f, 3.2f);
+			spike(pose, vc, spike, light, -3.6f, 9.6f, -1.2f, -1.4f, 0.4f, 2.4f);
+			spike(pose, vc, spike, light, -2.5f, -3f, 0f, -0.4f, -1.4f, 2.6f);
+		} else {
+			box(pose, vc, plate, light, -aw + 2.1f, -2.9f, -2.9f, 3.9f, 3.2f, 2.9f);
+			box(pose, vc, trim, light, 3.6f, -2.4f, -1.6f, 4.3f, 1.8f, 1.6f);
+			box(pose, vc, plate, light, -aw + 2.3f, 5.2f, -2.7f, 3.7f, 10.6f, 2.7f);
+			spike(pose, vc, spike, light, 3.8f, 7.5f, 0f, 1.5f, 0.15f, 3.2f);
+			spike(pose, vc, spike, light, 3.6f, 9.6f, -1.2f, 1.4f, 0.4f, 2.4f);
+			spike(pose, vc, spike, light, 2.5f, -3f, 0f, 0.4f, -1.4f, 2.6f);
+		}
+	}
+
+	/** One arm's glove (the colour comes from {@link #tr} / {@link #tg} / {@link #tb}), in that arm's own space. */
+	private static void gloveArm(PoseStack pose, VertexConsumer vc, TextureAtlasSprite s, int light, boolean right, float aw) {
+		if (right) {
+			box(pose, vc, s, light, -3.35f, 6.4f, -2.35f, aw - 2.65f, 10.35f, 2.35f);
+			box(pose, vc, s, light, -3.6f, 5.6f, -2.6f, aw - 2.4f, 6.6f, 2.6f);
+		} else {
+			box(pose, vc, s, light, -aw + 2.65f, 6.4f, -2.35f, 3.35f, 10.35f, 2.35f);
+			box(pose, vc, s, light, -aw + 2.4f, 5.6f, -2.6f, 3.6f, 6.6f, 2.6f);
+		}
+	}
+
+	/**
+	 * v0.17.4 (user: see the suit on your hand in first person): the Fusion form's pauldron, gauntlet and thorns -- or, unfused, the
+	 * gloves -- on the first-person arm, from {@code SuitFirstPersonArmMixin}, in the posed frame of the vanilla arm just drawn.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right) {
+		if (player.isInvisible() || !Overhaul.is(player)) {
+			return;
+		}
+		boolean fused = Overhaul.fused(player);
+		if (!fused && !Overhaul.gloved(player)) {
+			return;
+		}
+		var atlas = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS);
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
+		float aw = player.getSkin().model() == PlayerSkin.Model.SLIM ? 3f : 4f;
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		if (fused) {
+			armPlates(pose, vc, atlas.apply(PLATE), atlas.apply(TRIM), atlas.apply(SPIKE), light, right, aw);
+		} else {
+			tr = 0.42f;
+			tg = 0.34f;
+			tb = 0.48f;
+			try {
+				gloveArm(pose, vc, atlas.apply(GLOVE), light, right, aw);
+			} finally {
+				tr = 0.92f;
+				tg = 0.9f;
+				tb = 0.9f;
+			}
+		}
+		pose.popPose();
 	}
 
 	private static void part(PoseStack pose, ModelPart part, Runnable draw) {

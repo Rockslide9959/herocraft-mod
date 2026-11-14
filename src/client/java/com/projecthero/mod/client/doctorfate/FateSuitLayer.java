@@ -173,6 +173,34 @@ public class FateSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 	}
 
 	/**
+	 * v0.17.4 (user: "make it so that you can see the suit on your hand in first person"): the suit's sleeve and gauntlet on the
+	 * first-person arm, from {@code SuitFirstPersonArmMixin}. {@code arm} is the vanilla arm just drawn, fully posed (custom
+	 * first-person clips included), so copying its pose makes the sleeve follow it; the sleeve fades in with the suit.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right,
+			float partialTick) {
+		if (player.isInvisible()) {
+			return;
+		}
+		float shown = DoctorFate.possessed(player) ? 1f : DoctorFate.helmetShown(player, partialTick);
+		if (shown <= 0.01f) {
+			return;
+		}
+		boolean slimArms = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		PlayerModel<AbstractClientPlayer> m = suitModel(slimArms);
+		ModelPart a = right ? m.rightArm : m.leftArm;
+		ModelPart sleeve = right ? m.rightSleeve : m.leftSleeve;
+		a.copyFrom(arm);
+		sleeve.copyFrom(arm);
+		a.visible = true;
+		sleeve.visible = true;
+		int colour = (Math.round(255 * Math.min(1f, shown * 1.4f)) << 24) | 0xFFFFFF;
+		var vc = buffers.getBuffer(RenderType.entityTranslucent(slimArms ? SUIT_SLIM : SUIT));
+		a.render(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
+		sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY, colour);
+	}
+
+	/**
 	 * The wearer's own outer skin layer (hat / hair, jacket, sleeves, trousers) is hidden while the suit is mostly on: it would
 	 * poke through the suit drawn a hair over the base skin. Their base skin still shows through the helmet's side openings.
 	 */

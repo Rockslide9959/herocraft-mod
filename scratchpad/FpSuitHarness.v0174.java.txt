@@ -1,0 +1,207 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): first-person suit sleeves, before (disable) and after. Enabled by run/fpsuit.flag. */
+public final class FpSuitHarness {
+	public static volatile boolean disable;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String only = "";
+
+	private FpSuitHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("fpsuit.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("fpsuit.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(FpSuitHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "fpsuit-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FpSuitHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.guiScale().set(1);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.resizeDisplay();
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.setYRot(0f);
+				p.setXRot(10f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (AT.isEmpty()) {
+				System.out.println("[HARNESS] done");
+				t0 = -1;
+				mc.stop();
+			}
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "fp_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static int t = 20;
+
+	/** One power: set up, then before / after idle, then after mid-swing, then tear down. */
+	private static void power(Minecraft mc, String name, java.util.function.Consumer<ServerPlayer> setup, java.util.function.Consumer<ServerPlayer> teardown) {
+		if (!only.isEmpty() && !only.contains(name)) {
+			return;
+		}
+		int s = t;
+		at(s, () -> server(mc, p -> {
+			p.setYRot(0f);
+			p.setXRot(10f);
+			setup.accept(p);
+		}));
+		at(s + 55, () -> mc.getToasts().clear());
+		at(s + 60, () -> {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(10f);
+			disable = true;
+		});
+		at(s + 63, () -> shot(mc, name + "_before"));
+		at(s + 66, () -> disable = false);
+		at(s + 69, () -> shot(mc, name + "_after"));
+		at(s + 71, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(s + 73, () -> shot(mc, name + "_after_swing"));
+		at(s + 80, () -> server(mc, teardown));
+		t = s + 100;
+	}
+
+	private static void script(Minecraft mc) {
+		power(mc, "beastboy", p -> com.projecthero.mod.beastboy.BeastBoy.grant(p), p -> {
+		});
+		power(mc, "shazam", p -> {
+			com.projecthero.mod.shazam.Shazam.grant(p);
+			com.projecthero.mod.shazam.ShazamMod.onChat(p, "Shazam!");
+		}, p -> com.projecthero.mod.shazam.Shazam.forceUntransform(p));
+		power(mc, "doctorfate", p -> {
+			com.projecthero.mod.doctorfate.DoctorFate.grant(p);
+			com.projecthero.mod.doctorfate.DoctorFate.setHelmet(p, true);
+		}, p -> com.projecthero.mod.doctorfate.DoctorFate.setHelmet(p, false));
+		power(mc, "moonknight_steven", p -> {
+			com.projecthero.mod.moonknight.MoonKnight.grant(p, false);
+			com.projecthero.mod.moonknight.data.MoonKnightState c = com.projecthero.mod.moonknight.MoonKnight.state(p).copy();
+			c.alter = com.projecthero.mod.moonknight.MoonKnightAlter.STEVEN.ordinal();
+			com.projecthero.mod.moonknight.MoonKnight.saveState(p, c);
+			com.projecthero.mod.moonknight.MoonKnight.setTransformedForTesting(p, true);
+		}, p -> com.projecthero.mod.moonknight.MoonKnight.setTransformedForTesting(p, false));
+		power(mc, "darkshadow_ankh", p -> {
+			com.projecthero.mod.quirk.Quirks.grant(p, com.projecthero.mod.quirk.Quirk.DARK_SHADOW);
+			com.projecthero.mod.quirk.Quirks.setVal(p, com.projecthero.mod.quirk.darkshadow.DarkShadow.V_ANKH, 1L);
+		}, p -> com.projecthero.mod.quirk.Quirks.setVal(p, com.projecthero.mod.quirk.darkshadow.DarkShadow.V_ANKH, 0L));
+		power(mc, "overhaul_gloves", p -> com.projecthero.mod.quirk.Quirks.grant(p, com.projecthero.mod.quirk.Quirk.OVERHAUL), p -> {
+		});
+		power(mc, "overhaul_fusion", p -> com.projecthero.mod.quirk.Quirks.setVal(p, com.projecthero.mod.quirk.overhaul.Overhaul.V_FUSION,
+				p.level().getGameTime() + 4000L), p -> com.projecthero.mod.quirk.Quirks.setVal(p, com.projecthero.mod.quirk.overhaul.Overhaul.V_FUSION, 0L));
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

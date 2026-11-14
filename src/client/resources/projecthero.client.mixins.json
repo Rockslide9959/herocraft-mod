@@ -285,6 +285,7 @@
 		"FateSightColorMixin",
 		"VisionPhaseClientMixin",
 		"VisionFirstPersonArmMixin",
+		"SuitFirstPersonArmMixin",
 		"VisionPhaseSightMixin",
 		"VisionPhaseCullMixin"
 	],

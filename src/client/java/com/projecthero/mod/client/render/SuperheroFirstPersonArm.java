@@ -134,6 +134,26 @@ public final class SuperheroFirstPersonArm {
 		}
 		// v0.15.15: the Symbiote sleeve spreads on (and off) with the rest of the suit, pixel by pixel from the chest
 		texture = com.projecthero.mod.client.symbiote.SymbioteSpread.firstPerson(armorSetId, texture);
+		// v0.17.4: the sleeve forms and changes with the third-person suit (SuperheroArmorRenderer#getRenderType) instead of popping in
+		net.minecraft.world.entity.player.Player local = net.minecraft.client.Minecraft.getInstance().player;
+		if (local != null) {
+			float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+			net.minecraft.world.item.Item chestItem = local.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem();
+			if (chestItem instanceof com.projecthero.mod.moonknight.item.MoonKnightArmorItem) {
+				float reveal = com.projecthero.mod.client.moonknight.MoonKnightReveal.progress(local, partial);
+				com.projecthero.mod.moonknight.MoonKnightAlter from = com.projecthero.mod.client.moonknight.MoonKnightReveal.swapFrom(local);
+				if (reveal < 1.0f) {
+					texture = com.projecthero.mod.client.symbiote.SymbioteDissolve.texture(texture, reveal);
+				} else if (from != null) {
+					texture = com.projecthero.mod.client.moonknight.MoonKnightSuitSwap.texture(ProjectHeroMod.id(from.suitTexture()), texture,
+							com.projecthero.mod.client.moonknight.MoonKnightReveal.swapProgress(local, partial));
+				}
+			} else if (chestItem instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
+				texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(local, net.minecraft.world.entity.EquipmentSlot.CHEST, texture, partial);
+			} else if (chestItem instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
+				texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(local, texture, partial);
+			}
+		}
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);
 	}
 }
