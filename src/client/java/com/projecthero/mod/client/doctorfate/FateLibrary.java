@@ -861,11 +861,12 @@ public final class FateLibrary {
 		int x = 8;
 		int y = 8;
 		int width = Math.max(120, Math.min(220, gw / 3));
-		g.fill(x - 4, y - 4, x + width + 4, y + 62, 0x90100800);
+		Component goal = Component.translatable("hud.projecthero.doctor_fate.trial.stage." + Mth.clamp(stage, 1, 3), found, needed);
+		java.util.List<FormattedCharSequence> goalRows = font.split(goal, width);
+		g.fill(x - 4, y - 4, x + width + 4, y + 11 + goalRows.size() * 10 + 2 + 18 + 12, 0x90100800);
 		g.drawString(font, Component.translatable("hud.projecthero.doctor_fate.trial.title").withStyle(ChatFormatting.BOLD), x, y, 0xFFFFD860, true);
 		y += 11;
-		Component goal = Component.translatable("hud.projecthero.doctor_fate.trial.stage." + Mth.clamp(stage, 1, 3), found, needed);
-		for (FormattedCharSequence row : font.split(goal, width)) {
+		for (FormattedCharSequence row : goalRows) {
 			g.drawString(font, row, x, y, 0xFFE8DCC0, true);
 			y += 10;
 		}
@@ -903,8 +904,9 @@ public final class FateLibrary {
 			int ph = Math.round(h * Mth.clamp(progress / (float) progressNeeded, 0.0f, 1.0f));
 			g.fill(bx + 16, by + h - ph, bx + 20, by + h, 0xFFFFD860);
 			Component hint = Component.translatable("hud.projecthero.doctor_fate.trial.will_hint");
-			int ty = by + h + 6;
-			for (FormattedCharSequence row : font.split(hint, Math.min(200, gw / 2))) {
+			java.util.List<FormattedCharSequence> hintRows = font.split(hint, Math.min(160, gw / 3));
+			int ty = by - 6 - hintRows.size() * 10; // above the bar, clear of the line at the bottom
+			for (FormattedCharSequence row : hintRows) {
 				g.drawString(font, row, gw - 8 - font.width(row), ty, outTicks > 20 && (ms / 200L) % 2L == 0L ? 0xFFFF6040 : 0xFFE8DCC0, true);
 				ty += 10;
 			}
@@ -943,11 +945,7 @@ public final class FateLibrary {
 		pwz = z;
 		yaw = y;
 		pitch = p;
-		inside = z < FateLibraryMesh.DOOR_Z - 2.5;
-		if (inside && libDoorMs < 0L) {
-			libDoorMs = Util.getMillis() - 2000L;
-		}
-		zone = zoneAt(x, z);
+		zone = zoneAt(x, z); // (crossing into the library slams the door on the next tick, as walking does)
 	}
 
 	public static int zone() {
