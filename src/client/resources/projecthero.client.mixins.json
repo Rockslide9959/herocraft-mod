@@ -181,6 +181,8 @@
 		"EffectDescriptionTooltipMixin",
 		"HumanoidArmorLayerMixin",
 		"HumanoidModelMixin",
+		"FlightWalkCycleMixin",
+		"GreenLanternFirstPersonFlightMixin",
 		"ElasticityPlayerRendererMixin",
 		"ElasticityHandMixin",
 		"ItemInHandLayerMixin",

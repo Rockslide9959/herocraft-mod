@@ -1,0 +1,134 @@
+	/** The grant's title and chat lines off the screen (a filtered run starts with the grant). */
+	private static void clearHud(Minecraft mc, int t) {
+		at(t, () -> {
+			mc.gui.clear();
+			mc.gui.getChat().clearMessages(false);
+		});
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		at(1, () -> {
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+		});
+		// ------------------------------------------------ third person: flight never lights the hands, attacks do
+		if (want("flight_noglow")) {
+			starfire(mc, t, 0, 0f, false);
+			cam(t + 2, -60f, 0.3f, 3.2f, 0f, 1.2f);
+			at(t + 12, () -> server(mc, p -> StarfireFlight.start(p)));
+			at(t + 13, () -> server(mc, p -> p.setDeltaMovement(0, 0.5, 0)));
+			keys(mc, t + 40, true, false);
+			keys(mc, t + 70, false, false);
+			use(mc, t + 80, StarfireAbilityManager.STAR_DASH);
+			record(t + 6, "flight_noglow", 110);
+			land(mc, t + 118);
+			t += 122;
+		}
+		if (want("glow_bolt")) {
+			starfire(mc, t, 3, 0f, true);
+			mob(mc, t + 1, EntityType.HUSK, 0, 3, 9);
+			cam(t + 2, -150f, 0.2f, 2.6f, 0f, 1.2f);
+			use(mc, t + 20, StarfireAbilityManager.STARBOLT);
+			use(mc, t + 40, StarfireAbilityManager.STARBOLT);
+			record(t + 10, "glow_bolt", 56);
+			land(mc, t + 70);
+			t += 74;
+		}
+		// ------------------------------------------------ first person
+		if (want("fp_")) {
+			view(mc, t, CameraType.FIRST_PERSON);
+			t += 2;
+		}
+		if (want("fp_flight")) {
+			// take off and fly with empty, unlit hands, then one starbolt (only the throwing hand lights)
+			starfire(mc, t, 0, 0f, false);
+			at(t + 8, () -> server(mc, p -> StarfireFlight.start(p)));
+			at(t + 9, () -> server(mc, p -> p.setDeltaMovement(0, 0.5, 0)));
+			keys(mc, t + 24, true, false);
+			keys(mc, t + 50, false, false);
+			use(mc, t + 60, StarfireAbilityManager.STARBOLT);
+			record(t + 4, "fp_flight", 80);
+			land(mc, t + 86);
+			t += 90;
+		}
+		if (want("fp_bolt")) {
+			starfire(mc, t, 0, 0f, false);
+			for (int i = 0; i < 3; i++) {
+				use(mc, t + 6 + i * 12, StarfireAbilityManager.STARBOLT);
+			}
+			for (int i = 0; i < 6; i++) {
+				use(mc, t + 44 + i * 5, StarfireAbilityManager.STARBOLT);
+			}
+			record(t + 3, "fp_bolt", 80);
+			t += 86;
+		}
+		if (want("fp_barrage")) {
+			starfire(mc, t, 0, 0f, false);
+			use(mc, t + 6, StarfireAbilityManager.BARRAGE);
+			record(t + 3, "fp_barrage", 48);
+			t += 54;
+		}
+		if (want("fp_burst")) {
+			starfire(mc, t, 0, 0f, false);
+			hold(mc, t + 6, StarfireAbilityManager.STAR_BURST);
+			release(mc, t + 40, StarfireAbilityManager.STAR_BURST);
+			record(t + 3, "fp_burst", 58);
+			t += 64;
+		}
+		if (want("fp_beams")) {
+			clearHud(mc, t + 3);
+			starfire(mc, t, 0, 5f, false);
+			mob(mc, t + 1, EntityType.HUSK, 0, 0, 7);
+			hold(mc, t + 6, StarfireAbilityManager.EYE_BEAMS);
+			release(mc, t + 36, StarfireAbilityManager.EYE_BEAMS);
+			record(t + 3, "fp_beams", 46);
+			t += 52;
+		}
+		if (want("fp_nova")) {
+			starfire(mc, t, 0, 0f, false);
+			at(t + 2, () -> server(mc, p -> Starfire.setMood(p, 100f)));
+			use(mc, t + 6, StarfireAbilityManager.SUPERNOVA);
+			record(t + 3, "fp_nova", 76);
+			land(mc, t + 82);
+			t += 86;
+		}
+		if (want("fp_charge")) {
+			starfire(mc, t, 0, 0f, false);
+			mob(mc, t + 1, EntityType.HUSK, 0, 0, 5);
+			use(mc, t + 8, StarfireAbilityManager.CHARGE);
+			record(t + 4, "fp_charge", 26);
+			t += 32;
+		}
+		if (want("fp_pound")) {
+			clearHud(mc, t + 3);
+			starfire(mc, t, 5, 20f, true);
+			use(mc, t + 8, StarfireAbilityManager.GROUND_POUND);
+			starfire(mc, t + 36, 0, 10f, false);
+			use(mc, t + 42, StarfireAbilityManager.GROUND_POUND);
+			record(t + 4, "fp_pound", 60);
+			t += 66;
+		}
+		if (want("fp_grab")) {
+			starfire(mc, t, 0, 15f, false);
+			at(t, () -> weakMobs = true);
+			mob(mc, t + 1, EntityType.HUSK, 0, 0, 2.0);
+			at(t + 2, () -> weakMobs = false);
+			use(mc, t + 8, StarfireAbilityManager.GRAB);
+			at(t + 30, () -> server(mc, p -> StarfireMoves.use(p, StarfireAbilityManager.GRAB)));
+			record(t + 4, "fp_grab", 44);
+			t += 50;
+		}
+		if (want("fp_dash")) {
+			starfire(mc, t, 2, 0f, true);
+			use(mc, t + 6, StarfireAbilityManager.STAR_DASH);
+			record(t + 3, "fp_dash", 22);
+			land(mc, t + 28);
+			t += 32;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

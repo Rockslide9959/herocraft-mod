@@ -24,7 +24,7 @@ strength; survives space; learns any language by lip contact.
 Right-click it in daylight.
 
 **Passives**
-- 30 health, Tamaranean strength (+6 melee, punches knock back), 20% damage resistance, no fall damage.
+- 20 health (v0.17.4, user: "make her max hp 20"; was 30), Tamaranean strength (+6 melee, punches knock back), 20% damage resistance, no fall damage.
 - **Survives space:** no drowning, no suffocation in the Galactus orbit dimension, no void freeze.
 - **Solar charge:** in sunlight the Starbolt bar refills 3x faster; underground or at night it is slow.
 - **Joy and Fury gauge (Gauge style).** One needle between Joy (left) and Fury (right).
@@ -32,7 +32,7 @@ Right-click it in daylight.
   - Fury builds when she is hit or a squadmate within 16 blocks is hurt. More Fury means starbolts up to +60% damage, but
     flight gets heavier (in the show her flight comes from joy).
   - At full Fury the eyes blaze and Shift+Z unlocks.
-- Glow overlay: green eyes always; glowing hands while a starbolt is ready (soft shells fitted to the hand, first person too).
+- Glow overlay: glowing hands only while she attacks (v0.17.4: never for flight; soft shells fitted to the hand, first person too).
   The flame hair was removed in the 2026-11-13 tester round (user: "I never wanted that").
 
 | Key | Move | Spec |
@@ -208,6 +208,22 @@ path; Charge shoulder-first; Ground Pound fists overhead then a crouching slam (
 after the hit); Grab reach / carry / overhead hurl; Kiss lean-in with a heel kick; Radiance arms open. Flight: graceful
 hover, trailing cruise, swept-back speed pose, and a lean-back brake when she pulls up out of speed.
 Films: `docs/screenshots/v0173/starfire_anim/` (before/ = previous build).
+
+## Starfire round (v0.17.4)
+
+User: "dont make hands glow when player flies / make the first person animations better please / make her max hp 20 please".
+- **Hand glow only for attacks** (`StarfirePose.handGlow`, per hand, faded in and out): the old rule summed every cooldown stamp,
+  so the flight toggle's stamp (take off / land), a dash or a kiss lit both fists for a second. Now: the throwing hand for a
+  starbolt, both hands through the Barrage, Star Burst (growing with the charge), Supernova, Tamaranean Charge and Ground Pound.
+  Never for flight, Star Dash, Comet Dive, the Grab, the Eye Beams (they come from her eyes), the Kiss or Radiance.
+- **No walk swing in flight**: `StarfirePose` zeroes vanilla's limb swing whenever she flies (also while the flight pose eases in
+  after take-off), keeping a punch's arm; it fades back in only as she lands.
+- **First person**: every clip got a wind-up, an overshoot and a settle, plus short decaying shakes on impacts (burst release,
+  Supernova blast, tackle hit, slam). New: both braced fists for the Eye Beams (with an ignition jolt), the Grab's reach and grip,
+  the dash's tuck / punch / brake, the tackle's forearm ram with the other fist cocked, the resting main arm dipping for balance
+  while the off hand throws, the Burst's hands pushed apart as the ball swells. `fpSafe` keeps visible arms in front of the camera.
+- **20 health**: `StarfireConfig.HEALTH_BONUS` is 0 and `Starfire.reconcile` clears the old health modifier off saved players.
+Films: `docs/screenshots/v0174/starfire/`.
 
 ## Beast Boy morph round (2026-11-13)
 - **Every form change morphs** (human <-> animal, animal -> animal chains): 10 ticks (0.5 s), driven by the synced

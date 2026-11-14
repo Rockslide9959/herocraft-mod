@@ -19,13 +19,18 @@ public final class StarfireFirstPerson {
 			return;
 		}
 		StarfireState s = Starfire.peek(player);
-		if (s == null || !s.hasPower || !StarfireGlowLayer.handsGlow(player, s)) {
+		if (s == null || !s.hasPower) {
 			return;
 		}
-		float t = player.tickCount + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float k = StarfireGlowLayer.handGlow(player, right, partial);
+		if (k <= 0.02f) {
+			return;
+		}
+		float t = player.tickCount + partial;
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		StarfireGlowLayer.renderHand(pose, buffers, player, right, t);
+		StarfireGlowLayer.renderHand(pose, buffers, player, right, t, k);
 		pose.popPose();
 	}
 }

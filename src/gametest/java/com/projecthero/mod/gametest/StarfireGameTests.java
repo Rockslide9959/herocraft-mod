@@ -137,7 +137,7 @@ public class StarfireGameTests implements FabricGameTest {
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void tamaraneanBody(GameTestHelper helper) {
 		ServerPlayer p = starfire(helper);
-		helper.assertTrue(p.getMaxHealth() == 30f && p.getHealth() == 30f, "30 health");
+		helper.assertTrue(p.getMaxHealth() == 20f && p.getHealth() == 20f, "20 health (v0.17.4)");
 		helper.assertTrue(close(p.getAttributeValue(Attributes.ATTACK_DAMAGE), 1.0 + StarfireConfig.MELEE_BONUS), "+6 melee");
 		helper.assertTrue(StarfireDamage.immune(p, p.damageSources().fall()) && StarfireDamage.immune(p, p.damageSources().drown())
 				&& StarfireDamage.immune(p, p.damageSources().freeze()), "no fall damage, no drowning, no freezing");

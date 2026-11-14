@@ -78,45 +78,50 @@ public final class RipjawsShow extends ShowSequenceClient {
 			STANCE_DOTS = KirbyDots.Style.show().clear(0.45f), BURST_DOTS = KirbyDots.Style.show().bands(2).rgb(BURST_DOT).clear(0.5f).flow(1.6f);
 
 	private static final float W = CameraTrack.W;
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), ShowShots.dialCloseUp(5.01f, DIAL_AT),
+	// v0.17.4 (user: "make the camera angles and poses match up better with what shows in the transformation scenes"): re-framed
+	// against the show -- the slap waist up; the arm from above and right in, running across the frame; the face shots, the profiles
+	// and the back of the neck all much closer (the show's heads fill the frame); the lure shot three-quarters from his right; the
+	// rise and the stance pulled round to the front, the stance far enough back for the whole spread body
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(Xlr8Show.slapClose(SLAP_END), ShowShots.dialCloseUp(5.01f, DIAL_AT),
 			new float[][] {
 					// the dial, the skin spreading off it (from their left, looking down along the wrist)
 					{ 25.01f, 0.5f, -40f, W, W, W, W },
 					{ 32f, 0.44f, -50f, W, W, W, W },
-					// along the outstretched arm, from under it, sliding toward the hand
-					{ 32.01f, 0.78f, -94f, 1.02f, 1.26f, -0.42f, 0.3f },
-					{ 52f, 0.66f, -80f, 1.04f, 1.26f, -0.5f, 0.56f },
-					// the face, front, close
-					{ 52.01f, 1.25f, 0f, 1.58f, 1.6f, 0f, 0f },
-					{ 74f, 1.15f, 0f, 1.58f, 1.6f, 0f, 0f },
-					{ 74.01f, 1.15f, 6f, 1.54f, 1.66f, -0.1f, 0f },
-					{ 90f, 1.1f, 10f, 1.54f, 1.66f, -0.1f, 0f },
-					// the head in profile, facing left
-					{ 90.01f, 1.25f, -92f, 1.6f, 1.56f, 0f, 0.14f },
-					{ 104f, 1.05f, -98f, 1.56f, 1.52f, 0f, 0.1f },
+					// along the outstretched arm, from above it and close, sliding toward the hand
+					{ 32.01f, 0.55f, -132f, 1.85f, 1.36f, -0.36f, 0.58f },
+					{ 52f, 0.5f, -120f, 1.8f, 1.34f, -0.4f, 0.72f },
+					// the face, front, right in
+					{ 52.01f, 0.86f, 0f, 1.56f, 1.6f, 0f, 0f },
+					{ 74f, 0.8f, 0f, 1.56f, 1.6f, 0f, 0f },
+					// the lure shooting out: three-quarters from his right (he faces the right of frame), the stalk arching up over
+					{ 74.01f, 0.85f, 28f, 1.54f, 1.62f, -0.05f, 0f },
+					{ 90f, 0.8f, 32f, 1.54f, 1.62f, -0.05f, 0f },
+					// the head in profile, facing left, close
+					{ 90.01f, 0.85f, -92f, 1.52f, 1.56f, 0f, 0.12f },
+					{ 104f, 0.72f, -98f, 1.5f, 1.52f, 0f, 0.1f },
 					// right in on the side of the neck, under the ear, where the gills open
 					{ 104.01f, 0.62f, -98f, 1.5f, 1.53f, 0f, 0.02f },
 					{ 118f, 0.55f, -106f, 1.5f, 1.53f, 0f, 0.04f },
-					// from behind and below, the back of the neck and the spine
-					{ 118.01f, 1.05f, 168f, 1.12f, 1.5f, 0f, 0f },
-					{ 130f, 0.95f, 160f, 1.1f, 1.5f, 0f, 0f },
-					// the head in profile, facing right: the cheeks, the snout, the teeth
-					{ 130.01f, 1.05f, 78f, 1.6f, 1.58f, 0f, 0.04f },
-					{ 158f, 0.95f, 84f, 1.58f, 1.58f, 0f, 0.04f },
-					{ 158.01f, 1.0f, 70f, 1.5f, 1.52f, 0f, 0.12f },
-					{ 174f, 0.9f, 66f, 1.5f, 1.52f, 0f, 0.12f },
+					// from behind and below, the back of the neck and the spine, close
+					{ 118.01f, 0.8f, 162f, 1.2f, 1.55f, 0f, 0f },
+					{ 130f, 0.72f, 156f, 1.2f, 1.55f, 0f, 0f },
+					// the head in profile, facing right, filling the frame: the cheeks, the snout, the teeth
+					{ 130.01f, 0.76f, 60f, 1.58f, 1.58f, 0f, 0.06f },
+					{ 158f, 0.7f, 62f, 1.58f, 1.58f, 0f, 0.06f },
+					{ 158.01f, 0.74f, 50f, 1.52f, 1.55f, 0f, 0.14f },
+					{ 174f, 0.68f, 48f, 1.52f, 1.55f, 0f, 0.14f },
 					// right in on the eye
 					{ 174.01f, 0.45f, 28f, 1.68f, 1.67f, 0.1f, 0.2f },
 					{ 200f, 0.38f, 22f, 1.68f, 1.67f, 0.1f, 0.2f },
 					// Ripjaws' face, from a little below
 					{ 200.01f, 0.78f, 0f, 1.42f, 1.62f, 0f, 0f },
 					{ 208f, 0.86f, 4f, 1.4f, 1.6f, 0f, 0f },
-					// from low, pulling back up the whole body as the arms spread
-					{ 208.01f, 1.05f, 14f, 0.85f, 1.5f, 0f, 0f },
-					{ 232f, 1.7f, 24f, 0.4f, 1.15f, 0f, 0f },
-					// the stance: low, from his front left, claws out
-					{ 232.01f, 1.45f, -30f, 0.3f, 1.1f, 0f, 0f },
-					{ 284f, 1.35f, -26f, 0.32f, 1.12f, 0f, 0f } }))
+					// from low in front, pulling back up the whole body as the arms spread
+					{ 208.01f, 1.0f, -14f, 0.6f, 1.45f, 0f, 0f },
+					{ 232f, 1.75f, -6f, 0.35f, 1.15f, 0f, 0f },
+					// the stance: low and nearly front on, far enough back for the whole body, claws out wide
+					{ 232.01f, 2.15f, 10f, 0.35f, 0.95f, 0f, 0f },
+					{ 284f, 2.05f, 12f, 0.35f, 0.95f, 0f, 0f } }))
 			.shake(TEETH_AT, EYE_AT, 0.008f, 16f).shake(STANCE_AT, STANCE_AT + 14, 0.02f, 12f);
 
 	public RipjawsShow() {
@@ -180,15 +185,18 @@ public final class RipjawsShow extends ShowSequenceClient {
 			.legs(-0.05f, 0f, 0.2f, 0.12f, 0.15f)
 			.at(WHITE2_AT + 3f).hold()
 			// ---- the stance: legs wide, his left leg forward and bent, claws out to both sides, the head toward the camera
-			.at(STANCE_AT - 2f).head(-0.08f, -0.3f, 0f).twist(0.3f, 0f).lean(0.1f).drop(0.9f)
-			.rArm(-0.45f, 0.1f, 1.1f, 1.1f, 0.6f).lArm(-0.55f, -0.1f, -0.78f, 0.9f, -0.5f)
-			.rLeg(0.22f, 0f, 0.36f, 0.25f, 0.2f).lLeg(-0.48f, 0f, -0.3f, 0.65f, -0.2f)
+			// (v0.17.4: matched to the show's spread -- both arms out wide to the sides, the forearms curled up into the claws, the body
+			// square to the lens and leaning back a little, legs wider; it was twisted with one arm crossing the frame)
+			.at(STANCE_AT - 2f).head(-0.18f, -0.1f, 0f).twist(0.08f, 0.1f).lean(-0.06f).drop(1.3f)
+			.rArm(-0.4f, 0f, 1.85f, 1.2f, 1.4f).lArm(-0.3f, 0f, -0.95f, 0.9f, -1.2f)
+			.rLeg(0.1f, 0f, 0.42f, 0.2f, 0.2f).lLeg(-0.1f, 0f, -0.45f, 0.2f, -0.2f)
 			.at(GREEN3_AT).hold()
 			.at(WORLD_AT).head(0f, 0f, 0f).twist(0f, 0f).lean(0f).drop(0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.03f, 0f, 0f);
 
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < ARM_AT || t >= WORLD_AT) {
+			Xlr8Show.slapArm(m, t, SLAP_END);
 			return;
 		}
 		LimbKeys.apply(m, POSE.sample(t));

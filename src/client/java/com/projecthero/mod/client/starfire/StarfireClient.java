@@ -44,7 +44,6 @@ public final class StarfireClient {
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> StarfirePose.clientTick(mc.level));
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			StarfirePose.clear();
-			StarfireGlowLayer.clear();
 		});
 	}
 

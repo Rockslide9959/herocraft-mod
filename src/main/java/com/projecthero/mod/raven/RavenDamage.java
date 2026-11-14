@@ -64,6 +64,10 @@ public final class RavenDamage {
 		if (Raven.inShadow(victim)) {
 			return false;
 		}
+		// v0.17.4: the slow fall is gone, but falls never hurt her (she catches herself on her magic)
+		if (source.is(DamageTypeTags.IS_FALL)) {
+			return false;
+		}
 		if (victim.invulnerableTime > 10) {
 			return true; // vanilla will ignore this hit anyway
 		}

@@ -16,9 +16,20 @@ flight = double-tap Space, V = utility/mode.
 A magical battlefield controller: crowd control, ranged damage, defence and support, held back by her emotions. Not a
 melee brawler.
 
+## v0.17.4 changes (user)
+- **20 health** (was 30). **No slow fall**: she falls at normal speed but never takes fall damage (`RavenDamage`).
+- **Dark Energy is a Minecraft-style bar**: the HUD is now the shared `VanillaHud.Stack` column like the other powers: a purple
+  boss-bar meter row ("Dark Energy [bar] 74") above a hairline cut of the boss bar for Composure (labelled with the tier), the
+  title, the status tags and the R G Z X C V hotbar strip. Bottom-right, lifted clear of the hotbar and food bar on narrow windows.
+- **Flight animation rebuilt** (`client/raven/RavenPose`): no walking swing in the air; upright floaty hover (arms drifting out from
+  her sides, legs together, one knee back), ~20 degree lean cruising with the arms easing back, ~50 degrees sprint-flying with
+  the arms swept back and the legs trailing, a slight lean back with palms forward flying backward. Raven is on the shared flight
+  lean / bank / hover bob (`FlightPoseHelper`, `FlightFeel.RAVEN`), with the lean eased down from the shared 25/90 to hers.
+- **Every move and spell has a pose** (third person and first-person arms), listed in `RavenPose`'s javadoc.
+
 ## Stats and resources
-- 30 health (was 20), 10% damage resistance, slow fall when not flying.
-- **Dark Energy** (Slab, 100), refills 5/s, 10/s in Demonic Ascension. Every move and spell costs it.
+- 30 health (was 20), 10% damage resistance, slow fall when not flying. (v0.17.4: 20 health, no slow fall, no fall damage.)
+- **Dark Energy** (Slab, 100), refills 5/s, 10/s in Demonic Ascension. Every move and spell costs it. (v0.17.4: a boss-bar meter.)
 - **Composure** (Hairline under the Slab): the existing emotion meter, now ChatGPT's "Emotional Stability" too.
   - Casting, heavy hits and long fights push it down; Meditate, Soul Restoration and time out of combat bring it back.
   - **Below 40 (Unsettled):** spells +20% damage but wild: bolts drift, 1 in 8 wheel spells misfires into a random nearby spot.
