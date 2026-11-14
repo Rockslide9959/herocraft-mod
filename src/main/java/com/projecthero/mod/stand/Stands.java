@@ -80,6 +80,8 @@ public final class Stands {
 	private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
 	/** Game time each Stand user last dealt or took combat damage (Stamina refills fast only out of a fight). */
 	private static final Map<UUID, Long> LAST_COMBAT = new ConcurrentHashMap<>();
+	/** v0.17.4: game time each Stand user last spent Stamina (the bar refills only {@link StandConfig#STAMINA_REGEN_DELAY_TICKS} after). */
+	private static final Map<UUID, Long> LAST_SPEND = new ConcurrentHashMap<>();
 
 	private Stands() {
 	}
@@ -89,6 +91,7 @@ public final class Stands {
 		LAST_TICK.clear();
 		LAST_TOGGLE.clear();
 		LAST_COMBAT.clear();
+		LAST_SPEND.clear();
 		StarPlatinum.clearSessionState();
 		StandAbilityManager.clearSessionState();
 		StandCombat.clearSessionState();
@@ -102,6 +105,10 @@ public final class Stands {
 	}
 
 	static void save(ServerPlayer player, StandState state) {
+		StandState old = player.getAttachedOrElse(ModAttachments.STAND_STATE, null);
+		if (old != null && state != null && state.stamina < old.stamina - 1.0e-4f) {
+			LAST_SPEND.put(player.getUUID(), player.level().getGameTime()); // v0.17.4: any spend restarts the 1 s wait
+		}
 		player.setAttached(ModAttachments.STAND_STATE, state);
 	}
 
@@ -481,8 +488,15 @@ public final class Stands {
 		return StandConfig.STAMINA_REGEN * (slow ? StandConfig.REGEN_SLOW_FACTOR : 1f);
 	}
 
+	/** v0.17.4: Stamina was spent in the last second: the bar holds still until it has been left alone that long. */
+	public static boolean regenWaiting(ServerPlayer player) {
+		Long last = LAST_SPEND.get(player.getUUID());
+		long now = player.level().getGameTime();
+		return last != null && now >= last && now - last < StandConfig.STAMINA_REGEN_DELAY_TICKS;
+	}
+
 	private static void tickStamina(ServerPlayer player, StandState s) {
-		if (s.rushing || TimeStop.isCaster(player) || TimeStop.windingUpFor(player)) {
+		if (s.rushing || TimeStop.isCaster(player) || TimeStop.windingUpFor(player) || regenWaiting(player)) {
 			return;
 		}
 		float st = Float.isNaN(s.stamina) ? 0f : s.stamina;

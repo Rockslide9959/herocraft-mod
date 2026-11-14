@@ -72,7 +72,7 @@ public final class StandAbilityManager {
 		if (!freshPress(player, slot, pressed)) {
 			return;
 		}
-		if (pressed && (TimeStop.frozen(player) || !player.isAlive() || player.isSpectator())) {
+		if (pressed && (TimeStop.actionsLocked(player) || !player.isAlive() || player.isSpectator())) {
 			return;
 		}
 		boolean shift = player.isShiftKeyDown();

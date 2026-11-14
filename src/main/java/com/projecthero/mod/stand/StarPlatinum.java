@@ -412,7 +412,7 @@ public final class StarPlatinum {
 					Vec3 flat = away.lengthSqr() < 1.0e-4 ? dir : away;
 					Vec3 v = flat.scale(StandConfig.BARRAGE_LAUNCH_SPEED).add(0, StandConfig.BARRAGE_LAUNCH_LIFT, 0);
 					if (TimeStop.shouldQueue(p, e)) {
-						TimeStop.queue(e, 0f, v);
+						TimeStop.queue(p, e, 0f, v);
 					} else {
 						launch(e, v);
 					}
@@ -594,7 +594,7 @@ public final class StarPlatinum {
 			LivingEntity caught = null;
 			double best = Double.MAX_VALUE;
 			for (Entity e : p.level().getEntities(p, new AABB(next, next).inflate(StandConfig.CHASE_GRAB_RADIUS + 1.0))) {
-				if (!StandCombat.isTarget(p, e) || TimeStop.frozen(e) && !TimeStop.isCaster(p)) {
+				if (!StandCombat.isTarget(p, e) || TimeStop.frozen(e) && !TimeStop.unbound(p)) {
 					continue;
 				}
 				AABB bb = e.getBoundingBox().inflate(StandConfig.CHASE_GRAB_RADIUS);
@@ -648,7 +648,7 @@ public final class StarPlatinum {
 			Vec3 v = facing.scale(StandConfig.CHASE_THROW_SPEED).add(0, StandConfig.CHASE_THROW_LIFT, 0);
 			StandCombat.hit(p, victim, StandConfig.CHASE_THROW_DAMAGE, Vec3.ZERO);
 			if (TimeStop.shouldQueue(p, victim)) {
-				TimeStop.queue(victim, 0f, v);
+				TimeStop.queue(p, victim, 0f, v);
 			} else {
 				launch(victim, v);
 			}
@@ -1012,7 +1012,7 @@ public final class StarPlatinum {
 		if (thrown instanceof LivingEntity le) {
 			Vec3 v = p.getLookAngle().scale(StandConfig.THROW_SPEED).add(0, 0.15, 0);
 			if (TimeStop.shouldQueue(p, le)) {
-				TimeStop.queue(le, 0f, v);
+				TimeStop.queue(p, le, 0f, v);
 			} else {
 				le.setDeltaMovement(v);
 				le.hurtMarked = true;
@@ -1045,7 +1045,7 @@ public final class StarPlatinum {
 		if (last) {
 			Vec3 v = flatLook(p).scale(StandConfig.GRAB_LAST_KNOCKBACK).add(0, 0.35, 0);
 			if (TimeStop.shouldQueue(p, e)) {
-				TimeStop.queue(e, 0f, v);
+				TimeStop.queue(p, e, 0f, v);
 			} else {
 				launch(e, v);
 			}

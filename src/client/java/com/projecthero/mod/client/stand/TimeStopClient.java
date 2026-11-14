@@ -23,6 +23,10 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Anyone else</b> perceives nothing: EVERYTHING freezes, the caster too, their own view and keys included, with no
  *       cue at all -- when time resumes the world simply jumps (the user's rule: non-Stand users can't perceive a Stand).</li>
  * </ul>
+ * v0.17.4: players the server lists as mobile ({@link TimeStopPayload#mobile}: other Star Platinum users free, XLR8 and Speed
+ * Force speedsters at sprint pace, the Super Speed mutation at walking pace) are never frozen on a perceiving client. On their own
+ * client they keep their camera and movement (a speedster's capped by {@link #speedCap}, their action keys held back), and they
+ * perceive the stop like a Stand user does (the world frozen); only Stand users get the colour drain.
  * A frozen entity skips its client tick ({@code SuperSpeedClientLevelMixin}) and renders at partial tick 0
  * ({@code StandTimeStopRenderMixin}), so nothing jitters between frames.
  */
@@ -32,6 +36,8 @@ public final class TimeStopClient {
 	private static long end;
 	private static double radius;
 	private static Vec3 centre = Vec3.ZERO;
+	/** v0.17.4: entity id -&gt; {@link TimeStop.Mobility} of the players the stop doesn't freeze. */
+	private static final java.util.Map<Integer, TimeStop.Mobility> MOBILE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private static PostChain chain;
 	private static boolean failed;
@@ -47,11 +53,17 @@ public final class TimeStopClient {
 		end = p.end();
 		radius = p.radius();
 		centre = new Vec3(p.x(), p.y(), p.z());
+		MOBILE.clear();
+		TimeStop.Mobility[] levels = TimeStop.Mobility.values();
+		for (int m : p.mobile()) {
+			MOBILE.put(m >> 2, levels[Math.min(levels.length - 1, m & 3)]);
+		}
 	}
 
 	static void reset() {
 		end = 0L;
 		casterId = -1;
+		MOBILE.clear();
 		if (chain != null) {
 			chain.close();
 			chain = null;
@@ -78,6 +90,41 @@ public final class TimeStopClient {
 		return mc.player != null && Stands.isStandUser(mc.player);
 	}
 
+	/** v0.17.4: how this entity moves in the running stop on this client (FROZEN unless the server listed it). */
+	public static TimeStop.Mobility mobility(Entity e) {
+		return e == null ? TimeStop.Mobility.FROZEN : MOBILE.getOrDefault(e.getId(), TimeStop.Mobility.FROZEN);
+	}
+
+	/** v0.17.4: the local player moves through the stop (a free Star Platinum user or a speedster). */
+	public static boolean localMobile() {
+		Minecraft mc = Minecraft.getInstance();
+		return active() && mc.player != null && mobility(mc.player) != TimeStop.Mobility.FROZEN;
+	}
+
+	/** v0.17.4: the local player is a speedster moving through the stop: movement only, no attack / use / inventory keys. */
+	public static boolean localLimited() {
+		Minecraft mc = Minecraft.getInstance();
+		if (!active() || mc.player == null || radius > 0.0 && mc.player.position().distanceToSqr(centre) > radius * radius) {
+			return false;
+		}
+		TimeStop.Mobility m = mobility(mc.player);
+		return m == TimeStop.Mobility.WALK || m == TimeStop.Mobility.SPRINT;
+	}
+
+	/** v0.17.4 ({@link TimeStop#clientCap}): the local speedster's pace in blocks a tick, 0 = none. */
+	public static double speedCap(Entity e) {
+		Minecraft mc = Minecraft.getInstance();
+		if (e != mc.player || !localLimited()) {
+			return 0.0;
+		}
+		return TimeStop.capFor(mobility(e));
+	}
+
+	/** v0.17.4: this viewer perceives the stop (sees the caster and the mobile players move): Stand users and mobile players. */
+	public static boolean perceives() {
+		return seer() || localMobile();
+	}
+
 	public static int casterId() {
 		return casterId;
 	}
@@ -100,18 +147,18 @@ public final class TimeStopClient {
 		if (radius > 0.0 && e.position().distanceToSqr(centre) > radius * radius) {
 			return false;
 		}
-		if (!seer()) {
+		if (!perceives()) {
 			return true; // a non-Stand user: everything, the caster too
 		}
-		if (e.getId() == casterId) {
-			return false;
+		if (e.getId() == casterId || mobility(e) != TimeStop.Mobility.FROZEN) {
+			return false; // (v0.17.4: and the players who move through it)
 		}
 		Entity caster = mc.level.getEntity(casterId);
 		if (caster != null && (e == caster.getRootVehicle() || e.getRootVehicle() == caster.getRootVehicle())) {
 			return false;
 		}
 		return !(e instanceof Projectile p && p.tickCount < TimeStop.PROJECTILE_FREE_TICKS && p.getOwner() != null
-				&& p.getOwner().getId() == casterId);
+				&& (p.getOwner().getId() == casterId || mobility(p.getOwner()) == TimeStop.Mobility.FREE));
 	}
 
 	/** The local player is frozen (no turning, no keys). */

@@ -47,19 +47,45 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  * Only one stop runs at a time. It ends early when the caster dies, logs out, changes dimension or loses the Stand, and
  * {@code ServerStateReset} clears it with the server.
+ * <p>
+ * v0.17.4 (user: "players with super speed and star platinum and xlr8 can move during time stop"): some players are not
+ * frozen by someone else's stop ({@link #classify}, {@link Mobility}):
+ * <ul>
+ *   <li>{@link Mobility#FREE} -- other Star Platinum users: they move and fight as if time ran for them. Their hits on frozen
+ *       creatures are queued like the caster's (without the caster's +30%), their moves cost Stamina as usual, and what they
+ *       throw or fire flies {@link #PROJECTILE_FREE_TICKS} ticks and then hangs, like the caster's throws.</li>
+ *   <li>{@link Mobility#SPRINT} -- XLR8 and Speed Force speedsters: they move at most at a normal player's sprint speed
+ *       ({@link #SPRINT_CAP}). Movement only: ability keys, attacks, item use and blocks are refused ({@link #actionsLocked}).</li>
+ *   <li>{@link Mobility#WALK} -- the Super Speed mutation: the same, at walking speed ({@link #WALK_CAP}).</li>
+ * </ul>
+ * The server lets them tick, the cap is applied to every self-move ({@link #capMove}, {@code StandTimeStopMoveMixin}), and the
+ * payload lists them so their own client (camera, keys, animation) and every other perceiving client keep them moving.
  */
 public final class TimeStop {
 	/** A projectile the caster lets go of travels this many ticks before it stops in the air. */
 	public static final int PROJECTILE_FREE_TICKS = 3;
 
-	/** One queued hit-stack on a frozen victim. */
+	/** v0.17.4: how a player moves inside someone else's time stop (the ordinal is sent to clients). */
+	public enum Mobility { FROZEN, WALK, SPRINT, FREE }
+
+	/** v0.17.4: a player's walking speed, blocks a tick (4.317 b/s). */
+	public static final double WALK_CAP = 4.317 / 20.0;
+	/** v0.17.4: a player's sprinting speed, blocks a tick (5.612 b/s). */
+	public static final double SPRINT_CAP = 5.612 / 20.0;
+
+	/** Client hook (set by {@code TimeStopClient}): the local player's speed cap in blocks a tick, 0 = none. */
+	public static volatile java.util.function.ToDoubleFunction<Entity> clientCap = e -> 0.0;
+
+	/** One queued hit-stack on a frozen victim, from one attacker (the caster or a free Star Platinum user). */
 	static final class Queued {
 		final LivingEntity victim;
+		final UUID attacker;
 		float damage;
 		Vec3 knock = Vec3.ZERO;
 
-		Queued(LivingEntity victim) {
+		Queued(LivingEntity victim, UUID attacker) {
 			this.victim = victim;
+			this.attacker = attacker;
 		}
 	}
 
@@ -72,7 +98,10 @@ public final class TimeStop {
 		/** 0 = the whole dimension (gametests use a small radius so the parallel tests around them keep running). */
 		final double radius;
 		final Vec3 centre;
-		final Map<UUID, Queued> queue = new LinkedHashMap<>();
+		/** Keyed by attacker + victim UUID. */
+		final Map<String, Queued> queue = new LinkedHashMap<>();
+		/** The mobile-player list last sent to clients (entity ids and levels; rebroadcast when it changes). */
+		String mobileSig = "";
 		/** The caster's flight before the stop (restored when time resumes). */
 		boolean hadMayfly, wasFlying;
 		float flySpeed = 0.05f;
@@ -149,7 +178,107 @@ public final class TimeStop {
 		if (s == null || e == null || e.level().isClientSide() || e.level().dimension() != s.dimension) {
 			return false;
 		}
-		return !exempt(s, e);
+		if (exempt(s, e)) {
+			return false;
+		}
+		return !(e instanceof ServerPlayer p && classify(p) != Mobility.FROZEN);
+	}
+
+	/**
+	 * v0.17.4: how this player would move inside someone else's stop, whatever is running (server side). Other Star Platinum
+	 * users are free; XLR8 (the alien worn right now) and Speed Force speedsters sprint; the Super Speed mutation walks.
+	 */
+	public static Mobility classify(ServerPlayer p) {
+		if (p == null) {
+			return Mobility.FROZEN;
+		}
+		if (Stands.isStandUser(p) && Stands.type(p) == StandType.STAR_PLATINUM) {
+			return Mobility.FREE;
+		}
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(p)
+				|| com.projecthero.mod.omnitrix.alien.Aliens.XLR8.id().equals(com.projecthero.mod.omnitrix.Omnitrix.active(p))) {
+			return Mobility.SPRINT;
+		}
+		if (com.projecthero.mod.hero.ExperimentalPowers.owns(p, com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.KEY)) {
+			return Mobility.WALK;
+		}
+		return Mobility.FROZEN;
+	}
+
+	/** v0.17.4: how this entity moves in the running stop (server side): the caster and everything outside it are FREE. */
+	public static Mobility mobility(Entity e) {
+		Stop s = active;
+		if (s == null || e == null || e.level().isClientSide() || e.level().dimension() != s.dimension || exempt(s, e)) {
+			return Mobility.FREE;
+		}
+		return e instanceof ServerPlayer p ? classify(p) : Mobility.FROZEN;
+	}
+
+	/** v0.17.4: moving through the stop at a capped speed (Super Speed, XLR8, Speed Force): movement only, no actions. */
+	public static boolean limited(Entity e) {
+		Mobility m = active == null ? Mobility.FREE : mobility(e);
+		return m == Mobility.WALK || m == Mobility.SPRINT;
+	}
+
+	/** v0.17.4: refuse ability keys, attacks, item use and block use / breaking (frozen, or a speedster moving through the stop). */
+	public static boolean actionsLocked(Entity e) {
+		return active != null && (frozen(e) || limited(e));
+	}
+
+	/** v0.17.4: a free Star Platinum user inside the running stop (not the caster): fights as if time ran. */
+	public static boolean freeInside(Entity e) {
+		Stop s = active;
+		return s != null && e instanceof ServerPlayer p && !e.level().isClientSide() && e.level().dimension() == s.dimension
+				&& !e.getUUID().equals(s.caster) && !(s.radius > 0.0 && e.position().distanceToSqr(s.centre) > s.radius * s.radius)
+				&& classify(p) == Mobility.FREE;
+	}
+
+	/** v0.17.4: the caster or a free Star Platinum user: they act on the frozen world (their hits on it are queued). */
+	public static boolean unbound(Entity e) {
+		return isCaster(e) || freeInside(e);
+	}
+
+	/** v0.17.4: this entity's speed cap in blocks a tick right now (0 = none). Players only; the client asks its hook. */
+	public static double speedCap(Entity e) {
+		if (!(e instanceof Player)) {
+			return 0.0;
+		}
+		if (e.level().isClientSide()) {
+			return clientCap.applyAsDouble(e);
+		}
+		if (active == null) {
+			return 0.0;
+		}
+		return capFor(mobility(e));
+	}
+
+	public static double capFor(Mobility m) {
+		return switch (m) {
+			case WALK -> WALK_CAP;
+			case SPRINT -> SPRINT_CAP;
+			default -> 0.0;
+		};
+	}
+
+	/**
+	 * v0.17.4 ({@code StandTimeStopMoveMixin}, every {@code MoverType.SELF} move): a capped player's horizontal move is cut to
+	 * the cap, and their velocity with it (so nothing builds up while time is stopped). Falling and jumping are left alone.
+	 */
+	public static Vec3 capMove(Entity e, Vec3 move) {
+		double cap = speedCap(e);
+		if (cap <= 0.0 || move == null) {
+			return move;
+		}
+		double h = Math.sqrt(move.x * move.x + move.z * move.z);
+		Vec3 d = e.getDeltaMovement();
+		double dh = Math.sqrt(d.x * d.x + d.z * d.z);
+		if (dh > cap) {
+			e.setDeltaMovement(d.x * cap / dh, d.y, d.z * cap / dh);
+		}
+		if (h <= cap) {
+			return move;
+		}
+		return new Vec3(move.x * cap / h, move.y, move.z * cap / h);
 	}
 
 	/** The block-entity tick of this level is held (server side; a test-radius stop leaves block entities alone). */
@@ -166,8 +295,9 @@ public final class TimeStop {
 		if (caster != null && (e == caster.getRootVehicle() || e.getRootVehicle() == caster.getRootVehicle())) {
 			return true;
 		}
-		if (e instanceof Projectile p && p.tickCount < PROJECTILE_FREE_TICKS && p.getOwner() != null && p.getOwner().getUUID().equals(s.caster)) {
-			return true;
+		if (e instanceof Projectile p && p.tickCount < PROJECTILE_FREE_TICKS && p.getOwner() != null
+				&& (p.getOwner().getUUID().equals(s.caster) || p.getOwner() instanceof ServerPlayer op && classify(op) == Mobility.FREE)) {
+			return true; // (v0.17.4: a free Star Platinum user's throws too)
 		}
 		return s.radius > 0.0 && e.position().distanceToSqr(s.centre) > s.radius * s.radius;
 	}
@@ -297,6 +427,9 @@ public final class TimeStop {
 			return;
 		}
 		grantFlight(caster); // (another power's tick may have taken it)
+		if (now % 5 == 0 && !mobileSig(server, s).equals(s.mobileSig)) {
+			broadcast(server); // v0.17.4: someone became able (or unable) to move through the stop
+		}
 		if (now % 20 == 0) {
 			// v0.17.2 (user: "make it sound like a clock is ticking during time stop like how it is in the anime"): a ringing
 			// clock tick each second, alternating tick (higher) and tock (lower)
@@ -359,7 +492,8 @@ public final class TimeStop {
 			dmg = Math.min(dmg * StandConfig.TIME_STOP_BOSS_FACTOR, v.getMaxHealth() * StandConfig.TIME_STOP_BOSS_CAP);
 		}
 		if (dmg > 0f) {
-			DamageSource src = caster != null ? v.damageSources().playerAttack(caster) : v.damageSources().magic();
+			ServerPlayer attacker = level == null || q.attacker == null ? caster : level.getServer().getPlayerList().getPlayer(q.attacker);
+		DamageSource src = attacker != null ? v.damageSources().playerAttack(attacker) : v.damageSources().magic();
 			v.invulnerableTime = 0;
 			v.hurt(src, dmg);
 		}
@@ -379,34 +513,58 @@ public final class TimeStop {
 
 	// ---------------------------------------------------------------- queued hits
 
-	/** Is a hit by {@code attacker} on {@code victim} one to queue (the caster striking something frozen)? */
+	/**
+	 * Is a hit by {@code attacker} on {@code victim} one to queue (the caster -- or, v0.17.4, a free Star Platinum user --
+	 * striking something frozen)?
+	 */
 	public static boolean shouldQueue(Entity attacker, LivingEntity victim) {
 		Stop s = active;
-		return s != null && attacker != null && attacker.getUUID().equals(s.caster) && frozen(victim);
+		return s != null && attacker != null && unbound(attacker) && frozen(victim);
 	}
 
-	/** Adds damage and knockback to a frozen victim's stack. */
+	/** Adds damage and knockback to a frozen victim's stack (the caster's hit). */
 	public static void queue(LivingEntity victim, float damage, Vec3 knock) {
+		Stop s = active;
+		if (s != null) {
+			queue(s.caster, victim, damage, knock);
+		}
+	}
+
+	/** v0.17.4: adds {@code attacker}'s hit to a frozen victim's stack (the caster's with the +30%, a free user's as it is). */
+	public static void queue(Entity attacker, LivingEntity victim, float damage, Vec3 knock) {
+		Stop s = active;
+		if (s != null) {
+			queue(attacker == null ? s.caster : attacker.getUUID(), victim, damage, knock);
+		}
+	}
+
+	private static void queue(UUID attacker, LivingEntity victim, float damage, Vec3 knock) {
 		Stop s = active;
 		if (s == null) {
 			return;
 		}
-		Queued q = s.queue.computeIfAbsent(victim.getUUID(), k -> new Queued(victim));
-		// v0.17.3 (user: "player deals 30% increased damage during time stop"): only the caster's hits are ever queued
-		q.damage += Math.max(0f, damage) * StandConfig.TIME_STOP_DAMAGE_BONUS;
+		Queued q = s.queue.computeIfAbsent(attacker + "/" + victim.getUUID(), k -> new Queued(victim, attacker));
+		// v0.17.3 (user: "player deals 30% increased damage during time stop"): the caster's hits only
+		float bonus = attacker.equals(s.caster) ? StandConfig.TIME_STOP_DAMAGE_BONUS : 1f;
+		q.damage += Math.max(0f, damage) * bonus;
 		if (knock != null) {
 			q.knock = q.knock.add(knock);
 		}
 	}
 
-	/** Damage queued on this victim so far (tests, the HUD). */
+	/** Damage queued on this victim so far, from everyone (tests, the HUD). */
 	public static float queued(LivingEntity victim) {
 		Stop s = active;
 		if (s == null) {
 			return 0f;
 		}
-		Queued q = s.queue.get(victim.getUUID());
-		return q == null ? 0f : q.damage;
+		float sum = 0f;
+		for (Queued q : s.queue.values()) {
+			if (q.victim == victim || q.victim.getUUID().equals(victim.getUUID())) {
+				sum += q.damage;
+			}
+		}
+		return sum;
 	}
 
 	/**
@@ -422,7 +580,7 @@ public final class TimeStop {
 		if (shouldQueue(attacker, victim)) {
 			Vec3 away = victim.position().subtract(attacker.position());
 			away = new Vec3(away.x, 0, away.z);
-			queue(victim, amount, away.lengthSqr() > 1.0e-4 ? away.normalize().scale(0.35).add(0, 0.1, 0) : Vec3.ZERO);
+			queue(attacker, victim, amount, away.lengthSqr() > 1.0e-4 ? away.normalize().scale(0.35).add(0, 0.1, 0) : Vec3.ZERO);
 			return false;
 		}
 		return true;
@@ -430,19 +588,47 @@ public final class TimeStop {
 
 	// ---------------------------------------------------------------- sync
 
-	private static TimeStopPayload payload() {
+	private static TimeStopPayload payload(MinecraftServer server) {
 		Stop s = active;
 		if (s == null) {
 			return TimeStopPayload.NONE;
 		}
-		return new TimeStopPayload(s.casterId, s.dimension.location().toString(), s.end, s.radius, s.centre.x, s.centre.y, s.centre.z);
+		return new TimeStopPayload(s.casterId, s.dimension.location().toString(), s.end, s.radius, s.centre.x, s.centre.y, s.centre.z,
+				mobileIds(s, server));
+	}
+
+	/** v0.17.4: entity id * 4 + {@link Mobility} ordinal of every player in the stop who isn't frozen by it (not the caster). */
+	private static java.util.List<Integer> mobileIds(Stop s, MinecraftServer server) {
+		java.util.List<Integer> out = new java.util.ArrayList<>();
+		ServerLevel level = server == null ? null : server.getLevel(s.dimension);
+		if (level == null) {
+			return out;
+		}
+		for (ServerPlayer p : level.players()) {
+			if (p.getUUID().equals(s.caster) || s.radius > 0.0 && p.position().distanceToSqr(s.centre) > s.radius * s.radius) {
+				continue;
+			}
+			Mobility m = classify(p);
+			if (m != Mobility.FROZEN) {
+				out.add(p.getId() * 4 + m.ordinal());
+			}
+		}
+		return out;
+	}
+
+	private static String mobileSig(MinecraftServer server, Stop s) {
+		return mobileIds(s, server).toString();
 	}
 
 	private static void broadcast(MinecraftServer server) {
 		if (server == null) {
 			return;
 		}
-		TimeStopPayload p = payload();
+		Stop s = active;
+		if (s != null) {
+			s.mobileSig = mobileSig(server, s);
+		}
+		TimeStopPayload p = payload(server);
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			if (ServerPlayNetworking.canSend(player, TimeStopPayload.TYPE)) {
 				ServerPlayNetworking.send(player, p);
@@ -453,7 +639,7 @@ public final class TimeStop {
 	/** A player joining (or awakening a Stand) mid-stop learns of it. */
 	public static void sendStateTo(ServerPlayer player) {
 		if (active != null && ServerPlayNetworking.canSend(player, TimeStopPayload.TYPE)) {
-			ServerPlayNetworking.send(player, payload());
+			ServerPlayNetworking.send(player, payload(player.getServer()));
 		}
 	}
 }

@@ -234,6 +234,7 @@
       "com.projecthero.mod.gametest.GhostRiderGameTests",
       "com.projecthero.mod.gametest.GhostRiderReworkGameTests",
       "com.projecthero.mod.gametest.StandGameTests",
+      "com.projecthero.mod.gametest.StandTimeStopMobilityGameTests",
       "com.projecthero.mod.gametest.CyborgGameTests",
       "com.projecthero.mod.gametest.FalconGameTests",
       "com.projecthero.mod.gametest.SilverSurferGameTests",
