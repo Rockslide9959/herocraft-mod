@@ -57,42 +57,47 @@ public final class WildvineShow extends ShowSequenceClient {
 
 	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.dialCloseUp(0f, SLAP_END), new float[][] {
 			// his face, a little from above
-			{ 3.51f, 0.78f, 6f, 1.78f, 1.6f, 0f, 0f },
-			{ 40f, 0.64f, 4f, 1.74f, 1.6f, 0f, 0f },
-			// the tilt from the wrist up his side to the face
+			// (v0.17.4: closer, the face filling the frame like the show's)
+			{ 3.51f, 0.68f, 6f, 1.8f, 1.57f, 0f, 0f },
+			{ 40f, 0.58f, 4f, 1.76f, 1.57f, 0f, 0f },
+			// the tilt from the wrist up his side to the shoulder (v0.17.4: ending on the collar and shoulder from his left front, the
+			// face cut by the top left of the frame, as the show's; it ended square on the face)
 			{ 40.01f, 0.72f, -16f, 1.05f, 0.98f, -0.22f, 0.25f },
-			{ 53f, 0.68f, -4f, 1.6f, 1.6f, 0f, 0.05f },
-			// the face, then in on his left eye
-			{ 53.01f, 0.88f, 0f, 1.62f, 1.56f, 0f, 0f },
-			{ 70f, 0.78f, 0f, 1.62f, 1.58f, 0f, 0f },
-			{ 80f, 0.32f, 0f, 1.68f, 1.68f, -0.09f, 0.18f },
-			{ 80.01f, 0.25f, 4f, 1.69f, 1.69f, -0.1f, 0.24f },
-			{ 90f, 0.2f, 4f, 1.69f, 1.69f, -0.1f, 0.24f },
+			{ 53f, 0.66f, -22f, 1.5f, 1.44f, -0.08f, 0.05f },
+			// the face, then in on his left eye (v0.17.4: closer; the eye shot level with the eye, not the brow)
+			{ 53.01f, 0.76f, 0f, 1.68f, 1.5f, 0f, 0f },
+			{ 70f, 0.66f, 0f, 1.66f, 1.51f, 0f, 0f },
+			{ 80f, 0.3f, 0f, 1.58f, 1.56f, -0.16f, 0.18f },
+			{ 80.01f, 0.24f, 4f, 1.57f, 1.56f, -0.17f, 0.24f },
+			{ 90f, 0.2f, 4f, 1.57f, 1.56f, -0.17f, 0.24f },
 			// Wildvine's eye, pulling back
 			{ 90.01f, 0.9f, -12f, 2.5f, 3.0f, 0f, 0.2f },
 			{ 103f, 0.9f, -12f, 2.5f, 3.1f, 0f, 0.2f },
 			{ 103.01f, 0.3f, -12f, 1.58f, 1.64f, 0f, 0.22f },
 			{ 130f, 0.62f, -30f, 1.5f, 1.6f, 0f, 0.15f },
 			// the head in profile, the pods sprouting
-			{ 130.01f, 1.25f, -105f, 1.6f, 1.38f, 0f, -0.05f },
-			{ 160f, 1.35f, -125f, 1.62f, 1.32f, 0f, -0.08f },
+			// (v0.17.4: close on the head from his left front, the eye at the left of the frame, the pods down the back of the head; it
+			// was a small figure from behind)
+			{ 130.01f, 0.82f, -42f, 1.5f, 1.48f, 0f, 0f },
+			{ 160f, 0.92f, -58f, 1.52f, 1.42f, 0f, 0f },
 			// from above and behind
 			{ 160.01f, 0.75f, 175f, 2.05f, 1.2f, 0f, -0.05f },
 			{ 166f, 0.7f, 175f, 2.0f, 1.2f, 0f, -0.05f },
 			// close on his chest
-			{ 166.01f, 0.72f, 18f, 1.35f, 1.28f, 0f, 0.1f },
-			{ 186f, 0.62f, 8f, 1.3f, 1.25f, 0f, 0.1f },
+			// (v0.17.4: the head and the clutching hands, as the show's, not the chest)
+			{ 166.01f, 0.8f, 14f, 1.5f, 1.52f, 0f, 0.08f },
+			{ 186f, 0.68f, 6f, 1.48f, 1.5f, 0f, 0.1f },
 			// the whip up to the face
 			{ 196f, 0.42f, 0f, 1.62f, 1.62f, 0f, 0.2f },
 			{ 206f, 0.5f, 0f, 1.62f, 1.62f, 0f, 0.18f },
 			{ 216f, 0.82f, 0f, 1.56f, 1.58f, 0f, 0.1f },
 			{ 222f, 1.0f, -10f, 1.5f, 1.5f, 0f, 0.1f },
 			// the whole body, a little from his left
-			{ 222.01f, 2.5f, -24f, 0.95f, 0.92f, 0f, 0f },
-			{ 262f, 2.3f, -24f, 0.95f, 0.92f, 0f, 0f },
-			// the crouch from low at his right, on the burst
-			{ 262.01f, 2.45f, 38f, 0.55f, 1.05f, 0f, 0f },
-			{ 326f, 2.25f, 36f, 0.55f, 1.08f, 0f, 0f } })).linear(WHIP_AT, VFACE_AT).shake(VFACE_AT + 10f, SWIPE_AT, 0.01f, 10f);
+			{ 222.01f, 2.2f, -24f, 0.95f, 0.92f, 0f, 0f },
+			{ 262f, 2.0f, -24f, 0.95f, 0.92f, 0f, 0f },
+			// the crouch from low at his right, on the burst (v0.17.4: closer and lower, so he fills the frame like the show's)
+			{ 262.01f, 1.85f, 34f, 0.35f, 1.0f, 0f, 0f },
+			{ 326f, 1.7f, 32f, 0.35f, 1.02f, 0f, 0f } })).linear(WHIP_AT, VFACE_AT).shake(VFACE_AT + 10f, SWIPE_AT, 0.01f, 10f);
 
 	public WildvineShow() {
 		super(Aliens.WILDVINE.id());
@@ -165,12 +170,13 @@ public final class WildvineShow extends ShowSequenceClient {
 			// ---- the crouch, both clawed hands raised, elbows bent
 			.at(CLAWS_AT + 5f).split(0f).head(-0.2f, 0f, 0f).rArm(-1.0f, 0.2f, 1.3f, 1.25f, 1.3f).lArm(-0.85f, -0.2f, -1.4f, 1.15f, -1.3f)
 			.at(BURST_AT - 0.01f).hold()
-			// ---- the last stance, low at his right: claws forward, the legs splayed out like roots, knees high
-			.at(BURST_AT).drop(5.5f).lean(0.32f).head(-0.25f, 0f, 0f).rArm(-1.35f, 0.15f, 0.75f, 1.1f, 0.9f).lArm(-1.15f, -0.1f, -0.9f, 1.2f, -0.8f)
+			// ---- the last stance, low at his right: the legs splayed out like roots, knees high (v0.17.4: the claws out to both sides and
+			// the body slanting over to his right, the show's silhouette; the claws were forward)
+			.at(BURST_AT).drop(5.5f).lean(0.2f).set(ShowBody.TILT, -0.22f).head(-0.3f, 0f, 0.1f).rArm(-0.95f, 0f, 1.2f, 1.0f, 1.2f).lArm(-0.8f, 0f, -1.3f, 1.0f, -1.2f)
 			.legs(-0.3f, 0f, 1.5f, 1.45f, 1.57f)
 			.at(WORLD_AT).hold()
 			// eased to standing under the green out
-			.at(WORLD_AT + 12f).hold().drop(0f).lean(0f).split(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0f, 0f).legs(0f, 0f, 0.04f, 0f, 0f);
+			.at(WORLD_AT + 12f).hold().drop(0f).lean(0f).split(0f).set(ShowBody.TILT, 0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0f, 0f).legs(0f, 0f, 0.04f, 0f, 0f);
 
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
