@@ -25,7 +25,8 @@ import net.minecraft.network.chat.Component;
  *   Tikki is hungry -- feed her cookies        (when hungry / detransformed: wrapped to the column's width)
  *   Ladybug                                    the hero (grey while detransformed)
  *   Multitude [boss bar ======---]  3/5        a kit's own rows ({@link Panel#rows}: Multimouse, Viperion)
- *   Spots [boss bar ==========]  5/5           the jewel's five spots: one blinks out per minute (the value flashes red)
+ *   o o o o o                                  the jewel's five spots in the hero's colour, one goes out every 36 s, the
+ *                                              last one blinking (v0.17.4, user: the five dots are back, no Spots bar)
  *   +--+--+--+--+--+--+                        R G Z X C V: the shown move's cooldown (the Shift move's while Shift is held,
  *   |R |G |Z |X |C |V |                        yellow keys), the other move's as the durability bar; the selection frame
  *   +--+--+--+--+--+--+                        while that key's move runs; grey keys while detransformed
@@ -36,6 +37,9 @@ import net.minecraft.network.chat.Component;
 public final class MiraculousHud {
 	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5). */
 	private static final AbilitySlot[] SLOTS = VanillaHud.ORDER;
+
+	/** A jewel spot that has gone out. */
+	private static final int SPOT_OFF = 0xFF2A2A2A;
 
 	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
 	public static volatile boolean forceShift;
@@ -125,13 +129,26 @@ public final class MiraculousHud {
 			stack.slot(i, VanillaHud.keyLabel(slot), on, showShift, frac, VanillaHud.seconds(cd), otherFrac, active);
 		}
 
-		// the jewel's five spots: a Spots row, one spot gone per minute of the countdown, the last one blinking
+		// the jewel's five spots (v0.17.4, user: "remove the dots bar, keep the 5 dots like how it was before"): five small
+		// dots in the hero's colour above the keys, one gone per 36 s of the countdown, the last one blinking; faded while
+		// detransformed -- drawn exactly as before v0.17.3's Spots bar
 		int left = Miraculous.countdownLeft(mc.player);
 		int spots = left > 0 ? (left + MiraculousConfig.COUNTDOWN_SPOT_TICKS - 1) / MiraculousConfig.COUNTDOWN_SPOT_TICKS : 5;
 		boolean blink = left > 0 && (left <= 200 ? (now / 4) % 2 == 0 : (left % MiraculousConfig.COUNTDOWN_SPOT_TICKS) < 100 && (now / 6) % 2 == 0);
-		float spotFrac = left > 0 ? Math.min(1f, left / (float) (5 * MiraculousConfig.COUNTDOWN_SPOT_TICKS)) : 1f;
-		int spotText = !on ? VanillaHud.GREY : blink ? VanillaHud.RED : VanillaHud.WHITE;
-		stack.meter(Component.translatable("hud.projecthero.miraculous.spots"), spotFrac, on ? accent : 0xAAAAAA, spots + "/5", spotText);
+		stack.reserve(7);
+		int sy = stack.top();
+		for (int i = 0; i < 5; i++) {
+			int sx = stack.x0 + i * 7;
+			int c = i < spots ? (accent | 0xFF000000) : SPOT_OFF;
+			if (i == spots - 1 && blink) {
+				c = SPOT_OFF;
+			}
+			if (!on && c != SPOT_OFF) {
+				c = (c & 0x00FFFFFF) | 0x70000000;
+			}
+			g.fill(sx + 1, sy, sx + 4, sy + 5, c);
+			g.fill(sx, sy + 1, sx + 5, sy + 4, c);
+		}
 
 		// v0.16.7 (user): a kit's own panel (Viperion's Second Chance, Multimouse's Multitude)
 		for (Panel panel : PANELS) {

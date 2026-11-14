@@ -38,8 +38,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>AURA</b>: Achilles Stand's golden aura (rising rings, a soft shell, arcs crawling over him).</li>
  *   <li><b>CRACK</b>: the landing's glowing lightning cracks across the ground.</li>
  * </ul>
- * Plus {@link #charged}: while the Lightning bar is at 60%+ (or Zeus Storm / Eternity Strike run) small arcs crackle round his
- * hands and his eyes glow (from {@link ShazamSuitLayer}). Cleared on disconnect.
+ * Cleared on disconnect. (v0.17.4, user: the "charged" arcs round his hands and the eye glow are gone.)
  */
 public final class ShazamBoltFx {
 	private static final int CORE = 0xFFFFFF;
@@ -454,59 +453,5 @@ public final class ShazamBoltFx {
 				prev = p;
 			}
 		}
-	}
-
-	// ---------------------------------------------------------------- charged hands and eyes (from ShazamSuitLayer)
-
-	/** He's charged: the Lightning bar at 60%+, or Zeus Storm / Eternity Strike running. */
-	public static boolean charged(AbstractClientPlayer player) {
-		return Shazam.lightning(player) >= ShazamConfig.LIGHTNING_MAX * 0.6f || Shazam.storming(player) || Shazam.eternityAge(player) >= 0;
-	}
-
-	/** Arcs crackling round both hands and glowing eyes, in the model's own space (called with the layer's pose). */
-	public static void charged(PoseStack pose, MultiBufferSource buffers, PlayerModel<AbstractClientPlayer> model, AbstractClientPlayer player,
-			float ageInTicks, boolean slim) {
-		vc = buffers.getBuffer(RenderType.lightning());
-		origin = Vec3.ZERO;
-		int tick = (int) ageInTicks;
-		float intensity = Shazam.storming(player) || Shazam.eternityAge(player) >= 0 ? 1f
-				: Mth.clamp((Shazam.lightning(player) / ShazamConfig.LIGHTNING_MAX - 0.6f) / 0.4f, 0.35f, 1f);
-		for (int side = 0; side < 2; side++) {
-			pose.pushPose();
-			(side == 0 ? model.rightArm : model.leftArm).translateAndRotate(pose);
-			mat = pose.last().pose();
-			double cx = (side == 0 ? -1.0 : 1.0) / 16.0 * (slim ? 0.5 : 1.0);
-			Vec3 hand = new Vec3(cx, 10.5 / 16.0, 0);
-			RandomSource r = RandomSource.create(player.getId() * 31L + tick * 7L + side);
-			int arcs = 1 + (intensity > 0.7f ? 2 : 1);
-			for (int i = 0; i < arcs; i++) {
-				Vec3 p0 = hand.add((r.nextDouble() - 0.5) * 0.2, (r.nextDouble() - 0.3) * 0.25, (r.nextDouble() - 0.5) * 0.2);
-				Vec3 p1 = p0.add((r.nextDouble() - 0.5) * 0.4, r.nextDouble() * 0.25, (r.nextDouble() - 0.5) * 0.4);
-				List<Seg> segs = new ArrayList<>();
-				bolt(segs, p0, p1, 0.08, 3, 0.012, r, 1);
-				for (Seg s : segs) {
-					bar(s.a, s.b, new Vec3(0, 0, 1), s.w * 3, GOLD, 0.3f * intensity);
-					bar(s.a, s.b, new Vec3(1, 0, 0), s.w * 3, GOLD, 0.3f * intensity);
-					bar(s.a, s.b, new Vec3(0, 0, 1), s.w, CORE, intensity);
-					bar(s.a, s.b, new Vec3(1, 0, 0), s.w, CORE, intensity);
-				}
-			}
-			pose.popPose();
-		}
-		// the eyes: two small white-gold glows on the face
-		pose.pushPose();
-		model.head.translateAndRotate(pose);
-		mat = pose.last().pose();
-		float pulse = (0.75f + 0.25f * Mth.sin(ageInTicks * 0.6f)) * intensity;
-		double z = -4.06 / 16.0;
-		for (int side = -1; side <= 1; side += 2) {
-			double x0 = side * 1.0 / 16.0, x1 = side * 3.0 / 16.0;
-			double y0 = -4.0 / 16.0, y1 = -3.0 / 16.0;
-			quad(new Vec3(x0, y0, z), new Vec3(x1, y0, z), new Vec3(x1, y1, z), new Vec3(x0, y1, z), CORE, pulse, pulse);
-			double g = 0.9 / 16.0;
-			quad(new Vec3(x0 - g * side, y0 - g, z - 0.002), new Vec3(x1 + g * side, y0 - g, z - 0.002), new Vec3(x1 + g * side, y1 + g, z - 0.002),
-					new Vec3(x0 - g * side, y1 + g, z - 0.002), GOLD, pulse * 0.35f, pulse * 0.35f);
-		}
-		pose.popPose();
 	}
 }

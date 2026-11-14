@@ -12,7 +12,7 @@ release.** This file is the to-do list for that swap.
   build only ever has this set, so it can never ship a reference to a missing file.
 - **Test set:** `resourcepacks/saiyan_dbz/assets/projecthero/sounds.json` (committed, it only names files) replaces every event
   with the cuts below. `client/saiyan/SaiyanDbzSounds` registers that built-in pack (always on) only when
-  `sounds/saiyan/dbz/cut_aura_loop.ogg` is in the jar, i.e. only in a build made from a checkout that has the clips.
+  `sounds/saiyan/dbz/cut_charge_loop.ogg` is in the jar, i.e. only in a build made from a checkout that has the clips.
 - `scratchpad/saiyan/dbz_cut.js` makes every `cut_*.ogg` from the user's clips (trim, 4 ms fade-in, fade-out, loudness
   normalised, mono 44.1 kHz Vorbis q5; loops crossfaded so the end flows into the start). Re-run it in any checkout that has the
   clips: `node scratchpad/saiyan/dbz_cut.js`. `scratchpad/saiyan/dbz_sounds_json.js` writes both sounds.json sets.
@@ -29,8 +29,8 @@ Times are seconds into the user's clip. "Loop" = crossfaded loop (crossfade leng
 
 | Event | Used for | Clip -> cut | Trim | A synthesised replacement must sound like |
 |---|---|---|---|---|
-| `saiyan_aura_loop_gold` | Super Saiyan aura hum, looped while transformed (the user: "the super saiyan aura should be the charge sound effect") | `charging_up` -> `cut_aura_loop` | 1.66-3.00, followed by itself reversed, loop (0.3) | A steady roaring energy rush: dense bright hiss over a low rumbling body, slowly churning, no clear pitch; seamless 2-3 s loop |
-| `saiyan_aura_loop_red` | Kaioken aura hum | `charging_up` -> `cut_aura_loop` at pitch 0.88 | as above | The same roar, darker and lower, with a slight crackle |
+| `saiyan_aura_loop_gold` | Super Saiyan aura, looped while transformed. v0.17.4 (user: "the super saiyan aura sound sounds like a looping aura audio, make it the same sound as the charging sfx"): the V charge's own loop, played the same way (`SaiyanLoopSounds`, looping, fading in/out); it fades out while a V charge's loop plays and comes back after, so the clip never doubles up | `charging_up_2` -> `cut_charge_loop` (the old `charging_up` -> `cut_aura_loop` cut is dropped) | 1.48-7.08, loop (0.4) | The same sound as `saiyan_ki_charge_loop` (the synthesised swap can share one file) |
+| `saiyan_aura_loop_red` | Kaioken aura | `charging_up_2` -> `cut_charge_loop` at pitch 0.88 | as above | The charge roar, darker and lower |
 | `saiyan_ki_charge_start` | V power-up start (also Zenkai and the Ultra Instinct unlock, pitched up) | `charging_up_2` -> `cut_charge_start` | 0.00-1.38 | A fast rising whoosh of energy swelling into a roar, ~1.4 s, ends at full intensity (the loop takes over) |
 | `saiyan_ki_charge_loop` | V power-up held (starts 1.5 s in) | `charging_up_2` -> `cut_charge_loop` | 1.48-7.08, loop (0.4) | A sustained, louder charging roar with a slow pulsing swell and high crackles; ~5 s loop |
 | `saiyan_transform_burst` | Super Saiyan / Ultra Instinct transformation, Kaioken flaring up, the Super Saiyan hero landing | `transforming` -> `cut_transform_1`; `super_saiyan_2` -> `cut_transform_2` | 0.86-3.00; 0.90-5.00 | An explosive energy eruption: sharp crack, a shockwave boom and a roaring burst that rings out over 2-4 s |

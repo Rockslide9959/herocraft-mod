@@ -246,6 +246,31 @@ public class ShazamGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.4 (user): the bar fills 4 a second while he's transformed (a step of 0.2 a tick; a storm adds its own). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 20)
+	public void lightningBarFillsFourASecond(GameTestHelper helper) {
+		ServerPlayer p = shazam(helper, 4.5, 4.5);
+		helper.assertTrue(Math.abs(ShazamConfig.LIGHTNING_REGEN_PER_TICK * 20f - 4f) < 1e-4f, "4 a second");
+		float[] seen = new float[1];
+		helper.runAfterDelay(1, () -> {
+			Shazam.setLightning(p, 50f);
+			Shazam.tick(p);
+			seen[0] = Shazam.lightning(p);
+		});
+		helper.runAfterDelay(2, () -> {
+			Shazam.tick(p);
+			float step = Shazam.lightning(p) - seen[0];
+			float expected = ShazamConfig.LIGHTNING_REGEN_PER_TICK + (helper.getLevel().isThundering() ? ShazamConfig.STORM_FILL_PER_TICK : 0f);
+			helper.assertTrue(Math.abs(step - expected) < 1e-3f, "one tick fills " + expected + ", got " + step);
+			Shazam.setLightning(p, ShazamConfig.LIGHTNING_MAX);
+		});
+		helper.runAfterDelay(3, () -> {
+			Shazam.tick(p);
+			helper.assertTrue(Shazam.lightning(p) == ShazamConfig.LIGHTNING_MAX, "never past full");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void lightningBarRefillsFromStrikesNearby(GameTestHelper helper) {
 		ServerPlayer p = shazam(helper, 4.5, 4.5);

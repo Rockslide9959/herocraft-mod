@@ -1,0 +1,336 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.hero.PowerGrants;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.raven.Raven;
+import com.projecthero.mod.raven.RavenSpell;
+import com.projecthero.mod.raven.RavenSpells;
+import com.projecthero.mod.shazam.Shazam;
+import com.projecthero.mod.shazam.ShazamMod;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.4 misc tweaks: the Miraculous HUD's five dots, the Shazam HUD (boss bar, 4/s regen) and
+ * Shazam with no eye glow / hand arcs, and Raven's 100-block rift with a squadmate following. Enabled by run/misctweak.flag.
+ * Stills land in run/screenshots/mt_*.png, film frames in run/screenshots/mtv_rift_*.png.
+ */
+public final class MiscTweaksHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame;
+	private static int recUntil;
+	private static Vec3 origin;
+	private static ServerPlayer mate;
+	private static com.projecthero.mod.squad.Squad squad;
+
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+
+	private MiscTweaksHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("misctweak.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(MiscTweaksHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "misctweak-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = srv.getPlayerList().getPlayer(mc.player.getUUID());
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "mt_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MiscTweaksHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (recording != null) {
+				String name = String.format("mtv_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MT_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void hero(Minecraft mc, int t, java.util.function.Consumer<ServerPlayer> grant) {
+		at(t, () -> server(mc, p -> UniquePowers.forced(() -> {
+			HeroTiers.wipeAll(p);
+			grant.accept(p);
+			return null;
+		})));
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw) {
+		p.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, 0f);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	/** A second player on an embedded connection (like a GameTest mock player), for the squadmate. */
+	private static ServerPlayer spawnMate(ServerPlayer p) {
+		MinecraftServer srv = p.server;
+		GameProfile profile = new GameProfile(UUID.nameUUIDFromBytes("misctweak-mate".getBytes()), "Squadmate");
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer m = new ServerPlayer(srv, p.serverLevel(), profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		srv.getPlayerList().placeNewPlayer(conn, m, cookie);
+		m.setGameMode(GameType.SURVIVAL);
+		return m;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ---- 1. Ladybug: the HUD's five dots, first person, GUI on
+		hero(mc, t, p -> {
+			System.out.println("[HARNESS] grant ladybug: " + PowerGrants.grantHero(p, "ladybug"));
+			com.projecthero.mod.miraculous.Miraculous.transform(p);
+		});
+		shot(t + 130, "ladybug_hud");
+		t += 150;
+		// ---- 2. Shazam: HUD (boss bar), the bar refilling, then his face and hands up close
+		hero(mc, t, p -> {
+			System.out.println("[HARNESS] grant shazam: " + Shazam.grant(p));
+			System.out.println("[HARNESS] word: " + ShazamMod.onChat(p, "Shazam!"));
+		});
+		at(t + 90, () -> server(mc, p -> Shazam.setLightning(p, 100f)));
+		shot(t + 95, "shazam_hud_full");
+		at(t + 100, () -> server(mc, p -> Shazam.setLightning(p, 30f)));
+		shot(t + 104, "shazam_hud_30");
+		shot(t + 124, "shazam_hud_after_1s");
+		at(t + 130, () -> {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				Shazam.setLightning(p, 100f); // full: v0.17.3 drew the eye glow and hand arcs here
+				place(p, origin, 0f);
+			});
+			camPos = origin.add(0.35, 1.75, 1.15);
+			camLook = origin.add(0, 1.55, 0);
+		});
+		shot(t + 145, "shazam_face_full_bar");
+		at(t + 150, () -> {
+			camPos = origin.add(0.8, 1.3, 3.2);
+			camLook = origin.add(0, 1.0, 0);
+		});
+		shot(t + 160, "shazam_front_full_bar");
+		t += 175;
+		// ---- 2b. Saiyan: which file the Super Saiyan aura loop resolves to (logged; the test pack needs the cut_*.ogg files)
+		at(t, () -> {
+			camPos = null;
+			mc.getSoundManager().addListener((instance, accessor, range) -> {
+				if (instance.getLocation().getPath().startsWith("saiyan")) {
+					System.out.println("[HARNESS] sound " + instance.getLocation() + " -> " + (instance.getSound() == null ? "?" : instance.getSound().getLocation()));
+				}
+			});
+		});
+		hero(mc, t + 2, p -> {
+			System.out.println("[HARNESS] grant saiyan: " + com.projecthero.mod.saiyan.Saiyan.grant(p));
+			System.out.println("[HARNESS] dbz pack active: " + com.projecthero.mod.client.saiyan.SaiyanDbzSounds.active());
+		});
+		at(t + 20, () -> server(mc, p -> {
+			com.projecthero.mod.saiyan.Saiyan.setRage(p, com.projecthero.mod.saiyan.SaiyanConfig.RAGE_MAX);
+			System.out.println("[HARNESS] ssj: " + com.projecthero.mod.saiyan.Saiyan.transform(p));
+		}));
+		t += 90;
+		// ---- 3. Raven: a 100-block rift, a squadmate walks in after her
+		final Vec3 base = origin.add(40, 0, 0);
+		final Vec3 exit = base.add(0, 0, 100);
+		hero(mc, t, p -> {
+			System.out.println("[HARNESS] grant raven: " + Raven.grant(p));
+			place(p, base, 0f);
+			ServerLevel level = p.serverLevel();
+			// gold markers every 10 blocks along her line, 3 blocks to the side
+			for (int d = 10; d <= 100; d += 10) {
+				BlockPos b = BlockPos.containing(base.add(3, 0, d));
+				level.setBlockAndUpdate(b, Blocks.GOLD_BLOCK.defaultBlockState());
+				level.setBlockAndUpdate(b.above(), Blocks.GOLD_BLOCK.defaultBlockState());
+			}
+			mate = spawnMate(p);
+			place(mate, base.add(0.4, 0, -2.2), 0f);
+			var squads = com.projecthero.mod.squad.SquadManager.get(p.server);
+			squad = squads.create("RiftSquad", p.getUUID());
+			squads.addMember(squad, mate.getUUID());
+		});
+		at(t + 40, () -> {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			camPos = base.add(1.6, 3.0, -5.0);
+			camLook = base.add(0, 1.0, 25);
+			server(mc, p -> {
+				place(p, base, 0f);
+				place(mate, base.add(0.4, 0, -2.2), 0f);
+				Raven.clearCooldowns(p);
+				Raven.setEnergy(p, 100f);
+			});
+		});
+		record(t + 50, "rift", 90);
+		at(t + 55, () -> server(mc, p -> {
+			Vec3 spot = RavenSpells.riftSpot(p);
+			System.out.println("[HARNESS] rift spot " + spot + " distance " + (spot == null ? -1 : spot.distanceTo(p.position())));
+			System.out.println("[HARNESS] cast: " + RavenSpells.cast(p, RavenSpell.DIMENSIONAL_RIFT, false));
+		}));
+		shot(t + 58, "rift_cast_long");
+		// the mate walks forward into the entry portal (0.9 ahead of where she stood)
+		for (int i = 0; i <= 14; i++) {
+			final double z = -2.2 + i * (3.1 / 14.0);
+			at(t + 68 + i, () -> server(mc, p -> {
+				if (mate.position().distanceTo(base) < 5.0) {
+					place(mate, base.add(0.1, 0, z), 0f);
+				}
+			}));
+		}
+		at(t + 75, () -> {
+			camPos = base.add(3.5, 2.2, -3.0);
+			camLook = base.add(0, 1.0, 0.9);
+		});
+		shot(t + 76, "rift_entry_mate_walking_in");
+		at(t + 92, () -> {
+			camPos = exit.add(3.0, 2.0, 4.0);
+			camLook = exit.add(0, 1.0, 0);
+			server(mc, p -> System.out.println("[HARNESS] raven at " + p.position() + " mate at " + mate.position() + " mate-to-raven "
+					+ mate.position().distanceTo(p.position()) + " raven travelled " + p.position().distanceTo(base)));
+		});
+		shot(t + 96, "rift_exit_both_through");
+		t += 150;
+		at(t, () -> server(mc, p -> {
+			com.projecthero.mod.squad.SquadManager.get(p.server).disband(squad);
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}));
+	}
+}

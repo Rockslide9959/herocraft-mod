@@ -58,8 +58,8 @@ const SHOTS = [
 
 /** [out, source clip, from, to, crossfade s, add the reversed segment, loudness LUFS] */
 const LOOPS = [
-	// the user: "the super saiyan aura should be the charge sound effect"
-	['cut_aura_loop', 'charging_up', 1.66, 3.0, 0.3, true, -18],
+	// (v0.17.4: cut_aura_loop from 'charging_up' is gone -- the user wants the aura to be the charge sound itself, so both aura
+	// events now loop cut_charge_loop)
 	['cut_charge_loop', 'charging_up_2', 1.48, 7.08, 0.4, false, -17],
 	['cut_beam_loop', 'kamehameha_fire', 1.5, 5.5, 0.4, false, -16],
 ];

@@ -78,7 +78,7 @@ the same way Beast Boy's wheel works. B is easy to add if you'd rather.
 
 | Spell | From | Spec |
 |---|---|---|
-| Dimensional Rift | ChatGPT | purple portal where you look, up to 20 blocks, through walls if there's room: you step through it. 25, 12 s cd |
+| Dimensional Rift | ChatGPT | purple portal where you look, up to 100 blocks (v0.17.4; cut short before unloaded chunks, exit chunk held by a PORTAL ticket), through walls if there's room: you step through it, and it stays open 6 s more so squadmates (`Squads.areAllies`) can walk in after you, one way. 25, 12 s cd |
 | Soul Restoration | both (was Empath Heal) | aimed at a squadmate: take their pain (up to 10 of their missing health as your damage) and heal them double. Aimed at no one: channel 3 s to heal 6 hearts and cure poison, weakness and slowness (moving or being hit stops it); also calms Composure +30. 45, 25 s cd |
 | Telekinetic Pull | ChatGPT | pull every dropped item within 20 blocks to you, flip the lever or button you look at, or yank a light creature to you. 15, 8 s cd |
 | Astral Sanctuary | both (was Dark Shield) | 5-block dome for 8 s: blocks projectiles, 40% less damage for you and squadmates inside, hostile creatures can't get in. 60, 35 s cd |

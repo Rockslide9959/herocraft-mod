@@ -872,6 +872,34 @@ public class RavenGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.4: the rift reaches 100 blocks and stays open after her; a squadmate who walks in follows, anyone else doesn't. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 60 + RavenConfig.RIFT_OPEN_TICKS)
+	public void dimensionalRiftLetsHerSquadFollow(GameTestHelper helper) {
+		helper.assertTrue(RavenConfig.RIFT_RANGE >= 100.0, "100-block range");
+		ServerPlayer p = raven(helper, 1.5, 1.5);
+		face(p, 0f, 30f); // down at the floor a few blocks ahead
+		ticker(helper, p);
+		// both standing in the entry portal's mouth (0.9 blocks ahead of her)
+		ServerPlayer mate = mock(helper, 1.5, 2.5);
+		ServerPlayer stranger = mock(helper, 2.0, 2.3);
+		var s = squad(helper, p, mate);
+		Vec3 spot = RavenSpells.riftSpot(p);
+		helper.assertTrue(spot != null && spot.z > p.getZ() + 2.0, "the way out is ahead on the floor, " + spot);
+		Vec3 strangerAt = stranger.position();
+		helper.assertTrue(RavenSpells.cast(p, RavenSpell.DIMENSIONAL_RIFT, false), "Dimensional Rift");
+		helper.runAfterDelay(RavenConfig.RIFT_STEP_TICKS + 3, () -> {
+			helper.assertTrue(p.position().distanceTo(spot) < 1.5, "she stepped through");
+			helper.assertTrue(RavenSpells.riftOpen(p), "the rift stays open behind her");
+			helper.assertTrue(mate.position().distanceTo(spot) < 1.5, "the squadmate followed her out, " + mate.position().distanceTo(spot));
+			helper.assertTrue(stranger.position().distanceTo(strangerAt) < 0.01, "a player outside the squad stays put");
+		});
+		helper.runAfterDelay(RavenConfig.RIFT_STEP_TICKS + RavenConfig.RIFT_OPEN_TICKS + 4, () -> {
+			disband(helper, s);
+			helper.assertTrue(!RavenSpells.riftOpen(p), "closed after 6 s");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void soulRestorationChannelsAndTakesAMatesPain(GameTestHelper helper) {
 		ServerPlayer p = raven(helper, 1.5, 1.5);
