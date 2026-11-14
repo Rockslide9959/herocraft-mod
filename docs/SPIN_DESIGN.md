@@ -80,13 +80,16 @@ the strike, faint golden afterimages, fades at the end).
 - **Gyro's suit** (`spin/GyroSuitItem`): hat, coat, holster trousers, boots; leather-level, iron durability; crafted from leather + gold
   nuggets (`scratchpad/spin/gen_gyro_suit_items.js` writes the icons, models, recipes). Drawn by the skin-costume path (`QuirkCostume`) from
   `textures/entity/spin/gyro_suit_wide.png` / `_slim.png`. **Skin source:** the user's pick,
-  https://www.planetminecraft.com/skin/gyro-zeppeli-costume-steel-ball-run-anime-palette/ -- NOT downloaded yet (planetminecraft's
-  Cloudflare check refuses curl), so the PNGs are missing and the suit body draws nothing; author and licence unchecked: check both
-  before a public release.
+  https://www.planetminecraft.com/skin/gyro-zeppeli-costume-steel-ball-run-anime-palette/ -- the PNGs are NOT in git (author and
+  licence unchecked: check both before a public release). `scratchpad/spin/fix_gyro_suit_skin.js` (originals kept in the ignored
+  `scratchpad/spin/gyro_suit_before/`) paints the cape out of the back, fills the sleeve holes (the arms looked like loose panels
+  floating off the shoulder), rebuilds the wide file from the slim one (arm faces 3 -> 4 px) and writes `gyro_cape.png`.
+- **Cape** (`client/spin/GyroCapeLayer`): a real 10x16 cloth panel on the vanilla cape model with vanilla's swing, while the coat is
+  on; the wearer's own Minecraft cape is hidden meanwhile (`GyroCoatCapeMixin`). No texture, no cape.
 - **Suit = coat + trousers:** balls anywhere in the inventory work without holding them (`SpinBalls.inHand` falls back to the holsters),
   the throw takes the ball from its slot and the catch puts it back in the inventory (`owed` bit 4+i); the hand keeps what it holds.
 - **Holsters** (`client/spin/SpinHolsterLayer`): two leather cups on the front of the belt while the trousers are on, a ball in each per
   holstered ball (other viewers read `owed` bits 6+i, synced every 5 ticks).
 - **Spin bar refill** +30% in the suit, +30% on a horse; they add up (x1.6). HUD tag "Suit +30% Spin".
-- **Side-hold stance** (`client/spin/SpinHoldPose`): a held ball (or the suit's holster ready with an empty hand) hangs at the hip, arm
-  a little out; the stance fades over the throw swing. Shots: `docs/screenshots/v0174/misc_models/spin_*`.
+- **Side-hold stance** (`client/spin/SpinHoldPose`): only a ball actually in a hand hangs at the hip (an empty hand over the holsters hangs normally), arm
+  a little out; the stance fades over the throw swing. Shots: `docs/screenshots/v0174/misc_models/spin_*`, `gyro_suit_*`.

@@ -1,6 +1,5 @@
 package com.projecthero.mod.client.spin;
 
-import com.projecthero.mod.spin.GyroSuitItem;
 import com.projecthero.mod.spin.Spin;
 import com.projecthero.mod.spin.SpinBalls;
 
@@ -16,8 +15,7 @@ import net.minecraft.world.entity.player.Player;
  * should be next to them and slightly out, like he's holding the steel balls next to him please"): Gyro's stance. An arm holding one of
  * his Steel Balls hangs at his side, a little out from the hip, instead of vanilla's raised "holding an item" arm -- so the ball (which
  * sits just under the fist, {@code models/item/steel_ball.json}) is beside his thigh, slightly out. It keeps a smaller walking swing,
- * and an arm about to throw from Gyro's suit's holsters (the suit on, that hand empty, a ball on the belt for it) takes the same stance
- * over the holster. During a throw (the swing) the stance fades, so the throw comes up from the side position and settles back into it.
+ * only while a ball is actually in that hand (an empty hand over the suit's holsters hangs and swings normally). During a throw (the swing) the stance fades, so the throw comes up from the side position and settles back into it.
  * Every viewer; from {@code SpinHoldPoseMixin} (setupAnim TAIL).
  */
 public final class SpinHoldPose {
@@ -41,11 +39,12 @@ public final class SpinHoldPose {
 	/** {@code side}: +1 the model's right arm (out = +z rotation), -1 the left. */
 	private static void arm(Player p, HumanoidModel<?> m, ModelPart arm, InteractionHand hand, float side, HumanoidModel.ArmPose armPose) {
 		boolean held = SpinBalls.heldIndex(p, hand) >= 0;
-		boolean holster = !held && p.getItemInHand(hand).isEmpty() && GyroSuitItem.suitWorn(p) && SpinBalls.inHand(p, hand) >= 0;
-		if (!held && !holster) {
+		// v0.17.4 (user: "his arms are out like this even when he's not holding [a ball]"): only a ball actually in this hand; an empty
+		// hand with balls in the suit's holsters hangs and swings normally (the holster throw plays its swing only)
+		if (!held) {
 			return;
 		}
-		if (held && armPose != HumanoidModel.ArmPose.ITEM) {
+		if (armPose != HumanoidModel.ArmPose.ITEM) {
 			return; // another pose has the arm (blocking, charging...)
 		}
 		// the throw: the stance gives way over the swing and comes back after it
@@ -58,7 +57,7 @@ public final class SpinHoldPose {
 			k *= 0.6f;
 		}
 		// keep part of the walk swing (vanilla wrote it into xRot, halved for an item arm)
-		float walk = held ? (arm.xRot + ITEM_RAISE) : arm.xRot;
+		float walk = arm.xRot + ITEM_RAISE;
 		float target = walk * SWING_KEPT;
 		arm.xRot = Mth.lerp(k, arm.xRot, target + 0.05f);
 		arm.yRot = Mth.lerp(k, arm.yRot, 0f);

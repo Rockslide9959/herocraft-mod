@@ -27,6 +27,7 @@ public final class SpinClient {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(SpinHud::render);
+		GyroCapeLayer.initialize();
 		EntityRendererRegistry.register(SpinEntities.STEEL_BALL, SteelBallRenderer::new);
 		// v0.17.3 round 2: the balls are items he holds, drawn as the 3D ball (no automatic hand / belt balls any more)
 		net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry.INSTANCE.register(
@@ -36,6 +37,8 @@ public final class SpinClient {
 			// v0.17.4: Gyro's holster trousers, with the balls he carries
 			if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer pr) {
 				helper.register(new SpinHolsterLayer(pr));
+				// v0.17.4: Gyro's cape, a real cloth panel while the coat is on
+				helper.register(new GyroCapeLayer(pr));
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(SpinFxPayload.TYPE, (payload, context) -> SpinFx.receive(payload));

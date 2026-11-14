@@ -1,0 +1,328 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.spin.GyroSuitItem;
+import com.projecthero.mod.spin.Spin;
+import com.projecthero.mod.spin.SpinBalls;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.4 Gyro suit skin): the suit on a forced wide-arm then slim-arm player.
+ * Enabled by run/miscmodels.flag = "<out dir>".
+ */
+public final class MiscModelsHarness implements ClientModInitializer {
+	public static volatile Vec3 camPos, camLook;
+	public static volatile Vec3 follow, followLook;
+	/** Forced skin model for the local player (null = the real skin). */
+	public static volatile PlayerSkin.Model forceModel;
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static Vec3 home;
+	private static File out;
+	private static final int START = 100, PASS = 150;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("miscmodels.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim().split("\\|")[0]);
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(MiscModelsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "miscmodels-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name + " model=" + (mc.player == null ? "?" : mc.player.getSkin().model()));
+	}
+
+	private static void cam(double px, double py, double pz, double lx, double ly, double lz) {
+		follow = null;
+		camPos = home.add(px, py, pz);
+		camLook = home.add(lx, ly, lz);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MiscModelsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				home = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		if (t < START || home == null) {
+			return;
+		}
+		int s = t - START;
+		if (s == 0) {
+			server(mc, p -> {
+				Omnitrix.revoke(p);
+				Miraculous.revoke(p);
+				System.out.println("[HARNESS] spin grant=" + Spin.grant(p));
+				p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(GyroSuitItem.HAT));
+				p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(GyroSuitItem.COAT));
+				p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(GyroSuitItem.TROUSERS));
+				p.setItemSlot(EquipmentSlot.FEET, new ItemStack(GyroSuitItem.BOOTS));
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+			});
+		}
+		if (s == 10) {
+			server(mc, p -> {
+				ballsToInventory(p);
+				System.out.println("[HARNESS] holstered=" + SpinBalls.holsteredCount(p));
+			});
+		}
+		if (s < 20) {
+			return;
+		}
+		s -= 20;
+		if (s < PASS) {
+			pass(mc, s, PlayerSkin.Model.WIDE, "wide");
+			return;
+		}
+		s -= PASS;
+		if (s < PASS) {
+			pass(mc, s, PlayerSkin.Model.SLIM, "slim");
+			return;
+		}
+		s -= PASS;
+		if (s < 120) {
+			extra(mc, s);
+			return;
+		}
+		s -= 120;
+		if (s == 5) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void pass(Minecraft mc, int s, PlayerSkin.Model model, String tag) {
+		if (s == 0) {
+			forceModel = model;
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> p.connection.teleport(home.x, home.y, home.z, 0f, 5f));
+		}
+		if (s == 5) {
+			cam(1.5, 1.35, 2.4, 0, 0.95, 0);
+		}
+		if (s == 20) {
+			shot(mc, "gyro_suit_" + tag + "_front34");
+		}
+		if (s == 22) {
+			cam(1.6, 1.4, -2.4, 0, 0.95, 0);
+		}
+		if (s == 37) {
+			shot(mc, "gyro_suit_" + tag + "_back34");
+		}
+		if (s == 39) {
+			cam(2.7, 1.1, 0, 0, 0.95, 0);
+		}
+		if (s == 54) {
+			shot(mc, "gyro_suit_" + tag + "_side");
+		}
+		if (s == 56) {
+			cam(-2.7, 1.1, 0, 0, 0.95, 0);
+		}
+		if (s == 71) {
+			shot(mc, "gyro_suit_" + tag + "_side_left");
+		}
+		if (s == 73) {
+			cam(0.5, 1.9, 1.1, 0, 1.6, 0);
+		}
+		if (s == 88) {
+			shot(mc, "gyro_suit_" + tag + "_hat_close");
+		}
+		if (s == 90) {
+			cam(0.45, 0.85, 1.05, 0, 0.68, 0);
+		}
+		if (s == 105) {
+			shot(mc, "gyro_suit_" + tag + "_holsters_close");
+		}
+		if (s == 107) {
+			cam(0, 1.3, 2.6, 0, 0.95, 0);
+		}
+		if (s == 122) {
+			shot(mc, "gyro_suit_" + tag + "_front");
+		}
+		if (s == 124) {
+			camPos = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		}
+		if (s == 140) {
+			shot(mc, "gyro_suit_" + tag + "_fp_arm");
+		}
+	}
+
+	private static void extra(Minecraft mc, int s) {
+		if (s == 0) {
+			forceModel = PlayerSkin.Model.WIDE;
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> p.connection.teleport(home.x, home.y, home.z - 3, 0f, 5f));
+			camPos = null;
+			follow = new Vec3(1.8, 1.4, -2.6);
+			followLook = new Vec3(0, 0.95, 0);
+		}
+		if (s >= 5 && s < 46) {
+			mc.options.keyUp.setDown(true);
+		}
+		if (s == 30) {
+			shot(mc, "gyro_suit_walk_back34");
+		}
+		if (s == 32) {
+			follow = new Vec3(2.7, 1.1, 0);
+		}
+		if (s == 42) {
+			shot(mc, "gyro_suit_walk_side");
+		}
+		if (s == 46) {
+			mc.options.keyUp.setDown(false);
+		}
+		if (s == 50) {
+			follow = null;
+			server(mc, p -> {
+				p.connection.teleport(home.x, home.y, home.z, 0f, 5f);
+				var inv = p.getInventory();
+				for (int k = 0; k < inv.getContainerSize(); k++) {
+					if (SpinBalls.id(inv.getItem(k)) != null && SpinBalls.id(inv.getItem(k)).index() == 0) {
+						p.setItemInHand(InteractionHand.MAIN_HAND, inv.getItem(k).copy());
+						inv.setItem(k, ItemStack.EMPTY);
+						break;
+					}
+				}
+				System.out.println("[HARNESS] ball in hand: heldMain=" + SpinBalls.heldIndex(p, InteractionHand.MAIN_HAND));
+			});
+			cam(0.2, 1.2, 2.6, 0, 0.9, 0);
+		}
+		if (s == 68) {
+			shot(mc, "gyro_suit_hold_ball_front");
+		}
+		if (s == 70) {
+			cam(-1.9, 1.25, 1.6, 0, 0.9, 0);
+		}
+		if (s == 85) {
+			shot(mc, "gyro_suit_hold_ball_34");
+		}
+		if (s == 88) {
+			server(mc, p -> {
+				ballsToInventory(p);
+				System.out.println("[HARNESS] idle: holstered=" + SpinBalls.holsteredCount(p) + " heldMain=" + SpinBalls.heldIndex(p, InteractionHand.MAIN_HAND));
+			});
+		}
+		if (s == 103) {
+			shot(mc, "gyro_suit_idle_holstered_34");
+		}
+		if (s == 105) {
+			cam(0.2, 1.2, 2.6, 0, 0.9, 0);
+		}
+		if (s == 118) {
+			shot(mc, "gyro_suit_idle_holstered_front");
+		}
+	}
+
+	private static void ballsToInventory(ServerPlayer p) {
+		for (InteractionHand h : InteractionHand.values()) {
+			ItemStack st = p.getItemInHand(h);
+			if (SpinBalls.heldIndex(p, h) >= 0) {
+				for (int k = 9; k < 36; k++) {
+					if (p.getInventory().getItem(k).isEmpty()) {
+						p.getInventory().setItem(k, st.copy());
+						break;
+					}
+				}
+				p.setItemInHand(h, ItemStack.EMPTY);
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
