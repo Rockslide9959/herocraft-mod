@@ -178,7 +178,7 @@ public final class DoctorFateWillHarness {
 		}
 		if (t == 0) {
 			// into the library, at the Eye, looking up at it
-			FateLibrary.placeForHarness(0, 3.4, 180f, -16f);
+			FateLibrary.placeForHarness(0, 7.5, 180f, -24f);
 		}
 		if (t == 10) {
 			server(mc, DoctorFateWillHarness::toTheWill);
@@ -198,7 +198,7 @@ public final class DoctorFateWillHarness {
 		float[] s = FateLibrary.willShownForHarness();
 		modeT++;
 		if (s[0] < 0.5f) {
-			if (modeT > 20) {
+			if (modeT > 20 && mode != 3) {
 				// the test ended: failed (slip film) or freed (free film)
 				space(mc, false);
 				System.out.println("[HARNESS] film " + clip + " ended after " + modeT + " ticks, possessed " + DoctorFate.possessed(mc.player)
@@ -236,7 +236,7 @@ public final class DoctorFateWillHarness {
 			want = true; // distracted: holding too long, pinned at the top
 		}
 		space(mc, want);
-		if (modeT % 20 == 0) {
+		if (modeT % 40 == 0) {
 			System.out.println("[HARNESS] " + clip + " t" + modeT + " will " + s[1] + " band " + s[3] + "+-" + s[4] + " progress " + s[5] + "/" + s[6]
 					+ " glfwSpace " + org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE));
 		}

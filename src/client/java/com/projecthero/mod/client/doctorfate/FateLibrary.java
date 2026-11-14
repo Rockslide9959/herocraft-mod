@@ -249,7 +249,10 @@ public final class FateLibrary {
 					}
 				}
 			}
-			case FateTrialPayload.END -> ended = true;
+			case FateTrialPayload.END -> {
+				ended = true;
+				setWillOn(false); // freed: the will test is over (no STATE follows)
+			}
 			case FateTrialPayload.WILL -> {
 				if (d.length < 10) {
 					return;
@@ -428,6 +431,7 @@ public final class FateLibrary {
 		}
 		if (!held && on) {
 			on = false;
+			setWillOn(false);
 			if (mc.screen instanceof FateTrialScreen) {
 				mc.setScreen(null);
 			}
