@@ -66,18 +66,20 @@ public final class GhostfreakShow extends ShowSequenceClient {
 	private static final float W = CameraTrack.W;
 	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(new float[][] {
 			// the slap, from high above and in front, Ben looking up into it
-			{ 0f, 1.15f, 14f, 2.05f, 1.35f, 0f, 0.1f },
-			{ 6f, 1.05f, 14f, 2.0f, 1.35f, 0f, 0.1f } }, ShowShots.dialCloseUp(6.01f, BEN_AT),
+			// (v0.17.4: much closer and steeper, so his upper body fills the frame from above like the show's, the open hand near the lens)
+			{ 0f, 0.6f, 18f, 2.12f, 1.3f, 0f, 0.14f },
+			{ 6f, 0.55f, 18f, 2.1f, 1.3f, 0f, 0.14f } }, ShowShots.dialCloseUp(6.01f, BEN_AT),
 			new float[][] {
 					// the upper body, a little below and in front
-					{ 24.01f, 1.05f, 12f, 1.25f, 1.42f, 0f, 0f },
-					{ 32f, 0.92f, 8f, 1.28f, 1.44f, 0f, 0f },
-					// the face, from a little below
-					{ 32.01f, 1.0f, -10f, 1.5f, 1.63f, 0f, 0f },
-					{ 38f, 0.9f, -8f, 1.52f, 1.64f, 0f, 0f },
-					// right in on the face
-					{ 38.01f, 0.62f, 4f, 1.66f, 1.67f, -0.04f, 0f },
-					{ 46f, 0.52f, 2f, 1.67f, 1.68f, -0.06f, 0f },
+					// (v0.17.4: waist up, his head at the right of the frame, the claw reaching down at the left)
+					{ 24.01f, 1.45f, 20f, 1.3f, 1.28f, 0.14f, 0f },
+					{ 32f, 1.3f, 16f, 1.32f, 1.3f, 0.12f, 0f },
+					// the face, from a little below (v0.17.4: the face filling the frame)
+					{ 32.01f, 0.7f, -10f, 1.5f, 1.6f, 0f, 0f },
+					{ 38f, 0.62f, -8f, 1.52f, 1.6f, 0f, 0f },
+					// right in on the face (v0.17.4: closer, both eyes across the frame)
+					{ 38.01f, 0.46f, 4f, 1.6f, 1.6f, -0.02f, 0f },
+					{ 46f, 0.4f, 2f, 1.6f, 1.6f, -0.04f, 0f },
 					// diving into his left eye
 					{ 46.01f, 0.46f, -4f, 1.66f, 1.66f, -0.12f, 0.12f },
 					{ 52f, 0.3f, -4f, 1.66f, 1.66f, -0.12f, 0.12f },
@@ -87,17 +89,18 @@ public final class GhostfreakShow extends ShowSequenceClient {
 					{ 58.01f, 0.5f, 12f, 1.42f, 1.86f, 0f, 0f },
 					{ 64f, 0.44f, 10f, 1.48f, 1.84f, 0f, 0f },
 					// right on the skin
-					{ 64.01f, 0.24f, 22f, 1.76f, 1.78f, 0.02f, 0f },
-					{ 84f, 0.2f, 8f, 1.74f, 1.76f, 0.02f, 0f },
-					// the eye, pulling back off it
-					{ 84.01f, 0.5f, 0f, 1.64f, 1.64f, -0.1f, 0f },
-					{ 112f, 0.62f, 12f, 1.64f, 1.64f, -0.1f, 0f },
+					// (v0.17.4: square on, the seam running down the middle of the frame)
+					{ 64.01f, 0.24f, 6f, 1.76f, 1.78f, 0.02f, 0f },
+					{ 84f, 0.2f, 0f, 1.74f, 1.76f, 0.02f, 0f },
+					// the eye, pulling back off it (v0.17.4: centred on the eye and close, so the grey skin fills the frame round it)
+					{ 84.01f, 0.4f, -4f, 1.64f, 1.64f, -0.14f, 0f },
+					{ 112f, 0.5f, 8f, 1.64f, 1.64f, -0.14f, 0f },
 					// round the head, from below
-					{ 112.01f, 0.5f, 34f, 1.42f, 1.7f, 0f, 0f },
-					{ 130f, 0.68f, 52f, 1.38f, 1.7f, 0f, 0f },
-					// in profile, rearing
-					{ 130.01f, 1.22f, 80f, 1.42f, 1.55f, 0f, 0f },
-					{ 152f, 1.12f, 72f, 1.45f, 1.58f, 0f, 0f },
+					{ 112.01f, 0.42f, 34f, 1.42f, 1.7f, 0f, 0f },
+					{ 130f, 0.56f, 52f, 1.38f, 1.7f, 0f, 0f },
+					// in profile, rearing (v0.17.4: close and from below, the head and the curling claws filling the top of the frame)
+					{ 130.01f, 0.8f, 74f, 1.3f, 1.62f, 0f, 0.05f },
+					{ 152f, 0.72f, 68f, 1.32f, 1.66f, 0f, 0.05f },
 					// floating, nearly front on from a little to his right and a little below (final-pose rework: closer, so he fills the
 					// frame like the show's, the open front and both claws to the camera; it was small, from three-quarters round)
 					{ 152.01f, 1.72f, 12f, 0.95f, 1.1f, 0f, 0f },
@@ -155,7 +158,7 @@ public final class GhostfreakShow extends ShowSequenceClient {
 			// slanted over to his left about the hips (ShowBody.TILT: head up at the right of frame, the tail sweeping off low to the
 			// left), leaning back a touch, chin up; the right claw raised out to the side on a bent elbow (forearm up, fingers
 			// splayed), the left claw hanging low by his side; it was pitched forward and laid out, seen from three-quarters
-			.at(WHITE_AT).drop(-3f).lean(-0.1f).set(ShowBody.TILT, 0.42f).head(-0.3f, 0f, 0f)
+			.at(WHITE_AT).drop(-3f).lean(-0.1f).set(ShowBody.TILT, 0.72f).head(-0.3f, 0f, 0f)
 			.rArm(-0.5f, 0.1f, 0.8f, 1.3f, 1.4f).lArm(-0.25f, 0f, -0.9f, 0.6f, -0.4f)
 			.at(192f).rArm(-0.55f, 0.1f, 0.86f, 1.42f, 1.4f).lArm(-0.3f, 0f, -0.95f, 0.66f, -0.4f).head(-0.34f, 0f, 0.03f)
 			.at(GREEN2_AT + 2f).hold()
