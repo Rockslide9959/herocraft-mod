@@ -398,7 +398,7 @@ public final class SaiyanSpiritBomb {
 		p.setDeltaMovement(Vec3.ZERO);
 		p.hurtMarked = true;
 		save(p, new SpiritBombState(RISE, now, 0f, 0f, now, state(p).readyAt()));
-		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.3f, 0.7f);
+		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.SPIRIT_BOMB_RISE, SoundSource.PLAYERS, 0.6f, 1.0f);
 	}
 
 	/** Keeps him at ({@code x}, {@code y}, {@code z}): a velocity nudge for a real client, a snap past {@code snap} blocks. */
@@ -456,7 +456,7 @@ public final class SaiyanSpiritBomb {
 		b.phase = THROW;
 		b.phaseStart = now;
 		save(p, new SpiritBombState(THROW, now, 0f, 0f, now, now + COOLDOWN));
-		level.playSound(null, from.x, from.y, from.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.4f, 0.5f);
+		level.playSound(null, from.x, from.y, from.z, SaiyanSounds.SPIRIT_BOMB_THROW, SoundSource.PLAYERS, 0.9f, 1.0f);
 	}
 
 	/** Let go before enough gathered: nothing thrown, a short cooldown. */

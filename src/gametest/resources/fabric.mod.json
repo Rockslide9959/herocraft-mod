@@ -258,6 +258,7 @@
       "com.projecthero.mod.gametest.UndeadSoundsGameTests",
       "com.projecthero.mod.gametest.UndeadRegenGameTests",
       "com.projecthero.mod.gametest.SaiyanKitGameTests",
+      "com.projecthero.mod.gametest.SaiyanSoundsGameTests",
       "com.projecthero.mod.gametest.SpinGameTests",
       "com.projecthero.mod.gametest.StarfireGameTests",
       "com.projecthero.mod.gametest.TitansTogetherGameTests",

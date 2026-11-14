@@ -22,6 +22,7 @@ public final class SaiyanClient {
 
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(SaiyanHud::render);
+		SaiyanDbzSounds.initialize(); // v0.17.4: the user's Dragon Ball clips, local test builds only
 		SaiyanVisualsClient.initialize(); // the aura
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanLoopSounds::tick); // the aura and charge loops (SaiyanSounds)
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SaiyanLoopSounds.reset());

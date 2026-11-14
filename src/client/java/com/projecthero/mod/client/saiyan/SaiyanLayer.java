@@ -9,7 +9,10 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 
-/** v0.17.3: a Saiyan's aura on every player, for every viewer (a render layer, so never round the camera in first person). */
+/**
+ * v0.17.3: a Saiyan's aura and tail on every player, for every viewer. (v0.17.4: the local player's own aura in first person is
+ * drawn from the world render instead, {@code SaiyanAuraRenderer.renderFirstPerson}, since this layer doesn't run then.)
+ */
 public class SaiyanLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	public SaiyanLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);

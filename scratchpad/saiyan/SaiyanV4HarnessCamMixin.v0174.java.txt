@@ -1,0 +1,43 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): orbits the third-person camera round the player for SaiyanV4Harness. */
+@Mixin(Camera.class)
+public abstract class SaiyanV4HarnessMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$saiyanV4HarnessCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Float yaw = com.projecthero.mod.client.SaiyanV4Harness.orbitYaw;
+		if (yaw == null || !detached || Minecraft.getInstance().player == null) {
+			return;
+		}
+		Vec3 p = Minecraft.getInstance().player.getPosition(partialTick);
+		float spin = com.projecthero.mod.client.SaiyanV4Harness.orbitSpin;
+		double a = Math.toRadians(yaw + spin * partialTick);
+		double r = com.projecthero.mod.client.SaiyanV4Harness.orbitRadius;
+		Vec3 target = p.add(0, com.projecthero.mod.client.SaiyanV4Harness.lookHeight, 0);
+		// yaw 0 = in front of a player facing south (+z)
+		Vec3 pos = target.add(Math.sin(a) * r, com.projecthero.mod.client.SaiyanV4Harness.orbitHeight, Math.cos(a) * r);
+		Vec3 d = target.subtract(pos);
+		float cy = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float cp = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(cy, cp);
+		setPosition(pos);
+	}
+}

@@ -84,12 +84,14 @@ public final class SaiyanLanding {
 				level.sendParticles(ki, feet.x, feet.y + 0.3 + y * 0.45, feet.z, 6, 0.35, 0.15, 0.35, 0.05);
 			}
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, feet.x, feet.y + 1.0, feet.z, 14, 0.5, 0.6, 0.5, 0.35);
-			level.playSound(null, feet.x, feet.y, feet.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.35f + 0.25f * s, 1.4f);
+			level.playSound(null, feet.x, feet.y, feet.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.25f + 0.2f * s, 1.25f);
 			QuirkCamera.vignette(p, 0xFFC21A, 0.25f + 0.2f * s, 12);
 		}
 		QuirkCamera.shakeAround(level, feet, (16 + 10 * s) * k, (0.28f + 0.45f * s) * (ssj ? 1.25f : 1f), 9 + (int) (8 * s));
 		level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, (0.3f + 0.3f * s) * (ssj ? 1.2f : 1f),
 				ssj ? 0.55f : 0.65f);
-		level.playSound(null, feet.x, feet.y, feet.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.4f, 0.7f);
+		// v0.17.4: a light landing, or the big crash from high up / as a Super Saiyan
+		boolean heavy = ssj || s >= 0.6f;
+		level.playSound(null, feet.x, feet.y, feet.z, heavy ? SaiyanSounds.LAND_HEAVY : SaiyanSounds.LAND, SoundSource.PLAYERS, heavy ? 0.8f : 0.6f, 1.0f);
 	}
 }

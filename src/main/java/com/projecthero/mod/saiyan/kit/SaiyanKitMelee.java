@@ -74,9 +74,9 @@ final class SaiyanKitMelee {
 				t.hurtMarked = true;
 			}
 			impact(p, t, last ? 1.3f : 0.55f);
-			sound(p, last ? SaiyanKitSounds.PUNCH_HEAVY : SaiyanKitSounds.PUNCH_LIGHT, last ? 0.6f : 0.45f, last ? 0.9f : 1.0f + step * 0.06f);
+			sound(p, last ? SaiyanKitSounds.FINISHER : SaiyanKitSounds.PUNCH_LIGHT, last ? 0.65f : 0.5f, last ? 1.0f : 0.96f + step * 0.03f);
 		} else {
-			sound(p, SaiyanKitSounds.WHOOSH, 0.15f, 1.7f + step * 0.05f);
+			sound(p, SaiyanKitSounds.SWING, 0.35f, 0.95f + step * 0.04f);
 		}
 		st[0] = last ? 0 : step + 1;
 		if (last) {
@@ -91,7 +91,7 @@ final class SaiyanKitMelee {
 		if (t == null) {
 			cooldown(p, MARTIAL, SaiyanKitConfig.MARTIAL_WHIFF_COOLDOWN);
 			anim(p, ANIM_WHIFF_KICK);
-			sound(p, SaiyanKitSounds.WHOOSH, 0.2f, 1.5f);
+			sound(p, SaiyanKitSounds.SWING, 0.4f, 0.85f);
 			say(p, "message.projecthero.saiyan.kit.no_target");
 			return;
 		}
@@ -105,7 +105,7 @@ final class SaiyanKitMelee {
 		anim(p, ANIM_FLIP_KICK);
 		if (strike(p, t, p.position(), SaiyanKitConfig.MARTIAL_LAUNCH_DAMAGE, 0.0, 0.0)) {
 			impact(p, t, 1.0f);
-			sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.6f, 1.15f);
+			sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.6f, 1.05f);
 		}
 		if (!isBoss(t)) {
 			t.setDeltaMovement(0, SaiyanKitConfig.MARTIAL_LAUNCH_SPEED, 0);
@@ -148,7 +148,7 @@ final class SaiyanKitMelee {
 		if (age == SaiyanKitConfig.MARTIAL_AXE_AT) {
 			if (strike(p, t, p.position(), SaiyanKitConfig.MARTIAL_AXE_DAMAGE, 0.0, 0.0)) {
 				impact(p, t, 1.4f);
-				sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.65f, 0.8f);
+				sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.7f, 0.92f);
 			}
 			if (!boss) {
 				t.setDeltaMovement(0, SaiyanKitConfig.MARTIAL_SLAM_SPEED, 0);
@@ -161,7 +161,7 @@ final class SaiyanKitMelee {
 				&& (t.onGround() || t.isInWater() || age >= SaiyanKitConfig.MARTIAL_MAX)) {
 			Vec3 at = groundBelow(level(p), t.position());
 			fxAt(level(p), at, SaiyanKitFxPayload.CRATER, p.getId(), at, Vec3.ZERO, 1.8f, kiColor(form(p)), 0);
-			soundAt(level(p), at, SaiyanKitSounds.BOOM, 0.3f, 1.3f);
+			soundAt(level(p), at, SaiyanKitSounds.BOOM, 0.4f, 1.15f);
 			end(p, r);
 			fallSafeFor(p, SaiyanKitConfig.FALL_SAFE_TICKS);
 		}
@@ -221,7 +221,7 @@ final class SaiyanKitMelee {
 		float pitch = (float) -Math.toDegrees(Math.atan2(face.y, Math.sqrt(face.x * face.x + face.z * face.z)));
 		int rgb = kiColor(form(p));
 		fx(p, SaiyanKitFxPayload.GHOST, p.getId(), from, spot, p.getYRot(), rgb, 0);
-		sound(p, SaiyanKitSounds.VANISH, 0.35f, 1.0f);
+		sound(p, SaiyanKitSounds.VANISH, 0.45f, 1.0f);
 		p.teleportTo(level(p), spot.x, spot.y, spot.z, yaw, pitch);
 		p.setYHeadRot(yaw);
 		p.setDeltaMovement(Vec3.ZERO);
@@ -231,7 +231,7 @@ final class SaiyanKitMelee {
 		r.origin = spot;
 		begin(p, r);
 		anim(p, ANIM_SMASH);
-		soundAt(level(p), spot, SaiyanKitSounds.VANISH, 0.35f, 1.3f);
+		soundAt(level(p), spot, SaiyanKitSounds.APPEAR, 0.55f, 1.0f);
 		fallSafeFor(p, SaiyanKitConfig.FALL_SAFE_TICKS);
 	}
 
@@ -247,7 +247,7 @@ final class SaiyanKitMelee {
 			t.resetFallDistance();
 			if (strike(p, t, p.position(), SaiyanKitConfig.SMASH_DAMAGE, 0.0, 0.0)) {
 				impact(p, t, 1.8f);
-				sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.7f, 0.65f);
+				sound(p, SaiyanKitSounds.FINISHER, 0.75f, 0.9f);
 			}
 			if (!isBoss(t)) {
 				t.setDeltaMovement(t.getDeltaMovement().x * 0.2, -1.6, t.getDeltaMovement().z * 0.2);
@@ -255,7 +255,7 @@ final class SaiyanKitMelee {
 			}
 			Vec3 at = groundBelow(level(p), t.position());
 			fxAt(level(p), at, SaiyanKitFxPayload.CRATER, p.getId(), at, Vec3.ZERO, (float) SaiyanKitConfig.SMASH_CRATER_RADIUS, kiColor(form(p)), 1);
-			soundAt(level(p), at, SaiyanKitSounds.BOOM, 0.35f, 1.1f);
+			soundAt(level(p), at, SaiyanKitSounds.BOOM, 0.5f, 1.0f);
 			AbilityHelpers.launchSelf(p, new Vec3(0, -0.3, 0));
 			r.hits++;
 		}
@@ -354,15 +354,15 @@ final class SaiyanKitMelee {
 					r.struck.add(t);
 					r.hits++;
 					impact(p, t, 0.75f);
-					soundAt(level(p), t.position(), SaiyanKitSounds.PUNCH_LIGHT, 0.45f, 1.15f + p.getRandom().nextFloat() * 0.2f);
+					soundAt(level(p), t.position(), SaiyanKitSounds.PUNCH_LIGHT, 0.45f, 1.0f + p.getRandom().nextFloat() * 0.12f);
 					if (!isBoss(t)) {
 						t.setDeltaMovement(t.getDeltaMovement().scale(0.2));
 						t.hurtMarked = true;
 					}
 				}
 			}
-			if (age % 3 == 1) {
-				sound(p, SaiyanKitSounds.FLURRY, 0.3f, 1.1f);
+			if (age % 12 == 1) {
+				sound(p, SaiyanKitSounds.FLURRY, 0.4f, 1.0f);
 			}
 			return;
 		}
@@ -379,7 +379,7 @@ final class SaiyanKitMelee {
 			any = true;
 		}
 		if (any) {
-			sound(p, SaiyanKitSounds.PUNCH_HEAVY, 0.6f, 0.8f);
+			sound(p, SaiyanKitSounds.FINISHER, 0.7f, 1.0f);
 		}
 		AbilityHelpers.launchSelf(p, r.dir.multiply(0.25, 0.1, 0.25));
 		end(p, r);
