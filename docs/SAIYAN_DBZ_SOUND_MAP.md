@@ -1,8 +1,8 @@
-# Saiyan: Dragon Ball clip map (v0.17.4, test builds only)
+# Saiyan: Dragon Ball clip map (v0.17.4)
 
-The user cut 57 clips from the show into `src/main/resources/assets/projecthero/sounds/saiyan/dbz/` (git-ignored: copyrighted
-show audio, public repo). The user's rule: **real clips in local test builds only, synthesised sound-alikes before the public
-release.** This file is the to-do list for that swap.
+The user cut 57 clips from the show into `src/main/resources/assets/projecthero/sounds/saiyan/dbz/`. **The user decided to ship them
+publicly** (v0.17.4): the 41 trimmed `cut_*.ogg` are committed and in every build; the raw clips stay git-ignored. Dragon Ball Z
+is credited in the changelog and on the mod page.
 
 ## How it is wired
 
@@ -17,11 +17,10 @@ release.** This file is the to-do list for that swap.
   normalised, mono 44.1 kHz Vorbis q5; loops crossfaded so the end flows into the start). Re-run it in any checkout that has the
   clips: `node scratchpad/saiyan/dbz_cut.js`. `scratchpad/saiyan/dbz_sounds_json.js` writes both sounds.json sets.
 
-## The swap before a public release
+## If the clips ever have to go (a takedown)
 
 For each row: make a synthesised OGG that matches the description, put it in `sounds/saiyan/`, point the event at it in the main
-`sounds.json` (replacing the v0.17.3 stand-in), and when every row is done delete `resourcepacks/saiyan_dbz/` and
-`client/saiyan/SaiyanDbzSounds` (and its call in `SaiyanClient`). The clips themselves never leave the user's machine.
+`sounds.json`, then delete the committed cuts, `resourcepacks/saiyan_dbz/` and `client/saiyan/SaiyanDbzSounds`.
 
 ## Map
 

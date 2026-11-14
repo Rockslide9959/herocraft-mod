@@ -34,7 +34,8 @@ public class RyukoLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<Ab
 		if (cover > 0.99f && !Ryuko.swordAway(player) && RyukoSequenceClient.swordOut(player, partialTick)) {
 			pose.pushPose();
 			getParentModel().rightArm.translateAndRotate(pose);
-			placeInHand(pose, getParentModel().rightArm.xRot, RyukoRender.slim(player));
+			placeInHand(pose, getParentModel().rightArm.xRot, RyukoRender.slim(player),
+					RyukoPose.stance(player, partialTick) ? RyukoPose.STANCE_WRIST_YAW : 0f);
 			RyukoRender.renderSword(pose, buffers, light, Ryuko.color(Ryuko.element(player)));
 			pose.popPose();
 		}
@@ -57,7 +58,15 @@ public class RyukoLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<Ab
 	 * @param armXRot the arm's x rotation this frame (negative = raised forward)
 	 */
 	public static void placeInHand(PoseStack pose, float armXRot, boolean slim) {
+		placeInHand(pose, armXRot, slim, 0f);
+	}
+
+	/** @param wristYaw the hand's turn about the arm (radians, + = blade toward her left), for the two-handed guard */
+	public static void placeInHand(PoseStack pose, float armXRot, boolean slim, float wristYaw) {
 		pose.translate((slim ? -0.5f : -1f) / 16f, 9.2f / 16f, 0f);
+		if (wristYaw != 0f) {
+			pose.mulPose(Axis.YP.rotation(wristYaw));
+		}
 		pose.mulPose(Axis.XP.rotationDegrees(-wristTilt(armXRot)));
 	}
 

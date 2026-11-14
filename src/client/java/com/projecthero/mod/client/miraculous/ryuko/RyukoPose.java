@@ -29,15 +29,41 @@ public final class RyukoPose {
 		};
 	}
 
+	/** The two-handed guard: right arm forward and turned in, left arm reaching across to the hilt. */
+	static final float STANCE_RX = -0.9f, STANCE_RY = -0.8f, STANCE_LX = -0.6f, STANCE_LY = 1.03f, STANCE_LZ = 0.22f;
+	/** The wrist's turn about the arm in the guard (radians), so the blade points ahead rather than across her body. */
+	static final float STANCE_WRIST_YAW = 0.45f;
+
+	/** True while she stands in the two-handed guard: suited, sword out, and no swing or move of hers playing. */
+	public static boolean stance(Player player, float partial) {
+		if (RyukoRender.cover(player, partial) <= 0.99f || Ryuko.swordAway(player) || !RyukoSequenceClient.swordOut(player, partial)
+				|| player.getAttackAnim(partial) > 0f) {
+			return false;
+		}
+		MiraculousState s = Miraculous.peek(player);
+		if (s != null && s.animId >= 200 && s.animId <= 219 && player.level() != null) {
+			float age = player.level().getGameTime() - s.animStart + partial;
+			if (age >= 0f && age < length(s.animId)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public static void apply(Player player, HumanoidModel<?> m) {
 		MiraculousState s = Miraculous.peek(player);
 		if (s == null || player.level() == null) {
 			return;
 		}
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		// the ready stance: the sword arm a little forward, whenever nothing else moves it
-		if (RyukoRender.cover(player, partial) > 0.99f && player.getAttackAnim(partial) <= 0f) {
-			set(m.rightArm, 0.65f, -0.5f, 0f, 0.05f);
+		// the ready stance (v0.17.4, user: "ryuko doesnt hold the sword properly"): a two-handed chudan guard whenever nothing else
+		// moves her arms -- both fists forward in front of her belt, the right at the guard, the left closed on the hilt behind it,
+		// the blade pointing up and forward at the opponent's throat. Arm angles solved so the left fist lands on the tsuka
+		// for wide and slim arms alike (scratchpad grip solver); the wrist yaw that keeps the blade on her centre line is in
+		// RyukoLayer.placeInHand.
+		if (stance(player, partial)) {
+			set(m.rightArm, 1f, STANCE_RX, STANCE_RY, 0f);
+			set(m.leftArm, 1f, STANCE_LX, STANCE_LY, STANCE_LZ);
 		}
 		if (s.animId < 200 || s.animId > 219) {
 			return;

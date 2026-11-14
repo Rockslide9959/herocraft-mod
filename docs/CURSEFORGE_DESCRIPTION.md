@@ -447,6 +447,7 @@ Every power can be given up in survival: craft a **Power Suppressor** and sneak-
 - **Creative tabs:** Superheroes, Iron Man, Punisher.
 - **Admin commands** (op only) live under `/projecthero`: `power grant|remove|stack`, `locate <structure>` and `raid ...`.
 - Custom GeckoLib models and animations throughout, backed by 400+ automated in-game tests.
+- **Credits:** the Saiyan’s sound effects are clips from *Dragon Ball Z* (Toei Animation / Funimation); all rights to them belong to their owners.
 - **License:** All Rights Reserved. Please don't redistribute or reupload the jar.
 
 *Project Hero started as "just Thor and Mjolnir" and kept growing. Bug reports, ideas and feedback are always welcome

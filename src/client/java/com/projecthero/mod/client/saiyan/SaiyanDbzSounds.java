@@ -8,10 +8,9 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
 
 /**
- * v0.17.4: switches the Saiyan's sounds to the user's Dragon Ball clips in local test builds. The clips (and their cuts) sit in
- * the git-ignored {@code assets/projecthero/sounds/saiyan/dbz/}, so only a build made from the user's own checkout has them; the
- * built-in pack {@code resourcepacks/saiyan_dbz/} (always on) replaces every Saiyan sound event with them. A build without the
- * clips (CI, CurseForge) never registers the pack and keeps the public sounds. See {@code SaiyanSounds} and
+ * v0.17.4: switches the Saiyan's sounds to the Dragon Ball clips. The 41 trimmed cuts in {@code assets/projecthero/sounds/saiyan/dbz/}
+ * are committed (the user chose to ship them publicly); the built-in pack {@code resourcepacks/saiyan_dbz/} (always on) replaces
+ * every Saiyan sound event with them. A build without the cuts never registers the pack and keeps the synthesised sounds. See {@code SaiyanSounds} and
  * {@code docs/SAIYAN_DBZ_SOUND_MAP.md}.
  */
 public final class SaiyanDbzSounds {

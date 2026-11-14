@@ -14,15 +14,13 @@ import net.minecraft.sounds.SoundEvent;
  * <ul>
  * <li><b>Public (committed)</b>: {@code assets/projecthero/sounds.json} points every event at the v0.17.3 sounds -- the
  * synthesised OGGs in {@code sounds/saiyan/} ({@code scratchpad/synth_saiyan.js}) or a vanilla stand-in (a {@code "type": "event"}
- * entry). No show audio. This is what a CI / CurseForge build ships.</li>
- * <li><b>Test builds only</b>: the user's Dragon Ball clips. The clips and the trimmed / looped cuts made from them
- * ({@code scratchpad/saiyan/dbz_cut.js}) live in {@code sounds/saiyan/dbz/}, which is GIT-IGNORED (copyrighted show audio,
- * public repo). The built-in resource pack {@code resourcepacks/saiyan_dbz/} (its {@code sounds.json} only names files, so it
+ * entry). The fallback if the Dragon Ball cuts are missing.</li>
+ * <li><b>Dragon Ball clips (shipped)</b>: the trimmed / looped cuts ({@code scratchpad/saiyan/dbz_cut.js}) in
+ * {@code sounds/saiyan/dbz/cut_*.ogg} are committed -- the user chose to ship the show audio publicly (raw clips stay ignored). The built-in resource pack {@code resourcepacks/saiyan_dbz/} (its {@code sounds.json} only names files, so it
  * is committed) replaces every Saiyan event with the clips. The client registers that pack only when the cut clips are in the
  * jar ({@code client.saiyan.SaiyanDbzSounds}), so a build made without them silently falls back to the public set.</li>
  * </ul>
- * Before a public release the clips get swapped for synthesised sound-alikes: {@code docs/SAIYAN_DBZ_SOUND_MAP.md} lists each
- * event, its clip and trim, and what the replacement must sound like.
+ * {@code docs/SAIYAN_DBZ_SOUND_MAP.md} lists each event, its clip and trim, and what a sound-alike would need if they are ever taken down.
  *
  * <p>The {@code *_LOOP} events are seamless loops (the client plays them as looping instances while the state lasts); everything
  * else is a one-shot. Everything is registered here, at mod init.
