@@ -27,7 +27,8 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.3 Starfire's glow overlays, on her own body, every viewer. The power never changes the skin: these are emissive extras.
  * <ul>
- *   <li><b>Glowing hands</b> for 1 s after she uses a move (and while a Star Burst is gathered): two soft additive shells fitted to
+ *   <li><b>Glowing hands</b> while she attacks (v0.17.4: per hand, never for flight, a dash or a kiss; see
+ *   {@link StarfirePose#handGlow}): two soft additive shells fitted to
  *   the hand end of each arm (wide or slim), their faces fading to nothing at the edges so the glow has no hard square outline.
  *   The same glow is drawn on the first-person arm ({@code StarfireFirstPersonArmMixin}).</li>
  * </ul>
@@ -77,47 +78,26 @@ public class StarfireGlowLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 		}
 	}
 
-	/** Is a starbolt ready (or a burst charging / the eye beams on)? Then her fists glow. */
-	/** v0.17.3 (user: "only make her hands glow for 1 second after using an ability"): how long the glow lasts after a move. */
-	private static final int GLOW_AFTER_MOVE = 20;
-	/** Per player: the sum of her move cooldown stamps last seen, and the game time it last went up (a move was used). */
-	private static final java.util.Map<java.util.UUID, long[]> LAST_MOVE = new java.util.HashMap<>();
-
-	/** Client tracker cleared on disconnect (UUIDs and numbers only). */
-	static void clear() {
-		LAST_MOVE.clear();
-	}
-
-	/** Her fists glow for 1 s after any move (a cooldown stamp moving forward), and while a Star Burst is gathered in her hands. */
-	static boolean handsGlow(AbstractClientPlayer player, StarfireState s) {
-		if (s.chargeMove == StarfireState.CHARGE_BURST) {
-			return true;
-		}
-		long sum = 0;
-		for (Long v : s.abilityReadyAt.values()) {
-			sum += v == null ? 0 : v;
-		}
-		long now = player.level().getGameTime();
-		long[] last = LAST_MOVE.get(player.getUUID());
-		if (last == null) {
-			LAST_MOVE.put(player.getUUID(), new long[] { sum, Long.MIN_VALUE / 2 });
-			return false;
-		}
-		if (sum > last[0]) {
-			last[1] = now;
-		}
-		last[0] = sum;
-		return now - last[1] < GLOW_AFTER_MOVE;
+	/**
+	 * v0.17.4 (user: "dont make hands glow when player flies"): how brightly one fist glows, 0..1 ({@link StarfirePose#handGlow}). The old
+	 * rule ("1 s after any move") summed every cooldown stamp, so taking off or landing (the flight toggle's stamp), a dash or a kiss lit
+	 * her hands too. Now only her attacks do, per hand and faded in and out.
+	 */
+	static float handGlow(AbstractClientPlayer player, boolean right, float partial) {
+		return StarfirePose.handGlow(player, right ? 1 : -1, partial);
 	}
 
 	/**
 	 * The glow round one hand, in the frame the arm is drawn in (call after {@code arm.translateAndRotate}). Additive, so the
 	 * brightness is the colour: the pulse scales the RGB.
 	 */
-	static void renderHand(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, boolean right, float t) {
+	static void renderHand(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, boolean right, float t, float k) {
+		if (k <= 0.02f) {
+			return;
+		}
 		bake();
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
-		float pulse = 0.82f + 0.18f * Mth.sin(t * 0.35f);
+		float pulse = (0.82f + 0.18f * Mth.sin(t * 0.35f)) * Math.min(1f, k);
 		VertexConsumer vc = buffers.getBuffer(RenderType.eyes(HAND_GLOW));
 		ModelPart[] parts = HANDS[slim ? 1 : 0][right ? 0 : 1];
 		parts[0].render(pose, vc, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, scaled(0x6CFF64, 0.85f * pulse));
@@ -142,18 +122,17 @@ public class StarfireGlowLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 		PlayerModel<AbstractClientPlayer> model = getParentModel();
 		float t = ageInTicks + partialTick;
 		// v0.17.3 (user: "remove the glowing eyes"): no eye glow any more, the hands only
-		// the hands
-		if (handsGlow(player, s)) {
-			for (int i = 0; i < 2; i++) {
-				ModelPart arm = i == 0 ? model.rightArm : model.leftArm;
-				if (!arm.visible) {
-					continue;
-				}
-				pose.pushPose();
-				arm.translateAndRotate(pose);
-				renderHand(pose, buffers, player, i == 0, t);
-				pose.popPose();
+		// the hands, each as bright as its attack (v0.17.4: never for flight)
+		for (int i = 0; i < 2; i++) {
+			ModelPart arm = i == 0 ? model.rightArm : model.leftArm;
+			float k = handGlow(player, i == 0, partialTick);
+			if (!arm.visible || k <= 0.02f) {
+				continue;
 			}
+			pose.pushPose();
+			arm.translateAndRotate(pose);
+			renderHand(pose, buffers, player, i == 0, t, k);
+			pose.popPose();
 		}
 	}
 }

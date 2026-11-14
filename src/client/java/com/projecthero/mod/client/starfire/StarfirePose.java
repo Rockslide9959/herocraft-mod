@@ -539,6 +539,17 @@ public final class StarfirePose {
 		c.lead = rightMain ? 1 : -1;
 		float breathe = Mth.sin((p.tickCount + partial) * 0.08f);
 
+		// v0.17.4: vanilla's walk swing (driven by horizontal speed) never shows through in flight -- not even while the flight pose
+		// eases in after take-off; a punch (attackTime) keeps its arm. Fades back in only as she lands.
+		if (c.m != null && (s.flying || flyWSwing(tr, s, partial) > 0.001f)) {
+			float kill = s.flying ? 1f : flyWSwing(tr, s, partial);
+			c.m.rightLeg.xRot = Mth.lerp(kill, c.m.rightLeg.xRot, 0f);
+			c.m.leftLeg.xRot = Mth.lerp(kill, c.m.leftLeg.xRot, 0f);
+			if (c.m.attackTime <= 0f) {
+				c.m.rightArm.xRot = Mth.lerp(kill, c.m.rightArm.xRot, 0f);
+				c.m.leftArm.xRot = Mth.lerp(kill, c.m.leftArm.xRot, 0f);
+			}
+		}
 		// ---- flight: hover / cruise / speed, blended off the shared lean; a lean-back brake when she pulls up
 		float flyW = tr == null ? (s.flying ? 1f : 0f) : Mth.lerp(partial, tr.flyWPrev, tr.flyW);
 		if (flyW > 0.001f && c.m != null) {
@@ -774,6 +785,10 @@ public final class StarfirePose {
 		}
 	}
 
+	private static float flyWSwing(Track tr, StarfireState s, float partial) {
+		return tr == null ? (s.flying ? 1f : 0f) : Mth.lerp(partial, tr.flyWPrev, tr.flyW);
+	}
+
 	private static float[] lerpRow(float t, float[] a, float[] b) {
 		float[] o = new float[a.length];
 		for (int i = 0; i < a.length; i++) {
@@ -852,60 +867,116 @@ public final class StarfirePose {
 
 	// rows: {tick, pitch, yaw, roll, x, y, z} (QuirkFirstPersonPose: pitch - = up into view, yaw + = toward the centre,
 	// x + = toward the centre, y + = up, z - = into the screen)
+	//
+	// v0.17.4 (user: "make the first person animations better please"): every clip has a wind-up (the arm drawn down and back
+	// before it drives), an overshoot past the pose it hits, and a settle back, so the arms move with weight instead of sliding
+	// between two poses; impacts add a short decaying shake. Nothing comes closer to the camera than FP_NEAR (see fpSafe).
+
+	/** Starbolt: cocked low and out, snapped forward along the crosshair, overshoot, follow through across, settle. */
 	private static final float[][] FP_THROW = {
 			{ 0f, 0f, 0f, 0f, 0f, 0f, 0f },
-			{ 0.55f, 22f, -18f, 0f, -0.1f, 0.1f, 0.06f },
-			{ 1.25f, -20f, 20f, 8f, 0.15f, 0.16f, -0.3f },
-			{ 3.2f, -8f, 34f, 12f, 0.3f, 0.05f, -0.25f },
-			{ 9f, 0f, 10f, 0f, 0.05f, 0f, 0f } };
+			{ 0.5f, 18f, -14f, -10f, -0.08f, -0.07f, 0.06f },
+			{ 1.3f, -24f, 24f, 10f, 0.2f, 0.17f, -0.36f },
+			{ 2.2f, -18f, 32f, 16f, 0.27f, 0.12f, -0.42f },
+			{ 4.2f, -3f, 30f, 10f, 0.26f, 0.01f, -0.22f },
+			{ 9f, 0f, 8f, 0f, 0.04f, 0f, 0f } };
+	/** The arm that isn't throwing dips back a little for balance (main arm only: an empty off arm is never drawn at rest). */
+	private static final float[][] FP_THROW_OTHER = {
+			{ 0f, 0f, 0f, 0f, 0f, 0f, 0f },
+			{ 0.5f, -6f, 6f, 0f, 0.02f, 0.03f, -0.02f },
+			{ 1.6f, 12f, -6f, -4f, -0.04f, -0.07f, 0.05f },
+			{ 4.5f, 6f, -3f, -2f, -0.02f, -0.03f, 0.02f },
+			{ 9f, 0f, 0f, 0f, 0f, 0f, 0f } };
+	/** One barrage jab (ticks since that hand's bolt): cocked, punched out, overshoot, pulled back, cocked again. */
 	private static final float[][] FP_JAB = {
-			{ 0f, 10f, -5f, 0f, 0f, 0f, 0.1f },
-			{ 0.8f, -10f, 20f, 5f, 0.15f, 0.08f, -0.42f },
-			{ 2.2f, -8f, 20f, 5f, 0.12f, 0.06f, -0.38f },
-			{ 5f, 10f, -5f, 0f, 0f, 0f, 0.1f } };
+			{ 0f, 12f, -4f, -4f, 0f, -0.04f, 0.05f },
+			{ 0.7f, -14f, 22f, 6f, 0.16f, 0.1f, -0.44f },
+			{ 1.4f, -10f, 24f, 8f, 0.17f, 0.08f, -0.48f },
+			{ 3.2f, 4f, 8f, 0f, 0.06f, 0f, -0.12f },
+			{ 5f, 12f, -4f, -4f, 0f, -0.04f, 0.05f } };
+	/** Star Burst gather: both hands swing in and cup the ball, then draw it in toward the chest as it swells. */
 	private static final float[][] FP_BURST_CHARGE = {
-			{ 0f, 10f, -10f, 0f, -0.2f, -0.1f, 0.1f },
-			{ 6.5f, -18f, 38f, 0f, 0.36f, 0.12f, -0.08f },
-			{ 40f, -14f, 40f, 0f, 0.38f, 0.1f, 0.0f } };
+			{ 0f, 12f, -12f, 0f, -0.12f, -0.12f, 0.04f },
+			{ 3f, -10f, 30f, -8f, 0.3f, 0.08f, -0.2f },
+			{ 6.5f, -18f, 40f, -20f, 0.39f, 0.11f, -0.13f },
+			{ 40f, -13f, 42f, -24f, 0.4f, 0.07f, -0.04f } };
+	/** Star Burst throw: palms drive out, overshoot, the recoil throws the arms up and back, settle. */
 	private static final float[][] FP_BURST_RELEASE = {
-			{ 0f, -14f, 40f, 0f, 0.38f, 0.1f, 0.0f },
-			{ 1.2f, -8f, 28f, 0f, 0.28f, 0.1f, -0.5f },
-			{ 2.6f, -8f, 28f, 0f, 0.28f, 0.1f, -0.48f },
-			{ 4.6f, -32f, 24f, 0f, 0.25f, 0.22f, -0.3f },
+			{ 0f, -13f, 42f, -24f, 0.4f, 0.07f, -0.04f },
+			{ 1.0f, -10f, 26f, -10f, 0.27f, 0.12f, -0.55f },
+			{ 2.2f, -14f, 24f, -6f, 0.26f, 0.14f, -0.6f },
+			{ 4.5f, -38f, 20f, 0f, 0.22f, 0.25f, -0.22f },
+			{ 8f, -8f, 10f, 0f, 0.1f, 0.05f, -0.05f },
 			{ 14f, 0f, 0f, 0f, 0f, 0f, 0f } };
+	/** Tamaranean Grab: a long reach, the grip pulling in, then held up in front through the carry. */
+	private static final float[][] FP_REACH = {
+			{ 0f, 0f, 0f, 0f, 0f, 0f, 0f },
+			{ 0.8f, 10f, 10f, 0f, 0.05f, -0.05f, 0.04f },
+			{ 2.2f, -14f, 30f, 0f, 0.29f, 0.11f, -0.52f },
+			{ 4f, -9f, 31f, 4f, 0.28f, 0.07f, -0.28f },
+			{ 6f, -11f, 30f, 0f, 0.28f, 0.08f, -0.31f } };
 	private static final float[][] FP_HURL = {
-			{ 0f, -10f, 30f, 0f, 0.28f, 0.08f, -0.3f },
-			{ 0.8f, -55f, 20f, 0f, 0.2f, 0.35f, -0.1f },
-			{ 1.8f, 15f, 25f, 0f, 0.25f, -0.1f, -0.5f },
-			{ 4f, 20f, 20f, 0f, 0.2f, -0.2f, -0.4f },
+			{ 0f, -11f, 30f, 0f, 0.28f, 0.08f, -0.31f },
+			{ 0.8f, -55f, 20f, 0f, 0.2f, 0.36f, -0.1f },
+			{ 1.8f, 16f, 25f, 0f, 0.25f, -0.1f, -0.52f },
+			{ 2.8f, 24f, 22f, 0f, 0.22f, -0.2f, -0.44f },
+			{ 5f, 14f, 16f, 0f, 0.16f, -0.12f, -0.3f },
 			{ 12f, 0f, 0f, 0f, 0f, 0f, 0f } };
+	/** Ground Pound: fists clasped overhead, a last heave higher, the slam, a bounce off the ground, hold, rise. */
 	private static final float[][] FP_SLAM = {
-			{ 0f, -55f, 25f, 0f, 0.25f, 0.3f, -0.15f },
-			{ 1.2f, -62f, 25f, 0f, 0.25f, 0.34f, -0.12f },
-			{ 2.2f, 35f, 25f, 0f, 0.25f, -0.35f, -0.35f },
-			{ 8f, 35f, 25f, 0f, 0.25f, -0.35f, -0.35f },
+			{ 0f, -40f, 28f, 0f, 0.27f, 0.2f, -0.24f },
+			{ 1.2f, -48f, 28f, 0f, 0.27f, 0.25f, -0.2f },
+			{ 2.2f, 40f, 25f, 0f, 0.25f, -0.37f, -0.4f },
+			{ 3.0f, 28f, 25f, 0f, 0.25f, -0.28f, -0.36f },
+			{ 4.2f, 35f, 25f, 0f, 0.25f, -0.34f, -0.38f },
+			{ 9f, 33f, 25f, 0f, 0.25f, -0.32f, -0.36f },
 			{ 18f, 0f, 0f, 0f, 0f, 0f, 0f } };
+	/** Supernova: the arms cross in front and curl in, shaking harder as the sun swells; they start to strain open at the end. */
 	private static final float[][] FP_NOVA_CHARGE = {
 			{ 0f, 0f, 0f, 0f, 0f, 0f, 0f },
-			{ 5f, -25f, 55f, 20f, 0.5f, 0.15f, 0f },
-			{ 32f, -28f, 58f, 22f, 0.52f, 0.17f, 0.02f },
-			{ 40f, -20f, 40f, 10f, 0.4f, 0.15f, 0f } };
+			{ 2f, 14f, -10f, 0f, -0.08f, -0.1f, 0.04f },
+			{ 6f, -26f, 55f, 20f, 0.5f, 0.15f, -0.04f },
+			{ 32f, -29f, 58f, 22f, 0.52f, 0.17f, -0.02f },
+			{ 40f, -20f, 38f, 8f, 0.38f, 0.14f, -0.06f } };
+	/** Supernova blast: flung out wide and up to the edges of the view, held while the sun burns, then lowered. */
 	private static final float[][] FP_NOVA_BLAST = {
-			{ 0f, -20f, 40f, 10f, 0.4f, 0.15f, 0f },
-			{ 1.5f, -25f, -45f, -20f, -0.45f, 0.35f, 0.1f },
-			{ 12f, -22f, -40f, -18f, -0.42f, 0.3f, 0.1f },
+			{ 0f, -20f, 38f, 8f, 0.38f, 0.14f, -0.06f },
+			{ 1.5f, -28f, -48f, -22f, -0.48f, 0.38f, 0.0f },
+			{ 3f, -24f, -42f, -18f, -0.43f, 0.33f, 0.0f },
+			{ 12f, -22f, -40f, -18f, -0.42f, 0.3f, 0.0f },
 			{ 26f, 0f, 0f, 0f, 0f, 0f, 0f } };
-	private static final float[] FP_DASH_LEAD = { 0f, -25f, 15f, 0f, 0.1f, 0.15f, -0.35f };
+	/** Eye Beams: both fists clenched low at the sides, braced (the beams come from her eyes, the hands stay dark). */
+	private static final float[] FP_BEAMS = { 0f, 8f, -4f, -10f, 0.0f, -0.11f, -0.04f };
+	/** ...and the jolt when they ignite. */
+	private static final float[] FP_BEAMS_KICK = { 0f, 20f, -10f, -14f, -0.04f, -0.2f, 0.0f };
+	/** Star Dash: a tuck, the lead fist punched out ahead, held into the wind, then the arms open to brake. */
+	private static final float[][] FP_DASH = {
+			{ 0f, 10f, -6f, 0f, -0.04f, -0.06f, 0.05f },
+			{ 1.2f, -22f, 14f, 0f, 0.1f, 0.15f, -0.45f },
+			{ 6f, -24f, 15f, 0f, 0.1f, 0.16f, -0.42f },
+			{ 9f, -12f, -18f, -8f, -0.1f, 0.06f, -0.12f },
+			{ 13f, 0f, 0f, 0f, 0f, 0f, 0f } };
 	private static final float[] FP_DIVE = { 0f, -25f, 20f, 0f, 0.15f, 0.12f, -0.35f };
-	private static final float[] FP_CHARGE_LEAD = { 0f, -5f, 30f, 0f, 0.3f, 0f, -0.25f };
-	private static final float[] FP_CHARGE_OTHER = { 0f, -15f, 15f, 0f, 0.15f, 0.05f, -0.1f };
-	private static final float[] FP_CARRY = { 0f, -10f, 30f, 0f, 0.28f, 0.08f, -0.3f };
+	/** Tamaranean Charge: a coil, the main forearm swung across as a ram, the other fist cocked, the hit, recovery. */
+	private static final float[][] FP_CHARGE_MAIN = {
+			{ 0f, 14f, -10f, 0f, -0.05f, -0.08f, 0.05f },
+			{ 1.4f, -8f, 48f, -28f, 0.36f, 0.04f, -0.24f },
+			{ 6.5f, -10f, 50f, -30f, 0.37f, 0.05f, -0.26f },
+			{ 8f, -4f, 44f, -24f, 0.33f, 0.0f, -0.18f },
+			{ 15f, 0f, 0f, 0f, 0f, 0f, 0f } };
+	private static final float[][] FP_CHARGE_OFF = {
+			{ 0f, 20f, 0f, 0f, 0f, -0.5f, 0.15f },
+			{ 1.4f, -15f, 15f, 0f, 0.15f, 0.05f, -0.1f },
+			{ 6.5f, -17f, 16f, 0f, 0.16f, 0.06f, -0.12f },
+			{ 9f, -2f, 6f, 0f, 0.05f, -0.3f, 0.05f },
+			{ 15f, 35f, 0f, 0f, 0f, -0.9f, 0.25f } };
 	private static final float[] FP_KISS = { 0f, -20f, 35f, 15f, 0.32f, 0.2f, -0.3f };
-	private static final float[] FP_RADIANCE = { 0f, -25f, -25f, -20f, -0.2f, 0.25f, 0f };
-	private static final float[] FP_BEAMS = { 0f, 30f, 0f, 0f, 0f, -0.5f, 0.2f };
+	private static final float[] FP_RADIANCE = { 0f, -25f, -25f, -20f, -0.2f, 0.25f, -0.02f };
 	/** The off arm out of view (vanilla never draws an empty off hand, so it slides in from below). */
 	private static final float[] FP_HIDDEN = { 0f, 35f, 0f, 0f, 0f, -0.9f, 0.25f };
 	private static final float[] FP_REST = { 0f, 0f, 0f, 0f, 0f, 0f, 0f };
+	/** The nearest a visible arm comes to the camera (z, blocks; vanilla's rest arm is 0). */
+	private static final float FP_NEAR = 0.06f;
 
 	private static final class Fp {
 		final float[] main = FP_REST.clone();
@@ -924,6 +995,33 @@ public final class StarfirePose {
 			lerp(main, row, w);
 			lerp(off, row, w);
 		}
+
+		/** A short decaying jolt (an impact), {@code a} ticks after it, on both arms. */
+		void shake(float a, float amp) {
+			if (a < 0f || a > 8f) {
+				return;
+			}
+			float k = amp * (1f - a / 8f) * (1f - a / 8f);
+			float n = Mth.sin(a * 4.1f) * k;
+			main[1] += n * 6f;
+			main[5] += n * 0.03f;
+			off[1] -= n * 6f;
+			off[5] += n * 0.03f;
+		}
+	}
+
+	/**
+	 * v0.17.4: keeps a visible arm out of the camera. The closer the arm is to the middle of the view and the higher it is raised,
+	 * the further it must stay in front ({@link #FP_NEAR}); the hidden off arm (well below the view) is left alone.
+	 */
+	private static void fpSafe(float[] r) {
+		float visible = Mth.clamp((r[5] + 0.6f) / 0.3f, 0f, 1f);
+		float centre = Mth.clamp(r[4] / 0.45f, 0f, 1f);
+		float raised = Mth.clamp(-r[1] / 50f, 0f, 1f);
+		float limit = FP_NEAR - 0.08f * Math.max(centre, raised);
+		if (r[6] > limit) {
+			r[6] = Mth.lerp(visible, r[6], limit);
+		}
 	}
 
 	/** The local player's first-person arm sample (both hands empty), or null for vanilla. */
@@ -937,30 +1035,60 @@ public final class StarfirePose {
 		int mainSide = p.getMainArm() == HumanoidArm.RIGHT ? 1 : -1;
 		Fp f = new Fp();
 
+		// the carry: a reach and a grip, then held up in front, breathing
 		if (tr != null && tr.carrying) {
-			f.both(FP_CARRY, env(now - tr.carryStart, 2f, 1e9f, 2e9f));
+			float a = now - tr.carryStart;
+			float[] row = key(FP_REACH, a).clone();
+			row[1] += Mth.sin(now * 0.12f) * 1.5f;
+			f.both(row, env(a, 0.8f, 1e9f, 2e9f));
 		}
+		// eye beams: both fists braced low, a jolt as they ignite, trembling while they burn
 		float beamW = tr == null ? 0f : Mth.lerp(partial, tr.beamWPrev, tr.beamW);
-		f.lerp(f.main, FP_BEAMS, beamW);
+		if (beamW > 0.001f) {
+			float tb = tr == null ? 10f : now - tr.beamStart;
+			float kick = s.beams ? env(tb, 1.2f, 1.5f, 7f) : 0f;
+			float[] row = lerpRow(kick, FP_BEAMS, FP_BEAMS_KICK);
+			float tremble = Mth.sin(now * 2.6f) * 1.4f;
+			float[] m = row.clone();
+			m[1] += tremble;
+			float[] o = row.clone();
+			o[1] -= tremble;
+			f.lerp(f.main, m, beamW);
+			f.lerp(f.off, o, beamW);
+		}
 		if (s.chargeMove == StarfireState.CHARGE_BURST && s.chargeStart > 0) {
 			float ct = now - s.chargeStart;
+			float grow = Mth.clamp(ct / StarfireConfig.BURST_CHARGE_TICKS, 0f, 1f);
 			float[] row = key(FP_BURST_CHARGE, ct).clone();
-			float shake = 0.6f + 2.2f * Mth.clamp(ct / StarfireConfig.BURST_CHARGE_TICKS, 0f, 1f);
-			row[1] += Mth.sin(now * 2.9f) * shake;
-			f.both(row, env(ct, 2f, 1e9f, 2e9f));
+			// the hands are pushed apart a little as the ball swells, and shake harder
+			row[4] -= 0.05f * grow;
+			row[2] -= 4f * grow;
+			float shake = 0.6f + 2.4f * grow;
+			float[] m = row.clone(), o = row.clone();
+			m[1] += Mth.sin(now * 2.9f) * shake;
+			o[1] += Mth.sin(now * 2.9f + 1.3f) * shake;
+			float w = env(ct, 1.5f, 1e9f, 2e9f);
+			f.lerp(f.main, m, w);
+			f.lerp(f.off, o, w);
 		}
 		if (s.chargeMove == StarfireState.CHARGE_NOVA && s.chargeStart > 0) {
 			float ct = now - s.chargeStart;
+			float swell = Mth.clamp(ct / StarfireConfig.NOVA_CHARGE_TICKS, 0f, 1f);
 			float[] row = key(FP_NOVA_CHARGE, ct).clone();
-			float shake = 0.8f + 4f * Mth.clamp(ct / StarfireConfig.NOVA_CHARGE_TICKS, 0f, 1f);
-			row[1] += Mth.sin(now * 3.3f) * shake;
-			row[2] += Mth.sin(now * 2.7f) * shake * 0.5f;
-			f.both(row, env(ct, 3f, 1e9f, 2e9f));
+			float shake = 0.8f + 4.5f * swell * swell;
+			float[] m = row.clone(), o = row.clone();
+			m[1] += Mth.sin(now * 3.3f) * shake;
+			m[2] += Mth.sin(now * 2.7f) * shake * 0.5f;
+			o[1] += Mth.sin(now * 3.3f + 2f) * shake;
+			o[2] += Mth.sin(now * 2.7f + 1f) * shake * 0.5f;
+			float w = env(ct, 1.5f, 1e9f, 2e9f);
+			f.lerp(f.main, m, w);
+			f.lerp(f.off, o, w);
 		}
-		// barrage
+		// barrage: alternating jabs that follow the arc, a constant tremble of effort
 		float ba = now - started(s, StarfireAbilityManager.BARRAGE, StarfireConfig.BARRAGE_COOLDOWN);
 		if (ba >= 0f && ba < StarfireConfig.BARRAGE_TICKS + 10) {
-			float w = env(ba, 2f, StarfireConfig.BARRAGE_TICKS + 2, StarfireConfig.BARRAGE_TICKS + 10);
+			float w = env(ba, 1.5f, StarfireConfig.BARRAGE_TICKS + 2, StarfireConfig.BARRAGE_TICKS + 10);
 			float first = BARRAGE_FIRE[0], last = BARRAGE_FIRE[BARRAGE_FIRE.length - 1];
 			float sweep = Mth.clamp((ba - first) / Math.max(1f, last - first), 0f, 1f);
 			float arcDeg = Mth.lerp(sweep, StarfireMoves.barrageYaw(0), StarfireMoves.barrageYaw(BARRAGE_FIRE.length - 1));
@@ -976,11 +1104,16 @@ public final class StarfirePose {
 				float[] row = key(FP_JAB, since > 5f ? 0f : since).clone();
 				row[2] += -side * arcDeg * 0.6f;
 				row[4] += -side * arcDeg / 35f * 0.15f;
+				row[1] += Mth.sin(now * 2.3f + side) * 1.2f;
 				f.lerp(side == mainSide ? f.main : f.off, row, w);
 			}
 		}
-		// throws
+		// throws: each hand its own (the previous throw under the newest), the resting main arm dipping for balance
 		if (tr != null) {
+			int mi = mainSide > 0 ? 0 : 1;
+			float otherAge = now - tr.throwAt[1 - mi];
+			float own = env(now - tr.throwAt[mi], THROW_IN, THROW_HOLD, THROW_OUT);
+			f.lerp(f.main, key(FP_THROW_OTHER, otherAge), env(otherAge, 0.5f, 4.5f, 9f) * (1f - own));
 			for (int i = 0; i < 2; i++) {
 				int side = i == 0 ? 1 : -1;
 				float[] dst = side == mainSide ? f.main : f.off;
@@ -991,40 +1124,50 @@ public final class StarfirePose {
 		}
 		float ra = now - started(s, StarfireAbilityManager.STAR_BURST, StarfireConfig.BURST_COOLDOWN);
 		if (ra >= 0f && ra < 14f) {
-			f.both(key(FP_BURST_RELEASE, ra), env(ra, 0.6f, 4.6f, 14f));
+			f.both(key(FP_BURST_RELEASE, ra), env(ra, 0.4f, 8f, 14f));
+			f.shake(ra - 1f, 0.6f);
 		}
 		float na = s.novaAt > 0 ? now - s.novaAt : -1f;
 		if (na >= 0f && na < 26f) {
-			f.both(key(FP_NOVA_BLAST, na), env(na, 0.5f, 12f, 26f));
+			f.both(key(FP_NOVA_BLAST, na), env(na, 0.4f, 12f, 26f));
+			f.shake(na - 1.5f, 1f);
 		}
 		float da = now - started(s, StarfireAbilityManager.STAR_DASH, StarfireConfig.DASH_COOLDOWN);
 		if (da >= 0f && da < 13f) {
-			f.lerp(f.main, FP_DASH_LEAD, env(da, 1.2f, 6f, 13f));
+			float[] row = key(FP_DASH, da).clone();
+			row[1] += Mth.sin(now * 3.7f) * 1.2f * env(da, 1.2f, 6f, 9f); // the wind
+			f.lerp(f.main, row, env(da, 0.6f, 9f, 13f));
 		}
 		if (tr != null && tr.diving) {
 			float w = env(now - tr.diveStart, 1.5f, 1e9f, 2e9f);
-			f.lerp(f.main, FP_DIVE, w);
-			f.lerp(f.off, FP_DIVE, w * (1f - tr.stageW));
+			float[] row = FP_DIVE.clone();
+			row[1] += Mth.sin(now * 3.7f) * 1.2f;
+			f.lerp(f.main, row, w);
+			f.lerp(f.off, row, w * (1f - tr.stageW));
 		}
 		float ca = now - started(s, StarfireAbilityManager.CHARGE, StarfireConfig.CHARGE_COOLDOWN);
 		if (ca >= 0f && ca < 15f) {
-			float w = env(ca, 0.8f, 6.5f, 15f);
-			f.lerp(f.main, FP_CHARGE_LEAD, w);
-			f.lerp(f.off, FP_CHARGE_OTHER, w);
+			float w = env(ca, 0.6f, 9f, 15f);
+			f.lerp(f.main, key(FP_CHARGE_MAIN, ca), w);
+			f.lerp(f.off, key(FP_CHARGE_OFF, ca), w);
+			f.shake(ca - 6.5f, 0.5f);
 		}
 		if (tr != null) {
 			if (tr.pounding) {
-				f.both(FP_SLAM[0], env(now - tr.poundStart, 2f, 1e9f, 2e9f));
+				float[] row = FP_SLAM[0].clone();
+				row[1] += Mth.sin(now * 2.1f) * 1.5f;
+				f.both(row, env(now - tr.poundStart, 2f, 1e9f, 2e9f));
 			}
 			float sa = now - tr.slamAt + (tr.slamFromAir ? SLAM_WINDUP : 0f);
-			float w = tr.slamFromAir ? env(sa, 0f, 8f, 18f) : env(sa, 0.8f, 8f, 18f);
+			float w = tr.slamFromAir ? env(sa, 0f, 9f, 18f) : env(sa, 0.8f, 9f, 18f);
 			if (w > 0f) {
 				f.both(key(FP_SLAM, sa), w);
+				f.shake(sa - 2.2f, 1f);
 			}
 		}
 		float ha = now - started(s, StarfireAbilityManager.GRAB, StarfireConfig.GRAB_COOLDOWN);
 		if (ha >= 0f && ha < 12f && (tr == null || !tr.carrying)) {
-			f.both(key(FP_HURL, ha), env(ha, 0.3f, 4f, 12f));
+			f.both(key(FP_HURL, ha), env(ha, 0.3f, 5f, 12f));
 		}
 		float ka = now - started(s, StarfireAbilityManager.KISS, StarfireConfig.KISS_COOLDOWN);
 		if (ka >= 0f && ka < 24f) {
@@ -1046,6 +1189,8 @@ public final class StarfirePose {
 		if (!offShown && !mainPosed) {
 			return null;
 		}
+		fpSafe(f.main);
+		fpSafe(f.off);
 		float[] v = new float[QuirkFirstPersonPose.COLS];
 		System.arraycopy(f.main, 1, v, 1, 6);
 		System.arraycopy(f.off, 1, v, 7, 6);
@@ -1088,6 +1233,48 @@ public final class StarfirePose {
 		}
 		float ra = p.level().getGameTime() + partial - started(s, StarfireAbilityManager.STAR_BURST, StarfireConfig.BURST_COOLDOWN);
 		return flashCurve(ra, 1.2f);
+	}
+
+	/**
+	 * v0.17.4 (user: "dont make hands glow when player flies"): 0..1, how brightly one fist ({@code side} +1 right, -1 left) glows --
+	 * only while she attacks with it: the throwing hand for a starbolt (flaring with the release, fading over the follow-through),
+	 * both through a Barrage, a Star Burst (growing with the charge, then the throw), a Supernova, the Tamaranean Charge and the
+	 * Ground Pound. Flight, Star Dash, Comet Dive, the Grab, the Eye Beams (they come from her eyes), the Kiss and Radiance never
+	 * light her hands. For {@code StarfireGlowLayer}, every viewer and the first-person arm.
+	 */
+	public static float handGlow(Player p, int side, float partial) {
+		StarfireState s = Starfire.peek(p);
+		if (s == null || !s.hasPower || p.level() == null) {
+			return 0f;
+		}
+		Track tr = TRACKS.get(p.getUUID());
+		float now = p.level().getGameTime() + partial;
+		float g = 0f;
+		if (tr != null) {
+			g = Math.max(g, env(now - tr.throwAt[side > 0 ? 0 : 1], 0.6f, 4f, 14f));
+		}
+		float ba = now - started(s, StarfireAbilityManager.BARRAGE, StarfireConfig.BARRAGE_COOLDOWN);
+		g = Math.max(g, env(ba, 2f, StarfireConfig.BARRAGE_TICKS, StarfireConfig.BARRAGE_TICKS + 10));
+		if (s.chargeMove == StarfireState.CHARGE_BURST && s.chargeStart > 0) {
+			float ct = now - s.chargeStart;
+			float grow = Mth.clamp(ct / StarfireConfig.BURST_CHARGE_TICKS, 0f, 1f);
+			g = Math.max(g, (0.45f + 0.55f * grow) * env(ct, 3f, 1e9f, 2e9f));
+		}
+		g = Math.max(g, env(now - started(s, StarfireAbilityManager.STAR_BURST, StarfireConfig.BURST_COOLDOWN), 0f, 4f, 16f));
+		if (s.chargeMove == StarfireState.CHARGE_NOVA && s.chargeStart > 0) {
+			g = Math.max(g, env(now - s.chargeStart, 6f, 1e9f, 2e9f));
+		}
+		if (s.novaAt > 0) {
+			g = Math.max(g, env(now - s.novaAt, 0f, 6f, 22f));
+		}
+		g = Math.max(g, env(now - started(s, StarfireAbilityManager.CHARGE, StarfireConfig.CHARGE_COOLDOWN), 1f, 7f, 16f));
+		if (tr != null) {
+			if (tr.pounding) {
+				g = Math.max(g, env(now - tr.poundStart, 2f, 1e9f, 2e9f));
+			}
+			g = Math.max(g, env(now - tr.slamAt, 0f, 6f, 18f));
+		}
+		return g;
 	}
 
 	private static float flashCurve(float a, float peak) {
