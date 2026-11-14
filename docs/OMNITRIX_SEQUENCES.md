@@ -1,5 +1,7 @@
-# Omnitrix show transformations (v0.17.3)
+# Omnitrix show transformations (v0.17.3, retuned v0.17.4)
 
+> **v0.17.4: switched back on** (`SHOW_SEQUENCES = true`). The note below is how the v0.17.3 hold-back worked.
+>
 > **Held back from the v0.17.3 release** (user: "I want to exclude the new Ben 10 aliens and all the transformation scenes from this
 > update"). The release switch is `OmnitrixFeature.SHOW_SEQUENCES` (`false`), read through `OmnitrixFeature.showSequences()` /
 > `sequenceAllowed(id)`. While it is off, `ShowSequences.get/has/byHash` answer only for `OmnitrixFeature.SHIPPED_SEQUENCES`
@@ -289,6 +291,78 @@ wide, uneven power stances from a low or tilted camera; ours were upright, squar
   stretched 1.12x through `TubeTail.renderScripted`'s new `stretch` overload (the old signature still calls it with 1).
 - **Upgrade**: the body slants over to his left (`ShowBody.tilt` 0.3) from the reveal; from tick 155 the fists swing forward at the
   low camera (right one low and out left, left one out right, elbows soft) so they fill the foreground; both ease out after the world cut.
+
+### Camera and pose retune against the show: all 12 (v0.17.4)
+
+User: "make the camera angles and poses match up better with what shows in the transformation scenes please, right now they only look
+kinda decent". Every sequence was filmed as it was (`<alien>_old`), compared beat by beat with the show's frames, retuned, and filmed
+again (`<alien>_new`). Only camera keys, FOV, pose keys and a few framing comments changed: the shot lists, beat ticks, soundtracks,
+stages and effects are as before, and no kit or shared helper was touched. Each change carries a `v0.17.4` comment in its Show class.
+
+**Tools.** `harness.js flag <alien> self 0 -1 <tag> <t1,t2,...>`: the optional sixth argument films only those ticks (the harness steps
+straight to each), so a key-beat check takes about 90 s instead of 4-7 minutes. `scratchpad/omnitrix_seq/compare.js <alien> <ticks>
+<tag1>,<tag2> [--labels OLD,NEW]` makes a sheet with one row per tick: show | capture 1 | capture 2. Sheets and side-by-sides with show
+frames go to `docs/screenshots/v0174/omnitrix_sequences/vs_show/`, which is git-ignored (copyrighted stills); our own films go next to it.
+
+**Films** (`docs/screenshots/v0174/omnitrix_sequences/`): `<alien>_before_after.mp4` + `_sheet.jpg` (old | new, ours only, committed).
+Git-ignored: `vs_show/<alien>_compare.jpg` (show | old | new at the key beats) and `vs_show/<alien>_new_vs_show.mp4`.
+
+**What the old versions got wrong, over and over:** the slap was the shared full-length shot where the show is waist or chest up; the
+close-ups stood too far back or off to the side (the show fills the frame with the hand, the eye, the face); the body shots after the
+change were small figures where the show is close, and the final stances were cropped where the show has the whole body (or the other way
+round). Gotcha: sed -i in Git Bash strips every CR from a CRLF file, not just the edited line; edit with a CRLF-aware script.
+
+- **Heatblast.** Slap: chest-up from a little above, the watch forearm low in front of the belly, the right hand up by the face, then
+  slapping down onto the dial in the middle (it was a high forearm across the chest). Rock arm (38-62): tight, a little above, a 6-degree
+  longer lens, so the rock fills the frame and the face stays out (the show never shows the face there). Pull-back off the symbol: starts
+  tighter, ends much wider (2.6 vs 2.05), the whole torso and the low fists with room round him. Stance: closer and lower (2.15 -> 1.9,
+  he's cropped at the thighs like the show), the raised fist up level with the head (elbow flex 1.0 -> 1.45), the near fist low at the
+  hip, `STANCE_ROLL` 0.15 -> 0.2.
+- **Four Arms.** Slap: its own close chest-up shot, the right hand already high from the first frame. Hand swelling: starts nearly square
+  on and above both fists round the dial, then slides round his left. Back shot (101-128): close and from above (1.5 at 1.95 high; it was
+  2.2 from low behind), and all four arms flung wide across the frame, forearms clawing (they were folded up beside the head, hidden
+  behind the back); the orbit ends on his left front with all four reaching forward. Wind-up and lunge: closer (1.4-1.6). Stance:
+  pulled back so the feet stay in.
+- **Wildmutt.** Slap: its own waist-up shot from his left front, with a new slap pose (the watch forearm forward and low, the right arm
+  flung wide, then slapping down); the human pose track now starts at tick 0. Up the arm (66-100): lower and further up the arm, toward
+  the sleeve. Face, hunch from behind, side-on head and the face-and-claws shot: all closer; the claws stay low at the chest so the face
+  fills the lens (they rose up over the head, then swung into the lens). After the change: the head profile close (1.2 -> 1.08, the head
+  filling the right of the frame), the paw shot from his right and down at the paw (it was the whole front of him from his left), the
+  rearing shot closer.
+- **Diamondhead.** Opening: Ben waist up, level and square on (it was from low with the head cut off). Arm and hand: closer, the arm
+  raised a little above level. Face: square on and a little further back so the whole face is in. Head three-quarter: closer (0.95 ->
+  0.62). Crossed forearms: closer and lower. Pull-back: ends much wider, a small whole figure like the show's flex. Stance: nearly square
+  on (30 -> 14 degrees), the whole body in frame, chest up and back, both fists out to the sides on bent elbows, legs wider.
+- **XLR8.** Slap: close and low with a slap hand (new shared helpers `Xlr8Show.slapClose(end)` and `slapArm(m, t, end)`, also used by
+  Grey Matter's camera, Stinkfly and Ripjaws: the right hand flung up beside the head then slapping down, easing back into the raised-watch
+  pose over 4 ticks). Face (36-62): further round his left, head bowed deeper. Ben's and XLR8's eyes: right in (0.15-0.17). Legs, claws
+  and the low badge shot (now from his left): about 40% closer. Visor face: lower look point and closer. Crouch: low from his left front,
+  slanted (`TILT` -0.2), knees wider. Dash: three-quarter front from his right, lower, lean 0.62 -> 0.5.
+- **Grey Matter.** Slap closer. New hands (28-62): from his left front with Ben to the right of frame, the hands held toward the lens.
+  Arm throw: from his right front with the right arm, so it crosses to the right instead of covering his face. Back shot: arms down,
+  slightly out; the swing ends close behind him. Face, nape, front face, crouch (from a little above, hands reaching at the camera) and
+  leap (`TILT` -0.2): closer.
+- **Stinkfly.** Slap closer, with the slap hand. Straining face: fills the frame from a little below, easing back so the four eye-stalks
+  stay in. Glowing torso: much closer and lower, arms flung up in a V. Forehead badge: fills the frame. Hover: from below, nearly front
+  on, slanted (`TILT` 0.38), legs splayed.
+- **Ripjaws.** Slap closer, with the slap hand. Outstretched arm: from above and behind his left shoulder so it runs across the frame.
+  Front face, profiles and back of the neck: about 30% closer. Lure: three-quarters from his right. Cheek and teeth: three-quarters (60
+  and 50 degrees). Rise: low in front. Stance: the whole body, nearly front on, arms wide with the forearms curled up, right claw raised.
+- **Upgrade.** Slap: chest up, a little above, the watch forearm raised so the dial sits under the face. Dial close-up: closer, square on.
+  Reveal: close and low, looking up. Stance: arms out and down at his sides; from 155 both fists swing forward into the bottom corners
+  together. `STANCE_TILT` 0.3 -> -0.08 (nearly upright, like the show).
+- **Ghostfreak.** Slap: much closer and steeper from above. 24-32 waist up, head to the right; 32-38 tight on the face; seam shot square
+  on; purple eye centred and closer; rearing profile close and from below. Float: `ShowBody.TILT` 0.42 -> 0.72 (the show's diagonal).
+- **Cannonbolt.** Slap a little wider. Under the forearm: look point at the wrist. Hand swelling: in close, the hand big in front of his
+  head. Belly: fills the frame. Eye: tighter, on one eye. Face on the chest: closer. Opening out: new keys so the body stays as big as the
+  ball. Stance: arms out near level, so the domes run in a row like the show's (was a V).
+- **Wildvine.** Fright face and frown: closer. The tilt ends on the collar and shoulder from his left front. Eye close-up: level with the
+  eye. Head profile: close from his left front (was a small figure from behind). 166-186 aimed at the head and the hands clutching it.
+  Wide shot: closer. Last crouch: closer and lower, claws out, slanted (`TILT` -0.22, eased to 0 under the green out).
+
+Still short of the show (Minecraft limits or not done): `CameraTrack` has no roll, so the show's Dutch angles can't be matched; Wildmutt's
+and Four Arms' hand shots still show the watch body where the show has only flesh; Diamondhead's cheek crystal covers more of the face than
+the show's; only the holder's view was filmed (the bystander view of the new poses is unchecked).
 
 ### Camera keys (`CameraTrack`)
 
