@@ -124,19 +124,9 @@ public final class DoctorFateSpells {
 		}
 	}
 
-	/**
-	 * H (v0.17.3, user: "like the Nova ability"): the helmet on / off with its 1 s animation and a 1 s cooldown. During a Possession
-	 * it says Nabu won't let go; in the lockout after one it says how long is left ({@link DoctorFate#toggleHelmet}).
-	 */
+	/** H: v0.17.4 the helmet off (to the item) or summoned and put on ({@link DoctorFateHelmet#pressH}). */
 	public static boolean helmetKey(ServerPlayer p) {
-		if (!DoctorFate.hasPower(p) || DoctorFate.cooldownRemaining(p, DoctorFateAbilityManager.HELMET) > 0) {
-			return false;
-		}
-		if (DoctorFate.toggleHelmet(p)) {
-			DoctorFate.startCooldown(p, DoctorFateAbilityManager.HELMET, DoctorFateConfig.HELMET_COOLDOWN);
-			return true;
-		}
-		return false;
+		return DoctorFateHelmet.pressH(p);
 	}
 
 	/** A spell from a key, with Nabu's Override: 1 in 6 attack spells come out as his pick (25+ Dominion, helmet on). */
@@ -205,7 +195,7 @@ public final class DoctorFateSpells {
 		}
 		DoctorFate.addDominion(p, gain);
 		if (tier >= 3 && !p.getAbilities().instabuild) {
-			float cost = dominion >= 8f ? DoctorFateConfig.HOLD_HEALTH_COST * 2f : DoctorFateConfig.HOLD_HEALTH_COST;
+			float cost = dominion >= DoctorFateConfig.BIG_SPELL_DOMINION ? DoctorFateConfig.HOLD_HEALTH_COST * 2f : DoctorFateConfig.HOLD_HEALTH_COST;
 			p.setHealth(Math.max(1f, p.getHealth() - cost));
 		}
 	}

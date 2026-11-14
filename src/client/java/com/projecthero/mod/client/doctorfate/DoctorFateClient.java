@@ -56,6 +56,9 @@ public final class DoctorFateClient {
 
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(DoctorFateHud::render);
+		HudRenderCallback.EVENT.register(FateHelmetClient::renderFirstPerson); // v0.17.4 the put-on / lift-off from inside the helmet
+		EntityRendererRegistry.register(com.projecthero.mod.doctorfate.helmet.FateHelmet.ENTITY, FateHelmetRenderer::new); // v0.17.4
+		WorldRenderEvents.AFTER_ENTITIES.register(FateHelmetClient::render); // v0.17.4 the summoned helmet flying in
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new FateSuitLayer(playerRenderer));
@@ -97,6 +100,7 @@ public final class DoctorFateClient {
 		queuedBargain = null;
 		FateFx.reset();
 		FateSpellFxClient.reset();
+		FateHelmetClient.reset();
 	}
 
 	/** A bargain opens at once, or as soon as whatever screen is open closes (if it's still in time). */
@@ -121,7 +125,7 @@ public final class DoctorFateClient {
 		return player != null && DoctorFate.hasPower(player);
 	}
 
-	/** H: the helmet on / off (the server checks Possession and the lockout and says why when it refuses). */
+	/** H: v0.17.4 the helmet off (to the item) or summoned from anywhere (the server checks Possession and the lockout and says why). */
 	public static void pressH() {
 		ClientPlayNetworking.send(FateActionPayload.of(FateActionPayload.Action.TOGGLE_HELMET));
 	}

@@ -120,8 +120,12 @@ public final class DoctorFatePossession {
 		n.possessedUntil = 0L;
 		n.lockoutUntil = now + DoctorFateConfig.LOCKOUT_TICKS;
 		n.dominion = DoctorFateConfig.AFTER_POSSESSION_DOMINION;
+		boolean wasOn = n.helmetOn;
 		DoctorFate.save(p, n);
 		DoctorFate.setHelmet(p, false);
+		if (wasOn) {
+			DoctorFateHelmet.fallOff(p); // v0.17.4: it lands as the Helmet of Fate on the ground (H summons it back after the lockout)
+		}
 		DoctorFateFlight.stop(p);
 		p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 200, 0, false, false));
 		release(p);

@@ -133,6 +133,46 @@ the Silence is control for a higher spell price, the Debt is control now for mor
 flight; `DoctorFateFx.landing` draws a golden ankh flaring flat on the ground, a rune ring racing out with a low rim wall, gold
 shock rings, a deep chime and a gold vignette.
 
+### v0.17.4 (user round): the helmet as an item, powers need it, Dominion retune, flight
+
+User: "melee bonus +8; make the dominion bar fill up a lot slower ... about 2 minutes straight for Nabu to start taking over; fix
+the flight animation and make it look better; add an animation for putting on the helmet; regen 1 while wearing it; no armour
+while wearing it; H gives the helmet item when removing it, Shift+right-click to put it on, drop it or place it down as an entity,
+H summons it from anywhere (another dimension, a chest) without ever making two." Clarified: **powers need the helmet** (no Fate
+powers, regen or flight with it off; Dominion drains). This replaces v0.17.3's "not an item" and Kent's weak helmet-off magic.
+
+- **Helmet on:** 40 health, 30% resistance, **+8 attack damage** (an ATTACK_DAMAGE modifier; there was no melee bonus before),
+  **Regeneration I** (ambient, refreshed before it runs out), flight, Wither/Poison immunity, every spell. **No armour:** anything in
+  the four armour slots goes to the inventory (the ground if full) with an action-bar line, every tick it's worn.
+- **Helmet off:** nothing but H. Every move (R/G/X, the Amulet, the Tower) needs the helmet.
+- **H wearing it:** the 1.2 s lift-off (hands up, lifted overhead, down to the chest, turns to gold) then the **Helmet of Fate item**
+  (`projecthero:helmet_of_fate`, fireproof, never despawns when dropped, not in the creative tab).
+- **Shift+right-click the item:** the 1.5 s put-on (formed in both hands at the chest, raised overhead, held high while a golden
+  ankh flares behind it, lowered onto the head, settles in a ring of gold; the suit fades in as it comes down). First person: it
+  rises into view, is lifted to the top of the screen, comes down over your eyes until the view closes to the eye slit, then opens
+  with a gold flash. Only its owner can wear it; an unowned (`/give`n or v0.17.2-world) helmet is claimed by the first Doctor Fate.
+- **Right-click a block with it:** set down as a `FateHelmetEntity`: hovers and bobs, turns slowly, lit gold, a flat ankh and rune
+  ring glowing under it. Right-click picks it up. Immune to fire, lava, explosions. A Possession's end drops it this way.
+- **H not wearing it = summon.** From your own inventory it goes straight on. Otherwise it flies to your raised hand along a rising
+  golden arc out of a small ankh portal where it lay (loaded, same dimension), or out of a big ankh portal beside you (another
+  dimension, unloaded, unknown); 1 s, then the put-on. During the lockout after a Possession it lands in the inventory instead.
+- **No duplicates (Mjolnir's scheme):** every copy carries owner + generation (`fate_helmet` component / entity NBT). The
+  `FateHelmetRegistry` SavedData keeps each owner's generation and last-seen place (worn / inventory of player X / item entity /
+  placed entity / container at pos). A summon removes the copy where it's loaded (also every online player's inventory, ender chest,
+  cursor, and containers/mobs within 2 blocks of the last place), then **bumps the generation**, so any copy it couldn't reach is a
+  ghost. `FateHelmetGuard` deletes ghosts wherever they surface: inventory tick, any open menu, entity load (item, placed helmet,
+  item frame, mob equipment, minecarts, villagers), container block load, player join. A double H press is refused while a
+  sequence runs. Gametests: `DoctorFateHelmetGameTests`.
+- **Dominion retune:** every spell's Dominion is a tenth of v0.17.3's (Bolt 0.1, Chains 0.3, Shield 0.1/s, Banishment 1.2, Glyph
+  Storm 0.8, Gate Drop 0.5, Order Blast 0.4, Ward 1, Sight 0.6); wearing +0.06/s (was 0.15); off -0.5/s (was 0.75). Casting every
+  spell the moment its cooldown allows (no Avatar, no Amulet): about 0.59 Dominion/s from spells + 0.06 worn = 0.65/s, 0.59/s after
+  the Pull discount at 50 -> Taking hold (75) in about 1 min 55 s, Possession about 40 s later. Bargains, the Blessing, the Debt and
+  the Forbidden spell keep their numbers (they're choices). Taking hold's double health cost is for spells worth 0.8+.
+- **Flight look:** Doctor Fate's own `FlightFeel` (slow deep float, gentle banks) and `client.doctorfate.FatePose`: hanging still,
+  upright with arms held out low to the sides, palms down, breathing, legs together with one knee bent; flying along the arms ease
+  back; at full speed (body laid along the flight) arms swept back along the sides, legs straight together. Every limb is set
+  outright, so no walk cycle shows through.
+
 **Fair-play rules:** Possession never attacks squadmates. On a server you can't be possessed while inside spawn protection.
 Dominion is saved per player.
 

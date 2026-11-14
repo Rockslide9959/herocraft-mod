@@ -36,6 +36,11 @@ public record FateSpellFxPayload(int kind, float x, float y, float z, float dx, 
 	public static final int LANDING = 9;
 	/** The Avatar rising: a column of glyphs behind him. */
 	public static final int RISE = 10;
+	/**
+	 * v0.17.4 the Helmet of Fate summoned: it flies from (x,y,z) to the head of {@code entity} over {@code life} ticks, trailing gold
+	 * ({@code size} 1 = it flew out of where it lay, 0 = out of an ankh portal beside him).
+	 */
+	public static final int SUMMON = 11;
 
 	public static final CustomPacketPayload.Type<FateSpellFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("doctor_fate_spell_fx"));
 

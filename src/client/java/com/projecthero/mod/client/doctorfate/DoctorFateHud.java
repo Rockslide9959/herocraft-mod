@@ -98,8 +98,12 @@ public final class DoctorFateHud {
 		// status tags, wrapped to the HUD's width (bottom line first, upward)
 		List<Tag> tags = new ArrayList<>();
 		long now = mc.level.getGameTime();
-		tags.add(new Tag(Component.translatable(s.helmetOn ? "hud.projecthero.doctor_fate.helmet_on" : "hud.projecthero.doctor_fate.helmet_off").getString(),
-				s.helmetOn ? GOLD_TEXT : BLUE_TEXT));
+		// v0.17.4: "Helmet" worn; "Summoning..." / "Putting on" / "Taking off" during the sequences; "No helmet: H" otherwise
+		String helmetKey = s.helmetChangeAt > 0L
+				? (s.helmetChangeAt > now ? "hud.projecthero.doctor_fate.helmet_summoning"
+						: s.helmetGoingOn ? "hud.projecthero.doctor_fate.helmet_putting_on" : "hud.projecthero.doctor_fate.helmet_taking_off")
+				: s.helmetOn ? "hud.projecthero.doctor_fate.helmet_on" : "hud.projecthero.doctor_fate.helmet_off";
+		tags.add(new Tag(Component.translatable(helmetKey).getString(), s.helmetOn || s.helmetChangeAt > 0L ? GOLD_TEXT : BLUE_TEXT));
 		int lock = DoctorFate.lockoutTicksLeft(p);
 		if (lock > 0) {
 			tags.add(new Tag(Component.translatable("hud.projecthero.doctor_fate.lockout").getString() + " " + clock(lock), VanillaHud.RED));

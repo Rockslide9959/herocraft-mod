@@ -38,6 +38,8 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 	public static final FlightFeel BLUE_BEETLE = new FlightFeel(1.9f, 40f, 20f, 0.9f, 0.04f, 0.09f, 0.6f);
 	/** The Falcon banks his wingsuit himself ({@code FalconFlightClient}); only the path lean and the limbs here. */
 	public static final FlightFeel FALCON = new FlightFeel(0f, 0f, 0f, 0.9f, 0f, 0f, 0.5f);
+	/** v0.17.4 Doctor Fate: a slow, deep levitating float and gentle banks (upright and regal; his limbs are {@code FatePose}). */
+	public static final FlightFeel DOCTOR_FATE = new FlightFeel(1.4f, 28f, 14f, 0.75f, 0.07f, 0.05f, 1.0f);
 
 	/**
 	 * The feel of whatever this player is flying with right now, or null for none (not flying on the shared pose, or Iron Man,
@@ -65,7 +67,7 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		}
 
 		if (com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)) {
-			return GENERIC; // v0.17.3: Doctor Fate hovers upright, cloak billowing
+			return DOCTOR_FATE; // v0.17.4: Doctor Fate's own regal float (his limbs are client.doctorfate.FatePose)
 		}
 		if (com.projecthero.mod.vision.Vision.isFlying(player)) {
 			return KRYPTONIAN; // v0.17.3: Vision flies like the Kryptonian, cape streaming
