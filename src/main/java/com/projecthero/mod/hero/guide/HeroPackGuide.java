@@ -1806,12 +1806,28 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.black_panther.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.black_panther.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "suit", "kinetic", "passives"}) {
+			// v0.17.4: the crafted suit, the two movesets and the passives
+			for (String section : new String[]{"origin", "habit", "suit", "movesets", "kinetic", "passives"}) {
 				head(lines, "projecthero.guide.black_panther." + section);
 				para(lines, "projecthero.guide.black_panther." + section + ".body");
+				if (section.equals("passives")) {
+					for (String passive : new String[] { "herb_strength", "cat_landing", "night_eyes", "vitality", "instinct", "kinetic", "weave",
+							"silent" }) {
+						para(lines, "projecthero.guide.black_panther.passive." + passive);
+					}
+				}
 				blank(lines);
 			}
-			head(lines, "projecthero.guide.black_panther.controls");
+			head(lines, "projecthero.guide.black_panther.unsuited_controls");
+			for (String[] row : new String[][] { { "R", "warriors_combo" }, { "Shift+R", "leg_sweep" }, { "G", "takedown" }, { "Shift+G", "disarm" },
+					{ "X", "vault" }, { "Shift+X", "backflip" }, { "Z", "throwing_knife" }, { "Shift+Z", "kimoyo_scan" }, { "V", "hunters_tracking" },
+					{ "Shift+V", "shadow_step" }, { "C", "parry" }, { "Shift+C", "ancestral_resolve" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.black_panther.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.black_panther.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.black_panther.suited_controls");
 			for (String[] row : new String[][] { { "R", "kinetic_pulse" }, { "Shift+R", "kinetic_overload" }, { "G", "claw_combo" },
 					{ "Shift+G", "pounce" }, { "X", "panther_leap" }, { "Shift+X", "drop_strike" }, { "Z", "vibranium_dagger" },
 					{ "Shift+Z", "kimoyo_flash" }, { "V", "stalk" }, { "Shift+V", "panther_senses" }, { "C", "absorb_stance" },
@@ -2255,7 +2271,7 @@ public final class HeroPackGuide {
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
 		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
 		icon(CH_RYUKO, "dragon_choker"); // v0.17.3
-		icon(CH_BLACK_PANTHER, "heart_shaped_herb"); // v0.17.3
+		icon(CH_BLACK_PANTHER, "panther_habit"); // v0.17.3 (the habit since v0.17.4)
 		icon(CH_UNDEAD, "undead_card"); // v0.17.3
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1

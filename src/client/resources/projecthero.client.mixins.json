@@ -153,6 +153,8 @@
 
 		"BlueBeetleFirstPersonArmMixin",
 		"BlackPantherFirstPersonArmMixin",
+		"BlackPantherFlipMixin",
+		"ItemInHandRendererBlackPantherMixin",
 		"BeamClashInputMixin",
 		"RyukoFirstPersonArmMixin",
 		"RyukoArmorMixin",

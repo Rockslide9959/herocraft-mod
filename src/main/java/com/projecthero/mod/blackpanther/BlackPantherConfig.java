@@ -98,6 +98,79 @@ public final class BlackPantherConfig {
 	public static final float RETURN_PER_KINETIC = 0.25f;
 	public static final int RETURN_COOLDOWN = 120;
 
+	// ================================================================ v0.17.4: the passives
+	/** The herb, always: +2 melee damage (the claws' +5 stacks on it in the suit). */
+	public static final double HERB_MELEE = 2.0;
+	/** Out of the suit, falls hurt this much (in it they do nothing). */
+	public static final float CAT_LANDING = 0.5f;
+	/** Night Eyes (out of the suit): night vision while the light at his eyes is at or under this... */
+	public static final int NIGHT_EYES_DARK = 6;
+	/** ...and off again once it is over this. */
+	public static final int NIGHT_EYES_BRIGHT = 9;
+	/** Herb Vitality: 1 health every HEAL_EVERY ticks, after HEAL_DELAY ticks without a hit taken. */
+	public static final int HEAL_EVERY = 60;
+	public static final int HEAL_DELAY = 100;
+	/** Hunter's Instinct: creatures this close that are hunting him are outlined for him. */
+	public static final double INSTINCT_RANGE = 20.0;
+
+	// ================================================================ v0.17.4: the unsuited kit (T'Challa without the suit)
+	// R
+	public static final float COMBO_JAB = 3f;
+	public static final float COMBO_CROSS = 3f;
+	public static final float COMBO_KICK = 5f;
+	public static final int COMBO_STEP = 5;
+	public static final double COMBO_REACH = 3.0;
+	public static final int COMBO_COOLDOWN = 30;
+	public static final float SWEEP_DAMAGE = 4f;
+	public static final double SWEEP_RADIUS = 2.6;
+	public static final int SWEEP_TRIP_TICKS = 30;
+	public static final int SWEEP_COOLDOWN = 120;
+	// G
+	public static final double GRAB_RANGE = 3.5;
+	public static final float TAKEDOWN_DAMAGE = 7f;
+	public static final int TAKEDOWN_DAZE_TICKS = 40;
+	/** The slam lands this many ticks after the grab (the flip over the shoulder). */
+	public static final int TAKEDOWN_SLAM_AT = 9;
+	public static final int TAKEDOWN_COOLDOWN = 160;
+	public static final float DISARM_DAMAGE = 2f;
+	public static final int DISARM_WEAKNESS_TICKS = 100;
+	public static final int DISARM_COOLDOWN = 200;
+	// X
+	public static final double VAULT_FORWARD = 0.7;
+	public static final double VAULT_UP = 0.62;
+	public static final int VAULT_COOLDOWN = 50;
+	public static final double BACKFLIP_BACK = 0.6;
+	public static final double BACKFLIP_UP = 0.55;
+	/** After a Backflip the next hit inside this many ticks misses him. */
+	public static final int EVADE_TICKS = 12;
+	public static final int BACKFLIP_COOLDOWN = 100;
+	// Z
+	public static final float KNIFE_DAMAGE = 5f;
+	public static final double KNIFE_RANGE = 12.0;
+	public static final int KNIFE_COOLDOWN = 80;
+	public static final double SCAN_RANGE = 32.0;
+	public static final int SCAN_TICKS = 200;
+	/** A Kimoyo-scanned creature takes this much more from his hits. */
+	public static final float SCAN_BONUS = 1.25f;
+	public static final int SCAN_COOLDOWN = 300;
+	// V
+	public static final double TRACKING_RANGE = 24.0;
+	public static final double SHADOW_SEEN_WITHIN = 8.0;
+	public static final float SHADOW_BACKSTAB = 2f;
+	public static final float SHADOW_BACKSTAB_PLAYER = 1.5f;
+	// C
+	/** Parry: a frontal melee hit is cut by this share while it is up... */
+	public static final float PARRY_REDUCTION = 0.6f;
+	/** ...and wholly turned aside inside this many ticks of raising it (a perfect parry). */
+	public static final int PARRY_PERFECT_TICKS = 6;
+	public static final int PARRY_MAX_TICKS = 60;
+	public static final int PARRY_COOLDOWN = 60;
+	public static final float RIPOSTE_DAMAGE = 3f;
+	public static final int RIPOSTE_STAGGER_TICKS = 30;
+	public static final int RESOLVE_REGEN_TICKS = 80;
+	public static final int RESOLVE_STRENGTH_TICKS = 120;
+	public static final int RESOLVE_COOLDOWN = 600;
+
 	private BlackPantherConfig() {
 	}
 }

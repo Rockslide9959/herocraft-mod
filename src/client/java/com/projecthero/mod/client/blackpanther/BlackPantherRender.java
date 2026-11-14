@@ -149,33 +149,59 @@ public final class BlackPantherRender {
 
 	// ---------------------------------------------------------------- the claws (N)
 
-	private static ModelPart clawsWorld;
-	private static ModelPart clawsHand;
+	/** [right, left] x [third person, first person]. */
+	private static final ModelPart[] CLAWS = new ModelPart[4];
 
-	/** Three thin vibranium blades out of a fist, along the arm, in the arm bone's space (centred on x = 0). */
-	private static ModelPart claws(boolean firstPerson) {
-		ModelPart cached = firstPerson ? clawsHand : clawsWorld;
-		if (cached != null) {
-			return cached;
+	/**
+	 * v0.17.4 (user: "make them show up around the tip of his hand in finger positions that make sense"): five short curved
+	 * vibranium claws, one out of each fingertip. In the arm bone's own space -- the suit's arm is always the wide 4 px arm
+	 * ({@link BlueBeetleRender#model}, slim wearers included): the hand is the bottom face (y = 10, the sleeve's skin at 10.3),
+	 * x -3..1 on the right arm (+x the inner side, toward the body), -1..3 on the left, the front at z = -2.
+	 *
+	 * <p>The four fingers sit side by side along the front edge of the hand; each claw grows out of the fingertip in three
+	 * tapering segments that hook forward like a cat's (dark vibranium at the root, bright silver at the point). The thumb's
+	 * claw, shorter, comes out of the inner side of the hand, set back from the fingers. The first-person set is a little longer
+	 * and thicker so it reads at the bottom of the screen.
+	 */
+	private static ModelPart claws(boolean right, boolean firstPerson) {
+		int i = (right ? 0 : 1) + (firstPerson ? 2 : 0);
+		if (CLAWS[i] != null) {
+			return CLAWS[i];
 		}
-		float length = firstPerson ? 7.0f : 4.2f;
-		CubeListBuilder c = CubeListBuilder.create().texOffs(0, 0);
-		for (int i = -1; i <= 1; i++) {
-			float len = length * (i == 0 ? 1.0f : 0.86f);
-			float z = i * 1.25f;
-			// the blade, out of the knuckles (the fist ends at y = 10), and a narrower point
-			c.addBox(-0.2f, 9.6f, z - 0.27f, 0.4f, len, 0.54f);
-			c.addBox(-0.13f, 9.6f + len, z - 0.16f, 0.26f, 0.9f, 0.32f);
-		}
+		float k = firstPerson ? 1.35f : 1.0f; // length
+		float t = firstPerson ? 1.2f : 1.0f; // thickness
+		float centre = right ? -1f : 1f;
+		float inner = right ? 1f : -1f; // toward the body
 		MeshDefinition mesh = new MeshDefinition();
-		mesh.getRoot().addOrReplaceChild("claws", c, PartPose.ZERO);
-		ModelPart part = LayerDefinition.create(mesh, 16, 16).bakeRoot();
-		if (firstPerson) {
-			clawsHand = part;
-		} else {
-			clawsWorld = part;
+		var root = mesh.getRoot();
+		// the fingers, little finger outermost; the middle two a touch longer
+		float[] fx = { -1.45f, -0.5f, 0.45f, 1.35f };
+		float[] len = { 0.85f, 1.0f, 1.0f, 0.9f };
+		for (int f = 0; f < 4; f++) {
+			float x = centre + (right ? fx[f] : -fx[f]);
+			root.addOrReplaceChild("finger" + f, claw(len[f] * k, t), PartPose.offset(x, 10.0f, -1.55f));
 		}
-		return part;
+		// the thumb: out of the inner side, further back, angled in and down
+		root.addOrReplaceChild("thumb", claw(0.7f * k, t * 0.95f),
+				PartPose.offsetAndRotation(centre + inner * 1.75f, 9.4f, -0.9f, 0f, 0f, -inner * 0.55f));
+		CLAWS[i] = LayerDefinition.create(mesh, 32, 32).bakeRoot();
+		return CLAWS[i];
+	}
+
+	/**
+	 * One claw at its root (0, 0, 0), growing down (+y) and hooking forward (-z): three segments, each narrower, further down and
+	 * further forward than the last.
+	 */
+	private static CubeListBuilder claw(float len, float t) {
+		CubeListBuilder c = CubeListBuilder.create();
+		// the root sheath (dark vibranium), set into the fingertip
+		c.texOffs(16, 8).addBox(-0.26f * t, -0.2f, -0.28f * t, 0.52f * t, 0.75f * len + 0.2f, 0.56f * t);
+		// the body (silver), bending forward
+		c.texOffs(24, 8).addBox(-0.2f * t, 0.55f * len, -0.34f * t - 0.28f * len, 0.4f * t, 0.65f * len, 0.42f * t);
+		// the hooked point (bright)
+		c.texOffs(8, 8).addBox(-0.13f * t, 1.15f * len, -0.3f * t - 0.62f * len, 0.26f * t, 0.5f * len, 0.3f * t);
+		c.texOffs(8, 8).addBox(-0.08f * t, 1.5f * len, -0.22f * t - 0.95f * len, 0.16f * t, 0.3f * len, 0.36f * t);
+		return c;
 	}
 
 	/** The claws are out (N), the suit is fully on. */
@@ -194,8 +220,7 @@ public final class BlackPantherRender {
 	public static void renderClaws(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart arm, boolean right, boolean firstPerson) {
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		pose.translate((right ? -1f : 1f) / 16f, 0f, 0f); // the suit's arms are 4 px wide: the middle of the fist
-		ModelPart blades = claws(firstPerson);
+		ModelPart blades = claws(right, firstPerson);
 		blades.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
 		float k = glow(player);
 		if (k > 0.01f) {
@@ -226,55 +251,127 @@ public final class BlackPantherRender {
 
 	// ---------------------------------------------------------------- the necklace
 
+	private static ModelPart necklaceGems;
+
+	/** The front chain's height at {@code x} (body space, y down): a hanging curve, steep at the shoulders, flat at the pendant. */
+	private static float chainY(float x) {
+		float u = Math.min(1f, Math.abs(x) / 3.3f);
+		return 0.25f + 3.75f * (1f - (float) Math.pow(u, 1.7));
+	}
+
+	/** A round-looking bead: a cube with a slightly wider and a slightly taller cross through it. */
+	private static void bead(CubeListBuilder c, float x, float y, float z, float r) {
+		c.addBox(x - r, y - r * 0.8f, z - r * 0.8f, 2 * r, 1.6f * r, 1.6f * r);
+		c.addBox(x - r * 0.8f, y - r, z - r * 0.8f, 1.6f * r, 2 * r, 1.6f * r);
+		c.addBox(x - r * 0.8f, y - r * 0.8f, z - r, 1.6f * r, 1.6f * r, 2 * r);
+	}
+
+	/**
+	 * v0.17.4 (user: "improve his necklace model please it needs to look better"): the Black Panther's necklace, rebuilt. Body space,
+	 * y down, the chest is -z (its face at z = -2, the suit's jacket at -2.3).
+	 * <ul>
+	 *   <li>The front chain hangs in a curve from the shoulders to the breastbone: big round vibranium-silver beads with small
+	 *       gunmetal spacers between them, each bead touching the next.</li>
+	 *   <li>Over each shoulder a short run of spacers to the back, and a straight run of small beads along the back collar.</li>
+	 *   <li>The pendant: a silver bezel holding a purple vibranium gem, a panther's fang hanging from it (three tapering
+	 *       segments that hook forward) with a shorter claw angled out on each side.</li>
+	 * </ul>
+	 * The gems are a separate part ({@link #necklaceGems}) so they can shimmer on their own. 32 x 32 swatches in
+	 * {@code necklace.png} (silver, gunmetal, fang, gem, dark silver, highlight, then the claw colours).
+	 */
 	private static ModelPart necklace() {
 		if (necklace == null) {
-			// v0.17.3 tester round: one continuous chain. Body space, y down, the chest is -z (its face at z = -2, the suit's
-			// jacket at -2.25). The head covers the top of the body, so the collar runs along the top edges of the chest and the
-			// back, joined by two short links on top (under the head from most angles; still joined when it turns).
-			CubeListBuilder c = CubeListBuilder.create().texOffs(0, 0);
-			for (int i = 0; i < 8; i++) {
-				float x = -3.15f + i * 0.9f; // 0.9 wide, 0.9 apart: touching
-				c.addBox(x - 0.45f, -0.45f, -2.6f, 0.9f, 0.85f, 0.7f); // front collar
-				c.addBox(x - 0.45f, -0.45f, 1.9f, 0.9f, 0.85f, 0.7f); // back collar
-			}
-			for (int side = -1; side <= 1; side += 2) {
-				c.addBox(side > 0 ? 2.95f : -3.65f, -0.5f, -1.95f, 0.7f, 0.7f, 3.9f); // the links over the shoulders
-			}
-			// the front V: beads from both ends of the collar down to a pendant on the breastbone, each overlapping the last
-			int beads = 7;
-			for (int side = -1; side <= 1; side += 2) {
-				for (int i = 0; i < beads; i++) {
-					float t = i / (float) beads;
-					float x = side * 3.0f * (1f - t);
-					float y = 0.35f + 3.2f * t;
-					c.addBox(x - 0.42f, y - 0.42f, -2.7f, 0.84f, 0.84f, 0.6f);
-				}
-			}
-			c.addBox(-0.65f, 3.0f, -2.8f, 1.3f, 1.3f, 0.7f); // the pendant
-			// the panther's fangs hang from the V: one from the pendant, two pairs from the beads, longest in the middle
-			c.texOffs(8, 0);
-			c.addBox(-0.32f, 4.2f, -2.7f, 0.64f, 1.3f, 0.5f);
-			c.addBox(-0.18f, 5.5f, -2.65f, 0.36f, 0.8f, 0.4f);
-			for (int side = -1; side <= 1; side += 2) {
-				for (int j = 0; j < 2; j++) {
-					float t = (j == 0 ? 5f : 3f) / beads; // the bead it hangs from
-					float x = side * 3.0f * (1f - t);
-					float top = 0.35f + 3.2f * t + 0.38f;
-					float len = j == 0 ? 1.0f : 0.75f;
-					c.addBox(x - 0.27f, top, -2.68f, 0.54f, len, 0.45f);
-					c.addBox(x - 0.15f, top + len, -2.63f, 0.3f, len * 0.6f, 0.35f);
-				}
-			}
 			MeshDefinition mesh = new MeshDefinition();
-			mesh.getRoot().addOrReplaceChild("chain", c, PartPose.ZERO);
-			necklace = LayerDefinition.create(mesh, 16, 16).bakeRoot();
+			var root = mesh.getRoot();
+			CubeListBuilder silver = CubeListBuilder.create().texOffs(0, 0);
+			CubeListBuilder spacers = CubeListBuilder.create().texOffs(8, 0);
+			CubeListBuilder links = CubeListBuilder.create().texOffs(0, 8);
+			// the front chain: beads every 0.95 along the curve's length, spacers between
+			float z = -2.62f;
+			for (int side = -1; side <= 1; side += 2) {
+				float x = side * 3.3f;
+				float y = chainY(x);
+				boolean big = true;
+				int n = 0;
+				while (side * x > 0.9f && n++ < 30) {
+					if (big) {
+						bead(silver, x, y, z, 0.42f);
+					} else {
+						spacers.addBox(x - 0.24f, y - 0.24f, z - 0.24f, 0.48f, 0.48f, 0.48f);
+					}
+					// step along the curve: 0.62 between a bead and a spacer
+					float step = 0.56f;
+					float nx = x, ny = y;
+					for (int s = 0; s < 40; s++) {
+						nx -= side * 0.02f;
+						ny = chainY(nx);
+						if (Math.hypot(nx - x, ny - y) >= step) {
+							break;
+						}
+					}
+					x = nx;
+					y = ny;
+					big = !big;
+				}
+			}
+			// over the shoulders: a run of spacers from the front chain's top to the back collar
+			for (int side = -1; side <= 1; side += 2) {
+				for (int i = 0; i < 7; i++) {
+					float zz = -2.35f + i * 0.78f;
+					links.addBox(side * 3.3f - 0.26f, -0.05f - 0.26f, zz - 0.26f, 0.52f, 0.52f, 0.52f);
+				}
+			}
+			// the back collar: small beads straight across
+			for (int i = 0; i < 9; i++) {
+				float x = -3.2f + i * 0.8f;
+				links.addBox(x - 0.32f, 0.2f - 0.3f, 2.38f, 0.64f, 0.6f, 0.5f);
+			}
+			// the pendant's bezel: a silver frame round the gem, and a bail joining it to the chain
+			float py = chainY(0f) + 0.55f;
+			silver.addBox(-0.85f, py - 0.75f, -2.78f, 1.7f, 1.5f, 0.45f);
+			silver.addBox(-0.25f, py - 1.1f, -2.72f, 0.5f, 0.5f, 0.4f);
+			root.addOrReplaceChild("silver", silver, PartPose.ZERO);
+			root.addOrReplaceChild("spacers", spacers, PartPose.ZERO);
+			root.addOrReplaceChild("links", links, PartPose.ZERO);
+			// the fang: three tapering segments under the bezel, hooking forward
+			float fy = py + 0.7f;
+			CubeListBuilder fang = CubeListBuilder.create().texOffs(16, 0)
+					.addBox(-0.36f, 0f, -0.3f, 0.72f, 0.9f, 0.55f)
+					.addBox(-0.27f, 0.85f, -0.42f, 0.54f, 0.8f, 0.48f)
+					.addBox(-0.17f, 1.6f, -0.56f, 0.34f, 0.65f, 0.4f)
+					.addBox(-0.09f, 2.2f, -0.7f, 0.18f, 0.4f, 0.34f);
+			root.addOrReplaceChild("fang", fang, PartPose.offset(0f, fy, -2.55f));
+			// the two side claws, shorter, angled out
+			for (int side = -1; side <= 1; side += 2) {
+				CubeListBuilder claw = CubeListBuilder.create().texOffs(16, 0)
+						.addBox(-0.25f, 0f, -0.25f, 0.5f, 0.75f, 0.45f)
+						.addBox(-0.17f, 0.7f, -0.36f, 0.34f, 0.6f, 0.38f)
+						.addBox(-0.09f, 1.25f, -0.48f, 0.18f, 0.4f, 0.32f);
+				root.addOrReplaceChild("claw" + (side > 0 ? "R" : "L"), claw,
+						PartPose.offsetAndRotation(side * 0.75f, fy - 0.25f, -2.55f, 0f, 0f, -side * 0.45f));
+			}
+			necklace = LayerDefinition.create(mesh, 32, 32).bakeRoot();
+
+			// the gems: the pendant's stone, and a small one on each side of the chain where it turns over the shoulder
+			MeshDefinition gm = new MeshDefinition();
+			CubeListBuilder gems = CubeListBuilder.create().texOffs(24, 0)
+					.addBox(-0.55f, py - 0.5f, -2.95f, 1.1f, 1.0f, 0.4f)
+					.addBox(-0.35f, py - 0.65f, -2.9f, 0.7f, 1.3f, 0.35f);
+			for (int side = -1; side <= 1; side += 2) {
+				float gx = side * 2.25f;
+				float gy = chainY(gx);
+				gems.addBox(gx - 0.22f, gy + 0.3f, -2.88f, 0.44f, 0.44f, 0.3f);
+			}
+			gm.getRoot().addOrReplaceChild("gems", gems, PartPose.ZERO);
+			necklaceGems = LayerDefinition.create(gm, 32, 32).bakeRoot();
 		}
 		return necklace;
 	}
 
 	/**
 	 * Round the collar, in the posed body's space, drawn after the suit and a little proud of it so it stays on show over the
-	 * full suit. Pushed out over worn armour (which the suit hides, so only while none of the suit is on).
+	 * full suit. Pushed out over worn armour (which the suit hides, so only while none of the suit is on). The silver takes a slow
+	 * violet shimmer, the gems pulse on their own, and both glow brighter with the Kinetic bar.
 	 */
 	public static void renderNecklace(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart body) {
 		pose.pushPose();
@@ -284,11 +381,21 @@ public final class BlackPantherRender {
 		}
 		ModelPart chain = necklace();
 		chain.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
+		necklaceGems.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
 		float k = glow(player);
-		if (k > 0.01f) {
+		float time = player.tickCount + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		// the silver's shimmer: a slow violet sheen, stronger with the bar
+		float sheen = 0.5f + 0.5f * Mth.sin(time * 0.08f);
+		int silverA = Mth.clamp(Math.round(28 * sheen + 200 * k), 0, 255);
+		if (silverA > 2) {
 			chain.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(NECKLACE)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-					(Mth.clamp(Math.round(200 * k), 0, 255) << 24) | 0xB070FF);
+					(silverA << 24) | 0xB070FF);
 		}
+		// the gems always glow a little, pulsing
+		float pulse = 0.55f + 0.45f * Mth.sin(time * 0.15f);
+		int gemA = Mth.clamp(Math.round(110 + 90 * pulse + 55 * k), 0, 255);
+		necklaceGems.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(NECKLACE)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
+				(gemA << 24) | 0xFFFFFF);
 		pose.popPose();
 	}
 

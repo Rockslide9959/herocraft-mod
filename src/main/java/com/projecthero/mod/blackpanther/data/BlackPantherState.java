@@ -24,6 +24,20 @@ public final class BlackPantherState {
 	public static final int ANIM_DROP = 7;
 	public static final int ANIM_THROW = 8;
 	public static final int ANIM_RETURN = 9;
+	// v0.17.4: the unsuited kit (T'Challa without the suit), and the suited moves that had no clip of their own
+	public static final int ANIM_COMBO = 10;
+	public static final int ANIM_SWEEP = 11;
+	public static final int ANIM_TAKEDOWN = 12;
+	public static final int ANIM_DISARM = 13;
+	public static final int ANIM_VAULT = 14;
+	public static final int ANIM_BACKFLIP = 15;
+	public static final int ANIM_KNIFE = 16;
+	public static final int ANIM_SCAN = 17;
+	public static final int ANIM_RIPOSTE = 18;
+	public static final int ANIM_RESOLVE = 19;
+	public static final int ANIM_LEAP = 20;
+	public static final int ANIM_FLASH = 21;
+	public static final int ANIM_POUNCE_STRIKE = 22;
 
 	public boolean hasPower;
 	public boolean suited;
@@ -45,6 +59,10 @@ public final class BlackPantherState {
 	public boolean unmasked;
 	/** Hold H: the necklace is off -- no suit and no moves, only the herb's Speed I and Jump Boost I. */
 	public boolean necklaceOff;
+	/** v0.17.4: the crafted Panther Habit is in the necklace (H only suits up once it is). */
+	public boolean habit;
+	/** v0.17.4: this state has been through the habit migration (a power held in 0.17.3 keeps its suit). */
+	public boolean v174;
 	/** C is held. */
 	public boolean absorbing;
 	/** Kinetic gained in the current Absorb Stance. */
@@ -75,6 +93,8 @@ public final class BlackPantherState {
 		this.clawsOut = (flags & 2) != 0;
 		this.unmasked = (flags & 4) != 0;
 		this.necklaceOff = (flags & 8) != 0;
+		this.habit = (flags & 16) != 0;
+		this.v174 = (flags & 32) != 0;
 		this.absorbing = absorbing;
 		this.absorbed = absorbed;
 		this.pulseStart = pulseStart;
@@ -89,7 +109,7 @@ public final class BlackPantherState {
 
 	/** The four toggles packed in one int (the codec is at RecordCodecBuilder's 16-field limit). */
 	public int flags() {
-		return (senses ? 1 : 0) | (clawsOut ? 2 : 0) | (unmasked ? 4 : 0) | (necklaceOff ? 8 : 0);
+		return (senses ? 1 : 0) | (clawsOut ? 2 : 0) | (unmasked ? 4 : 0) | (necklaceOff ? 8 : 0) | (habit ? 16 : 0) | (v174 ? 32 : 0);
 	}
 
 	public static final Codec<BlackPantherState> CODEC = RecordCodecBuilder.create(i -> i.group(

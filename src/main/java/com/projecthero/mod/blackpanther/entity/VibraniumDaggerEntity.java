@@ -38,6 +38,19 @@ public class VibraniumDaggerEntity extends Projectile {
 		this.setNoGravity(true);
 	}
 
+	/** v0.17.4: the unsuited Throwing Knife is the same blade, thrown plain -- one target, less damage, a shorter reach. */
+	private float damage = BlackPantherConfig.DAGGER_DAMAGE;
+	private int bounces = BlackPantherConfig.DAGGER_BOUNCES;
+	private double range = BlackPantherConfig.DAGGER_RANGE;
+
+	public static VibraniumDaggerEntity shootKnife(ServerPlayer owner) {
+		VibraniumDaggerEntity d = shoot(owner);
+		d.damage = BlackPantherConfig.KNIFE_DAMAGE;
+		d.bounces = 1;
+		d.range = BlackPantherConfig.KNIFE_RANGE;
+		return d;
+	}
+
 	public static VibraniumDaggerEntity shoot(ServerPlayer owner) {
 		VibraniumDaggerEntity d = new VibraniumDaggerEntity(BlackPantherEntityTypes.VIBRANIUM_DAGGER, owner.level());
 		d.setOwner(owner);
@@ -78,7 +91,7 @@ public class VibraniumDaggerEntity extends Projectile {
 					v = this.getDeltaMovement();
 				}
 				this.travelled += v.length();
-				if (this.travelled > BlackPantherConfig.DAGGER_RANGE) {
+				if (this.travelled > this.range) {
 					this.returning = true;
 				}
 			}
@@ -99,10 +112,10 @@ public class VibraniumDaggerEntity extends Projectile {
 		if (!(this.getOwner() instanceof ServerPlayer p) || !(result.getEntity() instanceof LivingEntity le)) {
 			return;
 		}
-		BlackPantherCombat.strike(p, le, this.position(), BlackPantherConfig.DAGGER_DAMAGE, 0.2, 0.0);
+		BlackPantherCombat.strike(p, le, this.position(), this.damage, 0.2, 0.0);
 		this.struck.add(le.getId());
 		this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 0.8f, 1.4f);
-		LivingEntity next = this.struck.size() >= BlackPantherConfig.DAGGER_BOUNCES ? null : nextTarget(p, le);
+		LivingEntity next = this.struck.size() >= this.bounces ? null : nextTarget(p, le);
 		if (next == null) {
 			this.returning = true;
 			return;

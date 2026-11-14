@@ -294,6 +294,7 @@ public final class BlackPantherAbilities {
 			return;
 		}
 		if (now - run.landedAt() >= BlackPantherConfig.POUNCE_PIN_TICKS) {
+			anim(p, BlackPantherState.ANIM_POUNCE_STRIKE);
 			BlackPantherCombat.strike(p, target, p.position(), BlackPantherConfig.POUNCE_STRIKE_DAMAGE, 0.8, 0.2);
 			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
 			POUNCES.remove(p.getUUID());
@@ -307,6 +308,7 @@ public final class BlackPantherAbilities {
 			return;
 		}
 		cooldown(p, LEAP, BlackPantherConfig.LEAP_COOLDOWN);
+		anim(p, BlackPantherState.ANIM_LEAP);
 		Vec3 f = flatLook(p).scale(BlackPantherConfig.LEAP_FORWARD);
 		AbilityHelpers.launchSelf(p, new Vec3(f.x, BlackPantherConfig.LEAP_SPEED, f.z));
 		LEAPS.put(p.getUUID(), p.level().getGameTime() + BlackPantherConfig.LEDGE_TICKS);
@@ -385,7 +387,7 @@ public final class BlackPantherAbilities {
 			return;
 		}
 		cooldown(p, KIMOYO, BlackPantherConfig.FLASH_COOLDOWN);
-		anim(p, BlackPantherState.ANIM_THROW);
+		anim(p, BlackPantherState.ANIM_FLASH);
 		KimoyoBeadEntity.shoot(p);
 		sound(p, SoundEvents.SNOWBALL_THROW, 0.8f, 1.3f);
 	}
@@ -422,8 +424,10 @@ public final class BlackPantherAbilities {
 		if (!p.isShiftKeyDown()) {
 			return;
 		}
+		// v0.17.4: out of the suit this is Shadow Step -- they have to be further off to lose him
+		double seen = BlackPanther.suited(p) ? BlackPantherConfig.STALK_SEEN_WITHIN : BlackPantherConfig.SHADOW_SEEN_WITHIN;
 		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), 32.0, e -> e instanceof Mob m && m.getTarget() == p)) {
-			if (!BlackPantherCombat.isBoss(e) && e.distanceTo(p) > BlackPantherConfig.STALK_SEEN_WITHIN) {
+			if (!BlackPantherCombat.isBoss(e) && e.distanceTo(p) > seen) {
 				((Mob) e).setTarget(null);
 			}
 		}
@@ -451,9 +455,14 @@ public final class BlackPantherAbilities {
 		sound(p, SoundEvents.ENDER_EYE_DEATH, 0.8f, 0.7f);
 	}
 
+	/** Panther Senses' reach in the suit; Hunter's Tracking's (v0.17.4) out of it. */
+	private static double sensesRange(ServerPlayer p) {
+		return BlackPanther.suited(p) ? BlackPantherConfig.SENSES_RANGE : BlackPantherConfig.TRACKING_RANGE;
+	}
+
 	private static void sendSenses(ServerPlayer p) {
 		List<Integer> ids = new ArrayList<>();
-		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), BlackPantherConfig.SENSES_RANGE, e -> e instanceof Mob)) {
+		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), sensesRange(p), e -> e instanceof Mob)) {
 			ids.add(e.getId());
 		}
 		// a fresh list twice a second, so a creature walking into range shows too
@@ -466,7 +475,7 @@ public final class BlackPantherAbilities {
 		}
 		sendSenses(p);
 		Map<Integer, Deque<Vec3>> tracks = TRACKS.computeIfAbsent(p.getUUID(), k -> new HashMap<>());
-		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), BlackPantherConfig.SENSES_RANGE, e -> e instanceof Mob)) {
+		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), sensesRange(p), e -> e instanceof Mob)) {
 			Deque<Vec3> feet = tracks.computeIfAbsent(e.getId(), k -> new ArrayDeque<>());
 			if (feet.isEmpty() || feet.peekLast().distanceToSqr(e.position()) > 0.25) {
 				feet.addLast(e.position());
@@ -575,7 +584,7 @@ public final class BlackPantherAbilities {
 		if (s.stalking && now % 5 == 0) {
 			tickStalk(p);
 		}
-		if (s.senses && s.suited) {
+		if (s.senses) { // v0.17.4: out of the suit this is Hunter's Tracking (a shorter reach)
 			tickSenses(p, now);
 		}
 		if (!BLEEDS.isEmpty()) {

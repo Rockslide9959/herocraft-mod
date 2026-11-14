@@ -11,17 +11,21 @@ import com.projecthero.mod.hero.data.ExperimentalState;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Bridges the universal ability slots to Black Panther (v0.17.3). {@link com.projecthero.mod.hero.AbilityRouter} hands him
- * the slots when {@link #hasContext} is true. Shift is read server-side.
+ * Bridges the universal ability slots to Black Panther. {@link com.projecthero.mod.hero.AbilityRouter} hands him the slots when
+ * {@link #hasContext} is true. Shift is read server-side.
+ *
+ * <p>v0.17.4: two movesets. In the suit (or while it forms) the keys run the suited kit; out of it, the unsuited one
+ * ({@link BlackPantherUnsuited}), necklace on or off. The switch is the suit itself: nothing to select.
  *
  * <pre>
- *   R (1)  Kinetic Pulse       Shift+R  Kinetic Overload
- *   G (2)  Claw Combo          Shift+G  Pounce
- *   X (3)  Panther Leap        Shift+X  Drop Strike
- *   Z (4)  Vibranium Dagger    Shift+Z  Kimoyo Flash
- *   V (5)  Stalk (toggle)      Shift+V  Panther Senses
- *   C (6)  Absorb Stance (hold) Shift+C Kinetic Return
- *   N (8)  Claws (toggle)      Shift+N  Mask (toggle)       -- no HUD box; listed in the Left-Alt move list
+ *            SUITED                                      UNSUITED (T'Challa)
+ *   R (1)  Kinetic Pulse     / Shift Kinetic Overload    Warrior's Combo   / Shift Leg Sweep
+ *   G (2)  Claw Combo        / Shift Pounce              Takedown          / Shift Disarm
+ *   X (3)  Panther Leap      / Shift Drop Strike         Vault             / Shift Backflip
+ *   Z (4)  Vibranium Dagger  / Shift Kimoyo Flash        Throwing Knife    / Shift Kimoyo Scan
+ *   V (5)  Stalk             / Shift Panther Senses      Hunter's Tracking / Shift Shadow Step
+ *   C (6)  Absorb Stance (hold) / Shift Kinetic Return   Parry (hold)      / Shift Ancestral Resolve
+ *   N (8)  Claws (toggle)    / Shift Mask (toggle)       -- (suited only; no HUD box, listed in the Left-Alt move list)
  * </pre>
  */
 public final class BlackPantherAbilityManager {
@@ -70,6 +74,10 @@ public final class BlackPantherAbilityManager {
 			return;
 		}
 		boolean shift = player.isShiftKeyDown();
+		if (!BlackPanther.suitedKit(player)) {
+			handleUnsuited(player, slot, pressed, shift);
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
@@ -139,7 +147,95 @@ public final class BlackPantherAbilityManager {
 		}
 	}
 
+	/** v0.17.4: T'Challa out of the suit. */
+	private static void handleUnsuited(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
+		switch (slot) {
+			case SLOT_1 -> {
+				if (pressed) {
+					if (shift) {
+						BlackPantherUnsuited.sweep(player);
+					} else {
+						BlackPantherUnsuited.combo(player);
+					}
+				}
+			}
+			case SLOT_2 -> {
+				if (pressed) {
+					if (shift) {
+						BlackPantherUnsuited.disarm(player);
+					} else {
+						BlackPantherUnsuited.takedown(player);
+					}
+				}
+			}
+			case SLOT_3 -> {
+				if (pressed) {
+					if (shift) {
+						BlackPantherUnsuited.backflip(player);
+					} else {
+						BlackPantherUnsuited.vault(player);
+					}
+				}
+			}
+			case SLOT_4 -> {
+				if (pressed) {
+					if (shift) {
+						BlackPantherUnsuited.scan(player);
+					} else {
+						BlackPantherUnsuited.knife(player);
+					}
+				}
+			}
+			case SLOT_5 -> {
+				if (pressed) {
+					if (shift) {
+						BlackPantherUnsuited.toggleShadow(player);
+					} else {
+						BlackPantherUnsuited.toggleTracking(player);
+					}
+				}
+			}
+			case SLOT_6 -> {
+				if (!pressed) {
+					BlackPantherUnsuited.lowerParry(player);
+				} else if (shift) {
+					BlackPantherUnsuited.resolve(player);
+				} else {
+					BlackPantherUnsuited.raiseParry(player);
+				}
+			}
+			case SLOT_8 -> { // the claws and the mask are the suit's: say so
+				if (pressed) {
+					if (shift) {
+						BlackPanther.toggleMask(player);
+					} else {
+						BlackPanther.toggleClaws(player);
+					}
+				}
+			}
+			default -> {
+			}
+		}
+	}
+
+	/** The suited kit's ids for a slot (plain, Shift). */
 	public static String[] idsOf(AbilitySlot slot) {
+		return idsOf(slot, true);
+	}
+
+	/** v0.17.4: a slot's ids (plain, Shift) for the suited or the unsuited kit. */
+	public static String[] idsOf(AbilitySlot slot, boolean suited) {
+		if (!suited) {
+			return switch (slot) {
+				case SLOT_1 -> new String[] { BlackPantherUnsuited.COMBO, BlackPantherUnsuited.SWEEP };
+				case SLOT_2 -> new String[] { BlackPantherUnsuited.TAKEDOWN, BlackPantherUnsuited.DISARM };
+				case SLOT_3 -> new String[] { BlackPantherUnsuited.VAULT, BlackPantherUnsuited.BACKFLIP };
+				case SLOT_4 -> new String[] { BlackPantherUnsuited.KNIFE, BlackPantherUnsuited.SCAN };
+				case SLOT_5 -> new String[] { BlackPantherUnsuited.TRACKING, BlackPantherUnsuited.SHADOW };
+				case SLOT_6 -> new String[] { BlackPantherUnsuited.PARRY, BlackPantherUnsuited.RESOLVE };
+				default -> new String[0];
+			};
+		}
 		return switch (slot) {
 			case SLOT_1 -> new String[] { BlackPantherAbilities.PULSE, BlackPantherAbilities.OVERLOAD };
 			case SLOT_2 -> new String[] { BlackPantherAbilities.CLAWS, BlackPantherAbilities.POUNCE };
@@ -165,6 +261,17 @@ public final class BlackPantherAbilityManager {
 			case BlackPantherAbilities.SENSES -> BlackPantherConfig.SENSES_COOLDOWN;
 			case BlackPantherAbilities.ABSORB -> BlackPantherConfig.ABSORB_COOLDOWN;
 			case BlackPantherAbilities.RETURN -> BlackPantherConfig.RETURN_COOLDOWN;
+			case BlackPantherUnsuited.COMBO -> BlackPantherConfig.COMBO_COOLDOWN;
+			case BlackPantherUnsuited.SWEEP -> BlackPantherConfig.SWEEP_COOLDOWN;
+			case BlackPantherUnsuited.TAKEDOWN -> BlackPantherConfig.TAKEDOWN_COOLDOWN;
+			case BlackPantherUnsuited.DISARM -> BlackPantherConfig.DISARM_COOLDOWN;
+			case BlackPantherUnsuited.VAULT -> BlackPantherConfig.VAULT_COOLDOWN;
+			case BlackPantherUnsuited.BACKFLIP -> BlackPantherConfig.BACKFLIP_COOLDOWN;
+			case BlackPantherUnsuited.KNIFE -> BlackPantherConfig.KNIFE_COOLDOWN;
+			case BlackPantherUnsuited.SCAN -> BlackPantherConfig.SCAN_COOLDOWN;
+			case BlackPantherUnsuited.SHADOW -> BlackPantherConfig.STALK_COOLDOWN;
+			case BlackPantherUnsuited.PARRY -> BlackPantherConfig.PARRY_COOLDOWN;
+			case BlackPantherUnsuited.RESOLVE -> BlackPantherConfig.RESOLVE_COOLDOWN;
 			default -> 0;
 		};
 	}
