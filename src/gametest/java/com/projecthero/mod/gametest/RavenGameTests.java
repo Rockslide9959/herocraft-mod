@@ -542,6 +542,8 @@ public class RavenGameTests implements FabricGameTest {
 		ServerPlayer p = raven(helper, 1.5, 1.5);
 		Zombie z = zombie(helper, 5.5, 5.5, 200);
 		ticker(helper, p);
+		// v0.17.4: 20 max health now; on a Hard world (left by another test) the zombie could kill her mid-Wrath
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 600, 4));
 		helper.assertTrue(!RavenMoves.use(p, RavenAbilityManager.TRIGONS_WRATH), "refused while calm");
 		Raven.setComposure(p, 30f);
 		helper.assertTrue(!RavenMoves.use(p, RavenAbilityManager.TRIGONS_WRATH), "refused while only Unsettled");
@@ -796,7 +798,7 @@ public class RavenGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 5.0, 100);
 		look(p, z);
 		ticker(helper, p);
-		p.setHealth(10f);
+		p.setHealth(4f); // v0.17.4: 20 max health -- room for the whole 12 heal
 		float before = z.getHealth();
 		helper.assertTrue(RavenSpells.cast(p, RavenSpell.SOUL_DEVOUR, false), "Soul Devour");
 		helper.assertTrue(RavenSpells.devouring(p) && close(Raven.energy(p), 100f - RavenConfig.DEVOUR_COST), "the beam is on; 35 Dark Energy");
@@ -804,7 +806,7 @@ public class RavenGameTests implements FabricGameTest {
 		helper.runAfterDelay(RavenConfig.DEVOUR_TICKS + 4, () -> {
 			helper.assertTrue(!RavenSpells.devouring(p), "over after 3 s");
 			helper.assertTrue(near(ratio(before, z, total)), "4 every half second (24), lost " + (before - z.getHealth()));
-			float healed = p.getHealth() - 10f;
+			float healed = p.getHealth() - 4f;
 			helper.assertTrue(healed >= total * RavenConfig.DEVOUR_HEAL_SHARE * 0.85f && healed <= total * RavenConfig.DEVOUR_HEAL_SHARE + 2f,
 					"half of it healed her (12), healed " + healed);
 			helper.succeed();
@@ -874,7 +876,7 @@ public class RavenGameTests implements FabricGameTest {
 	public void soulRestorationChannelsAndTakesAMatesPain(GameTestHelper helper) {
 		ServerPlayer p = raven(helper, 1.5, 1.5);
 		ticker(helper, p);
-		p.setHealth(10f);
+		p.setHealth(4f); // v0.17.4: 20 max health -- room for the whole 12 heal
 		p.addEffect(new MobEffectInstance(MobEffects.POISON, 400, 0));
 		Raven.setComposure(p, 40f);
 		face(p, 180f, 0f); // at the wall: no one aimed at
@@ -882,7 +884,7 @@ public class RavenGameTests implements FabricGameTest {
 		helper.assertTrue(RavenSpells.channelling(p) && close(Raven.energy(p), 100f - RavenConfig.HEAL_COST), "channelling; 45 Dark Energy");
 		helper.runAfterDelay(RavenConfig.HEAL_CHANNEL_TICKS + 3, () -> {
 			helper.assertTrue(!RavenSpells.channelling(p), "done");
-			helper.assertTrue(p.getHealth() >= 10f + RavenConfig.HEAL_SELF - 1.5f, "6 hearts back, health " + p.getHealth());
+			helper.assertTrue(p.getHealth() >= 4f + RavenConfig.HEAL_SELF - 1.5f, "6 hearts back, health " + p.getHealth());
 			helper.assertTrue(!p.hasEffect(MobEffects.POISON), "poison shaken off");
 			helper.assertTrue(Raven.composure(p) >= 40f + RavenConfig.HEAL_CALM - 2f, "calmer (+30), " + Raven.composure(p));
 			// on a squadmate
