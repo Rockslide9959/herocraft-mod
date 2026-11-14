@@ -1,0 +1,254 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import com.projecthero.mod.galactus.Galactus;
+import com.projecthero.mod.galactus.GalactusEvent;
+import com.projecthero.mod.galactus.GalactusEvent.Phase;
+import com.projecthero.mod.galactus.entity.WorldshipEntity;
+import com.projecthero.mod.galactus.orbit.DevourerEntity;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.4 low render distance: starts the Galactus raid at render distance N (run/lowrd.flag
+ * line 1; line 2 the frames folder), skips the Herald duel, films C2 (the overworld Devourer cutscene), the orbit arrival,
+ * Stage 1 looking at him from the Anchor, and C3 (the Worldship), logging what the CLIENT has: the Devourer / Worldship
+ * entity, where it is, and whether its client tick count advances (client ticking outside loaded chunks).
+ */
+public final class LowRdHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File frames;
+	private static int rd = 2;
+	private static String section = "";
+	private static int frame;
+	private static Phase lastPhase;
+	private static int phaseTicks;
+	private static int lastDevTick = -1;
+
+	private LowRdHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("lowrd.flag"))) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(Path.of("lowrd.flag"));
+			rd = Integer.parseInt(lines.get(0).trim());
+			frames = new File(lines.size() > 1 ? lines.get(1).trim() : "lowrd_frames");
+		} catch (Exception e) {
+			frames = new File("lowrd_frames");
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(LowRdHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[LOWRD] WATCHDOG");
+			Runtime.getRuntime().halt(3);
+		}, "lowrd-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void log(String s) {
+		System.out.println("[LOWRD] " + s);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						log("error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static GalactusEvent raid(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv == null) {
+			return null;
+		}
+		var all = GalactusEvent.all(srv);
+		return all.isEmpty() ? null : all.get(0);
+	}
+
+	private static void grab(Minecraft mc) {
+		if (section.isEmpty()) {
+			return;
+		}
+		File dir = new File(frames, "rd" + rd + "_" + section);
+		dir.mkdirs();
+		Screenshot.grab(dir, String.format("f%05d.png", frame++), mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static DevourerEntity clientDevourer(Minecraft mc) {
+		for (Entity e : mc.level.entitiesForRendering()) {
+			if (e instanceof DevourerEntity d && !d.isRemoved()) {
+				return d;
+			}
+		}
+		return null;
+	}
+
+	private static WorldshipEntity clientWorldship(Minecraft mc) {
+		for (Entity e : mc.level.entitiesForRendering()) {
+			if (e instanceof WorldshipEntity w && !w.isRemoved()) {
+				return w;
+			}
+		}
+		return null;
+	}
+
+	private static void look(Minecraft mc, Vec3 at) {
+		Vec3 eye = mc.player.getEyePosition();
+		Vec3 d = at.subtract(eye);
+		double h = Math.sqrt(d.x * d.x + d.z * d.z);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, h));
+		mc.player.setYRot(yaw);
+		mc.player.setXRot(pitch);
+		mc.player.yRotO = yaw;
+		mc.player.xRotO = pitch;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(LowRdHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			mc.getWindow().setWindowed(854, 480);
+		}
+		if (t == 60) {
+			mc.options.fov().set(80);
+			mc.options.bobView().set(false);
+			mc.options.renderDistance().set(rd);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			log("client render distance " + mc.options.getEffectiveRenderDistance());
+			server(mc, p -> {
+				ServerLevel lvl = p.serverLevel();
+				lvl.getServer().setDifficulty(Difficulty.NORMAL, true);
+				lvl.setDayTime(18000L);
+				lvl.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100000, 3, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 4, false, false));
+				BlockPos at = p.blockPosition().offset(0, 0, 4);
+				lvl.setBlockAndUpdate(at, com.projecthero.mod.galactus.block.GalactusBlocks.HERALDS_BEACON.defaultBlockState());
+				GalactusEvent e = Galactus.start(lvl, at, p, Galactus.Source.COMMAND);
+				log("started " + (e != null) + "; server view distance " + p.server.getPlayerList().getViewDistance());
+			});
+		}
+		GalactusEvent e = raid(mc);
+		if (t > 62 && e != null) {
+			if (e.phase() != lastPhase) {
+				lastPhase = e.phase();
+				phaseTicks = 0;
+				section = lastPhase.name().toLowerCase();
+				frame = 0;
+				log("phase " + lastPhase + " at " + t + "; client in " + mc.level.dimension().location() + " rd " + mc.options.getEffectiveRenderDistance());
+			}
+			phaseTicks++;
+			int n = phaseTicks;
+			switch (lastPhase) {
+				case ARRIVAL, HERALD, KNEEL -> {
+					if (n == 30) {
+						server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+					}
+				}
+				case STAGE1 -> {
+					if (n == 360) {
+						server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+					}
+				}
+				case PULL, STAGE2 -> {
+					if (lastPhase == Phase.STAGE2 && n == 40) {
+						log("done");
+						Runtime.getRuntime().halt(0);
+					}
+				}
+				default -> {
+				}
+			}
+			// Stage 1 / arrival: look at him from where we stand (in cutscenes the camera is the scene's)
+			DevourerEntity d = clientDevourer(mc);
+			if (lastPhase == Phase.STAGE1 && d != null) {
+				Vec3 face = d.pose().face;
+				look(mc, face.add(0, -d.height() * 0.15, 0));
+			}
+			if (n % 20 == 1) {
+				WorldshipEntity w = clientWorldship(mc);
+				String dv = d == null ? "CLIENT HAS NO DEVOURER" : String.format("devourer at %.0f %.0f %.0f h=%.0f dist=%.0f clientTick=%d%s", d.getX(), d.getY(), d.getZ(),
+						d.height(), Math.sqrt(d.distanceToSqr(mc.player)), d.tickCount,
+						lastDevTick >= 0 && d.tickCount == lastDevTick ? " (NOT TICKING)" : "");
+				lastDevTick = d == null ? -1 : d.tickCount;
+				String ws = w == null ? "" : String.format("; worldship at %.0f %.0f %.0f dist=%.0f clientTick=%d", w.getX(), w.getY(), w.getZ(),
+						Math.sqrt(w.distanceToSqr(mc.player)), w.tickCount);
+				log(lastPhase + " +" + n + ": " + dv + ws + "; player " + mc.player.blockPosition() + " chunkLoadedAtGiant="
+						+ (d != null && mc.level.hasChunk(d.chunkPosition().x, d.chunkPosition().z)));
+			}
+			if (n % 4 == 0) {
+				grab(mc);
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("LR_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

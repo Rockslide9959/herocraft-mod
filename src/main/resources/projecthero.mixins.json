@@ -14,6 +14,8 @@
 		"StandTimeStopServerLevelMixin",
 		"StandTimeStopLevelMixin",
 		"LevelBigHitboxMixin",
+		"TrackedEntityGiantMixin",
+		"ChunkMapGiantMixin",
 		"StandTimeStopMoveMixin",
 		"StandMiningMixin",
 		"SpeedsterHungerMoveMixin",

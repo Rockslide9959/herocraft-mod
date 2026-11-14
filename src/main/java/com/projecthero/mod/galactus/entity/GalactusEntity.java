@@ -59,7 +59,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Punisher Summons</b> -- two Punishers drop from the Worldship (capped).</li>
  * </ul>
  */
-public class GalactusEntity extends GalactusMob {
+public class GalactusEntity extends GalactusMob implements com.projecthero.mod.entity.GiantTracking.AlwaysTracked {
 	public enum Move { NONE, EYE_BEAM, GRAB, TRANSMUTE, WAVE, SUMMON, RETREAT }
 
 	private final BossThreat threat = new BossThreat(this).holdWhile(this::busy);
@@ -1033,5 +1033,11 @@ public class GalactusEntity extends GalactusMob {
 	@Override
 	public boolean shouldRenderAtSqrDistance(double distance) {
 		return distance < 400 * 400;
+	}
+
+	/** v0.17.4: the client ticks him even when his chunk is outside its view ({@link com.projecthero.mod.entity.GiantTracking}). */
+	@Override
+	public boolean isAlwaysTicking() {
+		return com.projecthero.mod.entity.GiantTracking.alwaysTicking(this, super.isAlwaysTicking());
 	}
 }

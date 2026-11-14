@@ -73,6 +73,14 @@ living hit-boxes resized to the skeleton every tick; they take no damage -- `onP
 - The client snaps parts to each server position (`lerpTo`), so the box doesn't trail the drawn fist.
 - A part is only made in an entity-ticking chunk, and a part its Devourer no longer lists discards itself
   (`ownsPart`), so a hidden chunk can't pile up duplicates.
+- **Low render distance ("he's invisible at RD 2"), `entity/GiantTracking`:** the Devourer, the Worldship and the old
+  `galactus` entity are `GiantTracking.AlwaysTracked`. (1) Server: vanilla only sends an entity whose chunk is in the
+  player's chunk view, within min(tracking range, view distance x 16); `TrackedEntityGiantMixin` drops both caps for
+  marked giants (their own tracking range still applies). (2) Client ticking: `isAlwaysTicking()` is true on the client
+  so he still interpolates/animates when his chunk isn't loaded there. (3) Client drawing: `LevelRendererGiantMixin`
+  lets him past the "section compiled" check. (4) The raid keeps each giant's own chunk loaded and entity-ticking with
+  a short refreshed ticket (`GiantTracking.keepLoaded`; C2's overworld Devourer and the Worldship's 150-block start are
+  outside every other ticket), else he is never tracked at all or his pose changes are never sent.
 - A hit that counts: `broadcastDamageEvent` on the Devourer (the whole model flashes red), an iron-golem thud and
   crit / spark particles where it struck.
 

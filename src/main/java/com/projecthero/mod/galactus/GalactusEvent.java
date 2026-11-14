@@ -291,6 +291,23 @@ public class GalactusEvent extends EventInstance {
 		return devourerId != null && level != null && level.getEntity(devourerId) instanceof DevourerEntity d && d.isAlive() ? d : null;
 	}
 
+	/**
+	 * v0.17.4: the giants stand far outside a low render distance, where nothing else loads (or entity-ticks) their chunk:
+	 * unloaded, the server forgets them; not entity-ticking, their pose changes are never sent. Each holds a short ticket
+	 * on its own chunk, refreshed here ({@link com.projecthero.mod.entity.GiantTracking#keepLoaded}).
+	 */
+	private void keepGiantsLoaded(ServerLevel overworld, ServerLevel orbit) {
+		for (ServerLevel l : new ServerLevel[] { overworld, orbit }) {
+			DevourerEntity d = devourer(l);
+			if (d != null) {
+				com.projecthero.mod.entity.GiantTracking.keepLoaded(l, d.position());
+			}
+		}
+		if (orbit != null && worldshipId != null && orbit.getEntity(worldshipId) instanceof WorldshipEntity w) {
+			com.projecthero.mod.entity.GiantTracking.keepLoaded(orbit, w.position());
+		}
+	}
+
 	public List<PunisherRobotEntity> orbitPunishers(ServerLevel orbit) {
 		List<PunisherRobotEntity> out = new ArrayList<>();
 		for (UUID u : orbitMobs) {
@@ -531,6 +548,8 @@ public class GalactusEvent extends EventInstance {
 			d.setEyes(0f);
 			d.setLean(0.12f);
 			d.bindToEvent(id());
+			// v0.17.4: an entity added to a chunk the server hasn't loaded is never sent to anyone
+			com.projecthero.mod.entity.GiantTracking.keepLoaded(level, d.position());
 			level.addFreshEntity(d);
 			devourerId = d.getUUID();
 		}
@@ -555,6 +574,10 @@ public class GalactusEvent extends EventInstance {
 	private void tickDevourer(ServerLevel level, long in) {
 		DevourerEntity d = devourer(level);
 		Vec3 a = anchor();
+		if (in % 10 == 0) {
+			// v0.17.4: he rises 105 blocks out, past a low render distance: keep his chunk loaded or he is never sent
+			com.projecthero.mod.entity.GiantTracking.keepLoaded(level, GalactusScenes.devourerFeet(a, sceneYaw, in));
+		}
 		if (d != null) {
 			Vec3 feet = GalactusScenes.devourerFeet(a, sceneYaw, in);
 			d.setFeet(feet.x, feet.y, feet.z);
@@ -679,6 +702,7 @@ public class GalactusEvent extends EventInstance {
 				d.setFacing(StageIslands.facing(stage1.bodyAngle));
 				d.setLean(0.22f);
 				d.setEyes(0.6f);
+				com.projecthero.mod.entity.GiantTracking.keepLoaded(orbit, d.position());
 				orbit.addFreshEntity(d);
 				devourerId = d.getUUID();
 				threat = newThreat(d);
@@ -830,6 +854,8 @@ public class GalactusEvent extends EventInstance {
 		WorldshipEntity w = GalactusEntityTypes.WORLDSHIP.create(orbit);
 		if (w != null) {
 			w.moveTo(o.getX() + 0.5, o.getY() + 70, o.getZ() - 150.5, 0f, 0f);
+			// v0.17.4: 150 blocks out is past the orbit's own ticket: load its chunk or it is never sent
+			com.projecthero.mod.entity.GiantTracking.keepLoaded(orbit, w.position());
 			orbit.addFreshEntity(w);
 			worldshipId = w.getUUID();
 		}
@@ -1577,6 +1603,9 @@ public class GalactusEvent extends EventInstance {
 			case STAGE3 -> tickStage3(orbit, on);
 			case ENDING -> tickEnding(level, orbit, in);
 			case CONSUMED -> tickConsumed(level, orbit, in);
+		}
+		if (now % 10 == 0) {
+			keepGiantsLoaded(level, orbit);
 		}
 		if (orbitPhase() && orbit != null && now % 100 == 0) {
 			orbitMobs.removeIf(u -> orbit.getEntity(u) == null);

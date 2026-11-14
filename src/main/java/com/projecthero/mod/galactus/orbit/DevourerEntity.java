@@ -34,7 +34,7 @@ import org.joml.Vector3f;
  * forearm and hand) are separate hit-boxes he places on his skeleton every tick, and hand what they take to the raid.
  * Never saved: the raid re-makes him.
  */
-public class DevourerEntity extends GalactusMob {
+public class DevourerEntity extends GalactusMob implements com.projecthero.mod.entity.GiantTracking.AlwaysTracked {
 	private static final EntityDataAccessor<Float> DATA_HEIGHT = SynchedEntityData.defineId(DevourerEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Float> DATA_LEAN = SynchedEntityData.defineId(DevourerEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Vector3f> DATA_LOOK = SynchedEntityData.defineId(DevourerEntity.class, EntityDataSerializers.VECTOR3);
@@ -374,6 +374,12 @@ public class DevourerEntity extends GalactusMob {
 	@Override
 	public boolean shouldRenderAtSqrDistance(double distance) {
 		return true;
+	}
+
+	/** v0.17.4: the client ticks him even when his chunk is outside its view ({@link com.projecthero.mod.entity.GiantTracking}). */
+	@Override
+	public boolean isAlwaysTicking() {
+		return com.projecthero.mod.entity.GiantTracking.alwaysTicking(this, super.isAlwaysTicking());
 	}
 
 	@Override

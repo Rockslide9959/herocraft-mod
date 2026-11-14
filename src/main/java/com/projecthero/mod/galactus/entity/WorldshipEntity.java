@@ -25,7 +25,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * name, can't be hit, never saved (the event summons it again after a reload); the event moves it and picks its clip
  * (idle, leave).
  */
-public class WorldshipEntity extends Entity implements GeoEntity {
+public class WorldshipEntity extends Entity implements GeoEntity, com.projecthero.mod.entity.GiantTracking.AlwaysTracked {
 	private static final EntityDataAccessor<Integer> DATA_ANIM = SynchedEntityData.defineId(WorldshipEntity.class, EntityDataSerializers.INT);
 
 	private int animSeq;
@@ -77,6 +77,12 @@ public class WorldshipEntity extends Entity implements GeoEntity {
 	@Override
 	public boolean shouldRenderAtSqrDistance(double distance) {
 		return distance < 400 * 400;
+	}
+
+	/** v0.17.4: the client ticks it even when its chunk is outside its view ({@link com.projecthero.mod.entity.GiantTracking}). */
+	@Override
+	public boolean isAlwaysTicking() {
+		return com.projecthero.mod.entity.GiantTracking.alwaysTicking(this, super.isAlwaysTicking());
 	}
 
 	@Override
