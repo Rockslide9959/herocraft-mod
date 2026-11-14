@@ -107,8 +107,9 @@ public final class OmnitrixAbilityManager {
 			// v0.17.1 (user): N turns an alien back (Shift+N too); the release has nothing to do
 			if (pressed) {
 				pressN(p);
-				// v0.17.1 Master Control: Shift+N held with the watch up (no bar, no hint: see tick)
-				if (p.isShiftKeyDown() && Omnitrix.state(p).selecting && !Omnitrix.state(p).transformed()) {
+				// v0.17.1 Master Control: Shift+N held with the watch up (no bar, no hint: see tick). v0.17.4: only turns it OFF now
+				// (the ritual, OmnitrixRitual, turns it on); without Master Control the hold does nothing
+				if (p.isShiftKeyDown() && Omnitrix.state(p).selecting && !Omnitrix.state(p).transformed() && Omnitrix.masterControl(p)) {
 					MASTER_HOLD.putIfAbsent(p.getUUID(), p.level().getGameTime()); // a key repeat never restarts the hold
 				}
 			} else {
@@ -174,7 +175,7 @@ public final class OmnitrixAbilityManager {
 		Long held = MASTER_HOLD.get(p.getUUID());
 		if (held != null) {
 			OmnitrixState ms = Omnitrix.state(p);
-			if (!p.isShiftKeyDown() || !ms.selecting || ms.transformed()) {
+			if (!p.isShiftKeyDown() || !ms.selecting || ms.transformed() || !Omnitrix.masterControl(p)) {
 				MASTER_HOLD.remove(p.getUUID());
 			} else if (p.level().getGameTime() - held >= OmnitrixConfig.MASTER_HOLD_TICKS) {
 				MASTER_HOLD.remove(p.getUUID());

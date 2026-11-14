@@ -376,6 +376,12 @@ public final class OmnitrixWatch {
 		if (blink > 0.01f) {
 			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.9f) / 16f, scale(0xFF2A1A, blink));
 		}
+		// v0.17.4: the Master Control ritual -- the core a little brighter with every step, a pulse on each of the three beeps
+		float ritual = com.projecthero.mod.omnitrix.OmnitrixRitual.glow(s, p.level().getGameTime(), partial);
+		if (ritual > 0.01f && !red) {
+			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.5f + 0.8f * Math.min(1f, ritual)) / 16f, scale(g, Math.min(1f, 0.5f * ritual)));
+			glowQuad(glow, last, (top - 0.1f) / 16f, cy / 16f, 0f, (2.6f + 1.5f * Math.min(1f, ritual)) / 16f, scale(g, Math.min(1f, 0.45f * ritual)));
+		}
 		pose.popPose();
 	}
 

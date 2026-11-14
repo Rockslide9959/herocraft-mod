@@ -254,7 +254,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.activate(p), "the watch up");
 		Omnitrix.finishRaise(p);
 		helper.assertFalse(Omnitrix.masterControl(p), "no Master Control yet");
-		helper.assertTrue(Omnitrix.startMasterSequence(p), "the long Shift+N starts the sequence");
+		helper.assertTrue(Omnitrix.startMasterSequence(p), "the ritual's payoff (v0.17.4: OmnitrixRitual) starts the sequence");
 		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial is the watch's while it turns itself");
 		pump(helper, p);
 		int steps = (Aliens.playable().size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;

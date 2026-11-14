@@ -685,7 +685,20 @@ public final class HeroPackGuide {
 	private static final int CH_SHAZAM = CH_BEAST_BOY + 1; // 73, v0.17.3: Shazam
 	private static final int CH_DOCTOR_FATE = CH_SHAZAM + 1; // 74, v0.17.3: Doctor Fate
 	private static final int CH_VISION = CH_DOCTOR_FATE + 1; // 75, v0.17.3: Vision (Marvel)
-	private static final int CHAPTER_POWER_BASE = CH_VISION + 1; // 76
+	/** v0.17.4: the Omnitrix's hidden Master Control page (only listed once the reader has woken it, {@link #masterControlRevealed}). */
+	private static final int CH_MASTER_CONTROL = CH_VISION + 1; // 76
+	private static final int CHAPTER_POWER_BASE = CH_MASTER_CONTROL + 1; // 77
+
+	/**
+	 * v0.17.4: whether the reader may see the hidden Master Control page -- the client sets this to "the local player has woken
+	 * Master Control once" ({@code Omnitrix.masterKnown}); the server never lists it.
+	 */
+	public static java.util.function.BooleanSupplier masterControlRevealed = () -> false;
+
+	/** v0.17.4: a chapter the reader cannot see yet (left out of its category page and of search). */
+	public static boolean hidden(int chapter) {
+		return chapter == CH_MASTER_CONTROL && !(com.projecthero.mod.omnitrix.OmnitrixFeature.enabled() && masterControlRevealed.getAsBoolean());
+	}
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -2055,6 +2068,25 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.vision.commands.body");
 		}));
 
+		// v0.17.4: the hidden Master Control page (CH_MASTER_CONTROL) -- a cryptic note, written as if found inside the watch
+		out.add(chapter("projecthero.guide.omnitrix.master", lines -> {
+			lines.add(Component.translatable("projecthero.guide.omnitrix.master.tier").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.note");
+			blank(lines);
+			String[] numerals = { "I", "II", "III", "IV", "V", "VI" };
+			for (int i = 1; i <= 6; i++) {
+				lines.add(Component.literal(" " + numerals[i - 1] + ".  ").withStyle(ChatFormatting.GREEN)
+						.append(Component.translatable("projecthero.guide.omnitrix.master.step" + i).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.warning");
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.sleep");
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.omnitrix.master.sign").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2105,6 +2137,22 @@ public final class HeroPackGuide {
 
 	/** One category's page: sub-headings (depth 1, not clickable) and chapter links (depth 1, or 2 under a sub-heading). */
 	public static List<IndexEntry> categoryEntries(Category category) {
+		buildCategories();
+		List<IndexEntry> all = categoryEntries.get(category);
+		if (!hidden(CH_MASTER_CONTROL)) {
+			return all;
+		}
+		List<IndexEntry> shown = new ArrayList<>(all.size());
+		for (IndexEntry e : all) {
+			if (e.isHeading() || !hidden(e.chapterIndex())) {
+				shown.add(e);
+			}
+		}
+		return shown; // v0.17.4: the hidden Master Control page left out until the reader has woken it
+	}
+
+	/** v0.17.4: one category's full outline, hidden pages included (the index, tests). */
+	public static List<IndexEntry> allCategoryEntries(Category category) {
 		buildCategories();
 		return categoryEntries.get(category);
 	}
@@ -2210,6 +2258,7 @@ public final class HeroPackGuide {
 		icon(CH_UNDEAD, "undead_card"); // v0.17.3
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
+		icon(CH_MASTER_CONTROL, "omnitrix"); // v0.17.4
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SPIN, "zeppeli_steel_balls"); // v0.17.3
 		icon(CH_STARFIRE, "tamaranean_starstone"); // v0.17.3
@@ -2320,6 +2369,7 @@ public final class HeroPackGuide {
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.titan_shifter"), 2, CH_TITAN_SHIFTER));
 		if (com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
 			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
+			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix.master"), 2, CH_MASTER_CONTROL)); // v0.17.4: hidden until woken
 		}
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.spin"), 2, CH_SPIN)); // v0.17.3: next to Stands
@@ -2380,7 +2430,7 @@ public final class HeroPackGuide {
 		for (Category c : Category.values()) {
 			section(idx, c.nameKey(), !first);
 			first = false;
-			idx.addAll(categoryEntries(c));
+			idx.addAll(allCategoryEntries(c)); // v0.17.4: the full outline (hidden pages included; the pages filter them)
 		}
 		return idx;
 	}
@@ -2440,6 +2490,9 @@ public final class HeroPackGuide {
 		for (int c = 0; c < all.size(); c++) {
 			if (c == CH_OMNITRIX && !com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
 				continue; // v0.17.1: not public yet
+			}
+			if (hidden(c)) {
+				continue; // v0.17.4: the Master Control page stays a secret until woken
 			}
 			Chapter ch = all.get(c);
 			String title = ch.title().getString();

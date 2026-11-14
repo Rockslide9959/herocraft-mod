@@ -277,7 +277,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
 		// v0.16.7: + Viperion (56), after the Quirks
 		// v0.17.1: + the Falcon (57), after Viperion
-		helper.assertTrue(chapters.size() == 76 + Powers.enabled().size(), // v0.17.3: + Vision, + Doctor Fate, + Shazam, + Beast Boy, + Raven, + Starfire, + Spin, + the Saiyan, + Black Panther, + Beam Clashing, + Ryuko, + Undead; v0.17.1: + Falcon, + Silver Surfer, + the Speed Force Speedster, + Multimouse, + the Omnitrix; v0.17.2: + Stands
+		helper.assertTrue(chapters.size() == 77 + Powers.enabled().size(), // v0.17.4: + the hidden Master Control page; v0.17.3: + Vision, + Doctor Fate, + Shazam, + Beast Boy, + Raven, + Starfire, + Spin, + the Saiyan, + Black Panther, + Beam Clashing, + Ryuko, + Undead; v0.17.1: + Falcon, + Silver Surfer, + the Speed Force Speedster, + Multimouse, + the Omnitrix; v0.17.2: + Stands
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");
@@ -310,7 +310,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		for (var cat : com.projecthero.mod.hero.guide.HeroPackGuide.Category.values()) {
 			helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.chapterCount(cat) > 0, cat + " has chapters");
 			helper.assertTrue(lang.has(cat.nameKey()) && lang.has(cat.descKey()), cat + " has its name and description");
-			for (var e : com.projecthero.mod.hero.guide.HeroPackGuide.categoryEntries(cat)) {
+			for (var e : com.projecthero.mod.hero.guide.HeroPackGuide.allCategoryEntries(cat)) { // v0.17.4: hidden pages too
 				if (!e.isHeading()) {
 					seen[e.chapterIndex()]++;
 					helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(e.chapterIndex()) == cat,

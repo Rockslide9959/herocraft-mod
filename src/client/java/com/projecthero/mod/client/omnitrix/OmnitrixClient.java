@@ -39,6 +39,11 @@ public final class OmnitrixClient {
 	}
 
 	public static void initialize() {
+		// v0.17.4: the Guidebook's hidden Master Control page shows once this player has woken Master Control
+		com.projecthero.mod.hero.guide.HeroPackGuide.masterControlRevealed = () -> {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			return mc.player != null && com.projecthero.mod.omnitrix.Omnitrix.masterKnown(mc.player);
+		};
 		// the alien client kits -- ONE LINE PER KIT (the other eight add theirs here)
 		AlienClients.register(Aliens.HEATBLAST.id(), new HeatblastClient());
 		AlienClients.register(Aliens.FOUR_ARMS.id(), new FourArmsClient());

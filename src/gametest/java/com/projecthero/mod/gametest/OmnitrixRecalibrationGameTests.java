@@ -148,7 +148,7 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.2 (user: "make sure recalibrated omnitrix also has master control"): the same long Shift+N sequence, through the Alien Force dial. */
+	/** v0.17.2 (user: "make sure recalibrated omnitrix also has master control"): the same dial sequence (v0.17.4: the ritual's payoff), through the Alien Force dial. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void masterControlFlipsThroughTheRecalibratedDial(GameTestHelper helper) {
 		ServerPlayer p = mock(helper, 3.5, 2, 1.5);

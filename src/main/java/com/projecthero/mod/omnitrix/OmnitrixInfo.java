@@ -125,6 +125,7 @@ public final class OmnitrixInfo {
 		out.add(bullet(Component.translatable(I + "rule.early")));
 		out.add(bullet(Component.translatable(I + "rule.death")));
 		out.add(bullet(Component.translatable(I + "rule.locked")));
+		out.add(bullet(Component.translatable(I + "rule.master"))); // v0.17.4: a hint, never the ritual itself
 	}
 
 	/** The Containment Pod warning, in red. */

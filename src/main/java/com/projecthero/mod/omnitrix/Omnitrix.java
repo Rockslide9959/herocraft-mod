@@ -92,6 +92,7 @@ public final class Omnitrix {
 		n.timers.remove(SLAP_QUEUE);
 		n.timers.remove(SLAP_QUEUE_LONG);
 		n.timers.remove(PRESS_TIMER);
+		n.timers.remove(FORCE_GLITCH); // v0.17.4
 	}
 
 	/**
@@ -173,6 +174,18 @@ public final class Omnitrix {
 	private static final String FAILSAFE_READY = "omnitrix.failsafe";
 	/** Gametests: this wearer's slaps never glitch. */
 	private static final String NO_GLITCH = "omnitrix.no_glitch";
+	/** v0.17.4: the next slap lands on a wrong alien whatever the watch (the Master Control ritual's slap off the beat). */
+	public static final String FORCE_GLITCH = "omnitrix.force_glitch";
+	/**
+	 * v0.17.4: he has woken Master Control at least once (1) -- the Guidebook's hidden Master Control page shows from then on.
+	 * Belongs to the player, not the watch ({@link #keepPlayerData}).
+	 */
+	public static final String MASTER_KNOWN = "omnitrix.master_known";
+
+	/** v0.17.4: whether {@code p} has ever woken Master Control (client-safe: the synced state). */
+	public static boolean masterKnown(Player p) {
+		return p != null && p.getAttached(OmnitrixAttachments.STATE) != null && state(p).readyAt(MASTER_KNOWN) == 1L;
+	}
 
 	/**
 	 * v0.17.2: the Recalibrated Omnitrix (Ben 10: Alien Force; user: "come up with a way for the player to recalibrate the omnitrix").
@@ -408,8 +421,9 @@ public final class Omnitrix {
 	 * v0.17.1 (user: "make master control able to be activated by shifting and holding N while the omnitrix is activated for 10
 	 * seconds ... the dial must turn on its own flipping through all the aliens the player has in the omnitrix and then finally
 	 * deactivating with master control activated, master control can be deactivated the same way, when you activate master
-	 * control tell the player on the hud"): called once the hold is done (OmnitrixAbilityManager). The core is forced up, the
-	 * face lights, and {@link #tick} turns the dial through every alien, lowers the watch and flips Master Control.
+	 * control tell the player on the hud"): the core is forced up, the face lights, and {@link #tick} turns the dial through every
+	 * alien, lowers the watch and flips Master Control. v0.17.4: turned ON only by the ritual's slap on the third beep
+	 * ({@link OmnitrixRitual}); turned OFF by Shift+N held 3 s with the watch up (OmnitrixAbilityManager).
 	 */
 	public static boolean startMasterSequence(ServerPlayer p) {
 		OmnitrixState s = state(p);
@@ -469,6 +483,7 @@ public final class Omnitrix {
 		n.timers.remove(MC_STEP);
 		if (on) {
 			n.timers.put(MASTER, 1L);
+			n.timers.put(MASTER_KNOWN, 1L); // v0.17.4: the Guidebook's hidden page
 		} else {
 			n.timers.remove(MASTER);
 		}
@@ -486,13 +501,14 @@ public final class Omnitrix {
 
 	// ---------------------------------------------------------------- v0.17.2: /projecthero power tune omnitrix (OmnitrixCommand)
 
-	/** Master Control on or off at once, without the 10 s hold and the dial sequence. */
+	/** Master Control on or off at once, without the ritual (or the off-hold) and the dial sequence. */
 	public static void setMasterControl(ServerPlayer p, boolean on) {
 		OmnitrixState n = state(p).copy();
 		n.timers.remove(MC_SEQ);
 		n.timers.remove(MC_STEP);
 		if (on) {
 			n.timers.put(MASTER, 1L);
+			n.timers.put(MASTER_KNOWN, 1L); // v0.17.4: the Guidebook's hidden page
 			n.rechargeUntil = 0L;
 		} else {
 			n.timers.remove(MASTER);
@@ -913,7 +929,7 @@ public final class Omnitrix {
 	 */
 	public static void keepPlayerData(OmnitrixState from, OmnitrixState to) {
 		for (var e : from.timers.entrySet()) {
-			if (e.getKey().startsWith("omnitrix.found.") || e.getKey().equals(MISTRANSFORMS)) {
+			if (e.getKey().startsWith("omnitrix.found.") || e.getKey().equals(MISTRANSFORMS) || e.getKey().equals(MASTER_KNOWN)) {
 				to.timers.put(e.getKey(), e.getValue());
 			}
 		}
@@ -999,6 +1015,7 @@ public final class Omnitrix {
 		n.heldEntity = 0;
 		n.selecting = false;
 		clearSlap(n);
+		OmnitrixRitual.clear(n); // v0.17.4: transforming ends the ritual
 		save(p, n);
 		OmnitrixBody.apply(p, kit.stats(), frac);
 		if (!slapped) {
@@ -1174,6 +1191,7 @@ public final class Omnitrix {
 		n.selecting = true;
 		n.selectStart = now;
 		clearSlap(n);
+		OmnitrixRitual.clear(n); // v0.17.4: every raise starts the ritual from nothing
 		// the core-up sound plays when the core pops ({@link #tick}): the button press -- or, raised while timed out, not until it
 		// times in (v0.17.1 user: "when you activate the omnitrix and the omnitrix is timed out then the omnitrix sound effect doesnt
 		// play")
@@ -1193,6 +1211,7 @@ public final class Omnitrix {
 		n.selecting = false;
 		n.selectStart = p.level().getGameTime();
 		clearSlap(n);
+		OmnitrixRitual.clear(n); // v0.17.4: the watch down ends the ritual
 		save(p, n);
 		// v0.17.1 (user: "when deactivating the omnitrix ... remove the sound effect that plays"): lowered silently
 		return true;
@@ -1242,6 +1261,7 @@ public final class Omnitrix {
 		save(p, n);
 		OmnitrixSounds.notify(p, cue(p, OmnitrixSounds.DIAL, OmnitrixSounds.RECAL_DIAL), 1.0f);
 		showSelected(p, next);
+		OmnitrixRitual.onDial(p, dir); // v0.17.4: the Master Control ritual's two rounds of the dial
 		return true;
 	}
 
@@ -1277,6 +1297,23 @@ public final class Omnitrix {
 					(s.rechargeUntil - now + 19) / 20).withStyle(ChatFormatting.RED), true);
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
+		}
+		// v0.17.4: the Master Control ritual's beeps -- on the third beep the slap wakes Master Control; off the beat it mistransforms
+		switch (OmnitrixRitual.onSlap(p)) {
+			case WAKE -> {
+				p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+				OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SLAP, 0.8f, 1.2f);
+				return startMasterSequence(p);
+			}
+			case MISS -> {
+				OmnitrixState g = state(p).copy();
+				g.timers.put(FORCE_GLITCH, 1L);
+				save(p, g);
+				s = state(p);
+				longForm = false; // the glitch rides the quick slap
+			}
+			case NONE -> {
+			}
 		}
 		if (!coreUp(s, now)) {
 			// clicked while the dial is still coming up: the slap lands as soon as it is ({@link #tick})
@@ -1463,6 +1500,11 @@ public final class Omnitrix {
 			OmnitrixAbilityManager.tick(p);
 			return;
 		}
+		// v0.17.4: the Master Control ritual (the look, the crouches, the timeouts, the beeps)
+		if (s.selecting || s.timers.containsKey(OmnitrixRitual.STAGE) || s.timers.containsKey(OmnitrixRitual.LOOK)) {
+			OmnitrixRitual.tick(p, s, now);
+			s = state(p);
+		}
 		if (s.selecting && s.timers.containsKey(SLAP_TIMER) && now >= s.readyAt(SLAP_TIMER)) {
 			// v0.17.1 (user: the failsafe "glitch"): now and then the Omnitrix lands on another alien than the one dialled -- never
 			// under Master Control
@@ -1479,7 +1521,20 @@ public final class Omnitrix {
 			// an even pick among every hidden alien he has not found yet
 			Aliens.Alien hidden = Aliens.pickHidden(p, p.getRandom());
 			String found = null;
-			if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && (pool.size() > 1 || hidden != null)
+			boolean forced = s.timers.containsKey(FORCE_GLITCH);
+			if (forced) {
+				// v0.17.4: the ritual's slap off the beat -- a wrong alien on any watch (not counted, finds nothing)
+				OmnitrixState g = state(p).copy();
+				g.timers.remove(FORCE_GLITCH);
+				if (pool.size() > 1) {
+					String other = dialled;
+					while (other.equals(dialled)) {
+						other = pool.get(p.getRandom().nextInt(pool.size())).id();
+					}
+					g.selected = other;
+				}
+				save(p, g);
+			} else if (s.readyAt(MASTER) != 1L && s.readyAt(RECAL) != 1L && s.readyAt(NO_GLITCH) != 1L && (pool.size() > 1 || hidden != null)
 					&& p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
 				String other = dialled;
 				long count = s.readyAt(MISTRANSFORMS) + 1L;
@@ -1514,7 +1569,9 @@ public final class Omnitrix {
 				// the glitch's transform was refused: back to the dialled alien, and nothing found (nor counted)
 				OmnitrixState g = state(p).copy();
 				g.selected = dialled;
-				g.timers.put(MISTRANSFORMS, Math.max(0L, g.readyAt(MISTRANSFORMS) - 1L));
+				if (!forced) {
+					g.timers.put(MISTRANSFORMS, Math.max(0L, g.readyAt(MISTRANSFORMS) - 1L));
+				}
 				save(p, g);
 				if (found != null) {
 					Aliens.discover(p, found, false);

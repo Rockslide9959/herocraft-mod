@@ -138,6 +138,19 @@ public final class OmnitrixConfig {
 	public static final float GLITCH_CHANCE = 0.5f;
 	/** v0.17.2 (user): the 11th mistransform finds the next hidden alien (Cannonbolt), the 22nd the one after, and so on. */
 	public static final int UNLOCK_EVERY_MISTRANSFORMS = 11;
-	/** v0.17.1 Master Control: Shift+N held this long with the watch up; then one dial step every MASTER_STEP_TICKS. */
-	public static final int MASTER_HOLD_TICKS = 10 * 20, MASTER_STEP_TICKS = 4;
+	/**
+	 * v0.17.1 Master Control: one dial step every MASTER_STEP_TICKS of its sequence. v0.17.4 (user: "i want master control to be
+	 * something that can be activated at any point if the player knows how to do it, make it kinda complicated"): the ritual
+	 * ({@link OmnitrixRitual}) turns it on; Shift+N held MASTER_HOLD_TICKS (3 s) with the watch up only turns it off now.
+	 */
+	public static final int MASTER_HOLD_TICKS = 3 * 20, MASTER_STEP_TICKS = 4;
+	/** v0.17.4 the ritual: the look up (pitch at or above 80 deg, kept while above 75) held this long before it counts. */
+	public static final float RITUAL_LOOK_PITCH = -80f, RITUAL_LOOK_KEEP_PITCH = -75f;
+	public static final int RITUAL_LOOK_TICKS = 20;
+	/** v0.17.4 the ritual: crouches while looking up; the most a step may take after the one before (6 s). */
+	public static final int RITUAL_CROUCHES = 3, RITUAL_STEP_TICKS = 6 * 20;
+	/** v0.17.4 the ritual: the three beeps (1 s apart, the first 1 s after the dial's last turn) and the slap's window round the third. */
+	public static final int RITUAL_BEEP_TICKS = 20, RITUAL_BEEPS = 3, RITUAL_WINDOW_TICKS = 5;
+	/** v0.17.4 the ritual: how long after the third beep a missing slap waits before the ritual quietly resets. */
+	public static final int RITUAL_LATE_TICKS = 20;
 }

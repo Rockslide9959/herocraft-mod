@@ -497,3 +497,47 @@ speed powers moveset please, i want him to be really cool and i want the power s
   map is cleared by `SuperSpeedMoves.clearSessionState` / `onDisconnect` as before.
 * Screenshots: `docs/screenshots/v0171/omnitrix_xlr8v2_*.png` and `omnitrix_vkey_*.png` (harness:
   `scratchpad/xlr8_v0171/AlienLookHarness.xlr8.v0171.java.txt`, flag `run/alienlook.flag` = "xlr8 vkey").
+
+## Master Control: the ritual (v0.17.4)
+
+User: "right now its way too easy ... i want master control to be something that can be activated at any point if the player
+knows how to do it, make it kinda complicated". They picked a gesture ritual. The old trigger (Shift+N held 10 s with the watch
+up) is gone; the dial-flip sequence (`Omnitrix.startMasterSequence` / `tickMasterSequence`) is kept as the payoff.
+
+**Turning it ON** (`omnitrix/OmnitrixRitual.java`): human, watch raised with the core up, Master Control off, either watch. In order:
+
+| Step | What | Window |
+|---|---|---|
+| 1 | Look straight up: pitch <= -80 deg (`RITUAL_LOOK_PITCH`), held 20 ticks (`RITUAL_LOOK_TICKS`) | dropping above -75 deg (`RITUAL_LOOK_KEEP_PITCH`) before step 2 resets |
+| 2 | Still looking up, 3 sneak presses (`RITUAL_CROUCHES`; rising edges of `isShiftKeyDown`, polled per tick; extra crouches are ignored) | within 6 s (`RITUAL_STEP_TICKS`) of step 1 |
+| 3 | One full round LEFT: `Aliens.playable(p).size()` consecutive `cycle(-1)` steps (scroll up), back where it started. Eyes may come down | within 6 s of step 2; any `+1` step resets |
+| 4 | One full round RIGHT: the same number of `cycle(+1)` steps (scroll down) | within 6 s of step 3; any `-1` step resets |
+| 5 | Three beeps (the `WARNING` blip, to the wearer only), at 1 s / 2 s / 3 s after step 4 (`RITUAL_BEEP_TICKS`); the third louder and higher (pitch 2.0) | -- |
+| 6 | Slap the core (left or right click) on the third beep: within 5 ticks either side of beep 3 (`RITUAL_WINDOW_TICKS`, about 0.5 s centred) | no slap by 1 s after beep 3 (`RITUAL_LATE_TICKS`) quietly resets |
+
+- **Success:** `startMasterSequence` (the dial turns through every alien, the watch goes down, "MASTER CONTROL UNLOCKED"; the
+  recalibrated watch plays its voice line). No transformation.
+- **Off the beat** (before beep 3's window, including during beeps 1-2, or after it): the slap goes through with
+  `Omnitrix.FORCE_GLITCH` set -- the glitch path lands on a random wrong alien on ANY watch (not counted as a mistransform, finds
+  no hidden alien); the dial stays where it was. The ritual is over.
+- **Silent resets:** any step more than 6 s after the one before, a wrong-direction dial step, a dial step before the crouches or
+  during the beeps, the watch going down (`deactivate`), raising it again (`activate`), transforming, Master Control already on,
+  the dial sequence running. No text ever tells you what is next.
+- **Feedback:** a faint lever tick (`SELECT`, to the wearer only, pitch rising per stage) when each of steps 1-4 completes; the
+  core glows a little brighter per stage and pulses on each beep (`OmnitrixRitual.glow`, drawn in `OmnitrixWatch`).
+- **State:** all in the wearer's persisted, synced `OmnitrixState.timers` (`omnitrix.ritual`, `_at`, `_n`, `_sneak`, `_look`), so
+  there is no new static map (nothing for `ServerStateReset`) and the client can read the stage for the glow. Cleared by
+  `activate` / `deactivate` / `transform`; `FORCE_GLITCH` is cleared with the slap timers (`clearSlap`).
+
+**Turning it OFF:** Shift+N held 3 s (`MASTER_HOLD_TICKS`, was 10 s) with the watch up runs the same dial sequence and flips it
+off. Without Master Control the hold does nothing (`OmnitrixAbilityManager`). `/projecthero power tune omnitrix master on|off`
+still sets it at once. Recalibrating (and un-recalibrating) still clears it; it still never glitches.
+
+**Guidebook:** a hidden chapter `CH_MASTER_CONTROL` ("Master Control", after Vision): a cryptic note found inside the watch
+(`projecthero.guide.omnitrix.master.*`) that describes the six steps. It is filed under Other heroes (after the Omnitrix) but
+`HeroPackGuide.categoryEntries` and `search` leave it out until `HeroPackGuide.masterControlRevealed` says the local player has
+woken Master Control once -- `Omnitrix.MASTER_KNOWN` (`omnitrix.master_known`, set by the flip on and by the command, kept
+across taking the watch off by `keepPlayerData`). The Omnitrix rules list gets one vague line (`projecthero.omnitrix.info.rule.master`).
+
+Tests: `OmnitrixMasterRitualGameTests` (full ritual on both watches, wrong way, too slow, eyes down mid-crouches, slap on beep 2,
+slap late, Shift+N off-only, the hidden page).

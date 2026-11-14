@@ -1,0 +1,307 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixConfig;
+import com.projecthero.mod.omnitrix.OmnitrixRitual;
+import com.projecthero.mod.omnitrix.network.OmnitrixActionPayload;
+
+/**
+ * TEMP-HARNESS (not shipped; v0.17.4 Master Control ritual): performs the ritual through the real client inputs -- the pitch
+ * (movement packets), the sneak key, the scroll's CYCLE payloads and the click's SLAP payload -- and films every client tick to
+ * {@code run/screenshots/rit_<tag>_NNNN.png}. {@code run/master_ritual.flag} (JSON): {"mode":"success"|"miss","guide":true}.
+ * "miss" slaps on the SECOND beep (a mistransform). "guide" afterwards opens the Guidebook's Other page and the hidden Master
+ * Control page and screenshots both. Installed / removed by {@code node scratchpad/master_ritual/harness.js install|uninstall}.
+ */
+public final class MasterRitualHarness {
+	private static boolean createdWorld, guide;
+	private static String mode = "success";
+	private static int waitTicks, t, frame = -1, dialSteps, slapAt = -1, endAt = -1, guideAt = -1;
+	private static int leftStart = -1, rightStart = -1;
+	private static volatile int serverStage;
+	private static volatile long serverTime, serverAt;
+	private static volatile boolean serverMaster, serverSeq, serverTransformed;
+	private static boolean slapped;
+	/** Everything after the grant waits this long (the latch title and shake-off play first). */
+	private static final int O = 100;
+
+	private MasterRitualHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("master_ritual.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			JsonObject o = JsonParser.parseString(Files.readString(flag)).getAsJsonObject();
+			mode = o.has("mode") ? o.get("mode").getAsString() : mode;
+			guide = o.has("guide") && o.get("guide").getAsBoolean();
+		} catch (Exception e) {
+			System.out.println("[RIT] bad flag: " + e);
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(MasterRitualHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[RIT] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "ritual-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[RIT] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void read(ServerPlayer p) {
+		var s = Omnitrix.state(p);
+		int st = OmnitrixRitual.stage(s);
+		if (st != serverStage) {
+			System.out.println("[RIT] stage " + serverStage + " -> " + st + " at server tick " + p.level().getGameTime());
+		}
+		serverStage = st;
+		serverAt = s.readyAt(OmnitrixRitual.AT);
+		serverTime = p.level().getGameTime();
+		serverMaster = Omnitrix.masterControl(p);
+		serverSeq = Omnitrix.masterSequence(p);
+		serverTransformed = s.transformed();
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MasterRitualHarness::createWorld);
+			}
+			return;
+		}
+		t++;
+		server(mc, MasterRitualHarness::read);
+		var player = mc.player;
+		if (t == 80) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 15f);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p); // ordinary slaps stay clean; the ritual's miss glitches anyway (FORCE_GLITCH)
+			});
+		}
+		if (t == 110 + O) {
+			server(mc, p -> Omnitrix.activate(p)); // R: the watch up
+		}
+		if (t == 140 + O) {
+			frame = 0;
+			dialSteps = com.projecthero.mod.omnitrix.alien.Aliens.playable(player).size();
+			System.out.println("[RIT] filming " + mode + ", dial of " + dialSteps);
+		}
+		// 1. look straight up (eased over 10 ticks), held
+		if (t >= 140 + O && t <= 150 + O) {
+			player.setXRot(15f + (-90f - 15f) * (t - 140 - O) / 10f);
+		}
+		// 2. three crouches, eyes up
+		int[] downs = { 178 + O, 190 + O, 202 + O };
+		for (int d : downs) {
+			if (t == d) {
+				mc.options.keyShift.setDown(true);
+			}
+			if (t == d + 6) {
+				mc.options.keyShift.setDown(false);
+			}
+		}
+		// eyes back down to the watch
+		if (t >= 214 + O && t <= 222 + O) {
+			player.setXRot(-90f + (25f + 90f) * (t - 214 - O) / 8f);
+		}
+		// 3. a full round left (scroll up), 4. a full round right (scroll down), one step every 5 ticks
+		if (t == 226 + O) {
+			leftStart = t;
+		}
+		if (leftStart > 0 && t >= leftStart && (t - leftStart) % 5 == 0 && (t - leftStart) / 5 < dialSteps) {
+			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.CYCLE, "-1"));
+		}
+		if (leftStart > 0 && rightStart < 0 && t == leftStart + dialSteps * 5 + 4) {
+			rightStart = t;
+		}
+		if (rightStart > 0 && t >= rightStart && (t - rightStart) % 5 == 0 && (t - rightStart) / 5 < dialSteps) {
+			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.CYCLE, "1"));
+		}
+		// 5-6. the beeps; the slap on the third (success) or on the second (miss)
+		if (!slapped && serverStage == OmnitrixRitual.BEEPS) {
+			int beep = "miss".equals(mode) ? 2 : OmnitrixConfig.RITUAL_BEEPS;
+			long target = OmnitrixRitual.beepAt(serverAt, beep);
+			if (serverTime >= target - 1) {
+				slapped = true;
+				slapAt = t;
+				ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.SLAP, ""));
+				System.out.println("[RIT] slap sent at server tick " + serverTime + " (beep " + beep + " at " + target + ")");
+			}
+		}
+		if (slapped && endAt < 0) {
+			if ("miss".equals(mode) ? t >= slapAt + 70 : serverMaster && !serverSeq) {
+				endAt = t + ("miss".equals(mode) ? 0 : 50);
+				System.out.println("[RIT] result: master=" + serverMaster + " transformed=" + serverTransformed);
+			}
+		}
+		if (frame >= 0) {
+			Screenshot.grab(mc.gameDirectory, String.format("rit_%s_%04d.png", mode, frame), mc.getMainRenderTarget(), m -> {
+			});
+			frame++;
+			if (frame > 900) {
+				System.out.println("[RIT] too long, stage " + serverStage);
+				frame = -1;
+				endAt = t;
+			}
+		}
+		if (endAt > 0 && t == endAt) {
+			frame = -1;
+			if (guide) {
+				guideAt = t + 10;
+			} else {
+				quit(t);
+			}
+		}
+		if (guideAt > 0) {
+			guideShots(mc);
+		}
+	}
+
+	private static int quitAt = -1;
+
+	private static void quit(int now) {
+		quitAt = now + 30;
+	}
+
+	private static void guideShots(Minecraft mc) {
+		try {
+			var cls = com.projecthero.mod.client.gui.HeroPackGuideScreen.class;
+			if (t == guideAt) {
+				mc.setScreen(new com.projecthero.mod.client.gui.HeroPackGuideScreen());
+			}
+			if (t == guideAt + 5) {
+				var m = cls.getDeclaredMethod("openCategory", com.projecthero.mod.hero.guide.HeroPackGuide.Category.class);
+				m.setAccessible(true);
+				m.invoke(mc.screen, com.projecthero.mod.hero.guide.HeroPackGuide.Category.OTHER);
+			}
+			if (t == guideAt + 15) {
+				Screenshot.grab(mc.gameDirectory, "rit_guide_category.png", mc.getMainRenderTarget(), m -> {
+				});
+			}
+			if (t == guideAt + 20) {
+				int ch = -1;
+				var all = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
+				for (int i = 0; i < all.size(); i++) {
+					if (all.get(i).title().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+							&& tc.getKey().equals("projecthero.guide.omnitrix.master")) {
+						ch = i;
+					}
+				}
+				System.out.println("[RIT] master page " + ch + " hidden=" + com.projecthero.mod.hero.guide.HeroPackGuide.hidden(ch));
+				var m = cls.getDeclaredMethod("openChapter", int.class, int.class);
+				m.setAccessible(true);
+				m.invoke(mc.screen, ch, -1);
+			}
+			if (t == guideAt + 30) {
+				Screenshot.grab(mc.gameDirectory, "rit_guide_page.png", mc.getMainRenderTarget(), m -> {
+				});
+			}
+			if (t == guideAt + 35) {
+				int ch = com.projecthero.mod.hero.guide.HeroPackGuide.chapters().size();
+				var all = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
+				for (int i = 0; i < all.size(); i++) {
+					if (all.get(i).title().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+							&& tc.getKey().equals("projecthero.guide.omnitrix.master")) {
+						ch = i;
+					}
+				}
+				var m = cls.getDeclaredMethod("openChapter", int.class, int.class);
+				m.setAccessible(true);
+				m.invoke(mc.screen, ch, all.get(ch).lines().size() - 1); // the second spread: steps V-VI, the warning, the off-switch
+			}
+			if (t == guideAt + 45) {
+				Screenshot.grab(mc.gameDirectory, "rit_guide_page2.png", mc.getMainRenderTarget(), m -> {
+				});
+			}
+			if (t == guideAt + 60) {
+				System.out.println("[RIT] done");
+				Runtime.getRuntime().halt(0);
+			}
+		} catch (Exception e) {
+			System.out.println("[RIT] guide error " + e);
+			Runtime.getRuntime().halt(4);
+		}
+	}
+
+	static {
+		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			if (quitAt > 0 && t >= quitAt) {
+				System.out.println("[RIT] done");
+				Runtime.getRuntime().halt(0);
+			}
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("RIT_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}
