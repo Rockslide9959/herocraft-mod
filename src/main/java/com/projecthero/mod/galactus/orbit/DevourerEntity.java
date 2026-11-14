@@ -51,6 +51,11 @@ public class DevourerEntity extends GalactusMob {
 
 	private final Map<DevourerPartEntity.Kind, UUID> parts = new EnumMap<>(DevourerPartEntity.Kind.class);
 	private boolean partsOn;
+	/** v0.17.4: which hit-boxes are out (Stage 1: the fists and forearms only; Stage 3: all of them). */
+	private final java.util.EnumSet<DevourerPartEntity.Kind> partKinds = java.util.EnumSet.noneOf(DevourerPartEntity.Kind.class);
+	/** The arms-and-fists set Stage 1 uses: the stuck fist is what you hit there. */
+	public static final java.util.Set<DevourerPartEntity.Kind> FISTS = java.util.Collections.unmodifiableSet(java.util.EnumSet.of(
+			DevourerPartEntity.Kind.HAND_R, DevourerPartEntity.Kind.FORE_R, DevourerPartEntity.Kind.HAND_L, DevourerPartEntity.Kind.FORE_L));
 	private GalactusRig.Pose cached;
 	private int cachedTick = -1;
 	/** Client: last tick's inputs, for smooth frames between ticks. */
@@ -227,19 +232,34 @@ public class DevourerEntity extends GalactusMob {
 	// ---------------------------------------------------------------- parts
 
 	public void setPartsOn(boolean on) {
-		this.partsOn = on;
-		if (!on && level() instanceof ServerLevel server) {
-			for (UUID u : parts.values()) {
-				if (server.getEntity(u) instanceof DevourerPartEntity p) {
-					p.discard();
+		setParts(on ? java.util.EnumSet.allOf(DevourerPartEntity.Kind.class) : java.util.EnumSet.noneOf(DevourerPartEntity.Kind.class));
+	}
+
+	/** Puts out exactly {@code kinds} (the others are removed). */
+	public void setParts(java.util.Set<DevourerPartEntity.Kind> kinds) {
+		partKinds.clear();
+		partKinds.addAll(kinds);
+		this.partsOn = !partKinds.isEmpty();
+		if (level() instanceof ServerLevel server) {
+			for (java.util.Iterator<Map.Entry<DevourerPartEntity.Kind, UUID>> it = parts.entrySet().iterator(); it.hasNext();) {
+				Map.Entry<DevourerPartEntity.Kind, UUID> e = it.next();
+				if (!partKinds.contains(e.getKey())) {
+					if (server.getEntity(e.getValue()) instanceof DevourerPartEntity p) {
+						p.discard();
+					}
+					it.remove();
 				}
 			}
-			parts.clear();
 		}
 	}
 
 	public boolean partsOn() {
 		return partsOn;
+	}
+
+	/** Exactly these hit-boxes are out. */
+	public boolean partsAre(java.util.Set<DevourerPartEntity.Kind> kinds) {
+		return partKinds.equals(kinds);
 	}
 
 	public DevourerPartEntity part(DevourerPartEntity.Kind kind) {
@@ -249,9 +269,15 @@ public class DevourerEntity extends GalactusMob {
 
 	private void placeParts(ServerLevel level) {
 		GalactusRig.Pose p = pose();
-		for (DevourerPartEntity.Kind kind : DevourerPartEntity.Kind.values()) {
+		for (DevourerPartEntity.Kind kind : partKinds) {
 			DevourerPartEntity e = part(kind);
 			if (e == null) {
+				// v0.17.4: never into a chunk that isn't entity-ticking: an entity added there is hidden (getEntity can't see
+				// it), so a fresh part was made every tick while the old ones piled up out of sight
+				Vec3 c = kind.centre(p);
+				if (!level.isPositionEntityTicking(net.minecraft.core.BlockPos.containing(c))) {
+					continue;
+				}
 				e = com.projecthero.mod.galactus.entity.GalactusEntityTypes.DEVOURER_PART.create(level);
 				if (e == null) {
 					continue;
@@ -269,6 +295,11 @@ public class DevourerEntity extends GalactusMob {
 			Vec3 at = kind.centre(p);
 			e.setPos(at.x, at.y - e.getBbHeight() / 2, at.z);
 		}
+	}
+
+	/** Is {@code p} the part he is using for its kind? (A replaced one, back from a chunk that was hidden, is not.) */
+	public boolean ownsPart(DevourerPartEntity p) {
+		return p.getUUID().equals(parts.get(p.kind()));
 	}
 
 	/** A part was hit: the raid decides what it does. */

@@ -1,0 +1,658 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+
+import com.projecthero.mod.galactus.Galactus;
+import com.projecthero.mod.galactus.GalactusEvent;
+import com.projecthero.mod.galactus.GalactusEvent.Phase;
+import com.projecthero.mod.galactus.entity.ElementConverterEntity;
+import com.projecthero.mod.galactus.entity.PunisherRobotEntity;
+import com.projecthero.mod.galactus.entity.SilverSurferEntity;
+import com.projecthero.mod.galactus.item.GalactusItems;
+import com.projecthero.mod.galactus.orbit.DevourerEntity;
+import com.projecthero.mod.galactus.orbit.DevourerPartEntity;
+import com.projecthero.mod.galactus.orbit.GalactusOrbit;
+import com.projecthero.mod.galactus.orbit.OrbitArena;
+import com.projecthero.mod.galactus.orbit.OrbitIsland;
+import com.projecthero.mod.galactus.orbit.StageIslands;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.4: plays the Galactus raid v2 start to finish with a strong player, every hit on
+ * him through the REAL client attack key (KeyMapping.click -> Minecraft.startAttack -> the crosshair pick -> the attack
+ * packet), sockets through the real use key, the Nullifier held on the use key. The server side only places the player
+ * (teleports, like a fast flier would) and clears Punisher guards. Mode "loss": the player dies in Stage 1 and the
+ * recovery is logged. Enabled by run/galraid.flag: line 1 the mode (win|loss), line 2 the frames folder.
+ */
+public final class GalactusRaidHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File frames;
+	private static String mode = "win";
+	private static String section = "";
+	private static int frame;
+	private static Phase lastPhase;
+	private static int phaseTicks;
+	private static boolean done;
+	private static int homeTicks;
+	private static int ended;
+
+	// set by the server thread, read by the client thread
+	private static volatile Vec3 aimAt;
+	private static volatile int attackAt = -1;
+	private static volatile int useClickAt = -1;
+	private static volatile boolean holdUse;
+	private static volatile int lastIn = -1;
+	private static int clientAttacks, clientHitsOnPart;
+	private static int lossDiedAt = -1;
+	private static volatile BlockPos beaconAt;
+	private static boolean lossRespawned;
+
+	private GalactusRaidHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("galraid.flag"))) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(Path.of("galraid.flag"));
+			mode = lines.isEmpty() ? "win" : lines.get(0).trim();
+			frames = new File(lines.size() > 1 ? lines.get(1).trim() : "galraid_frames");
+		} catch (Exception e) {
+			frames = new File("galraid_frames");
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GalactusRaidHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(2_100_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG");
+			Runtime.getRuntime().halt(3);
+		}, "galraid-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void log(String s) {
+		System.out.println("[HARNESS] " + s);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						log("error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static GalactusEvent raid(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv == null) {
+			return null;
+		}
+		var all = GalactusEvent.all(srv);
+		return all.isEmpty() ? null : all.get(0);
+	}
+
+	private static void grab(Minecraft mc) {
+		if (section.isEmpty()) {
+			return;
+		}
+		File dir = new File(frames, section);
+		dir.mkdirs();
+		Screenshot.grab(dir, String.format("f%05d.png", frame++), mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void section(String name) {
+		section = name;
+		frame = 0;
+		log("section " + name);
+	}
+
+	private static ItemStack sword(double damage) {
+		ItemStack s = new ItemStack(Items.NETHERITE_SWORD);
+		s.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.builder()
+				.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(ResourceLocation.fromNamespaceAndPath("projecthero", "harness_dmg"), damage,
+						AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND)
+				.add(Attributes.ATTACK_SPEED, new AttributeModifier(ResourceLocation.fromNamespaceAndPath("projecthero", "harness_spd"), -2.4,
+						AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND)
+				.build());
+		return s;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GalactusRaidHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			mc.getWindow().setWindowed(854, 480);
+		}
+		if (t == 60) {
+			mc.options.fov().set(80);
+			mc.options.bobView().set(false);
+			// the low-graphics script sets 2 chunks; he stands 50-120 blocks out, so the film needs 12 (set in options.txt before launch too)
+			mc.options.renderDistance().set(12);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel lvl = p.serverLevel();
+				lvl.getServer().setDifficulty(Difficulty.NORMAL, true);
+				lvl.setDayTime(18000L);
+				lvl.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				lvl.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 3, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100000, 3, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 4, false, false));
+				p.getInventory().clearContent();
+				p.getInventory().setItem(0, sword(24));
+				p.getInventory().setItem(8, new ItemStack(Items.DIAMOND, 7)); // a marker: kept through a death in orbit
+				p.getInventory().selected = 0;
+				BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+				for (int dx = -45; dx <= 45; dx++) {
+					for (int dz = -45; dz <= 45; dz++) {
+						for (int dy = -6; dy <= 30; dy++) {
+							m.set(p.getBlockX() + dx, p.getBlockY() + dy, p.getBlockZ() + dz);
+							var st = lvl.getBlockState(m);
+							if (st.is(net.minecraft.tags.BlockTags.LEAVES) || st.is(net.minecraft.tags.BlockTags.LOGS)) {
+								lvl.setBlock(m, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16);
+							}
+						}
+					}
+				}
+				BlockPos at = p.blockPosition().offset(0, 0, 4);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ() - 4, 0f, 5f);
+				lvl.setBlockAndUpdate(at, com.projecthero.mod.galactus.block.GalactusBlocks.HERALDS_BEACON.defaultBlockState());
+				beaconAt = at;
+				GalactusEvent e = Galactus.start(lvl, at, p, Galactus.Source.COMMAND);
+				log("started " + (e != null) + " mode " + mode);
+			});
+		}
+		// ---- the client half: aim, and press the real keys
+		if (mc.screen instanceof DeathScreen && mode.equals("loss") && !lossRespawned) {
+			lossRespawned = true;
+			log("client: death screen; respawning");
+			mc.player.respawn();
+			mc.setScreen(null);
+		}
+		Vec3 aim = aimAt;
+		if (aim != null && mc.player.isAlive()) {
+			Vec3 eye = mc.player.getEyePosition();
+			Vec3 d = aim.subtract(eye);
+			double h = Math.sqrt(d.x * d.x + d.z * d.z);
+			float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+			float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, h)));
+			mc.player.setYRot(yaw);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = yaw;
+			mc.player.xRotO = pitch;
+		}
+		if (attackAt >= 0 && t >= attackAt) {
+			attackAt = -1;
+			HitResult hr = mc.hitResult;
+			String what = hr == null ? "null" : hr.getType() == HitResult.Type.ENTITY ? "ENTITY " + ((EntityHitResult) hr).getEntity().getType().toShortString()
+					+ (((EntityHitResult) hr).getEntity() instanceof DevourerPartEntity dp ? " " + dp.kind() : "") : hr.getType().toString();
+			clientAttacks++;
+			if (hr instanceof EntityHitResult ehr && ehr.getEntity() instanceof DevourerPartEntity) {
+				clientHitsOnPart++;
+			}
+			log("client attack key #" + clientAttacks + ": crosshair on " + what);
+			KeyMapping.click(mc.options.keyAttack.getDefaultKey());
+		}
+		if (useClickAt >= 0 && t >= useClickAt) {
+			useClickAt = -1;
+			HitResult hr = mc.hitResult;
+			log("client use key: crosshair on " + (hr instanceof EntityHitResult ehr ? ehr.getEntity().getType().toShortString() : hr == null ? "null" : hr.getType()));
+			KeyMapping.click(mc.options.keyUse.getDefaultKey());
+		}
+		mc.options.keyUse.setDown(holdUse);
+
+		GalactusEvent e = raid(mc);
+		if (t > 62 && e != null) {
+			if (e.phase() != lastPhase) {
+				lastPhase = e.phase();
+				phaseTicks = 0;
+				aimAt = null;
+				holdUse = false;
+				log("phase " + lastPhase + " at " + t + " (client attacks so far " + clientAttacks + ", on a part " + clientHitsOnPart + ")");
+				section(lastPhase.name().toLowerCase());
+				mc.options.setCameraType(lastPhase == Phase.HERALD ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON);
+			}
+			phaseTicks++;
+			drive(mc, e, phaseTicks, t);
+		}
+		if (e == null && t > 400 && !done) {
+			done = true;
+			aimAt = null;
+			holdUse = false;
+			section("home");
+			log("raid over at " + t + " (client attacks " + clientAttacks + ", on a part " + clientHitsOnPart + ")");
+		}
+		if (done && ++homeTicks == 80) {
+			server(mc, p -> {
+				ServerLevel ow = p.server.overworld();
+				log("after: player in " + p.level().dimension().location() + " at " + p.blockPosition() + " alive=" + p.isAlive() + " hp=" + p.getHealth());
+				StringBuilder inv = new StringBuilder();
+				for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+					ItemStack s = p.getInventory().getItem(i);
+					if (!s.isEmpty()) {
+						inv.append(s.getCount()).append("x").append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath()).append(' ');
+					}
+				}
+				log("after: inventory " + inv);
+				log("after: events left " + GalactusEvent.all(p.server).size());
+				ServerLevel orbit = GalactusOrbit.level(p.server);
+				log("after: orbit players " + (orbit == null ? -1 : orbit.players().size()) + "; blocks still in instance 0: "
+						+ (orbit == null ? -1 : GalactusOrbit.wipe(orbit, 0)));
+				log("after: grave waiting " + GalactusOrbit.grave(p).size());
+				log("after: block at the beacon " + beaconAt + " = " + ow.getBlockState(beaconAt).getBlock());
+				BlockPos near = p.blockPosition();
+				int chests = 0;
+				for (BlockPos b : BlockPos.betweenClosed(near.offset(-12, -6, -12), near.offset(12, 6, 12))) {
+					if (ow.getBlockState(b).is(net.minecraft.world.level.block.Blocks.CHEST)) {
+						chests++;
+						log("after: reward chest at " + b.immutable());
+					}
+				}
+				log("after: chests near " + chests + "; beacons near "
+						+ BlockPos.betweenClosedStream(near.offset(-12, -6, -12), near.offset(12, 6, 12))
+								.filter(b -> ow.getBlockState(b).is(com.projecthero.mod.galactus.block.GalactusBlocks.HERALDS_BEACON)).count());
+			});
+		}
+		if (done && homeTicks > 140) {
+			log("done");
+			Runtime.getRuntime().halt(0);
+		}
+		if (!section.isEmpty() && t % 2 == 0) {
+			grab(mc);
+		}
+	}
+
+	/** Teleports {@code p} so its eye is at {@code eye}, looking at {@code look}. */
+	private static void place(ServerPlayer p, Vec3 eye, Vec3 look) {
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		p.fallDistance = 0;
+		p.connection.teleport(eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pitch);
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static Vec3 nearest(AABB b, Vec3 v) {
+		return new Vec3(Math.max(b.minX, Math.min(b.maxX, v.x)), Math.max(b.minY, Math.min(b.maxY, v.y)), Math.max(b.minZ, Math.min(b.maxZ, v.z)));
+	}
+
+	private static void drive(Minecraft mc, GalactusEvent e, int n, int t) {
+		boolean loss = mode.equals("loss");
+		switch (e.phase()) {
+			case HERALD -> {
+				if (loss) {
+					if (n == 40) {
+						server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+					}
+					return;
+				}
+				if (n > 1400 && n % 200 == 0) {
+					log("FALLBACK: herald duel not over after 70 s; advancing");
+					server(mc, p -> e.debugAdvance(p.serverLevel(), p));
+					return;
+				}
+				if (n > 40 && n % 14 == 0) {
+					server(mc, p -> {
+						SilverSurferEntity s = e.surfer(p.serverLevel());
+						if (s == null) {
+							return;
+						}
+						p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 40, 0, false, false));
+						Vec3 c = s.getBoundingBox().getCenter();
+						Vec3 away = p.position().subtract(c).multiply(1, 0, 1);
+						away = away.lengthSqr() < 1.0e-3 ? new Vec3(1, 0, 0) : away.normalize();
+						place(p, c.add(away.scale(s.getBbWidth() / 2 + 1.6)), c);
+						aimAt = c;
+						attackAt = t + 2;
+						if (n % 140 == 0) {
+							log("herald: surfer hp " + s.getHealth() + "/" + s.getMaxHealth());
+						}
+					});
+				}
+			}
+			case STAGE1 -> server(mc, p -> stage1(mc, e, p, n, t, loss));
+			case STAGE2 -> server(mc, p -> stage2(mc, e, p, n, t));
+			case STAGE3 -> server(mc, p -> stage3(mc, e, p, n, t));
+			default -> {
+			}
+		}
+	}
+
+	private static void stage1(Minecraft mc, GalactusEvent e, ServerPlayer p, int n, int t, boolean loss) {
+		ServerLevel orbit = GalactusOrbit.level(p.server);
+		DevourerEntity d = e.devourer(orbit);
+		if (d == null) {
+			return;
+		}
+		StageIslands s = e.stage1;
+		if (loss) {
+			if (n == 300 && lossDiedAt < 0) {
+				lossDiedAt = t;
+				log("loss: killing the player in Stage 1 (inventory " + p.getInventory().countItem(Items.DIAMOND) + " diamonds)");
+				p.kill();
+			}
+			return;
+		}
+		if (n > 7200 && n % 400 == 0) {
+			log("FALLBACK: Stage 1 not over after 6 min (staggers " + s.staggers + "); advancing");
+			e.debugAdvance(p.serverLevel(), p);
+			return;
+		}
+		long in = orbit.getGameTime() - s.stateAt;
+		if (s.state == StageIslands.STUCK) {
+			boolean right = s.targetR >= 0;
+			DevourerPartEntity hand = d.part(right ? DevourerPartEntity.Kind.HAND_R : DevourerPartEntity.Kind.HAND_L);
+			if (hand == null) {
+				if (in == 3) {
+					log("stage1: STUCK but no hand hit-box!");
+				}
+				return;
+			}
+			AABB box = hand.getBoundingBox();
+			Vec3 fc = box.getCenter();
+			if (in == 3) {
+				// stand at the edge of the nearest whole island, facing the stuck fist (what a player would do)
+				Vec3 best = null;
+				double bd = Double.MAX_VALUE;
+				for (OrbitIsland i : s.islands) {
+					if (i.state != OrbitIsland.INTACT) {
+						continue;
+					}
+					Vec3 top = i.top();
+					Vec3 dir = new Vec3(fc.x - top.x, 0, fc.z - top.z);
+					if (dir.lengthSqr() < 1.0e-3) {
+						continue;
+					}
+					Vec3 edge = top.add(dir.normalize().scale(Math.max(1.0, i.radius - 1.2)));
+					double dd = nearest(box, edge.add(0, 1.6, 0)).distanceTo(edge.add(0, 1.6, 0));
+					if (dd < bd) {
+						bd = dd;
+						best = edge;
+					}
+				}
+				if (best != null) {
+					place(p, best.add(0, p.getEyeHeight(), 0), fc);
+					log(String.format("stage1: fist stuck (%s); standing on the next island, %.1f blocks from the fist's box (box %.1f wide, eye inside=%s); stagger %.0f/%.0f, staggers %d",
+							right ? "R" : "L", bd, box.getXsize(), box.contains(best.add(0, p.getEyeHeight(), 0)), s.stagger, s.staggerNeeded(1), s.staggers));
+				}
+			}
+			if (in == 5) {
+				// an arrow too (the ranged path): shot from the player at the fist
+				Arrow a = new Arrow(orbit, p, new ItemStack(Items.ARROW), null);
+				Vec3 eye = p.getEyePosition();
+				a.setPos(eye.x, eye.y - 0.1, eye.z);
+				Vec3 dir = fc.subtract(eye).normalize();
+				a.shoot(dir.x, dir.y, dir.z, 2.5f, 0f);
+				a.setBaseDamage(4.0);
+				orbit.addFreshEntity(a);
+				log(String.format("stage1: arrow loosed at the fist (stagger %.1f)", s.stagger));
+			}
+			if (in == 12) {
+				log(String.format("stage1: after the arrow, stagger %.1f", s.stagger));
+			}
+			aimAt = fc;
+			if (in >= 8 && (in - 8) % 14 == 0 && in < 76) {
+				attackAt = t + 1;
+			}
+			if (in % 14 == 10) {
+				log(String.format("stage1: stagger %.1f/%.1f (staggers %d)", s.stagger, s.staggerNeeded(1), s.staggers));
+			}
+		} else if (s.state == StageIslands.WIND && in == 2 || n == 5) {
+			OrbitIsland a = s.anchor();
+			if (a != null) {
+				Vec3 top = a.top();
+				place(p, top.add(0, p.getEyeHeight(), 2), d.pose().face);
+			}
+			aimAt = null;
+		} else if (s.state != StageIslands.STUCK) {
+			aimAt = null;
+		}
+	}
+
+	private static java.util.UUID s2Target;
+	private static int s2Since, s2WaitCell;
+
+	private static void stage2(Minecraft mc, GalactusEvent e, ServerPlayer p, int n, int t) {
+		ServerLevel orbit = GalactusOrbit.level(p.server);
+		if (n > 7200 && n % 400 == 0) {
+			log("FALLBACK: Stage 2 not over after 6 min; advancing");
+			e.debugAdvance(p.serverLevel(), p);
+			return;
+		}
+		List<ElementConverterEntity> live = e.stage2.live(orbit);
+		if (live.isEmpty()) {
+			return;
+		}
+		if (n % 200 == 0) {
+			log(String.format("stage2: consumption %.1f%%, reversed %d/%d, live %d", e.consumption(), e.stage2.reversed, e.stage2.total, live.size()));
+		}
+		ElementConverterEntity c = null;
+		for (ElementConverterEntity x : live) {
+			if (x.getUUID().equals(s2Target)) {
+				c = x;
+			}
+		}
+		if (c == null) {
+			c = live.get(0);
+			s2Target = c.getUUID();
+			s2Since = n;
+			log("stage2: going for converter " + c.getId());
+		}
+		final ElementConverterEntity conv = c;
+		// guards (and anyone stalling an overload) are cleared by the harness: the raid's Punishers aren't what we're testing
+		for (PunisherRobotEntity pr : e.orbitPunishers(orbit)) {
+			if (conv.getUUID().equals(pr.guardOf()) || pr.distanceToSqr(conv) < 12 * 12) {
+				pr.kill();
+			}
+		}
+		if (e.stage2.overload.containsKey(conv.getUUID())) {
+			if (n % 20 == 0) {
+				log("stage2: overloading " + e.stage2.overload.get(conv.getUUID()));
+			}
+			aimAt = conv.getBoundingBox().getCenter();
+			return;
+		}
+		boolean carrying = p.getInventory().countItem(GalactusItems.COSMIC_CELL) > 0;
+		if (!carrying) {
+			List<ItemEntity> cells = orbit.getEntitiesOfClass(ItemEntity.class, GalactusOrbit.box(e.orbitSlot()), x -> x.getItem().is(GalactusItems.COSMIC_CELL));
+			if (!cells.isEmpty() && n % 10 == 0) {
+				ItemEntity cell = cells.get(0);
+				place(p, cell.position().add(0, p.getEyeHeight(), 0), conv.position());
+				log("stage2: picking up a Cosmic Cell");
+			} else if (cells.isEmpty() && ++s2WaitCell > 700) {
+				s2WaitCell = 0;
+				log("FALLBACK: no Cosmic Cell for 35 s; giving one");
+				p.getInventory().add(new ItemStack(GalactusItems.COSMIC_CELL));
+			}
+			return;
+		}
+		s2WaitCell = 0;
+		if (conv.isShielded() || conv.getDeltaMovement().y < -0.05) {
+			return;
+		}
+		if (n % 30 == 0) {
+			AABB b = conv.getBoundingBox();
+			Vec3 cc = b.getCenter();
+			BlockPos o = GalactusOrbit.origin(e.orbitSlot());
+			Vec3 in = new Vec3(o.getX() + 0.5 - cc.x, 0, o.getZ() + 0.5 - cc.z).normalize();
+			Vec3 stand = new Vec3(cc.x, b.minY, cc.z).add(in.scale(b.getXsize() / 2 + 1.4));
+			Vec3 eye = stand.add(0, p.getEyeHeight(), 0);
+			Vec3 look = new Vec3(cc.x, Math.min(b.maxY - 0.5, eye.y), cc.z);
+			place(p, eye, look);
+			aimAt = look;
+			useClickAt = t + 3;
+			log("stage2: carrying a cell to converter " + conv.getId() + " (shielded " + conv.isShielded() + ")");
+		}
+	}
+
+	private static boolean flying;
+	private static boolean bigSword;
+	private static int crackerSide;
+
+	private static void stage3(Minecraft mc, GalactusEvent e, ServerPlayer p, int n, int t) {
+		ServerLevel orbit = GalactusOrbit.level(p.server);
+		DevourerEntity d = e.devourer(orbit);
+		if (d == null) {
+			return;
+		}
+		if (!bigSword) {
+			bigSword = true;
+			p.getInventory().setItem(0, sword(150));
+			p.getInventory().selected = 0;
+			log("stage3: the strong player draws the heavy sword (+150)");
+		}
+		if (!flying) {
+			flying = true;
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		}
+		if (n > 9000 && n % 400 == 0) {
+			log("FALLBACK: Stage 3 not over after 7.5 min; advancing");
+			e.debugAdvance(p.serverLevel(), p);
+			return;
+		}
+		if (n % 100 == 0) {
+			log(String.format("stage3: health %.0f/%.0f (%.1f%%) move %s finale %s", e.stage3.health, e.stage3.maxHealth, e.stage3.fraction() * 100, e.stage3.move,
+					e.stage3.finale));
+		}
+		if (e.stage3.finale) {
+			ServerPlayer holder = e.nullifierHolder(orbit);
+			if (holder != p) {
+				holdUse = false;
+				return;
+			}
+			int slot = -1;
+			for (int i = 0; i < 9; i++) {
+				if (p.getInventory().getItem(i).is(GalactusItems.ULTIMATE_NULLIFIER)) {
+					slot = i;
+				}
+			}
+			if (slot < 0) {
+				for (int i = 9; i < p.getInventory().getContainerSize(); i++) {
+					if (p.getInventory().getItem(i).is(GalactusItems.ULTIMATE_NULLIFIER)) {
+						ItemStack a = p.getInventory().getItem(i).copy();
+						p.getInventory().setItem(i, p.getInventory().getItem(1).copy());
+						p.getInventory().setItem(1, a);
+						slot = 1;
+					}
+				}
+			}
+			if (slot >= 0 && p.getInventory().selected != slot) {
+				p.getInventory().selected = slot;
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(slot));
+				log("finale: the Nullifier is in hand (slot " + slot + ")");
+			}
+			Vec3 face = d.pose().face;
+			if (n % 40 == 0) {
+				BlockPos o = GalactusOrbit.origin(e.orbitSlot());
+				Vec3 toward = new Vec3(d.getX() - o.getX(), 0, d.getZ() - o.getZ()).normalize();
+				Vec3 stand = OrbitArena.hullSpot(o, 12, Math.atan2(toward.z, toward.x));
+				place(p, stand.add(0, 1 + p.getEyeHeight(), 0), face);
+			}
+			aimAt = face;
+			holdUse = true;
+			if (n % 20 == 0) {
+				log("finale: holding the use key on his head; using=" + p.isUsingItem() + " ticks " + p.getTicksUsingItem());
+			}
+			return;
+		}
+		holdUse = false;
+		if (n % 14 != 0) {
+			return;
+		}
+		float[] hands = e.stage3.crackerHands(1);
+		DevourerPartEntity.Kind kind = DevourerPartEntity.Kind.HEAD;
+		if (hands != null) {
+			crackerSide ^= 1;
+			kind = hands[0] >= 1f ? DevourerPartEntity.Kind.HAND_L : hands[1] >= 1f ? DevourerPartEntity.Kind.HAND_R
+					: crackerSide == 0 ? DevourerPartEntity.Kind.HAND_R : DevourerPartEntity.Kind.HAND_L;
+		}
+		DevourerPartEntity part = d.part(kind);
+		if (part == null) {
+			return;
+		}
+		AABB b = part.getBoundingBox();
+		Vec3 top = new Vec3(b.getCenter().x, b.maxY + 1.4, b.getCenter().z);
+		place(p, top, b.getCenter());
+		aimAt = b.getCenter();
+		attackAt = t + 2;
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GR_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -51,6 +51,9 @@ public final class GalactusClient {
 		EntityRendererRegistry.register(GalactusEntityTypes.SURFER_BOARD, GalactusRenderers.Board::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.DEVOURER, DevourerRenderer::new); // v0.17.2 raid v2
 		EntityRendererRegistry.register(GalactusEntityTypes.DEVOURER_PART, ctx -> new GalactusRenderers.Invisible<>(ctx));
+		// v0.17.4: the client keeps its own list of giant hit-boxes, so the crosshair pick finds his fist (BigHitboxes)
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents.ENTITY_LOAD.register(com.projecthero.mod.entity.BigHitboxes::onLoad);
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents.ENTITY_UNLOAD.register(com.projecthero.mod.entity.BigHitboxes::onUnload);
 		ClientPlayNetworking.registerGlobalReceiver(GalactusSkyPayload.TYPE, (payload, ctx) -> ctx.client().execute(() -> GalactusSkyClient.accept(payload)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> GalactusSkyClient.reset());
 		GalactusOrbitSky.initialize(); // v0.17.2 raid v2: the orbit sky

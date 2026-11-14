@@ -1607,11 +1607,11 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.ultron_contagion." + section + ".body");
 			}
 		}));
-		// v0.16.1: Galactus: The Devourer (CH_GALACTUS)
+		// v0.16.1: Galactus: The Devourer (CH_GALACTUS); v0.17.4: rewritten for the raid v2 flow (orbit, three stages)
 		out.add(chapter("projecthero.guide.galactus", lines -> {
 			para(lines, "projecthero.guide.galactus.body");
-			for (String section : new String[]{"ladder", "start", "arena", "herald", "worldship", "consumption", "galactus", "moves", "punishers",
-					"nullifier", "rewards", "commands"}) {
+			for (String section : new String[]{"ladder", "start", "herald", "orbit", "stage1", "stage2", "stage3", "punishers", "nullifier",
+					"death", "rewards", "commands"}) {
 				blank(lines);
 				head(lines, "projecthero.guide.galactus." + section);
 				para(lines, "projecthero.guide.galactus." + section + ".body");
