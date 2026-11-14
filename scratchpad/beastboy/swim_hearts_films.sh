@@ -12,8 +12,8 @@ for f in sh_*_000.png; do
 	n=${f%_000.png}
 	n=${n#sh_}
 	count=$(ls sh_${n}_[0-9]*.png | wc -l)
-	if [ "$count" -le 1 ]; then
-		cp "$f" "$OUT/$n.png"
+	if [ "$count" -le 2 ]; then
+		cp "sh_${n}_$(printf %03d $((count - 1))).png" "$OUT/$n.png"
 		echo "$n (still)"
 		continue
 	fi

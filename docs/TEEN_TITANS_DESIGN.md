@@ -245,10 +245,12 @@ Films: `docs/screenshots/v0173/starfire_anim/` (before/ = previous build).
   Fixes: `SwimRig.track` runs on the game clock (the ticks' own steps `x - xo`, eased on `tickCount + partialTick`); the pitch follows the
   swim only once he's really moving, stays shallow for mostly-vertical motion and at the surface; a leap keeps the swim pose; the body
   pitch no longer adds the look pitch; `BeastBoySwimTurnMixin` (common, `tickHeadTurn`) eases the body toward the look in the water on
-  every side (the whale's rider seats hang off the body yaw, so they stay on its back).
+  every side (the whale's rider seats hang off the body yaw, so they stay on its back). The octopus used to lean a fixed 40-65 degrees
+  whenever it moved; it now lies out mantle-first along the swim (about level at a cruise, following the climb / dive), upright at rest.
 - **Sea-form controls** (`client/beastboy/BeastSwim`, from `Player#travel` via `BeastBoySwimTravelMixin`, local player only): swim where
   you look (W along the look, S backs off at 45%, A / D slide), Space / Sneak rise / sink, Sprint a burst (blocks a tick, cruise / sprint:
   dolphin 0.26 / 0.48, shark 0.24 / 0.44, octopus 0.19 / 0.36, whale 0.18 / 0.30), the velocity eases (0.11 a tick speeding up, 0.075
-  gliding), no gravity or buoyancy in the water. At the surface a spring holds his back just out of the water (he can't look his way out
-  of it, no bobbing); Space there leaps (12-tick cooldown); swimming into a ledge near the surface climbs out; server shoves (knockback, a
+  gliding), no gravity or buoyancy in the water. At the surface a spring holds him with his eyes just out of the water (first person sees
+  over it, the fin / back shows; he can't look his way out of it, no bobbing), and a near-level look (under ~12 degrees down) keeps
+  cruising there: look further down or Sneak to dive; Space there leaps (12-tick cooldown); swimming into a ledge near the surface climbs out; server shoves (knockback, a
   move's lunge) are adopted and eased out of.

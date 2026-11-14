@@ -33,6 +33,8 @@ public final class BeastSwim {
 	/** The last velocity this set, to tell an outside shove from vanilla's own little Space / Sneak nudges. */
 	private static Vec3 velocity;
 	private static int leapCooldown;
+	/** Ticks since the last leap (a dive back in from one bobs back up to the surface). */
+	private static int sinceLeap = 1000;
 
 	private BeastSwim() {
 	}
@@ -68,6 +70,9 @@ public final class BeastSwim {
 		if (leapCooldown > 0) {
 			leapCooldown--;
 		}
+		if (sinceLeap < 1000) {
+			sinceLeap++;
+		}
 		boolean jump = p.input.jumping;
 		boolean sneak = p.input.shiftKeyDown;
 		Vec3 current = p.getDeltaMovement();
@@ -99,10 +104,15 @@ public final class BeastSwim {
 		double h = p.getBbHeight();
 		double inWater = submersion(p);
 		boolean atSurface = inWater < h * 0.98;
-		if (inWater < h + 0.6) {
-			double hold = (inWater - h * 0.82) * 0.3; // + = below the hold line (rise), - = above it (settle)
+		if (inWater < h + 0.6 || (sinceLeap < 50 && inWater < h + 4.0)) {
+			// the hold line: his eyes just out of the water, so first person sees over the surface (and the fin / back shows)
+			double hold = (inWater - (p.getEyeHeight() - 0.1)) * 0.3; // + = below the hold line (rise), - = above it (settle)
 			if (!jump || leapCooldown > 0) {
-				target = new Vec3(target.x, Math.min(target.y, Math.max(hold, -0.12)), target.z);
+				// resting, or a near-level look (within about 12 degrees down): the spring holds him on the line both ways, so he cruises
+				// along the surface; look further down or Sneak to dive. Looking up only rises as far as the line.
+				boolean cruise = !sneak && (fwd <= 0 || look.y > -0.2);
+				double spring = Mth.clamp(hold, -0.12, 0.12);
+				target = new Vec3(target.x, cruise ? spring : Math.min(target.y, spring), target.z);
 			}
 		}
 		// Space at the surface: a leap out of the water
@@ -110,11 +120,14 @@ public final class BeastSwim {
 			Vec3 flat = new Vec3(velocity.x, 0, velocity.z);
 			velocity = new Vec3(flat.x * 1.1, leap(f), flat.z * 1.1);
 			leapCooldown = 12;
+			sinceLeap = 0;
 		} else {
 			// ease toward the wanted velocity: quicker to speed up than to glide to a stop
 			boolean speeding = target.lengthSqr() > velocity.lengthSqr();
 			double k = speeding ? 0.11 : 0.075;
-			velocity = velocity.add(target.subtract(velocity).scale(k));
+			// vertical settles a little faster, so a dive back in from a leap doesn't carry him to the bottom
+			velocity = new Vec3(velocity.x + (target.x - velocity.x) * k, velocity.y + (target.y - velocity.y) * Math.max(k, 0.14),
+					velocity.z + (target.z - velocity.z) * k);
 			if (velocity.lengthSqr() < 1.0e-6) {
 				velocity = Vec3.ZERO;
 			}
@@ -138,7 +151,7 @@ public final class BeastSwim {
 		double top = p.getY() + p.getBbHeight();
 		BlockPos.MutableBlockPos pos = BlockPos.containing(p.getX(), p.getY(), p.getZ()).mutable();
 		double surface = Double.NaN;
-		while (pos.getY() <= top + 2.0) {
+		while (pos.getY() <= top + 4.0) {
 			FluidState fluid = p.level().getFluidState(pos);
 			if (fluid.is(FluidTags.WATER)) {
 				surface = pos.getY() + fluid.getHeight(p.level(), pos);

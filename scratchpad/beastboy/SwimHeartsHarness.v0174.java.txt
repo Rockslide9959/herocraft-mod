@@ -167,10 +167,10 @@ public final class SwimHeartsHarness {
 		}
 	}
 
-	/** A glass tank, 74 long (+X), 21 wide, 9 deep, full of water, its floor at the ground (the flat world's grass is under it). */
+	/** A glass tank, 138 long (+X), 37 wide, 9 deep, full of water, its floor at the ground (the flat world's grass is under it). */
 	private static void buildTank(ServerLevel level) {
 		BlockPos o = BlockPos.containing(origin);
-		int x0 = o.getX() - 8, x1 = o.getX() + 66, z0 = o.getZ() - 10, z1 = o.getZ() + 10, y0 = o.getY(), y1 = o.getY() + 9;
+		int x0 = o.getX() - 8, x1 = o.getX() + 130, z0 = o.getZ() - 18, z1 = o.getZ() + 18, y0 = o.getY(), y1 = o.getY() + 9;
 		for (int x = x0; x <= x1; x++) {
 			for (int z = z0; z <= z1; z++) {
 				for (int y = y0; y <= y1; y++) {
@@ -266,7 +266,7 @@ public final class SwimHeartsHarness {
 
 	private static float radius(BeastForm f) {
 		return switch (f) {
-			case WHALE -> 13f;
+			case WHALE -> 12f;
 			case SHARK -> 6f;
 			case OCTOPUS -> 4.5f;
 			default -> 5f;
@@ -280,7 +280,7 @@ public final class SwimHeartsHarness {
 		spin(t + 50, 0f, 0f);
 		spin(t + 65, 0f, -3f); // up to -40 (toward the surface)
 		spin(t + 88, 0f, 0f);
-		spin(t + 120, 0f, 2f); // level off along the surface
+		spin(t + 120, 0f, 1.95f); // level off along the surface
 		spin(t + 140, 0f, 0f);
 		spin(t + 140, 2.5f, 0f); // a turn left and back
 		spin(t + 156, -2.5f, 0f);
@@ -305,6 +305,10 @@ public final class SwimHeartsHarness {
 					BeastBoy.setForm(p, ff);
 				}));
 				look(t, 0f, 10f, 0f, 0f);
+				at(t + 20, () -> {
+					mc.gui.getChat().clearMessages(false);
+					mc.getToasts().clear();
+				});
 				cam(mc, t, null, 0f, 0f, 0f, true, true);
 				record(t + 25, "hearts_" + f.name().toLowerCase(), 1);
 				t += 35;
@@ -330,7 +334,7 @@ public final class SwimHeartsHarness {
 			String n = f.name().toLowerCase();
 			if (want("side_" + n) || want("swim_" + n)) {
 				place(mc, t, f, 3.0);
-				cam(mc, t, 0f, radius(f), 0.5f, 0.4f, false, false);
+				cam(mc, t, 0f, radius(f), f == BeastForm.WHALE ? 1.6f : 0.5f, f == BeastForm.WHALE ? 1.2f : 0.4f, false, false);
 				int end = course(mc, t + 20);
 				record(t + 18, "side_" + n, end - t - 18);
 				t = end + 10;
