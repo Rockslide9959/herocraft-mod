@@ -2031,7 +2031,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.doctor_fate.body");
 			blank(lines);
 			// v0.17.4: "summon" -- the Helmet of Fate as an item and H calling it from anywhere
-			for (String section : new String[]{"getting", "helmet", "summon", "dominion", "tiers", "possession", "bargains", "mindscape", "landing", "fair"}) {
+			// v0.17.4 round 2: "library" -- the trial in Nabu's library that ends a Possession
+			for (String section : new String[]{"getting", "helmet", "summon", "dominion", "tiers", "possession", "library", "bargains", "mindscape", "landing", "fair"}) {
 				head(lines, "projecthero.guide.doctor_fate." + section);
 				para(lines, "projecthero.guide.doctor_fate." + section + ".body");
 				blank(lines);

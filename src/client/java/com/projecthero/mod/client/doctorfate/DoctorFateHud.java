@@ -64,8 +64,8 @@ public final class DoctorFateHud {
 			return;
 		}
 		FateState s = DoctorFate.peek(p);
-		if (s == null || !s.hasPower) {
-			return;
+		if (s == null || !s.hasPower || FateLibrary.showing()) {
+			return; // v0.17.4 round 2: in Nabu's library the library draws its own HUD
 		}
 		var exp = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
@@ -224,20 +224,17 @@ public final class DoctorFateHud {
 			int pulse = 40 + (int) (20 * Math.sin((p.tickCount + partial) * 0.25));
 			g.fill(0, 0, W, H, (pulse << 24) | 0xFFC030);
 			edges(g, W, H, 0xC0FFC93A, 26);
+			// (v0.17.4 round 2: normally Nabu's library covers all of this; this shows only for the moment before it opens)
 			Font font = mc.font;
-			int left = DoctorFate.possessionTicksLeft(p);
 			Component head = Component.translatable("hud.projecthero.doctor_fate.possessed");
 			g.pose().pushPose();
 			g.pose().translate(W / 2f, H / 2f - 46, 0);
 			g.pose().scale(1.6f, 1.6f, 1f);
 			g.drawString(font, head, -font.width(head) / 2, 0, 0xFFFFE070, true);
 			g.pose().popPose();
-			int bw = Math.min(160, W - 40), bx = (W - bw) / 2, byy = H / 2 - 26;
-			float frac = left / (float) DoctorFateConfig.POSSESSION_TICKS;
-			g.fill(bx - 1, byy - 1, bx + bw + 1, byy + 5, 0xFF201000);
-			g.fill(bx, byy, bx + Math.round(bw * frac), byy + 4, 0xFFFFC93A);
+			int byy = H / 2 - 26;
 			boolean flash = mc.level.getGameTime() - FateFx.struggledAt < 4;
-			List<FormattedCharSequence> hint = font.split(Component.translatable("hud.projecthero.doctor_fate.struggle", clock(left)), Math.min(220, W - 20));
+			List<FormattedCharSequence> hint = font.split(Component.translatable("hud.projecthero.doctor_fate.possessed_hint"), Math.min(220, W - 20));
 			int y = byy + 9;
 			for (FormattedCharSequence l : hint) {
 				g.drawString(font, l, (W - font.width(l)) / 2, y, flash ? 0xFF8FB8FF : 0xFFFFFFFF, true);

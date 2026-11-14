@@ -25,7 +25,15 @@ public record FateActionPayload(Action action, int arg, BlockPos pos) implements
 		/** v0.17.3 the Tower of Fate mindscape: a dialogue choice ({@code arg} = {@code DoctorFateMindscape.Choice} ordinal). */
 		MIND_CHOICE,
 		/** v0.17.3 the mindscape screen closed. */
-		MIND_CLOSE
+		MIND_CLOSE,
+		/** v0.17.4 round 2 Nabu's library: a book read at a lectern ({@code arg} = lectern index). */
+		TRIAL_READ,
+		/** v0.17.4 round 2: at the Eye of Nabu in the library's heart, face him (his next challenge, or the willpower test). */
+		TRIAL_CONFRONT,
+		/** v0.17.4 round 2: the answer to his challenge ({@code arg} = the row picked, 0-2, as shown). */
+		TRIAL_ANSWER,
+		/** v0.17.4 round 2: the walker came out of the hallway into the library (the door shuts behind him). */
+		TRIAL_ENTERED
 	}
 
 	public static final CustomPacketPayload.Type<FateActionPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("doctor_fate_action"));

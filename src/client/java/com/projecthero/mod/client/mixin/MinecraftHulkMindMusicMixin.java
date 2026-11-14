@@ -23,6 +23,9 @@ public abstract class MinecraftHulkMindMusicMixin {
 			cir.setReturnValue(HulkMindAmbience.MUSIC);
 		} else if (com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.showing()) {
 			cir.setReturnValue(net.minecraft.sounds.Musics.END); // v0.17.2 round 4: the council's own music, as it was in the old dimension
+		} else if (com.projecthero.mod.client.doctorfate.FateLibrary.showing()) {
+			// v0.17.4 round 2: Nabu's library -- the deep dark's music, low and uneasy
+			cir.setReturnValue(net.minecraft.sounds.Musics.createGameMusic(net.minecraft.sounds.SoundEvents.MUSIC_BIOME_DEEP_DARK));
 		}
 	}
 }

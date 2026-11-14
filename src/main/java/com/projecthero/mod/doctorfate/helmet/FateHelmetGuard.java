@@ -225,6 +225,11 @@ public final class FateHelmetGuard {
 				if (item.isRemoved() || purgeEntity(reg, item)) {
 					return;
 				}
+				// v0.17.4 round 2 (user: "make the helmet an entity when dropped please"): Q, a death drop, a full inventory, a broken
+				// item frame -- a dropped Helmet of Fate becomes the hovering helmet where it lands, never a plain item
+				if (toPlaced(reg, level, item) != null) {
+					return;
+				}
 				item.setUnlimitedLifetime(); // a dropped helmet never despawns
 				FateHelmetTag t = item.getItem().get(FateHelmet.TAG);
 				if (t != null) {
@@ -236,6 +241,26 @@ public final class FateHelmetGuard {
 		if (entity instanceof FateHelmetEntity || carriesHelmet(entity)) {
 			defer(server, () -> purgeEntity(FateHelmetRegistry.get(server), entity));
 		}
+	}
+
+	/**
+	 * v0.17.4 round 2: a live dropped Helmet of Fate item turns into the placed {@link FateHelmetEntity} right where it is, carrying
+	 * the item's motion (so a thrown one still flies and falls, then settles and hovers where it lands), with the same owner and
+	 * generation. The item entity goes in the same tick, so there's never a moment with two. Public for the gametests.
+	 */
+	public static FateHelmetEntity toPlaced(FateHelmetRegistry reg, ServerLevel level, ItemEntity item) {
+		if (item.isRemoved() || !FateHelmet.is(item.getItem()) || reg.isStale(item.getItem())) {
+			return null;
+		}
+		FateHelmetTag t = item.getItem().get(FateHelmet.TAG);
+		FateHelmetEntity e = FateHelmetEntity.place(level, item.position(), t, item.getYRot(), true);
+		e.setDeltaMovement(item.getDeltaMovement());
+		item.discard();
+		level.addFreshEntity(e);
+		if (t != null) {
+			reg.note(t.owner(), FateHelmetRegistry.Where.PLACED, level, e.blockPosition(), e.getUUID());
+		}
+		return e;
 	}
 
 	/** Cheap first look (no loot rolled): does this entity hold any Helmet of Fate at all? */

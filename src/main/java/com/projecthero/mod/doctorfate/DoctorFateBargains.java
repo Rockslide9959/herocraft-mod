@@ -173,14 +173,29 @@ public final class DoctorFateBargains {
 
 	/** After he takes a hit: death's door. */
 	public static void onHurt(ServerPlayer p) {
-		if (!DoctorFate.wearsHelmet(p) || !p.isAlive() || p.getHealth() > DoctorFateConfig.DEATHS_DOOR_HEALTH) {
+		if (!p.isAlive() || p.getHealth() > DoctorFateConfig.DEATHS_DOOR_HEALTH) {
 			return;
+		}
+		offerDeathsDoor(p);
+	}
+
+	/**
+	 * v0.17.4 round 2: a killing blow. If Nabu would offer Death's door now, he does, and the caller holds the player at 1 health
+	 * (DoctorFateDamage.allowDeath); while the offer is open nothing can hurt him. True if it was offered.
+	 */
+	public static boolean offerAtDeath(ServerPlayer p) {
+		return offerDeathsDoor(p);
+	}
+
+	private static boolean offerDeathsDoor(ServerPlayer p) {
+		if (!DoctorFate.wearsHelmet(p)) {
+			return false;
 		}
 		Bargain b = DoctorFate.state(p).bargain;
 		if (p.level().getGameTime() - b.lastOffer() < DoctorFateConfig.OFFER_GAP_TICKS && b.lastOffer() > 0L) {
-			return;
+			return false;
 		}
-		offer(p, Bargain.DEATHS_DOOR);
+		return offer(p, Bargain.DEATHS_DOOR);
 	}
 
 	/** He killed something. A creature of Chaos counts for Order's command. */

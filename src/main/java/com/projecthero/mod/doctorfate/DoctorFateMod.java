@@ -51,6 +51,8 @@ public final class DoctorFateMod {
 		PayloadTypeRegistry.playS2C().register(FateServePayload.TYPE, FateServePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FateFxPayload.TYPE, FateFxPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FatePossessPayload.TYPE, FatePossessPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.doctorfate.network.FateTrialPayload.TYPE,
+				com.projecthero.mod.doctorfate.network.FateTrialPayload.CODEC); // v0.17.4 round 2: Nabu's library
 		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.doctorfate.network.FateSpellFxPayload.TYPE,
 				com.projecthero.mod.doctorfate.network.FateSpellFxPayload.CODEC); // v0.17.3 effects pass
 		ServerPlayNetworking.registerGlobalReceiver(FateActionPayload.TYPE, (payload, context) -> onAction(context.player(), payload));
@@ -67,9 +69,10 @@ public final class DoctorFateMod {
 				DoctorFate.clearTransient(p);
 			}
 		});
-		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> DoctorFate.clearTransient(player));
+		// v0.17.4 round 2: a Possession survives a world change and a logout (no escaping Nabu); death ends it
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> DoctorFate.clearTransient(player, false));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			DoctorFate.clearTransient(handler.getPlayer());
+			DoctorFate.clearTransient(handler.getPlayer(), false);
 			DoctorFate.forget(handler.getPlayer().getUUID());
 		});
 	}
@@ -103,6 +106,11 @@ public final class DoctorFateMod {
 			}
 			case MIND_CHOICE -> DoctorFateMindscape.choose(p, DoctorFateMindscape.Choice.byId(payload.arg()));
 			case MIND_CLOSE -> DoctorFateMindscape.close(p);
+			// v0.17.4 round 2: the trial in Nabu's library
+			case TRIAL_READ -> DoctorFateNabuTrial.read(p, payload.arg());
+			case TRIAL_CONFRONT -> DoctorFateNabuTrial.confront(p);
+			case TRIAL_ANSWER -> DoctorFateNabuTrial.answer(p, payload.arg());
+			case TRIAL_ENTERED -> DoctorFateNabuTrial.entered(p);
 		}
 	}
 

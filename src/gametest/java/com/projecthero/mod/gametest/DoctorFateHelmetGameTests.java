@@ -125,14 +125,47 @@ public class DoctorFateHelmetGameTests implements FabricGameTest {
 		Vec3 spot = helper.absoluteVec(new Vec3(5.5, 2.5, 2.5));
 		ItemEntity dropped = new ItemEntity(level, spot.x, spot.y, spot.z, liveStack(helper, p));
 		level.addFreshEntity(dropped);
+		int gen = reg(helper).generation(p.getUUID());
 		helper.runAfterDelay(3, () -> {
+			helper.assertTrue(dropped.isRemoved(), "v0.17.4 round 2: the dropped item didn't stay an item");
 			FateHelmetRegistry.Entry e = reg(helper).entry(p.getUUID());
-			helper.assertTrue(e.where() == FateHelmetRegistry.Where.ITEM_ENTITY && e.thing().map(dropped.getUUID()::equals).orElse(false),
-					"the dropped helmet told the registry where it is, " + e);
+			FateHelmetEntity placed = e.thing().map(level::getEntity).filter(FateHelmetEntity.class::isInstance).map(FateHelmetEntity.class::cast).orElse(null);
+			helper.assertTrue(e.where() == FateHelmetRegistry.Where.PLACED && placed != null && !placed.isRemoved(),
+					"it became the hovering helmet and told the registry where it is, " + e);
+			helper.assertTrue(placed.owner().map(p.getUUID()::equals).orElse(false) && placed.tag().generation() == gen,
+					"same owner and generation");
+			helper.assertTrue(DoctorFateHelmet.liveEntities(level, p.getUUID(), area(helper)) == 1, "exactly one helmet on the ground");
 			helper.assertTrue(DoctorFate.pressH(p), "H summons it");
-			helper.assertTrue(dropped.isRemoved(), "the dropped item is gone");
+			helper.assertTrue(placed.isRemoved(), "the helmet left the ground");
 			summoned(helper, p);
 			helper.assertTrue(DoctorFateHelmet.liveEntities(level, p.getUUID(), area(helper)) == 0, "no copy on the ground");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.4 round 2: a thrown helmet flies on, falls, lands and hovers there as the entity; a ghost item never converts. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void aDroppedHelmetLandsAsTheEntity(GameTestHelper helper) {
+		ServerPlayer p = fate(helper);
+		ServerLevel level = helper.getLevel();
+		Vec3 spot = helper.absoluteVec(new Vec3(2.5, 4.0, 2.5));
+		ItemEntity thrown = new ItemEntity(level, spot.x, spot.y, spot.z, liveStack(helper, p));
+		thrown.setDeltaMovement(0.2, 0.1, 0.0);
+		level.addFreshEntity(thrown);
+		FateHelmetTag old = new FateHelmetTag(p.getUUID(), "x", reg(helper).generation(p.getUUID()) - 1);
+		ItemStack ghostStack = new ItemStack(FateHelmet.ITEM);
+		ghostStack.set(FateHelmet.TAG, old);
+		helper.assertTrue(FateHelmetGuard.toPlaced(reg(helper), level, new ItemEntity(level, spot.x, spot.y, spot.z, ghostStack)) == null,
+				"a ghost of an older generation never turns into a helmet");
+		helper.runAfterDelay(50, () -> {
+			helper.assertTrue(thrown.isRemoved(), "the item is gone");
+			java.util.List<FateHelmetEntity> found = level.getEntitiesOfClass(FateHelmetEntity.class, area(helper),
+					h -> h.owner().map(p.getUUID()::equals).orElse(false));
+			helper.assertTrue(found.size() == 1, "one hovering helmet, found " + found.size());
+			FateHelmetEntity h = found.get(0);
+			helper.assertTrue(!h.falling(), "it has landed");
+			helper.assertTrue(h.getX() > spot.x + 0.1, "it flew on with the throw");
+			helper.assertTrue(h.getY() < spot.y - 1.0, "and fell to the floor");
 			helper.succeed();
 		});
 	}

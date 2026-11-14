@@ -89,6 +89,10 @@ public final class DoctorFateClient {
 			pYaw = payload.yaw();
 			pPitch = payload.pitch();
 		});
+		// v0.17.4 round 2: the trial in Nabu's library while he holds the body
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.doctorfate.network.FateTrialPayload.TYPE,
+				(payload, context) -> FateLibrary.receive(payload));
+		FateLibrary.init();
 		ClientTickEvents.START_CLIENT_TICK.register(DoctorFateClient::startTick);
 		ClientTickEvents.END_CLIENT_TICK.register(DoctorFateClient::endTick);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
@@ -170,8 +174,8 @@ public final class DoctorFateClient {
 			}
 			queuedBargain = null;
 		}
-		if (!localPossessed()) {
-			return;
+		if (!localPossessed() || FateLibrary.showing()) {
+			return; // v0.17.4 round 2: in Nabu's library the library takes the keys (Space is its willpower push)
 		}
 		int presses = 0;
 		while (mc.options.keyJump.consumeClick()) {

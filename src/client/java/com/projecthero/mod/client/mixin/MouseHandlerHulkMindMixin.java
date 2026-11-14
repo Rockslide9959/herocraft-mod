@@ -30,6 +30,10 @@ public abstract class MouseHandlerHulkMindMixin {
 			AlienXHall.turn(dx, dy); // v0.17.2 round 4: the walker of Alien X's hall, or the view round his body
 			return;
 		}
+		if (com.projecthero.mod.client.doctorfate.FateLibrary.showing()) {
+			com.projecthero.mod.client.doctorfate.FateLibrary.turn(dx, dy); // v0.17.4 round 2: the walker in Nabu's library
+			return;
+		}
 		original.call(player, dx, dy);
 	}
 
@@ -40,6 +44,9 @@ public abstract class MouseHandlerHulkMindMixin {
 		}
 		if (AlienXHall.showing() && net.minecraft.client.Minecraft.getInstance().screen == null) {
 			AlienXHall.scroll(yOffset);
+			ci.cancel();
+		}
+		if (com.projecthero.mod.client.doctorfate.FateLibrary.showing() && net.minecraft.client.Minecraft.getInstance().screen == null) {
 			ci.cancel();
 		}
 	}
