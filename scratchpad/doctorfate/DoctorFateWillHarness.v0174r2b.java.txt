@@ -1,0 +1,260 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.function.Consumer;
+
+import org.lwjgl.glfw.GLFWNativeWin32;
+import org.lwjgl.system.windows.User32;
+
+import com.projecthero.mod.client.doctorfate.FateLibrary;
+import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateNabuTrial;
+import com.projecthero.mod.doctorfate.DoctorFatePossession;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.4 round 2 rebuild of the Doctor Fate will test. A "player" bot watches the Gauge exactly as it is
+ * drawn (FateLibrary's shown will / band, seen REACTION ticks late like a human) and presses / releases SPACE by posting real
+ * WM_KEYDOWN / WM_KEYUP messages to the game window: they go through GLFW's window procedure into GLFW's key state, which is what
+ * FateLibrary reads (InputConstants.isKeyDown), so this exercises the real hold path end to end (client prediction, the STRUGGLE
+ * packet, the server physics). Film 1 "slip": plays well for a while, then holds Space too long (pinned at the top, out of the band)
+ * until the 5 s rule fails it. Film 2 "free": steady hold/release until freed. Enabled by run/doctorfatewill.flag.
+ * Frames go to run/screenshots/fx_dfw_<scene>_NNN.png.
+ */
+// TEMP-HARNESS
+public final class DoctorFateWillHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camLook;
+	private static final int REACTION = 4;
+	private static final float LEAD = 6.0f;
+	private static final int WM_KEYDOWN = 0x0100;
+	private static final int WM_KEYUP = 0x0101;
+	private static final int VK_SPACE = 0x20;
+	private static final long SPACE_DOWN = 1L | (0x39L << 16);
+	private static final long SPACE_UP = 1L | (0x39L << 16) | (1L << 30) | (1L << 31);
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorld;
+	private static int t0 = -1;
+	private static String clip;
+	private static int frame;
+	private static boolean spaceDown;
+	private static int mode; // 0 off, 1 slip film, 2 free film
+	private static int modeT;
+	private static final ArrayDeque<float[]> SEEN = new ArrayDeque<>();
+	private static int holds;
+
+	private DoctorFateWillHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("doctorfatewill.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DoctorFateWillHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "doctorfatewill-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] server step failed: " + e);
+						e.printStackTrace(System.out);
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	/** SPACE down / up through the Win32 message queue (GLFW's window procedure turns it into its key state). */
+	private static void space(Minecraft mc, boolean down) {
+		if (down == spaceDown) {
+			return;
+		}
+		spaceDown = down;
+		long hwnd = GLFWNativeWin32.glfwGetWin32Window(mc.getWindow().getWindow());
+		User32.PostMessage(hwnd, down ? WM_KEYDOWN : WM_KEYUP, VK_SPACE, down ? SPACE_DOWN : SPACE_UP);
+		if (down) {
+			holds++;
+		}
+	}
+
+	private static void toTheWill(ServerPlayer p) {
+		for (int i : DoctorFateNabuTrial.lecterns(p, true)) {
+			DoctorFateNabuTrial.read(p, i);
+		}
+		for (int k = 0; k < 4 && DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES; k++) {
+			DoctorFateNabuTrial.confront(p);
+			DoctorFateNabuTrial.answer(p, DoctorFateNabuTrial.row(p, true));
+		}
+		DoctorFateNabuTrial.confront(p);
+		System.out.println("[HARNESS] will test on: " + DoctorFateNabuTrial.willOn(p) + " anger " + DoctorFateNabuTrial.angerOf(p));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(DoctorFateWillHarness::createWorld);
+			}
+			return;
+		}
+		inWorld++;
+		if (inWorld == 60) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.FULL);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				l.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.getInventory().clearContent();
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100000, 10, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 100000, 1, false, false));
+				DoctorFate.grant(p);
+				DoctorFate.setHelmet(p, true);
+				DoctorFatePossession.start(p);
+			});
+			t0 = inWorld + 80;
+		}
+		if (t0 < 0 || inWorld < t0) {
+			return;
+		}
+		int t = inWorld - t0;
+		if (clip != null) {
+			shot("fx_dfw_" + clip + "_" + String.format("%03d", frame++));
+		}
+		if (t == 0) {
+			// into the library, at the Eye, looking up at it
+			FateLibrary.placeForHarness(0, 7.5, 180f, -24f);
+		}
+		if (t == 10) {
+			server(mc, DoctorFateWillHarness::toTheWill);
+			mode = 1;
+			modeT = 0;
+			SEEN.clear();
+			clip = "slip";
+			frame = 0;
+		}
+		if (mode != 0) {
+			drive(mc);
+		}
+	}
+
+	/** The bot: sees the Gauge as drawn, REACTION ticks late, and holds Space while the will (a little ahead) is under the band. */
+	private static void drive(Minecraft mc) {
+		float[] s = FateLibrary.willShownForHarness();
+		modeT++;
+		if (s[0] < 0.5f) {
+			if (modeT > 20 && mode != 3) {
+				// the test ended: failed (slip film) or freed (free film)
+				space(mc, false);
+				System.out.println("[HARNESS] film " + clip + " ended after " + modeT + " ticks, possessed " + DoctorFate.possessed(mc.player)
+						+ ", holds " + holds + ", last progress " + s[5]);
+				if (mode == 1) {
+					mode = 0;
+					clip = null;
+					// one challenge re-opened: answer it again and face him once more, then the steady film
+					server(mc, DoctorFateWillHarness::toTheWill);
+					mode = 2;
+					modeT = 0;
+					holds = 0;
+					SEEN.clear();
+					clip = "free";
+					frame = 0;
+				} else {
+					mode = 3;
+					modeT = 0;
+				}
+			}
+			if (mode == 3 && modeT > 60) {
+				clip = null;
+				System.out.println("[HARNESS] DONE possessed=" + DoctorFate.possessed(mc.player));
+				mc.stop();
+			}
+			return;
+		}
+		SEEN.addLast(new float[] { s[1], s[2], s[3] });
+		while (SEEN.size() > REACTION + 1) {
+			SEEN.removeFirst();
+		}
+		float[] seen = SEEN.peekFirst();
+		boolean want = seen[0] + seen[1] * LEAD < seen[2];
+		if (mode == 1 && modeT > 90) {
+			want = true; // distracted: holding too long, pinned at the top
+		}
+		space(mc, want);
+		if (modeT % 40 == 0) {
+			System.out.println("[HARNESS] " + clip + " t" + modeT + " will " + s[1] + " band " + s[3] + "+-" + s[4] + " progress " + s[5] + "/" + s[6]
+					+ " glfwSpace " + org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE));
+		}
+		if (mode == 2 && modeT == 150) {
+			shot("dfw_free_midway");
+		}
+		if (mode == 1 && modeT == 150) {
+			shot("dfw_slipping");
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DFW_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

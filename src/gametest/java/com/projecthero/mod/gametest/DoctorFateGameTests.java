@@ -430,10 +430,12 @@ public class DoctorFateGameTests implements FabricGameTest {
 		winChallenges(helper, p);
 		DoctorFateNabuTrial.confront(p);
 		float anger = DoctorFateNabuTrial.angerOf(p);
-		for (int t = 0; t < DoctorFateConfig.WILL_FAIL_OUT + 2 && DoctorFateNabuTrial.willOn(p); t++) {
+		int ticks = 0;
+		for (; ticks < DoctorFateConfig.WILL_FLOOR_FAIL + 2 && DoctorFateNabuTrial.willOn(p); ticks++) {
 			DoctorFateNabuTrial.dropWillForTest(p);
 			DoctorFateNabuTrial.tickForTest(p);
 		}
+		helper.assertTrue(ticks == DoctorFateConfig.WILL_FLOOR_FAIL, "pinned on the floor for 2 s fails (took " + ticks + " ticks)");
 		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES && !DoctorFateNabuTrial.willOn(p),
 				"letting go fails the test: one challenge re-opens");
 		helper.assertTrue(DoctorFateNabuTrial.angerOf(p) > anger + DoctorFateConfig.TRIAL_ANGER_WILL_FAIL - 0.01f, "and he's angrier");
@@ -450,6 +452,134 @@ public class DoctorFateGameTests implements FabricGameTest {
 		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES && DoctorFateNabuTrial.pagesFound(p) == 0,
 				"everything scattered: back to the start");
 		helper.assertTrue(Math.abs(DoctorFateNabuTrial.angerOf(p) - DoctorFateConfig.TRIAL_ANGER_AFTER_WRATH) < 0.01f, "his anger settles");
+		free(p);
+		helper.succeed();
+	}
+
+	/** Possessed, every challenge won, the will test running. */
+	private static ServerPlayer atTheWill(GameTestHelper helper) {
+		ServerPlayer p = possessed(helper);
+		readPages(helper, p);
+		winChallenges(helper, p);
+		DoctorFateNabuTrial.confront(p);
+		helper.assertTrue(DoctorFateNabuTrial.willOn(p), "the willpower test");
+		return p;
+	}
+
+	private static void near(GameTestHelper helper, float got, float want, String what) {
+		helper.assertTrue(Math.abs(got - want) < 1.0e-4f, what + ": expected " + want + ", got " + got);
+	}
+
+	/** v0.17.4 round 2 rebuild: holding Space accelerates the will up, letting go lets Nabu push it down (per-tick steps). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void holdingSpaceRaisesTheWillLettingGoSinksIt(GameTestHelper helper) {
+		ServerPlayer p = atTheWill(helper);
+		float anger = DoctorFateNabuTrial.angerOf(p);
+		float sink = com.projecthero.mod.doctorfate.DoctorFateWill.sink(anger);
+		float damp = DoctorFateConfig.WILL_DAMP;
+		DoctorFateNabuTrial.pinBandForTest(p, 0.5f);
+		DoctorFateNabuTrial.placeWillForTest(p, 0.4f);
+		helper.assertTrue(DoctorFatePossession.struggle(p, true), "Space held counts during the will test");
+		float w0 = DoctorFateNabuTrial.willOf(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		float step1 = DoctorFateNabuTrial.willOf(p) - w0;
+		near(helper, step1, (DoctorFateConfig.WILL_RISE - sink) * damp, "first held tick from rest");
+		float w1 = DoctorFateNabuTrial.willOf(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		float step2 = DoctorFateNabuTrial.willOf(p) - w1;
+		near(helper, step2, step1 * damp + (DoctorFateConfig.WILL_RISE - sink) * damp, "second held tick (it accelerates)");
+		helper.assertTrue(step2 > step1 && step1 > 0f, "holding: rising faster each tick");
+		// let go: the velocity bleeds off, then it falls
+		helper.assertTrue(DoctorFatePossession.struggle(p, false), "Space let go counts");
+		float v = DoctorFateNabuTrial.willVelocity(p);
+		float w2 = DoctorFateNabuTrial.willOf(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		near(helper, DoctorFateNabuTrial.willOf(p) - w2, (v - sink) * damp, "first released tick");
+		DoctorFateNabuTrial.placeWillForTest(p, 0.6f);
+		DoctorFateNabuTrial.tickForTest(p);
+		near(helper, DoctorFateNabuTrial.willOf(p) - 0.6f, -sink * damp, "released from rest: Nabu pushes it down");
+		for (int t = 0; t < 60; t++) {
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(DoctorFateNabuTrial.willOf(p) <= DoctorFateConfig.WILL_FLOOR, "let go long enough and it lies on the floor");
+		// held at the top it stays pinned there (a soft bounce, never past 1)
+		DoctorFatePossession.struggle(p, true);
+		for (int t = 0; t < 70; t++) {
+			DoctorFateNabuTrial.tickForTest(p);
+			helper.assertTrue(DoctorFateNabuTrial.willOf(p) <= 1.0f && DoctorFateNabuTrial.willOf(p) >= 0.0f, "inside the Gauge");
+		}
+		helper.assertTrue(DoctorFateNabuTrial.willOf(p) > 0.97f, "held, it climbs to the top");
+		free(p);
+		helper.succeed();
+	}
+
+	/** Progress fills one a tick in the band and drains half a tick a tick outside (never reset). */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void willProgressDrainsAtHalfRateOutsideTheBand(GameTestHelper helper) {
+		ServerPlayer p = atTheWill(helper);
+		DoctorFateNabuTrial.pinBandForTest(p, 0.5f);
+		for (int t = 0; t < 20; t++) {
+			DoctorFateNabuTrial.holdWillForTest(p);
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		near(helper, DoctorFateNabuTrial.willProgress(p), 20f, "20 ticks in the band");
+		DoctorFatePossession.struggle(p, true);
+		DoctorFateNabuTrial.placeWillForTest(p, 0.95f); // held at the top: well above the band, never the floor
+		float before = DoctorFateNabuTrial.willProgress(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		near(helper, DoctorFateNabuTrial.willProgress(p) - before, -DoctorFateConfig.WILL_OUT_DRAIN, "one tick outside drains half");
+		for (int t = 0; t < 9; t++) {
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		near(helper, DoctorFateNabuTrial.willProgress(p), 20f - 10 * DoctorFateConfig.WILL_OUT_DRAIN, "ten ticks outside: -5, not reset");
+		DoctorFatePossession.struggle(p, false);
+		DoctorFateNabuTrial.holdWillForTest(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		near(helper, DoctorFateNabuTrial.willProgress(p), 16f, "back in: +1 again");
+		helper.assertTrue(DoctorFateNabuTrial.outTicks(p) == 0, "back in: the out count resets");
+		free(p);
+		helper.succeed();
+	}
+
+	/** Outside the band (but off the floor) the test fails only after 5 s in a row; a moment back inside restarts the count. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void willFailsOnlyAfterFiveSecondsOutside(GameTestHelper helper) {
+		ServerPlayer p = atTheWill(helper);
+		DoctorFateNabuTrial.pinBandForTest(p, DoctorFateConfig.WILL_BAND_MIN);
+		DoctorFatePossession.struggle(p, true); // pinned at the top, far above the band
+		DoctorFateNabuTrial.placeWillForTest(p, 1.0f);
+		for (int t = 0; t < DoctorFateConfig.WILL_FAIL_OUT - 20; t++) {
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(DoctorFateNabuTrial.willOn(p), "4 s out: still going");
+		DoctorFateNabuTrial.holdWillForTest(p);
+		DoctorFateNabuTrial.tickForTest(p);
+		helper.assertTrue(DoctorFateNabuTrial.outTicks(p) == 0, "a tick back inside resets the count");
+		DoctorFateNabuTrial.placeWillForTest(p, 1.0f);
+		for (int t = 0; t < DoctorFateConfig.WILL_FAIL_OUT - 1; t++) {
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(DoctorFateNabuTrial.willOn(p) && DoctorFateNabuTrial.outTicks(p) == DoctorFateConfig.WILL_FAIL_OUT - 1, "one tick short of 5 s");
+		DoctorFateNabuTrial.tickForTest(p);
+		helper.assertTrue(!DoctorFateNabuTrial.willOn(p) && DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES,
+				"5 s outside in a row: failed, back to the challenges");
+		helper.assertTrue(DoctorFate.possessed(p), "still possessed");
+		free(p);
+		helper.succeed();
+	}
+
+	/** A plain hold/release player (hold while the will, a few ticks ahead, is under the band) gets free through the server's physics. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void aSteadyHandOnSpaceWinsTheWill(GameTestHelper helper) {
+		ServerPlayer p = atTheWill(helper);
+		int t = 0;
+		for (; t < 1200 && DoctorFate.possessed(p) && DoctorFateNabuTrial.willOn(p); t++) {
+			float ahead = DoctorFateNabuTrial.willOf(p) + DoctorFateNabuTrial.willVelocity(p) * 6f;
+			DoctorFatePossession.struggle(p, ahead < DoctorFateNabuTrial.bandOf(p));
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(!DoctorFate.possessed(p), "held the band with Space alone and was freed (" + t + " ticks)");
+		helper.assertTrue(t >= DoctorFateConfig.WILL_NEEDED, "no faster than the progress allows");
 		free(p);
 		helper.succeed();
 	}

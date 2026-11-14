@@ -65,8 +65,6 @@ public final class DoctorFateConfig {
 	 * /kill, or losing the power) ends it.
 	 */
 	public static final long POSSESSED_FOREVER = Long.MAX_VALUE / 4L;
-	/** At most one Space press (the willpower test's push) counts every this many ticks (key repeat can't skip it). */
-	public static final int STRUGGLE_MIN_GAP = 2;
 	/** While possessed the body hits twice as hard: +100% attack damage (multiplied), on top of the spells' x2. */
 	public static final double POSSESSION_MELEE_MULT = 1.0;
 
@@ -82,14 +80,41 @@ public final class DoctorFateConfig {
 	public static final float TRIAL_ANGER_MAX = 100f;
 	/** After his wrath (everything scattered, back to the start) the anger settles here. */
 	public static final float TRIAL_ANGER_AFTER_WRATH = 30f;
-	/** The willpower test: Nabu pushes the will down this much a tick (more when angry), each Space press lifts it this much. */
-	public static final float WILL_SINK = 0.011f;
-	public static final float WILL_SINK_PER_ANGER = 0.00008f;
-	public static final float WILL_PUSH = 0.075f;
-	/** Half the width of the band the will must stay in; ticks in it needed; ticks out of it in a row that fail the test. */
-	public static final float WILL_BAND = 0.12f;
+	/**
+	 * The willpower test (v0.17.4 round 2 rebuild, "hold to rise" like a fishing minigame; {@link DoctorFateWill}): per tick, holding
+	 * Space adds {@code WILL_RISE} to the will's velocity, Nabu always takes {@code WILL_SINK} (+{@code WILL_SINK_PER_ANGER} per point
+	 * of anger), then the velocity is multiplied by {@code WILL_DAMP}. Top speed holding ~0.025/tick (the whole Gauge in 2 s), falling
+	 * ~0.022/tick calm, ~0.03/tick at 90 anger. The floor and ceiling bounce it back at {@code WILL_BOUNCE} of its speed.
+	 */
+	public static final float WILL_RISE = 0.0052f;
+	public static final float WILL_SINK = 0.0024f;
+	public static final float WILL_SINK_PER_ANGER = 0.00001f;
+	public static final float WILL_DAMP = 0.9f;
+	public static final float WILL_BOUNCE = 0.3f;
+	/** Half the band's width when Nabu is calm, and at full anger (it narrows in between). */
+	public static final float WILL_BAND = 0.15f;
+	public static final float WILL_BAND_ANGRY = 0.10f;
+	/** Where the band's centre may wander, and how long one eased drift takes (ticks, plus up to the spread; faster when angry). */
+	public static final float WILL_BAND_MIN = 0.22f;
+	public static final float WILL_BAND_MAX = 0.80f;
+	public static final int WILL_WANDER_TICKS = 50;
+	public static final int WILL_WANDER_SPREAD = 40;
+	/** His lunge: the band flashes for {@code WILL_LUNGE_WARN} ticks, then jumps (in {@code WILL_LUNGE_MOVE} ticks) at least
+	 * {@code WILL_LUNGE_MIN_JUMP} away. The first comes after {@code WILL_LUNGE_FIRST}+spread ticks, then every
+	 * {@code WILL_LUNGE_EVERY}+spread ticks (sooner when he's angry). */
+	public static final int WILL_LUNGE_WARN = 10;
+	public static final int WILL_LUNGE_MOVE = 5;
+	public static final float WILL_LUNGE_MIN_JUMP = 0.25f;
+	public static final int WILL_LUNGE_FIRST = 100;
+	public static final int WILL_LUNGE_EVERY = 160;
+	public static final int WILL_LUNGE_SPREAD = 120;
+	/** Progress: +1 a tick inside the band, -{@code WILL_OUT_DRAIN} a tick outside (never reset); {@code WILL_NEEDED} frees you. */
 	public static final int WILL_NEEDED = 200;
-	public static final int WILL_FAIL_OUT = 60;
+	public static final float WILL_OUT_DRAIN = 0.5f;
+	/** Failing: {@code WILL_FAIL_OUT} ticks outside the band in a row, or {@code WILL_FLOOR_FAIL} ticks with the will on the floor. */
+	public static final int WILL_FAIL_OUT = 100;
+	public static final float WILL_FLOOR = 0.02f;
+	public static final int WILL_FLOOR_FAIL = 40;
 	/** Nabu speaks (chat) every this many ticks plus up to the spread, while he holds you. */
 	public static final int TRIAL_TAUNT_TICKS = 30 * 20;
 	public static final int TRIAL_TAUNT_SPREAD = 20 * 20;

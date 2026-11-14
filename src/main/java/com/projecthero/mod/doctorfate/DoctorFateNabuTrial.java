@@ -30,9 +30,11 @@ import net.minecraft.util.RandomSource;
  *   right (the page's argument), in a shuffled order. Right: he calms a little. <b>Wrong</b>: he's angrier
  *   ({@link DoctorFateConfig#TRIAL_ANGER_WRONG}), tears that page out of your hands and it flies to another lectern: you're back in
  *   stage 1 until you find it again (challenges already won stay won).</li>
- *   <li><b>The will</b>: once every challenge is won, Nabu pushes on your mind. Space lifts your will, he pushes it down (harder when
- *   angry), and it must stay inside a band that wanders: {@link DoctorFateConfig#WILL_NEEDED} ticks inside frees you;
- *   {@link DoctorFateConfig#WILL_FAIL_OUT} ticks outside in a row fails, angers him and re-opens one challenge (back to stage 2).</li>
+ *   <li><b>The will</b>: once every challenge is won, Nabu pushes on your mind. Hold Space and your will rises, let go and he pushes
+ *   it down (harder when angry; {@link DoctorFateWill}), and it must stay inside a band that drifts and now and then lunges (with a
+ *   half-second warning). Progress fills inside the band and drains at half speed outside; {@link DoctorFateConfig#WILL_NEEDED}
+ *   frees you. {@link DoctorFateConfig#WILL_FAIL_OUT} ticks outside in a row, or {@link DoctorFateConfig#WILL_FLOOR_FAIL} on the
+ *   floor, fails, angers him and re-opens one challenge (back to stage 2).</li>
  * </ol>
  * <b>His wrath</b>: anger reaching {@link DoctorFateConfig#TRIAL_ANGER_MAX} scatters everything (a new layout, every page lost, every
  * challenge re-opened, back to stage 1) and his body lashes out at once. There is no time limit and no other way out (dying is
@@ -64,12 +66,25 @@ public final class DoctorFateNabuTrial {
 		int asking = -1;
 		final int[] order = { 0, 1, 2 };
 		boolean willOn;
+		/** The will test (v0.17.4 round 2 rebuild): position and velocity, and whether Space is held (the client says when it changes). */
 		float will = 0.5f;
+		float vel;
+		boolean held;
+		/** The band: its centre now, and the eased drift it's on (from, to, tick in it, length). */
 		float band = 0.5f;
-		float bandPhase;
-		int progress;
+		float bandFrom = 0.5f;
+		float bandTo = 0.5f;
+		int bandT;
+		int bandDur = 1;
+		/** Ticks of the test so far, when his next lunge starts, and the lunge telegraph ticks left (0 none). */
+		int willTicks;
+		int nextLunge;
+		int lungeWarn;
+		float progress;
 		int outTicks;
-		long lastPush = -100L;
+		int floorTicks;
+		boolean said50;
+		boolean said90;
 		int wraths;
 		long nextTaunt;
 		boolean entered;
@@ -195,12 +210,7 @@ public final class DoctorFateNabuTrial {
 			case STAGE_CHALLENGES -> ask(p, t);
 			default -> {
 				if (!t.willOn) {
-					t.willOn = true;
-					t.will = 0.5f;
-					t.band = 0.5f;
-					t.progress = 0;
-					t.outTicks = 0;
-					t.bandPhase = p.getRandom().nextFloat() * 6.28f;
+					startWill(t, p.getRandom());
 					nabu(p, "message.projecthero.doctor_fate.trial.will_begins");
 					verdict(p, FateTrialPayload.V_WILL_BEGINS);
 				}
@@ -257,16 +267,74 @@ public final class DoctorFateNabuTrial {
 		sync(p, t);
 	}
 
-	/** A Space press: during the willpower test it lifts the will (one every couple of ticks). True if it counted. */
-	public static boolean push(ServerPlayer p) {
+	/**
+	 * Space held down / let go (v0.17.4 round 2 rebuild: the client sends the hold state when it changes; the physics run every tick
+	 * in {@link #tick}). True if it counted (only during the willpower test).
+	 */
+	public static boolean hold(ServerPlayer p, boolean down) {
 		Trial t = trial(p);
-		long now = p.level().getGameTime();
-		if (t == null || !t.willOn || (now - t.lastPush < DoctorFateConfig.STRUGGLE_MIN_GAP && now >= t.lastPush)) {
+		if (t == null || !t.willOn) {
 			return false;
 		}
-		t.lastPush = now;
-		t.will = Math.min(1f, t.will + DoctorFateConfig.WILL_PUSH);
+		t.held = down;
 		return true;
+	}
+
+	private static void startWill(Trial t, RandomSource r) {
+		t.willOn = true;
+		t.will = 0.5f;
+		t.vel = 0f;
+		t.held = false;
+		t.band = 0.5f;
+		t.bandFrom = 0.5f;
+		t.bandTo = 0.5f;
+		t.bandT = 0;
+		t.bandDur = 30; // a moment to find the band before it starts to drift
+		t.willTicks = 0;
+		t.nextLunge = DoctorFateConfig.WILL_LUNGE_FIRST + r.nextInt(DoctorFateConfig.WILL_LUNGE_SPREAD);
+		t.lungeWarn = 0;
+		t.progress = 0f;
+		t.outTicks = 0;
+		t.floorTicks = 0;
+		t.said50 = false;
+		t.said90 = false;
+	}
+
+	/** The band: slow eased drifts between random heights, and now and then a telegraphed lunge. */
+	private static void moveBand(ServerPlayer p, Trial t) {
+		RandomSource r = p.getRandom();
+		float a = Math.min(1f, t.anger / DoctorFateConfig.TRIAL_ANGER_MAX);
+		float lo = DoctorFateConfig.WILL_BAND_MIN;
+		float hi = DoctorFateConfig.WILL_BAND_MAX;
+		if (t.lungeWarn > 0) {
+			// the telegraph: the band holds still and flashes, the Eye flares; then it jumps to the far side
+			t.lungeWarn--;
+			if (t.lungeWarn == 0) {
+				float jump = DoctorFateConfig.WILL_LUNGE_MIN_JUMP;
+				t.bandFrom = t.band;
+				t.bandTo = t.band - lo > hi - t.band ? lo + r.nextFloat() * Math.max(0f, t.band - jump - lo)
+						: t.band + jump + r.nextFloat() * Math.max(0f, hi - t.band - jump);
+				t.bandT = 0;
+				t.bandDur = DoctorFateConfig.WILL_LUNGE_MOVE;
+				t.nextLunge = t.willTicks + Math.round((DoctorFateConfig.WILL_LUNGE_EVERY + r.nextInt(DoctorFateConfig.WILL_LUNGE_SPREAD)) * (1f - 0.4f * a));
+				DoctorFate.sound(p, SoundEvents.ELDER_GUARDIAN_AMBIENT, 0.3f, 1.4f);
+			}
+			return;
+		}
+		if (t.willTicks >= t.nextLunge) {
+			t.lungeWarn = DoctorFateConfig.WILL_LUNGE_WARN;
+			t.nextLunge = Integer.MAX_VALUE;
+			return;
+		}
+		t.bandT++;
+		if (t.bandT >= t.bandDur) {
+			t.band = t.bandTo;
+			t.bandFrom = t.band;
+			t.bandTo = lo + r.nextFloat() * (hi - lo);
+			t.bandT = 0;
+			t.bandDur = Math.max(20, Math.round((DoctorFateConfig.WILL_WANDER_TICKS + r.nextInt(DoctorFateConfig.WILL_WANDER_SPREAD)) * (1f - 0.35f * a)));
+		}
+		t.band = t.bandFrom + (t.bandTo - t.bandFrom) * DoctorFateWill.ease(t.bandT / (float) t.bandDur);
 	}
 
 	/** The walker came out of the hallway: the door shuts behind him. */
@@ -297,34 +365,59 @@ public final class DoctorFateNabuTrial {
 			}
 			return;
 		}
-		// the band wanders (two slow waves and a little jitter); Nabu pushes the will down, harder when angry
-		t.bandPhase += 0.045f + 0.02f * (float) Math.sin(t.bandPhase * 0.37f);
-		t.band = 0.5f + 0.27f * (float) Math.sin(t.bandPhase) + 0.08f * (float) Math.sin(t.bandPhase * 2.7f + 1.3f);
-		t.band = Math.max(0.2f, Math.min(0.8f, t.band)); // never touching the floor: letting go always falls out of it
-		t.will = Math.max(0f, t.will - DoctorFateConfig.WILL_SINK - DoctorFateConfig.WILL_SINK_PER_ANGER * t.anger);
-		if (Math.abs(t.will - t.band) <= DoctorFateConfig.WILL_BAND) {
-			t.progress++;
+		t.willTicks++;
+		moveBand(p, t);
+		// hold Space and the will climbs; let go and Nabu pushes it down (harder when angry): DoctorFateWill, the client predicts the same
+		float[] wv = { t.will, t.vel };
+		DoctorFateWill.step(wv, t.held, t.anger);
+		t.will = wv[0];
+		t.vel = wv[1];
+		if (Math.abs(t.will - t.band) <= DoctorFateWill.halfBand(t.anger)) {
+			t.progress += 1f;
 			t.outTicks = 0;
 		} else {
-			t.progress = Math.max(0, t.progress - 1);
+			t.progress = Math.max(0f, t.progress - DoctorFateConfig.WILL_OUT_DRAIN); // drains at half speed, never reset
 			t.outTicks++;
+		}
+		t.floorTicks = t.will <= DoctorFateConfig.WILL_FLOOR ? t.floorTicks + 1 : 0;
+		if (t.held && now % 4 == 0 && p.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+			sl.sendParticles(DoctorFate.dust(DoctorFate.BLUE, 1.0f), p.getX(), p.getY() + 1, p.getZ(), 2, 0.4, 0.6, 0.4, 0.0);
 		}
 		if (t.progress >= DoctorFateConfig.WILL_NEEDED) {
 			free(p);
 			return;
 		}
-		if (t.outTicks >= DoctorFateConfig.WILL_FAIL_OUT) {
-			willFailed(p, t);
+		if (!t.said50 && t.progress >= DoctorFateConfig.WILL_NEEDED * 0.5f) {
+			t.said50 = true;
+			nabu(p, "message.projecthero.doctor_fate.trial.will_half");
 		}
-		if (now % 2 == 0) {
+		if (!t.said90 && t.progress >= DoctorFateConfig.WILL_NEEDED * 0.9f) {
+			t.said90 = true;
+			nabu(p, "message.projecthero.doctor_fate.trial.will_almost");
+		}
+		if (t.outTicks >= DoctorFateConfig.WILL_FAIL_OUT || t.floorTicks >= DoctorFateConfig.WILL_FLOOR_FAIL) {
+			willFailed(p, t);
+			return;
+		}
+		syncWill(p, t);
+		if (now % 20 == 0) {
 			sync(p, t);
 		}
 	}
 
+	/** Every tick of the will test: the Gauge's numbers (a small packet; the client predicts in between and eases to these). */
+	static void syncWill(ServerPlayer p, Trial t) {
+		DoctorFate.send(p, new FateTrialPayload(FateTrialPayload.WILL, new int[] { Math.round(t.will * 10000f), Math.round(t.vel * 100000f),
+				Math.round(t.band * 10000f), Math.round(DoctorFateWill.halfBand(t.anger) * 10000f), Math.round(t.progress * 10f),
+				DoctorFateConfig.WILL_NEEDED * 10, t.outTicks, t.floorTicks, t.lungeWarn, t.held ? 1 : 0 }));
+	}
+
 	private static void willFailed(ServerPlayer p, Trial t) {
 		t.willOn = false;
-		t.progress = 0;
+		t.held = false;
+		t.progress = 0f;
 		t.outTicks = 0;
+		t.floorTicks = 0;
 		// one challenge re-opens: back to stage 2
 		List<Integer> won = new ArrayList<>();
 		for (int page : t.pages) {
@@ -444,7 +537,7 @@ public final class DoctorFateNabuTrial {
 		d[5] = t.willOn ? 1 : 0;
 		d[6] = Math.round(t.will * 1000f);
 		d[7] = Math.round(t.band * 1000f);
-		d[8] = t.progress;
+		d[8] = Math.round(t.progress);
 		d[9] = DoctorFateConfig.WILL_NEEDED;
 		d[10] = t.outTicks;
 		for (int i = 0; i < n; i++) {
@@ -522,21 +615,46 @@ public final class DoctorFateNabuTrial {
 		return -1;
 	}
 
-	/** Tests: hold the will in the band for this tick (as a player tapping perfectly would). */
+	/** Tests: put the will on the band's centre, at rest, for this tick (as a player holding it perfectly would). */
 	public static void holdWillForTest(ServerPlayer p) {
 		Trial t = TRIALS.get(p.getUUID());
 		if (t != null && t.willOn) {
 			t.will = t.band;
+			t.vel = 0f;
 		}
 	}
 
-	/** Tests: let the will drop to the floor (nobody pressing). */
+	/** Tests: let go and drop the will to the floor (nobody pressing), with the band high above it. */
 	public static void dropWillForTest(ServerPlayer p) {
 		Trial t = TRIALS.get(p.getUUID());
 		if (t != null && t.willOn) {
+			t.held = false;
 			t.will = 0f;
-			t.band = 0.8f;
-			t.bandPhase = (float) Math.PI / 2f;
+			t.vel = 0f;
+			pinBandForTest(p, DoctorFateConfig.WILL_BAND_MAX);
+		}
+	}
+
+	/** Tests: the will at this height, at rest. */
+	public static void placeWillForTest(ServerPlayer p, float will) {
+		Trial t = TRIALS.get(p.getUUID());
+		if (t != null && t.willOn) {
+			t.will = will;
+			t.vel = 0f;
+		}
+	}
+
+	/** Tests: hold the band still at this height (no drift, no lunge). */
+	public static void pinBandForTest(ServerPlayer p, float band) {
+		Trial t = TRIALS.get(p.getUUID());
+		if (t != null && t.willOn) {
+			t.band = band;
+			t.bandFrom = band;
+			t.bandTo = band;
+			t.bandT = 0;
+			t.bandDur = Integer.MAX_VALUE / 2;
+			t.lungeWarn = 0;
+			t.nextLunge = Integer.MAX_VALUE;
 		}
 	}
 
@@ -545,9 +663,30 @@ public final class DoctorFateNabuTrial {
 		return t != null && t.willOn;
 	}
 
-	public static int willProgress(ServerPlayer p) {
+	public static float willProgress(ServerPlayer p) {
 		Trial t = TRIALS.get(p.getUUID());
-		return t == null ? 0 : t.progress;
+		return t == null ? 0f : t.progress;
+	}
+
+	/** Tests: the will's height, velocity and the band's centre. */
+	public static float willOf(ServerPlayer p) {
+		Trial t = TRIALS.get(p.getUUID());
+		return t == null ? 0f : t.will;
+	}
+
+	public static float willVelocity(ServerPlayer p) {
+		Trial t = TRIALS.get(p.getUUID());
+		return t == null ? 0f : t.vel;
+	}
+
+	public static float bandOf(ServerPlayer p) {
+		Trial t = TRIALS.get(p.getUUID());
+		return t == null ? 0f : t.band;
+	}
+
+	public static int outTicks(ServerPlayer p) {
+		Trial t = TRIALS.get(p.getUUID());
+		return t == null ? 0 : t.outTicks;
 	}
 
 	public static void tickForTest(ServerPlayer p) {

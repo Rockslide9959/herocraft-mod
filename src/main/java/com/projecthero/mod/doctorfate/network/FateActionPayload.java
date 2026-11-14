@@ -15,6 +15,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 public record FateActionPayload(Action action, int arg, BlockPos pos) implements CustomPacketPayload {
 	public enum Action {
 		TOGGLE_FLIGHT,
+		/** v0.17.4 round 2 rebuild: Space held ({@code arg} 1) or let go (0) during the willpower test in Nabu's library. */
 		STRUGGLE,
 		BARGAIN_ACCEPT,
 		BARGAIN_REFUSE,

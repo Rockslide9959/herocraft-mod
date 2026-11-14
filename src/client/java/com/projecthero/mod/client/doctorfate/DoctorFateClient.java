@@ -181,9 +181,8 @@ public final class DoctorFateClient {
 		while (mc.options.keyJump.consumeClick()) {
 			presses++;
 		}
-		for (int i = 0; i < Math.min(presses, 3); i++) {
-			ClientPlayNetworking.send(FateActionPayload.of(FateActionPayload.Action.STRUGGLE));
-			FateFx.struggled(mc.level.getGameTime());
+		if (presses > 0) {
+			FateFx.struggled(mc.level.getGameTime()); // (only a flash: Space does nothing until the will test in Nabu's library)
 		}
 		KeyMapping.releaseAll();
 		for (KeyMapping k : mc.options.keyMappings) {

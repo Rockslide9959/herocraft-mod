@@ -21,7 +21,10 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.hulk.HulkMindScreen;
+import com.projecthero.mod.client.gui.TooltipWrap;
 import com.projecthero.mod.doctorfate.DoctorFate;
+import com.projecthero.mod.doctorfate.DoctorFateConfig;
+import com.projecthero.mod.doctorfate.DoctorFateWill;
 import com.projecthero.mod.doctorfate.network.FateActionPayload;
 import com.projecthero.mod.doctorfate.network.FateTrialPayload;
 
@@ -43,6 +46,7 @@ import net.minecraft.client.renderer.FogRenderer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.network.chat.Component;
@@ -66,7 +70,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li>The library ({@link FateLibraryMesh}): bookshelf walls on four tiers, gold ledges, a lapis ceiling, twelve lecterns, the Eye of
  *   Nabu at the heart (a floating golden ankh and eye that burn redder as he angers), and the screen on the far wall.</li>
  *   <li>WASD + mouse walk it (vanilla speeds and bobbing). Right-click (or R) at a lectern reads its book; at the Eye it faces Nabu
- *   (his challenge, or the willpower test). Space is the willpower test's push. Everything is the server's
+ *   (his challenge, or the willpower test). Holding Space lifts the will in the willpower test. Everything is the server's
  *   ({@code DoctorFateNabuTrial}); this only walks, shows and asks.</li>
  *   <li>Freed, the camera flies into the screen and he is back in his body under a gold flash.</li>
  * </ul>
@@ -94,11 +98,33 @@ public final class FateLibrary {
 	static int needed = 3;
 	static int wraths;
 	static boolean willOn;
-	static float will;
-	static float band;
-	static int progress;
 	static int progressNeeded = 200;
 	static int outTicks;
+	// ---- v0.17.4 round 2 rebuild, the will test: the server's last WILL sample ...
+	private static boolean willFresh;
+	private static boolean willSeen;
+	private static float sWill;
+	private static float sVel;
+	private static float sBand = 0.5f;
+	private static float sHalf = 0.15f;
+	private static float sProgress;
+	static int floorTicks;
+	static int lungeWarn;
+	// ... and what the Gauge shows: the will predicted locally from our own Space (eased to the server's), the band and progress
+	// smoothed, each with last tick's value for partial-tick interpolation
+	static float will;
+	private static float pWill;
+	private static float wVel;
+	static float band = 0.5f;
+	private static float pBand = 0.5f;
+	private static float half = 0.15f;
+	private static float pHalf = 0.15f;
+	static float progress;
+	private static float pProgress;
+	private static boolean sentHeld;
+	static boolean holding;
+	private static int heartIn;
+	private static HumSound hum;
 	static final int[] lecterns = new int[FateLibraryMesh.LECTERNS];
 	private static long verdictMs = -10_000L;
 	private static int verdict = -1;
@@ -185,12 +211,11 @@ public final class FateLibrary {
 				found = d[2];
 				needed = d[3];
 				wraths = d[4];
-				willOn = d[5] != 0;
-				will = d[6] / 1000.0f;
-				band = d[7] / 1000.0f;
-				progress = d[8];
-				progressNeeded = Math.max(1, d[9]);
-				outTicks = d[10];
+				setWillOn(d[5] != 0);
+				progressNeeded = Math.max(1, d[9]); // (the will itself comes every tick in WILL)
+				if (!willOn) {
+					outTicks = 0;
+				}
 				for (int i = 0; i < lecterns.length && 11 + i < d.length; i++) {
 					lecterns[i] = d[11 + i];
 				}
@@ -224,9 +249,143 @@ public final class FateLibrary {
 					}
 				}
 			}
-			case FateTrialPayload.END -> ended = true;
+			case FateTrialPayload.END -> {
+				ended = true;
+				setWillOn(false); // freed: the will test is over (no STATE follows)
+			}
+			case FateTrialPayload.WILL -> {
+				if (d.length < 10) {
+					return;
+				}
+				setWillOn(true);
+				sWill = d[0] / 10000.0f;
+				sVel = d[1] / 100000.0f;
+				sBand = d[2] / 10000.0f;
+				sHalf = d[3] / 10000.0f;
+				sProgress = d[4] / 10.0f;
+				progressNeeded = Math.max(1, d[5] / 10);
+				outTicks = d[6];
+				floorTicks = d[7];
+				if (d[8] > 0 && lungeWarn == 0) {
+					play(mc, SoundEvents.BELL_BLOCK, 0.7f, 0.55f); // his lunge is coming: the band flashes, the Eye flares
+				}
+				lungeWarn = d[8];
+				if (!willSeen) {
+					// the first sample: start from it
+					willSeen = true;
+					will = pWill = sWill;
+					wVel = sVel;
+					band = pBand = sBand;
+					half = pHalf = sHalf;
+					progress = pProgress = sProgress;
+				}
+				willFresh = true;
+			}
 			default -> {
 			}
+		}
+	}
+
+	private static void setWillOn(boolean v) {
+		if (willOn && !v) {
+			willSeen = false;
+			willFresh = false;
+			sentHeld = false; // the next test starts released: a held key is sent again then
+			holding = false;
+			lungeWarn = 0;
+			floorTicks = 0;
+		}
+		willOn = v;
+	}
+
+	/**
+	 * Every client tick of the will test (v0.17.4 round 2 rebuild): read Space from the raw key state (the mapped keys are released
+	 * every tick here), tell the server when it changes, and run the same physics locally ({@link DoctorFateWill}) so the Gauge moves
+	 * every frame; then ease toward the server's numbers (it decides; this only predicts).
+	 */
+	private static void willTick(Minecraft mc) {
+		boolean down = mc.screen == null && held(mc, mc.options.keyJump);
+		holding = down;
+		if (down != sentHeld) {
+			sentHeld = down;
+			send(FateActionPayload.Action.STRUGGLE, down ? 1 : 0);
+			if (down) {
+				FateFx.struggled(mc.level.getGameTime());
+			}
+		}
+		pWill = will;
+		pBand = band;
+		pHalf = half;
+		pProgress = progress;
+		if (!willSeen) {
+			return;
+		}
+		float[] wv = { will, wVel };
+		DoctorFateWill.step(wv, down, anger);
+		will = wv[0];
+		wVel = wv[1];
+		if (willFresh) {
+			willFresh = false;
+			float err = sWill - will;
+			if (Math.abs(err) > 0.2f) {
+				will = sWill; // far off (a lag spike): jump
+				wVel = sVel;
+			} else {
+				will += err * 0.3f;
+				wVel += (sVel - wVel) * 0.3f;
+			}
+		}
+		will = Mth.clamp(will, 0.0f, 1.0f);
+		band += (sBand - band) * 0.6f;
+		half += (sHalf - half) * 0.3f;
+		progress += (sProgress - progress) * 0.5f;
+		// slipping: a heartbeat, faster the closer the fail
+		float danger = danger();
+		if (danger > 0.25f) {
+			if (--heartIn <= 0) {
+				heartIn = Math.round(Mth.lerp((danger - 0.25f) / 0.75f, 16.0f, 6.0f));
+				play(mc, SoundEvents.WARDEN_HEARTBEAT, 0.9f, 1.0f + 0.3f * danger);
+			}
+		} else {
+			heartIn = 0;
+		}
+		if (hum == null || hum.isStopped()) {
+			hum = new HumSound();
+			mc.getSoundManager().play(hum);
+		}
+	}
+
+	/** 0..1: how close the will test is to failing (out of the band in a row, or pinned on the floor). */
+	static float danger() {
+		return Mth.clamp(Math.max(outTicks / (float) DoctorFateConfig.WILL_FAIL_OUT, floorTicks / (float) DoctorFateConfig.WILL_FLOOR_FAIL), 0.0f, 1.0f);
+	}
+
+	static boolean inBand() {
+		return Math.abs(will - band) <= half;
+	}
+
+	/** The will test's hum: rising in pitch as progress builds, loud inside the band, faint outside. */
+	private static final class HumSound extends AbstractTickableSoundInstance {
+		HumSound() {
+			super(SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, SoundInstance.createUnseededRandom());
+			this.looping = true;
+			this.delay = 0;
+			this.volume = 0.01f;
+			this.pitch = 0.6f;
+			this.attenuation = SoundInstance.Attenuation.NONE;
+			this.relative = true;
+		}
+
+		@Override
+		public void tick() {
+			if (!on || !willOn) {
+				stop();
+				return;
+			}
+			float frac = Mth.clamp(progress / progressNeeded, 0.0f, 1.0f);
+			float target = inBand() ? 0.25f + 0.45f * frac : 0.06f;
+			this.volume += (target - this.volume) * 0.25f;
+			this.pitch = 0.6f + 1.3f * frac;
 		}
 	}
 
@@ -272,6 +431,7 @@ public final class FateLibrary {
 		}
 		if (!held && on) {
 			on = false;
+			setWillOn(false);
 			if (mc.screen instanceof FateTrialScreen) {
 				mc.setScreen(null);
 			}
@@ -299,6 +459,9 @@ public final class FateLibrary {
 		if (on) {
 			walk(mc, ms);
 			ambience(mc, ms);
+			if (willOn) {
+				willTick(mc);
+			}
 		}
 	}
 
@@ -330,7 +493,9 @@ public final class FateLibrary {
 		stage = 1;
 		anger = 0;
 		found = 0;
-		willOn = false;
+		setWillOn(false);
+		willSeen = false;
+		sentHeld = false;
 		java.util.Arrays.fill(lecterns, 0);
 		if (savedCamera == null) {
 			savedCamera = mc.options.getCameraType();
@@ -363,16 +528,13 @@ public final class FateLibrary {
 		Set<KeyMapping> keep = allowed(mc);
 		boolean used = false;
 		boolean r = false;
-		int jumps = 0;
 		while (mc.options.keyUse.consumeClick()) {
 			used = true;
 		}
 		while (ModKeyBindings.ABILITY_1.consumeClick()) {
 			r = true;
 		}
-		while (mc.options.keyJump.consumeClick()) {
-			jumps++;
-		}
+		// (Space is read from the raw key state in willTick: holding it lifts the will)
 		for (KeyMapping k : mc.options.keyMappings) {
 			if (keep.contains(k)) {
 				continue;
@@ -384,10 +546,6 @@ public final class FateLibrary {
 		}
 		if (!on || mc.screen != null) {
 			return;
-		}
-		for (int i = 0; i < Math.min(jumps, 3); i++) {
-			send(FateActionPayload.Action.STRUGGLE, 0); // the willpower test's push (the server ignores it otherwise)
-			FateFx.struggled(mc.level.getGameTime());
 		}
 		if (used || r) {
 			if (zone >= 0 && zone < FateLibraryMesh.LECTERNS) {
@@ -765,6 +923,13 @@ public final class FateLibrary {
 		Vec3 u = new Vec3(Mth.cos(spin), 0, Mth.sin(spin));
 		Vec3 up = new Vec3(0, 1, 0);
 		float pulse = 0.75f + 0.25f * Mth.sin(time * (2.0f + 5.0f * rage));
+		if (willOn && lungeWarn > 0) {
+			// v0.17.4 round 2 rebuild: his lunge telegraphed -- the Eye flares white-hot, a ring bursts out from it
+			float k = 1.0f - lungeWarn / (float) DoctorFateConfig.WILL_LUNGE_WARN;
+			pulse = 1.0f;
+			FateGlyphs.ankh(eye, u, up, 4.4 + 1.2 * k, 0.16, 0xFFF0C0, 0.9f * a);
+			FateGlyphs.ring(eye, ux, uz, 1.5 + 5.0 * k, 0.12, 40, 0xFFE080, (1.0f - k) * 0.9f * a, true);
+		}
 		FateGlyphs.ankh(eye, u, up, 3.2, 0.09, eyeCol, pulse * a);
 		FateGlyphs.glyph(1, eye.add(0, 2.6, 0), u, up, 2.0, 0.07, eyeCol, pulse * a);
 		FateGlyphs.gradient(new Vec3(-0.6, 0.15, 0).add(0, 0, 0), new Vec3(0.6, 0.15, 0), new Vec3(0.6, 8, 0), new Vec3(-0.6, 8, 0), eyeCol, 0.12f * a, 0f);
@@ -827,7 +992,7 @@ public final class FateLibrary {
 		int gh = g.guiHeight();
 		if (showing()) {
 			if (on && !mc.options.hideGui && mc.screen == null) {
-				panel(g, mc.font, gw, gh, ms);
+				panel(g, mc.font, gw, gh, ms, delta.getGameTimeDeltaPartialTick(false));
 			}
 			float vt = (ms - verdictMs) / 900.0f;
 			if (vt < 1.0f) {
@@ -857,7 +1022,7 @@ public final class FateLibrary {
 	}
 
 	/** The trial's panel: the stage and what to do, Nabu's anger, the pages, the will test, and what's in reach. */
-	private static void panel(GuiGraphics g, Font font, int gw, int gh, long ms) {
+	private static void panel(GuiGraphics g, Font font, int gw, int gh, long ms, float partial) {
 		int x = 8;
 		int y = 8;
 		int width = Math.max(120, Math.min(220, gw / 3));
@@ -889,27 +1054,9 @@ public final class FateLibrary {
 			String wr = Component.translatable("hud.projecthero.doctor_fate.trial.wraths", wraths).getString();
 			g.drawString(font, wr, x + width - font.width(wr), y, 0xFFC04030, true);
 		}
-		// the willpower test: a vertical Gauge on the right, the band Nabu lets you hold
-		if (willOn) {
-			int h = Math.min(160, gh - 80);
-			int bx = gw - 34;
-			int by = (gh - h) / 2;
-			g.fill(bx - 2, by - 2, bx + 14, by + h + 2, 0xC0100800);
-			int bandTop = by + Math.round(h * (1.0f - Math.min(1.0f, band + 0.12f)));
-			int bandBot = by + Math.round(h * (1.0f - Math.max(0.0f, band - 0.12f)));
-			g.fill(bx, bandTop, bx + 12, bandBot, 0x8060A0FF);
-			int wy = by + Math.round(h * (1.0f - will));
-			boolean inBand = Math.abs(will - band) <= 0.12f;
-			g.fill(bx - 3, wy - 1, bx + 15, wy + 2, inBand ? 0xFFFFFFFF : 0xFFFF5030);
-			int ph = Math.round(h * Mth.clamp(progress / (float) progressNeeded, 0.0f, 1.0f));
-			g.fill(bx + 16, by + h - ph, bx + 20, by + h, 0xFFFFD860);
-			Component hint = Component.translatable("hud.projecthero.doctor_fate.trial.will_hint");
-			java.util.List<FormattedCharSequence> hintRows = font.split(hint, Math.min(160, gw / 3));
-			int ty = by - 6 - hintRows.size() * 10; // above the bar, clear of the line at the bottom
-			for (FormattedCharSequence row : hintRows) {
-				g.drawString(font, row, gw - 8 - font.width(row), ty, outTicks > 20 && (ms / 200L) % 2L == 0L ? 0xFFFF6040 : 0xFFE8DCC0, true);
-				ty += 10;
-			}
+		// the willpower test: a vertical Gauge on the right, the gold band Nabu lets you hold, progress round it
+		if (willOn && willSeen) {
+			willGauge(g, font, gw, gh, ms, partial);
 		}
 		// what's in reach
 		int cx = gw / 2;
@@ -925,6 +1072,79 @@ public final class FateLibrary {
 		for (FormattedCharSequence row : font.split(line, Math.max(80, Math.min(320, gw - 40)))) {
 			g.drawCenteredString(font, row, cx, ly, col);
 			ly += 10;
+		}
+	}
+
+	/**
+	 * The will test's Gauge (v0.17.4 round 2 rebuild), drawn from the predicted / smoothed values interpolated by the partial tick: the
+	 * gold band (flashing white while his lunge is telegraphed), the marker (white and glowing inside the band, red outside), a
+	 * progress frame filling up both sides of the Gauge, the percentage, the hint, and when slipping a shake and a red pulse.
+	 */
+	private static void willGauge(GuiGraphics g, Font font, int gw, int gh, long ms, float partial) {
+		float w = Mth.lerp(partial, pWill, will);
+		float b = Mth.lerp(partial, pBand, band);
+		float hb = Mth.lerp(partial, pHalf, half);
+		float frac = Mth.clamp(Mth.lerp(partial, pProgress, progress) / progressNeeded, 0.0f, 1.0f);
+		boolean in = Math.abs(w - b) <= hb;
+		float danger = danger();
+		// slipping: the screen's edges pulse red with the heartbeat, the Gauge shakes
+		if (danger > 0.25f) {
+			float beat = 0.5f + 0.5f * Mth.sin(ms * (0.008f + 0.012f * danger));
+			edgesRed(g, gw, gh, (0.15f + 0.35f * danger) * beat);
+		}
+		int shake = danger > 0.25f ? Math.round(Mth.sin(ms * 0.09f) * 3.0f * danger) : 0;
+		int h = Mth.clamp(gh - 100, 60, 170);
+		int bx = gw - 40 + shake;
+		int by = (gh - h) / 2;
+		int gwid = 14;
+		// the frame and its progress: both rails fill from the bottom up, the top closes at 100%
+		g.fill(bx - 5, by - 5, bx + gwid + 5, by + h + 5, 0xC0100800);
+		int ph = Math.round((h + 6) * frac);
+		int rail = in ? 0xFFFFD860 : 0xFFB08A30;
+		g.fill(bx - 4, by + h + 3 - ph, bx - 2, by + h + 3, rail);
+		g.fill(bx + gwid + 2, by + h + 3 - ph, bx + gwid + 4, by + h + 3, rail);
+		if (frac >= 0.999f) {
+			g.fill(bx - 4, by - 4, bx + gwid + 4, by - 2, rail);
+		}
+		g.fill(bx - 4, by + h + 2, bx + gwid + 4, by + h + 4, 0xFF5A4010);
+		// the band
+		int bandTop = by + Math.round(h * (1.0f - Math.min(1.0f, b + hb)));
+		int bandBot = by + Math.round(h * (1.0f - Math.max(0.0f, b - hb)));
+		boolean flash = lungeWarn > 0 && (ms / 70L) % 2L == 0L;
+		g.fill(bx, bandTop, bx + gwid, bandBot, flash ? 0xD0FFFFFF : in ? 0xB0E8B030 : 0x80C09028);
+		g.fill(bx, bandTop, bx + gwid, bandTop + 1, flash ? 0xFFFF6040 : 0xFFFFE080);
+		g.fill(bx, bandBot - 1, bx + gwid, bandBot, flash ? 0xFFFF6040 : 0xFFFFE080);
+		// the marker
+		int wy = by + Math.round(h * (1.0f - w));
+		int glow = in ? 0x50FFFFFF : 0x50FF3020;
+		g.fill(bx - 4, wy - 3, bx + gwid + 4, wy + 4, glow);
+		g.fill(bx - 3, wy - 1, bx + gwid + 3, wy + 2, in ? 0xFFFFFFFF : 0xFFFF4030);
+		if (holding) {
+			// a little up-chevron while Space is held
+			g.fill(bx + gwid / 2 - 1, wy - 6, bx + gwid / 2 + 1, wy - 4, in ? 0xFFFFFFFF : 0xFFFF8060);
+		}
+		String pct = Math.round(frac * 100.0f) + "%";
+		g.drawString(font, pct, bx + gwid / 2 - font.width(pct) / 2, by + h + 8, in ? 0xFFFFD860 : 0xFFB8A888, true);
+		// the hint (wrapped), above the Gauge; red and blinking when slipping
+		Component hint = Component.translatable("hud.projecthero.doctor_fate.trial.will_hint");
+		java.util.List<FormattedCharSequence> hintRows = font.split(hint, Math.min(TooltipWrap.MAX_WIDTH, Math.max(80, gw / 3)));
+		int ty = by - 9 - hintRows.size() * 10;
+		int col = danger > 0.25f && (ms / 200L) % 2L == 0L ? 0xFFFF6040 : 0xFFE8DCC0;
+		for (FormattedCharSequence row : hintRows) {
+			g.drawString(font, row, gw - 8 - font.width(row), ty, col, true);
+			ty += 10;
+		}
+	}
+
+	private static void edgesRed(GuiGraphics g, int w, int h, float alpha) {
+		int a = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 255.0f);
+		for (int i = 0; i < 6; i++) {
+			int c = ((a * (6 - i) / 6) << 24) | 0xC01808;
+			int t = 4 * i;
+			g.fill(t, t, w - t, t + 4, c);
+			g.fill(t, h - t - 4, w - t, h - t, c);
+			g.fill(t, t + 4, t + 4, h - t - 4, c);
+			g.fill(w - t - 4, t + 4, w - t, h - t - 4, c);
 		}
 	}
 
@@ -950,6 +1170,11 @@ public final class FateLibrary {
 
 	public static int zone() {
 		return zone;
+	}
+
+	/** What the will Gauge shows right now (harness): test running 0/1, will, velocity, band centre, half-width, progress, needed. */
+	public static float[] willShownForHarness() {
+		return new float[] { willOn && willSeen ? 1 : 0, will, wVel, band, half, progress, progressNeeded };
 	}
 
 	/** Where lectern {@code i} stands in the library (x, 0, z), and where the hallway ends / the door is (harness). */
