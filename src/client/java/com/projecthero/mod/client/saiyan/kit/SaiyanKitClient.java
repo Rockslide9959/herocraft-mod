@@ -138,7 +138,7 @@ public final class SaiyanKitClient {
 				BEAMS.put(p.entity(), new BeamState(b == null ? now : b.start(), b == null ? 40f : b.maxCharge(), p.rgb(), now, p.f(), p.extra()));
 				Entity shooter = Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.getEntity(p.entity());
 				if (shooter != null) {
-					Minecraft.getInstance().getSoundManager().play(new BeamLoop(shooter, 0.85f - 0.15f * p.f()));
+					Minecraft.getInstance().getSoundManager().play(new BeamLoop(shooter, 1.0f - 0.08f * p.f()));
 				}
 			}
 			case SaiyanKitFxPayload.BEAM_END -> BEAMS.remove(p.entity());
@@ -322,6 +322,18 @@ public final class SaiyanKitClient {
 	static float beamAge(Player p, float partial) {
 		BeamState s = BEAMS.get(p.getId());
 		return s == null ? 0f : p.level().getGameTime() - s.start() + partial;
+	}
+
+	/** v0.17.4: ticks since the Kamehameha fired (the first-person thrust and recoil), 0 when not firing. */
+	static float beamFireAge(Player p, float partial) {
+		BeamState s = BEAMS.get(p.getId());
+		return s == null || s.fired() < 0 ? 0f : p.level().getGameTime() - s.fired() + partial;
+	}
+
+	/** v0.17.4: how long the Kamehameha fires (ticks). */
+	static int beamFireTicks(Player p) {
+		BeamState s = BEAMS.get(p.getId());
+		return s == null || s.fireTicks() <= 0 ? com.projecthero.mod.saiyan.kit.SaiyanKitConfig.BEAM_FIRE_TICKS : s.fireTicks();
 	}
 
 	static float beamCharge(Player p, float partial) {

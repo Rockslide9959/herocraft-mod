@@ -26,6 +26,8 @@ public final class SaiyanVisualsClient {
 		});
 		WorldRenderEvents.START.register(ctx -> SaiyanAuraRenderer.inWorld = true);
 		WorldRenderEvents.END.register(ctx -> SaiyanAuraRenderer.inWorld = false);
+		// v0.17.4: the local player's own 3D aura round the first-person camera (the render layer skips him then)
+		WorldRenderEvents.AFTER_ENTITIES.register(SaiyanAuraRenderer::renderFirstPerson);
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanAuraParticles::tick);
 		// v0.17.3: the tail's spring chain (Spidermonkey's rules) for every Saiyan in view; pruned, cleared with the level
 		ClientTickEvents.END_CLIENT_TICK.register(SaiyanTailRenderer::tick);

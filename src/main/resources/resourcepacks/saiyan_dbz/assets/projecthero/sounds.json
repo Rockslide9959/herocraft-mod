@@ -1,0 +1,323 @@
+{
+  "saiyan_ki_charge_start": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ki_charge_start",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_charge_start"
+      }
+    ]
+  },
+  "saiyan_ki_charge_loop": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ki_charge_loop",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_charge_loop"
+      }
+    ]
+  },
+  "saiyan_aura_loop_gold": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_aura_loop_gold",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_aura_loop"
+      }
+    ]
+  },
+  "saiyan_aura_loop_red": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_aura_loop_red",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_aura_loop",
+        "pitch": 0.88
+      }
+    ]
+  },
+  "saiyan_transform_burst": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_transform_burst",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_transform_1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_transform_2",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "saiyan_power_down": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_power_down",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_power_down"
+      }
+    ]
+  },
+  "saiyan_ki_dash": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ki_dash",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_dash_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_dash_2"
+      }
+    ]
+  },
+  "saiyan_take_off": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_take_off",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_take_off"
+      }
+    ]
+  },
+  "saiyan_land": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_land",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_land_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_land_2"
+      }
+    ]
+  },
+  "saiyan_land_heavy": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_land_heavy",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_land_heavy_1",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_land_heavy_2",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "saiyan_ui_dodge": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ui_dodge",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_dodge_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_dodge_2"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_dodge_3"
+      }
+    ]
+  },
+  "saiyan_punch": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_punch",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_punch_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_punch_2"
+      }
+    ]
+  },
+  "saiyan_punch_heavy": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_punch_heavy",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_punch_heavy"
+      }
+    ]
+  },
+  "saiyan_finisher": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_finisher",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_finisher"
+      }
+    ]
+  },
+  "saiyan_swing": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_swing",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_swing"
+      }
+    ]
+  },
+  "saiyan_flurry": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_flurry",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_flurry_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_flurry_2"
+      }
+    ]
+  },
+  "saiyan_vanish": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_vanish",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_vanish_away"
+      }
+    ]
+  },
+  "saiyan_appear": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_appear",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_vanish"
+      }
+    ]
+  },
+  "saiyan_ki_blast": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ki_blast",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_blast_1"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_blast_2"
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_blast_3"
+      }
+    ]
+  },
+  "saiyan_ki_blast_hit": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_ki_blast_hit",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_blast_hit"
+      }
+    ]
+  },
+  "saiyan_rain_shot": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_rain_shot",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_rain_shot"
+      }
+    ]
+  },
+  "saiyan_kame_charge": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_kame_charge",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_kame_charge"
+      }
+    ]
+  },
+  "saiyan_kame_fire": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_kame_fire",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_kame_fire",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "saiyan_kame_loop": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_kame_loop",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_beam_loop"
+      }
+    ]
+  },
+  "saiyan_boom": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_boom",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_boom_1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "projecthero:saiyan/dbz/cut_boom_2",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "saiyan_wave": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_wave",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_wave",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "saiyan_spirit_bomb_rise": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_spirit_bomb_rise",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_sb_rise"
+      }
+    ]
+  },
+  "saiyan_spirit_bomb_charge": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_spirit_bomb_charge",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_sb_charge"
+      }
+    ]
+  },
+  "saiyan_spirit_bomb_throw": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_spirit_bomb_throw",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_sb_throw"
+      }
+    ]
+  },
+  "saiyan_spirit_bomb_explode": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_spirit_bomb_explode",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_sb_explode"
+      }
+    ]
+  },
+  "saiyan_spirit_bomb_boom": {
+    "replace": true,
+    "subtitle": "subtitles.projecthero.saiyan_spirit_bomb_boom",
+    "sounds": [
+      {
+        "name": "projecthero:saiyan/dbz/cut_sb_boom"
+      }
+    ]
+  }
+}

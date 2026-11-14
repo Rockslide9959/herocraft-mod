@@ -80,7 +80,7 @@ public final class SaiyanFlight {
 		Vec3 c = player.position();
 		level.sendParticles(Saiyan.dust(Saiyan.form(player).auraColor, 1.6f), c.x, c.y + 0.5, c.z, 14, 0.4, 0.3, 0.4, 0.0);
 		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 10, 0.4, 0.1, 0.4, 0.05);
-		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.45f, 0.8f); // the take-off: a softer, lower dash
+		level.playSound(null, c.x, c.y, c.z, SaiyanSounds.TAKE_OFF, SoundSource.PLAYERS, 0.55f, 1.0f); // the take-off
 	}
 
 	private static void grantAbilities(ServerPlayer player) {

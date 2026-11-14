@@ -43,3 +43,8 @@ replay_*.log
 *.class
 # v0.17.3: show-transformation reference frames (scratchpad/omnitrix_seq/cut_clip.js regenerates them)
 docs/reference/omnitrix_sequences/*/f_*.jpg
+# v0.17.4: Dragon Ball show audio (user's clips) -- local test builds only, never committed (public repo). Swap for synthesised sound-alikes before a public release.
+docs/reference/dbz_sounds/
+src/main/resources/assets/projecthero/sounds/saiyan/dbz/
+# v0.17.4: test films with the Dragon Ball clips laid under them (show audio): local only
+docs/screenshots/v0174/saiyan/*_sound.mp4

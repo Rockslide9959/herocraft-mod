@@ -133,8 +133,8 @@ public final class SpiritBombFx {
 				Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
 				double dist = cam.distanceTo(p.pos());
 				flash = Math.max(flash, (float) Mth.clamp(1.15 - dist / (p.radius() * 5.0 + 60.0), 0.0, 1.0));
-				quiet(net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), p.pos(), 0.4f, p.radius() * 10.0 + 120.0, 0.45f + 0.15f * (1f - p.charge())); // a deep, distant boom, kept quiet
-				quiet(SaiyanSounds.POWER_DOWN, p.pos(), 0.3f, p.radius() * 6.0 + 60.0, 0.5f);
+				quiet(SaiyanSounds.SPIRIT_BOMB_BOOM, p.pos(), 0.45f, p.radius() * 10.0 + 120.0, 0.9f + 0.1f * (1f - p.charge())); // a deep, distant boom, kept quiet
+				quiet(SaiyanSounds.SPIRIT_BOMB_EXPLODE, p.pos(), 0.6f, p.radius() * 6.0 + 60.0, 1.0f);
 				int n = 6 + (int) (p.radius() * 0.6);
 				for (int i = 0; i < n; i++) {
 					Vec3 o = randomUnit().scale(p.radius() * 0.5 * RNG.nextDouble());
@@ -219,8 +219,8 @@ public final class SpiritBombFx {
 			long t = mc.level.getGameTime();
 			Long next = NEXT_HUM.get(p.getId());
 			if (next == null || t >= next) {
-				NEXT_HUM.put(p.getId(), t + 60);
-				quiet(net.minecraft.sounds.SoundEvents.BEACON_AMBIENT, c, 0.35f, 160.0, 0.5f + 0.45f * (r / SaiyanSpiritBomb.RADIUS_MAX));
+				NEXT_HUM.put(p.getId(), t + 66); // v0.17.4: back to back with the ~3.4 s charge clip
+				quiet(SaiyanSounds.SPIRIT_BOMB_CHARGE, c, 0.45f, 160.0, 0.92f + 0.16f * (r / SaiyanSpiritBomb.RADIUS_MAX));
 			}
 			// energy gathering in from all round, more from below
 			for (int i = 0; i < 3 && MOTES.size() < MOTE_CAP; i++) {

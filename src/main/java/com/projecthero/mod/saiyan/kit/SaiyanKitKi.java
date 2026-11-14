@@ -184,7 +184,7 @@ final class SaiyanKitKi {
 		dir = dir.lengthSqr() < 0.01 ? p.getLookAngle() : dir.normalize();
 		launch(p, from, dir.scale(SaiyanKitConfig.BLAST_SPEED), false, null, SaiyanKitConfig.BLAST_LIFE, SaiyanKitConfig.BLAST_SIZE);
 		anim(p, hand % 2 == 0 ? ANIM_BLAST_R : ANIM_BLAST_L);
-		sound(p, SaiyanKitSounds.WHOOSH, 0.22f, 1.8f + p.getRandom().nextFloat() * 0.15f);
+		sound(p, SaiyanKitSounds.KI_SHOT, 0.35f, 0.95f + p.getRandom().nextFloat() * 0.12f);
 		r.lastShot = now;
 		cooldown(p, KI_BLAST, SaiyanKitConfig.BLAST_EVERY);
 		return true;
@@ -241,7 +241,7 @@ final class SaiyanKitKi {
 				r.fired = now;
 				anim(p, ANIM_KAME_FIRE);
 				fx(p, SaiyanKitFxPayload.BEAM_FIRE, p.getId(), Vec3.ZERO, Vec3.ZERO, r.charge, rgb, SaiyanKitConfig.BEAM_FIRE_TICKS);
-				sound(p, SaiyanKitSounds.BLAST, 0.25f, 1.4f);
+				sound(p, SaiyanKitSounds.BEAM_FIRE, 0.8f, 1.05f - 0.1f * r.charge);
 			}
 			return;
 		}
@@ -290,7 +290,7 @@ final class SaiyanKitKi {
 			}
 		}
 		if (fireAge % (SaiyanKitConfig.BEAM_PULSE_EVERY * 2) == 1) {
-			soundAt(level(p), end, SaiyanKitSounds.BLAST, 0.25f, 1.1f);
+			soundAt(level(p), end, SaiyanKitSounds.BLAST, 0.3f, 0.9f);
 		}
 	}
 
@@ -325,8 +325,7 @@ final class SaiyanKitKi {
 			}
 		}
 		fx(p, SaiyanKitFxPayload.DOME, p.getId(), c, Vec3.ZERO, (float) SaiyanKitConfig.WAVE_RADIUS, kiColor(form(p)), 0);
-		sound(p, SaiyanKitSounds.BOOM, 0.4f, 1.2f);
-		sound(p, SaiyanKitSounds.WHOOSH, 0.4f, 0.6f);
+		sound(p, SaiyanKitSounds.WAVE, 0.7f, 1.0f);
 	}
 
 	// ---------------------------------------------------------------- Shift+C: Ki Rain
@@ -361,7 +360,7 @@ final class SaiyanKitKi {
 		AbilityHelpers.launchSelf(p, new Vec3(0, 1.0, 0));
 		fallSafeFor(p, SaiyanKitConfig.FALL_SAFE_TICKS);
 		fxAt(level(p), aim, SaiyanKitFxPayload.RAIN_MARK, p.getId(), aim, Vec3.ZERO, (float) SaiyanKitConfig.RAIN_RADIUS, kiColor(form(p)), rainTicks());
-		sound(p, SaiyanKitSounds.WHOOSH, 0.45f, 0.8f);
+		sound(p, SaiyanKitSounds.WHOOSH, 0.45f, 0.9f);
 	}
 
 	static void tickRain(ServerPlayer p, Run r, long age) {
@@ -387,7 +386,7 @@ final class SaiyanKitKi {
 			Vec3 vel = (d.lengthSqr() < 0.01 ? new Vec3(0, -1, 0) : d.normalize()).scale(SaiyanKitConfig.RAIN_SHOT_SPEED);
 			int life = (int) Math.ceil(d.length() / SaiyanKitConfig.RAIN_SHOT_SPEED) + 2;
 			launch(p, from, vel, true, point, life, 0.34f);
-			sound(p, SaiyanKitSounds.WHOOSH, 0.18f, 1.9f);
+			sound(p, SaiyanKitSounds.RAIN_SHOT, 0.25f, 1.0f + p.getRandom().nextFloat() * 0.15f);
 			r.stage++;
 		}
 		if (age >= rainTicks()) {
@@ -417,7 +416,7 @@ final class SaiyanKitKi {
 		Vec3 eye = p.getEyePosition();
 		fx(p, SaiyanKitFxPayload.FLASH, p.getId(), eye.add(p.getLookAngle().scale(0.25)), Vec3.ZERO, (float) SaiyanKitConfig.FLARE_RANGE,
 				0xFFFFF4, 0);
-		sound(p, SaiyanKitSounds.VANISH, 0.3f, 1.9f);
+		sound(p, SaiyanKitSounds.VANISH, 0.5f, 1.35f);
 		long until = p.level().getGameTime() + SaiyanKitConfig.FLARE_TICKS;
 		for (LivingEntity e : HeroTargets.harmable(p.level(), p, p.getBoundingBox().inflate(SaiyanKitConfig.FLARE_RANGE))) {
 			if (e == p || !e.isAlive() || e.distanceTo(p) > SaiyanKitConfig.FLARE_RANGE || !facing(e, p)) {
@@ -522,7 +521,7 @@ final class SaiyanKitKi {
 	private static void burst(ServerPlayer owner, Shot s, LivingEntity direct) {
 		int rgb = kiColor(form(owner));
 		fxAt(s.level, s.pos, SaiyanKitFxPayload.SHOT_END, owner.getId(), s.pos, Vec3.ZERO, s.rain ? 1.4f : 1.0f, rgb, s.id);
-		soundAt(s.level, s.pos, SaiyanKitSounds.BLAST, s.rain ? 0.22f : 0.18f, 1.7f + owner.getRandom().nextFloat() * 0.2f);
+		soundAt(s.level, s.pos, SaiyanKitSounds.BLAST, s.rain ? 0.26f : 0.3f, (s.rain ? 1.15f : 1.0f) + owner.getRandom().nextFloat() * 0.15f);
 		if (s.rain) {
 			for (LivingEntity e : around(owner, s.pos, SaiyanKitConfig.RAIN_SPLASH)) {
 				strike(owner, e, s.pos, SaiyanKitConfig.RAIN_DAMAGE, 0.2, 0.05);

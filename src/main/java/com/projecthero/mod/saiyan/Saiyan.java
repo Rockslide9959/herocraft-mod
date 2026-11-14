@@ -573,7 +573,7 @@ public final class Saiyan {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position();
 		// the flash itself (rays, pillar, shockwave, debris) is drawn by every client from transformingTicks
-		level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 1.0f, 0.95f);
+		level.playSound(null, c.x, c.y + 1.0, c.z, SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 1.0f, 1.0f);
 		level.sendParticles(dust(SaiyanForm.SSJ.auraColor, 2.0f), c.x, c.y + 1.0, c.z, 40, 0.6, 1.0, 0.6, 0.0);
 		player.displayClientMessage(Component.translatable(SaiyanForm.SSJ.nameKey()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
 		return true;
@@ -644,7 +644,7 @@ public final class Saiyan {
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 1.25f);
+		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.8f, 1.12f);
 		level.sendParticles(dust(0xFFFF2A2A, 2.0f), player.getX(), player.getY() + 1.0, player.getZ(), 30, 0.5, 0.9, 0.5, 0.0);
 		player.displayClientMessage(Component.translatable("message.projecthero.saiyan.kaioken_on").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
 		return true;
@@ -677,7 +677,7 @@ public final class Saiyan {
 		save(player, n);
 		player.heal(SaiyanConfig.ZENKAI_HEAL);
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.9f, 1.3f);
+		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.9f, 1.15f);
 		level.sendParticles(dust(0xFFFFB020, 1.6f), player.getX(), player.getY() + 1.0, player.getZ(), 24, 0.4, 0.8, 0.4, 0.0);
 		player.displayClientMessage(Component.translatable("message.projecthero.saiyan.zenkai").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
 	}

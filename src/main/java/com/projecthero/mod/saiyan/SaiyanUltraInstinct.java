@@ -208,7 +208,7 @@ public final class SaiyanUltraInstinct {
 		Saiyan.save(p, n);
 		PROGRESS.remove(p.getUUID());
 		ServerLevel level = p.serverLevel();
-		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.8f, 1.8f);
+		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.KI_CHARGE_START, SoundSource.PLAYERS, 0.8f, 1.35f);
 		level.sendParticles(Saiyan.dust(0xFF000000 | SILVER, 1.4f), p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.5, 0.9, 0.5, 0.0);
 		p.displayClientMessage(Component.translatable("message.projecthero.saiyan.ui_unlocked").withStyle(ChatFormatting.WHITE, ChatFormatting.ITALIC), false);
 		p.displayClientMessage(Component.translatable("message.projecthero.saiyan.ui_unlocked_hint").withStyle(ChatFormatting.GRAY), false);
@@ -249,7 +249,7 @@ public final class SaiyanUltraInstinct {
 		Saiyan.save(p, n);
 		Saiyan.reconcile(p);
 		ServerLevel level = p.serverLevel();
-		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.9f, 1.45f);
+		level.playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SaiyanSounds.TRANSFORM_BURST, SoundSource.PLAYERS, 0.9f, 1.2f);
 		level.sendParticles(Saiyan.dust(0xFF000000 | SILVER, 2.0f), p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.6, 1.0, 0.6, 0.0);
 		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.5, 0.9, 0.5, 0.05);
 		p.displayClientMessage(Component.translatable(SaiyanForm.ULTRA.nameKey()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD), true);
@@ -352,7 +352,7 @@ public final class SaiyanUltraInstinct {
 		}
 		SaiyanKit.ghost(p, from, to != null ? to : from, SILVER);
 		ServerLevel level = p.serverLevel();
-		level.playSound(null, from.x, from.y + 1.0, from.z, SaiyanSounds.KI_DASH, SoundSource.PLAYERS, 0.35f, 1.9f);
+		level.playSound(null, from.x, from.y + 1.0, from.z, SaiyanSounds.UI_DODGE, SoundSource.PLAYERS, 0.5f, 1.0f + p.getRandom().nextFloat() * 0.1f);
 		level.sendParticles(ParticleTypes.END_ROD, from.x, from.y + 1.0, from.z, 6, 0.25, 0.5, 0.25, 0.02);
 		if (source.getDirectEntity() instanceof Projectile proj) {
 			proj.discard(); // the arrow / fireball flies on past where he was -- simplest: it is gone
