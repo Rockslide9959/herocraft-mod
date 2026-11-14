@@ -51,7 +51,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.3 Raven (Teen Titans), revamped 2026-11-13 ({@code docs/RAVEN_REVAMP_DESIGN.md}): the book and the grant, the passives
- * (30 health, Demonic Heritage, Dark Empathy, Mystical Awareness), both bars and the Composure tiers, every main key's core effect
+ * (20 health and no fall damage since v0.17.4, Demonic Heritage, Dark Empathy, Mystical Awareness), both bars and the Composure tiers, every main key's core effect
  * and cost, Demonic Ascension's buffs and expiry, the Spell Wheel's pick (saved, and V tapped casts it), every spell's core effect,
  * the misfire rate, Rage halving shields, Trigon's Wrath gated by Rage, and old saved data. Mock players are not ticked by the
  * server, so tests over time drive {@link Raven#tick} themselves (one onEachTick per test, registered at the start; every check is a
@@ -184,21 +184,25 @@ public class RavenGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void thirtyHealthResistanceAndDemonicHeritage(GameTestHelper helper) {
+	public void twentyHealthResistanceAndDemonicHeritage(GameTestHelper helper) {
 		ServerPlayer p = raven(helper);
-		helper.assertTrue(Math.abs(p.getMaxHealth() - 30f) < 0.01f, "30 health, got " + p.getMaxHealth());
-		p.setHealth(30f);
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "20 health (v0.17.4), got " + p.getMaxHealth());
+		p.setHealth(20f);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().generic(), 10f);
-		helper.assertTrue(Math.abs(p.getHealth() - 21f) < 0.05f, "10% off an ordinary hit (10 -> 9), health " + p.getHealth());
+		helper.assertTrue(Math.abs(p.getHealth() - 11f) < 0.05f, "10% off an ordinary hit (10 -> 9), health " + p.getHealth());
 		helper.assertTrue(Raven.composure(p) < RavenConfig.COMPOSURE_MAX - 9f, "being hurt unsettles her, composure " + Raven.composure(p));
-		p.setHealth(30f);
+		p.setHealth(20f);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().magic(), 10f);
-		float expect = 30f - 10f * 0.9f * 0.7f;
+		float expect = 20f - 10f * 0.9f * 0.7f;
 		helper.assertTrue(Math.abs(p.getHealth() - expect) < 0.05f, "Demonic Heritage: magic is 30% lighter on top (10 -> 6.3), health " + p.getHealth());
 		Raven.tick(p);
-		helper.assertTrue(p.hasEffect(MobEffects.SLOW_FALLING), "slow fall is on when she isn't flying");
+		helper.assertTrue(!p.hasEffect(MobEffects.SLOW_FALLING), "v0.17.4: no slow fall");
+		p.setHealth(20f);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fall(), 12f);
+		helper.assertTrue(p.getHealth() == 20f, "but falls never hurt her, health " + p.getHealth());
 		helper.succeed();
 	}
 
@@ -412,10 +416,10 @@ public class RavenGameTests implements FabricGameTest {
 		helper.assertTrue(Raven.guarding(p) && close(Raven.state(p).guardHp, RavenConfig.GUARD_ABSORB), "30 to absorb");
 		helper.assertTrue(close(Raven.energy(p), 100f - RavenConfig.GUARD_COST)
 				&& Raven.cooldownRemaining(p, RavenAbilityManager.SOUL_SHIELD) == RavenConfig.GUARD_COOLDOWN, "25 Dark Energy, 16 s cooldown");
-		p.setHealth(30f);
+		p.setHealth(20f);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().magic(), 15f);
-		helper.assertTrue(p.getHealth() == 30f && close(Raven.state(p).guardHp, 15f), "the shield took 15, health " + p.getHealth());
+		helper.assertTrue(p.getHealth() == 20f && close(Raven.state(p).guardHp, 15f), "the shield took 15, health " + p.getHealth());
 		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
 		arrow.setOwner(shooter);
 		arrow.setPos(p.getX(), p.getY() + 1.0, p.getZ() + 1.9);
@@ -884,7 +888,7 @@ public class RavenGameTests implements FabricGameTest {
 			// on a squadmate
 			Raven.clearCooldowns(p);
 			Raven.setEnergy(p, 100f);
-			p.setHealth(30f);
+			p.setHealth(20f);
 			ServerPlayer mate = mock(helper, 1.5, 5.5);
 			mate.setHealth(4f);
 			var s = squad(helper, p, mate);
@@ -893,7 +897,7 @@ public class RavenGameTests implements FabricGameTest {
 				look(p, mate);
 				helper.assertTrue(RavenMoves.healTarget(p) == mate, "aimed at the squadmate");
 				helper.assertTrue(RavenSpells.cast(p, RavenSpell.SOUL_RESTORATION, false), "cast on them");
-				helper.assertTrue(Math.abs(p.getHealth() - 22f) < 0.01f, "she took 8 of their pain (16 missing, half), health " + p.getHealth());
+				helper.assertTrue(Math.abs(p.getHealth() - 12f) < 0.01f, "she took 8 of their pain (16 missing, half), health " + p.getHealth());
 				helper.assertTrue(Math.abs(mate.getHealth() - 20f) < 0.01f, "and healed them double, health " + mate.getHealth());
 			} finally {
 				disband(helper, s);
@@ -962,10 +966,10 @@ public class RavenGameTests implements FabricGameTest {
 			mate.invulnerableTime = 0;
 			mate.hurt(mate.damageSources().generic(), 10f);
 			helper.assertTrue(Math.abs(mate.getHealth() - 14f) < 0.05f, "a squadmate inside takes 40% less (10 -> 6), health " + mate.getHealth());
-			p.setHealth(30f);
+			p.setHealth(20f);
 			p.invulnerableTime = 0;
 			p.hurt(p.damageSources().generic(), 10f);
-			helper.assertTrue(Math.abs(p.getHealth() - (30f - 10f * 0.9f * 0.6f)) < 0.05f, "so does she, after her own 10%: health " + p.getHealth());
+			helper.assertTrue(Math.abs(p.getHealth() - (20f -10f * 0.9f * 0.6f)) < 0.05f, "so does she, after her own 10%: health " + p.getHealth());
 		} finally {
 			disband(helper, s);
 		}

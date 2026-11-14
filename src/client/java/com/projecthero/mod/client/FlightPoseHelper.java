@@ -152,7 +152,9 @@ public final class FlightPoseHelper {
 				// v0.17.3: Doctor Fate's hover flight
 				|| com.projecthero.mod.doctorfate.DoctorFate.isFlying(player)
 				// v0.17.3: Vision's double-tap-Space flight
-				|| com.projecthero.mod.vision.Vision.isFlying(player);
+				|| com.projecthero.mod.vision.Vision.isFlying(player)
+				// v0.17.4: Raven's levitation (her own gentler lean and limbs: client.raven.RavenPose)
+				|| com.projecthero.mod.raven.Raven.isFlying(player);
 		// (v0.17.2: Heatblast's Fire Jet lean is gone with the Fire Jet -- he surfs his Rock Ride in his own stance, HeatblastClient)
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
@@ -403,6 +405,8 @@ public final class FlightPoseHelper {
 		float base = (anim == null ? 0.0f : Mth.lerp(partialTick, anim.leanPrev, anim.lean)) + boots;
 		// v0.17.3 animation round: Starfire's moves lean her body (laid along a dash, into a throw, the beams' thrust, the recoil)
 		base = com.projecthero.mod.client.starfire.StarfirePose.adjustLean(player, base, partialTick);
+		// v0.17.4: Raven's flight lean eased to a sorceress's (never flat out) and her moves' leans
+		base = com.projecthero.mod.client.raven.RavenPose.adjustLean(player, base, partialTick);
 		// v0.16.5 Flight rework: a Dive Bomb lies head-first along the dive, a dash / punch along its line
 		// v0.17.1: a superhero landing straightens the body out of the dive at once (its pose takes over)
 		return com.projecthero.mod.client.mutation.FlightClient.adjustLean(player, base, partialTick)
