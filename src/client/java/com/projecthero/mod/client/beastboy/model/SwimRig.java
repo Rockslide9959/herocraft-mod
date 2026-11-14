@@ -3,7 +3,6 @@ package com.projecthero.mod.client.beastboy.model;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.minecraft.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.util.Mth;
 
@@ -37,8 +36,9 @@ public final class SwimRig {
 		private static final int H = 64;
 		private final float[] hT = new float[H], hTurn = new float[H], hSpeed = new float[H];
 		private int head, count;
-		private float lastYaw, lastNow = -1f, lastRec = -1f;
-		private double lx, ly, lz;
+		private float lastYaw, lastAge, lastWetAge, lastRec = -1f;
+		/** Eased horizontal speed, blocks per tick. */
+		public float hspeed;
 
 		/** Speed 0..1 against a fast swim (0.3 blocks / tick). */
 		public float speed01() {
@@ -93,69 +93,93 @@ public final class SwimRig {
 	}
 
 	private static final Map<Integer, State> STATES = new HashMap<>();
-	private static final long T0 = Util.getNanos();
 	private static State bound;
 
 	private SwimRig() {
 	}
 
-	/** Updates {@code p}'s swim state for this frame and binds it for the next {@link #take}. */
+	/**
+	 * Updates {@code p}'s swim state for this frame and binds it for the next {@link #take}.
+	 *
+	 * <p>v0.17.4 (user: "the swimming animations for the sea creatures shake sometimes and they just tilt in general"): rebuilt on the
+	 * game clock. The old version took the speed and travel pitch from frame-to-frame changes of the interpolated position over
+	 * wall-clock time, which is noisy (frame pacing never lines up with the 20 Hz ticks), and turned that into a pitch with
+	 * {@code atan2(-vertical, horizontal)}: hovering or crawling along at the surface, the player's little up-and-down bob over almost
+	 * no horizontal speed came out as a nose swinging up to +-70 degrees and back -- the shake, and the constant tilt. Now the speed
+	 * comes from the ticks' own steps (x - xo), every value eases on {@code tickCount + partialTick} (frame-rate independent, frozen
+	 * while paused, inert across repeated passes of one frame), the pitch only follows the swim once he's really moving (and is held
+	 * shallow when the motion is mostly vertical or he's at the surface), and the turn rate reads the body yaw, which now eases toward
+	 * the look in the water ({@code BeastBoySwimTurnMixin}) instead of snapping to catch up with it.
+	 */
 	public static void track(AbstractClientPlayer p, float pt) {
 		if (STATES.size() > 128) {
 			STATES.clear();
 		}
-		float now = (Util.getNanos() - T0) / 1.0e9f;
-		double x = Mth.lerp(pt, p.xo, p.getX()), y = Mth.lerp(pt, p.yo, p.getY()), z = Mth.lerp(pt, p.zo, p.getZ());
+		float age = p.tickCount + pt;
 		float yaw = Mth.rotLerp(pt, p.yBodyRotO, p.yBodyRot);
+		boolean inWater = p.isInWater() || p.isUnderWater();
 		State st = STATES.get(p.getId());
-		if (st == null) {
+		if (st == null || age < st.lastAge || age - st.lastAge > 40f) {
 			st = new State();
 			st.lastYaw = yaw;
-			st.lx = x;
-			st.ly = y;
-			st.lz = z;
-			st.wetness = p.isInWater() ? 1f : 0f;
+			st.lastAge = age;
+			st.lastWetAge = inWater ? age : -1000f;
+			st.wetness = inWater ? 1f : 0f;
 			STATES.put(p.getId(), st);
 		}
-		st.time = (p.tickCount + pt) / 20f;
-		st.wet = p.isInWater() || p.isUnderWater();
-		st.surfaced = st.wet && !p.isUnderWater();
+		st.time = age / 20f;
 		st.ground = p.onGround();
-		float dt = st.lastNow < 0f ? 0f : now - st.lastNow;
+		if (inWater) {
+			st.lastWetAge = age;
+		}
+		// a leap out of the water keeps the swim pose until he lands or has been out for over a second
+		st.wet = inWater || (!st.ground && age - st.lastWetAge < 25f);
+		st.surfaced = inWater && !p.isUnderWater();
+		float dt = Math.min(age - st.lastAge, 3f);
 		if (dt > 1.0e-4f) {
-			st.lastNow = now;
-			dt = Math.min(dt, 0.1f);
-			double dx = x - st.lx, dy = y - st.ly, dz = z - st.lz;
-			st.lx = x;
-			st.ly = y;
-			st.lz = z;
-			float perTick = dt * 20f;
-			float h = (float) Math.sqrt(dx * dx + dz * dz) / perTick;
-			float v = (float) dy / perTick;
-			if (h > 3f || Math.abs(v) > 3f) { // a teleport, not a swim
+			st.lastAge = age;
+			// the last tick's step (blocks per tick); a teleport is not a swim
+			double dx = p.getX() - p.xo, dy = p.getY() - p.yo, dz = p.getZ() - p.zo;
+			float h = (float) Math.sqrt(dx * dx + dz * dz);
+			float v = (float) dy;
+			if (h > 3f || Math.abs(v) > 3f) {
 				h = 0f;
 				v = 0f;
 			}
-			float sp = Mth.sqrt(h * h + v * v);
-			float k = 1f - (float) Math.exp(-dt * 6f);
-			st.speed += (sp - st.speed) * k;
-			st.vy += (v - st.vy) * k;
-			st.dist += st.speed * perTick;
+			float kMove = k(0.3f, dt);
+			st.hspeed += (h - st.hspeed) * kMove;
+			st.vy += (v - st.vy) * kMove;
+			st.speed = Mth.sqrt(st.hspeed * st.hspeed + st.vy * st.vy);
+			st.dist += st.speed * dt;
 			float dyaw = Mth.wrapDegrees(yaw - st.lastYaw);
 			st.lastYaw = yaw;
-			float rate = Mth.clamp(-dyaw * Mth.DEG_TO_RAD / dt, -4f, 4f);
-			st.turn += (rate - st.turn) * (1f - (float) Math.exp(-dt * 5f));
+			float rate = Mth.clamp(-dyaw * Mth.DEG_TO_RAD / (dt / 20f), -4f, 4f);
+			st.turn += (rate - st.turn) * k(0.25f, dt);
 			float target = 0f;
-			if (!st.ground && sp > 0.03f) {
-				target = Mth.clamp((float) Math.atan2(-v, Math.max(0.001f, h)), -1.25f, 1.25f);
+			if (st.wet && !(st.ground && inWater)) {
+				float raw = (float) Math.atan2(-st.vy, Math.max(0.001f, st.hspeed));
+				// mostly-vertical motion (Space / Sneak on the spot) only tips him a little; a real dive or climb follows the swim
+				float limit = Mth.lerp(smoothstep(0.02f, 0.1f, st.hspeed), 0.45f, 1.2f);
+				target = Mth.clamp(raw, -limit, limit) * smoothstep(0.025f, 0.09f, st.speed);
+				if (st.surfaced && target < 0f) {
+					target *= 0.4f; // cruising at the surface stays level
+				}
 			}
-			st.pitch += (target - st.pitch) * (1f - (float) Math.exp(-dt * 4f));
-			st.wetness += ((st.wet ? 1f : 0f) - st.wetness) * (1f - (float) Math.exp(-dt * 4f));
-		} else if (st.lastNow < 0f) {
-			st.lastNow = now;
+			st.pitch += (target - st.pitch) * k(0.18f, dt);
+			st.wetness += ((st.wet ? 1f : 0f) - st.wetness) * k(0.2f, dt);
 		}
 		st.record();
 		bound = st;
+	}
+
+	/** The share of the way an exponential ease at {@code rate} per tick covers in {@code dt} ticks. */
+	private static float k(float rate, float dt) {
+		return 1f - (float) Math.exp(-rate * dt);
+	}
+
+	private static float smoothstep(float a, float b, float x) {
+		float t = Mth.clamp((x - a) / (b - a), 0f, 1f);
+		return t * t * (3f - 2f * t);
 	}
 
 	/** The state bound by {@link #track} / {@link #bind} (consumed), or a synthetic one from the pose. */

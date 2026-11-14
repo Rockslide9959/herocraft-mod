@@ -65,7 +65,7 @@ public final class DolphinModel {
 		t2.xRot = amp * 0.8f * s2;
 		fl.xRot = amp * 1.1f * s3;
 		float pitchSwim = (air ? st.pitch : st.pitch * wet);
-		body.xRot = pitchSwim * 0.9f - amp * 0.18f * Mth.sin(phase) + s.pitch(0.5f) * 0.2f * wet;
+		body.xRot = pitchSwim * 0.9f - amp * 0.18f * Mth.sin(phase); // v0.17.4: no look-pitch tilt
 		body.y -= amp * 1.2f * Mth.sin(phase + 0.5f) * wet;
 		body.y += dry * (air ? 0f : 0.5f);
 

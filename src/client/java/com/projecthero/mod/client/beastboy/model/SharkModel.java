@@ -86,10 +86,10 @@ public final class SharkModel {
 		}
 
 		// whole body: pitch with the swim, bank into turns, lunge forward; on land roll onto one side and hop on a flop
-		float pitch = st.pitch * 0.85f * wet + s.pitch(0.5f) * 0.25f * wet;
+		float pitch = st.pitch * 0.9f * wet; // v0.17.4: the swim's pitch only (looking up or down no longer tilts a hovering shark)
 		body.xRot = pitch - lunge * 0.12f;
 		body.zRot = Mth.clamp(st.turn * 0.2f, -0.55f, 0.55f) * wet + dry * (0.22f * flopSide + flop * 0.25f * flopSide) + shake * 0.12f;
-		body.yRot = amp * 0.22f * Mth.sin(phase) + shake * 0.2f - s.yaw(0.6f) * 0.25f * wet;
+		body.yRot = amp * 0.22f * Mth.sin(phase) + shake * 0.2f; // v0.17.4: the body follows the look itself now
 		body.z -= lunge * 6f;
 		body.y -= wet * Mth.sin(t * 1.6f) * 0.4f + dry * flop * 3.5f;
 		body.y += dry * 0.6f; // rest on the belly

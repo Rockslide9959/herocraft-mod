@@ -1,0 +1,361 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.beastboy.BeastBoy;
+import com.projecthero.mod.beastboy.BeastForm;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.4 Beast Boy: (1) the green hearts HUD in a few forms (hawk 15, wolf 30, T-Rex 80, whale 120,
+ * a hit with the blink, back to human); (2) every sea form swimming a scripted course in a glass water tank, side view and first
+ * person, driven by the real keys and look (forward, dive, climb to the surface and cruise along it, turns, sprint burst, hover, a
+ * leap). Enabled by run/swimhearts.flag (its text filters scenes by substring; empty = all). Frames: run/screenshots/sh_<scene>_NNN.png.
+ * Hook in/out with scratchpad/beastboy/swim_hearts_hook.js; films with scratchpad/beastboy/swim_hearts_films.sh.
+ */
+public final class SwimHeartsHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame, recUntil;
+	private static Vec3 origin;
+	private static String only;
+	/** Scripted look (client-side, the player's own rotation): applied every tick while set. */
+	private static Float lookYaw, lookPitch;
+	private static float yawSpin, pitchSpin;
+
+	public static volatile Float camYaw; // world yaw of the side camera (null = vanilla camera)
+	public static volatile float camRadius = 5f, camHeight = 0.6f, camLook = 0.4f;
+
+	private SwimHeartsHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("swimhearts.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("swimhearts.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SwimHeartsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "sh-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SwimHeartsHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 80) {
+			mc.options.hideGui = true;
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.resizeDisplay();
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				BeastBoy.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				buildTank(level);
+			});
+		}
+		if (inWorldTicks == 140) {
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (lookYaw != null && mc.player != null) {
+				lookYaw += yawSpin;
+				lookPitch = Math.max(-89f, Math.min(89f, lookPitch + pitchSpin));
+				mc.player.setYRot(lookYaw);
+				mc.player.setXRot(lookPitch);
+			}
+			if (recording != null) {
+				String name = String.format("sh_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+			if (AT.isEmpty() && recording == null) {
+				System.out.println("[HARNESS] DONE");
+				t0 = -1;
+				mc.execute(() -> Runtime.getRuntime().halt(0));
+			}
+		}
+	}
+
+	/** A glass tank, 74 long (+X), 21 wide, 9 deep, full of water, its floor at the ground (the flat world's grass is under it). */
+	private static void buildTank(ServerLevel level) {
+		BlockPos o = BlockPos.containing(origin);
+		int x0 = o.getX() - 8, x1 = o.getX() + 66, z0 = o.getZ() - 10, z1 = o.getZ() + 10, y0 = o.getY(), y1 = o.getY() + 9;
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				for (int y = y0; y <= y1; y++) {
+					boolean wall = x == x0 || x == x1 || z == z0 || z == z1;
+					BlockPos p = new BlockPos(x, y, z);
+					if (wall) {
+						level.setBlock(p, y == y1 ? Blocks.AIR.defaultBlockState() : Blocks.GLASS.defaultBlockState(), 2);
+					} else if (y < y1 - 1) {
+						level.setBlock(p, Blocks.WATER.defaultBlockState(), 2);
+					}
+				}
+			}
+		}
+		// a sand floor, so the depth reads in the films
+		for (int x = x0 + 1; x < x1; x++) {
+			for (int z = z0 + 1; z < z1; z++) {
+				level.setBlock(new BlockPos(x, y0 - 1, z), Blocks.SAND.defaultBlockState(), 2);
+			}
+		}
+	}
+
+	private static void record(int start, String name, int ticks) {
+		if (!want(name)) {
+			return;
+		}
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static boolean want(String name) {
+		return only == null || only.isEmpty() || only.contains(name);
+	}
+
+	private static void keys(Minecraft mc, int t, boolean fwd, boolean sprint, boolean jump, boolean sneak) {
+		at(t, () -> {
+			mc.options.keyUp.setDown(fwd);
+			mc.options.keySprint.setDown(sprint);
+			mc.options.keyJump.setDown(jump);
+			mc.options.keyShift.setDown(sneak);
+		});
+	}
+
+	private static void look(int t, float yaw, float pitch, float ySpin, float pSpin) {
+		at(t, () -> {
+			lookYaw = yaw;
+			lookPitch = pitch;
+			yawSpin = ySpin;
+			pitchSpin = pSpin;
+		});
+	}
+
+	private static void spin(int t, float ySpin, float pSpin) {
+		at(t, () -> {
+			yawSpin = ySpin;
+			pitchSpin = pSpin;
+		});
+	}
+
+	private static void cam(Minecraft mc, int t, Float yaw, float radius, float height, float lookH, boolean firstPerson, boolean hud) {
+		at(t, () -> {
+			camYaw = yaw;
+			camRadius = radius;
+			camHeight = height;
+			camLook = lookH;
+			mc.options.setCameraType(firstPerson ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = !hud;
+		});
+	}
+
+	/** Back to the tank's start (dy above the floor), facing +X, as {@code f}; no keys held. */
+	private static void place(Minecraft mc, int t, BeastForm f, double dy) {
+		keys(mc, t, false, false, false, false);
+		look(t, -90f, 0f, 0f, 0f);
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			p.removeAllEffects();
+			BeastBoy.setForm(p, BeastForm.HUMAN);
+			BeastBoy.clearTransient(p);
+			BeastBoy.clearCooldowns(p);
+			BeastBoy.setStamina(p, 100f);
+			p.teleportTo(level, origin.x - 4, origin.y + dy, origin.z, -90f, 0f);
+			p.setDeltaMovement(Vec3.ZERO);
+			p.setYHeadRot(-90f);
+			p.yBodyRot = -90f;
+			if (f != BeastForm.HUMAN) {
+				BeastBoy.setForm(p, f);
+			}
+		}));
+	}
+
+	private static float radius(BeastForm f) {
+		return switch (f) {
+			case WHALE -> 13f;
+			case SHARK -> 6f;
+			case OCTOPUS -> 4.5f;
+			default -> 5f;
+		};
+	}
+
+	/** The course, 230 ticks: cruise, dive, climb to the surface and cruise along it, turns, a sprint burst, hover, a leap. */
+	private static int course(Minecraft mc, int t) {
+		keys(mc, t, true, false, false, false); // cruise ahead
+		spin(t + 30, 0f, 1.5f); // nose down to 30
+		spin(t + 50, 0f, 0f);
+		spin(t + 65, 0f, -3f); // up to -40 (toward the surface)
+		spin(t + 88, 0f, 0f);
+		spin(t + 120, 0f, 2f); // level off along the surface
+		spin(t + 140, 0f, 0f);
+		spin(t + 140, 2.5f, 0f); // a turn left and back
+		spin(t + 156, -2.5f, 0f);
+		spin(t + 172, 0f, 0f);
+		keys(mc, t + 172, true, true, false, false); // sprint burst
+		keys(mc, t + 192, false, false, false, false); // glide to a stop and hover (no tilt)
+		keys(mc, t + 222, false, false, true, false); // Space at the surface: a leap
+		keys(mc, t + 228, false, false, false, false);
+		return t + 250;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		if (want("hearts")) {
+			BeastForm[] forms = { BeastForm.HAWK, BeastForm.WOLF, BeastForm.TREX, BeastForm.WHALE };
+			for (BeastForm f : forms) {
+				final BeastForm ff = f;
+				at(t, () -> server(mc, p -> {
+					p.teleportTo(p.serverLevel(), origin.x - 20, origin.y, origin.z - 20, 0f, 10f);
+					BeastBoy.setForm(p, BeastForm.HUMAN);
+					BeastBoy.clearTransient(p);
+					BeastBoy.setForm(p, ff);
+				}));
+				look(t, 0f, 10f, 0f, 0f);
+				cam(mc, t, null, 0f, 0f, 0f, true, true);
+				record(t + 25, "hearts_" + f.name().toLowerCase(), 1);
+				t += 35;
+			}
+			// a hit on the T-Rex: half hearts and the blink
+			at(t, () -> server(mc, p -> {
+				BeastBoy.setForm(p, BeastForm.HUMAN);
+				BeastBoy.clearTransient(p);
+				BeastBoy.setForm(p, BeastForm.TREX);
+			}));
+			at(t + 20, () -> server(mc, p -> p.hurt(p.damageSources().generic(), 13f)));
+			record(t + 19, "hearts_trex_hit", 30);
+			t += 60;
+			at(t, () -> server(mc, p -> {
+				BeastBoy.setForm(p, BeastForm.HUMAN);
+				BeastBoy.clearTransient(p);
+			}));
+			record(t + 20, "hearts_human", 1);
+			t += 30;
+		}
+		BeastForm[] sea = { BeastForm.DOLPHIN, BeastForm.SHARK, BeastForm.OCTOPUS, BeastForm.WHALE };
+		for (BeastForm f : sea) {
+			String n = f.name().toLowerCase();
+			if (want("side_" + n) || want("swim_" + n)) {
+				place(mc, t, f, 3.0);
+				cam(mc, t, 0f, radius(f), 0.5f, 0.4f, false, false);
+				int end = course(mc, t + 20);
+				record(t + 18, "side_" + n, end - t - 18);
+				t = end + 10;
+			}
+			if (want("fp_" + n) || want("swim_" + n)) {
+				place(mc, t, f, 3.0);
+				cam(mc, t, null, 0f, 0f, 0f, true, false);
+				int end = course(mc, t + 20);
+				record(t + 18, "fp_" + n, end - t - 18);
+				t = end + 10;
+			}
+		}
+		at(t, () -> {
+			lookYaw = null;
+			camYaw = null;
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SH_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

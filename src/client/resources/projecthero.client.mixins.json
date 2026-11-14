@@ -269,6 +269,8 @@
 		"GreenLanternMechGuiMixin",
 		"BeastBoyPlayerRendererMixin",
 		"BeastBoyHandsMixin",
+		"BeastBoyHeartsMixin",
+		"BeastBoySwimTravelMixin",
 		"BeastBoyOcelotMixin",
 		"BeastBoyPolarBearAccessor",
 		"BeastBoyIronGolemAccessor",
