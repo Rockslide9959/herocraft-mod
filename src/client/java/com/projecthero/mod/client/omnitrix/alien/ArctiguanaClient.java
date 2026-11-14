@@ -61,8 +61,50 @@ public final class ArctiguanaClient implements AlienClientKit {
 				RecalFx.spike(pose, buffers, base, dir, 0.1f, 0.6f, 0xFFE8F8FF, 0xFF6AC8F0, (e.tickCount + partial) * 0.4f);
 				PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, e.getBbHeight() * 0.5, 0), 0.3f, PyroDraw.dim(ICE_GLOW, 0.6f));
 			});
+			// v0.17.4 Shard Fan: the same spikes, a little smaller
+			OmnitrixRenderers.projectileLook("arctiguana_fan", (e, partial, pose, buffers) -> {
+				Vec3 v = e.getDeltaMovement();
+				Vec3 dir = v.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : v.normalize();
+				Vec3 base = dir.scale(-0.25).add(0, e.getBbHeight() * 0.5, 0);
+				RecalFx.spike(pose, buffers, base, dir, 0.08f, 0.5f, 0xFFE8F8FF, 0xFF6AC8F0, (e.tickCount + partial) * 0.4f);
+				PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, e.getBbHeight() * 0.5, 0), 0.25f, PyroDraw.dim(ICE_GLOW, 0.5f));
+			});
+			// v0.17.4 Ice Decoy: his body in translucent ice
+			net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(ArctiguanaKit.DECOY,
+					com.projecthero.mod.client.omnitrix.alien.arctiguana.ArctiguanaDecoyRenderer::new);
 		}
 	}
+
+	// ---------------------------------------------------------------- v0.17.4 poses
+	/** Wall Cling (held): both hands up the wall, knees bent and tucked, head tipped back to look up it. */
+	private static final float[] CLING_HELD = g(0, -2.7f, 0.2f, 0.25f, -2.5f, -0.2f, -0.25f, -0.1f, 0, -0.9f, -0.4f, -0.3f, 0.3f);
+	/** Ice Path (held): hunched low over the ground ahead, breathing the ice out in front of his feet. */
+	private static final float[] PATH_HELD = g(0, 0.4f, 0, 0.5f, 0.4f, 0, -0.5f, 0.55f, 0, -0.35f, 0.35f, 0.5f, 0.7f);
+	/** Blizzard (held): arms flung out and head back as the storm whirls round him. */
+	private static final float[] BLIZZARD_HELD = g(0, -0.6f, 0, 1.3f, -0.6f, 0, -1.3f, -0.2f, 0, -0.1f, 0.1f, -0.45f, 0.2f);
+	/** Shard Fan: a snap of the head, spraying shards across the front. */
+	private static final float[][] FAN = { rest(0), g(2, 0.4f, 0, 0.3f, 0.4f, 0, -0.3f, 0.35f, 0.5f, 0, 0, 0.35f, 0.1f),
+			g(5, 0.3f, 0, 0.3f, 0.3f, 0, -0.3f, 0.3f, -0.5f, 0, 0, 0.3f, 0.1f), g(8, 0.25f, 0, 0.25f, 0.25f, 0, -0.25f, 0.25f, 0, 0, 0, 0.2f, 0.05f), rest(12) };
+	/** Ice Pillar: a fist driven down at the ground, sending the ice up under it. */
+	private static final float[][] PILLAR = { rest(0), g(3, -2.7f, 0, 0.2f, 0.3f, 0, -0.3f, -0.2f, 0, 0, 0, -0.2f, 0.2f),
+			g(6, 0.5f, 0, 0.3f, 0.3f, 0, -0.3f, 0.5f, 0, -0.4f, 0.4f, 0.3f, 0.8f), g(12, 0.4f, 0, 0.3f, 0.3f, 0, -0.3f, 0.4f, 0, -0.35f, 0.35f, 0.25f, 0.6f), rest(18) };
+	/** Shatter: both fists clenched and snapped in, as every block of ice round him cracks. */
+	private static final float[][] SHATTER = { rest(0), g(3, -0.5f, 0, 1.3f, -0.5f, 0, -1.3f, -0.2f, 0, 0, 0, -0.2f, 0.1f),
+			g(6, -1.3f, -0.8f, 0, -1.3f, 0.8f, 0, 0.3f, 0, -0.2f, 0.2f, 0.25f, 0.4f), g(12, -1.2f, -0.8f, 0, -1.2f, 0.8f, 0, 0.25f, 0, -0.2f, 0.2f, 0.2f, 0.3f), rest(18) };
+	/** Ice Decoy: a quick step aside from where the statue forms, arms in. */
+	private static final float[][] DECOY = { rest(0), g(3, -0.6f, 0.4f, 0.3f, 0.6f, 0, -0.5f, 0.2f, 0.6f, -0.4f, 0.3f, 0, 0.4f), rest(10) };
+	/** Frozen Tail Spike: twisting away and driving the iced tail out ahead past his side. */
+	private static final float[][] SPIKE = { rest(0), g(2, 0.5f, 0, 0.6f, 0.3f, 0, -0.4f, 0.4f, -0.9f, -0.3f, 0.3f, 0.2f, 0.4f),
+			g(5, 0.2f, 0, 0.3f, -0.4f, 0, -0.3f, 0.3f, 0.6f, -0.3f, 0.3f, 0.1f, 0.3f), g(10, 0.2f, 0, 0.3f, -0.3f, 0, -0.3f, 0.25f, 0.4f, -0.25f, 0.25f, 0.1f, 0.2f),
+			rest(15) };
+
+	private static final FirstPersonClip FP_CLING = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(3, -70, 10, 0, 0.05f, 0.55f, 0.0f), fp(4000, -70, 10, 0, 0.05f, 0.55f, 0.0f))
+			.both();
+	private static final FirstPersonClip FP_DOWN = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(4, 34, -10, 0, -0.06f, -0.34f, 0.12f), fp(4000, 34, -10, 0, -0.06f, -0.34f, 0.12f))
+			.both();
+
+	/** The local player's jump key last tick (Wall Cling's leap off). */
+	private static boolean jumpWas;
 
 	// ---------------------------------------------------------------- poses (QuirkKeyframes: tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, head x, crouch)
 	private static float[] g(float t, float rax, float ray, float raz, float lax, float lay, float laz, float bx, float by, float rlx, float llx, float hx, float crouch) {
@@ -140,6 +182,19 @@ public final class ArctiguanaClient implements AlienClientKit {
 	@Override
 	public void tick(AbstractClientPlayer p) {
 		OmnitrixState s = Omnitrix.state(p);
+		Minecraft client = Minecraft.getInstance();
+		if (p == client.player) {
+			// v0.17.4 Wall Cling: Jump leaps off the wall, away from it and up (the grip lets go at once on this side; the server sees him leave)
+			boolean jump = client.options.keyJump.isDown();
+			if (jump && !jumpWas && (s.kitFlags & ArctiguanaKit.F_CLING) != 0) {
+				Vec3 out = ArctiguanaKit.wallNormal(p);
+				if (out != null) {
+					p.setDeltaMovement(out.scale(0.75).add(0, 0.62, 0));
+					ArctiguanaKit.clientLeapAt = p.level().getGameTime();
+				}
+			}
+			jumpWas = jump;
+		}
 		boolean sliding = (s.kitFlags & ArctiguanaKit.F_SLIDE) != 0;
 		TAIL.tick(p, sliding ? 0.8f : 0f, 0f);
 		// cold breath: a little frosty puff now and then, and a steady mist while the breath runs
@@ -181,6 +236,25 @@ public final class ArctiguanaClient implements AlienClientKit {
 			QuirkKeyframes.apply(m, SLIDE_HELD, 1f);
 			held = true;
 		}
+		if ((flags & ArctiguanaKit.F_CLING) != 0) {
+			QuirkKeyframes.apply(m, CLING_HELD, Mth.clamp(ticks / 3f, 0f, 1f));
+			m.rightArm.xRot += Mth.sin(age * 0.4f) * 0.08f * p.walkAnimation.speed() * 4f; // hand over hand as he climbs
+			m.leftArm.xRot -= Mth.sin(age * 0.4f) * 0.08f * p.walkAnimation.speed() * 4f;
+			return true;
+		}
+		if ((flags & ArctiguanaKit.F_BREATH) != 0) {
+			QuirkKeyframes.apply(m, BREATH_HELD, Mth.clamp(ticks / 4f, 0f, 1f));
+			return true;
+		}
+		if ((flags & ArctiguanaKit.F_PATH) != 0) {
+			QuirkKeyframes.apply(m, PATH_HELD, Mth.clamp(ticks / 4f, 0f, 1f));
+			return true;
+		}
+		if ((flags & ArctiguanaKit.F_BLIZZARD) != 0) {
+			QuirkKeyframes.apply(m, BLIZZARD_HELD, Mth.clamp(ticks / 4f, 0f, 1f));
+			m.body.yRot += Mth.sin(age * 0.5f) * 0.15f;
+			return true;
+		}
 		float[][] clip = switch (animId) {
 			case ArctiguanaKit.ANIM_BREATH -> BREATH;
 			case ArctiguanaKit.ANIM_SPIT -> SPIT;
@@ -191,6 +265,11 @@ public final class ArctiguanaClient implements AlienClientKit {
 			case ArctiguanaKit.ANIM_WHIP -> WHIP;
 			case ArctiguanaKit.ANIM_ARMOUR -> ARMOUR;
 			case ArctiguanaKit.ANIM_CLAW -> CLAW;
+			case ArctiguanaKit.ANIM_FAN -> FAN;
+			case ArctiguanaKit.ANIM_PILLAR -> PILLAR;
+			case ArctiguanaKit.ANIM_SHATTER -> SHATTER;
+			case ArctiguanaKit.ANIM_DECOY -> DECOY;
+			case ArctiguanaKit.ANIM_SPIKE -> SPIKE;
 			default -> null;
 		};
 		return clip != null && QuirkKeyframes.play(m, clip, ticks, 1f) || held;
@@ -208,6 +287,11 @@ public final class ArctiguanaClient implements AlienClientKit {
 			case ArctiguanaKit.ANIM_WHIP -> FP_WHIP;
 			case ArctiguanaKit.ANIM_ARMOUR -> FP_ARMOUR;
 			case ArctiguanaKit.ANIM_CLAW -> FP_CLAW;
+			case ArctiguanaKit.ANIM_FAN -> FP_SPIT;
+			case ArctiguanaKit.ANIM_PILLAR, ArctiguanaKit.ANIM_SHATTER -> FP_FREEZE;
+			case ArctiguanaKit.ANIM_CLING -> FP_CLING;
+			case ArctiguanaKit.ANIM_PATH, ArctiguanaKit.ANIM_BLIZZARD -> FP_DOWN;
+			case ArctiguanaKit.ANIM_SPIKE, ArctiguanaKit.ANIM_DECOY -> FP_WHIP;
 			default -> null;
 		};
 	}

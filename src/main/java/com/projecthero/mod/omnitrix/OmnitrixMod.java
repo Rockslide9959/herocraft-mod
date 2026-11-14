@@ -247,5 +247,6 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.eyeguy.EyeGuyKit.clearSessionState(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.benwolf.BenwolfKit.clearSessionState(); // v0.17.3
 		com.projecthero.mod.omnitrix.alien.arctiguana.ArctiguanaKit.clearSessionState(); // v0.17.3
+		com.projecthero.mod.omnitrix.alien.AlienConfusion.clearSessionState(); // v0.17.4: Hypno Gaze / Disorienting Howl's turned mobs
 	}
 }

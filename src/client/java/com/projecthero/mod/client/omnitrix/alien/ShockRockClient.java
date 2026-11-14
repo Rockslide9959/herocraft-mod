@@ -62,7 +62,13 @@ public final class ShockRockClient implements AlienClientKit {
 				RecalFx.beam(pose, buffers, c.subtract(dir.scale(0.9)), c, w, 0xFFFFFF, ENERGY, 1f);
 				PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), c, w * 2.2f, PyroDraw.dim(ENERGY, 0.6f));
 			});
+			com.projecthero.mod.client.omnitrix.alien.shockrock.ShockRockFx.register(); // v0.17.4: Blade Wave, Rock Barrage, Energy Lash, Energy Dome
 		}
+	}
+
+	/** v0.17.4: the skin's rock texels (the Rock Barrage's plates are cut from them). */
+	public static float[] rockUv() {
+		return ROCK;
 	}
 
 	// ---------------------------------------------------------------- poses (QuirkKeyframes: tick, rArm xyz, lArm xyz, body xy, rLeg x, lLeg x, head x, crouch)
@@ -138,11 +144,77 @@ public final class ShockRockClient implements AlienClientKit {
 		return BADGE;
 	}
 
+	// ---------------------------------------------------------------- v0.17.4 poses
+	/** Charged Bolt (held): the right fist drawn back to the hip, the left arm out to aim, braced low. */
+	private static final float[] CHARGE_HELD = g(0, 0.7f, 0.3f, 0.25f, -1.4f, 0.2f, 0, 0.15f, 0.55f, -0.3f, 0.35f, 0, 0.35f);
+	private static final float[][] CHARGE = { rest(0), at(5, CHARGE_HELD), at(4000, CHARGE_HELD) };
+	/** The Charged Bolt let go: the fist driven straight out, the body turning through it. */
+	private static final float[][] CHARGED = { at(0, CHARGE_HELD), g(2, -1.7f, 0.1f, 0, 0.5f, 0, -0.3f, 0.15f, -0.5f, -0.3f, 0.3f, 0, 0.15f),
+			g(7, -1.55f, 0.1f, 0, 0.4f, 0, -0.25f, 0.08f, -0.4f, -0.2f, 0.2f, 0, 0.05f), rest(14) };
+	/** Blade Wave: a backhand sweep across the body that throws the crescent off the arm. */
+	private static final float[][] WAVE = { rest(0), g(2, -1.4f, 1.1f, 0.6f, 0.3f, 0, -0.3f, 0.05f, 0.6f, -0.2f, 0.2f, 0, 0.1f),
+			g(5, -1.5f, -1.0f, -0.3f, 0.3f, 0, -0.3f, 0.12f, -0.6f, -0.2f, 0.2f, 0, 0.15f), rest(11) };
+	/** Energy Lash (held): the arm thrown out along the tether, then hauling it in hand over hand (the haul is added in {@link #pose}). */
+	private static final float[] LASH_HELD = g(0, -1.5f, 0.1f, 0, -0.9f, -0.1f, 0, -0.15f, 0.25f, 0.25f, -0.35f, 0, 0.2f);
+	private static final float[][] LASH = { rest(0), at(3, LASH_HELD), at(4000, LASH_HELD) };
+	/** Updraft Jet: arms driven down at his sides, legs together, head up as he rockets off. */
+	private static final float[][] UPDRAFT = { rest(0), g(2, 0.25f, 0, 0.35f, 0.25f, 0, -0.35f, -0.1f, 0, 0.05f, -0.05f, -0.5f, 0.4f),
+			g(5, 0.15f, 0, 0.5f, 0.15f, 0, -0.5f, -0.15f, 0, 0.1f, 0.1f, -0.45f, 0), g(16, 0.15f, 0, 0.45f, 0.15f, 0, -0.45f, -0.1f, 0, 0.1f, 0.1f, -0.3f, 0), rest(22) };
+	/** Rock Barrage: hunched, then both arms flung forward as the plates fly off his chest. */
+	private static final float[][] BARRAGE = { rest(0), g(2, -0.4f, 0.5f, 0.3f, -0.4f, -0.5f, -0.3f, 0.3f, 0, -0.2f, 0.2f, 0.2f, 0.3f),
+			g(5, -1.5f, -0.5f, 0.6f, -1.5f, 0.5f, -0.6f, -0.2f, 0, -0.3f, 0.3f, -0.2f, 0.1f), g(10, -1.4f, -0.45f, 0.55f, -1.4f, 0.45f, -0.55f, -0.15f, 0, -0.25f, 0.25f, -0.15f, 0),
+			rest(16) };
+	/** Core Overload Burst (held): hunched round his blazing core, arms clawed in, sinking lower as it builds. */
+	private static final float[] CORE_HELD = g(0, -0.5f, 0.6f, 0.35f, -0.5f, -0.6f, -0.35f, 0.4f, 0, -0.35f, 0.35f, 0.35f, 0.8f);
+	private static final float[][] CORE = { rest(0), at(6, CORE_HELD), at(4000, CORE_HELD) };
+	/** Armour Reform: arms crossed as the plates pull in, then thrown wide as they lock on. */
+	private static final float[][] REFORM = { rest(0), g(3, -1.3f, -0.9f, 0, -1.3f, 0.9f, 0, 0.25f, 0, -0.1f, 0.1f, 0.2f, 0.3f),
+			g(9, -0.3f, 0, 1.0f, -0.3f, 0, -1.0f, -0.2f, 0, 0, 0, -0.25f, 0), rest(16) };
+	/** Energy Channel (held): palms up and out, head back, drinking the energy in. */
+	private static final float[] CHANNEL_HELD = g(0, -0.6f, 0.5f, 0.75f, -0.6f, -0.5f, -0.75f, -0.15f, 0, 0, 0, -0.35f, 0.15f);
+	private static final float[][] CHANNEL = { rest(0), at(5, CHANNEL_HELD), at(4000, CHANNEL_HELD) };
+	/** Energy Dome: both arms swept up and out as the shell rises round him. */
+	private static final float[][] DOME = { rest(0), g(3, -1.6f, 0, 0.3f, -1.6f, 0, -0.3f, 0.1f, 0, -0.2f, 0.2f, 0, 0.4f),
+			g(8, -2.7f, 0, 0.9f, -2.7f, 0, -0.9f, -0.2f, 0, 0, 0, -0.3f, 0), g(14, -2.6f, 0, 0.9f, -2.6f, 0, -0.9f, -0.15f, 0, 0, 0, -0.25f, 0), rest(20) };
+
+	private static final FirstPersonClip FP_CHARGE = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(5, 30, 10, 0, 0.1f, -0.3f, 0.25f), fp(4000, 30, 10, 0, 0.1f, -0.3f, 0.25f));
+	private static final FirstPersonClip FP_CHARGED = FirstPersonClip.of(fp(0, 30, 10, 0, 0.1f, -0.3f, 0.25f), fp(2, -22, 6, 0, 0.05f, 0.14f, -0.5f), fp(14, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_HELD_OUT = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(3, -20, 6, 0, 0.05f, 0.1f, -0.42f), fp(4000, -20, 6, 0, 0.05f, 0.1f, -0.42f));
+	private static final FirstPersonClip FP_UP = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(4, -70, 10, 0, 0.05f, 0.55f, 0.0f), fp(14, -72, 10, 0, 0.05f, 0.56f, 0.0f),
+			fp(20, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_HUNCH = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(6, 30, 0, 0, 0, -0.3f, 0.1f), fp(4000, 30, 0, 0, 0, -0.3f, 0.1f)).both();
+	private static final FirstPersonClip FP_SHIELD = FirstPersonClip.of(fp(0, 0, 0, 0, 0, 0, 0), fp(3, -10, -40, 0, -0.25f, 0.05f, -0.1f), fp(4000, -10, -40, 0, -0.25f, 0.05f, -0.1f));
+
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		int flags = Omnitrix.state(p).kitFlags;
+		if ((flags & ShockRockKit.F_CHARGE) != 0) {
+			boolean on = QuirkKeyframes.play(m, CHARGE, Math.min(ticks, 5f), 1f);
+			m.rightArm.zRot += Mth.sin(age * 2.1f) * 0.03f * ShockRockKit.boltCharge(p, 0f); // the fist trembles with it
+			return on;
+		}
+		if ((flags & ShockRockKit.F_CORE) != 0) {
+			boolean on = QuirkKeyframes.play(m, CORE, Math.min(ticks, 6f), 1f);
+			float k = ShockRockKit.coreCharge(p, 0f);
+			m.body.yRot += Mth.sin(age * 2.7f) * 0.04f * k;
+			m.head.xRot += Mth.sin(age * 3.1f) * 0.04f * k;
+			return on;
+		}
+		if ((flags & ShockRockKit.F_LASH) != 0) {
+			boolean on = QuirkKeyframes.play(m, LASH, Math.min(ticks, 3f), 1f);
+			m.rightArm.xRot += Mth.sin(age * 0.6f) * 0.25f; // hauling on the tether
+			m.leftArm.xRot -= Mth.sin(age * 0.6f) * 0.25f;
+			return on;
+		}
+		if ((flags & ShockRockKit.F_GLIDE) != 0) {
+			QuirkKeyframes.apply(m, DASH_HELD, Mth.clamp(ticks / 3f, 0f, 1f));
+			return true;
+		}
+		if ((flags & ShockRockKit.F_CHANNEL) != 0) {
+			return QuirkKeyframes.play(m, CHANNEL, Math.min(ticks, 5f), 1f);
+		}
 		boolean held = false;
-		if ((flags & ShockRockKit.F_SHIELD) != 0) {
+		if ((flags & (ShockRockKit.F_SHIELD | ShockRockKit.F_REFLECT)) != 0) {
 			QuirkKeyframes.apply(m, SHIELD_HELD, 1f);
 			held = true;
 		}
@@ -153,10 +225,16 @@ public final class ShockRockClient implements AlienClientKit {
 			case ShockRockKit.ANIM_SLASH -> SLASH;
 			case ShockRockKit.ANIM_BURST -> BURST;
 			case ShockRockKit.ANIM_DASH -> DASH;
-			case ShockRockKit.ANIM_SHIELD -> (flags & ShockRockKit.F_SHIELD) != 0 ? SHIELD : null;
+			case ShockRockKit.ANIM_SHIELD, ShockRockKit.ANIM_REFLECT -> (flags & (ShockRockKit.F_SHIELD | ShockRockKit.F_REFLECT)) != 0 ? SHIELD : null;
 			case ShockRockKit.ANIM_SHIELD_END -> SHIELD_END;
 			case ShockRockKit.ANIM_OVERLOAD -> OVERLOAD;
 			case ShockRockKit.ANIM_PUNCH -> PUNCH;
+			case ShockRockKit.ANIM_CHARGED -> CHARGED;
+			case ShockRockKit.ANIM_WAVE -> WAVE;
+			case ShockRockKit.ANIM_UPDRAFT -> UPDRAFT;
+			case ShockRockKit.ANIM_BARRAGE -> BARRAGE;
+			case ShockRockKit.ANIM_REFORM -> REFORM;
+			case ShockRockKit.ANIM_DOME -> DOME;
 			default -> null;
 		};
 		return clip != null && QuirkKeyframes.play(m, clip, ticks, 1f) || held;
@@ -168,11 +246,17 @@ public final class ShockRockClient implements AlienClientKit {
 			case ShockRockKit.ANIM_BLAST -> FP_BLAST;
 			case ShockRockKit.ANIM_RAPID -> FP_RAPID;
 			case ShockRockKit.ANIM_BLADE -> FP_BLADE;
-			case ShockRockKit.ANIM_SLASH -> FP_SLASH;
-			case ShockRockKit.ANIM_BURST -> FP_BURST;
-			case ShockRockKit.ANIM_DASH -> FP_DASH;
-			case ShockRockKit.ANIM_OVERLOAD -> FP_OVERLOAD;
+			case ShockRockKit.ANIM_SLASH, ShockRockKit.ANIM_WAVE -> FP_SLASH;
+			case ShockRockKit.ANIM_BURST, ShockRockKit.ANIM_BARRAGE, ShockRockKit.ANIM_REFORM -> FP_BURST;
+			case ShockRockKit.ANIM_DASH, ShockRockKit.ANIM_GLIDE, ShockRockKit.ANIM_UPDRAFT -> FP_DASH;
+			case ShockRockKit.ANIM_OVERLOAD, ShockRockKit.ANIM_CHANNEL -> FP_OVERLOAD;
 			case ShockRockKit.ANIM_PUNCH -> FP_PUNCH;
+			case ShockRockKit.ANIM_CHARGE -> FP_CHARGE;
+			case ShockRockKit.ANIM_CHARGED -> FP_CHARGED;
+			case ShockRockKit.ANIM_LASH -> FP_HELD_OUT;
+			case ShockRockKit.ANIM_DOME -> FP_UP;
+			case ShockRockKit.ANIM_CORE -> FP_HUNCH;
+			case ShockRockKit.ANIM_SHIELD, ShockRockKit.ANIM_REFLECT -> FP_SHIELD;
 			default -> null;
 		};
 	}
@@ -207,7 +291,8 @@ public final class ShockRockClient implements AlienClientKit {
 		float t = p.level().getGameTime() + partial - s.animStart;
 		float out = burstOut(s, t);
 		// the energy: full-bright over the skin's own cyan
-		model.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, glowTint(p, age, out));
+		float core = Math.max(ShockRockKit.coreCharge(p, partial), (s.kitFlags & ShockRockKit.F_CHANNEL) != 0 ? 0.5f + 0.2f * Mth.sin(age * 0.4f) : 0f);
+		model.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, glowTint(p, age, Math.max(out, core)));
 		if (out > 0.01f) {
 			burst(pose, buffers, light, model.body, out, age);
 		}
@@ -215,9 +300,25 @@ public final class ShockRockClient implements AlienClientKit {
 			float grow = s.animId == ShockRockKit.ANIM_BLADE ? Mth.clamp((t - 2f) / 5f, 0f, 1f) : 1f;
 			AlienParts.on(pose, model.rightArm, () -> blade(pose, buffers, grow, age));
 		}
-		if ((s.kitFlags & ShockRockKit.F_SHIELD) != 0) {
-			float grow = s.animId == ShockRockKit.ANIM_SHIELD ? Mth.clamp(t / 4f, 0f, 1f) : 1f;
+		if ((s.kitFlags & (ShockRockKit.F_SHIELD | ShockRockKit.F_REFLECT)) != 0) {
+			float grow = s.animId == ShockRockKit.ANIM_SHIELD || s.animId == ShockRockKit.ANIM_REFLECT ? Mth.clamp(t / 4f, 0f, 1f) : 1f;
 			AlienParts.on(pose, model.body, () -> shield(pose, buffers, grow, age));
+		}
+		// v0.17.4: a ball of energy swelling in the charging fist, and the core blazing through his chest while it overloads
+		float charge = ShockRockKit.boltCharge(p, partial);
+		if (charge > 0f) {
+			AlienParts.on(pose, model.rightArm, () -> {
+				pose.translate(-1f / 16f, 11f / 16f, 0);
+				PyroDraw.sphere(pose, PyroDraw.additive(buffers), 0.12f + 0.16f * charge, PyroDraw.dim(HOT, 0.9f), PyroDraw.dim(ENERGY, 0.7f), 0.1f, age,
+						LightTexture.FULL_BRIGHT);
+			});
+		}
+		if (core > 0.05f && (s.kitFlags & ShockRockKit.F_CORE) != 0) {
+			AlienParts.on(pose, model.body, () -> {
+				pose.translate(0, 5f / 16f, -1f / 16f);
+				PyroDraw.sphere(pose, PyroDraw.additive(buffers), 0.2f + 0.3f * core, PyroDraw.dim(HOT, 0.9f * core), PyroDraw.dim(ENERGY, 0.6f * core), 0.1f, age,
+						LightTexture.FULL_BRIGHT);
+			});
 		}
 	}
 

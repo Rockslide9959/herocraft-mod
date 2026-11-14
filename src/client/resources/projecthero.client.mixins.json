@@ -130,6 +130,7 @@
 		"CyborgFirstPersonArmMixin",
 		"FalconFirstPersonArmMixin",
 		"FalconFovMixin",
+		"EyeGuyFarSightFovMixin",
 		"SilverSurferSkinMixin",
 		"SpinNameTagMixin",
 		"SpinScanGlowMixin",

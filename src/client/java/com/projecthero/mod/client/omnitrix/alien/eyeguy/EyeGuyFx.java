@@ -44,7 +44,31 @@ public final class EyeGuyFx {
 			int eye = i;
 			OmnitrixRenderers.projectileLook("eye_guy_volley_" + i, (e, partial, pose, buffers) -> beam(e, partial, pose, buffers, eye));
 		}
+		// v0.17.4: the held beams (Sweeping Laser; Thermal Shock's ice and fire) -- steady while their carriers live, hidden in a beam clash
+		OmnitrixRenderers.projectileLook("eye_guy_sweep", (e, partial, pose, buffers) -> held(e, partial, pose, buffers, -1));
+		OmnitrixRenderers.projectileLook("eye_guy_sweep_ice", (e, partial, pose, buffers) -> held(e, partial, pose, buffers, 0));
+		OmnitrixRenderers.projectileLook("eye_guy_sweep_fire", (e, partial, pose, buffers) -> held(e, partial, pose, buffers, 1));
 		WorldRenderEvents.AFTER_ENTITIES.register(EyeGuyFx::world);
+	}
+
+	/** A held beam: from eye {@code eye} to its carrier, full strength once it has flared on (no fade: the kit ends it). */
+	private static void held(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, int eye) {
+		if (!(e.getOwner() instanceof Player owner) || com.projecthero.mod.client.beamclash.BeamClashClient.hides(owner)) {
+			return;
+		}
+		Vec3 from = origin(owner, partial, eye);
+		Vec3 to = e.getPosition(partial);
+		float age = e.tickCount + partial;
+		float k = Mth.clamp(age / 1.5f, 0f, 1f);
+		float w = e.size() * (1f + 0.12f * Mth.sin(age * 1.7f)) * (ownView(owner) ? 0.6f : 1f);
+		int rgb = e.colour() & 0xFFFFFF;
+		pose.pushPose();
+		BrainstormFx.toCamera(pose, e, partial);
+		Vec3 c = BrainstormFx.cam();
+		List<Vec3> pts = List.of(from.subtract(c), from.lerp(to, 0.5).subtract(c), to.subtract(c));
+		bands(pose, buffers, pts, w, rgb, k);
+		pose.popPose();
+		orb(pose, buffers, e, partial, to, w * 2.4f, rgb, k, age);
 	}
 
 	private static boolean ownView(Player p) {
