@@ -6,6 +6,7 @@ import com.projecthero.mod.shazam.Shazam;
 
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -74,6 +75,29 @@ public class ShazamSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 			// v0.17.3 effects pass: charged -- arcs crackle round his hands and his eyes glow
 			ShazamBoltFx.charged(pose, buffers, getParentModel(), player, ageInTicks, slimArms);
 		}
+	}
+
+	/**
+	 * v0.17.4: the suit's sleeve in first person (from {@code SuitFirstPersonArmMixin}), posed like the vanilla arm just drawn, so it
+	 * follows every swing and custom first-person clip. The texture's hands are clear, so his own hand shows below the cuff.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right) {
+		if (player.isInvisible() || !Shazam.transformed(player)) {
+			return;
+		}
+		boolean slimArms = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		PlayerModel<LivingEntity> m = model(slimArms);
+		ModelPart a = right ? m.rightArm : m.leftArm;
+		ModelPart sleeve = right ? m.rightSleeve : m.leftSleeve;
+		a.copyFrom(arm);
+		sleeve.copyFrom(arm);
+		a.visible = true;
+		sleeve.visible = true;
+		boolean family = Shazam.isFamily(player);
+		ResourceLocation tex = family ? (slimArms ? FAMILY_SLIM : FAMILY) : (slimArms ? SUIT_SLIM : SUIT);
+		var vc = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
+		a.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+		sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 	}
 
 	/**

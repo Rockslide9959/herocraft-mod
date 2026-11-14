@@ -115,6 +115,15 @@ public abstract class PlayerRendererHandMixin {
 			}
 			return;
 		}
-		SuperheroFirstPersonArm.render(pose, buffers, light, arm, rightArm, piece.armorSetId());
+		// v0.17.4: resolve the set with the wearer known, like the third-person armour renderer does -- Moon Knight's set follows
+		// the alter (Mr. Knight's / Jake's sleeve, not always Marc's)
+		com.projecthero.mod.armor.ArmorRenderContext.set(player);
+		String setId;
+		try {
+			setId = piece.armorSetId();
+		} finally {
+			com.projecthero.mod.armor.ArmorRenderContext.clear();
+		}
+		SuperheroFirstPersonArm.render(pose, buffers, light, arm, rightArm, setId);
 	}
 }

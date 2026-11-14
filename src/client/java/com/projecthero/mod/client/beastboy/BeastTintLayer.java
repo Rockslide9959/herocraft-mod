@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.beastboy.BeastBoy;
 
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -31,5 +32,18 @@ public final class BeastTintLayer extends RenderLayer<AbstractClientPlayer, Play
 		}
 		getParentModel().renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture())), light,
 				OverlayTexture.NO_OVERLAY, TINT);
+	}
+
+	/**
+	 * v0.17.4: the same green tint on the first-person arm (from {@code SuitFirstPersonArmMixin}): the arm and sleeve vanilla just drew,
+	 * drawn again translucent and tinted, exactly as this layer does over the whole body in third person.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, ModelPart sleeve) {
+		if (player.isInvisible() || !BeastBoy.hasPower(player) || BeastBoy.morphed(player)) {
+			return;
+		}
+		var vc = buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture()));
+		arm.render(pose, vc, light, OverlayTexture.NO_OVERLAY, TINT);
+		sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY, TINT);
 	}
 }

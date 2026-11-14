@@ -153,6 +153,34 @@ public class DarkShadowAnkhLayer extends RenderLayer<AbstractClientPlayer, Playe
 		}
 	}
 
+	/**
+	 * v0.17.4 (user: see the suit on your hand in first person): the Black Ankh on the first-person arm, from
+	 * {@code SuitFirstPersonArmMixin} -- the feathered shell's arm and the GeckoLib clawed gauntlet bone, both in the posed frame of
+	 * the vanilla arm just drawn (so they follow every swing and Quirk first-person clip). The shoulder plume is left off: from the
+	 * camera it would only fill the corner of the screen.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right,
+			float partialTick) {
+		if (player.isInvisible() || !DarkShadow.is(player) || !DarkShadow.ankh(player) || Quirks.peek(player) == null) {
+			return;
+		}
+		boolean isSlim = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		PlayerModel<AbstractClientPlayer> m = model(isSlim);
+		ModelPart a = right ? m.rightArm : m.leftArm;
+		a.copyFrom(arm);
+		a.visible = true;
+		a.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), light, LivingEntityRenderer.getOverlayCoords(player, 0f));
+		if (parts == null) {
+			parts = new DarkShadowCreature.AnkhRenderer();
+		}
+		DarkShadowCreature.Shape sh = SHAPES.computeIfAbsent(player.getId(), k -> new DarkShadowCreature.Shape("dark_shadow_ankh"));
+		try {
+			part(pose, buffers, light, partialTick, sh, arm, Set.of(right ? "gauntlet_r" : "gauntlet_l"));
+		} finally {
+			DarkShadowCreature.ankhOnly = Set.of();
+		}
+	}
+
 	private static void part(PoseStack pose, MultiBufferSource buffers, int light, float partial, DarkShadowCreature.Shape sh, ModelPart limb, Set<String> only) {
 		pose.pushPose();
 		limb.translateAndRotate(pose);
