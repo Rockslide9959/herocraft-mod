@@ -9,6 +9,7 @@ import com.projecthero.mod.doctorfate.DoctorFateDominion;
 import com.projecthero.mod.doctorfate.DoctorFateItems;
 import com.projecthero.mod.doctorfate.DoctorFateMindscape;
 import com.projecthero.mod.doctorfate.DoctorFateMod;
+import com.projecthero.mod.doctorfate.DoctorFateNabuTrial;
 import com.projecthero.mod.doctorfate.DoctorFatePossession;
 import com.projecthero.mod.doctorfate.DoctorFateSpells;
 import com.projecthero.mod.doctorfate.data.FateAttachments;
@@ -312,14 +313,13 @@ public class DoctorFateGameTests implements FabricGameTest {
 		DoctorFate.setDominion(p, 100f);
 		DoctorFatePossession.tickForTest(p);
 		helper.assertTrue(DoctorFate.possessed(p), "100 Dominion with the helmet on: Possession");
-		helper.assertTrue(DoctorFate.possessionTicksLeft(p) == DoctorFateConfig.POSSESSION_TICKS, "15 s");
+		helper.assertTrue(DoctorFate.state(p).possessedUntil == DoctorFateConfig.POSSESSED_FOREVER, "v0.17.4 round 2: no time limit");
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES, "the trial in Nabu's library begins");
 		helper.assertTrue(!DoctorFateSpells.use(p, DoctorFateAbilityManager.ANKH_BOLT), "his own keys do nothing");
 		helper.assertTrue(!DoctorFate.pressH(p) && DoctorFate.wearsHelmet(p), "H can't take the helmet off");
-		int before = DoctorFate.possessionTicksLeft(p);
-		helper.assertTrue(DoctorFatePossession.struggle(p), "Space struggles");
-		helper.assertTrue(before - DoctorFate.possessionTicksLeft(p) == DoctorFateConfig.STRUGGLE_TICKS, "each press takes 0.5 s off");
-		helper.assertTrue(!DoctorFatePossession.struggle(p), "presses closer than 2 ticks don't stack");
+		helper.assertTrue(!DoctorFatePossession.struggle(p) && DoctorFate.possessed(p), "Space no longer shortens it (only the will test uses it)");
 		DoctorFatePossession.end(p);
+		helper.assertTrue(!p.hasEffect(MobEffects.SLOW_FALLING), "v0.17.4 round 2: no Slow Falling afterwards");
 		helper.assertTrue(!DoctorFate.possessed(p) && !DoctorFate.wearsHelmet(p), "afterwards the helmet falls off");
 		net.minecraft.world.phys.AABB around = p.getBoundingBox().inflate(6.0);
 		helper.assertTrue(com.projecthero.mod.doctorfate.DoctorFateHelmet.liveEntities(helper.getLevel(), p.getUUID(), around) == 1,
@@ -352,6 +352,172 @@ public class DoctorFateGameTests implements FabricGameTest {
 		helper.assertTrue(v.getHealth() >= v.getMaxHealth() && weak.isAlive(), "the villager untouched");
 		DoctorFate.setDominion(p, 0f);
 		p.discard(); // a possessed mock player left in the world would keep casting at the next test's mobs
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.4 round 2: the trial in Nabu's library
+
+	/** Possessed by Nabu (the trial begun), without a Possession tick (no casting at the neighbours' mobs). */
+	private static ServerPlayer possessed(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		DoctorFatePossession.start(p);
+		helper.assertTrue(DoctorFate.possessed(p) && DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES, "possessed, in the library");
+		return p;
+	}
+
+	private static void readPages(GameTestHelper helper, ServerPlayer p) {
+		for (int i : DoctorFateNabuTrial.lecterns(p, true)) {
+			DoctorFateNabuTrial.read(p, i);
+		}
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES, "every page found: the challenges");
+	}
+
+	private static void winChallenges(GameTestHelper helper, ServerPlayer p) {
+		for (int k = 0; k < DoctorFateConfig.TRIAL_PAGES_NEEDED && DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES; k++) {
+			DoctorFateNabuTrial.confront(p);
+			DoctorFateNabuTrial.answer(p, DoctorFateNabuTrial.row(p, true));
+		}
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_WILL, "every challenge won: the will");
+	}
+
+	private static void free(ServerPlayer p) {
+		if (DoctorFate.possessed(p)) {
+			DoctorFatePossession.end(p);
+		}
+		DoctorFate.setDominion(p, 0f);
+		p.discard();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void nabusTrialPagesChallengesAndWill(GameTestHelper helper) {
+		ServerPlayer p = possessed(helper);
+		java.util.List<Integer> tomes = DoctorFateNabuTrial.lecterns(p, false);
+		helper.assertTrue(tomes.size() == DoctorFateConfig.TRIAL_LECTERNS - DoctorFateConfig.TRIAL_PAGES_NEEDED, "three pages, the rest tomes");
+		DoctorFateNabuTrial.read(p, tomes.get(0));
+		helper.assertTrue(Math.abs(DoctorFateNabuTrial.angerOf(p) - DoctorFateConfig.TRIAL_ANGER_TOME) < 0.01f, "a tome angers him");
+		DoctorFateNabuTrial.read(p, tomes.get(0));
+		helper.assertTrue(Math.abs(DoctorFateNabuTrial.angerOf(p) - DoctorFateConfig.TRIAL_ANGER_TOME) < 0.01f, "re-reading it costs nothing");
+		DoctorFateNabuTrial.confront(p);
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES, "facing him empty-handed does nothing");
+		readPages(helper, p);
+		// a wrong answer: angrier, that page torn away, back to the pages
+		DoctorFateNabuTrial.confront(p);
+		DoctorFateNabuTrial.answer(p, DoctorFateNabuTrial.row(p, false));
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES && DoctorFateNabuTrial.pagesFound(p) == 2,
+				"wrong: back to the pages with one torn away");
+		helper.assertTrue(Math.abs(DoctorFateNabuTrial.angerOf(p) - (DoctorFateConfig.TRIAL_ANGER_TOME + DoctorFateConfig.TRIAL_ANGER_WRONG)) < 0.01f,
+				"and angrier");
+		readPages(helper, p);
+		winChallenges(helper, p);
+		helper.assertTrue(DoctorFate.possessed(p), "still his until the will test");
+		DoctorFateNabuTrial.confront(p);
+		helper.assertTrue(DoctorFateNabuTrial.willOn(p), "the willpower test");
+		for (int t = 0; t < DoctorFateConfig.WILL_NEEDED + 5 && DoctorFate.possessed(p); t++) {
+			DoctorFateNabuTrial.holdWillForTest(p);
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(!DoctorFate.possessed(p), "holding the band for 10 s frees him");
+		helper.assertTrue(DoctorFate.lockoutTicksLeft(p) == DoctorFateConfig.LOCKOUT_TICKS && !DoctorFate.wearsHelmet(p),
+				"released as before: the helmet falls off, 60 s lockout");
+		free(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void failingTheWillReopensAChallengeAndWrathScattersEverything(GameTestHelper helper) {
+		ServerPlayer p = possessed(helper);
+		readPages(helper, p);
+		winChallenges(helper, p);
+		DoctorFateNabuTrial.confront(p);
+		float anger = DoctorFateNabuTrial.angerOf(p);
+		for (int t = 0; t < DoctorFateConfig.WILL_FAIL_OUT + 2 && DoctorFateNabuTrial.willOn(p); t++) {
+			DoctorFateNabuTrial.dropWillForTest(p);
+			DoctorFateNabuTrial.tickForTest(p);
+		}
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_CHALLENGES && !DoctorFateNabuTrial.willOn(p),
+				"letting go fails the test: one challenge re-opens");
+		helper.assertTrue(DoctorFateNabuTrial.angerOf(p) > anger + DoctorFateConfig.TRIAL_ANGER_WILL_FAIL - 0.01f, "and he's angrier");
+		helper.assertTrue(DoctorFate.possessed(p), "still possessed");
+		// wrong answers until his wrath
+		for (int k = 0; k < 8 && DoctorFateNabuTrial.wraths(p) == 0; k++) {
+			if (DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES) {
+				readPages(helper, p);
+			}
+			DoctorFateNabuTrial.confront(p);
+			DoctorFateNabuTrial.answer(p, DoctorFateNabuTrial.row(p, false));
+		}
+		helper.assertTrue(DoctorFateNabuTrial.wraths(p) == 1, "his anger at 100 is his wrath");
+		helper.assertTrue(DoctorFateNabuTrial.stage(p) == DoctorFateNabuTrial.STAGE_PAGES && DoctorFateNabuTrial.pagesFound(p) == 0,
+				"everything scattered: back to the start");
+		helper.assertTrue(Math.abs(DoctorFateNabuTrial.angerOf(p) - DoctorFateConfig.TRIAL_ANGER_AFTER_WRATH) < 0.01f, "his anger settles");
+		free(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void possessedHeCantDieAndHitsTwiceAsHard(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		float worn = (float) p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+		DoctorFatePossession.start(p);
+		float held = (float) p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(Math.abs(held - 2f * worn) < 0.01f, "possessed, his melee doubles (" + worn + " -> " + held + ")");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().generic(), 1000f);
+		helper.assertTrue(p.isAlive() && p.getHealth() >= 1f, "a killing blow leaves him at 1 health");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fellOutOfWorld(), 1000f);
+		helper.assertTrue(p.isAlive(), "even the void can't kill him while Nabu holds him");
+		free(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void nabuAttacksAnyPlayerWhateverTheyveDone(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		ServerPlayer other = mock(helper, 4.5, 4.5);
+		helper.assertTrue(!com.projecthero.mod.combat.HeroTargets.isHostile(p, other), "a player who's done nothing to him");
+		if (com.projecthero.mod.combat.HeroTargets.canHarm(p, other)) {
+			helper.assertTrue(DoctorFateSpells.targetable(p, other, true), "Nabu's own spells can hit him");
+			helper.assertTrue(DoctorFatePossession.target(p) instanceof net.minecraft.world.entity.player.Player, "and Nabu picks a player first");
+		}
+		other.discard();
+		p.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void deathsDoorHoldsDeathOffUntilHeChooses(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		DoctorFate.setDominion(p, 10f);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().generic(), 1000f);
+		helper.assertTrue(p.isAlive() && p.getHealth() >= 1f, "a killing blow opens Death's door instead, at 1 health");
+		helper.assertTrue(DoctorFateBargains.pending(p) == FateState.Bargain.DEATHS_DOOR, "\"Let me save you\"");
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().generic(), 1000f);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fall(), 50f);
+		helper.assertTrue(p.isAlive() && Math.abs(p.getHealth() - hp) < 0.01f, "while the offer is open nothing hurts him");
+		DoctorFateBargains.answer(p, FateState.Bargain.DEATHS_DOOR, true);
+		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth()) < 0.01f, "accepting saves him");
+		p.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void noFallDamageWithTheHelmet(GameTestHelper helper) {
+		ServerPlayer p = fate(helper, true);
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fall(), 12f);
+		helper.assertTrue(Math.abs(p.getHealth() - hp) < 0.01f, "helmet on: no fall damage");
+		DoctorFate.setHelmet(p, false);
+		p.setHealth(20f);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fall(), 4f);
+		helper.assertTrue(p.getHealth() < 20f, "helmet off (no lockout): falls hurt as usual");
+		p.discard();
 		helper.succeed();
 	}
 

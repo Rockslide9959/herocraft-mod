@@ -273,11 +273,13 @@ public final class DoctorFateSpells {
 		return best;
 	}
 
-	static boolean targetable(ServerPlayer p, LivingEntity e, boolean nabu) {
+	public static boolean targetable(ServerPlayer p, LivingEntity e, boolean nabu) {
 		if (e == p || !HeroTargets.canHarm(p, e)) {
 			return false;
 		}
-		return !nabu || (!Squads.areAllies(p, e) && (!(e instanceof Player) || HeroTargets.isHostile(p, e)));
+		// v0.17.4 round 2 (user: "nabu attack nearby players even if they have commited bad actions in the past"): Nabu's own spells hit
+		// any player (whatever they've done), never a squadmate
+		return !nabu || !Squads.areAllies(p, e);
 	}
 
 	// ---------------------------------------------------------------- hits

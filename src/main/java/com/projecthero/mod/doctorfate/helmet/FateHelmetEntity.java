@@ -104,7 +104,17 @@ public class FateHelmetEntity extends Entity {
 			Vec3 v = getDeltaMovement();
 			setDeltaMovement(v.x * 0.9, Math.max(-0.6, v.y - 0.03), v.z * 0.9);
 			move(MoverType.SELF, getDeltaMovement());
-			if (onGround() || getY() < level().getMinBuildHeight()) {
+			if (!level().isClientSide() && getY() < level().getMinBuildHeight() - 4) {
+				// v0.17.4 round 2: dropped into the void -- Nabu won't lose it: it rises onto the highest ground above (or the spawn)
+				net.minecraft.core.BlockPos top = level().getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+						blockPosition());
+				if (top.getY() <= level().getMinBuildHeight()) {
+					top = ((ServerLevel) level()).getSharedSpawnPos();
+				}
+				setPos(top.getX() + 0.5, top.getY() + 0.5, top.getZ() + 0.5);
+				setDeltaMovement(Vec3.ZERO);
+			}
+			if (onGround()) {
 				setDeltaMovement(Vec3.ZERO);
 				if (!level().isClientSide()) {
 					entityData.set(FALLING, false);

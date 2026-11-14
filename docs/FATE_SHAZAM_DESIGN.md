@@ -173,6 +173,55 @@ powers, regen or flight with it off; Dominion drains). This replaces v0.17.3's "
   back; at full speed (body laid along the flight) arms swept back along the sides, legs straight together. Every limb is set
   outright, so no walk cycle shows through.
 
+### v0.17.4 round 2 (user): dropped helmet, icon, Nabu's library, Death's door, falls
+
+User: "make the helmet an entity when dropped please, also make the item texture in the inventory look better please, right now it
+looks like an egg / when nabu takes control of you there is no time limit you have to convince him to let you go similar to alien X,
+player must go to the same mindscape place like with hulk and alien x, the mindscape should be a hallway that ends in a large circular
+library with a ton of books and a screen for the player to watch whats happening in the outside world, in this mode the player is
+twice as strong, convincing Nabu to let the player go should be difficult and it should feel like the player is trapped in there, also
+nabu attack nearby players even if they have commited bad actions in the past, player cant die in this state / when the player dies
+and that menu pops up to save them, they can still die before choosing an option, please fix this / doctor fate shouldn't take fall
+damage / remove slow fall"
+
+- **Dropped = the hovering helmet.** Any dropped Helmet of Fate item (Q, death, a full inventory, a broken item frame) is turned by
+  `FateHelmetGuard` (entity-load hook, one tick later) into a `FateHelmetEntity` with the same owner and generation, carrying the
+  item's motion (`FateHelmetGuard.toPlaced`): it flies on with the throw, falls, lands and hovers there. A ghost (old generation) is
+  purged instead, never converted. Dropped into the void it rises to the highest ground above (or the spawn).
+- **Icon:** `scratchpad/doctorfate/gen_helmet_icon.js` (hand-placed 16x16: gold dome and crest, T-shaped eye slit, flared cheek
+  guards, dark outline, top-left light). Previews in `docs/screenshots/v0174/doctor_fate_r2/helmet_icon_*.png`.
+- **Possession has no time limit** (`possessedUntil = DoctorFateConfig.POSSESSED_FOREVER`) and Space no longer shortens it. The body
+  hits twice as hard (spells x2 as before, plus x2 attack damage), attacks **every player** near it (no grudge needed; still never a
+  squadmate, villager, golem or tamed pet) and hostile mobs, players first. **He can't die:** `DoctorFateDamage.allowDeath` holds him
+  at 1 health (only /kill gets through) and `DoctorFatePossession.keepOutOfTheVoid` lifts the body back to the last ground. A logout
+  or world change doesn't free him (the trial restarts when he's back); death (/kill) and losing the power do.
+- **Nabu's library** (client `client.doctorfate.FateLibrary` + `FateLibraryMesh` + `FateTrialScreen`, the Hulk / Alien X mind-hall
+  illusion: the world frame from the body's own eyes goes onto a screen and the library is drawn over the window): a 64-block
+  sandstone hallway (chiseled pillars, gold braziers; the door behind slams after 1.6 s, the view stretches as you walk it, a dolly
+  zoom, and the hall drags at your speed), a gold door into an 18-block-tall round library (bookshelf walls on four tiers, gold ledges,
+  lapis ceiling, chandelier light, 12 lecterns in a ring, a gold-framed screen on a plinth on the far wall) that slams shut behind you.
+  The Eye of Nabu at the heart: a floating golden ankh and Eye of Horus that burn redder as he angers. Ambience: the deep dark's music,
+  page turns, chimes. Nabu talks in gold chat lines (`[Nabu] ...`), with titles at the start, at his wrath and at the release.
+- **The trial** (`DoctorFateNabuTrial`, server-authoritative):
+  1. *Pages*: 3 of the 12 lecterns hold a page of Kent Nelson's journal (3 of 5 arguments, random lecterns each time); the other 9
+     hold Nabu's tomes. Reading a tome the first time: anger +7. Unread books glow gold, found pages blue, tomes ember.
+  2. *Challenges*: at the Eye, one challenge per page, 3 shuffled answers, only the page's argument is right. Right: anger -10.
+     Wrong: anger +25, that page is torn away to another (unread) lectern and you're back in stage 1 (won challenges stay won).
+  3. *Will*: Space lifts your will, Nabu pushes it down (0.011/tick + more when angry), a band (±0.12) wanders; 200 ticks inside frees
+     you, 60 ticks outside in a row fails: anger +20, one won challenge re-opens (back to stage 2).
+  - *Wrath*: anger 100 = a new layout, every page and challenge lost, back to stage 1, anger 30, and the body lashes out at once.
+  - Freed: the camera flies into the screen, a gold flash, and the old end of a Possession (helmet falls off as the entity, 60 s
+    lockout, Dominion 70). **No Slow Falling** any more.
+- **Death's door root cause:** the offer was only a screen with a 10 s timer: every later hit still landed, and a killing blow never
+  offered it at all. Now (`DoctorFateDamage`): while it's open no damage lands (only /kill) and he can't die; a blow that would kill
+  him opens it at 1 health (if Nabu would offer it then: helmet on, not offered in the last minute). The screen says so.
+- **No fall damage** with the helmet on (or going on), while possessed, and in the 60 s lockout after a Possession (the body may be
+  high up when Nabu lets go). Without the helmet otherwise, falls hurt as usual (powers need the helmet).
+- Tests: `DoctorFateGameTests` (`nabusTrialPagesChallengesAndWill`, `failingTheWillReopensAChallengeAndWrathScattersEverything`,
+  `possessedHeCantDieAndHitsTwiceAsHard`, `nabuAttacksAnyPlayerWhateverTheyveDone`, `deathsDoorHoldsDeathOffUntilHeChooses`,
+  `noFallDamageWithTheHelmet`, the Possession test updated), `DoctorFateHelmetGameTests` (`summonFromADroppedItem` updated,
+  `aDroppedHelmetLandsAsTheEntity`). Lang: `scratchpad/doctorfate/lang_fate_r2.json` via `merge_lang_r2.js`.
+
 **Fair-play rules:** Possession never attacks squadmates. On a server you can't be possessed while inside spawn protection.
 Dominion is saved per player.
 

@@ -59,11 +59,40 @@ public final class DoctorFateConfig {
 	public static final int WHISPER_LINES = 8;
 
 	// ---- Possession
-	public static final int POSSESSION_TICKS = 15 * 20;
-	/** Each Space press while possessed takes this much off (0.5 s). */
-	public static final int STRUGGLE_TICKS = 10;
-	/** At most one struggle press counts every this many ticks (key repeat can't skip it). */
+	/**
+	 * v0.17.4 round 2 (user: "when nabu takes control of you there is no time limit you have to convince him to let you go"): a
+	 * Possession has no end time; {@code possessedUntil} holds this far-future mark and only {@code DoctorFateNabuTrial} (or death by
+	 * /kill, or losing the power) ends it.
+	 */
+	public static final long POSSESSED_FOREVER = Long.MAX_VALUE / 4L;
+	/** At most one Space press (the willpower test's push) counts every this many ticks (key repeat can't skip it). */
 	public static final int STRUGGLE_MIN_GAP = 2;
+	/** While possessed the body hits twice as hard: +100% attack damage (multiplied), on top of the spells' x2. */
+	public static final double POSSESSION_MELEE_MULT = 1.0;
+
+	// ---- v0.17.4 round 2: the trial in Nabu's library (DoctorFateNabuTrial)
+	/** Lecterns round the library; how many of them hold one of Kent Nelson's pages (the rest are Nabu's tomes). */
+	public static final int TRIAL_LECTERNS = 12;
+	public static final int TRIAL_PAGES_NEEDED = 3;
+	/** Nabu's anger: reading one of his tomes, a wrong answer, a failed willpower test; a right answer calms him. 100 = his wrath. */
+	public static final float TRIAL_ANGER_TOME = 7f;
+	public static final float TRIAL_ANGER_WRONG = 25f;
+	public static final float TRIAL_ANGER_WILL_FAIL = 20f;
+	public static final float TRIAL_CALM_RIGHT = 10f;
+	public static final float TRIAL_ANGER_MAX = 100f;
+	/** After his wrath (everything scattered, back to the start) the anger settles here. */
+	public static final float TRIAL_ANGER_AFTER_WRATH = 30f;
+	/** The willpower test: Nabu pushes the will down this much a tick (more when angry), each Space press lifts it this much. */
+	public static final float WILL_SINK = 0.011f;
+	public static final float WILL_SINK_PER_ANGER = 0.00008f;
+	public static final float WILL_PUSH = 0.075f;
+	/** Half the width of the band the will must stay in; ticks in it needed; ticks out of it in a row that fail the test. */
+	public static final float WILL_BAND = 0.12f;
+	public static final int WILL_NEEDED = 200;
+	public static final int WILL_FAIL_OUT = 60;
+	/** Nabu speaks (chat) every this many ticks plus up to the spread, while he holds you. */
+	public static final int TRIAL_TAUNT_TICKS = 30 * 20;
+	public static final int TRIAL_TAUNT_SPREAD = 20 * 20;
 	/** After a Possession, Dominion falls to this (Nabu is sated). */
 	public static final float AFTER_POSSESSION_DOMINION = 70f;
 	public static final double POSSESSION_RANGE = 32.0;

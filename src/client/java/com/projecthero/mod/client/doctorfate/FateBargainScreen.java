@@ -58,6 +58,11 @@ public class FateBargainScreen extends Screen {
 		out.addAll(font.split(offerLine, PANEL_W - 24));
 		out.add(FormattedCharSequence.EMPTY);
 		out.addAll(font.split(terms, PANEL_W - 24));
+		if (offer.kind() == FateState.Bargain.DEATHS_DOOR) {
+			// v0.17.4 round 2: nothing can hurt him while he decides (DoctorFateDamage)
+			out.add(FormattedCharSequence.EMPTY);
+			out.addAll(font.split(Component.translatable("screen.projecthero.doctor_fate.bargain.deaths_door.held"), PANEL_W - 24));
+		}
 		if (offer.refusals() > 0) {
 			out.add(FormattedCharSequence.EMPTY);
 			out.addAll(font.split(Component.translatable("screen.projecthero.doctor_fate.bargain.meaner", offer.refusals()), PANEL_W - 24));

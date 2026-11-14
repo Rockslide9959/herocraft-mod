@@ -27,6 +27,8 @@ public abstract class GuiHulkRampageMixin {
 		com.projecthero.mod.client.hulk.HulkMindScreen.renderScene(delta);
 		// v0.17.2 round 4: Alien X's council hall, the same illusion
 		com.projecthero.mod.client.omnitrix.alien.alienx.AlienXHall.renderScene(delta);
+		// v0.17.4 round 2: Doctor Fate's mind in Nabu's library while Nabu holds the body
+		com.projecthero.mod.client.doctorfate.FateLibrary.renderScene(delta);
 	}
 
 	@Inject(method = "renderHotbarAndDecorations", at = @At("HEAD"), cancellable = true)

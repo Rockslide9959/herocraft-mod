@@ -30,7 +30,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Shift+right-click</b> (in the air or on a block): its owner puts it on ({@link DoctorFateHelmet#wearFromItem}, the put-on
  *   sequence). Anyone else: Nabu doesn't answer.</li>
  *   <li><b>Right-click a block</b>: set it down there as a hovering {@link FateHelmetEntity}.</li>
- *   <li>Q drops it like any item; it's fireproof and the dropped item never despawns ({@link FateHelmetGuard}).</li>
+ *   <li>Q drops it (so does dying, a full inventory or a broken item frame), and v0.17.4 round 2 (user: "make the helmet an entity when
+ *   dropped please") the dropped item turns at once into the hovering {@link FateHelmetEntity}, which flies on with the throw, lands
+ *   and hovers there ({@link FateHelmetGuard#toPlaced}).</li>
  *   <li>Every tick in a player's inventory it checks it isn't a ghost of a summoned-away helmet (and goes if it is), and tells the
  *   registry who carries it.</li>
  * </ul>
@@ -118,6 +120,7 @@ public class HelmetOfFateItem extends Item {
 		}
 		tooltip.add(Component.translatable("item.projecthero.helmet_of_fate.tip.wear").withStyle(ChatFormatting.GRAY));
 		tooltip.add(Component.translatable("item.projecthero.helmet_of_fate.tip.place").withStyle(ChatFormatting.GRAY));
+		tooltip.add(Component.translatable("item.projecthero.helmet_of_fate.tip.drop").withStyle(ChatFormatting.GRAY)); // v0.17.4 round 2
 		tooltip.add(Component.translatable("item.projecthero.helmet_of_fate.tip.summon").withStyle(ChatFormatting.DARK_GRAY));
 	}
 }

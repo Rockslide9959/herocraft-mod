@@ -45,6 +45,8 @@ public final class DoctorFate {
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("doctor_fate_health");
 	/** v0.17.4 (user: "melee bonus +8"): +8 attack damage while the helmet is on. */
 	private static final ResourceLocation MELEE_ID = PowerToggles.id("doctor_fate_melee");
+	/** v0.17.4 round 2 (user: "in this mode the player is twice as strong"): x2 attack damage while Nabu holds the body. */
+	private static final ResourceLocation POSSESSED_MELEE_ID = PowerToggles.id("doctor_fate_possessed_melee");
 
 	public static final int GOLD = 0xFFC93A;
 	public static final int BLUE = 0x2A56C8;
@@ -67,6 +69,7 @@ public final class DoctorFate {
 		DoctorFateFlight.clearSessionState();
 		DoctorFateMindscape.clearSessionState();
 		DoctorFateHelmet.clearSessionState();
+		DoctorFateNabuTrial.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -80,6 +83,7 @@ public final class DoctorFate {
 		DoctorFateFlight.forget(id);
 		DoctorFateMindscape.forget(id);
 		DoctorFateHelmet.forget(id);
+		DoctorFateNabuTrial.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -311,12 +315,22 @@ public final class DoctorFate {
 		if (old.hasPower) {
 			DoctorFateHelmet.retire(player); // v0.17.4: every Helmet of Fate copy he left anywhere goes
 		}
+		DoctorFateNabuTrial.end(player);
 		DoctorFatePossession.release(player);
 		forget(player.getUUID());
 	}
 
-	/** Death, a new world, leaving: the shield, the flight, the Avatar and any offer end. */
+	/** Death, a new world, leaving: the shield, the flight, the Avatar and any offer end (and a Possession, see the overload). */
 	public static void clearTransient(ServerPlayer player) {
+		clearTransient(player, true);
+	}
+
+	/**
+	 * v0.17.4 round 2 (user: "it should feel like the player is trapped in there"): {@code endPossession} false keeps a Possession
+	 * going (leaving, joining, changing worlds: nobody escapes Nabu by logging out; the trial starts over when he's back). Only death
+	 * (which only /kill can bring while possessed) and a respawn end it.
+	 */
+	public static void clearTransient(ServerPlayer player, boolean endPossession) {
 		FateState s = peek(player);
 		if (s == null || !s.hasPower) {
 			return;
@@ -334,7 +348,8 @@ public final class DoctorFate {
 			n.helmetChangeAt = 0L;
 		}
 		boolean fallOff = false;
-		if (n.possessedUntil > 0L) {
+		boolean wasPossessed = n.possessedUntil > 0L;
+		if (wasPossessed && endPossession) {
 			n.possessedUntil = 0L;
 			fallOff = n.helmetOn;
 			n.helmetOn = false;
@@ -348,7 +363,12 @@ public final class DoctorFate {
 		if (fallOff) {
 			DoctorFateHelmet.fallOff(player);
 		}
-		DoctorFatePossession.release(player);
+		if (endPossession || !wasPossessed) {
+			DoctorFateNabuTrial.end(player);
+			DoctorFatePossession.release(player);
+		} else {
+			DoctorFateNabuTrial.forget(player.getUUID()); // a fresh trial when he's next ticked
+		}
 		DoctorFateAbilityManager.forget(player.getUUID());
 		DoctorFateMindscape.close(player);
 		reconcile(player);
@@ -356,7 +376,7 @@ public final class DoctorFate {
 
 	public static void onPlayerJoin(ServerPlayer player) {
 		if (hasPower(player)) {
-			clearTransient(player);
+			clearTransient(player, false);
 		}
 	}
 
@@ -410,6 +430,12 @@ public final class DoctorFate {
 		} else {
 			PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, DoctorFateConfig.HELMET_HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, DoctorFateConfig.HELMET_MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		}
+		if (s != null && s.hasPower && s.possessedUntil > now(player)) {
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, POSSESSED_MELEE_ID, DoctorFateConfig.POSSESSION_MELEE_MULT,
+					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, POSSESSED_MELEE_ID);
 		}
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());
