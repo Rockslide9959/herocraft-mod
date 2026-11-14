@@ -37,7 +37,7 @@ import org.joml.Vector3f;
  * {@link RavenFlight}'s; the emotional leak is {@link RavenLeak}'s.
  *
  * <ul>
- *   <li><b>Passives</b>: 30 health, 10% damage resistance ({@link RavenDamage}), slow fall whenever she isn't flying; Demonic
+ *   <li><b>Passives</b>: 20 health, 10% damage resistance ({@link RavenDamage}), no fall damage (v0.17.4: no slow fall); Demonic
  *   Heritage (30% less magic and supernatural damage), Dark Empathy (a kill gives back a heart and 5 Dark Energy), Mystical
  *   Awareness (hostiles within 24 blocks glow through walls for 2 s every 8 s, on her own screen: {@link RavenAwareness}).</li>
  *   <li><b>Dark Energy</b> (the Slab, 0..100) pays for every move and spell, 5 a second back (10 in Demonic Ascension).</li>
@@ -483,7 +483,11 @@ public final class Raven {
 		} else {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 		}
-		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, RavenConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		if (RavenConfig.HEALTH_BONUS != 0.0) {
+			PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, RavenConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID); // v0.17.4: 20 health (drops an old save's +10)
+		}
 		if (s.wrathUntil > now(player)) {
 			PowerToggles.modifier(player, Attributes.SCALE, SCALE_ID, RavenConfig.WRATH_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		} else {
@@ -535,12 +539,11 @@ public final class Raven {
 				}
 			}
 		}
-		// slow fall, always on unless she is flying, meditating or in the Wrath (she is a giant then)
-		if (!s.flying && !s.meditating && !wrath && player.isAlive() && !player.isSpectator()) {
-			MobEffectInstance cur = player.getEffect(MobEffects.SLOW_FALLING);
-			if (cur == null || cur.getDuration() < 10) {
-				player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 40, 0, true, false, false));
-			}
+		// v0.17.4 (user: "remove the slow fall"): she falls at normal speed and simply takes no fall damage (RavenDamage). The hidden
+		// slow fall an older build kept topping up is taken off (only that one: ambient, no particles, no icon, 2 s or less).
+		MobEffectInstance oldFall = player.getEffect(MobEffects.SLOW_FALLING);
+		if (oldFall != null && oldFall.isAmbient() && !oldFall.isVisible() && !oldFall.showIcon() && oldFall.getDuration() <= 40) {
+			player.removeEffect(MobEffects.SLOW_FALLING);
 		}
 		// the Wrath ends: drained (calm again, no Dark Energy)
 		if (s.wrathUntil > 0L && !wrath) {

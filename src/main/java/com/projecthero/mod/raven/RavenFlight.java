@@ -11,7 +11,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -58,7 +57,6 @@ public final class RavenFlight {
 		n.flying = true;
 		Raven.save(player, n);
 		STARTED.put(player.getUUID(), player.level().getGameTime());
-		player.removeEffect(MobEffects.SLOW_FALLING);
 		grantAbilities(player);
 		player.resetFallDistance();
 		ServerLevel level = (ServerLevel) player.level();
@@ -105,7 +103,6 @@ public final class RavenFlight {
 		RavenState n = Raven.state(player).copy();
 		n.meditating = true;
 		Raven.save(player, n);
-		player.removeEffect(MobEffects.SLOW_FALLING);
 		if (player.onGround() && player.level().noCollision(player, player.getBoundingBox().move(0, RavenConfig.MEDITATE_FLOAT, 0))) {
 			player.teleportTo(player.getX(), player.getY() + RavenConfig.MEDITATE_FLOAT, player.getZ());
 		}

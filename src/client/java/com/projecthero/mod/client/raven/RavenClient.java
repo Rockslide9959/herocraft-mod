@@ -30,7 +30,7 @@ import net.minecraft.client.renderer.entity.player.PlayerRenderer;
  * Wrath's shadow shell) and the cloak + hood, the three entity renderers, the effects payload and the world-render effects, the hand
  * wisps, the double-tap-Space flight request, a left click firing a Debris Storm block, and V: a tap casts the picked spell, a hold
  * opens the {@link RavenSpellWheelScreen}. Mystical Awareness's outlines are {@code RavenAwarenessGlowMixin}. The poses are
- * {@code RavenPoseMixin}. H stays the power selector and N does nothing for her.
+ * {@link RavenPose} (through {@code RavenPoseMixin} and {@link RavenFirstPerson}). H stays the power selector and N does nothing for her.
  */
 public final class RavenClient {
 	private RavenClient() {
@@ -53,6 +53,9 @@ public final class RavenClient {
 		ClientTickEvents.END_CLIENT_TICK.register(RavenFx::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(RavenClient::spellKey);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> RavenFx.reset());
+		// v0.17.4: the pose trackers (flight, holds, each move's start) for every Raven in view
+		ClientTickEvents.END_CLIENT_TICK.register(mc -> RavenPose.clientTick(mc.level));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> RavenPose.clear());
 		// a left click while Debris Storm blocks orbit her fires one (instead of swinging)
 		ClientPreAttackCallback.EVENT.register((client, player, clickCount) -> {
 			var s = Raven.peek(player);

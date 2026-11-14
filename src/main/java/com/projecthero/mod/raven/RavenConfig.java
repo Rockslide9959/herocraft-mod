@@ -9,8 +9,8 @@ public final class RavenConfig {
 	}
 
 	// ---------------------------------------------------------------- passives
-	/** 30 health: ten extra. */
-	public static final double HEALTH_BONUS = 10.0;
+	/** v0.17.4 (user: "make her max hp 20"): plain 20 health, no extra. */
+	public static final double HEALTH_BONUS = 0.0;
 	public static final float DAMAGE_RESIST = 0.10f;
 	/** Demonic Heritage: magic and supernatural hits are this much lighter (on top of the 10%). */
 	public static final float HERITAGE_RESIST = 0.30f;
