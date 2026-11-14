@@ -60,6 +60,22 @@ always agree. Render space: X mirrored, bone matrix Rz*Ry*Rx; a positive waist r
 negative. Eyes and the Planet Cracker sphere are additive billboards. Parts (head, chest, upper/fore/hand per arm) are
 living hit-boxes resized to the skeleton every tick; they take no damage -- `onPartHit` hands every hit to the raid.
 
+**v0.17.4 hit-box rules ("I can't hit the hand"):**
+- `DevourerEntity.setParts(kinds)` puts out exactly those parts. **Stage 1** = `DevourerEntity.FISTS` (hands + forearms;
+  only a stuck one feeds the Stagger bar, other hits get a grey "only a stuck fist" hint); **Stage 3** = all; off in the
+  cutscenes and Stage 2. Before 0.17.4 Stage 1 never turned any part on, so the stuck fist had no hit-box at all (the
+  v0.17.2 harness turned them on itself, which hid the bug).
+- Parts are **`BigHitboxes.Big`**: vanilla area searches (`Level.getEntities(.., AABB, ..)`) only look in entity sections
+  within 2 blocks of the search box, keyed by an entity's *position* (the bottom centre of its box), so a 23-block fist
+  was missed by the crosshair pick, arrows and area powers unless you hit near its bottom middle.
+  `LevelBigHitboxMixin` adds the Big entities from a per-level list (filled by the entity load/unload events on both
+  sides; no static state).
+- The client snaps parts to each server position (`lerpTo`), so the box doesn't trail the drawn fist.
+- A part is only made in an entity-ticking chunk, and a part its Devourer no longer lists discards itself
+  (`ownsPart`), so a hidden chunk can't pile up duplicates.
+- A hit that counts: `broadcastDamageEvent` on the Devourer (the whole model flashes red), an iron-golem thud and
+  crit / spark particles where it struck.
+
 ## 5. Stage 1: the Shattered Orbit (`StageIslands`)
 11 islands (+1 per extra fighter, 19 max): the Anchor (r7, never smashed) + a hex ring of 6 + outer ring, 5-block gaps
 (`OrbitIsland.field`; each island a pure function of its seed). Gravity pads: Anchor -> each outer island and back. Galactus
@@ -92,6 +108,16 @@ he beams the holder every 3.5 s; a dropped / lost Nullifier comes back.
 ## 8. Rewards
 The chest (`GalactusRewards`, x1.5), first-clear Board + Power Cosmic, Cosmic Shards (4 + a beacon = a Herald's Beacon:
 `heralds_beacon_from_shards`), and a chat line naming who used the Nullifier.
+
+## 8b. Recovery rules (v0.17.4)
+- A lost Devourer (chunk unload, /kill) mid-stage is re-made within a second where the stage puts him.
+- Stage 2: if no converter is standing and the stage isn't won (one lost without being reversed), the missing ones drop in
+  again after 5 s.
+- A finale saved before the Nullifier was handed over still gets it after a restart (`finaleAt` isn't saved).
+- `orbitActive()` counts PAUSED: a raid paused because nobody was up there resumes when a fighter logs back in up there
+  (they used to be sent home) or rejoins.
+- The orbit grave is taken in a late `ALLOW_DEATH` phase, after every other death hook, and not when a held Totem of
+  Undying will fire: a cancelled death no longer leaves an empty inventory, and totems work in orbit.
 
 ## 9. Rules kept
 Every boss on the shared threat table (`BossThreat` on the Devourer, the Surfer); static scratch in `GalactusRaidStatics`

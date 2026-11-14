@@ -69,10 +69,24 @@ public final class GalactusOrbit {
 	private GalactusOrbit() {
 	}
 
+	private static final ResourceLocation GRAVE_PHASE = ProjectHeroMod.id("galactus_orbit_grave");
+
+	/** Vanilla's totem check runs after the death hooks: leave the inventory alone if a held totem is about to save them. */
+	public static boolean totemWillSave(ServerPlayer p, net.minecraft.world.damagesource.DamageSource source) {
+		if (source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return false;
+		}
+		return p.getMainHandItem().is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING) || p.getOffhandItem().is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING);
+	}
+
 	public static void initialize() {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> server.execute(() -> onJoin(handler.getPlayer())));
-		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayer p && inOrbit(p)) {
+		// v0.17.4: the grave is taken LAST, once every other death hook has agreed to the death. It used to run first: a power
+		// that cancels death (a death save) then left the player alive with an empty inventory (the items sat in a grave
+		// that is only handed back on respawn), and a Totem of Undying was stashed before it could fire, so it never did.
+		ServerLivingEntityEvents.ALLOW_DEATH.addPhaseOrdering(net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE, GRAVE_PHASE);
+		ServerLivingEntityEvents.ALLOW_DEATH.register(GRAVE_PHASE, (entity, source, amount) -> {
+			if (entity instanceof ServerPlayer p && inOrbit(p) && !totemWillSave(p, source)) {
 				stashOnDeath(p);
 			}
 			return true;

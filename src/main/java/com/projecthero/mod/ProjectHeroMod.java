@@ -296,6 +296,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.frostgiant.FrostGiants.initialize();
 		// v0.16.1: Galactus: The Devourer (Herald's Beacon / cosmic signal -> the Silver Surfer -> the Worldship + Element Converters -> Galactus -> the Ultimate Nullifier)
 		com.projecthero.mod.galactus.Galactus.initialize();
+		com.projecthero.mod.entity.BigHitboxes.initialize(); // v0.17.4: area searches find giant hit-boxes (Galactus parts)
 		com.projecthero.mod.doomsday.Doomsday.initialize(); // v0.17.2: Doomsday
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
 		com.projecthero.mod.grave.GraveboundEffect.initialize();

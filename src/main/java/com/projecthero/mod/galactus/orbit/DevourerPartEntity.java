@@ -3,6 +3,7 @@ package com.projecthero.mod.galactus.orbit;
 import java.util.UUID;
 
 import com.projecthero.mod.galactus.GalactusCombat;
+import com.projecthero.mod.galactus.GalactusFx;
 import com.projecthero.mod.galactus.entity.GalactusMob;
 
 import net.minecraft.core.particles.ParticleTypes;
@@ -11,6 +12,9 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -28,8 +32,13 @@ import net.minecraft.world.phys.Vec3;
  * every hit is handed to him ({@link DevourerEntity#onPartHit}) and the raid decides what it is worth (the Stage 1 stagger
  * bar, the Stage 3 multipliers, the sealed core). A living entity so every power, arrow and sword in the mod can hit it.
  * Never saved.
+ *
+ * <p>v0.17.4: a {@link com.projecthero.mod.entity.BigHitboxes.Big} entity -- its box is far wider than an entity section,
+ * so area searches (the crosshair pick, arrows, powers) find it through the per-level list instead of the section lookup
+ * that kept missing it. On the client it snaps to each position the server sends (no 3-tick glide), so the box stays on
+ * the fist the renderer draws while it moves. A hit that lands flashes him red, thuds and throws sparks where it struck.
  */
-public class DevourerPartEntity extends GalactusMob {
+public class DevourerPartEntity extends GalactusMob implements com.projecthero.mod.entity.BigHitboxes.Big {
 	public enum Kind {
 		HEAD, CHEST, UPPER_R, FORE_R, HAND_R, UPPER_L, FORE_L, HAND_L;
 
@@ -145,9 +154,18 @@ public class DevourerPartEntity extends GalactusMob {
 	@Override
 	public void tick() {
 		super.tick();
-		if (level() instanceof ServerLevel && tickCount > 5 && owner() == null) {
-			discard();
+		if (level() instanceof ServerLevel && tickCount > 5) {
+			DevourerEntity d = owner();
+			if (d == null || !d.ownsPart(this)) {
+				discard();
+			}
 		}
+	}
+
+	/** Client: straight to the server's position (the default glide would trail the drawn fist by three ticks). */
+	@Override
+	public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+		setPos(x, y, z);
 	}
 
 	@Override
@@ -180,11 +198,34 @@ public class DevourerPartEntity extends GalactusMob {
 		if (took) {
 			hurtTime = 10;
 			hurtDuration = 10;
-			server.sendParticles(ParticleTypes.CRIT, getX(), getY() + getBbHeight() * 0.5, getZ(), 8, getBbWidth() * 0.3, getBbHeight() * 0.3,
-					getBbWidth() * 0.3, 0.3);
+			hitFeedback(server, d, source);
 		}
 		setHealth(getMaxHealth());
 		return took;
+	}
+
+	/** Where a hit struck: the point of the box nearest the attacker (the box centre for sourceless hits). */
+	public Vec3 struckAt(DamageSource source) {
+		net.minecraft.world.phys.AABB b = getBoundingBox();
+		Vec3 from = source.getSourcePosition();
+		if (source.getEntity() instanceof LivingEntity a && source.getDirectEntity() == a) {
+			from = a.getEyePosition();
+		}
+		if (from == null) {
+			return b.getCenter();
+		}
+		return new Vec3(Mth.clamp(from.x, b.minX, b.maxX), Mth.clamp(from.y, b.minY, b.maxY), Mth.clamp(from.z, b.minZ, b.maxZ));
+	}
+
+	/** A hit that counted: he flashes red (the client's hurt tint on the whole model), a heavy thud and sparks at the spot. */
+	private void hitFeedback(ServerLevel server, DevourerEntity d, DamageSource source) {
+		Vec3 at = struckAt(source);
+		server.broadcastDamageEvent(d, source);
+		GalactusFx.forced(server, ParticleTypes.CRIT, at.x, at.y, at.z, 14, 0.6, 0.6, 0.6, 0.45);
+		GalactusFx.forced(server, ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 8, 0.5, 0.5, 0.5, 0.25);
+		GalactusFx.forced(server, GalactusFx.COSMIC_SMALL, at.x, at.y, at.z, 6, 0.8, 0.8, 0.8, 0.05);
+		server.playSound(null, at.x, at.y, at.z, SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.HOSTILE, 1.6f, 0.55f + server.random.nextFloat() * 0.15f);
+		server.playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 0.35f, 0.4f);
 	}
 
 	@Override

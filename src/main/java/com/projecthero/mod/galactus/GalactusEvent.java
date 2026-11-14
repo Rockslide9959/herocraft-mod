@@ -153,6 +153,7 @@ public class GalactusEvent extends EventInstance {
 	private transient long lastSkySent = -1000;
 	private transient int lastSkyKey = -1;
 	private transient long missingSince = -1;
+	private transient long convertersGoneSince = -1;
 	private transient Vec3 heraldLast;
 	/** Test hooks. */
 	public transient boolean instant;
@@ -242,7 +243,10 @@ public class GalactusEvent extends EventInstance {
 
 	/** Is the fight up in the orbit right now? */
 	public boolean orbitActive() {
-		return slot >= 0 && state() == EventState.RUNNING && phase.ordinal() >= Phase.ASCENT.ordinal();
+		// v0.17.4: PAUSED counts too. A raid pauses when nobody has been up there for 30 s (everyone dead or logged out);
+		// before, a paused raid could only resume from someone standing at the beacon, and a fighter logging back in up
+		// there was sent home instead of back to the fight.
+		return slot >= 0 && (state() == EventState.RUNNING || state() == EventState.PAUSED) && phase.ordinal() >= Phase.ASCENT.ordinal();
 	}
 
 	private boolean orbitPhase() {
@@ -744,6 +748,10 @@ public class GalactusEvent extends EventInstance {
 				if (took && source.getEntity() instanceof ServerPlayer p) {
 					helped.add(p.getUUID());
 					devourerThreat(level, d, source, amount);
+				} else if (!took && source.getEntity() instanceof ServerPlayer p && !recentlyHit(p, "fisthint")) {
+					// v0.17.4: the fist only feels it while it is stuck in a smashed island
+					markHit(p, "fisthint", 60);
+					p.displayClientMessage(Component.translatable("message.projecthero.galactus.fist_not_stuck").withStyle(ChatFormatting.GRAY), true);
 				}
 				return took;
 			}
@@ -781,6 +789,11 @@ public class GalactusEvent extends EventInstance {
 
 	private void tickStage1(ServerLevel orbit, long now) {
 		DevourerEntity d = devourer(orbit);
+		if (d != null && !d.partsAre(DevourerEntity.FISTS)) {
+			// v0.17.4: the root of "I can't hit the hand": Stage 1 never put his hit-boxes out (only Stage 3 did), so the stuck
+			// fist had nothing to hit. The fists and forearms are out for the whole stage; only a stuck one takes damage.
+			d.setParts(DevourerEntity.FISTS);
+		}
 		stage1.tick(this, orbit, d, now);
 		for (ServerPlayer p : orbitFighters(orbit)) {
 			OrbitRules.tickPlayer(this, orbit, p, at -> stage1.safest(at).top().add((orbit.random.nextDouble() - 0.5) * 2, 0, (orbit.random.nextDouble() - 0.5) * 2),
@@ -810,6 +823,9 @@ public class GalactusEvent extends EventInstance {
 		if (d != null) {
 			d.setArm(true, null, 0f);
 			d.setArm(false, null, 0f);
+			d.setPartsOn(false);
+			d.setFlag(DevourerEntity.FLAG_STUCK_R, false);
+			d.setFlag(DevourerEntity.FLAG_STUCK_L, false);
 		}
 		WorldshipEntity w = GalactusEntityTypes.WORLDSHIP.create(orbit);
 		if (w != null) {
@@ -924,6 +940,19 @@ public class GalactusEvent extends EventInstance {
 		addConsumption(orbit, GalactusConfig.stage2().consumptionPerConverterPerMinute * live / 1200.0);
 		if (stage2.done()) {
 			startRise(orbit);
+			return;
+		}
+		// v0.17.4: a converter only counts when it is reversed, so one lost any other way (/kill, the void) left the stage
+		// unfinishable. With none standing and the stage not won, the missing ones drop in again after 5 s.
+		if (live == 0 && stage2.overload.isEmpty()) {
+			if (convertersGoneSince < 0) {
+				convertersGoneSince = now;
+			} else if (now - convertersGoneSince >= 100) {
+				convertersGoneSince = -1;
+				stage2.spawnConverters(this, orbit, GalactusOrbit.origin(slot), Math.max(1, stage2.total - stage2.reversed), !noGuards);
+			}
+		} else {
+			convertersGoneSince = -1;
 		}
 	}
 
@@ -1046,6 +1075,13 @@ public class GalactusEvent extends EventInstance {
 	private void tickStage3(ServerLevel orbit, long now) {
 		BlockPos o = GalactusOrbit.origin(slot);
 		DevourerEntity d = devourer(orbit);
+		if (d != null && !d.partsAre(java.util.EnumSet.allOf(DevourerPartEntity.Kind.class))) {
+			d.setPartsOn(true);
+		}
+		if (stage3.finale && !nullifierGiven && finaleAt < 0) {
+			// v0.17.4: finaleAt is not saved, so a raid saved in the finale before the Surfer brought the Nullifier never got one
+			finaleAt = now - 40;
+		}
 		stage3.tick(this, orbit, d, now);
 		if (now % 2 == 0) {
 			cachedPads = shoulderPads(o, d);
@@ -1544,6 +1580,20 @@ public class GalactusEvent extends EventInstance {
 		}
 		if (orbitPhase() && orbit != null && now % 100 == 0) {
 			orbitMobs.removeIf(u -> orbit.getEntity(u) == null);
+		}
+		// v0.17.4: he is never saved and has no other way back, so a Devourer lost mid-stage (his chunk unloaded, /kill)
+		// meant a stage that could never progress. He is made again where the stage puts him.
+		if (orbit != null && slot >= 0 && now % 20 == 0 && (phase == Phase.STAGE1 || phase == Phase.STAGE2 || phase == Phase.STAGE3) && devourer(orbit) == null) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] Galactus raid {}: the Devourer was missing in {}; re-made", id(), phase);
+			devourerId = null;
+			spawnOrbitCast(orbit);
+			DevourerEntity d = devourer(orbit);
+			if (d != null && phase == Phase.STAGE2) {
+				StageFeast.kneelPose(d, GalactusOrbit.origin(slot), 1f);
+			} else if (d != null && phase == Phase.STAGE3) {
+				d.setHeight(StageDevourer.HEIGHT);
+				stage3.place(GalactusOrbit.origin(slot), d);
+			}
 		}
 	}
 
