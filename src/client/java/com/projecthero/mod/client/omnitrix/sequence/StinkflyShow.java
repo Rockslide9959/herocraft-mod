@@ -61,30 +61,35 @@ public final class StinkflyShow extends ShowSequenceClient {
 			BURST_DOTS = KirbyDots.Style.show().bands(3).rgb(BURST_DOT).density(1.4f).clear(0.45f).flow(1.6f);
 
 	private static final float W = CameraTrack.W;
-	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(ShowShots.slapShot(0f, SLAP_END), new float[][] {
+	// v0.17.4 (user: "make the camera angles and poses match up better with what shows in the transformation scenes"): re-framed
+	// against the show -- the slap close and low; the straining face filling the frame from a little below; the glowing torso right
+	// in from low as the arms fling up; the badge filling the frame; the hover from below, the body slanted
+	private static final CameraTrack TRACK = new CameraTrack(CameraTrack.keys(Xlr8Show.slapClose(SLAP_END), new float[][] {
 			// over the raised forearm, from above at his left
 			{ 6.01f, 0.95f, -40f, W, W, W, W },
 			{ CLAW_AT, 0.85f, -46f, W, W, W, W },
 			{ WHITE1_AT + 3f, 0.78f, -50f, W, W, W, W },
-			// the face, close, front
-			{ WHITE1_AT + 3.01f, 0.95f, 0f, 1.6f, 1.6f, 0f, 0f },
-			{ ORBS_AT, 0.88f, 0f, 1.6f, 1.6f, 0f, 0f },
-			{ TRANSFORM_AT, 0.84f, 0f, 1.6f, 1.6f, 0f, 0f },
-			// low on the torso
-			{ TRANSFORM_AT + 0.01f, 1.15f, 0f, 0.95f, 1.15f, 0f, 0f },
-			{ DARK_AT, 1.3f, 0f, 0.95f, 1.2f, 0f, 0f },
-			// the top of the head, then the forehead badge, close
+			// the face, right in, front and a little low (the chin up, the top of his hair off the frame)
+			{ WHITE1_AT + 3.01f, 0.72f, 0f, 1.5f, 1.6f, 0f, 0f },
+			{ ORBS_AT, 0.68f, 0f, 1.5f, 1.6f, 0f, 0f },
+			// easing back as the eye-stalk orbs sprout round his head, so all four stay in the frame (the show's t 135)
+			{ 133f, 0.9f, 0f, 1.5f, 1.6f, 0f, 0f },
+			{ TRANSFORM_AT, 0.95f, 0f, 1.5f, 1.6f, 0f, 0f },
+			// low on the torso, close, looking up past the glowing chest
+			{ TRANSFORM_AT + 0.01f, 0.52f, 0f, 0.5f, 1.15f, 0f, 0f },
+			{ DARK_AT, 0.62f, 0f, 0.5f, 1.2f, 0f, 0f },
+			// the top of the head, then the forehead badge, filling the frame
 			{ DARK_AT + 0.01f, 0.5f, 0f, 1.75f, 1.7f, 0f, 0f },
 			{ BADGE_AT, 0.48f, 0f, 1.75f, 1.7f, 0f, 0f },
-			{ BADGE_AT + 0.01f, 0.42f, 0f, 1.52f, 1.52f, 0f, 0.12f },
-			{ WHITE3_AT + 2f, 0.38f, 0f, 1.52f, 1.52f, 0f, 0.12f },
+			{ BADGE_AT + 0.01f, 0.3f, 0f, 1.44f, 1.44f, 0f, 0.12f },
+			{ WHITE3_AT + 2f, 0.27f, 0f, 1.44f, 1.44f, 0f, 0.12f },
 			// the head and eye-stalks
 			{ WHITE3_AT + 2.01f, 0.95f, 0f, 1.5f, 1.45f, 0f, 0f },
 			{ HOVER_AT, 0.9f, 0f, 1.5f, 1.45f, 0f, 0f },
-			// full body hovering, low in front, easing back
-			{ HOVER_AT + 0.01f, 1.2f, -14f, 0.7f, 1.1f, 0f, 0f },
-			{ 262f, 1.65f, -10f, 0.6f, 1.0f, 0f, 0f },
-			{ WORLD_AT, 1.7f, -8f, 0.6f, 1.0f, 0f, 0f } })).shake(FACE_AT, TRANSFORM_AT, 0.006f, 60f);
+			// full body hovering, from below his left front, easing back (the show looks up at him, slanted, the wings spread over him)
+			{ HOVER_AT + 0.01f, 1.45f, -10f, 0.25f, 1.15f, 0f, 0f },
+			{ 262f, 1.85f, -8f, 0.2f, 1.1f, 0f, 0f },
+			{ WORLD_AT, 1.9f, -6f, 0.2f, 1.1f, 0f, 0f } })).shake(FACE_AT, TRANSFORM_AT, 0.006f, 60f);
 
 	public StinkflyShow() {
 		super(Aliens.STINKFLY.id());
@@ -126,25 +131,28 @@ public final class StinkflyShow extends ShowSequenceClient {
 	static final FourArmsShow.Track POSE = new FourArmsShow.Track()
 			// ---- low on the torso, glowing: the insect arms flung out, the legs kicking out, the wings bursting up behind
 			.at(TRANSFORM_AT).arms(-0.25f, 0f, 0.95f, 0.55f, -0.6f).legs(0f, 0f, 0.22f, 0.3f, 0.3f).head(-0.2f, 0f, 0f)
-			.at(153f).arms(-0.25f, 0f, 1.35f, 1.1f, -1.05f).legs(-0.2f, 0f, 0.36f, 0.8f, 0.5f).head(-0.3f, 0f, 0f)
-			.at(WINGS_AT + 6f).arms(-0.3f, 0f, 1.45f, 1.35f, -1.2f).legs(-0.28f, 0f, 0.4f, 0.95f, 0.55f).head(-0.34f, 0f, 0f)
+			// (v0.17.4: flung up into a V over the shoulders like the show's, not out level)
+			.at(153f).arms(-0.25f, 0f, 2.0f, 0.9f, -1.05f).legs(-0.2f, 0f, 0.36f, 0.8f, 0.5f).head(-0.3f, 0f, 0f)
+			.at(WINGS_AT + 6f).arms(-0.3f, 0f, 2.15f, 1.1f, -1.2f).legs(-0.28f, 0f, 0.4f, 0.95f, 0.55f).head(-0.34f, 0f, 0f)
 			.at(DARK_AT - 0.5f).hold()
 			// ---- the head close-ups: level, the arms easing in a little
 			.at(DARK_AT).arms(-0.25f, 0f, 1.3f, 1.2f, -1.15f).legs(-0.1f, 0f, 0.22f, 0.5f, 0.35f).head(0f, 0f, 0f)
 			.at(HOVER_AT - 0.5f).hold()
 			// ---- hovering (a cut): pitched forward a little and lifted; the upper arms out, forearms hanging off bent elbows, claws
 			// ready; the legs drawn up, the shins dangling off bent knees, a little apart
-			.at(HOVER_AT).drop(-2f).lean(0.2f).head(-0.42f, 0.1f, 0f)
+			// (v0.17.4: slanted over to his left like the show's frame, the legs splayed out to the sides like an insect's)
+			.at(HOVER_AT).drop(-2f).lean(0.2f).head(-0.42f, 0.1f, 0f).set(ShowBody.TILT, 0.38f)
 			.rArm(-0.2f, 0.15f, 1.45f, 1.35f, -1.25f).lArm(-0.28f, -0.15f, -1.4f, 1.42f, 1.3f)
-			.rLeg(-0.72f, 0f, 0.3f, 1.35f, 0.45f).lLeg(-0.5f, 0f, -0.26f, 1.15f, -0.4f)
+			.rLeg(-0.6f, 0f, 0.6f, 1.35f, 0.9f).lLeg(-0.4f, 0f, -0.56f, 1.15f, -0.9f)
 			.at(268f).rArm(-0.26f, 0.15f, 1.5f, 1.48f, -1.3f).lArm(-0.34f, -0.15f, -1.45f, 1.55f, 1.35f).head(-0.46f, 0.12f, 0f)
-			.rLeg(-0.8f, 0f, 0.32f, 1.45f, 0.45f).lLeg(-0.58f, 0f, -0.28f, 1.25f, -0.4f)
+			.rLeg(-0.68f, 0f, 0.64f, 1.45f, 0.9f).lLeg(-0.48f, 0f, -0.6f, 1.25f, -0.9f)
 			.at(GREEN2_AT + 4f).hold()
-			.at(WORLD_AT).hold().drop(0f).lean(0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.05f, 0f, 0f);
+			.at(WORLD_AT).hold().drop(0f).lean(0f).set(ShowBody.TILT, 0f).head(0f, 0f, 0f).arms(0f, 0f, 0.1f, 0.15f, 0f).legs(0f, 0f, 0.05f, 0f, 0f);
 
 	@Override
 	public void pose(AbstractClientPlayer p, HumanoidModel<?> m, float t) {
 		if (t < TRANSFORM_AT) {
+			Xlr8Show.slapArm(m, t, SLAP_END);
 			if (t >= WHITE1_AT) {
 				// the face: chin up, straining, a tremble that builds
 				float w = smooth((t - WHITE1_AT) / 6f);
