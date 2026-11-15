@@ -21,8 +21,8 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilde
  */
 public class FindStructure extends Structure {
 	public enum Kind {
-		CRASHED_DRONE("crashed_drone", 6, 5),
-		HIDDEN_CACHE("hidden_cache", 3, 4),
+		CRASHED_DRONE("crashed_drone", 6, 6),
+		HIDDEN_CACHE("hidden_cache", 3, 2),
 		HERO_OUTPOST("hero_outpost", 6, 4);
 
 		public final String id;

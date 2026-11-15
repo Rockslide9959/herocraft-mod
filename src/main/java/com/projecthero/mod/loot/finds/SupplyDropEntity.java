@@ -30,9 +30,13 @@ import net.minecraft.world.phys.AABB;
  * {@link #OPENED_LIFETIME} after somebody first did (so a squad has time to take its rolls). The timer is saved with
  * the entity and only runs while the chunk is loaded.
  *
+ * <p>{@link com.projecthero.mod.entity.GiantTracking.AlwaysTracked}: sent to every player within its tracking range (160
+ * blocks) whatever their view distance, so the fall is visible 40-80 blocks out even at a low render distance; while it
+ * falls it keeps its chunk entity-ticking with {@link com.projecthero.mod.entity.GiantTracking#keepLoaded}.
+ *
  * <p>No static state: everything lives on the entity (NBT) and in {@link SupplyDropSchedule} (world saved data).
  */
-public class SupplyDropEntity extends Entity {
+public class SupplyDropEntity extends Entity implements com.projecthero.mod.entity.GiantTracking.AlwaysTracked {
 	public static final double FALL_SPEED = 0.32;
 	public static final int UNOPENED_LIFETIME = 20 * 60 * 20;
 	public static final int OPENED_LIFETIME = 5 * 60 * 20;
@@ -107,6 +111,9 @@ public class SupplyDropEntity extends Entity {
 	}
 
 	private void fall(ServerLevel level) {
+		if (tickCount % 40 == 0) {
+			com.projecthero.mod.entity.GiantTracking.keepLoaded(level, position());
+		}
 		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, getBlockX(), getBlockZ());
 		double next = getY() - FALL_SPEED;
 		// a gentle sway under the canopy
@@ -160,6 +167,11 @@ public class SupplyDropEntity extends Entity {
 			level.playSound(null, vaultPos, SoundEvents.VAULT_DEACTIVATE, SoundSource.BLOCKS, 0.8f, 1.0f);
 		}
 		discard();
+	}
+
+	@Override
+	public boolean isAlwaysTicking() {
+		return com.projecthero.mod.entity.GiantTracking.alwaysTicking(this, super.isAlwaysTicking());
 	}
 
 	@Override

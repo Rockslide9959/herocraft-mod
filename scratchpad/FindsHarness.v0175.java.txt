@@ -1,0 +1,460 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.datafixers.util.Pair;
+import com.projecthero.mod.loot.finds.FindPiece;
+import com.projecthero.mod.loot.finds.FindStructure;
+import com.projecthero.mod.loot.finds.FindsMod;
+import com.projecthero.mod.loot.finds.HeroOutpostPiece;
+import com.projecthero.mod.loot.finds.HiddenCachePiece;
+import com.projecthero.mod.loot.finds.SupplyDropEntity;
+import com.projecthero.mod.loot.finds.SupplyDrops;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.BookViewScreen;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Tier 1 Finds): builds every find variant on real terrain and shoots an overview +
+ * an inside view, opens the outpost's field notes, locates naturally generated finds, then films a Supply Drop.
+ * Enabled by run/finds.flag = "<out dir>".
+ */
+public final class FindsHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static BlockPos base;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static final List<Integer> AT = new ArrayList<>();
+	private static int planned;
+	private static volatile FindPiece current;
+	private static volatile BlockPos naturalAt;
+	private static int filmFrame = -1;
+	private static int filmLanded = -1;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("finds.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		new File(out, "film").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(FindsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "finds-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void shotTo(Minecraft mc, File dir, String name) {
+		Screenshot.grab(dir, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	/** Teleports so the eyes are at (x, y, z) looking at (tx, ty, tz). */
+	private static void lookFrom(Minecraft mc, double x, double y, double z, double tx, double ty, double tz) {
+		double dx = tx - x, dy = ty - y, dz = tz - z;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		server(mc, p -> p.connection.teleport(x, y - 1.62, z, yaw, pitch));
+	}
+
+	private static void at(int tick, Runnable r) {
+		AT.add(tick);
+		PLAN.add(r);
+	}
+
+	/** A dry, flat column near (x0, z0) whose piece has the wanted variant: {x, z}. Uses the generator's noise heights. */
+	private static int[] findSpot(Minecraft mc, FindStructure.Kind kind, int x0, int z0, int want) {
+		ServerLevel lvl = mc.getSingleplayerServer().overworld();
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 3000; dz += 24) {
+			for (int x = x0; x < x0 + 120; x++) {
+				int z = z0 + dz;
+				if (FindStructure.createPiece(kind, x, 64, z).variant() != want) {
+					continue;
+				}
+				int s = gen.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+				if (s != gen.getFirstOccupiedHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs) || s < 64) {
+					continue;
+				}
+				int min = s, max = s;
+				for (int[] o : new int[][] { { -7, -7 }, { 7, -7 }, { -7, 7 }, { 7, 7 } }) {
+					int y = gen.getFirstOccupiedHeight(x + o[0], z + o[1], Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs);
+					min = Math.min(min, y);
+					max = Math.max(max, y);
+				}
+				if (max - min <= 2) {
+					return new int[] { x, z };
+				}
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	private static void plan(Minecraft mc) {
+		int t = 0;
+		Object[][] targets = {
+				{ FindStructure.Kind.CRASHED_DRONE, 0 }, { FindStructure.Kind.CRASHED_DRONE, 1 },
+				{ FindStructure.Kind.HIDDEN_CACHE, 0 }, { FindStructure.Kind.HIDDEN_CACHE, 1 }, { FindStructure.Kind.HIDDEN_CACHE, 2 },
+				{ FindStructure.Kind.HERO_OUTPOST, 0 }, { FindStructure.Kind.HERO_OUTPOST, 1 }, { FindStructure.Kind.HERO_OUTPOST, 2 } };
+		boolean filmOnly = Files.exists(Path.of("finds_filmonly"));
+		for (int i = 0; i < (filmOnly ? 0 : targets.length); i++) {
+			FindStructure.Kind kind = (FindStructure.Kind) targets[i][0];
+			int want = (Integer) targets[i][1];
+			int[] spot = findSpot(mc, kind, base.getX() + 200 * i, base.getZ() + 64, want);
+			int x = spot[0], z = spot[1];
+			String name = kind.id + "_v" + want;
+			at(t, () -> server(mc, p -> p.connection.teleport(x + 0.5, 140, z + 14.5, 180f, 40f)));
+			t += 60;
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				FindPiece piece = FindStructure.createPiece(kind, x, surface, z);
+				piece.build(level, piece.getBoundingBox());
+				current = piece;
+				System.out.println("[HARNESS] built " + name + " at " + x + "," + surface + "," + z + " variant=" + piece.variant()
+						+ " vault=" + piece.vaultPos() + " " + level.getBlockState(piece.vaultPos()));
+			}));
+			t += 10;
+			at(t, () -> {
+				FindPiece p = current;
+				int g = p.groundY();
+				lookFrom(mc, x + 10.5, g + 8, z + 10.5, x + 0.5, g, z + 0.5);
+			});
+			t += 25;
+			at(t, () -> shot(mc, name + "_overview"));
+			t += 2;
+			at(t, () -> {
+				FindPiece p = current;
+				BlockPos v = p.vaultPos();
+				if (p instanceof HiddenCachePiece hc) {
+					// above first (the marker), then inside the room
+					BlockPos m = hc.markerPos();
+					lookFrom(mc, m.getX() + 3.5, m.getY() + 2.5, m.getZ() + 3.5, m.getX() + 0.5, m.getY() + 0.5, m.getZ() + 0.5);
+				} else {
+					Direction d = mc.level.getBlockState(v).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+					BlockPos eye = v.relative(d, 3);
+					lookFrom(mc, eye.getX() + 0.5, eye.getY() + 1.6, eye.getZ() + 0.5, v.getX() + 0.5, v.getY() + 0.5, v.getZ() + 0.5);
+				}
+			});
+			t += 20;
+			at(t, () -> shot(mc, name + (current instanceof HiddenCachePiece ? "_marker" : "_inside")));
+			if (kind == FindStructure.Kind.HIDDEN_CACHE) {
+				t += 2;
+				at(t, () -> {
+					FindPiece p = current;
+					BlockPos v = p.vaultPos();
+					Direction d = mc.level.getBlockState(v).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+					BlockPos eye = v.relative(d, 2);
+					lookFrom(mc, eye.getX() + 0.5, eye.getY() + 1.5, eye.getZ() + 0.5, v.getX() + 0.5, v.getY() + 0.4, v.getZ() + 0.5);
+				});
+				t += 20;
+				at(t, () -> shot(mc, name + "_inside"));
+			}
+			if (kind == FindStructure.Kind.HERO_OUTPOST && want == 0) {
+				t += 2;
+				at(t, () -> mc.setScreen(new BookViewScreen(BookViewScreen.BookAccess.fromItem(HeroOutpostPiece.journal(0)))));
+				t += 8;
+				at(t, () -> shot(mc, "hero_outpost_journal_p1"));
+				for (int pg = 1; pg < 5; pg++) {
+					final int page = pg;
+					t += 2;
+					at(t, () -> {
+						if (mc.screen instanceof BookViewScreen b) {
+							b.setPage(page);
+						}
+					});
+					t += 6;
+					at(t, () -> shot(mc, "hero_outpost_journal_p" + (page + 1)));
+				}
+				t += 2;
+				at(t, () -> mc.setScreen(null));
+			}
+		}
+
+		// ---- natural worldgen: locate each kind, report, and photograph the nearest
+		for (FindStructure.Kind kind : filmOnly ? new FindStructure.Kind[0] : FindStructure.Kind.values()) {
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				Holder<Structure> h = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
+						.getHolderOrThrow(net.minecraft.resources.ResourceKey.create(Registries.STRUCTURE,
+								com.projecthero.mod.ProjectHeroMod.id(kind.id)));
+				StringBuilder sb = new StringBuilder();
+				BlockPos first = null;
+				List<int[]> probes = new ArrayList<>();
+				for (int gx = -2; gx <= 2; gx++) {
+					for (int gz = -2; gz <= 2; gz++) {
+						probes.add(new int[] { gx * 256, gz * 256 });
+					}
+				}
+				int found = 0;
+				long sum = 0;
+				for (int[] o : probes) {
+					BlockPos from = base.offset(o[0], 0, o[1]);
+					long t0 = System.nanoTime();
+					Pair<BlockPos, Holder<Structure>> r = level.getChunkSource().getGenerator().findNearestMapStructure(level, HolderSet.direct(h), from, 40, false);
+					if (r != null) {
+						int d = (int) Math.sqrt(r.getFirst().distSqr(new BlockPos(from.getX(), r.getFirst().getY(), from.getZ())));
+						found++;
+						sum += d;
+						sb.append(String.format(" (%d,%d)->%d [%dms]", o[0], o[1], d, (System.nanoTime() - t0) / 1_000_000));
+						if (first == null) {
+							first = r.getFirst();
+						}
+					} else {
+						sb.append(" from(" + o[0] + "," + o[1] + ")->none");
+					}
+				}
+				System.out.println("[HARNESS] locate " + kind.id + ": found from " + found + "/" + probes.size()
+						+ " probes, mean nearest " + (found == 0 ? -1 : sum / found) + " blocks;" + sb);
+				naturalAt = first;
+				if (first != null) {
+					p.connection.teleport(first.getX() + 0.5, 150, first.getZ() + 0.5, 0f, 90f);
+				}
+			}));
+			t += 160;
+			at(t, () -> server(mc, p -> {
+				BlockPos n = naturalAt;
+				if (n != null) {
+					ServerLevel level = p.serverLevel();
+					int cxn = n.getX() + 8, czn = n.getZ() + 8;
+					int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cxn, czn);
+					System.out.println("[HARNESS] natural " + kind.id + " centre " + cxn + "," + y + "," + czn + " block below: "
+							+ level.getBlockState(new BlockPos(cxn, y - 1, czn)));
+					double ex = cxn + 9.5, ey = y + 8, ez = czn + 9.5;
+					double dx = cxn + 0.5 - ex, dy = y - 1 - ey, dz = czn + 0.5 - ez;
+					float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+					float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+					p.connection.teleport(ex, ey - 1.62, ez, yaw, pitch);
+				}
+			}));
+			t += 60;
+			at(t, () -> shot(mc, "natural_" + kind.id));
+		}
+
+		// ---- the Supply Drop film
+		at(t, () -> {
+			mc.options.renderDistance().set(4);
+			mc.options.entityDistanceScaling().set(1.0); // the vanilla default; the low-graphics 0.5 halves server tracking range in singleplayer
+			int[] spot = findSpot(mc, FindStructure.Kind.CRASHED_DRONE, base.getX(), base.getZ() - 600, 0);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				int x = spot[0], z = spot[1];
+				p.connection.teleport(x + 0.5, 200, z + 0.5, 180f, 0f); // spectator: hangs there while the chunks load
+			});
+		});
+		t += 100;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getBlockX(), p.getBlockZ());
+			p.connection.teleport(p.getX(), y, p.getZ(), 180f, 0f);
+			p.setGameMode(GameType.SURVIVAL);
+			p.getAbilities().invulnerable = true;
+			System.out.println("[HARNESS] film stand at " + p.blockPosition());
+		}));
+		t += 200; // let the chunk sender catch up (the crate is only tracked once its chunk reached the client)
+		at(t, () -> {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				StringBuilder ring = new StringBuilder();
+				for (int k = 0; k < 8; k++) {
+					double ang = k * Math.PI / 4;
+					int rx = (int) (p.getX() + Math.sin(ang) * 50), rz = (int) (p.getZ() - Math.cos(ang) * 50);
+					BlockPos c = new BlockPos(rx, 0, rz);
+					boolean loadedc = level.hasChunkAt(c);
+					ring.append(loadedc ? (level.getFluidState(new BlockPos(rx, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, rx, rz) - 1, rz)).isEmpty() ? "L" : "W") : "-");
+				}
+				System.out.println("[HARNESS] ring (L land, W water, - unloaded): " + ring + " view " + level.getServer().getPlayerList().getViewDistance());
+				SupplyDrops.Attempt a = SupplyDrops.drop(p, 1);
+				System.out.println("[HARNESS] drop -> " + a.result() + (a.crate() == null ? "" : " crate at " + a.crate().position()
+						+ " player " + p.position()));
+				if (a.crate() != null) {
+					// a camera above the trees, off to one side between the player and the landing spot
+					Vec3 c = a.crate().position();
+					Vec3 me = p.position();
+					Vec3 mid = me.add(c.subtract(me).scale(0.35));
+					Vec3 side = new Vec3(-(c.z - me.z), 0, c.x - me.x).normalize().scale(10);
+					int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) mid.x, (int) mid.z);
+					p.setGameMode(GameType.SPECTATOR);
+					p.connection.teleport(mid.x + side.x, gy + 14, mid.z + side.z, 0f, 0f);
+				}
+			});
+		});
+		t += 12;
+		at(t, () -> shot(mc, "supply_drop_chat_hint"));
+		t += 2;
+		at(t, () -> {
+			mc.options.hideGui = true;
+			filmFrame = 0;
+		});
+		planned = t;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FindsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(SupplyDrops.RULE).set(false, p.server); // only the filmed one
+				p.setGameMode(GameType.SPECTATOR);
+				base = p.blockPosition();
+			});
+		}
+		if (t == 60 && base != null) {
+			mc.options.hideGui = true;
+			plan(mc);
+		}
+		if (t > 60) {
+			int s = t - 61;
+			for (int i = 0; i < AT.size(); i++) {
+				if (AT.get(i) == s) {
+					PLAN.get(i).run();
+				}
+			}
+		}
+		if (filmFrame >= 100000) {
+			if (inWorldTicks == filmLanded + 25) {
+				shot(mc, "supply_drop_landed");
+			}
+			if (inWorldTicks == filmLanded + 50) {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			}
+			return;
+		}
+		if (filmFrame >= 0) {
+			SupplyDropEntity crate = null;
+			for (var e : mc.level.entitiesForRendering()) {
+				if (e instanceof SupplyDropEntity c) {
+					crate = c;
+				}
+			}
+			if (crate != null) {
+				mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, crate.position().add(0, crate.landed() ? 0.5 : 1.6, 0));
+				if (crate.landed() && filmLanded < 0) {
+					filmLanded = filmFrame;
+					System.out.println("[HARNESS] crate landed at frame " + filmFrame + " vault " + crate.blockPosition());
+				}
+			}
+			if (filmFrame % 40 == 0) {
+				final SupplyDropEntity seen = crate;
+				final int ff = filmFrame;
+				int n = 0; StringBuilder kinds = new StringBuilder();
+				for (var e : mc.level.entitiesForRendering()) { n++; if (e instanceof SupplyDropEntity) kinds.append("[crate " + e.position() + "]"); }
+				System.out.println("[HARNESS] client entities " + n + " " + kinds);
+				server(mc, p -> {
+					var list = p.serverLevel().getEntities(FindsMod.SUPPLY_DROP, e -> true);
+					System.out.println("[HARNESS] frame " + ff + " client crate " + (seen == null ? "none" : seen.position() + " landed=" + seen.landed())
+							+ " | server crates " + list.size() + (list.isEmpty() ? "" : " " + list.get(0).position() + " landed=" + list.get(0).landed()));
+				});
+			}
+			shotTo(mc, new File(out, "film"), String.format("frame_%04d", filmFrame));
+			filmFrame++;
+			if (filmLanded >= 0 && filmFrame == filmLanded + 40 && crate != null) {
+				BlockPos v = crate.blockPosition();
+				Direction d = mc.level.getBlockState(v).hasProperty(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING)
+						? mc.level.getBlockState(v).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING) : Direction.NORTH;
+				BlockPos eye = v.relative(d, 3);
+				lookFrom(mc, eye.getX() + 0.5, eye.getY() + 2.2, eye.getZ() + 0.5, v.getX() + 0.5, v.getY() + 0.5, v.getZ() + 0.5);
+				filmFrame = 100000; // stop filming; the close-up and the exit follow
+				filmLanded = inWorldTicks;
+			}
+			if (filmFrame > 420 && filmFrame < 100000) {
+				System.out.println("[HARNESS] done (no landing)");
+				Runtime.getRuntime().halt(0);
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FINDS_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

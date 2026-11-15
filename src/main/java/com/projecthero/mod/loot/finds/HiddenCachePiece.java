@@ -126,8 +126,14 @@ public class HiddenCachePiece extends FindPiece {
 					SignText text = new SignText()
 							.setMessage(1, Component.translatable("projecthero.find.hidden_cache.sign1"))
 							.setMessage(2, Component.translatable("projecthero.find.hidden_cache.sign2"));
-					sign.setText(text, true);
-					sign.setText(text, false);
+					// not setText: that calls level.sendBlockUpdated, and a worldgen block entity has no level yet
+					net.minecraft.resources.RegistryOps<net.minecraft.nbt.Tag> ops = level.registryAccess().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE);
+					SignText.DIRECT_CODEC.encodeStart(ops, text).result().ifPresent(t -> {
+						CompoundTag tag = new CompoundTag();
+						tag.put("front_text", t);
+						tag.put("back_text", t.copy());
+						sign.loadCustomOnly(tag, level.registryAccess());
+					});
 				}
 				put(level, box, -1, m, 0, Blocks.TORCH.defaultBlockState());
 			}

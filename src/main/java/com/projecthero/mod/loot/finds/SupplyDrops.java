@@ -119,9 +119,13 @@ public final class SupplyDrops {
 			return new Attempt(Result.NOT_OVERWORLD, null);
 		}
 		RandomSource random = player.getRandom();
-		for (int attempt = 0; attempt < 16; attempt++) {
+		// a short view distance leaves 40-80 blocks out partly unloaded: keep the ring inside what the server has loaded
+		int loaded = Math.max(2, level.getServer().getPlayerList().getViewDistance() - 1) * 16;
+		int max = Math.min(MAX_DISTANCE, loaded);
+		int min = Math.min(MIN_DISTANCE, max / 2);
+		for (int attempt = 0; attempt < 32; attempt++) {
 			double angle = random.nextDouble() * Math.PI * 2;
-			double dist = MIN_DISTANCE + random.nextDouble() * (MAX_DISTANCE - MIN_DISTANCE);
+			double dist = min + random.nextDouble() * (max - min);
 			int x = Mth.floor(player.getX() + Math.sin(angle) * dist);
 			int z = Mth.floor(player.getZ() - Math.cos(angle) * dist);
 			BlockPos column = new BlockPos(x, 0, z);
@@ -149,6 +153,7 @@ public final class SupplyDrops {
 			facing = Direction.SOUTH;
 		}
 		SupplyDropEntity crate = SupplyDropEntity.create(level, x + 0.5, y, z + 0.5, tier, facing);
+		com.projecthero.mod.entity.GiantTracking.keepLoaded(level, crate.position()); // so it ticks (falls) wherever the player stands
 		level.addFreshEntity(crate);
 		int dist = (int) Math.round(Math.sqrt(dx * dx + dz * dz) / 10.0) * 10;
 		player.sendSystemMessage(Component.translatable("projecthero.supply_drop.incoming",
