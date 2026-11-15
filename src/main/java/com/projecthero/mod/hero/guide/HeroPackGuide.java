@@ -688,7 +688,8 @@ public final class HeroPackGuide {
 	/** v0.17.4: the Omnitrix's hidden Master Control page (only listed once the reader has woken it, {@link #masterControlRevealed}). */
 	private static final int CH_MASTER_CONTROL = CH_VISION + 1; // 76
 	private static final int CH_LOOT = CH_MASTER_CONTROL + 1; // 77, v0.17.5: Loot & Progression
-	private static final int CHAPTER_POWER_BASE = CH_LOOT + 1; // 78
+	private static final int CH_HIDEOUTS = CH_LOOT + 1; // 78, v0.17.5: Villain Hideouts (Tier 3)
+	private static final int CHAPTER_POWER_BASE = CH_HIDEOUTS + 1; // 79
 
 	/**
 	 * v0.17.4: whether the reader may see the hidden Master Control page -- the client sets this to "the local player has woken
@@ -2139,6 +2140,36 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.loot.locators.body");
 		}));
 
+		// v0.17.5: Villain Hideouts (CH_HIDEOUTS) -- the five Tier 3 lairs, clearing, the raid calm, traps, bosses, artifacts
+		out.add(chapter("projecthero.guide.hideouts", lines -> {
+			para(lines, "projecthero.guide.hideouts.body");
+			for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
+				blank(lines);
+				lines.add(Component.translatable("projecthero.guide.hideouts.h." + f.getSerializedName())
+						.withStyle(s -> s.withColor(f.colour()).withBold(true)));
+				para(lines, "projecthero.guide.hideouts.h." + f.getSerializedName() + ".body");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.clearing");
+			para(lines, "projecthero.guide.hideouts.clearing.body");
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.calm");
+			para(lines, "projecthero.guide.hideouts.calm.body");
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.traps");
+			para(lines, "projecthero.guide.hideouts.traps.body");
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.mini_bosses");
+			para(lines, "projecthero.guide.hideouts.mini_bosses.body");
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.artifacts");
+			para(lines, "projecthero.guide.hideouts.artifacts.body");
+			for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(f.colour()))
+						.append(Component.translatable("projecthero.guide.hideouts.a." + f.getSerializedName()).withStyle(ChatFormatting.GRAY)));
+			}
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2275,6 +2306,7 @@ public final class HeroPackGuide {
 		icon(CH_COMBOS, "prismatic_serum");
 		icon(CH_STRUCTURES, "research_note");
 		icon(CH_LOOT, "hero_vault"); // v0.17.5
+		icon(CH_HIDEOUTS, "hideout_core"); // v0.17.5
 		icon(CH_DEVICES, "overloaded_redstone_coil");
 		icon(CH_STARK_SORTER, "stark_sorting_station");
 		icon(CH_CITY, "daily_bulletin");
@@ -2459,6 +2491,7 @@ public final class HeroPackGuide {
 
 		List<IndexEntry> world = map.get(Category.WORLD);
 		link(world, "projecthero.guide.loot", CH_LOOT); // v0.17.5
+		link(world, "projecthero.guide.hideouts", CH_HIDEOUTS); // v0.17.5
 		link(world, "projecthero.guide.structures", CH_STRUCTURES);
 		link(world, "projecthero.guide.devices", CH_DEVICES);
 		link(world, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
