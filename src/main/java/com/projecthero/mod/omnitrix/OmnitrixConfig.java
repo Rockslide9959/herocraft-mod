@@ -139,18 +139,40 @@ public final class OmnitrixConfig {
 	/** v0.17.2 (user): the 11th mistransform finds the next hidden alien (Cannonbolt), the 22nd the one after, and so on. */
 	public static final int UNLOCK_EVERY_MISTRANSFORMS = 11;
 	/**
-	 * v0.17.1 Master Control: one dial step every MASTER_STEP_TICKS of its sequence. v0.17.4 (user: "i want master control to be
-	 * something that can be activated at any point if the player knows how to do it, make it kinda complicated"): the ritual
-	 * ({@link OmnitrixRitual}) turns it on; Shift+N held MASTER_HOLD_TICKS (3 s) with the watch up only turns it off now.
+	 * v0.17.1 Master Control: one dial step every MASTER_STEP_TICKS of its sequence. v0.17.5 (user: "it should be a random 6 number
+	 * combination"): the sequence plays when the wearer enters his Master Control code in the watch's function mode
+	 * ({@link OmnitrixFunction}) -- on, and again to turn it off. The v0.17.4 ritual and the Shift+N off-hold are gone.
 	 */
-	public static final int MASTER_HOLD_TICKS = 3 * 20, MASTER_STEP_TICKS = 4;
-	/** v0.17.4 the ritual: the look up (pitch at or above 80 deg, kept while above 75) held this long before it counts. */
-	public static final float RITUAL_LOOK_PITCH = -80f, RITUAL_LOOK_KEEP_PITCH = -75f;
-	public static final int RITUAL_LOOK_TICKS = 20;
-	/** v0.17.4 the ritual: crouches while looking up; the most a step may take after the one before (6 s). */
-	public static final int RITUAL_CROUCHES = 3, RITUAL_STEP_TICKS = 6 * 20;
-	/** v0.17.4 the ritual: the three beeps (1 s apart, the first 1 s after the dial's last turn) and the slap's window round the third. */
-	public static final int RITUAL_BEEP_TICKS = 20, RITUAL_BEEPS = 3, RITUAL_WINDOW_TICKS = 5;
-	/** v0.17.4 the ritual: how long after the third beep a missing slap waits before the ritual quietly resets. */
-	public static final int RITUAL_LATE_TICKS = 20;
+	public static final int MASTER_STEP_TICKS = 4;
+
+	// ---------------------------------------------------------------- v0.17.5: function mode and the codes (OmnitrixFunction / OmnitrixCodes)
+	/** Digits in a code. */
+	public static final int CODE_LENGTH = 6;
+	/**
+	 * The self-destruct code, the same on every watch (an easter egg: Ben TEN, said three times). Never told to players; the
+	 * Guidebook's Master Control note hints at it. It starts a harmless countdown ({@link #SELF_DESTRUCT_TICKS}).
+	 */
+	public static final String SELF_DESTRUCT_CODE = "101010";
+	/** A wrong code locks function mode this long (10 s). */
+	public static final int CODE_LOCK_TICKS = 10 * 20;
+	/** The shortest time between two submitted codes (anti-spam, on top of the lock). */
+	public static final int CODE_SUBMIT_GAP_TICKS = 5;
+	/** Entering / leaving function mode: the core sinking (or rising) and the face going back to normal. */
+	public static final int FUNCTION_FOLD_TICKS = 6;
+	/** The self-destruct countdown (15 s) and the overheated watch's lock-out after the fizzle (30 s, the red face). */
+	public static final int SELF_DESTRUCT_TICKS = 15 * 20, SELF_DESTRUCT_FIZZLE_TICKS = 30 * 20;
+	/**
+	 * The watch's flicker that reveals one unknown Master Control digit (and its place): the chance on each transformation, and
+	 * on each full minute spent transformed. At ~12 transformations and ~30 transformed minutes an hour that is ~1.35 flickers an
+	 * hour, so all six take ~4-5 hours of ordinary play on the watch alone (Data Fragments speed it up). Never two within
+	 * {@link #REVEAL_COOLDOWN_TICKS} (20 min of game time) of each other.
+	 */
+	public static final float REVEAL_TRANSFORM_CHANCE = 0.05f, REVEAL_MINUTE_CHANCE = 0.025f;
+	public static final int REVEAL_COOLDOWN_TICKS = 20 * 60 * 20;
+	/** Once all six digits are known, the share of flickers that reveal a whole hidden-alien code instead (the rest show nothing new). */
+	public static final float REVEAL_ALIEN_CODE_CHANCE = 0.2f;
+	/** An Omnitrix Data Fragment: the chance it holds a whole hidden-alien code rather than a Master Control digit. */
+	public static final float FRAGMENT_ALIEN_CODE_CHANCE = 0.15f;
+	/** The chance a Hero Vault roll holds an Omnitrix Data Fragment, by vault tier 1-4. */
+	public static final float[] FRAGMENT_VAULT_CHANCE = { 0.04f, 0.08f, 0.14f, 0.22f };
 }

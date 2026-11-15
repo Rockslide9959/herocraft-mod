@@ -697,6 +697,62 @@ public final class HeroPackGuide {
 	 */
 	public static java.util.function.BooleanSupplier masterControlRevealed = () -> false;
 
+	/**
+	 * v0.17.5: the reader's own "what you have found" lines on the Master Control page (the known digits "_ 7 _ _ 3 _" and the
+	 * hidden-alien codes) -- set by the client from its synced Omnitrix state; the server has none. The client calls
+	 * {@link #refreshMasterControl} when they change.
+	 */
+	public static java.util.function.Supplier<List<Component>> masterControlLive = List::of;
+
+	/** v0.17.5: rebuilds the Master Control page (its found digits changed). */
+	public static void refreshMasterControl() {
+		if (chapters != null && CH_MASTER_CONTROL < chapters.size()) {
+			chapters.set(CH_MASTER_CONTROL, masterControlChapter());
+		}
+	}
+
+	/**
+	 * v0.17.5 (user: "change how master control is gained, it should be a random 6 number combination"): the note found inside the
+	 * watch -- function mode and its controls, that the code is the wearer's own and comes out a digit at a time, what the reader
+	 * has found so far, and a hint at the self-destruct easter egg.
+	 */
+	private static Chapter masterControlChapter() {
+		return chapter("projecthero.guide.omnitrix.master", lines -> {
+			lines.add(Component.translatable("projecthero.guide.omnitrix.master.tier").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.function");
+			blank(lines);
+			head(lines, "projecthero.guide.omnitrix.master.controls");
+			for (String k : new String[] { "scroll", "middle", "back", "leave" }) {
+				lines.add(Component.literal(" ").append(Component.translatable("projecthero.guide.omnitrix.master.key." + k).withStyle(ChatFormatting.GREEN))
+						.append(Component.literal("  "))
+						.append(Component.translatable("projecthero.guide.omnitrix.master.do." + k).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.code");
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.finding");
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.wrong");
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.off");
+			blank(lines);
+			head(lines, "projecthero.guide.omnitrix.master.found");
+			List<Component> live = masterControlLive.get();
+			if (live.isEmpty()) {
+				para(lines, "projecthero.guide.omnitrix.master.found.none");
+			} else {
+				lines.addAll(live);
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.hidden");
+			blank(lines);
+			para(lines, "projecthero.guide.omnitrix.master.number");
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.omnitrix.master.sign").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
+		});
+	}
+
 	/** v0.17.4: a chapter the reader cannot see yet (left out of its category page and of search). */
 	public static boolean hidden(int chapter) {
 		return chapter == CH_MASTER_CONTROL && !(com.projecthero.mod.omnitrix.OmnitrixFeature.enabled() && masterControlRevealed.getAsBoolean());
@@ -2093,24 +2149,9 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.vision.commands.body");
 		}));
 
-		// v0.17.4: the hidden Master Control page (CH_MASTER_CONTROL) -- a cryptic note, written as if found inside the watch
-		out.add(chapter("projecthero.guide.omnitrix.master", lines -> {
-			lines.add(Component.translatable("projecthero.guide.omnitrix.master.tier").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
-			blank(lines);
-			para(lines, "projecthero.guide.omnitrix.master.note");
-			blank(lines);
-			String[] numerals = { "I", "II", "III", "IV", "V", "VI" };
-			for (int i = 1; i <= 6; i++) {
-				lines.add(Component.literal(" " + numerals[i - 1] + ".  ").withStyle(ChatFormatting.GREEN)
-						.append(Component.translatable("projecthero.guide.omnitrix.master.step" + i).withStyle(ChatFormatting.WHITE)));
-			}
-			blank(lines);
-			para(lines, "projecthero.guide.omnitrix.master.warning");
-			blank(lines);
-			para(lines, "projecthero.guide.omnitrix.master.sleep");
-			blank(lines);
-			lines.add(Component.translatable("projecthero.guide.omnitrix.master.sign").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
-		}));
+		// v0.17.4: the hidden Master Control page (CH_MASTER_CONTROL) -- a cryptic note, written as if found inside the watch;
+		// v0.17.5: about the watch's function mode and the code, with the reader's own found digits (masterControlLive)
+		out.add(masterControlChapter());
 
 		// v0.17.5: Loot & Progression (CH_LOOT) -- the four place tiers, rarity, Hero Vaults, materials, supplies, Locators
 		out.add(chapter("projecthero.guide.loot", lines -> {

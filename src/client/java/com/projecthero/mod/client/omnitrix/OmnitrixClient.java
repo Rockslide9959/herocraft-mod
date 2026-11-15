@@ -27,7 +27,9 @@ import net.minecraft.world.entity.player.Player;
  * the HUD, the transformation flash ({@link OmnitrixTransformFx}), and the watch's controls while it is up (Alien Evo style: no screen):
  * <ul>
  *   <li>the scroll wheel turns the dial ({@code CYCLE}; the hotbar does not move);</li>
- *   <li>a left-click or right-click slaps the core down ({@code SLAP}; the click never hits or breaks anything).</li>
+ *   <li>a left-click or right-click slaps the core down ({@code SLAP}; the click never hits or breaks anything);</li>
+ *   <li>v0.17.5: Shift + right-click (core up) opens function mode ({@code FUNCTION}): the wheel types digits, the middle button
+ *       moves on (Shift: back) and sends the code on the sixth ({@code CODE}; {@link OmnitrixFunctionClient}).</li>
  * </ul>
  * V itself is an ordinary ability key (the server toggles the watch).
  */
@@ -40,10 +42,14 @@ public final class OmnitrixClient {
 
 	public static void initialize() {
 		// v0.17.4: the Guidebook's hidden Master Control page shows once this player has woken Master Control
+		// v0.17.5: ... or has found anything of his code (a Master Control digit or a hidden-alien code); the page lists what he found
 		com.projecthero.mod.hero.guide.HeroPackGuide.masterControlRevealed = () -> {
 			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-			return mc.player != null && com.projecthero.mod.omnitrix.Omnitrix.masterKnown(mc.player);
+			return mc.player != null && (com.projecthero.mod.omnitrix.Omnitrix.masterKnown(mc.player)
+					|| com.projecthero.mod.omnitrix.OmnitrixCodes.anythingKnown(mc.player));
 		};
+		com.projecthero.mod.hero.guide.HeroPackGuide.masterControlLive = OmnitrixFunctionClient::guideLines;
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixFunctionClient::tick);
 		// the alien client kits -- ONE LINE PER KIT (the other eight add theirs here)
 		AlienClients.register(Aliens.HEATBLAST.id(), new HeatblastClient());
 		AlienClients.register(Aliens.FOUR_ARMS.id(), new FourArmsClient());
@@ -123,6 +129,9 @@ public final class OmnitrixClient {
 		if (!watchUp(p)) {
 			return false;
 		}
+		if (OmnitrixFunctionClient.onScroll(p, dy)) {
+			return true; // v0.17.5: function mode -- the wheel changes the digit, never the dial
+		}
 		if (dy != 0) {
 			// scrolling down turns to the next alien, up to the previous one (the hotbar's own sense)
 			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.CYCLE, dy < 0 ? "1" : "-1"));
@@ -148,6 +157,13 @@ public final class OmnitrixClient {
 		}
 		if (!watchUp(p)) {
 			return false;
+		}
+		// v0.17.5: Shift + right-click with the core up = function mode (in / out); in function mode no click slaps
+		if (right && OmnitrixFunctionClient.onRightClick(p)) {
+			return true;
+		}
+		if (OmnitrixFunctionClient.inFunction(p)) {
+			return true;
 		}
 		long now = p.level().getGameTime();
 		// v0.17.2 (user: "my friend ... can activate the omnitrix but left clicking ... doesnt seem to do anything"): lastSlap is game

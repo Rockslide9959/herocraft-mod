@@ -30,6 +30,14 @@ public abstract class OmnitrixInputMixin {
 		}
 	}
 
+	/** v0.17.5: no pick-block while the watch is in function mode (the middle button types the code; a rebound pick key too). */
+	@Inject(method = "pickBlock", at = @At("HEAD"), cancellable = true)
+	private void projecthero$omnitrixNoPick(CallbackInfo ci) {
+		if (com.projecthero.mod.client.omnitrix.OmnitrixFunctionClient.blocksPick()) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
 	private void projecthero$omnitrixSlapUse(CallbackInfo ci) {
 		if (OmnitrixClient.onClick(true) || OmnitrixClient.onUseAir()) {

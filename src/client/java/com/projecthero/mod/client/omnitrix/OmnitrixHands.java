@@ -149,9 +149,17 @@ public final class OmnitrixHands {
 		if (s.selecting) {
 			r.raise = q.raise + (1f - q.raise) * smooth(t / RAISE_T);
 			r.lift = Math.max(popEase((t - PRESS_T - d) / POP_T), q.lift * (1f - smooth(t / 3f)));
-			float lp = OmnitrixWatch.LIFT * r.lift;
 			r.morph = Math.max(smooth((t - MORPH_AT - d) / MORPH_T), q.morph * (1f - smooth(t / 3f)));
 			r.icon = Math.max(Mth.clamp((t - ICON_AT - d) / ICON_T, 0f, 1f), q.icon * (1f - Mth.clamp(t / 1.5f, 0f, 1f)));
+			// v0.17.5 (user: "the dial goes down, the watch face returns to normal"): function mode folds the core back down and the
+			// face back to the plain hourglass (and out again when it is left); the hand rides the dial down
+			float fold = com.projecthero.mod.omnitrix.OmnitrixFunction.fold(s, p.level().getGameTime() + partial);
+			if (fold > 0f) {
+				r.lift *= 1f - fold;
+				r.morph *= 1f - fold;
+				r.icon *= 1f - Mth.clamp(fold * 2f, 0f, 1f);
+			}
+			float lp = OmnitrixWatch.LIFT * r.lift;
 			r.mainHide = Math.max(q.mainHide, smooth(t / 2.5f));
 			float twist = OmnitrixWatch.handTwist(p);
 			float[] hand;

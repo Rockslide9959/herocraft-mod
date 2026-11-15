@@ -35,6 +35,8 @@ public final class OmnitrixItems {
 	/** v0.17.2: the Recalibrated Omnitrix (only ever popped off its wearer by the pod) and the chip that makes it. */
 	public static Item RECALIBRATED_OMNITRIX;
 	public static Item RECALIBRATION_CHIP;
+	/** v0.17.5: the Omnitrix Data Fragment (Hero Vault loot; reveals a Master Control digit or a hidden-alien code). */
+	public static Item DATA_FRAGMENT;
 
 	private OmnitrixItems() {
 	}
@@ -48,6 +50,24 @@ public final class OmnitrixItems {
 				"item.projecthero.containment_core.hint"));
 		RECALIBRATED_OMNITRIX = register("recalibrated_omnitrix", new OmnitrixItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant(), true));
 		RECALIBRATION_CHIP = register("recalibration_chip", new RecalibrationChipItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
+		// v0.17.5: shows a Master Control digit (or a hidden-alien code); found in Hero Vaults
+		DATA_FRAGMENT = register("omnitrix_data_fragment", new OmnitrixDataFragmentItem(
+				com.projecthero.mod.loot.HeroRarity.props(com.projecthero.mod.loot.HeroRarity.RARE).stacksTo(16).fireResistant()));
+		net.fabricmc.fabric.api.loot.v3.LootTableEvents.MODIFY.register((key, builder, source, registries) -> {
+			if (!source.isBuiltin()) {
+				return;
+			}
+			for (int tier = 1; tier <= 4; tier++) {
+				if (key.equals(com.projecthero.mod.loot.HeroVault.lootTable(tier))) {
+					// one extra roll per vault open: a Data Fragment more often the higher the tier (OmnitrixConfig.FRAGMENT_VAULT_CHANCE)
+					builder.withPool(net.minecraft.world.level.storage.loot.LootPool.lootPool()
+							.setRolls(net.minecraft.world.level.storage.loot.providers.number.ConstantValue.exactly(1))
+							.when(net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition.randomChance(
+									com.projecthero.mod.omnitrix.OmnitrixConfig.FRAGMENT_VAULT_CHANCE[tier - 1]))
+							.add(net.minecraft.world.level.storage.loot.entries.LootItem.lootTableItem(DATA_FRAGMENT)));
+				}
+			}
+		});
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
@@ -57,6 +77,7 @@ public final class OmnitrixItems {
 		output.accept(CONTAINMENT_CORE);
 		output.accept(RECALIBRATION_CHIP);
 		output.accept(RECALIBRATED_OMNITRIX);
+		output.accept(DATA_FRAGMENT); // v0.17.5
 		output.accept(com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM);
 	}
 

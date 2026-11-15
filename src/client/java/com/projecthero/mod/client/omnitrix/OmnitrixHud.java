@@ -143,6 +143,11 @@ public final class OmnitrixHud {
 	 * slap say it is recharging. Returns the HUD's top.
 	 */
 	private static int human(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom) {
+		// v0.17.5: the watch's function mode -- the six code slots, the known digits, the lock, the controls (and the self-destruct banner)
+		int fn = OmnitrixFunctionClient.drawHud(g, mc, p, s, now, x0, bottom, WIDTH);
+		if (fn != bottom) {
+			return fn;
+		}
 		// v0.17.2 (user: "The omnitrix then enters recalibration mode for 3 minutes"): one blue meter while it recalibrates --
 		// "Recalibrating... m:ss", filling as the three minutes run (the finish still to come reads 0:00)
 		if (com.projecthero.mod.omnitrix.OmnitrixRecal.busy(s)) {
@@ -237,12 +242,25 @@ public final class OmnitrixHud {
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
 		String v = MoveListOverlay.key(AbilitySlot.SLOT_8); // v0.17.1 (user): N turns back
 		AlienKit kit = s.transformed() ? Aliens.kit(s.active) : null;
+		if (kit == null && com.projecthero.mod.omnitrix.OmnitrixFunction.active(s)) {
+			// v0.17.5: function mode's keys
+			rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.scroll").getString(),
+					Component.translatable("hud.projecthero.omnitrix.alt.digit"), null));
+			rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.middle").getString(),
+					Component.translatable("hud.projecthero.omnitrix.alt.next_digit"), null));
+			rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.shift_use").getString(),
+					Component.translatable("hud.projecthero.omnitrix.alt.leave_function"), null));
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_1), Component.translatable("hud.projecthero.omnitrix.alt.lower"), null));
+			return rows;
+		}
 		if (kit == null) {
 			if (s.selecting) {
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.scroll").getString(),
 						Component.translatable("hud.projecthero.omnitrix.alt.scroll"), null));
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.click").getString(),
 						Component.translatable("hud.projecthero.omnitrix.alt.slap"), null));
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.shift_use").getString(),
+						Component.translatable("hud.projecthero.omnitrix.alt.function"), null)); // v0.17.5
 			}
 			Aliens.Alien sel = Aliens.byId(s.selected);
 			if (sel != null) {

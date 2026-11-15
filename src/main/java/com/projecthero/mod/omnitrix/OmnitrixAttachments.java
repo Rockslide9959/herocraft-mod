@@ -33,6 +33,15 @@ public final class OmnitrixAttachments {
 			ProjectHeroMod.id("omnitrix_stashed_armour"),
 			builder -> builder.persistent(net.minecraft.world.item.ItemStack.OPTIONAL_CODEC.listOf()).copyOnDeath());
 
+	/**
+	 * v0.17.5: the player's Master Control code and hidden-alien codes ({@link com.projecthero.mod.omnitrix.data.OmnitrixSecrets}).
+	 * Persistent and KEPT ON DEATH; never synced (the client only sees the digits he has found, in {@link #STATE}). Not touched
+	 * when the watch comes off, so the codes are the player's for good.
+	 */
+	public static final AttachmentType<com.projecthero.mod.omnitrix.data.OmnitrixSecrets> SECRETS = AttachmentRegistry.create(
+			ProjectHeroMod.id("omnitrix_secrets"),
+			builder -> builder.persistent(com.projecthero.mod.omnitrix.data.OmnitrixSecrets.CODEC).copyOnDeath());
+
 	private OmnitrixAttachments() {
 	}
 
