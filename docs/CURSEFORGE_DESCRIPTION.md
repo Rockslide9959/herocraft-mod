@@ -433,6 +433,32 @@ iron, redstone, emeralds, golden apples, books and more).
 
 ---
 
+## 🗺️ Exploration, Loot & Gear
+The world is full of places to raid, in four tiers. Each tier's vault can hand you a **Locator** that points to a place
+of the next tier -- nothing is locked, but the deeper you go the harder (and richer) it gets.
+- **Hero Vaults:** every player opens each vault once and gets **their own loot**, so nobody in a squad steals the chest.
+  Items come in **Common, Uncommon, Rare, Epic and Legendary**.
+- **Tier 1 Finds:** Crashed Drones, Hidden Caches (look for the cairn, banner or "dig here" sign), Abandoned Hero Outposts
+  with a retired hero's field notes, and **Supply Drops** that parachute down near you every couple of days.
+- **Tier 2 Sites:** all the old origin sites (Gamma Lab, Government Site, Tomb of Nabu, Mjolnir Crater and the rest) now
+  have a guarded annex and a hidden vault room -- soldiers, agents, cultists, Ultron drones, Parademons and more.
+- **Tier 3 Villain Hideouts:** Kingpin's Front, the Ultron Forge, an Apokolips Outpost, the Symbiote Hive and a Frost Giant
+  Hall, each with guards, traps and a mini-boss. Beat it and break the **Hideout Core** to open the vault and **calm that
+  faction's raids nearby for 5 days**. Each hideout has its own artifact: Kingpin's Gilded Cane, the Ultron Cortex Shard,
+  a Mother Box Fragment, the Hive Heart and Frostbrand.
+- **Tier 4 -- The Vault:** an underground super-prison. Fight down through the cell block and the security floor (laser
+  alarms, turrets, lockdown doors) to **Warden Kross**, a 900-health riot boss with a shield charge, baton shockwave,
+  taser line and an enraged Lockdown. Rewards: **Celestial Cores**, the Warden's Keyring, the Cracked Mjolnir Shard and the
+  Riot Capacitor.
+- **Gear tiers, for everyone (powers or not):**
+  - **I -- Salvaged Tech:** Grapple Line, Smoke Bomb, Flashbang.
+  - **II -- Hero Alloy:** armour, sword, baton and the **Utility Belt** (spare gadget charges, shorter cooldowns).
+  - **III -- Vibranium:** armour that halves fall damage, the Vibranium Blade and upgraded gadgets.
+  - **IV -- Celestial:** glowing armour (+2 hearts, no Blindness or Darkness) and the **Celestial Warhammer** ground slam.
+- **Hero supplies:** Energy Cells (refill your power's meter), Cooldown Stims, Suit Repair Kits and Med Kits.
+
+---
+
 ## 🤝 Squads
 `/squad create` and `/squad invite` make a team that can't hurt each other, whatever powers are flying around. Press **P**
 for the roster: health, heroes, coordinates and direction for every squadmate. The Locator Bar shows their faces across
