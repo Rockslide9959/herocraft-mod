@@ -73,7 +73,11 @@ public final class RaidAdminCommand {
 		String name = literal.equals("advance") ? "advancetimer" : literal;
 		return Commands.literal(literal)
 				.then(Commands.argument("raid", StringArgumentType.word()).suggests(RAID_KEYS)
-						.executes(c -> {
+						// v0.17.5: operator commands are never refused by a cleared hideout's raid calm
+						.executes(c -> com.projecthero.mod.hideout.HideoutCalm.bypass(() -> run(c, action, name))));
+	}
+
+	private static int run(CommandContext<CommandSourceStack> c, Action action, String name) throws CommandSyntaxException {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
 								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants, galactus, doomsday)"));
@@ -107,7 +111,6 @@ public final class RaidAdminCommand {
 								return com.projecthero.mod.horde.HordeCommand.verb(c, name, com.projecthero.mod.horde.HordeKind.byTypeId(raid));
 							}
 							return action.run(c, raid.equals("supervillain"));
-						}));
 	}
 
 	private static int start(CommandContext<CommandSourceStack> c, boolean supervillain) throws CommandSyntaxException {

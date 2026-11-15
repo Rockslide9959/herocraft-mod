@@ -75,6 +75,7 @@ public final class ModCreativeTab {
 				// v0.17.5: loot & progression -- the four Hero Vaults, gear-tier materials, hero supplies, Locators.
 				com.projecthero.mod.loot.LootItems.addToCreativeTab(output);
 				com.projecthero.mod.gear.GearItems.addToCreativeTab(output); // v0.17.5: gear tiers I-IV
+				com.projecthero.mod.hideout.item.HideoutItems.addToCreativeTab(output); // v0.17.5: hideout artifacts
 				com.projecthero.mod.hero.device.ModDevices.addToCreativeTab(output);
 				// Iron Man has its own dedicated tab now (v0.6.19) — nothing Iron Man goes in here.
 				// Zombie Raid: Grave Essence, artifacts, raid weapons, trophies, the Cursed Grave block.

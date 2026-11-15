@@ -33,6 +33,9 @@ public final class UltronSpawner {
 			if (p.serverLevel().getDifficulty() == Difficulty.PEACEFUL || !eligible(p)) {
 				continue;
 			}
+			if (com.projecthero.mod.hideout.HideoutCalm.calmed(p.serverLevel(), com.projecthero.mod.hideout.HideoutFaction.ULTRON, p.blockPosition())) {
+				continue; // v0.17.5: a cleared Ultron Forge nearby
+			}
 			if (p.getRandom().nextDouble() < chance) {
 				deliver(p);
 			}

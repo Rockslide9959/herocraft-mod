@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:symbiote_hive",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1705104,
+    "spacing": 150,
+    "separation": 60,
+    "frequency": 0.85
+  }
+}

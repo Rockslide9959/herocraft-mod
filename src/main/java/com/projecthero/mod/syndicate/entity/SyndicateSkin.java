@@ -20,7 +20,12 @@ public enum SyndicateSkin {
 	/** "thug" by Danroc: a dark hood. The sniper. */
 	HOOD("hood", false),
 	/** "Wilson Fisk - MCU" by wolflywood01: the white suit. */
-	KINGPIN("kingpin", false);
+	KINGPIN("kingpin", false),
+	/**
+	 * v0.17.5: Kingpin's Enforcer, the Kingpin's Front mini-boss -- painted procedurally from {@code thug_a} (black
+	 * three-piece suit, gold chain, dark glasses) by {@code scratchpad/gen_hideouts_v0175.js}.
+	 */
+	HIDEOUT_ENFORCER("hideout_enforcer", false);
 
 	private final ResourceLocation texture;
 	private final boolean slim;

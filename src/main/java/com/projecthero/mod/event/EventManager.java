@@ -33,6 +33,10 @@ public final class EventManager {
 	 * @return true if the event was started
 	 */
 	public static boolean start(ServerLevel level, EventInstance instance, BlockPos center) {
+		// v0.17.5: a cleared villain hideout calms its faction's raids nearby for a while (operator commands bypass it)
+		if (com.projecthero.mod.hideout.HideoutCalm.refuses(level, instance, center)) {
+			return false;
+		}
 		EventSavedData data = EventSavedData.get(level);
 		int minGap = EventConfig.framework().minDistanceBetweenEvents;
 		for (EventInstance existing : data.events()) {

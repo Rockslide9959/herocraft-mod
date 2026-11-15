@@ -25,7 +25,9 @@ public enum UltronSkin {
 	/** v0.16.1: the Ultron Lancer -- painted procedurally from the Heavy's skin (silver and red, heavier). */
 	LANCER("lancer", false),
 	/** v0.16.1: the Ultron Hijacker -- painted procedurally from the Sniper Frame's skin (dark gunmetal, red seams, slim). */
-	HIJACKER("hijacker", true);
+	HIJACKER("hijacker", true),
+	/** v0.17.5: the Forge Overseer (Ultron Forge mini-boss) -- the Heavy's skin recoloured graphite and gold ({@code scratchpad/gen_hideouts_v0175.js}). */
+	OVERSEER("overseer", false);
 
 	private final ResourceLocation texture;
 	private final ResourceLocation eyes;

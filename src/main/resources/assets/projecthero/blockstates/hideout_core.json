@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "faction=kingpin,sealed=false": {
+      "model": "projecthero:block/hideout_core_kingpin"
+    },
+    "faction=kingpin,sealed=true": {
+      "model": "projecthero:block/hideout_core_kingpin_sealed"
+    },
+    "faction=ultron,sealed=false": {
+      "model": "projecthero:block/hideout_core_ultron"
+    },
+    "faction=ultron,sealed=true": {
+      "model": "projecthero:block/hideout_core_ultron_sealed"
+    },
+    "faction=apokolips,sealed=false": {
+      "model": "projecthero:block/hideout_core_apokolips"
+    },
+    "faction=apokolips,sealed=true": {
+      "model": "projecthero:block/hideout_core_apokolips_sealed"
+    },
+    "faction=symbiote,sealed=false": {
+      "model": "projecthero:block/hideout_core_symbiote"
+    },
+    "faction=symbiote,sealed=true": {
+      "model": "projecthero:block/hideout_core_symbiote_sealed"
+    },
+    "faction=frost,sealed=false": {
+      "model": "projecthero:block/hideout_core_frost"
+    },
+    "faction=frost,sealed=true": {
+      "model": "projecthero:block/hideout_core_frost_sealed"
+    }
+  }
+}

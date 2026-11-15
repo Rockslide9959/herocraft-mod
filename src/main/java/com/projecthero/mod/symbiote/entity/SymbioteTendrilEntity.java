@@ -80,6 +80,16 @@ public class SymbioteTendrilEntity extends Entity {
 		return t;
 	}
 
+	/** v0.17.5: as {@link #fromBody} but black (the Hive Mother), not crimson. */
+	public static SymbioteTendrilEntity fromBodyBlack(net.minecraft.world.entity.LivingEntity owner, Vec3 end, Entity target, int life,
+			int extend, float width) {
+		SymbioteTendrilEntity t = fromBody(owner, end, target, life, extend, width);
+		if (t != null) {
+			t.entityData.set(DATA_CRIMSON, false);
+		}
+		return t;
+	}
+
 	/** A tendril rooted at a fixed point (bursting out of the ground). */
 	public static SymbioteTendrilEntity fromPoint(Level level, Vec3 start, Vec3 end, Entity target, int life, int extend,
 			float width) {

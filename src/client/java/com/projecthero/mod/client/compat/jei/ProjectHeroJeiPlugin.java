@@ -68,6 +68,21 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(hint),
 					net.minecraft.network.chat.Component.translatable("projecthero.jei.gear"));
 		}
+		// v0.17.5: the villain-hideout artifacts and the core
+		for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
+			net.minecraft.world.item.Item artifact = switch (f) {
+				case KINGPIN -> com.projecthero.mod.hideout.item.HideoutItems.GILDED_CANE;
+				case ULTRON -> com.projecthero.mod.hideout.item.HideoutItems.CORTEX_SHARD;
+				case APOKOLIPS -> com.projecthero.mod.hideout.item.HideoutItems.MOTHER_BOX_FRAGMENT;
+				case SYMBIOTE -> com.projecthero.mod.hideout.item.HideoutItems.HIVE_HEART;
+				case FROST -> com.projecthero.mod.hideout.item.HideoutItems.FROSTBRAND;
+			};
+			registration.addItemStackInfo(new ItemStack(artifact),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.a." + f.getSerializedName()),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.artifacts.body"));
+		}
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CORE_ITEM),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.clearing.body"));
 	}
 
 	@Override
