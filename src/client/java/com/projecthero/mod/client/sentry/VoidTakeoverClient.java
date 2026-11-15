@@ -194,7 +194,7 @@ public final class VoidTakeoverClient {
 	/** The screen bleeding black with a gold rim, the banner and the countdown to the mind opening (HUD callback). */
 	public static void renderHud(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (!active(mc) || mc.screen instanceof ShameRoomsScreen) {
+		if (!active(mc) || mc.screen instanceof ShameRoomsScreen || mc.options.hideGui) {
 			return;
 		}
 		SentryState s = Sentry.peek(mc.player);
@@ -232,6 +232,6 @@ public final class VoidTakeoverClient {
 		}
 		g.drawCenteredString(font, sub, w / 2, band / 2 + 18, 0xFFBBBBBB);
 		Component rooms = Component.translatable("hud.projecthero.sentry.rooms", s.room, SentryConfig.ROOMS, Math.round(s.grip));
-		g.drawCenteredString(font, rooms, w / 2, h - band / 2 - 14, 0xFFAA88FF);
+		g.drawCenteredString(font, rooms, w / 2, band / 2 + 30, 0xFFAA88FF);
 	}
 }

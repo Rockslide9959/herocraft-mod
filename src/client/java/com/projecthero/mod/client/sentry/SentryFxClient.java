@@ -114,7 +114,7 @@ public final class SentryFxClient {
 		ACTIVE.removeIf(f -> level.getGameTime() - f.start >= f.p.ticks() + 2 || level.getGameTime() < f.start - 20);
 		for (Fx f : ACTIVE) {
 			float age = Math.max(0f, now - f.start);
-			draw(level, f.p, age, partial, light, dark);
+			draw(level, f.p, age, partial, context.camera().getPosition(), light, dark);
 		}
 		if (light.isEmpty() && dark.isEmpty()) {
 			return;
@@ -169,7 +169,7 @@ public final class SentryFxClient {
 
 	// ---------------------------------------------------------------- the payload effects
 
-	private static void draw(ClientLevel level, SentryFxPayload p, float age, float partial, List<Seg> light, List<Seg> dark) {
+	private static void draw(ClientLevel level, SentryFxPayload p, float age, float partial, Vec3 cam, List<Seg> light, List<Seg> dark) {
 		Vec3 at = new Vec3(p.x(), p.y(), p.z());
 		Vec3 to = new Vec3(p.tx(), p.ty(), p.tz());
 		float life = Math.max(1, p.ticks());
@@ -217,7 +217,7 @@ public final class SentryFxClient {
 				float grow = smooth(Math.min(1f, age / 8f)) * (t > 0.85f ? (1f - t) / 0.15f : 1f);
 				float r = 1.4f * grow;
 				// the black hole: a dark core and an accretion swirl of purple and gold
-				dark.add(new Seg(at.add(0, -r, 0), at.add(0, r, 0), r, r, 0x050008, 0.95f, 0.95f));
+				disc(at, r, cam, 0x050008, 0.95f, dark);
 				for (int i = 0; i < 4; i++) {
 					Vec3 axis = new Vec3(Math.sin(i * 0.8 + age * 0.05), 1.0, Math.cos(i * 0.8 + age * 0.05)).normalize();
 					ring(at, axis, r * 1.5f + i * 0.35f, 0.07f, i % 2 == 0 ? 0x7A30FF : 0xFFB52A, 0.55f * grow, light);
@@ -289,6 +289,21 @@ public final class SentryFxClient {
 			Vec3 pt = c.add(u.scale(Math.cos(a) * r)).add(v.scale(Math.sin(a) * r));
 			out.add(new Seg(prev, pt, w, w, rgb, alpha, alpha));
 			prev = pt;
+		}
+	}
+
+	/** A camera-facing filled disc (16 wedges from the centre). */
+	private static void disc(Vec3 c, float r, Vec3 cam, int rgb, float alpha, List<Seg> out) {
+		Vec3 n = cam.subtract(c);
+		n = n.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : n.normalize();
+		Vec3 u = Math.abs(n.y) < 0.95 ? n.cross(new Vec3(0, 1, 0)).normalize() : n.cross(new Vec3(1, 0, 0)).normalize();
+		Vec3 v = n.cross(u).normalize();
+		int k = 16;
+		float half = (float) (r * Math.tan(Math.PI / k)) * 1.05f;
+		for (int i = 0; i < k; i++) {
+			double a = i * Math.PI * 2.0 / k;
+			Vec3 rim = c.add(u.scale(Math.cos(a) * r)).add(v.scale(Math.sin(a) * r));
+			out.add(new Seg(c, rim, 0.01f, half, rgb, alpha, alpha));
 		}
 	}
 
