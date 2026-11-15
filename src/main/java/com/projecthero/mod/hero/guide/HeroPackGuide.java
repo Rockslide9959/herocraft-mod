@@ -2193,6 +2193,21 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(f.colour()))
 						.append(Component.translatable("projecthero.guide.hideouts.a." + f.getSerializedName()).withStyle(ChatFormatting.GRAY)));
 			}
+			// v0.17.5: The Vault (Tier 4) -- a sub-section here, not a chapter of its own (chapter counts unchanged)
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.hideouts.vault").withStyle(s -> s.withColor(0x5FE8E8).withBold(true)));
+			para(lines, "projecthero.guide.hideouts.vault.body");
+			for (String part : new String[] { "floors", "kross", "lockdown", "clearing" }) {
+				blank(lines);
+				head(lines, "projecthero.guide.hideouts.vault." + part);
+				para(lines, "projecthero.guide.hideouts.vault." + part + ".body");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.vault.artifacts");
+			for (String a : new String[] { "wardens_keyring", "cracked_mjolnir_shard", "riot_capacitor" }) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(0x5FE8E8))
+						.append(Component.translatable("projecthero.guide.hideouts.vault.a." + a).withStyle(ChatFormatting.GRAY)));
+			}
 		}));
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)

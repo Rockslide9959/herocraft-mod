@@ -34,7 +34,17 @@ public enum SyndicateSkin {
 	/** v0.17.5: a soldier in olive fatigues, webbing and a helmet -- recoloured from {@code masked}. Gamma Lab guards. */
 	SITE_SOLDIER("site_soldier", false),
 	/** v0.17.5: a hooded cultist in a deep purple robe with gold trim -- recoloured from {@code hood}. Tomb / Temple guards. */
-	SITE_CULTIST("site_cultist", false);
+	SITE_CULTIST("site_cultist", false),
+	/** v0.17.5 The Vault: an escaped inmate in an orange jumpsuit (recolour of {@code thug_a}, {@code scratchpad/gen_vault_v0175.js}). */
+	VAULT_INMATE_A("vault/inmate_a", false),
+	/** v0.17.5 The Vault: a second inmate (recolour of {@code thug_c}, shaved head, orange jumpsuit). */
+	VAULT_INMATE_B("vault/inmate_b", false),
+	/** v0.17.5 The Vault: a riot warden -- black tactical armour, riot helmet and visor (painted over {@code thug_c}). */
+	VAULT_RIOT_WARDEN("vault/riot_warden", false),
+	/** v0.17.5 The Vault: a riot gunner -- the warden kit with a grey ballistic vest. */
+	VAULT_RIOT_GUNNER("vault/riot_gunner", false),
+	/** v0.17.5 The Vault: Warden Kross -- charcoal greatcoat, red trim, peaked officer cap, scarred face (over {@code thug_a}). */
+	VAULT_WARDEN_KROSS("vault/warden_kross", false);
 
 	private final ResourceLocation texture;
 	private final boolean slim;

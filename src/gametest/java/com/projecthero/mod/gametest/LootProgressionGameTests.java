@@ -153,11 +153,19 @@ public class LootProgressionGameTests implements FabricGameTest {
 			LocatorSearch.finder = LocatorSearch.DEFAULT_FINDER;
 		}
 
-		// tier 3 has no places yet: refused, unbound
-		ItemStack hideout = LocatorItem.forTier(3);
-		helper.assertTrue(LocatorSearch.members(access, 3).isEmpty(), "tier 3 is empty for now");
-		helper.assertTrue(LocatorItem.locate(p, hideout) == LocatorItem.LocateResult.NONE_EXIST, "an empty tier is refused");
-		helper.assertTrue(!LocatorItem.target(hideout).isBound() && hideout.getCount() == 1, "and the Locator stays unbound and kept");
+		// v0.17.5: tier 3 holds the five villain hideouts, tier 4 The Vault (no tier is empty any more)
+		helper.assertTrue(LocatorSearch.members(access, 3).size() >= 5, "tier 3 holds the hideouts");
+		helper.assertTrue(LocatorSearch.members(access, 4).contains(ProjectHeroMod.id("the_vault")), "tier 4 holds The Vault");
+		// nothing in range: not found, the Locator stays unbound and kept
+		LocatorSearch.finder = (level, origin, tier) -> Optional.empty();
+		try {
+			ItemStack hideout = LocatorItem.forTier(3);
+			LocatorItem.LocateResult none = LocatorItem.locate(p, hideout);
+			helper.assertTrue(none != LocatorItem.LocateResult.BOUND, "nothing found: not bound (" + none + ")");
+			helper.assertTrue(!LocatorItem.target(hideout).isBound() && hideout.getCount() == 1, "and the Locator stays unbound and kept");
+		} finally {
+			LocatorSearch.finder = LocatorSearch.DEFAULT_FINDER;
+		}
 		helper.succeed();
 	}
 
