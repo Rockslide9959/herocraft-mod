@@ -29,7 +29,7 @@ import net.minecraft.world.item.crafting.Ingredient;
  * the suit is worn if the player has steel balls in their inventory they show up on the suit's holsters on their hip and the player
  * doesn't have to hold the balls to throw them, they automatically equip and he can just use his abilities. make spin charge 30% faster
  * when wearing the suit please and also when riding a horse"): one piece of Gyro Zeppeli's costume -- hat, coat, trousers (the holster
- * belt) and boots. Leather-level protection (1 / 3 / 2 / 1) with iron durability, repaired with leather, crafted from leather.
+ * belt) and boots. Diamond-level protection (3 / 8 / 6 / 3, toughness 2) and durability, repaired with leather, crafted from leather.
  *
  * <p><b>The look</b> is the costume skin ({@link #texture}, 64 x 64, wide and slim) drawn over the wearer by the skin-costume path
  * ({@code QuirkCostume}); the vanilla armour model is never drawn. Source skin: planetminecraft.com/skin/gyro-zeppeli-costume-steel-ball-
@@ -54,10 +54,10 @@ public class GyroSuitItem extends ArmorItem {
 	}
 
 	static void register() {
-		// leather: 1 / 3 / 2 / 1, enchantability 15, the leather sound, repaired with leather; the vanilla layer is never drawn
+		// v0.17.5 (user: "gyros armour should be diamond level"): diamond 3 / 8 / 6 / 3, toughness 2, enchantability 15, the leather sound, repaired with leather; the vanilla layer is never drawn
 		MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL, ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id("gyro_suit")),
-				new ArmorMaterial(Map.of(Type.BOOTS, 1, Type.LEGGINGS, 2, Type.CHESTPLATE, 3, Type.HELMET, 1, Type.BODY, 3), 15,
-						SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER), List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("gyro_suit"))), 0f,
+				new ArmorMaterial(Map.of(Type.BOOTS, 3, Type.LEGGINGS, 6, Type.CHESTPLATE, 8, Type.HELMET, 3, Type.BODY, 11), 15,
+						SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER), List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("gyro_suit"))), 2f,
 						0f));
 		HAT = piece("gyro_suit_hat", Type.HELMET);
 		COAT = piece("gyro_suit_coat", Type.CHESTPLATE);
@@ -66,9 +66,9 @@ public class GyroSuitItem extends ArmorItem {
 	}
 
 	private static GyroSuitItem piece(String path, Type type) {
-		// iron durability (multiplier 15)
+		// v0.17.5: diamond durability (multiplier 33)
 		return Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id(path),
-				new GyroSuitItem(MATERIAL, type, new Properties().rarity(Rarity.UNCOMMON).durability(type.getDurability(15))));
+				new GyroSuitItem(MATERIAL, type, new Properties().rarity(Rarity.UNCOMMON).durability(type.getDurability(33))));
 	}
 
 	/** The costume's 64x64 skin for the wearer's arm width. */

@@ -14,6 +14,8 @@
 //     the row above, single holes take the nearest pixel round the arm), plus the shoulder and the hand.
 //  3. Wide = the slim skin with every arm face widened 3 -> 4 columns (the old wide file was a broken conversion: one face too
 //     narrow, the back face half empty).
+//  4. v0.17.5: the green out of the dark coat (body back/sides, arm shoulders, left arm bands, sleeve specks).
+//  5. v0.17.5: gyro_cape.png is an atlas -- the cape split into two tapering tails below the waist, plus the hat brim box.
 const fs = require('fs');
 const path = require('path');
 const png = require('../pnglib.js');
@@ -148,12 +150,54 @@ for (const [ox, oy] of [[40, 16], [40, 32], [32, 48], [48, 48]]) {
   copyFace(ox + 11, ox + 12, oy + 4, 12, true); // back
 }
 
+// ---------------------------------------------------------------- 4. v0.17.5 the green out of the dark
+// (user: "there still some green back on gyro, please remove all the green from the black of his skin"). The painted cape left green on
+// the coat: the body's back and sides (olive), the arms' inner and back faces at the shoulder, the left arm's two bands and specks on the
+// sleeve overlays. Every green pixel there becomes the coat's dark purple of the same lightness (overlay specks go, the dark base shows).
+// A speck on each inner thigh takes the trousers' dark brown. Kept: the head (hat), the boots (their green soles and rims) and the
+// coat's front lapels (body top front half + front face, x 20..27, y 18..31), which read as the cape's collar over the shoulders.
+const DARK = ['1b0a21', '291430', '2d1f47', '463059'].map(rgb);
+const isGreen = c => c[3] > 0 && c[1] >= c[0] && c[1] > c[2] + 20; // greens and olives (the coat's browns have red > green)
+const lum = c => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+const toDark = c => { const l = lum(c); return DARK[l < 70 ? 0 : l < 95 ? 1 : l < 120 ? 2 : 3]; };
+const GREEN_OUT = [ // [name, x, y, w, h, overlay, flat colour]
+  ['body (top back half, bottom, sides, back)', 16, 16, 24, 16, false],
+  ['right arm', 40, 16, 16, 16, false],
+  ['left arm', 32, 48, 16, 16, false],
+  ['jacket overlay', 16, 32, 24, 16, true],
+  ['right sleeve overlay', 40, 32, 16, 16, true],
+  ['left sleeve overlay', 48, 48, 16, 16, true],
+  ['right leg (sides above the boot rim)', 0, 20, 16, 11, false, rgb('291909')],
+  ['left leg (sides above the boot rim)', 16, 52, 16, 11, false, rgb('291909')],
+];
+const lapel = (x, y) => x >= 20 && x < 28 && y >= 18 && y < 32;
+function greenOut(img, tag) {
+  for (const [name, x0, y0, rw, rh, over, flat] of GREEN_OUT) {
+    const hit = [];
+    for (let y = y0; y < y0 + rh; y++) for (let x = x0; x < x0 + rw; x++) {
+      if (lapel(x, y) || !isGreen(img.get(x, y))) continue;
+      img.set(x, y, over ? CLEAR : flat || toDark(img.get(x, y)));
+      hit.push([x, y]);
+    }
+    if (hit.length) {
+      const xs = hit.map(p => p[0]), ys = hit.map(p => p[1]);
+      console.log(`${tag}: ${name}: ${hit.length} px in x ${Math.min(...xs)}..${Math.max(...xs)}, y ${Math.min(...ys)}..${Math.max(...ys)}`);
+    }
+  }
+}
+greenOut(s, 'slim');
+greenOut(w, 'wide');
+
 png.write(path.join(texDir, 'gyro_suit_slim.png'), 64, 64, s.px);
 png.write(path.join(texDir, 'gyro_suit_wide.png'), 64, 64, w.px);
 
-// ---------------------------------------------------------------- 4. the cape (vanilla 64x32 cape layout)
-// box 10x16x1 at uv 0,0: top (1,0) 10x1, bottom (11,0) 10x1, right edge (0,1) 1x16, outside (1,1) 10x16, left edge (11,1),
-// inside (12,1) 10x16. The outside is the skin's painted cape (body back 8x12), stretched to 10x16.
+// ---------------------------------------------------------------- 5. the cape + hat brim (64x32 atlas, client/spin/GyroCapeLayer)
+// v0.17.5 (user: "his cape almost splits off into 2 capes ... make it look like that"): one panel across the shoulders that splits below
+// the waist into two tapering tails. The outside of the whole cape is one virtual 10 x 18 picture (the skin's painted cape, stretched);
+// each box samples it where it hangs. Boxes are 1 deep; a box (w, h) at uv (u, v): top (u+1, v) w x 1, bottom (u+1+w, v), edges (u, v+1)
+// and (u+1+w, v+1) 1 x h, outside (u+1, v+1) w x h, inside (u+2+w, v+1) w x h.
+//   top panel 10 x 9 at (0,0), x -5..5;   left tail 4x4 (0,10) x -5..-1, 3x3 (12,10) x -5..-2, 2x2 (22,10) x -5..-3;
+//   right tail 4x4 (0,15) x 1..5, 3x3 (12,15) x 2..5, 2x2 (22,15) x 3..5;   hat brim 11 x 1 x 11 at (0,20).
 const cape = new Img(64, 32);
 const COLS = [0, 0, 1, 2, 3, 4, 5, 6, 7, 7];
 const capePx = (cx, cy) => {
@@ -163,14 +207,33 @@ const capePx = (cx, cy) => {
   return c;
 };
 const shade = (c, k) => [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k), 255];
-for (let cy = 0; cy < 16; cy++) for (let cx = 0; cx < 10; cx++) {
-  let c = capePx(cx, cy);
-  if (cy === 0) c = shade(c, 0.8); // the collar's shadow
-  if (cy === 15) c = shade(c, 0.85); // the hem
-  cape.set(1 + cx, 1 + cy, c);
-  cape.set(12 + (9 - cx), 1 + cy, shade(c, 0.7)); // inside, mirrored
+const EDGE = rgb('464623'), COLLAR = rgb('526621');
+// one box: cx0 = its first column of the virtual cape, cy0 its first row, hem = its bottom is a free edge
+function capeBox(u, v, bw, bh, cx0, cy0, hem) {
+  for (let r = 0; r < bh; r++) for (let c = 0; c < bw; c++) {
+    let col = capePx(cx0 + c, cy0 + r);
+    if (cy0 + r === 0) col = shade(col, 0.8); // the collar's shadow
+    if (hem && r === bh - 1) col = shade(col, 0.85); // the hem
+    cape.set(u + 1 + c, v + 1 + r, col);
+    cape.set(u + 2 + bw + (bw - 1 - c), v + 1 + r, shade(col, 0.7)); // inside, mirrored
+  }
+  for (let r = 0; r < bh; r++) { cape.set(u, v + 1 + r, EDGE); cape.set(u + 1 + bw, v + 1 + r, EDGE); }
+  for (let c = 0; c < bw; c++) { cape.set(u + 1 + c, v, cy0 === 0 ? COLLAR : EDGE); cape.set(u + 1 + bw + c, v, EDGE); }
 }
-for (let cy = 0; cy < 16; cy++) { cape.set(0, 1 + cy, rgb('464623')); cape.set(11, 1 + cy, rgb('464623')); }
-for (let cx = 0; cx < 10; cx++) { cape.set(1 + cx, 0, rgb('526621')); cape.set(11 + cx, 0, rgb('464623')); }
+capeBox(0, 0, 10, 9, 0, 0, false);
+capeBox(0, 10, 4, 4, 0, 9, false); capeBox(12, 10, 3, 3, 0, 13, false); capeBox(22, 10, 2, 2, 0, 16, true);
+capeBox(0, 15, 4, 4, 6, 9, false); capeBox(12, 15, 3, 3, 7, 13, false); capeBox(22, 15, 2, 2, 8, 16, true);
+// the hat brim (box 11 x 1 x 11: top (11,20), underside (22,20), rims along row 31): the hat's own browns (top), darker underneath, the rim's edge darker still
+{
+  const B = rgb('9b6742'), BL = rgb('b4825f'), BD = rgb('865a2c'), UNDER = rgb('694321'), RIM = rgb('694321');
+  const u = 0, v = 20, n = 11;
+  for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) {
+    const ring = Math.min(x, z, n - 1 - x, n - 1 - z); // 0 = the outer edge of the brim
+    cape.set(u + n + x, v + z, ring === 0 ? BD : (x * 37 + z * 91) % 11 === 0 ? BL : B); // top
+    cape.set(u + 2 * n + x, v + z, ring === 0 ? RIM : UNDER); // underside
+  }
+  // the four 1-px rims (west, north, east, south) in the row under the top/bottom faces
+  for (let x = 0; x < 2 * n + 2 * n; x++) cape.set(u + x, v + n, RIM);
+}
 png.write(path.join(texDir, 'gyro_cape.png'), 64, 32, cape.px);
 console.log('wrote gyro_suit_wide.png, gyro_suit_slim.png, gyro_cape.png in', texDir);
