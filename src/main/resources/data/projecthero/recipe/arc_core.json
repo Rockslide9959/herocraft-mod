@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "AQA",
+    "QFQ",
+    "AQA"
+  ],
+  "key": {
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    },
+    "F": {
+      "item": "projecthero:fusion_cell"
+    }
+  },
+  "result": {
+    "id": "projecthero:arc_core",
+    "count": 1
+  }
+}

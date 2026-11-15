@@ -291,6 +291,10 @@
 		"VisionPhaseClientMixin",
 		"VisionFirstPersonArmMixin",
 		"SuitFirstPersonArmMixin",
+		"PowerArmourInputMixin",
+		"PowerArmourFirstPersonArmMixin",
+		"PowerArmourPoseMixin",
+		"PowerArmourVisorGlowMixin",
 		"VisionPhaseSightMixin",
 		"VisionPhaseCullMixin"
 	],

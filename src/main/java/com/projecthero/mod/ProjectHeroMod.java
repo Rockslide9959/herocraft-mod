@@ -217,6 +217,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.loot.LootMod.initialize(); // v0.17.5: loot framework -- rarity, Hero Vault, materials, supplies, Locator
 		com.projecthero.mod.gear.GearMod.initialize(); // v0.17.5: gear tiers I-IV -- gadgets, Hero Alloy / Vibranium / Celestial gear
 		com.projecthero.mod.targetdummy.TargetDummyMod.initialize(); // v0.17.5 (user): the Target Dummy (infinite HP, damage stats)
+		com.projecthero.mod.powerarmour.PowerArmourMod.initialize(); // v0.17.5 (user): Power Armour, a Secondary power (frames, cores, modules)
 		ModBrewing.initialize();
 		// v0.14.8: disabled experimental powers (Powers.ENABLED) -- reagent recipe condition + loot filter
 		com.projecthero.mod.hero.PowerEnabledCondition.initialize();

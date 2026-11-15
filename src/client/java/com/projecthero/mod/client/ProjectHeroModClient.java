@@ -177,6 +177,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.targetdummy.TargetDummyClient.initialize(); // v0.17.5 (user): Target Dummy numbers + readout
+		com.projecthero.mod.client.powerarmour.PowerArmourClient.initialize(); // v0.17.5 (user): Power Armour -- voxel suit, frame, HUD, editor
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.speed.SpeedsterGroundStick.initialize(); // v0.17.1
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
@@ -613,16 +614,23 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
-		handleDoubleJump(client, client.player);
-		handlePowerSelect(client);
+		// v0.17.5: Power Armour -- in a suit (or stepping in / out) H, N, the jump gestures and the Primary's own key handlers are
+		// swallowed; the six ability keys below go to the armour kit (AbilityRouter)
+		boolean inArmour = com.projecthero.mod.client.powerarmour.PowerArmourClient.swallowHeroKeys(client);
+		if (!inArmour) {
+			handleDoubleJump(client, client.player);
+			handlePowerSelect(client);
+		}
 		handlePowerInfo(client);
 		handleSquadMenu(client);
 		handleFlightMode(client);
-		handleMaxSteelTransform(client);
-		handleWolverineOffHand(client);
-		handleChargedPunch(client);
+		if (!inArmour) {
+			handleMaxSteelTransform(client);
+			handleWolverineOffHand(client);
+			handleChargedPunch(client);
+		}
 
-		boolean holdingFirearm = client.player.getMainHandItem().getItem()
+		boolean holdingFirearm = !inArmour && client.player.getMainHandItem().getItem()
 				instanceof com.projecthero.mod.firearm.item.FirearmItem;
 
 		for (int i = 0; i < 6; i++) {

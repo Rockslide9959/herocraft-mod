@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " S ",
+    "ABA"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "S": {
+      "item": "minecraft:spyglass"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_target_lock",
+    "count": 1
+  }
+}

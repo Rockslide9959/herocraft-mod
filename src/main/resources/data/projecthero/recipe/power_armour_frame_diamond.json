@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PBP",
+    "P P",
+    "P P"
+  ],
+  "key": {
+    "P": {
+      "item": "projecthero:power_armour_plating_diamond"
+    },
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    }
+  },
+  "result": {
+    "id": "projecthero:power_armour_frame_diamond",
+    "count": 1
+  }
+}

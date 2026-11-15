@@ -53,6 +53,14 @@ public final class AbilityRouter {
 		if (PowerSuppression.blocksAbility(player, slot, pressed)) {
 			return;
 		}
+		// v0.17.5: Power Armour (a Secondary power) -- while in a suit (or stepping into / out of one) its kit owns R/G/Z/X/C/V
+		// ahead of every Primary, whose keys are suppressed (its passives keep running); H / N presses are swallowed
+		if (com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player)) {
+			if (!slot.isUtility()) {
+				com.projecthero.mod.powerarmour.kit.PowerArmourAbilityManager.handle(player, slot, pressed);
+			}
+			return;
+		}
 		if (slot.isUtility()) {
 			// v0.13.22: H / N (slots 7-8) are mutation-only -- the client only sends them when no Hero-Tier power
 			// owns the key (or with Alt held), so they skip the whole hero chain and go straight to the mutation.

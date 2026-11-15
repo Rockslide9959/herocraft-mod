@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "projecthero:redstone_circuit_board"
+  },
+  "base": {
+    "item": "projecthero:power_armour_frame_vibranium"
+  },
+  "addition": {
+    "item": "projecthero:power_armour_plating_celestial"
+  },
+  "result": {
+    "id": "projecthero:power_armour_frame_celestial",
+    "count": 1
+  }
+}

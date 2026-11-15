@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " C ",
+    "TBT"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "C": {
+      "item": "minecraft:compass"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_ore_scanner",
+    "count": 1
+  }
+}

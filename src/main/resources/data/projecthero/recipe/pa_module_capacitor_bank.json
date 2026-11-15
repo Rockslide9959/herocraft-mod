@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "CRC",
+    "CBC"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_capacitor_bank",
+    "count": 1
+  }
+}

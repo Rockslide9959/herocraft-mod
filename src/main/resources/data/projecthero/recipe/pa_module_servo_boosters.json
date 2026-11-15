@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PSP",
+    "TBT"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "S": {
+      "item": "minecraft:sugar"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_servo_boosters",
+    "count": 1
+  }
+}

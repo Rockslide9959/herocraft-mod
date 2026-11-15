@@ -51,6 +51,7 @@
     "projecthero:vault_laser_alarm",
     "projecthero:vault_turret",
     "projecthero:vault_console",
-    "projecthero:lockdown_track"
+    "projecthero:lockdown_track",
+    "projecthero:core_charger"
   ]
 }

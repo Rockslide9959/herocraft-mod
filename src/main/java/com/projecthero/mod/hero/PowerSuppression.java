@@ -174,7 +174,9 @@ public final class PowerSuppression {
 				&& !com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player)) {
 			return true;
 		}
-		return com.projecthero.mod.punisher.PunisherAbilityManager.hasContext(player);
+		// v0.17.5: Power Armour is a machine too
+		return com.projecthero.mod.punisher.PunisherAbilityManager.hasContext(player)
+				|| com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player);
 	}
 
 	/** {@code AbilityRouter.handleInput}: this key edge must be dropped (a press, erased, not a machine). */

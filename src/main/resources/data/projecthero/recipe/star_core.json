@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "VGV",
+    "GCG",
+    "VAV"
+  ],
+  "key": {
+    "V": {
+      "item": "projecthero:vibranium_shard"
+    },
+    "G": {
+      "item": "minecraft:glowstone_dust"
+    },
+    "C": {
+      "item": "projecthero:celestial_core"
+    },
+    "A": {
+      "item": "projecthero:arc_core"
+    }
+  },
+  "result": {
+    "id": "projecthero:star_core",
+    "count": 1
+  }
+}
