@@ -137,7 +137,13 @@ public final class HideoutBossLink {
 		}
 	}
 
-	/** Call from {@code remove} / {@code stopSeenByPlayer}-style cleanup. */
+	/** Call from {@code stopSeenByPlayer}: the boss left that player's view (unloaded, out of range). */
+	public void stopSeen(ServerPlayer player) {
+		viewers.remove(player);
+		bar.removePlayer(player);
+	}
+
+	/** Call from {@code remove} cleanup. */
 	public void detach() {
 		bar.removeAllPlayers();
 		viewers.clear();

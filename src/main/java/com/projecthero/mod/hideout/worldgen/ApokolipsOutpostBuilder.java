@@ -221,8 +221,8 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
 		c.set(-1, L2 + 1, 4, Blocks.MAGMA_BLOCK);
 		c.set(1, L2 + 1, 4, Blocks.MAGMA_BLOCK);
-		c.set(-3, L2 + 1, -3, Blocks.SOUL_CAMPFIRE);
-		c.set(3, L2 + 1, -3, Blocks.SOUL_CAMPFIRE);
+		c.set(-3, L2 + 1, -3, Blocks.SOUL_LANTERN);
+		c.set(3, L2 + 1, -3, Blocks.SOUL_LANTERN);
 		c.set(0, ROOF - 1, 0, Blocks.SHROOMLIGHT);
 		// the balcony to the north, open for the Commander's flight
 		c.air(-2, L2 + 1, -5, 2, L2 + 4, -5);

@@ -91,9 +91,15 @@ public final class HideoutCalm {
 		if (calm == null) {
 			return false;
 		}
+		if (instance instanceof com.projecthero.mod.crime.CrimeEvent) {
+			return true; // street crimes are rolled quietly in the background: no message
+		}
+		// tell the players nearby why (at most once every 10 s each: a Syndicate stash retries every second)
 		Component msg = message(faction, calm.calmLeft(level.getGameTime()));
+		HideoutState state = HideoutState.get(level);
 		for (ServerPlayer p : level.players()) {
-			if (p.distanceToSqr(center.getX() + 0.5, center.getY() + 0.5, center.getZ() + 0.5) <= 48 * 48) {
+			if (p.distanceToSqr(center.getX() + 0.5, center.getY() + 0.5, center.getZ() + 0.5) <= 48 * 48
+					&& state.mayNotify(p.getUUID(), level.getGameTime(), 200)) {
 				p.displayClientMessage(msg, false);
 			}
 		}

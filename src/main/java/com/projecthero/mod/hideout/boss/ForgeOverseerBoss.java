@@ -245,6 +245,12 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 	}
 
 	@Override
+	public void stopSeenByPlayer(net.minecraft.server.level.ServerPlayer player) {
+		super.stopSeenByPlayer(player);
+		link.stopSeen(player);
+	}
+
+	@Override
 	public void remove(Entity.RemovalReason reason) {
 		link.detach();
 		super.remove(reason);

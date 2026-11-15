@@ -54,6 +54,18 @@ public final class HideoutState extends SavedData {
 	}
 
 	private final Map<Long, Entry> entries = new LinkedHashMap<>();
+	/** Not saved: when each player was last told about a refused raid (rate limit). Lives and dies with the level. */
+	private final Map<java.util.UUID, Long> lastNotice = new java.util.HashMap<>();
+
+	/** True (and remembered) when {@code player} has not been told anything in the last {@code gap} ticks. */
+	public boolean mayNotify(java.util.UUID player, long now, long gap) {
+		Long last = lastNotice.get(player);
+		if (last != null && now - last < gap && now >= last) {
+			return false;
+		}
+		lastNotice.put(player, now);
+		return true;
+	}
 
 	private static final SavedData.Factory<HideoutState> FACTORY = new SavedData.Factory<>(
 			HideoutState::new, HideoutState::load, DataFixTypes.SAVED_DATA_RANDOM_SEQUENCES);

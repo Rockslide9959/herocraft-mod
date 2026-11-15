@@ -57,13 +57,13 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 		if (n < podChance) {
 			return HideoutBlocks.HIVE_POD.defaultBlockState();
 		}
-		if (n < 0.55) {
+		if (n < 0.68) {
 			return HideoutBlocks.HIVE_BIOMASS.defaultBlockState();
 		}
-		if (n < 0.7) {
+		if (n < 0.84) {
 			return Blocks.BLACKSTONE.defaultBlockState();
 		}
-		if (n < 0.82) {
+		if (n < 0.88) {
 			return Blocks.SCULK.defaultBlockState();
 		}
 		return Blocks.BLACK_CONCRETE.defaultBlockState();
@@ -71,8 +71,8 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 
 	private static BlockState floorBlock(HideoutCanvas c, int x, int z) {
 		double n = c.noise(x, z, 8);
-		return n < 0.35 ? HideoutBlocks.HIVE_BIOMASS.defaultBlockState() : n < 0.6 ? Blocks.BLACKSTONE.defaultBlockState()
-				: n < 0.8 ? Blocks.SCULK.defaultBlockState() : Blocks.BLACK_CONCRETE.defaultBlockState();
+		return n < 0.45 ? HideoutBlocks.HIVE_BIOMASS.defaultBlockState() : n < 0.75 ? Blocks.BLACKSTONE.defaultBlockState()
+				: n < 0.82 ? Blocks.SCULK.defaultBlockState() : Blocks.BLACK_CONCRETE.defaultBlockState();
 	}
 
 	/** Carves an ellipsoid chamber with a flat floor at {@link #FLOOR}, lined with biomass where the rock was. */
