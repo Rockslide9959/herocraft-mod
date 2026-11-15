@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " W ",
+    "SHS",
+    " F "
+  ],
+  "key": {
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "H": {
+      "item": "minecraft:hay_block"
+    },
+    "F": {
+      "tag": "minecraft:wooden_fences"
+    }
+  },
+  "result": {
+    "id": "projecthero:target_dummy",
+    "count": 1
+  }
+}

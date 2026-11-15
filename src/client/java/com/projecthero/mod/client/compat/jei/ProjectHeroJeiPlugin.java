@@ -39,6 +39,11 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	public void registerRecipes(IRecipeRegistration registration) {
 		registration.addRecipes(FABRICATOR, FabricatorRecipes.all());
 		lootInfo(registration);
+		// v0.17.5 (user): the Target Dummy
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.targetdummy.TargetDummyMod.ITEM),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.body"),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.stats"),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.controls"));
 	}
 
 	/** v0.17.5: JEI info pages for the loot framework's items (where they come from, what they do). */

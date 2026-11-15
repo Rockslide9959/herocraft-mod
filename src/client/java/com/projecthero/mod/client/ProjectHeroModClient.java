@@ -176,6 +176,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
+		com.projecthero.mod.client.targetdummy.TargetDummyClient.initialize(); // v0.17.5 (user): Target Dummy numbers + readout
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.speed.SpeedsterGroundStick.initialize(); // v0.17.1
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person

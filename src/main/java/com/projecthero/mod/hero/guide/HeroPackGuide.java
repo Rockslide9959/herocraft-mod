@@ -777,6 +777,12 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.devices.wardrobe");
 			para(lines, "projecthero.guide.devices.wardrobe.mannequin");
 			para(lines, "projecthero.guide.devices.wardrobe.wardrobe");
+			// v0.17.5 (user): the Target Dummy
+			blank(lines);
+			head(lines, "projecthero.guide.devices.target_dummy");
+			para(lines, "projecthero.guide.devices.target_dummy.body");
+			para(lines, "projecthero.guide.devices.target_dummy.stats");
+			para(lines, "projecthero.guide.devices.target_dummy.controls");
 		}));
 
 		out.add(chapter("projecthero.guide.combos", lines -> {

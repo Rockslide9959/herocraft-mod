@@ -373,6 +373,9 @@ public final class AbilityHelpers {
 		if (!(target instanceof LivingEntity living) || !living.isAlive() || target == grabber) {
 			return false;
 		}
+		if (target instanceof com.projecthero.mod.targetdummy.TargetDummyEntity) {
+			return false; // v0.17.5: the Target Dummy stays planted (hit it, don't carry it off)
+		}
 		if (target instanceof ArmorStand || living.getMaxHealth() > 200.0f) {
 			return false; // no armor stands, no bosses (Warden/Ender Dragon/Wither-scale health)
 		}
