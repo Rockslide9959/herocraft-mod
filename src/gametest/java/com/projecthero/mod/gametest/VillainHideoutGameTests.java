@@ -167,6 +167,58 @@ public class VillainHideoutGameTests implements FabricGameTest {
 		hideoutFlow(helper, HideoutFaction.ULTRON, 10);
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_apokolips", timeoutTicks = 200)
+	public void apokolipsOutpostClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.APOKOLIPS, 10);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_symbiote", timeoutTicks = 200)
+	public void symbioteHiveClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.SYMBIOTE, 10);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_frost", timeoutTicks = 200)
+	public void frostGiantHallClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.FROST, 5);
+	}
+
+	/** Each hideout's vault rolls only its own faction's artifact (the near_hideout condition on the artifact pools). */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_artifacts", timeoutTicks = 100)
+	public void vaultArtifactsBelongToTheirHideout(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		HideoutState state = HideoutState.get(level);
+		state.resetForTest();
+		BlockPos core = helper.absolutePos(new BlockPos(4, 2, 4));
+		state.markCleared(core, HideoutFaction.FROST, level.getGameTime());
+		var table = level.getServer().reloadableRegistries().getLootTable(net.minecraft.resources.ResourceKey.create(
+				net.minecraft.core.registries.Registries.LOOT_TABLE, com.projecthero.mod.ProjectHeroMod.id("chests/vault_tier3_artifacts")));
+		int frost = 0;
+		int other = 0;
+		for (int i = 0; i < 300; i++) {
+			var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+					.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.atCenterOf(core).add(0, 0, 6))
+					.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CHEST);
+			for (net.minecraft.world.item.ItemStack s : table.getRandomItems(params, i * 7919L)) {
+				if (s.is(com.projecthero.mod.hideout.item.HideoutItems.FROSTBRAND)) {
+					frost++;
+				} else {
+					other++;
+				}
+			}
+		}
+		helper.assertTrue(other == 0, "only the Frost Giant Hall's artifact rolls there (got " + other + " others)");
+		helper.assertTrue(frost > 30 && frost < 100, "Frostbrand rolls about 20% of the time (got " + frost + " in 300)");
+		// far from any cleared hideout: nothing
+		var far = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+				.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.atCenterOf(core).add(200, 0, 0))
+				.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CHEST);
+		for (int i = 0; i < 50; i++) {
+			helper.assertTrue(table.getRandomItems(far, i).isEmpty(), "no artifacts away from a cleared hideout");
+		}
+		state.resetForTest();
+		helper.succeed();
+	}
+
 	/** Every mini-boss turns on the player who has hurt it most. */
 	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_threat", timeoutTicks = 100)
 	public void miniBossesSwitchToTopThreat(GameTestHelper helper) {

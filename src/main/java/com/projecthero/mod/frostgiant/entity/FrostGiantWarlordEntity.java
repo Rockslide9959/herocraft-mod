@@ -308,7 +308,14 @@ public class FrostGiantWarlordEntity extends FrostGiantEntity {
 	@Override
 	public void startSeenByPlayer(ServerPlayer player) {
 		super.startSeenByPlayer(player);
-		bossBar.addPlayer(player);
+		if (showsOwnBossBar()) {
+			bossBar.addPlayer(player);
+		}
+	}
+
+	/** v0.17.5: false for a subclass that shows its own bar instead (the hideout Frost Giant Jarl). */
+	protected boolean showsOwnBossBar() {
+		return true;
 	}
 
 	@Override

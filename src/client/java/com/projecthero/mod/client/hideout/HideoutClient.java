@@ -29,6 +29,8 @@ public final class HideoutClient {
 		EntityRendererRegistry.register(HideoutEntityTypes.KINGPIN_ENFORCER, SyndicateRenderer::new);
 		EntityRendererRegistry.register(HideoutEntityTypes.FORGE_OVERSEER, com.projecthero.mod.client.ultron.UltronRobotRenderer::new);
 		EntityRendererRegistry.register(HideoutEntityTypes.PARADEMON_COMMANDER, ParademonCommanderRenderer::new);
+		EntityRendererRegistry.register(HideoutEntityTypes.HIVE_MOTHER, HiveMotherRenderer::new);
+		EntityRendererRegistry.register(HideoutEntityTypes.FROST_GIANT_JARL, ctx -> new com.projecthero.mod.client.frostgiant.FrostGiantRenderer<>(ctx, 1.6f));
 		CortexShardItem.clientReveal = () -> revealTicks = CortexShardItem.REVEAL_TICKS;
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			if (revealTicks > 0) {

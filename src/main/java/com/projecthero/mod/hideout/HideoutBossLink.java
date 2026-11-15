@@ -44,9 +44,14 @@ public final class HideoutBossLink {
 	private boolean reported;
 
 	public HideoutBossLink(Mob boss, HideoutFaction faction, BossEvent.BossBarColor colour, java.util.function.BooleanSupplier busy) {
+		this(boss, faction, colour, new BossThreat(boss).range(48).holdWhile(busy));
+	}
+
+	/** For a boss whose own class already keeps the shared threat table (the Jarl reuses the Warlord's). */
+	public HideoutBossLink(Mob boss, HideoutFaction faction, BossEvent.BossBarColor colour, BossThreat existing) {
 		this.boss = boss;
 		this.faction = faction;
-		this.threat = new BossThreat(boss).range(48).holdWhile(busy);
+		this.threat = existing;
 		this.bar = new ServerBossEvent(faction.bossName(), colour, BossEvent.BossBarOverlay.NOTCHED_10);
 	}
 

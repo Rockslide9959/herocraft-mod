@@ -30,18 +30,30 @@ public final class HideoutEntityTypes {
 			EntityType.Builder.<com.projecthero.mod.hideout.boss.ParademonCommanderBoss>of(com.projecthero.mod.hideout.boss.ParademonCommanderBoss::new,
 					MobCategory.MONSTER).sized(0.7f, 2.0f).eyeHeight(1.75f).fireImmune().clientTrackingRange(10).build("parademon_commander"));
 
+	/** The Hive Mother: player-sized, scaled x1.8 by her SCALE attribute. */
+	public static final EntityType<com.projecthero.mod.hideout.boss.HiveMotherBoss> HIVE_MOTHER = register("hive_mother",
+			EntityType.Builder.<com.projecthero.mod.hideout.boss.HiveMotherBoss>of(com.projecthero.mod.hideout.boss.HiveMotherBoss::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10).build("hive_mother"));
+
+	/** The Frost Giant Jarl: the Warlord's body at 6.5 blocks (the renderer fits the model to the box). */
+	public static final EntityType<com.projecthero.mod.hideout.boss.FrostGiantJarlBoss> FROST_GIANT_JARL = register("frost_giant_jarl",
+			EntityType.Builder.<com.projecthero.mod.hideout.boss.FrostGiantJarlBoss>of(com.projecthero.mod.hideout.boss.FrostGiantJarlBoss::new,
+					MobCategory.MONSTER).sized(1.6f, 6.5f).eyeHeight(5.8f).clientTrackingRange(12).updateInterval(2).build("frost_giant_jarl"));
+
 	private HideoutEntityTypes() {
 	}
 
 	/** Every mini-boss type (tests, the guide). */
 	public static java.util.List<EntityType<? extends net.minecraft.world.entity.Mob>> bosses() {
-		return java.util.List.of(KINGPIN_ENFORCER, FORGE_OVERSEER, PARADEMON_COMMANDER);
+		return java.util.List.of(KINGPIN_ENFORCER, FORGE_OVERSEER, PARADEMON_COMMANDER, HIVE_MOTHER, FROST_GIANT_JARL);
 	}
 
 	public static void initialize() {
 		FabricDefaultAttributeRegistry.register(KINGPIN_ENFORCER, KingpinEnforcerBoss.createAttributes());
 		FabricDefaultAttributeRegistry.register(FORGE_OVERSEER, com.projecthero.mod.hideout.boss.ForgeOverseerBoss.createAttributes());
 		FabricDefaultAttributeRegistry.register(PARADEMON_COMMANDER, com.projecthero.mod.hideout.boss.ParademonCommanderBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(HIVE_MOTHER, com.projecthero.mod.hideout.boss.HiveMotherBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(FROST_GIANT_JARL, com.projecthero.mod.hideout.boss.FrostGiantJarlBoss.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {
