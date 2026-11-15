@@ -156,3 +156,31 @@ tier 3 and tier 4 are empty until the hideouts / the Vault exist (a tier-3/4 Loc
 `MedKitHealing` keeps `UUID -> ticks left` (no world refs); cleared via `LootMod.clearSessionState()` from
 `ServerStateReset.clearAll`. The target registries hold registration-time lambdas only. `LocatorSearch.finder` is a test
 seam (gametests swap it, then restore `DEFAULT_FINDER`).
+
+## Tier 1 Finds
+
+Code: `com.projecthero.mod.loot.finds` (`FindsMod` registers its own structure types, piece types, the crate entity, the
+game rules and the command; hooked from `LootMod.initialize`), client `client.loot.finds` (from `LootClient`).
+Tests: `TierOneFindsGameTests`. Lang: `scratchpad/lang_finds_v0175.js`.
+
+| Id | Look | Biomes (tag) | Placement |
+|---|---|---|---|
+| `crashed_drone` | scorched crater (r ~5, 2 deep) + wrecked copper/iron quad-rotor; vault in the open cargo bay; campfire "engine" smokes; variants: both rotors / right or left rotor thrown onto the rim | `finds_land_biomes` | spacing 12, separation 4, not within 2 chunks of a village |
+| `hidden_cache` | cairn / red flag / "X" sign on coarse dirt; 3 blocks down a 3x3 stone-brick (sandstone in sand) room with the vault | `hidden_cache_biomes` | spacing 10, separation 3 |
+| `hero_outpost` | ruined overgrown room (stone hut / timber cabin / brick bunker, 4 facings): cot, map table, workbench, lectern with the field notes (`HeroOutpostPiece.journal`), vault, 2-4 persistent helmeted zombies/skeletons | `hero_outpost_biomes` | spacing 16, separation 5, not within 3 chunks of a village |
+
+All three: one code-built piece (`FindPiece` base: local coords with the front at local south, rotation + variant from
+the position seed, writes clipped to the chunk box), never on water, never on a slope steeper than 6 (drone) / 2 (cache) / 4 (outpost)
+blocks across the footprint, generated in the `top_layer_modification` step (after trees, so none grow through them;
+snow still settles on top). Measured on seed 5175 (25 probes 256 apart): mean distance to the nearest drone 266,
+cache 170, outpost 239 blocks. Each holds a tier 1 `HeroVault` (loot `chests/vault_tier1`). For comparison the old sites use spacing
+60-120. Not in any Locator tag (Locators start at tier 2).
+
+**Supply Drop** (event, `SupplyDrops`): every `projectheroSupplyDropDays` (default 2) to that +1 in-game days per overworld
+player (`SupplyDropSchedule`, overworld saved data), a `SupplyDropEntity` spawns 60 above a dry, loaded spot 40-80 blocks
+away (the ring shrinks inside the server view distance when that is under 6 chunks), falls 0.32 blocks/tick under a parachute with a signal-smoke trail (client particles, always visible), lands as a
+vault (15% tier 2) with its door facing the player, and chat gives the compass direction + rough distance. The entity
+stays (invisible) as the timer: the vault is removed 20 min after landing if unopened, 5 min after the first open.
+Off: `/gamerule projectheroSupplyDrops false`. Operators: `/projecthero supplydrop [players] [tier]` (ignores the rule).
+The crate is `GiantTracking.AlwaysTracked` (sent to players within 160 blocks whatever their view distance) and
+keeps its chunk ticking while it falls. No static state.

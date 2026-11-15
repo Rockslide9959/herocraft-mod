@@ -1,0 +1,12 @@
+{
+  "structures": [
+    { "structure": "projecthero:hero_outpost", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1751703,
+    "spacing": 16,
+    "separation": 5,
+    "exclusion_zone": { "other_set": "minecraft:villages", "chunk_count": 3 }
+  }
+}

@@ -55,7 +55,8 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		for (int t = 1; t <= 4; t++) {
 			vaults.add(com.projecthero.mod.loot.LootItems.vaultStack(t));
 		}
-		registration.addItemStackInfo(vaults, net.minecraft.network.chat.Component.translatable("projecthero.guide.loot.vaults.body"));
+		registration.addItemStackInfo(vaults, net.minecraft.network.chat.Component.translatable("projecthero.guide.loot.vaults.body"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.finds_where")); // v0.17.5 Tier 1 Finds
 		java.util.List<ItemStack> locators = new java.util.ArrayList<>();
 		for (int t = 2; t <= 4; t++) {
 			locators.add(com.projecthero.mod.loot.LocatorItem.forTier(t));

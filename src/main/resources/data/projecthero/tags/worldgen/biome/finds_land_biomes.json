@@ -1,0 +1,11 @@
+{
+  "values": [
+    "#projecthero:hp_surface_biomes",
+    "#minecraft:is_badlands",
+    "#minecraft:is_jungle",
+    "minecraft:desert",
+    "minecraft:swamp",
+    "minecraft:mangrove_swamp",
+    "minecraft:dark_forest"
+  ]
+}

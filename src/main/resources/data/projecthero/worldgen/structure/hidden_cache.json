@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:hidden_cache",
+  "biomes": "#projecthero:hidden_cache_biomes",
+  "step": "top_layer_modification",
+  "spawn_overrides": {}
+}
