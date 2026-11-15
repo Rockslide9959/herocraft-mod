@@ -159,12 +159,12 @@ public final class VoidMatter {
 		}
 	}
 
-	/** Gametests: brings back everything due by {@code now} in one go (loaded chunks only). Returns how many came back. */
-	public static int restoreNow(ServerLevel level) {
+	/** Gametests: brings back everything of {@code owner}'s that is scheduled, in one go (loaded chunks only). Returns how many. */
+	public static int restoreNow(ServerLevel level, java.util.UUID owner) {
 		VoidMatterData data = VoidMatterData.get(level);
 		int n = 0;
 		for (VoidMatterData.Entry e : data.due(Long.MAX_VALUE - 1, Integer.MAX_VALUE)) {
-			if (!level.isLoaded(e.pos)) {
+			if (!e.owner.equals(owner) || !level.isLoaded(e.pos)) {
 				continue;
 			}
 			BlockState here = level.getBlockState(e.pos);
