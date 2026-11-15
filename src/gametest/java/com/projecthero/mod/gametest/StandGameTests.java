@@ -173,16 +173,18 @@ public class StandGameTests implements FabricGameTest {
 	public void staminaRefillsThreeASecond(GameTestHelper helper) {
 		ServerPlayer p = user(helper, 2.5, 2.0, 2.5);
 		Stands.setStamina(p, 50f);
-		helper.assertTrue(Math.abs(Stands.regenRate(p) - 3f) < 1.0e-4f, "3 a second: " + Stands.regenRate(p));
+		float rate = StandConfig.STAMINA_REGEN * (Stands.summoned(p) ? 1f : 1f + StandConfig.DESUMMONED_REGEN_BONUS);
+		helper.assertTrue(Math.abs(Stands.regenRate(p) - rate) < 1.0e-4f, rate + " a second: " + Stands.regenRate(p));
+		helper.assertTrue(Math.abs(StandConfig.STAMINA_REGEN - 4f) < 1.0e-4f && Math.abs(StandConfig.STAMINA_REGEN * (1f + StandConfig.DESUMMONED_REGEN_BONUS) - 5.2f) < 1.0e-4f, "4 out, 5.2 away");
 		helper.onEachTick(() -> Stands.tick(p));
 		// (v0.17.4: setting it to 50 counts as a spend, so the refill waits 1 s first: measure the second after that)
 		float[] from = { 0f };
 		helper.runAfterDelay(25, () -> from[0] = Stands.stamina(p));
 		helper.runAfterDelay(45, () -> {
 			float st = Stands.stamina(p) - from[0];
-			helper.assertTrue(st > 2.2f && st < 3.1f, "about 3 in a second: " + st);
+			helper.assertTrue(st > rate * 0.7f && st < rate * 1.05f, "about " + rate + " in a second: " + st);
 			edit(p, n -> n.regenSlowUntil = helper.getLevel().getGameTime() + 100);
-			helper.assertTrue(Math.abs(Stands.regenRate(p) - 1.5f) < 1.0e-4f, "half after a time stop: " + Stands.regenRate(p));
+			helper.assertTrue(Math.abs(Stands.regenRate(p) - rate * StandConfig.REGEN_SLOW_FACTOR) < 1.0e-4f, "half after a time stop: " + Stands.regenRate(p));
 			helper.succeed();
 		});
 	}
@@ -579,7 +581,7 @@ public class StandGameTests implements FabricGameTest {
 			helper.assertTrue(z.getHealth() <= 60f - queued + 0.6f, "the queued hit landed on resume, health " + z.getHealth());
 			// (a mock player reports itself creative, so it keeps mayfly: the flying speed says the stop let go)
 			helper.assertTrue(Math.abs(p.getAbilities().getFlyingSpeed() - 0.05f) < 1.0e-4f, "the 10 b/s flight goes with it");
-			helper.assertTrue(Math.abs(Stands.regenRate(p) - StandConfig.STAMINA_REGEN * StandConfig.REGEN_SLOW_FACTOR) < 1.0e-4f, "half-speed refill for 20 s");
+			helper.assertTrue(Math.abs(Stands.regenRate(p) - StandConfig.STAMINA_REGEN * (Stands.summoned(p) ? 1f : 1f + StandConfig.DESUMMONED_REGEN_BONUS) * StandConfig.REGEN_SLOW_FACTOR) < 1.0e-4f, "half-speed refill for 20 s");
 			helper.assertTrue(Stands.state(p).regenSlowUntil - helper.getLevel().getGameTime() >= StandConfig.REGEN_SLOW_TICKS - 1, "for 20 s");
 		});
 		helper.runAfterDelay(14, () -> {

@@ -481,11 +481,12 @@ public final class Stands {
 		StarPlatinum.tick(player);
 	}
 
-	/** v0.17.3 (user: "stand stamina regens 3 stamina per second"): Stamina per second right now (half for 20 s after a time stop). */
+	/** Stamina per second right now: 4 with the Stand out, 5.2 with it put away (v0.17.5), half for 20 s after a time stop. */
 	public static float regenRate(Player player) {
 		StandState s = peek(player);
 		boolean slow = s != null && s.regenSlowUntil > player.level().getGameTime();
-		return StandConfig.STAMINA_REGEN * (slow ? StandConfig.REGEN_SLOW_FACTOR : 1f);
+		float away = summoned(player) ? 1f : 1f + StandConfig.DESUMMONED_REGEN_BONUS; // v0.17.5: +30% with the Stand put away
+		return StandConfig.STAMINA_REGEN * away * (slow ? StandConfig.REGEN_SLOW_FACTOR : 1f);
 	}
 
 	/** v0.17.4: Stamina was spent in the last second: the bar holds still until it has been left alone that long. */

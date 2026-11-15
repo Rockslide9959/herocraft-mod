@@ -11,8 +11,10 @@ public final class StandConfig {
 
 	// ---------------------------------------------------------------- Stamina
 	public static final float STAMINA_MAX = 100f;
-	/** v0.17.3 (user: "stand stamina regens 3 stamina per second"): one flat rate, in or out of a fight. */
-	public static final float STAMINA_REGEN = 3f;
+	/** v0.17.5 (user: "make stand stamina regenerate 4 per second while stand is out and 30% faster when stand is desummoned"). */
+	public static final float STAMINA_REGEN = 4f;
+	/** v0.17.5: the refill is this much faster while the Stand is put away (4 -> 5.2 a second). */
+	public static final float DESUMMONED_REGEN_BONUS = 0.30f;
 	/** v0.17.3 (user: "after time stop ends stamina regenerates 50% slower for 20 seconds"). */
 	public static final float REGEN_SLOW_FACTOR = 0.5f;
 	public static final int REGEN_SLOW_TICKS = 20 * 20;

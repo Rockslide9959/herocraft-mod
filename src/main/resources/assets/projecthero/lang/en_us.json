@@ -10218,7 +10218,7 @@
   "projecthero.guide.stand.stats": "Stats",
   "projecthero.guide.stand.stats.body": "Power A, Speed A, Range C, Stamina A, Precision A, Potential A. Range C means its fists only reach about 3 blocks from you; Star Finger (30 blocks), Ora Chase (10), the ball bearing and thrown things cover more.",
   "projecthero.guide.stand.stamina": "Stamina",
-  "projecthero.guide.stand.stamina.body": "The purple bar (100). It refills 3 a second once you have gone 1 second without spending any -- every spend restarts that second (half the rate for 20 s after a time stop). Moves cost a little each; the ORA Barrage drains 3 a second while it runs and a time stop 10 a second.",
+  "projecthero.guide.stand.stamina.body": "The purple bar (100). It refills 4 a second with your Stand out and 5.2 a second (30% faster) with it put away, once you have gone 1 second without spending any -- every spend restarts that second (half the rate for 20 s after a time stop). Moves cost a little each; the ORA Barrage drains 3 a second while it runs and a time stop 10 a second.",
   "projecthero.guide.stand.summon": "Summoning",
   "projecthero.guide.stand.summon.body": "H calls Star Platinum out: it steps out of your body and floats behind you, copying your arms, its legs hanging loose as it glides after you. H again and it sinks back into you. It moves in front of you to fight, then floats back. With it out, left-clicking with an empty hand makes it punch for you (on a creature, a 3-hit chain with extra reach), and mining with an empty hand it breaks the block like iron tools.",
   "projecthero.guide.stand.time_stop": "Star Platinum: The World",

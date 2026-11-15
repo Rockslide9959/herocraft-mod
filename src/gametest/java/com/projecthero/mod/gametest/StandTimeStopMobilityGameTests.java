@@ -153,7 +153,7 @@ public class StandTimeStopMobilityGameTests implements FabricGameTest {
 		});
 	}
 
-	/** v0.17.4: the bar holds still for 1 s after any spend, then refills 3 a second (0.75 every 5 ticks). */
+	/** v0.17.4: the bar holds still for 1 s after any spend, then refills at the current rate (v0.17.5: 4 a second out, 5.2 put away; a quarter of it every 5 ticks). */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
 	public void staminaWaitsASecondAfterSpending(GameTestHelper helper) {
 		ServerPlayer p = standUser(helper, 2.5, 2.0, 2.5);
@@ -175,7 +175,7 @@ public class StandTimeStopMobilityGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(47, () -> {
 			float stepSize = Stands.stamina(p) - from[0];
-			float expect = StandConfig.STAMINA_REGEN / 4f;
+			float expect = Stands.regenRate(p) / 4f;
 			helper.assertTrue(Math.abs(stepSize - expect) < 0.02f, "one refill step of " + expect + ": " + stepSize);
 			helper.succeed();
 		});
