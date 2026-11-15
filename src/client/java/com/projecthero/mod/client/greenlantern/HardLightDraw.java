@@ -325,8 +325,37 @@ public final class HardLightDraw {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.17.5: 0..1, how visible a shape running from local point a to b may be given where the camera is -- 0 when the camera
+	 * is within {@code inner} blocks of that segment, 1 from {@code outer} out, smooth between. World renderers here draw in
+	 * camera-relative space (the camera at the origin), so the pose maps the shape's points straight to camera offsets.
+	 */
+	public static float cameraFade(PoseStack pose, float ax, float ay, float az, float bx, float by, float bz, float inner, float outer) {
+		org.joml.Matrix4f m = pose.last().pose();
+		org.joml.Vector3f a = m.transformPosition(ax, ay, az, new org.joml.Vector3f());
+		org.joml.Vector3f b = m.transformPosition(bx, by, bz, new org.joml.Vector3f());
+		org.joml.Vector3f ab = new org.joml.Vector3f(b).sub(a);
+		float l2 = ab.lengthSquared();
+		float t = l2 < 1.0e-6f ? 0f : Mth.clamp(-a.dot(ab) / l2, 0f, 1f);
+		float d = new org.joml.Vector3f(a).fma(t, ab).length();
+		if (d <= inner) {
+			return 0f;
+		}
+		if (d >= outer) {
+			return 1f;
+		}
+		float k = (d - inner) / (outer - inner);
+		return k * k * (3f - 2f * k);
+	}
+
 	/** A streak of light from the origin along +Z for {@code len} blocks, half-width {@code w}. */
 	public static void streak(VertexConsumer vc, PoseStack pose, float len, float w, float age, float alpha) {
+		// v0.17.5 (user: "giant green rotating flash"): a beam passing through the viewer's head put the camera inside these
+		// spinning boxes, which then filled the whole screen; fade it out around the camera instead
+		alpha *= cameraFade(pose, 0f, 0f, 0f, 0f, 0f, len, w * 1.2f + 0.3f, w * 2.5f + 2.5f);
+		if (alpha <= 0.01f) {
+			return;
+		}
 		pose.pushPose();
 		pose.translate(0f, 0f, len / 2f);
 		pose.mulPose(Axis.ZP.rotationDegrees(age * 25f));

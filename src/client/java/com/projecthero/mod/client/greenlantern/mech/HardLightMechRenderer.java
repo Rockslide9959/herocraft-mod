@@ -405,8 +405,12 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 		HardLightDraw.glow(vc, pose, 0f, 0f, 0.05f, 0.26f * pulse, 0.2f * pulse, 0.06f, 0.6f);
 		pose.translate(0f, 0f, len);
 		pose.mulPose(Axis.ZP.rotationDegrees(age * 12f));
-		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.55f * pulse, 0.55f * pulse, 0.55f * pulse, 0.85f);
-		TurboDraw.box(vc, pose.last(), 1.2f * pulse, 1.2f * pulse, 0.04f, HardLightDraw.tint(HardLightDraw.GREEN), 0.3f);
+		// v0.17.5: the flare where it lands fades out when that's on the viewer's face (it filled the screen, spinning)
+		float near = HardLightDraw.cameraFade(pose, 0f, 0f, 0f, 0f, 0f, 0f, 2.3f, 5f);
+		if (near > 0.01f) {
+			HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.55f * pulse, 0.55f * pulse, 0.55f * pulse, 0.85f * near);
+			TurboDraw.box(vc, pose.last(), 1.2f * pulse, 1.2f * pulse, 0.04f, HardLightDraw.tint(HardLightDraw.GREEN), 0.3f * near);
+		}
 		pose.popPose();
 	}
 

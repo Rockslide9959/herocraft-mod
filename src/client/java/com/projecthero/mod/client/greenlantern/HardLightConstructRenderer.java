@@ -599,6 +599,12 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 		pose.pushPose();
 		pose.translate(0f, 0f, (float) len);
 		float size = 0.5f + 0.7f * charge;
+		// v0.17.5: an impact on the viewer (it hit you) would bloom round the camera and fill the screen
+		a *= HardLightDraw.cameraFade(pose, 0f, 0f, 0f, 0f, 0f, 0f, size * 3f, size * 3f + 3f);
+		if (a <= 0.01f) {
+			pose.popPose();
+			return;
+		}
 		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.18f * size * (1f - 0.5f * t), 0.18f * size * (1f - 0.5f * t),
 				0.18f * size * (1f - 0.5f * t), a);
 		VertexConsumer add = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lightning());
