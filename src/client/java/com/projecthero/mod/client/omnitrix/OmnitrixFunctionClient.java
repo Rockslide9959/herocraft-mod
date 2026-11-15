@@ -313,13 +313,12 @@ public final class OmnitrixFunctionClient {
 		// title, the controls
 		List<Component> texts = new ArrayList<>();
 		List<Integer> colours = new ArrayList<>();
-		texts.add(Component.translatable("hud.projecthero.omnitrix.function.title"));
-		colours.add(0xFF55FF55);
+		texts.add(Component.translatable(wrong ? "hud.projecthero.omnitrix.function.denied" : "hud.projecthero.omnitrix.function.title"));
+		colours.add(wrong ? 0xFFFF5555 : 0xFF55FF55);
 		texts.add(Component.translatable("hud.projecthero.omnitrix.function.help"));
 		colours.add(0xFFAAAAAA);
 		if (locked) {
-			Component lock = Component.translatable("hud.projecthero.omnitrix.function.locked", (OmnitrixFunction.lockLeft(s, now) + 19) / 20);
-			texts.add(wrong ? Component.translatable("hud.projecthero.omnitrix.function.denied").append("  ").append(lock) : lock);
+			texts.add(Component.translatable("hud.projecthero.omnitrix.function.locked", (OmnitrixFunction.lockLeft(s, now) + 19) / 20));
 			colours.add(0xFFFF5555);
 		} else {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.known", OmnitrixCodes.mask(p, "_", " ")));

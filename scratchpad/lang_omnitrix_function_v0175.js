@@ -10,7 +10,7 @@ const file = path.join(root, 'src/main/resources/assets/projecthero/lang/en_us.j
 const K = {
   // function mode, the readout, the HUD
   'hud.projecthero.omnitrix.function.title': 'FUNCTION MODE',
-  'hud.projecthero.omnitrix.function.known': 'Master Control: %s',
+  'hud.projecthero.omnitrix.function.known': 'Known: %s',
   'hud.projecthero.omnitrix.function.help': 'Scroll: digit   Middle-click: next   Shift+Middle: back   Shift+Right-click: leave',
   'hud.projecthero.omnitrix.function.locked': 'LOCKED %s s',
   'hud.projecthero.omnitrix.function.denied': 'ACCESS DENIED',
@@ -69,6 +69,7 @@ const K = {
 };
 
 const REPLACE = {
+  'hud.projecthero.omnitrix.function.known': 'Known: %s',
   'projecthero.omnitrix.info.rule.master': 'Master Control is hidden in the watch behind a six-digit code that is yours alone. Prime the watch and Shift+Right-click for its function mode; the watch reveals the digits slowly as you use it.',
   'projecthero.guide.omnitrix.master.tier': 'A note folded small, found inside the watch\'s casing',
   'projecthero.guide.omnitrix.master.sign': '-- its maker, who does not repeat himself',

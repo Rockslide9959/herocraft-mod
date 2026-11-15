@@ -405,24 +405,27 @@ public final class OmnitrixWatch {
 	 */
 	private static void drawReadout(MultiBufferSource buffers, PoseStack.Pose last, OmnitrixFunctionClient.Readout ro, float fx, float cy, float fr) {
 		int n = ro.cells().length;
-		float half = fr * 0.98f;
+		float half = fr * 0.92f; // inside the bezel
 		float cw = 2f * half / n;
 		float bandH = cw * 1.15f; // half-heights from here on
 		float a = Mth.clamp(ro.alpha(), 0f, 1f);
 		int lit = LightTexture.FULL_BRIGHT;
 		float u = 1f / 16f;
-		// the backing band
-		VertexConsumer band = buffers.getBuffer(RenderType.entityTranslucent(OmnitrixFunctionClient.GLYPHS));
-		cellQuad(band, last, (Math.round(215 * a) << 24) | 0x020604, fx + 0.004f / 16f, cy - half, cy + half, -bandH, bandH,
-				OmnitrixFunctionClient.SOLID * u + u * 0.3f, 0.3f, OmnitrixFunctionClient.SOLID * u + u * 0.7f, 0.7f, lit);
-		VertexConsumer glyph = buffers.getBuffer(RenderType.eyes(OmnitrixFunctionClient.GLYPHS));
+		// all cutout (a vertex tint on white strokes): translucent / additive layers drawn this late in the first-person hand pass came
+		// out in the wrong place, the cutout ones do not. The band only once the readout is mostly in (it cannot fade).
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(OmnitrixFunctionClient.GLYPHS));
+		if (a > 0.35f) {
+			cellQuad(vc, last, 0xFF030805, fx + 0.01f / 16f, cy - half, cy + half, -bandH, bandH,
+					OmnitrixFunctionClient.SOLID * u + u * 0.3f, 0.3f, OmnitrixFunctionClient.SOLID * u + u * 0.7f, 0.7f, lit);
+		}
+		VertexConsumer glyph = vc;
 		float gw = cw * 0.86f, gh = Math.min(bandH * 0.9f, gw); // the glyph cell is 1:2
 		for (int i = 0; i < n; i++) {
 			float c0 = cy - half + cw * i + (cw - gw) * 0.5f;
 			int cell = ro.cells()[i];
-			cellQuad(glyph, last, scale(ro.colours()[i], a), fx + 0.008f / 16f, c0, c0 + gw, -gh, gh, cell * u, 0f, (cell + 1) * u, 1f, lit);
+			cellQuad(glyph, last, scale(ro.colours()[i], a), fx + 0.02f / 16f, c0, c0 + gw, -gh, gh, cell * u, 0f, (cell + 1) * u, 1f, lit);
 			if (i == ro.cursor()) {
-				cellQuad(glyph, last, scale(ro.cursorColour(), a), fx + 0.009f / 16f, c0, c0 + gw, -gh - cw * 0.12f, gh - cw * 0.12f,
+				cellQuad(glyph, last, scale(ro.cursorColour(), a), fx + 0.022f / 16f, c0, c0 + gw, -gh - cw * 0.12f, gh - cw * 0.12f,
 						OmnitrixFunctionClient.CURSOR * u, 0f, (OmnitrixFunctionClient.CURSOR + 1) * u, 1f, lit);
 			}
 		}

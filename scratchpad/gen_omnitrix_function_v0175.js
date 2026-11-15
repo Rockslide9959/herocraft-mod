@@ -1,7 +1,7 @@
 // v0.17.5 Omnitrix function mode: the textures.
 //   entity/omnitrix/code_glyphs.png  256x32: 16 cells of 16x32 -- seven-segment digits 0-9 (cells 0-9), the slot cursor bar (10),
-//     a solid block (11, the readout's backing band), a dash (12). White on black: drawn additively (RenderType.eyes) with a vertex
-//     tint, so black is see-through and the tint is the colour.
+//     a solid block (11, the readout's backing band), a dash (12). White on transparent: drawn as cutout with a vertex tint (the
+//     tint is the colour; first-person hands lose additive / translucent layers drawn this late).
 //   item/omnitrix_data_fragment.png  16x16: a glowing green Galvan data-crystal shard with a lit circuit trace.
 // Usage: node scratchpad/gen_omnitrix_function_v0175.js
 'use strict';
@@ -13,11 +13,12 @@ const RES = path.join(__dirname, '..', 'src', 'main', 'resources', 'assets', 'pr
 {
 	const CW = 16, CH = 32, N = 16, W = CW * N, H = CH;
 	const px = Buffer.alloc(W * H * 4);
-	for (let i = 0; i < W * H; i++) px[i * 4 + 3] = 255; // opaque black
+	// transparent background: drawn as cutout with a vertex tint (RenderType.entityCutoutNoCull), so only the strokes show
 	const rect = (cell, x0, y0, x1, y1, v = 255) => {
 		for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
 			const i = (y * W + cell * CW + x) * 4;
 			px[i] = px[i + 1] = px[i + 2] = Math.max(px[i], v);
+			px[i + 3] = 255;
 		}
 	};
 	// segments (x0, y0, x1, y1), 3 px thick, small gaps at the joints

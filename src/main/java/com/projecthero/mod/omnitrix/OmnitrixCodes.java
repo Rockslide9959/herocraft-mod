@@ -344,7 +344,7 @@ public final class OmnitrixCodes {
 		p.sendSystemMessage(Component.empty().append(head).append(" ").append(body));
 	}
 
-	/** Seconds since the last reveal flash for the client ({@code Float.MAX_VALUE} = none). */
+	/** Ticks since the last reveal flash for the client ({@code Float.MAX_VALUE} = none). */
 	public static float flashAge(OmnitrixState s, long now, float partial) {
 		return s.timers.containsKey(FLASH_AT) ? now + partial - s.readyAt(FLASH_AT) : Float.MAX_VALUE;
 	}

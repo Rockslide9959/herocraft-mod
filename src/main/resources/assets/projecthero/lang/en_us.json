@@ -13642,7 +13642,7 @@
   "projecthero.guide.devices.target_dummy.stats": "Each hit floats a number above it, coloured by kind: white melee, green projectile, purple magic, orange fire, red explosion, cyan lightning, blue power, gold and bigger for a critical hit. It sways harder the harder it is hit. Above its head: combat time, DPS, total damage, hits, biggest hit and the last hit with what dealt it (\"Diamond Sword\", \"Arrow\", \"R ability\", \"Burning\"). With armour on it also shows raw damage against what got through. A combat ends 5 s after the last hit; the summary stays up 5 s more, or while you look at it.",
   "projecthero.guide.devices.target_dummy.controls": "Right-click a piece of armour onto it to test armour, and right-click it empty-handed to take off the piece you click. Right-click it empty-handed where it wears nothing to switch the hit cooldown: off (the default) every hit counts, even several in one tick; on, it takes hits the way a mob does (a full hit only every half second), so per-tick beams show what they really deal to mobs.",
   "hud.projecthero.omnitrix.function.title": "FUNCTION MODE",
-  "hud.projecthero.omnitrix.function.known": "Master Control: %s",
+  "hud.projecthero.omnitrix.function.known": "Known: %s",
   "hud.projecthero.omnitrix.function.help": "Scroll: digit   Middle-click: next   Shift+Middle: back   Shift+Right-click: leave",
   "hud.projecthero.omnitrix.function.locked": "LOCKED %s s",
   "hud.projecthero.omnitrix.function.denied": "ACCESS DENIED",
