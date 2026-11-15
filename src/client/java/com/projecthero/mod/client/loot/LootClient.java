@@ -35,6 +35,7 @@ public final class LootClient {
 	}
 
 	public static void initialize() {
+		com.projecthero.mod.client.loot.finds.FindsClient.initialize(); // Tier 1 Finds: the falling Supply Drop
 		HeroVaultBlock.localViewer = () -> {
 			LocalPlayer p = Minecraft.getInstance().player;
 			return p == null ? null : p.getUUID();

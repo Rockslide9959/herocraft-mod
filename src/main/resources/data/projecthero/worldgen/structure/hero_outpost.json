@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:hero_outpost",
+  "biomes": "#projecthero:hero_outpost_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

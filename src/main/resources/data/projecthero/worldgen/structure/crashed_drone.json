@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:crashed_drone",
+  "biomes": "#projecthero:finds_land_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

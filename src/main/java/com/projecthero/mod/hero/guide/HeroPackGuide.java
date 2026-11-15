@@ -2116,6 +2116,14 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.guide.loot.tier" + t).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
+			// v0.17.5 Tier 1 Finds: the common small places (and the Supply Drop event)
+			head(lines, "projecthero.guide.loot.finds");
+			para(lines, "projecthero.guide.loot.finds.body");
+			for (String f : new String[] { "crashed_drone", "hidden_cache", "hero_outpost", "supply_drop" }) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.loot.HeroVault.trimColour(1)))
+						.append(Component.translatable("projecthero.guide.loot.find." + f).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
 			head(lines, "projecthero.guide.loot.rarity");
 			para(lines, "projecthero.guide.loot.rarity.body");
 			for (com.projecthero.mod.loot.HeroRarity r : com.projecthero.mod.loot.HeroRarity.values()) {
