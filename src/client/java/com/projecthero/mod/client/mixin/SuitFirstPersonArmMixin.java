@@ -39,6 +39,7 @@ public abstract class SuitFirstPersonArmMixin {
 		com.projecthero.mod.client.beastboy.BeastTintLayer.renderArm(pose, buffers, light, player, arm, sleeve);
 		com.projecthero.mod.client.doctorfate.FateSuitLayer.renderArm(pose, buffers, light, player, arm, right, partial);
 		com.projecthero.mod.client.shazam.ShazamSuitLayer.renderArm(pose, buffers, light, player, arm, right);
+		com.projecthero.mod.client.sentry.SentrySuitLayer.renderArm(pose, buffers, light, player, arm, right); // v0.17.5
 		com.projecthero.mod.client.quirk.darkshadow.DarkShadowAnkhLayer.renderArm(pose, buffers, light, player, arm, right, partial);
 		com.projecthero.mod.client.quirk.overhaul.OverhaulFusionLayer.renderArm(pose, buffers, light, player, arm, right);
 	}

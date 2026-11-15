@@ -238,6 +238,19 @@ public final class HeroPackGuide {
 			{ "G", "density_punch" }, { "Shift+G", "phase_strike" }, { "Z", "mind_pulse" }, { "Shift+Z", "unleashed" }, { "X", "phase_dash" },
 			{ "Shift+X", "density_dive" }, { "C", "grip" }, { "Shift+C", "diamond_density" }, { "V", "hologram" }, { "Shift+V", "intangibility" } };
 
+	/** v0.17.5 Sentry: the chapter's control rows {key, ability id}; each shows {@code projecthero.sentry.ability.<id>} and its {@code .desc}. */
+	public static final String[][] SENTRY_CONTROLS = { { "R", "golden_strike" }, { "Hold Shift+R", "sunbeam" }, { "G / hold G", "molecular_grip" },
+			{ "Shift+G", "unmake" }, { "Z", "sun_dive" }, { "Shift+Z", "million_suns" }, { "C", "healing_light" }, { "Shift+C", "sentinel_shield" },
+			{ "X", "flight" }, { "2x X", "sonic_dash" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } };
+	/** v0.17.5 the Void Form rows. */
+	public static final String[][] VOID_CONTROLS = { { "R", "shadow_lash" }, { "Shift+R", "erase" }, { "G", "grasp" }, { "Z", "void_rift" },
+			{ "Shift+Z", "nightfall" }, { "X", "shadow_step" }, { "V", "return" } };
+
+	/** Sentry & the Void (v0.17.5). */
+	public static Chapter sentryChapter() {
+		return chapters().get(CH_SENTRY);
+	}
+
 	/** Vision (v0.17.3). */
 	public static Chapter visionChapter() {
 		return chapters().get(CH_VISION);
@@ -689,7 +702,8 @@ public final class HeroPackGuide {
 	private static final int CH_MASTER_CONTROL = CH_VISION + 1; // 76
 	private static final int CH_LOOT = CH_MASTER_CONTROL + 1; // 77, v0.17.5: Loot & Progression
 	private static final int CH_HIDEOUTS = CH_LOOT + 1; // 78, v0.17.5: Villain Hideouts (Tier 3)
-	private static final int CHAPTER_POWER_BASE = CH_HIDEOUTS + 1; // 79
+	private static final int CH_SENTRY = CH_HIDEOUTS + 1; // 79, v0.17.5: Sentry & the Void
+	private static final int CHAPTER_POWER_BASE = CH_SENTRY + 1; // 80
 
 	/**
 	 * v0.17.4: whether the reader may see the hidden Master Control page -- the client sets this to "the local player has woken
@@ -2216,6 +2230,39 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// v0.17.5: Sentry & the Void (CH_SENTRY) -- the two meters, both kits, the takeover and how to come back
+		out.add(chapter("projecthero.guide.sentry", lines -> {
+			lines.add(Component.translatable("projecthero.guide.sentry.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.sentry.body");
+			blank(lines);
+			for (String section : new String[] { "getting", "meters", "thresholds", "body_stats" }) {
+				head(lines, "projecthero.guide.sentry." + section);
+				para(lines, "projecthero.guide.sentry." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.sentry.controls");
+			for (String[] row : SENTRY_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.sentry.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.sentry.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.sentry.void_controls");
+			for (String[] row : VOID_CONTROLS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.DARK_PURPLE)
+						.append(Component.translatable("projecthero.sentry.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.sentry.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			for (String section : new String[] { "takeover", "world", "rooms", "help", "ending" }) {
+				head(lines, "projecthero.guide.sentry." + section);
+				para(lines, "projecthero.guide.sentry." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.sentry.commands");
+			para(lines, "projecthero.guide.sentry.commands.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2398,6 +2445,7 @@ public final class HeroPackGuide {
 		icon(CH_SHAZAM, "minecraft:lightning_rod"); // v0.17.3 (no Shazam item)
 		icon(CH_DOCTOR_FATE, "helmet_pedestal"); // v0.17.3 (the helmet is no item any more)
 		icon(CH_VISION, "mind_stone"); // v0.17.3
+		icon(CH_SENTRY, "sentry_serum"); // v0.17.5
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -2453,6 +2501,7 @@ public final class HeroPackGuide {
 		link(marvel, "projecthero.guide.falcon", CH_FALCON); // v0.17.1
 		link(marvel, "projecthero.guide.black_panther", CH_BLACK_PANTHER); // v0.17.3
 		link(marvel, "projecthero.guide.vision", CH_VISION); // v0.17.3
+		link(marvel, "projecthero.guide.sentry", CH_SENTRY); // v0.17.5
 		link(marvel, "projecthero.guide.silver_surfer", CH_SILVER_SURFER); // v0.17.1
 
 		List<IndexEntry> dc = map.get(Category.DC);

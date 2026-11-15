@@ -46,6 +46,15 @@ public class FogRendererMixin {
 	@Inject(method = "setupColor", at = @At("TAIL"))
 	private static void projecthero$raidSky(Camera camera, float partialTick, ClientLevel level,
 			int renderDistanceChunks, float darkenWorldAmount, CallbackInfo ci) {
+		// v0.17.5: the Void nearby: the horizon goes black too
+		float v = com.projecthero.mod.client.sentry.VoidTakeoverClient.skyStrength();
+		if (v > 0.0f) {
+			v = Math.min(0.95f, v);
+			fogRed = Mth.lerp(v, fogRed, 0.02f);
+			fogGreen = Mth.lerp(v, fogGreen, 0.01f);
+			fogBlue = Mth.lerp(v, fogBlue, 0.035f);
+			RenderSystem.clearColor(fogRed, fogGreen, fogBlue, 0.0f);
+		}
 		float s = RaidSkyTint.strength();
 		if (s <= 0.0f) {
 			return;
@@ -95,6 +104,14 @@ public class FogRendererMixin {
 				RenderSystem.setShaderFogEnd(visor);
 				return;
 			}
+		}
+		// v0.17.5: the Void nearby closes a black fog in (to 40 blocks at its heart)
+		float voidSky = com.projecthero.mod.client.sentry.VoidTakeoverClient.skyStrength();
+		if (fogMode == FogRenderer.FogMode.FOG_TERRAIN && voidSky > 0.0f) {
+			float end = Mth.lerp(Math.min(1.0f, voidSky), farPlaneDistance, Math.min(farPlaneDistance, 40.0f));
+			RenderSystem.setShaderFogStart(end * 0.2f);
+			RenderSystem.setShaderFogEnd(end);
+			return;
 		}
 		// v0.16.1: the Frost Giant blizzard closes the fog in to ~48 blocks (32 with the Casket open)
 		float frost = com.projecthero.mod.client.frostgiant.FrostBlizzardClient.fogEnd();

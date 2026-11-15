@@ -83,6 +83,8 @@ public final class VaultClearing {
 						level.sendParticles(ParticleTypes.END_ROD, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 30, 0.5, 0.5, 0.5, 0.05);
 						level.playSound(null, at, SoundEvents.VAULT_OPEN_SHUTTER, SoundSource.BLOCKS, 1.5f, 0.8f);
 						n++;
+					} else if (s.is(com.projecthero.mod.sentry.block.SentryBlocks.SERUM_VAT)) {
+						com.projecthero.mod.sentry.block.SerumVatBlock.open(level, m.immutable()); // v0.17.5: the Sentry Serum's vat opens too
 					}
 				}
 			}

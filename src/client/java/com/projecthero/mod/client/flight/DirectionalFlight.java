@@ -189,6 +189,11 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), (sprint
 					? com.projecthero.mod.raven.RavenConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.raven.RavenConfig.FLIGHT_CRUISE_BPS) / 20.0);
 		}
+		// v0.17.5: Sentry's X flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting (the takeover drives the body itself)
+		if (com.projecthero.mod.sentry.Sentry.selfFlying(player)) {
+			double bps = sprint ? com.projecthero.mod.sentry.SentryConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.sentry.SentryConfig.FLIGHT_CRUISE_BPS;
+			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
+		}
 		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting
 		if (com.projecthero.mod.shazam.Shazam.isFlying(player)) {
 			double bps = sprint ? com.projecthero.mod.shazam.ShazamConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.shazam.ShazamConfig.FLIGHT_CRUISE_BPS;

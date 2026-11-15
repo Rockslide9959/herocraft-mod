@@ -62,6 +62,9 @@ final class SupplyTargetDefaults {
 		E("vision", com.projecthero.mod.vision.Vision::hasPower, EnergyCellTargets.meter(
 				com.projecthero.mod.vision.Vision::energy, com.projecthero.mod.vision.Vision::setEnergy,
 				p -> com.projecthero.mod.vision.VisionConfig.ENERGY_MAX));
+		E("sentry", com.projecthero.mod.sentry.Sentry::hasPower, EnergyCellTargets.meter( // v0.17.5: the Sun meter
+				com.projecthero.mod.sentry.Sentry::sun, com.projecthero.mod.sentry.Sentry::setSun,
+				p -> com.projecthero.mod.sentry.SentryConfig.SUN_MAX));
 		E("starfire", com.projecthero.mod.starfire.Starfire::hasPower, EnergyCellTargets.meter(
 				com.projecthero.mod.starfire.Starfire::starbolt, com.projecthero.mod.starfire.Starfire::setStarbolt,
 				p -> com.projecthero.mod.starfire.StarfireConfig.STARBOLT_MAX));
@@ -193,6 +196,7 @@ final class SupplyTargetDefaults {
 		C("shazam", ModAttachments.SHAZAM_STATE, com.projecthero.mod.shazam.data.ShazamState::copy, s -> s.abilityReadyAt);
 		C("silver_surfer", com.projecthero.mod.silversurfer.SilverSurferAttachments.STATE, com.projecthero.mod.silversurfer.data.SilverSurferState::copy, s -> s.abilityReadyAt);
 		C("speed_force", com.projecthero.mod.speedforce.SpeedForceAttachments.STATE, com.projecthero.mod.speedforce.data.SpeedForceState::copy, s -> s.abilityReadyAt);
+		C("sentry", com.projecthero.mod.sentry.data.SentryAttachments.STATE, com.projecthero.mod.sentry.data.SentryState::copy, s -> s.abilityReadyAt); // v0.17.5
 		C("spider_man", ModAttachments.SPIDER_MAN_STATE, com.projecthero.mod.spider.data.SpiderManState::copy, s -> s.abilityReadyAt);
 		C("spin", ModAttachments.SPIN_STATE, com.projecthero.mod.spin.data.SpinState::copy, s -> s.abilityReadyAt);
 		C("stand", ModAttachments.STAND_STATE, com.projecthero.mod.stand.data.StandState::copy, s -> s.abilityReadyAt);

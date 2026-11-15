@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,open=false": {
+      "model": "projecthero:block/oxe_serum_vat"
+    },
+    "facing=north,open=true": {
+      "model": "projecthero:block/oxe_serum_vat_open"
+    },
+    "facing=east,open=false": {
+      "model": "projecthero:block/oxe_serum_vat",
+      "y": 90
+    },
+    "facing=east,open=true": {
+      "model": "projecthero:block/oxe_serum_vat_open",
+      "y": 90
+    },
+    "facing=south,open=false": {
+      "model": "projecthero:block/oxe_serum_vat",
+      "y": 180
+    },
+    "facing=south,open=true": {
+      "model": "projecthero:block/oxe_serum_vat_open",
+      "y": 180
+    },
+    "facing=west,open=false": {
+      "model": "projecthero:block/oxe_serum_vat",
+      "y": 270
+    },
+    "facing=west,open=true": {
+      "model": "projecthero:block/oxe_serum_vat_open",
+      "y": 270
+    }
+  }
+}
