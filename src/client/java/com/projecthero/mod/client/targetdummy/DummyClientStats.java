@@ -102,13 +102,13 @@ public final class DummyClientStats {
 		firstHit = now - p.combatTicks();
 		boolean dot = p.has(DummyHitPayload.DOT);
 
-		// the floating number: scattered round the dummy's upper body
-		float a = rand() * (float) Math.PI * 2.0f;
-		float r = 0.25f + rand() * 0.2f;
+		// the floating number: to one side of the head / shoulders as you see it (dx = sideways offset, placed at render
+		// time along the camera's right), so it never hides behind the dummy
+		float side = (0.3f + rand() * 0.45f) * (rand() < 0.5f ? -1.0f : 1.0f);
 		if (popups.size() >= MAX_POPUPS) {
 			popups.remove(0);
 		}
-		popups.add(new Popup(now, p.dealt(), p.raw(), lastKind, lastCrit, dot, (float) Math.cos(a) * r, 1.25f + rand() * 0.45f, (float) Math.sin(a) * r));
+		popups.add(new Popup(now, p.dealt(), p.raw(), lastKind, lastCrit, dot, side, 1.1f + rand() * 0.55f, 0.0f));
 
 		// the wobble: bigger for bigger hits, adds to a sway still going, small for damage-over-time ticks
 		float age = now - wobbleStart;

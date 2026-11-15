@@ -61,7 +61,7 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 	private static final int FULL_BRIGHT = 0xF000F0;
 	/** Widest the hit label may be (font pixels) before it is clipped. */
 	private static final int LABEL_MAX = 96;
-	private static final float TEXT_SCALE = 0.02f;
+	private static final float TEXT_SCALE = 0.016f;
 
 	private final ModelPart base;
 
@@ -90,7 +90,11 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 			base.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), light, OverlayTexture.NO_OVERLAY);
 			pose.popPose();
 		}
+		// no red hurt flash (the wobble is the feedback, and a fast power would keep it red the whole time)
+		int hurtTime = dummy.hurtTime;
+		dummy.hurtTime = 0;
 		super.render(dummy, yaw, partialTick, pose, buffers, light);
+		dummy.hurtTime = hurtTime;
 		if (dummy.clientData instanceof DummyClientStats stats) {
 			Vec3 cam = entityRenderDispatcher.camera.getPosition();
 			if (dummy.position().distanceToSqr(cam) < 40.0 * 40.0) {
@@ -119,6 +123,12 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 		pose.mulPose(Axis.YP.rotationDegrees(180.0f - bodyYaw));
 	}
 
+	/** Only a custom name, and only when it is set visible or looked at (like a named mob); never "Target Dummy". */
+	@Override
+	protected boolean shouldShowName(TargetDummyEntity dummy) {
+		return dummy.hasCustomName() && (dummy.isCustomNameVisible() || lookedAt(dummy)) && super.shouldShowName(dummy);
+	}
+
 	private static boolean lookedAt(TargetDummyEntity dummy) {
 		return Minecraft.getInstance().crosshairPickEntity == dummy;
 	}
@@ -133,7 +143,9 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 		Font font = getFont();
 		Vec3 toCam = cam.subtract(dummy.position());
 		Vec3 flat = new Vec3(toCam.x, 0.0, toCam.z);
-		flat = flat.lengthSqr() < 1.0e-4 ? Vec3.ZERO : flat.normalize().scale(0.55);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0.0, 0.0, 1.0) : flat.normalize();
+		Vec3 right = new Vec3(flat.z, 0.0, -flat.x); // sideways as the camera sees it
+		flat = flat.scale(0.6);
 		for (Iterator<DummyClientStats.Popup> it = stats.popups.iterator(); it.hasNext();) {
 			DummyClientStats.Popup p = it.next();
 			float age = dummy.tickCount - p.born + partialTick;
@@ -142,10 +154,10 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 				continue;
 			}
 			float t = Math.max(0.0f, age) / DummyClientStats.POPUP_LIFE;
-			float rise = (1.0f - (1.0f - t) * (1.0f - t)) * 0.85f; // ease-out
+			float rise = (1.0f - (1.0f - t) * (1.0f - t)) * 0.55f; // ease-out
 			float alpha = t < 0.55f ? 1.0f : 1.0f - (t - 0.55f) / 0.45f;
 			// crits pop in big and settle
-			float size = p.crit ? 1.45f + 0.5f * Math.max(0.0f, 1.0f - age / 4.0f) : p.dot ? 0.8f : 1.1f;
+			float size = p.crit ? 1.1f + 0.45f * Math.max(0.0f, 1.0f - age / 4.0f) : p.dot ? 0.6f : 0.8f;
 			int rgb = p.crit ? DummyDamageKind.CRIT_RGB : p.kind.rgb();
 			String text = fmt(p.value) + (p.crit ? "!" : "");
 			MutableComponent comp = Component.literal(text);
@@ -155,7 +167,7 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 			FormattedCharSequence seq = comp.getVisualOrderText();
 			int a = Mth.clamp((int) (alpha * 255.0f), 8, 255);
 			pose.pushPose();
-			pose.translate(p.dx + flat.x, p.dy + rise, p.dz + flat.z);
+			pose.translate(right.x * p.dx + flat.x, p.dy + rise, right.z * p.dx + flat.z);
 			pose.mulPose(entityRenderDispatcher.cameraOrientation());
 			float s = 0.025f * size;
 			pose.scale(s, -s, s);
@@ -223,7 +235,7 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 			lines.add(Component.translatable("projecthero.target_dummy.hud.cooldown").withStyle(ChatFormatting.DARK_GRAY));
 		}
 
-		float lift = dummy.getBbHeight() + 0.55f + (shouldShowName(dummy) ? 0.3f : 0.0f);
+		float lift = dummy.getBbHeight() + 0.2f + (shouldShowName(dummy) ? 0.3f : 0.0f);
 		pose.pushPose();
 		pose.translate(0.0f, lift, 0.0f);
 		pose.mulPose(entityRenderDispatcher.cameraOrientation());
@@ -237,7 +249,7 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 		float top = -n * 10.0f;
 		// one even panel behind every line
 		int bgA = (int) (Minecraft.getInstance().options.getBackgroundOpacity(0.4f) * 255.0f * alpha);
-		VertexConsumer bg = buffers.getBuffer(RenderType.textBackground());
+		VertexConsumer bg = buffers.getBuffer(RenderType.textBackgroundSeeThrough()); // like a nametag: no depth write, the text sits on it
 		float x0 = -width / 2.0f - 3.0f;
 		float x1 = width / 2.0f + 3.0f;
 		float y0 = top - 2.0f;
@@ -252,6 +264,8 @@ public class TargetDummyRenderer extends LivingEntityRenderer<TargetDummyEntity,
 			Component c = lines.get(i);
 			float x = -font.width(c) / 2.0f;
 			float y = top + i * 10.0f;
+			// a faint pass that shows through walls (like a nametag), then the real one
+			font.drawInBatch(c, x, y, (Math.max(8, textA / 5) << 24) | 0xFFFFFF, false, m, buffers, Font.DisplayMode.SEE_THROUGH, 0, FULL_BRIGHT);
 			font.drawInBatch(c, x, y, (textA << 24) | 0xFFFFFF, false, m, buffers, Font.DisplayMode.NORMAL, 0, FULL_BRIGHT);
 		}
 		pose.popPose();

@@ -1,0 +1,409 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import com.projecthero.mod.network.AbilityInputPayload;
+import com.projecthero.mod.targetdummy.TargetDummyEntity;
+import com.projecthero.mod.targetdummy.TargetDummyMod;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Target Dummy): places a dummy with a real right-click, films sword hits (incl. a
+ * jump crit) and a Kryptonian punch + heat vision (frames per tick), and grabs stills of the readout mid-combat, the
+ * summary, mixed-colour numbers, an armoured dummy's raw vs mitigated lines and the item tooltip. Enabled by
+ * run/dummy.flag = "<out dir>". Install: copy to src/client/java/com/projecthero/mod/client/TargetDummyHarness.java and
+ * add it to the "client" entrypoints in fabric.mod.json. Remove both before committing.
+ */
+public final class TargetDummyHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("dummy.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		new File(out, "screenshots/melee").mkdirs();
+		new File(out, "screenshots/power").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(TargetDummyHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "dummy-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	/** Teleports the player (offset from base) aiming at a world point. */
+	private static void aimAt(Minecraft mc, double px, double pz, Vec3 target) {
+		Vec3 eye = new Vec3(base.getX() + 0.5 + px, base.getY() + 1.62, base.getZ() + 0.5 + pz);
+		Vec3 d = target.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(d.z, d.x)) - 90.0);
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z)));
+		server(mc, p -> p.connection.teleport(base.getX() + 0.5 + px, base.getY(), base.getZ() + 0.5 + pz, yaw, pitch));
+	}
+
+	private static Vec3 dummyAt(double dx, double dz, double h) {
+		return new Vec3(base.getX() + 0.5 + dx, base.getY() + h, base.getZ() + 0.5 + dz);
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.PEACEFUL, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -8; x <= 8; x++) {
+			for (int z = -6; z <= 14; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 3);
+				for (int y = 0; y < 10; y++) {
+					level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}
+		// a back wall of hay so the straw dummy reads against something
+		for (int x = -8; x <= 8; x++) {
+			for (int y = 0; y < 4; y++) {
+				level.setBlock(base.offset(x, y, 9), Blocks.HAY_BLOCK.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		p.getInventory().setItem(0, new ItemStack(TargetDummyMod.ITEM, 4));
+		p.getInventory().setItem(1, new ItemStack(Items.DIAMOND_SWORD));
+		p.getInventory().selected = 0;
+	}
+
+	private static TargetDummyEntity first(ServerPlayer p) {
+		List<TargetDummyEntity> l = p.serverLevel().getEntitiesOfClass(TargetDummyEntity.class, p.getBoundingBox().inflate(20));
+		l.sort((a, b) -> Double.compare(a.distanceToSqr(dummyAt(0, 3, 0)), b.distanceToSqr(dummyAt(0, 3, 0))));
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	private static void attack() {
+		KeyMapping.click(InputConstants.Type.MOUSE.getOrCreate(0));
+	}
+
+	private static void use() {
+		KeyMapping.click(InputConstants.Type.MOUSE.getOrCreate(1));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(TargetDummyHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, TargetDummyHarness::stage);
+		}
+		if (t < 90 || base == null) {
+			return;
+		}
+		int s = t - 90;
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false); // join / power messages out of the shots
+		}
+		Vec3 groundSpot = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 3.5);
+		// ---- 1. placing it with a real right-click
+		if (s == 0) {
+			mc.player.getInventory().selected = 0;
+			aimAt(mc, 0, 0, groundSpot);
+		}
+		if (s == 15) {
+			shot(mc, "01_place_aim");
+			use();
+		}
+		if (s == 30) {
+			shot(mc, "02_placed");
+			aimAt(mc, 0, 0.6, dummyAt(0, 3, 1.45));
+		}
+		if (s == 45) {
+			shot(mc, "03_idle_looked_at");
+			mc.player.getInventory().selected = 1;
+			server(mc, p -> p.getInventory().selected = 1);
+		}
+		// ---- 2. sword film (frames per tick): four swings, a jump crit, two more
+		int m0 = 55;
+		if (s >= m0 && s < m0 + 110) {
+			int f = s - m0;
+			if (f == 4 || f == 20 || f == 36 || f == 82 || f == 98) {
+				attack();
+			}
+			if (f == 54) {
+				mc.player.jumpFromGround();
+			}
+			if (f == 61) { // falling: look down at the chest for the crit swing, then level again
+				Vec3 eye = mc.player.getEyePosition();
+				Vec3 d = dummyAt(0, 3, 1.0).subtract(eye);
+				mc.player.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z))));
+			}
+			if (f == 62) {
+				attack(); // falling: a crit
+			}
+			if (f == 70) {
+				aimAt(mc, 0, 0.6, dummyAt(0, 3, 1.45));
+			}
+			shot(mc, String.format("melee/f%03d", f));
+		}
+		if (s == m0 + 110) { // step back for the stills
+			aimAt(mc, 0, -1.6, dummyAt(0, 3, 1.7));
+		}
+		if (s == m0 + 118) {
+			shot(mc, "04_readout_mid_combat");
+		}
+		// ---- 3. the summary (combat ends 5 s after the last hit)
+		if (s == m0 + 98 + 108) {
+			shot(mc, "05_summary");
+		}
+		// ---- 4. mixed numbers close-up: every colour at once
+		int n0 = m0 + 230;
+		if (s == n0) {
+			aimAt(mc, 0, 1.4, dummyAt(0, 3, 1.5));
+		}
+		if (s == n0 + 10) {
+			server(mc, p -> {
+				TargetDummyEntity d = first(p);
+				if (d == null) {
+					return;
+				}
+				ServerLevel l = p.serverLevel();
+				d.hurt(l.damageSources().magic(), 6.0f);
+				d.hurt(l.damageSources().onFire(), 1.0f);
+				d.hurt(l.damageSources().explosion(null, null), 11.5f);
+				d.hurt(l.damageSources().lightningBolt(), 5.0f);
+				d.hurt(l.damageSources().mobAttack(p), 8.0f);
+				d.hurt(l.damageSources().freeze(), 2.0f);
+				d.hurt(l.damageSources().arrow(null, p), 7.0f);
+			});
+		}
+		if (s == n0 + 14) {
+			shot(mc, "06_floating_numbers_colours");
+		}
+		// ---- 5. armoured dummy: raw vs mitigated
+		int a0 = n0 + 30;
+		if (s == a0) {
+			server(mc, p -> {
+				TargetDummyEntity d = TargetDummyMod.TARGET_DUMMY.create(p.serverLevel());
+				d.moveTo(base.getX() + 3.5, base.getY(), base.getZ() + 3.5, 180f, 0f);
+				d.setYBodyRot(180f);
+				d.setYHeadRot(180f);
+				d.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+				d.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+				d.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+				d.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+				d.setCustomName(Component.literal("Iron Bob"));
+				p.serverLevel().addFreshEntity(d);
+			});
+		}
+		if (s == a0 + 10) {
+			aimAt(mc, 3.0, 0.8, dummyAt(3.0, 3, 1.2));
+		}
+		if (s == a0 + 25 || s == a0 + 41 || s == a0 + 57) {
+			attack();
+		}
+		if (s == a0 + 59) {
+			aimAt(mc, 3.0, -1.2, dummyAt(3.0, 3, 1.7));
+		}
+		if (s == a0 + 64) {
+			shot(mc, "07_armoured_raw_vs_mitigated");
+		}
+		// ---- 6. power film: Kryptonian punch (R) + heat vision (hold G) on the first dummy
+		int p0 = a0 + 80;
+		if (s == p0) {
+			server(mc, p -> {
+				com.projecthero.mod.hero.PowerGrants.grantHero(p, "kryptonian");
+				p.getInventory().selected = 2;
+			});
+			mc.player.getInventory().selected = 2;
+			aimAt(mc, 0, 0.7, dummyAt(0, 3, 1.5));
+		}
+		if (s >= p0 + 100 && s < p0 + 100 + 100) {
+			int f = s - (p0 + 100);
+			if (f == 5) {
+				ClientPlayNetworking.send(new AbilityInputPayload(1, true));
+			}
+			if (f == 7) {
+				ClientPlayNetworking.send(new AbilityInputPayload(1, false));
+			}
+			if (f == 30) {
+				ClientPlayNetworking.send(new AbilityInputPayload(2, true));
+			}
+			if (f == 80) {
+				ClientPlayNetworking.send(new AbilityInputPayload(2, false));
+			}
+			shot(mc, String.format("power/f%03d", f));
+		}
+		if (s == p0 + 100 + 104) {
+			aimAt(mc, 0, -1.4, dummyAt(0, 3, 1.7));
+		}
+		if (s == p0 + 100 + 112) {
+			shot(mc, "08_power_readout");
+			server(mc, p -> {
+				TargetDummyEntity d = first(p);
+				if (d != null) {
+					System.out.println("[HARNESS] after power: hits " + d.hits() + " total " + d.totalDamage() + " dps " + d.dps() + " last "
+							+ d.lastLabel().getString());
+				}
+			});
+		}
+		// ---- 7. tooltips
+		int i0 = p0 + 220;
+		if (s == i0) {
+			mc.setScreen(new TipScreen(false));
+		}
+		if (s == i0 + 6) {
+			shot(mc, "09_item_tooltip");
+			mc.setScreen(new TipScreen(true));
+		}
+		if (s == i0 + 12) {
+			shot(mc, "10_item_tooltip_picked_up");
+			mc.setScreen(null);
+		}
+		// ---- 8. sneak + right-click picks it up
+		int k0 = i0 + 20;
+		if (s == k0) {
+			aimAt(mc, 0, 1.2, dummyAt(0, 3, 1.0));
+			mc.player.getInventory().selected = 3;
+			server(mc, p -> p.getInventory().selected = 3);
+		}
+		if (s == k0 + 10) {
+			mc.options.keyShift.setDown(true);
+		}
+		if (s == k0 + 16) {
+			use();
+		}
+		if (s == k0 + 20) {
+			mc.options.keyShift.setDown(false);
+		}
+		if (s == k0 + 28) {
+			shot(mc, "11_picked_up");
+			server(mc, p -> System.out.println("[HARNESS] dummies left: " + p.serverLevel().getEntitiesOfClass(TargetDummyEntity.class,
+					p.getBoundingBox().inflate(20)).size() + ", items " + p.getInventory().countItem(TargetDummyMod.ITEM)));
+		}
+		if (s == k0 + 34) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	/** One tooltip: the fresh item, or one picked up wearing armour with a name and the cooldown on. */
+	static final class TipScreen extends Screen {
+		private final boolean picked;
+
+		TipScreen(boolean picked) {
+			super(Component.literal("tip"));
+			this.picked = picked;
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF1B1E24);
+			ItemStack st = new ItemStack(TargetDummyMod.ITEM);
+			if (picked) {
+				st.set(DataComponents.CUSTOM_NAME, Component.literal("Iron Bob"));
+				st.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(List.of(new ItemStack(Items.IRON_BOOTS),
+						new ItemStack(Items.IRON_LEGGINGS), new ItemStack(Items.IRON_CHESTPLATE), new ItemStack(Items.IRON_HELMET))));
+				net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+				tag.putBoolean("HitCooldown", true);
+				st.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+			}
+			g.renderItem(st, width - 40, 10);
+			g.renderTooltip(font, Screen.getTooltipFromItem(minecraft, st), st.getTooltipImage(), 4, 24);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DUMMY_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
