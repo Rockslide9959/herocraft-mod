@@ -147,6 +147,9 @@ public final class ModNetworking {
 			}
 			// v0.17.1: the WASD keys held at the press, readable while it is handled (Engine's directional dash)
 			com.projecthero.mod.hero.PressInput.move = payload.pressed() ? payload.move() : 0;
+			// v0.17.5: the Target Dummy names a power's hits after the key that started them ("Shift+R ability")
+			com.projecthero.mod.targetdummy.TargetDummyLabels.notePress(context.player(), payload.slot(), payload.pressed(),
+					payload.shift() || context.player().isShiftKeyDown());
 			try {
 				AbilityRouter.handleInput(context.player(), payload.slot(), payload.pressed());
 			} finally {
