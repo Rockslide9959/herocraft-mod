@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " TH",
+    " ST",
+    "I  "
+  ],
+  "key": {
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "H": {
+      "item": "minecraft:tripwire_hook"
+    },
+    "S": {
+      "item": "minecraft:string"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:grapple_line",
+    "count": 1
+  }
+}

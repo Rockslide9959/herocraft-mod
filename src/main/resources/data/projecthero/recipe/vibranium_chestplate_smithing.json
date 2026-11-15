@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": [],
+  "base": {
+    "item": "projecthero:hero_alloy_chestplate"
+  },
+  "addition": {
+    "item": "projecthero:vibranium_ingot"
+  },
+  "result": {
+    "id": "projecthero:vibranium_chestplate",
+    "count": 1
+  }
+}

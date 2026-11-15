@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": [],
+  "base": {
+    "item": "projecthero:smoke_bomb"
+  },
+  "addition": {
+    "item": "projecthero:vibranium_shard"
+  },
+  "result": {
+    "id": "projecthero:vibranium_smoke_bomb",
+    "count": 1
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": [],
+  "base": {
+    "item": "projecthero:flashbang"
+  },
+  "addition": {
+    "item": "projecthero:vibranium_shard"
+  },
+  "result": {
+    "id": "projecthero:vibranium_flashbang",
+    "count": 1
+  }
+}

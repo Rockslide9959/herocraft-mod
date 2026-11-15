@@ -79,6 +79,7 @@ public final class ServerStateReset {
 	 */
 	public static void clearAll() {
 		com.projecthero.mod.loot.LootMod.clearSessionState(); // v0.17.5: Med Kit heal timers
+		com.projecthero.mod.gear.GearMod.clearSessionState(); // v0.17.5: Utility Belt spare charges
 		com.projecthero.mod.galactus.orbit.GalactusRaidStatics.clear(); // v0.17.2 Galactus raid v2 (debris, cutscene holds, orbit rules)
 		com.projecthero.mod.omnitrix.OmnitrixMod.clearSessionState(); // v0.17.1
 		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.clearSessionState(); // v0.17.1

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " B ",
+    "BSB",
+    " B "
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:flashbang"
+    },
+    "S": {
+      "item": "projecthero:vibranium_shard"
+    }
+  },
+  "result": {
+    "id": "projecthero:vibranium_flashbang",
+    "count": 4
+  }
+}

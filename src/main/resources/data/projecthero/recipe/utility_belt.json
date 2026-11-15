@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "LLL",
+    "TAT"
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:utility_belt",
+    "count": 1
+  }
+}

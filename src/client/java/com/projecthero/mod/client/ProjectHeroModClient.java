@@ -158,6 +158,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.blackpanther.BlackPantherClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.loot.LootClient.initialize(); // v0.17.5: rarity line, Locator needle/HUD (before TooltipWrap below)
+		com.projecthero.mod.client.gear.GearClient.initialize(); // v0.17.5: grapple line, gadget entities, Celestial armour glow
 		com.projecthero.mod.client.undead.UndeadClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight

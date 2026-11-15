@@ -1,4 +1,199 @@
 {
   "type": "minecraft:chest",
-  "pools": []
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 50
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:hero_alloy_helmet",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.7,
+                "max": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:hero_alloy_chestplate",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.7,
+                "max": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:hero_alloy_leggings",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.7,
+                "max": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:hero_alloy_boots",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.7,
+                "max": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_helmet",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.45,
+                "max": 0.8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_chestplate",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.45,
+                "max": 0.8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_leggings",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.45,
+                "max": 0.8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_boots",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.45,
+                "max": 0.8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_blade",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.5,
+                "max": 0.85
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_grapple",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.6,
+                "max": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_smoke_bomb",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:vibranium_flashbang",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:utility_belt",
+          "weight": 3
+        }
+      ]
+    }
+  ]
 }

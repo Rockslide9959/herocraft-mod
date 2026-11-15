@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": [],
+  "base": {
+    "item": "projecthero:grapple_line"
+  },
+  "addition": {
+    "item": "projecthero:vibranium_shard"
+  },
+  "result": {
+    "id": "projecthero:vibranium_grapple",
+    "count": 1
+  }
+}

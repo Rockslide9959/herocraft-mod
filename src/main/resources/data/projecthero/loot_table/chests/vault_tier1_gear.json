@@ -1,4 +1,59 @@
 {
   "type": "minecraft:chest",
-  "pools": []
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 80
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:grapple_line",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.5,
+                "max": 0.9
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:smoke_bomb",
+          "weight": 7,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:flashbang",
+          "weight": 7,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

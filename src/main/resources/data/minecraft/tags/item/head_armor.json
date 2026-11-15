@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:hero_alloy_helmet",
+    "projecthero:vibranium_helmet",
+    "projecthero:celestial_helmet"
+  ]
+}

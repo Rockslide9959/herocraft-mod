@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "projecthero:celestial_upgrade_template"
+  },
+  "base": {
+    "item": "projecthero:vibranium_blade"
+  },
+  "addition": {
+    "item": "projecthero:celestial_core"
+  },
+  "result": {
+    "id": "projecthero:celestial_warhammer",
+    "count": 1
+  }
+}

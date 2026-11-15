@@ -215,6 +215,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.13.18: Prismatic / Mutagenic / Heroic serums -- a random power (any / Experimental / Hero-Tier).
 		com.projecthero.mod.hero.item.RandomPowerSerumItem.initialize();
 		com.projecthero.mod.loot.LootMod.initialize(); // v0.17.5: loot framework -- rarity, Hero Vault, materials, supplies, Locator
+		com.projecthero.mod.gear.GearMod.initialize(); // v0.17.5: gear tiers I-IV -- gadgets, Hero Alloy / Vibranium / Celestial gear
 		ModBrewing.initialize();
 		// v0.14.8: disabled experimental powers (Powers.ENABLED) -- reagent recipe condition + loot filter
 		com.projecthero.mod.hero.PowerEnabledCondition.initialize();

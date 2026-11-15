@@ -2137,6 +2137,15 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.loot.locators");
 			para(lines, "projecthero.guide.loot.locators.body");
+			// v0.17.5: gear tiers I-IV (com.projecthero.mod.gear)
+			blank(lines);
+			head(lines, "projecthero.guide.loot.gear");
+			para(lines, "projecthero.guide.loot.gear.body");
+			for (int t = 1; t <= 4; t++) {
+				int trim = com.projecthero.mod.loot.HeroVault.trimColour(t);
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(trim))
+						.append(Component.translatable("projecthero.guide.loot.gear.tier" + t).withStyle(ChatFormatting.GRAY)));
+			}
 		}));
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)

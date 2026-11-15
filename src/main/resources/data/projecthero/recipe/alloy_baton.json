@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "  A",
+    " A ",
+    "T  "
+  ],
+  "key": {
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    }
+  },
+  "result": {
+    "id": "projecthero:alloy_baton",
+    "count": 1
+  }
+}

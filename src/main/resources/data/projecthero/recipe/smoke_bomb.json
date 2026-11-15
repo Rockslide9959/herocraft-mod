@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " S ",
+    "TGT",
+    " C "
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:string"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "G": {
+      "item": "minecraft:gunpowder"
+    },
+    "C": {
+      "tag": "minecraft:coals"
+    }
+  },
+  "result": {
+    "id": "projecthero:smoke_bomb",
+    "count": 4
+  }
+}

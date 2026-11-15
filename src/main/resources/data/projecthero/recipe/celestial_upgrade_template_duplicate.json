@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SCS",
+    "STS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:vibranium_shard"
+    },
+    "C": {
+      "item": "projecthero:celestial_core"
+    },
+    "T": {
+      "item": "projecthero:celestial_upgrade_template"
+    }
+  },
+  "result": {
+    "id": "projecthero:celestial_upgrade_template",
+    "count": 2
+  }
+}

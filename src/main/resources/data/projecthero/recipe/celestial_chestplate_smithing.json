@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "projecthero:celestial_upgrade_template"
+  },
+  "base": {
+    "item": "projecthero:vibranium_chestplate"
+  },
+  "addition": {
+    "item": "projecthero:celestial_core"
+  },
+  "result": {
+    "id": "projecthero:celestial_chestplate",
+    "count": 1
+  }
+}

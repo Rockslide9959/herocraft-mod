@@ -1,6 +1,10 @@
 {
   "replace": false,
   "values": [
-    "projecthero:kryptonite_sword"
+    "projecthero:kryptonite_sword",
+    "projecthero:hero_alloy_sword",
+    "projecthero:alloy_baton",
+    "projecthero:vibranium_blade",
+    "projecthero:celestial_warhammer"
   ]
 }

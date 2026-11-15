@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:hero_alloy_helmet",
+    "projecthero:hero_alloy_chestplate",
+    "projecthero:hero_alloy_leggings",
+    "projecthero:hero_alloy_boots",
+    "projecthero:vibranium_helmet",
+    "projecthero:vibranium_chestplate",
+    "projecthero:vibranium_leggings",
+    "projecthero:vibranium_boots",
+    "projecthero:celestial_helmet",
+    "projecthero:celestial_chestplate",
+    "projecthero:celestial_leggings",
+    "projecthero:celestial_boots"
+  ]
+}

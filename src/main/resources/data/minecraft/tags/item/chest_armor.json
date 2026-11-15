@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:hero_alloy_chestplate",
+    "projecthero:vibranium_chestplate",
+    "projecthero:celestial_chestplate"
+  ]
+}

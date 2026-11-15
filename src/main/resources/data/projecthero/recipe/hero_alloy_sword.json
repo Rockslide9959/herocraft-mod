@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "A",
+    "A",
+    "S"
+  ],
+  "key": {
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "projecthero:hero_alloy_sword",
+    "count": 1
+  }
+}

@@ -32,6 +32,7 @@
 		"BossEventAccessor",
 		"ClipContextMixin",
 		"ContagionPoisonImmunityMixin",
+		"CelestialSightMixin",
 		"CraftingMenuMixin",
 		"EntityHulkRideMixin",
 		"EntityUndeadCarryMixin",

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " S ",
+    "TGT",
+    " D "
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:string"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "G": {
+      "item": "minecraft:gunpowder"
+    },
+    "D": {
+      "item": "minecraft:glowstone_dust"
+    }
+  },
+  "result": {
+    "id": "projecthero:flashbang",
+    "count": 4
+  }
+}

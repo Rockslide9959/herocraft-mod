@@ -61,6 +61,12 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 			locators.add(com.projecthero.mod.loot.LocatorItem.forTier(t));
 		}
 		registration.addItemStackInfo(locators, net.minecraft.network.chat.Component.translatable("projecthero.guide.loot.locators.body"));
+		// v0.17.5: gear tiers I-IV -- each item's own hint plus where gear comes from
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.gear.GearItems.all()) {
+			String hint = i instanceof com.projecthero.mod.gear.GearArmorItem g ? "projecthero.gear.set." + g.set() + ".hint" : i.getDescriptionId() + ".hint";
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(hint),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.gear"));
+		}
 	}
 
 	@Override

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " B ",
+    "BSB",
+    " B "
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:smoke_bomb"
+    },
+    "S": {
+      "item": "projecthero:vibranium_shard"
+    }
+  },
+  "result": {
+    "id": "projecthero:vibranium_smoke_bomb",
+    "count": 4
+  }
+}
