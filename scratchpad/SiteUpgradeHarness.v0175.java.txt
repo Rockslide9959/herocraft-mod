@@ -1,0 +1,398 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.datafixers.util.Pair;
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.loot.sites.SiteAnnexPiece;
+import com.projecthero.mod.loot.sites.SiteGuards;
+import com.projecthero.mod.loot.sites.SiteTheme;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructurePiece;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.phys.AABB;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Tier 2 Sites): /place-s each of the 19 upgraded sites on real terrain, then shoots
+ * an overview, the annex inside (guards), the vault entrance and the vault room; then locates a few naturally generated
+ * sites and checks their annex + vault. Enabled by run/sites.flag = "<out dir>" (optional 2nd line: comma list of ids).
+ */
+public final class SiteUpgradeHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static BlockPos base;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static final List<Integer> AT = new ArrayList<>();
+	private static volatile SiteAnnexPiece current;
+	private static volatile BoundingBox currentSite;
+	private static List<String> only = null;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("sites.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(flag);
+			out = new File(lines.get(0).trim());
+			if (lines.size() > 1 && !lines.get(1).isBlank()) {
+				only = List.of(lines.get(1).trim().split(","));
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SiteUpgradeHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "sites-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void lookFrom(Minecraft mc, double x, double y, double z, double tx, double ty, double tz) {
+		double dx = tx - x, dy = ty - y, dz = tz - z;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		server(mc, p -> p.connection.teleport(x, y - 1.62, z, yaw, pitch));
+	}
+
+	private static void lookLocal(Minecraft mc, double ex, double ey, double ez, double tx, double ty, double tz) {
+		SiteAnnexPiece a = current;
+		if (a == null) {
+			return;
+		}
+		double[] e = a.localToWorldExact(ex, ez);
+		double[] t = a.localToWorldExact(tx, tz);
+		lookFrom(mc, e[0], ey, e[1], t[0], ty, t[1]);
+	}
+
+	private static void at(int tick, Runnable r) {
+		AT.add(tick);
+		PLAN.add(r);
+	}
+
+	private static SiteAnnexPiece annexOf(StructureStart start) {
+		for (StructurePiece piece : start.getPieces()) {
+			if (piece instanceof SiteAnnexPiece a) {
+				return a;
+			}
+		}
+		return null;
+	}
+
+	private static void report(ServerLevel level, String id, SiteAnnexPiece a) {
+		BlockPos v = a.vaultPos();
+		int guards = level.getEntitiesOfClass(Mob.class, AABB.of(a.getBoundingBox()).inflate(4), SiteGuards::isGuard).size();
+		System.out.println("[HARNESS] " + id + " annex " + a.getBoundingBox() + " floor " + a.floorY() + " vault " + v + " = "
+				+ level.getBlockState(v) + " guards " + guards + "/" + a.guardCount());
+	}
+
+	/** A dry spot (no water within 30 blocks on the generator's noise) near (x0, z0), scanning east then south. */
+	private static int[] drySpot(Minecraft mc, int x0, int z0) {
+		ServerLevel lvl = mc.getSingleplayerServer().overworld();
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 600; dz += 32) {
+			for (int dx = 0; dx < 300; dx += 16) {
+				int x = x0 + dx, z = z0 + dz;
+				boolean dry = true;
+				int lo = 999, hi = -999;
+				for (int[] o : new int[][] { { 0, 0 }, { -30, 0 }, { 30, 0 }, { 0, -30 }, { 0, 30 }, { -20, -20 }, { 20, 20 }, { -20, 20 }, { 20, -20 } }) {
+					int s = gen.getBaseHeight(x + o[0], z + o[1], Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+					int g = gen.getBaseHeight(x + o[0], z + o[1], Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs);
+					if (s != g) {
+						dry = false;
+						break;
+					}
+					lo = Math.min(lo, s);
+					hi = Math.max(hi, s);
+				}
+				if (dry && hi - lo <= 8) {
+					return new int[] { x, z };
+				}
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	private static void plan(Minecraft mc) {
+		int t = 0;
+		int i = 0;
+		for (SiteTheme theme : SiteTheme.values()) {
+			if (only != null && !only.contains(theme.id)) {
+				continue;
+			}
+			int[] spot = drySpot(mc, base.getX() + 320 * (i % 5), base.getZ() + 320 * (i / 5) + 200);
+			final int x = spot[0];
+			final int z = spot[1];
+			i++;
+			String id = theme.id;
+			at(t, () -> server(mc, p -> p.connection.teleport(x + 0.5, 160, z + 0.5, 0f, 90f)));
+			t += 90;
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+				Structure s = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
+						.get(ResourceKey.create(Registries.STRUCTURE, ProjectHeroMod.id(id)));
+				var gen = level.getChunkSource().getGenerator();
+				// the same start /place builds (same seed, chunk and references), to read the pieces back
+				StructureStart start = s.generate(level.registryAccess(), gen, gen.getBiomeSource(), level.getChunkSource().randomState(),
+						level.getStructureManager(), level.getSeed(), new net.minecraft.world.level.ChunkPos(new BlockPos(x, y, z)), 0, level, b -> true);
+				String cmd = "place structure projecthero:" + id + " " + x + " " + y + " " + z;
+				int r = -1;
+				try {
+					r = p.server.getCommands().getDispatcher().execute(cmd, p.createCommandSourceStack().withPermission(4).withSuppressedOutput());
+				} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+					System.out.println("[HARNESS] place failed: " + e.getMessage());
+				}
+				SiteAnnexPiece a = start.isValid() ? annexOf(start) : null;
+				current = a;
+				currentSite = start.isValid() ? start.getPieces().get(0).getBoundingBox() : null;
+				System.out.println("[HARNESS] placed " + id + " r=" + r + " start=" + start.isValid() + " annex=" + (a != null));
+				if (a != null) {
+					report(level, id, a);
+				}
+			}));
+			t += 60;
+			// overview: from above and to the side of the site-annex line
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a == null) {
+					return;
+				}
+				BlockPos ac = a.getBoundingBox().getCenter();
+				BoundingBox sb = currentSite;
+				double mx = sb == null ? ac.getX() : (ac.getX() + sb.getCenter().getX()) / 2.0;
+				double mz = sb == null ? ac.getZ() : (ac.getZ() + sb.getCenter().getZ()) / 2.0;
+				double lx = ac.getX() - mx, lz = ac.getZ() - mz;
+				double len = Math.max(1, Math.sqrt(lx * lx + lz * lz));
+				double px = -lz / len, pz = lx / len;
+				lookFrom(mc, mx + px * 26 + lx * 0.3, a.floorY() + 22, mz + pz * 26 + lz * 0.3, mx, a.floorY(), mz);
+			});
+			t += 80;
+			at(t, () -> shot(mc, id + "_1_overview"));
+			t += 2;
+			// the annex close: from the porch corner
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a != null) {
+					lookLocal(mc, -7.5, a.floorY() + 6, 12.5, 0.5, a.floorY() + 1, 0.5);
+				}
+			});
+			t += 25;
+			at(t, () -> shot(mc, id + "_2_annex"));
+			t += 2;
+			// inside, from the doorway
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a != null) {
+					lookLocal(mc, 0.5, a.floorY() + 2.4, 4.5, -0.5, a.floorY() + 0.6, -3.5);
+				}
+			});
+			t += 25;
+			at(t, () -> shot(mc, id + "_3_inside"));
+			t += 2;
+			// the secured entrance
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a == null) {
+					return;
+				}
+				if (a.theme().entry == SiteTheme.Entry.IRON_DOOR) {
+					lookLocal(mc, 2.0, a.floorY() + 1.9, 3.5, 3.5, a.floorY() + 1.0, 0.5);
+				} else {
+					lookLocal(mc, 2.5, a.floorY() + 2.6, -0.5, 5.0, a.floorY() + 0.1, -3.5);
+				}
+			});
+			t += 25;
+			at(t, () -> shot(mc, id + "_4_entrance"));
+			t += 2;
+			// the vault room
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a == null) {
+					return;
+				}
+				if (a.theme().entry == SiteTheme.Entry.IRON_DOOR) {
+					lookLocal(mc, 2.6, a.floorY() + 1.9, -1.4, 4.5, a.floorY() + 0.5, -3.5);
+				} else {
+					int b = a.floorY() - 4;
+					lookLocal(mc, 4.6, b + 1.7, -1.4, 2.5, b + 0.5, -3.5);
+				}
+			});
+			t += 25;
+			at(t, () -> shot(mc, id + "_5_vault"));
+			t += 2;
+		}
+
+		// ---- natural worldgen: locate a few, check the annex + vault there
+		String[] natural = only != null ? new String[0]
+				: new String[] { "government_site", "gamma_lab", "graveyard", "mjolnir_crater", "research_facility", "symbiote_meteor" };
+		for (String id : natural) {
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				Holder<Structure> h = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
+						.getHolderOrThrow(ResourceKey.create(Registries.STRUCTURE, ProjectHeroMod.id(id)));
+				long t0 = System.nanoTime();
+				Pair<BlockPos, Holder<Structure>> r = level.getChunkSource().getGenerator().findNearestMapStructure(level, HolderSet.direct(h), base, 100, false);
+				System.out.println("[HARNESS] locate " + id + " -> " + (r == null ? "none" : r.getFirst()) + " in " + (System.nanoTime() - t0) / 1_000_000 + " ms");
+				current = null;
+				currentSite = null;
+				if (r != null) {
+					BlockPos f = r.getFirst();
+					p.connection.teleport(f.getX() + 0.5, 170, f.getZ() + 0.5, 0f, 90f);
+				}
+			}));
+			t += 200;
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				Structure s = level.registryAccess().registryOrThrow(Registries.STRUCTURE).get(ResourceKey.create(Registries.STRUCTURE, ProjectHeroMod.id(id)));
+				StructureStart found = null;
+				for (StructureStart st : level.structureManager().startsForStructure(new net.minecraft.world.level.ChunkPos(p.blockPosition()), q -> q == s)) {
+					found = st;
+				}
+				if (found == null) {
+					System.out.println("[HARNESS] natural " + id + ": no start in this chunk");
+					return;
+				}
+				SiteAnnexPiece a = annexOf(found);
+				System.out.println("[HARNESS] natural " + id + " pieces " + found.getPieces().size() + " annex " + (a != null));
+				if (a != null) {
+					current = a;
+					currentSite = found.getPieces().get(0).getBoundingBox();
+					report(level, "natural_" + id, a);
+				}
+			}));
+			t += 20;
+			at(t, () -> {
+				SiteAnnexPiece a = current;
+				if (a == null) {
+					return;
+				}
+				BlockPos ac = a.getBoundingBox().getCenter();
+				BoundingBox sb = currentSite;
+				double mx = (ac.getX() + sb.getCenter().getX()) / 2.0, mz = (ac.getZ() + sb.getCenter().getZ()) / 2.0;
+				double lx = ac.getX() - mx, lz = ac.getZ() - mz;
+				double len = Math.max(1, Math.sqrt(lx * lx + lz * lz));
+				lookFrom(mc, mx - lz / len * 26, a.floorY() + 22, mz + lx / len * 26, mx, a.floorY(), mz);
+			});
+			t += 60;
+			at(t, () -> shot(mc, "natural_" + id));
+			t += 2;
+		}
+		at(t + 5, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SiteUpgradeHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(80);
+			mc.options.bobView().set(false);
+			mc.options.gamma().set(1.0);
+			mc.options.renderDistance().set(5);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SPECTATOR);
+				base = p.blockPosition();
+			});
+		}
+		if (t == 60 && base != null) {
+			mc.options.hideGui = true;
+			plan(mc);
+		}
+		if (t > 60) {
+			int s = t - 61;
+			for (int i = 0; i < AT.size(); i++) {
+				if (AT.get(i) == s) {
+					PLAN.get(i).run();
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SITES_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

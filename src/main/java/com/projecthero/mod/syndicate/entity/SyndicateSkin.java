@@ -25,7 +25,16 @@ public enum SyndicateSkin {
 	 * v0.17.5: Kingpin's Enforcer, the Kingpin's Front mini-boss -- painted procedurally from {@code thug_a} (black
 	 * three-piece suit, gold chain, dark glasses) by {@code scratchpad/gen_hideouts_v0175.js}.
 	 */
-	HIDEOUT_ENFORCER("hideout_enforcer", false);
+	HIDEOUT_ENFORCER("hideout_enforcer", false),
+	/**
+	 * v0.17.5 Tier 2 Sites: a government agent (dark suit, white shirt, black tie, glasses, earpiece) -- painted
+	 * procedurally from {@code thug_c} by {@code scratchpad/gen_sites_v0175.js}. Government Site / Kryptonite Crater guards.
+	 */
+	SITE_AGENT("site_agent", false),
+	/** v0.17.5: a soldier in olive fatigues, webbing and a helmet -- recoloured from {@code masked}. Gamma Lab guards. */
+	SITE_SOLDIER("site_soldier", false),
+	/** v0.17.5: a hooded cultist in a deep purple robe with gold trim -- recoloured from {@code hood}. Tomb / Temple guards. */
+	SITE_CULTIST("site_cultist", false);
 
 	private final ResourceLocation texture;
 	private final boolean slim;

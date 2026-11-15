@@ -12,6 +12,7 @@
       "com.projecthero.mod.gametest.GearTierGameTests",
       "com.projecthero.mod.gametest.TierOneFindsGameTests",
       "com.projecthero.mod.gametest.VillainHideoutGameTests",
+      "com.projecthero.mod.gametest.SiteUpgradeGameTests",
       "com.projecthero.mod.gametest.WardrobeV0165GameTests",
       "com.projecthero.mod.gametest.HulkMindV0164GameTests",
       "com.projecthero.mod.gametest.HulkMovesV0164GameTests",

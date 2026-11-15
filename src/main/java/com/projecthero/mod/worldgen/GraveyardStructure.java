@@ -49,7 +49,10 @@ public class GraveyardStructure extends Structure {
 		int estimatedY = context.chunkGenerator().getFirstOccupiedHeight(
 				chunkPos.getMiddleBlockX(), chunkPos.getMiddleBlockZ(),
 				Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
-		builder.addPiece(new GraveyardPiece(chunkPos.getMiddleBlockX(), estimatedY, chunkPos.getMiddleBlockZ()));
+		GraveyardPiece sitePiece = new GraveyardPiece(chunkPos.getMiddleBlockX(), estimatedY, chunkPos.getMiddleBlockZ());
+		builder.addPiece(sitePiece);
+		// v0.17.5 Tier 2 Sites: the annex (vault room + guard squad) beside the original site
+		com.projecthero.mod.loot.sites.SiteUpgrade.addAnnex(builder, context, sitePiece.getBoundingBox(), com.projecthero.mod.loot.sites.SiteTheme.GRAVEYARD);
 	}
 
 	@Override

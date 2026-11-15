@@ -14,6 +14,7 @@ public final class LootMod {
 		MedKitHealing.initialize();
 		SupplyTargetDefaults.registerAll();
 		com.projecthero.mod.loot.finds.FindsMod.initialize(); // Tier 1 Finds: drone, cache, outpost, supply drops
+		com.projecthero.mod.loot.sites.SiteUpgrade.initialize(); // Tier 2 Sites: the old sites' annex piece type
 	}
 
 	/** Static per-session state (the Med Kit heal timers). Called from {@code ServerStateReset.clearAll}. */

@@ -45,7 +45,10 @@ public class SymbioteLabStructure extends Structure {
 		int estimatedY = context.chunkGenerator().getFirstOccupiedHeight(
 				chunkPos.getMiddleBlockX(), chunkPos.getMiddleBlockZ(),
 				Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
-		builder.addPiece(new SymbioteLabPiece(chunkPos.getMiddleBlockX(), estimatedY, chunkPos.getMiddleBlockZ()));
+		SymbioteLabPiece sitePiece = new SymbioteLabPiece(chunkPos.getMiddleBlockX(), estimatedY, chunkPos.getMiddleBlockZ());
+		builder.addPiece(sitePiece);
+		// v0.17.5 Tier 2 Sites: the annex (vault room + guard squad) beside the original site
+		com.projecthero.mod.loot.sites.SiteUpgrade.addAnnex(builder, context, sitePiece.getBoundingBox(), com.projecthero.mod.loot.sites.SiteTheme.SYMBIOTE_LAB);
 	}
 
 	@Override

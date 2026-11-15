@@ -2125,6 +2125,14 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.guide.loot.find." + f).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
+			// v0.17.5 Tier 2 Sites: the 19 old sites' annexes, guard squads and Site Vaults (com.projecthero.mod.loot.sites)
+			head(lines, "projecthero.guide.loot.sites");
+			para(lines, "projecthero.guide.loot.sites.body");
+			for (com.projecthero.mod.loot.sites.SiteTheme site : com.projecthero.mod.loot.sites.SiteTheme.values()) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.loot.HeroVault.trimColour(2)))
+						.append(Component.translatable("projecthero.guide.loot.site." + site.id).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
 			head(lines, "projecthero.guide.loot.rarity");
 			para(lines, "projecthero.guide.loot.rarity.body");
 			for (com.projecthero.mod.loot.HeroRarity r : com.projecthero.mod.loot.HeroRarity.values()) {

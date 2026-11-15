@@ -50,7 +50,10 @@ public class TombOfNabuStructure extends Structure {
 		ChunkPos chunkPos = context.chunkPos();
 		int y = context.chunkGenerator().getFirstOccupiedHeight(chunkPos.getMiddleBlockX(), chunkPos.getMiddleBlockZ(),
 				Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
-		builder.addPiece(new TombOfNabuPiece(chunkPos.getMiddleBlockX(), y, chunkPos.getMiddleBlockZ()));
+		TombOfNabuPiece sitePiece = new TombOfNabuPiece(chunkPos.getMiddleBlockX(), y, chunkPos.getMiddleBlockZ());
+		builder.addPiece(sitePiece);
+		// v0.17.5 Tier 2 Sites: the annex (vault room + guard squad) beside the original site
+		com.projecthero.mod.loot.sites.SiteUpgrade.addAnnex(builder, context, sitePiece.getBoundingBox(), com.projecthero.mod.loot.sites.SiteTheme.TOMB_OF_NABU);
 	}
 
 	@Override

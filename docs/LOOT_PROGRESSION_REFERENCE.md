@@ -184,3 +184,55 @@ stays (invisible) as the timer: the vault is removed 20 min after landing if uno
 Off: `/gamerule projectheroSupplyDrops false`. Operators: `/projecthero supplydrop [players] [tier]` (ignores the rule).
 The crate is `GiantTracking.AlwaysTracked` (sent to players within 160 blocks whatever their view distance) and
 keeps its chunk ticking while it falls. No static state.
+
+## Tier 2 Sites
+
+Code: `com.projecthero.mod.loot.sites` (`SiteUpgrade`, `SiteAnnexPiece`, `SiteTheme`, `SiteGuards`), registered from
+`LootMod.initialize`. Tests: `SiteUpgradeGameTests`. Lang: `scratchpad/lang_sites_v0175.js`; guard skins:
+`scratchpad/gen_sites_v0175.js`; wiring script: `scratchpad/wire_sites_v0175.js`; harness copy: `scratchpad/SiteUpgradeHarness.v0175.java.txt`.
+
+The 19 old sites keep their own piece untouched (powers / items / events / existing gametests unchanged). Each
+structure's `generatePieces` adds one extra piece after its own:
+```java
+SiteUpgrade.addAnnex(builder, context, sitePiece.getBoundingBox(), SiteTheme.GAMMA_LAB);
+```
+`SiteUpgrade.plan` puts a `SiteAnnexPiece` 3 blocks outside the site's bounding box on the flattest dry side (4 sides
+scored on noise heights: height range + 3 x water depth; seed-ordered for ties), its door + porch facing the site,
+floor = median generator height of 5 samples. Spacing of the structure sets is unchanged.
+
+Annex (local x -6..6, z -5..5 + porch to z 8, door at local south): foundation to 14 down, 4-high walls, flat roof,
+windows (never next to the vault corner), furniture by `Style`, lights. Vault room (`Entry`):
+- `IRON_DOOR`: reinforced 4x4 back-right room, iron door, stone button outside + inside, Tier 2 vault at local (4, f, -4).
+- `HATCH`: carpet rug over a top trapdoor, 3-rung ladder to a 4x4 basement 4 below, vault at local (2, f-4, -4).
+
+Guards (`SiteGuards`, tag `projecthero.site_guard`, persistent, `restrictTo` post 14, spawned by the chunk holding
+their feet): first `guardCount()` (theme min..max from the seed) of the theme roster at 6 posts (2 porch, 4 inside).
+All are existing mobs that never burn: Syndicate thugs/gunmen, plus three new `SyndicateSkin`s on the same
+player-model bodies (`SITE_AGENT` from thug_c, `SITE_SOLDIER` from masked, `SITE_CULTIST` from hood; named via
+`entity.projecthero.site_*`), Ultron drones / sentinel drones, Parademons, Symbiote-host husks / spiders /
+vindicators, Zombie Raid zombies + sword skeletons, Tomb Guardians, Jotun Raiders + Rime Hounds.
+
+| Site | Style | Entry | Guards |
+|---|---|---|---|
+| dig_site | camp | hatch | 4-5 Syndicate looters |
+| fallen_lantern_site | station (lime glass) | iron door | 3-4 Parademons |
+| gamma_lab | military (lime glass) | iron door | 4-6 soldiers (shotgun / rifle / sword) |
+| geological_site | camp | hatch | 3-4 Syndicate smugglers |
+| government_site | military | iron door | 4-6 agents + a soldier rifleman |
+| graveyard | crypt | hatch | 4-6 raid zombies (one armoured) + sword skeletons |
+| hydrostatic_facility | bunker (light blue glass) | iron door | 3-5 Syndicate scavengers |
+| kryptonite_crater | station (green glass) | iron door | 3-5 agents |
+| meteor_impact | station (purple glass) | iron door | 3-4 Parademons |
+| mjolnir_crater | ice hut | hatch | 4-5 Jotun Raiders + Rime Hounds |
+| nova_pod_site | station (blue glass) | iron door | 3-4 Ultron drones |
+| power_station | bunker (yellow glass) | iron door | 4-5 Ultron drones |
+| research_facility | lab | iron door | 3-5 Ultron drones |
+| steel_crash_site | station (light blue glass) | iron door | 3-4 Ultron drones |
+| symbiote_lab | infested lab | iron door | 4-5 Symbiote hosts |
+| symbiote_meteor | infested lab | hatch | 3-5 Symbiote hosts |
+| temple_of_khonshu | temple | hatch | 4-5 cultists + Tomb Guardians |
+| tomb_of_nabu | temple (purple glass) | hatch | 3-5 cultists (plus the tomb's own 4 guardians) |
+| vigilante_safehouse | camp shack | iron door | 4-5 Syndicate gunmen |
+
+Loot: `chests/vault_tier2` unchanged (Hideout Locator 45%, gear sub-table from the gear branch, artifacts empty).
+No static state. Old worlds: already generated sites have no annex (the extra piece is only planned for new starts).
