@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "projecthero:block/hero_vault_tier1_top",
+    "bottom": "projecthero:block/hero_vault_tier1_side",
+    "front": "projecthero:block/hero_vault_tier1_front",
+    "side": "projecthero:block/hero_vault_tier1_side",
+    "particle": "projecthero:block/hero_vault_tier1_side"
+  }
+}

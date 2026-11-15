@@ -78,6 +78,7 @@ public final class ServerStateReset {
 	 * none of it is persisted state, and everything that owns it re-populates on demand.
 	 */
 	public static void clearAll() {
+		com.projecthero.mod.loot.LootMod.clearSessionState(); // v0.17.5: Med Kit heal timers
 		com.projecthero.mod.galactus.orbit.GalactusRaidStatics.clear(); // v0.17.2 Galactus raid v2 (debris, cutscene holds, orbit rules)
 		com.projecthero.mod.omnitrix.OmnitrixMod.clearSessionState(); // v0.17.1
 		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.clearSessionState(); // v0.17.1

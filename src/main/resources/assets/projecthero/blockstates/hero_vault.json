@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=north,tier=1": {
+      "model": "projecthero:block/hero_vault_tier1"
+    },
+    "facing=north,tier=2": {
+      "model": "projecthero:block/hero_vault_tier2"
+    },
+    "facing=north,tier=3": {
+      "model": "projecthero:block/hero_vault_tier3"
+    },
+    "facing=north,tier=4": {
+      "model": "projecthero:block/hero_vault_tier4"
+    },
+    "facing=east,tier=1": {
+      "model": "projecthero:block/hero_vault_tier1",
+      "y": 90
+    },
+    "facing=east,tier=2": {
+      "model": "projecthero:block/hero_vault_tier2",
+      "y": 90
+    },
+    "facing=east,tier=3": {
+      "model": "projecthero:block/hero_vault_tier3",
+      "y": 90
+    },
+    "facing=east,tier=4": {
+      "model": "projecthero:block/hero_vault_tier4",
+      "y": 90
+    },
+    "facing=south,tier=1": {
+      "model": "projecthero:block/hero_vault_tier1",
+      "y": 180
+    },
+    "facing=south,tier=2": {
+      "model": "projecthero:block/hero_vault_tier2",
+      "y": 180
+    },
+    "facing=south,tier=3": {
+      "model": "projecthero:block/hero_vault_tier3",
+      "y": 180
+    },
+    "facing=south,tier=4": {
+      "model": "projecthero:block/hero_vault_tier4",
+      "y": 180
+    },
+    "facing=west,tier=1": {
+      "model": "projecthero:block/hero_vault_tier1",
+      "y": 270
+    },
+    "facing=west,tier=2": {
+      "model": "projecthero:block/hero_vault_tier2",
+      "y": 270
+    },
+    "facing=west,tier=3": {
+      "model": "projecthero:block/hero_vault_tier3",
+      "y": 270
+    },
+    "facing=west,tier=4": {
+      "model": "projecthero:block/hero_vault_tier4",
+      "y": 270
+    }
+  }
+}

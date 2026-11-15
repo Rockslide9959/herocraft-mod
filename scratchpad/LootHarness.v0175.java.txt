@@ -1,0 +1,295 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.loot.HeroVault;
+import com.projecthero.mod.loot.LocatorItem;
+import com.projecthero.mod.loot.LootItems;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 loot foundation): the four vault tiers, a vault popping loot, item icons with rarity
+ * names + tooltips, the Locator needle + HUD line, and one real Locator search. Enabled by run/loot.flag = "<out dir>".
+ */
+public final class LootHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static Vec3 home;
+	private static BlockPos base;
+	private static File out;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("loot.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(LootHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "loot-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void look(Minecraft mc, double x, double y, double z, float yaw, float pitch) {
+		server(mc, p -> p.connection.teleport(x, y, z, yaw, pitch));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(LootHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				var level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				base = p.blockPosition();
+				// a clean stage: stone floor, air above
+				for (int x = -6; x <= 6; x++) {
+					for (int z = -3; z <= 8; z++) {
+						level.setBlock(base.offset(x, -1, z), Blocks.SMOOTH_STONE.defaultBlockState(), 3);
+						for (int y = 0; y < 5; y++) {
+							level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+						}
+					}
+				}
+				for (int tier = 1; tier <= 4; tier++) {
+					HeroVault.place(level, base.offset(3 - (tier - 1) * 2, 0, 4), tier, Direction.NORTH);
+				}
+				home = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+				p.connection.teleport(home.x, home.y, home.z, 0f, 18f);
+			});
+		}
+		if (t < 80 || home == null) {
+			return;
+		}
+		int s = t - 80;
+		if (s == 0) {
+			mc.options.hideGui = true;
+			look(mc, home.x, home.y, home.z, 0f, 22f);
+		}
+		if (s == 30) {
+			shot(mc, "01_vault_tiers_side_by_side");
+		}
+		if (s == 32) {
+			look(mc, home.x - 3, home.y, home.z + 1.4, 0f, 35f);
+		}
+		if (s == 45) {
+			shot(mc, "02_vault_tier4_closeup");
+			server(mc, p -> {
+				var r = HeroVault.open(p.serverLevel(), base.offset(-3, 0, 4), p);
+				System.out.println("[HARNESS] open tier4 -> " + r.result() + " " + r.loot().size() + " stacks: " + r.loot());
+			});
+		}
+		if (s == 48 || s == 52 || s == 58 || s == 70) {
+			shot(mc, "03_vault_pop_t" + (s - 45));
+		}
+		if (s == 75) {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				var r = HeroVault.open(p.serverLevel(), base.offset(-3, 0, 4), p);
+				System.out.println("[HARNESS] second open tier4 -> " + r.result());
+			});
+		}
+		if (s == 80) {
+			shot(mc, "04_vault_already_looted_message");
+		}
+		// --- the Locator: a real search first (logged), then a bound one in hand
+		if (s == 90) {
+			server(mc, p -> {
+				ItemStack real = LocatorItem.forTier(2);
+				long t0 = System.nanoTime();
+				var r = LocatorItem.locate(p, real);
+				System.out.println("[HARNESS] real locate tier2 -> " + r + " target=" + LocatorItem.target(real) + " in "
+						+ (System.nanoTime() - t0) / 1_000_000 + " ms");
+				ItemStack hideout = LocatorItem.forTier(3);
+				System.out.println("[HARNESS] real locate tier3 -> " + LocatorItem.locate(p, hideout));
+				ItemStack held = real;
+				if (!LocatorItem.target(held).isBound()) {
+					LocatorItem.bind(held, GlobalPos.of(p.level().dimension(), base.offset(60, 0, 0)), ProjectHeroMod.id("government_site"));
+				}
+				p.setItemInHand(InteractionHand.MAIN_HAND, held);
+				p.getInventory().setItem(1, LocatorItem.forTier(3));
+				p.getInventory().setItem(2, new ItemStack(LootItems.CELESTIAL_CORE));
+				p.getInventory().setItem(3, new ItemStack(LootItems.MED_KIT, 5));
+			});
+			look(mc, home.x, home.y, home.z, 0f, 10f);
+		}
+		if (s >= 92 && s < 158) {
+			mc.gui.getChat().clearMessages(false); // the join hints / spawn calling would cover the HUD line
+		}
+		if (s == 110) {
+			shot(mc, "05_locator_needle_hud_facing_south");
+			look(mc, home.x, home.y, home.z, 90f, 10f);
+		}
+		if (s == 130) {
+			shot(mc, "06_locator_needle_hud_facing_west");
+			look(mc, home.x, home.y, home.z, -90f, 10f);
+		}
+		if (s == 150) {
+			shot(mc, "07_locator_needle_hud_facing_east");
+		}
+		// --- item icons, rarity names and tooltips on a plain screen
+		if (s == 160) {
+			mc.setScreen(new ItemsScreen(0));
+		}
+		for (int i = 0; i < ItemsScreen.TOOLTIP_PAGES; i++) {
+			if (s == 170 + i * 6) {
+				mc.setScreen(new ItemsScreen(i));
+			}
+			if (s == 174 + i * 6) {
+				shot(mc, String.format("08_items_tooltip_%02d", i));
+			}
+		}
+		if (s == 170 + ItemsScreen.TOOLTIP_PAGES * 6 + 5) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	/** Icons + names on the left, one tooltip (page {@code page}) on the right. */
+	static final class ItemsScreen extends Screen {
+		static final int TOOLTIP_PAGES = 8;
+		private final int page;
+
+		ItemsScreen(int page) {
+			super(Component.literal("loot"));
+			this.page = page;
+		}
+
+		static List<ItemStack> stacks() {
+			List<ItemStack> l = new ArrayList<>();
+			for (int t = 1; t <= 4; t++) {
+				l.add(LootItems.vaultStack(t));
+			}
+			l.add(new ItemStack(LootItems.SALVAGED_TECH));
+			l.add(new ItemStack(LootItems.HERO_ALLOY_SCRAP));
+			l.add(new ItemStack(LootItems.HERO_ALLOY_INGOT));
+			l.add(new ItemStack(LootItems.VIBRANIUM_SHARD));
+			l.add(new ItemStack(LootItems.CELESTIAL_CORE));
+			l.add(new ItemStack(LootItems.ENERGY_CELL));
+			l.add(new ItemStack(LootItems.COOLDOWN_STIM));
+			l.add(new ItemStack(LootItems.SUIT_REPAIR_KIT));
+			l.add(new ItemStack(LootItems.MED_KIT));
+			ItemStack bound = LocatorItem.forTier(2);
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.player != null) {
+				LocatorItem.bind(bound, GlobalPos.of(mc.level.dimension(), mc.player.blockPosition().offset(300, 0, 400)),
+						ProjectHeroMod.id("government_site"));
+			}
+			l.add(bound);
+			l.add(LocatorItem.forTier(3));
+			l.add(LocatorItem.forTier(4));
+			return l;
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF1B1E24);
+			List<ItemStack> l = stacks();
+			for (int i = 0; i < l.size(); i++) {
+				int col = i / 9, row = i % 9;
+				int x = width - 228 + col * 112, y = 6 + row * 18;
+				g.renderItem(l.get(i), x, y);
+				g.drawString(font, l.get(i).getHoverName(), x + 19, y + 4, 0xFFFFFF, true);
+			}
+			int[] pick = { 8, 0, 3, 13, 9, 10, 11, 12 }; // core, cache, dungeon vault, bound locator, cell, stim, kit, med
+			ItemStack tip = l.get(pick[page % pick.length]);
+			g.renderTooltip(font, Screen.getTooltipFromItem(minecraft, tip), tip.getTooltipImage(), -6, 22);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("LOOT_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

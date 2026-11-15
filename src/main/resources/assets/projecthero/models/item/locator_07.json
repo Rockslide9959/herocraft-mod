@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/locator_base",
+    "layer1": "projecthero:item/locator_needle_07"
+  }
+}

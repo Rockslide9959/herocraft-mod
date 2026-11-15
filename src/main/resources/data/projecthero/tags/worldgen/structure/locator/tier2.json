@@ -1,0 +1,24 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:dig_site",
+    "projecthero:fallen_lantern_site",
+    "projecthero:gamma_lab",
+    "projecthero:geological_site",
+    "projecthero:government_site",
+    "projecthero:graveyard",
+    "projecthero:hydrostatic_facility",
+    "projecthero:kryptonite_crater",
+    "projecthero:meteor_impact",
+    "projecthero:mjolnir_crater",
+    "projecthero:nova_pod_site",
+    "projecthero:power_station",
+    "projecthero:research_facility",
+    "projecthero:steel_crash_site",
+    "projecthero:symbiote_lab",
+    "projecthero:symbiote_meteor",
+    "projecthero:temple_of_khonshu",
+    "projecthero:tomb_of_nabu",
+    "projecthero:vigilante_safehouse"
+  ]
+}

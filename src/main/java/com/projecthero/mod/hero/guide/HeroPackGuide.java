@@ -687,7 +687,8 @@ public final class HeroPackGuide {
 	private static final int CH_VISION = CH_DOCTOR_FATE + 1; // 75, v0.17.3: Vision (Marvel)
 	/** v0.17.4: the Omnitrix's hidden Master Control page (only listed once the reader has woken it, {@link #masterControlRevealed}). */
 	private static final int CH_MASTER_CONTROL = CH_VISION + 1; // 76
-	private static final int CHAPTER_POWER_BASE = CH_MASTER_CONTROL + 1; // 77
+	private static final int CH_LOOT = CH_MASTER_CONTROL + 1; // 77, v0.17.5: Loot & Progression
+	private static final int CHAPTER_POWER_BASE = CH_LOOT + 1; // 78
 
 	/**
 	 * v0.17.4: whether the reader may see the hidden Master Control page -- the client sets this to "the local player has woken
@@ -2104,6 +2105,40 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.omnitrix.master.sign").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC));
 		}));
 
+		// v0.17.5: Loot & Progression (CH_LOOT) -- the four place tiers, rarity, Hero Vaults, materials, supplies, Locators
+		out.add(chapter("projecthero.guide.loot", lines -> {
+			para(lines, "projecthero.guide.loot.body");
+			blank(lines);
+			head(lines, "projecthero.guide.loot.tiers");
+			for (int t = 1; t <= 4; t++) {
+				int trim = com.projecthero.mod.loot.HeroVault.trimColour(t); // the tier's vault trim colour
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(trim))
+						.append(Component.translatable("projecthero.guide.loot.tier" + t).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.rarity");
+			para(lines, "projecthero.guide.loot.rarity.body");
+			for (com.projecthero.mod.loot.HeroRarity r : com.projecthero.mod.loot.HeroRarity.values()) {
+				lines.add(Component.literal("  ").append(r.label()));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.vaults");
+			para(lines, "projecthero.guide.loot.vaults.body");
+			blank(lines);
+			head(lines, "projecthero.guide.loot.materials");
+			para(lines, "projecthero.guide.loot.materials.body");
+			blank(lines);
+			head(lines, "projecthero.guide.loot.supplies");
+			para(lines, "projecthero.guide.loot.supplies.body");
+			for (String s : new String[] { "energy_cell", "cooldown_stim", "suit_repair_kit", "med_kit" }) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.loot.supply." + s).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.locators");
+			para(lines, "projecthero.guide.loot.locators.body");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2239,6 +2274,7 @@ public final class HeroPackGuide {
 		icon(CH_MUTATION, "mutagenic_serum");
 		icon(CH_COMBOS, "prismatic_serum");
 		icon(CH_STRUCTURES, "research_note");
+		icon(CH_LOOT, "hero_vault"); // v0.17.5
 		icon(CH_DEVICES, "overloaded_redstone_coil");
 		icon(CH_STARK_SORTER, "stark_sorting_station");
 		icon(CH_CITY, "daily_bulletin");
@@ -2422,6 +2458,7 @@ public final class HeroPackGuide {
 		}
 
 		List<IndexEntry> world = map.get(Category.WORLD);
+		link(world, "projecthero.guide.loot", CH_LOOT); // v0.17.5
 		link(world, "projecthero.guide.structures", CH_STRUCTURES);
 		link(world, "projecthero.guide.devices", CH_DEVICES);
 		link(world, "projecthero.guide.stark_sorter", CH_STARK_SORTER);

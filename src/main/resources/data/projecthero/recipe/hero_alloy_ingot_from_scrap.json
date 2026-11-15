@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "projecthero:hero_alloy_scrap"
+    }
+  },
+  "result": {
+    "id": "projecthero:hero_alloy_ingot",
+    "count": 1
+  }
+}

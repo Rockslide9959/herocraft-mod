@@ -38,6 +38,29 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	@Override
 	public void registerRecipes(IRecipeRegistration registration) {
 		registration.addRecipes(FABRICATOR, FabricatorRecipes.all());
+		lootInfo(registration);
+	}
+
+	/** v0.17.5: JEI info pages for the loot framework's items (where they come from, what they do). */
+	private static void lootInfo(IRecipeRegistration registration) {
+		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.loot.LootItems.SALVAGED_TECH,
+				com.projecthero.mod.loot.LootItems.HERO_ALLOY_SCRAP, com.projecthero.mod.loot.LootItems.HERO_ALLOY_INGOT,
+				com.projecthero.mod.loot.LootItems.VIBRANIUM_SHARD, com.projecthero.mod.loot.LootItems.CELESTIAL_CORE,
+				com.projecthero.mod.loot.LootItems.ENERGY_CELL, com.projecthero.mod.loot.LootItems.COOLDOWN_STIM,
+				com.projecthero.mod.loot.LootItems.SUIT_REPAIR_KIT, com.projecthero.mod.loot.LootItems.MED_KIT }) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.loot_found"));
+		}
+		java.util.List<ItemStack> vaults = new java.util.ArrayList<>();
+		for (int t = 1; t <= 4; t++) {
+			vaults.add(com.projecthero.mod.loot.LootItems.vaultStack(t));
+		}
+		registration.addItemStackInfo(vaults, net.minecraft.network.chat.Component.translatable("projecthero.guide.loot.vaults.body"));
+		java.util.List<ItemStack> locators = new java.util.ArrayList<>();
+		for (int t = 2; t <= 4; t++) {
+			locators.add(com.projecthero.mod.loot.LocatorItem.forTier(t));
+		}
+		registration.addItemStackInfo(locators, net.minecraft.network.chat.Component.translatable("projecthero.guide.loot.locators.body"));
 	}
 
 	@Override
