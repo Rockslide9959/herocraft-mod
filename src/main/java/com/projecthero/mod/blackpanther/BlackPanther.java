@@ -456,7 +456,7 @@ public final class BlackPanther {
 		n.animStart = now;
 		save(player, n);
 		reconcile(player);
-		PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
+		nightEyes(player, n); // v0.17.5: in the dark the herb's Night Eyes carries straight on, no blink
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.4, 0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.8f);

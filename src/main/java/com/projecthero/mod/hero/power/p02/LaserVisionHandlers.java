@@ -388,6 +388,10 @@ public final class LaserVisionHandlers {
 	 */
 	public static void dropLegacyNightVision(ServerPlayer player) {
 		MobEffectInstance nv = player.getEffect(MobEffects.NIGHT_VISION);
+		// v0.17.5: Black Panther's Night Eyes is also an infinite hidden Night Vision -- stripping it every 5 s made it stutter
+		if (com.projecthero.mod.blackpanther.BlackPanther.nightEyes(player)) {
+			return;
+		}
 		if (nv != null && nv.isInfiniteDuration() && !nv.isVisible() && !nv.showIcon()) {
 			player.removeEffect(MobEffects.NIGHT_VISION);
 		}

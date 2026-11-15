@@ -189,18 +189,19 @@ public final class BlackPantherRender {
 	}
 
 	/**
-	 * One claw at its root (0, 0, 0), growing down (+y) and hooking forward (-z): three segments, each narrower, further down and
+	 * One claw at its root (0, 0, 0), growing down (+y) and hooking back toward the palm (+z): three segments, each narrower, further down and
 	 * further forward than the last.
 	 */
 	private static CubeListBuilder claw(float len, float t) {
 		CubeListBuilder c = CubeListBuilder.create();
 		// the root sheath (dark vibranium), set into the fingertip
 		c.texOffs(16, 8).addBox(-0.26f * t, -0.2f, -0.28f * t, 0.52f * t, 0.75f * len + 0.2f, 0.56f * t);
-		// the body (silver), bending forward
-		c.texOffs(24, 8).addBox(-0.2f * t, 0.55f * len, -0.34f * t - 0.28f * len, 0.4f * t, 0.65f * len, 0.42f * t);
+		// v0.17.5 (user: "make black panther claws curve the other way"): the hook now curls back toward the palm (+z)
+		// the body (silver), bending back
+		c.texOffs(24, 8).addBox(-0.2f * t, 0.55f * len, -0.08f * t + 0.28f * len, 0.4f * t, 0.65f * len, 0.42f * t);
 		// the hooked point (bright)
-		c.texOffs(8, 8).addBox(-0.13f * t, 1.15f * len, -0.3f * t - 0.62f * len, 0.26f * t, 0.5f * len, 0.3f * t);
-		c.texOffs(8, 8).addBox(-0.08f * t, 1.5f * len, -0.22f * t - 0.95f * len, 0.16f * t, 0.3f * len, 0.36f * t);
+		c.texOffs(8, 8).addBox(-0.13f * t, 1.15f * len, 0.62f * len, 0.26f * t, 0.5f * len, 0.3f * t);
+		c.texOffs(8, 8).addBox(-0.08f * t, 1.5f * len, -0.14f * t + 0.95f * len, 0.16f * t, 0.3f * len, 0.36f * t);
 		return c;
 	}
 
