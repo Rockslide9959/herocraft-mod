@@ -23,7 +23,11 @@ public record OmnitrixActionPayload(Action action, String alien) implements Cust
 	public enum Action {
 		SELECT, USE_AIR, CYCLE, SLAP, MASTER_PICK, WALL_KICK,
 		/** v0.17.2: Yes on the Recalibration Chip's confirm screen (OmnitrixRecal.request). */
-		RECAL_CHIP
+		RECAL_CHIP,
+		/** v0.17.5: Shift + right-click with the watch primed -- into function mode, or out of it again (OmnitrixFunction.toggle). */
+		FUNCTION,
+		/** v0.17.5: the six digits typed in function mode ({@code alien} = "042907"; OmnitrixFunction.submit). */
+		CODE
 	}
 
 	public static final CustomPacketPayload.Type<OmnitrixActionPayload> TYPE =

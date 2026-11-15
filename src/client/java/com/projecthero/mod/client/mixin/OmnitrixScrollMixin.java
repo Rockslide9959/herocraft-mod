@@ -18,4 +18,19 @@ public abstract class OmnitrixScrollMixin {
 			ci.cancel();
 		}
 	}
+
+	/**
+	 * v0.17.5: in the watch's function mode the middle mouse button moves to the next code slot (Shift: back) -- taken here, before
+	 * the key mappings see it, so vanilla never picks a block with it.
+	 */
+	@Inject(method = "onPress", at = @At("HEAD"), cancellable = true)
+	private void projecthero$omnitrixFunctionMiddle(long window, int button, int action, int mods, CallbackInfo ci) {
+		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_MIDDLE && window == net.minecraft.client.Minecraft.getInstance().getWindow().getWindow()
+				&& com.projecthero.mod.client.omnitrix.OmnitrixFunctionClient.blocksPick()) {
+			if (action == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+				com.projecthero.mod.client.omnitrix.OmnitrixFunctionClient.onMiddleClick();
+			}
+			ci.cancel();
+		}
+	}
 }

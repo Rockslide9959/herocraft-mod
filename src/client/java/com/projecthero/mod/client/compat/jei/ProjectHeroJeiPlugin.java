@@ -39,6 +39,10 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	public void registerRecipes(IRecipeRegistration registration) {
 		registration.addRecipes(FABRICATOR, FabricatorRecipes.all());
 		lootInfo(registration);
+		// v0.17.5: the Omnitrix Data Fragment (Hero Vault loot; reveals a Master Control digit)
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.omnitrix.item.OmnitrixItems.DATA_FRAGMENT),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.omnitrix_data_fragment.use"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.loot_found"));
 		// v0.17.5 (user): the Target Dummy
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.targetdummy.TargetDummyMod.ITEM),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.body"),
@@ -123,7 +127,8 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 			for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.omnitrix.item.OmnitrixItems.OMNITRIX,
 					com.projecthero.mod.omnitrix.item.OmnitrixItems.METEOR_SCANNER, com.projecthero.mod.omnitrix.item.OmnitrixItems.PLUMBER_ALLOY,
 					com.projecthero.mod.omnitrix.item.OmnitrixItems.CONTAINMENT_CORE, com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM,
-					com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATION_CHIP, com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATED_OMNITRIX }) {
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATION_CHIP, com.projecthero.mod.omnitrix.item.OmnitrixItems.RECALIBRATED_OMNITRIX,
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.DATA_FRAGMENT }) {
 				hidden.add(new ItemStack(i));
 			}
 			jeiRuntime.getIngredientManager().removeIngredientsAtRuntime(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, hidden);

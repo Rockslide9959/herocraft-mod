@@ -57,6 +57,10 @@ Serums are the existing `mutagenic_serum` (6) / `heroic_serum` (3) / `prismatic_
 Add artifacts / gear by giving those files pools (one roll each per vault open) — don't edit the main tables for that.
 In code you can also use Fabric `LootTableEvents.MODIFY` on those keys.
 
+v0.17.5: the **Omnitrix Data Fragment** (`projecthero:omnitrix_data_fragment`, Rare) is added in code (`OmnitrixItems`,
+`LootTableEvents.MODIFY` on the four main `vault_tier<N>` tables): one extra pool per open at 4% / 8% / 14% / 22% by tier
+(`OmnitrixConfig.FRAGMENT_VAULT_CHANCE`). See `docs/OMNITRIX_FRAMEWORK_0171.md` "Master Control: function mode and the code".
+
 ## Materials (gear tiers)
 
 | Id | Tier | Rarity | Notes |

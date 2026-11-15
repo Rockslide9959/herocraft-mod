@@ -225,6 +225,11 @@ public final class OmnitrixWatch {
 		if (since(p, s, partial, Omnitrix.ANIM_DENIED) < 30f || since(p, s, partial, Omnitrix.ANIM_TIMEOUT) < 30f) {
 			return true;
 		}
+		// v0.17.5: the self-destruct countdown -- the face pulses red, faster in the last five seconds
+		int sd = com.projecthero.mod.omnitrix.OmnitrixFunction.selfDestructLeft(s, now);
+		if (sd > 0) {
+			return (now / (sd < 100 ? 3 : 6)) % 2 == 0;
+		}
 		if (s.transformed()) {
 			// the power-down: red exactly on each beep (the warning flashing stops)
 			if (Omnitrix.poweringDown(s)) {
@@ -376,13 +381,65 @@ public final class OmnitrixWatch {
 		if (blink > 0.01f) {
 			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.9f) / 16f, scale(0xFF2A1A, blink));
 		}
-		// v0.17.4: the Master Control ritual -- the core a little brighter with every step, a pulse on each of the three beeps
-		float ritual = com.projecthero.mod.omnitrix.OmnitrixRitual.glow(s, p.level().getGameTime(), partial);
-		if (ritual > 0.01f && !red) {
-			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.5f + 0.8f * Math.min(1f, ritual)) / 16f, scale(g, Math.min(1f, 0.5f * ritual)));
-			glowQuad(glow, last, (top - 0.1f) / 16f, cy / 16f, 0f, (2.6f + 1.5f * Math.min(1f, ritual)) / 16f, scale(g, Math.min(1f, 0.45f * ritual)));
+		// v0.17.5: the watch's flicker that shows a code digit (or a Data Fragment read): a bright stutter of the face
+		float flick = com.projecthero.mod.omnitrix.OmnitrixCodes.flashAge(s, p.level().getGameTime(), partial);
+		if (flick < 30f) {
+			float k = (1f - flick / 30f) * (((int) flick / 2) % 2 == 0 ? 1f : 0.35f);
+			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.7f) / 16f, scale(0x9CFF6A, 0.8f * k));
+		}
+		// v0.17.5: function mode's code readout (and the self-destruct seconds) on the face
+		long now = p.level().getGameTime();
+		OmnitrixFunctionClient.Readout ro = OmnitrixFunctionClient.readout(p, s, now, partial);
+		if (ro == null) {
+			ro = OmnitrixFunctionClient.acceptedReadout(p, s, now, partial);
+		}
+		if (ro != null && !s.transformed()) {
+			drawReadout(buffers, last, ro, fx, cy, fr);
 		}
 		pose.popPose();
+	}
+
+	/**
+	 * v0.17.5: the six-slot readout across the middle of the face -- a dark band over the plain hourglass, seven-segment digits
+	 * drawn additively (they glow), the current slot's cursor bar under it. Slot 1 is at the face's image-left (as the alien icon).
+	 */
+	private static void drawReadout(MultiBufferSource buffers, PoseStack.Pose last, OmnitrixFunctionClient.Readout ro, float fx, float cy, float fr) {
+		int n = ro.cells().length;
+		float half = fr * 0.92f; // inside the bezel
+		float cw = 2f * half / n;
+		float bandH = cw * 1.15f; // half-heights from here on
+		float a = Mth.clamp(ro.alpha(), 0f, 1f);
+		int lit = LightTexture.FULL_BRIGHT;
+		float u = 1f / 16f;
+		// all cutout (a vertex tint on white strokes): translucent / additive layers drawn this late in the first-person hand pass came
+		// out in the wrong place, the cutout ones do not. The band only once the readout is mostly in (it cannot fade).
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(OmnitrixFunctionClient.GLYPHS));
+		if (a > 0.35f) {
+			cellQuad(vc, last, 0xFF030805, fx + 0.01f / 16f, cy - half, cy + half, -bandH, bandH,
+					OmnitrixFunctionClient.SOLID * u + u * 0.3f, 0.3f, OmnitrixFunctionClient.SOLID * u + u * 0.7f, 0.7f, lit);
+		}
+		VertexConsumer glyph = vc;
+		float gw = cw * 0.86f, gh = Math.min(bandH * 0.9f, gw); // the glyph cell is 1:2
+		for (int i = 0; i < n; i++) {
+			float c0 = cy - half + cw * i + (cw - gw) * 0.5f;
+			int cell = ro.cells()[i];
+			cellQuad(glyph, last, scale(ro.colours()[i], a), fx + 0.02f / 16f, c0, c0 + gw, -gh, gh, cell * u, 0f, (cell + 1) * u, 1f, lit);
+			if (i == ro.cursor()) {
+				cellQuad(glyph, last, scale(ro.cursorColour(), a), fx + 0.022f / 16f, c0, c0 + gw, -gh - cw * 0.12f, gh - cw * 0.12f,
+						OmnitrixFunctionClient.CURSOR * u, 0f, (OmnitrixFunctionClient.CURSOR + 1) * u, 1f, lit);
+			}
+		}
+	}
+
+	/** A face-plane quad over y [ya, yb] (image u) and z [za, zb] in px (image v from zb, the top, down to za). */
+	private static void cellQuad(VertexConsumer vc, PoseStack.Pose p, int argb, float x, float ya, float yb, float za, float zb, float u0, float v0,
+			float u1, float v1, int light) {
+		int a = (argb >>> 24) & 255, r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
+		float y0 = ya / 16f, y1 = yb / 16f, z0 = za / 16f, z1 = zb / 16f;
+		vc.addVertex(p, x, y0, z1).setColor(r, g, b, a).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 1, 0, 0);
+		vc.addVertex(p, x, y1, z1).setColor(r, g, b, a).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 1, 0, 0);
+		vc.addVertex(p, x, y1, z0).setColor(r, g, b, a).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 1, 0, 0);
+		vc.addVertex(p, x, y0, z0).setColor(r, g, b, a).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 1, 0, 0);
 	}
 
 	/** {@code rgb} scaled by {@code k} (additive layers fade by darkening), opaque alpha. */

@@ -190,6 +190,12 @@ public final class OmnitrixSounds {
 			.layer(BUZZ, 0.35f, 1.0f)
 			.layer(SoundEvents.LEVER_CLICK, 0.08f, 0.7f)
 			.jitter(0.02f).gap(6);
+	/** v0.17.5: the self-destruct easter egg reaching zero -- a hiss, a sad little pop. */
+	public static final Cue FIZZLE = OmnitrixSfx.cue("omnitrix_fizzle")
+			.layer(SoundEvents.FIRE_EXTINGUISH, 0.45f, 1.4f)
+			.layer(SoundEvents.FIREWORK_ROCKET_TWINKLE_FAR, 0.15f, 0.6f, 4)
+			.layer(BUZZ, 0.2f, 0.6f, 8)
+			.jitter(0.02f).gap(10);
 	/** The recharge done: the whirr, higher and short, and a click. */
 	public static final Cue RECHARGED = OmnitrixSfx.cue("omnitrix_recharged")
 			.layer(USER_RECHARGED, 0.45f, 1.0f) // v0.17.1: the user's "timed back in" recording

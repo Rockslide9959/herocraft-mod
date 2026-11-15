@@ -104,6 +104,8 @@ public final class OmnitrixMod {
 					}
 				}
 				case RECAL_CHIP -> OmnitrixRecal.request(p); // v0.17.2: Yes on the Recalibration Chip's screen
+				case FUNCTION -> OmnitrixFunction.toggle(p); // v0.17.5: function mode in / out
+				case CODE -> OmnitrixFunction.submit(p, payload.alien()); // v0.17.5: a code typed in function mode
 			}
 		});
 

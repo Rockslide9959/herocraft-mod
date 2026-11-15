@@ -1,0 +1,358 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixCodes;
+import com.projecthero.mod.omnitrix.OmnitrixConfig;
+import com.projecthero.mod.omnitrix.OmnitrixFunction;
+import com.projecthero.mod.omnitrix.item.OmnitrixItems;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Omnitrix function mode): primes the watch, Shift + right-clicks into function mode with a
+ * real use click, types the Master Control code with the scroll path and the real middle-button press (MouseHandler.onPress, so
+ * the mixin runs), films it to Master Control unlocking (a frame per tick), then stills: a wrong code's green hints, the
+ * self-destruct red face (first and third person), the fizzle, the Guidebook's known-digits page and the Data Fragment tooltip.
+ * Enabled by run/omnifunc.flag = "<out dir>". Install: copy to src/client/java/com/projecthero/mod/client/OmnitrixFunctionHarness.java
+ * and add it to the "client" entrypoints in fabric.mod.json. Remove both before committing.
+ */
+public final class OmnitrixFunctionHarness implements ClientModInitializer {
+	private static final String MASTER = "582047";
+	private static boolean createdWorld, quick;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	/** Scheduled client actions: tick -> runnable. */
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("omnifunc.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		System.setProperty("omnifunc.debug", "1");
+		quick = Files.exists(Path.of("omnifunc.quick"));
+		new File(out, "screenshots/film").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixFunctionHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(360_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "omnifunc-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static void use() {
+		KeyMapping.click(InputConstants.Type.MOUSE.getOrCreate(1));
+	}
+
+	private static void middle() {
+		Minecraft mc = Minecraft.getInstance();
+		try {
+			var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onPress", long.class, int.class, int.class, int.class);
+			m.setAccessible(true);
+			m.invoke(mc.mouseHandler, mc.getWindow().getWindow(), 2, 1, 0);
+			m.invoke(mc.mouseHandler, mc.getWindow().getWindow(), 2, 0, 0);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] middle failed " + e);
+		}
+	}
+
+	private static void resetEntry() {
+		try {
+			var f = com.projecthero.mod.client.omnitrix.OmnitrixFunctionClient.class.getDeclaredField("ENTRY");
+			f.setAccessible(true);
+			((com.projecthero.mod.omnitrix.OmnitrixCodeEntry) f.get(null)).reset();
+		} catch (Exception e) {
+			System.out.println("[HARNESS] reset failed " + e);
+		}
+	}
+
+	/** Schedules typing {@code code} from 000000 starting at tick {@code t0}; returns the tick after the sixth middle click. */
+	private static int type(int t0, String code, String stillAfterSlot3) {
+		int t = t0;
+		at(t, OmnitrixFunctionHarness::resetEntry);
+		t += 2;
+		for (int i = 0; i < code.length(); i++) {
+			int d = code.charAt(i) - '0';
+			int steps = d <= 5 ? d : d - 10; // the short way round (scroll down wraps 0 -> 9)
+			for (int k = 0; k < Math.abs(steps); k++) {
+				double dy = steps > 0 ? 1.0 : -1.0;
+				at(t, () -> com.projecthero.mod.client.omnitrix.OmnitrixClient.onScroll(dy));
+				t += 2;
+			}
+			t += 2;
+			at(t, OmnitrixFunctionHarness::middle);
+			if (i == 2 && stillAfterSlot3 != null) {
+				final String name = stillAfterSlot3;
+				at(t + 3, () -> shot(Minecraft.getInstance(), name));
+			}
+			t += 4;
+		}
+		return t;
+	}
+
+	private static void shiftUse(int t) {
+		Minecraft mc = Minecraft.getInstance();
+		at(t, () -> mc.options.keyShift.setDown(true));
+		at(t + 4, OmnitrixFunctionHarness::use);
+		at(t + 8, () -> mc.options.keyShift.setDown(false));
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.PEACEFUL, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -6; x <= 6; x++) {
+			for (int z = -6; z <= 6; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		Omnitrix.grant(p, false);
+		Omnitrix.noGlitch(p);
+		OmnitrixCodes.setMasterCode(p, MASTER);
+		OmnitrixCodes.forgetAll(p);
+		OmnitrixCodes.learnDigit(p, 1);
+		OmnitrixCodes.learnDigit(p, 4);
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 10f);
+	}
+
+	private static int film0 = -1, filmEnd = -1;
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		// ---- the film: prime, Shift + right-click, type the code, Master Control unlocks
+		film0 = 0;
+		at(0, () -> server(mc, Omnitrix::activate));
+		shiftUse(24);
+		at(40, () -> shot(mc, "00_function_mode_entered"));
+		int done = type(44, MASTER, "01_function_mode_digits");
+		filmEnd = done + 90;
+		at(done + 70, () -> shot(mc, "02_master_control_unlocked"));
+		// ---- a wrong code's hints
+		int w0 = filmEnd + 20;
+		at(w0, () -> server(mc, p -> {
+			Omnitrix.setMasterControl(p, false);
+			Omnitrix.activate(p);
+		}));
+		shiftUse(w0 + 20);
+		int wd = type(w0 + 36, "580000", null);
+		at(wd + 4, () -> shot(mc, "03_wrong_code_green_hints"));
+		at(wd + 14, () -> shot(mc, "03b_wrong_code_green_hints_later"));
+		// ---- the self-destruct
+		int s0 = wd + 24;
+		at(s0, () -> server(mc, OmnitrixFunction::clearLock));
+		int sd = type(s0 + 4, OmnitrixConfig.SELF_DESTRUCT_CODE, null);
+		at(sd + 8, () -> shot(mc, "04_self_destruct_red_face"));
+		at(sd + 14, () -> shot(mc, "04b_self_destruct_red_face_dim"));
+		at(sd + 20, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(sd + 30, () -> shot(mc, "05_self_destruct_third_person"));
+		at(sd + 32, () -> server(mc, p -> OmnitrixFunction.setSelfDestructElapsed(p, OmnitrixConfig.SELF_DESTRUCT_TICKS - 30)));
+		at(sd + 44, () -> shot(mc, "05b_self_destruct_last_seconds_third_person"));
+		at(sd + 66, () -> shot(mc, "06_fizzle"));
+		at(sd + 70, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+		// ---- third person function mode (the face readout seen from outside)
+		int f0 = sd + 74;
+		at(f0, () -> server(mc, p -> {
+			var n = Omnitrix.state(p).copy();
+			n.rechargeUntil = 0L;
+			Omnitrix.save(p, n);
+			Omnitrix.activate(p);
+		}));
+		shiftUse(f0 + 22);
+		at(f0 + 34, () -> com.projecthero.mod.client.omnitrix.OmnitrixClient.onScroll(1.0));
+		at(f0 + 36, () -> com.projecthero.mod.client.omnitrix.OmnitrixClient.onScroll(1.0));
+		at(f0 + 40, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(f0 + 50, () -> shot(mc, "07_function_mode_third_person"));
+		at(f0 + 52, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+		// ---- the Guidebook page: what he has found
+		int g0 = f0 + 60;
+		at(g0, () -> server(mc, p -> {
+			Omnitrix.deactivate(p);
+			OmnitrixCodes.forgetAll(p);
+			OmnitrixCodes.learnDigit(p, 1);
+			OmnitrixCodes.learnDigit(p, 4);
+			for (var a : OmnitrixCodes.codeable()) {
+				if (!com.projecthero.mod.omnitrix.alien.Aliens.found(p, a.id())) {
+					OmnitrixCodes.learnAlien(p, a.id());
+					break;
+				}
+			}
+		}));
+		at(g0 + 10, () -> mc.setScreen(new com.projecthero.mod.client.gui.HeroPackGuideScreen()));
+		at(g0 + 14, () -> {
+			try {
+				var fld = com.projecthero.mod.hero.guide.HeroPackGuide.class.getDeclaredField("CH_MASTER_CONTROL");
+				fld.setAccessible(true);
+				int ch = fld.getInt(null);
+				var m = com.projecthero.mod.client.gui.HeroPackGuideScreen.class.getDeclaredMethod("openChapter", int.class, int.class);
+				m.setAccessible(true);
+				int line = 0;
+				var lines = com.projecthero.mod.hero.guide.HeroPackGuide.chapters().get(ch).lines();
+				String head = Component.translatable("projecthero.guide.omnitrix.master.found").getString();
+				for (int i = 0; i < lines.size(); i++) {
+					if (lines.get(i).getString().equals(head)) {
+						line = i;
+					}
+				}
+				m.invoke(mc.screen, ch, line);
+			} catch (Exception e) {
+				System.out.println("[HARNESS] guide failed " + e);
+			}
+		});
+		at(g0 + 20, () -> shot(mc, "08_guidebook_known_digits"));
+		at(g0 + 22, () -> mc.setScreen(new TipScreen()));
+		at(g0 + 28, () -> shot(mc, "09_data_fragment_tooltip"));
+		at(g0 + 30, () -> mc.setScreen(null));
+		at(g0 + 34, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixFunctionHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, OmnitrixFunctionHarness::stage);
+		}
+		if (t < 170 || base == null) {
+			return;
+		}
+		int s = t - 170;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0 && mc.screen == null) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		if (quick && s == 60) {
+			shot(mc, "quick");
+		}
+		if (quick && s == 75) {
+			Runtime.getRuntime().halt(0);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (s >= film0 && s < filmEnd) {
+			shot(mc, String.format("film/f%03d", s - film0));
+		}
+	}
+
+	/** The Data Fragment's tooltip. */
+	static final class TipScreen extends Screen {
+		TipScreen() {
+			super(Component.literal("tip"));
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF1B1E24);
+			ItemStack st = new ItemStack(OmnitrixItems.DATA_FRAGMENT);
+			g.renderItem(st, width - 40, 10);
+			g.renderTooltip(font, Screen.getTooltipFromItem(minecraft, st), st.getTooltipImage(), 4, 24);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null); // no Kwami offer flying through the shots
+		LevelSettings settings = new LevelSettings("OMNIFUNC_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

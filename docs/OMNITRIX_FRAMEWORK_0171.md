@@ -498,46 +498,85 @@ speed powers moveset please, i want him to be really cool and i want the power s
 * Screenshots: `docs/screenshots/v0171/omnitrix_xlr8v2_*.png` and `omnitrix_vkey_*.png` (harness:
   `scratchpad/xlr8_v0171/AlienLookHarness.xlr8.v0171.java.txt`, flag `run/alienlook.flag` = "xlr8 vkey").
 
-## Master Control: the ritual (v0.17.4)
+## Master Control: function mode and the code (v0.17.5)
 
-User: "right now its way too easy ... i want master control to be something that can be activated at any point if the player
-knows how to do it, make it kinda complicated". They picked a gesture ritual. The old trigger (Shift+N held 10 s with the watch
-up) is gone; the dial-flip sequence (`Omnitrix.startMasterSequence` / `tickMasterSequence`) is kept as the payoff.
+User: "make it so that after priming the omnitrix the player can shift+right click to go into function mode of the omnitrix, the
+dial goes down, the watch face returns to normal and the player can enter codes ... also by doing it this way change how master
+control is gained, it should be a random 6 number combination, add a way for the player to slowly discover random numbers for the
+master control please like how its done in alien evo". The v0.17.4 ritual (`OmnitrixRitual`, its tests and its Guidebook steps) and
+the Shift+N off-hold are gone; the dial-flip sequence (`Omnitrix.startMasterSequence`) is still the payoff.
 
-**Turning it ON** (`omnitrix/OmnitrixRitual.java`): human, watch raised with the core up, Master Control off, either watch. In order:
+| Piece | Where |
+|---|---|
+| Function mode, codes, rate limit, self-destruct | `omnitrix/OmnitrixFunction.java` (server; state in the synced `OmnitrixState` timers) |
+| The codes and their discovery | `omnitrix/OmnitrixCodes.java`; secrets `omnitrix/data/OmnitrixSecrets.java` in `OmnitrixAttachments.SECRETS` |
+| Typing logic (pure, shared with the tests) | `omnitrix/OmnitrixCodeEntry.java` |
+| Data Fragment item + vault loot | `omnitrix/item/OmnitrixDataFragmentItem.java`, `OmnitrixItems` (`LootTableEvents.MODIFY` on `chests/vault_tier1-4`) |
+| Client: input, face readout, HUD, Guidebook lines | `client/omnitrix/OmnitrixFunctionClient.java`; hooks in `OmnitrixClient`, `mixin/OmnitrixScrollMixin` (middle button), `mixin/OmnitrixInputMixin` (no pick-block); the fold in `OmnitrixHands.rig`; the readout in `OmnitrixWatch.drawReadout` |
+| Payloads | `OmnitrixActionPayload` `FUNCTION` (toggle), `CODE` (the six digits) |
+| Tests | `OmnitrixFunctionModeGameTests` |
+| Assets / lang | `scratchpad/gen_omnitrix_function_v0175.js` (`entity/omnitrix/code_glyphs.png`, `item/omnitrix_data_fragment.png`), `scratchpad/lang_omnitrix_function_v0175.js` |
+| Harness / films | `scratchpad/OmnitrixFunctionHarness.v0175.java.txt`, `scratchpad/omnitrix_function_film_v0175.js`, `docs/screenshots/v0175/omnitrix_function/` |
 
-| Step | What | Window |
+**Controls** (either watch, human, watch primed = raised with the core up):
+
+| Input | In function mode |
+|---|---|
+| Shift + right-click | enter (the core sinks, the face goes back to the plain hourglass, the 6-slot readout comes up) / leave (the core pops back up) |
+| Scroll up / down | the blinking slot's digit +1 / -1, wrapping 0-9 (the dial never turns, the hotbar never moves) |
+| Middle click | next slot; on the 6th the code is sent (cursor back to slot 1, the digits stay for the next guess) |
+| Shift + middle click | back one slot (stops at slot 1) |
+| R | lowers the watch (function mode ends; a lock or a countdown carries on) |
+| Left / right click | nothing (no slap in function mode) |
+
+The middle button is taken in `MouseHandler.onPress` before the key mappings see it, and `Minecraft.pickBlock` is cancelled while in
+function mode (a rebound pick key too). Client sounds: digit = the user's dial click pitched by digit, next = lever click, back = a lower
+lever click, send = trapdoor click. Server: enter = `CORE_DOWN`, leave = `CORE_UP`, wrong = `DENIED` + low `WARNING`, accept = `SELECT`
+high (+ `RECHARGED` for an alien), the self-destruct = `SELF_DESTRUCT` + quickening `WARNING`s, the fizzle = the new `FIZZLE` Cue.
+
+**Codes** (`OmnitrixFunction.submit`, server-authoritative: only the typed code travels; one submit per 5 ticks; nothing while locked):
+
+- **His Master Control code** -- random per player, rolled on first use (`OmnitrixCodes.secrets`), never sent to any client. Entering it
+  marks all six digits known, leaves function mode and plays the dial sequence: Master Control on, or OFF if it was on.
+- **A hidden alien's code** -- one random code per hidden alien a mistransform can find (`Aliens.mistransformFinds`: not Way Big, not
+  held-back aliens). Unlocks it through `Aliens.discover`, records the code as known, and the dial jumps to it (on the watch it belongs
+  to). The every-11th-mistransform route is unchanged.
+- **Self-destruct: `101010`** (`OmnitrixConfig.SELF_DESTRUCT_CODE`, the same on every watch; Ben TEN said three times). Starts a 15 s
+  countdown: red pulsing face (faster in the last 5 s) showing the seconds, red screen edges and a banner, beeps every second (every half
+  second at the end), the siren every 5 s, no transforming meanwhile. The same code cancels it. At zero it **fizzles**: a smoke puff and
+  a hiss, the watch drops and "overheats" (30 s red face / no transform via `rechargeUntil`), a funny chat line. No damage, no blocks,
+  nothing lost. The Guidebook hints at it ("Every hero has a number ... say it to the watch three times over"); never told outright.
+- **Anything else** -- the error buzz, the digits matching his Master Control code in place flash green on the face and in the HUD
+  (Mastermind, against the Master Control code only), and function mode locks for 10 s (`CODE_LOCK_TICKS`; lowering the watch does not
+  end the lock). Codes never collide with each other or with `101010`.
+
+**Discovery** (`OmnitrixCodes`):
+
+| Source | Odds | Shows |
 |---|---|---|
-| 1 | Look straight up: pitch <= -80 deg (`RITUAL_LOOK_PITCH`), held 20 ticks (`RITUAL_LOOK_TICKS`) | dropping above -75 deg (`RITUAL_LOOK_KEEP_PITCH`) before step 2 resets |
-| 2 | Still looking up, 3 sneak presses (`RITUAL_CROUCHES`; rising edges of `isShiftKeyDown`, polled per tick; extra crouches are ignored) | within 6 s (`RITUAL_STEP_TICKS`) of step 1 |
-| 3 | One full round LEFT: `Aliens.playable(p).size()` consecutive `cycle(-1)` steps (scroll up), back where it started. Eyes may come down | within 6 s of step 2; any `+1` step resets |
-| 4 | One full round RIGHT: the same number of `cycle(+1)` steps (scroll down) | within 6 s of step 3; any `-1` step resets |
-| 5 | Three beeps (the `WARNING` blip, to the wearer only), at 1 s / 2 s / 3 s after step 4 (`RITUAL_BEEP_TICKS`); the third louder and higher (pitch 2.0) | -- |
-| 6 | Slap the core (left or right click) on the third beep: within 5 ticks either side of beep 3 (`RITUAL_WINDOW_TICKS`, about 0.5 s centred) | no slap by 1 s after beep 3 (`RITUAL_LATE_TICKS`) quietly resets |
+| The watch's flicker on each transformation | 5% (`REVEAL_TRANSFORM_CHANCE`) | one unknown digit and its place |
+| ... on each full minute as an alien | 2.5% (`REVEAL_MINUTE_CHANCE`) | same |
+| Cooldown between flickers | 20 min of game time (`REVEAL_COOLDOWN_TICKS`); a roll that shows nothing does not spend it | |
+| Once all six are known | 20% of flickers (`REVEAL_ALIEN_CODE_CHANCE`) show a whole hidden-alien code | |
+| Omnitrix Data Fragment (Rare, stacks to 16), used wearing a watch | 15% a whole hidden-alien code (if any left), else a digit; ignores the cooldown | consumed only if it showed something |
+| Data Fragment in Hero Vaults | tier 1 4%, tier 2 8%, tier 3 14%, tier 4 22% per vault open (`FRAGMENT_VAULT_CHANCE`) | |
 
-- **Success:** `startMasterSequence` (the dial turns through every alien, the watch goes down, "MASTER CONTROL UNLOCKED"; the
-  recalibrated watch plays its voice line). No transformation.
-- **Off the beat** (before beep 3's window, including during beeps 1-2, or after it): the slap goes through with
-  `Omnitrix.FORCE_GLITCH` set -- the glitch path lands on a random wrong alien on ANY watch (not counted as a mistransform, finds
-  no hidden alien); the dial stays where it was. The ritual is over.
-- **Silent resets:** any step more than 6 s after the one before, a wrong-direction dial step, a dial step before the crouches or
-  during the beeps, the watch going down (`deactivate`), raising it again (`activate`), transforming, Master Control already on,
-  the dial sequence running. No text ever tells you what is next.
-- **Feedback:** a faint lever tick (`SELECT`, to the wearer only, pitch rising per stage) when each of steps 1-4 completes; the
-  core glows a little brighter per stage and pulses on each beep (`OmnitrixRitual.glow`, drawn in `OmnitrixWatch`).
-- **State:** all in the wearer's persisted, synced `OmnitrixState.timers` (`omnitrix.ritual`, `_at`, `_n`, `_sneak`, `_look`), so
-  there is no new static map (nothing for `ServerStateReset`) and the client can read the stage for the glow. Cleared by
-  `activate` / `deactivate` / `transform`; `FORCE_GLITCH` is cleared with the slap timers (`clearSlap`).
+At ~12 transformations and ~30 transformed minutes an hour that is ~1.35 flickers an hour: all six in ~4-5 hours of ordinary play on the
+watch alone (the cooldown caps it at 3 an hour), sooner with fragments. A reveal flashes the face, blips, and goes to the action bar AND
+chat ("Master Control digit 3 is 2 [ _ 8 2 _ 4 _ ]").
 
-**Turning it OFF:** Shift+N held 3 s (`MASTER_HOLD_TICKS`, was 10 s) with the watch up runs the same dial sequence and flips it
-off. Without Master Control the hold does nothing (`OmnitrixAbilityManager`). `/projecthero power tune omnitrix master on|off`
-still sets it at once. Recalibrating (and un-recalibrating) still clears it; it still never glitches.
+**State.** Secrets: `OmnitrixAttachments.SECRETS` (persistent, copy-on-death, NOT synced, untouched by taking the watch off). Known
+digits / codes: `OmnitrixState` timers under `omnitrix.code.` (`d0`-`d5`, `a.<alien>`, `reveal_at`, `flash_at`), carried by
+`keepPlayerData`. Function mode: `omnitrix.func`, `func_out`, `func_lock`, `func_result(_at)`, `func_hint`, `self_destruct` -- cleared by
+`activate` / `deactivate` / `transform` (function mode only) and by death / logout (all). No static maps (nothing for
+`ServerStateReset`). Recalibrating still clears Master Control; the code and the found digits stay.
 
-**Guidebook:** a hidden chapter `CH_MASTER_CONTROL` ("Master Control", after Vision): a cryptic note found inside the watch
-(`projecthero.guide.omnitrix.master.*`) that describes the six steps. It is filed under Other heroes (after the Omnitrix) but
-`HeroPackGuide.categoryEntries` and `search` leave it out until `HeroPackGuide.masterControlRevealed` says the local player has
-woken Master Control once -- `Omnitrix.MASTER_KNOWN` (`omnitrix.master_known`, set by the flip on and by the command, kept
-across taking the watch off by `keepPlayerData`). The Omnitrix rules list gets one vague line (`projecthero.omnitrix.info.rule.master`).
+**Guidebook.** `CH_MASTER_CONTROL` is now the note about function mode, the controls, the code being yours alone and slipping out a
+digit at a time, the wrong-code rule, the off rule, **what you have found** (live: `HeroPackGuide.masterControlLive` from
+`OmnitrixFunctionClient.guideLines` -- "Master Control: _ 8 _ _ 4 _", "2 of 6 digits found", "Unknown DNA: 186656" / "Cannonbolt: ...
+(on your dial)"; `refreshMasterControl` rebuilds the page when the client's signature changes), the hidden-DNA line and the
+self-destruct hint. It shows once the reader has woken Master Control OR found anything (`OmnitrixCodes.anythingKnown`). JEI: an info
+page for the Data Fragment. The Omnitrix rules line (`projecthero.omnitrix.info.rule.master`) now points at function mode.
 
-Tests: `OmnitrixMasterRitualGameTests` (full ritual on both watches, wrong way, too slow, eyes down mid-crouches, slap on beep 2,
-slap late, Shift+N off-only, the hidden page).
+**Rendering note.** The face readout is cutout quads (white strokes in `code_glyphs.png`, tinted per vertex) over a dark band:
+translucent / `eyes` quads drawn this late in the first-person hand pass ended up in the wrong place on screen; cutout ones do not.
