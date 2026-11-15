@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:salvaged_tech"
+    },
+    {
+      "item": "projecthero:salvaged_tech"
+    },
+    {
+      "item": "projecthero:salvaged_tech"
+    },
+    {
+      "item": "projecthero:salvaged_tech"
+    },
+    {
+      "item": "minecraft:iron_ingot"
+    }
+  ],
+  "result": {
+    "id": "projecthero:hero_alloy_ingot",
+    "count": 1
+  }
+}

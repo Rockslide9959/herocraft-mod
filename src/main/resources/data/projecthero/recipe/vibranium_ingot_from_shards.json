@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:vibranium_shard"
+    },
+    {
+      "item": "projecthero:vibranium_shard"
+    },
+    {
+      "item": "projecthero:vibranium_shard"
+    },
+    {
+      "item": "projecthero:vibranium_shard"
+    }
+  ],
+  "result": {
+    "id": "projecthero:vibranium_ingot",
+    "count": 1
+  }
+}

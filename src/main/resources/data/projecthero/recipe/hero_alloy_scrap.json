@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:hero_alloy_ingot"
+    }
+  ],
+  "result": {
+    "id": "projecthero:hero_alloy_scrap",
+    "count": 9
+  }
+}

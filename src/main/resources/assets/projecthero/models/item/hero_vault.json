@@ -1,0 +1,23 @@
+{
+  "parent": "projecthero:block/hero_vault_tier1",
+  "overrides": [
+    {
+      "predicate": {
+        "projecthero:vault_tier": 0.5
+      },
+      "model": "projecthero:item/hero_vault_tier2"
+    },
+    {
+      "predicate": {
+        "projecthero:vault_tier": 0.75
+      },
+      "model": "projecthero:item/hero_vault_tier3"
+    },
+    {
+      "predicate": {
+        "projecthero:vault_tier": 1
+      },
+      "model": "projecthero:item/hero_vault_tier4"
+    }
+  ]
+}
