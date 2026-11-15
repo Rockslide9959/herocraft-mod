@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:the_vault",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1705201,
+    "spacing": 200,
+    "separation": 80,
+    "exclusion_zone": {
+      "other_set": "minecraft:villages",
+      "chunk_count": 4
+    }
+  }
+}

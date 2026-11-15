@@ -1,0 +1,7 @@
+{
+  "type": "projecthero:vault_dungeon",
+  "biomes": "#projecthero:vault_dungeon_biomes",
+  "step": "top_layer_modification",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}

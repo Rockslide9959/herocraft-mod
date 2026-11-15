@@ -47,6 +47,10 @@
     "projecthero:omnitrix_containment_pod",
     "projecthero:hideout_core",
     "projecthero:hideout_alarm",
-    "projecthero:hideout_vent"
+    "projecthero:hideout_vent",
+    "projecthero:vault_laser_alarm",
+    "projecthero:vault_turret",
+    "projecthero:vault_console",
+    "projecthero:lockdown_track"
   ]
 }

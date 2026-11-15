@@ -83,6 +83,17 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		}
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CORE_ITEM),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.clearing.body"));
+		// v0.17.5: The Vault (Tier 4) -- its three artifacts and its blocks
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.vaultdungeon.item.VaultItems.all()) {
+			registration.addItemStackInfo(new ItemStack(i),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.vault.a." + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath()),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.vault_artifact"));
+		}
+		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.vaultdungeon.block.VaultBlocks.TURRET_ITEM,
+				com.projecthero.mod.vaultdungeon.block.VaultBlocks.ALARM_ITEM, com.projecthero.mod.vaultdungeon.block.VaultBlocks.CONSOLE_ITEM,
+				com.projecthero.mod.vaultdungeon.block.VaultBlocks.TRACK_ITEM }) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"));
+		}
 	}
 
 	@Override

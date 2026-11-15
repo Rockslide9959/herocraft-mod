@@ -25,7 +25,17 @@ public enum SyndicateSkin {
 	 * v0.17.5: Kingpin's Enforcer, the Kingpin's Front mini-boss -- painted procedurally from {@code thug_a} (black
 	 * three-piece suit, gold chain, dark glasses) by {@code scratchpad/gen_hideouts_v0175.js}.
 	 */
-	HIDEOUT_ENFORCER("hideout_enforcer", false);
+	HIDEOUT_ENFORCER("hideout_enforcer", false),
+	/** v0.17.5 The Vault: an escaped inmate in an orange jumpsuit (recolour of {@code thug_a}, {@code scratchpad/gen_vault_v0175.js}). */
+	VAULT_INMATE_A("vault/inmate_a", false),
+	/** v0.17.5 The Vault: a second inmate (recolour of {@code thug_c}, shaved head, orange jumpsuit). */
+	VAULT_INMATE_B("vault/inmate_b", false),
+	/** v0.17.5 The Vault: a riot warden -- black tactical armour, riot helmet and visor (painted over {@code thug_c}). */
+	VAULT_RIOT_WARDEN("vault/riot_warden", false),
+	/** v0.17.5 The Vault: a riot gunner -- the warden kit with a grey ballistic vest. */
+	VAULT_RIOT_GUNNER("vault/riot_gunner", false),
+	/** v0.17.5 The Vault: Warden Kross -- charcoal greatcoat, red trim, peaked officer cap, scarred face (over {@code thug_a}). */
+	VAULT_WARDEN_KROSS("vault/warden_kross", false);
 
 	private final ResourceLocation texture;
 	private final boolean slim;

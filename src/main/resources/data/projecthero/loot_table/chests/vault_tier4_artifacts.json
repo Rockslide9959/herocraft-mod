@@ -1,4 +1,62 @@
 {
   "type": "minecraft:chest",
-  "pools": []
+  "pools": [
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_vault_dungeon",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.22
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:wardens_keyring"
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_vault_dungeon",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.15
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:cracked_mjolnir_shard"
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_vault_dungeon",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.22
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:riot_capacitor"
+        }
+      ]
+    }
+  ]
 }

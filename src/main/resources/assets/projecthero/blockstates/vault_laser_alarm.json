@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,spent=false": {
+      "model": "projecthero:block/vault_laser_alarm"
+    },
+    "facing=east,spent=false": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 90
+    },
+    "facing=south,spent=false": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 180
+    },
+    "facing=west,spent=false": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 270
+    },
+    "facing=north,spent=true": {
+      "model": "projecthero:block/vault_laser_alarm"
+    },
+    "facing=east,spent=true": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 90
+    },
+    "facing=south,spent=true": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 180
+    },
+    "facing=west,spent=true": {
+      "model": "projecthero:block/vault_laser_alarm",
+      "y": 270
+    }
+  }
+}
