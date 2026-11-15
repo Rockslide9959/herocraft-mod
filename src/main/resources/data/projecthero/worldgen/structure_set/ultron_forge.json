@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:ultron_forge",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1705102,
+    "spacing": 150,
+    "separation": 60,
+    "frequency": 0.85
+  }
+}

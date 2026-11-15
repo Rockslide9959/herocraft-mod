@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "faction=kingpin,spent=false": {
+      "model": "projecthero:block/hideout_alarm_kingpin"
+    },
+    "faction=kingpin,spent=true": {
+      "model": "projecthero:block/hideout_alarm_kingpin_spent"
+    },
+    "faction=ultron,spent=false": {
+      "model": "projecthero:block/hideout_alarm_ultron"
+    },
+    "faction=ultron,spent=true": {
+      "model": "projecthero:block/hideout_alarm_ultron_spent"
+    },
+    "faction=apokolips,spent=false": {
+      "model": "projecthero:block/hideout_alarm_apokolips"
+    },
+    "faction=apokolips,spent=true": {
+      "model": "projecthero:block/hideout_alarm_apokolips_spent"
+    },
+    "faction=symbiote,spent=false": {
+      "model": "projecthero:block/hideout_alarm_symbiote"
+    },
+    "faction=symbiote,spent=true": {
+      "model": "projecthero:block/hideout_alarm_symbiote_spent"
+    },
+    "faction=frost,spent=false": {
+      "model": "projecthero:block/hideout_alarm_frost"
+    },
+    "faction=frost,spent=true": {
+      "model": "projecthero:block/hideout_alarm_frost_spent"
+    }
+  }
+}

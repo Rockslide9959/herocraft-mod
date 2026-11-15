@@ -67,6 +67,13 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 		return spike;
 	}
 
+	/** v0.17.5: a black spike from any living owner (the Hive Mother): {@code damage} on a hit and a short Wither II. */
+	public static SymbioteSpikeEntity shootBlack(LivingEntity owner, Vec3 from, Vec3 dir, float damage, float speed) {
+		SymbioteSpikeEntity spike = shootCrimson(owner, from, dir, damage, speed);
+		spike.entityData.set(DATA_CRIMSON, false);
+		return spike;
+	}
+
 	public boolean crimson() {
 		return entityData.get(DATA_CRIMSON);
 	}

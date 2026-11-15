@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/hideout_vent_biomass",
+    "bottom": "projecthero:block/hideout_vent_side",
+    "side": "projecthero:block/hideout_vent_side",
+    "particle": "projecthero:block/hideout_vent_side"
+  }
+}

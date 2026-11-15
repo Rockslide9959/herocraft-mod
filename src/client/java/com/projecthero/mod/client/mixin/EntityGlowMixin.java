@@ -52,6 +52,11 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(true);
 			return;
 		}
+		// v0.17.5: the Ultron Cortex Shard's reveal -- hostiles within 32 blocks for 8 s, the viewer's own view only
+		if (com.projecthero.mod.client.hideout.HideoutClient.cortexReveals(self)) {
+			cir.setReturnValue(true);
+			return;
+		}
 		// Iron Man: while the viewer wears a powered Iron Man helmet with the highlight on, nearby mobs are outlined.
 		// Client-only, decided from the viewer's OWN state -- never a server GLOWING effect / glowing tag / shared flag,
 		// so no other player (squad mates included) ever sees it. "changes 18": when the viewer wears an Iron Man helmet

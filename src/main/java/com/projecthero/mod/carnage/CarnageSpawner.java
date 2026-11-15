@@ -60,6 +60,9 @@ public final class CarnageSpawner {
 			if (p.isSpectator() || p.isCreative()) {
 				continue;
 			}
+			if (com.projecthero.mod.hideout.HideoutCalm.calmed(level, com.projecthero.mod.hideout.HideoutFaction.SYMBIOTE, p.blockPosition())) {
+				continue; // v0.17.5: a cleared Symbiote Hive nearby keeps Carnage away for a while
+			}
 			double chance = Symbiote.hasSymbiote(p) ? cfg.symbioteHostChancePerMinute : cfg.spawnChancePerMinute;
 			if (level.random.nextDouble() < chance && dropNear(level, p, 24, 40)) {
 				COOLDOWN_UNTIL.put(level.dimension(), level.getGameTime() + cfg.cooldownAfterSpawnMinutes * 1200L);

@@ -33,6 +33,9 @@ public final class FrostGiantSpawner {
 			if (p.serverLevel().getDifficulty() == Difficulty.PEACEFUL || !eligible(p)) {
 				continue;
 			}
+			if (com.projecthero.mod.hideout.HideoutCalm.calmed(p.serverLevel(), com.projecthero.mod.hideout.HideoutFaction.FROST, p.blockPosition())) {
+				continue; // v0.17.5: a cleared Frost Giant Hall nearby
+			}
 			if (p.getRandom().nextDouble() < Math.max(0.0, cfg.chancePerMinute)) {
 				deliver(p);
 			}

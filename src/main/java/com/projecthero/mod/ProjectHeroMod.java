@@ -316,6 +316,7 @@ public class ProjectHeroMod implements ModInitializer {
 
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();
+		com.projecthero.mod.hideout.HideoutMod.initialize(); // v0.17.5: Tier 3 villain hideouts
 		// v0.16.2 City part A: the City structure type + City Map trade (part B's CityBlocks registers the job-site blocks)
 		com.projecthero.mod.city.CityWorldgen.initialize();
 		CraterAmbience.initialize();

@@ -1,4 +1,10 @@
 {
   "replace": false,
-  "values": []
+  "values": [
+    "projecthero:kingpins_front",
+    "projecthero:ultron_forge",
+    "projecthero:apokolips_outpost",
+    "projecthero:symbiote_hive",
+    "projecthero:frost_giant_hall"
+  ]
 }

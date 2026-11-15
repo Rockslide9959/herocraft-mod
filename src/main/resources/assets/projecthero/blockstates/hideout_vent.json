@@ -1,0 +1,40 @@
+{
+  "variants": {
+    "kind=fire,phase=0": {
+      "model": "projecthero:block/hideout_vent_fire"
+    },
+    "kind=fire,phase=1": {
+      "model": "projecthero:block/hideout_vent_fire_hot"
+    },
+    "kind=fire,phase=2": {
+      "model": "projecthero:block/hideout_vent_fire"
+    },
+    "kind=plasma,phase=0": {
+      "model": "projecthero:block/hideout_vent_plasma"
+    },
+    "kind=plasma,phase=1": {
+      "model": "projecthero:block/hideout_vent_plasma_hot"
+    },
+    "kind=plasma,phase=2": {
+      "model": "projecthero:block/hideout_vent_plasma"
+    },
+    "kind=biomass,phase=0": {
+      "model": "projecthero:block/hideout_vent_biomass"
+    },
+    "kind=biomass,phase=1": {
+      "model": "projecthero:block/hideout_vent_biomass_hot"
+    },
+    "kind=biomass,phase=2": {
+      "model": "projecthero:block/hideout_vent_biomass"
+    },
+    "kind=frost,phase=0": {
+      "model": "projecthero:block/hideout_vent_frost"
+    },
+    "kind=frost,phase=1": {
+      "model": "projecthero:block/hideout_vent_frost_hot"
+    },
+    "kind=frost,phase=2": {
+      "model": "projecthero:block/hideout_vent_frost"
+    }
+  }
+}

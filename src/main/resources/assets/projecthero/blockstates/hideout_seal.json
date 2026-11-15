@@ -1,0 +1,79 @@
+{
+  "variants": {
+    "facing=north,faction=kingpin": {
+      "model": "projecthero:block/hideout_seal_kingpin"
+    },
+    "facing=east,faction=kingpin": {
+      "model": "projecthero:block/hideout_seal_kingpin",
+      "y": 90
+    },
+    "facing=south,faction=kingpin": {
+      "model": "projecthero:block/hideout_seal_kingpin",
+      "y": 180
+    },
+    "facing=west,faction=kingpin": {
+      "model": "projecthero:block/hideout_seal_kingpin",
+      "y": 270
+    },
+    "facing=north,faction=ultron": {
+      "model": "projecthero:block/hideout_seal_ultron"
+    },
+    "facing=east,faction=ultron": {
+      "model": "projecthero:block/hideout_seal_ultron",
+      "y": 90
+    },
+    "facing=south,faction=ultron": {
+      "model": "projecthero:block/hideout_seal_ultron",
+      "y": 180
+    },
+    "facing=west,faction=ultron": {
+      "model": "projecthero:block/hideout_seal_ultron",
+      "y": 270
+    },
+    "facing=north,faction=apokolips": {
+      "model": "projecthero:block/hideout_seal_apokolips"
+    },
+    "facing=east,faction=apokolips": {
+      "model": "projecthero:block/hideout_seal_apokolips",
+      "y": 90
+    },
+    "facing=south,faction=apokolips": {
+      "model": "projecthero:block/hideout_seal_apokolips",
+      "y": 180
+    },
+    "facing=west,faction=apokolips": {
+      "model": "projecthero:block/hideout_seal_apokolips",
+      "y": 270
+    },
+    "facing=north,faction=symbiote": {
+      "model": "projecthero:block/hideout_seal_symbiote"
+    },
+    "facing=east,faction=symbiote": {
+      "model": "projecthero:block/hideout_seal_symbiote",
+      "y": 90
+    },
+    "facing=south,faction=symbiote": {
+      "model": "projecthero:block/hideout_seal_symbiote",
+      "y": 180
+    },
+    "facing=west,faction=symbiote": {
+      "model": "projecthero:block/hideout_seal_symbiote",
+      "y": 270
+    },
+    "facing=north,faction=frost": {
+      "model": "projecthero:block/hideout_seal_frost"
+    },
+    "facing=east,faction=frost": {
+      "model": "projecthero:block/hideout_seal_frost",
+      "y": 90
+    },
+    "facing=south,faction=frost": {
+      "model": "projecthero:block/hideout_seal_frost",
+      "y": 180
+    },
+    "facing=west,faction=frost": {
+      "model": "projecthero:block/hideout_seal_frost",
+      "y": 270
+    }
+  }
+}

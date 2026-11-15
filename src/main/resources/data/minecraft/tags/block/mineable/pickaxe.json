@@ -44,6 +44,9 @@
     "projecthero:galactus_helmet_crest",
     "projecthero:consumed_ground",
     "projecthero:cosmic_hazard",
-    "projecthero:omnitrix_containment_pod"
+    "projecthero:omnitrix_containment_pod",
+    "projecthero:hideout_core",
+    "projecthero:hideout_alarm",
+    "projecthero:hideout_vent"
   ]
 }

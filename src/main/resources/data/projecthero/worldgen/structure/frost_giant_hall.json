@@ -1,0 +1,8 @@
+{
+  "type": "projecthero:villain_hideout",
+  "faction": "frost",
+  "biomes": "#projecthero:hideout/frost_giant_hall",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}
