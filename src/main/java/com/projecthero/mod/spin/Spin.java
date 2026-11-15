@@ -346,6 +346,7 @@ public final class Spin {
 		s.gen1 = old.gen1 + 1;
 		save(player, s);
 		SpinBalls.giveBoth(player); // his two Steel Balls: main hand and off hand when free
+		com.projecthero.mod.stand.Stands.resyncAll(player.getServer()); // v0.17.5: a Spin user sees Stands: send him the ones already out
 		reconcile(player);
 		player.setHealth(player.getMaxHealth());
 		ServerLevel level = (ServerLevel) player.level();

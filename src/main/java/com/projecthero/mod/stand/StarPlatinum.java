@@ -391,7 +391,7 @@ public final class StarPlatinum {
 				net.minecraft.sounds.SoundSource.PLAYERS);
 		double r2 = StandConfig.FX_RANGE * StandConfig.FX_RANGE;
 		for (ServerPlayer viewer : level(p).players()) {
-			if (Stands.isStandUser(viewer) && viewer.distanceToSqr(p) < r2) {
+			if (Stands.seesStands(viewer) && viewer.distanceToSqr(p) < r2) {
 				viewer.connection.send(packet);
 			}
 		}

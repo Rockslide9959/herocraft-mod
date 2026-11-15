@@ -53,6 +53,8 @@ public class SteelBallEntity extends Projectile {
 	private boolean steering;
 	private double range = SpinConfig.BALL_RANGE;
 	private int returnTicks;
+	/** v0.17.5: who this throw has already hit (the way out and the way back): the ball hits each creature once per throw. */
+	private final java.util.Set<java.util.UUID> struck = new java.util.HashSet<>();
 	private boolean caught;
 	private InteractionHand hand = InteractionHand.MAIN_HAND;
 	/** R / Shift+R: the ball bends after the thrower's look on its way out (see {@link #curve}). */
@@ -226,6 +228,7 @@ public class SteelBallEntity extends Projectile {
 		}
 		double speed = Math.min(SpinConfig.BALL_RETURN_SPEED + p.getDeltaMovement().length(), 0.5 + 0.12 * returnTicks);
 		Vec3 step = to.normalize().scale(Math.min(speed, dist));
+		returnHits(pos, step);
 		setDeltaMovement(step);
 		setPos(pos.add(step));
 	}
@@ -277,6 +280,40 @@ public class SteelBallEntity extends Projectile {
 			return new BlockHitResult(block.getLocation().subtract(0, lift, 0), block.getDirection(), block.getBlockPos(), block.isInside());
 		}
 		return BlockHitResult.miss(to.subtract(0, lift, 0), net.minecraft.core.Direction.getNearest(v.x, v.y, v.z), net.minecraft.core.BlockPos.containing(to));
+	}
+
+	/**
+	 * v0.17.5 (user: "if the steel ball hits something upon coming back to the player it deals damage"): on the way home the ball
+	 * hits every creature it passes through (blocks don't stop it), each once per throw, for {@link SpinConfig#BALL_RETURN_DAMAGE}
+	 * and the same spin and knockback as the way out. The creature it already hit on the way out isn't hit again.
+	 */
+	private void returnHits(Vec3 pos, Vec3 step) {
+		double lift = getBbHeight() * 0.5;
+		Vec3 from = pos.add(0, lift, 0);
+		Vec3 end = from.add(step);
+		double m = SpinConfig.BALL_HIT_MARGIN;
+		net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(from, end).inflate(m + 2.0);
+		for (Entity e : level().getEntities(this, area, this::canHitEntity)) {
+			if (!(e instanceof LivingEntity target) || struck.contains(e.getUUID())) {
+				continue;
+			}
+			net.minecraft.world.phys.AABB box = e.getBoundingBox().inflate(m);
+			if (!box.contains(from) && box.clip(from, end).isEmpty()) {
+				continue;
+			}
+			struck.add(e.getUUID());
+			if (!(getOwner() instanceof ServerPlayer p)) {
+				return;
+			}
+			if (Spin.hit(p, target, SpinConfig.BALL_RETURN_DAMAGE, false)) {
+				SpinMarks.spin(target, SpinConfig.SPIN_TICKS);
+				level().playSound(null, target.getX(), target.getY() + 1.0, target.getZ(), SpinSounds.BODY_SPIN, SoundSource.PLAYERS, 0.5f, 1.0f);
+			}
+			level().playSound(null, getX(), getY(), getZ(), SpinSounds.BALL_HIT, SoundSource.PLAYERS, 0.6f, 1.0f);
+			if (step.lengthSqr() > 1.0e-4) {
+				target.knockback(0.35, -step.x, -step.z);
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------- curving after the look
@@ -506,6 +543,7 @@ public class SteelBallEntity extends Projectile {
 		if (level().isClientSide() || !(getOwner() instanceof ServerPlayer p) || !(hit.getEntity() instanceof LivingEntity target)) {
 			return;
 		}
+		struck.add(target.getUUID());
 		if (Spin.hit(p, target, SpinConfig.BALL_DAMAGE, false)) {
 			SpinMarks.spin(target, SpinConfig.SPIN_TICKS);
 			level().playSound(null, target.getX(), target.getY() + 1.0, target.getZ(), SpinSounds.BODY_SPIN, SoundSource.PLAYERS, 0.5f, 1.0f);

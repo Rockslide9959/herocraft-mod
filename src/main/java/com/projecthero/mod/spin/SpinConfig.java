@@ -103,6 +103,8 @@ public final class SpinConfig {
 
 	// ---------------------------------------------------------------- R / Shift+R
 	public static final float BALL_DAMAGE = 10f;
+	/** v0.17.5 (user): the ball hits what it passes through on the way home too, as hard as on the way out (once per creature per throw). */
+	public static final float BALL_RETURN_DAMAGE = 10f;
 	public static final float BALL_COST = 15f;
 	public static final int BALL_COOLDOWN = 10;
 	/** A ball hit spins the target for 3 s. */

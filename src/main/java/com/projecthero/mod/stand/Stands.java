@@ -66,8 +66,8 @@ public final class Stands {
 		return s != null && s.isUser() && type.id().equals(s.standId);
 	}
 
-	/** Who receives a player's {@link StandState}: the player, and other Stand users. */
-	public static final AttachmentSyncPredicate SYNC_PREDICATE = (target, viewer) -> target == viewer || isStandUser(viewer);
+	/** Who receives a player's {@link StandState}: the player, other Stand users and (v0.17.5) Spin users. */
+	public static final AttachmentSyncPredicate SYNC_PREDICATE = (target, viewer) -> target == viewer || seesStands(viewer);
 
 	private static final ResourceLocation REACH_ID = ProjectHeroMod.id("stand_punch_reach");
 
@@ -115,6 +115,15 @@ public final class Stands {
 	/** The synced state, or null (client-safe; another player's is null on a non-Stand user's client). */
 	public static StandState peek(Player player) {
 		return player.getAttachedOrElse(ModAttachments.STAND_STATE, null);
+	}
+
+	/**
+	 * v0.17.5 (user: "players with the spin power should be able to see stands"): who perceives Stands -- the bodies, their
+	 * effects and sounds: Stand users and Spin users. (Moving inside a time stop and its colour drain stay Stand users' own.)
+	 * Client-safe.
+	 */
+	public static boolean seesStands(Player player) {
+		return isStandUser(player) || com.projecthero.mod.spin.Spin.hasPower(player);
 	}
 
 	/** Has a Stand. Client-safe. */
@@ -220,7 +229,7 @@ public final class Stands {
 		long seed = level.getRandom().nextLong();
 		double r2 = StandConfig.FX_RANGE * StandConfig.FX_RANGE;
 		for (ServerPlayer viewer : level.players()) {
-			if (isStandUser(viewer) && viewer.distanceToSqr(at) < r2) {
+			if (seesStands(viewer) && viewer.distanceToSqr(at) < r2) {
 				viewer.connection.send(new ClientboundSoundPacket(holder, SoundSource.PLAYERS, at.x, at.y, at.z, volume, pitch, seed));
 			}
 		}
@@ -230,7 +239,7 @@ public final class Stands {
 	public static void particles(ServerLevel level, ParticleOptions options, double x, double y, double z, int count, double dx, double dy,
 			double dz, double speed) {
 		for (ServerPlayer viewer : level.players()) {
-			if (isStandUser(viewer)) {
+			if (seesStands(viewer)) {
 				level.sendParticles(viewer, options, false, x, y, z, count, dx, dy, dz, speed);
 			}
 		}
@@ -244,7 +253,7 @@ public final class Stands {
 		var payload = new com.projecthero.mod.stand.network.StandFxPayload(kind, at.x, at.y, at.z, dir.x, dir.y, dir.z, size);
 		double r2 = StandConfig.FX_RANGE * StandConfig.FX_RANGE;
 		for (ServerPlayer viewer : level.players()) {
-			if (isStandUser(viewer) && viewer.distanceToSqr(at) < r2) {
+			if (seesStands(viewer) && viewer.distanceToSqr(at) < r2) {
 				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(viewer, payload);
 			}
 		}

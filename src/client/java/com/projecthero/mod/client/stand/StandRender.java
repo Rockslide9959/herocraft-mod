@@ -133,8 +133,8 @@ public final class StandRender {
 		if (mc.level == null || mc.player == null || ctx.consumers() == null || ctx.matrixStack() == null) {
 			return;
 		}
-		if (!Stands.isStandUser(mc.player)) {
-			return; // the user's rule: only a Stand user perceives a Stand
+		if (!Stands.seesStands(mc.player)) {
+			return; // the user's rule: only a Stand user perceives a Stand (v0.17.5: and a Spin user)
 		}
 		if (model == null) {
 			model = new PlayerModel<>(mc.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);

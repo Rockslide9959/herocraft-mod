@@ -100,6 +100,59 @@ public class SpinGameTests implements FabricGameTest {
 		helper.onEachTick(() -> Spin.tick(p));
 	}
 
+	// ---------------------------------------------------------------- v0.17.5
+
+	/** v0.17.5 (user): in Valkyrie's saddle plain G and Z are the Golden Spin and Ball Breaker holds; off her, Spin Touch and Scan. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void valkyrieSaddleMakesGAndZTheHolds(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(SpinAbilityManager.moveFor(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false).equals(SpinAbilityManager.SPIN_TOUCH), "on foot: G is Spin Touch");
+		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.VALKYRIE), "Valkyrie comes");
+		ticker(helper, p);
+		helper.runAfterDelay(SpinConfig.VALKYRIE_GALLOP_TICKS + 5, () -> {
+			helper.assertTrue(p.getVehicle() == SpinValkyrie.find(p) && SpinAbilityManager.ridingValkyrie(p), "in her saddle");
+			helper.assertTrue(SpinAbilityManager.moveFor(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false).equals(SpinAbilityManager.GOLDEN_SPIN), "G: Golden Spin");
+			helper.assertTrue(SpinAbilityManager.moveFor(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false).equals(SpinAbilityManager.BALL_BREAKER), "Z: Ball Breaker");
+			helper.assertTrue(SpinAbilityManager.moveFor(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false).equals(SpinAbilityManager.STEEL_BALL), "R is unchanged");
+			p.stopRiding();
+			helper.assertTrue(SpinAbilityManager.moveFor(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false).equals(SpinAbilityManager.SCAN), "off her: Z is Scan again");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.5 (user): a ball on its way home hits what it passes through, once. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void returningBallHitsWhatItPasses(GameTestHelper helper) {
+		ServerPlayer p = spin(helper);
+		Zombie zb = zombie(helper, 1.5, 4.0, 100.0);
+		ticker(helper, p);
+		Vec3 from = helper.absoluteVec(new Vec3(1.5, 3.2, 6.5));
+		SteelBallEntity ball = SteelBallEntity.recall(p, 0, from, InteractionHand.MAIN_HAND);
+		float[] after = { -1f };
+		helper.onEachTick(() -> {
+			if (after[0] < 0f && zb.getHealth() < 100f) {
+				after[0] = zb.getHealth();
+			}
+		});
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(after[0] > 0f, "the zombie in the way was hit: " + zb.getHealth());
+			helper.assertTrue(Math.abs(zb.getHealth() - after[0]) < 1.0e-3f, "only once: " + after[0] + " then " + zb.getHealth());
+			helper.assertTrue(ball.isRemoved(), "the ball still came home");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.5 (user): Spin users see Stands. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void spinUsersSeeStands(GameTestHelper helper) {
+		ServerPlayer plain = mock(helper, 4.5, 4.5);
+		helper.assertFalse(com.projecthero.mod.stand.Stands.seesStands(plain), "no power: no Stands");
+		ServerPlayer p = spin(helper);
+		helper.assertTrue(com.projecthero.mod.stand.Stands.seesStands(p), "the Spin sees them");
+		helper.assertTrue(com.projecthero.mod.stand.Stands.SYNC_PREDICATE.test(plain, p), "and receives a Stand user's state");
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- the power
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)

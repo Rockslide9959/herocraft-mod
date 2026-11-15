@@ -127,7 +127,7 @@ public final class SpinAbilityManager {
 		if (!player.isAlive() || player.isSpectator()) {
 			return;
 		}
-		String id = moveFor(slot, player.isShiftKeyDown());
+		String id = moveFor(player, slot, player.isShiftKeyDown());
 		if (id == null) {
 			return;
 		}
@@ -149,6 +149,30 @@ public final class SpinAbilityManager {
 	/** Shift+G and Shift+Z are holds (the Golden Rectangle). */
 	public static boolean isHold(String id) {
 		return GOLDEN_SPIN.equals(id) || BALL_BREAKER.equals(id);
+	}
+
+	/**
+	 * v0.17.5 (user: "when riding valkyrie holding G or Z charges golden rotation and ball breaker"): on Valkyrie, Shift would
+	 * get him off, so plain G and Z are the Golden Spin and Ball Breaker holds (Spin Touch and Scan wait until he is down).
+	 * Client-safe (the HUD shows the swap).
+	 */
+	public static String moveFor(Player player, AbilitySlot slot, boolean shift) {
+		if (!shift && ridingValkyrie(player)) {
+			if (slot == AbilitySlot.SLOT_2) {
+				return GOLDEN_SPIN;
+			}
+			if (slot == AbilitySlot.SLOT_4) {
+				return BALL_BREAKER;
+			}
+		}
+		return moveFor(slot, shift);
+	}
+
+	/** v0.17.5: in Valkyrie's saddle (his own horse, by the id the Spin state keeps). Client-safe. */
+	public static boolean ridingValkyrie(Player player) {
+		com.projecthero.mod.spin.data.SpinState s = Spin.peek(player);
+		return s != null && s.valkyrie != null && !s.valkyrie.isEmpty() && player.getVehicle() != null
+				&& s.valkyrie.equals(player.getVehicle().getUUID().toString());
 	}
 
 	/** The move a key sends. */

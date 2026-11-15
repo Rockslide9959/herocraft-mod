@@ -184,6 +184,11 @@ public final class SpinHud {
 			}
 			String shown = ids[shift && ids.length > 1 ? 1 : 0];
 			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			String onHorse = SpinAbilityManager.moveFor(p, slot, shift); // v0.17.5: on Valkyrie, plain G/Z are the holds
+			if (!onHorse.equals(shown)) {
+				other = shown;
+				shown = onHorse;
+			}
 			int cd = SpinAbilityManager.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, SpinAbilityManager.maxCooldown(p, shown)));
 			float otherFrac = other == null ? 0f
