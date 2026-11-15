@@ -107,6 +107,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.vision.Vision.hasPower(player)) {
 			return "projecthero.squad.identity.vision"; // v0.17.3
 		}
+		if (com.projecthero.mod.sentry.Sentry.hasPower(player)) {
+			return "projecthero.squad.identity.sentry"; // v0.17.5
+		}
 		if (com.projecthero.mod.blackpanther.BlackPanther.hasPower(player)) {
 			return "projecthero.squad.identity.black_panther"; // v0.17.3
 		}

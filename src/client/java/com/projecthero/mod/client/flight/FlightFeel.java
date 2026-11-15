@@ -77,6 +77,9 @@ public record FlightFeel(float bankPerDegree, float maxBank, float strafeBank, f
 		if (com.projecthero.mod.vision.Vision.isFlying(player)) {
 			return KRYPTONIAN; // v0.17.3: Vision flies like the Kryptonian, cape streaming
 		}
+		if (com.projecthero.mod.sentry.Sentry.selfFlying(player)) {
+			return KRYPTONIAN; // v0.17.5: Sentry flies like the Kryptonian
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
 			return GREEN_LANTERN;
 		}

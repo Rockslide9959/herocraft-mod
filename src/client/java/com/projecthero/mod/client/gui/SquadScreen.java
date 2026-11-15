@@ -1083,6 +1083,7 @@ public final class SquadScreen extends Screen {
 				case "shazam": return 0xFFC8141E; // v0.17.3: Shazam red
 				case "doctor_fate": return 0xFFFFC93A; // v0.17.3: Helmet of Fate gold
 				case "vision": return 0xFFFFD23C; // v0.17.3: Mind Stone gold
+				case "sentry": return 0xFFFFC83A; // v0.17.5: Sentry gold
 				case "falcon": return 0xFFE8283C; // v0.17.1
 				case "ladybug": return 0xFFE0242C; // v0.16.6
 				case "cat_noir": return 0xFF7EE23A; // v0.16.6

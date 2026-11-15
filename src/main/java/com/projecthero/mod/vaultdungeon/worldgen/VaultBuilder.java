@@ -64,6 +64,8 @@ public final class VaultBuilder {
 	public static final BlockPos BOSS = new BlockPos(0, F3 + 1, 10);
 	public static final List<BlockPos> VAULTS = List.of(new BlockPos(-3, F3 + 1, 24), new BlockPos(0, F3 + 1, 24), new BlockPos(3, F3 + 1, 24));
 	/** The security console (opens the lockdown gate). */
+	/** v0.17.5: the sealed O.X.E. serum vat (Sentry), in the middle of the vault room. */
+	public static final BlockPos SERUM_VAT = new BlockPos(0, F3 + 1, 21);
 	public static final BlockPos CONSOLE = new BlockPos(6, F2 + 1, 19);
 	/** The two halves of the lockdown gate (lower door blocks). */
 	public static final List<BlockPos> GATE = List.of(new BlockPos(-1, F2 + 1, -7), new BlockPos(0, F2 + 1, -7));
@@ -581,6 +583,10 @@ public final class VaultBuilder {
 			c.set(v.getX(), F3, v.getZ(), s(Blocks.GOLD_BLOCK));
 			c.set(v.getX(), v.getY(), v.getZ(), s(VaultBlocks.SEAL).setValue(VaultSealBlock.FACING, Direction.NORTH));
 		}
+		// v0.17.5: the sealed O.X.E. serum vat in the middle of the vault room (the Sentry Serum's only source), on a gold plinth
+		c.set(SERUM_VAT.getX(), F3, SERUM_VAT.getZ(), s(Blocks.GOLD_BLOCK));
+		c.set(SERUM_VAT.getX(), SERUM_VAT.getY(), SERUM_VAT.getZ(), s(com.projecthero.mod.sentry.block.SentryBlocks.SERUM_VAT)
+				.setValue(com.projecthero.mod.sentry.block.SerumVatBlock.FACING, Direction.NORTH));
 
 		boss(c);
 	}

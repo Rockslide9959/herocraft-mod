@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/burnt_shadow"
+    },
+    "facing=east": {
+      "model": "projecthero:block/burnt_shadow",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/burnt_shadow",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/burnt_shadow",
+      "y": 270
+    }
+  }
+}

@@ -94,6 +94,11 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				com.projecthero.mod.vaultdungeon.block.VaultBlocks.TRACK_ITEM }) {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"));
 		}
+		// v0.17.5: Sentry -- the serum (only from The Vault's O.X.E. vat) and the vat itself
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.sentry.item.SentryItems.SENTRY_SERUM),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_serum.hint"));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.sentry.block.SentryBlocks.SERUM_VAT_ITEM),
+				net.minecraft.network.chat.Component.translatable("block.projecthero.oxe_serum_vat.hint"));
 	}
 
 	@Override

@@ -119,6 +119,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// v0.17.5: Sentry -- the golden kit (or Void Form); while the Void has the body every key is dead
+		if (com.projecthero.mod.sentry.SentryAbilityManager.hasContext(player)) {
+			com.projecthero.mod.sentry.SentryAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// Moon Knight (v0.13.19): while the suit is on, the six keys are his (TAP / HOLD / SNEAK+KEY).
 		if (com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.hasContext(player)) {
 			com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.handle(player, slot, pressed);
@@ -466,6 +472,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.shazam.Shazam.tick(player); // v0.17.3: Shazam -- passives, the Lightning bar, the moves, flight, family time
 		com.projecthero.mod.doctorfate.DoctorFate.tick(player); // v0.17.3: Doctor Fate -- Dominion, the helmet, Possession, bargains, spells
 		com.projecthero.mod.vision.Vision.tick(player); // v0.17.3: Vision -- the Mind Stone bar, the body, the toggles, flight, the moves
+		com.projecthero.mod.sentry.Sentry.tick(player); // v0.17.5: Sentry -- Sun and Void, the moves, flight, the Void's takeover
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

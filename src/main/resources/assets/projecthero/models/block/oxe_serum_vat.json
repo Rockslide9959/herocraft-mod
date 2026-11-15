@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/oxe_serum_vat_front",
+    "side": "projecthero:block/oxe_serum_vat_side",
+    "top": "projecthero:block/oxe_serum_vat_top"
+  }
+}

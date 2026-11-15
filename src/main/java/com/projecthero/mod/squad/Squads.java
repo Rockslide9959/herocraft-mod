@@ -135,7 +135,8 @@ public final class Squads {
 				|| !SquadManager.get(dealer.getServer()).sameSquad(dealer.getUUID(), petOwner)) {
 			return false;
 		}
-		return !com.projecthero.mod.hulk.HulkControl.rampaging(dealer);
+		return !com.projecthero.mod.hulk.HulkControl.rampaging(dealer)
+				&& !com.projecthero.mod.sentry.Sentry.inTakeover(dealer); // v0.17.5: the Void attacks pets too
 	}
 
 	/**
@@ -154,7 +155,8 @@ public final class Squads {
 
 	/** v0.14.4: is either of the two a rampaging Hulk, which cancels squad protection between them? */
 	private static boolean rampageBreaksSquad(Player a, Player b) {
-		return com.projecthero.mod.hulk.HulkControl.rampaging(a) || com.projecthero.mod.hulk.HulkControl.rampaging(b);
+		return com.projecthero.mod.hulk.HulkControl.rampaging(a) || com.projecthero.mod.hulk.HulkControl.rampaging(b)
+				|| com.projecthero.mod.sentry.Sentry.inTakeover(a) || com.projecthero.mod.sentry.Sentry.inTakeover(b); // v0.17.5: the Void knows no squad
 	}
 
 	/** v0.13.21: public face of {@link #blocks} -- would this hit be swallowed as squad friendly fire? */

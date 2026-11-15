@@ -19,6 +19,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class ClientLevelMixin {
 	@Inject(method = "getSkyColor", at = @At("RETURN"), cancellable = true)
 	private void projecthero$raidSky(Vec3 pos, float partialTick, CallbackInfoReturnable<Vec3> cir) {
+		// v0.17.5: the Void nearby swallows the sky (VoidTakeoverClient)
+		float v = com.projecthero.mod.client.sentry.VoidTakeoverClient.skyStrength();
+		if (v > 0.0f) {
+			cir.setReturnValue(cir.getReturnValue().lerp(new Vec3(0.02, 0.01, 0.04), Math.min(0.95f, v)));
+		}
 		float s = RaidSkyTint.strength();
 		if (s <= 0.0f) {
 			return;
