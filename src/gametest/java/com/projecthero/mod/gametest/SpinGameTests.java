@@ -136,7 +136,8 @@ public class SpinGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(40, () -> {
 			helper.assertTrue(after[0] > 0f, "the zombie in the way was hit: " + zb.getHealth());
-			helper.assertTrue(Math.abs(zb.getHealth() - after[0]) < 1.0e-3f, "only once: " + after[0] + " then " + zb.getHealth());
+			// the spin mark it leaves ticks a little on its own; a second ball hit would cost another ~BALL_RETURN_DAMAGE
+			helper.assertTrue(after[0] - zb.getHealth() < SpinConfig.BALL_RETURN_DAMAGE * 0.5f, "only one ball hit: " + after[0] + " then " + zb.getHealth());
 			helper.assertTrue(ball.isRemoved(), "the ball still came home");
 			helper.succeed();
 		});
