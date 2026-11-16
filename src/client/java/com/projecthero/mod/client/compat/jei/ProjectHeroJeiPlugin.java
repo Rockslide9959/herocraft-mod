@@ -137,6 +137,11 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_serum.hint"));
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.sentry.block.SentryBlocks.SERUM_VAT_ITEM),
 				net.minecraft.network.chat.Component.translatable("block.projecthero.oxe_serum_vat.hint"));
+		// v0.17.5 rework: the craftable Sentry Suit (self-repairing; slows the Void, speeds the Sun)
+		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.sentry.item.SentrySuitItem.TOP,
+				com.projecthero.mod.sentry.item.SentrySuitItem.TROUSERS }) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_suit.hint"));
+		}
 	}
 
 	@Override

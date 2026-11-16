@@ -20,8 +20,9 @@ import net.minecraft.world.entity.player.Player;
  *   G  Molecular Grip (hold: tear)  Shift+G Unmake    G  Grasp
  *   Z  Sun Dive          Shift+Z  A Million Suns      Z  Void Rift     Shift+Z  Nightfall
  *   C  Healing Light     Shift+C  Sentinel Shield     X  Shadow Step
- *   X  Flight (2x X: sonic-boom dash)                 V  Return (below 90 Void)
- *   V  Calm (hold)       Shift+V  Let it out (50+ Void)
+ *   X  Sonic Boom (dash)                              V / Shift+V  Return (below 90 Void)
+ *   V  Calm (hold)       Shift+V  Let It Out (the trial: win to merge)
+ *   2x Space  Flight (both forms)
  * </pre>
  * Above 75 Void a Sentry attack key sometimes misfires into its Void move ({@link SentryConfig#MISFIRE_CHANCE}).
  */
@@ -101,7 +102,7 @@ public final class SentryAbilityManager {
 		return switch (slot) {
 			case SLOT_1 -> shift ? SUNBEAM : GOLDEN_STRIKE;
 			case SLOT_2 -> shift ? UNMAKE : GRIP;
-			case SLOT_3 -> FLIGHT;
+			case SLOT_3 -> DASH; // v0.17.5 rework: X is only the dash; flight is double-tap Space
 			case SLOT_4 -> shift ? MILLION_SUNS : SUN_DIVE;
 			case SLOT_5 -> shift ? LET_IT_OUT : CALM;
 			case SLOT_6 -> shift ? SHIELD : HEALING_LIGHT;
@@ -167,7 +168,7 @@ public final class SentryAbilityManager {
 			return false;
 		}
 		if (LET_IT_OUT.equals(id)) {
-			return s.voidLevel >= SentryConfig.LET_OUT_MIN_VOID && s.letOutLockedUntil <= player.level().getGameTime();
+			return s.letOutLockedUntil <= player.level().getGameTime() && s.letOutTrialStart == 0L;
 		}
 		if (RETURN.equals(id)) {
 			return s.voidLevel < SentryConfig.RETURN_MAX_VOID;
@@ -189,7 +190,7 @@ public final class SentryAbilityManager {
 			case MILLION_SUNS -> SentryConfig.SUNS_COOLDOWN;
 			case HEALING_LIGHT -> SentryConfig.HEAL_COOLDOWN;
 			case SHIELD -> SentryConfig.SHIELD_COOLDOWN;
-			case FLIGHT, DASH -> SentryConfig.DASH_COOLDOWN;
+			case DASH -> SentryConfig.DASH_COOLDOWN;
 			case SHADOW_LASH -> SentryConfig.LASH_COOLDOWN;
 			case ERASE -> SentryConfig.ERASE_COOLDOWN;
 			case GRASP -> SentryConfig.GRASP_COOLDOWN;

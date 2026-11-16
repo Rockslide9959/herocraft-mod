@@ -20,14 +20,17 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.5 Sentry: flight. <b>X</b> toggles it (vanilla {@code mayfly}/{@code flying} so the server never kicks a hovering player, the
- * movement itself the client's shared directional flight: 22 b/s, 44 sprinting). <b>Double-tap X</b> is the sonic-boom dash: 18 blocks
- * along his look in 8 ticks, hitting everything he passes once for 14; the second tap puts flight back if the first one dropped it.
- * Flight ends on landing, on X, or in Void Form (the Void walks; the takeover flies the body itself).
+ * v0.17.5 Sentry: flight. v0.17.5 rework (user: "Make double tap space bar his flight ability and make it the same for the void power.
+ * Make X just a dash ability for regular sentry"): <b>double-tap Space</b> takes off / lands ({@link #toggle}, sent by the client as a
+ * {@code SentryActionPayload}; vanilla {@code mayfly}/{@code flying} so the server never kicks a hovering player, the movement itself the
+ * client's shared directional flight: 22 b/s, 44 sprinting, Space up / Shift down). The same merged with the Void. <b>X</b> is only the
+ * sonic-boom dash ({@link #press}): 18 blocks along his look in 8 ticks, hitting everything he passes once for 14 (ground or air; it never
+ * starts flight). Flight ends on landing or another double-tap (the takeover flies the body itself).
  */
 public final class SentryFlight {
 	private static final Map<UUID, Long> STARTED = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> LAST_PRESS = new ConcurrentHashMap<>();
+	/** When flight last ended (a take-off right after is ignored: vanilla double-tap can drop flight the same tick). */
+	private static final Map<UUID, Long> LAST_STOP = new ConcurrentHashMap<>();
 	/** The dash: until when, and who it already hit (entity ids). */
 	private static final Map<UUID, Long> DASH_UNTIL = new ConcurrentHashMap<>();
 	private static final Map<UUID, Set<Integer>> DASH_HIT = new ConcurrentHashMap<>();
@@ -38,7 +41,7 @@ public final class SentryFlight {
 
 	static void clearSessionState() {
 		STARTED.clear();
-		LAST_PRESS.clear();
+		LAST_STOP.clear();
 		DASH_UNTIL.clear();
 		DASH_HIT.clear();
 		DASH_DIR.clear();
@@ -46,7 +49,7 @@ public final class SentryFlight {
 
 	static void forget(UUID id) {
 		STARTED.remove(id);
-		LAST_PRESS.remove(id);
+		LAST_STOP.remove(id);
 		DASH_UNTIL.remove(id);
 		DASH_HIT.remove(id);
 		DASH_DIR.remove(id);
@@ -56,27 +59,30 @@ public final class SentryFlight {
 		return DASH_UNTIL.containsKey(p.getUUID());
 	}
 
-	/** X: toggle, or (second tap within 7 ticks) the dash. */
+	/** X (regular Sentry): the dash, nothing else. */
 	static void press(ServerPlayer p) {
-		long now = p.level().getGameTime();
-		Long last = LAST_PRESS.put(p.getUUID(), now);
-		if (last != null && now - last <= SentryConfig.DOUBLE_TAP_TICKS && now >= last) {
-			LAST_PRESS.remove(p.getUUID());
-			if (!Sentry.isFlying(p)) {
-				start(p);
-			}
-			dash(p);
+		dash(p);
+	}
+
+	/** Double-tap Space: take off, or land. Never in the takeover (the Void flies the body). */
+	public static void toggle(ServerPlayer p) {
+		if (!Sentry.hasPower(p) || Sentry.inTakeover(p) || !p.isAlive()) {
 			return;
 		}
 		if (Sentry.isFlying(p)) {
 			stop(p);
-		} else {
-			start(p);
+			return;
 		}
+		Long stopped = LAST_STOP.get(p.getUUID());
+		long now = p.level().getGameTime();
+		if (stopped != null && now - stopped < SentryConfig.FLIGHT_TOGGLE_DEBOUNCE && now >= stopped) {
+			return;
+		}
+		start(p);
 	}
 
 	static void start(ServerPlayer p) {
-		if (p.isPassenger() || p.isFallFlying() || p.isSpectator() || Sentry.voidForm(p)) {
+		if (p.isPassenger() || p.isFallFlying() || p.isSpectator() || Sentry.inTakeover(p)) {
 			return;
 		}
 		SentryState n = Sentry.state(p).copy();
@@ -110,6 +116,9 @@ public final class SentryFlight {
 			Sentry.save(p, n);
 		}
 		STARTED.remove(p.getUUID());
+		if (was) {
+			LAST_STOP.put(p.getUUID(), p.level().getGameTime());
+		}
 		if (was && !p.getAbilities().instabuild && !p.isSpectator() && !anyOtherFlightWants(p)) {
 			p.getAbilities().mayfly = false;
 			p.getAbilities().flying = false;
@@ -161,7 +170,7 @@ public final class SentryFlight {
 		if (!Sentry.isFlying(p) || Sentry.inTakeover(p)) {
 			return;
 		}
-		if (p.isSpectator() || p.isPassenger() || p.isFallFlying() || !p.isAlive() || Sentry.voidForm(p)) {
+		if (p.isSpectator() || p.isPassenger() || p.isFallFlying() || !p.isAlive()) {
 			stop(p);
 			return;
 		}

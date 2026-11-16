@@ -1414,6 +1414,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.17.5 rework: the Sentry -- double-tap Space takes off / lands, Sentry and merged with the Void alike (server re-validates)
+		if (com.projecthero.mod.client.sentry.SentryClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.sentry.SentryClient.toggleFlight();
+			return;
+		}
+
 		// v0.14.8: the Kryptonian -- double-tap jump in the air takes off / drops out of flight (server re-validates).
 		if (!player.onGround() && com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;

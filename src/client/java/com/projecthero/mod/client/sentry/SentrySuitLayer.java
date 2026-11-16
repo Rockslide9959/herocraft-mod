@@ -1,9 +1,12 @@
 package com.projecthero.mod.client.sentry;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.sentry.Sentry;
 import com.projecthero.mod.sentry.SentryConfig;
+import com.projecthero.mod.sentry.data.SentryState;
+import com.projecthero.mod.sentry.item.SentrySuitItem;
 
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -24,32 +27,29 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.5 Sentry: the suit and the Void Form, drawn over the wearer's own skin (every viewer: the state is synced). Textures are
- * original ({@code scratchpad/gen_sentry_v0175.js}): the gold-and-blue Sentry suit with an original sun-burst chest emblem (the head
- * left alone: his own face and hair), and the Void Form -- a black body webbed with gold veins, black hair and black eyes, smoke on
- * the hat layer -- which covers the head too. Each has an emissive pass ({@code *_glow}): the emblem and trims shine, and from 50 Void
- * the glow flickers dark; the Void's veins pulse. The wearer's outer skin layer is hidden while either is on
- * ({@link #hidesSkinOverlay}); in Void Form the hat layer too ({@link #hidesHat}). Wide and slim arms follow the wearer's skin.
+ * v0.17.5 Sentry: his look, drawn over the wearer's own skin (every viewer: the state and the armour are synced).
+ *
+ * <p>v0.17.5 rework (user: "dont put the suit on automatically when the player gets the power ... If the player is wearing the sentry suit
+ * and uses the let it out move make the players suit look like its slowly fading into this suit ... When the void consumes the players
+ * body make the entire players body go black and their cape if theyre wearing the suit and only have tiny glowing white pixels for eyes"):
+ * <ul>
+ *   <li><b>The Sentry Suit item</b> ({@link SentrySuitItem}) is what draws the suit now -- the power alone draws nothing. The top draws
+ *   the body and arms, the trousers the legs; the head is never covered (his own face and hair).</li>
+ *   <li><b>Merged with the Void</b> (a won Let It Out) the suit dissolves into the Void suit over {@link SentryConfig#FORM_FADE_TICKS}
+ *   ticks (per pixel, outward from the heart: {@link SentrySuitTextures#step}); leaving the mode runs it back. Without the suit, merging
+ *   fades the original Void Form body in over the bare wearer the same way.</li>
+ *   <li><b>The takeover</b>: the whole body black ({@code void_body.png}: head, body, arms, legs, every outer layer hidden, armour hidden
+ *   by {@code QuirkSuitArmourMixin}) with two tiny white pixel eyes drawn full bright.</li>
+ * </ul>
+ * Each has an emissive pass; the Sentry suit's glow flickers dark from 50 Void, the Void's pulses. Wide and slim arms follow the
+ * wearer's skin.
  */
 public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
-	private static final ResourceLocation SUIT = tex("sentry_suit");
-	private static final ResourceLocation SUIT_SLIM = tex("sentry_suit_slim");
-	private static final ResourceLocation SUIT_GLOW = tex("sentry_glow");
-	private static final ResourceLocation SUIT_GLOW_SLIM = tex("sentry_glow_slim");
-	private static final ResourceLocation VOID = tex("void_form");
-	private static final ResourceLocation VOID_SLIM = tex("void_form_slim");
-	private static final ResourceLocation VOID_GLOW = tex("void_glow");
-	private static final ResourceLocation VOID_GLOW_SLIM = tex("void_glow_slim");
-
 	private static PlayerModel<LivingEntity> wide;
 	private static PlayerModel<LivingEntity> slim;
 
 	public SentrySuitLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
-	}
-
-	private static ResourceLocation tex(String name) {
-		return ProjectHeroMod.id("textures/entity/sentry/" + name + ".png");
 	}
 
 	private static PlayerModel<LivingEntity> model(boolean slimArms) {
@@ -67,21 +67,71 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		return wide;
 	}
 
+	/** How far into the Void the look is, 0 (Sentry) .. 1 (merged), easing over the fade. Client-safe. */
+	public static float voidFade(Player player, float partial) {
+		SentryState s = Sentry.peek(player);
+		if (s == null || !s.hasPower) {
+			return 0f;
+		}
+		if (s.inTakeover()) {
+			return 1f;
+		}
+		float k = Mth.clamp((player.level().getGameTime() + partial - s.formChangedAt) / SentryConfig.FORM_FADE_TICKS, 0f, 1f);
+		return s.voidForm ? k : 1f - k;
+	}
+
+	/** What is drawn on this player right now. */
+	enum Mode {
+		NONE, SUIT, BARE, BLACK
+	}
+
+	static Mode mode(Player player, float partial) {
+		if (player.isInvisible()) {
+			return Mode.NONE;
+		}
+		if (Sentry.inTakeover(player)) {
+			return Mode.BLACK;
+		}
+		if (SentrySuitItem.topWorn(player) || SentrySuitItem.trousersWorn(player)) {
+			return Mode.SUIT;
+		}
+		if (Sentry.hasPower(player) && voidFade(player, partial) > 0f) {
+			return Mode.BARE;
+		}
+		return Mode.NONE;
+	}
+
+	/** {base, glow} for this player and mode at this point of the fade. */
+	static ResourceLocation[] textures(Player player, Mode mode, boolean slimArms, float partial) {
+		if (mode == Mode.BLACK) {
+			return new ResourceLocation[] { SentrySuitTextures.base(SentrySuitTextures.Look.BLACK, slimArms),
+					SentrySuitTextures.glow(SentrySuitTextures.Look.BLACK, slimArms) };
+		}
+		int k = Math.round(voidFade(player, partial) * SentrySuitTextures.STEPS);
+		if (mode == Mode.SUIT) {
+			return SentrySuitTextures.step(SentrySuitTextures.Look.SUIT, SentrySuitTextures.Look.VOID_SUIT, slimArms, k);
+		}
+		return SentrySuitTextures.step(null, SentrySuitTextures.Look.VOID_BODY, slimArms, k);
+	}
+
 	@Override
 	public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing,
 			float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-		if (player.isInvisible() || !Sentry.hasPower(player)) {
+		Mode mode = mode(player, partialTick);
+		if (mode == Mode.NONE) {
 			return;
 		}
 		boolean slimArms = player.getSkin().model() == PlayerSkin.Model.SLIM;
-		boolean dark = Sentry.voidForm(player);
-		PlayerModel<LivingEntity> m = posed(getParentModel(), slimArms, dark);
-		ResourceLocation base = dark ? (slimArms ? VOID_SLIM : VOID) : (slimArms ? SUIT_SLIM : SUIT);
-		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(base)), light, OverlayTexture.NO_OVERLAY);
-		int glow = glowColour(player, ageInTicks, dark);
-		if (glow != 0) {
-			ResourceLocation g = dark ? (slimArms ? VOID_GLOW_SLIM : VOID_GLOW) : (slimArms ? SUIT_GLOW_SLIM : SUIT_GLOW);
-			m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(g)), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
+		PlayerModel<LivingEntity> m = posed(getParentModel(), slimArms, mode, player);
+		ResourceLocation[] tex = textures(player, mode, slimArms, partialTick);
+		if (tex[0] != null) {
+			m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex[0])), light, OverlayTexture.NO_OVERLAY);
+		}
+		if (tex[1] != null) {
+			int glow = mode == Mode.BLACK ? 0xFFFFFFFF : glowColour(player, ageInTicks, voidFade(player, partialTick) >= 0.5f);
+			if (glow != 0) {
+				m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(tex[1])), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
+			}
 		}
 	}
 
@@ -96,7 +146,7 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 			return 0xFF000000 | (v << 16) | (v << 8) | v;
 		}
 		float vd = Sentry.voidLevel(player);
-		if (vd >= SentryConfig.VOID_WHISPERS) {
+		if (Sentry.hasPower(player) && vd >= SentryConfig.VOID_WHISPERS) {
 			// a flicker: some frames the golden glow just isn't there
 			float k = (vd - SentryConfig.VOID_WHISPERS) / (SentryConfig.VOID_MAX - SentryConfig.VOID_WHISPERS);
 			int slot = (int) (age * 0.5f) + player.getId() * 7;
@@ -110,11 +160,11 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
 	/** The suit's sleeve in first person (from {@code SuitFirstPersonArmMixin}), posed like the vanilla arm just drawn. */
 	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right) {
-		if (player.isInvisible() || !Sentry.hasPower(player)) {
+		Mode mode = mode(player, 1f);
+		if (mode == Mode.NONE || (mode == Mode.SUIT && !SentrySuitItem.topWorn(player))) {
 			return;
 		}
 		boolean slimArms = player.getSkin().model() == PlayerSkin.Model.SLIM;
-		boolean dark = Sentry.voidForm(player);
 		PlayerModel<LivingEntity> m = model(slimArms);
 		ModelPart a = right ? m.rightArm : m.leftArm;
 		ModelPart sleeve = right ? m.rightSleeve : m.leftSleeve;
@@ -122,39 +172,88 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		sleeve.copyFrom(arm);
 		a.visible = true;
 		sleeve.visible = true;
-		ResourceLocation base = dark ? (slimArms ? VOID_SLIM : VOID) : (slimArms ? SUIT_SLIM : SUIT);
-		var vc = buffers.getBuffer(RenderType.entityCutoutNoCull(base));
-		a.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
-		sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
-		int glow = glowColour(player, player.tickCount, dark);
-		if (glow != 0) {
-			ResourceLocation g = dark ? (slimArms ? VOID_GLOW_SLIM : VOID_GLOW) : (slimArms ? SUIT_GLOW_SLIM : SUIT_GLOW);
-			a.render(pose, buffers.getBuffer(RenderType.eyes(g)), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
+		ResourceLocation[] tex = textures(player, mode, slimArms, 1f);
+		if (tex[0] != null) {
+			var vc = buffers.getBuffer(RenderType.entityCutoutNoCull(tex[0]));
+			a.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+			sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+		}
+		if (tex[1] != null) {
+			int glow = mode == Mode.BLACK ? 0xFFFFFFFF : glowColour(player, player.tickCount, voidFade(player, 1f) >= 0.5f);
+			if (glow != 0) {
+				a.render(pose, buffers.getBuffer(RenderType.eyes(tex[1])), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
+			}
 		}
 	}
 
-	/** From {@code PlayerModelMixin}: the wearer's jacket / sleeve / trouser layers are hidden while the suit or the Void is on. */
-	public static boolean hidesSkinOverlay(Player player) {
-		return !player.isInvisible() && Sentry.hasPower(player);
-	}
-
-	/** In Void Form the head is the Void's too: the wearer's hat layer goes. */
-	public static boolean hidesHat(Player player) {
-		return !player.isInvisible() && Sentry.voidForm(player);
+	/**
+	 * From {@code PlayerModelMixin}: hides the wearer's outer layers under what is drawn (true: handled). The suit top hides the jacket and
+	 * sleeves, the trousers the trouser layer; the bare Void Form and the takeover hide every outer layer, the hat included.
+	 */
+	public static boolean hideOverlay(Player player, PlayerModel<?> model) {
+		Mode mode = mode(player, 1f);
+		switch (mode) {
+			case NONE -> {
+				return false;
+			}
+			case SUIT -> {
+				boolean top = SentrySuitItem.topWorn(player);
+				boolean legs = SentrySuitItem.trousersWorn(player);
+				if (top) {
+					model.jacket.visible = false;
+					model.leftSleeve.visible = false;
+					model.rightSleeve.visible = false;
+				}
+				if (legs) {
+					model.leftPants.visible = false;
+					model.rightPants.visible = false;
+				}
+				return true;
+			}
+			default -> {
+				model.hat.visible = false;
+				model.jacket.visible = false;
+				model.leftSleeve.visible = false;
+				model.rightSleeve.visible = false;
+				model.leftPants.visible = false;
+				model.rightPants.visible = false;
+				return true;
+			}
+		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	static PlayerModel<LivingEntity> posed(HumanoidModel<?> parent, boolean slimArms, boolean head) {
+	static PlayerModel<LivingEntity> posed(HumanoidModel<?> parent, boolean slimArms, Mode mode, Player player) {
 		PlayerModel<LivingEntity> m = model(slimArms);
 		((HumanoidModel) parent).copyPropertiesTo(m);
 		m.setAllVisible(true);
+		boolean head = mode != Mode.SUIT; // the suit never covers the head (and its head texels are clear anyway)
 		m.head.visible = head;
 		m.hat.visible = head;
+		if (mode == Mode.SUIT) {
+			boolean top = SentrySuitItem.topWorn(player);
+			boolean legs = SentrySuitItem.trousersWorn(player);
+			m.body.visible = top;
+			m.jacket.visible = top;
+			m.leftArm.visible = top;
+			m.rightArm.visible = top;
+			m.leftSleeve.visible = top;
+			m.rightSleeve.visible = top;
+			m.leftLeg.visible = legs;
+			m.rightLeg.visible = legs;
+			m.leftPants.visible = legs;
+			m.rightPants.visible = legs;
+		}
 		m.jacket.copyFrom(m.body);
 		m.leftSleeve.copyFrom(m.leftArm);
 		m.rightSleeve.copyFrom(m.rightArm);
 		m.leftPants.copyFrom(m.leftLeg);
 		m.rightPants.copyFrom(m.rightLeg);
 		return m;
+	}
+
+	/** (Kept for callers that only need the flag.) The suit or a Void look hides some of the wearer's outer layer. */
+	public static boolean hidesSkinOverlay(@Nullable Player player) {
+		return player != null && mode(player, 1f) != Mode.NONE;
 	}
 }

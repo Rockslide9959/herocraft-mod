@@ -1,0 +1,491 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.sentry.LetItOutScreen;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.sentry.LetItOut;
+import com.projecthero.mod.sentry.Sentry;
+import com.projecthero.mod.sentry.SentryAbilityManager;
+import com.projecthero.mod.sentry.VoidTakeover;
+import com.projecthero.mod.sentry.data.SentryAttachments;
+import com.projecthero.mod.sentry.data.SentryState;
+import com.projecthero.mod.sentry.item.SentrySuitItem;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Sentry rework): the Sentry Suit front / back with its blue cape, the Void suit with the black cape,
+ * a film of the suit fading into the Void suit on Let It Out (and back), the trial screen won and lost, the HUD, the all-black takeover
+ * body with white eyes, and a film of double-tap-Space flight (real client key presses) + the X dash. Enabled by run/sentry2.flag =
+ * "<out dir>". Kept as scratchpad/SentryHarness2.v0175.java.txt.
+ */
+public final class SentryHarness2 implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static ArmorStand camera;
+	private static Vec3 camAt, camLook;
+	/** Follow mode: the camera sits at the player + this offset, looking at the player + {@link #followLook}. */
+	private static Vec3 followOff, followLook;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("sentry2.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SentryHarness2::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(SentryHarness2::placeCamera);
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (camAt == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			var p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = net.minecraft.util.Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = net.minecraft.util.Mth.lerp(pt, p.yo, p.getY()) - cam.y,
+					z = net.minecraft.util.Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, net.minecraft.util.Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(),
+					disp.getPackedLightCoords(p, pt));
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "sentry2-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static Vec3 s(double x, double y, double z) {
+		return new Vec3(site.getX() + 0.5 + x, site.getY() + 1 + y, site.getZ() + 0.5 + z);
+	}
+
+	private static ArmorStand cam(Minecraft mc) {
+		if (camera == null || camera.level() != mc.level) {
+			camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+			camera.setInvisible(true);
+		}
+		return camera;
+	}
+
+	private static void fixed(Minecraft mc, Vec3 at, Vec3 look) {
+		cam(mc);
+		followOff = null;
+		camAt = at;
+		camLook = look;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		placeCamera(mc);
+	}
+
+	private static void follow(Minecraft mc, Vec3 off, Vec3 look) {
+		cam(mc);
+		followOff = off;
+		followLook = look;
+		camAt = mc.player.position().add(off);
+		camLook = mc.player.position().add(look);
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		placeCamera(mc);
+	}
+
+	private static void playerView(Minecraft mc, CameraType type) {
+		camAt = null;
+		followOff = null;
+		mc.setCameraEntity(mc.player);
+		mc.options.setCameraType(type);
+	}
+
+	private static void placeCamera(Minecraft mc) {
+		if (camAt == null || camera == null) {
+			return;
+		}
+		if (followOff != null && mc.player != null) {
+			camAt = mc.player.position().add(followOff);
+			camLook = mc.player.position().add(followLook);
+		}
+		Vec3 to = camLook.subtract(camAt);
+		float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		double eye = camera.getEyeHeight();
+		camera.moveTo(camAt.x, camAt.y - eye, camAt.z, yaw, pitch);
+		camera.xo = camera.getX();
+		camera.yo = camera.getY();
+		camera.zo = camera.getZ();
+		camera.xOld = camera.getX();
+		camera.yOld = camera.getY();
+		camera.zOld = camera.getZ();
+		camera.yRotO = yaw;
+		camera.xRotO = pitch;
+		camera.setYHeadRot(yaw);
+	}
+
+	private static void edit(ServerPlayer p, Consumer<SentryState> c) {
+		SentryState n = Sentry.state(p).copy();
+		c.accept(n);
+		p.setAttached(SentryAttachments.STATE, n);
+	}
+
+	private static void stand(Minecraft mc, double x, double z, float yaw) {
+		server(mc, p -> {
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.connection.teleport(site.getX() + 0.5 + x, site.getY() + 1, site.getZ() + 0.5 + z, yaw, 0f);
+		});
+	}
+
+	static void prepare(ServerLevel level) {
+		for (int x = -20; x <= 20; x++) {
+			for (int z = -20; z <= 20; z++) {
+				for (int y = -2; y <= 24; y++) {
+					BlockState st = y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+					level.setBlock(site.offset(x, y, z), st, 2 | 16);
+				}
+			}
+		}
+		for (int x = -20; x <= 20; x++) {
+			level.setBlock(site.offset(x, 0, 3), Blocks.DIRT_PATH.defaultBlockState(), 2 | 16);
+		}
+		for (int y = 1; y <= 5; y++) {
+			level.setBlock(site.offset(-7, y, -9), Blocks.OAK_LOG.defaultBlockState(), 2 | 16);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SentryHarness2::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				prepare(level);
+				com.projecthero.mod.hero.PowerGrants.grantHero(p, "sentry");
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+				System.out.println("[HARNESS] site " + site + " sentry=" + Sentry.hasPower(p) + " suit after grant=" + Sentry.suitWorn(p)
+						+ " borrowed=" + com.projecthero.mod.client.sentry.SentrySuitTextures.borrowedPresent());
+			});
+		}
+		if (t == 45 && site == null) {
+			return;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static void suitOn(ServerPlayer p) {
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SentrySuitItem.TROUSERS));
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		// ---- 0. the bare Sentry right after the grant: no suit
+		at(t, () -> {
+			stand(mc, 0, 0, 180f);
+			mc.options.hideGui = true;
+			server(mc, p -> edit(p, s -> {
+				s.sun = 80f;
+				s.voidLevel = 12f;
+			}));
+		});
+		at(t + 10, () -> fixed(mc, s(0, 1.45, -2.3), s(0, 1.0, 0)));
+		at(t + 30, () -> shot(mc, "00_after_grant_no_suit"));
+		// ---- 1. the suit front / back with the blue cape
+		at(t + 32, () -> server(mc, SentryHarness2::suitOn));
+		at(t + 55, () -> shot(mc, "01_suit_front"));
+		at(t + 57, () -> fixed(mc, s(0.5, 1.55, 2.4), s(0, 1.0, 0)));
+		at(t + 80, () -> shot(mc, "02_suit_back_blue_cape"));
+		at(t + 82, () -> fixed(mc, s(-1.7, 1.45, -1.6), s(0, 1.0, 0)));
+		at(t + 100, () -> shot(mc, "02b_suit_three_quarter"));
+		// ---- 2. merged: the Void suit, black cape
+		t += 110;
+		at(t, () -> server(mc, p -> edit(p, s -> {
+			s.voidForm = true;
+			s.formChangedAt = 1L;
+			s.voidLevel = 40f;
+		})));
+		at(t + 2, () -> fixed(mc, s(0, 1.45, -2.3), s(0, 1.0, 0)));
+		at(t + 25, () -> shot(mc, "03_void_suit_front"));
+		at(t + 27, () -> fixed(mc, s(0.5, 1.55, 2.4), s(0, 1.0, 0)));
+		at(t + 50, () -> shot(mc, "04_void_suit_back_black_cape"));
+		// ---- 3. FILM: Let It Out won -> the suit fades into the Void suit; then back
+		t += 60;
+		at(t, () -> server(mc, p -> edit(p, s -> {
+			s.voidForm = false;
+			s.formChangedAt = 1L;
+		})));
+		at(t + 2, () -> fixed(mc, s(-0.9, 1.4, -2.0), s(0, 1.0, 0)));
+		at(t + 20, () -> server(mc, p -> edit(p, s -> {
+			s.voidForm = true;
+			s.formChangedAt = p.level().getGameTime();
+		})));
+		for (int f = 0; f < 70; f++) {
+			final int n = f;
+			at(t + 16 + f, () -> shot(mc, String.format("film_fade_%03d", n)));
+		}
+		at(t + 45, () -> shot(mc, "05_fade_midway"));
+		at(t + 90, () -> server(mc, p -> edit(p, s -> {
+			s.voidForm = false;
+			s.formChangedAt = p.level().getGameTime();
+		})));
+		for (int f = 0; f < 66; f++) {
+			final int n = 70 + f;
+			at(t + 86 + f, () -> shot(mc, String.format("film_fade_%03d", n)));
+		}
+		// ---- 4. the trial: won (auto-play) and lost
+		t += 170;
+		at(t, () -> {
+			playerView(mc, CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			LetItOutScreen.autoPlay = true;
+			server(mc, p -> edit(p, s -> s.voidLevel = 30f));
+		});
+		at(t + 5, () -> server(mc, p -> LetItOut.begin(p)));
+		for (int f = 0; f < 90; f++) {
+			final int n = f;
+			at(t + 8 + f * 2, () -> shot(mc, String.format("trial_win_%03d", n)));
+		}
+		at(t + 40, () -> shot(mc, "06_trial_playing"));
+		at(t + 190, () -> server(mc, p -> System.out.println("[HARNESS] after the won trial: merged=" + Sentry.merged(p) + " void="
+				+ Sentry.state(p).voidLevel)));
+		at(t + 195, () -> {
+			mc.setScreen(null);
+			server(mc, p -> {
+				edit(p, s -> {
+					s.voidForm = false;
+					s.formChangedAt = 1L;
+					s.voidLevel = 30f;
+				});
+			});
+			LetItOutScreen.autoPlay = false;
+		});
+		at(t + 200, () -> server(mc, p -> System.out.println("[HARNESS] second trial started=" + LetItOut.begin(p))));
+		for (int f = 0; f < 40; f++) {
+			final int n = f;
+			at(t + 203 + f * 2, () -> shot(mc, String.format("trial_lose_%03d", n)));
+		}
+		at(t + 290, () -> server(mc, p -> System.out.println("[HARNESS] after the lost trial: merged=" + Sentry.merged(p) + " void="
+				+ Sentry.state(p).voidLevel)));
+		// ---- 5. the HUD (suit worn, Void 35, Shift shows the Shift moves)
+		t += 300;
+		at(t, () -> {
+			mc.setScreen(null);
+			LetItOutScreen.autoPlay = null;
+			playerView(mc, CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			server(mc, p -> edit(p, s -> {
+				s.voidLevel = 35f;
+				s.sun = 76f;
+				s.abilityReadyAt.clear();
+			}));
+		});
+		at(t + 20, () -> shot(mc, "07_hud"));
+		at(t + 22, () -> server(mc, p -> edit(p, st -> { st.voidLevel = 10f; st.sun = 100f; })));
+		at(t + 30, () -> shot(mc, "07a_hud_void_10_sun_full"));
+		at(t + 32, () -> server(mc, p -> edit(p, st -> { st.voidLevel = 50f; st.sun = 55f; })));
+		at(t + 40, () -> shot(mc, "07b_hud_void_50"));
+		at(t + 42, () -> server(mc, p -> edit(p, st -> { st.voidLevel = 95f; st.sun = 20f; })));
+		at(t + 50, () -> shot(mc, "07c_hud_void_95"));
+		at(t + 52, () -> server(mc, p -> edit(p, st -> st.voidLevel = 35f)));
+		// ---- 6. the takeover: all black, white pixel eyes, black cape
+		t += 60;
+		at(t, () -> {
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				for (int x = -5; x <= 5; x++) for (int z = -18; z <= -6; z++) for (int y = 1; y <= 8; y++) {
+					boolean wall = x == -5 || x == 5 || z == -18 || z == -6 || y == 8;
+					p.serverLevel().setBlock(site.offset(x, y, z), wall ? Blocks.SEA_LANTERN.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16);
+				}
+			});
+			stand(mc, 0, -12, 180f);
+		});
+		at(t + 8, () -> {
+			mc.options.particles().set(net.minecraft.client.ParticleStatus.MINIMAL); // (the Void's smoke hides the body on a still)
+			fixed(mc, s(0, 1.7, -13.9), s(0, 1.6, -12));
+		});
+		for (int k = 21; k < 100; k++) { // hold the body still in front of the camera (the Void would fly it off)
+			at(t + k, () -> server(mc, p -> {
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1.3, site.getZ() + 0.5 - 12, 180f, 0f);
+				p.setDeltaMovement(Vec3.ZERO);
+			}));
+		}
+		at(t + 20, () -> server(mc, p -> Sentry.setVoid(p, 100f)));
+		at(t + 24, () -> server(mc, p -> System.out.println("[HARNESS] takeover=" + Sentry.inTakeover(p))));
+		for (int i = 0; i < 4; i++) {
+			final int k = i;
+			at(t + 62 + i * 4, () -> shot(mc, "08_takeover_black_" + k));
+		}
+		at(t + 79, () -> fixed(mc, s(0.4, 1.8, -10.1), s(0, 1.8, -12)));
+		for (int i = 0; i < 3; i++) {
+			final int k = i;
+			at(t + 84 + i * 4, () -> shot(mc, "09_takeover_back_" + k));
+		}
+		at(t + 100, () -> server(mc, p -> {
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+			edit(p, s -> {
+				s.kneelUntil = 0L;
+				s.voidLevel = 10f;
+				s.letOutLockedUntil = 0L;
+				s.formChangedAt = 1L;
+			});
+		}));
+		// ---- 7. FILM: double-tap Space (real key presses) takes off, Space climbs, then X dashes
+		t += 130;
+		at(t, () -> {
+			mc.options.hideGui = false;
+			mc.options.particles().set(net.minecraft.client.ParticleStatus.ALL);
+			stand(mc, 0, 6, 180f);
+		});
+		at(t + 20, () -> {
+			playerView(mc, CameraType.THIRD_PERSON_BACK);
+		});
+		for (int f = 0; f < 110; f++) {
+			final int n = f;
+			at(t + 25 + f, () -> shot(mc, String.format("film_flight_%03d", n)));
+		}
+		at(t + 30, () -> mc.options.keyJump.setDown(true));
+		at(t + 31, () -> mc.options.keyJump.setDown(false));
+		at(t + 34, () -> mc.options.keyJump.setDown(true));
+		at(t + 35, () -> mc.options.keyJump.setDown(false));
+		at(t + 40, () -> server(mc, p -> System.out.println("[HARNESS] after the double tap: flying=" + Sentry.isFlying(p))));
+		at(t + 42, () -> mc.options.keyJump.setDown(true));
+		at(t + 60, () -> mc.options.keyJump.setDown(false));
+		at(t + 62, () -> shot(mc, "10_flying"));
+		at(t + 75, () -> server(mc, p -> {
+			p.connection.teleport(p.getX(), p.getY(), p.getZ(), 180f, 0f);
+			SentryAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+			System.out.println("[HARNESS] X: dashing=" + com.projecthero.mod.sentry.SentryFlight.dashing(p) + " flying=" + Sentry.isFlying(p));
+		}));
+		at(t + 79, () -> shot(mc, "11_x_dash"));
+		at(t + 140, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SENTRY2_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

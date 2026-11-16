@@ -89,14 +89,9 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 			model.rightPants.visible = false;
 			return;
 		}
-		// v0.17.5: Sentry's suit keeps the wearer's hat / hair; the Void Form covers the head too
-		if (com.projecthero.mod.client.sentry.SentrySuitLayer.hidesSkinOverlay(player)) {
-			model.hat.visible = !com.projecthero.mod.client.sentry.SentrySuitLayer.hidesHat(player);
-			model.jacket.visible = false;
-			model.leftSleeve.visible = false;
-			model.rightSleeve.visible = false;
-			model.leftPants.visible = false;
-			model.rightPants.visible = false;
+		// v0.17.5: Sentry's suit keeps the wearer's hat / hair (each piece hides only its own parts); the bare Void Form and the
+		// takeover's all-black body cover the head too
+		if (com.projecthero.mod.client.sentry.SentrySuitLayer.hideOverlay(player, model)) {
 			return;
 		}
 		// v0.17.3: Shazam's suit (the user's skin, cut out where his own skin shows) keeps the wearer's hat / hair; the rest of

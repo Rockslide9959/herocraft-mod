@@ -19,7 +19,7 @@ public abstract class GyroCoatCapeMixin {
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$gyroCoatCape(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, float a, float b, float c, float d,
 			float e, float f, CallbackInfo ci) {
-		if (GyroCapeLayer.shown(p)) {
+		if (GyroCapeLayer.shown(p) || com.projecthero.mod.client.sentry.SentryCapeLayer.shown(p)) { // v0.17.5: the Sentry Suit's cape too
 			ci.cancel();
 		}
 	}

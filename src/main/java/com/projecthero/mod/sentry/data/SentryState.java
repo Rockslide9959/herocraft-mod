@@ -28,6 +28,10 @@ public final class SentryState {
 	public Map<String, Long> abilityReadyAt = new HashMap<>();
 	/** Shift+V (Let it out) is locked until this time (5 minutes after the Void is thrown out). */
 	public long letOutLockedUntil;
+	/** v0.17.5 rework: the Let It Out trial (the "Hold the Light" minigame) started at (0 = none running). */
+	public long letOutTrialStart;
+	/** When Void Form last went on or off (the suit fades between the Sentry and the Void suit from here). */
+	public long formChangedAt;
 
 	// ---------------------------------------------------------------- running moves (for the look)
 	/** Sunbeam held since (0 = off). */
@@ -75,6 +79,8 @@ public final class SentryState {
 		n.calming = calming;
 		n.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		n.letOutLockedUntil = letOutLockedUntil;
+		n.letOutTrialStart = letOutTrialStart;
+		n.formChangedAt = formChangedAt;
 		n.beamStart = beamStart;
 		n.sunsStart = sunsStart;
 		n.shieldUntil = shieldUntil;
@@ -103,6 +109,8 @@ public final class SentryState {
 		abilityReadyAt.forEach(cds::putLong);
 		t.put("ready_at", cds);
 		t.putLong("let_out_locked", letOutLockedUntil);
+		t.putLong("let_out_trial", letOutTrialStart);
+		t.putLong("form_changed", formChangedAt);
 		t.putLong("beam_start", beamStart);
 		t.putLong("suns_start", sunsStart);
 		t.putLong("shield_until", shieldUntil);
@@ -132,6 +140,8 @@ public final class SentryState {
 			s.abilityReadyAt.put(k, cds.getLong(k));
 		}
 		s.letOutLockedUntil = t.getLong("let_out_locked");
+		s.letOutTrialStart = t.getLong("let_out_trial");
+		s.formChangedAt = t.getLong("form_changed");
 		s.beamStart = t.getLong("beam_start");
 		s.sunsStart = t.getLong("suns_start");
 		s.shieldUntil = t.getLong("shield_until");

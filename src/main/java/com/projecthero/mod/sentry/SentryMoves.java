@@ -86,15 +86,15 @@ public final class SentryMoves {
 
 	static void use(ServerPlayer p, String id, AbilitySlot slot) {
 		SentryState s = Sentry.state(p);
-		if (s.calming && !SentryAbilityManager.CALM.equals(id) && !SentryAbilityManager.FLIGHT.equals(id)) {
+		if (s.calming && !SentryAbilityManager.CALM.equals(id)) {
 			Sentry.say(p, "message.projecthero.sentry.calming", ChatFormatting.GRAY);
 			return;
 		}
-		if (s.sunsStart != 0L) {
-			return; // A Million Suns is charging: nothing else
+		if (s.sunsStart != 0L || s.letOutTrialStart != 0L) {
+			return; // A Million Suns is charging / the trial is running: nothing else
 		}
 		switch (id) {
-			case SentryAbilityManager.FLIGHT -> SentryFlight.press(p);
+			case SentryAbilityManager.DASH -> SentryFlight.press(p);
 			case SentryAbilityManager.CALM -> calm(p, true);
 			case SentryAbilityManager.LET_IT_OUT -> letItOut(p);
 			default -> {
@@ -646,23 +646,9 @@ public final class SentryMoves {
 		}
 	}
 
+	/** Shift+V: v0.17.5 rework -- the trial ({@link LetItOut}); winning it merges him with the Void. */
 	static void letItOut(ServerPlayer p) {
-		SentryState s = Sentry.state(p);
-		long now = p.level().getGameTime();
-		if (s.letOutLockedUntil > now) {
-			Sentry.say(p, "message.projecthero.sentry.let_out_locked", ChatFormatting.GRAY, (s.letOutLockedUntil - now + 19) / 20);
-			return;
-		}
-		if (s.voidLevel < SentryConfig.LET_OUT_MIN_VOID) {
-			Sentry.say(p, "message.projecthero.sentry.let_out_low", ChatFormatting.GRAY);
-			return;
-		}
-		Sentry.setVoidForm(p, true);
-		ServerLevel level = p.serverLevel();
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.5, 1.0, 0.5, 0.05);
-		level.sendParticles(ParticleTypes.SQUID_INK, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.5, 1.0, 0.5, 0.05);
-		Sentry.sound(p, SoundEvents.WARDEN_EMERGE, 0.8f, 0.8f);
-		Sentry.say(p, "message.projecthero.sentry.let_out", ChatFormatting.DARK_GRAY);
+		LetItOut.begin(p);
 	}
 
 	// ---------------------------------------------------------------- tick

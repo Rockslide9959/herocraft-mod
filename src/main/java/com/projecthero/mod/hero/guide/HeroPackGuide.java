@@ -241,10 +241,10 @@ public final class HeroPackGuide {
 	/** v0.17.5 Sentry: the chapter's control rows {key, ability id}; each shows {@code projecthero.sentry.ability.<id>} and its {@code .desc}. */
 	public static final String[][] SENTRY_CONTROLS = { { "R", "golden_strike" }, { "Hold Shift+R", "sunbeam" }, { "G / hold G", "molecular_grip" },
 			{ "Shift+G", "unmake" }, { "Z", "sun_dive" }, { "Shift+Z", "million_suns" }, { "C", "healing_light" }, { "Shift+C", "sentinel_shield" },
-			{ "X", "flight" }, { "2x X", "sonic_dash" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } };
+			{ "X", "sonic_dash" }, { "2x Space", "flight" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } }; // v0.17.5 rework: X = dash, 2x Space = flight
 	/** v0.17.5 the Void Form rows. */
 	public static final String[][] VOID_CONTROLS = { { "R", "shadow_lash" }, { "Shift+R", "erase" }, { "G", "grasp" }, { "Z", "void_rift" },
-			{ "Shift+Z", "nightfall" }, { "X", "shadow_step" }, { "V", "return" } };
+			{ "Shift+Z", "nightfall" }, { "X", "shadow_step" }, { "2x Space", "flight" }, { "Shift+V / V", "return" } };
 
 	/** Sentry & the Void (v0.17.5). */
 	public static Chapter sentryChapter() {
@@ -2278,7 +2278,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.sentry.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.sentry.body");
 			blank(lines);
-			for (String section : new String[] { "getting", "meters", "thresholds", "body_stats" }) {
+			for (String section : new String[] { "getting", "meters", "thresholds", "body_stats", "suit", "trial" }) { // v0.17.5 rework: + the suit, the trial
 				head(lines, "projecthero.guide.sentry." + section);
 				para(lines, "projecthero.guide.sentry." + section + ".body");
 				blank(lines);
