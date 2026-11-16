@@ -48,7 +48,10 @@ import org.joml.Vector3f;
  *   <li><b>Void</b> (black Hairline): the danger. Rises with the big moves, heavy hits, kills, fighting at night and standing in the
  *   dark; falls in daylight, while healing others and while V (Calm) is held. 50 whispers, 75 misfires, 90 the sky dims and hits
  *   leave burnt shadows, 100 the Void takes over ({@link VoidTakeover}).</li>
- *   <li><b>The body</b>: +30 health (Void Form +40), 70% less damage taken (75%), +12 melee (+16), +30% speed, Sun-fed healing.</li>
+ *   <li><b>The body</b>: 40 max health in both forms, 70% less damage taken (75% merged), +12 melee (+16), +30% speed, Sun-fed healing.</li>
+ *   <li><b>v0.17.5 rework</b>: the suit is a craftable item now ({@link com.projecthero.mod.sentry.item.SentrySuitItem}); worn it slows the
+ *   Void (x0.6 gains) and speeds the Sun (x1.5). Let It Out is a toggle won through a trial ({@link LetItOut}); merged, every hit does
+ *   +25%, the Void moves recharge 25% faster, and every Void gain is x1.5.</li>
  * </ul>
  */
 public final class Sentry {
@@ -132,7 +135,35 @@ public final class Sentry {
 		return s != null && s.hasPower && (s.flying || s.inTakeover());
 	}
 
-	/** Flying under his own steam (X), not carried by the Void. Client-safe: the shared directional flight uses it. */
+	/** Merged with the Void by choice (Let It Out won), not the takeover. Client-safe. */
+	public static boolean merged(Player player) {
+		SentryState s = peek(player);
+		return s != null && s.hasPower && s.voidForm && !s.inTakeover();
+	}
+
+	/** The Sentry Suit (top + trousers) is worn. Client-safe (armour is synced). */
+	public static boolean suitWorn(Player player) {
+		return com.projecthero.mod.sentry.item.SentrySuitItem.suitWorn(player);
+	}
+
+	/** What every Void gain is multiplied by right now: x0.6 in the suit, x1.5 merged with the Void (both: x0.9). */
+	public static float voidGainScale(Player player) {
+		float k = 1f;
+		if (suitWorn(player)) {
+			k *= SentryConfig.SUIT_VOID_GAIN;
+		}
+		if (merged(player)) {
+			k *= SentryConfig.MERGED_VOID_GAIN;
+		}
+		return k;
+	}
+
+	/** What the Sun gained a second is multiplied by: x1.5 in the suit. */
+	public static float sunGainScale(Player player) {
+		return suitWorn(player) ? SentryConfig.SUIT_SUN_GAIN : 1f;
+	}
+
+	/** Flying under his own steam (double-tap Space), not carried by the Void. Client-safe: the shared directional flight uses it. */
 	public static boolean selfFlying(Player player) {
 		SentryState s = peek(player);
 		return s != null && s.hasPower && s.flying && !s.inTakeover();
@@ -247,7 +278,7 @@ public final class Sentry {
 	}
 
 	/**
-	 * Adds (or, negative, takes) Void. Reaching 100 hands the body to the Void ({@link VoidTakeover#tryBegin}). The takeover holds the
+	 * Adds (or, negative, takes) Void; a gain is scaled by {@link #voidGainScale} (the suit, merging). Reaching 100 hands the body to the Void ({@link VoidTakeover#tryBegin}). The takeover holds the
 	 * meter at 100; a creative player's never climbs.
 	 */
 	public static void addVoid(ServerPlayer player, float amount) {
@@ -255,7 +286,7 @@ public final class Sentry {
 		if (!s.hasPower || amount == 0f || s.inTakeover() || (amount > 0f && free(player))) {
 			return;
 		}
-		setVoid(player, s.voidLevel + amount);
+		setVoid(player, s.voidLevel + (amount > 0f ? amount * voidGainScale(player) : amount));
 	}
 
 	/** How much sun reaches him where he stands. */
@@ -339,6 +370,9 @@ public final class Sentry {
 		boolean takeover = inTakeover(player);
 		if (takeover ? !VoidTakeover.canHit(player, target) : !HeroTargets.canHarm(player, target)) {
 			return false;
+		}
+		if (!takeover && merged(player)) {
+			amount *= SentryConfig.MERGED_DAMAGE; // merged with the Void: +25%
 		}
 		DamageSource source = voidDamage ? voidSource(player) : lightSource(player);
 		float before = target.getHealth();
@@ -424,7 +458,7 @@ public final class Sentry {
 		SentryMoves.forget(player.getUUID());
 		VoidMoves.forget(player.getUUID());
 		if (s.beamStart != 0L || s.sunsStart != 0L || s.shieldUntil != 0L || s.nightfallUntil != 0L || s.gripTarget >= 0 || s.calming
-				|| s.flying) {
+				|| s.flying || s.letOutTrialStart != 0L) {
 			SentryState n = state(player).copy();
 			n.beamStart = 0L;
 			n.sunsStart = 0L;
@@ -433,18 +467,21 @@ public final class Sentry {
 			n.gripTarget = -1;
 			n.calming = false;
 			n.flying = false;
+			n.letOutTrialStart = 0L;
 			save(player, n);
 		}
 		reconcile(player);
 	}
 
-	/** Void Form on / off (Shift+V, V Return, the takeover). */
+	/** Void Form on / off (a won Let It Out trial, Shift+V / V back, the takeover). */
 	static void setVoidForm(ServerPlayer player, boolean on) {
 		SentryState n = state(player).copy();
 		if (n.voidForm == on) {
 			return;
 		}
 		n.voidForm = on;
+		n.formChangedAt = now(player);
+		n.letOutTrialStart = 0L;
 		n.beamStart = 0L;
 		n.sunsStart = 0L;
 		n.gripTarget = -1;
@@ -516,6 +553,7 @@ public final class Sentry {
 		SentryMoves.tick(player);
 		VoidMoves.tick(player);
 		SentryFlight.tick(player);
+		LetItOut.tick(player);
 	}
 
 	/** Once a second: the sun fills Sun and moves the Void; Calm and Void Form move it too. */
@@ -527,13 +565,16 @@ public final class Sentry {
 			voidDelta += SentryConfig.VOID_CALM_PER_SECOND / 4f; // the other 3/4 come in the quarter steps
 		}
 		if (s.voidForm) {
-			voidDelta += SentryConfig.VOID_FORM_PER_SECOND;
+			voidDelta += SentryConfig.VOID_FORM_PER_SECOND; // (scaled with the rest below: merged x1.5)
 			if (sun == Sun.DIRECT) {
 				voidDelta -= SentryConfig.VOID_DAYLIGHT_PER_SECOND; // daylight doesn't cool the Void Form
 			}
 		}
+		if (voidDelta > 0f) {
+			voidDelta *= voidGainScale(player);
+		}
 		SentryState n = s.copy();
-		n.sun = Math.min(SentryConfig.SUN_MAX, n.sun + sunPerSecond(sun));
+		n.sun = Math.min(SentryConfig.SUN_MAX, n.sun + sunPerSecond(sun) * sunGainScale(player));
 		if (!(voidDelta > 0f && free(player))) {
 			n.voidLevel = Math.max(0f, Math.min(SentryConfig.VOID_MAX, n.voidLevel + voidDelta));
 		}

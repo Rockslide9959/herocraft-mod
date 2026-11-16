@@ -136,7 +136,11 @@ public final class VoidTakeover {
 		SentryState n = Sentry.state(p).copy();
 		n.takeoverStart = Math.max(1L, now);
 		n.voidLevel = SentryConfig.VOID_MAX;
+		if (!n.voidForm) {
+			n.formChangedAt = now;
+		}
 		n.voidForm = true;
+		n.letOutTrialStart = 0L;
 		n.flying = false;
 		n.calming = false;
 		n.beamStart = 0L;
@@ -182,6 +186,7 @@ public final class VoidTakeover {
 		SentryState n = s.copy();
 		n.takeoverStart = 0L;
 		n.voidForm = false;
+		n.formChangedAt = now; // the suit fades back from the Void suit
 		n.flying = false;
 		n.takeoverTarget = -1;
 		n.room = 0;

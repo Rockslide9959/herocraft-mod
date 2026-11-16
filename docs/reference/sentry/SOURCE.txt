@@ -1,0 +1,14 @@
+Sentry skins from PlanetMinecraft (the user's picks, v0.17.5 Sentry rework, 2026-11-16)
+
+sentry_comics.png  "The Sentry (Comics)"
+  https://www.planetminecraft.com/skin/the-sentry-comics/
+  Credit on the page: Gillygogs (shading), ATROX (the original Sentry skin).
+  The page says: "Ask me before using it in a heropack or addon" -- ASK THE AUTHOR before any public release.
+
+sentry_void.png  "The Sentry merged with the Void"
+  https://www.planetminecraft.com/skin/the-sentry-merged-with-the-void/
+  Licence not checked yet: check the page / ask the author before any public release.
+
+Both are 64x64 palette PNGs, wide (Steve) arms. They are never modified; scratchpad/sentry/make_suit_textures.js turns them into
+textures/entity/sentry/sentry_comics_* and sentry_void_* (head, hair and bare skin cleared). Those outputs are .gitignored: local builds
+only. Without them the game falls back to the mod's own original Sentry / Void textures.

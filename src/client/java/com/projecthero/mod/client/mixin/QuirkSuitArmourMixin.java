@@ -26,7 +26,9 @@ public abstract class QuirkSuitArmourMixin {
 			HumanoidModel<?> model, CallbackInfo ci) {
 		if (entity.getItemBySlot(slot).getItem() instanceof QuirkSuitItem
 				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.undead.item.UndeadSuitItem // v0.17.3: Undead's Suit too
-				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spin.GyroSuitItem) { // v0.17.4: Gyro's suit
+				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spin.GyroSuitItem // v0.17.4: Gyro's suit
+				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.sentry.item.SentrySuitItem // v0.17.5: the Sentry Suit
+				|| com.projecthero.mod.sentry.Sentry.inTakeover(entity)) { // v0.17.5: the Void's body is all black, armour included
 			ci.cancel();
 		}
 	}

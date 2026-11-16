@@ -59,3 +59,8 @@ src/main/resources/assets/projecthero/textures/entity/spin/gyro_suit_*.png
 src/main/resources/assets/projecthero/textures/entity/spin/gyro_cape.png
 docs/screenshots/v0174/misc_models/gyro/
 scratchpad/spin/gyro_suit_original.png
+# v0.17.5 Sentry rework: suit textures made from the two PlanetMinecraft Sentry skins (the comics page says "ask me before using it in
+# a heropack or addon") -- local builds only until permission is given; the game falls back to the original textures without them.
+# Re-make with: node scratchpad/sentry/make_suit_textures.js
+src/main/resources/assets/projecthero/textures/entity/sentry/sentry_comics_*.png
+src/main/resources/assets/projecthero/textures/entity/sentry/sentry_void_*.png

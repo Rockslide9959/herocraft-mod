@@ -66,9 +66,15 @@ public final class VoidMoves {
 			return;
 		}
 		if (fire(p, id, null)) {
-			Sentry.startCooldown(p, id, SentryAbilityManager.maxCooldown(id));
+			Sentry.startCooldown(p, id, cooldownOf(p, id));
 			Sentry.addVoid(p, voidOf(id));
 		}
+	}
+
+	/** A Void move's cooldown: 25% shorter merged with the Void (v0.17.5 rework). */
+	public static int cooldownOf(ServerPlayer p, String id) {
+		int max = SentryAbilityManager.maxCooldown(id);
+		return Sentry.merged(p) ? Math.max(1, Math.round(max * SentryConfig.MERGED_COOLDOWN)) : max;
 	}
 
 	/** Above 75 Void a Sentry key fires this instead (with its cooldown and Void). */

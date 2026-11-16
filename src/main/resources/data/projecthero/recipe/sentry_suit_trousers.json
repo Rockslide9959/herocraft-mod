@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "GHG",
+    "B B",
+    "B B"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:blue_wool"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "H": {
+      "item": "projecthero:hero_alloy_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:sentry_suit_trousers",
+    "count": 1
+  }
+}

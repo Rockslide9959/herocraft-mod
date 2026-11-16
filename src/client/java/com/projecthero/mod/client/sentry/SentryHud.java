@@ -22,11 +22,12 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.5 Sentry HUD, bottom-right, on the shared Minecraft-style column ({@link VanillaHud.Stack}):
  * <pre>
- *   Flying  Calm  Shield 0:04                status tags (wrap)
+ *   Flying  Calm  Shield 0:04  Suit  Trial    status tags (wrap)
  *   THE SENTRY / THE VOID
  *   Sun  [Gauge: notched gold boss bar]  82   fuels the Sentry moves
  *   Void [Hairline: a black 3-px line]   47   the danger (gold edge once past 50, pulsing past 90)
  *   +----+----+----+----+----+----+           R G Z X C V: cooldowns; greyed when the Sun can't pay; yellow while Shift shows Shift
+ *                                             (v0.17.5 rework: X = Sonic Boom; flight is double-tap Space, listed in the move list)
  * </pre>
  * The Void's thresholds also draw here, over the whole view: black veins creeping in from the screen edges from 50 Void (thicker at
  * 75), and from 90 a heartbeat pulse of darkness. Hold Left-Alt for the move list. The takeover's own view is
@@ -95,6 +96,12 @@ public final class SentryHud {
 		if (s.sunsStart != 0L) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.suns").getString(), GOLD_TEXT));
 		}
+		if (Sentry.suitWorn(p)) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.suit").getString(), 0xFF7FA8FF));
+		}
+		if (s.letOutTrialStart != 0L) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.trial").getString(), VOID_TEXT));
+		}
 		if (s.letOutLockedUntil > now) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.locked").getString() + " " + clock(s.letOutLockedUntil - now), 0xFFAAAAAA));
 		}
@@ -109,6 +116,9 @@ public final class SentryHud {
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.sentry.ability." + ids[0]),
 						ids.length > 1 ? Component.translatable("projecthero.sentry.ability." + ids[1]) : null));
 			}
+			// v0.17.5 rework: flight is double-tap Space (both forms)
+			rows.add(MoveListOverlay.inline(Component.translatable("hud.projecthero.sentry.key_space").getString(),
+					Component.translatable("projecthero.sentry.ability.flight")));
 		}
 		hud.moveList(rows);
 	}
@@ -132,7 +142,6 @@ public final class SentryHud {
 			boolean usable = SentryAbilityManager.allowed(p, shown);
 			boolean active = (SentryAbilityManager.SUNBEAM.equals(shown) && s.beamStart != 0L)
 					|| (SentryAbilityManager.CALM.equals(shown) && s.calming)
-					|| (SentryAbilityManager.FLIGHT.equals(shown) && s.flying)
 					|| (SentryAbilityManager.SHIELD.equals(shown) && s.shieldUntil > now)
 					|| (SentryAbilityManager.MILLION_SUNS.equals(shown) && s.sunsStart != 0L)
 					|| (SentryAbilityManager.GRIP.equals(shown) && s.gripTarget >= 0)

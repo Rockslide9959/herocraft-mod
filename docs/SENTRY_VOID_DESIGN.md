@@ -27,12 +27,14 @@ reaching him from inside).
 | Shift+Z | **A Million Suns:** 3 s charge, then an explosion of light (huge damage, big Void gain) |
 | C | **Healing Light:** heals allies around you and clears bad effects (lowers Void) |
 | Shift+C | **Sentinel Shield:** a golden dome that blocks projectiles for 6 s |
-| X | **Flight** (toggle), double-tap X for a sonic-boom dash |
+| X | **Sonic Boom:** a sonic-boom dash (rework 2026-11-16: X is only the dash) |
+| 2x Space | **Flight** (toggle; rework: the same for the Void) |
 | V | **Calm:** hold to meditate, Void drains, you can't attack meanwhile |
-| Shift+V | **Let it out:** at 50+ Void, choose to become the Void yourself (Void Form) — stronger, but Void climbs fast |
+| Shift+V | **Let it out:** (rework) a toggle -- win a short trial to merge with the Void (Void Form): stronger, but Void climbs faster; lose and the Void jumps 15 |
 
-## Void Form (Shift+V, or forced by the takeover)
-Black-and-gold-veined body, hair and eyes black, darkness smoking off you.
+## Void Form (Let It Out won, or forced by the takeover)
+Rework: wearing the Sentry Suit, the suit fades into the Void suit (the user's skin) and the cape goes black; without it, the original
+black-and-gold-veined body fades in. Darkness smoking off you.
 | Key | Move |
 |---|---|
 | R | **Shadow Lash:** tendrils whip everything in front of you |
@@ -41,7 +43,8 @@ Black-and-gold-veined body, hair and eyes black, darkness smoking off you.
 | Z | **Void Rift:** a black hole that pulls and crushes for 4 s |
 | Shift+Z | **Nightfall:** a dome of darkness (Darkness on enemies, you regenerate inside) |
 | X | **Shadow Step:** teleport to any dark spot you look at |
-| V | **Return:** try to go back to Sentry (only works below 90 Void) |
+| 2x Space | **Flight** |
+| Shift+V / V | **Return:** go back to Sentry (only works below 90 Void) |
 
 ## The takeover (the cool part)
 - **The body is not yours.** Third-person camera pulled out behind you, the screen bled to black and gold. The Void flies
@@ -68,4 +71,26 @@ Black-and-gold-veined body, hair and eyes black, darkness smoking off you.
 1. Eaten world **comes back** about a minute after control returns; gamerule `projectheroVoidGriefing` makes it permanent.
 2. The Void attacks **everything**: mobs, players, squadmates and pets.
 3. Sentry Serum comes **only from The Vault** (sealed O.X.E. vat behind Kross).
-4. **Shift+V Void Form exists** (at 50+ Void).
+4. **Shift+V Void Form exists** (at 50+ Void). Superseded 2026-11-16: the trial replaces the 50 gate.
+
+## Rework (user, 2026-11-16)
+User: "dont put the suit on automatically when the player gets the power, make the suit craftable and make it repair itself over time.
+Add this suit to the game as the sentry suit ... fading into this suit [the Sentry merged with the Void] ... Remove the skin and hair from
+these suits ... blue cape ... black cape ... max hp 40 ... void bar fill up a lot slower ... let it out move a toggle ability ...
+minigame ... sentry armour make void bar go up slower and sunlight recharged faster ... entire players body go black ... tiny glowing
+white pixels for eyes" + "Make double tap space bar his flight ability and make it the same for the void power. Make X just a dash
+ability for regular sentry."
+
+- **The suit is an item now.** The power draws nothing. The **Sentry Suit** (top + trousers, no helmet: his own face and hair show) is
+  crafted from gold, blue wool and hero alloy, diamond-level, and mends itself (1 durability / 3 s, worn or carried). Worn whole by the
+  Sentry: Void gains x0.6, Sun x1.5. Look: the user's comics skin with face / hair / bare skin removed; a blue cape.
+- **Let It Out = a toggle won through "Hold the Light"** (8 s: keep your falling light inside a drifting sun by holding Space / the
+  mouse). Lose: +15 Void. Win: merged with the Void (Void kit + flight, +25% damage, Void cooldowns x0.75, the Void rises faster: x1.5
+  and 0.5/s). Shift+V again returns (below 90). No 50 gate.
+- **The fade:** wearing the suit, the comics suit dissolves outward from the heart into the user's Void suit over 2.5 s, cape blue ->
+  black; reverse on return.
+- **40 max health** in both forms. **The Void fills about a third as fast** (numbers in the reference).
+- **Takeover:** the whole body black (suit and cape too), two tiny glowing white pixel eyes.
+- **Flight = double-tap Space** in both forms; **X = Sonic Boom dash** only (merged X stays Shadow Step).
+- **Licence:** the comics skin page says "ask me before using it in a heropack or addon"; both processed textures are held back from git
+  and public builds (fallback: the original art) until permission is given. Credits in the reference.

@@ -48,6 +48,17 @@ public final class SentryMod {
 		PayloadTypeRegistry.playS2C().register(SentryFxPayload.TYPE, SentryFxPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ShameRoomPayload.TYPE, ShameRoomPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(ShameRoomPayload.TYPE, (payload, context) -> ShameRooms.report(context.player(), payload));
+		// v0.17.5 rework: double-tap Space flight and the Let It Out trial's result
+		PayloadTypeRegistry.playC2S().register(com.projecthero.mod.sentry.network.SentryActionPayload.TYPE,
+				com.projecthero.mod.sentry.network.SentryActionPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.projecthero.mod.sentry.network.SentryActionPayload.TYPE, (payload, context) -> {
+			ServerPlayer p = context.player();
+			if (payload.action() == com.projecthero.mod.sentry.network.SentryActionPayload.TOGGLE_FLIGHT) {
+				SentryFlight.toggle(p);
+			} else if (payload.action() == com.projecthero.mod.sentry.network.SentryActionPayload.TRIAL_RESULT) {
+				LetItOut.report(p, payload.won());
+			}
+		});
 		ServerTickEvents.END_WORLD_TICK.register(level -> {
 			VoidMatter.tickLevel(level);
 			VoidMoves.tickLevel(level);
