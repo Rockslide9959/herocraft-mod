@@ -147,7 +147,6 @@ public final class PowerArmourFx {
 				src.endBatch(XRAY_LINES);
 			}
 		}
-		VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
 		// tesla arcs
 		for (Iterator<Arc> it = ARCS.iterator(); it.hasNext();) {
 			Arc arc = it.next();
@@ -156,7 +155,7 @@ public final class PowerArmourFx {
 				continue;
 			}
 			for (int i = 0; i + 1 < arc.points.size(); i++) {
-				jagged(pose, glow, arc.points.get(i), arc.points.get(i + 1), time, 0xA0C8F0FF);
+				jagged(pose, buffers.getBuffer(RenderType.lightning()), arc.points.get(i), arc.points.get(i + 1), time, 0xA0C8F0FF);
 			}
 		}
 		// every wearer in view: rail beams, shields, drones
@@ -173,12 +172,12 @@ public final class PowerArmourFx {
 				Vec3 eye = p.getEyePosition(partial).add(0, -0.25, 0);
 				Vec3 dir = p.getViewVector(partial);
 				Vec3 end = beamEnd(p, eye, dir);
-				beam(pose, glow, eye.add(dir.scale(0.7)), end, 0.09f + 0.12f * k, (Math.round(k * 200) << 24) | rgb);
-				beam(pose, glow, eye.add(dir.scale(0.7)), end, 0.04f, (Math.round(k * 255) << 24) | 0xFFFFFF);
+				beam(pose, buffers.getBuffer(RenderType.lightning()), eye.add(dir.scale(0.7)), end, 0.09f + 0.12f * k, (Math.round(k * 200) << 24) | rgb);
+				beam(pose, buffers.getBuffer(RenderType.lightning()), eye.add(dir.scale(0.7)), end, 0.04f, (Math.round(k * 255) << 24) | 0xFFFFFF);
 			}
 			if (s.shieldUntil > now) {
 				float left = Math.min(1f, (s.shieldUntil - time) / 10f);
-				bubble(pose, glow, at.add(0, 1.0, 0), 1.6f, time, (Math.round(55 * left) << 24) | rgb);
+				bubble(pose, buffers.getBuffer(RenderType.lightning()), at.add(0, 1.0, 0), 1.6f, time, (Math.round(55 * left) << 24) | rgb);
 			}
 			if (s.droneUntil > now) {
 				drone(pose, buffers, p, at, time, rgb);

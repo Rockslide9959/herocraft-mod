@@ -1,0 +1,486 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.network.AbilityInputPayload;
+import com.projecthero.mod.powerarmour.ArmourTier;
+import com.projecthero.mod.powerarmour.CoreType;
+import com.projecthero.mod.powerarmour.ModuleType;
+import com.projecthero.mod.powerarmour.PowerArmour;
+import com.projecthero.mod.powerarmour.PowerArmourMod;
+import com.projecthero.mod.powerarmour.SuitData;
+import com.projecthero.mod.powerarmour.entity.PowerArmourFrameEntity;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Power Armour): the seven tier frames front and back, layer close-ups, modules mounted, the
+ * editor, the HUD, and frame-per-tick films of stepping in, stepping out and a few moves, from a fixed camera (an invisible
+ * armour stand). Enabled by run/pa.flag = "&lt;out dir&gt;". Install: copy to src/client/java/com/projecthero/mod/client/
+ * PowerArmourHarness.java and add it to the "client" entrypoints in fabric.mod.json. Remove both before committing.
+ */
+public final class PowerArmourHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static String only = "";
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("pa.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			only = parts.length > 1 ? parts[1] : "";
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		for (String d : new String[] { "enter", "exit", "punch", "stomp", "gatling", "jets", "rail", "thrust" }) {
+			new File(out, "screenshots/" + d).mkdirs();
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(PowerArmourHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "pa-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static Vec3 at(double dx, double dy, double dz) {
+		return new Vec3(base.getX() + 0.5 + dx, base.getY() + dy, base.getZ() + 0.5 + dz);
+	}
+
+	public static volatile Vec3 camPos, camLook;
+
+	/** A fixed third-person camera at {@code eye} looking at {@code target} (PowerArmourHarnessCameraMixin places it). */
+	private static void cam(Minecraft mc, Vec3 eye, Vec3 target) {
+		camPos = eye;
+		camLook = target;
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void playerCam(Minecraft mc) {
+		camPos = null;
+		camLook = null;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+	}
+
+	private static SuitData suit(ArmourTier t, ModuleType... mods) {
+		SuitData d = SuitData.fresh(t);
+		d.core = t.ordinal() >= ArmourTier.VIBRANIUM.ordinal() ? CoreType.STAR_CORE : t.ordinal() >= ArmourTier.DIAMOND.ordinal() ? CoreType.ARC_CORE
+				: CoreType.FUSION_CELL;
+		d.coreCharge = d.core.capacity;
+		for (ModuleType m : mods) {
+			for (int i = 0; i < d.modules.length; i++) {
+				if (d.modules[i] == null && t.slotPart(i) == m.part) {
+					d.modules[i] = m;
+					break;
+				}
+			}
+		}
+		return d;
+	}
+
+	private static PowerArmourFrameEntity frame(ServerLevel level, Vec3 pos, float yaw, SuitData suit) {
+		PowerArmourFrameEntity f = PowerArmourMod.FRAME.create(level);
+		f.moveTo(pos.x, pos.y, pos.z, yaw, 0f);
+		f.setSuit(suit);
+		level.addFreshEntity(f);
+		return f;
+	}
+
+	private static List<PowerArmourFrameEntity> frames(ServerPlayer p) {
+		return new ArrayList<>(p.serverLevel().getEntitiesOfClass(PowerArmourFrameEntity.class, p.getBoundingBox().inflate(60)));
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.PEACEFUL, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -14; x <= 14; x++) {
+			for (int z = -10; z <= 16; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.POLISHED_DEEPSLATE.defaultBlockState()
+						: Blocks.DEEPSLATE_TILES.defaultBlockState(), 3);
+				for (int y = 0; y < 12; y++) {
+					level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}
+		for (int x = -14; x <= 14; x++) {
+			for (int y = 0; y < 6; y++) {
+				level.setBlock(base.offset(x, y, 15), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 3);
+			}
+		}
+		// the seven tiers in a row, facing the camera (north)
+		ArmourTier[] tiers = ArmourTier.values();
+		for (int i = 0; i < tiers.length; i++) {
+			frame(level, at(6 - i * 2, 0, 4), 180f, suit(tiers[i]));
+		}
+		p.getInventory().clearContent();
+		p.teleportTo(base.getX() + 0.5, base.getY(), base.getZ() - 3.0);
+	}
+
+	private static void press(int slot, boolean down, boolean shift) {
+		ClientPlayNetworking.send(new AbilityInputPayload(slot, down, shift, 0));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(PowerArmourHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(60);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, PowerArmourHarness::stage);
+		}
+		if (t < 100 || base == null) {
+			return;
+		}
+		int s = t - 100;
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		// ---------------- 1. the seven tiers, front and back
+		if (s == 0) {
+			mc.options.hideGui = true;
+			cam(mc, at(0, 1.5, -5.2), at(0, 1.0, 4));
+		}
+		if (s == 20) {
+			shot(mc, "01_tiers_front");
+			// (the camera walks round behind them)
+		}
+		if (s == 30) {
+			cam(mc, at(0, 1.5, 12.0), at(0, 1.0, 4));
+		}
+		if (s == 45) {
+			shot(mc, "02_tiers_back");
+			// back to the front
+		}
+		// ---------------- 2. close-ups of the layers (Diamond, Celestial, Netherite) closed and open
+		if (s == 55) {
+			cam(mc, at(0.0, 1.55, 2.25), at(0, 1.35, 4));
+		}
+		if (s == 68) {
+			shot(mc, "03_closeup_diamond");
+			cam(mc, at(4.6, 1.75, 2.6), at(4.2, 1.5, 4));
+		}
+		if (s == 80) {
+			shot(mc, "04_closeup_gold_helmet");
+			cam(mc, at(-4.0, 1.4, 2.0), at(-4, 1.2, 4));
+		}
+		if (s == 92) {
+			shot(mc, "05_closeup_vibranium");
+			server(mc, p -> frames(p).forEach(f -> f.setAnim(PowerArmourFrameEntity.OPEN)));
+			cam(mc, at(1.4, 1.6, 2.3), at(0, 1.1, 4));
+		}
+		if (s == 110) {
+			shot(mc, "06_open_diamond");
+			cam(mc, at(0, 1.6, 6.4), at(0, 1.1, 4));
+		}
+		if (s == 122) {
+			shot(mc, "07_open_back");
+			cam(mc, at(0, 1.5, -5.2), at(0, 1.0, 4));
+		}
+		if (s == 134) {
+			shot(mc, "08_tiers_open");
+			server(mc, p -> frames(p).forEach(f -> f.setAnim(PowerArmourFrameEntity.CLOSING)));
+		}
+		// ---------------- 3. modules mounted
+		if (s == 160) {
+			server(mc, p -> {
+				frames(p).forEach(Entity::discard);
+				ServerLevel level = p.serverLevel();
+				frame(level, at(-2.2, 0, 4), 200f, suit(ArmourTier.CELESTIAL, ModuleType.GATLING, ModuleType.MAGNETIC_CLAMP, ModuleType.MISSILE_POD,
+						ModuleType.TARGET_LOCK, ModuleType.ORE_SCANNER, ModuleType.SEISMIC_PLATES, ModuleType.REACTIVE_PLATING, ModuleType.CAPACITOR_BANK));
+				frame(level, at(0, 0, 4), 180f, suit(ArmourTier.NETHERITE, ModuleType.RAIL_CANNON, ModuleType.THRUSTER_PACK, ModuleType.NIGHT_VISOR,
+						ModuleType.SERVO_BOOSTERS, ModuleType.OVERCLOCK, ModuleType.SOLAR_PLATE));
+				frame(level, at(2.2, 0, 4), 160f, suit(ArmourTier.HERO_ALLOY, ModuleType.FLAMER, ModuleType.SHIELD_PROJECTOR, ModuleType.REBREATHER,
+						ModuleType.STABILISERS));
+			});
+			cam(mc, at(0, 1.5, 0.4), at(0, 1.0, 4));
+		}
+		if (s == 178) {
+			shot(mc, "09_modules_front");
+			cam(mc, at(0, 1.7, 7.6), at(0, 1.1, 4));
+		}
+		if (s == 192) {
+			shot(mc, "10_modules_back");
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				frames(p).forEach(Entity::discard);
+				frame(level, at(-1.4, 0, 4), 180f, suit(ArmourTier.VIBRANIUM, ModuleType.TESLA_COIL, ModuleType.SENTRY_TURRET, ModuleType.SERVO_BOOSTERS));
+				frame(level, at(1.4, 0, 4), 180f, suit(ArmourTier.DIAMOND, ModuleType.POWER_FIST, ModuleType.REPAIR_DRONE, ModuleType.BREACHER_PLATING));
+			});
+			cam(mc, at(0, 1.5, 0.8), at(0, 1.0, 4));
+		}
+		if (s == 210) {
+			shot(mc, "11_modules_more");
+			cam(mc, at(0, 1.7, 7.2), at(0, 1.1, 4));
+		}
+		if (s == 224) {
+			shot(mc, "12_modules_more_back");
+		}
+		// ---------------- 4. the editor
+		if (s == 230) {
+			server(mc, p -> {
+				frames(p).forEach(Entity::discard);
+				PowerArmourFrameEntity f = frame(p.serverLevel(), at(0, 0, 0), 180f, suit(ArmourTier.DIAMOND, ModuleType.GATLING, ModuleType.MISSILE_POD,
+						ModuleType.TARGET_LOCK, ModuleType.SERVO_BOOSTERS));
+				f.suit().coreCharge = 1712f;
+				f.suitChanged();
+				p.teleportTo(base.getX() + 0.5, base.getY(), base.getZ() - 1.5);
+				p.getInventory().setItem(0, new ItemStack(PowerArmourMod.module(ModuleType.REACTIVE_PLATING)));
+				p.getInventory().setItem(1, new ItemStack(PowerArmourMod.module(ModuleType.RAIL_CANNON)));
+				p.getInventory().setItem(2, new ItemStack(PowerArmourMod.core(CoreType.STAR_CORE)));
+				p.getInventory().setItem(3, new ItemStack(PowerArmourMod.module(ModuleType.SHIELD_PROJECTOR)));
+				p.getInventory().setItem(4, new ItemStack(PowerArmourMod.frame(ArmourTier.CELESTIAL)));
+			});
+			playerCam(mc);
+			mc.options.hideGui = false;
+		}
+		if (s == 240) {
+			server(mc, p -> frames(p).get(0).openEditor(p));
+		}
+		if (s == 262) {
+			shot(mc, "13_editor");
+		}
+		if (s == 266) {
+			mc.player.closeContainer();
+		}
+		// ---------------- 5. stepping in (film, fixed camera, three-quarter view)
+		if (s == 275) {
+			mc.options.hideGui = true;
+			cam(mc, at(2.5, 1.75, -2.9), at(0.1, 1.0, -0.5));
+			server(mc, p -> p.teleportTo(base.getX() + 0.5 + 0.8, base.getY(), base.getZ() - 2.6));
+		}
+		int e0 = 290;
+		if (s == e0) {
+			server(mc, p -> PowerArmour.tryEnter(p, frames(p).get(0)));
+		}
+		if (s >= e0 && s < e0 + 96) {
+			shot(mc, String.format("enter/f%03d", s - e0));
+		}
+		// ---------------- 6. the HUD inside (first person), then the move list
+		int h0 = e0 + 100;
+		if (s == h0) {
+			playerCam(mc);
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> p.setYRot(0f));
+		}
+		if (s == h0 + 14) {
+			press(5, true, false); // visor on
+		}
+		if (s == h0 + 24) {
+			shot(mc, "14_hud");
+			com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = true;
+		}
+		if (s == h0 + 30) {
+			shot(mc, "15_hud_move_list");
+			com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = false;
+			press(5, true, false); // visor off
+		}
+		// ---------------- 7. moves (fixed side camera; target dummies down range)
+		int m0 = h0 + 40;
+		if (s == m0) {
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				for (int i = 0; i < 3; i++) {
+					var d = com.projecthero.mod.targetdummy.TargetDummyMod.TARGET_DUMMY.create(level);
+					d.moveTo(base.getX() + 0.5 - 1.2 + i * 1.2, base.getY(), base.getZ() + 3.5 + (i == 1 ? 0 : 0.6), 180f, 0f);
+					level.addFreshEntity(d);
+				}
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 1.0, 0f, 8f);
+			});
+			cam(mc, at(4.5, 1.8, 2.2), at(0, 1.0, 2.6));
+		}
+		// punch (charged)
+		int p0 = m0 + 20;
+		if (s == p0 + 4) {
+			press(1, true, false);
+		}
+		if (s == p0 + 26) {
+			press(1, false, false);
+		}
+		if (s >= p0 && s < p0 + 50) {
+			shot(mc, String.format("punch/f%03d", s - p0));
+		}
+		// stomp
+		int st0 = p0 + 56;
+		if (s == st0) {
+			server(mc, p -> p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 2.4, 0f, 8f));
+		}
+		if (s == st0 + 6) {
+			press(2, true, false);
+			press(2, false, false);
+		}
+		if (s >= st0 && s < st0 + 40) {
+			shot(mc, String.format("stomp/f%03d", s - st0));
+		}
+		// gatling
+		int g0 = st0 + 46;
+		if (s == g0) {
+			server(mc, p -> {
+				var state = PowerArmour.state(p);
+				state.suit.modules[1] = ModuleType.GATLING;
+				state.suit.coreCharge = state.suit.capacity();
+				PowerArmour.sync(p);
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() - 1.0, 0f, 6f);
+			});
+		}
+		if (s == g0 + 6) {
+			press(1, true, true);
+		}
+		if (s == g0 + 46) {
+			press(1, false, false);
+		}
+		if (s >= g0 && s < g0 + 56) {
+			shot(mc, String.format("gatling/f%03d", s - g0));
+		}
+		// rail cannon
+		int r0 = g0 + 60;
+		if (s == r0) {
+			server(mc, p -> {
+				var state = PowerArmour.state(p);
+				state.suit.modules[1] = ModuleType.RAIL_CANNON;
+				state.suit.coreCharge = state.suit.capacity();
+				state.readyAt.clear();
+				PowerArmour.sync(p);
+			});
+		}
+		if (s == r0 + 4) {
+			press(1, true, true);
+		}
+		if (s == r0 + 38) {
+			press(1, false, false);
+		}
+		if (s >= r0 && s < r0 + 56) {
+			shot(mc, String.format("rail/f%03d", s - r0));
+		}
+		// jump jets
+		int j0 = r0 + 60;
+		if (s == j0) {
+			server(mc, p -> p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() - 2.0, 90f, 0f));
+			cam(mc, at(1.0, 2.6, 6.5), at(-1.5, 2.0, -1.0));
+		}
+		if (s == j0 + 8) {
+			press(3, true, false);
+			press(3, false, false);
+		}
+		if (s >= j0 && s < j0 + 44) {
+			shot(mc, String.format("jets/f%03d", s - j0));
+		}
+		// stepping out (film)
+		int x0 = j0 + 50;
+		if (s == x0) {
+			server(mc, p -> {
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 200f, 0f);
+				var state = PowerArmour.state(p);
+				state.readyAt.clear();
+				PowerArmour.sync(p);
+			});
+			cam(mc, at(2.3, 1.75, -2.6), at(0.1, 1.0, 0.0));
+		}
+		if (s == x0 + 10) {
+			press(5, true, true);
+		}
+		if (s == x0 + 10 + 22) {
+			press(5, false, false);
+		}
+		if (s >= x0 && s < x0 + 80) {
+			shot(mc, String.format("exit/f%03d", s - x0));
+		}
+		if (s == x0 + 86) {
+			server(mc, p -> System.out.println("[HARNESS] frames after exit: " + frames(p).size() + ", sealed " + PowerArmour.sealed(p)));
+		}
+		if (s == x0 + 92) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("PA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

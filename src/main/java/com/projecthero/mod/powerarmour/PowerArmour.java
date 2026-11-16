@@ -582,9 +582,7 @@ public final class PowerArmour {
 			player.clearFire();
 		}
 		boolean poweredNow = suit.powered();
-		if (poweredBefore != poweredNow || now % 20 == 0) {
-			applyAttributes(player, suit);
-		}
+		applyAttributes(player, suit); // cheap: each modifier is only touched when it changes
 		if (poweredBefore && !poweredNow) {
 			say(player, "message.projecthero.power_armour.unpowered", ChatFormatting.GRAY);
 			player.serverLevel().playSound(null, player.getX(), player.getY() + 1.6, player.getZ(), SoundEvents.BEACON_DEACTIVATE,

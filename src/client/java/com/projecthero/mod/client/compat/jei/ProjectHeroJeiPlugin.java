@@ -44,6 +44,35 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.body"),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.stats"),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.controls"));
+		powerArmourInfo(registration);
+	}
+
+	/** v0.17.5: JEI info pages for Power Armour -- the frames, platings, board, cores, charger and every module. */
+	private static void powerArmourInfo(IRecipeRegistration registration) {
+		for (com.projecthero.mod.powerarmour.ArmourTier t : com.projecthero.mod.powerarmour.ArmourTier.values()) {
+			registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.frame(t)),
+					net.minecraft.network.chat.Component.translatable("item.projecthero.power_armour_frame.tier_hint." + t.id()),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.power_armour"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.power_armour_upgrade"));
+			registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.plating(t)),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.power_armour.getting_text"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.power_armour_upgrade"));
+		}
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.CIRCUIT_BOARD),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.redstone_circuit_board.hint"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.power_armour_upgrade"));
+		for (com.projecthero.mod.powerarmour.CoreType c : com.projecthero.mod.powerarmour.CoreType.values()) {
+			registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.core(c)),
+					net.minecraft.network.chat.Component.translatable("item.projecthero." + c.id() + ".desc"),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.power_armour.cores_text"));
+		}
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.CHARGER_ITEM),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.core_charger.hint"));
+		for (com.projecthero.mod.powerarmour.ModuleType m : com.projecthero.mod.powerarmour.ModuleType.values()) {
+			registration.addItemStackInfo(new ItemStack(com.projecthero.mod.powerarmour.PowerArmourMod.module(m)),
+					net.minecraft.network.chat.Component.translatable(m.translationKey() + ".desc"),
+					net.minecraft.network.chat.Component.translatable("projecthero.guide.power_armour.modules_text"));
+		}
 	}
 
 	/** v0.17.5: JEI info pages for the loot framework's items (where they come from, what they do). */

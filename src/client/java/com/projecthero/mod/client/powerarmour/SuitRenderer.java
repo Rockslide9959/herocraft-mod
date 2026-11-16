@@ -36,9 +36,9 @@ public final class SuitRenderer {
 	public static final ResourceLocation FRAME_TEX = ProjectHeroMod.id("textures/entity/power_armour/frame.png");
 	public static final ResourceLocation MODULE_TEX = ProjectHeroMod.id("textures/entity/power_armour/modules.png");
 
-	public static final float FRAME_IN = 0.2f, FRAME_D = 0.35f;
-	public static final float PLATE_IN = 0.6f, PLATE_D = 0.55f;
-	public static final float TRIM_IN = 1.15f, TRIM_D = 0.3f;
+	public static final float FRAME_IN = 0.15f, FRAME_D = 0.3f;
+	public static final float PLATE_IN = 0.5f, PLATE_D = 0.45f;
+	public static final float TRIM_IN = 0.95f, TRIM_D = 0.25f;
 
 	private SuitRenderer() {
 	}

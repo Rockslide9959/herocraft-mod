@@ -162,7 +162,7 @@ function frameTexel(t) {
     // front / back: side rails, ribs every 2 px, a sternum / spine
     if (edge < 0.6) return shade(FR.rib);
     if (y > 8.75 && y < 9.5) return shade(FR.piston); // the belt
-    if (near(x, 0, t.f === 'S' ? 0.9 : 0.5)) return shade(t.f === 'S' ? FR.dark : FR.rib);
+    if (near(x, 0, t.f === 'S' ? 0.9 : 0.5)) return shade(FR.dark);
     if (Math.floor(y * 2) % 4 === 1 && Math.abs(x) < 3.6) return shade(FR.base);
     if (t.f === 'N' && near(y, 3, 0.8) && near(x, 0, 1.2)) return FR.dark; // core housing
     return null;
@@ -391,7 +391,7 @@ function trimPattern(tier, t) {
     }
     case 'vibranium': { // silver edges round every plate, a collar
       if (crest || pauldron || cuff) return base + 20;
-      if (bd < 0.3 && t.part !== 'head') return base + 10;
+      if (bd < 0.3 && (outerSide(t) || (t.part === 'body' && (t.f === 'W' || t.f === 'E')))) return base + 10;
       if (t.part === 'body' && (t.f === 'N' || t.f === 'S' || t.f === 'D') && y < 0.8) return base + 20;
       return null;
     }

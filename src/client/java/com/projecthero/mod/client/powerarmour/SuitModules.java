@@ -40,6 +40,9 @@ public final class SuitModules {
 		}
 	}
 
+	/** The module boxes were laid out on a 1.45 px shell; the plates now end at 1.2. */
+	private static final float OUTBOARD = 1.45f - (SuitRenderer.TRIM_IN + SuitRenderer.TRIM_D);
+
 	private static final Map<ModuleType, List<B>> GEO = new EnumMap<>(ModuleType.class);
 	/** Calf jets: every suit has them (the Jump Jets). */
 	private static final List<B> CALF = new ArrayList<>();
@@ -223,7 +226,6 @@ public final class SuitModules {
 
 	static void render(PoseStack pose, MultiBufferSource buffers, int light, int overlay, Part part, SuitRenderer.Look look) {
 		SuitData suit = look.suit;
-		VertexConsumer solid = null, glow = null;
 		for (int pass = 0; pass <= suit.modules.length; pass++) {
 			List<B> list;
 			ModuleType type = null;
@@ -248,18 +250,17 @@ public final class SuitModules {
 				if (b.part != part) {
 					continue;
 				}
-				if (b.glow()) {
-					if (glow == null) {
-						glow = buffers.getBuffer(RenderType.eyes(SuitRenderer.MODULE_TEX));
-					}
-				} else if (solid == null) {
-					solid = buffers.getBuffer(RenderType.entityCutout(SuitRenderer.MODULE_TEX));
-				}
 				pose.pushPose();
 				SuitRenderer.applyPanel(pose, b.panel, look);
 				if (back) {
 					float k = look.open(Group.BACK);
 					pose.translate(0f, -4.5f * k / 16f, 2.5f * k / 16f);
+				}
+				// modules sit on the plates' outer face (inflate SuitRenderer.TRIM_IN + TRIM_D): pull outboard boxes in to meet it
+				float sx = b.x0 > part.x0 + part.w + 0.5f ? -OUTBOARD : b.x1 < part.x0 - 0.5f ? OUTBOARD : 0f;
+				float sz = b.z0 > part.z0 + part.d + 0.5f ? -OUTBOARD : b.z1 < part.z0 - 0.5f ? OUTBOARD : 0f;
+				if (sx != 0f || sz != 0f) {
+					pose.translate(sx / 16f, 0f, sz / 16f);
 				}
 				float y1 = b.y1;
 				boolean draw = true;
@@ -287,7 +288,9 @@ public final class SuitModules {
 				if (draw) {
 					int cx = (b.sw % 8) * 4, cy = (b.sw / 8) * 4;
 					IronManBoxes.Box box = IronManBoxes.Box.swatch(b.x0, b.y0, b.z0, b.x1, y1, b.z1, cx + 1f, cy + 1f, 2f, 2f);
-					IronManBoxes.draw(pose, b.glow() ? glow : solid, box, 32, 32, b.glow() ? LightTexture.FULL_BRIGHT : light, overlay, rgb);
+					// fetched per box: asking the buffer source for another render type ends the previous one
+					VertexConsumer vc = buffers.getBuffer(b.glow() ? RenderType.eyes(SuitRenderer.MODULE_TEX) : RenderType.entityCutout(SuitRenderer.MODULE_TEX));
+					IronManBoxes.draw(pose, vc, box, 32, 32, b.glow() ? LightTexture.FULL_BRIGHT : light, overlay, rgb);
 				}
 				pose.popPose();
 			}

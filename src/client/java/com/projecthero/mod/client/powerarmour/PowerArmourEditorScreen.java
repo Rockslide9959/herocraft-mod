@@ -53,7 +53,7 @@ import net.minecraft.world.item.DyeColor;
 public class PowerArmourEditorScreen extends AbstractContainerScreen<PowerArmourEditorMenu> {
 	private static final int PREVIEW_X = 8, PREVIEW_Y = 16, PREVIEW_W = 92, PREVIEW_H = 104;
 	private static final int STATS_X = 192, STATS_W = 58;
-	private static final int PAINT_X = 46, PAINT_Y = 126;
+	private static final int PAINT_X = 62, PAINT_Y = 126;
 	private static final int[] PALETTE = buildPalette();
 
 	private PlayerModel<LivingEntity> model;
@@ -161,7 +161,6 @@ public class PowerArmourEditorScreen extends AbstractContainerScreen<PowerArmour
 	@Override
 	protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
 		g.drawString(font, title, titleLabelX, titleLabelY, GuiBits.TEXT, false);
-		g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, GuiBits.TEXT, false);
 		SuitData suit = menu.suit();
 		for (BodyPart part : BodyPart.values()) {
 			int ry = PowerArmourEditorMenu.PART_Y0 + part.ordinal() * PowerArmourEditorMenu.PART_DY;
@@ -212,12 +211,13 @@ public class PowerArmourEditorScreen extends AbstractContainerScreen<PowerArmour
 		// empty slot / swatch / preview hints
 		Slot hovered = hoveredSlot;
 		SuitData suit = menu.suit();
-		if (hovered != null && !hovered.hasItem() && hovered.index < 1 + suit.modules.length && menu.getCarried().isEmpty()) {
+		if (hovered != null && !hovered.hasItem() && !(hovered.container instanceof Inventory) && menu.getCarried().isEmpty()) {
 			List<Component> tip = new ArrayList<>();
-			if (hovered.index == 0) {
+			int idx = hovered.getContainerSlot();
+			if (idx == 0) {
 				tip.add(Component.translatable("projecthero.power_armour.editor.core_slot"));
 			} else {
-				BodyPart part = suit.tier.slotPart(hovered.index - 1);
+				BodyPart part = suit.tier.slotPart(Math.min(idx - 1, suit.modules.length - 1));
 				tip.add(Component.translatable("projecthero.power_armour.editor.module_slot", Component.translatable(part.translationKey())));
 				tip.add(Component.translatable("projecthero.power_armour.editor.budget_left", Math.max(0, suit.output() - suit.load()))
 						.withStyle(ChatFormatting.GRAY));

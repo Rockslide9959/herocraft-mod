@@ -689,7 +689,9 @@ public final class HeroPackGuide {
 	private static final int CH_MASTER_CONTROL = CH_VISION + 1; // 76
 	private static final int CH_LOOT = CH_MASTER_CONTROL + 1; // 77, v0.17.5: Loot & Progression
 	private static final int CH_HIDEOUTS = CH_LOOT + 1; // 78, v0.17.5: Villain Hideouts (Tier 3)
-	private static final int CHAPTER_POWER_BASE = CH_HIDEOUTS + 1; // 79
+	/** v0.17.5: Power Armour, a Secondary power (after the Hideouts, so every earlier index stays put). */
+	private static final int CH_POWER_ARMOUR = CH_HIDEOUTS + 1; // 79
+	private static final int CHAPTER_POWER_BASE = CH_POWER_ARMOUR + 1; // 80
 
 	/**
 	 * v0.17.4: whether the reader may see the hidden Master Control page -- the client sets this to "the local player has woken
@@ -2216,6 +2218,49 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// v0.17.5: Power Armour (CH_POWER_ARMOUR) -- a Secondary power: frames, cores, tiers, the editor, the kit, the modules
+		out.add(chapter("projecthero.guide.power_armour", lines -> {
+			lines.add(Component.translatable("projecthero.guide.power_armour.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.power_armour.body");
+			blank(lines);
+			for (String section : new String[] { "getting", "entering", "cores" }) {
+				head(lines, "projecthero.guide.power_armour." + section + "_head");
+				para(lines, "projecthero.guide.power_armour." + section + "_text");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.power_armour.tiers_head");
+			para(lines, "projecthero.guide.power_armour.tiers_text");
+			for (com.projecthero.mod.powerarmour.ArmourTier tier : com.projecthero.mod.powerarmour.ArmourTier.values()) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(tier.primary))
+						.append(Component.translatable("projecthero.guide.power_armour.tier_line", Component.translatable(tier.translationKey()),
+								Component.translatable("item.projecthero.power_armour_frame.tier_hint." + tier.id())).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			for (String section : new String[] { "integrity", "editor" }) {
+				head(lines, "projecthero.guide.power_armour." + section + "_head");
+				para(lines, "projecthero.guide.power_armour." + section + "_text");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.power_armour.controls");
+			for (String[] row : new String[][] { { "R", "r" }, { "Shift+R", "sr" }, { "G", "g" }, { "Shift+G", "sg" }, { "Z", "z" },
+					{ "Shift+Z", "sz" }, { "X", "x" }, { "C", "c" }, { "V", "v" }, { "Shift+V", "sv" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.power_armour.k." + row[1]).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.power_armour.modules_head");
+			para(lines, "projecthero.guide.power_armour.modules_text");
+			for (com.projecthero.mod.powerarmour.ModuleType m : com.projecthero.mod.powerarmour.ModuleType.values()) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.AQUA)
+						.append(Component.translatable(m.translationKey()).withStyle(ChatFormatting.WHITE))
+						.append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
+						.append(Component.translatable(m.translationKey() + ".desc").withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.power_armour.passives_head");
+			para(lines, "projecthero.guide.power_armour.passives_text");
+		}));
+
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
@@ -2388,6 +2433,7 @@ public final class HeroPackGuide {
 		icon(CH_BLACK_PANTHER, "panther_habit"); // v0.17.3 (the habit since v0.17.4)
 		icon(CH_UNDEAD, "undead_card"); // v0.17.3
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
+		icon(CH_POWER_ARMOUR, "power_armour_frame_diamond"); // v0.17.5
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_MASTER_CONTROL, "omnitrix"); // v0.17.4
 		icon(CH_STANDS, "stand_arrow"); // v0.17.2
@@ -2506,6 +2552,7 @@ public final class HeroPackGuide {
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.spin"), 2, CH_SPIN)); // v0.17.3: next to Stands
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.undead"), 2, CH_UNDEAD)); // v0.17.3
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.saiyan"), 2, CH_SAIYAN)); // v0.17.3
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.power_armour"), 2, CH_POWER_ARMOUR)); // v0.17.5: a Secondary power
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));
