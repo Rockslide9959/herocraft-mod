@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "DDD",
+    "TBT"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "T": {
+      "item": "projecthero:salvaged_tech"
+    },
+    "D": {
+      "item": "minecraft:daylight_detector"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_solar_plate",
+    "count": 1
+  }
+}

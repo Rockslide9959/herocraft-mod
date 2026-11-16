@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "projecthero:redstone_circuit_board"
+  },
+  "base": {
+    "item": "projecthero:power_armour_frame_iron"
+  },
+  "addition": {
+    "item": "projecthero:power_armour_plating_gold"
+  },
+  "result": {
+    "id": "projecthero:power_armour_frame_gold",
+    "count": 1
+  }
+}

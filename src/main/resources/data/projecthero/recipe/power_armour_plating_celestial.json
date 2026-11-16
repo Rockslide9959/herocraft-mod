@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    {
+      "item": "projecthero:celestial_core"
+    },
+    {
+      "item": "projecthero:vibranium_shard"
+    },
+    {
+      "item": "projecthero:vibranium_shard"
+    }
+  ],
+  "result": {
+    "id": "projecthero:power_armour_plating_celestial",
+    "count": 1
+  }
+}

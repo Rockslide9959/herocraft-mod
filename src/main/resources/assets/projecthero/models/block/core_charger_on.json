@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "projecthero:block/core_charger_top",
+    "front": "projecthero:block/core_charger_front_on",
+    "side": "projecthero:block/core_charger_side"
+  }
+}

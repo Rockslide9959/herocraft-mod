@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "CLC",
+    "ABA"
+  ],
+  "key": {
+    "B": {
+      "item": "projecthero:redstone_circuit_board"
+    },
+    "A": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "C": {
+      "item": "minecraft:copper_block"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    }
+  },
+  "result": {
+    "id": "projecthero:pa_module_tesla_coil",
+    "count": 1
+  }
+}

@@ -335,7 +335,8 @@
       "com.projecthero.mod.gametest.OmnitrixLongTransformGameTests",
       "com.projecthero.mod.gametest.OmnitrixHoldBackGameTests",
       "com.projecthero.mod.gametest.OmnitrixFunctionModeGameTests",
-      "com.projecthero.mod.gametest.TargetDummyGameTests"
+      "com.projecthero.mod.gametest.TargetDummyGameTests",
+      "com.projecthero.mod.gametest.PowerArmourGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

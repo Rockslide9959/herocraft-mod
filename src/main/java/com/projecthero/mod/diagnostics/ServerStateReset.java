@@ -81,6 +81,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.loot.LootMod.clearSessionState(); // v0.17.5: Med Kit heal timers
 		com.projecthero.mod.gear.GearMod.clearSessionState(); // v0.17.5: Utility Belt spare charges
 		com.projecthero.mod.targetdummy.TargetDummyLabels.clearSessionState(); // v0.17.5: Target Dummy ability-key presses
+		com.projecthero.mod.powerarmour.PowerArmourMod.clearSessionState(); // v0.17.5: Power Armour -- grips, charges, thrown mobs, beams
 		com.projecthero.mod.galactus.orbit.GalactusRaidStatics.clear(); // v0.17.2 Galactus raid v2 (debris, cutscene holds, orbit rules)
 		com.projecthero.mod.omnitrix.OmnitrixMod.clearSessionState(); // v0.17.1
 		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.clearSessionState(); // v0.17.1

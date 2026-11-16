@@ -40,6 +40,12 @@ public final class VanillaHud {
 	public static final int WHITE = 0xFFFFFFFF, GREY = 0xFFAAAAAA, DARK_GREY = 0xFF555555, YELLOW = 0xFFFFFF55, GOLD = 0xFFFFAA00,
 			RED = 0xFFFF5555, GREEN = 0xFF55FF55;
 
+	/**
+	 * v0.17.5: while this says so, every power HUD built on {@link Stack#bottomRight} is drawn off-screen -- Power Armour sets it
+	 * while its wearer is sealed, so the Primary's keys (suppressed inside the suit) do not show beside the suit's.
+	 */
+	public static java.util.function.BooleanSupplier muteOthers = () -> false;
+
 	private VanillaHud() {
 	}
 
@@ -265,6 +271,15 @@ public final class VanillaHud {
 
 		/** The bottom-right column for a strip of up to {@code slots} keys (never narrower than six). */
 		public static Stack bottomRight(GuiGraphics g, int slots) {
+			// v0.17.5: sealed in Power Armour, the suit's HUD owns the corner -- every other power's column draws off-screen
+			if (muteOthers.getAsBoolean()) {
+				return new Stack(g, -100000, VanillaHud.width(Math.max(6, slots)), -100000);
+			}
+			return bottomRightOwned(g, slots);
+		}
+
+		/** v0.17.5: {@link #bottomRight} for the HUD that owns the corner while {@link #muteOthers} is on (Power Armour's). */
+		public static Stack bottomRightOwned(GuiGraphics g, int slots) {
 			int w = VanillaHud.width(Math.max(6, slots));
 			int x0 = g.guiWidth() - 4 - w;
 			int bottom = g.guiHeight() - 4;
