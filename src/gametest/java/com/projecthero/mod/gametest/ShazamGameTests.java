@@ -145,7 +145,7 @@ public class ShazamGameTests implements FabricGameTest {
 		helper.assertTrue(ShazamMod.wouldSwallow(p, "SHAZAM!"), "his word is kept out of chat");
 		helper.assertTrue(ShazamMod.onChat(p, "SHAZAM!") == Shazam.Spoken.TRANSFORMED, "transformed");
 		helper.assertTrue(Shazam.transformed(p), "he is the champion now");
-		helper.assertTrue(Math.abs(p.getMaxHealth() - 50f) < 0.01f, "Stamina of Atlas: 50 health, got " + p.getMaxHealth());
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 40f) < 0.01f, "Stamina of Atlas: 40 health, got " + p.getMaxHealth());
 		helper.assertTrue(Shazam.lightning(p) == ShazamConfig.LIGHTNING_MAX, "the transform bolt refilled the bar");
 		helper.assertTrue(ShazamMod.onChat(p, "shazam") == Shazam.Spoken.TOO_SOON, "4 s between words");
 		helper.assertTrue(Shazam.transformed(p), "still transformed");

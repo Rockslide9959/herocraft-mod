@@ -20,8 +20,8 @@ public final class ShazamConfig {
 	public static final double WORD_HEARD_RANGE = 32.0;
 
 	// ---------------------------------------------------------------- passives (transformed)
-	/** Stamina of Atlas: 50 health (a family member: 25). */
-	public static final double HEALTH_BONUS = 30.0;
+	/** Stamina of Atlas: 40 health (v0.17.5 user, was 50; a family member: 25). */
+	public static final double HEALTH_BONUS = 20.0;
 	public static final double FAMILY_HEALTH_BONUS = 5.0;
 	public static final float DAMAGE_RESIST = 0.35f;
 	/** Strength of Hercules: +10 melee (a family member: +5). */

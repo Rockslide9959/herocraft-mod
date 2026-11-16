@@ -12667,7 +12667,7 @@
   "projecthero.guide.shazam.word": "The magic word",
   "projecthero.guide.shazam.word.body": "Type \"Shazam\" in chat, nothing else. It isn't posted: lightning strikes you and you transform (the suit appears over your skin). Type it again to turn back. Each bolt deals 12 to creatures within 3 blocks (never you or squadmates) and refills your Lightning bar, so turning back and forth is a real trick, with 4 seconds between words. You can't say it underwater without an air bubble or inside powder snow.",
   "projecthero.guide.shazam.traits": "The champion",
-  "projecthero.guide.shazam.traits.body": "Only while transformed: 50 health, 35% less damage taken, no hunger drain, +10 melee damage, 40% faster, a little taller, and immune to fear (the Warden's darkness and other fear). Magic (potions, evokers, witches, Doctor Fate, Raven) hurts you 50% more.",
+  "projecthero.guide.shazam.traits.body": "Only while transformed: 40 health, 35% less damage taken, no hunger drain, +10 melee damage, 40% faster, a little taller, and immune to fear (the Warden's darkness and other fear). Magic (potions, evokers, witches, Doctor Fate, Raven) hurts you 50% more.",
   "projecthero.guide.shazam.lightning": "The Lightning bar",
   "projecthero.guide.shazam.lightning.body": "Your moves cost lightning. The bar fills 4 a second while you're transformed, faster during thunderstorms; every transform bolt refills it, and other lightning striking near you tops it up.",
   "projecthero.guide.shazam.family": "The Shazam Family",
