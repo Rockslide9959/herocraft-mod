@@ -147,7 +147,7 @@ public final class SentryConfig {
 	/** The trial ("Hold the Light" minigame): it lasts this long on the client... */
 	public static final int TRIAL_TICKS = 160;
 	/** ...a win counts only this far in on the server clock (nobody honest fills the bar faster)... */
-	public static final int TRIAL_MIN_WIN_TICKS = 60;
+	public static final int TRIAL_MIN_WIN_TICKS = 50;
 	/** ...and with no report this long after it should have ended, it counts as lost. */
 	public static final int TRIAL_GRACE_TICKS = 100;
 	/** A lost trial: the Void jumps by this (flat: not scaled by the suit or merging). */

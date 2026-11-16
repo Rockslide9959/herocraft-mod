@@ -51,7 +51,15 @@ The grant equips nothing (test `grantDoesNotEquipTheSuit`).
 Every positive Void change goes through `Sentry.voidGainScale`: x0.6 with the suit, x1.5 merged (both: x0.9). The trial's loss (+15)
 is flat. Daylight cooling, Calm and Healing Light are never scaled.
 
-| | Sun (gold **Gauge**) | Void (black **Hairline** under it) | was |
+**HUD bars** (rework, user: "make the sun bar yellow and make the void bar fill up with a red and the more full the bar gets the darker
+it becomes, make them both minecraft style bars"): neither is one of the four named styles any more (they were a Gauge and a Hairline);
+both are a new **vanilla-style bevelled bar** (`SentryHud.bevelBar`, drawn with fills, crisp at every GUI scale), XP-bar-like: 1-px
+near-black outline, dark trough with a recessed top row, a 5-px fill (light top row, body, a second lighter row, dark bottom row x0.62,
+darker edge column), ten XP-bar notches. Sun: body #F5C518, top row x1.18 (pulsing up to x1.30 when full), number #FFE14D. Void: one
+colour for the whole fill, by the fill: #E23030 at 0 -> #8E0F12 at 55% -> #3A0505 at 100%; the 50 / 75 / 90 notches a little stronger;
+the top row beats past 90. Both bars line up (the wider label decides). Screenshot: `docs/screenshots/v0175/sentry2/hud_bars_void_10_50_95.png`.
+
+| | Sun (yellow bar) | Void (red bar under it) | was |
 |---|---|---|---|
 | Direct sunlight | +6/s (suit +9) | -1/s (not merged) | |
 | Daytime shade | +2/s (suit +3) | 0 | |
@@ -113,10 +121,10 @@ No hunger. No fall damage while flying, diving or in the takeover. (Kryptonian: 
 ## Let It Out: the trial (`LetItOut`, `LetItOutScreen`)
 
 - Shift+V as the Sentry: `letOutTrialStart` set + synced; the owner's client opens **Hold the Light** (`SentryClient.openTrial`,
-  once per trial). A dark shaft; a gold sun drifts up and down (half-height 0.16 of the shaft, minus 0.06 x Void/100; faster with Void);
-  his light (a white bead) falls (-2.2/s²) unless Space or left mouse is held (+2.6/s²). Inside the sun the Light bar fills +22/s,
-  outside it drains -18/s; starts at 30. Full = won, empty / 8 s / Esc = lost. Never pauses; text wraps (`font.split`).
-- Server (`LetItOut.report`): only while a trial runs; a win counts only >= 60 ticks into it (30 -> 100 at 22/s takes 64), else it is
+  once per trial). A dark shaft; a gold sun drifts up and down (half-height 0.18 of the shaft, minus 0.06 x Void/100; faster with Void);
+  his light (a white bead) falls (-2.2/s²) unless Space or left mouse is held (+2.6/s²). Inside the sun the Light bar fills +26/s,
+  outside it drains -12/s; starts at 30. Full = won, empty / 8 s / Esc = lost. Never pauses; text wraps (`font.split`).
+- Server (`LetItOut.report`): only while a trial runs; a win counts only >= 50 ticks into it (30 -> 100 at 26/s takes 54), else it is
   a loss; no report by 160 + 100 ticks: lost (`LetItOut.tick`). Death / world change / logout clear a running trial.
 - **Lost:** Void +15 (flat), nothing else. **Won:** merged with the Void (`Sentry.setVoidForm`): the Void Form kit + flight, +25%
   damage, Void move cooldowns x0.75, Void gains x1.5 + 0.5/s.

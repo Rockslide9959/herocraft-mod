@@ -21,15 +21,15 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.5 rework: <b>Hold the Light</b>, the Let It Out trial (Shift+V as the Sentry). A tall dark shaft; a golden sun drifts up and
  * down it (faster and smaller the more Void he carries); his light is a white bead that falls -- the Void pulling it down -- unless he holds
- * Space or the left mouse button, which lifts it. While the bead sits inside the sun the Light bar fills (+22 a second), outside it drains
- * (-18). Fill it before the 8 s run out to win (merged with the Void); let it empty, run out of time or close the screen (Esc) and it is
- * lost (+15 Void). The server decides ({@code LetItOut.report}): a win quicker than 3 s on its clock counts as lost. Never pauses the
+ * Space or the left mouse button, which lifts it. While the bead sits inside the sun the Light bar fills (+26 a second), outside it drains
+ * (-12). Fill it before the 8 s run out to win (merged with the Void); let it empty, run out of time or close the screen (Esc) and it is
+ * lost (+15 Void). The server decides ({@code LetItOut.report}): a win quicker than 2.5 s on its clock counts as lost. Never pauses the
  * game. All text wraps to the window.
  */
 public class LetItOutScreen extends Screen {
 	private static final float START_LIGHT = 30f;
-	private static final float FILL_PER_SECOND = 22f;
-	private static final float DRAIN_PER_SECOND = 18f;
+	private static final float FILL_PER_SECOND = 26f;
+	private static final float DRAIN_PER_SECOND = 12f;
 	/** Set only by the client screenshot harness: the bead follows the sun on its own (true) or never lifts (false); null = the player. */
 	public static volatile Boolean autoPlay;
 
@@ -76,7 +76,7 @@ public class LetItOutScreen extends Screen {
 	/** The sun's half-height (0..1 of the shaft): smaller with more Void. */
 	private float sunHalf(SentryState s) {
 		float v = s == null ? 0f : Mth.clamp(s.voidLevel / SentryConfig.VOID_MAX, 0f, 1f);
-		return 0.16f - 0.06f * v;
+		return 0.18f - 0.06f * v;
 	}
 
 	@Override
@@ -101,16 +101,16 @@ public class LetItOutScreen extends Screen {
 		}
 		float v = s == null ? 0f : Mth.clamp(s.voidLevel / SentryConfig.VOID_MAX, 0f, 1f);
 		// the sun wanders: a new target now and then, eased toward with a little inertia
-		if (Math.abs(sun - sunTarget) < 0.03f || rnd.nextFloat() < dt * 0.6f) {
+		if (Math.abs(sun - sunTarget) < 0.03f || rnd.nextFloat() < dt * 0.45f) {
 			sunTarget = 0.15f + rnd.nextFloat() * 0.7f;
 		}
-		float pull = (sunTarget - sun) * (2.2f + 1.8f * v);
+		float pull = (sunTarget - sun) * (1.3f + 1.2f * v);
 		sunVel += (pull - sunVel) * Math.min(1f, dt * 3f);
 		sun = Mth.clamp(sun + sunVel * dt, 0.1f, 0.9f);
 		// the bead: the Void pulls it down; holding lifts it
 		boolean lift = holdingKey || holdingMouse;
 		if (autoPlay != null) {
-			lift = autoPlay && bead < sun + sunVel * 0.15f;
+			lift = autoPlay && (sun - bead) + (sunVel - beadVel) * 0.4f > 0f;
 		}
 		beadVel += (lift ? 2.6f : -2.2f) * dt;
 		beadVel *= (float) Math.pow(0.25, dt);
