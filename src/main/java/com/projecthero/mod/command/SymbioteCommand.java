@@ -56,8 +56,27 @@ public final class SymbioteCommand {
 				.then(Commands.literal("status").executes(c -> status(c, self(c)))
 						.then(Commands.argument("player", EntityArgument.player())
 								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))))
-				// v0.17.5: the suit colours -- /symbiote colour <preset> [player] | colour hex <body> <emblem> <eyes> [player]
-				.then(colour());
+				// v0.17.5: the suit colours -- /projecthero power tune symbiote colour <preset> [player] | colour hex <body> <emblem> <eyes> [player]
+				.then(colour())
+				// v0.17.5: the suit model -- /projecthero power tune symbiote style <classic|lethal_protector> [player] (colours kept)
+				.then(style());
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> style() {
+		LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("style");
+		for (com.projecthero.mod.symbiote.SymbioteSuitStyle style : com.projecthero.mod.symbiote.SymbioteSuitStyle.values()) {
+			root.then(Commands.literal(style.id()).executes(c -> setStyle(c, self(c), style))
+					.then(Commands.argument("player", EntityArgument.player())
+							.executes(c -> setStyle(c, EntityArgument.getPlayer(c, "player"), style))));
+		}
+		return root;
+	}
+
+	private static int setStyle(CommandContext<CommandSourceStack> c, ServerPlayer target,
+			com.projecthero.mod.symbiote.SymbioteSuitStyle style) {
+		com.projecthero.mod.symbiote.SymbioteSuitColours.setStyle(target, style);
+		c.getSource().sendSuccess(() -> Component.literal(target.getGameProfile().getName() + "'s Symbiote suit style: " + style.id()), true);
+		return 1;
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> colour() {
@@ -93,7 +112,7 @@ public final class SymbioteCommand {
 			return 0;
 		}
 		var colours = new com.projecthero.mod.symbiote.SymbioteColours(body.get(), emblem.get(), eyes.get());
-		com.projecthero.mod.symbiote.SymbioteSuitColours.set(target, colours);
+		com.projecthero.mod.symbiote.SymbioteSuitColours.setColours(target, colours);
 		c.getSource().sendSuccess(() -> Component.literal(target.getGameProfile().getName() + "'s Symbiote suit: "
 				+ com.projecthero.mod.symbiote.SymbioteColours.hex(colours.primary()) + " / "
 				+ com.projecthero.mod.symbiote.SymbioteColours.hex(colours.secondary()) + " / "

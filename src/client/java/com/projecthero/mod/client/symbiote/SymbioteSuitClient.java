@@ -33,7 +33,11 @@ public final class SymbioteSuitClient {
 			SymbioteColours c = p == null ? SymbioteColours.CLASSIC : SymbioteSuitColours.get(p);
 			return 0xFF000000 | (tintIndex == 2 ? c.secondary() : c.primary());
 		}, SymbioteHostItems.HELMET, SymbioteHostItems.CHESTPLATE, SymbioteHostItems.LEGGINGS, SymbioteHostItems.BOOTS);
-		ClientPlayConnectionEvents.DISCONNECT.register((h, mc) -> mc.execute(SymbioteSuitTint::clear));
+		ClientPlayConnectionEvents.DISCONNECT.register((h, mc) -> mc.execute(() -> {
+			SymbioteSuitTint.clear();
+			SymbioteMouth.clear();
+		}));
+		SymbioteMouth.initialize(); // v0.17.5: the Lethal Protector maw's swing / hurt / hit tracking and drool
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public ResourceLocation getFabricId() {

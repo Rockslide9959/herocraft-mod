@@ -64,3 +64,9 @@ scratchpad/spin/gyro_suit_original.png
 # Re-make with: node scratchpad/sentry/make_suit_textures.js
 src/main/resources/assets/projecthero/textures/entity/sentry/sentry_comics_*.png
 src/main/resources/assets/projecthero/textures/entity/sentry/sentry_void_*.png
+# v0.17.5 Symbiote "Lethal Protector" suit style: textures made from the user's PlanetMinecraft skin (author unknown, no licence stated)
+# -- local builds only until the author agrees; the game draws the style as Classic without them. Re-make with:
+#   node scratchpad/symbiote/make_lethal_protector.js   (reads docs/reference/symbiote/venom_lethal_protector.png)
+src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal.png
+src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_tint.png
+src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_fx.png

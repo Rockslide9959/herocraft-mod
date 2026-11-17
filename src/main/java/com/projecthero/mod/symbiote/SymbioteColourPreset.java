@@ -48,7 +48,7 @@ public enum SymbioteColourPreset {
 	/** The preset these colours match exactly, if any (the screen highlights it). */
 	public static Optional<SymbioteColourPreset> matching(SymbioteColours colours) {
 		for (SymbioteColourPreset p : values()) {
-			if (p.colours.equals(colours)) {
+			if (p.colours.sameColours(colours)) { // v0.17.5: on either suit style
 				return Optional.of(p);
 			}
 		}

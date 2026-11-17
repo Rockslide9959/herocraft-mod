@@ -18,8 +18,13 @@ import net.minecraft.network.codec.StreamCodec;
  * player in {@code ModAttachments.SYMBIOTE_COLOURS} (persistent, kept through death, synced to everyone). Every way in --
  * the codec, the network, the screen, the command -- goes through {@link #sanitize}, so a stray alpha byte or a negative value
  * can never reach the renderer.
+ *
+ * <p>v0.17.5 (Lethal Protector): also carries the suit {@link #style} (which model), so the style saves, syncs and survives death with
+ * the colours. Saves from before have no {@code style} field and read as {@link SymbioteSuitStyle#CLASSIC}; the three-colour
+ * constructor means Classic too. {@link #isClassic} is the whole default look (Classic colours on the Classic suit);
+ * {@link #hasClassicColours} asks only about the colours.
  */
-public record SymbioteColours(int primary, int secondary, int eyes) {
+public record SymbioteColours(int primary, int secondary, int eyes, SymbioteSuitStyle style) {
 	/** The default look: glossy blue-black, white emblem, white eyes. Same values as {@link SymbioteColourPreset#CLASSIC}. */
 	public static final SymbioteColours CLASSIC = new SymbioteColours(0x14161F, 0xF2F4F8, 0xF4F6FA);
 
@@ -27,18 +32,27 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 		primary = rgb(primary);
 		secondary = rgb(secondary);
 		eyes = rgb(eyes);
+		style = style == null ? SymbioteSuitStyle.CLASSIC : style;
+	}
+
+	/** Colours on the Classic suit. */
+	public SymbioteColours(int primary, int secondary, int eyes) {
+		this(primary, secondary, eyes, SymbioteSuitStyle.CLASSIC);
 	}
 
 	public static final Codec<SymbioteColours> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.INT.optionalFieldOf("primary", CLASSIC.primary).forGetter(SymbioteColours::primary),
 			Codec.INT.optionalFieldOf("secondary", CLASSIC.secondary).forGetter(SymbioteColours::secondary),
-			Codec.INT.optionalFieldOf("eyes", CLASSIC.eyes).forGetter(SymbioteColours::eyes)).apply(i, SymbioteColours::new));
+			Codec.INT.optionalFieldOf("eyes", CLASSIC.eyes).forGetter(SymbioteColours::eyes),
+			SymbioteSuitStyle.CODEC.optionalFieldOf("style", SymbioteSuitStyle.CLASSIC).forGetter(SymbioteColours::style))
+			.apply(i, SymbioteColours::new));
 
 	public static final StreamCodec<ByteBuf, SymbioteColours> STREAM_CODEC = StreamCodec.composite(
 			ByteBufCodecs.INT, SymbioteColours::primary,
 			ByteBufCodecs.INT, SymbioteColours::secondary,
 			ByteBufCodecs.INT, SymbioteColours::eyes,
-			SymbioteColours::new);
+			ByteBufCodecs.VAR_INT, c -> c.style().ordinal(),
+			(p, s, e, st) -> new SymbioteColours(p, s, e, SymbioteSuitStyle.byOrdinal(st)));
 
 	/** Drops anything above the low 24 bits (alpha, sign), leaving a valid {@code 0xRRGGBB}. */
 	public static int rgb(int value) {
@@ -56,23 +70,38 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 
 	/** {@code this} with every channel made valid (already true for any instance; kept as the explicit entry point). */
 	public SymbioteColours sanitize() {
-		return new SymbioteColours(primary, secondary, eyes);
+		return new SymbioteColours(primary, secondary, eyes, style);
 	}
 
+	/** The whole default look: Classic colours on the Classic suit. */
 	public boolean isClassic() {
 		return equals(CLASSIC);
 	}
 
+	/** The Classic colours, on either suit style. */
+	public boolean hasClassicColours() {
+		return sameColours(CLASSIC);
+	}
+
+	/** The same three colours (the style is ignored). */
+	public boolean sameColours(SymbioteColours other) {
+		return other != null && primary == other.primary && secondary == other.secondary && eyes == other.eyes;
+	}
+
+	public SymbioteColours withStyle(SymbioteSuitStyle s) {
+		return new SymbioteColours(primary, secondary, eyes, s);
+	}
+
 	public SymbioteColours withPrimary(int rgb) {
-		return new SymbioteColours(rgb, secondary, eyes);
+		return new SymbioteColours(rgb, secondary, eyes, style);
 	}
 
 	public SymbioteColours withSecondary(int rgb) {
-		return new SymbioteColours(primary, rgb, eyes);
+		return new SymbioteColours(primary, rgb, eyes, style);
 	}
 
 	public SymbioteColours withEyes(int rgb) {
-		return new SymbioteColours(primary, secondary, rgb);
+		return new SymbioteColours(primary, secondary, rgb, style);
 	}
 
 	/** The colour of channel {@code 0} primary, {@code 1} secondary, {@code 2} eyes. */
@@ -125,8 +154,9 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 		return String.format(Locale.ROOT, "#%06X", rgb(rgb));
 	}
 
-	/** A cache key for the colour triple (two triples share a key only if they are equal). */
+	/** A cache key for the colours + style (equal keys only for equal values; Classic-style keys are the plain colour triple). */
 	public String key() {
-		return String.format(Locale.ROOT, "%06x_%06x_%06x", primary, secondary, eyes);
+		String k = String.format(Locale.ROOT, "%06x_%06x_%06x", primary, secondary, eyes);
+		return style == SymbioteSuitStyle.CLASSIC ? k : k + "_" + style.id();
 	}
 }

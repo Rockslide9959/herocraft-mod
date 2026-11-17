@@ -1,0 +1,9 @@
+Venom: Lethal Protector -- Minecraft skin (HD, 128 x 128, player-skin layout at 2x)
+Source: https://www.planetminecraft.com/skin/venom-lethal-protector-7075992/
+Author: unknown (not shown on the page)
+Licence: none stated on the page.
+
+Supplied by the user on 2026-11-17 for the Symbiote suit's second style ("Lethal Protector").
+Processed by scratchpad/symbiote/make_lethal_protector.js into textures/armor/symbiote_host_lethal*.png, which are
+.gitignored (local builds only). CHECK WITH THE AUTHOR BEFORE ANY PUBLIC RELEASE that ships those textures;
+until then a public build draws the style as the Classic suit.

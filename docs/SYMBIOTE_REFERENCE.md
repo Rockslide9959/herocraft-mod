@@ -255,7 +255,7 @@ all on the raised shell layer.
 - `ModAttachments.SYMBIOTE_COLOURS`: persistent, `copyOnDeath`, synced to all, Classic by default; kept when the bond
   is lost (a cosmetic preference). `SymbioteSuitColours.get/set/setPreset/apply`; `apply` (the screen's
   `SymbioteColourPayload`) needs a bond. No static state.
-- `/symbiote colour <preset> [player]` and `/symbiote colour hex <body> <emblem> <eyes> [player]` (op 2, like the rest of
+- `/projecthero power tune symbiote colour <preset> [player]` and `... colour hex <body> <emblem> <eyes> [player]` (op 2, like the rest of
   `/symbiote`).
 - **The screen** (`client/gui/SymbioteColourScreen`): Your Power (I) -> **Suit Colours** (the button only shows for a
   Normal host; no new key). Body / Emblem / Eyes tabs, Hue / Saturation / Brightness bars, a hex field, the seven preset
@@ -300,3 +300,81 @@ all on the raised shell layer.
 range channels, bad saves, junk packets, hex parsing); the colours survive a save, a death (`copyOnDeath`, dying keeps them) and losing
 the bond; the attachment is synced and the payload round-trips; only a bonded player can recolour through the payload.
 Visual checks: `docs/screenshots/v0175/symbiote_suit/` (harness `scratchpad/SymbioteSuitHarness.v0175.java.txt`).
+
+## v0.17.5 -- second suit style: Lethal Protector (animated mouth and tongue)
+
+User: "add another suit model and make it this skin [PlanetMinecraft 'Venom: Lethal Protector'], keep the spider logo and the eyes but
+make the mouth animated, the tongue moves and stuff". Only the Normal host's suit changes; gameplay is untouched.
+
+### Style choice
+
+- `SymbioteSuitStyle` (CLASSIC, LETHAL_PROTECTOR) rides in `SymbioteColours` as a fourth component (`style`), so it lives in the
+  same `SYMBIOTE_COLOURS` attachment: persistent (codec field `"style"`, optional, lenient -- missing or unknown reads Classic, so old
+  saves are Classic), `copyOnDeath`, synced to all (stream codec + VAR_INT ordinal, junk ordinals -> Classic), kept when the bond goes.
+- `isClassic()` = Classic colours on the Classic suit; `hasClassicColours()` / `sameColours()` ignore the style; `key()` appends
+  `_lethal_protector` for that style only (Classic keys unchanged). Presets match on colours only.
+- `SymbioteSuitColours.set` stores colours + style exactly (the screen); `setColours` / `setPreset` keep the style (the colour
+  commands); `setStyle` keeps the colours.
+- The screen (`SymbioteColourScreen`, now titled "Symbiote Suit Style", button "Suit Style" on Your Power (I)) has a Classic /
+  Lethal Protector row above the Body / Emblem / Eyes tabs (labels fall back to "Lethal" when the button is narrow; wrapped tooltips
+  describe each). Presets and "Reset Colours" keep the chosen style. The live 3D preview switches model too.
+- Commands: `/projecthero power tune symbiote style <classic|lethal_protector> [player]`. **Fixed on the way:** `SymbioteCommand` (bond,
+  activate, status and the v0.17.5 `colour`) had not been registered since the v0.12.16 single-command change; it now sits under
+  `/projecthero power tune symbiote ...` (so the colour command is `/projecthero power tune symbiote colour ...`).
+
+### The skin and its textures (`scratchpad/symbiote/make_lethal_protector.js`)
+
+- Source: `docs/reference/symbiote/venom_lethal_protector.png` (+ `SOURCE.txt`): an HD skin, 128 x 128 in the player-skin layout at
+  2x -- exactly the Classic texture's layout, so it fits the same rig and the same UVs.
+- **Licence: author unknown, none stated. The three processed textures are .gitignored** (local builds only, like the Gyro and Sentry
+  comics skins). `SymbioteSuitTint.lethalAvailable()` checks the resource manager once per reload; without the files the style draws as
+  Classic (geo too) and the screen's Lethal Protector button is disabled with a tooltip saying why. After a merge or a fresh checkout,
+  re-run the script to get them back. Ask the author before a public release ships them.
+- `symbiote_host_lethal.png`: the skin with the spider logo and eyes kept; the painted grin's open mouth and teeth repainted as a dark red
+  throat on the face (base layer) with the hat layer cleared there, and the strip behind the 3D jaw (front + the front of each cheek)
+  the same; the lower-lip corners and the green drool stay as painted. The Classic goo patches (caps / drips / spine nodes sample them)
+  copied in; a mouth atlas in unused skin texels: block J = skin (0,0)-(8,8) (the jaw shell: its front / cheeks wear the skin's own
+  chin and lower lip, projected from the face with the painted teeth turned into lip, plus floor / underside), block M = (56,0)-(64,8)
+  (tooth ramps, gum, tongue top with a groove, sides, underside, tip).
+- `symbiote_host_lethal_tint.png`: the tint mask, same format as Classic's. Body / emblem (white on the body) / eyes (white on the head)
+  by luminance and region; shade solved per texel so the Classic colours bake back close to the skin. **A = 0 = keep the skin's own
+  colour**: the mouth (throat, lips, teeth, gum, tongue), the green drool and the odd saturated texel (the blue soles). `SymbioteSuitTint`
+  bakes non-Classic colours from it and copies the A = 0 texels from the base, so the style recolours and the mouth stays flesh.
+  Classic colours on this style use the base texture as painted.
+- `symbiote_host_lethal_fx.png`: the sheen map (sweep from the body position as before, strength from the skin's highlights), no veins.
+  `SymbioteSuitFx` keeps one `FxSet` per style (sheen / vein frames + eye mask); the Lethal one skips the vein pass.
+
+### The mouth (`geo/symbiote_host_lethal.geo.json`, committed; `client/symbiote/SymbioteMouth`)
+
+- The geo is the Classic rig (read from `symbiote_host.geo.json`) plus, under `armorHead`: `lp_upper` (gum strip + 11 upper teeth, two
+  1.6 px fangs, 3 more round each corner of the grin; each tooth a base box + a narrower tip), `lp_jaw` (pivot `(0, 26.6, 0.2)`, back
+  inside the head: a 9.48 x 1.78 x 3.96 shell over the bottom of the face, 10 lower teeth offset half a step to interlock, 3 per corner)
+  and `lp_tongue_0..5` (child of the jaw, each segment hinged on the last; widths 2.0 -> 0.9, 7.4 px long in all).
+  `SuperheroArmorModel#getModelResource` picks it for a Lethal Protector wearer.
+- `SuperheroArmorRenderer#renderRecursively` hands every `lp_*` bone to `SymbioteMouth.applyBone` (set every frame: the bones are shared):
+  jaw `rotX` (negative = open), upper teeth `posY` lift, tongue root `posZ = 4 - ext` (the chain slides out of the mouth) and each
+  joint's pitch / yaw. The tongue is skipped while fully in; the whole mouth is skipped until the suit-up has covered the head (spread
+  progress 0.93) and then grows in over the last 6%.
+- Animation (pure function of synced state + game time; per-player phase from the entity id):
+  - idle: the jaw breathes 0.6..3.4 degrees on a 68-tick cycle; every 260 ticks (offset per player) a 90-tick **loll** -- jaw 13 degrees,
+    the tongue slides out 3.4 px, droops more at every joint toward the tip, sways in a slow S and curls its tip now and then;
+  - **snarl** (26 ticks: up in 4, held to 11, eased shut): a melee swing (x0.75), being hurt (x0.6) or any Symbiote move from the
+    synced `SymbioteVitals.animId / animStart` (x1, Resurrect x1.15; Onslaught's charge holds it open while it charges): jaw to 31
+    degrees with a tremble, upper lip lifts 0.28 px, tongue raised behind the teeth;
+  - **lash** (20 ticks): landing a melee hit, or a tendril strike / grapple / grab / lunge: tongue out to 7 px in 4 ticks with a little
+    overshoot, a travelling S-wave down the chain, the tip flicks up as it peaks, reeled back in by tick 20; jaw 24 degrees.
+- Swings, hurts and hits are noticed in a client tick (`SymbioteMouth.tick`: a swing starting, the wearer's hurt flash, and a living
+  thing in front of them flashing hurt within 6 ticks of the swing) and kept per **entity id** (no entity references; pruned after 200
+  ticks unseen, cleared on disconnect). Drool: `ITEM_SLIME` particles (the skin's drool is green) from the mouth -- 1 in 16 ticks while
+  the tongue lolls, 1 in 6 during a lash, 1 in 320 otherwise; not in your own first person view.
+- First person: unchanged (the head is never drawn in first person; the sleeve uses the style's texture and sheen). Item icons are the
+  same for both styles. The Classic style has no mouth (the rig switch is what adds it).
+
+### Tests
+
+`SymbioteSuitStyleGameTests`: Classic by default (new hosts, the 3-colour constructor, null, old saves without the field, unknown
+names, out-of-range ordinals); the style survives a save, a death and losing the bond; payload and attachment sync round-trip both
+styles; the command sets the style and keeps the colours, and the colour commands / presets keep the style; both styles take colours,
+presets match on either, each style has its own bake key, editing a colour keeps the style, the screen payload needs a bond.
+`SymbioteSuitColourGameTests`' junk-packet test now writes the style ordinal too. Visual checks: `docs/screenshots/v0175/symbiote_lethal/`
+(harness `scratchpad/SymbioteLethalHarness.v0175.java.txt`, films via `scratchpad/symbiote/films_lethal_v0175.js`).

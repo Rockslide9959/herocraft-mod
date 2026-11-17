@@ -35,14 +35,25 @@ public final class SymbioteSuitColours {
 		return c == null ? SymbioteColours.CLASSIC : c;
 	}
 
-	/** Stores the colours (sanitised), no other checks -- the command path and the tests. */
+	/** Stores the colours and style exactly (sanitised), no other checks -- the screen's payload, the tests. */
 	public static void set(ServerPlayer player, SymbioteColours colours) {
 		SymbioteColours clean = (colours == null ? SymbioteColours.CLASSIC : colours).sanitize();
 		player.setAttached(ModAttachments.SYMBIOTE_COLOURS, clean);
 	}
 
+	/** New colours, keeping the player's suit style (the colour commands). */
+	public static void setColours(ServerPlayer player, SymbioteColours colours) {
+		set(player, (colours == null ? SymbioteColours.CLASSIC : colours).withStyle(get(player).style()));
+	}
+
+	/** A preset's colours, keeping the player's suit style. */
 	public static void setPreset(ServerPlayer player, SymbioteColourPreset preset) {
-		set(player, preset.colours());
+		setColours(player, preset.colours());
+	}
+
+	/** v0.17.5: the suit style, keeping the colours ({@code /symbiote style}). */
+	public static void setStyle(ServerPlayer player, SymbioteSuitStyle style) {
+		set(player, get(player).withStyle(style));
 	}
 
 	/**

@@ -90,6 +90,13 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			bone.setScaleY(k);
 			bone.setScaleZ(k);
 		}
+		// v0.17.5: the Lethal Protector suit's animated maw (lp_* bones: jaw, upper teeth, six tongue segments), posed every frame from
+		// the wearer's synced state (SymbioteMouth); hidden until the suit has covered the head
+		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && name.startsWith("lp_")
+				&& !com.projecthero.mod.client.symbiote.SymbioteMouth.applyBone(bone,
+						getCurrentEntity() instanceof Player mp ? mp : null, partialTick)) {
+			return;
+		}
 		// v0.14.21 self-assembly + faceplate lift: per-bone offset from the synced suit clock, in the parent's space
 		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem && getCurrentEntity() instanceof Player ip
 				&& getCurrentSlot() != null) {

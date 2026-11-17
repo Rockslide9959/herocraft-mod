@@ -50,10 +50,35 @@ public final class SymbioteSuitFx {
 	/** Ticks for one full vein pulse cycle. */
 	public static final int VEIN_PERIOD = 72;
 
-	private static ResourceLocation[] sheen;
-	private static ResourceLocation[] veins;
-	private static ResourceLocation eyes;
-	private static boolean failed;
+	/** v0.17.5 Lethal Protector: its own sheen map (the skin's highlights, no veins); its eye mask comes from its tint mask. */
+	public static final ResourceLocation LETHAL_FX = ProjectHeroMod.id("textures/armor/symbiote_host_lethal_fx.png");
+
+	/** One suit style's pre-built frames. */
+	static final class FxSet {
+		final String tag;
+		final ResourceLocation fxTexture;
+		final ResourceLocation maskTexture;
+		final boolean veinsOn;
+		ResourceLocation[] sheen;
+		ResourceLocation[] veins;
+		ResourceLocation eyes;
+		boolean failed;
+
+		FxSet(String tag, ResourceLocation fxTexture, ResourceLocation maskTexture, boolean veinsOn) {
+			this.tag = tag;
+			this.fxTexture = fxTexture;
+			this.maskTexture = maskTexture;
+			this.veinsOn = veinsOn;
+		}
+	}
+
+	private static final FxSet CLASSIC_SET = new FxSet("", FX, SymbioteSuitTint.MASK, true);
+	private static final FxSet LETHAL_SET = new FxSet("lethal_", LETHAL_FX, SymbioteSuitTint.LETHAL_MASK, false);
+
+	/** The frames for {@code wearer}'s suit style. */
+	static FxSet setFor(Player wearer) {
+		return SymbioteSuitTint.styleOf(wearer) == com.projecthero.mod.symbiote.SymbioteSuitStyle.LETHAL_PROTECTOR ? LETHAL_SET : CLASSIC_SET;
+	}
 
 	private SymbioteSuitFx() {
 	}
@@ -87,14 +112,18 @@ public final class SymbioteSuitFx {
 
 	/** Draw the three passes over a suit model? (built, worn by a visible player whose suit is fully on) */
 	static boolean active(@Nullable Entity wearer) {
-		if (!(wearer instanceof Player p) || failed) {
+		if (!(wearer instanceof Player p)) {
+			return false;
+		}
+		FxSet set = setFor(p);
+		if (set.failed) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
 		if (p.isInvisible() && (mc.player == null || p.isInvisibleTo(mc.player))) {
 			return false;
 		}
-		return !SymbioteReveal.isRevealing(p) && ensure();
+		return !SymbioteReveal.isRevealing(p) && ensure(set);
 	}
 
 	/** Sheen / vein frame index + blend for a game time. */
@@ -120,18 +149,21 @@ public final class SymbioteSuitFx {
 				return;
 			}
 			Player p = (Player) wearer;
+			FxSet set = setFor(p);
 			SymbioteColours colours = SymbioteSuitTint.colours(p);
 			long now = p.level().getGameTime();
 			// eyes: only the head pass carries the lenses
 			if (armor.getCurrentSlot() == net.minecraft.world.entity.EquipmentSlot.HEAD) {
-				RenderType glow = SymbioteFxTypes.glow(eyes);
+				RenderType glow = SymbioteFxTypes.glow(set.eyes);
 				getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow), partialTick,
 						LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, eyeGlow(colours));
 			}
-			float vf = phase(now, partialTick, VEIN_PERIOD);
-			pass(bakedModel, poseStack, bufferSource, animatable, veins, vf, partialTick, packedLight, veinColour(colours), 0.55f);
+			if (set.veinsOn) {
+				float vf = phase(now, partialTick, VEIN_PERIOD);
+				pass(bakedModel, poseStack, bufferSource, animatable, set.veins, vf, partialTick, packedLight, veinColour(colours), 0.55f);
+			}
 			float sf = phase(now, partialTick, SHEEN_PERIOD);
-			pass(bakedModel, poseStack, bufferSource, animatable, sheen, sf, partialTick, packedLight, 0xFFFFFF, 0.85f);
+			pass(bakedModel, poseStack, bufferSource, animatable, set.sheen, sf, partialTick, packedLight, 0xFFFFFF, 0.85f);
 		}
 
 		private void pass(BakedGeoModel model, PoseStack pose, MultiBufferSource buffers, SuperheroArmorItem item, ResourceLocation[] frames,
@@ -159,8 +191,11 @@ public final class SymbioteSuitFx {
 		float pt = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		long now = player.level().getGameTime();
 		SymbioteColours colours = SymbioteSuitTint.colours(player);
-		sleevePass(pose, buffers, light, arm, veins, phase(now, pt, VEIN_PERIOD), veinColour(colours), 0.55f);
-		sleevePass(pose, buffers, light, arm, sheen, phase(now, pt, SHEEN_PERIOD), 0xFFFFFF, 0.85f);
+		FxSet set = setFor(player);
+		if (set.veinsOn) {
+			sleevePass(pose, buffers, light, arm, set.veins, phase(now, pt, VEIN_PERIOD), veinColour(colours), 0.55f);
+		}
+		sleevePass(pose, buffers, light, arm, set.sheen, phase(now, pt, SHEEN_PERIOD), 0xFFFFFF, 0.85f);
 	}
 
 	private static void sleevePass(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, ResourceLocation[] frames, float f,
@@ -187,17 +222,17 @@ public final class SymbioteSuitFx {
 
 	// ------------------------------------------------------------------ building the frames (once)
 
-	private static boolean ensure() {
-		if (sheen != null) {
+	private static boolean ensure(FxSet set) {
+		if (set.sheen != null) {
 			return true;
 		}
-		if (failed) {
+		if (set.failed) {
 			return false;
 		}
-		NativeImage fx = SymbioteSuitTint.read(FX);
-		NativeImage mask = SymbioteSuitTint.read(SymbioteSuitTint.MASK);
+		NativeImage fx = SymbioteSuitTint.read(set.fxTexture);
+		NativeImage mask = SymbioteSuitTint.read(set.maskTexture);
 		if (fx == null || mask == null) {
-			failed = true;
+			set.failed = true;
 			if (fx != null) {
 				fx.close();
 			}
@@ -241,8 +276,8 @@ public final class SymbioteSuitFx {
 					}
 				}
 			}
-			sh[k] = ProjectHeroMod.id("dynamic/symbiote_suit_fx/sheen_" + k);
-			vn[k] = ProjectHeroMod.id("dynamic/symbiote_suit_fx/veins_" + k);
+			sh[k] = ProjectHeroMod.id("dynamic/symbiote_suit_fx/" + set.tag + "sheen_" + k);
+			vn[k] = ProjectHeroMod.id("dynamic/symbiote_suit_fx/" + set.tag + "veins_" + k);
 			Minecraft.getInstance().getTextureManager().register(sh[k], new DynamicTexture(s));
 			Minecraft.getInstance().getTextureManager().register(vn[k], new DynamicTexture(v));
 		}
@@ -255,30 +290,35 @@ public final class SymbioteSuitFx {
 				e.setPixelRGBA(x, y, lens ? 0xFFFFFFFF : 0xFF000000);
 			}
 		}
-		eyes = ProjectHeroMod.id("dynamic/symbiote_suit_fx/eyes");
-		Minecraft.getInstance().getTextureManager().register(eyes, new DynamicTexture(e));
+		set.eyes = ProjectHeroMod.id("dynamic/symbiote_suit_fx/" + set.tag + "eyes");
+		Minecraft.getInstance().getTextureManager().register(set.eyes, new DynamicTexture(e));
 		fx.close();
 		mask.close();
-		sheen = sh;
-		veins = vn;
+		set.sheen = sh;
+		set.veins = vn;
 		return true;
 	}
 
 	/** Releases the frames (resource reload / leaving a world); they are rebuilt on the next draw. */
 	static void clear() {
+		clear(CLASSIC_SET);
+		clear(LETHAL_SET);
+	}
+
+	private static void clear(FxSet set) {
 		var tm = Minecraft.getInstance().getTextureManager();
-		if (sheen != null) {
-			for (ResourceLocation id : sheen) {
+		if (set.sheen != null) {
+			for (ResourceLocation id : set.sheen) {
 				tm.release(id);
 			}
-			for (ResourceLocation id : veins) {
+			for (ResourceLocation id : set.veins) {
 				tm.release(id);
 			}
-			tm.release(eyes);
+			tm.release(set.eyes);
 		}
-		sheen = null;
-		veins = null;
-		eyes = null;
-		failed = false;
+		set.sheen = null;
+		set.veins = null;
+		set.eyes = null;
+		set.failed = false;
 	}
 }

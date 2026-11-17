@@ -14,6 +14,7 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.symbiote.Symbiote;
 import com.projecthero.mod.symbiote.SymbioteColours;
 import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteSuitStyle;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -42,11 +43,18 @@ import net.minecraft.world.entity.player.Player;
 public final class SymbioteSuitTint {
 	public static final ResourceLocation MASK = ProjectHeroMod.id("textures/armor/symbiote_host_tint.png");
 	public static final ResourceLocation CLASSIC = ProjectHeroMod.id("textures/armor/symbiote_host.png");
+	/** v0.17.5: the Lethal Protector style -- the skin as painted (Classic colours) and its tint mask (A = 0: keep the skin's colour). */
+	public static final ResourceLocation LETHAL = ProjectHeroMod.id("textures/armor/symbiote_host_lethal.png");
+	public static final ResourceLocation LETHAL_MASK = ProjectHeroMod.id("textures/armor/symbiote_host_lethal_tint.png");
 	static final int MAX_SUITS = 12;
 	static final int MAX_GOO = 24;
 
 	private static NativeImage mask;
 	private static boolean maskMissing;
+	private static NativeImage lethalMask;
+	private static NativeImage lethalBase;
+	private static boolean lethalMissing;
+	private static Boolean lethalAvailable;
 	/** colour key -> baked suit texture (access order, so the eldest entry is the least recently used). */
 	private static final LinkedHashMap<String, ResourceLocation> SUITS = new LinkedHashMap<>(16, 0.75f, true);
 	/** original texture + primary colour -> baked goo texture. */
@@ -77,23 +85,64 @@ public final class SymbioteSuitTint {
 		return SymbioteSuitColours.get(p);
 	}
 
+	/**
+	 * v0.17.5: the suit style {@code wearer} is drawn in -- their choice, except that {@link SymbioteSuitStyle#LETHAL_PROTECTOR} needs
+	 * its (git-ignored, borrowed-skin) textures: a build without them draws Classic.
+	 */
+	public static SymbioteSuitStyle styleOf(Entity wearer) {
+		return effective(colours(wearer)).style();
+	}
+
+	/** {@code colours} with the style swapped to Classic when the Lethal Protector textures are not in this build. */
+	public static SymbioteColours effective(SymbioteColours colours) {
+		if (colours == null) {
+			return SymbioteColours.CLASSIC;
+		}
+		return colours.style() == SymbioteSuitStyle.LETHAL_PROTECTOR && !lethalAvailable()
+				? colours.withStyle(SymbioteSuitStyle.CLASSIC) : colours;
+	}
+
+	/**
+	 * v0.17.5: are the Lethal Protector textures in this build? (They are made from the user's PlanetMinecraft skin, licence unchecked,
+	 * so they are .gitignored -- local builds only, like the Gyro and Sentry comics skins. Re-make: node
+	 * scratchpad/symbiote/make_lethal_protector.js.) Looked up once per resource reload.
+	 */
+	public static boolean lethalAvailable() {
+		if (lethalAvailable == null) {
+			var rm = Minecraft.getInstance().getResourceManager();
+			lethalAvailable = rm.getResource(LETHAL).isPresent() && rm.getResource(LETHAL_MASK).isPresent();
+		}
+		return lethalAvailable;
+	}
+
 	public static ResourceLocation suit(SymbioteColours colours) {
-		if (colours == null || colours.isClassic()) {
+		colours = effective(colours);
+		boolean lethal = colours.style() == SymbioteSuitStyle.LETHAL_PROTECTOR;
+		if (colours.isClassic()) {
 			return CLASSIC;
+		}
+		if (lethal && colours.hasClassicColours()) {
+			return LETHAL; // the skin exactly as painted
 		}
 		String key = colours.key();
 		ResourceLocation cached = SUITS.get(key);
 		if (cached != null) {
 			return cached;
 		}
-		NativeImage src = mask();
-		if (src == null) {
-			return CLASSIC;
+		NativeImage src = lethal ? lethalMask() : mask();
+		NativeImage base = lethal ? lethalBase() : null;
+		if (src == null || (lethal && base == null)) {
+			return lethal ? LETHAL : CLASSIC;
 		}
 		NativeImage out = new NativeImage(src.getWidth(), src.getHeight(), true);
 		for (int y = 0; y < src.getHeight(); y++) {
 			for (int x = 0; x < src.getWidth(); x++) {
 				int p = src.getPixelRGBA(x, y);
+				if (lethal && SymbioteSuitTint.alpha(p) == 0) {
+					// the Lethal Protector mask leaves the mouth (lips, throat, teeth, tongue) and the drool in the skin's own colours
+					out.setPixelRGBA(x, y, base.getPixelRGBA(x, y));
+					continue;
+				}
 				out.setPixelRGBA(x, y, bakeAbgr(SymbioteSuitTint.red(p), SymbioteSuitTint.green(p), SymbioteSuitTint.blue(p), SymbioteSuitTint.alpha(p), colours));
 			}
 		}
@@ -113,7 +162,7 @@ public final class SymbioteSuitTint {
 			return original;
 		}
 		SymbioteColours c = colours(p);
-		if (c.isClassic()) {
+		if (c.hasClassicColours()) { // v0.17.5: on either suit style
 			return original;
 		}
 		String key = original.getPath().replaceAll("[^a-z0-9_]", "_") + "_" + String.format("%06x", c.primary());
@@ -169,6 +218,16 @@ public final class SymbioteSuitTint {
 			mask = null;
 		}
 		maskMissing = false;
+		if (lethalMask != null) {
+			lethalMask.close();
+			lethalMask = null;
+		}
+		if (lethalBase != null) {
+			lethalBase.close();
+			lethalBase = null;
+		}
+		lethalMissing = false;
+		lethalAvailable = null;
 		SymbioteSuitFx.clear();
 	}
 
@@ -242,6 +301,28 @@ public final class SymbioteSuitTint {
 			maskMissing = mask == null;
 		}
 		return mask;
+	}
+
+	private static NativeImage lethalMask() {
+		loadLethal();
+		return lethalMask;
+	}
+
+	private static NativeImage lethalBase() {
+		loadLethal();
+		return lethalBase;
+	}
+
+	private static void loadLethal() {
+		if ((lethalMask == null || lethalBase == null) && !lethalMissing) {
+			if (lethalMask == null) {
+				lethalMask = read(LETHAL_MASK);
+			}
+			if (lethalBase == null) {
+				lethalBase = read(LETHAL);
+			}
+			lethalMissing = lethalMask == null || lethalBase == null;
+		}
 	}
 
 	static NativeImage read(ResourceLocation id) {

@@ -32,6 +32,7 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 	 * cubes are moved 0.1 px outward to cancel the shift.
 	 */
 	private static final ResourceLocation GREEN_LANTERN_SLIM = com.projecthero.mod.ProjectHeroMod.id("geo/green_lantern_slim.geo.json");
+	private static final ResourceLocation SYMBIOTE_LETHAL = com.projecthero.mod.ProjectHeroMod.id("geo/symbiote_host_lethal.geo.json");
 
 	@Override
 	public ResourceLocation getModelResource(SuperheroArmorItem animatable,
@@ -43,6 +44,14 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 					!= com.projecthero.mod.greenlantern.GreenLanternSuitStyle.DEFAULT) {
 				return GREEN_LANTERN_SLIM;
 			}
+		}
+		// v0.17.5: a Normal host in the Lethal Protector style wears that rig (the Classic one + the animated jaw, teeth and tongue)
+		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem
+				&& renderer instanceof software.bernie.geckolib.renderer.GeoArmorRenderer<?> armor
+				&& armor.getCurrentEntity() instanceof net.minecraft.world.entity.player.Player wearer
+				&& com.projecthero.mod.client.symbiote.SymbioteSuitTint.styleOf(wearer)
+						== com.projecthero.mod.symbiote.SymbioteSuitStyle.LETHAL_PROTECTOR) {
+			return SYMBIOTE_LETHAL;
 		}
 		return getModelResource(animatable);
 	}

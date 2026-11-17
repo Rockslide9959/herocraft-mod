@@ -68,7 +68,10 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.miraculous.MiraculousCommand.build())
 				.then(com.projecthero.mod.quirk.QuirkCommand.build())
 				// v0.17.2 (user: "the greenlantern rank command doesnt work"): it was never registered -- rank 1-5, energy, status, dismiss
-				.then(com.projecthero.mod.command.GreenLanternCommand.build())));
+				.then(com.projecthero.mod.command.GreenLanternCommand.build())
+				// v0.17.5: the Symbiote's own tools (bond / activate / status / colour / style) had not been registered since the
+				// v0.12.16 single-command change -- now /projecthero power tune symbiote ...
+				.then(com.projecthero.mod.command.SymbioteCommand.build())));
 		// v0.16.7: /projecthero quirk costume | meter <0-100> | erase <seconds> | info (also under power tune quirk)
 		root.then(com.projecthero.mod.quirk.QuirkCommand.build());
 		root.then(LocateCommand.build());
