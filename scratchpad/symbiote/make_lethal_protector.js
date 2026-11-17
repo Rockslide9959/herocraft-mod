@@ -10,11 +10,11 @@
 //
 // Writes (src/main/resources/assets/projecthero/):
 //   textures/armor/symbiote_host_lethal.png       the skin, ready to wear: spider logo + eyes kept, the painted grin replaced by a dark
-//        throat where the 3D jaw / teeth / tongue go, the goo patches the shoulder caps / drips / spine nodes sample copied in from the
+//        throat where the 3D jaw / teeth / tongue go, the goo patches the spine nodes and the suit-up tendrils sample copied in from the
 //        Classic texture, and a small atlas for the mouth parts (jaw, teeth, gum, tongue) in unused skin texels
 //   textures/armor/symbiote_host_lethal_tint.png  its TINT MASK (same format as symbiote_host_tint.png: R shade, G gloss, B channel
 //        0 body / 128 emblem / 255 eyes, A coverage) so the style takes the player's colours. A = 0 marks texels that keep the skin's own
-//        colour whatever the player picks: the mouth (lips, throat, teeth, tongue, gum) and the green drool
+//        colour whatever the player picks: the mouth (lips, throat, teeth, tongue, gum) and the saliva (v0.17.5 round 2: was green drool, repainted)
 //   textures/armor/symbiote_host_lethal_fx.png    the sheen map (R sweep coordinate, G sheen strength, B = 0: this style has no veins)
 //   geo/symbiote_host_lethal.geo.json             the Classic rig (read from geo/symbiote_host.geo.json) + the mouth: lp_jaw (hinged
 //        lower jaw with its teeth), lp_upper (upper teeth + gum), lp_tongue_0..5 (a chain of six tapering segments in the jaw)
@@ -50,8 +50,26 @@ const mix = (c0, c1, t) => [0, 1, 2].map((i) => Math.round(lerp(c0[i], c1[i], cl
 const lum = (c) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
 function hash(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
 
+// 0) v0.17.5 round 2 (user: "remove the green from the mouth"): the skin paints slime-green drool on the hat layer round the grin and
+// down the cheeks (22 texels, half-transparent green). Repainted as glistening saliva -- the dark skin beneath lifted toward a cool
+// pale highlight, brightest near the top of each run -- fully opaque, and kept in its own colour whatever suit colours are picked.
+const isGreen = (r, g, b) => g > r + 12 && g > b + 5;
+const saliva = new Uint8Array(W * H);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+	const i = (y * W + x) * 4;
+	if (!skin.px[i + 3] || !isGreen(skin.px[i], skin.px[i + 1], skin.px[i + 2])) continue;
+	const bx = x >= 64 && y < 32 ? x - 64 : x, bi = (y * W + bx) * 4; // the base-layer texel under a hat texel
+	const under = [skin.px[bi], skin.px[bi + 1], skin.px[bi + 2]];
+	const above = y > 0 && isGreen(skin.px[i - W * 4], skin.px[i - W * 4 + 1], skin.px[i - W * 4 + 2]);
+	const t = (above ? 0.42 : 0.62) + hash(x, y) * 0.16;
+	const c = [0, 1, 2].map((k) => Math.round(under[k] + ([196, 208, 224][k] - under[k]) * t));
+	skin.px[i] = c[0]; skin.px[i + 1] = c[1]; skin.px[i + 2] = c[2]; skin.px[i + 3] = 255;
+	saliva[y * W + x] = 1;
+}
+
 const out = Buffer.from(skin.px);                 // the wearable texture
 const keep = new Uint8Array(W * H);               // 1 = keeps its own colour (mask A = 0)
+for (let i = 0; i < W * H; i++) keep[i] = saliva[i]; // the saliva stays pale on any colour
 const get = (img, x, y) => { const i = (y * W + x) * 4; return [img[i], img[i + 1], img[i + 2], img[i + 3]]; };
 const put = (x, y, c, a = 255) => { const i = (y * W + x) * 4; out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; out[i + 3] = a; };
 
@@ -114,12 +132,12 @@ for (let v = 16; v < 32; v++) {
 		}
 	}
 }
-// the skin's lower-lip corners that stay on the head keep their own colour too (no recolour), as does the green drool
+// the skin's lower-lip corners that stay on the head keep their own colour too (no recolour); the saliva was marked above
 for (let v = 16; v < 32; v++) for (let u = 0; u < 48; u++) {
 	for (const uu of [u, u + 64]) {
 		const c = get(out, uu, v);
 		if (!c[3]) continue;
-		if (isLip(c) || (c[1] > c[0] + 20 && c[1] > 90)) keep[v * W + uu] = 1;
+		if (isLip(c)) keep[v * W + uu] = 1;
 	}
 }
 

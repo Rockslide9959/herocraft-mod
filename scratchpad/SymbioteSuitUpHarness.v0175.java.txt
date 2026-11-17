@@ -1,0 +1,521 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteColours;
+import com.projecthero.mod.symbiote.SymbioteState;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteSuitStyle;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 round 2 Symbiote suit-up): after-stills (no shoulder pads, the mouth with no green), full-body
+ * films of the suit emerging and receding for Classic / Lethal Protector / a custom colour, a first-person suit-up, and slow-motion
+ * close-ups (every rendered frame at tick rate 5) of the leading edge and of the face covering + eyes opening + the jaw splitting.
+ * Enabled by run/symsuitup.flag = "<out dir>" (second line "quick" = stills + one Classic suit-up film only, "fp" = the first-person films only). Copy to
+ * src/client/java/com/projecthero/mod/client/SymbioteSuitUpHarness.java and add it to the "client" entrypoints while testing.
+ * Kept as scratchpad/SymbioteSuitUpHarness.v0175.java.txt; films via scratchpad/symbiote/films_suitup_v0175.js.
+ */
+public final class SymbioteSuitUpHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static boolean quick, fp;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static final List<BooleanSupplier> GATES = new ArrayList<>();
+	private static int planTick, gateWait;
+	private static BlockPos site;
+	private static ArmorStand camera;
+	private static Vec3 camAt, camLook;
+	/** Follow the head (camera offset from the eyes, scaled with the host). */
+	private static Vec3 headOffset;
+	/** Every-frame capture (slow motion): file prefix, or null. */
+	private static String frameCapture;
+	private static int frameN;
+	/** First person: hold the local view pitch here (degrees), or null. */
+	private static Float fpPitch;
+	/** ...and the view turned toward the right arm (held out to the side in the suit-up pose). */
+	private static final float FP_YAW = 238f;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symsuitup.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(flag);
+			out = new File(lines.get(0).trim());
+			quick = lines.size() > 1 && lines.get(1).trim().equals("quick");
+			fp = lines.size() > 1 && lines.get(1).trim().equals("fp");
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymbioteSuitUpHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(SymbioteSuitUpHarness::placeCamera);
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (camAt == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			var p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = net.minecraft.util.Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = net.minecraft.util.Mth.lerp(pt, p.yo, p.getY()) - cam.y,
+					z = net.minecraft.util.Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, net.minecraft.util.Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(),
+					disp.getPackedLightCoords(p, pt));
+		});
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.LAST.register(ctx -> {
+			if (frameCapture != null) {
+				Minecraft mc = Minecraft.getInstance();
+				// the world is drawn (the GUI is hidden): every rendered frame, with its own partial tick
+				Screenshot.grab(out, String.format("%s%04d.png", frameCapture, frameN++), mc.getMainRenderTarget(), m -> {
+				});
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symsuitup-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+			GATES.add(null);
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static void gate(int ticks, BooleanSupplier until) {
+		at(ticks, () -> {
+		});
+		GATES.set(ticks - 1, until);
+	}
+
+	private static Vec3 s(double x, double y, double z) {
+		return new Vec3(site.getX() + 0.5 + x, site.getY() + 1 + y, site.getZ() + 0.5 + z);
+	}
+
+	private static void fixed(Minecraft mc, Vec3 at, Vec3 look) {
+		if (camera == null || camera.level() != mc.level) {
+			camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+			camera.setInvisible(true);
+		}
+		headOffset = null;
+		camAt = at;
+		camLook = look;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		placeCamera(mc);
+	}
+
+	/** A camera that keeps the face framed as the host bulks up: {@code off} from the eyes (blocks at normal size). */
+	private static void head(Minecraft mc, Vec3 off) {
+		fixed(mc, s(0, 0, 0), s(0, 0, 0));
+		headOffset = off;
+		placeCamera(mc);
+	}
+
+	private static void playerView(Minecraft mc, CameraType type) {
+		camAt = null;
+		headOffset = null;
+		mc.setCameraEntity(mc.player);
+		mc.options.setCameraType(type);
+	}
+
+	private static void placeCamera(Minecraft mc) {
+		if (mc.player != null && site != null) {
+			// first person: the body keeps facing north while the view turns to the right arm
+			float body = fpPitch != null ? 180f : mc.player.getYRot();
+			mc.player.yBodyRot = body;
+			mc.player.yBodyRotO = body;
+		}
+		if (fpPitch != null && mc.player != null) {
+			mc.player.setXRot(fpPitch);
+			mc.player.xRotO = fpPitch;
+			mc.player.setYRot(FP_YAW);
+			mc.player.yRotO = FP_YAW;
+			mc.player.setYHeadRot(FP_YAW);
+			mc.player.yHeadRotO = FP_YAW;
+		}
+		if (camAt == null || camera == null) {
+			return;
+		}
+		if (headOffset != null && mc.player != null) {
+			double k = mc.player.getScale();
+			Vec3 eye = new Vec3(site.getX() + 0.5, mc.player.getY() + 1.55 * k, site.getZ() + 0.5);
+			camLook = eye.add(0, 0.06 * k, 0);
+			camAt = eye.add(headOffset.scale(k));
+		}
+		Vec3 to = camLook.subtract(camAt);
+		float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		double eye = camera.getEyeHeight();
+		camera.moveTo(camAt.x, camAt.y - eye, camAt.z, yaw, pitch);
+		camera.xo = camera.getX();
+		camera.yo = camera.getY();
+		camera.zo = camera.getZ();
+		camera.xOld = camera.getX();
+		camera.yOld = camera.getY();
+		camera.zOld = camera.getZ();
+		camera.yRotO = yaw;
+		camera.xRotO = pitch;
+		camera.setYHeadRot(yaw);
+	}
+
+	private static void stand(Minecraft mc, double x, double z, float yaw, float pitch) {
+		server(mc, p -> {
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.connection.teleport(site.getX() + 0.5 + x, site.getY() + 1, site.getZ() + 0.5 + z, yaw, pitch);
+			p.setYHeadRot(yaw);
+		});
+	}
+
+	/** Toggles the suit (animated), or puts it straight on / off. */
+	private static void toggle(ServerPlayer p, boolean instant) {
+		Symbiote.state(p).toggleReadyAt = 0L;
+		Symbiote.toggle(p);
+		if (instant) {
+			Symbiote.state(p).transformStartTick -= 10_000L;
+			Symbiote.tick(p);
+		}
+	}
+
+	private static void off(Minecraft mc) {
+		server(mc, p -> {
+			if (Symbiote.state(p).active) {
+				toggle(p, true);
+			}
+		});
+	}
+
+	private static void on(Minecraft mc) {
+		server(mc, p -> {
+			if (!Symbiote.state(p).active) {
+				toggle(p, true);
+			}
+		});
+	}
+
+	private static void tickRate(Minecraft mc, float rate) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+	}
+
+	static void prepare(ServerLevel level) {
+		for (int x = -14; x <= 14; x++) {
+			for (int z = -14; z <= 14; z++) {
+				for (int y = -2; y <= 16; y++) {
+					BlockState st = y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+					level.setBlock(site.offset(x, y, z), st, 2 | 16);
+				}
+			}
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymbioteSuitUpHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				prepare(level);
+				p.setGameMode(GameType.SURVIVAL);
+				Symbiote.grant(p);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+				SymbioteSuitColours.set(p, SymbioteColours.CLASSIC);
+				System.out.println("[HARNESS] site " + site + " normal=" + Symbiote.isNormalHost(p));
+			});
+		}
+		if (t == 45 && site == null) {
+			return;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+			System.out.println("[HARNESS] lethal available=" + com.projecthero.mod.client.symbiote.SymbioteSuitTint.lethalAvailable());
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (t % 10 == 0) {
+			server(mc, p -> {
+				for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(48))) {
+					e.discard();
+				}
+			});
+		}
+		if (planTick < PLAN.size()) {
+			BooleanSupplier g = GATES.get(planTick);
+			if (g != null && !g.getAsBoolean() && gateWait++ < 400) {
+				return;
+			}
+			gateWait = 0;
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static boolean idle(Minecraft mc) {
+		SymbioteState s = mc.player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SYMBIOTE_STATE, null);
+		return s != null && s.transformDir == SymbioteState.DIR_IDLE;
+	}
+
+	/** A real-time film (one frame a tick) of the suit coming on then off from a fixed full-body camera. */
+	private static int filmOnOff(Minecraft mc, int t, String name) {
+		at(t, () -> {
+			stand(mc, 0, 0, 180f, 0f);
+			fixed(mc, s(-1.45, 1.6, -2.55), s(0, 1.25, 0));
+			off(mc);
+		});
+		gate(t + 6, () -> idle(mc));
+		at(t + 8, () -> server(mc, p -> toggle(p, false)));
+		for (int f = 0; f < 96; f++) {
+			final int n = f;
+			at(t + 8 + f, () -> shot(mc, String.format("film_%s_on_%03d", name, n)));
+		}
+		t += 8 + 100;
+		at(t, () -> server(mc, p -> toggle(p, false)));
+		for (int f = 0; f < 56; f++) {
+			final int n = f;
+			at(t + f, () -> shot(mc, String.format("film_%s_off_%03d", name, n)));
+		}
+		return t + 60;
+	}
+
+	/** First person: looking down at the chest and the arms (the full-body first-person view runs during the suit-up). */
+	private static int firstPerson(Minecraft mc, int t) {
+		// ---- first person: looking along the right arm (out to the side in the suit-up pose) and down at the chest
+		at(t + 2, () -> {
+			off(mc);
+			stand(mc, 0, 0, 180f, 62f);
+			playerView(mc, CameraType.FIRST_PERSON);
+			fpPitch = 24f;
+			mc.options.hideGui = false; // the hand is only drawn with the GUI on
+		});
+		gate(t + 8, () -> idle(mc));
+		at(t + 10, () -> server(mc, p -> toggle(p, false)));
+		for (int f = 0; f < 80; f++) {
+			final int n = f;
+			at(t + 10 + f, () -> shot(mc, String.format("film_first_person_on_%03d", n)));
+		}
+		t += 100;
+		at(t, () -> server(mc, p -> toggle(p, false)));
+		for (int f = 0; f < 50; f++) {
+			final int n = f;
+			at(t + f, () -> shot(mc, String.format("film_first_person_off_%03d", n)));
+		}
+		at(t + 56, () -> { mc.options.hideGui = true; fpPitch = null; });
+		t += 60;
+		return t;
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		if (fp) {
+			at(t, () -> mc.options.hideGui = true);
+			t = firstPerson(mc, t + 2);
+			at(t, () -> Runtime.getRuntime().halt(0));
+			return;
+		}
+		at(t, () -> {
+			stand(mc, 0, 0, 180f, 0f);
+			mc.options.hideGui = true;
+			on(mc);
+		});
+		t += 30;
+		// ---- after-stills: Classic with no shoulder pads (same cameras as the v0.17.5 symbiote_suit / symbiote_lethal shots)
+		String[][] views = { { "front", "0", "1.75", "-3.1" }, { "three_quarter", "-1.6", "1.8", "-2.7" }, { "side", "3.1", "1.75", "0" },
+				{ "back", "0", "1.75", "3.1" } };
+		for (String[] v : views) {
+			at(t, () -> fixed(mc, s(Double.parseDouble(v[1]), Double.parseDouble(v[2]), Double.parseDouble(v[3])), s(0, 1.3, 0)));
+			at(t + 10, () -> shot(mc, "after_classic_" + v[0]));
+			t += 12;
+		}
+		// ---- Lethal Protector: the mouth with no green (idle, then the tongue out)
+		at(t, () -> server(mc, p -> SymbioteSuitColours.setStyle(p, SymbioteSuitStyle.LETHAL_PROTECTOR)));
+		for (String[] v : views) {
+			at(t + 1, () -> fixed(mc, s(Double.parseDouble(v[1]), Double.parseDouble(v[2]), Double.parseDouble(v[3])), s(0, 1.3, 0)));
+			at(t + 11, () -> shot(mc, "after_lethal_" + v[0]));
+			t += 12;
+		}
+		at(t, () -> fixed(mc, s(0, 2.34, -1.3), s(0, 2.26, 0)));
+		gate(t + 2, () -> {
+			var ps = com.projecthero.mod.client.symbiote.SymbioteMouth.compute(mc.player, 0f, new com.projecthero.mod.client.symbiote.SymbioteMouth.Pose());
+			return ps.loll == 0f && ps.jaw < 1.6f;
+		});
+		at(t + 3, () -> shot(mc, "after_lethal_face_closed"));
+		gate(t + 5, () -> com.projecthero.mod.client.symbiote.SymbioteMouth.compute(mc.player, 0f,
+				new com.projecthero.mod.client.symbiote.SymbioteMouth.Pose()).loll > 0.97f);
+		at(t + 6, () -> shot(mc, "after_lethal_face_tongue_out"));
+		at(t + 7, () -> fixed(mc, s(-0.95, 2.34, -1.0), s(0, 2.26, 0)));
+		at(t + 9, () -> shot(mc, "after_lethal_face_tongue_out_three_quarter"));
+		t += 12;
+		at(t, () -> server(mc, p -> SymbioteSuitColours.set(p, SymbioteColours.CLASSIC)));
+		t += 4;
+		// ---- films: Classic, Lethal Protector, a custom colour
+		t = filmOnOff(mc, t, "classic");
+		if (!quick) {
+			at(t, () -> server(mc, p -> SymbioteSuitColours.setStyle(p, SymbioteSuitStyle.LETHAL_PROTECTOR)));
+			t = filmOnOff(mc, t + 2, "lethal");
+			at(t, () -> server(mc, p -> SymbioteSuitColours.set(p, new SymbioteColours(0x5B1F8C, 0xFFB000, 0xFFF3D6, SymbioteSuitStyle.CLASSIC))));
+			t = filmOnOff(mc, t + 2, "custom");
+			at(t, () -> server(mc, p -> SymbioteSuitColours.set(p, SymbioteColours.CLASSIC)));
+			t = firstPerson(mc, t);
+			// ---- slow motion (tick rate 5, every rendered frame): the leading edge over the chest and arm, Classic
+			at(t, () -> {
+				stand(mc, 0, 0, 180f, 0f);
+				off(mc);
+				fixed(mc, s(-1.05, 1.45, -1.35), s(-0.12, 1.12, 0));
+			});
+			gate(t + 4, () -> idle(mc));
+			at(t + 5, () -> tickRate(mc, 5f));
+			at(t + 7, () -> {
+				frameN = 0;
+				frameCapture = "slow_edge_";
+				server(mc, p -> toggle(p, false));
+			});
+			at(t + 7 + 50, () -> frameCapture = null);
+			at(t + 7 + 52, () -> tickRate(mc, 20f));
+			t += 7 + 70;
+			// ---- slow motion: the face, Lethal Protector -- the goo up the neck and over the face, the eyes snapping open, the jaw
+			// splitting into the grin and the tongue lolling out
+			at(t, () -> {
+				server(mc, p -> SymbioteSuitColours.setStyle(p, SymbioteSuitStyle.LETHAL_PROTECTOR));
+				off(mc);
+				head(mc, new Vec3(-0.32, 0.06, -0.62));
+			});
+			gate(t + 4, () -> idle(mc));
+			at(t + 5, () -> tickRate(mc, 5f));
+			at(t + 7, () -> server(mc, p -> toggle(p, false)));
+			gate(t + 8, () -> com.projecthero.mod.client.symbiote.SymbioteReveal.progress(mc.player, 0f) >= 0.45f);
+			at(t + 9, () -> {
+				frameN = 0;
+				frameCapture = "slow_face_";
+			});
+			at(t + 9 + 75, () -> frameCapture = null);
+			at(t + 9 + 77, () -> tickRate(mc, 20f));
+			t += 9 + 90;
+			// ---- slow motion: the face coming off (Lethal)
+			at(t, () -> tickRate(mc, 5f));
+			at(t + 2, () -> {
+				frameN = 0;
+				frameCapture = "slow_face_off_";
+				server(mc, p -> toggle(p, false));
+			});
+			at(t + 2 + 22, () -> frameCapture = null);
+			at(t + 2 + 24, () -> tickRate(mc, 20f));
+			t += 30;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMSUITUP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -38,6 +38,9 @@ public final class SymbioteSuitClient {
 			SymbioteMouth.clear();
 		}));
 		SymbioteMouth.initialize(); // v0.17.5: the Lethal Protector maw's swing / hurt / hit tracking and drool
+		// v0.17.5 round 2: saliva / goo particles, and the suit-up's droplets, sounds and canvas housekeeping
+		SymbioteParticleClient.register();
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(SymbioteEmerge::tick);
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public ResourceLocation getFabricId() {
