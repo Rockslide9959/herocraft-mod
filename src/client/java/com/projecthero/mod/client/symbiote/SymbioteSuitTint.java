@@ -229,6 +229,7 @@ public final class SymbioteSuitTint {
 		lethalMissing = false;
 		lethalAvailable = null;
 		SymbioteSuitFx.clear();
+		SymbioteEmerge.clear(); // v0.17.5 round 2
 	}
 
 	/** Test hook / debug: how many colour triples are baked right now. */
@@ -351,6 +352,7 @@ public final class SymbioteSuitTint {
 			img.close();
 		}
 		SymbioteSpread.forget(id);
+		SymbioteEmerge.forget(id);
 		Minecraft.getInstance().getTextureManager().release(id);
 	}
 

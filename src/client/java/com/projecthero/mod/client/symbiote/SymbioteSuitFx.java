@@ -49,6 +49,8 @@ public final class SymbioteSuitFx {
 	public static final int SHEEN_PERIOD = 110;
 	/** Ticks for one full vein pulse cycle. */
 	public static final int VEIN_PERIOD = 72;
+	/** v0.17.5 round 2: how far the suit-up's wet rim stands proud of the suit (blocks: 0.16 px). */
+	static final float RIM_INFLATE = 0.16f / 16f;
 
 	/** v0.17.5 Lethal Protector: its own sheen map (the skin's highlights, no veins); its eye mask comes from its tint mask. */
 	public static final ResourceLocation LETHAL_FX = ProjectHeroMod.id("textures/armor/symbiote_host_lethal_fx.png");
@@ -81,14 +83,6 @@ public final class SymbioteSuitFx {
 	}
 
 	private SymbioteSuitFx() {
-	}
-
-	/** The extras ({@code sym_*} bones: shoulder caps, drips, spine nodes) swell out at the end of the suit-up: 0 .. 1. */
-	public static float extraScale(float progress) {
-		float t = Math.max(0f, Math.min(1f, (progress - 0.72f) / 0.26f));
-		float s = t * t * (3f - 2f * t);
-		// a little overshoot, like goo settling
-		return s + 0.12f * (float) Math.sin(Math.PI * s) * s;
 	}
 
 	/** The vein tint for a colour triple: a lifted body colour, or a darker one on a pale suit. 0xRRGGBB. */
@@ -145,6 +139,25 @@ public final class SymbioteSuitFx {
 				return;
 			}
 			Entity wearer = armor.getCurrentEntity();
+			// v0.17.5 round 2: while the suit emerges / recedes, the raised wet rim riding the front instead of the sheen / veins / eyes
+			if (wearer instanceof Player rp && SymbioteEmerge.applies(rp)) {
+				Minecraft mc = Minecraft.getInstance();
+				if (rp.isInvisible() && (mc.player == null || rp.isInvisibleTo(mc.player))) {
+					return;
+				}
+				ResourceLocation rim = SymbioteEmerge.rimTexture(rp, SymbioteSuitTint.suit(rp), partialTick);
+				if (rim != null) {
+					RenderType type = RenderType.armorCutoutNoCull(rim);
+					SymbioteEmerge.inflate = RIM_INFLATE;
+					try {
+						getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, type, bufferSource.getBuffer(type), partialTick,
+								packedLight, packedOverlay, 0xFFFFFFFF);
+					} finally {
+						SymbioteEmerge.inflate = 0f;
+					}
+				}
+				return;
+			}
 			if (!active(wearer)) {
 				return;
 			}

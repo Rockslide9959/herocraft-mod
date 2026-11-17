@@ -14,7 +14,7 @@
 //        B = vein strength (the slow pulse), A = coverage
 //   textures/armor/symbiote_host.png       the Classic colours baked (fallback, Black Suit takeover, anything without a wearer)
 //   geo/symbiote_host.geo.json             the model: base + raised shell in the player-skin layout (declared 64 wide, so the
-//        128 px texture is sampled at 2x) plus 3D extras: shoulder caps, drips, raised pec / thigh plates, spine nodes
+//        128 px texture is sampled at 2x) plus 3D extras: raised pec / thigh plates, spine nodes (v0.17.5 round 2: the shoulder caps + drips removed, user)
 //   textures/item/symbiote_host_{helmet,chestplate,leggings,boots}{,_gloss,_emblem}.png  three-layer tintable icons
 // and docs/screenshots/v0175/symbiote_suit/texture_preview_presets.png (front / back / side of every preset).
 //
@@ -339,7 +339,7 @@ for (const [part, u, v, layer] of BOXES) {
 }
 
 // ---------------------------------------------------------------- the goo patch (unused skin texels) the 3D extras are wrapped in
-// region A: skin (24,0)-(40,8); region B: skin (56,16)-(64,48). A cylinder-ish glossy goo with a vertical highlight band.
+// region A: skin (24,0)-(40,8) (the suit-up tendrils SymbioteEmerge draws sample it); region B: skin (56,16)-(64,48) (spine nodes). A cylinder-ish glossy goo with a vertical highlight band.
 function gooPatch(x0, y0, w, h) {
 	for (let ty = y0 * S; ty < (y0 + h) * S; ty++) for (let tx = x0 * S; tx < (x0 + w) * S; tx++) {
 		if (used[ty * W + tx]) continue;
@@ -422,7 +422,6 @@ function plateUv(u0, v0, w, h, depth) {
 	};
 }
 const A = { u: 24, v: 0 }, B = { u: 56, v: 16 };
-const capFaces = (w, h, d) => faceUv(A, { north: [w, h, 0, 0], south: [w, h, 0, 0], east: [d, h, 5, 0], west: [d, h, 5, 0], up: [w, d, 0, 3], down: [w, d, 5, 3] });
 const dripFaces = (w, h, d) => faceUv(B, { north: [w, h, 0, 0], south: [w, h, 1, 0], east: [d, h, 2, 0], west: [d, h, 3, 0], up: [w, d, 4, 0], down: [w, d, 5, 0] });
 const bones = [
 	{ name: 'armorHead', pivot: [0, 24, 0], cubes: [cube('head_base', [-4, 24, -4], [8, 8, 8], [0, 0], 0.3), cube('head_shell', [-4, 24, -4], [8, 8, 8], [32, 0], 0.62)] },
@@ -435,17 +434,7 @@ const bones = [
 		{ name: 'spine_2', origin: [-0.5, 14.1, 2.1], size: [1.0, 0.85, 0.65], uv: dripFaces(1.0, 0.85, 0.65) },
 		{ name: 'spine_3', origin: [-0.45, 12.7, 2.1], size: [0.9, 0.8, 0.6], uv: dripFaces(0.9, 0.8, 0.6) }] },
 	{ name: 'armorRightArm', pivot: [-5, 22, 0], cubes: [cube('right_arm_base', [-8, 12, -2], [4, 12, 4], [40, 16], 0.3), cube('right_arm_shell', [-8, 12, -2], [4, 12, 4], [40, 32], 0.55)] },
-	{ name: 'sym_cap_r', parent: 'armorRightArm', pivot: [-6, 24, 0], cubes: [
-		{ name: 'cap_r', origin: [-8.45, 21.5, -2.45], size: [4.6, 2.9, 4.9], inflate: 0.32, uv: capFaces(4.6, 2.9, 4.9) },
-		{ name: 'drip_r1', origin: [-7.4, 20.0, -2.95], size: [0.8, 1.5, 0.5], uv: dripFaces(0.8, 1.5, 0.5) },
-		{ name: 'drip_r2', origin: [-7.3, 19.1, -2.88], size: [0.55, 0.95, 0.4], uv: dripFaces(0.55, 0.95, 0.4) },
-		{ name: 'drip_r3', origin: [-5.2, 20.5, 2.5], size: [0.7, 1.1, 0.45], uv: dripFaces(0.7, 1.1, 0.45) }] },
 	{ name: 'armorLeftArm', pivot: [5, 22, 0], cubes: [cube('left_arm_base', [4, 12, -2], [4, 12, 4], [32, 48], 0.3), cube('left_arm_shell', [4, 12, -2], [4, 12, 4], [48, 48], 0.55)] },
-	{ name: 'sym_cap_l', parent: 'armorLeftArm', pivot: [6, 24, 0], cubes: [
-		{ name: 'cap_l', origin: [3.85, 21.5, -2.45], size: [4.6, 2.9, 4.9], inflate: 0.32, uv: capFaces(4.6, 2.9, 4.9) },
-		{ name: 'drip_l1', origin: [6.6, 20.0, -2.95], size: [0.8, 1.5, 0.5], uv: dripFaces(0.8, 1.5, 0.5) },
-		{ name: 'drip_l2', origin: [6.75, 19.1, -2.88], size: [0.55, 0.95, 0.4], uv: dripFaces(0.55, 0.95, 0.4) },
-		{ name: 'drip_l3', origin: [4.5, 20.5, 2.5], size: [0.7, 1.1, 0.45], uv: dripFaces(0.7, 1.1, 0.45) }] },
 	{ name: 'armorRightLeg', pivot: [-1.9, 12, 0], cubes: [cube('right_leg_base', [-3.9, 0, -2], [4, 12, 4], [0, 16], 0.3), cube('right_leg_shell', [-3.9, 0, -2], [4, 12, 4], [0, 32], 0.55)] },
 	// raised quads: the thigh front texels again, standing proud (skin leg front 4..8, rows 20.. => y 11..7)
 	{ name: 'sym_thigh_r', parent: 'armorRightLeg', pivot: [-1.9, 12, 0], cubes: [{ name: 'thigh_r', origin: [-3.6, 7.0, -2.55], size: [3.4, 3.6, 0.5], inflate: 0.1, uv: plateUv(4.3, 21.4, 3.4, 3.6, 0.5) }] },

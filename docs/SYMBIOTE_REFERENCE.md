@@ -229,13 +229,12 @@ host's suit (`symbiote_host`) changed. Every gameplay rule, the suit-up clock, t
 
 - Base boxes (inflate 0.3) + a raised shell (0.55, head 0.62) in the player-skin box-UV layout, declared 64 wide so
   the **128 x 128** texture is sampled at 2x (GeckoLib divides UVs by the declared width).
-- 3D extras, all `sym_*` child bones: shoulder caps (`sym_cap_r/l`, with three goo drips each), a raised chest plate
+- 3D extras, all `sym_*` child bones: ~~shoulder caps (`sym_cap_r/l`, with three goo drips each)~~ (removed in round 2, user), a raised chest plate
   (`sym_chest`, per-face UVs onto the body-front texels behind it, so the pecs and emblem stand proud), raised quads
   (`sym_thigh_r/l`, same trick) and three spine nodes (`sym_spine`). Caps, drips and nodes are wrapped in a goo patch
   painted into unused skin texels (skin (24,0)-(40,8) and (56,16)-(64,48)).
-- `SuperheroArmorRenderer#renderRecursively` scales the `sym_*` bones with `SymbioteSuitFx.extraScale(progress)`
-  while the suit spreads on / off (0 until 72%, a small overshoot, full at the end), 1 otherwise. Set every frame
-  because GeckoLib bones are shared by every wearer.
+- ~~`SuperheroArmorRenderer#renderRecursively` scales the `sym_*` bones with `SymbioteSuitFx.extraScale(progress)`~~ -- round 2:
+  nothing is scaled any more; the extras' texels arrive with the goo (see "round 2" below).
 
 ### The art
 
@@ -332,13 +331,13 @@ make the mouth animated, the tongue moves and stuff". Only the Normal host's sui
   re-run the script to get them back. Ask the author before a public release ships them.
 - `symbiote_host_lethal.png`: the skin with the spider logo and eyes kept; the painted grin's open mouth and teeth repainted as a dark red
   throat on the face (base layer) with the hat layer cleared there, and the strip behind the 3D jaw (front + the front of each cheek)
-  the same; the lower-lip corners and the green drool stay as painted. The Classic goo patches (caps / drips / spine nodes sample them)
+  the same; the lower-lip corners stay as painted (round 2: the green drool is repainted as saliva). The Classic goo patches (caps / drips / spine nodes sample them)
   copied in; a mouth atlas in unused skin texels: block J = skin (0,0)-(8,8) (the jaw shell: its front / cheeks wear the skin's own
   chin and lower lip, projected from the face with the painted teeth turned into lip, plus floor / underside), block M = (56,0)-(64,8)
   (tooth ramps, gum, tongue top with a groove, sides, underside, tip).
 - `symbiote_host_lethal_tint.png`: the tint mask, same format as Classic's. Body / emblem (white on the body) / eyes (white on the head)
   by luminance and region; shade solved per texel so the Classic colours bake back close to the skin. **A = 0 = keep the skin's own
-  colour**: the mouth (throat, lips, teeth, gum, tongue), the green drool and the odd saturated texel (the blue soles). `SymbioteSuitTint`
+  colour**: the mouth (throat, lips, teeth, gum, tongue), the saliva (round 2; was green drool) and the odd saturated texel (the blue soles). `SymbioteSuitTint`
   bakes non-Classic colours from it and copies the A = 0 texels from the base, so the style recolours and the mouth stays flesh.
   Classic colours on this style use the base texture as painted.
 - `symbiote_host_lethal_fx.png`: the sheen map (sweep from the body position as before, strength from the skin's highlights), no veins.
@@ -354,7 +353,7 @@ make the mouth animated, the tongue moves and stuff". Only the Normal host's sui
 - `SuperheroArmorRenderer#renderRecursively` hands every `lp_*` bone to `SymbioteMouth.applyBone` (set every frame: the bones are shared):
   jaw `rotX` (negative = open), upper teeth `posY` lift, tongue root `posZ = 4 - ext` (the chain slides out of the mouth) and each
   joint's pitch / yaw. The tongue is skipped while fully in; the whole mouth is skipped until the suit-up has covered the head (spread
-  progress 0.93) and then grows in over the last 6%.
+  progress 0.93) and then grows in over the last 6%. (Round 2: no growing -- hidden until 0.88, then the jaw splits open, see below.)
 - Animation (pure function of synced state + game time; per-player phase from the entity id):
   - idle: the jaw breathes 0.6..3.4 degrees on a 68-tick cycle; every 260 ticks (offset per player) a 90-tick **loll** -- jaw 13 degrees,
     the tongue slides out 4.4 px, droops more at every joint toward the tip, sways in a slow S and curls its tip now and then;
@@ -371,7 +370,7 @@ make the mouth animated, the tongue moves and stuff". Only the Normal host's sui
   (`docs/screenshots/v0175/symbiote_lethal/tongue_side_view.png`, `face_sheet.png`).
 - Swings, hurts and hits are noticed in a client tick (`SymbioteMouth.tick`: a swing starting, the wearer's hurt flash, and a living
   thing in front of them flashing hurt within 6 ticks of the swing) and kept per **entity id** (no entity references; pruned after 200
-  ticks unseen, cleared on disconnect). Drool: `ITEM_SLIME` particles (the skin's drool is green) from the mouth -- 1 in 16 ticks while
+  ticks unseen, cleared on disconnect). Drool: ~~`ITEM_SLIME` particles~~ round 2: `SymbioteParticles.SALIVA` (clear saliva drips) from the mouth -- 1 in 16 ticks while
   the tongue lolls, 1 in 6 during a lash, 1 in 320 otherwise; not in your own first person view.
 - First person: unchanged (the head is never drawn in first person; the sleeve uses the style's texture and sheen). Item icons are the
   same for both styles. The Classic style has no mouth (the rig switch is what adds it).
@@ -384,3 +383,82 @@ styles; the command sets the style and keeps the colours, and the colour command
 presets match on either, each style has its own bake key, editing a colour keeps the style, the screen payload needs a bond.
 `SymbioteSuitColourGameTests`' junk-packet test now writes the style ordinal too. Visual checks: `docs/screenshots/v0175/symbiote_lethal/`
 (harness `scratchpad/SymbioteLethalHarness.v0175.java.txt`, films via `scratchpad/symbiote/films_lethal_v0175.js`).
+
+## v0.17.5 round 2 -- no shoulder pads, no green, and a new suit-up (the suit emerges from the body)
+
+User: "remove the shoulder pad models that you added. Remove the green from the mouth please. Change the suitup animation please, right
+now as it is the player grows as the suit covers them, make it so that the suit comes out of the player and grows pixel by pixel ...
+based on the comics and movies and shows ... i want a really cool looking suitup animation".
+
+### Shoulder pads
+
+- `sym_cap_r` / `sym_cap_l` (the caps and their six drips) are gone from `gen_symbiote_suit_v0175.js`, so from both geos
+  (`symbiote_host.geo.json` and the Lethal one, which the Lethal script builds from it). The raised chest plate, raised quads and spine
+  nodes stay (muscle / spine, not pads). The goo patch (24,0)-(40,8) the caps used now wraps the suit-up tendrils.
+- The `sym_*` scaling (`SymbioteSuitFx.extraScale`) is deleted.
+
+### No green on the mouth
+
+- `make_lethal_protector.js` step 0: the skin's 22 slime-green drool texels (hat layer, round the grin and down the cheeks, half
+  transparent) are repainted as glistening saliva (the dark skin beneath lifted toward a cool pale highlight, brightest at the top of each
+  run, opaque) before anything else reads the skin, so the 3D jaw's front is clean too. They keep their own colour on any suit colour
+  (tint mask A = 0). Checked: no texel with green over red/blue anywhere in the processed texture.
+- The drool particle is now `SymbioteParticles.SALIVA` (main, client factory `SymbioteParticleClient`, sprites from
+  `scratchpad/symbiote/gen_symbiote_particles_v0175.js`): a clear drop that beads at the lip, stretches on its strand, lets go and
+  falls, and leaves a small clear splat.
+
+### The suit-up (`client/symbiote/SymbioteEmerge`)
+
+- **No growing while it spreads.** The host's +50% size (`Symbiote.tickGrowth`) now follows `Symbiote.surge(progress)`: 0 until
+  `SURGE_FROM` = 0.86, then smooth-stepped to 1 -- the goo covers a normal-sized body, and only once the head is covered and the eyes
+  are open does the host bulk up (in ~8 ticks). Taking it off runs the same curve backwards: deflate first, then recede. The clock is
+  longer: `TRANSFORM_TICKS` 60 (3 s, was 2), `RETRACT_TICKS` 36 (1.8 s, was 1.2) -- for all hosts.
+- **Timeline** (transform progress; take-off is the same backwards):
+  - 0 .. 0.21 *burst*: seven tapered, wriggling 3D tendrils whip out of the sternum (env up by 0.035, held to 0.13, then they curl
+    back down onto the body and shrink by 0.21); goo droplets fly (`SymbioteParticles.GOO`, the body colour). Off: the tendrils
+    reach back out and are sucked into the chest, the droplets pulled in with them.
+  - 0.035 .. 0.70 *spread*: the body and limbs, texel by texel.
+  - 0.50 .. 0.83 *head*: up the neck, over the back / top first, the face last.
+  - 0.855 .. 0.895 *eyes*: the lenses are dark goo ("lid" colour) until they open from the middle outward, white flash fading to the
+    lens colour over 0.075 (on the way on only).
+  - 0.86 .. 1 *surge* (server). 0.88: the Lethal Protector's mouth turns from shut goo to the real mouth; its jaw splits open
+    (`SymbioteMouth` debut: shut until 4.5 ticks before the end, then easeOutBack to 38 deg with a tremble and the lip lifted, the
+    tongue lolls out from 1 tick later, held, everything eased back to idle by 40 ticks after the end). Off: the jaw shuts between 0.98
+    and 0.88, then the mouth is goo again.
+- **The arrival field** (`SymbioteEmerge.Field`, built once per style from its tint mask, ~6.5k base-layer texels): every texel of
+  the player-skin layout is placed on the body; base texels are graph nodes (neighbours within 0.75 px, across face edges, per part);
+  Dijkstra from the middle of the chest (0, 19.2, -2) over a vein cost field (two octaves of ridged value noise in body space:
+  cost 0.35 on the veins, 1.3 between), so the front races along branching veins and fills in between -- organic fingers. Limbs are
+  seeded from the shoulders / hips (body distance + the hop), the head from the neck (its face texels cost 1.65x, so the face closes
+  last). Body + limbs normalise into 0.035 .. 0.70, the head into 0.50 .. 0.83; the shell layer arrives 0.012 after its base texel;
+  the spine nodes' goo patch with the middle of the back; the mouth atlas and the tendril patch are always drawn.
+- **Per wearer per frame** (`Canvas`, keyed by entity id): two 128 px `DynamicTexture`s recomposed only when the progress changes
+  (once a frame, ~16k texels of array maths, no allocation) from the wearer's baked colours:
+  - covered texels = the suit; the newest (within 3.2 ticks) lerp toward the colour's wet gloss with a shimmer -- the glossy leading edge;
+  - base texels within 2.8 ticks ahead of the front get dithered dark droplets (spatter ahead; left-behind residue on the way off);
+  - the head shell is filled solid (base colour) where the goo has reached until 0.90, because the wearer's hat layer (0.5) sits above
+    the suit's base (0.3); from 0.90 `PlayerModelMixin` hides the hat instead (`SymbioteEmerge.hidesHat`);
+  - the RIM canvas: only base texels within 2 ticks of the front, lifted toward the gloss, drawn by `SymbioteSuitFx.Layer` as a second
+    pass of the model with every face pushed out 0.16 px (`SymbioteEmerge.inflate`, read in `SuperheroArmorRenderer#createVerticesOfQuad`)
+    -- a raised wet ridge riding the front.
+- **Tendrils** (`SymbioteEmerge.renderStrands`, from `SuperheroArmorRenderer#renderCubesOfBone` in the bone's own pose): chains of
+  seven tapered four-sided segments wrapped in the goo patch texels, wriggling (two sine waves per joint), drooping back toward the
+  surface. The chest burst on the body bone; three reaching tendrils per limb (front, outer side, back) at the limb's current front
+  height (precomputed `frontY` / `cov` tables), pointing down the limb while 6..94% of it is covered; four up over the head. Model px are
+  mapped onto GeckoLib's baked bone space from where the base cube's faces actually are (found by their UVs), so axis flips are followed.
+- **Sounds** (client, vanilla, once per beat per wearer): sculk charge at the burst, sculk vein at 0.30, honey slide as the head starts,
+  warden tendril clicks as the eyes open, a warden heartbeat for the surge, the warden's agitated growl for the Lethal grin; off: sculk
+  charge, honey slide, sculk vein. **Droplets**: the burst (one or two a tick), about one every other tick dripping off the front, a spray as the eyes open.
+- A suit already settled off server side whose stripped pieces have not reached the client yet is not drawn (`SymbioteEmerge.strippedButWorn`) -- it flashed the whole suit for a frame at the end of the take-off.
+- **First person**: `SymbioteSuitSleeve` uses the same canvas (the goo crawls down from the shoulder over the hand) plus the rim on a
+  0.46-inflated arm.
+- Only the Normal host's `symbiote_host` suit; the Black Suit and Agent Venom keep `SymbioteSpread`. Canvases are released after 3 s
+  unused, on a resource reload (`SymbioteSuitTint.clear`) and on leaving a world; a released baked colour texture drops its pixels
+  (`SymbioteEmerge.forget`). Client-only statics, no world / entity references (ids only).
+
+### Tests
+
+`SymbioteSuitUpGameTests`: `surge` is 0 up to `SURGE_FROM`, 1 at the end, monotonic in bounded 1% steps; the clock is 60 / 36 ticks;
+with the transform clock set directly, the host stays at scale 1.0 through 85% of the suit-up, is bulking at 95%, is 1.5 once settled,
+deflates as the retract starts and is back to 1.0 from 20% of it on. Visual checks: `docs/screenshots/v0175/symbiote_suitup/` (harness
+`scratchpad/SymbioteSuitUpHarness.v0175.java.txt`, films via `scratchpad/symbiote/films_suitup_v0175.js`).

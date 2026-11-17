@@ -65,9 +65,9 @@ public final class Symbiote {
 	 * each part's armour only appears once its particles have fully covered it -- three clearly
 	 * readable stages need more than an instant, hence longer than {@link #RETRACT_TICKS}.
 	 */
-	public static final int TRANSFORM_TICKS = 40;
+	public static final int TRANSFORM_TICKS = 60; // v0.17.5 round 2: 3 s (was 2) for the emerge-from-the-chest suit-up
 	/** Ticks the shorter retraction runs when deactivating -- peels off in the reverse order. */
-	public static final int RETRACT_TICKS = 24;
+	public static final int RETRACT_TICKS = 36; // v0.17.5 round 2: 1.8 s (was 1.2)
 
 	/**
 	 * How long (in ticks) a bonded, suited-up player must stay in continuous contact with one of the
@@ -381,14 +381,27 @@ public final class Symbiote {
 	private static final double SUIT_GROWTH = 0.5;
 	private static final net.minecraft.resources.ResourceLocation SUIT_SCALE = com.projecthero.mod.ProjectHeroMod.id("symbiote_suit_scale");
 
-	/** v0.11.17: scale follows the transform clock, so onlookers watch the host slowly swell to 150% -- 2.7 blocks, Iron Golem height (and back). */
+	/**
+	 * v0.17.5 round 2: the suit no longer grows the host while it spreads (user: "as it is the player grows as the suit covers them").
+	 * The goo covers a normal-sized body first; only once the head is covered and the eyes have opened does the host bulk up to full
+	 * size, in the last {@code 1 - SURGE_FROM} of the clock. On the way off it deflates first, then the suit recedes.
+	 */
+	public static final float SURGE_FROM = 0.86f;
+
+	/** How much of {@link #SUIT_GROWTH} the host has at transform {@code progress} (0..1): 0 until {@link #SURGE_FROM}, then eased to 1. */
+	public static float surge(float progress) {
+		float t = Math.max(0f, Math.min(1f, (progress - SURGE_FROM) / (1f - SURGE_FROM)));
+		return t * t * (3f - 2f * t);
+	}
+
+	/** v0.11.17: scale follows the transform clock (v0.17.5 round 2: through {@link #surge}) -- 150%, 2.7 blocks, Iron Golem height (and back). */
 	private static void tickGrowth(ServerPlayer player, SymbioteState s) {
 		// only the base Symbiote host swells -- Symbiote Spider-Man keeps his own size
 		float progress = s.hasSymbiote && SymbioteHostType.of(player) == SymbioteHostType.NORMAL ? SymbioteTransform.effectiveProgress(s, player.level().getGameTime()) : 0.0f;
-		if (progress <= 0.0f) {
+		if (surge(progress) <= 0.0f) {
 			com.projecthero.mod.hero.power.PowerToggles.clearModifier(player, net.minecraft.world.entity.ai.attributes.Attributes.SCALE, SUIT_SCALE);
 		} else {
-			double amount = Math.round(SUIT_GROWTH * progress * 200.0) / 200.0;
+			double amount = Math.round(SUIT_GROWTH * surge(progress) * 200.0) / 200.0;
 			com.projecthero.mod.hero.power.PowerToggles.modifier(player, net.minecraft.world.entity.ai.attributes.Attributes.SCALE, SUIT_SCALE,
 					amount, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		}

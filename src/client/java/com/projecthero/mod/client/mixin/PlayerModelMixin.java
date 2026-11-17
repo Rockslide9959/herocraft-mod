@@ -112,6 +112,11 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// overlay too made the wearer flash bare-skinned-and-unarmoured for the whole animation instead
 		// of looking like the suit is spreading over their normal clothed body.
 		if (com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(player)) {
+			// v0.17.5 round 2: once the emerging suit has covered the head, the wearer's hat / hair layer (which sits above the suit's
+			// base layer) goes; before that the suit's head shell is filled solid wherever the goo has reached (SymbioteEmerge)
+			if (com.projecthero.mod.client.symbiote.SymbioteEmerge.hidesHat(player)) {
+				model.hat.visible = false;
+			}
 			return;
 		}
 		// v0.13.20: same for Moon Knight's pixel-by-pixel suit

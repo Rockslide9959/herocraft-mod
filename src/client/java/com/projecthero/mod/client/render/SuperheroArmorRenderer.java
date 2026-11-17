@@ -74,22 +74,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			bone.setScaleY(com.projecthero.mod.ironman.IronManBladeLook.boneScale(ext));
 		}
-		// v0.17.5: the Symbiote suit's 3D extras (sym_* bones: shoulder caps, drips, raised chest / thighs, spine nodes) swell
-		// out at the end of the suit-up and sink back first on the way off; full size the rest of the time. Set every frame
-		// (the bones are shared by every wearer).
-		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && name.startsWith("sym_")) {
-			float k = 1f;
-			if (getCurrentEntity() instanceof Player sp && com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(sp)) {
-				k = com.projecthero.mod.client.symbiote.SymbioteSuitFx.extraScale(
-						com.projecthero.mod.client.symbiote.SymbioteReveal.progress(sp, partialTick));
-			}
-			if (k <= 0.01f) {
-				return;
-			}
-			bone.setScaleX(k);
-			bone.setScaleY(k);
-			bone.setScaleZ(k);
-		}
+		// v0.17.5 round 2: the Symbiote suit's 3D extras (sym_* bones: raised chest / thighs, spine nodes) are no longer scaled in
+		// during the suit-up (user: the player looked like they grew) -- their texels arrive with the goo like the rest of the suit
+		// (SymbioteEmerge), and the shoulder caps are gone from the geo.
 		// v0.17.5: the Lethal Protector suit's animated maw (lp_* bones: jaw, upper teeth, six tongue segments), posed every frame from
 		// the wearer's synced state (SymbioteMouth); hidden until the suit has covered the head
 		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && name.startsWith("lp_")
@@ -187,6 +174,15 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
 			int packedLight, int packedOverlay, int colour) {
+		// v0.17.5 round 2: the Normal host's suit coming on / off -- the bone's cubes, then the goo tendrils bursting out of the chest
+		// and reaching ahead of the spreading front (SymbioteEmerge)
+		if (getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && getCurrentEntity() instanceof Player sp
+				&& !bone.isHidden() && com.projecthero.mod.client.symbiote.SymbioteEmerge.applies(sp)) {
+			super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
+			com.projecthero.mod.client.symbiote.SymbioteEmerge.renderStrands(poseStack, bone, buffer, packedLight, packedOverlay, sp,
+					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+			return;
+		}
 		// v0.16.2: a limb bent at the elbow / knee (Spider-Man's perch): the arm / leg / boot bones drawn in two halves
 		if (JointedLimbs.active() && !bone.isHidden() && !bone.getCubes().isEmpty()
 				&& renderJointedBone(poseStack, bone, buffer, packedLight, packedOverlay, colour)) {
@@ -398,6 +394,19 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	@Override
 	public void createVerticesOfQuad(software.bernie.geckolib.cache.object.GeoQuad quad, org.joml.Matrix4f poseState,
 			org.joml.Vector3f normal, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
+		// v0.17.5 round 2: the Symbiote suit-up's raised wet rim -- the same model again, every face pushed out along its normal
+		float inflate = com.projecthero.mod.client.symbiote.SymbioteEmerge.inflate;
+		if (inflate != 0f) {
+			org.joml.Vector3f qn = quad.normal();
+			org.joml.Vector4f p4 = new org.joml.Vector4f();
+			for (software.bernie.geckolib.cache.object.GeoVertex vertex : quad.vertices()) {
+				org.joml.Vector3f pos = vertex.position();
+				poseState.transform(p4.set(pos.x() + qn.x() * inflate, pos.y() + qn.y() * inflate, pos.z() + qn.z() * inflate, 1f));
+				buffer.addVertex(p4.x(), p4.y(), p4.z(), colour, vertex.texU(), vertex.texV(), packedOverlay, packedLight,
+						normal.x(), normal.y(), normal.z());
+			}
+			return;
+		}
 		if (skipNorthFaces && quad.direction() == net.minecraft.core.Direction.NORTH) {
 			return;
 		}
@@ -497,7 +506,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem) {
 			texture = com.projecthero.mod.client.symbiote.SymbioteSuitTint.suit(getCurrentEntity());
 		}
-		if (getCurrentEntity() instanceof Player p && isSymbioteSuit(animatable)
+		if (getCurrentEntity() instanceof Player ep && animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem
+				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(ep)) {
+			// v0.17.5 round 2: the Normal host's suit emerges from the chest and crawls over the body texel by texel (SymbioteEmerge)
+			texture = com.projecthero.mod.client.symbiote.SymbioteEmerge.texture(ep, texture, partialTick);
+		} else if (getCurrentEntity() instanceof Player p && isSymbioteSuit(animatable)
 				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(p)) {
 			// v0.15.15: spreads out from the chest, head last (SymbioteSpread; SymbioteDissolve stays Moon Knight's)
 			texture = com.projecthero.mod.client.symbiote.SymbioteSpread.texture(texture,
@@ -609,6 +622,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			// textures) -- worn whole it is the Hulkbuster body (PlayerRendererHulkbusterMixin), racked / previewed it is
 			// that body too (HulkbusterDisplay), and the Stark Gantry never builds it.
 			if (getAnimatable() != null && "mark_8".equals(getAnimatable().armorSetId())) {
+				return;
+			}
+			// v0.17.5 round 2: a Symbiote suit already taken off server side but not yet stripped here
+			if (getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && getCurrentEntity() instanceof Player hp
+					&& com.projecthero.mod.client.symbiote.SymbioteEmerge.strippedButWorn(hp)) {
 				return;
 			}
 			// Max Steel's Turbo Stealth fades the suit out entirely.

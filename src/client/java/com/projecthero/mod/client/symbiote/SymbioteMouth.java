@@ -12,7 +12,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -43,7 +42,7 @@ import software.bernie.geckolib.cache.object.GeoBone;
  *   travelling S-wave and a flick of the tip, then reels it back in.</li>
  * </ul>
  * Swings, hurts and hits are noticed in a client tick ({@link #tick}) and kept per entity id in {@link #TRACKS} (ids, not entities:
- * nothing can hold a world; cleared on disconnect and pruned as players leave). Drool is a client particle spawned from the same tick.
+ * nothing can hold a world; cleared on disconnect and pruned as players leave). Drool is a clear saliva particle spawned from the same tick.
  */
 public final class SymbioteMouth {
 	/** Jaw / tongue joints are written as GeckoLib rotations; in the armour's geo space a negative X rotation drops the jaw. */
@@ -120,15 +119,12 @@ public final class SymbioteMouth {
 	 * tongue while it is all the way in, and the whole mouth until the suit has covered the head on the way on.
 	 */
 	public static boolean applyBone(GeoBone bone, Player wearer, float partialTick) {
-		float grow = 1f;
 		Pose pose = SCRATCH;
 		if (wearer != null) {
-			if (SymbioteReveal.isRevealing(wearer)) {
-				float pr = SymbioteReveal.progress(wearer, partialTick);
-				grow = smooth((pr - 0.93f) / 0.06f);
-				if (grow <= 0.01f) {
-					return false;
-				}
+			// v0.17.5 round 2: no more growing the mouth in -- it is hidden (the face shows shut goo, SymbioteEmerge) until the suit has
+			// covered the head and the eyes have opened, then the jaw splits open (the debut, below)
+			if (SymbioteReveal.isRevealing(wearer) && SymbioteReveal.progress(wearer, partialTick) < SymbioteEmerge.MOUTH_SHOW) {
+				return false;
 			}
 			double t = wearer.level().getGameTime() + partialTick;
 			if (wearer.getId() != lastId || t != lastT) {
@@ -144,15 +140,9 @@ public final class SymbioteMouth {
 		switch (name) {
 			case "lp_jaw" -> {
 				bone.setRotX(JAW_SIGN * rad(pose.jaw));
-				bone.setScaleX(grow);
-				bone.setScaleY(grow);
-				bone.setScaleZ(grow);
 			}
 			case "lp_upper" -> {
 				bone.setPosY(pose.upperLift);
-				bone.setScaleX(grow);
-				bone.setScaleY(grow);
-				bone.setScaleZ(grow);
 			}
 			default -> {
 				if (!name.startsWith("lp_tongue_")) {
@@ -163,7 +153,7 @@ public final class SymbioteMouth {
 					return true;
 				}
 				if (k == 0) {
-					if (pose.ext < 0.15f || grow < 0.99f) {
+					if (pose.ext < 0.15f) {
 						return false;
 					}
 					bone.setPosZ(TONGUE_IN - pose.ext);
@@ -193,6 +183,19 @@ public final class SymbioteMouth {
 		// the loll: now and then the tongue hangs out over the lower teeth and sways
 		double local = ((t + Math.floorMod(id * 97, LOLL_PERIOD)) % LOLL_PERIOD + LOLL_PERIOD) % LOLL_PERIOD;
 		float loll = local < LOLL_TICKS ? smooth((float) local / 18f) * (1f - smooth(((float) local - 66f) / 24f)) : 0f;
+		// v0.17.5 round 2: the suit-up's debut -- the shut grin splits open, the jaw drops wide and the tongue lolls out
+		float debutAge = debutAge(p, t);
+		float debutJaw = 0f;
+		boolean debutShut = false;
+		if (!Float.isNaN(debutAge)) {
+			float a = debutAge;
+			debutShut = a < DEBUT_SPLIT;
+			if (a >= DEBUT_SPLIT) {
+				float open = a < DEBUT_SPLIT + 3f ? easeOutBack((a - DEBUT_SPLIT) / 3f) : 1f - smooth((a - 12f) / 22f);
+				debutJaw = 38f * Math.max(0f, open);
+				loll = Math.max(loll, smooth((a - DEBUT_SPLIT - 1f) / 5f) * (1f - smooth((a - 18f) / 20f)));
+			}
+		}
 		out.loll = loll;
 
 		// snarls: the strongest of a melee swing, a hurt and a Symbiote move
@@ -250,6 +253,18 @@ public final class SymbioteMouth {
 		out.jaw = Math.max(out.jaw, 13f * loll);
 		out.jaw = Math.max(out.jaw, 31f * Math.min(1.15f, snarl) + tremble);
 		out.upperLift = 0.28f * Math.min(1f, snarl);
+		if (debutJaw > 0f) {
+			out.jaw = Math.max(out.jaw, debutJaw + (float) Math.sin(t * 2.6 + phase) * 1.4f * Math.min(1f, debutJaw / 30f));
+			out.upperLift = Math.max(out.upperLift, 0.34f * Math.min(1f, debutJaw / 30f));
+		}
+		if (debutShut) {
+			out.jaw = 0.2f; // the grin shows shut for a moment before it splits
+		}
+		// on the way off the jaw closes before the mouth goes back to goo
+		float closing = closing(p, partialTick);
+		if (closing < 1f) {
+			out.jaw *= closing;
+		}
 
 		// the tongue: the loll's lazy droop and sway, a snarl's raised curl behind the teeth, the lash's whip
 		float lollExt = 4.4f * loll; // far enough that the last three segments hang out over the lower teeth
@@ -276,6 +291,34 @@ public final class SymbioteMouth {
 		}
 		keepInMouth(out);
 		return out;
+	}
+
+	/** Ticks before the end of the suit-up at which the shut grin splits open (the mouth shows at {@link SymbioteEmerge#MOUTH_SHOW}). */
+	static final float DEBUT_SPLIT = -4.5f;
+	/** How long after the suit-up ends the debut runs. */
+	static final float DEBUT_TICKS = 40f;
+
+	/**
+	 * v0.17.5 round 2: ticks since {@code p}'s suit-up finished (negative while it is still running, from the moment the mouth shows), or
+	 * NaN when there is no debut to play (no suit-up just now, taking it off, long finished).
+	 */
+	static float debutAge(Player p, double t) {
+		com.projecthero.mod.symbiote.SymbioteState s = p.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		if (s == null || !s.active || s.transformDir == com.projecthero.mod.symbiote.SymbioteState.DIR_DOWN || s.transformDurationTicks <= 0) {
+			return Float.NaN;
+		}
+		float a = (float) (t - (s.transformStartTick + s.transformDurationTicks));
+		float from = -(1f - SymbioteEmerge.MOUTH_SHOW) * s.transformDurationTicks;
+		return a < from || a > DEBUT_TICKS ? Float.NaN : a;
+	}
+
+	/** 1, or while the suit is coming off: how open the jaw may still be (shut by the time the mouth turns back to goo). */
+	static float closing(Player p, float partialTick) {
+		com.projecthero.mod.symbiote.SymbioteState s = p.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		if (s == null || s.transformDir != com.projecthero.mod.symbiote.SymbioteState.DIR_DOWN) {
+			return 1f;
+		}
+		return smooth((SymbioteReveal.progress(p, partialTick) - SymbioteEmerge.MOUTH_SHOW) / (0.98f - SymbioteEmerge.MOUTH_SHOW));
 	}
 
 	/** Each tongue joint's pivot Z in the geo, before the slide (front of the head is -Z). From geo/symbiote_host_lethal.geo.json. */
@@ -404,7 +447,8 @@ public final class SymbioteMouth {
 		Vec3 side = fwd.cross(up);
 		double s = (p.getRandom().nextDouble() - 0.5) * 0.12;
 		Vec3 at = p.getEyePosition().add(fwd.scale(0.33)).add(up.scale(-0.1)).add(side.scale(s));
-		mc.level.addParticle(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, 0.0, -0.02, 0.0);
+		// v0.17.5 round 2 (user: no green): a drop of clear saliva that beads, stretches and falls (was the green slime particle)
+		mc.level.addParticle(com.projecthero.mod.symbiote.SymbioteParticles.SALIVA, at.x, at.y, at.z, 0.0, 0.0, 0.0);
 	}
 
 	// ------------------------------------------------------------------ easing

@@ -112,6 +112,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.symbiote.block.SymbioteBlocks.initialize();
 		com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.initialize();
 		com.projecthero.mod.symbiote.item.SymbioteHostItems.initialize();
+		com.projecthero.mod.symbiote.SymbioteParticles.register(); // v0.17.5 round 2: saliva drips + suit-up goo droplets
 		com.projecthero.mod.titan.entity.TitanEntityTypes.initialize();
 		com.projecthero.mod.firearm.GunSounds.initialize(); // v0.15.16: before the firearms reference them
 		com.projecthero.mod.firearm.GunFx.initialize();

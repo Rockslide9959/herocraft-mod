@@ -18,12 +18,15 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.5: the first-person sleeve of the new Symbiote suit -- the same two boxes as the suit's arm bone (base inflated 0.3,
  * raised shell 0.55, player-skin UVs, so the 128 px texture shows at full detail), in the wearer's colours
- * ({@link SymbioteSuitTint}), spreading on / off with the suit ({@link SymbioteSpread}), with the sheen and vein passes on top
+ * ({@link SymbioteSuitTint}), emerging on / receding off with the suit ({@link SymbioteEmerge}, v0.17.5 round 2), with the sheen and vein passes on top
  * ({@link SymbioteSuitFx#renderSleeve}). Baked once from a code-built mesh; no model layer to register.
  */
 public final class SymbioteSuitSleeve {
 	private static ModelPart right;
 	private static ModelPart left;
+	/** v0.17.5 round 2: the same arm a little bigger, for the suit-up's raised wet rim. */
+	private static ModelPart rimRight;
+	private static ModelPart rimLeft;
 
 	private SymbioteSuitSleeve() {
 	}
@@ -45,15 +48,42 @@ public final class SymbioteSuitSleeve {
 		ModelPart baked = LayerDefinition.create(mesh, 64, 64).bakeRoot();
 		right = baked.getChild("right");
 		left = baked.getChild("left");
+		MeshDefinition rimMesh = new MeshDefinition();
+		rimMesh.getRoot().addOrReplaceChild("right", CubeListBuilder.create()
+				.texOffs(40, 16).addBox(-3f, -2f, -2f, 4f, 12f, 4f, new CubeDeformation(0.46f)),
+				PartPose.offset(-5f, 2f, 0f));
+		rimMesh.getRoot().addOrReplaceChild("left", CubeListBuilder.create()
+				.texOffs(32, 48).addBox(-1f, -2f, -2f, 4f, 12f, 4f, new CubeDeformation(0.46f)),
+				PartPose.offset(5f, 2f, 0f));
+		ModelPart rimBaked = LayerDefinition.create(rimMesh, 64, 64).bakeRoot();
+		rimRight = rimBaked.getChild("right");
+		rimLeft = rimBaked.getChild("left");
 	}
 
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, ModelPart vanillaArm, boolean rightSide, Player player) {
 		ensure();
+		if (SymbioteEmerge.strippedButWorn(player)) {
+			return;
+		}
 		ModelPart arm = rightSide ? right : left;
 		arm.copyFrom(vanillaArm);
 		arm.visible = true;
-		ResourceLocation texture = SymbioteSuitTint.suit(player);
-		texture = SymbioteSpread.firstPerson("symbiote_host", texture);
+		ResourceLocation base = SymbioteSuitTint.suit(player);
+		if (SymbioteEmerge.applies(player)) {
+			// v0.17.5 round 2: the goo crawling down the arm and over the hand, with its raised wet rim
+			float pt = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+			arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(SymbioteEmerge.texture(player, base, pt))), light,
+					OverlayTexture.NO_OVERLAY);
+			ResourceLocation rim = SymbioteEmerge.rimTexture(player, base, pt);
+			if (rim != null) {
+				ModelPart r = rightSide ? rimRight : rimLeft;
+				r.copyFrom(vanillaArm);
+				r.visible = true;
+				r.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(rim)), light, OverlayTexture.NO_OVERLAY);
+			}
+			return;
+		}
+		ResourceLocation texture = SymbioteSpread.firstPerson("symbiote_host", base);
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);
 		SymbioteSuitFx.renderSleeve(pose, buffers, light, arm, player);
 	}
