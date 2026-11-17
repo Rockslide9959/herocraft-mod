@@ -46,6 +46,9 @@ public final class SentryMod {
 		SentryDamage.initialize();
 		VoidMatter.initialize();
 		PayloadTypeRegistry.playS2C().register(SentryFxPayload.TYPE, SentryFxPayload.CODEC);
+		// rework 2: blocks fading to black under the Void, in batches
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.sentry.network.VoidDecayPayload.TYPE,
+				com.projecthero.mod.sentry.network.VoidDecayPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ShameRoomPayload.TYPE, ShameRoomPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(ShameRoomPayload.TYPE, (payload, context) -> ShameRooms.report(context.player(), payload));
 		// v0.17.5 rework: double-tap Space flight and the Let It Out trial's result
@@ -60,7 +63,7 @@ public final class SentryMod {
 			}
 		});
 		ServerTickEvents.END_WORLD_TICK.register(level -> {
-			VoidMatter.tickLevel(level);
+			com.projecthero.mod.diagnostics.TickWatchdog.run("Void matter world tick", () -> VoidMatter.tickLevel(level));
 			VoidMoves.tickLevel(level);
 		});
 		ServerPlayerEvents.JOIN.register(Sentry::onPlayerJoin);

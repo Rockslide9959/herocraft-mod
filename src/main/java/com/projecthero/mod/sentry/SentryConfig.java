@@ -222,6 +222,24 @@ public final class SentryConfig {
 	public static final double TAKEOVER_SPEED = 0.55;
 	public static final double TAKEOVER_HUNT_RANGE = 24.0;
 	public static final double TAKEOVER_WANDER_RANGE = 128.0;
+	/** Rework 2 (2026-11-17): it hangs this high above the ground under it (clamped under the build height)... */
+	public static final double TAKEOVER_HOVER_HEIGHT = 50.0;
+	/** ...rising at most this fast (blocks a tick; it eases in over the last ~10 blocks: ~5-6 s from the ground)... */
+	public static final double TAKEOVER_RISE_SPEED = 0.6;
+	/** ...and comes down only for a strong target, slowly (blocks a tick). */
+	public static final double TAKEOVER_DESCEND_SPEED = 0.25;
+	/** A strong target this far away horizontally (and no more than 80 below / 40 above) brings it down. */
+	public static final double TAKEOVER_ENGAGE_RANGE = 64.0;
+	/** "Strong": any player, a {@code #c:bosses} mob, or max health / armour at least this. */
+	public static final float TAKEOVER_STRONG_HEALTH = 40f;
+	public static final double TAKEOVER_STRONG_ARMOR = 15.0;
+	/** No progress for this long while it wants to move: it decays its way out. */
+	public static final int TAKEOVER_STUCK_TICKS = 20;
+	/** The sphere it carves around itself when stuck (and the most blocks one carve may take). */
+	public static final double TAKEOVER_CARVE_RADIUS = 2.5;
+	public static final int TAKEOVER_CARVE_MAX = 96;
+	/** Weak mobs inside the spreading destruction take this much every second. */
+	public static final float TAKEOVER_CONSUME_DAMAGE = 6f;
 	/** A kill is absorbed: it heals the body this much. */
 	public static final float ABSORB_HEAL = 4f;
 	/** Void after the takeover: thrown out, death. */
@@ -230,18 +248,32 @@ public final class SentryConfig {
 	public static final int KNEEL_TICKS = 60;
 
 	// ---------------------------------------------------------------- the void matter
-	/** The ring starts this wide and grows this much a second, up to the max. */
-	public static final double MATTER_START_RADIUS = 3.0;
-	public static final double MATTER_GROWTH_PER_SECOND = 0.25;
-	public static final double MATTER_MAX_RADIUS = 16.0;
-	/** Blocks swallowed per tick at most. */
-	public static final int MATTER_BLOCKS_PER_TICK = 8;
-	/** A void matter block turns to nothing after this. */
+	/**
+	 * Rework 2 (2026-11-17): the destruction is a disc on the ground under the Void, 8 blocks at first, growing 0.4 a second for the
+	 * whole takeover up to 56 (reached after 2 minutes: ~9,850 columns).
+	 */
+	public static final double MATTER_START_RADIUS = 8.0;
+	public static final double MATTER_GROWTH_PER_SECOND = 0.4;
+	public static final double MATTER_MAX_RADIUS = 56.0;
+	/** Each column is eaten from its original surface down this many layers at the edge... */
+	public static final int MATTER_DEPTH_EDGE = 3;
+	/** ...to this many under the centre (a bowl). Trees, plants and builds above the surface go too. */
+	public static final int MATTER_DEPTH_CENTRE = 10;
+	/** Blocks that start decaying per tick at most, out of this many column tries. */
+	public static final int MATTER_BLOCKS_PER_TICK = 48;
+	public static final int MATTER_TRIES_PER_TICK = 160;
+	/** A decaying block fades to black over this many ticks (plus up to a quarter more by position) before it goes. */
+	public static final int DECAY_TICKS = 40;
+	/** Blocks carved out of its way (stuck, or a wall ahead) fade faster. */
+	public static final int CARVE_DECAY_TICKS = 14;
+	/** Decay batches are sent to players within this of the batch. */
+	public static final double DECAY_SYNC_RANGE = 192.0;
+	/** The old void matter block (kept registered for old worlds) turns to nothing after this. */
 	public static final int MATTER_DISSOLVE_TICKS = 30;
 	/** The eaten world comes back this long after control returns... */
 	public static final int RESTORE_DELAY_TICKS = 1200;
-	/** ...this many blocks a tick. */
-	public static final int RESTORE_PER_TICK = 24;
+	/** ...this many blocks a tick (in loaded chunks; the rest wait for theirs to load). */
+	public static final int RESTORE_PER_TICK = 64;
 
 	/** A burnt shadow on the ground fades after this. */
 	public static final int SHADOW_TICKS = 2400;

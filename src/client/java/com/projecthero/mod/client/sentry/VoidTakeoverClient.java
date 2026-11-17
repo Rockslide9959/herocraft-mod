@@ -46,6 +46,7 @@ public final class VoidTakeoverClient {
 	public static void reset() {
 		savedCamera = null;
 		sky = 0f;
+		camDistance = 4.0f;
 	}
 
 	public static boolean active(Minecraft mc) {
@@ -82,6 +83,7 @@ public final class VoidTakeoverClient {
 			mc.options.keyAttack.setDown(false);
 			mc.options.keyUse.setDown(false);
 			faceTheTarget(mc.player, s);
+			easeCamera(mc, s);
 			long now = mc.level.getGameTime();
 			if (ShameRooms.mindOpen(s, now) && mc.screen == null && net.minecraft.Util.getMillis() - screenClosedAt > 5000L) {
 				mc.setScreen(new ShameRoomsScreen());
@@ -89,6 +91,7 @@ public final class VoidTakeoverClient {
 		} else if (savedCamera != null) {
 			mc.options.setCameraType(savedCamera);
 			savedCamera = null;
+			camDistance = 4.0f;
 			if (mc.screen instanceof ShameRoomsScreen) {
 				mc.setScreen(null);
 			}
@@ -113,12 +116,29 @@ public final class VoidTakeoverClient {
 			}
 			return;
 		}
-		Vec3 v = player.getDeltaMovement();
-		if (v.x * v.x + v.z * v.z > 0.004) {
-			float want = (float) (Mth.atan2(v.z, v.x) * Mth.RAD_TO_DEG) - 90.0f;
-			player.setYRot(player.getYRot() + Mth.wrapDegrees(want - player.getYRot()) * 0.3f);
-			player.setYHeadRot(player.getYRot());
-		}
+		// rework 2: nothing strong near -- it hangs high, looking down at the destruction, turning slowly
+		player.setYRot(player.getYRot() + 0.35f);
+		player.setYHeadRot(player.getYRot());
+		player.setXRot(Mth.lerp(0.06f, player.getXRot(), HOVER_PITCH));
+	}
+
+	/** The body looks this far down while it hangs over the destruction. */
+	private static final float HOVER_PITCH = 58.0f;
+	private static float camDistance = 4.0f;
+
+	/**
+	 * Rework 2: the takeover camera pulls out -- 14 blocks behind (and, with the body pitched down, above) while it hangs high over the
+	 * destruction, 7 while it is down fighting; eased so it never jumps. 0 = not in a takeover (vanilla distance).
+	 */
+	public static float cameraDistance() {
+		return savedCamera == null ? 0f : camDistance;
+	}
+
+	private static void easeCamera(Minecraft mc, SentryState s) {
+		int ground = mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, mc.player.getBlockX(), mc.player.getBlockZ());
+		boolean high = s.takeoverTarget < 0 || mc.player.getY() - ground > 16.0;
+		float want = high ? 14.0f : 7.0f;
+		camDistance += (want - camDistance) * 0.05f;
 	}
 
 	private static void thresholdSounds(Minecraft mc, SentryState s) {

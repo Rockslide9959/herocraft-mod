@@ -27,13 +27,16 @@ import net.minecraft.world.entity.monster.Zombie;
  * (a squadmate too), the keys are dead, eaten blocks are recorded (never bedrock or a chest) and come back after it ends, the
  * {@code projectheroVoidGriefing} gamerule makes it permanent, the Shame Rooms are server-authoritative (nothing for the first 30 s,
  * too-quick wins refused, a loss sends you back a room and adds 20 s, three wins throw the Void out), outside help drains the grip,
- * and death ends it at 60 Void. Mock players from other tests may linger, so nothing asserts "no player near".
+ * and death ends it at 60 Void. Rework 2: blocks fade (the decay state) before they go, the destruction grows a fixed step a second,
+ * the body rises toward its hover height, comes down only for a strong target (a weak mob is consumed instead), decays its way out
+ * of a stone cell, and a whole carved patch comes back. Mock players from other tests may linger, so nothing asserts "no player near".
  */
 public class VoidTakeoverGameTests implements FabricGameTest {
 	private static ServerPlayer takenOver(GameTestHelper helper, double x, double z) {
 		ServerPlayer p = SentryGameTests.sentry(helper, x, z);
 		Sentry.setVoid(p, SentryConfig.VOID_MAX);
 		helper.assertTrue(Sentry.inTakeover(p), "100 Void: the Void takes over");
+		p.addTag(VoidTakeover.TEST_NO_DISC); // parallel tests share the world: no disc eating their blocks
 		return p;
 	}
 
@@ -99,32 +102,184 @@ public class VoidTakeoverGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- the world it eats
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void eatenBlocksAreRecordedAndComeBack(GameTestHelper helper) {
+	public void blocksFadeToBlackBeforeTheyGoAndComeBack(GameTestHelper helper) {
 		ServerPlayer p = takenOver(helper, 2, 2);
 		ServerLevel level = helper.getLevel();
 		BlockPos stone = helper.absolutePos(new BlockPos(5, 1, 5));
 		BlockPos chest = helper.absolutePos(new BlockPos(5, 1, 6));
 		BlockPos bedrock = helper.absolutePos(new BlockPos(5, 1, 4));
+		BlockPos barrier = helper.absolutePos(new BlockPos(5, 1, 3));
 		level.setBlockAndUpdate(stone, Blocks.STONE_BRICKS.defaultBlockState());
 		level.setBlockAndUpdate(chest, Blocks.CHEST.defaultBlockState());
 		level.setBlockAndUpdate(bedrock, Blocks.BEDROCK.defaultBlockState());
+		level.setBlockAndUpdate(barrier, Blocks.BARRIER.defaultBlockState());
 		helper.assertTrue(VoidMatter.eat(level, p, stone), "stone bricks are eaten");
-		helper.assertTrue(level.getBlockState(stone).is(SentryBlocks.VOID_MATTER), "turned to void matter");
+		helper.assertTrue(level.getBlockState(stone).is(Blocks.STONE_BRICKS), "still there while it fades to black");
+		helper.assertTrue(VoidMatter.decaying(level, stone), "in the decay state");
+		helper.assertFalse(VoidMatter.eat(level, p, stone), "a fading block isn't started twice");
 		helper.assertTrue(VoidMatterData.get(level).has(stone), "the original is recorded");
 		helper.assertTrue(VoidMatterData.get(level).entry(stone).state.is(Blocks.STONE_BRICKS), "as stone bricks");
 		helper.assertFalse(VoidMatter.eat(level, p, chest), "never a chest");
 		helper.assertFalse(VoidMatter.eat(level, p, bedrock), "never bedrock");
-		int ring = VoidMatter.tickRing(p, 0);
-		helper.assertTrue(ring >= 0, "the ring ticks");
-		VoidTakeover.end(p, VoidTakeover.End.WON);
-		VoidMatterData.Entry e = VoidMatterData.get(level).entry(stone);
-		helper.assertTrue(e != null && e.dueAt >= level.getGameTime() + SentryConfig.RESTORE_DELAY_TICKS - 1, "due back in about a minute");
-		helper.runAfterDelay(SentryConfig.MATTER_DISSOLVE_TICKS + 15, () -> {
-			helper.assertTrue(level.getBlockState(stone).isAir(), "void matter dissolved into nothing");
+		helper.assertFalse(VoidMatter.eat(level, p, barrier), "never a barrier");
+		int fade = VoidMatter.decayTicks(stone.asLong(), SentryConfig.DECAY_TICKS);
+		helper.assertTrue(fade >= SentryConfig.DECAY_TICKS && fade <= SentryConfig.DECAY_TICKS * 5 / 4 + 1, "fade time by position: " + fade);
+		helper.runAfterDelay(fade / 2, () -> {
+			helper.assertTrue(level.getBlockState(stone).is(Blocks.STONE_BRICKS), "half way: still fading");
+		});
+		helper.runAfterDelay(fade + 4, () -> {
+			helper.assertTrue(level.getBlockState(stone).isAir(), "the fade is over: gone");
+			helper.assertFalse(VoidMatter.decaying(level, stone), "out of the decay state");
+			VoidTakeover.end(p, VoidTakeover.End.WON);
+			VoidMatterData.Entry e = VoidMatterData.get(level).entry(stone);
+			helper.assertTrue(e != null && e.dueAt >= level.getGameTime() + SentryConfig.RESTORE_DELAY_TICKS - 1, "due back in about a minute");
 			int back = VoidMatter.restoreNow(level, p.getUUID());
 			helper.assertTrue(back >= 1, "restored");
 			helper.assertTrue(level.getBlockState(stone).is(Blocks.STONE_BRICKS), "the stone bricks are back");
 			helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST), "the chest never left");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aWholePatchComesBack(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 1, 1);
+		ServerLevel level = helper.getLevel();
+		java.util.List<BlockPos> patch = new java.util.ArrayList<>();
+		java.util.List<net.minecraft.world.level.block.Block> was = new java.util.ArrayList<>();
+		for (int x = 3; x <= 5; x++) {
+			for (int z = 3; z <= 5; z++) {
+				BlockPos at = helper.absolutePos(new BlockPos(x, 1, z));
+				net.minecraft.world.level.block.Block block = (x + z) % 2 == 0 ? Blocks.DIRT : Blocks.OAK_PLANKS;
+				level.setBlockAndUpdate(at, block.defaultBlockState());
+				patch.add(at);
+				was.add(block);
+				helper.assertTrue(VoidMatter.startDecay(level, p, at, true), "carved");
+			}
+		}
+		helper.runAfterDelay(SentryConfig.CARVE_DECAY_TICKS * 5 / 4 + 4, () -> {
+			for (BlockPos at : patch) {
+				helper.assertTrue(level.getBlockState(at).isAir(), "carved away " + at);
+			}
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+			VoidMatter.restoreNow(level, p.getUUID());
+			for (int i = 0; i < patch.size(); i++) {
+				helper.assertTrue(level.getBlockState(patch.get(i)).is(was.get(i)), "back as it was " + patch.get(i));
+			}
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theDestructionGrowsStepByStep(GameTestHelper helper) {
+		double step = SentryConfig.MATTER_GROWTH_PER_SECOND;
+		helper.assertTrue(Math.abs(VoidMatter.radius(0) - SentryConfig.MATTER_START_RADIUS) < 1.0e-9, "starts at " + SentryConfig.MATTER_START_RADIUS);
+		helper.assertTrue(SentryConfig.MATTER_START_RADIUS >= 8.0, "starts larger than before (3)");
+		for (long t = 0; t < 1200; t += 200) {
+			double grew = VoidMatter.radius(t + 20) - VoidMatter.radius(t);
+			helper.assertTrue(Math.abs(grew - step) < 1.0e-9, "a second later it is " + step + " wider (" + grew + " at " + t + ")");
+		}
+		long capAt = (long) Math.ceil((SentryConfig.MATTER_MAX_RADIUS - SentryConfig.MATTER_START_RADIUS) / step * 20.0);
+		helper.assertTrue(VoidMatter.radius(capAt - 20) < SentryConfig.MATTER_MAX_RADIUS, "still growing a second before the cap");
+		helper.assertTrue(VoidMatter.radius(capAt + 2000) == SentryConfig.MATTER_MAX_RADIUS, "capped at " + SentryConfig.MATTER_MAX_RADIUS);
+		helper.assertTrue(VoidMatter.depthAt(0, 30) == SentryConfig.MATTER_DEPTH_CENTRE, "deepest under the centre");
+		helper.assertTrue(VoidMatter.depthAt(30, 30) == SentryConfig.MATTER_DEPTH_EDGE, "shallow at the edge");
+		helper.assertTrue(VoidMatter.depthAt(10, 30) >= VoidMatter.depthAt(20, 30), "a bowl");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- hovering, coming down, never stuck
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBodyRisesTowardItsHoverHeight(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 2.5, 2.5);
+		ServerLevel level = helper.getLevel();
+		VoidTakeover.hoverTick(p); // (strong mobs of neighbouring tests may be in range: drive the hover itself)
+		helper.assertTrue(VoidTakeover.mode(p) == VoidTakeover.Mode.HOVER, "hovering");
+		double hover = VoidTakeover.hoverY(p);
+		helper.assertTrue(hover > p.getY() + 10.0, "the hover height is far above: " + hover + " vs " + p.getY());
+		helper.assertTrue(hover <= level.getMaxBuildHeight() - 3.0, "under the build height");
+		double vy = p.getDeltaMovement().y;
+		helper.assertTrue(vy > 0.0 && vy <= SentryConfig.TAKEOVER_RISE_SPEED + 1.0e-6, "it rises, at most the rise speed a tick: " + vy);
+		VoidTakeover.hoverTick(p);
+		double vy2 = p.getDeltaMovement().y;
+		helper.assertTrue(Math.abs(vy2 - vy) < 0.05, "smoothly (step " + (vy2 - vy) + ")");
+		VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void itComesDownForAStrongTarget(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 2.5, 2.5);
+		p.teleportTo(p.getX(), p.getY() + 4.0, p.getZ());
+		Zombie strong = SentryGameTests.zombie(helper, 6.5, 6.5, 500);
+		helper.assertTrue(VoidTakeover.isStrong(strong), "500 health is strong");
+		VoidTakeover.tick(p);
+		helper.assertTrue(VoidTakeover.mode(p) == VoidTakeover.Mode.ENGAGE, "it engages the strong one");
+		helper.assertTrue(Sentry.state(p).takeoverTarget == strong.getId(), "targeting it");
+		double vy = p.getDeltaMovement().y;
+		helper.assertTrue(vy < 0.0 && vy >= -SentryConfig.TAKEOVER_DESCEND_SPEED - 1.0e-6, "drifting down, slowly: " + vy);
+		VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void itStaysUpForAWeakMob(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 2.5, 2.5);
+		p.teleportTo(p.getX(), p.getY() + 4.0, p.getZ());
+		Zombie weak = SentryGameTests.zombie(helper, 6.5, 6.5, 20);
+		helper.assertFalse(VoidTakeover.isStrong(weak), "a plain zombie is weak");
+		VoidTakeover.tick(p);
+		helper.assertTrue(Sentry.state(p).takeoverTarget != weak.getId(), "not worth coming down for");
+		if (VoidTakeover.mode(p) == VoidTakeover.Mode.HOVER) {
+			helper.assertTrue(p.getDeltaMovement().y > 0.0, "it keeps rising to watch");
+		}
+		// the spreading destruction gets it instead
+		float before = weak.getHealth();
+		VoidTakeover.consumeWeak(p, 8.0);
+		helper.assertTrue(weak.getHealth() < before || !weak.isAlive(), "consumed by the destruction (" + weak.getHealth() + ")");
+		VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aBlockedPathIsDecayedNotStalled(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 3.5, 3.5);
+		ServerLevel level = helper.getLevel();
+		// a stone cell around the body (the mock body never moves on its own: it stays "stuck")
+		java.util.List<BlockPos> cell = new java.util.ArrayList<>();
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int y = 2; y <= 4; y++) {
+					if (dx == 0 && dz == 0 && y < 4) {
+						continue; // the body
+					}
+					BlockPos at = helper.absolutePos(new BlockPos(3 + dx, y, 3 + dz));
+					level.setBlockAndUpdate(at, Blocks.STONE.defaultBlockState());
+					cell.add(at);
+				}
+			}
+		}
+		Zombie strong = SentryGameTests.zombie(helper, 6.5, 6.5, 500);
+		helper.onEachTick(() -> {
+			if (Sentry.inTakeover(p)) {
+				VoidTakeover.tick(p);
+			}
+		});
+		helper.runAfterDelay(SentryConfig.TAKEOVER_STUCK_TICKS + SentryConfig.CARVE_DECAY_TICKS * 2 + 10, () -> {
+			int opened = 0;
+			for (BlockPos at : cell) {
+				if (level.getBlockState(at).isAir() || VoidMatter.decaying(level, at)) {
+					opened++;
+				}
+			}
+			helper.assertTrue(opened > 0, "it decayed its way out of the cell (" + opened + " of " + cell.size() + ")");
+			helper.assertTrue(VoidTakeover.unsticks(p) > 0 || opened >= 2, "the unstick fired (" + VoidTakeover.unsticks(p) + ")");
+			for (BlockPos at : cell) {
+				helper.assertTrue(VoidMatterData.get(level).has(at) || level.getBlockState(at).is(Blocks.STONE), "every carved block is recorded");
+			}
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+			strong.discard();
 			helper.succeed();
 		});
 	}
@@ -140,10 +295,10 @@ public class VoidTakeoverGameTests implements FabricGameTest {
 			BlockPos stone = helper.absolutePos(new BlockPos(5, 1, 5));
 			level.setBlockAndUpdate(stone, Blocks.STONE_BRICKS.defaultBlockState());
 			helper.assertTrue(VoidMatter.eat(level, p, stone), "eaten");
+			helper.assertTrue(VoidMatter.decaying(level, stone), "fading all the same");
 			helper.assertFalse(VoidMatterData.get(level).has(stone), "nothing recorded under the gamerule");
 			VoidTakeover.end(p, VoidTakeover.End.WON);
-			VoidMatter.restoreNow(level, p.getUUID());
-			helper.assertFalse(level.getBlockState(stone).is(Blocks.STONE_BRICKS), "it never comes back");
+			helper.assertTrue(VoidMatter.restoreNow(level, p.getUUID()) == 0, "nothing to bring back");
 		} finally {
 			rule.set(was, level.getServer());
 		}

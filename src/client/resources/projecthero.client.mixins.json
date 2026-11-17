@@ -29,6 +29,7 @@
 		"GreyMatterInsideRenderMixin",
 		"UpgradePilotPickMixin",
 		"OmnitrixCameraMixin",
+		"VoidTakeoverCameraMixin",
 		"GreyMatterInsideShrinkMixin",
 		"UpgradeTechSenseColorMixin",
 		"OmnitrixHideGearMixin",

@@ -68,10 +68,16 @@ public final class SentryClient {
 		HudRenderCallback.EVENT.register(SentryFxClient::renderFlash);
 		ClientPlayNetworking.registerGlobalReceiver(SentryFxPayload.TYPE, (payload, context) -> SentryFxClient.receive(payload));
 		WorldRenderEvents.AFTER_ENTITIES.register(SentryFxClient::render);
+		// rework 2: blocks fading to black under the Void
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.sentry.network.VoidDecayPayload.TYPE,
+				(payload, context) -> VoidDecayClient.receive(payload));
+		ClientTickEvents.END_CLIENT_TICK.register(VoidDecayClient::tick);
+		WorldRenderEvents.AFTER_ENTITIES.register(VoidDecayClient::render);
 		ClientTickEvents.START_CLIENT_TICK.register(VoidTakeoverClient::startTick);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			SentryFxClient.reset();
 			VoidTakeoverClient.reset();
+			VoidDecayClient.reset();
 			trialShown = 0L;
 		});
 		BlockRenderLayerMap.INSTANCE.putBlock(com.projecthero.mod.sentry.block.SentryBlocks.BURNT_SHADOW, RenderType.translucent());
