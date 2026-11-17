@@ -357,12 +357,18 @@ make the mouth animated, the tongue moves and stuff". Only the Normal host's sui
   progress 0.93) and then grows in over the last 6%.
 - Animation (pure function of synced state + game time; per-player phase from the entity id):
   - idle: the jaw breathes 0.6..3.4 degrees on a 68-tick cycle; every 260 ticks (offset per player) a 90-tick **loll** -- jaw 13 degrees,
-    the tongue slides out 3.4 px, droops more at every joint toward the tip, sways in a slow S and curls its tip now and then;
+    the tongue slides out 4.4 px, droops more at every joint toward the tip, sways in a slow S and curls its tip now and then;
   - **snarl** (26 ticks: up in 4, held to 11, eased shut): a melee swing (x0.75), being hurt (x0.6) or any Symbiote move from the
     synced `SymbioteVitals.animId / animStart` (x1, Resurrect x1.15; Onslaught's charge holds it open while it charges): jaw to 31
     degrees with a tremble, upper lip lifts 0.28 px, tongue raised behind the teeth;
   - **lash** (20 ticks): landing a melee hit, or a tendril strike / grapple / grab / lunge: tongue out to 7 px in 4 ticks with a little
     overshoot, a travelling S-wave down the chain, the tip flicks up as it peaks, reeled back in by tick 20; jaw 24 degrees.
+- **Keeping it in the mouth** (`SymbioteMouth.keepInMouth`, user: the tongue went "through the head and not out the mouth"): the tongue
+  hangs off `lp_jaw`, whose hinge (y 26.6, z 0.2) is far back in the head, so opening the jaw tipped the whole chain out under the
+  chin. Now a joint only bends once it is past the face plane (z -4.75, eased over 0.8 px), so it drapes over the lower teeth, and
+  the root is re-aimed every frame at the middle of the mouth gap (lower teeth tips, which move with the jaw, to upper tips at y 26.5)
+  from where the jaw has put it, clamped to -12..+25 degrees. Checked in a client from front, three-quarter and side in every pose
+  (`docs/screenshots/v0175/symbiote_lethal/tongue_side_view.png`, `face_sheet.png`).
 - Swings, hurts and hits are noticed in a client tick (`SymbioteMouth.tick`: a swing starting, the wearer's hurt flash, and a living
   thing in front of them flashing hurt within 6 ticks of the swing) and kept per **entity id** (no entity references; pruned after 200
   ticks unseen, cleared on disconnect). Drool: `ITEM_SLIME` particles (the skin's drool is green) from the mouth -- 1 in 16 ticks while

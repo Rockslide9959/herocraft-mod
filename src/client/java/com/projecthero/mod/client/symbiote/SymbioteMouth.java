@@ -252,7 +252,7 @@ public final class SymbioteMouth {
 		out.upperLift = 0.28f * Math.min(1f, snarl);
 
 		// the tongue: the loll's lazy droop and sway, a snarl's raised curl behind the teeth, the lash's whip
-		float lollExt = 3.4f * loll;
+		float lollExt = 4.4f * loll; // far enough that the last three segments hang out over the lower teeth
 		float snarlExt = 1.1f * Math.min(1f, snarl);
 		out.ext = Math.max(Math.max(lollExt, snarlExt), ext);
 		float wLash = lashEnv;
@@ -300,7 +300,7 @@ public final class SymbioteMouth {
 		float slide = TONGUE_IN - out.ext;
 		for (int k = 0; k < SEGMENTS; k++) {
 			float z = JOINT_Z[k] + slide;
-			float w = smooth((FACE_Z + 0.6f - z) / 1.2f); // 0 well inside the head, 1 once past the teeth
+			float w = smooth((FACE_Z + 0.2f - z) / 0.8f); // 0 inside the head, 1 once past the teeth (so it drapes over them)
 			out.pitch[k] *= w;
 			out.yaw[k] *= w;
 		}

@@ -49,12 +49,12 @@ import net.minecraft.world.phys.Vec3;
 /**
  * TEMP-HARNESS (not shipped, v0.17.5 Symbiote Lethal Protector): views of the suit, face close-ups (closed / open / snarl / tongue
  * out), Classic side by side, the style screen, first person, and films of the idle mouth, a snarl + tongue lash on attack and the
- * suit flowing on. Enabled by run/symlethal.flag = "<out dir>" (second line "quick" = only the views + face shots). Kept as
+ * suit flowing on. Enabled by run/symlethal.flag = "<out dir>" (second line "quick" = only the views + face shots; "tongue" = views, face shots incl. side views, idle + attack films only). Kept as
  * scratchpad/SymbioteLethalHarness.v0175.java.txt.
  */
 public final class SymbioteLethalHarness implements ClientModInitializer {
 	private static boolean createdWorld;
-	private static boolean quick;
+	private static boolean quick, tongue;
 	private static int waitTicks, inWorldTicks;
 	private static File out;
 	private static final List<Runnable> PLAN = new ArrayList<>();
@@ -75,6 +75,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 			List<String> lines = Files.readAllLines(flag);
 			out = new File(lines.get(0).trim());
 			quick = lines.size() > 1 && lines.get(1).trim().equals("quick");
+			tongue = lines.size() > 1 && lines.get(1).trim().equals("tongue");
 		} catch (Exception e) {
 			out = new File(".");
 		}
@@ -280,6 +281,13 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		if (t < 50 || site == null) {
 			return;
 		}
+		if (t % 10 == 0) {
+			server(mc, p -> {
+				for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(48), e -> e != dummy)) {
+					e.discard();
+				}
+			});
+		}
 		if (planTick < PLAN.size()) {
 			BooleanSupplier g = GATES.get(planTick);
 			if (g != null && !g.getAsBoolean() && gateWait++ < 400) {
@@ -324,7 +332,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 	private static final Vec3 FACE_FRONT = new Vec3(0, 2.34, -1.3), FACE_AT = new Vec3(0, 2.26, 0);
 
 	private static void side(Minecraft mc) {
-		fixed(mc, s(-2.0, 2.62, -0.45), s(0, 2.3, -0.15));
+		fixed(mc, s(-1.45, 2.36, -0.75), s(0, 2.24, -0.3));
 	}
 
 	private static void face(Minecraft mc, double x, double z) {
@@ -367,6 +375,9 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		at(t, () -> { face(mc, 0, FACE_FRONT.z); spawnDummy(mc, -1.6); });
 		gate(t + 20, () -> pose(mc).loll == 0f);
 		at(t + 21, () -> server(mc, p -> p.swing(InteractionHand.MAIN_HAND, true))); // a swing at nothing: snarl
+		at(t + 23, () -> side(mc));
+		at(t + 25, () -> shot(mc, "face_08s_snarl_side"));
+		at(t + 26, () -> face(mc, 0, FACE_FRONT.z));
 		at(t + 28, () -> shot(mc, "face_07_snarl"));
 		at(t + 29, () -> face(mc, -0.95, -1.0));
 		at(t + 31, () -> shot(mc, "face_08_snarl_three_quarter"));
@@ -381,6 +392,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		at(t + 128, () -> shot(mc, "face_11_tongue_lash_three_quarter"));
 		t += 150;
 		at(t, () -> server(mc, p -> { if (dummy != null) dummy.discard(); }));
+		if (!tongue) {
 		// ---- Classic beside it (same views), then back
 		at(t + 1, () -> server(mc, p -> SymbioteSuitColours.setStyle(p, SymbioteSuitStyle.CLASSIC)));
 		at(t + 2, () -> fixed(mc, s(0, 1.75, -3.1), s(0, 1.3, 0)));
@@ -403,6 +415,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		at(t + 48, () -> shot(mc, "lethal_custom_teal_face"));
 		at(t + 50, () -> server(mc, p -> SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CLASSIC)));
 		t += 54;
+		}
 		if (quick) {
 			at(t, () -> {
 				System.out.println("[HARNESS] done");
@@ -410,6 +423,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 			});
 			return;
 		}
+		if (!tongue) {
 		// ---- the style screen (suit worn: live 3D preview) and first person
 		at(t, () -> { playerView(mc, CameraType.FIRST_PERSON); mc.options.hideGui = false; });
 		at(t + 6, () -> mc.setScreen(new com.projecthero.mod.client.gui.SymbioteColourScreen(null)));
@@ -418,6 +432,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		at(t + 30, () -> shot(mc, "first_person_lethal"));
 		at(t + 32, () -> mc.options.hideGui = true);
 		t += 36;
+		}
 		// ---- FILM: the idle mouth, close-up, through a loll (breathing, tongue out and swaying, drool)
 		at(t, () -> face(mc, -0.7, -1.05));
 		gate(t + 2, () -> { double l = pose(mc).loll; return l > 0f && l < 0.05f; });
@@ -444,6 +459,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 		at(t + 96, () -> server(mc, p -> SymbioteAbilityManager.handle(p, AbilitySlot.SLOT_1, false)));
 		t += 130;
 		at(t, () -> server(mc, p -> { if (dummy != null) dummy.discard(); }));
+		if (!tongue) {
 		// ---- FILM: the suit flowing off and on again, three-quarter on the head
 		at(t + 1, () -> { stand(mc, 0, 0, 180f); fixed(mc, s(-1.3, 2.1, -2.0), s(0, 1.7, 0)); server(mc, p -> suitUp(p, false)); });
 		for (int f = 0; f < 30; f++) {
@@ -456,6 +472,7 @@ public final class SymbioteLethalHarness implements ClientModInitializer {
 			at(t + 40 + f, () -> shot(mc, String.format("film_flow_%03d", n)));
 		}
 		t += 110;
+		}
 		at(t, () -> {
 			System.out.println("[HARNESS] done");
 			Runtime.getRuntime().halt(0);
