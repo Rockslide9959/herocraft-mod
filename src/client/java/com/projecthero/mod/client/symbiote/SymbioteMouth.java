@@ -274,7 +274,48 @@ public final class SymbioteMouth {
 			out.pitch[k] = wRest * restPitch + wLash * lpLash;
 			out.yaw[k] = wRest * ly + wLash * lyLash;
 		}
+		keepInMouth(out);
 		return out;
+	}
+
+	/** Each tongue joint's pivot Z in the geo, before the slide (front of the head is -Z). From geo/symbiote_host_lethal.geo.json. */
+	static final float[] JOINT_Z = { -0.6f, -2.1f, -3.45f, -4.7f, -5.85f, -6.95f };
+	/** The face plane the tongue has to pass through: the throat painted on the head's front (inflated head front ~-4.62, teeth ~-4.9). */
+	static final float FACE_Z = -4.75f;
+	/** The jaw's hinge (geo Y, Z) and the tongue root's pivot (geo Y, Z before the slide). */
+	static final float JAW_PIVOT_Y = 26.6f, JAW_PIVOT_Z = 0.2f, ROOT_Y = 25.5f;
+	/** Where the mouth gap is at the face: the lower teeth tips (in the jaw, at the front) and the upper teeth tips (fixed). */
+	static final float LOWER_TIP_Y = 26.15f, LOWER_TIP_Z = -4.9f, UPPER_TIP_Y = 26.5f, HEAD_FRONT_Z = -4.62f;
+
+	/**
+	 * v0.17.5 (user: "the tongue goes through the head and not out the mouth ... at the very least it should go out the mouth"): the
+	 * tongue hangs off the jaw, whose hinge sits far back in the head, so opening the jaw 13-31 deg tipped the whole tongue down and it
+	 * left the head under the chin; joints still inside the head also drooped/swayed, pushing it through the jaw or the cheeks.
+	 * Now (1) a joint only bends once it is through the face plane, eased in over a pixel either side so nothing pops, and (2) the root
+	 * is aimed, each frame, at the middle of the mouth gap -- between the lower teeth tips (which move with the jaw) and the upper ones --
+	 * from where the root actually sits once the jaw has turned it, so the tongue always leaves through the open mouth. Checked in a
+	 * side-view sim of the rig (loll, snarl, lash, closed snarl, idle all cross the face inside the gap).
+	 */
+	static void keepInMouth(Pose out) {
+		float slide = TONGUE_IN - out.ext;
+		for (int k = 0; k < SEGMENTS; k++) {
+			float z = JOINT_Z[k] + slide;
+			float w = smooth((FACE_Z + 0.6f - z) / 1.2f); // 0 well inside the head, 1 once past the teeth
+			out.pitch[k] *= w;
+			out.yaw[k] *= w;
+		}
+		// side view, forward = -Z; the jaw turns everything in it "down" by out.jaw degrees about its hinge
+		double jaw = Math.toRadians(out.jaw);
+		double c = Math.cos(jaw), s = Math.sin(jaw);
+		double rf = -(JOINT_Z[0] + slide) - (-JAW_PIVOT_Z), ry = ROOT_Y - JAW_PIVOT_Y;
+		double rootF = -JAW_PIVOT_Z + rf * c + ry * s, rootY = JAW_PIVOT_Y - rf * s + ry * c;
+		double lf = -LOWER_TIP_Z - (-JAW_PIVOT_Z), ly = LOWER_TIP_Y - JAW_PIVOT_Y;
+		double lowerTip = JAW_PIVOT_Y - lf * s + ly * c;
+		double targetY = (lowerTip + UPPER_TIP_Y) * 0.5;
+		double run = Math.max(0.5, -HEAD_FRONT_Z - rootF);
+		float need = (float) Math.toDegrees(Math.atan2(rootY - targetY, run)); // + = aim down
+		need = Math.max(-12f, Math.min(25f, need)); // never whip steeply up out of the face
+		out.pitch[0] += need - out.jaw;
 	}
 
 	static boolean isLashMove(int animId) {
