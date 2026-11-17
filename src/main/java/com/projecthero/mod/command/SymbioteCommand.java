@@ -55,7 +55,50 @@ public final class SymbioteCommand {
 								.executes(c -> setActive(c, EntityArgument.getPlayer(c, "player"), false))))
 				.then(Commands.literal("status").executes(c -> status(c, self(c)))
 						.then(Commands.argument("player", EntityArgument.player())
-								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))));
+								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))))
+				// v0.17.5: the suit colours -- /symbiote colour <preset> [player] | colour hex <body> <emblem> <eyes> [player]
+				.then(colour());
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> colour() {
+		LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("colour");
+		for (com.projecthero.mod.symbiote.SymbioteColourPreset preset : com.projecthero.mod.symbiote.SymbioteColourPreset.values()) {
+			root.then(Commands.literal(preset.id()).executes(c -> colourPreset(c, self(c), preset))
+					.then(Commands.argument("player", EntityArgument.player())
+							.executes(c -> colourPreset(c, EntityArgument.getPlayer(c, "player"), preset))));
+		}
+		root.then(Commands.literal("hex")
+				.then(Commands.argument("body", com.mojang.brigadier.arguments.StringArgumentType.word())
+						.then(Commands.argument("emblem", com.mojang.brigadier.arguments.StringArgumentType.word())
+								.then(Commands.argument("eyes", com.mojang.brigadier.arguments.StringArgumentType.word())
+										.executes(c -> colourHex(c, self(c)))
+										.then(Commands.argument("player", EntityArgument.player())
+												.executes(c -> colourHex(c, EntityArgument.getPlayer(c, "player"))))))));
+		return root;
+	}
+
+	private static int colourPreset(CommandContext<CommandSourceStack> c, ServerPlayer target,
+			com.projecthero.mod.symbiote.SymbioteColourPreset preset) {
+		com.projecthero.mod.symbiote.SymbioteSuitColours.setPreset(target, preset);
+		c.getSource().sendSuccess(() -> Component.literal(target.getGameProfile().getName() + "'s Symbiote suit: " + preset.id()), true);
+		return 1;
+	}
+
+	private static int colourHex(CommandContext<CommandSourceStack> c, ServerPlayer target) {
+		var body = com.projecthero.mod.symbiote.SymbioteColours.parseHex(com.mojang.brigadier.arguments.StringArgumentType.getString(c, "body"));
+		var emblem = com.projecthero.mod.symbiote.SymbioteColours.parseHex(com.mojang.brigadier.arguments.StringArgumentType.getString(c, "emblem"));
+		var eyes = com.projecthero.mod.symbiote.SymbioteColours.parseHex(com.mojang.brigadier.arguments.StringArgumentType.getString(c, "eyes"));
+		if (body.isEmpty() || emblem.isEmpty() || eyes.isEmpty()) {
+			c.getSource().sendFailure(Component.literal("Colours are hex RGB, like #14161F or 1e4fb8."));
+			return 0;
+		}
+		var colours = new com.projecthero.mod.symbiote.SymbioteColours(body.get(), emblem.get(), eyes.get());
+		com.projecthero.mod.symbiote.SymbioteSuitColours.set(target, colours);
+		c.getSource().sendSuccess(() -> Component.literal(target.getGameProfile().getName() + "'s Symbiote suit: "
+				+ com.projecthero.mod.symbiote.SymbioteColours.hex(colours.primary()) + " / "
+				+ com.projecthero.mod.symbiote.SymbioteColours.hex(colours.secondary()) + " / "
+				+ com.projecthero.mod.symbiote.SymbioteColours.hex(colours.eyes())), true);
+		return 1;
 	}
 
 	private static int bond(CommandContext<CommandSourceStack> c, ServerPlayer target) {

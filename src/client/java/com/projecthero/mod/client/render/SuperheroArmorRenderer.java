@@ -48,6 +48,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		super(new SuperheroArmorModel());
 		// v0.14.21 round two: Iron Man eyes / arc reactor / palm repulsors glow (no-op for every other set)
 		addRenderLayer(new com.projecthero.mod.client.ironman.IronManSuitGlowLayer(this));
+		// v0.17.5: the Symbiote suit's sweeping sheen, pulsing veins and eye glow (no-op for every other set)
+		addRenderLayer(new com.projecthero.mod.client.symbiote.SymbioteSuitFx.Layer(this));
 	}
 
 	/**
@@ -71,6 +73,22 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				return;
 			}
 			bone.setScaleY(com.projecthero.mod.ironman.IronManBladeLook.boneScale(ext));
+		}
+		// v0.17.5: the Symbiote suit's 3D extras (sym_* bones: shoulder caps, drips, raised chest / thighs, spine nodes) swell
+		// out at the end of the suit-up and sink back first on the way off; full size the rest of the time. Set every frame
+		// (the bones are shared by every wearer).
+		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && name.startsWith("sym_")) {
+			float k = 1f;
+			if (getCurrentEntity() instanceof Player sp && com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(sp)) {
+				k = com.projecthero.mod.client.symbiote.SymbioteSuitFx.extraScale(
+						com.projecthero.mod.client.symbiote.SymbioteReveal.progress(sp, partialTick));
+			}
+			if (k <= 0.01f) {
+				return;
+			}
+			bone.setScaleX(k);
+			bone.setScaleY(k);
+			bone.setScaleZ(k);
 		}
 		// v0.14.21 self-assembly + faceplate lift: per-bone offset from the synced suit clock, in the parent's space
 		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem && getCurrentEntity() instanceof Player ip
@@ -468,6 +486,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	public net.minecraft.client.renderer.RenderType getRenderType(SuperheroArmorItem animatable,
 			net.minecraft.resources.ResourceLocation texture, @Nullable net.minecraft.client.renderer.MultiBufferSource bufferSource,
 			float partialTick) {
+		// v0.17.5: the Normal host's suit is drawn in the wearer's own colours (SymbioteSuitTint; Classic = the shipped texture)
+		if (animatable instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem) {
+			texture = com.projecthero.mod.client.symbiote.SymbioteSuitTint.suit(getCurrentEntity());
+		}
 		if (getCurrentEntity() instanceof Player p && isSymbioteSuit(animatable)
 				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(p)) {
 			// v0.15.15: spreads out from the chest, head last (SymbioteSpread; SymbioteDissolve stays Moon Knight's)

@@ -101,7 +101,8 @@ public class SymbioteTendrilRenderer extends EntityRenderer<SymbioteTendrilEntit
 			radii[i] = (float) (width * (1.0 - 0.72 * along) * (i == count - 1 ? 0.15 : 1.0));
 		}
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON : TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON
+				: SymbioteSuitTint.goo(e.level().getEntity(e.ownerId()), TEXTURE))); // v0.17.5: host colours
 		PoseStack.Pose last = pose.last();
 		GooMesh.tube(vc, last, light, pts, radii, SIDES, 0.35f);
 		// a barbed tip: three short hooks flaring back from the point

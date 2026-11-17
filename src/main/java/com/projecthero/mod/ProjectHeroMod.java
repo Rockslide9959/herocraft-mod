@@ -273,6 +273,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.SpiderPerfectDodge.initialize(); // v0.16.2: perfect dodge + counter
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.initialize();
+		com.projecthero.mod.symbiote.SymbioteSuitColours.initialize(); // v0.17.5: the suit colour screen's payload
 		// v0.14.4: Symbiote Pets (share / recall interaction, loyalty damage veto, goal re-install on load)
 		com.projecthero.mod.symbiote.SymbiotePet.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();

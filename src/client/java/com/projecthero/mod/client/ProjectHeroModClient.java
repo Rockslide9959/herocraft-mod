@@ -334,6 +334,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// Turbo Blast charge orb / Turbo Cannon arm cannon (v0.14.2).
 		// v0.14.4: white Symbiote eyes on infested / Symbiote Pet wolves, cats and cows
 		com.projecthero.mod.client.symbiote.SymbioteSkin.registerLayers();
+		com.projecthero.mod.client.symbiote.SymbioteSuitClient.initialize(); // v0.17.5: coloured suit icons + texture cache resets
 		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 				(entityType, entityRenderer, registrationHelper, context) -> {
 					if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer playerRenderer) {

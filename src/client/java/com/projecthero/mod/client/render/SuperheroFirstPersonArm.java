@@ -110,6 +110,12 @@ public final class SuperheroFirstPersonArm {
 			com.projecthero.mod.client.spider.SpiderSuitRender.renderArm(pose, buffers, light, vanillaArm, rightSide);
 			return;
 		}
+		// v0.17.5: the new Symbiote suit's sleeve is its own arm (base + raised shell, in the wearer's colours, sheen and veins)
+		if ("symbiote_host".equals(armorSetId) && net.minecraft.client.Minecraft.getInstance().player != null) {
+			com.projecthero.mod.client.symbiote.SymbioteSuitSleeve.render(pose, buffers, light, vanillaArm, rightSide,
+					net.minecraft.client.Minecraft.getInstance().player);
+			return;
+		}
 		if (!ensureBaked()) {
 			return;
 		}

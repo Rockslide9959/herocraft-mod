@@ -77,6 +77,14 @@ public final class PowerInfoScreen extends Screen {
 										com.projecthero.mod.network.PunisherActionPayload.Action.ABANDON_TRAINING));
 						onClose();
 					}).bounds(this.width / 2 + 2, this.height - 28, 120, 20).build());
+		} else if (Minecraft.getInstance().player != null
+				&& com.projecthero.mod.symbiote.Symbiote.isNormalHost(Minecraft.getInstance().player)) {
+			// v0.17.5: a Symbiote host recolours the suit from here (no new key: the power's own info page)
+			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+					.bounds(this.width / 2 - 122, this.height - 28, 120, 20).build());
+			addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.open"),
+					b -> Minecraft.getInstance().setScreen(new SymbioteColourScreen(this)))
+					.bounds(this.width / 2 + 2, this.height - 28, 120, 20).build());
 		} else {
 			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 					.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());

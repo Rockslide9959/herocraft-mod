@@ -53,7 +53,7 @@ public class SymbioteSpikeRenderer extends EntityRenderer<SymbioteSpikeEntity> {
 		// a slow twist along its length, like a thrown blade of living tissue
 		pose.mulPose(Axis.XP.rotationDegrees((e.tickCount + partialTick) * 25.0f));
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON : TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON : SymbioteSuitTint.goo(e.getOwner(), TEXTURE))); // v0.17.5: host colours
 		PoseStack.Pose last = pose.last();
 		// the thorn: tail -> shoulder -> point, slightly hooked upward at the end
 		Vec3[] body = {

@@ -133,7 +133,7 @@ public final class SymbioteBodySpikes {
 		if (age < 0.0f) {
 			return;
 		}
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, TEXTURE))); // v0.17.5: in the host's colours
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		pose.pushPose();
 		model.body.translateAndRotate(pose);
@@ -159,7 +159,7 @@ public final class SymbioteBodySpikes {
 		if (age < 0.0f) {
 			return;
 		}
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, TEXTURE))); // v0.17.5: in the host's colours
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		pose.pushPose();
 		arm.translateAndRotate(pose);

@@ -477,7 +477,7 @@ public final class HeroPackGuide {
 	private static void symbioteSuit(List<Component> lines) {
 		head(lines, "projecthero.guide.symbiote.s.suit");
 		para(lines, "projecthero.guide.symbiote.s.suit.body");
-		for (String b : new String[]{"armour", "resistance", "stats", "bonded"}) {
+		for (String b : new String[]{"armour", "resistance", "stats", "bonded", "colours"}) { // v0.17.5: + colours
 			bullet(lines, "projecthero.guide.symbiote.s.suit." + b);
 		}
 		blank(lines);

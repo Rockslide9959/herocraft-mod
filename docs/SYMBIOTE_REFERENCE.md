@@ -219,3 +219,84 @@ swapped boxes get a purple border. The old Black Suit 3-box panel is now the Hun
 Take Over / crash timers, Hairline bar with ticks at 30 and 80).
 
 Tests: `SymbioteGameTests.blackSuitHungerDrivesItsBonuses`, `blackSuitReviveNeedsHunger`, `blackSuitSpiderManIsTrimmed` (15 / 1.0).
+
+## v0.17.5 -- the new suit model and suit colours
+
+User: "create a new model for it ... from scratch ... make it so that youre able to change the colour". Only the Normal
+host's suit (`symbiote_host`) changed. Every gameplay rule, the suit-up clock, the moves and the HUD are untouched.
+
+### The model (`geo/symbiote_host.geo.json`, made by `scratchpad/symbiote/gen_symbiote_suit_v0175.js`)
+
+- Base boxes (inflate 0.3) + a raised shell (0.55, head 0.62) in the player-skin box-UV layout, declared 64 wide so
+  the **128 x 128** texture is sampled at 2x (GeckoLib divides UVs by the declared width).
+- 3D extras, all `sym_*` child bones: shoulder caps (`sym_cap_r/l`, with three goo drips each), a raised chest plate
+  (`sym_chest`, per-face UVs onto the body-front texels behind it, so the pecs and emblem stand proud), raised quads
+  (`sym_thigh_r/l`, same trick) and three spine nodes (`sym_spine`). Caps, drips and nodes are wrapped in a goo patch
+  painted into unused skin texels (skin (24,0)-(40,8) and (56,16)-(64,48)).
+- `SuperheroArmorRenderer#renderRecursively` scales the `sym_*` bones with `SymbioteSuitFx.extraScale(progress)`
+  while the suit spreads on / off (0 until 72%, a small overshoot, full at the end), 1 otherwise. Set every frame
+  because GeckoLib bones are shared by every wearer.
+
+### The art
+
+Original, painted in body space (every texel placed on the 3D body, so lines run across face edges): an original
+spider emblem (small head, thorax, long abdomen spike, four legs a side -- the top pair runs up over the shoulders to
+the back emblem, the next two wrap round the ribs to the back, the bottom pair end in free points) with a ragged living
+edge and a dark outline; big angular lenses that sweep up and round the sides of the head with the suit's darkest rim;
+muscles as a height field (pecs, abs, obliques, traps, shoulder blades, lats, deltoids, biceps, triceps, forearms,
+quads, kneecaps, calves) lit through bump-mapped rounded normals with a key, fill and rim light and a wet specular;
+a warped vein network (raised in the shell where it is thick). The emblem, lenses, their outlines and thick veins are
+all on the raised shell layer.
+
+### Colours
+
+- `SymbioteColours(primary, secondary, eyes)` (0xRRGGBB, every constructor masks to 24 bits; `rgb(r,g,b)` clamps;
+  `parseHex`), `SymbioteColourPreset` (CLASSIC, ANTI_VENOM, CARNAGE, SCREAM, AGONY, RIOT, TOXIN).
+- `ModAttachments.SYMBIOTE_COLOURS`: persistent, `copyOnDeath`, synced to all, Classic by default; kept when the bond
+  is lost (a cosmetic preference). `SymbioteSuitColours.get/set/setPreset/apply`; `apply` (the screen's
+  `SymbioteColourPayload`) needs a bond. No static state.
+- `/symbiote colour <preset> [player]` and `/symbiote colour hex <body> <emblem> <eyes> [player]` (op 2, like the rest of
+  `/symbiote`).
+- **The screen** (`client/gui/SymbioteColourScreen`): Your Power (I) -> **Suit Colours** (the button only shows for a
+  Normal host; no new key). Body / Emblem / Eyes tabs, Hue / Saturation / Brightness bars, a hex field, the seven preset
+  swatches (wrapped tooltips), Apply / Classic / Cancel. Live preview: the real 3D suit following the mouse while it is
+  worn (`previewOverride` makes `SymbioteSuitTint.colours` return the pending colours for the local player inside the
+  screen only), else front and back paper dolls. The preview re-bakes at most every 90 ms while a bar is dragged.
+
+### Rendering
+
+- `textures/armor/symbiote_host_tint.png` is the TINT MASK: R shade, G gloss, B channel (0 body / 128 emblem / 255
+  eyes), A coverage. `SymbioteSuitTint.bake`: shade <= 0.5 scales the colour toward black, > 0.5 lifts it toward
+  `(0.5 + 0.5 hue) * 0.86`, gloss lays `0.72 + 0.28 hue` on top (hue = colour / its max channel; pure black uses a cool
+  white) -- so a black suit keeps wet highlights and a white suit keeps its muscle shading. The script's `bakePixel` is
+  the exact twin; `symbiote_host.png` is its Classic bake (fallback, armour stands, the Black Suit's Let It Take Over).
+- One baked 128 px `DynamicTexture` per colour triple, cached (LRU, 12 triples; the evicted texture and its
+  `SymbioteSpread` frames are released). `SymbioteSpread.build` reads a baked texture's pixels from
+  `SymbioteSuitTint.image` (dynamic textures are not in the resource manager); `SymbioteSpread.forget` drops frames.
+  Caches clear on resource reload and on disconnect (`SymbioteSuitClient`).
+- `SymbioteSuitFx.Layer` (a GeckoLib layer on `SuperheroArmorRenderer`, no-op for other sets) adds three passes of the
+  same model: a **sheen** band sweeping up the body (110-tick cycle, the band crosses in the first 60%), **veins**
+  pulsing in slow upward waves (72 ticks, tinted by `veinColour`: a lifted body colour, darker on a pale suit) and a faint
+  additive **eye glow** in the eye colour (head slot only). Sheen and vein frames are built once (32 each) from
+  `textures/armor/symbiote_host_fx.png` (R sweep coordinate, G gloss, B veins) and cross-faded between neighbours, so
+  they are colour-independent and shared by every wearer. Skipped while the suit spreads and for invisible wearers.
+- First person: `SymbioteSuitSleeve` (the suit's own two arm boxes, coloured, spreading, sheen + veins), called from
+  `SuperheroFirstPersonArm` for `symbiote_host`.
+- Tendrils, spikes (body thorns and the thrown spike) and the blade: `SymbioteSuitTint.goo(owner, texture)` recolours
+  the shipped goo texture (its luminance stretched into shade / gloss) to the owner's body colour -- only for a Normal
+  host in non-Classic colours. Carnage's crimson, the Black Suit, Agent Venom, pets and free Symbiotes are unchanged.
+- Icons: the four `symbiote_host_*` items are three-layer (body tinted by the primary colour, `_gloss` untinted,
+  `_emblem` tinted by the secondary), coloured from the local player's choice (`ColorProviderRegistry`).
+
+### Variants
+
+- **Agent Venom** keeps its own user-supplied look and is not recoloured (it is a different character's suit).
+- **Black Suit Spider-Man** keeps its suit; its Let It Take Over form shows the new suit art in Classic colours (it
+  always used `symbiote_host.png`).
+
+### Tests
+
+`SymbioteSuitColourGameTests`: Classic default + presets store exactly their RGB; clamping (alpha bytes, -1, out of
+range channels, bad saves, junk packets, hex parsing); the colours survive a save, a death (`copyOnDeath`, dying keeps them) and losing
+the bond; the attachment is synced and the payload round-trips; only a bonded player can recolour through the payload.
+Visual checks: `docs/screenshots/v0175/symbiote_suit/` (harness `scratchpad/SymbioteSuitHarness.v0175.java.txt`).

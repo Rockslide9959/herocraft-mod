@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"projecthero:item/symbiote_host_leggings"}}
+{"parent":"minecraft:item/generated","textures":{"layer0":"projecthero:item/symbiote_host_leggings","layer1":"projecthero:item/symbiote_host_leggings_gloss","layer2":"projecthero:item/symbiote_host_leggings_emblem"}}

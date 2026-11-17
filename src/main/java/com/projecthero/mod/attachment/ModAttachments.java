@@ -629,6 +629,19 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.17.5: the colours a player picked for their Symbiote suit (body / emblem / eyes, see
+	 * {@link com.projecthero.mod.symbiote.SymbioteColours}). A cosmetic preference, so it is persistent and kept through death
+	 * (and through losing the bond: bond again and it comes back the same colour). Synced to everyone so other players see it.
+	 */
+	public static final AttachmentType<com.projecthero.mod.symbiote.SymbioteColours> SYMBIOTE_COLOURS =
+			AttachmentRegistry.create(ProjectHeroMod.id("symbiote_colours"),
+					builder -> builder.persistent(com.projecthero.mod.symbiote.SymbioteColours.CODEC)
+							.copyOnDeath()
+							.initializer(() -> com.projecthero.mod.symbiote.SymbioteColours.CLASSIC)
+							.syncWith(com.projecthero.mod.symbiote.SymbioteColours.STREAM_CODEC,
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * v0.16.2: Black Suit Spider-Man's Hunger meter, 0..100 (see {@link com.projecthero.mod.symbiote.SymbioteHunger}).
 	 * Not persistent -- it is a combat meter that decays to nothing anyway; synced to the owner for the HUD.
 	 */

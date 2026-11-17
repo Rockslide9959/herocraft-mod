@@ -103,18 +103,38 @@ public final class SymbioteSpread {
 		return texture(texture, SymbioteReveal.progress(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false)));
 	}
 
+	/**
+	 * v0.17.5: drops (and releases) the frames built for {@code base} -- a coloured suit texture {@link SymbioteSuitTint} let go
+	 * of. Render thread.
+	 */
+	public static void forget(ResourceLocation base) {
+		ResourceLocation[] frames = CACHE.remove(base);
+		if (frames == null) {
+			return;
+		}
+		for (ResourceLocation id : frames) {
+			Minecraft.getInstance().getTextureManager().release(id);
+		}
+	}
+
 	private static ResourceLocation[] build(ResourceLocation base) {
 		Minecraft mc = Minecraft.getInstance();
-		Optional<Resource> res = mc.getResourceManager().getResource(base);
-		if (res.isEmpty()) {
-			return new ResourceLocation[0];
-		}
+		// v0.17.5: a coloured Symbiote suit is a dynamic texture -- its pixels come from SymbioteSuitTint, not a resource pack
+		Optional<NativeImage> baked = SymbioteSuitTint.image(base);
 		NativeImage src;
-		try (InputStream in = res.get().open()) {
-			src = NativeImage.read(in);
-		} catch (Exception e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not build the Symbiote spread for {}: {}", base, e.toString());
-			return new ResourceLocation[0];
+		if (baked.isPresent()) {
+			src = baked.get();
+		} else {
+			Optional<Resource> res = mc.getResourceManager().getResource(base);
+			if (res.isEmpty()) {
+				return new ResourceLocation[0];
+			}
+			try (InputStream in = res.get().open()) {
+				src = NativeImage.read(in);
+			} catch (Exception e) {
+				ProjectHeroMod.LOGGER.warn("[ProjectHero] could not build the Symbiote spread for {}: {}", base, e.toString());
+				return new ResourceLocation[0];
+			}
 		}
 		int w = src.getWidth();
 		int h = src.getHeight();
