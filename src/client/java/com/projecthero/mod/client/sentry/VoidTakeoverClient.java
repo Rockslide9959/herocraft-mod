@@ -34,6 +34,8 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  */
 public final class VoidTakeoverClient {
+	/** Rework 2: the black fog near a takeover closes in to this (was 40: the destruction 50 blocks below was lost in it). */
+	public static final float FOG_END = 112.0f;
 	private static CameraType savedCamera;
 	private static long screenClosedAt;
 	private static long nextWhisper;

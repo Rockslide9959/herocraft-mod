@@ -276,6 +276,14 @@ public final class VoidMatter {
 		return here.isAir() || here.is(SentryBlocks.VOID_MATTER) || here.canBeReplaced() || data.decaying.contains(pos.asLong());
 	}
 
+	/** A creature stands where a solid block would come back (it would be buried): that block waits. */
+	private static boolean occupied(ServerLevel level, VoidMatterData.Entry e) {
+		if (e.state.getCollisionShape(level, e.pos).isEmpty()) {
+			return false;
+		}
+		return !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new AABB(e.pos), x -> x.isAlive() && !x.isSpectator()).isEmpty();
+	}
+
 	private static void restoreOne(ServerLevel level, VoidMatterData data, VoidMatterData.Entry e) {
 		data.decaying.remove(e.pos.asLong()); // a block still fading (the one-go restore) stays
 		level.setBlock(e.pos, e.state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
@@ -346,8 +354,8 @@ public final class VoidMatter {
 			VoidMatterData.Entry e;
 			while (done < SentryConfig.RESTORE_PER_TICK && looked < SentryConfig.RESTORE_PER_TICK * 4 && (e = data.pollDue(now)) != null) {
 				looked++;
-				if (!level.isLoaded(e.pos)) {
-					data.requeue(e);
+				if (!level.isLoaded(e.pos) || occupied(level, e)) {
+					data.requeue(e); // an unloaded chunk, or someone standing in the hole: it waits
 					continue;
 				}
 				if (canRestoreInto(level, e.pos, data)) {

@@ -186,24 +186,63 @@ column; glow = near-white and palest-gold texels (17 / 17: the emblem). Check sh
 - **Targets everything**: `canHit = HeroTargets.canHarm(null, target)` minus the body (squadmates, pets, villagers, players;
   never spectators / creative / armour stands). `Squads.areAllies`, `shields` and `protectsPet` are broken for a body in the
   takeover, both ways, like a rampaging Hulk. Server PvP off still stops player damage (vanilla).
-- Brain: retarget every 10 ticks — the last helper (60 ticks) first, else the nearest living within 24. Flies to 3 blocks
-  (0.55 b/t). Fists 18 every 10 ticks within 3.5. Moves by range on its own cooldowns: Lash (<= 6, 16 ticks), Erase
-  (<= 20 + sight, 240), Grasp (6..14, 100), Rift (<= 24, 300), Nightfall (2+ victims in 10, 600). Nothing near: toward the
-  nearest player within 128, else a village meeting POI within 128, else a random 24-block heading (every 100 ticks),
-  hovering 4 above the ground. Kills are absorbed: +4 HP.
-- **World consumption** (`VoidMatter`): ring radius 3 + 0.25/s, max 16; up to 8 blocks a tick (24 tries) on the surface
-  under the ring (within 10 of the body's height). Block -> `void_matter` (records first) -> air after 30-40 ticks
-  (scheduled tick, no neighbour shape updates so torches/flowers don't pop). Never: bedrock & unbreakables, any block
-  entity (all containers skipped), fluids, portals/frames, spawn protection, `!mayInteract`, unloaded chunks.
-- **Restore**: per-dimension SavedData `projecthero_void_matter` (pos, block state, owner, dueAt). On end, the owner's
-  entries are due in 1200 ticks; 24 a tick come back into air / void matter / replaceable only, loaded chunks only (an
-  unloaded one waits). Orphans (owner offline or not in a takeover: a crash) are adopted every 100 ticks.
-  `projectheroVoidGriefing` (default false): nothing recorded, nothing returns (entries of that owner are dropped at end).
+- Brain (rework 2, 2026-11-17, user: "he destroys some blocks and then flies down into his own hole ... gets stuck in his own hole ...
+  make it so that the void lifts up into the air (50 blocks above the ground) and looks down on the destruction ... only he goes down
+  slowly to the ground start fighting players and strong enemies"). Two modes (`VoidTakeover.Mode`):
+  - **HOVER** (no strong target): rises to the original ground under it + 50 (`TAKEOVER_HOVER_HEIGHT`; the disc's column record is
+    used, so the crater doesn't pull it down; clamped to build height - 3), up at most 0.6 b/t easing in over the last ~10 blocks
+    (~5-6 s from the ground). It orbits 3 blocks around a hover point at 0.012 rad/tick and turns 0.35°/tick, pitched ~58-61° down.
+    The hover point drifts 0.02 b/t (0.4 b/s) toward the nearest player within 128, else a village meeting POI within 128, else a
+    random 24-block heading (re-picked every 200 ticks).
+  - **ENGAGE**: retarget every 10 ticks -- the last helper (60 ticks) first, else the nearest **strong** target within 64 horizontally
+    (80 below / 40 above; kept to x1.25 of that). **Strong** (`isStrong`) = any player (not creative), `#c:bosses`, max health >= 40
+    or armour >= 15. It closes to 3 blocks: horizontal 0.55 b/t, down at most 0.25 b/t (`TAKEOVER_DESCEND_SPEED`: from 50 up, ~10 s),
+    up 0.6. Rise first: when the highest ground on the straight line to the target is above the body and the target stands up on it
+    (`climbHeight`), it climbs to that height + 1.5 with only 0.08 b/t across. Fists 18 every 10 ticks within 3.5. Moves by range on its
+    own cooldowns: Lash (<= 6, 16 ticks), Erase (<= 20 + sight, 240), Grasp (6..14, 100), Rift (<= 24, 300), Nightfall (2+ victims in
+    10, 600). No strong target left: back to HOVER (rises again).
+  - **Never stuck** (`steer`, direct steering flight, no gravity, no pathing): every 4 ticks, if the body's box moved 1 block along its
+    velocity collides, those blocks are carved (`VoidMatter.carveBox`, <= 32, the fast fade); if it hasn't moved 0.6 blocks for 20
+    ticks while it wants to move (> 0.08 b/t), a 2.5-radius sphere 1.2 blocks toward where it wants to go is carved (<= 96, every 10
+    ticks while still stuck). Carved blocks are recorded like the rest.
+  - **Weak mobs** inside the disc (within its radius horizontally, from 14 under the original ground up to the body) take 6 void
+    damage every second (`consumeWeak`, <= 24 a second); kills are absorbed (+4 HP).
+- **World consumption** (`VoidMatter`, rework 2): a **disc** on the ground under the body, radius 8 + 0.4/s, max 56 (reached after
+  120 s; ~9,850 columns). Each tick 160 column tries (55% in the 5-block band at the edge, 45% uniform over the area), at most 48
+  blocks start. A column goes from its top (trees, plants, builds) down to its original ground (first solid non-log, non-leaf,
+  non-plant block from the top, cached per world) minus a depth of 3 at the edge to 10 under the centre (quadratic bowl,
+  `depthAt`); water/lava stops a column (no air pockets under the sea); finished columns are remembered with their depth. Never:
+  bedrock & unbreakables (barriers too), any block entity (all containers skipped), fluids, portals/frames, spawn protection,
+  `!mayInteract`, unloaded chunks.
+- **The decay** (rework 2, user: "make it so that the blocks slowly fade to black before dissolving quickly"): a block is recorded,
+  marked decaying (per-world, not saved) and stays real while it fades: 40 ticks + 0..10 by position (`decayTicks`, the same hash on
+  both sides) for the disc, 14 + 0..3 for carved blocks. One `VoidDecayPayload` batch a tick (packed longs, <= 2048 a packet) goes to
+  players within 192. Then the server sets air (no neighbour updates: torches/sand stay, water doesn't flow in). Client
+  (`VoidDecayClient`): a black shell (faint violet, smoothstep alpha to 96%) over the open faces of each block (faces rechecked every
+  4 ticks, not every frame), one translucent POSITION_COLOR buffer, <= 12,000 shells within 160 blocks a frame; when the block turns
+  to air the shell stays black and shrinks away in 6 ticks with a puff of ink + smoke (<= 48 bursts a tick, within 64). The old
+  `void_matter` block stays registered (old worlds) but is never placed.
+- **Restore**: per-dimension SavedData `projecthero_void_matter`, now a palette file (`palette`, `owners`, `pos` / `st` / `own` / `due`
+  arrays; the first v0.17.5 per-entry list still loads). On end, the owner's entries are due in 1200 ticks and join a due-ordered
+  queue; 64 a tick come back from its front into air / void matter / replaceable / still-fading only; an entry whose chunk isn't
+  loaded, or whose space a creature stands in (it would be buried), goes to the back and waits (<= 256 looked at a tick). Orphans (owner offline or not in a takeover: a crash) are adopted every
+  100 ticks. `projectheroVoidGriefing` (default false): nothing recorded, nothing returns (entries of that owner are dropped at end).
+- **Cost** (`VoidMatter.tickLevel`): disc + carve + fades + batches + restore are timed per world; every 200 busy ticks one log line
+  "[void] <dim> decay work: avg / max ms a tick ..." (INFO; WARN with "[watchdog]" if a tick passed 5 ms); the world tick is also
+  wrapped in `TickWatchdog`. Measured in the harness (normal world, render distance 8): while eating (disc + carve + fades + batches) avg 0.24-0.50 ms a tick per 200-tick window, max 0.7-5 ms in most windows, one-off spikes of 9.9-11.8 ms (a window at the takeover start and the one where it ends); the restore 0.11-0.32 ms avg (max 2.3 ms) at 64 blocks a tick; ~41,000 blocks eaten in ~90 s, all back in ~650 ticks.
 - **Sky** (client only): `VoidTakeoverClient.skyStrength` = full within 24 of a takeover, gone at 72; sky + fog colour to
   near-black, fog in to 40 blocks; >= 0.5 the client's day time reads as midnight (`SentryMidnightMixin`). 0.45 around
   a Sentry past 90 Void (no midnight). World time never changes.
 - **View** (owner's client): forced third person (restored after), movement/jump/sprint/sneak/attack/use keys released
-  every tick, body faces the synced `takeoverTarget`, black bleed + gold rim, "THE VOID HAS YOU", countdown, rooms/grip.
+  every tick, body faces the synced `takeoverTarget`, black bleed + gold rim, "THE VOID HAS YOU", countdown, rooms/grip. Rework 2:
+  with no target the body turns 0.35°/tick and looks ~58° down; the camera distance eases (x0.05 a tick) to 14 blocks while it hangs
+  high (no target, or 16+ above the ground) and 7 while it is down fighting (`VoidTakeoverCameraMixin` on `Camera.getMaxZoom`).
+- Tests (`VoidTakeoverGameTests`, rework 2): blocks fade (decay state) before air and come back, a carved 3x3 patch comes back, the
+  radius grows exactly 0.4 a second and caps, the depth is a bowl, the body rises toward its hover height (at most 0.6 a tick, smooth
+  steps), comes down (<= 0.25 a tick) for a 500-HP zombie and not for a 20-HP one (which the destruction hurts instead), decays its
+  way out of a stone cell, and the gamerule still records nothing. Bodies in tests carry `VoidTakeover.TEST_NO_DISC` (no disc / weak
+  consumption: parallel tests share the world). Films: `scratchpad/VoidTakeoverHarness.v0175.java.txt` ->
+  `docs/screenshots/v0175/void_takeover2/` (`node scratchpad/sentry/films_void2.js`).
 
 ## Getting control back
 
@@ -230,7 +269,7 @@ column; glow = near-white and palest-gold texels (17 / 17: the emblem). Check sh
 Client: `ProjectHeroModClient` (rework: double-tap Space -> `SentryClient.toggleFlight`), `DirectionalFlight`, `FlightFeel`,
 `FlightPoseHelper`, `PowerInfoScreen`, `SquadScreen`, `PlayerModelMixin` (rework: `hideOverlay`), `SuitFirstPersonArmMixin`,
 `HumanoidModelMixin`, `ClientLevelMixin`, `FogRendererMixin`, new `SentryMidnightMixin`, `ProjectHeroJeiPlugin` (rework: suit info
-pages), rework: `QuirkSuitArmourMixin` (Sentry Suit + takeover armour), `GyroCoatCapeMixin` (Sentry cape hides the player cape).
+pages), rework: `QuirkSuitArmourMixin` (Sentry Suit + takeover armour), `GyroCoatCapeMixin` (Sentry cape hides the player cape). Takeover rework 2: `FogRendererMixin` (the black fog end 40 -> 112), new `VoidTakeoverCameraMixin` (+ `projecthero.client.mixins.json`), `SentryMod` registers `VoidDecayPayload`.
 Resources (rework): `recipe/sentry_suit_top.json`, `recipe/sentry_suit_trousers.json`, item models + icons, the cape / body textures,
 `.gitignore` (held-back skins). Gametests: chapter count 79 -> 80 in `HeroPackGameTests` and `MiraculousTurtleHorseGameTests`.
 

@@ -1,0 +1,489 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.sentry.Sentry;
+import com.projecthero.mod.sentry.VoidMatter;
+import com.projecthero.mod.sentry.VoidMatterData;
+import com.projecthero.mod.sentry.VoidTakeover;
+import com.projecthero.mod.sentry.data.SentryAttachments;
+import com.projecthero.mod.sentry.data.SentryState;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Void takeover rework 2): in a normal world -- the rise + the growing destruction from the takeover
+ * camera (film), the fade-to-black close-up at the front (film), the Void coming down onto a strong mob (iron golem), the restored
+ * terrain, and the Void decaying its way out of a glass-roofed pit (film). Prints the decay cost reports. Enabled by run/voidtakeover2.flag
+ * = "<out dir>". Kept as scratchpad/VoidTakeoverHarness.v0175.java.txt.
+ */
+public final class VoidTakeoverHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static ArmorStand camera;
+	private static Vec3 camAt, camLook;
+	private static Vec3 wideAt, wideLook;
+	private static BlockPos pit;
+	private static int pitSurface;
+	private static final List<BlockPos> patch = new ArrayList<>();
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("voidtakeover2.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(VoidTakeoverHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(VoidTakeoverHarness::placeCamera);
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (camAt == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			var p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = net.minecraft.util.Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = net.minecraft.util.Mth.lerp(pt, p.yo, p.getY()) - cam.y,
+					z = net.minecraft.util.Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, net.minecraft.util.Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(),
+					disp.getPackedLightCoords(p, pt));
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "voidtakeover2-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static ArmorStand cam(Minecraft mc) {
+		if (camera == null || camera.level() != mc.level) {
+			camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+			camera.setInvisible(true);
+		}
+		return camera;
+	}
+
+	private static void fixed(Minecraft mc, Vec3 at, Vec3 look) {
+		cam(mc);
+		camAt = at;
+		camLook = look;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		placeCamera(mc);
+	}
+
+	private static void playerView(Minecraft mc) {
+		camAt = null;
+		mc.setCameraEntity(mc.player);
+	}
+
+	private static void placeCamera(Minecraft mc) {
+		if (camAt == null || camera == null) {
+			return;
+		}
+		Vec3 to = camLook.subtract(camAt);
+		float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		double eye = camera.getEyeHeight();
+		camera.moveTo(camAt.x, camAt.y - eye, camAt.z, yaw, pitch);
+		camera.xo = camera.getX();
+		camera.yo = camera.getY();
+		camera.zo = camera.getZ();
+		camera.xOld = camera.getX();
+		camera.yOld = camera.getY();
+		camera.zOld = camera.getZ();
+		camera.yRotO = yaw;
+		camera.xRotO = pitch;
+		camera.setYHeadRot(yaw);
+	}
+
+	private static void edit(ServerPlayer p, Consumer<SentryState> c) {
+		SentryState n = Sentry.state(p).copy();
+		c.accept(n);
+		p.setAttached(SentryAttachments.STATE, n);
+	}
+
+	private static int ground(Minecraft mc, double x, double z) {
+		return mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
+	}
+
+	private static void report(Minecraft mc, String what) {
+		server(mc, p -> {
+			VoidMatterData d = VoidMatterData.get(p.serverLevel());
+			System.out.println("[HARNESS] " + what + " pos=" + p.blockPosition() + " mode=" + VoidTakeover.mode(p) + " hoverY="
+					+ String.format("%.1f", VoidTakeover.hoverY(p)) + " radius=" + String.format("%.1f",
+							VoidMatter.radius(p.level().getGameTime() - Sentry.state(p).takeoverStart))
+					+ " recorded=" + d.size() + " decaying=" + d.decayingCount() + " waiting=" + d.scheduledSize() + " unsticks="
+					+ VoidTakeover.unsticks(p) + " shells=" + com.projecthero.mod.client.sentry.VoidDecayClient.count());
+			System.out.println("[HARNESS] cost: " + VoidMatter.lastReport);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (camAt != null && mc.options.getCameraType() != CameraType.FIRST_PERSON) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON); // the takeover forces third person at the start of each tick
+		}
+		if (camAt != null && mc.player != null && mc.getConnection() != null) {
+			// the client only sends its position while the player is the camera entity: send it for the fixed camera too
+			var p = mc.player;
+			mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot(p.getX(), p.getY(), p.getZ(),
+					p.getYRot(), p.getXRot(), p.onGround()));
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(VoidTakeoverHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				site = p.blockPosition();
+				com.projecthero.mod.hero.PowerGrants.grantHero(p, "sentry");
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				System.out.println("[HARNESS] site " + site);
+			});
+		}
+		if (t == 60) {
+			buildPlan(mc);
+		}
+		if (t < 61 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		// ---- 0. before: the wide view
+		at(t, () -> {
+			mc.options.hideGui = true;
+			Vec3 p = mc.player.position();
+			int g = ground(mc, p.x, p.z);
+			wideAt = new Vec3(p.x + 62, Math.max(g, ground(mc, p.x + 62, p.z + 30)) + 34, p.z + 30);
+			wideLook = new Vec3(p.x, g + 8, p.z);
+			fixed(mc, wideAt, wideLook);
+		});
+		at(t + 40, () -> shot(mc, "00_before_wide"));
+		// ---- 1. FILM: the takeover begins; rise + growing destruction from the takeover camera (60 s, a frame every 6 ticks)
+		t += 45;
+		at(t, () -> {
+			playerView(mc);
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				Sentry.setVoid(p, 100f);
+				edit(p, s -> {
+					s.mindLockedUntil = p.level().getGameTime() + 200000L; // no Shame Rooms over the film
+					s.roomStartedAt = s.mindLockedUntil;
+				});
+				System.out.println("[HARNESS] takeover=" + Sentry.inTakeover(p));
+			});
+		});
+		for (int f = 0; f < 200; f++) {
+			final int n = f;
+			at(t + 4 + f * 6, () -> shot(mc, String.format("film_rise_%03d", n)));
+		}
+		for (int k = 0; k < 6; k++) {
+			at(t + 200 * k + 100, () -> report(mc, "rise"));
+		}
+		at(t + 1210, () -> {
+			mc.options.hideGui = true;
+			Vec3 p = mc.player.position();
+			int g = ground(mc, p.x, p.z);
+			fixed(mc, new Vec3(p.x + 58, Math.max(g, ground(mc, p.x + 58, p.z + 26)) + 40, p.z + 26), new Vec3(p.x, (p.y + g) * 0.5 - 6, p.z));
+		});
+		at(t + 1222, () -> shot(mc, "01_hovering_over_growing_crater"));
+		// ---- 2. FILM: the fade to black close-up at the front of the disc (every tick, 5 s)
+		t += 1225;
+		// (night vision for the close-up only, so the darkening reads at midnight; a 9x9 patch just outside the front is started a few
+		// blocks a tick -- the same decay the disc uses -- so the fade is in frame)
+		at(t, () -> server(mc, p -> {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60, 0, false, false));
+			ServerLevel level = p.serverLevel();
+			double r = VoidMatter.radius(p.level().getGameTime() - Sentry.state(p).takeoverStart);
+			int cx = (int) Math.floor(p.getX() + r + 6);
+			int cz = (int) Math.floor(p.getZ());
+			patch.clear();
+			// a floating 9x9 platform of mixed blocks just outside the front, so nothing hides it
+			int py = level.getHeight(Heightmap.Types.WORLD_SURFACE, cx, cz) + 8;
+			for (int d = 0; d <= 4; d++) {
+				for (int x = -d; x <= d; x++) {
+					for (int z = -d; z <= d; z++) {
+						if (Math.max(Math.abs(x), Math.abs(z)) == d) {
+							int y = py;
+							int m = Math.floorMod(x * 3 + z * 5, 4);
+							level.setBlock(new BlockPos(cx + x, y, cz + z), (m == 0 ? Blocks.GRASS_BLOCK : m == 1 ? Blocks.STONE : m == 2 ? Blocks.OAK_PLANKS : Blocks.DIRT).defaultBlockState(), 2);
+							patch.add(new BlockPos(cx + x, y, cz + z));
+						}
+					}
+				}
+			}
+			int gy = patch.get(0).getY();
+			mc.execute(() -> fixed(mc, new Vec3(cx + 7.5, gy + 5.0, cz + 4.5), new Vec3(cx + 0.5, gy, cz + 0.5)));
+		}));
+		for (int k = 0; k < 41; k++) {
+			final int from = k * 2;
+			at(t + 6 + k, () -> server(mc, p -> {
+				for (int i = from; i < Math.min(patch.size(), from + 2); i++) {
+					VoidMatter.startDecay(p.serverLevel(), p, patch.get(i), false);
+				}
+			}));
+		}
+		for (int f = 0; f < 110; f++) {
+			final int n = f;
+			at(t + 3 + f, () -> shot(mc, String.format("film_fade_%03d", n)));
+		}
+		at(t + 60, () -> shot(mc, "02_fade_to_black_closeup"));
+		// ---- 3. a strong mob: it comes down onto an iron golem
+		t += 116;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			double gx = p.getX() + 22, gz = p.getZ() + 6;
+			int gy = Math.max(site.getY() - 30, level.getHeight(Heightmap.Types.WORLD_SURFACE, (int) gx, (int) gz));
+			IronGolem golem = EntityType.IRON_GOLEM.create(level);
+			golem.moveTo(gx, gy, gz, 0f, 0f);
+			golem.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0);
+			golem.setHealth(1000f);
+			golem.setNoAi(true);
+			level.addFreshEntity(golem);
+			p.removeEffect(MobEffects.NIGHT_VISION);
+			System.out.println("[HARNESS] golem at " + golem.blockPosition() + " strong=" + VoidTakeover.isStrong(golem));
+			mc.execute(() -> {
+				playerView(mc);
+				mc.options.hideGui = false;
+			});
+		}));
+		for (int f = 0; f < 120; f++) {
+			final int n = f;
+			at(t + 4 + f * 3, () -> shot(mc, String.format("film_descend_%03d", n)));
+		}
+		at(t + 100, () -> report(mc, "descending"));
+		at(t + 300, () -> report(mc, "descending"));
+		at(t + 200, () -> {
+			mc.options.hideGui = true;
+			Vec3 p = mc.player.position();
+			fixed(mc, p.add(-10, 4, 14), p.add(4, -6, 0));
+		});
+		at(t + 206, () -> shot(mc, "03_descending_onto_iron_golem"));
+		at(t + 208, () -> {
+			playerView(mc);
+			mc.options.hideGui = false;
+		});
+		at(t + 340, () -> {
+			mc.options.hideGui = true;
+			Vec3 p = mc.player.position();
+			fixed(mc, p.add(-8, 3, 9), p.add(2, -1, 0));
+		});
+		at(t + 346, () -> shot(mc, "03b_fighting_iron_golem"));
+		// ---- 4. control returns; the restore (due times brought forward so it shows in the clip), the wide view
+		t += 370;
+		at(t, () -> server(mc, p -> {
+			report(mc, "before end");
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+			for (var e : p.serverLevel().getEntitiesOfClass(IronGolem.class, p.getBoundingBox().inflate(80))) {
+				e.discard();
+			}
+			ServerLevel level = p.serverLevel();
+			long now = level.getGameTime();
+			for (VoidMatterData.Entry e : VoidMatterData.get(level).due(Long.MAX_VALUE - 1, Integer.MAX_VALUE)) {
+				e.dueAt = now + 20;
+			}
+			p.getAbilities().mayfly = true; // out of the way of the restore, up by the camera
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(wideAt.x, wideAt.y + 3, wideAt.z, 0f, 0f);
+			mc.execute(() -> {
+				mc.options.hideGui = true;
+				fixed(mc, wideAt, wideLook);
+			});
+		}));
+		at(t + 10, () -> shot(mc, "04a_crater_after_control_returns"));
+		for (int f = 0; f < 90; f++) {
+			final int n = f;
+			at(t + 12 + f * 10, () -> shot(mc, String.format("film_restore_%03d", n)));
+		}
+		at(t + 300, () -> report(mc, "restoring"));
+		at(t + 600, () -> report(mc, "restoring"));
+		at(t + 915, () -> report(mc, "restored"));
+		at(t + 920, () -> shot(mc, "04_restored_wide"));
+		// ---- 5. FILM: stuck in a glass-roofed pit, it decays its way out (no disc this time, to show the unstick alone)
+		t += 930;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			edit(p, s -> {
+				s.kneelUntil = 0L;
+				s.letOutLockedUntil = 0L;
+				s.voidLevel = 10f;
+			});
+			int px = site.getX() + 70, pz = site.getZ() - 40;
+			int sy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px, pz) - 1;
+			pit = new BlockPos(px, sy, pz);
+			pitSurface = sy;
+			for (int x = -3; x <= 4; x++) {
+				for (int z = -3; z <= 4; z++) {
+					for (int y = sy - 14; y <= sy + 16; y++) {
+						boolean inside = x >= 0 && x <= 1 && z >= 0 && z <= 1;
+						var st = y > sy ? Blocks.AIR.defaultBlockState() : !inside ? Blocks.STONE.defaultBlockState()
+								: y == sy - 3 ? Blocks.GLASS.defaultBlockState()
+										: y < sy - 12 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState();
+						level.setBlock(new BlockPos(px + x, y, pz + z), st, 2 | 16);
+					}
+				}
+			}
+			IronGolem golem = EntityType.IRON_GOLEM.create(level);
+			int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px + 16, pz + 1);
+			golem.moveTo(px + 16.5, gy, pz + 1.5, 0f, 0f);
+			golem.setNoAi(true);
+			golem.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0);
+			golem.setHealth(1000f);
+			level.addFreshEntity(golem);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(px + 1.0, sy - 12, pz + 1.0, 0f, 0f);
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60, 0, false, false));
+			System.out.println("[HARNESS] pit " + pit);
+		}));
+		at(t + 60, () -> server(mc, p -> {
+			p.connection.teleport(pit.getX() + 1.0, pitSurface - 12, pit.getZ() + 1.0, 0f, 0f);
+			p.addTag(VoidTakeover.TEST_NO_DISC);
+			Sentry.setVoid(p, 100f);
+			edit(p, s -> {
+				s.mindLockedUntil = p.level().getGameTime() + 200000L;
+				s.roomStartedAt = s.mindLockedUntil;
+			});
+			System.out.println("[HARNESS] pit takeover=" + Sentry.inTakeover(p));
+			mc.execute(() -> fixed(mc, new Vec3(pit.getX() + 1.0, pitSurface + 9.0, pit.getZ() + 1.0),
+					new Vec3(pit.getX() + 1.0, pitSurface - 7.0, pit.getZ() + 1.3)));
+		}));
+		at(t + 58, () -> fixed(mc, new Vec3(pit.getX() + 1.0, pitSurface + 9.0, pit.getZ() + 1.0),
+				new Vec3(pit.getX() + 1.0, pitSurface - 7.0, pit.getZ() + 1.3)));
+		at(t + 59, () -> shot(mc, "05a_pit_before"));
+		for (int f = 0; f < 120; f++) {
+			final int n = f;
+			at(t + 62 + f * 2, () -> shot(mc, String.format("film_unstick_%03d", n)));
+		}
+		at(t + 150, () -> report(mc, "pit"));
+		at(t + 300, () -> report(mc, "pit"));
+		at(t + 305, () -> server(mc, p -> {
+			p.removeTag(VoidTakeover.TEST_NO_DISC);
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+		}));
+		at(t + 320, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("VOID2_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

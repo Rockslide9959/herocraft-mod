@@ -94,3 +94,21 @@ ability for regular sentry."
 - **Flight = double-tap Space** in both forms; **X = Sonic Boom dash** only (merged X stays Shadow Step).
 - **Licence:** the comics skin page says "ask me before using it in a heropack or addon"; both processed textures are held back from git
   and public builds (fallback: the original art) until permission is given. Credits in the reference.
+
+## Takeover rework 2 (user, 2026-11-17)
+User: "The void takeover needs to work better, he destroys some blocks and then flies down into his own hole and then when he targets
+something above ground again he gets stuck in his own hole ... if hes moving towards something and gets stuck then he decays those blocks
+aswell, increase the range ... make it so that the blocks slowly fade to black before dissolving quickly ... make it so that the void lifts
+up into the air (50 blocks above the ground) and looks down on the destruction ... the range at which he destroys the world keeps
+increasing and increasing and only he goes down slowly to the ground start fighting players and strong enemies"
+
+- **It hangs 50 blocks up** over the original ground, looking down at the destruction (slow orbit and turn); the camera pulls out to 14.
+- **The destruction is a disc** under it that never stops growing: 8 blocks at first, +0.4 a second, up to 56 (2 minutes). Trees, plants
+  and builds go, the ground is eaten 3 layers deep at the edge to 10 under it.
+- **Blocks fade to black** (2-2.5 s) and then dissolve in a quick dark puff.
+- **It comes down only for players and strong enemies** (bosses, 40+ health or heavy armour) within 64, slowly, and goes back up after.
+  Weak mobs are left to the destruction (void damage every second).
+- **Never stuck:** it flies straight at what it wants; walls in the way and dead ends fade away in front of it (a faster fade), and it
+  climbs out of its own crater before crossing to someone up on the ground.
+- The black fog near it opens to 112 blocks (it was 40: the ground 50 below was lost in it).
+- Everything comes back after control returns, as before (now 64 blocks a tick, in loaded chunks; unloaded ones wait).

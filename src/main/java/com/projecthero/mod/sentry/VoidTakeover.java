@@ -469,7 +469,7 @@ public final class VoidTakeover {
 			double dz = b.wanderTo.z - b.anchor.z;
 			double flat = Math.sqrt(dx * dx + dz * dz);
 			if (flat > 2.0) {
-				b.anchor = b.anchor.add(dx / flat * 0.05, 0, dz / flat * 0.05);
+				b.anchor = b.anchor.add(dx / flat * 0.02, 0, dz / flat * 0.02); // 0.4 b/s: the disc follows, it doesn't smear
 			} else {
 				b.nextWander = now;
 			}

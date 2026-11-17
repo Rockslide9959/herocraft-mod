@@ -105,11 +105,11 @@ public class FogRendererMixin {
 				return;
 			}
 		}
-		// v0.17.5: the Void nearby closes a black fog in (to 40 blocks at its heart)
+		// v0.17.5: the Void nearby closes a black fog in (rework 2: to 112 blocks, so the destruction 50 below stays in sight)
 		float voidSky = com.projecthero.mod.client.sentry.VoidTakeoverClient.skyStrength();
 		if (fogMode == FogRenderer.FogMode.FOG_TERRAIN && voidSky > 0.0f) {
-			float end = Mth.lerp(Math.min(1.0f, voidSky), farPlaneDistance, Math.min(farPlaneDistance, 40.0f));
-			RenderSystem.setShaderFogStart(end * 0.2f);
+			float end = Mth.lerp(Math.min(1.0f, voidSky), farPlaneDistance, Math.min(farPlaneDistance, com.projecthero.mod.client.sentry.VoidTakeoverClient.FOG_END));
+			RenderSystem.setShaderFogStart(end * 0.35f);
 			RenderSystem.setShaderFogEnd(end);
 			return;
 		}
