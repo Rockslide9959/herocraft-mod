@@ -5998,7 +5998,7 @@
   "projecthero.guide.city.villagers": "Villagers",
   "projecthero.guide.city.villagers.body": "Villagers arrive with the buildings and claim the job sites: lecterns in the offices, bank and newspaper, cartography tables in the office tower and station, brewing stands in the hospital, cauldrons in the fire station, the six market stalls and every townhouse workshop. They sleep in the flats, townhouses and walk-ups and meet at the market, park and clock tower bells. Iron golems guard the squares, and raids work as in any village.",
   "filled_map.projecthero.city": "City Map",
-  "projecthero.guide.crime.commands.body": "/projecthero crime start <mugging|break_in|getaway|arson> starts one at the nearest village (or in front of you). end stops them all, trigger rolls a natural one now, status lists them. Frequency, kinds and rewards are in config/projecthero_crime.json.",
+  "projecthero.guide.crime.commands.body": "/projecthero crime start <mugging|break_in|getaway|arson> starts one at the nearest village (or in front of you). end stops them all, trigger rolls a natural one now, status lists them. Turn natural crimes off with /gamerule projectheroCrimes false. Frequency, kinds and rewards are in config/projecthero_crime.json.",
   "block.projecthero.precinct_desk": "Precinct Desk",
   "block.projecthero.precinct_desk.desc": "City Cop job site. Use it to read the crime reports.",
   "block.projecthero.precinct_desk.header": "[Precinct] Active reports:",
@@ -14080,5 +14080,7 @@
   "projecthero.symbiote.style.lethal_protector": "Lethal Protector",
   "projecthero.symbiote.style.lethal_protector.short": "Lethal",
   "projecthero.symbiote.style.lethal_protector.desc": "Lethal Protector: the monster. Its jaw opens on rows of fangs, it drools, and its tongue lolls out and lashes when you fight.",
-  "projecthero.guide.symbiote.s.suit.style": "Your suit: on the same screen pick Classic or Lethal Protector. Lethal Protector has a real mouth: it breathes and drools, its tongue lolls out now and then, it snarls when you swing, get hurt or use a Symbiote move, and its tongue lashes out when you land a hit or strike, grab or grapple with a tendril. Both suits take your colours; the mouth keeps its own."
+  "projecthero.guide.symbiote.s.suit.style": "Your suit: on the same screen pick Classic or Lethal Protector. Lethal Protector has a real mouth: it breathes and drools, its tongue lolls out now and then, it snarls when you swing, get hurt or use a Symbiote move, and its tongue lashes out when you land a hit or strike, grab or grapple with a tendril. Both suits take your colours; the mouth keeps its own.",
+  "gamerule.projectheroCrimes": "Street crimes",
+  "gamerule.projectheroCrimes.description": "Muggings, break-ins, getaways and arson start on their own near villages. Off stops new ones; the /projecthero crime commands still work."
 }

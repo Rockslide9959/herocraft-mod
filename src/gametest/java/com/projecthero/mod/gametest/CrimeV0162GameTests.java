@@ -353,4 +353,22 @@ public class CrimeV0162GameTests implements FabricGameTest {
 		p.discard();
 		helper.succeed();
 	}
+
+	/** v0.17.5 (user): gamerule projectheroCrimes is on by default and turning it off stops crimes starting on their own. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void crimesGameruleTurnsNaturalCrimesOff(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		net.minecraft.world.level.GameRules.BooleanValue rule = level.getGameRules().getRule(Crimes.RULE);
+		boolean before = rule.get();
+		try {
+			rule.set(true, level.getServer());
+			helper.assertTrue(Crimes.enabled(level), "on: crimes may start");
+			rule.set(false, level.getServer());
+			helper.assertFalse(Crimes.enabled(level), "off: no crimes start on their own");
+		} finally {
+			rule.set(before, level.getServer());
+		}
+		helper.assertTrue(new net.minecraft.world.level.GameRules().getBoolean(Crimes.RULE), "the default is on");
+		helper.succeed();
+	}
 }

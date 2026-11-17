@@ -79,7 +79,7 @@ public final class CrimeScheduler {
 		}
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			ServerLevel level = player.serverLevel();
-			if (level.dimension() != Level.OVERWORLD || player.isSpectator()) {
+			if (level.dimension() != Level.OVERWORLD || player.isSpectator() || !Crimes.enabled(level)) { // v0.17.5: gamerule projectheroCrimes
 				continue;
 			}
 			long now = level.getGameTime();

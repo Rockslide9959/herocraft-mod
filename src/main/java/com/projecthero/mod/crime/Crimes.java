@@ -64,7 +64,18 @@ public final class Crimes {
 		}
 	}
 
+	/** v0.17.5 (user): gamerule {@code projectheroCrimes} -- off stops crimes starting on their own (the op commands still work). */
+	public static final String RULE_NAME = "projectheroCrimes";
+	public static net.minecraft.world.level.GameRules.Key<net.minecraft.world.level.GameRules.BooleanValue> RULE;
+
+	/** Whether crimes may start on their own in this world ({@link #RULE}; true until the rule is registered). */
+	public static boolean enabled(ServerLevel level) {
+		return RULE == null || level.getGameRules().getBoolean(RULE);
+	}
+
 	public static void initialize() {
+		RULE = net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry.register(RULE_NAME, net.minecraft.world.level.GameRules.Category.SPAWNING,
+				net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory.createBooleanRule(true));
 		for (CrimeType type : CrimeType.values()) {
 			EventTypes.register(type.typeId(), type::create);
 		}
