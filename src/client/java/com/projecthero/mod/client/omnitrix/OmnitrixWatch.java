@@ -290,6 +290,13 @@ public final class OmnitrixWatch {
 		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
 		float auto = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, p.level().getGameTime(), partial);
 		float twist = sp[0] + (auto > 0f ? auto * auto * 720f : 0f);
+		// v0.17.5 round 2: the Master Control code's opening flash -- every piece flat white / black, alternating, swapping ~7 times a
+		// second for two seconds (going off it starts on the other phase); the face splits into four alternating quarters
+		float mcFlash = Omnitrix.masterFlashAge(s, p.level().getGameTime(), partial);
+		if (mcFlash >= 0f) {
+			renderMasterFlash(pose, buffers, light, p, s, mcFlash, L, lift, twist, recal);
+			return;
+		}
 		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false, 0f, recal);
 		// the circuit riser the whole dial stands on while it is up
 		if (lift > 0.02f && !recal) {
@@ -397,6 +404,44 @@ public final class OmnitrixWatch {
 			drawReadout(buffers, last, ro, fx, cy, fr);
 		}
 		pose.popPose();
+	}
+
+	/** The phase (0 / 1) of the Master Control flash at {@code age} ticks: going on starts with the cuff white, going off with it black. */
+	public static int masterFlashPhase(OmnitrixState s, float age) {
+		int phase = ((int) (age / OmnitrixConfig.MASTER_FLASH_SWAP_TICKS)) & 1;
+		return Omnitrix.masterTurningOn(s) ? phase : 1 - phase;
+	}
+
+	/** v0.17.5 round 2: the watch drawn in the Master Control flash (see {@link OmnitrixModel#flash}). */
+	private static void renderMasterFlash(PoseStack pose, MultiBufferSource buffers, int light, Player p, OmnitrixState s, float age, float L, float lift,
+			float twist, boolean recal) {
+		int phase = masterFlashPhase(s, age);
+		OmnitrixModel.flash(phase);
+		try {
+			OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEX)), light, L, lift, twist, false, false, 0f, recal);
+			if (lift > 0.02f && !recal) {
+				OmnitrixModel.riser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(CIRCUIT)), L, lift);
+			} else if (lift > 0.02f) {
+				OmnitrixModel.recalRiser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(CIRCUIT)), L, lift);
+			}
+			// the face: four quarters, each the other colour from its neighbours, swapping with the rest
+			float top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);
+			float fx = (top + 0.012f) / 16f;
+			float fr = recal ? OmnitrixModel.RECAL_FACE_R : OmnitrixModel.FACE_R;
+			float cy = OmnitrixModel.CY;
+			float u = 1f / 16f, su0 = OmnitrixFunctionClient.SOLID * u + u * 0.3f, su1 = OmnitrixFunctionClient.SOLID * u + u * 0.7f;
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(OmnitrixFunctionClient.GLYPHS));
+			PoseStack.Pose last = pose.last();
+			for (int qy = 0; qy < 2; qy++) {
+				for (int qz = 0; qz < 2; qz++) {
+					int c = OmnitrixModel.flashColour(((qy + qz) & 1) == 0);
+					float h = fr * 0.7f; // inside the round face
+					cellQuad(vc, last, c, fx, cy - h + qy * h, cy + qy * h, -h + qz * h, qz * h, su0, 0.3f, su1, 0.7f, LightTexture.FULL_BRIGHT);
+				}
+			}
+		} finally {
+			OmnitrixModel.unflash();
+		}
 	}
 
 	/**

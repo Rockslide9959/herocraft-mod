@@ -317,12 +317,23 @@ public final class OmnitrixFunctionClient {
 		colours.add(wrong ? 0xFFFF5555 : 0xFF55FF55);
 		texts.add(Component.translatable("hud.projecthero.omnitrix.function.help"));
 		colours.add(0xFFAAAAAA);
+		OmnitrixFunction.Outcome last = OmnitrixFunction.lastOutcome(s);
 		if (locked) {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.locked", (OmnitrixFunction.lockLeft(s, now) + 19) / 20));
 			colours.add(0xFFFF5555);
+		} else if (last == OmnitrixFunction.Outcome.SELF_DESTRUCT_CANCELLED && OmnitrixFunction.resultAge(s, now, 0f) < 60f) {
+			// v0.17.5 round 2: the cancel is told here, not on the action bar (which ran under this box)
+			texts.add(Component.translatable("hud.projecthero.omnitrix.function.sd_cancelled"));
+			colours.add(0xFF55FF55);
 		} else {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.known", OmnitrixCodes.mask(p, "_", " ")));
 			colours.add(0xFF8FE870);
+		}
+		if (Omnitrix.masterControl(p)) {
+			// v0.17.5 round 2 (user: "When I entered the master control code nothing happened" -- it was already on, so the code
+			// turned it off): say so before he types
+			texts.add(Component.translatable("hud.projecthero.omnitrix.function.mc_on"));
+			colours.add(0xFFFFD24A);
 		}
 		int ty = y - 1;
 		for (int k = texts.size() - 1; k >= 0; k--) {

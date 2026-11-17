@@ -162,7 +162,7 @@ public final class OmnitrixRecalibrationGameTests implements FabricGameTest {
 			Omnitrix.tick(p);
 			seen.add(Omnitrix.state(p).selected);
 		});
-		int steps = (Aliens.playable(p).size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;
+		int steps = OmnitrixConfig.MASTER_FLASH_TICKS + (Aliens.playable(p).size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS; // v0.17.5 round 2: the white / black flash first
 		helper.runAfterDelay(steps, () -> {
 			helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
 			for (Aliens.Alien a : Aliens.playable(p)) {

@@ -193,9 +193,8 @@ public final class OmnitrixFunction {
 			return Outcome.REFUSED;
 		}
 		if (locked(s, now)) {
+			// v0.17.5 round 2: no action-bar line -- the function-mode HUD box already says LOCKED n s, and the line ran under the box
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.code.locked", (lockLeft(s, now) + 19) / 20)
-					.withStyle(ChatFormatting.RED), true);
 			return Outcome.LOCKED;
 		}
 		long at = s.readyAt(RESULT_AT);
@@ -215,7 +214,9 @@ public final class OmnitrixFunction {
 			n.timers.put(FUNC_OUT, now);
 			Omnitrix.save(p, n);
 			OmnitrixSounds.notify(p, OmnitrixSounds.SELECT, 1.6f);
-			// the dial turns through every alien, the watch goes down and Master Control flips -- on, or off if it was on
+			// v0.17.5 round 2: function mode (and its HUD box) is closed by now, so the action bar is free
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.code.accepted").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD), true);
+			// the white / black flash (2 s), then the dial turns through every alien, the watch goes down and Master Control flips -- on, or off if it was on
 			Omnitrix.startMasterSequence(p);
 			return Outcome.MASTER;
 		}
@@ -238,8 +239,8 @@ public final class OmnitrixFunction {
 		Omnitrix.save(p, n);
 		OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 		OmnitrixSounds.notify(p, OmnitrixSounds.WARNING, 0.6f);
-		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.code.wrong", OmnitrixConfig.CODE_LOCK_TICKS / 20)
-				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+		// v0.17.5 round 2 (user: "ACCESS DENIED - locked for 10 s" ran under the HUD box): the box says ACCESS DENIED and LOCKED n s
+		// itself, so nothing goes to the action bar while function mode is open
 		return Outcome.WRONG;
 	}
 
@@ -282,15 +283,13 @@ public final class OmnitrixFunction {
 			n.timers.remove(SELF_DESTRUCT);
 			result(n, Outcome.SELF_DESTRUCT_CANCELLED, now);
 			Omnitrix.save(p, n);
-			OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.self_destruct.cancelled").withStyle(ChatFormatting.GREEN), true);
+			OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED); // (the HUD box shows the cancel: function mode is still open)
 			return Outcome.SELF_DESTRUCT_CANCELLED;
 		}
 		n.timers.put(SELF_DESTRUCT, now);
 		result(n, Outcome.SELF_DESTRUCT_ARMED, now);
 		Omnitrix.save(p, n);
-		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SELF_DESTRUCT, 0.9f, 1.0f);
-		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.self_destruct.armed").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SELF_DESTRUCT, 0.9f, 1.0f); // (the red banner at the top says it)
 		return Outcome.SELF_DESTRUCT_ARMED;
 	}
 

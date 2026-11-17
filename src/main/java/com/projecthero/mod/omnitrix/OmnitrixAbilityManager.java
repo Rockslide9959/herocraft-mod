@@ -69,6 +69,8 @@ public final class OmnitrixAbilityManager {
 		OmnitrixState s = Omnitrix.state(p);
 		if (s.transformed()) {
 			return;
+		} else if (Omnitrix.masterSequence(p)) {
+			return; // v0.17.5 round 2: the code's flash and dial run play to the end (lowering it threw the sequence away silently)
 		} else if (s.selecting) {
 			Omnitrix.deactivate(p);
 		} else if (Omnitrix.activate(p)) {

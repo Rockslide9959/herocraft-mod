@@ -23,7 +23,8 @@ import net.minecraft.server.level.ServerPlayer;
  *   <li>{@code time <seconds>} -- the alien time left (transformed), or the stored battery (a human on the Recalibrated Omnitrix);</li>
  *   <li>{@code recharge <seconds>} -- the recharge (0 = ready now);</li>
  *   <li>{@code failsafe <seconds>} -- the failsafe offline this long (0 = armed now);</li>
- *   <li>{@code glitch on|off} -- the prototype's chance to mistransform.</li>
+ *   <li>{@code glitch on|off} -- the prototype's chance to mistransform;</li>
+ *   <li>{@code code show} -- v0.17.5: your own Master Control code (and the digits you have found); {@code code set <six digits>}.</li>
  * </ul>
  */
 public final class OmnitrixCommand {
@@ -67,6 +68,19 @@ public final class OmnitrixCommand {
 							c.getSource().sendSuccess(() -> Component.literal("Mistransforms so far: " + count), false);
 							return 1;
 						})))
+				// v0.17.5: the wearer's own Master Control code -- read back (it is never sent to a client otherwise), or set (testing)
+				.then(Commands.literal("code")
+						.then(Commands.literal("show").executes(c -> done(c, p -> "Your Master Control code: " + OmnitrixCodes.secrets(p).master()
+								+ " (known: " + OmnitrixCodes.mask(p, "_", " ") + ")")))
+						.then(Commands.literal("set").then(Commands.argument("code", com.mojang.brigadier.arguments.StringArgumentType.word())
+								.executes(c -> done(c, p -> {
+									String code = com.mojang.brigadier.arguments.StringArgumentType.getString(c, "code");
+									if (!OmnitrixCodeEntry.valid(code) || code.equals(OmnitrixConfig.SELF_DESTRUCT_CODE)) {
+										return null;
+									}
+									OmnitrixCodes.setMasterCode(p, code);
+									return "Master Control code set to " + code;
+								})))))
 				.then(onOff("glitch", (p, on) -> {
 					Omnitrix.setGlitches(p, on);
 					return "Mistransforms " + (on ? "on" : "off");

@@ -114,7 +114,7 @@ public class OmnitrixFunctionModeGameTests implements FabricGameTest {
 
 	private static void codeTogglesMasterControl(GameTestHelper helper, boolean recal) {
 		ServerPlayer p = wearer(helper, recal, true);
-		int steps = (Aliens.playable(p).size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;
+		int steps = OmnitrixConfig.MASTER_FLASH_TICKS + (Aliens.playable(p).size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS; // v0.17.5 round 2: the flash first
 		helper.startSequence()
 				.thenExecute(() -> {
 					inFunction(helper, p);
@@ -146,6 +146,55 @@ public class OmnitrixFunctionModeGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void theCodeWorksOnTheRecalibratedWatchToo(GameTestHelper helper) {
 		codeTogglesMasterControl(helper, true);
+	}
+
+	/**
+	 * v0.17.5 round 2 (user: "When I entered the master control code nothing happened"): the test client's log showed Master Control
+	 * already on (the tune command) when the code went in, so the code turned it OFF -- and R during the sequence threw it away
+	 * without a word. Now: the code opens with the 2 s white / black flash, R cannot cut the flash or the dial run short, and the
+	 * sequence knows which way it goes (on from off, off from on).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void theCodeFlashesFirstAndRCannotCutItShort(GameTestHelper helper) {
+		ServerPlayer p = wearer(helper, false, true);
+		int dial = (Aliens.playable(p).size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;
+		String[] first = { "" };
+		helper.startSequence()
+				.thenExecute(() -> {
+					inFunction(helper, p);
+					first[0] = Omnitrix.state(p).selected;
+					helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.MASTER, "his own code is accepted");
+					OmnitrixState s = Omnitrix.state(p);
+					helper.assertTrue(Omnitrix.masterFlashAge(s, p.level().getGameTime(), 0f) >= 0f, "the flash starts at once");
+					helper.assertTrue(Omnitrix.masterTurningOn(s), "it is going ON (it was off)");
+					com.projecthero.mod.omnitrix.OmnitrixAbilityManager.pressR(p);
+					helper.assertTrue(Omnitrix.selecting(p) && Omnitrix.masterSequence(p), "R does not lower the watch mid-sequence");
+				})
+				.thenIdle(OmnitrixConfig.MASTER_FLASH_TICKS / 2)
+				.thenExecute(() -> {
+					helper.assertTrue(first[0].equals(Omnitrix.state(p).selected), "the dial waits while it flashes");
+					com.projecthero.mod.omnitrix.OmnitrixAbilityManager.pressR(p);
+					helper.assertTrue(Omnitrix.masterSequence(p), "still running after a second R");
+				})
+				.thenIdle(OmnitrixConfig.MASTER_FLASH_TICKS / 2 + OmnitrixConfig.MASTER_STEP_TICKS * 2 + 1)
+				.thenExecute(() -> {
+					helper.assertTrue(Omnitrix.masterFlashAge(Omnitrix.state(p), p.level().getGameTime(), 0f) < 0f, "the flash is over");
+					helper.assertFalse(first[0].equals(Omnitrix.state(p).selected), "and the dial is turning");
+				})
+				.thenIdle(dial)
+				.thenExecute(() -> {
+					helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
+					helper.assertFalse(Omnitrix.selecting(p), "the watch is down");
+					// already on (as the tune command left the tester's watch): the same code turns it off, and says so
+					helper.assertTrue(Omnitrix.activate(p), "raised again");
+					Omnitrix.finishRaise(p);
+					inFunction(helper, p);
+					helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.MASTER, "the code again");
+					helper.assertFalse(Omnitrix.masterTurningOn(Omnitrix.state(p)), "this time it is going OFF");
+				})
+				.thenIdle(OmnitrixConfig.MASTER_FLASH_TICKS + dial)
+				.thenExecute(() -> helper.assertFalse(Omnitrix.masterControl(p), "Master Control is off"))
+				.thenSucceed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)

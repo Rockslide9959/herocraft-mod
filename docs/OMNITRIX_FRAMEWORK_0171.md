@@ -580,3 +580,51 @@ page for the Data Fragment. The Omnitrix rules line (`projecthero.omnitrix.info.
 
 **Rendering note.** The face readout is cutout quads (white strokes in `code_glyphs.png`, tinted per vertex) over a dark band:
 translucent / `eyes` quads drawn this late in the first-person hand pass ended up in the wrong place on screen; cutout ones do not.
+
+### Round 2: "nothing happened", the white / black flash (v0.17.5)
+
+User: "When I entered the master control code nothing happened, when i enter it then master control should activate, slightly change
+the animation for it too, the omnitrix first flashes white and black with the pieces of the omnitrix alternating in these colours at
+the same time, make this happen for 2 seconds and then the dial rotates between every alien, then after that the player can use the
+omnitrix again".
+
+**What went wrong.** The code path itself works: a real client typing the player's own rolled code with real input (the wheel through
+`MouseHandler.onScroll`, the middle button through `MouseHandler.onPress`, R / Shift through `KeyboardHandler.keyPress`) turns Master
+Control on in a fresh world, with Master Control already on, after a wrong code and the lock, with every hidden alien on the dial, and
+in a copy of the tester's own save (`test 7`, his code from the Data Fragments). The test modpack's log shows why it looked dead:
+`/projecthero power tune omnitrix master on` ran 11 s after the watch went on, the six digits came from Data Fragments afterwards, so
+when the code went in Master Control was already ON and the code turned it OFF (a grey "Master Control off" on the action bar, no
+other feedback). And R during the dial run lowered the watch, which threw the sequence away without a word. Fixes:
+
+- the function-mode HUD box says **"Master Control is ON: the code turns it off"** while it is on;
+- an accepted code says **CODE ACCEPTED** on the action bar at once and plays the flash (below), so it can never look like nothing;
+- **R is ignored** while the sequence runs (`OmnitrixAbilityManager.pressR`), the scroll wheel and the slap already were.
+
+**The animation** (`Omnitrix.startMasterSequence` / `tickMasterSequence`, drawn by `OmnitrixWatch.renderMasterFlash`):
+
+| Beat | Ticks | What |
+|---|---|---|
+| Flash | 0-40 (`MASTER_FLASH_TICKS`) | every piece of the watch flat white or near-black, alternating: the cuff, the four lights, the dial ring and the button ring in one colour; the prongs, the bezel, the core walls and the circuit riser in the other; the face split into four quarters checkered against each other. The colours swap every 3 ticks (`MASTER_FLASH_SWAP_TICKS`, ~7 a second). The core rises as function mode folds away. A hum (`RECAL_HUM`) under a beep on every other swap (`WARNING`, rising 1.2 -> 1.8 going on, falling 1.6 -> 1.0 going off). |
+| Dial run | then one alien every 4 ticks | the v0.17.1 dial run through every alien on the dial |
+| Done | | the watch lowers, Master Control flips, "MASTER CONTROL UNLOCKED" / "Master Control off", the watch is usable |
+
+Going **off** plays the same flash starting on the other phase (cuff black first) with the falling beeps. Everything reads the synced
+`MC_SEQ` timer (`Omnitrix.masterFlashAge`, `masterTurningOn`), so the wearer's first person, his third person and every other viewer
+see the same flash. `OmnitrixModel.flash(phase)` recolours by the swatch each quad's UV points at (no draw call changed); pieces come
+from the white swatch of the bound sheet tinted per vertex, white ones full-bright.
+
+**HUD overlap.** "ACCESS DENIED - locked for 10 s" (and the lock / self-destruct armed / cancelled lines) went to the action bar while
+the function-mode box was up, and on a narrow screen the box covered it. Those lines are gone from the action bar: the box already says
+ACCESS DENIED / LOCKED n s, the self-destruct banner says armed, and the box's status line now says "Self-destruct cancelled" for 3 s.
+The only action-bar lines left in function mode come after it closes (CODE ACCEPTED, an alien code's line, Master Control on / off).
+
+**Op command.** `/projecthero power tune omnitrix code show` prints your Master Control code and the digits you have found;
+`code set <six digits>` sets it (testing).
+
+**Tests / films.** `OmnitrixFunctionModeGameTests.theCodeFlashesFirstAndRCannotCutItShort`; harness
+`scratchpad/OmnitrixMasterHarness.v0175.java.txt` (modes `repro`, `scen`, `user` = a copied save in `run/saves/usertest7`, `film`),
+`scratchpad/omnitrix_master2_film_v0175.js`, footage in `docs/screenshots/v0175/omnitrix_master2/`.
+
+**Blitzwolfer's tail** (user: "Make blitzwolfers tail black, the same black fur that's on his head please"): the 3D tail
+(`BenwolfSprint.renderTail`) is mapped onto the back of his head on the skin (texels 24..31 x 8..15, his black fur with its shading)
+and the tip onto the top of his head (8..15 x 0..5), instead of single texels of grey back fur / a pale tip. No texture change.

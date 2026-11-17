@@ -45,8 +45,14 @@ public final class BenwolfClient implements AlienClientKit {
 	/** Skin texels: the black fur, the grey of his muzzle and nose. */
 	private static final float[] FUR = AlienHorns.pixel(10, 9, 64), GREY = AlienHorns.pixel(11, 12, 64), FUR_EDGE = AlienHorns.pixel(8, 9, 64);
 	private static final int THROAT = 0xFF2A0A10, GUM = 0xFF6A1A22, FANG = 0xFFF2F0E2;
-	/** v0.17.4 the tail's texels: the grey fur of his back, the black of his mane at the root, a pale tip from his white stripes. */
-	private static final float[] TAIL_FUR = AlienHorns.pixel(31, 25, 64), TAIL_ROOT = AlienHorns.pixel(35, 20, 64), TAIL_TIP = AlienHorns.pixel(32, 28, 64);
+	/**
+	 * v0.17.5 (user: "Make blitzwolfers tail black, the same black fur that's on his head please"): every tail box is mapped onto
+	 * the back of his head (skin texels 24..31 x 8..15, nothing but his black fur with its own shading, 7..24 grey) -- the root and
+	 * the links -- and the tip onto the top of his head (8..15 x 0..5, the same fur), so the tail carries the head's fur, shading and
+	 * all. (v0.17.4 had the grey back fur, a black root and a pale tip, each a single texel.)
+	 */
+	private static final float[] TAIL_FUR = { 24.5f / 64f, 8.5f / 64f, 31.5f / 64f, 15.5f / 64f }, TAIL_ROOT = TAIL_FUR,
+			TAIL_TIP = { 8.5f / 64f, 0.5f / 64f, 15.5f / 64f, 5.5f / 64f };
 
 	@Override
 	public void tick(AbstractClientPlayer p) {

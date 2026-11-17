@@ -36,6 +36,7 @@ public final class OmnitrixModel {
 
 	// swatch origins (texels) in the 128x128 sheet
 	static final int CUFF = 0, PLATE = 1, BLACK = 2, GREY = 3, WHITE = 4, GREEN = 5, INNER = 6, RING = 7, DIMGREEN = 8;
+	private static final int SW_WHITE_U = 0, SW_WHITE_V = 16;
 	private static final int[][] SW = { { 0, 0 }, { 16, 0 }, { 32, 0 }, { 48, 0 }, { 0, 16 }, { 16, 16 }, { 32, 16 }, { 48, 16 }, { 0, 32 } };
 
 	// the cuff's cross-section: a rounded rectangle round the sleeve (x -1.25..L+0.25, z +-2.25), clearance 0.15
@@ -62,6 +63,37 @@ public final class OmnitrixModel {
 	public static void untint() {
 		TR = TG = TB = TA = 255;
 	}
+
+	/**
+	 * v0.17.5 round 2 (user: "the omnitrix first flashes white and black with the pieces of the omnitrix alternating in these colours
+	 * at the same time"): while {@link #flash} is set (0 or 1, the phase; -1 off) every piece is drawn flat white or near-black from
+	 * the white swatch of whatever watch sheet is bound -- the cuff, the dial ring, the lights and the button's ring in one colour, the
+	 * prongs, the bezel, the core and the inner walls in the other -- and the phase swaps them. Pieces are told apart by the swatch
+	 * their UVs point at, so no draw call changes.
+	 */
+	private static int FLASH = -1;
+
+	public static void flash(int phase) {
+		FLASH = phase;
+	}
+
+	public static void unflash() {
+		FLASH = -1;
+	}
+
+	/** The flash colour (opaque rgb) of piece group {@code a} (true: the cuff's group) in the current phase. */
+	public static int flashColour(boolean a) {
+		return (a ^ FLASH == 1) ? 0xFFFFFFFF : 0xFF161616;
+	}
+
+	/** Whether the swatch under texel uv ({@code u}, {@code v} in 0..1) is in the cuff's group. */
+	private static boolean flashGroup(float u, float v) {
+		int sx = (int) (u * 128f) / 16, sy = (int) (v * 128f) / 16;
+		int sw = sy == 0 ? sx : sy == 1 ? 4 + sx : 8;
+		return sw == CUFF || sw == GREEN || sw == RING || sw == DIMGREEN;
+	}
+
+	private static final float WU = (SW_WHITE_U + 8) * T, WV = (SW_WHITE_V + 8) * T;
 
 	private OmnitrixModel() {
 	}
@@ -452,17 +484,19 @@ public final class OmnitrixModel {
 		// the strip (128 x 16) covers a quarter of the round (four repeats); v spans the revealed height, rising with it
 		float vTop = 0f, vBot = 1f;
 		int l = LightTexture.FULL_BRIGHT;
+		int rc = FLASH >= 0 ? flashColour(false) : 0xFFFFFFFF; // v0.17.5 round 2: the flash's second group
+		int cr = (rc >> 16) & 255, cg = (rc >> 8) & 255, cb = rc & 255;
 		for (int i = 0; i < seg; i++) {
 			double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
 			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
 			float u0 = (i % 8) / 8f, u1 = (i % 8 + 1) / 8f;
-			vc.addVertex(p, x1 * S, (cy + c0 * r) * S, s0 * r * S).setColor(255, 255, 255, 255).setUv(u0, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
+			vc.addVertex(p, x1 * S, (cy + c0 * r) * S, s0 * r * S).setColor(cr, cg, cb, 255).setUv(u0, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(l).setNormal(p, 0, c0, s0);
-			vc.addVertex(p, x1 * S, (cy + c1 * r) * S, s1 * r * S).setColor(255, 255, 255, 255).setUv(u1, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
+			vc.addVertex(p, x1 * S, (cy + c1 * r) * S, s1 * r * S).setColor(cr, cg, cb, 255).setUv(u1, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(l).setNormal(p, 0, c1, s1);
-			vc.addVertex(p, x0 * S, (cy + c1 * r) * S, s1 * r * S).setColor(255, 255, 255, 255).setUv(u1, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
+			vc.addVertex(p, x0 * S, (cy + c1 * r) * S, s1 * r * S).setColor(cr, cg, cb, 255).setUv(u1, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(l).setNormal(p, 0, c1, s1);
-			vc.addVertex(p, x0 * S, (cy + c0 * r) * S, s0 * r * S).setColor(255, 255, 255, 255).setUv(u0, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
+			vc.addVertex(p, x0 * S, (cy + c0 * r) * S, s0 * r * S).setColor(cr, cg, cb, 255).setUv(u0, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
 					.setLight(l).setNormal(p, 0, c0, s0);
 		}
 	}
@@ -639,6 +673,12 @@ public final class OmnitrixModel {
 
 	/** One vertex at (x, y, z) px. */
 	private static void vtx(VertexConsumer vc, PoseStack.Pose p, int light, float x, float y, float z, float nx, float ny, float nz, float u, float v) {
+		if (FLASH >= 0) {
+			int c = flashColour(flashGroup(u, v));
+			vc.addVertex(p, x * S, y * S, z * S).setColor(c).setUv(WU, WV).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight((c & 0xFF) > 128 ? LightTexture.FULL_BRIGHT : light).setNormal(p, nx, ny, nz);
+			return;
+		}
 		vc.addVertex(p, x * S, y * S, z * S).setColor(TR, TG, TB, TA).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
 				.setNormal(p, nx, ny, nz);
 	}
@@ -697,6 +737,15 @@ public final class OmnitrixModel {
 
 	static void quad(VertexConsumer vc, PoseStack.Pose p, int light, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy,
 			float cz, float dx, float dy, float dz, float nx, float ny, float nz, float u0, float v0, float u1, float v1) {
+		if (FLASH >= 0) {
+			int c = flashColour(flashGroup((u0 + u1) * 0.5f, (v0 + v1) * 0.5f));
+			int l = (c & 0xFF) > 128 ? LightTexture.FULL_BRIGHT : light;
+			vc.addVertex(p, ax, ay, az).setColor(c).setUv(WU, WV).setOverlay(OverlayTexture.NO_OVERLAY).setLight(l).setNormal(p, nx, ny, nz);
+			vc.addVertex(p, bx, by, bz).setColor(c).setUv(WU, WV).setOverlay(OverlayTexture.NO_OVERLAY).setLight(l).setNormal(p, nx, ny, nz);
+			vc.addVertex(p, cx, cy, cz).setColor(c).setUv(WU, WV).setOverlay(OverlayTexture.NO_OVERLAY).setLight(l).setNormal(p, nx, ny, nz);
+			vc.addVertex(p, dx, dy, dz).setColor(c).setUv(WU, WV).setOverlay(OverlayTexture.NO_OVERLAY).setLight(l).setNormal(p, nx, ny, nz);
+			return;
+		}
 		vc.addVertex(p, ax, ay, az).setColor(TR, TG, TB, TA).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
 		vc.addVertex(p, bx, by, bz).setColor(TR, TG, TB, TA).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
 		vc.addVertex(p, cx, cy, cz).setColor(TR, TG, TB, TA).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);

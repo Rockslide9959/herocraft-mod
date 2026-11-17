@@ -257,7 +257,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.startMasterSequence(p), "the code's payoff (v0.17.5: OmnitrixFunction) starts the sequence");
 		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial is the watch's while it turns itself");
 		pump(helper, p);
-		int steps = (Aliens.playable().size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;
+		int steps = OmnitrixConfig.MASTER_FLASH_TICKS + (Aliens.playable().size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS; // v0.17.5 round 2: the white / black flash first
 		helper.runAfterDelay(steps, () -> {
 			helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
 			helper.assertFalse(Omnitrix.selecting(p) || Omnitrix.masterSequence(p), "and the watch is down again");

@@ -1,0 +1,474 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixCodes;
+import com.projecthero.mod.omnitrix.OmnitrixFunction;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Omnitrix Master Control round 2): everything through the real input handlers
+ * (KeyboardHandler.keyPress for R / Shift, MouseHandler.onPress for right / middle, MouseHandler.onScroll for the wheel). The code
+ * is the player's own rolled one, read with the op command. Enabled by run/omnimaster.flag = "<out dir>|<mode>".
+ */
+public final class OmnitrixMasterHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static volatile String code = "";
+	private static String mode = "repro";
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static int film0 = -1, filmEnd = -1;
+	private static String filmDir = "film";
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("omnimaster.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				mode = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		new File(out, "screenshots/film").mkdirs();
+		new File(out, "screenshots/film3").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixMasterHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "omnimaster-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static long win() {
+		return Minecraft.getInstance().getWindow().getWindow();
+	}
+
+	private static void mouse(int button, int action) {
+		Minecraft mc = Minecraft.getInstance();
+		try {
+			var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onPress", long.class, int.class, int.class, int.class);
+			m.setAccessible(true);
+			m.invoke(mc.mouseHandler, win(), button, action, 0);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] mouse failed " + e);
+		}
+	}
+
+	private static void wheel(double dy) {
+		Minecraft mc = Minecraft.getInstance();
+		try {
+			var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onScroll", long.class, double.class, double.class);
+			m.setAccessible(true);
+			m.invoke(mc.mouseHandler, win(), 0.0, dy);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] wheel failed " + e);
+		}
+	}
+
+	private static void key(int key, int action) {
+		Minecraft.getInstance().keyboardHandler.keyPress(win(), key, GLFW.glfwGetKeyScancode(key), action, 0);
+	}
+
+	/** A tap of R (raise / lower the watch). */
+	private static void tapR(int t) {
+		at(t, () -> key(GLFW.GLFW_KEY_R, GLFW.GLFW_PRESS));
+		at(t + 2, () -> key(GLFW.GLFW_KEY_R, GLFW.GLFW_RELEASE));
+	}
+
+	private static void shiftRight(int t) {
+		at(t, () -> key(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_PRESS));
+		at(t + 3, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT, GLFW.GLFW_PRESS));
+		at(t + 5, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT, GLFW.GLFW_RELEASE));
+		at(t + 8, () -> key(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_RELEASE));
+	}
+
+	private static void middle(int t) {
+		at(t, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, GLFW.GLFW_PRESS));
+		at(t + 1, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, GLFW.GLFW_RELEASE));
+	}
+
+	/** Types the code {@code c} supplies (read when the time comes) from slots showing {@code from}; {@code gap} ticks per notch. */
+	private static int type(int t0, java.util.function.Supplier<String> c, int gap, String from) {
+		int t = t0;
+		for (int i = 0; i < 6; i++) {
+			final int slot = i;
+			for (int k = 0; k < 9; k++) {
+				final int kk = k;
+				at(t + k * gap, () -> {
+					String s = c.get();
+					int d = s.charAt(slot) - '0';
+					int f = from == null ? 0 : from.charAt(slot) - '0';
+					if (kk < Math.floorMod(d - f, 10)) {
+						wheel(1.0);
+					}
+				});
+			}
+			t += 9 * gap + 4;
+			middle(t);
+			t += 6;
+		}
+		return t;
+	}
+
+	public static volatile net.minecraft.world.phys.Vec3 camOffset, camTarget = new net.minecraft.world.phys.Vec3(0, 1.0, 0);
+	public static volatile java.util.function.Supplier<net.minecraft.world.phys.Vec3> camAbs;
+	private static net.minecraft.world.entity.decoration.ArmorStand stand;
+
+	/** The camera on an invisible client-side stand {@code dist} blocks out at {@code angle} degrees round the player (0 = in front), eye {@code h} up. */
+	private static void cam(float angle, float dist, float h) {
+		Minecraft mc = Minecraft.getInstance();
+		var p = mc.player;
+		double r = Math.toRadians(p.getYRot() + angle);
+		camOffset = new net.minecraft.world.phys.Vec3(-Math.sin(r) * dist, h, Math.cos(r) * dist);
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void uncam() {
+		camOffset = null;
+		Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON);
+	}
+
+	private static void log(Minecraft mc, String tag) {
+		server(mc, p -> {
+			var s = Omnitrix.state(p);
+			System.out.println("[HARNESS] " + tag + " sel=" + s.selecting + " func=" + OmnitrixFunction.active(s) + " seq=" + Omnitrix.masterSequence(p)
+					+ " mc=" + Omnitrix.masterControl(p) + " last=" + OmnitrixFunction.lastOutcome(s) + " lock=" + OmnitrixFunction.lockLeft(s, p.level().getGameTime())
+					+ " known=" + OmnitrixCodes.mask(p, "_", "") + " code=" + OmnitrixCodes.secrets(p).master() + " selected=" + s.selected);
+		});
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.PEACEFUL, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -6; x <= 6; x++) {
+			for (int z = -6; z <= 6; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		Omnitrix.grant(p, false);
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 10f);
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		at(0, () -> mc.player.connection.sendCommand("projecthero power tune omnitrix code show"));
+		at(4, () -> server(mc, p -> code = OmnitrixCodes.secrets(p).master()));
+		at(6, () -> log(mc, "start"));
+		if (mode.equals("repro")) {
+			tapR(10);
+			shiftRight(50);
+			at(70, () -> log(mc, "in function"));
+			int done = type(74, () -> code, 3, null);
+			for (int k = 0; k <= 200; k += 10) {
+				final int kk = k;
+				at(done + k, () -> log(mc, "after+" + kk));
+			}
+			at(done + 30, () -> shot(mc, "repro_after_30"));
+			at(done + 205, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		} else if (mode.equals("user")) {
+			at(10, () -> log(mc, "user state"));
+			at(12, () -> server(mc, p -> System.out.println("[HARNESS] timers " + Omnitrix.state(p).timers + " active=" + Omnitrix.state(p).active
+					+ " recharge=" + Omnitrix.state(p).rechargeUntil + " now=" + p.level().getGameTime())));
+			at(14, () -> server(mc, p -> System.out.println("[HARNESS] ctx=" + com.projecthero.mod.omnitrix.OmnitrixAbilityManager.hasContext(p) + " armourKeys=" + com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(p) + " suppressed=" + com.projecthero.mod.hero.PowerSuppression.isSuppressed(p) + " exp=" + java.util.Optional.ofNullable(p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null)).map(e -> e.activePower).orElse("none") + " pos=" + p.position())));
+			at(16, () -> server(mc, p -> System.out.println("[HARNESS] hasPower=" + Omnitrix.hasPower(p) + " grant=" + Omnitrix.grant(p, false))));
+			tapR(20);
+			at(40, () -> log(mc, "raised +20"));
+			at(50, () -> server(mc, p -> { if (!Omnitrix.selecting(p)) { System.out.println("[HARNESS] R did not raise; activate=" + Omnitrix.activate(p)); } }));
+			at(60, () -> log(mc, "raised +40"));
+			shiftRight(70);
+			at(90, () -> log(mc, "function?"));
+			int done = type(94, () -> code, 3, null);
+			for (int k = 0; k <= 160; k += 10) {
+				final int kk = k;
+				at(done + k, () -> log(mc, "after+" + kk));
+			}
+			at(done + 20, () -> shot(mc, "user_after_20"));
+			at(done + 165, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		} else if (mode.equals("film")) {
+			// ---- 1: first person, the code typed with the wheel and the middle button -> the flash -> the dial run -> Master Control on
+			at(8, () -> server(mc, p -> {
+				for (var a : com.projecthero.mod.omnitrix.alien.Aliens.mistransformFinds()) {
+					com.projecthero.mod.omnitrix.alien.Aliens.discover(p, a.id(), a.id().equals("benwolf"));
+				}
+			}));
+			tapR(12);
+			shiftRight(44);
+			film0 = 60;
+			int done = type(64, () -> code, 2, null);
+			filmEnd = done + 120;
+			at(done - 2, () -> log(mc, "film1 submit"));
+			at(done + 10, () -> shot(mc, "01_flash_first_person_a"));
+			at(done + 12, () -> shot(mc, "01_flash_first_person_b"));
+			at(done + 60, () -> shot(mc, "02_dial_run_first_person"));
+			at(done + 110, () -> log(mc, "film1 end"));
+			at(done + 112, () -> shot(mc, "03_master_control_on"));
+			// ---- 2: Blitzwolfer front / back / side (Master Control lets the code pick him straight away)
+			int b = done + 130;
+			at(b, () -> server(mc, p -> {
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 0f);
+				Omnitrix.masterSwitch(p, "benwolf");
+			}));
+			at(b + 50, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+				mc.gui.getChat().clearMessages(false);
+			});
+			at(b + 60, () -> shot(mc, "10_blitzwolfer_front"));
+			at(b + 62, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+			at(b + 70, () -> shot(mc, "11_blitzwolfer_back"));
+			at(b + 72, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+				mc.player.setYRot(90f);
+				mc.player.setYHeadRot(90f);
+				mc.player.yBodyRot = 90f;
+			});
+			at(b + 74, () -> server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 90f, 0f)));
+			at(b + 84, () -> shot(mc, "12_blitzwolfer_side"));
+			at(b + 86, () -> server(mc, p -> p.connection.teleport(p.getX(), p.getY(), p.getZ(), 150f, 20f)));
+			at(b + 96, () -> shot(mc, "13_blitzwolfer_three_quarter_back"));
+			at(b + 100, () -> server(mc, p -> {
+				Omnitrix.revertEarly(p);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+			}));
+			// ---- 3: third person, the code again turns it OFF (the flash starts on the other phase)
+			int o = b + 160;
+			at(o, () -> server(mc, p -> {
+				var n = Omnitrix.state(p).copy();
+				n.rechargeUntil = 0L;
+				Omnitrix.save(p, n);
+			}));
+			tapR(o + 4);
+			shiftRight(o + 36);
+			int done3 = type(o + 52, () -> code, 2, code);
+			at(done3 - 30, () -> {
+				filmDir = "film3";
+				film0 = done3 - 30;
+				filmEnd = done3 + 120;
+			});
+			at(done3 - 36, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+			at(done3 + 10, () -> shot(mc, "04_flash_third_person_off"));
+			at(done3 + 116, () -> log(mc, "film3 end"));
+			at(done3 + 125, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		} else if (mode.equals("film2")) {
+			// ---- Blitzwolfer close up from a camera stand (front / side / back), then the code turning Master Control OFF, third person
+			at(8, () -> server(mc, p -> {
+				com.projecthero.mod.omnitrix.alien.Aliens.discover(p, "benwolf", true);
+				Omnitrix.setMasterControl(p, true);
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 0f);
+			}));
+			at(12, () -> server(mc, p -> Omnitrix.masterSwitch(p, "benwolf")));
+			at(60, () -> mc.gui.getChat().clearMessages(false));
+			at(62, () -> cam(0f, 2.6f, 1.2f));
+			at(70, () -> shot(mc, "10_blitzwolfer_front"));
+			at(72, () -> cam(90f, 2.6f, 1.0f));
+			at(80, () -> shot(mc, "11_blitzwolfer_side"));
+			at(82, () -> cam(180f, 2.4f, 1.0f));
+			at(90, () -> shot(mc, "12_blitzwolfer_back"));
+			at(92, () -> cam(140f, 2.2f, 0.9f));
+			at(100, () -> shot(mc, "13_blitzwolfer_three_quarter_back"));
+			at(102, () -> cam(270f, 2.6f, 1.0f));
+			at(110, () -> shot(mc, "14_blitzwolfer_other_side"));
+			at(112, () -> uncam());
+			at(114, () -> server(mc, p -> Omnitrix.revertEarly(p)));
+			int o = 150;
+			at(o, () -> server(mc, p -> {
+				var n = Omnitrix.state(p).copy();
+				n.rechargeUntil = 0L;
+				Omnitrix.save(p, n);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, 10f);
+			}));
+			tapR(o + 4);
+			shiftRight(o + 36);
+			at(o + 50, () -> cam(-55f, 1.7f, 1.25f));
+			at(o + 52, () -> shot(mc, "05_function_mode_master_on_note_third_person"));
+			int done3 = type(o + 56, () -> code, 2, null);
+			at(done3 - 30, () -> {
+				filmDir = "film3";
+				film0 = done3 - 30;
+				filmEnd = done3 + 125;
+			});
+			at(done3 + 10, () -> shot(mc, "04_flash_third_person_off"));
+			at(done3 + 120, () -> log(mc, "film3 end"));
+			at(done3 + 128, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		} else if (mode.equals("scen")) {
+			// S1: is the code in the saved player data?
+			at(8, () -> server(mc, p -> {
+				net.minecraft.nbt.CompoundTag tag = p.saveWithoutId(new net.minecraft.nbt.CompoundTag());
+				String s = tag.toString();
+				int i = s.indexOf("omnitrix_secrets");
+				System.out.println("[HARNESS] S1 saved secrets: " + (i < 0 ? "MISSING" : s.substring(i, Math.min(s.length(), i + 120))));
+			}));
+			// S2: Master Control already on -> the code
+			at(12, () -> server(mc, p -> Omnitrix.setMasterControl(p, true)));
+			tapR(16);
+			shiftRight(56);
+			int d2 = type(76, () -> code, 2, null);
+			at(d2 + 60, () -> log(mc, "S2 (was on) +60"));
+			// S3: every hidden alien found, a stick in hand, a long wait, a wrong code, the lock, then the right one
+			int s3 = d2 + 80;
+			at(s3, () -> server(mc, p -> {
+				for (var a : com.projecthero.mod.omnitrix.alien.Aliens.mistransformFinds()) {
+					com.projecthero.mod.omnitrix.alien.Aliens.discover(p, a.id(), true);
+				}
+				p.getInventory().setItem(p.getInventory().selected, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+				Omnitrix.setMasterControl(p, false);
+			}));
+			tapR(s3 + 6);
+			shiftRight(s3 + 46);
+			int w = type(s3 + 400, () -> "000000".equals(code) ? "111111" : "000000", 2, null);
+			at(w + 10, () -> log(mc, "S3 wrong +10"));
+			at(w + 12, () -> shot(mc, "s3_wrong_overlap"));
+			int r = type(w + 215, () -> code, 2, "000000".equals(code) ? "111111" : "000000");
+			at(r + 2, () -> log(mc, "S3 right +2"));
+			at(r + 200, () -> log(mc, "S3 right +200"));
+			at(r + 205, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (mc.screen instanceof net.minecraft.client.gui.screens.BackupConfirmScreen bs && waitTicks % 20 == 0) {
+				for (var c : bs.children()) {
+					if (c instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().toLowerCase().contains("without")) {
+						b.onPress();
+						break;
+					}
+				}
+			}
+			if (waitTicks % 100 == 0) {
+				System.out.println("[HARNESS] waiting, screen=" + (mc.screen == null ? null : mc.screen.getClass().getName()));
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(mode.equals("user") ? () -> mc.createWorldOpenFlows().openWorld("usertest7", () -> {}) : OmnitrixMasterHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, mode.equals("user") ? p -> base = p.blockPosition() : OmnitrixMasterHarness::stage);
+		}
+		if (t < 170 || base == null) {
+			return;
+		}
+		int s = t - 170;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0 && mc.screen == null && filmEnd > 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (s >= film0 && s < filmEnd) {
+			shot(mc, String.format(filmDir + "/f%03d", s - film0));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("OMNIMASTER_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

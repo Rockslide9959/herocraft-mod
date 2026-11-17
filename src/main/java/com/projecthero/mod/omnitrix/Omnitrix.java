@@ -418,9 +418,26 @@ public final class Omnitrix {
 				|| s.timers.containsKey(OmnitrixLongTransform.TIMER);
 	}
 
-	/** The Master Control sequence is running (the dial turning on its own). */
+	/** The Master Control sequence is running (the flash, then the dial turning on its own). */
 	public static boolean masterSequence(Player p) {
 		return hasPower(p) && state(p).timers.containsKey(MC_SEQ);
+	}
+
+	/**
+	 * v0.17.5 round 2: ticks into the Master Control sequence's opening white / black flash (0 .. {@code MASTER_FLASH_TICKS}), or -1
+	 * when it is not flashing (client-safe: the synced state).
+	 */
+	public static float masterFlashAge(OmnitrixState s, long now, float partial) {
+		if (!s.timers.containsKey(MC_SEQ) || s.transformed()) {
+			return -1f;
+		}
+		float age = now + partial - s.readyAt(MC_SEQ);
+		return age >= 0f && age < OmnitrixConfig.MASTER_FLASH_TICKS ? age : -1f;
+	}
+
+	/** v0.17.5 round 2: whether the running sequence turns Master Control ON (false: it is on and the code turns it off). */
+	public static boolean masterTurningOn(OmnitrixState s) {
+		return s.readyAt(MASTER) != 1L;
 	}
 
 	/**
@@ -449,6 +466,8 @@ public final class Omnitrix {
 		n.timers.put(MC_STEP, 0L);
 		save(p, n);
 		OmnitrixSounds.play(p.serverLevel(), p.position(), cue(p, OmnitrixSounds.CORE_UP, OmnitrixSounds.RECAL_CORE_UP), 1.0f, 1.2f);
+		// v0.17.5 round 2: the flash's hum under its beeps (higher going on, lower going off)
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.RECAL_HUM, 0.8f, masterTurningOn(n) ? 1.35f : 0.8f);
 		return true;
 	}
 
@@ -464,7 +483,22 @@ public final class Omnitrix {
 			save(p, n);
 			return;
 		}
-		if ((now - start) % OmnitrixConfig.MASTER_STEP_TICKS != 0 || now == start) {
+		// v0.17.5 round 2 (user: "the omnitrix first flashes white and black ... for 2 seconds and then the dial rotates between every
+		// alien"): the first MASTER_FLASH_TICKS are the white / black flash (OmnitrixWatch draws it from the synced MC_SEQ), a beep on
+		// every other swap, rising going on and falling going off; the dial run starts after it
+		long dialStart = start + OmnitrixConfig.MASTER_FLASH_TICKS;
+		if (now < dialStart) {
+			long age = now - start;
+			int every = OmnitrixConfig.MASTER_FLASH_SWAP_TICKS * 2;
+			if (age >= 0 && age % every == 0) {
+				float k = age / (float) OmnitrixConfig.MASTER_FLASH_TICKS;
+				boolean on = masterTurningOn(s);
+				float pitch = (on ? 1.2f + 0.6f * k : 1.6f - 0.6f * k) + ((age / every) % 2 == 0 ? 0.15f : 0f);
+				OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.WARNING, 0.55f, pitch);
+			}
+			return;
+		}
+		if ((now - dialStart) % OmnitrixConfig.MASTER_STEP_TICKS != 0 || now == dialStart) {
 			return;
 		}
 		if (steps < pool.size()) {

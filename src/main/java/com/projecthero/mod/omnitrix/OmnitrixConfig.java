@@ -144,6 +144,14 @@ public final class OmnitrixConfig {
 	 * ({@link OmnitrixFunction}) -- on, and again to turn it off. The v0.17.4 ritual and the Shift+N off-hold are gone.
 	 */
 	public static final int MASTER_STEP_TICKS = 4;
+	/**
+	 * v0.17.5 round 2 (user: "the omnitrix first flashes white and black with the pieces of the omnitrix alternating in these colours
+	 * at the same time, make this happen for 2 seconds and then the dial rotates between every alien"): the code's sequence opens
+	 * with this long of the white / black flash before the dial run starts.
+	 */
+	public static final int MASTER_FLASH_TICKS = 40;
+	/** The flash swaps its white and black pieces every this many ticks (~7 swaps a second). */
+	public static final int MASTER_FLASH_SWAP_TICKS = 3;
 
 	// ---------------------------------------------------------------- v0.17.5: function mode and the codes (OmnitrixFunction / OmnitrixCodes)
 	/** Digits in a code. */
