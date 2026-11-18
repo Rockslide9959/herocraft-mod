@@ -18,7 +18,10 @@ import net.minecraft.server.level.ServerPlayer;
  * Wolverine's Super Regeneration) and the Primary-slot rule ({@link HeroTiers#claimPrimary}).
  */
 public final class PowerGrants {
-	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
+	/**
+	 * Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the two Secondary powers a grant
+	 * can hand out -- the Symbiote and (v0.17.5) the Falcon gear ({@link #SECONDARY_KEYS}).
+	 */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
 			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "black_panther", "undead", "saiyan",
@@ -38,6 +41,12 @@ public final class PowerGrants {
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
 			"symbiote");
+
+	/**
+	 * v0.17.5: grant keys for Secondary powers -- an admin "grant" of one adds it on top of what the player holds instead of
+	 * replacing everything (HeroCommand), and it never claims the Primary slot.
+	 */
+	public static final java.util.Set<String> SECONDARY_KEYS = java.util.Set.of("falcon");
 
 	/**
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
@@ -67,7 +76,10 @@ public final class PowerGrants {
 		return HeroTiers.holdsHero(player, key);
 	}
 
-	/** v0.17.1: heroes no random serum gives -- Falcon's gear is crafted, the Silver Surfer comes from his board. */
+	/**
+	 * v0.17.1: heroes no random serum gives -- Falcon's gear is crafted (v0.17.5: and it is a Secondary power, a suit you wear,
+	 * not something a serum makes you), the Silver Surfer comes from his board.
+	 */
 	public static final java.util.Set<String> NOT_FROM_SERUMS = java.util.Set.of("falcon", "silver_surfer",
 			"black_panther", // v0.17.3: only the Heart-Shaped Herb Soup
 			"undead", // v0.17.3: only the Undead Card
@@ -301,14 +313,19 @@ public final class PowerGrants {
 				return new Result(ok, Component.literal(ok ? "Fused " + name + " with a Mother Box (Cyborg)" : name + " is already Cyborg"));
 			}
 			case "falcon" -> {
-				// v0.17.1: the power is the gear -- it goes on (whatever was worn goes into the inventory) and the set grants it
+				// v0.17.1: the power is the gear -- it goes on (whatever was worn goes into the inventory) and the set grants it.
+				// v0.17.5: a Secondary power -- the kit rides on top of their Primary, nothing is replaced
 				if (com.projecthero.mod.falcon.Falcon.hasPower(target)) {
-					return Result.fail(name + " is already the Falcon");
+					return Result.fail(name + " already has the Falcon gear on");
 				}
 				com.projecthero.mod.falcon.item.FalconItems.equipFullSet(target);
 				com.projecthero.mod.falcon.Falcon.clearBlock(target);
+				if (com.projecthero.mod.falcon.Falcon.dormant(target)) {
+					return Result.ok("Suited " + name + " up in the Falcon gear (the kit comes online when their other suit / form ends)");
+				}
 				boolean ok = com.projecthero.mod.falcon.Falcon.grant(target);
-				return new Result(ok, Component.literal(ok ? "Suited " + name + " up in the Falcon gear (Falcon)" : name + " could not become the Falcon"));
+				return new Result(ok, Component.literal(ok ? "Suited " + name + " up in the Falcon gear (Falcon, a Secondary power on top of their Primary)"
+						: name + " could not take the Falcon gear"));
 			}
 			case "stand_star_platinum" -> {
 				// v0.17.2: the Stand Arrow's pool (only Star Platinum for now)

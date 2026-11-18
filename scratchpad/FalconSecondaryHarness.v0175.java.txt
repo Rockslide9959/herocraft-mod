@@ -1,0 +1,289 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.falcon.Falcon;
+import com.projecthero.mod.falcon.FalconAbilityManager;
+import com.projecthero.mod.falcon.item.FalconItems;
+import com.projecthero.mod.hero.AbilityRouter;
+import com.projecthero.mod.spider.SpiderMan;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Falcon as a Secondary power): a Spider-Man (Primary) puts on the Falcon gear -- the HUD switches
+ * to the Falcon's -- flies and uses the Wing Slash, lands, takes the Wing Pack off and the Spider-Man HUD comes back. Stills plus one
+ * continuous film of the swap. Enabled by run/falconsecondary.flag = "<out dir>". Kept as
+ * scratchpad/FalconSecondaryHarness.v0175.java.txt (copy to src/client/java/com/projecthero/mod/client/FalconSecondaryHarness.java and add
+ * it to fabric.mod.json's client entrypoints while filming; remove both before committing). Films: node scratchpad/falcon_secondary_films_v0175.js.
+ */
+public final class FalconSecondaryHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static volatile boolean holdForward;
+	private static volatile float forcePitch = Float.NaN;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("falconsecondary.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(FalconSecondaryHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+			if (mc.player != null) {
+				mc.options.keyUp.setDown(holdForward);
+				if (!Float.isNaN(forcePitch)) {
+					mc.player.setXRot(forcePitch);
+					mc.player.xRotO = forcePitch;
+					mc.player.setYRot(-90f);
+					mc.player.yRotO = -90f;
+				}
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "falconsecondary-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void film(Minecraft mc, String name, int from, int to) {
+		for (int t = from; t < to; t++) {
+			final int f = t - from;
+			at(t, () -> shot(mc, String.format("film_%s_%04d", name, f)));
+		}
+	}
+
+	private static void log(Minecraft mc, String what) {
+		server(mc, p -> System.out.println("[HARNESS] " + what + ": falcon=" + Falcon.hasPower(p) + " falconKeys=" + FalconAbilityManager.hasContext(p)
+				+ " spider=" + SpiderMan.hasPower(p) + " primaryOrder=" + p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.PRIMARY_ORDER, "")));
+	}
+
+	static void prepare(ServerLevel level) {
+		for (int x = -16; x <= 40; x++) {
+			for (int z = -14; z <= 14; z++) {
+				for (int y = -2; y <= 24; y++) {
+					BlockState st = y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+					level.setBlock(site.offset(x, y, z), st, 2 | 16);
+				}
+			}
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(FalconSecondaryHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				prepare(level);
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.hero.PowerGrants.Result r = com.projecthero.mod.hero.PowerGrants.grantHero(p, "spider_man");
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, -90f, 0f);
+				System.out.println("[HARNESS] site " + site + " spider grant=" + r.message().getString());
+			});
+		}
+		if (t == 45 && site == null) {
+			return;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+		if (planTick >= PLAN.size() && PLAN.size() > 0) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 80;
+		at(t, () -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				Mob z = EntityType.ZOMBIE.create(p.serverLevel());
+				z.moveTo(site.getX() + 0.5 + 20, site.getY() + 1, site.getZ() + 0.5, 90f, 0f);
+				z.setNoAi(true);
+				z.setPersistenceRequired();
+				z.setItemSlot(EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.CARVED_PUMPKIN));
+				p.serverLevel().addFreshEntity(z);
+			});
+		});
+		log(mc, "spider-man, unsuited");
+		// stills: Spider-Man (Primary) and his HUD / move list
+		at(t + 8, () -> shot(mc, "s01_spiderman_hud"));
+		at(t + 9, () -> MoveListOverlay.forceHeld = true);
+		at(t + 13, () -> shot(mc, "s02_spiderman_move_list"));
+		at(t + 14, () -> MoveListOverlay.forceHeld = false);
+		// the swap film: on, fly + Wing Slash, land, off
+		int f0 = t + 20;
+		at(f0 + 12, () -> server(mc, p -> {
+			FalconItems.equipFullSet(p);
+			System.out.println("[HARNESS] gear on");
+		}));
+		at(f0 + 16, () -> log(mc, "suited"));
+		at(f0 + 26, () -> mc.gui.clear()); // the suit-up title (seen in the film) would cover the stills
+		at(f0 + 28, () -> shot(mc, "s03_falcon_hud_over_spiderman"));
+		at(f0 + 29, () -> MoveListOverlay.forceHeld = true);
+		at(f0 + 33, () -> shot(mc, "s04_falcon_move_list"));
+		at(f0 + 34, () -> MoveListOverlay.forceHeld = false);
+		// take off (the double-tap jump's payload, server side) and fly along +X towards the zombie
+		at(f0 + 40, () -> server(mc, Falcon::takeOff));
+		at(f0 + 44, () -> {
+			forcePitch = -12f;
+			holdForward = true;
+		});
+		at(f0 + 60, () -> forcePitch = 6f);
+		at(f0 + 62, () -> shot(mc, "s05_falcon_flying"));
+		// G through the real router: the Wing Slash (in the air: a diving slash through the target)
+		at(f0 + 66, () -> server(mc, p -> {
+			AbilityRouter.handleInput(p, 2, true);
+			AbilityRouter.handleInput(p, 2, false);
+			System.out.println("[HARNESS] G pressed: wing slash cooldown=" + Falcon.cooldownRemaining(p, com.projecthero.mod.falcon.FalconAbilities.SLASH));
+		}));
+		at(f0 + 69, () -> shot(mc, "s06_wing_slash"));
+		at(f0 + 78, () -> {
+			holdForward = false;
+			forcePitch = Float.NaN;
+			server(mc, Falcon::stopFlying);
+		});
+		// landed: take the Wing Pack off -- Spider-Man's HUD comes back
+		at(f0 + 104, () -> server(mc, p -> {
+			p.getInventory().add(p.getItemBySlot(EquipmentSlot.CHEST).copy());
+			p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+			System.out.println("[HARNESS] wing pack off");
+		}));
+		at(f0 + 108, () -> log(mc, "wing pack off"));
+		at(f0 + 120, () -> shot(mc, "s07_spiderman_hud_back"));
+		at(f0 + 121, () -> MoveListOverlay.forceHeld = true);
+		at(f0 + 125, () -> shot(mc, "s08_spiderman_move_list_back"));
+		at(f0 + 126, () -> MoveListOverlay.forceHeld = false);
+		film(mc, "swap", f0, f0 + 120);
+		at(f0 + 140, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("FALCONSEC_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

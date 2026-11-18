@@ -619,20 +619,24 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.17.5: Power Armour -- in a suit (or stepping in / out) H, N, the jump gestures and the Primary's own key handlers are
 		// swallowed; the six ability keys below go to the armour kit (AbilityRouter)
 		boolean inArmour = com.projecthero.mod.client.powerarmour.PowerArmourClient.swallowHeroKeys(client);
+		// v0.17.5: the Falcon gear (a Secondary power) on the same terms, except the double-tap jump stays -- it is his take-off
+		boolean inFalcon = !inArmour && com.projecthero.mod.client.falcon.FalconClient.swallowHeroKeys(client);
 		if (!inArmour) {
 			handleDoubleJump(client, client.player);
-			handlePowerSelect(client);
+			if (!inFalcon) {
+				handlePowerSelect(client);
+			}
 		}
 		handlePowerInfo(client);
 		handleSquadMenu(client);
 		handleFlightMode(client);
-		if (!inArmour) {
+		if (!inArmour && !inFalcon) {
 			handleMaxSteelTransform(client);
 			handleWolverineOffHand(client);
 			handleChargedPunch(client);
 		}
 
-		boolean holdingFirearm = !inArmour && client.player.getMainHandItem().getItem()
+		boolean holdingFirearm = !inArmour && !inFalcon && client.player.getMainHandItem().getItem()
 				instanceof com.projecthero.mod.firearm.item.FirearmItem;
 
 		for (int i = 0; i < 6; i++) {
@@ -1413,6 +1417,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.17.5: the Falcon gear is a Secondary power that owns the moveset while worn -- its take-off comes before any Primary's
+		if (com.projecthero.mod.falcon.Falcon.ownsKeys(player)) {
+			if (com.projecthero.mod.client.falcon.FalconFlightClient.wantsTakeOff(player)) {
+				ticksSinceJumpPress = Integer.MAX_VALUE;
+				com.projecthero.mod.client.falcon.FalconFlightClient.takeOff();
+			}
+			return;
+		}
+
 		// Thor: double-tap jump while airborne + holding Mjolnir.
 		if (!player.onGround() && ThorPowers.wieldsThorWeapon(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
@@ -1501,13 +1514,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
-		// v0.17.1: the Falcon -- double-tap jump (on the ground or in the air) snaps the wings open and takes off, or drops out
-		// of the flight (server re-validates).
-		if (com.projecthero.mod.client.falcon.FalconFlightClient.wantsTakeOff(player)) {
-			ticksSinceJumpPress = Integer.MAX_VALUE;
-			com.projecthero.mod.client.falcon.FalconFlightClient.takeOff();
-			return;
-		}
+		// (v0.17.1's Falcon take-off moved to the top in v0.17.5: the gear is a Secondary power that goes before every Primary)
 
 		// v0.16.5 (user): Blue Beetle -- double-tap jump in the air while suited takes off / drops out of flight (server re-validates).
 		if (com.projecthero.mod.client.bluebeetle.BlueBeetleClient.wantsFlightToggle(player)) {

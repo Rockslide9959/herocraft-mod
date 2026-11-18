@@ -57,21 +57,19 @@ public final class FalconHud {
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
-		if (p == null || mc.level == null || mc.options.hideGui || !Falcon.hasPower(p)) {
+		// v0.17.5: a Secondary power -- shown whenever the gear owns the keys (whatever Primary or mutation is selected), and it
+		// owns the bottom-right corner then (every other power's column steps aside through VanillaHud.muteOthers)
+		if (p == null || mc.level == null || mc.options.hideGui || !Falcon.ownsKeys(p)) {
 			return;
 		}
 		FalconState s = Falcon.peek(p);
 		if (s == null) {
 			return;
 		}
-		var exp = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
-		if (exp != null && !exp.activePower.isEmpty()) {
-			return;
-		}
 		long now = mc.level.getGameTime();
 		boolean shift = forceShift || p.isShiftKeyDown();
 		boolean redwingBusy = mc.level.getEntity(s.redwingId) instanceof RedwingEntity r && r.busy();
-		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
+		VanillaHud.Stack st = VanillaHud.Stack.bottomRightOwned(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
 			AbilitySlot slot = VanillaHud.ORDER[i];
 			String[] ids = FalconAbilityManager.idsOf(slot);

@@ -50,7 +50,8 @@ public final class SentinelTargets {
 		if (HeroTiers.hasExperimental(sp)) {
 			return Threat.MUTANT;
 		}
-		if (HeroTiers.hasHeroTier(sp) || com.projecthero.mod.symbiote.Symbiote.hasSymbiote(sp)) {
+		if (HeroTiers.hasHeroTier(sp) || com.projecthero.mod.symbiote.Symbiote.hasSymbiote(sp)
+				|| com.projecthero.mod.falcon.Falcon.hasPower(sp)) { // v0.17.5: the Falcon gear left hasHeroTier (a Secondary) but still counts
 			return Threat.SUPERHUMAN;
 		}
 		return Threat.HUMAN;

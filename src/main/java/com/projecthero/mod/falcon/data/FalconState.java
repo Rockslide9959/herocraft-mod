@@ -27,9 +27,10 @@ public final class FalconState {
 	public static final int ANIM_LAND = 11;
 	public static final int ANIM_TAKEOFF = 12;
 
-	/** Wearing the full set (and the power not given up for another one). */
+	/** Wearing the full set and the kit live (not revoked, not standing down for Power Armour / another suit). */
 	public boolean hasPower;
-	/** The power was replaced while the full set was on: it stays off until a piece comes off and goes back on. */
+	/** An operator revoked it (or the unique-powers rule refused it) while the full set was on: it stays off until a piece comes
+	 * off and goes back on. (v0.17.5: saved as "revoked"; before, it also meant "replaced by another Primary".) */
 	public boolean blocked;
 	/** 0..{@code FalconConfig.THRUST_MAX}. */
 	public float thrust;
@@ -89,7 +90,8 @@ public final class FalconState {
 
 	public static final Codec<FalconState> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
-			Codec.BOOL.optionalFieldOf("blocked", false).forGetter(s -> s.blocked),
+			// v0.17.5: a new key -- the Primary-days "blocked" (replaced by another power) is dropped on load (see Falcon.migrateFromPrimary)
+			Codec.BOOL.optionalFieldOf("revoked", false).forGetter(s -> s.blocked),
 			Codec.FLOAT.optionalFieldOf("thrust", 0f).forGetter(s -> s.thrust),
 			Codec.BOOL.optionalFieldOf("flying", false).forGetter(s -> s.flying),
 			Codec.BOOL.optionalFieldOf("boosting", false).forGetter(s -> s.boosting),

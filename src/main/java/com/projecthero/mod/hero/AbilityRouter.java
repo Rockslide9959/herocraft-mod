@@ -61,6 +61,14 @@ public final class AbilityRouter {
 			}
 			return;
 		}
+		// v0.17.5 (user: "make falcons powers a secondary power"): the Falcon gear, on Power Armour's terms -- while the full set is
+		// on and live its kit owns R/G/Z/X/C/V ahead of every Primary (whose passives keep running); H / N presses are swallowed
+		if (com.projecthero.mod.falcon.FalconAbilityManager.hasContext(player)) {
+			if (!slot.isUtility()) {
+				com.projecthero.mod.falcon.FalconAbilityManager.handle(player, slot, pressed);
+			}
+			return;
+		}
 		if (slot.isUtility()) {
 			// v0.13.22: H / N (slots 7-8) are mutation-only -- the client only sends them when no Hero-Tier power
 			// owns the key (or with Alt held), so they skip the whole hero chain and go straight to the mutation.
@@ -296,11 +304,6 @@ public final class AbilityRouter {
 		// v0.16.5: Cyborg, on the same terms
 		if (com.projecthero.mod.cyborg.CyborgAbilityManager.hasContext(player)) {
 			com.projecthero.mod.cyborg.CyborgAbilityManager.handle(player, slot, pressed);
-			return;
-		}
-		// v0.17.1: the Falcon, on the same terms
-		if (com.projecthero.mod.falcon.FalconAbilityManager.hasContext(player)) {
-			com.projecthero.mod.falcon.FalconAbilityManager.handle(player, slot, pressed);
 			return;
 		}
 		// v0.17.1: the Silver Surfer, on the same terms

@@ -49,6 +49,12 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.stats"),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.controls"));
 		powerArmourInfo(registration);
+		// v0.17.5: the Falcon gear is a Secondary power (a suit you wear on top of your Primary): one info page for the four pieces
+		registration.addItemStackInfo(java.util.List.of(new ItemStack(com.projecthero.mod.falcon.item.FalconItems.GOGGLES),
+				new ItemStack(com.projecthero.mod.falcon.item.FalconItems.WING_PACK), new ItemStack(com.projecthero.mod.falcon.item.FalconItems.LEGGINGS),
+				new ItemStack(com.projecthero.mod.falcon.item.FalconItems.BOOTS)),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.falcon_gear"),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.falcon.stacking.body"));
 	}
 
 	/** v0.17.5: JEI info pages for Power Armour -- the frames, platings, board, cores, charger and every module. */

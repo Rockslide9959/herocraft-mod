@@ -53,6 +53,25 @@ public final class FalconClient {
 		});
 	}
 
+	/**
+	 * v0.17.5 (a Secondary power, on Power Armour's terms): while the gear owns the keys, H (the power selector) and N are
+	 * swallowed and the Primary's own key handlers skip this tick; the six ability keys go to the Falcon kit (AbilityRouter).
+	 * The double-tap jump stays (his take-off). The other powers' HUD columns step aside through {@code VanillaHud.muteOthers}
+	 * (set in {@code PowerArmourClient}, which asks {@link Falcon#ownsKeys} too).
+	 */
+	public static boolean swallowHeroKeys(Minecraft client) {
+		if (client.player == null || !Falcon.ownsKeys(client.player)) {
+			return false;
+		}
+		while (ModKeyBindings.POWER_SELECT.consumeClick()) {
+			// the power selector waits until the gear comes off
+		}
+		while (ModKeyBindings.MAX_STEEL_TRANSFORM.consumeClick()) {
+			// N belongs to the Primary
+		}
+		return true;
+	}
+
 	private static void tick(Minecraft mc) {
 		FalconFlightClient.tick(mc);
 		if (mc.player == null || mc.level == null) {
