@@ -4,15 +4,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
-import com.projecthero.mod.hero.data.ExperimentalState;
 
 import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Bridges the universal ability slots to the Falcon (v0.17.1). {@link com.projecthero.mod.hero.AbilityRouter} hands him the
- * slots when {@link #hasContext} is true -- has the power and no mutation selected. Shift is read server-side.
+ * slots when {@link #hasContext} is true -- v0.17.5 (a Secondary power): the gear is on and live and Power Armour is not
+ * running, whatever Primary (or mutation) the wearer has; it is asked before every Primary. Shift is read server-side.
  *
  * <pre>
  *   R (1)  Wrist Guns (hold)     Shift+R  Micro-Missile Volley
@@ -73,11 +72,7 @@ public final class FalconAbilityManager {
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
-		if (!Falcon.hasPower(player)) {
-			return false;
-		}
-		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
-		return st == null || st.activePower.isEmpty();
+		return Falcon.ownsKeys(player);
 	}
 
 	private static boolean freshPress(ServerPlayer player, AbilitySlot slot, boolean pressed) {

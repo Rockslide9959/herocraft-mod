@@ -45,7 +45,8 @@ public final class PowerArmourClient {
 		HudRenderCallback.EVENT.register(PowerArmourHud::render);
 		com.projecthero.mod.client.gui.VanillaHud.muteOthers = () -> {
 			Player p = Minecraft.getInstance().player;
-			return p != null && PowerArmour.ownsKeys(p);
+			// v0.17.5: and while the Falcon gear (the other Secondary power) owns the keys -- its HUD takes the corner then
+			return p != null && (PowerArmour.ownsKeys(p) || com.projecthero.mod.falcon.Falcon.ownsKeys(p));
 		};
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override

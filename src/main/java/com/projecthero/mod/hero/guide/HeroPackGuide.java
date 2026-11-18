@@ -267,13 +267,13 @@ public final class HeroPackGuide {
 		return chapters().get(CH_FALCON);
 	}
 
-	/** v0.17.1: the Falcon -- the gear, Thrust, the wingsuit flight and the twelve moves. */
+	/** v0.17.1: the Falcon -- the gear, how it stacks on a Primary (v0.17.5: a Secondary power), Thrust, the flight and the twelve moves. */
 	private static Chapter falcon() {
 		return chapter("projecthero.guide.falcon", lines -> {
 			lines.add(Component.translatable("projecthero.guide.falcon.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.falcon.body");
 			blank(lines);
-			for (String section : new String[]{"gear", "thrust", "flight", "passives"}) {
+			for (String section : new String[]{"gear", "stacking", "thrust", "flight", "passives"}) { // v0.17.5: + stacking (a Secondary power)
 				head(lines, "projecthero.guide.falcon." + section);
 				para(lines, "projecthero.guide.falcon." + section + ".body");
 				blank(lines);

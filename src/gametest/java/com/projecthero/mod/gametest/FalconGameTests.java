@@ -34,8 +34,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.1 the Falcon: the gear is the power (the full set grants it, any piece off removes it, a replaced Falcon stays off
- * until re-geared), Thrust drain / refill, no fall damage, and a few moves' damage / cost / cooldown. Mock players are not
+ * v0.17.1 the Falcon: the gear is the power (the full set grants it, any piece off removes it; v0.17.5: a Secondary power a
+ * Primary grant never replaces -- see also {@code FalconSecondaryGameTests}), Thrust drain / refill, no fall damage, and a few moves' damage / cost / cooldown. Mock players are not
  * ticked by the server, so tests over time drive {@link Falcon#tick} ({@link #pump}).
  */
 public class FalconGameTests implements FabricGameTest {
@@ -102,7 +102,9 @@ public class FalconGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fullSetGrantsAndAnyPieceOffRemoves(GameTestHelper helper) {
-		helper.assertTrue(HeroTiers.HERO_KEYS.contains("falcon") && PowerGrants.HERO_TIER_KEYS.contains("falcon"), "falcon is a Hero-Tier key");
+		// v0.17.5: a Secondary power -- a grant key, never a Primary one
+		helper.assertTrue(!HeroTiers.HERO_KEYS.contains("falcon") && PowerGrants.HERO_TIER_KEYS.contains("falcon")
+				&& PowerGrants.SECONDARY_KEYS.contains("falcon"), "falcon is a grant key, not a Primary key");
 		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(FalconItems.WING_PACK));
 		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FalconItems.GOGGLES));
@@ -114,7 +116,7 @@ public class FalconGameTests implements FabricGameTest {
 		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(Falcon.hasPower(p), "the full set makes him the Falcon");
-		helper.assertTrue(HeroTiers.heroCount(p) == 1 && HeroTiers.holdsHero(p, "falcon"), "one Primary: the Falcon");
+		helper.assertTrue(HeroTiers.heroCount(p) == 0 && HeroTiers.holdsHero(p, "falcon"), "the Falcon kit, and no Primary claimed");
 		helper.assertTrue(Falcon.thrust(p) == FalconConfig.THRUST_MAX, "starts with full Thrust");
 		p.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
 		Falcon.forgetTick(p);
@@ -128,21 +130,23 @@ public class FalconGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void replacedFalconStaysOffUntilRegeared(GameTestHelper helper) {
+	public void aNewPrimaryNeverReplacesTheFalconGear(GameTestHelper helper) {
+		// v0.17.5 (was replacedFalconStaysOffUntilRegeared): the gear is a Secondary power -- a Primary grant leaves it alone
 		ServerPlayer p = falcon(helper, 2.5, 2.0, 2.5);
 		helper.assertTrue(Falcon.hasPower(p), "geared");
 		Kryptonian.grant(p);
-		helper.assertTrue(Kryptonian.hasPower(p) && !Falcon.hasPower(p), "the Kryptonian replaced the Falcon");
+		helper.assertTrue(Kryptonian.hasPower(p) && Falcon.hasPower(p), "the Kryptonian joins the Falcon gear, nothing replaced");
 		Falcon.forgetTick(p);
 		Falcon.tick(p);
-		helper.assertTrue(!Falcon.hasPower(p) && Kryptonian.hasPower(p), "the worn gear does not fight the new power for the slot");
+		helper.assertTrue(Falcon.hasPower(p) && Kryptonian.hasPower(p), "both still there a tick later");
 		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
 		Falcon.forgetTick(p);
 		Falcon.tick(p);
+		helper.assertTrue(!Falcon.hasPower(p) && Kryptonian.hasPower(p), "goggles off: the kit goes, the Kryptonian stays");
 		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FalconItems.GOGGLES));
 		Falcon.forgetTick(p);
 		Falcon.tick(p);
-		helper.assertTrue(Falcon.hasPower(p) && !Kryptonian.hasPower(p), "re-geared: the Falcon replaces the Kryptonian");
+		helper.assertTrue(Falcon.hasPower(p) && Kryptonian.hasPower(p), "re-geared: the kit is back on top of the Kryptonian");
 		helper.succeed();
 	}
 

@@ -373,6 +373,10 @@ public final class PowerInfoScreen extends Screen {
 		if (mc.player == null) {
 			return null;
 		}
+		// v0.17.5: the Falcon gear is a Secondary power that owns the keys while worn -- its page comes first
+		if (com.projecthero.mod.falcon.Falcon.ownsKeys(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.falconChapter();
+		}
 		// v0.9.19: a player who is BOTH bonded with a Symbiote AND currently Spider-Man is specifically
 		// Black Suit Spider-Man -- show that bonded variant (Spider-Man's real keybinds plus the three
 		// Symbiote extras), not the generic Normal-host Symbiote menu, and not the plain Spider-Man menu

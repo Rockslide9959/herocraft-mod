@@ -22,6 +22,9 @@ lang: `scratchpad/lang_power_armour_v0175.js` (key by key). Films/screens: `scra
 - **HUD:** `VanillaHud.muteOthers` draws every other power's bottom-right column off-screen while you are in a suit; the
   suit's HUD (`PowerArmourHud`) uses `Stack.bottomRightOwned`. The Left-Alt move list shows the armour kit.
 - **Erased (Eraser Head):** the suit is a machine (`PowerSuppression.isTech`), it keeps working.
+- **Falcon gear (also Secondary since v0.17.5, see `FALCON_SECONDARY_REFERENCE.md`):** Power Armour comes first. Stepping in
+  stores the worn gear like any armour, the Falcon kit stands down while Power Armour owns the keys, and it resumes when you
+  step out. `VanillaHud.muteOthers` (set here) also mutes for `Falcon.ownsKeys`.
 - **Static state:** `PowerArmourAbilities` keeps three maps of ids (charge runs, thrown mobs, rail beams), cleared via
   `PowerArmourMod.clearSessionState()` from `ServerStateReset`.
 

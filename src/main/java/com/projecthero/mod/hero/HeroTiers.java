@@ -61,7 +61,6 @@ public final class HeroTiers {
 				|| com.projecthero.mod.ghostrider.GhostRider.hasPower(player)
 				|| com.projecthero.mod.stand.Stands.hasPower(player) // v0.17.2: Stands
 				|| com.projecthero.mod.cyborg.Cyborg.hasPower(player)
-				|| com.projecthero.mod.falcon.Falcon.hasPower(player) // v0.17.1
 				|| com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player) // v0.17.1
 				|| com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player) // v0.17.1
 				|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)
@@ -114,7 +113,7 @@ public final class HeroTiers {
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
-			"falcon", "silver_surfer", // v0.17.1
+			"silver_surfer", // v0.17.1 (v0.17.5: "falcon" left -- the Falcon gear is a Secondary power, see Falcon.POWER_CLASS)
 			"speed_force_speedster", // v0.17.1: the DC Flash (the plain Speedster's upgrade)
 			"black_panther", // v0.17.3
 			"undead", // v0.17.3: Undead Unluck
@@ -153,7 +152,7 @@ public final class HeroTiers {
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.hasPower(player);
 			case "stand_star_platinum" -> com.projecthero.mod.stand.Stands.holds(player, com.projecthero.mod.stand.StandType.STAR_PLATINUM); // v0.17.2
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.hasPower(player);
-			case "falcon" -> com.projecthero.mod.falcon.Falcon.hasPower(player); // v0.17.1
+			case "falcon" -> com.projecthero.mod.falcon.Falcon.hasPower(player); // v0.17.1 (v0.17.5: a Secondary -- not in HERO_KEYS, asked by PowerGrants / UniquePowers)
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player); // v0.17.1
 			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player); // v0.17.1
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player);
@@ -347,12 +346,6 @@ public final class HeroTiers {
 				// v0.17.1: only reached by an operator (a force grant, a revoke) -- the Omnitrix refuses every other way in
 				if (com.projecthero.mod.omnitrix.Omnitrix.hasPower(player)) {
 					com.projecthero.mod.omnitrix.Omnitrix.revoke(player);
-				}
-			}
-			case "falcon" -> {
-				// v0.17.1: the gear stays on; the power stays off until a piece comes off and goes back on
-				if (com.projecthero.mod.falcon.Falcon.hasPower(player)) {
-					com.projecthero.mod.falcon.Falcon.revoke(player);
 				}
 			}
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse", "queen_bee", "ryuko" -> {
@@ -711,9 +704,7 @@ public final class HeroTiers {
 		if (!excludeHeroKeys.contains("blue_beetle") && com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)) {
 			return true;
 		}
-		if (!excludeHeroKeys.contains("falcon") && com.projecthero.mod.falcon.Falcon.hasPower(player)) {
-			return true;
-		}
+		// v0.17.5: the Falcon gear is a Secondary power (it rides on any host) -- never incompatible
 		if (!excludeHeroKeys.contains("omnitrix") && com.projecthero.mod.omnitrix.Omnitrix.hasPower(player)) {
 			return true; // v0.17.1
 		}

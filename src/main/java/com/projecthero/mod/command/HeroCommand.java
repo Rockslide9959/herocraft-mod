@@ -251,6 +251,10 @@ public final class HeroCommand {
 		if (heroKey && force) {
 			return com.projecthero.mod.hero.UniquePowers.forced(() -> grant(c, target, false));
 		}
+		// v0.17.5: a Secondary power (the Falcon gear) is added on top of what they hold -- nothing is wiped
+		if (heroKey && com.projecthero.mod.hero.PowerGrants.SECONDARY_KEYS.contains(rawKey)) {
+			return grantHeroByKey(c, target, rawKey);
+		}
 		boolean hadAny = com.projecthero.mod.hero.HeroTiers.hasExperimental(target)
 				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target)
 				|| com.projecthero.mod.symbiote.Symbiote.hasSymbiote(target);

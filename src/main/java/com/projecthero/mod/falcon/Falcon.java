@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.falcon.data.FalconState;
 import com.projecthero.mod.falcon.item.FalconItems;
-import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.hero.PowerClass;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.PowerToggles;
 
@@ -31,15 +31,25 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * The single server-side API for the Falcon (Sam Wilson), the v0.17.1 Hero-Tier power. Nothing else touches
+ * The single server-side API for the Falcon (Sam Wilson), added in v0.17.1. Nothing else touches
  * {@link FalconState}; every change re-saves through {@link ServerPlayer#setAttached}. The moves live in
  * {@link FalconAbilities}, the damage rules in {@link FalconDamage}, the numbers in {@link FalconConfig}.
  *
- * <h2>How it works</h2>
+ * <h2>How it works (v0.17.5: a Secondary power)</h2>
  * The power is the gear: wearing all four craftable pieces (the EXO-7 Wing Pack, the Falcon Goggles, the Flight Suit
- * leggings and boots) makes the wearer the Falcon -- it claims the one Primary slot like any other hero. Taking a piece off
- * takes the power away. If another power replaces it while the set is still on, it stays off until a piece comes off and
- * goes back on ({@link FalconState#blocked}), so it never fights the new power for the slot.
+ * leggings and boots) gives the wearer the Falcon's kit. Since v0.17.5 it is a {@link PowerClass#SECONDARY} power, like
+ * Power Armour: it never claims, replaces or is replaced by the one Primary slot. While it is on ({@link #ownsKeys}) the
+ * Falcon kit owns R / G / Z / X / C / V ahead of every Primary ({@code AbilityRouter}), H / N presses are swallowed and the
+ * Primary's HUD column steps aside; the Primary's passives keep running. Taking a piece off takes the kit away and the
+ * Primary's keys and HUD come straight back.
+ * <ul>
+ *   <li>{@link FalconState#blocked}: an operator revoked it (or the unique-powers rule refused it) while the set was on -- it
+ *       stays off until a piece comes off and goes back on. Saved under a new key in v0.17.5, so the old "replaced by another
+ *       power" flags from Primary days are dropped on load and those players get the kit back on top of their Primary.</li>
+ *   <li>Dormant ({@link #dormant}): inside Power Armour (any phase -- the frame stores the worn gear anyway) or while another
+ *       suit / transformation is up (Hulk, a Titan, an Omnitrix alien, Max Steel, Shazam, a Miraculous, the Symbiote suit,
+ *       Thor's Armour, Moon Knight, Black Panther's suit): the kit stands down and comes back by itself when that ends.</li>
+ * </ul>
  *
  * <h2>Flight</h2>
  * The mod-wide directional flight ({@link FalconFlight}, the Kryptonian's handling): double-tap jump takes off or drops out,
@@ -48,6 +58,8 @@ import org.joml.Vector3f;
  */
 public final class Falcon {
 	public static final String KEY = "falcon";
+	/** v0.17.5: a Secondary power (the gear rides on top of whatever Primary the wearer has). */
+	public static final PowerClass POWER_CLASS = PowerClass.SECONDARY;
 
 	private static final ResourceLocation SPRINT_ID = PowerToggles.id("falcon_sprint");
 
@@ -61,6 +73,8 @@ public final class Falcon {
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
 	/** The fastest the player moved over the last two ticks, blocks a tick (for the hero landing / Dive Bomb). */
 	private static final Map<UUID, Double> RECENT_SPEED = new ConcurrentHashMap<>();
+	/** v0.17.5: players whose kit stood down for Power Armour / another suit (so the comeback is quiet and keeps the tanks). */
+	private static final java.util.Set<UUID> DORMANT = ConcurrentHashMap.newKeySet();
 
 	private Falcon() {
 	}
@@ -70,6 +84,7 @@ public final class Falcon {
 		LAST_TICK.clear();
 		LAST_POS.clear();
 		RECENT_SPEED.clear();
+		DORMANT.clear();
 		FalconFlight.clearSessionState();
 		FalconAbilities.clearSessionState();
 		FalconAbilityManager.clearSessionState();
@@ -92,6 +107,22 @@ public final class Falcon {
 	public static boolean hasPower(Player player) {
 		FalconState s = peek(player);
 		return s != null && s.hasPower;
+	}
+
+	/**
+	 * v0.17.5 (Secondary): the Falcon kit owns R / G / Z / X / C / V (and swallows H / N) -- the gear is on and live, and
+	 * Power Armour is not running. Client-safe (the HUD, the key handler and the mute of other powers' HUD columns read it).
+	 */
+	public static boolean ownsKeys(Player player) {
+		return hasPower(player) && !com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player);
+	}
+
+	/**
+	 * v0.17.5: the kit stands down while Power Armour runs (any phase) or another suit / transformation is up (the same list
+	 * Power Armour refuses the frame for); it comes back by itself when that ends.
+	 */
+	public static boolean dormant(ServerPlayer player) {
+		return com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player) || com.projecthero.mod.powerarmour.PowerArmour.otherSuitActive(player);
 	}
 
 	/** The wings are out (gliding). Client-safe. */
@@ -177,8 +208,9 @@ public final class Falcon {
 	// ---------------------------------------------------------------- grant / revoke
 
 	/**
-	 * The full set went on: the wearer becomes the Falcon (claims the one Primary slot). False if they already are, or the
-	 * unique-powers rule refuses it (then it stays off until a piece comes off).
+	 * The full set went on: the wearer gets the Falcon kit on top of whatever Primary they have (v0.17.5: a Secondary power --
+	 * no Primary slot is claimed, nothing they hold is replaced). False if they already have it, or the unique-powers rule /
+	 * the Omnitrix lock refuses it (then it stays off until a piece comes off).
 	 */
 	public static boolean grant(ServerPlayer player) {
 		FalconState s = state(player);
@@ -191,13 +223,21 @@ public final class Falcon {
 			save(player, n);
 			return false;
 		}
-		HeroTiers.claimPrimary(player, KEY);
+		boolean resume = DORMANT.remove(player.getUUID());
 		FalconState n = new FalconState();
 		n.hasPower = true;
-		n.thrust = FalconConfig.THRUST_MAX;
+		// back from standing down (dormant): the tanks are as they were; a fresh suit-up starts full
+		n.thrust = resume && s.thrust > 0f ? s.thrust : FalconConfig.THRUST_MAX;
+		n.ammo = resume ? s.ammo : FalconConfig.AMMO_MAX;
 		n.abilityReadyAt.putAll(s.abilityReadyAt);
 		save(player, n);
 		reconcile(player);
+		// the single choke point a hero grant passes records the unique-powers holder; a Secondary records it here
+		com.projecthero.mod.hero.UniquePowers.onClaimed(player, KEY);
+		if (resume) {
+			say(player, "message.projecthero.falcon.resumed", ChatFormatting.RED);
+			return true;
+		}
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.2, 0);
 		level.sendParticles(WHITE, c.x, c.y, c.z, 30, 0.6, 0.5, 0.6, 0.0);
@@ -215,10 +255,38 @@ public final class Falcon {
 	}
 
 	/**
-	 * Takes the power away (a piece came off, a command, or another power replaced it). With the set still on it stays off
-	 * until a piece comes off and goes back on.
+	 * v0.17.5: Power Armour or another suit / transformation took over ({@link #dormant}) -- the kit stands down (flight, held
+	 * moves and Redwing end) but nothing is blocked: it comes back by itself, tanks as they were, when that ends.
+	 */
+	public static void standDown(ServerPlayer player) {
+		FalconFlight.stop(player);
+		FalconAbilities.clear(player);
+		FalconAbilities.removeRedwing(player);
+		FalconState n = state(player).copy();
+		n.hasPower = false;
+		n.blocked = false;
+		n.flying = false;
+		n.boosting = false;
+		n.goggles = false;
+		n.shieldUntil = 0L;
+		n.rollUntil = 0L;
+		n.carryId = -1;
+		n.firingUntil = 0L;
+		n.redwingId = -1;
+		n.animId = FalconState.ANIM_NONE;
+		save(player, n);
+		reconcile(player);
+		forget(player.getUUID());
+		DORMANT.add(player.getUUID());
+		say(player, "message.projecthero.falcon.dormant", ChatFormatting.GRAY);
+	}
+
+	/**
+	 * Takes the power away (a piece came off, or a command). With the set still on it stays off until a piece comes off and
+	 * goes back on.
 	 */
 	public static void revoke(ServerPlayer player) {
+		DORMANT.remove(player.getUUID());
 		FalconFlight.stop(player);
 		FalconAbilities.clear(player);
 		FalconAbilities.removeRedwing(player);
@@ -348,6 +416,17 @@ public final class Falcon {
 				n.blocked = false;
 				save(player, n);
 			}
+			// Power Armour keeps the gear while sealed and hands it back on the way out: that comeback stays a quiet resume
+			if (!com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player)) {
+				DORMANT.remove(player.getUUID());
+			}
+			return;
+		}
+		// v0.17.5: Power Armour or another suit / transformation is up -- the kit stands down until it ends
+		if (dormant(player)) {
+			if (s.hasPower) {
+				standDown(player);
+			}
 			return;
 		}
 		if (!s.hasPower) {
@@ -415,7 +494,37 @@ public final class Falcon {
 
 	// ---------------------------------------------------------------- lifecycle
 
+	/**
+	 * v0.17.5 migration (on join): a save from the Primary days lists "falcon" in the Primary-slot order. The Falcon is a
+	 * Secondary now, so that entry goes (the slot is free for a real Primary) and the player is told once. Nothing else is
+	 * taken: the power always followed the worn gear, so a geared player keeps the kit and an ungeared one keeps the pieces.
+	 * The old "replaced by another power" block flags are dropped by the state codec itself (saved under a new key), so a
+	 * player who lost the Falcon to a new Primary gets the kit back on top of it. True if anything changed.
+	 */
+	public static boolean migrateFromPrimary(ServerPlayer player) {
+		String raw = player.getAttachedOrElse(ModAttachments.PRIMARY_ORDER, "");
+		if (raw == null || raw.isEmpty()) {
+			return false;
+		}
+		java.util.List<String> keep = new java.util.ArrayList<>();
+		boolean had = false;
+		for (String k : raw.split(",")) {
+			if (KEY.equals(k)) {
+				had = true;
+			} else if (!k.isEmpty()) {
+				keep.add(k);
+			}
+		}
+		if (!had) {
+			return false;
+		}
+		player.setAttached(ModAttachments.PRIMARY_ORDER, String.join(",", keep));
+		player.sendSystemMessage(Component.translatable("message.projecthero.falcon.migrated").withStyle(ChatFormatting.GOLD));
+		return true;
+	}
+
 	public static void onPlayerJoin(ServerPlayer player) {
+		migrateFromPrimary(player);
 		FalconState s = player.getAttachedOrElse(ModAttachments.FALCON_STATE, null);
 		if (s == null || !s.hasPower) {
 			return;
