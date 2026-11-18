@@ -45,13 +45,15 @@ import org.joml.Vector3f;
  *
  * <ul>
  *   <li><b>Sun</b> (gold Gauge): fuels the Sentry moves. Fills fast in daylight, slowly at night, not at all in the dark.</li>
- *   <li><b>Void</b> (black Hairline): the danger. Rises with the big moves, heavy hits, kills, fighting at night and standing in the
- *   dark; falls in daylight, while healing others and while V (Calm) is held. 50 whispers, 75 misfires, 90 the sky dims and hits
- *   leave burnt shadows, 100 the Void takes over ({@link VoidTakeover}).</li>
+ *   <li><b>Void</b> (the red bar): the danger. Round 3 (user): it rises only from using the powers (each move's own gain, and being
+ *   merged with the Void); it drains slowly on its own, faster in sunlight, a lot in bed (a night slept through: -40) and while doing calm
+ *   everyday things ({@link SentryCalmTasks}: fishing, harvesting, trading, breeding, music). 50 whispers, 75 misfires, 90 the sky dims and
+ *   hits leave burnt shadows, 100 the Void takes over ({@link VoidTakeover}).</li>
  *   <li><b>The body</b>: 40 max health in both forms, 70% less damage taken (75% merged), +12 melee (+16), +30% speed, Sun-fed healing.</li>
  *   <li><b>v0.17.5 rework</b>: the suit is a craftable item now ({@link com.projecthero.mod.sentry.item.SentrySuitItem}); worn it slows the
- *   Void (x0.6 gains) and speeds the Sun (x1.5). Let It Out is a toggle won through a trial ({@link LetItOut}); merged, every hit does
- *   +25%, the Void moves recharge 25% faster, and every Void gain is x1.5.</li>
+ *   Void (x0.6 gains) and speeds the Sun (x1.5). Let It Out (round 3: H) is a toggle won through a trial ({@link LetItOut}); merged,
+ *   every hit does +50% (round 3; was +25%), the Void moves recharge 25% faster, every Void gain is x1.5, and the red-and-black Void suit
+ *   appears on him whether he wears the Sentry Suit or not ({@link #look}).</li>
  * </ul>
  */
 public final class Sentry {
@@ -85,6 +87,7 @@ public final class Sentry {
 		VoidMoves.clearSessionState();
 		SentryFlight.clearSessionState();
 		VoidTakeover.clearSessionState();
+		SentryCalmTasks.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -94,6 +97,7 @@ public final class Sentry {
 		SentryMoves.forget(id);
 		VoidMoves.forget(id);
 		SentryFlight.forget(id);
+		SentryCalmTasks.forget(id);
 	}
 
 	// ---------------------------------------------------------------- state (client and server)
@@ -169,9 +173,46 @@ public final class Sentry {
 		return s != null && s.hasPower && s.flying && !s.inTakeover();
 	}
 
-	public static boolean calming(Player player) {
+	/**
+	 * Round 3 (user: "If player enters the controlled void mode then the red and black sentry suit should appear on the player even if the
+	 * player isnt wearing the suit, the suit then disappears after player returns to normal unless they were wearing the suit before"): what
+	 * the body shows. Client-safe (the state and the armour are synced); the suit layer and the cape draw from it, the tests read it.
+	 */
+	public enum Look {
+		/** Nothing of his own: the wearer's skin (and armour). */
+		NONE,
+		/** The Sentry Suit (worn), the comics look. */
+		SUIT,
+		/** The Void suit over the worn Sentry Suit (merged, or fading back to the comics suit). */
+		VOID_OVER_SUIT,
+		/** The Void suit over the bare wearer (merged without the suit, or fading back to the normal skin): a visual only, no item. */
+		VOID_OVER_SKIN,
+		/** The takeover: all black. */
+		BLACK
+	}
+
+	/** The look now ({@code fade}: how far into the Void the fade is, 0..1 -- see the suit layer's {@code voidFade}). */
+	public static Look look(Player player, float fade) {
+		if (inTakeover(player)) {
+			return Look.BLACK;
+		}
+		boolean suit = com.projecthero.mod.sentry.item.SentrySuitItem.topWorn(player)
+				|| com.projecthero.mod.sentry.item.SentrySuitItem.trousersWorn(player);
+		if (!hasPower(player) || (fade <= 0f && !peek(player).voidForm)) { // (merged counts from its first tick, fade 0)
+			return suit ? Look.SUIT : Look.NONE;
+		}
+		return suit ? Look.VOID_OVER_SUIT : Look.VOID_OVER_SKIN;
+	}
+
+	/** The look with the fade read off the state (server and client alike: game time, no partial tick). */
+	public static Look look(Player player) {
 		SentryState s = peek(player);
-		return s != null && s.hasPower && s.calming;
+		float fade = 0f;
+		if (s != null && s.hasPower && (s.voidForm || s.formChangedAt != 0L || s.inTakeover())) { // (never merged yet: no fade)
+			float k = Math.max(0f, Math.min(1f, (player.level().getGameTime() - s.formChangedAt) / (float) SentryConfig.FORM_FADE_TICKS));
+			fade = s.inTakeover() ? 1f : s.voidForm ? k : 1f - k;
+		}
+		return look(player, fade);
 	}
 
 	public static float sun(Player player) {
@@ -352,14 +393,12 @@ public final class Sentry {
 		};
 	}
 
-	/** The Void's own drift a second where he stands (before Calm and Void Form). */
+	/**
+	 * The Void's own drift a second where he stands, out of the merged form (round 3: it never rises on its own any more -- a slow drain
+	 * everywhere, a little faster in direct sunlight; night and the dark feed nothing).
+	 */
 	public static float voidPerSecond(Sun sun) {
-		return switch (sun) {
-			case DIRECT -> SentryConfig.VOID_DAYLIGHT_PER_SECOND;
-			case SHADE -> 0f;
-			case NIGHT -> SentryConfig.VOID_NIGHT_PER_SECOND;
-			case DARK -> SentryConfig.VOID_DARK_PER_SECOND;
-		};
+		return sun == Sun.DIRECT ? SentryConfig.VOID_DRAIN_PER_SECOND + SentryConfig.VOID_DAYLIGHT_PER_SECOND : SentryConfig.VOID_DRAIN_PER_SECOND;
 	}
 
 	/** Whether the Void has passed {@code threshold} for this player. Client-safe. */
@@ -391,7 +430,7 @@ public final class Sentry {
 			return false;
 		}
 		if (!takeover && merged(player)) {
-			amount *= SentryConfig.MERGED_DAMAGE; // merged with the Void: +25%
+			amount *= SentryConfig.MERGED_DAMAGE; // merged with the Void: +50% (round 3)
 		}
 		DamageSource source = voidDamage ? voidSource(player) : lightSource(player);
 		float before = target.getHealth();
@@ -477,8 +516,13 @@ public final class Sentry {
 		SentryMoves.forget(player.getUUID());
 		VoidMoves.forget(player.getUUID());
 		if (s.beamStart != 0L || s.sunsStart != 0L || s.shieldUntil != 0L || s.nightfallUntil != 0L || s.gripTarget >= 0 || s.calming
-				|| s.flying || s.letOutTrialStart != 0L || s.pose != 0) {
+				|| s.flying || s.letOutTrialStart != 0L || s.pose != 0 || s.boostUntil != 0L || s.senseUntil != 0L || s.shroudUntil != 0L
+				|| s.meldUntil != 0L) {
 			SentryState n = state(player).copy();
+			n.boostUntil = 0L;
+			n.senseUntil = 0L;
+			n.shroudUntil = 0L;
+			n.meldUntil = 0L;
 			n.beamStart = 0L;
 			n.sunsStart = 0L;
 			n.shieldUntil = 0L;
@@ -555,12 +599,8 @@ public final class Sentry {
 		player.getFoodData().setExhaustion(0f);
 		if (player.tickCount % 20 == 0) {
 			tickMeters(player);
+			SentryCalmTasks.check(player);
 			reconcile(player);
-		} else if (s.calming && player.tickCount % 5 == 0) {
-			// Calm drains in quarter steps so the bar moves smoothly
-			SentryState n = state(player).copy();
-			n.voidLevel = Math.max(0f, n.voidLevel + SentryConfig.VOID_CALM_PER_SECOND / 4f);
-			save(player, n);
 		}
 		if (player.tickCount % SentryConfig.REGEN_INTERVAL == 0 && player.getHealth() < player.getMaxHealth() && state(player).sun > 0f) {
 			player.heal(1f);
@@ -576,19 +616,22 @@ public final class Sentry {
 		LetItOut.tick(player);
 	}
 
-	/** Once a second: the sun fills Sun and moves the Void; Calm and Void Form move it too. */
+	/**
+	 * Once a second: the sun fills Sun and moves the Void. Round 3 (user: "only make the players void bar increase when they use their
+	 * powers ... sleeping lowers void bar a lot and doing tasks like fishing and stuff should also make it drain faster, void bar should
+	 * drain slowly by default"): merged with the Void it climbs on its own (the form is the power: +0.5, x1.5); otherwise it drains (-0.05,
+	 * -0.3 in direct sunlight), -1 a second asleep, -0.15 more with a bobber out in the water. The chunks for finished tasks come from
+	 * {@link SentryCalmTasks}; a night slept through from {@link #woke}.
+	 */
 	public static void tickMeters(ServerPlayer player) {
 		SentryState s = state(player);
 		Sun sun = sun(player, false);
-		float voidDelta = voidPerSecond(sun);
-		if (s.calming) {
-			voidDelta += SentryConfig.VOID_CALM_PER_SECOND / 4f; // the other 3/4 come in the quarter steps
+		float voidDelta = s.voidForm ? SentryConfig.VOID_FORM_PER_SECOND : voidPerSecond(sun);
+		if (player.isSleeping()) {
+			voidDelta += SentryConfig.VOID_SLEEP_PER_SECOND;
 		}
-		if (s.voidForm) {
-			voidDelta += SentryConfig.VOID_FORM_PER_SECOND; // (scaled with the rest below: merged x1.5)
-			if (sun == Sun.DIRECT) {
-				voidDelta -= SentryConfig.VOID_DAYLIGHT_PER_SECOND; // daylight doesn't cool the Void Form
-			}
+		if (SentryCalmTasks.fishingInWater(player)) {
+			voidDelta += SentryConfig.VOID_FISHING_PER_SECOND;
 		}
 		if (voidDelta > 0f) {
 			voidDelta *= voidGainScale(player);
@@ -602,6 +645,18 @@ public final class Sentry {
 		if (n.voidLevel >= SentryConfig.VOID_MAX) {
 			VoidTakeover.tryBegin(player);
 		}
+	}
+
+	/**
+	 * Round 3: he got out of bed ({@code EntitySleepEvents.STOP_SLEEPING}). A night slept through (woken by the morning) takes
+	 * {@link SentryConfig#VOID_NIGHT_SLEPT} off at once; the drain while asleep came a second at a time ({@link #tickMeters}).
+	 */
+	public static void woke(ServerPlayer player, boolean nightSlept) {
+		if (!hasPower(player) || inTakeover(player) || !nightSlept) {
+			return;
+		}
+		addVoid(player, SentryConfig.VOID_NIGHT_SLEPT);
+		say(player, "message.projecthero.sentry.slept", ChatFormatting.GOLD);
 	}
 
 	public static void onPlayerJoin(ServerPlayer player) {

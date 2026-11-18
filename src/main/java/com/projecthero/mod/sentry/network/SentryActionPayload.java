@@ -14,6 +14,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 public record SentryActionPayload(int action, boolean won) implements CustomPacketPayload {
 	public static final int TOGGLE_FLIGHT = 0;
 	public static final int TRIAL_RESULT = 1;
+	/** Round 3: H -- Let It Out as the Sentry, back to the Sentry merged ({@code SentryAbilityManager.pressH}). */
+	public static final int LET_IT_OUT = 2;
 
 	public static final CustomPacketPayload.Type<SentryActionPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("sentry_action"));
 

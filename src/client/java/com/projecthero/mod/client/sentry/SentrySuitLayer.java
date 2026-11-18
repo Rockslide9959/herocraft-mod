@@ -36,10 +36,15 @@ import net.minecraft.world.entity.player.Player;
  *   <li><b>The Sentry Suit item</b> ({@link SentrySuitItem}) is what draws the suit now -- the power alone draws nothing. The top draws
  *   the body and arms, the trousers the legs; the head is never covered (his own face and hair).</li>
  *   <li><b>Merged with the Void</b> (a won Let It Out) the suit dissolves into the Void suit over {@link SentryConfig#FORM_FADE_TICKS}
- *   ticks (per pixel, outward from the heart: {@link SentrySuitTextures#step}); leaving the mode runs it back. Without the suit, merging
- *   fades the original Void Form body in over the bare wearer the same way.</li>
+ *   ticks (per pixel, outward from the heart: {@link SentrySuitTextures#step}); leaving the mode runs it back. Round 3 (user: "If player
+ *   enters the controlled void mode then the red and black sentry suit should appear on the player even if the player isnt wearing the
+ *   suit, the suit then disappears after player returns to normal unless they were wearing the suit before"): without the suit, merging
+ *   fades the same red-and-black Void suit in over the bare wearer (his own face and hair still show, the black cape unrolls with it), and
+ *   returning fades it away to his own skin; with the suit on it fades back to the comics suit. Which one is {@code Sentry.look}, from
+ *   the armour worn right now (a visual only: no item is given).</li>
  *   <li><b>The takeover</b>: the whole body black ({@code void_body.png}: head, body, arms, legs, every outer layer hidden, armour hidden
- *   by {@code QuirkSuitArmourMixin}) with two tiny white pixel eyes drawn full bright.</li>
+ *   by {@code QuirkSuitArmourMixin}). Round 3 (user: "make the white eyes a lot smaller, literal tiny glowing specs"): the eyes are no
+ *   longer texture pixels but two full-bright specks a third of a pixel wide on the face, each in a faint halo ({@link #eyeSpecks}).</li>
  * </ul>
  * Each has an emissive pass; the Sentry suit's glow flickers dark from 50 Void, the Void's pulses. Wide and slim arms follow the
  * wearer's skin.
@@ -76,6 +81,9 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		if (s.inTakeover()) {
 			return 1f;
 		}
+		if (!s.voidForm && s.formChangedAt == 0L) {
+			return 0f; // never merged yet (a fresh world's clock can be under the fade's length)
+		}
 		float k = Mth.clamp((player.level().getGameTime() + partial - s.formChangedAt) / SentryConfig.FORM_FADE_TICKS, 0f, 1f);
 		return s.voidForm ? k : 1f - k;
 	}
@@ -89,29 +97,26 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		if (player.isInvisible()) {
 			return Mode.NONE;
 		}
-		if (Sentry.inTakeover(player)) {
-			return Mode.BLACK;
-		}
-		if (SentrySuitItem.topWorn(player) || SentrySuitItem.trousersWorn(player)) {
-			return Mode.SUIT;
-		}
-		if (Sentry.hasPower(player) && voidFade(player, partial) > 0f) {
-			return Mode.BARE;
-		}
-		return Mode.NONE;
+		return switch (Sentry.look(player, voidFade(player, partial))) {
+			case BLACK -> Mode.BLACK;
+			case SUIT, VOID_OVER_SUIT -> Mode.SUIT;
+			case VOID_OVER_SKIN -> Mode.BARE;
+			default -> Mode.NONE;
+		};
 	}
 
 	/** {base, glow} for this player and mode at this point of the fade. */
 	static ResourceLocation[] textures(Player player, Mode mode, boolean slimArms, float partial) {
 		if (mode == Mode.BLACK) {
-			return new ResourceLocation[] { SentrySuitTextures.base(SentrySuitTextures.Look.BLACK, slimArms),
-					SentrySuitTextures.glow(SentrySuitTextures.Look.BLACK, slimArms) };
+			// round 3: no glow texture -- the eyes are the specks drawn by eyeSpecks
+			return new ResourceLocation[] { SentrySuitTextures.base(SentrySuitTextures.Look.BLACK, slimArms), null };
 		}
 		int k = Math.round(voidFade(player, partial) * SentrySuitTextures.STEPS);
 		if (mode == Mode.SUIT) {
 			return SentrySuitTextures.step(SentrySuitTextures.Look.SUIT, SentrySuitTextures.Look.VOID_SUIT, slimArms, k);
 		}
-		return SentrySuitTextures.step(null, SentrySuitTextures.Look.VOID_BODY, slimArms, k);
+		// round 3: without the suit, the red-and-black Void suit itself fades in over his skin (was the original Void Form body)
+		return SentrySuitTextures.step(null, SentrySuitTextures.Look.VOID_SUIT, slimArms, k);
 	}
 
 	@Override
@@ -133,6 +138,46 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 				m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(tex[1])), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
 			}
 		}
+		if (mode == Mode.BLACK && m.head.visible) {
+			eyeSpecks(pose, buffers, m.head, ageInTicks);
+		}
+	}
+
+	/** Round 3: the eyes' size (model pixels) -- the core speck and its faint halo. */
+	static final float EYE_SPECK = 0.32f, EYE_HALO = 1.1f;
+
+	/**
+	 * Round 3 (user: "When the void takes over the player make the white eyes a lot smaller, literal tiny glowing specs on the players
+	 * face"): two full-bright white specks a third of a pixel across, where the eyes are (face pixels 2 and 5 of 8, row 4), just in front of
+	 * the face, each with a soft halo that breathes a little. Drawn additively in the head's own frame, so they turn and nod with it.
+	 */
+	static void eyeSpecks(PoseStack pose, MultiBufferSource buffers, ModelPart head, float age) {
+		pose.pushPose();
+		head.translateAndRotate(pose);
+		var vc = buffers.getBuffer(RenderType.lightning());
+		var last = pose.last();
+		float z = -4.12f / 16f;
+		float y = -3.5f / 16f;
+		float halo = 0.22f + 0.06f * Mth.sin(age * 0.15f);
+		for (float x : new float[] { -1.5f / 16f, 1.5f / 16f }) {
+			quad(vc, last, x, y, z, EYE_HALO / 32f, 1f, 1f, 1f, halo * 0.5f);
+			quad(vc, last, x, y, z - 0.0005f, EYE_HALO / 64f, 1f, 1f, 1f, halo);
+			quad(vc, last, x, y, z - 0.001f, EYE_SPECK / 32f, 1f, 1f, 1f, 1f);
+		}
+		pose.popPose();
+	}
+
+	private static void quad(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack.Pose last, float x, float y, float z, float h, float r,
+			float g, float b, float a) {
+		vc.addVertex(last, x - h, y - h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x - h, y + h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x + h, y + h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x + h, y - h, z).setColor(r, g, b, a);
+		// and the other winding (whichever way the cull reads it after the renderer's flip)
+		vc.addVertex(last, x + h, y - h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x + h, y + h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x - h, y + h, z).setColor(r, g, b, a);
+		vc.addVertex(last, x - h, y - h, z).setColor(r, g, b, a);
 	}
 
 	/**
@@ -215,6 +260,15 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 					model.leftPants.visible = false;
 					model.rightPants.visible = false;
 				}
+				return true;
+			}
+			case BARE -> {
+				// round 3: the Void suit over his skin leaves his own face and hair (the hat layer) showing
+				model.jacket.visible = false;
+				model.leftSleeve.visible = false;
+				model.rightSleeve.visible = false;
+				model.leftPants.visible = false;
+				model.rightPants.visible = false;
 				return true;
 			}
 			default -> {

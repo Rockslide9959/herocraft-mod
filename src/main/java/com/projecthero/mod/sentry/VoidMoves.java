@@ -50,6 +50,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>C Blot Out</b>: drains life and light around him to heal (his remaining Sun burns into health).</li>
  *   <li><b>Shift+C Shadow Clones</b>: three shadow doubles rise from his shadow and hunt.</li>
  *   <li><b>X Shadow Step</b>: a blink along his look through a smear of shadow, hurting what it passes.</li>
+ *   <li><b>V Umbral Shroud</b> (round 3, new): a cloak of darkness -- hits cut 40%, projectiles swallowed, melee attackers withered.</li>
+ *   <li><b>Shift+V Shadow Meld</b> (round 3, new): he sinks into the shadows -- invisible, faster, hunters lose him -- until he attacks.</li>
+ *   <li><b>H</b> (round 3): back to the Sentry, below 90 Void ({@link #returnToSentry}).</li>
  * </ul>
  * Each move is a plain method the takeover's brain calls too ({@link VoidTakeover}); {@link #use} adds the player's cooldowns and the
  * Void each move feeds. The running effects ({@link Zone}s) keep the owner id, the dimension key, a position and an entity id only (never
@@ -66,6 +69,8 @@ public final class VoidMoves {
 		final long start;
 		final long until;
 		final int target;
+		/** Round 3: a stable id (the clones' figures are smoothed by it on the client). */
+		final int id = NEXT_ID.incrementAndGet() & 0xFFFFF;
 		Vec3 at;
 		long next;
 
@@ -81,6 +86,9 @@ public final class VoidMoves {
 	}
 
 	private static final List<Zone> ZONES = new CopyOnWriteArrayList<>();
+	private static final java.util.concurrent.atomic.AtomicInteger NEXT_ID = new java.util.concurrent.atomic.AtomicInteger();
+	/** The {@code owner} field of a clone's SHADE payload: this plus its zone id (a nightmare figure sends -1). */
+	public static final int CLONE_FX_ID = 1 << 24;
 	/** Tendril Lash's combo step and when it last swung. */
 	private static final Map<UUID, long[]> LASH = new ConcurrentHashMap<>();
 
@@ -117,9 +125,13 @@ public final class VoidMoves {
 		if (Sentry.cooldownRemaining(p, id) > 0) {
 			return;
 		}
+		boolean attack = java.util.Arrays.asList(SentryAbilityManager.VOID_ATTACKS).contains(id);
 		if (fire(p, id, null)) {
 			Sentry.startCooldown(p, id, cooldownOf(p, id));
 			Sentry.addVoid(p, voidOf(id));
+			if (attack) {
+				endMeld(p); // an attack brings him out of the shadows
+			}
 		}
 	}
 
@@ -152,6 +164,8 @@ public final class VoidMoves {
 			case SentryAbilityManager.BLOT_OUT -> blotOut(p) >= 0;
 			case SentryAbilityManager.SHADOW_CLONES -> clones(p);
 			case SentryAbilityManager.SHADOW_STEP -> shadowStep(p);
+			case SentryAbilityManager.UMBRAL_SHROUD -> shroud(p);
+			case SentryAbilityManager.SHADOW_MELD -> meld(p);
 			default -> false;
 		};
 	}
@@ -167,6 +181,8 @@ public final class VoidMoves {
 			case SentryAbilityManager.BLOT_OUT -> SentryConfig.BLOT_VOID;
 			case SentryAbilityManager.SHADOW_CLONES -> SentryConfig.CLONE_VOID;
 			case SentryAbilityManager.SHADOW_STEP -> SentryConfig.STEP_VOID;
+			case SentryAbilityManager.UMBRAL_SHROUD -> SentryConfig.SHROUD_VOID;
+			case SentryAbilityManager.SHADOW_MELD -> SentryConfig.MELD_VOID;
 			default -> 0f;
 		};
 	}
@@ -662,7 +678,7 @@ public final class VoidMoves {
 		}
 		if (now % 2 == 0) {
 			Vec3 face = t != null ? centre(t) : z.at.add(Vec3.directionFromRotation(0f, owner.getYRot()).scale(3)).add(0, 1.5, 0);
-			SentryFx.send(level, SentryFxPayload.SHADE, z.at, 1.9f, 2, face, -1);
+			SentryFx.send(level, SentryFxPayload.SHADE, z.at, 1.9f, 2, face, CLONE_FX_ID + z.id);
 		}
 		if (now % 4 == 0) {
 			level.sendParticles(ParticleTypes.SMOKE, z.at.x, z.at.y + 1.0, z.at.z, 2, 0.2, 0.5, 0.2, 0.0);
@@ -732,7 +748,95 @@ public final class VoidMoves {
 		return pt.distanceTo(a.add(ab.scale(t)));
 	}
 
-	// ---------------------------------------------------------------- V: Return
+	// ---------------------------------------------------------------- V: Umbral Shroud (round 3)
+
+	/** A cloak of darkness for 8 s: hits cut 40% ({@code SentryDamage}), projectiles swallowed ({@link #tick}), melee attackers withered. */
+	public static boolean shroud(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		SentryState n = Sentry.state(p).copy();
+		n.shroudUntil = level.getGameTime() + SentryConfig.SHROUD_TICKS;
+		Sentry.save(p, n);
+		Sentry.pose(p, SentryState.POSE_SHROUD, 14);
+		SentryFx.send(level, SentryFxPayload.SHROUD, p.position(), (float) SentryConfig.SHROUD_RADIUS, SentryConfig.SHROUD_TICKS, null, p.getId());
+		level.sendParticles(ParticleTypes.SQUID_INK, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.6, 0.9, 0.6, 0.04);
+		Sentry.sound(p, SoundEvents.WARDEN_NEARBY_CLOSER, 1.0f, 0.6f);
+		Sentry.sound(p, SoundEvents.SCULK_CATALYST_BLOOM, 1.0f, 0.4f);
+		return true;
+	}
+
+	/** The shroud is up. Client-safe. */
+	public static boolean shrouded(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s != null && s.hasPower && s.shroudUntil > p.level().getGameTime();
+	}
+
+	/** Melee on him while the shroud is up: the attacker is withered and blinded (from {@code SentryDamage}). */
+	static void retaliate(ServerPlayer victim, net.minecraft.world.damagesource.DamageSource source) {
+		if (!shrouded(victim) || !(source.getDirectEntity() instanceof LivingEntity attacker) || source.getDirectEntity() != source.getEntity()
+				|| attacker == victim || attacker.distanceToSqr(victim) > 5.0 * 5.0 || !Sentry.areaVictim(victim, attacker)) {
+			return;
+		}
+		attacker.addEffect(new MobEffectInstance(MobEffects.WITHER, SentryConfig.SHROUD_WITHER_TICKS, 0, false, true, true));
+		attacker.addEffect(new MobEffectInstance(MobEffects.DARKNESS, SentryConfig.SHROUD_WITHER_TICKS, 0, false, false, true));
+		if (!(attacker instanceof Player)) {
+			AbilityHelpers.applyControl(attacker, MobEffects.BLINDNESS, SentryConfig.SHROUD_WITHER_TICKS, 0);
+		}
+		Vec3 c = centre(attacker);
+		victim.serverLevel().sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 8, 0.3, 0.4, 0.3, 0.04);
+	}
+
+	// ---------------------------------------------------------------- Shift+V: Shadow Meld (round 3)
+
+	/** He sinks into the shadows for 6 s: invisible, Speed II, every mob hunting him within 32 loses him. Ends early on a Void attack. */
+	public static boolean meld(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		SentryState n = Sentry.state(p).copy();
+		n.meldUntil = level.getGameTime() + SentryConfig.MELD_TICKS;
+		Sentry.save(p, n);
+		p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, SentryConfig.MELD_TICKS, 0, false, false, true));
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, SentryConfig.MELD_TICKS, SentryConfig.MELD_SPEED_AMP, false, false, true));
+		loseHunters(p);
+		Sentry.pose(p, SentryState.POSE_MELD, 10);
+		SentryFx.send(level, SentryFxPayload.MELD, p.position(), 1.6f, 14, null, p.getId());
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.8, p.getZ(), 24, 0.4, 0.6, 0.4, 0.02);
+		level.sendParticles(ParticleTypes.SQUID_INK, p.getX(), p.getY() + 0.2, p.getZ(), 20, 0.5, 0.1, 0.5, 0.02);
+		Sentry.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.6f, 0.4f);
+		return true;
+	}
+
+	/** Melded right now. Client-safe. */
+	public static boolean melded(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s != null && s.hasPower && s.meldUntil > p.level().getGameTime();
+	}
+
+	/** Every mob within {@link SentryConfig#MELD_RADIUS} that hunts him forgets him. Returns how many (tests). */
+	public static int loseHunters(ServerPlayer p) {
+		int n = 0;
+		double r = SentryConfig.MELD_RADIUS;
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(r), m -> m.getTarget() == p)) {
+			m.setTarget(null);
+			m.getNavigation().stop();
+			n++;
+		}
+		return n;
+	}
+
+	/** Out of the shadows (a Void attack, or the time is up): visible again. */
+	static void endMeld(ServerPlayer p) {
+		SentryState s = Sentry.state(p);
+		if (s.meldUntil == 0L) {
+			return;
+		}
+		SentryState n = s.copy();
+		n.meldUntil = 0L;
+		Sentry.save(p, n);
+		p.removeEffect(MobEffects.INVISIBILITY);
+		p.removeEffect(MobEffects.MOVEMENT_SPEED);
+		p.serverLevel().sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.8, p.getZ(), 12, 0.3, 0.6, 0.3, 0.02);
+	}
+
+	// ---------------------------------------------------------------- H: Return (round 3: H; was Shift+V / V)
 
 	static void returnToSentry(ServerPlayer p) {
 		SentryState s = Sentry.state(p);
@@ -753,10 +857,40 @@ public final class VoidMoves {
 			p.serverLevel().sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.3, 0.7, 0.3, 0.01);
 		}
 		SentryState s = Sentry.state(p);
-		if (s.nightfallUntil != 0L && s.nightfallUntil <= p.level().getGameTime()) {
+		long now = p.level().getGameTime();
+		if (s.nightfallUntil != 0L && s.nightfallUntil <= now) {
 			SentryState n = s.copy();
 			n.nightfallUntil = 0L;
 			Sentry.save(p, n);
+		}
+		s = Sentry.state(p);
+		if (s.shroudUntil != 0L) {
+			if (s.shroudUntil <= now) {
+				SentryState n = s.copy();
+				n.shroudUntil = 0L;
+				Sentry.save(p, n);
+			} else {
+				// projectiles reaching the shroud are swallowed by the dark
+				ServerLevel level = p.serverLevel();
+				double r = SentryConfig.SHROUD_RADIUS;
+				Vec3 c = p.position().add(0, 1.0, 0);
+				for (net.minecraft.world.entity.projectile.Projectile proj : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+						new AABB(c, c).inflate(r + 1.0), e -> e.isAlive() && e.distanceToSqr(c) <= (r + 0.5) * (r + 0.5) && SentryMoves.hostileShot(p, e))) {
+					level.sendParticles(ParticleTypes.SQUID_INK, proj.getX(), proj.getY(), proj.getZ(), 8, 0.15, 0.15, 0.15, 0.02);
+					proj.discard();
+				}
+				if (now % 5 == 0) {
+					level.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.0, p.getZ(), 4, r * 0.4, 0.8, r * 0.4, 0.0);
+				}
+			}
+		}
+		s = Sentry.state(p);
+		if (s.meldUntil != 0L) {
+			if (s.meldUntil <= now) {
+				endMeld(p);
+			} else if (now % 10 == 0) {
+				loseHunters(p);
+			}
 		}
 	}
 

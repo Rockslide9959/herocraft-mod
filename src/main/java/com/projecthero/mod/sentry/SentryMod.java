@@ -31,7 +31,8 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.5 Sentry &amp; the Void: one entry point, called once from {@code ProjectHeroMod.onInitialize}: the attachment, blocks, items,
  * damage rules, the {@code projectheroVoidGriefing} gamerule, the payloads, the world ticks (the eaten world coming back, the Void's
- * zones), the click rules (a Sentry in the takeover or in Calm can't attack; others reach the Void with an empty hand) and the lifecycle
+ * zones), the click rules (a Sentry in the takeover can't attack; others reach the Void with an empty hand), round 3's sleep / harvest
+ * hooks (the Void drains) and the lifecycle
  * hooks; plus {@code /projecthero power tune sentry (sun|void <0-100> | cooldowns | takeover | release)}. The per-player tick runs from
  * {@code AbilityRouter.serverTick}. Static state is dropped by {@code ServerStateReset} through {@link #clearSessionState}.
  */
@@ -60,6 +61,20 @@ public final class SentryMod {
 				SentryFlight.toggle(p);
 			} else if (payload.action() == com.projecthero.mod.sentry.network.SentryActionPayload.TRIAL_RESULT) {
 				LetItOut.report(p, payload.won());
+			} else if (payload.action() == com.projecthero.mod.sentry.network.SentryActionPayload.LET_IT_OUT) {
+				SentryAbilityManager.pressH(p); // round 3: H = Let It Out / back to the Sentry
+			}
+		});
+		// round 3: sleeping lowers the Void (a night slept through: a big chunk), harvesting ripe crops is a calm task
+		net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.STOP_SLEEPING.register((entity, sleepingPos) -> {
+			if (entity instanceof ServerPlayer p && Sentry.hasPower(p)) {
+				long day = p.level().getDayTime() % 24000L;
+				Sentry.woke(p, day < 2000L || day > 23500L);
+			}
+		});
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> {
+			if (player instanceof ServerPlayer p && Sentry.hasPower(p)) {
+				SentryCalmTasks.broke(p, state);
 			}
 		});
 		ServerTickEvents.END_WORLD_TICK.register(level -> {
@@ -82,9 +97,9 @@ public final class SentryMod {
 			Sentry.clearTransient(p);
 			Sentry.forget(p.getUUID());
 		});
-		// the body is the Void's: his own clicks do nothing; in Calm he can't attack
+		// the body is the Void's: his own clicks do nothing (round 3: Calm is gone)
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
-				!level.isClientSide() && (Sentry.inTakeover(player) || Sentry.calming(player)) ? InteractionResult.FAIL : InteractionResult.PASS);
+				!level.isClientSide() && Sentry.inTakeover(player) ? InteractionResult.FAIL : InteractionResult.PASS);
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) ->
 				!level.isClientSide() && Sentry.inTakeover(player) ? InteractionResult.FAIL : InteractionResult.PASS);
 		UseBlockCallback.EVENT.register((player, level, hand, hit) ->

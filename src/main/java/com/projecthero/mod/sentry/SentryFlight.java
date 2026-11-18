@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -59,9 +60,53 @@ public final class SentryFlight {
 		return DASH_UNTIL.containsKey(p.getUUID());
 	}
 
-	/** X (regular Sentry): the dash, nothing else. */
+	/** X (regular Sentry): the dash on the ground; round 3 (user: "if sonic boom is used while flying it does something different"): the Flight Boost while flying. */
 	static void press(ServerPlayer p) {
-		dash(p);
+		if (Sentry.selfFlying(p)) {
+			boost(p);
+		} else {
+			dash(p);
+		}
+	}
+
+	/** The Flight Boost is running for him (client-safe: the state is synced; the client's directional flight reads it). */
+	public static boolean boosting(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s != null && s.hasPower && s.boostUntil > p.level().getGameTime();
+	}
+
+	/** Ticks of Flight Boost left (0 none). Client-safe. */
+	public static int boostLeft(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s == null ? 0 : (int) Math.max(0L, s.boostUntil - p.level().getGameTime());
+	}
+
+	/**
+	 * Round 3: X while flying -- flight speed x1.5 for 30 s ({@link SentryConfig#BOOST_TICKS}; 33 b/s cruising, 66 sprinting), a sonic boom
+	 * as it starts, a golden contrail meanwhile. Its own cooldown (45 s from the start). True if it started (tests).
+	 */
+	public static boolean boost(ServerPlayer p) {
+		if (Sentry.cooldownRemaining(p, SentryAbilityManager.FLIGHT_BOOST) > 0 || !Sentry.spendSun(p, SentryConfig.BOOST_COST)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		SentryState n = Sentry.state(p).copy();
+		n.boostUntil = now + SentryConfig.BOOST_TICKS;
+		Sentry.save(p, n);
+		Sentry.startCooldown(p, SentryAbilityManager.FLIGHT_BOOST, SentryConfig.BOOST_COOLDOWN);
+		Sentry.pose(p, SentryState.POSE_BOOST, 12);
+		Vec3 dir = p.getLookAngle();
+		ServerLevel level = p.serverLevel();
+		Vec3 c = p.position().add(0, 1.0, 0);
+		SentryFx.send(level, SentryFxPayload.BOOST, c, 3.5f, 16, c.add(dir), p.getId());
+		SentryFx.send(level, SentryFxPayload.BOOM, c, 3f, 10, c.add(dir), p.getId());
+		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.0f), c.x, c.y, c.z, 30, 0.8, 0.8, 0.8, 0.0);
+		Sentry.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.2f);
+		Sentry.sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 0.6f);
+		AbilityHelpers.launchSelf(p, dir.scale(1.6));
+		return true;
 	}
 
 	/** Double-tap Space: take off, or land. Never in the takeover (the Void flies the body). */
@@ -145,6 +190,20 @@ public final class SentryFlight {
 
 	static void tick(ServerPlayer p) {
 		long now = p.level().getGameTime();
+		SentryState bs = Sentry.state(p);
+		if (bs.boostUntil != 0L && bs.boostUntil <= now) {
+			SentryState n = bs.copy();
+			n.boostUntil = 0L;
+			Sentry.save(p, n);
+		} else if (bs.boostUntil > now && Sentry.selfFlying(p) && p.getDeltaMovement().lengthSqr() > 0.2) {
+			// the golden contrail (the client draws the long ribbon; these are the sparks in it)
+			Vec3 v = p.getDeltaMovement().normalize();
+			Vec3 tail = p.position().add(0, p.getBbHeight() * 0.5, 0).subtract(v.scale(1.4));
+			p.serverLevel().sendParticles(Sentry.dust(Sentry.GOLD, 1.6f), tail.x, tail.y, tail.z, 3, 0.15, 0.15, 0.15, 0.0);
+			if (now % 3 == 0) {
+				p.serverLevel().sendParticles(ParticleTypes.END_ROD, tail.x, tail.y, tail.z, 1, 0.1, 0.1, 0.1, 0.01);
+			}
+		}
 		Long dashEnd = DASH_UNTIL.get(p.getUUID());
 		if (dashEnd != null) {
 			if (now >= dashEnd) {

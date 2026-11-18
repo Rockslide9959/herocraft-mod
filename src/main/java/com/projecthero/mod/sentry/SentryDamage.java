@@ -14,8 +14,9 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li>70% less damage taken (Void Form and the takeover 75%); no fall damage while flying, diving or in the takeover. Moveset 2:
  *   halved again while A Million Suns charges, and -40% more under the Molecular Shield (which also deflects melee).</li>
- *   <li>A heavy hit (8+ after the cut) feeds the Void: 0.4 a point, 6 at most a hit.</li>
- *   <li>Every kill feeds the Void (2, a player 6); in the takeover a kill is absorbed instead (it heals the body).</li>
+ *   <li>Round 3 (user: "only make the players void bar increase when they use their powers"): heavy hits taken and kills no longer feed
+ *   the Void. In the takeover a kill is still absorbed (it heals the body). Merged, the Umbral Shroud cuts hits by 40% more and
+ *   withers whoever strikes him in melee.</li>
  *   <li>Dying in the takeover ends it (Void 60 on respawn).</li>
  * </ul>
  * A changed hit is cancelled and re-issued behind a re-entrancy guard, vanilla's difficulty scaling undone first (Shazam's pattern).
@@ -28,11 +29,6 @@ public final class SentryDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(SentryDamage::allowDamage);
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
-			if (entity instanceof ServerPlayer p && damageTaken >= SentryConfig.HEAVY_HIT && Sentry.hasPower(p) && !Sentry.inTakeover(p)) {
-				Sentry.addVoid(p, Math.min(SentryConfig.HEAVY_HIT_VOID_CAP, damageTaken * SentryConfig.HEAVY_HIT_VOID_PER_DAMAGE));
-			}
-		});
 		ServerLivingEntityEvents.AFTER_DEATH.register(SentryDamage::afterDeath);
 	}
 
@@ -54,6 +50,9 @@ public final class SentryDamage {
 		if (SentryMoves.shielded(victim)) {
 			f *= 1f - SentryConfig.MSHIELD_RESIST; // moveset 2: the Molecular Shield
 		}
+		if (VoidMoves.shrouded(victim)) {
+			f *= 1f - SentryConfig.SHROUD_RESIST; // round 3: the Umbral Shroud
+		}
 		return f;
 	}
 
@@ -63,6 +62,7 @@ public final class SentryDamage {
 		}
 		if (Sentry.hasPower(victim)) {
 			SentryMoves.deflect(victim, source); // moveset 2: melee into the Molecular Shield comes back
+			VoidMoves.retaliate(victim, source); // round 3: melee into the Umbral Shroud withers the attacker
 		}
 		float f = factor(victim, source);
 		if (f == 1f) {
@@ -101,8 +101,6 @@ public final class SentryDamage {
 		if (source.getEntity() instanceof ServerPlayer killer && killer != entity && Sentry.hasPower(killer)) {
 			if (Sentry.inTakeover(killer)) {
 				VoidTakeover.absorb(killer, entity);
-			} else {
-				Sentry.addVoid(killer, entity instanceof Player ? SentryConfig.PLAYER_KILL_VOID : SentryConfig.KILL_VOID);
 			}
 		}
 	}

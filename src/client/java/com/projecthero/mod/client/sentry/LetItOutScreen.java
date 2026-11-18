@@ -19,7 +19,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.5 rework: <b>Hold the Light</b>, the Let It Out trial (Shift+V as the Sentry). A tall dark shaft; a golden sun drifts up and
+ * v0.17.5 rework: <b>Hold the Light</b>, the Let It Out trial (H as the Sentry; round 3). A tall dark shaft; a golden sun drifts up and
  * down it (faster and smaller the more Void he carries); his light is a white bead that falls -- the Void pulling it down -- unless he holds
  * Space or the left mouse button, which lifts it. While the bead sits inside the sun the Light bar fills (+26 a second), outside it drains
  * (-12). Fill it before the 8 s run out to win (merged with the Void); let it empty, run out of time or close the screen (Esc) and it is

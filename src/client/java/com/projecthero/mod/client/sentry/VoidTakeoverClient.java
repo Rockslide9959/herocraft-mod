@@ -157,7 +157,8 @@ public final class VoidTakeoverClient {
 
 	/** From 75 Void the aim drifts toward the nearest living thing ahead (a little a tick; never while a screen is open). */
 	private static void aimDrift(Minecraft mc, SentryState s) {
-		if (s.voidLevel < SentryConfig.VOID_MISFIRE || mc.screen != null) {
+		// round 3 (user: "dont make it auto track"): never while the Solar Gaze is held -- it goes exactly where he looks
+		if (s.voidLevel < SentryConfig.VOID_MISFIRE || mc.screen != null || s.beamStart != 0L) {
 			return;
 		}
 		Player p = mc.player;

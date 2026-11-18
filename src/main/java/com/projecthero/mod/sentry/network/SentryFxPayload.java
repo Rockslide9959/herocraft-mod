@@ -54,6 +54,15 @@ public record SentryFxPayload(int kind, double x, double y, double z, float size
 	public static final int PILLAR = 18;
 	/** Skyward Hurl / the Haymaker: a golden comet trail behind the creature {@code owner}. */
 	public static final int COMET = 19;
+	/** Round 3: Solar Flare -- a burst of sunlight (rays, rings, a flash nearby) round {@code owner}. */
+	public static final int FLARE = 20;
+	/** Round 3: Golden Sense -- a golden pulse running out to {@code size} round {@code owner}. */
+	public static final int SENSE = 21;
+	/** Round 3: the Flight Boost starting -- a sonic-boom ring across {@code owner}'s flight path ({@code to}: the direction point). */
+	public static final int BOOST = 22;
+	/** Round 3, the Void: Umbral Shroud (a dark swirl round {@code owner} for {@code ticks}) and Shadow Meld (an ink burst). */
+	public static final int SHROUD = 23;
+	public static final int MELD = 24;
 
 	public static final CustomPacketPayload.Type<SentryFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("sentry_fx"));
 

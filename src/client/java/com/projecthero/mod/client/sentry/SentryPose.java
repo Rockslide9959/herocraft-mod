@@ -15,7 +15,9 @@ import net.minecraft.world.entity.player.Player;
  *   <li><b>Solar Gaze</b>: chest out, fists clenched back and down at his sides, the head locked on the look.</li>
  *   <li><b>A Million Suns</b>: the arms spread wide and rise as the light gathers.</li>
  *   <li><b>Disassemble</b>: both hands out at the creature, clawed, pulling apart as it unravels.</li>
- *   <li><b>Calm</b>: legs crossed, hands resting on the knees. <b>The kneel</b> after the Void is thrown out.</li>
+ *   <li><b>The kneel</b> after the Void is thrown out. (Round 3: Calm is gone.)</li>
+ *   <li>Round 3: Solar Flare (fists to the chest, then flung out wide), Golden Sense (two fingers to the temple, face up), the Flight
+ *   Boost (both fists driven ahead); the Void's Umbral Shroud (arms wrapped round himself) and Shadow Meld (a low crouch).</li>
  *   <li>Moveset 2 short poses ({@link SentryState#pose}): the Haymaker wind-through, Skyward Hurl (both arms thrown up), the Sunfall leap
  *   (knees tucked, fists up) and dive (both fists leading), Golden Guardian (arms spread, face up), Molecular Shield (arms crossed then
  *   flung open); the Void's Erase (one hand out, fingers spread), Shadow Pool (pointing down), Swallow (a fist closing), Nightmare (arms
@@ -57,21 +59,6 @@ public final class SentryPose {
 			m.leftArm.xRot = 0.4f;
 			m.rightArm.zRot = 0.1f;
 			m.leftArm.zRot = -0.1f;
-			return;
-		}
-		if (s.calming) {
-			m.rightLeg.xRot = -1.4f;
-			m.leftLeg.xRot = -1.4f;
-			m.rightLeg.yRot = 0.6f;
-			m.leftLeg.yRot = -0.6f;
-			m.rightLeg.zRot = 0.05f;
-			m.leftLeg.zRot = -0.05f;
-			float breathe = Mth.sin(age * 0.07f) * 0.04f;
-			m.rightArm.xRot = -0.65f + breathe;
-			m.leftArm.xRot = -0.65f + breathe;
-			m.rightArm.zRot = -0.25f;
-			m.leftArm.zRot = 0.25f;
-			m.head.xRot = 0.25f;
 			return;
 		}
 		if (s.sunsStart != 0L) {
@@ -174,6 +161,51 @@ public final class SentryPose {
 				m.leftArm.yRot = Mth.lerp(cross, m.leftArm.yRot, 0.7f);
 				m.rightArm.zRot = Mth.lerp(fling, m.rightArm.zRot, 1.1f);
 				m.leftArm.zRot = Mth.lerp(fling, m.leftArm.zRot, -1.1f);
+			}
+			case SentryState.POSE_FLARE -> {
+				// fists gathered at the chest, then flung out wide as the light bursts
+				boolean flung = k > 0.3f;
+				float x = flung ? -0.35f : -1.35f;
+				float y = flung ? 0f : 0.75f;
+				float z = flung ? 1.35f : 0f;
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, x);
+				m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, x);
+				m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -y);
+				m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, y);
+				m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, z);
+				m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -z);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, flung ? -0.4f : 0.2f);
+			}
+			case SentryState.POSE_SENSE -> {
+				// two fingers to the temple, the face lifting to listen
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -2.2f);
+				m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -0.55f);
+				m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.35f);
+				m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.2f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.3f);
+			}
+			case SentryState.POSE_BOOST -> {
+				// both fists driven ahead into the boom (the body lies along the flight)
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -3.0f);
+				m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, -3.0f);
+				m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, -0.1f);
+				m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, 0.1f);
+			}
+			case SentryState.POSE_SHROUD -> {
+				// arms wrapped round himself as the dark closes in
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -1.1f);
+				m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, -1.1f);
+				m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -0.95f);
+				m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, 0.95f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.45f);
+			}
+			case SentryState.POSE_MELD -> {
+				// a low crouch, sinking into his shadow
+				m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, -0.9f);
+				m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, -0.2f);
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, 0.5f);
+				m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, 0.5f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.5f);
 			}
 			case SentryState.POSE_ERASE -> {
 				// one hand held out at it, fingers spread, trembling

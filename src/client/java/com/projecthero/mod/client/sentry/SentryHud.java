@@ -21,13 +21,13 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.5 Sentry HUD, bottom-right, on the shared Minecraft-style column ({@link VanillaHud.Stack}):
  * <pre>
- *   Flying  Calm  Shield 0:04  Suit  Trial    status tags (wrap)
+ *   Flying  Boost 0:21  Shield 0:04  Sense  Suit  Trial    status tags (wrap)
  *   THE SENTRY / THE VOID
- *   Sun  [yellow bevelled bar]  82   fuels the Sentry moves (v0.17.5 rework: both vanilla XP-bar style, {@link #bevelBar})
- *   Void [red bevelled bar]  47   the danger: bright red low, darkening to near-black red full; 50/75/90 notches
+ *   Sun  [the XP bar, tinted yellow]  82   fuels the Sentry moves (round 3: the real XP bar sprites, {@link #xpBar})
+ *   Void [the XP bar, tinted red]     47   the danger: bright red low, darkening to near-black red full; 50/75/90 notches
  *   +----+----+----+----+----+----+           R G Z X C V: cooldowns; greyed when the Sun can't pay; yellow while Shift shows Shift
- *                                             (moveset 2: both forms fill all six boxes -- C is Golden Guardian / Blot Out)
- *                                             (v0.17.5 rework: X = Sonic Boom; flight is double-tap Space, listed in the move list)
+ *                                             (round 3: X shows the Flight Boost while flying, its seconds left while it runs;
+ *                                             H = Let It Out / Return and 2x Space = flight are in the move list, no H box)
  * </pre>
  * The Void's thresholds also draw here, over the whole view: black veins creeping in from the screen edges from 50 Void (thicker at
  * 75), and from 90 a heartbeat pulse of darkness. Hold Left-Alt for the move list. The takeover's own view is
@@ -82,8 +82,17 @@ public final class SentryHud {
 		if (s.flying) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.flying").getString(), VanillaHud.WHITE));
 		}
-		if (s.calming) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.calm").getString(), 0xFF9AD0FF));
+		if (s.boostUntil > now) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.boost").getString() + " " + clock(s.boostUntil - now), GOLD_TEXT));
+		}
+		if (s.senseUntil > now) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.sense").getString() + " " + clock(s.senseUntil - now), GOLD_TEXT));
+		}
+		if (s.shroudUntil > now) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.shroud").getString() + " " + clock(s.shroudUntil - now), VOID_TEXT));
+		}
+		if (s.meldUntil > now) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.meld").getString() + " " + clock(s.meldUntil - now), VOID_TEXT));
 		}
 		if (s.shieldUntil > now) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.shield").getString() + " " + clock(s.shieldUntil - now), GOLD_TEXT));
@@ -106,9 +115,17 @@ public final class SentryHud {
 		hud.tags(tags);
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
 		if (MoveListOverlay.held()) {
+			// round 3: H is Let It Out (merged: Return); Shift+H stays the power wheel
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(6), Component.translatable("projecthero.sentry.ability."
+					+ (dark ? SentryAbilityManager.RETURN : SentryAbilityManager.LET_IT_OUT)), null));
 			for (AbilitySlot slot : SLOTS) {
 				String[] ids = SentryAbilityManager.idsOf(slot, dark);
 				if (ids.length == 0) {
+					continue;
+				}
+				if (slot == AbilitySlot.SLOT_3 && !dark) {
+					// X: the dash on the ground, the Flight Boost in the air
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("hud.projecthero.sentry.x_both"), null));
 					continue;
 				}
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.sentry.ability." + ids[0]),
@@ -133,13 +150,24 @@ public final class SentryHud {
 			}
 			String shown = ids[shift && ids.length > 1 ? 1 : 0];
 			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			if (slot == AbilitySlot.SLOT_3 && !dark && (s.flying || s.boostUntil > now)) {
+				// round 3: X in the air is the Flight Boost -- while it runs the box counts its seconds down, lit
+				shown = SentryAbilityManager.FLIGHT_BOOST;
+				if (s.boostUntil > now) {
+					int left = (int) (s.boostUntil - now);
+					hud.slot(i, VanillaHud.keyLabel(slot), true, shift, 1f - left / (float) SentryConfig.BOOST_TICKS, (left + 19) / 20, 0f, true);
+					continue;
+				}
+			}
 			int cd = SentryAbilityManager.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, SentryAbilityManager.maxCooldown(shown)));
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, SentryAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, SentryAbilityManager.maxCooldown(other)));
 			boolean usable = SentryAbilityManager.allowed(p, shown);
 			boolean active = (SentryAbilityManager.SOLAR_GAZE.equals(shown) && s.beamStart != 0L)
-					|| (SentryAbilityManager.CALM.equals(shown) && s.calming)
+					|| (SentryAbilityManager.GOLDEN_SENSE.equals(shown) && s.senseUntil > now)
+					|| (SentryAbilityManager.UMBRAL_SHROUD.equals(shown) && s.shroudUntil > now)
+					|| (SentryAbilityManager.SHADOW_MELD.equals(shown) && s.meldUntil > now)
 					|| (SentryAbilityManager.MOLECULAR_SHIELD.equals(shown) && s.shieldUntil > now)
 					|| (SentryAbilityManager.MILLION_SUNS.equals(shown) && s.sunsStart != 0L)
 					|| (SentryAbilityManager.DISASSEMBLE.equals(shown) && s.gripTarget >= 0)
@@ -154,7 +182,50 @@ public final class SentryHud {
 		}
 	}
 
-	// ---------------------------------------------------------------- the two bars (v0.17.5 rework: the "Sentry bar")
+	// ---------------------------------------------------------------- the two bars (round 3: the vanilla XP bar itself)
+
+	private static final net.minecraft.resources.ResourceLocation XP_BACKGROUND = net.minecraft.resources.ResourceLocation.withDefaultNamespace("hud/experience_bar_background");
+	private static final net.minecraft.resources.ResourceLocation XP_PROGRESS = net.minecraft.resources.ResourceLocation.withDefaultNamespace("hud/experience_bar_progress");
+	/** The XP bar sprites' size, and the progress sprite's main green (what the tint is worked out against). */
+	private static final int XP_W = 182, XP_H = 5;
+	private static final float XP_R = 126f, XP_G = 252f, XP_B = 32f;
+	/** Set only by the screenshot harness: draw the old bevelled bar (for the before / after sheet). */
+	public static volatile boolean oldBars;
+
+	/**
+	 * Round 3 (user: "Make the bars look like experience bars and not these square bars please"): the real vanilla XP bar -- its
+	 * background sprite (untouched) and its progress sprite, tinted by the shader colour so its own pixel shading stays (the colour
+	 * modulator is not clamped, so a channel can be pushed past 1: the green's red channel x1.94 is the Sun's yellow). {@code rgb} is the
+	 * colour the progress sprite's main green turns into. Both sprites are cropped from the left to {@code w} (at most 182) with the
+	 * right-hand end cap kept, so the notches stay vanilla's spacing; 5 px tall like the XP bar. {@code marks}: extra notches (0..1) a
+	 * shade stronger (the Void's 50 / 75 / 90).
+	 */
+	static void xpBar(GuiGraphics g, int x, int y, int w, float frac, int rgb, float brighten, float[] marks) {
+		w = Math.max(4, Math.min(XP_W, w));
+		com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+		g.blitSprite(XP_BACKGROUND, XP_W, XP_H, 0, 0, x, y, w - 1, XP_H);
+		g.blitSprite(XP_BACKGROUND, XP_W, XP_H, XP_W - 1, 0, x + w - 1, y, 1, XP_H);
+		int fill = Math.round(w * Mth.clamp(frac, 0f, 1f));
+		if (fill > 0) {
+			float r = ((rgb >> 16) & 0xFF) / XP_R * brighten;
+			float gg = ((rgb >> 8) & 0xFF) / XP_G * brighten;
+			float b = (rgb & 0xFF) / XP_B * brighten;
+			g.flush();
+			com.mojang.blaze3d.systems.RenderSystem.setShaderColor(r, gg, b, 1f);
+			if (fill >= w) {
+				g.blitSprite(XP_PROGRESS, XP_W, XP_H, 0, 0, x, y, w - 1, XP_H);
+				g.blitSprite(XP_PROGRESS, XP_W, XP_H, XP_W - 1, 0, x + w - 1, y, 1, XP_H);
+			} else {
+				g.blitSprite(XP_PROGRESS, XP_W, XP_H, 0, 0, x, y, fill, XP_H);
+			}
+			g.flush();
+			com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		}
+		for (float m : marks) {
+			int nx = x + Math.round(w * m);
+			g.fill(nx, y + 1, nx + 1, y + XP_H - 1, nx < x + fill ? 0xB0000000 : 0x70FFFFFF);
+		}
+	}
 
 	/**
 	 * v0.17.5 rework (user: "make the sentry bars look better, make the sun bar yellow and make the void bar fill up with a red and the
@@ -220,7 +291,11 @@ public final class SentryHud {
 		int barW = Math.max(20, hud.width - labelW - 5 - valueW - 4);
 		g.drawString(hud.font, label, hud.x0, y, VanillaHud.WHITE, true);
 		g.drawString(hud.font, value, hud.x0 + hud.width - hud.font.width(value), y, valueColour, true);
-		bevelBar(g, barX, y + 1, barW, frac, rgb, highlight, marks);
+		if (oldBars) {
+			bevelBar(g, barX, y + 1, barW, frac, rgb, highlight, marks);
+		} else {
+			xpBar(g, barX, y + 1, barW, frac, rgb, highlight > 1.2f ? 1f + (highlight - 1.2f) * 0.6f : 1f, marks);
+		}
 	}
 
 	/** The Sun: a warm yellow bar (#F5C518 body, #FFE14D-ish top row, dark-gold bottom row), its highlight pulsing softly when full. */

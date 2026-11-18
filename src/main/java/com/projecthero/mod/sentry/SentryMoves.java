@@ -52,14 +52,17 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li><b>R Golden Fury</b>: a three-punch combo; out of reach (up to 9) he lunges in; the 3rd is the Haymaker that launches it far
  *   (a launched creature slamming into a wall takes more).</li>
- *   <li><b>Hold Shift+R Solar Gaze</b>: twin eye beams (beam clash), burning hotter the longer they are held.</li>
- *   <li><b>Hold G Disassemble</b>: lift a creature (bosses pinned), it unravels; held 2 s it comes apart into light. Let go: thrown.</li>
- *   <li><b>Shift+G Skyward Hurl</b>: grab what is in reach and throw it straight up into the sky (bosses are slammed instead).</li>
+ *   <li><b>Shift+R Solar Flare</b> (round 3): a burst of sunlight all round him -- thrown back, dazzled, the undead burn.</li>
+ *   <li><b>Hold G Solar Gaze</b> (round 3: G, Heat Vision's numbers, no time limit, an exact ray): twin eye beams (beam clash).</li>
+ *   <li><b>Hold Shift+G Disassemble</b>: lift a creature (bosses pinned), it unravels; held 2 s it comes apart into light. Let go: thrown.</li>
+ *   <li><b>Shift+C Skyward Hurl</b>: grab what is in reach and throw it straight up into the sky (bosses are slammed instead).</li>
  *   <li><b>Z Sunfall</b>: leap up (from the ground), then a fist-first dive and a sonic-boom slam: the inner hit, then the outer ring.</li>
  *   <li><b>Shift+Z A Million Suns</b>: a 4 s wind-up rising into the air (damage taken halved), then the explosion of light.</li>
  *   <li><b>C Golden Guardian</b>: heals allies, clears bad effects, Regeneration + Absorption; the undead around burn.</li>
- *   <li><b>Shift+C Molecular Shield</b>: a golden aura -- enemy projectiles turn to light (and Sun), hits taken are cut, melee is
+ *   <li><b>V Molecular Shield</b>: a golden aura -- enemy projectiles turn to light (and Sun), hits taken are cut, melee is
  *   deflected back.</li>
+ *   <li><b>Shift+V Golden Sense</b> (round 3, replacing Calm): every creature within 40 glows through walls; Night Vision.</li>
+ *   <li><b>The landing</b> (round 3): a fast flight touchdown is the shared superhero landing with a golden impact ({@link #landing}).</li>
  * </ul>
  * Every move checks its cooldown and pays its Sun here; the running ones are carried by {@link #tick}. Session maps are keyed by player
  * id only (never a world or an entity) and cleared on server stop ({@link #clearSessionState}).
@@ -121,23 +124,19 @@ public final class SentryMoves {
 
 	static void use(ServerPlayer p, String id, AbilitySlot slot) {
 		SentryState s = Sentry.state(p);
-		if (s.calming && !SentryAbilityManager.CALM.equals(id)) {
-			Sentry.say(p, "message.projecthero.sentry.calming", ChatFormatting.GRAY);
-			return;
-		}
 		if (s.sunsStart != 0L || s.letOutTrialStart != 0L) {
 			return; // A Million Suns is charging / the trial is running: nothing else
 		}
 		switch (id) {
 			case SentryAbilityManager.DASH -> SentryFlight.press(p);
-			case SentryAbilityManager.CALM -> calm(p, true);
-			case SentryAbilityManager.LET_IT_OUT -> letItOut(p);
 			default -> {
 				if (Sentry.cooldownRemaining(p, id) > 0) {
 					return;
 				}
 				boolean fired = switch (id) {
 					case SentryAbilityManager.GOLDEN_FURY -> goldenFury(p);
+					case SentryAbilityManager.SOLAR_FLARE -> solarFlare(p);
+					case SentryAbilityManager.GOLDEN_SENSE -> goldenSense(p);
 					case SentryAbilityManager.SOLAR_GAZE -> startGaze(p, slot);
 					case SentryAbilityManager.DISASSEMBLE -> startDisassemble(p);
 					case SentryAbilityManager.SKYWARD_HURL -> skywardHurl(p);
@@ -156,7 +155,7 @@ public final class SentryMoves {
 		}
 	}
 
-	/** A key came up: held moves end (the gaze, Disassemble throws, Calm stops). */
+	/** A key came up: held moves end (the gaze, Disassemble throws). */
 	static void release(ServerPlayer p, AbilitySlot slot) {
 		UUID id = p.getUUID();
 		if (BEAM_KEY.get(id) == slot) {
@@ -164,9 +163,6 @@ public final class SentryMoves {
 		}
 		if (slot == AbilitySlot.SLOT_2 && GRIP_HELD.remove(id) != null) {
 			throwHeld(p);
-		}
-		if (slot == AbilitySlot.SLOT_5 && Sentry.state(p).calming) {
-			calm(p, false);
 		}
 	}
 
@@ -294,7 +290,133 @@ public final class SentryMoves {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+R: Solar Gaze
+	// ---------------------------------------------------------------- Shift+R: Solar Flare (round 3)
+
+	/**
+	 * A burst of sunlight all round him: {@link SentryConfig#FLARE_DAMAGE} at the centre falling to {@link SentryConfig#FLARE_EDGE_DAMAGE}
+	 * at the edge, everything thrown back and dazzled (mobs blinded, a short glow), the undead burning x1.5 and set alight. Returns how
+	 * many it hit (tests), or -1 if he couldn't pay.
+	 */
+	public static int flare(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.FLARE_COST)) {
+			return -1;
+		}
+		ServerLevel level = p.serverLevel();
+		Vec3 c = p.position().add(0, 1.0, 0);
+		double r = SentryConfig.FLARE_RADIUS;
+		int n = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(r), e -> Sentry.areaVictim(p, e)
+				&& e.distanceToSqr(c) <= r * r)) {
+			double f = Math.min(1.0, Math.sqrt(e.distanceToSqr(c)) / r);
+			float dmg = (float) (SentryConfig.FLARE_DAMAGE + (SentryConfig.FLARE_EDGE_DAMAGE - SentryConfig.FLARE_DAMAGE) * f);
+			boolean undead = e.isInvertedHealAndHarm();
+			if (undead) {
+				dmg *= SentryConfig.FLARE_UNDEAD;
+			}
+			if (Sentry.hit(p, e, dmg, false)) {
+				n++;
+			}
+			AbilityHelpers.knockbackFrom(e, p.position(), SentryConfig.FLARE_KNOCKBACK * (1.0 - f * 0.4));
+			AbilityHelpers.push(e, new Vec3(0, 0.3, 0));
+			if (!(e instanceof Player)) {
+				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, SentryConfig.FLARE_BLIND_TICKS, 0);
+			}
+			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, SentryConfig.FLARE_BLIND_TICKS, 0, false, false, true));
+			if (undead) {
+				e.igniteForSeconds(4f);
+			}
+			Vec3 ec = centre(e);
+			level.sendParticles(ParticleTypes.END_ROD, ec.x, ec.y, ec.z, 6, 0.3, 0.4, 0.3, 0.06);
+		}
+		Sentry.addVoid(p, SentryConfig.FLARE_VOID);
+		Sentry.pose(p, SentryState.POSE_FLARE, 16);
+		SentryFx.send(level, SentryFxPayload.FLARE, c, (float) r, 22, null, p.getId());
+		SentryFx.send(level, SentryFxPayload.RING, p.position().add(0, 0.1, 0), (float) r, 14);
+		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 60, r * 0.35, 0.8, r * 0.35, 0.35);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.0f), c.x, c.y, c.z, 50, r * 0.4, 0.6, r * 0.4, 0.0);
+		Sentry.sound(p, SoundEvents.BEACON_ACTIVATE, 1.4f, 1.6f);
+		Sentry.sound(p, SoundEvents.FIREWORK_ROCKET_BLAST, 1.2f, 0.7f);
+		Sentry.sound(p, SoundEvents.WIND_CHARGE_BURST, 1.0f, 0.6f);
+		return n;
+	}
+
+	static boolean solarFlare(ServerPlayer p) {
+		return flare(p) >= 0;
+	}
+
+	// ---------------------------------------------------------------- Shift+V: Golden Sense (round 3, replacing Calm)
+
+	/**
+	 * His senses flare: every living thing within {@link SentryConfig#SENSE_RADIUS} (not him) glows through walls for
+	 * {@link SentryConfig#SENSE_TICKS}, and he sees in the dark (Night Vision). A golden pulse ring runs out. Returns how many it revealed,
+	 * or -1 if he couldn't pay (tests).
+	 */
+	public static int sense(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.SENSE_COST)) {
+			return -1;
+		}
+		ServerLevel level = p.serverLevel();
+		double r = SentryConfig.SENSE_RADIUS;
+		int n = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r), e -> e != p && e.isAlive()
+				&& !e.isSpectator() && e.distanceToSqr(p) <= r * r)) {
+			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, SentryConfig.SENSE_TICKS, 0, false, false, false));
+			n++;
+		}
+		p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, SentryConfig.SENSE_NIGHT_VISION_TICKS, 0, false, false, true));
+		SentryState st = Sentry.state(p).copy();
+		st.senseUntil = level.getGameTime() + SentryConfig.SENSE_TICKS;
+		Sentry.save(p, st);
+		Sentry.pose(p, SentryState.POSE_SENSE, 20);
+		SentryFx.send(level, SentryFxPayload.SENSE, p.position().add(0, 1.0, 0), (float) r, 30, null, p.getId());
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), p.getX(), p.getEyeY(), p.getZ(), 14, 0.3, 0.2, 0.3, 0.0);
+		Sentry.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 0.7f);
+		Sentry.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 2.0f);
+		return n;
+	}
+
+	static boolean goldenSense(ServerPlayer p) {
+		return sense(p) >= 0;
+	}
+
+	// ---------------------------------------------------------------- the superhero landing (round 3)
+
+	/**
+	 * Called by the shared Hero Landing ({@code HeroLandingFx}) when he touches down hard from a fast flight: an impact around him -- 8 +
+	 * 14 x strength within 3 + 2.5 x strength, thrown back and up. Golden as the Sentry, dark merged with the Void ({@code dark}: void
+	 * damage). Returns how many it hit.
+	 */
+	public static int landing(ServerPlayer p, float strength, boolean dark) {
+		ServerLevel level = p.serverLevel();
+		Vec3 c = p.position();
+		double r = SentryConfig.LANDING_RADIUS + SentryConfig.LANDING_RADIUS_PER_STRENGTH * strength;
+		float dmg = SentryConfig.LANDING_DAMAGE + SentryConfig.LANDING_DAMAGE_PER_STRENGTH * strength;
+		int n = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r, 2.0, r),
+				e -> Sentry.areaVictim(p, e) && e.distanceToSqr(c) <= r * r)) {
+			if (Sentry.hit(p, e, dmg, dark)) {
+				n++;
+			}
+			AbilityHelpers.knockbackFrom(e, c, 0.9 + 0.8 * strength);
+			AbilityHelpers.push(e, new Vec3(0, 0.25 + 0.25 * strength, 0));
+		}
+		if (dark) {
+			SentryFx.send(level, SentryFxPayload.POOL, c.add(0, 0.05, 0), (float) r, 26, null, p.getId());
+			level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y + 0.2, c.z, 30, r * 0.4, 0.1, r * 0.4, 0.05);
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.2, c.z, 16, r * 0.3, 0.1, r * 0.3, 0.02);
+			Sentry.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.5f, 0.6f);
+		} else {
+			SentryFx.send(level, SentryFxPayload.CRATER, c.add(0, 0.05, 0), (float) r, 26);
+			SentryFx.send(level, SentryFxPayload.RING, c.add(0, 0.1, 0), (float) r + 1.5f, 12);
+			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.8f), c.x, c.y + 0.3, c.z, 40, r * 0.5, 0.2, r * 0.5, 0.0);
+			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y + 0.3, c.z, 16, r * 0.3, 0.2, r * 0.3, 0.12);
+			Sentry.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.6f);
+		}
+		return n;
+	}
+
+	// ---------------------------------------------------------------- G: Solar Gaze (round 3: G; was Shift+R)
 
 	static boolean startGaze(ServerPlayer p, AbilitySlot slot) {
 		if (!Sentry.hasSun(p, SentryAbilityManager.cost(SentryAbilityManager.SOLAR_GAZE))) {
@@ -327,14 +449,14 @@ public final class SentryMoves {
 		return p.getEyePosition().add(p.getLookAngle().scale(0.25));
 	}
 
-	/** The gaze's damage this tick of holding it (it ramps up past {@link SentryConfig#GAZE_RAMP_TICKS}). */
-	public static float gazeDamage(long heldTicks) {
-		return heldTicks >= SentryConfig.GAZE_RAMP_TICKS ? SentryConfig.GAZE_DAMAGE * SentryConfig.GAZE_RAMP : SentryConfig.GAZE_DAMAGE;
-	}
-
+	/**
+	 * Round 3 (user: "remove the time limit on it, dont make it auto track, nerf its damage to make it as powerful as supermans heat
+	 * vision"): held as long as the key is (no cap; it ends when the Sun runs out), Heat Vision's numbers (4 every 5 ticks, 5 s of fire,
+	 * blocks alight once a second), and an exact ray along his look -- no margin, so it never snaps onto a creature beside the line.
+	 */
 	private static void tickGaze(ServerPlayer p, SentryState s, long now) {
 		long age = now - s.beamStart;
-		if (age > SentryConfig.GAZE_MAX_TICKS || !BEAM_KEY.containsKey(p.getUUID())) {
+		if (!BEAM_KEY.containsKey(p.getUUID())) {
 			stopGaze(p);
 			return;
 		}
@@ -347,24 +469,32 @@ public final class SentryMoves {
 		if (bh.getType() != HitResult.Type.MISS) {
 			end = bh.getLocation();
 		}
-		EntityHitResult eh = ProjectileUtil.getEntityHitResult(level, p, from, end, new AABB(from, end).inflate(1.0),
-				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p, 0.5f);
+		EntityHitResult eh = gazeHit(p, from, end);
 		if (eh != null) {
 			end = eh.getLocation();
 		}
 		if (age % SentryConfig.GAZE_DAMAGE_INTERVAL == 0 && eh != null && eh.getEntity() instanceof LivingEntity le) {
-			Sentry.hit(p, le, gazeDamage(age), false);
-			le.igniteForSeconds(3f);
+			Sentry.hit(p, le, SentryConfig.GAZE_DAMAGE, false);
+			le.igniteForSeconds(SentryConfig.GAZE_FIRE_SECONDS);
+		}
+		if (eh == null && bh.getType() == HitResult.Type.BLOCK && age % 20 == 10 && AbilityHelpers.canGrief()) {
+			BlockPos firePos = bh.getBlockPos().relative(bh.getDirection());
+			if (level.getBlockState(firePos).isAir() && level.mayInteract(p, firePos)) {
+				BlockState fire = net.minecraft.world.level.block.BaseFireBlock.getState(level, firePos);
+				if (fire.canSurvive(level, firePos)) {
+					level.setBlock(firePos, fire, 11);
+				}
+			}
 		}
 		if (age % 2 == 0) {
 			level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 2, 0.15, 0.15, 0.15, 0.03);
 			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), end.x, end.y, end.z, 3, 0.2, 0.2, 0.2, 0.0);
-			if (age >= SentryConfig.GAZE_RAMP_TICKS) {
+			if (age >= SentryConfig.GAZE_HOT_TICKS) {
 				level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 2, 0.15, 0.15, 0.15, 0.02);
 			}
 		}
 		if (age % 10 == 0) {
-			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 0.5f, age >= SentryConfig.GAZE_RAMP_TICKS ? 2.0f : 1.6f);
+			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 0.5f, age >= SentryConfig.GAZE_HOT_TICKS ? 2.0f : 1.6f);
 		}
 		if (age % 5 == 0 && age > 0) {
 			if (!Sentry.spendSun(p, SentryConfig.GAZE_COST_PER_SECOND / 4f)) {
@@ -375,7 +505,13 @@ public final class SentryMoves {
 		}
 	}
 
-	// ---------------------------------------------------------------- G: Disassemble
+	/** The creature exactly on the gaze's line (no margin: no snapping onto things beside it). Shared with the client's beam. */
+	public static EntityHitResult gazeHit(Player p, Vec3 from, Vec3 end) {
+		return ProjectileUtil.getEntityHitResult(p.level(), p, from, end, new AABB(from, end).inflate(1.0),
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p, 0.0f);
+	}
+
+	// ---------------------------------------------------------------- Shift+G: Disassemble (round 3: Shift+G; was G)
 
 	static boolean startDisassemble(ServerPlayer p) {
 		LivingEntity t = target(p, SentryConfig.UNMAKE_RANGE);
@@ -488,7 +624,7 @@ public final class SentryMoves {
 		endDisassemble(p);
 	}
 
-	// ---------------------------------------------------------------- Shift+G: Skyward Hurl
+	// ---------------------------------------------------------------- Shift+C: Skyward Hurl (round 3: Shift+C; was Shift+G)
 
 	static boolean skywardHurl(ServerPlayer p) {
 		LivingEntity t = target(p, SentryConfig.HURL_REACH);
@@ -754,7 +890,7 @@ public final class SentryMoves {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Shift+C: Molecular Shield
+	// ---------------------------------------------------------------- V: Molecular Shield (round 3: V; was Shift+C)
 
 	static boolean molecularShield(ServerPlayer p) {
 		if (!Sentry.spendSun(p, SentryConfig.MSHIELD_COST)) {
@@ -779,6 +915,11 @@ public final class SentryMoves {
 	static boolean friendly(ServerPlayer p, Projectile proj) {
 		Entity owner = proj.getOwner();
 		return owner == p || owner instanceof Player op && Squads.areAllies(p, op);
+	}
+
+	/** A projectile that is neither his nor a friend's (the Molecular Shield and the Umbral Shroud take those). */
+	static boolean hostileShot(ServerPlayer p, Projectile proj) {
+		return !friendly(p, proj);
 	}
 
 	/** Melee on him while the aura is up: deflected back at the attacker (from {@code SentryDamage}). */
@@ -839,32 +980,6 @@ public final class SentryMoves {
 				&& !st.is(Blocks.END_PORTAL_FRAME) && !st.is(com.projecthero.mod.sentry.block.SentryBlocks.VOID_MATTER);
 	}
 
-	// ---------------------------------------------------------------- V: Calm, Shift+V: Let it out
-
-	static void calm(ServerPlayer p, boolean on) {
-		SentryState s = Sentry.state(p);
-		if (s.calming == on) {
-			return;
-		}
-		SentryState n = s.copy();
-		n.calming = on;
-		if (on) {
-			n.beamStart = 0L;
-			n.gripTarget = -1;
-		}
-		Sentry.save(p, n);
-		if (on) {
-			BEAM_KEY.remove(p.getUUID());
-			GRIP_HELD.remove(p.getUUID());
-			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 0.8f, 1.4f);
-		}
-	}
-
-	/** Shift+V: the trial ({@link LetItOut}); winning it merges him with the Void. */
-	static void letItOut(ServerPlayer p) {
-		LetItOut.begin(p);
-	}
-
 	// ---------------------------------------------------------------- tick
 
 	public static void tick(ServerPlayer p) {
@@ -887,12 +1002,10 @@ public final class SentryMoves {
 		}
 		tickSunfall(p, now);
 		tickLaunch(p, now);
-		if (s.calming && now % 4 == 0) {
-			p.serverLevel().sendParticles(Sentry.dust(Sentry.GOLD, 1.0f), p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.6, 0.8, 0.6, 0.0);
-			if (!p.onGround()) {
-				Vec3 v = p.getDeltaMovement();
-				AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.5, Math.max(-0.02, v.y * 0.5), v.z * 0.5)); // floats while meditating
-			}
+		if (s.senseUntil != 0L && s.senseUntil <= now) {
+			SentryState n = Sentry.state(p).copy();
+			n.senseUntil = 0L;
+			Sentry.save(p, n);
 		}
 	}
 }

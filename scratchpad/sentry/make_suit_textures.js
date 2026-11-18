@@ -237,7 +237,9 @@ cape(BLACK_RAMP, [0x3a, 0x2a, 0x10], (c) => c.map((v) => Math.round(v * 0.8))).s
 			body.set(x, y, [4 + n, 3 + n, 6 + n, 255]);
 		}
 	}
-	for (const [x, y] of [[10, 12], [13, 12]]) { body.set(x, y, [255, 255, 255, 255]); glow.set(x, y, [255, 255, 255, 255]); }
+	// round 3 (user: "make the white eyes a lot smaller, literal tiny glowing specs"): no eye texels any more -- the client draws two
+	// sub-pixel specks on the face (SentrySuitLayer.eyeSpecks); the glow texture stays (empty) for old builds
+	void glow;
 	body.save(path.join(OUT, 'void_body.png'));
 	glow.save(path.join(OUT, 'void_body_glow.png'));
 }

@@ -239,13 +239,14 @@ public final class HeroPackGuide {
 			{ "Shift+X", "density_dive" }, { "C", "grip" }, { "Shift+C", "diamond_density" }, { "V", "hologram" }, { "Shift+V", "intangibility" } };
 
 	/** v0.17.5 Sentry: the chapter's control rows {key, ability id}; each shows {@code projecthero.sentry.ability.<id>} and its {@code .desc}. */
-	public static final String[][] SENTRY_CONTROLS = { { "R", "golden_fury" }, { "Hold Shift+R", "solar_gaze" }, { "Hold G", "disassemble" },
-			{ "Shift+G", "skyward_hurl" }, { "Z", "sunfall" }, { "Shift+Z", "million_suns" }, { "C", "golden_guardian" }, { "Shift+C", "molecular_shield" },
-			{ "X", "sonic_dash" }, { "2x Space", "flight" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } }; // moveset 2 (2026-11-18)
-	/** v0.17.5 the Void's rows (merged; moveset 2). */
-	public static final String[][] VOID_CONTROLS = { { "R", "tendril_lash" }, { "Shift+R", "erase" }, { "G", "shadow_pool" }, { "Shift+G", "void_sphere" },
-			{ "Z", "nightmare" }, { "Shift+Z", "shadow_eclipse" }, { "C", "blot_out" }, { "Shift+C", "shadow_clones" }, { "X", "shadow_step" },
-			{ "2x Space", "flight" }, { "Shift+V / V", "return" } };
+	public static final String[][] SENTRY_CONTROLS = { { "H", "let_it_out" }, { "R", "golden_fury" }, { "Shift+R", "solar_flare" },
+			{ "Hold G", "solar_gaze" }, { "Hold Shift+G", "disassemble" }, { "Z", "sunfall" }, { "Shift+Z", "million_suns" }, { "C", "golden_guardian" },
+			{ "Shift+C", "skyward_hurl" }, { "X", "sonic_dash" }, { "X (flying)", "flight_boost" }, { "V", "molecular_shield" },
+			{ "Shift+V", "golden_sense" }, { "2x Space", "flight" } }; // round 3 (2026-11-18)
+	/** v0.17.5 the Void's rows (merged; round 3). */
+	public static final String[][] VOID_CONTROLS = { { "H", "return" }, { "R", "tendril_lash" }, { "Shift+R", "erase" }, { "G", "shadow_pool" },
+			{ "Shift+G", "void_sphere" }, { "Z", "nightmare" }, { "Shift+Z", "shadow_eclipse" }, { "C", "blot_out" }, { "Shift+C", "shadow_clones" },
+			{ "X", "shadow_step" }, { "V", "umbral_shroud" }, { "Shift+V", "shadow_meld" }, { "2x Space", "flight" } };
 
 	/** Sentry & the Void (v0.17.5). */
 	public static Chapter sentryChapter() {

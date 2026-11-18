@@ -36,7 +36,10 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.5 Sentry: the grant, the two meters (step sizes per second, never elapsed totals), what feeds and drains the Void, the damage
+ * v0.17.5 Sentry (round 3, 2026-11-18: the new key layout, Solar Gaze at Heat Vision's numbers with no cap, Solar Flare, Golden Sense,
+ * the Flight Boost, Umbral Shroud / Shadow Meld, +50% merged, the Void rising only from the powers and draining by sleep and calm tasks,
+ * the controlled-Void suit look with and without the suit, H = Let It Out, the landing slam): the grant, the two meters (step sizes per
+ * second, never elapsed totals), what feeds and drains the Void, the damage
  * rules, every Sentry move and every Void move of moveset 2 (2026-11-18) on a zombie, merged buffs included, (hits asserted as ratios: other tests can leave the world on Hard), the
  * Void Form trial (v0.17.5 rework: Let It Out won or lost, Shift+V back below 90), double-tap-Space flight and the X dash, the
  * craftable self-mending suit and its Void / Sun bonus, 40 max health in both forms, and where the serum comes from (only The Vault's vat: no recipe, never a random
@@ -118,52 +121,98 @@ public class SentryGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(Sentry.sunPerSecond(Sentry.Sun.DIRECT) > Sentry.sunPerSecond(Sentry.Sun.NIGHT)
 				&& Sentry.sunPerSecond(Sentry.Sun.DARK) == 0f, "fast in daylight, slow at night, none in the dark");
-		helper.assertTrue(Sentry.voidPerSecond(Sentry.Sun.DIRECT) < 0f && Sentry.voidPerSecond(Sentry.Sun.DARK) > 0f
-				&& Sentry.voidPerSecond(Sentry.Sun.NIGHT) > 0f, "daylight cools, night and dark feed");
+		helper.assertTrue(Sentry.voidPerSecond(Sentry.Sun.DIRECT) < Sentry.voidPerSecond(Sentry.Sun.DARK) && Sentry.voidPerSecond(Sentry.Sun.DARK) < 0f
+				&& Sentry.voidPerSecond(Sentry.Sun.NIGHT) < 0f, "round 3: it drains everywhere, faster in sunlight; night and the dark feed nothing");
 		Sentry.pinSun(p, null);
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void calmDrainsTheVoidAndBlocksAttacks(GameTestHelper helper) {
+	public void voidNeverRisesAtNightOrInTheDarkAndDrainsByDefault(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 2, 2);
-		Sentry.pinSun(p, Sentry.Sun.SHADE); // no drift of its own
 		edit(p, s -> s.voidLevel = 60f);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		helper.assertTrue(Sentry.calming(p), "V held: calming");
+		for (Sentry.Sun sun : new Sentry.Sun[] { Sentry.Sun.NIGHT, Sentry.Sun.DARK, Sentry.Sun.SHADE }) {
+			Sentry.pinSun(p, sun);
+			float before = Sentry.state(p).voidLevel;
+			Sentry.tickMeters(p);
+			float step = Sentry.state(p).voidLevel - before;
+			helper.assertTrue(Math.abs(step - SentryConfig.VOID_DRAIN_PER_SECOND) < 1.0e-4f, sun + ": the slow drain, not a gain (" + step + ")");
+		}
+		Sentry.pinSun(p, Sentry.Sun.DIRECT);
 		float before = Sentry.state(p).voidLevel;
 		Sentry.tickMeters(p);
-		float step = before - Sentry.state(p).voidLevel;
-		helper.assertTrue(Math.abs(step - SentryConfig.VOID_CALM_PER_SECOND * -0.25f) < 1.0e-3f, "a quarter of Calm's drain on the second " + step);
-		Zombie z = zombie(helper, 3.5, 2, 200);
-		look(p, z);
-		float hp = z.getHealth();
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(z.getHealth() == hp, "no Golden Strike while calming");
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
-		helper.assertFalse(Sentry.calming(p), "V released: calm ends");
+		float step = Sentry.state(p).voidLevel - before;
+		helper.assertTrue(Math.abs(step - (SentryConfig.VOID_DRAIN_PER_SECOND + SentryConfig.VOID_DAYLIGHT_PER_SECOND)) < 1.0e-4f, "faster in sunlight: " + step);
+		helper.assertTrue(SentryConfig.VOID_DRAIN_PER_SECOND < 0f && SentryConfig.VOID_DRAIN_PER_SECOND > -0.2f, "slowly");
 		Sentry.pinSun(p, null);
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void voidRisesWithBigMovesKillsAndHeavyHits(GameTestHelper helper) {
+	public void sleepingDrainsTheVoidALot(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 2, 2);
+		Sentry.pinSun(p, Sentry.Sun.DARK);
+		edit(p, s -> s.voidLevel = 80f);
+		p.startSleeping(p.blockPosition());
+		helper.assertTrue(p.isSleeping(), "in bed");
+		float before = Sentry.state(p).voidLevel;
+		Sentry.tickMeters(p);
+		float step = Sentry.state(p).voidLevel - before;
+		helper.assertTrue(Math.abs(step - (SentryConfig.VOID_DRAIN_PER_SECOND + SentryConfig.VOID_SLEEP_PER_SECOND)) < 1.0e-4f, "asleep: -1 more a second (" + step + ")");
+		p.stopSleeping(); // (the real wake hook may already take the night's chunk if the test world's clock reads morning)
+		edit(p, s -> s.voidLevel = 80f);
+		before = Sentry.state(p).voidLevel;
+		Sentry.woke(p, false);
+		helper.assertTrue(Sentry.state(p).voidLevel == before, "out of bed early: no chunk");
+		Sentry.woke(p, true);
+		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - (before + SentryConfig.VOID_NIGHT_SLEPT)) < 1.0e-3f, "a night slept through: -40");
+		helper.assertTrue(SentryConfig.VOID_NIGHT_SLEPT <= -30f, "a lot");
+		Sentry.pinSun(p, null);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void calmTasksDrainTheVoid(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 2, 2);
+		edit(p, s -> s.voidLevel = 50f);
+		float before = Sentry.state(p).voidLevel;
+		com.projecthero.mod.sentry.SentryCalmTasks.fished(p);
+		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - (before + SentryConfig.VOID_TASK_FISH)) < 1.0e-3f, "a fish reeled in: -2");
+		var wheat = (net.minecraft.world.level.block.CropBlock) net.minecraft.world.level.block.Blocks.WHEAT;
+		helper.assertFalse(com.projecthero.mod.sentry.SentryCalmTasks.ripe(wheat.getStateForAge(3)), "a young crop isn't a harvest");
+		helper.assertTrue(com.projecthero.mod.sentry.SentryCalmTasks.ripe(wheat.getStateForAge(wheat.getMaxAge())), "a ripe one is");
+		before = Sentry.state(p).voidLevel;
+		com.projecthero.mod.sentry.SentryCalmTasks.broke(p, wheat.getStateForAge(wheat.getMaxAge()));
+		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - (before + SentryConfig.VOID_TASK_HARVEST)) < 1.0e-3f, "a harvest: -0.4");
+		before = Sentry.state(p).voidLevel;
+		com.projecthero.mod.sentry.SentryCalmTasks.broke(p, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+		helper.assertTrue(Sentry.state(p).voidLevel == before, "mining isn't a calm task");
+		// the suit's gain cut never touches a drain
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SentrySuitItem.TROUSERS));
+		before = Sentry.state(p).voidLevel;
+		com.projecthero.mod.sentry.SentryCalmTasks.task(p, SentryConfig.VOID_TASK_TRADE);
+		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - (before + SentryConfig.VOID_TASK_TRADE)) < 1.0e-3f, "a trade: -1.5, unscaled");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void voidRisesOnlyFromThePowers(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 2, 2);
 		SentryMoves.millionSuns(p);
 		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - SentryConfig.SUNS_VOID) < 1.0e-3f, "A Million Suns: +8 Void");
-		// a kill
+		// a kill: nothing (round 3)
 		float before = Sentry.state(p).voidLevel;
 		Zombie z = zombie(helper, 3.5, 2, 4);
 		Sentry.hit(p, z, 50f, false);
 		helper.assertTrue(!z.isAlive(), "killed");
-		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - before - SentryConfig.KILL_VOID) < 1.0e-3f, "a kill: +0.7 Void");
-		// a heavy hit
+		helper.assertTrue(Sentry.state(p).voidLevel == before, "a kill no longer feeds the Void");
+		// a heavy hit: nothing (round 3)
 		before = Sentry.state(p).voidLevel;
-		p.setHealth(p.getMaxHealth()); // (a hit that kills fires no AFTER_DAMAGE)
+		p.setHealth(p.getMaxHealth());
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().generic(), 40f); // (no difficulty scaling: the test world may be on Peaceful)
-		helper.assertTrue(Sentry.state(p).voidLevel > before, "a heavy hit feeds the Void");
-		helper.assertTrue(Sentry.state(p).voidLevel - before <= SentryConfig.HEAVY_HIT_VOID_CAP + 1.0e-3f, "at most 2 a hit");
+		helper.assertTrue(Sentry.state(p).voidLevel == before, "a heavy hit no longer feeds the Void");
 		// healing others lowers it
 		before = Sentry.state(p).voidLevel;
 		Sentry.setSun(p, 100f);
@@ -235,8 +284,30 @@ public class SentryGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(SentryAbilityManager.DASH.equals(SentryAbilityManager.sentryMoveFor(AbilitySlot.SLOT_3, false)), "X: the dash (movement)");
 		helper.assertTrue(SentryAbilityManager.SHADOW_STEP.equals(SentryAbilityManager.voidMoveFor(AbilitySlot.SLOT_3, true)), "merged X: Shadow Step");
-		helper.assertTrue(SentryAbilityManager.CALM.equals(SentryAbilityManager.sentryMoveFor(AbilitySlot.SLOT_5, false))
-				&& SentryAbilityManager.LET_IT_OUT.equals(SentryAbilityManager.sentryMoveFor(AbilitySlot.SLOT_5, true)), "V Calm, Shift+V Let It Out");
+		// round 3: the user's layout
+		String[][] sentry = { { "SLOT_1", "golden_fury", "solar_flare" }, { "SLOT_2", "solar_gaze", "disassemble" }, { "SLOT_4", "sunfall", "million_suns" },
+				{ "SLOT_6", "golden_guardian", "skyward_hurl" }, { "SLOT_5", "molecular_shield", "golden_sense" } };
+		for (String[] row : sentry) {
+			AbilitySlot slot = AbilitySlot.valueOf(row[0]);
+			helper.assertTrue(row[1].equals(SentryAbilityManager.sentryMoveFor(slot, false)) && row[2].equals(SentryAbilityManager.sentryMoveFor(slot, true)),
+					"Sentry " + slot + ": " + row[1] + " / Shift " + row[2]);
+		}
+		String[][] dark = { { "SLOT_1", "tendril_lash", "erase" }, { "SLOT_2", "shadow_pool", "void_sphere" }, { "SLOT_4", "nightmare", "shadow_eclipse" },
+				{ "SLOT_6", "blot_out", "shadow_clones" }, { "SLOT_5", "umbral_shroud", "shadow_meld" } };
+		for (String[] row : dark) {
+			AbilitySlot slot = AbilitySlot.valueOf(row[0]);
+			helper.assertTrue(row[1].equals(SentryAbilityManager.voidMoveFor(slot, false)) && row[2].equals(SentryAbilityManager.voidMoveFor(slot, true)),
+					"Void " + slot + ": " + row[1] + " / Shift " + row[2]);
+		}
+		java.util.Set<String> seen = new java.util.HashSet<>();
+		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 }) {
+			for (boolean shift : new boolean[] { false, true }) {
+				if (slot != AbilitySlot.SLOT_3) {
+					helper.assertTrue(seen.add("s" + SentryAbilityManager.sentryMoveFor(slot, shift)), "no Sentry duplicate: " + SentryAbilityManager.sentryMoveFor(slot, shift));
+					helper.assertTrue(seen.add("v" + SentryAbilityManager.voidMoveFor(slot, shift)), "no Void duplicate: " + SentryAbilityManager.voidMoveFor(slot, shift));
+				}
+			}
+		}
 		// an old save with moveset 1 cooldown ids loads and is harmless
 		ServerPlayer p = sentry(helper, 2, 2);
 		edit(p, s -> {
@@ -283,19 +354,34 @@ public class SentryGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void solarGazeBurnsAndRampsUp(GameTestHelper helper) {
+	public void solarGazeHasNoTimeCapAndMatchesHeatVision(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 1, 2);
 		Zombie z = zombie(helper, 6, 2, 500);
 		look(p, z);
-		p.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		p.setShiftKeyDown(false);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, true); // round 3: G
 		helper.assertTrue(Sentry.state(p).beamStart != 0L, "the gaze is on");
 		SentryMoves.tick(p);
-		helper.assertTrue(near(500f - z.getHealth(), SentryConfig.GAZE_DAMAGE), "first burn ~7, got " + (500f - z.getHealth()));
+		helper.assertTrue(near(500f - z.getHealth(), SentryConfig.GAZE_DAMAGE), "first burn ~4, got " + (500f - z.getHealth()));
 		helper.assertTrue(z.isOnFire(), "it sets the target alight");
-		helper.assertTrue(SentryMoves.gazeDamage(SentryConfig.GAZE_RAMP_TICKS - 1) == SentryConfig.GAZE_DAMAGE
-				&& SentryMoves.gazeDamage(SentryConfig.GAZE_RAMP_TICKS) == SentryConfig.GAZE_DAMAGE * SentryConfig.GAZE_RAMP, "x1.5 after 2 s held (step)");
+		// Heat Vision parity: the same damage a second, range and fire
+		float gazeDps = SentryConfig.GAZE_DAMAGE * 20f / SentryConfig.GAZE_DAMAGE_INTERVAL;
+		float heatDps = com.projecthero.mod.kryptonian.KryptonianConfig.HEAT_DAMAGE * 20f / com.projecthero.mod.kryptonian.KryptonianConfig.HEAT_HIT_INTERVAL;
+		helper.assertTrue(Math.abs(gazeDps - heatDps) < 1.0e-3f, "the same DPS as heat vision: " + gazeDps + " vs " + heatDps);
+		helper.assertTrue(SentryConfig.GAZE_RANGE == com.projecthero.mod.kryptonian.KryptonianConfig.HEAT_RANGE
+				&& SentryConfig.GAZE_FIRE_SECONDS == com.projecthero.mod.kryptonian.KryptonianConfig.HEAT_FIRE_SECONDS, "same range and fire");
+		// no time cap: held a whole minute on, still burning
+		long t0 = p.level().getGameTime();
+		edit(p, s -> s.beamStart = t0 - 1200);
+		z.setHealth(500f);
+		z.invulnerableTime = 0;
+		SentryMoves.tick(p);
+		helper.assertTrue(Sentry.state(p).beamStart != 0L, "still on after 60 s held");
+		helper.assertTrue(z.getHealth() < 500f, "still burning after 60 s");
+		// an exact ray: a creature just beside the line is not hit
+		Zombie side = zombie(helper, 3.5, 3.4, 200);
+		edit(p, s -> s.beamStart = t0 - 1195);
+		SentryMoves.tick(p);
+		helper.assertTrue(side.getHealth() == 200f, "no snapping onto a creature beside the beam");
 		// one second in: a quarter-second's Sun is paid and the Void stirs
 		float sun = Sentry.state(p).sun;
 		float vd = Sentry.state(p).voidLevel;
@@ -304,8 +390,8 @@ public class SentryGameTests implements FabricGameTest {
 		SentryMoves.tick(p);
 		helper.assertTrue(Math.abs(sun - Sentry.state(p).sun - SentryConfig.GAZE_COST_PER_SECOND / 4f) < 1.0e-3f, "Sun step per 5 ticks");
 		helper.assertTrue(Sentry.state(p).voidLevel > vd, "the Void stirs");
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		helper.assertTrue(Sentry.state(p).beamStart == 0L, "R released: it ends");
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, false);
+		helper.assertTrue(Sentry.state(p).beamStart == 0L, "G released: it ends");
 		helper.assertTrue(Sentry.cooldownRemaining(p, SentryAbilityManager.SOLAR_GAZE) == SentryConfig.GAZE_COOLDOWN, "its cooldown starts when it ends");
 		helper.succeed();
 	}
@@ -315,7 +401,9 @@ public class SentryGameTests implements FabricGameTest {
 		ServerPlayer p = sentry(helper, 1, 2);
 		Zombie z = zombie(helper, 4, 2, 500);
 		look(p, z);
+		p.setShiftKeyDown(true); // round 3: Shift+G
 		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
+		p.setShiftKeyDown(false);
 		helper.assertTrue(Sentry.state(p).gripTarget == z.getId(), "held");
 		helper.assertTrue(Math.abs(Sentry.state(p).sun - (SentryConfig.SUN_MAX - SentryConfig.UNMAKE_COST)) < 1.0e-3f, "10 Sun");
 		helper.runAfterDelay(SentryConfig.UNMAKE_TEAR_TICKS / 2, () -> {
@@ -337,7 +425,9 @@ public class SentryGameTests implements FabricGameTest {
 		ServerPlayer p = sentry(helper, 1, 2);
 		Zombie z = zombie(helper, 4, 2, 250);
 		look(p, z);
+		p.setShiftKeyDown(true); // round 3: Shift+G
 		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
+		p.setShiftKeyDown(false);
 		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, false);
 		helper.assertTrue(near(250f - z.getHealth(), SentryConfig.UNMAKE_THROW_DAMAGE), "thrown ~12, got " + (250f - z.getHealth()));
 		helper.assertTrue(z.getDeltaMovement().length() > 1.5, "flying: " + z.getDeltaMovement());
@@ -350,8 +440,8 @@ public class SentryGameTests implements FabricGameTest {
 		ServerPlayer p = sentry(helper, 1.5, 2);
 		Zombie z = zombie(helper, 3.5, 2, 100);
 		look(p, z);
-		p.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
+		p.setShiftKeyDown(true); // round 3: Shift+C
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
 		p.setShiftKeyDown(false);
 		helper.assertTrue(near(100f - z.getHealth(), SentryConfig.HURL_DAMAGE), "~16, got " + (100f - z.getHealth()));
 		helper.assertTrue(z.getDeltaMovement().y >= SentryConfig.HURL_SPEED * 0.95, "straight up: " + z.getDeltaMovement());
@@ -362,7 +452,7 @@ public class SentryGameTests implements FabricGameTest {
 		Zombie big = zombie(helper, 5.5, 4, 400);
 		look(p2, big);
 		p2.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p2, AbilitySlot.SLOT_2, true);
+		SentryAbilityManager.handle(p2, AbilitySlot.SLOT_6, true);
 		p2.setShiftKeyDown(false);
 		helper.assertTrue(near(400f - big.getHealth(), SentryConfig.HURL_BOSS_DAMAGE), "a boss-sized one: ~30, got " + (400f - big.getHealth()));
 		helper.assertTrue(big.getDeltaMovement().y < 1.0, "not thrown");
@@ -405,9 +495,7 @@ public class SentryGameTests implements FabricGameTest {
 	public void molecularShieldTurnsShotsToLightAndDeflects(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 3, 3);
 		Sentry.setSun(p, 50f);
-		p.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
-		p.setShiftKeyDown(false);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // round 3: V
 		helper.assertTrue(SentryMoves.shielded(p), "the aura is up");
 		float sun = Sentry.state(p).sun;
 		helper.assertTrue(Math.abs(sun - (50f - SentryConfig.MSHIELD_COST)) < 1.0e-3f, "15 Sun");
@@ -440,6 +528,82 @@ public class SentryGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- round 3: the new Sentry moves, the boost, the landing
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void solarFlareBurstsAllAround(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 3.5, 3.5);
+		Zombie front = zombie(helper, 5.5, 3.5, 300);
+		Zombie back = zombie(helper, 1.5, 3.5, 300);
+		p.setShiftKeyDown(true);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_1, true); // Shift+R
+		p.setShiftKeyDown(false);
+		helper.assertTrue(front.getHealth() < 300f && back.getHealth() < 300f, "both sides hit (an area, not a cone)");
+		double f = Math.min(1.0, Math.sqrt(front.distanceToSqr(p.position().add(0, 1.0, 0))) / SentryConfig.FLARE_RADIUS);
+		float expected = (float) (SentryConfig.FLARE_DAMAGE + (SentryConfig.FLARE_EDGE_DAMAGE - SentryConfig.FLARE_DAMAGE) * f) * SentryConfig.FLARE_UNDEAD;
+		helper.assertTrue(near(300f - front.getHealth(), expected), "a zombie (undead) takes x1.5: ~" + expected + ", got " + (300f - front.getHealth()));
+		helper.assertTrue(front.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS), "dazzled");
+		helper.assertTrue(Math.abs(Sentry.state(p).sun - (SentryConfig.SUN_MAX - SentryConfig.FLARE_COST)) < 1.0e-3f, "18 Sun");
+		helper.assertTrue(Sentry.cooldownRemaining(p, SentryAbilityManager.SOLAR_FLARE) == SentryConfig.FLARE_COOLDOWN, "its cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void goldenSenseRevealsCreaturesAndSeesInTheDark(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 2, 2);
+		Zombie z = zombie(helper, 6, 6, 50);
+		p.setShiftKeyDown(true);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // Shift+V
+		p.setShiftKeyDown(false);
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "the zombie glows (seen through walls)");
+		helper.assertTrue(z.getHealth() == 50f, "a utility: no damage");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION), "Night Vision");
+		helper.assertTrue(Sentry.state(p).senseUntil > p.level().getGameTime(), "the HUD sees it");
+		helper.assertTrue(Sentry.cooldownRemaining(p, SentryAbilityManager.GOLDEN_SENSE) == SentryConfig.SENSE_COOLDOWN, "its cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xWhileFlyingBoostsFlightFiftyPercentForThirtySeconds(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 2, 2);
+		SentryFlight.toggle(p);
+		helper.assertTrue(Sentry.selfFlying(p), "flying");
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		long now = p.level().getGameTime();
+		helper.assertTrue(SentryFlight.boosting(p), "X in the air: the Flight Boost");
+		helper.assertFalse(SentryFlight.dashing(p), "not the dash");
+		helper.assertTrue(Sentry.state(p).boostUntil - now == SentryConfig.BOOST_TICKS && SentryConfig.BOOST_TICKS == 600, "for 600 ticks (30 s)");
+		helper.assertTrue(SentryConfig.BOOST_SPEED == 1.5, "+50% flight speed");
+		helper.assertTrue(Sentry.cooldownRemaining(p, SentryAbilityManager.FLIGHT_BOOST) == SentryConfig.BOOST_COOLDOWN, "its own cooldown");
+		helper.assertTrue(Math.abs(Sentry.state(p).sun - (SentryConfig.SUN_MAX - SentryConfig.BOOST_COST)) < 1.0e-3f, "10 Sun");
+		helper.assertTrue(SentryFlight.boostLeft(p) == SentryConfig.BOOST_TICKS, "the HUD timer");
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(SentryFlight.boostLeft(p) == SentryConfig.BOOST_TICKS - 20, "counts down a tick at a time");
+			SentryFlight.stop(p);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void landingSlamHurtsAroundHim(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 3.5, 3.5);
+		Zombie z = zombie(helper, 5.0, 3.5, 300);
+		int n = SentryMoves.landing(p, 1f, false);
+		helper.assertTrue(n >= 1, "the impact hit it");
+		helper.assertTrue(near(300f - z.getHealth(), SentryConfig.LANDING_DAMAGE + SentryConfig.LANDING_DAMAGE_PER_STRENGTH), "~22 at full strength, got " + (300f - z.getHealth()));
+		helper.assertTrue(com.projecthero.mod.flight.landing.HeroLandingStyle.byId(com.projecthero.mod.flight.landing.HeroLandingStyle.SENTRY.id)
+				== com.projecthero.mod.flight.landing.HeroLandingStyle.SENTRY, "a registered landing style");
+		edit(p, s -> s.flying = true);
+		helper.assertTrue(com.projecthero.mod.flight.landing.HeroLanding.claim(p) == com.projecthero.mod.flight.landing.HeroLandingStyle.SENTRY, "his flight claims the golden landing");
+		edit(p, s -> s.voidForm = true);
+		helper.assertTrue(com.projecthero.mod.flight.landing.HeroLanding.claim(p) == com.projecthero.mod.flight.landing.HeroLandingStyle.SENTRY_VOID, "merged: the dark one");
+		edit(p, s -> {
+			s.flying = false;
+			s.voidForm = false;
+		});
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- moveset 2: the Void
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -463,6 +627,59 @@ public class SentryGameTests implements FabricGameTest {
 		helper.assertTrue(Sentry.cooldownRemaining(p, SentryAbilityManager.TENDRIL_LASH) == Math.round(SentryConfig.LASH_COOLDOWN * SentryConfig.MERGED_COOLDOWN),
 				"merged: cooldown x0.75");
 		helper.assertTrue(Sentry.state(p).voidLevel > 40f, "it feeds the Void");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void controlledVoidDealsFiftyPercentMore(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 1.5, 2);
+		Zombie a = zombie(helper, 3.5, 2, 300);
+		helper.assertTrue(SentryConfig.MERGED_DAMAGE == 1.5f, "+50%");
+		Sentry.hit(p, a, 10f, false);
+		float plain = 300f - a.getHealth();
+		Zombie b = zombie(helper, 3.5, 5, 300);
+		edit(p, s -> s.voidForm = true);
+		Sentry.hit(p, b, 10f, false);
+		float merged = 300f - b.getHealth();
+		helper.assertTrue(plain > 0f && Math.abs(merged / plain - 1.5f) < 0.05f, "merged hits x1.5 (ratio " + merged / plain + ")");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void umbralShroudCutsHitsAndWithersAttackers(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 3, 3);
+		edit(p, s -> s.voidForm = true);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // merged V
+		helper.assertTrue(VoidMoves.shrouded(p), "the shroud is up");
+		float f = SentryDamage.factor(p, p.damageSources().generic());
+		helper.assertTrue(Math.abs(f - (1f - SentryConfig.VOID_RESIST) * (1f - SentryConfig.SHROUD_RESIST)) < 1.0e-3f, "40% off on top: " + f);
+		var arrow = new net.minecraft.world.entity.projectile.Arrow(EntityType.ARROW, helper.getLevel());
+		arrow.setPos(p.getX() + 1.5, p.getY() + 1.0, p.getZ());
+		helper.getLevel().addFreshEntity(arrow);
+		VoidMoves.tick(p);
+		helper.assertTrue(arrow.isRemoved(), "the arrow is swallowed");
+		Zombie z = zombie(helper, 4, 3, 200);
+		SentryDamage.allowDamage(p, p.damageSources().mobAttack(z), 4f);
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.WITHER), "a melee attacker withers");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shadowMeldHidesHimUntilHeAttacks(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 2, 2);
+		edit(p, s -> s.voidForm = true);
+		Zombie z = zombie(helper, 6, 6, 200);
+		z.setTarget(p);
+		p.setShiftKeyDown(true);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // merged Shift+V
+		p.setShiftKeyDown(false);
+		helper.assertTrue(VoidMoves.melded(p) && p.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY), "melded: invisible");
+		helper.assertTrue(z.getTarget() == null, "the hunter lost him");
+		look(p, z);
+		edit(p, s -> s.abilityReadyAt.clear());
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // Nightmare: an attack
+		helper.assertFalse(VoidMoves.melded(p), "an attack brings him out");
+		helper.assertFalse(p.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY), "visible again");
 		helper.succeed();
 	}
 
@@ -604,10 +821,8 @@ public class SentryGameTests implements FabricGameTest {
 	public void letItOutTrialLostRaisesTheVoid(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 2, 2);
 		edit(p, s -> s.voidLevel = 10f); // no Void gate any more: the trial replaces it
-		p.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		p.setShiftKeyDown(false);
-		helper.assertTrue(LetItOut.running(Sentry.state(p)), "Shift+V at 10 Void starts the trial");
+		SentryAbilityManager.pressH(p); // round 3: H
+		helper.assertTrue(LetItOut.running(Sentry.state(p)), "H at 10 Void starts the trial");
 		helper.assertFalse(Sentry.voidForm(p), "not merged yet");
 		float before = Sentry.state(p).voidLevel;
 		helper.assertTrue(LetItOut.report(p, false) == LetItOut.Result.LOST, "a lost trial");
@@ -618,7 +833,7 @@ public class SentryGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void letItOutTrialWonMergesAndShiftVTogglesBack(GameTestHelper helper) {
+	public void letItOutTrialWonMergesAndHTogglesBack(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 2, 2);
 		edit(p, s -> s.voidLevel = 20f);
 		helper.assertTrue(LetItOut.begin(p), "the trial starts");
@@ -634,19 +849,59 @@ public class SentryGameTests implements FabricGameTest {
 		float before = Sentry.state(p).voidLevel;
 		Sentry.addVoid(p, 2f);
 		helper.assertTrue(Math.abs(Sentry.state(p).voidLevel - before - 2f * SentryConfig.MERGED_VOID_GAIN) < 1.0e-3f, "merged: gains x1.5");
-		// Shift+V back, only below 90
+		// H back (round 3), only below 90
 		edit(p, s -> s.voidLevel = 95f);
-		p.setShiftKeyDown(true);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		SentryAbilityManager.pressH(p);
 		helper.assertTrue(Sentry.voidForm(p), "no way back at 95");
 		edit(p, s -> s.voidLevel = 60f);
-		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		p.setShiftKeyDown(false);
-		helper.assertFalse(Sentry.voidForm(p), "Shift+V again at 60: the Sentry");
+		SentryAbilityManager.pressH(p);
+		helper.assertFalse(Sentry.voidForm(p), "H again at 60: the Sentry");
 		helper.assertFalse(LetItOut.running(Sentry.state(p)), "and no trial started by it");
 		// the lock after a takeover still holds
 		edit(p, s -> s.letOutLockedUntil = p.level().getGameTime() + 1000);
-		helper.assertFalse(LetItOut.begin(p), "Shift+V locked");
+		SentryAbilityManager.pressH(p);
+		helper.assertFalse(LetItOut.running(Sentry.state(p)), "H locked");
+		helper.assertFalse(LetItOut.begin(p), "locked");
+		// and the ability keys no longer do it: Shift+V is Golden Sense now
+		edit(p, s -> s.letOutLockedUntil = 0L);
+		p.setShiftKeyDown(true);
+		SentryAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		p.setShiftKeyDown(false);
+		helper.assertFalse(LetItOut.running(Sentry.state(p)), "Shift+V doesn't start the trial any more");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void controlledVoidSuitLookWithAndWithoutTheSuit(GameTestHelper helper) {
+		// without the suit: the Void suit appears over his skin when he merges, and goes when he is back
+		ServerPlayer p = sentry(helper, 2, 2);
+		helper.assertTrue(Sentry.look(p) == Sentry.Look.NONE, "no suit, not merged: his own skin");
+		helper.assertTrue(LetItOut.begin(p), "the trial");
+		long now = p.level().getGameTime();
+		edit(p, s -> s.letOutTrialStart = now - SentryConfig.TRIAL_MIN_WIN_TICKS - 5);
+		helper.assertTrue(LetItOut.report(p, true) == LetItOut.Result.WON, "won");
+		helper.assertTrue(Sentry.look(p) == Sentry.Look.VOID_OVER_SKIN, "merged without the suit: the Void suit over his skin");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "a visual: no item given");
+		SentryAbilityManager.pressH(p);
+		helper.assertFalse(Sentry.voidForm(p), "back");
+		helper.assertTrue(Sentry.look(p) == Sentry.Look.VOID_OVER_SKIN, "fading out right after");
+		edit(p, s -> s.formChangedAt = p.level().getGameTime() - SentryConfig.FORM_FADE_TICKS - 1);
+		helper.assertTrue(Sentry.look(p) == Sentry.Look.NONE, "faded away: his own skin again");
+		// with the suit: the comics suit fades into the Void suit and back to the comics suit
+		ServerPlayer q = sentry(helper, 5, 5);
+		q.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP));
+		q.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SentrySuitItem.TROUSERS));
+		helper.assertTrue(Sentry.look(q) == Sentry.Look.SUIT, "the comics suit");
+		edit(q, s -> {
+			s.voidForm = true;
+			s.formChangedAt = q.level().getGameTime() - SentryConfig.FORM_FADE_TICKS - 1;
+		});
+		helper.assertTrue(Sentry.look(q) == Sentry.Look.VOID_OVER_SUIT, "merged in the suit: the Void suit over it");
+		edit(q, s -> {
+			s.voidForm = false;
+			s.formChangedAt = q.level().getGameTime() - SentryConfig.FORM_FADE_TICKS - 1;
+		});
+		helper.assertTrue(Sentry.look(q) == Sentry.Look.SUIT, "back: the comics suit stays");
 		helper.succeed();
 	}
 
@@ -683,7 +938,7 @@ public class SentryGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void xIsOnlyTheDash(GameTestHelper helper) {
+	public void xOnTheGroundIsTheDash(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 2, 2);
 		helper.assertTrue(SentryAbilityManager.DASH.equals(SentryAbilityManager.sentryMoveFor(AbilitySlot.SLOT_3, false)), "X = the dash");
 		SentryAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
@@ -768,16 +1023,15 @@ public class SentryGameTests implements FabricGameTest {
 		before = Sentry.state(p).voidLevel;
 		Sentry.tickMeters(p);
 		float dVoid = Sentry.state(p).voidLevel - before;
-		helper.assertTrue(Math.abs(dVoid - SentryConfig.VOID_DARK_PER_SECOND * SentryConfig.SUIT_VOID_GAIN) < 1.0e-3f, "the dark x0.6: " + dVoid);
+		helper.assertTrue(Math.abs(dVoid - SentryConfig.VOID_DRAIN_PER_SECOND) < 1.0e-4f, "round 3: the dark only drains (unscaled): " + dVoid);
 		Sentry.pinSun(p, null);
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void voidFillsAThirdAsFast(GameTestHelper helper) {
-		helper.assertTrue(SentryConfig.VOID_NIGHT_PER_SECOND <= 0.25f / 2.5f && SentryConfig.VOID_DARK_PER_SECOND <= 0.5f / 2.5f, "passive gains cut");
-		helper.assertTrue(SentryConfig.SUNS_VOID <= 25f / 2.5f && SentryConfig.KILL_VOID <= 2f / 2.5f && SentryConfig.ERASE_VOID <= 6f / 2.5f,
-				"event gains cut");
+		helper.assertTrue(Sentry.voidPerSecond(Sentry.Sun.NIGHT) < 0f && Sentry.voidPerSecond(Sentry.Sun.DARK) < 0f, "round 3: no passive gains at all");
+		helper.assertTrue(SentryConfig.SUNS_VOID <= 25f / 2.5f && SentryConfig.ERASE_VOID <= 6f / 2.5f, "event gains cut");
 		helper.succeed();
 	}
 

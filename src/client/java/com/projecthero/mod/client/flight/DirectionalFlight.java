@@ -192,6 +192,9 @@ public final class DirectionalFlight {
 		// v0.17.5: Sentry's X flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting (the takeover drives the body itself)
 		if (com.projecthero.mod.sentry.Sentry.selfFlying(player)) {
 			double bps = sprint ? com.projecthero.mod.sentry.SentryConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.sentry.SentryConfig.FLIGHT_CRUISE_BPS;
+			if (com.projecthero.mod.sentry.SentryFlight.boosting(player)) {
+				bps *= com.projecthero.mod.sentry.SentryConfig.BOOST_SPEED; // round 3: X while flying -- the Flight Boost, +50% for 30 s
+			}
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
 		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting

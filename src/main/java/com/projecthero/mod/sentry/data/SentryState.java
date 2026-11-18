@@ -22,7 +22,7 @@ public final class SentryState {
 	/** Void Form (Shift+V, or forced by the takeover). */
 	public boolean voidForm;
 	public boolean flying;
-	/** Holding V (Calm). */
+	/** Holding V (Calm). Round 3: Calm is gone -- kept only so old saves load (always false now). */
 	public boolean calming;
 	/** Move id -> game time it is ready again. */
 	public Map<String, Long> abilityReadyAt = new HashMap<>();
@@ -51,6 +51,13 @@ public final class SentryState {
 	public int poseTicks;
 	/** The golden kneel after the Void is thrown out, until. */
 	public long kneelUntil;
+	/** Round 3: the Flight Boost (X while flying, +50% flight speed) runs until. */
+	public long boostUntil;
+	/** Round 3: Golden Sense (Shift+V) runs until. */
+	public long senseUntil;
+	/** Round 3, the Void: Umbral Shroud (V) and Shadow Meld (Shift+V) run until. */
+	public long shroudUntil;
+	public long meldUntil;
 
 	// ---------------------------------------------------------------- the takeover
 	/** The Void has the body since (0 = no takeover). */
@@ -69,8 +76,12 @@ public final class SentryState {
 	public static final int POSE_NONE = 0;
 	/** Sentry: Skyward Hurl (both arms thrown up), Sunfall leap / dive, Golden Guardian (arms spread, face up), Molecular Shield (arms crossed, then open), the Haymaker wind-up. */
 	public static final int POSE_HURL = 1, POSE_LEAP = 2, POSE_DIVE = 3, POSE_GUARDIAN = 4, POSE_SHIELD = 5, POSE_HAYMAKER = 6;
+	/** Round 3: Solar Flare (fists to the chest, then flung out), Golden Sense (two fingers to the temple, head up), the Flight Boost (fists driven forward). */
+	public static final int POSE_FLARE = 7, POSE_SENSE = 8, POSE_BOOST = 9;
 	/** Void: Erase (hand out, fingers spread), Shadow Pool (pointing down), Swallow (fist closing), Nightmare (arms wide, head back), Eclipse (arms raised), Blot Out (pulling in), Shadow Clones (palms out low), Impale (a thrust). */
 	public static final int POSE_ERASE = 10, POSE_POOL = 11, POSE_SPHERE = 12, POSE_NIGHTMARE = 13, POSE_ECLIPSE = 14, POSE_BLOT = 15, POSE_CLONES = 16, POSE_IMPALE = 17;
+	/** Round 3, the Void: Umbral Shroud (arms wrapped round himself), Shadow Meld (a crouch, sinking). */
+	public static final int POSE_SHROUD = 18, POSE_MELD = 19;
 
 	public SentryState() {
 	}
@@ -101,6 +112,10 @@ public final class SentryState {
 		n.poseAt = poseAt;
 		n.poseTicks = poseTicks;
 		n.kneelUntil = kneelUntil;
+		n.boostUntil = boostUntil;
+		n.senseUntil = senseUntil;
+		n.shroudUntil = shroudUntil;
+		n.meldUntil = meldUntil;
 		n.takeoverStart = takeoverStart;
 		n.room = room;
 		n.roomStartedAt = roomStartedAt;
@@ -134,6 +149,10 @@ public final class SentryState {
 		t.putLong("pose_at", poseAt);
 		t.putInt("pose_ticks", poseTicks);
 		t.putLong("kneel_until", kneelUntil);
+		t.putLong("boost_until", boostUntil);
+		t.putLong("sense_until", senseUntil);
+		t.putLong("shroud_until", shroudUntil);
+		t.putLong("meld_until", meldUntil);
 		t.putLong("takeover_start", takeoverStart);
 		t.putInt("room", room);
 		t.putLong("room_started", roomStartedAt);
@@ -168,6 +187,11 @@ public final class SentryState {
 		s.poseAt = t.getLong("pose_at");
 		s.poseTicks = t.getInt("pose_ticks");
 		s.kneelUntil = t.getLong("kneel_until");
+		s.boostUntil = t.getLong("boost_until");
+		s.senseUntil = t.getLong("sense_until");
+		s.shroudUntil = t.getLong("shroud_until");
+		s.meldUntil = t.getLong("meld_until");
+		s.calming = false; // round 3: Calm is gone
 		s.takeoverStart = t.getLong("takeover_start");
 		s.room = t.getInt("room");
 		s.roomStartedAt = t.getLong("room_started");

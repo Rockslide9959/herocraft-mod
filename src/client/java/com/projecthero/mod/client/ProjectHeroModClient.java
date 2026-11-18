@@ -934,6 +934,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.nova.NovaClient.ownsH(client.player)) {
 				// v0.15.13: H as Nova -- the Nova Corps uniform on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.nova.NovaClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.sentry.SentryClient.ownsH(client.player)) {
+				// v0.17.5 round 3 (user: "Make let it out his H ability"): H as the Sentry -- Let It Out, or back to the Sentry when merged
+				// (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.sentry.SentryClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.doctorfate.DoctorFateClient.ownsH(client.player)) {
 				// v0.17.3 (user: "like the Nova ability"): H as Doctor Fate -- the Helmet of Fate on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.doctorfate.DoctorFateClient.pressH();
@@ -1006,7 +1010,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.miraculous.Miraculous.hasPower(client.player)
 							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
 							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player)
-							|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player))) {
+							|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player)
+							|| com.projecthero.mod.sentry.Sentry.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.

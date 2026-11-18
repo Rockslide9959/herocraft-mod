@@ -10,30 +10,34 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.5 Sentry: bridges the universal ability slots to the Sentry (or, merged, the Void). H stays the power selector and N does
- * nothing for him. Shift is read server-side. During the takeover every key is dead ({@link #handle} ignores them: the Void has the
- * body). Moveset 2 (2026-11-18, user: "Create a new moveset based on the sentries powers in the movies and comics and also create a new
- * moveset for the void"):
+ * v0.17.5 Sentry: bridges the universal ability slots to the Sentry (or, merged, the Void). Shift is read server-side. During the takeover
+ * every key is dead ({@link #handle} ignores them: the Void has the body). Round 3 (2026-11-18, user: "Make Solar Gaze his G move ... Make
+ * let it out his H ability ... Make V his shield ability. Make shift+G his disassemble ability. Make shift+R an aoe ability ... if sonic
+ * boom is used while flying ... makes player fly 50% faster ... Remove the players calm ability and replace it with a different ability"):
  *
  * <pre>
  *   Sentry                                               The Void (merged)
+ *   H        Let It Out (the trial)                       H        Return to the Sentry (below 90 Void)
  *   R        Golden Fury (combo, 3rd = Haymaker)          R        Tendril Lash (combo, 3rd = Impale)
- *   Shift+R  Solar Gaze (hold: eye beams)                 Shift+R  Erase
- *   G        Disassemble (hold: tear apart; let go: throw)G        Shadow Pool
- *   Shift+G  Skyward Hurl                                 Shift+G  Swallow (the void sphere)
+ *   Shift+R  Solar Flare (AoE burst)                      Shift+R  Erase
+ *   G        Solar Gaze (hold: eye beams)                 G        Shadow Pool
+ *   Shift+G  Disassemble (hold: tear apart; let go: throw)Shift+G  Swallow (the void sphere)
  *   Z        Sunfall (leap / dive slam)                   Z        Nightmare
  *   Shift+Z  A Million Suns (4 s wind-up)                 Shift+Z  Shadow Eclipse
  *   C        Golden Guardian                              C        Blot Out
- *   Shift+C  Molecular Shield                             Shift+C  Shadow Clones
- *   X        Sonic Boom (dash)                            X        Shadow Step (blink)
- *   V        Calm (hold)      Shift+V  Let It Out         V / Shift+V  Return (below 90 Void)
+ *   Shift+C  Skyward Hurl                                 Shift+C  Shadow Clones
+ *   X        Sonic Boom (dash); flying: Flight Boost      X        Shadow Step (blink)
+ *   V        Molecular Shield                             V        Umbral Shroud
+ *   Shift+V  Golden Sense                                 Shift+V  Shadow Meld
  *   2x Space  Flight (both forms)
  * </pre>
- * Above 75 Void a Sentry attack key sometimes misfires into a Void move ({@link SentryConfig#MISFIRE_CHANCE}).
+ * H reaches the server through {@code SentryActionPayload.LET_IT_OUT} ({@link #pressH}); Shift+H still opens the power wheel. Above 75
+ * Void a Sentry attack key sometimes misfires into a Void move ({@link SentryConfig#MISFIRE_CHANCE}).
  */
 public final class SentryAbilityManager {
 	// the Sentry
 	public static final String GOLDEN_FURY = "golden_fury";
+	public static final String SOLAR_FLARE = "solar_flare";
 	public static final String SOLAR_GAZE = "solar_gaze";
 	public static final String DISASSEMBLE = "disassemble";
 	public static final String SKYWARD_HURL = "skyward_hurl";
@@ -41,9 +45,10 @@ public final class SentryAbilityManager {
 	public static final String MILLION_SUNS = "million_suns";
 	public static final String GOLDEN_GUARDIAN = "golden_guardian";
 	public static final String MOLECULAR_SHIELD = "molecular_shield";
+	public static final String GOLDEN_SENSE = "golden_sense";
 	public static final String FLIGHT = "flight";
 	public static final String DASH = "sonic_dash";
-	public static final String CALM = "calm";
+	public static final String FLIGHT_BOOST = "flight_boost";
 	public static final String LET_IT_OUT = "let_it_out";
 
 	// the Void
@@ -56,6 +61,8 @@ public final class SentryAbilityManager {
 	public static final String BLOT_OUT = "blot_out";
 	public static final String SHADOW_CLONES = "shadow_clones";
 	public static final String SHADOW_STEP = "shadow_step";
+	public static final String UMBRAL_SHROUD = "umbral_shroud";
+	public static final String SHADOW_MELD = "shadow_meld";
 	public static final String RETURN = "return";
 
 	/** Every Void attack (the takeover picks from these). */
@@ -100,8 +107,7 @@ public final class SentryAbilityManager {
 			return;
 		}
 		// above 75 Void the hand isn't always his: an attack key misfires into a Void move
-		if (s.voidLevel >= SentryConfig.VOID_MISFIRE && isAttack(id) && !s.calming
-				&& player.getRandom().nextFloat() < SentryConfig.MISFIRE_CHANCE) {
+		if (s.voidLevel >= SentryConfig.VOID_MISFIRE && isAttack(id) && player.getRandom().nextFloat() < SentryConfig.MISFIRE_CHANCE) {
 			String dark = misfireOf(id);
 			Sentry.say(player, "message.projecthero.sentry.misfire", ChatFormatting.DARK_GRAY);
 			VoidMoves.misfire(player, dark);
@@ -110,15 +116,34 @@ public final class SentryAbilityManager {
 		SentryMoves.use(player, id, slot);
 	}
 
+	/**
+	 * H (round 3, user: "Make let it out his H ability"): as the Sentry, Let It Out (the trial); merged with the Void, back to the Sentry
+	 * (only below 90 Void). Nothing in the takeover, or while A Million Suns charges. From {@code SentryActionPayload.LET_IT_OUT}.
+	 */
+	public static void pressH(ServerPlayer player) {
+		if (!Sentry.hasPower(player) || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		SentryState s = Sentry.state(player);
+		if (s.inTakeover() || s.sunsStart != 0L) {
+			return;
+		}
+		if (s.voidForm) {
+			VoidMoves.returnToSentry(player);
+		} else {
+			LetItOut.begin(player);
+		}
+	}
+
 	/** The Sentry move a key sends. */
 	public static String sentryMoveFor(AbilitySlot slot, boolean shift) {
 		return switch (slot) {
-			case SLOT_1 -> shift ? SOLAR_GAZE : GOLDEN_FURY;
-			case SLOT_2 -> shift ? SKYWARD_HURL : DISASSEMBLE;
-			case SLOT_3 -> DASH; // X is only the dash; flight is double-tap Space
+			case SLOT_1 -> shift ? SOLAR_FLARE : GOLDEN_FURY;
+			case SLOT_2 -> shift ? DISASSEMBLE : SOLAR_GAZE;
+			case SLOT_3 -> DASH; // X: the dash on the ground, the Flight Boost while flying; flight is double-tap Space
 			case SLOT_4 -> shift ? MILLION_SUNS : SUNFALL;
-			case SLOT_5 -> shift ? LET_IT_OUT : CALM;
-			case SLOT_6 -> shift ? MOLECULAR_SHIELD : GOLDEN_GUARDIAN;
+			case SLOT_5 -> shift ? GOLDEN_SENSE : MOLECULAR_SHIELD;
+			case SLOT_6 -> shift ? SKYWARD_HURL : GOLDEN_GUARDIAN;
 			default -> null;
 		};
 	}
@@ -130,21 +155,21 @@ public final class SentryAbilityManager {
 			case SLOT_2 -> shift ? SWALLOW : SHADOW_POOL;
 			case SLOT_3 -> SHADOW_STEP;
 			case SLOT_4 -> shift ? SHADOW_ECLIPSE : NIGHTMARE;
-			case SLOT_5 -> RETURN;
+			case SLOT_5 -> shift ? SHADOW_MELD : UMBRAL_SHROUD;
 			case SLOT_6 -> shift ? SHADOW_CLONES : BLOT_OUT;
 			default -> null;
 		};
 	}
 
 	static boolean isAttack(String id) {
-		return GOLDEN_FURY.equals(id) || SOLAR_GAZE.equals(id) || DISASSEMBLE.equals(id) || SKYWARD_HURL.equals(id) || SUNFALL.equals(id)
-				|| MILLION_SUNS.equals(id);
+		return GOLDEN_FURY.equals(id) || SOLAR_FLARE.equals(id) || SOLAR_GAZE.equals(id) || DISASSEMBLE.equals(id) || SKYWARD_HURL.equals(id)
+				|| SUNFALL.equals(id) || MILLION_SUNS.equals(id);
 	}
 
 	/** What a misfiring Sentry key does instead. */
 	static String misfireOf(String id) {
 		return switch (id) {
-			case DISASSEMBLE, SKYWARD_HURL -> SHADOW_POOL;
+			case SOLAR_GAZE, DISASSEMBLE, SKYWARD_HURL -> SHADOW_POOL;
 			case SUNFALL, MILLION_SUNS -> NIGHTMARE;
 			default -> TENDRIL_LASH;
 		};
@@ -164,6 +189,7 @@ public final class SentryAbilityManager {
 	public static float cost(String id) {
 		return switch (id) {
 			case GOLDEN_FURY -> SentryConfig.FURY_COST;
+			case SOLAR_FLARE -> SentryConfig.FLARE_COST;
 			case SOLAR_GAZE -> SentryConfig.GAZE_COST_PER_SECOND / 4f;
 			case DISASSEMBLE -> SentryConfig.UNMAKE_COST;
 			case SKYWARD_HURL -> SentryConfig.HURL_COST;
@@ -171,7 +197,9 @@ public final class SentryAbilityManager {
 			case MILLION_SUNS -> SentryConfig.SUNS_COST;
 			case GOLDEN_GUARDIAN -> SentryConfig.GUARDIAN_COST;
 			case MOLECULAR_SHIELD -> SentryConfig.MSHIELD_COST;
+			case GOLDEN_SENSE -> SentryConfig.SENSE_COST;
 			case DASH -> SentryConfig.DASH_COST;
+			case FLIGHT_BOOST -> SentryConfig.BOOST_COST;
 			default -> 0f;
 		};
 	}
@@ -198,6 +226,7 @@ public final class SentryAbilityManager {
 	public static int maxCooldown(String id) {
 		return switch (id) {
 			case GOLDEN_FURY -> SentryConfig.FURY_COOLDOWN;
+			case SOLAR_FLARE -> SentryConfig.FLARE_COOLDOWN;
 			case SOLAR_GAZE -> SentryConfig.GAZE_COOLDOWN;
 			case DISASSEMBLE -> SentryConfig.UNMAKE_COOLDOWN;
 			case SKYWARD_HURL -> SentryConfig.HURL_COOLDOWN;
@@ -205,7 +234,9 @@ public final class SentryAbilityManager {
 			case MILLION_SUNS -> SentryConfig.SUNS_COOLDOWN;
 			case GOLDEN_GUARDIAN -> SentryConfig.GUARDIAN_COOLDOWN;
 			case MOLECULAR_SHIELD -> SentryConfig.MSHIELD_COOLDOWN;
+			case GOLDEN_SENSE -> SentryConfig.SENSE_COOLDOWN;
 			case DASH -> SentryConfig.DASH_COOLDOWN;
+			case FLIGHT_BOOST -> SentryConfig.BOOST_COOLDOWN;
 			case TENDRIL_LASH -> SentryConfig.LASH_COOLDOWN;
 			case ERASE -> SentryConfig.ERASE_COOLDOWN;
 			case SHADOW_POOL -> SentryConfig.POOL_COOLDOWN;
@@ -215,6 +246,8 @@ public final class SentryAbilityManager {
 			case BLOT_OUT -> SentryConfig.BLOT_COOLDOWN;
 			case SHADOW_CLONES -> SentryConfig.CLONE_COOLDOWN;
 			case SHADOW_STEP -> SentryConfig.STEP_COOLDOWN;
+			case UMBRAL_SHROUD -> SentryConfig.SHROUD_COOLDOWN;
+			case SHADOW_MELD -> SentryConfig.MELD_COOLDOWN;
 			default -> 1;
 		};
 	}

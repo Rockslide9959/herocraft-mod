@@ -57,6 +57,7 @@ public final class SentryFxClient {
 	public static void reset() {
 		ACTIVE.clear();
 		flashAt = 0L;
+		ShadeFigures.reset();
 	}
 
 	public static void receive(SentryFxPayload p) {
@@ -64,10 +65,24 @@ public final class SentryFxClient {
 		if (mc.level == null) {
 			return;
 		}
+		if (p.kind() == SentryFxPayload.SHADE) {
+			ShadeFigures.receive(p, mc.level.getGameTime()); // round 3: the shadow figures are thin translucent player models
+			return;
+		}
 		if (ACTIVE.size() >= MAX) {
 			ACTIVE.remove(0);
 		}
 		ACTIVE.add(new Fx(p, mc.level.getGameTime()));
+		if (p.kind() == SentryFxPayload.FLARE && mc.player != null) {
+			// round 3: Solar Flare dazzles whoever is close (a short warm flash)
+			double d = mc.player.position().distanceTo(new Vec3(p.x(), p.y(), p.z()));
+			float s = (float) Mth.clamp(1.0 - d / 20.0, 0.0, 1.0);
+			if (s > 0f) {
+				flashAt = net.minecraft.Util.getMillis();
+				flashStrength = s * 0.45f;
+				flashColour = 0xFFE8A0;
+			}
+		}
 		if ((p.kind() == SentryFxPayload.SUNS || p.kind() == SentryFxPayload.THROWN_OUT) && mc.player != null) {
 			double d = mc.player.position().distanceTo(new Vec3(p.x(), p.y(), p.z()));
 			float s = (float) Mth.clamp(1.0 - d / 48.0, 0.0, 1.0);
@@ -110,16 +125,20 @@ public final class SentryFxClient {
 			if (s != null && s.hasPower && s.beamStart != 0L && !BeamClashClient.hides(p)) {
 				gaze(mc, level, p, s, partial, now, light, dark);
 			}
+			if (s != null && s.hasPower && s.boostUntil > level.getGameTime() && s.flying) {
+				contrail(mc, p, partial, now, light);
+			}
 		}
 		ACTIVE.removeIf(f -> level.getGameTime() - f.start >= f.p.ticks() + 2 || level.getGameTime() < f.start - 20);
 		for (Fx f : ACTIVE) {
 			float age = Math.max(0f, now - f.start);
 			draw(level, f.p, age, partial, context.camera().getPosition(), light, dark);
 		}
+		Vec3 cam = context.camera().getPosition();
+		ShadeFigures.render(pose, buffers, cam, level.getGameTime(), partial); // round 3: the clones and nightmare figures
 		if (light.isEmpty() && dark.isEmpty()) {
 			return;
 		}
-		Vec3 cam = context.camera().getPosition();
 		pose.pushPose();
 		pose.translate(-cam.x, -cam.y, -cam.z);
 		PoseStack.Pose last = pose.last();
@@ -150,13 +169,11 @@ public final class SentryFxClient {
 		if (bh.getType() != HitResult.Type.MISS) {
 			end = bh.getLocation();
 		}
-		var eh = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, p, from, end,
-				new net.minecraft.world.phys.AABB(from, end).inflate(1.0), e -> e instanceof net.minecraft.world.entity.LivingEntity le
-						&& le.isAlive() && !e.isSpectator() && e != p, 0.5f);
+		var eh = SentryMoves.gazeHit(p, from, end); // round 3: the server's exact ray -- the beam never bends onto a creature beside it
 		if (eh != null) {
 			end = eh.getLocation();
 		}
-		boolean hot = level.getGameTime() - st.beamStart >= SentryConfig.GAZE_RAMP_TICKS;
+		boolean hot = level.getGameTime() - st.beamStart >= SentryConfig.GAZE_HOT_TICKS;
 		float pulse = 0.85f + 0.15f * Mth.sin(now * 1.3f);
 		float near = fp ? 0.5f : 1f;
 		float w = hot ? 1.45f : 1f;
@@ -171,6 +188,29 @@ public final class SentryFxClient {
 		float b = (hot ? 0.75f : 0.5f) * pulse;
 		light.add(new Seg(end.add(0, -b, 0), end.add(0, b, 0), b, b, hot ? 0xFFB060 : 0xFFE8A0, 0.55f, 0.55f));
 		ring(end, dir, 0.35f + 0.15f * Mth.sin(now * 0.9f), 0.05f, 0xFFD860, 0.6f, light);
+	}
+
+	/** Round 3: the Flight Boost's golden contrail -- two long fading ribbons from his shoulders back along where he flew. */
+	private static void contrail(Minecraft mc, Player p, float partial, float now, List<Seg> light) {
+		Vec3 pos = p.getPosition(partial);
+		Vec3 v = new Vec3(p.getX() - p.xo, p.getY() - p.yo, p.getZ() - p.zo);
+		if (v.lengthSqr() < 0.04) {
+			return;
+		}
+		Vec3 dir = v.normalize();
+		Vec3 side = dir.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 c = pos.add(0, p.getBbHeight() * 0.55, 0);
+		double len = Math.min(14.0, 3.0 + v.length() * 6.0);
+		float flick = 0.85f + 0.15f * Mth.sin(now * 1.7f);
+		for (int s = -1; s <= 1; s += 2) {
+			Vec3 a = c.add(side.scale(0.28 * s));
+			Vec3 b = a.subtract(dir.scale(len));
+			light.add(new Seg(a, b, 0.22f * flick, 0.02f, 0xFFB52A, 0.6f, 0f));
+			light.add(new Seg(a, a.subtract(dir.scale(len * 0.5)), 0.08f, 0.01f, 0xFFF8E0, 0.85f, 0f));
+		}
+		// a faint aura round the body
+		light.add(new Seg(c.add(dir.scale(0.4)), c.subtract(dir.scale(1.2)), 0.55f * flick, 0.15f, 0xFFC83A, 0.25f, 0f));
 	}
 
 	// ---------------------------------------------------------------- the payload effects
@@ -298,11 +338,66 @@ public final class SentryFxClient {
 				Vec3 c = owner != null ? owner.getPosition(partial) : at;
 				eclipse(c, p.size(), age, life, cam, dark, light);
 			}
-			case SentryFxPayload.SHADE -> {
-				boolean brief = life <= 8; // a clone, re-sent every 2 ticks: only the newest copy draws
-				float in = brief ? 1f : Math.min(1f, age / 4f);
-				float out = brief ? (age <= 2.05f ? 1f : 0f) : Math.min(1f, (life - age) / 6f);
-				shade(at, to, p.size(), age, Math.max(0f, in * out), dark, light);
+			case SentryFxPayload.FLARE -> {
+				// round 3, Solar Flare: a burst of sunlight -- a blinding core, rays all round, two rings racing out
+				Entity owner = p.owner() >= 0 ? level.getEntity(p.owner()) : null;
+				Vec3 c = owner != null ? owner.getPosition(partial).add(0, 1.0, 0) : at;
+				float e = smooth(Math.min(1f, t * 2.5f));
+				float r = p.size() * e;
+				float core = 1.6f * (1f - t);
+				light.add(new Seg(c.add(0, -core, 0), c.add(0, core, 0), core, core, 0xFFF8E0, 0.9f * fade, 0.9f * fade));
+				for (int i = 0; i < 18; i++) {
+					double a = i * Math.PI * 2 / 18 + age * 0.03;
+					Vec3 ray = new Vec3(Math.cos(a), Math.sin(i * 1.7) * 0.35, Math.sin(a)).normalize();
+					light.add(new Seg(c.add(ray.scale(r * 0.15)), c.add(ray.scale(r * 1.05)), 0.32f * fade, 0.02f, i % 2 == 0 ? 0xFFE08A : 0xFFB52A, 0.85f * fade, 0f));
+				}
+				ring(c.add(0, -0.9, 0), new Vec3(0, 1, 0), r, 0.35f * fade + 0.05f, 0xFFC83A, 0.8f * fade, light);
+				ring(c, new Vec3(0, 1, 0), r * 0.7f, 0.15f * fade, 0xFFF4C0, 0.7f * fade, light);
+				ring(c, new Vec3(Math.sin(age * 0.2), 0.3, Math.cos(age * 0.2)).normalize(), r * 0.55f, 0.1f * fade, 0xFFE08A, 0.6f * fade, light);
+			}
+			case SentryFxPayload.SENSE -> {
+				// round 3, Golden Sense: a thin golden pulse running out over the ground, a second one behind it, a glint at his eyes
+				Entity owner = p.owner() >= 0 ? level.getEntity(p.owner()) : null;
+				Vec3 c = owner != null ? owner.getPosition(partial) : at.add(0, -1.0, 0);
+				for (int i = 0; i < 2; i++) {
+					float ti = Mth.clamp(t * 1.25f - i * 0.25f, 0f, 1f);
+					if (ti <= 0f) {
+						continue;
+					}
+					float r = 0.5f + p.size() * smooth(ti);
+					ring(c.add(0, 0.15 + i * 0.4, 0), new Vec3(0, 1, 0), r, 0.12f, 0xFFD860, 0.65f * (1f - ti), light);
+				}
+				if (owner != null && age < 14f) {
+					Vec3 eye = owner.getEyePosition(partial);
+					float g = 1f - age / 14f;
+					light.add(new Seg(eye.add(0, -0.1, 0), eye.add(0, 0.1, 0), 0.25f * g, 0.25f * g, 0xFFF4C0, 0.7f * g, 0.7f * g));
+				}
+			}
+			case SentryFxPayload.BOOST -> {
+				// round 3, the Flight Boost: a sonic-boom cone of rings across his path, gold edged
+				Vec3 dir = to.subtract(at);
+				dir = dir.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : dir.normalize();
+				for (int i = 0; i < 4; i++) {
+					float r = 0.8f + (p.size() + i * 0.9f) * smooth(t);
+					ring(at.add(dir.scale(-i * 1.4 * t)), dir, r, 0.16f * fade, i == 0 ? 0xFFFFFF : 0xFFC83A, 0.75f * fade, light);
+				}
+			}
+			case SentryFxPayload.SHROUD -> {
+				// round 3, Umbral Shroud: dark rings swirling round him for as long as it lasts
+				Entity owner = p.owner() >= 0 ? level.getEntity(p.owner()) : null;
+				Vec3 c = owner != null ? owner.getPosition(partial) : at;
+				float grow = smooth(Math.min(1f, age / 6f)) * (t > 0.92f ? (1f - t) / 0.08f : 1f);
+				for (int i = 0; i < 4; i++) {
+					Vec3 axis = new Vec3(Math.sin(i * 1.6 + age * 0.09), 1.0, Math.cos(i * 1.6 + age * 0.09)).normalize();
+					ring(c.add(0, 0.3 + i * 0.45, 0), axis, p.size() * (0.55f + 0.1f * i) * grow, 0.18f, 0x060010, 0.55f * grow, dark);
+				}
+				ring(c.add(0, 1.0, 0), new Vec3(0, 1, 0), p.size() * 0.75f * grow, 0.04f, 0x7A30FF, 0.45f * grow, light);
+			}
+			case SentryFxPayload.MELD -> {
+				// round 3, Shadow Meld: an ink burst sinking into the ground
+				float r = 0.4f + p.size() * smooth(t);
+				ring(at.add(0, 0.05, 0), new Vec3(0, 1, 0), r, 0.5f * fade, 0x050008, 0.8f * fade, dark);
+				dark.add(new Seg(at.add(0, 2.0 * fade, 0), at, 0.6f * fade, 0.1f, 0x050008, 0.7f * fade, 0.2f));
 			}
 			case SentryFxPayload.PILLAR -> {
 				float grow = smooth(Math.min(1f, age / 5f));
@@ -498,39 +593,5 @@ public final class SentryFxClient {
 		// the dark under it
 		dome(c, r * open, 0x080410, 0.16f * open, 0.18f, dark);
 		ring(c.add(0, 0.1, 0), new Vec3(0, 1, 0), r * open, 0.14f, 0x3A2060, 0.5f * open, light);
-	}
-
-	/** A figure of shadow (a clone, a nightmare manifestation): a black body facing {@code to}, two white pixel eyes. */
-	private static void shade(Vec3 feet, Vec3 to, float h, float age, float alpha, List<Seg> dark, List<Seg> light) {
-		if (alpha <= 0.01f) {
-			return;
-		}
-		Vec3 fwd = new Vec3(to.x - feet.x, 0, to.z - feet.z);
-		fwd = fwd.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : fwd.normalize();
-		Vec3 side = fwd.cross(new Vec3(0, 1, 0)).normalize();
-		Vec3 up = new Vec3(0, 1, 0);
-		float sway = Mth.sin(age * 0.25f);
-		int col = 0x030006;
-		float a = 0.92f * alpha;
-		Vec3 hip = feet.add(up.scale(h * 0.47));
-		Vec3 neck = feet.add(up.scale(h * 0.78));
-		// legs (a stalking step), the body, the arms reaching, the head
-		dark.add(new Seg(hip.add(side.scale(h * 0.07)), feet.add(side.scale(h * 0.09)).add(fwd.scale(h * 0.1 * sway)), h * 0.1f, h * 0.06f, col, a, a * 0.6f));
-		dark.add(new Seg(hip.add(side.scale(-h * 0.07)), feet.add(side.scale(-h * 0.09)).add(fwd.scale(-h * 0.1 * sway)), h * 0.1f, h * 0.06f, col, a, a * 0.6f));
-		dark.add(new Seg(hip, neck, h * 0.17f, h * 0.2f, col, a, a));
-		for (int s = -1; s <= 1; s += 2) {
-			Vec3 sh = neck.add(side.scale(s * h * 0.13)).add(up.scale(-h * 0.03));
-			Vec3 elbow = sh.add(fwd.scale(h * 0.14)).add(side.scale(s * h * 0.06)).add(up.scale(-h * 0.12));
-			Vec3 hand = elbow.add(fwd.scale(h * (0.16 + 0.04 * Mth.sin(age * 0.4f + s)))).add(up.scale(-h * 0.02 * s * sway));
-			dark.add(new Seg(sh, elbow, h * 0.07f, h * 0.06f, col, a, a));
-			dark.add(new Seg(elbow, hand, h * 0.06f, h * 0.02f, col, a, a * 0.7f));
-		}
-		Vec3 head = neck.add(up.scale(h * 0.12));
-		dark.add(new Seg(neck.add(up.scale(h * 0.02)), head.add(up.scale(h * 0.06)), h * 0.13f, h * 0.12f, col, a, a));
-		// a wisp trailing off the head and the feet
-		dark.add(new Seg(head.add(up.scale(h * 0.06)), head.add(up.scale(h * 0.2)).add(fwd.scale(-h * 0.15)), h * 0.06f, 0.0f, col, a * 0.6f, 0f));
-		Vec3 eyes = head.add(up.scale(h * 0.02)).add(fwd.scale(h * 0.07));
-		light.add(new Seg(eyes.add(side.scale(h * 0.035)), eyes.add(side.scale(h * 0.035)).add(up.scale(0.04)), 0.035f, 0.035f, 0xFFFFFF, alpha, alpha));
-		light.add(new Seg(eyes.add(side.scale(-h * 0.035)), eyes.add(side.scale(-h * 0.035)).add(up.scale(0.04)), 0.035f, 0.035f, 0xFFFFFF, alpha, alpha));
 	}
 }

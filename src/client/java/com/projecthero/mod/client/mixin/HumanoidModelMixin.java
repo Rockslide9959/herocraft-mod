@@ -285,10 +285,11 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 
 		// Hero flight (Wind/rock/flame): lean like Thor but keep the arms pinned straight down at the
-		// sides instead of letting them run-cycle in the air.
-		if (FlightPoseHelper.heroFlight(player, partialTick)
+		// sides instead of letting them run-cycle in the air. v0.17.5: weighted by a ramp, not switched on at 5 degrees of lean.
+		float heroW = FlightPoseHelper.heroFlightWeight(player, partialTick);
+		if (heroW > 0.0f
 				&& !com.projecthero.mod.client.mutation.FlightClient.posing(player)) { // v0.16.5: Flight's move poses win
-			float w = Math.min(1.0f, legLean);
+			float w = Math.min(1.0f, legLean) * heroW;
 			this.rightArm.xRot = Mth.lerp(w, this.rightArm.xRot, 0.0f);
 			this.rightArm.yRot = Mth.lerp(w, this.rightArm.yRot, 0.0f);
 			this.rightArm.zRot = Mth.lerp(w, this.rightArm.zRot, 0.05f);
@@ -542,7 +543,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		float hover = 1.0f - pace;
 		float slow = Mth.sin(ageInTicks * 0.07f);
 		float slow2 = Mth.sin(ageInTicks * 0.05f + 1.3f);
-		float scissor = Mth.sin(ageInTicks * (0.16f + 0.22f * pace));
+		// v0.17.5 (Sentry round 3, the flight shake): the phase is integrated per tick (FlightPoseHelper), never age x a changing frequency
+		float scissor = Mth.sin(FlightPoseHelper.scissorPhase(player, partialTick));
 		// no running on air: vanilla's walk cycle (driven by the flight's horizontal speed) is settled out as soon as he moves,
 		// not only once the body has leaned far over
 		float settle = Mth.clamp(pace * 2.0f, 0.0f, 1.0f) * Mth.clamp(wave * 2.0f, 0.0f, 1.0f);
@@ -553,12 +555,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.xRot += wave * (hover * (0.05f - 0.06f * slow2) - pace * 0.09f * scissor);
 		this.rightLeg.zRot += wave * (hover * (0.035f + 0.02f * slow2) + pace * 0.02f);
 		this.leftLeg.zRot -= wave * (hover * (0.035f + 0.02f * slow) + pace * 0.02f);
-		if (FlightPoseHelper.heroFlight(player, partialTick) || hover > 0.5f) {
-			float flutter = Mth.sin(ageInTicks * (0.11f + 0.2f * pace) + 0.7f);
-			this.rightArm.zRot += wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
-			this.leftArm.zRot -= wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
-			this.rightArm.xRot += wave * 0.03f * flutter;
-			this.leftArm.xRot -= wave * 0.03f * flutter;
+		// v0.17.5: a weight instead of a switch (it used to snap on / off as the hover crossed 0.5 or the lean crossed 5 degrees)
+		float hoverGate = Mth.clamp((hover - 0.35f) / 0.3f, 0.0f, 1.0f);
+		float gate = Math.max(FlightPoseHelper.heroFlightWeight(player, partialTick), hoverGate * hoverGate * (3.0f - 2.0f * hoverGate));
+		if (gate > 0.0f) {
+			float flutter = Mth.sin(FlightPoseHelper.flutterPhase(player, partialTick) + 0.7f);
+			this.rightArm.zRot += gate * wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
+			this.leftArm.zRot -= gate * wave * (0.04f * hover + 0.03f * pace) * (1.0f + flutter);
+			this.rightArm.xRot += gate * wave * 0.03f * flutter;
+			this.leftArm.xRot -= gate * wave * 0.03f * flutter;
 		}
 	}
 

@@ -49,6 +49,23 @@ public final class SentryClient {
 				&& (!player.onGround() || com.projecthero.mod.sentry.Sentry.isFlying(player));
 	}
 
+	/** Round 3: plain H belongs to the Sentry (Let It Out / back), never in the takeover (the keys are dead then) -- Shift+H stays the wheel. */
+	public static boolean ownsH(net.minecraft.client.player.LocalPlayer player) {
+		return player != null && com.projecthero.mod.sentry.Sentry.hasPower(player) && !com.projecthero.mod.sentry.Sentry.inTakeover(player)
+				&& sentryActive(player);
+	}
+
+	/** The Sentry is the power the keys drive (no mutation is selected over it). */
+	private static boolean sentryActive(net.minecraft.client.player.LocalPlayer player) {
+		var exp = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return exp == null || exp.activePower.isEmpty();
+	}
+
+	public static void pressH() {
+		ClientPlayNetworking.send(new com.projecthero.mod.sentry.network.SentryActionPayload(
+				com.projecthero.mod.sentry.network.SentryActionPayload.LET_IT_OUT, false));
+	}
+
 	public static void toggleFlight() {
 		ClientPlayNetworking.send(new com.projecthero.mod.sentry.network.SentryActionPayload(
 				com.projecthero.mod.sentry.network.SentryActionPayload.TOGGLE_FLIGHT, false));

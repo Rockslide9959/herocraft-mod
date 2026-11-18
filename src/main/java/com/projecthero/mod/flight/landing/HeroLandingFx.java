@@ -122,6 +122,15 @@ public final class HeroLandingFx {
 			case RAVEN -> com.projecthero.mod.raven.RavenLanding.play(p, level, feet, s);
 			case DOCTOR_FATE -> com.projecthero.mod.doctorfate.DoctorFateFx.landing(p, level, feet, s, yaw); // v0.17.3
 			case SHAZAM -> com.projecthero.mod.shazam.ShazamFx.landing(p, level, feet, s, yaw); // v0.17.3
+			case SENTRY -> {
+				// v0.17.5 round 3: the crater, then the Sentry's golden impact (it hurts what is around him)
+				crater(p, level, feet, s, yaw, true);
+				com.projecthero.mod.sentry.SentryMoves.landing(p, s, false);
+			}
+			case SENTRY_VOID -> {
+				element(p, level, feet, style, s, yaw);
+				com.projecthero.mod.sentry.SentryMoves.landing(p, s, true);
+			}
 			default -> element(p, level, feet, style, s, yaw);
 		}
 	}

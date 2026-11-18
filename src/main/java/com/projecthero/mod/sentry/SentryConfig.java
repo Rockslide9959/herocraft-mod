@@ -18,12 +18,27 @@ public final class SentryConfig {
 	public static final float SUN_NIGHT_PER_SECOND = 0.5f;
 	public static final float SUN_DARK_PER_SECOND = 0.0f;
 
-	/** Void a second: fighting / standing at night, standing in the dark; falls in daylight. */
-	public static final float VOID_NIGHT_PER_SECOND = 0.08f; // v0.17.5 rework: a third of 0.25
-	public static final float VOID_DARK_PER_SECOND = 0.17f; // was 0.5
-	public static final float VOID_DAYLIGHT_PER_SECOND = -1.0f;
-	/** Holding V (Calm). */
-	public static final float VOID_CALM_PER_SECOND = -6.0f;
+	/**
+	 * Round 3 (2026-11-18, user: "only make the players void bar increase when they use their powers, being out at night shouldnt do that
+	 * ... sleeping lowers void bar a lot and doing tasks like fishing and stuff should also make it drain faster, void bar should drain
+	 * slowly by default"): the Void rises only from the powers (each move's own gain, and being merged with the Void). Night, the dark,
+	 * heavy hits and kills feed nothing any more. Out of the merged form it drains slowly on its own, a little faster in direct sunlight.
+	 */
+	public static final float VOID_DRAIN_PER_SECOND = -0.05f;
+	/** On top of the drain in direct sunlight (so -0.3 a second in all). */
+	public static final float VOID_DAYLIGHT_PER_SECOND = -0.25f;
+	/** In bed: this a second while asleep... */
+	public static final float VOID_SLEEP_PER_SECOND = -1.0f;
+	/** ...and a night slept through (woken by the morning) takes this much more at once. */
+	public static final float VOID_NIGHT_SLEPT = -40f;
+	/** Calm everyday tasks: a bobber out in the water drains this much more a second... */
+	public static final float VOID_FISHING_PER_SECOND = -0.15f;
+	/** ...and each finished task takes a chunk: a fish (or anything) reeled in, a ripe crop harvested, a trade, animals bred, a disc played. */
+	public static final float VOID_TASK_FISH = -2.0f;
+	public static final float VOID_TASK_HARVEST = -0.4f;
+	public static final float VOID_TASK_TRADE = -1.5f;
+	public static final float VOID_TASK_BREED = -1.5f;
+	public static final float VOID_TASK_MUSIC = -1.0f;
 	/** Merged with the Void (Void Form) it climbs this a second on its own (was 1.0). */
 	public static final float VOID_FORM_PER_SECOND = 0.5f;
 	/** Every Void gain (passive and per event) is multiplied by this while merged with the Void... */
@@ -31,14 +46,7 @@ public final class SentryConfig {
 	/** ...and by this while the Sentry Suit (top + trousers) is worn; the suit also multiplies the Sun gained a second by {@link #SUIT_SUN_GAIN}. */
 	public static final float SUIT_VOID_GAIN = 0.6f;
 	public static final float SUIT_SUN_GAIN = 1.5f;
-	/** A hit of at least this much damage taken counts as heavy... */
-	public static final float HEAVY_HIT = 8.0f;
-	/** ...and adds this much Void per point of damage (at most {@link #HEAVY_HIT_VOID_CAP} a hit). */
-	public static final float HEAVY_HIT_VOID_PER_DAMAGE = 0.13f; // was 0.4
-	public static final float HEAVY_HIT_VOID_CAP = 2.0f; // was 6
-	/** Void for each kill (a player: more). */
-	public static final float KILL_VOID = 0.7f; // was 2
-	public static final float PLAYER_KILL_VOID = 2.0f; // was 6
+	// (round 3: heavy hits taken and kills no longer feed the Void -- only the powers do)
 	/** The thresholds. */
 	public static final float VOID_WHISPERS = 50f;
 	public static final float VOID_MISFIRE = 75f;
@@ -80,14 +88,19 @@ public final class SentryConfig {
 	public static final int FURY_COMBO_WINDOW = 30;
 	public static final float FURY_COST = 2f;
 
-	/** Hold Shift+R Solar Gaze: twin beams of light from his eyes; past {@link #GAZE_RAMP_TICKS} held they burn x{@link #GAZE_RAMP}. */
-	public static final float GAZE_DAMAGE = 7f;
-	public static final int GAZE_DAMAGE_INTERVAL = 4;
-	public static final int GAZE_RAMP_TICKS = 40;
-	public static final float GAZE_RAMP = 1.5f;
-	public static final double GAZE_RANGE = 40.0;
+	/**
+	 * Hold G Solar Gaze (round 3, user: "Make Solar Gaze his G move, remove the time limit on it, dont make it auto track, nerf its damage to
+	 * make it as powerful as supermans heat vision"): the Kryptonian's Heat Vision numbers -- 4 every 5 ticks (16 a second), 32 blocks,
+	 * 5 s of fire, blocks set alight once a second (griefing rule) -- held as long as he likes (it ends when the Sun runs out), exactly
+	 * along his look (an exact ray, no snapping onto creatures near it). The colour still heats to orange after {@link #GAZE_HOT_TICKS}
+	 * (looks only).
+	 */
+	public static final float GAZE_DAMAGE = 4f;
+	public static final int GAZE_DAMAGE_INTERVAL = 5;
+	public static final int GAZE_FIRE_SECONDS = 5;
+	public static final int GAZE_HOT_TICKS = 40;
+	public static final double GAZE_RANGE = 32.0;
 	public static final float GAZE_COST_PER_SECOND = 5f;
-	public static final int GAZE_MAX_TICKS = 100;
 	public static final int GAZE_COOLDOWN = 60;
 	public static final float GAZE_CLASH_POWER = 1.5f;
 	public static final float GAZE_VOID_PER_SECOND = 0.17f;
@@ -148,7 +161,32 @@ public final class SentryConfig {
 	public static final float GUARDIAN_VOID_PER_ALLY = -1f;
 	public static final int GUARDIAN_COOLDOWN = 240;
 
-	/** Shift+C Molecular Shield: a golden aura; projectiles turn to light (feeding Sun), hits taken are cut further, melee is deflected. */
+	/**
+	 * Shift+R Solar Flare (round 3, new; user: "Make shift+R an aoe ability"): a burst of sunlight all round him -- {@link #FLARE_DAMAGE} at
+	 * the centre falling to {@link #FLARE_EDGE_DAMAGE} at {@link #FLARE_RADIUS}, thrown back and dazzled (Blindness for mobs, a short
+	 * Glowing), the undead burn x{@link #FLARE_UNDEAD} and catch fire.
+	 */
+	public static final double FLARE_RADIUS = 8.0;
+	public static final float FLARE_DAMAGE = 24f;
+	public static final float FLARE_EDGE_DAMAGE = 12f;
+	public static final float FLARE_UNDEAD = 1.5f;
+	public static final int FLARE_BLIND_TICKS = 60;
+	public static final double FLARE_KNOCKBACK = 1.6;
+	public static final float FLARE_COST = 18f;
+	public static final float FLARE_VOID = 0.6f;
+	public static final int FLARE_COOLDOWN = 200;
+
+	/**
+	 * Shift+V Golden Sense (round 3, new utility replacing Calm): his senses flare -- every creature within {@link #SENSE_RADIUS} glows
+	 * (seen through walls) for {@link #SENSE_TICKS}, and he gets Night Vision for {@link #SENSE_NIGHT_VISION_TICKS}.
+	 */
+	public static final double SENSE_RADIUS = 40.0;
+	public static final int SENSE_TICKS = 200;
+	public static final int SENSE_NIGHT_VISION_TICKS = 1200;
+	public static final float SENSE_COST = 10f;
+	public static final int SENSE_COOLDOWN = 600;
+
+	/** V Molecular Shield (round 3: V; was Shift+C): a golden aura; projectiles turn to light (feeding Sun), hits taken are cut further, melee is deflected. */
 	public static final double MSHIELD_RADIUS = 3.5;
 	public static final int MSHIELD_TICKS = 160;
 	public static final float MSHIELD_SUN_PER_PROJECTILE = 2f;
@@ -166,9 +204,24 @@ public final class SentryConfig {
 	public static final float DASH_DAMAGE = 14f;
 	public static final float DASH_COST = 5f;
 	public static final int DASH_COOLDOWN = 80;
+	/**
+	 * Round 3 (user: "if sonic boom is used while flying it does something different, makes player fly 50% faster for 30 seconds"): X while
+	 * flying is the Flight Boost -- flight speed x{@link #BOOST_SPEED} for {@link #BOOST_TICKS}, a sonic boom as it starts and a golden
+	 * contrail behind him; its cooldown runs from the start (so 15 s after it ends).
+	 */
+	public static final double BOOST_SPEED = 1.5;
+	public static final int BOOST_TICKS = 600;
+	public static final float BOOST_COST = 10f;
+	public static final int BOOST_COOLDOWN = 900;
+
+	/** Round 3: the superhero landing (fast flight touchdown, the shared {@code HeroLanding}): an impact around him, by its strength 0..1. */
+	public static final float LANDING_DAMAGE = 8f;
+	public static final float LANDING_DAMAGE_PER_STRENGTH = 14f;
+	public static final double LANDING_RADIUS = 3.0;
+	public static final double LANDING_RADIUS_PER_STRENGTH = 2.5;
 	public static final int FLIGHT_LIFTOFF_GRACE = 10;
 
-	/** Shift+V Let It Out: locked this long after the Void is thrown out of a takeover. (v0.17.5 rework: no Void gate any more, the trial replaces it.) */
+	/** H Let It Out (round 3: H; was Shift+V): locked this long after the Void is thrown out of a takeover. (v0.17.5 rework: no Void gate any more, the trial replaces it.) */
 	public static final int LET_OUT_LOCK_TICKS = 6000;
 	/** The trial ("Hold the Light" minigame): it lasts this long on the client... */
 	public static final int TRIAL_TICKS = 160;
@@ -179,7 +232,7 @@ public final class SentryConfig {
 	/** A lost trial: the Void jumps by this (flat: not scaled by the suit or merging). */
 	public static final float TRIAL_LOSE_VOID = 15f;
 	/** Merged with the Void: every hit does this much more, and the Void moves recharge this much faster (cooldown x). */
-	public static final float MERGED_DAMAGE = 1.25f;
+	public static final float MERGED_DAMAGE = 1.5f; // round 3 (user: "50% more damage"; was 1.25)
 	public static final float MERGED_COOLDOWN = 0.75f;
 	/** The suit fades between the Sentry and the Void suit over this many ticks. */
 	public static final int FORM_FADE_TICKS = 50;
@@ -267,7 +320,28 @@ public final class SentryConfig {
 	public static final int STEP_COOLDOWN = 60;
 	public static final float STEP_VOID = 0.35f;
 
-	/** Shift+V (or V) back to the Sentry while merged: only below this. */
+	/**
+	 * V Umbral Shroud (round 3, new; the Void's answer to the Molecular Shield): a cloak of darkness for {@link #SHROUD_TICKS} -- damage taken
+	 * x(1 - {@link #SHROUD_RESIST}), projectiles reaching it are swallowed, whoever strikes him in melee is withered and blinded.
+	 */
+	public static final double SHROUD_RADIUS = 3.0;
+	public static final int SHROUD_TICKS = 160;
+	public static final float SHROUD_RESIST = 0.4f;
+	public static final int SHROUD_WITHER_TICKS = 60;
+	public static final int SHROUD_COOLDOWN = 400;
+	public static final float SHROUD_VOID = 1f;
+
+	/**
+	 * Shift+V Shadow Meld (round 3, new utility): he sinks into the shadows -- invisible, faster (Speed {@link #MELD_SPEED_AMP} + 1), and every
+	 * mob hunting him within {@link #MELD_RADIUS} loses him -- for {@link #MELD_TICKS}, or until he uses a Void attack.
+	 */
+	public static final int MELD_TICKS = 120;
+	public static final int MELD_SPEED_AMP = 1;
+	public static final double MELD_RADIUS = 32.0;
+	public static final int MELD_COOLDOWN = 600;
+	public static final float MELD_VOID = 0.6f;
+
+	/** H back to the Sentry while merged (round 3: H; was Shift+V / V): only below this. */
 	public static final float RETURN_MAX_VOID = 90f;
 
 	// ---------------------------------------------------------------- the takeover

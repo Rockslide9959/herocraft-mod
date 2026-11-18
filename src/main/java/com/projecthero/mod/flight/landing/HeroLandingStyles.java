@@ -56,6 +56,9 @@ final class HeroLandingStyles {
 		HeroLanding.register(HeroLandingStyle.RAVEN, com.projecthero.mod.raven.Raven::isFlying);
 		HeroLanding.register(HeroLandingStyle.DOCTOR_FATE, com.projecthero.mod.doctorfate.DoctorFate::isFlying); // v0.17.3
 		HeroLanding.register(HeroLandingStyle.SHAZAM, com.projecthero.mod.shazam.Shazam::isFlying); // v0.17.3
+		// v0.17.5 round 3: the Sentry (golden) and the Sentry merged with the Void (dark), flying under his own steam
+		HeroLanding.register(HeroLandingStyle.SENTRY, p -> com.projecthero.mod.sentry.Sentry.selfFlying(p) && !com.projecthero.mod.sentry.Sentry.voidForm(p));
+		HeroLanding.register(HeroLandingStyle.SENTRY_VOID, p -> com.projecthero.mod.sentry.Sentry.selfFlying(p) && com.projecthero.mod.sentry.Sentry.voidForm(p));
 		// the mutations: the element flights first, then the plain Flight power (they all ride its hero-flight flag)
 		HeroLanding.register(HeroLandingStyle.PYRO, PyrokinesisHandlers::jetting);
 		HeroLanding.register(HeroLandingStyle.CRYO, CryoHoldMoves::winged);

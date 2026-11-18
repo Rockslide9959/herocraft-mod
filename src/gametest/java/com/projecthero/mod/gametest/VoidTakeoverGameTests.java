@@ -363,7 +363,7 @@ public class VoidTakeoverGameTests implements FabricGameTest {
 		}
 		helper.assertFalse(Sentry.inTakeover(p), "three rooms: the Void is thrown out");
 		helper.assertTrue(Sentry.state(p).voidLevel == SentryConfig.VOID_AFTER_WIN, "Void 40");
-		helper.assertTrue(Sentry.state(p).letOutLockedUntil - now == SentryConfig.LET_OUT_LOCK_TICKS, "Shift+V locked 5 minutes");
+		helper.assertTrue(Sentry.state(p).letOutLockedUntil - now == SentryConfig.LET_OUT_LOCK_TICKS, "Let It Out (H) locked 5 minutes");
 		helper.succeed();
 	}
 

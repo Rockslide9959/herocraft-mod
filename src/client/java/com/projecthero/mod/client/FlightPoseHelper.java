@@ -90,6 +90,17 @@ public final class FlightPoseHelper {
 		/** 0..1, eased: how fast he is going (for the limbs: dangling in a hover, trailing at speed). */
 		private float pace;
 		private float pacePrev;
+		/**
+		 * v0.17.5 (Sentry round 3, user: "the players arms and legs shake when starting to fly, beginning to move while flying or coming to
+		 * a stop while flying"): the phases of the leg scissor and the arm flutter, integrated a tick at a time. The limbs used
+		 * {@code sin(ageInTicks * (0.16 + 0.22 * pace))}: a frequency that changes with the pace, multiplied by the whole age of the
+		 * player, so every change of pace (take-off, setting off, stopping) jumped the phase by {@code age * dPace} -- tens of radians a
+		 * tick once a player had been in the world a while -- and the legs and arms shook until the pace settled.
+		 */
+		private float scissorPhase;
+		private float scissorPhasePrev;
+		private float flutterPhase;
+		private float flutterPhasePrev;
 		/** The last feel flown with (kept while it fades out). */
 		private com.projecthero.mod.client.flight.FlightFeel tune = com.projecthero.mod.client.flight.FlightFeel.GENERIC;
 		/** v0.17.4: 0..1, eased: how airborne-flying he is (any power's flight) -- scales vanilla's walk cycle out. */
@@ -265,6 +276,19 @@ public final class FlightPoseHelper {
 		anim.hasYaw = true;
 		float move = (float) Mth.clamp(speed / FULL_BANK_SPEED, 0.0, 1.0);
 		anim.pace = approach(anim.pace, tune != null ? (float) Mth.clamp(Math.sqrt(speed * speed + dy * dy) / 1.2, 0.0, 1.0) : 0.0f, 0.002f, 0.15f);
+		// v0.17.5: the limb phases advance by the current frequency each tick (smooth through any change of pace)
+		anim.scissorPhasePrev = anim.scissorPhase;
+		anim.flutterPhasePrev = anim.flutterPhase;
+		anim.scissorPhase += 0.16f + 0.22f * anim.pace;
+		anim.flutterPhase += 0.11f + 0.2f * anim.pace;
+		if (anim.scissorPhase > 2000.0f * Mth.PI) {
+			anim.scissorPhase -= 2000.0f * Mth.PI;
+			anim.scissorPhasePrev -= 2000.0f * Mth.PI;
+		}
+		if (anim.flutterPhase > 2000.0f * Mth.PI) {
+			anim.flutterPhase -= 2000.0f * Mth.PI;
+			anim.flutterPhasePrev -= 2000.0f * Mth.PI;
+		}
 		float want = 0.0f;
 		if (tune != null) {
 			com.projecthero.mod.client.flight.FlightFeel f = tune;
@@ -351,6 +375,27 @@ public final class FlightPoseHelper {
 	public static float limbWave(Player player, float partialTick) {
 		PoseAnim anim = ANIMS.get(player.getUUID());
 		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.feelPrev, anim.feel) * anim.tune.limbWave();
+	}
+
+	/** v0.17.5: the leg scissor's phase (radians), integrated per tick and interpolated -- never a jump when the pace changes. */
+	public static float scissorPhase(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.scissorPhasePrev, anim.scissorPhase);
+	}
+
+	/** v0.17.5: the arm flutter's phase (radians), likewise. */
+	public static float flutterPhase(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.flutterPhasePrev, anim.flutterPhase);
+	}
+
+	/**
+	 * v0.17.5: 0..1, how much of the hero-flight arm pin applies -- {@link #heroFlight} as a ramp (3..9 degrees of lean) instead of a
+	 * switch at 5, so the arms never snap as the lean passes it.
+	 */
+	public static float heroFlightWeight(Player player, float partialTick) {
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		return anim == null || !anim.heroOnly ? 0.0f : Mth.clamp((Math.abs(lean(player, partialTick)) - 3.0f) / 6.0f, 0.0f, 1.0f);
 	}
 
 	/** v0.17.3 flight feel: 0 hanging still .. 1 at full tilt (eased), for the limbs. */
