@@ -25,7 +25,7 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | `recipe/SuperSoldierSerumRecipe` | `CustomRecipe` + `SimpleCraftingRecipeSerializer`, type `projecthero:super_soldier_serum` |
 | client `SuperSoldierHud`, `SoldierShieldRenderer`, `AdamantiumShieldRenderer`, `SuperSoldierClient` | Mono HUD (R G Z X V + C, no bars), the spinning thrown shield (the real stack: the stepped dish with after-images / vanilla shield with its banner), the shield item renderer (`BuiltinItemRendererRegistry`: GUI, ground, frame), registration |
 | `CapShieldStow` (common) | v0.17.5: which Captain America shield is slung on a player's back (first one in the hotbar while neither hand holds one); synced attachment `projecthero:cap_shield_stowed` (all trackers, not saved), re-checked every 5 ticks |
-| client `CapShieldModel`, `CapShieldPose`, `CapShieldBackLayer`; mixins `CapShieldPoseMixin`, `CapShieldHeldLayerMixin`, `CapShieldFirstPersonMixin` | v0.17.5: the stepped-dish model and its three textures; the strapped-forearm placement, arm poses (eased block, bash, throw, reach, catch) and first-person placement; the back sling |
+| client `CapShieldModel`, `CapShieldPose`, `CapShieldBackLayer`; mixins `CapShieldPoseMixin`, `CapShieldHeldLayerMixin`, `CapShieldFirstPersonMixin` | v0.17.5: the stepped-dish model and its three textures; the strapped-forearm placement (turned square to the front when raised), arm poses (eased block, bash, throw, reach, catch) and first-person placement; the back sling |
 
 ## Obtaining
 
@@ -121,9 +121,12 @@ back-sling attachment.
   the dish shows its depth, ground 0.45, frame front-on. No `blocking` overrides or predicates any more (the `*_blocking.json`
   models are deleted): the shield never jumps between transforms.
 - **Strapped on the forearm** (`CapShieldHeldLayerMixin` -> `CapShieldPose.renderStrapped`): for any humanoid model the
-  held shield is drawn in the arm's frame (`translateToHand`), straps against the outer side of the forearm (3 px out from
-  the pivot line on wide arms, 2.5 on slim), 6 px down the arm, face outward, star toward the arm's front. Either hand,
-  mirrored. It never moves on the arm: raising it is the arm moving.
+  held shield is drawn in the arm's frame (`translateToHand`), straps on the forearm's surface 6 px down the arm on the side
+  its face points (wide 2 px / slim 1.5 px half width), either hand, mirrored. At rest the painted face points out from the
+  body and 55 degrees toward the front, star up (seen at an angle from the front, square-on from the side). Raised or
+  swung it turns on the forearm -- the arm's own rotation undone -- until the face points along the body's facing, star
+  up (round 2, coordinator review: round 1 kept it fixed on the arm, so it sat edge-on at rest with its straps to the
+  front camera and never squared up to block). The turn uses the same eased blend as the arm.
 - **Arm poses** (`CapShieldPoseMixin`, `HumanoidModel.setupAnim` TAIL, players only; rotations built as quaternions and
   written back as the Z-Y-X Euler angles `ModelPart` uses):
   - Block: forearm across the chest, the outer side (shield face) forward, shoulder pivot 2.5 px forward (1 down) so it clears the
@@ -136,8 +139,8 @@ back-sling attachment.
   - Reach and catch: while his shield flies home within 8 blocks the empty arm comes up toward it (harder the closer); when
     it vanishes within ~5 blocks while returning, the arm takes the hit (driven back, 2 ticks) and settles (7).
   - Synced for this: `SoldierShieldEntity` `OWNER_ID` (int, re-set on the server after a reload) and `OFF_HAND`.
-- **First person** (`CapShieldFirstPersonMixin`): low at the side with the strapped back toward the eye; eased up into the
-  lower middle to block (same blend); shoved forward on a swing; dropping in from above on a catch (equip bob suppressed).
+- **First person** (`CapShieldFirstPersonMixin`): low at the side with the strapped back toward the eye; eased up to fill the
+  lower centre, face forward, to block (same blend); shoved forward on a swing; dropping in from above on a catch (equip bob suppressed).
   The empty main hand sweeps across and out during a throw and rises while the shield flies home. The thrown shield is
   not drawn in its own thrower's first-person view for its first 2 ticks or its last 1.3 blocks (it filled the screen).
 - **Flight** (`SoldierShieldRenderer`): flat, face up, a slight 8-degree bank, 62 degrees a tick (was 40), three
@@ -182,7 +185,9 @@ are cleared by `ServerStateReset` via `SuperSoldierAbilityManager.clearSessionSt
 - No custom player poses for the moves (they use arm swings, particles and sounds only); v0.17.5 gave the shield its own
   (block, bash, throw, reach, catch). Seen in a v0.17.5 client harness (`scratchpad/ShieldHarness.v0175.java.txt`, stills
   and films in `docs/screenshots/v0175/cap_shields`); not seen: multiplayer (another player's throw / catch / back sling),
-  a mob holding one, an item frame, the Captain America suit with the shield on its back.
+  a mob holding one, an item frame, the Captain America suit with the shield on its back. The Soldier's Shield is
+  display-only (a plain item, not a `ShieldItem`), so it cannot be raised: its `*_block_*` stills show it at rest.
+  The throw films were shot before the round-2 rest-angle change (the flight / throw / catch code is the same).
 - Screenshot-verified in v0.14.9 (client harness): the suit front / back / side, the round shield held and blocking in
   third and first person, the hotbar icon, both thrown shields front-up mid-flight, the HUD with the C box. In-world the
   adamantium throw hit all three zombies for 9, the vanilla one for 6, and both came back to the hand. Not seen: the

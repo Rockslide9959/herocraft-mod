@@ -38,9 +38,9 @@ import net.minecraft.world.phys.Vec3;
  * and bashed with (the stepped-dish model is {@link CapShieldModel}).
  *
  * <h2>Strapped, not gripped</h2>
- * In third person the shield is drawn in the <b>arm's own frame</b> ({@link #renderStrapped}): its straps rest on the outer
- * side of the forearm (wide 3 px / slim 2.5 px out from the arm's pivot line, 6 px down the arm), its face turned outward.
- * Everything else is the arm moving: the shield never changes its place on the arm, so raising it is the arm coming up.
+ * In third person the shield is drawn in the <b>arm's own frame</b> ({@link #renderStrapped}): its straps rest on the
+ * forearm 6 px down the arm, its painted face out from the body and turned toward the front. Raised or swung it turns on the
+ * forearm (the arm's own rotation undone) until its face points straight ahead, so a single-bone arm still shows a square block.
  *
  * <h2>Arm poses ({@link #applyPose}, from {@code HumanoidModel.setupAnim} TAIL)</h2>
  * <ul>
@@ -410,25 +410,81 @@ public final class CapShieldPose {
 
 	// ------------------------------------------------------------------------------------------------ drawing
 
+	/** At rest the face turns this far from straight out toward the front (degrees), so it reads from the front too. */
+	private static final float REST_FORWARD = 55f;
+
 	/**
 	 * Third person: the shield strapped to the forearm of {@code arm}. {@code pose} is already in the arm's frame
 	 * ({@code ArmedModel.translateToHand}: the shoulder pivot, +Y down the arm, slim arms shifted half a pixel in).
+	 *
+	 * <p>At rest its face points out from the body and {@link #REST_FORWARD} toward the front, star up. Raised (block) or
+	 * swung (bash) it turns on the forearm -- counter-rotating against the arm's own rotation -- until its face points
+	 * straight along the body's facing with the star up, so a single-bone arm still shows a square-on block. Either way its
+	 * straps sit on the forearm's surface on the side it faces.
 	 */
-	public static void renderStrapped(LivingEntity e, ItemStack stack, HumanoidArm arm, PoseStack pose, MultiBufferSource buffers, int light) {
+	public static void renderStrapped(LivingEntity e, ItemStack stack, HumanoidArm arm, ModelPart part, PoseStack pose, MultiBufferSource buffers,
+			int light) {
 		boolean slim = e instanceof AbstractClientPlayer cp && cp.getSkin().model() == PlayerSkin.Model.SLIM;
-		float out = slim ? 2.5f : 3.0f;
+		float half = slim ? 1.5f : 2.0f;
 		int side = arm == HumanoidArm.RIGHT ? -1 : 1; // the outer side's x sign in the arm frame
+		// rest: out from the body, turned toward the front; star toward the shoulder (up when the arm hangs)
+		float ra = REST_FORWARD * Mth.DEG_TO_RAD;
+		Quaternionf rest = basis(new Vector3f(side * Mth.cos(ra), 0f, -Mth.sin(ra)), new Vector3f(0f, -1f, 0f));
+		// raised: the body's forward and up, brought into the arm's frame (undo the arm's own rotation)
+		float w = raise(e, arm);
+		Quaternionf q = rest;
+		if (w > 0.001f) {
+			Quaternionf armQ = new Quaternionf().rotationZYX(part.zRot, part.yRot, part.xRot);
+			Quaternionf inv = armQ.conjugate(new Quaternionf());
+			Vector3f fwd = inv.transform(new Vector3f(0f, 0f, -1f));
+			Vector3f up = inv.transform(new Vector3f(0f, -1f, 0f));
+			q = rest.slerp(basis(fwd, up), w, new Quaternionf());
+		}
+		Vector3f face = q.transform(new Vector3f(0f, 0f, 1f));
+		// straps on the arm's surface on the side the face points: the arm's axis (x -1 right / +1 left, z 0) plus its half width
+		float reach = half * (Math.abs(face.x) + Math.abs(face.z) > 1.2f ? 1.2f : 1.0f);
 		pose.pushPose();
-		pose.translate(side * out / 16f, 6.0f / 16f, 0f);
-		// shield +Z (front) -> the outer side, shield +Y (star up) -> the arm's front (-Z), shield +X -> along the arm
-		Vector3f z = new Vector3f(side, 0, 0);
-		Vector3f y = new Vector3f(0, 0, -1);
-		Vector3f x = new Vector3f(y).cross(z);
-		pose.mulPose(new Quaternionf().setFromNormalized(new Matrix3f(x.x, x.y, x.z, y.x, y.y, y.z, z.x, z.y, z.z)));
+		pose.translate((side + face.x * reach) / 16f, (6.0f + face.y * reach) / 16f, (face.z * reach) / 16f);
+		pose.mulPose(q);
 		pose.scale(BODY_SCALE, BODY_SCALE, BODY_SCALE);
 		pose.translate(0f, 0f, -CapShieldModel.CONTACT_Z / 16f);
 		CapShieldModel.render(pose, buffers, CapShieldModel.texture(stack), stack.hasFoil(), light, OverlayTexture.NO_OVERLAY);
 		pose.popPose();
+	}
+
+	/** Shield rotation with its front (+Z) along {@code front} and star (+Y) as near {@code up} as it can be. */
+	private static Quaternionf basis(Vector3f front, Vector3f up) {
+		Vector3f z = new Vector3f(front).normalize();
+		Vector3f y = new Vector3f(up).sub(new Vector3f(z).mul(up.dot(z)));
+		if (y.lengthSquared() < 1.0e-4f) {
+			y.set(0f, 0f, -1f);
+		}
+		y.normalize();
+		Vector3f x = new Vector3f(y).cross(z);
+		return new Quaternionf().setFromNormalized(new Matrix3f(x.x, x.y, x.z, y.x, y.y, y.z, z.x, z.y, z.z));
+	}
+
+	/** How far this arm's shield is turned to the front: the block blend, or the bash shove on a main-hand swing. */
+	private static float raise(LivingEntity e, HumanoidArm arm) {
+		float pt = partial();
+		float w = 0f;
+		boolean blockingThis = e.isUsingItem() ? armOf(e, e.getUsedItemHand()) == arm : armOf(e, lastBlockHand(e)) == arm;
+		if (blockingThis) {
+			w = block(e, pt);
+		}
+		if (e.swingingArm == InteractionHand.MAIN_HAND && e.getMainArm() == arm && CapShieldModel.isCapShield(e.getMainHandItem())) {
+			float at = e.getAttackAnim(pt);
+			if (at > 0f) {
+				w = Math.max(w, bashCurve(at));
+			}
+		}
+		// the catch: the shield meets the incoming throw face on, then turns back to rest
+		long[] ca = CAUGHT.get(e.getId());
+		float ct = since(ca, pt);
+		if (ca != null && ct < C_SETTLE && (ca[1] == 1) == (arm == HumanoidArm.RIGHT)) {
+			w = Math.max(w, ct < C_HIT ? 1f : 1f - smooth((ct - C_HIT) / (C_SETTLE - C_HIT)));
+		}
+		return w;
 	}
 
 	/**
@@ -457,8 +513,8 @@ public final class CapShieldPose {
 		Vector3f tCarry = new Vector3f(side * -0.02f, 0.0f, 0.0f);
 		Quaternionf rCarry = new Quaternionf().rotationY(side * 104f * Mth.DEG_TO_RAD).rotateX(-12f * Mth.DEG_TO_RAD).rotateZ(side * 6f * Mth.DEG_TO_RAD);
 		// block: up into the middle of the lower view, square on, the back toward the eye
-		Vector3f tBlock = new Vector3f(-side * 0.33f, 0.07f, -0.14f);
-		Quaternionf rBlock = new Quaternionf().rotationY(side * 168f * Mth.DEG_TO_RAD).rotateX(4f * Mth.DEG_TO_RAD);
+		Vector3f tBlock = new Vector3f(-side * 0.50f, 0.10f, -0.10f);
+		Quaternionf rBlock = new Quaternionf().rotationY(side * 176f * Mth.DEG_TO_RAD).rotateX(4f * Mth.DEG_TO_RAD);
 		float k = Math.max(b, bash);
 		Vector3f t = new Vector3f(tCarry).lerp(tBlock, k);
 		Quaternionf r = new Quaternionf(rCarry).slerp(rBlock, k);

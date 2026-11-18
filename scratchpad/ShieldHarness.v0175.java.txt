@@ -274,7 +274,7 @@ public final class ShieldHarness implements ClientModInitializer {
 			final Item s = item(SHIELDS[i]);
 			final String n = NAMES[i] + tag;
 			at(t, () -> give(mc, s, null, null));
-			at(t + 6, () -> cam3(35f, 2.8f, 1.5f));
+			at(t + 6, () -> cam3(-35f, 2.8f, 1.5f));
 			at(t + 12, () -> shot(mc, n + "_held_tp_front"));
 			at(t + 13, () -> cam3(-110f, 2.8f, 1.4f));
 			at(t + 18, () -> shot(mc, n + "_held_tp_side"));
@@ -291,7 +291,7 @@ public final class ShieldHarness implements ClientModInitializer {
 			at(t + 63, () -> use(false));
 			// off hand (a sword in the main hand)
 			at(t + 66, () -> give(mc, Items.IRON_SWORD, s, null));
-			at(t + 70, () -> cam3(-35f, 2.8f, 1.5f));
+			at(t + 70, () -> cam3(35f, 2.8f, 1.5f));
 			at(t + 78, () -> shot(mc, n + "_offhand_tp_front"));
 			at(t + 79, () -> use(true));
 			at(t + 90, () -> shot(mc, n + "_offhand_block_tp_front"));
@@ -306,7 +306,7 @@ public final class ShieldHarness implements ClientModInitializer {
 			at(t + 124, () -> shot(mc, n + "_back_tp_side"));
 			// close-ups
 			at(t + 125, () -> give(mc, s, null, null));
-			at(t + 128, () -> cam3(40f, 1.6f, 1.5f, 0f, 1.15f));
+			at(t + 128, () -> cam3(-40f, 1.6f, 1.5f, 0f, 1.15f));
 			at(t + 134, () -> shot(mc, n + "_close_held"));
 			at(t + 135, () -> cam3(-100f, 1.6f, 1.4f, 0f, 1.1f));
 			at(t + 140, () -> shot(mc, n + "_close_held_outer"));
@@ -342,7 +342,7 @@ public final class ShieldHarness implements ClientModInitializer {
 			mc.options.guiScale().set(4);
 			mc.resizeDisplay();
 		});
-		at(t + 8, () -> shot(mc, "icons_hotbar_gui4"));
+		if (!mode.equals("reshoot")) at(t + 8, () -> shot(mc, "icons_hotbar_gui4"));
 		at(t + 9, () -> {
 			mc.options.guiScale().set(2);
 			mc.resizeDisplay();
@@ -357,13 +357,13 @@ public final class ShieldHarness implements ClientModInitializer {
 		at(t, () -> slim(mc, true));
 		final Item ad = item("projecthero:adamantium_shield");
 		at(t + 2, () -> give(mc, ad, null, null));
-		at(t + 6, () -> cam3(35f, 2.8f, 1.5f));
+		at(t + 6, () -> cam3(-35f, 2.8f, 1.5f));
 		at(t + 12, () -> shot(mc, "slim_adamantium_held_tp_front"));
 		at(t + 13, () -> use(true));
 		at(t + 24, () -> shot(mc, "slim_adamantium_block_tp_front"));
 		at(t + 25, () -> use(false));
 		at(t + 26, () -> give(mc, Items.IRON_SWORD, ad, null));
-		at(t + 30, () -> cam3(-35f, 2.8f, 1.5f));
+		at(t + 30, () -> cam3(35f, 2.8f, 1.5f));
 		at(t + 36, () -> shot(mc, "slim_adamantium_offhand_tp_front"));
 		at(t + 37, () -> use(true));
 		at(t + 48, () -> shot(mc, "slim_adamantium_offhand_block_tp_front"));
@@ -374,6 +374,12 @@ public final class ShieldHarness implements ClientModInitializer {
 		at(t + 61, () -> slim(mc, false));
 		t += 64;
 
+		if (mode.equals("reshoot")) {
+			t = reshootFilms(mc, t, ad);
+			final int e2 = t;
+			at(e2, () -> Runtime.getRuntime().halt(0));
+			return;
+		}
 		// throw films: targets, a wide side view, then a close one
 		at(t, () -> server(mc, ShieldHarness::spawnTargets));
 		final Item vib = item("projecthero:vibranium_shield");
@@ -440,6 +446,32 @@ public final class ShieldHarness implements ClientModInitializer {
 		});
 	}
 
+	private static int reshootFilms(Minecraft mc, int t, Item ad) {
+		at(t, () -> give(mc, ad, null, null));
+		at(t + 4, () -> cam3(40f, 2.8f, 1.6f));
+		film(t + 8, t + 98, "film_block_bash_tp");
+		at(t + 14, () -> use(true));
+		at(t + 40, () -> use(false));
+		at(t + 56, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 68, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 80, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		t += 100;
+		at(t, () -> cam3(-60f, 2.8f, 1.6f));
+		film(t + 4, t + 94, "film_block_bash_tp_side");
+		at(t + 10, () -> use(true));
+		at(t + 36, () -> use(false));
+		at(t + 52, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 64, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		t += 96;
+		at(t, () -> fp());
+		film(t + 4, t + 94, "film_block_bash_fp");
+		at(t + 10, () -> use(true));
+		at(t + 36, () -> use(false));
+		at(t + 52, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 64, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		return t + 96;
+	}
+
 	private static void tick(Minecraft mc) {
 		mc.options.pauseOnLostFocus = false;
 		if (mc.level == null || mc.player == null) {
@@ -494,6 +526,7 @@ public final class ShieldHarness implements ClientModInitializer {
 				mc.screen);
 	}
 }
+
 
 // ===== mixin/ShieldHarnessCameraMixin.java =====
 package com.projecthero.mod.client.mixin;

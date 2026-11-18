@@ -36,7 +36,7 @@ public abstract class CapShieldHeldLayerMixin {
 		ci.cancel();
 		pose.pushPose();
 		model.translateToHand(arm, pose);
-		CapShieldPose.renderStrapped(entity, stack, arm, pose, buffers, light);
+		CapShieldPose.renderStrapped(entity, stack, arm, arm == HumanoidArm.RIGHT ? model.rightArm : model.leftArm, pose, buffers, light);
 		pose.popPose();
 	}
 }

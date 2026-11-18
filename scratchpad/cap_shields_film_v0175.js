@@ -1,6 +1,6 @@
 // v0.17.5 Captain America shields: ShieldHarness output (run/capshield_out/{before,after}) -> docs/screenshots/v0175/cap_shields:
 // before/ and after/ stills as they are; every after film as an MP4 + a frame sheet; the before films as frame sheets only.
-//   node scratchpad/cap_shields_film_v0175.js      (from the checkout root)
+//   node scratchpad/cap_shields_film_v0175.js      (from the checkout root; CAP_SRC=reshoot copies run/capshield_out/reshoot over after/)
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -12,8 +12,8 @@ const sheet = (film, frames, file, n) => {
 	for (let i = 0; i < n; i++) pick.push(path.join(film, frames[Math.round(i * (frames.length - 1) / (n - 1))]));
 	execFileSync('node', [path.join(root, 'scratchpad', 'contact_sheet.js'), file, '4', '0.5', ...pick]);
 };
-for (const phase of ['before', 'after']) {
-	const shots = path.join(root, 'run', 'capshield_out', phase, 'screenshots');
+for (const phase of process.env.CAP_SRC ? ['after'] : ['before', 'after']) {
+	const shots = path.join(root, 'run', 'capshield_out', phase === 'after' && process.env.CAP_SRC ? process.env.CAP_SRC : phase, 'screenshots');
 	if (!fs.existsSync(shots)) continue;
 	const out = path.join(outRoot, phase);
 	fs.mkdirSync(out, { recursive: true });
