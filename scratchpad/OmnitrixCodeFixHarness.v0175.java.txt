@@ -590,6 +590,47 @@ public final class OmnitrixCodeFixHarness implements ClientModInitializer {
 				System.out.println("[HARNESS] done");
 				Runtime.getRuntime().halt(0);
 			});
+		} else if (mode.equals("sdbar")) {
+			// self-destruct bar check: 101010 in function mode, shots at GUI 2 and 3, the bar alone, the plain face, the last 5 s
+			tapR(12);
+			shiftRight(44);
+			at(66, () -> mc.gui.getChat().clearMessages(false));
+			at(68, () -> log(mc, "in function"));
+			int d = type(72, () -> "101010", 2, "000000");
+			at(d + 4, () -> log(mc, "armed"));
+			at(d + 8, () -> mc.gui.getChat().clearMessages(false));
+			java.util.function.BiConsumer<Integer, String> both = (t, n) -> {
+				at(t, () -> shot(mc, n + "_gui2"));
+				// GUI 3 needs a window at least 720 high (854x480 caps the scale at 2)
+				at(t + 1, () -> GLFW.glfwSetWindowSize(win(), 1280, 720));
+				at(t + 4, () -> {
+					mc.options.guiScale().set(3);
+					mc.resizeDisplay();
+					System.out.println("[HARNESS] gui3 scale=" + mc.getWindow().getGuiScale() + " size=" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight());
+				});
+				at(t + 7, () -> shot(mc, n + "_gui3"));
+				at(t + 8, () -> GLFW.glfwSetWindowSize(win(), 854, 480));
+				at(t + 9, () -> {
+					mc.options.guiScale().set(2);
+					mc.resizeDisplay();
+				});
+			};
+			both.accept(d + 14, "01_function_mode_bar_above_keys");
+			shiftRight(d + 30);
+			at(d + 50, () -> log(mc, "left function"));
+			both.accept(d + 54, "02_bar_alone_after_leaving");
+			shiftRight(d + 150);
+			at(d + 175, () -> log(mc, "back in function"));
+			both.accept(d + 212, "04_last_5s_function_mode");
+			shiftRight(d + 222);
+			both.accept(d + 246, "04b_last_5s_bar_alone");
+			at(d + 260, () -> log(mc, "near end"));
+			at(d + 305, () -> shot(mc, "05_after_fizzle_gui2"));
+			at(d + 306, () -> log(mc, "end"));
+			at(d + 312, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
 		} else if (mode.equals("scen")) {
 			// S1: is the code in the saved player data?
 			at(8, () -> server(mc, p -> {
