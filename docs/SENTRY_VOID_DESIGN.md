@@ -16,7 +16,7 @@ reaching him from inside).
 | 90 | heartbeat, the sky dims around you, everything you hit leaves a burnt shadow on the ground |
 | 100 | **The Void takes over** |
 
-## Sentry kit (H selects the power; X movement, V utility, rest attacks) -- SUPERSEDED by moveset 2 (below, built 2026-11-18)
+## Sentry kit (H selects the power; X movement, V utility, rest attacks) -- SUPERSEDED by moveset 2 and round 3 (below, built 2026-11-18)
 | Key | Move |
 |---|---|
 | R | **Golden Strike:** heavy punch combo, every 3rd hit a golden shockwave |
@@ -149,3 +149,47 @@ Merged buffs unchanged (+25% damage, Void moves x0.75 cooldowns, the Void rising
 **The takeover's pace:** the body attacks at most once every 2 s (40 ticks): one shared cooldown for every Void move and every fist
 swing. The decay disc and its weak-mob damage are not attacks and are unchanged. It picks from the new Void moves by range and scene.
 Numbers: `docs/SENTRY_VOID_REFERENCE.md`.
+
+## Round 3 (user, 2026-11-18) -- BUILT; supersedes the key tables above
+User: "the players arms and legs shake when starting to fly, beginning to move while flying or coming to a stop while flying. Make the bars
+look like experience bars and not these square bars please. Make Solar Gaze his G move, remove the time limit on it, dont make it auto
+track, nerf its damage to make it as powerful as supermans heat vision. Make let it out his H ability. Make shift+V his calm ability. Make V
+his shield ability. Give sentry a landing slam animation thing like the other flight powers please. Make shift+G his disassemble ability.
+Make shift+R an aoe ability please. if sonic boom is used while flying it does something different, makes player fly 50% faster for 30
+seconds. move the other abilities around accordingly and make new moves if something is missing an ability please. If player enters the
+controlled void mode then the red and black sentry suit should appear on the player even if the player isnt wearing the suit, the suit then
+disappears after player returns to normal unless they were wearing the suit before ... Make the shadow clone models look better please,
+make them look like really thin dark transparent player models with tiny white eyes. When the void takes over the player make the white
+eyes a lot smaller, literal tiny glowing specs on the players face please. When the player is in controlled void state then they should be
+doing 50% more damage. only make the players void bar increase when they use their powers, being out at night shouldnt do that. Remove the
+players calm ability and replace it with a different ability, sleeping lowers void bar a lot and doing tasks like fishing and stuff should
+also make it drain faster, void bar should drain slowly by default"
+
+(The later "remove calm" wins over "shift+V = calm": Calm is gone, Shift+V is a new utility.)
+
+| Key | Sentry | The Void (merged) |
+|---|---|---|
+| **H** | **Let It Out** (the trial; user-assigned H; Shift+H still opens the power wheel) | **Return** (below 90 Void) |
+| R | Golden Fury | Tendril Lash |
+| Shift+R | **Solar Flare** (new AoE: a burst of sunlight, undead x1.5) | Erase |
+| G (hold) | **Solar Gaze** (Heat Vision's numbers, no time limit, an exact ray) | Shadow Pool |
+| Shift+G | **Disassemble** (hold) | Swallow |
+| Z / Shift+Z | Sunfall / A Million Suns | Nightmare / Shadow Eclipse |
+| C | Golden Guardian | Blot Out |
+| Shift+C | **Skyward Hurl** | Shadow Clones |
+| X | Sonic Boom on the ground; **flying: Flight Boost** (+50% for 30 s) | Shadow Step |
+| V | **Molecular Shield** | **Umbral Shroud** (new: the Void's shield -- hits -40%, shots swallowed, melee attackers withered) |
+| Shift+V | **Golden Sense** (new utility replacing Calm: everything within 40 glows through walls, Night Vision) | **Shadow Meld** (new utility: invisible, fast, hunters lose you, until you attack) |
+| 2x Space | Flight | Flight |
+
+- **The Void meter** rises only from the powers (each move's gain, and being merged). It drains slowly by default, faster in sunlight, a lot in
+  bed (a night slept through: -40), and calm everyday work drains it: fishing, harvesting ripe crops, trading, breeding, playing music.
+- **Merged +50% damage** (was +25%); the faster Void cooldowns stay.
+- **The look:** merged without the Sentry Suit, the red-and-black Void suit (his face and hair still show) and a black cape fade in over his skin
+  and fade away on return; with the suit, the comics suit fades into the Void suit and back (as before). A visual only.
+- **Shadow figures** (clones, nightmare figures): thin (60% width) translucent dark player models with tiny glowing eye specks.
+- **The takeover's eyes:** two sub-pixel full-bright specks on the face.
+- **Bars:** the vanilla XP bar sprites, tinted (Sun yellow, Void red darkening as it fills).
+- **Landing:** fast flight touchdown = the shared superhero landing, a golden crater impact (dark merged) that hurts what is around him.
+- **Flight shake:** the shared flight-feel limbs advanced their sway with `age x a pace-dependent frequency`; every change of pace jumped the
+  phase (age x dPace). Phases are now integrated per tick (all fliers benefit).

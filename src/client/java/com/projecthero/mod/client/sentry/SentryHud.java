@@ -186,19 +186,20 @@ public final class SentryHud {
 
 	private static final net.minecraft.resources.ResourceLocation XP_BACKGROUND = net.minecraft.resources.ResourceLocation.withDefaultNamespace("hud/experience_bar_background");
 	private static final net.minecraft.resources.ResourceLocation XP_PROGRESS = net.minecraft.resources.ResourceLocation.withDefaultNamespace("hud/experience_bar_progress");
-	/** The XP bar sprites' size, and the progress sprite's main green (what the tint is worked out against). */
+	/** The XP bar sprites' size. */
 	private static final int XP_W = 182, XP_H = 5;
-	private static final float XP_R = 126f, XP_G = 252f, XP_B = 32f;
+	/** A grey copy of the vanilla progress sprite (its shading as brightness, the body at 1.0), made once from the resource pack. */
+	private static net.minecraft.resources.ResourceLocation xpGrey;
+	private static boolean xpGreyTried;
 	/** Set only by the screenshot harness: draw the old bevelled bar (for the before / after sheet). */
 	public static volatile boolean oldBars;
 
 	/**
 	 * Round 3 (user: "Make the bars look like experience bars and not these square bars please"): the real vanilla XP bar -- its
-	 * background sprite (untouched) and its progress sprite, tinted by the shader colour so its own pixel shading stays (the colour
-	 * modulator is not clamped, so a channel can be pushed past 1: the green's red channel x1.94 is the Sun's yellow). {@code rgb} is the
-	 * colour the progress sprite's main green turns into. Both sprites are cropped from the left to {@code w} (at most 182) with the
-	 * right-hand end cap kept, so the notches stay vanilla's spacing; 5 px tall like the XP bar. {@code marks}: extra notches (0..1) a
-	 * shade stronger (the Void's 50 / 75 / 90).
+	 * background sprite (untouched) and its progress sprite turned grey ({@link #xpGrey}: each pixel's brightness relative to the green
+	 * body, so the highlight row, the dark edge and the notches all stay) and tinted by the shader colour to {@code rgb} (Sun yellow, the
+	 * Void's darkening red). Both are cropped from the left to {@code w} (at most 182) with the right-hand end cap kept, so the notches keep
+	 * vanilla's spacing; 5 px tall like the XP bar. {@code marks}: extra notches (0..1) a shade stronger (the Void's 50 / 75 / 90).
 	 */
 	static void xpBar(GuiGraphics g, int x, int y, int w, float frac, int rgb, float brighten, float[] marks) {
 		w = Math.max(4, Math.min(XP_W, w));
@@ -207,12 +208,21 @@ public final class SentryHud {
 		g.blitSprite(XP_BACKGROUND, XP_W, XP_H, XP_W - 1, 0, x + w - 1, y, 1, XP_H);
 		int fill = Math.round(w * Mth.clamp(frac, 0f, 1f));
 		if (fill > 0) {
-			float r = ((rgb >> 16) & 0xFF) / XP_R * brighten;
-			float gg = ((rgb >> 8) & 0xFF) / XP_G * brighten;
-			float b = (rgb & 0xFF) / XP_B * brighten;
+			float k = grey0() ? brighten / 0.8f : brighten;
+			float r = ((rgb >> 16) & 0xFF) / 255f * k;
+			float gg = ((rgb >> 8) & 0xFF) / 255f * k;
+			float b = (rgb & 0xFF) / 255f * k;
+			net.minecraft.resources.ResourceLocation grey = xpGrey();
 			g.flush();
 			com.mojang.blaze3d.systems.RenderSystem.setShaderColor(r, gg, b, 1f);
-			if (fill >= w) {
+			if (grey != null) {
+				if (fill >= w) {
+					g.blit(grey, x, y, 0, 0, w - 1, XP_H, XP_W, XP_H);
+					g.blit(grey, x + w - 1, y, XP_W - 1, 0, 1, XP_H, XP_W, XP_H);
+				} else {
+					g.blit(grey, x, y, 0, 0, fill, XP_H, XP_W, XP_H);
+				}
+			} else if (fill >= w) {
 				g.blitSprite(XP_PROGRESS, XP_W, XP_H, 0, 0, x, y, w - 1, XP_H);
 				g.blitSprite(XP_PROGRESS, XP_W, XP_H, XP_W - 1, 0, x + w - 1, y, 1, XP_H);
 			} else {
@@ -225,6 +235,58 @@ public final class SentryHud {
 			int nx = x + Math.round(w * m);
 			g.fill(nx, y + 1, nx + 1, y + XP_H - 1, nx < x + fill ? 0xB0000000 : 0x70FFFFFF);
 		}
+	}
+
+	/**
+	 * The grey progress sprite: read once from the active resource pack's {@code textures/gui/sprites/hud/experience_bar_progress.png}; every
+	 * pixel's brightness = its largest channel over the sprite's most common largest channel (the body), with the body at 0.8 (so the highlight keeps headroom), as
+	 * grey with the alpha kept. Null (the green sprite is used, tinted) if the image can't be read.
+	 */
+	private static boolean grey0() {
+		return xpGrey() != null;
+	}
+
+	private static net.minecraft.resources.ResourceLocation xpGrey() {
+		if (xpGreyTried) {
+			return xpGrey;
+		}
+		xpGreyTried = true;
+		var mc = Minecraft.getInstance();
+		var res = mc.getResourceManager().getResource(net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/gui/sprites/hud/experience_bar_progress.png"));
+		if (res.isEmpty()) {
+			return null;
+		}
+		try (var in = res.get().open(); var src = com.mojang.blaze3d.platform.NativeImage.read(in)) {
+			int[] hist = new int[256];
+			for (int y = 0; y < src.getHeight(); y++) {
+				for (int x = 0; x < src.getWidth(); x++) {
+					int c = src.getPixelRGBA(x, y); // ABGR
+					if ((c >>> 24) > 0) {
+						hist[Math.max(c & 0xFF, Math.max((c >> 8) & 0xFF, (c >> 16) & 0xFF))]++;
+					}
+				}
+			}
+			int body = 1;
+			for (int i = 1; i < 256; i++) {
+				if (hist[i] > hist[body]) {
+					body = i;
+				}
+			}
+			var out = new com.mojang.blaze3d.platform.NativeImage(src.getWidth(), src.getHeight(), true);
+			for (int y = 0; y < src.getHeight(); y++) {
+				for (int x = 0; x < src.getWidth(); x++) {
+					int c = src.getPixelRGBA(x, y);
+					int m = Math.max(c & 0xFF, Math.max((c >> 8) & 0xFF, (c >> 16) & 0xFF));
+					int v = Math.min(255, Math.round(204f * m / (float) body)); // the body at 0.8: the highlight keeps its headroom
+					v = Math.min(255, v);
+					out.setPixelRGBA(x, y, (c & 0xFF000000) | (v << 16) | (v << 8) | v);
+				}
+			}
+			xpGrey = mc.getTextureManager().register("projecthero_sentry_xp_grey", new net.minecraft.client.renderer.texture.DynamicTexture(out));
+		} catch (Exception e) {
+			xpGrey = null;
+		}
+		return xpGrey;
 	}
 
 	/**

@@ -10,6 +10,87 @@ the takeover body, suit icons, preview sheet). Lang: `node scratchpad/lang_sentr
 `scratchpad/SentryMovesHarness.v0175.java.txt` -> `docs/screenshots/v0175/sentry_moves/` (`node scratchpad/sentry/films_moves.js`), lang
 `node scratchpad/sentry/lang_sentry_moveset2_v0175.js`.
 
+## Round 3 (2026-11-18, user) -- the current layout and rules
+
+Design + the user's words: `docs/SENTRY_VOID_DESIGN.md` ("Round 3"). Lang `node scratchpad/sentry/lang_sentry_round3_v0175.js`; films / stills
+`scratchpad/SentryRound3Harness.v0175.java.txt` -> `docs/screenshots/v0175/sentry_round3/` (`node scratchpad/sentry/films_round3.js`).
+Where a table further down disagrees, this section wins (the moveset-2 tables are kept for the moves' own numbers).
+
+| Key | Sentry (id) | Numbers |
+|---|---|---|
+| H | Let It Out (`let_it_out`) | the trial (unchanged); sent as `SentryActionPayload.LET_IT_OUT` -> `SentryAbilityManager.pressH`; merged: Return; Shift+H = power wheel |
+| R | Golden Fury | unchanged |
+| Shift+R | **Solar Flare** (`solar_flare`, new) | r 8: 24 at the centre -> 12 at the edge, undead x1.5 + 4 s fire, knockback 1.6 (x0.6 at the edge) + 0.3 up, mobs Blindness 3 s, everything Glowing 3 s; 18 Sun; +0.6 Void; 200-tick cd; pose POSE_FLARE; fx FLARE (rays, rings, a warm flash within 20) |
+| Hold G | **Solar Gaze** | Heat Vision parity (`KryptonianConfig.HEAT_*`): 4 every 5 ticks (16/s), 32 blocks, 5 s fire, sets a block alight every second when it hits no creature (griefing rule); **no time cap** (ends on key-up or no Sun: 5 Sun/s, +0.17 Void/s); an **exact ray** (`SentryMoves.gazeHit`, margin 0, client draws the same); the 75-Void aim drift is off while it runs; orange after 40 ticks (looks only); 60-tick cd when it ends |
+| Hold Shift+G | Disassemble | unchanged numbers |
+| Z / Shift+Z | Sunfall / A Million Suns | unchanged |
+| C | Golden Guardian | unchanged |
+| Shift+C | Skyward Hurl | unchanged numbers |
+| X | Sonic Boom (ground) / **Flight Boost** (flying, `flight_boost`) | boost: flight speed x1.5 for 600 ticks (33 b/s, 66 sprinting; `DirectionalFlight` reads the synced `boostUntil`), a sonic-boom ring + BOOM + a 1.6 b/t shove at the start, a golden contrail (client ribbons + server sparks); 10 Sun; 900-tick cd from the start; the X box counts the seconds down, lit |
+| V | Molecular Shield | unchanged numbers |
+| Shift+V | **Golden Sense** (`golden_sense`, new; replaces Calm) | every living thing within 40 (not him): Glowing 200 ticks (outlines through walls; seen by every viewer); him: Night Vision 1200 ticks; 10 Sun; 600-tick cd; no Void; pose POSE_SENSE; fx SENSE |
+
+| Key | The Void, merged (id) | Numbers |
+|---|---|---|
+| H | Return | below 90 Void |
+| R / Shift+R / G / Shift+G / Z / Shift+Z / C / Shift+C / X | Tendril Lash / Erase / Shadow Pool / Swallow / Nightmare / Shadow Eclipse / Blot Out / Shadow Clones / Shadow Step | unchanged |
+| V | **Umbral Shroud** (`umbral_shroud`, new) | 160 ticks: damage taken x0.6 on top of the 75%, hostile projectiles within 3.5 discarded, a melee attacker within 5 gets Wither I + Darkness 3 s (mobs also Blindness); 400-tick cd (x0.75 merged); +1 Void |
+| Shift+V | **Shadow Meld** (`shadow_meld`, new) | 120 ticks: Invisibility + Speed II, every Mob within 32 targeting him drops the target (re-checked every 10 ticks); a Void attack ends it; 600-tick cd (x0.75); +0.6 Void |
+
+The takeover's brain still picks only from `VOID_ATTACKS` (no utilities).
+
+**Merged:** every hit x1.5 (`MERGED_DAMAGE`, was 1.25); Void cooldowns x0.75; Void gains x1.5.
+
+**The Void meter** (`Sentry.tickMeters`, `SentryCalmTasks`): it rises only from the powers.
+
+| | Void a second / a chunk |
+|---|---|
+| Not merged, anywhere (night, dark, shade) | -0.05/s |
+| Direct sunlight | -0.30/s (-0.05 - 0.25) |
+| Merged with the Void | +0.5/s of its own (x1.5 -> 0.75; the suit x0.6) |
+| Asleep (`isSleeping`) | -1/s more |
+| A night slept through (`EntitySleepEvents.STOP_SLEEPING`, day time 23500..2000) | -40 at once |
+| A fishing bobber of his in the water | -0.15/s more |
+| A fish (or anything) reeled in (`Stats.FISH_CAUGHT`) | -2 |
+| A ripe crop harvested (wheat / carrots / potatoes / beetroot / nether wart / cocoa / sweet berries at full age; `PlayerBlockBreakEvents.AFTER`) | -0.4 |
+| A trade (`Stats.TRADED_WITH_VILLAGER`), animals bred (`ANIMALS_BRED`), a disc played (`PLAY_RECORD`) | -1.5 / -1.5 / -1 |
+| Each move | its own gain (moveset-2 table below; Solar Flare +0.6, the Void's utilities +1 / +0.6) |
+| Golden Guardian | -8, -1 per other helped |
+| Removed | night +0.08/s, dark +0.17/s, heavy hits, kills, Calm |
+
+Drains are never scaled; gains x0.6 in the suit, x1.5 merged. The stats are compared once a second against a session map (UUID -> ints;
+first look only records). Creative: the Void never climbs.
+
+**The look** (`Sentry.look`, client-safe; the suit layer, cape and tests use it): NONE / SUIT / VOID_OVER_SUIT / VOID_OVER_SKIN / BLACK from the
+armour worn right now and the fade. Merged without the suit: the **Void suit** (`Look.VOID_SUIT`: the borrowed skin with the head cleared,
+or the fallback `void_form` with the head cleared) dissolves in over the bare wearer (his face and hair show; the hat layer is kept, jacket /
+sleeves / trousers layers hidden) and the black cape unrolls from the collar with the fade (`SentryCapeLayer.unfurl`); on return it fades
+away to his own skin. With the suit on: comics suit <-> Void suit as before. A never-merged state (`formChangedAt` 0) shows no fade.
+Armour is still drawn over it (it is a visual, not an item). First-person arm: the same textures.
+
+**The takeover's eyes:** no eye texels any more (`void_body.png` regenerated); `SentrySuitLayer.eyeSpecks` draws two full-bright specks 0.32 px
+wide at face pixels 2 and 5, row 4, just in front of the face, each with a 1.1 px / 0.55 px breathing halo (additive, in the head's frame).
+
+**Shadow figures** (`ShadeFigures`): the clones (`SHADE` with owner = `VoidMoves.CLONE_FX_ID` + zone id, every 2 ticks) and the Nightmare
+figures (owner -1) are real slim player models scaled 0.6 wide / deep, a generated near-black smoky translucent texture (alpha ~0.82 x a
+breathing 0.85..1), a stalking walk by distance moved (clones slide between updates, yaw eased), arms reaching, and the eye specks.
+
+**The bars** (`SentryHud.xpBar`): the vanilla `hud/experience_bar_background` (untinted) and `hud/experience_bar_progress` tinted by the
+shader colour (green #7EFC20 -> Sun #F5C518; Void #E23030 -> #8E0F12 -> #3A0505 by the fill), cropped from the left to the bar width (end
+cap kept, <= 182), 5 px; the 50/75/90 marks on the Void bar. `SentryHud.oldBars` (harness only) draws the old bevelled bar.
+
+**The landing** (`HeroLandingStyle.SENTRY` id 50, `SENTRY_VOID` id 51, both FIST pose): a self-flying Sentry claims it; on a fast touchdown the
+shared effects play plus `SentryMoves.landing`: 8 + 14 x strength within 3 + 2.5 x strength, knockback 0.9 + 0.8 x s, light damage (void
+damage merged); he stops dead where he lands (else a dive's momentum slides him out of the kneel); golden crater + ring, or a shadow pool merged.
+
+**The flight shake** (shared: `FlightPoseHelper`, `HumanoidModelMixin`): the flight-feel limbs used `sin(ageInTicks * (0.16 + 0.22 * pace))`
+for the leg scissor and `sin(ageInTicks * (0.11 + 0.2 * pace) + 0.7)` for the arm flutter; whenever the pace changed (take-off, setting off,
+stopping) the phase jumped by `age x dPace` (tens of radians a tick once a player had been in the world a while): the limbs shook until the
+pace settled. The phases are now integrated a tick at a time per player (`scissorPhase`, `flutterPhase`, interpolated), and the two
+on/off gates (the hero-flight arm pin at 5 degrees of lean, the flutter at hover > 0.5) are ramps. Every flier with the shared feel gets it.
+
+**Removed:** Calm (`calm`, its lang, HUD tag, pose, the attack block); `SentryState.calming` stays in saves, always false.
+
 Key `sentry`. Hero-Tier Primary power (claims the Primary slot like every grant; `projectheroUniquePowers` applies).
 Not from random serums (`PowerGrants.NOT_FROM_SERUMS`); the operator grant still works.
 
@@ -330,8 +411,16 @@ Moveset 2 (2026-11-18): only `HeroPackGuide` (`SENTRY_CONTROLS`, `VOID_CONTROLS`
 packages, plus the two test classes; the HUD key boxes, the Left-Alt move list and the power info screen read `SentryAbilityManager` /
 the Guidebook chapter, so they follow on their own.
 
+Round 3 (2026-11-18): `HeroLandingStyle` (+ SENTRY 50, SENTRY_VOID 51), `HeroLandingStyles` (registration), `HeroLandingFx` (their signature +
+`SentryMoves.landing`), `HeroPackGuide` (`SENTRY_CONTROLS` / `VOID_CONTROLS`), `en_us.json` (by script); client: `ProjectHeroModClient` (H -> Let It Out,
+Sentry in the Thor-armour Shift+H list), `DirectionalFlight` (the boost), `FlightPoseHelper` + `HumanoidModelMixin` (the flight shake fix, all fliers),
+`VoidTakeoverClient` (no forced third person while viewing through another entity), `void_body.png` / `void_body_glow.png` regenerated (no eye texels),
+`scratchpad/sentry/make_suit_textures.js`.
+
 ## Static state
 
+Round 3: `SentryCalmTasks.SEEN` (UUID -> stat values) cleared from `Sentry.clearSessionState` / `forget`; `VoidMoves.NEXT_ID` is a plain counter. Client:
+`ShadeFigures` (clone id -> positions, nightmare figures, one model, one texture) cleared on disconnect.
 All session maps key by player UUID only (combo, gaze / Disassemble keys, Sunfall, the launched creature (an entity id), Tendril Lash's combo, dash hits, flight start / last landing, brains, zones store
 UUID + dimension key + Vec3 + an entity id); cleared by `SentryMod.clearSessionState` from `ServerStateReset`. The eaten world is SavedData, never
 static. Client caches (`SentrySuitTextures`: dissolve steps, capes) hold only textures and are released on every resource reload.

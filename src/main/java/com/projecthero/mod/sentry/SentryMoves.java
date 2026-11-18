@@ -392,6 +392,9 @@ public final class SentryMoves {
 		Vec3 c = p.position();
 		double r = SentryConfig.LANDING_RADIUS + SentryConfig.LANDING_RADIUS_PER_STRENGTH * strength;
 		float dmg = SentryConfig.LANDING_DAMAGE + SentryConfig.LANDING_DAMAGE_PER_STRENGTH * strength;
+		// he stops dead where he lands (a dive's momentum would otherwise slide him out of the kneel at once)
+		p.setDeltaMovement(Vec3.ZERO);
+		p.hurtMarked = true;
 		int n = 0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r, 2.0, r),
 				e -> Sentry.areaVictim(p, e) && e.distanceToSqr(c) <= r * r)) {

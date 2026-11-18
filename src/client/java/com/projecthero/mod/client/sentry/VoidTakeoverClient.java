@@ -72,7 +72,7 @@ public final class VoidTakeoverClient {
 			if (savedCamera == null) {
 				savedCamera = mc.options.getCameraType();
 			}
-			if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+			if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK && mc.getCameraEntity() == mc.player) { // (not while viewing through another entity)
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 			}
 			mc.options.keyUp.setDown(false);

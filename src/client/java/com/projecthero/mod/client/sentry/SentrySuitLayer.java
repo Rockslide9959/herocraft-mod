@@ -158,11 +158,13 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		var last = pose.last();
 		float z = -4.12f / 16f;
 		float y = -3.5f / 16f;
-		float halo = 0.22f + 0.06f * Mth.sin(age * 0.15f);
+		// a soft falloff (three faint layers, additive) round a full-bright core
+		float halo = 0.06f + 0.02f * Mth.sin(age * 0.15f);
 		for (float x : new float[] { -1.5f / 16f, 1.5f / 16f }) {
-			quad(vc, last, x, y, z, EYE_HALO / 32f, 1f, 1f, 1f, halo * 0.5f);
-			quad(vc, last, x, y, z - 0.0005f, EYE_HALO / 64f, 1f, 1f, 1f, halo);
-			quad(vc, last, x, y, z - 0.001f, EYE_SPECK / 32f, 1f, 1f, 1f, 1f);
+			quad(vc, last, x, y, z, EYE_HALO / 32f, 0.85f, 0.9f, 1f, halo * 0.5f);
+			quad(vc, last, x, y, z - 0.0004f, EYE_HALO * 0.7f / 32f, 0.9f, 0.95f, 1f, halo * 0.8f);
+			quad(vc, last, x, y, z - 0.0008f, EYE_HALO * 0.45f / 32f, 1f, 1f, 1f, halo * 1.4f);
+			quad(vc, last, x, y, z - 0.0012f, EYE_SPECK / 32f, 1f, 1f, 1f, 1f);
 		}
 		pose.popPose();
 	}
