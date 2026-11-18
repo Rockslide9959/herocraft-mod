@@ -50,6 +50,8 @@ public final class OmnitrixWatch {
 	public static final ResourceLocation MORPH_BLUE = OmnitrixRecalClient.MORPH_BLUE;
 	public static final ResourceLocation CIRCUIT = ProjectHeroMod.id("textures/entity/omnitrix/circuit.png");
 	public static final ResourceLocation CIRCUIT_RED = ProjectHeroMod.id("textures/entity/omnitrix/circuit_red.png");
+	/** v0.17.5 round 3: the Master Control flash's face -- the disc (u 0..0.5) and the hourglass (u 0.5..1), white masks tinted per vertex. */
+	public static final ResourceLocation MASTER_FLASH_FACE = ProjectHeroMod.id("textures/entity/omnitrix/master_flash_face.png");
 	/** How far the whole dial (bezel, lights, core) rises on its circuit riser, px. */
 	public static final float LIFT = 1.3f;
 	/** First person: the selection screen's roll so the icon stands upright for the eye on the slanted wrist (degrees). */
@@ -291,7 +293,7 @@ public final class OmnitrixWatch {
 		float auto = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, p.level().getGameTime(), partial);
 		float twist = sp[0] + (auto > 0f ? auto * auto * 720f : 0f);
 		// v0.17.5 round 2: the Master Control code's opening flash -- every piece flat white / black, alternating, swapping ~7 times a
-		// second for two seconds (going off it starts on the other phase); the face splits into four alternating quarters
+		// second for two seconds (going off it starts on the other phase); the face shows the hourglass against its disc, alternating
 		float mcFlash = Omnitrix.masterFlashAge(s, p.level().getGameTime(), partial);
 		if (mcFlash >= 0f) {
 			renderMasterFlash(pose, buffers, light, p, s, mcFlash, L, lift, twist, recal);
@@ -394,12 +396,11 @@ public final class OmnitrixWatch {
 			float k = (1f - flick / 30f) * (((int) flick / 2) % 2 == 0 ? 1f : 0.35f);
 			glowQuad(glow, last, gx, cy / 16f, 0f, (fr + 0.7f) / 16f, scale(0x9CFF6A, 0.8f * k));
 		}
-		// v0.17.5: function mode's code readout (and the self-destruct seconds) on the face
+		// v0.17.5: the self-destruct seconds on the face. v0.17.5 round 3 (user: "when entering in codes the code shouldnt show on the
+		// omnitrix face, it should only show on the players ability keys"): function mode leaves the plain face; the code is only in
+		// the wearer's own HUD key boxes (OmnitrixFunctionClient.drawHud), so no other viewer ever sees it
 		long now = p.level().getGameTime();
 		OmnitrixFunctionClient.Readout ro = OmnitrixFunctionClient.readout(p, s, now, partial);
-		if (ro == null) {
-			ro = OmnitrixFunctionClient.acceptedReadout(p, s, now, partial);
-		}
 		if (ro != null && !s.transformed()) {
 			drawReadout(buffers, last, ro, fx, cy, fr);
 		}
@@ -424,29 +425,27 @@ public final class OmnitrixWatch {
 			} else if (lift > 0.02f) {
 				OmnitrixModel.recalRiser(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(CIRCUIT)), L, lift);
 			}
-			// the face: four quarters, each the other colour from its neighbours, swapping with the rest
+			// v0.17.5 round 3 (user: "the omnitrix symbol shouldnt be these 4 squares it should be an alternating black and white
+			// regular looking omnitrix symbol"): the face's own hourglass, the same size and place as the plain face, in one colour on
+			// a disc of the other, swapping with the rest of the watch (white on black, then black on white)
 			float top = recal ? OmnitrixModel.recalFaceTop(L, lift) : OmnitrixModel.coreTop(L, lift);
 			float fx = (top + 0.012f) / 16f;
 			float fr = recal ? OmnitrixModel.RECAL_FACE_R : OmnitrixModel.FACE_R;
 			float cy = OmnitrixModel.CY;
-			float u = 1f / 16f, su0 = OmnitrixFunctionClient.SOLID * u + u * 0.3f, su1 = OmnitrixFunctionClient.SOLID * u + u * 0.7f;
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(OmnitrixFunctionClient.GLYPHS));
+			float up = fr / 16f, y0 = (cy - fr) / 16f, y1 = (cy + fr) / 16f;
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(MASTER_FLASH_FACE));
 			PoseStack.Pose last = pose.last();
-			for (int qy = 0; qy < 2; qy++) {
-				for (int qz = 0; qz < 2; qz++) {
-					int c = OmnitrixModel.flashColour(((qy + qz) & 1) == 0);
-					float h = fr * 0.7f; // inside the round face
-					cellQuad(vc, last, c, fx, cy - h + qy * h, cy + qy * h, -h + qz * h, qz * h, su0, 0.3f, su1, 0.7f, LightTexture.FULL_BRIGHT);
-				}
-			}
+			int lit = LightTexture.FULL_BRIGHT;
+			faceQuad(vc, last, OmnitrixModel.flashColour(false), fx, y0, y1, up, 0f, 0f, 0.5f, 1f, lit); // the disc
+			faceQuad(vc, last, OmnitrixModel.flashColour(true), fx + 0.006f / 16f, y0, y1, up, 0.5f, 0f, 1f, 1f, lit); // the hourglass
 		} finally {
 			OmnitrixModel.unflash();
 		}
 	}
 
 	/**
-	 * v0.17.5: the six-slot readout across the middle of the face -- a dark band over the plain hourglass, seven-segment digits
-	 * drawn additively (they glow), the current slot's cursor bar under it. Slot 1 is at the face's image-left (as the alien icon).
+	 * v0.17.5: the six-cell readout across the middle of the face -- a dark band over the plain hourglass, seven-segment digits,
+	 * an optional cursor bar. Since round 3 it only carries the self-destruct seconds (the code itself is on the HUD key boxes).
 	 */
 	private static void drawReadout(MultiBufferSource buffers, PoseStack.Pose last, OmnitrixFunctionClient.Readout ro, float fx, float cy, float fr) {
 		int n = ro.cells().length;
