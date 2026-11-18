@@ -239,12 +239,13 @@ public final class HeroPackGuide {
 			{ "Shift+X", "density_dive" }, { "C", "grip" }, { "Shift+C", "diamond_density" }, { "V", "hologram" }, { "Shift+V", "intangibility" } };
 
 	/** v0.17.5 Sentry: the chapter's control rows {key, ability id}; each shows {@code projecthero.sentry.ability.<id>} and its {@code .desc}. */
-	public static final String[][] SENTRY_CONTROLS = { { "R", "golden_strike" }, { "Hold Shift+R", "sunbeam" }, { "G / hold G", "molecular_grip" },
-			{ "Shift+G", "unmake" }, { "Z", "sun_dive" }, { "Shift+Z", "million_suns" }, { "C", "healing_light" }, { "Shift+C", "sentinel_shield" },
-			{ "X", "sonic_dash" }, { "2x Space", "flight" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } }; // v0.17.5 rework: X = dash, 2x Space = flight
-	/** v0.17.5 the Void Form rows. */
-	public static final String[][] VOID_CONTROLS = { { "R", "shadow_lash" }, { "Shift+R", "erase" }, { "G", "grasp" }, { "Z", "void_rift" },
-			{ "Shift+Z", "nightfall" }, { "X", "shadow_step" }, { "2x Space", "flight" }, { "Shift+V / V", "return" } };
+	public static final String[][] SENTRY_CONTROLS = { { "R", "golden_fury" }, { "Hold Shift+R", "solar_gaze" }, { "Hold G", "disassemble" },
+			{ "Shift+G", "skyward_hurl" }, { "Z", "sunfall" }, { "Shift+Z", "million_suns" }, { "C", "golden_guardian" }, { "Shift+C", "molecular_shield" },
+			{ "X", "sonic_dash" }, { "2x Space", "flight" }, { "Hold V", "calm" }, { "Shift+V", "let_it_out" } }; // moveset 2 (2026-11-18)
+	/** v0.17.5 the Void's rows (merged; moveset 2). */
+	public static final String[][] VOID_CONTROLS = { { "R", "tendril_lash" }, { "Shift+R", "erase" }, { "G", "shadow_pool" }, { "Shift+G", "void_sphere" },
+			{ "Z", "nightmare" }, { "Shift+Z", "shadow_eclipse" }, { "C", "blot_out" }, { "Shift+C", "shadow_clones" }, { "X", "shadow_step" },
+			{ "2x Space", "flight" }, { "Shift+V / V", "return" } };
 
 	/** Sentry & the Void (v0.17.5). */
 	public static Chapter sentryChapter() {

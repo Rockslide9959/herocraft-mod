@@ -84,6 +84,34 @@ public class VoidTakeoverGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * Moveset 2 (user: "when the void takes control only make him attack once every 2 seconds with an ability or an M1"): one shared
+	 * cooldown for every attack. The body is ticked by the server and again here (a second tick in the same game tick must not attack
+	 * again); asserted on the steps between attacks, never on a total.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void theVoidAttacksAtMostOnceEveryTwoSeconds(GameTestHelper helper) {
+		ServerPlayer p = takenOver(helper, 2, 2);
+		Zombie z = SentryGameTests.zombie(helper, 3.5, 2, 1000);
+		helper.onEachTick(() -> {
+			if (Sentry.inTakeover(p)) {
+				VoidTakeover.tick(p);
+				VoidTakeover.tick(p);
+			}
+		});
+		helper.runAfterDelay(200, () -> {
+			java.util.List<Long> at = VoidTakeover.attackTimes(p);
+			helper.assertTrue(at.size() >= 3, "it kept attacking (" + at.size() + " attacks)");
+			for (int i = 1; i < at.size(); i++) {
+				long step = at.get(i) - at.get(i - 1);
+				helper.assertTrue(step >= SentryConfig.TAKEOVER_ATTACK_INTERVAL, "attack " + i + " came only " + step + " ticks after the last");
+			}
+			helper.assertTrue(z.getHealth() < 1000f, "and it hurt the zombie");
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theVoidMayHitAnyoneEvenASquadmate(GameTestHelper helper) {
 		ServerPlayer p = takenOver(helper, 2, 2);

@@ -37,6 +37,23 @@ public record SentryFxPayload(int kind, double x, double y, double z, float size
 	public static final int CRATER = 10;
 	/** A helper reaching the Void: a gold thread from them to it. */
 	public static final int REACH = 11;
+	// moveset 2 (2026-11-18)
+	/** Disassemble / a Golden Fury kill: the creature comes apart into golden motes (size = its height, tx = its width). */
+	public static final int DISINTEGRATE = 12;
+	/** Shadow Pool: a pool of shadow spreading on the ground (size = full radius, ticks = how long). */
+	public static final int POOL = 13;
+	/** Swallow: a black void sphere round the creature {@code owner} (size = radius). */
+	public static final int SPHERE = 14;
+	/** Nightmare: a wave of horror rolling out (size = radius). */
+	public static final int NIGHTMARE = 15;
+	/** Shadow Eclipse: a black sun with a gold corona over {@code owner} and the dark under it (size = radius). */
+	public static final int ECLIPSE = 16;
+	/** A shadow figure (Shadow Clones, Nightmare's manifestations) at x/y/z facing tx/ty/tz (size = height). */
+	public static final int SHADE = 17;
+	/** Golden Guardian: a pillar of light on someone it helps (size = height). */
+	public static final int PILLAR = 18;
+	/** Skyward Hurl / the Haymaker: a golden comet trail behind the creature {@code owner}. */
+	public static final int COMET = 19;
 
 	public static final CustomPacketPayload.Type<SentryFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("sentry_fx"));
 

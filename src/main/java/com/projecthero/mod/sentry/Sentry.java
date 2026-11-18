@@ -206,6 +206,25 @@ public final class Sentry {
 		save(player, n);
 	}
 
+	/** Moveset 2: plays a short body pose on every viewer ({@link SentryState#pose}). */
+	static void pose(ServerPlayer player, int pose, int ticks) {
+		SentryState n = state(player).copy();
+		n.pose = pose;
+		n.poseAt = now(player);
+		n.poseTicks = ticks;
+		save(player, n);
+	}
+
+	/** The pose playing right now (0 none). Client-safe. */
+	public static int poseNow(Player player) {
+		SentryState s = peek(player);
+		if (s == null || s.pose == 0) {
+			return 0;
+		}
+		long age = now(player) - s.poseAt;
+		return age >= 0 && age < s.poseTicks ? s.pose : 0;
+	}
+
 	public static void clearCooldowns(ServerPlayer player) {
 		SentryState n = state(player).copy();
 		n.abilityReadyAt.clear();
@@ -458,7 +477,7 @@ public final class Sentry {
 		SentryMoves.forget(player.getUUID());
 		VoidMoves.forget(player.getUUID());
 		if (s.beamStart != 0L || s.sunsStart != 0L || s.shieldUntil != 0L || s.nightfallUntil != 0L || s.gripTarget >= 0 || s.calming
-				|| s.flying || s.letOutTrialStart != 0L) {
+				|| s.flying || s.letOutTrialStart != 0L || s.pose != 0) {
 			SentryState n = state(player).copy();
 			n.beamStart = 0L;
 			n.sunsStart = 0L;
@@ -468,6 +487,7 @@ public final class Sentry {
 			n.calming = false;
 			n.flying = false;
 			n.letOutTrialStart = 0L;
+			n.pose = 0;
 			save(player, n);
 		}
 		reconcile(player);

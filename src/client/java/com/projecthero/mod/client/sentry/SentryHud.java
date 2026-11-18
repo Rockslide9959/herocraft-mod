@@ -26,6 +26,7 @@ import net.minecraft.util.Mth;
  *   Sun  [yellow bevelled bar]  82   fuels the Sentry moves (v0.17.5 rework: both vanilla XP-bar style, {@link #bevelBar})
  *   Void [red bevelled bar]  47   the danger: bright red low, darkening to near-black red full; 50/75/90 notches
  *   +----+----+----+----+----+----+           R G Z X C V: cooldowns; greyed when the Sun can't pay; yellow while Shift shows Shift
+ *                                             (moveset 2: both forms fill all six boxes -- C is Golden Guardian / Blot Out)
  *                                             (v0.17.5 rework: X = Sonic Boom; flight is double-tap Space, listed in the move list)
  * </pre>
  * The Void's thresholds also draw here, over the whole view: black veins creeping in from the screen edges from 50 Void (thicker at
@@ -88,7 +89,7 @@ public final class SentryHud {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.shield").getString() + " " + clock(s.shieldUntil - now), GOLD_TEXT));
 		}
 		if (s.nightfallUntil > now) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.nightfall").getString() + " " + clock(s.nightfallUntil - now), VOID_TEXT));
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.eclipse").getString() + " " + clock(s.nightfallUntil - now), VOID_TEXT));
 		}
 		if (s.sunsStart != 0L) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.sentry.suns").getString(), GOLD_TEXT));
@@ -137,19 +138,19 @@ public final class SentryHud {
 			float otherFrac = other == null ? 0f
 					: Math.min(1f, SentryAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, SentryAbilityManager.maxCooldown(other)));
 			boolean usable = SentryAbilityManager.allowed(p, shown);
-			boolean active = (SentryAbilityManager.SUNBEAM.equals(shown) && s.beamStart != 0L)
+			boolean active = (SentryAbilityManager.SOLAR_GAZE.equals(shown) && s.beamStart != 0L)
 					|| (SentryAbilityManager.CALM.equals(shown) && s.calming)
-					|| (SentryAbilityManager.SHIELD.equals(shown) && s.shieldUntil > now)
+					|| (SentryAbilityManager.MOLECULAR_SHIELD.equals(shown) && s.shieldUntil > now)
 					|| (SentryAbilityManager.MILLION_SUNS.equals(shown) && s.sunsStart != 0L)
-					|| (SentryAbilityManager.GRIP.equals(shown) && s.gripTarget >= 0)
-					|| (SentryAbilityManager.NIGHTFALL.equals(shown) && s.nightfallUntil > now);
+					|| (SentryAbilityManager.DISASSEMBLE.equals(shown) && s.gripTarget >= 0)
+					|| (SentryAbilityManager.SHADOW_ECLIPSE.equals(shown) && s.nightfallUntil > now);
 			hud.slot(i, VanillaHud.keyLabel(slot), usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
 		if (s.sunsStart != 0L) {
 			hud.hold(2, Mth.clamp((now - s.sunsStart) / (float) SentryConfig.SUNS_CHARGE_TICKS, 0f, 1f)); // Z: the charge rising
 		}
 		if (s.gripTarget >= 0) {
-			hud.hold(1, Mth.clamp((now - s.gripStart) / (float) SentryConfig.GRIP_TEAR_TICKS, 0f, 1f)); // G: the tear
+			hud.hold(1, Mth.clamp((now - s.gripStart) / (float) SentryConfig.UNMAKE_TEAR_TICKS, 0f, 1f)); // G: Disassemble coming apart
 		}
 	}
 

@@ -17,14 +17,16 @@ import com.projecthero.mod.squad.Squads;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
@@ -34,7 +36,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -44,19 +45,39 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.5 Sentry: the golden kit (routed by {@link SentryAbilityManager}). Every move checks its cooldown and pays its Sun here; the
- * running ones (Sunbeam, Molecular Grip, Sun Dive, A Million Suns, Sentinel Shield) are carried by {@link #tick}. Session maps are keyed
- * by player id only (never a world or an entity) and cleared on server stop ({@link #clearSessionState}).
+ * v0.17.5 Sentry, moveset 2 (2026-11-18, user: "Create a new moveset based on the sentries powers in the movies and comics"): the
+ * golden kit, routed by {@link SentryAbilityManager}. Bob Reynolds' comics and Thunderbolts* -- flying punches that send foes through
+ * mountains, light from his eyes, molecular disassembly, hurling a foe into the sky, a sonic-boom slam from the air, "a million exploding
+ * suns", healing light and the golden aura that turns attacks to light.
+ * <ul>
+ *   <li><b>R Golden Fury</b>: a three-punch combo; out of reach (up to 9) he lunges in; the 3rd is the Haymaker that launches it far
+ *   (a launched creature slamming into a wall takes more).</li>
+ *   <li><b>Hold Shift+R Solar Gaze</b>: twin eye beams (beam clash), burning hotter the longer they are held.</li>
+ *   <li><b>Hold G Disassemble</b>: lift a creature (bosses pinned), it unravels; held 2 s it comes apart into light. Let go: thrown.</li>
+ *   <li><b>Shift+G Skyward Hurl</b>: grab what is in reach and throw it straight up into the sky (bosses are slammed instead).</li>
+ *   <li><b>Z Sunfall</b>: leap up (from the ground), then a fist-first dive and a sonic-boom slam: the inner hit, then the outer ring.</li>
+ *   <li><b>Shift+Z A Million Suns</b>: a 4 s wind-up rising into the air (damage taken halved), then the explosion of light.</li>
+ *   <li><b>C Golden Guardian</b>: heals allies, clears bad effects, Regeneration + Absorption; the undead around burn.</li>
+ *   <li><b>Shift+C Molecular Shield</b>: a golden aura -- enemy projectiles turn to light (and Sun), hits taken are cut, melee is
+ *   deflected back.</li>
+ * </ul>
+ * Every move checks its cooldown and pays its Sun here; the running ones are carried by {@link #tick}. Session maps are keyed by player
+ * id only (never a world or an entity) and cleared on server stop ({@link #clearSessionState}).
  */
 public final class SentryMoves {
-	/** Golden Strike's combo: the step (0..2) and when the last strike landed. */
+	/** Golden Fury's combo: the step (0..2) and when the last punch landed. */
 	private static final Map<UUID, int[]> COMBO = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> COMBO_AT = new ConcurrentHashMap<>();
-	/** Which key holds the Sunbeam / the grip (released = the move ends). */
+	/** Which key holds the Solar Gaze / Disassemble (released = the move ends). */
 	private static final Map<UUID, AbilitySlot> BEAM_KEY = new ConcurrentHashMap<>();
 	private static final Map<UUID, Boolean> GRIP_HELD = new ConcurrentHashMap<>();
-	/** Sun Dive running since. */
-	private static final Map<UUID, Long> DIVING = new ConcurrentHashMap<>();
+	/** Sunfall: {start, phase (0 leap, 1 dive)}. */
+	private static final Map<UUID, long[]> SUNFALL = new ConcurrentHashMap<>();
+	/** A creature he launched (the Haymaker, Skyward Hurl): its entity id, until when, and whether a wall hurts it. */
+	record Launch(int entity, long start, long until, boolean impact) {
+	}
+
+	private static final Map<UUID, Launch> LAUNCH = new ConcurrentHashMap<>();
 
 	private SentryMoves() {
 	}
@@ -66,7 +87,8 @@ public final class SentryMoves {
 		COMBO_AT.clear();
 		BEAM_KEY.clear();
 		GRIP_HELD.clear();
-		DIVING.clear();
+		SUNFALL.clear();
+		LAUNCH.clear();
 	}
 
 	static void forget(UUID id) {
@@ -74,12 +96,25 @@ public final class SentryMoves {
 		COMBO_AT.remove(id);
 		BEAM_KEY.remove(id);
 		GRIP_HELD.remove(id);
-		DIVING.remove(id);
+		SUNFALL.remove(id);
+		LAUNCH.remove(id);
 	}
 
-	/** Diving right now (no fall damage). */
+	/** Leaping / diving right now (no fall damage). */
 	public static boolean diving(Player player) {
-		return DIVING.containsKey(player.getUUID());
+		return SUNFALL.containsKey(player.getUUID());
+	}
+
+	/** Sunfall's phase (tests): -1 none, 0 the leap, 1 the dive. */
+	public static int sunfallPhase(Player player) {
+		long[] s = SUNFALL.get(player.getUUID());
+		return s == null ? -1 : (int) s[1];
+	}
+
+	/** The creature this player launched last, if it is still flying (tests). */
+	public static int launched(Player player) {
+		Launch l = LAUNCH.get(player.getUUID());
+		return l == null ? -1 : l.entity;
 	}
 
 	// ---------------------------------------------------------------- input
@@ -102,17 +137,18 @@ public final class SentryMoves {
 					return;
 				}
 				boolean fired = switch (id) {
-					case SentryAbilityManager.GOLDEN_STRIKE -> goldenStrike(p);
-					case SentryAbilityManager.SUNBEAM -> startBeam(p, slot);
-					case SentryAbilityManager.GRIP -> startGrip(p);
-					case SentryAbilityManager.UNMAKE -> unmake(p);
-					case SentryAbilityManager.SUN_DIVE -> sunDive(p);
+					case SentryAbilityManager.GOLDEN_FURY -> goldenFury(p);
+					case SentryAbilityManager.SOLAR_GAZE -> startGaze(p, slot);
+					case SentryAbilityManager.DISASSEMBLE -> startDisassemble(p);
+					case SentryAbilityManager.SKYWARD_HURL -> skywardHurl(p);
+					case SentryAbilityManager.SUNFALL -> sunfall(p);
 					case SentryAbilityManager.MILLION_SUNS -> startSuns(p);
-					case SentryAbilityManager.HEALING_LIGHT -> healingLight(p);
-					case SentryAbilityManager.SHIELD -> sentinelShield(p);
+					case SentryAbilityManager.GOLDEN_GUARDIAN -> goldenGuardian(p);
+					case SentryAbilityManager.MOLECULAR_SHIELD -> molecularShield(p);
 					default -> false;
 				};
-				if (fired && !SentryAbilityManager.SUNBEAM.equals(id) && !SentryAbilityManager.GRIP.equals(id)
+				// the held moves start their cooldown when they end
+				if (fired && !SentryAbilityManager.SOLAR_GAZE.equals(id) && !SentryAbilityManager.DISASSEMBLE.equals(id)
 						&& !SentryAbilityManager.MILLION_SUNS.equals(id)) {
 					Sentry.startCooldown(p, id, SentryAbilityManager.maxCooldown(id));
 				}
@@ -120,60 +156,18 @@ public final class SentryMoves {
 		}
 	}
 
-	/** A key came up: held moves end (the beam, the grip throws, Calm stops). */
+	/** A key came up: held moves end (the gaze, Disassemble throws, Calm stops). */
 	static void release(ServerPlayer p, AbilitySlot slot) {
 		UUID id = p.getUUID();
 		if (BEAM_KEY.get(id) == slot) {
-			stopBeam(p);
+			stopGaze(p);
 		}
 		if (slot == AbilitySlot.SLOT_2 && GRIP_HELD.remove(id) != null) {
-			throwGripped(p);
+			throwHeld(p);
 		}
 		if (slot == AbilitySlot.SLOT_5 && Sentry.state(p).calming) {
 			calm(p, false);
 		}
-	}
-
-	// ---------------------------------------------------------------- R: Golden Strike
-
-	/** A heavy punch; every 3rd a golden shockwave. True if it swung (a miss still swings). */
-	static boolean goldenStrike(ServerPlayer p) {
-		if (!Sentry.spendSun(p, SentryConfig.STRIKE_COST)) {
-			return false;
-		}
-		long now = p.level().getGameTime();
-		UUID id = p.getUUID();
-		Long last = COMBO_AT.get(id);
-		int[] step = COMBO.computeIfAbsent(id, k -> new int[1]);
-		if (last == null || now - last > SentryConfig.STRIKE_COMBO_WINDOW) {
-			step[0] = 0;
-		}
-		COMBO_AT.put(id, now);
-		p.swing(step[0] % 2 == 0 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND, true);
-		ServerLevel level = p.serverLevel();
-		LivingEntity t = target(p, SentryConfig.STRIKE_REACH);
-		boolean third = step[0] == 2;
-		step[0] = (step[0] + 1) % 3;
-		Vec3 at = t != null ? t.position().add(0, t.getBbHeight() * 0.5, 0) : p.getEyePosition().add(p.getLookAngle().scale(2.5));
-		if (t != null) {
-			Sentry.hit(p, t, third ? SentryConfig.STRIKE_THIRD_DAMAGE : SentryConfig.STRIKE_DAMAGE, false);
-			AbilityHelpers.knockbackFrom(t, p.position(), third ? 1.6 : 0.7);
-		}
-		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.5f), at.x, at.y, at.z, 10, 0.25, 0.25, 0.25, 0.0);
-		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.2);
-		Sentry.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.9f, 0.8f);
-		if (third) {
-			Vec3 c = t != null ? t.position() : p.position().add(p.getLookAngle().multiply(2, 0, 2));
-			double r = SentryConfig.STRIKE_WAVE_RADIUS;
-			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(r), e -> Sentry.areaVictim(p, e)
-					&& e.distanceToSqr(c) <= r * r && e != t)) {
-				Sentry.hit(p, e, SentryConfig.STRIKE_WAVE_DAMAGE, false);
-				AbilityHelpers.knockbackFrom(e, c, 1.0);
-			}
-			SentryFx.send(level, SentryFxPayload.RING, c.add(0, 0.1, 0), (float) r, 12);
-			Sentry.sound(p, SoundEvents.GENERIC_EXPLODE, 0.5f, 1.6f);
-		}
-		return true;
 	}
 
 	/** The living thing he is looking at within {@code range} (a beam-like ray stopped by blocks). */
@@ -189,10 +183,121 @@ public final class SentryMoves {
 		return eh != null && eh.getEntity() instanceof LivingEntity le ? le : null;
 	}
 
-	// ---------------------------------------------------------------- Shift+R: Sunbeam
+	/** Big things can't be lifted or thrown (they are held in place). */
+	static boolean liftable(LivingEntity e) {
+		return e.getMaxHealth() < 300f && e.getBbHeight() < 4.0f && !(e instanceof Player pl && pl.getAbilities().invulnerable);
+	}
 
-	static boolean startBeam(ServerPlayer p, AbilitySlot slot) {
-		if (!Sentry.hasSun(p, SentryAbilityManager.cost(SentryAbilityManager.SUNBEAM))) {
+	private static Vec3 centre(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.5, 0);
+	}
+
+	/** A creature comes apart into golden light (a kill by Disassemble or the Haymaker). */
+	static void disintegrate(ServerLevel level, LivingEntity e) {
+		Vec3 c = centre(e);
+		SentryFx.send(level, SentryFxPayload.DISINTEGRATE, c, e.getBbHeight(), 30, new Vec3(e.getBbWidth(), 0, 0), -1);
+		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 30, e.getBbWidth() * 0.5, e.getBbHeight() * 0.4, e.getBbWidth() * 0.5, 0.06);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.8f), c.x, c.y, c.z, 30, e.getBbWidth() * 0.5, e.getBbHeight() * 0.4, e.getBbWidth() * 0.5, 0.0);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.2f, 1.4f);
+	}
+
+	// ---------------------------------------------------------------- R: Golden Fury
+
+	/** One punch of the combo (a miss still swings). True if it swung. */
+	static boolean goldenFury(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.FURY_COST)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		UUID id = p.getUUID();
+		Long last = COMBO_AT.get(id);
+		int[] step = COMBO.computeIfAbsent(id, k -> new int[1]);
+		if (last == null || now - last > SentryConfig.FURY_COMBO_WINDOW) {
+			step[0] = 0;
+		}
+		COMBO_AT.put(id, now);
+		boolean haymaker = step[0] == 2;
+		step[0] = (step[0] + 1) % 3;
+		ServerLevel level = p.serverLevel();
+		LivingEntity t = target(p, SentryConfig.FURY_LUNGE_RANGE);
+		if (t != null && !Sentry.areaVictim(p, t)) {
+			t = null;
+		}
+		if (t != null && p.distanceTo(t) > SentryConfig.FURY_REACH) {
+			// out of reach: the golden lunge closes the gap
+			Vec3 to = t.position().subtract(p.position());
+			double len = to.length();
+			AbilityHelpers.launchSelf(p, to.scale(1.0 / len).scale(Math.min(2.4, (len - 1.6) * 0.6)).add(0, 0.1, 0));
+			SentryFx.send(level, SentryFxPayload.BOOM, p.position().add(0, 1.0, 0), 1.5f, 8, p.position().add(to), p.getId());
+			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.5f), p.getX(), p.getY() + 1.0, p.getZ(), 12, 0.3, 0.5, 0.3, 0.0);
+		}
+		p.swing(haymaker || step[0] == 1 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND, true);
+		if (haymaker) {
+			Sentry.pose(p, SentryState.POSE_HAYMAKER, 8);
+		}
+		Vec3 at = t != null ? centre(t) : p.getEyePosition().add(p.getLookAngle().scale(2.5));
+		if (t != null) {
+			boolean landed = Sentry.hit(p, t, haymaker ? SentryConfig.FURY_HAYMAKER_DAMAGE : SentryConfig.FURY_DAMAGE, false);
+			if (haymaker && t.isAlive() && liftable(t)) {
+				Vec3 look = p.getLookAngle();
+				Vec3 flat = new Vec3(look.x, 0, look.z);
+				flat = flat.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0f, p.getYRot()) : flat.normalize();
+				t.setDeltaMovement(flat.scale(SentryConfig.FURY_LAUNCH_SPEED).add(0, SentryConfig.FURY_LAUNCH_LIFT + Math.max(0, look.y), 0));
+				t.hurtMarked = true;
+				LAUNCH.put(id, new Launch(t.getId(), now, now + SentryConfig.FURY_LAUNCH_TICKS, true));
+				SentryFx.send(level, SentryFxPayload.COMET, at, 0.6f, SentryConfig.FURY_LAUNCH_TICKS, at, t.getId());
+			} else if (haymaker && !t.isAlive() && landed) {
+				disintegrate(level, t);
+			} else {
+				AbilityHelpers.knockbackFrom(t, p.position(), haymaker ? 1.6 : 0.6);
+			}
+		}
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.5f), at.x, at.y, at.z, 10, 0.25, 0.25, 0.25, 0.0);
+		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.2);
+		Sentry.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.9f, haymaker ? 0.6f : 0.85f);
+		if (haymaker) {
+			SentryFx.send(level, SentryFxPayload.BOOM, at, 2.5f, 12, at.add(p.getLookAngle()), p.getId());
+			level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+			Sentry.sound(p, SoundEvents.GENERIC_EXPLODE, 0.6f, 1.5f);
+		}
+		return true;
+	}
+
+	/** A launched creature: a golden comet trail; slamming into a wall (Haymaker only) hurts it once more. */
+	private static void tickLaunch(ServerPlayer p, long now) {
+		Launch l = LAUNCH.get(p.getUUID());
+		if (l == null) {
+			return;
+		}
+		Entity e = p.level().getEntity(l.entity);
+		if (!(e instanceof LivingEntity le) || !le.isAlive() || now > l.until) {
+			LAUNCH.remove(p.getUUID());
+			return;
+		}
+		ServerLevel level = p.serverLevel();
+		Vec3 c = centre(le);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.6f), c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0.0);
+		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 1, 0.1, 0.1, 0.1, 0.01);
+		if (l.impact && now - l.start >= 2 && le.horizontalCollision) {
+			LAUNCH.remove(p.getUUID());
+			Sentry.hit(p, le, SentryConfig.FURY_IMPACT_DAMAGE, false);
+			SentryFx.send(level, SentryFxPayload.RING, le.position().add(0, 0.6, 0), 2.5f, 10);
+			level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 2, 0.3, 0.3, 0.3, 0.0);
+			BlockPos hitAt = le.blockPosition().relative(le.getDirection());
+			BlockState st = level.getBlockState(hitAt);
+			if (!st.isAir()) {
+				level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, st), c.x, c.y, c.z, 30, 0.5, 0.5, 0.5, 0.2);
+			}
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8f, 1.2f);
+		} else if (now - l.start >= 4 && le.onGround()) {
+			LAUNCH.remove(p.getUUID());
+		}
+	}
+
+	// ---------------------------------------------------------------- Shift+R: Solar Gaze
+
+	static boolean startGaze(ServerPlayer p, AbilitySlot slot) {
+		if (!Sentry.hasSun(p, SentryAbilityManager.cost(SentryAbilityManager.SOLAR_GAZE))) {
 			Sentry.say(p, "message.projecthero.sentry.no_sun", ChatFormatting.GRAY);
 			return false;
 		}
@@ -200,11 +305,11 @@ public final class SentryMoves {
 		n.beamStart = Math.max(1L, p.level().getGameTime());
 		Sentry.save(p, n);
 		BEAM_KEY.put(p.getUUID(), slot);
-		Sentry.sound(p, SoundEvents.BEACON_ACTIVATE, 0.8f, 1.6f);
+		Sentry.sound(p, SoundEvents.BEACON_ACTIVATE, 0.8f, 1.8f);
 		return true;
 	}
 
-	static void stopBeam(ServerPlayer p) {
+	static void stopGaze(ServerPlayer p) {
 		BEAM_KEY.remove(p.getUUID());
 		SentryState s = Sentry.state(p);
 		if (s.beamStart == 0L) {
@@ -213,26 +318,31 @@ public final class SentryMoves {
 		SentryState n = s.copy();
 		n.beamStart = 0L;
 		Sentry.save(p, n);
-		Sentry.startCooldown(p, SentryAbilityManager.SUNBEAM, SentryConfig.BEAM_COOLDOWN);
-		Sentry.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.6f);
+		Sentry.startCooldown(p, SentryAbilityManager.SOLAR_GAZE, SentryConfig.GAZE_COOLDOWN);
+		Sentry.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.8f);
 	}
 
-	/** Where the beam starts: between his hands, held out in front of his chest. */
-	public static Vec3 beamOrigin(Player p) {
-		return p.getEyePosition().add(0, -0.35, 0).add(p.getLookAngle().scale(0.6));
+	/** Where the gaze starts: his eyes (the client draws one beam from each). */
+	public static Vec3 gazeOrigin(Player p) {
+		return p.getEyePosition().add(p.getLookAngle().scale(0.25));
 	}
 
-	private static void tickBeam(ServerPlayer p, SentryState s, long now) {
+	/** The gaze's damage this tick of holding it (it ramps up past {@link SentryConfig#GAZE_RAMP_TICKS}). */
+	public static float gazeDamage(long heldTicks) {
+		return heldTicks >= SentryConfig.GAZE_RAMP_TICKS ? SentryConfig.GAZE_DAMAGE * SentryConfig.GAZE_RAMP : SentryConfig.GAZE_DAMAGE;
+	}
+
+	private static void tickGaze(ServerPlayer p, SentryState s, long now) {
 		long age = now - s.beamStart;
-		if (age > SentryConfig.BEAM_MAX_TICKS || !BEAM_KEY.containsKey(p.getUUID())) {
-			stopBeam(p);
+		if (age > SentryConfig.GAZE_MAX_TICKS || !BEAM_KEY.containsKey(p.getUUID())) {
+			stopGaze(p);
 			return;
 		}
-		Vec3 from = beamOrigin(p);
+		Vec3 from = gazeOrigin(p);
 		Vec3 dir = p.getLookAngle();
-		BeamClash.report(p, from, dir, SentryConfig.BEAM_RANGE, SentryConfig.BEAM_CLASH_POWER, Sentry.GOLD);
+		BeamClash.report(p, from, dir, SentryConfig.GAZE_RANGE, SentryConfig.GAZE_CLASH_POWER, Sentry.GOLD);
 		ServerLevel level = p.serverLevel();
-		Vec3 end = from.add(dir.scale(SentryConfig.BEAM_RANGE));
+		Vec3 end = from.add(dir.scale(SentryConfig.GAZE_RANGE));
 		BlockHitResult bh = level.clip(new ClipContext(from, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		if (bh.getType() != HitResult.Type.MISS) {
 			end = bh.getLocation();
@@ -242,37 +352,38 @@ public final class SentryMoves {
 		if (eh != null) {
 			end = eh.getLocation();
 		}
-		if (age % SentryConfig.BEAM_DAMAGE_INTERVAL == 0 && eh != null && eh.getEntity() instanceof LivingEntity le) {
-			Sentry.hit(p, le, SentryConfig.BEAM_DAMAGE, false);
-			le.igniteForSeconds(2f);
+		if (age % SentryConfig.GAZE_DAMAGE_INTERVAL == 0 && eh != null && eh.getEntity() instanceof LivingEntity le) {
+			Sentry.hit(p, le, gazeDamage(age), false);
+			le.igniteForSeconds(3f);
 		}
 		if (age % 2 == 0) {
 			level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 2, 0.15, 0.15, 0.15, 0.03);
 			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), end.x, end.y, end.z, 3, 0.2, 0.2, 0.2, 0.0);
+			if (age >= SentryConfig.GAZE_RAMP_TICKS) {
+				level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 2, 0.15, 0.15, 0.15, 0.02);
+			}
+		}
+		if (age % 10 == 0) {
+			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 0.5f, age >= SentryConfig.GAZE_RAMP_TICKS ? 2.0f : 1.6f);
 		}
 		if (age % 5 == 0 && age > 0) {
-			if (!Sentry.spendSun(p, SentryConfig.BEAM_COST_PER_SECOND / 4f)) {
-				stopBeam(p);
+			if (!Sentry.spendSun(p, SentryConfig.GAZE_COST_PER_SECOND / 4f)) {
+				stopGaze(p);
 				return;
 			}
-			Sentry.addVoid(p, SentryConfig.BEAM_VOID_PER_SECOND / 4f);
+			Sentry.addVoid(p, SentryConfig.GAZE_VOID_PER_SECOND / 4f);
 		}
 	}
 
-	// ---------------------------------------------------------------- G: Molecular Grip
+	// ---------------------------------------------------------------- G: Disassemble
 
-	/** Big things can't be lifted (they are held in place and only torn). */
-	static boolean liftable(LivingEntity e) {
-		return e.getMaxHealth() < 300f && e.getBbHeight() < 4.0f && !(e instanceof Player pl && pl.getAbilities().invulnerable);
-	}
-
-	static boolean startGrip(ServerPlayer p) {
-		LivingEntity t = target(p, SentryConfig.GRIP_RANGE);
+	static boolean startDisassemble(ServerPlayer p) {
+		LivingEntity t = target(p, SentryConfig.UNMAKE_RANGE);
 		if (t == null || !Sentry.areaVictim(p, t)) {
 			Sentry.say(p, "message.projecthero.sentry.no_target", ChatFormatting.GRAY);
 			return false;
 		}
-		if (!Sentry.spendSun(p, SentryConfig.GRIP_COST)) {
+		if (!Sentry.spendSun(p, SentryConfig.UNMAKE_COST)) {
 			return false;
 		}
 		SentryState n = Sentry.state(p).copy();
@@ -284,7 +395,7 @@ public final class SentryMoves {
 		return true;
 	}
 
-	private static LivingEntity gripped(ServerPlayer p, SentryState s) {
+	private static LivingEntity held(ServerPlayer p, SentryState s) {
 		if (s.gripTarget < 0) {
 			return null;
 		}
@@ -292,7 +403,7 @@ public final class SentryMoves {
 		return e instanceof LivingEntity le && le.isAlive() ? le : null;
 	}
 
-	private static void endGrip(ServerPlayer p) {
+	private static void endDisassemble(ServerPlayer p) {
 		GRIP_HELD.remove(p.getUUID());
 		SentryState s = Sentry.state(p);
 		if (s.gripTarget < 0) {
@@ -302,170 +413,207 @@ public final class SentryMoves {
 		n.gripTarget = -1;
 		n.gripStart = 0L;
 		Sentry.save(p, n);
-		Sentry.startCooldown(p, SentryAbilityManager.GRIP, SentryConfig.GRIP_COOLDOWN);
+		Sentry.startCooldown(p, SentryAbilityManager.DISASSEMBLE, SentryConfig.UNMAKE_COOLDOWN);
 	}
 
-	private static void tickGrip(ServerPlayer p, SentryState s, long now) {
-		LivingEntity t = gripped(p, s);
+	private static void tickDisassemble(ServerPlayer p, SentryState s, long now) {
+		LivingEntity t = held(p, s);
 		if (t == null) {
-			endGrip(p);
+			endDisassemble(p);
 			return;
 		}
 		long age = now - s.gripStart;
 		ServerLevel level = p.serverLevel();
 		if (liftable(t)) {
 			Vec3 hold = p.getEyePosition().add(p.getLookAngle().scale(4.0)).subtract(0, t.getBbHeight() * 0.5, 0);
-			Vec3 pull = hold.subtract(t.position()).scale(0.35);
-			t.setDeltaMovement(pull);
+			t.setDeltaMovement(hold.subtract(t.position()).scale(0.35));
 			t.hurtMarked = true;
 			t.resetFallDistance();
+		} else {
+			t.setDeltaMovement(t.getDeltaMovement().multiply(0.2, 1.0, 0.2)); // pinned where it stands
+			t.hurtMarked = true;
 		}
-		if (age % 3 == 0) {
-			Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
-			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.3f), c.x, c.y, c.z, 6, t.getBbWidth() * 0.6, t.getBbHeight() * 0.5, t.getBbWidth() * 0.6, 0.0);
+		Vec3 c = centre(t);
+		float k = Math.min(1f, age / (float) SentryConfig.UNMAKE_TEAR_TICKS);
+		if (age % 2 == 0) {
+			// the golden field, and motes flaking off as the molecules come loose
+			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.3f), c.x, c.y, c.z, 4 + (int) (6 * k), t.getBbWidth() * 0.6, t.getBbHeight() * 0.5, t.getBbWidth() * 0.6, 0.0);
+			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 1 + (int) (3 * k), t.getBbWidth() * 0.5, t.getBbHeight() * 0.4, t.getBbWidth() * 0.5, 0.02 + 0.04 * k);
 		}
-		if (GRIP_HELD.containsKey(p.getUUID()) && age >= SentryConfig.GRIP_TEAR_TICKS) {
-			tear(p, t);
-			endGrip(p);
+		if (age > 0 && age % SentryConfig.UNMAKE_TICK_INTERVAL == 0) {
+			Sentry.hit(p, t, SentryConfig.UNMAKE_TICK_DAMAGE, false); // (a burst hit: lands through the hit window)
+			Sentry.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.6f, 0.8f + k);
+		}
+		if (!t.isAlive()) {
+			disintegrate(level, t);
+			endDisassemble(p);
 			return;
 		}
-		if (age >= SentryConfig.GRIP_MAX_TICKS) {
-			endGrip(p);
+		if (GRIP_HELD.containsKey(p.getUUID()) && age >= SentryConfig.UNMAKE_TEAR_TICKS) {
+			tear(p, t);
+			endDisassemble(p);
+			return;
+		}
+		if (age >= SentryConfig.UNMAKE_MAX_TICKS) {
+			endDisassemble(p);
 		}
 	}
 
-	/** Holding G: the molecules come apart. */
+	/** Held long enough: the molecules come apart. */
 	static void tear(ServerPlayer p, LivingEntity t) {
 		ServerLevel level = p.serverLevel();
-		Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
-		Sentry.hit(p, t, SentryConfig.GRIP_TEAR_DAMAGE, false);
-		Sentry.addVoid(p, SentryConfig.GRIP_TEAR_VOID);
+		Vec3 c = centre(t);
+		Sentry.hit(p, t, SentryConfig.UNMAKE_TEAR_DAMAGE, false);
+		Sentry.addVoid(p, SentryConfig.UNMAKE_TEAR_VOID);
+		if (!t.isAlive()) {
+			disintegrate(level, t);
+		}
 		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 30, 0.4, 0.5, 0.4, 0.12);
 		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.0f), c.x, c.y, c.z, 30, 0.5, 0.6, 0.5, 0.0);
 		Sentry.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 1.2f, 0.6f);
 	}
 
-	/** G let go before the tear: the creature is thrown along his look. */
-	static void throwGripped(ServerPlayer p) {
+	/** G let go before it came apart: thrown along his look. */
+	static void throwHeld(ServerPlayer p) {
 		SentryState s = Sentry.state(p);
-		LivingEntity t = gripped(p, s);
-		if (t != null && p.level().getGameTime() - s.gripStart < SentryConfig.GRIP_TEAR_TICKS) {
+		LivingEntity t = held(p, s);
+		if (t != null && p.level().getGameTime() - s.gripStart < SentryConfig.UNMAKE_TEAR_TICKS) {
+			Sentry.hit(p, t, SentryConfig.UNMAKE_THROW_DAMAGE, false);
 			if (liftable(t)) {
-				t.setDeltaMovement(p.getLookAngle().scale(SentryConfig.GRIP_THROW_SPEED).add(0, 0.3, 0));
+				t.setDeltaMovement(p.getLookAngle().scale(SentryConfig.UNMAKE_THROW_SPEED).add(0, 0.3, 0));
 				t.hurtMarked = true;
 			}
-			Sentry.hit(p, t, SentryConfig.GRIP_THROW_DAMAGE, false);
 			Sentry.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.8f);
 		}
-		endGrip(p);
+		endDisassemble(p);
 	}
 
-	// ---------------------------------------------------------------- Shift+G: Unmake
+	// ---------------------------------------------------------------- Shift+G: Skyward Hurl
 
-	/** Whether Unmake (or the Void) may take this block: no bedrock / unbreakables, no block entities, no portals. */
-	public static boolean unmakeable(ServerLevel level, BlockPos pos, BlockState st) {
-		if (st.isAir() || st.getDestroySpeed(level, pos) < 0f || st.hasBlockEntity() || !st.getFluidState().isEmpty()) {
+	static boolean skywardHurl(ServerPlayer p) {
+		LivingEntity t = target(p, SentryConfig.HURL_REACH);
+		if (t == null || !Sentry.areaVictim(p, t)) {
+			Sentry.say(p, "message.projecthero.sentry.no_target", ChatFormatting.GRAY);
 			return false;
 		}
-		return !st.is(Blocks.BEDROCK) && !st.is(Blocks.NETHER_PORTAL) && !st.is(Blocks.END_PORTAL) && !st.is(Blocks.END_GATEWAY)
-				&& !st.is(Blocks.END_PORTAL_FRAME) && !st.is(com.projecthero.mod.sentry.block.SentryBlocks.VOID_MATTER);
-	}
-
-	static boolean unmake(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.HURL_COST)) {
+			return false;
+		}
 		ServerLevel level = p.serverLevel();
-		if (!AbilityHelpers.canGrief()) {
-			Sentry.say(p, "message.projecthero.sentry.no_terrain", ChatFormatting.GRAY);
-			return false;
-		}
-		BlockHitResult bh = AbilityHelpers.raycastBlock(p, SentryConfig.UNMAKE_RANGE);
-		if (bh == null || bh.getType() != HitResult.Type.BLOCK) {
-			return false;
-		}
-		if (!Sentry.hasSun(p, SentryConfig.UNMAKE_COST)) {
-			Sentry.say(p, "message.projecthero.sentry.no_sun", ChatFormatting.GRAY);
-			return false;
-		}
-		BlockPos c = bh.getBlockPos();
-		Direction face = bh.getDirection();
-		int n = 0;
-		for (int a = -1; a <= 1; a++) {
-			for (int b = -1; b <= 1; b++) {
-				BlockPos pos = switch (face.getAxis()) {
-					case X -> c.offset(0, a, b);
-					case Y -> c.offset(a, 0, b);
-					case Z -> c.offset(a, b, 0);
-				};
-				BlockState st = level.getBlockState(pos);
-				if (!level.isLoaded(pos) || !unmakeable(level, pos, st) || !level.mayInteract(p, pos)) {
-					continue;
-				}
-				level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-				level.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.3, 0.3, 0.3, 0.04);
-				level.sendParticles(Sentry.dust(Sentry.GOLD, 1.0f), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.0);
-				n++;
+		Sentry.pose(p, SentryState.POSE_HURL, 12);
+		p.swing(InteractionHand.MAIN_HAND, true);
+		Vec3 c = centre(t);
+		if (liftable(t)) {
+			Sentry.hit(p, t, SentryConfig.HURL_DAMAGE, false);
+			if (t.isAlive()) {
+				Vec3 look = p.getLookAngle();
+				t.setDeltaMovement(look.x * 0.12, SentryConfig.HURL_SPEED, look.z * 0.12);
+				t.hurtMarked = true;
+				t.resetFallDistance();
+				long now = level.getGameTime();
+				LAUNCH.put(p.getUUID(), new Launch(t.getId(), now, now + 60, false));
+				SentryFx.send(level, SentryFxPayload.COMET, c, 0.7f, 50, c, t.getId());
 			}
+			Sentry.sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.6f);
+		} else {
+			// too big to throw: slammed down where it stands
+			Sentry.hit(p, t, SentryConfig.HURL_BOSS_DAMAGE, false);
+			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, SentryConfig.HURL_BOSS_SLOW_TICKS, 2);
+			SentryFx.send(level, SentryFxPayload.RING, t.position().add(0, 0.1, 0), 3.5f, 12);
+			Sentry.sound(p, SoundEvents.GENERIC_EXPLODE, 0.8f, 1.0f);
 		}
-		if (n == 0) {
-			return false;
-		}
-		Sentry.spendSun(p, SentryConfig.UNMAKE_COST);
-		Sentry.addVoid(p, SentryConfig.UNMAKE_VOID);
-		level.playSound(null, c, SoundEvents.AMETHYST_CLUSTER_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.4f);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.8f), c.x, c.y, c.z, 20, 0.4, 0.6, 0.4, 0.0);
+		level.sendParticles(ParticleTypes.CLOUD, t.getX(), t.getY() + 0.1, t.getZ(), 12, 0.5, 0.1, 0.5, 0.05);
+		Sentry.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Z: Sun Dive
+	// ---------------------------------------------------------------- Z: Sunfall
 
-	static boolean sunDive(ServerPlayer p) {
-		if (p.onGround()) {
-			Sentry.say(p, "message.projecthero.sentry.dive_ground", ChatFormatting.GRAY);
+	static boolean sunfall(ServerPlayer p) {
+		if (SUNFALL.containsKey(p.getUUID()) || !Sentry.spendSun(p, SentryConfig.SUNFALL_COST)) {
 			return false;
 		}
-		if (!Sentry.spendSun(p, SentryConfig.DIVE_COST)) {
-			return false;
-		}
+		boolean ground = p.onGround();
 		SentryFlight.stop(p);
-		DIVING.put(p.getUUID(), p.level().getGameTime());
-		Sentry.sound(p, SoundEvents.ELYTRA_FLYING, 0.6f, 1.6f);
+		long now = p.level().getGameTime();
+		SUNFALL.put(p.getUUID(), new long[] { now, ground ? 0 : 1 });
+		ServerLevel level = p.serverLevel();
+		if (ground) {
+			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x * 0.5, SentryConfig.SUNFALL_LEAP, p.getDeltaMovement().z * 0.5));
+			Sentry.pose(p, SentryState.POSE_LEAP, SentryConfig.SUNFALL_LEAP_TICKS);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 16, 0.6, 0.1, 0.6, 0.08);
+			SentryFx.send(level, SentryFxPayload.RING, p.position().add(0, 0.1, 0), 2.5f, 10);
+			Sentry.sound(p, SoundEvents.WIND_CHARGE_BURST, 1.0f, 0.8f);
+		} else {
+			Sentry.pose(p, SentryState.POSE_DIVE, SentryConfig.SUNFALL_MAX_TICKS);
+			Sentry.sound(p, SoundEvents.ELYTRA_FLYING, 0.6f, 1.6f);
+		}
 		return true;
 	}
 
-	private static void tickDive(ServerPlayer p, long now) {
-		Long start = DIVING.get(p.getUUID());
-		if (start == null) {
+	private static void tickSunfall(ServerPlayer p, long now) {
+		long[] st = SUNFALL.get(p.getUUID());
+		if (st == null) {
 			return;
 		}
-		boolean timeout = now - start > SentryConfig.DIVE_MAX_TICKS;
-		if ((p.onGround() || p.isInWater() || timeout) && now - start > 1) {
-			DIVING.remove(p.getUUID());
+		ServerLevel level = p.serverLevel();
+		long age = now - st[0];
+		if (st[1] == 0) {
+			// the leap: up until it slows (or the leap time is over), then the dive
+			if (age >= SentryConfig.SUNFALL_LEAP_TICKS || (age > 3 && p.getDeltaMovement().y < 0.15)) {
+				st[1] = 1;
+				st[0] = now;
+				Sentry.pose(p, SentryState.POSE_DIVE, SentryConfig.SUNFALL_MAX_TICKS);
+				Sentry.sound(p, SoundEvents.ELYTRA_FLYING, 0.6f, 1.6f);
+			} else {
+				level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), p.getX(), p.getY() + 0.5, p.getZ(), 3, 0.3, 0.3, 0.3, 0.0);
+			}
+			return;
+		}
+		boolean timeout = age > SentryConfig.SUNFALL_MAX_TICKS;
+		if ((p.onGround() || p.isInWater() || timeout) && age > 1) {
+			SUNFALL.remove(p.getUUID());
 			slam(p);
 			return;
 		}
 		Vec3 look = p.getLookAngle();
 		Vec3 dir = new Vec3(look.x * 0.45, -1.0, look.z * 0.45).normalize();
-		AbilityHelpers.launchSelf(p, dir.scale(SentryConfig.DIVE_SPEED));
-		ServerLevel level = p.serverLevel();
+		AbilityHelpers.launchSelf(p, dir.scale(SentryConfig.SUNFALL_SPEED));
 		level.sendParticles(Sentry.dust(Sentry.GOLD, 1.6f), p.getX(), p.getY() + 1.0, p.getZ(), 6, 0.3, 0.6, 0.3, 0.0);
 		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.0, p.getZ(), 2, 0.2, 0.4, 0.2, 0.02);
+		if (age % 3 == 0) {
+			SentryFx.send(level, SentryFxPayload.BOOM, p.position().add(0, 0.5, 0), 1.2f, 6, p.position().add(dir), p.getId());
+		}
 	}
 
-	/** The golden crater. */
-	static void slam(ServerPlayer p) {
+	/** The sonic-boom slam: the inner hit, then the outer ring. Returns how many it hit (tests). */
+	public static int slam(ServerPlayer p) {
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position();
-		double r = SentryConfig.DIVE_RADIUS;
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r), e -> Sentry.areaVictim(p, e)
-				&& e.distanceToSqr(c) <= r * r)) {
-			Sentry.hit(p, e, SentryConfig.DIVE_DAMAGE, false);
-			AbilityHelpers.knockbackFrom(e, c, 1.4);
-			AbilityHelpers.push(e, new Vec3(0, 0.5, 0));
+		double r = SentryConfig.SUNFALL_RADIUS;
+		double r2 = SentryConfig.SUNFALL_RING_RADIUS;
+		int n = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r2, 4.0, r2),
+				e -> Sentry.areaVictim(p, e) && e.distanceToSqr(c) <= r2 * r2)) {
+			boolean inner = e.distanceToSqr(c) <= r * r;
+			if (Sentry.hit(p, e, inner ? SentryConfig.SUNFALL_DAMAGE : SentryConfig.SUNFALL_RING_DAMAGE, false)) {
+				n++;
+			}
+			AbilityHelpers.knockbackFrom(e, c, inner ? 1.5 : 0.9);
+			AbilityHelpers.push(e, new Vec3(0, inner ? 0.55 : 0.25, 0));
 		}
 		p.resetFallDistance();
+		Sentry.pose(p, 0, 0);
 		SentryFx.send(level, SentryFxPayload.CRATER, c.add(0, 0.05, 0), (float) r, 30);
-		SentryFx.send(level, SentryFxPayload.RING, c.add(0, 0.1, 0), (float) r + 1f, 14);
-		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.3, c.z, 3, 1.2, 0.2, 1.2, 0.0);
-		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.0f), c.x, c.y + 0.3, c.z, 50, r * 0.5, 0.3, r * 0.5, 0.0);
-		Sentry.sound(p, SoundEvents.GENERIC_EXPLODE, 1.0f, 1.1f);
+		SentryFx.send(level, SentryFxPayload.RING, c.add(0, 0.1, 0), (float) r2, 14);
+		SentryFx.send(level, SentryFxPayload.BOOM, c.add(0, 0.3, 0), 3f, 12, c.add(0, 1.3, 0), p.getId());
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.3, c.z, 4, 1.4, 0.2, 1.4, 0.0);
+		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.0f), c.x, c.y + 0.3, c.z, 60, r * 0.6, 0.3, r * 0.6, 0.0);
+		Sentry.sound(p, SoundEvents.GENERIC_EXPLODE, 1.2f, 1.0f);
+		Sentry.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.7f, 1.3f);
+		return n;
 	}
 
 	// ---------------------------------------------------------------- Shift+Z: A Million Suns
@@ -474,29 +622,38 @@ public final class SentryMoves {
 		if (!Sentry.spendSun(p, SentryConfig.SUNS_COST)) {
 			return false;
 		}
-		stopBeam(p);
+		stopGaze(p);
 		SentryState n = Sentry.state(p).copy();
 		n.sunsStart = Math.max(1L, p.level().getGameTime());
 		Sentry.save(p, n);
 		Sentry.startCooldown(p, SentryAbilityManager.MILLION_SUNS, SentryConfig.SUNS_COOLDOWN);
-		SentryFx.send(p.serverLevel(), SentryFxPayload.SUNS_CHARGE, p.position().add(0, 1.0, 0), 3f, SentryConfig.SUNS_CHARGE_TICKS, null, p.getId());
+		SentryFx.send(p.serverLevel(), SentryFxPayload.SUNS_CHARGE, p.position().add(0, 1.0, 0), 3.5f, SentryConfig.SUNS_CHARGE_TICKS, null, p.getId());
 		Sentry.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.5f, 0.5f);
 		return true;
+	}
+
+	/** Charging A Million Suns right now (damage taken is halved). */
+	public static boolean chargingSuns(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s != null && s.sunsStart != 0L;
 	}
 
 	private static void tickSuns(ServerPlayer p, SentryState s, long now) {
 		long age = now - s.sunsStart;
 		ServerLevel level = p.serverLevel();
-		// he hangs in the air while the light gathers
+		// he rises into the air while the light gathers, then hangs there
 		Vec3 v = p.getDeltaMovement();
-		AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, age < 15 ? 0.08 : 0.0, v.z * 0.3));
+		AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, age < 20 ? 0.12 : 0.0, v.z * 0.3));
 		if (age % 4 == 0) {
-			double rr = 3.0 - 2.5 * Math.min(1.0, age / (double) SentryConfig.SUNS_CHARGE_TICKS);
+			double rr = 3.5 - 3.0 * Math.min(1.0, age / (double) SentryConfig.SUNS_CHARGE_TICKS);
 			level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.0, p.getZ(), 10, rr, rr, rr, 0.0);
 			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.8f), p.getX(), p.getY() + 1.0, p.getZ(), 8, rr, rr, rr, 0.0);
 		}
 		if (age % 20 == 0) {
-			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 1.6f, 0.6f + age / 100f);
+			Sentry.sound(p, SoundEvents.BEACON_AMBIENT, 1.6f, 0.5f + age / 100f);
+		}
+		if (age == SentryConfig.SUNS_CHARGE_TICKS - 20) {
+			Sentry.sound(p, SoundEvents.BEACON_POWER_SELECT, 2.0f, 1.8f);
 		}
 		if (age < SentryConfig.SUNS_CHARGE_TICKS) {
 			return;
@@ -507,7 +664,7 @@ public final class SentryMoves {
 		millionSuns(p);
 	}
 
-	/** The explosion of light: 140 at the centre falling to 70 at the 12-block edge. */
+	/** The explosion of light: 150 at the centre falling to 70 at the 14-block edge. Returns how many it hit. */
 	public static int millionSuns(ServerPlayer p) {
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position().add(0, 1.0, 0);
@@ -520,8 +677,11 @@ public final class SentryMoves {
 			if (Sentry.hit(p, e, dmg, false)) {
 				n++;
 			}
+			if (!e.isAlive()) {
+				disintegrate(level, e);
+			}
 			AbilityHelpers.knockbackFrom(e, c, 2.5 * (1.0 - f * 0.5));
-			e.igniteForSeconds(4f);
+			e.igniteForSeconds(5f);
 		}
 		Sentry.addVoid(p, SentryConfig.SUNS_VOID);
 		SentryFx.send(level, SentryFxPayload.SUNS, c, (float) r, 40, null, p.getId());
@@ -529,14 +689,14 @@ public final class SentryMoves {
 		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 200, r * 0.4, r * 0.3, r * 0.4, 0.4);
 		level.sendParticles(Sentry.dust(Sentry.GOLD, 2.5f), c.x, c.y, c.z, 150, r * 0.5, r * 0.3, r * 0.5, 0.0);
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE, net.minecraft.sounds.SoundSource.PLAYERS, 3.0f, 0.7f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, net.minecraft.sounds.SoundSource.PLAYERS, 3.0f, 0.5f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 3.0f, 0.7f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 3.0f, 0.5f);
 		return n;
 	}
 
-	// ---------------------------------------------------------------- C: Healing Light
+	// ---------------------------------------------------------------- C: Golden Guardian
 
-	/** Whom Healing Light helps: him, squadmates, his own pets, villagers and golems. */
+	/** Whom Golden Guardian helps: him, squadmates, his own pets, villagers and golems. */
 	static boolean healable(ServerPlayer p, LivingEntity e) {
 		if (e == p) {
 			return true;
@@ -550,55 +710,91 @@ public final class SentryMoves {
 		return e instanceof AbstractVillager || e instanceof IronGolem || HeroTargets.isOwnedBy(e, p);
 	}
 
-	static boolean healingLight(ServerPlayer p) {
-		if (!Sentry.spendSun(p, SentryConfig.HEAL_COST)) {
+	static boolean goldenGuardian(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.GUARDIAN_COST)) {
 			return false;
 		}
 		ServerLevel level = p.serverLevel();
-		double r = SentryConfig.HEAL_RADIUS;
+		double r = SentryConfig.GUARDIAN_RADIUS;
 		int others = 0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r), e -> e.isAlive()
-				&& e.distanceToSqr(p) <= r * r && healable(p, e))) {
-			e.heal(SentryConfig.HEAL_AMOUNT);
-			Set<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> bad = new HashSet<>();
-			for (MobEffectInstance fx : e.getActiveEffects()) {
-				if (fx.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
-					bad.add(fx.getEffect());
+				&& e.distanceToSqr(p) <= r * r)) {
+			if (healable(p, e)) {
+				e.heal(SentryConfig.GUARDIAN_HEAL);
+				Set<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> bad = new HashSet<>();
+				for (MobEffectInstance fx : e.getActiveEffects()) {
+					if (fx.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
+						bad.add(fx.getEffect());
+					}
 				}
-			}
-			bad.forEach(e::removeEffect);
-			e.clearFire();
-			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
-			level.sendParticles(ParticleTypes.HAPPY_VILLAGER, c.x, c.y, c.z, 6, 0.4, 0.5, 0.4, 0.0);
-			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), c.x, c.y, c.z, 10, 0.4, 0.6, 0.4, 0.0);
-			if (e != p) {
-				others++;
+				bad.forEach(e::removeEffect);
+				e.clearFire();
+				e.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SentryConfig.GUARDIAN_REGEN_TICKS, 0, false, true, true));
+				e.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, SentryConfig.GUARDIAN_ABSORB_TICKS, 0, false, true, true));
+				SentryFx.send(level, SentryFxPayload.PILLAR, e.position(), e.getBbHeight() + 2.5f, 24);
+				Vec3 c = centre(e);
+				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, c.x, c.y, c.z, 6, 0.4, 0.5, 0.4, 0.0);
+				level.sendParticles(Sentry.dust(Sentry.GOLD, 1.2f), c.x, c.y, c.z, 10, 0.4, 0.6, 0.4, 0.0);
+				if (e != p) {
+					others++;
+				}
+			} else if (e.isInvertedHealAndHarm() && Sentry.areaVictim(p, e)) {
+				// the undead burn in his light
+				Sentry.hit(p, e, SentryConfig.GUARDIAN_UNDEAD_DAMAGE, false);
+				e.igniteForSeconds(3f);
+				Vec3 c = centre(e);
+				level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 8, 0.3, 0.5, 0.3, 0.02);
 			}
 		}
-		Sentry.addVoid(p, SentryConfig.HEAL_VOID + SentryConfig.HEAL_VOID_PER_ALLY * others);
-		SentryFx.send(level, SentryFxPayload.RING, p.position().add(0, 0.1, 0), (float) r, 16);
+		Sentry.addVoid(p, SentryConfig.GUARDIAN_VOID + SentryConfig.GUARDIAN_VOID_PER_ALLY * others);
+		Sentry.pose(p, SentryState.POSE_GUARDIAN, 20);
+		SentryFx.send(level, SentryFxPayload.RING, p.position().add(0, 0.1, 0), (float) r, 18);
 		Sentry.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.8f);
+		Sentry.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Shift+C: Sentinel Shield
+	// ---------------------------------------------------------------- Shift+C: Molecular Shield
 
-	static boolean sentinelShield(ServerPlayer p) {
-		if (!Sentry.spendSun(p, SentryConfig.SHIELD_COST)) {
+	static boolean molecularShield(ServerPlayer p) {
+		if (!Sentry.spendSun(p, SentryConfig.MSHIELD_COST)) {
 			return false;
 		}
 		SentryState n = Sentry.state(p).copy();
-		n.shieldUntil = p.level().getGameTime() + SentryConfig.SHIELD_TICKS;
+		n.shieldUntil = p.level().getGameTime() + SentryConfig.MSHIELD_TICKS;
 		Sentry.save(p, n);
-		SentryFx.send(p.serverLevel(), SentryFxPayload.SHIELD, p.position(), (float) SentryConfig.SHIELD_RADIUS, SentryConfig.SHIELD_TICKS, null, p.getId());
-		Sentry.sound(p, SoundEvents.BEACON_ACTIVATE, 1.0f, 1.2f);
+		Sentry.pose(p, SentryState.POSE_SHIELD, 12);
+		SentryFx.send(p.serverLevel(), SentryFxPayload.SHIELD, p.position(), (float) SentryConfig.MSHIELD_RADIUS, SentryConfig.MSHIELD_TICKS, null, p.getId());
+		Sentry.sound(p, SoundEvents.BEACON_ACTIVATE, 1.0f, 1.3f);
 		return true;
 	}
 
-	/** Whether a projectile is his or a friend's (the dome lets those through). */
+	/** The aura is up. */
+	public static boolean shielded(Player p) {
+		SentryState s = Sentry.peek(p);
+		return s != null && s.shieldUntil > p.level().getGameTime();
+	}
+
+	/** Whether a projectile is his or a friend's (the aura lets those through). */
 	static boolean friendly(ServerPlayer p, Projectile proj) {
 		Entity owner = proj.getOwner();
 		return owner == p || owner instanceof Player op && Squads.areAllies(p, op);
+	}
+
+	/** Melee on him while the aura is up: deflected back at the attacker (from {@code SentryDamage}). */
+	static void deflect(ServerPlayer victim, DamageSource source) {
+		if (!shielded(victim) || !(source.getDirectEntity() instanceof LivingEntity attacker) || source.getDirectEntity() != source.getEntity()
+				|| attacker == victim || attacker.distanceToSqr(victim) > 5.0 * 5.0 || !Sentry.areaVictim(victim, attacker)) {
+			return;
+		}
+		if (attacker.invulnerableTime > 0) {
+			return; // (once per hit window)
+		}
+		Sentry.hit(victim, attacker, SentryConfig.MSHIELD_DEFLECT_DAMAGE, false);
+		AbilityHelpers.knockbackFrom(attacker, victim.position(), 1.0);
+		Vec3 c = centre(attacker);
+		victim.serverLevel().sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 8, 0.3, 0.4, 0.3, 0.08);
+		Sentry.sound(victim, SoundEvents.SHIELD_BLOCK, 0.8f, 1.6f);
 	}
 
 	private static void tickShield(ServerPlayer p, SentryState s, long now) {
@@ -611,18 +807,36 @@ public final class SentryMoves {
 			return;
 		}
 		ServerLevel level = p.serverLevel();
-		double r = SentryConfig.SHIELD_RADIUS;
+		double r = SentryConfig.MSHIELD_RADIUS;
 		Vec3 c = p.position().add(0, 1.0, 0);
 		List<Projectile> list = level.getEntitiesOfClass(Projectile.class, new AABB(c, c).inflate(r + 1.0),
 				e -> e.isAlive() && e.distanceToSqr(c) <= (r + 0.5) * (r + 0.5) && !friendly(p, e));
 		for (Projectile proj : list) {
-			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.4f), proj.getX(), proj.getY(), proj.getZ(), 8, 0.2, 0.2, 0.2, 0.0);
-			level.sendParticles(ParticleTypes.END_ROD, proj.getX(), proj.getY(), proj.getZ(), 3, 0.1, 0.1, 0.1, 0.05);
+			// turned to light
+			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.4f), proj.getX(), proj.getY(), proj.getZ(), 10, 0.2, 0.2, 0.2, 0.0);
+			level.sendParticles(ParticleTypes.END_ROD, proj.getX(), proj.getY(), proj.getZ(), 5, 0.1, 0.1, 0.1, 0.08);
 			proj.discard();
+			if (!Sentry.free(p)) {
+				Sentry.setSun(p, Sentry.state(p).sun + SentryConfig.MSHIELD_SUN_PER_PROJECTILE);
+			}
 		}
 		if (!list.isEmpty()) {
-			Sentry.sound(p, SoundEvents.SHIELD_BLOCK, 0.8f, 1.4f);
+			Sentry.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.6f);
 		}
+		if (now % 6 == 0) {
+			level.sendParticles(Sentry.dust(Sentry.GOLD, 1.0f), p.getX(), p.getY() + 1.0, p.getZ(), 4, r * 0.5, 0.8, r * 0.5, 0.0);
+		}
+	}
+
+	// ---------------------------------------------------------------- the old Unmake's block rule (still used by the Void's decay)
+
+	/** Whether the Void may take this block: no bedrock / unbreakables, no block entities, no portals. */
+	public static boolean unmakeable(ServerLevel level, BlockPos pos, BlockState st) {
+		if (st.isAir() || st.getDestroySpeed(level, pos) < 0f || st.hasBlockEntity() || !st.getFluidState().isEmpty()) {
+			return false;
+		}
+		return !st.is(Blocks.BEDROCK) && !st.is(Blocks.NETHER_PORTAL) && !st.is(Blocks.END_PORTAL) && !st.is(Blocks.END_GATEWAY)
+				&& !st.is(Blocks.END_PORTAL_FRAME) && !st.is(com.projecthero.mod.sentry.block.SentryBlocks.VOID_MATTER);
 	}
 
 	// ---------------------------------------------------------------- V: Calm, Shift+V: Let it out
@@ -646,7 +860,7 @@ public final class SentryMoves {
 		}
 	}
 
-	/** Shift+V: v0.17.5 rework -- the trial ({@link LetItOut}); winning it merges him with the Void. */
+	/** Shift+V: the trial ({@link LetItOut}); winning it merges him with the Void. */
 	static void letItOut(ServerPlayer p) {
 		LetItOut.begin(p);
 	}
@@ -657,11 +871,11 @@ public final class SentryMoves {
 		SentryState s = Sentry.state(p);
 		long now = p.level().getGameTime();
 		if (s.beamStart != 0L) {
-			tickBeam(p, s, now);
+			tickGaze(p, s, now);
 		}
 		s = Sentry.state(p);
 		if (s.gripTarget >= 0) {
-			tickGrip(p, s, now);
+			tickDisassemble(p, s, now);
 		}
 		s = Sentry.state(p);
 		if (s.sunsStart != 0L) {
@@ -671,7 +885,8 @@ public final class SentryMoves {
 		if (s.shieldUntil != 0L) {
 			tickShield(p, s, now);
 		}
-		tickDive(p, now);
+		tickSunfall(p, now);
+		tickLaunch(p, now);
 		if (s.calming && now % 4 == 0) {
 			p.serverLevel().sendParticles(Sentry.dust(Sentry.GOLD, 1.0f), p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.6, 0.8, 0.6, 0.0);
 			if (!p.onGround()) {

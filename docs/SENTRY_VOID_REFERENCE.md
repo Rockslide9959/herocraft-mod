@@ -1,12 +1,14 @@
 # Sentry & the Void (v0.17.5) — reference
 
-Design: `docs/SENTRY_VOID_DESIGN.md` (approved 2026-11-15, reworked 2026-11-16). Code: `com.projecthero.mod.sentry` (server/common),
+Design: `docs/SENTRY_VOID_DESIGN.md` (approved 2026-11-15, reworked 2026-11-16; moveset 2 for both forms + the takeover's 2 s attack pace 2026-11-18). Code: `com.projecthero.mod.sentry` (server/common),
 `com.projecthero.mod.client.sentry` (client). Every number lives in `SentryConfig`. Tests: `SentryGameTests`,
 `VoidTakeoverGameTests`. Assets: `node scratchpad/gen_sentry_v0175.js` (the original pixel art: serum, vat, blocks, the original
 suit / Void Form textures); `node scratchpad/sentry/make_suit_textures.js` (the rework: suit textures from the two borrowed skins, capes,
 the takeover body, suit icons, preview sheet). Lang: `node scratchpad/lang_sentry_v0175.js`, then
 `node scratchpad/sentry/lang_sentry_rework_v0175.js` (key by key). Films/screens: `scratchpad/SentryHarness.v0175.java.txt` ->
-`docs/screenshots/v0175/sentry/`; rework: `scratchpad/SentryHarness2.v0175.java.txt` -> `docs/screenshots/v0175/sentry2/`.
+`docs/screenshots/v0175/sentry/`; rework: `scratchpad/SentryHarness2.v0175.java.txt` -> `docs/screenshots/v0175/sentry2/`; moveset 2:
+`scratchpad/SentryMovesHarness.v0175.java.txt` -> `docs/screenshots/v0175/sentry_moves/` (`node scratchpad/sentry/films_moves.js`), lang
+`node scratchpad/sentry/lang_sentry_moveset2_v0175.js`.
 
 Key `sentry`. Hero-Tier Primary power (claims the Primary slot like every grant; `projectheroUniquePowers` applies).
 Not from random serums (`PowerGrants.NOT_FROM_SERUMS`); the operator grant still works.
@@ -69,12 +71,12 @@ the top row beats past 90. Both bars line up (the wider label decides). Screensh
 | Merged with the Void | | +0.5/s of its own (then x1.5) | 1.0 |
 | Heavy hit taken (>= 8 after the cut) | | +0.13 per point, max 2 a hit | 0.4, 6 |
 | Kill (player) | | +0.7 (+2) | 2 (6) |
-| Sunbeam | -5/s | +0.17/s | 0.5 |
+| Solar Gaze (moveset 2) | -5/s | +0.17/s | |
 | A Million Suns | -60 | +8 | 25 |
-| Molecular Grip tear | (grip 10) | +1.7 | 5 |
-| Unmake | -8 | +1 | 3 |
-| Healing Light | -20 | -8, -1 per other healed | |
-| Void Form moves | | Lash +0.35, Erase +2, Grasp +0.7, Rift +1.7, Nightfall +2, Step +0.35 | 1/6/2/5/6/1 |
+| Disassemble coming apart | (10 to start) | +1.7 | |
+| Golden Guardian | -20 | -8, -1 per other helped | |
+| Molecular Shield | -15, +2 per projectile turned to light | | |
+| Void moves (moveset 2) | | Lash +0.3 a swing, Erase +2, Pool +1, Swallow +1.7, Nightmare +1.7, Eclipse +3, Blot Out +1, Clones +2, Step +0.35 | |
 | Let It Out trial lost | | +15 (flat) | (new) |
 
 Sun-fed healing: 1 HP every 40 ticks while Sun > 0 (0.5 Sun each). Creative: no costs, the Void never climbs.
@@ -84,7 +86,7 @@ In practice: a night of fighting in the dark now takes well over 10 minutes to r
 | Void | Effect |
 |---|---|
 | 50 | whispers (soul sand valley mood, every 10-25 s), black veins creep from the screen edges, the suit's emissive glow flickers dark (20-65% of frames) |
-| 75 | 12% of Sentry attack presses (R, Shift+R, G, Z, Shift+Z) misfire into a Void move (Lash / Grasp / Rift); client aim drifts up to ~0.8°/tick toward the nearest living thing within 12 ahead; veins thicker + branching |
+| 75 | 12% of Sentry attack presses (R, Shift+R, G, Shift+G, Z, Shift+Z) misfire into a Void move (moveset 2: R keys -> Tendril Lash, G keys -> Shadow Pool, Z keys -> Nightmare); client aim drifts up to ~0.8°/tick toward the nearest living thing within 12 ahead; veins thicker + branching |
 | 90 | heartbeat (warden heartbeat every 24 ticks) + darkness pulse; client sky dims to 45%; every hit leaves a burnt shadow |
 | 100 | the takeover (not creative / spectator; inside spawn protection it holds at 99) |
 
@@ -98,25 +100,40 @@ In practice: a night of fighting in the dark now takes well over 10 minutes to r
 | Speed | +30% | +30% |
 | Hits (`Sentry.hit`) | | x1.25 merged (not the takeover) |
 | Void move cooldowns | | x0.75 merged (`VoidMoves.cooldownOf`; not the takeover's brain) |
+| Extra cuts (moveset 2) | x0.5 while A Million Suns charges; x0.6 under the Molecular Shield | |
 
 No hunger. No fall damage while flying, diving or in the takeover. (Kryptonian: -80%, punch 32, Solar Flare 120.)
 
-## Sentry kit (H = power selector only; N unused)
+## Sentry kit -- moveset 2 (2026-11-18; H = power selector only; N unused)
 
-| Key | Move | Numbers |
+User: "Sentry: Create a new moveset based on the sentries powers in the movies and comics". Comics (Bob Reynolds: flying punches that
+send foes through mountains, light projection, molecular disassembly, healing others, "a million exploding suns") and Thunderbolts*
+(overwhelming strength, molecular disintegration / deflection, the golden aura). Code: `SentryMoves`; numbers `SentryConfig`.
+
+| Key | Move (id) | Numbers |
 |---|---|---|
-| R | Golden Strike | 24, 3rd hit 30 + shockwave 14 (r 4.5); reach 4.5; 8-tick cd; combo window 30 ticks; 2 Sun |
-| Hold Shift+R | Sunbeam | 6 every 4 ticks + 2 s fire, 32 blocks, max 120 ticks, 60-tick cd after; 5 Sun/s; `BeamClash.report(power 1.4, gold)` every tick; renderer checks `BeamClashClient.hides` |
-| G (hold) | Molecular Grip | lift within 20 (held 4 blocks ahead); release = throw (14, 2.4 b/t); hold 30 ticks = tear 55; max 100 ticks; 10 Sun; 80-tick cd. Bosses (>= 300 HP or > 4 tall) are held in place, not lifted |
-| Shift+G | Unmake | 3x3 on the looked-at face (24), into light, no drops; never bedrock / unbreakable / block entities / fluids / portals; respects `abilityTerrainDamage` and `mayInteract`; 8 Sun; 40-tick cd |
-| Z | Sun Dive | air only; 2.6 b/t dive (max 60 ticks), crater 32 in r 5; 12 Sun; 120-tick cd |
-| Shift+Z | A Million Suns | 60-tick charge (hovers), then 140 at centre -> 70 at r 12, knockback, 4 s fire; 60 Sun; 1200-tick cd |
-| C | Healing Light | r 10: self, squadmates, own pets, villagers, golems: +8 HP, harmful effects cleared; 20 Sun; 240-tick cd |
-| Shift+C | Sentinel Shield | r 5 dome, 120 ticks, discards non-friendly projectiles; 15 Sun; 400-tick cd |
-| X | Sonic Boom | 18 blocks along the look in 8 ticks, 14 to each thing passed once; ground or air; never starts flight; 5 Sun; 80-tick cd; blocked during Calm |
-| 2x Space | Flight | toggle (`SentryActionPayload.TOGGLE_FLIGHT` from `ProjectHeroModClient.handleDoubleJump`, in the air or flying), 22 b/s (44 sprint), Space up / Shift down (shared `DirectionalFlight`), vanilla mayfly; ends on landing or another double-tap; a take-off within 6 ticks of a landing is ignored (vanilla's own double-tap can drop flight the same tick) |
-| Hold V | Calm | -6 Void/s, no attacks (moves + melee blocked), floats |
-| Shift+V | Let It Out | the trial (below); locked 5 min after a takeover is thrown out |
+| R | Golden Fury (`golden_fury`) | 3-punch combo (window 30 ticks): 22, 22, then the **Haymaker** 34; reach 4.5; a target 4.5-9 out (in sight) is closed on with a golden lunge (he is thrown at it, up to 2.4 b/t) and still hit; the Haymaker launches a liftable target 3.0 b/t flat along his look + 0.75 up, tracked 30 ticks: slamming into a wall (horizontal collision) = +12 and a ring; a Haymaker kill disintegrates into light; 8-tick cd; 2 Sun a punch |
+| Hold Shift+R | Solar Gaze (`solar_gaze`) | twin beams from his eyes, 40 blocks, 7 every 4 ticks + 3 s fire; held 40+ ticks: x1.5 (10.5) and orange-hot; max 100 ticks; 60-tick cd when it ends; 5 Sun/s, +0.17 Void/s; `BeamClash.report(power 1.5, gold)` every live tick from the eyes; renderer checks `BeamClashClient.hides` |
+| Hold G | Disassemble (`disassemble`) | a creature in sight within 20: lifted in a golden field 4 ahead (>= 300 HP or > 4 tall: pinned); unravels 2 every 5 ticks; held 40 ticks: comes apart, 50 (+1.7 Void); a kill turns it into golden motes (`DISINTEGRATE`); let go before: thrown 2.4 b/t, 12; max 100 ticks; 10 Sun; 80-tick cd when it ends |
+| Shift+G | Skyward Hurl (`skyward_hurl`) | the creature in reach (6): 16 and thrown straight up 3.2 b/t (~40 blocks; the fall does the rest), comet trail; bosses (not liftable): 30 + Slowness III 3 s instead; 14 Sun; 200-tick cd |
+| Z | Sunfall (`sunfall`) | on the ground: a leap (1.5 b/t up, up to 14 ticks, until it slows), then the dive; in the air: the dive at once (2.8 b/t, fist first, max 60 ticks); impact: 34 within 6 (+knock-up), 12 from 6 to 11 (the sonic-boom ring); no fall damage while it runs; 12 Sun; 140-tick cd |
+| Shift+Z | A Million Suns (`million_suns`, id kept) | 80-tick wind-up (4 s) rising 0.12 b/t for 1 s then hanging; damage taken x0.5 meanwhile; then 150 at the centre -> 70 at r 14, knockback, 5 s fire; kills disintegrate; 60 Sun; +8 Void; 1200-tick cd |
+| C | Golden Guardian (`golden_guardian`) | r 10: him, squadmates, own pets, villagers, golems: +8 HP, harmful effects cleared, fire out, Regeneration I 6 s, Absorption I 10 s, a pillar of light each; the undead (`isInvertedHealAndHarm`) in range: 12 + 3 s fire; -8 Void, -1 per other helped; 20 Sun; 240-tick cd |
+| Shift+C | Molecular Shield (`molecular_shield`) | golden aura r 3.5 for 160 ticks (8 s): enemy projectiles reaching it are turned to light (discarded, +2 Sun each); damage taken x0.6 on top; melee from 5 or closer deflected (6 + knockback, once per hit window); 15 Sun; 400-tick cd |
+| X | Sonic Boom (`sonic_dash`, kept) | 18 blocks along the look in 8 ticks, 14 to each thing passed once; ground or air; never starts flight; 5 Sun; 80-tick cd; blocked during Calm |
+| 2x Space | Flight | unchanged (22 b/s, 44 sprinting) |
+| Hold V | Calm | unchanged (-6 Void/s, no attacks) |
+| Shift+V | Let It Out | unchanged (the trial) |
+
+Poses (`SentryState.pose` / `poseAt` / `poseTicks`, synced; `SentryPose`): the Haymaker's drive, Hurl (arms up), the Sunfall leap and
+fist-first dive, Guardian (arms spread, face up), Shield (arms crossed, flung open); held moves read their own state (gaze: chest out,
+fists back; Disassemble: both hands clawed out, pulling apart; A Million Suns: arms rising, trembling at the end).
+Sounds: vanilla only (beacon, amethyst, explosion, warden sonic boom, firework launch, wind charge).
+
+Moveset 1 (removed 2026-11-18): Golden Strike, Sunbeam, Molecular Grip, Unmake, Sun Dive, Healing Light, Sentinel Shield. Their ids
+(`golden_strike`, `sunbeam`, `molecular_grip`, `unmake`, `sun_dive`, `healing_light`, `sentinel_shield`) are gone from the code and
+the lang; an old save's cooldown map may still hold them: they load, are never read (max cooldown 1) and expire on their own
+(test `keysMapBothNewKits`). The state's save keys (`beam_start`, `grip_target`, `shield_until`, `nightfall_until`) are kept and reused.
 
 ## Let It Out: the trial (`LetItOut`, `LetItOutScreen`)
 
@@ -130,19 +147,43 @@ No hunger. No fall damage while flying, diving or in the takeover. (Kryptonian: 
   damage, Void move cooldowns x0.75, Void gains x1.5 + 0.5/s.
 - **Back:** Shift+V (or V) while merged, only below 90 Void (`VoidMoves.returnToSentry`). The old 50-Void gate is gone.
 
-## Void Form kit (merged; no Sun cost)
+## The Void's kit -- moveset 2 (merged, and the takeover; no Sun cost)
 
-| Key | Move | Numbers (before the merged +25% / x0.75 cooldowns) |
+User: "also create a new moveset for the void". Comics (shadow tendrils, mind horror, nightmare manifestations, absorbing people into
+darkness, regeneration) and Thunderbolts* (people turned into shadow imprints, the shadow spreading over surfaces, the black void spaces).
+Code: `VoidMoves` (running effects are `Zone`s: owner UUID + dimension key + position + entity id, never a world or an entity; cleared by
+`SentryMod.clearSessionState` from `ServerStateReset`).
+
+| Key | Move (id) | Numbers (before the merged +25% damage / x0.75 cooldowns) |
 |---|---|---|
-| R | Shadow Lash | 20 to all in a 100° cone out to 6; 12-tick cd |
-| Shift+R | Erase | 100 to the looked-at creature (24); a kill leaves a burnt shadow; 400-tick cd |
-| G | Grasp | up to 5 within 14 dragged in, 6 each; 120-tick cd |
-| Z | Void Rift | black hole at the look point (24) for 80 ticks, pulls within 7, 6 every 10 ticks; 360-tick cd |
-| Shift+Z | Nightfall | dome r 10 for 200 ticks: enemies Darkness + Weakness (+ short Blindness), you Regeneration II; 800-tick cd |
-| X | Shadow Step | teleport to a looked-at spot (40) with raw brightness <= 7; 60-tick cd |
+| R | Tendril Lash (`tendril_lash`) | combo (window 30): two whips, 16 to all in a 100° cone out to 6 (alternating sweeps); the 3rd is the **Impale**: one creature in line within 9 (else the nearest in front), 30, Slowness IV 1 s, dragged in; 10-tick cd; +0.3 Void a swing. The takeover spears (Impale) whatever is out past 6 |
+| Shift+R | Erase (`erase`, kept) | the looked-at creature within 24 is seized (frozen, darkening) for 15 ticks, then 110 void damage; a kill leaves a burnt shadow imprint; 400-tick cd; +2 Void |
+| G | Shadow Pool (`shadow_pool`) | on the ground where he looks (24; the takeover: under the target): radius 2 -> 6 over 40 ticks, 120 ticks; inside (-1..+2 of it): Slowness IV, no jumping (y velocity held down), dragged; 4 every 10 ticks; 240-tick cd; +1 Void |
+| Shift+G | Swallow (`void_sphere`) | the creature in sight within 16 is shut in a black void sphere for 60 ticks: held in place (bosses slowed), Blindness + Darkness, 6 every 10 ticks, then spat out (18 + knockback); dying inside = absorbed (+6 HP); 360-tick cd; +1.7 Void |
+| Z | Nightmare (`nightmare`) | r 12: 8 each, Weakness I 5 s; players: Darkness + Nausea + Slowness I 5 s; mobs: drop their target and flee for 100 ticks (repathed every 10 ticks 10 blocks away); 2-4 shadow figures stand among them (`SHADE`, 2 s); 400-tick cd; +1.7 Void |
+| Shift+Z | Shadow Eclipse (`shadow_eclipse`) | 30-tick wind-up (he rises 0.12 b/t), then a black sun with a gold corona 7 above him for 200 ticks: within 16 of him 6 every 20 ticks + Darkness, he heals 2 every 20; at the end the collapse: 40 to all inside, pulled in; 1200-tick cd; +3 Void; the HUD tag "Eclipse" (`nightfallUntil`, save key kept) |
+| C | Blot Out (`blot_out`) | r 10: 10 each + Darkness 2 s, life-drain tendrils to him; he heals 3 per one drained (max 15) + all his remaining Sun burns into health (1 per 5 Sun; Sun -> 0); 300-tick cd; +1 Void |
+| Shift+C | Shadow Clones (`shadow_clones`) | 3 shadow doubles for 160 ticks, each hunting the nearest enemy within 16 of him at 0.35 b/t, striking 10 every 20 ticks within 2.4; drawn as black figures with two white pixel eyes (`SHADE`, re-sent every 2 ticks); 600-tick cd; +2 Void |
+| X | Shadow Step (`shadow_step`, kept, reworked) | a blink up to 24 along the look, stopping 0.8 short of a wall (backs off 0.5 at a time until the body fits); no light rule any more; everything within 1.5 of the path: 10 + Darkness 1.5 s; a smear of shadow; 60-tick cd; +0.35 Void |
 | 2x Space | Flight | as the Sentry's |
 | V / Shift+V | Return | only below 90 Void |
-| C | — | |
+
+Poses: Erase (hand out, fingers spread, trembling), Pool (pointing down), Swallow (a fist closing), Nightmare (arms flung wide, head back),
+Eclipse (arms raised in a V), Blot Out (arms out, drawing in), Clones (palms out low), Impale (a thrust); they also play in the takeover
+(the puppet pose otherwise). Sounds: vanilla (warden, sculk, elder guardian curse, portal, enderman).
+
+Moveset 1 (removed): Shadow Lash, Grasp, Void Rift, Nightfall (ids `shadow_lash`, `grasp`, `void_rift`, `nightfall`); the payload kinds
+`RIFT` / `NIGHTFALL` stay drawable (never sent).
+
+## Effects (client, `SentryFxClient`)
+
+New `SentryFxPayload` kinds (moveset 2): `DISINTEGRATE` (48 golden motes rising off the body's box, its outline of light thinning),
+`POOL` (concentric dark rings spreading on the ground, violet rim, 7 tendrils writhing up), `SPHERE` (a camera-facing black disc over the
+creature, gold / violet rings), `NIGHTMARE` (a dark wave ring with radial streaks), `ECLIPSE` (the dark gathering in, then a black disc
+7 above him with a 3-ring gold corona and 16 flickering rays, a faint dark dome), `SHADE` (a shadow figure: legs mid-stride, reaching
+arms, a wisp off the head, white pixel eyes), `PILLAR` (Golden Guardian's light on each one helped), `COMET` (the Haymaker / Hurl trail
+behind the flying creature). The gaze is drawn from the synced `beamStart` (two beams from the eyes converging on the hit, an eye glint,
+wider and orange past the ramp).
 
 ## The look (`SentrySuitLayer`, `SentrySuitTextures`, `SentryCapeLayer`)
 
@@ -157,7 +198,12 @@ No hunger. No fall damage while flying, diving or in the takeover. (Kryptonian: 
 - Outer skin layers (`PlayerModelMixin` -> `SentrySuitLayer.hideOverlay`): the top hides jacket + sleeves, the trousers the trouser
   layer; BARE and BLACK hide everything incl. the hat. Armour: `QuirkSuitArmourMixin` skips Sentry Suit pieces always, and every armour
   piece on a body in the takeover.
-- First person: the sleeve draws while the top is worn (or merged bare / the takeover).
+- First person (`SentrySuitLayer.renderArm` from `SuitFirstPersonArmMixin`; 2026-11-18 user: "update the first person hand models to match
+  the new suits"): the arm matches third person -- no suit / no Void: the normal arm; the suit top: the comics sleeve (the bare hand shows the
+  wearer's own skin through the cleared texels, the wearer's outer sleeve hidden by `hideOverlay` via the hand's `setupAnim`); merged
+  in the suit: the same per-pixel dissolve into the Void suit sleeve (now with the frame's partial tick, so it is smooth); merged without
+  the suit: the Void Form body's arm; the takeover: all black (the takeover forces third person, so it is never seen). Slim / wide each
+  have their own textures (checked on a slim dev skin). Stills: `docs/screenshots/v0175/sentry_moves/fp*.png`, `first_person_arms_sheet.png`.
 
 ## Credits and licence (borrowed skins)
 
@@ -198,9 +244,16 @@ column; glow = near-white and palest-gold texels (17 / 17: the emblem). Check sh
     (80 below / 40 above; kept to x1.25 of that). **Strong** (`isStrong`) = any player (not creative), `#c:bosses`, max health >= 40
     or armour >= 15. It closes to 3 blocks: horizontal 0.55 b/t, down at most 0.25 b/t (`TAKEOVER_DESCEND_SPEED`: from 50 up, ~10 s),
     up 0.6. Rise first: when the highest ground on the straight line to the target is above the body and the target stands up on it
-    (`climbHeight`), it climbs to that height + 1.5 with only 0.08 b/t across. Fists 18 every 10 ticks within 3.5. Moves by range on its
-    own cooldowns: Lash (<= 6, 16 ticks), Erase (<= 20 + sight, 240), Grasp (6..14, 100), Rift (<= 24, 300), Nightfall (2+ victims in
-    10, 600). No strong target left: back to HOVER (rises again).
+    (`climbHeight`), it climbs to that height + 1.5 with only 0.08 b/t across.
+    **Attack pace (moveset 2, user: "when the void takes control only make him attack once every 2 seconds with an ability or an M1"):**
+    one shared cooldown, `TAKEOVER_ATTACK_INTERVAL` = 40 ticks, for every attack -- a Void move or a fist (18 within 3.5) alike
+    (`Brain.nextAttack`; the times are kept for the tests, `attackTimes`). Up close it alternates a fist and a move; out of reach it
+    waits for a move. Moves (`pickMove`), each also on its own takeover cooldown: Shadow Eclipse (1200; 30 s into the takeover, 3+
+    victims within 12 or a player / boss target, within 11), Blot Out (300; under 70% health, within 10), Erase (240; in sight, <= 20),
+    Shadow Clones (600; 2+ victims within 12), Nightmare (400; 2+ victims, <= 12), Tendril Lash (40; <= 9 -- the Impale past 6), Swallow
+    (300; 4..16 in sight), Shadow Pool (200; <= 24, target on the ground). Not attacks (unchanged): the decay disc, the weak-mob
+    consumption in it (6 a second), the carving, and the ticking of a running effect (a pool / sphere / eclipse / clones already cast).
+    No strong target left: back to HOVER (rises again).
   - **Never stuck** (`steer`, direct steering flight, no gravity, no pathing): every 4 ticks, if the body's box moved 1 block along its
     velocity collides, those blocks are carved (`VoidMatter.carveBox`, <= 32, the fast fade); if it hasn't moved 0.6 blocks for 20
     ticks while it wants to move (> 0.08 b/t), a 2.5-radius sphere 1.2 blocks toward where it wants to go is carved (<= 96, every 10
@@ -273,8 +326,12 @@ pages), rework: `QuirkSuitArmourMixin` (Sentry Suit + takeover armour), `GyroCoa
 Resources (rework): `recipe/sentry_suit_top.json`, `recipe/sentry_suit_trousers.json`, item models + icons, the cape / body textures,
 `.gitignore` (held-back skins). Gametests: chapter count 79 -> 80 in `HeroPackGameTests` and `MiraculousTurtleHorseGameTests`.
 
+Moveset 2 (2026-11-18): only `HeroPackGuide` (`SENTRY_CONTROLS`, `VOID_CONTROLS`) and `en_us.json` (keys by script) outside the two
+packages, plus the two test classes; the HUD key boxes, the Left-Alt move list and the power info screen read `SentryAbilityManager` /
+the Guidebook chapter, so they follow on their own.
+
 ## Static state
 
-All session maps key by player UUID only (combo, beam / grip keys, dives, dash hits, flight start / last landing, brains, zones store
-UUID + dimension key + Vec3); cleared by `SentryMod.clearSessionState` from `ServerStateReset`. The eaten world is SavedData, never
+All session maps key by player UUID only (combo, gaze / Disassemble keys, Sunfall, the launched creature (an entity id), Tendril Lash's combo, dash hits, flight start / last landing, brains, zones store
+UUID + dimension key + Vec3 + an entity id); cleared by `SentryMod.clearSessionState` from `ServerStateReset`. The eaten world is SavedData, never
 static. Client caches (`SentrySuitTextures`: dissolve steps, capes) hold only textures and are released on every resource reload.
