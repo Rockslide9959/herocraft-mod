@@ -72,6 +72,19 @@ public final class OmnitrixCodeEntry {
 		slot = 0;
 	}
 
+	/**
+	 * v0.17.5 (user: "After putting in a working code the inputted code should get reset to 000000"): what the entry does when the
+	 * server answers a submitted code. An accepted code (Master Control on / off, a hidden alien) goes back to 000000 on slot 1; a
+	 * wrong one keeps its digits (the Mastermind hints are read against them). True if it was reset.
+	 */
+	public boolean afterResult(OmnitrixFunction.Outcome o) {
+		if (o == OmnitrixFunction.Outcome.MASTER || o == OmnitrixFunction.Outcome.ALIEN) {
+			reset();
+			return true;
+		}
+		return false;
+	}
+
 	/** Exactly six ASCII digits. */
 	public static boolean valid(String code) {
 		if (code == null || code.length() != LENGTH) {

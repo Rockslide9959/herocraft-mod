@@ -80,6 +80,12 @@ public final class OmnitrixMod {
 		ServerPlayNetworking.registerGlobalReceiver(OmnitrixActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
 			if (!Omnitrix.hasPower(p)) {
+				// v0.17.5 code fix: never drop a request without a trace (the CODE one also tells the player why)
+				if (payload.action() == OmnitrixActionPayload.Action.CODE) {
+					OmnitrixFunction.submit(p, payload.alien()); // logs it and tells him the watch is not on him any more
+				} else {
+					OmnitrixFunction.droppedNoWatch(p, payload.action());
+				}
 				return;
 			}
 			switch (payload.action()) {

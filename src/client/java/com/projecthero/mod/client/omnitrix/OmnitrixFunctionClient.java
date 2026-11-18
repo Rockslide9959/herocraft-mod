@@ -54,6 +54,16 @@ public final class OmnitrixFunctionClient {
 	private static boolean toggleHeld;
 	/** The Guidebook page's found-lines signature (rebuilt when it changes). */
 	private static String guideSig = "";
+	/**
+	 * v0.17.5 code fix: a code sent and not answered yet -- when (wall clock ms, 0 = none) and the server's result / refusal times
+	 * at that moment (an answer changes one of them).
+	 */
+	private static long pendingSince;
+	private static long pendingResultAt = Long.MIN_VALUE, pendingRefuseAt = Long.MIN_VALUE;
+	/** "No response from the watch" shows until (wall clock ms). */
+	private static long noResponseUntil;
+	/** How long a sent code waits for the server before the box says there was no answer. */
+	static final long NO_RESPONSE_MS = 1500L;
 
 	private OmnitrixFunctionClient() {
 	}
@@ -133,8 +143,46 @@ public final class OmnitrixFunctionClient {
 		}
 		lastSent = code;
 		ui(SoundEvents.IRON_TRAPDOOR_CLOSE, 1.9f, 0.25f);
+		pendingSince = System.currentTimeMillis();
+		pendingResultAt = s.timers.containsKey(OmnitrixFunction.RESULT_AT) ? s.readyAt(OmnitrixFunction.RESULT_AT) : Long.MIN_VALUE;
+		pendingRefuseAt = s.timers.containsKey(OmnitrixFunction.REFUSE_AT) ? s.readyAt(OmnitrixFunction.REFUSE_AT) : Long.MIN_VALUE;
+		noResponseUntil = 0L;
 		ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.CODE, code));
 		return true;
+	}
+
+	/**
+	 * Every client tick while a code is out: the server's answer (a new result or refusal in the synced state, or the watch gone)
+	 * ends the wait -- an accepted code puts the entry back to 000000 on slot 1 (user: "After putting in a working code the inputted
+	 * code should get reset to 000000") -- and no answer within {@link #NO_RESPONSE_MS} says so in the box.
+	 */
+	private static void watchPending(LocalPlayer p) {
+		if (pendingSince == 0L) {
+			return;
+		}
+		if (p == null || !Omnitrix.hasPower(p)) {
+			pendingSince = 0L;
+			return;
+		}
+		OmnitrixState s = Omnitrix.state(p);
+		long res = s.timers.containsKey(OmnitrixFunction.RESULT_AT) ? s.readyAt(OmnitrixFunction.RESULT_AT) : Long.MIN_VALUE;
+		long ref = s.timers.containsKey(OmnitrixFunction.REFUSE_AT) ? s.readyAt(OmnitrixFunction.REFUSE_AT) : Long.MIN_VALUE;
+		if (res != pendingResultAt) {
+			pendingSince = 0L;
+			if (ENTRY.afterResult(OmnitrixFunction.lastOutcome(s))) {
+				lastSent = "";
+			}
+			return;
+		}
+		if (ref != pendingRefuseAt) {
+			pendingSince = 0L;
+			return;
+		}
+		if (System.currentTimeMillis() - pendingSince > NO_RESPONSE_MS) {
+			pendingSince = 0L;
+			noResponseUntil = System.currentTimeMillis() + 4000L;
+			ui(SoundEvents.LEVER_CLICK, 0.5f, 0.3f);
+		}
 	}
 
 	/** Middle-click must not pick a block while the watch is in function mode. */
@@ -153,6 +201,7 @@ public final class OmnitrixFunctionClient {
 			toggleHeld = false;
 		}
 		LocalPlayer p = mc.player;
+		watchPending(p);
 		String sig = p == null || p.getAttached(com.projecthero.mod.omnitrix.OmnitrixAttachments.STATE) == null ? ""
 				: OmnitrixCodes.mask(p, "_", "") + OmnitrixCodes.knownAlienCodes(p) + foundSig(p);
 		if (!sig.equals(guideSig)) {
@@ -306,6 +355,18 @@ public final class OmnitrixFunctionClient {
 		texts.add(Component.translatable("hud.projecthero.omnitrix.function.help"));
 		colours.add(0xFFAAAAAA);
 		OmnitrixFunction.Outcome last = OmnitrixFunction.lastOutcome(s);
+		// v0.17.5 code fix: never silent -- a refused code says why, and a code nobody answered says that
+		OmnitrixFunction.Refusal refused = OmnitrixFunction.lastRefusal(s);
+		boolean refusedNow = refused != OmnitrixFunction.Refusal.NONE && refused != OmnitrixFunction.Refusal.LOCKED
+				&& s.readyAt(OmnitrixFunction.REFUSE_AT) >= s.readyAt(OmnitrixFunction.FUNC) && now - s.readyAt(OmnitrixFunction.REFUSE_AT) < 80L
+				&& s.readyAt(OmnitrixFunction.REFUSE_AT) >= s.readyAt(OmnitrixFunction.RESULT_AT);
+		if (System.currentTimeMillis() < noResponseUntil) {
+			texts.add(Component.translatable("hud.projecthero.omnitrix.function.no_response"));
+			colours.add(0xFFFF5555);
+		} else if (refusedNow) {
+			texts.add(Component.translatable(refused.langKey()));
+			colours.add(0xFFFF5555);
+		}
 		if (locked) {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.locked", (OmnitrixFunction.lockLeft(s, now) + 19) / 20));
 			colours.add(0xFFFF5555);
