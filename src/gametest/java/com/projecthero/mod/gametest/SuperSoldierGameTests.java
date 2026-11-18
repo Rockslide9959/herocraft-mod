@@ -617,4 +617,46 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertFalse(SuperSoldierAbilities.canTarget(p, p), "never himself");
 		helper.succeed();
 	}
+	// ---------------------------------------------------------------- v0.17.5: the shield on the back, the synced thrower
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void carriedShieldIsSlungOnTheBackOnlyWhileNeitherHandHoldsOne(GameTestHelper helper) {
+		ServerPlayer p = player(helper);
+		p.getInventory().clearContent();
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldStow.stowed(p).isEmpty(), "nothing carried: nothing on the back");
+		ItemStack vib = new ItemStack(com.projecthero.mod.ultron.contagion.item.ContagionItems.VIBRANIUM_SHIELD);
+		p.getInventory().setItem(4, vib);
+		p.getInventory().selected = 0;
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldStow.stowed(p) == vib, "a shield in the hotbar, empty hands: on the back");
+		com.projecthero.mod.supersoldier.CapShieldStow.update(p);
+		ItemStack synced = p.getAttached(com.projecthero.mod.supersoldier.CapShieldStow.STOWED);
+		helper.assertTrue(synced != null && synced.is(vib.getItem()) && synced != vib, "a copy is attached for the clients (the stack stays put)");
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldStow.stowed(p).isEmpty(), "one in a hand: none on the back");
+		com.projecthero.mod.supersoldier.CapShieldStow.update(p);
+		helper.assertTrue(p.getAttached(com.projecthero.mod.supersoldier.CapShieldStow.STOWED) == null, "and the attachment is cleared");
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		p.getInventory().setItem(4, ItemStack.EMPTY);
+		p.getInventory().setItem(20, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldStow.stowed(p).isEmpty(), "only the hotbar counts");
+		p.getInventory().setItem(2, new ItemStack(Items.SHIELD));
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldStow.stowed(p).isEmpty(), "a vanilla shield is never slung");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void thrownShieldCarriesItsThrowerAndHandForTheClient(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		helper.assertTrue(SuperSoldierAbilities.shieldThrow(p), "thrown from the off hand");
+		SoldierShieldEntity s = helper.getLevel().getEntitiesOfClass(SoldierShieldEntity.class, new AABB(p.blockPosition()).inflate(4),
+				e -> p.getUUID().equals(e.ownerId())).stream().findFirst().orElse(null);
+		helper.assertTrue(s != null, "in flight");
+		helper.assertTrue(s.ownerEntityId() == p.getId(), "synced thrower id");
+		helper.assertTrue(s.thrownFromOffHand(), "synced off hand");
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertTrue(shieldsAround(helper, p) == 0, "came back"))
+				.thenExecute(() -> helper.assertTrue(p.getOffhandItem().is(SuperSoldierItems.ADAMANTIUM_SHIELD), "back in the off hand"))
+				.thenSucceed();
+	}
 }

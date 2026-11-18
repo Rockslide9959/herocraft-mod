@@ -24,5 +24,6 @@ public final class SuperSoldierSetup {
 				ProjectHeroMod.id("super_soldier_serum"), new SimpleCraftingRecipeSerializer<>(SuperSoldierSerumRecipe::new));
 		SuperSoldierEntities.initialize();
 		SuperSoldierDamage.initialize();
+		CapShieldStow.initialize(); // v0.17.5: a carried, unheld Captain America shield is slung on the back
 	}
 }

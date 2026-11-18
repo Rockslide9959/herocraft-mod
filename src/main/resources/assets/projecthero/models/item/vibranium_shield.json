@@ -2,7 +2,7 @@
 	"parent": "builtin/entity",
 	"gui_light": "front",
 	"textures": {
-		"particle": "projecthero:item/vibranium_ingot"
+		"particle": "projecthero:item/vibranium_shield"
 	},
 	"display": {
 		"thirdperson_righthand": {
@@ -12,99 +12,82 @@
 				0
 			],
 			"translation": [
-				10,
-				6,
-				-4
+				0,
+				2,
+				0
 			],
 			"scale": [
-				1,
-				1,
-				1
+				0.85,
+				0.85,
+				0.85
 			]
 		},
 		"thirdperson_lefthand": {
 			"rotation": [
 				0,
-				90,
+				-90,
 				0
 			],
 			"translation": [
-				10,
-				6,
-				12
+				0,
+				2,
+				0
 			],
 			"scale": [
-				1,
-				1,
-				1
+				0.85,
+				0.85,
+				0.85
 			]
 		},
 		"firstperson_righthand": {
 			"rotation": [
 				0,
-				180,
-				5
+				110,
+				0
 			],
 			"translation": [
-				-10,
 				2,
-				-10
+				0,
+				0
 			],
 			"scale": [
-				1.25,
-				1.25,
-				1.25
+				0.8,
+				0.8,
+				0.8
 			]
 		},
 		"firstperson_lefthand": {
 			"rotation": [
 				0,
-				180,
-				5
+				-110,
+				0
 			],
 			"translation": [
-				10,
+				-2,
 				0,
-				-10
+				0
 			],
 			"scale": [
-				1.25,
-				1.25,
-				1.25
+				0.8,
+				0.8,
+				0.8
 			]
 		},
 		"gui": {
 			"rotation": [
-				15,
-				-25,
-				-5
-			],
-			"translation": [
-				2,
-				3,
+				14,
+				-22,
 				0
 			],
-			"scale": [
-				0.65,
-				0.65,
-				0.65
-			]
-		},
-		"fixed": {
-			"rotation": [
+			"translation": [
 				0,
-				180,
+				0,
 				0
 			],
-			"translation": [
-				-4.5,
-				4.5,
-				-5
-			],
 			"scale": [
-				0.55,
-				0.55,
-				0.55
+				0.92,
+				0.92,
+				0.92
 			]
 		},
 		"ground": {
@@ -114,23 +97,49 @@
 				0
 			],
 			"translation": [
+				0,
 				2,
-				4,
-				2
+				0
 			],
 			"scale": [
-				0.25,
-				0.25,
-				0.25
+				0.45,
+				0.45,
+				0.45
+			]
+		},
+		"fixed": {
+			"rotation": [
+				0,
+				180,
+				0
+			],
+			"translation": [
+				0,
+				0,
+				0
+			],
+			"scale": [
+				0.85,
+				0.85,
+				0.85
+			]
+		},
+		"head": {
+			"rotation": [
+				0,
+				180,
+				0
+			],
+			"translation": [
+				0,
+				6,
+				0
+			],
+			"scale": [
+				0.9,
+				0.9,
+				0.9
 			]
 		}
-	},
-	"overrides": [
-		{
-			"predicate": {
-				"blocking": 1
-			},
-			"model": "projecthero:item/vibranium_shield_blocking"
-		}
-	]
+	}
 }
