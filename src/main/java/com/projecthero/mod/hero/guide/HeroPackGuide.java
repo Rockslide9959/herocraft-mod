@@ -1284,6 +1284,14 @@ public final class HeroPackGuide {
 			blank(lines);
 			para(lines, "projecthero.guide.squads.pets"); // v0.15.11: squadmates' pets are safe too
 			blank(lines);
+			// v0.17.5: knockdowns and reviving
+			head(lines, "projecthero.guide.squads.knockdown");
+			para(lines, "projecthero.guide.squads.knockdown.body");
+			blank(lines);
+			para(lines, "projecthero.guide.squads.knockdown.revive");
+			blank(lines);
+			para(lines, "projecthero.guide.squads.knockdown.rules");
+			blank(lines);
 			head(lines, "projecthero.guide.squads.commands");
 			para(lines, "projecthero.guide.squads.commands.body");
 			blank(lines);

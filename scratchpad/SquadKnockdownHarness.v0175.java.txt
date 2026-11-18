@@ -1,0 +1,420 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.squad.Squad;
+import com.projecthero.mod.squad.SquadKnockdown;
+import com.projecthero.mod.squad.SquadManager;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 squad knockdown): one small client, the local player plus a second server player
+ * ("Sam", on an embedded channel like a GameTest mock player) in the same squad. Pass 1: the local player is knocked down
+ * (first-person top bar only), crawls (real W key), tries to jump / holds jump (Giving up bar), and Sam revives them
+ * (paused white top bar + green middle bar). Pass 2: Sam is knocked: the squad-only red outline, the red Locator Bar face,
+ * the roster's KNOCKED chip, then the local player holds the real right mouse button on Sam (interact packets) to revive.
+ * Pass 3: a third-person film, knocked -> crawling -> revived -> standing. Enabled by run/squadko.flag = "&lt;out dir&gt;".
+ */
+public final class SquadKnockdownHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static final Map<Integer, List<Runnable>> AT = new HashMap<>();
+	private static volatile ServerPlayer fake;
+	private static volatile UUID localId;
+	private static volatile boolean fakeRevivesLocal;
+	private static volatile boolean filming;
+	private static int filmFrame;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("squadko.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File("squadko_shots");
+		}
+		new File(out, "screenshots").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SquadKnockdownHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "squadko-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	// ---------------------------------------------------------------- plumbing
+
+	private static void server(Minecraft mc, Consumer<MinecraftServer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				try {
+					fn.accept(srv);
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error: " + e);
+					e.printStackTrace();
+				}
+			});
+		}
+	}
+
+	private static ServerPlayer local(MinecraftServer srv) {
+		return srv.getPlayerList().getPlayer(localId);
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static long win() {
+		return Minecraft.getInstance().getWindow().getWindow();
+	}
+
+	private static void key(int key, int action) {
+		Minecraft.getInstance().keyboardHandler.keyPress(win(), key, GLFW.glfwGetKeyScancode(key), action, 0);
+	}
+
+	private static void mouse(int button, int action) {
+		Minecraft mc = Minecraft.getInstance();
+		try {
+			var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onPress", long.class, int.class, int.class, int.class);
+			m.setAccessible(true);
+			m.invoke(mc.mouseHandler, win(), button, action, 0);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] mouse failed " + e);
+		}
+	}
+
+	private static void hold(int key, int from, int to) {
+		at(from, () -> key(key, GLFW.GLFW_PRESS));
+		at(to, () -> key(key, GLFW.GLFW_RELEASE));
+	}
+
+	private static void camera(CameraType type) {
+		Minecraft.getInstance().options.setCameraType(type);
+	}
+
+	/** Point the local player's view at {@code target} (client side; the crosshair pick follows). */
+	private static void lookAt(Vec3 target) {
+		var p = Minecraft.getInstance().player;
+		Vec3 eye = p.getEyePosition();
+		Vec3 d = target.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+		float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+		p.yRotO = yaw;
+		p.xRotO = pitch;
+	}
+
+	private static void log(Minecraft mc, String tag) {
+		server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			System.out.println("[HARNESS] " + tag + " local knocked=" + SquadKnockdown.isKnocked(l) + " left=" + SquadKnockdown.ticksLeft(l)
+					+ " total=" + SquadKnockdown.totalTicks(l) + " prog=" + SquadKnockdown.reviveProgress(l) + " hp=" + l.getHealth() + " pose=" + l.getPose()
+					+ " | fake knocked=" + SquadKnockdown.isKnocked(fake) + " prog=" + SquadKnockdown.reviveProgress(fake) + " hp=" + fake.getHealth());
+		});
+	}
+
+	/** Server side, every client tick: the fake is never ticked by the server, so its pose and the revive hold are driven here. */
+	private static void serverTick(MinecraftServer srv) {
+		if (fake == null) {
+			return;
+		}
+		boolean knocked = SquadKnockdown.isKnocked(fake);
+		Pose want = knocked ? Pose.SWIMMING : (fake.isShiftKeyDown() ? Pose.CROUCHING : Pose.STANDING);
+		if (fake.getPose() != want) {
+			fake.setPose(want);
+		}
+		if (fakeRevivesLocal) {
+			ServerPlayer l = local(srv);
+			if (l != null && SquadKnockdown.isKnocked(l)) {
+				SquadKnockdown.holdRevive(fake, l);
+			}
+		}
+	}
+
+	/** Sam stands {@code dist} blocks from the local player along {@code yawDeg}, facing them. */
+	private static void fakeNear(ServerPlayer l, double yawDeg, double dist, boolean crouch) {
+		double r = Math.toRadians(yawDeg);
+		double x = l.getX() - Math.sin(r) * dist;
+		double z = l.getZ() + Math.cos(r) * dist;
+		float faceYaw = (float) Math.toDegrees(Math.atan2(-(l.getX() - x), l.getZ() - z));
+		fake.moveTo(x, l.getY(), z, faceYaw, crouch ? 45f : 10f);
+		fake.setYHeadRot(faceYaw);
+		fake.setYBodyRot(faceYaw);
+		fake.setShiftKeyDown(crouch);
+	}
+
+	// ---------------------------------------------------------------- stage
+
+	private static void stage(MinecraftServer srv) {
+		ServerPlayer p = srv.getPlayerList().getPlayers().get(0);
+		localId = p.getUUID();
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, srv);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, srv);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, srv);
+		level.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, srv);
+		srv.setDifficulty(Difficulty.EASY, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -12; x <= 12; x++) {
+			for (int z = -12; z <= 12; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+				for (int y = 0; y < 4; y++) {
+					level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}
+		p.getInventory().clearContent();
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 10f);
+
+		GameProfile prof = new GameProfile(UUID.nameUUIDFromBytes("squadko-sam".getBytes(StandardCharsets.UTF_8)), "Sam");
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(prof, false);
+		ServerPlayer f = new ServerPlayer(srv, level, prof, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		srv.getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		fake = f;
+		fakeNear(p, 20.0, 4.0, false);
+
+		SquadManager squads = SquadManager.get(srv);
+		Squad squad = squads.squadOf(p.getUUID());
+		if (squad == null) {
+			squad = squads.create("Avengers", p.getUUID());
+		}
+		squads.addMember(squad, f.getUUID());
+		System.out.println("[HARNESS] staged at " + base);
+	}
+
+	// ---------------------------------------------------------------- the plan
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		// ---- pass 1: the local player is knocked down
+		at(10, () -> log(mc, "start"));
+		at(20, () -> server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			l.hurt(l.damageSources().generic(), 1000f);
+		}));
+		at(24, () -> log(mc, "after hit"));
+		at(40, () -> shot(mc, "01_knocked_view_top_bar_only"));
+		hold(GLFW.GLFW_KEY_W, 45, 85);
+		at(70, () -> log(mc, "crawling"));
+		at(88, () -> camera(CameraType.THIRD_PERSON_BACK));
+		at(92, () -> shot(mc, "02_crawl_third_person_back"));
+		at(94, () -> camera(CameraType.THIRD_PERSON_FRONT));
+		at(98, () -> shot(mc, "03_crawl_third_person_front"));
+		at(100, () -> camera(CameraType.FIRST_PERSON));
+		hold(GLFW.GLFW_KEY_SPACE, 104, 106); // a tap: no jump
+		hold(GLFW.GLFW_KEY_SPACE, 110, 140); // a 1.5 s hold: the Giving up bar, let go before 3 s
+		at(135, () -> shot(mc, "04_giving_up_hold"));
+		at(139, () -> log(mc, "giving up held"));
+		at(150, () -> server(mc, srv -> {
+			fakeNear(local(srv), 0.0, 1.1, true);
+			fakeRevivesLocal = true;
+		}));
+		at(200, () -> shot(mc, "05_being_revived_knocked_view"));
+		at(201, () -> log(mc, "being revived"));
+		at(204, () -> camera(CameraType.THIRD_PERSON_FRONT));
+		at(208, () -> shot(mc, "06_being_revived_third_person"));
+		at(212, () -> camera(CameraType.FIRST_PERSON));
+		at(262, () -> {
+			fakeRevivesLocal = false;
+			server(mc, srv -> fake.setShiftKeyDown(false));
+			log(mc, "revived");
+		});
+		at(266, () -> shot(mc, "07_revived_standing"));
+
+		// ---- pass 2: Sam is knocked down; the local player revives him
+		at(300, () -> server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			fakeNear(l, -35.0, 4.5, false);
+			SquadKnockdown.knock(fake);
+		}));
+		for (int i = 0; i < 40; i++) {
+			final int k = i;
+			at(306 + i, () -> server(mc, srv -> {
+				// Sam crawls across the view at vanilla crawl speed
+				fake.moveTo(fake.getX() + 0.065, fake.getY(), fake.getZ(), -90f, 0f);
+				fake.setYHeadRot(-90f);
+				fake.setYBodyRot(-90f);
+			}));
+			if (k == 0) {
+				at(306, () -> lookAt(fake.position().add(1.2, 0.3, 0)));
+			}
+		}
+		at(332, () -> shot(mc, "08_squadmate_crawling_red_outline"));
+		at(350, () -> mc.setScreen(new com.projecthero.mod.client.gui.SquadScreen()));
+		at(362, () -> shot(mc, "09_roster_knocked_chip"));
+		at(366, () -> mc.setScreen(null));
+		at(370, () -> server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			double r = Math.toRadians(l.getYRot());
+			double x = fake.getX() + Math.sin(r) * 1.6;
+			double z = fake.getZ() - Math.cos(r) * 1.6;
+			l.connection.teleport(x, l.getY(), z, l.getYRot(), l.getXRot());
+		}));
+		at(376, () -> {
+			var target = mc.level.getPlayerByUUID(fake.getUUID());
+			if (target != null) {
+				lookAt(target.position().add(0, 0.3, 0));
+			}
+		});
+		at(380, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT, GLFW.GLFW_PRESS));
+		at(381, () -> System.out.println("[HARNESS] hit=" + mc.hitResult));
+		at(430, () -> shot(mc, "10_reviving_view_middle_bar"));
+		at(431, () -> log(mc, "reviving Sam"));
+		at(495, () -> mouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT, GLFW.GLFW_RELEASE));
+		at(497, () -> log(mc, "Sam revived"));
+		at(500, () -> shot(mc, "11_squadmate_revived"));
+
+		// ---- pass 3: the film, third person: knocked -> crawling -> revived -> standing
+		at(520, () -> server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			l.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() - 5.5, 0f, 15f);
+		}));
+		at(524, () -> server(mc, srv -> fakeNear(local(srv), 0.0, 7.0, false)));
+		at(526, () -> camera(CameraType.THIRD_PERSON_BACK));
+		at(530, () -> {
+			filming = true;
+			filmFrame = 0;
+		});
+		at(545, () -> server(mc, srv -> {
+			ServerPlayer l = local(srv);
+			l.hurt(l.damageSources().generic(), 1000f);
+		}));
+		hold(GLFW.GLFW_KEY_W, 560, 620);
+		for (int i = 0; i < 30; i++) {
+			at(615 + i, () -> server(mc, srv -> {
+				// Sam walks back to the knocked player
+				ServerPlayer l = local(srv);
+				double dz = fake.getZ() - l.getZ();
+				if (dz > 1.2) {
+					fake.moveTo(fake.getX(), fake.getY(), fake.getZ() - 0.16, 180f, 10f);
+					fake.setYHeadRot(180f);
+					fake.setYBodyRot(180f);
+				}
+			}));
+		}
+		at(648, () -> server(mc, srv -> {
+			fakeNear(local(srv), 0.0, 1.1, true);
+			fakeRevivesLocal = true;
+		}));
+		at(650, () -> log(mc, "film reviving"));
+		at(760, () -> {
+			fakeRevivesLocal = false;
+			server(mc, srv -> fake.setShiftKeyDown(false));
+			log(mc, "film revived");
+		});
+		at(800, () -> filming = false);
+		at(806, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SquadKnockdownHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, SquadKnockdownHarness::stage);
+		}
+		server(mc, SquadKnockdownHarness::serverTick);
+		if (t < 140 || base == null) {
+			return;
+		}
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0 && mc.screen == null) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (filming) {
+			shot(mc, String.format("film_%04d", filmFrame++));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		LevelSettings settings = new LevelSettings("SQUADKO_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				new TitleScreen());
+	}
+}

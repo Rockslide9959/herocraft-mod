@@ -319,6 +319,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.command.ProjectHeroCommand.initialize();
 		// ---- Squads: friendly-fire suppression + the roster the squad screen (P) draws. ----
 		com.projecthero.mod.squad.Squads.initialize();
+		// v0.17.5: squad knockdowns -- a killing blow knocks a squad member down; a squadmate holds right-click to revive
+		com.projecthero.mod.squad.SquadKnockdown.initialize();
 
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();

@@ -196,6 +196,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
+		com.projecthero.mod.client.squad.SquadKnockdownClient.initialize(); // v0.17.5: squad knockdowns (revive bar, outline, input lock)
 
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.allmight.item.AllMightItems.LOCKER_MENU,

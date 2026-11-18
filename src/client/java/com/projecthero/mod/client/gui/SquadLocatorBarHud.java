@@ -47,6 +47,8 @@ public final class SquadLocatorBarHud {
 	private static final int COLOR_HAIRLINE_BG = 0x80000000;
 	private static final int COLOR_BORDER_FRONT = 0xFFE8E8F6;
 	private static final int COLOR_BORDER_BEHIND = 0x90888888;
+	/** v0.17.5: RGB of a knocked squadmate's frame. */
+	private static final int COLOR_KNOCKED = 0xE84A4A;
 
 	private SquadLocatorBarHud() {
 	}
@@ -58,6 +60,10 @@ public final class SquadLocatorBarHud {
 		Minecraft client = Minecraft.getInstance();
 		Player player = client.player;
 		if (player == null || client.options.hideGui || !SquadClient.inSquad()) {
+			return;
+		}
+		// v0.17.5: knocked down, the top of the screen is the knockdown bar's alone (user: the only indication on screen)
+		if (com.projecthero.mod.squad.SquadKnockdown.isKnocked(player)) {
 			return;
 		}
 
@@ -118,6 +124,12 @@ public final class SquadLocatorBarHud {
 				graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, 0xFF888888);
 			}
 			int borderColor = behind ? COLOR_BORDER_BEHIND : COLOR_BORDER_FRONT;
+			if (m.knocked()) {
+				// v0.17.5: a knocked squadmate's face is washed red with a slowly pulsing red frame
+				graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, 0x70C81E1E);
+				float pulse = 0.5f + 0.5f * Mth.sin((net.minecraft.Util.getMillis() % 100000L) / 220.0f);
+				borderColor = ((int) (0x90 + 0x6F * pulse) << 24) | COLOR_KNOCKED;
+			}
 			graphics.renderOutline(iconX - 1, iconY - 1, iconSize + 2, iconSize + 2, borderColor);
 		}
 	}

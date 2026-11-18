@@ -49,7 +49,8 @@ public final class BossTargets {
 			return false;
 		}
 		if (target instanceof Player p) {
-			return !p.getAbilities().invulnerable;
+			// v0.17.5: a knocked-down squad member is out of the fight -- no boss aims at them or keeps them in its threat table
+			return !p.getAbilities().invulnerable && !com.projecthero.mod.squad.SquadKnockdown.isKnocked(p);
 		}
 		if (target instanceof Enemy) {
 			// the raid's own horde, other bosses, and wild monsters -- a player's Shadow Servant is not an Enemy

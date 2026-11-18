@@ -469,7 +469,7 @@ public final class SquadScreen extends Screen {
 		}
 		// accent strip -- pulses red when the member is in trouble
 		int strip = identColor;
-		if (online && frac < 0.25f) {
+		if (online && (frac < 0.25f || m.knocked())) {
 			float pulse = 0.5f + 0.5f * Mth.sin((Util.getMillis() % 100000L) / 140.0f);
 			strip = lerpColor(identColor, HP_RED, pulse);
 		}
@@ -522,7 +522,11 @@ public final class SquadScreen extends Screen {
 				nx += this.font.width(you) + 4;
 			}
 		}
-		if (online && colRight - nx >= 24) {
+		if (online && m.knocked() && colRight - nx >= 24) {
+			// v0.17.5: knocked down -- the chip says so (with the seconds left to revive them) instead of their hero
+			drawChip(g, Component.translatable("screen.projecthero.squad.knocked", (m.knockedTicks() + 19) / 20), nx, y + 5, HP_RED,
+					colRight - nx);
+		} else if (online && colRight - nx >= 24) {
 			drawChip(g, HeroIdentity.render(m.identityKey()), nx, y + 5, identColor, colRight - nx);
 		}
 
@@ -615,6 +619,10 @@ public final class SquadScreen extends Screen {
 		if (!m.online()) {
 			lines.add(Component.translatable("screen.projecthero.squad.tooltip.offline").withStyle(ChatFormatting.GRAY));
 			return lines;
+		}
+		if (m.knocked()) {
+			lines.add(Component.translatable("screen.projecthero.squad.tooltip.knocked", (m.knockedTicks() + 19) / 20)
+					.withStyle(ChatFormatting.RED));
 		}
 		lines.add(HeroIdentity.render(m.identityKey()).copy()
 				.withStyle(s -> s.withColor(identityColor(m.identityKey()) & 0xFFFFFF)));

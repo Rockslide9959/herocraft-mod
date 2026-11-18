@@ -221,7 +221,8 @@ public final class Squads {
 					member.getBlockX(), member.getBlockY(), member.getBlockZ(),
 					member.level().dimension().location().getPath(),
 					HeroIdentity.describe(member),
-					id.equals(squad.leader())));
+					id.equals(squad.leader()),
+					SquadKnockdown.ticksLeft(member))); // v0.17.5: shown on the roster and the locator bar
 		}
 		return new SquadInfoPayload(squad.name(), out, squad.friendlyFire());
 	}

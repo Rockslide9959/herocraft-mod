@@ -78,6 +78,7 @@ public final class ServerStateReset {
 	 * none of it is persisted state, and everything that owns it re-populates on demand.
 	 */
 	public static void clearAll() {
+		com.projecthero.mod.squad.SquadKnockdown.clearSessionState(); // v0.17.5: squad knockdowns (boss bars hold players)
 		com.projecthero.mod.loot.LootMod.clearSessionState(); // v0.17.5: Med Kit heal timers
 		com.projecthero.mod.gear.GearMod.clearSessionState(); // v0.17.5: Utility Belt spare charges
 		com.projecthero.mod.targetdummy.TargetDummyLabels.clearSessionState(); // v0.17.5: Target Dummy ability-key presses

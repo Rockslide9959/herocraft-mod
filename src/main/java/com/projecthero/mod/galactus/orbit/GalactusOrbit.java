@@ -69,7 +69,7 @@ public final class GalactusOrbit {
 	private GalactusOrbit() {
 	}
 
-	private static final ResourceLocation GRAVE_PHASE = ProjectHeroMod.id("galactus_orbit_grave");
+	public static final ResourceLocation GRAVE_PHASE = ProjectHeroMod.id("galactus_orbit_grave");
 
 	/** Vanilla's totem check runs after the death hooks: leave the inventory alone if a held totem is about to save them. */
 	public static boolean totemWillSave(ServerPlayer p, net.minecraft.world.damagesource.DamageSource source) {

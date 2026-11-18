@@ -72,6 +72,10 @@ public final class HeroTargets {
 		if (target instanceof Player p && p.getAbilities().invulnerable) {
 			return false;
 		}
+		// v0.17.5: a knocked-down squad member cannot be hit, grabbed or shoved by anything
+		if (com.projecthero.mod.squad.SquadKnockdown.isKnocked(target)) {
+			return false;
+		}
 		if (owner == null) {
 			return true;
 		}

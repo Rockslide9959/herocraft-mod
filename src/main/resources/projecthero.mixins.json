@@ -4,6 +4,10 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"AlienXHallHiddenMixin",
+		"SquadKnockdownPlayerMixin",
+		"SquadKnockdownMobTargetMixin",
+		"SquadKnockdownPayloadMixin",
+		"SquadKnockdownHealMixin",
 		"AlienXHallNoPickupMixin",
 		"CannonboltRollMixin",
 		"CannonboltStowMixin",

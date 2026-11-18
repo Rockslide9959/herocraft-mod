@@ -29,9 +29,18 @@ public record SquadInfoPayload(String squadName, List<Member> members, boolean f
 	/**
 	 * @param identityKey translation key for the hero identity currently holding their ability slots
 	 *                    (see {@code HeroIdentity}), or {@code ""} for none
+	 * @param knockedTicks v0.17.5: ticks left on their knockdown countdown, 0 when they are not knocked down
 	 */
 	public record Member(UUID id, String name, boolean online, float health, float maxHealth, float absorption,
-			int x, int y, int z, String dimension, String identityKey, boolean leader) {
+			int x, int y, int z, String dimension, String identityKey, boolean leader, int knockedTicks) {
+		public Member(UUID id, String name, boolean online, float health, float maxHealth, float absorption,
+				int x, int y, int z, String dimension, String identityKey, boolean leader) {
+			this(id, name, online, health, maxHealth, absorption, x, y, z, dimension, identityKey, leader, 0);
+		}
+
+		public boolean knocked() {
+			return knockedTicks > 0;
+		}
 	}
 
 	public static final CustomPacketPayload.Type<SquadInfoPayload> TYPE =
@@ -60,6 +69,7 @@ public record SquadInfoPayload(String squadName, List<Member> members, boolean f
 			buf.writeUtf(m.dimension());
 			buf.writeUtf(m.identityKey());
 			buf.writeBoolean(m.leader());
+			buf.writeVarInt(m.knockedTicks()); // v0.17.5
 		}
 		buf.writeBoolean(payload.friendlyFire); // v0.14.16
 	}
@@ -71,7 +81,7 @@ public record SquadInfoPayload(String squadName, List<Member> members, boolean f
 		for (int i = 0; i < n; i++) {
 			out.add(new Member(buf.readUUID(), buf.readUtf(), buf.readBoolean(), buf.readFloat(), buf.readFloat(),
 					buf.readFloat(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
-					buf.readUtf(), buf.readUtf(), buf.readBoolean()));
+					buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readVarInt()));
 		}
 		return new SquadInfoPayload(name, out, buf.readBoolean());
 	}
