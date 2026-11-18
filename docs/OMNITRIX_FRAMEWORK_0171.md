@@ -652,3 +652,41 @@ the players ability keys".
   (the Master Control digits found so far, not the typed code), the Master Control ON note. Nothing else draws the code.
 - Footage: `scratchpad/OmnitrixMasterHarness.v0175.java.txt` mode `round3`, `scratchpad/omnitrix_master3_film_v0175.js`,
   `docs/screenshots/v0175/omnitrix_master3/`.
+
+### Round 4: the code is never silent, the entry resets (v0.17.5)
+
+User: "After putting in a working code the inputted code should get reset to 000000. Also still when i put in the code nothing seems
+to happen, please find out whats happening" (screenshot: function mode, all six digits typed = his real code, cursor back on R, no flash,
+no CODE ACCEPTED, no ACCESS DENIED).
+
+**What we know.** His modpack's `command_history.txt` + `latest.log` give the exact sequence: already the Sentry (granted 13:39), then
+`power grant omnitrix` (the one Primary slot takes the Sentry away), 6 Data Fragments, a transformation, `tune omnitrix time 1` (timed
+out), `tune omnitrix recharge 1`, the code, then `power grant sentry ... force` (which takes the watch off again). His save
+(`omnitrix_secrets.master`) confirms the digits he typed were his code. Replaying that sequence on a copy of `test 7` with real input
+(wheel / middle button / Shift + right-click through `MouseHandler` / `KeyboardHandler`), with and without the time-out, with the
+fragments in hand, and with every client mod of his modpack loaded in the dev client (Sodium, ImmediatelyFast, Controlling, JEI, Jade,
+EntityCulling, ModernFix, FerriteCore, Moonlight, ...) accepts the code every time (`MASTER`, flash, dial run, Master Control on). Only
+Essential could not be loaded in a dev client (its remapped jar fails to define a class), so it is untested. Before this round a code
+the server refused (not in function mode on the server, transformed, too fast, malformed) or a CODE from a player the server thought had
+no watch was dropped without a sound, a line or a log entry, and the old help line never said that the sixth middle-click is what sends
+the code (leaving with Shift + right-click and coming back also shows the digits kept with the cursor on R, with nothing sent). Either
+leaves exactly his screenshot, so this round makes every path visible instead of guessing:
+
+- **Server log**: every CODE logs one INFO line, `[projecthero] omnitrix code from <player>: <outcome> (<reason>)` -- the outcome
+  (`MASTER`, `ALIEN`, `WRONG`, `LOCKED`, `REFUSED`, ...) and why (`ok`, `no watch on the server, primary power: sentry`, `not in function
+  mode on the server`, `transformed`, `too fast`, `not six digits`, `locked`); never the code or the digits typed. Any other Omnitrix
+  request the payload receiver drops because the sender wears no watch logs `[projecthero] omnitrix <ACTION> from <player> dropped (...)`.
+- **On screen**: a refusal while function mode is up goes into the HUD box (`OmnitrixFunction.REFUSE` / `REFUSE_AT`, synced, shown for 4 s
+  under the controls, red): "Too fast: send it again", "That code needs six digits", ...; with the box gone it goes to
+  the action bar: "Transform back first", "Not in function mode: Shift+Right-click", "No Omnitrix on you (now: Sentry)" (the
+  watch came off: his newest Primary power is named). Each refusal plays the deny buzz.
+- **No answer**: the client remembers when it sent a code; if neither a result nor a refusal arrives within 1.5 s
+  (`OmnitrixFunctionClient.NO_RESPONSE_MS`) the box says **"No response from the watch"** for 4 s (a low click).
+- **Help line**: "Middle-click: next (the 6th sends the code)".
+- **Reset** (`OmnitrixCodeEntry.afterResult`): when the answer to a sent code is `MASTER` or `ALIEN` the entry goes back to `000000`
+  with the cursor on slot 1 at once; a wrong code (and the self-destruct code) keeps the digits for the Mastermind hints.
+
+Tests: `OmnitrixFunctionModeGameTests.theCodeWorksForAWearerWhoWasTheSentry`, `aRefusedCodeAlwaysSaysWhy`,
+`anAcceptedCodeResetsTheEntryAWrongOneKeepsIt`. Harness `scratchpad/OmnitrixCodeFixHarness.v0175.java.txt` (flag `run/omnicode.flag` =
+`<out>|sentry`, `sentry-timeout`, `sentry-frag-timeout`, `codefilm`; opens the copied save `run/saves/usertest7`), film script
+`scratchpad/omnitrix_code_fix_film_v0175.js`, footage in `docs/screenshots/v0175/omnitrix_code_fix/`.

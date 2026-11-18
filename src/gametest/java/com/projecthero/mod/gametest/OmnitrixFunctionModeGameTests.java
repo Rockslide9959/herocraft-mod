@@ -311,6 +311,74 @@ public class OmnitrixFunctionModeGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.5 code fix (user: "still when i put in the code nothing seems to happen"): the tester's own sequence from his modpack's
+	 * command history -- the Sentry, then the watch put on over him (the one Primary slot takes the Sentry away), then the code.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void theCodeWorksForAWearerWhoWasTheSentry(GameTestHelper helper) {
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 0; z <= 7; z++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 3.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.grantHero(p, "sentry").ok(), "the Sentry first");
+		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.grantHero(p, "omnitrix").ok(), "then the watch goes on over him");
+		helper.assertFalse(com.projecthero.mod.sentry.Sentry.hasPower(p), "the one Primary slot: the Sentry is gone");
+		Omnitrix.noGlitch(p);
+		OmnitrixCodes.setMasterCode(p, CODE);
+		helper.assertTrue(Omnitrix.activate(p), "the watch up");
+		Omnitrix.finishRaise(p);
+		inFunction(helper, p);
+		helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.MASTER, "his code is accepted, got " + OmnitrixFunction.lastRefusal());
+		helper.assertTrue(Omnitrix.masterSequence(p), "and the Master Control sequence plays");
+		helper.succeed();
+	}
+
+	/** v0.17.5 code fix: every refused code has a reason, shown in the HUD box while it is up (never silent any more). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aRefusedCodeAlwaysSaysWhy(GameTestHelper helper) {
+		ServerPlayer p = wearer(helper, false, true);
+		inFunction(helper, p);
+		helper.assertTrue(OmnitrixFunction.submit(p, OmnitrixConfig.SELF_DESTRUCT_CODE) == OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED, "a code goes in");
+		helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.REFUSED, "another one the same tick is refused");
+		helper.assertTrue(OmnitrixFunction.lastRefusal() == OmnitrixFunction.Refusal.TOO_FAST, "because it came too fast");
+		helper.assertTrue(OmnitrixFunction.lastRefusal(Omnitrix.state(p)) == OmnitrixFunction.Refusal.TOO_FAST
+				&& Omnitrix.state(p).timers.containsKey(OmnitrixFunction.REFUSE_AT), "and the synced state carries the reason for the HUD box");
+		helper.assertTrue(OmnitrixFunction.submit(p, "12a456") == OmnitrixFunction.Outcome.REFUSED
+				&& OmnitrixFunction.lastRefusal() == OmnitrixFunction.Refusal.MALFORMED, "not six digits: said so");
+		OmnitrixFunction.clearLock(p);
+		helper.assertTrue(OmnitrixFunction.leave(p), "out of function mode");
+		helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.REFUSED
+				&& OmnitrixFunction.lastRefusal() == OmnitrixFunction.Refusal.NOT_IN_FUNCTION, "outside function mode: said so");
+		Omnitrix.revoke(p);
+		helper.assertTrue(OmnitrixFunction.submit(p, CODE) == OmnitrixFunction.Outcome.REFUSED
+				&& OmnitrixFunction.lastRefusal() == OmnitrixFunction.Refusal.NO_WATCH, "the watch off: said so");
+		helper.succeed();
+	}
+
+	/** v0.17.5 (user: "After putting in a working code the inputted code should get reset to 000000"). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void anAcceptedCodeResetsTheEntryAWrongOneKeepsIt(GameTestHelper helper) {
+		OmnitrixCodeEntry e = new OmnitrixCodeEntry();
+		e.set(CODE);
+		helper.assertFalse(e.afterResult(OmnitrixFunction.Outcome.WRONG), "a wrong code is not reset");
+		helper.assertTrue(CODE.equals(e.code()), "its digits stay for the Mastermind hints");
+		helper.assertFalse(e.afterResult(OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED) || !CODE.equals(e.code()), "nor is the self-destruct code");
+		for (OmnitrixFunction.Outcome o : new OmnitrixFunction.Outcome[] { OmnitrixFunction.Outcome.MASTER, OmnitrixFunction.Outcome.ALIEN }) {
+			e.set(CODE);
+			e.advance();
+			e.advance();
+			helper.assertTrue(e.afterResult(o), o + " resets");
+			helper.assertTrue("000000".equals(e.code()) && e.slot() == 0, o + ": back to 000000 on slot 1, got " + e.code() + " slot " + e.slot());
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void codesBelongToThePlayerAndOutliveTheWatch(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, false, false);

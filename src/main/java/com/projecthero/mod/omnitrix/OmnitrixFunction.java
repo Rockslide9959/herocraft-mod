@@ -173,6 +173,8 @@ public final class OmnitrixFunction {
 		n.timers.remove(LOCK);
 		n.timers.remove(SELF_DESTRUCT);
 		n.timers.remove(HINT);
+		n.timers.remove(REFUSE);
+		n.timers.remove(REFUSE_AT);
 	}
 
 	/** Gametests: the lock and the submit gap over at once (game time does not move inside one test tick). */
@@ -185,20 +187,137 @@ public final class OmnitrixFunction {
 
 	// ---------------------------------------------------------------- the codes
 
-	/** The client's CODE request: the six digits typed in function mode. */
+	/**
+	 * v0.17.5 code fix (user: "still when i put in the code nothing seems to happen, please find out whats happening"): why a code
+	 * was refused. Every refusal used to be silent; now each one is logged and told to the player (in the function-mode HUD box via
+	 * {@link #REFUSE} while the box is up, on the action bar once it is not).
+	 */
+	public enum Refusal {
+		NONE("ok"), NO_WATCH("no watch on the server"), NOT_IN_FUNCTION("not in function mode on the server"), TRANSFORMED("transformed"),
+		MALFORMED("not six digits"), TOO_FAST("too fast"), LOCKED("locked");
+
+		public final String log;
+
+		Refusal(String log) {
+			this.log = log;
+		}
+
+		public String langKey() {
+			return "message.projecthero.omnitrix.code.refused." + name().toLowerCase(java.util.Locale.ROOT);
+		}
+	}
+
+	/** The last refused code's reason ({@link Refusal#ordinal}) and when (game time): the HUD box says why for a few seconds. */
+	public static final String REFUSE = "omnitrix.func_refuse", REFUSE_AT = "omnitrix.func_refuse_at";
+
+	/** The last refusal (client-safe: the synced state), or {@link Refusal#NONE}. */
+	public static Refusal lastRefusal(OmnitrixState s) {
+		if (!s.timers.containsKey(REFUSE)) {
+			return Refusal.NONE;
+		}
+		int i = (int) s.readyAt(REFUSE);
+		return i >= 0 && i < Refusal.values().length ? Refusal.values()[i] : Refusal.NONE;
+	}
+
+	/** Why the last {@link #submit} came out the way it did (server thread only: the log line and the gametests). */
+	private static Refusal lastWhy = Refusal.NONE;
+
+	/** Gametests: the reason of the last code submitted on this server thread. */
+	public static Refusal lastRefusal() {
+		return lastWhy;
+	}
+
+	/**
+	 * The client's CODE request: the six digits typed in function mode. Logs exactly one line (the outcome and why, never the code
+	 * or the typed digits), and a refusal is always told to the player.
+	 */
 	public static Outcome submit(ServerPlayer p, String code) {
+		lastWhy = Refusal.NONE;
+		Outcome o = submitInner(p, code);
+		String extra = lastWhy == Refusal.NO_WATCH ? ", primary power: " + primaryPower(p) : "";
+		com.projecthero.mod.ProjectHeroMod.LOGGER.info("[projecthero] omnitrix code from {}: {} ({}{})", p.getGameProfile().getName(), o, lastWhy.log, extra);
+		if (lastWhy != Refusal.NONE) {
+			refuse(p, lastWhy);
+		}
+		return o;
+	}
+
+	/** The payload receiver dropped a request because the sender wears no watch (the CODE one goes through {@link #submit}). */
+	public static void droppedNoWatch(ServerPlayer p, com.projecthero.mod.omnitrix.network.OmnitrixActionPayload.Action action) {
+		com.projecthero.mod.ProjectHeroMod.LOGGER.info("[projecthero] omnitrix {} from {} dropped (no watch on the server, primary power: {})", action,
+				p.getGameProfile().getName(), primaryPower(p));
+	}
+
+	/** The player's newest Primary power key (the one-Primary rule's holder), or "none". */
+	private static String primaryPower(ServerPlayer p) {
+		String raw = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.PRIMARY_ORDER, "");
+		if (raw == null || raw.isBlank()) {
+			return "none";
+		}
+		String[] keys = raw.split(",");
+		return keys[keys.length - 1];
+	}
+
+	/** Tells {@code p} why his code was refused: in the HUD box while function mode is up, else on the action bar. */
+	private static void refuse(ServerPlayer p, Refusal why) {
+		OmnitrixState s = Omnitrix.state(p);
+		if (why != Refusal.LOCKED) {
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+		}
+		if (Omnitrix.hasPower(p) && active(s)) {
+			OmnitrixState n = s.copy();
+			n.timers.put(REFUSE, (long) why.ordinal());
+			n.timers.put(REFUSE_AT, p.level().getGameTime());
+			Omnitrix.save(p, n);
+			return;
+		}
+		Component msg = why == Refusal.NO_WATCH
+				? Component.translatable(why.langKey(), Component.literal(prettyKey(primaryPower(p))))
+				: Component.translatable(why.langKey());
+		p.displayClientMessage(msg.copy().withStyle(ChatFormatting.RED), true);
+	}
+
+	private static String prettyKey(String key) {
+		if ("none".equals(key)) {
+			return "none";
+		}
+		StringBuilder b = new StringBuilder();
+		for (String w : key.split("_")) {
+			if (!w.isEmpty()) {
+				b.append(b.length() == 0 ? "" : " ").append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));
+			}
+		}
+		return b.toString();
+	}
+
+	private static Outcome submitInner(ServerPlayer p, String code) {
 		OmnitrixState s = Omnitrix.state(p);
 		long now = p.level().getGameTime();
-		if (!active(s) || !OmnitrixCodeEntry.valid(code) || s.transformed()) {
+		if (!s.hasPower) {
+			lastWhy = Refusal.NO_WATCH;
+			return Outcome.REFUSED;
+		}
+		if (s.transformed()) {
+			lastWhy = Refusal.TRANSFORMED;
+			return Outcome.REFUSED;
+		}
+		if (!active(s)) {
+			lastWhy = Refusal.NOT_IN_FUNCTION;
+			return Outcome.REFUSED;
+		}
+		if (!OmnitrixCodeEntry.valid(code)) {
+			lastWhy = Refusal.MALFORMED;
 			return Outcome.REFUSED;
 		}
 		if (locked(s, now)) {
 			// v0.17.5 round 2: no action-bar line -- the function-mode HUD box already says LOCKED n s, and the line ran under the box
 			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+			lastWhy = Refusal.LOCKED;
 			return Outcome.LOCKED;
 		}
 		long at = s.readyAt(RESULT_AT);
 		if (s.timers.containsKey(RESULT_AT) && now >= at && now - at < OmnitrixConfig.CODE_SUBMIT_GAP_TICKS) {
+			lastWhy = Refusal.TOO_FAST;
 			return Outcome.REFUSED;
 		}
 		OmnitrixSecrets secrets = OmnitrixCodes.secrets(p);
