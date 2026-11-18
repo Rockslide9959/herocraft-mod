@@ -227,11 +227,8 @@ public final class OmnitrixWatch {
 		if (since(p, s, partial, Omnitrix.ANIM_DENIED) < 30f || since(p, s, partial, Omnitrix.ANIM_TIMEOUT) < 30f) {
 			return true;
 		}
-		// v0.17.5: the self-destruct countdown -- the face pulses red, faster in the last five seconds
-		int sd = com.projecthero.mod.omnitrix.OmnitrixFunction.selfDestructLeft(s, now);
-		if (sd > 0) {
-			return (now / (sd < 100 ? 3 : 6)) % 2 == 0;
-		}
+		// v0.17.5 (user: remove every self-destruct indicator but one bar above the ability UI): the face no longer pulses red during
+		// the countdown
 		if (s.transformed()) {
 			// the power-down: red exactly on each beep (the warning flashing stops)
 			if (Omnitrix.poweringDown(s)) {

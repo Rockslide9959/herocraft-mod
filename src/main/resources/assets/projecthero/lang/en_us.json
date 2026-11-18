@@ -13808,6 +13808,7 @@
   "message.projecthero.omnitrix.code.refused.locked": "The watch is locked",
   "hud.projecthero.omnitrix.self_destruct_code": "SELF-DESTRUCT SEQUENCE",
   "hud.projecthero.omnitrix.self_destruct_left": "Re-enter the code to cancel: %s s",
+  "hud.projecthero.omnitrix.self_destruct_bar": "Self-destruct",
   "hud.projecthero.omnitrix.alt.key.shift_use": "Shift+Right-click",
   "hud.projecthero.omnitrix.alt.function": "Function mode: enter a code",
   "hud.projecthero.omnitrix.alt.key.middle": "Middle-click",

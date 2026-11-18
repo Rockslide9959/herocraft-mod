@@ -254,14 +254,9 @@ public final class OmnitrixFunctionClient {
 	 * viewer could read them there) -- they are on the wearer's HUD key boxes ({@link #drawHud}). The face stays plain.
 	 */
 	public static Readout readout(Player p, OmnitrixState s, long now, float partial) {
-		int sd = OmnitrixFunction.selfDestructLeft(s, now);
-		if (sd <= 0) {
-			return null;
-		}
-		boolean blinkFast = (System.currentTimeMillis() / 125L) % 2L == 0L;
-		int secs = (sd + 19) / 20;
-		int col = blinkFast || sd < 100 && (now / 3) % 2 == 0 ? RED : RED_DIM;
-		return new Readout(new int[] { DASH, DASH, secs / 10 % 10, secs % 10, DASH, DASH }, fill(col), 1f, -1, 0);
+		// v0.17.5 (user: "for the omnitrix self destruct remove all the indicators and bars besides a bar for self destruct above the
+		// ability ui"): the face no longer counts the seconds down -- the one bar over the ability boxes does
+		return null;
 	}
 
 	private static int[] fill(int c) {
@@ -280,8 +275,13 @@ public final class OmnitrixFunctionClient {
 	 * self-destruct banner at the top of the screen. Returns the box's top ({@code bottom} when nothing was drawn).
 	 */
 	static int drawHud(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom, int width) {
-		drawSelfDestruct(g, mc, s, now);
 		if (!OmnitrixFunction.active(s)) {
+			// function mode closed mid-countdown: just the self-destruct bar where the ability boxes would be
+			if (OmnitrixFunction.selfDestructing(s)) {
+				int by = bottom - 6;
+				drawSelfDestructBar(g, mc, s, now, x0, by);
+				return by - 10;
+			}
 			return bottom;
 		}
 		var font = mc.font;
@@ -291,14 +291,15 @@ public final class OmnitrixFunctionClient {
 		boolean locked = OmnitrixFunction.locked(s, now);
 		boolean wrong = locked && OmnitrixFunction.lastOutcome(s) == OmnitrixFunction.Outcome.WRONG;
 		int mask = OmnitrixFunction.hint(s);
-		boolean sd = OmnitrixFunction.selfDestructing(s);
+		// v0.17.5: the countdown no longer recolours the boxes -- only the bar over them shows it
+		boolean sd = false;
 		boolean blink = (System.currentTimeMillis() / 300L) % 2L == 0L;
 		// the hints flash for a second and a half, then stay green
 		boolean hintFlash = OmnitrixFunction.resultAge(s, now, 0f) <= 30f && (System.currentTimeMillis() / 160L) % 2L == 0L;
 		OmnitrixFunction.Outcome lastOut = OmnitrixFunction.lastOutcome(s);
 		float resultAge = OmnitrixFunction.resultAge(s, now, 0f);
-		boolean sdArmedFlash = resultAge < 12f && lastOut == OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED;
-		boolean sdCancelFlash = resultAge < 12f && lastOut == OmnitrixFunction.Outcome.SELF_DESTRUCT_CANCELLED;
+		boolean sdArmedFlash = false;
+		boolean sdCancelFlash = false;
 		// the lock as a durability bar on every key, red when it has just started, green as it runs out
 		float lockFrac = locked ? Mth.clamp(OmnitrixFunction.lockLeft(s, now) / (float) OmnitrixConfig.CODE_LOCK_TICKS, 0f, 1f) : 0f;
 		boolean sdOn = sd && (now / (OmnitrixFunction.selfDestructLeft(s, now) < 100 ? 3 : 6)) % 2 == 0;
@@ -370,10 +371,6 @@ public final class OmnitrixFunctionClient {
 		if (locked) {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.locked", (OmnitrixFunction.lockLeft(s, now) + 19) / 20));
 			colours.add(0xFFFF5555);
-		} else if (last == OmnitrixFunction.Outcome.SELF_DESTRUCT_CANCELLED && OmnitrixFunction.resultAge(s, now, 0f) < 60f) {
-			// v0.17.5 round 2: the cancel is told here, not on the action bar (which ran under this box)
-			texts.add(Component.translatable("hud.projecthero.omnitrix.function.sd_cancelled"));
-			colours.add(0xFF55FF55);
 		} else {
 			texts.add(Component.translatable("hud.projecthero.omnitrix.function.known", OmnitrixCodes.mask(p, "_", " ")));
 			colours.add(0xFF8FE870);
@@ -385,6 +382,12 @@ public final class OmnitrixFunctionClient {
 			colours.add(0xFFFFD24A);
 		}
 		int ty = y - 1;
+		if (OmnitrixFunction.selfDestructing(s)) {
+			// the one self-destruct indicator: a bar right over the ability boxes, the text stacks above it
+			int by = y - 6;
+			drawSelfDestructBar(g, mc, s, now, x0, by);
+			ty = by - 10;
+		}
 		for (int k = texts.size() - 1; k >= 0; k--) {
 			List<FormattedCharSequence> lines = font.split(texts.get(k), width - 2);
 			ty -= lines.size() * 10 + 1;
@@ -397,38 +400,19 @@ public final class OmnitrixFunctionClient {
 		return ty;
 	}
 
-	/** The self-destruct countdown: red edges and a banner with the seconds and how to cancel it. */
-	private static void drawSelfDestruct(GuiGraphics g, Minecraft mc, OmnitrixState s, long now) {
+	/**
+	 * v0.17.5 (user: "for the omnitrix self destruct remove all the indicators and bars besides a bar for self destruct above the
+	 * ability ui"): the whole countdown UI is one standard meter row -- "Self-destruct", a red bar draining, the seconds -- with
+	 * {@code by} its bar's top. No red screen edges, no banner, no red boxes, no countdown on the face.
+	 */
+	private static void drawSelfDestructBar(GuiGraphics g, Minecraft mc, OmnitrixState s, long now, int x0, int by) {
 		int left = OmnitrixFunction.selfDestructLeft(s, now);
 		if (left <= 0) {
 			return;
 		}
-		int w = g.guiWidth(), h = g.guiHeight();
-		boolean on = (now / (left < 100 ? 3 : 6)) % 2 == 0;
-		int edge = on ? 0x70FF1A10 : 0x30FF1A10;
-		g.fill(0, 0, w, 5, edge);
-		g.fill(0, h - 5, w, h, edge);
-		g.fill(0, 0, 5, h, edge);
-		g.fill(w - 5, 0, w, h, edge);
-		int bw = Math.min(236, w - 16);
-		int x = w / 2 - bw / 2, y = 22;
-		int secs = (left + 19) / 20;
-		List<FormattedCharSequence> title = mc.font.split(Component.translatable("hud.projecthero.omnitrix.self_destruct_code"), bw - 8);
-		List<FormattedCharSequence> sub = mc.font.split(Component.translatable("hud.projecthero.omnitrix.self_destruct_left", secs), bw - 8);
-		int bh = 4 + title.size() * 10 + sub.size() * 10 + 8;
-		g.fill(x, y, x + bw, y + bh, 0xE0180404);
-		g.renderOutline(x, y, bw, bh, on ? 0xFFFF3A2E : 0xFF801010);
-		int ly = y + 4;
-		for (FormattedCharSequence line : title) {
-			g.drawCenteredString(mc.font, line, w / 2, ly, on ? 0xFFFF3A2E : 0xFFFFB0A0);
-			ly += 10;
-		}
-		for (FormattedCharSequence line : sub) {
-			g.drawCenteredString(mc.font, line, w / 2, ly, 0xFFFFFFFF);
-			ly += 10;
-		}
 		float frac = Mth.clamp(left / (float) OmnitrixConfig.SELF_DESTRUCT_TICKS, 0f, 1f);
-		g.fill(x + 6, y + bh - 8, x + bw - 6, y + bh - 4, 0xFF300808);
-		g.fill(x + 6, y + bh - 8, x + 6 + (int) ((bw - 12) * frac), y + bh - 4, on ? 0xFFFF3A2E : 0xFFC02018);
+		int secs = (left + 19) / 20;
+		OmnitrixHud.meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.self_destruct_bar"), frac, 0xE0281E,
+				secs + " s", 0xFFFF6A5A);
 	}
 }
