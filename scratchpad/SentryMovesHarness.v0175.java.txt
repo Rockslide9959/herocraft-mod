@@ -1,0 +1,798 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.sentry.SentryHud;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.sentry.Sentry;
+import com.projecthero.mod.sentry.SentryAbilityManager;
+import com.projecthero.mod.sentry.VoidTakeover;
+import com.projecthero.mod.sentry.data.SentryAttachments;
+import com.projecthero.mod.sentry.data.SentryState;
+import com.projecthero.mod.sentry.item.SentrySuitItem;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Sentry moveset 2): films every new Sentry move in sequence on husks / iron golems, every new Void
+ * move (merged), and the takeover attacking at its 2 s pace (with an on-screen attack log read from the integrated server); stills
+ * per move and the HUD / Left-Alt move list of both kits. Enabled by run/sentrymoves.flag = "<out dir>". Kept as
+ * scratchpad/SentryMovesHarness.v0175.java.txt (copy to src/client/java/com/projecthero/mod/client/SentryMovesHarness.java and add it
+ * to fabric.mod.json's client entrypoints while filming; remove both before committing).
+ */
+public final class SentryMovesHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static ArmorStand camera;
+	private static Vec3 camAt, camLook;
+	private static String filming;
+	private static int frame;
+	/** The takeover overlay: on while filming the takeover. */
+	private static volatile boolean takeoverLog;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("sentrymoves.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SentryMovesHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(SentryMovesHarness::placeCamera);
+		// the detached camera: draw the player himself (and no first-person hand)
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (camAt == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			var p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = net.minecraft.util.Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = net.minecraft.util.Mth.lerp(pt, p.yo, p.getY()) - cam.y,
+					z = net.minecraft.util.Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, net.minecraft.util.Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(),
+					disp.getPackedLightCoords(p, pt));
+		});
+		net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((g, delta) -> {
+			if (!takeoverLog) {
+				return;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			MinecraftServer srv = mc.getSingleplayerServer();
+			if (srv == null || srv.getPlayerList().getPlayers().isEmpty() || mc.level == null) {
+				return;
+			}
+			ServerPlayer sp = srv.getPlayerList().getPlayers().get(0);
+			List<Long> at = VoidTakeover.attackTimes(sp);
+			long now = mc.level.getGameTime();
+			int x = 8, y = 8;
+			g.fill(x - 4, y - 4, x + 230, y + 46, 0xB0000000);
+			g.drawString(mc.font, "The Void's attacks: " + at.size() + "   (one every 40 ticks at most)", x, y, 0xFFFFFFFF, true);
+			if (!at.isEmpty()) {
+				long last = at.get(at.size() - 1);
+				String gap = at.size() > 1 ? (last - at.get(at.size() - 2)) + " ticks after the one before" : "the first";
+				g.drawString(mc.font, "last: " + gap + "  (" + VoidTakeover.lastMove(sp) + ")", x, y + 12, 0xFFFFC83A, true);
+				if (now - last < 8) {
+					g.drawString(mc.font, "ATTACK", x, y + 26, 0xFFFF4040, true);
+				} else {
+					g.drawString(mc.font, "next in " + Math.max(0, 40 - (now - last)) + " ticks", x, y + 26, 0xFF9AD0FF, true);
+				}
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "sentrymoves-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static Vec3 s(double x, double y, double z) {
+		return new Vec3(site.getX() + 0.5 + x, site.getY() + 1 + y, site.getZ() + 0.5 + z);
+	}
+
+	private static void fixed(Minecraft mc, Vec3 at, Vec3 look) {
+		if (camera == null || camera.level() != mc.level) {
+			camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+			camera.setInvisible(true);
+			// the camera is the view entity: it needs the night vision (the takeover's midnight sky would black the film out)
+			camera.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+		}
+		camAt = at;
+		camLook = look;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		mc.gameRenderer.setRenderHand(false);
+		placeCamera(mc);
+	}
+
+	private static void playerView(Minecraft mc, CameraType type) {
+		camAt = null;
+		mc.gameRenderer.setRenderHand(true);
+		mc.setCameraEntity(mc.player);
+		mc.options.setCameraType(type);
+	}
+
+	private static void placeCamera(Minecraft mc) {
+		if (camAt == null || camera == null) {
+			return;
+		}
+		if (mc.getCameraEntity() != camera && mc.player != null) {
+			mc.setCameraEntity(camera); // (the takeover view would take it back)
+		}
+		Vec3 to = camLook.subtract(camAt);
+		float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		double eye = camera.getEyeHeight();
+		camera.moveTo(camAt.x, camAt.y - eye, camAt.z, yaw, pitch);
+		camera.xo = camera.getX();
+		camera.yo = camera.getY();
+		camera.zo = camera.getZ();
+		camera.xOld = camera.getX();
+		camera.yOld = camera.getY();
+		camera.zOld = camera.getZ();
+		camera.yRotO = yaw;
+		camera.xRotO = pitch;
+		camera.setYHeadRot(yaw);
+	}
+
+	private static void edit(ServerPlayer p, Consumer<SentryState> c) {
+		SentryState n = Sentry.state(p).copy();
+		c.accept(n);
+		p.setAttached(SentryAttachments.STATE, n);
+	}
+
+	private static void stand(ServerPlayer p, double x, double z, float yaw) {
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		p.connection.teleport(site.getX() + 0.5 + x, site.getY() + 1, site.getZ() + 0.5 + z, yaw, 0f);
+	}
+
+	/** Turns him to look at a point (server and client). */
+	private static void aimAt(ServerPlayer p, Vec3 target) {
+		Vec3 d = target.subtract(p.getEyePosition());
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.setYHeadRot(yaw);
+	}
+
+	private static void aimAt(ServerPlayer p, Entity e) {
+		aimAt(p, e.position().add(0, e.getBbHeight() * 0.55, 0));
+	}
+
+	private static Entity last;
+
+	private static Mob spawn(ServerPlayer p, EntityType<? extends Mob> type, double x, double z, float yaw) {
+		ServerLevel level = p.serverLevel();
+		Mob m = type.create(level);
+		m.moveTo(site.getX() + 0.5 + x, site.getY() + 1, site.getZ() + 0.5 + z, yaw, 0f);
+		m.setPersistenceRequired();
+		level.addFreshEntity(m);
+		last = m;
+		return m;
+	}
+
+	private static void clearMobs(ServerPlayer p) {
+		for (Entity e : p.serverLevel().getEntities((Entity) null, new AABB(site).inflate(40), e -> !(e instanceof Player)
+				&& (e instanceof LivingEntity || e instanceof net.minecraft.world.entity.projectile.Projectile || e instanceof net.minecraft.world.entity.item.ItemEntity
+				|| e instanceof net.minecraft.world.entity.ExperienceOrb))) {
+			e.discard();
+		}
+	}
+
+	private static void fresh(ServerPlayer p) {
+		edit(p, s -> {
+			s.sun = 100f;
+			s.abilityReadyAt.clear();
+		});
+		p.setHealth(p.getMaxHealth());
+	}
+
+	private static void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
+		p.setShiftKeyDown(shift);
+		SentryAbilityManager.handle(p, slot, true);
+		p.setShiftKeyDown(false);
+		System.out.println("[HARNESS] pressed " + slot + (shift ? " (shift)" : "") + " sun=" + Math.round(Sentry.state(p).sun) + " void="
+				+ Math.round(Sentry.state(p).voidLevel * 10) / 10f);
+	}
+
+	private static void release(ServerPlayer p, AbilitySlot slot) {
+		SentryAbilityManager.handle(p, slot, false);
+	}
+
+	static void prepare(ServerLevel level) {
+		for (int x = -20; x <= 24; x++) {
+			for (int z = -20; z <= 20; z++) {
+				for (int y = -2; y <= 30; y++) {
+					BlockState st = y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+					level.setBlock(site.offset(x, y, z), st, 2 | 16);
+				}
+			}
+		}
+		// a wall to slam into (the Haymaker) and to stop the Shadow Step
+		for (int z = -4; z <= 4; z++) {
+			for (int y = 1; y <= 5; y++) {
+				level.setBlock(site.offset(13, y, z), Blocks.STONE_BRICKS.defaultBlockState(), 2 | 16);
+			}
+		}
+	}
+
+	private static void film(Minecraft mc, String name, int from, int to) {
+		for (int t = from; t < to; t++) {
+			final int f = t - from;
+			at(t, () -> shot(mc, String.format("film_%s_%04d", name, f)));
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SentryMovesHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBLOOT).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				prepare(level);
+				com.projecthero.mod.hero.PowerGrants.grantHero(p, "sentry");
+				p.setGameMode(GameType.SURVIVAL);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+				p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP));
+				p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SentrySuitItem.TROUSERS));
+				System.out.println("[HARNESS] site " + site + " sentry=" + Sentry.hasPower(p));
+			});
+		}
+		if (t == 45 && site == null) {
+			return;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		// ================================================================ the Sentry kit
+		int t = 90; // (after the grant title fades)
+		at(t, () -> {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				clearMobs(p);
+				stand(p, 0, 0, -90f);
+				fresh(p);
+				edit(p, s -> s.voidLevel = 10f);
+			});
+		});
+		at(t + 2, () -> fixed(mc, s(3.2, 3.4, -11.5), s(3.2, 1.2, 0)));
+		int S = t + 10;
+		// R Golden Fury: three punches, the Haymaker sends it into the wall
+		at(S, () -> server(mc, p -> spawn(p, EntityType.HUSK, 3.2, 0, 90f)));
+		for (int i = 0; i < 3; i++) {
+			at(S + 10 + i * 9, () -> server(mc, p -> {
+				fresh(p);
+				aimAt(p, last);
+				press(p, AbilitySlot.SLOT_1, false);
+			}));
+		}
+		at(S + 30, () -> shot(mc, "s01_golden_fury_haymaker"));
+		at(S + 36, () -> shot(mc, "s01b_golden_fury_wall_slam"));
+		// Hold Shift+R Solar Gaze on an iron golem
+		at(S + 60, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			spawn(p, EntityType.IRON_GOLEM, 7, 0, 90f);
+		}));
+		at(S + 70, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, last);
+			press(p, AbilitySlot.SLOT_1, true);
+		}));
+		for (int k = 72; k < 125; k += 4) {
+			at(S + k, () -> server(mc, p -> {
+				if (last != null && last.isAlive()) {
+					aimAt(p, last);
+				}
+			}));
+		}
+		at(S + 85, () -> shot(mc, "s02_solar_gaze"));
+		at(S + 118, () -> shot(mc, "s02b_solar_gaze_hot"));
+		at(S + 125, () -> server(mc, p -> release(p, AbilitySlot.SLOT_1)));
+		// Hold G Disassemble on a husk: it comes apart into light
+		at(S + 135, () -> server(mc, p -> {
+			clearMobs(p);
+			spawn(p, EntityType.HUSK, 5, 0, 90f);
+		}));
+		at(S + 145, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, last);
+			press(p, AbilitySlot.SLOT_2, false);
+		}));
+		at(S + 168, () -> shot(mc, "s03_disassemble_lifted"));
+		at(S + 186, () -> shot(mc, "s03b_disassemble_comes_apart"));
+		at(S + 195, () -> server(mc, p -> release(p, AbilitySlot.SLOT_2)));
+		// Shift+G Skyward Hurl: an iron golem thrown into the sky
+		at(S + 205, () -> server(mc, p -> {
+			clearMobs(p);
+			spawn(p, EntityType.IRON_GOLEM, 3, 0, 90f);
+		}));
+		at(S + 215, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, last);
+			press(p, AbilitySlot.SLOT_2, true);
+		}));
+		at(S + 217, () -> fixed(mc, s(3, 3.0, -12), s(3, 7, 0)));
+		at(S + 222, () -> shot(mc, "s04_skyward_hurl"));
+		at(S + 260, () -> fixed(mc, s(3.2, 3.4, -11.5), s(3.2, 1.2, 0)));
+		// Z Sunfall: the leap, the dive, the two-ring slam
+		at(S + 270, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			spawn(p, EntityType.HUSK, 5, 2, 90f);
+			spawn(p, EntityType.HUSK, 5, -2, 90f);
+			spawn(p, EntityType.HUSK, 7, 0, 90f);
+			spawn(p, EntityType.IRON_GOLEM, 10, 3, 90f);
+		}));
+		at(S + 280, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, s(4, -1, 0));
+			press(p, AbilitySlot.SLOT_4, false);
+		}));
+		at(S + 289, () -> shot(mc, "s05_sunfall_leap"));
+		at(S + 300, () -> server(mc, p -> System.out.println("[HARNESS] sunfall phase " + com.projecthero.mod.sentry.SentryMoves.sunfallPhase(p))));
+		at(S + 304, () -> shot(mc, "s05b_sunfall_slam"));
+		// C Golden Guardian: a villager healed, a husk burned
+		at(S + 330, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			var v = spawn(p, EntityType.VILLAGER, 2.5, 2.5, 180f);
+			v.setHealth(6f);
+			spawn(p, EntityType.HUSK, 4, -1.5, 90f);
+			p.setHealth(20f);
+		}));
+		at(S + 340, () -> server(mc, p -> {
+			edit(p, s -> {
+				s.sun = 100f;
+				s.abilityReadyAt.clear();
+			});
+			aimAt(p, s(5, 1, 0));
+			press(p, AbilitySlot.SLOT_6, false);
+		}));
+		at(S + 345, () -> shot(mc, "s06_golden_guardian"));
+		// Shift+C Molecular Shield: arrows turned to light
+		at(S + 370, () -> server(mc, p -> {
+			clearMobs(p);
+			fresh(p);
+			press(p, AbilitySlot.SLOT_6, true);
+		}));
+		for (int k = 0; k < 8; k++) {
+			final int kk = k;
+			at(S + 378 + k * 5, () -> server(mc, p -> {
+				var a = new net.minecraft.world.entity.projectile.Arrow(EntityType.ARROW, p.serverLevel());
+				Vec3 from = s(10, 1.2 + (kk % 3) * 0.4, -2 + kk % 5);
+				a.setPos(from.x, from.y, from.z);
+				Vec3 d = p.position().add(0, 1.2, 0).subtract(from);
+				a.shoot(d.x, d.y, d.z, 1.4f, 0f);
+				p.serverLevel().addFreshEntity(a);
+			}));
+		}
+		at(S + 386, () -> shot(mc, "s07_molecular_shield"));
+		at(S + 404, () -> shot(mc, "s07b_molecular_shield_arrows_to_light"));
+		// Shift+Z A Million Suns: the 4 s wind-up, then the light
+		at(S + 425, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 3, 0, -90f);
+			for (int i = 0; i < 6; i++) {
+				double a = i * Math.PI / 3.0;
+				spawn(p, i % 3 == 0 ? EntityType.IRON_GOLEM : EntityType.HUSK, 3 + Math.cos(a) * 5, Math.sin(a) * 5, 0f);
+			}
+		}));
+		at(S + 435, () -> server(mc, p -> {
+			fresh(p);
+			press(p, AbilitySlot.SLOT_4, true);
+		}));
+		at(S + 437, () -> fixed(mc, s(3, 5, -14), s(3, 3, 0)));
+		at(S + 475, () -> shot(mc, "s08_million_suns_charging"));
+		at(S + 516, () -> shot(mc, "s08b_million_suns"));
+		at(S + 521, () -> shot(mc, "s08c_million_suns_after"));
+		film(mc, "sentry", S, S + 560);
+		// the HUD and the Left-Alt move list
+		int H = S + 570;
+		at(H, () -> {
+			playerView(mc, CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				clearMobs(p);
+				stand(p, 0, 0, -90f);
+				edit(p, s -> {
+					s.sun = 70f;
+					s.voidLevel = 20f;
+					s.abilityReadyAt.clear();
+				});
+			});
+		});
+		at(H + 10, () -> MoveListOverlay.forceHeld = true);
+		at(H + 15, () -> shot(mc, "s09_hud_move_list_sentry"));
+		at(H + 16, () -> SentryHud.forceShift = true);
+		at(H + 20, () -> shot(mc, "s09b_hud_shift_sentry"));
+		at(H + 21, () -> {
+			SentryHud.forceShift = false;
+			MoveListOverlay.forceHeld = false;
+		});
+
+		// ================================================================ the Void (merged)
+		int V = H + 30;
+		at(V, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			fresh(p);
+			edit(p, s -> {
+				s.voidForm = true;
+				s.formChangedAt = 1L;
+				s.voidLevel = 30f;
+			});
+			Sentry.reconcile(p);
+		}));
+		at(V + 2, () -> fixed(mc, s(3.2, 3.4, -11.5), s(3.2, 1.2, 0)));
+		int W = V + 10;
+		// R Tendril Lash: two whips, then the Impale
+		at(W, () -> server(mc, p -> {
+			spawn(p, EntityType.HUSK, 3, 0.8, 90f);
+			spawn(p, EntityType.HUSK, 3, -0.8, 90f);
+			spawn(p, EntityType.IRON_GOLEM, 8, 0, 90f);
+		}));
+		for (int i = 0; i < 3; i++) {
+			final int ii = i;
+			at(W + 10 + i * 10, () -> server(mc, p -> {
+				edit(p, s -> s.abilityReadyAt.clear());
+				aimAt(p, ii < 2 ? s(3, 1, 0) : s(8, 1.4, 0));
+				press(p, AbilitySlot.SLOT_1, false);
+			}));
+		}
+		at(W + 13, () -> shot(mc, "v01_tendril_lash_whip"));
+		at(W + 33, () -> shot(mc, "v01b_tendril_lash_impale"));
+		// Shift+R Erase: seized, darkening, wiped into a shadow
+		at(W + 55, () -> server(mc, p -> {
+			clearMobs(p);
+			spawn(p, EntityType.IRON_GOLEM, 7, 0, 90f);
+		}));
+		at(W + 65, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, last);
+			press(p, AbilitySlot.SLOT_1, true);
+		}));
+		at(W + 73, () -> shot(mc, "v02_erase_seized"));
+		at(W + 82, () -> shot(mc, "v02b_erase_shadow"));
+		// G Shadow Pool under three husks
+		at(W + 105, () -> server(mc, p -> {
+			clearMobs(p);
+			spawn(p, EntityType.HUSK, 6, 1.5, 90f);
+			spawn(p, EntityType.HUSK, 6, -1.5, 90f);
+			spawn(p, EntityType.HUSK, 7.5, 0, 90f);
+		}));
+		at(W + 115, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, s(6.5, -0.9, 0));
+			press(p, AbilitySlot.SLOT_2, false);
+		}));
+		at(W + 140, () -> shot(mc, "v03_shadow_pool"));
+		// Shift+G Swallow: an iron golem in the black sphere
+		at(W + 175, () -> server(mc, p -> {
+			clearMobs(p);
+			spawn(p, EntityType.IRON_GOLEM, 6, 0, 90f);
+		}));
+		at(W + 185, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, last);
+			press(p, AbilitySlot.SLOT_2, true);
+		}));
+		at(W + 205, () -> shot(mc, "v04_swallow_sphere"));
+		at(W + 247, () -> shot(mc, "v04b_swallow_spat_out"));
+		// Z Nightmare: the wave, the figures, the mobs flee
+		at(W + 265, () -> server(mc, p -> {
+			clearMobs(p);
+			for (int i = 0; i < 4; i++) {
+				double a = i * Math.PI / 2.0 + 0.4;
+				spawn(p, EntityType.HUSK, Math.cos(a) * 4 + 2, Math.sin(a) * 4, 0f);
+			}
+		}));
+		at(W + 280, () -> server(mc, p -> {
+			fresh(p);
+			press(p, AbilitySlot.SLOT_4, false);
+		}));
+		at(W + 286, () -> shot(mc, "v05_nightmare"));
+		at(W + 305, () -> shot(mc, "v05b_nightmare_fleeing"));
+		// C Blot Out
+		at(W + 335, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 2, 0, -90f);
+			for (int i = 0; i < 3; i++) {
+				double a = i * Math.PI * 2 / 3.0;
+				spawn(p, EntityType.HUSK, 2 + Math.cos(a) * 3, Math.sin(a) * 3, 0f);
+			}
+			p.setHealth(16f);
+		}));
+		at(W + 345, () -> server(mc, p -> {
+			edit(p, s -> {
+				s.sun = 60f;
+				s.abilityReadyAt.clear();
+			});
+			press(p, AbilitySlot.SLOT_6, false);
+		}));
+		at(W + 349, () -> shot(mc, "v06_blot_out"));
+		// Shift+C Shadow Clones hunting
+		at(W + 375, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			spawn(p, EntityType.HUSK, 7, 2, 90f);
+			spawn(p, EntityType.HUSK, 7, -2, 90f);
+			spawn(p, EntityType.IRON_GOLEM, 9, 0, 90f);
+		}));
+		at(W + 385, () -> server(mc, p -> {
+			fresh(p);
+			press(p, AbilitySlot.SLOT_6, true);
+		}));
+		at(W + 400, () -> shot(mc, "v07_shadow_clones"));
+		at(W + 430, () -> shot(mc, "v07b_shadow_clones_hunting"));
+		// X Shadow Step through a husk to the wall
+		at(W + 470, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 0, 0, -90f);
+			spawn(p, EntityType.HUSK, 5, 0, 90f);
+		}));
+		at(W + 480, () -> server(mc, p -> {
+			fresh(p);
+			aimAt(p, s(10, 1.6, 0));
+			press(p, AbilitySlot.SLOT_3, false);
+		}));
+		at(W + 482, () -> shot(mc, "v08_shadow_step"));
+		// Shift+Z Shadow Eclipse
+		at(W + 500, () -> server(mc, p -> {
+			clearMobs(p);
+			stand(p, 4, 0, -90f);
+			for (int i = 0; i < 5; i++) {
+				double a = i * Math.PI * 2 / 5.0;
+				spawn(p, i == 0 ? EntityType.IRON_GOLEM : EntityType.HUSK, 4 + Math.cos(a) * 6, Math.sin(a) * 6, 0f);
+			}
+		}));
+		at(W + 505, () -> fixed(mc, s(4, 4, -15), s(4, 4.5, 0)));
+		at(W + 510, () -> server(mc, p -> {
+			fresh(p);
+			press(p, AbilitySlot.SLOT_4, true);
+		}));
+		at(W + 525, () -> shot(mc, "v09_shadow_eclipse_windup"));
+		at(W + 570, () -> shot(mc, "v09b_shadow_eclipse"));
+		at(W + 739, () -> shot(mc, "v09c_shadow_eclipse_collapse"));
+		film(mc, "void", W, W + 750);
+		// the HUD of the Void
+		int VH = W + 760;
+		at(VH, () -> {
+			playerView(mc, CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				clearMobs(p);
+				stand(p, 0, 0, -90f);
+				edit(p, s -> {
+					s.voidLevel = 45f;
+					s.abilityReadyAt.clear();
+				});
+			});
+		});
+		at(VH + 10, () -> MoveListOverlay.forceHeld = true);
+		at(VH + 15, () -> shot(mc, "v10_hud_move_list_void"));
+		at(VH + 16, () -> SentryHud.forceShift = true);
+		at(VH + 20, () -> shot(mc, "v10b_hud_shift_void"));
+		at(VH + 21, () -> {
+			SentryHud.forceShift = false;
+			MoveListOverlay.forceHeld = false;
+		});
+
+		// ================================================================ the first-person arm in every look
+		int FP = VH + 30;
+		at(FP, () -> {
+			playerView(mc, CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				clearMobs(p);
+				stand(p, 0, 0, -90f);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), -90f, 25f);
+				p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+				p.setItemSlot(EquipmentSlot.LEGS, ItemStack.EMPTY);
+				edit(p, s -> {
+					s.voidForm = false;
+					s.formChangedAt = 1L;
+					s.voidLevel = 20f;
+				});
+				Sentry.reconcile(p);
+			});
+			System.out.println("[HARNESS] skin model " + mc.player.getSkin().model());
+		});
+		at(FP + 4, () -> shot(mc, "fp1_no_suit_normal_arm"));
+		at(FP + 7, () -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+		at(FP + 9, () -> shot(mc, "fp1_no_suit_normal_arm_swing"));
+		at(FP + 12, () -> server(mc, p -> p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP))));
+		at(FP + 16, () -> shot(mc, "fp2_sentry_suit_sleeve"));
+		at(FP + 19, () -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+		at(FP + 21, () -> shot(mc, "fp2_sentry_suit_sleeve_swing"));
+		at(FP + 24, () -> server(mc, p -> edit(p, s -> {
+			s.voidForm = true;
+			s.formChangedAt = p.level().getGameTime();
+		})));
+		at(FP + 42, () -> shot(mc, "fp3_merged_suit_mid_fade"));
+		at(FP + 45, () -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+		at(FP + 47, () -> shot(mc, "fp3_merged_suit_mid_fade_swing"));
+		at(FP + 74, () -> shot(mc, "fp3b_void_suit_sleeve"));
+		at(FP + 77, () -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+		at(FP + 79, () -> shot(mc, "fp3b_void_suit_sleeve_swing"));
+		at(FP + 82, () -> server(mc, p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+			edit(p, s -> s.formChangedAt = 1L);
+		}));
+		at(FP + 86, () -> shot(mc, "fp4_merged_no_suit_void_body_arm"));
+		at(FP + 89, () -> mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+		at(FP + 91, () -> shot(mc, "fp4_merged_no_suit_void_body_arm_swing"));
+		at(FP + 94, () -> server(mc, p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SentrySuitItem.TOP));
+			p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SentrySuitItem.TROUSERS));
+		}));
+
+		// ================================================================ the takeover at its new pace
+		int T = FP + 110;
+		at(T, () -> server(mc, p -> {
+			clearMobs(p);
+			edit(p, s -> {
+				s.voidForm = false;
+				s.formChangedAt = 1L;
+				s.voidLevel = 30f;
+			});
+			stand(p, 0, 0, -90f);
+			p.addTag(VoidTakeover.TEST_NO_DISC); // the film is about the pace: no disc eating the set
+			spawn(p, EntityType.IRON_GOLEM, 6, 2.5, 90f);
+			spawn(p, EntityType.IRON_GOLEM, 7, -2.5, 90f);
+		}));
+		at(T + 5, () -> fixed(mc, s(4, 4, -13), s(4, 2.5, 0)));
+		at(T + 10, () -> {
+			takeoverLog = true;
+			server(mc, p -> Sentry.setVoid(p, 100f));
+		});
+		at(T + 12, () -> server(mc, p -> System.out.println("[HARNESS] takeover=" + Sentry.inTakeover(p))));
+		at(T + 60, () -> shot(mc, "t01_takeover_attack"));
+		at(T + 140, () -> shot(mc, "t02_takeover_attack"));
+		film(mc, "takeover", T + 10, T + 330);
+		at(T + 331, () -> server(mc, p -> {
+			System.out.println("[HARNESS] takeover attacks at " + VoidTakeover.attackTimes(p));
+			VoidTakeover.end(p, VoidTakeover.End.COMMAND);
+		}));
+		at(T + 335, () -> takeoverLog = false);
+		at(T + 345, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SENTRYMOVES_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

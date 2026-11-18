@@ -34,17 +34,21 @@ public final class SentryState {
 	public long formChangedAt;
 
 	// ---------------------------------------------------------------- running moves (for the look)
-	/** Sunbeam held since (0 = off). */
+	/** Solar Gaze (moveset 2; was the Sunbeam) held since (0 = off). Save key kept. */
 	public long beamStart;
 	/** A Million Suns charging since (0 = off). */
 	public long sunsStart;
-	/** Sentinel Shield up until. */
+	/** Molecular Shield (moveset 2; was the Sentinel Shield) up until. */
 	public long shieldUntil;
-	/** Nightfall dome until, and where (block coords). */
+	/** Shadow Eclipse (moveset 2; was Nightfall) up until. Save key kept. */
 	public long nightfallUntil;
-	/** Molecular Grip: the held creature's entity id (-1 none) and since when. */
+	/** Disassemble (moveset 2; was the Molecular Grip): the held creature's entity id (-1 none) and since when. */
 	public int gripTarget = -1;
 	public long gripStart;
+	/** Moveset 2: a short body pose a move plays (one of the POSE_ ids, 0 none), since when and for how long (every viewer's model reads it). */
+	public int pose;
+	public long poseAt;
+	public int poseTicks;
 	/** The golden kneel after the Void is thrown out, until. */
 	public long kneelUntil;
 
@@ -61,6 +65,12 @@ public final class SentryState {
 	public float grip = 100f;
 	/** The entity the Void is after right now (-1 none), so the owner's client faces it. */
 	public int takeoverTarget = -1;
+
+	public static final int POSE_NONE = 0;
+	/** Sentry: Skyward Hurl (both arms thrown up), Sunfall leap / dive, Golden Guardian (arms spread, face up), Molecular Shield (arms crossed, then open), the Haymaker wind-up. */
+	public static final int POSE_HURL = 1, POSE_LEAP = 2, POSE_DIVE = 3, POSE_GUARDIAN = 4, POSE_SHIELD = 5, POSE_HAYMAKER = 6;
+	/** Void: Erase (hand out, fingers spread), Shadow Pool (pointing down), Swallow (fist closing), Nightmare (arms wide, head back), Eclipse (arms raised), Blot Out (pulling in), Shadow Clones (palms out low), Impale (a thrust). */
+	public static final int POSE_ERASE = 10, POSE_POOL = 11, POSE_SPHERE = 12, POSE_NIGHTMARE = 13, POSE_ECLIPSE = 14, POSE_BLOT = 15, POSE_CLONES = 16, POSE_IMPALE = 17;
 
 	public SentryState() {
 	}
@@ -87,6 +97,9 @@ public final class SentryState {
 		n.nightfallUntil = nightfallUntil;
 		n.gripTarget = gripTarget;
 		n.gripStart = gripStart;
+		n.pose = pose;
+		n.poseAt = poseAt;
+		n.poseTicks = poseTicks;
 		n.kneelUntil = kneelUntil;
 		n.takeoverStart = takeoverStart;
 		n.room = room;
@@ -117,6 +130,9 @@ public final class SentryState {
 		t.putLong("nightfall_until", nightfallUntil);
 		t.putInt("grip_target", gripTarget);
 		t.putLong("grip_start", gripStart);
+		t.putInt("pose", pose);
+		t.putLong("pose_at", poseAt);
+		t.putInt("pose_ticks", poseTicks);
 		t.putLong("kneel_until", kneelUntil);
 		t.putLong("takeover_start", takeoverStart);
 		t.putInt("room", room);
@@ -148,6 +164,9 @@ public final class SentryState {
 		s.nightfallUntil = t.getLong("nightfall_until");
 		s.gripTarget = t.contains("grip_target") ? t.getInt("grip_target") : -1;
 		s.gripStart = t.getLong("grip_start");
+		s.pose = t.getInt("pose");
+		s.poseAt = t.getLong("pose_at");
+		s.poseTicks = t.getInt("pose_ticks");
 		s.kneelUntil = t.getLong("kneel_until");
 		s.takeoverStart = t.getLong("takeover_start");
 		s.room = t.getInt("room");

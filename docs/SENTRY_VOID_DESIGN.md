@@ -16,7 +16,7 @@ reaching him from inside).
 | 90 | heartbeat, the sky dims around you, everything you hit leaves a burnt shadow on the ground |
 | 100 | **The Void takes over** |
 
-## Sentry kit (H selects the power; X movement, V utility, rest attacks)
+## Sentry kit (H selects the power; X movement, V utility, rest attacks) -- SUPERSEDED by moveset 2 (below, built 2026-11-18)
 | Key | Move |
 |---|---|
 | R | **Golden Strike:** heavy punch combo, every 3rd hit a golden shockwave |
@@ -32,7 +32,7 @@ reaching him from inside).
 | V | **Calm:** hold to meditate, Void drains, you can't attack meanwhile |
 | Shift+V | **Let it out:** (rework) a toggle -- win a short trial to merge with the Void (Void Form): stronger, but Void climbs faster; lose and the Void jumps 15 |
 
-## Void Form (Let It Out won, or forced by the takeover)
+## Void Form (Let It Out won, or forced by the takeover) -- the kit table is SUPERSEDED by moveset 2 (below, built 2026-11-18)
 Rework: wearing the Sentry Suit, the suit fades into the Void suit (the user's skin) and the cape goes black; without it, the original
 black-and-gold-veined body fades in. Darkness smoking off you.
 | Key | Move |
@@ -112,3 +112,40 @@ increasing and increasing and only he goes down slowly to the ground start fight
   climbs out of its own crater before crossing to someone up on the ground.
 - The black fog near it opens to 112 blocks (it was 40: the ground 50 below was lost in it).
 - Everything comes back after control returns, as before (now 64 blocks a tick, in loaded chunks; unloaded ones wait).
+
+## Moveset 2 for both forms + the takeover's pace (user, 2026-11-18) -- BUILT
+User: "Sentry: Create a new moveset based on the sentries powers in the movies and comics and also create a new moveset for the void.
+also for when the void takes control only make him attack once every 2 seconds with an ability or an M1"
+
+**Sentry** (comics + Thunderbolts*: flying punches through mountains, light from his eyes, molecular disassembly, hurling foes into the
+sky, a sonic-boom slam, a million exploding suns, healing light, the golden aura that turns attacks to light):
+| Key | Move |
+|---|---|
+| R | **Golden Fury:** a three-punch flying combo; he lunges at anything up to 9 out; the 3rd, the Haymaker, launches it far (a wall hurts it more) |
+| Hold Shift+R | **Solar Gaze:** twin beams of light from his eyes (beam clash), hotter after 2 s |
+| Hold G | **Disassemble:** lift a creature in a golden field; it unravels and, held 2 s, comes apart into light; let go to throw it |
+| Shift+G | **Skyward Hurl:** grab what's in reach and throw it straight up into the sky (bosses are slammed instead) |
+| Z | **Sunfall:** a leap (from the ground), then a fist-first dive and a sonic-boom slam in two rings |
+| Shift+Z | **A Million Suns:** a 4 s wind-up rising into the air (half damage taken), then the explosion of light |
+| C | **Golden Guardian:** healing light, cleansing, Regeneration + Absorption for allies; the undead burn |
+| Shift+C | **Molecular Shield:** a golden aura: projectiles turn to light (and Sun), less damage, melee deflected |
+| X / 2x Space / V / Shift+V | Sonic Boom dash / flight / Calm / Let It Out (unchanged) |
+
+**The Void** (comics + Thunderbolts*: tendrils, shadow imprints, the spreading shadow, people swallowed into darkness, mind horror):
+| Key | Move |
+|---|---|
+| R | **Tendril Lash:** two whips, then the Impale (a spear of shadow that pins and drags) |
+| Shift+R | **Erase:** seized, darkening, then wiped into a burnt shadow imprint |
+| G | **Shadow Pool:** shadow spreads on the ground and holds down whoever stands in it |
+| Shift+G | **Swallow:** a black void sphere around a creature (held, blind), then spat out; dying inside = absorbed |
+| Z | **Nightmare:** a wave of horror -- figures of shadow, mobs flee, players see darkness |
+| Shift+Z | **Shadow Eclipse:** he rises, a black sun with a gold corona drains everything under it while he regenerates; ends in a collapse |
+| C | **Blot Out:** drains life and light (his own Sun too) to heal |
+| Shift+C | **Shadow Clones:** three shadow doubles that hunt |
+| X | **Shadow Step:** a blink through a smear of shadow (no light rule any more), hurting what it passes |
+
+Merged buffs unchanged (+25% damage, Void moves x0.75 cooldowns, the Void rising faster).
+
+**The takeover's pace:** the body attacks at most once every 2 s (40 ticks): one shared cooldown for every Void move and every fist
+swing. The decay disc and its weak-mob damage are not attacks and are unchanged. It picks from the new Void moves by range and scene.
+Numbers: `docs/SENTRY_VOID_REFERENCE.md`.

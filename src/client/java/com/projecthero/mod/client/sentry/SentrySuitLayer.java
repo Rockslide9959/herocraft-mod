@@ -158,9 +158,16 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		return 0xFFFFFFFF;
 	}
 
-	/** The suit's sleeve in first person (from {@code SuitFirstPersonArmMixin}), posed like the vanilla arm just drawn. */
-	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right) {
-		Mode mode = mode(player, 1f);
+	/**
+	 * The first-person arm (from {@code SuitFirstPersonArmMixin}), posed like the vanilla arm just drawn, matching the third-person look:
+	 * the Sentry Suit top's sleeve (bare hand: the wearer's own skin shows through), merged the same per-pixel dissolve into the Void suit
+	 * sleeve, merged without the suit the Void Form body's arm, the takeover all black; nothing without suit or Void (the normal arm).
+	 * The wearer's own outer sleeve is hidden by {@link #hideOverlay} (the hand's {@code setupAnim} runs it too). Slim / wide arms each
+	 * have their textures.
+	 */
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right,
+			float partial) {
+		Mode mode = mode(player, partial);
 		if (mode == Mode.NONE || (mode == Mode.SUIT && !SentrySuitItem.topWorn(player))) {
 			return;
 		}
@@ -172,14 +179,14 @@ public class SentrySuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		sleeve.copyFrom(arm);
 		a.visible = true;
 		sleeve.visible = true;
-		ResourceLocation[] tex = textures(player, mode, slimArms, 1f);
+		ResourceLocation[] tex = textures(player, mode, slimArms, partial);
 		if (tex[0] != null) {
 			var vc = buffers.getBuffer(RenderType.entityCutoutNoCull(tex[0]));
 			a.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 			sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 		}
 		if (tex[1] != null) {
-			int glow = mode == Mode.BLACK ? 0xFFFFFFFF : glowColour(player, player.tickCount, voidFade(player, 1f) >= 0.5f);
+			int glow = mode == Mode.BLACK ? 0xFFFFFFFF : glowColour(player, player.tickCount + partial, voidFade(player, partial) >= 0.5f);
 			if (glow != 0) {
 				a.render(pose, buffers.getBuffer(RenderType.eyes(tex[1])), 0xF000F0, OverlayTexture.NO_OVERLAY, glow);
 			}

@@ -39,7 +39,9 @@ import net.minecraft.world.phys.Vec3;
  * v0.17.5: <b>the Void takes over</b> at 100 Void. The body is not the player's any more:
  * <ul>
  *   <li>The Void flies it on its own and attacks <b>everything living</b> around it -- mobs, players, squadmates and pets (user
- *   decision) -- with the Void Form kit at full strength ({@link VoidMoves}) and its own fists. Rework 2 (2026-11-17): it rises 50
+ *   decision) -- with the Void kit at full strength ({@link VoidMoves}) and its own fists, but (moveset 2, user: "when the void takes
+ *   control only make him attack once every 2 seconds with an ability or an M1") never more than one attack every 2 s: one shared
+ *   cooldown for every move and fist swing ({@link SentryConfig#TAKEOVER_ATTACK_INTERVAL}). Rework 2 (2026-11-17): it rises 50
  *   blocks above the ground and hangs there looking down at the world it is eating ({@link #hover}); it comes down -- slowly -- only for
  *   players and strong enemies ({@link #isStrong}) within 64 ({@link #engage}), and goes back up when there are none. Weak mobs are left
  *   to the spreading destruction (void damage every second). It flies by direct steering and never gets stuck: walls in its way and
@@ -78,6 +80,11 @@ public final class VoidTakeover {
 		/** The last move it used (tests). */
 		String lastMove;
 		int hits;
+		/** Moveset 2: the one shared attack cooldown (a Void move or a fist), and when each attack went (tests; the last 64). */
+		long nextAttack;
+		final java.util.ArrayDeque<Long> attacks = new java.util.ArrayDeque<>();
+		/** The last attack was a fist (up close it alternates fists and moves). */
+		boolean lastWasFist;
 		// rework 2: hovering, drifting, unsticking
 		Mode mode = Mode.HOVER;
 		/** The point (x/z) it hangs over; drifts slowly toward players / villages. */
@@ -96,15 +103,19 @@ public final class VoidTakeover {
 
 	private static final Map<UUID, Brain> BRAINS = new ConcurrentHashMap<>();
 
-	/** The takeover's own move cooldowns (ticks), separate from the player's. */
+	/**
+	 * The takeover's own per-move cooldowns (ticks), separate from the player's -- and on top of the one shared attack cooldown
+	 * ({@link SentryConfig#TAKEOVER_ATTACK_INTERVAL}: moveset 2, one attack every 2 s, a Void move or a fist alike).
+	 */
 	private static final Map<String, Integer> COOLDOWNS = Map.of(
-			SentryAbilityManager.SHADOW_LASH, 16,
+			SentryAbilityManager.TENDRIL_LASH, 40,
 			SentryAbilityManager.ERASE, 240,
-			SentryAbilityManager.GRASP, 100,
-			SentryAbilityManager.VOID_RIFT, 300,
-			SentryAbilityManager.NIGHTFALL, 600);
-
-	private static final float FIST_DAMAGE = 18f;
+			SentryAbilityManager.SHADOW_POOL, 200,
+			SentryAbilityManager.SWALLOW, 300,
+			SentryAbilityManager.NIGHTMARE, 400,
+			SentryAbilityManager.BLOT_OUT, 300,
+			SentryAbilityManager.SHADOW_CLONES, 600,
+			SentryAbilityManager.SHADOW_ECLIPSE, 1200);
 
 	private VoidTakeover() {
 	}
@@ -121,6 +132,12 @@ public final class VoidTakeover {
 	public static String lastMove(ServerPlayer p) {
 		Brain b = BRAINS.get(p.getUUID());
 		return b == null ? null : b.lastMove;
+	}
+
+	/** When each of the Void's attacks went this takeover (game times, the last 64; tests). */
+	public static java.util.List<Long> attackTimes(ServerPlayer p) {
+		Brain b = BRAINS.get(p.getUUID());
+		return b == null ? java.util.List.of() : new java.util.ArrayList<>(b.attacks);
 	}
 
 	/** How many hits the Void has landed this takeover (tests). */
@@ -544,37 +561,75 @@ public final class VoidTakeover {
 		}
 		b.hoverY = want.y;
 		steer(p, b, want, hSpeed, now);
-		// its fists, up close
-		if (dist <= 3.5 && now >= b.nextSwing) {
-			b.nextSwing = now + 10;
-			p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
-			if (Sentry.hit(p, target, FIST_DAMAGE, true)) {
-				b.hits++;
-			}
+		// moveset 2: one attack every 2 s at most -- a Void move or a fist swing, the same shared cooldown
+		if (now < b.nextAttack) {
+			return;
 		}
-		// the kit at full strength, picked by range
-		String move = null;
-		if (dist <= SentryConfig.LASH_RANGE && ready(b, SentryAbilityManager.SHADOW_LASH, now)) {
-			move = SentryAbilityManager.SHADOW_LASH;
-		} else if (dist <= 20.0 && ready(b, SentryAbilityManager.ERASE, now) && p.hasLineOfSight(target)) {
-			move = SentryAbilityManager.ERASE;
-		} else if (dist > SentryConfig.LASH_RANGE && dist <= SentryConfig.GRASP_RANGE && ready(b, SentryAbilityManager.GRASP, now)) {
-			move = SentryAbilityManager.GRASP;
-		} else if (dist <= SentryConfig.RIFT_RANGE && ready(b, SentryAbilityManager.VOID_RIFT, now)) {
-			move = SentryAbilityManager.VOID_RIFT;
-		} else if (ready(b, SentryAbilityManager.NIGHTFALL, now) && crowd(p) >= 2) {
-			move = SentryAbilityManager.NIGHTFALL;
-		}
+		boolean melee = dist <= SentryConfig.TAKEOVER_FIST_REACH;
+		String move = melee && !b.lastWasFist ? null : pickMove(p, b, target, dist, now);
 		if (move != null) {
 			face(p, at);
 			if (VoidMoves.fire(p, move, target)) {
 				b.ready.put(move, now + COOLDOWNS.getOrDefault(move, 100));
 				b.lastMove = move;
 				b.hits++;
-			} else {
-				b.ready.put(move, now + 20);
+				attacked(b, now, false);
+				return;
 			}
+			b.ready.put(move, now + 20); // (it couldn't: something else next tick)
 		}
+		if (melee) {
+			// its fists (an M1)
+			p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+			if (Sentry.hit(p, target, SentryConfig.TAKEOVER_FIST_DAMAGE, true)) {
+				b.hits++;
+			}
+			b.lastMove = "fist";
+			attacked(b, now, true);
+		}
+	}
+
+	/** An attack went: the shared cooldown starts. */
+	private static void attacked(Brain b, long now, boolean fist) {
+		b.nextAttack = now + SentryConfig.TAKEOVER_ATTACK_INTERVAL;
+		b.lastWasFist = fist;
+		b.attacks.addLast(now);
+		while (b.attacks.size() > 64) {
+			b.attacks.removeFirst();
+		}
+	}
+
+	/** The Void move it wants now, by range and the scene (null: none ready / none fits). */
+	static String pickMove(ServerPlayer p, Brain b, LivingEntity target, double dist, long now) {
+		int crowd = crowd(p);
+		boolean sight = p.hasLineOfSight(target);
+		long ticks = now - Sentry.state(p).takeoverStart;
+		if (ready(b, SentryAbilityManager.SHADOW_ECLIPSE, now) && ticks >= 600 && (crowd >= 3 || target instanceof Player
+				|| target.getType().is(ConventionalEntityTypeTags.BOSSES)) && dist <= SentryConfig.ECLIPSE_RADIUS * 0.7) {
+			return SentryAbilityManager.SHADOW_ECLIPSE;
+		}
+		if (ready(b, SentryAbilityManager.BLOT_OUT, now) && p.getHealth() < p.getMaxHealth() * 0.7f && dist <= SentryConfig.BLOT_RADIUS) {
+			return SentryAbilityManager.BLOT_OUT;
+		}
+		if (ready(b, SentryAbilityManager.ERASE, now) && sight && dist <= 20.0) {
+			return SentryAbilityManager.ERASE;
+		}
+		if (ready(b, SentryAbilityManager.SHADOW_CLONES, now) && crowd >= 2) {
+			return SentryAbilityManager.SHADOW_CLONES;
+		}
+		if (ready(b, SentryAbilityManager.NIGHTMARE, now) && crowd >= 2 && dist <= SentryConfig.NIGHTMARE_RADIUS) {
+			return SentryAbilityManager.NIGHTMARE;
+		}
+		if (dist <= SentryConfig.IMPALE_RANGE && ready(b, SentryAbilityManager.TENDRIL_LASH, now)) {
+			return SentryAbilityManager.TENDRIL_LASH;
+		}
+		if (dist > 4.0 && dist <= SentryConfig.SPHERE_RANGE && sight && ready(b, SentryAbilityManager.SWALLOW, now)) {
+			return SentryAbilityManager.SWALLOW;
+		}
+		if (dist <= SentryConfig.POOL_RANGE && target.onGround() && ready(b, SentryAbilityManager.SHADOW_POOL, now)) {
+			return SentryAbilityManager.SHADOW_POOL;
+		}
+		return null;
 	}
 
 	/**
@@ -674,7 +729,7 @@ public final class VoidTakeover {
 	}
 
 	private static int crowd(ServerPlayer p) {
-		double r = SentryConfig.NIGHTFALL_RADIUS;
+		double r = SentryConfig.NIGHTMARE_RADIUS;
 		return p.serverLevel().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(r), e -> canHit(p, e) && e.distanceToSqr(p) <= r * r).size();
 	}
 

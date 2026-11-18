@@ -62,74 +62,100 @@ public final class SentryConfig {
 	public static final int REGEN_INTERVAL = 40;
 	public static final float REGEN_SUN = 0.5f;
 
-	// ---------------------------------------------------------------- Sentry kit
-	/** R Golden Strike: three-hit combo; the 3rd hit throws a golden shockwave. */
-	public static final float STRIKE_DAMAGE = 24f;
-	public static final float STRIKE_THIRD_DAMAGE = 30f;
-	public static final float STRIKE_WAVE_DAMAGE = 14f;
-	public static final double STRIKE_WAVE_RADIUS = 4.5;
-	public static final double STRIKE_REACH = 4.5;
-	public static final int STRIKE_COOLDOWN = 8;
-	public static final int STRIKE_COMBO_WINDOW = 30;
-	public static final float STRIKE_COST = 2f;
+	// ---------------------------------------------------------------- Sentry kit (moveset 2, 2026-11-18)
+	/**
+	 * R Golden Fury: a three-punch flying combo. A target out past arm's reach (up to {@link #FURY_LUNGE_RANGE}) is closed on with a
+	 * golden lunge; the 3rd punch is the Haymaker that launches it far (a launched creature that slams into a wall takes
+	 * {@link #FURY_IMPACT_DAMAGE} more: "through the mountain").
+	 */
+	public static final float FURY_DAMAGE = 22f;
+	public static final float FURY_HAYMAKER_DAMAGE = 34f;
+	public static final double FURY_REACH = 4.5;
+	public static final double FURY_LUNGE_RANGE = 9.0;
+	public static final double FURY_LAUNCH_SPEED = 3.0;
+	public static final double FURY_LAUNCH_LIFT = 0.75;
+	public static final int FURY_LAUNCH_TICKS = 30;
+	public static final float FURY_IMPACT_DAMAGE = 12f;
+	public static final int FURY_COOLDOWN = 8;
+	public static final int FURY_COMBO_WINDOW = 30;
+	public static final float FURY_COST = 2f;
 
-	/** Shift+R Sunbeam: held. */
-	public static final float BEAM_DAMAGE = 6f;
-	public static final int BEAM_DAMAGE_INTERVAL = 4;
-	public static final double BEAM_RANGE = 32.0;
-	public static final float BEAM_COST_PER_SECOND = 5f;
-	public static final int BEAM_MAX_TICKS = 120;
-	public static final int BEAM_COOLDOWN = 60;
-	public static final float BEAM_CLASH_POWER = 1.4f;
-	public static final float BEAM_VOID_PER_SECOND = 0.17f; // was 0.5
+	/** Hold Shift+R Solar Gaze: twin beams of light from his eyes; past {@link #GAZE_RAMP_TICKS} held they burn x{@link #GAZE_RAMP}. */
+	public static final float GAZE_DAMAGE = 7f;
+	public static final int GAZE_DAMAGE_INTERVAL = 4;
+	public static final int GAZE_RAMP_TICKS = 40;
+	public static final float GAZE_RAMP = 1.5f;
+	public static final double GAZE_RANGE = 40.0;
+	public static final float GAZE_COST_PER_SECOND = 5f;
+	public static final int GAZE_MAX_TICKS = 100;
+	public static final int GAZE_COOLDOWN = 60;
+	public static final float GAZE_CLASH_POWER = 1.5f;
+	public static final float GAZE_VOID_PER_SECOND = 0.17f;
 
-	/** G Molecular Grip: lift; release throws, hold tears apart. */
-	public static final double GRIP_RANGE = 20.0;
-	public static final int GRIP_TEAR_TICKS = 30;
-	public static final int GRIP_MAX_TICKS = 100;
-	public static final float GRIP_TEAR_DAMAGE = 55f;
-	public static final float GRIP_THROW_DAMAGE = 14f;
-	public static final double GRIP_THROW_SPEED = 2.4;
-	public static final float GRIP_COST = 10f;
-	public static final float GRIP_TEAR_VOID = 1.7f; // was 5
-	public static final int GRIP_COOLDOWN = 80;
+	/** Hold G Disassemble: the creature is lifted (bosses pinned) and unravels; at {@link #UNMAKE_TEAR_TICKS} it comes apart. Let go early: thrown. */
+	public static final double UNMAKE_RANGE = 20.0;
+	public static final float UNMAKE_TICK_DAMAGE = 2f;
+	public static final int UNMAKE_TICK_INTERVAL = 5;
+	public static final int UNMAKE_TEAR_TICKS = 40;
+	public static final float UNMAKE_TEAR_DAMAGE = 50f;
+	public static final int UNMAKE_MAX_TICKS = 100;
+	public static final float UNMAKE_THROW_DAMAGE = 12f;
+	public static final double UNMAKE_THROW_SPEED = 2.4;
+	public static final float UNMAKE_COST = 10f;
+	public static final float UNMAKE_TEAR_VOID = 1.7f;
+	public static final int UNMAKE_COOLDOWN = 80;
 
-	/** Shift+G Unmake: a 3x3 patch of blocks into light (no drops). */
-	public static final double UNMAKE_RANGE = 24.0;
-	public static final float UNMAKE_COST = 8f;
-	public static final float UNMAKE_VOID = 1f; // was 3
-	public static final int UNMAKE_COOLDOWN = 40;
+	/** Shift+G Skyward Hurl: grab the creature in reach and throw it straight up into the sky (the fall does the rest). */
+	public static final double HURL_REACH = 6.0;
+	public static final float HURL_DAMAGE = 16f;
+	public static final double HURL_SPEED = 3.2;
+	/** A boss (not liftable) is slammed instead: this much, and Slowness III for {@link #HURL_BOSS_SLOW_TICKS}. */
+	public static final float HURL_BOSS_DAMAGE = 30f;
+	public static final int HURL_BOSS_SLOW_TICKS = 60;
+	public static final float HURL_COST = 14f;
+	public static final int HURL_COOLDOWN = 200;
 
-	/** Z Sun Dive (from the air). */
-	public static final float DIVE_DAMAGE = 32f;
-	public static final double DIVE_RADIUS = 5.0;
-	public static final double DIVE_SPEED = 2.6;
-	public static final int DIVE_MAX_TICKS = 60;
-	public static final float DIVE_COST = 12f;
-	public static final int DIVE_COOLDOWN = 120;
+	/** Z Sunfall: from the ground he leaps up first; then a fist-first dive and a sonic-boom slam (inner hit, then the outer ring). */
+	public static final double SUNFALL_LEAP = 1.5;
+	public static final int SUNFALL_LEAP_TICKS = 14;
+	public static final double SUNFALL_SPEED = 2.8;
+	public static final int SUNFALL_MAX_TICKS = 60;
+	public static final float SUNFALL_DAMAGE = 34f;
+	public static final double SUNFALL_RADIUS = 6.0;
+	public static final float SUNFALL_RING_DAMAGE = 12f;
+	public static final double SUNFALL_RING_RADIUS = 11.0;
+	public static final float SUNFALL_COST = 12f;
+	public static final int SUNFALL_COOLDOWN = 140;
 
-	/** Shift+Z A Million Suns: 3 s charge, then the explosion of light. */
-	public static final int SUNS_CHARGE_TICKS = 60;
-	public static final float SUNS_DAMAGE = 140f;
+	/** Shift+Z A Million Suns: a 4 s wind-up rising into the air (damage taken halved meanwhile), then the explosion of light. */
+	public static final int SUNS_CHARGE_TICKS = 80;
+	public static final float SUNS_CHARGE_RESIST = 0.5f;
+	public static final float SUNS_DAMAGE = 150f;
 	public static final float SUNS_EDGE_DAMAGE = 70f;
-	public static final double SUNS_RADIUS = 12.0;
+	public static final double SUNS_RADIUS = 14.0;
 	public static final float SUNS_COST = 60f;
-	public static final float SUNS_VOID = 8f; // was 25
+	public static final float SUNS_VOID = 8f;
 	public static final int SUNS_COOLDOWN = 1200;
 
-	/** C Healing Light. */
-	public static final double HEAL_RADIUS = 10.0;
-	public static final float HEAL_AMOUNT = 8f;
-	public static final float HEAL_COST = 20f;
-	public static final float HEAL_VOID = -8f;
-	public static final float HEAL_VOID_PER_ALLY = -1f;
-	public static final int HEAL_COOLDOWN = 240;
+	/** C Golden Guardian: heals and shields allies; the undead in the light burn. */
+	public static final double GUARDIAN_RADIUS = 10.0;
+	public static final float GUARDIAN_HEAL = 8f;
+	public static final int GUARDIAN_REGEN_TICKS = 120;
+	public static final int GUARDIAN_ABSORB_TICKS = 200;
+	public static final float GUARDIAN_UNDEAD_DAMAGE = 12f;
+	public static final float GUARDIAN_COST = 20f;
+	public static final float GUARDIAN_VOID = -8f;
+	public static final float GUARDIAN_VOID_PER_ALLY = -1f;
+	public static final int GUARDIAN_COOLDOWN = 240;
 
-	/** Shift+C Sentinel Shield. */
-	public static final double SHIELD_RADIUS = 5.0;
-	public static final int SHIELD_TICKS = 120;
-	public static final float SHIELD_COST = 15f;
-	public static final int SHIELD_COOLDOWN = 400;
+	/** Shift+C Molecular Shield: a golden aura; projectiles turn to light (feeding Sun), hits taken are cut further, melee is deflected. */
+	public static final double MSHIELD_RADIUS = 3.5;
+	public static final int MSHIELD_TICKS = 160;
+	public static final float MSHIELD_SUN_PER_PROJECTILE = 2f;
+	public static final float MSHIELD_RESIST = 0.4f;
+	public static final float MSHIELD_DEFLECT_DAMAGE = 6f;
+	public static final float MSHIELD_COST = 15f;
+	public static final int MSHIELD_COOLDOWN = 400;
 
 	/** Flight: double-tap Space (Sentry and merged alike). X: the sonic-boom dash (regular Sentry). */
 	public static final double FLIGHT_CRUISE_BPS = 22.0;
@@ -158,52 +184,99 @@ public final class SentryConfig {
 	/** The suit fades between the Sentry and the Void suit over this many ticks. */
 	public static final int FORM_FADE_TICKS = 50;
 
-	// ---------------------------------------------------------------- Void Form kit
-	/** R Shadow Lash: a 100-degree cone. */
-	public static final float LASH_DAMAGE = 20f;
+	// ---------------------------------------------------------------- Void Form kit (moveset 2, 2026-11-18)
+	/** R Tendril Lash: two whips (a 100-degree cone), then the Impale (one creature, further out, pinned and pulled in). */
+	public static final float LASH_DAMAGE = 16f;
 	public static final double LASH_RANGE = 6.0;
-	public static final int LASH_COOLDOWN = 12;
-	public static final float LASH_VOID = 0.35f; // was 1
+	public static final float IMPALE_DAMAGE = 30f;
+	public static final double IMPALE_RANGE = 9.0;
+	public static final int IMPALE_PIN_TICKS = 20;
+	public static final int LASH_COOLDOWN = 10;
+	public static final int LASH_COMBO_WINDOW = 30;
+	public static final float LASH_VOID = 0.3f;
 
-	/** Shift+R Erase. */
-	public static final float ERASE_DAMAGE = 100f;
+	/** Shift+R Erase: the creature is seized and darkens for {@link #ERASE_DELAY_TICKS}, then wiped into a burnt shadow. */
+	public static final float ERASE_DAMAGE = 110f;
 	public static final double ERASE_RANGE = 24.0;
+	public static final int ERASE_DELAY_TICKS = 15;
 	public static final int ERASE_COOLDOWN = 400;
-	public static final float ERASE_VOID = 2f; // was 6
+	public static final float ERASE_VOID = 2f;
 
-	/** G Grasp: drag several creatures in. */
-	public static final double GRASP_RANGE = 14.0;
-	public static final int GRASP_MAX = 5;
-	public static final float GRASP_DAMAGE = 6f;
-	public static final int GRASP_COOLDOWN = 120;
-	public static final float GRASP_VOID = 0.7f; // was 2
+	/** G Shadow Pool: a pool of shadow spreads on the ground; whoever stands in it is held down and hurt. */
+	public static final double POOL_RANGE = 24.0;
+	public static final double POOL_START_RADIUS = 2.0;
+	public static final double POOL_RADIUS = 6.0;
+	public static final int POOL_GROW_TICKS = 40;
+	public static final int POOL_TICKS = 120;
+	public static final float POOL_DAMAGE = 4f;
+	public static final int POOL_DAMAGE_INTERVAL = 10;
+	public static final int POOL_COOLDOWN = 240;
+	public static final float POOL_VOID = 1f;
 
-	/** Z Void Rift: a black hole for 4 s. */
-	public static final double RIFT_RANGE = 24.0;
-	public static final double RIFT_RADIUS = 7.0;
-	public static final int RIFT_TICKS = 80;
-	public static final float RIFT_DAMAGE = 6f;
-	public static final int RIFT_DAMAGE_INTERVAL = 10;
-	public static final int RIFT_COOLDOWN = 360;
-	public static final float RIFT_VOID = 1.7f; // was 5
+	/** Shift+G Swallow: the creature is shut inside a black void sphere (held, blind), then spat out. */
+	public static final double SPHERE_RANGE = 16.0;
+	public static final int SPHERE_TICKS = 60;
+	public static final float SPHERE_DAMAGE = 6f;
+	public static final int SPHERE_DAMAGE_INTERVAL = 10;
+	public static final float SPHERE_SPIT_DAMAGE = 18f;
+	/** A creature that dies inside is absorbed: the body heals this much. */
+	public static final float SPHERE_ABSORB_HEAL = 6f;
+	public static final int SPHERE_COOLDOWN = 360;
+	public static final float SPHERE_VOID = 1.7f;
 
-	/** Shift+Z Nightfall: a dome of darkness. */
-	public static final double NIGHTFALL_RADIUS = 10.0;
-	public static final int NIGHTFALL_TICKS = 200;
-	public static final int NIGHTFALL_COOLDOWN = 800;
-	public static final float NIGHTFALL_VOID = 2f; // was 6
+	/** Z Nightmare: a wave of horror; mobs flee, players see darkness and reel. */
+	public static final double NIGHTMARE_RADIUS = 12.0;
+	public static final float NIGHTMARE_DAMAGE = 8f;
+	public static final int NIGHTMARE_TICKS = 100;
+	public static final int NIGHTMARE_COOLDOWN = 400;
+	public static final float NIGHTMARE_VOID = 1.7f;
 
-	/** X Shadow Step: to a dark spot you look at. */
-	public static final double STEP_RANGE = 40.0;
-	/** The spot's light (block or sky, whichever is brighter after the time of day) must be at most this. */
-	public static final int STEP_MAX_LIGHT = 7;
+	/** Shift+Z Shadow Eclipse: a wind-up, then a black sun over him; everything under it is drained, he regenerates; it ends in a collapse. */
+	public static final int ECLIPSE_WINDUP_TICKS = 30;
+	public static final double ECLIPSE_RADIUS = 16.0;
+	public static final int ECLIPSE_TICKS = 200;
+	public static final float ECLIPSE_DAMAGE = 6f;
+	public static final float ECLIPSE_HEAL = 2f;
+	public static final float ECLIPSE_COLLAPSE_DAMAGE = 40f;
+	public static final int ECLIPSE_COOLDOWN = 1200;
+	public static final float ECLIPSE_VOID = 3f;
+
+	/** C Blot Out: drains life and light around him to heal (his remaining Sun burns into health too). */
+	public static final double BLOT_RADIUS = 10.0;
+	public static final float BLOT_DAMAGE = 10f;
+	public static final float BLOT_HEAL_PER_VICTIM = 3f;
+	public static final float BLOT_HEAL_MAX = 15f;
+	/** Each this much Sun burned heals 1. */
+	public static final float BLOT_SUN_PER_HEALTH = 5f;
+	public static final int BLOT_COOLDOWN = 300;
+	public static final float BLOT_VOID = 1f;
+
+	/** Shift+C Shadow Clones: shadow doubles rise from his shadow and hunt. */
+	public static final int CLONE_COUNT = 3;
+	public static final int CLONE_TICKS = 160;
+	public static final double CLONE_SPEED = 0.35;
+	public static final double CLONE_HUNT_RANGE = 16.0;
+	public static final float CLONE_DAMAGE = 10f;
+	public static final int CLONE_STRIKE_INTERVAL = 20;
+	public static final int CLONE_COOLDOWN = 600;
+	public static final float CLONE_VOID = 2f;
+
+	/** X Shadow Step (moveset 2): a blink along his look through a smear of shadow (no light rule any more); things on the path are hit. */
+	public static final double STEP_RANGE = 24.0;
+	public static final float STEP_DAMAGE = 10f;
 	public static final int STEP_COOLDOWN = 60;
-	public static final float STEP_VOID = 0.35f; // was 1
+	public static final float STEP_VOID = 0.35f;
 
 	/** Shift+V (or V) back to the Sentry while merged: only below this. */
 	public static final float RETURN_MAX_VOID = 90f;
 
 	// ---------------------------------------------------------------- the takeover
+	/** Moveset 2 (user: "when the void takes control only make him attack once every 2 seconds with an ability or an M1"): one shared cooldown
+	 * for every attack of the takeover's brain -- a Void move or a fist swing alike. (The decay disc and its weak-mob damage are not attacks.) */
+	public static final int TAKEOVER_ATTACK_INTERVAL = 40;
+	/** Its fists (an M1). */
+	public static final float TAKEOVER_FIST_DAMAGE = 18f;
+	public static final double TAKEOVER_FIST_REACH = 3.5;
 	/** Nothing for the first 30 s. */
 	public static final int MIND_DELAY_TICKS = 600;
 	/** A failed room adds 20 s. */
