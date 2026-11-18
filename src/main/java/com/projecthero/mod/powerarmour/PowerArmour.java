@@ -44,11 +44,13 @@ import net.minecraft.world.phys.Vec3;
  * selector; N is swallowed while sealed.
  *
  * <h2>Sequence</h2>
- * Right-click a frame: it splits open ({@link PowerArmourState#ENTER_OPEN}), you walk up and turn your back to it, step back in
- * ({@link PowerArmourState#ENTER_WALK}; the client drives the walk from {@link #drivenPose}), the frame leaves the world and the
- * suit closes round you panel by panel ({@link PowerArmourState#SEALING}) until the visor lights ({@link PowerArmourState#SEALED}).
- * Hold Shift+V: it opens on you ({@link PowerArmourState#UNSEALING}), the frame stands again and you step forward out of it
- * ({@link PowerArmourState#EXIT_WALK}).
+ * Right-click a frame: the side you clicked from ({@link #sideFrom}: front or back half-plane of the frame) splits open
+ * ({@link PowerArmourState#ENTER_OPEN}). From the front you walk up, turn your back to it and step back in; from the back you walk
+ * up behind it facing the way it faces and step forward in ({@link PowerArmourState#ENTER_WALK}; the client drives the walk from
+ * {@link #drivenPose}). The frame leaves the world and the suit closes round you panel by panel ({@link PowerArmourState#SEALING})
+ * until the visor lights ({@link PowerArmourState#SEALED}). Hold Shift+V: the side you came in by opens on you
+ * ({@link PowerArmourState#UNSEALING}), the frame stands again and you step out that way ({@link PowerArmourState#EXIT_WALK}:
+ * forward out of the front, backward out of the back).
  *
  * <h2>Rules (the choices)</h2>
  * <ul>
@@ -68,6 +70,8 @@ public final class PowerArmour {
 	private static final ResourceLocation MOD_KB = ProjectHeroMod.id("power_armour_knockback");
 	private static final ResourceLocation MOD_SPEED = ProjectHeroMod.id("power_armour_speed");
 	private static final ResourceLocation MOD_STEP = ProjectHeroMod.id("power_armour_step");
+	/** Round 2: sealed, the wearer is scaled up with the suit ({@link PowerArmourConfig#SUIT_SCALE}): hitbox, eye height, model. */
+	private static final ResourceLocation MOD_SCALE = ProjectHeroMod.id("power_armour_scale");
 	private static final EquipmentSlot[] ARMOUR = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
 	/** Re-entry guard for the cancel-and-reapply damage cuts (Vibranium blasts, the Shield Projector). */
@@ -128,8 +132,29 @@ public final class PowerArmour {
 	}
 
 	/**
+	 * Round 2: which side of a frame (at fx, fz, facing {@code frameYaw}) a player at (px, pz) clicked it from --
+	 * {@link PowerArmourState#SIDE_FRONT} when they stand in the half-plane in front of it, {@link PowerArmourState#SIDE_BACK}
+	 * behind it. Right beside it (within 0.15 blocks of the plane) the look decides: looking the way the frame faces means you
+	 * are behind it.
+	 */
+	public static int sideFrom(double fx, double fz, float frameYaw, double px, double pz, double lookX, double lookZ) {
+		Vec3 fwd = forward(frameYaw);
+		double along = (px - fx) * fwd.x + (pz - fz) * fwd.z;
+		if (Math.abs(along) < 0.15) {
+			return lookX * fwd.x + lookZ * fwd.z > 0 ? PowerArmourState.SIDE_BACK : PowerArmourState.SIDE_FRONT;
+		}
+		return along >= 0 ? PowerArmourState.SIDE_FRONT : PowerArmourState.SIDE_BACK;
+	}
+
+	/** +1 in front of the frame, -1 behind it: where the entry / exit walk turns, along the frame's facing. */
+	public static double sideSign(int side) {
+		return side == PowerArmourState.SIDE_BACK ? -1.0 : 1.0;
+	}
+
+	/**
 	 * Where the player should stand (x, y, z) and face (yaw) at {@code time} during a driven step of the sequence, or null when
-	 * nothing drives them. Shared by the client (which moves the local player) and the server (the snap at the end).
+	 * nothing drives them. Shared by the client (which moves the local player) and the server (the snap at the end). From the
+	 * front the player turns round and backs in; from the back they face the way the frame faces the whole time and walk in.
 	 */
 	public static double[] drivenPose(PowerArmourState s, float time) {
 		if (s == null) {
@@ -137,13 +162,19 @@ public final class PowerArmour {
 		}
 		float t = time - s.phaseStart;
 		Vec3 fwd = forward(s.fyaw);
-		double ax = s.fx + fwd.x * PowerArmourConfig.APPROACH, az = s.fz + fwd.z * PowerArmourConfig.APPROACH;
+		double reach = PowerArmourConfig.APPROACH * sideSign(s.side);
+		double ax = s.fx + fwd.x * reach, az = s.fz + fwd.z * reach;
 		switch (s.phase) {
 			case PowerArmourState.ENTER_OPEN -> {
 				float k = Mth.clamp(t / PowerArmourConfig.ENTER_OPEN_TICKS, 0f, 1f);
 				float walk = smooth(Mth.clamp(k / 0.6f, 0f, 1f));
-				float turn = smooth(Mth.clamp((k - 0.6f) / 0.4f, 0f, 1f));
 				double x = Mth.lerp(walk, s.sx, ax), z = Mth.lerp(walk, s.sz, az), y = Mth.lerp(walk, s.sy, s.fy);
+				if (s.side == PowerArmourState.SIDE_BACK) {
+					// behind it: walk round to its back, already facing the way it faces (no turn)
+					float settle = smooth(Mth.clamp(k / 0.85f, 0f, 1f));
+					return new double[] { x, y, z, Mth.rotLerp(settle, s.syaw, s.fyaw) };
+				}
+				float turn = smooth(Mth.clamp((k - 0.6f) / 0.4f, 0f, 1f));
 				float facing = s.fyaw + 180f; // looking at the frame
 				float yaw = turn <= 0f ? Mth.rotLerp(walk, s.syaw, facing) : Mth.rotLerp(turn, facing, facing + 180f);
 				return new double[] { x, y, z, yaw };
@@ -220,11 +251,15 @@ public final class PowerArmour {
 			return false;
 		}
 		long now = player.level().getGameTime();
+		Vec3 look = player.getLookAngle();
+		int side = sideFrom(frame.getX(), frame.getZ(), frame.getYRot(), player.getX(), player.getZ(), look.x, look.z);
 		frame.claim(player);
-		if (frame.anim() != PowerArmourFrameEntity.OPEN) {
+		if (frame.anim() != PowerArmourFrameEntity.OPEN || frame.side() != side) {
+			frame.setSide(side);
 			frame.setAnim(PowerArmourFrameEntity.OPENING);
 		}
 		PowerArmourState s = new PowerArmourState();
+		s.side = side;
 		s.phase = PowerArmourState.ENTER_OPEN;
 		s.phaseStart = now;
 		s.fx = frame.getX();
@@ -236,10 +271,11 @@ public final class PowerArmour {
 		s.sz = player.getZ();
 		s.syaw = player.getYRot();
 		s.frameId = frame.getId();
-		// the turning point in front of the frame must be free, else turn round inside it
+		// the turning point on the chosen side must be free, else turn round inside it
 		Vec3 fwd = forward(s.fyaw);
-		AABB at = player.getBoundingBox().move(s.fx + fwd.x * PowerArmourConfig.APPROACH - player.getX(), s.fy - player.getY(),
-				s.fz + fwd.z * PowerArmourConfig.APPROACH - player.getZ());
+		double reach = PowerArmourConfig.APPROACH * sideSign(side);
+		AABB at = player.getBoundingBox().move(s.fx + fwd.x * reach - player.getX(), s.fy - player.getY(),
+				s.fz + fwd.z * reach - player.getZ());
 		if (!player.level().noCollision(player, at)) {
 			s.sx = s.fx;
 			s.sz = s.fz;
@@ -249,13 +285,19 @@ public final class PowerArmour {
 		ServerLevel level = player.serverLevel();
 		level.playSound(null, frame.getX(), frame.getY() + 1.0, frame.getZ(), SoundEvents.PISTON_EXTEND, SoundSource.PLAYERS, 0.8f, 0.7f);
 		level.playSound(null, frame.getX(), frame.getY() + 1.0, frame.getZ(), SoundEvents.IRON_DOOR_OPEN, SoundSource.PLAYERS, 0.7f, 0.6f);
-		steam(level, frame.position().add(0, 1.2, 0), 10);
+		steam(level, frame.position().add(fwd.scale(0.35 * sideSign(side))).add(0, 1.2, 0), 10);
 		return true;
 	}
 
 	/** Steps straight in (no walk) -- the gametests' and the admin path. */
 	public static void enterInstant(ServerPlayer player, PowerArmourFrameEntity frame) {
+		enterInstant(player, frame, PowerArmourState.SIDE_FRONT);
+	}
+
+	/** Steps straight in from {@code side} (no walk); stepping out later opens that side. */
+	public static void enterInstant(ServerPlayer player, PowerArmourFrameEntity frame, int side) {
 		PowerArmourState s = new PowerArmourState();
+		s.side = side;
 		s.phase = PowerArmourState.ENTER_WALK;
 		s.phaseStart = player.level().getGameTime() - PowerArmourConfig.ENTER_WALK_TICKS;
 		s.fx = frame.getX();
@@ -281,7 +323,7 @@ public final class PowerArmour {
 		if (s == null || s.suit == null) {
 			return null;
 		}
-		PowerArmourFrameEntity frame = standFrame(player, s.suit, player.position(), player.getYRot(), PowerArmourFrameEntity.CLOSED);
+		PowerArmourFrameEntity frame = standFrame(player, s.suit, player.position(), player.getYRot(), PowerArmourFrameEntity.CLOSED, s.side);
 		finishExit(player);
 		return frame;
 	}
@@ -338,22 +380,27 @@ public final class PowerArmour {
 		n.fz = player.getZ();
 		n.fyaw = player.getYRot();
 		player.setAttached(PowerArmourAttachments.STATE, n);
+		// back to your own size inside the opening suit (the suit is drawn at its size whatever yours is)
+		if (remove(player, Attributes.SCALE, MOD_SCALE)) {
+			player.refreshDimensions();
+		}
 		ServerLevel level = player.serverLevel();
 		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.PISTON_EXTEND, SoundSource.PLAYERS, 0.8f, 0.7f);
 		level.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.IRON_DOOR_OPEN, SoundSource.PLAYERS, 0.7f, 0.6f);
-		steam(level, player.position().add(0, 1.2, 0), 12);
+		steam(level, player.position().add(forward(n.fyaw).scale(0.35 * sideSign(n.side))).add(0, 1.2, 0), 12);
 	}
 
-	/** The suit has opened: the frame stands where the player was, and they step out forward. */
+	/** The suit has opened: the frame stands where the player was, and they step out of the side they came in by. */
 	private static void beginExitWalk(ServerPlayer player, PowerArmourState s) {
-		PowerArmourFrameEntity frame = standFrame(player, s.suit, new Vec3(s.fx, s.fy, s.fz), s.fyaw, PowerArmourFrameEntity.OPEN);
+		PowerArmourFrameEntity frame = standFrame(player, s.suit, new Vec3(s.fx, s.fy, s.fz), s.fyaw, PowerArmourFrameEntity.OPEN, s.side);
 		PowerArmourState n = s.copy();
 		n.suit = null;
 		n.phase = PowerArmourState.EXIT_WALK;
 		n.phaseStart = player.level().getGameTime();
 		n.frameId = frame == null ? -1 : frame.getId();
 		Vec3 fwd = forward(s.fyaw);
-		Vec3 out = new Vec3(s.fx + fwd.x * PowerArmourConfig.APPROACH, s.fy, s.fz + fwd.z * PowerArmourConfig.APPROACH);
+		double reach = PowerArmourConfig.APPROACH * sideSign(s.side);
+		Vec3 out = new Vec3(s.fx + fwd.x * reach, s.fy, s.fz + fwd.z * reach);
 		AABB at = player.getBoundingBox().move(out.x - player.getX(), out.y - player.getY(), out.z - player.getZ());
 		if (!player.level().noCollision(player, at)) {
 			out = new Vec3(s.fx, s.fy, s.fz);
@@ -388,7 +435,7 @@ public final class PowerArmour {
 		if (s != null) {
 			PowerArmourAbilities.endAll(player, s);
 		}
-		standFrame(player, suit, player.position(), player.getYRot(), PowerArmourFrameEntity.CLOSING);
+		standFrame(player, suit, player.position(), player.getYRot(), PowerArmourFrameEntity.CLOSING, s == null ? PowerArmourState.SIDE_FRONT : s.side);
 		removeAttributes(player);
 		restoreArmour(player);
 		player.removeAttached(PowerArmourAttachments.STATE);
@@ -400,7 +447,7 @@ public final class PowerArmour {
 		}
 	}
 
-	private static PowerArmourFrameEntity standFrame(ServerPlayer player, SuitData suit, Vec3 at, float yaw, int anim) {
+	private static PowerArmourFrameEntity standFrame(ServerPlayer player, SuitData suit, Vec3 at, float yaw, int anim, int side) {
 		ServerLevel level = player.serverLevel();
 		PowerArmourFrameEntity frame = PowerArmourMod.FRAME.create(level);
 		if (frame == null) {
@@ -408,6 +455,7 @@ public final class PowerArmour {
 		}
 		frame.moveTo(at.x, at.y, at.z, yaw, 0f);
 		frame.setSuit(suit);
+		frame.setSide(side);
 		level.addFreshEntity(frame);
 		frame.setAnim(anim);
 		if (anim == PowerArmourFrameEntity.OPEN) {
@@ -618,6 +666,9 @@ public final class PowerArmour {
 		}
 		set(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, speed, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		set(player, Attributes.STEP_HEIGHT, MOD_STEP, suit.powered() ? PowerArmourConfig.STEP_HEIGHT : 0f, AttributeModifier.Operation.ADD_VALUE);
+		if (set(player, Attributes.SCALE, MOD_SCALE, PowerArmourConfig.SUIT_SCALE - 1f, AttributeModifier.Operation.ADD_MULTIPLIED_BASE)) {
+			player.refreshDimensions(); // the hitbox and eye height follow at once, not on the next tick
+		}
 	}
 
 	public static void removeAttributes(ServerPlayer player) {
@@ -626,25 +677,33 @@ public final class PowerArmour {
 		remove(player, Attributes.KNOCKBACK_RESISTANCE, MOD_KB);
 		remove(player, Attributes.MOVEMENT_SPEED, MOD_SPEED);
 		remove(player, Attributes.STEP_HEIGHT, MOD_STEP);
+		if (remove(player, Attributes.SCALE, MOD_SCALE)) {
+			player.refreshDimensions();
+		}
 	}
 
-	private static void set(ServerPlayer player, Holder<Attribute> attr, ResourceLocation id, double amount, AttributeModifier.Operation op) {
+	/** Sets a modifier if it changed; true when it did. */
+	private static boolean set(ServerPlayer player, Holder<Attribute> attr, ResourceLocation id, double amount, AttributeModifier.Operation op) {
 		AttributeInstance inst = player.getAttribute(attr);
 		if (inst == null) {
-			return;
+			return false;
 		}
 		AttributeModifier cur = inst.getModifier(id);
 		if (cur != null && cur.amount() == amount && cur.operation() == op) {
-			return;
+			return false;
 		}
 		inst.addOrUpdateTransientModifier(new AttributeModifier(id, amount, op));
+		return true;
 	}
 
-	private static void remove(ServerPlayer player, Holder<Attribute> attr, ResourceLocation id) {
+	/** Removes a modifier; true when there was one. */
+	private static boolean remove(ServerPlayer player, Holder<Attribute> attr, ResourceLocation id) {
 		AttributeInstance inst = player.getAttribute(attr);
 		if (inst != null && inst.getModifier(id) != null) {
 			inst.removeModifier(id);
+			return true;
 		}
+		return false;
 	}
 
 	// ================================================================== damage + death

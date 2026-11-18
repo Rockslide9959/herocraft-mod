@@ -97,8 +97,12 @@ function isJoint(t) {
   const { x, y, z } = t;
   if (t.part === 'head') return t.f === 'U' && Math.abs(x) < 3 && Math.abs(z) < 3; // neck hole
   if (t.part === 'body') {
-    if (y > 8.75 && y < 9.5) return true; // belt line
+    if (y > 9.0 && y < 9.5) return true; // belt line
     if (t.f === 'U') return Math.abs(x) < 3.5 && Math.abs(z) < 1.5;
+    // round 2: anatomy -- the pecs' lower edge slopes up to the armpits, two rows of abs, shoulder blades over a lower back
+    if (t.f === 'N' && y < 6 && y > 6 - Math.max(0, Math.abs(x) - 2) * 0.5) return true;
+    if (t.f === 'N' && y > 7.4 && y < 7.8 && Math.abs(x) < 3.4) return true;
+    if (t.f === 'S' && y > 5.0 && y < 5.5 && Math.abs(x) < 3.6) return true;
     return false;
   }
   if (arm(t)) {
@@ -120,13 +124,15 @@ function isJoint(t) {
 function isSeam(t) {
   const { x, y } = t;
   if (t.part === 'body') {
-    if ((t.f === 'N' || t.f === 'S') && near(x, 0, 0.26) && y < 9) return true; // chest / back split
-    if (t.f === 'N' && near(y, 7, 0.26)) return true; // chest / abdomen
+    if (t.f === 'N' && near(x, 0, 0.26) && y < 9) return true; // chest split
+    if (t.f === 'S' && near(x, 0, 0.8) && y < 9) return true; // back split over a spine channel
+    if (t.f === 'N' && near(y, 6, 0.26)) return true; // chest / abdomen (SuitPanel ABDOMEN starts at y 6)
     if ((t.f === 'N' || t.f === 'S') && (near(x, -4, 0.26) || near(x, 4, 0.26))) return true; // doors off the sides
     return false;
   }
   if (t.part === 'head') {
-    if (t.f === 'N' && near(y, -6.2, 0.26)) return true; // faceplate line
+    // round 2: the helmet splits front / back at z 0 (SuitPanel VISOR = front half, HELMET = back half)
+    if ((t.f === 'W' || t.f === 'E' || t.f === 'D' || t.f === 'U') && near(t.z, 0, 0.26)) return true;
     return false;
   }
   if (leg(t)) {
@@ -138,6 +144,8 @@ function isSeam(t) {
 
 // ------------------------------------------------------------------------------------------------ frame layer (shared)
 const FR = { base: [62, 66, 74], rib: [104, 110, 120], hi: [150, 156, 166], dark: [30, 32, 36], cable: [44, 40, 38], piston: [196, 168, 70], rubber: [36, 36, 40], glowdot: [90, 200, 255] };
+// round 2: the under-suit is a solid woven glove under the plates (no holes: the wearer's body is hidden inside the suit)
+function weave(t) { const n = hash(t.tx, t.ty, 8); return ((t.tx + t.ty) % 2 ? FR.dark : FR.base.map(v => v * 0.72)).map(v => v * (0.92 + n * 0.12)); }
 function frameTexel(t) {
   const { x, y, z, fu, fv, fw, fh } = t;
   const n = hash(t.tx, t.ty, 7);
@@ -145,12 +153,12 @@ function frameTexel(t) {
   const shade = c => c.map(v => v * (0.9 + n * 0.18));
   if (t.part === 'head') {
     // a cage: edge rails, a crown ring, a jaw rim; the face stays open
-    if (t.f === 'N') { if (fv > 6.5 || edge < 0.6) return shade(FR.rib); return null; }
+    if (t.f === 'N') { if (fv > 6.5 || edge < 0.6) return shade(FR.rib); return weave(t); }
     if (t.f === 'U') return Math.abs(x) < 3 && Math.abs(z) < 3 ? null : shade(FR.base);
     if (edge < 0.6) return shade(FR.rib);
     if (near(fv, 3.5, 0.26) || (t.f === 'D' && (near(x, 0, 0.26) || near(z, 0, 0.26)))) return shade(FR.base);
     if (t.f === 'S' && near(x, 0, 0.75)) return shade(FR.cable);
-    return null;
+    return weave(t);
   }
   if (t.part === 'body') {
     if (t.f === 'D' || t.f === 'U') return shade(t.f === 'D' && near(x, 0, 1.2) ? FR.dark : FR.base);
@@ -165,7 +173,7 @@ function frameTexel(t) {
     if (near(x, 0, t.f === 'S' ? 0.9 : 0.5)) return shade(FR.dark);
     if (Math.floor(y * 2) % 4 === 1 && Math.abs(x) < 3.6) return shade(FR.base);
     if (t.f === 'N' && near(y, 3, 0.8) && near(x, 0, 1.2)) return FR.dark; // core housing
-    return null;
+    return weave(t);
   }
   // limbs: edge rails, rings, solid joints, glove / boot
   const hand = arm(t) && y > 7.75, boot = leg(t) && y > 9.5;
@@ -177,7 +185,7 @@ function frameTexel(t) {
   if (edge < 0.6) return shade(FR.rib);
   if (Math.floor(fv * 2) % 6 === 0) return shade(FR.base);
   if (outerSide(t) && near(fu, fw / 2, 0.3)) return shade(FR.cable);
-  return null;
+  return weave(t);
 }
 
 // ------------------------------------------------------------------------------------------------ per-tier plates / trim / glow
@@ -194,13 +202,14 @@ function plateCovered(t) { // the plate silhouette before tier cut-outs
   return false;
 }
 // bevel: light from up-front-left
+// round 2: every plate gets its own bevel (lit top / left edge, shaded bottom / right edge, wherever a joint, seam or face edge
+// borders it), so the panel breakup reads crisply now that the plates are only a thin relief on the body
 function bevel(t) {
-  const { fu, fv, fw, fh } = t;
-  const edge = Math.min(fu, fw - fu, fv, fh - fv);
+  const border = (du, dv) => { const q = probe(t, du, dv); return !q || isJoint(q) || isSeam(q); };
   let v = 0;
-  if (fv < 0.6) v += 22; else if (fh - fv < 0.6) v -= 26;
-  if (fu < 0.6) v += 10; else if (fw - fu < 0.6) v -= 12;
-  return v + (edge > 1 ? 0 : 0);
+  if (border(0, -0.5)) v += 24; else if (border(0, 0.5)) v -= 30;
+  if (border(-0.5, 0)) v += 10; else if (border(0.5, 0)) v -= 14;
+  return v;
 }
 // distance (px) to the nearest plate border on this face (joint / seam / face edge), for edge trims
 function borderDist(t) {
@@ -268,7 +277,7 @@ function glowShape(tier, t) {
     return Math.abs(x) > 0.5 && Math.abs(x) < 1.0 && y > 7 && y < 8.4;
   }
   if (t.part === 'body' && f === 'S' && tier !== 'iron' && tier !== 'gold') { // spine lights
-    return Math.abs(x) > 0.5 && Math.abs(x) < 1.0 && y > 2 && y < 7.5 && Math.floor(y * 2) % 3 !== 0;
+    return Math.abs(x) > 1.0 && Math.abs(x) < 1.5 && y > 1.5 && y < 8.5 && !(y > 4.9 && y < 5.6) && Math.floor(y * 2) % 3 !== 0;
   }
   return false;
 }
@@ -342,6 +351,8 @@ function platePattern(tier, t) {
   }
   // the visor recess and the core housing are dark on every tier
   if (t.part === 'head' && t.f === 'N' && y > -5.4 && y < -3.4 && Math.abs(x) < 3.4) v = Math.min(v, 70 + n * 14);
+  if (t.part === 'head' && t.f === 'N' && y > -2.5 && y < -1.0 && Math.abs(x) < 1.6 && Math.floor((y + 8) * 2) % 2 === 0) v = Math.min(v, 64); // mouth grille
+  if (t.part === 'head' && t.f === 'N' && near(y, -5.75, 0.26) && Math.abs(x) < 3.6) v += 16; // brow ridge catches the light
   if (t.part === 'body' && t.f === 'N' && Math.hypot(x, y - 3) < 1.5) v = Math.min(v, 80);
   return { cut, v };
 }

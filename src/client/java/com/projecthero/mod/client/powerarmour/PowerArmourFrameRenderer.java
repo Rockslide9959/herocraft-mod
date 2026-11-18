@@ -28,6 +28,9 @@ public class PowerArmourFrameRenderer extends EntityRenderer<PowerArmourFrameEnt
 		float time = frame.level().getGameTime() + partial;
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(180f - frame.getYRot()));
+		// round 2: the same size as the suit on a wearer -- a player model (x 0.9375, as the player renderer draws it) x SUIT_SCALE
+		float k = 0.9375f * com.projecthero.mod.powerarmour.PowerArmourConfig.SUIT_SCALE;
+		pose.scale(k, k, k);
 		pose.scale(-1f, -1f, 1f);
 		pose.translate(0f, -1.501f, 0f);
 		SuitLooks.standPose(model);

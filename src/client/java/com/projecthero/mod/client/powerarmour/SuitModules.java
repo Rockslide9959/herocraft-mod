@@ -40,8 +40,37 @@ public final class SuitModules {
 		}
 	}
 
-	/** The module boxes were laid out on a 1.45 px shell; the plates now end at 1.2. */
+	/**
+	 * The module boxes were laid out on a 1.45 px shell; round 2's shell ends {@code TRIM_IN + TRIM_D} out, so every box is
+	 * pulled in by the difference when it is built ({@link #fit}): a box wholly outside a face slides in (keeping its size), the
+	 * outer end of a box that wraps or straddles a face is pulled in.
+	 */
 	private static final float OUTBOARD = 1.45f - (SuitRenderer.TRIM_IN + SuitRenderer.TRIM_D);
+
+	/** {@code [a, b]} (a <= b) on one axis of a part box {@code lo..hi}, moved onto the round-2 shell. */
+	static float[] fit(float a, float b, float lo, float hi, boolean straddlers) {
+		if (a >= hi) {
+			float sh = Math.min(OUTBOARD, a - hi);
+			return new float[] { a - sh, b - sh };
+		}
+		if (b <= lo) {
+			float sh = Math.min(OUTBOARD, lo - b);
+			return new float[] { a + sh, b + sh };
+		}
+		return straddlers ? new float[] { pull(a, lo, hi), pull(b, lo, hi) } : new float[] { a, b };
+	}
+
+	private static float pull(float v, float lo, float hi) {
+		return v > hi ? hi + Math.max(0f, v - hi - OUTBOARD) : v < lo ? lo - Math.max(0f, lo - v - OUTBOARD) : v;
+	}
+
+	private static B fitted(Part p, SuitPanel panel, float x0, float y0, float z0, float x1, float y1, float z1, int sw, int tint, int rgb, int kind) {
+		float[] x = fit(x0, x1, p.x0, p.x0 + p.w, true), y = fit(y0, y1, p.y0, p.y0 + p.h, false), z = fit(z0, z1, p.z0, p.z0 + p.d, true);
+		return new B(p, panel, x[0], y[0], z[0], x[1], y[1], z[1], sw, tint, rgb, kind);
+	}
+
+	/** The gatling's barrel axis (x, right arm), moved onto the shell like the boxes. */
+	private static final float BARREL_X = pull(-5.2f, Part.RIGHT_ARM.x0, Part.RIGHT_ARM.x0 + Part.RIGHT_ARM.w);
 
 	private static final Map<ModuleType, List<B>> GEO = new EnumMap<>(ModuleType.class);
 	/** Calf jets: every suit has them (the Jump Jets). */
@@ -54,20 +83,20 @@ public final class SuitModules {
 	}
 
 	private static void b(Part p, SuitPanel panel, float x0, float y0, float z0, float x1, float y1, float z1, int sw, int tint) {
-		cur.add(new B(p, panel, x0, y0, z0, x1, y1, z1, sw, tint, 0, K_STATIC));
+		cur.add(fitted(p, panel, x0, y0, z0, x1, y1, z1, sw, tint, 0, K_STATIC));
 	}
 
 	private static void g(Part p, SuitPanel panel, float x0, float y0, float z0, float x1, float y1, float z1, int rgb, int kind) {
-		cur.add(new B(p, panel, x0, y0, z0, x1, y1, z1, GLOW, rgb == 0 ? T_GLOW : T_FIXED, rgb, kind));
+		cur.add(fitted(p, panel, x0, y0, z0, x1, y1, z1, GLOW, rgb == 0 ? T_GLOW : T_FIXED, rgb, kind));
 	}
 
 	private static void k(Part p, SuitPanel panel, float x0, float y0, float z0, float x1, float y1, float z1, int sw, int tint, int kind) {
-		cur.add(new B(p, panel, x0, y0, z0, x1, y1, z1, sw, tint, 0, kind));
+		cur.add(kind == K_BARREL ? new B(p, panel, x0, y0, z0, x1, y1, z1, sw, tint, 0, kind) : fitted(p, panel, x0, y0, z0, x1, y1, z1, sw, tint, 0, kind));
 	}
 
 	static {
 		final Part RA = Part.RIGHT_ARM, LA = Part.LEFT_ARM, BO = Part.BODY, HE = Part.HEAD, RL = Part.RIGHT_LEG, LL = Part.LEFT_LEG;
-		final SuitPanel S = SuitPanel.STATIC, H = SuitPanel.HELMET;
+		final SuitPanel S = SuitPanel.STATIC, H = SuitPanel.VISOR, HB = SuitPanel.HELMET; // round 2: face modules ride the front half
 		// ---------------- arms
 		m(ModuleType.GATLING);
 		b(RA, S, -6.0f, 2.5f, -1.7f, -4.4f, 7.5f, 1.7f, MID, T_SECONDARY);
@@ -153,9 +182,9 @@ public final class SuitModules {
 		g(HE, H, -2.9f, -5.6f, -6.05f, -0.7f, -4.8f, -5.9f, 0x70FF70, K_STATIC);
 		g(HE, H, 0.7f, -5.6f, -6.05f, 2.9f, -4.8f, -5.9f, 0x70FF70, K_STATIC);
 		m(ModuleType.ORE_SCANNER);
-		b(HE, H, -6.0f, -7.6f, 0.9f, -5.4f, -3.8f, 1.6f, LIGHT, T_NONE);
-		b(HE, H, -6.2f, -4.2f, 0.4f, -5.4f, -2.6f, 2.2f, DARK, T_NONE);
-		g(HE, H, -6.1f, -8.3f, 0.85f, -5.3f, -7.6f, 1.65f, 0xFFB040, K_STATIC);
+		b(HE, HB, -6.0f, -7.6f, 0.9f, -5.4f, -3.8f, 1.6f, LIGHT, T_NONE);
+		b(HE, HB, -6.2f, -4.2f, 0.4f, -5.4f, -2.6f, 2.2f, DARK, T_NONE);
+		g(HE, HB, -6.1f, -8.3f, 0.85f, -5.3f, -7.6f, 1.65f, 0xFFB040, K_STATIC);
 		m(ModuleType.TARGET_LOCK);
 		b(HE, H, 2.2f, -5.5f, -6.25f, 4.6f, -3.5f, -5.45f, DARK, T_NONE);
 		b(HE, H, 4.6f, -5.0f, -6.0f, 5.6f, -4.0f, -3.0f, MID, T_SECONDARY);
@@ -253,14 +282,8 @@ public final class SuitModules {
 				pose.pushPose();
 				SuitRenderer.applyPanel(pose, b.panel, look);
 				if (back) {
-					float k = look.open(Group.BACK);
+					float k = look.open(SuitPanel.BACK_R); // only when the back is the side that opens
 					pose.translate(0f, -4.5f * k / 16f, 2.5f * k / 16f);
-				}
-				// modules sit on the plates' outer face (inflate SuitRenderer.TRIM_IN + TRIM_D): pull outboard boxes in to meet it
-				float sx = b.x0 > part.x0 + part.w + 0.5f ? -OUTBOARD : b.x1 < part.x0 - 0.5f ? OUTBOARD : 0f;
-				float sz = b.z0 > part.z0 + part.d + 0.5f ? -OUTBOARD : b.z1 < part.z0 - 0.5f ? OUTBOARD : 0f;
-				if (sx != 0f || sz != 0f) {
-					pose.translate(sx / 16f, 0f, sz / 16f);
 				}
 				float y1 = b.y1;
 				boolean draw = true;
@@ -268,7 +291,7 @@ public final class SuitModules {
 				switch (b.kind) {
 					case K_BARREL -> {
 						float spin = look.firing ? look.time * 45f : 0f;
-						pose.translate(-5.2f / 16f, 0f, 0f);
+						pose.translate(BARREL_X / 16f, 0f, 0f);
 						pose.mulPose(Axis.YP.rotationDegrees(spin + barrel * 120f));
 						pose.translate(0.62f / 16f, 0f, 0f);
 						barrel++;

@@ -24,6 +24,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -292,5 +293,128 @@ public class PowerArmourGameTests implements FabricGameTest {
 		helper.assertTrue(integ - PowerArmour.suit(p).integrity >= 5f - 0.01f, "a hit costs integrity");
 		helper.assertTrue(p.getAttached(PowerArmourAttachments.STATE) != null, "still in the suit");
 		helper.succeed();
+	}
+
+	// ------------------------------------------------------------------ round 2: proportions + side-aware opening
+
+	/** A mock player {@code dz} blocks from the frame along z (the frames face north, yaw 180: front is -z), looking at it. */
+	private static ServerPlayer playerAt(GameTestHelper helper, double dz) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		Vec3 feet = Vec3.atBottomCenterOf(helper.absolutePos(AT));
+		p.moveTo(feet.x + 0.3, feet.y, feet.z + dz, dz < 0 ? 0f : 180f, 0f);
+		return p;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void clickSideIsStoredAndSynced(GameTestHelper helper) {
+		// the pure rule: front / back half-plane, the look decides right beside it
+		helper.assertTrue(PowerArmour.sideFrom(0, 0, 180f, 0.2, -1.0, 0, 1) == PowerArmourState.SIDE_FRONT, "in front (yaw 180 faces -z)");
+		helper.assertTrue(PowerArmour.sideFrom(0, 0, 180f, -0.4, 1.2, 0, -1) == PowerArmourState.SIDE_BACK, "behind");
+		helper.assertTrue(PowerArmour.sideFrom(0, 0, 0f, 0.0, 1.0, 0, -1) == PowerArmourState.SIDE_FRONT, "yaw 0 faces +z");
+		helper.assertTrue(PowerArmour.sideFrom(0, 0, 180f, 1.0, 0.05, 0, -1) == PowerArmourState.SIDE_BACK, "beside it, looking the way it faces");
+		helper.assertTrue(PowerArmour.sideFrom(0, 0, 180f, 1.0, 0.05, 0, 1) == PowerArmourState.SIDE_FRONT, "beside it, looking at its face");
+		// a real click from behind
+		PowerArmourFrameEntity f = frame(helper, charged(ArmourTier.IRON, CoreType.FUSION_CELL, 800f));
+		ServerPlayer p = playerAt(helper, 1.6);
+		helper.assertTrue(PowerArmour.tryEnter(p, f), "the click starts stepping in");
+		PowerArmourState s = PowerArmour.state(p);
+		helper.assertTrue(s.side == PowerArmourState.SIDE_BACK, "clicked from behind: the back opens, got " + s.side);
+		helper.assertTrue(f.side() == PowerArmourState.SIDE_BACK && f.anim() == PowerArmourFrameEntity.OPENING, "the frame opens its back");
+		// synced: the attachment's network codec and the frame's save both carry it
+		helper.assertTrue(PowerArmourState.fromTag(s.toTag()).side == PowerArmourState.SIDE_BACK, "the side survives the state codec");
+		CompoundTag tag = new CompoundTag();
+		f.saveWithoutId(tag);
+		PowerArmourFrameEntity copy = PowerArmourMod.FRAME.create(helper.getLevel());
+		copy.load(tag);
+		helper.assertTrue(copy.side() == PowerArmourState.SIDE_BACK, "the frame's side survives a save");
+		// and from the front
+		PowerArmourFrameEntity g = frame(helper, charged(ArmourTier.IRON, CoreType.FUSION_CELL, 800f));
+		ServerPlayer q = playerAt(helper, -1.6);
+		helper.assertTrue(PowerArmour.tryEnter(q, g), "the second click starts stepping in");
+		helper.assertTrue(PowerArmour.state(q).side == PowerArmourState.SIDE_FRONT && g.side() == PowerArmourState.SIDE_FRONT,
+				"clicked from the front: the front opens");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void frontEntryTurnsBackEntryWalksStraightIn(GameTestHelper helper) {
+		for (int side : new int[] { PowerArmourState.SIDE_FRONT, PowerArmourState.SIDE_BACK }) {
+			String name = side == PowerArmourState.SIDE_FRONT ? "front" : "back";
+			PowerArmourState s = new PowerArmourState();
+			s.side = side;
+			s.fx = 10;
+			s.fz = 10;
+			s.fyaw = 180f; // faces -z
+			s.sx = 10.5;
+			s.sz = side == PowerArmourState.SIDE_FRONT ? 7.5 : 12.5;
+			s.syaw = side == PowerArmourState.SIDE_FRONT ? 0f : 180f;
+			s.phase = PowerArmourState.ENTER_OPEN;
+			double[] turn = PowerArmour.drivenPose(s, PowerArmourConfig.ENTER_OPEN_TICKS);
+			double want = side == PowerArmourState.SIDE_FRONT ? 10 - PowerArmourConfig.APPROACH : 10 + PowerArmourConfig.APPROACH;
+			helper.assertTrue(Math.abs(turn[2] - want) < 1e-3 && Math.abs(turn[0] - 10) < 1e-3,
+					name + ": walks to the approach point on its side, got z " + turn[2]);
+			helper.assertTrue(Math.abs(Mth.wrapDegrees((float) turn[3] - 180f)) < 0.5f, name + ": ends facing the way the suit faces, got yaw " + turn[3]);
+			if (side == PowerArmourState.SIDE_BACK) {
+				for (int t = 0; t <= PowerArmourConfig.ENTER_OPEN_TICKS; t += 4) {
+					double[] at = PowerArmour.drivenPose(s, t);
+					helper.assertTrue(Math.abs(Mth.wrapDegrees((float) at[3] - 180f)) < 1f, "back: no turn round at tick " + t + ", yaw " + at[3]);
+				}
+			}
+			s.phase = PowerArmourState.ENTER_WALK;
+			double[] mid = PowerArmour.drivenPose(s, PowerArmourConfig.ENTER_WALK_TICKS / 2f);
+			double[] in = PowerArmour.drivenPose(s, PowerArmourConfig.ENTER_WALK_TICKS);
+			helper.assertTrue(Math.abs(in[0] - 10) < 1e-3 && Math.abs(in[2] - 10) < 1e-3, name + ": ends inside the frame");
+			// front: steps back in (towards +z while facing -z); back: steps forward in (towards -z, facing -z)
+			double movedZ = in[2] - mid[2];
+			helper.assertTrue(side == PowerArmourState.SIDE_FRONT ? movedZ > 0 : movedZ < 0, name + ": walk direction, moved " + movedZ);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void exitOpensTheEntrySide(GameTestHelper helper) {
+		PowerArmourFrameEntity f = frame(helper, charged(ArmourTier.HERO_ALLOY, CoreType.ARC_CORE, 2000f));
+		ServerPlayer p = playerAt(helper, 1.6);
+		PowerArmour.enterInstant(p, f, PowerArmourState.SIDE_BACK);
+		helper.assertTrue(PowerArmour.sealed(p) && PowerArmour.state(p).side == PowerArmourState.SIDE_BACK, "sealed, came in by the back");
+		float yaw = p.getYRot();
+		PowerArmour.beginUnseal(p);
+		helper.assertTrue(PowerArmour.state(p).side == PowerArmourState.SIDE_BACK, "opening up keeps the entry side");
+		helper.runAfterDelay(PowerArmourConfig.UNSEAL_TICKS + 3, () -> {
+			PowerArmourState s = PowerArmour.state(p);
+			helper.assertTrue(s != null && s.phase == PowerArmourState.EXIT_WALK, "stepping out");
+			helper.assertTrue(p.level().getEntity(s.frameId) instanceof PowerArmourFrameEntity out && out.side() == PowerArmourState.SIDE_BACK
+					&& out.anim() == PowerArmourFrameEntity.OPEN, "the frame stands open at the back");
+			helper.assertTrue(p.level().getEntity(s.frameId) instanceof PowerArmourFrameEntity out2 && Math.abs(Mth.wrapDegrees(out2.getYRot() - yaw)) < 0.5f,
+					"the frame keeps facing the way the suit faced");
+			Vec3 fwd = PowerArmour.forward(s.fyaw);
+			double along = (s.sx - s.fx) * fwd.x + (s.sz - s.fz) * fwd.z;
+			helper.assertTrue(along < -0.5 || (s.sx == s.fx && s.sz == s.fz), "steps out behind it, along " + along);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void suitScaleIsUniform(GameTestHelper helper) {
+		float[] k = PowerArmourConfig.suitScale();
+		helper.assertTrue(k[0] == k[1] && k[1] == k[2], "one factor on every axis (height scale == width scale)");
+		helper.assertTrue(k[1] > 1.05f && k[1] < 1.25f, "a little bigger than a player");
+		helper.assertTrue(1.8f * k[1] < 2.0f, "a sealed player still fits under a 2-block doorway");
+		helper.assertTrue((4f - 2f * PowerArmourConfig.SHELL) * k[0] >= 4f - 1e-4f, "the player's 4-px limbs fit inside the shell");
+		PowerArmourFrameEntity f = frame(helper, charged(ArmourTier.IRON, CoreType.FUSION_CELL, 800f));
+		ServerPlayer p = player(helper);
+		float h0 = p.getBbHeight(), w0 = p.getBbWidth(), e0 = p.getEyeHeight();
+		PowerArmour.enterInstant(p, f);
+		helper.runAfterDelay(3, () -> { // dimensions refresh on the entity's next tick
+			float sh = p.getBbHeight() / h0, sw = p.getBbWidth() / w0, se = p.getEyeHeight() / e0;
+			helper.assertTrue(Math.abs(sh - k[1]) < 0.01f && Math.abs(sw - k[0]) < 0.01f && Math.abs(se - k[1]) < 0.01f,
+					"sealed: hitbox and eye height scale by the suit's factor (h " + sh + ", w " + sw + ", eye " + se + ")");
+			PowerArmour.exitInstant(p);
+		});
+		helper.runAfterDelay(7, () -> {
+			helper.assertTrue(Math.abs(p.getBbHeight() - h0) < 0.01f && Math.abs(p.getScale() - 1f) < 0.001f, "back to normal size outside");
+			helper.succeed();
+		});
 	}
 }

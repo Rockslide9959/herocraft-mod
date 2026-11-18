@@ -29,6 +29,9 @@ public final class PowerArmourState {
 	/** The player steps forward out of the open frame (which now stands on its own). */
 	public static final int EXIT_WALK = 6;
 
+	/** Round 2: which side of the frame the player stepped in from (and so steps out of): the side that opens. */
+	public static final int SIDE_FRONT = 0, SIDE_BACK = 1;
+
 	public SuitData suit;
 	public int phase;
 	public long phaseStart;
@@ -40,6 +43,8 @@ public final class PowerArmourState {
 	public float syaw;
 	/** The frame entity being entered (-1 none). */
 	public int frameId = -1;
+	/** {@link #SIDE_FRONT} or {@link #SIDE_BACK}: the side entered from; leaving opens the same side. */
+	public int side;
 	public boolean visor;
 	/** The current move animation (PowerArmourAbilities.ANIM_*) and its start. */
 	public int anim;
@@ -72,6 +77,7 @@ public final class PowerArmourState {
 		s.sz = sz;
 		s.syaw = syaw;
 		s.frameId = frameId;
+		s.side = side;
 		s.visor = visor;
 		s.anim = anim;
 		s.animStart = animStart;
@@ -117,6 +123,7 @@ public final class PowerArmourState {
 		t.putDouble("SZ", sz);
 		t.putFloat("SYaw", syaw);
 		t.putInt("Frame", frameId);
+		t.putInt("Side", side);
 		t.putBoolean("Visor", visor);
 		t.putInt("Anim", anim);
 		t.putLong("AnimStart", animStart);
@@ -147,6 +154,7 @@ public final class PowerArmourState {
 		s.sz = t.getDouble("SZ");
 		s.syaw = t.getFloat("SYaw");
 		s.frameId = t.contains("Frame") ? t.getInt("Frame") : -1;
+		s.side = t.getInt("Side") == SIDE_BACK ? SIDE_BACK : SIDE_FRONT;
 		s.visor = t.getBoolean("Visor");
 		s.anim = t.getInt("Anim");
 		s.animStart = t.getLong("AnimStart");

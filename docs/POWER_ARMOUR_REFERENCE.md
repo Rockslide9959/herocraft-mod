@@ -7,7 +7,9 @@ Code: `com.projecthero.mod.powerarmour` (common: data, frame entity, items, char
 `PowerArmourFirstPersonArmMixin`, `PowerArmourVisorGlowMixin`. Numbers live in `ArmourTier`, `CoreType`, `ModuleType` and
 `PowerArmourConfig`. Tests: `src/gametest/.../PowerArmourGameTests`. Assets/data: `scratchpad/gen_power_armour_v0175.js`;
 lang: `scratchpad/lang_power_armour_v0175.js` (key by key). Films/screens: `scratchpad/PowerArmourHarness.v0175.java.txt` +
-`scratchpad/power_armour_v0175_films.js` -> `docs/screenshots/v0175/power_armour/`.
+`scratchpad/power_armour_v0175_films.js` -> `docs/screenshots/v0175/power_armour/`. Round 2 (proportions + side-aware opening):
+`scratchpad/PowerArmourHarness2.v0175.java.txt` (before / after modes, same camera mixin) + `scratchpad/power_armour2_v0175_films.js`
+-> `docs/screenshots/v0175/power_armour2/`.
 
 ## How it fits the power system
 
@@ -87,9 +89,21 @@ while the core is above half it moves 2 E/s into the bank.
 
 ## Sequence (ticks)
 
-Frame opens 18 / closes 22. **Enter:** 20 (walk to 1.15 blocks in front of the frame, turn your back to it) + 22 (step back
-in) + 40 sealing (legs 0-30%, arms 18-48%, back 34-60%, chest 46-72%, helmet 64-86%, faceplate 76-95%, visor lights at the end).
+Frame opens 18 / closes 22. **Enter:** 20 (walk to 1.15 blocks from the frame on the side you clicked) + 22 (step in) + 40
+sealing (legs 0-30%, arms 18-48%, back 34-60%, chest 46-72%, helmet 64-86%, faceplate 76-95%, visor lights at the end).
 **Exit:** hold Shift+V 16, unseal 18 (reverse order), the frame stands, step out 18; the empty frame closes itself.
+
+**One side opens (round 2).** The click's side is `PowerArmour.sideFrom`: the player's position against the frame's facing
+(front half-plane = front, behind = back); within 0.15 blocks of the plane the look decides (looking the way the frame faces =
+behind it). It is stored on the frame (`PowerArmourFrameEntity.side()`, synced entity data, saved) and on the player's state
+(`PowerArmourState.side`, in the synced attachment, saved), so every viewer sees the same plates move.
+- **Front:** chest doors, abdomen flap, the helmet's front half (swings up and forward like a visor), arm fronts, both halves
+  of each leg front open; you walk to the front, turn round and step back in.
+- **Back:** back doors, the helmet's back half (swings up and back), arm backs and leg backs open; you walk round behind it,
+  facing the way it faces the whole time (no turn), and step forward in.
+- The outer arm / leg side plates slide out a little either way. Pistons and steam only on the opening side.
+- **Exit** opens the side you came in by (front if unknown) and you step out that way: forward out of the front, backward
+  out of the back. The frame stands facing the way the suit faced.
 The walk is driven client-side as velocity (`PowerArmourClient.drive`, so the legs walk); the server snaps you into the frame
 at the seal. A logout mid-sequence is tidied on join (sealing completes, entering is dropped, leaving completes).
 
@@ -173,19 +187,41 @@ out-last it.
   Every opaque texel becomes a block standing `depth` proud of the body box grown by `inflate`; faces merge into rectangles
   per panel, side walls into runs (a wall samples the texel row it borders). Cached per (texture, inflate, depth), cleared on
   resource reload.
-- Layers (`SuitRenderer`): frame (0.15 + 0.30, shared `frame.png`, tinted per tier), plates (0.50 + 0.45, `<tier>_plates.png`
-  greyscale x primary paint), trim (0.95 + 0.25, `<tier>_trim.png` x secondary), glow (same depth, `<tier>_glow.png` x glow
-  colour, `RenderType.eyes`, dimmed when unpowered / a faint standby on a parked frame with charge).
-- `SuitPanel`: every texel of every layer rides the first panel whose 3D region holds it: chest doors, abdomen flap, back
-  doors (you step in backwards), arm and leg clamshells (leg fronts split down the middle), outer side plates slide out,
-  helmet shell tilts back, faceplate lifts. Pistons stretch from the frame to the opening plates. Seams in the textures line up
-  with the panel regions (keep `gen_power_armour_v0175.js` and `SuitPanel` in step).
+- **Proportions (round 2):** a suit is exactly a player scaled up by `PowerArmourConfig.SUIT_SCALE` = **1.1** on every axis
+  (head 8x8x8, body 8x12x4, arms and legs 4x12x4, same pivots). The layers are a thin shell inside the player's boxes, so the
+  silhouette is the scaled box itself: under-suit -0.18..-0.08 px, plates -0.10..+0.02, trim and glow 0..+0.10 (model px before
+  scaling). The cavity is (4 - 2 x 0.18) x 1.1 = 4.0 px, so a player's 4-px limbs fit inside. Sealed, the wearer gets a
+  `SCALE` attribute modifier of the same factor (`power_armour_scale`): hitbox 0.66 x 1.98 (still under a 2-block door; the
+  drawn helmet top, 2.06 blocks, brushes a 2-block lintel), eye height 1.78. The standing frame draws at 0.9375 x 1.1 (the player
+  renderer's own 0.9375 times the suit's), the same size as a worn suit. 1.1 is the largest factor that keeps the hitbox under 2
+  blocks; 1.15+ would stop suited players walking through doors.
+- **The wearer inside:** the wearer's own model is hidden from stepping into the open frame until stepping out
+  (`PowerArmourHideBodyMixin`, also the first-person hand). While the suit is open round them `PowerArmourLayer` draws their
+  body (skin + overlays) inside it (`SuitRenderer.renderInner`): as they stand during the first half of the step in, rising into
+  the suit's joints (each part at the scaled pivot, shrunk 0.3 px to sit inside the shell) over the second half, fitted while the
+  plates close / open, settling back over the first half of the step out. The suit is drawn at `SUIT_SCALE / currentScale`, so
+  the attribute changing at the seal (applied when sealed, removed when it starts to open) never makes it jump.
+- Layers (`SuitRenderer`): frame (shared `frame.png`, a solid woven under-suit with ribs and joints, tinted per tier), plates
+  (`<tier>_plates.png` greyscale x primary paint), trim (`<tier>_trim.png` x secondary), glow (same depth as trim,
+  `<tier>_glow.png` x glow colour, `RenderType.eyes`, dimmed when unpowered / a faint standby on a parked frame with charge).
+- Panel breakup (generator, round 2): pecs with a lower edge sloping up to the armpits, chest core between them, two rows of
+  abs on the abdomen flap, belt; shoulder blades over a lower back with a 2-px spine channel (spine lights beside it); a shoulder
+  plate on each arm (within the 4-px arm) over an elbow and a wrist joint; thigh, knee cap, shin and boot plates; a 2-px visor
+  slit, brow ridge and mouth grille. Every plate is bevelled on its own borders (lit top / left, shaded bottom / right).
+- `SuitPanel`: every texel of every layer rides the first panel whose 3D region holds it: chest doors, abdomen flap (from y 6),
+  back doors, the helmet's front half (`VISOR`) and back half (`HELMET`, split at z 0 on the sides / top), arm and leg clamshells
+  (leg fronts split down the middle), outer side plates slide. `SuitPanel.side()` says which side each opens on and
+  `Look.open(panel)` keeps the other side shut. Hinges sit 0.1 px outside the box edges. Pistons stretch from the frame to the
+  opening plates. Seams in the textures line up with the panel regions (keep `gen_power_armour_v0175.js` and `SuitPanel` in
+  step).
 - Per tier: plate shapes (Iron riveted slabs, Gold filigree with cut-outs, Hero Alloy chamfered chevrons, Diamond facets,
   Netherite layered bands, Vibranium hex grid, Celestial pearl with sparkles), trims (Iron rims, Gold double lines, Hero Alloy
   racing stripes, Diamond crystal ridges, Netherite spikes, Vibranium silver edges, Celestial gold filigree) and glow shapes
   (visor and core differ per tier; Netherite molten cracks, Celestial stars).
 - `SuitModules`: pixel-box modules from `modules.png` (8x4 swatch cells); gatling barrels spin while firing, thrusters and
-  calf jets flame, helmet modules ride the shell, back modules lift out of the way when the back opens.
+  calf jets flame, face modules ride the helmet's front half (the Ore Scanner the back half), back modules lift out of the way
+  when the back opens. The boxes were laid out on a 1.45 px shell; `SuitModules.fit` moves each onto the round-2 shell when it is
+  built (a box wholly outside a face slides in keeping its size, a box that wraps a part has its outer ends pulled in).
 - Poses (`PowerArmourPose`, via `PowerArmourPoseMixin`): punch wind-up / jab, stomp, grip / throw, charge, overload, aimed
   weapon arm, piledriver, jets, thrust.
 - Paint: the editor's three swatches cycle the 16 dye colours and back to the tier's own colour (-1).

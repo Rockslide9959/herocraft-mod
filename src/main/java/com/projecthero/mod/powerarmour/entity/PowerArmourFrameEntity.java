@@ -6,6 +6,7 @@ import com.projecthero.mod.powerarmour.ArmourTier;
 import com.projecthero.mod.powerarmour.ModuleType;
 import com.projecthero.mod.powerarmour.PowerArmour;
 import com.projecthero.mod.powerarmour.PowerArmourConfig;
+import com.projecthero.mod.powerarmour.PowerArmourState;
 import com.projecthero.mod.powerarmour.SuitData;
 import com.projecthero.mod.powerarmour.item.PowerCoreItem;
 import com.projecthero.mod.powerarmour.menu.PowerArmourEditorMenu;
@@ -38,7 +39,8 @@ import net.minecraft.world.phys.Vec3;
  * the world through the editor's Pick Up button (back to its item, everything kept) or by someone stepping into it.
  *
  * <ul>
- *   <li>Right-click: step in ({@link PowerArmour#tryEnter}) -- it splits open, you turn, step back in, it seals round you.</li>
+ *   <li>Right-click: step in ({@link PowerArmour#tryEnter}) -- the side you clicked from opens ({@link #side()}): from the front
+ *   you turn and step back in, from the back you walk straight in; it seals round you.</li>
  *   <li>Sneak + right-click with an empty hand: the Armour Editor (modules, core, paint, Pick Up).</li>
  *   <li>Right-click with its repair material (or a Suit Repair Kit): restores integrity.</li>
  *   <li>Right-click with a power core while it has none: puts the core in.</li>
@@ -51,6 +53,9 @@ public class PowerArmourFrameEntity extends Entity {
 	private static final EntityDataAccessor<CompoundTag> DATA_SUIT = SynchedEntityData.defineId(PowerArmourFrameEntity.class,
 			EntityDataSerializers.COMPOUND_TAG);
 	private static final EntityDataAccessor<Integer> DATA_ANIM = SynchedEntityData.defineId(PowerArmourFrameEntity.class,
+			EntityDataSerializers.INT);
+	/** Round 2: which side opens (PowerArmourState.SIDE_FRONT / SIDE_BACK) -- the side the player clicked from. */
+	private static final EntityDataAccessor<Integer> DATA_SIDE = SynchedEntityData.defineId(PowerArmourFrameEntity.class,
 			EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Long> DATA_ANIM_START = SynchedEntityData.defineId(PowerArmourFrameEntity.class,
 			EntityDataSerializers.LONG);
@@ -71,6 +76,7 @@ public class PowerArmourFrameEntity extends Entity {
 		builder.define(DATA_SUIT, SuitData.fresh(ArmourTier.IRON).toTag());
 		builder.define(DATA_ANIM, CLOSED);
 		builder.define(DATA_ANIM_START, 0L);
+		builder.define(DATA_SIDE, PowerArmourState.SIDE_FRONT);
 	}
 
 	// ------------------------------------------------------------------ suit
@@ -126,6 +132,15 @@ public class PowerArmourFrameEntity extends Entity {
 			case CLOSING -> 1f - Math.min(1f, Math.max(0f, t / PowerArmourConfig.FRAME_CLOSE_TICKS));
 			default -> 0f;
 		};
+	}
+
+	/** The side that opens: {@link PowerArmourState#SIDE_FRONT} or {@link PowerArmourState#SIDE_BACK}. */
+	public int side() {
+		return entityData.get(DATA_SIDE);
+	}
+
+	public void setSide(int side) {
+		entityData.set(DATA_SIDE, side == PowerArmourState.SIDE_BACK ? PowerArmourState.SIDE_BACK : PowerArmourState.SIDE_FRONT);
 	}
 
 	public boolean occupied() {
@@ -309,11 +324,13 @@ public class PowerArmourFrameEntity extends Entity {
 		}
 		int anim = tag.getInt("Anim");
 		entityData.set(DATA_ANIM, anim == OPENING || anim == OPEN ? CLOSING : CLOSED);
+		setSide(tag.getInt("Side"));
 	}
 
 	@Override
 	protected void addAdditionalSaveData(CompoundTag tag) {
 		tag.put("Suit", suit.toTag());
 		tag.putInt("Anim", anim());
+		tag.putInt("Side", side());
 	}
 }

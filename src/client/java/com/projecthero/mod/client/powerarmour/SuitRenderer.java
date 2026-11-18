@@ -12,6 +12,7 @@ import com.projecthero.mod.client.ironman.IronManBoxes;
 import com.projecthero.mod.client.powerarmour.SuitPanel.Group;
 import com.projecthero.mod.client.powerarmour.SuitPanel.Part;
 import com.projecthero.mod.powerarmour.ArmourTier;
+import com.projecthero.mod.powerarmour.PowerArmourConfig;
 import com.projecthero.mod.powerarmour.SuitData;
 
 import net.minecraft.client.model.geom.ModelPart;
@@ -31,14 +32,23 @@ import net.minecraft.util.Mth;
  * </ol>
  * Every texel of every layer rides its {@link SuitPanel}, so the plates hinge open with their trim and lights on them; pistons
  * stretch between the frame and the opening plates. Modules mount on top ({@link SuitModules}).
+ *
+ * <p>Round 2 (user: "it should have the same scale as a regular player"): the layers are a thin shell <i>inside</i> the player's
+ * boxes (under-suit -0.18..-0.08 px, plates -0.10..+0.02, trim and glow 0..+0.10) and the whole suit is drawn
+ * {@link PowerArmourConfig#SUIT_SCALE} times a player's size on every axis, so it is exactly a scaled-up player. Only the side the
+ * wearer came in by opens ({@link Look#side}). While the suit is open round them the wearer's own body is drawn inside it
+ * ({@link #renderInner}), rising into the suit's proportions as they step in.
  */
 public final class SuitRenderer {
 	public static final ResourceLocation FRAME_TEX = ProjectHeroMod.id("textures/entity/power_armour/frame.png");
 	public static final ResourceLocation MODULE_TEX = ProjectHeroMod.id("textures/entity/power_armour/modules.png");
 
-	public static final float FRAME_IN = 0.15f, FRAME_D = 0.3f;
-	public static final float PLATE_IN = 0.5f, PLATE_D = 0.45f;
-	public static final float TRIM_IN = 0.95f, TRIM_D = 0.25f;
+	/** Layer shells (model px from the player's box; negative = inside it). The suit's silhouette is the box itself. */
+	public static final float FRAME_IN = -PowerArmourConfig.SHELL, FRAME_D = 0.10f;
+	public static final float PLATE_IN = -0.10f, PLATE_D = 0.12f;
+	public static final float TRIM_IN = 0.0f, TRIM_D = 0.10f;
+	/** Model px from the model origin down to the feet (the renderers' 1.501-block offset). */
+	public static final float FEET = 24.016f;
 
 	private SuitRenderer() {
 	}
@@ -70,6 +80,8 @@ public final class SuitRenderer {
 		/** Show the back module docked (false while the drone / turret is out). */
 		public boolean backDocked = true;
 		public boolean firstPerson;
+		/** Round 2: the side that opens (PowerArmourState.SIDE_FRONT / SIDE_BACK); panels on the other side stay shut. */
+		public int side;
 
 		public Look(SuitData suit) {
 			this.suit = suit;
@@ -77,6 +89,15 @@ public final class SuitRenderer {
 
 		public float open(Group g) {
 			return g == Group.NONE ? 0f : open[g.ordinal()];
+		}
+
+		/** How open {@code panel} is: its group's openness when it is on the opening side (or slides on both), else 0. */
+		public float open(SuitPanel panel) {
+			int ps = panel.side();
+			if (ps != SuitPanel.BOTH && ps != side) {
+				return 0f;
+			}
+			return open(panel.group);
 		}
 
 		/** Sets every group from a sequence progress: {@code opening} plays the open order, otherwise the closing order. */
@@ -126,8 +147,8 @@ public final class SuitRenderer {
 		Part[] order = Part.values();
 		for (int i = 0; i < order.length; i++) {
 			ModelPart mp = parts[i];
-			if (mp == null || !mp.visible) {
-				continue;
+			if (mp == null) {
+				continue; // (the wearer's own parts are hidden while suited, so visibility is not asked)
 			}
 			pose.pushPose();
 			mp.translateAndRotate(pose);
@@ -191,7 +212,7 @@ public final class SuitRenderer {
 		if (parent != null) {
 			applyPanel(pose, parent, look);
 		}
-		float k = look.open(panel.group);
+		float k = look.open(panel);
 		if (k <= 0f) {
 			return;
 		}
@@ -220,27 +241,36 @@ public final class SuitRenderer {
 	private record Piston(SuitPanel panel, float ax, float ay, float az, float bx, float by, float bz) {
 	}
 
+	/** Round 2: one set per side (only the opening side's plates move, so only their pistons show); plate points on the shell. */
 	private static final Piston[] PISTONS = {
-			new Piston(SuitPanel.CHEST_R, -3.2f, 2.5f, -1.0f, -1.6f, 2.5f, -2.9f),
-			new Piston(SuitPanel.CHEST_L, 3.2f, 2.5f, -1.0f, 1.6f, 2.5f, -2.9f),
-			new Piston(SuitPanel.ABDOMEN, -2.5f, 8.0f, -1.0f, -2.5f, 8.6f, -2.9f),
-			new Piston(SuitPanel.ABDOMEN, 2.5f, 8.0f, -1.0f, 2.5f, 8.6f, -2.9f),
-			new Piston(SuitPanel.BACK_R, -3.2f, 4.0f, 1.0f, -1.4f, 4.0f, 2.9f),
-			new Piston(SuitPanel.BACK_R, -3.2f, 9.0f, 1.0f, -1.4f, 9.0f, 2.9f),
-			new Piston(SuitPanel.BACK_L, 3.2f, 4.0f, 1.0f, 1.4f, 4.0f, 2.9f),
-			new Piston(SuitPanel.BACK_L, 3.2f, 9.0f, 1.0f, 1.4f, 9.0f, 2.9f),
-			new Piston(SuitPanel.HELMET, -2.6f, -0.5f, 2.6f, -2.6f, -3.5f, 4.9f),
-			new Piston(SuitPanel.HELMET, 2.6f, -0.5f, 2.6f, 2.6f, -3.5f, 4.9f),
-			new Piston(SuitPanel.RLEG_BACK, -1.2f, 2.0f, 1.0f, 0.4f, 3.5f, 2.9f),
-			new Piston(SuitPanel.LLEG_BACK, 1.2f, 2.0f, 1.0f, -0.4f, 3.5f, 2.9f),
-			new Piston(SuitPanel.RARM_FRONT, -2.4f, 3.0f, -0.8f, -0.6f, 3.0f, -2.9f),
-			new Piston(SuitPanel.LARM_FRONT, 2.4f, 3.0f, -0.8f, 0.6f, 3.0f, -2.9f),
+			new Piston(SuitPanel.CHEST_R, -3.0f, 2.5f, -1.0f, -1.6f, 2.5f, -1.95f),
+			new Piston(SuitPanel.CHEST_L, 3.0f, 2.5f, -1.0f, 1.6f, 2.5f, -1.95f),
+			new Piston(SuitPanel.ABDOMEN, -2.5f, 7.5f, -1.0f, -2.5f, 8.5f, -1.95f),
+			new Piston(SuitPanel.ABDOMEN, 2.5f, 7.5f, -1.0f, 2.5f, 8.5f, -1.95f),
+			new Piston(SuitPanel.BACK_R, -3.0f, 4.0f, 1.0f, -1.4f, 4.0f, 1.95f),
+			new Piston(SuitPanel.BACK_R, -3.0f, 9.0f, 1.0f, -1.4f, 9.0f, 1.95f),
+			new Piston(SuitPanel.BACK_L, 3.0f, 4.0f, 1.0f, 1.4f, 4.0f, 1.95f),
+			new Piston(SuitPanel.BACK_L, 3.0f, 9.0f, 1.0f, 1.4f, 9.0f, 1.95f),
+			new Piston(SuitPanel.HELMET, -2.6f, -1.0f, 1.0f, -2.6f, -3.5f, 3.95f),
+			new Piston(SuitPanel.HELMET, 2.6f, -1.0f, 1.0f, 2.6f, -3.5f, 3.95f),
+			new Piston(SuitPanel.VISOR, -2.6f, -1.0f, -1.0f, -2.6f, -3.5f, -3.95f),
+			new Piston(SuitPanel.VISOR, 2.6f, -1.0f, -1.0f, 2.6f, -3.5f, -3.95f),
+			new Piston(SuitPanel.RLEG_BACK, -1.2f, 2.0f, 1.0f, 0.4f, 3.5f, 1.95f),
+			new Piston(SuitPanel.LLEG_BACK, 1.2f, 2.0f, 1.0f, -0.4f, 3.5f, 1.95f),
+			new Piston(SuitPanel.RLEG_FRONT_O, -1.2f, 2.5f, -1.0f, -0.6f, 3.5f, -1.95f),
+			new Piston(SuitPanel.RLEG_FRONT_I, 1.2f, 2.5f, -1.0f, 0.6f, 3.5f, -1.95f),
+			new Piston(SuitPanel.LLEG_FRONT_O, 1.2f, 2.5f, -1.0f, 0.6f, 3.5f, -1.95f),
+			new Piston(SuitPanel.LLEG_FRONT_I, -1.2f, 2.5f, -1.0f, -0.6f, 3.5f, -1.95f),
+			new Piston(SuitPanel.RARM_FRONT, -2.2f, 3.0f, -0.8f, -0.6f, 3.0f, -1.95f),
+			new Piston(SuitPanel.RARM_BACK, -2.2f, 3.0f, 0.8f, -0.6f, 3.0f, 1.95f),
+			new Piston(SuitPanel.LARM_FRONT, 2.2f, 3.0f, -0.8f, 0.6f, 3.0f, -1.95f),
+			new Piston(SuitPanel.LARM_BACK, 2.2f, 3.0f, 0.8f, 0.6f, 3.0f, 1.95f),
 	};
 
 	private static void pistons(PoseStack pose, MultiBufferSource buffers, int light, int overlay, Part part, Look look) {
 		VertexConsumer vc = null;
 		for (Piston p : PISTONS) {
-			if (p.panel.part != part || look.open(p.panel.group) < 0.03f) {
+			if (p.panel.part != part || look.open(p.panel) < 0.03f) {
 				continue;
 			}
 			if (vc == null) {
@@ -266,6 +296,90 @@ public final class SuitRenderer {
 		IronManBoxes.draw(pose, vc, IronManBoxes.Box.swatch(-0.22f, len * 0.5f, -0.22f, 0.22f, len, 0.22f, 9f, 1f, 2f, 2f), 32, 32, light,
 				overlay, 0xFFFFFFFF);
 		pose.popPose();
+	}
+
+	// ================================================================== the wearer inside
+
+	/** Inner-body inset (model px) from the suit's box, sideways / along the limb, so the body sits inside the shell. */
+	private static final float INNER_INSET = 0.3f, INNER_INSET_Y = 0.25f;
+
+	/** Scales the pose by {@code k} about the feet (model space of a player renderer: the feet are {@link #FEET} px down). */
+	public static void scaleAboutFeet(PoseStack pose, float k) {
+		pose.translate(0f, FEET / 16f, 0f);
+		pose.scale(k, k, k);
+		pose.translate(0f, -FEET / 16f, 0f);
+	}
+
+	/**
+	 * The wearer's own body inside the suit (their skin, overlays included), in a pose stack at their real size (1 model px = 1
+	 * px). {@code lift} 0 draws them exactly as they stand; 1 places every part at the suit's scaled joint and shrinks it a hair
+	 * so it sits inside the suit's shell (seen through the open plates while it closes and opens round them).
+	 */
+	public static void renderInner(PoseStack pose, MultiBufferSource buffers, int light, int overlay,
+			net.minecraft.client.model.PlayerModel<?> model, net.minecraft.client.player.AbstractClientPlayer player, float lift) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture()));
+		ModelPart[] base = SuitLooks.parts(model);
+		ModelPart[] over = { model.hat, model.jacket, model.rightSleeve, model.leftSleeve, model.rightPants, model.leftPants };
+		net.minecraft.world.entity.player.PlayerModelPart[] shown = { net.minecraft.world.entity.player.PlayerModelPart.HAT,
+				net.minecraft.world.entity.player.PlayerModelPart.JACKET, net.minecraft.world.entity.player.PlayerModelPart.RIGHT_SLEEVE,
+				net.minecraft.world.entity.player.PlayerModelPart.LEFT_SLEEVE, net.minecraft.world.entity.player.PlayerModelPart.RIGHT_PANTS_LEG,
+				net.minecraft.world.entity.player.PlayerModelPart.LEFT_PANTS_LEG };
+		float s = PowerArmourConfig.SUIT_SCALE;
+		Part[] parts = Part.values();
+		for (int i = 0; i < parts.length; i++) {
+			Part part = parts[i];
+			ModelPart mp = base[i];
+			float e = i == 0 ? 0.5f : 0.25f; // the overlay's inflation
+			float kx = Mth.lerp(lift, 1f, s * (part.w - 2f * INNER_INSET) / (part.w + 2f * e));
+			float ky = Mth.lerp(lift, 1f, s * (part.h - 2f * INNER_INSET_Y) / (part.h + 2f * e));
+			float kz = Mth.lerp(lift, 1f, s * (part.d - 2f * INNER_INSET) / (part.d + 2f * e));
+			float sb = Mth.lerp(lift, 1f, s);
+			pose.pushPose();
+			pose.translate(Mth.lerp(lift, mp.x, s * mp.x) / 16f, Mth.lerp(lift, mp.y, FEET + s * (mp.y - FEET)) / 16f,
+					Mth.lerp(lift, mp.z, s * mp.z) / 16f);
+			if (mp.xRot != 0f || mp.yRot != 0f || mp.zRot != 0f) {
+				pose.mulPose(new Quaternionf().rotationZYX(mp.zRot, mp.yRot, mp.xRot));
+			}
+			pose.translate(part.cx() * sb / 16f, part.cy() * sb / 16f, part.cz() * sb / 16f);
+			pose.scale(kx, ky, kz);
+			pose.translate(-part.cx() / 16f, -part.cy() / 16f, -part.cz() / 16f);
+			drawUnposed(pose, vc, light, overlay, mp);
+			if (player.isModelPartShown(shown[i])) {
+				drawUnposed(pose, vc, light, overlay, over[i]);
+			}
+			pose.popPose();
+		}
+	}
+
+	/** First person: the wearer's own arm inside the suit's arm (posed by the hand renderer), shrunk to sit inside the shell. */
+	public static void renderInnerArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, ModelPart sleeve, boolean right,
+			net.minecraft.client.player.AbstractClientPlayer player) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture()));
+		Part part = right ? Part.RIGHT_ARM : Part.LEFT_ARM;
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		pose.translate(part.cx() / 16f, part.cy() / 16f, part.cz() / 16f);
+		float kxz = (part.w - 2f * INNER_INSET) / (part.w + 0.5f), ky = (part.h - 2f * INNER_INSET_Y) / (part.h + 0.5f);
+		pose.scale(kxz, ky, kxz);
+		pose.translate(-part.cx() / 16f, -part.cy() / 16f, -part.cz() / 16f);
+		int overlay = net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
+		drawUnposed(pose, vc, light, overlay, arm);
+		if (player.isModelPartShown(right ? net.minecraft.world.entity.player.PlayerModelPart.RIGHT_SLEEVE
+				: net.minecraft.world.entity.player.PlayerModelPart.LEFT_SLEEVE)) {
+			drawUnposed(pose, vc, light, overlay, sleeve);
+		}
+		pose.popPose();
+	}
+
+	/** Draws a model part's cubes at the current pose (its own pose and visibility ignored, then restored). */
+	private static void drawUnposed(PoseStack pose, VertexConsumer vc, int light, int overlay, ModelPart mp) {
+		net.minecraft.client.model.geom.PartPose saved = mp.storePose();
+		boolean visible = mp.visible;
+		mp.loadPose(net.minecraft.client.model.geom.PartPose.ZERO);
+		mp.visible = true;
+		mp.render(pose, vc, light, overlay);
+		mp.visible = visible;
+		mp.loadPose(saved);
 	}
 
 	static int scale(int rgb, float k) {

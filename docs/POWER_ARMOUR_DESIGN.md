@@ -73,3 +73,11 @@ Primary/Secondary rules).
   helmet), the visor lights up.
 - Each tier's material re-skins the plates; modules are visible on the suit (gatling on the arm, missile pod on the
   back, thrusters on the calves).
+
+## Round 2 (user, 2026-11-18)
+- "Make the power armour model look better ... it should have the same scale as a regular player ... the proportions are
+  basically just a scaled up player": the suit is a player scaled up 1.1x on every axis, its layers a thin shell inside that
+  silhouette (no extra-wide shoulders or chunky limbs). The sealed wearer grows to the same size (hitbox, eye height).
+- "Only make it so that the side you click on opens up and then you enter on that side": click from the front and the front
+  opens (turn round, step back in); click from behind and the back opens (walk straight in). Stepping out opens the side you
+  came in by. Details in `POWER_ARMOUR_REFERENCE.md`.

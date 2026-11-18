@@ -23,6 +23,20 @@ public final class PowerArmourConfig {
 	public static final double ENTER_REACH = 4.5;
 	/** How far in front of the frame the player turns round before stepping back in. */
 	public static final double APPROACH = 1.15;
+	/**
+	 * Round 2 (user: "the proportions are basically just a scaled up player"): the suit is the player model scaled up by this one
+	 * factor on every axis, with its layers (under-suit, plates, trim, glow) a thin shell inside the scaled box. Sealed, the
+	 * wearer's {@code Attributes.SCALE} gets the same factor, so the hitbox (0.66 x 1.98, still under a 2-block doorway), the eye
+	 * height (1.78) and the drawn suit all agree; the standing frame draws at it too.
+	 */
+	public static final float SUIT_SCALE = 1.1f;
+	/** Shell depth (model px, before scaling) the suit's layers take inside the box: the player's 4-px limbs still fit inside. */
+	public static final float SHELL = 0.18f;
+
+	/** The suit's scale per axis (x, y, z): one factor, so a suit is exactly a player's proportions. */
+	public static float[] suitScale() {
+		return new float[] { SUIT_SCALE, SUIT_SCALE, SUIT_SCALE };
+	}
 
 	// ---- energy
 	/** Idle draw per tick while sealed (1 E/s), times the tier's drain and Overclock's. */

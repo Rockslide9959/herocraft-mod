@@ -297,6 +297,7 @@
 		"PowerArmourFirstPersonArmMixin",
 		"PowerArmourPoseMixin",
 		"PowerArmourVisorGlowMixin",
+		"PowerArmourHideBodyMixin",
 		"VisionPhaseSightMixin",
 		"VisionPhaseCullMixin"
 	],

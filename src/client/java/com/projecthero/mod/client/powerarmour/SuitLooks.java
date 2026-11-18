@@ -29,7 +29,38 @@ public final class SuitLooks {
 		}
 		look.glow = suit.powered() ? 0.18f + 0.05f * Mth.sin(time * 0.08f) : 0f;
 		look.time = time;
+		look.side = frame.side();
 		return look;
+	}
+
+	/**
+	 * Round 2: the wearer's own model is hidden from the moment they step into the open frame until they have stepped out (the
+	 * suit, or the inner body drawn by {@link SuitRenderer#renderInner}, stands in for it).
+	 */
+	public static boolean hidesBody(PowerArmourState s) {
+		return s != null && s.phase >= PowerArmourState.ENTER_WALK && s.phase <= PowerArmourState.EXIT_WALK;
+	}
+
+	/**
+	 * How far the wearer's body has risen into the suit's proportions (0 as they stand .. 1 fitted inside it), or -1 when it is
+	 * not drawn (sealed: the suit is shut round it; or not in the sequence at all). Rises over the second half of the step in,
+	 * stays fitted while the suit closes and opens, settles back over the first half of the step out.
+	 */
+	public static float innerLift(PowerArmourState s, float time) {
+		if (s == null) {
+			return -1f;
+		}
+		float t = time - s.phaseStart;
+		return switch (s.phase) {
+			case PowerArmourState.ENTER_WALK -> smooth(Mth.clamp((t / PowerArmourConfig.ENTER_WALK_TICKS - 0.45f) / 0.55f, 0f, 1f));
+			case PowerArmourState.SEALING, PowerArmourState.UNSEALING -> 1f;
+			case PowerArmourState.EXIT_WALK -> 1f - smooth(Mth.clamp(t / PowerArmourConfig.EXIT_WALK_TICKS / 0.55f, 0f, 1f));
+			default -> -1f;
+		};
+	}
+
+	private static float smooth(float k) {
+		return k * k * (3f - 2f * k);
 	}
 
 	/** The suit on a player, or null when they are not wearing one. */
@@ -58,6 +89,7 @@ public final class SuitLooks {
 			}
 		}
 		look.time = time;
+		look.side = s.side;
 		look.thrust = s.thrusting;
 		long now = player.level().getGameTime();
 		look.jets = s.anim == com.projecthero.mod.powerarmour.kit.PowerArmourAbilities.ANIM_JETS && now - s.animStart < 14;
