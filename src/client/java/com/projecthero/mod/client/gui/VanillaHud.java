@@ -451,7 +451,9 @@ public final class VanillaHud {
 
 		/** The Left-Alt move list, stacked above the column (draws only while Left-Alt is held). */
 		public void moveList(List<MoveListOverlay.Row> rows) {
-			if (MoveListOverlay.held() && !rows.isEmpty()) {
+			// v0.17.5: a muted column (Power Armour / the Falcon gear owns the corner) draws off-screen, but the move list clamps
+			// itself back on-screen -- so a muted column draws no move list at all (it showed Spider-Man's over the Falcon's)
+			if (MoveListOverlay.held() && !rows.isEmpty() && x0 > -50000) {
 				MoveListOverlay.draw(g, x0 + width, top - 4, rows);
 			}
 		}

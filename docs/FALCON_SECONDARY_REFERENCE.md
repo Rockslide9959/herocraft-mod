@@ -29,6 +29,8 @@ The suit items didn't change. Goggles (head), EXO-7 Wing Pack (chest), Flight Su
 - HUD: `PowerArmourClient` sets `VanillaHud.muteOthers` to `PowerArmour.ownsKeys || Falcon.ownsKeys`, and `FalconHud` draws with
   `Stack.bottomRightOwned`. The Left-Alt move list is the Falcon's. HUDs that don't use `Stack.bottomRight` (Omnitrix, Stand,
   Saiyan and the others listed in the Power Armour notes) aren't muted, same as for Power Armour.
+- Fix found while filming (also affected Power Armour): a muted column's Left-Alt move list clamped itself back on screen, so
+  Spider-Man's list drew over the Falcon's. `VanillaHud.Stack.moveList` now draws nothing for a muted (off-screen) column.
 - The I screen (`PowerInfoScreen.heroTierChapter`) shows the Falcon page first while the gear owns the keys.
 - Primary passives keep running, since nothing about the Primary is touched.
 
