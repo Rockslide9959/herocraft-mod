@@ -299,7 +299,8 @@
 		"PowerArmourVisorGlowMixin",
 		"PowerArmourHideBodyMixin",
 		"VisionPhaseSightMixin",
-		"VisionPhaseCullMixin"
+		"VisionPhaseCullMixin",
+		"ExperimentalWorldWarningMixin"
 	],
 	"client": [],
 	"server": [],
