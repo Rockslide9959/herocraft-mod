@@ -154,6 +154,10 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 
 	/** Types the code {@code c} supplies (read when the time comes) from slots showing {@code from}; {@code gap} ticks per notch. */
 	private static int type(int t0, java.util.function.Supplier<String> c, int gap, String from) {
+		return type(t0, c, gap, () -> from);
+	}
+
+	private static int type(int t0, java.util.function.Supplier<String> c, int gap, java.util.function.Supplier<String> fromS) {
 		int t = t0;
 		for (int i = 0; i < 6; i++) {
 			final int slot = i;
@@ -162,6 +166,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 				at(t + k * gap, () -> {
 					String s = c.get();
 					int d = s.charAt(slot) - '0';
+					String from = fromS.get();
 					int f = from == null ? 0 : from.charAt(slot) - '0';
 					if (kk < Math.floorMod(d - f, 10)) {
 						wheel(1.0);
@@ -188,7 +193,15 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 	}
 
+	/** round 3: above and in front of the raised left wrist, looking down onto the face. */
+	private static void faceCam() {
+		camTarget = new net.minecraft.world.phys.Vec3(0, 1.15, 0);
+		cam(30f, 1.1f, 1.7f);
+		Minecraft.getInstance().options.hideGui = true; // what another player sees: no HUD
+	}
+
 	private static void uncam() {
+		Minecraft.getInstance().options.hideGui = false;
 		camOffset = null;
 		Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON);
 	}
@@ -230,7 +243,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			tapR(10);
 			shiftRight(50);
 			at(70, () -> log(mc, "in function"));
-			int done = type(74, () -> code, 3, null);
+			int done = type(74, () -> code, 3, (String) null);
 			for (int k = 0; k <= 200; k += 10) {
 				final int kk = k;
 				at(done + k, () -> log(mc, "after+" + kk));
@@ -252,7 +265,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			at(60, () -> log(mc, "raised +40"));
 			shiftRight(70);
 			at(90, () -> log(mc, "function?"));
-			int done = type(94, () -> code, 3, null);
+			int done = type(94, () -> code, 3, (String) null);
 			for (int k = 0; k <= 160; k += 10) {
 				final int kk = k;
 				at(done + k, () -> log(mc, "after+" + kk));
@@ -272,7 +285,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			tapR(12);
 			shiftRight(44);
 			film0 = 60;
-			int done = type(64, () -> code, 2, null);
+			int done = type(64, () -> code, 2, (String) null);
 			filmEnd = done + 120;
 			at(done - 2, () -> log(mc, "film1 submit"));
 			at(done + 10, () -> shot(mc, "01_flash_first_person_a"));
@@ -361,7 +374,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			shiftRight(o + 36);
 			at(o + 50, () -> cam(-55f, 1.7f, 1.25f));
 			at(o + 52, () -> shot(mc, "05_function_mode_master_on_note_third_person"));
-			int done3 = type(o + 56, () -> code, 2, null);
+			int done3 = type(o + 56, () -> code, 2, (String) null);
 			at(done3 - 30, () -> {
 				filmDir = "film3";
 				film0 = done3 - 30;
@@ -370,6 +383,94 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			at(done3 + 10, () -> shot(mc, "04_flash_third_person_off"));
 			at(done3 + 120, () -> log(mc, "film3 end"));
 			at(done3 + 128, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+		} else if (mode.equals("round3")) {
+			// ---- round 3: the code on the HUD key boxes (never on the face), the flash's alternating hourglass
+			java.util.function.Supplier<String> wrongCode = () -> {
+				// the real code with slots 2 and 5 changed: four green hints
+				char[] c = code.toCharArray();
+				c[1] = (char) ('0' + (c[1] - '0' + 1) % 10);
+				c[4] = (char) ('0' + (c[4] - '0' + 1) % 10);
+				String w = new String(c);
+				return w.equals("101010") ? "202020" : w;
+			};
+			tapR(12);
+			shiftRight(44);
+			at(66, () -> mc.gui.getChat().clearMessages(false));
+			at(70, () -> shot(mc, "20_watch_face_function_mode_first_person"));
+			// slot 1 = 4, slot 2 = 7, the cursor on slot 3
+			for (int k = 0; k < 4; k++) {
+				final int kk = k;
+				at(74 + kk * 2, () -> wheel(1.0));
+			}
+			middle(86);
+			for (int k = 0; k < 7; k++) {
+				final int kk = k;
+				at(92 + kk * 2, () -> wheel(1.0));
+			}
+			middle(110);
+			at(118, () -> mc.gui.getChat().clearMessages(false));
+			at(120, () -> shot(mc, "21_hud_keys_entering_code_first_person"));
+			at(124, () -> faceCam());
+			at(130, () -> shot(mc, "22_watch_face_function_mode_third_person"));
+			at(140, () -> uncam());
+			// back to slot 1 (Shift + middle twice), then the wrong code typed over 4 7 0 0 0 0
+			at(141, () -> key(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_PRESS));
+			middle(142);
+			middle(145);
+			at(148, () -> key(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_RELEASE));
+			int w = type(150, wrongCode, 2, "470000");
+			at(w + 2, () -> log(mc, "wrong"));
+			at(w + 8, () -> mc.gui.getChat().clearMessages(false));
+			at(w + 10, () -> shot(mc, "23_hud_keys_wrong_code_hints"));
+			at(w + 90, () -> shot(mc, "24_hud_keys_locked"));
+			at(w + 94, () -> faceCam());
+			at(w + 100, () -> shot(mc, "24b_watch_face_locked_third_person"));
+			at(w + 102, () -> uncam());
+			// the self-destruct code, then again to cancel it
+			int sd = type(w + 215, () -> "101010", 2, wrongCode);
+			at(sd + 2, () -> {
+				String c = wrongCode.get();
+				System.out.println("[HARNESS] typed over " + c);
+			});
+			at(sd + 30, () -> shot(mc, "25_hud_keys_self_destruct"));
+			int sd2 = sd + 40;
+			for (int i = 0; i < 6; i++) {
+				middle(sd2 + i * 6);
+			}
+			at(sd2 + 40, () -> log(mc, "sd cancelled"));
+			// the real code from 1 0 1 0 1 0: the flash, first person
+			int done = type(sd2 + 60, () -> code, 2, "101010");
+			at(done - 12, () -> {
+				film0 = done - 10;
+				filmEnd = done + 70;
+				filmDir = "film";
+			});
+			at(done + 4, () -> shot(mc, "30_flash_first_person_a"));
+			at(done + 7, () -> shot(mc, "31_flash_first_person_b"));
+			at(done + 110, () -> log(mc, "film1 end"));
+			// third person: the code again (Master Control off) from a camera stand by the watch
+			int o = done + 140;
+			at(o, () -> server(mc, p -> {
+				var n = Omnitrix.state(p).copy();
+				n.rechargeUntil = 0L;
+				Omnitrix.save(p, n);
+			}));
+			tapR(o + 4);
+			shiftRight(o + 36);
+			int done3 = type(o + 52, () -> code, 2, (String) null);
+			at(done3 - 14, () -> faceCam());
+			at(done3 - 12, () -> {
+				filmDir = "film3";
+				film0 = done3 - 10;
+				filmEnd = done3 + 70;
+			});
+			at(done3 + 4, () -> shot(mc, "32_flash_third_person_a"));
+			at(done3 + 7, () -> shot(mc, "33_flash_third_person_b"));
+			at(done3 + 80, () -> log(mc, "film3 end"));
+			at(done3 + 85, () -> {
 				System.out.println("[HARNESS] done");
 				Runtime.getRuntime().halt(0);
 			});
@@ -385,7 +486,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			at(12, () -> server(mc, p -> Omnitrix.setMasterControl(p, true)));
 			tapR(16);
 			shiftRight(56);
-			int d2 = type(76, () -> code, 2, null);
+			int d2 = type(76, () -> code, 2, (String) null);
 			at(d2 + 60, () -> log(mc, "S2 (was on) +60"));
 			// S3: every hidden alien found, a stick in hand, a long wait, a wrong code, the lock, then the right one
 			int s3 = d2 + 80;
@@ -398,7 +499,7 @@ public final class OmnitrixMasterHarness implements ClientModInitializer {
 			}));
 			tapR(s3 + 6);
 			shiftRight(s3 + 46);
-			int w = type(s3 + 400, () -> "000000".equals(code) ? "111111" : "000000", 2, null);
+			int w = type(s3 + 400, () -> "000000".equals(code) ? "111111" : "000000", 2, (String) null);
 			at(w + 10, () -> log(mc, "S3 wrong +10"));
 			at(w + 12, () -> shot(mc, "s3_wrong_overlap"));
 			int r = type(w + 215, () -> code, 2, "000000".equals(code) ? "111111" : "000000");

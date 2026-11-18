@@ -512,7 +512,7 @@ the Shift+N off-hold are gone; the dial-flip sequence (`Omnitrix.startMasterSequ
 | The codes and their discovery | `omnitrix/OmnitrixCodes.java`; secrets `omnitrix/data/OmnitrixSecrets.java` in `OmnitrixAttachments.SECRETS` |
 | Typing logic (pure, shared with the tests) | `omnitrix/OmnitrixCodeEntry.java` |
 | Data Fragment item + vault loot | `omnitrix/item/OmnitrixDataFragmentItem.java`, `OmnitrixItems` (`LootTableEvents.MODIFY` on `chests/vault_tier1-4`) |
-| Client: input, face readout, HUD, Guidebook lines | `client/omnitrix/OmnitrixFunctionClient.java`; hooks in `OmnitrixClient`, `mixin/OmnitrixScrollMixin` (middle button), `mixin/OmnitrixInputMixin` (no pick-block); the fold in `OmnitrixHands.rig`; the readout in `OmnitrixWatch.drawReadout` |
+| Client: input, face readout, HUD, Guidebook lines | `client/omnitrix/OmnitrixFunctionClient.java`; hooks in `OmnitrixClient`, `mixin/OmnitrixScrollMixin` (middle button), `mixin/OmnitrixInputMixin` (no pick-block); the fold in `OmnitrixHands.rig`; the self-destruct readout in `OmnitrixWatch.drawReadout` (round 3: the code is only on the HUD key boxes) |
 | Payloads | `OmnitrixActionPayload` `FUNCTION` (toggle), `CODE` (the six digits) |
 | Tests | `OmnitrixFunctionModeGameTests` |
 | Assets / lang | `scratchpad/gen_omnitrix_function_v0175.js` (`entity/omnitrix/code_glyphs.png`, `item/omnitrix_data_fragment.png`), `scratchpad/lang_omnitrix_function_v0175.js` |
@@ -522,7 +522,7 @@ the Shift+N off-hold are gone; the dial-flip sequence (`Omnitrix.startMasterSequ
 
 | Input | In function mode |
 |---|---|
-| Shift + right-click | enter (the core sinks, the face goes back to the plain hourglass, the 6-slot readout comes up) / leave (the core pops back up) |
+| Shift + right-click | enter (the core sinks, the face goes back to the plain hourglass, the six code digits come up on the HUD key boxes) / leave (the core pops back up) |
 | Scroll up / down | the blinking slot's digit +1 / -1, wrapping 0-9 (the dial never turns, the hotbar never moves) |
 | Middle click | next slot; on the 6th the code is sent (cursor back to slot 1, the digits stay for the next guess) |
 | Shift + middle click | back one slot (stops at slot 1) |
@@ -628,3 +628,27 @@ The only action-bar lines left in function mode come after it closes (CODE ACCEP
 **Blitzwolfer's tail** (user: "Make blitzwolfers tail black, the same black fur that's on his head please"): the 3D tail
 (`BenwolfSprint.renderTail`) is mapped onto the back of his head on the skin (texels 24..31 x 8..15, his black fur with its shading)
 and the tip onto the top of his head (8..15 x 0..5), instead of single texels of grey back fur / a pale tip. No texture change.
+
+### Round 3: the hourglass flash, the code on the key boxes (v0.17.5)
+
+User: "during the master control unlock the omnitrix symbol shouldnt be these 4 squares it should be an alternating black and white
+regular looking omnitrix symbol please" and "when entering in codes the code shouldnt show on the omnitrix face, it should only show on
+the players ability keys".
+
+- **The flash's face** (`OmnitrixWatch.renderMasterFlash`) is the plain face's hourglass, the same size and place, drawn as two cutout
+  quads from `entity/omnitrix/master_flash_face.png` (128x64, `scratchpad/gen_omnitrix_master_flash_v0175.js`: u 0..0.5 the disc,
+  u 0.5..1 the hourglass measured off `face_morph.png` frame 0, inside the bezel ring), tinted per vertex: the hourglass in the cuff's
+  group colour, the disc in the other, so it reads white on black, then black on white, swapping with the rest of the watch every 3
+  ticks. Both watches (the recalibrated one uses its own face radius); first person, third person and other viewers alike.
+- **The face in function mode stays plain**: no digits, no hints, no accepted code fading out (`OmnitrixFunctionClient.readout` now
+  only returns the self-destruct seconds, which still show on the red face, function mode or not; `acceptedReadout` is gone). Nobody
+  but the wearer can see the code any more.
+- **The HUD key boxes carry the code** (`OmnitrixFunctionClient.drawHud`): the six function-mode boxes are the ability keys R G Z X C V
+  (slot 1 .. 6, `VanillaHud.ORDER`), each key's letter shrunk to half size in its top-left corner and the digit 1.25x in the middle.
+  Current slot: white digit, blinking selection frame, underline. Wrong code: the sent digits, right-place ones flashing green, the rest
+  dull red. Locked: a durability bar on every key draining over the 10 s (red to green), typed digits greyed. Self-destruct: the boxes
+  pulse red, digits red (amber on the current one); armed / cancelled flash all six red / pale green. The text over the boxes is
+  unchanged and still wrapped to the HUD's width: FUNCTION MODE / ACCESS DENIED, the controls, LOCKED n s or "Known: _ 8 _ _ 4 _"
+  (the Master Control digits found so far, not the typed code), the Master Control ON note. Nothing else draws the code.
+- Footage: `scratchpad/OmnitrixMasterHarness.v0175.java.txt` mode `round3`, `scratchpad/omnitrix_master3_film_v0175.js`,
+  `docs/screenshots/v0175/omnitrix_master3/`.

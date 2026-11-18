@@ -199,69 +199,20 @@ public final class OmnitrixFunctionClient {
 	}
 
 	/**
-	 * The face readout for {@code p} now, or null. In function mode: the digits being typed (the local player's; another player's
-	 * watch shows dashes), the current slot blinking, a wrong code's green hints during the lock. During a self-destruct countdown
-	 * (function mode or not): the seconds left, red.
+	 * The face readout for {@code p} now, or null: only during a self-destruct countdown (function mode or not), the seconds left,
+	 * red. v0.17.5 round 3 (user: "when entering in codes the code shouldnt show on the omnitrix face, it should only show on the
+	 * players ability keys"): the digits being typed, the wrong code's hints and the accepted code are no longer on the face (every
+	 * viewer could read them there) -- they are on the wearer's HUD key boxes ({@link #drawHud}). The face stays plain.
 	 */
 	public static Readout readout(Player p, OmnitrixState s, long now, float partial) {
-		float t = now + partial;
-		boolean blinkFast = (System.currentTimeMillis() / 125L) % 2L == 0L;
 		int sd = OmnitrixFunction.selfDestructLeft(s, now);
-		float fold = OmnitrixFunction.fold(s, t);
-		float alpha = Mth.clamp((fold - 0.55f) / 0.45f, 0f, 1f);
-		if (sd > 0 && alpha <= 0f) {
-			int secs = (sd + 19) / 20;
-			int col = blinkFast || sd < 100 && (now / 3) % 2 == 0 ? RED : RED_DIM;
-			return new Readout(new int[] { DASH, DASH, secs / 10 % 10, secs % 10, DASH, DASH }, fill(col), 1f, -1, 0);
-		}
-		if (alpha <= 0f) {
+		if (sd <= 0) {
 			return null;
 		}
-		int[] cells = new int[OmnitrixCodeEntry.LENGTH];
-		int[] cols = new int[OmnitrixCodeEntry.LENGTH];
-		boolean mine = p == Minecraft.getInstance().player;
-		OmnitrixFunction.Outcome last = OmnitrixFunction.lastOutcome(s);
-		float age = OmnitrixFunction.resultAge(s, now, partial);
-		boolean locked = OmnitrixFunction.locked(s, now);
-		if (locked && last == OmnitrixFunction.Outcome.WRONG) {
-			// the wrong code with its Mastermind hints: right-place digits flash green, the rest dull red
-			int mask = OmnitrixFunction.hint(s);
-			boolean flash = age > 30f || (System.currentTimeMillis() / 160L) % 2L == 0L;
-			for (int i = 0; i < cells.length; i++) {
-				cells[i] = mine && lastSent.length() == cells.length ? lastSent.charAt(i) - '0' : DASH;
-				cols[i] = (mask >> i & 1) != 0 ? (flash ? GREEN_HOT : GREEN) : RED_DIM;
-			}
-			return new Readout(cells, cols, alpha, -1, 0);
-		}
-		OmnitrixCodeEntry e = mine ? entry(s) : null;
-		boolean red = sd > 0;
-		for (int i = 0; i < cells.length; i++) {
-			cells[i] = e == null ? DASH : e.digit(i);
-			boolean cur = e != null && i == e.slot();
-			cols[i] = red ? (cur ? AMBER : RED) : cur ? GREEN_HOT : GREEN;
-		}
-		if (age < 12f && (last == OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED || last == OmnitrixFunction.Outcome.SELF_DESTRUCT_CANCELLED)) {
-			java.util.Arrays.fill(cols, last == OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED ? RED : GREEN_HOT);
-		}
-		boolean blink = (System.currentTimeMillis() / 300L) % 2L == 0L;
-		return new Readout(cells, cols, alpha, e != null && blink ? e.slot() : -1, red ? AMBER : GREEN_HOT);
-	}
-
-	/** After a code was accepted (the readout fading as the core comes back up): every digit lit. */
-	public static Readout acceptedReadout(Player p, OmnitrixState s, long now, float partial) {
-		OmnitrixFunction.Outcome last = OmnitrixFunction.lastOutcome(s);
-		float age = OmnitrixFunction.resultAge(s, now, partial);
-		if (age > OmnitrixConfig.FUNCTION_FOLD_TICKS + 4f || (last != OmnitrixFunction.Outcome.MASTER && last != OmnitrixFunction.Outcome.ALIEN)
-				|| OmnitrixFunction.active(s)) {
-			return null;
-		}
-		float a = 1f - Mth.clamp(age / (OmnitrixConfig.FUNCTION_FOLD_TICKS + 4f), 0f, 1f);
-		int[] cells = new int[OmnitrixCodeEntry.LENGTH];
-		boolean mine = p == Minecraft.getInstance().player;
-		for (int i = 0; i < cells.length; i++) {
-			cells[i] = mine && lastSent.length() == cells.length ? lastSent.charAt(i) - '0' : DASH;
-		}
-		return new Readout(cells, fill(GREEN_HOT), a, -1, 0);
+		boolean blinkFast = (System.currentTimeMillis() / 125L) % 2L == 0L;
+		int secs = (sd + 19) / 20;
+		int col = blinkFast || sd < 100 && (now / 3) % 2 == 0 ? RED : RED_DIM;
+		return new Readout(new int[] { DASH, DASH, secs / 10 % 10, secs % 10, DASH, DASH }, fill(col), 1f, -1, 0);
 	}
 
 	private static int[] fill(int c) {
@@ -273,8 +224,10 @@ public final class OmnitrixFunctionClient {
 	// ---------------------------------------------------------------- the HUD
 
 	/**
-	 * The function-mode box (bottom right, where the alien keys sit when transformed): the six slots as a short hotbar (the current
-	 * one framed and blinking), the known Master Control digits, the lock or the result, and the controls wrapped under it. Plus the
+	 * The function-mode box (bottom right): the six ability key boxes (R G Z X C V, where the alien keys sit when transformed), each
+	 * showing one digit of the code with its key small in the corner (the current one framed and blinking, a wrong code's hints in
+	 * green, the lock as a bar draining on every key, red boxes in a self-destruct) -- the only place the code is ever shown -- then
+	 * the known Master Control digits, the lock or the result, and the controls wrapped over it. Plus the
 	 * self-destruct banner at the top of the screen. Returns the box's top ({@code bottom} when nothing was drawn).
 	 */
 	static int drawHud(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom, int width) {
@@ -291,22 +244,57 @@ public final class OmnitrixFunctionClient {
 		int mask = OmnitrixFunction.hint(s);
 		boolean sd = OmnitrixFunction.selfDestructing(s);
 		boolean blink = (System.currentTimeMillis() / 300L) % 2L == 0L;
+		// the hints flash for a second and a half, then stay green
+		boolean hintFlash = OmnitrixFunction.resultAge(s, now, 0f) <= 30f && (System.currentTimeMillis() / 160L) % 2L == 0L;
+		OmnitrixFunction.Outcome lastOut = OmnitrixFunction.lastOutcome(s);
+		float resultAge = OmnitrixFunction.resultAge(s, now, 0f);
+		boolean sdArmedFlash = resultAge < 12f && lastOut == OmnitrixFunction.Outcome.SELF_DESTRUCT_ARMED;
+		boolean sdCancelFlash = resultAge < 12f && lastOut == OmnitrixFunction.Outcome.SELF_DESTRUCT_CANCELLED;
+		// the lock as a durability bar on every key, red when it has just started, green as it runs out
+		float lockFrac = locked ? Mth.clamp(OmnitrixFunction.lockLeft(s, now) / (float) OmnitrixConfig.CODE_LOCK_TICKS, 0f, 1f) : 0f;
+		boolean sdOn = sd && (now / (OmnitrixFunction.selfDestructLeft(s, now) < 100 ? 3 : 6)) % 2 == 0;
+		// v0.17.5 round 3 (user: "the code shouldnt show on the omnitrix face, it should only show on the players ability keys"): the
+		// six digits sit on the six ability key boxes, R G Z X C V = slot 1 .. 6, each key's letter shrunk into its corner
 		for (int i = 0; i < OmnitrixCodeEntry.LENGTH; i++) {
 			String d;
 			int col;
 			if (wrong) {
+				// the wrong code with its Mastermind hints: right-place digits flash green, the rest dull red
 				d = lastSent.length() == OmnitrixCodeEntry.LENGTH ? String.valueOf(lastSent.charAt(i)) : "-";
-				col = (mask >> i & 1) != 0 ? 0xFF55FF55 : 0xFFAA4040;
+				col = (mask >> i & 1) != 0 ? (hintFlash ? 0xFFE2FFD2 : 0xFF55FF55) : 0xFFAA4040;
 			} else {
 				d = String.valueOf(e.digit(i));
-				col = sd ? 0xFFFF6040 : i == e.slot() ? 0xFFFFFFFF : 0xFF8FE870;
+				col = sd ? (i == e.slot() ? 0xFFFFB020 : 0xFFFF6040) : i == e.slot() ? 0xFFFFFFFF : 0xFF8FE870;
+				if (locked) {
+					col = 0xFF6A6A6A;
+				}
+			}
+			if (sdArmedFlash) {
+				col = 0xFFFF3A26;
+			} else if (sdCancelFlash) {
+				col = 0xFFE2FFD2;
 			}
 			boolean cur = !locked && i == e.slot();
-			com.projecthero.mod.client.gui.VanillaHud.slot(g, x0, y, i, "", true, false, 0f, 0, 0f, cur && blink);
-			int ix = x0 + 3 + i * com.projecthero.mod.client.gui.VanillaHud.SLOT;
-			g.drawString(font, d, ix + 8 - font.width(d) / 2, y + 7, col, true);
+			com.projecthero.mod.client.gui.VanillaHud.slot(g, x0, y, i, "", true, false, 0f, 0, lockFrac, cur && blink);
+			int ix = x0 + 3 + i * com.projecthero.mod.client.gui.VanillaHud.SLOT, iy = y + 3;
+			if (sd) {
+				g.fill(ix, iy, ix + 16, iy + 16, sdOn ? 0x60FF2010 : 0x30FF2010);
+			}
+			// the key, small in the top-left corner
+			String key = com.projecthero.mod.client.gui.VanillaHud.keyLabel(com.projecthero.mod.client.gui.VanillaHud.ORDER[i]);
+			g.pose().pushPose();
+			g.pose().translate(ix + 1f, iy + 1f, 0f);
+			g.pose().scale(0.5f, 0.5f, 1f);
+			g.drawString(font, key, 0, 0, 0xFF9A9A9A, true);
+			g.pose().popPose();
+			// the digit, a size up, in the middle
+			g.pose().pushPose();
+			g.pose().translate(ix + 8.5f - font.width(d) * 0.625f, iy + 2.5f, 0f);
+			g.pose().scale(1.25f, 1.25f, 1f);
+			g.drawString(font, d, 0, 0, col, true);
+			g.pose().popPose();
 			if (cur) {
-				g.fill(ix + 3, y + 17, ix + 13, y + 18, blink ? 0xFFFFFFFF : 0xFF8FE870);
+				g.fill(ix + 3, iy + 14, ix + 13, iy + 15, blink ? 0xFFFFFFFF : 0xFF8FE870);
 			}
 		}
 		// the text over the slots, bottom-up, every line wrapped to the HUD's width: the status (the lock / the known digits), the
