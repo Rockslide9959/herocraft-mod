@@ -30,7 +30,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.object.builder.v1.client.model.FabricModelPredicateProviderRegistry;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -39,7 +38,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -78,10 +76,8 @@ public final class ContagionClient {
 		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.OMEGA_CORE, RenderType.cutout());
 		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.CITADEL_CABLE, RenderType.cutout());
 
-		// the Vibranium Shield: the Adamantium disc with its own art, and the vanilla "blocking" predicate
+		// the Vibranium Shield: the Captain America shield model with its own art (v0.17.5: no blocking model swap, see CapShieldPose)
 		BuiltinItemRendererRegistry.INSTANCE.register(ContagionItems.VIBRANIUM_SHIELD, new AdamantiumShieldRenderer(AdamantiumShieldRenderer.VIBRANIUM_TEXTURE));
-		FabricModelPredicateProviderRegistry.register(ContagionItems.VIBRANIUM_SHIELD, ResourceLocation.withDefaultNamespace("blocking"),
-				(stack, level, entity, seed) -> entity != null && entity.isUsingItem() && entity.getUseItem() == stack ? 1.0f : 0.0f);
 
 		// Assimilated mobs and Ultron Golems: an overlay of plating and red eyes on their own model
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {

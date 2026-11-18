@@ -1,0 +1,532 @@
+// TEMP-HARNESS copy (v0.17.5 Captain America shields). To use: put ShieldHarness.java back in src/client/java/com/projecthero/mod/client/,
+// add "com.projecthero.mod.client.ShieldHarness" to the client entrypoints in src/main/resources/fabric.mod.json, put the camera mixin below in
+// src/client/java/com/projecthero/mod/client/mixin/ShieldHarnessCameraMixin.java and list it in projecthero.client.mixins.json, write
+// run/capshield.flag = "capshield_out/<before|after|quick|dbg>|<same mode>", run node scratchpad/low_graphics_options.js run/options.txt,
+// ./gradlew runClient; then node scratchpad/cap_shields_film_v0175.js. Remove all of it again afterwards.
+
+// ===== ShieldHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import org.lwjgl.glfw.GLFW;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Captain America shields): stills of the three shields (icons, held / blocking in third and
+ * first person, main and off hand, wide and slim arms, stowed on the back) and films of throw -> flight -> ricochet -> catch and of
+ * block / bash. Enabled by run/capshield.flag = "<out dir>|<mode>"; a fixed camera is a client-side armour stand.
+ */
+public final class ShieldHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static String mode = "after";
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static int film0 = -1, filmEnd = -1;
+	private static String filmDir = "film";
+	private static ArmorStand cam;
+	private static float camAngle, camDist, camH, camLookAhead, camLookH = 1.1f;
+	private static boolean camOn;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("capshield.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				mode = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(ShieldHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(mc -> placeCam(mc));
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(720_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "capshield-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		File f = new File(out, "screenshots/" + name + ".png");
+		f.getParentFile().mkdirs();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static Item item(String id) {
+		return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
+	}
+
+	/** Main hand, off hand, hotbar slot 1 (slot 0 selected). */
+	private static void give(Minecraft mc, Item main, Item off, Item slot1) {
+		server(mc, p -> {
+			p.getInventory().clearContent();
+			p.getInventory().selected = 0;
+			p.getInventory().setItem(0, main == null ? ItemStack.EMPTY : new ItemStack(main));
+			p.getInventory().setItem(1, slot1 == null ? ItemStack.EMPTY : new ItemStack(slot1));
+			p.setItemInHand(InteractionHand.OFF_HAND, off == null ? ItemStack.EMPTY : new ItemStack(off));
+		});
+		Minecraft.getInstance().player.getInventory().selected = 0;
+	}
+
+	private static void use(boolean on) {
+		InputConstants.Key k = Minecraft.getInstance().options.keyUse.getDefaultKey();
+		KeyMapping.set(k, on);
+		if (on) {
+			KeyMapping.click(k);
+		}
+	}
+
+	/** Fixed camera {@code dist} out at {@code angle} degrees round the player (0 = in front), eye {@code h} up. */
+	private static void cam3(float angle, float dist, float h) {
+		cam3(angle, dist, h, 0f, 1.1f);
+	}
+
+	private static void cam3(float angle, float dist, float h, float lookAhead, float lookH) {
+		camAngle = angle;
+		camDist = dist;
+		camH = h;
+		camLookAhead = lookAhead;
+		camLookH = lookH;
+		camOn = true;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = true;
+		placeCam(mc);
+	}
+
+	private static void fp() {
+		camOn = false;
+		camPose = null;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = false;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		if (mc.player != null) {
+			mc.setCameraEntity(mc.player);
+		}
+	}
+
+	public static volatile double[] camPose;
+
+	private static void placeCam(Minecraft mc) {
+		if (!camOn || mc.player == null || mc.level == null || base == null) {
+			camPose = null;
+			return;
+		}
+		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+		double r = Math.toRadians(camAngle);
+		Vec3 eye = c.add(Math.sin(r) * camDist, camH, Math.cos(r) * camDist);
+		Vec3 look = c.add(0, camLookH, camLookAhead);
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+		float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, d.horizontalDistance())));
+		camPose = new double[] { eye.x, eye.y, eye.z, yaw, pitch };
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void face(Minecraft mc) {
+		var p = mc.player;
+		p.setYRot(0f);
+		p.yRotO = 0f;
+		p.setXRot(5f);
+		p.xRotO = 5f;
+		p.yBodyRot = 0f;
+		p.yBodyRotO = 0f;
+		p.yHeadRot = 0f;
+		p.yHeadRotO = 0f;
+	}
+
+	private static void slim(Minecraft mc, boolean slim) {
+		try {
+			var info = mc.getConnection().getPlayerInfo(mc.player.getUUID());
+			var f = net.minecraft.client.multiplayer.PlayerInfo.class.getDeclaredField("skinLookup");
+			f.setAccessible(true);
+			net.minecraft.client.resources.PlayerSkin skin = slim
+					? new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/slim/alex.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.SLIM, true)
+					: new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/wide/steve.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.WIDE, true);
+			java.util.function.Supplier<net.minecraft.client.resources.PlayerSkin> sup = () -> skin;
+			f.set(info, sup);
+			System.out.println("[HARNESS] skin now " + mc.player.getSkin().model());
+		} catch (Exception e) {
+			System.out.println("[HARNESS] slim failed " + e);
+		}
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.EASY, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -12; x <= 12; x++) {
+			for (int z = -8; z <= 20; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		System.out.println("[HARNESS] grant: " + com.projecthero.mod.hero.PowerGrants.grantHero(p, "super_soldier").message().getString());
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 5f);
+	}
+
+	private static void spawnTargets(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		double[][] at = { { -2.5, 7 }, { 2.5, 10 }, { -1.0, 13 } };
+		for (double[] a : at) {
+			Husk h = new Husk(EntityType.HUSK, level);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+			h.setHealth(1000);
+			h.setPersistenceRequired();
+			h.moveTo(base.getX() + 0.5 + a[0], base.getY(), base.getZ() + 0.5 + a[1], 180f, 0f);
+			h.setYHeadRot(180f);
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void film(int from, int to, String dir) {
+		at(from, () -> {
+			film0 = from;
+			filmEnd = to;
+			filmDir = dir;
+		});
+	}
+
+	private static final String[] SHIELDS = { "projecthero:soldier_shield", "projecthero:vibranium_shield", "projecthero:adamantium_shield" };
+	private static final String[] NAMES = { "soldier", "vibranium", "adamantium" };
+
+	private static int stills(Minecraft mc, int t, String tag) {
+		for (int i = mode.equals("quick") || mode.equals("dbg") ? 2 : 0; i < SHIELDS.length; i++) {
+			final Item s = item(SHIELDS[i]);
+			final String n = NAMES[i] + tag;
+			at(t, () -> give(mc, s, null, null));
+			at(t + 6, () -> cam3(35f, 2.8f, 1.5f));
+			at(t + 12, () -> shot(mc, n + "_held_tp_front"));
+			at(t + 13, () -> cam3(-110f, 2.8f, 1.4f));
+			at(t + 18, () -> shot(mc, n + "_held_tp_side"));
+			at(t + 19, () -> cam3(35f, 2.8f, 1.5f));
+			at(t + 20, () -> use(true));
+			at(t + 32, () -> shot(mc, n + "_block_tp_front"));
+			at(t + 33, () -> cam3(-70f, 2.8f, 1.5f));
+			at(t + 38, () -> shot(mc, n + "_block_tp_side"));
+			at(t + 39, () -> use(false));
+			at(t + 40, () -> fp());
+			at(t + 50, () -> shot(mc, n + "_held_fp"));
+			at(t + 51, () -> use(true));
+			at(t + 62, () -> shot(mc, n + "_block_fp"));
+			at(t + 63, () -> use(false));
+			// off hand (a sword in the main hand)
+			at(t + 66, () -> give(mc, Items.IRON_SWORD, s, null));
+			at(t + 70, () -> cam3(-35f, 2.8f, 1.5f));
+			at(t + 78, () -> shot(mc, n + "_offhand_tp_front"));
+			at(t + 79, () -> use(true));
+			at(t + 90, () -> shot(mc, n + "_offhand_block_tp_front"));
+			at(t + 91, () -> use(false));
+			at(t + 92, () -> fp());
+			at(t + 100, () -> shot(mc, n + "_offhand_fp"));
+			// stowed: in hotbar slot 1, an empty hand
+			at(t + 102, () -> give(mc, null, null, s));
+			at(t + 108, () -> cam3(180f, 2.8f, 1.6f));
+			at(t + 116, () -> shot(mc, n + "_back_tp"));
+			at(t + 117, () -> cam3(-120f, 2.8f, 1.5f));
+			at(t + 124, () -> shot(mc, n + "_back_tp_side"));
+			// close-ups
+			at(t + 125, () -> give(mc, s, null, null));
+			at(t + 128, () -> cam3(40f, 1.6f, 1.5f, 0f, 1.15f));
+			at(t + 134, () -> shot(mc, n + "_close_held"));
+			at(t + 135, () -> cam3(-100f, 1.6f, 1.4f, 0f, 1.1f));
+			at(t + 140, () -> shot(mc, n + "_close_held_outer"));
+			at(t + 141, () -> cam3(150f, 1.6f, 1.6f, 0f, 1.2f));
+			at(t + 146, () -> shot(mc, n + "_close_held_inner_straps"));
+			at(t + 147, () -> cam3(20f, 1.8f, 1.5f, 0f, 1.3f));
+			at(t + 148, () -> use(true));
+			at(t + 160, () -> shot(mc, n + "_close_block"));
+			at(t + 161, () -> use(false));
+			at(t + 162, () -> give(mc, null, null, s));
+			at(t + 166, () -> cam3(160f, 1.6f, 1.6f, 0f, 1.2f));
+			at(t + 172, () -> shot(mc, n + "_close_back"));
+			t += 176;
+		}
+		return t;
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		int t = 0;
+		// icons: the three shields and a vanilla shield in the hotbar, GUI scale 4
+		at(t, () -> server(mc, p -> {
+			p.getInventory().clearContent();
+			for (int i = 0; i < SHIELDS.length; i++) {
+				p.getInventory().setItem(i, new ItemStack(item(SHIELDS[i])));
+			}
+			p.getInventory().setItem(3, new ItemStack(Items.SHIELD));
+			p.getInventory().selected = 8;
+		}));
+		at(t + 1, () -> {
+			mc.player.getInventory().selected = 8;
+			fp();
+			mc.options.guiScale().set(4);
+			mc.resizeDisplay();
+		});
+		at(t + 8, () -> shot(mc, "icons_hotbar_gui4"));
+		at(t + 9, () -> {
+			mc.options.guiScale().set(2);
+			mc.resizeDisplay();
+		});
+		t += 12;
+		t = stills(mc, t, "");
+		if (mode.equals("dbg")) {
+			at(t, () -> Runtime.getRuntime().halt(0));
+			return;
+		}
+		// slim arms: the adamantium shield in either hand
+		at(t, () -> slim(mc, true));
+		final Item ad = item("projecthero:adamantium_shield");
+		at(t + 2, () -> give(mc, ad, null, null));
+		at(t + 6, () -> cam3(35f, 2.8f, 1.5f));
+		at(t + 12, () -> shot(mc, "slim_adamantium_held_tp_front"));
+		at(t + 13, () -> use(true));
+		at(t + 24, () -> shot(mc, "slim_adamantium_block_tp_front"));
+		at(t + 25, () -> use(false));
+		at(t + 26, () -> give(mc, Items.IRON_SWORD, ad, null));
+		at(t + 30, () -> cam3(-35f, 2.8f, 1.5f));
+		at(t + 36, () -> shot(mc, "slim_adamantium_offhand_tp_front"));
+		at(t + 37, () -> use(true));
+		at(t + 48, () -> shot(mc, "slim_adamantium_offhand_block_tp_front"));
+		at(t + 49, () -> use(false));
+		at(t + 50, () -> give(mc, null, null, ad));
+		at(t + 54, () -> cam3(-150f, 2.8f, 1.6f));
+		at(t + 60, () -> shot(mc, "slim_adamantium_back_tp"));
+		at(t + 61, () -> slim(mc, false));
+		t += 64;
+
+		// throw films: targets, a wide side view, then a close one
+		at(t, () -> server(mc, ShieldHarness::spawnTargets));
+		final Item vib = item("projecthero:vibranium_shield");
+		final Item sol = item("projecthero:soldier_shield");
+		at(t + 2, () -> give(mc, ad, null, null));
+		at(t + 6, () -> {
+			mc.options.fov().set(50);
+			cam3(80f, 7.5f, 2.4f, 6.5f, 1.0f);
+		});
+		film(t + 10, t + 90, "film_throw_wide");
+		at(t + 16, () -> server(mc, p -> com.projecthero.mod.supersoldier.SuperSoldierAbilities.shieldThrow(p)));
+		t += 120;
+		at(t - 2, () -> mc.options.fov().set(70));
+		at(t, () -> give(mc, vib, null, null));
+		at(t + 4, () -> cam3(40f, 3.2f, 1.7f, 1.5f, 1.2f));
+		film(t + 8, t + 88, "film_throw_close");
+		at(t + 14, () -> server(mc, p -> com.projecthero.mod.supersoldier.SuperSoldierAbilities.shieldThrow(p)));
+		t += 120;
+		// first person throw
+		at(t, () -> give(mc, ad, null, null));
+		at(t + 4, () -> fp());
+		film(t + 8, t + 80, "film_throw_fp");
+		at(t + 14, () -> server(mc, p -> com.projecthero.mod.supersoldier.SuperSoldierAbilities.shieldThrow(p)));
+		t += 110;
+		// the soldier's shield in flight (display-only item, thrown here only to see its flight look)
+		at(t, () -> server(mc, p -> {
+			p.getInventory().clearContent();
+			com.projecthero.mod.supersoldier.entity.SoldierShieldEntity.launch(p, p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6)),
+					p.getLookAngle(), new ItemStack(sol), InteractionHand.MAIN_HAND, true, null);
+		}));
+		at(t + 1, () -> cam3(90f, 5f, 2.0f, 4f, 1.4f));
+		at(t + 6, () -> shot(mc, "soldier_flight_side"));
+		at(t + 7, () -> cam3(20f, 3f, 4.5f, 6f, 1.4f));
+		at(t + 9, () -> shot(mc, "soldier_flight_above"));
+		t += 60;
+		// block / bash film, third then first person
+		at(t, () -> give(mc, ad, null, null));
+		at(t + 4, () -> cam3(40f, 2.8f, 1.6f));
+		film(t + 8, t + 98, "film_block_bash_tp");
+		at(t + 14, () -> use(true));
+		at(t + 40, () -> use(false));
+		at(t + 56, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 68, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 80, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		t += 100;
+		at(t, () -> cam3(-60f, 2.8f, 1.6f));
+		film(t + 4, t + 94, "film_block_bash_tp_side");
+		at(t + 10, () -> use(true));
+		at(t + 36, () -> use(false));
+		at(t + 52, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 64, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		t += 96;
+		at(t, () -> fp());
+		film(t + 4, t + 94, "film_block_bash_fp");
+		at(t + 10, () -> use(true));
+		at(t + 36, () -> use(false));
+		at(t + 52, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 64, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		t += 96;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ShieldHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, ShieldHarness::stage);
+		}
+		if (t < 140 || base == null) {
+			return;
+		}
+		face(mc);
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (s >= film0 && s < filmEnd) {
+			shot(mc, String.format(filmDir + "/f%03d", s - film0));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings settings = new LevelSettings("CAPSHIELD_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.EASY, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+// ===== mixin/ShieldHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+
+/** TEMP-HARNESS (not shipped): the ShieldHarness's fixed camera. */
+@Mixin(Camera.class)
+public abstract class ShieldHarnessCameraMixin {
+	@Shadow
+	private boolean detached;
+
+	@Shadow
+	protected abstract void setRotation(float yaw, float pitch);
+
+	@Shadow
+	protected abstract void setPosition(double x, double y, double z);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$harnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
+		double[] c = com.projecthero.mod.client.ShieldHarness.camPose;
+		if (c != null) {
+			this.detached = true;
+			setPosition(c[0], c[1], c[2]);
+			setRotation((float) c[3], (float) c[4]);
+		}
+	}
+}

@@ -59,6 +59,11 @@ public class SoldierShieldEntity extends Entity {
 			EntityDataSerializers.BOOLEAN);
 	private static final EntityDataAccessor<ItemStack> ITEM = SynchedEntityData.defineId(SoldierShieldEntity.class,
 			EntityDataSerializers.ITEM_STACK);
+	/** v0.17.5: the thrower's entity id and the hand it left (synced: the client animates his throw, reach and catch). */
+	private static final EntityDataAccessor<Integer> OWNER_ID = SynchedEntityData.defineId(SoldierShieldEntity.class,
+			EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Boolean> OFF_HAND = SynchedEntityData.defineId(SoldierShieldEntity.class,
+			EntityDataSerializers.BOOLEAN);
 
 	// server-only
 	private UUID ownerId;
@@ -89,6 +94,8 @@ public class SoldierShieldEntity extends Entity {
 		shield.hand = hand;
 		shield.stack = thrown;
 		shield.entityData.set(ITEM, thrown);
+		shield.entityData.set(OWNER_ID, owner.getId());
+		shield.entityData.set(OFF_HAND, hand == InteractionHand.OFF_HAND);
 		shield.damage = adamantium ? SuperSoldierConfig.SHIELD_DAMAGE : SuperSoldierConfig.NORMAL_SHIELD_DAMAGE;
 		shield.hitsLeft = adamantium ? SuperSoldierConfig.SHIELD_MAX_HITS : SuperSoldierConfig.NORMAL_SHIELD_MAX_HITS;
 		shield.range = adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE;
@@ -113,6 +120,8 @@ public class SoldierShieldEntity extends Entity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(RETURNING, false);
 		builder.define(ITEM, ItemStack.EMPTY);
+		builder.define(OWNER_ID, -1);
+		builder.define(OFF_HAND, false);
 	}
 
 	public boolean isReturning() {
@@ -122,6 +131,16 @@ public class SoldierShieldEntity extends Entity {
 	/** The shield being thrown (synced: what the renderer draws). */
 	public ItemStack getItem() {
 		return entityData.get(ITEM);
+	}
+
+	/** v0.17.5: the thrower's entity id on either side (-1 unknown) -- for the client's throw / catch animation. */
+	public int ownerEntityId() {
+		return entityData.get(OWNER_ID);
+	}
+
+	/** v0.17.5: thrown from (and going back to) his off hand. */
+	public boolean thrownFromOffHand() {
+		return entityData.get(OFF_HAND);
 	}
 
 	/** How many more enemies this throw can still hit (tests). */
@@ -148,8 +167,10 @@ public class SoldierShieldEntity extends Entity {
 		if (level().isClientSide) {
 			Vec3 v = getDeltaMovement();
 			setPos(getX() + v.x, getY() + v.y, getZ() + v.z);
+			// v0.17.5: a thin streak in the shield's own colours (the renderer adds the see-through after-images)
 			if (tickCount % 2 == 0) {
-				level().addParticle(new DustParticleOptions(new Vector3f(0.3f, 0.5f, 1.0f), 0.8f), getX(), getY(), getZ(), 0, 0, 0);
+				level().addParticle(new DustParticleOptions(trailColour(tickCount / 2), 0.6f), getX() - v.x * 0.5, getY() - v.y * 0.5,
+						getZ() - v.z * 0.5, 0, 0, 0);
 			}
 			return;
 		}
@@ -158,6 +179,9 @@ public class SoldierShieldEntity extends Entity {
 			return;
 		}
 		ServerPlayer owner = owner();
+		if (owner != null && entityData.get(OWNER_ID) != owner.getId()) {
+			entityData.set(OWNER_ID, owner.getId()); // a reloaded shield: the client learns its thrower again
+		}
 		if (owner == null || !owner.isAlive()) {
 			dropHere(); // logged out / dead: the shield falls where it is
 			return;
@@ -208,6 +232,7 @@ public class SoldierShieldEntity extends Entity {
 			setPos(at.x, at.y, at.z);
 			level().playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 1.9f);
 			((ServerLevel) level()).sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.1, 0.1, 0.1, 0.2);
+			((ServerLevel) level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 8, 0.05, 0.05, 0.05, 0.35); // v0.17.5: ricochet sparks
 			if (!pickNext(owner)) {
 				startReturn();
 			}
@@ -217,6 +242,22 @@ public class SoldierShieldEntity extends Entity {
 		if (!homing && origin != null && next.distanceTo(origin) > range) {
 			startReturn();
 		}
+	}
+
+	/** v0.17.5: the streak colours -- red / white / blue for the painted shields, steel for Adamantium, violet-blue for Vibranium. */
+	private Vector3f trailColour(int i) {
+		ItemStack s = getItem();
+		if (s.getItem() instanceof com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem) {
+			return i % 2 == 0 ? new Vector3f(0.45f, 0.4f, 1.0f) : new Vector3f(0.85f, 0.85f, 1.0f);
+		}
+		if (s.is(com.projecthero.mod.supersoldier.item.SuperSoldierItems.ADAMANTIUM_SHIELD)) {
+			return i % 2 == 0 ? new Vector3f(0.75f, 0.78f, 0.82f) : new Vector3f(0.45f, 0.48f, 0.53f);
+		}
+		return switch (i % 3) {
+		case 0 -> new Vector3f(0.75f, 0.12f, 0.15f);
+		case 1 -> new Vector3f(0.92f, 0.92f, 0.9f);
+		default -> new Vector3f(0.15f, 0.25f, 0.65f);
+		};
 	}
 
 	private ServerPlayer owner() {
@@ -239,6 +280,9 @@ public class SoldierShieldEntity extends Entity {
 		level().playSound(null, getX(), getY(), getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.2f);
 		((ServerLevel) level()).sendParticles(new DustParticleOptions(new Vector3f(0.3f, 0.5f, 1.0f), 1.2f),
 				getX(), getY(), getZ(), 10, 0.3, 0.3, 0.3, 0.0);
+		// v0.17.5: the ricochet -- a burst of sparks and crits off the rim
+		((ServerLevel) level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY(), getZ(), 14, 0.1, 0.1, 0.1, 0.45);
+		((ServerLevel) level()).sendParticles(ParticleTypes.CRIT, getX(), getY(), getZ(), 8, 0.15, 0.15, 0.15, 0.35);
 		if (hitsLeft <= 0 || !pickNext(owner)) {
 			startReturn();
 		}
@@ -326,6 +370,7 @@ public class SoldierShieldEntity extends Entity {
 		double dist = to.length();
 		if (dist < 1.6) {
 			level().playSound(null, owner.getX(), owner.getY(), owner.getZ(), SoundEvents.TRIDENT_RETURN, SoundSource.PLAYERS, 1.0f, 1.2f);
+			((ServerLevel) level()).sendParticles(ParticleTypes.CRIT, home.x, home.y, home.z, 5, 0.15, 0.15, 0.15, 0.15); // v0.17.5: the catch
 			deliver(owner);
 			return;
 		}

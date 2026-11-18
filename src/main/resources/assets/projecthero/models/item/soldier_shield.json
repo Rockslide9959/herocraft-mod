@@ -1,1 +1,145 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"projecthero:item/soldier_shield"}}
+{
+	"parent": "builtin/entity",
+	"gui_light": "front",
+	"textures": {
+		"particle": "projecthero:item/soldier_shield"
+	},
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [
+				0,
+				90,
+				0
+			],
+			"translation": [
+				0,
+				2,
+				0
+			],
+			"scale": [
+				0.85,
+				0.85,
+				0.85
+			]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [
+				0,
+				-90,
+				0
+			],
+			"translation": [
+				0,
+				2,
+				0
+			],
+			"scale": [
+				0.85,
+				0.85,
+				0.85
+			]
+		},
+		"firstperson_righthand": {
+			"rotation": [
+				0,
+				110,
+				0
+			],
+			"translation": [
+				2,
+				0,
+				0
+			],
+			"scale": [
+				0.8,
+				0.8,
+				0.8
+			]
+		},
+		"firstperson_lefthand": {
+			"rotation": [
+				0,
+				-110,
+				0
+			],
+			"translation": [
+				-2,
+				0,
+				0
+			],
+			"scale": [
+				0.8,
+				0.8,
+				0.8
+			]
+		},
+		"gui": {
+			"rotation": [
+				14,
+				-22,
+				0
+			],
+			"translation": [
+				0,
+				0,
+				0
+			],
+			"scale": [
+				0.92,
+				0.92,
+				0.92
+			]
+		},
+		"ground": {
+			"rotation": [
+				0,
+				0,
+				0
+			],
+			"translation": [
+				0,
+				2,
+				0
+			],
+			"scale": [
+				0.45,
+				0.45,
+				0.45
+			]
+		},
+		"fixed": {
+			"rotation": [
+				0,
+				180,
+				0
+			],
+			"translation": [
+				0,
+				0,
+				0
+			],
+			"scale": [
+				0.85,
+				0.85,
+				0.85
+			]
+		},
+		"head": {
+			"rotation": [
+				0,
+				180,
+				0
+			],
+			"translation": [
+				0,
+				6,
+				0
+			],
+			"scale": [
+				0.9,
+				0.9,
+				0.9
+			]
+		}
+	}
+}

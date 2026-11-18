@@ -98,7 +98,7 @@ The Mind Stone's existing off-hand outline already reveals cloaked Hijackers (ou
 | Firewall Chip | shapeless: nanite, stark circuit, 2 scrap, quartz | smithing (no template) into an Iron Man helmet: that suit is hijack-immune (`projecthero:firewall_chip` component; tooltip + I-key spec sheet) |
 | Vibranium Ingot | Omega reward | material |
 | Vibranium Plating II | `_V_ / VPV / _V_` ingots round Vibranium Plating | smithing on an Iron Man piece: +3 armour / +2 toughness, **replaces** plating I (modifiers and component swap; plating I can't go back on) |
-| Vibranium Shield | `VVV / VSV / _V_` ingots round an Adamantium Shield | extends `AdamantiumShieldItem`: blocks, unbreakable, Super Soldier C throw 12 dmg / 5 bounces / 30 blocks (Adamantium 9 / 4 / 25); drawn by `AdamantiumShieldRenderer` with `textures/entity/vibranium_shield.png` |
+| Vibranium Shield | `VVV / VSV / _V_` ingots round an Adamantium Shield | extends `AdamantiumShieldItem`: blocks, unbreakable, Super Soldier C throw 12 dmg / 5 bounces / 30 blocks (Adamantium 9 / 4 / 25); drawn by `AdamantiumShieldRenderer` with `textures/entity/vibranium_shield.png` (v0.17.5: the stepped-dish `CapShieldModel`, polished red / white / blue -- see SUPERSOLDIER_REFERENCE) |
 | Omega Core (`ultron_omega_core`) | Omega reward | trophy: Omega's head on a pedestal, eyes slowly dimming (`OmegaCoreRenderer`). (`omega_core` was taken by Darkseid's item.) |
 
 ## 7. The Sokovia Protocol (`SokoviaFinale`, `SkyCitadel`)
