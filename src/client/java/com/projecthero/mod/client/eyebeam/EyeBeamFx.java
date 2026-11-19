@@ -148,6 +148,8 @@ public final class EyeBeamFx {
 	private static final float DECAL_LIFE = 80f;
 	private static final int MAX_PARTICLES_PER_TICK = 18;
 	private static final float GROW_TICKS = 2f;
+	/** First person: where the beams leave your eyes -- in front of the camera, out to each side, and down from eye level (blocks). */
+	static final double FP_EYE_FORWARD = 0.32, FP_EYE_SIDE = 0.095, FP_EYE_DOWN = 0.03, FP_BROW_UP = 0.05;
 	private static long frameNo;
 	private static long particleTick = -1;
 	private static int particlesThisTick;
@@ -495,13 +497,17 @@ public final class EyeBeamFx {
 			if (fp) {
 				// in from the lower screen edge: faint and narrow at the edge, full in the middle, thinner and see-through near
 				// the target so the crosshair and what you burn stay visible
-				double t1 = Math.min(0.3, 1.4 / len);
+				// v0.17.5: the beams now leave your eyes, only ~0.3 blocks in front of the camera -- so they start as a hair-thin line
+				// (a full-width beam that close would fill a third of the screen) and swell to their normal width over the first few
+				// blocks, which is how a beam leaving your own eyes looks in perspective
+				double t1 = Math.min(0.45, 3.0 / len);
 				double t2 = Math.max(t1, 1.0 - Math.min(0.35, 2.5 / len));
 				Vec3 p1 = a.add(dir.scale(len * t1));
 				Vec3 p2 = a.add(dir.scale(len * t2));
 				float fw = 0.7f;
-				layer(a, p1, haze * fw * 0.5f, haze * fw, glow * fw * 0.5f, glow * fw, core * fw * 0.5f, core * fw, hot * fw * 0.5f, hot * fw, s, 0f,
-						alpha * 0.75f);
+				float st = 0.05f; // width at the eye, as a share of the full width
+				layer(a, p1, haze * fw * st * 0.3f, haze * fw, glow * fw * st, glow * fw, core * fw * st, core * fw, hot * fw * st, hot * fw, s,
+						alpha * 0.55f, alpha * 0.75f);
 				layer(p1, p2, haze * fw, haze * fw * 0.8f, glow * fw, glow * fw * 0.8f, core * fw, core * fw * 0.7f, hot * fw, hot * fw * 0.7f, s,
 						alpha * 0.75f, alpha * 0.7f);
 				layer(p2, b, haze * fw * 0.8f, haze * fw * 0.4f, glow * fw * 0.8f, glow * fw * 0.45f, core * fw * 0.7f, core * fw * 0.5f, hot * fw * 0.7f,
@@ -652,19 +658,26 @@ public final class EyeBeamFx {
 			return new Vec3[] { c.add(right.scale(1.5 * s)), c.add(right.scale(-1.5 * s)) };
 		}
 
-		/** First person: just off the lower edge of the screen, either side of the centre (one in the middle for the brow beam). */
+		/**
+		 * First person: from your eyes. v0.17.5 (user: "it looks like the beam is coming from the players chest, i want it to look
+		 * like the beam is coming from the players eyes"): the beams used to start just off the lower screen edge, which reads as the
+		 * chest. Like other first-person eye beams, they now start at the real eye positions -- a player's eyes sit 1.5 px either side
+		 * of the face centre (about 0.09 blocks) at eye height -- pushed a little in front of the camera so they're on screen: two
+		 * short beams entering from either side of the view at eye level and meeting at the crosshair. The brow beam (Vision) starts
+		 * dead centre a touch above eye level.
+		 */
 		Vec3[] fpOrigins(Player p, boolean brow) {
 			Vec3 eye = p.getEyePosition(partial);
 			Vec3 look = p.getViewVector(partial);
 			Vec3 right = rightOf(look);
 			Vec3 up = right.cross(look).normalize();
-			double fwd = 0.4;
-			double half = Math.toRadians(Math.min(80.0, mc.options.fov().get() * 0.5 + 6.0));
-			Vec3 base = eye.add(look.scale(fwd)).subtract(up.scale(fwd * Math.tan(half)));
+			double fwd = FP_EYE_FORWARD;
+			Vec3 base = eye.add(look.scale(fwd));
 			if (brow) {
-				return new Vec3[] { base };
+				return new Vec3[] { base.add(up.scale(FP_BROW_UP)) };
 			}
-			return new Vec3[] { base.add(right.scale(0.13)), base.add(right.scale(-0.13)) };
+			Vec3 lowered = base.subtract(up.scale(FP_EYE_DOWN));
+			return new Vec3[] { lowered.add(right.scale(FP_EYE_SIDE)), lowered.add(right.scale(-FP_EYE_SIDE)) };
 		}
 
 		Vec3 headPoint(Head h, float x, float y, float z) {
