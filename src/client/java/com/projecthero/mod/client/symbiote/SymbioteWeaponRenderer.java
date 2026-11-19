@@ -110,10 +110,16 @@ public final class SymbioteWeaponRenderer {
 	 * host). The Mace stays smaller so its hanging ball clears the ground. First person keeps the 0.85x it was framed at.
 	 */
 	static float scaleOf(SymbioteWeapon w, boolean firstPerson) {
+		// v0.17.5 round 5 (user: "make the symbiote axe a bit smaller, its far too big right now"): the double-bitted Axe at 1x
+		// (0.62x first person)
 		if (firstPerson) {
-			return 0.85f;
+			return w == SymbioteWeapon.AXE ? 0.62f : 0.85f;
 		}
-		return w == SymbioteWeapon.MACE ? 1.25f : 1.5f;
+		return switch (w) {
+			case MACE -> 1.25f;
+			case AXE -> 1.0f;
+			default -> 1.5f;
+		};
 	}
 
 	private static void drawOne(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim,
