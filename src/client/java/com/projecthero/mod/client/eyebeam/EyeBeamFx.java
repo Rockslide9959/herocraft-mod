@@ -63,9 +63,9 @@ import net.minecraft.world.phys.Vec3;
  * embers (capped) and a molten scorch on the block that cools and fades over a few seconds. Starting, the beam shoots out over
  * two ticks and swells to full; stopping, it thins and pulls away from the eyes toward the target.
  *
- * <p><b>First person.</b> The beams come in from the lower edge of the screen either side of the centre and converge on the
- * crosshair, fading in at the edge and thinning toward the target so it stays visible; a gentle warm glow rims the screen edges
- * while firing ({@link #hud}). Your own beams seen from behind in third person draw their first stretch over your head (no depth
+ * <p><b>First person.</b> The beams leave your eyes: each comes in from the side of the view at eye level (the brow beam from
+ * above) as one even thin line, fading in at the screen edge, and converges on the crosshair, thinning toward the target so it
+ * stays visible; a soft warm glow blooms at the side edges at eye level and faintly along the top while firing ({@link #hud}). Your own beams seen from behind in third person draw their first stretch over your head (no depth
  * test), and from the front they stop short of the camera.
  *
  * <p>Beam clashes are unchanged: callers still skip beams {@code BeamClashClient.hides(...)}.
@@ -148,8 +148,15 @@ public final class EyeBeamFx {
 	private static final float DECAL_LIFE = 80f;
 	private static final int MAX_PARTICLES_PER_TICK = 18;
 	private static final float GROW_TICKS = 2f;
-	/** First person: where the beams leave your eyes -- in front of the camera, out to each side, and down from eye level (blocks). */
-	static final double FP_EYE_FORWARD = 0.32, FP_EYE_SIDE = 0.095, FP_EYE_DOWN = 0.03, FP_BROW_UP = 0.05;
+	/**
+	 * First person: where the beams leave your eyes. Seen from your own eyes, a beam from each eye is a line coming in from the side of
+	 * the view at eye level and meeting the crosshair, so each beam starts {@code FP_EYE_FORWARD} blocks in front of the camera, out
+	 * to {@code FP_EYE_SIDE} of the way to the screen's side edge and {@code FP_EYE_DOWN} of the way down to its bottom edge (shares of
+	 * the half-screen, so it looks the same at every FOV and window shape); the brow beam comes down from {@code FP_BROW_UP} of the
+	 * way to the top edge. {@code FP_FULL_DIST}: how far out (blocks) the beam reaches its full width -- until then it widens with
+	 * distance, so on screen it stays one even thin line instead of a slab right in front of you.
+	 */
+	static final double FP_EYE_FORWARD = 0.12, FP_EYE_SIDE = 0.86, FP_EYE_DOWN = 0.16, FP_BROW_UP = 0.55, FP_FULL_DIST = 3.0;
 	private static long frameNo;
 	private static long particleTick = -1;
 	private static int particlesThisTick;
@@ -495,23 +502,28 @@ public final class EyeBeamFx {
 			float core = s.coreW() * w * 1.5f * (0.94f + 0.06f * fl);
 			float hot = s.coreW() * w * 0.55f;
 			if (fp) {
-				// in from the lower screen edge: faint and narrow at the edge, full in the middle, thinner and see-through near
-				// the target so the crosshair and what you burn stay visible
-				// v0.17.5: the beams now leave your eyes, only ~0.3 blocks in front of the camera -- so they start as a hair-thin line
-				// (a full-width beam that close would fill a third of the screen) and swell to their normal width over the first few
-				// blocks, which is how a beam leaving your own eyes looks in perspective
-				double t1 = Math.min(0.45, 3.0 / len);
-				double t2 = Math.max(t1, 1.0 - Math.min(0.35, 2.5 / len));
-				Vec3 p1 = a.add(dir.scale(len * t1));
-				Vec3 p2 = a.add(dir.scale(len * t2));
-				float fw = 0.7f;
-				float st = 0.05f; // width at the eye, as a share of the full width
-				layer(a, p1, haze * fw * st * 0.3f, haze * fw, glow * fw * st, glow * fw, core * fw * st, core * fw, hot * fw * st, hot * fw, s,
-						alpha * 0.55f, alpha * 0.75f);
-				layer(p1, p2, haze * fw, haze * fw * 0.8f, glow * fw, glow * fw * 0.8f, core * fw, core * fw * 0.7f, hot * fw, hot * fw * 0.7f, s,
-						alpha * 0.75f, alpha * 0.7f);
-				layer(p2, b, haze * fw * 0.8f, haze * fw * 0.4f, glow * fw * 0.8f, glow * fw * 0.45f, core * fw * 0.7f, core * fw * 0.5f, hot * fw * 0.7f,
-						hot * fw * 0.5f, s, alpha * 0.7f, alpha * 0.4f);
+				// from your eyes (fpOrigins), drawn as a run of short pieces. Near the camera the width grows with distance from it (so on screen
+				// the beam is one even thin line coming in from the side, never a slab), it fades in from nothing at the screen edge,
+				// and over the last stretch it thins and turns see-through so the crosshair and what you burn stay visible
+				double tail = len * (1.0 - Math.min(0.35, 2.5 / len));
+				double[] at = { 0.0, 0.025, 0.06, 0.12, 0.25, 0.5, 1.0, 2.0, FP_FULL_DIST, tail, len };
+				double prevD = 0.0;
+				Vec3 prevP = a;
+				float prevW = fpWidth(a, 0.0, tail, len), prevA = fpAlpha(0.0, tail, len) * alpha;
+				for (int k = 1; k < at.length; k++) {
+					double dk = Math.min(at[k], len);
+					if (dk <= prevD + 1.0e-4) {
+						continue;
+					}
+					Vec3 pk = a.add(dir.scale(dk));
+					float wk = fpWidth(pk, dk, tail, len), ak = fpAlpha(dk, tail, len) * alpha;
+					layer(prevP, pk, haze * prevW * 0.75f, haze * wk * 0.75f, glow * prevW, glow * wk, core * prevW, core * wk, hot * prevW, hot * wk, s,
+							prevA, ak);
+					prevD = dk;
+					prevP = pk;
+					prevW = wk;
+					prevA = ak;
+				}
 			} else {
 				// third person: a hair narrower right at the eye so it reads as leaving the eye, not a slab in front of the face
 				double t1 = Math.min(0.4, 0.6 / len);
@@ -535,6 +547,20 @@ public final class EyeBeamFx {
 					soft(ADD_Q, p0, p1, core * 1.2f, core * 1.6f, s.core(), 0f, 0.5f * alpha * fpA);
 				}
 			}
+		}
+
+		/** First person: the beam's width (share of full) at point {@code p}, {@code d} blocks from your eye, {@code tail} where it starts thinning. */
+		private float fpWidth(Vec3 p, double d, double tail, double len) {
+			float near = (float) Math.pow(Mth.clamp(p.distanceTo(cam) / FP_FULL_DIST, 0.0, 1.0), 0.75); // a touch wider on screen near you, like perspective
+			float thin = d <= tail || len <= tail ? 1f : 1f - 0.5f * (float) ((d - tail) / (len - tail));
+			return 0.7f * near * thin;
+		}
+
+		/** First person: the beam's brightness (share of full) {@code d} blocks from your eye: in from nothing at the screen edge, see-through at the target. */
+		private float fpAlpha(double d, double tail, double len) {
+			float in = (float) Mth.clamp(d / 0.07, 0.0, 1.0);
+			float out = d <= tail || len <= tail ? 1f : 1f - 0.45f * (float) ((d - tail) / (len - tail));
+			return 0.8f * in * in * (3f - 2f * in) * out;
 		}
 
 		private void layer(Vec3 a, Vec3 b, float hazeA, float hazeB, float glowA, float glowB, float coreA, float coreB, float hotA, float hotB,
@@ -672,12 +698,16 @@ public final class EyeBeamFx {
 			Vec3 right = rightOf(look);
 			Vec3 up = right.cross(look).normalize();
 			double fwd = FP_EYE_FORWARD;
+			double tanV = Math.tan(Math.toRadians(mc.options.fov().get() * 0.5));
+			var win = mc.getWindow();
+			double tanH = tanV * Math.max(0.5, win.getWidth() / (double) Math.max(1, win.getHeight()));
 			Vec3 base = eye.add(look.scale(fwd));
 			if (brow) {
-				return new Vec3[] { base.add(up.scale(FP_BROW_UP)) };
+				return new Vec3[] { base.add(up.scale(fwd * tanV * FP_BROW_UP)) };
 			}
-			Vec3 lowered = base.subtract(up.scale(FP_EYE_DOWN));
-			return new Vec3[] { lowered.add(right.scale(FP_EYE_SIDE)), lowered.add(right.scale(-FP_EYE_SIDE)) };
+			Vec3 lowered = base.subtract(up.scale(fwd * tanV * FP_EYE_DOWN));
+			double side = fwd * tanH * FP_EYE_SIDE;
+			return new Vec3[] { lowered.add(right.scale(side)), lowered.add(right.scale(-side)) };
 		}
 
 		Vec3 headPoint(Head h, float x, float y, float z) {
@@ -846,25 +876,38 @@ public final class EyeBeamFx {
 		float pulse = 0.9f + 0.1f * Mth.sin((mc.level == null ? 0 : mc.level.getGameTime()) * 0.6f + delta.getGameTimeDeltaPartialTick(false) * 0.6f);
 		int edge = Mth.clamp((int) (255 * 0.2f * hudGlow * pulse), 0, 255);
 		int rgb = fpColour & 0xFFFFFF;
-		int c = (edge << 24) | rgb;
 		int clear = rgb;
-		int bottom = (int) (h * 0.3f);
-		int top = (int) (h * 0.12f);
+		// v0.17.5 round 2: the glow sits where the beams come in -- a soft warm bloom at each side edge at eye level (the old glow
+		// along the bottom edge made the beams read as coming from the chest) -- plus a faint warm tint along the top edge
+		int c = (Mth.clamp((int) (edge * 1.5f), 0, 255) << 24) | rgb;
+		int mid = (int) (h * (0.5f + 0.5f * (float) FP_EYE_DOWN));
+		int bandUp = (int) (h * 0.22f), bandDown = (int) (h * 0.22f);
 		int side = (int) (w * 0.12f);
-		g.fillGradient(0, h - bottom, w, h, clear, c);
-		g.fillGradient(0, 0, w, top, (((int) (edge * 0.6f)) << 24) | rgb, clear);
-		gradientH(g, 0, 0, side, h, (((int) (edge * 0.8f)) << 24) | rgb, clear);
-		gradientH(g, w - side, 0, w, h, clear, (((int) (edge * 0.8f)) << 24) | rgb);
-	}
-
-	/** A left-to-right gradient fill ({@code GuiGraphics.fillGradient} only runs top to bottom). */
-	private static void gradientH(GuiGraphics g, int x0, int y0, int x1, int y1, int left, int right) {
 		VertexConsumer vc = g.bufferSource().getBuffer(RenderType.gui());
 		Matrix4f m = g.pose().last().pose();
-		vc.addVertex(m, x0, y0, 0).setColor(left);
-		vc.addVertex(m, x0, y1, 0).setColor(left);
-		vc.addVertex(m, x1, y1, 0).setColor(right);
-		vc.addVertex(m, x1, y0, 0).setColor(right);
+		for (int sgn = -1; sgn <= 1; sgn += 2) {
+			float xe = sgn < 0 ? 0 : w, xi = sgn < 0 ? side : w - side;
+			// two quads meeting at the edge midpoint: bright there, fading inward and up/down (a soft half-diamond)
+			quadGui(vc, m, xe, mid - bandUp, clear, xe, mid, c, xi, mid, clear, xi, mid - bandUp, clear, sgn > 0);
+			quadGui(vc, m, xe, mid, c, xe, mid + bandDown, clear, xi, mid + bandDown, clear, xi, mid, clear, sgn > 0);
+		}
 		g.flush();
+		g.fillGradient(0, 0, w, (int) (h * 0.1f), (((int) (edge * 0.5f)) << 24) | rgb, clear);
+	}
+
+	/** One GUI quad with a colour per corner, wound counter-clockwise on screen ({@code flip} reverses a mirrored one). */
+	private static void quadGui(VertexConsumer vc, Matrix4f m, float x0, float y0, int c0, float x1, float y1, int c1, float x2, float y2, int c2, float x3,
+			float y3, int c3, boolean flip) {
+		if (flip) {
+			vc.addVertex(m, x3, y3, 0).setColor(c3);
+			vc.addVertex(m, x2, y2, 0).setColor(c2);
+			vc.addVertex(m, x1, y1, 0).setColor(c1);
+			vc.addVertex(m, x0, y0, 0).setColor(c0);
+		} else {
+			vc.addVertex(m, x0, y0, 0).setColor(c0);
+			vc.addVertex(m, x1, y1, 0).setColor(c1);
+			vc.addVertex(m, x2, y2, 0).setColor(c2);
+			vc.addVertex(m, x3, y3, 0).setColor(c3);
+		}
 	}
 }
