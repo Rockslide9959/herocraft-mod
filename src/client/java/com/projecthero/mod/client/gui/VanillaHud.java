@@ -143,9 +143,9 @@ public final class VanillaHud {
 			}
 			return;
 		}
-		if (style == MutationMeters.Style.SLAB) {
-			g.fill(x - 1, y - 1, x + w + 1, y + 6, 0xFF000000);
-		}
+		// v0.17.5 (user: "some of the bars for the abilities are bugged like this, can you replace those with meter style bars"):
+		// the Slab's black frame was a batched fill that got flushed AFTER the sprites, so it painted over the whole bar and only
+		// black showed (e.g. Nova's Force). Slab now draws exactly like the plain Meter.
 		bar(g, bg, x, y, w, w);
 		if (fill > 0) {
 			bar(g, fg, x, y, w, fill);
