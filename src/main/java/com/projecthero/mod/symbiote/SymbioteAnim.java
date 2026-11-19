@@ -28,6 +28,16 @@ public final class SymbioteAnim {
 	public static final int BLADE_FORM = 13;
 	public static final int SPIKES_FLEX = 14;
 	public static final int RESURRECT = 15;
+	// v0.17.5 moveset v2
+	public static final int TENDRIL_SLAM = 16;
+	public static final int SPEAR_CHARGE = 17;
+	public static final int SPEAR_THROW = 18;
+	public static final int SPIKE_RAIN = 19;
+	public static final int DIVE_BOMB = 20;
+	public static final int DIVE_IMPACT = 21;
+	public static final int ERUPTION = 22;
+	public static final int MAW_BITE = 23;
+	public static final int DEVOUR = 24;
 
 	private SymbioteAnim() {
 	}

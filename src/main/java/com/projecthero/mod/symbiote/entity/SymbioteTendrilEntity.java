@@ -101,6 +101,20 @@ public class SymbioteTendrilEntity extends Entity {
 		return t;
 	}
 
+	/**
+	 * v0.17.5 (moveset v2): a tendril rooted at a fixed point (out of the ground) that wears {@code owner}'s suit colours -- the renderer
+	 * reads the owner id for the tint only; a fixed anchor never follows the owner's hand.
+	 */
+	public static SymbioteTendrilEntity fromPoint(Player owner, Vec3 start, Vec3 end, Entity target, int life, int extend, float width) {
+		SymbioteTendrilEntity t = create(owner.level(), start, end, target, life, extend, width);
+		if (t != null) {
+			t.entityData.set(DATA_OWNER, owner.getId());
+			t.entityData.set(DATA_ANCHOR, ANCHOR_FIXED);
+			owner.level().addFreshEntity(t);
+		}
+		return t;
+	}
+
 	private static SymbioteTendrilEntity create(Level level, Vec3 start, Vec3 end, Entity target, int life, int extend,
 			float width) {
 		if (!(level instanceof ServerLevel)) {

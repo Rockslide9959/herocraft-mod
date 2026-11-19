@@ -108,6 +108,75 @@ public final class SymbiotePose {
 			f(16, -0.45f, 0, 1.8f, -0.45f, 0, -1.8f, -0.2f, 0, 0, 0, -0.55f),
 			rest(24) }, false, false);
 
+	// ---- v0.17.5 moveset v2 ----
+	/** Tendril Slam: the arm reaches out, then hauls back and down hard (the target is yanked in and smashed). */
+	private static final Pose TENDRIL_SLAM = new Pose(new float[][] {
+			rest(0),
+			f(2, -1.6f, -0.1f, 0, 0.3f, 0, 0, 0.05f, -0.35f, -0.2f, 0.2f, 0),
+			f(5, -2.7f, 0.2f, 0, -0.4f, 0, 0, -0.2f, 0.2f, -0.1f, 0.1f, -0.2f),
+			f(9, -0.4f, -0.3f, 0, 0.2f, 0, 0, 0.45f, -0.3f, -0.35f, 0.35f, 0.25f),
+			f(13, -0.45f, -0.3f, 0, 0.2f, 0, 0, 0.4f, -0.3f, -0.3f, 0.3f, 0.2f),
+			rest(18) }, false, false);
+	/** Impaling Spear charge: the right arm drawn back like a javelin, the left out for aim; held while charging. */
+	private static final Pose SPEAR_CHARGE = new Pose(spearChargeFrames(), false, false);
+	/** The throw: the arm whips forward down the aim. */
+	private static final Pose SPEAR_THROW = new Pose(new float[][] {
+			f(0, -2.9f, 0.3f, 0.2f, -1.3f, 0.3f, 0, -0.15f, 0.5f, 0.1f, -0.1f, 0),
+			f(3, -1.55f, -0.1f, 0, 0.3f, 0, 0, 0.2f, -0.4f, -0.25f, 0.25f, 0),
+			f(8, -1.5f, -0.1f, 0, 0.3f, 0, 0, 0.15f, -0.35f, -0.2f, 0.2f, 0),
+			rest(13) }, true, false);
+	/** Spike Rain: both arms flung up as the spikes launch skyward. */
+	private static final Pose SPIKE_RAIN = new Pose(new float[][] {
+			rest(0),
+			f(3, -2.9f, 0, 0.35f, -2.9f, 0, -0.35f, -0.2f, 0, 0, 0, -0.5f),
+			f(10, -2.8f, 0, 0.3f, -2.8f, 0, -0.3f, -0.18f, 0, 0, 0, -0.45f),
+			rest(16) }, false, false);
+	/** Dive Bomb: tucked head-first, both fists driven down; held until the landing. */
+	private static final Pose DIVE_BOMB = new Pose(new float[][] {
+			rest(0),
+			f(3, -2.9f, 0, 0.15f, -2.9f, 0, -0.15f, 0.55f, 0, -0.3f, -0.3f, 0.5f),
+			f(80, -2.9f, 0, 0.15f, -2.9f, 0, -0.15f, 0.55f, 0, -0.3f, -0.3f, 0.5f) }, false, false);
+	/** The landing: crouched, both fists on the ground, arms spread as the ring of tendrils bursts out. */
+	private static final Pose DIVE_IMPACT = new Pose(new float[][] {
+			f(0, -1.2f, 0, 0.3f, -1.2f, 0, -0.3f, 0.6f, 0, -0.6f, 0.4f, 0.3f),
+			f(4, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, 0.5f, 0, -0.5f, 0.35f, -0.1f),
+			f(12, -0.55f, 0, 1.1f, -0.55f, 0, -1.1f, 0.4f, 0, -0.4f, 0.3f, -0.1f),
+			rest(18) }, false, false);
+	/** Ground Eruption: the host drives a fist into the ground ahead. */
+	private static final Pose ERUPTION = new Pose(new float[][] {
+			rest(0),
+			f(3, -2.8f, 0, 0, 0.3f, 0, 0, -0.15f, 0.15f, 0, 0, -0.2f),
+			f(6, -0.5f, 0, 0, 0.5f, 0, -0.3f, 0.7f, -0.1f, -0.5f, 0.3f, 0.35f),
+			f(14, -0.5f, 0, 0, 0.5f, 0, -0.3f, 0.65f, -0.1f, -0.45f, 0.3f, 0.3f),
+			rest(20) }, false, false);
+	/** Maw Bite: a lunge, arms swept back, head thrust forward. */
+	private static final Pose MAW_BITE = new Pose(new float[][] {
+			rest(0),
+			f(2, 0.7f, 0, 0.4f, 0.7f, 0, -0.4f, 0.4f, 0, -0.5f, 0.4f, -0.35f),
+			f(6, 0.6f, 0, 0.35f, 0.6f, 0, -0.35f, 0.35f, 0, -0.45f, 0.35f, 0.1f),
+			rest(12) }, false, false);
+	/**
+	 * Devour: arms flung wide as the tongue shoots out, then claws reaching in low on either side as the prey is reeled to the maw
+	 * (kept out of the way of the face, so the mouth reads), a lunge of the head as the jaws close.
+	 */
+	private static final Pose DEVOUR = new Pose(new float[][] {
+			rest(0),
+			f(3, -0.6f, 0, 1.0f, -0.6f, 0, -1.0f, -0.1f, 0, 0, 0, -0.3f),
+			f(10, -0.9f, -0.2f, 0.7f, -0.9f, 0.2f, -0.7f, 0.1f, 0, -0.1f, 0.1f, -0.1f),
+			f(15, -0.8f, -0.35f, 0.45f, -0.8f, 0.35f, -0.45f, 0.25f, 0, -0.15f, 0.15f, 0.25f),
+			f(22, -0.75f, -0.35f, 0.45f, -0.75f, 0.35f, -0.45f, 0.2f, 0, -0.1f, 0.1f, 0.15f),
+			rest(28) }, false, false);
+
+	private static float[][] spearChargeFrames() {
+		java.util.List<float[]> out = new java.util.ArrayList<>();
+		out.add(rest(0));
+		for (int t = 4; t <= 64; t += 4) {
+			float tremble = ((t / 4) % 2 == 0) ? 0.04f : -0.04f;
+			out.add(f(t, -2.9f + tremble, 0.3f, 0.2f, -1.35f, 0.3f, 0, -0.15f, 0.55f, 0.1f, -0.1f, 0));
+		}
+		return out.toArray(new float[0][]);
+	}
+
 	/** Suit coming on: arms flung out and head thrown back while the Symbiote spreads over the body. */
 	private static final float[][] SUIT_UP = {
 			rest(0),
@@ -165,6 +234,15 @@ public final class SymbiotePose {
 			case SymbioteAnim.BLADE_FORM -> BLADE_FORM;
 			case SymbioteAnim.SPIKES_FLEX -> SPIKES_FLEX;
 			case SymbioteAnim.RESURRECT -> RESURRECT;
+			case SymbioteAnim.TENDRIL_SLAM -> TENDRIL_SLAM;
+			case SymbioteAnim.SPEAR_CHARGE -> SPEAR_CHARGE;
+			case SymbioteAnim.SPEAR_THROW -> SPEAR_THROW;
+			case SymbioteAnim.SPIKE_RAIN -> SPIKE_RAIN;
+			case SymbioteAnim.DIVE_BOMB -> DIVE_BOMB;
+			case SymbioteAnim.DIVE_IMPACT -> DIVE_IMPACT;
+			case SymbioteAnim.ERUPTION -> ERUPTION;
+			case SymbioteAnim.MAW_BITE -> MAW_BITE;
+			case SymbioteAnim.DEVOUR -> DEVOUR;
 			default -> null;
 		};
 	}

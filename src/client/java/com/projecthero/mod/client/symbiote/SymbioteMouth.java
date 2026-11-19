@@ -214,9 +214,28 @@ public final class SymbioteMouth {
 				lashAge = la;
 			}
 		}
+		float biteAge = -1f;
+		float devourAge = -1f;
 		if (animId != SymbioteAnim.NONE) {
 			float a = (float) (t - animStart);
-			if (isLashMove(animId)) {
+			if (animId == SymbioteAnim.MAW_BITE) {
+				// v0.17.5: Maw Bite -- the jaws gape and snap shut, then the tongue licks out (a lash 8 ticks in)
+				if (a >= 0 && a < BITE_TICKS) {
+					biteAge = a;
+				}
+				float la = a - 8f;
+				if (la >= 0 && la < LASH_TICKS && (lash == 0f || la < lashAge)) {
+					lash = 1f;
+					lashAge = la;
+				}
+			} else if (animId == SymbioteAnim.DEVOUR) {
+				// v0.17.5: Devour -- the tongue's own long animation (below)
+				if (a >= 0 && a < DEVOUR_TICKS) {
+					devourAge = a;
+				}
+			} else if ((animId == SymbioteAnim.SPEAR_CHARGE && a < 70f) || (animId == SymbioteAnim.DIVE_BOMB && a < 85f)) {
+				snarl = Math.max(snarl, smooth(a / 5f)); // v0.17.5: the roar held while the Spear charges / the host dives
+			} else if (isLashMove(animId)) {
 				if (a >= 0 && a < LASH_TICKS && (lash == 0f || a < lashAge)) {
 					lash = 1f;
 					lashAge = a;
@@ -253,6 +272,20 @@ public final class SymbioteMouth {
 		out.jaw = Math.max(out.jaw, 13f * loll);
 		out.jaw = Math.max(out.jaw, 31f * Math.min(1.15f, snarl) + tremble);
 		out.upperLift = 0.28f * Math.min(1f, snarl);
+		if (biteAge >= 0f) {
+			// gape (0-3), snap shut (3-5), stay shut a beat (to 8) -- the lick's lash opens it again after
+			float a = biteAge;
+			if (a < 3f) {
+				out.jaw = Math.max(out.jaw, 40f * easeOutBack(a / 3f));
+				out.upperLift = Math.max(out.upperLift, 0.34f);
+			} else if (a < 8f) {
+				out.jaw = a < 5f ? 40f * (1f - smooth((a - 3f) / 2f)) : 0.3f;
+			}
+		}
+		if (devourAge >= 0f) {
+			out.jaw = devourJaw(devourAge, t, phase);
+			out.upperLift = Math.max(out.upperLift, devourAge < 20f ? 0.34f : 0.1f);
+		}
 		if (debutJaw > 0f) {
 			out.jaw = Math.max(out.jaw, debutJaw + (float) Math.sin(t * 2.6 + phase) * 1.4f * Math.min(1f, debutJaw / 30f));
 			out.upperLift = Math.max(out.upperLift, 0.34f * Math.min(1f, debutJaw / 30f));
@@ -289,8 +322,60 @@ public final class SymbioteMouth {
 			out.pitch[k] = wRest * restPitch + wLash * lpLash;
 			out.yaw[k] = wRest * ly + wLash * lyLash;
 		}
+		if (devourAge >= 0f) {
+			devourTongue(out, devourAge);
+		}
 		keepInMouth(out);
 		return out;
+	}
+
+	/** v0.17.5 (moveset v2): Maw Bite's gape-and-snap length. */
+	static final int BITE_TICKS = 8;
+	/** v0.17.5: Devour's mouth animation (matches the server's 12-tick pull, then the jaws close and it chews). */
+	static final int DEVOUR_TICKS = 30;
+	/** How far the tongue shoots out on Devour (px; the chain is 7.4 px long). */
+	static final float DEVOUR_EXT = 7.3f;
+
+	/** Devour's jaw: thrown wide (0-4), held wide with a tremble while the prey is reeled in (to 13), crashing shut (13-16), chewing. */
+	static float devourJaw(float a, double t, double phase) {
+		if (a < 4f) {
+			return 42f * easeOutBack(a / 4f);
+		}
+		if (a < 13f) {
+			return 42f + (float) Math.sin(t * 2.6 + phase) * 2f;
+		}
+		if (a < 16f) {
+			return 42f * (1f - smooth((a - 13f) / 3f));
+		}
+		return 2f + 7f * (float) Math.abs(Math.sin((a - 16f) * 0.75f)) * (1f - smooth((a - 24f) / 6f));
+	}
+
+	/**
+	 * Devour's tongue: shot all the way out (0-4) with a little overshoot, the tip curling down and back as it wraps the prey (4-9), then
+	 * reeled straight back in with it (9-14); gone behind the teeth by the time the jaws close.
+	 */
+	static void devourTongue(Pose out, float a) {
+		float ext;
+		if (a < 4f) {
+			ext = DEVOUR_EXT * Math.min(1.05f, easeOutBack(a / 4f));
+		} else if (a < 9f) {
+			ext = DEVOUR_EXT;
+		} else if (a < 14f) {
+			ext = DEVOUR_EXT * (1f - easeInCubic((a - 9f) / 5f));
+		} else {
+			ext = 0f;
+		}
+		out.ext = Math.max(out.ext, ext);
+		float w = Math.max(0f, Math.min(1f, ext / DEVOUR_EXT));
+		float wrap = smooth((a - 3f) / 4f);
+		for (int k = 0; k < SEGMENTS; k++) {
+			float kk = k / (float) (SEGMENTS - 1);
+			float pitch = -4f + wrap * (10f + 26f * kk * kk); // the tip curls down round the prey
+			float yaw = 6f * (float) Math.sin(a * 1.3f - k * 0.9f) * (1f - wrap * 0.7f);
+			out.pitch[k] = out.pitch[k] * (1f - w) + pitch * w;
+			out.yaw[k] = out.yaw[k] * (1f - w) + yaw * w;
+		}
+		out.lash = Math.max(out.lash, w);
 	}
 
 	/** Ticks before the end of the suit-up at which the shut grin splits open (the mouth shows at {@link SymbioteEmerge#MOUTH_SHOW}). */
@@ -367,7 +452,7 @@ public final class SymbioteMouth {
 
 	static boolean isLashMove(int animId) {
 		return animId == SymbioteAnim.TENDRIL_STRIKE || animId == SymbioteAnim.GRAPPLE || animId == SymbioteAnim.GRAB
-				|| animId == SymbioteAnim.LUNGE;
+				|| animId == SymbioteAnim.LUNGE || animId == SymbioteAnim.MAW_BITE;
 	}
 
 	/** Snarl envelope over {@link #SNARL_TICKS}: up in 4 ticks, held to 11, eased shut by 26. */

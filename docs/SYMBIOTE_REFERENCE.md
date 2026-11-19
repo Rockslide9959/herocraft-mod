@@ -548,3 +548,92 @@ default (never bonded) is Classic; the junk packet has no style ordinal. Visual 
 
 The Symbiote now stacks on any Primary power (no purge on bonding, a new Primary keeps it); with a Primary its moveset is only yours while
 the suit is on, and Shift+H is the suit when the Primary uses plain H. Everything about it: `docs/SYMBIOTE_SECONDARY_REFERENCE.md`.
+
+## v0.17.5 -- Moveset v2 (more attacks, nothing lost)
+
+User: "Can we come up with a better moveset for symbiote please, the power needs more attacking moves while not losing what i can
+already do". Design approved as `docs/SYMBIOTE_MOVESET_V2_DESIGN.md`; built exactly as listed there. Normal host only (the Lethal
+Protector suit); Black Suit Spider-Man and Agent Venom keep their own kits. As a Secondary power the kit (old and new moves) is only the
+player's while the suit is on when they also hold a Primary (`SymbioteAbilityManager.hasContext`, unchanged).
+
+### Keys and numbers
+
+| Key | Move | Numbers | Cooldown (list index) |
+|---|---|---|---|
+| R tap | Tendril Strike (kept) | 30 blocks, 15 dmg, knockback 0.9 | 1.5 s (0) |
+| R tap, 3rd in a row | **Tendril Slam** | the 3rd strike that finds something, each within 4 s of the last (a miss resets): yanks the target to 2.2 blocks in front (only if the grab rules allow: not a boss, not a dummy, players per config), 22 dmg, Slowness II 2 s, 6 dmg + knockback to others within 2.5 blocks | 1.5 s (0) |
+| Hold R | **Impaling Spear** | charges from the hold start, release to throw (auto-throws after 3 s); 10-block line, blocks stop it, pierces everything: 14 dmg at once, up to 26 after another 1 s; first victim pinned 1 s (held in place + Slowness X; not bosses) | 8 s (6), on the throw |
+| Shift+R | Tendril Sweep (kept) | | 10 s (0) |
+| G tap | Spike Shot (kept) | 14 + Wither V 5 s | 4 s (1) |
+| Hold G | **Spike Rain** | aim point up to 24 blocks (ground under it), 4-block circle, 3 s; 2 spikes every 3 ticks from up to 11 blocks up (lower under a roof), one per volley falls on an enemy in the circle; 3 dmg + Wither I 2 s a spike, no knockback; spikes respect hit invulnerability (about one hit per target per 0.5 s) | 14 s (7) |
+| Shift+G | Spike Fan (kept) | | 10 s (own) |
+| X | Symbiote Lunge (kept) | | 2 s (2) |
+| X in the air | **Dive Bomb** | needs 2.5+ blocks clear below (a hop still lunges), not in water / flying / riding; driven down at 2.4 b/t; landing: 4.5-block slam, 12 dmg + 0.8 per block fallen (max 24), thrown up and out (not bosses), ring of 10 ground tendrils; no fall damage | 6 s (8) |
+| Shift+X | Grapple (kept) | | 3 s (own) |
+| Z tap | Tendril Barrage / Blade Slash in Blade form (kept) | | 15 s (3) |
+| Hold Z | **Ground Eruption** | 8 bursts, one a tick, every 1.5 blocks to 12 blocks ahead (flat aim); each hits within 1.7 blocks (+ half the target's width), 2.5 up/down: 12 dmg, Slowness II 3 s, launched up 1.1 (not bosses); each target once | 12 s (9) |
+| Shift + hold Z | Onslaught (kept) | | 90 s (3) |
+| C tap | **Maw Bite** (replaces the Thorns toggle) | nearest enemy in the aim or a ~41-degree cone within 5 blocks; short lunge toward it (also on a miss), 18 dmg, +12 Biomass on a hit | 5 s (10) |
+| Hold C | **Devour** | enemy within 4.5 blocks, at or under 25% health, not a boss / player / dummy: the tongue (also drawn as a thin red tendril from the mouth) wraps it for 5 ticks, then reels it to the mouth by tick 14 (no gravity), then it dies (a killing blow from the host, `kill()` if that did not finish it); +40 Biomass, host heals 6 HP. A boss (200+ max health, or `TitanCombat.isBoss`) takes a **heavy bite**: 30 dmg, +20 Biomass. Anything else (above 25%, a player, nothing in reach, Devour cooling down) gets a Maw Bite | 20 s (11), devour and heavy bite |
+| Shift+C | Tendril Grab, C again throws (kept) | | 5 s (5) |
+| V | **Form** cycle Normal -> Blade -> Thorns -> Normal (replaces the separate Blade and Thorns toggles) | Blade and Thorns keep their old rules (+5 melee / 50% faster / 0.3 Biomass a second; Thorns IV reflection). A full main hand skips the Blade (Normal -> Thorns); a spent bar refuses; an old save with both on goes to Normal | none |
+| Shift+V | Symbiote Shield (kept) | | toggle |
+| passive | **Suit fists** | suit on (and the kit live): +1 `entity_interaction_range`; every 3rd punch in a row (each within 1.5 s) knocks back 1.4 + 0.3 lift (not bosses). Counted from Fabric's `AttackEntityCallback` (real swings only, not ability hits) | -- |
+
+No new move costs Biomass (none of the existing attacks did either); Maw Bite, the heavy bite and Devour feed it. Balance against peers:
+the heaviest new hits (Spear 26, Dive Bomb 24, heavy bite 30, the Devour execute on 20 s) stay under Onslaught's 20 + DoT + crowd control
+on 90 s, and the frequent ones (Slam 22 every 3rd strike, Maw Bite 18 on 5 s) sit with Tendril Strike's 15 on 1.5 s.
+
+### Tap vs hold
+
+R, G, Z and C without Sneak: the press only records the game time (`KEY_DOWN`); a release before `HOLD_TICKS` (8 ticks, 0.4 s) runs the
+tap move; still down at 8 ticks, `serverTick -> tickHolds` runs the hold move once and clears the press, so the release does nothing --
+except for the Spear, whose release throws it. Sneak presses fire on the press as before (Shift+R/G/X/C/V, Shift + hold Z Onslaught; a
+plain Z press let go while sneaking is still a tap). C while holding a grab throws on the press and clears the pending C so its release
+cannot bite. Taps now fire on the release (at most 0.4 s later than before). X and V have no hold move and still fire on the press.
+
+### State and cleanup
+
+- Cooldowns: `SymbioteState.abilityCooldowns` grew from 6 to `COOLDOWN_SLOTS` = 12 entries (old saves read the new ones as ready; the
+  list codec is unchanged).
+- Static maps in `SymbioteAbilityManager` (`KEY_DOWN`, `STRIKE_CHAIN`, `SPEAR`, `PINNED`, `RAIN`, `DIVE`, `ERUPTION`, `DEVOUR`,
+  `PUNCH_CHAIN`) hold only entity ids and numbers, are cleared per player by `clearFor` / `disrupt` (sonic) / losing the kit, and all at
+  once in `clearSessionState` (from `ServerStateReset`). A half-eaten target gets its gravity back.
+- New anim ids 16-24 (`SymbioteAnim`): TENDRIL_SLAM, SPEAR_CHARGE (held), SPEAR_THROW, SPIKE_RAIN, DIVE_BOMB (held), DIVE_IMPACT,
+  ERUPTION, MAW_BITE, DEVOUR, each with a pose in `SymbiotePose`.
+
+### Visuals
+
+- Tendrils and spikes use the existing entities, so they wear the host's suit colours: `SymbioteTendrilEntity.fromPoint(Player, ...)`
+  (new) is a fixed, ground-rooted tendril that carries the owner id for the tint only; `SymbioteSpikeEntity.rain(...)` (new) is a
+  non-crimson spike owned by the host (its renderer tints from the owner) with its own damage / Wither / no knockback.
+- `SymbioteMouth` (Lethal Protector): every new move snarls (the default); SPEAR_CHARGE and DIVE_BOMB hold the roar while they run;
+  **Maw Bite** gapes to 40 degrees, snaps shut at ticks 3-5, then the tongue licks out (a lash 8 ticks in); **Devour** has its own
+  30-tick animation (`devourJaw` / `devourTongue`): the jaw thrown to 42 degrees with a tremble, the tongue shot all the way out
+  (7.3 px), its tip curling down round the prey, reeled in by tick 14, the jaws crash shut at 13-16, then it chews. The tongue is only 7 px long, so the server also lashes a thin crimson tendril from the mouth to the prey for the pull.
+- HUD (`SymbioteHud`): V's box is lit while a Form (Blade / Thorns) or the shield is up, plus a "Form: Blade / Thorns" tag; C's box shows
+  Maw Bite's cooldown (Shift: the grab's); each key's thin strip shows its hold move's cooldown (G: the larger of Spike Fan and Spike
+  Rain; X: Dive Bomb); a held R / G / Z / C fills its box up to the hold threshold (R keeps filling with the Spear's charge), read from
+  the local key. The Left-Alt list adds "Hold: ..." on R / G / Z / C and "In the air: Dive Bomb" on X.
+- Guidebook / Your Power (I): the Moves table gains Tendril Slam, Dive Bomb, Maw Bite and Form (Blade / Thorns under it), a new "Hold
+  moves" section with the four hold moves, and the "Suit fists" passive. JEI: the suit pieces' info page gets a moves summary.
+- Lang: `scratchpad/symbiote/moveset_v2_lang_v0175.js` (key by key, re-runnable).
+
+### Tests
+
+`SymbioteMovesetV2GameTests`: tap fires on release and a hold fires only the hold move (no tap on the release); strikes 1-2 are
+Tendril Strikes, the 3rd the Slam (harder, yanks the golem in), the 4th plain again; the Spear charges while R is held, pierces two
+golems and pins the first, with no Tendril Strike on the release; Spike Rain hits a husk in the circle and stops after 3 s; grounded X
+lunges, airborne X dives and the landing slams a husk; hold Z erupts a line through two golems, each hit once, with no Barrage; Maw Bite
+bites, feeds 12 Biomass, uses its own cooldown and no longer toggles Thorns; Devour eats a husk at 20% (+40 Biomass); a healthy golem
+gets a Maw Bite (Devour's cooldown untouched); a 400-HP husk at 10% is not devoured and takes the heavy bite; Shift+C grabs and C throws
+without biting; V cycles Normal / Blade / Thorns, a full hand skips the Blade, Shift+V is the shield; the old moves (G / Z taps,
+Shift+R / G / X, Shift + hold Z charge and early cancel) still fire; +1 reach and the 3rd-punch knockback with the suit on, neither with
+it off.
+
+Visual checks: `docs/screenshots/v0175/symbiote_moveset2/` -- a still per move (01-23: HUD, Left-Alt list, Tendril Strike / Slam,
+Spear charge / throw, Spike Rain, Dive Bomb, Ground Eruption, Maw Bite gape / snap / lick, Devour tongue / reel / jaws / chew, the three
+Forms), `symbiote_moveset_v2_all_moves.mp4` + `_sheet.png` (every move in sequence on husks and iron golems, the real keys held and
+let go so the HUD fills) and `symbiote_maw_bite_devour_closeup.mp4` + `_sheet.png`. Harness
+`scratchpad/SymbioteMovesetHarness.v0175.java.txt` (+ `SymbioteMovesetHarnessCameraMixin.v0175.java.txt` for the fixed camera offsets),
+films via `scratchpad/symbiote/films_moveset_v0175.js`.

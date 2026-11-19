@@ -52,6 +52,13 @@ public final class SymbioteState {
 	/** Full Symbiote Shield hold time, in ticks -- 9 seconds. */
 	public static final float SHIELD_GUARD_MAX = 180.0f;
 
+	/**
+	 * v0.17.5 (moveset v2): {@link #abilityCooldowns} holds the six key slots (0-5) plus the new moves' own cooldowns:
+	 * 6 Impaling Spear, 7 Spike Rain, 8 Dive Bomb, 9 Ground Eruption, 10 Maw Bite, 11 Devour. Old saves with six entries
+	 * read the rest as ready.
+	 */
+	public static final int COOLDOWN_SLOTS = 12;
+
 	public boolean hasSymbiote;
 	public boolean active;
 	public long toggleReadyAt;
@@ -100,13 +107,13 @@ public final class SymbioteState {
 	}
 
 	private static List<Long> defaultCooldowns() {
-		return new java.util.ArrayList<>(java.util.Collections.nCopies(6, 0L));
+		return new java.util.ArrayList<>(java.util.Collections.nCopies(COOLDOWN_SLOTS, 0L));
 	}
 
 	private static List<Long> normalizeCooldowns(List<Long> in) {
 		java.util.ArrayList<Long> out = new java.util.ArrayList<>(defaultCooldowns());
 		if (in != null) {
-			for (int i = 0; i < Math.min(6, in.size()); i++) {
+			for (int i = 0; i < Math.min(COOLDOWN_SLOTS, in.size()); i++) {
 				out.set(i, in.get(i) == null ? 0L : in.get(i));
 			}
 		}

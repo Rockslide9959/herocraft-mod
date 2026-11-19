@@ -539,10 +539,22 @@ public final class HeroPackGuide {
 		head(lines, "projecthero.guide.symbiote.s.moves");
 		symbioteRow(lines, "R", "tendril_strike", "1.5");
 		symbioteRow(lines, "G", "spike_shot", "4");
+		symbioteRow(lines, "R x3", "tendril_slam", "1.5"); // v0.17.5 moveset v2
 		symbioteRow(lines, "X", "leap", "2");
+		symbioteRow(lines, "X (air)", "dive_bomb", "6");
 		symbioteRow(lines, "Z", "barrage", "15");
-		symbioteRow(lines, "V", "blade", "toggle");
-		symbioteRow(lines, "C", "spikes", "toggle");
+		symbioteRow(lines, "C", "maw_bite", "5");
+		symbioteRow(lines, "V", "form", null);
+		symbioteRow(lines, "", "blade", null);
+		symbioteRow(lines, "", "spikes", null);
+		blank(lines);
+		// v0.17.5: the hold moves -- a tap fires on release, holding the key 0.4 s is the hold move
+		head(lines, "projecthero.guide.symbiote.s.holds");
+		para(lines, "projecthero.guide.symbiote.s.holds.body");
+		symbioteRow(lines, "Hold R", "impaling_spear", "8");
+		symbioteRow(lines, "Hold G", "spike_rain", "14");
+		symbioteRow(lines, "Hold Z", "ground_eruption", "12");
+		symbioteRow(lines, "Hold C", "devour", "20");
 		blank(lines);
 		head(lines, "projecthero.guide.symbiote.s.combos");
 		symbioteRow(lines, "Sneak+R", "tendril_sweep", "10");
@@ -636,7 +648,7 @@ public final class HeroPackGuide {
 	private static void symbiotePassives(List<Component> lines, boolean normalHost) {
 		head(lines, "projecthero.guide.symbiote.passives");
 		for (String p : normalHost
-				? new String[]{"recovery", "protect", "resurrect", "falls", "arrows", "cloak", "predator", "claws", "diet", "squad", "pet", "vial"}
+				? new String[]{"suit_melee", "recovery", "protect", "resurrect", "falls", "arrows", "cloak", "predator", "claws", "diet", "squad", "pet", "vial"}
 				: new String[]{"protect", "resurrect", "predator", "squad", "pet", "vial"}) {
 			bullet(lines, "projecthero.guide.symbiote.s.passive." + p);
 		}

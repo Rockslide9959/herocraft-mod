@@ -306,6 +306,20 @@ public final class SymbioteVitalsManager {
 		save(player, c);
 	}
 
+	/**
+	 * v0.17.5 (moveset v2): Biomass the Symbiote takes back by feeding (Maw Bite, Devour), capped at {@link #MAX_HP}; a spent bar
+	 * that climbs back past {@link #RECOVER_FRACTION} unlocks the abilities again, as the regen does.
+	 */
+	public static void gainBiomass(ServerPlayer player, float amount) {
+		SymbioteVitals v = vitals(player);
+		SymbioteVitals c = v.copy();
+		c.hp = Math.min(MAX_HP, v.hp + Math.max(0.0f, amount));
+		if (c.broken && c.hp >= MAX_HP * RECOVER_FRACTION) {
+			c.broken = false;
+		}
+		save(player, c);
+	}
+
 	/** v0.14.25: Crimson Biomass -- the health bar back to full and the Symbiote unbroken. */
 	public static void restoreBiomass(ServerPlayer player) {
 		SymbioteVitals c = vitals(player).copy();
@@ -426,6 +440,87 @@ public final class SymbioteVitalsManager {
 			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
 					16, 0.4, 0.5, 0.4, 0.02);
 		}
+	}
+
+	// ---------------- v0.17.5 moveset v2: one Form cycle on V ----------------
+
+	public static final int FORM_NORMAL = 0;
+	public static final int FORM_BLADE = 1;
+	public static final int FORM_THORNS = 2;
+
+	/** The host's Form: Blade (the blade is out), Thorns (the spikes are up) or Normal. Client-safe (synced vitals). */
+	public static int form(Player player) {
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		if (v == null) {
+			return FORM_NORMAL;
+		}
+		return v.bladeActive ? FORM_BLADE : v.thornsMode ? FORM_THORNS : FORM_NORMAL;
+	}
+
+	/**
+	 * V (user-approved moveset v2: "one button instead of two toggles"): Normal -> Blade -> Thorns -> Normal. The Blade needs an
+	 * empty main hand and some Biomass, as before; with a full hand Normal goes straight to Thorns. An old save with both on drops
+	 * back to Normal. The Blade's and the Thorns' own rules (the blade's Biomass drain, Thorns IV reflection) are unchanged.
+	 */
+	public static void cycleForm(ServerPlayer player) {
+		SymbioteVitals v = vitals(player);
+		if (v.bladeActive && v.thornsMode) {
+			SymbioteVitals c = v.copy();
+			c.thornsMode = false;
+			save(player, c);
+			setBlade(player, vitals(player), false);
+			formMessage(player, FORM_NORMAL);
+			return;
+		}
+		if (v.bladeActive) {
+			setBlade(player, v, false);
+			setThorns(player, true);
+			formMessage(player, FORM_THORNS);
+			return;
+		}
+		if (v.thornsMode) {
+			setThorns(player, false);
+			formMessage(player, FORM_NORMAL);
+			return;
+		}
+		if (v.broken || v.hp <= 0.0f) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+			return;
+		}
+		if (!player.getMainHandItem().isEmpty()) {
+			setThorns(player, true);
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form.blade_skipped")
+					.withStyle(ChatFormatting.DARK_PURPLE), true);
+			return;
+		}
+		setBlade(player, v, true);
+		BLADE_SLOT.put(player.getId(), player.getInventory().selected);
+		SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
+		formMessage(player, FORM_BLADE);
+		if (player.level() instanceof ServerLevel level) {
+			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, 0.4f);
+			SymbioteSounds.lash(player, 0.8f, 1.2f);
+		}
+	}
+
+	private static void setThorns(ServerPlayer player, boolean on) {
+		SymbioteVitals c = vitals(player).copy();
+		c.thornsMode = on;
+		save(player, c);
+		if (on) {
+			SymbioteAnim.play(player, SymbioteAnim.SPIKES_FLEX);
+			if (player.level() instanceof ServerLevel level) {
+				level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
+						16, 0.4, 0.5, 0.4, 0.02);
+				SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.8f, 0.7f);
+			}
+		}
+	}
+
+	private static void formMessage(ServerPlayer player, int form) {
+		String name = form == FORM_BLADE ? "blade" : form == FORM_THORNS ? "thorns" : "normal";
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form",
+				Component.translatable("projecthero.symbiote.form." + name)).withStyle(ChatFormatting.DARK_PURPLE), true);
 	}
 
 	// ---------------- per-tick upkeep ----------------

@@ -38,6 +38,7 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 	private float damage = DAMAGE;
 	private int witherAmplifier = WITHER_AMPLIFIER;
 	private int witherTicks = WITHER_TICKS;
+	private double knock = 0.35;
 
 	public SymbioteSpikeEntity(EntityType<? extends SymbioteSpikeEntity> type, Level level) {
 		super(type, level);
@@ -71,6 +72,23 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 	public static SymbioteSpikeEntity shootBlack(LivingEntity owner, Vec3 from, Vec3 dir, float damage, float speed) {
 		SymbioteSpikeEntity spike = shootCrimson(owner, from, dir, damage, speed);
 		spike.entityData.set(DATA_CRIMSON, false);
+		return spike;
+	}
+
+	/**
+	 * v0.17.5 (moveset v2): one Spike Rain spike from a point in the air above the target area, in the host's suit colours (the renderer
+	 * colours a non-crimson spike from its owner): {@code damage} on a hit, Wither I for {@code witherTicks}, no knockback.
+	 */
+	public static SymbioteSpikeEntity rain(ServerPlayer owner, Vec3 from, Vec3 dir, float damage, int witherTicks, float speed) {
+		SymbioteSpikeEntity spike = new SymbioteSpikeEntity(SymbioteEntityTypes.SPIKE, owner.level());
+		spike.setOwner(owner);
+		spike.damage = damage;
+		spike.witherAmplifier = 0;
+		spike.witherTicks = witherTicks;
+		spike.knock = 0.0;
+		spike.setPos(from.x, from.y, from.z);
+		spike.shoot(dir.x, dir.y, dir.z, speed, 0.0f);
+		owner.level().addFreshEntity(spike);
 		return spike;
 	}
 
@@ -129,7 +147,9 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 			target.addEffect(new MobEffectInstance(MobEffects.WITHER, witherTicks, witherAmplifier, false, true, true), owner);
 			Vec3 v = getDeltaMovement();
 			double len = Math.max(1.0e-4, v.horizontalDistance());
-			target.knockback(0.35, -v.x / len, -v.z / len);
+			if (knock > 0.0) {
+				target.knockback(knock, -v.x / len, -v.z / len);
+			}
 		}
 		level.sendParticles(ParticleTypes.SQUID_INK, target.getX(), target.getY() + target.getBbHeight() * 0.5,
 				target.getZ(), 12, 0.25, 0.3, 0.25, 0.04);
