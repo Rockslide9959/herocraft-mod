@@ -40,6 +40,11 @@ public final class SentryDamage {
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return 1f;
 		}
+		// v0.17.5 (user: "Make it so that sentry cant be set on fire please"): fire, lava and magma never hurt him (the flames are
+		// put out in allowDamage) -- the same rule as the Kryptonian
+		if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypes.LAVA) || source.is(DamageTypes.HOT_FLOOR)) {
+			return 0f;
+		}
 		if (source.is(DamageTypeTags.IS_FALL) && (Sentry.isFlying(victim) || SentryMoves.diving(victim) || Sentry.inTakeover(victim))) {
 			return 0f;
 		}
@@ -69,6 +74,9 @@ public final class SentryDamage {
 			return true;
 		}
 		if (f <= 0f) {
+			if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypes.LAVA) || source.is(DamageTypes.HOT_FLOOR)) {
+				victim.clearFire();
+			}
 			if (source.is(DamageTypeTags.IS_FALL)) {
 				victim.resetFallDistance();
 			}
