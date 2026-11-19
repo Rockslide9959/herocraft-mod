@@ -18,8 +18,8 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.5: the first-person sleeve of the new Symbiote suit -- the same two boxes as the suit's arm bone (base inflated 0.3,
  * raised shell 0.55, player-skin UVs, so the 128 px texture shows at full detail), in the wearer's colours
- * ({@link SymbioteSuitTint}), emerging on / receding off with the suit ({@link SymbioteEmerge}, v0.17.5 round 2), with the sheen and vein passes on top
- * ({@link SymbioteSuitFx#renderSleeve}). Baked once from a code-built mesh; no model layer to register.
+ * ({@link SymbioteSuitTint}), emerging on / receding off with the suit ({@link SymbioteEmerge}, v0.17.5 round 2) (no sheen / vein overlay since the user asked for
+ * the glint to go). Baked once from a code-built mesh; no model layer to register.
  */
 public final class SymbioteSuitSleeve {
 	private static ModelPart right;
@@ -85,6 +85,6 @@ public final class SymbioteSuitSleeve {
 		}
 		ResourceLocation texture = SymbioteSpread.firstPerson("symbiote_host", base);
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);
-		SymbioteSuitFx.renderSleeve(pose, buffers, light, arm, player);
+		// (v0.17.5: no sheen / vein passes any more -- they read as an enchantment glint)
 	}
 }

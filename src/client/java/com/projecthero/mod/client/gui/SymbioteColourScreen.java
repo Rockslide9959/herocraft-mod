@@ -9,7 +9,6 @@ import com.projecthero.mod.network.SymbioteColourPayload;
 import com.projecthero.mod.symbiote.SymbioteColourPreset;
 import com.projecthero.mod.symbiote.SymbioteColours;
 import com.projecthero.mod.symbiote.SymbioteSuitColours;
-import com.projecthero.mod.symbiote.SymbioteSuitStyle;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -30,7 +29,7 @@ import net.minecraft.world.entity.player.Player;
  * v0.17.5 (user: "make it so that youre able to change the colour"): the Symbiote suit colour screen, opened from the power's
  * own info page ("Your Power", I key -> Suit Colours). Three channels -- Body, Emblem, Eyes -- each set with Hue / Saturation /
  * Brightness bars or a hex field, plus seven preset swatches (Classic, Anti-Venom, Carnage, Scream, Agony, Riot, Toxin) and a
- * Classic reset. The left side previews the pending colours live: the 3D suit (sheen and all) while it is worn, else a front and
+ * Classic reset. The left side previews the pending colours live: the 3D suit (always the Lethal Protector -- no style choice) while it is worn, else a front and
  * back paper doll. Apply sends {@link SymbioteColourPayload} (re-checked server side) and closes; Cancel / Esc closes unchanged.
  * Every line of prose is word-wrapped to the panel (the TooltipWrap rule) and the swatch tooltips wrap at 160 px.
  */
@@ -61,7 +60,6 @@ public final class SymbioteColourScreen extends Screen {
 	private int barsTop, hexY, presetsY, presetCols;
 	private final List<FormattedCharSequence> hint = new ArrayList<>();
 	private final Button[] tabs = new Button[3];
-	private final Button[] styleTabs = new Button[SymbioteSuitStyle.values().length];
 	private EditBox hexBox;
 
 	public SymbioteColourScreen(Screen parent) {
@@ -78,7 +76,7 @@ public final class SymbioteColourScreen extends Screen {
 	@Override
 	protected void init() {
 		panelW = Math.min(this.width - 16, 400);
-		panelH = Math.min(this.height - 44, 282); // v0.17.5: + the style row
+		panelH = Math.min(this.height - 44, 260); // v0.17.5: the style row is gone again (Lethal Protector only)
 		left = (this.width - panelW) / 2;
 		top = Math.max(8, (this.height - 36 - panelH) / 2);
 		// the preview column: two dolls (16 x 32 skin px each) or the 3D figure, sized to the panel
@@ -94,21 +92,8 @@ public final class SymbioteColourScreen extends Screen {
 		}
 		hint.clear();
 		hint.addAll(this.font.split(Component.translatable("screen.projecthero.symbiote_colours.hint"), rightW));
-		// v0.17.5: the suit style (which model) across the top of the right column
+		// (v0.17.5: no suit style row any more -- every Normal host wears the Lethal Protector suit)
 		int y = top + 24;
-		SymbioteSuitStyle[] styles = SymbioteSuitStyle.values();
-		int styleW = (rightW - 2 * (styles.length - 1)) / styles.length;
-		for (int i = 0; i < styles.length; i++) {
-			final SymbioteSuitStyle st = styles[i];
-			Component full = Component.translatable(st.langKey());
-			Component label = this.font.width(full) + 8 <= styleW ? full : Component.translatable(st.langKey() + ".short");
-			Button b = Button.builder(label, btn -> selectStyle(st)).bounds(rightX + i * (styleW + 2), y, styleW, 18).build();
-			boolean missing = st == SymbioteSuitStyle.LETHAL_PROTECTOR && !SymbioteSuitTint.lethalAvailable();
-			b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(
-					missing ? "screen.projecthero.symbiote_colours.style.missing" : st.langKey() + ".desc")));
-			styleTabs[i] = addRenderableWidget(b);
-		}
-		y += 22;
 		int tabW = (rightW - 4) / 3;
 		String[] names = { "body", "emblem", "eyes" };
 		for (int i = 0; i < 3; i++) {
@@ -132,7 +117,7 @@ public final class SymbioteColourScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.apply"), b -> apply())
 				.bounds(bx, by, bw, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.reset"),
-				b -> setAll(SymbioteColours.CLASSIC.withStyle(pending.style())))
+				b -> setAll(SymbioteColours.CLASSIC))
 				.bounds(bx + bw + 4, by, bw, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose())
 				.bounds(bx + 2 * (bw + 4), by, bw, 20).build());
@@ -140,13 +125,6 @@ public final class SymbioteColourScreen extends Screen {
 	}
 
 	private void refreshWidgets() {
-		SymbioteSuitStyle[] styles = SymbioteSuitStyle.values();
-		for (int i = 0; i < styles.length; i++) {
-			if (styleTabs[i] != null) {
-				boolean missing = styles[i] == SymbioteSuitStyle.LETHAL_PROTECTOR && !SymbioteSuitTint.lethalAvailable();
-				styleTabs[i].active = styles[i] != pending.style() && !missing;
-			}
-		}
 		for (int i = 0; i < 3; i++) {
 			if (tabs[i] != null) {
 				tabs[i].active = i != channel;
@@ -160,11 +138,6 @@ public final class SymbioteColourScreen extends Screen {
 	}
 
 	// ------------------------------------------------------------------ state
-
-	private void selectStyle(SymbioteSuitStyle st) {
-		pending = pending.withStyle(st);
-		refreshWidgets();
-	}
 
 	private void selectChannel(int ch) {
 		channel = ch;
@@ -266,7 +239,7 @@ public final class SymbioteColourScreen extends Screen {
 			}
 			int preset = presetAt(mx, my);
 			if (preset >= 0) {
-				setAll(SymbioteColourPreset.values()[preset].colours().withStyle(pending.style()));
+				setAll(SymbioteColourPreset.values()[preset].colours());
 				return true;
 			}
 		}

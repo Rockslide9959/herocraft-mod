@@ -164,6 +164,8 @@ public final class Symbiote {
 		SymbioteState c = s.copy();
 		c.hasSymbiote = true;
 		save(player, c);
+		// v0.17.5 (user): a fresh bond gets a random colour scheme (re-bonding rolls again; relog / death never come through here)
+		SymbioteSuitColours.rollOnGrant(player);
 		com.projecthero.mod.hero.UniquePowers.onClaimed(player, "symbiote");
 		if (announce) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonded")

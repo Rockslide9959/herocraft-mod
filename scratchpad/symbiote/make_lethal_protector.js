@@ -14,13 +14,15 @@
 //        Classic texture, and a small atlas for the mouth parts (jaw, teeth, gum, tongue) in unused skin texels
 //   textures/armor/symbiote_host_lethal_tint.png  its TINT MASK (same format as symbiote_host_tint.png: R shade, G gloss, B channel
 //        0 body / 128 emblem / 255 eyes, A coverage) so the style takes the player's colours. A = 0 marks texels that keep the skin's own
-//        colour whatever the player picks: the mouth (lips, throat, teeth, tongue, gum) and the saliva (v0.17.5 round 2: was green drool, repainted)
+//        colour whatever the player picks: the inside of the mouth (throat, teeth, tongue, floor) and the saliva (v0.17.5 round 2: was green
+//        drool, repainted). Round 3: the lips and the gum strip are body-coloured lip shades (lipShade), the jaw's outside takes the suit colour
 //   textures/armor/symbiote_host_lethal_fx.png    the sheen map (R sweep coordinate, G sheen strength, B = 0: this style has no veins)
 //   geo/symbiote_host_lethal.geo.json             the Classic rig (read from geo/symbiote_host.geo.json) + the mouth: lp_jaw (hinged
 //        lower jaw with its teeth), lp_upper (upper teeth + gum), lp_tongue_0..5 (a chain of six tapering segments in the jaw)
 //
 // The three textures are made from a borrowed skin whose licence is unchecked, so they are .gitignored (local builds only, like the
-// Gyro and Sentry comics skins); without them the game draws this style as Classic. The geo is original and committed.
+// Gyro and Sentry comics skins); without them the game silently falls back to the mod's own Classic suit art (since round 3 the
+// Lethal Protector is the only suit -- the Classic art is the public-build fallback, not a choice). The geo is original and committed.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -87,7 +89,18 @@ function composite(x, y) { // the skin as seen: hat over base
 
 // ---------------------------------------------------------------- the mouth: geometry shared by the texture and the geo
 const JAW = { x0: -4.74, x1: 4.74, y0: 23.32, y1: 25.1, z0: -4.76, z1: -0.8 };
-const MOUTH_TOP = 27.55;      // the upper teeth hang from here (top of the skin's black mouth)
+// v0.17.5 round 3 (user: "the top of the mouth is kinda going into the eyes of the suit"): the mouth's top edge was 27.55, level with
+// the bottom of the lenses (they reach down to y 27.0 at the sides, face rows 8-9). Now 26.0 (the top of face row 12): the skin's black
+// between the lenses and its painted top teeth (rows 8-11) are painted over as suit, so a full pixel of suit (rows 10-11) always separates
+// the eyes from the mouth, and both rows of teeth are TEETH_SCALE as long so they still interlock in the smaller closed gap (jaw top 25.1).
+// SymbioteMouth.UPPER_TIP_Y / LOWER_TIP_Y follow.
+const MOUTH_TOP = 26.0;       // the upper teeth hang from here (the top of the open mouth)
+const UPPER_SCALE = 0.6, LOWER_SCALE = 0.6;
+const MOUTH_ROW = 12;         // the first face row of the open mouth (y 26.0 .. 25.5)
+// v0.17.5 round 3 (user: "make the lip colour match the colour of the symbiote"): lip / gum texels take the body colour, shaded.
+// 0 = not a lip; else the tint-mask shade (body channel) + 1. Throat, teeth and tongue keep their own colours (keep = 1).
+const lipShade = new Uint8Array(W * H);
+const lipOf = (c) => 1 + Math.round(clamp(0.36 + (lum(c) - 0.25) * 1.3, 0.28, 0.7) * 255);
 const THROAT_IN = [56, 11, 24], THROAT_OUT = [15, 6, 12], THROAT_SIDE = [24, 8, 16];
 const LIP = [187, 85, 102], LIP_DARK = [134, 46, 66];
 const isLip = (c) => c[0] > 140 && c[0] > c[1] * 1.6;
@@ -102,6 +115,7 @@ function throat(x, y, side) {
 }
 
 // 1) the head: where the jaw sits and where the mouth opens, paint a throat on the base layer and clear the hat layer
+const SUIT_REF = composite(16, 16 + 10).slice(0, 3); // round 3: a plain suit texel (face edge, row 10) for painting over the old mouth top
 for (let v = 16; v < 32; v++) {
 	const y = yOf(v);
 	// front
@@ -111,12 +125,18 @@ for (let v = 16; v < 32; v++) {
 		const row = v - 16;     // 0..15 down the face
 		let mouth = false;
 		if (y <= JAW.y1 + 0.05) mouth = true;                                         // behind the jaw
-		else if (row >= 11 && Math.abs(x) <= 3.3) mouth = true;                     // the skin's teeth rows
-		else if (row >= 9 && Math.abs(x) <= 2.6 && isDark(base)) mouth = true;      // the black of the open mouth
+		else if (row >= MOUTH_ROW && Math.abs(x) <= 3.3) mouth = true;              // the skin's teeth rows (top edge = MOUTH_TOP)
+		else if (row >= 8 && Math.abs(x) <= 4 && (isDark(composite(u, v)) || (row === MOUTH_ROW - 1 && composite(u, v)[3] !== 0
+				&& (isTooth(composite(u, v)) || isLip(composite(u, v)) || lum(composite(u, v)) > 0.3)))) {
+			// round 3: the black top of the painted open mouth between the lenses, and its painted top teeth -> suit
+			put(u, v, mix(SUIT_REF, [0, 0, 0], 0.1 + hash(u, v) * 0.25));
+			put(u + 64, v, [0, 0, 0], 0);
+			continue;
+		}
 		if (!mouth) continue;
 		put(u, v, throat(x, y, false));
 		keep[v * W + u] = 1;
-		if (hat[3] && (isDark(hat) || !isTooth(hat) || row >= 11)) {
+		if (hat[3] && (isDark(hat) || !isTooth(hat) || row >= MOUTH_ROW)) {
 			// the hat's mouth bits (black, pink tongue, drool) go; its eye whites above stay
 			if (!(row <= 9 && lum(hat) > 0.6)) put(u + 64, v, [0, 0, 0], 0);
 		}
@@ -132,12 +152,12 @@ for (let v = 16; v < 32; v++) {
 		}
 	}
 }
-// the skin's lower-lip corners that stay on the head keep their own colour too (no recolour); the saliva was marked above
+// the skin's lower-lip corners that stay on the head: round 3 -- they take the body colour (shaded as lips); the saliva was marked above
 for (let v = 16; v < 32; v++) for (let u = 0; u < 48; u++) {
 	for (const uu of [u, u + 64]) {
 		const c = get(out, uu, v);
-		if (!c[3]) continue;
-		if (isLip(c)) keep[v * W + uu] = 1;
+		if (!c[3] || keep[v * W + uu]) continue;
+		if (isLip(c)) lipShade[v * W + uu] = lipOf(c);
 	}
 }
 
@@ -194,12 +214,28 @@ fillRect(J.u, J.v + 6, 8, 1, (tx, ty, tw) => {                        // up: the
 	return mix([120, 32, 52], [64, 14, 28], Math.abs(x) * 1.6 + (ty ? 0.25 : 0));
 });
 fillRect(J.u, J.v + 7, 8, 1, () => BODY_DARK);                        // down (under the chin)
+// round 3: the jaw's outside (front, inside, sides, under the chin) is suit -- it takes the player's colours like the head it continues
+// (it used to keep the skin's colours, so a coloured suit had a black chin and pink lips); its lip texels become body-coloured lips.
+// Only the floor of the mouth (J.v + 6) keeps its own colour.
+for (let ty = 0; ty < 16; ty++) for (let tx = 0; tx < 16; tx++) {
+	if (ty === 12 || ty === 13) continue; // the floor
+	const i = (J.v * S + ty) * W + J.u * S + tx;
+	keep[i] = 0;
+	const c = get(out, J.u * S + tx, J.v * S + ty);
+	if (isLip(c)) lipShade[i] = lipOf(c);
+}
 // teeth: a root-to-tip ramp (upper teeth hang root-up, lower stand root-down)
 const TOOTH_ROOT = [190, 168, 138], TOOTH_MID = [236, 228, 206], TOOTH_TIP = [252, 250, 242];
 const toothRamp = (t) => t < 0.5 ? mix(TOOTH_ROOT, TOOTH_MID, t * 2) : mix(TOOTH_MID, TOOTH_TIP, (t - 0.5) * 2);
 fillRect(M.u, M.v, 0.5, 2, (tx, ty, tw, th) => toothRamp((ty + 0.5) / th));          // upper tooth (root at the top)
 fillRect(M.u + 0.5, M.v, 0.5, 2, (tx, ty, tw, th) => toothRamp(1 - (ty + 0.5) / th)); // lower tooth (root at the bottom)
 fillRect(M.u + 1, M.v, 1, 1, (tx, ty) => ty ? [92, 20, 38] : [128, 36, 56]);         // gum
+// round 3: the gum strip is the upper lip band seen from the front -> body colour, a little darker than the body
+for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
+	const i = (M.v * S + ty) * W + (M.u + 1) * S + tx;
+	keep[i] = 0;
+	lipShade[i] = 1 + Math.round((ty ? 0.3 : 0.4) * 255);
+}
 fillRect(M.u + 2, M.v, 2, 2, (tx, ty, tw) => {                                        // tongue top: pink, a groove down the middle
 	const e = Math.abs((tx + 0.5) / tw - 0.5) * 2;
 	if (e < 0.3) return [158, 44, 66];
@@ -240,13 +276,18 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
 		for (let k = 0; k < 4; k++) { tint[i + k] = classicMask.px[i + k]; fx[i + k] = classicFx.px[i + k]; }
 		continue;
 	}
+	if (lipShade[y * W + x]) { // round 3: lips / gum -> the body colour, shaded as lips, a little wet
+		const s = lipShade[y * W + x] - 1;
+		tint[i] = s; tint[i + 1] = s > 140 ? 40 : 0; tint[i + 2] = 0; tint[i + 3] = 255;
+		continue;
+	}
 	if (keep[y * W + x]) continue; // mask A = 0: keeps its own colour; no sheen on the mouth
 	const mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
 	const sat = mx ? (mx - mn) / mx : 0;
 	const L = lum(c);
 	if (sat > 0.45 && L > 0.18) continue; // the odd saturated texel (the blue soles): left as painted
 	let ch = 0;
-	if (L > 0.5 && sat < 0.3) ch = inHead(x, y) ? 255 : 128;
+	if (L > 0.5 && sat < 0.3 && !(x < 16 && y < 16)) ch = inHead(x, y) ? 255 : 128; // (the jaw block J is all body)
 	const [s, g] = solve(c, ch);
 	tint[i] = s; tint[i + 1] = g; tint[i + 2] = ch; tint[i + 3] = c[3];
 	fx[i + 1] = ch ? 50 : Math.round(clamp(0.38 + 0.62 * (L - 0.08) / 0.2) * 255);
@@ -304,18 +345,18 @@ const box = (name, o, s, uv) => ({ name, origin: o.map(r3), size: s.map(r3), uv 
 const bones = [];
 // lp_upper: the upper teeth, hanging from the top of the mouth (fixed to the head; lifts a little in a snarl)
 {
-	const cubes = [box('upper_gum', [-3.8, MOUTH_TOP - 0.3, -4.86], [7.6, 0.36, 0.26], uvAll(M.u + 1, M.v, 1, 0.5))];
-	const L = [1.0, 1.6, 0.85, 1.05, 0.8, 0.95, 0.8, 1.05, 0.85, 1.6, 1.0];
+	const cubes = [box('upper_gum', [-3.8, MOUTH_TOP - 0.3, -4.86], [7.6, 0.3, 0.26], uvAll(M.u + 1, M.v, 1, 0.5))];
+	const L = [1.0, 1.6, 0.85, 1.05, 0.8, 0.95, 0.8, 1.05, 0.85, 1.6, 1.0].map((l) => l * UPPER_SCALE);
 	for (let k = 0; k < L.length; k++) {
 		const x = -3.5 + 0.7 * k, l = L[k];
 		cubes.push(box('ut' + k, [x - 0.26, MOUTH_TOP - l * 0.6, -4.97], [0.52, l * 0.6, 0.34], uvAll(M.u, M.v, 0.5, 1.2)));
 		cubes.push(box('ut' + k + '_tip', [x - 0.13, MOUTH_TOP - l, -4.92], [0.26, l * 0.4, 0.24], uvAll(M.u, M.v + 1.2, 0.5, 0.8)));
 	}
 	for (const sg of [-1, 1]) { // round the corners of the grin, along the cheeks
-		[[-4.3, 0.95], [-3.6, 0.75], [-2.95, 0.55]].forEach(([z, l], k) => {
+		[[-4.3, 0.95], [-3.6, 0.75], [-2.95, 0.55]].map(([z, l]) => [z, l * UPPER_SCALE]).forEach(([z, l], k) => {
 			const x0 = sg > 0 ? 4.64 : -4.98;
-			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k, [x0, MOUTH_TOP - 0.35 - l * 0.6, z - 0.26], [0.34, l * 0.6, 0.52], uvAll(M.u, M.v, 0.5, 1.2)));
-			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k + '_tip', [x0 + 0.05, MOUTH_TOP - 0.35 - l, z - 0.13], [0.24, l * 0.4, 0.26], uvAll(M.u, M.v + 1.2, 0.5, 0.8)));
+			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k, [x0, MOUTH_TOP - 0.15 - l * 0.6, z - 0.26], [0.34, l * 0.6, 0.52], uvAll(M.u, M.v, 0.5, 1.2)));
+			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k + '_tip', [x0 + 0.05, MOUTH_TOP - 0.15 - l, z - 0.13], [0.24, l * 0.4, 0.26], uvAll(M.u, M.v + 1.2, 0.5, 0.8)));
 		});
 	}
 	bones.push({ name: 'lp_upper', parent: 'armorHead', pivot: [0, MOUTH_TOP, -4.8], cubes });
@@ -327,14 +368,14 @@ const JAW_PIVOT = [0, 26.6, 0.2];
 		north: { uv: [J.u, J.v], uv_size: [8, 2] }, south: { uv: [J.u, J.v + 2], uv_size: [8, 2] },
 		east: { uv: [J.u, J.v + 4], uv_size: [4, 2] }, west: { uv: [J.u + 4, J.v + 4], uv_size: [4, 2] },
 		up: { uv: [J.u, J.v + 6], uv_size: [8, 1] }, down: { uv: [J.u, J.v + 7], uv_size: [8, 1] } })];
-	const L = [0.85, 1.05, 0.8, 0.95, 0.72, 0.72, 0.95, 0.8, 1.05, 0.85];
+	const L = [0.85, 1.05, 0.8, 0.95, 0.72, 0.72, 0.95, 0.8, 1.05, 0.85].map((l) => l * LOWER_SCALE);
 	for (let k = 0; k < L.length; k++) {
 		const x = -3.15 + 0.7 * k, l = L[k];
 		cubes.push(box('lt' + k, [x - 0.25, JAW.y1, -4.94], [0.5, l * 0.6, 0.33], uvAll(M.u + 0.5, M.v + 0.8, 0.5, 1.2)));
 		cubes.push(box('lt' + k + '_tip', [x - 0.12, JAW.y1 + l * 0.6, -4.9], [0.24, l * 0.4, 0.24], uvAll(M.u + 0.5, M.v, 0.5, 0.8)));
 	}
 	for (const sg of [-1, 1]) {
-		[[-4.25, 0.8], [-3.55, 0.65], [-2.85, 0.5]].forEach(([z, l], k) => {
+		[[-4.25, 0.8], [-3.55, 0.65], [-2.85, 0.5]].map(([z, l]) => [z, l * LOWER_SCALE]).forEach(([z, l], k) => {
 			const x0 = sg > 0 ? 4.66 : -4.98;
 			cubes.push(box('lts' + (sg > 0 ? 'l' : 'r') + k, [x0, JAW.y1, z - 0.25], [0.32, l * 0.6, 0.5], uvAll(M.u + 0.5, M.v + 0.8, 0.5, 1.2)));
 			cubes.push(box('lts' + (sg > 0 ? 'l' : 'r') + k + '_tip', [x0 + 0.04, JAW.y1 + l * 0.6, z - 0.12], [0.24, l * 0.4, 0.24], uvAll(M.u + 0.5, M.v, 0.5, 0.8)));

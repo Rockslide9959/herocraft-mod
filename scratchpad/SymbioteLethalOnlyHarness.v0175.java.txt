@@ -1,0 +1,384 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.symbiote.SymbioteMouth;
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote "Lethal Protector only" round): the same shots before and after the change -- the suit
+ * front / three-quarter while the old sheen band crosses it (glint), face close-ups (front + three-quarter, closed + snarl) in Carnage
+ * red, and (after only) six fresh grants with seeded RNGs and the colour screen. Works on the old code too (the old style is set by
+ * reflection). Enabled by run/symonly.flag = "<out dir>" / second line "before" or "after". Kept as
+ * scratchpad/SymbioteLethalOnlyHarness.v0175.java.txt.
+ */
+public final class SymbioteLethalOnlyHarness implements ClientModInitializer {
+	private static boolean createdWorld, after;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static final List<BooleanSupplier> GATES = new ArrayList<>();
+	private static int planTick, gateWait;
+	private static BlockPos site;
+	private static ArmorStand camera;
+	private static Vec3 camAt, camLook;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symonly.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(flag);
+			out = new File(lines.get(0).trim());
+			after = lines.size() > 1 && lines.get(1).trim().equals("after");
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymbioteLethalOnlyHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(SymbioteLethalOnlyHarness::placeCamera);
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (camAt == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			var p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = net.minecraft.util.Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = net.minecraft.util.Mth.lerp(pt, p.yo, p.getY()) - cam.y,
+					z = net.minecraft.util.Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, net.minecraft.util.Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(),
+					disp.getPackedLightCoords(p, pt));
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symonly-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		var p = mc.player;
+		SymbioteMouth.Pose pose = p == null ? null : SymbioteMouth.compute(p, 0f, new SymbioteMouth.Pose());
+		System.out.println("[HARNESS] shot " + name + " colours=" + (p == null ? "" : SymbioteSuitColours.get(p))
+				+ (pose == null ? "" : String.format(" jaw=%.1f snarl=%.2f", pose.jaw, pose.snarl)) + " gt=" + (p == null ? 0 : p.level().getGameTime() % 110));
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+			GATES.add(null);
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static void gate(int ticks, BooleanSupplier until) {
+		at(ticks, () -> {
+		});
+		GATES.set(ticks - 1, until);
+	}
+
+	private static Vec3 s(double x, double y, double z) {
+		return new Vec3(site.getX() + 0.5 + x, site.getY() + 1 + y, site.getZ() + 0.5 + z);
+	}
+
+	private static void fixed(Minecraft mc, Vec3 at, Vec3 look) {
+		if (camera == null || camera.level() != mc.level) {
+			camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+			camera.setInvisible(true);
+		}
+		camAt = at;
+		camLook = look;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		mc.setCameraEntity(camera);
+		placeCamera(mc);
+	}
+
+	private static void playerView(Minecraft mc) {
+		camAt = null;
+		mc.setCameraEntity(mc.player);
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+	}
+
+	private static void placeCamera(Minecraft mc) {
+		if (mc.player != null && site != null) {
+			mc.player.yBodyRot = mc.player.getYRot();
+			mc.player.yBodyRotO = mc.player.getYRot();
+		}
+		if (camAt == null || camera == null) {
+			return;
+		}
+		Vec3 to = camLook.subtract(camAt);
+		float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		double eye = camera.getEyeHeight();
+		camera.moveTo(camAt.x, camAt.y - eye, camAt.z, yaw, pitch);
+		camera.xo = camera.getX();
+		camera.yo = camera.getY();
+		camera.zo = camera.getZ();
+		camera.xOld = camera.getX();
+		camera.yOld = camera.getY();
+		camera.zOld = camera.getZ();
+		camera.yRotO = yaw;
+		camera.xRotO = pitch;
+		camera.setYHeadRot(yaw);
+	}
+
+	private static void stand(Minecraft mc) {
+		server(mc, p -> {
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 0f);
+			p.setYHeadRot(180f);
+		});
+	}
+
+	private static void suitUp(ServerPlayer p) {
+		Symbiote.state(p).toggleReadyAt = 0L;
+		Symbiote.toggle(p);
+		Symbiote.state(p).transformStartTick -= 10_000L;
+		Symbiote.tick(p);
+	}
+
+	/** The old code had a style choice (Classic default): pick the Lethal Protector there, by reflection (no-op on the new code). */
+	private static void oldStyleLethal(ServerPlayer p) {
+		try {
+			Class<?> st = Class.forName("com.projecthero.mod.symbiote.SymbioteSuitStyle");
+			Object lethal = st.getField("LETHAL_PROTECTOR").get(null);
+			SymbioteSuitColours.class.getMethod("setStyle", ServerPlayer.class, st).invoke(null, p, lethal);
+			System.out.println("[HARNESS] old code: style set to Lethal Protector");
+		} catch (NoSuchMethodException e) {
+			System.out.println("[HARNESS] new code: no style");
+		} catch (Exception e) {
+			System.out.println("[HARNESS] style error " + e);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymbioteLethalOnlyHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				for (int x = -10; x <= 10; x++) {
+					for (int z = -10; z <= 10; z++) {
+						for (int yy = -2; yy <= 12; yy++) {
+							BlockState st = yy < 0 ? Blocks.DIRT.defaultBlockState() : yy == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+							level.setBlock(site.offset(x, yy, z), st, 2 | 16);
+						}
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				Symbiote.grant(p);
+				oldStyleLethal(p);
+				SymbioteSuitColours.setPreset(p, SymbioteColourPreset.TOXIN);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+			});
+		}
+		if (t == 46) {
+			buildPlan(mc);
+			System.out.println("[HARNESS] lethal available=" + com.projecthero.mod.client.symbiote.SymbioteSuitTint.lethalAvailable());
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			BooleanSupplier g = GATES.get(planTick);
+			if (g != null && !g.getAsBoolean() && gateWait++ < 400) {
+				return;
+			}
+			gateWait = 0;
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static SymbioteMouth.Pose pose(Minecraft mc) {
+		return SymbioteMouth.compute(mc.player, 0f, new SymbioteMouth.Pose());
+	}
+
+	/** Game time within the old 110-tick sheen cycle is in [from, to). */
+	private static BooleanSupplier sheenAt(Minecraft mc, int from, int to) {
+		return () -> {
+			long g = mc.level.getGameTime() % 110;
+			return g >= from && g < to;
+		};
+	}
+
+	private static final double FY = 2.34, FZ = -1.3, AY = 2.26;
+
+	private static void face(Minecraft mc, double x, double z) {
+		fixed(mc, s(x, FY, z), s(0, AY, 0));
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		at(t, () -> {
+			stand(mc);
+			mc.options.hideGui = true;
+			server(mc, SymbioteLethalOnlyHarness::suitUp);
+		});
+		t += 40;
+		// ---- glint: front and three-quarter while the old sheen band is mid-body (and one between sweeps)
+		String pre = after ? "after_" : "before_";
+		at(t, () -> fixed(mc, s(0, 1.75, -3.1), s(0, 1.3, 0)));
+		gate(t + 2, sheenAt(mc, 28, 31));
+		at(t + 3, () -> shot(mc, pre + "glint_front_band_mid"));
+		gate(t + 4, sheenAt(mc, 40, 43));
+		at(t + 5, () -> shot(mc, pre + "glint_front_band_high"));
+		at(t + 6, () -> fixed(mc, s(-1.6, 1.8, -2.7), s(0, 1.3, 0)));
+		gate(t + 8, sheenAt(mc, 22, 25));
+		at(t + 9, () -> shot(mc, pre + "glint_three_quarter_band_low"));
+		gate(t + 10, sheenAt(mc, 34, 37));
+		at(t + 11, () -> shot(mc, pre + "glint_three_quarter_band_mid"));
+		t += 14;
+		// ---- the face in Carnage red: closed + snarl, front + three-quarter
+		at(t, () -> server(mc, p -> SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CARNAGE)));
+		for (String[] col : new String[][] { { "carnage", "CARNAGE" }, { "toxin", "TOXIN" }, { "classic", "CLASSIC" } }) {
+			final String c = col[0];
+			final SymbioteColourPreset preset = SymbioteColourPreset.valueOf(col[1]);
+			at(t, () -> server(mc, p -> SymbioteSuitColours.setPreset(p, preset)));
+			at(t + 1, () -> face(mc, 0, FZ));
+			gate(t + 4, () -> { var ps = pose(mc); return ps.loll == 0f && ps.jaw < 1.6f && ps.snarl == 0f; });
+			at(t + 5, () -> shot(mc, pre + "face_" + c + "_closed_front"));
+			at(t + 6, () -> face(mc, -0.95, -1.0));
+			at(t + 8, () -> shot(mc, pre + "face_" + c + "_closed_three_quarter"));
+			at(t + 9, () -> face(mc, 0, FZ));
+			at(t + 11, () -> server(mc, p -> p.swing(InteractionHand.MAIN_HAND, true)));
+			at(t + 18, () -> shot(mc, pre + "face_" + c + "_snarl_front"));
+			at(t + 40, () -> server(mc, p -> p.swing(InteractionHand.MAIN_HAND, true)));
+			at(t + 41, () -> face(mc, -0.95, -1.0));
+			at(t + 47, () -> shot(mc, pre + "face_" + c + "_snarl_three_quarter"));
+			t += 80;
+		}
+		if (after) {
+			// ---- six fresh grants, each from a seeded RNG
+			long[] seeds = { 3L, 11L, 27L, 58L, 404L, 1999L };
+			at(t, () -> fixed(mc, s(-1.0, 1.75, -2.9), s(0, 1.3, 0)));
+			for (int k = 0; k < seeds.length; k++) {
+				final long seed = seeds[k];
+				final int n = k;
+				at(t + 1, () -> server(mc, p -> {
+					Symbiote.remove(p);
+					p.getRandom().setSeed(seed);
+					Symbiote.grant(p);
+					suitUp(p);
+					System.out.println("[HARNESS] grant seed " + seed + " -> " + SymbioteSuitColours.get(p));
+				}));
+				at(t + 30, () -> shot(mc, String.format("random_grant_%d_seed_%d", n + 1, seed)));
+				t += 34;
+			}
+			// ---- the colour screen (no style row), suit worn
+			at(t, () -> server(mc, p -> SymbioteSuitColours.setPreset(p, SymbioteColourPreset.TOXIN)));
+			at(t + 2, () -> { playerView(mc); mc.options.hideGui = false; });
+			at(t + 8, () -> mc.setScreen(new com.projecthero.mod.client.gui.SymbioteColourScreen(null)));
+			at(t + 24, () -> shot(mc, "colour_screen_no_style_toggle"));
+			at(t + 26, () -> mc.setScreen(null));
+			t += 30;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMONLY_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

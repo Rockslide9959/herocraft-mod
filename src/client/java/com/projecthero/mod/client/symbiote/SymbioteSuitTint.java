@@ -86,20 +86,18 @@ public final class SymbioteSuitTint {
 	}
 
 	/**
-	 * v0.17.5: the suit style {@code wearer} is drawn in -- their choice, except that {@link SymbioteSuitStyle#LETHAL_PROTECTOR} needs
-	 * its (git-ignored, borrowed-skin) textures: a build without them draws Classic.
+	 * v0.17.5: the suit art {@code wearer} is drawn in. There is no choice any more (user: "just make it the lethal protector
+	 * variants"): everyone wears {@link SymbioteSuitStyle#LETHAL_PROTECTOR}. <b>Fallback rule:</b> its textures are made from a borrowed
+	 * skin (licence unchecked) and are .gitignored, so a build without them -- a public build -- silently draws the mod's own original
+	 * Classic art ({@code symbiote_host.png} + tint mask, the mouthless rig) instead, in the same colours.
 	 */
 	public static SymbioteSuitStyle styleOf(Entity wearer) {
-		return effective(colours(wearer)).style();
+		return artStyle();
 	}
 
-	/** {@code colours} with the style swapped to Classic when the Lethal Protector textures are not in this build. */
-	public static SymbioteColours effective(SymbioteColours colours) {
-		if (colours == null) {
-			return SymbioteColours.CLASSIC;
-		}
-		return colours.style() == SymbioteSuitStyle.LETHAL_PROTECTOR && !lethalAvailable()
-				? colours.withStyle(SymbioteSuitStyle.CLASSIC) : colours;
+	/** {@link SymbioteSuitStyle#LETHAL_PROTECTOR} when its textures are in this build, else the {@link SymbioteSuitStyle#CLASSIC} fallback. */
+	public static SymbioteSuitStyle artStyle() {
+		return lethalAvailable() ? SymbioteSuitStyle.LETHAL_PROTECTOR : SymbioteSuitStyle.CLASSIC;
 	}
 
 	/**
@@ -116,15 +114,16 @@ public final class SymbioteSuitTint {
 	}
 
 	public static ResourceLocation suit(SymbioteColours colours) {
-		colours = effective(colours);
-		boolean lethal = colours.style() == SymbioteSuitStyle.LETHAL_PROTECTOR;
-		if (colours.isClassic()) {
-			return CLASSIC;
+		if (colours == null) {
+			colours = SymbioteColours.CLASSIC;
 		}
-		if (lethal && colours.hasClassicColours()) {
-			return LETHAL; // the skin exactly as painted
+		boolean lethal = artStyle() == SymbioteSuitStyle.LETHAL_PROTECTOR;
+		if (colours.isClassic() && !lethal) {
+			return CLASSIC; // the fallback art's own Classic bake
 		}
-		String key = colours.key();
+		// v0.17.5 (user: "make the lip colour match the colour of the symbiote"): the Lethal Protector is always baked from its tint
+		// mask, Classic colours too, so its lips take the body colour like every other colour scheme (the painted skin has pink lips)
+		String key = colours.key() + (lethal ? "_lethal_protector" : "");
 		ResourceLocation cached = SUITS.get(key);
 		if (cached != null) {
 			return cached;
