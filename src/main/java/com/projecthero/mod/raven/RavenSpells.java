@@ -393,8 +393,16 @@ public final class RavenSpells {
 		if (d == null) {
 			return;
 		}
-		long age = now - d.start;
 		LivingEntity t = d.target;
+		if (BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			DEVOURS.put(p.getUUID(), new Devour(t, d.start + 1));
+			Vec3 eye = p.getEyePosition().add(0, -0.35, 0);
+			Vec3 tc = t.position().add(0, t.getBbHeight() * 0.55, 0);
+			BeamClash.report(p, eye, tc.subtract(eye), RavenConfig.DEVOUR_RANGE, 1.0f, 0x8A3CD8);
+			return;
+		}
+		long age = now - d.start;
 		boolean broken = !t.isAlive() || t.level() != p.level() || t.distanceTo(p) > RavenConfig.DEVOUR_RANGE || !p.hasLineOfSight(t)
 				|| Raven.meditating(p);
 		if (broken || age >= RavenConfig.DEVOUR_TICKS) {

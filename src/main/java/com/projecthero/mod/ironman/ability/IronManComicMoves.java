@@ -1632,6 +1632,15 @@ public final class IronManComicMoves {
 
 	static void tickChannel(ServerPlayer p, IronManSuit suit, Rt r) {
 		long now = p.level().getGameTime();
+		if (now >= r.channelStart && com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the window slides forward a tick)
+			r.channelStart++;
+			r.channelUntil++;
+			Vec3 from = IronManComicFx.chest(p);
+			Vec3 dir = com.projecthero.mod.ironman.HulkbusterParts.beamWobble(p, IronManTargeting.aim(p, from, p.getLookAngle(), 44));
+			com.projecthero.mod.beamclash.BeamClash.report(p, from, dir, 44.0, 1.8f, 0x6ADFFF);
+			return;
+		}
 		if (now >= r.channelUntil) {
 			r.channel = null;
 			IronManSounds.play(p, IronManSounds.UNIBEAM_END, 1.0f, 0.7f);

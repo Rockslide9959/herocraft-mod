@@ -2,7 +2,7 @@
 
 User: "change how heat vision in the mod looks, like laser vision in general, i want it to look better in third person and in
 first person". Every player eye beam now shares one look, drawn by `client/eyebeam/EyeBeamFx`. Client only: no ray, damage,
-range or clash numbers changed.
+range or clash numbers changed. Clashing (start rule, lock, no drain, Escape forfeit) is in `BEAM_CLASH_REFERENCE.md`.
 
 ## Who uses it
 

@@ -347,6 +347,11 @@ public final class EnergyAbsorptionHandlers {
 					return;
 				}
 				ServerPlayer p = ctx.player();
+				if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+					// v0.17.5: locked in a clash -- no drain, damage or timer
+					com.projecthero.mod.beamclash.BeamClash.report(p, handOrigin(p), p.getLookAngle(), 22.0, 1f, 0xE050FF);
+					return;
+				}
 				if (!ctx.spendResource(METER, 1.0f)) { // 20/s
 					ctx.setResource("beaming", 0, 1);
 					MutationVisuals.stopIf(p, "channel_two_hand");

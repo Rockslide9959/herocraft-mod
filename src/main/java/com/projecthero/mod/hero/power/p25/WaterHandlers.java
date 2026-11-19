@@ -663,6 +663,11 @@ public final class WaterHandlers {
 		if (res(p, "jet") < 0.5f) {
 			return;
 		}
+		if (p.isAlive() && com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), JET_RANGE, 0.8f, 0x4FA8FF);
+			return;
+		}
 		float w = res(p, METER);
 		float cost = COST_JET_PER_SECOND / 20.0f;
 		if (!p.isAlive() || w < cost) {

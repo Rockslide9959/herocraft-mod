@@ -596,6 +596,14 @@ public final class GreenLanternMech {
 		if (!m.hasFlag(HardLightMechEntity.FLAG_BEAM)) {
 			return;
 		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			Vec3 from = m.chest();
+			Vec3 end = beamTarget(m, p);
+			m.setBeamEnd(end);
+			com.projecthero.mod.beamclash.BeamClash.report(p, from, end.subtract(from), 48.0, 2f * GreenLanternRanks.power(p), 0x3EE06A);
+			return;
+		}
 		if (!GreenLanternEnergy.drainTick(p, GreenLanternMechConfig.BEAM_DRAIN_PER_SEC / 20f)) {
 			m.setFlag(HardLightMechEntity.FLAG_BEAM, false);
 			GreenLanternEnergy.feedback(p, "message.projecthero.ability.low_charge");

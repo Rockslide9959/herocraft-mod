@@ -923,6 +923,15 @@ public final class HellflameMoves {
 
 	/** One beam tick; returns how many were burned this tick. */
 	static int beamTick(ServerPlayer p, Session s, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the beam's window slides forward a tick)
+			s.beamAt++;
+			s.beamUntil++;
+			Quirks.setVal(p, Hellflame.V_BEAM_UNTIL, s.beamUntil);
+			Vec3[] seg = beamSegment(p);
+			com.projecthero.mod.beamclash.BeamClash.report(p, seg[0], seg[1].subtract(seg[0]), 48.0, 1.4f, 0xFF7A20);
+			return 0;
+		}
 		long age = now - s.beamAt;
 		if (now >= s.beamUntil) {
 			endBeam(p);

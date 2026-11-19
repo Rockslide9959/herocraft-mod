@@ -466,6 +466,9 @@ public final class SentryMoves {
 		Vec3 from = gazeOrigin(p);
 		Vec3 dir = p.getLookAngle();
 		BeamClash.report(p, from, dir, SentryConfig.GAZE_RANGE, SentryConfig.GAZE_CLASH_POWER, Sentry.GOLD);
+		if (BeamClash.locked(p)) {
+			return; // v0.17.5: locked in a clash -- no Sun, damage or fire until it ends
+		}
 		ServerLevel level = p.serverLevel();
 		Vec3 end = from.add(dir.scale(SentryConfig.GAZE_RANGE));
 		BlockHitResult bh = level.clip(new ClipContext(from, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));

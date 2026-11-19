@@ -401,6 +401,11 @@ public final class LaserVisionHandlers {
 
 	private static void heatVisionTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no heat, damage, fire or ramp until it ends
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 100.0, 1f, 0xFF3A20);
+			return;
+		}
 		float held = res(p, "beam_held") + 1;
 		set(p, "beam_held", Math.min(held, 2000));
 		ensureLoop(p, ANIM_BEAM);
@@ -503,6 +508,11 @@ public final class LaserVisionHandlers {
 		}
 		int left = (int) res(p, "max_ticks");
 		if (left <= 0) {
+			return;
+		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- the timer pauses, no damage or burning until it ends
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 100.0, 1.6f, 0xFF2A10);
 			return;
 		}
 		set(p, "max_ticks", left - 1);

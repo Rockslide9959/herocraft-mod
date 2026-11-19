@@ -452,7 +452,8 @@ public final class WayBigKit extends AlienKit {
 
 	@Override
 	public void holdEnd(ServerPlayer p, AbilitySlot slot, int heldTicks) {
-		if (slot == AbilitySlot.SLOT_2 && RAY_END.containsKey(p.getUUID())) {
+		// v0.17.5: letting go mid-clash does not end the ray (its end blast would hit during the clash)
+		if (slot == AbilitySlot.SLOT_2 && RAY_END.containsKey(p.getUUID()) && !com.projecthero.mod.beamclash.BeamClash.locked(p)) {
 			endRay(p);
 		}
 	}
@@ -602,6 +603,10 @@ public final class WayBigKit extends AlienKit {
 		dir = dir.scale(1 / len);
 		double r = RAY_RADIUS * Math.max(0.5, reachScale(p));
 		com.projecthero.mod.beamclash.BeamClash.report(p, from, dir, len, 3f, 0x7CE0FF); // v0.17.3
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			RAY_END.computeIfPresent(p.getUUID(), (k, v) -> v + 1); // v0.17.5: locked in a clash -- no damage or timer
+			return;
+		}
 		// the beam itself is drawn by the client every frame (WayBigClient.renderWorld), following his look
 		OmnitrixSounds.play(l, from, SND_RAY_HUM, 2.0f, 1.0f);
 		if (now % RAY_EVERY == 0) {

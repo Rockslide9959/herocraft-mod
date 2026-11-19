@@ -378,6 +378,11 @@ public final class KryptonianAbilities {
 			stopHeatVision(p);
 			return;
 		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- the clash owns the beam: no Solar Energy, damage or fire until it ends
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), KryptonianConfig.HEAT_RANGE, 1.3f, 0xFF3020);
+			return;
+		}
 		// v0.14.16: 1 a second, paid half a point every 10 ticks from the moment it opens
 		if (age % 10 == 0 && !Kryptonian.spendSolar(p, KryptonianConfig.HEAT_COST_PER_SECOND * 0.5f)) {
 			stopHeatVision(p);

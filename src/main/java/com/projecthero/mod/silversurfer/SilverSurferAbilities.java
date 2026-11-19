@@ -300,6 +300,14 @@ public final class SilverSurferAbilities {
 		if (held < SilverSurferConfig.BEAM_HOLD_TICKS) {
 			return;
 		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			SilverSurferState n = s.copy();
+			n.beamStart = s.beamStart + 1;
+			SilverSurfer.save(p, n);
+			com.projecthero.mod.beamclash.BeamClash.report(p, hand(p), p.getLookAngle(), SilverSurferConfig.BEAM_RANGE, 1.3f, 0xB8E4FF);
+			return;
+		}
 		if (held > SilverSurferConfig.BEAM_HOLD_TICKS + SilverSurferConfig.BEAM_MAX_TICKS
 				|| (now % 5 == 0 && !SilverSurfer.spendCosmic(p, SilverSurferConfig.BEAM_COST_PER_SECOND / 4f))) {
 			releaseBlast(p);

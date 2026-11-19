@@ -683,6 +683,14 @@ public final class UpgradeKit extends AlienKit {
 			return;
 		}
 		long stop = timer(p, "beam_stop");
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (a booked tap stop slides forward a tick)
+			if (stop > 0) {
+				setTimer(p, "beam_stop", stop + 1);
+			}
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 1.2f, 0x7CFF6A);
+			return;
+		}
 		if (stop > 0 && now >= stop) {
 			endBeam(p, true);
 			return;

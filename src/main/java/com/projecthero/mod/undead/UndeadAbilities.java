@@ -643,6 +643,14 @@ public final class UndeadAbilities {
 	}
 
 	private static void tickDeadRoad(ServerPlayer p, UndeadState s, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			UndeadState n = s.copy();
+			n.holdStart = s.holdStart + 1;
+			Undead.save(p, n);
+			com.projecthero.mod.beamclash.BeamClash.report(p, handOrigin(p), p.getLookAngle(), UndeadConfig.DEAD_ROAD_RANGE, 2.0f, 0xE01020);
+			return;
+		}
 		long age = now - s.holdStart;
 		if (age > UndeadConfig.DEAD_ROAD_TICKS || Undead.mainArmMissing(p) || !Undead.victor(p)) {
 			flag(p, UndeadState.FLAG_DEAD_ROAD, false);

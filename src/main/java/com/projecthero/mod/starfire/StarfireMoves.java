@@ -458,6 +458,12 @@ public final class StarfireMoves {
 		if (!Starfire.beaming(p)) {
 			return;
 		}
+		if (BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			r.beamStart++;
+			BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), StarfireConfig.BEAM_RANGE, 1.2f, Starfire.GREEN);
+			return;
+		}
 		StarfireState s = Starfire.state(p);
 		if (!p.getAbilities().instabuild) {
 			s.starbolt = Math.max(0f, s.starbolt - StarfireConfig.BEAM_COST_PER_SECOND / 20f);
