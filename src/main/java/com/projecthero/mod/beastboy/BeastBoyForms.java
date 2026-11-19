@@ -48,6 +48,16 @@ public final class BeastBoyForms {
 		return f == BeastForm.DOLPHIN || f == BeastForm.SHARK || f == BeastForm.OCTOPUS || f == BeastForm.WHALE;
 	}
 
+	/**
+	 * v0.17.5 (user: "In fish mode make it so that beast boy can see better underwater and also break blocks normally"): a sea
+	 * animal's body (any {@link #aquatic} form) sees clearly underwater (the client pushes the water fog out, see
+	 * {@code FogRendererMixin} / {@code BeastBoyWaterVisionMixin}) and mines underwater at dry-ground speed (the submerged x0.2 is
+	 * lifted by the attribute in {@code BeastBoy.reconcile}, the x5 "not on the ground" by {@code PlayerMixin}). Client-safe.
+	 */
+	public static boolean waterBody(net.minecraft.world.entity.player.Player player) {
+		return aquatic(BeastBoy.form(player));
+	}
+
 	/** Mobs ignore it (and it fits through 1-block gaps). */
 	public static boolean tiny(BeastForm f) {
 		return f == BeastForm.MOUSE || f == BeastForm.FLY;

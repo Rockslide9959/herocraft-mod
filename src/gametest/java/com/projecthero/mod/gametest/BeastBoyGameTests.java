@@ -349,6 +349,29 @@ public class BeastBoyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.5 (user): the sea animals mine underwater at dry-ground speed -- the submerged x0.2 goes to x1.0, only in a sea form. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void seaFormsMineUnderwater(GameTestHelper helper) {
+		ServerPlayer p = bb(helper);
+		double base = p.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED);
+		helper.assertTrue(base < 0.5, "human form: vanilla's submerged slowdown");
+		helper.assertTrue(!BeastBoyForms.waterBody(p), "human form is no sea animal");
+		for (BeastForm f : new BeastForm[] { BeastForm.SHARK, BeastForm.DOLPHIN, BeastForm.OCTOPUS, BeastForm.WHALE }) {
+			BeastBoy.setForm(p, f);
+			helper.assertTrue(BeastBoyForms.waterBody(p), f + " is a sea animal");
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED) - 1.0) < 1.0e-6, f + ": mines underwater at full speed");
+		}
+		BeastBoy.setForm(p, BeastForm.WOLF);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED) - base) < 1.0e-6, "a land animal: the slowdown is back");
+		BeastBoy.setForm(p, BeastForm.SHARK);
+		BeastBoy.setForm(p, BeastForm.HUMAN);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED) - base) < 1.0e-6, "human again: the slowdown is back");
+		BeastBoy.setForm(p, BeastForm.SHARK);
+		BeastBoy.revoke(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED) - base) < 1.0e-6, "the power taken away: removed too");
+		helper.succeed();
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void contextAndFlyMorphs(GameTestHelper helper) {
 		ServerPlayer p = bb(helper);

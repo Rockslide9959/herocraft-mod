@@ -270,3 +270,18 @@ Films: `docs/screenshots/v0174/starfire/`.
   over it, the fin / back shows; he can't look his way out of it, no bobbing), and a near-level look (under ~12 degrees down) keeps
   cruising there: look further down or Sneak to dive; Space there leaps (12-tick cooldown); swimming into a ledge near the surface climbs out; server shoves (knockback, a
   move's lunge) are adopted and eased out of.
+
+## Beast Boy sea-form sight and mining (v0.17.5)
+
+User: "In fish mode make it so that beast boy can see better underwater and also break blocks normally please". "Fish mode" = every
+sea form (`BeastBoyForms.aquatic`: dolphin, shark, octopus, whale); the helper is `BeastBoyForms.waterBody(player)` (client-safe).
+
+- **Sight:** with the camera in water, `FogRendererMixin#projecthero$raidFog` pushes the water fog out exactly like Water Manipulation
+  (end = max(96, 0.9 x render distance), start at 35%), and `BeastBoyWaterVisionMixin` (client, `LocalPlayer#getWaterVision`) returns
+  1.0 at once (Conduit Power style) so the fog colour is brightened from the first tick under. Night Vision was already always on
+  (instincts). Nothing new is added to the player, so no status icon. On land nothing changes.
+- **Mining:** `BeastBoy.reconcile` puts `beast_boy_water_mining` on `SUBMERGED_MINING_SPEED` (base 0.2 + 0.8 = 1.0, Aqua Affinity)
+  in a sea form, removed in any other form or without the power; `PlayerMixin#projecthero$waterMining` (shared with Water
+  Manipulation) lifts the x5 "not on the ground" while in water. No form ever blocked block breaking (only the fly / mouse refuse
+  to attack creatures, and animals can't use items or blocks). On land the sea forms mine normally (they are on the ground).
+- Test: `BeastBoyGameTests.seaFormsMineUnderwater`.

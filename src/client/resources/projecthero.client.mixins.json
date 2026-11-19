@@ -290,6 +290,7 @@
 		"BeastBoyHandsMixin",
 		"BeastBoyHeartsMixin",
 		"BeastBoySwimTravelMixin",
+		"BeastBoyWaterVisionMixin",
 		"BeastBoyOcelotMixin",
 		"BeastBoyPolarBearAccessor",
 		"BeastBoyIronGolemAccessor",

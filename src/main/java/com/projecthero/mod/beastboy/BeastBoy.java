@@ -56,6 +56,8 @@ public final class BeastBoy {
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("beast_boy_attack");
 	private static final ResourceLocation STEP_ID = PowerToggles.id("beast_boy_step");
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("beast_boy_safe_fall");
+	/** v0.17.5: the sea animals mine underwater at full speed (submerged x0.2 -> x1.0). */
+	static final ResourceLocation WATER_MINING_ID = PowerToggles.id("beast_boy_water_mining");
 
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
@@ -669,6 +671,7 @@ public final class BeastBoy {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID);
 			PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
+			PowerToggles.clearModifier(player, Attributes.SUBMERGED_MINING_SPEED, WATER_MINING_ID);
 			return;
 		}
 		BeastForm f = BeastForm.byId(s.form);
@@ -691,6 +694,14 @@ public final class BeastBoy {
 			PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, 0.5, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
+		}
+		// v0.17.5 (user): the sea animals break blocks underwater as if on dry land -- base 0.2 + 0.8 = 1.0 (the x5 "not on the
+		// ground" is lifted by PlayerMixin#projecthero$waterMining)
+		if (BeastBoyForms.aquatic(f)) {
+			PowerToggles.modifier(player, Attributes.SUBMERGED_MINING_SPEED, WATER_MINING_ID,
+					1.0 - player.getAttributeBaseValue(Attributes.SUBMERGED_MINING_SPEED), AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.SUBMERGED_MINING_SPEED, WATER_MINING_ID);
 		}
 		if (f == BeastForm.CHEETAH || f == BeastForm.WOLF || f == BeastForm.BEAST || f == BeastForm.TIGER) {
 			PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 6.0, AttributeModifier.Operation.ADD_VALUE); // cats land on their feet
