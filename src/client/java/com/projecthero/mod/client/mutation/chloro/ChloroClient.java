@@ -154,6 +154,8 @@ public final class ChloroClient {
 		float t = ctx.ageInTicks() + ctx.partialTick();
 		pose.pushPose();
 		ctx.model().body.translateAndRotate(pose);
+		// v0.17.5: over a backpack the canopy spreads from the bag's outer face (its leaves root at z 3.5)
+		pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(ctx.player(), 3.0f) / 16f);
 		PoseStack.Pose last = pose.last();
 		// body space: y down from the neck, +z is the back
 		for (int s = -1; s <= 1; s += 2) {

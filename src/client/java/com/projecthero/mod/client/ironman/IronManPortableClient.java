@@ -357,7 +357,10 @@ public final class IronManPortableClient {
 			PlayerModel<AbstractClientPlayer> model = getParentModel();
 			if (player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_PACK_TANKS, false)
 					&& BackpackProp.wearsMk8Chest(player)) {
-				BackpackProp.renderWornTanks(pose, buffers, light, model);
+				// v0.17.5: a worn backpack goes over the flush O2 tanks (their bottoms would poke out under it), so they are not drawn
+				if (com.projecthero.mod.client.backpack.BackpackLayer.worn(player) == null) {
+					BackpackProp.renderWornTanks(pose, buffers, light, model);
+				}
 				return;
 			}
 			String carried = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BACK_PACK, "");

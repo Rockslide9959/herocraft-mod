@@ -33,7 +33,9 @@ public class CarapaceLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		}
 		if (cover > 0.6f && !CarapaceSequenceClient.renderShield(pose, buffers, light, getParentModel(), player, partialTick, slim)) {
 			// (v0.17.1: the long transformation forms, spins and raises it on its own beats)
-			CarapaceRender.renderShield(pose, buffers, light, getParentModel(), CarapaceClient.shieldAt(player, partialTick), slim);
+			// v0.17.5: on the back it hangs over a worn backpack (the disc's rim starts at z 2.6)
+			CarapaceRender.renderShield(pose, buffers, light, getParentModel(), CarapaceClient.shieldAt(player, partialTick), slim,
+					com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.6f));
 		}
 	}
 }

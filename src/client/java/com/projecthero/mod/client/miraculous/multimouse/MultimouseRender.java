@@ -314,6 +314,12 @@ public final class MultimouseRender {
 	 * The ears, the rope belt and the tail on {@code m} (already posed). {@code swing} 0..1 is how fast she is moving
 	 * (limbSwingAmount): the tail flares back with it so it clears her legs.
 	 */
+	/**
+	 * v0.17.5: set by {@code MultimouseLayer} while the wearer has a backpack on, so the tail leaves from just under the bag rather
+	 * than out of it. Render thread only; reset after each draw.
+	 */
+	public static boolean underBag;
+
 	public static void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> m, float cover, float ageInTicks, float swing,
 			float limbSwing) {
 		if (cover < 0.35f) {
@@ -401,7 +407,7 @@ public final class MultimouseRender {
 		// the tail: its own bone at the knot, swaying, flaring back with her speed
 		if (tail > 0f) {
 			pose.pushPose();
-			pose.translate(0f, 8.5f, 2.9f);
+			pose.translate(0f, underBag ? 10.6f : 8.5f, 2.9f);
 			float sway = Mth.sin(ageInTicks * 0.09f) * 0.07f + Mth.sin(limbSwing * 0.6662f) * 0.12f * swing;
 			pose.mulPose(Axis.XP.rotation(0.12f + 0.75f * Mth.clamp(swing, 0f, 1f)));
 			pose.mulPose(Axis.ZP.rotation(sway + kick));

@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import com.projecthero.mod.client.FlightPoseHelper;
+import com.projecthero.mod.client.backpack.BackpackLayer;
 import com.projecthero.mod.client.moonknight.MoonKnightCapeLayer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -44,6 +45,10 @@ import net.minecraft.world.phys.Vec3;
  * at full speed it lies along the legs, rippling. The flight value is eased per player so a velocity step never snaps
  * it. Crouching also shifts the anchor the way vanilla shifts its own cloak part (the body leans forward), so the
  * cape stays on the back instead of sinking into it.
+ *
+ * <p>v0.17.5: over a worn backpack the cape hangs from the bag's top outer edge instead ({@link BackpackLayer#hangCapeFromBag}),
+ * in the body's frame, its swing never below {@link BackpackLayer#CAPE_MIN_SWING} so it never cuts back into the bag, and the
+ * collar runs from the shoulders over the bag's lid and handle to it.
  *
  * <p>Like every player render layer it is not drawn in first person, so it can never block the view.
  */
@@ -129,11 +134,19 @@ public abstract class FlowingCapeLayer extends RenderLayer<AbstractClientPlayer,
 
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(texture(player)));
 		pose.pushPose();
-		if (player.isCrouching() && !flying) {
-			pose.translate(0.0F, CROUCH_Y, CROUCH_Z);
+		float bagLean = BackpackLayer.hangCapeFromBag(player, getParentModel(), pose);
+		if (!Float.isNaN(bagLean)) {
+			// v0.17.5: hung from the outer edge of a backpack, in the body's frame
+			swing = Math.max(swing - bagLean, BackpackLayer.CAPE_MIN_SWING);
+			side *= 0.6F;
+			drawBagCollar(vc, pose.last(), light, BackpackLayer.capePivotZ(player));
+		} else {
+			if (player.isCrouching() && !flying) {
+				pose.translate(0.0F, CROUCH_Y, CROUCH_Z);
+			}
+			pose.translate(0.0F, -0.035F, backOffset()); // over the shoulders, behind the back
+			drawCollar(vc, pose.last(), light);
 		}
-		pose.translate(0.0F, -0.035F, backOffset()); // over the shoulders, behind the back
-		drawCollar(vc, pose.last(), light);
 		pose.mulPose(Axis.XP.rotationDegrees(swing));
 		pose.mulPose(Axis.ZP.rotationDegrees(side / 2.0F));
 		pose.mulPose(Axis.YP.rotationDegrees(-side / 2.0F));
@@ -157,6 +170,29 @@ public abstract class FlowingCapeLayer extends RenderLayer<AbstractClientPlayer,
 			float u0 = (float) i / (n - 1) * 0.5F;
 			float u1 = (float) (i + 1) / (n - 1) * 0.5F;
 			MoonKnightCapeLayer.quad(vc, pose, light, f0, f1, b1, b0, u0, 0.0F, u1, 0.03F);
+		}
+	}
+
+	/**
+	 * v0.17.5: the collar over a backpack: from the tops of the shoulders (body z 0) up and back to above the bag's carry handle,
+	 * then flat over the lid to the cape's top edge at the bag's outer face ({@code pivotZ} px out of the back).
+	 */
+	public static void drawBagCollar(VertexConsumer vc, PoseStack.Pose pose, int light, float pivotZ) {
+		Vec3[] back = MoonKnightCapeLayer.section(0.0, 0.0, 0.0);
+		int n = back.length;
+		double frontZ = -pivotZ / 16.0;
+		double midZ = -(pivotZ - 3.2) / 16.0;
+		for (int i = 0; i < n - 1; i++) {
+			Vec3 b0 = back[i];
+			Vec3 b1 = back[i + 1];
+			Vec3 f0 = new Vec3(b0.x * 0.6, 1.55 / 16.0, frontZ);
+			Vec3 f1 = new Vec3(b1.x * 0.6, 1.55 / 16.0, frontZ);
+			Vec3 m0 = new Vec3(b0.x * 0.8, -0.002, midZ);
+			Vec3 m1 = new Vec3(b1.x * 0.8, -0.002, midZ);
+			float u0 = (float) i / (n - 1) * 0.5F;
+			float u1 = (float) (i + 1) / (n - 1) * 0.5F;
+			MoonKnightCapeLayer.quad(vc, pose, light, f0, f1, m1, m0, u0, 0.0F, u1, 0.015F);
+			MoonKnightCapeLayer.quad(vc, pose, light, m0, m1, b1, b0, u0, 0.015F, u1, 0.03F);
 		}
 	}
 

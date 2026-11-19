@@ -42,6 +42,7 @@
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"BackpackCapeMixin",
+		"BackpackElytraMixin",
 		"GyroCoatCapeMixin",
 		"OmnitrixItemInHandMixin",
 		"OmnitrixAlienTranslucentMixin",

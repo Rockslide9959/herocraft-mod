@@ -456,9 +456,11 @@ public final class PyrokinesisClient {
 		// model space: y down, the back is +z, the player's left is +x
 		float lift = dive ? 0.18f + 0.04f * Mth.sin(t * 2.2f) : 0.3f + 0.6f * Mth.sin(t * 0.75f);
 		float sweep = dive ? 1.05f : 0.3f;
+		// v0.17.5: over a backpack the wings root on the bag's outer face (the tail, below the bag, stays)
+		float out = com.projecthero.mod.client.backpack.BackpackLayer.backClearance(ctx.player(), 2.0f) / 16f;
 		for (int s = -1; s <= 1; s += 2) {
 			pose.pushPose();
-			pose.translate(s * 0.1f, 0.16f, 0.16f);
+			pose.translate(s * 0.1f, 0.16f, 0.16f + out);
 			pose.mulPose(new Quaternionf().rotationY(-s * sweep));
 			pose.mulPose(new Quaternionf().rotationZ(-s * lift));
 			wing(pose, add, fire, glow, s, t);

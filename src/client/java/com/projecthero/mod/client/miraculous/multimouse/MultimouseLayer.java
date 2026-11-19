@@ -42,11 +42,16 @@ public class MultimouseLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		}
 		float swing = Mth.clamp(limbSwingAmount, 0f, 1f);
 		float[] seq = MultimouseSequenceClient.extras(player, partialTick);
-		if (seq != null) {
-			// the ears pop on their beat, the rope is off her belt while she skips it, the tail flicks out as it winds back
-			MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), ageInTicks, swing, limbSwing, 1f, seq[0], seq[1] > 0f, seq[2], seq[3]);
-		} else {
-			MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), cover, ageInTicks, swing, limbSwing);
+		MultimouseRender.underBag = com.projecthero.mod.client.backpack.BackpackLayer.worn(player) != null; // v0.17.5
+		try {
+			if (seq != null) {
+				// the ears pop on their beat, the rope is off her belt while she skips it, the tail flicks out as it winds back
+				MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), ageInTicks, swing, limbSwing, 1f, seq[0], seq[1] > 0f, seq[2], seq[3]);
+			} else {
+				MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), cover, ageInTicks, swing, limbSwing);
+			}
+		} finally {
+			MultimouseRender.underBag = false;
 		}
 	}
 }

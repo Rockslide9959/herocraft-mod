@@ -62,7 +62,8 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		if (hooded) {
 			pose.pushPose();
 			m.head.translateAndRotate(pose);
-			hood(pose, buffers, 0xFF0E0810, light);
+			// v0.17.5: over a worn backpack the hood's back stops above the bag's lid and handle
+			hood(pose, buffers, 0xFF0E0810, light, com.projecthero.mod.client.backpack.BackpackLayer.worn(player) != null ? -1.9f : 0.6f);
 			pose.popPose();
 		}
 		if (!raven) {
@@ -127,10 +128,10 @@ public class RavenAuraLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 	 * The hood, in head space (pixels): a shell round the head, open at the face, with a peak at the back. Front band over the brow and
 	 * the two sides framing the face. Only Trigon's Wrath draws it now.
 	 */
-	private static void hood(PoseStack pose, MultiBufferSource buffers, int argb, int light) {
+	private static void hood(PoseStack pose, MultiBufferSource buffers, int argb, int light, float bottom) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(RavenDraw.WHITE));
 		PoseStack.Pose last = pose.last();
-		float o = 4.7f, top = -9.0f, bottom = 0.6f;
+		float o = 4.7f, top = -9.0f;
 		int inner = RavenDraw.lerpColour(argb, 0xFF000000, 0.55f);
 		// top, back, the two sides
 		box(vc, last, light, argb, new Vec3(-o, top, -o), new Vec3(o, top, -o), new Vec3(o, top, o), new Vec3(-o, top, o)); // top

@@ -147,15 +147,25 @@ public class GyroCapeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 			return;
 		}
 		pose.pushPose();
-		pose.translate(0.0F, 0.0F, 0.125F + 0.01F); // vanilla's offset, a hair further out over the suit's base layer
 		float[] cloak = MoonKnightCapeLayer.cloakSwing(player, partialTick);
-		pose.mulPose(Axis.XP.rotationDegrees(cloak[0]));
-		pose.mulPose(Axis.ZP.rotationDegrees(cloak[1] / 2.0F));
-		pose.mulPose(Axis.YP.rotationDegrees(180.0F - cloak[1] / 2.0F));
+		float swing = cloak[0];
+		float side = cloak[1];
+		// v0.17.5: over a backpack it hangs from the bag's top outer edge, in the body's frame, never swinging back into it
+		float bagLean = com.projecthero.mod.client.backpack.BackpackLayer.hangCapeFromBag(player, model, pose);
+		boolean onBag = !Float.isNaN(bagLean);
+		if (onBag) {
+			swing = Math.max(swing - bagLean, com.projecthero.mod.client.backpack.BackpackLayer.CAPE_MIN_SWING);
+			side *= 0.6F;
+		} else {
+			pose.translate(0.0F, 0.0F, 0.125F + 0.01F); // vanilla's offset, a hair further out over the suit's base layer
+		}
+		pose.mulPose(Axis.XP.rotationDegrees(swing));
+		pose.mulPose(Axis.ZP.rotationDegrees(side / 2.0F));
+		pose.mulPose(Axis.YP.rotationDegrees(180.0F - side / 2.0F));
 		// where vanilla's cloak part sits over a chestplate (PlayerModel.setupAnim; the coat is one)
 		boolean crouch = player.isCrouching();
-		cape.y = crouch ? 0.8F : -0.85F;
-		cape.z = crouch ? 0.3F : -1.1F;
+		cape.y = onBag ? 0.0F : crouch ? 0.8F : -0.85F;
+		cape.z = onBag ? 0.0F : crouch ? 0.3F : -1.1F;
 		poseTails(cloak[0], ageInTicks);
 		cape.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 		pose.popPose();

@@ -63,6 +63,8 @@ public class LadybugLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		if (anim.cover() > 0.8f && !LadybugWorld.yoyoOut(player)) {
 			pose.pushPose();
 			parent.body.translateAndRotate(pose);
+			// v0.17.5: over a worn backpack it hangs on the bag's outer face (the spool is about 2 px either side of z 3.4)
+			pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 1.4f) / 16f);
 			pose.translate(-0.12f, 0.58f, 0.215f); // the right side of her back, where she keeps it in the show (-x is her right; the spool is centred on this point, body half-width 0.25)
 			pose.mulPose(com.mojang.math.Axis.YP.rotation((float) (-Math.PI / 2)));
 			LadybugGeometry.yoyo(pose, buffers, light, 0f, 0f, 0.8f);
