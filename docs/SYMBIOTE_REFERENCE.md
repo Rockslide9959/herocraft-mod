@@ -826,3 +826,20 @@ it in; a weapon swap (and Normal's Barrage) is refused while another weapon's Z 
 Biomass, entry 15 for 20 s, nothing else touched, no second pair), fly 6 s then glide, dissolve on landing and are gone 12 ticks later, still
 cooling; under 10 Biomass / cooling down refused; the suit coming off dissolves them. `SymbioteMovesetV2GameTests`: the V cycle and the cooldown
 list size (16) updated.
+
+### Filming pass (fixes found on screen)
+
+- **Crash fix** (`454ee663f`): the weapon and wing renderers held two `VertexConsumer`s from one `MultiBufferSource`; writing to the first after
+  fetching the second ended its batch ("Not building!", the client crashed the moment a weapon was drawn). Each render type's buffer is now
+  fetched right before writing; the plates draw their body cells and edge band in two passes.
+- **Weapon size**: at 1x the weapons read as a small claw on the 2.7-block host. Third person now draws them 1.5x about the fist (the Mace
+  1.25x so its ball clears the ground); first person keeps 0.85x. To fit: the Blade's circle is 0.5 (centre 0.43 down / 0.42 ahead), the Axe
+  sits 0.17 higher, the Mace's cord is shorter (ball 1.06 down), and the Whip's rest tail hangs as a loop from the fist (a straight 1.55 tail
+  went through the ground); the Lash still reaches its 7 blocks (divided by the draw scale).
+- **Lash yank**: 0.32 lift threw an iron golem about 3 blocks up; now 0.22 lift, 0.19 x the distance horizontally.
+
+Shots: `docs/screenshots/v0175/symbiote_weapons_wings/` -- `weapon_<blade|axe|mace|whip>_<classic|carnage|blue_white>_<1_front|2_right|3_back|4_left|5_first_person>`,
+`arms_<wide|slim>_<classic|carnage>_*` + `wide_vs_slim_*` (side by side, wide left), `arms_slim_weapon_blade_*`, `cycle_*`, `z_*`, `wings_<behind|side>_*`,
+`wings_backpack_*`; films `symbiote_weapon_cycle_growth_melt`, `symbiote_weapon_z_<blade_slash|cleave|ground_smash|lash>` (half speed),
+`symbiote_wings_flight_<behind|side>` (`.mp4` + `_sheet.png`). Harness `scratchpad/SymWWHarness.v0175.java.txt` (+ `SymWWHarnessMixin` camera,
+`SymWWHarnessSkinMixin` forced slim / wide skin), films via `scratchpad/symbiote/films_weapons_wings_v0175.js <harness out dir>`.

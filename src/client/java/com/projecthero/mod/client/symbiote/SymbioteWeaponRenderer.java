@@ -95,24 +95,40 @@ public final class SymbioteWeaponRenderer {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		long now = owner.level().getGameTime();
 		float a = age(v, now, partial);
-		Ctx c = new Ctx(pose, buffers, light, owner, rightArm, slim, now + partial, v);
-		if (firstPerson) {
-			pose.pushPose();
-			pose.translate(c.xc, 0.45, 0);
-			pose.scale(0.85f, 0.85f, 0.85f);
-			pose.translate(-c.xc, -0.45, 0);
-			c = new Ctx(pose, buffers, light, owner, rightArm, slim, now + partial, v);
-		}
 		SymbioteWeapon old = melting(v, now, partial);
 		if (old != null) {
-			c.render(old, 1f - Mth.clamp(a / GROW_TICKS, 0f, 1f));
+			drawOne(pose, buffers, light, owner, rightArm, slim, firstPerson, now + partial, v, old, 1f - Mth.clamp(a / GROW_TICKS, 0f, 1f));
 		}
 		if (v.bladeActive) {
-			c.render(SymbioteWeapon.byOrdinal(v.weapon), Mth.clamp(a / GROW_TICKS, 0f, 1f));
+			drawOne(pose, buffers, light, owner, rightArm, slim, firstPerson, now + partial, v, SymbioteWeapon.byOrdinal(v.weapon),
+					Mth.clamp(a / GROW_TICKS, 0f, 1f));
 		}
+	}
+
+	/**
+	 * Third-person size of each weapon, scaled about the fist (filming pass: at 1x they read as a small claw on the 2.7-block suited
+	 * host). The Mace stays smaller so its hanging ball clears the ground. First person keeps the 0.85x it was framed at.
+	 */
+	static float scaleOf(SymbioteWeapon w, boolean firstPerson) {
 		if (firstPerson) {
-			pose.popPose();
+			return 0.85f;
 		}
+		return w == SymbioteWeapon.MACE ? 1.25f : 1.5f;
+	}
+
+	private static void drawOne(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim,
+			boolean firstPerson, float time, SymbioteVitals v, SymbioteWeapon w, float grow) {
+		float s = scaleOf(w, firstPerson);
+		double xc = (rightArm ? -1.0 : 1.0) * (slim ? 0.5 : 1.0) / 16.0;
+		double pivotY = firstPerson ? 0.45 : 0.55;
+		pose.pushPose();
+		pose.translate(xc, pivotY, 0);
+		pose.scale(s, s, s);
+		pose.translate(-xc, -pivotY, 0);
+		Ctx c = new Ctx(pose, buffers, light, owner, rightArm, slim, time, v);
+		c.wscale = s;
+		c.render(w, grow);
+		pose.popPose();
 	}
 
 	// ------------------------------------------------------------------ the meshes
@@ -131,6 +147,8 @@ public final class SymbioteWeaponRenderer {
 		final float time;
 		final Player owner;
 		final SymbioteVitals vitals;
+		/** The pose scale this weapon is drawn at (the Lash reaches its real 7 blocks whatever it is). */
+		float wscale = 1f;
 
 		Ctx(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim, float time, SymbioteVitals v) {
 			this.pose = pose.last();
@@ -325,7 +343,7 @@ public final class SymbioteWeaponRenderer {
 
 		void blade(float grow) {
 			double bx = xc + side * 0.035;
-			double cy = 0.50, cz = -0.45, R = 0.56;
+			double cy = 0.43, cz = -0.42, R = 0.5;
 			double th0 = Math.toRadians(102), th1 = Math.toRadians(-74);
 			double sMax = grow * 1.06;
 			Surface sf = new Surface() {
@@ -394,12 +412,12 @@ public final class SymbioteWeaponRenderer {
 			float[] hr = new float[hc];
 			for (int i = 0; i < hc; i++) {
 				double t = (double) i / (hn - 1);
-				haft[i] = p(x0, 0.46 + t * 0.66, 0.012 * Math.sin(t * 6));
+				haft[i] = p(x0, 0.42 + t * 0.53, 0.012 * Math.sin(t * 6));
 				hr[i] = (float) (0.074 - 0.014 * t + 0.008 * Math.sin(t * 13));
 			}
 			tube(haft, hr, 7, false);
 			if (haftLen >= 1f) {
-				tube(new Vec3[]{p(x0, 1.11, 0), p(x0, 1.16, 0), p(x0, 1.2, 0)}, new float[]{0.07f, 0.075f, 0.01f}, 7, false);
+				tube(new Vec3[]{p(x0, 0.94, 0), p(x0, 0.99, 0), p(x0, 1.03, 0)}, new float[]{0.07f, 0.075f, 0.01f}, 7, false);
 			}
 			// helix strands round the haft
 			for (int k = 0; k < 2; k++) {
@@ -409,7 +427,7 @@ public final class SymbioteWeaponRenderer {
 				for (int i = 0; i < count; i++) {
 					double t = (double) i / (n - 1);
 					double ang = k * Math.PI + t * 9;
-					pts[i] = p(x0 + Math.cos(ang) * 0.078, 0.5 + t * 0.6, Math.sin(ang) * 0.078);
+					pts[i] = p(x0 + Math.cos(ang) * 0.078, 0.46 + t * 0.47, Math.sin(ang) * 0.078);
 				}
 				strand(pts, 0.018f, 0.014f);
 			}
@@ -423,8 +441,8 @@ public final class SymbioteWeaponRenderer {
 				@Override
 				public Vec3 at(double s, double u) {
 					double uu = u * headGrow;
-					double top = 0.79 - 0.25 * Math.pow(uu, 1.5);
-					double bottom = 1.03 + 0.31 * Math.pow(uu, 1.5);
+					double top = 0.62 - 0.25 * Math.pow(uu, 1.5);
+					double bottom = 0.86 + 0.31 * Math.pow(uu, 1.5);
 					double y = top + s * (bottom - top);
 					double z = -(0.065 + uu * 0.56) - 0.07 * Math.sin(Math.PI * s) * uu * uu;
 					return new Vec3(x0, y, z);
@@ -468,8 +486,8 @@ public final class SymbioteWeaponRenderer {
 			// the spine spike behind the haft, and a smaller one under it
 			if (headGrow > 0.4) {
 				double g = (headGrow - 0.4) / 0.6;
-				spike(p(x0, 0.86, 0.05), new Vec3(0, -0.12, 1), 0.42 * g, 0.068f, true);
-				spike(p(x0, 1.0, 0.05), new Vec3(0, 0.25, 1), 0.22 * g, 0.045f, true);
+				spike(p(x0, 0.69, 0.05), new Vec3(0, -0.12, 1), 0.42 * g, 0.068f, true);
+				spike(p(x0, 0.83, 0.05), new Vec3(0, 0.25, 1), 0.22 * g, 0.045f, true);
 			}
 			weave(grow, sf.at(0.5, 1.0));
 		}
@@ -485,7 +503,7 @@ public final class SymbioteWeaponRenderer {
 			float[] radii = new float[count];
 			for (int i = 0; i < count; i++) {
 				double t = (double) i / (n - 1);
-				pts[i] = p(x0 + 0.015 * Math.sin(t * 5 + time * 0.08), 0.46 + t * 0.6, -0.04 * t * t);
+				pts[i] = p(x0 + 0.015 * Math.sin(t * 5 + time * 0.08), 0.46 + t * 0.4, -0.04 * t * t);
 				radii[i] = (float) (0.085 - 0.02 * t + 0.01 * Math.sin(t * 11));
 			}
 			tube(pts, radii, 7, false);
@@ -495,7 +513,7 @@ public final class SymbioteWeaponRenderer {
 				for (int i = 0; i < s.length; i++) {
 					double t = (double) i / 9;
 					double ang = k * 2.094 + t * 8;
-					s[i] = p(x0 + Math.cos(ang) * 0.085, 0.5 + t * 0.55, -0.04 * t * t + Math.sin(ang) * 0.085);
+					s[i] = p(x0 + Math.cos(ang) * 0.085, 0.5 + t * 0.36, -0.04 * t * t + Math.sin(ang) * 0.085);
 				}
 				strand(s, 0.02f, 0.014f);
 			}
@@ -504,7 +522,7 @@ public final class SymbioteWeaponRenderer {
 				weave(grow, pts[count - 1]);
 				return;
 			}
-			Vec3 c = p(x0, 1.27, -0.05);
+			Vec3 c = p(x0, 1.06, -0.05);
 			double R = 0.23 * (0.25 + 0.75 * ballGrow);
 			int rings = 10, segs = 14;
 			Vec3[][] sph = new Vec3[rings + 1][segs + 1];
@@ -568,18 +586,20 @@ public final class SymbioteWeaponRenderer {
 			int n = 30;
 			Vec3[] pts = new Vec3[n];
 			float[] radii = new float[n];
-			double restLen = 1.55 * tailGrow;
+			double restLen = 1.0 * tailGrow;
 			double scale = Math.max(1.0, owner.getScale());
-			double fullLen = SymbioteWeaponMoves.LASH_RANGE * scale / Math.max(0.01, owner.getScale());
+			double fullLen = SymbioteWeaponMoves.LASH_RANGE * scale / Math.max(0.01, owner.getScale()) / wscale;
 			for (int i = 0; i < n; i++) {
 				double s = (double) i / (n - 1);
 				Vec3 q;
 				if (lashT >= 0 && lashT < 14) {
 					q = lashPoint(root, s, lashT, restLen, fullLen);
 				} else {
-					double sway = Math.sin(time * 0.09 + s * 3) * 0.12 * s;
-					double sway2 = Math.cos(time * 0.07 + s * 2.4) * 0.08 * s;
-					q = root.add(sway2 * side, s * restLen, 0.1 * Math.sin(s * 5.5) * s + sway);
+					// a loop: down from the fist, round, and back up in front of the forearm, swaying
+					double sway = Math.sin(time * 0.09 + s * 3) * 0.08 * s;
+					double sway2 = Math.cos(time * 0.07 + s * 2.4) * 0.06 * s;
+					double ang = s * Math.PI * 1.15;
+					q = root.add(sway2 * side - 0.05 * side * Math.sin(ang), 0.36 * restLen * Math.sin(ang), -0.42 * restLen * (1 - Math.cos(ang)) * 0.5 + sway);
 				}
 				pts[i] = q;
 				radii[i] = (float) (0.048 * (1.0 - 0.75 * s) + 0.006);

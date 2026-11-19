@@ -1,0 +1,533 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteColours;
+import com.projecthero.mod.symbiote.SymbioteState;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteVitals;
+import com.projecthero.mod.symbiote.SymbioteVitalsManager;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote weapons + wings + slim arms): a suited Normal host on a flat arena. Phases (flag line 2,
+ * comma separated): stills (each weapon from 4 sides + first person in 3 colours), slim (wide vs slim front / back / first person in 2
+ * colours + a weapon on a slim arm), cycle (the V cycle filmed), z (each weapon's Z filmed), wings (grow / fly / glide / dissolve from
+ * behind and the side, + a backpack). Enabled by run/symww.flag = "<out dir>\n<phases>". Kept as scratchpad/SymWWHarness.v0175.java.txt.
+ */
+public final class SymWWHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static String phases = "stills,slim,cycle,z,wings";
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static final List<Integer> SPAWNED = new ArrayList<>();
+	public static volatile Vec3 camOffset;
+	public static volatile double[] camOrbit;
+	public static volatile double camLookY = 1.4;
+	public static volatile Boolean forceSlim = Boolean.FALSE;
+	/** Degrees a tick the flying player turns (keeps the flight inside the loaded chunks). */
+	private static volatile float turn;
+
+	private static void cam(double x, double y, double z, double lookY, int fov) {
+		camOrbit = null;
+		camOffset = new Vec3(x, y, z);
+		camLookY = lookY;
+		Minecraft.getInstance().options.fov().set(fov);
+	}
+
+	private static void orbit(double dist, double height, double angle, double lookY, int fov) {
+		camOffset = null;
+		camOrbit = new double[]{dist, height, angle, lookY};
+		Minecraft.getInstance().options.fov().set(fov);
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symww.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(flag);
+			out = new File(lines.get(0).trim());
+			if (lines.size() > 1 && !lines.get(1).isBlank()) {
+				phases = lines.get(1).trim();
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymWWHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_200_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symww-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean phase(String p) {
+		return ("," + phases + ",").contains("," + p + ",");
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void film(int from, int count, String prefix) {
+		for (int f = 0; f < count; f++) {
+			final int n = f;
+			at(from + f, () -> shot(Minecraft.getInstance(), String.format("film_%s_%04d", prefix, n)));
+		}
+	}
+
+	private static void toggle() {
+		ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+				com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+	}
+
+	/** Key i (0 = R, 1 = G, 2 = X, 3 = Z, 4 = V, 5 = C) down at {@code t}, up at {@code t + held}. */
+	private static void key(int t, int i, int held) {
+		KeyMapping k = ModKeyBindings.ABILITY_SLOTS[i];
+		at(t, () -> k.setDown(true));
+		at(t + held, () -> k.setDown(false));
+	}
+
+	private static void refill(Minecraft mc) {
+		server(mc, p -> {
+			SymbioteVitals v = SymbioteVitalsManager.vitals(p).copy();
+			v.hp = SymbioteVitalsManager.MAX_HP;
+			v.broken = false;
+			p.setAttached(ModAttachments.SYMBIOTE_VITALS, v);
+			SymbioteState s = Symbiote.state(p).copy();
+			for (int i = 0; i < s.abilityCooldowns.size(); i++) {
+				s.abilityCooldowns.set(i, 0L);
+			}
+			p.setAttached(ModAttachments.SYMBIOTE_STATE, s);
+		});
+	}
+
+	/** Server: V until the Form is {@code form}. */
+	private static void form(Minecraft mc, int form) {
+		server(mc, p -> {
+			for (int i = 0; i < 7 && SymbioteVitalsManager.form(p) != form; i++) {
+				SymbioteVitalsManager.cycleForm(p);
+			}
+		});
+	}
+
+	private static void clearTargets(Minecraft mc) {
+		server(mc, p -> {
+			for (int id : SPAWNED) {
+				Entity e = p.serverLevel().getEntity(id);
+				if (e != null) {
+					e.discard();
+				}
+			}
+			SPAWNED.clear();
+		});
+	}
+
+	private static void spawn(Minecraft mc, EntityType<? extends Mob> type, double dx, double dz, double max) {
+		server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Mob m = type.create(level);
+			if (m == null) {
+				return;
+			}
+			m.moveTo(site.getX() + 0.5 + dx, site.getY() + 1, site.getZ() + 0.5 - dz, 0f, 0f);
+			m.setNoAi(true);
+			m.setPersistenceRequired();
+			m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(max);
+			m.setHealth((float) max);
+			m.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 20 * 600, 0, false, false));
+			level.addFreshEntity(m);
+			SPAWNED.add(m.getId());
+		});
+	}
+
+	private static void face(Minecraft mc, float yaw, float pitch, double up) {
+		server(mc, p -> p.connection.teleport(site.getX() + 0.5, site.getY() + 1 + up, site.getZ() + 0.5, yaw, pitch));
+	}
+
+	private static void colours(Minecraft mc, SymbioteColours c) {
+		server(mc, p -> SymbioteSuitColours.set(p, c));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymWWHarness::createWorld);
+			}
+			return;
+		}
+		if (turn != 0f && mc.player != null) {
+			mc.player.setYRot(mc.player.getYRot() + turn);
+			mc.player.setYHeadRot(mc.player.getYRot());
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -16; z <= 12; z++) {
+						for (int yy = -2; yy <= 6; yy++) {
+							BlockState st = yy < 0 ? Blocks.DIRT.defaultBlockState() : yy == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+							level.setBlock(site.offset(x, yy, z), st, 2 | 16);
+						}
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 8f);
+				Symbiote.grant(p);
+				SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CLASSIC);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+			});
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static final SymbioteColours[] COLOURS = {
+			SymbioteColourPreset.CLASSIC.colours(), SymbioteColourPreset.CARNAGE.colours(), new SymbioteColours(0x1E4FB8, 0xF2F4F8, 0xF4F6FA) };
+	private static final String[] COLOUR_NAMES = { "classic", "carnage", "blue_white" };
+	private static final int[] WEAPON_FORMS = { SymbioteVitalsManager.FORM_BLADE, SymbioteVitalsManager.FORM_AXE,
+			SymbioteVitalsManager.FORM_MACE, SymbioteVitalsManager.FORM_WHIP };
+	private static final String[] WEAPON_NAMES = { "blade", "axe", "mace", "whip" };
+	/** front, right, back, left: camera offsets (the host faces north, -Z). */
+	private static final double[][] SIDES = { { 0.5, 1.9, -3.5 }, { 3.5, 1.9, -0.3 }, { -0.5, 1.9, 3.5 }, { -3.5, 1.9, 0.3 } };
+	private static final String[] SIDE_NAMES = { "front", "right", "back", "left" };
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		at(t, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+		});
+		at(t + 5, SymWWHarness::toggle);
+		t += 90;
+
+		if (phase("stills")) {
+			for (int c = 0; c < COLOURS.length; c++) {
+				final int ci = c;
+				for (int w = 0; w < WEAPON_FORMS.length; w++) {
+					final int wi = w;
+					at(t, () -> {
+						refill(mc);
+						colours(mc, COLOURS[ci]);
+						form(mc, WEAPON_FORMS[wi]);
+						face(mc, 180f, 0f, 0);
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+						mc.options.hideGui = true;
+					});
+					for (int s = 0; s < 4; s++) {
+						final int si = s;
+						at(t + 12 + s * 4, () -> cam(SIDES[si][0], SIDES[si][1], SIDES[si][2], 1.25, 55));
+						at(t + 15 + s * 4, () -> shot(mc, "weapon_" + WEAPON_NAMES[wi] + "_" + COLOUR_NAMES[ci] + "_" + (si + 1) + "_" + SIDE_NAMES[si]));
+					}
+					at(t + 30, () -> {
+						camOffset = null;
+						mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.player.setXRot(30f);
+						mc.player.setXRot(30f);
+						mc.options.hideGui = false;
+					});
+					at(t + 34, () -> shot(mc, "weapon_" + WEAPON_NAMES[wi] + "_" + COLOUR_NAMES[ci] + "_5_first_person"));
+					at(t + 36, () -> {
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+						mc.options.hideGui = true;
+					});
+					t += 40;
+				}
+			}
+			at(t, () -> form(mc, SymbioteVitalsManager.FORM_NORMAL));
+			t += 10;
+		}
+
+		if (phase("slim")) {
+			for (int c = 0; c < 2; c++) {
+				final int ci = c;
+				for (int sl = 0; sl < 2; sl++) {
+					final boolean slim = sl == 1;
+					String tag = (slim ? "slim" : "wide") + "_" + COLOUR_NAMES[ci];
+					at(t, () -> {
+						forceSlim = slim;
+						colours(mc, COLOURS[ci]);
+						form(mc, SymbioteVitalsManager.FORM_NORMAL);
+						face(mc, 180f, 0f, 0);
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+						mc.options.hideGui = true;
+					});
+					at(t + 10, () -> cam(0.0, 1.9, -3.2, 1.45, 55));
+					at(t + 14, () -> shot(mc, "arms_" + tag + "_1_front"));
+					at(t + 16, () -> cam(0.0, 1.9, 3.2, 1.45, 55));
+					at(t + 20, () -> shot(mc, "arms_" + tag + "_2_back"));
+					at(t + 22, () -> cam(2.2, 2.0, -1.6, 1.6, 45));
+					at(t + 26, () -> shot(mc, "arms_" + tag + "_3_front_right_closeup"));
+					at(t + 28, () -> {
+						camOffset = null;
+						mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.player.setXRot(30f);
+						mc.player.setXRot(30f);
+						mc.options.hideGui = false;
+					});
+					at(t + 32, () -> shot(mc, "arms_" + tag + "_4_first_person"));
+					at(t + 34, () -> {
+						mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+						mc.options.hideGui = true;
+					});
+					t += 38;
+				}
+			}
+			// a weapon on a slim arm
+			at(t, () -> {
+				forceSlim = true;
+				colours(mc, COLOURS[0]);
+				refill(mc);
+				form(mc, SymbioteVitalsManager.FORM_BLADE);
+			});
+			at(t + 10, () -> cam(2.6, 2.0, -2.6, 1.4, 55));
+			at(t + 14, () -> shot(mc, "arms_slim_weapon_blade_1_front_right"));
+			at(t + 16, () -> {
+				camOffset = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.player.setXRot(30f);
+				mc.options.hideGui = false;
+			});
+			at(t + 20, () -> shot(mc, "arms_slim_weapon_blade_2_first_person"));
+			at(t + 22, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.options.hideGui = true;
+				forceSlim = false;
+				form(mc, SymbioteVitalsManager.FORM_NORMAL);
+			});
+			t += 30;
+		}
+
+		if (phase("cycle")) {
+			at(t, () -> {
+				refill(mc);
+				colours(mc, COLOURS[0]);
+				form(mc, SymbioteVitalsManager.FORM_NORMAL);
+				face(mc, 180f, 0f, 0);
+				mc.options.hideGui = false;
+				cam(2.3, 1.9, -2.1, 1.2, 55);
+			});
+			for (int k = 0; k < 6; k++) {
+				key(t + 10 + k * 18, 4, 2);
+				final int kk = k;
+				at(t + 10 + k * 18 + 3, () -> shot(mc, "cycle_" + (kk + 1) + "_growing"));
+				at(t + 10 + k * 18 + 12, () -> shot(mc, "cycle_" + (kk + 1) + "_grown"));
+			}
+			film(t + 6, 6 * 18 + 8, "cycle");
+			t += 6 * 18 + 24;
+		}
+
+		if (phase("z")) {
+			int[] forms = { SymbioteVitalsManager.FORM_BLADE, SymbioteVitalsManager.FORM_AXE, SymbioteVitalsManager.FORM_MACE,
+					SymbioteVitalsManager.FORM_WHIP };
+			String[] names = { "blade_slash", "cleave", "ground_smash", "lash" };
+			for (int i = 0; i < 4; i++) {
+				final int fi = i;
+				at(t, () -> {
+					clearTargets(mc);
+					refill(mc);
+					colours(mc, COLOURS[0]);
+					form(mc, forms[fi]);
+					face(mc, 180f, 0f, 0);
+					mc.options.hideGui = false;
+					cam(-4.6, 2.2, -1.7, 1.2, 62);
+					if (fi == 2) {
+						spawn(mc, EntityType.HUSK, -1.2, 2.6, 400);
+						spawn(mc, EntityType.HUSK, 1.3, 2.4, 400);
+					} else {
+						spawn(mc, EntityType.IRON_GOLEM, 0, fi == 3 ? 5.5 : 3.2, 400);
+					}
+				});
+				key(t + 16, 3, 2);
+				at(t + 16 + 3, () -> shot(mc, "z_" + (fi + 1) + "_" + names[fi] + "_a"));
+				at(t + 16 + 5, () -> shot(mc, "z_" + (fi + 1) + "_" + names[fi] + "_b"));
+				at(t + 16 + 7, () -> shot(mc, "z_" + (fi + 1) + "_" + names[fi] + "_c"));
+				at(t + 16 + 10, () -> shot(mc, "z_" + (fi + 1) + "_" + names[fi] + "_d"));
+				film(t + 10, 34, "z" + (fi + 1));
+				t += 50;
+			}
+			at(t, () -> {
+				clearTargets(mc);
+				form(mc, SymbioteVitalsManager.FORM_NORMAL);
+			});
+			t += 10;
+		}
+
+		if (phase("wings")) {
+			String[] views = { "behind", "side" };
+			for (int v = 0; v < 2; v++) {
+				final int vi = v;
+				at(t, () -> {
+					refill(mc);
+					colours(mc, vi == 0 ? COLOURS[0] : COLOURS[1]);
+					form(mc, SymbioteVitalsManager.FORM_NORMAL);
+					mc.options.hideGui = false;
+					face(mc, 180f, -6f, 14);
+					if (vi == 0) {
+						orbit(7.5, 2.6, 0, 1.4, 70);
+					} else {
+						orbit(8.5, 1.4, 90, 1.4, 70);
+					}
+				});
+				// double-tap Space a few ticks into the fall
+				at(t + 3, () -> mc.options.keyJump.setDown(true));
+				at(t + 4, () -> mc.options.keyJump.setDown(false));
+				at(t + 6, () -> mc.options.keyJump.setDown(true));
+				at(t + 7, () -> mc.options.keyJump.setDown(false));
+				at(t + 10, () -> turn = 2.2f);
+				int s = t + 7;
+				String vn = views[vi];
+				at(s + 3, () -> shot(mc, "wings_" + vn + "_1_growing"));
+				at(s + 7, () -> shot(mc, "wings_" + vn + "_2_grown"));
+				at(s + 26, () -> shot(mc, "wings_" + vn + "_3_flying_a"));
+				at(s + 31, () -> shot(mc, "wings_" + vn + "_4_flying_b"));
+				at(s + 80, () -> shot(mc, "wings_" + vn + "_5_flying_c"));
+				at(s + 135, () -> shot(mc, "wings_" + vn + "_6_gliding"));
+				film(t, 300, "wings_" + vn);
+				at(t + 300, () -> turn = 0f);
+				t += 310;
+			}
+			// with a backpack
+			at(t, () -> {
+				refill(mc);
+				colours(mc, COLOURS[0]);
+				server(mc, p -> {
+					p.getInventory().setItem(9, new ItemStack(com.projecthero.mod.backpack.BackpackMod.LEATHER));
+					com.projecthero.mod.backpack.BackpackMod.updateWorn(p);
+				});
+				face(mc, 180f, 0f, 10);
+				orbit(6.5, 1.8, 30, 1.4, 70);
+			});
+			at(t + 3, () -> mc.options.keyJump.setDown(true));
+			at(t + 4, () -> mc.options.keyJump.setDown(false));
+			at(t + 6, () -> mc.options.keyJump.setDown(true));
+			at(t + 7, () -> mc.options.keyJump.setDown(false));
+			at(t + 30, () -> shot(mc, "wings_backpack_1_behind_quarter"));
+			at(t + 34, () -> orbit(6.5, 1.0, 90, 1.4, 70));
+			at(t + 38, () -> shot(mc, "wings_backpack_2_side"));
+			t += 60;
+		}
+		at(t, () -> System.out.println("[HARNESS] done"));
+		at(t + 8, () -> Runtime.getRuntime().halt(0));
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMWW_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

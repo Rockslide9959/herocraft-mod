@@ -201,7 +201,7 @@ public final class SymbioteWeaponMoves {
 			if (to.length() > 0.5) {
 				// a hard yank toward the host that falls short of the host itself (~8 airborne ticks of 0.91 drag carry it ~6x the
 				// starting speed)
-				target.setDeltaMovement(to.x * 0.17, 0.32, to.z * 0.17);
+				target.setDeltaMovement(to.x * 0.19, 0.22, to.z * 0.19); // filming pass: 0.32 lift threw a golem 3 blocks up
 				target.hurtMarked = true;
 			}
 			SymbioteVfx.wrap(player, target, 8, 0.7f);

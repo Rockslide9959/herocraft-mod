@@ -1,0 +1,50 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote weapons + wings): the third-person camera at a world offset from the player, or orbiting
+ * it relative to its body yaw (behind / side, for the flying shots). Kept as scratchpad/SymWWHarnessMixin.v0175.java.txt.
+ */
+@Mixin(Camera.class)
+public abstract class SymWWHarnessMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$symwwCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Vec3 off = com.projecthero.mod.client.SymWWHarness.camOffset;
+		double[] orbit = com.projecthero.mod.client.SymWWHarness.camOrbit;
+		if ((off == null && orbit == null) || !detached) {
+			return;
+		}
+		Vec3 feet = entity.getPosition(partialTick);
+		Vec3 pos;
+		if (orbit != null) {
+			// orbit = {distance, height, angle from behind (deg), look height}
+			double yaw = Math.toRadians(entity.getViewYRot(partialTick) + orbit[2]);
+			Vec3 back = new Vec3(Math.sin(yaw), 0, -Math.cos(yaw)); // opposite of the look direction
+			pos = feet.add(back.scale(orbit[0])).add(0, orbit[1], 0);
+		} else {
+			pos = feet.add(off);
+		}
+		Vec3 target = feet.add(0, orbit != null ? orbit[3] : com.projecthero.mod.client.SymWWHarness.camLookY, 0);
+		Vec3 d = target.subtract(pos);
+		float yawDeg = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(yawDeg, pitch);
+		setPosition(pos);
+	}
+}

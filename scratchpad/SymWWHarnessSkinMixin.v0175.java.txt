@@ -1,0 +1,29 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+
+/**
+ * TEMP-HARNESS (not shipped): forces the slim / wide skin model for the harness's wide-vs-slim shots. Kept as
+ * scratchpad/SymWWHarnessSkinMixin.v0175.java.txt.
+ */
+@Mixin(AbstractClientPlayer.class)
+public abstract class SymWWHarnessSkinMixin {
+	@Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+	private void projecthero$symwwSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+		Boolean slim = com.projecthero.mod.client.SymWWHarness.forceSlim;
+		if (slim == null) {
+			return;
+		}
+		PlayerSkin s = cir.getReturnValue();
+		PlayerSkin.Model m = slim ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE;
+		if (s.model() != m) {
+			cir.setReturnValue(new PlayerSkin(s.texture(), s.textureUrl(), s.capeTexture(), s.elytraTexture(), m, s.secure()));
+		}
+	}
+}
