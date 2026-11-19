@@ -1,0 +1,21 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+
+/** TEMP-HARNESS (not shipped, v0.17.5 Symbiote round 4): hides the HUD for first-person shots without hiding the hand. */
+@Mixin(Gui.class)
+public abstract class SymbioteRound4HarnessGuiMixin {
+	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
+	private void projecthero$symr4NoHud(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
+		if (com.projecthero.mod.client.SymbioteRound4Harness.hideHud) {
+			ci.cancel();
+		}
+	}
+}

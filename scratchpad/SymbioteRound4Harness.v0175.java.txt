@@ -1,0 +1,399 @@
+// To use: copy to src/client/java/com/projecthero/mod/client/SymbioteRound4Harness.java, add it to fabric.mod.json client entrypoints,
+// copy the two SymbioteRound4Harness*Mixin .txt files into client/mixin and list them in projecthero.client.mixins.json; write run/symr4.flag = <out dir>;
+// then node scratchpad/symbiote/films_round4_v0175.js <out dir>. Remove all of it from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteVitalsManager;
+import com.projecthero.mod.symbiote.SymbioteWings;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote round 4): films the straight arm Blade (growth in slow motion, stills front / right /
+ * back three-quarter on Classic and Carnage, first person, left-handed, swings and the Z slash at ground level), the double-bitted Axe
+ * (same stills) and the wings' slight flight lean (side film flying, then sprint-flying, then gliding; the lean logged every tick).
+ * Slow-motion films slow the server tick rate and grab every rendered frame (WorldRenderEvents.END). Enabled by run/symr4.flag =
+ * "<out dir>". Kept as scratchpad/SymbioteRound4Harness.v0175.java.txt (+ SymbioteRound4HarnessCameraMixin.v0175.java.txt).
+ */
+public final class SymbioteRound4Harness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	public static volatile net.minecraft.world.phys.Vec3 camOffset;
+	public static volatile double camLookY = 1.2;
+	/** Read by SymbioteRound4HarnessGuiMixin: skip the HUD (first-person shots keep the hand, which hideGui would hide). */
+	public static volatile boolean hideHud;
+	private static volatile String frameFilm;
+	private static volatile long frameUntil;
+	private static int frameN;
+	private static boolean logLean;
+	private static float maxLean;
+
+	private static void cam(double x, double y, double z, double lookY, int fov) {
+		camOffset = new net.minecraft.world.phys.Vec3(x, y, z);
+		camLookY = lookY;
+		Minecraft.getInstance().options.fov().set(fov);
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symr4.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readAllLines(flag).get(0).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymbioteRound4Harness::tick);
+		WorldRenderEvents.END.register(ctx -> {
+			String f = frameFilm;
+			if (f == null) {
+				return;
+			}
+			if (System.currentTimeMillis() > frameUntil) {
+				frameFilm = null;
+				System.out.println("[HARNESS] film " + f + " frames=" + frameN);
+				return;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(out, String.format("film_%s_%04d.png", f, frameN++), mc.getMainRenderTarget(), m -> {
+			});
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symr4-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void rate(Minecraft mc, float tps) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(tps));
+	}
+
+	private static void frames(String name, long ms) {
+		frameN = 0;
+		frameUntil = System.currentTimeMillis() + ms;
+		frameFilm = name;
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name + " active=" + Symbiote.isActive(mc.player) + " weapon=" + SymbioteVitalsManager.weapon(mc.player)
+					+ " mainArm=" + mc.player.getMainArm());
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void toggle() {
+		ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+				com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+	}
+
+	private static void key(int t, int i, int held) {
+		KeyMapping k = ModKeyBindings.ABILITY_SLOTS[i];
+		at(t, () -> k.setDown(true));
+		at(t + held, () -> k.setDown(false));
+	}
+
+	private static void face(Minecraft mc, float yaw, float pitch, double up) {
+		server(mc, p -> p.connection.teleport(site.getX() + 0.5, site.getY() + 1 + up, site.getZ() + 0.5, yaw, pitch));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymbioteRound4Harness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (logLean && t % 2 == 0) {
+			float l = FlightPoseHelper.lean(mc.player, 1f);
+			maxLean = Math.max(maxLean, l);
+			System.out.printf("[HARNESS] lean=%.1f max=%.1f sprint=%s phase=%s y=%.1f%n", l, maxLean, mc.player.isSprinting(),
+					SymbioteWings.phase(mc.player), mc.player.getY());
+		}
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -16; z <= 12; z++) {
+						for (int yy = -2; yy <= 14; yy++) {
+							BlockState st = yy < 0 ? Blocks.DIRT.defaultBlockState() : yy == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+							level.setBlock(site.offset(x, yy, z), st, 2 | 16);
+						}
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 8f);
+				Symbiote.grant(p);
+				SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CLASSIC);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+			});
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static void preset(Minecraft mc, SymbioteColourPreset c) {
+		server(mc, p -> SymbioteSuitColours.setPreset(p, c));
+	}
+
+	/** front / right / back three-quarter + first person, from {@code t}; returns the next free tick. */
+	private static int views(Minecraft mc, int t, String prefix) {
+		at(t, () -> {
+			face(mc, 180f, 8f, 0);
+			cam(0, 1.8, -3.4, 1.4, 55);
+		});
+		at(t + 6, () -> shot(mc, prefix + "_1_front"));
+		at(t + 7, () -> cam(3.4, 1.8, 0, 1.4, 55));
+		at(t + 12, () -> shot(mc, prefix + "_2_right"));
+		at(t + 13, () -> cam(2.5, 2.1, 2.5, 1.4, 55));
+		at(t + 18, () -> shot(mc, prefix + "_3_back_three_quarter"));
+		at(t + 19, () -> cam(2.0, 1.5, -2.4, 1.2, 50));
+		at(t + 24, () -> shot(mc, prefix + "_4_front_right_closeup"));
+		at(t + 25, () -> {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+			hideHud = true;
+			mc.options.fov().set(70);
+			face(mc, 180f, 15f, 0);
+		});
+		at(t + 32, () -> shot(mc, prefix + "_5_first_person"));
+		at(t + 33, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			hideHud = false;
+		});
+		return t + 36;
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		at(t, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+		});
+		at(t + 5, SymbioteRound4Harness::toggle);
+		at(t + 85, () -> {
+			face(mc, 180f, 8f, 0);
+			cam(2.0, 1.6, -2.3, 1.2, 50);
+		});
+		at(t + 90, () -> shot(mc, "00_suited_no_weapon"));
+
+		// ---- Blade growth in slow motion (2 tps, every rendered frame)
+		int g = t + 96;
+		at(g, () -> rate(mc, 2f));
+		at(g + 1, () -> {
+			frames("blade_grow", 5200);
+			server(mc, SymbioteVitalsManager::cycleForm);
+		});
+		at(g + 13, () -> rate(mc, 20f));
+		int b = g + 20;
+		b = views(mc, b, "blade_classic");
+		at(b, () -> preset(mc, SymbioteColourPreset.CARNAGE));
+		b = views(mc, b + 8, "blade_carnage");
+		// left-handed: the blade on the left arm, edge still to the front
+		at(b, () -> {
+			preset(mc, SymbioteColourPreset.CLASSIC);
+			mc.options.mainHand().set(HumanoidArm.LEFT);
+			mc.options.broadcastOptions();
+		});
+		at(b + 10, () -> {
+			face(mc, 180f, 8f, 0);
+			cam(0, 1.8, -3.4, 1.4, 55);
+		});
+		at(b + 16, () -> shot(mc, "blade_lefthand_1_front"));
+		at(b + 17, () -> cam(-3.4, 1.8, 0, 1.4, 55));
+		at(b + 22, () -> shot(mc, "blade_lefthand_2_left"));
+		at(b + 23, () -> {
+			mc.options.mainHand().set(HumanoidArm.RIGHT);
+			mc.options.broadcastOptions();
+		});
+		// ground check standing still, then swings and the Z slash at ground level, slow motion
+		int s = b + 33;
+		at(s, () -> {
+			face(mc, 180f, 8f, 0);
+			cam(2.6, 0.35, 0.2, 0.7, 60);
+		});
+		at(s + 6, () -> shot(mc, "blade_ground_check_standing"));
+		at(s + 8, () -> rate(mc, 4f));
+		at(s + 9, () -> frames("blade_swing", 6500));
+		at(s + 10, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(s + 18, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		key(s + 26, 3, 1); // Z: Blade Slash
+		at(s + 38, () -> rate(mc, 20f));
+		int z = s + 44;
+		at(z, () -> cam(3.2, 1.2, -1.5, 0.9, 60));
+		at(z + 4, () -> rate(mc, 4f));
+		at(z + 5, () -> frames("blade_swing_side", 4000));
+		at(z + 6, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(z + 12, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(z + 22, () -> rate(mc, 20f));
+
+		// ---- Axe
+		int a = z + 30;
+		at(a, () -> server(mc, SymbioteVitalsManager::cycleForm));
+		a = views(mc, a + 12, "axe_classic");
+		at(a, () -> preset(mc, SymbioteColourPreset.CARNAGE));
+		a = views(mc, a + 8, "axe_carnage");
+		at(a, () -> {
+			preset(mc, SymbioteColourPreset.CLASSIC);
+			face(mc, 180f, 8f, 0);
+			cam(2.6, 0.35, 0.2, 0.7, 60);
+		});
+		at(a + 6, () -> shot(mc, "axe_ground_check_standing"));
+
+		// ---- Wings: back to Normal (Axe -> Mace -> Whip -> Thorns -> Normal), then up in the air and the double-tap's server call
+		int w = a + 10;
+		for (int k = 0; k < 4; k++) {
+			at(w + k * 3, () -> server(mc, SymbioteVitalsManager::cycleForm));
+		}
+		at(w + 14, () -> server(mc, SymbioteVitalsManager::restoreBiomass));
+		at(w + 30, () -> {
+			face(mc, 180f, 0f, 10);
+			cam(5.5, 1.8, 0, 1.8, 55);
+		});
+		at(w + 32, () -> {
+			server(mc, p -> System.out.println("[HARNESS] wings start=" + SymbioteWings.tryStart(p)));
+			logLean = true;
+		});
+		int filmLen = 175;
+		for (int f = 0; f < filmLen; f++) {
+			final int n = f;
+			at(w + 33 + f, () -> shot(mc, String.format("film_wings_%03d", n)));
+		}
+		at(w + 33 + 12, () -> shot(mc, "wings_1_takeoff"));
+		at(w + 33 + 45, () -> shot(mc, "wings_2_flying"));
+		at(w + 33 + 55, () -> {
+			mc.options.keyUp.setDown(true);
+			mc.options.keySprint.setDown(true);
+		});
+		at(w + 33 + 105, () -> shot(mc, "wings_3_sprint_flying"));
+		at(w + 33 + 140, () -> shot(mc, "wings_4_gliding"));
+		at(w + 33 + 150, () -> cam(4.0, 1.5, -3.5, 1.2, 60));
+		at(w + 33 + 155, () -> shot(mc, "wings_5_gliding_front_quarter"));
+		at(w + 33 + filmLen, () -> {
+			mc.options.keyUp.setDown(false);
+			mc.options.keySprint.setDown(false);
+		});
+		at(w + 33 + filmLen + 4, () -> {
+			System.out.println("[HARNESS] done maxLean=" + maxLean);
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMR4_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
