@@ -157,7 +157,8 @@ public final class BlueBeetleRender {
 		}
 		boolean rightMain = player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT;
 		if (s.flying) {
-			renderWings(pose, buffers, parent.body);
+			// v0.17.5: over a backpack the wings root on the bag's outer face (normally at z 4.3, on the back plate)
+			renderWings(pose, buffers, parent.body, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 4.0f));
 		}
 		if (s.fx.blade) {
 			renderBlade(pose, buffers, rightMain ? parent.rightArm : parent.leftArm, ageInTicks);
@@ -177,7 +178,7 @@ public final class BlueBeetleRender {
 	 * v0.16.5 (user: "change the wings to be glowing blue, dont make them flap anymore"): four glowing blue insect wings
 	 * spread from the back plate, still -- a soft blue membrane, a brighter rim and a pale vein down each.
 	 */
-	private static void renderWings(PoseStack pose, MultiBufferSource buffers, ModelPart body) {
+	private static void renderWings(PoseStack pose, MultiBufferSource buffers, ModelPart body, float out) {
 		pose.pushPose();
 		body.translateAndRotate(pose);
 		VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
@@ -185,7 +186,7 @@ public final class BlueBeetleRender {
 			for (int pair = 0; pair < 2; pair++) {
 				pose.pushPose();
 				// root behind the Scarab on the back plate, between the shoulder blades
-				pose.translate(side * 0.07f, 0.17f + pair * 0.14f, 0.27f);
+				pose.translate(side * 0.07f, 0.17f + pair * 0.14f, 0.27f + out / 16f);
 				pose.mulPose(com.mojang.math.Axis.ZP.rotation(side * (pair == 0 ? 0.85f : 1.35f)));
 				pose.mulPose(com.mojang.math.Axis.XP.rotation(-0.42f)); // tilted back, away from the body
 				float scale = pair == 0 ? 1.05f : 0.8f;

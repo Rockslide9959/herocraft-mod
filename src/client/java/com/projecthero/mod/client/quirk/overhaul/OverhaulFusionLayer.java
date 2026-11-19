@@ -72,8 +72,10 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 			box(pose, vc, plate, light, -3.6f, -0.2f, 2.8f, 3.6f, 6.0f, 4.4f);
 			// two extra stone arms from the back, swaying with his breath
 			float sway = Mth.sin(ageInTicks * 0.09f) * 0.12f;
-			extraArm(pose, vc, arm, plate, spike, light, -1f, sway);
-			extraArm(pose, vc, arm, plate, spike, light, 1f, -sway);
+			// v0.17.5: over a worn backpack they reach out from the bag's outer face (their roots start at z 2.2)
+			float out = com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.2f);
+			extraArm(pose, vc, arm, plate, spike, light, -1f, sway, out);
+			extraArm(pose, vc, arm, plate, spike, light, 1f, -sway, out);
 			// a ridge of thorns down the back hump
 			spike(pose, vc, spike, light, 0f, 1.2f, 4.2f, 0f, -0.5f, 1.6f);
 			spike(pose, vc, spike, light, 0f, 3.6f, 4.2f, 0f, -0.3f, 1.4f);
@@ -83,9 +85,9 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 	}
 
 	private static void extraArm(PoseStack pose, VertexConsumer vc, TextureAtlasSprite arm, TextureAtlasSprite plate, TextureAtlasSprite spike, int light,
-			float side, float sway) {
+			float side, float sway, float out) {
 		pose.pushPose();
-		pose.translate(side * 3.4f / 16f, 1.5f / 16f, 3.8f / 16f);
+		pose.translate(side * 3.4f / 16f, 1.5f / 16f, (3.8f + out) / 16f);
 		pose.mulPose(Axis.ZP.rotation(side * (0.75f + sway)));
 		pose.mulPose(Axis.XP.rotation(-0.55f));
 		// upper arm, forearm (bent forward), a heavy fist

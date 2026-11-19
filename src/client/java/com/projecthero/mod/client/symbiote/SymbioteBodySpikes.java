@@ -51,6 +51,8 @@ public final class SymbioteBodySpikes {
 			{ -3.4f, 0.4f, 1.2f, -0.55f, -1.0f, 0.55f, 5.0f },
 			{ 3.4f, 0.4f, 1.2f, 0.55f, -1.0f, 0.55f, 5.0f },
 	};
+	/** How many of {@link #BACK} come out of the back face itself (the rest are the shoulder spikes). */
+	private static final int BACK_FACE = 6;
 	/** The right arm's spikes (bone space, outer side = -X); the left arm mirrors X. {x, y, z, dx, dy, dz, len}. */
 	private static final float[][] ARM = {
 			{ -1.4f, -2.4f, 0.4f, -0.45f, -1.0f, 0.3f, 6.0f },  // shoulder, up and out
@@ -137,7 +139,10 @@ public final class SymbioteBodySpikes {
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		pose.pushPose();
 		model.body.translateAndRotate(pose);
-		for (int i = 0; i < BACK.length; i++) {
+		// v0.17.5: the six spikes out of the back face would run through a worn backpack -- they stay in under it (the two
+		// shoulder spikes, above the bag, still grow)
+		int from = com.projecthero.mod.client.backpack.BackpackLayer.worn(player) != null ? BACK_FACE : 0;
+		for (int i = from; i < BACK.length; i++) {
 			spike(vc, pose.last(), light, BACK[i], false, 0.0f, growth(player, age, i));
 		}
 		pose.popPose();

@@ -297,6 +297,12 @@ public final class RenaRougeRender {
 	 * The tail on the lower back and the ears on the head of {@code parent}. {@code grow} 0..1 scales them in (the end of
 	 * the transformation); {@code swing} / {@code speed} drive the sway.
 	 */
+	/**
+	 * v0.17.5: set by {@code RenaRougeLayer} for a wearer with a backpack on, so the tail grows from just under the bag and the
+	 * flute on her back hangs over it (px out of the back; 0 = no backpack). Render thread only; reset after each draw.
+	 */
+	public static float bagClearance;
+
 	public static void renderFoxParts(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, float grow, float ageInTicks,
 			float walk, float alpha, int tint) {
 		if (grow <= 0.01f) {
@@ -309,11 +315,13 @@ public final class RenaRougeRender {
 		// the tail: from the small of the back, hanging back and down, curling up at the end and swaying
 		pose.pushPose();
 		parent.body.translateAndRotate(pose);
-		pose.translate(0f, 10.5f / 16f, 1.9f / 16f);
+		boolean underBag = bagClearance > 0f;
+		// v0.17.5: under a backpack the tail roots below the bag's bottom edge and leaves a little lower
+		pose.translate(0f, (underBag ? 12.2f : 10.5f) / 16f, 1.9f / 16f);
 		pose.scale(grow, grow, grow);
 		float sway = Mth.sin(ageInTicks * 0.11f) * 0.22f + Mth.sin(ageInTicks * 0.6f) * 0.12f * walk;
 		ModelPart seg = f.getChild("tail0");
-		seg.xRot = 1.15f - 0.3f * walk;
+		seg.xRot = 1.15f - 0.3f * walk - (underBag ? 0.2f : 0f);
 		seg.yRot = 0f;
 		seg.zRot = sway;
 		for (int k = 1; k < 5; k++) {
@@ -360,7 +368,7 @@ public final class RenaRougeRender {
 		switch (at) {
 			case BACK -> {
 				parent.body.translateAndRotate(pose);
-				pose.translate(0f, 5.5f / 16f, 2.9f / 16f);
+				pose.translate(0f, 5.5f / 16f, (2.9f + bagClearance) / 16f);
 				pose.mulPose(Axis.ZP.rotation(0.75f));
 			}
 			case HAND -> {

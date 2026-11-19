@@ -103,6 +103,8 @@ public final class CyborgTech {
 		}
 		pose.pushPose();
 		parent.body.translateAndRotate(pose);
+		// v0.17.5: over a backpack the jetpack builds on the bag's outer face (its mount plate starts at z 2)
+		pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f) / 16f);
 		voxels(pose, buffers, light, jetpack, built, working);
 		if (working && built > 0.85f) {
 			boolean dash = s.fx.jetDashUntil > player.level().getGameTime();

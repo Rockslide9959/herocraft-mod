@@ -66,7 +66,8 @@ public class ViperionLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		} else {
 			// strapped across his back, the neck up over the left shoulder
 			m.body.translateAndRotate(pose);
-			pose.translate(0f, 6.5f / 16f, 2.75f / 16f);
+			// v0.17.5: over a worn backpack it is strapped across the bag's outer face
+			pose.translate(0f, 6.5f / 16f, (2.75f + com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f)) / 16f);
 			pose.mulPose(Axis.ZP.rotationDegrees(180f - 32f));
 			pose.scale(0.8f, 0.8f, 0.8f);
 			ViperionRender.renderLyre(pose, buffers, light, 0f);

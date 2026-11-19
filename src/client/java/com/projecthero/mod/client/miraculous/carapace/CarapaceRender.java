@@ -301,6 +301,15 @@ public final class CarapaceRender {
 	 * Shell Roll.
 	 */
 	public static void renderShield(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, ShieldAt at, boolean slim) {
+		renderShield(pose, buffers, light, parent, at, slim, 0f);
+	}
+
+	/**
+	 * v0.17.5: {@code back} (px) pushes the shield on the back (and the Shell Roll shell) further out, clear of a worn backpack
+	 * ({@code BackpackLayer.backClearance}).
+	 */
+	public static void renderShield(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, ShieldAt at, boolean slim,
+			float back) {
 		if (at == ShieldAt.NONE) {
 			return;
 		}
@@ -308,13 +317,13 @@ public final class CarapaceRender {
 		switch (at) {
 			case BACK -> {
 				parent.body.translateAndRotate(pose);
-				pose.translate(0f, 6f / 16f, 2.6f / 16f);
+				pose.translate(0f, 6f / 16f, (2.6f + back) / 16f);
 				// the face out of his back (+Z of the body)
 				pose.mulPose(Axis.ZP.rotationDegrees(12f));
 			}
 			case ROLL -> {
 				parent.body.translateAndRotate(pose);
-				pose.translate(0f, 5.5f / 16f, 2.4f / 16f);
+				pose.translate(0f, 5.5f / 16f, (2.4f + back) / 16f);
 				pose.scale(1.45f, 1.45f, 1.3f);
 			}
 			case GUARD -> {

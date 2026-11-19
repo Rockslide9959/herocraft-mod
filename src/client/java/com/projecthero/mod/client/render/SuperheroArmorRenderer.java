@@ -64,6 +64,22 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			net.minecraft.client.renderer.RenderType renderType, net.minecraft.client.renderer.MultiBufferSource bufferSource,
 			VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
 		String name = bone.getName();
+		// v0.17.5: a suit's own back pack (Max Steel's flight pack with its wings, the strength power pack) mounts on the outer face of a
+		// worn backpack instead of disappearing into it (the packs start at z 2.2; their wings and fins are children, so they follow)
+		if (("flt_pack".equals(name) || "str_power_pack".equals(name)) && getCurrentEntity() instanceof Player bp) {
+			float out = com.projecthero.mod.client.backpack.BackpackLayer.backClearance(bp, 2.0f);
+			if (out > 0f) {
+				poseStack.pushPose();
+				try {
+					poseStack.translate(0f, 0f, out / 16f);
+					super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
+							packedLight, packedOverlay, colour);
+				} finally {
+					poseStack.popPose();
+				}
+				return;
+			}
+		}
 		if ("right_blade".equals(name) || "left_blade".equals(name)) {
 			float ext = getCurrentEntity() instanceof Player p
 					? com.projecthero.mod.client.ironman.IronManBladeClient.extension(p, partialTick) : 0f;

@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.backpack.BackpackLayer;
 import com.projecthero.mod.moonknight.MoonKnight;
 import com.projecthero.mod.moonknight.MoonKnightAlter;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
@@ -46,6 +47,9 @@ import org.joml.Vector4f;
  * Each alter wears his own cape colour (v0.13.21, {@link MoonKnightAlter#capeTexture}): Marc the original off-white,
  * Steven a crisp white, Jake charcoal. During an alter swap it changes over halfway through the suit's
  * rematerialisation. Textures from {@code scratchpad/gen_moonknight.js} / {@code gen_moonknight_alters.js}.
+ *
+ * <p>v0.17.5: over a worn backpack the hood and cape hang from the bag's top outer edge ({@link BackpackLayer#hangCapeFromBag}),
+ * the Cape Block wraps wide enough to go round the bag, and the glide webbing is spread that far behind the limbs.
  */
 public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	private static final ResourceLocation[] TEXTURES = new ResourceLocation[MoonKnightAlter.values().length];
@@ -92,16 +96,22 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURES[shown.ordinal()]));
 		if (action.has(MoonKnightAction.FLAG_GLIDING)) {
-			drawWebbing(vc, pose.last(), light, getParentModel(), ageInTicks + pt);
+			drawWebbing(vc, pose.last(), light, getParentModel(), ageInTicks + pt, Math.max(WEB_BACK, BackpackLayer.capePivotZ(player)));
 			pose.pushPose();
-			pose.translate(0.0F, 0.0F, 0.125F + 0.07F);
+			if (Float.isNaN(BackpackLayer.hangCapeFromBag(player, getParentModel(), pose))) {
+				pose.translate(0.0F, 0.0F, 0.125F + 0.07F);
+			}
 			drawHood(vc, pose.last(), light);
 			pose.popPose();
 			return;
 		}
 
 		pose.pushPose();
-		pose.translate(0.0F, 0.0F, 0.125F + 0.07F); // behind the back, clear of the suit's inflated body
+		float bagLean = BackpackLayer.hangCapeFromBag(player, getParentModel(), pose);
+		boolean onBag = !Float.isNaN(bagLean);
+		if (!onBag) {
+			pose.translate(0.0F, 0.0F, 0.125F + 0.07F); // behind the back, clear of the suit's inflated body
+		}
 		drawHood(vc, pose.last(), light);
 
 		// ---- vanilla's cape swing (CapeLayer), unchanged
@@ -110,9 +120,18 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		float side = cloak[1];
 		// a raised block hangs straight and close
 		swing = (float) Mth.lerp(shroud, swing, 2.0F);
+		if (onBag) {
+			// v0.17.5: hung from the backpack's outer edge -- never swings back into it
+			swing = Math.max(swing - bagLean, BackpackLayer.CAPE_MIN_SWING);
+			side *= 0.6F;
+		}
 		pose.mulPose(Axis.XP.rotationDegrees(swing));
 		pose.mulPose(Axis.ZP.rotationDegrees(side / 2.0F * (float) (1.0 - shroud)));
 		pose.mulPose(Axis.YP.rotationDegrees(-side / 2.0F * (float) (1.0 - shroud)));
+		if (onBag && shroud > 0.0) {
+			// the block's side panels fold forward from further back: wider and deeper, so they wrap round the bag and the body
+			pose.scale((float) (1.0 + 0.25 * shroud), 1.0F, (float) (1.0 + 0.95 * shroud));
+		}
 
 		drawCape(vc, pose.last(), light, shroud, ageInTicks + pt, player.getDeltaMovement().horizontalDistance(), false);
 		pose.popPose();
@@ -166,13 +185,13 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 	 * so each wing is a triangle (wrist -- shoulder -- ankle) and the back panel between the shoulders tapers to the
 	 * feet. The wings belly out a little in the wind (away from the back) and ripple.
 	 */
-	private static void drawWebbing(VertexConsumer vc, PoseStack.Pose pose, int light, PlayerModel<?> m, float time) {
-		Vec3 wristR = at(m.rightArm, -1.0f, 9.5f, WEB_BACK);
-		Vec3 wristL = at(m.leftArm, 1.0f, 9.5f, WEB_BACK);
-		Vec3 shoulderR = at(m.body, -4.0f, 0.5f, WEB_BACK);
-		Vec3 shoulderL = at(m.body, 4.0f, 0.5f, WEB_BACK);
-		Vec3 ankleR = at(m.rightLeg, -0.5f, 11.0f, WEB_BACK);
-		Vec3 ankleL = at(m.leftLeg, 0.5f, 11.0f, WEB_BACK);
+	private static void drawWebbing(VertexConsumer vc, PoseStack.Pose pose, int light, PlayerModel<?> m, float time, float webBack) {
+		Vec3 wristR = at(m.rightArm, -1.0f, 9.5f, webBack);
+		Vec3 wristL = at(m.leftArm, 1.0f, 9.5f, webBack);
+		Vec3 shoulderR = at(m.body, -4.0f, 0.5f, webBack);
+		Vec3 shoulderL = at(m.body, 4.0f, 0.5f, webBack);
+		Vec3 ankleR = at(m.rightLeg, -0.5f, 11.0f, webBack);
+		Vec3 ankleL = at(m.leftLeg, 0.5f, 11.0f, webBack);
 		Vec3[] top = { wristR, shoulderR, shoulderL, wristL };
 		Vec3[] bottom = { ankleR, ankleR, ankleL, ankleL };
 		// the back of the body: which way is "out" (behind him) for the billow

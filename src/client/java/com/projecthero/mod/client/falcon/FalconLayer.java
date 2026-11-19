@@ -65,6 +65,8 @@ public class FalconLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 		float flex = flying ? w[0] : 0f;
 		pose.pushPose();
 		parent.body.translateAndRotate(pose);
+		// v0.17.5: over a backpack the Wing Pack mounts on the bag's outer face (its shell starts at z 2.05)
+		pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f) / 16f);
 		FalconGeometry.wingPack(pose, buffers, light, w[0], w[1], jets, slash, flex, ageInTicks);
 		pose.popPose();
 	}

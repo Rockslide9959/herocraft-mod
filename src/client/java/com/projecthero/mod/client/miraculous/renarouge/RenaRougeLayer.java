@@ -38,9 +38,15 @@ public class RenaRougeLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 			OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> RenaRougeRender.order(u, v) > cover, false);
 		}
 		float grow = Mth.clamp((cover - 0.7f) / 0.3f, 0f, 1f);
-		RenaRougeRender.renderFoxParts(pose, buffers, light, getParentModel(), grow, ageInTicks, Mth.clamp(limbSwingAmount, 0f, 1f), 1f, 0xFFFFFF);
-		if (cover > 0.6f && RenaRouge.is(player)) {
-			RenaRougeRender.renderFlute(pose, buffers, light, getParentModel(), RenaRougeClient.fluteAt(player, partialTick), slim, 1f);
+		// v0.17.5: a worn backpack -- the tail grows from under it and the flute hangs over it (the flute's shaft starts at z 2)
+		RenaRougeRender.bagClearance = com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f);
+		try {
+			RenaRougeRender.renderFoxParts(pose, buffers, light, getParentModel(), grow, ageInTicks, Mth.clamp(limbSwingAmount, 0f, 1f), 1f, 0xFFFFFF);
+			if (cover > 0.6f && RenaRouge.is(player)) {
+				RenaRougeRender.renderFlute(pose, buffers, light, getParentModel(), RenaRougeClient.fluteAt(player, partialTick), slim, 1f);
+			}
+		} finally {
+			RenaRougeRender.bagClearance = 0f;
 		}
 	}
 }

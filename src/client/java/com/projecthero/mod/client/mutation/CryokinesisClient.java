@@ -334,6 +334,8 @@ public final class CryokinesisClient {
 		float beat = Mth.sin(t * 0.55f);
 		pose.pushPose();
 		ctx.model().body.translateAndRotate(pose);
+		// v0.17.5: over a backpack the harness and wings sit on the bag's outer face (the harness starts at z 2)
+		pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(ctx.player(), 2.0f) * px);
 		// a frozen harness between the shoulder blades
 		IceDraw.box(pose, buf.getBuffer(RenderType.entityTranslucent(IceDraw.PACKED)), -2.5f * px, 1.0f * px, 2.0f * px, 2.5f * px, 6.0f * px, 3.0f * px, 0.5f, 0xF0FFFFFF, light);
 		for (int s = -1; s <= 1; s += 2) {

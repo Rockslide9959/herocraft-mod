@@ -400,7 +400,8 @@ public final class CatNoirRender {
 		pose.pushPose();
 		if (b.at() == BatonAt.BACK) {
 			m.body.translateAndRotate(pose);
-			pose.translate(0f, 10.2f / 16f, 2.7f / 16f);
+			// v0.17.5: over a worn backpack it hangs across the bag's outer face
+			pose.translate(0f, 10.2f / 16f, (2.7f + com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f)) / 16f);
 			pose.mulPose(Axis.ZP.rotationDegrees(62f));
 			CatNoirBaton.renderCollapsed(pose, buffers, light, rotted);
 		} else {

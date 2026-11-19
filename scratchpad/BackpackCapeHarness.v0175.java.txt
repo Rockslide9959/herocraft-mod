@@ -1,0 +1,469 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import com.mojang.math.Axis;
+import com.projecthero.mod.backpack.BackpackMod;
+import com.projecthero.mod.backpack.BackpackTier;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 "make the backpacks not clip through capes and wings"): the backpack worn with each cape, cloak,
+ * set of wings and back-slung item, four sides standing and crouching, then films (walk -> sprint -> fly with a flowing cape, an
+ * elytra glide, Falcon and Blue Beetle wings in flight). Enabled by run/bpcape.flag = "<out dir>".
+ */
+public final class BackpackCapeHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	public static volatile Vec3 camPos, camLook;
+
+	record Scene(String name, Consumer<ServerPlayer> setup) {
+	}
+
+	record Film(String name, Consumer<ServerPlayer> setup, int frames, Vec3 cam, Vec3 look, int mode) {
+	}
+
+	private static final List<Scene> SCENES = new ArrayList<>();
+	private static final List<Film> FILMS = new ArrayList<>();
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("bpcape.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		buildScenes();
+		ClientTickEvents.END_CLIENT_TICK.register(BackpackCapeHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "bpcape-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void miraculous(ServerPlayer p, com.projecthero.mod.miraculous.Kwami k) {
+		com.projecthero.mod.miraculous.Miraculous.grant(p, k);
+		com.projecthero.mod.miraculous.Miraculous.edit(p, n -> {
+			n.hungry = false;
+			n.transformed = true;
+		});
+	}
+
+	private static void buildScenes() {
+		SCENES.add(new Scene("00_bag_only", p -> {
+		}));
+		SCENES.add(new Scene("01_thor_cape", p -> p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.thorarmor.ThorArmorItems.CHESTPLATE))));
+		SCENES.add(new Scene("03_moon_knight_cape", p -> {
+			com.projecthero.mod.moonknight.MoonKnight.grant(p);
+			com.projecthero.mod.moonknight.MoonKnight.setTransformedForTesting(p, true);
+		}));
+		SCENES.add(new Scene("04_elytra", p -> p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.ELYTRA))));
+		SCENES.add(new Scene("05_falcon_wing_pack", p -> {
+			com.projecthero.mod.falcon.Falcon.grant(p);
+			falconSet(p);
+		}));
+		SCENES.add(new Scene("06_blue_beetle_wings", p -> {
+			com.projecthero.mod.bluebeetle.BlueBeetle.grant(p);
+		}));
+		SCENES.add(new Scene("07_carapace_shield", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.WAYZZ)));
+		SCENES.add(new Scene("08_rena_rouge_tail_flute", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.TRIXX)));
+		SCENES.add(new Scene("09_viperion_lyre", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.SASS)));
+		SCENES.add(new Scene("10_cat_noir_baton", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.PLAGG)));
+		SCENES.add(new Scene("11_ladybug_yoyo", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.TIKKI)));
+		SCENES.add(new Scene("12_multimouse_tail", p -> miraculous(p, com.projecthero.mod.miraculous.Kwami.MULLO)));
+		SCENES.add(new Scene("13_saiyan_tail", p -> com.projecthero.mod.saiyan.Saiyan.grant(p)));
+		SCENES.add(new Scene("14_cyborg", p -> com.projecthero.mod.cyborg.Cyborg.grant(p)));
+
+		FILMS.add(new Film("film_thor_cape_walk_sprint_fly", p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.thorarmor.ThorArmorItems.CHESTPLATE));
+		}, 120, new Vec3(3.6, 1.3, 0.6), new Vec3(0, 1.0, 0.3), 1));
+		FILMS.add(new Film("film_thor_cape_back", p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.thorarmor.ThorArmorItems.CHESTPLATE));
+		}, 120, new Vec3(1.6, 1.8, -3.4), new Vec3(0, 1.0, 0.3), 1));
+		FILMS.add(new Film("film_moon_knight_cape", p -> {
+			com.projecthero.mod.moonknight.MoonKnight.grant(p);
+			com.projecthero.mod.moonknight.MoonKnight.setTransformedForTesting(p, true);
+		}, 80, new Vec3(3.6, 1.3, 0.6), new Vec3(0, 1.0, 0.3), 2));
+		FILMS.add(new Film("film_elytra_glide", p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.ELYTRA));
+		}, 70, new Vec3(3.0, 1.2, -1.2), new Vec3(0, 0.4, 0.3), 3));
+		FILMS.add(new Film("film_falcon_wings_flight", p -> {
+			com.projecthero.mod.falcon.Falcon.grant(p);
+			falconSet(p);
+		}, 90, new Vec3(4.5, 1.8, -3.5), new Vec3(0, 1.0, 0.5), 4));
+		FILMS.add(new Film("film_blue_beetle_wings_flight", p -> {
+			com.projecthero.mod.bluebeetle.BlueBeetle.grant(p);
+		}, 80, new Vec3(3.5, 1.6, -3.0), new Vec3(0, 1.0, 0.4), 5));
+		FILMS.add(new Film("film_cyborg_jetpack", p -> {
+			com.projecthero.mod.cyborg.Cyborg.grant(p);
+		}, 70, new Vec3(3.5, 1.6, -3.0), new Vec3(0, 1.0, 0.4), 6));
+	}
+
+	/** Scenes / films whose wings or jets only come out in the air. */
+	private static boolean airborne(String name) {
+		return name.contains("blue_beetle") || name.contains("falcon") || name.contains("cyborg");
+	}
+
+	private static void takeOff(ServerPlayer p, String name) {
+		if (name.contains("blue_beetle")) {
+			com.projecthero.mod.bluebeetle.BlueBeetle.toggleFlight(p);
+		} else if (name.contains("falcon")) {
+			com.projecthero.mod.falcon.Falcon.toggleFlight(p);
+		} else if (name.contains("cyborg")) {
+			com.projecthero.mod.cyborg.CyborgAbilities.toggleHover(p);
+		}
+	}
+
+	private static void falconSet(ServerPlayer p) {
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(com.projecthero.mod.falcon.item.FalconItems.GOGGLES));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.falcon.item.FalconItems.WING_PACK));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(com.projecthero.mod.falcon.item.FalconItems.LEGGINGS));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(com.projecthero.mod.falcon.item.FalconItems.BOOTS));
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void tryRun(Runnable r) {
+		try {
+			r.run();
+		} catch (Throwable ignored) {
+		}
+	}
+
+	/** Strips every power and piece of gear, then carries a Diamond backpack in the first main-inventory row. */
+	private static void reset(ServerPlayer p) {
+		tryRun(() -> com.projecthero.mod.miraculous.Miraculous.revoke(p));
+		tryRun(() -> com.projecthero.mod.moonknight.MoonKnight.revoke(p));
+		tryRun(() -> com.projecthero.mod.falcon.Falcon.revoke(p));
+		tryRun(() -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(p));
+		tryRun(() -> com.projecthero.mod.saiyan.Saiyan.revoke(p));
+		tryRun(() -> com.projecthero.mod.cyborg.Cyborg.revoke(p));
+		for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			p.setItemSlot(s, ItemStack.EMPTY);
+		}
+		p.getInventory().clearContent();
+		p.getInventory().selected = 0;
+		p.getInventory().setItem(9, new ItemStack(BackpackMod.forTier(BackpackTier.DIAMOND)));
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		BackpackMod.updateWorn(p);
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.setGameMode(GameType.CREATIVE);
+		base = p.blockPosition();
+		for (int x = -8; x <= 8; x++) {
+			for (int z = -8; z <= 60; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z & 3) == 0 ? Blocks.STONE.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+			}
+		}
+	}
+
+	private static void keys(Minecraft mc, boolean up, boolean sprint, boolean jump, boolean sneak) {
+		mc.options.keyUp.setDown(up);
+		mc.options.keySprint.setDown(sprint);
+		mc.options.keyJump.setDown(jump);
+		mc.options.keyShift.setDown(sneak);
+		if (mc.player != null) {
+			mc.player.setSprinting(sprint && up);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BackpackCapeHarness::createWorld);
+			}
+			return;
+		}
+		mc.getToasts().clear();
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, BackpackCapeHarness::stage);
+		}
+		if (t < 80 || base == null) {
+			return;
+		}
+		int s = t - 80;
+		// ---- stills: 4 sides standing, then crouching
+		final int per = 100;
+		for (int i = 0; i < SCENES.size(); i++) {
+			Scene sc = SCENES.get(i);
+			int b = i * per;
+			if (s == b) {
+				mc.setScreen(null);
+				mc.options.hideGui = false;
+				camPos = null;
+				keys(mc, false, false, false, false);
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				server(mc, p -> {
+					reset(p);
+					boolean air = airborne(sc.name());
+					if (air) {
+						p.getAbilities().flying = true;
+						p.onUpdateAbilities();
+					}
+					p.connection.teleport(base.getX() + 0.5, base.getY() + (air ? 2.5 : 0), base.getZ() + 0.5, 0f, 0f);
+					sc.setup().accept(p);
+				});
+			}
+			if (s == b + 6) {
+				server(mc, BackpackMod::updateWorn);
+			}
+			if (s == b + 45 && airborne(sc.name())) {
+				server(mc, p -> takeOff(p, sc.name()));
+			}
+			if (s == b + 70) {
+				mc.setScreen(new ModelScreen(sc.name(), false));
+			}
+			if (s == b + 76) {
+				shot(mc, sc.name() + "_stand");
+				mc.setScreen(null);
+				// in the world: side and back three-quarter, crouching unless in the air
+				mc.options.hideGui = true;
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				keys(mc, false, false, false, !airborne(sc.name()));
+				camPos = new Vec3(2.6, 1.0, 0.25);
+				camLook = new Vec3(0, 0.9, 0.25);
+			}
+			if (s == b + 86) {
+				shot(mc, sc.name() + (airborne(sc.name()) ? "_world_side" : "_crouch_side"));
+				camPos = new Vec3(1.5, 1.7, -2.4);
+				camLook = new Vec3(0, 0.9, 0.2);
+			}
+			if (s == b + 92) {
+				shot(mc, sc.name() + (airborne(sc.name()) ? "_world_back" : "_crouch_back"));
+				keys(mc, false, false, false, false);
+				camPos = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false;
+				System.out.println("[HARNESS] scene " + sc.name());
+			}
+		}
+		int f0 = SCENES.size() * per;
+		// ---- films
+		int fb = f0;
+		for (Film film : FILMS) {
+			int b = fb;
+			int lead = 60;
+			if (s == b) {
+				mc.setScreen(null);
+				mc.options.hideGui = true;
+				keys(mc, false, false, false, false);
+				new File(new File(out, "screenshots"), film.name()).mkdirs();
+				server(mc, p -> {
+					reset(p);
+					if (film.mode() >= 4) {
+						p.getAbilities().flying = true;
+						p.onUpdateAbilities();
+					}
+					double y = base.getY() + (film.mode() == 3 ? 30 : film.mode() >= 4 ? 2.5 : 0);
+					p.connection.teleport(base.getX() + 0.5, y, base.getZ() + 0.5, 0f, film.mode() == 3 ? 20f : 0f);
+					film.setup().accept(p);
+				});
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camPos = film.cam();
+				camLook = film.look();
+			}
+			if (s == b + 6) {
+				server(mc, BackpackMod::updateWorn);
+			}
+			if (s == b + 45 && film.mode() >= 4) {
+				server(mc, p -> takeOff(p, film.name()));
+			}
+			if (s == b + lead - 2 && film.mode() == 3) {
+				server(mc, ServerPlayer::startFallFlying);
+			}
+			if (s >= b + lead && s < b + lead + film.frames()) {
+				int k = s - b - lead;
+				driveFilm(mc, film, k);
+				shot(mc, String.format(film.name() + "/f%03d", k));
+			}
+			if (s == b + lead + film.frames()) {
+				keys(mc, false, false, false, false);
+				System.out.println("[HARNESS] film " + film.name());
+			}
+			fb += lead + film.frames() + 10;
+		}
+		if (s == fb) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void driveFilm(Minecraft mc, Film film, int k) {
+		mc.player.setYRot(0f);
+		mc.player.setYHeadRot(0f);
+		switch (film.mode()) {
+			case 1 -> {
+				// walk, sprint, take off and fly (creative flight streams the cape), then hover and drift down
+				if (k < 25) {
+					keys(mc, true, false, false, false);
+				} else if (k < 55) {
+					keys(mc, true, true, false, false);
+				} else if (k == 55) {
+					mc.player.getAbilities().flying = true;
+					keys(mc, true, true, true, false);
+				} else if (k < 64) {
+					keys(mc, true, true, true, false);
+				} else if (k < 100) {
+					keys(mc, true, true, false, false);
+				} else {
+					keys(mc, false, false, false, false);
+				}
+				mc.player.setXRot(0f);
+			}
+			case 2 -> {
+				// walk, sprint, sneak-walk
+				keys(mc, true, k >= 20 && k < 50, false, k >= 55);
+			}
+			case 3 -> {
+				keys(mc, false, false, false, false);
+				mc.player.setXRot(20f);
+			}
+			case 4, 5, 6 -> {
+				// hover, then fly forward fast
+				keys(mc, k >= 15, k >= 15, k < 10, false);
+				mc.player.setXRot(0f);
+			}
+			default -> {
+			}
+		}
+	}
+
+	/** The local player rendered four times: front, right side, back, left side. */
+	static final class ModelScreen extends Screen {
+		private final boolean crouch;
+
+		ModelScreen(String label, boolean crouch) {
+			super(Component.literal(label));
+			this.crouch = crouch;
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF5A7A9A);
+			LivingEntity e = minecraft.player;
+			Pose was = e.getPose();
+			if (crouch) {
+				e.setPose(Pose.CROUCHING);
+			}
+			String[] labels = { "front", "side", "back", "side" };
+			for (int i = 0; i < 4; i++) {
+				float yaw = i * 90f;
+				float bodyRot = e.yBodyRot, yRot = e.getYRot(), xRot = e.getXRot(), headO = e.yHeadRotO, head = e.yHeadRot;
+				e.yBodyRot = 180f;
+				e.setYRot(180f);
+				e.setXRot(0f);
+				e.yHeadRot = 180f;
+				e.yHeadRotO = 180f;
+				Quaternionf pose = Axis.ZP.rotationDegrees(180f).mul(Axis.YP.rotationDegrees(yaw)).mul(Axis.XP.rotationDegrees(-8f));
+				float x = width * (i + 0.5f) / 4f;
+				InventoryScreen.renderEntityInInventory(g, x, height * 0.80f, 58f, new Vector3f(0f, 0f, 0f), pose, null, e);
+				e.yBodyRot = bodyRot;
+				e.setYRot(yRot);
+				e.setXRot(xRot);
+				e.yHeadRotO = headO;
+				e.yHeadRot = head;
+				g.drawCenteredString(font, labels[i], (int) x, 10, 0xFFFFFF);
+			}
+			if (crouch) {
+				e.setPose(was);
+			}
+			g.drawString(font, title, 4, height - 12, 0xFFFFFF, true);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BPCAPE_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL,
+				true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

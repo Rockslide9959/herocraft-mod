@@ -50,6 +50,8 @@ public final class SaiyanTailRenderer {
 	private static final float[] LEN = { 2.97f, 2.88f, 2.7f, 2.52f, 2.25f, 1.98f, 1.71f };
 	/** The root on the body bone (pixels): the lower back, belt height, on the back face. */
 	private static final float ROOT_Y = 10.6f, ROOT_Z = 2.0f;
+	/** v0.17.5: under a worn backpack the tail roots just below the bag's bottom edge (y 10) instead. */
+	private static final float ROOT_Y_UNDER_BAG = 11.6f;
 	/** No link nearer his front than this (pixels, model z): the back face (z 2) plus the tube's radius. */
 	private static final float BEHIND = 3.1f;
 	/** Tube radius (pixels): at the root, the thinnest point (just before the tip) and the fluffy tip. */
@@ -118,7 +120,7 @@ public final class SaiyanTailRenderer {
 		State st = STATES.computeIfAbsent(p.getUUID(), id -> new State());
 		float yaw = p.yBodyRot;
 		Vec3 base = SpringTail.base(p, 1f);
-		Vec3 rm = SpringTail.rootModel(p, ROOT_Y, ROOT_Z);
+		Vec3 rm = SpringTail.rootModel(p, rootY(p), ROOT_Z);
 		float walk = SpringTail.walk(p);
 		float phase = SpringTail.phase(p);
 		float age = p.tickCount;
@@ -126,7 +128,39 @@ public final class SaiyanTailRenderer {
 		boolean loose = p.getDeltaMovement().y < -0.6 || p.isFallFlying() || Saiyan.isFlying(p);
 		st.tail.tick(p, yaw, base, rm, SpringTail.MONKEY_IDLE, false, loose, loose ? 0.07f : 0.32f,
 				(i, parentModel) -> SpringTail.restDir(SpringTail.MONKEY_IDLE, SpringTail.MONKEY_WALK, i, SEGMENTS, walk, phase, age),
-				(i, m) -> SpringTail.keepBehind(m, BEHIND));
+				(i, m) -> {
+					Vec3 k = SpringTail.keepBehind(m, BEHIND);
+					Vec3 off = keepOffBag(p, k == null ? m : k);
+					return off != null ? off : k;
+				});
+	}
+
+	/** v0.17.5: the root's height on the back (px): lower under a worn backpack. */
+	private static float rootY(Player p) {
+		return com.projecthero.mod.client.backpack.BackpackLayer.worn(p) != null ? ROOT_Y_UNDER_BAG : ROOT_Y;
+	}
+
+	/**
+	 * v0.17.5: keeps a link out of a worn backpack: any link level with the bag (above its bottom edge, plus the tube's radius) is held
+	 * outside the bag's outer face ({@code BackpackLayer.outerZ}). {@code m} is in model space; the bag is on the body bone, which
+	 * leans 0.5 rad about the neck (y 3.2 when crouching), so the test runs in the body's frame. Null = no change.
+	 */
+	private static Vec3 keepOffBag(Player p, Vec3 m) {
+		float outer = com.projecthero.mod.client.backpack.BackpackLayer.outerZ(p);
+		if (outer <= 0f || Math.abs(m.x) > 6.5) {
+			return null;
+		}
+		boolean crouch = p.isCrouching();
+		double c = crouch ? Mth.cos(0.5f) : 1.0, s = crouch ? Mth.sin(0.5f) : 0.0, pivot = crouch ? 3.2 : 0.0;
+		double yy = m.y - pivot;
+		double y = yy * c + m.z * s;
+		double z = -yy * s + m.z * c;
+		double front = outer + R_ROOT;
+		if (y < -3.0 || y > 10.0 + R_ROOT + 0.3 || z >= front) {
+			return null;
+		}
+		z = front;
+		return new Vec3(m.x, pivot + y * c - z * s, y * s + z * c);
 	}
 
 	// ---------------------------------------------------------------- drawing
@@ -172,7 +206,7 @@ public final class SaiyanTailRenderer {
 		// a pose the chain does not know (a leaning flight, a spin) keeps the links, moved onto the drawn root
 		ModelPart body = model.body;
 		Matrix4f bone = new Matrix4f().translate(body.x / 16f, body.y / 16f, body.z / 16f).rotateZYX(body.zRot, body.yRot, body.xRot);
-		Vector3f root = bone.transformPosition(new Vector3f(0, ROOT_Y / 16f, ROOT_Z / 16f));
+		Vector3f root = bone.transformPosition(new Vector3f(0, rootY(player) / 16f, ROOT_Z / 16f));
 		Vector3f[] pts = new Vector3f[SEGMENTS + 1];
 		if (!st.tail.modelPoints(pose, root, partial, pts, 1.5f, true)) {
 			// not in the level (the inventory screen) or not ticked yet: the idle curl

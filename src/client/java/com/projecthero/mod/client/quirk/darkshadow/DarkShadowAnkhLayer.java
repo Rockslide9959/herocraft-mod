@@ -112,6 +112,8 @@ public class DarkShadowAnkhLayer extends RenderLayer<AbstractClientPlayer, Playe
 			// v0.17.1 Abyssal Black Body: the Ankh upgraded -- great wings, a ridge of shadow and violet fire in the eyes
 			pose.pushPose();
 			pm.body.translateAndRotate(pose);
+			// v0.17.5: over a backpack the ridge and the wings sit on the bag's outer face
+			pose.translate(0f, 0f, com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 2.0f) / 16f);
 			pose.translate(0, 0.25f, 0.1f);
 			pose.scale(1.45f, 1.45f, 1.45f);
 			pose.translate(0, -0.25f, -0.1f);
@@ -133,7 +135,15 @@ public class DarkShadowAnkhLayer extends RenderLayer<AbstractClientPlayer, Playe
 			}
 			pose.popPose();
 		} else {
-			part(pose, buffers, light, partialTick, sh, pm.body, abyssal ? Set.of("back", "wings") : Set.of("back"));
+			// v0.17.5: over a backpack the ridge (and the Abyssal wings) sit on the bag's outer face; the ridge starts at z 1.9
+			pose.pushPose();
+			float out = com.projecthero.mod.client.backpack.BackpackLayer.backClearance(player, 1.9f);
+			pm.body.translateAndRotate(pose);
+			pose.translate(0f, 0f, out / 16f);
+			pose.mulPose(Axis.ZP.rotationDegrees(180f));
+			DarkShadowCreature.ankhOnly = abyssal ? Set.of("back", "wings") : Set.of("back");
+			parts.render(pose, sh, buffers, null, null, light, partialTick);
+			pose.popPose();
 		}
 		DarkShadowCreature.ankhOnly = Set.of();
 
