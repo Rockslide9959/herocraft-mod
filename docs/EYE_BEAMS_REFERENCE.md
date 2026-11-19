@@ -35,9 +35,14 @@ Darkseid's homing Omega Beams.
   black). Particles: at most one spray per beam spot per tick, 18 per tick across all beams.
 - **Ramp/fade**: per beam state (entity id + channel): shoots out over 2 ticks and swells over `rampTicks`; stopping, it thins
   and pulls away from the eyes toward the target over `fadeTicks` (hidden at once if the shooter enters a clash).
-- **First person**: beams start just below the bottom edge of the screen (angle from the FOV setting) either side of the centre,
-  fade in at the edge and thin out near the target; a warm screen-edge glow (`hud`, about 20% alpha at the very edge) eases in and
-  out while you fire.
+- **First person** (reworked after "it looks like the beam is coming from the players chest"): the beams leave your eyes. Seen
+  from your own eyes, a beam from each eye is a line coming in from the side of the view at eye level, so each starts
+  `FP_EYE_FORWARD` (0.12) blocks ahead of the camera, `FP_EYE_SIDE` (0.86) of the way to the side edge and `FP_EYE_DOWN` (0.07)
+  of the way down (shares of the half-screen from the FOV setting and window shape, so it looks the same at every FOV); the brow
+  beam comes down from `FP_BROW_UP` (0.8) of the way to the top. Out to `FP_FULL_DIST` (3 blocks) the width grows with distance
+  from the camera, so on screen it is one even thin line, never a slab; it fades in from nothing at the edge and thins and turns
+  see-through over the last stretch so the crosshair stays visible. Screen glow (`hud`): a soft warm bloom at each side edge at
+  eye level plus a faint tint along the top (no bottom glow), easing in and out while you fire.
 - **Your own beam, third person**: back view draws the first 7 blocks over your head (`OVER`, no depth test); front view stops it
   0.8 blocks short of the camera.
 - Static maps are client-only and cleared on disconnect (no server worlds held).

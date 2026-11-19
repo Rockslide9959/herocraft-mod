@@ -1,6 +1,6 @@
 // TEMP-HARNESS copy (v0.17.5 eye beams). To use: put EyeBeamHarness.java back in src/client/java/com/projecthero/mod/client/, add "com.projecthero.mod.client.EyeBeamHarness" to the client
 // entrypoints in src/main/resources/fabric.mod.json, put the camera mixin below in src/client/java/com/projecthero/mod/client/mixin/EyeBeamHarnessCameraMixin.java and list it in
-// projecthero.client.mixins.json, write run/eyebeam.flag = "eyebeam_out/<dir>|<before|after|gaze>" (gaze = the Solar Gaze ray check only), node scratchpad/low_graphics_options.js run/options.txt,
+// projecthero.client.mixins.json, write run/eyebeam.flag = "eyebeam_out/<dir>|<before|after|gaze|fp2>" (gaze = the Solar Gaze ray check only, fp2 = first-person round 2), node scratchpad/low_graphics_options.js run/options.txt,
 // ./gradlew runClient; then node scratchpad/eye_beams_film_v0175.js. Remove all of it again afterwards.
 
 // ===== EyeBeamHarness.java =====
@@ -338,6 +338,80 @@ public final class EyeBeamHarness implements ClientModInitializer {
 		int t = 0;
 		at(t, () -> server(mc, EyeBeamHarness::husk));
 		t += 6;
+		if (mode.startsWith("fp2")) {
+			// first-person round 2: every eye beam at FOV 70 and 110, heat vision at the husk / looking up / down / walking / GUI 3,
+			// a third-person check, and the first-person heat film (start -> sweep -> stop)
+			for (int fov : new int[] { 70, 110 }) {
+				for (String b : new String[] { "heat", "laser", "solar", "vision" }) {
+					final int fv = fov;
+					at(t, () -> {
+						select(b);
+						look(0f, 5f);
+						fp();
+						mc.options.fov().set(fv);
+					});
+					at(t + 2, () -> on(true));
+					at(t + 12, () -> shot(mc, b + "_fp_fov" + fv));
+					at(t + 13, () -> on(false));
+					t += 22;
+				}
+			}
+			at(t, () -> {
+				select("heat");
+				mc.options.fov().set(90);
+				look(-26.6f, 4f);
+			});
+			at(t + 2, () -> on(true));
+			at(t + 12, () -> shot(mc, "heat_fp_husk_fov90"));
+			at(t + 13, () -> look(0f, -35f));
+			at(t + 20, () -> shot(mc, "heat_fp_up_fov90"));
+			at(t + 21, () -> look(0f, 40f));
+			at(t + 28, () -> shot(mc, "heat_fp_down_fov90"));
+			at(t + 29, () -> {
+				look(0f, 5f);
+				mc.options.guiScale().set(3);
+			});
+			at(t + 36, () -> shot(mc, "heat_fp_gui3_fov90"));
+			at(t + 37, () -> {
+				mc.options.guiScale().set(2);
+				mc.options.bobView().set(true);
+				KeyMapping.set(mc.options.keyUp.getDefaultKey(), true);
+			});
+			at(t + 50, () -> shot(mc, "heat_fp_walk_fov90"));
+			at(t + 51, () -> {
+				KeyMapping.set(mc.options.keyUp.getDefaultKey(), false);
+				mc.options.bobView().set(false);
+				server(mc, p -> p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 5f));
+				mc.options.fov().set(70);
+			});
+			at(t + 56, () -> back());
+			at(t + 62, () -> shot(mc, "heat_tp_back"));
+			at(t + 63, () -> cam3(90f, 3.2f, 1.7f, 2.5f, 1.4f));
+			at(t + 70, () -> shot(mc, "heat_tp_side"));
+			at(t + 71, () -> on(false));
+			t += 80;
+			at(t, () -> {
+				select("heat");
+				look(-20f, 6f);
+				fp();
+				mc.options.fov().set(70);
+			});
+			film(t + 6, t + 86, "film_heat_fp");
+			at(t + 14, () -> on(true));
+			for (int i = 0; i <= 40; i++) {
+				final float y = -20f + 40f * i / 40f;
+				final float x = 6f + 6f * (float) Math.sin(i / 40.0 * Math.PI);
+				at(t + 26 + i, () -> look(y, x));
+			}
+			at(t + 72, () -> on(false));
+			t += 92;
+			final int e2 = t;
+			at(e2, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+			return;
+		}
 		if (mode.startsWith("gaze")) {
 			// Solar Gaze ray check: at the husk, then just beside it (the line passes ~0.2 clear of its hit-box), then over its head
 			float[][] aims = { { -26.6f, 4f }, { -31.5f, 4f }, { -26.6f, -5.5f } };
