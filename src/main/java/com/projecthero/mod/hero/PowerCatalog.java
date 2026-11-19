@@ -545,7 +545,7 @@ final class PowerCatalog {
 		return Power.Builder.of(Powers.id(k), PowerCategory.FORCE)
 				// v0.13.22 revamp (batch D): changing which way gravity pulls -- H Invert, N Heavy Ground.
 				.ability(ab(k, "gravity_push", SLOT_1, INSTANT, 34))
-				.ability(ab(k, "gravity_crush", SLOT_2, INSTANT, 17 * S))
+				.ability(ab(k, "gravity_crush", SLOT_2, HOLD, 17 * S)) // v0.17.5: HOLD so letting go ends the crush (INSTANT never sent the release)
 				.ability(ab(k, "zero_g", SLOT_3, TOGGLE, 0))
 				.ability(ab(k, "gravity_well", SLOT_4, CHARGE, 102 * S))
 				.ability(ab(k, "levitate", SLOT_5, INSTANT, 5 * S))

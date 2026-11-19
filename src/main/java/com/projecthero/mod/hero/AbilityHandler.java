@@ -53,6 +53,14 @@ public interface AbilityHandler {
 	}
 
 	/**
+	 * v0.17.5: true when this press must not be gated on the plain move's cooldown at all (e.g. throwing something a Shift move
+	 * is holding -- that ends the Shift move, it isn't a new plain move). The handler does its own checks.
+	 */
+	default boolean bypassesRouterCooldown(AbilityContext ctx) {
+		return false;
+	}
+
+	/**
 	 * Runs every server tick for every ability of the player's active power (not just toggles). Use
 	 * for grab/charge/marker upkeep. Must be cheap and idempotent. {@code ctx.pressed()} is always
 	 * true here.

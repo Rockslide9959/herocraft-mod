@@ -3,6 +3,8 @@ package com.projecthero.mod.gametest;
 import com.projecthero.mod.galactus.item.GalactusItems;
 import com.projecthero.mod.galactus.item.PowerCosmicItem;
 import com.projecthero.mod.hero.Ability;
+import com.projecthero.mod.hero.AbilityContext;
+import com.projecthero.mod.hero.power.GrabHelper;
 import com.projecthero.mod.hero.AbilityRouter;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
@@ -177,6 +179,35 @@ public class SplitCooldownPowersGameTests implements FabricGameTest {
 		p.setShiftKeyDown(true);
 		InteractionResultHolder<ItemStack> again = s.getItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND);
 		helper.assertFalse(again.getResult().consumesAction(), "a second shield straight away is still on its own cooldown");
+		helper.succeed();
+	}
+
+	// ---------------- v0.17.5 follow-ups: Shadow V throw, Gravity Crush release ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shadowPlainVThrowsAGrabWhileBindCools(GameTestHelper helper) {
+		ServerPlayer p = hero(helper, "power_19_shadow_manipulation");
+		Power pw = Powers.byKey("power_19_shadow_manipulation");
+		Ability v = pw.ability(AbilitySlot.SLOT_5);
+		Zombie z = zombieAhead(helper, p, 3);
+		tap(p, 5, true); // Shadow Grab
+		helper.assertTrue(GrabHelper.isHolding(new AbilityContext(p, pw, v, true)), "Shift+V grabbed the zombie");
+		ExperimentalPowers.triggerCooldown(p, pw, v, 200); // Bind cooling
+		tap(p, 5, false); // the throw
+		helper.assertFalse(GrabHelper.isHolding(new AbilityContext(p, pw, v, true)), "plain V threw it even with Bind on cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void gravityCrushEndsWhenTheKeyIsReleased(GameTestHelper helper) {
+		ServerPlayer p = hero(helper, "power_23_gravity_manipulation");
+		Power pw = Powers.byKey("power_23_gravity_manipulation");
+		Ability g = pw.ability(AbilitySlot.SLOT_2);
+		AbilityRouter.handleInput(p, 2, true);
+		helper.assertTrue(new AbilityContext(p, pw, g, true).resource("crush_hold") > 0.5f, "holding G crushes");
+		AbilityRouter.handleInput(p, 2, false);
+		helper.assertTrue(new AbilityContext(p, pw, g, true).resource("crush_hold") < 0.5f, "letting go ends the crush");
+		helper.assertFalse(plainReady(p, pw, g), "and starts its cooldown");
 		helper.succeed();
 	}
 }

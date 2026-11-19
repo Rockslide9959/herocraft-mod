@@ -364,7 +364,8 @@ public final class ShadowManipulationHandlers {
 		});
 
 		// V -- Shadow Bind (sneak: Shadow Grab, the old V).
-		AbilityHandlers.register(KEY, "shadow_bind", shiftOwn(Handlers.instantTicking(ShadowManipulationHandlers::bindPress,
+		// v0.17.5: plain V throws a Shadow Grab victim even while Bind is cooling (the throw ends the Shift move)
+		AbilityHandlers.register(KEY, "shadow_bind", throwWhileHolding(Handlers.instantTicking(ShadowManipulationHandlers::bindPress,
 				ctx -> GrabHelper.tick(ctx, 3.0))));
 
 		// C -- Shadow Cloak (drains a bar, +12 ability / +8 melee damage). Shift+C is the indefinite Shadow Form.
@@ -538,6 +539,37 @@ public final class ShadowManipulationHandlers {
 	 * v0.17.5 (user: split Shift/hold cooldowns): wraps an INSTANT handler whose Shift move keeps its own cooldown entry,
 	 * so the router stops gating Shift presses on the plain move's cooldown (the handler checks the Shift entry itself).
 	 */
+	/** {@link #shiftOwn}, plus: a press while holding a grabbed mob (the throw / drop) is never gated on Bind's cooldown. */
+	private static AbilityHandler throwWhileHolding(AbilityHandler inner) {
+		AbilityHandler own = shiftOwn(inner);
+		return new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				own.onActivate(ctx);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				own.onRelease(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				own.onServerTick(ctx);
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+
+			@Override
+			public boolean bypassesRouterCooldown(AbilityContext ctx) {
+				return GrabHelper.isHolding(ctx);
+			}
+		};
+	}
+
 	private static AbilityHandler shiftOwn(AbilityHandler inner) {
 		return new AbilityHandler() {
 			@Override
