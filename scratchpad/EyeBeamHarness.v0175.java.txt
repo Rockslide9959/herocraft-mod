@@ -1,6 +1,6 @@
 // TEMP-HARNESS copy (v0.17.5 eye beams). To use: put EyeBeamHarness.java back in src/client/java/com/projecthero/mod/client/, add "com.projecthero.mod.client.EyeBeamHarness" to the client
 // entrypoints in src/main/resources/fabric.mod.json, put the camera mixin below in src/client/java/com/projecthero/mod/client/mixin/EyeBeamHarnessCameraMixin.java and list it in
-// projecthero.client.mixins.json, write run/eyebeam.flag = "eyebeam_out/<before|after>|<before|after>", node scratchpad/low_graphics_options.js run/options.txt,
+// projecthero.client.mixins.json, write run/eyebeam.flag = "eyebeam_out/<dir>|<before|after|gaze>" (gaze = the Solar Gaze ray check only), node scratchpad/low_graphics_options.js run/options.txt,
 // ./gradlew runClient; then node scratchpad/eye_beams_film_v0175.js. Remove all of it again afterwards.
 
 // ===== EyeBeamHarness.java =====
@@ -266,7 +266,7 @@ public final class EyeBeamHarness implements ClientModInitializer {
 		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
 		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
 		level.getGameRules().getRule(GameRules.RULE_DOFIRETICK).set(false, p.server);
-		p.server.setDifficulty(Difficulty.PEACEFUL, true);
+		p.server.setDifficulty(Difficulty.EASY, true);
 		p.setGameMode(GameType.CREATIVE);
 		base = p.blockPosition();
 		for (int x = -12; x <= 12; x++) {
@@ -322,7 +322,7 @@ public final class EyeBeamHarness implements ClientModInitializer {
 		at(t + 36, () -> shot(mc, b + "_impact"));
 		at(t + 37, () -> fp());
 		at(t + 44, () -> shot(mc, b + "_fp"));
-		at(t + 45, () -> look(26.6f, 4f)); // at the husk
+		at(t + 45, () -> look(-26.6f, 4f)); // at the husk
 		at(t + 50, () -> shot(mc, b + "_fp_entity"));
 		at(t + 51, () -> cam3(110f, 3.4f, 1.7f, 3f, 1.3f));
 		at(t + 56, () -> shot(mc, b + "_tp_entity"));
@@ -338,6 +338,31 @@ public final class EyeBeamHarness implements ClientModInitializer {
 		int t = 0;
 		at(t, () -> server(mc, EyeBeamHarness::husk));
 		t += 6;
+		if (mode.startsWith("gaze")) {
+			// Solar Gaze ray check: at the husk, then just beside it (the line passes ~0.2 clear of its hit-box), then over its head
+			float[][] aims = { { -26.6f, 4f }, { -31.5f, 4f }, { -26.6f, -5.5f } };
+			String[] names = { "gaze_at_husk", "gaze_beside_husk", "gaze_over_husk" };
+			at(t, () -> select("solar"));
+			at(t + 1, () -> on(true));
+			for (int i = 0; i < aims.length; i++) {
+				final float[] a = aims[i];
+				final String n = names[i];
+				at(t + 2, () -> look(a[0], a[1]));
+				at(t + 4, () -> cam3(-70f, 5.5f, 2.0f, 4.5f, 1.0f));
+				at(t + 10, () -> shot(mc, n + "_tp_side"));
+				at(t + 11, () -> cam3(150f, 3.0f, 2.6f, 4.5f, 1.0f));
+				at(t + 16, () -> shot(mc, n + "_tp_behind"));
+				at(t + 17, () -> fp());
+				at(t + 22, () -> shot(mc, n + "_fp"));
+				t += 24;
+			}
+			final int e = t;
+			at(e, () -> {
+				System.out.println("[HARNESS] done");
+				Runtime.getRuntime().halt(0);
+			});
+			return;
+		}
 		for (String b : new String[] { "heat", "laser", "solar", "starfire", "vision" }) {
 			t = stills(mc, t, b);
 		}
@@ -476,13 +501,14 @@ public final class EyeBeamHarness implements ClientModInitializer {
 		Minecraft mc = Minecraft.getInstance();
 		GameRules rules = new GameRules();
 		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
-		LevelSettings settings = new LevelSettings("EYEBEAM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+		LevelSettings settings = new LevelSettings("EYEBEAM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
 				rules, WorldDataConfiguration.DEFAULT);
 		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
 				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
 				mc.screen);
 	}
 }
+
 
 // ===== mixin/EyeBeamHarnessCameraMixin.java =====
 package com.projecthero.mod.client.mixin;

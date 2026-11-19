@@ -21,7 +21,7 @@ Where a table further down disagrees, this section wins (the moveset-2 tables ar
 | H | Let It Out (`let_it_out`) | the trial (unchanged); sent as `SentryActionPayload.LET_IT_OUT` -> `SentryAbilityManager.pressH`; merged: Return; Shift+H = power wheel |
 | R | Golden Fury | unchanged |
 | Shift+R | **Solar Flare** (`solar_flare`, new) | r 8: 24 at the centre -> 12 at the edge, undead x1.5 + 4 s fire, knockback 1.6 (x0.6 at the edge) + 0.3 up, mobs Blindness 3 s, everything Glowing 3 s; 18 Sun; +0.6 Void; 200-tick cd; pose POSE_FLARE; fx FLARE (rays, rings, a warm flash within 20) |
-| Hold G | **Solar Gaze** | Heat Vision parity (`KryptonianConfig.HEAT_*`): 4 every 5 ticks (16/s), 32 blocks, 5 s fire, sets a block alight every second when it hits no creature (griefing rule); **no time cap** (ends on key-up or no Sun: 5 Sun/s, +0.17 Void/s); an **exact ray** (`SentryMoves.gazeHit`, margin 0, client draws the same); the 75-Void aim drift is off while it runs; orange after 40 ticks (looks only); 60-tick cd when it ends |
+| Hold G | **Solar Gaze** | Heat Vision parity (`KryptonianConfig.HEAT_*`): 4 every 5 ticks (16/s), 32 blocks, 5 s fire, sets a block alight every second when it hits no creature (griefing rule); **no time cap** (ends on key-up or no Sun: 5 Sun/s, +0.17 Void/s); an **exact ray** (`SentryMoves.gazeHit`: nearest hit-box on the look line, ends at the entry point -- v0.17.5 fix: it used to end at the entity position, its feet, so the beam looked like it latched on; client draws the same); the 75-Void aim drift is off while it runs; orange after 40 ticks (looks only); 60-tick cd when it ends |
 | Hold Shift+G | Disassemble | unchanged numbers |
 | Z / Shift+Z | Sunfall / A Million Suns | unchanged |
 | C | Golden Guardian | unchanged |

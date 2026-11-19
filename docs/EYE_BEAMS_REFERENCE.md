@@ -42,5 +42,5 @@ Darkseid's homing Omega Beams.
   0.8 blocks short of the camera.
 - Static maps are client-only and cleared on disconnect (no server worlds held).
 
-Shots: `docs/screenshots/v0175/eye_beams/` (`before/`, `after/`, `compare/`, MP4s + frame sheets). Harness kept in
+Shots: `docs/screenshots/v0175/eye_beams/` (`before/`, `after/`, `compare/`, MP4s + frame sheets; `solar_gaze_ray/` = the Solar Gaze aimed at, beside and over a husk, before and after the feet-snapping fix). Harness kept in
 `scratchpad/EyeBeamHarness.v0175.java.txt`, films by `scratchpad/eye_beams_film_v0175.js`.

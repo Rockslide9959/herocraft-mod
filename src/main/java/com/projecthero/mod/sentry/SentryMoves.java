@@ -508,10 +508,33 @@ public final class SentryMoves {
 		}
 	}
 
-	/** The creature exactly on the gaze's line (no margin: no snapping onto things beside it). Shared with the client's beam. */
+	/**
+	 * The creature exactly on the gaze's line, and the exact point where the line enters its hit-box. Shared with the client's beam.
+	 *
+	 * <p>v0.17.5 fix (user: "Remove the auto tracking for the laser vision, it still latches onto peoples feet"): this used
+	 * {@code ProjectileUtil.getEntityHitResult(Level, ...)}, whose result carries no hit point -- {@code new EntityHitResult(entity)}
+	 * is located at the entity's position, i.e. its FEET -- so the beam's end (server particles and the drawn beam) jumped down to the
+	 * feet of anything the line touched. Now a pure look-direction ray: the nearest hit-box (inflated only by the entity's own vanilla
+	 * pick radius) the segment passes through, ending at the entry point, never pulled toward an entity's position.
+	 */
 	public static EntityHitResult gazeHit(Player p, Vec3 from, Vec3 end) {
-		return ProjectileUtil.getEntityHitResult(p.level(), p, from, end, new AABB(from, end).inflate(1.0),
-				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p, 0.0f);
+		Entity best = null;
+		Vec3 bestAt = null;
+		double bestD = Double.MAX_VALUE;
+		for (Entity e : p.level().getEntities(p, new AABB(from, end).inflate(1.0),
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p)) {
+			AABB box = e.getBoundingBox().inflate(e.getPickRadius());
+			java.util.Optional<Vec3> at = box.contains(from) ? java.util.Optional.of(from) : box.clip(from, end);
+			if (at.isPresent()) {
+				double d = from.distanceToSqr(at.get());
+				if (d < bestD) {
+					bestD = d;
+					best = e;
+					bestAt = at.get();
+				}
+			}
+		}
+		return best == null ? null : new EntityHitResult(best, bestAt);
 	}
 
 	// ---------------------------------------------------------------- Shift+G: Disassemble (round 3: Shift+G; was G)

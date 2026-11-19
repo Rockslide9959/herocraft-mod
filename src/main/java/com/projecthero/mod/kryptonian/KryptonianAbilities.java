@@ -373,7 +373,8 @@ public final class KryptonianAbilities {
 
 	private static void tickHeat(ServerPlayer p, Held h, long now) {
 		long age = now - h.start;
-		if (age >= KryptonianConfig.HEAT_MAX_TICKS || !Kryptonian.empowered(p) || !p.isAlive()) {
+		// v0.17.5: no time limit -- it ends on key-up (stopHeatVision), when Solar Energy runs out (below), or on losing the power
+		if (!Kryptonian.empowered(p) || !p.isAlive()) {
 			stopHeatVision(p);
 			return;
 		}

@@ -396,6 +396,35 @@ public class SentryGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.5 (user: "Remove the auto tracking for the laser vision, it still latches onto peoples feet"): the gaze's hit is the point
+	 * where the look line enters the hit-box -- on the line, never the creature's position (its feet) -- and a creature beside the line
+	 * is not hit at all.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void solarGazeRayIsExactNotFeet(GameTestHelper helper) {
+		ServerPlayer p = sentry(helper, 1.5, 2.5);
+		Zombie z = zombie(helper, 6.5, 2.5, 500);
+		look(p, z);
+		Vec3 from = SentryMoves.gazeOrigin(p);
+		Vec3 dir = p.getLookAngle();
+		Vec3 end = from.add(dir.scale(SentryConfig.GAZE_RANGE));
+		var eh = SentryMoves.gazeHit(p, from, end);
+		helper.assertTrue(eh != null && eh.getEntity() == z, "the creature on the line is hit");
+		Vec3 at = eh.getLocation();
+		double off = at.subtract(from).cross(dir).length(); // distance from the look line
+		helper.assertTrue(off < 1.0e-3, "the hit point lies on the look line, off by " + off);
+		helper.assertTrue(at.y > z.getY() + 0.5, "not at its feet: " + at.y + " vs feet " + z.getY());
+		helper.assertTrue(Math.abs(at.x - z.getBoundingBox().minX) < 1.0e-3, "it ends where the line enters the hit-box: " + at.x);
+		// aim just beside it (the line passes 0.15 blocks clear of the hit-box): nothing is hit, the beam does not bend to it
+		z.discard();
+		Zombie side = zombie(helper, 6.5, 2.95, 500);
+		var miss = SentryMoves.gazeHit(p, from, end);
+		helper.assertTrue(miss == null, "a creature beside the line is not hit: " + (miss == null ? "" : miss.getEntity()));
+		helper.assertTrue(side.getHealth() == 500f, "untouched");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void disassembleUnravelsThenComesApart(GameTestHelper helper) {
 		ServerPlayer p = sentry(helper, 1, 2);
