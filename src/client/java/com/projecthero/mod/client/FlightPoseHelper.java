@@ -47,6 +47,8 @@ public final class FlightPoseHelper {
 	public static final float LEAN_FAST_DEGREES = 90.0f;
 	/** v0.14.16: flying backward leans back a touch (negative = away from the facing direction). */
 	public static final float LEAN_BACK_DEGREES = -12.0f;
+	/** v0.17.5: the Symbiote wings' slight forward tilt (degrees), at most. */
+	public static final float SYMBIOTE_WINGS_MAX_LEAN = 15.0f;
 
 	/** Fraction of the remaining distance to the target pose covered per tick (~0.5s to settle). */
 	private static final float APPROACH_PER_TICK = 0.22f;
@@ -239,6 +241,11 @@ public final class FlightPoseHelper {
 			anim.roll = targetRoll;
 		}
 
+		// v0.17.5 (user: "they arent flying that fast so just leaning forward slightly is fine"): the Symbiote wings only ever tip the
+		// body forward a little, flying or gliding, sprinting or not
+		if (flying && !thorFlying && !ironManFlying && com.projecthero.mod.symbiote.SymbioteWings.airborne(player)) {
+			targetLean = Mth.clamp(targetLean, -8.0f, SYMBIOTE_WINGS_MAX_LEAN);
+		}
 		anim.leanPrev = anim.lean;
 		anim.raisePrev = anim.raise;
 		anim.lean = approach(anim.lean, targetLean, 0.05f, leanRate);

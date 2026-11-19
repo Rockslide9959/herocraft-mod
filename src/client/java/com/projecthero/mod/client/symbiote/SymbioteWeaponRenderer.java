@@ -30,11 +30,11 @@ import net.minecraft.world.phys.Vec3;
  * fist at 10 px, -Z is the arm's front, the arm's outer side is -X on the right arm), so every swing and pose carries them -- the
  * GeckoLib suit copies the same vanilla arm. Slim (3 px) arms put the centre line half a pixel in.
  * <ul>
- *   <li><b>Blade</b> -- the Venom-film crescent scythe: a lens-section plate ~1.6 blocks round the arc that roots on the outer forearm,
- *       sweeps down past the fist and hooks forward to a point; the half near the arm is an organic lattice (holes with walled rims, the
- *       way the film's blade is woven from tendrils), the outer edge a pale cutting edge in the emblem colour.</li>
- *   <li><b>Axe</b> -- a thick tendril haft over the fist and a single heavy bearded bit with a convex edge, lattice holes by the haft
- *       and a spine spike behind.</li>
+ *   <li><b>Blade</b> -- (v0.17.5 round 4, was a crescent that hooked up and forward) a straight arm blade on the outer forearm, running
+ *       down past the fist to a point, its cutting edge to the front; the half near the arm is an organic lattice (holes with walled
+ *       rims, woven from tendrils), the edge a pale band in the emblem colour.</li>
+ *   <li><b>Axe</b> -- a thick tendril haft over the fist and two heavy bearded bits, one in front and one behind (v0.17.5 round 4),
+ *       with convex edges and lattice holes by the haft.</li>
  *   <li><b>Mace</b> -- a lumpy ball of hardened symbiote on a thick tendril, sixteen conical spikes with pale tips.</li>
  *   <li><b>Whip</b> -- a barbed tendril coiled twice round the forearm, its tail swaying from the fist; on Lash it cracks out to 7
  *       blocks down the aim and recoils.</li>
@@ -333,7 +333,7 @@ public final class SymbioteWeaponRenderer {
 			GooMesh.quad(vc, pose, light, 0x9A9A9A, a, b, c, d, t0, 0.2f, t1, 0.28f);
 		}
 
-		// ---------------- Blade: the crescent scythe ----------------
+		// ---------------- Blade: a straight arm blade (v0.17.5 round 4; was a crescent scythe) ----------------
 
 		private static final double[][] BLADE_HOLES = {
 				// s, u, radius in s, radius in u
@@ -342,21 +342,21 @@ public final class SymbioteWeaponRenderer {
 				{ 0.5, 0.62, 0.02, 0.1 }, { 0.56, 0.47, 0.014, 0.07 } };
 
 		void blade(float grow) {
+			// v0.17.5 round 4 (user: "the blade model needs to go down and not curve up and forward"): a straight arm blade on the outer
+			// forearm, running down past the fist to a point; the spine is the back edge (u = 0), the cutting edge faces the front (u = 1)
 			double bx = xc + side * 0.035;
-			double cy = 0.43, cz = -0.42, R = 0.5;
-			double th0 = Math.toRadians(102), th1 = Math.toRadians(-74);
+			double y0 = 0.32, y1 = 1.08; // the old crescent reached 1.11 at its lowest, so this clears the ground the same
 			double sMax = grow * 1.06;
 			Surface sf = new Surface() {
 				double width(double s) {
-					return (0.085 + 0.31 * Math.pow(Math.sin(Math.PI * Math.pow(s, 0.75)), 0.85)) * Math.pow(1.0 - s, 0.38);
+					return (0.13 + 0.15 * Math.sin(Math.PI * Math.min(1.0, s / 0.75) * 0.5)) * Math.pow(Math.max(0.0, 1.0 - s), 0.55) + 0.004;
 				}
 
 				@Override
 				public Vec3 at(double s, double u) {
-					double th = th0 + (th1 - th0) * s;
-					double w = width(s);
-					double r = R - 0.4 * w + u * w + 0.008 * Math.sin(s * 31 + u * 4);
-					return new Vec3(bx, cy + r * Math.cos(th), cz + r * Math.sin(th));
+					double y = y0 + (y1 - y0) * s;
+					double spine = 0.07 - 0.06 * s * s * s; // the back edge leans in a touch to meet the point
+					return new Vec3(bx, y + 0.006 * Math.sin(u * 5 + s * 9), spine - u * width(s) + 0.006 * Math.sin(s * 31 + u * 4));
 				}
 
 				@Override
@@ -436,6 +436,11 @@ public final class SymbioteWeaponRenderer {
 				weave(grow, haft[hc - 1]);
 				return;
 			}
+			// v0.17.5 round 4 (user: "axe model needs to have the axe on both side of the hand"): a double-bitted axe -- the same bit in
+			// front of the haft and mirrored behind it (the spine spikes that used to sit behind are gone)
+			Surface front = null;
+			for (int dir = -1; dir <= 1; dir += 2) {
+			final int zs = dir;
 			// the bit: s runs down its height, u from the haft (0) out to the edge (1)
 			Surface sf = new Surface() {
 				@Override
@@ -445,7 +450,7 @@ public final class SymbioteWeaponRenderer {
 					double bottom = 0.86 + 0.31 * Math.pow(uu, 1.5);
 					double y = top + s * (bottom - top);
 					double z = -(0.065 + uu * 0.56) - 0.07 * Math.sin(Math.PI * s) * uu * uu;
-					return new Vec3(x0, y, z);
+					return new Vec3(x0, y, -zs * z);
 				}
 
 				@Override
@@ -483,13 +488,11 @@ public final class SymbioteWeaponRenderer {
 					strand(pts, 0.016f, 0.006f);
 				}
 			}
-			// the spine spike behind the haft, and a smaller one under it
-			if (headGrow > 0.4) {
-				double g = (headGrow - 0.4) / 0.6;
-				spike(p(x0, 0.69, 0.05), new Vec3(0, -0.12, 1), 0.42 * g, 0.068f, true);
-				spike(p(x0, 0.83, 0.05), new Vec3(0, 0.25, 1), 0.22 * g, 0.045f, true);
+			if (zs < 0) {
+				front = sf;
 			}
-			weave(grow, sf.at(0.5, 1.0));
+			}
+			weave(grow, front.at(0.5, 1.0));
 		}
 
 		// ---------------- Mace ----------------
